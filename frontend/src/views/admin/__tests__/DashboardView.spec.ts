@@ -39,12 +39,7 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
-const formatLocalDate = (date: Date): string => {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
+const RFC3339_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/
 
 const createDashboardStats = (): DashboardStats => ({
   total_users: 0,
@@ -118,13 +113,16 @@ describe('admin DashboardView', () => {
 
     await flushPromises()
 
-    const now = new Date()
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-
     expect(getSnapshotV2).toHaveBeenCalledTimes(3)
+    const snapshotParams = getSnapshotV2.mock.calls.map((call) => call[0])
+    for (const params of snapshotParams) {
+      expect(params.start_date).toMatch(RFC3339_RE)
+      expect(params.end_date).toMatch(RFC3339_RE)
+      expect(new Date(params.end_date).getTime() - new Date(params.start_date).getTime()).toBe(
+        24 * 60 * 60 * 1000
+      )
+    }
     expect(getSnapshotV2).toHaveBeenCalledWith(expect.objectContaining({
-      start_date: formatLocalDate(yesterday),
-      end_date: formatLocalDate(now),
       granularity: 'hour',
       include_stats: true,
       include_trend: false,
@@ -133,8 +131,6 @@ describe('admin DashboardView', () => {
       include_user_ranking: false
     }))
     expect(getSnapshotV2).toHaveBeenCalledWith(expect.objectContaining({
-      start_date: formatLocalDate(yesterday),
-      end_date: formatLocalDate(now),
       include_stats: false,
       include_trend: true,
       include_model_stats: true,
@@ -142,8 +138,6 @@ describe('admin DashboardView', () => {
       include_user_ranking: false
     }))
     expect(getSnapshotV2).toHaveBeenCalledWith(expect.objectContaining({
-      start_date: formatLocalDate(yesterday),
-      end_date: formatLocalDate(now),
       include_stats: false,
       include_trend: false,
       include_model_stats: false,
