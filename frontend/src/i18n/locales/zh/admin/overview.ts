@@ -1063,6 +1063,14 @@ export default {
         enabled: '已启用',
         disabled: '已禁用'
       },
+      claudeMaxSimulation: {
+        title: 'Claude Max 用量模拟',
+        tooltip:
+          '启用后，对于上游未返回 cache-write 用量的 Claude 模型，系统会确定性地把 token 映射为少量输入和 1h 缓存创建，同时保持总 token 不变。',
+        enabled: '已启用（模拟 1h 缓存）',
+        disabled: '已禁用',
+        hint: '仅调整用量计费日志中的 token 分类，不会持久化逐请求映射状态。'
+      },
       supportedScopes: {
         title: '支持的模型系列',
         tooltip: '选择此分组支持的模型系列。未勾选的系列将不会被路由到此分组。',

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -28,10 +29,20 @@ func TestOpsCaptureWriter_NilInnerWriter_NoPanic(t *testing.T) {
 	assert.NotPanics(t, func() {
 		n, err := w.Write([]byte("test"))
 		assert.Equal(t, 0, n)
-		assert.NoError(t, err)
+		assert.ErrorIs(t, err, io.ErrClosedPipe)
 	})
 	assert.NotPanics(t, func() {
 		n, err := w.WriteString("test")
+		assert.Equal(t, 0, n)
+		assert.ErrorIs(t, err, io.ErrClosedPipe)
+	})
+	assert.NotPanics(t, func() {
+		n, err := w.Write(nil)
+		assert.Equal(t, 0, n)
+		assert.NoError(t, err)
+	})
+	assert.NotPanics(t, func() {
+		n, err := w.WriteString("")
 		assert.Equal(t, 0, n)
 		assert.NoError(t, err)
 	})
