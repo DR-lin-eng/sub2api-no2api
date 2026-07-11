@@ -261,9 +261,9 @@ func TestResolve_WithChannelOverride_TokenFlat(t *testing.T) {
 	require.Equal(t, "channel", resolved.Source)
 	require.NotNil(t, resolved.BasePricing)
 	require.InDelta(t, 10e-6, resolved.BasePricing.InputPricePerToken, 1e-12)
-	require.InDelta(t, 10e-6, resolved.BasePricing.InputPricePerTokenPriority, 1e-12)
+	require.Zero(t, resolved.BasePricing.InputPricePerTokenPriority)
 	require.InDelta(t, 50e-6, resolved.BasePricing.OutputPricePerToken, 1e-12)
-	require.InDelta(t, 50e-6, resolved.BasePricing.OutputPricePerTokenPriority, 1e-12)
+	require.Zero(t, resolved.BasePricing.OutputPricePerTokenPriority)
 }
 
 func TestResolve_WithChannelOverride_TokenPartialOverride(t *testing.T) {
@@ -314,11 +314,15 @@ func TestResolve_WithChannelOverride_TokenWithIntervals(t *testing.T) {
 	iv := r.GetIntervalPricing(resolved, 50000)
 	require.NotNil(t, iv)
 	require.InDelta(t, 2e-6, iv.InputPricePerToken, 1e-12)
+	require.Zero(t, iv.InputPricePerTokenPriority)
+	require.Zero(t, iv.OutputPricePerTokenPriority)
 	require.InDelta(t, 8e-6, iv.OutputPricePerToken, 1e-12)
 
 	iv2 := r.GetIntervalPricing(resolved, 200000)
 	require.NotNil(t, iv2)
 	require.InDelta(t, 4e-6, iv2.InputPricePerToken, 1e-12)
+	require.Zero(t, iv2.InputPricePerTokenPriority)
+	require.Zero(t, iv2.OutputPricePerTokenPriority)
 	require.InDelta(t, 16e-6, iv2.OutputPricePerToken, 1e-12)
 }
 

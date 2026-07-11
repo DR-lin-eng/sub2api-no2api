@@ -60,6 +60,64 @@ func TestCalculateCostUnified_TokenMode(t *testing.T) {
 	require.Equal(t, string(BillingModeToken), cost.BillingMode)
 }
 
+func TestCalculateCostUnified_ChannelPricingAppliesServiceTierMultipliers(t *testing.T) {
+	groupID := int64(1)
+	cs := newTestChannelServiceWithCache(t, &channelCache{
+		pricingByGroupModel: map[channelModelKey]*ChannelModelPricing{
+			{groupID: groupID, platform: "openai", model: "gpt-5.6-sol"}: {
+				Platform:        "openai",
+				BillingMode:     BillingModeToken,
+				InputPrice:      testPtrFloat64(6.25e-6),
+				OutputPrice:     testPtrFloat64(30e-6),
+				CacheWritePrice: testPtrFloat64(6.25e-6),
+				CacheReadPrice:  testPtrFloat64(0.8e-6),
+			},
+		},
+		channelByGroupID: map[int64]*Channel{
+			groupID: {ID: 1, Status: StatusActive},
+		},
+		groupPlatform:           map[int64]string{groupID: "openai"},
+		wildcardByGroupPlatform: map[channelGroupPlatformKey][]*wildcardPricingEntry{},
+		mappingByGroupModel:     map[channelModelKey]string{},
+		wildcardMappingByGP:     map[channelGroupPlatformKey][]*wildcardMappingEntry{},
+		byID:                    map[int64]*Channel{},
+	})
+
+	bs := newTestBillingService()
+	resolver := NewModelPricingResolver(cs, bs)
+	tokens := UsageTokens{
+		InputTokens:         1000,
+		OutputTokens:        500,
+		CacheCreationTokens: 200,
+		CacheReadTokens:     300,
+	}
+
+	calculate := func(serviceTier string) *CostBreakdown {
+		cost, err := bs.CalculateCostUnified(CostInput{
+			Ctx:            context.Background(),
+			Model:          "gpt-5.6-sol",
+			GroupID:        &groupID,
+			Tokens:         tokens,
+			RateMultiplier: 1,
+			ServiceTier:    serviceTier,
+			Resolver:       resolver,
+		})
+		require.NoError(t, err)
+		return cost
+	}
+
+	standard := calculate("")
+	priority := calculate("priority")
+	flex := calculate("flex")
+
+	require.InDelta(t, 1000*6.25e-6, standard.InputCost, 1e-12)
+	require.InDelta(t, 500*30e-6, standard.OutputCost, 1e-12)
+	require.InDelta(t, 200*6.25e-6, standard.CacheCreationCost, 1e-12)
+	require.InDelta(t, 300*0.8e-6, standard.CacheReadCost, 1e-12)
+	require.InDelta(t, standard.TotalCost*2, priority.TotalCost, 1e-12)
+	require.InDelta(t, standard.TotalCost*0.5, flex.TotalCost, 1e-12)
+}
+
 func TestCalculateCostUnified_TokenModeAppliesRateMultiplierToImageTokens(t *testing.T) {
 	bs := newTestBillingService()
 	resolver := NewModelPricingResolver(nil, bs)
