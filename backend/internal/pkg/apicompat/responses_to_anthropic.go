@@ -214,7 +214,11 @@ func ResponsesEventToAnthropicEvents(
 	case "response.output_text.delta":
 		return resToAnthHandleTextDelta(evt, state)
 	case "response.output_text.done":
-		return resToAnthHandleBlockDone(state)
+		// Only close when the open block is text. Late/spurious .done events
+		// (e.g. Finalize after text→thinking→tool) must not close a tool_use /
+		// thinking block — that drifts indices and Claude Code errors with
+		// "Content block not found".
+		return resToAnthHandleBlockDoneIfType(evt, state, "text")
 	case "response.function_call_arguments.delta",
 		// custom/freeform 工具的输入增量与 function_call 参数增量同形。
 		"response.custom_tool_call_input.delta":
@@ -228,7 +232,7 @@ func ResponsesEventToAnthropicEvents(
 		"response.reasoning_text.delta":
 		return resToAnthHandleReasoningDelta(evt, state)
 	case "response.reasoning_summary_text.done":
-		return resToAnthHandleBlockDone(state)
+		return resToAnthHandleBlockDoneIfType(evt, state, "thinking")
 	// response.done 是 Realtime/WS 与项目透传路径使用的终止别名；
 	// 普通 Responses HTTP SSE 的公开终止事件仍以 response.completed 为主。
 	case "response.completed", "response.done", "response.incomplete", "response.failed":
@@ -383,6 +387,7 @@ func resToAnthHandleTextDelta(evt *ResponsesStreamEvent, state *ResponsesEventTo
 		events = append(events, closeCurrentBlock(state)...)
 
 		idx := state.ContentBlockIndex
+		state.OutputIndexToBlockIdx[evt.OutputIndex] = idx
 		state.ContentBlockOpen = true
 		state.CurrentBlockType = "text"
 
@@ -413,16 +418,17 @@ func resToAnthHandleFuncArgsDelta(evt *ResponsesStreamEvent, state *ResponsesEve
 		return nil
 	}
 
-	if state.CurrentBlockType == "tool_use" && state.CurrentToolName == "Read" {
+	blockIdx, ok := state.OutputIndexToBlockIdx[evt.OutputIndex]
+	if !ok || !state.ContentBlockOpen || state.CurrentBlockType != "tool_use" || blockIdx != state.ContentBlockIndex {
+		return nil
+	}
+
+	if state.CurrentToolName == "Read" {
 		state.CurrentToolArgs += evt.Delta
 		if state.CurrentToolHadDelta || !json.Valid([]byte(state.CurrentToolArgs)) {
 			return nil
 		}
 
-		blockIdx, ok := state.OutputIndexToBlockIdx[evt.OutputIndex]
-		if !ok {
-			return nil
-		}
 		state.CurrentToolHadDelta = true
 		sanitized := sanitizeAnthropicToolUseInput(state.CurrentToolName, state.CurrentToolArgs)
 		return []AnthropicStreamEvent{{
@@ -435,14 +441,7 @@ func resToAnthHandleFuncArgsDelta(evt *ResponsesStreamEvent, state *ResponsesEve
 		}}
 	}
 
-	if state.CurrentBlockType == "tool_use" {
-		state.CurrentToolHadDelta = true
-	}
-
-	blockIdx, ok := state.OutputIndexToBlockIdx[evt.OutputIndex]
-	if !ok {
-		return nil
-	}
+	state.CurrentToolHadDelta = true
 
 	return []AnthropicStreamEvent{{
 		Type:  "content_block_delta",
@@ -455,11 +454,12 @@ func resToAnthHandleFuncArgsDelta(evt *ResponsesStreamEvent, state *ResponsesEve
 }
 
 func resToAnthHandleFuncArgsDone(evt *ResponsesStreamEvent, state *ResponsesEventToAnthropicState) []AnthropicStreamEvent {
-	if !state.ContentBlockOpen {
+	if !state.ContentBlockOpen || state.CurrentBlockType != "tool_use" {
 		return nil
 	}
-	if state.CurrentBlockType != "tool_use" {
-		return resToAnthHandleBlockDone(state)
+	blockIdx, ok := state.OutputIndexToBlockIdx[evt.OutputIndex]
+	if !ok || blockIdx != state.ContentBlockIndex {
+		return nil
 	}
 
 	raw := evt.Arguments
@@ -475,17 +475,6 @@ func resToAnthHandleFuncArgsDone(evt *ResponsesStreamEvent, state *ResponsesEven
 			return closeCurrentBlock(state)
 		}
 		raw = string(sanitized)
-	}
-
-	// 从事件的 OutputIndex 解析正确的 block index，与 resToAnthHandleFuncArgsDelta 对齐
-	blockIdx, ok := state.OutputIndexToBlockIdx[evt.OutputIndex]
-	if !ok {
-		blockIdx = state.ContentBlockIndex
-	}
-
-	// 如果 block 已关闭（ContentBlockIndex 已越过它），说明 arguments 已通过 delta 流式发完，不再补发
-	if !state.ContentBlockOpen || blockIdx != state.ContentBlockIndex {
-		return nil
 	}
 
 	events := []AnthropicStreamEvent{{
@@ -509,6 +498,10 @@ func resToAnthHandleReasoningDelta(evt *ResponsesStreamEvent, state *ResponsesEv
 	if !ok {
 		return nil
 	}
+	// Stale mapping after the thinking block was closed (or never opened).
+	if !state.ContentBlockOpen || state.CurrentBlockType != "thinking" || state.ContentBlockIndex != blockIdx {
+		return nil
+	}
 
 	return []AnthropicStreamEvent{{
 		Type:  "content_block_delta",
@@ -527,6 +520,21 @@ func resToAnthHandleBlockDone(state *ResponsesEventToAnthropicState) []Anthropic
 	return closeCurrentBlock(state)
 }
 
+func resToAnthHandleBlockDoneIfType(
+	evt *ResponsesStreamEvent,
+	state *ResponsesEventToAnthropicState,
+	blockType string,
+) []AnthropicStreamEvent {
+	if !state.ContentBlockOpen || state.CurrentBlockType != blockType {
+		return nil
+	}
+	blockIdx, ok := state.OutputIndexToBlockIdx[evt.OutputIndex]
+	if !ok || blockIdx != state.ContentBlockIndex {
+		return nil
+	}
+	return closeCurrentBlock(state)
+}
+
 func resToAnthHandleOutputItemDone(evt *ResponsesStreamEvent, state *ResponsesEventToAnthropicState) []AnthropicStreamEvent {
 	if evt.Item == nil {
 		return nil
@@ -537,10 +545,32 @@ func resToAnthHandleOutputItemDone(evt *ResponsesStreamEvent, state *ResponsesEv
 		return resToAnthHandleWebSearchDone(evt, state)
 	}
 
-	if state.ContentBlockOpen {
-		return closeCurrentBlock(state)
+	// Only close the Anthropic block when the done item matches the open block.
+	// Message output_item.done must not close an open thinking/tool_use block.
+	if !state.ContentBlockOpen {
+		return nil
 	}
-	return nil
+	switch evt.Item.Type {
+	case "message":
+		if state.CurrentBlockType != "text" {
+			return nil
+		}
+	case "reasoning":
+		if state.CurrentBlockType != "thinking" {
+			return nil
+		}
+	case "function_call", "custom_tool_call":
+		if state.CurrentBlockType != "tool_use" {
+			return nil
+		}
+	default:
+		return nil
+	}
+	blockIdx, ok := state.OutputIndexToBlockIdx[evt.OutputIndex]
+	if !ok || blockIdx != state.ContentBlockIndex {
+		return nil
+	}
+	return closeCurrentBlock(state)
 }
 
 // resToAnthHandleWebSearchDone converts an OpenAI web_search_call output item
@@ -660,6 +690,7 @@ func closeCurrentBlock(state *ResponsesEventToAnthropicState) []AnthropicStreamE
 	idx := state.ContentBlockIndex
 	state.ContentBlockOpen = false
 	state.ContentBlockIndex++
+	state.CurrentBlockType = ""
 	state.CurrentToolName = ""
 	state.CurrentToolArgs = ""
 	state.CurrentToolHadDelta = false

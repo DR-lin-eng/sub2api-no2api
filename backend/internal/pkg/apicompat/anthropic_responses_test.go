@@ -2,6 +2,7 @@ package apicompat
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -1731,4 +1732,128 @@ func TestAnthropicEventToResponses_CacheTokensFromMessageDelta(t *testing.T) {
 	assert.Equal(t, 8, completed.Response.Usage.OutputTokens)
 	require.NotNil(t, completed.Response.Usage.InputTokensDetails)
 	assert.Equal(t, 11, completed.Response.Usage.InputTokensDetails.CachedTokens)
+}
+
+func TestStreamingTextThenReasoningIndexLifecycle(t *testing.T) {
+	state := NewResponsesEventToAnthropicState()
+	ResponsesEventToAnthropicEvents(&ResponsesStreamEvent{
+		Type:     "response.created",
+		Response: &ResponsesResponse{ID: "r1", Model: "gpt"},
+	}, state)
+
+	type recorded struct {
+		step string
+		typ  string
+		idx  int
+		blk  string
+	}
+	var got []recorded
+	record := func(step string, events []AnthropicStreamEvent) {
+		for _, e := range events {
+			idx := -1
+			if e.Index != nil {
+				idx = *e.Index
+			}
+			blk := ""
+			if e.ContentBlock != nil {
+				blk = e.ContentBlock.Type
+			}
+			got = append(got, recorded{step: step, typ: e.Type, idx: idx, blk: blk})
+		}
+	}
+
+	record("text delta", ResponsesEventToAnthropicEvents(&ResponsesStreamEvent{
+		Type: "response.output_text.delta", OutputIndex: 0, Delta: "继续",
+	}, state))
+	record("reasoning added", ResponsesEventToAnthropicEvents(&ResponsesStreamEvent{
+		Type: "response.output_item.added", OutputIndex: 1, Item: &ResponsesOutput{Type: "reasoning"},
+	}, state))
+	record("reasoning delta", ResponsesEventToAnthropicEvents(&ResponsesStreamEvent{
+		Type: "response.reasoning_summary_text.delta", OutputIndex: 1, Delta: "think",
+	}, state))
+	record("reasoning done", ResponsesEventToAnthropicEvents(&ResponsesStreamEvent{
+		Type: "response.reasoning_summary_text.done", OutputIndex: 1,
+	}, state))
+	record("tool added", ResponsesEventToAnthropicEvents(&ResponsesStreamEvent{
+		Type: "response.output_item.added", OutputIndex: 2,
+		Item: &ResponsesOutput{Type: "function_call", CallID: "c1", Name: "Bash"},
+	}, state))
+
+	want := []recorded{
+		{"text delta", "content_block_start", 0, "text"},
+		{"text delta", "content_block_delta", 0, ""},
+		{"reasoning added", "content_block_stop", 0, ""},
+		{"reasoning added", "content_block_start", 1, "thinking"},
+		{"reasoning delta", "content_block_delta", 1, ""},
+		{"reasoning done", "content_block_stop", 1, ""},
+		{"tool added", "content_block_start", 2, "tool_use"},
+	}
+	require.Equal(t, want, got)
+}
+
+// Text-first then late reasoning_content (seen on some DeepSeek/GLM streams) must
+// still produce non-overlapping Anthropic content-block indices through finalize.
+func TestCCBridge_TextThenLateReasoning_AnthropicBlockIndices(t *testing.T) {
+	ccState := NewChatCompletionsToResponsesStreamState("deepseek-reasoner")
+	anthState := NewResponsesEventToAnthropicState()
+
+	chunks := []string{
+		`{"choices":[{"index":0,"delta":{"role":"assistant","content":"继续"}}]}`,
+		`{"choices":[{"index":0,"delta":{"reasoning_content":"let me think"}}]}`,
+		`{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"Bash","arguments":"{}"}}]}}]}`,
+		`{"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}`,
+	}
+
+	var anth []AnthropicStreamEvent
+	for _, payload := range chunks {
+		var chunk ChatCompletionsChunk
+		require.NoError(t, json.Unmarshal([]byte(payload), &chunk))
+		for _, rEvt := range ChatCompletionsChunkToResponsesEvents(&chunk, ccState) {
+			anth = append(anth, ResponsesEventToAnthropicEvents(&rEvt, anthState)...)
+		}
+	}
+	for _, rEvt := range FinalizeChatCompletionsResponsesStream(ccState) {
+		anth = append(anth, ResponsesEventToAnthropicEvents(&rEvt, anthState)...)
+	}
+
+	open := -1
+	started := map[int]string{}
+	var seq []string
+	for _, e := range anth {
+		if e.Index == nil {
+			continue
+		}
+		idx := *e.Index
+		blk := ""
+		if e.ContentBlock != nil {
+			blk = e.ContentBlock.Type
+		}
+		switch e.Type {
+		case "content_block_start":
+			require.Equalf(t, -1, open, "start index=%d while block %d still open (type=%s)", idx, open, started[open])
+			require.Emptyf(t, started[idx], "index=%d started twice (was %s, now %s)", idx, started[idx], blk)
+			started[idx] = blk
+			open = idx
+			seq = append(seq, fmt.Sprintf("start#%d:%s", idx, blk))
+		case "content_block_stop":
+			require.Equalf(t, open, idx, "stop index=%d but open=%d", idx, open)
+			open = -1
+			seq = append(seq, fmt.Sprintf("stop#%d", idx))
+		case "content_block_delta":
+			require.Equalf(t, open, idx, "delta index=%d but open=%d", idx, open)
+			seq = append(seq, fmt.Sprintf("delta#%d", idx))
+		}
+	}
+	require.Equal(t, -1, open, "stream ended with open block")
+	require.Equal(t, []string{
+		"start#0:text",
+		"delta#0",
+		"stop#0",
+		"start#1:thinking",
+		"delta#1",
+		"stop#1",
+		"start#2:tool_use",
+		"delta#2",
+		"stop#2",
+	}, seq)
 }
