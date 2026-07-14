@@ -387,7 +387,7 @@ openssl rand -hex 32
 
 ```bash
 # 4. Create data directories (for local version)
-mkdir -p data postgres_data redis_data
+mkdir -p data postgres_data
 
 # 5. Start all services
 # Option A: Local directory version (recommended - easy migration)
@@ -462,7 +462,7 @@ docker compose -f docker-compose.local.yml logs -f
 
 # Remove all data (caution!)
 docker compose -f docker-compose.local.yml down
-rm -rf data/ postgres_data/ redis_data/
+rm -rf data/ postgres_data/
 ```
 
 ---
