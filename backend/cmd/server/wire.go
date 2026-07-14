@@ -94,6 +94,7 @@ func provideCleanup(
 	emailQueue *service.EmailQueueService,
 	billingCache *service.BillingCacheService,
 	usageRecordWorkerPool *service.UsageRecordWorkerPool,
+	usageBillingRepository service.UsageBillingRepository,
 	subscriptionService *service.SubscriptionService,
 	oauth *service.OAuthService,
 	openaiOAuth *service.OpenAIOAuthService,
@@ -236,6 +237,12 @@ func provideCleanup(
 			{"UsageRecordWorkerPool", func() error {
 				if usageRecordWorkerPool != nil {
 					usageRecordWorkerPool.Stop()
+				}
+				return nil
+			}},
+			{"UsageBillingRepository", func() error {
+				if lifecycle, ok := usageBillingRepository.(interface{ Stop() }); ok {
+					lifecycle.Stop()
 				}
 				return nil
 			}},
