@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -548,9 +549,9 @@ func TestRefreshIfNeeded_LocalLockWaitHonorsContext(t *testing.T) {
 	repo := &refreshAPIAccountRepo{account: account}
 	executor := &refreshAPIExecutorStub{needsRefresh: true}
 	api := NewOAuthRefreshAPI(repo, nil)
-	lock := api.getLocalLock(executor.CacheKey(account))
-	require.NoError(t, lock.Lock(context.Background()))
-	defer lock.Unlock()
+	releaseLock, err := api.acquireLocalLockContext(context.Background(), executor.CacheKey(account))
+	require.NoError(t, err)
+	defer releaseLock()
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
 
@@ -937,6 +938,16 @@ func TestRefreshIfNeeded_LocalMutexSerializesConcurrent(t *testing.T) {
 	mu.Lock()
 	require.Equal(t, 1, callCount, "only one refresh call should have been made")
 	mu.Unlock()
+	require.Zero(t, api.localLockCount())
+}
+
+func TestOAuthRefreshAPI_LocalLockRegistryReclaimsUniqueKeys(t *testing.T) {
+	api := NewOAuthRefreshAPI(nil, nil)
+	for i := 0; i < 100000; i++ {
+		release := api.acquireLocalLock(strconv.Itoa(i))
+		release()
+	}
+	require.Zero(t, api.localLockCount())
 }
 
 func TestRefreshIfNeeded_LocalLockWaitHonorsContextCancellation(t *testing.T) {

@@ -48,6 +48,12 @@ func TestProvideCleanup_WithMinimalDependencies_NoPanic(t *testing.T) {
 	idempotencyCleanupSvc := service.NewIdempotencyCleanupService(nil, cfg)
 	schedulerSnapshotSvc := service.NewSchedulerSnapshotService(nil, nil, nil, nil, cfg)
 	opsSystemLogSinkSvc := service.NewOpsSystemLogSink(nil)
+	timingWheelSvc, err := service.NewTimingWheelService()
+	require.NoError(t, err)
+	deferredSvc := service.NewDeferredService(nil, timingWheelSvc, time.Second)
+	contentModerationSvc := service.NewContentModerationService(nil, nil, nil, nil, nil, nil, nil)
+	concurrencySvc := service.NewConcurrencyService(nil)
+	userMessageQueueSvc := service.NewUserMessageQueueService(nil, nil, nil)
 
 	cleanup := provideCleanup(
 		nil, // entClient
@@ -87,6 +93,12 @@ func TestProvideCleanup_WithMinimalDependencies_NoPanic(t *testing.T) {
 		nil, // upstreamBillingProbe
 		nil, // auditLog
 		nil, // promptAudit
+		contentModerationSvc,
+		concurrencySvc,
+		userMessageQueueSvc,
+		&service.DashboardAggregationService{},
+		deferredSvc,
+		timingWheelSvc,
 	)
 
 	require.NotPanics(t, func() {

@@ -110,6 +110,12 @@ func provideCleanup(
 	upstreamBillingProbe *service.UpstreamBillingProbeService,
 	auditLog *service.AuditLogService,
 	promptAudit *securityaudit.PromptService,
+	contentModeration *service.ContentModerationService,
+	concurrency *service.ConcurrencyService,
+	userMessageQueue *service.UserMessageQueueService,
+	dashboardAggregation *service.DashboardAggregationService,
+	deferred *service.DeferredService,
+	timingWheel *service.TimingWheelService,
 ) func() {
 	return func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -125,6 +131,30 @@ func provideCleanup(
 			{"PromptAuditService", func() error {
 				if promptAudit != nil {
 					return promptAudit.Shutdown(ctx)
+				}
+				return nil
+			}},
+			{"ContentModerationService", func() error {
+				if contentModeration != nil {
+					contentModeration.Stop()
+				}
+				return nil
+			}},
+			{"ConcurrencyService", func() error {
+				if concurrency != nil {
+					concurrency.Stop()
+				}
+				return nil
+			}},
+			{"UserMessageQueueService", func() error {
+				if userMessageQueue != nil {
+					userMessageQueue.Stop()
+				}
+				return nil
+			}},
+			{"DashboardAggregationService", func() error {
+				if dashboardAggregation != nil {
+					dashboardAggregation.Stop()
 				}
 				return nil
 			}},
@@ -317,6 +347,21 @@ func provideCleanup(
 			}},
 		}
 
+		timingWheelSteps := []cleanupStep{
+			{"DeferredService", func() error {
+				if deferred != nil {
+					deferred.Stop()
+				}
+				return nil
+			}},
+			{"TimingWheelService", func() error {
+				if timingWheel != nil {
+					timingWheel.Stop()
+				}
+				return nil
+			}},
+		}
+
 		infraSteps := []cleanupStep{
 			{"Redis", func() error {
 				if rdb == nil {
@@ -361,6 +406,7 @@ func provideCleanup(
 		}
 
 		runParallel(parallelSteps)
+		runSequential(timingWheelSteps)
 		runSequential(billingSteps)
 		runSequential(infraSteps)
 

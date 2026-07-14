@@ -608,6 +608,7 @@ type adminServiceImpl struct {
 	privacyClientFactory PrivacyClientFactory
 	runtimeBlocker       AccountRuntimeBlocker
 	affiliateService     adminRechargeAffiliateAccruer
+	runtimeStateCleaner  AccountRuntimeStateCleaner
 }
 
 type adminRechargeAffiliateAccruer interface {
@@ -639,6 +640,7 @@ func NewAdminService(
 	privacyClientFactory PrivacyClientFactory,
 	runtimeBlocker AccountRuntimeBlocker,
 	affiliateService *AffiliateService,
+	runtimeStateCleaner AccountRuntimeStateCleaner,
 ) AdminService {
 	return &adminServiceImpl{
 		userRepo:             userRepo,
@@ -662,5 +664,6 @@ func NewAdminService(
 		privacyClientFactory: privacyClientFactory,
 		runtimeBlocker:       runtimeBlocker,
 		affiliateService:     affiliateService,
+		runtimeStateCleaner:  runtimeStateCleaner,
 	}
 }
