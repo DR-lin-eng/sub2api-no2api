@@ -89,7 +89,7 @@ func (k *openAIImagesJSONKeepalive) beat() bool {
 		k.writer.WriteHeader(http.StatusOK)
 		k.started = true
 	}
-	n, err := k.writer.Write([]byte(" \n"))
+	n, err := k.writer.Write([]byte("\n"))
 	k.bytes += n
 	if err != nil {
 		k.stopped = true

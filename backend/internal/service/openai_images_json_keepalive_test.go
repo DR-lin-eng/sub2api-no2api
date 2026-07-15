@@ -72,7 +72,7 @@ func TestOpenAIImagesJSONKeepalive_FastErrorPreservesStatus(t *testing.T) {
 
 	require.True(t, wrote)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
-	require.False(t, strings.HasPrefix(rec.Body.String(), " \n"))
+	require.False(t, strings.HasPrefix(rec.Body.String(), "\n"))
 	require.Equal(t, "invalid size", gjson.Get(rec.Body.String(), "error.message").String())
 }
 
@@ -146,7 +146,7 @@ func TestOpenAIImagesJSONKeepalive_KeepsOAuthNonStreamResponseValid(t *testing.T
 	require.NoError(t, err)
 	require.Equal(t, 1, imageCount)
 	require.True(t, rec.Flushed)
-	require.True(t, strings.HasPrefix(rec.Body.String(), " \n"), rec.Body.String())
+	require.True(t, strings.HasPrefix(rec.Body.String(), "\n"), rec.Body.String())
 	require.True(t, json.Valid(rec.Body.Bytes()), rec.Body.String())
 	require.Equal(t, "aW1hZ2U=", gjson.Get(rec.Body.String(), "data.0.b64_json").String())
 }

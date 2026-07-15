@@ -133,6 +133,18 @@ func TestGatewayRoutesAsyncImagesPathsAreRegistered(t *testing.T) {
 	}
 }
 
+func TestGatewayRoutesGeneratedImageProxyIsRegistered(t *testing.T) {
+	router := newGatewayRoutesTestRouter()
+	registered := false
+	for _, route := range router.Routes() {
+		if route.Method == http.MethodGet && route.Path == "/generated/:filename" {
+			registered = true
+			break
+		}
+	}
+	require.True(t, registered)
+}
+
 func TestGatewayRoutesGrokImagesAndVideosPathsAreRegistered(t *testing.T) {
 	router := newGatewayRoutesTestRouter(service.PlatformGrok)
 

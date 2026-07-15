@@ -14,6 +14,7 @@ import (
 const (
 	stickySessionPrefix          = "sticky_session:"
 	openAIWSSharedStateKeyPrefix = "openai:ws:state:"
+	generatedImageURLKeyPrefix   = "openai:generated_image:"
 )
 
 type gatewayCache struct {
@@ -57,6 +58,37 @@ func (c *gatewayCache) DeleteSessionAccountID(ctx context.Context, groupID int64
 	return c.rdb.Del(ctx, key).Err()
 }
 
+func (c *gatewayCache) SetGeneratedImageURL(ctx context.Context, hash, rawURL string, ttl time.Duration) error {
+	key := buildGeneratedImageURLKey(hash)
+	if key == "" {
+		return errors.New("generated image hash is required")
+	}
+	return c.rdb.Set(ctx, key, rawURL, ttl).Err()
+}
+
+func (c *gatewayCache) GetGeneratedImageURL(ctx context.Context, hash string) (string, bool, error) {
+	key := buildGeneratedImageURLKey(hash)
+	if key == "" {
+		return "", false, nil
+	}
+	value, err := c.rdb.Get(ctx, key).Result()
+	if errors.Is(err, redis.Nil) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return value, true, nil
+}
+
+func buildGeneratedImageURLKey(hash string) string {
+	hash = strings.ToLower(strings.TrimSpace(hash))
+	if hash == "" {
+		return ""
+	}
+	return generatedImageURLKeyPrefix + hash
+}
+
 func (c *gatewayCache) SetOpenAIWSState(ctx context.Context, key, value string, ttl time.Duration) error {
 	key = buildOpenAIWSSharedStateKey(key)
 	if key == "" {
@@ -97,6 +129,7 @@ func buildOpenAIWSSharedStateKey(key string) string {
 }
 
 var _ service.OpenAIWSSharedStateCache = (*gatewayCache)(nil)
+var _ service.GeneratedImageURLStore = (*gatewayCache)(nil)
 
 // Compile-time assertion: gatewayCache must implement CyberSessionBlockStore.
 var _ service.CyberSessionBlockStore = (*gatewayCache)(nil)

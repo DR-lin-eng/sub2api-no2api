@@ -654,6 +654,10 @@ func TestEmbeddedFrontendBypassesBareVideoAPIRoutes(t *testing.T) {
 	}
 }
 
+func TestEmbeddedFrontendBypassesGeneratedImageRoutes(t *testing.T) {
+	require.True(t, shouldBypassEmbeddedFrontend("/generated/hash.png"))
+}
+
 func TestNewFrontendServer(t *testing.T) {
 	t.Run("creates_server_successfully", func(t *testing.T) {
 		provider := &mockSettingsProvider{
