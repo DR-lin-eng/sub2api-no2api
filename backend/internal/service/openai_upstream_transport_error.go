@@ -28,6 +28,12 @@ var openAIPassthroughTransportRetryBackoffs = [...]time.Duration{
 	1 * time.Second,
 }
 
+func copyOpenAIPassthroughTransportRetryBackoffs() []time.Duration {
+	backoffs := make([]time.Duration, len(openAIPassthroughTransportRetryBackoffs))
+	copy(backoffs, openAIPassthroughTransportRetryBackoffs[:])
+	return backoffs
+}
+
 // openAITransportFailoverBody is the OpenAI-format error body attached to the
 // failover error for a transport-level failure. Kept identical to the legacy
 // inline 502 body so the client-visible payload is unchanged if failover is
@@ -239,9 +245,8 @@ func (s *OpenAIGatewayService) handleOpenAIUpstreamTransportError(ctx context.Co
 	}
 
 	return &UpstreamFailoverError{
-		StatusCode:             http.StatusBadGateway,
-		ResponseBody:           openAITransportFailoverBody,
-		RetryableOnSameAccount: !class.Persistent && !passthrough,
+		StatusCode:   http.StatusBadGateway,
+		ResponseBody: openAITransportFailoverBody,
 	}
 }
 
