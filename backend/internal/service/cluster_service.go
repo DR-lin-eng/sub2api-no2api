@@ -12,7 +12,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -78,6 +77,10 @@ type ClusterRepository interface {
 	ListTaskRuns(ctx context.Context, limit int) ([]ClusterTaskRun, error)
 }
 
+type ClusterHealthChecker interface {
+	RedisHealthy(ctx context.Context) bool
+}
+
 type ClusterDeploymentStatus struct {
 	Mode                     string `json:"mode"`
 	NodeName                 string `json:"node_name"`
@@ -115,7 +118,7 @@ type ClusterTaskCoordinator interface {
 type ClusterService struct {
 	repo      ClusterRepository
 	cfg       *config.Config
-	rdb       *redis.Client
+	health    ClusterHealthChecker
 	buildInfo BuildInfo
 
 	nodeName  string
@@ -131,7 +134,7 @@ type ClusterService struct {
 	lastMaintenance time.Time
 }
 
-func NewClusterService(repo ClusterRepository, cfg *config.Config, rdb *redis.Client, buildInfo BuildInfo) *ClusterService {
+func NewClusterService(repo ClusterRepository, cfg *config.Config, health ClusterHealthChecker, buildInfo BuildInfo) *ClusterService {
 	ctx, cancel := context.WithCancel(context.Background())
 	nodeName := "sub2api-node"
 	if cfg != nil && strings.TrimSpace(cfg.Deployment.NodeName) != "" {
@@ -140,7 +143,7 @@ func NewClusterService(repo ClusterRepository, cfg *config.Config, rdb *redis.Cl
 	return &ClusterService{
 		repo:      repo,
 		cfg:       cfg,
-		rdb:       rdb,
+		health:    health,
 		buildInfo: buildInfo,
 		nodeName:  nodeName,
 		runnerID:  fmt.Sprintf("%s-%s", nodeName, uuid.NewString()),
@@ -150,8 +153,8 @@ func NewClusterService(repo ClusterRepository, cfg *config.Config, rdb *redis.Cl
 	}
 }
 
-func ProvideClusterService(repo ClusterRepository, cfg *config.Config, rdb *redis.Client, buildInfo BuildInfo) *ClusterService {
-	svc := NewClusterService(repo, cfg, rdb, buildInfo)
+func ProvideClusterService(repo ClusterRepository, cfg *config.Config, health ClusterHealthChecker, buildInfo BuildInfo) *ClusterService {
+	svc := NewClusterService(repo, cfg, health, buildInfo)
 	svc.Start()
 	return svc
 }
@@ -226,9 +229,9 @@ func (s *ClusterService) taskLeaseTTL() time.Duration {
 func (s *ClusterService) currentInstance(ctx context.Context) ClusterInstance {
 	hostname, _ := os.Hostname()
 	redisOK := false
-	if s.rdb != nil {
+	if s.health != nil {
 		pingCtx, cancel := context.WithTimeout(ctx, time.Second)
-		redisOK = s.rdb.Ping(pingCtx).Err() == nil
+		redisOK = s.health.RedisHealthy(pingCtx)
 		cancel()
 	}
 	mode := config.DeploymentModeStandalone

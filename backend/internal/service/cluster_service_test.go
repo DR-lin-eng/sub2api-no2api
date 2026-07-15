@@ -18,6 +18,12 @@ type clusterRepositoryStub struct {
 	renewals  int
 }
 
+type clusterHealthCheckerStub bool
+
+func (s clusterHealthCheckerStub) RedisHealthy(context.Context) bool {
+	return bool(s)
+}
+
 func newClusterRepositoryStub() *clusterRepositoryStub {
 	return &clusterRepositoryStub{instances: map[string]ClusterInstance{}, tasks: map[string]ClusterTaskRun{}}
 }
@@ -175,7 +181,7 @@ func TestClusterService_ExplicitDisabledWorkerDoesNotRun(t *testing.T) {
 
 func TestClusterService_StatusReportsCurrentNodeAndWorker(t *testing.T) {
 	repo := newClusterRepositoryStub()
-	node := NewClusterService(repo, clusterTestConfig("api-a", config.WorkerModeAuto), nil, BuildInfo{Version: "1.2.3"})
+	node := NewClusterService(repo, clusterTestConfig("api-a", config.WorkerModeAuto), clusterHealthCheckerStub(true), BuildInfo{Version: "1.2.3"})
 	status, err := node.GetStatus(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, "api-a", status.Deployment.NodeName)
@@ -185,4 +191,5 @@ func TestClusterService_StatusReportsCurrentNodeAndWorker(t *testing.T) {
 	require.Equal(t, 1, status.Summary.WorkerNodes)
 	require.Len(t, status.Instances, 1)
 	require.True(t, status.Instances[0].Current)
+	require.True(t, status.Instances[0].RedisOK)
 }
