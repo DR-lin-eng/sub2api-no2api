@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -629,6 +630,44 @@ func parseBoolQueryWithDefault(c *gin.Context, key string, fallback bool) (bool,
 // BatchAPIKeysUsageRequest represents the request for batch API keys usage
 type BatchAPIKeysUsageRequest struct {
 	APIKeyIDs []int64 `json:"api_key_ids" binding:"required"`
+	StartDate string  `json:"start_date"`
+	EndDate   string  `json:"end_date"`
+	Timezone  string  `json:"timezone"`
+}
+
+const maxDashboardAPIKeyUsageRangeDays = 366
+
+func dashboardAPIKeyUsageRange(req BatchAPIKeysUsageRequest) (time.Time, time.Time, error) {
+	userTZ := strings.TrimSpace(req.Timezone)
+	if userTZ != "" {
+		if _, err := time.LoadLocation(userTZ); err != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("invalid timezone %q", userTZ)
+		}
+	}
+	startRaw := strings.TrimSpace(req.StartDate)
+	endRaw := strings.TrimSpace(req.EndDate)
+	if startRaw == "" && endRaw == "" {
+		return time.Time{}, time.Time{}, nil
+	}
+	if startRaw == "" || endRaw == "" {
+		return time.Time{}, time.Time{}, fmt.Errorf("start_date and end_date must be provided together")
+	}
+	start, err := timezone.ParseInUserLocation("2006-01-02", startRaw, userTZ)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid start_date format, use YYYY-MM-DD")
+	}
+	end, err := timezone.ParseInUserLocation("2006-01-02", endRaw, userTZ)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid end_date format, use YYYY-MM-DD")
+	}
+	end = end.AddDate(0, 0, 1)
+	if !start.Before(end) {
+		return time.Time{}, time.Time{}, fmt.Errorf("end_date must not be before start_date")
+	}
+	if end.After(start.AddDate(0, 0, maxDashboardAPIKeyUsageRangeDays)) {
+		return time.Time{}, time.Time{}, fmt.Errorf("date range exceeds %d days", maxDashboardAPIKeyUsageRangeDays)
+	}
+	return start, end, nil
 }
 
 // DashboardAPIKeysUsage handles getting usage stats for user's own API keys
@@ -657,6 +696,12 @@ func (h *UsageHandler) DashboardAPIKeysUsage(c *gin.Context) {
 		return
 	}
 
+	startTime, endTime, err := dashboardAPIKeyUsageRange(req)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
 	validAPIKeyIDs, err := h.apiKeyService.VerifyOwnership(c.Request.Context(), subject.UserID, req.APIKeyIDs)
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -668,7 +713,7 @@ func (h *UsageHandler) DashboardAPIKeysUsage(c *gin.Context) {
 		return
 	}
 
-	stats, err := h.usageService.GetBatchAPIKeyUsageStats(c.Request.Context(), validAPIKeyIDs, time.Time{}, time.Time{})
+	stats, err := h.usageService.GetBatchAPIKeyUsageStats(c.Request.Context(), validAPIKeyIDs, startTime, endTime)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return

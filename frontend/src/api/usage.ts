@@ -324,6 +324,7 @@ export interface BatchApiKeyUsageStats {
   api_key_id: number
   today_actual_cost: number
   total_actual_cost: number
+  total_tokens: number
 }
 
 export interface BatchApiKeysUsageResponse {
@@ -340,12 +341,17 @@ export async function getDashboardApiKeysUsage(
   apiKeyIds: number[],
   options?: {
     signal?: AbortSignal
+    startDate?: string
+    endDate?: string
   }
 ): Promise<BatchApiKeysUsageResponse> {
   const { data } = await apiClient.post<BatchApiKeysUsageResponse>(
     '/usage/dashboard/api-keys-usage',
     {
-      api_key_ids: apiKeyIds
+      api_key_ids: apiKeyIds,
+      start_date: options?.startDate,
+      end_date: options?.endDate,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
     },
     {
       signal: options?.signal
