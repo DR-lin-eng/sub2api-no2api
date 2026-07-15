@@ -19,7 +19,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	"golang.org/x/sync/semaphore"
 )
+
+const openAIStreamScanQueueByteLimit int64 = openAIStreamPreOutputBufferLimit
 
 // openaiStreamingResult streaming response result
 type openaiStreamingResult struct {
@@ -590,20 +593,33 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 		line      string
 		err       error
 		processed chan struct{}
+		weight    int64
 	}
-	// 独立 goroutine 读取上游，避免读取阻塞影响 keepalive/超时处理
-	// Guard mode permits one queued token plus the token being processed. With
-	// the guarded scanner cap this bounds scanner/channel retention near 16 MiB;
-	// the timeout-disabled path preserves the legacy depth of 16.
+	// 独立 goroutine 读取上游，避免读取阻塞影响 keepalive/超时处理。
+	// Guard 模式逐事件确认；普通流保留 16 槽排空语义。两种模式都受
+	// 字节预算限制，避免多条大 SSE 行同时驻留。
 	events := make(chan scanEvent, openAIFirstOutputEventQueueSize(guardFirstOutput))
-	done := make(chan struct{})
+	queueBudget := semaphore.NewWeighted(openAIStreamScanQueueByteLimit)
+	scanCtx, cancelScan := context.WithCancel(context.Background())
+	defer cancelScan()
 	sendEvent := func(ev scanEvent) bool {
 		if guardFirstOutput {
 			ev.processed = make(chan struct{})
 		}
+		ev.weight = int64(len(ev.line))
+		if ev.weight <= 0 {
+			ev.weight = 1
+		}
+		if ev.weight > openAIStreamScanQueueByteLimit {
+			ev.weight = openAIStreamScanQueueByteLimit
+		}
+		if err := queueBudget.Acquire(scanCtx, ev.weight); err != nil {
+			return false
+		}
 		select {
 		case events <- ev:
-		case <-done:
+		case <-scanCtx.Done():
+			queueBudget.Release(ev.weight)
 			return false
 		}
 		if ev.processed == nil {
@@ -612,14 +628,15 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 		select {
 		case <-ev.processed:
 			return true
-		case <-done:
+		case <-scanCtx.Done():
 			return false
 		}
 	}
-	markEventProcessed := func(ev scanEvent) {
+	finishEvent := func(ev scanEvent) {
 		if ev.processed != nil {
 			close(ev.processed)
 		}
+		queueBudget.Release(ev.weight)
 	}
 	var lastReadAt int64
 	atomic.StoreInt64(&lastReadAt, time.Now().UnixNano())
@@ -636,7 +653,6 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			_ = sendEvent(scanEvent{err: err})
 		}
 	}(scanBuf)
-	defer close(done)
 
 	for {
 		select {
@@ -650,11 +666,11 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 				return finalizeStream()
 			}
 			if result, err, done := handleScanErr(ev.err); done {
-				markEventProcessed(ev)
+				finishEvent(ev)
 				return result, err
 			}
 			processSSELine(ev.line, len(events) == 0)
-			markEventProcessed(ev)
+			finishEvent(ev)
 			if streamEarlyErr != nil {
 				return resultWithUsage(), streamEarlyErr
 			}
@@ -682,7 +698,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			}
 			_ = resp.Body.Close()
 			for ev := range events {
-				markEventProcessed(ev)
+				finishEvent(ev)
 			}
 			return resultWithUsage(), s.newOpenAIFirstOutputTimeoutError(
 				ctx, c, account, startTime, originalModel, reasoningEffort,
