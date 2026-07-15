@@ -75,9 +75,18 @@ export async function status(id: number): Promise<UserMonitorDetail> {
   return data
 }
 
+export async function statusBatch(ids: number[]): Promise<UserMonitorDetail[]> {
+  const { data } = await apiClient.post<{ items: UserMonitorDetail[] }>(
+    '/channel-monitors/status/batch',
+    { ids }
+  )
+  return data.items
+}
+
 export const channelMonitorUserAPI = {
   list,
   status,
+  statusBatch,
 }
 
 export default channelMonitorUserAPI

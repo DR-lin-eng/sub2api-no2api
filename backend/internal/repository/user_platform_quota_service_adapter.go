@@ -64,6 +64,14 @@ func (a *userPlatformQuotaServiceAdapter) ListByUser(ctx context.Context, userID
 	return out, nil
 }
 
+func (a *userPlatformQuotaServiceAdapter) ListByUsers(ctx context.Context, userIDs []int64) (map[int64][]service.UserPlatformQuotaRecord, error) {
+	rowsByUser, err := a.inner.ListByUsers(ctx, userIDs)
+	if err != nil {
+		return nil, err
+	}
+	return toServiceRecordsByUser(rowsByUser), nil
+}
+
 // BulkInsertInitial 将 service.UserPlatformQuotaRecord 切片转换后调用底层 repo。
 func (a *userPlatformQuotaServiceAdapter) BulkInsertInitial(ctx context.Context, records []service.UserPlatformQuotaRecord) error {
 	repoRecords := make([]UserPlatformQuotaRecord, len(records))
@@ -160,6 +168,29 @@ func (a *genericUserPlatformQuotaAdapter) ListByUser(ctx context.Context, userID
 	return out, nil
 }
 
+func (a *genericUserPlatformQuotaAdapter) ListByUsers(ctx context.Context, userIDs []int64) (map[int64][]service.UserPlatformQuotaRecord, error) {
+	type batchReader interface {
+		ListByUsers(context.Context, []int64) (map[int64][]UserPlatformQuotaRecord, error)
+	}
+	if reader, ok := a.inner.(batchReader); ok {
+		rowsByUser, err := reader.ListByUsers(ctx, userIDs)
+		if err != nil {
+			return nil, err
+		}
+		return toServiceRecordsByUser(rowsByUser), nil
+	}
+
+	out := make(map[int64][]service.UserPlatformQuotaRecord, len(userIDs))
+	for _, userID := range userIDs {
+		rows, err := a.ListByUser(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+		out[userID] = rows
+	}
+	return out, nil
+}
+
 // BulkInsertInitial 将 service.UserPlatformQuotaRecord 切片转换后调用底层 generic repo。
 func (a *genericUserPlatformQuotaAdapter) BulkInsertInitial(ctx context.Context, records []service.UserPlatformQuotaRecord) error {
 	repoRecords := make([]UserPlatformQuotaRecord, len(records))
@@ -228,6 +259,18 @@ func toServiceRecord(rec *UserPlatformQuotaRecord) *service.UserPlatformQuotaRec
 		WeeklyWindowStart:  rec.WeeklyWindowStart,
 		MonthlyWindowStart: rec.MonthlyWindowStart,
 	}
+}
+
+func toServiceRecordsByUser(rowsByUser map[int64][]UserPlatformQuotaRecord) map[int64][]service.UserPlatformQuotaRecord {
+	out := make(map[int64][]service.UserPlatformQuotaRecord, len(rowsByUser))
+	for userID, rows := range rowsByUser {
+		converted := make([]service.UserPlatformQuotaRecord, 0, len(rows))
+		for i := range rows {
+			converted = append(converted, *toServiceRecord(&rows[i]))
+		}
+		out[userID] = converted
+	}
+	return out
 }
 
 // toRepoRecords 将 service.UserPlatformQuotaRecord 切片转换为 repository.UserPlatformQuotaRecord（含 limit 字段，含 usage/window_start）。

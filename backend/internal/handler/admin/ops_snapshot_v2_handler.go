@@ -18,9 +18,11 @@ var opsDashboardSnapshotV2Cache = newSnapshotCache(30 * time.Second)
 type opsDashboardSnapshotV2Response struct {
 	GeneratedAt string `json:"generated_at"`
 
-	Overview        *service.OpsDashboardOverview       `json:"overview"`
-	ThroughputTrend *service.OpsThroughputTrendResponse `json:"throughput_trend"`
-	ErrorTrend      *service.OpsErrorTrendResponse      `json:"error_trend"`
+	Overview          *service.OpsDashboardOverview         `json:"overview"`
+	ThroughputTrend   *service.OpsThroughputTrendResponse   `json:"throughput_trend"`
+	LatencyHistogram  *service.OpsLatencyHistogramResponse  `json:"latency_histogram"`
+	ErrorTrend        *service.OpsErrorTrendResponse        `json:"error_trend"`
+	ErrorDistribution *service.OpsErrorDistributionResponse `json:"error_distribution"`
 }
 
 type opsDashboardSnapshotV2CacheKey struct {
@@ -91,9 +93,11 @@ func (h *OpsHandler) GetDashboardSnapshotV2(c *gin.Context) {
 	}
 
 	var (
-		overview *service.OpsDashboardOverview
-		trend    *service.OpsThroughputTrendResponse
-		errTrend *service.OpsErrorTrendResponse
+		overview          *service.OpsDashboardOverview
+		trend             *service.OpsThroughputTrendResponse
+		latencyHistogram  *service.OpsLatencyHistogramResponse
+		errTrend          *service.OpsErrorTrendResponse
+		errorDistribution *service.OpsErrorDistributionResponse
 	)
 	g, gctx := errgroup.WithContext(c.Request.Context())
 	g.Go(func() error {
@@ -123,16 +127,36 @@ func (h *OpsHandler) GetDashboardSnapshotV2(c *gin.Context) {
 		errTrend = result
 		return nil
 	})
+	g.Go(func() error {
+		f := *filter
+		result, err := h.opsService.GetLatencyHistogram(gctx, &f)
+		if err != nil {
+			return err
+		}
+		latencyHistogram = result
+		return nil
+	})
+	g.Go(func() error {
+		f := *filter
+		result, err := h.opsService.GetErrorDistribution(gctx, &f)
+		if err != nil {
+			return err
+		}
+		errorDistribution = result
+		return nil
+	})
 	if err := g.Wait(); err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
 
 	resp := &opsDashboardSnapshotV2Response{
-		GeneratedAt:     time.Now().UTC().Format(time.RFC3339),
-		Overview:        overview,
-		ThroughputTrend: trend,
-		ErrorTrend:      errTrend,
+		GeneratedAt:       time.Now().UTC().Format(time.RFC3339),
+		Overview:          overview,
+		ThroughputTrend:   trend,
+		LatencyHistogram:  latencyHistogram,
+		ErrorTrend:        errTrend,
+		ErrorDistribution: errorDistribution,
 	}
 
 	cached := opsDashboardSnapshotV2Cache.Set(cacheKey, resp)

@@ -1410,17 +1410,10 @@ async function populateRuleAccountNameCache() {
   }
   if (allAccountIds.size === 0) return
 
-  // Fetch account details in parallel (batch of individual getById calls)
   const ids = [...allAccountIds]
-  const results = await Promise.allSettled(
-    ids.map(id => adminAPI.accounts.getById(id))
-  )
-  for (let i = 0; i < ids.length; i++) {
-    const result = results[i]
-    if (result.status === 'fulfilled') {
-      ruleAccountNameCache.value[ids[i]] = result.value.name
-    }
-    // If rejected, the cache won't have the name, so it'll show "#ID" which is acceptable
+  const accounts = await adminAPI.accounts.getBatchSummaries(ids)
+  for (const account of accounts) {
+    ruleAccountNameCache.value[account.id] = account.name
   }
 }
 

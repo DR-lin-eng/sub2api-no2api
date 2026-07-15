@@ -23,6 +23,7 @@
       :show="showDetail"
       :monitor-id="detailTarget?.id ?? null"
       :title="detailTitle"
+      :initial-detail="detailTarget ? detailCache[detailTarget.id] : null"
       @close="closeDetail"
     />
   </AppLayout>
@@ -35,7 +36,7 @@ import { useAppStore } from '@/stores/app'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import {
   list as listChannelMonitorViews,
-  status as fetchChannelMonitorDetail,
+  statusBatch as fetchChannelMonitorDetails,
   type UserMonitorView,
   type UserMonitorDetail,
 } from '@/api/channelMonitor'
@@ -113,22 +114,24 @@ async function manualReload() {
   // After base reload, refresh any cached detail records so non-7d availability
   // values stay in sync without forcing the user to switch tabs again.
   if (currentWindow.value !== '7d') {
-    await Promise.all(items.value.map(it => loadDetail(it.id, true)))
-  }
-}
-
-async function loadDetail(id: number, force = false) {
-  if (!force && detailCache[id]) return
-  try {
-    detailCache[id] = await fetchChannelMonitorDetail(id)
-  } catch (err: unknown) {
-    appStore.showError(extractApiErrorMessage(err, t('channelStatus.detailLoadError')))
+    await loadDetails(items.value.map(it => it.id), true)
   }
 }
 
 async function ensureDetailsForWindow() {
   if (currentWindow.value === '7d') return
-  await Promise.all(items.value.map(it => loadDetail(it.id)))
+  await loadDetails(items.value.map(it => it.id))
+}
+
+async function loadDetails(ids: number[], force = false) {
+  const missing = force ? ids : ids.filter(id => !detailCache[id])
+  if (missing.length === 0) return
+  try {
+    const details = await fetchChannelMonitorDetails(missing)
+    for (const detail of details) detailCache[detail.id] = detail
+  } catch (err: unknown) {
+    appStore.showError(extractApiErrorMessage(err, t('channelStatus.detailLoadError')))
+  }
 }
 
 // ── Handlers ──

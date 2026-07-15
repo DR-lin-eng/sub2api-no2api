@@ -41,26 +41,29 @@ const metricThresholds = ref<OpsMetricThresholds>({
 async function loadAllSettings() {
   loading.value = true
   try {
-    const [runtime, email, advanced, thresholds] = await Promise.all([
-      opsAPI.getAlertRuntimeSettings(),
-      opsAPI.getEmailNotificationConfig(),
-      opsAPI.getAdvancedSettings(),
-      opsAPI.getMetricThresholds()
-    ])
-    runtimeSettings.value = runtime
-    emailConfig.value = email
-    advancedSettings.value = advanced
+    const settings = await opsAPI.getSettingsSnapshot().catch(async () => {
+      const [runtime, email, advanced, metricThresholds] = await Promise.all([
+        opsAPI.getAlertRuntimeSettings(),
+        opsAPI.getEmailNotificationConfig(),
+        opsAPI.getAdvancedSettings(),
+        opsAPI.getMetricThresholds()
+      ])
+      return { runtime, email, advanced, metric_thresholds: metricThresholds }
+    })
+    runtimeSettings.value = settings.runtime
+    emailConfig.value = settings.email
+    advancedSettings.value = settings.advanced
     // 兼容旧 payload：后端未返回该字段时补默认值，保证表单可绑定
     if (advancedSettings.value && !advancedSettings.value.openai_account_quota_auto_pause) {
       advancedSettings.value.openai_account_quota_auto_pause = { default_threshold_5h: 0, default_threshold_7d: 0 }
     }
     // 如果后端返回了阈值，使用后端的值；否则保持默认值
-    if (thresholds && Object.keys(thresholds).length > 0) {
+    if (settings.metric_thresholds && Object.keys(settings.metric_thresholds).length > 0) {
         metricThresholds.value = {
-          sla_percent_min: thresholds.sla_percent_min ?? 99.5,
-          ttft_p99_ms_max: thresholds.ttft_p99_ms_max ?? 500,
-          request_error_rate_percent_max: thresholds.request_error_rate_percent_max ?? 5,
-          upstream_error_rate_percent_max: thresholds.upstream_error_rate_percent_max ?? 5
+          sla_percent_min: settings.metric_thresholds.sla_percent_min ?? 99.5,
+          ttft_p99_ms_max: settings.metric_thresholds.ttft_p99_ms_max ?? 500,
+          request_error_rate_percent_max: settings.metric_thresholds.request_error_rate_percent_max ?? 5,
+          upstream_error_rate_percent_max: settings.metric_thresholds.upstream_error_rate_percent_max ?? 5
         }
     }
   } catch (err: any) {

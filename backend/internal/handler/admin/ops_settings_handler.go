@@ -7,7 +7,55 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/sync/errgroup"
 )
+
+type opsSettingsSnapshotResponse struct {
+	Runtime          *service.OpsAlertRuntimeSettings    `json:"runtime"`
+	Email            *service.OpsEmailNotificationConfig `json:"email"`
+	Advanced         *service.OpsAdvancedSettings        `json:"advanced"`
+	MetricThresholds *service.OpsMetricThresholds        `json:"metric_thresholds"`
+}
+
+// GetSettingsSnapshot returns all settings used by the Ops dialog in one request.
+func (h *OpsHandler) GetSettingsSnapshot(c *gin.Context) {
+	if h.opsService == nil {
+		response.Error(c, http.StatusServiceUnavailable, "Ops service not available")
+		return
+	}
+	if err := h.opsService.RequireMonitoringEnabled(c.Request.Context()); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	result := &opsSettingsSnapshotResponse{}
+	g, ctx := errgroup.WithContext(c.Request.Context())
+	g.Go(func() error {
+		var err error
+		result.Runtime, err = h.opsService.GetOpsAlertRuntimeSettings(ctx)
+		return err
+	})
+	g.Go(func() error {
+		var err error
+		result.Email, err = h.opsService.GetEmailNotificationConfig(ctx)
+		return err
+	})
+	g.Go(func() error {
+		var err error
+		result.Advanced, err = h.opsService.GetOpsAdvancedSettings(ctx)
+		return err
+	})
+	g.Go(func() error {
+		var err error
+		result.MetricThresholds, err = h.opsService.GetMetricThresholds(ctx)
+		return err
+	})
+	if err := g.Wait(); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to get Ops settings")
+		return
+	}
+	response.Success(c, result)
+}
 
 // GetEmailNotificationConfig returns Ops email notification config (DB-backed).
 // GET /api/v1/admin/ops/email-notification/config

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/handler/admin"
@@ -173,4 +174,49 @@ func (h *ChannelMonitorUserHandler) GetStatus(c *gin.Context) {
 		return
 	}
 	response.Success(c, userMonitorDetailToResponse(detail))
+}
+
+type channelMonitorBatchStatusRequest struct {
+	IDs []int64 `json:"ids" binding:"required"`
+}
+
+// GetBatchStatus POST /api/v1/channel-monitors/status/batch
+func (h *ChannelMonitorUserHandler) GetBatchStatus(c *gin.Context) {
+	if !h.featureEnabled(c) {
+		response.Success(c, gin.H{"items": []channelMonitorUserDetailResponse{}})
+		return
+	}
+	var req channelMonitorBatchStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "ids is required")
+		return
+	}
+	ids := make([]int64, 0, len(req.IDs))
+	seen := make(map[int64]struct{}, len(req.IDs))
+	for _, id := range req.IDs {
+		if id <= 0 {
+			response.BadRequest(c, "ids must contain positive integers")
+			return
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 || len(ids) > 200 {
+		response.Error(c, http.StatusBadRequest, "ids must contain between 1 and 200 unique IDs")
+		return
+	}
+
+	details, err := h.monitorService.GetUserDetails(c.Request.Context(), ids)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	items := make([]*channelMonitorUserDetailResponse, 0, len(details))
+	for _, detail := range details {
+		items = append(items, userMonitorDetailToResponse(detail))
+	}
+	response.Success(c, gin.H{"items": items})
 }

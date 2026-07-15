@@ -360,12 +360,25 @@ export interface PlatformQuotasResponse {
   platform_quotas: PlatformQuotaItem[]
 }
 
+export interface BatchPlatformQuotasResponse {
+  platform_quotas: Record<number, PlatformQuotaItem[]>
+}
+
 /**
  * Get user's platform quotas
  */
 export async function getPlatformQuotas(id: number): Promise<PlatformQuotasResponse> {
   const { data } = await apiClient.get<PlatformQuotasResponse>(
     `/admin/users/${id}/platform-quotas`
+  )
+  return data
+}
+
+/** Get platform quotas for a user page in one request. */
+export async function getBatchPlatformQuotas(userIds: number[]): Promise<BatchPlatformQuotasResponse> {
+  const { data } = await apiClient.post<BatchPlatformQuotasResponse>(
+    '/admin/users/platform-quotas/batch',
+    { user_ids: userIds }
   )
   return data
 }
@@ -415,6 +428,7 @@ export const usersAPI = {
   replaceGroup,
   bindUserAuthIdentity,
   getPlatformQuotas,
+  getBatchPlatformQuotas,
   updatePlatformQuotas,
   resetPlatformQuotaWindow,
 }

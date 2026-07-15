@@ -159,7 +159,8 @@ import {
   type OpsErrorTrendResponse,
   type OpsLatencyHistogramResponse,
   type OpsThroughputTrendResponse,
-  type OpsMetricThresholds
+  type OpsMetricThresholds,
+  type OpsAdvancedSettings
 } from '@/api/admin/ops'
 import { useAdminSettingsStore, useAppStore } from '@/stores'
 import OpsDashboardHeader from './components/OpsDashboardHeader.vue'
@@ -422,26 +423,44 @@ const { pause: pauseCountdown, resume: resumeCountdown } = useIntervalFn(
   { immediate: false }
 )
 
-// Load ops dashboard presentation settings from backend.
+function applyDashboardAdvancedSettings(settings: OpsAdvancedSettings) {
+  showAlertEvents.value = settings.display_alert_events
+  showOpenAITokenStats.value = settings.display_openai_token_stats
+  showUserUsageStats.value = settings.display_user_usage_stats
+  showSystemLogs.value = settings.display_system_logs
+  autoRefreshEnabled.value = settings.auto_refresh_enabled
+  autoRefreshIntervalMs.value = settings.auto_refresh_interval_seconds * 1000
+  autoRefreshCountdown.value = settings.auto_refresh_interval_seconds
+}
+
+function resetDashboardAdvancedSettings() {
+  showAlertEvents.value = true
+  showOpenAITokenStats.value = false
+  showUserUsageStats.value = false
+  showSystemLogs.value = true
+  autoRefreshEnabled.value = false
+  autoRefreshIntervalMs.value = 30000
+  autoRefreshCountdown.value = 0
+}
+
 async function loadDashboardAdvancedSettings() {
   try {
     const settings = await opsAPI.getAdvancedSettings()
-    showAlertEvents.value = settings.display_alert_events
-    showOpenAITokenStats.value = settings.display_openai_token_stats
-    showUserUsageStats.value = settings.display_user_usage_stats
-    showSystemLogs.value = settings.display_system_logs
-    autoRefreshEnabled.value = settings.auto_refresh_enabled
-    autoRefreshIntervalMs.value = settings.auto_refresh_interval_seconds * 1000
-    autoRefreshCountdown.value = settings.auto_refresh_interval_seconds
+    applyDashboardAdvancedSettings(settings)
   } catch (err) {
     console.error('[OpsDashboard] Failed to load dashboard advanced settings', err)
-    showAlertEvents.value = true
-    showOpenAITokenStats.value = false
-    showUserUsageStats.value = false
-    showSystemLogs.value = true
-    autoRefreshEnabled.value = false
-    autoRefreshIntervalMs.value = 30000
-    autoRefreshCountdown.value = 0
+    resetDashboardAdvancedSettings()
+  }
+}
+
+async function loadDashboardSettingsSnapshot() {
+  try {
+    const settings = await opsAPI.getSettingsSnapshot()
+    applyDashboardAdvancedSettings(settings.advanced)
+    metricThresholds.value = settings.metric_thresholds || null
+  } catch (err) {
+    console.warn('[OpsDashboard] Failed to load settings snapshot, using split endpoints', err)
+    await Promise.all([loadDashboardAdvancedSettings(), loadThresholds()])
   }
 }
 
@@ -490,8 +509,7 @@ function onCustomTimeRangeChange(startTime: string, endTime: string) {
 }
 
 async function onSettingsSaved() {
-  await loadDashboardAdvancedSettings()
-  loadThresholds()
+  await loadDashboardSettingsSnapshot()
   fetchData()
 }
 
@@ -616,24 +634,39 @@ async function refreshCoreSnapshotWithCancel(fetchSeq: number, signal: AbortSign
   if (!opsEnabled.value) return
   loadingTrend.value = true
   loadingErrorTrend.value = true
+  loadingLatency.value = true
+  loadingErrorDistribution.value = true
   try {
     const data = await opsAPI.getDashboardSnapshotV2(buildApiParams(), { signal })
     if (fetchSeq !== dashboardFetchSeq) return
     overview.value = data.overview
     throughputTrend.value = data.throughput_trend
     errorTrend.value = data.error_trend
+    if (data.latency_histogram && data.error_distribution) {
+      latencyHistogram.value = data.latency_histogram
+      errorDistribution.value = data.error_distribution
+    } else {
+      await Promise.all([
+        refreshLatencyHistogramWithCancel(fetchSeq, signal),
+        refreshErrorDistributionWithCancel(fetchSeq, signal)
+      ])
+    }
   } catch (err: any) {
     if (fetchSeq !== dashboardFetchSeq || isCanceledRequest(err)) return
     // Fallback to legacy split endpoints when snapshot endpoint is unavailable.
     await Promise.all([
       refreshOverviewWithCancel(fetchSeq, signal),
       refreshThroughputTrendWithCancel(fetchSeq, signal),
-      refreshErrorTrendWithCancel(fetchSeq, signal)
+      refreshLatencyHistogramWithCancel(fetchSeq, signal),
+      refreshErrorTrendWithCancel(fetchSeq, signal),
+      refreshErrorDistributionWithCancel(fetchSeq, signal)
     ])
   } finally {
     if (fetchSeq === dashboardFetchSeq) {
       loadingTrend.value = false
       loadingErrorTrend.value = false
+      loadingLatency.value = false
+      loadingErrorDistribution.value = false
     }
   }
 }
@@ -692,14 +725,6 @@ async function refreshErrorDistributionWithCancel(fetchSeq: number, signal: Abor
   }
 }
 
-async function refreshDeferredPanels(fetchSeq: number, signal: AbortSignal) {
-  if (!opsEnabled.value) return
-  await Promise.all([
-    refreshLatencyHistogramWithCancel(fetchSeq, signal),
-    refreshErrorDistributionWithCancel(fetchSeq, signal)
-  ])
-}
-
 function isOpsDisabledError(err: unknown): boolean {
   return (
     !!err &&
@@ -737,8 +762,6 @@ async function fetchData() {
       autoRefreshCountdown.value = Math.floor(autoRefreshIntervalMs.value / 1000)
     }
 
-    // Defer non-core visual panels to reduce initial blocking.
-    void refreshDeferredPanels(fetchSeq, dashboardFetchController.signal)
   } catch (err) {
     if (!isOpsDisabledError(err)) {
       console.error('[ops] failed to fetch dashboard data', err)
@@ -796,11 +819,7 @@ onMounted(async () => {
     return
   }
 
-  // Load thresholds configuration
-  loadThresholds()
-
-  // Load auto refresh settings
-  await loadDashboardAdvancedSettings()
+  await loadDashboardSettingsSnapshot()
 
   if (opsEnabled.value) {
     await fetchData()

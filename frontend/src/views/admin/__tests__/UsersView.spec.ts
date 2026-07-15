@@ -8,12 +8,14 @@ const {
   listUsers,
   getAllGroups,
   getBatchUsersUsage,
+  getBatchPlatformQuotas,
   listEnabledDefinitions,
   getBatchUserAttributes
 } = vi.hoisted(() => ({
   listUsers: vi.fn(),
   getAllGroups: vi.fn(),
   getBatchUsersUsage: vi.fn(),
+  getBatchPlatformQuotas: vi.fn(),
   listEnabledDefinitions: vi.fn(),
   getBatchUserAttributes: vi.fn()
 }))
@@ -22,6 +24,7 @@ vi.mock('@/api/admin', () => ({
   adminAPI: {
     users: {
       list: listUsers,
+      getBatchPlatformQuotas,
       toggleStatus: vi.fn(),
       delete: vi.fn()
     },
@@ -127,6 +130,7 @@ describe('admin UsersView', () => {
     listUsers.mockReset()
     getAllGroups.mockReset()
     getBatchUsersUsage.mockReset()
+    getBatchPlatformQuotas.mockReset()
     listEnabledDefinitions.mockReset()
     getBatchUserAttributes.mockReset()
 
@@ -139,6 +143,7 @@ describe('admin UsersView', () => {
     })
     getAllGroups.mockResolvedValue([])
     getBatchUsersUsage.mockResolvedValue({ stats: {} })
+    getBatchPlatformQuotas.mockResolvedValue({ platform_quotas: {} })
     listEnabledDefinitions.mockResolvedValue([])
     getBatchUserAttributes.mockResolvedValue({ values: {} })
   })
@@ -148,6 +153,14 @@ describe('admin UsersView', () => {
   })
 
   it('shows active, used, and created activity columns in order and requests last_used_at sort', async () => {
+    localStorage.setItem('user-column-settings-version', '3')
+    localStorage.setItem(
+      'user-hidden-columns',
+      JSON.stringify([
+        'notes', 'groups', 'subscriptions', 'usage', 'concurrency',
+        'usage_anthropic', 'usage_openai', 'usage_gemini', 'usage_antigravity'
+      ])
+    )
     const wrapper = mount(UsersView, {
       global: {
         stubs: {
@@ -179,11 +192,15 @@ describe('admin UsersView', () => {
     })
 
     await flushPromises()
+    await new Promise(resolve => setTimeout(resolve, 75))
+    await flushPromises()
 
     const columns = wrapper.get('[data-test="columns"]').text()
     const visibleColumns = columns.split(',')
     expect(visibleColumns.slice(-4, -1)).toEqual(['last_active_at', 'last_used_at', 'created_at'])
     expect(visibleColumns).not.toContain('last_login_at')
+    expect(getBatchPlatformQuotas).toHaveBeenCalledTimes(1)
+    expect(getBatchPlatformQuotas).toHaveBeenCalledWith([42])
 
     await wrapper.get('[data-test="sort-last-used"]').trigger('click')
     await flushPromises()

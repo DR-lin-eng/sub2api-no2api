@@ -130,6 +130,19 @@ export async function getById(id: number): Promise<Account> {
   return data
 }
 
+export interface AccountSummary {
+  id: number
+  name: string
+}
+
+export async function getBatchSummaries(accountIds: number[]): Promise<AccountSummary[]> {
+  const { data } = await apiClient.post<{ items: AccountSummary[] }>(
+    '/admin/accounts/summaries/batch',
+    { account_ids: accountIds }
+  )
+  return data.items
+}
+
 /**
  * Create new account
  * @param accountData - Account data
@@ -886,6 +899,7 @@ export const accountsAPI = {
   list,
   listWithEtag,
   getById,
+  getBatchSummaries,
   create,
   duplicate,
   update,

@@ -742,6 +742,55 @@ func (h *AccountHandler) GetByID(c *gin.Context) {
 	response.Success(c, h.buildAccountResponseWithRuntime(c.Request.Context(), account))
 }
 
+type batchAccountSummariesRequest struct {
+	AccountIDs []int64 `json:"account_ids" binding:"required"`
+}
+
+type accountSummaryResponse struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetBatchSummaries returns the minimal account identity needed by channel pricing rules.
+func (h *AccountHandler) GetBatchSummaries(c *gin.Context) {
+	var req batchAccountSummariesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "account_ids is required")
+		return
+	}
+
+	ids := make([]int64, 0, len(req.AccountIDs))
+	seen := make(map[int64]struct{}, len(req.AccountIDs))
+	for _, id := range req.AccountIDs {
+		if id <= 0 {
+			response.BadRequest(c, "account_ids must contain positive integers")
+			return
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 || len(ids) > 500 {
+		response.BadRequest(c, "account_ids must contain between 1 and 500 unique IDs")
+		return
+	}
+
+	accounts, err := h.adminService.GetAccountsByIDs(c.Request.Context(), ids)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	items := make([]accountSummaryResponse, 0, len(accounts))
+	for _, account := range accounts {
+		if account != nil {
+			items = append(items, accountSummaryResponse{ID: account.ID, Name: account.Name})
+		}
+	}
+	response.Success(c, gin.H{"items": items})
+}
+
 // CheckMixedChannel handles checking mixed channel risk for account-group binding.
 // POST /api/v1/admin/accounts/check-mixed-channel
 func (h *AccountHandler) CheckMixedChannel(c *gin.Context) {

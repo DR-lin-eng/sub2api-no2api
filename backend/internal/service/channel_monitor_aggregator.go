@@ -65,8 +65,17 @@ func (s *ChannelMonitorService) ListUserView(ctx context.Context) ([]*UserMonito
 	}
 
 	ids, primaryByID, extrasByID := collectMonitorIndexes(monitors)
-	summaries := s.BatchMonitorStatusSummary(ctx, ids, primaryByID, extrasByID)
 	latestMap := s.batchLatest(ctx, ids)
+	availabilityMap := s.batchAvailability(ctx, ids, monitorAvailability7Days)
+	summaries := make(map[int64]MonitorStatusSummary, len(ids))
+	for _, id := range ids {
+		summaries[id] = buildStatusSummary(
+			indexLatestByModel(latestMap[id]),
+			indexAvailabilityByModel(availabilityMap[id]),
+			primaryByID[id],
+			extrasByID[id],
+		)
+	}
 	timelineMap := s.batchTimeline(ctx, ids, primaryByID)
 
 	views := make([]*UserMonitorView, 0, len(monitors))
@@ -75,6 +84,19 @@ func (s *ChannelMonitorService) ListUserView(ctx context.Context) ([]*UserMonito
 		views = append(views, buildUserViewFromSummary(m, summaries[m.ID], primaryLatest, timelineMap[m.ID]))
 	}
 	return views, nil
+}
+
+func (s *ChannelMonitorService) batchAvailability(
+	ctx context.Context,
+	ids []int64,
+	windowDays int,
+) map[int64][]*ChannelMonitorAvailability {
+	availabilityMap, err := s.repo.ComputeAvailabilityForMonitors(ctx, ids, windowDays)
+	if err != nil {
+		slog.Warn("channel_monitor: batch compute availability failed", "window_days", windowDays, "error", err)
+		return map[int64][]*ChannelMonitorAvailability{}
+	}
+	return availabilityMap
 }
 
 // collectMonitorIndexes 把 monitors 列表按 ID 展开为聚合查询所需的三个索引结构。
@@ -155,6 +177,55 @@ func (s *ChannelMonitorService) GetUserDetail(ctx context.Context, id int64) (*U
 		GroupName: m.GroupName,
 		Models:    models,
 	}, nil
+}
+
+// GetUserDetails batches the multi-window detail query used by the channel status grid.
+func (s *ChannelMonitorService) GetUserDetails(ctx context.Context, ids []int64) ([]*UserMonitorDetail, error) {
+	if len(ids) == 0 {
+		return []*UserMonitorDetail{}, nil
+	}
+	monitors, err := s.repo.ListEnabled(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list enabled monitors: %w", err)
+	}
+	monitorsByID := make(map[int64]*ChannelMonitor, len(monitors))
+	for _, monitor := range monitors {
+		monitorsByID[monitor.ID] = monitor
+	}
+
+	foundIDs := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if _, ok := monitorsByID[id]; ok {
+			foundIDs = append(foundIDs, id)
+		}
+	}
+	if len(foundIDs) == 0 {
+		return []*UserMonitorDetail{}, nil
+	}
+
+	latestMap := s.batchLatest(ctx, foundIDs)
+	availabilityByWindow := map[int]map[int64][]*ChannelMonitorAvailability{
+		monitorAvailability7Days:  s.batchAvailability(ctx, foundIDs, monitorAvailability7Days),
+		monitorAvailability15Days: s.batchAvailability(ctx, foundIDs, monitorAvailability15Days),
+		monitorAvailability30Days: s.batchAvailability(ctx, foundIDs, monitorAvailability30Days),
+	}
+
+	details := make([]*UserMonitorDetail, 0, len(foundIDs))
+	for _, id := range foundIDs {
+		monitor := monitorsByID[id]
+		windows := make(map[int]map[string]*ChannelMonitorAvailability, len(availabilityByWindow))
+		for windowDays, rowsByMonitor := range availabilityByWindow {
+			windows[windowDays] = indexAvailabilityByModel(rowsByMonitor[id])
+		}
+		details = append(details, &UserMonitorDetail{
+			ID:        monitor.ID,
+			Name:      monitor.Name,
+			Provider:  monitor.Provider,
+			GroupName: monitor.GroupName,
+			Models:    mergeModelDetails(monitor, latestMap[id], windows),
+		})
+	}
+	return details, nil
 }
 
 // collectAvailabilityWindows 一次性查询 7/15/30 天三个窗口，按模型组织。

@@ -207,7 +207,9 @@ export interface OpsDashboardSnapshotV2Response {
   generated_at: string
   overview: OpsDashboardOverview
   throughput_trend: OpsThroughputTrendResponse
+  latency_histogram: OpsLatencyHistogramResponse
   error_trend: OpsErrorTrendResponse
+  error_distribution: OpsErrorDistributionResponse
 }
 
 export type OpsOpenAITokenStatsTimeRange = '30m' | '1h' | '1d' | '15d' | '30d'
@@ -839,6 +841,13 @@ export interface OpsAdvancedSettings {
   auto_refresh_interval_seconds: number
 }
 
+export interface OpsSettingsSnapshot {
+  runtime: OpsAlertRuntimeSettings
+  email: EmailNotificationConfig
+  advanced: OpsAdvancedSettings
+  metric_thresholds: OpsMetricThresholds
+}
+
 export interface OpsDataRetentionSettings {
   user_request_log_retention_days: number
   cleanup_enabled: boolean
@@ -1299,6 +1308,11 @@ export async function getEmailNotificationConfig(): Promise<EmailNotificationCon
   return data
 }
 
+export async function getSettingsSnapshot(): Promise<OpsSettingsSnapshot> {
+  const { data } = await apiClient.get<OpsSettingsSnapshot>('/admin/ops/settings/snapshot')
+  return data
+}
+
 export async function updateEmailNotificationConfig(config: EmailNotificationConfig): Promise<EmailNotificationConfig> {
   const { data } = await apiClient.put<EmailNotificationConfig>('/admin/ops/email-notification/config', config)
   return data
@@ -1405,6 +1419,7 @@ export const opsAPI = {
   getAlertEvent,
   updateAlertEventStatus,
   createAlertSilence,
+  getSettingsSnapshot,
   getEmailNotificationConfig,
   updateEmailNotificationConfig,
   getAlertRuntimeSettings,

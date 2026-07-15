@@ -167,6 +167,30 @@ func (r *userPlatformQuotaRepository) ListByUser(ctx context.Context, userID int
 	return out, nil
 }
 
+// ListByUsers queries all active quota rows for a user set in one database round trip.
+func (r *userPlatformQuotaRepository) ListByUsers(ctx context.Context, userIDs []int64) (map[int64][]UserPlatformQuotaRecord, error) {
+	out := make(map[int64][]UserPlatformQuotaRecord, len(userIDs))
+	if len(userIDs) == 0 {
+		return out, nil
+	}
+
+	client := clientFromContext(ctx, r.client)
+	rows, err := client.UserPlatformQuota.Query().
+		Where(
+			userplatformquota.UserIDIn(userIDs...),
+			userplatformquota.DeletedAtIsNil(),
+		).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		record := entQuotaToRecord(row)
+		out[record.UserID] = append(out[record.UserID], *record)
+	}
+	return out, nil
+}
+
 // IncrementUsageWithReset 原子累加 cost 到 (user, platform) 三个窗口的 *_usage_usd。
 // 行为：
 //   - 若记录存在：在事务内 SELECT FOR UPDATE，按 (prev_window_start vs current_window_start)

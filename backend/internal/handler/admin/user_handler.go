@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -705,6 +706,71 @@ func (h *UserHandler) GetUserPlatformQuotas(c *gin.Context) {
 		out = append(out, quotaview.LazyZeroQuotaForResponse(r, now, true)) // true = 暴露 window_start
 	}
 	response.Success(c, map[string]any{"platform_quotas": out})
+}
+
+type batchUserPlatformQuotasRequest struct {
+	UserIDs []int64 `json:"user_ids" binding:"required"`
+}
+
+type userPlatformQuotaBatchReader interface {
+	ListByUsers(context.Context, []int64) (map[int64][]service.UserPlatformQuotaRecord, error)
+}
+
+// GetBatchUserPlatformQuotas returns quota rows for the current user page in one request/query.
+func (h *UserHandler) GetBatchUserPlatformQuotas(c *gin.Context) {
+	var req batchUserPlatformQuotasRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "user_ids is required")
+		return
+	}
+
+	userIDs := make([]int64, 0, len(req.UserIDs))
+	seen := make(map[int64]struct{}, len(req.UserIDs))
+	for _, userID := range req.UserIDs {
+		if userID <= 0 {
+			response.BadRequest(c, "user_ids must contain positive integers")
+			return
+		}
+		if _, ok := seen[userID]; ok {
+			continue
+		}
+		seen[userID] = struct{}{}
+		userIDs = append(userIDs, userID)
+	}
+	if len(userIDs) == 0 || len(userIDs) > 200 {
+		response.BadRequest(c, "user_ids must contain between 1 and 200 unique IDs")
+		return
+	}
+
+	result := make(map[int64][]map[string]any, len(userIDs))
+	if h.userPlatformQuotaRepo == nil {
+		for _, userID := range userIDs {
+			result[userID] = []map[string]any{}
+		}
+		response.Success(c, gin.H{"platform_quotas": result})
+		return
+	}
+
+	reader, ok := h.userPlatformQuotaRepo.(userPlatformQuotaBatchReader)
+	if !ok {
+		response.Error(c, http.StatusServiceUnavailable, "Batch platform quota query is not available")
+		return
+	}
+	rowsByUser, err := reader.ListByUsers(c.Request.Context(), userIDs)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	now := time.Now().UTC()
+	for _, userID := range userIDs {
+		rows := rowsByUser[userID]
+		items := make([]map[string]any, 0, len(rows))
+		for i := range rows {
+			items = append(items, quotaview.LazyZeroQuotaForResponse(rows[i], now, true))
+		}
+		result[userID] = items
+	}
+	response.Success(c, gin.H{"platform_quotas": result})
 }
 
 // UpdateUserPlatformQuotasRequest is the body for PUT /admin/users/:id/platform-quotas.

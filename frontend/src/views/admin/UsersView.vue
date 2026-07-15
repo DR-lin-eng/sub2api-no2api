@@ -1387,24 +1387,12 @@ const loadUsersSecondaryData = async (
     tasks.push(
       (async () => {
         try {
-          // 无批量端点：对当前页用户逐个拉取，分块并发（每批 6），批间检查中止条件，避免大 pageSize 时请求洪峰
-          const CHUNK = 6
-          for (let i = 0; i < userIds.length; i += CHUNK) {
-            if (signal?.aborted) return
-            if (typeof expectedSeq === 'number' && expectedSeq !== secondaryDataSeq) return
-            const chunk = userIds.slice(i, i + CHUNK)
-            const results = await Promise.allSettled(
-              chunk.map((id) => adminAPI.users.getPlatformQuotas(id))
-            )
-            if (signal?.aborted) return
-            if (typeof expectedSeq === 'number' && expectedSeq !== secondaryDataSeq) return
-            const merged = { ...platformQuotaStats.value }
-            results.forEach((r, idx) => {
-              if (r.status === 'fulfilled') {
-                merged[chunk[idx]] = r.value.platform_quotas || []
-              }
-            })
-            platformQuotaStats.value = merged
+          const response = await adminAPI.users.getBatchPlatformQuotas(userIds)
+          if (signal?.aborted) return
+          if (typeof expectedSeq === 'number' && expectedSeq !== secondaryDataSeq) return
+          platformQuotaStats.value = {
+            ...platformQuotaStats.value,
+            ...response.platform_quotas
           }
         } catch (e) {
           if (signal?.aborted) return

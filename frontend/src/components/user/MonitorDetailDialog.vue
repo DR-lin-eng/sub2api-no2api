@@ -75,6 +75,7 @@ const props = defineProps<{
   show: boolean
   monitorId: number | null
   title: string
+  initialDetail?: UserMonitorDetail | null
 }>()
 
 defineEmits<{
@@ -101,10 +102,14 @@ async function load(id: number) {
 }
 
 watch(
-  () => [props.show, props.monitorId] as const,
-  ([show, id]) => {
+  () => [props.show, props.monitorId, props.initialDetail] as const,
+  ([show, id, initialDetail]) => {
     if (!show) {
       detail.value = null
+      return
+    }
+    if (initialDetail?.id === id) {
+      detail.value = initialDetail
       return
     }
     if (id != null) void load(id)
