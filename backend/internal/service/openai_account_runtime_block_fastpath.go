@@ -79,6 +79,11 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
 	}
 	shouldDisable := s.rateLimitService.HandleUpstreamError(stateCtx, account, statusCode, headers, responseBody)
 	if shouldDisable {
+		if !globalTempUnschedulableEnabled(ctx, s.settingService) &&
+			((statusCode == http.StatusUnauthorized && account.Type == AccountTypeOAuth) ||
+				(statusCode == http.StatusForbidden && account.Platform == PlatformOpenAI)) {
+			return shouldDisable
+		}
 		s.BlockAccountScheduling(account, time.Time{}, "upstream_disable")
 	}
 	if !shouldDisable && account.Platform == PlatformOpenAI && account.Type == AccountTypeAPIKey && shouldCooldownOpenAITransientUpstreamError(statusCode, responseBody) {
@@ -157,7 +162,7 @@ func (s *OpenAIGatewayService) openAIAccountRuntimeBlockLock(accountID int64) *s
 	return mu
 }
 
-func (s *OpenAIGatewayService) blockAccountSchedulingLocked(account *Account, until time.Time, _ string) (uint64, bool) {
+func (s *OpenAIGatewayService) blockAccountSchedulingLocked(account *Account, until time.Time, reason string) (uint64, bool) {
 	generation := s.openaiAccountRuntimeBlockSequence.Add(1)
 	s.openaiAccountRuntimeBlockGeneration.Store(account.ID, generation)
 	now := time.Now()
@@ -171,6 +176,7 @@ func (s *OpenAIGatewayService) blockAccountSchedulingLocked(account *Account, un
 		if !loaded {
 			actual, stored := s.openaiAccountRuntimeBlockUntil.LoadOrStore(account.ID, blockUntil)
 			if !stored {
+				s.setOpenAIAccountRuntimeBlockReasonLocked(account.ID, reason)
 				return generation, true
 			}
 			current = actual
@@ -179,6 +185,7 @@ func (s *OpenAIGatewayService) blockAccountSchedulingLocked(account *Account, un
 		currentUntil, ok := current.(time.Time)
 		if !ok || currentUntil.IsZero() {
 			if s.openaiAccountRuntimeBlockUntil.CompareAndSwap(account.ID, current, blockUntil) {
+				s.setOpenAIAccountRuntimeBlockReasonLocked(account.ID, reason)
 				return generation, true
 			}
 			continue
@@ -187,9 +194,18 @@ func (s *OpenAIGatewayService) blockAccountSchedulingLocked(account *Account, un
 			return generation, false
 		}
 		if s.openaiAccountRuntimeBlockUntil.CompareAndSwap(account.ID, current, blockUntil) {
+			s.setOpenAIAccountRuntimeBlockReasonLocked(account.ID, reason)
 			return generation, true
 		}
 	}
+}
+
+func (s *OpenAIGatewayService) setOpenAIAccountRuntimeBlockReasonLocked(accountID int64, reason string) {
+	if isTempUnschedulableRuntimeBlockReason(reason) {
+		s.openaiAccountRuntimeTempUnsched.Store(accountID, struct{}{})
+		return
+	}
+	s.openaiAccountRuntimeTempUnsched.Delete(accountID)
 }
 
 func (s *OpenAIGatewayService) ClearAccountSchedulingBlock(accountID int64) {
@@ -200,6 +216,7 @@ func (s *OpenAIGatewayService) ClearAccountSchedulingBlock(accountID int64) {
 	mu.Lock()
 	defer mu.Unlock()
 	s.openaiAccountRuntimeBlockUntil.Delete(accountID)
+	s.openaiAccountRuntimeTempUnsched.Delete(accountID)
 	s.openaiAccountRuntimeBlockGeneration.Store(accountID, s.openaiAccountRuntimeBlockSequence.Add(1))
 }
 
@@ -207,7 +224,12 @@ func (s *OpenAIGatewayService) DeleteAccountRuntimeState(accountID int64) {
 	if s == nil || accountID <= 0 {
 		return
 	}
+	mu := s.openAIAccountRuntimeBlockLock(accountID)
+	mu.Lock()
 	s.openaiAccountRuntimeBlockUntil.Delete(accountID)
+	s.openaiAccountRuntimeTempUnsched.Delete(accountID)
+	s.openaiAccountRuntimeBlockGeneration.Store(accountID, s.openaiAccountRuntimeBlockSequence.Add(1))
+	mu.Unlock()
 	s.openaiWSFallbackUntil.Delete(accountID)
 	s.openaiCompatSessionResponses.DeletePrefix(strconv.FormatInt(accountID, 10) + "\x00")
 	s.openaiCompatAnthropicDigestSessions.DeletePrefix(strconv.FormatInt(accountID, 10) + "|")
@@ -229,13 +251,22 @@ func (s *OpenAIGatewayService) isOpenAIAccountRuntimeBlocked(account *Account) b
 	mu := s.openAIAccountRuntimeBlockLock(account.ID)
 	mu.Lock()
 	defer mu.Unlock()
+	if _, isTempUnsched := s.openaiAccountRuntimeTempUnsched.Load(account.ID); isTempUnsched &&
+		!globalTempUnschedulableEnabled(context.Background(), s.settingService) {
+		s.openaiAccountRuntimeBlockUntil.Delete(account.ID)
+		s.openaiAccountRuntimeTempUnsched.Delete(account.ID)
+		s.openaiAccountRuntimeBlockGeneration.Store(account.ID, s.openaiAccountRuntimeBlockSequence.Add(1))
+		return false
+	}
 	value, ok := s.openaiAccountRuntimeBlockUntil.Load(account.ID)
 	if !ok {
+		s.openaiAccountRuntimeTempUnsched.Delete(account.ID)
 		return false
 	}
 	cooldownUntil, ok := value.(time.Time)
 	if !ok || cooldownUntil.IsZero() {
 		s.openaiAccountRuntimeBlockUntil.Delete(account.ID)
+		s.openaiAccountRuntimeTempUnsched.Delete(account.ID)
 		s.openaiAccountRuntimeBlockGeneration.Store(account.ID, s.openaiAccountRuntimeBlockSequence.Add(1))
 		return false
 	}
@@ -243,6 +274,7 @@ func (s *OpenAIGatewayService) isOpenAIAccountRuntimeBlocked(account *Account) b
 		return true
 	}
 	s.openaiAccountRuntimeBlockUntil.Delete(account.ID)
+	s.openaiAccountRuntimeTempUnsched.Delete(account.ID)
 	s.openaiAccountRuntimeBlockGeneration.Store(account.ID, s.openaiAccountRuntimeBlockSequence.Add(1))
 	return false
 }
@@ -307,6 +339,21 @@ func (s *OpenAIGatewayService) isOpenAIAccountModelRuntimeBlocked(account *Accou
 
 func (s *OpenAIGatewayService) isOpenAIAccountRequestRuntimeBlocked(account *Account, requestedModel string) bool {
 	return s != nil && (s.isOpenAIAccountRuntimeBlocked(account) || s.isOpenAIAccountModelRuntimeBlocked(account, requestedModel))
+}
+
+func isTempUnschedulableRuntimeBlockReason(reason string) bool {
+	switch reason {
+	case "oauth_401",
+		"openai_403_temp",
+		"temp_unschedulable",
+		"stream_timeout_temp_unschedulable",
+		"token_refresh_retry_exhausted",
+		"transport_error",
+		"grok_temp_unschedulable":
+		return true
+	default:
+		return false
+	}
 }
 
 // openAIAccountRuntimeBlockedFailover closes the select-then-wait race: an

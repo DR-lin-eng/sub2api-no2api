@@ -1202,6 +1202,29 @@ export async function updateRateLimit429CooldownSettings(
   return data;
 }
 
+// ==================== Global Temporary Unschedulable Settings ====================
+
+export interface GlobalTempUnschedulableSettings {
+  enabled: boolean;
+}
+
+export async function getGlobalTempUnschedulableSettings(): Promise<GlobalTempUnschedulableSettings> {
+  const { data } = await apiClient.get<GlobalTempUnschedulableSettings>(
+    "/admin/settings/temp-unschedulable",
+  );
+  return data;
+}
+
+export async function updateGlobalTempUnschedulableSettings(
+  settings: GlobalTempUnschedulableSettings,
+): Promise<GlobalTempUnschedulableSettings> {
+  const { data } = await apiClient.put<GlobalTempUnschedulableSettings>(
+    "/admin/settings/temp-unschedulable",
+    settings,
+  );
+  return data;
+}
+
 // ==================== Stream Timeout Settings ====================
 
 /**
@@ -1429,6 +1452,8 @@ export const settingsAPI = {
   updateOverloadCooldownSettings,
   getRateLimit429CooldownSettings,
   updateRateLimit429CooldownSettings,
+  getGlobalTempUnschedulableSettings,
+  updateGlobalTempUnschedulableSettings,
   getStreamTimeoutSettings,
   updateStreamTimeoutSettings,
   getRectifierSettings,
