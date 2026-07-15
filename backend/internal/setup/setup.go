@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -29,6 +30,10 @@ const (
 	defaultUserConcurrency     = 5
 	simpleModeAdminConcurrency = 30
 	defaultMigrationTimeout    = 60 * time.Second
+	setupAdvisoryLockID        = int64(694208311321144028)
+	installationMarkerKey      = "installation_complete"
+	installationMarkerValue    = "v1"
+	sharedJWTSecretKey         = "jwt_secret"
 )
 
 func setupDefaultAdminConcurrency() int {
@@ -296,6 +301,15 @@ func Install(cfg *SetupConfig) error {
 		logger.LegacyPrintf("setup", "%s", "Warning: JWT secret auto-generated. Consider setting a fixed secret for production.")
 	}
 
+	releaseSetupLock, err := acquireSetupAdvisoryLock(cfg)
+	if err != nil {
+		return fmt.Errorf("acquire distributed setup lock: %w", err)
+	}
+	defer releaseSetupLock()
+	if !NeedsSetup() {
+		return fmt.Errorf("system is already installed, re-installation is not allowed")
+	}
+
 	// Test connections
 	if err := TestDatabaseConnection(&cfg.Database); err != nil {
 		return fmt.Errorf("database connection failed: %w", err)
@@ -305,14 +319,28 @@ func Install(cfg *SetupConfig) error {
 		return fmt.Errorf("redis connection failed: %w", err)
 	}
 
+	installed, err := isDatabaseInstalled(cfg)
+	if err != nil {
+		return fmt.Errorf("check database installation state: %w", err)
+	}
+	if installed {
+		return adoptDatabaseInstallation(cfg)
+	}
+
 	// Initialize database
 	if err := initializeDatabase(cfg); err != nil {
 		return fmt.Errorf("database initialization failed: %w", err)
+	}
+	if err := ensureSharedJWTSecret(cfg); err != nil {
+		return fmt.Errorf("initialize shared jwt secret: %w", err)
 	}
 
 	// Create admin user (only when database is empty and no admin exists).
 	if _, _, err := createAdminUser(cfg); err != nil {
 		return fmt.Errorf("admin user creation failed: %w", err)
+	}
+	if err := markDatabaseInstalled(cfg); err != nil {
+		return fmt.Errorf("persist database installation marker: %w", err)
 	}
 
 	// Write config file
@@ -325,6 +353,149 @@ func Install(cfg *SetupConfig) error {
 		return fmt.Errorf("failed to create install lock: %w", err)
 	}
 
+	return nil
+}
+
+func acquireSetupAdvisoryLock(cfg *SetupConfig) (func(), error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("nil setup config")
+	}
+	db, err := sql.Open("postgres", buildPostgresDSN(&cfg.Database, "postgres"))
+	if err != nil {
+		return nil, err
+	}
+	waitTimeout := cfg.migrationTimeout() + 30*time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), waitTimeout)
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		cancel()
+		_ = db.Close()
+		return nil, err
+	}
+	if _, err := conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", setupAdvisoryLockID); err != nil {
+		_ = conn.Close()
+		cancel()
+		_ = db.Close()
+		return nil, err
+	}
+	cancel()
+
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			unlockCtx, unlockCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer unlockCancel()
+			if _, err := conn.ExecContext(unlockCtx, "SELECT pg_advisory_unlock($1)", setupAdvisoryLockID); err != nil {
+				logger.LegacyPrintf("setup", "failed to release distributed setup lock: %v", err)
+			}
+			_ = conn.Close()
+			_ = db.Close()
+		})
+	}, nil
+}
+
+func openSetupTargetDB(cfg *SetupConfig) (*sql.DB, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("nil setup config")
+	}
+	return sql.Open("postgres", buildPostgresDSN(&cfg.Database, cfg.Database.DBName))
+}
+
+func isDatabaseInstalled(cfg *SetupConfig) (bool, error) {
+	db, err := openSetupTargetDB(cfg)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = db.Close() }()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var table sql.NullString
+	if err := db.QueryRowContext(ctx, "SELECT to_regclass('public.security_secrets')").Scan(&table); err != nil {
+		return false, err
+	}
+	if !table.Valid {
+		return false, nil
+	}
+	var installed bool
+	if err := db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM security_secrets WHERE key = $1 AND value = $2)", installationMarkerKey, installationMarkerValue).Scan(&installed); err != nil {
+		return false, err
+	}
+	return installed, nil
+}
+
+func ensureSharedJWTSecret(cfg *SetupConfig) error {
+	db, err := openSetupTargetDB(cfg)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = db.Close() }()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	secret := strings.TrimSpace(cfg.JWT.Secret)
+	if len([]byte(secret)) < 32 {
+		return fmt.Errorf("jwt secret must be at least 32 bytes")
+	}
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO security_secrets (key, value, created_at, updated_at)
+		VALUES ($1, $2, NOW(), NOW())
+		ON CONFLICT (key) DO NOTHING`, sharedJWTSecretKey, secret); err != nil {
+		return err
+	}
+	return loadSharedJWTSecretFromDB(ctx, db, cfg)
+}
+
+func loadSharedJWTSecret(cfg *SetupConfig) error {
+	db, err := openSetupTargetDB(cfg)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = db.Close() }()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return loadSharedJWTSecretFromDB(ctx, db, cfg)
+}
+
+func loadSharedJWTSecretFromDB(ctx context.Context, db *sql.DB, cfg *SetupConfig) error {
+	var secret string
+	if err := db.QueryRowContext(ctx, "SELECT value FROM security_secrets WHERE key = $1", sharedJWTSecretKey).Scan(&secret); err != nil {
+		return err
+	}
+	secret = strings.TrimSpace(secret)
+	if len([]byte(secret)) < 32 {
+		return fmt.Errorf("persisted jwt secret must be at least 32 bytes")
+	}
+	cfg.JWT.Secret = secret
+	return nil
+}
+
+func markDatabaseInstalled(cfg *SetupConfig) error {
+	db, err := openSetupTargetDB(cfg)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = db.Close() }()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err = db.ExecContext(ctx, `
+		INSERT INTO security_secrets (key, value, created_at, updated_at)
+		VALUES ($1, $2, NOW(), NOW())
+		ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`, installationMarkerKey, installationMarkerValue)
+	return err
+}
+
+func adoptDatabaseInstallation(cfg *SetupConfig) error {
+	if err := loadSharedJWTSecret(cfg); err != nil {
+		return fmt.Errorf("load shared jwt secret: %w", err)
+	}
+	if err := writeConfigFile(cfg); err != nil {
+		return fmt.Errorf("config file creation failed: %w", err)
+	}
+	if err := createInstallLock(); err != nil {
+		return fmt.Errorf("failed to create install lock: %w", err)
+	}
+	logger.LegacyPrintf("setup", "%s", "Existing database installation adopted; skipped first-install bootstrap")
 	return nil
 }
 
@@ -601,6 +772,15 @@ func AutoSetupFromEnv() error {
 		logger.LegacyPrintf("setup", "%s", "Warning: JWT secret auto-generated. Consider setting a fixed secret for production.")
 	}
 
+	releaseSetupLock, err := acquireSetupAdvisoryLock(cfg)
+	if err != nil {
+		return fmt.Errorf("acquire distributed setup lock: %w", err)
+	}
+	defer releaseSetupLock()
+	if !NeedsSetup() {
+		return nil
+	}
+
 	// Test database connection
 	logger.LegacyPrintf("setup", "%s", "Testing database connection...")
 	if err := TestDatabaseConnection(&cfg.Database); err != nil {
@@ -615,12 +795,23 @@ func AutoSetupFromEnv() error {
 	}
 	logger.LegacyPrintf("setup", "%s", "Redis connection successful")
 
+	installed, err := isDatabaseInstalled(cfg)
+	if err != nil {
+		return fmt.Errorf("check database installation state: %w", err)
+	}
+	if installed {
+		return adoptDatabaseInstallation(cfg)
+	}
+
 	// Initialize database
 	logger.LegacyPrintf("setup", "%s", "Initializing database...")
 	if err := initializeDatabase(cfg); err != nil {
 		return fmt.Errorf("database initialization failed: %w", err)
 	}
 	logger.LegacyPrintf("setup", "%s", "Database initialized successfully")
+	if err := ensureSharedJWTSecret(cfg); err != nil {
+		return fmt.Errorf("initialize shared jwt secret: %w", err)
+	}
 
 	// Create admin user
 	logger.LegacyPrintf("setup", "%s", "Creating admin user...")
@@ -639,6 +830,9 @@ func AutoSetupFromEnv() error {
 		default:
 			logger.LegacyPrintf("setup", "%s", "Admin bootstrap skipped")
 		}
+	}
+	if err := markDatabaseInstalled(cfg); err != nil {
+		return fmt.Errorf("persist database installation marker: %w", err)
 	}
 
 	// Write config file

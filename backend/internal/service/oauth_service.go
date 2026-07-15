@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/oauth"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
@@ -109,7 +110,9 @@ func (s *OAuthService) generateAuthURLWithScope(ctx context.Context, scope strin
 		ProxyURL:     proxyURL,
 		CreatedAt:    time.Now(),
 	}
-	s.sessionStore.Set(sessionID, session)
+	if err := s.sessionStore.SetContext(ctx, sessionID, session); err != nil {
+		return nil, fmt.Errorf("store oauth session: %w", err)
+	}
 
 	// Build authorization URL
 	authURL := oauth.BuildAuthorizationURL(state, codeChallenge, scope)
@@ -143,7 +146,10 @@ type TokenInfo struct {
 // ExchangeCode exchanges authorization code for tokens
 func (s *OAuthService) ExchangeCode(ctx context.Context, input *ExchangeCodeInput) (*TokenInfo, error) {
 	// Get session
-	session, ok := s.sessionStore.Get(input.SessionID)
+	session, ok, err := s.sessionStore.GetContext(ctx, input.SessionID)
+	if err != nil {
+		return nil, fmt.Errorf("load oauth session: %w", err)
+	}
 	if !ok {
 		return nil, fmt.Errorf("session not found or expired")
 	}
@@ -167,7 +173,9 @@ func (s *OAuthService) ExchangeCode(ctx context.Context, input *ExchangeCodeInpu
 	}
 
 	// Delete session after successful exchange
-	s.sessionStore.Delete(input.SessionID)
+	if err := s.sessionStore.DeleteContext(ctx, input.SessionID); err != nil {
+		logger.LegacyPrintf("service.oauth", "delete oauth session failed: %v", err)
+	}
 
 	return tokenInfo, nil
 }

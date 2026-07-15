@@ -9,7 +9,11 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/oauth"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/google/wire"
 	"github.com/redis/go-redis/v9"
 )
@@ -55,15 +59,62 @@ func ProvideBatchImageCleanupService(repo BatchImageRepository, accountRepo Acco
 	return svc
 }
 
-// ProvideOpenAIOAuthService creates OpenAIOAuthService with privacy/account enrichment support.
+// ProvideOAuthService creates the Claude OAuth service with Redis-backed flow state.
+func ProvideOAuthService(proxyRepo ProxyRepository, oauthClient ClaudeOAuthClient, redisClient *redis.Client) *OAuthService {
+	return &OAuthService{
+		sessionStore: oauth.NewRedisSessionStore(redisClient),
+		proxyRepo:    proxyRepo,
+		oauthClient:  oauthClient,
+	}
+}
+
+// ProvideOpenAIOAuthService creates OpenAIOAuthService with shared flow state and privacy support.
 func ProvideOpenAIOAuthService(
 	proxyRepo ProxyRepository,
 	oauthClient OpenAIOAuthClient,
 	privacyClientFactory PrivacyClientFactory,
+	redisClient *redis.Client,
 ) *OpenAIOAuthService {
-	svc := NewOpenAIOAuthService(proxyRepo, oauthClient)
+	svc := &OpenAIOAuthService{
+		sessionStore: openai.NewRedisSessionStore(redisClient),
+		proxyRepo:    proxyRepo,
+		oauthClient:  oauthClient,
+	}
 	svc.SetPrivacyClientFactory(privacyClientFactory)
 	return svc
+}
+
+func ProvideGrokOAuthService(proxyRepo ProxyRepository, oauthClient GrokOAuthClient, redisClient *redis.Client) *GrokOAuthService {
+	return &GrokOAuthService{
+		sessionStore: xai.NewRedisSessionStore(redisClient),
+		proxyRepo:    proxyRepo,
+		oauthClient:  oauthClient,
+	}
+}
+
+func ProvideGeminiOAuthService(
+	proxyRepo ProxyRepository,
+	oauthClient GeminiOAuthClient,
+	codeAssist GeminiCliCodeAssistClient,
+	driveClient geminicli.DriveClient,
+	cfg *config.Config,
+	redisClient *redis.Client,
+) *GeminiOAuthService {
+	return &GeminiOAuthService{
+		sessionStore: geminicli.NewRedisSessionStore(redisClient),
+		proxyRepo:    proxyRepo,
+		oauthClient:  oauthClient,
+		codeAssist:   codeAssist,
+		driveClient:  driveClient,
+		cfg:          cfg,
+	}
+}
+
+func ProvideAntigravityOAuthService(proxyRepo ProxyRepository, redisClient *redis.Client) *AntigravityOAuthService {
+	return &AntigravityOAuthService{
+		sessionStore: antigravity.NewRedisSessionStore(redisClient),
+		proxyRepo:    proxyRepo,
+	}
 }
 
 // ProvideTokenRefreshService creates and starts TokenRefreshService
@@ -500,10 +551,17 @@ func ProvideScheduledTestRunnerService(
 	scheduledSvc *ScheduledTestService,
 	accountTestSvc *AccountTestService,
 	rateLimitSvc *RateLimitService,
+	lockCache LeaderLockCache,
+	db *sql.DB,
 	cfg *config.Config,
+	cluster *ClusterService,
 ) *ScheduledTestRunnerService {
 	svc := NewScheduledTestRunnerService(planRepo, scheduledSvc, accountTestSvc, rateLimitSvc, cfg)
-	svc.Start()
+	svc.SetLeaderLock(lockCache, db)
+	svc.SetClusterTaskCoordinator(cluster)
+	if cfg.Deployment.WorkerEnabledResolved() {
+		svc.Start()
+	}
 	return svc
 }
 
@@ -550,9 +608,16 @@ func ProvideBackupService(
 	encryptor SecretEncryptor,
 	storeFactory BackupObjectStoreFactory,
 	dumper DBDumper,
+	lockCache LeaderLockCache,
+	db *sql.DB,
+	cluster *ClusterService,
 ) *BackupService {
 	svc := NewBackupService(settingRepo, cfg, encryptor, storeFactory, dumper)
-	svc.Start()
+	svc.SetLeaderLock(lockCache, db)
+	svc.SetClusterTaskCoordinator(cluster)
+	if cfg.Deployment.WorkerEnabledResolved() {
+		svc.Start()
+	}
 	return svc
 }
 
@@ -651,6 +716,7 @@ func ProvideAPIKeyService(
 
 // ProviderSet is the Wire provider set for all services
 var ProviderSet = wire.NewSet(
+	ProvideClusterService,
 	// Core services
 	NewAuthService,
 	NewUserService,
@@ -677,15 +743,15 @@ var ProviderSet = wire.NewSet(
 	ProvideBatchImageCleanupService,
 	ProvideBatchImageWorkerRuntime,
 	wire.Bind(new(AccountRuntimeBlocker), new(*OpenAIGatewayService)),
-	NewOAuthService,
+	ProvideOAuthService,
 	ProvideOpenAIOAuthService,
-	NewGrokOAuthService,
+	ProvideGrokOAuthService,
 	wire.Bind(new(GrokOAuthTokenService), new(*GrokOAuthService)),
-	NewGeminiOAuthService,
+	ProvideGeminiOAuthService,
 	NewGeminiQuotaService,
 	NewCompositeTokenCacheInvalidator,
 	wire.Bind(new(TokenCacheInvalidator), new(*CompositeTokenCacheInvalidator)),
-	NewAntigravityOAuthService,
+	ProvideAntigravityOAuthService,
 	ProvideOAuthRefreshAPI,
 	ProvideGeminiTokenProvider,
 	NewGeminiMessagesCompatService,
@@ -810,9 +876,13 @@ func ProvideChannelMonitorService(
 // 通过 SetScheduler 注入回 service 后再 Start，确保启动时加载所有 enabled monitor，
 // 后续 CRUD 也能即时同步任务表。Runner.Stop 由 cleanup function 调用。
 // settingService 用于 runner 每次 fire 读取功能开关。
-func ProvideChannelMonitorRunner(svc *ChannelMonitorService, settingService *SettingService) *ChannelMonitorRunner {
+func ProvideChannelMonitorRunner(svc *ChannelMonitorService, settingService *SettingService, lockCache LeaderLockCache, db *sql.DB, cfg *config.Config, cluster *ClusterService) *ChannelMonitorRunner {
 	r := NewChannelMonitorRunner(svc, settingService)
-	svc.SetScheduler(r)
-	r.Start()
+	r.SetLeaderLock(lockCache, db)
+	r.SetClusterTaskCoordinator(cluster)
+	if cfg.Deployment.WorkerEnabledResolved() {
+		svc.SetScheduler(r)
+		r.Start()
+	}
 	return r
 }

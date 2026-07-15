@@ -22,6 +22,7 @@ This directory contains files for deploying Sub2API on Linux servers and Apple-s
 | `.env.example` | Container environment variables template |
 | `DOCKER.md` | Docker Hub documentation |
 | `REDIS_TUNING.md` | Redis memory sizing and 50k+ RPM preset |
+| `MULTI_INSTANCE.md` | Multi-instance secrets, OAuth, workers, WebSocket, and capacity guidance |
 | `install.sh` | One-click binary installation script |
 | `install-datamanagementd.sh` | datamanagementd 一键安装脚本 |
 | `sub2api.service` | Systemd service unit file |
@@ -135,9 +136,13 @@ When using Docker Compose with `AUTO_SETUP=true`:
 1. On first run, the system automatically:
    - Connects to PostgreSQL and Redis
    - Applies database migrations (SQL files in `backend/migrations/*.sql`) and records them in `schema_migrations`
-   - Generates JWT secret (if not provided)
+   - Persists a cluster-wide JWT secret in PostgreSQL (if not provided)
    - Creates admin account (password auto-generated if not provided)
-   - Writes config.yaml
+   - Writes the local config.yaml and installation marker
+
+   Concurrent replicas serialize this first-install sequence with a PostgreSQL
+   advisory lock. Once the database installation marker exists, later replicas
+   adopt it and only materialize their local files.
 
 2. No manual Setup Wizard needed - just configure `.env` and start
 
@@ -246,6 +251,8 @@ docker compose down -v
 See `.env.example` for all available options.
 
 > **Note:** The `docker-deploy.sh` script automatically generates `JWT_SECRET`, `TOTP_ENCRYPTION_KEY`, and `POSTGRES_PASSWORD` for you.
+
+For load-balanced replicas, follow [MULTI_INSTANCE.md](./MULTI_INSTANCE.md).
 
 ### Easy Migration (Local Directory Version)
 

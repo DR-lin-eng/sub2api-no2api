@@ -14,7 +14,7 @@ func TestSessionStore_Stop_Idempotent(t *testing.T) {
 	store.Stop()
 
 	select {
-	case <-store.stopCh:
+	case <-store.Done():
 		// ok
 	case <-time.After(time.Second):
 		t.Fatal("stopCh 未关闭")
@@ -36,7 +36,7 @@ func TestSessionStore_Stop_Concurrent(t *testing.T) {
 	wg.Wait()
 
 	select {
-	case <-store.stopCh:
+	case <-store.Done():
 		// ok
 	case <-time.After(time.Second):
 		t.Fatal("stopCh 未关闭")

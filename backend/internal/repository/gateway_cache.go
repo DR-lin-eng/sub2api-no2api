@@ -2,14 +2,19 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/redis/go-redis/v9"
 )
 
-const stickySessionPrefix = "sticky_session:"
+const (
+	stickySessionPrefix          = "sticky_session:"
+	openAIWSSharedStateKeyPrefix = "openai:ws:state:"
+)
 
 type gatewayCache struct {
 	rdb *redis.Client
@@ -51,6 +56,47 @@ func (c *gatewayCache) DeleteSessionAccountID(ctx context.Context, groupID int64
 	key := buildSessionKey(groupID, sessionHash)
 	return c.rdb.Del(ctx, key).Err()
 }
+
+func (c *gatewayCache) SetOpenAIWSState(ctx context.Context, key, value string, ttl time.Duration) error {
+	key = buildOpenAIWSSharedStateKey(key)
+	if key == "" {
+		return nil
+	}
+	return c.rdb.Set(ctx, key, value, ttl).Err()
+}
+
+func (c *gatewayCache) GetOpenAIWSState(ctx context.Context, key string) (string, bool, error) {
+	key = buildOpenAIWSSharedStateKey(key)
+	if key == "" {
+		return "", false, nil
+	}
+	value, err := c.rdb.Get(ctx, key).Result()
+	if errors.Is(err, redis.Nil) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return value, true, nil
+}
+
+func (c *gatewayCache) DeleteOpenAIWSState(ctx context.Context, key string) error {
+	key = buildOpenAIWSSharedStateKey(key)
+	if key == "" {
+		return nil
+	}
+	return c.rdb.Del(ctx, key).Err()
+}
+
+func buildOpenAIWSSharedStateKey(key string) string {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return ""
+	}
+	return openAIWSSharedStateKeyPrefix + key
+}
+
+var _ service.OpenAIWSSharedStateCache = (*gatewayCache)(nil)
 
 // Compile-time assertion: gatewayCache must implement CyberSessionBlockStore.
 var _ service.CyberSessionBlockStore = (*gatewayCache)(nil)

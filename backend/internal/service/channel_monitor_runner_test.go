@@ -260,6 +260,22 @@ func TestInFlight_AcquireReleaseSymmetric(t *testing.T) {
 	r.releaseInFlight(42)
 }
 
+func TestRunOne_DistributedLockSkipsPeerExecution(t *testing.T) {
+	cache := &fakeLeaderLockCache{}
+	key := channelMonitorLeaderLockKeyPrefix + "42"
+	_, _ = cache.TryAcquireLeaderLock(context.Background(), key, "peer", time.Minute)
+
+	svc := &stubMonitorSvc{}
+	r := newRunnerForTest(svc)
+	r.SetLeaderLock(cache, nil)
+	r.runOne(42, "locked")
+
+	if got := svc.runCount.Load(); got != 0 {
+		t.Fatalf("peer-held distributed lock should skip RunCheck, got %d calls", got)
+	}
+	r.Stop()
+}
+
 // stoppedWithin 在 timeout 内并行调用 Stop，超时则 Fatal。验证 Stop 不会阻塞。
 func stoppedWithin(t *testing.T, r *ChannelMonitorRunner, timeout time.Duration) {
 	t.Helper()

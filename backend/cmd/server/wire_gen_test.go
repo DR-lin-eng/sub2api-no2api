@@ -99,6 +99,7 @@ func TestProvideCleanup_WithMinimalDependencies_NoPanic(t *testing.T) {
 		&service.DashboardAggregationService{},
 		deferredSvc,
 		timingWheelSvc,
+		nil, // cluster
 	)
 
 	require.NotPanics(t, func() {

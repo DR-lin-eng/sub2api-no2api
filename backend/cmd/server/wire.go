@@ -116,6 +116,7 @@ func provideCleanup(
 	dashboardAggregation *service.DashboardAggregationService,
 	deferred *service.DeferredService,
 	timingWheel *service.TimingWheelService,
+	cluster *service.ClusterService,
 ) func() {
 	return func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -131,6 +132,12 @@ func provideCleanup(
 			{"PromptAuditService", func() error {
 				if promptAudit != nil {
 					return promptAudit.Shutdown(ctx)
+				}
+				return nil
+			}},
+			{"ClusterService", func() error {
+				if cluster != nil {
+					cluster.Stop()
 				}
 				return nil
 			}},

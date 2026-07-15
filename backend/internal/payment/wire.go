@@ -15,7 +15,7 @@ import (
 // Using a named type avoids Wire ambiguity with other []byte parameters.
 type EncryptionKey []byte
 
-// ProvideEncryptionKey derives the payment encryption key from the TOTP encryption key in config.
+// ProvideEncryptionKey derives the payment encryption key from the stable TOTP encryption key.
 // When the key is empty, nil is returned (payment features that need encryption will be disabled).
 // When the key is non-empty but invalid (bad hex or wrong length), an error is returned
 // to prevent startup with a misconfigured encryption key.
@@ -32,7 +32,7 @@ func ProvideEncryptionKey(cfg *config.Config) (EncryptionKey, error) {
 	// Reject auto-generated TOTP keys for payment signing.
 	// They change across restarts/instances and can silently break resume-token flows.
 	if !cfg.Totp.EncryptionKeyConfigured {
-		slog.Warn("payment encryption/signing key is not explicitly configured; set TOTP_ENCRYPTION_KEY to enable payment resume tokens")
+		slog.Warn("payment encryption/signing key is not stable; configure TOTP_ENCRYPTION_KEY or verify database secret bootstrap")
 		return nil, nil
 	}
 	key, err := hex.DecodeString(keyHex)

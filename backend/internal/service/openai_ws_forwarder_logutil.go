@@ -526,6 +526,19 @@ func logOpenAIWSBindResponseAccountWarn(groupID, accountID int64, responseID str
 	)
 }
 
+func logOpenAIWSSessionTurnStateWarn(operation string, groupID int64, sessionHash string, err error) {
+	if err == nil {
+		return
+	}
+	logger.L().Warn(
+		"openai.ws_session_turn_state_failed",
+		zap.String("operation", strings.TrimSpace(operation)),
+		zap.Int64("group_id", groupID),
+		zap.String("session_hash", truncateOpenAIWSLogValue(sessionHash, openAIWSIDValueMaxLen)),
+		zap.Error(err),
+	)
+}
+
 func summarizeOpenAIWSReadCloseError(err error) (status string, reason string) {
 	if err == nil {
 		return "-", "-"

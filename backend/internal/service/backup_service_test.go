@@ -393,6 +393,22 @@ func TestBackupService_CreateBackup_ConcurrentBlocked(t *testing.T) {
 	require.ErrorIs(t, err, ErrBackupInProgress)
 }
 
+func TestBackupService_ScheduledBackupSkipsWhenPeerHoldsLock(t *testing.T) {
+	repo := newMockSettingRepo()
+	seedS3Config(t, repo)
+	store := newMockObjectStore()
+	svc := newTestBackupService(repo, &mockDumper{dumpData: []byte("data")}, store)
+	cache := &fakeLeaderLockCache{}
+	_, _ = cache.TryAcquireLeaderLock(context.Background(), backupScheduledLockKey, "peer", time.Minute)
+	svc.SetLeaderLock(cache, nil)
+
+	svc.runScheduledBackup()
+
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	require.Empty(t, store.objects)
+}
+
 func TestBackupService_RestoreBackup_Streaming(t *testing.T) {
 	repo := newMockSettingRepo()
 	seedS3Config(t, repo)

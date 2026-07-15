@@ -64,7 +64,7 @@ func (s *GrokOAuthService) GenerateAuthURL(ctx context.Context, proxyID *int64, 
 		return nil, infraerrors.Newf(http.StatusBadRequest, "GROK_OAUTH_INVALID_AUTHORIZE_URL", "%v", err)
 	}
 
-	s.sessionStore.Set(sessionID, &xai.OAuthSession{
+	if err := s.sessionStore.SetContext(ctx, sessionID, &xai.OAuthSession{
 		State:         state,
 		CodeVerifier:  codeVerifier,
 		CodeChallenge: codeChallenge,
@@ -73,7 +73,9 @@ func (s *GrokOAuthService) GenerateAuthURL(ctx context.Context, proxyID *int64, 
 		ProxyURL:      proxyURL,
 		RedirectURI:   redirectURI,
 		CreatedAt:     time.Now(),
-	})
+	}); err != nil {
+		return nil, infraerrors.Newf(http.StatusServiceUnavailable, "GROK_OAUTH_SESSION_STORE_FAILED", "failed to store oauth session: %v", err)
+	}
 
 	return &GrokAuthURLResult{
 		AuthURL:   authURL,
@@ -110,11 +112,14 @@ func (s *GrokOAuthService) ExchangeCode(ctx context.Context, input *GrokExchange
 	if input == nil {
 		return nil, infraerrors.New(http.StatusBadRequest, "GROK_OAUTH_INVALID_INPUT", "input is required")
 	}
-	session, ok := s.sessionStore.Get(input.SessionID)
+	session, ok, err := s.sessionStore.GetContext(ctx, input.SessionID)
+	if err != nil {
+		return nil, infraerrors.Newf(http.StatusServiceUnavailable, "GROK_OAUTH_SESSION_STORE_FAILED", "failed to load oauth session: %v", err)
+	}
 	if !ok {
 		return nil, infraerrors.New(http.StatusBadRequest, "GROK_OAUTH_SESSION_NOT_FOUND", "session not found or expired")
 	}
-	defer s.sessionStore.Delete(input.SessionID)
+	defer func() { _ = s.sessionStore.DeleteContext(context.Background(), input.SessionID) }()
 
 	parsed := xai.ParseAuthorizationInput(input.Code)
 	code := strings.TrimSpace(parsed.Code)

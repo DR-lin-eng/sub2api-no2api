@@ -60,7 +60,9 @@ func (s *AntigravityOAuthService) GenerateAuthURL(ctx context.Context, proxyID *
 		ProxyURL:     proxyURL,
 		CreatedAt:    time.Now(),
 	}
-	s.sessionStore.Set(sessionID, session)
+	if err := s.sessionStore.SetContext(ctx, sessionID, session); err != nil {
+		return nil, fmt.Errorf("保存 OAuth session 失败: %w", err)
+	}
 
 	codeChallenge := antigravity.GenerateCodeChallenge(codeVerifier)
 	authURL := antigravity.BuildAuthorizationURL(state, codeChallenge)
@@ -96,7 +98,10 @@ type AntigravityTokenInfo struct {
 
 // ExchangeCode 用 authorization code 交换 token
 func (s *AntigravityOAuthService) ExchangeCode(ctx context.Context, input *AntigravityExchangeCodeInput) (*AntigravityTokenInfo, error) {
-	session, ok := s.sessionStore.Get(input.SessionID)
+	session, ok, err := s.sessionStore.GetContext(ctx, input.SessionID)
+	if err != nil {
+		return nil, fmt.Errorf("读取 OAuth session 失败: %w", err)
+	}
 	if !ok {
 		return nil, fmt.Errorf("session 不存在或已过期")
 	}
@@ -126,7 +131,9 @@ func (s *AntigravityOAuthService) ExchangeCode(ctx context.Context, input *Antig
 	}
 
 	// 删除 session
-	s.sessionStore.Delete(input.SessionID)
+	if err := s.sessionStore.DeleteContext(ctx, input.SessionID); err != nil {
+		fmt.Printf("[AntigravityOAuth] 警告: 删除 session 失败: %v\n", err)
+	}
 
 	// 计算过期时间（减去 5 分钟安全窗口）
 	expiresAt := time.Now().Unix() + tokenResp.ExpiresIn - 300

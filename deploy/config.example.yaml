@@ -7,6 +7,24 @@
 # Documentation / 文档: https://github.com/Wei-Shaw/sub2api
 
 # =============================================================================
+# Deployment Configuration
+# 部署配置
+# =============================================================================
+deployment:
+  # standalone or multi_instance. Every node always serves the complete API and frontend.
+  # standalone 或 multi_instance。每个节点始终提供完整 API 与前端。
+  mode: "standalone"
+  # Stable operator-defined node name. Empty falls back to the hostname.
+  # 稳定节点名；留空时使用 hostname。多机部署建议显式设置且各节点不同。
+  node_name: ""
+  # auto, true, or false. auto joins worker election; false disables only cluster jobs.
+  # auto、true 或 false。auto 自动参与 Worker 选举；false 仅停用集群后台任务。
+  worker_enabled: "auto"
+  heartbeat_interval_seconds: 30
+  stale_after_seconds: 90
+  task_lease_seconds: 60
+
+# =============================================================================
 # Server Configuration
 # 服务器配置
 # =============================================================================
@@ -849,8 +867,9 @@ database:
   # SSL 模式：disable（禁用）, prefer（优先加密，默认）, require（要求）, verify-ca（验证CA）, verify-full（完全验证）
   # 默认值为 "prefer"，数据库支持 SSL 时自动使用加密连接，不支持时回退明文
   sslmode: "prefer"
-  # Max open connections (高并发场景建议 256+，需配合 PostgreSQL max_connections 调整)
-  # 最大打开连接数
+  # Per-instance maximum. Cluster demand = replica_count * max_open_conns.
+  # Keep that total below PostgreSQL max_connections after reserving admin/migration slots.
+  # 单实例最大连接数。集群总需求 = 实例数 * max_open_conns；还需为管理和迁移预留连接。
   max_open_conns: 256
   # Max idle connections (建议为 max_open_conns 的 50%，减少频繁建连开销)
   # 最大空闲连接数
@@ -884,8 +903,9 @@ redis:
   # Database number (0-15)
   # 数据库编号（0-15）
   db: 0
-  # Connection pool size (max concurrent connections)
-  # 连接池大小（最大并发连接数）
+  # Per-instance pool size. Redis maxclients must exceed replica_count * pool_size
+  # plus connections used by operators and other services.
+  # 单实例连接池大小；Redis maxclients 需覆盖 实例数 * pool_size 及运维/其他服务连接。
   pool_size: 1024
   # Minimum number of idle connections (高并发场景建议 128+，保持足够热连接)
   # 最小空闲连接数
@@ -912,8 +932,9 @@ ops:
 # JWT 配置
 # =============================================================================
 jwt:
-  # IMPORTANT: Change this to a random string in production!
-  # 重要：生产环境中请更改为随机字符串！
+  # Explicitly configure the same value on every replica. If omitted during
+  # bootstrap, PostgreSQL persists the first generated value as the cluster value.
+  # 建议所有实例显式注入同一个值；若首次启动留空，PostgreSQL 会持久化首个生成值。
   # Generate with / 生成命令: openssl rand -hex 32
   secret: "change-this-to-a-secure-random-string"
   # Token expiration time in hours (max 168)
@@ -930,13 +951,9 @@ jwt:
 # TOTP 双因素认证配置
 # =============================================================================
 totp:
-  # IMPORTANT: Set a fixed encryption key for TOTP secrets.
-  # 重要：设置固定的 TOTP 加密密钥。
-  # If left empty, a random key will be generated on each startup, causing all
-  # existing TOTP configurations to become invalid (users won't be able to
-  # login with 2FA).
-  # 如果留空，每次启动将生成随机密钥，导致现有的 TOTP 配置失效（用户无法使用
-  # 双因素认证登录）。
+  # Prefer explicitly configuring the same key on every replica. If omitted,
+  # PostgreSQL persists one generated key and all replicas load that cluster value.
+  # 建议所有实例显式注入同一个密钥；若留空，PostgreSQL 会持久化并统一使用一个生成值。
   # Generate with / 生成命令: openssl rand -hex 32
   encryption_key: ""
 

@@ -428,6 +428,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/multi-instance',
+    name: 'AdminMultiInstance',
+    component: () => import('@/views/admin/MultiInstanceView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Multi-instance Deployment',
+      titleKey: 'admin.cluster.title',
+      descriptionKey: 'admin.cluster.description'
+    }
+  },
+  {
     path: '/admin/users',
     name: 'AdminUsers',
     component: () => import('@/views/admin/UsersView.vue'),

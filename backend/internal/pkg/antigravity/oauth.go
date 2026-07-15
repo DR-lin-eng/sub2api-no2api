@@ -16,6 +16,8 @@ import (
 	"time"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/oauthstate"
+	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -282,72 +284,16 @@ type OAuthSession struct {
 }
 
 // SessionStore OAuth session 存储
-type SessionStore struct {
-	mu       sync.RWMutex
-	sessions map[string]*OAuthSession
-	stopCh   chan struct{}
-}
+type SessionStore = oauthstate.Store[OAuthSession]
 
 func NewSessionStore() *SessionStore {
-	store := &SessionStore{
-		sessions: make(map[string]*OAuthSession),
-		stopCh:   make(chan struct{}),
-	}
-	go store.cleanup()
-	return store
+	return NewRedisSessionStore(nil)
 }
 
-func (s *SessionStore) Set(sessionID string, session *OAuthSession) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.sessions[sessionID] = session
-}
-
-func (s *SessionStore) Get(sessionID string) (*OAuthSession, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	session, ok := s.sessions[sessionID]
-	if !ok {
-		return nil, false
-	}
-	if time.Since(session.CreatedAt) > SessionTTL {
-		return nil, false
-	}
-	return session, true
-}
-
-func (s *SessionStore) Delete(sessionID string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.sessions, sessionID)
-}
-
-func (s *SessionStore) Stop() {
-	select {
-	case <-s.stopCh:
-		return
-	default:
-		close(s.stopCh)
-	}
-}
-
-func (s *SessionStore) cleanup() {
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-s.stopCh:
-			return
-		case <-ticker.C:
-			s.mu.Lock()
-			for id, session := range s.sessions {
-				if time.Since(session.CreatedAt) > SessionTTL {
-					delete(s.sessions, id)
-				}
-			}
-			s.mu.Unlock()
-		}
-	}
+func NewRedisSessionStore(redisClient *redis.Client) *SessionStore {
+	return oauthstate.New(redisClient, "oauth:session:antigravity:", SessionTTL, func(session *OAuthSession) time.Time {
+		return session.CreatedAt.Add(SessionTTL)
+	})
 }
 
 func GenerateRandomBytes(n int) ([]byte, error) {

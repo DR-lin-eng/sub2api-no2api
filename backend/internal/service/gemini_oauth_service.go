@@ -146,8 +146,6 @@ func (s *GeminiOAuthService) GenerateAuthURL(ctx context.Context, proxyID *int64
 		OAuthType:    oauthType,
 		CreatedAt:    time.Now(),
 	}
-	s.sessionStore.Set(sessionID, session)
-
 	effectiveCfg, err := geminicli.EffectiveOAuthConfig(oauthCfg, oauthType)
 	if err != nil {
 		return nil, err
@@ -169,7 +167,9 @@ func (s *GeminiOAuthService) GenerateAuthURL(ctx context.Context, proxyID *int64
 		redirectURI = geminicli.AIStudioOAuthRedirectURI
 	}
 	session.RedirectURI = redirectURI
-	s.sessionStore.Set(sessionID, session)
+	if err := s.sessionStore.SetContext(ctx, sessionID, session); err != nil {
+		return nil, fmt.Errorf("store oauth session: %w", err)
+	}
 
 	authURL, err := geminicli.BuildAuthorizationURL(effectiveCfg, state, codeChallenge, redirectURI, session.ProjectID, oauthType)
 	if err != nil {
@@ -446,7 +446,11 @@ func (s *GeminiOAuthService) ExchangeCode(ctx context.Context, input *GeminiExch
 	logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] ========== ExchangeCode START ==========")
 	logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] SessionID: %s", input.SessionID)
 
-	session, ok := s.sessionStore.Get(input.SessionID)
+	session, ok, err := s.sessionStore.GetContext(ctx, input.SessionID)
+	if err != nil {
+		logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] ERROR: Session store unavailable: %v", err)
+		return nil, fmt.Errorf("load oauth session: %w", err)
+	}
 	if !ok {
 		logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] ERROR: Session not found or expired")
 		return nil, fmt.Errorf("session not found or expired")
@@ -506,7 +510,9 @@ func (s *GeminiOAuthService) ExchangeCode(ctx context.Context, input *GeminiExch
 	logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] Token expires_in: %d seconds", tokenResp.ExpiresIn)
 
 	sessionProjectID := strings.TrimSpace(session.ProjectID)
-	s.sessionStore.Delete(input.SessionID)
+	if err := s.sessionStore.DeleteContext(ctx, input.SessionID); err != nil {
+		logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] delete session failed: %v", err)
+	}
 
 	// 计算过期时间：减去 5 分钟安全时间窗口（考虑网络延迟和时钟偏差）
 	// 同时设置下界保护，防止 expires_in 过小导致过去时间（引发刷新风暴）

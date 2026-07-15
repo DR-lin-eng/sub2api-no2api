@@ -2,12 +2,20 @@ package service
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"log/slog"
 	"math/rand/v2"
 	"sync"
 	"time"
 
 	"github.com/alitto/pond/v2"
+	"github.com/google/uuid"
+)
+
+const (
+	channelMonitorLeaderLockKeyPrefix = "channel-monitor:check:"
+	channelMonitorLeaderLockTTL       = 2 * time.Minute
 )
 
 // MonitorScheduler 调度器接口，供 ChannelMonitorService 在 CRUD 时回调，
@@ -47,6 +55,10 @@ type monitorRunnerSvc interface {
 type ChannelMonitorRunner struct {
 	svc            monitorRunnerSvc
 	settingService *SettingService
+	lockCache      LeaderLockCache
+	db             *sql.DB
+	instanceID     string
+	cluster        ClusterTaskCoordinator
 
 	pool         pond.Pool
 	parentCtx    context.Context
@@ -103,11 +115,27 @@ func newChannelMonitorRunner(svc monitorRunnerSvc, settingService *SettingServic
 	return &ChannelMonitorRunner{
 		svc:            svc,
 		settingService: settingService,
+		instanceID:     uuid.NewString(),
 		pool:           pond.NewPool(monitorWorkerConcurrency),
 		parentCtx:      ctx,
 		parentCancel:   cancel,
 		tasks:          make(map[int64]*scheduledMonitor),
 		inFlight:       make(map[int64]struct{}),
+	}
+}
+
+// SetLeaderLock injects cross-instance coordination for each monitor check.
+func (r *ChannelMonitorRunner) SetLeaderLock(lockCache LeaderLockCache, db *sql.DB) {
+	if r == nil {
+		return
+	}
+	r.lockCache = lockCache
+	r.db = db
+}
+
+func (r *ChannelMonitorRunner) SetClusterTaskCoordinator(cluster ClusterTaskCoordinator) {
+	if r != nil {
+		r.cluster = cluster
 	}
 }
 
@@ -300,6 +328,33 @@ func (r *ChannelMonitorRunner) runOne(id int64, name string) {
 	defer cancel()
 
 	defer r.releaseInFlight(id)
+	if r.cluster != nil {
+		_, err := r.cluster.RunTask(
+			ctx,
+			fmt.Sprintf("channel_monitor:%d", id),
+			map[string]any{"monitor_id": id, "name": name},
+			func(taskCtx context.Context) (map[string]any, error) {
+				_, runErr := r.svc.RunCheck(taskCtx, id)
+				return map[string]any{"monitor_id": id}, runErr
+			},
+		)
+		if err != nil {
+			slog.Warn("channel_monitor: cluster task failed", "monitor_id", id, "name", name, "error", err)
+		}
+		return
+	}
+	release, ok := tryAcquireSingletonLeaderLock(
+		ctx,
+		r.lockCache,
+		r.db,
+		fmt.Sprintf("%s%d", channelMonitorLeaderLockKeyPrefix, id),
+		r.instanceID,
+		channelMonitorLeaderLockTTL,
+	)
+	if !ok {
+		return
+	}
+	defer release()
 
 	defer func() {
 		if rec := recover(); rec != nil {

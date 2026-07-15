@@ -39,6 +39,12 @@ services:
       - SERVER_MODE=${SERVER_MODE:-release}
       - ENABLE_SERVER_TIMING=${ENABLE_SERVER_TIMING:-false}
       - RUN_MODE=${RUN_MODE:-standard}
+      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-standalone}
+      - NODE_NAME=${NODE_NAME:-}
+      - WORKER_ENABLED=${WORKER_ENABLED:-auto}
+      - DEPLOYMENT_HEARTBEAT_INTERVAL_SECONDS=${DEPLOYMENT_HEARTBEAT_INTERVAL_SECONDS:-30}
+      - DEPLOYMENT_STALE_AFTER_SECONDS=${DEPLOYMENT_STALE_AFTER_SECONDS:-90}
+      - DEPLOYMENT_TASK_LEASE_SECONDS=${DEPLOYMENT_TASK_LEASE_SECONDS:-60}
 
       # =======================================================================
       # Database Configuration (PostgreSQL) - Required

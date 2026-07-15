@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -43,18 +44,22 @@ func TestOpenAIWSStateStore_ResponseConnTTL(t *testing.T) {
 
 func TestOpenAIWSStateStore_SessionTurnStateTTL(t *testing.T) {
 	store := NewOpenAIWSStateStore(nil)
-	store.BindSessionTurnState(9, "session_hash_1", "turn_state_1", 30*time.Millisecond)
+	ctx := context.Background()
+	require.NoError(t, store.BindSessionTurnState(ctx, 9, "session_hash_1", "turn_state_1", 30*time.Millisecond))
 
-	state, ok := store.GetSessionTurnState(9, "session_hash_1")
+	state, ok, err := store.GetSessionTurnState(ctx, 9, "session_hash_1")
+	require.NoError(t, err)
 	require.True(t, ok)
 	require.Equal(t, "turn_state_1", state)
 
 	// group 隔离
-	_, ok = store.GetSessionTurnState(10, "session_hash_1")
+	_, ok, err = store.GetSessionTurnState(ctx, 10, "session_hash_1")
+	require.NoError(t, err)
 	require.False(t, ok)
 
 	time.Sleep(60 * time.Millisecond)
-	_, ok = store.GetSessionTurnState(9, "session_hash_1")
+	_, ok, err = store.GetSessionTurnState(ctx, 9, "session_hash_1")
+	require.NoError(t, err)
 	require.False(t, ok)
 }
 
@@ -92,6 +97,105 @@ func TestOpenAIWSStateStore_GetResponseAccount_NoStaleAfterCacheMiss(t *testing.
 	accountID, err = store.GetResponseAccount(ctx, groupID, responseID)
 	require.NoError(t, err)
 	require.Zero(t, accountID, "上游缓存失效后不应继续命中本地陈旧映射")
+}
+
+type openAIWSSharedStateValue struct {
+	value     string
+	expiresAt time.Time
+}
+
+type stubOpenAIWSSharedCache struct {
+	stubGatewayCache
+
+	mu        sync.Mutex
+	states    map[string]openAIWSSharedStateValue
+	setErr    error
+	getErr    error
+	deleteErr error
+}
+
+func (c *stubOpenAIWSSharedCache) SetOpenAIWSState(_ context.Context, key, value string, ttl time.Duration) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.setErr != nil {
+		return c.setErr
+	}
+	if c.states == nil {
+		c.states = make(map[string]openAIWSSharedStateValue)
+	}
+	c.states[key] = openAIWSSharedStateValue{value: value, expiresAt: time.Now().Add(ttl)}
+	return nil
+}
+
+func (c *stubOpenAIWSSharedCache) GetOpenAIWSState(_ context.Context, key string) (string, bool, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.getErr != nil {
+		return "", false, c.getErr
+	}
+	value, ok := c.states[key]
+	if !ok || time.Now().After(value.expiresAt) {
+		delete(c.states, key)
+		return "", false, nil
+	}
+	return value.value, true, nil
+}
+
+func (c *stubOpenAIWSSharedCache) DeleteOpenAIWSState(_ context.Context, key string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.deleteErr != nil {
+		return c.deleteErr
+	}
+	delete(c.states, key)
+	return nil
+}
+
+func TestOpenAIWSStateStore_SharedStateCrossNodeInvalidation(t *testing.T) {
+	cache := &stubOpenAIWSSharedCache{}
+	storeA := NewOpenAIWSStateStore(cache)
+	storeB := NewOpenAIWSStateStore(cache)
+	ctx := context.Background()
+
+	require.NoError(t, storeA.BindResponseAccount(ctx, 7, "resp_cross_node", 101, time.Minute))
+	accountID, err := storeB.GetResponseAccount(ctx, 7, "resp_cross_node")
+	require.NoError(t, err)
+	require.Equal(t, int64(101), accountID)
+	require.NoError(t, storeB.DeleteResponseAccount(ctx, 7, "resp_cross_node"))
+	accountID, err = storeA.GetResponseAccount(ctx, 7, "resp_cross_node")
+	require.NoError(t, err)
+	require.Zero(t, accountID, "节点 B 删除 Redis 映射后，节点 A 不应命中本地旧值")
+
+	require.NoError(t, storeA.BindSessionTurnState(ctx, 7, "session_cross_node", "turn_cross_node", time.Minute))
+	turnState, ok, err := storeB.GetSessionTurnState(ctx, 7, "session_cross_node")
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, "turn_cross_node", turnState)
+	require.NoError(t, storeB.DeleteSessionTurnState(ctx, 7, "session_cross_node"))
+	_, ok, err = storeA.GetSessionTurnState(ctx, 7, "session_cross_node")
+	require.NoError(t, err)
+	require.False(t, ok, "节点 B 删除 turn state 后，节点 A 应立即失效")
+
+	storeA.BindResponseConn("resp_local", "conn_a", time.Minute)
+	storeA.BindSessionConn(7, "session_local", "conn_a", time.Minute)
+	_, ok = storeB.GetResponseConn("resp_local")
+	require.False(t, ok, "response conn ID 只能在连接所属节点可见")
+	_, ok = storeB.GetSessionConn(7, "session_local")
+	require.False(t, ok, "session conn ID 只能在连接所属节点可见")
+}
+
+func TestOpenAIWSStateStore_SharedStateFailureDoesNotFallBackToLocal(t *testing.T) {
+	cache := &stubOpenAIWSSharedCache{setErr: errors.New("redis unavailable")}
+	store := NewOpenAIWSStateStore(cache)
+	ctx := context.Background()
+
+	err := store.BindSessionTurnState(ctx, 3, "session_redis_failure", "turn_state", time.Minute)
+	require.ErrorContains(t, err, "redis unavailable")
+
+	turnState, ok, err := store.GetSessionTurnState(ctx, 3, "session_redis_failure")
+	require.NoError(t, err)
+	require.False(t, ok)
+	require.Empty(t, turnState, "Redis 配置存在时不得回退到可能陈旧的本地副本")
 }
 
 func TestOpenAIWSStateStore_MaybeCleanupRemovesExpiredIncrementally(t *testing.T) {
@@ -163,6 +267,9 @@ type openAIWSStateStoreTimeoutProbeCache struct {
 	setDeadlineDelta  time.Duration
 	getDeadlineDelta  time.Duration
 	delDeadlineDelta  time.Duration
+	sharedSetDeadline time.Duration
+	sharedGetDeadline time.Duration
+	sharedDelDeadline time.Duration
 }
 
 func (c *openAIWSStateStoreTimeoutProbeCache) GetSessionAccountID(ctx context.Context, _ int64, _ string) (int64, error) {
@@ -193,6 +300,27 @@ func (c *openAIWSStateStoreTimeoutProbeCache) DeleteSessionAccountID(ctx context
 	return nil
 }
 
+func (c *openAIWSStateStoreTimeoutProbeCache) SetOpenAIWSState(ctx context.Context, _, _ string, _ time.Duration) error {
+	if deadline, ok := ctx.Deadline(); ok {
+		c.sharedSetDeadline = time.Until(deadline)
+	}
+	return errors.New("shared set failed")
+}
+
+func (c *openAIWSStateStoreTimeoutProbeCache) GetOpenAIWSState(ctx context.Context, _ string) (string, bool, error) {
+	if deadline, ok := ctx.Deadline(); ok {
+		c.sharedGetDeadline = time.Until(deadline)
+	}
+	return "turn_from_redis", true, nil
+}
+
+func (c *openAIWSStateStoreTimeoutProbeCache) DeleteOpenAIWSState(ctx context.Context, _ string) error {
+	if deadline, ok := ctx.Deadline(); ok {
+		c.sharedDelDeadline = time.Until(deadline)
+	}
+	return nil
+}
+
 func TestOpenAIWSStateStore_RedisOpsUseShortTimeout(t *testing.T) {
 	probe := &openAIWSStateStoreTimeoutProbeCache{}
 	store := NewOpenAIWSStateStore(probe)
@@ -204,17 +332,29 @@ func TestOpenAIWSStateStore_RedisOpsUseShortTimeout(t *testing.T) {
 
 	accountID, getErr := store.GetResponseAccount(ctx, groupID, "resp_timeout_probe")
 	require.NoError(t, getErr)
-	require.Equal(t, int64(11), accountID, "本地缓存命中应优先返回已绑定账号")
+	require.Equal(t, int64(123), accountID, "Redis 配置存在时应始终从权威缓存读取")
 
 	require.NoError(t, store.DeleteResponseAccount(ctx, groupID, "resp_timeout_probe"))
+	require.Error(t, store.BindSessionTurnState(ctx, groupID, "session_timeout_probe", "turn", time.Minute))
+	turnState, ok, turnErr := store.GetSessionTurnState(ctx, groupID, "session_timeout_probe")
+	require.NoError(t, turnErr)
+	require.True(t, ok)
+	require.Equal(t, "turn_from_redis", turnState)
+	require.NoError(t, store.DeleteSessionTurnState(ctx, groupID, "session_timeout_probe"))
 
 	require.True(t, probe.setHasDeadline, "SetSessionAccountID 应携带独立超时上下文")
 	require.True(t, probe.deleteHasDeadline, "DeleteSessionAccountID 应携带独立超时上下文")
-	require.False(t, probe.getHasDeadline, "GetSessionAccountID 本用例应由本地缓存命中，不触发 Redis 读取")
+	require.True(t, probe.getHasDeadline, "GetSessionAccountID 应从 Redis 权威读取")
 	require.Greater(t, probe.setDeadlineDelta, 2*time.Second)
 	require.LessOrEqual(t, probe.setDeadlineDelta, 3*time.Second)
 	require.Greater(t, probe.delDeadlineDelta, 2*time.Second)
 	require.LessOrEqual(t, probe.delDeadlineDelta, 3*time.Second)
+	require.Greater(t, probe.sharedSetDeadline, 2*time.Second)
+	require.LessOrEqual(t, probe.sharedSetDeadline, 3*time.Second)
+	require.Greater(t, probe.sharedGetDeadline, 2*time.Second)
+	require.LessOrEqual(t, probe.sharedGetDeadline, 3*time.Second)
+	require.Greater(t, probe.sharedDelDeadline, 2*time.Second)
+	require.LessOrEqual(t, probe.sharedDelDeadline, 3*time.Second)
 
 	probe2 := &openAIWSStateStoreTimeoutProbeCache{}
 	store2 := NewOpenAIWSStateStore(probe2)

@@ -3,6 +3,7 @@ package service
 import (
 	"compress/gzip"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,7 +27,9 @@ const (
 	settingKeyBackupSchedule = "backup_schedule"
 	settingKeyBackupRecords  = "backup_records"
 
-	maxBackupRecords = 100
+	maxBackupRecords       = 100
+	backupScheduledLockKey = "backup:scheduled:leader"
+	backupScheduledLockTTL = 35 * time.Minute
 )
 
 var (
@@ -110,6 +113,10 @@ type BackupService struct {
 	encryptor    SecretEncryptor
 	storeFactory BackupObjectStoreFactory
 	dumper       DBDumper
+	lockCache    LeaderLockCache
+	db           *sql.DB
+	instanceID   string
+	cluster      ClusterTaskCoordinator
 
 	opMu      sync.Mutex // 保护 backingUp/restoring 标志
 	backingUp bool
@@ -145,8 +152,24 @@ func NewBackupService(
 		encryptor:    encryptor,
 		storeFactory: storeFactory,
 		dumper:       dumper,
+		instanceID:   uuid.NewString(),
 		bgCtx:        bgCtx,
 		bgCancel:     bgCancel,
+	}
+}
+
+// SetLeaderLock injects cross-instance coordination for scheduled backups.
+func (s *BackupService) SetLeaderLock(lockCache LeaderLockCache, db *sql.DB) {
+	if s == nil {
+		return
+	}
+	s.lockCache = lockCache
+	s.db = db
+}
+
+func (s *BackupService) SetClusterTaskCoordinator(cluster ClusterTaskCoordinator) {
+	if s != nil {
+		s.cluster = cluster
 	}
 }
 
@@ -390,7 +413,29 @@ func (s *BackupService) runScheduledBackup() {
 
 	ctx, cancel := context.WithTimeout(s.bgCtx, 30*time.Minute)
 	defer cancel()
+	if s.cluster != nil {
+		ran, err := s.cluster.RunTask(ctx, "backup:scheduled", nil, func(taskCtx context.Context) (map[string]any, error) {
+			return s.executeScheduledBackup(taskCtx)
+		})
+		if !ran {
+			logger.LegacyPrintf("service.backup", "[Backup] 定时备份跳过: 其他实例正在执行或当前节点未启用 worker")
+			return
+		}
+		if err != nil {
+			logger.LegacyPrintf("service.backup", "[Backup] 定时备份失败: %v", err)
+		}
+		return
+	}
+	release, ok := tryAcquireSingletonLeaderLock(ctx, s.lockCache, s.db, backupScheduledLockKey, s.instanceID, backupScheduledLockTTL)
+	if !ok {
+		logger.LegacyPrintf("service.backup", "[Backup] 定时备份跳过: 其他实例正在执行")
+		return
+	}
+	defer release()
+	_, _ = s.executeScheduledBackup(ctx)
+}
 
+func (s *BackupService) executeScheduledBackup(ctx context.Context) (map[string]any, error) {
 	// 读取定时备份配置中的过期天数
 	schedule, _ := s.GetSchedule(ctx)
 	expireDays := 14 // 默认14天过期
@@ -406,17 +451,19 @@ func (s *BackupService) runScheduledBackup() {
 		} else {
 			logger.LegacyPrintf("service.backup", "[Backup] 定时备份失败: %v", err)
 		}
-		return
+		return nil, err
 	}
 	logger.LegacyPrintf("service.backup", "[Backup] 定时备份完成: id=%s size=%d", record.ID, record.SizeBytes)
 
 	// 清理过期备份（复用已加载的 schedule）
 	if schedule == nil {
-		return
+		return map[string]any{"backup_id": record.ID, "size_bytes": record.SizeBytes}, nil
 	}
 	if err := s.cleanupOldBackups(ctx, schedule); err != nil {
 		logger.LegacyPrintf("service.backup", "[Backup] 清理过期备份失败: %v", err)
+		return map[string]any{"backup_id": record.ID, "size_bytes": record.SizeBytes}, err
 	}
+	return map[string]any{"backup_id": record.ID, "size_bytes": record.SizeBytes}, nil
 }
 
 // ─── 备份/恢复核心 ───

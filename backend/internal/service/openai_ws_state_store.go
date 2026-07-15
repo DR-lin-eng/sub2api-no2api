@@ -13,6 +13,7 @@ import (
 
 const (
 	openAIWSResponseAccountCachePrefix = "openai:response:"
+	openAIWSTurnStateCachePrefix       = "turn:v1:"
 	openAIWSStateStoreCleanupInterval  = time.Minute
 	openAIWSStateStoreCleanupMaxPerMap = 512
 	openAIWSStateStoreMaxEntriesPerMap = 65536
@@ -39,12 +40,19 @@ type openAIWSSessionConnBinding struct {
 	expiresAt time.Time
 }
 
+// OpenAIWSSharedStateCache stores serializable WS state shared by all replicas.
+// When implemented by GatewayCache, Redis is authoritative and the local maps
+// are used only when no shared cache is configured.
+type OpenAIWSSharedStateCache interface {
+	SetOpenAIWSState(ctx context.Context, key, value string, ttl time.Duration) error
+	GetOpenAIWSState(ctx context.Context, key string) (string, bool, error)
+	DeleteOpenAIWSState(ctx context.Context, key string) error
+}
+
 // OpenAIWSStateStore 管理 WSv2 的粘连状态。
-// - response_id -> account_id 用于续链路由
-// - response_id -> conn_id 用于连接内上下文复用
-//
-// response_id -> account_id 优先走 GatewayCache（Redis），同时维护本地热缓存。
-// response_id -> conn_id 仅在本进程内有效。
+// response_id -> account_id and session -> turn_state are shared through Redis
+// when available. Connection IDs remain process-local because they reference
+// sockets owned by the local connection pool.
 type OpenAIWSStateStore interface {
 	BindResponseAccount(ctx context.Context, groupID int64, responseID string, accountID int64, ttl time.Duration) error
 	GetResponseAccount(ctx context.Context, groupID int64, responseID string) (int64, error)
@@ -54,9 +62,9 @@ type OpenAIWSStateStore interface {
 	GetResponseConn(responseID string) (string, bool)
 	DeleteResponseConn(responseID string)
 
-	BindSessionTurnState(groupID int64, sessionHash, turnState string, ttl time.Duration)
-	GetSessionTurnState(groupID int64, sessionHash string) (string, bool)
-	DeleteSessionTurnState(groupID int64, sessionHash string)
+	BindSessionTurnState(ctx context.Context, groupID int64, sessionHash, turnState string, ttl time.Duration) error
+	GetSessionTurnState(ctx context.Context, groupID int64, sessionHash string) (string, bool, error)
+	DeleteSessionTurnState(ctx context.Context, groupID int64, sessionHash string) error
 
 	BindSessionConn(groupID int64, sessionHash, connID string, ttl time.Duration)
 	GetSessionConn(groupID int64, sessionHash string) (string, bool)
@@ -64,7 +72,8 @@ type OpenAIWSStateStore interface {
 }
 
 type defaultOpenAIWSStateStore struct {
-	cache GatewayCache
+	cache       GatewayCache
+	sharedCache OpenAIWSSharedStateCache
 
 	responseToAccountMu  sync.RWMutex
 	responseToAccount    map[string]openAIWSAccountBinding
@@ -80,8 +89,10 @@ type defaultOpenAIWSStateStore struct {
 
 // NewOpenAIWSStateStore 创建默认 WS 状态存储。
 func NewOpenAIWSStateStore(cache GatewayCache) OpenAIWSStateStore {
+	sharedCache, _ := cache.(OpenAIWSSharedStateCache)
 	store := &defaultOpenAIWSStateStore{
 		cache:              cache,
+		sharedCache:        sharedCache,
 		responseToAccount:  make(map[string]openAIWSAccountBinding, 256),
 		responseToConn:     make(map[string]openAIWSConnBinding, 256),
 		sessionToTurnState: make(map[string]openAIWSTurnStateBinding, 256),
@@ -99,14 +110,13 @@ func (s *defaultOpenAIWSStateStore) BindResponseAccount(ctx context.Context, gro
 	ttl = normalizeOpenAIWSTTL(ttl)
 	s.maybeCleanup()
 
-	expiresAt := time.Now().Add(ttl)
-	mapKey := openAIWSResponseAccountMapKey(groupID, id)
-	s.responseToAccountMu.Lock()
-	ensureBindingCapacity(s.responseToAccount, mapKey, openAIWSStateStoreMaxEntriesPerMap)
-	s.responseToAccount[mapKey] = openAIWSAccountBinding{accountID: accountID, expiresAt: expiresAt}
-	s.responseToAccountMu.Unlock()
-
 	if s.cache == nil {
+		expiresAt := time.Now().Add(ttl)
+		mapKey := openAIWSResponseAccountMapKey(groupID, id)
+		s.responseToAccountMu.Lock()
+		ensureBindingCapacity(s.responseToAccount, mapKey, openAIWSStateStoreMaxEntriesPerMap)
+		s.responseToAccount[mapKey] = openAIWSAccountBinding{accountID: accountID, expiresAt: expiresAt}
+		s.responseToAccountMu.Unlock()
 		return nil
 	}
 	cacheKey := openAIWSResponseAccountCacheKey(id)
@@ -122,19 +132,15 @@ func (s *defaultOpenAIWSStateStore) GetResponseAccount(ctx context.Context, grou
 	}
 	s.maybeCleanup()
 
-	now := time.Now()
-	mapKey := openAIWSResponseAccountMapKey(groupID, id)
-	s.responseToAccountMu.RLock()
-	if binding, ok := s.responseToAccount[mapKey]; ok {
-		if now.Before(binding.expiresAt) {
-			accountID := binding.accountID
-			s.responseToAccountMu.RUnlock()
-			return accountID, nil
-		}
-	}
-	s.responseToAccountMu.RUnlock()
-
 	if s.cache == nil {
+		now := time.Now()
+		mapKey := openAIWSResponseAccountMapKey(groupID, id)
+		s.responseToAccountMu.RLock()
+		binding, ok := s.responseToAccount[mapKey]
+		s.responseToAccountMu.RUnlock()
+		if ok && now.Before(binding.expiresAt) {
+			return binding.accountID, nil
+		}
 		return 0, nil
 	}
 
@@ -154,11 +160,10 @@ func (s *defaultOpenAIWSStateStore) DeleteResponseAccount(ctx context.Context, g
 	if id == "" {
 		return nil
 	}
-	s.responseToAccountMu.Lock()
-	delete(s.responseToAccount, openAIWSResponseAccountMapKey(groupID, id))
-	s.responseToAccountMu.Unlock()
-
 	if s.cache == nil {
+		s.responseToAccountMu.Lock()
+		delete(s.responseToAccount, openAIWSResponseAccountMapKey(groupID, id))
+		s.responseToAccountMu.Unlock()
 		return nil
 	}
 	cacheCtx, cancel := withOpenAIWSStateStoreRedisTimeout(ctx)
@@ -211,14 +216,19 @@ func (s *defaultOpenAIWSStateStore) DeleteResponseConn(responseID string) {
 	s.responseToConnMu.Unlock()
 }
 
-func (s *defaultOpenAIWSStateStore) BindSessionTurnState(groupID int64, sessionHash, turnState string, ttl time.Duration) {
+func (s *defaultOpenAIWSStateStore) BindSessionTurnState(ctx context.Context, groupID int64, sessionHash, turnState string, ttl time.Duration) error {
 	key := openAIWSSessionTurnStateKey(groupID, sessionHash)
 	state := strings.TrimSpace(turnState)
 	if key == "" || state == "" {
-		return
+		return nil
 	}
 	ttl = normalizeOpenAIWSTTL(ttl)
 	s.maybeCleanup()
+	if s.sharedCache != nil {
+		cacheCtx, cancel := withOpenAIWSStateStoreRedisTimeout(ctx)
+		defer cancel()
+		return s.sharedCache.SetOpenAIWSState(cacheCtx, openAIWSSessionTurnStateCacheKey(groupID, sessionHash), state, ttl)
+	}
 
 	s.sessionToTurnStateMu.Lock()
 	ensureBindingCapacity(s.sessionToTurnState, key, openAIWSStateStoreMaxEntriesPerMap)
@@ -227,33 +237,50 @@ func (s *defaultOpenAIWSStateStore) BindSessionTurnState(groupID int64, sessionH
 		expiresAt: time.Now().Add(ttl),
 	}
 	s.sessionToTurnStateMu.Unlock()
+	return nil
 }
 
-func (s *defaultOpenAIWSStateStore) GetSessionTurnState(groupID int64, sessionHash string) (string, bool) {
+func (s *defaultOpenAIWSStateStore) GetSessionTurnState(ctx context.Context, groupID int64, sessionHash string) (string, bool, error) {
 	key := openAIWSSessionTurnStateKey(groupID, sessionHash)
 	if key == "" {
-		return "", false
+		return "", false, nil
 	}
 	s.maybeCleanup()
+	if s.sharedCache != nil {
+		cacheCtx, cancel := withOpenAIWSStateStoreRedisTimeout(ctx)
+		defer cancel()
+		state, ok, err := s.sharedCache.GetOpenAIWSState(cacheCtx, openAIWSSessionTurnStateCacheKey(groupID, sessionHash))
+		if err != nil || !ok {
+			return "", false, err
+		}
+		state = strings.TrimSpace(state)
+		return state, state != "", nil
+	}
 
 	now := time.Now()
 	s.sessionToTurnStateMu.RLock()
 	binding, ok := s.sessionToTurnState[key]
 	s.sessionToTurnStateMu.RUnlock()
 	if !ok || now.After(binding.expiresAt) || strings.TrimSpace(binding.turnState) == "" {
-		return "", false
+		return "", false, nil
 	}
-	return binding.turnState, true
+	return binding.turnState, true, nil
 }
 
-func (s *defaultOpenAIWSStateStore) DeleteSessionTurnState(groupID int64, sessionHash string) {
+func (s *defaultOpenAIWSStateStore) DeleteSessionTurnState(ctx context.Context, groupID int64, sessionHash string) error {
 	key := openAIWSSessionTurnStateKey(groupID, sessionHash)
 	if key == "" {
-		return
+		return nil
+	}
+	if s.sharedCache != nil {
+		cacheCtx, cancel := withOpenAIWSStateStoreRedisTimeout(ctx)
+		defer cancel()
+		return s.sharedCache.DeleteOpenAIWSState(cacheCtx, openAIWSSessionTurnStateCacheKey(groupID, sessionHash))
 	}
 	s.sessionToTurnStateMu.Lock()
 	delete(s.sessionToTurnState, key)
 	s.sessionToTurnStateMu.Unlock()
+	return nil
 }
 
 func (s *defaultOpenAIWSStateStore) BindSessionConn(groupID int64, sessionHash, connID string, ttl time.Duration) {
@@ -437,6 +464,15 @@ func openAIWSSessionTurnStateKey(groupID int64, sessionHash string) string {
 		return ""
 	}
 	return fmt.Sprintf("%d:%s", groupID, hash)
+}
+
+func openAIWSSessionTurnStateCacheKey(groupID int64, sessionHash string) string {
+	hash := strings.TrimSpace(sessionHash)
+	if hash == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(hash))
+	return fmt.Sprintf("%s%d:%s", openAIWSTurnStateCachePrefix, groupID, hex.EncodeToString(sum[:]))
 }
 
 func withOpenAIWSStateStoreRedisTimeout(ctx context.Context) (context.Context, context.CancelFunc) {

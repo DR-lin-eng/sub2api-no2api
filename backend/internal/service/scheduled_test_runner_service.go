@@ -2,15 +2,22 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"sync"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
 )
 
-const scheduledTestDefaultMaxWorkers = 10
+const (
+	scheduledTestDefaultMaxWorkers = 10
+	scheduledTestLeaderLockKey     = "scheduled-test:runner:leader"
+	// runScheduled has a five-minute timeout; keep the lease beyond that bound.
+	scheduledTestLeaderLockTTL = 6 * time.Minute
+)
 
 // ScheduledTestRunnerService periodically scans due test plans and executes them.
 type ScheduledTestRunnerService struct {
@@ -19,10 +26,20 @@ type ScheduledTestRunnerService struct {
 	accountTestSvc *AccountTestService
 	rateLimitSvc   *RateLimitService
 	cfg            *config.Config
+	lockCache      LeaderLockCache
+	db             *sql.DB
+	instanceID     string
+	cluster        ClusterTaskCoordinator
 
 	cron      *cron.Cron
 	startOnce sync.Once
 	stopOnce  sync.Once
+}
+
+func (s *ScheduledTestRunnerService) SetClusterTaskCoordinator(cluster ClusterTaskCoordinator) {
+	if s != nil {
+		s.cluster = cluster
+	}
 }
 
 // NewScheduledTestRunnerService creates a new runner.
@@ -39,7 +56,17 @@ func NewScheduledTestRunnerService(
 		accountTestSvc: accountTestSvc,
 		rateLimitSvc:   rateLimitSvc,
 		cfg:            cfg,
+		instanceID:     uuid.NewString(),
 	}
+}
+
+// SetLeaderLock injects cross-instance coordination for each due-plan scan.
+func (s *ScheduledTestRunnerService) SetLeaderLock(lockCache LeaderLockCache, db *sql.DB) {
+	if s == nil {
+		return
+	}
+	s.lockCache = lockCache
+	s.db = db
 }
 
 // Start begins the cron ticker (every minute).
@@ -87,18 +114,42 @@ func (s *ScheduledTestRunnerService) Stop() {
 func (s *ScheduledTestRunnerService) runScheduled() {
 	// Delay 10s so execution lands at ~:10 of each minute instead of :00.
 	time.Sleep(10 * time.Second)
+	s.runScheduledNow()
+}
 
+func (s *ScheduledTestRunnerService) runScheduledNow() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
+	if s.cluster != nil {
+		ran, err := s.cluster.RunTask(ctx, "scheduled_test:scan", nil, func(taskCtx context.Context) (map[string]any, error) {
+			count, runErr := s.executeScheduled(taskCtx)
+			return map[string]any{"due_plans": count}, runErr
+		})
+		if err != nil {
+			logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] cluster task error: %v", err)
+		}
+		if !ran {
+			return
+		}
+		return
+	}
+	release, ok := tryAcquireSingletonLeaderLock(ctx, s.lockCache, s.db, scheduledTestLeaderLockKey, s.instanceID, scheduledTestLeaderLockTTL)
+	if !ok {
+		return
+	}
+	defer release()
+	_, _ = s.executeScheduled(ctx)
+}
 
+func (s *ScheduledTestRunnerService) executeScheduled(ctx context.Context) (int, error) {
 	now := time.Now()
 	plans, err := s.planRepo.ListDue(ctx, now)
 	if err != nil {
 		logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] ListDue error: %v", err)
-		return
+		return 0, err
 	}
 	if len(plans) == 0 {
-		return
+		return 0, nil
 	}
 
 	logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] found %d due plans", len(plans))
@@ -117,6 +168,7 @@ func (s *ScheduledTestRunnerService) runScheduled() {
 	}
 
 	wg.Wait()
+	return len(plans), nil
 }
 
 func (s *ScheduledTestRunnerService) runOnePlan(ctx context.Context, plan *ScheduledTestPlan) {

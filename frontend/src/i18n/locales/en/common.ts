@@ -168,6 +168,7 @@ export default {
     proxies: 'Proxies',
     redeemCodes: 'Redeem Codes',
     ops: 'Ops',
+    multiInstance: 'Multi-instance',
     promoCodes: 'Promo Codes',
     settings: 'Settings',
     myAccount: 'My Account',

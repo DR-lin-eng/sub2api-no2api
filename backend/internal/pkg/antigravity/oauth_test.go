@@ -302,8 +302,9 @@ func TestNewSessionStore(t *testing.T) {
 	if store == nil {
 		t.Fatal("NewSessionStore 返回 nil")
 	}
-	if store.sessions == nil {
-		t.Error("sessions map 不应为 nil")
+	store.Set("probe", &OAuthSession{State: "state", CreatedAt: time.Now()})
+	if _, ok := store.Get("probe"); !ok {
+		t.Error("新建的 store 应可读写 session")
 	}
 }
 

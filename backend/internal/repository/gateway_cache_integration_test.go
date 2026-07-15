@@ -91,6 +91,29 @@ func (s *GatewayCacheSuite) TestDeleteSessionAccountID() {
 	require.True(s.T(), errors.Is(err, redis.Nil), "expected redis.Nil after delete")
 }
 
+func (s *GatewayCacheSuite) TestOpenAIWSSharedState() {
+	shared, ok := s.cache.(service.OpenAIWSSharedStateCache)
+	require.True(s.T(), ok)
+
+	key := "turn:v1:1:test"
+	ttl := time.Minute
+	require.NoError(s.T(), shared.SetOpenAIWSState(s.ctx, key, "turn-state", ttl))
+
+	value, found, err := shared.GetOpenAIWSState(s.ctx, key)
+	require.NoError(s.T(), err)
+	require.True(s.T(), found)
+	require.Equal(s.T(), "turn-state", value)
+
+	redisTTL, err := s.rdb.TTL(s.ctx, buildOpenAIWSSharedStateKey(key)).Result()
+	require.NoError(s.T(), err)
+	s.AssertTTLWithin(redisTTL, time.Second, ttl)
+
+	require.NoError(s.T(), shared.DeleteOpenAIWSState(s.ctx, key))
+	_, found, err = shared.GetOpenAIWSState(s.ctx, key)
+	require.NoError(s.T(), err)
+	require.False(s.T(), found)
+}
+
 func (s *GatewayCacheSuite) TestGetSessionAccountID_CorruptedValue() {
 	sessionID := "corrupted"
 	groupID := int64(1)

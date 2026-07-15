@@ -35,6 +35,31 @@ func TestLoadServerTimingConfig(t *testing.T) {
 	})
 }
 
+func TestLoadDeploymentWorkerModes(t *testing.T) {
+	t.Run("auto is the default worker candidate", func(t *testing.T) {
+		resetViperWithJWTSecret(t)
+		cfg, err := Load()
+		require.NoError(t, err)
+		require.Equal(t, DeploymentModeStandalone, cfg.Deployment.Mode)
+		require.Equal(t, WorkerModeAuto, cfg.Deployment.WorkerMode())
+		require.True(t, cfg.Deployment.WorkerEnabledResolved())
+		require.NotEmpty(t, cfg.Deployment.NodeName)
+	})
+
+	t.Run("explicit api-only node keeps worker disabled", func(t *testing.T) {
+		resetViperWithJWTSecret(t)
+		t.Setenv("DEPLOYMENT_MODE", DeploymentModeMultiInstance)
+		t.Setenv("NODE_NAME", "api-only-01")
+		t.Setenv("WORKER_ENABLED", "false")
+		cfg, err := Load()
+		require.NoError(t, err)
+		require.Equal(t, DeploymentModeMultiInstance, cfg.Deployment.Mode)
+		require.Equal(t, "api-only-01", cfg.Deployment.NodeName)
+		require.Equal(t, WorkerModeDisabled, cfg.Deployment.WorkerMode())
+		require.False(t, cfg.Deployment.WorkerEnabledResolved())
+	})
+}
+
 func TestLoadGatewayMaxLineSizeDefault(t *testing.T) {
 	resetViperWithJWTSecret(t)
 	cfg, err := Load()

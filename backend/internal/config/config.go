@@ -19,6 +19,13 @@ import (
 const (
 	RunModeStandard = "standard"
 	RunModeSimple   = "simple"
+
+	DeploymentModeStandalone    = "standalone"
+	DeploymentModeMultiInstance = "multi_instance"
+
+	WorkerModeAuto     = "auto"
+	WorkerModeEnabled  = "true"
+	WorkerModeDisabled = "false"
 )
 
 // 使用量记录队列溢出策略
@@ -60,6 +67,7 @@ const (
 const DefaultUpstreamResponseReadMaxBytes int64 = 128 * 1024 * 1024
 
 type Config struct {
+	Deployment              DeploymentConfig              `mapstructure:"deployment"`
 	Server                  ServerConfig                  `mapstructure:"server"`
 	Log                     LogConfig                     `mapstructure:"log"`
 	CORS                    CORSConfig                    `mapstructure:"cors"`
@@ -96,6 +104,42 @@ type Config struct {
 	Idempotency             IdempotencyConfig             `mapstructure:"idempotency"`
 	BatchImage              BatchImageConfig              `mapstructure:"batch_image"`
 	ImageStorage            ImageStorageConfig            `mapstructure:"image_storage"`
+}
+
+// DeploymentConfig controls cluster identity and cluster-wide scheduled work.
+// Every node always serves the complete API and embedded frontend. WorkerEnabled
+// is tri-state: auto/true are worker candidates, while false disables only
+// cluster-wide scheduled workers on this node.
+type DeploymentConfig struct {
+	Mode                     string `mapstructure:"mode"`
+	NodeName                 string `mapstructure:"node_name"`
+	WorkerEnabled            string `mapstructure:"worker_enabled"`
+	HeartbeatIntervalSeconds int    `mapstructure:"heartbeat_interval_seconds"`
+	StaleAfterSeconds        int    `mapstructure:"stale_after_seconds"`
+	TaskLeaseSeconds         int    `mapstructure:"task_lease_seconds"`
+}
+
+func (c DeploymentConfig) IsMultiInstance() bool {
+	return c.Mode == DeploymentModeMultiInstance
+}
+
+func (c DeploymentConfig) WorkerMode() string {
+	mode := strings.ToLower(strings.TrimSpace(c.WorkerEnabled))
+	switch mode {
+	case WorkerModeEnabled, "1", "yes", "on", "enabled":
+		return WorkerModeEnabled
+	case WorkerModeDisabled, "0", "no", "off", "disabled":
+		return WorkerModeDisabled
+	default:
+		return WorkerModeAuto
+	}
+}
+
+// WorkerEnabledResolved reports whether this node may contend for distributed
+// work. Auto deliberately enables candidacy on every node; the task lease picks
+// the actual executor and preserves failover without a manually selected master.
+func (c DeploymentConfig) WorkerEnabledResolved() bool {
+	return c.WorkerMode() != WorkerModeDisabled
 }
 
 type LogConfig struct {
@@ -1407,10 +1451,10 @@ type JWTConfig struct {
 // TotpConfig TOTP 双因素认证配置
 type TotpConfig struct {
 	// EncryptionKey 用于加密 TOTP 密钥的 AES-256 密钥（32 字节 hex 编码）
-	// 如果为空，将自动生成一个随机密钥（仅适用于开发环境）
+	// 如果为空，启动阶段会生成候选值，并由数据库中的系统密钥记录完成跨实例仲裁。
 	EncryptionKey string `mapstructure:"encryption_key"`
-	// EncryptionKeyConfigured 标记加密密钥是否为手动配置（非自动生成）
-	// 只有手动配置了密钥才允许在管理后台启用 TOTP 功能
+	// EncryptionKeyConfigured 标记密钥是否已通过显式配置或数据库持久化稳定下来。
+	// 只有跨重启/跨实例稳定的密钥才允许在管理后台启用 TOTP 功能。
 	EncryptionKeyConfigured bool `mapstructure:"-"`
 }
 
@@ -1553,6 +1597,15 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 	// 环境变量支持
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	if err := viper.BindEnv("deployment.mode", "DEPLOYMENT_MODE"); err != nil {
+		return nil, fmt.Errorf("bind DEPLOYMENT_MODE: %w", err)
+	}
+	if err := viper.BindEnv("deployment.node_name", "NODE_NAME"); err != nil {
+		return nil, fmt.Errorf("bind NODE_NAME: %w", err)
+	}
+	if err := viper.BindEnv("deployment.worker_enabled", "WORKER_ENABLED"); err != nil {
+		return nil, fmt.Errorf("bind WORKER_ENABLED: %w", err)
+	}
 	if err := viper.BindEnv("server.enable_server_timing", "ENABLE_SERVER_TIMING"); err != nil {
 		return nil, fmt.Errorf("bind ENABLE_SERVER_TIMING: %w", err)
 	}
@@ -1580,6 +1633,7 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 	if !cfg.Gateway.OpenAIScheduler.StickyEscapeEnabled && !viper.IsSet("gateway.openai_scheduler.sticky_escape_enabled") {
 		cfg.Gateway.OpenAIScheduler.StickyEscapeEnabled = true
 	}
+	normalizeDeploymentConfig(&cfg.Deployment)
 
 	cfg.RunMode = NormalizeRunMode(cfg.RunMode)
 	cfg.Server.Mode = strings.ToLower(strings.TrimSpace(cfg.Server.Mode))
@@ -1656,7 +1710,8 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 		cfg.Gateway.UserMessageQueue.Mode = ""
 	}
 
-	// Auto-generate TOTP encryption key if not set (32 bytes = 64 hex chars for AES-256)
+	// Generate a bootstrap candidate when unset. Repository initialization persists
+	// the first value in PostgreSQL and replaces later replicas' candidates with it.
 	cfg.Totp.EncryptionKey = strings.TrimSpace(cfg.Totp.EncryptionKey)
 	if cfg.Totp.EncryptionKey == "" {
 		key, err := generateJWTSecret(32) // Reuse the same random generation function
@@ -1665,7 +1720,7 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 		}
 		cfg.Totp.EncryptionKey = key
 		cfg.Totp.EncryptionKeyConfigured = false
-		slog.Warn("TOTP encryption key auto-generated. Consider setting a fixed key for production.")
+		slog.Info("TOTP encryption key bootstrap candidate generated; PostgreSQL will reconcile it across instances")
 	} else {
 		cfg.Totp.EncryptionKeyConfigured = true
 	}
@@ -1704,8 +1759,46 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 	return &cfg, nil
 }
 
+func normalizeDeploymentConfig(cfg *DeploymentConfig) {
+	if cfg == nil {
+		return
+	}
+	cfg.Mode = strings.ToLower(strings.TrimSpace(cfg.Mode))
+	if cfg.Mode == "" {
+		cfg.Mode = DeploymentModeStandalone
+	}
+	cfg.WorkerEnabled = cfg.WorkerMode()
+	cfg.NodeName = strings.TrimSpace(cfg.NodeName)
+	if cfg.NodeName == "" {
+		if hostname, err := os.Hostname(); err == nil {
+			cfg.NodeName = strings.TrimSpace(hostname)
+		}
+	}
+	if cfg.NodeName == "" {
+		cfg.NodeName = "sub2api-node"
+	}
+	if cfg.HeartbeatIntervalSeconds <= 0 {
+		cfg.HeartbeatIntervalSeconds = 30
+	}
+	if cfg.StaleAfterSeconds <= 0 {
+		cfg.StaleAfterSeconds = 90
+	}
+	if cfg.TaskLeaseSeconds <= 0 {
+		cfg.TaskLeaseSeconds = 60
+	}
+}
+
 func setDefaults() {
 	viper.SetDefault("run_mode", RunModeStandard)
+
+	// Deployment. API and frontend remain enabled on every node; this only
+	// controls cluster identity and scheduled worker candidacy.
+	viper.SetDefault("deployment.mode", DeploymentModeStandalone)
+	viper.SetDefault("deployment.node_name", "")
+	viper.SetDefault("deployment.worker_enabled", WorkerModeAuto)
+	viper.SetDefault("deployment.heartbeat_interval_seconds", 30)
+	viper.SetDefault("deployment.stale_after_seconds", 90)
+	viper.SetDefault("deployment.task_lease_seconds", 60)
 
 	// Server
 	viper.SetDefault("server.host", "0.0.0.0")
@@ -2233,6 +2326,22 @@ func setDefaults() {
 }
 
 func (c *Config) Validate() error {
+	normalizeDeploymentConfig(&c.Deployment)
+	if c.Deployment.Mode != DeploymentModeStandalone && c.Deployment.Mode != DeploymentModeMultiInstance {
+		return fmt.Errorf("deployment.mode must be one of: standalone/multi_instance")
+	}
+	if c.Deployment.HeartbeatIntervalSeconds <= 0 {
+		return fmt.Errorf("deployment.heartbeat_interval_seconds must be positive")
+	}
+	if c.Deployment.StaleAfterSeconds < c.Deployment.HeartbeatIntervalSeconds*2 {
+		return fmt.Errorf("deployment.stale_after_seconds must be at least twice heartbeat_interval_seconds")
+	}
+	if c.Deployment.TaskLeaseSeconds < 15 {
+		return fmt.Errorf("deployment.task_lease_seconds must be at least 15")
+	}
+	if len(c.Deployment.NodeName) > 128 {
+		return fmt.Errorf("deployment.node_name must not exceed 128 characters")
+	}
 	jwtSecret := strings.TrimSpace(c.JWT.Secret)
 	if jwtSecret == "" {
 		return fmt.Errorf("jwt.secret is required")
