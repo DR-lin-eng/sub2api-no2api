@@ -7,6 +7,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -516,6 +517,67 @@ func TestGetAccountsLoadBatchFresh_BypassesShortTTLCache(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 4, fresh[int64(1)].CurrentConcurrency)
 	require.Equal(t, int64(2), cache.loadBatchCalls.Load())
+}
+
+func TestAccountLoadBatchCache_RemovesExpiredEntry(t *testing.T) {
+	svc := NewConcurrencyService(nil)
+	now := time.Now()
+	key := accountLoadBatchKey{count: 1, hashA: 1, hashB: 1}
+	svc.storeCachedAccountLoadBatch(key, map[int64]*AccountLoadInfo{
+		1: {AccountID: 1},
+	}, now.Add(-time.Second))
+
+	result, ok := svc.getCachedAccountLoadBatch(key, now)
+
+	require.False(t, ok)
+	require.Nil(t, result)
+	require.Equal(t, int64(0), svc.accountLoadCacheLen.Load())
+	_, exists := svc.accountLoadCache.Load(key)
+	require.False(t, exists)
+}
+
+func TestAccountLoadBatchCache_StaysBoundedUnderConcurrentWrites(t *testing.T) {
+	svc := NewConcurrencyService(nil)
+	now := time.Now()
+	loadMap := map[int64]*AccountLoadInfo{1: {AccountID: 1}}
+
+	const workers = 16
+	const entriesPerWorker = 64
+	var wg sync.WaitGroup
+	for worker := 0; worker < workers; worker++ {
+		wg.Add(1)
+		go func(worker int) {
+			defer wg.Done()
+			for entry := 0; entry < entriesPerWorker; entry++ {
+				id := uint64(worker*entriesPerWorker + entry + 1)
+				key := accountLoadBatchKey{count: 1, hashA: id, hashB: id}
+				svc.storeCachedAccountLoadBatch(key, loadMap, now.Add(time.Hour))
+				_, _ = svc.getCachedAccountLoadBatch(key, now)
+			}
+		}(worker)
+	}
+	wg.Wait()
+
+	count := 0
+	svc.accountLoadCache.Range(func(_, _ any) bool {
+		count++
+		return true
+	})
+	require.Equal(t, maxAccountLoadBatchCacheEntries, count)
+	require.Equal(t, int64(maxAccountLoadBatchCacheEntries), svc.accountLoadCacheLen.Load())
+}
+
+func TestAccountLoadBatchCacheKey_TracksOrderAndConcurrency(t *testing.T) {
+	base := []AccountWithConcurrency{{ID: 1, MaxConcurrency: 8}, {ID: 2, MaxConcurrency: 16}}
+	same := []AccountWithConcurrency{{ID: 1, MaxConcurrency: 8}, {ID: 2, MaxConcurrency: 16}}
+	reordered := []AccountWithConcurrency{{ID: 2, MaxConcurrency: 16}, {ID: 1, MaxConcurrency: 8}}
+	changedLimit := []AccountWithConcurrency{{ID: 1, MaxConcurrency: 9}, {ID: 2, MaxConcurrency: 16}}
+
+	baseKey := accountLoadBatchCacheKey(base)
+	require.Equal(t, baseKey, accountLoadBatchCacheKey(same))
+	require.NotEqual(t, baseKey, accountLoadBatchCacheKey(reordered))
+	require.NotEqual(t, baseKey, accountLoadBatchCacheKey(changedLimit))
+	require.NotEmpty(t, baseKey.singleflightKey())
 }
 
 func TestIncrementWaitCount_Success(t *testing.T) {

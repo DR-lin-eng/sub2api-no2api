@@ -3,9 +3,7 @@ package service
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/binary"
-	"encoding/hex"
 	"errors"
 	"os"
 	"strconv"
@@ -14,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"github.com/cespare/xxhash/v2"
 	"go.uber.org/zap"
 	"golang.org/x/sync/singleflight"
 )
@@ -232,8 +231,9 @@ type ConcurrencyService struct {
 	cache ConcurrencyCache
 
 	accountLoadCacheTTL atomic.Int64
-	accountLoadCacheMu  sync.RWMutex
-	accountLoadCache    map[string]cachedAccountLoadBatch
+	accountLoadCacheMu  sync.Mutex
+	accountLoadCache    sync.Map // map[accountLoadBatchKey]*cachedAccountLoadBatch; hits stay lock-free
+	accountLoadCacheLen atomic.Int64
 	accountLoadGroup    singleflight.Group
 	cleanupMu           sync.Mutex
 	cleanupCancel       context.CancelFunc
@@ -246,12 +246,27 @@ type cachedAccountLoadBatch struct {
 	expiresAt time.Time
 }
 
+// Two independently seeded hashes keep the cache key comparable and allocation-free
+// on hits while retaining collision resistance appropriate for process-local caching.
+type accountLoadBatchKey struct {
+	count int
+	hashA uint64
+	hashB uint64
+}
+
+func (k accountLoadBatchKey) singleflightKey() string {
+	var buf [64]byte
+	encoded := strconv.AppendInt(buf[:0], int64(k.count), 10)
+	encoded = append(encoded, ':')
+	encoded = strconv.AppendUint(encoded, k.hashA, 16)
+	encoded = append(encoded, ':')
+	encoded = strconv.AppendUint(encoded, k.hashB, 16)
+	return string(encoded)
+}
+
 // NewConcurrencyService 创建并发控制服务。
 func NewConcurrencyService(cache ConcurrencyCache) *ConcurrencyService {
-	svc := &ConcurrencyService{
-		cache:            cache,
-		accountLoadCache: make(map[string]cachedAccountLoadBatch),
-	}
+	svc := &ConcurrencyService{cache: cache}
 	svc.SetAccountLoadBatchCacheTTL(defaultAccountLoadBatchCacheTTL)
 	return svc
 }
@@ -305,7 +320,11 @@ func (s *ConcurrencyService) SetAccountLoadBatchCacheTTL(ttl time.Duration) {
 	s.accountLoadCacheTTL.Store(int64(ttl))
 	if ttl <= 0 {
 		s.accountLoadCacheMu.Lock()
-		s.accountLoadCache = make(map[string]cachedAccountLoadBatch)
+		s.accountLoadCache.Range(func(key, _ any) bool {
+			s.accountLoadCache.Delete(key)
+			return true
+		})
+		s.accountLoadCacheLen.Store(0)
 		s.accountLoadCacheMu.Unlock()
 	}
 }
@@ -600,7 +619,7 @@ func (s *ConcurrencyService) getAccountsLoadBatch(ctx context.Context, accounts 
 		return cached, nil
 	}
 
-	value, err, _ := s.accountLoadGroup.Do(key, func() (any, error) {
+	value, err, _ := s.accountLoadGroup.Do(key.singleflightKey(), func() (any, error) {
 		now := time.Now()
 		if cached, ok := s.getCachedAccountLoadBatch(key, now); ok {
 			return cached, nil
@@ -636,17 +655,20 @@ func (s *ConcurrencyService) fetchAccountsLoadBatch(ctx context.Context, account
 	return s.cache.GetAccountsLoadBatch(redisCtx, accounts)
 }
 
-func (s *ConcurrencyService) getCachedAccountLoadBatch(key string, now time.Time) (map[int64]*AccountLoadInfo, bool) {
-	s.accountLoadCacheMu.RLock()
-	cached, ok := s.accountLoadCache[key]
-	s.accountLoadCacheMu.RUnlock()
+func (s *ConcurrencyService) getCachedAccountLoadBatch(key accountLoadBatchKey, now time.Time) (map[int64]*AccountLoadInfo, bool) {
+	value, ok := s.accountLoadCache.Load(key)
 	if !ok {
+		return nil, false
+	}
+	cached, ok := value.(*cachedAccountLoadBatch)
+	if !ok || cached == nil {
 		return nil, false
 	}
 	if !now.Before(cached.expiresAt) {
 		s.accountLoadCacheMu.Lock()
-		if current, exists := s.accountLoadCache[key]; exists && !now.Before(current.expiresAt) {
-			delete(s.accountLoadCache, key)
+		if current, exists := s.accountLoadCache.Load(key); exists && current == cached {
+			s.accountLoadCache.Delete(key)
+			s.accountLoadCacheLen.Add(-1)
 		}
 		s.accountLoadCacheMu.Unlock()
 		return nil, false
@@ -654,42 +676,58 @@ func (s *ConcurrencyService) getCachedAccountLoadBatch(key string, now time.Time
 	return cached.loadMap, true
 }
 
-func (s *ConcurrencyService) storeCachedAccountLoadBatch(key string, loadMap map[int64]*AccountLoadInfo, expiresAt time.Time) {
+func (s *ConcurrencyService) storeCachedAccountLoadBatch(key accountLoadBatchKey, loadMap map[int64]*AccountLoadInfo, expiresAt time.Time) {
+	updated := &cachedAccountLoadBatch{loadMap: loadMap, expiresAt: expiresAt}
 	s.accountLoadCacheMu.Lock()
-	if s.accountLoadCache == nil {
-		s.accountLoadCache = make(map[string]cachedAccountLoadBatch)
+	if _, exists := s.accountLoadCache.Load(key); exists {
+		s.accountLoadCache.Store(key, updated)
+		s.accountLoadCacheMu.Unlock()
+		return
 	}
-	if len(s.accountLoadCache) >= maxAccountLoadBatchCacheEntries {
+	if s.accountLoadCacheLen.Load() >= maxAccountLoadBatchCacheEntries {
 		now := time.Now()
-		for cacheKey, cached := range s.accountLoadCache {
-			if !now.Before(cached.expiresAt) {
-				delete(s.accountLoadCache, cacheKey)
+		s.accountLoadCache.Range(func(cacheKey, value any) bool {
+			cached, _ := value.(*cachedAccountLoadBatch)
+			if cached == nil || !now.Before(cached.expiresAt) {
+				s.accountLoadCache.Delete(cacheKey)
+				s.accountLoadCacheLen.Add(-1)
 			}
-		}
-		for len(s.accountLoadCache) >= maxAccountLoadBatchCacheEntries {
-			for cacheKey := range s.accountLoadCache {
-				delete(s.accountLoadCache, cacheKey)
+			return true
+		})
+		for s.accountLoadCacheLen.Load() >= maxAccountLoadBatchCacheEntries {
+			removed := false
+			s.accountLoadCache.Range(func(cacheKey, _ any) bool {
+				s.accountLoadCache.Delete(cacheKey)
+				s.accountLoadCacheLen.Add(-1)
+				removed = true
+				return false
+			})
+			if !removed {
+				s.accountLoadCacheLen.Store(0)
 				break
 			}
 		}
 	}
-	s.accountLoadCache[key] = cachedAccountLoadBatch{
-		loadMap:   loadMap,
-		expiresAt: expiresAt,
-	}
+	s.accountLoadCache.Store(key, updated)
+	s.accountLoadCacheLen.Add(1)
 	s.accountLoadCacheMu.Unlock()
 }
 
-func accountLoadBatchCacheKey(accounts []AccountWithConcurrency) string {
-	hash := sha256.New()
+func accountLoadBatchCacheKey(accounts []AccountWithConcurrency) accountLoadBatchKey {
+	hashA := xxhash.NewWithSeed(0x9e3779b185ebca87)
+	hashB := xxhash.NewWithSeed(0xc2b2ae3d27d4eb4f)
 	var buf [16]byte
 	for _, account := range accounts {
 		binary.LittleEndian.PutUint64(buf[:8], uint64(account.ID))
 		binary.LittleEndian.PutUint64(buf[8:], uint64(int64(account.MaxConcurrency)))
-		_, _ = hash.Write(buf[:])
+		_, _ = hashA.Write(buf[:])
+		_, _ = hashB.Write(buf[:])
 	}
-	sum := hash.Sum(nil)
-	return strconv.Itoa(len(accounts)) + ":" + hex.EncodeToString(sum)
+	return accountLoadBatchKey{
+		count: len(accounts),
+		hashA: hashA.Sum64(),
+		hashB: hashB.Sum64(),
+	}
 }
 
 func cloneAccountLoadMap(loadMap map[int64]*AccountLoadInfo) map[int64]*AccountLoadInfo {
