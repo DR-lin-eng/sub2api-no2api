@@ -181,6 +181,9 @@ type SystemSettings struct {
 	// Backend Mode
 	BackendModeEnabled bool `json:"backend_mode_enabled"`
 
+	// Performance settings
+	StreamModePerformanceEnabled bool `json:"stream_mode_performance_enabled"`
+
 	// Gateway forwarding behavior
 	EnableFingerprintUnification           bool   `json:"enable_fingerprint_unification"`
 	EnableMetadataPassthrough              bool   `json:"enable_metadata_passthrough"`

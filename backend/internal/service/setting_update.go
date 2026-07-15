@@ -358,6 +358,9 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	// Backend Mode
 	updates[SettingKeyBackendModeEnabled] = strconv.FormatBool(settings.BackendModeEnabled)
 
+	// Performance settings
+	updates[SettingKeyStreamModePerformanceEnabled] = strconv.FormatBool(settings.StreamModePerformanceEnabled)
+
 	// Gateway forwarding behavior
 	updates[SettingKeyEnableFingerprintUnification] = strconv.FormatBool(settings.EnableFingerprintUnification)
 	updates[SettingKeyEnableMetadataPassthrough] = strconv.FormatBool(settings.EnableMetadataPassthrough)
@@ -514,6 +517,8 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 		value:     settings.BackendModeEnabled,
 		expiresAt: time.Now().Add(backendModeCacheTTL).UnixNano(),
 	})
+	s.streamModePerformanceEnabled.Store(settings.StreamModePerformanceEnabled)
+	s.streamModePerformanceLoaded.Store(time.Now().UnixNano())
 	gatewayForwardingSF.Forget("gateway_forwarding")
 	gatewayForwardingCache.Store(&cachedGatewayForwardingSettings{
 		fingerprintUnification:           settings.EnableFingerprintUnification,

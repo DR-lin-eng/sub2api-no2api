@@ -74,6 +74,10 @@ type SettingService struct {
 	globalTempUnschedulableEnabled atomic.Bool
 	globalTempUnschedulableLoaded  atomic.Int64
 	globalTempUnschedulableSF      singleflight.Group
+
+	streamModePerformanceEnabled atomic.Bool
+	streamModePerformanceLoaded  atomic.Int64
+	streamModePerformanceSF      singleflight.Group
 }
 
 // DefaultPlatformQuotaSetting 单 platform 三档限额（nil = 沿用上层；0 = 显式禁用；>0 = 上限）

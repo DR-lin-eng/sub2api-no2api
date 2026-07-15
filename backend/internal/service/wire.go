@@ -669,6 +669,9 @@ func ProvideSettingService(settingRepo SettingRepository, groupRepo GroupReposit
 	if err := svc.LoadGlobalTempUnschedulableSetting(context.Background()); err != nil {
 		logger.LegacyPrintf("service.setting", "Warning: load global temp unschedulable setting failed: %v", err)
 	}
+	if err := svc.LoadStreamModePerformanceSetting(context.Background()); err != nil {
+		logger.LegacyPrintf("service.setting", "Warning: load stream mode performance setting failed: %v", err)
+	}
 	if err := svc.LoadAPIKeyACLTrustForwardedIPSetting(context.Background()); err != nil {
 		logger.LegacyPrintf("service.setting", "Warning: load api key acl forwarded ip setting failed: %v", err)
 	}

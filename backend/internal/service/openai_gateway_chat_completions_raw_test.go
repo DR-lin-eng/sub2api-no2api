@@ -408,6 +408,55 @@ func TestStreamRawChatCompletionsBoundsSilentPreOutput(t *testing.T) {
 	require.GreaterOrEqual(t, rec.Body.Len(), openAIStreamPreOutputBufferLimit)
 }
 
+func TestStreamRawChatCompletionsPerformanceModeFlushesAtEventBoundaries(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	upstreamBody := strings.Join([]string{
+		`data: {"id":"chatcmpl_1","choices":[{"delta":{"content":"hello"}}]}`,
+		"",
+		"data: [DONE]",
+		"",
+	}, "\n") + "\n"
+
+	run := func(enabled bool) (*httptest.ResponseRecorder, *passthroughFlushTestWriter) {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+		writer := &passthroughFlushTestWriter{
+			ResponseWriter:  c.Writer,
+			recorder:        recorder,
+			failAfterWrites: -1,
+		}
+		c.Writer = writer
+
+		settings := &SettingService{}
+		settings.streamModePerformanceEnabled.Store(enabled)
+		settings.streamModePerformanceLoaded.Store(time.Now().UnixNano())
+		svc := &OpenAIGatewayService{
+			cfg:            rawChatCompletionsTestConfig(),
+			settingService: settings,
+		}
+		resp := &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+			Body:       io.NopCloser(strings.NewReader(upstreamBody)),
+		}
+
+		result, err := svc.streamRawChatCompletions(
+			c, resp, rawChatCompletionsTestAccount(), "gpt-5.5", "gpt-5.5", "gpt-5.5",
+			nil, nil, time.Now(), 0,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		return recorder, writer
+	}
+
+	legacyRecorder, legacyWriter := run(false)
+	optimizedRecorder, optimizedWriter := run(true)
+	require.Equal(t, legacyRecorder.Body.String(), optimizedRecorder.Body.String())
+	require.Equal(t, 4, len(legacyWriter.flushBodyLengths))
+	require.Equal(t, 2, len(optimizedWriter.flushBodyLengths))
+}
+
 func TestHandleChatStreamingResponseBoundsSilentPreOutput(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()

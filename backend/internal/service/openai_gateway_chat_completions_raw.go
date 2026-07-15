@@ -252,6 +252,11 @@ func (s *OpenAIGatewayService) streamRawChatCompletions(
 	requestID := resp.Header.Get("x-request-id")
 	writeStreamHeaders := s.newStreamHeaderWriter(c, resp.Header)
 	scanner := s.newUpstreamSSEScanner(resp.Body)
+	streamCtx := context.Background()
+	if c != nil && c.Request != nil {
+		streamCtx = c.Request.Context()
+	}
+	coalesceFlushes := s.settingService != nil && s.settingService.IsStreamModePerformanceEnabled(streamCtx)
 
 	var usage OpenAIUsage
 	var firstTokenMs *int
@@ -336,7 +341,7 @@ func (s *OpenAIGatewayService) streamRawChatCompletions(
 			}
 			continue
 		}
-		if !clientDisconnected && clientOutputStarted {
+		if !coalesceFlushes && !clientDisconnected && clientOutputStarted {
 			c.Writer.Flush()
 		}
 	}

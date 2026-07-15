@@ -341,6 +341,7 @@ const baseSettingsResponse = {
   table_default_page_size: 20,
   table_page_size_options: [10, 20, 50, 100],
   backend_mode_enabled: false,
+  stream_mode_performance_enabled: false,
   custom_menu_items: [],
   custom_endpoints: [],
   frontend_url: "",
@@ -543,6 +544,16 @@ async function openGatewayTab(wrapper: ReturnType<typeof mountView>) {
   await flushPromises();
 }
 
+async function openPerformanceTab(wrapper: ReturnType<typeof mountView>) {
+  const performanceTabButton = wrapper
+    .findAll("button")
+    .find((node) => node.text().includes("admin.settings.tabs.performance"));
+
+  expect(performanceTabButton).toBeDefined();
+  await performanceTabButton?.trigger("click");
+  await flushPromises();
+}
+
 describe("admin SettingsView payment visible method controls", () => {
   beforeEach(() => {
     getSettings.mockReset();
@@ -626,6 +637,20 @@ describe("admin SettingsView payment visible method controls", () => {
     });
     fetchPublicSettings.mockResolvedValue(undefined);
     adminSettingsFetch.mockResolvedValue(undefined);
+  });
+
+  it("submits stream mode performance optimization from the performance tab", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await openPerformanceTab(wrapper);
+
+    const toggle = wrapper.get('[data-testid="stream-mode-performance-toggle"]');
+    await toggle.setValue(true);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    const payload = updateSettings.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(payload.stream_mode_performance_enabled).toBe(true);
   });
 
   it("loads and saves the global temporary scheduling pause switch", async () => {

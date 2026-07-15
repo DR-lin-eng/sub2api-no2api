@@ -5218,6 +5218,41 @@
         </div>
         <!-- /Tab: Gateway — Claude Code, Scheduling -->
 
+        <!-- Tab: Performance -->
+        <div v-show="activeTab === 'performance'" class="space-y-6">
+          <div class="card">
+            <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {{ t("admin.settings.performance.title") }}
+              </h2>
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.performance.description") }}
+              </p>
+            </div>
+            <div class="space-y-5 p-6">
+              <div class="flex items-center justify-between gap-4">
+                <div>
+                  <label class="font-medium text-gray-900 dark:text-white">
+                    {{ t("admin.settings.performance.streamMode.label") }}
+                  </label>
+                  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.performance.streamMode.hint") }}
+                  </p>
+                </div>
+                <Toggle
+                  v-model="form.stream_mode_performance_enabled"
+                  data-testid="stream-mode-performance-toggle"
+                />
+              </div>
+              <div class="flex items-start gap-2 border-t border-gray-100 pt-4 text-sm text-gray-500 dark:border-dark-700 dark:text-gray-400">
+                <Icon name="infoCircle" size="sm" class="mt-0.5 flex-shrink-0" />
+                <span>{{ t("admin.settings.performance.streamMode.dockerNote") }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- /Tab: Performance -->
+
         <!-- Tab: General -->
         <div v-show="activeTab === 'general'" class="space-y-6">
           <!-- Site Settings -->
@@ -7651,6 +7686,7 @@ type SettingsTab =
   | "security"
   | "users"
   | "gateway"
+  | "performance"
   | "payment"
   | "email"
   | "backup";
@@ -7662,6 +7698,7 @@ const settingsTabs = [
   { key: "security" as SettingsTab, icon: "shield" as const },
   { key: "users" as SettingsTab, icon: "user" as const },
   { key: "gateway" as SettingsTab, icon: "server" as const },
+  { key: "performance" as SettingsTab, icon: "bolt" as const },
   { key: "payment" as SettingsTab, icon: "creditCard" as const },
   { key: "email" as SettingsTab, icon: "mail" as const },
   { key: "backup" as SettingsTab, icon: "database" as const },
@@ -8483,6 +8520,7 @@ const form = reactive<SettingsForm>({
   openai_advanced_scheduler_weight_upstream_cost: "",
   openai_advanced_scheduler_weight_previous_response: "",
   openai_advanced_scheduler_weight_session_sticky: "",
+  stream_mode_performance_enabled: false,
   // Gateway forwarding behavior
   enable_fingerprint_unification: true,
   enable_metadata_passthrough: false,
@@ -9798,6 +9836,8 @@ async function saveSettings() {
       min_claude_code_version: form.min_claude_code_version,
       max_claude_code_version: form.max_claude_code_version,
       allow_ungrouped_key_scheduling: form.allow_ungrouped_key_scheduling,
+      stream_mode_performance_enabled:
+        form.stream_mode_performance_enabled,
       enable_fingerprint_unification: form.enable_fingerprint_unification,
       enable_metadata_passthrough: form.enable_metadata_passthrough,
       enable_cch_signing: form.enable_cch_signing,

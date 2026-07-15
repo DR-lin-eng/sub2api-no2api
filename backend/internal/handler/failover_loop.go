@@ -56,11 +56,17 @@ type FailoverState struct {
 // NewFailoverState 创建 failover 状态
 func NewFailoverState(maxSwitches int, hasBoundSession bool) *FailoverState {
 	return &FailoverState{
-		MaxSwitches:           maxSwitches,
-		FailedAccountIDs:      make(map[int64]struct{}),
-		SameAccountRetryCount: make(map[int64]int),
-		hasBoundSession:       hasBoundSession,
+		MaxSwitches:     maxSwitches,
+		hasBoundSession: hasBoundSession,
 	}
+}
+
+// ExcludeAccount lazily creates the exclusion set only after a request actually fails.
+func (s *FailoverState) ExcludeAccount(accountID int64) {
+	if s.FailedAccountIDs == nil {
+		s.FailedAccountIDs = make(map[int64]struct{}, 1)
+	}
+	s.FailedAccountIDs[accountID] = struct{}{}
 }
 
 // HandleFailoverError 处理 UpstreamFailoverError，返回下一步动作。
@@ -91,6 +97,9 @@ func (s *FailoverState) HandleFailoverError(
 	// 同账号重试：对 RetryableOnSameAccount 的临时性错误，先在同一账号上重试。
 	// 重试次数上限 retryLimit 由调用方传入（账号级 pool_mode_retry_count 配置）。
 	if failoverErr.RetryableOnSameAccount && s.SameAccountRetryCount[accountID] < retryLimit {
+		if s.SameAccountRetryCount == nil {
+			s.SameAccountRetryCount = make(map[int64]int, 1)
+		}
 		s.SameAccountRetryCount[accountID]++
 		logger.FromContext(ctx).Warn("gateway.failover_same_account_retry",
 			zap.Int64("account_id", accountID),
@@ -110,7 +119,7 @@ func (s *FailoverState) HandleFailoverError(
 	}
 
 	// 加入失败列表
-	s.FailedAccountIDs[accountID] = struct{}{}
+	s.ExcludeAccount(accountID)
 
 	// 检查是否耗尽
 	if s.SwitchCount >= s.MaxSwitches {
@@ -167,7 +176,7 @@ func (s *FailoverState) HandleSelectionExhausted(ctx context.Context) FailoverAc
 			zap.Int("switch_count", s.SwitchCount),
 			zap.Int("max_switches", s.MaxSwitches),
 		)
-		s.FailedAccountIDs = make(map[int64]struct{})
+		s.FailedAccountIDs = nil
 		return FailoverContinue
 	}
 	return FailoverExhausted

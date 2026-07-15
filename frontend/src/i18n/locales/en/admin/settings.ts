@@ -9,9 +9,19 @@ export default {
         security: 'Security',
         users: 'Users',
         gateway: 'Gateway',
+        performance: 'Performance',
         email: 'Email',
         backup: 'Backup',
         payment: 'Payment',
+      },
+      performance: {
+        title: 'Performance Settings',
+        description: 'Tune runtime overhead for high-concurrency and streaming traffic.',
+        streamMode: {
+          label: 'Stream mode optimization',
+          hint: 'Coalesce flushes at complete SSE event boundaries to reduce CPU scheduling and temporary memory overhead under concurrency and retries.',
+          dockerNote: 'Docker deployments typically use about 5% less CPU when enabled; actual gains depend on traffic and upstream chunking.',
+        },
       },
       features: {
         channelMonitor: {

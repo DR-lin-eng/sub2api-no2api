@@ -227,7 +227,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 			if accountReleaseFunc != nil {
 				accountReleaseFunc()
 			}
-			fs.FailedAccountIDs[account.ID] = struct{}{}
+			fs.ExcludeAccount(account.ID)
 			continue
 		}
 

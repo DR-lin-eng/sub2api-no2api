@@ -383,6 +383,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.BackendModeEnabled != after.BackendModeEnabled {
 		changed = append(changed, "backend_mode_enabled")
 	}
+	if before.StreamModePerformanceEnabled != after.StreamModePerformanceEnabled {
+		changed = append(changed, "stream_mode_performance_enabled")
+	}
 	if before.PurchaseSubscriptionEnabled != after.PurchaseSubscriptionEnabled {
 		changed = append(changed, "purchase_subscription_enabled")
 	}

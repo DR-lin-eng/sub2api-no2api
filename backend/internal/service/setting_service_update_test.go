@@ -122,6 +122,22 @@ func (s *settingAntigravityUARepoStub) Delete(ctx context.Context, key string) e
 	panic("unexpected Delete call")
 }
 
+func TestSettingService_StreamModePerformanceSettingRoundTrip(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	svc := NewSettingService(repo, &config.Config{})
+
+	require.NoError(t, svc.UpdateSettings(context.Background(), &SystemSettings{
+		StreamModePerformanceEnabled: true,
+	}))
+	require.Equal(t, "true", repo.updates[SettingKeyStreamModePerformanceEnabled])
+	require.True(t, svc.IsStreamModePerformanceEnabled(context.Background()))
+
+	parsed := svc.parseSettings(map[string]string{
+		SettingKeyStreamModePerformanceEnabled: "true",
+	})
+	require.True(t, parsed.StreamModePerformanceEnabled)
+}
+
 type defaultSubGroupReaderStub struct {
 	byID  map[int64]*Group
 	errBy map[int64]error

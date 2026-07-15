@@ -52,9 +52,9 @@ func TestNewFailoverState(t *testing.T) {
 		fs := NewFailoverState(5, true)
 		require.Equal(t, 5, fs.MaxSwitches)
 		require.Equal(t, 0, fs.SwitchCount)
-		require.NotNil(t, fs.FailedAccountIDs)
+		require.Nil(t, fs.FailedAccountIDs)
 		require.Empty(t, fs.FailedAccountIDs)
-		require.NotNil(t, fs.SameAccountRetryCount)
+		require.Nil(t, fs.SameAccountRetryCount)
 		require.Empty(t, fs.SameAccountRetryCount)
 		require.Nil(t, fs.LastFailoverErr)
 		require.False(t, fs.ForceCacheBilling)
@@ -786,7 +786,7 @@ func TestHandleSelectionExhausted(t *testing.T) {
 	t.Run("503且未耗尽_等待后返回Continue并清除失败列表", func(t *testing.T) {
 		fs := NewFailoverState(3, false)
 		fs.LastFailoverErr = newTestFailoverErr(503, false, false)
-		fs.FailedAccountIDs[100] = struct{}{}
+		fs.ExcludeAccount(100)
 		fs.SwitchCount = 1
 
 		start := time.Now()
@@ -857,6 +857,27 @@ func TestHandleSelectionExhausted(t *testing.T) {
 
 		action := fs.HandleSelectionExhausted(context.Background())
 		require.Equal(t, FailoverContinue, action)
+	})
+}
+
+var benchmarkFailoverStateSink *FailoverState
+
+func BenchmarkNewFailoverStateNoRetry(b *testing.B) {
+	b.Run("eager_maps", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			benchmarkFailoverStateSink = &FailoverState{
+				MaxSwitches:           3,
+				FailedAccountIDs:      make(map[int64]struct{}),
+				SameAccountRetryCount: make(map[int64]int),
+			}
+		}
+	})
+	b.Run("lazy_maps", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			benchmarkFailoverStateSink = NewFailoverState(3, false)
+		}
 	})
 }
 

@@ -14,7 +14,10 @@ import (
 	"time"
 )
 
-const globalTempUnschedulableRefreshInterval = time.Second
+const (
+	globalTempUnschedulableRefreshInterval = time.Second
+	streamModePerformanceRefreshInterval   = 10 * time.Second
+)
 
 // IsRegistrationEnabled 检查是否开放注册
 func (s *SettingService) IsRegistrationEnabled(ctx context.Context) bool {
@@ -687,6 +690,46 @@ func (s *SettingService) IsGlobalTempUnschedulableEnabled(ctx context.Context) b
 		})
 	}
 	return s.globalTempUnschedulableEnabled.Load()
+}
+
+// LoadStreamModePerformanceSetting loads the event-boundary SSE flush switch.
+func (s *SettingService) LoadStreamModePerformanceSetting(ctx context.Context) error {
+	if s == nil || s.settingRepo == nil {
+		return nil
+	}
+
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyStreamModePerformanceEnabled)
+	if err != nil {
+		if errors.Is(err, ErrSettingNotFound) {
+			s.streamModePerformanceEnabled.Store(false)
+			s.streamModePerformanceLoaded.Store(time.Now().UnixNano())
+			return nil
+		}
+		return fmt.Errorf("get stream mode performance setting: %w", err)
+	}
+
+	s.streamModePerformanceEnabled.Store(value == "true")
+	s.streamModePerformanceLoaded.Store(time.Now().UnixNano())
+	return nil
+}
+
+// IsStreamModePerformanceEnabled returns the cached switch without a DB read per stream.
+func (s *SettingService) IsStreamModePerformanceEnabled(ctx context.Context) bool {
+	if s == nil {
+		return false
+	}
+	now := time.Now()
+	loadedAt := s.streamModePerformanceLoaded.Load()
+	if loadedAt == 0 || now.Sub(time.Unix(0, loadedAt)) >= streamModePerformanceRefreshInterval {
+		_, _, _ = s.streamModePerformanceSF.Do("refresh", func() (any, error) {
+			err := s.LoadStreamModePerformanceSetting(ctx)
+			if err != nil {
+				s.streamModePerformanceLoaded.Store(time.Now().UnixNano())
+			}
+			return nil, err
+		})
+	}
+	return s.streamModePerformanceEnabled.Load()
 }
 
 // GetStreamTimeoutSettings 获取流超时处理配置

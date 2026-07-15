@@ -9,9 +9,19 @@ export default {
         security: '安全与认证',
         users: '用户默认值',
         gateway: '网关服务',
+        performance: '性能设置',
         email: '邮件设置',
         backup: '数据备份',
         payment: '支付设置',
+      },
+      performance: {
+        title: '性能设置',
+        description: '调整高并发请求与流式转发的运行时开销。',
+        streamMode: {
+          label: '流模式性能优化',
+          hint: '按完整 SSE 事件合并刷新，减少高并发、高重试场景中的 CPU 调度与临时内存开销。',
+          dockerNote: 'Docker 部署中启用后通常可减少约 5% 的 CPU 占用，实际收益会随流量和上游分片方式变化。',
+        },
       },
       features: {
         channelMonitor: {
