@@ -287,6 +287,7 @@ type ImageStorageConfig struct {
 	PublicBaseURL   string `mapstructure:"public_base_url"`      // 配了则返回 public_base_url/key 直链；否则 presigned
 	PresignExpiry   int    `mapstructure:"presign_expiry_hours"` // public_base_url 为空时的 presigned 过期时长(小时)
 	MaxDownloadByte int64  `mapstructure:"max_download_bytes"`   // 下载上游 url 图片的字节上限
+	MaxInFlight     int    `mapstructure:"max_in_flight"`        // 单实例同时执行的异步生图任务上限
 }
 
 // IsConfigured 检查对象存储必要字段是否已配置
@@ -2043,6 +2044,7 @@ func setDefaults() {
 	viper.SetDefault("image_storage.force_path_style", false)
 	viper.SetDefault("image_storage.presign_expiry_hours", 24)
 	viper.SetDefault("image_storage.max_download_bytes", 33554432)
+	viper.SetDefault("image_storage.max_in_flight", 8)
 
 	// Ops (vNext)
 	viper.SetDefault("ops.enabled", true)

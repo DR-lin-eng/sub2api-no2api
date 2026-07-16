@@ -49,7 +49,7 @@ func TestAsyncImageHandlerSubmitAndPoll(t *testing.T) {
 	store := &asyncImageMemoryStore{tasks: make(map[string]*service.ImageTaskRecord)}
 	tasks := service.NewImageTaskServiceWithUploader(store, nil, time.Hour, time.Minute)
 	release := make(chan struct{})
-	h := &AsyncImageHandler{tasks: tasks}
+	h := newAsyncImageHandlerWithLimit(tasks, nil, 1)
 	h.execute = func(_ string, c *gin.Context) {
 		<-release
 		c.JSON(http.StatusOK, gin.H{"created": 123, "data": []gin.H{{"url": "https://example.test/image.png"}}})
@@ -142,4 +142,61 @@ func TestAsyncImageHandlerDisabledReturns404(t *testing.T) {
 
 	// No task was created / persisted.
 	require.Empty(t, store.tasks)
+}
+
+func TestAsyncImageHandlerRejectsOverloadBeforeCreatingTask(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := &asyncImageMemoryStore{tasks: make(map[string]*service.ImageTaskRecord)}
+	tasks := service.NewImageTaskServiceWithUploader(store, nil, time.Hour, time.Minute)
+	started := make(chan struct{})
+	release := make(chan struct{})
+	h := newAsyncImageHandlerWithLimit(tasks, nil, 1)
+	h.execute = func(_ string, c *gin.Context) {
+		close(started)
+		<-release
+		c.JSON(http.StatusOK, gin.H{"data": []gin.H{{"url": "https://example.test/image.png"}}})
+	}
+
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		groupID := int64(3)
+		c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
+			ID:      9,
+			UserID:  7,
+			GroupID: &groupID,
+			Group:   &service.Group{ID: groupID, Platform: service.PlatformOpenAI, AllowImageGeneration: true},
+		})
+		c.Next()
+	})
+	router.POST("/v1/images/generations/async", h.Submit)
+
+	submit := func() *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/v1/images/generations/async", strings.NewReader(`{"model":"gpt-image-1","prompt":"cat"}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		return w
+	}
+
+	first := submit()
+	require.Equal(t, http.StatusAccepted, first.Code)
+	<-started
+
+	second := submit()
+	require.Equal(t, http.StatusTooManyRequests, second.Code)
+	require.Equal(t, "3", second.Header().Get("Retry-After"))
+	require.Contains(t, second.Body.String(), "rate_limit_error")
+	store.mu.RLock()
+	require.Len(t, store.tasks, 1)
+	store.mu.RUnlock()
+
+	close(release)
+	require.Eventually(t, func() bool {
+		store.mu.RLock()
+		defer store.mu.RUnlock()
+		for _, task := range store.tasks {
+			return task.Status == service.ImageTaskStatusCompleted
+		}
+		return false
+	}, time.Second, 10*time.Millisecond)
 }

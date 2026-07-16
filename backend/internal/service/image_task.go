@@ -19,8 +19,16 @@ const (
 	ImageTaskStatusCompleted  = "completed"
 	ImageTaskStatusFailed     = "failed"
 
+	// MaxImageTaskResultBytes bounds compact result metadata persisted to Redis.
+	MaxImageTaskResultBytes = 256 << 10
+	// MaxImageTaskErrorBytes bounds upstream error details persisted to Redis.
+	MaxImageTaskErrorBytes = 16 << 10
+	// MaxImageTaskRecordBytes is the final repository-level serialized guard.
+	MaxImageTaskRecordBytes = 512 << 10
+
 	defaultImageTaskTTL              = 24 * time.Hour
 	defaultImageTaskExecutionTimeout = 30 * time.Minute
+	defaultImageTaskMaxInFlight      = 8
 )
 
 var (
@@ -75,6 +83,7 @@ type ImageTaskService struct {
 	enabled          bool
 	ttl              time.Duration
 	executionTimeout time.Duration
+	maxInFlight      int
 }
 
 func NewImageTaskService(store ImageTaskStore) *ImageTaskService {
@@ -88,7 +97,12 @@ func NewImageTaskServiceWithOptions(store ImageTaskStore, ttl, executionTimeout 
 	if executionTimeout <= 0 {
 		executionTimeout = defaultImageTaskExecutionTimeout
 	}
-	return &ImageTaskService{store: store, ttl: ttl, executionTimeout: executionTimeout}
+	return &ImageTaskService{
+		store:            store,
+		ttl:              ttl,
+		executionTimeout: executionTimeout,
+		maxInFlight:      defaultImageTaskMaxInFlight,
+	}
 }
 
 // NewImageTaskServiceWithUploader 构造一个已启用的图片任务服务：结果会先经 uploader
@@ -111,6 +125,21 @@ func (s *ImageTaskService) ExecutionTimeout() time.Duration {
 		return defaultImageTaskExecutionTimeout
 	}
 	return s.executionTimeout
+}
+
+// MaxInFlight bounds detached image executions per application instance.
+func (s *ImageTaskService) MaxInFlight() int {
+	if s == nil || s.maxInFlight <= 0 {
+		return defaultImageTaskMaxInFlight
+	}
+	return s.maxInFlight
+}
+
+func (s *ImageTaskService) setMaxInFlight(limit int) {
+	if limit <= 0 {
+		limit = defaultImageTaskMaxInFlight
+	}
+	s.maxInFlight = limit
 }
 
 func (s *ImageTaskService) Create(ctx context.Context, owner ImageTaskOwner) (*ImageTask, error) {
@@ -163,12 +192,18 @@ func (s *ImageTaskService) Complete(ctx context.Context, id string, statusCode i
 		}
 		result = rewritten
 	}
+	if len(result) > MaxImageTaskResultBytes {
+		return s.Fail(ctx, id, http.StatusBadGateway, imageTaskErrorJSON(
+			"api_error",
+			"generated image result exceeded the task metadata limit",
+		))
+	}
 	return s.finish(ctx, id, ImageTaskStatusCompleted, statusCode, result, nil)
 }
 
 func (s *ImageTaskService) Fail(ctx context.Context, id string, statusCode int, taskErr json.RawMessage) error {
-	if !json.Valid(taskErr) {
-		taskErr = imageTaskErrorJSON("api_error", "image generation failed")
+	if !json.Valid(taskErr) || len(taskErr) > MaxImageTaskErrorBytes {
+		taskErr = imageTaskErrorJSON("api_error", "image generation failed; upstream error details were omitted")
 	}
 	return s.finish(ctx, id, ImageTaskStatusFailed, statusCode, nil, taskErr)
 }

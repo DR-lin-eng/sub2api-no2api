@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -80,6 +81,36 @@ func TestImageTaskServiceInvalidResultBecomesFailed(t *testing.T) {
 	require.Equal(t, ImageTaskStatusFailed, got.Status)
 	require.Equal(t, http.StatusBadGateway, got.HTTPStatus)
 	require.Contains(t, string(got.Error), "non-JSON")
+}
+
+func TestImageTaskServiceNeverPersistsOversizedResultOrError(t *testing.T) {
+	owner := ImageTaskOwner{UserID: 1, APIKeyID: 2}
+
+	t.Run("result", func(t *testing.T) {
+		store := &imageTaskMemoryStore{}
+		svc := NewImageTaskServiceWithOptions(store, time.Hour, time.Minute)
+		created, err := svc.Create(context.Background(), owner)
+		require.NoError(t, err)
+
+		oversized := json.RawMessage(`"` + strings.Repeat("x", MaxImageTaskResultBytes) + `"`)
+		require.NoError(t, svc.Complete(context.Background(), created.ID, http.StatusOK, oversized))
+		require.Equal(t, ImageTaskStatusFailed, store.task.Status)
+		require.Empty(t, store.task.Result)
+		require.LessOrEqual(t, len(store.task.Error), MaxImageTaskErrorBytes)
+	})
+
+	t.Run("error", func(t *testing.T) {
+		store := &imageTaskMemoryStore{}
+		svc := NewImageTaskServiceWithOptions(store, time.Hour, time.Minute)
+		created, err := svc.Create(context.Background(), owner)
+		require.NoError(t, err)
+
+		oversized := json.RawMessage(`"` + strings.Repeat("x", MaxImageTaskErrorBytes) + `"`)
+		require.NoError(t, svc.Fail(context.Background(), created.ID, http.StatusBadGateway, oversized))
+		require.Equal(t, ImageTaskStatusFailed, store.task.Status)
+		require.LessOrEqual(t, len(store.task.Error), MaxImageTaskErrorBytes)
+		require.NotContains(t, string(store.task.Error), strings.Repeat("x", 100))
+	})
 }
 
 func TestImageTaskServiceMapsStoreFailures(t *testing.T) {

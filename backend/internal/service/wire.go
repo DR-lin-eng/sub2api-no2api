@@ -598,7 +598,9 @@ func ProvideImageTaskService(store ImageTaskStore, storage ImageStorage, cfg *co
 		return NewImageTaskService(store)
 	}
 	uploader := NewImageResultUploader(storage, cfg.ImageStorage.Prefix, cfg.ImageStorage.MaxDownloadByte, nil)
-	return NewImageTaskServiceWithUploader(store, uploader, defaultImageTaskTTL, defaultImageTaskExecutionTimeout)
+	svc := NewImageTaskServiceWithUploader(store, uploader, defaultImageTaskTTL, defaultImageTaskExecutionTimeout)
+	svc.setMaxInFlight(cfg.ImageStorage.MaxInFlight)
+	return svc
 }
 
 // ProvideBackupService creates and starts BackupService

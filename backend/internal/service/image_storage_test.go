@@ -103,6 +103,18 @@ func TestImageResultUploaderPropagatesStorageError(t *testing.T) {
 	require.Contains(t, err.Error(), "bucket unreachable")
 }
 
+func TestImageResultUploaderRejectsResponseWithoutImages(t *testing.T) {
+	uploader := NewImageResultUploader(&fakeImageStorage{}, "images/", 0, nil)
+
+	for _, result := range []json.RawMessage{
+		json.RawMessage(`{"created":1,"b64_json":"large-nonstandard-payload"}`),
+		json.RawMessage(`{"created":1,"data":[]}`),
+	} {
+		_, err := uploader.Rewrite(context.Background(), "imgtask_invalid", result)
+		require.Error(t, err)
+	}
+}
+
 func TestImageResultUploaderNilStoragePassthrough(t *testing.T) {
 	var uploader *ImageResultUploader
 	result := json.RawMessage(`{"data":[{"url":"https://example.test/x.png"}]}`)

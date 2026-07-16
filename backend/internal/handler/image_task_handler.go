@@ -21,13 +21,29 @@ import (
 )
 
 type AsyncImageHandler struct {
-	tasks   *service.ImageTaskService
-	openAI  *OpenAIGatewayHandler
-	execute func(platform string, c *gin.Context)
+	tasks          *service.ImageTaskService
+	openAI         *OpenAIGatewayHandler
+	execute        func(platform string, c *gin.Context)
+	executionSlots chan struct{}
 }
 
 func NewAsyncImageHandler(tasks *service.ImageTaskService, openAI *OpenAIGatewayHandler) *AsyncImageHandler {
-	h := &AsyncImageHandler{tasks: tasks, openAI: openAI}
+	maxInFlight := 1
+	if tasks != nil {
+		maxInFlight = tasks.MaxInFlight()
+	}
+	return newAsyncImageHandlerWithLimit(tasks, openAI, maxInFlight)
+}
+
+func newAsyncImageHandlerWithLimit(tasks *service.ImageTaskService, openAI *OpenAIGatewayHandler, maxInFlight int) *AsyncImageHandler {
+	if maxInFlight <= 0 {
+		maxInFlight = 1
+	}
+	h := &AsyncImageHandler{
+		tasks:          tasks,
+		openAI:         openAI,
+		executionSlots: make(chan struct{}, maxInFlight),
+	}
 	h.execute = h.executeWithGateway
 	return h
 }
@@ -67,6 +83,17 @@ func (h *AsyncImageHandler) Submit(c *gin.Context) {
 		imageTaskError(c, service.ErrImageTaskUnavailable)
 		return
 	}
+	if !h.tryAcquireExecutionSlot() {
+		c.Header("Retry-After", "3")
+		imageTaskJSONError(c, http.StatusTooManyRequests, "rate_limit_error", "async image task capacity is full; retry later")
+		return
+	}
+	slotHeld := true
+	defer func() {
+		if slotHeld {
+			h.releaseExecutionSlot()
+		}
+	}()
 
 	body, err := pkghttputil.ReadRequestBodyWithPrealloc(c.Request)
 	if err != nil {
@@ -115,6 +142,7 @@ func (h *AsyncImageHandler) Submit(c *gin.Context) {
 		"poll_url":   pollURL,
 	})
 
+	slotHeld = false
 	go h.run(task.ID, platform, taskCtx, recorder, cancel)
 }
 
@@ -152,6 +180,25 @@ func (h *AsyncImageHandler) checkSecurityAuditBeforeSubmit(c *gin.Context, apiKe
 		return false
 	}
 	return true
+}
+
+func (h *AsyncImageHandler) tryAcquireExecutionSlot() bool {
+	if h == nil || h.executionSlots == nil {
+		return true
+	}
+	select {
+	case h.executionSlots <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+}
+
+func (h *AsyncImageHandler) releaseExecutionSlot() {
+	if h == nil || h.executionSlots == nil {
+		return
+	}
+	<-h.executionSlots
 }
 
 func (h *AsyncImageHandler) Get(c *gin.Context) {
@@ -211,6 +258,7 @@ func (h *AsyncImageHandler) executeWithGateway(platform string, c *gin.Context) 
 
 func (h *AsyncImageHandler) run(taskID, platform string, taskCtx *gin.Context, recorder *httptest.ResponseRecorder, cancel context.CancelFunc) {
 	defer cancel()
+	defer h.releaseExecutionSlot()
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			logger.L().Error("image_task.execution_panicked", zap.String("task_id", taskID), zap.Any("panic", recovered))

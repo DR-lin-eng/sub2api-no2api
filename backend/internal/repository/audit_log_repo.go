@@ -175,7 +175,7 @@ func buildAuditLogsWhere(filter *service.AuditLogFilter) (string, []any) {
 	return "WHERE " + strings.Join(clauses, " AND "), args
 }
 
-const auditLogSelectColumns = `
+const auditLogSelectColumnsBeforeBody = `
   l.id,
   l.created_at,
   l.actor_user_id,
@@ -188,11 +188,20 @@ const auditLogSelectColumns = `
   COALESCE(l.path, ''),
   COALESCE(l.request_id, ''),
   COALESCE(l.client_ip, ''),
-  COALESCE(l.user_agent, ''),
-  COALESCE(l.request_body, ''),
+  COALESCE(l.user_agent, ''),`
+
+const auditLogSelectColumnsAfterBody = `
   l.status_code,
   l.latency_ms,
   COALESCE(l.extra::text, '{}')`
+
+const auditLogSelectColumns = auditLogSelectColumnsBeforeBody + `
+  COALESCE(l.request_body, ''),` + auditLogSelectColumnsAfterBody
+
+// List responses intentionally omit request_body. Selecting a constant here
+// also prevents PostgreSQL from fetching and transferring the toasted body.
+const auditLogListSelectColumns = auditLogSelectColumnsBeforeBody + `
+  '' AS request_body,` + auditLogSelectColumnsAfterBody
 
 func scanAuditLogRow(scan func(dest ...any) error) (*service.AuditLog, error) {
 	item := &service.AuditLog{}
@@ -262,7 +271,7 @@ func (r *auditLogRepository) List(ctx context.Context, filter *service.AuditLogF
 
 	offset := (page - 1) * pageSize
 	argsWithLimit := append(args, pageSize, offset)
-	query := "SELECT" + auditLogSelectColumns + "\nFROM audit_logs l\n" + where + `
+	query := "SELECT" + auditLogListSelectColumns + "\nFROM audit_logs l\n" + where + `
 ORDER BY l.created_at DESC, l.id DESC
 LIMIT $` + itoa(len(args)+1) + ` OFFSET $` + itoa(len(args)+2)
 
@@ -278,8 +287,6 @@ LIMIT $` + itoa(len(args)+1) + ` OFFSET $` + itoa(len(args)+2)
 		if err != nil {
 			return nil, err
 		}
-		// 列表页不返回 body，降低载荷；详情接口返回完整记录。
-		item.RequestBody = ""
 		logs = append(logs, item)
 	}
 	if err := rows.Err(); err != nil {

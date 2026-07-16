@@ -35,9 +35,21 @@ image_storage:
   public_base_url: ""              # set to return public_base_url/key直链; empty → presigned URL
   presign_expiry_hours: 24         # presigned link TTL when public_base_url is empty
   max_download_bytes: 33554432     # cap when re-hosting an upstream image URL (32MB)
+  max_in_flight: 8                 # concurrent detached tasks per application instance
 ```
 
+Submissions above `max_in_flight` return `429` with `Retry-After: 3` before a
+Redis task or detached goroutine is created. This bounds request-body memory and
+background work during bursts; clients should retry with backoff.
+
 When a task completes, each generated image is uploaded to the bucket and the result is rewritten to a compact form: `data[].url` points at the stored object (a permanent `public_base_url/key` link, or a time-limited presigned URL) and `b64_json` is removed. Only this small JSON is stored in Redis. If an upload fails, the task is marked `failed` rather than persisting the raw base64.
+
+Redis persistence is guarded independently of the uploader: compact results are
+limited to 256 KiB, error details to 16 KiB, and the final serialized task to
+512 KiB. Non-standard responses without a non-empty `data` array are rejected
+instead of being stored verbatim. A bounded 32 MiB local cache absorbs polling
+bursts; `processing` entries live for only 2 seconds so completion on another
+instance is not hidden, while terminal entries live for 5 minutes.
 
 To support a different vendor beyond the S3-compatible client, implement the `service.ImageStorage` interface (`Save(ctx, key, contentType, data) (url, error)`) and provide it in place of the S3 implementation.
 

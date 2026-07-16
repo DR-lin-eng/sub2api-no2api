@@ -1255,3 +1255,5 @@ image_storage:
   presign_expiry_hours: 24
   # 当上游返回的是图片 url 时，下载该图片再转存的字节上限（默认 32MB）
   max_download_bytes: 33554432
+  # 单实例同时执行的异步生图任务上限；超出时提交接口返回 429
+  max_in_flight: 8
