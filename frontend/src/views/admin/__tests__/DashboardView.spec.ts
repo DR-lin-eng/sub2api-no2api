@@ -121,13 +121,79 @@ describe('admin DashboardView', () => {
     const now = new Date()
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
 
-    expect(getSnapshotV2).toHaveBeenCalledTimes(1)
+    expect(getSnapshotV2).toHaveBeenCalledTimes(3)
     expect(getSnapshotV2).toHaveBeenCalledWith(expect.objectContaining({
       start_date: formatLocalDate(yesterday),
       end_date: formatLocalDate(now),
       granularity: 'hour',
+      include_stats: true,
+      include_trend: false,
+      include_model_stats: false,
+      include_users_trend: false,
+      include_user_ranking: false
+    }))
+    expect(getSnapshotV2).toHaveBeenCalledWith(expect.objectContaining({
+      start_date: formatLocalDate(yesterday),
+      end_date: formatLocalDate(now),
+      include_stats: false,
+      include_trend: true,
+      include_model_stats: true,
+      include_users_trend: false,
+      include_user_ranking: false
+    }))
+    expect(getSnapshotV2).toHaveBeenCalledWith(expect.objectContaining({
+      start_date: formatLocalDate(yesterday),
+      end_date: formatLocalDate(now),
+      include_stats: false,
+      include_trend: false,
+      include_model_stats: false,
       include_users_trend: true,
       include_user_ranking: true
     }))
+  })
+
+  it('renders fast dashboard data without waiting for the Top 12 query', async () => {
+    let resolveInsights: ((value: Record<string, unknown>) => void) | undefined
+    const slowInsights = new Promise<Record<string, unknown>>((resolve) => {
+      resolveInsights = resolve
+    })
+    getSnapshotV2.mockImplementation((params: { include_stats?: boolean; include_users_trend?: boolean }) => {
+      if (params.include_stats) {
+        return Promise.resolve({ stats: createDashboardStats() })
+      }
+      if (params.include_users_trend) {
+        return slowInsights
+      }
+      return Promise.resolve({ trend: [], models: [] })
+    })
+
+    const wrapper = mount(DashboardView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          LoadingSpinner: true,
+          Icon: true,
+          DateRangePicker: true,
+          Select: true,
+          ModelDistributionChart: true,
+          TokenUsageTrend: true,
+          Line: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('admin.dashboard.apiKeys')
+    expect(getSnapshotV2).toHaveBeenCalledTimes(3)
+
+    resolveInsights?.({
+      users_trend: [],
+      ranking: [],
+      ranking_total_actual_cost: 0,
+      ranking_total_requests: 0,
+      ranking_total_tokens: 0
+    })
+    await flushPromises()
   })
 })

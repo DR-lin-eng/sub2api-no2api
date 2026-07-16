@@ -325,6 +325,12 @@
               <div v-if="userTrendLoading" class="flex h-full items-center justify-center">
                 <LoadingSpinner size="md" />
               </div>
+              <div
+                v-else-if="userTrendError"
+                class="flex h-full items-center justify-center text-sm text-gray-500 dark:text-gray-400"
+              >
+                {{ t('admin.dashboard.failedToLoad') }}
+              </div>
               <Line v-else-if="userTrendChartData" :data="userTrendChartData" :options="lineOptions" />
               <div
                 v-else
@@ -394,6 +400,7 @@ const stats = ref<DashboardStats | null>(null)
 const loading = ref(false)
 const chartsLoading = ref(false)
 const userTrendLoading = ref(false)
+const userTrendError = ref(false)
 const rankingLoading = ref(false)
 const rankingError = ref(false)
 
@@ -405,7 +412,7 @@ const rankingItems = ref<UserSpendingRankingItem[]>([])
 const rankingTotalActualCost = ref(0)
 const rankingTotalRequests = ref(0)
 const rankingTotalTokens = ref(0)
-let chartLoadSeq = 0
+let dashboardLoadSeq = 0
 const rankingLimit = 12
 
 // Helper function to format date in local timezone
@@ -641,14 +648,72 @@ const onDateRangeChange = (range: {
   loadChartData()
 }
 
-// Load data
-const loadDashboardSnapshot = async (includeStats: boolean) => {
-  const currentSeq = ++chartLoadSeq
-  if (includeStats && !stats.value) {
+// Keep fast summary reads independent from chart and Top 12 aggregations so a
+// slow usage_logs scan cannot hold the whole page behind the initial spinner.
+const loadStatsSnapshot = async (currentSeq: number) => {
+  if (!stats.value) {
     loading.value = true
   }
+  try {
+    const response = await adminAPI.dashboard.getSnapshotV2({
+      start_date: startDate.value,
+      end_date: endDate.value,
+      granularity: granularity.value,
+      include_stats: true,
+      include_trend: false,
+      include_model_stats: false,
+      include_group_stats: false,
+      include_users_trend: false,
+      include_user_ranking: false
+    })
+    if (currentSeq !== dashboardLoadSeq) return
+    if (response.stats) {
+      stats.value = response.stats
+    }
+  } catch (error) {
+    if (currentSeq !== dashboardLoadSeq) return
+    appStore.showError(t('admin.dashboard.failedToLoad'))
+    console.error('Error loading dashboard stats:', error)
+  } finally {
+    if (currentSeq === dashboardLoadSeq) {
+      loading.value = false
+    }
+  }
+}
+
+const loadChartSnapshot = async (currentSeq: number) => {
   chartsLoading.value = true
+  try {
+    const response = await adminAPI.dashboard.getSnapshotV2({
+      start_date: startDate.value,
+      end_date: endDate.value,
+      granularity: granularity.value,
+      include_stats: false,
+      include_trend: true,
+      include_model_stats: true,
+      include_group_stats: false,
+      include_users_trend: false,
+      include_user_ranking: false
+    })
+    if (currentSeq !== dashboardLoadSeq) return
+    trendData.value = response.trend || []
+    modelStats.value = response.models || []
+  } catch (error) {
+    if (currentSeq !== dashboardLoadSeq) return
+    appStore.showError(t('admin.dashboard.failedToLoad'))
+    console.error('Error loading dashboard charts:', error)
+    trendData.value = []
+    modelStats.value = []
+  } finally {
+    if (currentSeq === dashboardLoadSeq) {
+      chartsLoading.value = false
+    }
+  }
+}
+
+const loadUserInsightsSnapshot = async (currentSeq: number) => {
   userTrendLoading.value = true
+  userTrendError.value = false
   rankingLoading.value = true
   rankingError.value = false
   try {
@@ -656,57 +721,61 @@ const loadDashboardSnapshot = async (includeStats: boolean) => {
       start_date: startDate.value,
       end_date: endDate.value,
       granularity: granularity.value,
-      include_stats: includeStats,
-      include_trend: true,
-      include_model_stats: true,
+      include_stats: false,
+      include_trend: false,
+      include_model_stats: false,
       include_group_stats: false,
       include_users_trend: true,
       users_trend_limit: 12,
       include_user_ranking: true,
       user_ranking_limit: rankingLimit
     })
-    if (currentSeq !== chartLoadSeq) return
-    if (includeStats && response.stats) {
-      stats.value = response.stats
-    }
-    trendData.value = response.trend || []
-    modelStats.value = response.models || []
+    if (currentSeq !== dashboardLoadSeq) return
     userTrend.value = response.users_trend || []
     rankingItems.value = response.ranking || []
     rankingTotalActualCost.value = response.ranking_total_actual_cost || 0
     rankingTotalRequests.value = response.ranking_total_requests || 0
     rankingTotalTokens.value = response.ranking_total_tokens || 0
   } catch (error) {
-    if (currentSeq !== chartLoadSeq) return
-    appStore.showError(t('admin.dashboard.failedToLoad'))
-    console.error('Error loading dashboard snapshot:', error)
+    if (currentSeq !== dashboardLoadSeq) return
+    console.error('Error loading dashboard user insights:', error)
     userTrend.value = []
+    userTrendError.value = true
     rankingItems.value = []
     rankingTotalActualCost.value = 0
     rankingTotalRequests.value = 0
     rankingTotalTokens.value = 0
     rankingError.value = true
   } finally {
-    if (currentSeq === chartLoadSeq) {
-      loading.value = false
-      chartsLoading.value = false
+    if (currentSeq === dashboardLoadSeq) {
       userTrendLoading.value = false
       rankingLoading.value = false
     }
   }
 }
 
+const loadDashboardData = async (includeStats: boolean) => {
+  const currentSeq = ++dashboardLoadSeq
+  const requests: Promise<void>[] = []
+  if (includeStats) {
+    requests.push(loadStatsSnapshot(currentSeq))
+  }
+  requests.push(loadChartSnapshot(currentSeq))
+  requests.push(loadUserInsightsSnapshot(currentSeq))
+  await Promise.allSettled(requests)
+}
+
 const loadDashboardStats = async () => {
-  await loadDashboardSnapshot(true)
+  await loadDashboardData(true)
 }
 
 const loadChartData = async () => {
-  await loadDashboardSnapshot(false)
+  await loadDashboardData(false)
 }
 
 onMounted(() => {
   void refreshBatchImageAccess()
-  loadDashboardStats()
+  void loadDashboardStats()
 })
 </script>
 
