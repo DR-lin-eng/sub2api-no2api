@@ -19,6 +19,20 @@ type userRepoStubForListUsers struct {
 	listWithFiltersParams pagination.PaginationParams
 	lastUsedByUserID      map[int64]*time.Time
 	lastUsedErr           error
+	searchCalls           int
+	searchKeyword         string
+	searchLimit           int
+	searchIncludeDeleted  bool
+}
+
+func (s *userRepoStubForListUsers) SearchSummaries(_ context.Context, keyword string, limit int, includeDeleted bool) ([]User, error) {
+	s.searchCalls++
+	s.searchKeyword = keyword
+	s.searchLimit = limit
+	s.searchIncludeDeleted = includeDeleted
+	out := make([]User, len(s.users))
+	copy(out, s.users)
+	return out, s.err
 }
 
 func (s *userRepoStubForListUsers) ListWithFilters(_ context.Context, params pagination.PaginationParams, _ UserListFilters) ([]User, *pagination.PaginationResult, error) {
@@ -164,6 +178,23 @@ func TestAdminService_ListUsers_PassesSortParams(t *testing.T) {
 		SortBy:    "email",
 		SortOrder: "ASC",
 	}, userRepo.listWithFiltersParams)
+}
+
+func TestAdminServiceSearchUsersUsesNarrowRepositoryProjection(t *testing.T) {
+	userRepo := &userRepoStubForListUsers{users: []User{{ID: 1, Email: "a@example.com"}}}
+	rateRepo := &userGroupRateRepoStubForListUsers{}
+	svc := &adminServiceImpl{userRepo: userRepo, userGroupRateRepo: rateRepo}
+
+	users, err := svc.SearchUsers(context.Background(), "example", 30, true)
+
+	require.NoError(t, err)
+	require.Len(t, users, 1)
+	require.Equal(t, 1, userRepo.searchCalls)
+	require.Equal(t, "example", userRepo.searchKeyword)
+	require.Equal(t, 30, userRepo.searchLimit)
+	require.True(t, userRepo.searchIncludeDeleted)
+	require.Zero(t, rateRepo.batchCalls)
+	require.Empty(t, rateRepo.singleCall)
 }
 
 func TestAdminService_ListUsers_PopulatesLastUsedAt(t *testing.T) {

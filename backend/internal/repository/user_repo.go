@@ -432,6 +432,43 @@ func (r *userRepository) List(ctx context.Context, params pagination.PaginationP
 	return r.ListWithFilters(ctx, params, service.UserListFilters{})
 }
 
+// SearchSummaries is the narrow admin autocomplete path. It avoids the count
+// query and all relation hydration performed by ListWithFilters.
+func (r *userRepository) SearchSummaries(ctx context.Context, keyword string, limit int, includeDeleted bool) ([]service.User, error) {
+	queryCtx := ctx
+	if includeDeleted {
+		queryCtx = mixins.SkipSoftDelete(ctx)
+	}
+
+	q := r.client.User.Query()
+	if keyword = strings.TrimSpace(keyword); keyword != "" {
+		q = q.Where(dbuser.Or(
+			dbuser.EmailContainsFold(keyword),
+			dbuser.UsernameContainsFold(keyword),
+			dbuser.NotesContainsFold(keyword),
+			dbuser.HasAPIKeysWith(apikey.KeyContainsFold(keyword)),
+		))
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 30
+	}
+
+	rows, err := q.
+		Select(dbuser.FieldID, dbuser.FieldEmail, dbuser.FieldDeletedAt).
+		Order(dbent.Asc(dbuser.FieldEmail), dbent.Asc(dbuser.FieldID)).
+		Limit(limit).
+		All(queryCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	users := make([]service.User, 0, len(rows))
+	for i := range rows {
+		users = append(users, service.User{ID: rows[i].ID, Email: rows[i].Email, DeletedAt: rows[i].DeletedAt})
+	}
+	return users, nil
+}
+
 func (r *userRepository) ListWithFilters(ctx context.Context, params pagination.PaginationParams, filters service.UserListFilters) ([]service.User, *pagination.PaginationResult, error) {
 	// SkipSoftDelete 仅作用于 User 身份解析（下方 Count/All）；订阅、分组等关联实体沿用原始 ctx，避免穿透到这些同样带软删除的实体而带出已删除行。
 	userCtx := ctx

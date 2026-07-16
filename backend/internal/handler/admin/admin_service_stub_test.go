@@ -155,6 +155,24 @@ func (s *stubAdminService) ListUsers(ctx context.Context, page, pageSize int, fi
 	return s.users, int64(len(s.users)), nil
 }
 
+func (s *stubAdminService) SearchUsers(_ context.Context, keyword string, limit int, includeDeleted bool) ([]service.User, error) {
+	users := make([]service.User, 0, len(s.users))
+	keyword = strings.ToLower(strings.TrimSpace(keyword))
+	for i := range s.users {
+		if !includeDeleted && s.users[i].DeletedAt != nil {
+			continue
+		}
+		if keyword != "" && !strings.Contains(strings.ToLower(s.users[i].Email), keyword) {
+			continue
+		}
+		users = append(users, s.users[i])
+		if len(users) >= limit {
+			break
+		}
+	}
+	return users, nil
+}
+
 func (s *stubAdminService) GetUser(ctx context.Context, id int64) (*service.User, error) {
 	if s.getUserErr != nil {
 		return nil, s.getUserErr

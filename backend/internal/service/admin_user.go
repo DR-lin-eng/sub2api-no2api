@@ -19,6 +19,10 @@ import (
 )
 
 // User management implementations
+type adminUserSummarySearcher interface {
+	SearchSummaries(ctx context.Context, keyword string, limit int, includeDeleted bool) ([]User, error)
+}
+
 func (s *adminServiceImpl) ListUsers(ctx context.Context, page, pageSize int, filters UserListFilters, sortBy, sortOrder string) ([]User, int64, error) {
 	params := pagination.PaginationParams{Page: page, PageSize: pageSize, SortBy: sortBy, SortOrder: sortOrder}
 	users, result, err := s.userRepo.ListWithFilters(ctx, params, filters)
@@ -62,6 +66,26 @@ func (s *adminServiceImpl) ListUsers(ctx context.Context, page, pageSize int, fi
 		}
 	}
 	return users, result.Total, nil
+}
+
+// SearchUsers returns the narrow projection used by admin autocomplete. It
+// intentionally skips totals, subscriptions, allowed groups, last-used data,
+// and per-user rate overrides.
+func (s *adminServiceImpl) SearchUsers(ctx context.Context, keyword string, limit int, includeDeleted bool) ([]User, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 30
+	}
+	if searcher, ok := s.userRepo.(adminUserSummarySearcher); ok {
+		return searcher.SearchSummaries(ctx, keyword, limit, includeDeleted)
+	}
+
+	includeSubscriptions := false
+	users, _, err := s.userRepo.ListWithFilters(ctx, pagination.PaginationParams{Page: 1, PageSize: limit, SortBy: "email", SortOrder: "asc"}, UserListFilters{
+		Search:               keyword,
+		IncludeDeleted:       includeDeleted,
+		IncludeSubscriptions: &includeSubscriptions,
+	})
+	return users, err
 }
 
 func (s *adminServiceImpl) loadUserGroupRatesOneByOne(ctx context.Context, users []User) {

@@ -84,6 +84,10 @@ type accountWindowStatsBatchReader interface {
 	GetAccountWindowStatsBatch(ctx context.Context, accountIDs []int64, startTime time.Time) (map[int64]*usagestats.AccountStats, error)
 }
 
+type accountWindowStatsByStartBatchReader interface {
+	GetAccountWindowStatsByStartBatch(ctx context.Context, starts map[int64]time.Time) (map[int64]*usagestats.AccountStats, error)
+}
+
 // apiUsageCache 缓存从 Anthropic API 获取的使用率数据（utilization, resets_at）
 // 同时支持缓存错误响应（负缓存），防止 429 等错误导致的重试风暴
 type apiUsageCache struct {
@@ -1816,4 +1820,59 @@ func buildGeminiUsageProgress(used, limit int64, resetAt time.Time, tokens int64
 // 用于账号列表页面显示当前窗口费用
 func (s *AccountUsageService) GetAccountWindowStats(ctx context.Context, accountID int64, startTime time.Time) (*usagestats.AccountStats, error) {
 	return s.usageLogRepo.GetAccountWindowStats(ctx, accountID, startTime)
+}
+
+// GetAccountWindowStatsByStartBatch fetches independent account windows in a
+// single SQL query when supported. The bounded fallback preserves compatibility
+// with repository implementations used by tests and external integrations.
+func (s *AccountUsageService) GetAccountWindowStatsByStartBatch(ctx context.Context, starts map[int64]time.Time) (map[int64]*usagestats.AccountStats, error) {
+	result := make(map[int64]*usagestats.AccountStats, len(starts))
+	if len(starts) == 0 || s == nil || s.usageLogRepo == nil {
+		return result, nil
+	}
+
+	if batchReader, ok := s.usageLogRepo.(accountWindowStatsByStartBatchReader); ok {
+		statsByAccount, err := batchReader.GetAccountWindowStatsByStartBatch(ctx, starts)
+		if err == nil {
+			for accountID := range starts {
+				stats := statsByAccount[accountID]
+				if stats == nil {
+					stats = &usagestats.AccountStats{}
+				}
+				result[accountID] = stats
+			}
+			return result, nil
+		}
+	}
+
+	var mu sync.Mutex
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(8)
+	for accountID, startTime := range starts {
+		id, start := accountID, startTime
+		if id <= 0 {
+			continue
+		}
+		g.Go(func() error {
+			stats, err := s.usageLogRepo.GetAccountWindowStats(gctx, id, start)
+			if err != nil {
+				return nil
+			}
+			mu.Lock()
+			result[id] = stats
+			mu.Unlock()
+			return nil
+		})
+	}
+	_ = g.Wait()
+
+	for accountID := range starts {
+		if accountID <= 0 {
+			continue
+		}
+		if _, ok := result[accountID]; !ok {
+			result[accountID] = &usagestats.AccountStats{}
+		}
+	}
+	return result, nil
 }

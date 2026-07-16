@@ -40,11 +40,11 @@
       />
 
       <!-- Row: Concurrency + Throughput -->
-      <div v-if="opsEnabled && !(loading && !hasLoadedOnce)" class="grid grid-cols-1 gap-6 lg:grid-cols-4">
-        <div class="lg:col-span-1 min-h-[360px]">
+      <div v-if="opsEnabled && showPrimaryPanels && !(loading && !hasLoadedOnce)" class="grid grid-cols-1 gap-6 lg:grid-cols-4">
+        <div v-if="showConcurrency" class="min-h-[360px]" :class="primaryPanelGridClass">
           <OpsConcurrencyCard :platform-filter="platform" :group-id-filter="groupId" :refresh-token="dashboardRefreshToken" />
         </div>
-        <div class="lg:col-span-1 h-[360px]">
+        <div v-if="showSwitchRateTrend" class="h-[360px]" :class="primaryPanelGridClass">
           <OpsSwitchRateTrendChart
             :points="switchTrend?.points ?? []"
             :loading="loadingSwitchTrend"
@@ -52,7 +52,7 @@
             :fullscreen="isFullscreen"
           />
         </div>
-        <div class="lg:col-span-2 h-[360px]">
+        <div v-if="showThroughputTrend" class="h-[360px]" :class="throughputPanelGridClass">
           <OpsThroughputTrendChart
             :points="throughputTrend?.points ?? []"
             :by-platform="throughputTrend?.by_platform ?? []"
@@ -68,14 +68,20 @@
       </div>
 
       <!-- Row: Visual Analysis (baseline 3-up grid) -->
-      <div v-if="opsEnabled && !(loading && !hasLoadedOnce)" class="grid grid-cols-1 gap-6 md:grid-cols-3">
-        <OpsLatencyChart :latency-data="latencyHistogram" :loading="loadingLatency" />
+      <div
+        v-if="opsEnabled && showAnalysisPanels && !(loading && !hasLoadedOnce)"
+        class="grid grid-cols-1 gap-6"
+        :class="analysisPanelGridClass"
+      >
+        <OpsLatencyChart v-if="showLatencyHistogram" :latency-data="latencyHistogram" :loading="loadingLatency" />
         <OpsErrorDistributionChart
+          v-if="showErrorDistribution"
           :data="errorDistribution"
           :loading="loadingErrorDistribution"
           @open-details="openErrorDetails('request')"
         />
         <OpsErrorTrendChart
+          v-if="showErrorTrend"
           :points="errorTrend?.points ?? []"
           :loading="loadingErrorTrend"
           :time-range="timeRange"
@@ -396,12 +402,35 @@ const showAlertEvents = ref(true)
 const showOpenAITokenStats = ref(false)
 const showUserUsageStats = ref(false)
 const showSystemLogs = ref(true)
+const showConcurrency = ref(true)
+const showSwitchRateTrend = ref(true)
+const showThroughputTrend = ref(true)
+const showLatencyHistogram = ref(true)
+const showErrorDistribution = ref(true)
+const showErrorTrend = ref(true)
 const autoRefreshEnabled = ref(false)
 const autoRefreshIntervalMs = ref(30000) // default 30 seconds
 const autoRefreshCountdown = ref(0)
 
 // Used to trigger child component refreshes in a single shared cadence.
 const dashboardRefreshToken = ref(0)
+
+const primaryPanelCount = computed(
+  () => Number(showConcurrency.value) + Number(showSwitchRateTrend.value) + Number(showThroughputTrend.value)
+)
+const showPrimaryPanels = computed(() => primaryPanelCount.value > 0)
+const primaryPanelGridClass = computed(() => (primaryPanelCount.value === 3 ? 'lg:col-span-1' : primaryPanelCount.value === 2 ? 'lg:col-span-2' : 'lg:col-span-4'))
+const throughputPanelGridClass = computed(() => (primaryPanelCount.value === 3 ? 'lg:col-span-2' : primaryPanelCount.value === 2 ? 'lg:col-span-2' : 'lg:col-span-4'))
+
+const analysisPanelCount = computed(
+  () => Number(showLatencyHistogram.value) + Number(showErrorDistribution.value) + Number(showErrorTrend.value)
+)
+const showAnalysisPanels = computed(() => analysisPanelCount.value > 0)
+const analysisPanelGridClass = computed(() => {
+  if (analysisPanelCount.value === 3) return 'md:grid-cols-3'
+  if (analysisPanelCount.value === 2) return 'md:grid-cols-2'
+  return 'md:grid-cols-1'
+})
 
 // Countdown timer (drives auto refresh; updates every second)
 const { pause: pauseCountdown, resume: resumeCountdown } = useIntervalFn(
@@ -424,6 +453,12 @@ const { pause: pauseCountdown, resume: resumeCountdown } = useIntervalFn(
 )
 
 function applyDashboardAdvancedSettings(settings: OpsAdvancedSettings) {
+  showConcurrency.value = settings.display_concurrency
+  showSwitchRateTrend.value = settings.display_switch_rate_trend
+  showThroughputTrend.value = settings.display_throughput_trend
+  showLatencyHistogram.value = settings.display_latency_histogram
+  showErrorDistribution.value = settings.display_error_distribution
+  showErrorTrend.value = settings.display_error_trend
   showAlertEvents.value = settings.display_alert_events
   showOpenAITokenStats.value = settings.display_openai_token_stats
   showUserUsageStats.value = settings.display_user_usage_stats
@@ -431,9 +466,21 @@ function applyDashboardAdvancedSettings(settings: OpsAdvancedSettings) {
   autoRefreshEnabled.value = settings.auto_refresh_enabled
   autoRefreshIntervalMs.value = settings.auto_refresh_interval_seconds * 1000
   autoRefreshCountdown.value = settings.auto_refresh_interval_seconds
+
+  if (!showSwitchRateTrend.value) switchTrend.value = null
+  if (!showThroughputTrend.value) throughputTrend.value = null
+  if (!showLatencyHistogram.value) latencyHistogram.value = null
+  if (!showErrorDistribution.value) errorDistribution.value = null
+  if (!showErrorTrend.value) errorTrend.value = null
 }
 
 function resetDashboardAdvancedSettings() {
+  showConcurrency.value = true
+  showSwitchRateTrend.value = true
+  showThroughputTrend.value = true
+  showLatencyHistogram.value = true
+  showErrorDistribution.value = true
+  showErrorTrend.value = true
   showAlertEvents.value = true
   showOpenAITokenStats.value = false
   showUserUsageStats.value = false
@@ -568,6 +615,16 @@ function buildApiParams() {
   return params
 }
 
+function buildSnapshotApiParams() {
+  return {
+    ...buildApiParams(),
+    include_throughput_trend: showThroughputTrend.value,
+    include_latency_histogram: showLatencyHistogram.value,
+    include_error_trend: showErrorTrend.value,
+    include_error_distribution: showErrorDistribution.value
+  }
+}
+
 function buildSwitchTrendParams() {
   const params: any = {
     platform: platform.value || undefined,
@@ -595,7 +652,7 @@ async function refreshOverviewWithCancel(fetchSeq: number, signal: AbortSignal) 
 }
 
 async function refreshSwitchTrendWithCancel(fetchSeq: number, signal: AbortSignal) {
-  if (!opsEnabled.value) return
+  if (!opsEnabled.value || !showSwitchRateTrend.value) return
   loadingSwitchTrend.value = true
   try {
     const data = await opsAPI.getThroughputTrend(buildSwitchTrendParams(), { signal })
@@ -613,7 +670,7 @@ async function refreshSwitchTrendWithCancel(fetchSeq: number, signal: AbortSigna
 }
 
 async function refreshThroughputTrendWithCancel(fetchSeq: number, signal: AbortSignal) {
-  if (!opsEnabled.value) return
+  if (!opsEnabled.value || !showThroughputTrend.value) return
   loadingTrend.value = true
   try {
     const data = await opsAPI.getThroughputTrend(buildApiParams(), { signal })
@@ -632,35 +689,34 @@ async function refreshThroughputTrendWithCancel(fetchSeq: number, signal: AbortS
 
 async function refreshCoreSnapshotWithCancel(fetchSeq: number, signal: AbortSignal) {
   if (!opsEnabled.value) return
-  loadingTrend.value = true
-  loadingErrorTrend.value = true
-  loadingLatency.value = true
-  loadingErrorDistribution.value = true
+  loadingTrend.value = showThroughputTrend.value
+  loadingErrorTrend.value = showErrorTrend.value
+  loadingLatency.value = showLatencyHistogram.value
+  loadingErrorDistribution.value = showErrorDistribution.value
   try {
-    const data = await opsAPI.getDashboardSnapshotV2(buildApiParams(), { signal })
+    const data = await opsAPI.getDashboardSnapshotV2(buildSnapshotApiParams(), { signal })
     if (fetchSeq !== dashboardFetchSeq) return
     overview.value = data.overview
-    throughputTrend.value = data.throughput_trend
-    errorTrend.value = data.error_trend
-    if (data.latency_histogram && data.error_distribution) {
-      latencyHistogram.value = data.latency_histogram
-      errorDistribution.value = data.error_distribution
-    } else {
-      await Promise.all([
-        refreshLatencyHistogramWithCancel(fetchSeq, signal),
-        refreshErrorDistributionWithCancel(fetchSeq, signal)
-      ])
-    }
+    throughputTrend.value = showThroughputTrend.value ? data.throughput_trend ?? null : null
+    errorTrend.value = showErrorTrend.value ? data.error_trend ?? null : null
+    latencyHistogram.value = showLatencyHistogram.value ? data.latency_histogram ?? null : null
+    errorDistribution.value = showErrorDistribution.value ? data.error_distribution ?? null : null
+
+    const missingRequests: Array<Promise<void>> = []
+    if (showThroughputTrend.value && !data.throughput_trend) missingRequests.push(refreshThroughputTrendWithCancel(fetchSeq, signal))
+    if (showLatencyHistogram.value && !data.latency_histogram) missingRequests.push(refreshLatencyHistogramWithCancel(fetchSeq, signal))
+    if (showErrorTrend.value && !data.error_trend) missingRequests.push(refreshErrorTrendWithCancel(fetchSeq, signal))
+    if (showErrorDistribution.value && !data.error_distribution) missingRequests.push(refreshErrorDistributionWithCancel(fetchSeq, signal))
+    if (missingRequests.length > 0) await Promise.all(missingRequests)
   } catch (err: any) {
     if (fetchSeq !== dashboardFetchSeq || isCanceledRequest(err)) return
     // Fallback to legacy split endpoints when snapshot endpoint is unavailable.
-    await Promise.all([
-      refreshOverviewWithCancel(fetchSeq, signal),
-      refreshThroughputTrendWithCancel(fetchSeq, signal),
-      refreshLatencyHistogramWithCancel(fetchSeq, signal),
-      refreshErrorTrendWithCancel(fetchSeq, signal),
-      refreshErrorDistributionWithCancel(fetchSeq, signal)
-    ])
+    const fallbackRequests: Array<Promise<void>> = [refreshOverviewWithCancel(fetchSeq, signal)]
+    if (showThroughputTrend.value) fallbackRequests.push(refreshThroughputTrendWithCancel(fetchSeq, signal))
+    if (showLatencyHistogram.value) fallbackRequests.push(refreshLatencyHistogramWithCancel(fetchSeq, signal))
+    if (showErrorTrend.value) fallbackRequests.push(refreshErrorTrendWithCancel(fetchSeq, signal))
+    if (showErrorDistribution.value) fallbackRequests.push(refreshErrorDistributionWithCancel(fetchSeq, signal))
+    await Promise.all(fallbackRequests)
   } finally {
     if (fetchSeq === dashboardFetchSeq) {
       loadingTrend.value = false
@@ -672,7 +728,7 @@ async function refreshCoreSnapshotWithCancel(fetchSeq: number, signal: AbortSign
 }
 
 async function refreshLatencyHistogramWithCancel(fetchSeq: number, signal: AbortSignal) {
-  if (!opsEnabled.value) return
+  if (!opsEnabled.value || !showLatencyHistogram.value) return
   loadingLatency.value = true
   try {
     const data = await opsAPI.getLatencyHistogram(buildApiParams(), { signal })
@@ -690,7 +746,7 @@ async function refreshLatencyHistogramWithCancel(fetchSeq: number, signal: Abort
 }
 
 async function refreshErrorTrendWithCancel(fetchSeq: number, signal: AbortSignal) {
-  if (!opsEnabled.value) return
+  if (!opsEnabled.value || !showErrorTrend.value) return
   loadingErrorTrend.value = true
   try {
     const data = await opsAPI.getErrorTrend(buildApiParams(), { signal })
@@ -708,7 +764,7 @@ async function refreshErrorTrendWithCancel(fetchSeq: number, signal: AbortSignal
 }
 
 async function refreshErrorDistributionWithCancel(fetchSeq: number, signal: AbortSignal) {
-  if (!opsEnabled.value) return
+  if (!opsEnabled.value || !showErrorDistribution.value) return
   loadingErrorDistribution.value = true
   try {
     const data = await opsAPI.getErrorDistribution(buildApiParams(), { signal })
@@ -746,10 +802,11 @@ async function fetchData() {
   loading.value = true
   errorMessage.value = ''
   try {
-    await Promise.all([
-      refreshCoreSnapshotWithCancel(fetchSeq, dashboardFetchController.signal),
-      refreshSwitchTrendWithCancel(fetchSeq, dashboardFetchController.signal),
-    ])
+    const requests: Array<Promise<void>> = [refreshCoreSnapshotWithCancel(fetchSeq, dashboardFetchController.signal)]
+    if (showSwitchRateTrend.value) {
+      requests.push(refreshSwitchTrendWithCancel(fetchSeq, dashboardFetchController.signal))
+    }
+    await Promise.all(requests)
     if (fetchSeq !== dashboardFetchSeq) return
 
     lastUpdated.value = new Date()

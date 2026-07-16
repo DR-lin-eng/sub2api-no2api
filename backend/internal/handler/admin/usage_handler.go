@@ -357,8 +357,8 @@ func (h *UsageHandler) SearchUsers(c *gin.Context) {
 		return
 	}
 
-	// Limit to 30 results
-	users, _, err := h.adminService.ListUsers(c.Request.Context(), 1, 30, service.UserListFilters{Search: keyword, IncludeDeleted: true}, "email", "asc")
+	// Narrow autocomplete projection: no total count or relation hydration.
+	users, err := h.adminService.SearchUsers(c.Request.Context(), keyword, 30, true)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return

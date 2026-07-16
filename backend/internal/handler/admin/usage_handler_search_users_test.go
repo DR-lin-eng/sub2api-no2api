@@ -13,19 +13,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 捕获 ListUsers 入参、返回一个已删用户的 admin service 桩。
+// 捕获轻量 SearchUsers 入参、返回一个已删用户的 admin service 桩。
 type searchUsersAdminStub struct {
 	service.AdminService
-	gotFilters service.UserListFilters
+	keyword        string
+	limit          int
+	includeDeleted bool
 }
 
-func (s *searchUsersAdminStub) ListUsers(ctx context.Context, page, pageSize int, filters service.UserListFilters, sortBy, sortOrder string) ([]service.User, int64, error) {
-	s.gotFilters = filters
+func (s *searchUsersAdminStub) SearchUsers(_ context.Context, keyword string, limit int, includeDeleted bool) ([]service.User, error) {
+	s.keyword = keyword
+	s.limit = limit
+	s.includeDeleted = includeDeleted
 	ts := time.Date(2026, 5, 28, 0, 0, 0, 0, time.UTC)
 	return []service.User{
 		{ID: 1, Email: "active@test.com"},
 		{ID: 2, Email: "deleted@test.com", DeletedAt: &ts},
-	}, 2, nil
+	}, nil
 }
 
 func TestAdminUsageSearchUsers_IncludesDeletedAndFlags(t *testing.T) {
@@ -40,7 +44,9 @@ func TestAdminUsageSearchUsers_IncludesDeletedAndFlags(t *testing.T) {
 	router.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusOK, rec.Code)
-	require.True(t, stub.gotFilters.IncludeDeleted, "SearchUsers 必须请求 IncludeDeleted")
+	require.Equal(t, "test", stub.keyword)
+	require.Equal(t, 30, stub.limit)
+	require.True(t, stub.includeDeleted, "SearchUsers 必须请求 IncludeDeleted")
 
 	var resp struct {
 		Data []struct {

@@ -79,7 +79,14 @@ func (BatchImageJob) Indexes() []ent.Index {
 		index.Fields("provider", "status"),
 		index.Fields("idempotency_key").Annotations(entsql.IndexWhere("idempotency_key IS NOT NULL AND idempotency_key <> ''")),
 		index.Fields("manifest_hash").Unique().Annotations(entsql.IndexWhere("manifest_hash IS NOT NULL AND manifest_hash <> ''")),
-		index.Fields("output_expires_at"),
+		index.Fields("user_id", "api_key_id", "created_at", "id").
+			Annotations(entsql.IndexWhere("user_deleted_at IS NULL")),
+		index.Fields("updated_at", "id").
+			Annotations(entsql.IndexWhere("status IN ('created', 'uploading') AND provider_job_name IS NULL AND COALESCE(hold_amount, estimated_cost, 0) > 0")),
+		index.Fields("id").
+			Annotations(entsql.IndexWhere("input_deleted_at IS NULL AND provider_input_ref IS NOT NULL AND status IN ('completed', 'failed', 'cancelled', 'output_deleted')")),
+		index.Fields("output_expires_at", "id").
+			Annotations(entsql.IndexWhere("output_deleted_at IS NULL AND provider_output_ref IS NOT NULL AND status = 'completed' AND output_expires_at IS NOT NULL")),
 		index.Fields("downloaded_at"),
 		index.Fields("user_deleted_at"),
 	}

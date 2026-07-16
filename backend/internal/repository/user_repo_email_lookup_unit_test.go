@@ -54,6 +54,41 @@ func TestUserRepositoryGetByEmailNormalizesLegacySpacingAndCase(t *testing.T) {
 	require.Equal(t, " Legacy@Example.com ", got.Email)
 }
 
+func TestUserRepositorySearchSummariesUsesNarrowProjectionAndIncludesDeleted(t *testing.T) {
+	repo, client := newUserEntRepo(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	_, err := client.User.Create().
+		SetEmail("active-search@example.com").
+		SetUsername("active-profile").
+		SetPasswordHash("hash").
+		SetRole(service.RoleUser).
+		SetStatus(service.StatusActive).
+		Save(ctx)
+	require.NoError(t, err)
+	_, err = client.User.Create().
+		SetEmail("deleted-search@example.com").
+		SetUsername("deleted-profile").
+		SetPasswordHash("hash").
+		SetRole(service.RoleUser).
+		SetStatus(service.StatusActive).
+		SetDeletedAt(now).
+		Save(ctx)
+	require.NoError(t, err)
+
+	activeOnly, err := repo.SearchSummaries(ctx, "search@example.com", 30, false)
+	require.NoError(t, err)
+	require.Len(t, activeOnly, 1)
+	require.Equal(t, "active-search@example.com", activeOnly[0].Email)
+	require.Empty(t, activeOnly[0].Username)
+
+	includingDeleted, err := repo.SearchSummaries(ctx, "search@example.com", 30, true)
+	require.NoError(t, err)
+	require.Len(t, includingDeleted, 2)
+	require.NotNil(t, includingDeleted[1].DeletedAt)
+}
+
 func TestUserRepositoryExistsByEmailNormalizesLegacySpacingAndCase(t *testing.T) {
 	repo, _ := newUserEntRepo(t)
 	ctx := context.Background()

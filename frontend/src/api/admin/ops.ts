@@ -206,10 +206,10 @@ export interface OpsErrorDistributionResponse {
 export interface OpsDashboardSnapshotV2Response {
   generated_at: string
   overview: OpsDashboardOverview
-  throughput_trend: OpsThroughputTrendResponse
-  latency_histogram: OpsLatencyHistogramResponse
-  error_trend: OpsErrorTrendResponse
-  error_distribution: OpsErrorDistributionResponse
+  throughput_trend?: OpsThroughputTrendResponse | null
+  latency_histogram?: OpsLatencyHistogramResponse | null
+  error_trend?: OpsErrorTrendResponse | null
+  error_distribution?: OpsErrorDistributionResponse | null
 }
 
 export type OpsOpenAITokenStatsTimeRange = '30m' | '1h' | '1d' | '15d' | '30d'
@@ -837,6 +837,12 @@ export interface OpsAdvancedSettings {
   display_user_usage_stats: boolean
   display_alert_events: boolean
   display_system_logs: boolean
+  display_concurrency: boolean
+  display_switch_rate_trend: boolean
+  display_throughput_trend: boolean
+  display_latency_histogram: boolean
+  display_error_distribution: boolean
+  display_error_trend: boolean
   auto_refresh_enabled: boolean
   auto_refresh_interval_seconds: number
 }
@@ -1046,6 +1052,10 @@ export async function getDashboardSnapshotV2(
   platform?: string
   group_id?: number | null
   mode?: OpsQueryMode
+  include_throughput_trend?: boolean
+  include_latency_histogram?: boolean
+  include_error_trend?: boolean
+  include_error_distribution?: boolean
   },
   options: OpsRequestOptions = {}
 ): Promise<OpsDashboardSnapshotV2Response> {

@@ -23,6 +23,12 @@ func TestGetOpsAdvancedSettings_DefaultHidesOpenAITokenStats(t *testing.T) {
 	if cfg.DisplayUserUsageStats {
 		t.Fatalf("DisplayUserUsageStats = true, want false by default")
 	}
+	if !cfg.DisplayConcurrency || !cfg.DisplaySwitchRateTrend || !cfg.DisplayThroughputTrend {
+		t.Fatalf("primary dashboard panels should be visible by default: %+v", cfg)
+	}
+	if !cfg.DisplayLatencyHistogram || !cfg.DisplayErrorDistribution || !cfg.DisplayErrorTrend {
+		t.Fatalf("analysis dashboard panels should be visible by default: %+v", cfg)
+	}
 	if !cfg.DisplayAlertEvents {
 		t.Fatalf("DisplayAlertEvents = false, want true by default")
 	}
@@ -44,6 +50,12 @@ func TestUpdateOpsAdvancedSettings_PersistsOpenAITokenStatsVisibility(t *testing
 	cfg := defaultOpsAdvancedSettings()
 	cfg.DisplayOpenAITokenStats = true
 	cfg.DisplayUserUsageStats = true
+	cfg.DisplayConcurrency = false
+	cfg.DisplaySwitchRateTrend = false
+	cfg.DisplayThroughputTrend = false
+	cfg.DisplayLatencyHistogram = false
+	cfg.DisplayErrorDistribution = false
+	cfg.DisplayErrorTrend = false
 	cfg.DisplayAlertEvents = false
 	cfg.DisplaySystemLogs = false
 
@@ -56,6 +68,12 @@ func TestUpdateOpsAdvancedSettings_PersistsOpenAITokenStatsVisibility(t *testing
 	}
 	if !updated.DisplayUserUsageStats {
 		t.Fatalf("DisplayUserUsageStats = false, want true")
+	}
+	if updated.DisplayConcurrency || updated.DisplaySwitchRateTrend || updated.DisplayThroughputTrend {
+		t.Fatalf("primary dashboard panel settings were not persisted: %+v", updated)
+	}
+	if updated.DisplayLatencyHistogram || updated.DisplayErrorDistribution || updated.DisplayErrorTrend {
+		t.Fatalf("analysis dashboard panel settings were not persisted: %+v", updated)
 	}
 	if updated.DisplayAlertEvents {
 		t.Fatalf("DisplayAlertEvents = true, want false")
@@ -73,6 +91,12 @@ func TestUpdateOpsAdvancedSettings_PersistsOpenAITokenStatsVisibility(t *testing
 	}
 	if !reloaded.DisplayUserUsageStats {
 		t.Fatalf("reloaded DisplayUserUsageStats = false, want true")
+	}
+	if reloaded.DisplayConcurrency || reloaded.DisplaySwitchRateTrend || reloaded.DisplayThroughputTrend {
+		t.Fatalf("reloaded primary dashboard panel settings were not persisted: %+v", reloaded)
+	}
+	if reloaded.DisplayLatencyHistogram || reloaded.DisplayErrorDistribution || reloaded.DisplayErrorTrend {
+		t.Fatalf("reloaded analysis dashboard panel settings were not persisted: %+v", reloaded)
 	}
 	if reloaded.DisplayAlertEvents {
 		t.Fatalf("reloaded DisplayAlertEvents = true, want false")
@@ -119,6 +143,12 @@ func TestGetOpsAdvancedSettings_BackfillsNewDisplayFlagsFromDefaults(t *testing.
 	}
 	if cfg.DisplayUserUsageStats {
 		t.Fatalf("DisplayUserUsageStats = true, want false default backfill")
+	}
+	if !cfg.DisplayConcurrency || !cfg.DisplaySwitchRateTrend || !cfg.DisplayThroughputTrend {
+		t.Fatalf("primary dashboard panels should be backfilled as visible: %+v", cfg)
+	}
+	if !cfg.DisplayLatencyHistogram || !cfg.DisplayErrorDistribution || !cfg.DisplayErrorTrend {
+		t.Fatalf("analysis dashboard panels should be backfilled as visible: %+v", cfg)
 	}
 	if !cfg.DisplayAlertEvents {
 		t.Fatalf("DisplayAlertEvents = false, want true default backfill")
