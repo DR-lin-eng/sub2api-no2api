@@ -1,5 +1,5 @@
 -- Keep the minute-level probe scheduler off full-table JSON parsing. The first
--- index drains malformed snapshots; the second serves steady-state due probes
+-- index drains malformed snapshots, while the second serves steady-state due probes
 -- in next-run order. Both remain small because probing is opt-in.
 
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_accounts_upstream_billing_probe_legacy

@@ -18,6 +18,11 @@ func TestUpstreamBillingProbeDueIndexesMigration(t *testing.T) {
 
 	content, err := FS.ReadFile("182_upstream_billing_probe_due_indexes_notx.sql")
 	require.NoError(t, err)
+	for _, line := range strings.Split(string(content), "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "--") {
+			require.NotContains(t, line, ";", "non-transactional migration comments must not confuse the statement splitter")
+		}
+	}
 
 	sql := strings.Join(strings.Fields(string(content)), " ")
 	require.Contains(t, sql, "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_accounts_upstream_billing_probe_legacy ON accounts (id)")
