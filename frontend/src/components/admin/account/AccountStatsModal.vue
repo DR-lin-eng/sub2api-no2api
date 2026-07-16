@@ -340,6 +340,16 @@
               </div>
               <div class="flex items-center justify-between">
                 <span class="text-xs text-gray-500 dark:text-gray-400">{{
+                  t('admin.accounts.stats.avgTtft')
+                }}</span>
+                <span class="text-sm font-semibold text-gray-900 dark:text-white">{{
+                  stats.summary.avg_first_token_ms == null
+                    ? '--'
+                    : formatDuration(stats.summary.avg_first_token_ms)
+                }}</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-500 dark:text-gray-400">{{
                   t('admin.accounts.stats.daysActive')
                 }}</span>
                 <span class="text-sm font-semibold text-gray-900 dark:text-white"

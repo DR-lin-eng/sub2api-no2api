@@ -1159,10 +1159,21 @@ func (r *usageLogRepository) GetAccountUsageStats(ctx context.Context, accountID
 		actualDaysUsed = 1
 	}
 
-	avgQuery := "SELECT COALESCE(AVG(duration_ms), 0) as avg_duration_ms FROM usage_logs WHERE account_id = $1 AND created_at >= $2 AND created_at < $3"
+	avgQuery := `
+		SELECT
+			COALESCE(AVG(duration_ms), 0) as avg_duration_ms,
+			AVG(first_token_ms) as avg_first_token_ms
+		FROM usage_logs
+		WHERE account_id = $1 AND created_at >= $2 AND created_at < $3
+	`
 	var avgDuration float64
-	if err := scanSingleRow(ctx, r.sql, avgQuery, []any{accountID, startTime, endTime}, &avgDuration); err != nil {
+	var avgFirstToken sql.NullFloat64
+	if err := scanSingleRow(ctx, r.sql, avgQuery, []any{accountID, startTime, endTime}, &avgDuration, &avgFirstToken); err != nil {
 		return nil, err
+	}
+	var avgFirstTokenMs *float64
+	if avgFirstToken.Valid {
+		avgFirstTokenMs = &avgFirstToken.Float64
 	}
 
 	summary := AccountUsageSummary{
@@ -1178,6 +1189,7 @@ func (r *usageLogRepository) GetAccountUsageStats(ctx context.Context, accountID
 		AvgDailyRequests:  float64(totalRequests) / float64(actualDaysUsed),
 		AvgDailyTokens:    float64(totalTokens) / float64(actualDaysUsed),
 		AvgDurationMs:     avgDuration,
+		AvgFirstTokenMs:   avgFirstTokenMs,
 	}
 
 	todayStr := timezone.Now().Format("2006-01-02")

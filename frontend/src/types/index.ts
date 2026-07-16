@@ -1893,6 +1893,7 @@ export interface AccountUsageSummary {
   avg_daily_requests: number
   avg_daily_tokens: number
   avg_duration_ms: number
+  avg_first_token_ms: number | null
   today: {
     date: string
     cost: number

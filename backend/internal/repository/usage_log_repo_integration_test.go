@@ -1502,8 +1502,11 @@ func (s *UsageLogRepoSuite) TestGetAccountUsageStats() {
 	user := mustCreateUser(s.T(), s.client, &service.User{Email: "accstats@test.com"})
 	apiKey := mustCreateApiKey(s.T(), s.client, &service.APIKey{UserID: user.ID, Key: "sk-accstats", Name: "k"})
 	account := mustCreateAccount(s.T(), s.client, &service.Account{Name: "acc-accstats"})
+	otherAccount := mustCreateAccount(s.T(), s.client, &service.Account{Name: "acc-accstats-other"})
 
 	base := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
+	firstTokenMs := 120
+	otherFirstTokenMs := 900
 
 	// Create logs on different days
 	log1 := &service.UsageLog{
@@ -1515,6 +1518,7 @@ func (s *UsageLogRepoSuite) TestGetAccountUsageStats() {
 		OutputTokens: 200,
 		TotalCost:    0.5,
 		ActualCost:   0.4,
+		FirstTokenMs: &firstTokenMs,
 		CreatedAt:    base.Add(12 * time.Hour),
 	}
 	_, err := s.repo.Create(s.ctx, log1)
@@ -1534,6 +1538,17 @@ func (s *UsageLogRepoSuite) TestGetAccountUsageStats() {
 	_, err = s.repo.Create(s.ctx, log2)
 	s.Require().NoError(err)
 
+	otherLog := &service.UsageLog{
+		UserID:       user.ID,
+		APIKeyID:     apiKey.ID,
+		AccountID:    otherAccount.ID,
+		Model:        "claude-3-opus",
+		FirstTokenMs: &otherFirstTokenMs,
+		CreatedAt:    base.Add(12 * time.Hour),
+	}
+	_, err = s.repo.Create(s.ctx, otherLog)
+	s.Require().NoError(err)
+
 	startTime := base
 	endTime := base.Add(72 * time.Hour)
 
@@ -1543,6 +1558,8 @@ func (s *UsageLogRepoSuite) TestGetAccountUsageStats() {
 	s.Require().Len(resp.History, 2, "expected 2 days of history")
 	s.Require().Equal(int64(2), resp.Summary.TotalRequests)
 	s.Require().Equal(int64(450), resp.Summary.TotalTokens)
+	s.Require().NotNil(resp.Summary.AvgFirstTokenMs)
+	s.Require().Equal(float64(firstTokenMs), *resp.Summary.AvgFirstTokenMs)
 	s.Require().Len(resp.Models, 2)
 }
 
@@ -1558,6 +1575,7 @@ func (s *UsageLogRepoSuite) TestGetAccountUsageStats_EmptyRange() {
 
 	s.Require().Len(resp.History, 0)
 	s.Require().Equal(int64(0), resp.Summary.TotalRequests)
+	s.Require().Nil(resp.Summary.AvgFirstTokenMs)
 }
 
 // --- GetUserUsageTrend ---
