@@ -1462,9 +1462,6 @@ func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapa
 	if !found {
 		return true
 	}
-	if capability == OpenAIEndpointCapabilityAlphaSearch && configured[string(OpenAIEndpointCapabilityChatCompletions)] {
-		return true
-	}
 	return configured[string(capability)]
 }
 

@@ -1461,6 +1461,24 @@
         </div>
       </div>
 
+      <!-- Codex PAT standalone web search capability -->
+      <div
+        v-if="isOpenAIPersonalAccessTokenAccount"
+        class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
+      >
+        <div>
+          <label class="input-label mb-0">{{ t('admin.accounts.openai.codexWebSearch') }}</label>
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('admin.accounts.openai.codexWebSearchDesc') }}
+          </p>
+        </div>
+        <Toggle
+          v-model="codexWebSearchEnabled"
+          data-testid="codex-pat-web-search"
+          :aria-label="t('admin.accounts.openai.codexWebSearch')"
+        />
+      </div>
+
       <!-- OpenAI Codex hosted image_generation bridge policy -->
       <div
         v-if="account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey')"
@@ -2811,6 +2829,7 @@ const editPlanType = ref<string>('')
 const openAICompactMode = ref<OpenAICompactMode>('auto')
 const openAIResponsesMode = ref<OpenAIResponsesMode>('auto')
 const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings'])
+const codexWebSearchEnabled = ref(true)
 const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const codexCLIOnlyEnabled = ref(false)
@@ -2967,6 +2986,38 @@ const openAIEndpointCapabilityOptions = computed<{ value: OpenAIEndpointCapabili
 const openAITextGenerationCapabilityEnabled = computed(() =>
   openAIEndpointCapabilities.value.includes('chat_completions')
 )
+
+const isOpenAIPersonalAccessTokenCredentials = (credentials?: Record<string, unknown>) => {
+  const authMode = String(credentials?.auth_mode ?? credentials?.openai_auth_mode ?? '')
+    .trim()
+    .toLowerCase()
+  return authMode === 'personalaccesstoken' || authMode === 'personal_access_token'
+}
+
+const isOpenAIPersonalAccessTokenAccount = computed(() =>
+  props.account?.platform === 'openai' &&
+  props.account?.type === 'oauth' &&
+  isOpenAIPersonalAccessTokenCredentials(props.account.credentials as Record<string, unknown> | undefined)
+)
+
+const readCodexWebSearchEnabled = (credentials?: Record<string, unknown>) => {
+  const raw = credentials?.openai_capabilities
+  if (Array.isArray(raw)) {
+    return raw.includes('alpha_search')
+  }
+  if (raw !== null && typeof raw === 'object') {
+    return (raw as Record<string, unknown>).alpha_search === true
+  }
+  return true
+}
+
+const applyCodexWebSearchCapability = (credentials: Record<string, unknown>) => {
+  if (codexWebSearchEnabled.value) {
+    delete credentials.openai_capabilities
+    return
+  }
+  credentials.openai_capabilities = ['chat_completions']
+}
 
 const normalizeOpenAIEndpointCapabilities = (values: OpenAIEndpointCapability[]) => {
   const allowed: OpenAIEndpointCapability[] = ['chat_completions', 'embeddings']
@@ -3245,6 +3296,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   openAICompactMode.value = 'auto'
   openAIResponsesMode.value = 'auto'
   openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
+  codexWebSearchEnabled.value = true
   openAICompactModelMappings.value = []
   openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
   openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
@@ -3300,6 +3352,9 @@ const syncFormFromAccount = (newAccount: Account | null) => {
         extra?.codex_cli_only_allow_app_server === true
     }
     const credentials = newAccount.credentials as Record<string, unknown> | undefined
+    if (newAccount.type === 'oauth' && isOpenAIPersonalAccessTokenCredentials(credentials)) {
+      codexWebSearchEnabled.value = readCodexWebSearchEnabled(credentials)
+    }
     const compactMappings = credentials?.compact_model_mapping as Record<string, string> | undefined
     if (compactMappings && typeof compactMappings === 'object') {
       openAICompactModelMappings.value = Object.entries(compactMappings).map(([from, to]) => ({ from, to }))
@@ -4243,6 +4298,9 @@ const handleSubmit = async () => {
       const newCredentials: Record<string, unknown> = { ...currentCredentials }
       if (props.account.platform === 'openai') {
         applyOpenAIModelMappingCredentials(newCredentials)
+        if (isOpenAIPersonalAccessTokenAccount.value) {
+          applyCodexWebSearchCapability(newCredentials)
+        }
       } else {
         const modelMapping = buildModelRestrictionMapping()
         if (modelMapping) {
