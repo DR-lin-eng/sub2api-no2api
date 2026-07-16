@@ -94,15 +94,36 @@ func TestOpenAIGeneratedImage_RewritesURLAndStoresThirtyMinuteMapping(t *testing
 
 func TestOpenAIGeneratedImage_NormalizesNamedSSEKeepalive(t *testing.T) {
 	svc := &OpenAIGatewayService{}
-	require.Equal(t, "\n", string(svc.rewriteOpenAIImagesSSELine(nil, []byte(": keep-alive\n"))))
-	require.Equal(t, "\r\n", string(svc.rewriteOpenAIImagesSSELine(nil, []byte(":keepalive\r\n"))))
+	require.Equal(t, "data: {}\n", string(svc.rewriteOpenAIImagesSSELine(nil, []byte(": keep-alive\n"))))
+	require.Equal(t, "data: {}\r\n", string(svc.rewriteOpenAIImagesSSELine(nil, []byte(":keepalive\r\n"))))
 }
 
 func TestOpenAIGeneratedImage_NormalizesEmptyDataSSEKeepalive(t *testing.T) {
 	svc := &OpenAIGatewayService{}
-	require.Equal(t, "\n", string(svc.rewriteOpenAIImagesSSELine(nil, []byte("data: {}\n"))))
-	require.Equal(t, "\r\n", string(svc.rewriteOpenAIImagesSSELine(nil, []byte("data: { }\r\n"))))
+	require.Equal(t, "data: {}\n", string(svc.rewriteOpenAIImagesSSELine(nil, []byte("data: {}\n"))))
+	require.Equal(t, "data: {}\r\n", string(svc.rewriteOpenAIImagesSSELine(nil, []byte("data: { }\r\n"))))
 	require.Equal(t, "data: {\"status\":\"working\"}\n", string(svc.rewriteOpenAIImagesSSELine(nil, []byte("data: {\"status\":\"working\"}\n"))))
+}
+
+func TestOpenAIImagesPseudoStreamingResponse_WrapsFinalJSON(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "https://relay.example/v1/images/generations", nil)
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"created":1710000000,"data":[{"b64_json":"aW1hZ2U="}]}`)),
+	}
+	svc := &OpenAIGatewayService{}
+
+	_, imageCount, _, err := svc.handleOpenAIImagesPseudoStreamingResponse(resp, c)
+
+	require.NoError(t, err)
+	require.Equal(t, 1, imageCount)
+	require.Equal(t, "text/event-stream", rec.Header().Get("Content-Type"))
+	require.Contains(t, rec.Body.String(), `data: {"created":1710000000,"data":[{"b64_json":"aW1hZ2U="}]}`)
+	require.True(t, strings.HasSuffix(rec.Body.String(), "data: [DONE]\n\n"))
 }
 
 func TestOpenAIImagesNonStreamingResponse_StripsEmptyDataKeepalives(t *testing.T) {

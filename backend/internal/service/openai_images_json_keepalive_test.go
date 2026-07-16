@@ -57,6 +57,46 @@ func TestOpenAIImagesJSONKeepalive_DisabledIsNoop(t *testing.T) {
 	require.Equal(t, "invalid request", gjson.Get(rec.Body.String(), "error.message").String())
 }
 
+func TestOpenAIImagesSSEKeepalive_UsesEmptyDataEvent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+
+	stop := StartOpenAIImagesSSEKeepalive(c, 5*time.Millisecond)
+	waitForOpenAIImagesJSONKeepalive(t, c)
+	stop()
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "text/event-stream", rec.Header().Get("Content-Type"))
+	require.NotEmpty(t, rec.Body.String())
+	require.Empty(t, strings.ReplaceAll(rec.Body.String(), "data: {}\n\n", ""))
+}
+
+func TestOpenAIImagesSSEKeepalive_LateErrorRemainsSSE(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+
+	stop := StartOpenAIImagesSSEKeepalive(c, 5*time.Millisecond)
+	defer stop()
+	waitForOpenAIImagesJSONKeepalive(t, c)
+	wrote := writeOpenAIImagesUpstreamErrorResponse(c, &OpenAIImagesUpstreamError{
+		StatusCode: http.StatusBadRequest,
+		ErrorType:  "image_generation_user_error",
+		Code:       "moderation_blocked",
+		Message:    "request rejected",
+	})
+
+	require.True(t, wrote)
+	require.Equal(t, http.StatusOK, rec.Code, "heartbeat already committed the status")
+	require.Contains(t, rec.Body.String(), "data: {}\n\n")
+	require.Contains(t, rec.Body.String(), "event: error\n")
+	require.Contains(t, rec.Body.String(), `"code":"moderation_blocked"`)
+	require.NotContains(t, rec.Body.String(), "\n{\"error\"")
+}
+
 func TestOpenAIImagesJSONKeepalive_FastErrorPreservesStatus(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()

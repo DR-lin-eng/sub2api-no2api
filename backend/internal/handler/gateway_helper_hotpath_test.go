@@ -440,6 +440,22 @@ func TestWaitForSlotWithPingTimeout_TimeoutAndStreamPing(t *testing.T) {
 		require.True(t, streamStarted)
 		require.Contains(t, rec.Body.String(), ":\n\n")
 	})
+
+	t.Run("images_override_uses_empty_data_ping", func(t *testing.T) {
+		imageCache := &helperConcurrencyCacheStub{accountSeq: []bool{false, false, false}}
+		helper := NewConcurrencyHelper(service.NewConcurrencyService(imageCache), SSEPingFormatComment, 10*time.Millisecond)
+		c, rec := newHelperTestContext(http.MethodPost, "/v1/images/generations")
+		setSSEPingFormatOverride(c, SSEPingFormatOpenAIImages)
+		streamStarted := false
+		release, err := helper.waitForSlotWithPingTimeout(c, "account", 102, 2, 70*time.Millisecond, true, &streamStarted, true)
+		require.Nil(t, release)
+		var cErr *ConcurrencyError
+		require.ErrorAs(t, err, &cErr)
+		require.True(t, cErr.IsTimeout)
+		require.True(t, streamStarted)
+		require.Contains(t, rec.Body.String(), "data: {}\n\n")
+		require.NotContains(t, rec.Body.String(), ":\n\n")
+	})
 }
 
 func TestWaitForSlotWithPingTimeout_ParentContextCanceled(t *testing.T) {

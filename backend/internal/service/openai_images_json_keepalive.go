@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,25 +23,43 @@ const openAIImagesJSONKeepaliveKey = "openai_images_json_keepalive"
 // upstream errors are still returned as an OpenAI-compatible JSON error body,
 // matching the status tradeoff used by the compact SSE keepalive path.
 type openAIImagesJSONKeepalive struct {
-	mu      sync.Mutex
-	writer  gin.ResponseWriter
-	started bool
-	stopped bool
-	bytes   int
-	stop    chan struct{}
+	mu          sync.Mutex
+	writer      gin.ResponseWriter
+	contentType string
+	payload     []byte
+	started     bool
+	stopped     bool
+	bytes       int
+	stop        chan struct{}
 }
 
 // StartOpenAIImagesJSONKeepalive starts whitespace heartbeats for a
 // non-streaming Images request. A non-positive interval disables the feature.
 func StartOpenAIImagesJSONKeepalive(c *gin.Context, interval time.Duration) func() {
+	return startOpenAIImagesKeepalive(c, interval, "application/json; charset=utf-8", []byte("\n"))
+}
+
+// StartOpenAIImagesSSEKeepalive starts pseudo-stream SSE heartbeats while an
+// Images stream request is waiting for the upstream response headers.
+func StartOpenAIImagesSSEKeepalive(c *gin.Context, interval time.Duration) func() {
+	return startOpenAIImagesKeepalive(c, interval, "text/event-stream", []byte("data: {}\n\n"))
+}
+
+func startOpenAIImagesKeepalive(c *gin.Context, interval time.Duration, contentType string, payload []byte) func() {
 	if c == nil || c.Writer == nil || interval <= 0 {
 		return func() {}
 	}
 	originalWriter := c.Writer
 	k := &openAIImagesJSONKeepalive{
-		writer: originalWriter,
-		stop:   make(chan struct{}),
+		writer:      originalWriter,
+		contentType: contentType,
+		payload:     append([]byte(nil), payload...),
+		stop:        make(chan struct{}),
 	}
+	header := originalWriter.Header()
+	header.Set("Content-Type", contentType)
+	header.Set("Cache-Control", "no-cache")
+	header.Set("X-Accel-Buffering", "no")
 	c.Set(openAIImagesJSONKeepaliveKey, k)
 	wrappedWriter := &openAIImagesJSONKeepaliveWriter{ResponseWriter: originalWriter, k: k}
 	c.Writer = wrappedWriter
@@ -83,13 +102,13 @@ func (k *openAIImagesJSONKeepalive) beat() bool {
 	}
 	if !k.started {
 		header := k.writer.Header()
-		header.Set("Content-Type", "application/json; charset=utf-8")
+		header.Set("Content-Type", k.contentType)
 		header.Set("Cache-Control", "no-cache")
 		header.Set("X-Accel-Buffering", "no")
 		k.writer.WriteHeader(http.StatusOK)
 		k.started = true
 	}
-	n, err := k.writer.Write([]byte("\n"))
+	n, err := k.writer.Write(k.payload)
 	k.bytes += n
 	if err != nil {
 		k.stopped = true
@@ -131,6 +150,18 @@ func StopOpenAIImagesJSONKeepaliveCommitted(c *gin.Context) bool {
 // to an Images JSON request, including fast responses before the first beat.
 func OpenAIImagesJSONKeepalivePresent(c *gin.Context) bool {
 	return openAIImagesJSONKeepaliveFromContext(c) != nil
+}
+
+// OpenAIImagesSSEKeepalivePresent reports whether the Images response is using
+// the stream=true pseudo-stream keepalive mode.
+func OpenAIImagesSSEKeepalivePresent(c *gin.Context) bool {
+	k := openAIImagesJSONKeepaliveFromContext(c)
+	if k == nil {
+		return false
+	}
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(k.contentType)), "text/event-stream")
 }
 
 // OpenAIImagesJSONKeepaliveAdjustedWrittenSize excludes heartbeat whitespace

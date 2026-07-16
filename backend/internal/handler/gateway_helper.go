@@ -106,6 +106,8 @@ const (
 // SSEPingFormat defines the format of SSE ping events for different platforms
 type SSEPingFormat string
 
+const ssePingFormatOverrideKey = "handler_sse_ping_format_override"
+
 const (
 	// SSEPingFormatClaude is the Claude/Anthropic SSE ping format
 	SSEPingFormatClaude SSEPingFormat = "data: {\"type\": \"ping\"}\n\n"
@@ -113,6 +115,8 @@ const (
 	SSEPingFormatNone SSEPingFormat = ""
 	// SSEPingFormatComment is an SSE comment ping for OpenAI/Codex CLI clients
 	SSEPingFormatComment SSEPingFormat = ":\n\n"
+	// SSEPingFormatOpenAIImages is the pseudo-stream heartbeat used by Images requests.
+	SSEPingFormatOpenAIImages SSEPingFormat = "data: {}\n\n"
 )
 
 // ConcurrencyError represents a concurrency limit error with context
@@ -153,6 +157,27 @@ func NewConcurrencyHelper(concurrencyService *service.ConcurrencyService, pingFo
 		pingFormat:         pingFormat,
 		pingInterval:       pingInterval,
 	}
+}
+
+func setSSEPingFormatOverride(c *gin.Context, format SSEPingFormat) {
+	if c != nil {
+		c.Set(ssePingFormatOverrideKey, format)
+	}
+}
+
+func resolveSSEPingFormat(c *gin.Context, fallback SSEPingFormat) SSEPingFormat {
+	if c == nil {
+		return fallback
+	}
+	value, ok := c.Get(ssePingFormatOverrideKey)
+	if !ok {
+		return fallback
+	}
+	format, ok := value.(SSEPingFormat)
+	if !ok {
+		return fallback
+	}
+	return format
 }
 
 // wrapReleaseOnDone ensures release runs at most once and still triggers on context cancellation.
@@ -353,7 +378,8 @@ func (h *ConcurrencyHelper) waitForSlotWithPingTimeout(c *gin.Context, slotType 
 	}
 
 	// Determine if ping is needed (streaming + ping format defined)
-	needPing := isStream && h.pingFormat != ""
+	pingFormat := resolveSSEPingFormat(c, h.pingFormat)
+	needPing := isStream && pingFormat != ""
 
 	var flusher http.Flusher
 	if needPing {
@@ -396,7 +422,7 @@ func (h *ConcurrencyHelper) waitForSlotWithPingTimeout(c *gin.Context, slotType 
 				c.Header("X-Accel-Buffering", "no")
 				*streamStarted = true
 			}
-			if _, err := fmt.Fprint(c.Writer, string(h.pingFormat)); err != nil {
+			if _, err := fmt.Fprint(c.Writer, string(pingFormat)); err != nil {
 				return nil, err
 			}
 			flusher.Flush()

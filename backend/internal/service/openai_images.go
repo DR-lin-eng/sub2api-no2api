@@ -698,7 +698,14 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 			ImageOutputSizes: imageOutputSizes,
 		}, nil
 	} else {
-		nonStreamUsage, nonStreamCount, nonStreamSizes, err := s.handleOpenAIImagesNonStreamingResponse(resp, c)
+		var nonStreamUsage OpenAIUsage
+		var nonStreamCount int
+		var nonStreamSizes []string
+		if parsed.Stream {
+			nonStreamUsage, nonStreamCount, nonStreamSizes, err = s.handleOpenAIImagesPseudoStreamingResponse(resp, c)
+		} else {
+			nonStreamUsage, nonStreamCount, nonStreamSizes, err = s.handleOpenAIImagesNonStreamingResponse(resp, c)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -885,6 +892,40 @@ func (s *OpenAIGatewayService) handleOpenAIImagesNonStreamingResponse(resp *http
 		}
 	}
 	c.Data(resp.StatusCode, contentType, body)
+
+	usage, _ := extractOpenAIUsageFromJSONBytes(body)
+	return usage, extractOpenAIImageCountFromJSONBytes(body), collectOpenAIResponseImageOutputSizesFromJSONBytes(body), nil
+}
+
+func (s *OpenAIGatewayService) handleOpenAIImagesPseudoStreamingResponse(resp *http.Response, c *gin.Context) (OpenAIUsage, int, []string, error) {
+	body, err := ReadUpstreamResponseBody(resp.Body, s.cfg, c, openAITooLargeError)
+	if err != nil {
+		return OpenAIUsage{}, 0, nil, err
+	}
+	body = stripOpenAIImagesEmptySSEKeepalives(body)
+	body = s.rewriteOpenAIImagesResponseURLs(c, body)
+	if !gjson.ValidBytes(body) {
+		return OpenAIUsage{}, 0, nil, fmt.Errorf("upstream returned invalid JSON for image pseudo-stream")
+	}
+	var compact bytes.Buffer
+	if err := json.Compact(&compact, body); err != nil {
+		return OpenAIUsage{}, 0, nil, fmt.Errorf("compact image pseudo-stream JSON: %w", err)
+	}
+	body = compact.Bytes()
+
+	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("X-Accel-Buffering", "no")
+	c.Status(resp.StatusCode)
+	flusher, ok := c.Writer.(http.Flusher)
+	if !ok {
+		return OpenAIUsage{}, 0, nil, fmt.Errorf("streaming is not supported by response writer")
+	}
+	if _, err := fmt.Fprintf(c.Writer, "data: %s\n\ndata: [DONE]\n\n", body); err != nil {
+		return OpenAIUsage{}, 0, nil, err
+	}
+	flusher.Flush()
 
 	usage, _ := extractOpenAIUsageFromJSONBytes(body)
 	return usage, extractOpenAIImageCountFromJSONBytes(body), collectOpenAIResponseImageOutputSizesFromJSONBytes(body), nil
@@ -1085,7 +1126,7 @@ func (s *OpenAIGatewayService) handleOpenAIImagesStreamingResponse(
 			if clientDisconnected || time.Since(lastDownstreamWriteAt) < keepaliveInterval {
 				continue
 			}
-			if _, writeErr := io.WriteString(c.Writer, "\n"); writeErr != nil {
+			if _, writeErr := io.WriteString(c.Writer, "data: {}\n\n"); writeErr != nil {
 				clientDisconnected = true
 				logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Images stream client disconnected during keepalive, continue draining upstream for billing")
 				continue

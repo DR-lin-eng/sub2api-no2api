@@ -74,6 +74,9 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		return
 	}
 	requestModel := parsed.Model
+	if parsed.Stream {
+		setSSEPingFormatOverride(c, SSEPingFormatOpenAIImages)
+	}
 
 	reqLog = reqLog.With(
 		zap.String("model", requestModel),
@@ -90,6 +93,12 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		h.openAISecurityAuditError(c, decision)
 		return
 	}
+	stopStreamKeepalive := func() {}
+	if parsed.Stream {
+		streamStarted = true
+		stopStreamKeepalive = service.StartOpenAIImagesSSEKeepalive(c, h.openAIImagesStreamKeepaliveInterval())
+	}
+	defer func() { stopStreamKeepalive() }()
 	imageReleaseFunc, acquired := h.acquireImageGenerationSlot(c, streamStarted)
 	if !acquired {
 		return
@@ -218,6 +227,10 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		}
 
 		service.SetOpsLatencyMs(c, service.OpsRoutingLatencyMsKey, time.Since(routingStart).Milliseconds())
+		if parsed.Stream {
+			stopStreamKeepalive()
+			stopStreamKeepalive = service.StartOpenAIImagesSSEKeepalive(c, h.openAIImagesStreamKeepaliveInterval())
+		}
 		if !parsed.Stream && !jsonKeepaliveStarted {
 			stopJSONKeepalive = service.StartOpenAIImagesJSONKeepalive(c, h.openAIImagesJSONKeepaliveInterval())
 			jsonKeepaliveStarted = true
@@ -407,6 +420,13 @@ func (h *OpenAIGatewayHandler) openAIImagesJSONKeepaliveInterval() time.Duration
 		return 0
 	}
 	return time.Duration(h.cfg.Gateway.ImageNonstreamKeepaliveInterval) * time.Second
+}
+
+func (h *OpenAIGatewayHandler) openAIImagesStreamKeepaliveInterval() time.Duration {
+	if h.cfg == nil || h.cfg.Gateway.ImageStreamKeepaliveInterval <= 0 {
+		return 0
+	}
+	return time.Duration(h.cfg.Gateway.ImageStreamKeepaliveInterval) * time.Second
 }
 
 func isMultipartImagesContentType(contentType string) bool {

@@ -196,14 +196,14 @@ func (s *OpenAIGatewayService) rewriteOpenAIImagesSSELine(c *gin.Context, line [
 	}
 	trimmed := strings.TrimRight(string(line), "\r\n")
 	if strings.HasPrefix(trimmed, ":") {
-		return []byte(lineEnding)
+		return []byte("data: {}" + lineEnding)
 	}
 	data, ok := extractOpenAISSEDataLine(trimmed)
 	if !ok || strings.TrimSpace(data) == "" || strings.TrimSpace(data) == "[DONE]" {
 		return line
 	}
 	if isOpenAIImagesEmptySSEData(data) {
-		return []byte(lineEnding)
+		return []byte("data: {}" + lineEnding)
 	}
 	rewritten := s.rewriteOpenAIImagesResponseURLs(c, []byte(data))
 	if bytes.Equal(rewritten, []byte(data)) {

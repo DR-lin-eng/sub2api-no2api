@@ -1018,7 +1018,21 @@ func writeOpenAIImagesUpstreamErrorResponse(c *gin.Context, err *OpenAIImagesUps
 	if c.Writer.Written() && OpenAIImagesJSONKeepaliveAdjustedWrittenSize(c) >= 0 {
 		return false
 	}
-	StopOpenAIImagesJSONKeepaliveCommitted(c)
+	isPseudoStream := OpenAIImagesSSEKeepalivePresent(c)
+	committed := StopOpenAIImagesJSONKeepaliveCommitted(c)
+	if isPseudoStream {
+		if !committed {
+			c.Status(err.clientStatusCode())
+		}
+		payload := openAIImagesUpstreamErrorResponseBody(err)
+		if _, writeErr := fmt.Fprintf(c.Writer, "event: error\ndata: %s\n\n", payload); writeErr != nil {
+			return false
+		}
+		if flusher, ok := c.Writer.(http.Flusher); ok {
+			flusher.Flush()
+		}
+		return true
+	}
 	errorObj := gin.H{
 		"type":    err.clientErrorType(),
 		"message": err.clientMessage(),
@@ -1650,7 +1664,7 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthStreamingResponse(
 			if clientDisconnected || time.Since(lastDownstreamWriteAt) < keepaliveInterval {
 				continue
 			}
-			if _, writeErr := io.WriteString(c.Writer, "\n"); writeErr != nil {
+			if _, writeErr := io.WriteString(c.Writer, "data: {}\n\n"); writeErr != nil {
 				clientDisconnected = true
 				logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Images responses stream client disconnected during keepalive, continue draining upstream for billing")
 				continue
