@@ -1,0 +1,82 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { defineComponent } from 'vue'
+import { flushPromises, mount } from '@vue/test-utils'
+import OpsDashboardHeader from '../OpsDashboardHeader.vue'
+
+const mockGetGroups = vi.fn()
+
+vi.mock('@/api', () => ({
+  adminAPI: {
+    groups: {
+      getAll: (...args: any[]) => mockGetGroups(...args)
+    }
+  }
+}))
+
+vi.mock('@/api/admin/ops', () => ({
+  opsAPI: {
+    getRealtimeTrafficSummary: vi.fn()
+  }
+}))
+
+vi.mock('@/stores', () => ({
+  useAdminSettingsStore: () => ({
+    opsRealtimeMonitoringEnabled: false,
+    setOpsRealtimeMonitoringEnabledLocal: vi.fn()
+  })
+}))
+
+vi.mock('vue-i18n', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('vue-i18n')>()
+  return {
+    ...actual,
+    useI18n: () => ({
+      t: (key: string) => key
+    })
+  }
+})
+
+const EmptyStub = defineComponent({ template: '<div><slot /></div>' })
+
+describe('OpsDashboardHeader', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetGroups.mockResolvedValue([])
+  })
+
+  it('TTFT 明细按钮使用 TTFT 查询预设', async () => {
+    const wrapper = mount(OpsDashboardHeader, {
+      props: {
+        overview: {} as any,
+        platform: '',
+        groupId: null,
+        timeRange: '1h',
+        queryMode: 'auto',
+        loading: false,
+        lastUpdated: null
+      },
+      global: {
+        stubs: {
+          Select: EmptyStub,
+          HelpTooltip: EmptyStub,
+          BaseDialog: EmptyStub,
+          Icon: EmptyStub
+        }
+      }
+    })
+    await flushPromises()
+
+    const detailsButtons = wrapper
+      .findAll('button')
+      .filter((button) => button.text() === 'admin.ops.requestDetails.details')
+    for (const button of detailsButtons) await button.trigger('click')
+
+    const presets = (wrapper.emitted('openRequestDetails') ?? []).map(([preset]) => preset)
+    expect(presets).toContainEqual({
+      title: 'admin.ops.ttftLabel',
+      kind: 'success',
+      sort: 'ttft_desc',
+      ttft_only: true
+    })
+  })
+})

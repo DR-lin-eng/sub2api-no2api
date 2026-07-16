@@ -638,6 +638,14 @@ func (h *OpsHandler) ListRequestDetails(c *gin.Context) {
 		}
 		filter.MaxDurationMs = &parsed
 	}
+	if v := strings.TrimSpace(c.Query("ttft_only")); v != "" {
+		parsed, err := strconv.ParseBool(v)
+		if err != nil {
+			response.BadRequest(c, "Invalid ttft_only")
+			return
+		}
+		filter.TTFTOnly = parsed
+	}
 
 	out, err := h.opsService.ListRequestDetails(c.Request.Context(), filter)
 	if err != nil {

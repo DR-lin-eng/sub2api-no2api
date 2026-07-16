@@ -14,6 +14,7 @@ export interface OpsRequestDetailsPreset {
   sort?: OpsRequestDetailsParams['sort']
   min_duration_ms?: number
   max_duration_ms?: number
+  ttft_only?: boolean
 }
 
 interface Props {
@@ -39,6 +40,7 @@ const items = ref<OpsRequestDetail[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(10)
+const showsTTFT = computed(() => props.preset.sort === 'ttft_desc')
 
 const close = () => emit('update:modelValue', false)
 
@@ -76,6 +78,7 @@ const fetchData = async () => {
 
     if (typeof props.preset.min_duration_ms === 'number') params.min_duration_ms = props.preset.min_duration_ms
     if (typeof props.preset.max_duration_ms === 'number') params.max_duration_ms = props.preset.max_duration_ms
+    if (props.preset.ttft_only) params.ttft_only = true
 
     const res = await opsAPI.listRequestDetails(params)
     items.value = res.items || []
@@ -109,7 +112,8 @@ watch(
     props.preset.kind,
     props.preset.sort,
     props.preset.min_duration_ms,
-    props.preset.max_duration_ms
+    props.preset.max_duration_ms,
+    props.preset.ttft_only
   ],
   () => {
     if (!props.modelValue) return
@@ -205,7 +209,7 @@ const kindBadgeClass = (kind: string) => {
                     {{ t('admin.ops.requestDetails.table.model') }}
                   </th>
                   <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    {{ t('admin.ops.requestDetails.table.duration') }}
+                    {{ showsTTFT ? t('admin.ops.requestDetails.table.ttft') : t('admin.ops.requestDetails.table.duration') }}
                   </th>
                   <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     {{ t('admin.ops.requestDetails.table.status') }}
@@ -236,9 +240,9 @@ const kindBadgeClass = (kind: string) => {
                   </td>
                   <td
                     class="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-gray-600 dark:text-gray-300"
-                    :title="formatExactDurationMs(row.duration_ms)"
+                    :title="formatExactDurationMs(showsTTFT ? row.first_token_ms : row.duration_ms)"
                   >
-                    {{ formatDurationMs(row.duration_ms) }}
+                    {{ formatDurationMs(showsTTFT ? row.first_token_ms : row.duration_ms) }}
                   </td>
                   <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-600 dark:text-gray-300">
                     {{ row.status_code ?? '-' }}

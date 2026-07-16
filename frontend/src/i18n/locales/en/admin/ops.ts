@@ -434,6 +434,7 @@ export default {
           platform: 'Platform',
           model: 'Model',
           duration: 'Duration',
+          ttft: 'TTFT',
           status: 'Status',
           requestId: 'Request ID',
           actions: 'Actions'

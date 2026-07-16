@@ -434,6 +434,7 @@ export default {
           platform: '平台',
           model: '模型',
           duration: '耗时',
+          ttft: '首 Token 延迟',
           status: '状态码',
           requestId: '请求ID',
           actions: '操作'
