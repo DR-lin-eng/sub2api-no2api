@@ -110,6 +110,39 @@ func upstreamCostTestOAuthAccount(id int64) *Account {
 	return &Account{ID: id, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
 }
 
+var (
+	benchmarkAppliedOpenAIUpstreamCost bool
+	benchmarkOpenAIUpstreamRate        float64
+)
+
+func BenchmarkApplyOpenAIUpstreamCostFactors(b *testing.B) {
+	now := time.Date(2026, time.July, 13, 12, 0, 0, 0, time.UTC)
+	for _, size := range []int{64, 256} {
+		candidates := make([]openAIAccountCandidateScore, 0, size)
+		for i := range size {
+			rate := 0.01 + float64((i%17)+1)/20
+			candidates = append(candidates, openAIAccountCandidateScore{
+				account: upstreamCostTestAccount(int64(i+1), UpstreamBillingProbeStatusOK, rate, now.Add(-time.Minute), 30*time.Minute),
+			})
+		}
+		b.Run(strconv.Itoa(size), func(b *testing.B) {
+			b.ReportAllocs()
+			for range b.N {
+				benchmarkAppliedOpenAIUpstreamCost = applyOpenAIUpstreamCostFactors(candidates, now, defaultOpenAIOAuthSchedulingRateMultiplier)
+			}
+		})
+	}
+}
+
+func BenchmarkOpenAIFreshUpstreamBillingRate(b *testing.B) {
+	now := time.Date(2026, time.July, 13, 12, 0, 0, 0, time.UTC)
+	account := upstreamCostTestAccount(1, UpstreamBillingProbeStatusOK, 0.25, now.Add(-time.Minute), 30*time.Minute)
+	b.ReportAllocs()
+	for range b.N {
+		benchmarkOpenAIUpstreamRate, _ = openAIFreshUpstreamBillingRate(account, now)
+	}
+}
+
 func TestAdvancedCostSchedulerUsesTopKOverflowWhenPreferredAccountIsKnownFull(t *testing.T) {
 	resetOpenAIAdvancedSchedulerSettingCacheForTest()
 	defer resetOpenAIAdvancedSchedulerSettingCacheForTest()
@@ -409,6 +442,21 @@ func TestOpenAIFreshUpstreamBillingRateRecomputesPeakAtSelectionTime(t *testing.
 	afterPeak, ok := openAIFreshUpstreamBillingRate(account, time.Date(2026, 7, 13, 18, 1, 0, 0, time.UTC))
 	require.True(t, ok)
 	require.Equal(t, 0.4, afterPeak)
+}
+
+func TestOpenAIFreshUpstreamBillingRateRejectsMalformedSnapshotTimes(t *testing.T) {
+	now := time.Date(2026, 7, 13, 12, 0, 0, 0, time.UTC)
+	for _, field := range []string{"received_at", "fresh_until", "next_probe_at"} {
+		t.Run(field, func(t *testing.T) {
+			account := upstreamCostTestAccount(1, UpstreamBillingProbeStatusOK, 0.4, now.Add(-time.Minute), 30*time.Minute)
+			snapshot, ok := account.Extra[UpstreamBillingProbeExtraKey].(map[string]any)
+			require.True(t, ok)
+			snapshot[field] = "not-a-timestamp"
+
+			_, ok = openAIFreshUpstreamBillingRate(account, now)
+			require.False(t, ok)
+		})
+	}
 }
 
 func TestOpenAIUpstreamCostFactorsSparseProbeIsNeutral(t *testing.T) {

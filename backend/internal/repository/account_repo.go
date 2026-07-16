@@ -3146,8 +3146,8 @@ func (r *accountRepository) FindByExtraField(ctx context.Context, key string, va
 }
 
 // ListDueUpstreamBillingProbeAccounts bounds result hydration and network work
-// to limit. PostgreSQL must still filter and order all enabled candidates;
-// MATERIALIZED avoids repeating the defensive timestamp parse expression.
+// to limit. New and migrated snapshots use an indexed Unix timestamp.
+// Malformed snapshots are drained first and repaired by the next probe.
 func (r *accountRepository) ListDueUpstreamBillingProbeAccounts(ctx context.Context, now time.Time, limit int) ([]service.Account, error) {
 	if limit <= 0 {
 		return []service.Account{}, nil
@@ -3157,7 +3157,7 @@ func (r *accountRepository) ListDueUpstreamBillingProbeAccounts(ctx context.Cont
 	}
 
 	rows, err := r.sql.QueryContext(ctx, `
-		WITH candidates AS (
+		WITH legacy_candidates AS MATERIALIZED (
 			SELECT
 				id,
 				extra #>> '{upstream_billing_probe,status}' AS probe_status,
@@ -3168,7 +3168,12 @@ func (r *accountRepository) ListDueUpstreamBillingProbeAccounts(ctx context.Cont
 				AND platform = 'openai'
 				AND type = 'apikey'
 				AND extra @> '{"upstream_billing_probe_enabled": true}'::jsonb
-		), parsed AS MATERIALIZED (
+				AND (
+					jsonb_typeof(extra #> '{upstream_billing_probe,next_probe_unix}') = 'number'
+					AND extra #>> '{upstream_billing_probe,next_probe_unix}' ~ '^[0-9]{1,19}$'
+					AND extra #>> '{upstream_billing_probe,status}' IN ('ok', 'unsupported', 'failed')
+				) IS NOT TRUE
+		), legacy_parsed AS MATERIALIZED (
 			SELECT
 				id,
 				probe_status,
@@ -3183,36 +3188,45 @@ func (r *accountRepository) ListDueUpstreamBillingProbeAccounts(ctx context.Cont
 					'{}'::jsonb,
 					true
 				) #>> '{}' AS parsed_next_probe_at
-			FROM candidates
-		), normalized AS (
+			FROM legacy_candidates
+		), legacy AS (
+			SELECT id, 0 AS queue_priority, NULL::numeric AS next_probe_unix
+			FROM legacy_parsed
+			WHERE probe_status NOT IN ('ok', 'unsupported', 'failed')
+				OR probe_status IS NULL
+				OR next_probe_at IS NULL
+				OR NOT rfc3339_shape
+				OR parsed_next_probe_at IS NULL
+				OR parsed_next_probe_at::timestamptz <= to_timestamp($1)
+			ORDER BY id
+			LIMIT $2
+		), due AS (
 			SELECT
 				id,
-				probe_status,
-				next_probe_at,
-				parsed_next_probe_at,
-				rfc3339_shape AND parsed_next_probe_at IS NOT NULL AS valid_next_probe_at
-			FROM parsed
+				1 AS queue_priority,
+				(extra #>> '{upstream_billing_probe,next_probe_unix}')::numeric AS next_probe_unix
+			FROM accounts
+			WHERE deleted_at IS NULL
+				AND status = 'active'
+				AND platform = 'openai'
+				AND type = 'apikey'
+				AND extra @> '{"upstream_billing_probe_enabled": true}'::jsonb
+				AND jsonb_typeof(extra #> '{upstream_billing_probe,next_probe_unix}') = 'number'
+				AND extra #>> '{upstream_billing_probe,next_probe_unix}' ~ '^[0-9]{1,19}$'
+				AND extra #>> '{upstream_billing_probe,status}' IN ('ok', 'unsupported', 'failed')
+				AND (extra #>> '{upstream_billing_probe,next_probe_unix}')::numeric <= $1
+			ORDER BY (extra #>> '{upstream_billing_probe,next_probe_unix}')::numeric, id
+			LIMIT $2
 		)
 		SELECT id
-		FROM normalized
-		WHERE probe_status NOT IN ('ok', 'unsupported', 'failed')
-			OR probe_status IS NULL
-			OR next_probe_at IS NULL
-			OR NOT valid_next_probe_at
-			OR CASE WHEN valid_next_probe_at THEN parsed_next_probe_at::timestamptz <= $1 ELSE FALSE END
-		ORDER BY
-			CASE
-				WHEN probe_status NOT IN ('ok', 'unsupported', 'failed')
-					OR probe_status IS NULL
-					OR next_probe_at IS NULL
-					OR NOT valid_next_probe_at
-				THEN 0
-				ELSE 1
-			END ASC,
-			CASE WHEN valid_next_probe_at THEN parsed_next_probe_at::timestamptz END ASC NULLS FIRST,
-			id ASC
+		FROM (
+			SELECT * FROM legacy
+			UNION ALL
+			SELECT * FROM due
+		) queued
+		ORDER BY queue_priority, next_probe_unix NULLS FIRST, id
 		LIMIT $2
-	`, now.UTC(), limit)
+	`, now.UTC().Unix(), limit)
 	if err != nil {
 		return nil, err
 	}

@@ -663,15 +663,16 @@ func (s *defaultOpenAIAccountScheduler) shouldEscapeStickyAccount(accountID int6
 }
 
 type openAIAccountCandidateScore struct {
-	account    *Account
-	loadInfo   *AccountLoadInfo
-	loadKnown  bool
-	channelKey string
-	score      float64
-	priority   int
-	errorRate  float64
-	ttft       float64
-	hasTTFT    bool
+	account            *Account
+	loadInfo           *AccountLoadInfo
+	loadKnown          bool
+	channelKey         string
+	score              float64
+	upstreamCostFactor float64
+	priority           int
+	errorRate          float64
+	ttft               float64
+	hasTTFT            bool
 }
 
 type openAIAccountCandidateHeap []openAIAccountCandidateScore
@@ -968,19 +969,8 @@ func (s *defaultOpenAIAccountScheduler) buildOpenAIAccountLoadPlan(
 
 	weights := s.service.openAIWSSchedulerWeightsForRequest(ctx)
 	now := time.Now()
-	upstreamCostFactors := map[int64]float64(nil)
 	if req.UseUpstreamTokenCost && weights.UpstreamCost > 0 {
-		accounts := make([]*Account, 0, len(candidates))
-		for _, candidate := range candidates {
-			accounts = append(accounts, candidate.account)
-		}
-		upstreamCostFactors = openAIUpstreamCostFactors(accounts, now, s.service.openAIOAuthSchedulingRateMultiplier(ctx))
-		for _, factor := range upstreamCostFactors {
-			if factor != openAIUpstreamCostNeutralFactor {
-				plan.includeOverflowFallback = true
-				break
-			}
-		}
+		plan.includeOverflowFallback = applyOpenAIUpstreamCostFactors(candidates, now, s.service.openAIOAuthSchedulingRateMultiplier(ctx))
 	}
 
 	// Reset 因子（use-it-or-lose-it）：在拥有「未来会话窗口结束时间」的账号中，
@@ -1038,8 +1028,8 @@ func (s *defaultOpenAIAccountScheduler) buildOpenAIAccountLoadPlan(
 			quotaHeadroomFactor = openAIQuotaHeadroomFactor(item.account, now)
 		}
 		upstreamCostFactor := openAIUpstreamCostNeutralFactor
-		if factor, ok := upstreamCostFactors[item.account.ID]; ok {
-			upstreamCostFactor = factor
+		if req.UseUpstreamTokenCost && weights.UpstreamCost > 0 {
+			upstreamCostFactor = item.upstreamCostFactor
 		}
 
 		item.score = weights.Priority*priorityFactor +
@@ -2473,13 +2463,8 @@ func buildOpenAIAccountSchedulerScoreSnapshot(
 	minResetRemaining, maxResetRemaining := 0.0, 0.0
 	hasResetSample := false
 	now := time.Now()
-	upstreamCostFactors := map[int64]float64(nil)
 	if weights.UpstreamCost > 0 {
-		accounts := make([]*Account, 0, len(candidates))
-		for _, candidate := range candidates {
-			accounts = append(accounts, candidate.account)
-		}
-		upstreamCostFactors = openAIUpstreamCostFactors(accounts, now, oauthSchedulingRateMultiplier)
+		applyOpenAIUpstreamCostFactors(candidates, now, oauthSchedulingRateMultiplier)
 	}
 	if weights.Reset > 0 {
 		for _, candidate := range candidates {
@@ -2527,8 +2512,8 @@ func buildOpenAIAccountSchedulerScoreSnapshot(
 			quotaHeadroomFactor = openAIQuotaHeadroomFactor(candidate.account, now)
 		}
 		upstreamCostFactor := openAIUpstreamCostNeutralFactor
-		if factor, ok := upstreamCostFactors[candidate.account.ID]; ok {
-			upstreamCostFactor = factor
+		if weights.UpstreamCost > 0 {
+			upstreamCostFactor = candidate.upstreamCostFactor
 		}
 		baseScore := weights.Priority*priorityFactor +
 			weights.Load*loadFactor +
@@ -2551,14 +2536,16 @@ func buildOpenAIAccountSchedulerScoreSnapshot(
 	return result
 }
 
-func openAIUpstreamCostFactors(accounts []*Account, now time.Time, oauthSchedulingRateMultiplier float64) map[int64]float64 {
-	type rateSample struct {
-		accountID int64
-		rate      float64
-	}
+type openAIUpstreamCostSample struct {
+	target    int
+	accountID int64
+	rate      float64
+	factor    float64
+}
 
+func openAIUpstreamCostFactors(accounts []*Account, now time.Time, oauthSchedulingRateMultiplier float64) map[int64]float64 {
 	factors := make(map[int64]float64, len(accounts))
-	samples := make([]rateSample, 0, len(accounts))
+	samples := make([]openAIUpstreamCostSample, 0, len(accounts))
 	eligibleCount := 0
 	for _, account := range accounts {
 		if account == nil {
@@ -2570,47 +2557,94 @@ func openAIUpstreamCostFactors(accounts []*Account, now time.Time, oauthScheduli
 		}
 		eligibleCount++
 		if rate, ok := openAISchedulingRate(account, now, oauthSchedulingRateMultiplier); ok {
-			samples = append(samples, rateSample{accountID: account.ID, rate: rate})
+			samples = append(samples, openAIUpstreamCostSample{accountID: account.ID, rate: rate})
 		}
 	}
-	if len(samples) < 2 || eligibleCount == 0 {
-		return factors
+	if normalizeOpenAIUpstreamCostSamples(samples, eligibleCount) {
+		for _, sample := range samples {
+			factors[sample.accountID] = sample.factor
+		}
 	}
+	return factors
+}
 
+func applyOpenAIUpstreamCostFactors(candidates []openAIAccountCandidateScore, now time.Time, oauthSchedulingRateMultiplier float64) bool {
+	samples := make([]openAIUpstreamCostSample, 0, len(candidates))
+	eligibleCount := 0
+	for i := range candidates {
+		candidate := &candidates[i]
+		candidate.upstreamCostFactor = openAIUpstreamCostNeutralFactor
+		account := candidate.account
+		if account == nil || (!account.IsOpenAIApiKey() && !account.IsOpenAIOAuth()) {
+			continue
+		}
+		eligibleCount++
+		if rate, ok := openAISchedulingRate(account, now, oauthSchedulingRateMultiplier); ok {
+			samples = append(samples, openAIUpstreamCostSample{target: i, rate: rate})
+		}
+	}
+	if !normalizeOpenAIUpstreamCostSamples(samples, eligibleCount) {
+		return false
+	}
+	for _, sample := range samples {
+		candidates[sample.target].upstreamCostFactor = sample.factor
+	}
+	return true
+}
+
+func normalizeOpenAIUpstreamCostSamples(samples []openAIUpstreamCostSample, eligibleCount int) bool {
+	if len(samples) < 2 || eligibleCount == 0 {
+		return false
+	}
 	allEqual := true
-	positiveLogs := make([]float64, 0, len(samples))
 	for i, sample := range samples {
 		if i > 0 && sample.rate != samples[0].rate {
 			allEqual = false
 		}
-		if sample.rate > 0 {
-			positiveLogs = append(positiveLogs, math.Log(sample.rate))
-		}
 	}
-	if allEqual || len(positiveLogs) == 0 {
-		return factors
+	if allEqual {
+		return false
 	}
 
-	sort.Float64s(positiveLogs)
-	middle := len(positiveLogs) / 2
-	medianLog := positiveLogs[middle]
-	if len(positiveLogs)%2 == 0 {
-		medianLog = (positiveLogs[middle-1] + positiveLogs[middle]) / 2
+	slices.SortFunc(samples, func(a, b openAIUpstreamCostSample) int {
+		switch {
+		case a.rate < b.rate:
+			return -1
+		case a.rate > b.rate:
+			return 1
+		default:
+			return 0
+		}
+	})
+	positiveStart := 0
+	for positiveStart < len(samples) && samples[positiveStart].rate <= 0 {
+		positiveStart++
 	}
-	center := math.Exp(medianLog)
+	positiveCount := len(samples) - positiveStart
+	if positiveCount == 0 {
+		return false
+	}
+	middle := positiveStart + positiveCount/2
+	center := samples[middle].rate
+	if positiveCount%2 == 0 {
+		center = math.Exp((math.Log(samples[middle-1].rate) + math.Log(samples[middle].rate)) / 2)
+	}
 	if center <= 0 || math.IsNaN(center) || math.IsInf(center, 0) {
-		return factors
+		return false
 	}
 
 	coverage := float64(len(samples)) / float64(eligibleCount)
-	for _, sample := range samples {
+	hasSignal := false
+	for i := range samples {
+		sample := &samples[i]
 		rawFactor := 1.0
 		if sample.rate > 0 {
 			rawFactor = 1 / (1 + sample.rate/center)
 		}
-		factors[sample.accountID] = clamp01(openAIUpstreamCostNeutralFactor + coverage*(rawFactor-openAIUpstreamCostNeutralFactor))
+		sample.factor = clamp01(openAIUpstreamCostNeutralFactor + coverage*(rawFactor-openAIUpstreamCostNeutralFactor))
+		hasSignal = hasSignal || sample.factor != openAIUpstreamCostNeutralFactor
 	}
-	return factors
+	return hasSignal
 }
 
 type openAILegacyUpstreamRateOrder struct {
@@ -2671,23 +2705,114 @@ func openAIFreshUpstreamBillingRate(account *Account, now time.Time) (float64, b
 	if !isUpstreamBillingProbeAccount(account) {
 		return 0, false
 	}
-	snapshot := decodeUpstreamBillingProbeSnapshot(account.Extra)
-	if snapshot == nil || (snapshot.Status != UpstreamBillingProbeStatusOK && snapshot.Status != UpstreamBillingProbeStatusFailed) ||
-		snapshot.ReceivedAt == nil || snapshot.ReceivedAt.IsZero() {
+	snapshot, ok := readOpenAIUpstreamBillingScheduleSnapshot(account.Extra)
+	if !ok || (snapshot.status != UpstreamBillingProbeStatusOK && snapshot.status != UpstreamBillingProbeStatusFailed) ||
+		!snapshot.hasReceivedAt || snapshot.receivedAt.IsZero() {
 		return 0, false
 	}
-	receivedAt := *snapshot.ReceivedAt
-	freshUntil := snapshot.FreshUntil
-	if freshUntil == nil && snapshot.Status == UpstreamBillingProbeStatusOK {
-		interval := snapshot.NextProbeAt.Sub(receivedAt)
+	receivedAt := snapshot.receivedAt
+	freshUntil := snapshot.freshUntil
+	hasFreshUntil := snapshot.hasFreshUntil
+	if !hasFreshUntil && snapshot.status == UpstreamBillingProbeStatusOK {
+		interval := snapshot.nextProbeAt.Sub(receivedAt)
 		if interval > 0 {
-			freshUntil = probeTimePtr(receivedAt.Add(2 * interval))
+			freshUntil = receivedAt.Add(2 * interval)
+			hasFreshUntil = true
 		}
 	}
-	if freshUntil == nil || !freshUntil.After(receivedAt) || now.Before(receivedAt) || now.After(*freshUntil) {
+	if !hasFreshUntil || !freshUntil.After(receivedAt) || now.Before(receivedAt) || now.After(freshUntil) {
 		return 0, false
 	}
-	return upstreamBillingRateAt(snapshot.Data, now)
+	return upstreamBillingRateAt(snapshot.data, now)
+}
+
+type openAIUpstreamBillingScheduleSnapshot struct {
+	status        string
+	data          map[string]any
+	receivedAt    time.Time
+	freshUntil    time.Time
+	nextProbeAt   time.Time
+	hasReceivedAt bool
+	hasFreshUntil bool
+}
+
+func readOpenAIUpstreamBillingScheduleSnapshot(extra map[string]any) (openAIUpstreamBillingScheduleSnapshot, bool) {
+	if extra == nil {
+		return openAIUpstreamBillingScheduleSnapshot{}, false
+	}
+	value, ok := extra[UpstreamBillingProbeExtraKey]
+	if !ok || value == nil {
+		return openAIUpstreamBillingScheduleSnapshot{}, false
+	}
+
+	switch snapshot := value.(type) {
+	case *UpstreamBillingProbeSnapshot:
+		return readTypedOpenAIUpstreamBillingScheduleSnapshot(snapshot)
+	case UpstreamBillingProbeSnapshot:
+		return readTypedOpenAIUpstreamBillingScheduleSnapshot(&snapshot)
+	case map[string]any:
+		status, _ := snapshot["status"].(string)
+		if status == "" {
+			return openAIUpstreamBillingScheduleSnapshot{}, false
+		}
+		data, _ := snapshot["data"].(map[string]any)
+		result := openAIUpstreamBillingScheduleSnapshot{status: status, data: data}
+		var valid bool
+		result.receivedAt, result.hasReceivedAt, valid = parseOpenAIUpstreamBillingScheduleTime(snapshot["received_at"])
+		if !valid {
+			return openAIUpstreamBillingScheduleSnapshot{}, false
+		}
+		result.freshUntil, result.hasFreshUntil, valid = parseOpenAIUpstreamBillingScheduleTime(snapshot["fresh_until"])
+		if !valid {
+			return openAIUpstreamBillingScheduleSnapshot{}, false
+		}
+		result.nextProbeAt, _, valid = parseOpenAIUpstreamBillingScheduleTime(snapshot["next_probe_at"])
+		if !valid {
+			return openAIUpstreamBillingScheduleSnapshot{}, false
+		}
+		return result, true
+	default:
+		return openAIUpstreamBillingScheduleSnapshot{}, false
+	}
+}
+
+func readTypedOpenAIUpstreamBillingScheduleSnapshot(snapshot *UpstreamBillingProbeSnapshot) (openAIUpstreamBillingScheduleSnapshot, bool) {
+	if snapshot == nil || snapshot.Status == "" {
+		return openAIUpstreamBillingScheduleSnapshot{}, false
+	}
+	result := openAIUpstreamBillingScheduleSnapshot{
+		status:      snapshot.Status,
+		data:        snapshot.Data,
+		nextProbeAt: snapshot.NextProbeAt,
+	}
+	if snapshot.ReceivedAt != nil {
+		result.receivedAt = *snapshot.ReceivedAt
+		result.hasReceivedAt = true
+	}
+	if snapshot.FreshUntil != nil {
+		result.freshUntil = *snapshot.FreshUntil
+		result.hasFreshUntil = true
+	}
+	return result, true
+}
+
+func parseOpenAIUpstreamBillingScheduleTime(value any) (parsedTime time.Time, present bool, valid bool) {
+	switch parsed := value.(type) {
+	case nil:
+		return time.Time{}, false, true
+	case time.Time:
+		return parsed, true, true
+	case *time.Time:
+		if parsed == nil {
+			return time.Time{}, false, true
+		}
+		return *parsed, true, true
+	case string:
+		result, err := time.Parse(time.RFC3339Nano, parsed)
+		return result, true, err == nil
+	default:
+		return time.Time{}, true, false
+	}
 }
 
 func openAIQuotaHeadroomFactor(account *Account, now time.Time) float64 {

@@ -79,6 +79,7 @@ type UpstreamBillingProbeSnapshot struct {
 	FreshUntil    *time.Time     `json:"fresh_until,omitempty"`
 	LastAttemptAt time.Time      `json:"last_attempt_at"`
 	NextProbeAt   time.Time      `json:"next_probe_at"`
+	NextProbeUnix int64          `json:"next_probe_unix,omitempty"`
 	FailureCount  int            `json:"failure_count,omitempty"`
 	HTTPStatus    int            `json:"http_status,omitempty"`
 	LastError     string         `json:"last_error,omitempty"`
@@ -673,6 +674,13 @@ func (s *UpstreamBillingProbeService) updateSnapshot(ctx context.Context, accoun
 	writer, ok := s.accountRepo.(upstreamBillingProbeSnapshotWriter)
 	if !ok {
 		return ErrUpstreamBillingProbeUnavailable
+	}
+	if snapshot != nil {
+		if snapshot.NextProbeAt.IsZero() {
+			snapshot.NextProbeUnix = 0
+		} else {
+			snapshot.NextProbeUnix = snapshot.NextProbeAt.Unix()
+		}
 	}
 	return writer.UpdateUpstreamBillingProbeSnapshot(ctx, account, snapshot)
 }
