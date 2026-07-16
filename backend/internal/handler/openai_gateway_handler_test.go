@@ -301,6 +301,37 @@ func TestOpenAIEnsureForwardErrorResponse_ImageJSONKeepaliveWritesSingleJSONFall
 	require.Equal(t, "Upstream request failed", gjson.Get(w.Body.String(), "error.message").String())
 }
 
+func TestOpenAIHandleStreamingAwareError_ImagesUsesProxyEventNames(t *testing.T) {
+	tests := []struct {
+		name      string
+		errType   string
+		wantEvent string
+	}{
+		{name: "upstream failure", errType: "upstream_error", wantEvent: "upstream_error"},
+		{name: "local proxy failure", errType: "api_error", wantEvent: "proxy_error"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+			stop := service.StartOpenAIImagesSSEKeepalive(c, time.Hour)
+			defer stop()
+
+			h := &OpenAIGatewayHandler{}
+			h.handleStreamingAwareError(c, http.StatusBadGateway, tt.errType, "temporary failure", true)
+
+			require.Equal(t, http.StatusOK, w.Code)
+			require.True(t, strings.HasPrefix(w.Body.String(), "data: {}\n\n"))
+			require.Contains(t, w.Body.String(), "event: "+tt.wantEvent+"\n")
+			require.NotContains(t, w.Body.String(), "event: error\n")
+			require.Contains(t, w.Body.String(), `"message":"temporary failure"`)
+		})
+	}
+}
+
 func TestOpenAIEnsureForwardErrorResponse_ImageJSONKeepalivePreservesCompletedJSON(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()

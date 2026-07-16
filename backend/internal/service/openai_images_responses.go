@@ -1025,7 +1025,7 @@ func writeOpenAIImagesUpstreamErrorResponse(c *gin.Context, err *OpenAIImagesUps
 			c.Status(err.clientStatusCode())
 		}
 		payload := openAIImagesUpstreamErrorResponseBody(err)
-		if _, writeErr := fmt.Fprintf(c.Writer, "event: error\ndata: %s\n\n", payload); writeErr != nil {
+		if _, writeErr := fmt.Fprintf(c.Writer, "event: upstream_error\ndata: %s\n\n", payload); writeErr != nil {
 			return false
 		}
 		if flusher, ok := c.Writer.(http.Flusher); ok {
@@ -1356,6 +1356,14 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthStreamingResponse(
 	var processDataErr error
 	processDataDone := false
 	writerSizeBeforeResponse := OpenAIImagesJSONKeepaliveAdjustedWrittenSize(c)
+	syntheticKeepaliveEnabled := true
+	writeStreamEvent := func(eventName string, payload []byte) bool {
+		written := s.tryWriteOpenAIImagesStreamEvent(c, flusher, &clientDisconnected, &lastDownstreamWriteAt, eventName, payload)
+		if written {
+			syntheticKeepaliveEnabled = false
+		}
+		return written
+	}
 
 	processData := func(dataBytes []byte) {
 		if processDataDone || processDataErr != nil {
@@ -1395,11 +1403,11 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthStreamingResponse(
 				createdAt,
 				partialMeta,
 			)
-			s.tryWriteOpenAIImagesStreamEvent(c, flusher, &clientDisconnected, &lastDownstreamWriteAt, eventName, payload)
+			writeStreamEvent(eventName, payload)
 		case "response.output_item.done":
 			img, itemID, ok, extractErr := extractOpenAIImageFromResponsesOutputItemDone(dataBytes)
 			if extractErr != nil {
-				s.tryWriteOpenAIImagesStreamEvent(c, flusher, &clientDisconnected, &lastDownstreamWriteAt, "error", buildOpenAIImagesStreamErrorBody(extractErr.Error()))
+				writeStreamEvent("proxy_error", buildOpenAIImagesStreamErrorBody(extractErr.Error()))
 				processDataErr = extractErr
 				processDataDone = true
 				return
@@ -1421,7 +1429,7 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthStreamingResponse(
 		case "response.completed":
 			results, _, usageRaw, firstMeta, extractErr := extractOpenAIImagesFromResponsesCompleted(dataBytes)
 			if extractErr != nil {
-				s.tryWriteOpenAIImagesStreamEvent(c, flusher, &clientDisconnected, &lastDownstreamWriteAt, "error", buildOpenAIImagesStreamErrorBody(extractErr.Error()))
+				writeStreamEvent("proxy_error", buildOpenAIImagesStreamErrorBody(extractErr.Error()))
 				processDataErr = extractErr
 				processDataDone = true
 				return
@@ -1443,7 +1451,7 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthStreamingResponse(
 				// 软失败：response.completed 事件里没有图片。记录上游诊断摘要到 ops，
 				// 与非流式路径保持一致，避免上游响应信息丢失。
 				setOpsUpstreamError(c, http.StatusBadGateway, "upstream did not return image output", summarizeOpenAIImagesNoOutputBody(dataBytes))
-				s.tryWriteOpenAIImagesStreamEvent(c, flusher, &clientDisconnected, &lastDownstreamWriteAt, "error", buildOpenAIImagesStreamErrorBody(outputErr.Error()))
+				writeStreamEvent("proxy_error", buildOpenAIImagesStreamErrorBody(outputErr.Error()))
 				processDataErr = outputErr
 				processDataDone = true
 				return
@@ -1456,7 +1464,7 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthStreamingResponse(
 				}
 				payload := buildOpenAIImagesStreamCompletedPayload(eventName, img, format, createdAt, usageRaw)
 				emitted[key] = struct{}{}
-				s.tryWriteOpenAIImagesStreamEvent(c, flusher, &clientDisconnected, &lastDownstreamWriteAt, eventName, payload)
+				writeStreamEvent(eventName, payload)
 			}
 			imageCount = len(emitted)
 			imageOutputSizes = openAIResponsesImageResultSizes(finalResults)
@@ -1464,8 +1472,8 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthStreamingResponse(
 		case "error", "response.failed":
 			if upstreamErr := openAIImagesUpstreamErrorFromSSEPayload(dataBytes); upstreamErr != nil {
 				retryable := IsOpenAIImagesRetryableUpstreamError(upstreamErr)
-				if !clientDisconnected && (!retryable || c.Writer.Size() != writerSizeBeforeResponse) {
-					s.tryWriteOpenAIImagesStreamEvent(c, flusher, &clientDisconnected, &lastDownstreamWriteAt, "error", buildOpenAIImagesStreamErrorBodyFromUpstream(upstreamErr))
+				if !clientDisconnected && (!retryable || OpenAIImagesJSONKeepaliveAdjustedWrittenSize(c) != writerSizeBeforeResponse) {
+					writeStreamEvent("upstream_error", buildOpenAIImagesStreamErrorBodyFromUpstream(upstreamErr))
 				}
 				setOpsUpstreamError(c, upstreamErr.clientStatusCode(), upstreamErr.clientMessage(), "")
 				processDataErr = upstreamErr
@@ -1512,7 +1520,7 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthStreamingResponse(
 				}
 				payload := buildOpenAIImagesStreamCompletedPayload(eventName, img, format, createdAt, nil)
 				emitted[key] = struct{}{}
-				s.tryWriteOpenAIImagesStreamEvent(c, flusher, &clientDisconnected, &lastDownstreamWriteAt, eventName, payload)
+				writeStreamEvent(eventName, payload)
 			}
 			imageCount = len(emitted)
 			imageOutputSizes = openAIResponsesImageResultSizes(finalResults)
@@ -1520,7 +1528,7 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthStreamingResponse(
 		}
 
 		streamErr := fmt.Errorf("stream disconnected before image generation completed")
-		s.tryWriteOpenAIImagesStreamEvent(c, flusher, &clientDisconnected, &lastDownstreamWriteAt, "error", buildOpenAIImagesStreamErrorBody(streamErr.Error()))
+		writeStreamEvent("proxy_error", buildOpenAIImagesStreamErrorBody(streamErr.Error()))
 		return streamErr
 	}
 
@@ -1546,7 +1554,7 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthStreamingResponse(
 				} else if done {
 					return usage, imageCount, imageOutputSizes, firstTokenMs, nil
 				}
-				s.tryWriteOpenAIImagesStreamEvent(c, flusher, &clientDisconnected, &lastDownstreamWriteAt, "error", buildOpenAIImagesStreamErrorBody(err.Error()))
+				writeStreamEvent("proxy_error", buildOpenAIImagesStreamErrorBody(err.Error()))
 				return usage, imageCount, imageOutputSizes, firstTokenMs, err
 			}
 		}
@@ -1639,7 +1647,7 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthStreamingResponse(
 				} else if done {
 					return usage, imageCount, imageOutputSizes, firstTokenMs, nil
 				}
-				s.tryWriteOpenAIImagesStreamEvent(c, flusher, &clientDisconnected, &lastDownstreamWriteAt, "error", buildOpenAIImagesStreamErrorBody(ev.err.Error()))
+				writeStreamEvent("proxy_error", buildOpenAIImagesStreamErrorBody(ev.err.Error()))
 				return usage, imageCount, imageOutputSizes, firstTokenMs, ev.err
 			}
 			done, processErr := processLine(ev.line)
@@ -1658,10 +1666,10 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthStreamingResponse(
 				return usage, imageCount, imageOutputSizes, firstTokenMs, fmt.Errorf("image stream incomplete after timeout")
 			}
 			logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Images responses stream data interval timeout: interval=%s", streamInterval)
-			s.tryWriteOpenAIImagesStreamEvent(c, flusher, &clientDisconnected, &lastDownstreamWriteAt, "error", buildOpenAIImagesStreamErrorBody(fmt.Sprintf("upstream image stream idle for %s", streamInterval)))
+			writeStreamEvent("proxy_error", buildOpenAIImagesStreamErrorBody(fmt.Sprintf("upstream image stream idle for %s", streamInterval)))
 			return usage, imageCount, imageOutputSizes, firstTokenMs, fmt.Errorf("image stream data interval timeout")
 		case <-keepaliveCh:
-			if clientDisconnected || time.Since(lastDownstreamWriteAt) < keepaliveInterval {
+			if !syntheticKeepaliveEnabled || clientDisconnected || time.Since(lastDownstreamWriteAt) < keepaliveInterval {
 				continue
 			}
 			if _, writeErr := io.WriteString(c.Writer, "data: {}\n\n"); writeErr != nil {

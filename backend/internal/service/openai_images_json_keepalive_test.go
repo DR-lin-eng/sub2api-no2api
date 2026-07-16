@@ -64,6 +64,8 @@ func TestOpenAIImagesSSEKeepalive_UsesEmptyDataEvent(t *testing.T) {
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
 
 	stop := StartOpenAIImagesSSEKeepalive(c, 5*time.Millisecond)
+	require.True(t, c.Writer.Written(), "the first pseudo-stream heartbeat must be immediate")
+	require.True(t, strings.HasPrefix(rec.Body.String(), "data: {}\n\n"))
 	waitForOpenAIImagesJSONKeepalive(t, c)
 	stop()
 
@@ -92,9 +94,26 @@ func TestOpenAIImagesSSEKeepalive_LateErrorRemainsSSE(t *testing.T) {
 	require.True(t, wrote)
 	require.Equal(t, http.StatusOK, rec.Code, "heartbeat already committed the status")
 	require.Contains(t, rec.Body.String(), "data: {}\n\n")
-	require.Contains(t, rec.Body.String(), "event: error\n")
+	require.Contains(t, rec.Body.String(), "event: upstream_error\n")
+	require.NotContains(t, rec.Body.String(), "event: error\n")
 	require.Contains(t, rec.Body.String(), `"code":"moderation_blocked"`)
 	require.NotContains(t, rec.Body.String(), "\n{\"error\"")
+}
+
+func TestOpenAIImagesSSEKeepalive_RestartKeepsAllHeartbeatBytesExcluded(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+
+	stopFirst := StartOpenAIImagesSSEKeepalive(c, time.Hour)
+	require.Equal(t, -1, OpenAIImagesJSONKeepaliveAdjustedWrittenSize(c))
+	stopFirst()
+	stopSecond := StartOpenAIImagesSSEKeepalive(c, time.Hour)
+	defer stopSecond()
+
+	require.Equal(t, "data: {}\n\ndata: {}\n\n", rec.Body.String())
+	require.Equal(t, -1, OpenAIImagesJSONKeepaliveAdjustedWrittenSize(c))
 }
 
 func TestOpenAIImagesJSONKeepalive_FastErrorPreservesStatus(t *testing.T) {

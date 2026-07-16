@@ -2254,6 +2254,11 @@ func (h *OpenAIGatewayHandler) handleStreamingAwareError(c *gin.Context, status 
 				return
 			}
 		}
+		if inboundIsOpenAIImages(c) {
+			if writeOpenAIImagesProxyErrorSSE(c, errType, message) {
+				return
+			}
+		}
 		// Stream already started, send error as SSE event then close
 		flusher, ok := c.Writer.(http.Flusher)
 		if ok {
@@ -2269,6 +2274,35 @@ func (h *OpenAIGatewayHandler) handleStreamingAwareError(c *gin.Context, status 
 
 	// Normal case: return JSON response with proper status code
 	h.errorResponse(c, status, errType, message)
+}
+
+func inboundIsOpenAIImages(c *gin.Context) bool {
+	endpoint := GetInboundEndpoint(c)
+	return endpoint == EndpointImagesGenerations || endpoint == EndpointImagesEdits
+}
+
+func writeOpenAIImagesProxyErrorSSE(c *gin.Context, errType, message string) bool {
+	if c == nil || c.Writer == nil {
+		return false
+	}
+	flusher, ok := c.Writer.(http.Flusher)
+	if !ok {
+		return false
+	}
+	eventName := "proxy_error"
+	if strings.TrimSpace(errType) == "upstream_error" {
+		eventName = "upstream_error"
+	}
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("X-Accel-Buffering", "no")
+	payload := `{"error":{"type":` + strconv.Quote(errType) + `,"message":` + strconv.Quote(message) + `}}`
+	if _, err := fmt.Fprintf(c.Writer, "event: %s\ndata: %s\n\n", eventName, payload); err != nil {
+		_ = c.Error(err)
+		return false
+	}
+	flusher.Flush()
+	return true
 }
 
 // ensureForwardErrorResponse 在 Forward 返回错误但尚未写响应时补写统一错误响应。

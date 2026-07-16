@@ -611,7 +611,7 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	if err != nil {
 		return nil, err
 	}
-	upstreamReq, err := s.buildOpenAIImagesRequest(upstreamCtx, c, account, forwardBody, forwardContentType, token, parsed.Endpoint, parsed.Stream)
+	upstreamReq, err := s.buildOpenAIImagesRequest(upstreamCtx, c, account, forwardBody, forwardContentType, token, parsed.Endpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -738,7 +738,6 @@ func (s *OpenAIGatewayService) buildOpenAIImagesRequest(
 	contentType string,
 	token string,
 	endpoint string,
-	stream bool,
 ) (*http.Request, error) {
 	targetURL := openAIImagesGenerationsURL
 	if endpoint == openAIImagesEditsEndpoint {
@@ -757,7 +756,10 @@ func (s *OpenAIGatewayService) buildOpenAIImagesRequest(
 	if err != nil {
 		return nil, err
 	}
-	req = req.WithContext(WithHTTPUpstreamProfile(req.Context(), openAIHTTPUpstreamProfile(account, stream)))
+	// Images may legitimately spend several minutes generating before returning
+	// response headers. Downstream pseudo-stream heartbeats keep the client alive,
+	// so do not apply the short API-key stream header timeout here.
+	req = req.WithContext(WithHTTPUpstreamProfile(req.Context(), HTTPUpstreamProfileOpenAI))
 	authHeaders, err := s.buildOpenAIAuthenticationHeaders(ctx, account, token)
 	if err != nil {
 		return nil, fmt.Errorf("build openai authentication headers: %w", err)
@@ -954,6 +956,7 @@ func (s *OpenAIGatewayService) handleOpenAIImagesStreamingResponse(
 	var firstTokenMs *int
 	clientDisconnected := false
 	lastDownstreamWriteAt := time.Now()
+	syntheticKeepaliveEnabled := true
 	var fallbackBody bytes.Buffer
 	fallbackBytes := int64(0)
 	fallbackLimit := resolveUpstreamResponseReadLimit(s.cfg)
@@ -978,7 +981,13 @@ func (s *OpenAIGatewayService) handleOpenAIImagesStreamingResponse(
 			return
 		}
 		line = s.rewriteOpenAIImagesSSELine(c, line)
-		if firstTokenMs == nil {
+		trimmedLine := strings.TrimSpace(string(line))
+		data, isDataLine := extractOpenAISSEDataLine(trimmedLine)
+		realEventLine := trimmedLine != "" && (!isDataLine || !isOpenAIImagesEmptySSEData(data))
+		if realEventLine {
+			syntheticKeepaliveEnabled = false
+		}
+		if realEventLine && firstTokenMs == nil {
 			ms := int(time.Since(startTime).Milliseconds())
 			firstTokenMs = &ms
 		}
@@ -992,9 +1001,9 @@ func (s *OpenAIGatewayService) handleOpenAIImagesStreamingResponse(
 			}
 		}
 
-		trimmedLine := strings.TrimRight(string(line), "\r\n")
-		if _, ok := extractOpenAISSEDataLine(trimmedLine); ok || strings.TrimSpace(trimmedLine) == "" {
-			sseData.AddLine(trimmedLine, processSSEData)
+		accumulatorLine := strings.TrimRight(string(line), "\r\n")
+		if _, ok := extractOpenAISSEDataLine(accumulatorLine); ok || strings.TrimSpace(accumulatorLine) == "" {
+			sseData.AddLine(accumulatorLine, processSSEData)
 			return
 		}
 		if !seenSSEData && !fallbackTooLarge {
@@ -1120,10 +1129,10 @@ func (s *OpenAIGatewayService) handleOpenAIImagesStreamingResponse(
 				return usage, imageCounter.Count(), imageCounter.Sizes(), firstTokenMs, fmt.Errorf("image stream incomplete after timeout")
 			}
 			logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Images stream data interval timeout: interval=%s", streamInterval)
-			_ = s.writeOpenAIImagesStreamEvent(c, flusher, "error", buildOpenAIImagesStreamErrorBody(fmt.Sprintf("upstream image stream idle for %s", streamInterval)))
+			_ = s.writeOpenAIImagesStreamEvent(c, flusher, "proxy_error", buildOpenAIImagesStreamErrorBody(fmt.Sprintf("upstream image stream idle for %s", streamInterval)))
 			return usage, imageCounter.Count(), imageCounter.Sizes(), firstTokenMs, fmt.Errorf("image stream data interval timeout")
 		case <-keepaliveCh:
-			if clientDisconnected || time.Since(lastDownstreamWriteAt) < keepaliveInterval {
+			if !syntheticKeepaliveEnabled || clientDisconnected || time.Since(lastDownstreamWriteAt) < keepaliveInterval {
 				continue
 			}
 			if _, writeErr := io.WriteString(c.Writer, "data: {}\n\n"); writeErr != nil {

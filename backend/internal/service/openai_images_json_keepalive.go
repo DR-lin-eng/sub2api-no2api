@@ -36,24 +36,31 @@ type openAIImagesJSONKeepalive struct {
 // StartOpenAIImagesJSONKeepalive starts whitespace heartbeats for a
 // non-streaming Images request. A non-positive interval disables the feature.
 func StartOpenAIImagesJSONKeepalive(c *gin.Context, interval time.Duration) func() {
-	return startOpenAIImagesKeepalive(c, interval, "application/json; charset=utf-8", []byte("\n"))
+	return startOpenAIImagesKeepalive(c, interval, "application/json; charset=utf-8", []byte("\n"), false)
 }
 
 // StartOpenAIImagesSSEKeepalive starts pseudo-stream SSE heartbeats while an
 // Images stream request is waiting for the upstream response headers.
 func StartOpenAIImagesSSEKeepalive(c *gin.Context, interval time.Duration) func() {
-	return startOpenAIImagesKeepalive(c, interval, "text/event-stream", []byte("data: {}\n\n"))
+	return startOpenAIImagesKeepalive(c, interval, "text/event-stream", []byte("data: {}\n\n"), true)
 }
 
-func startOpenAIImagesKeepalive(c *gin.Context, interval time.Duration, contentType string, payload []byte) func() {
+func startOpenAIImagesKeepalive(c *gin.Context, interval time.Duration, contentType string, payload []byte, beatImmediately bool) func() {
 	if c == nil || c.Writer == nil || interval <= 0 {
 		return func() {}
+	}
+	carriedHeartbeatBytes := 0
+	if previous := openAIImagesJSONKeepaliveFromContext(c); previous != nil {
+		previous.mu.Lock()
+		carriedHeartbeatBytes = previous.bytes
+		previous.mu.Unlock()
 	}
 	originalWriter := c.Writer
 	k := &openAIImagesJSONKeepalive{
 		writer:      originalWriter,
 		contentType: contentType,
 		payload:     append([]byte(nil), payload...),
+		bytes:       carriedHeartbeatBytes,
 		stop:        make(chan struct{}),
 	}
 	header := originalWriter.Header()
@@ -63,6 +70,15 @@ func startOpenAIImagesKeepalive(c *gin.Context, interval time.Duration, contentT
 	c.Set(openAIImagesJSONKeepaliveKey, k)
 	wrappedWriter := &openAIImagesJSONKeepaliveWriter{ResponseWriter: originalWriter, k: k}
 	c.Writer = wrappedWriter
+	stop := func() {
+		k.Stop()
+		if current, ok := c.Writer.(*openAIImagesJSONKeepaliveWriter); ok && current == wrappedWriter {
+			c.Writer = originalWriter
+		}
+	}
+	if beatImmediately && !k.beat() {
+		return stop
+	}
 
 	var reqDone <-chan struct{}
 	if c.Request != nil {
@@ -86,12 +102,7 @@ func startOpenAIImagesKeepalive(c *gin.Context, interval time.Duration, contentT
 		}
 	}()
 
-	return func() {
-		k.Stop()
-		if current, ok := c.Writer.(*openAIImagesJSONKeepaliveWriter); ok && current == wrappedWriter {
-			c.Writer = originalWriter
-		}
-	}
+	return stop
 }
 
 func (k *openAIImagesJSONKeepalive) beat() bool {

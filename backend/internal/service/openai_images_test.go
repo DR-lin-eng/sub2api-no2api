@@ -12,6 +12,7 @@ import (
 	"net/textproto"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/gin-gonic/gin"
@@ -1079,7 +1080,8 @@ func TestOpenAIGatewayServiceForwardImages_OAuthStreamServerErrorAfterFlushDoesN
 	require.True(t, IsOpenAIImagesRetryableUpstreamError(upstreamErr))
 	require.True(t, c.Writer.Written())
 	require.Contains(t, rec.Body.String(), "event: image_generation.partial_image")
-	require.Contains(t, rec.Body.String(), "event: error")
+	require.Contains(t, rec.Body.String(), "event: upstream_error")
+	require.NotContains(t, rec.Body.String(), "event: error")
 	require.Contains(t, rec.Body.String(), "failed after partial output")
 
 	rawEvents, ok := c.Get(OpsUpstreamErrorsKey)
@@ -1089,6 +1091,32 @@ func TestOpenAIGatewayServiceForwardImages_OAuthStreamServerErrorAfterFlushDoesN
 	require.Len(t, events, 1)
 	require.Equal(t, "retry_exhausted_failover", events[0].Kind)
 	require.Equal(t, account.ID, events[0].AccountID)
+}
+
+func TestOpenAIImagesStreamingResponse_StopsSyntheticKeepaliveAfterFirstRealEvent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+
+	reader, writer := io.Pipe()
+	go func() {
+		_, _ = io.WriteString(writer, "data: {\"type\":\"image_generation.completed\",\"url\":\"https://cdn.example/result.png\"}\n\n")
+		time.Sleep(1100 * time.Millisecond)
+		_ = writer.Close()
+	}()
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+		Body:       reader,
+	}
+	svc := &OpenAIGatewayService{cfg: &config.Config{Gateway: config.GatewayConfig{ImageStreamKeepaliveInterval: 1}}}
+
+	_, _, _, _, err := svc.handleOpenAIImagesStreamingResponse(resp, c, time.Now())
+
+	require.NoError(t, err)
+	require.Contains(t, rec.Body.String(), `data: {"type":"image_generation.completed"`)
+	require.NotContains(t, rec.Body.String(), "data: {}\n\n")
 }
 
 func TestOpenAIImagesSSEClientErrorsAreNotRetryable(t *testing.T) {
@@ -1220,7 +1248,7 @@ func TestOpenAIGatewayServiceForwardImages_APIKeyStreamJSONResponseBillsImage(t 
 	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	require.Equal(t, HTTPUpstreamProfileOpenAIAPIKeyStream, HTTPUpstreamProfileFromContext(upstream.lastReq.Context()))
+	require.Equal(t, HTTPUpstreamProfileOpenAI, HTTPUpstreamProfileFromContext(upstream.lastReq.Context()))
 	require.True(t, result.Stream)
 	require.Equal(t, 1, result.ImageCount)
 	require.Equal(t, 12, result.Usage.InputTokens)
