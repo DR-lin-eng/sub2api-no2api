@@ -751,3 +751,15 @@ func newOpenAIImageGenerationControlTestAccount() *Account {
 		},
 	}
 }
+
+func BenchmarkNormalizeCompletedImageGenerationStatusTokenEvent(b *testing.B) {
+	event := []byte(`{"type":"response.output_text.delta","delta":"hello world"}`)
+	b.SetBytes(int64(len(event)))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		if _, changed := normalizeCompletedImageGenerationStatus(event); changed {
+			b.Fatal("token event was unexpectedly normalized")
+		}
+	}
+}

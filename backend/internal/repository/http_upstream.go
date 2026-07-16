@@ -77,6 +77,7 @@ const (
 	// allowing operators to bump it without waiting for a Sub2API release.
 	grokCLIProxyHost       = "cli-chat-proxy.grok.com"
 	grokOfficialAPIHost    = "api.x.ai"
+	grokTokenAuthHeader    = "X-Xai-Token-Auth"
 	grokCLIStableVersion   = "0.2.93"
 	grokCLIVersionOverride = "XAI_GROK_CLI_VERSION"
 	grokFallbackBodyLimit  = 64 << 10
@@ -112,12 +113,14 @@ type openAIHTTP2Settings struct {
 // upstreamClientEntry 上游客户端缓存条目
 // 记录客户端实例及其元数据，用于连接池管理和淘汰策略
 type upstreamClientEntry struct {
-	client       *http.Client // HTTP 客户端实例
-	proxyKey     string       // 代理标识（用于检测代理变更）
-	poolKey      string       // 连接池配置标识（用于检测配置变更）
-	protocolMode string       // 协议模式（default/openai_h1/openai_h2/openai_h1_fallback）
-	lastUsed     int64        // 最后使用时间戳（纳秒），用于 LRU 淘汰
-	inFlight     int64        // 当前进行中的请求数，>0 时不可淘汰
+	client                 *http.Client // HTTP 客户端实例
+	grokFallbackClient     *http.Client
+	grokFallbackClientOnce sync.Once
+	proxyKey               string // 代理标识（用于检测代理变更）
+	poolKey                string // 连接池配置标识（用于检测配置变更）
+	protocolMode           string // 协议模式（default/openai_h1/openai_h2/openai_h1_fallback）
+	lastUsed               int64  // 最后使用时间戳（纳秒），用于 LRU 淘汰
+	inFlight               int64  // 当前进行中的请求数，>0 时不可淘汰
 }
 
 type openAIHTTP2FallbackState struct {
@@ -203,8 +206,7 @@ func (s *httpUpstreamService) Do(req *http.Request, proxyURL string, accountID i
 	}
 
 	// 执行请求
-	client := httpClientForUpstreamRequest(entry.client, req)
-	client = httpClientWithGrokAccessDeniedFallback(client)
+	client := entry.clientForRequest(req)
 	resp, err := servertiming.Do(client, req)
 	if err != nil {
 		s.recordOpenAIHTTP2Failure(profile, entry.protocolMode, entry.proxyKey, err)
@@ -267,8 +269,7 @@ func (s *httpUpstreamService) DoWithTLS(req *http.Request, proxyURL string, acco
 		return nil, err
 	}
 
-	client := httpClientForUpstreamRequest(entry.client, req)
-	client = httpClientWithGrokAccessDeniedFallback(client)
+	client := entry.clientForRequest(req)
 	resp, err := servertiming.Do(client, req)
 	if err != nil {
 		atomic.AddInt64(&entry.inFlight, -1)
@@ -296,6 +297,20 @@ func httpClientForUpstreamRequest(client *http.Client, req *http.Request) *http.
 		return http.ErrUseLastResponse
 	}
 	return &clone
+}
+
+func (e *upstreamClientEntry) clientForRequest(req *http.Request) *http.Client {
+	if e == nil {
+		return nil
+	}
+	client := e.client
+	if isGrokCLIAccessDeniedFallbackRequest(req) {
+		e.grokFallbackClientOnce.Do(func() {
+			e.grokFallbackClient = httpClientWithGrokAccessDeniedFallback(e.client)
+		})
+		client = e.grokFallbackClient
+	}
+	return httpClientForUpstreamRequest(client, req)
 }
 
 // grokAccessDeniedFallbackTransport preserves the subscription CLI proxy as
@@ -356,11 +371,18 @@ func (t *grokAccessDeniedFallbackTransport) RoundTrip(req *http.Request) (*http.
 }
 
 func isGrokCLIAccessDeniedFallbackCandidate(req *http.Request, resp *http.Response) bool {
-	return req != nil && req.URL != nil && req.GetBody != nil && resp != nil &&
-		resp.StatusCode == http.StatusForbidden &&
-		strings.EqualFold(strings.TrimSpace(req.URL.Hostname()), grokCLIProxyHost) &&
-		strings.EqualFold(strings.TrimSpace(req.Header.Get("X-XAI-Token-Auth")), "xai-grok-cli") &&
-		strings.HasPrefix(strings.ToLower(strings.TrimSpace(req.Header.Get("Authorization"))), "bearer ")
+	return resp != nil && resp.StatusCode == http.StatusForbidden &&
+		isGrokCLIAccessDeniedFallbackRequest(req)
+}
+
+func isGrokCLIAccessDeniedFallbackRequest(req *http.Request) bool {
+	if req == nil || req.URL == nil || req.GetBody == nil ||
+		!strings.EqualFold(strings.TrimSpace(req.URL.Hostname()), grokCLIProxyHost) ||
+		!strings.EqualFold(strings.TrimSpace(req.Header.Get(grokTokenAuthHeader)), "xai-grok-cli") {
+		return false
+	}
+	authorization := strings.TrimSpace(req.Header.Get("Authorization"))
+	return len(authorization) >= len("bearer ") && strings.EqualFold(authorization[:len("bearer ")], "bearer ")
 }
 
 func newGrokOfficialAPIFallbackRequest(req *http.Request) (*http.Request, error) {
@@ -377,7 +399,7 @@ func newGrokOfficialAPIFallbackRequest(req *http.Request) (*http.Request, error)
 	fallbackReq.RequestURI = ""
 	fallbackReq.Header = req.Header.Clone()
 	for _, header := range []string{
-		"X-XAI-Token-Auth",
+		grokTokenAuthHeader,
 		"X-Grok-Client-Version",
 		"X-Grok-Client-Surface",
 		"X-UserID",
@@ -436,7 +458,7 @@ func applyGrokCLIProxyHeaders(req *http.Request) {
 	if !isSupportedGrokCLIVersion(version) {
 		version = grokCLIStableVersion
 	}
-	req.Header.Set("X-XAI-Token-Auth", "xai-grok-cli")
+	req.Header.Set(grokTokenAuthHeader, "xai-grok-cli")
 	req.Header.Set("x-grok-client-version", version)
 	req.Header.Set("User-Agent", "xai-grok-workspace/"+version)
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -15,9 +14,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unsafe"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/httpclient"
+	"github.com/tidwall/gjson"
 	"golang.org/x/net/http2"
 	"golang.org/x/sync/singleflight"
 )
@@ -478,24 +479,19 @@ func (s *OpenAIGatewayService) fetchCodexModelsManifestUpstream(ctx context.Cont
 }
 
 func validateCodexModelsManifestEnvelope(body []byte) error {
-	var envelope map[string]json.RawMessage
-	if err := json.Unmarshal(body, &envelope); err != nil {
-		return fmt.Errorf("decode JSON object: %w", err)
+	if !gjson.ValidBytes(body) {
+		return errors.New("decode JSON object: invalid JSON")
 	}
-	if envelope == nil {
+	trimmed := bytes.TrimSpace(body)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
 		return errors.New("expected a JSON object")
 	}
-	models, ok := envelope["models"]
-	if !ok {
+	models := gjson.Get(unsafe.String(unsafe.SliceData(body), len(body)), "models")
+	if !models.Exists() {
 		return errors.New("missing top-level models array")
 	}
-	models = bytes.TrimSpace(models)
-	var entries []json.RawMessage
-	if len(models) == 0 || models[0] != '[' {
+	if !models.IsArray() {
 		return errors.New("top-level models field is not an array")
-	}
-	if err := json.Unmarshal(models, &entries); err != nil {
-		return fmt.Errorf("decode top-level models array: %w", err)
 	}
 	return nil
 }

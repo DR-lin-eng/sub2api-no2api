@@ -1372,8 +1372,10 @@ func extractCodexFinalResponse(body string) ([]byte, bool) {
 	return nil, false
 }
 
+var imageGenerationCallTypeMarker = []byte(`"image_generation_call"`)
+
 func normalizeCompletedImageGenerationStatus(data []byte) ([]byte, bool) {
-	if len(data) == 0 || !gjson.ValidBytes(data) {
+	if len(data) == 0 || !bytes.Contains(data, imageGenerationCallTypeMarker) || !gjson.ValidBytes(data) {
 		return data, false
 	}
 

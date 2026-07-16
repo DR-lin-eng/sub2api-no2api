@@ -1154,3 +1154,18 @@ func TestFetchCodexModelsManifestAPIKeyRejectsOfficialOpenAIBaseURL(t *testing.T
 		})
 	}
 }
+
+func BenchmarkValidateCodexModelsManifestEnvelope(b *testing.B) {
+	const model = `{"slug":"gpt-5.6","display_name":"GPT-5.6"}`
+	count := (1 << 20) / (len(model) + 1)
+	body := []byte(`{"models":[` + strings.Repeat(model+",", count-1) + model + `]}`)
+
+	b.SetBytes(int64(len(body)))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		if err := validateCodexModelsManifestEnvelope(body); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

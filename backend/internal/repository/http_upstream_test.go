@@ -337,6 +337,45 @@ func TestHTTPUpstreamDoDoesNotFallbackForGrokEntitlementDenial(t *testing.T) {
 	require.JSONEq(t, `{"error":"subscription required"}`, string(body))
 }
 
+func TestUpstreamClientEntryCachesGrokFallbackClient(t *testing.T) {
+	baseClient := &http.Client{Transport: http.DefaultTransport}
+	entry := &upstreamClientEntry{client: baseClient}
+
+	nonGrokReq, err := http.NewRequest(http.MethodPost, "https://api.example.com/v1/responses", strings.NewReader(`{"model":"test"}`))
+	require.NoError(t, err)
+	require.Same(t, baseClient, entry.clientForRequest(nonGrokReq))
+
+	grokReq, err := http.NewRequest(http.MethodPost, "https://cli-chat-proxy.grok.com/v1/responses", strings.NewReader(`{"model":"grok-4.5"}`))
+	require.NoError(t, err)
+	grokReq.Header.Set("Authorization", "Bearer oauth-token")
+	grokReq.Header.Set("X-XAI-Token-Auth", "xai-grok-cli")
+
+	const callers = 32
+	clients := make(chan *http.Client, callers)
+	var wg sync.WaitGroup
+	for range callers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			clients <- entry.clientForRequest(grokReq)
+		}()
+	}
+	wg.Wait()
+	close(clients)
+
+	var fallbackClient *http.Client
+	for client := range clients {
+		if fallbackClient == nil {
+			fallbackClient = client
+			continue
+		}
+		require.Same(t, fallbackClient, client)
+	}
+	require.NotSame(t, baseClient, fallbackClient)
+	_, ok := fallbackClient.Transport.(*grokAccessDeniedFallbackTransport)
+	require.True(t, ok)
+}
+
 func TestApplyGrokCLIProxyHeaders(t *testing.T) {
 	t.Run("uses pinned stable version for the CLI proxy", func(t *testing.T) {
 		t.Setenv("XAI_GROK_CLI_VERSION", "")
@@ -928,4 +967,32 @@ func hasEntry(svc *httpUpstreamService, target *upstreamClientEntry) bool {
 		}
 	}
 	return false
+}
+
+var benchmarkGrokFallbackClient *http.Client
+
+func BenchmarkHTTPClientWithGrokAccessDeniedFallback(b *testing.B) {
+	entry := &upstreamClientEntry{client: &http.Client{Transport: http.DefaultTransport}}
+	req, err := http.NewRequest(http.MethodPost, "https://api.example.com/v1/responses", strings.NewReader(`{"model":"test"}`))
+	require.NoError(b, err)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		benchmarkGrokFallbackClient = entry.clientForRequest(req)
+	}
+}
+
+func BenchmarkHTTPClientWithGrokAccessDeniedFallbackGrokSteadyState(b *testing.B) {
+	entry := &upstreamClientEntry{client: &http.Client{Transport: http.DefaultTransport}}
+	req, err := http.NewRequest(http.MethodPost, "https://cli-chat-proxy.grok.com/v1/responses", strings.NewReader(`{"model":"grok-4.5"}`))
+	require.NoError(b, err)
+	req.Header.Set("Authorization", "Bearer oauth-token")
+	req.Header.Set("X-XAI-Token-Auth", "xai-grok-cli")
+	benchmarkGrokFallbackClient = entry.clientForRequest(req)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		benchmarkGrokFallbackClient = entry.clientForRequest(req)
+	}
 }
