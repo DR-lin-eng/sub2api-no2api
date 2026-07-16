@@ -34,6 +34,7 @@ func TestOpenAIImagesJSONKeepalive_PreservesValidJSONResponse(t *testing.T) {
 	require.Equal(t, "application/json; charset=utf-8", rec.Header().Get("Content-Type"))
 	require.Equal(t, "no", rec.Header().Get("X-Accel-Buffering"))
 	require.True(t, rec.Flushed)
+	require.NotContains(t, rec.Body.String(), "data:")
 	require.True(t, json.Valid(rec.Body.Bytes()), rec.Body.String())
 	require.Equal(t, "aW1hZ2U=", gjson.Get(rec.Body.String(), "data.0.b64_json").String())
 	require.Greater(t, OpenAIImagesJSONKeepaliveAdjustedWrittenSize(c), 0)

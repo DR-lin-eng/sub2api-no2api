@@ -202,11 +202,45 @@ func (s *OpenAIGatewayService) rewriteOpenAIImagesSSELine(c *gin.Context, line [
 	if !ok || strings.TrimSpace(data) == "" || strings.TrimSpace(data) == "[DONE]" {
 		return line
 	}
+	if isOpenAIImagesEmptySSEData(data) {
+		return []byte(lineEnding)
+	}
 	rewritten := s.rewriteOpenAIImagesResponseURLs(c, []byte(data))
 	if bytes.Equal(rewritten, []byte(data)) {
 		return line
 	}
 	return []byte("data: " + string(rewritten) + lineEnding)
+}
+
+func stripOpenAIImagesEmptySSEKeepalives(body []byte) []byte {
+	if len(body) == 0 || !bytes.Contains(body, []byte("data:")) {
+		return body
+	}
+	lines := bytes.SplitAfter(body, []byte("\n"))
+	filtered := make([]byte, 0, len(body))
+	changed := false
+	for _, line := range lines {
+		trimmed := strings.TrimRight(string(line), "\r\n")
+		data, ok := extractOpenAISSEDataLine(trimmed)
+		if ok && isOpenAIImagesEmptySSEData(data) {
+			changed = true
+			continue
+		}
+		filtered = append(filtered, line...)
+	}
+	if !changed {
+		return body
+	}
+	return filtered
+}
+
+func isOpenAIImagesEmptySSEData(data string) bool {
+	data = strings.TrimSpace(data)
+	if !strings.HasPrefix(data, "{") {
+		return false
+	}
+	var object map[string]json.RawMessage
+	return json.Unmarshal([]byte(data), &object) == nil && len(object) == 0
 }
 
 func generatedImageHashFromFilename(filename string) (string, error) {

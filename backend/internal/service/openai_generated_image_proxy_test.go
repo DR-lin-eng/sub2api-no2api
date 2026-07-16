@@ -98,6 +98,36 @@ func TestOpenAIGeneratedImage_NormalizesNamedSSEKeepalive(t *testing.T) {
 	require.Equal(t, "\r\n", string(svc.rewriteOpenAIImagesSSELine(nil, []byte(":keepalive\r\n"))))
 }
 
+func TestOpenAIGeneratedImage_NormalizesEmptyDataSSEKeepalive(t *testing.T) {
+	svc := &OpenAIGatewayService{}
+	require.Equal(t, "\n", string(svc.rewriteOpenAIImagesSSELine(nil, []byte("data: {}\n"))))
+	require.Equal(t, "\r\n", string(svc.rewriteOpenAIImagesSSELine(nil, []byte("data: { }\r\n"))))
+	require.Equal(t, "data: {\"status\":\"working\"}\n", string(svc.rewriteOpenAIImagesSSELine(nil, []byte("data: {\"status\":\"working\"}\n"))))
+}
+
+func TestOpenAIImagesNonStreamingResponse_StripsEmptyDataKeepalives(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "https://relay.example/v1/images/generations", nil)
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body: io.NopCloser(strings.NewReader(
+			"data: {}\n\ndata: { }\n\n" +
+				`{"created":1710000000,"data":[{"b64_json":"aW1hZ2U="}]}`,
+		)),
+	}
+	svc := &OpenAIGatewayService{}
+
+	_, imageCount, _, err := svc.handleOpenAIImagesNonStreamingResponse(resp, c)
+
+	require.NoError(t, err)
+	require.Equal(t, 1, imageCount)
+	require.NotContains(t, rec.Body.String(), "data:")
+	require.JSONEq(t, `{"created":1710000000,"data":[{"b64_json":"aW1hZ2U="}]}`, rec.Body.String())
+}
+
 func TestOpenAIGeneratedImage_RewritesSSEDataURL(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	store := &generatedImageStoreStub{}
