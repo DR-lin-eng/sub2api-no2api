@@ -10,6 +10,13 @@ func resolveImageRateMultiplier(apiKey *APIKey, effectiveGroupMultiplier float64
 	return effectiveGroupMultiplier
 }
 
+func tokenImageRateMultiplier(apiKey *APIKey, imageMultiplier float64) *float64 {
+	if apiKey == nil || apiKey.Group == nil || !apiKey.Group.ImageRateIndependent {
+		return nil
+	}
+	return &imageMultiplier
+}
+
 func resolveVideoRateMultiplier(apiKey *APIKey, effectiveGroupMultiplier float64) float64 {
 	if apiKey != nil && apiKey.Group != nil && apiKey.Group.VideoRateIndependent {
 		if apiKey.Group.VideoRateMultiplier < 0 {

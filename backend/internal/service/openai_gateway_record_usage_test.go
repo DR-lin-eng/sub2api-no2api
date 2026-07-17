@@ -485,6 +485,58 @@ func TestOpenAIGatewayServiceRecordUsage_PeakRateAffectsTokenModeImageOutputToke
 	require.InDelta(t, expectedActual, userRepo.lastAmount, 1e-12)
 }
 
+func TestOpenAIGatewayServiceRecordUsage_TokenImageBillingUsesIndependentMultiplierIssue4436(t *testing.T) {
+	groupID := int64(4436)
+	usage := OpenAIUsage{
+		InputTokens:       1000,
+		ImageInputTokens:  100,
+		OutputTokens:      600,
+		ImageOutputTokens: 100,
+	}
+
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	userRepo := &openAIRecordUsageUserRepoStub{}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{}, nil)
+	svc.resolver = newOpenAITokenImageChannelPricingResolverForTest(t, groupID, "gpt-image-2")
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID:  "resp_issue_4436",
+			Usage:      usage,
+			Model:      "gpt-image-2",
+			Duration:   time.Second,
+			ImageCount: 1,
+		},
+		APIKey: &APIKey{
+			ID:      14436,
+			GroupID: i64p(groupID),
+			Group: &Group{
+				ID:                   groupID,
+				RateMultiplier:       0.4,
+				ImageRateIndependent: true,
+				ImageRateMultiplier:  1.0,
+			},
+		},
+		User:    &User{ID: 24436},
+		Account: &Account{ID: 34436},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, usageRepo.lastLog)
+	require.NotNil(t, usageRepo.lastLog.BillingMode)
+	require.Equal(t, string(BillingModeToken), *usageRepo.lastLog.BillingMode)
+	require.InDelta(t, 1.0, usageRepo.lastLog.RateMultiplier, 1e-12)
+
+	textCost := usageRepo.lastLog.InputCost + usageRepo.lastLog.OutputCost +
+		usageRepo.lastLog.CacheCreationCost + usageRepo.lastLog.CacheReadCost
+	imageCost := usageRepo.lastLog.ImageInputCost + usageRepo.lastLog.ImageOutputCost
+	expectedActual := textCost*0.4 + imageCost*1.0
+	require.Greater(t, imageCost, 0.0)
+	require.InDelta(t, expectedActual, usageRepo.lastLog.ActualCost, 1e-12)
+	require.InDelta(t, expectedActual, userRepo.lastAmount, 1e-12)
+	require.Equal(t, 1, userRepo.deductCalls)
+}
+
 func TestOpenAIGatewayServiceRecordUsage_IncludesEndpointMetadata(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}

@@ -82,6 +82,37 @@ func TestCalculateCostUnified_TokenModeAppliesRateMultiplierToImageTokens(t *tes
 	require.InDelta(t, imageOutput, cost.ImageOutputCost, 1e-10)
 }
 
+func TestCalculateCostUnified_TokenModeAppliesIndependentImageRateMultiplier(t *testing.T) {
+	bs := newTestBillingService()
+	resolver := NewModelPricingResolver(nil, bs)
+	imageMultiplier := 1.0
+
+	tokens := UsageTokens{
+		InputTokens:       1000,
+		ImageInputTokens:  100,
+		OutputTokens:      600,
+		ImageOutputTokens: 100,
+	}
+	cost, err := bs.CalculateCostUnified(CostInput{
+		Ctx:                 context.Background(),
+		Model:               "claude-sonnet-4",
+		Tokens:              tokens,
+		RateMultiplier:      0.4,
+		ImageRateMultiplier: &imageMultiplier,
+		Resolver:            resolver,
+	})
+	require.NoError(t, err)
+
+	textInput := 900 * 3e-6
+	imageInput := 100 * 3e-6
+	textOutput := 500 * 15e-6
+	imageOutput := 100 * 15e-6
+	require.InDelta(t, textInput+imageInput+textOutput+imageOutput, cost.TotalCost, 1e-10)
+	require.InDelta(t, (textInput+textOutput)*0.4+(imageInput+imageOutput)*imageMultiplier, cost.ActualCost, 1e-10)
+	require.InDelta(t, imageInput, cost.ImageInputCost, 1e-10)
+	require.InDelta(t, imageOutput, cost.ImageOutputCost, 1e-10)
+}
+
 func TestCalculateCostUnified_PerRequestMode(t *testing.T) {
 	// Set up a ChannelService with a per-request pricing channel
 	cs := newTestChannelServiceWithCache(t, &channelCache{

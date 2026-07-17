@@ -148,7 +148,7 @@ func TestPeakMultiplierAt_StandardTypeDegradesToOne(t *testing.T) {
 
 // TestPeakMultiplier_GatewayBillingSequence 调用 gateway_service.recordUsageCore 与
 // openai_gateway_service.RecordUsage 共用的 computePeakAwareMultipliers，验证计费叠加顺序：
-// 图片按次倍率基于基础倍率算出且不受高峰影响，高峰因子只乘入 token 倍率。
+// 图片倍率（按次图片及独立图片 token）基于基础倍率算出且不受高峰影响，高峰因子只乘入默认 token 倍率。
 // 若有人调换叠加顺序或把高峰并入 imageMultiplier，此测试会失败。
 func TestPeakMultiplier_GatewayBillingSequence(t *testing.T) {
 	const baseMultiplier = 0.8

@@ -808,10 +808,10 @@ func TestComputeTokenBreakdown_GptImage2ImageEditIssue4386(t *testing.T) {
 		ImageOutputTokens: 439,
 	}
 
-	cost := svc.computeTokenBreakdown(pricing, tokens, 1.0, "", false)
+	cost := svc.computeTokenBreakdown(pricing, tokens, 1.0, nil, "", false)
 
-	wantTextInput := float64(19) * 5e-6    // 0.000095
-	wantImageInput := float64(352) * 8e-6  // 0.002816
+	wantTextInput := float64(19) * 5e-6     // 0.000095
+	wantImageInput := float64(352) * 8e-6   // 0.002816
 	wantImageOutput := float64(439) * 30e-6 // 0.013170
 	require.InDelta(t, wantTextInput, cost.InputCost, 1e-15, "InputCost 仅含文本输入")
 	require.InDelta(t, wantImageInput, cost.ImageInputCost, 1e-15, "图片输入按 $8/1M 独立计费")
@@ -1571,7 +1571,7 @@ func TestComputeTokenBreakdown_ExplicitZeroImagePrice_NoFallback(t *testing.T) {
 		OutputTokens:      200,
 		ImageOutputTokens: 50,
 	}
-	bd := svc.computeTokenBreakdown(pricing, tokens, 1.0, "", false)
+	bd := svc.computeTokenBreakdown(pricing, tokens, 1.0, nil, "", false)
 
 	// ImageOutputTokens should NOT fall back to outputPrice
 	require.Equal(t, 0.0, bd.ImageOutputCost)
@@ -1593,7 +1593,7 @@ func TestComputeTokenBreakdown_NonExplicitZeroImagePrice_FallsBackToOutput(t *te
 		OutputTokens:      200,
 		ImageOutputTokens: 50,
 	}
-	bd := svc.computeTokenBreakdown(pricing, tokens, 1.0, "", false)
+	bd := svc.computeTokenBreakdown(pricing, tokens, 1.0, nil, "", false)
 
 	// Should fall back to outputPrice since not explicit
 	require.InDelta(t, 50*15e-6, bd.ImageOutputCost, 1e-12)

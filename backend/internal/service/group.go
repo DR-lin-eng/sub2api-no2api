@@ -316,7 +316,8 @@ func NormalizePeakRateConfig(subscriptionType string, enabled bool, start, end s
 }
 
 // computePeakAwareMultipliers 把"基础 token 倍率 base"（已含系统/分组/用户级倍率，但不含高峰）
-// 拆分为最终 token 倍率与图片按次倍率：图片按次倍率基于 base 现算、不受高峰影响；token 倍率在 base 上叠加高峰因子。
+// 拆分为最终默认 token 倍率与图片倍率：图片倍率供按次图片及独立图片 token 计费使用，不受高峰影响；
+// 默认 token 倍率在 base 上叠加高峰因子。
 // gateway_service.recordUsageCore 与 openai_gateway_service.RecordUsage 共用此函数，
 // 锁死"高峰因子只乘入 token 倍率、图片按次倍率不受影响"这一叠加顺序——任何调换都会被 group_peak_rate_test 覆盖。
 func computePeakAwareMultipliers(apiKey *APIKey, base float64, now time.Time) (text, image float64) {
