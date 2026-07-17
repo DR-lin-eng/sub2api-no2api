@@ -158,6 +158,7 @@ export default {
         status: 'Status',
         schedulable: 'Schedulable',
         todayStats: 'Today Stats',
+        hourlyUsage: 'Last Hour Usage',
         groups: 'Groups',
         usageWindows: 'Usage Windows',
         proxy: 'Proxy',
@@ -171,6 +172,13 @@ export default {
         stickyShort: 'Sticky',
         ungrouped: 'Ungrouped',
         hint: 'Displayed as "group / base score / sticky bonus". The base score is computed within the current filtered candidate set and includes priority, load, queue depth, error rate, first-token latency, reset window, quota headroom, billing rate, and related factors. The sticky bonus applies only when sticky weighting is enabled for previous_response_id or session_hash. Higher scores are preferred.'
+      },
+      hourlyUsageHint: 'Rolling statistics for the last hour. TTFT is the average time to first token after excluding image and video requests. Success rate is successful requests divided by successful plus recorded error requests.',
+      hourlyUsage: {
+        ttft: 'TTFT',
+        successRate: 'Success',
+        error4xx: '4xx',
+        error5xx: '5xx'
       },
       usageWindowsHint: '"5h / 7d" are the upstream account\'s official rolling usage windows (e.g. OpenAI ChatGPT, Claude). They are imposed by the upstream provider on the account itself — not configured by sub2api, and unrelated to the models you map. Usage resets automatically once each window rolls over, and the limit cannot be lifted from within sub2api.',
       upstreamBilling: {

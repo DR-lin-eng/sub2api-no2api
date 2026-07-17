@@ -64,6 +64,65 @@ func (s *UsageLogRepoSuite) createUsageLog(user *service.User, apiKey *service.A
 	return log
 }
 
+func (s *UsageLogRepoSuite) TestGetAccountHourlyUsageStatsBatch() {
+	user := mustCreateUser(s.T(), s.client, &service.User{Email: "account-hourly@test.com"})
+	apiKey := mustCreateApiKey(s.T(), s.client, &service.APIKey{UserID: user.ID, Key: "sk-account-hourly", Name: "k"})
+	account := mustCreateAccount(s.T(), s.client, &service.Account{Name: "account-hourly-primary"})
+	otherAccount := mustCreateAccount(s.T(), s.client, &service.Account{Name: "account-hourly-other"})
+	now := time.Now().UTC()
+
+	for _, sample := range []struct {
+		firstTokenMs int
+		imageCount   int
+		videoCount   int
+		createdAt    time.Time
+	}{
+		{firstTokenMs: 120, createdAt: now.Add(-30 * time.Minute)},
+		{firstTokenMs: 4000, imageCount: 1, createdAt: now.Add(-20 * time.Minute)},
+		{firstTokenMs: 5000, videoCount: 1, createdAt: now.Add(-10 * time.Minute)},
+		{firstTokenMs: 900, createdAt: now.Add(-2 * time.Hour)},
+	} {
+		firstTokenMs := sample.firstTokenMs
+		_, err := s.repo.Create(s.ctx, &service.UsageLog{
+			UserID: user.ID, APIKeyID: apiKey.ID, AccountID: account.ID,
+			RequestID: uuid.New().String(), Model: "gpt-test",
+			InputTokens: 1, OutputTokens: 1, TotalCost: 0.1, ActualCost: 0.1,
+			FirstTokenMs: &firstTokenMs, ImageCount: sample.imageCount,
+			VideoCount: sample.videoCount, CreatedAt: sample.createdAt,
+		})
+		s.Require().NoError(err)
+	}
+
+	_, err := s.repo.sql.ExecContext(s.ctx, `
+		INSERT INTO ops_error_logs (account_id, error_phase, error_type, status_code, is_count_tokens, created_at)
+		VALUES
+			($1, 'upstream', 'http_error', 404, FALSE, $3),
+			($1, 'upstream', 'http_error', 503, FALSE, $3),
+			($2, 'upstream', 'http_error', 429, FALSE, $3),
+			($1, 'upstream', 'http_error', 500, FALSE, $4),
+			($1, 'upstream', 'http_error', 400, TRUE, $3)
+	`, account.ID, otherAccount.ID, now.Add(-15*time.Minute), now.Add(-2*time.Hour))
+	s.Require().NoError(err)
+
+	stats, err := s.repo.GetAccountHourlyUsageStatsBatch(
+		s.ctx, []int64{account.ID, otherAccount.ID}, now.Add(-time.Hour), now,
+	)
+	s.Require().NoError(err)
+
+	s.Require().Equal(int64(5), stats[account.ID].TotalRequests)
+	s.Require().Equal(int64(3), stats[account.ID].SuccessfulRequests)
+	s.Require().InDelta(0.6, stats[account.ID].SuccessRate, 1e-9)
+	s.Require().NotNil(stats[account.ID].AvgFirstTokenMs)
+	s.Require().InDelta(120, *stats[account.ID].AvgFirstTokenMs, 1e-9)
+	s.Require().Equal(int64(1), stats[account.ID].Error4xx)
+	s.Require().Equal(int64(1), stats[account.ID].Error5xx)
+
+	s.Require().Equal(int64(1), stats[otherAccount.ID].TotalRequests)
+	s.Require().Zero(stats[otherAccount.ID].SuccessfulRequests)
+	s.Require().Zero(stats[otherAccount.ID].SuccessRate)
+	s.Require().Equal(int64(1), stats[otherAccount.ID].Error4xx)
+}
+
 // --- Create / GetByID ---
 
 func (s *UsageLogRepoSuite) TestCreate() {

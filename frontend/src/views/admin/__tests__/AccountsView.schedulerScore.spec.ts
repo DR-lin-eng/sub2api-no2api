@@ -70,6 +70,9 @@ const DataTableStub = {
       <div v-for="row in data" :key="row.id" :data-test="'scheduler-score-' + row.id">
         <slot name="cell-scheduler_score" :row="row" />
       </div>
+      <div v-for="row in data" :key="'hourly-' + row.id" :data-test="'hourly-usage-' + row.id">
+        <slot name="cell-hourly_usage" :row="row" />
+      </div>
     </div>
   `
 }
@@ -198,7 +201,8 @@ describe('admin AccountsView scheduler score column', () => {
     await flushPromises()
 
     expect(listAccounts.mock.calls[0]?.[2]).toEqual(expect.objectContaining({
-      include_scheduler_score: '0'
+      include_scheduler_score: '0',
+      include_hourly_usage: '0'
     }))
 
     const ungroupedCell = wrapper.find('[data-test="scheduler-score-1"]')
@@ -206,6 +210,71 @@ describe('admin AccountsView scheduler score column', () => {
     expect(ungroupedCell.text()).toContain('1.234567')
     expect(ungroupedCell.text()).toContain('admin.accounts.schedulerScore.ungrouped')
     expect(ungroupedCell.text()).not.toBe('-')
+  })
+
+  it('loads hourly usage only after the hidden column is enabled', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const initialColumns = wrapper.findComponent(DataTableStub).props('columns') as Array<{ key: string }>
+    expect(initialColumns.some(column => column.key === 'hourly_usage')).toBe(false)
+    expect(listAccounts).toHaveBeenCalledTimes(1)
+
+    listAccounts.mockResolvedValue({
+      items: [
+        {
+          ...baseAccount,
+          id: 1,
+          name: 'hourly-openai',
+          hourly_usage: {
+            total_requests: 10,
+            successful_requests: 8,
+            success_rate: 0.8,
+            avg_first_token_ms: 1250,
+            error_4xx: 1,
+            error_5xx: 1
+          }
+        }
+      ],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1
+    })
+
+    await wrapper.find('button[title="admin.accounts.moreActions"]').trigger('click')
+    const hourlyToggle = wrapper.findAll('button').find(button =>
+      button.text().includes('admin.accounts.columns.hourlyUsage')
+    )
+    expect(hourlyToggle).toBeDefined()
+    await hourlyToggle!.trigger('click')
+    await flushPromises()
+
+    expect(listAccounts).toHaveBeenCalledTimes(2)
+    expect(listAccounts.mock.calls[1]?.[2]).toEqual(expect.objectContaining({
+      include_hourly_usage: '1'
+    }))
+    const visibleColumns = wrapper.findComponent(DataTableStub).props('columns') as Array<{ key: string }>
+    expect(visibleColumns.some(column => column.key === 'hourly_usage')).toBe(true)
+    const cell = wrapper.find('[data-test="hourly-usage-1"]')
+    expect(cell.text()).toContain('1.25s')
+    expect(cell.text()).toContain('80.0%')
+    expect(cell.text()).toContain('1')
+  })
+
+  it('migrates existing saved layouts with hourly usage hidden', async () => {
+    localStorage.setItem('account-hidden-columns', JSON.stringify([]))
+    localStorage.setItem('account-hidden-columns-version', 'scheduler-score-hidden-by-default')
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(listAccounts.mock.calls[0]?.[2]).toEqual(expect.objectContaining({
+      include_hourly_usage: '0'
+    }))
+    const columns = wrapper.findComponent(DataTableStub).props('columns') as Array<{ key: string }>
+    expect(columns.some(column => column.key === 'hourly_usage')).toBe(false)
+    expect(JSON.parse(localStorage.getItem('account-hidden-columns') ?? '[]')).toContain('hourly_usage')
   })
 
   it('renders per-group scores for grouped accounts', async () => {

@@ -17,8 +17,12 @@ import (
 
 type accountListWindowStatsRepoStub struct {
 	service.UsageLogRepository
-	batchCalls  int
-	singleCalls int
+	batchCalls       int
+	singleCalls      int
+	hourlyUsageCalls int
+	hourlyUsageIDs   []int64
+	hourlyUsageStart time.Time
+	hourlyUsageEnd   time.Time
 }
 
 func (s *accountListWindowStatsRepoStub) GetAccountWindowStatsByStartBatch(_ context.Context, starts map[int64]time.Time) (map[int64]*usagestats.AccountStats, error) {
@@ -33,6 +37,24 @@ func (s *accountListWindowStatsRepoStub) GetAccountWindowStatsByStartBatch(_ con
 func (s *accountListWindowStatsRepoStub) GetAccountWindowStats(_ context.Context, _ int64, _ time.Time) (*usagestats.AccountStats, error) {
 	s.singleCalls++
 	return &usagestats.AccountStats{}, nil
+}
+
+func (s *accountListWindowStatsRepoStub) GetAccountHourlyUsageStatsBatch(_ context.Context, accountIDs []int64, startTime, endTime time.Time) (map[int64]*usagestats.AccountHourlyUsageStats, error) {
+	s.hourlyUsageCalls++
+	s.hourlyUsageIDs = append([]int64(nil), accountIDs...)
+	s.hourlyUsageStart = startTime
+	s.hourlyUsageEnd = endTime
+	avgTTFT := 321.5
+	return map[int64]*usagestats.AccountHourlyUsageStats{
+		11: {
+			TotalRequests:      4,
+			SuccessfulRequests: 3,
+			SuccessRate:        0.75,
+			AvgFirstTokenMs:    &avgTTFT,
+			Error4xx:           1,
+			Error5xx:           0,
+		},
+	}, nil
 }
 
 func setupAccountListRouter() (*gin.Engine, *stubAdminService) {
@@ -109,6 +131,50 @@ func TestAccountHandlerListBatchesIndependentWindowCosts(t *testing.T) {
 	require.Len(t, payload.Data.Items, 2)
 	require.Equal(t, 1.1, payload.Data.Items[0].CurrentWindowCost)
 	require.Equal(t, 2.2, payload.Data.Items[1].CurrentWindowCost)
+}
+
+func TestAccountHandlerListQueriesHourlyUsageOnlyWhenRequested(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	adminSvc := newStubAdminService()
+	now := time.Now().UTC()
+	adminSvc.accounts = []service.Account{{
+		ID: 11, Name: "openai-hourly", Platform: service.PlatformOpenAI,
+		Type: service.AccountTypeAPIKey, Status: service.StatusActive,
+		CreatedAt: now, UpdatedAt: now,
+	}}
+	repo := &accountListWindowStatsRepoStub{}
+	usageService := service.NewAccountUsageService(nil, repo, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	handler := NewAccountHandler(adminSvc, nil, nil, nil, nil, nil, nil, usageService, nil, nil, nil, nil, nil, nil)
+	router := gin.New()
+	router.GET("/api/v1/admin/accounts", handler.List)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/accounts?page=1&page_size=20", nil)
+	router.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Zero(t, repo.hourlyUsageCalls)
+	require.NotContains(t, rec.Body.String(), "hourly_usage")
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/admin/accounts?page=1&page_size=20&include_hourly_usage=1", nil)
+	router.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, 1, repo.hourlyUsageCalls)
+	require.Equal(t, []int64{11}, repo.hourlyUsageIDs)
+	require.Equal(t, time.Hour, repo.hourlyUsageEnd.Sub(repo.hourlyUsageStart))
+
+	var payload struct {
+		Data struct {
+			Items []struct {
+				HourlyUsage *usagestats.AccountHourlyUsageStats `json:"hourly_usage"`
+			} `json:"items"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &payload))
+	require.Len(t, payload.Data.Items, 1)
+	require.NotNil(t, payload.Data.Items[0].HourlyUsage)
+	require.Equal(t, int64(4), payload.Data.Items[0].HourlyUsage.TotalRequests)
+	require.Equal(t, 0.75, payload.Data.Items[0].HourlyUsage.SuccessRate)
 }
 
 func TestAccountHandlerListReturnsSchedulerScoresPerGroup(t *testing.T) {

@@ -88,6 +88,10 @@ type accountWindowStatsByStartBatchReader interface {
 	GetAccountWindowStatsByStartBatch(ctx context.Context, starts map[int64]time.Time) (map[int64]*usagestats.AccountStats, error)
 }
 
+type accountHourlyUsageStatsBatchReader interface {
+	GetAccountHourlyUsageStatsBatch(ctx context.Context, accountIDs []int64, startTime, endTime time.Time) (map[int64]*usagestats.AccountHourlyUsageStats, error)
+}
+
 // apiUsageCache 缓存从 Anthropic API 获取的使用率数据（utilization, resets_at）
 // 同时支持缓存错误响应（负缓存），防止 429 等错误导致的重试风暴
 type apiUsageCache struct {
@@ -1875,4 +1879,18 @@ func (s *AccountUsageService) GetAccountWindowStatsByStartBatch(ctx context.Cont
 		}
 	}
 	return result, nil
+}
+
+// GetAccountHourlyUsageStatsBatch keeps the account-list path batch-only. A
+// repository without this optional capability must not degrade into N+1 reads.
+func (s *AccountUsageService) GetAccountHourlyUsageStatsBatch(ctx context.Context, accountIDs []int64, startTime, endTime time.Time) (map[int64]*usagestats.AccountHourlyUsageStats, error) {
+	result := make(map[int64]*usagestats.AccountHourlyUsageStats, len(accountIDs))
+	if len(accountIDs) == 0 || s == nil || s.usageLogRepo == nil {
+		return result, nil
+	}
+	batchReader, ok := s.usageLogRepo.(accountHourlyUsageStatsBatchReader)
+	if !ok {
+		return nil, fmt.Errorf("account hourly usage batch query is not supported")
+	}
+	return batchReader.GetAccountHourlyUsageStatsBatch(ctx, accountIDs, startTime, endTime)
 }

@@ -26,6 +26,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
@@ -181,9 +182,10 @@ type CheckMixedChannelRequest struct {
 // AccountWithConcurrency extends Account with real-time concurrency info
 type AccountWithConcurrency struct {
 	*dto.Account
-	CurrentConcurrency int                          `json:"current_concurrency"`
-	SchedulerScore     *AccountSchedulerScore       `json:"scheduler_score,omitempty"`
-	SchedulerScores    []AccountSchedulerGroupScore `json:"scheduler_scores,omitempty"`
+	CurrentConcurrency int                                 `json:"current_concurrency"`
+	SchedulerScore     *AccountSchedulerScore              `json:"scheduler_score,omitempty"`
+	SchedulerScores    []AccountSchedulerGroupScore        `json:"scheduler_scores,omitempty"`
+	HourlyUsage        *usagestats.AccountHourlyUsageStats `json:"hourly_usage,omitempty"`
 	// 以下字段仅对 Anthropic OAuth/SetupToken 账号有效，且仅在启用相应功能时返回
 	CurrentWindowCost *float64 `json:"current_window_cost,omitempty"` // 当前窗口费用
 	ActiveSessions    *int     `json:"active_sessions,omitempty"`     // 当前活跃会话数
@@ -204,7 +206,10 @@ type AccountSchedulerGroupScore struct {
 	AccountSchedulerScore
 }
 
-const accountListGroupUngroupedQueryValue = "ungrouped"
+const (
+	accountListGroupUngroupedQueryValue = "ungrouped"
+	accountHourlyUsageQueryTimeout      = 1500 * time.Millisecond
+)
 
 func (h *AccountHandler) buildAccountResponseWithRuntime(ctx context.Context, account *service.Account) AccountWithConcurrency {
 	item := AccountWithConcurrency{
@@ -497,6 +502,8 @@ func (h *AccountHandler) List(c *gin.Context) {
 	lite := parseBoolQueryWithDefault(c.Query("lite"), false)
 	// 调度分需要跨候选池批量打分并读取负载，默认列表不计算；只有前端列可见时才显式开启。
 	includeSchedulerScore := parseBoolQueryWithDefault(c.Query("include_scheduler_score"), false)
+	// 最近一小时使用情况涉及 usage_logs + ops_error_logs 聚合，也只在对应列可见时查询。
+	includeHourlyUsage := parseBoolQueryWithDefault(c.Query("include_hourly_usage"), false)
 
 	var groupID int64
 	if groupIDStr := c.Query("group"); groupIDStr != "" {
@@ -526,6 +533,24 @@ func (h *AccountHandler) List(c *gin.Context) {
 	accountIDs := make([]int64, len(accounts))
 	for i, acc := range accounts {
 		accountIDs[i] = acc.ID
+	}
+
+	// 与 Redis 运行时数据和调度分并行加载，避免可选统计串行增加列表等待时间。
+	var hourlyUsage map[int64]*usagestats.AccountHourlyUsageStats
+	var hourlyUsageDone chan struct{}
+	if includeHourlyUsage && len(accountIDs) > 0 && h.accountUsageService != nil {
+		hourlyUsageDone = make(chan struct{})
+		now := time.Now().UTC()
+		requestCtx := c.Request.Context()
+		go func() {
+			defer close(hourlyUsageDone)
+			queryCtx, cancel := context.WithTimeout(requestCtx, accountHourlyUsageQueryTimeout)
+			defer cancel()
+			stats, statsErr := h.accountUsageService.GetAccountHourlyUsageStatsBatch(queryCtx, accountIDs, now.Add(-time.Hour), now)
+			if statsErr == nil {
+				hourlyUsage = stats
+			}
+		}()
 	}
 
 	concurrencyCounts := make(map[int64]int)
@@ -601,6 +626,9 @@ func (h *AccountHandler) List(c *gin.Context) {
 			}
 		}
 	}
+	if hourlyUsageDone != nil {
+		<-hourlyUsageDone
+	}
 
 	// Build response with concurrency info
 	result := make([]AccountWithConcurrency, len(accounts))
@@ -611,6 +639,7 @@ func (h *AccountHandler) List(c *gin.Context) {
 			CurrentConcurrency: concurrencyCounts[acc.ID],
 			SchedulerScore:     schedulerScores[acc.ID],
 			SchedulerScores:    schedulerGroupScores[acc.ID],
+			HourlyUsage:        hourlyUsage[acc.ID],
 		}
 
 		// 添加窗口费用（仅当启用时）

@@ -907,6 +907,15 @@ export interface UpstreamBillingProbeResult {
   error?: string
 }
 
+export interface AccountHourlyUsageStats {
+  total_requests: number
+  successful_requests: number
+  success_rate: number
+  avg_first_token_ms: number | null
+  error_4xx: number
+  error_5xx: number
+}
+
 export interface Account {
   id: number
   name: string
@@ -1017,6 +1026,7 @@ export interface Account {
   current_window_cost?: number | null // 当前窗口费用
   active_sessions?: number | null // 当前活跃会话数
   current_rpm?: number | null // 当前分钟 RPM 计数
+  hourly_usage?: AccountHourlyUsageStats | null // 最近一小时滚动使用情况（按需返回）
 
   // 影子账号关系（spark 维度影子）
   parent_account_id?: number | null

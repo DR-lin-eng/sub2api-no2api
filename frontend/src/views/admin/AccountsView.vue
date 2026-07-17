@@ -331,6 +331,15 @@
               :error="todayStatsError"
             />
           </template>
+          <template #header-hourly_usage="{ column }">
+            <div class="flex items-center">
+              <span>{{ column.label }}</span>
+              <HelpTooltip :content="t('admin.accounts.hourlyUsageHint')" width-class="w-80" />
+            </div>
+          </template>
+          <template #cell-hourly_usage="{ row }">
+            <AccountHourlyUsageCell :stats="row.hourly_usage" />
+          </template>
           <template #cell-groups="{ row }">
             <AccountGroupsCell :groups="row.groups" :max-display="4" />
           </template>
@@ -529,6 +538,7 @@ import type { SelectOption } from '@/components/common/Select.vue'
 import AccountStatusIndicator from '@/components/account/AccountStatusIndicator.vue'
 import AccountUsageCell from '@/components/account/AccountUsageCell.vue'
 import AccountTodayStatsCell from '@/components/account/AccountTodayStatsCell.vue'
+import AccountHourlyUsageCell from '@/components/account/AccountHourlyUsageCell.vue'
 import AccountGroupsCell from '@/components/account/AccountGroupsCell.vue'
 import AccountCapacityCell from '@/components/account/AccountCapacityCell.vue'
 import UpstreamBillingRateCell from '@/components/account/UpstreamBillingRateCell.vue'
@@ -633,11 +643,14 @@ useIntervalFn(() => { upstreamBillingNow.value = Date.now() }, 60_000)
 const showAccountToolsDropdown = ref(false)
 const accountToolsDropdownRef = ref<HTMLElement | null>(null)
 const hiddenColumns = reactive<Set<string>>(new Set())
-const DEFAULT_HIDDEN_COLUMNS = ['today_stats', 'proxy', 'notes', 'priority', 'scheduler_score', 'rate_multiplier']
+const DEFAULT_HIDDEN_COLUMNS = ['today_stats', 'hourly_usage', 'proxy', 'notes', 'priority', 'scheduler_score', 'rate_multiplier']
 const HIDDEN_COLUMNS_KEY = 'account-hidden-columns'
 // One-time migration: hide scheduler score for existing admins too, because showing it opt-ins to heavy backend scoring.
 const HIDDEN_COLUMNS_VERSION_KEY = 'account-hidden-columns-version'
 const HIDDEN_COLUMNS_CURRENT_VERSION = 'scheduler-score-hidden-by-default'
+// Existing saved layouts predate the optional hourly query, so migrate it independently without resetting other choices.
+const HOURLY_USAGE_COLUMN_VERSION_KEY = 'account-hourly-usage-column-version'
+const HOURLY_USAGE_COLUMN_CURRENT_VERSION = 'hidden-by-default-v1'
 
 // Sorting settings
 const ACCOUNT_SORT_STORAGE_KEY = 'account-table-sort'
@@ -799,11 +812,17 @@ const loadSavedColumns = () => {
         localStorage.setItem(HIDDEN_COLUMNS_KEY, JSON.stringify([...hiddenColumns]))
         localStorage.setItem(HIDDEN_COLUMNS_VERSION_KEY, HIDDEN_COLUMNS_CURRENT_VERSION)
       }
+      if (localStorage.getItem(HOURLY_USAGE_COLUMN_VERSION_KEY) !== HOURLY_USAGE_COLUMN_CURRENT_VERSION) {
+        hiddenColumns.add('hourly_usage')
+        localStorage.setItem(HIDDEN_COLUMNS_KEY, JSON.stringify([...hiddenColumns]))
+        localStorage.setItem(HOURLY_USAGE_COLUMN_VERSION_KEY, HOURLY_USAGE_COLUMN_CURRENT_VERSION)
+      }
     } else {
       DEFAULT_HIDDEN_COLUMNS.forEach(key => {
         hiddenColumns.add(key)
       })
       localStorage.setItem(HIDDEN_COLUMNS_VERSION_KEY, HIDDEN_COLUMNS_CURRENT_VERSION)
+      localStorage.setItem(HOURLY_USAGE_COLUMN_VERSION_KEY, HOURLY_USAGE_COLUMN_CURRENT_VERSION)
     }
   } catch (e) {
     console.error('Failed to load saved columns:', e)
@@ -817,6 +836,7 @@ const saveColumnsToStorage = () => {
   try {
     localStorage.setItem(HIDDEN_COLUMNS_KEY, JSON.stringify([...hiddenColumns]))
     localStorage.setItem(HIDDEN_COLUMNS_VERSION_KEY, HIDDEN_COLUMNS_CURRENT_VERSION)
+    localStorage.setItem(HOURLY_USAGE_COLUMN_VERSION_KEY, HOURLY_USAGE_COLUMN_CURRENT_VERSION)
   } catch (e) {
     console.error('Failed to save columns:', e)
   }
@@ -889,21 +909,23 @@ const toggleColumn = (key: string) => {
       console.error('Failed to load account today stats after showing column:', error)
     })
   }
-  if (key === 'scheduler_score') {
-    // The server only returns scheduler scores when this column is visible, so reload the current page immediately.
+  if (key === 'scheduler_score' || key === 'hourly_usage') {
+    // Server-backed optional columns reload immediately so visibility and query work remain aligned.
     syncAccountListDerivedParams()
     load().catch((error) => {
-      console.error('Failed to reload accounts after toggling scheduler score column:', error)
+      console.error('Failed to reload accounts after toggling a server-backed column:', error)
     })
   }
 }
 
 const isColumnVisible = (key: string) => !hiddenColumns.has(key)
 const shouldIncludeSchedulerScore = () => isColumnVisible('scheduler_score')
+const shouldIncludeHourlyUsage = () => isColumnVisible('hourly_usage')
 const syncAccountListDerivedParams = () => {
   // Keep every load path, including auto-refresh and sorting, aligned with the current column visibility.
   const requestParams = params as any
   requestParams.include_scheduler_score = shouldIncludeSchedulerScore() ? '1' : '0'
+  requestParams.include_hourly_usage = shouldIncludeHourlyUsage() ? '1' : '0'
 }
 
 const {
@@ -1075,6 +1097,11 @@ const shouldReplaceAutoRefreshRow = (current: Account, next: Account) => {
     current.current_concurrency !== next.current_concurrency ||
     current.current_window_cost !== next.current_window_cost ||
     current.active_sessions !== next.active_sessions ||
+    current.hourly_usage?.total_requests !== next.hourly_usage?.total_requests ||
+    current.hourly_usage?.avg_first_token_ms !== next.hourly_usage?.avg_first_token_ms ||
+    current.hourly_usage?.success_rate !== next.hourly_usage?.success_rate ||
+    current.hourly_usage?.error_4xx !== next.hourly_usage?.error_4xx ||
+    current.hourly_usage?.error_5xx !== next.hourly_usage?.error_5xx ||
     current.schedulable !== next.schedulable ||
     current.status !== next.status ||
     current.rate_limit_reset_at !== next.rate_limit_reset_at ||
@@ -1139,6 +1166,7 @@ const refreshAccountsIncrementally = async () => {
         search?: string
         sort_by?: string
         sort_order?: AccountSortOrder
+        include_hourly_usage?: string
 
       },
       { etag: autoRefreshETag.value }
@@ -1386,7 +1414,8 @@ const allColumns = computed(() => {
     { key: 'capacity', label: t('admin.accounts.columns.capacity'), sortable: false },
     { key: 'status', label: t('admin.accounts.columns.status'), sortable: true },
     { key: 'schedulable', label: t('admin.accounts.columns.schedulable'), sortable: true },
-    { key: 'today_stats', label: t('admin.accounts.columns.todayStats'), sortable: false }
+    { key: 'today_stats', label: t('admin.accounts.columns.todayStats'), sortable: false },
+    { key: 'hourly_usage', label: t('admin.accounts.columns.hourlyUsage'), sortable: false }
   ]
   if (!authStore.isSimpleMode) {
     c.push({ key: 'groups', label: t('admin.accounts.columns.groups'), sortable: false })

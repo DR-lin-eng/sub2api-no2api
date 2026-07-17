@@ -387,6 +387,106 @@ func (r *usageLogRepository) GetAccountWindowStatsBatch(ctx context.Context, acc
 	return result, nil
 }
 
+// GetAccountHourlyUsageStatsBatch aggregates recent success, TTFT, and HTTP
+// error metrics for a page of accounts in one database round trip.
+func (r *usageLogRepository) GetAccountHourlyUsageStatsBatch(ctx context.Context, accountIDs []int64, startTime, endTime time.Time) (map[int64]*usagestats.AccountHourlyUsageStats, error) {
+	result := make(map[int64]*usagestats.AccountHourlyUsageStats, len(accountIDs))
+	if len(accountIDs) == 0 {
+		return result, nil
+	}
+
+	query := `
+		WITH requested AS (
+			SELECT DISTINCT account_id
+			FROM unnest($1::bigint[]) AS requested_accounts(account_id)
+		), successful AS (
+			SELECT
+				ul.account_id,
+				COUNT(*) AS successful_requests,
+				AVG(ul.first_token_ms) FILTER (
+					WHERE ul.first_token_ms IS NOT NULL
+						AND COALESCE(ul.image_count, 0) = 0
+						AND COALESCE(ul.video_count, 0) = 0
+				) AS avg_first_token_ms
+			FROM usage_logs ul
+			WHERE ul.account_id = ANY($1)
+				AND ul.created_at >= $2
+				AND ul.created_at < $3
+			GROUP BY ul.account_id
+		), errors AS (
+			SELECT
+				oe.account_id,
+				COUNT(*) FILTER (WHERE COALESCE(oe.status_code, 0) >= 400) AS error_total,
+				COUNT(*) FILTER (WHERE oe.status_code >= 400 AND oe.status_code < 500) AS error_4xx,
+				COUNT(*) FILTER (WHERE oe.status_code >= 500 AND oe.status_code < 600) AS error_5xx
+			FROM ops_error_logs oe
+			WHERE oe.account_id = ANY($1)
+				AND oe.created_at >= $2
+				AND oe.created_at < $3
+				AND oe.is_count_tokens = FALSE
+			GROUP BY oe.account_id
+		)
+		SELECT
+			requested.account_id,
+			COALESCE(successful.successful_requests, 0) AS successful_requests,
+			successful.avg_first_token_ms,
+			COALESCE(errors.error_total, 0) AS error_total,
+			COALESCE(errors.error_4xx, 0) AS error_4xx,
+			COALESCE(errors.error_5xx, 0) AS error_5xx
+		FROM requested
+		LEFT JOIN successful ON successful.account_id = requested.account_id
+		LEFT JOIN errors ON errors.account_id = requested.account_id
+		ORDER BY requested.account_id
+	`
+	rows, err := r.sql.QueryContext(ctx, query, pq.Array(accountIDs), startTime, endTime)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var (
+			accountID       int64
+			successfulCount int64
+			avgFirstToken   sql.NullFloat64
+			errorTotal      int64
+			stats           usagestats.AccountHourlyUsageStats
+		)
+		if err := rows.Scan(
+			&accountID,
+			&successfulCount,
+			&avgFirstToken,
+			&errorTotal,
+			&stats.Error4xx,
+			&stats.Error5xx,
+		); err != nil {
+			return nil, err
+		}
+		stats.SuccessfulRequests = successfulCount
+		stats.TotalRequests = successfulCount + errorTotal
+		if stats.TotalRequests > 0 {
+			stats.SuccessRate = float64(successfulCount) / float64(stats.TotalRequests)
+		}
+		if avgFirstToken.Valid {
+			stats.AvgFirstTokenMs = &avgFirstToken.Float64
+		}
+		result[accountID] = &stats
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	for _, accountID := range accountIDs {
+		if accountID <= 0 {
+			continue
+		}
+		if _, ok := result[accountID]; !ok {
+			result[accountID] = &usagestats.AccountHourlyUsageStats{}
+		}
+	}
+	return result, nil
+}
+
 // GetAccountWindowStatsByStartBatch aggregates accounts with independent
 // window starts in one query. This is used by admin account lists where each
 // account can have a different five-hour window.

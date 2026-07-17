@@ -62,3 +62,40 @@ func TestGetAccountWindowStatsByStartBatchFallsBackOnBatchError(t *testing.T) {
 	require.Equal(t, int64(1), repo.batchCalls.Load())
 	require.Equal(t, int64(2), repo.singleCalls.Load())
 }
+
+type accountHourlyUsageBatchRepoStub struct {
+	UsageLogRepository
+	batchCalls atomic.Int64
+}
+
+func (s *accountHourlyUsageBatchRepoStub) GetAccountHourlyUsageStatsBatch(_ context.Context, accountIDs []int64, _, _ time.Time) (map[int64]*usagestats.AccountHourlyUsageStats, error) {
+	s.batchCalls.Add(1)
+	return map[int64]*usagestats.AccountHourlyUsageStats{
+		accountIDs[0]: {TotalRequests: 5, SuccessfulRequests: 4, SuccessRate: 0.8},
+	}, nil
+}
+
+func TestGetAccountHourlyUsageStatsBatchStaysBatchOnly(t *testing.T) {
+	repo := &accountHourlyUsageBatchRepoStub{}
+	service := &AccountUsageService{usageLogRepo: repo}
+	endTime := time.Now().UTC()
+
+	stats, err := service.GetAccountHourlyUsageStatsBatch(
+		context.Background(), []int64{7, 8}, endTime.Add(-time.Hour), endTime,
+	)
+
+	require.NoError(t, err)
+	require.Equal(t, int64(1), repo.batchCalls.Load())
+	require.Equal(t, int64(5), stats[7].TotalRequests)
+}
+
+func TestGetAccountHourlyUsageStatsBatchRejectsNPlusOneFallback(t *testing.T) {
+	service := &AccountUsageService{usageLogRepo: &accountUsageByStartBatchRepoStub{}}
+	endTime := time.Now().UTC()
+
+	_, err := service.GetAccountHourlyUsageStatsBatch(
+		context.Background(), []int64{7, 8}, endTime.Add(-time.Hour), endTime,
+	)
+
+	require.ErrorContains(t, err, "batch query is not supported")
+}

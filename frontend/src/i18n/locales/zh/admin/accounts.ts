@@ -114,6 +114,7 @@ export default {
         status: '状态',
         schedulable: '调度',
         todayStats: '今日统计',
+        hourlyUsage: '近一小时使用',
         groups: '分组',
         usageWindows: '用量窗口',
         proxy: '代理',
@@ -127,6 +128,13 @@ export default {
         stickyShort: '粘性',
         ungrouped: '未分组',
         hint: '显示格式为“分组名 / 基础分 / 粘性加分”。基础分按当前筛选条件限定的候选账号计算，包含优先级、负载、排队、错误率、首包延迟、重置窗口、额度余量、计费倍率等因子；粘性加分只在开启粘性加权时用于 previous_response_id 或 session_hash。分数越大越优先。'
+      },
+      hourlyUsageHint: '最近 1 小时滚动统计。TTFT 为排除图片和视频请求后的平均首字时间；成功率按成功请求数除以成功请求与已记录错误请求总数计算。',
+      hourlyUsage: {
+        ttft: 'TTFT',
+        successRate: '成功',
+        error4xx: '4xx',
+        error5xx: '5xx'
       },
       usageWindowsHint: '“5h / 7d”是上游账号（如 OpenAI ChatGPT、Claude）官方的滚动用量窗口限制，由上游对账号设定，并非 sub2api 配置，也与你映射的模型无关。窗口滚动到期后用量会自动重置，无法在 sub2api 端解除该限制。',
       upstreamBilling: {

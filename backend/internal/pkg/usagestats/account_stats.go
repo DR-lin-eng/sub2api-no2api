@@ -12,3 +12,14 @@ type AccountStats struct {
 	StandardCost float64 `json:"standard_cost"`
 	UserCost     float64 `json:"user_cost"`
 }
+
+// AccountHourlyUsageStats summarizes one account over a recent rolling window.
+// SuccessRate is a ratio in [0, 1], matching the Ops dashboard SLA convention.
+type AccountHourlyUsageStats struct {
+	TotalRequests      int64    `json:"total_requests"`
+	SuccessfulRequests int64    `json:"successful_requests"`
+	SuccessRate        float64  `json:"success_rate"`
+	AvgFirstTokenMs    *float64 `json:"avg_first_token_ms"`
+	Error4xx           int64    `json:"error_4xx"`
+	Error5xx           int64    `json:"error_5xx"`
+}
