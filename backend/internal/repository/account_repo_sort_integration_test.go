@@ -77,3 +77,37 @@ func (s *AccountRepoSuite) TestListWithFilters_SortByLastUsedAtAsc_NullsFirst() 
 	s.Require().Equal("used-older", accounts[1].Name)
 	s.Require().Equal("used-newer", accounts[2].Name)
 }
+
+func (s *AccountRepoSuite) TestListWithFilters_SortByUpstreamBillingRateWithMissingLast() {
+	makeAccount := func(name, status string, rate any) {
+		extra := map[string]any{}
+		if rate != nil {
+			extra[service.UpstreamBillingProbeExtraKey] = map[string]any{
+				"status": status,
+				"data":   map[string]any{"effective_rate_multiplier": rate},
+			}
+		}
+		mustCreateAccount(s.T(), s.client, &service.Account{Name: name, Extra: extra})
+	}
+	makeAccount("high-rate", service.UpstreamBillingProbeStatusOK, 0.8)
+	makeAccount("low-rate", service.UpstreamBillingProbeStatusOK, 0.03)
+	makeAccount("missing-rate", "", nil)
+	makeAccount("unsupported-with-retained-rate", service.UpstreamBillingProbeStatusUnsupported, 0.01)
+
+	for _, tc := range []struct {
+		order string
+		want  []string
+	}{
+		{order: "asc", want: []string{"low-rate", "high-rate", "missing-rate", "unsupported-with-retained-rate"}},
+		{order: "desc", want: []string{"high-rate", "low-rate", "unsupported-with-retained-rate", "missing-rate"}},
+	} {
+		accounts, _, err := s.repo.ListWithFilters(s.ctx, pagination.PaginationParams{
+			Page: 1, PageSize: 10, SortBy: "upstream_billing_rate", SortOrder: tc.order,
+		}, "", "", "", "", 0, "")
+		s.Require().NoError(err)
+		s.Require().Len(accounts, 4)
+		for i, name := range tc.want {
+			s.Require().Equal(name, accounts[i].Name)
+		}
+	}
+}

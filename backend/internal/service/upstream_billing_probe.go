@@ -38,7 +38,7 @@ const (
 	upstreamBillingProbeMaxBodyBytes           = 64 * 1024
 	upstreamBillingProbeMaxPerCycle            = 20
 	upstreamBillingProbeConcurrency            = 4
-	upstreamBillingProbeMaxBackoff             = 24 * time.Hour
+	upstreamBillingProbeMaxDelay               = 24 * time.Hour
 	upstreamBillingProbeLeaderLockKey          = "upstream:billing:probe:leader"
 	upstreamBillingProbeLeaderLockTTL          = 2 * time.Minute
 )
@@ -621,7 +621,7 @@ func (s *UpstreamBillingProbeService) probeLoadedAccount(ctx context.Context, ac
 		ReceivedAt:    probeTimePtr(now),
 		FreshUntil:    probeTimePtr(now.Add(2 * time.Duration(intervalMinutes) * time.Minute)),
 		LastAttemptAt: now,
-		NextProbeAt:   now.Add(nextProbeDelay(intervalMinutes, 0, 0)),
+		NextProbeAt:   now.Add(nextProbeDelay(intervalMinutes, 0)),
 		HTTPStatus:    resp.StatusCode,
 	}
 	if err := s.updateSnapshot(ctx, account, snapshot); err != nil {
@@ -651,7 +651,7 @@ func (s *UpstreamBillingProbeService) persistProbeFailure(
 	snapshot := &UpstreamBillingProbeSnapshot{
 		Status:        status,
 		LastAttemptAt: now,
-		NextProbeAt:   now.Add(nextProbeDelay(intervalMinutes, failureCount, retryAfterDuration)),
+		NextProbeAt:   now.Add(nextProbeDelay(intervalMinutes, retryAfterDuration)),
 		FailureCount:  failureCount,
 		HTTPStatus:    statusCode,
 		LastError:     reason,
@@ -867,20 +867,13 @@ func (s *UpstreamBillingProbeService) currentTime() time.Time {
 	return time.Now()
 }
 
-func nextProbeDelay(intervalMinutes, failureCount int, retryAfterDuration time.Duration) time.Duration {
+func nextProbeDelay(intervalMinutes int, retryAfterDuration time.Duration) time.Duration {
 	interval := time.Duration(intervalMinutes) * time.Minute
 	if interval < upstreamBillingProbeMinIntervalMinutes*time.Minute {
 		interval = upstreamBillingProbeMinIntervalMinutes * time.Minute
 	}
-	if failureCount > 0 {
-		shift := failureCount
-		if shift > 5 {
-			shift = 5
-		}
-		interval *= time.Duration(1 << shift)
-	}
-	if interval > upstreamBillingProbeMaxBackoff {
-		interval = upstreamBillingProbeMaxBackoff
+	if interval > upstreamBillingProbeMaxDelay {
+		interval = upstreamBillingProbeMaxDelay
 	}
 	jitterRange := interval / 5
 	if jitterRange > 5*time.Minute {
@@ -891,11 +884,11 @@ func nextProbeDelay(intervalMinutes, failureCount int, retryAfterDuration time.D
 	}
 	if retryAfterDuration > interval {
 		// Retry-After is an explicit upstream instruction; do not shorten it
-		// with the local exponential-backoff ceiling.
+		// with the local maximum delay.
 		return retryAfterDuration
 	}
-	if interval > upstreamBillingProbeMaxBackoff {
-		return upstreamBillingProbeMaxBackoff
+	if interval > upstreamBillingProbeMaxDelay {
+		return upstreamBillingProbeMaxDelay
 	}
 	return interval
 }

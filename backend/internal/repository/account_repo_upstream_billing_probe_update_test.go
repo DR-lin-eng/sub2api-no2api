@@ -163,6 +163,22 @@ func TestBulkUpdateNilProbeRemovesKeyInsteadOfWritingJSONNull(t *testing.T) {
 	require.Contains(t, normalizeSQLWhitespace(exec.execQueries[0]), "- 'upstream_billing_probe'")
 }
 
+func TestBulkUpdateDisablingProbeRemovesSnapshot(t *testing.T) {
+	exec := &recordingSQLExecutor{result: rowsAffectedResult(1)}
+	repo := newAccountRepositoryWithSQL(nil, exec, nil)
+
+	_, err := repo.BulkUpdate(context.Background(), []int64{27}, service.AccountBulkUpdate{
+		Extra: map[string]any{service.UpstreamBillingProbeEnabledExtraKey: false},
+	})
+
+	require.NoError(t, err)
+	require.NotEmpty(t, exec.execQueries)
+	require.Contains(t, normalizeSQLWhitespace(exec.execQueries[0]), "- 'upstream_billing_probe'")
+	payload, ok := exec.execArgs[0][0].([]byte)
+	require.True(t, ok)
+	require.Equal(t, `{"upstream_billing_probe_enabled":false}`, string(payload))
+}
+
 func TestUpdateCredentialsAtomicallyClearsProbeForOpenAIAPIKeyIdentityChange(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
