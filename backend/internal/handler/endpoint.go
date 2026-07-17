@@ -16,6 +16,7 @@ import (
 
 const (
 	EndpointMessages          = "/v1/messages"
+	EndpointModels            = "/v1/models"
 	EndpointChatCompletions   = "/v1/chat/completions"
 	EndpointEmbeddings        = "/v1/embeddings"
 	EndpointAlphaSearch       = "/v1/alpha/search"
@@ -44,6 +45,7 @@ const (
 // prefixes like /antigravity, /openai) to its canonical form.
 //
 //	"/antigravity/v1/messages"   → "/v1/messages"
+//	"/models"                    → "/v1/models"
 //	"/v1/chat/completions"       → "/v1/chat/completions"
 //	"/openai/v1/responses/foo"   → "/v1/responses"
 //	"/v1beta/models/gemini:gen"  → "/v1beta/models"
@@ -79,6 +81,8 @@ func NormalizeInboundEndpoint(path string) string {
 	switch {
 	case strings.Contains(path, EndpointEmbeddings):
 		return EndpointEmbeddings
+	case strings.Contains(path, EndpointModels) || isModelsAliasPath(path):
+		return EndpointModels
 	case strings.Contains(path, EndpointAlphaSearch) || isBareOrSubpathOf(strings.TrimRight(path, "/"), "/alpha/search") || isBareOrSubpathOf(strings.TrimRight(path, "/"), "/backend-api/codex/alpha/search"):
 		return EndpointAlphaSearch
 	case strings.Contains(path, EndpointChatCompletions):
@@ -108,6 +112,11 @@ func NormalizeInboundEndpoint(path string) string {
 	default:
 		return path
 	}
+}
+
+func isModelsAliasPath(path string) bool {
+	trimmed := strings.TrimRight(strings.TrimSpace(path), "/")
+	return trimmed == "/models" || trimmed == "/backend-api/codex/models"
 }
 
 // isResponsesCompactAliasPath reports whether path is the bare/alias
@@ -169,9 +178,9 @@ func isBareOrSubpathOf(path, root string) bool {
 // Platform-specific rules:
 //   - OpenAI and Grok text compatibility routes forward to /v1/responses
 //     (with optional subpath such as /v1/responses/compact preserved from
-//     the raw URL); native endpoints such as embeddings and alpha search
-//     retain their paths. Grok raw Chat requests override this through the
-//     forwarding result consumed by resolveOpenAIUpstreamEndpoint.
+//     the raw URL); native endpoints such as models, embeddings, and alpha
+//     search retain their paths. Grok raw Chat requests override this through
+//     the forwarding result consumed by resolveOpenAIUpstreamEndpoint.
 //   - Anthropic  → /v1/messages
 //   - Gemini     → /v1beta/models
 //   - Antigravity → /v1/messages (Claude) or gemini (Gemini)
@@ -182,10 +191,10 @@ func DeriveUpstreamEndpoint(inbound, rawRequestPath, platform string) string {
 
 	switch platform {
 	case service.PlatformOpenAI, service.PlatformGrok:
-		if inbound == EndpointEmbeddings || inbound == EndpointAlphaSearch || inbound == EndpointImagesGenerations || inbound == EndpointImagesEdits || inbound == EndpointVideosGenerations || inbound == EndpointVideosEdits || inbound == EndpointVideosExtensions || inbound == EndpointVideos {
+		if inbound == EndpointModels || inbound == EndpointEmbeddings || inbound == EndpointAlphaSearch || inbound == EndpointImagesGenerations || inbound == EndpointImagesEdits || inbound == EndpointVideosGenerations || inbound == EndpointVideosEdits || inbound == EndpointVideosExtensions || inbound == EndpointVideos {
 			return inbound
 		}
-		// OpenAI forwards everything to the Responses API.
+		// Remaining OpenAI text compatibility routes forward to the Responses API.
 		// Preserve subresource suffix (e.g. /v1/responses/compact,
 		// /v1/responses/compact/detail) as derived from the raw path.
 		if suffix := responsesSubpathSuffix(rawRequestPath); suffix != "" {

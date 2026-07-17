@@ -4,10 +4,12 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/handler"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
-func TestGatewayRoutesCodexModelsManifestPathIsRegistered(t *testing.T) {
+func TestGatewayRoutesModelsPathsUseDistinctHandlers(t *testing.T) {
 	router := newGatewayRoutesTestRouter()
 
 	registered := make(map[string]string)
@@ -17,8 +19,13 @@ func TestGatewayRoutesCodexModelsManifestPathIsRegistered(t *testing.T) {
 		}
 	}
 
-	require.NotEmpty(t, registered["/backend-api/codex/models"], "GET /backend-api/codex/models should be registered")
-	require.NotEmpty(t, registered["/v1/models"], "GET /v1/models should be registered")
-	require.NotEmpty(t, registered["/models"], "GET /models should be registered")
-	require.Equal(t, registered["/v1/models"], registered["/models"], "root alias should use the same platform-aware handler")
+	probe := gin.New()
+	probe.GET("/local-models", (&handler.GatewayHandler{}).Models)
+	probe.GET("/codex-models", (&handler.OpenAIGatewayHandler{}).CodexModels)
+	expectedLocalHandler := probe.Routes()[0].Handler
+	expectedCodexHandler := probe.Routes()[1].Handler
+
+	require.Equal(t, expectedCodexHandler, registered["/backend-api/codex/models"], "explicit Codex path should use the manifest handler")
+	require.Equal(t, expectedLocalHandler, registered["/v1/models"], "GET /v1/models should use the local model-list handler")
+	require.Equal(t, expectedLocalHandler, registered["/models"], "root alias should use the local /v1/models handler")
 }

@@ -23,6 +23,7 @@ func TestNormalizeInboundEndpoint(t *testing.T) {
 	}{
 		// Direct canonical paths.
 		{"/v1/messages", EndpointMessages},
+		{"/v1/models", EndpointModels},
 		{"/v1/chat/completions", EndpointChatCompletions},
 		{"/v1/embeddings", EndpointEmbeddings},
 		{"/v1/alpha/search", EndpointAlphaSearch},
@@ -41,6 +42,7 @@ func TestNormalizeInboundEndpoint(t *testing.T) {
 		{"/openai/v1/responses", EndpointResponses},
 		{"/openai/v1/images/generations", EndpointImagesGenerations},
 		{"/openai/v1/images/edits", EndpointImagesEdits},
+		{"/openai/v1/models", EndpointModels},
 		{"/antigravity/v1beta/models/gemini:generateContent", EndpointGeminiModels},
 
 		// Prefixed paths — "/responses/compact" is its OWN distinct
@@ -54,12 +56,15 @@ func TestNormalizeInboundEndpoint(t *testing.T) {
 		{"/responses/compact/detail", EndpointResponsesCompact},
 		{"/alpha/search", EndpointAlphaSearch},
 		{"/images/tasks/imgtask_123", EndpointImageTasks},
+		{"/models", EndpointModels},
+		{"/models/", EndpointModels},
 
 		// Bare Codex direct alias route — root vs. compact.
 		{"/backend-api/codex/responses", EndpointResponses},
 		{"/backend-api/codex/responses/compact", EndpointResponsesCompact},
 		{"/backend-api/codex/responses/compact/detail", EndpointResponsesCompact},
 		{"/backend-api/codex/alpha/search", EndpointAlphaSearch},
+		{"/backend-api/codex/models", EndpointModels},
 
 		// Must NOT generalize to arbitrary paths merely ending in
 		// "/responses" (or "/responses/compact") that are unrelated to
@@ -67,6 +72,7 @@ func TestNormalizeInboundEndpoint(t *testing.T) {
 		// supported "/v1/responses..." prefix form.
 		{"/foo/responses", "/foo/responses"},
 		{"/foo/responses/compact", "/foo/responses/compact"},
+		{"/foo/models", "/foo/models"},
 
 		// Unknown path is returned as-is.
 		{"/v1/embeddings", "/v1/embeddings"},
@@ -100,6 +106,7 @@ func TestDeriveUpstreamEndpoint(t *testing.T) {
 
 		// OpenAI — root Responses.
 		{"openai responses root", EndpointResponses, "/v1/responses", service.PlatformOpenAI, EndpointResponses},
+		{"openai models", EndpointModels, "/models", service.PlatformOpenAI, EndpointModels},
 
 		// OpenAI — compact, raw path carries the derivable "/compact"
 		// (or nested) suffix, which must be preserved on the upstream
