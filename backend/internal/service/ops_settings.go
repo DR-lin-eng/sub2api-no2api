@@ -384,6 +384,7 @@ func defaultOpsAdvancedSettingsForConfig(cfg *config.Config) *OpsAdvancedSetting
 		IgnoreCountTokensErrors:         true,  // count_tokens 404 是预期行为，默认忽略
 		IgnoreContextCanceled:           true,  // Default to true - client disconnects are not errors
 		IgnoreNoAvailableAccounts:       false, // Default to false - this is a real routing issue
+		IgnoreInvalidApiKeyErrors:       true,  // Legacy compatibility field; admission rejects are always excluded.
 		IgnoreInsufficientBalanceErrors: false, // 默认不忽略，余额不足可能需要关注
 		DisplayConcurrency:              true,
 		DisplaySwitchRateTrend:          true,
@@ -405,6 +406,10 @@ func normalizeOpsAdvancedSettings(cfg *OpsAdvancedSettings) {
 	if cfg == nil {
 		return
 	}
+	// Admission rejects are a security/traffic concern, not an operational
+	// request-error category. Keep the legacy field true for old clients but do
+	// not allow it to re-enable those rows.
+	cfg.IgnoreInvalidApiKeyErrors = true
 	cfg.OpenAIAccountQuotaAutoPause.DefaultThreshold5h = clampOpsQuotaAutoPauseThreshold(cfg.OpenAIAccountQuotaAutoPause.DefaultThreshold5h)
 	cfg.OpenAIAccountQuotaAutoPause.DefaultThreshold7d = clampOpsQuotaAutoPauseThreshold(cfg.OpenAIAccountQuotaAutoPause.DefaultThreshold7d)
 	cfg.DataRetention.CleanupSchedule = strings.TrimSpace(cfg.DataRetention.CleanupSchedule)
@@ -467,39 +472,24 @@ func validateOpsAdvancedSettings(cfg *OpsAdvancedSettings) error {
 }
 
 func (s *OpsService) GetOpsAdvancedSettings(ctx context.Context) (*OpsAdvancedSettings, error) {
+	_ = ctx
+	cfg := s.OpsAdvancedSettingsSnapshot()
+	return &cfg, nil
+}
+
+// OpsAdvancedSettingsSnapshot returns a value copy for request hot paths. It
+// avoids both repository I/O and pointer escape/allocation.
+func (s *OpsService) OpsAdvancedSettingsSnapshot() OpsAdvancedSettings {
+	if s != nil {
+		if snapshot := s.runtimeSettings.Load(); snapshot != nil {
+			return snapshot.advanced
+		}
+	}
 	var runtimeCfg *config.Config
 	if s != nil {
 		runtimeCfg = s.cfg
 	}
-	defaultCfg := defaultOpsAdvancedSettingsForConfig(runtimeCfg)
-	if s == nil || s.settingRepo == nil {
-		return defaultCfg, nil
-	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	raw, err := s.settingRepo.GetValue(ctx, SettingKeyOpsAdvancedSettings)
-	if err != nil {
-		if errors.Is(err, ErrSettingNotFound) {
-			if b, mErr := json.Marshal(defaultCfg); mErr == nil {
-				_ = s.settingRepo.Set(ctx, SettingKeyOpsAdvancedSettings, string(b))
-			}
-			return defaultCfg, nil
-		}
-		return nil, err
-	}
-
-	cfg := defaultOpsAdvancedSettingsForConfig(runtimeCfg)
-	if err := json.Unmarshal([]byte(raw), cfg); err != nil {
-		return defaultCfg, nil
-	}
-	if cfg.DataRetention.UserRequestLogRetentionDays < 1 || cfg.DataRetention.UserRequestLogRetentionDays > 3650 {
-		cfg.DataRetention.UserRequestLogRetentionDays = defaultCfg.DataRetention.UserRequestLogRetentionDays
-	}
-
-	normalizeOpsAdvancedSettings(cfg)
-	return cfg, nil
+	return *defaultOpsAdvancedSettingsForConfig(runtimeCfg)
 }
 
 func (s *OpsService) UpdateOpsAdvancedSettings(ctx context.Context, cfg *OpsAdvancedSettings) (*OpsAdvancedSettings, error) {
@@ -534,6 +524,7 @@ func (s *OpsService) UpdateOpsAdvancedSettings(ctx context.Context, cfg *OpsAdva
 	if err := s.settingRepo.Set(ctx, SettingKeyOpsAdvancedSettings, string(raw)); err != nil {
 		return nil, err
 	}
+	s.storeAdvancedSettingsSnapshot(cfg)
 	// Push the new quota auto-pause settings straight into the in-memory cache that
 	// the OpenAI scheduling hot path reads, so the next request observes the new value
 	// without waiting for the background refresher's TTL.

@@ -26,11 +26,11 @@ func requestSessionBinding(c *gin.Context) *service.SessionBinding {
 	if binding := service.SessionBindingFromContext(c.Request.Context()); binding != nil {
 		return binding
 	}
-	return &service.SessionBinding{UserAgent: c.Request.UserAgent()}
+	return &service.SessionBinding{UserAgent: normalizePersistentText(c.Request.UserAgent(), maxPersistentUserAgentBytes)}
 }
 
 // SecurityClientIP 返回当前请求用于安全敏感记录（审计日志等）的客户端 IP。
-// 与会话绑定、API Key IP 限制共用同一套「信任反代传递的客户端 IP」开关语义。
+// 与会话绑定、API Key IP 限制共用 Gin trusted_proxies 信任链。
 func SecurityClientIP(c *gin.Context) string {
 	if binding := service.SessionBindingFromContext(c.Request.Context()); binding != nil &&
 		strings.TrimSpace(binding.IP) != "" {
@@ -40,7 +40,9 @@ func SecurityClientIP(c *gin.Context) string {
 }
 
 func newSessionBinding(c *gin.Context, includeIP bool) *service.SessionBinding {
-	binding := &service.SessionBinding{UserAgent: c.Request.UserAgent()}
+	userAgent := normalizePersistentText(c.Request.UserAgent(), maxPersistentUserAgentBytes)
+	c.Request.Header.Set("User-Agent", userAgent)
+	binding := &service.SessionBinding{UserAgent: userAgent}
 	if includeIP {
 		binding.IP = ip.GetTrustedClientIP(c)
 	}
@@ -95,7 +97,7 @@ func enforceSessionBinding(
 			Method:      c.Request.Method,
 			Path:        path,
 			ClientIP:    binding.IP,
-			UserAgent:   c.Request.UserAgent(),
+			UserAgent:   normalizePersistentText(c.Request.UserAgent(), maxPersistentUserAgentBytes),
 			StatusCode:  401,
 		})
 	}

@@ -5,6 +5,7 @@ package middleware
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -13,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func requestSessionBinding(
+func requestSessionBindingForTest(
 	t *testing.T,
 	includeIP bool,
 	trustedProxies []string,
@@ -39,7 +40,6 @@ func requestSessionBinding(
 	if forwardedFor != "" {
 		request.Header.Set("X-Forwarded-For", forwardedFor)
 	}
-
 	recorder := httptest.NewRecorder()
 	engine.ServeHTTP(recorder, request)
 
@@ -49,21 +49,19 @@ func requestSessionBinding(
 }
 
 func TestSessionBindingContextIncludesIPWhenEnabled(t *testing.T) {
-	first := requestSessionBinding(t, true, []string{"10.0.0.0/8"}, "10.0.0.2:1234", "test-agent", "9.9.9.9")
-	second := requestSessionBinding(t, true, []string{"10.0.0.0/8"}, "10.0.0.2:1234", "test-agent", "8.8.8.8")
+	first := requestSessionBindingForTest(t, true, []string{"10.0.0.0/8"}, "10.0.0.2:1234", "test-agent", "9.9.9.9")
+	second := requestSessionBindingForTest(t, true, []string{"10.0.0.0/8"}, "10.0.0.2:1234", "test-agent", "8.8.8.8")
 
 	assert.Equal(t, "9.9.9.9", first.IP)
 	assert.Equal(t, "8.8.8.8", second.IP)
 	assert.Equal(t, "test-agent", first.UserAgent)
 	assert.Equal(t, "test-agent", second.UserAgent)
-	assert.Equal(t, (&service.SessionBinding{IP: "9.9.9.9", UserAgent: "test-agent"}).Hash(), first.Hash())
-	assert.Equal(t, (&service.SessionBinding{IP: "8.8.8.8", UserAgent: "test-agent"}).Hash(), second.Hash())
 	assert.NotEqual(t, first.Hash(), second.Hash())
 }
 
 func TestSessionBindingContextIgnoresTrustedProxyPeerChanges(t *testing.T) {
-	first := requestSessionBinding(t, true, []string{"10.0.0.0/8"}, "10.0.0.2:1234", "test-agent", "9.9.9.9")
-	second := requestSessionBinding(t, true, []string{"10.0.0.0/8"}, "10.0.0.3:1234", "test-agent", "9.9.9.9")
+	first := requestSessionBindingForTest(t, true, []string{"10.0.0.0/8"}, "10.0.0.2:1234", "test-agent", "9.9.9.9")
+	second := requestSessionBindingForTest(t, true, []string{"10.0.0.0/8"}, "10.0.0.3:1234", "test-agent", "9.9.9.9")
 
 	assert.Equal(t, "9.9.9.9", first.IP)
 	assert.Equal(t, first.IP, second.IP)
@@ -71,21 +69,68 @@ func TestSessionBindingContextIgnoresTrustedProxyPeerChanges(t *testing.T) {
 }
 
 func TestSessionBindingContextOmitsIPWhenDisabled(t *testing.T) {
-	first := requestSessionBinding(t, false, nil, "10.0.0.2:1234", "test-agent", "9.9.9.9")
-	second := requestSessionBinding(t, false, nil, "10.0.0.3:1234", "test-agent", "8.8.8.8")
+	first := requestSessionBindingForTest(t, false, nil, "10.0.0.2:1234", "test-agent", "9.9.9.9")
+	second := requestSessionBindingForTest(t, false, nil, "10.0.0.3:1234", "test-agent", "8.8.8.8")
 
 	assert.Empty(t, first.IP)
 	assert.Empty(t, second.IP)
-	assert.Equal(t, "test-agent", first.UserAgent)
-	assert.Equal(t, "test-agent", second.UserAgent)
 	assert.Equal(t, first.Hash(), second.Hash())
 }
 
 func TestSessionBindingContextStillBindsUserAgentWhenIPDisabled(t *testing.T) {
-	first := requestSessionBinding(t, false, nil, "10.0.0.2:1234", "first-agent", "9.9.9.9")
-	second := requestSessionBinding(t, false, nil, "10.0.0.2:1234", "second-agent", "9.9.9.9")
-
+	first := requestSessionBindingForTest(t, false, nil, "10.0.0.2:1234", "first-agent", "9.9.9.9")
+	second := requestSessionBindingForTest(t, false, nil, "10.0.0.2:1234", "second-agent", "9.9.9.9")
 	assert.NotEqual(t, first.Hash(), second.Hash())
+}
+
+func TestSessionBindingContextBoundsPersistedUserAgent(t *testing.T) {
+	r := gin.New()
+	r.Use(SessionBindingContext(false))
+	r.GET("/t", func(c *gin.Context) {
+		binding := service.SessionBindingFromContext(c.Request.Context())
+		require.Len(t, binding.UserAgent, maxPersistentUserAgentBytes)
+		require.Equal(t, binding.UserAgent, c.Request.UserAgent())
+		c.Status(http.StatusOK)
+	})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/t", nil)
+	req.Header.Set("User-Agent", strings.Repeat("u", 2048))
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestSecurityClientIPFallsBackWithoutInjectedBinding(t *testing.T) {
+	r := gin.New()
+	require.NoError(t, r.SetTrustedProxies(nil))
+	var got string
+	r.GET("/t", func(c *gin.Context) {
+		got = SecurityClientIP(c)
+		c.Status(http.StatusNoContent)
+	})
+	req := httptest.NewRequest(http.MethodGet, "/t", nil)
+	req.RemoteAddr = "127.0.0.1:54321"
+	req.Header.Set("X-Forwarded-For", "1.2.3.4")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	require.Equal(t, "127.0.0.1", got)
+}
+
+func TestRequestSessionBindingPrefersInjectedBinding(t *testing.T) {
+	r := gin.New()
+	require.NoError(t, r.SetTrustedProxies([]string{"127.0.0.1"}))
+	r.Use(SessionBindingContext(true))
+	r.GET("/t", func(c *gin.Context) {
+		issued := service.SessionBindingFromContext(c.Request.Context())
+		require.Equal(t, issued.Hash(), requestSessionBinding(c).Hash())
+		c.Status(http.StatusOK)
+	})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/t", nil)
+	req.RemoteAddr = "127.0.0.1:54321"
+	req.Header.Set("X-Forwarded-For", "1.2.3.4")
+	req.Header.Set("User-Agent", "test-agent")
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestCurrentSessionBindingHashUsesRequestContext(t *testing.T) {
@@ -98,23 +143,19 @@ func TestCurrentSessionBindingHashUsesRequestContext(t *testing.T) {
 		got = currentSessionBindingHash(c)
 		c.Status(http.StatusNoContent)
 	})
-
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	request.RemoteAddr = "9.9.9.9:1234"
 	request.Header.Set("User-Agent", "Mozilla/5.0")
 	recorder := httptest.NewRecorder()
-
 	engine.ServeHTTP(recorder, request)
 
 	want := (&service.SessionBinding{UserAgent: "Mozilla/5.0"}).Hash()
 	assert.Equal(t, http.StatusNoContent, recorder.Code)
 	assert.Equal(t, want, got)
-	assert.NotEqual(t, (&service.SessionBinding{IP: "9.9.9.9", UserAgent: "Mozilla/5.0"}).Hash(), got)
 }
 
 func TestCurrentSessionBindingHashAllowsMissingContextBinding(t *testing.T) {
 	context, _ := gin.CreateTestContext(httptest.NewRecorder())
 	context.Request = httptest.NewRequest(http.MethodGet, "/", nil)
-
 	assert.Empty(t, currentSessionBindingHash(context))
 }

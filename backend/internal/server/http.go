@@ -116,8 +116,9 @@ func configureTrustedProxies(r *gin.Engine, trustedProxies []string) bool {
 func ProvideHTTPServer(cfg *config.Config, router *gin.Engine) *http.Server {
 	httpHandler := http.Handler(router)
 	server := &http.Server{
-		Addr:    cfg.Server.Address(),
-		Handler: httpHandler,
+		Addr:           cfg.Server.Address(),
+		Handler:        httpHandler,
+		MaxHeaderBytes: cfg.Server.MaxHeaderBytes,
 		// ReadHeaderTimeout: 读取请求头的超时时间，防止慢速请求头攻击
 		ReadHeaderTimeout: time.Duration(cfg.Server.ReadHeaderTimeout) * time.Second,
 		// IdleTimeout: 空闲连接超时时间，释放不活跃的连接资源

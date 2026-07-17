@@ -36,6 +36,7 @@ func SetupRouter(
 	includeSessionBindingIP bool,
 	redisClient *redis.Client,
 ) *gin.Engine {
+	middleware2.SetIngressRejectRecorder(opsService)
 	// 缓存 iframe 页面的 origin 列表，用于动态注入 CSP frame-src
 	var cachedFrameOrigins atomic.Pointer[[]string]
 	emptyOrigins := []string{}

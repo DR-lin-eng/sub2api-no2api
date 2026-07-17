@@ -9,7 +9,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 )
 
-func TestGetOpsAdvancedSettings_DefaultHidesOpenAITokenStats(t *testing.T) {
+func TestGetOpsAdvancedSettings_DefaultSnapshotHidesOpenAITokenStats(t *testing.T) {
 	repo := newRuntimeSettingRepoStub()
 	svc := &OpsService{settingRepo: repo}
 
@@ -41,8 +41,8 @@ func TestGetOpsAdvancedSettings_DefaultHidesOpenAITokenStats(t *testing.T) {
 	if cfg.DataRetention.UserRequestLogRetentionDays != 90 {
 		t.Fatalf("UserRequestLogRetentionDays = %d, want 90", cfg.DataRetention.UserRequestLogRetentionDays)
 	}
-	if repo.setCalls != 1 {
-		t.Fatalf("expected defaults to be persisted once, got %d", repo.setCalls)
+	if repo.getValueCalls != 0 || repo.getMultipleCalls != 0 {
+		t.Fatalf("hot-path snapshot read touched repository: get=%d get_multiple=%d", repo.getValueCalls, repo.getMultipleCalls)
 	}
 }
 
@@ -88,6 +88,7 @@ func TestUpdateOpsAdvancedSettings_PersistsOpenAITokenStatsVisibility(t *testing
 	if updated.DisplaySystemLogs {
 		t.Fatalf("DisplaySystemLogs = true, want false")
 	}
+	readsAfterUpdate := repo.getValueCalls + repo.getMultipleCalls
 
 	reloaded, err := svc.GetOpsAdvancedSettings(context.Background())
 	if err != nil {
@@ -114,6 +115,9 @@ func TestUpdateOpsAdvancedSettings_PersistsOpenAITokenStatsVisibility(t *testing
 	if reloaded.DisplaySystemLogs {
 		t.Fatalf("reloaded DisplaySystemLogs = true, want false")
 	}
+	if got := repo.getValueCalls + repo.getMultipleCalls; got != readsAfterUpdate {
+		t.Fatalf("snapshot reload performed repository read: before=%d after=%d", readsAfterUpdate, got)
+	}
 }
 
 func TestGetOpsAdvancedSettings_BackfillsNewDisplayFlagsFromDefaults(t *testing.T) {
@@ -134,7 +138,7 @@ func TestGetOpsAdvancedSettings_BackfillsNewDisplayFlagsFromDefaults(t *testing.
 		"ignore_count_tokens_errors":    true,
 		"ignore_context_canceled":       true,
 		"ignore_no_available_accounts":  false,
-		"ignore_invalid_api_key_errors": false,
+		"ignore_invalid_api_key_errors": true,
 		"auto_refresh_enabled":          false,
 		"auto_refresh_interval_seconds": 30,
 	}
@@ -143,6 +147,7 @@ func TestGetOpsAdvancedSettings_BackfillsNewDisplayFlagsFromDefaults(t *testing.
 		t.Fatalf("marshal legacy config: %v", err)
 	}
 	repo.values[SettingKeyOpsAdvancedSettings] = string(raw)
+	svc.initRuntimeSettings(context.Background())
 
 	cfg, err := svc.GetOpsAdvancedSettings(context.Background())
 	if err != nil {
@@ -182,6 +187,7 @@ func TestGetOpsAdvancedSettings_UserRequestLogRetentionUsesDeploymentDefault(t *
 			Retention: config.DashboardAggregationRetentionConfig{UsageLogsDays: 180},
 		}},
 	}
+	svc.initRuntimeSettings(context.Background())
 
 	cfg, err := svc.GetOpsAdvancedSettings(context.Background())
 	if err != nil {
@@ -201,6 +207,7 @@ func TestGetOpsAdvancedSettings_InvalidUserRequestLogRetentionFallsBackToDeploym
 			Retention: config.DashboardAggregationRetentionConfig{UsageLogsDays: 120},
 		}},
 	}
+	svc.initRuntimeSettings(context.Background())
 
 	cfg, err := svc.GetOpsAdvancedSettings(context.Background())
 	if err != nil {
@@ -221,6 +228,7 @@ func TestUpdateOpsAdvancedSettings_LegacyClientPreservesStoredUserRequestLogRete
 	}
 	repo.values[SettingKeyOpsAdvancedSettings] = string(raw)
 	svc := &OpsService{settingRepo: repo}
+	svc.initRuntimeSettings(context.Background())
 
 	legacyUpdate := defaultOpsAdvancedSettings()
 	legacyUpdate.DataRetention.UserRequestLogRetentionDays = 0
