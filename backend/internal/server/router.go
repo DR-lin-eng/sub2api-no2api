@@ -33,6 +33,7 @@ func SetupRouter(
 	opsService *service.OpsService,
 	settingService *service.SettingService,
 	cfg *config.Config,
+	includeSessionBindingIP bool,
 	redisClient *redis.Client,
 ) *gin.Engine {
 	// 缓存 iframe 页面的 origin 列表，用于动态注入 CSP frame-src
@@ -54,9 +55,8 @@ func SetupRouter(
 
 	// 应用中间件
 	r.Use(middleware2.RequestLogger())
-	// 将客户端 IP + UA 注入 request context，供 token 签发/会话绑定/审计日志统一读取。
-	// IP 取值与 API Key IP 限制共用「信任反代传递的客户端 IP」系统开关。
-	r.Use(middleware2.SessionBindingContext(cfg))
+	// 可信代理成功配置时将 IP 和 UA 注入 request context，否则仅注入 UA。
+	r.Use(middleware2.SessionBindingContext(includeSessionBindingIP))
 	r.Use(middleware2.Logger())
 	r.Use(middleware2.CORS(cfg.CORS))
 	r.Use(middleware2.SecurityHeaders(cfg.Security.CSP, func() []string {

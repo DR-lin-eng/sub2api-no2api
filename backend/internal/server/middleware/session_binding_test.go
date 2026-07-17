@@ -3,101 +3,118 @@
 package middleware
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/service"
-
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// 反代场景：RemoteAddr 为 127.0.0.1，真实客户端 IP 在 X-Real-IP 中。
-// 会话绑定注入与审计 IP 必须与 API Key IP 限制共用「信任反代传递的客户端 IP」开关语义。
-func TestSessionBindingContextHonorsTrustForwardedToggle(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+func requestSessionBinding(
+	t *testing.T,
+	includeIP bool,
+	trustedProxies []string,
+	remoteAddr string,
+	userAgent string,
+	forwardedFor string,
+) *service.SessionBinding {
+	t.Helper()
 
-	for _, tc := range []struct {
-		name           string
-		trustForwarded bool
-		wantIP         string
-	}{
-		{name: "trust disabled records proxy address", trustForwarded: false, wantIP: "127.0.0.1"},
-		{name: "trust enabled records forwarded client IP", trustForwarded: true, wantIP: "1.2.3.4"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			cfg := &config.Config{}
-			cfg.SetTrustForwardedIPForAPIKeyACL(tc.trustForwarded)
+	engine := gin.New()
+	require.NoError(t, engine.SetTrustedProxies(trustedProxies))
+	engine.Use(SessionBindingContext(includeIP))
 
-			r := gin.New()
-			require.NoError(t, r.SetTrustedProxies(nil))
-			r.Use(SessionBindingContext(cfg))
-			r.GET("/t", func(c *gin.Context) {
-				binding := service.SessionBindingFromContext(c.Request.Context())
-				require.NotNil(t, binding)
-				require.Equal(t, tc.wantIP, binding.IP)
-				require.Equal(t, "test-agent", binding.UserAgent)
-				require.Equal(t, tc.wantIP, SecurityClientIP(c))
-				c.Status(200)
-			})
+	var binding *service.SessionBinding
+	engine.GET("/", func(c *gin.Context) {
+		binding = service.SessionBindingFromContext(c.Request.Context())
+		c.Status(http.StatusNoContent)
+	})
 
-			w := httptest.NewRecorder()
-			req := httptest.NewRequest("GET", "/t", nil)
-			req.RemoteAddr = "127.0.0.1:54321"
-			req.Header.Set("X-Real-IP", "1.2.3.4")
-			req.Header.Set("User-Agent", "test-agent")
-			r.ServeHTTP(w, req)
-
-			require.Equal(t, 200, w.Code)
-		})
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.RemoteAddr = remoteAddr
+	request.Header.Set("User-Agent", userAgent)
+	if forwardedFor != "" {
+		request.Header.Set("X-Forwarded-For", forwardedFor)
 	}
+
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusNoContent, recorder.Code)
+	require.NotNil(t, binding)
+	return binding
 }
 
-// 未经过 SessionBindingContext 注入时（异常挂载顺序/单测直调），回退 trusted_proxies 链，
-// 等价于开关关闭时的历史行为。
-func TestSecurityClientIPFallsBackWithoutInjectedBinding(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+func TestSessionBindingContextIncludesIPWhenEnabled(t *testing.T) {
+	first := requestSessionBinding(t, true, []string{"10.0.0.0/8"}, "10.0.0.2:1234", "test-agent", "9.9.9.9")
+	second := requestSessionBinding(t, true, []string{"10.0.0.0/8"}, "10.0.0.2:1234", "test-agent", "8.8.8.8")
 
-	r := gin.New()
-	require.NoError(t, r.SetTrustedProxies(nil))
-	r.GET("/t", func(c *gin.Context) {
-		c.String(200, SecurityClientIP(c))
-	})
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/t", nil)
-	req.RemoteAddr = "9.9.9.9:12345"
-	req.Header.Set("X-Real-IP", "1.2.3.4")
-	r.ServeHTTP(w, req)
-
-	require.Equal(t, 200, w.Code)
-	require.Equal(t, "9.9.9.9", w.Body.String())
+	assert.Equal(t, "9.9.9.9", first.IP)
+	assert.Equal(t, "8.8.8.8", second.IP)
+	assert.Equal(t, "test-agent", first.UserAgent)
+	assert.Equal(t, "test-agent", second.UserAgent)
+	assert.Equal(t, (&service.SessionBinding{IP: "9.9.9.9", UserAgent: "test-agent"}).Hash(), first.Hash())
+	assert.Equal(t, (&service.SessionBinding{IP: "8.8.8.8", UserAgent: "test-agent"}).Hash(), second.Hash())
+	assert.NotEqual(t, first.Hash(), second.Hash())
 }
 
-// requestSessionBinding 优先取注入值：开关开启时校验哈希必须基于注入的转发 IP 计算，
-// 与 token 签发路径取值一致，否则同一客户端会被误判为指纹变化。
-func TestRequestSessionBindingPrefersInjectedBinding(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+func TestSessionBindingContextIgnoresTrustedProxyPeerChanges(t *testing.T) {
+	first := requestSessionBinding(t, true, []string{"10.0.0.0/8"}, "10.0.0.2:1234", "test-agent", "9.9.9.9")
+	second := requestSessionBinding(t, true, []string{"10.0.0.0/8"}, "10.0.0.3:1234", "test-agent", "9.9.9.9")
 
-	cfg := &config.Config{}
-	cfg.SetTrustForwardedIPForAPIKeyACL(true)
+	assert.Equal(t, "9.9.9.9", first.IP)
+	assert.Equal(t, first.IP, second.IP)
+	assert.Equal(t, first.Hash(), second.Hash())
+}
 
-	r := gin.New()
-	require.NoError(t, r.SetTrustedProxies(nil))
-	r.Use(SessionBindingContext(cfg))
-	r.GET("/t", func(c *gin.Context) {
-		issued := &service.SessionBinding{IP: "1.2.3.4", UserAgent: "test-agent"}
-		require.Equal(t, issued.Hash(), requestSessionBinding(c).Hash())
-		c.Status(200)
+func TestSessionBindingContextOmitsIPWhenDisabled(t *testing.T) {
+	first := requestSessionBinding(t, false, nil, "10.0.0.2:1234", "test-agent", "9.9.9.9")
+	second := requestSessionBinding(t, false, nil, "10.0.0.3:1234", "test-agent", "8.8.8.8")
+
+	assert.Empty(t, first.IP)
+	assert.Empty(t, second.IP)
+	assert.Equal(t, "test-agent", first.UserAgent)
+	assert.Equal(t, "test-agent", second.UserAgent)
+	assert.Equal(t, first.Hash(), second.Hash())
+}
+
+func TestSessionBindingContextStillBindsUserAgentWhenIPDisabled(t *testing.T) {
+	first := requestSessionBinding(t, false, nil, "10.0.0.2:1234", "first-agent", "9.9.9.9")
+	second := requestSessionBinding(t, false, nil, "10.0.0.2:1234", "second-agent", "9.9.9.9")
+
+	assert.NotEqual(t, first.Hash(), second.Hash())
+}
+
+func TestCurrentSessionBindingHashUsesRequestContext(t *testing.T) {
+	engine := gin.New()
+	require.NoError(t, engine.SetTrustedProxies(nil))
+	engine.Use(SessionBindingContext(false))
+
+	var got string
+	engine.GET("/", func(c *gin.Context) {
+		got = currentSessionBindingHash(c)
+		c.Status(http.StatusNoContent)
 	})
 
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/t", nil)
-	req.RemoteAddr = "127.0.0.1:54321"
-	req.Header.Set("X-Real-IP", "1.2.3.4")
-	req.Header.Set("User-Agent", "test-agent")
-	r.ServeHTTP(w, req)
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.RemoteAddr = "9.9.9.9:1234"
+	request.Header.Set("User-Agent", "Mozilla/5.0")
+	recorder := httptest.NewRecorder()
 
-	require.Equal(t, 200, w.Code)
+	engine.ServeHTTP(recorder, request)
+
+	want := (&service.SessionBinding{UserAgent: "Mozilla/5.0"}).Hash()
+	assert.Equal(t, http.StatusNoContent, recorder.Code)
+	assert.Equal(t, want, got)
+	assert.NotEqual(t, (&service.SessionBinding{IP: "9.9.9.9", UserAgent: "Mozilla/5.0"}).Hash(), got)
+}
+
+func TestCurrentSessionBindingHashAllowsMissingContextBinding(t *testing.T) {
+	context, _ := gin.CreateTestContext(httptest.NewRecorder())
+	context.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+
+	assert.Empty(t, currentSessionBindingHash(context))
 }
