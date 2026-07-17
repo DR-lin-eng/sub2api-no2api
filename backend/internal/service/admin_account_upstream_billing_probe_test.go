@@ -403,6 +403,8 @@ func TestBulkUpdateAccountsAcceptsDedicatedUpstreamBillingProbeSetting(t *testin
 			require.Equal(t, 2, result.Success)
 			require.Len(t, repo.bulkUpdates, 1)
 			require.Equal(t, enabled, repo.bulkUpdates[0].Extra[UpstreamBillingProbeEnabledExtraKey])
+			require.NotNil(t, repo.bulkUpdates[0].ProbeEnabled)
+			require.Equal(t, enabled, *repo.bulkUpdates[0].ProbeEnabled)
 		})
 	}
 }
