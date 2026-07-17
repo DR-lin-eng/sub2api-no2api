@@ -11354,20 +11354,18 @@ watch(
 }
 
 .settings-tabs {
-  @apply flex min-w-max items-center gap-1;
+  @apply flex w-max min-w-full items-center gap-1;
 }
 
 .settings-tab {
-  @apply relative isolate flex h-10 min-w-[6.75rem] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-transparent px-3 text-sm font-medium text-gray-600 outline-none transition-colors duration-200 ease-out dark:text-gray-300;
+  @apply relative isolate flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-transparent px-3 text-sm font-medium text-gray-600 outline-none transition-colors duration-200 ease-out dark:text-gray-300;
+  flex: 1 0 auto;
+  min-width: max-content;
 }
 
 @media (min-width: 768px) {
-  .settings-tabs {
-    @apply min-w-full;
-  }
-
   .settings-tab {
-    @apply min-w-0 flex-1 basis-0 overflow-hidden px-2 text-[13px];
+    @apply px-1.5 text-[13px];
   }
 
   .settings-tab-icon {
@@ -11426,7 +11424,7 @@ watch(
 }
 
 .settings-tab-label {
-  @apply min-w-0 overflow-hidden text-ellipsis whitespace-nowrap leading-none;
+  @apply whitespace-nowrap leading-none;
 }
 </style>
 
