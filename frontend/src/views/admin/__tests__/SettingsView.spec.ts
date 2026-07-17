@@ -563,16 +563,6 @@ async function openUsersTab(wrapper: ReturnType<typeof mountView>) {
   await flushPromises();
 }
 
-async function openGatewayTab(wrapper: ReturnType<typeof mountView>) {
-  const gatewayTabButton = wrapper
-    .findAll("button")
-    .find((node) => node.text().includes("admin.settings.tabs.gateway"));
-
-  expect(gatewayTabButton).toBeDefined();
-  await gatewayTabButton?.trigger("click");
-  await flushPromises();
-}
-
 async function openPerformanceTab(wrapper: ReturnType<typeof mountView>) {
   const performanceTabButton = wrapper
     .findAll("button")

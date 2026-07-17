@@ -29,6 +29,12 @@ const (
 	// These values live in accounts.extra so PR2 does not require a schema migration.
 	UpstreamBillingProbeExtraKey        = "upstream_billing_probe"
 	UpstreamBillingProbeEnabledExtraKey = "upstream_billing_probe_enabled"
+	// Sort metadata is written only after the probe payload has passed the
+	// service's multiplier, clock-window, and timezone validation.
+	UpstreamBillingProbeSortMetadataVersionKey = "_sort_metadata_version"
+	UpstreamBillingProbePeakStartMinuteKey     = "_peak_start_minute"
+	UpstreamBillingProbePeakEndMinuteKey       = "_peak_end_minute"
+	UpstreamBillingProbeSortMetadataVersion    = 1
 
 	upstreamBillingProbeDefaultIntervalMinutes = 30
 	upstreamBillingProbeMinIntervalMinutes     = 5
@@ -658,6 +664,7 @@ func (s *UpstreamBillingProbeService) persistProbeFailure(
 	}
 	if previous != nil {
 		snapshot.Data = previous.Data
+		stampUpstreamBillingSortMetadata(snapshot.Data)
 		snapshot.ReceivedAt = previous.ReceivedAt
 		snapshot.FreshUntil = previous.FreshUntil
 		if snapshot.FreshUntil == nil && previous.Status == UpstreamBillingProbeStatusOK && previous.ReceivedAt != nil {
@@ -762,7 +769,31 @@ func parseUpstreamBillingProbeResponse(body []byte) (map[string]any, error) {
 	if !equalBillingMultiplier(*response.EffectiveRateMultiplier, *response.ResolvedRateMultiplier*appliedPeak) {
 		return nil, fmt.Errorf("inconsistent effective billing multiplier")
 	}
+	stampUpstreamBillingSortMetadata(data)
 	return data, nil
+}
+
+func stampUpstreamBillingSortMetadata(data map[string]any) {
+	if data == nil {
+		return
+	}
+	delete(data, UpstreamBillingProbeSortMetadataVersionKey)
+	delete(data, UpstreamBillingProbePeakStartMinuteKey)
+	delete(data, UpstreamBillingProbePeakEndMinuteKey)
+
+	if _, ok := upstreamBillingRateAt(data, time.Now()); !ok {
+		return
+	}
+	data[UpstreamBillingProbeSortMetadataVersionKey] = UpstreamBillingProbeSortMetadataVersion
+
+	peakEnabled, _ := data["peak_rate_enabled"].(bool)
+	if !peakEnabled {
+		return
+	}
+	startMinute, _ := parseMinutes(data["peak_start"].(string))
+	endMinute, _ := parseMinutes(data["peak_end"].(string))
+	data[UpstreamBillingProbePeakStartMinuteKey] = startMinute
+	data[UpstreamBillingProbePeakEndMinuteKey] = endMinute
 }
 
 func upstreamBillingRateAt(data map[string]any, now time.Time) (float64, bool) {

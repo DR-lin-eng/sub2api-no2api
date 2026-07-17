@@ -300,6 +300,9 @@ func TestUpstreamBillingProbeSuccessPersistsSanitizedSnapshot(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, UpstreamBillingProbeStatusOK, snapshot.Status)
 	require.Equal(t, 0.9, snapshot.Data["effective_rate_multiplier"])
+	require.Equal(t, UpstreamBillingProbeSortMetadataVersion, snapshot.Data[UpstreamBillingProbeSortMetadataVersionKey])
+	require.Equal(t, 9*60, snapshot.Data[UpstreamBillingProbePeakStartMinuteKey])
+	require.Equal(t, 18*60, snapshot.Data[UpstreamBillingProbePeakEndMinuteKey])
 	require.NotContains(t, snapshot.Data, "unexpected_secret")
 	require.NotNil(t, snapshot.ReceivedAt)
 	require.Equal(t, fixedNow, *snapshot.ReceivedAt)
@@ -457,8 +460,13 @@ func TestUpstreamBillingRateAtHandlesDST(t *testing.T) {
 func TestUpstreamBillingProbeFailurePreservesLastSuccessAndRetryAfter(t *testing.T) {
 	receivedAt := time.Date(2026, time.July, 12, 12, 0, 0, 0, time.UTC)
 	previous := &UpstreamBillingProbeSnapshot{
-		Status:       UpstreamBillingProbeStatusOK,
-		Data:         map[string]any{"effective_rate_multiplier": 0.5},
+		Status: UpstreamBillingProbeStatusOK,
+		Data: map[string]any{
+			"billing_scope":             "token",
+			"resolved_rate_multiplier":  0.5,
+			"peak_rate_enabled":         false,
+			"effective_rate_multiplier": 0.5,
+		},
 		ReceivedAt:   &receivedAt,
 		FailureCount: 1,
 	}
@@ -484,7 +492,13 @@ func TestUpstreamBillingProbeFailurePreservesLastSuccessAndRetryAfter(t *testing
 	snapshot, err := svc.ProbeAccount(context.Background(), account.ID)
 	require.NoError(t, err)
 	require.Equal(t, UpstreamBillingProbeStatusFailed, snapshot.Status)
-	require.Equal(t, previous.Data, snapshot.Data)
+	require.Equal(t, previous.Data["billing_scope"], snapshot.Data["billing_scope"])
+	require.Equal(t, previous.Data["resolved_rate_multiplier"], snapshot.Data["resolved_rate_multiplier"])
+	require.Equal(t, previous.Data["peak_rate_enabled"], snapshot.Data["peak_rate_enabled"])
+	require.Equal(t, previous.Data["effective_rate_multiplier"], snapshot.Data["effective_rate_multiplier"])
+	require.Equal(t, UpstreamBillingProbeSortMetadataVersion, snapshot.Data[UpstreamBillingProbeSortMetadataVersionKey])
+	require.NotContains(t, snapshot.Data, UpstreamBillingProbePeakStartMinuteKey)
+	require.NotContains(t, snapshot.Data, UpstreamBillingProbePeakEndMinuteKey)
 	require.Equal(t, previous.ReceivedAt, snapshot.ReceivedAt)
 	require.NotNil(t, snapshot.FreshUntil)
 	require.Equal(t, receivedAt.Add(time.Hour), *snapshot.FreshUntil)

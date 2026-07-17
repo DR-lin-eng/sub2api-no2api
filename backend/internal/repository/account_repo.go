@@ -965,36 +965,46 @@ func accountListOrder(params pagination.PaginationParams) []func(*entsql.Selecto
 
 func upstreamBillingRateSortExpression(extra string) string {
 	status := extra + " #>> '{upstream_billing_probe,status}'"
-	effectiveJSON := extra + " #> '{upstream_billing_probe,data,effective_rate_multiplier}'"
-	effective := extra + " #>> '{upstream_billing_probe,data,effective_rate_multiplier}'"
-	resolvedJSON := extra + " #> '{upstream_billing_probe,data,resolved_rate_multiplier}'"
-	resolved := extra + " #>> '{upstream_billing_probe,data,resolved_rate_multiplier}'"
-	peakEnabledJSON := extra + " #> '{upstream_billing_probe,data,peak_rate_enabled}'"
-	peakEnabled := extra + " #>> '{upstream_billing_probe,data,peak_rate_enabled}'"
-	peakStart := extra + " #>> '{upstream_billing_probe,data,peak_start}'"
-	peakEnd := extra + " #>> '{upstream_billing_probe,data,peak_end}'"
-	peakMultiplierJSON := extra + " #> '{upstream_billing_probe,data,peak_rate_multiplier}'"
-	peakMultiplier := extra + " #>> '{upstream_billing_probe,data,peak_rate_multiplier}'"
-	peakMultiplierValue := "(CASE WHEN jsonb_typeof(" + peakMultiplierJSON + ") = 'number' THEN (" + peakMultiplier + ")::numeric END)"
-	billingScope := extra + " #>> '{upstream_billing_probe,data,billing_scope}'"
-	timezone := extra + " #>> '{upstream_billing_probe,data,timezone}'"
-	validClock := "'^([01][0-9]|2[0-3]):[0-5][0-9]$'"
-	startMinute := "(CASE WHEN " + peakStart + " ~ " + validClock + " THEN split_part(" + peakStart + ", ':', 1)::numeric * 60 + split_part(" + peakStart + ", ':', 2)::numeric END)"
-	endMinute := "(CASE WHEN " + peakEnd + " ~ " + validClock + " THEN split_part(" + peakEnd + ", ':', 1)::numeric * 60 + split_part(" + peakEnd + ", ':', 2)::numeric END)"
-	localMinute := "(EXTRACT(HOUR FROM (CURRENT_TIMESTAMP AT TIME ZONE (" + timezone + "))) * 60 + EXTRACT(MINUTE FROM (CURRENT_TIMESTAMP AT TIME ZONE (" + timezone + "))))"
-	validPeakWindow := peakStart + " ~ " + validClock + " AND " +
-		peakEnd + " ~ " + validClock + " AND " +
-		startMinute + " < " + endMinute
-	validPeakConfig := validPeakWindow + " AND " + peakMultiplierValue + " >= 0 AND " +
-		"EXISTS (SELECT 1 FROM pg_timezone_names WHERE name = " + timezone + ")"
-	dynamicRate := "CASE WHEN " + peakEnabled + " = 'false' THEN (" + resolved + ")::numeric WHEN " + peakEnabled + " = 'true' AND " + validPeakConfig +
-		" THEN (" + resolved + ")::numeric * CASE WHEN " + localMinute + " >= " + startMinute + " AND " + localMinute + " < " + endMinute +
-		" THEN " + peakMultiplierValue + " ELSE 1 END ELSE NULL END"
-	legacySnapshot := "jsonb_typeof(" + resolvedJSON + ") IS NULL AND jsonb_typeof(" + peakEnabledJSON + ") IS NULL"
+	dataJSON := func(key string) string {
+		return extra + " #> '{upstream_billing_probe,data," + key + "}'"
+	}
+	dataText := func(key string) string {
+		return extra + " #>> '{upstream_billing_probe,data," + key + "}'"
+	}
 
-	return "CASE WHEN " + status + " IN ('ok', 'failed') AND (jsonb_typeof(" + resolvedJSON + ") = 'number' OR jsonb_typeof(" + effectiveJSON + ") = 'number') THEN CASE WHEN jsonb_typeof(" +
-		resolvedJSON + ") = 'number' AND jsonb_typeof(" + peakEnabledJSON + ") = 'boolean' THEN CASE WHEN " + billingScope + " = 'token' THEN " + dynamicRate + " ELSE NULL END WHEN " + legacySnapshot +
-		" AND jsonb_typeof(" + effectiveJSON + ") = 'number' THEN (" + effective + ")::numeric END END"
+	effectiveJSON := dataJSON("effective_rate_multiplier")
+	effective := dataText("effective_rate_multiplier")
+	resolvedJSON := dataJSON("resolved_rate_multiplier")
+	resolved := dataText("resolved_rate_multiplier")
+	peakEnabledJSON := dataJSON("peak_rate_enabled")
+	peakEnabled := dataText("peak_rate_enabled")
+	peakMultiplierJSON := dataJSON("peak_rate_multiplier")
+	peakMultiplier := dataText("peak_rate_multiplier")
+	billingScope := dataText("billing_scope")
+	timezoneJSON := dataJSON("timezone")
+	timezoneName := dataText("timezone")
+	startMinuteJSON := dataJSON(service.UpstreamBillingProbePeakStartMinuteKey)
+	startMinute := dataText(service.UpstreamBillingProbePeakStartMinuteKey)
+	endMinuteJSON := dataJSON(service.UpstreamBillingProbePeakEndMinuteKey)
+	endMinute := dataText(service.UpstreamBillingProbePeakEndMinuteKey)
+	sortVersion := dataText(service.UpstreamBillingProbeSortMetadataVersionKey)
+	resolvedRate := "(" + resolved + ")::double precision"
+	peakRate := "(" + peakMultiplier + ")::double precision"
+	localMinute := "(EXTRACT(HOUR FROM CURRENT_TIMESTAMP AT TIME ZONE (" + timezoneName + "))::integer * 60 + " +
+		"EXTRACT(MINUTE FROM CURRENT_TIMESTAMP AT TIME ZONE (" + timezoneName + "))::integer)"
+	normalizedSnapshot := sortVersion + " = '" + strconv.Itoa(service.UpstreamBillingProbeSortMetadataVersion) + "' AND " +
+		"jsonb_typeof(" + resolvedJSON + ") = 'number' AND jsonb_typeof(" + peakEnabledJSON + ") = 'boolean' AND " + billingScope + " = 'token'"
+	validPeakMetadata := "jsonb_typeof(" + startMinuteJSON + ") = 'number' AND jsonb_typeof(" + endMinuteJSON + ") = 'number' AND " +
+		"jsonb_typeof(" + peakMultiplierJSON + ") = 'number' AND jsonb_typeof(" + timezoneJSON + ") = 'string'"
+	dynamicRate := "CASE " + peakEnabled + " WHEN 'false' THEN " + resolvedRate + " WHEN 'true' THEN CASE WHEN " + validPeakMetadata +
+		" THEN " + resolvedRate + " * CASE WHEN " + localMinute + " >= (" + startMinute + ")::integer AND " + localMinute + " < (" + endMinute +
+		")::integer THEN " + peakRate + " ELSE 1 END END END"
+
+	// Legacy snapshots use the last observed effective rate until the next probe
+	// stamps validated sort metadata. This keeps the transition query parallel
+	// and avoids repeatedly validating clocks and timezones for every list row.
+	return "CASE WHEN " + status + " IN ('ok', 'failed') THEN CASE WHEN " + normalizedSnapshot + " THEN " + dynamicRate +
+		" WHEN jsonb_typeof(" + effectiveJSON + ") = 'number' THEN (" + effective + ")::double precision END END"
 }
 
 func (r *accountRepository) ListByGroup(ctx context.Context, groupID int64) ([]service.Account, error) {
