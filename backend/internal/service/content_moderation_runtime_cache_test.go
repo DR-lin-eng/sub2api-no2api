@@ -127,7 +127,7 @@ func (r *contentModerationRuntimeSettingRepo) blockNextMultiple(start chan<- str
 	r.getMultipleWait = wait
 }
 
-func runtimeCacheTestConfig(t *testing.T, keywords ...string) string {
+func runtimeCacheTestConfig(t testing.TB, keywords ...string) string {
 	t.Helper()
 	cfg := defaultContentModerationConfig()
 	cfg.Enabled = true
@@ -448,4 +448,32 @@ func TestContentModerationRuntimeSnapshotConcurrentReadAndReplace(t *testing.T) 
 	for err := range errs {
 		require.NoError(t, err)
 	}
+}
+
+func BenchmarkContentModerationRuntimeSnapshotLoad(b *testing.B) {
+	repo := &contentModerationRuntimeSettingRepo{values: map[string]string{
+		SettingKeyRiskControlEnabled:      "true",
+		SettingKeyContentModerationConfig: runtimeCacheTestConfig(b, "blocked-a", "blocked-b"),
+	}}
+	svc := runtimeCacheTestService(repo, time.Hour)
+	ctx := context.Background()
+	if _, err := svc.loadRuntimeSnapshot(ctx); err != nil {
+		b.Fatal(err)
+	}
+	_, startCalls := repo.calls()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		snapshot, err := svc.loadRuntimeSnapshot(ctx)
+		if err != nil {
+			b.Fatal(err)
+		}
+		if snapshot == nil || snapshot.config == nil || snapshot.keywordMatcher == nil {
+			b.Fatal("unexpected empty runtime snapshot")
+		}
+	}
+	b.StopTimer()
+	_, endCalls := repo.calls()
+	b.ReportMetric(float64(endCalls-startCalls)/b.Elapsed().Seconds(), "repo-loads/s")
 }

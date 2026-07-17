@@ -234,12 +234,13 @@ func (Account) Edges() []ent.Edge {
 // 每个索引对应一个常用的查询条件。
 func (Account) Indexes() []ent.Index {
 	return []ent.Index{
-		index.Fields("platform"),            // 按平台筛选
-		index.Fields("type"),                // 按认证类型筛选
-		index.Fields("status"),              // 按状态筛选
-		index.Fields("proxy_id"),            // 按代理筛选
-		index.Fields("priority"),            // 按优先级排序
-		index.Fields("last_used_at"),        // 按最后使用时间排序
+		index.Fields("platform"), // 按平台筛选
+		index.Fields("type"),     // 按认证类型筛选
+		index.Fields("status"),   // 按状态筛选
+		index.Fields("proxy_id"), // 按代理筛选
+		index.Fields("priority"), // 按优先级排序
+		// NULLS FIRST 顺序由 184_account_last_used_sort_index_notx.sql 定义。
+		index.Fields("last_used_at", "id"),
 		index.Fields("schedulable"),         // 筛选可调度账户
 		index.Fields("rate_limited_at"),     // 筛选速率限制账户
 		index.Fields("rate_limit_reset_at"), // 筛选速率限制解除时间

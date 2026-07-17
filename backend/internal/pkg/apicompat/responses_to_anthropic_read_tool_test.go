@@ -96,6 +96,7 @@ func TestResponsesEventToAnthropicEvents_ReadToolWithoutArgumentsDoneClosesOnCom
 func TestResToAnthFuncArgsDelta_NonReadToolStreamsPartialJSONImmediately(t *testing.T) {
 	state := NewResponsesEventToAnthropicState()
 	state.MessageStartSent = true
+	state.ContentBlockOpen = true
 	state.CurrentBlockType = "tool_use"
 	state.CurrentToolName = "Write"
 	state.OutputIndexToBlockIdx = map[int]int{0: 0}

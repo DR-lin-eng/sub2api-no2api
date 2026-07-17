@@ -24,11 +24,19 @@ describe('calculateOutputTokensPerSecond', () => {
     { image_count: 1, image_output_tokens: 0 },
     { image_count: 1, image_output_tokens: 100 },
     { image_count: 0, image_output_tokens: 100 },
-  ])('does not report text token speed for image generation output', (imageUsage) => {
+    { image_count: 0, image_output_tokens: 0, billing_mode: 'video' },
+  ])('does not report text token speed for generated media output', (imageUsage) => {
     expect(calculateOutputTokensPerSecond({
       output_tokens: 100,
       duration_ms: 2000,
       ...imageUsage,
+    })).toBeNull()
+  })
+
+  it('returns null when the calculated rate overflows', () => {
+    expect(calculateOutputTokensPerSecond({
+      output_tokens: Number.MAX_VALUE,
+      duration_ms: Number.MIN_VALUE,
     })).toBeNull()
   })
 })

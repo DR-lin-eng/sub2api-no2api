@@ -1,12 +1,19 @@
+import { BILLING_MODE_VIDEO } from './billingMode'
+
 export interface OutputTokenSpeedUsage {
   output_tokens?: number | null
   duration_ms?: number | null
   image_count?: number | null
   image_output_tokens?: number | null
+  billing_mode?: string | null
 }
 
 export function calculateOutputTokensPerSecond(usage: OutputTokenSpeedUsage): number | null {
-  if ((usage.image_count ?? 0) > 0 || (usage.image_output_tokens ?? 0) > 0) {
+  if (
+    usage.billing_mode === BILLING_MODE_VIDEO
+    || (usage.image_count ?? 0) > 0
+    || (usage.image_output_tokens ?? 0) > 0
+  ) {
     return null
   }
 
@@ -23,5 +30,6 @@ export function calculateOutputTokensPerSecond(usage: OutputTokenSpeedUsage): nu
     return null
   }
 
-  return outputTokens * 1000 / durationMs
+  const tokensPerSecond = outputTokens * 1000 / durationMs
+  return Number.isFinite(tokensPerSecond) ? tokensPerSecond : null
 }
