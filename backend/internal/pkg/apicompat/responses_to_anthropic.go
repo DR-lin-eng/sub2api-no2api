@@ -513,13 +513,6 @@ func resToAnthHandleReasoningDelta(evt *ResponsesStreamEvent, state *ResponsesEv
 	}}
 }
 
-func resToAnthHandleBlockDone(state *ResponsesEventToAnthropicState) []AnthropicStreamEvent {
-	if !state.ContentBlockOpen {
-		return nil
-	}
-	return closeCurrentBlock(state)
-}
-
 func resToAnthHandleBlockDoneIfType(
 	evt *ResponsesStreamEvent,
 	state *ResponsesEventToAnthropicState,

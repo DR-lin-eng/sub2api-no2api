@@ -248,15 +248,9 @@ func (r *opsRepository) getDashboardOverviewPreaggregated(ctx context.Context, f
 		{weight: head.successCount, p: head.duration},
 		{weight: tail.successCount, p: tail.duration},
 	})
-	// TTFT segments are weighted by the streaming sample count (rows that
-	// actually recorded first_token_ms), not the total success count.
-	ttft := combineApproxPercentiles([]opsPercentileSegment{
-		{weight: preagg.ttftSampleCount, p: preagg.ttft},
-		{weight: head.ttftSampleCount, p: head.ttft},
-		{weight: tail.ttftSampleCount, p: tail.ttft},
-	})
 	// Existing pre-aggregated buckets may predate the image-exclusion rule. Read
 	// TTFT from raw logs so switching to preagg cannot reintroduce image latency.
+	var ttft service.OpsPercentiles
 	ttftCtx, cancelTTFT := context.WithTimeout(ctx, opsRawLatencyQueryTimeout)
 	rawTTFT, err := r.queryUsageTTFT(ttftCtx, filter, start, end)
 	cancelTTFT()
