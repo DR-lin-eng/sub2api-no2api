@@ -784,16 +784,27 @@ func stampUpstreamBillingSortMetadata(data map[string]any) {
 	if _, ok := upstreamBillingRateAt(data, time.Now()); !ok {
 		return
 	}
-	data[UpstreamBillingProbeSortMetadataVersionKey] = UpstreamBillingProbeSortMetadataVersion
-
-	peakEnabled, _ := data["peak_rate_enabled"].(bool)
-	if !peakEnabled {
+	peakEnabled, ok := data["peak_rate_enabled"].(bool)
+	if !ok {
 		return
 	}
-	startMinute, _ := parseMinutes(data["peak_start"].(string))
-	endMinute, _ := parseMinutes(data["peak_end"].(string))
+	if !peakEnabled {
+		data[UpstreamBillingProbeSortMetadataVersionKey] = UpstreamBillingProbeSortMetadataVersion
+		return
+	}
+	peakStart, startOK := data["peak_start"].(string)
+	peakEnd, endOK := data["peak_end"].(string)
+	if !startOK || !endOK {
+		return
+	}
+	startMinute, startOK := parseMinutes(peakStart)
+	endMinute, endOK := parseMinutes(peakEnd)
+	if !startOK || !endOK {
+		return
+	}
 	data[UpstreamBillingProbePeakStartMinuteKey] = startMinute
 	data[UpstreamBillingProbePeakEndMinuteKey] = endMinute
+	data[UpstreamBillingProbeSortMetadataVersionKey] = UpstreamBillingProbeSortMetadataVersion
 }
 
 func upstreamBillingRateAt(data map[string]any, now time.Time) (float64, bool) {
