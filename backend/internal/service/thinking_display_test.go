@@ -1,7 +1,11 @@
 package service
 
 import (
+	"context"
+	"errors"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/tidwall/gjson"
 )
@@ -22,6 +26,7 @@ func TestThinkingDisplayNeedsOptIn(t *testing.T) {
 		{"带空格", "  claude-sonnet-5  ", true},
 		{"Bedrock 前缀", "anthropic.claude-opus-4-8", true},
 		{"带部署后缀", "claude-opus-4-8[1m]", true},
+		{"带日期后缀", "claude-opus-4-8-20260701", true},
 
 		// display 默认已是 summarized，不需要也不应该改
 		{"opus-4-6", "claude-opus-4-6", false},
@@ -32,6 +37,9 @@ func TestThinkingDisplayNeedsOptIn(t *testing.T) {
 		{"opus-4-5 带日期", "claude-opus-4-5-20251101", false},
 		{"haiku-4-5", "claude-haiku-4-5-20251001", false},
 		{"opus-4-1", "claude-opus-4-1", false},
+		{"相邻 minor 版本", "claude-opus-4-80", false},
+		{"相邻主版本", "claude-sonnet-50", false},
+		{"无分隔部署后缀", "claude-fable-5preview", false},
 
 		// 非 Anthropic / 空
 		{"空", "", false},
@@ -210,6 +218,16 @@ func TestNormalizeAnthropicThinkingDisplay_FailSafe(t *testing.T) {
 			t.Errorf("畸形 body %q 不应报告 applied=true（得到 %s）", body, got)
 		}
 	}
+
+	for _, body := range []string{
+		`not json at all`,
+		`{"model":"claude-opus-4-8"`,
+	} {
+		got, applied := NormalizeAnthropicThinkingDisplay([]byte(body), "claude-opus-4-8", ThinkingDisplayModeForce, true)
+		if applied || string(got) != body {
+			t.Errorf("force 模式不得改写畸形 body %q（applied=%v, got=%s）", body, applied, got)
+		}
+	}
 }
 
 // 相同输入必须产生逐字节相同的输出：本链路对 body 字节序有既有依赖
@@ -225,5 +243,125 @@ func TestNormalizeAnthropicThinkingDisplay_Deterministic(t *testing.T) {
 		if string(next) != string(first) {
 			t.Fatalf("输出字节序不稳定\n第一次: %s\n第 %d 次: %s", first, i+2, next)
 		}
+	}
+}
+
+type thinkingDisplaySettingRepo struct {
+	value    atomic.Value // string
+	getCalls atomic.Int64
+	failRead atomic.Bool
+}
+
+func newThinkingDisplaySettingRepo(value string) *thinkingDisplaySettingRepo {
+	repo := &thinkingDisplaySettingRepo{}
+	repo.value.Store(value)
+	return repo
+}
+
+func (r *thinkingDisplaySettingRepo) Get(context.Context, string) (*Setting, error) {
+	panic("unexpected Get call")
+}
+
+func (r *thinkingDisplaySettingRepo) GetValue(context.Context, string) (string, error) {
+	r.getCalls.Add(1)
+	if r.failRead.Load() {
+		return "", errors.New("forced thinking display setting read failure")
+	}
+	value, ok := r.value.Load().(string)
+	if !ok {
+		return "", errors.New("thinking display test setting is not a string")
+	}
+	return value, nil
+}
+
+func (r *thinkingDisplaySettingRepo) Set(_ context.Context, _ string, value string) error {
+	r.value.Store(value)
+	return nil
+}
+
+func (r *thinkingDisplaySettingRepo) GetMultiple(context.Context, []string) (map[string]string, error) {
+	panic("unexpected GetMultiple call")
+}
+
+func (r *thinkingDisplaySettingRepo) SetMultiple(context.Context, map[string]string) error {
+	panic("unexpected SetMultiple call")
+}
+
+func (r *thinkingDisplaySettingRepo) GetAll(context.Context) (map[string]string, error) {
+	panic("unexpected GetAll call")
+}
+
+func (r *thinkingDisplaySettingRepo) Delete(context.Context, string) error {
+	panic("unexpected Delete call")
+}
+
+func TestGetThinkingDisplayModeCachesAndPublishes(t *testing.T) {
+	repo := newThinkingDisplaySettingRepo(`{"enabled":true,"thinking_display_mode":"force"}`)
+	svc := NewSettingService(repo, nil)
+	ctx := context.Background()
+
+	if got := svc.GetThinkingDisplayMode(ctx); got != ThinkingDisplayModeForce {
+		t.Fatalf("initial mode = %q, want %q", got, ThinkingDisplayModeForce)
+	}
+	for i := 0; i < 100; i++ {
+		if got := svc.GetThinkingDisplayMode(ctx); got != ThinkingDisplayModeForce {
+			t.Fatalf("cached mode = %q, want %q", got, ThinkingDisplayModeForce)
+		}
+	}
+	if calls := repo.getCalls.Load(); calls != 1 {
+		t.Fatalf("cached reads queried repository %d times, want 1", calls)
+	}
+
+	if err := svc.SetRectifierSettings(ctx, &RectifierSettings{
+		Enabled:             true,
+		ThinkingDisplayMode: ThinkingDisplayModeOff,
+	}); err != nil {
+		t.Fatalf("SetRectifierSettings() error = %v", err)
+	}
+	if got := svc.GetThinkingDisplayMode(ctx); got != ThinkingDisplayModeOff {
+		t.Fatalf("published mode = %q, want %q", got, ThinkingDisplayModeOff)
+	}
+	if calls := repo.getCalls.Load(); calls != 1 {
+		t.Fatalf("published cache unexpectedly queried repository %d times", calls)
+	}
+
+	repo.value.Store(`{"enabled":true,"thinking_display_mode":"display_only"}`)
+	svc.thinkingDisplayModeLoaded.Store(time.Now().Add(-2 * thinkingDisplayModeRefreshInterval).UnixNano())
+	if got := svc.GetThinkingDisplayMode(ctx); got != ThinkingDisplayModeDisplayOnly {
+		t.Fatalf("refreshed mode = %q, want %q", got, ThinkingDisplayModeDisplayOnly)
+	}
+	if calls := repo.getCalls.Load(); calls != 2 {
+		t.Fatalf("refresh queried repository %d times, want 2", calls)
+	}
+
+	repo.value.Store(`{"enabled":true,"thinking_display_mode":"force"}`)
+	svc.thinkingDisplayModeLoaded.Store(time.Now().Add(-2 * thinkingDisplayModeRefreshInterval).UnixNano())
+	if got := svc.GetThinkingDisplayMode(ctx); got != ThinkingDisplayModeForce {
+		t.Fatalf("mode before read failure = %q, want %q", got, ThinkingDisplayModeForce)
+	}
+	repo.failRead.Store(true)
+	svc.thinkingDisplayModeLoaded.Store(time.Now().Add(-2 * thinkingDisplayModeRefreshInterval).UnixNano())
+	if got := svc.GetThinkingDisplayMode(ctx); got != ThinkingDisplayModeDisplayOnly {
+		t.Fatalf("mode after read failure = %q, want safe fallback %q", got, ThinkingDisplayModeDisplayOnly)
+	}
+}
+
+func BenchmarkGetThinkingDisplayModeCached(b *testing.B) {
+	repo := newThinkingDisplaySettingRepo(`{"enabled":true,"thinking_display_mode":"display_only"}`)
+	svc := NewSettingService(repo, nil)
+	ctx := context.Background()
+	if got := svc.GetThinkingDisplayMode(ctx); got != ThinkingDisplayModeDisplayOnly {
+		b.Fatalf("initial mode = %q", got)
+	}
+	repo.getCalls.Store(0)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = svc.GetThinkingDisplayMode(ctx)
+	}
+	b.StopTimer()
+	if calls := repo.getCalls.Load(); calls != 0 {
+		b.Fatalf("cached benchmark queried repository %d times", calls)
 	}
 }

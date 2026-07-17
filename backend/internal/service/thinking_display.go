@@ -49,7 +49,16 @@ func thinkingDisplayNeedsOptIn(model string) bool {
 	m := strings.ToLower(strings.TrimSpace(model))
 	m = strings.TrimPrefix(m, "anthropic.") // Bedrock 风格的 provider 前缀
 	for _, prefix := range thinkingDisplayOptInPrefixes {
-		if strings.HasPrefix(m, prefix) {
+		if !strings.HasPrefix(m, prefix) {
+			continue
+		}
+		if len(m) == len(prefix) {
+			return true
+		}
+		// Accept dated/deployment-qualified IDs without matching a different
+		// minor version such as claude-opus-4-80.
+		switch m[len(prefix)] {
+		case '-', '[', ':', '@':
 			return true
 		}
 	}
@@ -98,6 +107,9 @@ func NormalizeAnthropicThinkingDisplay(body []byte, model, mode string, stream b
 		return body, false
 	}
 	if !thinkingDisplayNeedsOptIn(model) {
+		return body, false
+	}
+	if !gjson.ValidBytes(body) {
 		return body, false
 	}
 

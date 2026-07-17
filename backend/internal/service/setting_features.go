@@ -17,6 +17,7 @@ import (
 const (
 	globalTempUnschedulableRefreshInterval = time.Second
 	streamModePerformanceRefreshInterval   = 10 * time.Second
+	thinkingDisplayModeRefreshInterval     = 10 * time.Second
 )
 
 // IsRegistrationEnabled 检查是否开放注册
@@ -822,7 +823,17 @@ func (s *SettingService) SetRectifierSettings(ctx context.Context, settings *Rec
 		return fmt.Errorf("marshal rectifier settings: %w", err)
 	}
 
-	return s.settingRepo.Set(ctx, SettingKeyRectifierSettings, string(data))
+	if err := s.settingRepo.Set(ctx, SettingKeyRectifierSettings, string(data)); err != nil {
+		return err
+	}
+
+	// Publish the new mode immediately. Incrementing the revision first prevents an
+	// older in-flight refresh from overwriting the value that was just persisted.
+	s.thinkingDisplayModeRevision.Add(1)
+	s.thinkingDisplayModeSF.Forget("refresh")
+	s.thinkingDisplayModeCache.Store(resolveThinkingDisplayMode(settings))
+	s.thinkingDisplayModeLoaded.Store(time.Now().UnixNano())
+	return nil
 }
 
 // IsSignatureRectifierEnabled 判断签名整流是否启用（总开关 && 签名子开关）
@@ -843,21 +854,8 @@ func (s *SettingService) IsBudgetRectifierEnabled(ctx context.Context) bool {
 	return settings.Enabled && settings.ThinkingBudgetEnabled
 }
 
-// GetThinkingDisplayMode 返回思考摘要注入模式（总开关关闭时视为 off）。
-// 空值/未知值归一到 display_only —— 该档只做零成本的摘要取消隐藏，是安全的保底。
-//
-// 本方法在网关热路径上被调用，因此必须对未装配 settingService/settingRepo 的
-// GatewayService 保持安全（GetRectifierSettings 会直接解引用 settingRepo）。
-// 读不到配置时返回 off：不确定该不该改写流量时，就不改写。
-func (s *SettingService) GetThinkingDisplayMode(ctx context.Context) string {
-	if s == nil || s.settingRepo == nil {
-		return ThinkingDisplayModeOff
-	}
-	settings, err := s.GetRectifierSettings(ctx)
-	if err != nil {
-		return ThinkingDisplayModeDisplayOnly // fail-safe: 保底不做有成本的注入
-	}
-	if !settings.Enabled {
+func resolveThinkingDisplayMode(settings *RectifierSettings) string {
+	if settings == nil || !settings.Enabled {
 		return ThinkingDisplayModeOff
 	}
 	switch settings.ThinkingDisplayMode {
@@ -866,6 +864,46 @@ func (s *SettingService) GetThinkingDisplayMode(ctx context.Context) string {
 	default:
 		return ThinkingDisplayModeDisplayOnly
 	}
+}
+
+func (s *SettingService) refreshThinkingDisplayMode(ctx context.Context) error {
+	revision := s.thinkingDisplayModeRevision.Load()
+	settings, err := s.GetRectifierSettings(ctx)
+	if err != nil {
+		if s.thinkingDisplayModeRevision.Load() == revision {
+			// Never keep a potentially costly force mode when the source of truth
+			// cannot be refreshed.
+			s.thinkingDisplayModeCache.Store(ThinkingDisplayModeDisplayOnly)
+			s.thinkingDisplayModeLoaded.Store(time.Now().UnixNano())
+		}
+		return err
+	}
+	if s.thinkingDisplayModeRevision.Load() != revision {
+		return nil
+	}
+	s.thinkingDisplayModeCache.Store(resolveThinkingDisplayMode(settings))
+	s.thinkingDisplayModeLoaded.Store(time.Now().UnixNano())
+	return nil
+}
+
+// GetThinkingDisplayMode returns the cached summary mode. The gateway invokes this
+// on its request hot path, so repository reads are bounded to one refresh per interval.
+func (s *SettingService) GetThinkingDisplayMode(ctx context.Context) string {
+	if s == nil || s.settingRepo == nil {
+		return ThinkingDisplayModeOff
+	}
+	now := time.Now()
+	loadedAt := s.thinkingDisplayModeLoaded.Load()
+	if loadedAt == 0 || now.Sub(time.Unix(0, loadedAt)) >= thinkingDisplayModeRefreshInterval {
+		_, _, _ = s.thinkingDisplayModeSF.Do("refresh", func() (any, error) {
+			return nil, s.refreshThinkingDisplayMode(ctx)
+		})
+	}
+	mode, _ := s.thinkingDisplayModeCache.Load().(string)
+	if mode == "" {
+		return ThinkingDisplayModeDisplayOnly
+	}
+	return mode
 }
 
 // GetBetaPolicySettings 获取 Beta 策略配置

@@ -78,6 +78,11 @@ type SettingService struct {
 	streamModePerformanceEnabled atomic.Bool
 	streamModePerformanceLoaded  atomic.Int64
 	streamModePerformanceSF      singleflight.Group
+
+	thinkingDisplayModeCache    atomic.Value // string
+	thinkingDisplayModeLoaded   atomic.Int64
+	thinkingDisplayModeRevision atomic.Uint64
+	thinkingDisplayModeSF       singleflight.Group
 }
 
 // DefaultPlatformQuotaSetting 单 platform 三档限额（nil = 沿用上层；0 = 显式禁用；>0 = 上限）
@@ -214,6 +219,7 @@ func NewSettingService(settingRepo SettingRepository, cfg *config.Config) *Setti
 	}
 	// Preserve existing behavior until a persisted setting is loaded.
 	svc.globalTempUnschedulableEnabled.Store(true)
+	svc.thinkingDisplayModeCache.Store(ThinkingDisplayModeDisplayOnly)
 	return svc
 }
 
