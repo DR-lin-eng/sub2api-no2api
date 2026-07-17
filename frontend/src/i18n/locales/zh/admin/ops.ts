@@ -769,6 +769,8 @@ export default {
         displayErrorDistributionHint: '关闭后从核心快照中跳过按状态码统计的错误分布查询。',
         displayErrorTrend: '展示错误趋势',
         displayErrorTrendHint: '关闭后从核心快照中跳过错误时间序列聚合查询。',
+        displayImageGenerationStats: '展示生图数据监控',
+        displayImageGenerationStatsHint: '关闭后不查询生图耗时、分辨率、吞吐与并发数据。',
         displayAlertEvents: '展示告警事件',
         displayAlertEventsHint: '关闭后不加载告警事件数据，默认开启。',
         displayOpenAITokenStats: '展示 OpenAI Token 请求统计',
@@ -805,6 +807,31 @@ export default {
         rateLimited: '限流 {count}',
         errorAccounts: '异常 {count}',
         loadFailed: '加载并发数据失败'
+      },
+      imageGeneration: {
+        title: '生图数据监控',
+        windowScope: '当前筛选窗口',
+        images: '生成图片',
+        requests: '完成请求',
+        avgDuration: '平均耗时',
+        p95Duration: 'P95 耗时',
+        requestsPerMinute: '每分钟请求',
+        windowConcurrency: '平均 / 峰值并发',
+        instanceConcurrency: '当前实例并发',
+        instanceQueue: '当前实例排队',
+        unlimited: '不限',
+        unknownResolution: '未记录实际尺寸',
+        empty: '当前筛选窗口内没有已完成的生图请求。',
+        failedToLoad: '加载生图监控数据失败',
+        table: {
+          resolution: '输出分辨率',
+          billingTier: '计费档位',
+          requests: '请求数',
+          images: '图片数',
+          avgDuration: '平均耗时',
+          p95Duration: 'P95 耗时',
+          maxDuration: '最大耗时'
+        }
       },
       realtime: {
         title: '实时信息',

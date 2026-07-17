@@ -255,6 +255,18 @@ func (r *opsRepository) getDashboardOverviewPreaggregated(ctx context.Context, f
 		{weight: head.ttftSampleCount, p: head.ttft},
 		{weight: tail.ttftSampleCount, p: tail.ttft},
 	})
+	// Existing pre-aggregated buckets may predate the image-exclusion rule. Read
+	// TTFT from raw logs so switching to preagg cannot reintroduce image latency.
+	ttftCtx, cancelTTFT := context.WithTimeout(ctx, opsRawLatencyQueryTimeout)
+	rawTTFT, err := r.queryUsageTTFT(ttftCtx, filter, start, end)
+	cancelTTFT()
+	if err == nil {
+		ttft = rawTTFT
+	} else if isQueryTimeoutErr(err) {
+		ttft = service.OpsPercentiles{}
+	} else {
+		return nil, err
+	}
 
 	windowSeconds := end.Sub(start).Seconds()
 	if windowSeconds <= 0 {
@@ -819,13 +831,13 @@ SELECT
   percentile_cont(0.99) WITHIN GROUP (ORDER BY duration_ms) FILTER (WHERE duration_ms IS NOT NULL) AS duration_p99,
   AVG(duration_ms) FILTER (WHERE duration_ms IS NOT NULL) AS duration_avg,
   MAX(duration_ms) AS duration_max,
-  percentile_cont(0.50) WITHIN GROUP (ORDER BY first_token_ms) FILTER (WHERE first_token_ms IS NOT NULL) AS ttft_p50,
-  percentile_cont(0.90) WITHIN GROUP (ORDER BY first_token_ms) FILTER (WHERE first_token_ms IS NOT NULL) AS ttft_p90,
-  percentile_cont(0.95) WITHIN GROUP (ORDER BY first_token_ms) FILTER (WHERE first_token_ms IS NOT NULL) AS ttft_p95,
-  percentile_cont(0.99) WITHIN GROUP (ORDER BY first_token_ms) FILTER (WHERE first_token_ms IS NOT NULL) AS ttft_p99,
-  AVG(first_token_ms) FILTER (WHERE first_token_ms IS NOT NULL) AS ttft_avg,
-  MAX(first_token_ms) AS ttft_max,
-  COUNT(first_token_ms) AS ttft_sample_count
+  percentile_cont(0.50) WITHIN GROUP (ORDER BY first_token_ms) FILTER (WHERE first_token_ms IS NOT NULL AND COALESCE(image_count, 0) = 0) AS ttft_p50,
+  percentile_cont(0.90) WITHIN GROUP (ORDER BY first_token_ms) FILTER (WHERE first_token_ms IS NOT NULL AND COALESCE(image_count, 0) = 0) AS ttft_p90,
+  percentile_cont(0.95) WITHIN GROUP (ORDER BY first_token_ms) FILTER (WHERE first_token_ms IS NOT NULL AND COALESCE(image_count, 0) = 0) AS ttft_p95,
+  percentile_cont(0.99) WITHIN GROUP (ORDER BY first_token_ms) FILTER (WHERE first_token_ms IS NOT NULL AND COALESCE(image_count, 0) = 0) AS ttft_p99,
+  AVG(first_token_ms) FILTER (WHERE first_token_ms IS NOT NULL AND COALESCE(image_count, 0) = 0) AS ttft_avg,
+  MAX(first_token_ms) FILTER (WHERE COALESCE(image_count, 0) = 0) AS ttft_max,
+  COUNT(first_token_ms) FILTER (WHERE COALESCE(image_count, 0) = 0) AS ttft_sample_count
 FROM usage_logs ul
 ` + join + `
 ` + where
@@ -865,6 +877,41 @@ FROM usage_logs ul
 	}
 
 	return duration, ttft, tCount, nil
+}
+
+func (r *opsRepository) queryUsageTTFT(ctx context.Context, filter *service.OpsDashboardFilter, start, end time.Time) (service.OpsPercentiles, error) {
+	join, where, args, _ := buildUsageWhere(filter, start, end, 1)
+	q := `
+SELECT
+  percentile_cont(0.50) WITHIN GROUP (ORDER BY first_token_ms) AS ttft_p50,
+  percentile_cont(0.90) WITHIN GROUP (ORDER BY first_token_ms) AS ttft_p90,
+  percentile_cont(0.95) WITHIN GROUP (ORDER BY first_token_ms) AS ttft_p95,
+  percentile_cont(0.99) WITHIN GROUP (ORDER BY first_token_ms) AS ttft_p99,
+  AVG(first_token_ms) AS ttft_avg,
+  MAX(first_token_ms) AS ttft_max
+FROM usage_logs ul
+` + join + `
+` + where + `
+  AND first_token_ms IS NOT NULL
+  AND COALESCE(image_count, 0) = 0`
+
+	var p50, p90, p95, p99, avg sql.NullFloat64
+	var max sql.NullInt64
+	if err := r.db.QueryRowContext(ctx, q, args...).Scan(&p50, &p90, &p95, &p99, &avg, &max); err != nil {
+		return service.OpsPercentiles{}, err
+	}
+	out := service.OpsPercentiles{
+		P50: floatToIntPtr(p50),
+		P90: floatToIntPtr(p90),
+		P95: floatToIntPtr(p95),
+		P99: floatToIntPtr(p99),
+		Avg: floatToIntPtr(avg),
+	}
+	if max.Valid {
+		v := int(max.Int64)
+		out.Max = &v
+	}
+	return out, nil
 }
 
 func (r *opsRepository) queryErrorCounts(ctx context.Context, filter *service.OpsDashboardFilter, start, end time.Time) (

@@ -972,7 +972,7 @@ func (s *GatewayService) buildRecordUsageLog(
 		BillingMode:           resolveBillingMode(result, cost),
 		Stream:                result.Stream,
 		DurationMs:            &durationMs,
-		FirstTokenMs:          result.FirstTokenMs,
+		FirstTokenMs:          usageFirstTokenMs(result.FirstTokenMs, result.ImageCount),
 		ImageCount:            result.ImageCount,
 		ImageSize:             optionalTrimmedStringPtr(result.ImageSize),
 		ImageInputSize:        optionalTrimmedStringPtr(result.ImageInputSize),

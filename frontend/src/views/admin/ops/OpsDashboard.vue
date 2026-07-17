@@ -90,6 +90,18 @@
         />
       </div>
 
+      <!-- Row: Image Generation -->
+      <div v-if="opsEnabled && showImageGenerationStats && !(loading && !hasLoadedOnce)" class="grid grid-cols-1 gap-6">
+        <OpsImageGenerationStatsCard
+          :time-range="timeRange"
+          :custom-start-time="customStartTime"
+          :custom-end-time="customEndTime"
+          :platform-filter="platform"
+          :group-id-filter="groupId"
+          :refresh-token="dashboardRefreshToken"
+        />
+      </div>
+
       <!-- Row: OpenAI Token Stats -->
       <div v-if="opsEnabled && showOpenAITokenStats && !(loading && !hasLoadedOnce)" class="grid grid-cols-1 gap-6">
         <OpsOpenAITokenStatsCard
@@ -177,6 +189,7 @@ import OpsErrorDistributionChart from './components/OpsErrorDistributionChart.vu
 import OpsErrorDetailsModal from './components/OpsErrorDetailsModal.vue'
 import OpsErrorTrendChart from './components/OpsErrorTrendChart.vue'
 import OpsLatencyChart from './components/OpsLatencyChart.vue'
+import OpsImageGenerationStatsCard from './components/OpsImageGenerationStatsCard.vue'
 import OpsThroughputTrendChart from './components/OpsThroughputTrendChart.vue'
 import OpsSwitchRateTrendChart from './components/OpsSwitchRateTrendChart.vue'
 import OpsAlertEventsCard from './components/OpsAlertEventsCard.vue'
@@ -408,6 +421,7 @@ const showThroughputTrend = ref(true)
 const showLatencyHistogram = ref(true)
 const showErrorDistribution = ref(true)
 const showErrorTrend = ref(true)
+const showImageGenerationStats = ref(true)
 const autoRefreshEnabled = ref(false)
 const autoRefreshIntervalMs = ref(30000) // default 30 seconds
 const autoRefreshCountdown = ref(0)
@@ -459,6 +473,7 @@ function applyDashboardAdvancedSettings(settings: OpsAdvancedSettings) {
   showLatencyHistogram.value = settings.display_latency_histogram
   showErrorDistribution.value = settings.display_error_distribution
   showErrorTrend.value = settings.display_error_trend
+  showImageGenerationStats.value = settings.display_image_generation_stats ?? true
   showAlertEvents.value = settings.display_alert_events
   showOpenAITokenStats.value = settings.display_openai_token_stats
   showUserUsageStats.value = settings.display_user_usage_stats
@@ -481,6 +496,7 @@ function resetDashboardAdvancedSettings() {
   showLatencyHistogram.value = true
   showErrorDistribution.value = true
   showErrorTrend.value = true
+  showImageGenerationStats.value = true
   showAlertEvents.value = true
   showOpenAITokenStats.value = false
   showUserUsageStats.value = false

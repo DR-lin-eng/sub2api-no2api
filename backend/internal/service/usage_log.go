@@ -192,6 +192,13 @@ type UsageLog struct {
 	Subscription *UserSubscription
 }
 
+func usageFirstTokenMs(firstTokenMs *int, imageCount int) *int {
+	if imageCount > 0 {
+		return nil
+	}
+	return firstTokenMs
+}
+
 func (u *UsageLog) TotalTokens() int {
 	return u.InputTokens + u.OutputTokens + u.CacheCreationTokens + u.CacheReadTokens
 }

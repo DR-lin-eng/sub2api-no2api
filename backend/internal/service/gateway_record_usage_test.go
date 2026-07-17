@@ -194,6 +194,7 @@ func TestGatewayServiceRecordUsage_PreservesRequestedAndUpstreamModels(t *testin
 }
 
 func TestGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndPersistence(t *testing.T) {
+	firstTokenMs := 9000
 	imagePrice2K := 0.19
 	groupID := int64(901)
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
@@ -206,6 +207,7 @@ func TestGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndPersist
 			ImageCount:     1,
 			ImageInputSize: "auto",
 			Duration:       time.Second,
+			FirstTokenMs:   &firstTokenMs,
 		},
 		APIKey: &APIKey{
 			ID:      801,
@@ -223,6 +225,7 @@ func TestGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndPersist
 	require.NoError(t, err)
 	require.NotNil(t, usageRepo.lastLog)
 	require.Equal(t, 1, usageRepo.lastLog.ImageCount)
+	require.Nil(t, usageRepo.lastLog.FirstTokenMs)
 	require.NotNil(t, usageRepo.lastLog.ImageSize)
 	require.Equal(t, ImageBillingSize2K, *usageRepo.lastLog.ImageSize)
 	require.NotNil(t, usageRepo.lastLog.ImageInputSize)

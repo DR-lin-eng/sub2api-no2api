@@ -46,6 +46,17 @@ type OpsService struct {
 	// UpdateOpsAdvancedSettings 写入新配置后调用，把最新的 quota auto-pause 全局默认阈值
 	// 立即同步到调度热路径读取的内存缓存，避免下次请求才能感知新值。
 	quotaAutoPauseSink func(OpsOpenAIAccountQuotaAutoPauseSettings)
+
+	imageConcurrencySnapshot func() (active int, waiting int)
+}
+
+// SetImageConcurrencySnapshotProvider connects the gateway's process-local image
+// limiter to the read-only Ops view without making Ops part of the request path.
+func (s *OpsService) SetImageConcurrencySnapshotProvider(provider func() (active int, waiting int)) {
+	if s == nil {
+		return
+	}
+	s.imageConcurrencySnapshot = provider
 }
 
 // CleanupReloader 由 OpsCleanupService 实现。

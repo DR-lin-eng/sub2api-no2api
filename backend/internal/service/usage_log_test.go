@@ -41,6 +41,16 @@ func TestParseUsageRequestType(t *testing.T) {
 	}
 }
 
+func TestUsageFirstTokenMsExcludesImageGeneration(t *testing.T) {
+	ttft := 123
+	if got := usageFirstTokenMs(&ttft, 0); got == nil || *got != ttft {
+		t.Fatalf("usageFirstTokenMs(non-image) = %v, want %d", got, ttft)
+	}
+	if got := usageFirstTokenMs(&ttft, 1); got != nil {
+		t.Fatalf("usageFirstTokenMs(image) = %v, want nil", got)
+	}
+}
+
 func TestRequestTypeNormalizeAndString(t *testing.T) {
 	t.Parallel()
 

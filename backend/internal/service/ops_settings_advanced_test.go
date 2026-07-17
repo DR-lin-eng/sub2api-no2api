@@ -29,6 +29,9 @@ func TestGetOpsAdvancedSettings_DefaultHidesOpenAITokenStats(t *testing.T) {
 	if !cfg.DisplayLatencyHistogram || !cfg.DisplayErrorDistribution || !cfg.DisplayErrorTrend {
 		t.Fatalf("analysis dashboard panels should be visible by default: %+v", cfg)
 	}
+	if !cfg.DisplayImageGenerationStats {
+		t.Fatalf("DisplayImageGenerationStats = false, want true by default")
+	}
 	if !cfg.DisplayAlertEvents {
 		t.Fatalf("DisplayAlertEvents = false, want true by default")
 	}
@@ -56,6 +59,7 @@ func TestUpdateOpsAdvancedSettings_PersistsOpenAITokenStatsVisibility(t *testing
 	cfg.DisplayLatencyHistogram = false
 	cfg.DisplayErrorDistribution = false
 	cfg.DisplayErrorTrend = false
+	cfg.DisplayImageGenerationStats = false
 	cfg.DisplayAlertEvents = false
 	cfg.DisplaySystemLogs = false
 
@@ -74,6 +78,9 @@ func TestUpdateOpsAdvancedSettings_PersistsOpenAITokenStatsVisibility(t *testing
 	}
 	if updated.DisplayLatencyHistogram || updated.DisplayErrorDistribution || updated.DisplayErrorTrend {
 		t.Fatalf("analysis dashboard panel settings were not persisted: %+v", updated)
+	}
+	if updated.DisplayImageGenerationStats {
+		t.Fatalf("DisplayImageGenerationStats = true, want false")
 	}
 	if updated.DisplayAlertEvents {
 		t.Fatalf("DisplayAlertEvents = true, want false")
@@ -97,6 +104,9 @@ func TestUpdateOpsAdvancedSettings_PersistsOpenAITokenStatsVisibility(t *testing
 	}
 	if reloaded.DisplayLatencyHistogram || reloaded.DisplayErrorDistribution || reloaded.DisplayErrorTrend {
 		t.Fatalf("reloaded analysis dashboard panel settings were not persisted: %+v", reloaded)
+	}
+	if reloaded.DisplayImageGenerationStats {
+		t.Fatalf("reloaded DisplayImageGenerationStats = true, want false")
 	}
 	if reloaded.DisplayAlertEvents {
 		t.Fatalf("reloaded DisplayAlertEvents = true, want false")
@@ -149,6 +159,9 @@ func TestGetOpsAdvancedSettings_BackfillsNewDisplayFlagsFromDefaults(t *testing.
 	}
 	if !cfg.DisplayLatencyHistogram || !cfg.DisplayErrorDistribution || !cfg.DisplayErrorTrend {
 		t.Fatalf("analysis dashboard panels should be backfilled as visible: %+v", cfg)
+	}
+	if !cfg.DisplayImageGenerationStats {
+		t.Fatalf("DisplayImageGenerationStats = false, want true default backfill")
 	}
 	if !cfg.DisplayAlertEvents {
 		t.Fatalf("DisplayAlertEvents = false, want true default backfill")

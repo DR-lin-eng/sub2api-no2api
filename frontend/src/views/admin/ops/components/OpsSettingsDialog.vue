@@ -57,6 +57,9 @@ async function loadAllSettings() {
     if (advancedSettings.value && !advancedSettings.value.openai_account_quota_auto_pause) {
       advancedSettings.value.openai_account_quota_auto_pause = { default_threshold_5h: 0, default_threshold_7d: 0 }
     }
+    if (advancedSettings.value && typeof advancedSettings.value.display_image_generation_stats !== 'boolean') {
+      advancedSettings.value.display_image_generation_stats = true
+    }
     // 如果后端返回了阈值，使用后端的值；否则保持默认值
     if (settings.metric_thresholds && Object.keys(settings.metric_thresholds).length > 0) {
         metricThresholds.value = {
@@ -715,6 +718,16 @@ async function saveAllSettings() {
                 </p>
               </div>
               <Toggle v-model="advancedSettings.display_error_trend" />
+            </div>
+
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.ops.settings.displayImageGenerationStats') }}</label>
+                <p class="mt-1 text-xs text-gray-500">
+                  {{ t('admin.ops.settings.displayImageGenerationStatsHint') }}
+                </p>
+              </div>
+              <Toggle v-model="advancedSettings.display_image_generation_stats" />
             </div>
 
             <div class="flex items-center justify-between">

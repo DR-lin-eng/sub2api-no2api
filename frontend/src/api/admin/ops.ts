@@ -214,6 +214,51 @@ export interface OpsDashboardSnapshotV2Response {
   error_distribution?: OpsErrorDistributionResponse | null
 }
 
+export interface OpsImageGenerationResolutionStats {
+  resolution: string
+  billing_tier: string
+  request_count: number
+  image_count: number
+  avg_duration_ms?: number | null
+  p95_duration_ms?: number | null
+  max_duration_ms?: number | null
+}
+
+export interface OpsImageGenerationRealtime {
+  available: boolean
+  scope: 'instance'
+  enabled: boolean
+  current_concurrent: number
+  waiting: number
+  limit: number
+  max_waiting: number
+}
+
+export interface OpsImageGenerationStatsResponse {
+  start_time: string
+  end_time: string
+  platform?: string
+  group_id?: number | null
+  request_count: number
+  image_count: number
+  requests_per_minute: number
+  avg_duration_ms?: number | null
+  p95_duration_ms?: number | null
+  max_duration_ms?: number | null
+  average_concurrent: number
+  peak_concurrent: number
+  realtime: OpsImageGenerationRealtime
+  by_resolution: OpsImageGenerationResolutionStats[]
+}
+
+export interface OpsImageGenerationStatsParams {
+  time_range?: '5m' | '30m' | '1h' | '6h' | '24h'
+  start_time?: string
+  end_time?: string
+  platform?: string
+  group_id?: number | null
+}
+
 export type OpsOpenAITokenStatsTimeRange = '30m' | '1h' | '1d' | '15d' | '30d'
 
 export interface OpsOpenAITokenStatsItem {
@@ -845,6 +890,7 @@ export interface OpsAdvancedSettings {
   display_latency_histogram: boolean
   display_error_distribution: boolean
   display_error_trend: boolean
+  display_image_generation_stats: boolean
   auto_refresh_enabled: boolean
   auto_refresh_interval_seconds: number
 }
@@ -1140,6 +1186,17 @@ export async function getErrorDistribution(
   return data
 }
 
+export async function getImageGenerationStats(
+  params: OpsImageGenerationStatsParams,
+  options: OpsRequestOptions = {}
+): Promise<OpsImageGenerationStatsResponse> {
+  const { data } = await apiClient.get<OpsImageGenerationStatsResponse>('/admin/ops/dashboard/image-generation-stats', {
+    params,
+    signal: options.signal
+  })
+  return data
+}
+
 export async function getOpenAITokenStats(
   params: OpsOpenAITokenStatsParams,
   options: OpsRequestOptions = {}
@@ -1400,6 +1457,7 @@ export const opsAPI = {
   getLatencyHistogram,
   getErrorTrend,
   getErrorDistribution,
+  getImageGenerationStats,
   getOpenAITokenStats,
   getUserUsageStats,
   getConcurrencyStats,

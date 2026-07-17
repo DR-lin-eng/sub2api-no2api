@@ -768,6 +768,8 @@ export default {
         displayErrorDistributionHint: 'When disabled, the status-code error distribution query is omitted from the core snapshot.',
         displayErrorTrend: 'Show Error Trend',
         displayErrorTrendHint: 'When disabled, the error time-series aggregation is omitted from the core snapshot.',
+        displayImageGenerationStats: 'Display image generation monitoring',
+        displayImageGenerationStatsHint: 'When disabled, image latency, resolution, throughput, and concurrency data are not queried.',
         displayAlertEvents: 'Display alert events',
         displayAlertEventsHint: 'When disabled, alert event data is not loaded. Enabled by default.',
         displayOpenAITokenStats: 'Display OpenAI token request stats',
@@ -804,6 +806,31 @@ export default {
         rateLimited: 'Rate-limited {count}',
         errorAccounts: 'Errors {count}',
         loadFailed: 'Failed to load concurrency data'
+      },
+      imageGeneration: {
+        title: 'Image generation monitoring',
+        windowScope: 'Current filter window',
+        images: 'Images generated',
+        requests: 'Completed requests',
+        avgDuration: 'Average duration',
+        p95Duration: 'P95 duration',
+        requestsPerMinute: 'Requests per minute',
+        windowConcurrency: 'Average / peak concurrency',
+        instanceConcurrency: 'Current instance concurrency',
+        instanceQueue: 'Current instance queue',
+        unlimited: 'Unlimited',
+        unknownResolution: 'Actual size not recorded',
+        empty: 'No completed image generation requests in this filter window.',
+        failedToLoad: 'Failed to load image generation monitoring data',
+        table: {
+          resolution: 'Output resolution',
+          billingTier: 'Billing tier',
+          requests: 'Requests',
+          images: 'Images',
+          avgDuration: 'Average duration',
+          p95Duration: 'P95 duration',
+          maxDuration: 'Maximum duration'
+        }
       },
       realtime: {
         title: 'Realtime',

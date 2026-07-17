@@ -96,7 +96,7 @@ WITH combined AS (
     COALESCE(NULLIF(g.platform, ''), NULLIF(a.platform, ''), '') AS platform,
     ul.model AS model,
     ul.duration_ms AS duration_ms,
-    ul.first_token_ms AS first_token_ms,
+    CASE WHEN COALESCE(ul.image_count, 0) = 0 THEN ul.first_token_ms END AS first_token_ms,
     NULL::INT AS status_code,
     NULL::BIGINT AS error_id,
     NULL::TEXT AS phase,

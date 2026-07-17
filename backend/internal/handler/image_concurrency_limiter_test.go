@@ -22,7 +22,13 @@ func TestImageConcurrencyLimiter_DefaultDisabledAllowsRequests(t *testing.T) {
 	release, acquired := limiter.TryAcquire(false, 1)
 
 	require.True(t, acquired)
-	require.Nil(t, release)
+	require.NotNil(t, release)
+	active, waiting := limiter.Snapshot()
+	require.Equal(t, 1, active)
+	require.Zero(t, waiting)
+	release()
+	active, _ = limiter.Snapshot()
+	require.Zero(t, active)
 }
 
 func TestImageConcurrencyLimiter_RejectsWhenLimitReachedAndAllowsAfterRelease(t *testing.T) {
@@ -41,6 +47,22 @@ func TestImageConcurrencyLimiter_RejectsWhenLimitReachedAndAllowsAfterRelease(t 
 	require.True(t, thirdAcquired)
 	require.NotNil(t, thirdRelease)
 	thirdRelease()
+}
+
+func TestImageConcurrencyLimiter_SnapshotTracksActiveSlots(t *testing.T) {
+	limiter := &imageConcurrencyLimiter{}
+	release, acquired := limiter.TryAcquire(true, 2)
+	require.True(t, acquired)
+	require.NotNil(t, release)
+
+	active, waiting := limiter.Snapshot()
+	require.Equal(t, 1, active)
+	require.Zero(t, waiting)
+
+	release()
+	active, waiting = limiter.Snapshot()
+	require.Zero(t, active)
+	require.Zero(t, waiting)
 }
 
 func TestImageConcurrencyLimiter_WaitsUntilSlotReleased(t *testing.T) {

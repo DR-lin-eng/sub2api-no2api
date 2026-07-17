@@ -34,7 +34,7 @@ WITH usage_base AS (
     g.platform AS platform,
     ul.group_id AS group_id,
     ul.duration_ms AS duration_ms,
-    ul.first_token_ms AS first_token_ms,
+    CASE WHEN COALESCE(ul.image_count, 0) = 0 THEN ul.first_token_ms END AS first_token_ms,
     (ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens) AS tokens
   FROM usage_logs ul
   JOIN groups g ON g.id = ul.group_id

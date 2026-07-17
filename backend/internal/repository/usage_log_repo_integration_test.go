@@ -1507,6 +1507,8 @@ func (s *UsageLogRepoSuite) TestGetAccountUsageStats() {
 	base := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
 	firstTokenMs := 120
 	otherFirstTokenMs := 900
+	imageFirstTokenMs := 5000
+	imageSize := "1K"
 
 	// Create logs on different days
 	log1 := &service.UsageLog{
@@ -1538,6 +1540,19 @@ func (s *UsageLogRepoSuite) TestGetAccountUsageStats() {
 	_, err = s.repo.Create(s.ctx, log2)
 	s.Require().NoError(err)
 
+	imageLog := &service.UsageLog{
+		UserID:       user.ID,
+		APIKeyID:     apiKey.ID,
+		AccountID:    account.ID,
+		Model:        "claude-3-opus",
+		FirstTokenMs: &imageFirstTokenMs,
+		ImageCount:   1,
+		ImageSize:    &imageSize,
+		CreatedAt:    base.Add(13 * time.Hour),
+	}
+	_, err = s.repo.Create(s.ctx, imageLog)
+	s.Require().NoError(err)
+
 	otherLog := &service.UsageLog{
 		UserID:       user.ID,
 		APIKeyID:     apiKey.ID,
@@ -1556,7 +1571,7 @@ func (s *UsageLogRepoSuite) TestGetAccountUsageStats() {
 	s.Require().NoError(err, "GetAccountUsageStats")
 
 	s.Require().Len(resp.History, 2, "expected 2 days of history")
-	s.Require().Equal(int64(2), resp.Summary.TotalRequests)
+	s.Require().Equal(int64(3), resp.Summary.TotalRequests)
 	s.Require().Equal(int64(450), resp.Summary.TotalTokens)
 	s.Require().NotNil(resp.Summary.AvgFirstTokenMs)
 	s.Require().Equal(float64(firstTokenMs), *resp.Summary.AvgFirstTokenMs)

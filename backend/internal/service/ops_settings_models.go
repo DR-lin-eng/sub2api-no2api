@@ -107,6 +107,7 @@ type OpsAdvancedSettings struct {
 	DisplayLatencyHistogram         bool                                   `json:"display_latency_histogram"`
 	DisplayErrorDistribution        bool                                   `json:"display_error_distribution"`
 	DisplayErrorTrend               bool                                   `json:"display_error_trend"`
+	DisplayImageGenerationStats     bool                                   `json:"display_image_generation_stats"`
 	DisplayOpenAITokenStats         bool                                   `json:"display_openai_token_stats"`
 	DisplayUserUsageStats           bool                                   `json:"display_user_usage_stats"`
 	DisplayAlertEvents              bool                                   `json:"display_alert_events"`

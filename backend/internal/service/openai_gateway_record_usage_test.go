@@ -1668,6 +1668,7 @@ func TestOpenAIGatewayServiceRecordUsage_SimpleModeSkipsBillingAfterPersist(t *t
 }
 
 func TestOpenAIGatewayServiceRecordUsage_ImageOnlyUsageStillPersists(t *testing.T) {
+	firstTokenMs := 8000
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
@@ -1675,11 +1676,12 @@ func TestOpenAIGatewayServiceRecordUsage_ImageOnlyUsageStillPersists(t *testing.
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
-			RequestID:  "resp_image_only_usage",
-			Model:      "gpt-image-2",
-			ImageCount: 2,
-			ImageSize:  "1K",
-			Duration:   time.Second,
+			RequestID:    "resp_image_only_usage",
+			Model:        "gpt-image-2",
+			ImageCount:   2,
+			ImageSize:    "1K",
+			Duration:     time.Second,
+			FirstTokenMs: &firstTokenMs,
 		},
 		APIKey:  &APIKey{ID: 1007},
 		User:    &User{ID: 2007},
@@ -1689,6 +1691,7 @@ func TestOpenAIGatewayServiceRecordUsage_ImageOnlyUsageStillPersists(t *testing.
 	require.NoError(t, err)
 	require.NotNil(t, usageRepo.lastLog)
 	require.Equal(t, 2, usageRepo.lastLog.ImageCount)
+	require.Nil(t, usageRepo.lastLog.FirstTokenMs)
 	require.NotNil(t, usageRepo.lastLog.ImageSize)
 	require.Equal(t, "1K", *usageRepo.lastLog.ImageSize)
 	require.NotNil(t, usageRepo.lastLog.BillingMode)

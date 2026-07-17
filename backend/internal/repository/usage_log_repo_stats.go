@@ -1090,7 +1090,7 @@ func (r *usageLogRepository) GetAccountUsageStats(ctx context.Context, accountID
 	avgQuery := `
 		SELECT
 			COALESCE(AVG(duration_ms), 0) as avg_duration_ms,
-			AVG(first_token_ms) as avg_first_token_ms
+			AVG(first_token_ms) FILTER (WHERE COALESCE(image_count, 0) = 0) as avg_first_token_ms
 		FROM usage_logs
 		WHERE account_id = $1 AND created_at >= $2 AND created_at < $3
 	`
