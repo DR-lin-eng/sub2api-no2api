@@ -2,6 +2,8 @@ package openai_compat
 
 import "testing"
 
+var benchmarkGPT56SeriesModel bool
+
 func TestShouldRejectGPT56ResponsesExplicitCache(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -60,5 +62,12 @@ func TestShouldRejectGPT56ResponsesExplicitCache(t *testing.T) {
 				t.Fatalf("ShouldRejectGPT56ResponsesExplicitCache(%q, body) = %v, want %v", tc.model, got, tc.want)
 			}
 		})
+	}
+}
+
+func BenchmarkIsGPT56SeriesModel(b *testing.B) {
+	b.ReportAllocs()
+	for b.Loop() {
+		benchmarkGPT56SeriesModel = IsGPT56SeriesModel("openai/GPT-5.6-LUNA-2026-07-09")
 	}
 }

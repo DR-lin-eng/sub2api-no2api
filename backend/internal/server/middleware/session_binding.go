@@ -49,11 +49,6 @@ func newSessionBinding(c *gin.Context, includeIP bool) *service.SessionBinding {
 	return binding
 }
 
-// currentSessionBindingHash 返回当前请求会话绑定的哈希。
-func currentSessionBindingHash(c *gin.Context) string {
-	return service.SessionBindingFromContext(c.Request.Context()).Hash()
-}
-
 // enforceSessionBinding 校验 access token 的会话指纹（始终绑定 UA，按可信代理配置可选绑定 IP）。
 // 指纹不匹配时：撤销该会话家族的所有 refresh token、写入审计安全事件、返回 401。
 // 返回 false 表示请求已被中断。

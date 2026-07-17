@@ -132,30 +132,3 @@ func TestRequestSessionBindingPrefersInjectedBinding(t *testing.T) {
 	r.ServeHTTP(w, req)
 	require.Equal(t, http.StatusOK, w.Code)
 }
-
-func TestCurrentSessionBindingHashUsesRequestContext(t *testing.T) {
-	engine := gin.New()
-	require.NoError(t, engine.SetTrustedProxies(nil))
-	engine.Use(SessionBindingContext(false))
-
-	var got string
-	engine.GET("/", func(c *gin.Context) {
-		got = currentSessionBindingHash(c)
-		c.Status(http.StatusNoContent)
-	})
-	request := httptest.NewRequest(http.MethodGet, "/", nil)
-	request.RemoteAddr = "9.9.9.9:1234"
-	request.Header.Set("User-Agent", "Mozilla/5.0")
-	recorder := httptest.NewRecorder()
-	engine.ServeHTTP(recorder, request)
-
-	want := (&service.SessionBinding{UserAgent: "Mozilla/5.0"}).Hash()
-	assert.Equal(t, http.StatusNoContent, recorder.Code)
-	assert.Equal(t, want, got)
-}
-
-func TestCurrentSessionBindingHashAllowsMissingContextBinding(t *testing.T) {
-	context, _ := gin.CreateTestContext(httptest.NewRecorder())
-	context.Request = httptest.NewRequest(http.MethodGet, "/", nil)
-	assert.Empty(t, currentSessionBindingHash(context))
-}

@@ -87,6 +87,30 @@ describe('user DashboardView API key usage orchestration', () => {
     expect(getDashboardApiKeysUsage.mock.calls.flatMap(call => call[0])).toEqual(Array.from({ length: 201 }, (_, i) => i + 1))
   })
 
+  it('limits parallel API key page requests to four', async () => {
+    const gate = deferred<void>()
+    let inFlight = 0
+    let maxInFlight = 0
+    keysList.mockImplementation(async (pageNumber: number) => {
+      if (pageNumber === 1) return page([], 1, 7)
+      inFlight += 1
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      await gate.promise
+      inFlight -= 1
+      return page([], pageNumber, 7)
+    })
+
+    mountDashboard()
+    await flushPromises()
+
+    expect(maxInFlight).toBe(4)
+    expect(keysList).toHaveBeenCalledTimes(5)
+    gate.resolve()
+    await flushPromises()
+    expect(keysList).toHaveBeenCalledTimes(7)
+    expect(maxInFlight).toBe(4)
+  })
+
   it('uses request date snapshots and ignores stale completion and loading cleanup', async () => {
     keysList.mockResolvedValue(page([key(1)], 1, 1))
     const first = deferred<{ stats: Record<string, any> }>()

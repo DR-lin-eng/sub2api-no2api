@@ -17,10 +17,13 @@ func ShouldRejectGPT56ResponsesExplicitCache(model string, body []byte) bool {
 // IsGPT56SeriesModel matches GPT-5.6 model names, including provider-prefixed
 // aliases such as "openai/gpt-5.6-sol".
 func IsGPT56SeriesModel(model string) bool {
-	normalized := strings.ToLower(strings.TrimSpace(model))
+	normalized := strings.TrimSpace(model)
 	if slash := strings.LastIndex(normalized, "/"); slash >= 0 {
 		normalized = normalized[slash+1:]
 	}
-
-	return normalized == "gpt-5.6" || strings.HasPrefix(normalized, "gpt-5.6-")
+	const prefix = "gpt-5.6"
+	if len(normalized) < len(prefix) || !strings.EqualFold(normalized[:len(prefix)], prefix) {
+		return false
+	}
+	return len(normalized) == len(prefix) || normalized[len(prefix)] == '-'
 }

@@ -34,6 +34,20 @@ const loadingApiKeys = ref(false)
 const apiKeyUsageError = ref(false)
 const apiKeyUsageRows = ref<Array<{ id: number, name: string, totalTokens: number, actualSpend: number }>>([])
 let apiKeyUsageGeneration = 0
+const apiKeyUsageRequestConcurrency = 4
+
+async function mapWithConcurrency<T, R>(items: T[], limit: number, worker: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let nextIndex = 0
+  const workerCount = Math.min(Math.max(1, limit), items.length)
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex++
+      results[index] = await worker(items[index]!)
+    }
+  }))
+  return results
+}
 
 const startDate = ref(formatDateLocalInput(new Date(Date.now() - 6 * 86400000))); const endDate = ref(formatDateLocalInput(new Date())); const granularity = ref('day')
 
@@ -47,23 +61,29 @@ const loadApiKeyUsage = async () => {
   loadingApiKeys.value = true
   apiKeyUsageError.value = false
   try {
-    const keys: ApiKey[] = []
-    let page = 1
-    let pages = 1
-    do {
-      const response = await keysAPI.list(page, 100)
-      keys.push(...response.items)
-      pages = response.pages
-      page += 1
-    } while (page <= pages)
+    const firstPage = await keysAPI.list(1, 100)
+    const remainingPages = Array.from({ length: Math.max(0, firstPage.pages - 1) }, (_, index) => index + 2)
+    const pageResponses = await mapWithConcurrency(
+      remainingPages,
+      apiKeyUsageRequestConcurrency,
+      page => keysAPI.list(page, 100)
+    )
+    const keys: ApiKey[] = [firstPage, ...pageResponses].flatMap(response => response.items)
+    if (generation !== apiKeyUsageGeneration) return
 
     const stats = new Map<number, { total_tokens: number, total_actual_cost: number }>()
-    for (let offset = 0; offset < keys.length; offset += 100) {
-      const ids = keys.slice(offset, offset + 100).map(key => key.id)
-      const response = await usageAPI.getDashboardApiKeysUsage(ids, {
+    const idBatches = Array.from({ length: Math.ceil(keys.length / 100) }, (_, index) =>
+      keys.slice(index * 100, index * 100 + 100).map(key => key.id)
+    )
+    const usageResponses = await mapWithConcurrency(
+      idBatches,
+      apiKeyUsageRequestConcurrency,
+      ids => usageAPI.getDashboardApiKeysUsage(ids, {
         startDate: range.startDate,
         endDate: range.endDate
       })
+    )
+    for (const response of usageResponses) {
       Object.values(response.stats).forEach(item => stats.set(item.api_key_id, item))
     }
     if (generation !== apiKeyUsageGeneration) return

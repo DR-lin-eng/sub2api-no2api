@@ -12,6 +12,26 @@ type benchmarkAccountLoadCache struct {
 	loadMap map[int64]*AccountLoadInfo
 }
 
+type benchmarkAPIKeyConcurrencyCache struct {
+	ConcurrencyCache
+}
+
+func (benchmarkAPIKeyConcurrencyCache) AcquireAPIKeySlot(context.Context, int64, int, string) (bool, error) {
+	return true, nil
+}
+
+func (benchmarkAPIKeyConcurrencyCache) TrackAPIKeySlot(context.Context, int64, string) error {
+	return nil
+}
+
+func (benchmarkAPIKeyConcurrencyCache) ReleaseAPIKeySlot(context.Context, int64, string) error {
+	return nil
+}
+
+func (benchmarkAPIKeyConcurrencyCache) GetAPIKeyConcurrencyBatch(context.Context, []int64) (map[int64]int, error) {
+	return nil, nil
+}
+
 func (c benchmarkAccountLoadCache) GetAccountsLoadBatch(_ context.Context, _ []AccountWithConcurrency) (map[int64]*AccountLoadInfo, error) {
 	return c.loadMap, nil
 }
@@ -103,4 +123,28 @@ func BenchmarkConcurrencyServiceAccountLoadCache(b *testing.B) {
 			b.Fatal("cached service result has the wrong size")
 		}
 	})
+}
+
+func BenchmarkConcurrencyServiceAPIKeySlot(b *testing.B) {
+	svc := NewConcurrencyService(benchmarkAPIKeyConcurrencyCache{})
+	ctx := context.Background()
+
+	for _, tc := range []struct {
+		name  string
+		limit int
+	}{
+		{name: "unlimited_tracking", limit: 0},
+		{name: "limited_atomic_acquire", limit: 8},
+	} {
+		b.Run(tc.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				result, err := svc.AcquireAPIKeySlot(ctx, 42, tc.limit)
+				if err != nil || !result.Acquired {
+					b.Fatalf("AcquireAPIKeySlot() = (%v, %v)", result, err)
+				}
+				result.ReleaseFunc()
+			}
+		})
+	}
 }

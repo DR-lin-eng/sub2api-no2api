@@ -993,7 +993,7 @@ func TestOpenAIGatewayService_OAuthPassthrough_ResponseHeadersAllowXCodex(t *tes
 	require.Equal(t, "34", rec.Header().Get("x-codex-secondary-used-percent"))
 }
 
-func TestOpenAIGatewayService_OAuthPassthrough_AllUpstreamErrorsFailOverWithoutCommittingResponse(t *testing.T) {
+func TestOpenAIGatewayService_OAuthPassthrough_AccountAuthErrorFailsOverWithoutCommittingResponse(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	rec := httptest.NewRecorder()
@@ -1004,7 +1004,7 @@ func TestOpenAIGatewayService_OAuthPassthrough_AllUpstreamErrorsFailOverWithoutC
 	originalBody := []byte(`{"model":"gpt-5.2","stream":false,"input":[{"type":"text","text":"hi"}]}`)
 
 	resp := &http.Response{
-		StatusCode: http.StatusBadRequest,
+		StatusCode: http.StatusUnauthorized,
 		Header:     http.Header{"Content-Type": []string{"application/json"}, "X-Request-Id": []string{"rid"}},
 		Body:       io.NopCloser(strings.NewReader(`{"error":{"message":"bad"}}`)),
 	}
@@ -1032,13 +1032,13 @@ func TestOpenAIGatewayService_OAuthPassthrough_AllUpstreamErrorsFailOverWithoutC
 	require.Error(t, err)
 	var failoverErr *UpstreamFailoverError
 	require.ErrorAs(t, err, &failoverErr)
-	require.Equal(t, http.StatusBadRequest, failoverErr.StatusCode)
+	require.Equal(t, http.StatusUnauthorized, failoverErr.StatusCode)
 	require.True(t, failoverErr.PreserveUpstreamResponse)
 	require.Equal(t, "upstream_error", gjson.GetBytes(failoverErr.ResponseBody, "error.type").String())
-	require.Equal(t, "Upstream request failed", gjson.GetBytes(failoverErr.ResponseBody, "error.message").String())
+	require.Equal(t, "Upstream authentication failed", gjson.GetBytes(failoverErr.ResponseBody, "error.message").String())
 	require.Empty(t, failoverErr.ResponseHeaders.Get("x-request-id"))
 	require.Contains(t, failoverErr.ResponseHeaders.Get("Content-Type"), "application/json")
-	require.False(t, c.Writer.Written(), "所有 passthrough 上游 HTTP 错误都应交给 handler 切号")
+	require.False(t, c.Writer.Written(), "账号鉴权错误应交给 handler 切号")
 	require.Empty(t, rec.Body.String())
 
 	// should append an upstream error event with passthrough=true
@@ -1321,7 +1321,7 @@ func TestOpenAIGatewayService_HandlePassthroughError_CompactAfterKeepaliveIsFail
 	require.NotContains(t, rec.Body.String(), "secret-upstream.example")
 }
 
-func TestOpenAIGatewayService_OpenAIPassthrough_AllUpstreamHTTPErrorStatusesTriggerFailover(t *testing.T) {
+func TestOpenAIGatewayService_OpenAIPassthrough_AccountAndTransientHTTPErrorStatusesTriggerFailover(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	originalBody := []byte(`{"model":"gpt-5.2","stream":false,"instructions":"local-test-instructions","input":[{"type":"text","text":"hi"}]}`)
 

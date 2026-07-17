@@ -540,8 +540,32 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthrough(
 	return req, nil
 }
 
-func shouldFailoverOpenAIPassthroughResponse(_ *Account, statusCode int, _ []byte) bool {
-	return statusCode >= http.StatusBadRequest
+func shouldFailoverOpenAIPassthroughResponse(_ *Account, statusCode int, responseBody []byte) bool {
+	if statusCode < http.StatusBadRequest {
+		return false
+	}
+	if cyberHit, _, _ := detectOpenAICyberPolicy(responseBody); cyberHit {
+		return false
+	}
+	if isOpenAIRequestBodyTooLargeError(statusCode, "", responseBody) {
+		return true
+	}
+	switch statusCode {
+	case http.StatusBadRequest, http.StatusConflict, http.StatusUnprocessableEntity:
+		// These normally describe the request itself. Trying every account only
+		// multiplies latency and upstream traffic for a deterministic failure.
+		return false
+	case http.StatusUnauthorized,
+		http.StatusPaymentRequired,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusRequestTimeout,
+		http.StatusTooEarly,
+		http.StatusTooManyRequests:
+		return true
+	default:
+		return statusCode >= http.StatusInternalServerError
+	}
 }
 
 func writeOpenAIPassthroughErrorHeaders(dst, src http.Header) {

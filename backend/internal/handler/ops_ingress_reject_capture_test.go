@@ -23,3 +23,20 @@ func TestOpsCaptureWriterDoesNotCopyIngressRejectBody(t *testing.T) {
 	require.NoError(t, err)
 	require.Zero(t, writer.buf.Len())
 }
+
+func BenchmarkOpsCaptureWriterSuccessWrite(b *testing.B) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	writer := acquireOpsCaptureWriter(context.Writer)
+	defer releaseOpsCaptureWriter(writer)
+	writer.ctx = context
+	context.Writer = writer
+	context.Status(http.StatusOK)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		recorder.Body.Reset()
+		_, _ = context.Writer.WriteString("ok")
+	}
+}
