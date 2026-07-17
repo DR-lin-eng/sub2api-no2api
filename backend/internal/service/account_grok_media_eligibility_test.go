@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var grokMediaEligibilityBenchmarkResult bool
+
 func TestGrokMediaGenerationEligibility(t *testing.T) {
 	forbiddenBilling := &xai.BillingSummary{
 		StatusCode:        http.StatusForbidden,
@@ -48,6 +50,9 @@ func TestGrokMediaGenerationEligibility(t *testing.T) {
 		{name: "billing forbidden is rejected", account: &Account{Platform: PlatformGrok, Type: AccountTypeOAuth, Extra: map[string]any{grokBillingExtraKey: forbiddenBilling}}, want: false, wantReason: "billing_forbidden"},
 		{name: "weekly billing forbidden is rejected after partial success", account: &Account{Platform: PlatformGrok, Type: AccountTypeOAuth, Extra: map[string]any{grokBillingExtraKey: weeklyForbidden}}, want: false, wantReason: "billing_forbidden"},
 		{name: "monthly billing forbidden is rejected after partial success", account: &Account{Platform: PlatformGrok, Type: AccountTypeOAuth, Extra: map[string]any{grokBillingExtraKey: monthlyForbidden}}, want: false, wantReason: "billing_forbidden"},
+		{name: "cached billing map remains eligible", account: &Account{Platform: PlatformGrok, Type: AccountTypeOAuth, Extra: map[string]any{grokBillingExtraKey: map[string]any{"status_code": float64(http.StatusOK)}}}, want: true, wantReason: "eligible"},
+		{name: "cached weekly forbidden is rejected", account: &Account{Platform: PlatformGrok, Type: AccountTypeOAuth, Extra: map[string]any{grokBillingExtraKey: map[string]any{"weekly_status_code": float64(http.StatusForbidden)}}}, want: false, wantReason: "billing_forbidden"},
+		{name: "malformed cached status preserves legacy routing", account: &Account{Platform: PlatformGrok, Type: AccountTypeOAuth, Extra: map[string]any{grokBillingExtraKey: map[string]any{"status_code": "403"}}}, want: true, wantReason: "billing_unobserved"},
 		{name: "malformed billing observation preserves legacy routing", account: &Account{Platform: PlatformGrok, Type: AccountTypeOAuth, Extra: map[string]any{grokBillingExtraKey: make(chan int)}}, want: true, wantReason: "billing_unobserved"},
 		{name: "malformed override falls back to observations", account: &Account{Platform: PlatformGrok, Type: AccountTypeOAuth, Extra: map[string]any{GrokMediaEligibleExtraKey: "false", grokBillingExtraKey: weeklyAllowance}}, want: true, wantReason: "eligible"},
 		{name: "explicit disable wins", account: &Account{Platform: PlatformGrok, Type: AccountTypeOAuth, Extra: map[string]any{GrokMediaEligibleExtraKey: false}}, want: false, wantReason: "override_disabled"},
@@ -157,4 +162,28 @@ func TestNormalizeGrokMediaEligibilityUpdateExtra(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, normalized, got)
 	})
+}
+
+func BenchmarkGrokMediaGenerationEligibilityFromSchedulerCache(b *testing.B) {
+	billing := map[string]any{
+		"period_type":          "weekly",
+		"usage_percent":        float64(42),
+		"period_start":         "2026-07-10T00:00:00Z",
+		"period_end":           "2026-07-17T00:00:00Z",
+		"status_code":          float64(http.StatusOK),
+		"weekly_status_code":   float64(http.StatusOK),
+		"monthly_status_code":  float64(http.StatusOK),
+		"billing_period_start": "2026-07-01T00:00:00Z",
+		"billing_period_end":   "2026-08-01T00:00:00Z",
+		"product_usage": []any{
+			map[string]any{"product": "grok", "usage_percent": float64(42)},
+			map[string]any{"product": "imagine", "usage_percent": float64(12)},
+		},
+	}
+	account := &Account{Platform: PlatformGrok, Type: AccountTypeOAuth, Extra: map[string]any{grokBillingExtraKey: billing}}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		grokMediaEligibilityBenchmarkResult, _ = account.GrokMediaGenerationEligibility()
+	}
 }

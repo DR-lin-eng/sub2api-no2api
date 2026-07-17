@@ -30,6 +30,21 @@ type fakePromptEngine struct {
 	evaluates atomic.Int64
 }
 
+type copyingPromptEngine struct {
+	mode Mode
+	body []byte
+}
+
+func (f *copyingPromptEngine) EffectiveMode() Mode { return f.mode }
+func (f *copyingPromptEngine) Enqueue(_ context.Context, req Request) error {
+	cloned := req.Clone()
+	f.body = cloned.Body
+	return nil
+}
+func (f *copyingPromptEngine) Evaluate(context.Context, Request) (*PromptDecision, error) {
+	return &PromptDecision{Kind: DecisionAllow, AllowNextStage: true}, nil
+}
+
 func (f *fakePromptEngine) EffectiveMode() Mode { return f.mode }
 func (f *fakePromptEngine) Enqueue(context.Context, Request) error {
 	f.enqueues.Add(1)
@@ -172,5 +187,34 @@ func TestCoordinatorAsyncEnqueueFailuresNeverChangeResponseOrDownstreamDispatch(
 		require.Equal(t, 1, downstreamDispatches)
 		require.Equal(t, int64(1), prompt.enqueues.Load())
 		require.Zero(t, prompt.evaluates.Load())
+	}
+}
+
+func BenchmarkCoordinatorAsyncRequestOwnership(b *testing.B) {
+	body := make([]byte, 64<<10)
+	prompt := &copyingPromptEngine{mode: ModeAsync}
+	coordinator := NewCoordinator(&fakeLegacyEngine{}, prompt)
+	request := Request{Body: body}
+	b.ReportAllocs()
+	b.SetBytes(int64(len(body)))
+	b.ResetTimer()
+	for range b.N {
+		coordinator.Check(context.Background(), request)
+	}
+	if len(prompt.body) != len(body) {
+		b.Fatal("async request body was not retained")
+	}
+}
+
+func BenchmarkCoordinatorBlockingParallelEngines(b *testing.B) {
+	prompt := &fakePromptEngine{
+		mode:     ModeBlocking,
+		decision: &PromptDecision{Kind: DecisionAllow, AllowNextStage: true},
+	}
+	coordinator := NewCoordinator(&fakeLegacyEngine{}, prompt)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		coordinator.Check(context.Background(), Request{})
 	}
 }

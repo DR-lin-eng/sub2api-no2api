@@ -20,7 +20,7 @@ import (
 
 const promptAuditPostgresTestEnv = "PROMPT_AUDIT_TEST_POSTGRES_DSN"
 
-func openPromptAuditIntegrationDB(t *testing.T) *sql.DB {
+func openPromptAuditIntegrationDB(t testing.TB) *sql.DB {
 	t.Helper()
 	dsn := strings.TrimSpace(os.Getenv(promptAuditPostgresTestEnv))
 	if dsn == "" {
@@ -43,7 +43,7 @@ func openPromptAuditIntegrationDB(t *testing.T) *sql.DB {
 		);
 	`)
 	require.NoError(t, err)
-	for _, name := range []string{"181_prompt_audit.sql", "182_prompt_audit_full_prompt.sql"} {
+	for _, name := range []string{"181_prompt_audit.sql", "182_prompt_audit_full_prompt.sql", "183_prompt_audit_queue_state.sql"} {
 		migration, err := os.ReadFile(filepath.Join("..", "..", "migrations", name))
 		require.NoError(t, err)
 		// The migration runner can retry an interrupted deployment; the migration
@@ -58,17 +58,25 @@ func openPromptAuditIntegrationDB(t *testing.T) *sql.DB {
 	return db
 }
 
-func resetPromptAuditIntegrationDB(t *testing.T, db *sql.DB) {
+func resetPromptAuditIntegrationDB(t testing.TB, db *sql.DB) {
 	t.Helper()
-	_, err := db.Exec(`TRUNCATE TABLE prompt_audit_events, prompt_audit_jobs, api_keys, users, groups, settings RESTART IDENTITY CASCADE`)
+	_, err := db.Exec(`TRUNCATE TABLE prompt_audit_events, prompt_audit_jobs, api_keys, users, groups, settings RESTART IDENTITY CASCADE;
+		UPDATE prompt_audit_queue_state SET active_count=0, updated_at=NOW() WHERE id=1`)
 	require.NoError(t, err)
 }
 
-func insertIdentity(t *testing.T, db *sql.DB, table string) int64 {
+func insertIdentity(t testing.TB, db *sql.DB, table string) int64 {
 	t.Helper()
 	var id int64
 	require.NoError(t, db.QueryRow(`INSERT INTO `+table+` DEFAULT VALUES RETURNING id`).Scan(&id))
 	return id
+}
+
+func promptAuditActiveCount(t testing.TB, db *sql.DB) int64 {
+	t.Helper()
+	var count int64
+	require.NoError(t, db.QueryRow(`SELECT active_count FROM prompt_audit_queue_state WHERE id=1`).Scan(&count))
+	return count
 }
 
 func integrationSnapshot(seed string) PromptSnapshot {
@@ -99,6 +107,35 @@ func integrationResult(decision EventDecision) *NormalizedResult {
 		result.ScannerEvidence["pii"] = "redacted evidence"
 	}
 	return result
+}
+
+func BenchmarkPromptAuditRepositoryAdmissionAtDepth(b *testing.B) {
+	db := openPromptAuditIntegrationDB(b)
+	const depth = 10000
+	_, err := db.Exec(`INSERT INTO prompt_audit_jobs (status, request_id)
+		SELECT 'queued', 'benchmark-' || value FROM generate_series(1, $1) AS value`, depth)
+	require.NoError(b, err)
+
+	var hasQueueState bool
+	require.NoError(b, db.QueryRow(`SELECT to_regclass('prompt_audit_queue_state') IS NOT NULL`).Scan(&hasQueueState))
+	if hasQueueState {
+		_, err = db.Exec(`UPDATE prompt_audit_queue_state SET active_count=$1`, depth)
+		require.NoError(b, err)
+	}
+
+	repo := NewPostgreSQLRepository(db)
+	snapshot := integrationSnapshot("benchmark")
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		job, createErr := repo.CreateStagingWithCapacity(context.Background(), snapshot, 1, 3, depth+1)
+		if createErr != nil {
+			b.Fatal(createErr)
+		}
+		if failErr := repo.MarkStagingFailed(context.Background(), job.ID, "benchmark_cleanup", ""); failErr != nil {
+			b.Fatal(failErr)
+		}
+	}
 }
 
 func TestPromptAuditMigrationSchemaAndLeakageGate(t *testing.T) {
@@ -147,8 +184,18 @@ func TestPromptAuditMigrationSchemaAndLeakageGate(t *testing.T) {
 	require.Error(t, err)
 	var jobID int64
 	require.NoError(t, db.QueryRowContext(ctx, `INSERT INTO prompt_audit_jobs DEFAULT VALUES RETURNING id`).Scan(&jobID))
+	require.Equal(t, int64(1), promptAuditActiveCount(t, db))
 	_, err = db.ExecContext(ctx, `INSERT INTO prompt_audit_events(job_id,chunk_total) VALUES ($1,-1)`, jobID)
 	require.Error(t, err)
+	_, err = db.ExecContext(ctx, `UPDATE prompt_audit_jobs SET status='done' WHERE id=$1`, jobID)
+	require.NoError(t, err)
+	require.Zero(t, promptAuditActiveCount(t, db))
+	_, err = db.ExecContext(ctx, `UPDATE prompt_audit_jobs SET status='queued' WHERE id=$1`, jobID)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), promptAuditActiveCount(t, db))
+	_, err = db.ExecContext(ctx, `DELETE FROM prompt_audit_jobs WHERE id=$1`, jobID)
+	require.NoError(t, err)
+	require.Zero(t, promptAuditActiveCount(t, db))
 }
 
 func TestPromptAuditDatabasePersistsFullPromptOnEventsOnly(t *testing.T) {
@@ -190,6 +237,7 @@ func TestPromptAuditDatabasePersistsFullPromptOnEventsOnly(t *testing.T) {
 	require.NoError(t, err)
 	const errorCanary = "GUARD_RAW_RESPONSE_CANARY_SECRET"
 	require.NoError(t, repo.MarkStagingFailed(ctx, failedJob.ID, "payload_store_failed", "raw guard body: "+errorCanary))
+	require.Zero(t, promptAuditActiveCount(t, db))
 	var code, message string
 	require.NoError(t, db.QueryRow(`SELECT last_error_code,last_error_message FROM prompt_audit_jobs WHERE id=$1`, failedJob.ID).Scan(&code, &message))
 	require.Equal(t, "payload_store_failed", code)
@@ -235,6 +283,7 @@ func TestPromptAuditRepositoryAdmissionClaimFencingAndEventTransaction(t *testin
 	}
 	require.NotNil(t, accepted)
 	require.Equal(t, 1, rejected)
+	require.Equal(t, int64(1), promptAuditActiveCount(t, db))
 	stats, err := repo.QueueStats(ctx)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), stats.Active)
@@ -268,6 +317,7 @@ func TestPromptAuditRepositoryAdmissionClaimFencingAndEventTransaction(t *testin
 	reclaimed, err := repo.ReclaimStale(ctx, time.Now().Add(time.Hour), time.Now().Add(time.Hour), 10)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), reclaimed)
+	require.Equal(t, int64(1), promptAuditActiveCount(t, db), "processing to retry must retain its slot")
 	secondClaim, claimed, err := repo.ClaimNextJob(ctx, time.Now().Add(time.Second))
 	require.NoError(t, err)
 	require.True(t, claimed)
@@ -279,6 +329,7 @@ func TestPromptAuditRepositoryAdmissionClaimFencingAndEventTransaction(t *testin
 	event, err := repo.Complete(ctx, secondClaim, integrationResult(EventCritical), true)
 	require.NoError(t, err)
 	require.NotNil(t, event)
+	require.Zero(t, promptAuditActiveCount(t, db))
 	var status string
 	var eventCount int
 	require.NoError(t, db.QueryRow(`SELECT status FROM prompt_audit_jobs WHERE id=$1`, secondClaim.ID).Scan(&status))
@@ -288,11 +339,63 @@ func TestPromptAuditRepositoryAdmissionClaimFencingAndEventTransaction(t *testin
 
 	staging, err := repo.CreateStagingWithCapacity(ctx, integrationSnapshot("stale"), 1, 3, 10)
 	require.NoError(t, err)
+	require.Equal(t, int64(1), promptAuditActiveCount(t, db))
 	reclaimed, err = repo.ReclaimStale(ctx, time.Now().Add(time.Hour), time.Now().Add(time.Hour), 10)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), reclaimed)
+	require.Zero(t, promptAuditActiveCount(t, db))
 	require.NoError(t, db.QueryRow(`SELECT status FROM prompt_audit_jobs WHERE id=$1`, staging.ID).Scan(&status))
 	require.Equal(t, "failed", status)
+}
+
+func TestPromptAuditRepositoryRetryRetainsAndFailReleasesQueueSlot(t *testing.T) {
+	db := openPromptAuditIntegrationDB(t)
+	repo := NewPostgreSQLRepository(db)
+	ctx := context.Background()
+
+	job, err := repo.CreateStagingWithCapacity(ctx, integrationSnapshot("retry"), 1, 3, 10)
+	require.NoError(t, err)
+	require.NoError(t, repo.PublishQueued(ctx, job.ID))
+	claimed, ok, err := repo.ClaimNextJob(ctx, time.Now().Add(time.Second))
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.NoError(t, repo.Retry(ctx, claimed.ID, claimed.ClaimVersion, time.Now(), "retryable", ""))
+	require.Equal(t, int64(1), promptAuditActiveCount(t, db))
+
+	claimed, ok, err = repo.ClaimNextJob(ctx, time.Now().Add(time.Second))
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.NoError(t, repo.Fail(ctx, claimed.ID, claimed.ClaimVersion, "terminal", ""))
+	require.Zero(t, promptAuditActiveCount(t, db))
+}
+
+func TestPromptAuditRepositoryConcurrentAdmissionDoesNotDropBelowCapacity(t *testing.T) {
+	db := openPromptAuditIntegrationDB(t)
+	repo := NewPostgreSQLRepository(db)
+	const parallel = 32
+	start := make(chan struct{})
+	results := make(chan error, parallel)
+	var wg sync.WaitGroup
+	for i := 0; i < parallel; i++ {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			<-start
+			_, err := repo.CreateStagingWithCapacity(
+				context.Background(), integrationSnapshot(fmt.Sprintf("parallel-%02d", index)), 1, 3, parallel,
+			)
+			results <- err
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+	close(results)
+	for err := range results {
+		require.NoError(t, err)
+	}
+	require.Equal(t, int64(parallel), promptAuditActiveCount(t, db))
+	_, err := repo.CreateStagingWithCapacity(context.Background(), integrationSnapshot("overflow"), 1, 3, parallel)
+	require.ErrorIs(t, err, ErrQueueFull)
 }
 
 func TestPromptAuditRepositoryForeignKeysFiltersAndStableIdentitySnapshots(t *testing.T) {

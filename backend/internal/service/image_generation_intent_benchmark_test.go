@@ -57,3 +57,16 @@ func BenchmarkIsImageGenerationIntent(b *testing.B) {
 		})
 	}
 }
+
+func BenchmarkIsExplicitImageGenerationIntentLargeBody(b *testing.B) {
+	body := []byte(`{"model":"gpt-5.5","tools":[{"type":"namespace","name":"image_gen"}],"input":"` + strings.Repeat("x", 1<<20) + `","tool_choice":"auto"}`)
+	if IsExplicitImageGenerationIntent("/v1/responses", "gpt-5.5", body) {
+		b.Fatal("passive namespace must not be explicit image intent")
+	}
+	b.ReportAllocs()
+	b.SetBytes(int64(len(body)))
+	b.ResetTimer()
+	for range b.N {
+		imageGenerationIntentBenchmarkResult = IsExplicitImageGenerationIntent("/v1/responses", "gpt-5.5", body)
+	}
+}

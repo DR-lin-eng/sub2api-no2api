@@ -13,6 +13,7 @@ type LegacyEngine interface {
 
 type PromptEngine interface {
 	EffectiveMode() Mode
+	// Enqueue must copy request memory before retaining it beyond the call.
 	Enqueue(ctx context.Context, req Request) error
 	Evaluate(ctx context.Context, req Request) (*PromptDecision, error)
 }
@@ -38,7 +39,7 @@ func (c *Coordinator) Check(ctx context.Context, req Request) Decision {
 	case ModeAsync:
 		// Enqueue is deliberately best-effort. The implementation owns a bounded
 		// context and copies request memory before it can outlive the Handler.
-		_ = c.prompt.Enqueue(ctx, req.Clone())
+		_ = c.prompt.Enqueue(ctx, req)
 		legacy, _ := c.checkLegacy(ctx, req)
 		return prioritize(legacy, nil)
 	case ModeBlocking:
@@ -51,13 +52,9 @@ func (c *Coordinator) Check(ctx context.Context, req Request) Decision {
 
 func (c *Coordinator) checkBlocking(ctx context.Context, req Request) Decision {
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(1)
 	var legacy *LegacyDecision
 	var prompt *PromptDecision
-	go func() {
-		defer wg.Done()
-		legacy, _ = c.checkLegacy(ctx, req)
-	}()
 	go func() {
 		defer wg.Done()
 		if c.prompt == nil {
@@ -80,6 +77,7 @@ func (c *Coordinator) checkBlocking(ctx context.Context, req Request) Decision {
 		}
 		prompt = result
 	}()
+	legacy, _ = c.checkLegacy(ctx, req)
 	wg.Wait()
 	return prioritize(legacy, prompt)
 }

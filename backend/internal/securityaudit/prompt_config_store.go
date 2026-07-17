@@ -143,6 +143,16 @@ func (m *ConfigManager) Active() (ActiveConfig, bool) {
 	return cloneActiveConfig(snapshot.active), true
 }
 
+// activeReadOnly returns the immutable snapshot owned by ConfigManager. Callers
+// must not expose or mutate its slice fields.
+func (m *ConfigManager) activeReadOnly() (*activeConfigSnapshot, bool) {
+	if m == nil {
+		return nil, false
+	}
+	snapshot := m.snapshot.Load()
+	return snapshot, snapshot != nil
+}
+
 func (m *ConfigManager) BlockingActivationDegraded() bool {
 	if m == nil {
 		return false
@@ -153,24 +163,24 @@ func (m *ConfigManager) BlockingActivationDegraded() bool {
 	if !m.expectedBlocking.Load() {
 		return false
 	}
-	active, ok := m.Active()
+	snapshot, ok := m.activeReadOnly()
 	if !ok {
 		return true
 	}
 	// A still-active weaker snapshot after a failed blocking activation must not
 	// keep serving allow decisions under the old off/async mode.
-	return active.EffectiveMode() != ModeBlocking
+	return snapshot.active.EffectiveMode() != ModeBlocking
 }
 
 func (m *ConfigManager) EffectiveMode() Mode {
 	if m != nil && m.BlockingActivationDegraded() {
 		return ModeBlocking
 	}
-	active, ok := m.Active()
+	snapshot, ok := m.activeReadOnly()
 	if !ok {
 		return ModeOff
 	}
-	return active.EffectiveMode()
+	return snapshot.active.EffectiveMode()
 }
 
 func (m *ConfigManager) markConfigUntrusted() {
@@ -184,7 +194,7 @@ func (m *ConfigManager) markUntrustedIfNoActiveSnapshot() {
 	if m == nil {
 		return
 	}
-	if _, ok := m.Active(); !ok {
+	if _, ok := m.activeReadOnly(); !ok {
 		m.markConfigUntrusted()
 	}
 }

@@ -245,11 +245,13 @@ func isOpenAICompatibleAccountEligibleForRequest(ctx context.Context, account *A
 	if requestedModel != "" && !account.IsModelSupported(requestedModel) {
 		return false
 	}
-	if !account.SupportsOpenAIEndpointCapability(requiredCapability) {
-		if account.IsGrok() && requiredCapability == OpenAIEndpointCapabilityGrokMediaGeneration {
-			_, reason := account.GrokMediaGenerationEligibility()
+	if account.IsGrok() && requiredCapability == OpenAIEndpointCapabilityGrokMediaGeneration {
+		eligible, reason := account.GrokMediaGenerationEligibility()
+		if !eligible {
 			slog.Debug("grok_media_account_ineligible", "account_id", account.ID, "reason", reason)
+			return false
 		}
+	} else if !account.SupportsOpenAIEndpointCapability(requiredCapability) {
 		return false
 	}
 	if requireCompact && (!account.IsOpenAI() || openAICompactSupportTier(account) == 0) {

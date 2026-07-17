@@ -158,6 +158,46 @@ func TestParseLegacyConfigDefaultsMissingFieldsWithoutEnablingBlocking(t *testin
 	require.True(t, storage.AllGroups)
 }
 
+func BenchmarkConfigManagerEffectiveMode(b *testing.B) {
+	active := ActiveConfig{
+		RiskControlEnabled: true,
+		Scanners:           append([]string(nil), AllScannerIDs...),
+		GroupIDs:           make([]int64, 64),
+		Endpoints:          make([]ActiveEndpoint, 32),
+	}
+	manager := &ConfigManager{}
+	manager.snapshot.Store(&activeConfigSnapshot{active: active})
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		if manager.EffectiveMode() != ModeOff {
+			b.Fatal("unexpected effective mode")
+		}
+	}
+}
+
+func TestConfigManagerActiveReturnsDefensiveCopy(t *testing.T) {
+	manager := &ConfigManager{}
+	active := ActiveConfig{
+		Scanners:  []string{"pii"},
+		GroupIDs:  []int64{7},
+		Endpoints: []ActiveEndpoint{{ID: "primary"}},
+	}
+	manager.snapshot.Store(&activeConfigSnapshot{active: active})
+
+	first, ok := manager.Active()
+	require.True(t, ok)
+	first.Scanners[0] = "jailbreak"
+	first.GroupIDs[0] = 99
+	first.Endpoints[0].ID = "mutated"
+
+	second, ok := manager.Active()
+	require.True(t, ok)
+	require.Equal(t, []string{"pii"}, second.Scanners)
+	require.Equal(t, []int64{7}, second.GroupIDs)
+	require.Equal(t, "primary", second.Endpoints[0].ID)
+}
+
 func TestUpdateConfigStrictBoundsAndKnownValues(t *testing.T) {
 	valid := promptAuditUpdateRequest(1, 1, "")
 	require.NoError(t, validateUpdateConfigRequest(valid))

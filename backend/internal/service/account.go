@@ -1486,11 +1486,11 @@ func (a *Account) GrokMediaGenerationEligibility() (bool, string) {
 		return true, "non_oauth"
 	}
 
-	billing, err := grokBillingSnapshotFromExtra(a.Extra)
-	if err != nil || billing == nil {
+	status, weeklyStatus, monthlyStatus, observed := grokBillingStatusCodesFromExtra(a.Extra)
+	if !observed {
 		return true, "billing_unobserved"
 	}
-	if billing.StatusCode == 403 || billing.WeeklyStatusCode == 403 || billing.MonthlyStatusCode == 403 {
+	if status == 403 || weeklyStatus == 403 || monthlyStatus == 403 {
 		return false, "billing_forbidden"
 	}
 	return true, "eligible"

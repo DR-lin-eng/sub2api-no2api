@@ -170,6 +170,68 @@ func grokBillingSnapshotFromExtra(extra map[string]any) (*xai.BillingSummary, er
 	}
 }
 
+func grokBillingStatusCodesFromExtra(extra map[string]any) (status, weekly, monthly int, observed bool) {
+	if extra == nil {
+		return 0, 0, 0, false
+	}
+	raw, ok := extra[grokBillingExtraKey]
+	if !ok || raw == nil {
+		return 0, 0, 0, false
+	}
+	switch snapshot := raw.(type) {
+	case *xai.BillingSummary:
+		if snapshot == nil {
+			return 0, 0, 0, false
+		}
+		return snapshot.StatusCode, snapshot.WeeklyStatusCode, snapshot.MonthlyStatusCode, true
+	case xai.BillingSummary:
+		return snapshot.StatusCode, snapshot.WeeklyStatusCode, snapshot.MonthlyStatusCode, true
+	case map[string]any:
+		status, ok = cachedBillingStatusCode(snapshot, "status_code")
+		if !ok {
+			return 0, 0, 0, false
+		}
+		weekly, ok = cachedBillingStatusCode(snapshot, "weekly_status_code")
+		if !ok {
+			return 0, 0, 0, false
+		}
+		monthly, ok = cachedBillingStatusCode(snapshot, "monthly_status_code")
+		if !ok {
+			return 0, 0, 0, false
+		}
+		return status, weekly, monthly, true
+	default:
+		billing, err := grokBillingSnapshotFromExtra(extra)
+		if err != nil || billing == nil {
+			return 0, 0, 0, false
+		}
+		return billing.StatusCode, billing.WeeklyStatusCode, billing.MonthlyStatusCode, true
+	}
+}
+
+func cachedBillingStatusCode(snapshot map[string]any, key string) (int, bool) {
+	value, exists := snapshot[key]
+	if !exists || value == nil {
+		return 0, true
+	}
+	switch typed := value.(type) {
+	case int:
+		return typed, true
+	case int32:
+		return int(typed), true
+	case int64:
+		return int(typed), int64(int(typed)) == typed
+	case float64:
+		converted := int(typed)
+		return converted, float64(converted) == typed
+	case json.Number:
+		converted, err := typed.Int64()
+		return int(converted), err == nil && int64(int(converted)) == converted
+	default:
+		return 0, false
+	}
+}
+
 func grokQuotaSnapshotFromExtra(extra map[string]any) (*xai.QuotaSnapshot, error) {
 	if extra == nil {
 		return nil, nil

@@ -11,8 +11,7 @@ import (
 )
 
 const (
-	promptAuditAdmissionLockKey int64 = 579147893221901921
-	promptAuditConfigLockKey    int64 = 579147893221901922
+	promptAuditConfigLockKey int64 = 579147893221901922
 )
 
 var (
@@ -95,21 +94,8 @@ func (r *PostgreSQLRepository) CreateStagingWithCapacity(ctx context.Context, sn
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	var locked bool
-	if err := tx.QueryRowContext(ctx, `SELECT pg_try_advisory_xact_lock($1)`, promptAuditAdmissionLockKey).Scan(&locked); err != nil {
+	if err := checkPromptAuditQueueCapacity(ctx, tx, capacity); err != nil {
 		return nil, err
-	}
-	if !locked {
-		return nil, ErrQueueAdmissionBusy
-	}
-	var active int
-	if err := tx.QueryRowContext(ctx, `
-		SELECT COUNT(*) FROM prompt_audit_jobs
-		WHERE status IN ('staging','queued','processing','retry')`).Scan(&active); err != nil {
-		return nil, err
-	}
-	if capacity <= 0 || active >= capacity {
-		return nil, ErrQueueFull
 	}
 	if maxAttempts <= 0 {
 		maxAttempts = 3
@@ -423,6 +409,23 @@ func requireOneRow(result sql.Result, err error, missing error) error {
 	}
 	if rows != 1 {
 		return missing
+	}
+	return nil
+}
+
+func checkPromptAuditQueueCapacity(ctx context.Context, tx *sql.Tx, capacity int) error {
+	if capacity <= 0 {
+		return ErrQueueFull
+	}
+	var active int
+	err := tx.QueryRowContext(ctx, `
+		SELECT active_count FROM prompt_audit_queue_state
+		WHERE id=1 FOR UPDATE`).Scan(&active)
+	if err != nil {
+		return err
+	}
+	if active >= capacity {
+		return ErrQueueFull
 	}
 	return nil
 }
