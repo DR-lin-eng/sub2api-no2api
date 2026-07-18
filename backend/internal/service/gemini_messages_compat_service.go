@@ -112,7 +112,7 @@ func (s *GeminiMessagesCompatService) SelectAccountForModelWithExclusions(ctx co
 	}
 	requestCtx := ctx
 	ctx = withSchedulerCandidatePredicate(ctx, func(account *Account) bool {
-		if account == nil || (account.Platform != platform && !(useMixedScheduling && account.Platform == PlatformAntigravity && account.IsMixedSchedulingEnabled())) {
+		if account == nil || (account.Platform != platform && (!useMixedScheduling || account.Platform != PlatformAntigravity || !account.IsMixedSchedulingEnabled())) {
 			return false
 		}
 		return requestedModel == "" || s.isModelSupportedByAccount(account, requestedModel) && account.IsSchedulableForModelWithContext(requestCtx, requestedModel)

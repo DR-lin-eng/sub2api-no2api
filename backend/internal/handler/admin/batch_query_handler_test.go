@@ -28,7 +28,7 @@ func (s *batchQuotaRepoStub) ListByUsers(_ context.Context, userIDs []int64) (ma
 func TestUserHandlerGetBatchPlatformQuotasDeduplicatesIDs(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	repo := &batchQuotaRepoStub{}
-	handler := NewUserHandler(newStubAdminService(), nil, repo, nil, nil, nil)
+	handler := NewUserHandler(newStubAdminService(), nil, repo, nil, nil, nil, nil)
 	router := gin.New()
 	router.POST("/admin/users/platform-quotas/batch", handler.GetBatchUserPlatformQuotas)
 

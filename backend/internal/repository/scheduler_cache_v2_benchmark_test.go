@@ -104,7 +104,10 @@ func newSchedulerBenchmarkCache(b *testing.B) (*schedulerCache, func()) {
 		b.Fatal(err)
 	}
 	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
-	cache := newSchedulerCacheWithChunkSizes(client, 128, 256).(*schedulerCache)
+	cache, ok := newSchedulerCacheWithChunkSizes(client, 128, 256).(*schedulerCache)
+	if !ok {
+		b.Fatal("unexpected scheduler cache implementation")
+	}
 	return cache, func() {
 		_ = client.Close()
 		mr.Close()

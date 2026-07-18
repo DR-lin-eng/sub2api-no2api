@@ -83,6 +83,14 @@ var (
 				Columns: []*schema.Column{APIKeysColumns[7]},
 			},
 			{
+				Name:    "apikey_user_id_id",
+				Unique:  false,
+				Columns: []*schema.Column{APIKeysColumns[24], APIKeysColumns[0]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "deleted_at IS NULL",
+				},
+			},
+			{
 				Name:    "apikey_quota_quota_used",
 				Unique:  false,
 				Columns: []*schema.Column{APIKeysColumns[10], APIKeysColumns[11]},
@@ -175,9 +183,9 @@ var (
 				Columns: []*schema.Column{AccountsColumns[13]},
 			},
 			{
-				Name:    "account_last_used_at",
+				Name:    "account_last_used_at_id",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[17]},
+				Columns: []*schema.Column{AccountsColumns[17], AccountsColumns[0]},
 			},
 			{
 				Name:    "account_schedulable",
@@ -602,9 +610,36 @@ var (
 				},
 			},
 			{
-				Name:    "batchimagejob_output_expires_at",
+				Name:    "batchimagejob_user_id_api_key_id_created_at_id",
 				Unique:  false,
-				Columns: []*schema.Column{BatchImageJobsColumns[28]},
+				Columns: []*schema.Column{BatchImageJobsColumns[2], BatchImageJobsColumns[3], BatchImageJobsColumns[35], BatchImageJobsColumns[0]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "user_deleted_at IS NULL",
+				},
+			},
+			{
+				Name:    "batchimagejob_updated_at_id",
+				Unique:  false,
+				Columns: []*schema.Column{BatchImageJobsColumns[36], BatchImageJobsColumns[0]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "status IN ('created', 'uploading') AND provider_job_name IS NULL AND COALESCE(hold_amount, estimated_cost, 0) > 0",
+				},
+			},
+			{
+				Name:    "batchimagejob_id",
+				Unique:  false,
+				Columns: []*schema.Column{BatchImageJobsColumns[0]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "input_deleted_at IS NULL AND provider_input_ref IS NOT NULL AND status IN ('completed', 'failed', 'cancelled', 'output_deleted')",
+				},
+			},
+			{
+				Name:    "batchimagejob_output_expires_at_id",
+				Unique:  false,
+				Columns: []*schema.Column{BatchImageJobsColumns[28], BatchImageJobsColumns[0]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "output_deleted_at IS NULL AND provider_output_ref IS NOT NULL AND status = 'completed' AND output_expires_at IS NOT NULL",
+				},
 			},
 			{
 				Name:    "batchimagejob_downloaded_at",

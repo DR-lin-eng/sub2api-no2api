@@ -317,10 +317,11 @@ func (s *SchedulerSnapshotService) SchedulerEngineState(ctx context.Context) Sch
 			return state
 		}
 		s.engineRefreshMu.Lock()
-		s.engineRefreshMu.Unlock()
 		s.engineMu.RLock()
-		defer s.engineMu.RUnlock()
-		return s.engineState
+		state = s.engineState
+		s.engineMu.RUnlock()
+		s.engineRefreshMu.Unlock()
+		return state
 	}
 	defer s.engineRefreshMu.Unlock()
 

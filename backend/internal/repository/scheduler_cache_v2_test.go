@@ -16,7 +16,9 @@ func newSchedulerV2TestCache(t *testing.T) *schedulerCache {
 	mr := miniredis.RunT(t)
 	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	t.Cleanup(func() { require.NoError(t, client.Close()) })
-	return newSchedulerCacheWithChunkSizes(client, 8, 8).(*schedulerCache)
+	cache, ok := newSchedulerCacheWithChunkSizes(client, 8, 8).(*schedulerCache)
+	require.True(t, ok)
+	return cache
 }
 
 func schedulerV2TestAccount(id int64, platform, accountType string, priority int, lastUsedAt *time.Time) service.Account {
