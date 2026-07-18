@@ -130,6 +130,7 @@ type ModelPricing struct {
 	LongContextOutputMultiplier        float64 // 长上下文整次会话输出倍率
 	ImageOutputPricePerToken           float64 // 图片输出 token 价格 (USD)
 	ImageOutputPriceExplicit           bool    // 是否由渠道定价显式设定（为 true 时即使 == 0 也不回退）
+	ApplyServiceTierMultiplier         bool    // 渠道定价为 Standard 价，在最终成本上应用 priority/flex 倍率
 }
 
 const (
@@ -858,12 +859,7 @@ func (s *BillingService) GetModelPricingWithChannel(model string, channelPricing
 	// 防止修改 fallbackPrices 中的共享指针
 	cloned := *pricing
 	pricing = &cloned
-	// 渠道只配置一套标准档价格。清空上游 priority 专用价格，让计费核心
-	// 基于最终渠道价统一应用 priority=2x、flex=0.5x 的档位倍率。
-	pricing.InputPricePerTokenPriority = 0
-	pricing.OutputPricePerTokenPriority = 0
-	pricing.CacheCreationPricePerTokenPriority = 0
-	pricing.CacheReadPricePerTokenPriority = 0
+	pricing.ApplyServiceTierMultiplier = true
 	if channelPricing.InputPrice != nil {
 		pricing.InputPricePerToken = *channelPricing.InputPrice
 	}
@@ -1004,7 +1000,9 @@ func (s *BillingService) computeTokenBreakdown(
 	cacheCreationMultiplier := 1.0
 	tierMultiplier := 1.0
 
-	if usePriorityServiceTierPricing(serviceTier, pricing) {
+	if pricing.ApplyServiceTierMultiplier {
+		tierMultiplier = serviceTierCostMultiplier(serviceTier)
+	} else if usePriorityServiceTierPricing(serviceTier, pricing) {
 		if pricing.InputPricePerTokenPriority > 0 {
 			inputPrice = pricing.InputPricePerTokenPriority
 		}

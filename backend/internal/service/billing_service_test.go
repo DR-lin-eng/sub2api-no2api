@@ -1533,6 +1533,18 @@ func TestGetModelPricingWithChannel_CacheReadPriceLeavesPriorityUnset(t *testing
 	require.Zero(t, pricing.CacheReadPricePerTokenPriority)
 }
 
+func TestGetModelPricingWithChannel_PreservesUpstreamTierMetadata(t *testing.T) {
+	svc := newTestBillingService()
+
+	pricing, err := svc.GetModelPricingWithChannel("gpt-5.6-sol", &ChannelModelPricing{
+		InputPrice: testPtrFloat64(6.25e-6),
+	})
+	require.NoError(t, err)
+	require.True(t, pricing.ApplyServiceTierMultiplier)
+	require.InDelta(t, 60e-6, pricing.OutputPricePerTokenPriority, 1e-12)
+	require.InDelta(t, 1e-6, pricing.CacheReadPricePerTokenPriority, 1e-12)
+}
+
 func TestGetModelPricingWithChannel_UnknownModelReturnsError(t *testing.T) {
 	svc := newTestBillingService()
 

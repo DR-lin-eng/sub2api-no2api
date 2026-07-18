@@ -174,12 +174,8 @@ func (r *ModelPricingResolver) applyTokenOverrides(chPricing *ChannelModelPricin
 		resolved.BasePricing = &cloned
 	}
 
-	// 渠道只配置 Standard 价格。清空上游 priority 专用价格，使计费核心
-	// 对最终渠道价统一应用 priority=2x、flex=0.5x。
-	resolved.BasePricing.InputPricePerTokenPriority = 0
-	resolved.BasePricing.OutputPricePerTokenPriority = 0
-	resolved.BasePricing.CacheCreationPricePerTokenPriority = 0
-	resolved.BasePricing.CacheReadPricePerTokenPriority = 0
+	// 渠道仅配置 Standard 价格；保留上游价格元数据，由计费核心在最终成本上应用档位倍率。
+	resolved.BasePricing.ApplyServiceTierMultiplier = true
 
 	if chPricing.InputPrice != nil {
 		resolved.BasePricing.InputPricePerToken = *chPricing.InputPrice
@@ -259,7 +255,8 @@ func (r *ModelPricingResolver) GetIntervalPricing(resolved *ResolvedPricing, tot
 // intervalToModelPricing 将区间定价转换为 ModelPricing
 func intervalToModelPricing(iv *PricingInterval, supportsCacheBreakdown bool, chPricing *ChannelModelPricing) *ModelPricing {
 	pricing := &ModelPricing{
-		SupportsCacheBreakdown: supportsCacheBreakdown,
+		SupportsCacheBreakdown:     supportsCacheBreakdown,
+		ApplyServiceTierMultiplier: true,
 	}
 	if iv.InputPrice != nil {
 		pricing.InputPricePerToken = *iv.InputPrice
