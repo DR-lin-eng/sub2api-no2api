@@ -26,7 +26,7 @@ func TestRegisterUserRoutes_SubscriptionProgressRoutes(t *testing.T) {
 		AvailableChannel: &handler.AvailableChannelHandler{},
 	}, middleware.JWTAuthMiddleware(func(c *gin.Context) {
 		c.Next()
-	}), nil)
+	}), nil, nil)
 
 	paths := make(map[string]struct{})
 	for _, route := range router.Routes() {

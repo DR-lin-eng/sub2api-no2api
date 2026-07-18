@@ -37,3 +37,9 @@ type UserSubscriptionRepository interface {
 
 	BatchUpdateExpiredStatus(ctx context.Context) (int64, error)
 }
+
+// OwnedUserSubscriptionRepository supports ownership checks in the query
+// itself for user-facing, ID-addressed subscription endpoints.
+type OwnedUserSubscriptionRepository interface {
+	GetByIDAndUserID(ctx context.Context, id, userID int64) (*UserSubscription, error)
+}

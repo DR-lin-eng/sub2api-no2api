@@ -136,25 +136,16 @@ func (h *SubscriptionHandler) GetProgressByID(c *gin.Context) {
 		return
 	}
 
-	subscriptions, err := h.subscriptionService.ListUserSubscriptions(c.Request.Context(), subject.UserID)
+	progress, err := h.subscriptionService.GetSubscriptionProgressForUser(
+		c.Request.Context(),
+		subscriptionID,
+		subject.UserID,
+	)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
-	for i := range subscriptions {
-		if subscriptions[i].ID != subscriptionID {
-			continue
-		}
-		progress, err := h.subscriptionService.GetSubscriptionProgress(c.Request.Context(), subscriptionID)
-		if err != nil {
-			response.ErrorFrom(c, err)
-			return
-		}
-		response.Success(c, progress)
-		return
-	}
-
-	response.NotFound(c, "Subscription not found")
+	response.Success(c, progress)
 }
 
 // GetSummary handles getting a summary of current user's subscription status

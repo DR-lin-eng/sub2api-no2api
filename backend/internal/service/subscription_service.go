@@ -1082,6 +1082,39 @@ func (s *SubscriptionService) GetSubscriptionProgress(ctx context.Context, subsc
 	return s.calculateProgress(sub, group), nil
 }
 
+// GetSubscriptionProgressForUser returns progress only when the addressed
+// subscription belongs to userID. Production repositories enforce ownership
+// in SQL; the fallback keeps lightweight test doubles compatible.
+func (s *SubscriptionService) GetSubscriptionProgressForUser(ctx context.Context, subscriptionID, userID int64) (*SubscriptionProgress, error) {
+	var (
+		sub *UserSubscription
+		err error
+	)
+	if ownedRepo, ok := s.userSubRepo.(OwnedUserSubscriptionRepository); ok {
+		sub, err = ownedRepo.GetByIDAndUserID(ctx, subscriptionID, userID)
+	} else {
+		sub, err = s.userSubRepo.GetByID(ctx, subscriptionID)
+		if err == nil && (sub == nil || sub.UserID != userID) {
+			err = ErrSubscriptionNotFound
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	if sub == nil {
+		return nil, ErrSubscriptionNotFound
+	}
+
+	group := sub.Group
+	if group == nil {
+		group, err = s.groupRepo.GetByID(ctx, sub.GroupID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return s.calculateProgress(sub, group), nil
+}
+
 // calculateProgress 根据已加载的订阅和分组数据计算使用进度（纯内存计算，无 DB 查询）
 func (s *SubscriptionService) calculateProgress(sub *UserSubscription, group *Group) *SubscriptionProgress {
 	progress := &SubscriptionProgress{
