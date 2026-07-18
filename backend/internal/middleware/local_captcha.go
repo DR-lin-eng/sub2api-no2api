@@ -255,7 +255,7 @@ func renderLocalCaptcha(answer string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer face.Close()
+	defer func() { _ = face.Close() }()
 
 	const width, height = 220, 70
 	visualRandom := make([]byte, 1024)

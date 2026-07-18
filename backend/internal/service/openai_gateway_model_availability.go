@@ -9,10 +9,11 @@ import (
 )
 
 // DiagnoseModelAvailabilityForPlatform reports whether the requested model
-// is configured to be served by any OpenAI-compatible account in the group
-// for the given platform (e.g. PlatformOpenAI, PlatformGrok). The platform
-// scopes the candidate pool so distinct OpenAI-compatible platforms do not
-// cross-contaminate diagnosis results.
+// is configured to be served by any persistently eligible OpenAI-compatible
+// account in the group for the given platform (e.g. PlatformOpenAI,
+// PlatformGrok). The platform scopes the candidate pool so distinct
+// OpenAI-compatible platforms do not cross-contaminate diagnosis results.
+// The query bypasses scheduler snapshots and ignores transient runtime state.
 //
 // Safe to call on the error path: returns {true,true} on any internal
 // failure or when the inputs preclude meaningful diagnosis (empty model,
@@ -30,8 +31,23 @@ func (s *OpenAIGatewayService) DiagnoseModelAvailabilityForPlatform(
 	if requestedModel == "" {
 		return ModelAvailabilityDiagnosis{HasAccountsInPool: true, HasModelSupport: true}
 	}
+	if s.accountRepo == nil {
+		return ModelAvailabilityDiagnosis{HasAccountsInPool: true, HasModelSupport: true}
+	}
 
-	accounts, err := s.listAccountsForNoAccountDiagnosis(ctx, groupID, platform)
+	platform = normalizeOpenAICompatiblePlatform(platform)
+	queryGroupID := groupID
+	includeGrouped := false
+	if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
+		queryGroupID = nil
+		includeGrouped = true
+	}
+	accounts, err := s.accountRepo.ListModelAvailabilityCandidates(
+		ctx,
+		queryGroupID,
+		[]string{platform},
+		includeGrouped,
+	)
 	if err != nil {
 		// Conservative fallback so the caller keeps returning 503; we do not
 		// want a transient lookup failure to flip into 404 model_not_found.
@@ -64,44 +80,4 @@ func (s *OpenAIGatewayService) DiagnoseModelAvailabilityForPlatform(
 		diag.AllModelSupportingAccountsRateLimited = true
 	}
 	return diag
-}
-
-func (s *OpenAIGatewayService) listAccountsForNoAccountDiagnosis(ctx context.Context, groupID *int64, platform string) ([]Account, error) {
-	if s == nil || s.accountRepo == nil {
-		return nil, nil
-	}
-	platform = normalizeOpenAICompatiblePlatform(platform)
-	accounts, err := s.accountRepo.ListByPlatform(ctx, platform)
-	if err != nil {
-		return nil, err
-	}
-	if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
-		return accounts, nil
-	}
-
-	out := make([]Account, 0, len(accounts))
-	for i := range accounts {
-		if groupID != nil {
-			if openAIAccountHasGroupID(&accounts[i], *groupID) {
-				out = append(out, accounts[i])
-			}
-			continue
-		}
-		if len(accounts[i].GroupIDs) == 0 {
-			out = append(out, accounts[i])
-		}
-	}
-	return out, nil
-}
-
-func openAIAccountHasGroupID(account *Account, groupID int64) bool {
-	if account == nil {
-		return false
-	}
-	for _, id := range account.GroupIDs {
-		if id == groupID {
-			return true
-		}
-	}
-	return false
 }

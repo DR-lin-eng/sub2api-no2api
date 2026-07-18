@@ -371,6 +371,7 @@ func TestAPIContracts(t *testing.T) {
 						"web_search_price_per_call": null,
 						"allow_image_generation": false,
 						"allow_batch_image_generation": false,
+						"openai_force_image_tool": false,
 						"batch_image_discount_multiplier": 0,
 						"batch_image_hold_multiplier": 0,
 						"image_rate_independent": false,
@@ -1889,6 +1890,10 @@ func (s *stubAccountRepo) ListSchedulableUngroupedByPlatform(ctx context.Context
 }
 
 func (s *stubAccountRepo) ListSchedulableUngroupedByPlatforms(ctx context.Context, platforms []string) ([]service.Account, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubAccountRepo) ListModelAvailabilityCandidates(ctx context.Context, groupID *int64, platforms []string, includeGrouped bool) ([]service.Account, error) {
 	return nil, errors.New("not implemented")
 }
 

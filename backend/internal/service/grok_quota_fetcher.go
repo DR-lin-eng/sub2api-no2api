@@ -10,6 +10,101 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 )
 
+type grokBillingEligibilitySnapshot struct {
+	status, weeklyStatus, monthlyStatus int
+	plan                                string
+	usageObserved                       bool
+	usedObserved                        bool
+	monthlyLimitCents                   float64
+	monthlyLimitObserved                bool
+	monthlyUpdatedAt                    string
+	partial                             bool
+	failedWindows                       int
+}
+
+func grokBillingEligibilitySnapshotFromExtra(extra map[string]any) (grokBillingEligibilitySnapshot, bool) {
+	if extra == nil {
+		return grokBillingEligibilitySnapshot{}, false
+	}
+	raw, ok := extra[grokBillingExtraKey]
+	if !ok || raw == nil {
+		return grokBillingEligibilitySnapshot{}, false
+	}
+	switch billing := raw.(type) {
+	case *xai.BillingSummary:
+		if billing == nil {
+			return grokBillingEligibilitySnapshot{}, false
+		}
+		return grokBillingEligibilitySnapshot{
+			status: billing.StatusCode, weeklyStatus: billing.WeeklyStatusCode, monthlyStatus: billing.MonthlyStatusCode,
+			plan: billing.Plan, usageObserved: billing.UsagePercent != nil, usedObserved: billing.UsedPercent != nil,
+			monthlyLimitCents: derefFloat64(billing.MonthlyLimitCents), monthlyLimitObserved: billing.MonthlyLimitCents != nil,
+			monthlyUpdatedAt: billing.MonthlyUpdatedAt, partial: billing.Partial, failedWindows: len(billing.FailedWindows),
+		}, true
+	case xai.BillingSummary:
+		return grokBillingEligibilitySnapshot{
+			status: billing.StatusCode, weeklyStatus: billing.WeeklyStatusCode, monthlyStatus: billing.MonthlyStatusCode,
+			plan: billing.Plan, usageObserved: billing.UsagePercent != nil, usedObserved: billing.UsedPercent != nil,
+			monthlyLimitCents: derefFloat64(billing.MonthlyLimitCents), monthlyLimitObserved: billing.MonthlyLimitCents != nil,
+			monthlyUpdatedAt: billing.MonthlyUpdatedAt, partial: billing.Partial, failedWindows: len(billing.FailedWindows),
+		}, true
+	case map[string]any:
+		status, statusOK := cachedBillingStatusCode(billing, "status_code")
+		weekly, weeklyOK := cachedBillingStatusCode(billing, "weekly_status_code")
+		monthly, monthlyOK := cachedBillingStatusCode(billing, "monthly_status_code")
+		if !statusOK || !weeklyOK || !monthlyOK {
+			return grokBillingEligibilitySnapshot{}, false
+		}
+		_, usageOK := cachedBillingFloatValue(billing, "usage_percent")
+		_, usedOK := cachedBillingFloatValue(billing, "used_percent")
+		monthlyLimit, monthlyLimitOK := cachedBillingFloatValue(billing, "monthly_limit_cents")
+		partial, _ := billing["partial"].(bool)
+		monthlyUpdatedAt, _ := billing["monthly_updated_at"].(string)
+		failedWindows := 0
+		if values, ok := billing["failed_windows"].([]any); ok {
+			failedWindows = len(values)
+		}
+		plan, _ := billing["plan"].(string)
+		return grokBillingEligibilitySnapshot{
+			status: status, weeklyStatus: weekly, monthlyStatus: monthly, plan: plan,
+			usageObserved: usageOK, usedObserved: usedOK, monthlyLimitCents: monthlyLimit,
+			monthlyLimitObserved: monthlyLimitOK, monthlyUpdatedAt: monthlyUpdatedAt,
+			partial: partial, failedWindows: failedWindows,
+		}, true
+	default:
+		return grokBillingEligibilitySnapshot{}, false
+	}
+}
+
+func derefFloat64(value *float64) float64 {
+	if value == nil {
+		return 0
+	}
+	return *value
+}
+
+func cachedBillingFloatValue(values map[string]any, key string) (float64, bool) {
+	value, ok := values[key]
+	if !ok || value == nil {
+		return 0, false
+	}
+	switch number := value.(type) {
+	case float64:
+		return number, true
+	case float32:
+		return float64(number), true
+	case int:
+		return float64(number), true
+	case int64:
+		return float64(number), true
+	case json.Number:
+		parsed, err := number.Float64()
+		return parsed, err == nil
+	default:
+		return 0, false
+	}
+}
+
 const grokQuotaSnapshotExtraKey = "grok_usage_snapshot"
 
 type GrokQuotaFetcher struct{}
@@ -32,6 +127,7 @@ func (f *GrokQuotaFetcher) BuildUsageInfo(account *Account) *UsageInfo {
 
 	billing, _ := grokBillingSnapshotFromExtra(account.Extra)
 	snapshot, err := grokQuotaSnapshotFromExtra(account.Extra)
+	activeProbeClearsForbidden := newerSuccessfulGrokActiveProbeClearsBillingForbidden(billing, snapshot)
 	if billing != nil {
 		usage.GrokBilling = billing
 		if billing.Plan != "" {
@@ -87,7 +183,13 @@ func (f *GrokQuotaFetcher) BuildUsageInfo(account *Account) *UsageInfo {
 		usage.GrokLastQuotaProbeAt = snapshot.LastProbeAt
 	}
 	usage.GrokLastHeadersSeenAt = snapshot.LastHeadersSeenAt
-	if snapshot.StatusCode >= http.StatusBadRequest || usage.GrokLastStatusCode == 0 {
+	if activeProbeClearsForbidden {
+		usage.IsForbidden = false
+		usage.ForbiddenType = ""
+		usage.ErrorCode = ""
+		usage.GrokLastQuotaProbeAt = snapshot.LastProbeAt
+		usage.GrokLastStatusCode = snapshot.StatusCode
+	} else if snapshot.StatusCode >= http.StatusBadRequest || usage.GrokLastStatusCode == 0 {
 		usage.GrokLastStatusCode = snapshot.StatusCode
 	}
 	if snapshot.HasObservedHeaders() {
@@ -117,7 +219,34 @@ func (f *GrokQuotaFetcher) BuildUsageInfo(account *Account) *UsageInfo {
 		}
 	}
 	applyGrokCredentialUsageFallback(usage, account)
+	if activeProbeClearsForbidden && strings.TrimSpace(snapshot.EntitlementStatus) == "" &&
+		strings.EqualFold(strings.TrimSpace(usage.GrokEntitlementStatus), "forbidden") {
+		usage.GrokEntitlementStatus = ""
+	}
 	return usage
+}
+
+func newerSuccessfulGrokActiveProbeClearsBillingForbidden(billing *xai.BillingSummary, snapshot *xai.QuotaSnapshot) bool {
+	if billing == nil || billing.StatusCode != http.StatusForbidden || snapshot == nil ||
+		snapshot.StatusCode != http.StatusOK || strings.TrimSpace(snapshot.ObservationSource) != "active_probe" {
+		return false
+	}
+
+	billingAt, billingOK := firstGrokObservationTime(billing.UpdatedAt, billing.FetchedAt)
+	probeAt, probeOK := firstGrokObservationTime(snapshot.LastProbeAt, snapshot.UpdatedAt)
+	// Both snapshots use second precision, so a billing request followed by the
+	// active probe in the same refresh can legitimately have equal timestamps.
+	return billingOK && probeOK && !probeAt.Before(billingAt)
+}
+
+func firstGrokObservationTime(values ...string) (time.Time, bool) {
+	for _, value := range values {
+		parsedAt, err := time.Parse(time.RFC3339, strings.TrimSpace(value))
+		if err == nil {
+			return parsedAt, true
+		}
+	}
+	return time.Time{}, false
 }
 
 func applyGrokCredentialUsageFallback(usage *UsageInfo, account *Account) {
@@ -167,45 +296,6 @@ func grokBillingSnapshotFromExtra(extra map[string]any) (*xai.BillingSummary, er
 			return nil, err
 		}
 		return &out, nil
-	}
-}
-
-func grokBillingStatusCodesFromExtra(extra map[string]any) (status, weekly, monthly int, observed bool) {
-	if extra == nil {
-		return 0, 0, 0, false
-	}
-	raw, ok := extra[grokBillingExtraKey]
-	if !ok || raw == nil {
-		return 0, 0, 0, false
-	}
-	switch snapshot := raw.(type) {
-	case *xai.BillingSummary:
-		if snapshot == nil {
-			return 0, 0, 0, false
-		}
-		return snapshot.StatusCode, snapshot.WeeklyStatusCode, snapshot.MonthlyStatusCode, true
-	case xai.BillingSummary:
-		return snapshot.StatusCode, snapshot.WeeklyStatusCode, snapshot.MonthlyStatusCode, true
-	case map[string]any:
-		status, ok = cachedBillingStatusCode(snapshot, "status_code")
-		if !ok {
-			return 0, 0, 0, false
-		}
-		weekly, ok = cachedBillingStatusCode(snapshot, "weekly_status_code")
-		if !ok {
-			return 0, 0, 0, false
-		}
-		monthly, ok = cachedBillingStatusCode(snapshot, "monthly_status_code")
-		if !ok {
-			return 0, 0, 0, false
-		}
-		return status, weekly, monthly, true
-	default:
-		billing, err := grokBillingSnapshotFromExtra(extra)
-		if err != nil || billing == nil {
-			return 0, 0, 0, false
-		}
-		return billing.StatusCode, billing.WeeklyStatusCode, billing.MonthlyStatusCode, true
 	}
 }
 

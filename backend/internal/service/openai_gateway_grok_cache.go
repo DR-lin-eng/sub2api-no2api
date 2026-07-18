@@ -156,7 +156,28 @@ func isKnownGrokFreeAccount(account *Account) bool {
 	freeSignal := false
 	paidSignal := false
 	inferredFreeSignal := false
-	if billing, err := grokBillingSnapshotFromExtra(account.Extra); err == nil && billing != nil {
+	if billing, ok := grokBillingEligibilitySnapshotFromExtra(account.Extra); ok {
+		if tier := strings.TrimSpace(billing.plan); tier != "" {
+			if isGrokFreeSubscriptionTier(tier) {
+				freeSignal = true
+			} else if !isGrokUnknownSubscriptionTier(tier) {
+				paidSignal = true
+			}
+		}
+		if billing.usageObserved || billing.usedObserved ||
+			(billing.monthlyLimitObserved && billing.monthlyLimitCents > 0) {
+			paidSignal = true
+		}
+		// xAI deliberately reports an empty plan for Free accounts; only paid
+		// subscriptions receive a SuperGrok plan/monthly limit. A successful
+		// monthly billing observation with no paid signal is therefore positive
+		// Free evidence, not an unknown tier. Keep partial probes fail-closed.
+		if strings.TrimSpace(billing.monthlyUpdatedAt) != "" ||
+			(billing.status >= http.StatusOK && billing.status < http.StatusMultipleChoices &&
+				!billing.partial && billing.failedWindows == 0) {
+			inferredFreeSignal = true
+		}
+	} else if billing, err := grokBillingSnapshotFromExtra(account.Extra); err == nil && billing != nil {
 		if tier := strings.TrimSpace(billing.Plan); tier != "" {
 			if isGrokFreeSubscriptionTier(tier) {
 				freeSignal = true
@@ -168,10 +189,6 @@ func isKnownGrokFreeAccount(account *Account) bool {
 			(billing.MonthlyLimitCents != nil && *billing.MonthlyLimitCents > 0) {
 			paidSignal = true
 		}
-		// xAI deliberately reports an empty plan for Free accounts; only paid
-		// subscriptions receive a SuperGrok plan/monthly limit. A successful
-		// monthly billing observation with no paid signal is therefore positive
-		// Free evidence, not an unknown tier. Keep partial probes fail-closed.
 		if strings.TrimSpace(billing.MonthlyUpdatedAt) != "" ||
 			(billing.StatusCode >= http.StatusOK && billing.StatusCode < http.StatusMultipleChoices &&
 				!billing.Partial && len(billing.FailedWindows) == 0) {
@@ -294,6 +311,13 @@ func appendMissingGrokFreeCacheNativeTools(body []byte) ([]byte, error) {
 		}
 	}
 	if !hasFunction {
+		return body, nil
+	}
+	// Only complement missing native search tools when the request already contains
+	// at least one search tool (native or function-form). Pure client function tools
+	// (e.g. view_image) must not trigger injection to avoid biasing model tool
+	// selection (#4486).
+	if !present["web_search"] && !present["x_search"] {
 		return body, nil
 	}
 	for _, toolType := range []string{"web_search", "x_search"} {

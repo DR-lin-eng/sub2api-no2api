@@ -4591,7 +4591,18 @@ const ensureAntigravityMixedChannelConfirmed = async (onConfirm: () => Promise<v
 const submitCreateAccount = async (payload: CreateAccountRequest) => {
   submitting.value = true
   try {
-    await adminAPI.accounts.create(withAntigravityConfirmFlag(payload))
+    const account = await adminAPI.accounts.create(withAntigravityConfirmFlag(payload))
+    if (
+      payload.platform === 'openai' &&
+      payload.type === 'apikey' &&
+      payload.upstream_billing_probe_enabled === true
+    ) {
+      try {
+        await adminAPI.accounts.probeUpstreamBilling(account.id)
+      } catch {
+        appStore.showWarning(t('admin.accounts.upstreamBilling.probeFailed'))
+      }
+    }
     appStore.showSuccess(t('admin.accounts.accountCreated'))
     emit('created')
     handleClose()

@@ -253,7 +253,7 @@ services:
       nofile:
         soft: 100000
         hard: 100000
-    command:
+	command:
       - sh
       - -c
       - >-
@@ -262,7 +262,7 @@ services:
         --maxmemory-policy allkeys-lru
         --maxclients "$${REDIS_MAXCLIENTS:-50000}"
         --tcp-backlog 65535
-        $${REDIS_PASSWORD:+--requirepass "$${REDIS_PASSWORD}"}
+		$${REDIS_PASSWORD:+--requirepass "$${REDIS_PASSWORD}"}
     environment:
       - TZ=${TZ:-Asia/Shanghai}
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}

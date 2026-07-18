@@ -469,7 +469,11 @@ func (m *CredentialCipher) loadOrCreateKey(ctx context.Context, keyID string) (*
 	if err != nil {
 		return nil, err
 	}
-	return value.(*rsa.PrivateKey), nil
+	key, ok := value.(*rsa.PrivateKey)
+	if !ok || key == nil {
+		return nil, errors.New("credential key cache returned an invalid key")
+	}
+	return key, nil
 }
 
 func (m *CredentialCipher) loadKey(ctx context.Context, keyID string) (*rsa.PrivateKey, error) {
@@ -503,7 +507,11 @@ func (m *CredentialCipher) loadKey(ctx context.Context, keyID string) (*rsa.Priv
 	if err != nil {
 		return nil, err
 	}
-	return value.(*rsa.PrivateKey), nil
+	key, ok := value.(*rsa.PrivateKey)
+	if !ok || key == nil {
+		return nil, errors.New("credential key cache returned an invalid key")
+	}
+	return key, nil
 }
 
 func (m *CredentialCipher) loadOrCreateEphemeralKey(ctx context.Context, keyID string) (*rsa.PrivateKey, error) {

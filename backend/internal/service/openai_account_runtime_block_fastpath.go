@@ -69,23 +69,50 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
 		return false
 	}
 
-	if statusCode == http.StatusTooManyRequests && strings.TrimSpace(modelScope) == "" {
+	if s == nil || account == nil {
+		return false
+	}
+	if s.rateLimitService != nil && len(canonicalModel) > 0 && s.rateLimitService.HandleUpstreamModelNotFound(stateCtx, account, canonicalModel[0], statusCode, responseBody) {
+		return true
+	}
+	// Isolate a custom temporary-unschedulable match to the known upstream
+	// model before entering the generic account error path. This keeps the
+	// account available to other models and avoids the account runtime blocker.
+	if s.rateLimitService != nil && statusCode != http.StatusUnauthorized && len(canonicalModel) > 0 && strings.TrimSpace(canonicalModel[0]) != "" &&
+		s.rateLimitService.HandleTempUnschedulable(stateCtx, account, statusCode, responseBody, canonicalModel[0]) {
+		return true
+	}
+	// A Codex reset signal identifies the (account, model) quota window that
+	// the RateLimitService can persist. Keep the local account-wide bridge only
+	// for 429s without a model-scoped reset signal; otherwise one model's quota
+	// exhaustion would evict the OAuth account from every model.
+	modelScoped429 := statusCode == http.StatusTooManyRequests && strings.TrimSpace(modelScope) != "" &&
+		(s.rateLimitService != nil && (calculateOpenAI429ResetTime(headers) != nil || parseOpenAIRateLimitResetTime(responseBody) != nil))
+	if statusCode == http.StatusTooManyRequests && !modelScoped429 {
 		s.markOpenAIOAuth429RateLimited(stateCtx, account, headers, responseBody)
 	}
-	if s == nil || account == nil || s.rateLimitService == nil {
+	if s.rateLimitService == nil {
 		return false
 	}
 	if strings.TrimSpace(modelScope) != "" && s.rateLimitService.HandleUpstreamModelNotFound(stateCtx, account, modelScope, statusCode, responseBody) {
 		return true
 	}
-	shouldDisable := s.rateLimitService.HandleUpstreamError(stateCtx, account, statusCode, headers, responseBody, modelScope)
+	genericModelScope := modelScope
+	if statusCode == http.StatusTooManyRequests && !account.IsPoolMode() && !modelScoped429 {
+		genericModelScope = ""
+	}
+	shouldDisable := s.rateLimitService.HandleUpstreamError(stateCtx, account, statusCode, headers, responseBody, genericModelScope)
+	modelTempMatched := statusCode != http.StatusUnauthorized && strings.TrimSpace(modelScope) != "" &&
+		len(matchTempUnschedulableRules(account, statusCode, responseBody)) > 0
 	if shouldDisable {
 		if !globalTempUnschedulableEnabled(ctx, s.settingService) &&
 			((statusCode == http.StatusUnauthorized && account.Type == AccountTypeOAuth) ||
 				(statusCode == http.StatusForbidden && account.Platform == PlatformOpenAI)) {
 			return shouldDisable
 		}
-		s.BlockAccountScheduling(account, time.Time{}, "upstream_disable")
+		if !modelTempMatched {
+			s.BlockAccountScheduling(account, time.Time{}, "upstream_disable")
+		}
 	}
 	if !shouldDisable && account.Platform == PlatformOpenAI && account.Type == AccountTypeAPIKey && shouldCooldownOpenAITransientUpstreamError(statusCode, responseBody) {
 		model := ""

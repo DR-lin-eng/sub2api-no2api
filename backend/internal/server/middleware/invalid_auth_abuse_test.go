@@ -133,6 +133,23 @@ func TestNormalizeIngressRejectIPGroupsIPv6By64(t *testing.T) {
 	require.Equal(t, normalizeIngressRejectIP("2001:db8:abcd:1234:1111::1"), normalizeIngressRejectIP("2001:db8:abcd:1234:ffff::2"))
 }
 
+func BenchmarkRejectInvalidAuthAbuseSteadyState(b *testing.B) {
+	cfg := invalidAuthAbuseTestConfig(120)
+	svc := service.NewAPIKeyService(nil, nil, nil, nil, nil, nil, cfg)
+	context, _ := gin.CreateTestContext(httptest.NewRecorder())
+	request := httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	request = request.WithContext(service.WithSessionBinding(request.Context(), &service.SessionBinding{IP: "203.0.113.10"}))
+	context.Request = request
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		if rejectInvalidAuthAbuse(context, svc) {
+			b.Fatal("unrecorded client must not be blocked")
+		}
+	}
+}
+
 func httpRequest(t *testing.T, path, authorization, apiKey string) *http.Request {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, path, nil)

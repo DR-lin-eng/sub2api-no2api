@@ -71,7 +71,8 @@ func TestCredentialCipherRequiresMatchingBrowserFlowCookie(t *testing.T) {
 
 	var mismatched map[string]any
 	require.NoError(t, json.Unmarshal(body, &mismatched))
-	envelope := mismatched["credential_envelope"].(map[string]any)
+	envelope, ok := mismatched["credential_envelope"].(map[string]any)
+	require.True(t, ok)
 	envelope["key_id"] = credentialKeyID(now.Add(credentialKeySlotDuration))
 	mismatchedBody, err := json.Marshal(mismatched)
 	require.NoError(t, err)

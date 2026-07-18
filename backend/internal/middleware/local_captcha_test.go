@@ -52,7 +52,7 @@ func TestLocalCaptchaRequireConsumesChallengeAndRestoresBody(t *testing.T) {
 	captcha := NewLocalCaptcha(client)
 	const captchaID = "0123456789abcdef0123456789abcdef"
 	const answer = "A7K9P"
-	server.Set("auth_captcha:"+captchaID, hex.EncodeToString(localCaptchaDigest(captchaID, answer, "192.0.2.1")))
+	require.NoError(t, server.Set("auth_captcha:"+captchaID, hex.EncodeToString(localCaptchaDigest(captchaID, answer, "192.0.2.1"))))
 
 	router := gin.New()
 	router.POST("/login", captcha.Require(LocalCaptchaRequireOptions{
@@ -88,7 +88,7 @@ func TestLocalCaptchaRequireInvalidAnswerIsSingleUse(t *testing.T) {
 	client, server := newLocalCaptchaTestClient(t)
 	captcha := NewLocalCaptcha(client)
 	const captchaID = "fedcba9876543210fedcba9876543210"
-	server.Set("auth_captcha:"+captchaID, hex.EncodeToString(localCaptchaDigest(captchaID, "Q8M4T", "192.0.2.1")))
+	require.NoError(t, server.Set("auth_captcha:"+captchaID, hex.EncodeToString(localCaptchaDigest(captchaID, "Q8M4T", "192.0.2.1"))))
 
 	router := gin.New()
 	router.POST("/register", captcha.Require(LocalCaptchaRequireOptions{
@@ -113,7 +113,7 @@ func TestLocalCaptchaRequireBindsChallengeToClientIP(t *testing.T) {
 	captcha := NewLocalCaptcha(client)
 	const captchaID = "abcdef0123456789abcdef0123456789"
 	const answer = "Q8M4T"
-	server.Set("auth_captcha:"+captchaID, hex.EncodeToString(localCaptchaDigest(captchaID, answer, "203.0.113.8")))
+	require.NoError(t, server.Set("auth_captcha:"+captchaID, hex.EncodeToString(localCaptchaDigest(captchaID, answer, "203.0.113.8"))))
 
 	router := gin.New()
 	router.POST("/login", captcha.Require(LocalCaptchaRequireOptions{

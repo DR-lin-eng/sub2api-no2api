@@ -500,7 +500,6 @@ func TestValidateChallenge_AnthropicTextAfterThinking(t *testing.T) {
 		t.Fatalf("validateChallenge(%q, %q) = false, want true", respText, "2")
 	}
 }
-
 func BenchmarkExtractAnthropicMonitorText(b *testing.B) {
 	singleText := []byte(`{"content":[{"type":"text","text":"2"}]}`)
 	thinkingBeforeText := []byte(`{"content":[{"type":"thinking","thinking":"reasoning"},{"type":"text","text":"2"}]}`)

@@ -3,16 +3,26 @@ package middleware
 import (
 	"strings"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
 
-// SessionBindingContext 全局中间件：将请求会话绑定注入 request context，供 token
-// 签发路径（登录 / 刷新 / OAuth 回调）读取并写入会话绑定。trusted_proxies 为空时仅绑定
-// User-Agent；成功配置后才通过 GetTrustedClientIP（走 trusted_proxies 链）绑定客户端 IP。
-func SessionBindingContext(includeIP bool) gin.HandlerFunc {
+// SessionBindingContext injects the request's session binding. The argument
+// accepts the legacy bool form and *config.Config for compatibility with older
+// call sites; IP binding is enabled only when the resolved setting allows it.
+func SessionBindingContext(option any) gin.HandlerFunc {
+	includeIP := false
+	switch value := option.(type) {
+	case bool:
+		includeIP = value
+	case *config.Config:
+		if value != nil {
+			includeIP = value.TrustForwardedIPForAPIKeyACL()
+		}
+	}
 	return func(c *gin.Context) {
 		if isCredentialKeyRequestPath(c.Request.URL.Path) {
 			c.Next()
@@ -25,12 +35,15 @@ func SessionBindingContext(includeIP bool) gin.HandlerFunc {
 }
 
 // requestSessionBinding 返回当前请求的会话指纹，优先取 SessionBindingContext
-// 注入的解析结果；注入缺失时只保留 User-Agent，避免重新引入不确定的 IP 语义。
+// 注入的解析结果；注入缺失时按可信代理链回退。
 func requestSessionBinding(c *gin.Context) *service.SessionBinding {
 	if binding := service.SessionBindingFromContext(c.Request.Context()); binding != nil {
 		return binding
 	}
-	return &service.SessionBinding{UserAgent: normalizePersistentText(c.Request.UserAgent(), maxPersistentUserAgentBytes)}
+	return &service.SessionBinding{
+		IP:        ip.GetTrustedClientIP(c),
+		UserAgent: normalizePersistentText(c.Request.UserAgent(), maxPersistentUserAgentBytes),
+	}
 }
 
 // SecurityClientIP 返回当前请求用于安全敏感记录（审计日志等）的客户端 IP。

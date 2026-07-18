@@ -61,8 +61,9 @@ func SetupRouter(
 	// 应用中间件
 	r.Use(coremiddleware.NewCredentialAuthIngressLimiter())
 	r.Use(middleware2.RequestLogger())
-	// 可信代理成功配置时将 IP 和 UA 注入 request context，否则仅注入 UA。
-	r.Use(middleware2.SessionBindingContext(includeSessionBindingIP))
+	// 将客户端 IP + UA 注入 request context，供 token 签发/会话绑定/审计日志统一读取。
+	// IP 取值与 API Key IP 限制共用 server.trusted_proxies 信任链。
+	r.Use(middleware2.SessionBindingContext(cfg))
 	r.Use(middleware2.Logger())
 	r.Use(middleware2.CORS(cfg.CORS))
 	r.Use(middleware2.SecurityHeaders(cfg.Security.CSP, func() []string {
