@@ -146,10 +146,12 @@ export default {
         auditRetentionHint: 'Audit logs older than this are cleaned up automatically. Set to 0 to keep them forever (manual clear only).'
       },
       turnstile: {
-        title: 'Cloudflare Turnstile',
-        description: 'Bot protection for login and registration',
+        title: 'Authentication bot protection',
+        description: 'Protect login and registration with Cloudflare Turnstile or the local CAPTCHA fallback',
         enableTurnstile: 'Enable Turnstile',
         enableTurnstileHint: 'Require Cloudflare Turnstile verification',
+        enableLocalCaptcha: 'Enable local CAPTCHA fallback',
+        enableLocalCaptchaHint: 'Off by default. Protects login, registration, and registration email codes only when Turnstile is disabled',
         siteKey: 'Site Key',
         secretKey: 'Secret Key',
         siteKeyHint: 'Get this from your Cloudflare Dashboard',

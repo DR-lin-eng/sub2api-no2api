@@ -89,10 +89,23 @@
           />
         </div>
 
+        <LocalCaptchaWidget
+          v-else-if="localCaptchaRequired"
+          ref="localCaptchaRef"
+          v-model:captcha-id="localCaptchaId"
+          v-model:captcha-code="localCaptchaCode"
+          :disabled="authActionDisabled"
+          input-id="login-local-captcha"
+        />
+
         <!-- Submit Button -->
         <button
           type="submit"
-          :disabled="authActionDisabled || (turnstileEnabled && !turnstileToken)"
+          :disabled="
+            authActionDisabled ||
+            (turnstileEnabled && !turnstileToken) ||
+            (localCaptchaRequired && (!localCaptchaId || !localCaptchaCode))
+          "
           class="btn btn-primary w-full"
         >
           <svg
@@ -209,6 +222,7 @@ import WechatOAuthSection from '@/components/auth/WechatOAuthSection.vue'
 import EmailOAuthButtons from '@/components/auth/EmailOAuthButtons.vue'
 import LoginAgreementPrompt from '@/components/auth/LoginAgreementPrompt.vue'
 import TotpLoginModal from '@/components/auth/TotpLoginModal.vue'
+import LocalCaptchaWidget from '@/components/auth/LocalCaptchaWidget.vue'
 import Icon from '@/components/icons/Icon.vue'
 import TurnstileWidget from '@/components/TurnstileWidget.vue'
 import { useAuthStore, useAppStore } from '@/stores'
@@ -236,6 +250,7 @@ const publicSettingsLoaded = ref<boolean>(false)
 // Public settings
 const turnstileEnabled = ref<boolean>(false)
 const turnstileSiteKey = ref<string>('')
+const localCaptchaEnabled = ref<boolean>(false)
 const linuxdoOAuthEnabled = ref<boolean>(false)
 const dingtalkOAuthEnabled = ref<boolean>(false)
 const wechatOAuthEnabled = ref<boolean>(false)
@@ -256,6 +271,9 @@ const showAgreementModal = ref<boolean>(false)
 // Turnstile
 const turnstileRef = ref<InstanceType<typeof TurnstileWidget> | null>(null)
 const turnstileToken = ref<string>('')
+const localCaptchaRef = ref<InstanceType<typeof LocalCaptchaWidget> | null>(null)
+const localCaptchaId = ref<string>('')
+const localCaptchaCode = ref<string>('')
 
 // 2FA state
 const show2FAModal = ref<boolean>(false)
@@ -271,11 +289,12 @@ const formData = reactive({
 const errors = reactive({
   email: '',
   password: '',
-  turnstile: ''
+  turnstile: '',
+  localCaptcha: ''
 })
 
 const validationToastMessage = computed(
-  () => errors.email || errors.password || errors.turnstile || ''
+  () => errors.email || errors.password || errors.turnstile || errors.localCaptcha || ''
 )
 
 const agreementGateActive = computed(
@@ -284,6 +303,10 @@ const agreementGateActive = computed(
 
 const authActionDisabled = computed(
   () => isLoading.value || !publicSettingsLoaded.value || agreementGateActive.value
+)
+
+const localCaptchaRequired = computed(
+  () => publicSettingsLoaded.value && localCaptchaEnabled.value && !turnstileEnabled.value
 )
 
 const showOAuthLogin = computed(
@@ -318,6 +341,7 @@ onMounted(async () => {
     const settings = await getPublicSettings()
     turnstileEnabled.value = settings.turnstile_enabled
     turnstileSiteKey.value = settings.turnstile_site_key || ''
+    localCaptchaEnabled.value = settings.local_captcha_enabled === true
     linuxdoOAuthEnabled.value = settings.linuxdo_oauth_enabled
     dingtalkOAuthEnabled.value = settings.dingtalk_oauth_enabled ?? false
     wechatOAuthEnabled.value = isWeChatWebOAuthEnabled(settings)
@@ -424,6 +448,7 @@ function validateForm(): boolean {
   errors.email = ''
   errors.password = ''
   errors.turnstile = ''
+  errors.localCaptcha = ''
 
   let isValid = true
 
@@ -459,6 +484,11 @@ function validateForm(): boolean {
     isValid = false
   }
 
+  if (localCaptchaRequired.value && (!localCaptchaId.value || !localCaptchaCode.value)) {
+    errors.localCaptcha = t('auth.localCaptchaRequired')
+    isValid = false
+  }
+
   return isValid
 }
 
@@ -480,7 +510,9 @@ async function handleLogin(): Promise<void> {
     const response = await authStore.login({
       email: formData.email,
       password: formData.password,
-      turnstile_token: turnstileEnabled.value ? turnstileToken.value : undefined
+      turnstile_token: turnstileEnabled.value ? turnstileToken.value : undefined,
+      captcha_id: localCaptchaRequired.value ? localCaptchaId.value : undefined,
+      captcha_code: localCaptchaRequired.value ? localCaptchaCode.value : undefined
     })
 
     // Check if 2FA is required
@@ -505,6 +537,9 @@ async function handleLogin(): Promise<void> {
     if (turnstileRef.value) {
       turnstileRef.value.reset()
       turnstileToken.value = ''
+    }
+    if (localCaptchaRequired.value) {
+      await localCaptchaRef.value?.reset()
     }
 
     errorMessage.value = extractI18nErrorMessage(error, t, 'auth.errors', t('auth.loginFailed'))
@@ -549,6 +584,9 @@ function handle2FACancel(): void {
   show2FAModal.value = false
   totpTempToken.value = ''
   totpUserEmailMasked.value = ''
+  if (localCaptchaRequired.value) {
+    void localCaptchaRef.value?.reset()
+  }
 }
 </script>
 

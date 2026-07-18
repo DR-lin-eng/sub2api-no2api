@@ -151,6 +151,7 @@ var auditBodySensitiveExactKeys = func() map[string]struct{} {
 // 命中任一子串即整体擦除该键的值（例如 new_password / secret_access_key / temp_token）。
 var auditBodySensitiveSubstrings = []string{
 	"password", "passwd", "secret", "token",
+	"captcha",
 	"apikey", "accesskey", "privatekey",
 	"otp", "credentialvalue",
 	"sessionkey", "serviceaccount",

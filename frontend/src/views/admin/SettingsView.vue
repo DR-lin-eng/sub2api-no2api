@@ -1753,7 +1753,7 @@
             </div>
           </div>
 
-          <!-- Cloudflare Turnstile Settings -->
+          <!-- Authentication bot protection settings -->
           <div class="card">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
@@ -1777,6 +1777,20 @@
                   </p>
                 </div>
                 <Toggle v-model="form.turnstile_enabled" />
+              </div>
+
+              <div
+                class="flex items-center justify-between gap-4 border-t border-gray-100 pt-4 dark:border-dark-700"
+              >
+                <div>
+                  <label class="font-medium text-gray-900 dark:text-white">
+                    {{ t("admin.settings.turnstile.enableLocalCaptcha") }}
+                  </label>
+                  <p class="text-sm text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.turnstile.enableLocalCaptchaHint") }}
+                  </p>
+                </div>
+                <Toggle v-model="form.local_captcha_enabled" />
               </div>
 
               <!-- Turnstile Keys - Only show when enabled -->
@@ -8611,6 +8625,7 @@ const form = reactive<SettingsForm>({
   // Cloudflare Turnstile
   turnstile_enabled: false,
   turnstile_site_key: "",
+  local_captcha_enabled: false,
   turnstile_secret_key: "",
   turnstile_secret_key_configured: false,
   api_key_acl_trust_forwarded_ip: false,
@@ -9979,6 +9994,7 @@ async function saveSettings() {
       smtp_use_tls: form.smtp_use_tls,
       turnstile_enabled: form.turnstile_enabled,
       turnstile_site_key: form.turnstile_site_key,
+      local_captcha_enabled: form.local_captcha_enabled,
       turnstile_secret_key: form.turnstile_secret_key || undefined,
       api_key_acl_trust_forwarded_ip: form.api_key_acl_trust_forwarded_ip,
       linuxdo_connect_enabled: form.linuxdo_connect_enabled,

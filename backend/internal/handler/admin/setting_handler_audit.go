@@ -98,6 +98,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.TurnstileEnabled != after.TurnstileEnabled {
 		changed = append(changed, "turnstile_enabled")
 	}
+	if before.LocalCaptchaEnabled != after.LocalCaptchaEnabled {
+		changed = append(changed, "local_captcha_enabled")
+	}
 	if before.TurnstileSiteKey != after.TurnstileSiteKey {
 		changed = append(changed, "turnstile_site_key")
 	}

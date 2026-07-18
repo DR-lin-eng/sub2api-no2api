@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"context"
+	"strings"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/handler"
@@ -23,6 +25,23 @@ func RegisterAuthRoutes(
 ) {
 	// 创建速率限制器
 	rateLimiter := middleware.NewRateLimiter(redisClient)
+	localCaptcha := middleware.NewLocalCaptcha(redisClient)
+	localCaptchaEnabled := func(ctx context.Context) bool {
+		return settingService != nil &&
+			settingService.IsLocalCaptchaEnabled(ctx) &&
+			!settingService.IsTurnstileEnabled(ctx)
+	}
+	localCaptchaRequired := localCaptcha.Require(middleware.LocalCaptchaRequireOptions{
+		Enabled: localCaptchaEnabled,
+	})
+	registerCaptchaRequired := localCaptcha.Require(middleware.LocalCaptchaRequireOptions{
+		Enabled: localCaptchaEnabled,
+		Skip: func(ctx context.Context, payload middleware.LocalCaptchaPayload) bool {
+			return settingService != nil &&
+				settingService.IsEmailVerifyEnabled(ctx) &&
+				strings.TrimSpace(payload.VerifyCode) != ""
+		},
+	})
 
 	// 公开接口
 	auth := v1.Group("/auth")
@@ -30,19 +49,22 @@ func RegisterAuthRoutes(
 	// 认证事件（登录/注册/2FA/token 刷新失败）入审计
 	auth.Use(gin.HandlerFunc(auditLog))
 	{
+		auth.GET("/captcha", rateLimiter.LimitWithOptions("auth-captcha", 20, time.Minute, middleware.RateLimitOptions{
+			FailureMode: middleware.RateLimitFailClose,
+		}), localCaptcha.Generate(localCaptchaEnabled))
 		// 注册/登录/2FA/验证码发送均属于高风险入口，增加服务端兜底限流（Redis 故障时 fail-close）
 		auth.POST("/register", rateLimiter.LimitWithOptions("auth-register", 5, time.Minute, middleware.RateLimitOptions{
 			FailureMode: middleware.RateLimitFailClose,
-		}), h.Auth.Register)
+		}), registerCaptchaRequired, h.Auth.Register)
 		auth.POST("/login", rateLimiter.LimitWithOptions("auth-login", 20, time.Minute, middleware.RateLimitOptions{
 			FailureMode: middleware.RateLimitFailClose,
-		}), h.Auth.Login)
+		}), localCaptchaRequired, h.Auth.Login)
 		auth.POST("/login/2fa", rateLimiter.LimitWithOptions("auth-login-2fa", 20, time.Minute, middleware.RateLimitOptions{
 			FailureMode: middleware.RateLimitFailClose,
 		}), h.Auth.Login2FA)
 		auth.POST("/send-verify-code", rateLimiter.LimitWithOptions("auth-send-verify-code", 5, time.Minute, middleware.RateLimitOptions{
 			FailureMode: middleware.RateLimitFailClose,
-		}), h.Auth.SendVerifyCode)
+		}), localCaptchaRequired, h.Auth.SendVerifyCode)
 		// Token刷新接口添加速率限制：每分钟最多 30 次（Redis 故障时 fail-close）
 		auth.POST("/refresh", rateLimiter.LimitWithOptions("refresh-token", 30, time.Minute, middleware.RateLimitOptions{
 			FailureMode: middleware.RateLimitFailClose,

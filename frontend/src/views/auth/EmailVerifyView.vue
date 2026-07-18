@@ -77,6 +77,15 @@
           />
         </div>
 
+        <LocalCaptchaWidget
+          v-else-if="localCaptchaRequired && showResendLocalCaptcha"
+          ref="localCaptchaRef"
+          v-model:captcha-id="resendLocalCaptchaId"
+          v-model:captcha-code="resendLocalCaptchaCode"
+          :disabled="isSendingCode"
+          input-id="resend-local-captcha"
+        />
+
         <!-- Submit Button -->
         <button type="submit" :disabled="isLoading || !verifyCode" class="btn btn-primary w-full">
           <svg
@@ -119,11 +128,15 @@
             @click="handleResendCode"
             :disabled="
               isSendingCode || (turnstileEnabled && showResendTurnstile && !resendTurnstileToken)
+              || (localCaptchaRequired && showResendLocalCaptcha && (!resendLocalCaptchaId || !resendLocalCaptchaCode))
             "
             class="text-sm text-primary-600 transition-colors hover:text-primary-500 disabled:cursor-not-allowed disabled:opacity-50 dark:text-primary-400 dark:hover:text-primary-300"
           >
             <span v-if="isSendingCode">{{ t('auth.sendingCode') }}</span>
             <span v-else-if="turnstileEnabled && !showResendTurnstile">
+              {{ t('auth.clickToResend') }}
+            </span>
+            <span v-else-if="localCaptchaRequired && !showResendLocalCaptcha">
               {{ t('auth.clickToResend') }}
             </span>
             <span v-else>{{ t('auth.resendCode') }}</span>
@@ -152,6 +165,7 @@ import { useI18n } from 'vue-i18n'
 import { AuthLayout } from '@/components/layout'
 import Icon from '@/components/icons/Icon.vue'
 import TurnstileWidget from '@/components/TurnstileWidget.vue'
+import LocalCaptchaWidget from '@/components/auth/LocalCaptchaWidget.vue'
 import { useAuthStore, useAppStore } from '@/stores'
 import {
   persistOAuthTokenContext,
@@ -163,6 +177,7 @@ import {
 } from '@/api/auth'
 import { apiClient } from '@/api/client'
 import { buildAuthErrorMessage } from '@/utils/authError'
+import { extractI18nErrorMessage } from '@/utils/apiError'
 import {
   formatRegistrationEmailSuffixWhitelistForMessage,
   isRegistrationEmailSuffixAllowed,
@@ -213,6 +228,8 @@ type PendingOAuthCreateAccountResponse = {
 const email = ref<string>('')
 const password = ref<string>('')
 const initialTurnstileToken = ref<string>('')
+const initialLocalCaptchaId = ref<string>('')
+const initialLocalCaptchaCode = ref<string>('')
 const promoCode = ref<string>('')
 const invitationCode = ref<string>('')
 const affCode = ref<string>('')
@@ -229,6 +246,7 @@ const hasRegisterData = ref<boolean>(false)
 // Public settings
 const turnstileEnabled = ref<boolean>(false)
 const turnstileSiteKey = ref<string>('')
+const localCaptchaEnabled = ref<boolean>(false)
 const siteName = ref<string>('Sub2API')
 const registrationEmailSuffixWhitelist = ref<string[]>([])
 
@@ -236,14 +254,23 @@ const registrationEmailSuffixWhitelist = ref<string[]>([])
 const turnstileRef = ref<InstanceType<typeof TurnstileWidget> | null>(null)
 const resendTurnstileToken = ref<string>('')
 const showResendTurnstile = ref<boolean>(false)
+const localCaptchaRef = ref<InstanceType<typeof LocalCaptchaWidget> | null>(null)
+const resendLocalCaptchaId = ref<string>('')
+const resendLocalCaptchaCode = ref<string>('')
+const showResendLocalCaptcha = ref<boolean>(false)
 
 const errors = ref({
   code: '',
-  turnstile: ''
+  turnstile: '',
+  localCaptcha: ''
 })
 
 const validationToastMessage = computed(
-  () => errors.value.code || errors.value.turnstile || ''
+  () => errors.value.code || errors.value.turnstile || errors.value.localCaptcha || ''
+)
+
+const localCaptchaRequired = computed(
+  () => localCaptchaEnabled.value && !turnstileEnabled.value && !isPendingOAuthFlow()
 )
 
 watch(validationToastMessage, (value, previousValue) => {
@@ -265,6 +292,8 @@ onMounted(async () => {
       email.value = registerData.email || ''
       password.value = registerData.password || ''
       initialTurnstileToken.value = registerData.turnstile_token || ''
+      initialLocalCaptchaId.value = registerData.captcha_id || ''
+      initialLocalCaptchaCode.value = registerData.captcha_code || ''
       promoCode.value = registerData.promo_code || ''
       invitationCode.value = registerData.invitation_code || ''
       affCode.value = registerData.aff_code || loadAffiliateReferralCode()
@@ -294,6 +323,7 @@ onMounted(async () => {
     const settings = await getPublicSettings()
     turnstileEnabled.value = settings.turnstile_enabled
     turnstileSiteKey.value = settings.turnstile_site_key || ''
+    localCaptchaEnabled.value = settings.local_captcha_enabled === true
     siteName.value = settings.site_name || 'Sub2API'
     registrationEmailSuffixWhitelist.value = normalizeRegistrationEmailSuffixWhitelist(
       settings.registration_email_suffix_whitelist || []
@@ -410,7 +440,9 @@ async function sendCode(): Promise<void> {
       email: email.value,
       [pendingAuthTokenField.value]: pendingAuthToken.value || undefined,
       // 优先使用重发时新获取的 token（因为初始 token 可能已被使用）
-      turnstile_token: resendTurnstileToken.value || initialTurnstileToken.value || undefined
+      turnstile_token: resendTurnstileToken.value || initialTurnstileToken.value || undefined,
+      captcha_id: resendLocalCaptchaId.value || initialLocalCaptchaId.value || undefined,
+      captcha_code: resendLocalCaptchaCode.value || initialLocalCaptchaCode.value || undefined
     } as Parameters<typeof sendVerifyCode>[0]
     const response = isPendingOAuthFlow()
       ? await sendPendingOAuthVerifyCode(requestPayload)
@@ -436,14 +468,26 @@ async function sendCode(): Promise<void> {
 
     // Reset turnstile state（token 已使用，清除以避免重复使用）
     initialTurnstileToken.value = ''
+    initialLocalCaptchaId.value = ''
+    initialLocalCaptchaCode.value = ''
     showResendTurnstile.value = false
     resendTurnstileToken.value = ''
+    showResendLocalCaptcha.value = false
+    resendLocalCaptchaId.value = ''
+    resendLocalCaptchaCode.value = ''
   } catch (error: unknown) {
-    errorMessage.value = buildAuthErrorMessage(error, {
-      fallback: t('auth.sendCodeFailed')
-    })
+    errorMessage.value = extractI18nErrorMessage(
+      error,
+      t,
+      'auth.errors',
+      buildAuthErrorMessage(error, { fallback: t('auth.sendCodeFailed') })
+    )
 
     appStore.showError(errorMessage.value)
+    if (localCaptchaRequired.value) {
+      showResendLocalCaptcha.value = true
+      await localCaptchaRef.value?.reset()
+    }
   } finally {
     isSendingCode.value = false
   }
@@ -461,6 +505,16 @@ async function handleResendCode(): Promise<void> {
   // If turnstile is enabled but no token yet, wait
   if (turnstileEnabled.value && !resendTurnstileToken.value) {
     errors.value.turnstile = t('auth.completeVerification')
+    return
+  }
+
+  if (localCaptchaRequired.value && !showResendLocalCaptcha.value) {
+    showResendLocalCaptcha.value = true
+    return
+  }
+
+  if (localCaptchaRequired.value && (!resendLocalCaptchaId.value || !resendLocalCaptchaCode.value)) {
+    errors.value.localCaptcha = t('auth.localCaptchaRequired')
     return
   }
 

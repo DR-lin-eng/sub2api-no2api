@@ -187,6 +187,12 @@ func TestBackendModeAuthGuard(t *testing.T) {
 			wantStatus: http.StatusOK,
 		},
 		{
+			name:       "enabled_allows_local_captcha",
+			enabled:    "true",
+			path:       "/api/v1/auth/captcha",
+			wantStatus: http.StatusOK,
+		},
+		{
 			name:       "enabled_allows_logout",
 			enabled:    "true",
 			path:       "/api/v1/auth/logout",

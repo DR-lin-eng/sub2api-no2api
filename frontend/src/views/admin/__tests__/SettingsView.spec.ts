@@ -383,6 +383,7 @@ const baseSettingsResponse = {
   smtp_use_tls: true,
   turnstile_enabled: false,
   turnstile_site_key: "",
+  local_captcha_enabled: false,
   turnstile_secret_key_configured: false,
   linuxdo_connect_enabled: false,
   linuxdo_connect_client_id: "",

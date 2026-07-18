@@ -91,6 +91,23 @@ func TestSettingService_GetPublicSettings_ExposesForceEmailOnThirdPartySignup(t 
 	require.True(t, settings.ForceEmailOnThirdPartySignup)
 }
 
+func TestSettingService_GetPublicSettings_LocalCaptchaDefaultsOffAndCanBeEnabled(t *testing.T) {
+	ctx := context.Background()
+	disabled, err := NewSettingService(
+		&settingPublicRepoStub{values: map[string]string{}},
+		&config.Config{},
+	).GetPublicSettings(ctx)
+	require.NoError(t, err)
+	require.False(t, disabled.LocalCaptchaEnabled)
+
+	enabled, err := NewSettingService(
+		&settingPublicRepoStub{values: map[string]string{SettingKeyLocalCaptchaEnabled: "true"}},
+		&config.Config{},
+	).GetPublicSettings(ctx)
+	require.NoError(t, err)
+	require.True(t, enabled.LocalCaptchaEnabled)
+}
+
 func TestSettingService_GetPublicSettings_ExposesAllowUserViewErrorRequests(t *testing.T) {
 	repo := &settingPublicRepoStub{
 		values: map[string]string{

@@ -146,10 +146,12 @@ export default {
         auditRetentionHint: '超过该天数的操作日志将被自动清理；填 0 表示永久保留（仅支持手动清空）。'
       },
       turnstile: {
-        title: 'Cloudflare Turnstile',
-        description: '登录和注册的机器人防护',
+        title: '认证机器人防护',
+        description: '可选 Cloudflare Turnstile 或本地验证码保护登录与注册入口',
         enableTurnstile: '启用 Turnstile',
         enableTurnstileHint: '需要 Cloudflare Turnstile 验证',
+        enableLocalCaptcha: '启用本地验证码兜底',
+        enableLocalCaptchaHint: '默认关闭。仅在未启用 Turnstile 时保护登录、注册和注册验证码发送接口',
         siteKey: '站点密钥',
         secretKey: '私密密钥',
         siteKeyHint: '从 Cloudflare Dashboard 获取',

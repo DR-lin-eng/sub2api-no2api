@@ -52,6 +52,8 @@ type RegisterRequest struct {
 	Password       string `json:"password" binding:"required,min=6"`
 	VerifyCode     string `json:"verify_code"`
 	TurnstileToken string `json:"turnstile_token"`
+	CaptchaID      string `json:"captcha_id"`
+	CaptchaCode    string `json:"captcha_code"`
 	PromoCode      string `json:"promo_code"`      // 注册优惠码
 	InvitationCode string `json:"invitation_code"` // 邀请码
 	AffCode        string `json:"aff_code"`        // 邀请返利码
@@ -61,6 +63,8 @@ type RegisterRequest struct {
 type SendVerifyCodeRequest struct {
 	Email          string `json:"email" binding:"required,email"`
 	TurnstileToken string `json:"turnstile_token"`
+	CaptchaID      string `json:"captcha_id"`
+	CaptchaCode    string `json:"captcha_code"`
 }
 
 // SendVerifyCodeResponse 发送验证码响应
@@ -74,6 +78,8 @@ type LoginRequest struct {
 	Email          string `json:"email" binding:"required,email"`
 	Password       string `json:"password" binding:"required"`
 	TurnstileToken string `json:"turnstile_token"`
+	CaptchaID      string `json:"captcha_id"`
+	CaptchaCode    string `json:"captcha_code"`
 }
 
 // AuthResponse 认证响应格式（匹配前端期望）

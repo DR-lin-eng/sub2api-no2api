@@ -41,6 +41,7 @@ type SystemSettings struct {
 	TurnstileSiteKey             string
 	TurnstileSecretKey           string
 	TurnstileSecretKeyConfigured bool
+	LocalCaptchaEnabled          bool
 	APIKeyACLTrustForwardedIP    bool
 
 	// LinuxDo Connect OAuth 登录
@@ -298,6 +299,7 @@ type PublicSettings struct {
 	LoginAgreementDocuments          []LoginAgreementDocument
 	TurnstileEnabled                 bool
 	TurnstileSiteKey                 string
+	LocalCaptchaEnabled              bool
 	SiteName                         string
 	SiteLogo                         string
 	SiteSubtitle                     string

@@ -21,6 +21,12 @@ import type {
  */
 export type LoginResponse = AuthResponse | TotpLoginResponse
 
+export interface LocalCaptchaChallenge {
+  captcha_id: string
+  image_data: string
+  expires_in: number
+}
+
 /**
  * Type guard to check if login response requires 2FA
  */
@@ -333,6 +339,11 @@ export function isAuthenticated(): boolean {
  */
 export async function getPublicSettings(): Promise<PublicSettings> {
   const { data } = await apiClient.get<PublicSettings>('/settings/public')
+  return data
+}
+
+export async function getLocalCaptcha(): Promise<LocalCaptchaChallenge> {
+  const { data } = await apiClient.get<LocalCaptchaChallenge>('/auth/captcha')
   return data
 }
 
@@ -673,6 +684,7 @@ export const authAPI = {
   getTokenExpiresAt,
   clearAuthToken,
   getPublicSettings,
+  getLocalCaptcha,
   sendVerifyCode,
   sendPendingOAuthVerifyCode,
   validatePromoCode,

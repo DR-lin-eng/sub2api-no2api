@@ -193,6 +193,15 @@
           />
         </div>
 
+        <LocalCaptchaWidget
+          v-else-if="localCaptchaRequired"
+          ref="localCaptchaRef"
+          v-model:captcha-id="localCaptchaId"
+          v-model:captcha-code="localCaptchaCode"
+          :disabled="registrationActionDisabled"
+          input-id="register-local-captcha"
+        />
+
         <LoginAgreementPrompt
           v-if="loginAgreementEnabled"
           :accepted="agreementAccepted"
@@ -208,7 +217,11 @@
         <!-- Submit Button -->
         <button
           type="submit"
-          :disabled="registrationActionDisabled || (turnstileEnabled && !turnstileToken)"
+          :disabled="
+            registrationActionDisabled ||
+            (turnstileEnabled && !turnstileToken) ||
+            (localCaptchaRequired && (!localCaptchaId || !localCaptchaCode))
+          "
           class="btn btn-primary w-full"
         >
           <svg
@@ -307,6 +320,7 @@ import OidcOAuthSection from '@/components/auth/OidcOAuthSection.vue'
 import WechatOAuthSection from '@/components/auth/WechatOAuthSection.vue'
 import EmailOAuthButtons from '@/components/auth/EmailOAuthButtons.vue'
 import LoginAgreementPrompt from '@/components/auth/LoginAgreementPrompt.vue'
+import LocalCaptchaWidget from '@/components/auth/LocalCaptchaWidget.vue'
 import Icon from '@/components/icons/Icon.vue'
 import TurnstileWidget from '@/components/TurnstileWidget.vue'
 import { useAuthStore, useAppStore } from '@/stores'
@@ -317,6 +331,7 @@ import {
   validateInvitationCode
 } from '@/api/auth'
 import { buildAuthErrorMessage } from '@/utils/authError'
+import { extractI18nErrorMessage } from '@/utils/apiError'
 import {
   formatRegistrationEmailSuffixWhitelistForMessage,
   isRegistrationEmailSuffixAllowed,
@@ -353,6 +368,7 @@ const promoCodeEnabled = ref<boolean>(true)
 const invitationCodeEnabled = ref<boolean>(false)
 const turnstileEnabled = ref<boolean>(false)
 const turnstileSiteKey = ref<string>('')
+const localCaptchaEnabled = ref<boolean>(false)
 const siteName = ref<string>('Sub2API')
 const linuxdoOAuthEnabled = ref<boolean>(false)
 const wechatOAuthEnabled = ref<boolean>(false)
@@ -372,6 +388,9 @@ const showAgreementModal = ref<boolean>(false)
 // Turnstile
 const turnstileRef = ref<InstanceType<typeof TurnstileWidget> | null>(null)
 const turnstileToken = ref<string>('')
+const localCaptchaRef = ref<InstanceType<typeof LocalCaptchaWidget> | null>(null)
+const localCaptchaId = ref<string>('')
+const localCaptchaCode = ref<string>('')
 
 // Promo code validation
 const promoValidating = ref<boolean>(false)
@@ -404,6 +423,7 @@ const errors = reactive({
   email: '',
   password: '',
   turnstile: '',
+  localCaptcha: '',
   invitation_code: ''
 })
 
@@ -414,6 +434,7 @@ const validationToastMessage = computed(() =>
   errors.invitation_code ||
   (promoValidation.invalid ? promoValidation.message : '') ||
   errors.turnstile ||
+  errors.localCaptcha ||
   ''
 )
 
@@ -432,6 +453,10 @@ const agreementGateActive = computed(
 
 const registrationActionDisabled = computed(
   () => isLoading.value || !settingsLoaded.value || agreementGateActive.value
+)
+
+const localCaptchaRequired = computed(
+  () => settingsLoaded.value && localCaptchaEnabled.value && !turnstileEnabled.value
 )
 
 watch(validationToastMessage, (value, previousValue) => {
@@ -461,6 +486,7 @@ onMounted(async () => {
     invitationCodeEnabled.value = settings.invitation_code_enabled
     turnstileEnabled.value = settings.turnstile_enabled
     turnstileSiteKey.value = settings.turnstile_site_key || ''
+    localCaptchaEnabled.value = settings.local_captcha_enabled === true
     siteName.value = settings.site_name || 'Sub2API'
     linuxdoOAuthEnabled.value = settings.linuxdo_oauth_enabled
     wechatOAuthEnabled.value = isWeChatWebOAuthEnabled(settings)
@@ -752,6 +778,7 @@ function validateForm(): boolean {
   errors.email = ''
   errors.password = ''
   errors.turnstile = ''
+  errors.localCaptcha = ''
   errors.invitation_code = ''
 
   let isValid = true
@@ -798,6 +825,11 @@ function validateForm(): boolean {
   // Turnstile validation
   if (turnstileEnabled.value && !turnstileToken.value) {
     errors.turnstile = t('auth.completeVerification')
+    isValid = false
+  }
+
+  if (localCaptchaRequired.value && (!localCaptchaId.value || !localCaptchaCode.value)) {
+    errors.localCaptcha = t('auth.localCaptchaRequired')
     isValid = false
   }
 
@@ -870,6 +902,8 @@ async function handleRegister(): Promise<void> {
           email: formData.email,
           password: formData.password,
           turnstile_token: turnstileToken.value,
+          captcha_id: localCaptchaId.value || undefined,
+          captcha_code: localCaptchaCode.value || undefined,
           promo_code: formData.promo_code || undefined,
           invitation_code: formData.invitation_code || undefined,
           ...(affCode ? { aff_code: affCode } : {})
@@ -886,6 +920,8 @@ async function handleRegister(): Promise<void> {
       email: formData.email,
       password: formData.password,
       turnstile_token: turnstileEnabled.value ? turnstileToken.value : undefined,
+      captcha_id: localCaptchaRequired.value ? localCaptchaId.value : undefined,
+      captcha_code: localCaptchaRequired.value ? localCaptchaCode.value : undefined,
       promo_code: formData.promo_code || undefined,
       invitation_code: formData.invitation_code || undefined,
       ...(affCode ? { aff_code: affCode } : {})
@@ -903,11 +939,17 @@ async function handleRegister(): Promise<void> {
       turnstileRef.value.reset()
       turnstileToken.value = ''
     }
+    if (localCaptchaRequired.value) {
+      await localCaptchaRef.value?.reset()
+    }
 
     // Handle registration error
-    errorMessage.value = buildAuthErrorMessage(error, {
-      fallback: t('auth.registrationFailed')
-    })
+    errorMessage.value = extractI18nErrorMessage(
+      error,
+      t,
+      'auth.errors',
+      buildAuthErrorMessage(error, { fallback: t('auth.registrationFailed') })
+    )
 
     // Also show error toast
     appStore.showError(errorMessage.value)

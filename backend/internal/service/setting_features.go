@@ -406,6 +406,15 @@ func (s *SettingService) IsTurnstileEnabled(ctx context.Context) bool {
 	return value == "true"
 }
 
+// IsLocalCaptchaEnabled 检查是否启用本地验证码兜底。缺少设置时默认关闭。
+func (s *SettingService) IsLocalCaptchaEnabled(ctx context.Context) bool {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyLocalCaptchaEnabled)
+	if err != nil {
+		return false
+	}
+	return value == "true"
+}
+
 // GetTurnstileSecretKey 获取 Turnstile Secret Key
 func (s *SettingService) GetTurnstileSecretKey(ctx context.Context) string {
 	value, err := s.settingRepo.GetValue(ctx, SettingKeyTurnstileSecretKey)
