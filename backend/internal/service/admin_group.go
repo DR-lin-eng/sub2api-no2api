@@ -123,6 +123,7 @@ func (s *adminServiceImpl) CreateCompositeRoute(ctx context.Context, groupID int
 	if err := s.compositeRouteRepo.Create(ctx, route); err != nil {
 		return nil, err
 	}
+	s.invalidateCompositeRoutes(groupID)
 	return route, nil
 }
 
@@ -146,6 +147,7 @@ func (s *adminServiceImpl) UpdateCompositeRoute(ctx context.Context, groupID, ro
 	if err := s.compositeRouteRepo.Update(ctx, route); err != nil {
 		return nil, err
 	}
+	s.invalidateCompositeRoutes(groupID)
 	return route, nil
 }
 
@@ -161,7 +163,17 @@ func (s *adminServiceImpl) DeleteCompositeRoute(ctx context.Context, groupID, ro
 	} else if !ok {
 		return ErrCompositeRouteNotFound
 	}
-	return s.compositeRouteRepo.Delete(ctx, routeID)
+	if err := s.compositeRouteRepo.Delete(ctx, routeID); err != nil {
+		return err
+	}
+	s.invalidateCompositeRoutes(groupID)
+	return nil
+}
+
+func (s *adminServiceImpl) invalidateCompositeRoutes(groupID int64) {
+	if s != nil && s.compositeResolver != nil {
+		s.compositeResolver.Invalidate(groupID)
+	}
 }
 
 func (s *adminServiceImpl) PreviewCompositeRoute(ctx context.Context, groupID int64, input CompositeRoutePreviewRequest) (*CompositeRouteDecision, error) {
@@ -877,6 +889,7 @@ func (s *adminServiceImpl) DeleteGroup(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
+	s.invalidateCompositeRoutes(id)
 	// 注意：user_group_rate_multipliers 表通过外键 ON DELETE CASCADE 自动清理
 
 	// 事务成功后，异步失效受影响用户的订阅缓存
