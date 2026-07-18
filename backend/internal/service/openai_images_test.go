@@ -463,6 +463,14 @@ func TestAccountSupportsOpenAIImageCapability_OAuthSupportsNative(t *testing.T) 
 
 	require.True(t, account.SupportsOpenAIImageCapability(OpenAIImagesCapabilityBasic))
 	require.True(t, account.SupportsOpenAIImageCapability(OpenAIImagesCapabilityNative))
+	require.False(t, account.SupportsOpenAIImageCapability(OpenAIImagesCapabilityForcedAPI))
+
+	forced := &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Extra:    map[string]any{"openai_force_image_api": true},
+	}
+	require.True(t, forced.SupportsOpenAIImageCapability(OpenAIImagesCapabilityForcedAPI))
 }
 
 func TestAccountSupportsOpenAIImageCapability_EmptyRequirementDoesNotRejectGrok(t *testing.T) {

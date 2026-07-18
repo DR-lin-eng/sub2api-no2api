@@ -875,6 +875,18 @@
               />
               {{ t(imagePricingI18nKey(createForm.platform, "allowImageGeneration")) }}
             </label>
+            <label
+              v-if="createForm.platform === 'openai'"
+              class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
+              :title="t('admin.groups.imagePricing.forceImageToolHint')"
+            >
+              <input
+                v-model="createForm.openai_force_image_tool"
+                type="checkbox"
+                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              {{ t("admin.groups.imagePricing.forceImageTool") }}
+            </label>
             <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
               <input
                 v-model="createForm.image_rate_independent"
@@ -2388,6 +2400,18 @@
                 class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
               {{ t(imagePricingI18nKey(editForm.platform, "allowImageGeneration")) }}
+            </label>
+            <label
+              v-if="editForm.platform === 'openai'"
+              class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
+              :title="t('admin.groups.imagePricing.forceImageToolHint')"
+            >
+              <input
+                v-model="editForm.openai_force_image_tool"
+                type="checkbox"
+                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              {{ t("admin.groups.imagePricing.forceImageTool") }}
             </label>
             <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
               <input
@@ -4479,6 +4503,7 @@ const createForm = reactive({
   monthly_limit_usd: null as number | null,
   // 图片生成计费配置
   allow_image_generation: false,
+  openai_force_image_tool: false,
   allow_batch_image_generation: false,
   image_rate_independent: false,
   image_rate_multiplier: 1,
@@ -4826,6 +4851,7 @@ const editForm = reactive({
   monthly_limit_usd: null as number | null,
   // 图片生成计费配置
   allow_image_generation: false,
+  openai_force_image_tool: false,
   allow_batch_image_generation: false,
   image_rate_independent: false,
   image_rate_multiplier: 1,
@@ -4876,6 +4902,7 @@ const editForm = reactive({
 type ImagePricingFormState = {
   platform: GroupPlatform;
   allow_image_generation: boolean;
+  openai_force_image_tool: boolean;
   allow_batch_image_generation: boolean;
   rate_multiplier: number;
   image_rate_independent: boolean;
@@ -5232,6 +5259,7 @@ const closeCreateModal = () => {
   createForm.weekly_limit_usd = null;
   createForm.monthly_limit_usd = null;
   createForm.allow_image_generation = false;
+  createForm.openai_force_image_tool = false;
   createForm.allow_batch_image_generation = false;
   createForm.image_rate_independent = false;
   createForm.image_rate_multiplier = 1;
@@ -5398,6 +5426,7 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.weekly_limit_usd = group.weekly_limit_usd;
   editForm.monthly_limit_usd = group.monthly_limit_usd;
   editForm.allow_image_generation = group.allow_image_generation ?? false;
+  editForm.openai_force_image_tool = group.openai_force_image_tool ?? false;
   editForm.allow_batch_image_generation =
     group.allow_batch_image_generation ?? false;
   editForm.image_rate_independent = group.image_rate_independent ?? false;
@@ -5867,6 +5896,7 @@ watch(
     }
     if (newVal !== "openai") {
       resetMessagesDispatchFormState(createForm);
+      createForm.openai_force_image_tool = false;
     }
     if (!["openai", "antigravity", "anthropic", "gemini"].includes(newVal)) {
       createForm.require_oauth_only = false;
@@ -5880,8 +5910,20 @@ watch(
 
 watch(
   () => createForm.allow_image_generation,
-  () => {
+  (enabled) => {
+    if (!enabled) {
+      createForm.openai_force_image_tool = false;
+    }
     resetDisabledBatchImagePricing(createForm);
+  },
+);
+
+watch(
+  () => createForm.openai_force_image_tool,
+  (enabled) => {
+    if (enabled) {
+      createForm.allow_image_generation = true;
+    }
   },
 );
 
@@ -5900,6 +5942,7 @@ watch(
     }
     if (newVal !== "openai") {
       resetMessagesDispatchFormState(editForm);
+      editForm.openai_force_image_tool = false;
     }
     if (!["openai", "antigravity", "anthropic", "gemini"].includes(newVal)) {
       editForm.require_oauth_only = false;
@@ -5915,8 +5958,20 @@ watch(
 
 watch(
   () => editForm.allow_image_generation,
-  () => {
+  (enabled) => {
+    if (!enabled) {
+      editForm.openai_force_image_tool = false;
+    }
     resetDisabledBatchImagePricing(editForm);
+  },
+);
+
+watch(
+  () => editForm.openai_force_image_tool,
+  (enabled) => {
+    if (enabled) {
+      editForm.allow_image_generation = true;
+    }
   },
 );
 

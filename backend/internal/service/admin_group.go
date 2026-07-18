@@ -448,6 +448,7 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		WeeklyLimitUSD:                  weeklyLimit,
 		MonthlyLimitUSD:                 monthlyLimit,
 		AllowImageGeneration:            allowImageGeneration,
+		OpenAIForceImageTool:            input.OpenAIForceImageTool && platform == PlatformOpenAI && allowImageGeneration,
 		AllowBatchImageGeneration:       allowBatchImageGeneration,
 		ImageRateIndependent:            input.ImageRateIndependent,
 		ImageRateMultiplier:             imageRateMultiplier,
@@ -642,6 +643,12 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	// 图片生成计费配置：负数表示清除（使用默认价格）
 	if input.AllowImageGeneration != nil {
 		group.AllowImageGeneration = *input.AllowImageGeneration
+	}
+	if input.OpenAIForceImageTool != nil {
+		group.OpenAIForceImageTool = *input.OpenAIForceImageTool
+	}
+	if group.Platform != PlatformOpenAI || !group.AllowImageGeneration {
+		group.OpenAIForceImageTool = false
 	}
 	if input.AllowBatchImageGeneration != nil {
 		group.AllowBatchImageGeneration = *input.AllowBatchImageGeneration

@@ -292,6 +292,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", invalidStreamFieldTypeMessage)
 		return
 	}
+	forceImageTool := service.GroupForcesOpenAIImageTool(apiKey.Group) && isBareOpenAIResponsesPath(c)
 	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", reqStream))
 	previousResponseID := strings.TrimSpace(gjson.GetBytes(body, "previous_response_id").String())
 	if previousResponseID != "" {
@@ -308,11 +309,13 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "previous_response_id must be a response.id (resp_*), not a message id")
 			return
 		}
-		reqLog.Warn("openai.request_validation_failed",
-			zap.String("reason", "previous_response_id_requires_wsv2"),
-		)
-		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "previous_response_id is only supported on Responses WebSocket v2")
-		return
+		if !forceImageTool {
+			reqLog.Warn("openai.request_validation_failed",
+				zap.String("reason", "previous_response_id_requires_wsv2"),
+			)
+			h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "previous_response_id is only supported on Responses WebSocket v2")
+			return
+		}
 	}
 
 	setOpsRequestContext(c, reqModel, reqStream)
@@ -326,11 +329,17 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	// 使用 IsExplicitImageGenerationIntent 排除被动 image_gen namespace 声明。
 	// Codex 在所有请求中被动声明 image_gen namespace，宽泛检测会导致禁了生图的
 	// 分组中所有 Codex 请求被 403（#4447），并误占生图并发槽位。
-	imageIntent := service.IsExplicitImageGenerationIntent("/v1/responses", reqModel, body)
+	imageIntent := forceImageTool || service.IsExplicitImageGenerationIntent("/v1/responses", reqModel, body)
 	if imageIntent && !service.GroupAllowsImageGeneration(apiKey.Group) {
 		h.errorResponse(c, http.StatusForbidden, "permission_error", service.ImageGenerationPermissionMessage())
 		return
 	}
+	stopForcedImagePreKeepalive := func() {}
+	if forceImageTool && reqStream {
+		streamStarted = true
+		stopForcedImagePreKeepalive = service.StartOpenAIResponsesImageSSEKeepalive(c, h.openAIImagesStreamKeepaliveInterval())
+	}
+	defer func() { stopForcedImagePreKeepalive() }()
 	var imageReleaseFunc func()
 	if imageIntent {
 		var imageAcquired bool
@@ -349,7 +358,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	seedOpenAIForwardImageIntentHint(c, channelMapping.Mapped, imageIntent)
 
 	// 提前校验 function_call_output 是否具备可关联上下文，避免上游 400。
-	if !h.validateFunctionCallOutputRequest(c, body, reqLog) {
+	if !forceImageTool && !h.validateFunctionCallOutputRequest(c, body, reqLog) {
 		return
 	}
 
@@ -388,6 +397,22 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	// Generate session hash (header first; fallback to prompt_cache_key)
 	sessionHash := h.gatewayService.GenerateSessionHash(c, sessionHashBody)
 	if h.rejectIfCyberSessionBlocked(c, apiKey, sessionHashBody, reqModel, cyberBlockFormatResponses) {
+		return
+	}
+	if forceImageTool {
+		stopForcedImagePreKeepalive()
+		stopForcedImagePreKeepalive = func() {}
+		h.handleForcedOpenAIImageResponses(
+			c,
+			body,
+			reqModel,
+			reqStream,
+			sessionHash,
+			apiKey,
+			subscription,
+			reqLog,
+			&streamStarted,
+		)
 		return
 	}
 	requireCompact := isOpenAIRemoteCompactPath(c)
@@ -1593,7 +1618,8 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		return
 	}
 
-	imageIntent := service.IsExplicitImageGenerationIntent("/v1/responses", reqModel, firstMessage)
+	forceImageTool := service.GroupForcesOpenAIImageTool(apiKey.Group)
+	imageIntent := forceImageTool || service.IsExplicitImageGenerationIntent("/v1/responses", reqModel, firstMessage)
 	if imageIntent && !service.GroupAllowsImageGeneration(apiKey.Group) {
 		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, service.ImageGenerationPermissionMessage())
 		return
@@ -1677,6 +1703,23 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		firstMessage,
 		openAIWSIngressFallbackSessionSeed(subject.UserID, apiKey.ID, apiKey.GroupID),
 	)
+	if forceImageTool {
+		h.handleForcedOpenAIImageResponsesWebSocket(
+			ctx,
+			c,
+			wsConn,
+			firstMessage,
+			reqModel,
+			sessionHash,
+			apiKey,
+			subject,
+			subscription,
+			reqLog,
+			releaseTurnSlots,
+			ensureUserSlotHeld,
+		)
+		return
+	}
 	maxAccountSwitches := h.maxAccountSwitches
 	switchCount := 0
 	failedAccountIDs := make(map[int64]struct{})

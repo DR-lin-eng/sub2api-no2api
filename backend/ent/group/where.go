@@ -155,6 +155,11 @@ func AllowImageGeneration(v bool) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldAllowImageGeneration, v))
 }
 
+// OpenaiForceImageTool applies equality check predicate on the "openai_force_image_tool" field. It's identical to OpenaiForceImageToolEQ.
+func OpenaiForceImageTool(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldOpenaiForceImageTool, v))
+}
+
 // AllowBatchImageGeneration applies equality check predicate on the "allow_batch_image_generation" field. It's identical to AllowBatchImageGenerationEQ.
 func AllowBatchImageGeneration(v bool) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldAllowBatchImageGeneration, v))
@@ -1248,6 +1253,16 @@ func AllowImageGenerationEQ(v bool) predicate.Group {
 // AllowImageGenerationNEQ applies the NEQ predicate on the "allow_image_generation" field.
 func AllowImageGenerationNEQ(v bool) predicate.Group {
 	return predicate.Group(sql.FieldNEQ(FieldAllowImageGeneration, v))
+}
+
+// OpenaiForceImageToolEQ applies the EQ predicate on the "openai_force_image_tool" field.
+func OpenaiForceImageToolEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldOpenaiForceImageTool, v))
+}
+
+// OpenaiForceImageToolNEQ applies the NEQ predicate on the "openai_force_image_tool" field.
+func OpenaiForceImageToolNEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldOpenaiForceImageTool, v))
 }
 
 // AllowBatchImageGenerationEQ applies the EQ predicate on the "allow_batch_image_generation" field.

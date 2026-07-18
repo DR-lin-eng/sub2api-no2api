@@ -56,6 +56,8 @@ const (
 	FieldDefaultValidityDays = "default_validity_days"
 	// FieldAllowImageGeneration holds the string denoting the allow_image_generation field in the database.
 	FieldAllowImageGeneration = "allow_image_generation"
+	// FieldOpenaiForceImageTool holds the string denoting the openai_force_image_tool field in the database.
+	FieldOpenaiForceImageTool = "openai_force_image_tool"
 	// FieldAllowBatchImageGeneration holds the string denoting the allow_batch_image_generation field in the database.
 	FieldAllowBatchImageGeneration = "allow_batch_image_generation"
 	// FieldImageRateIndependent holds the string denoting the image_rate_independent field in the database.
@@ -209,6 +211,7 @@ var Columns = []string{
 	FieldMonthlyLimitUsd,
 	FieldDefaultValidityDays,
 	FieldAllowImageGeneration,
+	FieldOpenaiForceImageTool,
 	FieldAllowBatchImageGeneration,
 	FieldImageRateIndependent,
 	FieldImageRateMultiplier,
@@ -309,6 +312,8 @@ var (
 	DefaultDefaultValidityDays int
 	// DefaultAllowImageGeneration holds the default value on creation for the "allow_image_generation" field.
 	DefaultAllowImageGeneration bool
+	// DefaultOpenaiForceImageTool holds the default value on creation for the "openai_force_image_tool" field.
+	DefaultOpenaiForceImageTool bool
 	// DefaultAllowBatchImageGeneration holds the default value on creation for the "allow_batch_image_generation" field.
 	DefaultAllowBatchImageGeneration bool
 	// DefaultImageRateIndependent holds the default value on creation for the "image_rate_independent" field.
@@ -457,6 +462,11 @@ func ByDefaultValidityDays(opts ...sql.OrderTermOption) OrderOption {
 // ByAllowImageGeneration orders the results by the allow_image_generation field.
 func ByAllowImageGeneration(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAllowImageGeneration, opts...).ToFunc()
+}
+
+// ByOpenaiForceImageTool orders the results by the openai_force_image_tool field.
+func ByOpenaiForceImageTool(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOpenaiForceImageTool, opts...).ToFunc()
 }
 
 // ByAllowBatchImageGeneration orders the results by the allow_batch_image_generation field.

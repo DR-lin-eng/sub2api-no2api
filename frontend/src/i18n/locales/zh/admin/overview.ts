@@ -938,6 +938,8 @@ export default {
         title: '图片生成计费',
         description: '配置图片生成能力和图片基础单价，留空则使用默认价格',
         allowImageGeneration: '允许当前分组生图',
+        forceImageTool: '强制 Responses 画图工具走 Images API',
+        forceImageToolHint: '未声明时注入 image_generation，并将每张图片重新调度到同组强制 Images API 账号。',
         allowBatchImageGeneration: '允许当前分组批量生图',
         independentMultiplier: '生图倍率独立',
         imageMultiplier: '生图独立倍率',

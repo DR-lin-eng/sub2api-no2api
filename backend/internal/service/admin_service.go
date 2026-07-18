@@ -219,8 +219,9 @@ type CreateGroupInput struct {
 	DailyLimitUSD    *float64 // 日限额 (USD)
 	WeeklyLimitUSD   *float64 // 周限额 (USD)
 	MonthlyLimitUSD  *float64 // 月限额 (USD)
-	// 图片生成计费配置（仅 antigravity 平台使用）
+	// 图片生成权限与计费配置
 	AllowImageGeneration         bool
+	OpenAIForceImageTool         bool
 	AllowBatchImageGeneration    bool
 	ImageRateIndependent         bool
 	ImageRateMultiplier          *float64
@@ -275,8 +276,9 @@ type UpdateGroupInput struct {
 	DailyLimitUSD    *float64 // 日限额 (USD)
 	WeeklyLimitUSD   *float64 // 周限额 (USD)
 	MonthlyLimitUSD  *float64 // 月限额 (USD)
-	// 图片生成计费配置（仅 antigravity 平台使用）
+	// 图片生成权限与计费配置
 	AllowImageGeneration         *bool
+	OpenAIForceImageTool         *bool
 	AllowBatchImageGeneration    *bool
 	ImageRateIndependent         *bool
 	ImageRateMultiplier          *float64

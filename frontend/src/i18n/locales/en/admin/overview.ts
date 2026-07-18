@@ -941,6 +941,8 @@ export default {
         title: 'Image Generation Pricing',
         description: 'Configure image generation access and base image prices. Leave empty to use default prices.',
         allowImageGeneration: 'Allow image generation for this group',
+        forceImageTool: 'Force Responses image tool through Images API',
+        forceImageToolHint: 'Injects image_generation when absent and routes each image through a same-group forced Images API account.',
         allowBatchImageGeneration: 'Allow batch image generation for this group',
         independentMultiplier: 'Use independent image multiplier',
         imageMultiplier: 'Image multiplier',

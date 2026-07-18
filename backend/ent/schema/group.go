@@ -99,6 +99,9 @@ func (Group) Fields() []ent.Field {
 		field.Bool("allow_image_generation").
 			Default(false).
 			Comment("是否允许该分组使用图片生成能力"),
+		field.Bool("openai_force_image_tool").
+			Default(false).
+			Comment("OpenAI Responses 是否强制注入 image_generation 并改由同组 Images API 账号执行"),
 		field.Bool("allow_batch_image_generation").
 			Default(false).
 			Comment("是否允许该分组使用批量图片生成能力"),

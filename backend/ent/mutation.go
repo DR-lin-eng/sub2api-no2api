@@ -22121,6 +22121,7 @@ type GroupMutation struct {
 	default_validity_days                   *int
 	adddefault_validity_days                *int
 	allow_image_generation                  *bool
+	openai_force_image_tool                 *bool
 	allow_batch_image_generation            *bool
 	image_rate_independent                  *bool
 	image_rate_multiplier                   *float64
@@ -23207,6 +23208,42 @@ func (m *GroupMutation) OldAllowImageGeneration(ctx context.Context) (v bool, er
 // ResetAllowImageGeneration resets all changes to the "allow_image_generation" field.
 func (m *GroupMutation) ResetAllowImageGeneration() {
 	m.allow_image_generation = nil
+}
+
+// SetOpenaiForceImageTool sets the "openai_force_image_tool" field.
+func (m *GroupMutation) SetOpenaiForceImageTool(b bool) {
+	m.openai_force_image_tool = &b
+}
+
+// OpenaiForceImageTool returns the value of the "openai_force_image_tool" field in the mutation.
+func (m *GroupMutation) OpenaiForceImageTool() (r bool, exists bool) {
+	v := m.openai_force_image_tool
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOpenaiForceImageTool returns the old "openai_force_image_tool" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldOpenaiForceImageTool(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOpenaiForceImageTool is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOpenaiForceImageTool requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOpenaiForceImageTool: %w", err)
+	}
+	return oldValue.OpenaiForceImageTool, nil
+}
+
+// ResetOpenaiForceImageTool resets all changes to the "openai_force_image_tool" field.
+func (m *GroupMutation) ResetOpenaiForceImageTool() {
+	m.openai_force_image_tool = nil
 }
 
 // SetAllowBatchImageGeneration sets the "allow_batch_image_generation" field.
@@ -25065,7 +25102,7 @@ func (m *GroupMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupMutation) Fields() []string {
-	fields := make([]string, 0, 49)
+	fields := make([]string, 0, 50)
 	if m.created_at != nil {
 		fields = append(fields, group.FieldCreatedAt)
 	}
@@ -25125,6 +25162,9 @@ func (m *GroupMutation) Fields() []string {
 	}
 	if m.allow_image_generation != nil {
 		fields = append(fields, group.FieldAllowImageGeneration)
+	}
+	if m.openai_force_image_tool != nil {
+		fields = append(fields, group.FieldOpenaiForceImageTool)
 	}
 	if m.allow_batch_image_generation != nil {
 		fields = append(fields, group.FieldAllowBatchImageGeneration)
@@ -25261,6 +25301,8 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.DefaultValidityDays()
 	case group.FieldAllowImageGeneration:
 		return m.AllowImageGeneration()
+	case group.FieldOpenaiForceImageTool:
+		return m.OpenaiForceImageTool()
 	case group.FieldAllowBatchImageGeneration:
 		return m.AllowBatchImageGeneration()
 	case group.FieldImageRateIndependent:
@@ -25368,6 +25410,8 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldDefaultValidityDays(ctx)
 	case group.FieldAllowImageGeneration:
 		return m.OldAllowImageGeneration(ctx)
+	case group.FieldOpenaiForceImageTool:
+		return m.OldOpenaiForceImageTool(ctx)
 	case group.FieldAllowBatchImageGeneration:
 		return m.OldAllowBatchImageGeneration(ctx)
 	case group.FieldImageRateIndependent:
@@ -25574,6 +25618,13 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetAllowImageGeneration(v)
+		return nil
+	case group.FieldOpenaiForceImageTool:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOpenaiForceImageTool(v)
 		return nil
 	case group.FieldAllowBatchImageGeneration:
 		v, ok := value.(bool)
@@ -26240,6 +26291,9 @@ func (m *GroupMutation) ResetField(name string) error {
 		return nil
 	case group.FieldAllowImageGeneration:
 		m.ResetAllowImageGeneration()
+		return nil
+	case group.FieldOpenaiForceImageTool:
+		m.ResetOpenaiForceImageTool()
 		return nil
 	case group.FieldAllowBatchImageGeneration:
 		m.ResetAllowBatchImageGeneration()

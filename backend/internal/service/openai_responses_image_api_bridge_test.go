@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -47,6 +49,99 @@ func TestBuildOpenAIResponsesImageAPIBridgeRequest_MapsOfficialFields(t *testing
 	require.Equal(t, "url", bridge.Parsed.ResponseFormat)
 }
 
+func TestNormalizeOpenAIResponsesImageToolRequest_InjectsAndSplitsStreamingMultiImage(t *testing.T) {
+	body := []byte(`{"model":"gpt-5.4","input":"Draw a cat","stream":true,"n":4,"previous_response_id":"resp_previous"}`)
+
+	normalized, n, imageModel, err := NormalizeOpenAIResponsesImageToolRequest(body)
+
+	require.NoError(t, err)
+	require.Equal(t, 4, n)
+	require.Equal(t, "gpt-image-2", imageModel)
+	require.Equal(t, "image_generation", gjson.GetBytes(normalized, "tools.0.type").String())
+	require.Equal(t, "resp_previous", gjson.GetBytes(normalized, "previous_response_id").String())
+
+	child, err := PrepareOpenAIResponsesImageChildRequest(normalized, true)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, gjson.GetBytes(child, "n").Int())
+	require.True(t, gjson.GetBytes(child, "stream").Bool())
+
+	bridge, err := buildOpenAIResponsesImageAPIBridgeRequest(child, "gpt-5.4", "gpt-image-2")
+	require.NoError(t, err)
+	require.Equal(t, "resp_previous", gjson.GetBytes(child, "previous_response_id").String())
+	require.Equal(t, 1, bridge.Parsed.N)
+	require.True(t, bridge.Parsed.Stream)
+}
+
+func TestBuildOpenAIResponsesImageAPIBridgeRequest_EditUsesOfficialMultipart(t *testing.T) {
+	body := []byte(`{
+		"model":"gpt-5.4",
+		"input":[{"role":"user","content":[
+			{"type":"input_text","text":"Make it blue"},
+			{"type":"input_image","image_url":"data:image/png;base64,aW1hZ2U="}
+		]}],
+		"tools":[{"type":"image_generation","model":"gpt-image-2","action":"edit","input_fidelity":"high"}],
+		"stream":true
+	}`)
+
+	bridge, err := buildOpenAIResponsesImageAPIBridgeRequest(body, "gpt-5.4", "gpt-image-2")
+
+	require.NoError(t, err)
+	require.Equal(t, openAIImagesEditsEndpoint, bridge.Parsed.Endpoint)
+	require.True(t, bridge.Parsed.Multipart)
+	mediaType, params, err := mime.ParseMediaType(bridge.ContentType)
+	require.NoError(t, err)
+	require.Equal(t, "multipart/form-data", mediaType)
+	reader := multipart.NewReader(bytes.NewReader(bridge.Body), params["boundary"])
+	form, err := reader.ReadForm(openAIImageMaxDownloadBytes)
+	require.NoError(t, err)
+	require.Equal(t, []string{"gpt-image-2"}, form.Value["model"])
+	require.Equal(t, []string{"Make it blue"}, form.Value["prompt"])
+	require.Equal(t, []string{"true"}, form.Value["stream"])
+	require.Len(t, form.File["image"], 1)
+}
+
+func TestOpenAIGatewayForward_ForcedImageAPIEditUsesSelectedAccountEditsEndpoint(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{
+		"model":"gpt-5.4",
+		"input":[{"role":"user","content":[
+			{"type":"input_text","text":"Make it blue"},
+			{"type":"input_image","image_url":"data:image/png;base64,aW1hZ2U="}
+		]}],
+		"tools":[{"type":"image_generation","model":"gpt-image-2","action":"edit"}]
+	}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = req
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"created":1710000010,"data":[{"b64_json":"aW1hZ2U="}]}`)),
+	}}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+	account := &Account{
+		ID: 77, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://image.example/v1"},
+		Extra:       map[string]any{"openai_force_image_api": true},
+	}
+
+	result, err := svc.ForwardOpenAIResponsesViaImagesAPI(context.Background(), c, account, body, "gpt-5.4", "gpt-image-2", time.Now())
+
+	require.NoError(t, err)
+	require.Equal(t, openAIImagesEditsEndpoint, result.UpstreamEndpoint)
+	require.Equal(t, "https://image.example/v1/images/edits", upstream.lastReq.URL.String())
+	mediaType, params, err := mime.ParseMediaType(upstream.lastReq.Header.Get("Content-Type"))
+	require.NoError(t, err)
+	require.Equal(t, "multipart/form-data", mediaType)
+	form, err := multipart.NewReader(bytes.NewReader(upstream.lastBody), params["boundary"]).ReadForm(openAIImageMaxDownloadBytes)
+	require.NoError(t, err)
+	require.Equal(t, []string{"gpt-image-2"}, form.Value["model"])
+	require.Len(t, form.File["image"], 1)
+	require.Equal(t, "aW1hZ2U=", gjson.Get(recorder.Body.String(), "output.0.result").String())
+}
+
 func TestOpenAIGatewayForward_ForcedImageAPIURLUsesLocalGeneratedProxy(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	body := []byte(`{"model":"gpt-image-2","input":"Draw a cat","response_format":"url"}`)
@@ -87,6 +182,37 @@ func TestOpenAIGatewayForward_ForcedImageAPIURLUsesLocalGeneratedProxy(t *testin
 		require.Equal(t, 30*time.Minute, store.ttls[hash])
 		require.Contains(t, localURL, hash)
 	}
+}
+
+func TestOpenAIGatewayForward_ForcedImageAPIPostprocessFailureStillReturnsBillableImage(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"gpt-image-2","input":"Draw a cat","response_format":"url"}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
+	req.Host = "api.funai.works"
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Forwarded-Proto", "https")
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = req
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"created":1710000010,"data":[{"url":"https://cdn.image-upstream.example/generated/result.png"}]}`)),
+	}}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+	account := &Account{
+		ID: 43, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://image.example/v1"},
+		Extra:       map[string]any{"openai_force_image_api": true},
+	}
+
+	result, err := svc.Forward(context.Background(), c, account, body)
+
+	require.Error(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, 1, result.ImageCount)
+	require.Equal(t, "gpt-image-2", result.BillingModel)
+	require.NotContains(t, recorder.Body.String(), "cdn.image-upstream.example")
 }
 
 func TestOpenAIGatewayForward_ForcedImageAPIURLStreamNeverLeaksUpstream(t *testing.T) {

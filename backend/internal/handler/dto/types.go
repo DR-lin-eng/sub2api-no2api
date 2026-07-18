@@ -102,8 +102,9 @@ type Group struct {
 	WeeklyLimitUSD   *float64 `json:"weekly_limit_usd"`
 	MonthlyLimitUSD  *float64 `json:"monthly_limit_usd"`
 
-	// 图片生成计费配置（仅 antigravity 平台使用）
+	// 图片生成权限与计费配置
 	AllowImageGeneration         bool    `json:"allow_image_generation"`
+	OpenAIForceImageTool         bool    `json:"openai_force_image_tool"`
 	AllowBatchImageGeneration    bool    `json:"allow_batch_image_generation"`
 	ImageRateIndependent         bool    `json:"image_rate_independent"`
 	ImageRateMultiplier          float64 `json:"image_rate_multiplier"`

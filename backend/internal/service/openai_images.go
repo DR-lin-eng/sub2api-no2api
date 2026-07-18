@@ -45,8 +45,9 @@ const (
 type OpenAIImagesCapability string
 
 const (
-	OpenAIImagesCapabilityBasic  OpenAIImagesCapability = "images-basic"
-	OpenAIImagesCapabilityNative OpenAIImagesCapability = "images-native"
+	OpenAIImagesCapabilityBasic     OpenAIImagesCapability = "images-basic"
+	OpenAIImagesCapabilityNative    OpenAIImagesCapability = "images-native"
+	OpenAIImagesCapabilityForcedAPI OpenAIImagesCapability = "images-forced-api"
 )
 
 type OpenAIImagesUpload struct {
@@ -751,6 +752,18 @@ func (s *OpenAIGatewayService) buildOpenAIImagesRequest(
 	token string,
 	endpoint string,
 ) (*http.Request, error) {
+	return s.buildOpenAIImagesRequestReader(ctx, c, account, bytes.NewReader(body), contentType, token, endpoint)
+}
+
+func (s *OpenAIGatewayService) buildOpenAIImagesRequestReader(
+	ctx context.Context,
+	c *gin.Context,
+	account *Account,
+	body io.Reader,
+	contentType string,
+	token string,
+	endpoint string,
+) (*http.Request, error) {
 	targetURL := openAIImagesGenerationsURL
 	if endpoint == openAIImagesEditsEndpoint {
 		targetURL = openAIImagesEditsURL
@@ -764,7 +777,7 @@ func (s *OpenAIGatewayService) buildOpenAIImagesRequest(
 		targetURL = buildOpenAIImagesURL(validatedURL, endpoint)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, body)
 	if err != nil {
 		return nil, err
 	}

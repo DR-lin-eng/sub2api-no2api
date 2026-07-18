@@ -427,3 +427,21 @@ func TestCollectOpenAIImageOutputSizesFromSSEBody(t *testing.T) {
 	require.Equal(t, 2, countOpenAIImageOutputsFromSSEBody(body))
 	require.Equal(t, []string{"3840x2160", "1024x1024"}, collectOpenAIImageOutputSizesFromSSEBody(body))
 }
+
+func TestGroupForcesOpenAIImageToolRequiresOpenAIAndImagePermission(t *testing.T) {
+	require.True(t, GroupForcesOpenAIImageTool(&Group{
+		Platform:             PlatformOpenAI,
+		AllowImageGeneration: true,
+		OpenAIForceImageTool: true,
+	}))
+	require.False(t, GroupForcesOpenAIImageTool(&Group{
+		Platform:             PlatformOpenAI,
+		AllowImageGeneration: false,
+		OpenAIForceImageTool: true,
+	}))
+	require.False(t, GroupForcesOpenAIImageTool(&Group{
+		Platform:             PlatformGemini,
+		AllowImageGeneration: true,
+		OpenAIForceImageTool: true,
+	}))
+}

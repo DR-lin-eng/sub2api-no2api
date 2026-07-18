@@ -416,6 +416,33 @@ func TestAdminService_CreateGroup_DisablesBatchImageForNonGeminiPlatform(t *test
 	require.False(t, group.AllowBatchImageGeneration)
 }
 
+func TestAdminService_CreateGroup_EnablesForcedImageToolOnlyForOpenAIImageGroups(t *testing.T) {
+	for _, testCase := range []struct {
+		name       string
+		platform   string
+		allowImage bool
+		want       bool
+	}{
+		{name: "openai enabled", platform: PlatformOpenAI, allowImage: true, want: true},
+		{name: "openai image disabled", platform: PlatformOpenAI, allowImage: false, want: false},
+		{name: "non openai", platform: PlatformGemini, allowImage: true, want: false},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			repo := &groupRepoStubForAdmin{}
+			svc := &adminServiceImpl{groupRepo: repo}
+			group, err := svc.CreateGroup(context.Background(), &CreateGroupInput{
+				Name:                 testCase.name,
+				Platform:             testCase.platform,
+				RateMultiplier:       1,
+				AllowImageGeneration: testCase.allowImage,
+				OpenAIForceImageTool: true,
+			})
+			require.NoError(t, err)
+			require.Equal(t, testCase.want, group.OpenAIForceImageTool)
+		})
+	}
+}
+
 // TestAdminService_UpdateGroup_WithImagePricing 测试更新分组时 ImagePrice 字段正确更新
 func TestAdminService_UpdateGroup_WithImagePricing(t *testing.T) {
 	existingGroup := &Group{
@@ -528,6 +555,7 @@ func TestAdminService_UpdateGroup_PreservesImageGenerationControlsWhenOmitted(t 
 		Platform:             PlatformOpenAI,
 		Status:               StatusActive,
 		AllowImageGeneration: true,
+		OpenAIForceImageTool: true,
 		ImageRateIndependent: true,
 		ImageRateMultiplier:  imageMultiplier,
 	}
@@ -542,6 +570,7 @@ func TestAdminService_UpdateGroup_PreservesImageGenerationControlsWhenOmitted(t 
 	require.NotNil(t, group)
 	require.NotNil(t, repo.updated)
 	require.True(t, repo.updated.AllowImageGeneration)
+	require.True(t, repo.updated.OpenAIForceImageTool)
 	require.True(t, repo.updated.ImageRateIndependent)
 	require.InDelta(t, 0.5, repo.updated.ImageRateMultiplier, 1e-12)
 }
@@ -553,6 +582,7 @@ func TestAdminService_UpdateGroup_DisablesBatchImageWhenImageGenerationDisabled(
 		Platform:                  PlatformGemini,
 		Status:                    StatusActive,
 		AllowImageGeneration:      true,
+		OpenAIForceImageTool:      true,
 		AllowBatchImageGeneration: true,
 	}
 	repo := &groupRepoStubForAdmin{getByID: existingGroup}
@@ -566,6 +596,7 @@ func TestAdminService_UpdateGroup_DisablesBatchImageWhenImageGenerationDisabled(
 	require.NotNil(t, group)
 	require.NotNil(t, repo.updated)
 	require.False(t, repo.updated.AllowImageGeneration)
+	require.False(t, repo.updated.OpenAIForceImageTool)
 	require.False(t, repo.updated.AllowBatchImageGeneration)
 	require.False(t, group.AllowBatchImageGeneration)
 }

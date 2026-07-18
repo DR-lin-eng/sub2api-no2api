@@ -88,7 +88,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 				reqModel,
 				imageModel,
 			)
-			return s.forwardOpenAIResponsesViaImagesAPI(ctx, c, account, body, originalModel, imageModel, startTime)
+			return s.ForwardOpenAIResponsesViaImagesAPI(ctx, c, account, body, originalModel, imageModel, startTime)
 		}
 	}
 

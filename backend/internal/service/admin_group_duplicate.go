@@ -97,6 +97,7 @@ func cloneGroupForDuplicate(source *Group, operationID string) *Group {
 		MonthlyLimitUSD:                 cloneGroupValuePointer(source.MonthlyLimitUSD),
 		DefaultValidityDays:             source.DefaultValidityDays,
 		AllowImageGeneration:            source.AllowImageGeneration,
+		OpenAIForceImageTool:            source.OpenAIForceImageTool,
 		AllowBatchImageGeneration:       source.AllowBatchImageGeneration,
 		ImageRateIndependent:            source.ImageRateIndependent,
 		ImageRateMultiplier:             source.ImageRateMultiplier,

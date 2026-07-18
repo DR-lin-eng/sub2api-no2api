@@ -36,6 +36,15 @@ func GroupAllowsImageGeneration(group *Group) bool {
 	return group == nil || group.AllowImageGeneration
 }
 
+// GroupForcesOpenAIImageTool reports whether Responses requests in this group
+// must be served by the independent Images API bridge.
+func GroupForcesOpenAIImageTool(group *Group) bool {
+	return group != nil &&
+		group.Platform == PlatformOpenAI &&
+		group.AllowImageGeneration &&
+		group.OpenAIForceImageTool
+}
+
 // IsImageGenerationIntent classifies requests that can produce generated images.
 func IsImageGenerationIntent(endpoint string, requestedModel string, body []byte) bool {
 	if IsImageGenerationEndpoint(endpoint) {

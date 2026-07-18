@@ -301,6 +301,20 @@ func (_c *GroupCreate) SetNillableAllowImageGeneration(v *bool) *GroupCreate {
 	return _c
 }
 
+// SetOpenaiForceImageTool sets the "openai_force_image_tool" field.
+func (_c *GroupCreate) SetOpenaiForceImageTool(v bool) *GroupCreate {
+	_c.mutation.SetOpenaiForceImageTool(v)
+	return _c
+}
+
+// SetNillableOpenaiForceImageTool sets the "openai_force_image_tool" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableOpenaiForceImageTool(v *bool) *GroupCreate {
+	if v != nil {
+		_c.SetOpenaiForceImageTool(*v)
+	}
+	return _c
+}
+
 // SetAllowBatchImageGeneration sets the "allow_batch_image_generation" field.
 func (_c *GroupCreate) SetAllowBatchImageGeneration(v bool) *GroupCreate {
 	_c.mutation.SetAllowBatchImageGeneration(v)
@@ -876,6 +890,10 @@ func (_c *GroupCreate) defaults() error {
 		v := group.DefaultAllowImageGeneration
 		_c.mutation.SetAllowImageGeneration(v)
 	}
+	if _, ok := _c.mutation.OpenaiForceImageTool(); !ok {
+		v := group.DefaultOpenaiForceImageTool
+		_c.mutation.SetOpenaiForceImageTool(v)
+	}
 	if _, ok := _c.mutation.AllowBatchImageGeneration(); !ok {
 		v := group.DefaultAllowBatchImageGeneration
 		_c.mutation.SetAllowBatchImageGeneration(v)
@@ -1033,6 +1051,9 @@ func (_c *GroupCreate) check() error {
 	}
 	if _, ok := _c.mutation.AllowImageGeneration(); !ok {
 		return &ValidationError{Name: "allow_image_generation", err: errors.New(`ent: missing required field "Group.allow_image_generation"`)}
+	}
+	if _, ok := _c.mutation.OpenaiForceImageTool(); !ok {
+		return &ValidationError{Name: "openai_force_image_tool", err: errors.New(`ent: missing required field "Group.openai_force_image_tool"`)}
 	}
 	if _, ok := _c.mutation.AllowBatchImageGeneration(); !ok {
 		return &ValidationError{Name: "allow_batch_image_generation", err: errors.New(`ent: missing required field "Group.allow_batch_image_generation"`)}
@@ -1202,6 +1223,10 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.AllowImageGeneration(); ok {
 		_spec.SetField(group.FieldAllowImageGeneration, field.TypeBool, value)
 		_node.AllowImageGeneration = value
+	}
+	if value, ok := _c.mutation.OpenaiForceImageTool(); ok {
+		_spec.SetField(group.FieldOpenaiForceImageTool, field.TypeBool, value)
+		_node.OpenaiForceImageTool = value
 	}
 	if value, ok := _c.mutation.AllowBatchImageGeneration(); ok {
 		_spec.SetField(group.FieldAllowBatchImageGeneration, field.TypeBool, value)
@@ -1754,6 +1779,18 @@ func (u *GroupUpsert) SetAllowImageGeneration(v bool) *GroupUpsert {
 // UpdateAllowImageGeneration sets the "allow_image_generation" field to the value that was provided on create.
 func (u *GroupUpsert) UpdateAllowImageGeneration() *GroupUpsert {
 	u.SetExcluded(group.FieldAllowImageGeneration)
+	return u
+}
+
+// SetOpenaiForceImageTool sets the "openai_force_image_tool" field.
+func (u *GroupUpsert) SetOpenaiForceImageTool(v bool) *GroupUpsert {
+	u.Set(group.FieldOpenaiForceImageTool, v)
+	return u
+}
+
+// UpdateOpenaiForceImageTool sets the "openai_force_image_tool" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateOpenaiForceImageTool() *GroupUpsert {
+	u.SetExcluded(group.FieldOpenaiForceImageTool)
 	return u
 }
 
@@ -2629,6 +2666,20 @@ func (u *GroupUpsertOne) SetAllowImageGeneration(v bool) *GroupUpsertOne {
 func (u *GroupUpsertOne) UpdateAllowImageGeneration() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateAllowImageGeneration()
+	})
+}
+
+// SetOpenaiForceImageTool sets the "openai_force_image_tool" field.
+func (u *GroupUpsertOne) SetOpenaiForceImageTool(v bool) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetOpenaiForceImageTool(v)
+	})
+}
+
+// UpdateOpenaiForceImageTool sets the "openai_force_image_tool" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateOpenaiForceImageTool() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateOpenaiForceImageTool()
 	})
 }
 
@@ -3753,6 +3804,20 @@ func (u *GroupUpsertBulk) SetAllowImageGeneration(v bool) *GroupUpsertBulk {
 func (u *GroupUpsertBulk) UpdateAllowImageGeneration() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateAllowImageGeneration()
+	})
+}
+
+// SetOpenaiForceImageTool sets the "openai_force_image_tool" field.
+func (u *GroupUpsertBulk) SetOpenaiForceImageTool(v bool) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetOpenaiForceImageTool(v)
+	})
+}
+
+// UpdateOpenaiForceImageTool sets the "openai_force_image_tool" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateOpenaiForceImageTool() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateOpenaiForceImageTool()
 	})
 }
 
