@@ -1239,6 +1239,7 @@ func (h *OpenAIGatewayHandler) anthropicErrorResponse(c *gin.Context, status int
 // using Anthropic SSE error format.
 func (h *OpenAIGatewayHandler) anthropicStreamingAwareError(c *gin.Context, status int, errType, message string, streamStarted bool) {
 	if streamStarted {
+		setSSEResponseHeaders(c)
 		flusher, ok := c.Writer.(http.Flusher)
 		if ok {
 			errPayload, _ := json.Marshal(gin.H{
@@ -2380,6 +2381,7 @@ func (h *OpenAIGatewayHandler) handleStreamingAwareError(c *gin.Context, status 
 		streamStarted = true
 	}
 	if streamStarted {
+		setSSEResponseHeaders(c)
 		// /v1/responses 的严格 SDK（Codex CLI）要求终止事件必须属于
 		// response.completed/failed/incomplete/cancelled 集合。
 		// 通用 `event: error` 帧不被识别为终止事件，会导致
@@ -2428,9 +2430,7 @@ func writeOpenAIImagesProxyErrorSSE(c *gin.Context, errType, message string) boo
 	if strings.TrimSpace(errType) == "upstream_error" {
 		eventName = "upstream_error"
 	}
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("X-Accel-Buffering", "no")
+	setSSEResponseHeaders(c)
 	payload := `{"error":{"type":` + strconv.Quote(errType) + `,"message":` + strconv.Quote(message) + `}}`
 	if _, err := fmt.Fprintf(c.Writer, "event: %s\ndata: %s\n\n", eventName, payload); err != nil {
 		_ = c.Error(err)

@@ -88,11 +88,9 @@ func (s *AntigravityGatewayService) handleGeminiStreamingResponse(c *gin.Context
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
 
-	contentType := resp.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = "text/event-stream; charset=utf-8"
-	}
-	c.Header("Content-Type", contentType)
+	// The selected response path emits Gemini SSE regardless of how the
+	// upstream labels the body.
+	c.Header("Content-Type", "text/event-stream; charset=utf-8")
 
 	flusher, ok := c.Writer.(http.Flusher)
 	if !ok {

@@ -35,6 +35,19 @@ func TestGatewayEnsureForwardErrorResponse_WritesFallbackWhenNotWritten(t *testi
 	assert.Equal(t, "Upstream request failed", errorObj["message"])
 }
 
+func TestGatewayHandleStreamingAwareError_SetsSSEHeadersBeforeFirstEvent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, EndpointMessages, nil)
+
+	h := &GatewayHandler{}
+	h.handleStreamingAwareError(c, http.StatusBadGateway, "upstream_error", "test error", true)
+
+	require.Equal(t, "text/event-stream", w.Result().Header.Get("Content-Type"))
+	require.Contains(t, w.Body.String(), `data: {"type":"error"`)
+}
+
 // Writer 已写后 ensureForwardErrorResponse 必须把错误以 SSE 形式追加，
 // 而不是 silent EOF。非 /responses 路径走 legacy data:{"type":"error"} 分支。
 func TestGatewayEnsureForwardErrorResponse_AppendsSSEAfterWritten(t *testing.T) {

@@ -376,11 +376,9 @@ func (s *GatewayService) handleStreamingResponseAnthropicAPIKeyPassthrough(
 
 	writeAnthropicPassthroughResponseHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 
-	contentType := strings.TrimSpace(resp.Header.Get("Content-Type"))
-	if contentType == "" {
-		contentType = "text/event-stream"
-	}
-	c.Header("Content-Type", contentType)
+	// This handler is selected from the downstream stream flag, so the
+	// downstream wire protocol is SSE even when an upstream proxy mislabels it.
+	c.Header("Content-Type", "text/event-stream")
 	if c.Writer.Header().Get("Cache-Control") == "" {
 		c.Header("Cache-Control", "no-cache")
 	}

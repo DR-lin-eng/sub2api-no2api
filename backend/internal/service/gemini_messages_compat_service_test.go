@@ -25,6 +25,27 @@ type geminiCompatHTTPUpstreamStub struct {
 	lastReq  *http.Request
 }
 
+func TestGeminiMessagesNativeStreamingOverridesMislabelledContentType(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/gemini-test:streamGenerateContent", nil)
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/plain"}},
+		Body: io.NopCloser(strings.NewReader(
+			`data: {"candidates":[{"content":{"parts":[{"text":"ok"}]},"finishReason":"STOP"}]}` + "\n\n",
+		)),
+	}
+
+	svc := &GeminiMessagesCompatService{}
+	result, err := svc.handleNativeStreamingResponse(c, resp, time.Now(), false)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, "text/event-stream; charset=utf-8", rec.Result().Header.Get("Content-Type"))
+}
+
 func (s *geminiCompatHTTPUpstreamStub) Do(req *http.Request, proxyURL string, accountID int64, accountConcurrency int) (*http.Response, error) {
 	s.calls++
 	s.lastReq = req
@@ -395,6 +416,7 @@ func TestGeminiHandleNativeNonStreamingResponse_DebugDisabledDoesNotEmitHeaderLo
 	usage, err := svc.handleNativeNonStreamingResponse(c, resp, false)
 	require.NoError(t, err)
 	require.NotNil(t, usage)
+	require.Equal(t, "application/json", w.Result().Header.Get("Content-Type"))
 	require.False(t, logSink.ContainsMessage("[GeminiAPI]"), "debug 关闭时不应输出 Gemini 响应头日志")
 }
 

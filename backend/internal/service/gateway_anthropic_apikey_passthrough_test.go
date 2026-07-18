@@ -1120,6 +1120,31 @@ func TestGatewayService_AnthropicAPIKeyPassthrough_MissingTerminalEventReturnsEr
 	require.NotNil(t, result)
 }
 
+func TestGatewayService_AnthropicAPIKeyPassthrough_StreamingOverridesMislabelledContentType(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+
+	svc := &GatewayService{
+		cfg:              &config.Config{Gateway: config.GatewayConfig{MaxLineSize: defaultMaxLineSize}},
+		rateLimitService: &RateLimitService{},
+	}
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/plain; charset=utf-8"}},
+		Body: io.NopCloser(strings.NewReader(
+			"event: message_stop\n" + `data: {"type":"message_stop"}` + "\n\n",
+		)),
+	}
+
+	result, err := svc.handleStreamingResponseAnthropicAPIKeyPassthrough(context.Background(), resp, c, &Account{ID: 1}, time.Now(), "claude-test")
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, "text/event-stream", rec.Result().Header.Get("Content-Type"))
+}
+
 func TestGatewayService_AnthropicAPIKeyPassthrough_ForwardDirect_NonStreamingSuccess(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()
@@ -1152,6 +1177,7 @@ func TestGatewayService_AnthropicAPIKeyPassthrough_ForwardDirect_NonStreamingSuc
 	require.Equal(t, 5, result.Usage.CacheCreationInputTokens)
 	require.Equal(t, 4, result.Usage.CacheReadInputTokens)
 	require.Equal(t, upstreamJSON, rec.Body.String())
+	require.Equal(t, "application/json", rec.Result().Header.Get("Content-Type"))
 }
 
 func TestGatewayService_AnthropicAPIKeyPassthrough_ForwardDirect_InvalidTokenType(t *testing.T) {

@@ -2565,11 +2565,9 @@ func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Conte
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
 
-	contentType := resp.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = "text/event-stream; charset=utf-8"
-	}
-	c.Header("Content-Type", contentType)
+	// Native streaming is SSE by contract. Do not propagate an upstream
+	// text/plain (or other stale) content type to downstream SDKs.
+	c.Header("Content-Type", "text/event-stream; charset=utf-8")
 
 	flusher, ok := c.Writer.(http.Flusher)
 	if !ok {

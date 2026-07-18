@@ -1167,6 +1167,29 @@ func TestHandleGeminiStreamingResponse_NormalComplete(t *testing.T) {
 	require.NotContains(t, body, "event: error")
 }
 
+func TestHandleGeminiStreamingResponse_OverridesMislabelledContentType(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := newAntigravityTestService(&config.Config{
+		Gateway: config.GatewayConfig{MaxLineSize: defaultMaxLineSize},
+	})
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", nil)
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/plain"}},
+		Body: io.NopCloser(strings.NewReader(
+			`data: {"candidates":[{"content":{"parts":[{"text":"ok"}]},"finishReason":"STOP"}]}` + "\n\n",
+		)),
+	}
+
+	result, err := svc.handleGeminiStreamingResponse(c, resp, time.Now())
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, "text/event-stream; charset=utf-8", rec.Result().Header.Get("Content-Type"))
+}
+
 // TestHandleClaudeStreamingResponse_NormalComplete
 // 验证：正常 Claude 流式转发（Gemini→Claude 转换），数据正确转换并输出
 func TestHandleClaudeStreamingResponse_NormalComplete(t *testing.T) {

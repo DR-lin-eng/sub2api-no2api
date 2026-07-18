@@ -89,6 +89,7 @@ func TestOpenAIHandleStreamingAwareError_JSONEscaping(t *testing.T) {
 			h.handleStreamingAwareError(c, http.StatusBadGateway, tt.errType, tt.message, true)
 
 			body := w.Body.String()
+			assert.Equal(t, "text/event-stream", w.Result().Header.Get("Content-Type"))
 
 			// 验证 SSE 格式：event: error\ndata: {JSON}\n\n
 			assert.True(t, strings.HasPrefix(body, "event: error\n"), "应以 'event: error\\n' 开头")
@@ -157,6 +158,7 @@ func TestOpenAIHandleStreamingAwareError_NonStreaming(t *testing.T) {
 
 	// 非流式应返回 JSON 响应
 	assert.Equal(t, http.StatusBadGateway, w.Code)
+	assert.Contains(t, w.Result().Header.Get("Content-Type"), "application/json")
 
 	var parsed map[string]any
 	err := json.Unmarshal(w.Body.Bytes(), &parsed)
@@ -165,6 +167,19 @@ func TestOpenAIHandleStreamingAwareError_NonStreaming(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "upstream_error", errorObj["type"])
 	assert.Equal(t, "test error", errorObj["message"])
+}
+
+func TestOpenAIHandleStreamingAwareError_ResponsesSetsSSEHeadersBeforeFirstEvent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, EndpointResponses, nil)
+
+	h := &OpenAIGatewayHandler{}
+	h.handleStreamingAwareError(c, http.StatusBadGateway, "upstream_error", "test error", true)
+
+	require.Equal(t, "text/event-stream", w.Result().Header.Get("Content-Type"))
+	require.Contains(t, w.Body.String(), "event: response.failed\n")
 }
 
 func TestOpenAIHandleAnthropicFailoverExhaustedPreservesClientError(t *testing.T) {
