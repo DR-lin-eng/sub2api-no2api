@@ -544,11 +544,7 @@ func stringSliceFromRaw(raw any) ([]string, bool) {
 	case string:
 		return []string{value}, true
 	case []string:
-		result := make([]string, 0, len(value))
-		for _, item := range value {
-			result = append(result, item)
-		}
-		return result, true
+		return append([]string(nil), value...), true
 	case []any:
 		result := make([]string, 0, len(value))
 		for _, item := range value {
@@ -1072,62 +1068,39 @@ func matchWildcard(pattern, str string) bool {
 }
 
 func matchWildcardMappingResult(mapping map[string]string, requestedModel string) (string, bool) {
-	// 收集所有匹配的 pattern，按长度降序排序（最长优先）
-	type patternMatch struct {
-		pattern string
-		target  string
-	}
-	var matches []patternMatch
-
+	bestPattern := ""
+	bestTarget := ""
 	for pattern, target := range mapping {
-		if matchWildcard(pattern, requestedModel) {
-			matches = append(matches, patternMatch{pattern, target})
+		if !matchWildcard(pattern, requestedModel) {
+			continue
+		}
+		if bestPattern == "" || len(pattern) > len(bestPattern) || (len(pattern) == len(bestPattern) && pattern < bestPattern) {
+			bestPattern = pattern
+			bestTarget = target
 		}
 	}
-
-	if len(matches) == 0 {
+	if bestPattern == "" {
 		return requestedModel, false // 无匹配，返回原始模型名
 	}
-
-	// 按 pattern 长度降序排序
-	sort.Slice(matches, func(i, j int) bool {
-		if len(matches[i].pattern) != len(matches[j].pattern) {
-			return len(matches[i].pattern) > len(matches[j].pattern)
-		}
-		return matches[i].pattern < matches[j].pattern
-	})
-
-	return matches[0].target, true
+	return bestTarget, true
 }
 
 func matchWildcardSliceMappingResult(mapping map[string][]string, requestedModel string) ([]string, bool) {
-	type patternMatch struct {
-		pattern string
-		target  []string
-	}
-	var matches []patternMatch
-
+	bestPattern := ""
+	var bestTarget []string
 	for pattern, target := range mapping {
-		if matchWildcard(pattern, requestedModel) {
-			matches = append(matches, patternMatch{
-				pattern: pattern,
-				target:  append([]string(nil), target...),
-			})
+		if !matchWildcard(pattern, requestedModel) {
+			continue
+		}
+		if bestPattern == "" || len(pattern) > len(bestPattern) || (len(pattern) == len(bestPattern) && pattern < bestPattern) {
+			bestPattern = pattern
+			bestTarget = target
 		}
 	}
-
-	if len(matches) == 0 {
+	if bestPattern == "" {
 		return nil, false
 	}
-
-	sort.Slice(matches, func(i, j int) bool {
-		if len(matches[i].pattern) != len(matches[j].pattern) {
-			return len(matches[i].pattern) > len(matches[j].pattern)
-		}
-		return matches[i].pattern < matches[j].pattern
-	})
-
-	return matches[0].target, true
+	return append([]string(nil), bestTarget...), true
 }
 
 func compactModelFallbackCandidates(candidates []string, primaryModel string) []string {

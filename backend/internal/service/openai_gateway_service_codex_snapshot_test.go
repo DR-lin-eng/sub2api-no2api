@@ -244,6 +244,23 @@ func TestCodexUsageUpdatesShowQuotaHeadroom(t *testing.T) {
 	}
 }
 
+func TestClaimOpenAICodexCooldownRecoveryDeduplicatesInterval(t *testing.T) {
+	const accountID = int64(9_223_372_036_854_775_000)
+	openAICodexCooldownRecoveryNext.Delete(accountID)
+	t.Cleanup(func() { openAICodexCooldownRecoveryNext.Delete(accountID) })
+	base := time.Unix(1_800_000_000, 0)
+
+	if !claimOpenAICodexCooldownRecovery(accountID, base) {
+		t.Fatal("expected the first recovery claim to succeed")
+	}
+	if claimOpenAICodexCooldownRecovery(accountID, base.Add(openAICodexCooldownRecoveryMinInterval-time.Nanosecond)) {
+		t.Fatal("expected a duplicate recovery inside the interval to be suppressed")
+	}
+	if !claimOpenAICodexCooldownRecovery(accountID, base.Add(openAICodexCooldownRecoveryMinInterval)) {
+		t.Fatal("expected recovery to be claimable after the interval")
+	}
+}
+
 func TestFilterOpenAIQuotaModelRateLimitsPreservesNonQuotaReasons(t *testing.T) {
 	cleaned, changed := filterOpenAIQuotaModelRateLimits(map[string]any{
 		"gpt-5.5": map[string]any{

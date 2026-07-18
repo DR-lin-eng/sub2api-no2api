@@ -6,8 +6,13 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
+
+const openAICodexCooldownRecoveryMinInterval = 30 * time.Second
+
+var openAICodexCooldownRecoveryNext sync.Map // map[int64]int64 (UnixNano)
 
 func codexUsageUpdatesShowQuotaHeadroom(updates map[string]any) bool {
 	if len(updates) == 0 {
@@ -59,7 +64,7 @@ func clearStaleOpenAIQuotaModelRateLimits(ctx context.Context, repo AccountRepos
 }
 
 func maybeRecoverOpenAICodexQuotaModelRateLimits(ctx context.Context, repo AccountRepository, accountID int64, updates map[string]any) {
-	if !codexUsageUpdatesShowQuotaHeadroom(updates) {
+	if !codexUsageUpdatesShowQuotaHeadroom(updates) || !claimOpenAICodexCooldownRecovery(accountID, time.Now()) {
 		return
 	}
 
@@ -68,6 +73,27 @@ func maybeRecoverOpenAICodexQuotaModelRateLimits(ctx context.Context, repo Accou
 		defer cancel()
 		clearStaleOpenAIQuotaModelRateLimits(recoveryCtx, repo, accountID)
 	}()
+}
+
+func claimOpenAICodexCooldownRecovery(accountID int64, now time.Time) bool {
+	if accountID <= 0 {
+		return false
+	}
+	nowUnix := now.UnixNano()
+	nextUnix := now.Add(openAICodexCooldownRecoveryMinInterval).UnixNano()
+	for {
+		current, loaded := openAICodexCooldownRecoveryNext.LoadOrStore(accountID, nextUnix)
+		if !loaded {
+			return true
+		}
+		currentUnix, ok := current.(int64)
+		if ok && nowUnix < currentUnix {
+			return false
+		}
+		if openAICodexCooldownRecoveryNext.CompareAndSwap(accountID, current, nextUnix) {
+			return true
+		}
+	}
 }
 
 func filterOpenAIQuotaModelRateLimits(raw any) (map[string]any, bool) {

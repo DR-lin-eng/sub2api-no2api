@@ -2194,7 +2194,7 @@ func (s *OpenAIGatewayService) handleAnthropicStreamingResponse(
 					continue
 				}
 				if !clientVisibleOutputStarted {
-					pendingClientSSE.WriteString(sse)
+					_, _ = pendingClientSSE.WriteString(sse)
 					if anthropicStreamEventHasVisibleOutput(evt) {
 						clientVisibleOutputStarted = true
 						flushPendingClientSSE()
@@ -2236,7 +2236,7 @@ func (s *OpenAIGatewayService) handleAnthropicStreamingResponse(
 					continue
 				}
 				if !clientVisibleOutputStarted {
-					pendingClientSSE.WriteString(sse)
+					_, _ = pendingClientSSE.WriteString(sse)
 					if anthropicStreamEventHasVisibleOutput(evt) {
 						clientVisibleOutputStarted = true
 						flushPendingClientSSE()
