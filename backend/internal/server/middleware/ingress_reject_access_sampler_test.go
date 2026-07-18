@@ -79,3 +79,27 @@ func TestIngressRejectAccessSamplerDroppedSummaryIsLowFrequency(t *testing.T) {
 	require.False(t, allowed)
 	require.Equal(t, uint64(2), summary)
 }
+
+func BenchmarkIngressRejectAccessSamplerDropped(b *testing.B) {
+	sampler := newIngressRejectAccessSampler(1, time.Hour, 0)
+	now := time.Now()
+	_, _ = sampler.allow(now)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		_, _ = sampler.allow(now)
+	}
+}
+
+func BenchmarkIngressRejectAccessSamplerDroppedParallel(b *testing.B) {
+	sampler := newIngressRejectAccessSampler(1, time.Hour, 0)
+	now := time.Now()
+	_, _ = sampler.allow(now)
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			_, _ = sampler.allow(now)
+		}
+	})
+}

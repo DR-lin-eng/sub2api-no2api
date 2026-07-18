@@ -113,3 +113,29 @@ func TestOpsIngressRejectAggregatorRetriesBoundedPendingBatch(t *testing.T) {
 	require.GreaterOrEqual(t, repo.calls, 2)
 	repo.mu.Unlock()
 }
+
+func BenchmarkOpsIngressRejectAggregatorExistingDimension(b *testing.B) {
+	a := NewOpsIngressRejectAggregator(&ingressRejectRepoStub{})
+	a.accepting.Store(true)
+	a.RecordIngressReject("invalid_api_key", "responses", "openai", "192.0.2.10", 0, 0)
+	b.Cleanup(a.Stop)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		a.RecordIngressReject("invalid_api_key", "responses", "openai", "192.0.2.10", 0, 0)
+	}
+}
+
+func BenchmarkOpsIngressRejectAggregatorExistingDimensionParallel(b *testing.B) {
+	a := NewOpsIngressRejectAggregator(&ingressRejectRepoStub{})
+	a.accepting.Store(true)
+	a.RecordIngressReject("invalid_api_key", "responses", "openai", "192.0.2.10", 0, 0)
+	b.Cleanup(a.Stop)
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			a.RecordIngressReject("invalid_api_key", "responses", "openai", "192.0.2.10", 0, 0)
+		}
+	})
+}
