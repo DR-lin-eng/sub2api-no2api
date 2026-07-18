@@ -223,3 +223,59 @@ func TestBuildCodexUsageExtraUpdates_WithoutNormalizedWindowFields(t *testing.T)
 		t.Fatalf("did not expect codex_7d_reset_at in updates: %v", updates["codex_7d_reset_at"])
 	}
 }
+
+func TestCodexUsageUpdatesShowQuotaHeadroom(t *testing.T) {
+	if !codexUsageUpdatesShowQuotaHeadroom(map[string]any{
+		"codex_5h_used_percent": 1.0,
+		"codex_7d_used_percent": 0.0,
+	}) {
+		t.Fatal("expected fresh non-exhausted Codex usage to have headroom")
+	}
+
+	if codexUsageUpdatesShowQuotaHeadroom(map[string]any{
+		"codex_5h_used_percent": 1.0,
+		"codex_7d_used_percent": 100.0,
+	}) {
+		t.Fatal("expected exhausted 7d window to block cooldown recovery")
+	}
+
+	if codexUsageUpdatesShowQuotaHeadroom(map[string]any{}) {
+		t.Fatal("expected missing usage snapshot to block cooldown recovery")
+	}
+}
+
+func TestFilterOpenAIQuotaModelRateLimitsPreservesNonQuotaReasons(t *testing.T) {
+	cleaned, changed := filterOpenAIQuotaModelRateLimits(map[string]any{
+		"gpt-5.5": map[string]any{
+			"reason":              openAIModelRateLimitReason,
+			"rate_limit_reset_at": "2026-07-13T20:21:48Z",
+		},
+		"gpt-5.3-codex-spark": map[string]any{
+			"reason":              openAIModelRateLimitReason + ":no_reset_time",
+			"rate_limit_reset_at": "2026-07-15T12:54:11Z",
+		},
+		"gpt-5.6-luna": map[string]any{
+			"reason":              upstreamModelNotFoundReason,
+			"rate_limit_reset_at": "2026-07-10T22:40:35Z",
+		},
+		"openai:image_generation": map[string]any{
+			"reason":              openAIImageRateLimitReason,
+			"rate_limit_reset_at": "2026-07-10T22:40:35Z",
+		},
+	})
+	if !changed {
+		t.Fatal("expected quota model cooldowns to be removed")
+	}
+	if _, ok := cleaned["gpt-5.5"]; ok {
+		t.Fatal("expected gpt-5.5 quota cooldown to be removed")
+	}
+	if _, ok := cleaned["gpt-5.3-codex-spark"]; ok {
+		t.Fatal("expected fallback quota cooldown to be removed")
+	}
+	if _, ok := cleaned["gpt-5.6-luna"]; !ok {
+		t.Fatal("expected upstream 404 cooldown to be preserved")
+	}
+	if _, ok := cleaned["openai:image_generation"]; !ok {
+		t.Fatal("expected image cooldown to be preserved")
+	}
+}

@@ -17,14 +17,22 @@ type rateLimitAccountRepoStub struct {
 	mockAccountRepoForGemini
 	setErrorCalls          int
 	tempCalls              int
+	rateLimitedCalls       int
+	modelRateLimitCalls    int
 	updateCredentialsCalls int
 	updateExtraCalls       int
 	lastCredentials        map[string]any
 	lastExtraUpdates       map[string]any
 	lastErrorMsg           string
 	lastTempReason         string
+	lastModelRateScope     string
+	lastModelRateReason    string
 	lastErrorID            int64
 	lastTempID             int64
+	lastRateLimitedID      int64
+	lastModelRateID        int64
+	lastModelRateResetAt   time.Time
+	tempErr                error
 }
 
 func (r *rateLimitAccountRepoStub) SetError(ctx context.Context, id int64, errorMsg string) error {
@@ -38,6 +46,23 @@ func (r *rateLimitAccountRepoStub) SetTempUnschedulable(ctx context.Context, id 
 	r.tempCalls++
 	r.lastTempID = id
 	r.lastTempReason = reason
+	return r.tempErr
+}
+
+func (r *rateLimitAccountRepoStub) SetRateLimited(ctx context.Context, id int64, resetAt time.Time) error {
+	r.rateLimitedCalls++
+	r.lastRateLimitedID = id
+	return nil
+}
+
+func (r *rateLimitAccountRepoStub) SetModelRateLimit(ctx context.Context, id int64, scope string, resetAt time.Time, reason ...string) error {
+	r.modelRateLimitCalls++
+	r.lastModelRateID = id
+	r.lastModelRateScope = scope
+	r.lastModelRateResetAt = resetAt
+	if len(reason) > 0 {
+		r.lastModelRateReason = reason[0]
+	}
 	return nil
 }
 

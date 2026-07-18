@@ -94,3 +94,37 @@ func resolveOpenAICompactForwardModel(account *Account, model string) string {
 	}
 	return trimmedModel
 }
+
+func resolveOpenAICompactFallbackForwardModels(account *Account, requestedModel, mappedModel string) []string {
+	if account == nil {
+		return nil
+	}
+	primaryUpstreamModel := normalizeOpenAIModelForUpstream(account, mappedModel)
+	rawCandidates := account.ResolveCompactFallbackModels(requestedModel, mappedModel)
+	if len(rawCandidates) == 0 {
+		return nil
+	}
+
+	result := make([]string, 0, len(rawCandidates))
+	seen := make(map[string]bool, len(rawCandidates)+1)
+	if primaryUpstreamModel != "" {
+		seen[strings.ToLower(primaryUpstreamModel)] = true
+	}
+	for _, candidate := range rawCandidates {
+		trimmed := strings.TrimSpace(candidate)
+		if trimmed == "" {
+			continue
+		}
+		upstreamModel := normalizeOpenAIModelForUpstream(account, trimmed)
+		if upstreamModel == "" {
+			continue
+		}
+		key := strings.ToLower(upstreamModel)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		result = append(result, upstreamModel)
+	}
+	return result
+}

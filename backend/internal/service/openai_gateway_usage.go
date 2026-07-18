@@ -839,6 +839,7 @@ func (s *OpenAIGatewayService) updateCodexUsageSnapshot(ctx context.Context, acc
 	if !s.getCodexSnapshotThrottle().Allow(accountID, now) {
 		return
 	}
+	maybeRecoverOpenAICodexQuotaModelRateLimits(ctx, s.accountRepo, accountID, updates)
 
 	go func() {
 		updateCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

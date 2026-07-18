@@ -76,6 +76,7 @@ const (
 const (
 	openAIImageRateLimitDefaultCooldown = time.Minute
 	openAIImageRateLimitReason          = "openai_image_rate_limited"
+	openAIModelRateLimitReason          = "openai_model_rate_limited"
 )
 
 var openAIImageTryAgainPattern = regexp.MustCompile(`(?i)try again in\s+([0-9]+(?:\.[0-9]+)?)\s*(ms|s|sec|secs|second|seconds|m|min|mins|minute|minutes)`)
@@ -372,7 +373,7 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 		)
 		shouldDisable = s.handle403(ctx, account, upstreamMsg, responseBody)
 	case 429:
-		s.handle429(ctx, account, headers, responseBody)
+		s.handle429(ctx, account, headers, responseBody, firstRequestedModel(requestedModel))
 		shouldDisable = false
 	case 529:
 		s.handle529(ctx, account)
@@ -861,33 +862,38 @@ func (s *RateLimitService) handleOpenAI403(ctx context.Context, account *Account
 		"account may be suspended or lack permissions",
 	)
 
+	if account.Type != AccountTypeOAuth {
+		s.handleAuthError(ctx, account, msg)
+		return true
+	}
+
+	count := int64(1)
 	if s.openAI403CounterCache == nil {
-		s.handleAuthError(ctx, account, msg)
-		return true
-	}
-
-	count, err := s.openAI403CounterCache.IncrementOpenAI403Count(ctx, account.ID, openAI403CounterWindowMinutes)
-	if err != nil {
-		slog.Warn("openai_403_increment_failed", "account_id", account.ID, "error", err)
-		s.handleAuthError(ctx, account, msg)
-		return true
-	}
-
-	if count >= openAI403DisableThreshold {
-		msg = fmt.Sprintf("%s | consecutive_403=%d/%d", msg, count, openAI403DisableThreshold)
-		s.handleAuthError(ctx, account, msg)
-		return true
+		slog.Warn("openai_403_counter_unavailable", "account_id", account.ID)
+	} else {
+		var err error
+		count, err = s.openAI403CounterCache.IncrementOpenAI403Count(ctx, account.ID, openAI403CounterWindowMinutes)
+		if err != nil {
+			slog.Warn("openai_403_increment_failed", "account_id", account.ID, "error", err)
+			count = 1
+		}
 	}
 	if !globalTempUnschedulableEnabled(ctx, s.settingService) {
 		return true
 	}
 
 	until := time.Now().Add(time.Duration(openAI403CooldownMinutesDefault) * time.Minute)
-	reason := fmt.Sprintf("OpenAI 403 temporary cooldown (%d/%d): %s", count, openAI403DisableThreshold, msg)
+	thresholdReached := count >= openAI403DisableThreshold
+	if thresholdReached {
+		msg = fmt.Sprintf("%s | consecutive_403=%d/%d", msg, count, openAI403DisableThreshold)
+	}
+	reason := fmt.Sprintf("OpenAI OAuth 403 temporary cooldown (%d/%d): %s", count, openAI403DisableThreshold, msg)
+	if thresholdReached {
+		reason = fmt.Sprintf("OpenAI OAuth 403 temporary cooldown threshold reached (%d/%d): %s", count, openAI403DisableThreshold, msg)
+	}
 	s.notifyAccountSchedulingBlocked(account, until, "openai_403_temp")
 	if err := s.accountRepo.SetTempUnschedulable(ctx, account.ID, until, reason); err != nil {
 		slog.Warn("openai_403_set_temp_unschedulable_failed", "account_id", account.ID, "error", err)
-		s.handleAuthError(ctx, account, msg)
 		return true
 	}
 
@@ -897,6 +903,7 @@ func (s *RateLimitService) handleOpenAI403(ctx context.Context, account *Account
 		"until", until,
 		"count", count,
 		"threshold", openAI403DisableThreshold,
+		"threshold_reached", thresholdReached,
 	)
 	return true
 }
@@ -958,9 +965,16 @@ func (s *RateLimitService) handleCustomErrorCode(ctx context.Context, account *A
 	slog.Warn("account_disabled_custom_error", "account_id", account.ID, "status_code", statusCode, "error", errorMsg)
 }
 
+func firstRequestedModel(models []string) string {
+	if len(models) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(models[0])
+}
+
 // handle429 处理429限流错误
 // 解析响应头获取重置时间，标记账号为限流状态
-func (s *RateLimitService) handle429(ctx context.Context, account *Account, headers http.Header, responseBody []byte) {
+func (s *RateLimitService) handle429(ctx context.Context, account *Account, headers http.Header, responseBody []byte, requestedModel string) {
 	// Spark 影子：限流/熔断状态 100% 由 QueryUsage(/wham/usage body 的 codex_bengalfox)驱动。
 	// /responses 的 429 携带的 x-codex-*/usage_limit_reached 是 global codex 道(plan/spec §8),
 	// 套到影子会把 spark 误耦合到 global 窗口——即便 spark 仍有配额也会被冷却到 global reset,
@@ -974,6 +988,9 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 		persistOpenAI429PlanType(ctx, s.accountRepo, account, responseBody)
 		s.persistOpenAICodexSnapshot(ctx, account, headers)
 		if resetAt := s.calculateOpenAI429ResetTime(headers); resetAt != nil {
+			if s.setOpenAIModelRateLimit(ctx, account, requestedModel, *resetAt, openAIModelRateLimitReason) {
+				return
+			}
 			s.notifyAccountSchedulingBlocked(account, *resetAt, "429")
 			if err := s.accountRepo.SetRateLimited(ctx, account.ID, *resetAt); err != nil {
 				slog.Warn("rate_limit_set_failed", "account_id", account.ID, "error", err)
@@ -1016,6 +1033,9 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 			// 尝试解析 OpenAI 的 usage_limit_reached 错误
 			if resetAt := parseOpenAIRateLimitResetTime(responseBody); resetAt != nil {
 				resetTime := time.Unix(*resetAt, 0)
+				if s.setOpenAIModelRateLimit(ctx, account, requestedModel, resetTime, openAIModelRateLimitReason) {
+					return
+				}
 				s.notifyAccountSchedulingBlocked(account, resetTime, "429")
 				if err := s.accountRepo.SetRateLimited(ctx, account.ID, resetTime); err != nil {
 					slog.Warn("rate_limit_set_failed", "account_id", account.ID, "error", err)
@@ -1052,7 +1072,7 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 		}
 
 		// 其他平台：没有重置时间，使用可配置的秒级默认回避，避免误伤长时间不可调度。
-		s.apply429FallbackRateLimit(ctx, account, "no_reset_time")
+		s.apply429FallbackRateLimit(ctx, account, "no_reset_time", requestedModel)
 		return
 	}
 
@@ -1065,6 +1085,9 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 	}
 
 	resetAt := time.Unix(ts, 0)
+	if s.setOpenAIModelRateLimit(ctx, account, requestedModel, resetAt, openAIModelRateLimitReason) {
+		return
+	}
 
 	// 标记限流状态
 	s.notifyAccountSchedulingBlocked(account, resetAt, "429")
@@ -1083,7 +1106,23 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 	slog.Info("account_rate_limited", "account_id", account.ID, "reset_at", resetAt)
 }
 
-func (s *RateLimitService) apply429FallbackRateLimit(ctx context.Context, account *Account, reason string) {
+func (s *RateLimitService) setOpenAIModelRateLimit(ctx context.Context, account *Account, requestedModel string, resetAt time.Time, reason string) bool {
+	if s == nil || account == nil || account.Platform != PlatformOpenAI || s.accountRepo == nil {
+		return false
+	}
+	modelKey := modelRateLimitKeyForUpstreamModelNotFound(ctx, account, requestedModel)
+	if strings.TrimSpace(modelKey) == "" {
+		return false
+	}
+	if err := s.accountRepo.SetModelRateLimit(ctx, account.ID, modelKey, resetAt, reason); err != nil {
+		slog.Warn("openai_model_rate_limit_set_failed", "account_id", account.ID, "model", modelKey, "reset_at", resetAt, "error", err)
+		return true
+	}
+	slog.Info("openai_model_rate_limited", "account_id", account.ID, "model", modelKey, "reset_at", resetAt, "reset_in", time.Until(resetAt).Truncate(time.Second))
+	return true
+}
+
+func (s *RateLimitService) apply429FallbackRateLimit(ctx context.Context, account *Account, reason string, requestedModel ...string) {
 	cooldown, enabled := s.get429FallbackCooldown(ctx, account)
 	if !enabled {
 		slog.Info("rate_limit_429_fallback_ignored", "account_id", account.ID, "platform", account.Platform, "reason", reason)
@@ -1091,6 +1130,9 @@ func (s *RateLimitService) apply429FallbackRateLimit(ctx context.Context, accoun
 	}
 
 	resetAt := time.Now().Add(cooldown)
+	if s.setOpenAIModelRateLimit(ctx, account, firstRequestedModel(requestedModel), resetAt, openAIModelRateLimitReason+":"+reason) {
+		return
+	}
 	slog.Warn("rate_limit_429_fallback_used", "account_id", account.ID, "platform", account.Platform, "reason", reason, "using_default", cooldown.String())
 	s.notifyAccountSchedulingBlocked(account, resetAt, "429_fallback")
 	if err := s.accountRepo.SetRateLimited(ctx, account.ID, resetAt); err != nil {

@@ -286,6 +286,18 @@ func TestNormalizeOpenAIModelForUpstream(t *testing.T) {
 			want:    "gpt-5.5-pro",
 		},
 		{
+			name:    "oauth preserves unknown GPT-5.5 mini variant",
+			account: &Account{Type: AccountTypeOAuth},
+			model:   "gpt-5.5-mini",
+			want:    "gpt-5.5-mini",
+		},
+		{
+			name:    "oauth normalizes known GPT-5.5 effort suffix",
+			account: &Account{Type: AccountTypeOAuth},
+			model:   "gpt-5.5-xhigh",
+			want:    "gpt-5.5",
+		},
+		{
 			name:    "oauth preserves codex auto review model",
 			account: &Account{Type: AccountTypeOAuth},
 			model:   "codex-auto-review",

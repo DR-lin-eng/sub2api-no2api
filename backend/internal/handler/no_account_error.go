@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -85,6 +86,13 @@ func classifyNoAccountError(
 			ErrType:       "model_not_found",
 			Message:       fmt.Sprintf("Model %q is not supported by any configured account in this group", displayModel),
 			ModelNotFound: true,
+		}
+	}
+	if result.HasModelSupport && result.AllModelSupportingAccountsRateLimited && result.RateLimitResetAt != nil {
+		return noAccountErrorClassification{
+			Status:  http.StatusTooManyRequests,
+			ErrType: "rate_limit_error",
+			Message: fmt.Sprintf("All configured accounts that support %q are rate-limited until %s", displayModel, result.RateLimitResetAt.Format(time.RFC3339)),
 		}
 	}
 	return fallback

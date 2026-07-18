@@ -61,7 +61,7 @@ func TestRateLimitService_HandleUpstreamError_OpenAI403FirstHitTempUnschedulable
 	require.True(t, blocker.until[0].After(time.Now()))
 }
 
-func TestRateLimitService_HandleUpstreamError_OpenAI403ThresholdDisables(t *testing.T) {
+func TestRateLimitService_HandleUpstreamError_OpenAI403ThresholdStaysTemporaryForOAuth(t *testing.T) {
 	repo := &rateLimitAccountRepoStub{}
 	counter := &openAI403CounterCacheStub{counts: []int64{3}}
 	service := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
@@ -81,8 +81,58 @@ func TestRateLimitService_HandleUpstreamError_OpenAI403ThresholdDisables(t *test
 	)
 
 	require.True(t, shouldDisable)
+	require.Equal(t, 0, repo.setErrorCalls)
+	require.Equal(t, 1, repo.tempCalls)
+	require.Equal(t, account.ID, repo.lastTempID)
+	require.Contains(t, repo.lastTempReason, "workspace forbidden by policy")
+	require.Contains(t, repo.lastTempReason, "threshold reached")
+	require.Contains(t, repo.lastTempReason, "consecutive_403=3/3")
+}
+
+func TestRateLimitService_HandleUpstreamError_OpenAI403TempWriteFailureDoesNotDisableOAuth(t *testing.T) {
+	repo := &rateLimitAccountRepoStub{tempErr: context.Canceled}
+	counter := &openAI403CounterCacheStub{counts: []int64{3}}
+	service := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+	service.SetOpenAI403CounterCache(counter)
+	account := &Account{
+		ID:       303,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+	}
+
+	shouldDisable := service.HandleUpstreamError(
+		context.Background(),
+		account,
+		http.StatusForbidden,
+		http.Header{},
+		[]byte(`<html>Access denied</html>`),
+	)
+
+	require.True(t, shouldDisable)
+	require.Equal(t, 0, repo.setErrorCalls)
+	require.Equal(t, 1, repo.tempCalls)
+	require.Contains(t, repo.lastTempReason, "threshold reached")
+}
+
+func TestRateLimitService_HandleUpstreamError_OpenAI403NonOAuthStillDisables(t *testing.T) {
+	repo := &rateLimitAccountRepoStub{}
+	service := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+	account := &Account{
+		ID:       304,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+	}
+
+	shouldDisable := service.HandleUpstreamError(
+		context.Background(),
+		account,
+		http.StatusForbidden,
+		http.Header{},
+		[]byte(`{"error":{"message":"api key forbidden"}}`),
+	)
+
+	require.True(t, shouldDisable)
 	require.Equal(t, 1, repo.setErrorCalls)
 	require.Equal(t, 0, repo.tempCalls)
-	require.Contains(t, repo.lastErrorMsg, "workspace forbidden by policy")
-	require.Contains(t, repo.lastErrorMsg, "consecutive_403=3/3")
+	require.Contains(t, repo.lastErrorMsg, "api key forbidden")
 }

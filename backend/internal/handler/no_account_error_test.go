@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -152,6 +153,26 @@ func TestClassifyNoAccountError_HasModelSupport_KeepsRoutingMessageGenerationToC
 	require.Equal(t, http.StatusServiceUnavailable, cls.Status, "model exists somewhere — caller stays on 503")
 	require.Equal(t, "api_error", cls.ErrType)
 	require.False(t, cls.ModelNotFound)
+}
+
+func TestClassifyNoAccountError_AllSupportingAccountsRateLimited_Returns429(t *testing.T) {
+	c := newTestGinContextWithRequest()
+	resetAt := time.Date(2026, 7, 8, 20, 54, 13, 0, time.UTC)
+	fd := &fakeDiagnoser{resp: service.ModelAvailabilityDiagnosis{
+		HasAccountsInPool:                     true,
+		HasModelSupport:                       true,
+		AllModelSupportingAccountsRateLimited: true,
+		RateLimitResetAt:                      &resetAt,
+	}}
+	apiKey := &service.APIKey{GroupID: ptrInt64(7)}
+
+	cls := classifyNoAccountErrorFromGin(c, fd, apiKey, "gpt-5.5", "gpt-5.5", service.PlatformOpenAI)
+
+	require.Equal(t, http.StatusTooManyRequests, cls.Status)
+	require.Equal(t, "rate_limit_error", cls.ErrType)
+	require.False(t, cls.ModelNotFound)
+	require.Contains(t, cls.Message, "gpt-5.5")
+	require.Contains(t, cls.Message, resetAt.Format(time.RFC3339))
 }
 
 func TestClassifyNoAccountError_NoAccountsInPool_Stays503(t *testing.T) {

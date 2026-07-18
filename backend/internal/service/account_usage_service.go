@@ -958,6 +958,7 @@ func (s *AccountUsageService) persistOpenAICodexProbeSnapshot(accountID int64, u
 		defer updateCancel()
 		_ = s.accountRepo.UpdateExtra(updateCtx, accountID, updates)
 	}()
+	maybeRecoverOpenAICodexQuotaModelRateLimits(context.Background(), s.accountRepo, accountID, updates)
 }
 
 func extractOpenAICodexProbeUpdates(resp *http.Response) (map[string]any, error) {

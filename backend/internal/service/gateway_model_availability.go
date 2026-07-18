@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"strings"
+	"time"
 )
 
 // ModelAvailabilityDiagnosis describes whether the requested model can be
@@ -18,6 +19,13 @@ type ModelAvailabilityDiagnosis struct {
 	// HasModelSupport is true if at least one account's model mapping admits
 	// the requested model.
 	HasModelSupport bool
+	// AllModelSupportingAccountsRateLimited is true when every account that
+	// could serve the requested model is currently blocked by a global upstream
+	// rate-limit cooldown.
+	AllModelSupportingAccountsRateLimited bool
+	// RateLimitResetAt is the earliest reset time among model-supporting
+	// accounts when AllModelSupportingAccountsRateLimited is true.
+	RateLimitResetAt *time.Time
 }
 
 // ModelAvailabilityDiagnoser is implemented by gateway services that can

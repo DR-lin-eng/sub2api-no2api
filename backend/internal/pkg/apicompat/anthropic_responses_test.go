@@ -433,6 +433,25 @@ func TestResponsesToAnthropic_EmptyOutput(t *testing.T) {
 // Streaming: ResponsesEventToAnthropicEvents tests
 // ---------------------------------------------------------------------------
 
+func TestStreamingMessageStartUsesPrefilledInputTokens(t *testing.T) {
+	state := NewResponsesEventToAnthropicState()
+	state.InputTokens = 123
+
+	events := ResponsesEventToAnthropicEvents(&ResponsesStreamEvent{
+		Type: "response.created",
+		Response: &ResponsesResponse{
+			ID:    "resp_1",
+			Model: "gpt-5.5",
+		},
+	}, state)
+
+	require.Len(t, events, 1)
+	require.NotNil(t, events[0].Message)
+	assert.Equal(t, "message_start", events[0].Type)
+	assert.Equal(t, 123, events[0].Message.Usage.InputTokens)
+	assert.Equal(t, 0, events[0].Message.Usage.OutputTokens)
+}
+
 func TestStreamingTextOnly(t *testing.T) {
 	state := NewResponsesEventToAnthropicState()
 
@@ -543,6 +562,44 @@ func TestResponsesEventToAnthropicEvents_TopLevelTerminalUsage(t *testing.T) {
 	assert.Equal(t, 5, events[0].Usage.CacheReadInputTokens)
 	assert.Equal(t, 6, events[0].Usage.OutputTokens)
 	assert.Equal(t, "message_stop", events[1].Type)
+}
+
+func TestResponsesEventToAnthropicEvents_TerminalOutputTextOnly(t *testing.T) {
+	state := NewResponsesEventToAnthropicState()
+
+	events := ResponsesEventToAnthropicEvents(&ResponsesStreamEvent{
+		Type: "response.completed",
+		Response: &ResponsesResponse{
+			ID:     "resp_terminal_text",
+			Model:  "gpt-5.5",
+			Status: "completed",
+			Output: []ResponsesOutput{{
+				Type: "message",
+				Content: []ResponsesContentPart{{
+					Type: "output_text",
+					Text: "ok",
+				}},
+			}},
+			Usage: &ResponsesUsage{InputTokens: 9, OutputTokens: 2},
+		},
+	}, state)
+
+	require.Len(t, events, 6)
+	assert.Equal(t, "message_start", events[0].Type)
+	require.NotNil(t, events[0].Message)
+	assert.Equal(t, "resp_terminal_text", events[0].Message.ID)
+	assert.Equal(t, "gpt-5.5", events[0].Message.Model)
+	assert.Equal(t, "content_block_start", events[1].Type)
+	assert.Equal(t, "content_block_delta", events[2].Type)
+	require.NotNil(t, events[2].Delta)
+	assert.Equal(t, "ok", events[2].Delta.Text)
+	assert.Equal(t, "content_block_stop", events[3].Type)
+	assert.Equal(t, "message_delta", events[4].Type)
+	require.NotNil(t, events[4].Usage)
+	assert.Equal(t, 9, events[4].Usage.InputTokens)
+	assert.Equal(t, 2, events[4].Usage.OutputTokens)
+	assert.Equal(t, "message_stop", events[5].Type)
+	assert.Nil(t, FinalizeResponsesAnthropicStream(state))
 }
 
 func TestResponsesEventToAnthropicEvents_ResponseDoneIncomplete(t *testing.T) {

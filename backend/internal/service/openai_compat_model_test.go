@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -173,6 +174,28 @@ func TestForwardAsAnthropic_UsesExactFableMessagesDispatchModel(t *testing.T) {
 	require.Equal(t, "claude-fable-5", gjson.GetBytes(rec.Body.Bytes(), "model").String())
 }
 
+func TestIsClaudeCodeCompactAnthropicRequest(t *testing.T) {
+	t.Parallel()
+
+	compactPrompt := testClaudeCodeCompactPrompt()
+	req := &apicompat.AnthropicRequest{
+		Messages: []apicompat.AnthropicMessage{
+			{Role: "user", Content: []byte(`"normal earlier message"`)},
+			{Role: "assistant", Content: []byte(`"ok"`)},
+			{Role: "user", Content: []byte(fmt.Sprintf(`[{"type":"text","text":%q}]`, compactPrompt))},
+		},
+	}
+
+	require.True(t, isClaudeCodeCompactAnthropicRequest(req))
+
+	notCompact := &apicompat.AnthropicRequest{
+		Messages: []apicompat.AnthropicMessage{
+			{Role: "user", Content: []byte(`"please compact this code but do not summarize a Claude Code transcript"`)},
+		},
+	}
+	require.False(t, isClaudeCodeCompactAnthropicRequest(notCompact))
+}
+
 func TestForwardAsAnthropic_NormalizesRoutingAndEffortForGpt54XHigh(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -232,6 +255,490 @@ func TestForwardAsAnthropic_NormalizesRoutingAndEffortForGpt54XHigh(t *testing.T
 	t.Logf("response body: %s", rec.Body.String())
 }
 
+func TestForwardAsAnthropic_ClaudeCodeCompactUsesCompactModelMapping(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	body := []byte(fmt.Sprintf(`{"model":"gpt-5.5","max_tokens":16,"messages":[{"role":"user","content":[{"type":"text","text":%q}]}],"stream":true}`, testClaudeCodeCompactPrompt()))
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	upstreamBody := strings.Join([]string{
+		`data: {"type":"response.created","response":{"id":"resp_compact","model":"gpt-5.3-codex-spark","status":"in_progress","output":[]}}`,
+		"",
+		`data: {"type":"response.output_text.delta","delta":"ok"}`,
+		"",
+		`data: {"type":"response.completed","response":{"id":"resp_compact","object":"response","model":"gpt-5.3-codex-spark","status":"completed","output":[{"type":"message","id":"msg_1","role":"assistant","status":"completed","content":[{"type":"output_text","text":"ok"}]}],"usage":{"input_tokens":31,"output_tokens":9,"total_tokens":40}}}`,
+		"",
+		"data: [DONE]",
+		"",
+	}, "\n")
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}, "x-request-id": []string{"rid_compact_model"}},
+		Body:       io.NopCloser(strings.NewReader(upstreamBody)),
+	}}
+
+	svc := &OpenAIGatewayService{
+		httpUpstream: upstream,
+		cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
+	}
+	account := &Account{
+		ID:          1,
+		Name:        "openai-oauth",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"access_token":       "oauth-token",
+			"chatgpt_account_id": "chatgpt-acc",
+			"model_mapping": map[string]any{
+				"gpt-5.5": "gpt-5.5",
+			},
+			"compact_model_mapping": map[string]any{
+				"gpt-5.5": "gpt-5.3-codex-spark",
+			},
+		},
+	}
+
+	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "gpt-5.5")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, "gpt-5.5", result.Model)
+	require.Equal(t, "gpt-5.3-codex-spark", result.BillingModel)
+	require.Equal(t, "gpt-5.3-codex-spark", result.UpstreamModel)
+	require.Equal(t, "gpt-5.3-codex-spark", gjson.GetBytes(upstream.lastBody, "model").String())
+}
+
+func TestForwardAsAnthropic_ClaudeCodeCompactFallsBackToMiniWhenSparkRateLimited(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	body := []byte(fmt.Sprintf(`{"model":"gpt-5.5","max_tokens":16,"messages":[{"role":"user","content":"active task: keep compact moving"},{"role":"user","content":[{"type":"text","text":%q}]}],"stream":true}`, testClaudeCodeCompactPrompt()))
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	upstream := &httpUpstreamRecorder{responses: []*http.Response{
+		testOpenAICompatJSONErrorResponse(http.StatusTooManyRequests, "rate_limit_error", "The usage limit has been reached for gpt-5.3-codex-spark.", "rid_spark_rate_limited"),
+		testOpenAICompatSSECompletedResponse("resp_mini_chunk_1", "gpt-5.4-mini", "mini chunk summary", 120, 12),
+		testOpenAICompatSSECompletedResponse("resp_mini_merge", "gpt-5.4-mini", "mini merged compact summary", 180, 18),
+	}}
+
+	svc := &OpenAIGatewayService{
+		httpUpstream: upstream,
+		cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
+	}
+	account := &Account{
+		ID:          1,
+		Name:        "openai-oauth",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"access_token":       "oauth-token",
+			"chatgpt_account_id": "chatgpt-acc",
+			"compact_model_mapping": map[string]any{
+				"gpt-5.5": "gpt-5.3-codex-spark",
+			},
+		},
+	}
+
+	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "gpt-5.5")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), "mini merged compact summary")
+	require.Equal(t, "resp_mini_merge", result.ResponseID)
+	require.Equal(t, "gpt-5.5", result.Model)
+	require.Equal(t, "gpt-5.4-mini", result.BillingModel)
+	require.Equal(t, "gpt-5.4-mini", result.UpstreamModel)
+	require.Len(t, upstream.bodies, 3)
+	require.Equal(t, "gpt-5.3-codex-spark", gjson.GetBytes(upstream.bodies[0], "model").String())
+	require.Equal(t, "gpt-5.4-mini", gjson.GetBytes(upstream.bodies[1], "model").String())
+	require.Equal(t, "gpt-5.4-mini", gjson.GetBytes(upstream.bodies[2], "model").String())
+}
+
+func TestForwardAsAnthropic_ClaudeCodeCompactChunksWhenCompactModelContextExceeded(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	oldTarget := openAIAnthropicCompactChunkTargetChars
+	openAIAnthropicCompactChunkTargetChars = 80
+	defer func() { openAIAnthropicCompactChunkTargetChars = oldTarget }()
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	body := []byte(fmt.Sprintf(`{"model":"gpt-5.5","max_tokens":16,"messages":[{"role":"user","content":%q},{"role":"assistant","content":%q},{"role":"user","content":[{"type":"text","text":%q}]}],"stream":true}`,
+		strings.Repeat("alpha file command error ", 20),
+		strings.Repeat("beta verification blocker ", 20),
+		testClaudeCodeCompactPrompt(),
+	))
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	var anthropicReq apicompat.AnthropicRequest
+	require.NoError(t, json.Unmarshal(body, &anthropicReq))
+	_, transcript := buildAnthropicCompactFallbackTranscript(&anthropicReq)
+	chunks := splitAnthropicCompactTranscriptChunks(transcript, openAIAnthropicCompactChunkTargetChars, openAIAnthropicCompactFallbackMaxChunks)
+	require.GreaterOrEqual(t, len(chunks), 2)
+
+	responses := []*http.Response{
+		testOpenAICompatSSEFailedContextResponse("resp_full_too_big", "gpt-5.3-codex-spark", 210_000),
+	}
+	for i := range chunks {
+		responses = append(responses, testOpenAICompatSSECompletedResponse(
+			fmt.Sprintf("resp_chunk_%d", i+1),
+			"gpt-5.3-codex-spark",
+			fmt.Sprintf("chunk %d summary", i+1),
+			100+i,
+			10+i,
+		))
+	}
+	responses = append(responses, testOpenAICompatSSECompletedResponse(
+		"resp_merge",
+		"gpt-5.3-codex-spark",
+		"merged compact summary",
+		300,
+		30,
+	))
+	upstream := &httpUpstreamRecorder{responses: responses}
+
+	svc := &OpenAIGatewayService{
+		httpUpstream: upstream,
+		cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
+	}
+	account := &Account{
+		ID:          1,
+		Name:        "openai-oauth",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"access_token":       "oauth-token",
+			"chatgpt_account_id": "chatgpt-acc",
+			"model_mapping": map[string]any{
+				"gpt-5.5": "gpt-5.5",
+			},
+			"compact_model_mapping": map[string]any{
+				"gpt-5.5": "gpt-5.3-codex-spark",
+			},
+		},
+	}
+
+	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "gpt-5.5")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), "merged compact summary")
+	require.Equal(t, "resp_merge", result.ResponseID)
+	require.Equal(t, "gpt-5.5", result.Model)
+	require.Equal(t, "gpt-5.3-codex-spark", result.BillingModel)
+	require.Equal(t, "gpt-5.3-codex-spark", result.UpstreamModel)
+	require.True(t, result.Stream)
+	require.Greater(t, result.Usage.InputTokens, 210_000)
+	require.Len(t, upstream.bodies, len(chunks)+2)
+	for _, upstreamBody := range upstream.bodies {
+		require.Equal(t, "gpt-5.3-codex-spark", gjson.GetBytes(upstreamBody, "model").String())
+		require.False(t, gjson.GetBytes(upstreamBody, "previous_response_id").Exists())
+	}
+	require.Contains(t, string(upstream.bodies[len(upstream.bodies)-1]), "chunk 1 summary")
+}
+
+func TestForwardAsAnthropic_ClaudeCodeCompactChunkFallbackSwitchesToMiniWhenSparkRateLimited(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	oldTarget := openAIAnthropicCompactChunkTargetChars
+	openAIAnthropicCompactChunkTargetChars = 80
+	defer func() { openAIAnthropicCompactChunkTargetChars = oldTarget }()
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	body := []byte(fmt.Sprintf(`{"model":"gpt-5.5","max_tokens":16,"messages":[{"role":"user","content":%q},{"role":"assistant","content":%q},{"role":"user","content":[{"type":"text","text":%q}]}],"stream":true}`,
+		strings.Repeat("alpha file command error ", 20),
+		strings.Repeat("beta verification blocker ", 20),
+		testClaudeCodeCompactPrompt(),
+	))
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	var anthropicReq apicompat.AnthropicRequest
+	require.NoError(t, json.Unmarshal(body, &anthropicReq))
+	_, transcript := buildAnthropicCompactFallbackTranscript(&anthropicReq)
+	chunks := splitAnthropicCompactTranscriptChunks(transcript, openAIAnthropicCompactChunkTargetChars, openAIAnthropicCompactFallbackMaxChunks)
+	require.GreaterOrEqual(t, len(chunks), 2)
+
+	responses := []*http.Response{
+		testOpenAICompatSSEFailedContextResponse("resp_full_too_big", "gpt-5.3-codex-spark", 210_000),
+		testOpenAICompatJSONErrorResponse(http.StatusTooManyRequests, "rate_limit_error", "The usage limit has been reached for gpt-5.3-codex-spark.", "rid_spark_chunk_rate_limited"),
+	}
+	for i := range chunks {
+		responses = append(responses, testOpenAICompatSSECompletedResponse(
+			fmt.Sprintf("resp_mini_chunk_%d", i+1),
+			"gpt-5.4-mini",
+			fmt.Sprintf("mini chunk %d summary", i+1),
+			120+i,
+			12+i,
+		))
+	}
+	responses = append(responses, testOpenAICompatSSECompletedResponse(
+		"resp_mini_merge",
+		"gpt-5.4-mini",
+		"mini merged compact summary after spark limit",
+		240,
+		24,
+	))
+	upstream := &httpUpstreamRecorder{responses: responses}
+
+	svc := &OpenAIGatewayService{
+		httpUpstream: upstream,
+		cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
+	}
+	account := &Account{
+		ID:          1,
+		Name:        "openai-oauth",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"access_token":       "oauth-token",
+			"chatgpt_account_id": "chatgpt-acc",
+			"compact_model_mapping": map[string]any{
+				"gpt-5.5": "gpt-5.3-codex-spark",
+			},
+		},
+	}
+
+	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "gpt-5.5")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), "mini merged compact summary after spark limit")
+	require.Equal(t, "resp_mini_merge", result.ResponseID)
+	require.Equal(t, "gpt-5.4-mini", result.BillingModel)
+	require.Equal(t, "gpt-5.4-mini", result.UpstreamModel)
+	require.Greater(t, result.Usage.InputTokens, 210_000)
+	require.Len(t, upstream.bodies, len(chunks)+3)
+	require.Equal(t, "gpt-5.3-codex-spark", gjson.GetBytes(upstream.bodies[0], "model").String())
+	require.Equal(t, "gpt-5.3-codex-spark", gjson.GetBytes(upstream.bodies[1], "model").String())
+	for _, upstreamBody := range upstream.bodies[2:] {
+		require.Equal(t, "gpt-5.4-mini", gjson.GetBytes(upstreamBody, "model").String())
+		require.False(t, gjson.GetBytes(upstreamBody, "previous_response_id").Exists())
+	}
+}
+
+func TestForwardAsAnthropic_ClaudeCodeCompactRecursivelyMergesWhenMergeContextExceeded(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	oldChunkTarget := openAIAnthropicCompactChunkTargetChars
+	oldMergeTarget := openAIAnthropicCompactMergeTargetChars
+	openAIAnthropicCompactChunkTargetChars = 80
+	openAIAnthropicCompactMergeTargetChars = 100_000
+	defer func() {
+		openAIAnthropicCompactChunkTargetChars = oldChunkTarget
+		openAIAnthropicCompactMergeTargetChars = oldMergeTarget
+	}()
+
+	messages := make([]map[string]any, 0, 13)
+	for i := 0; i < 12; i++ {
+		role := "user"
+		if i%2 == 1 {
+			role = "assistant"
+		}
+		messages = append(messages, map[string]any{
+			"role":    role,
+			"content": strings.Repeat(fmt.Sprintf("turn-%02d file command error blocker verification ", i+1), 6),
+		})
+	}
+	compactPrompt := testClaudeCodeCompactPrompt()
+	messages = append(messages, map[string]any{
+		"role": "user",
+		"content": []map[string]string{{
+			"type": "text",
+			"text": compactPrompt,
+		}},
+	})
+	body, err := json.Marshal(map[string]any{
+		"model":      "gpt-5.5",
+		"max_tokens": 16,
+		"messages":   messages,
+		"stream":     true,
+	})
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	var anthropicReq apicompat.AnthropicRequest
+	require.NoError(t, json.Unmarshal(body, &anthropicReq))
+	_, transcript := buildAnthropicCompactFallbackTranscript(&anthropicReq)
+	chunks := splitAnthropicCompactTranscriptChunks(transcript, openAIAnthropicCompactChunkTargetChars, openAIAnthropicCompactFallbackMaxChunks)
+	require.GreaterOrEqual(t, len(chunks), 10)
+
+	responses := []*http.Response{
+		testOpenAICompatSSEFailedContextResponse("resp_full_too_big", "gpt-5.3-codex-spark", 246_445),
+	}
+	formattedSummaries := make([]string, 0, len(chunks))
+	for i := range chunks {
+		summary := fmt.Sprintf("chunk %d summary\n%s", i+1, strings.Repeat("important file command error test blocker next-step ", 130))
+		formattedSummaries = append(formattedSummaries, fmt.Sprintf("## Chunk %d/%d\n%s", i+1, len(chunks), summary))
+		responses = append(responses, testOpenAICompatSSECompletedResponse(
+			fmt.Sprintf("resp_chunk_%d", i+1),
+			"gpt-5.3-codex-spark",
+			summary,
+			100+i,
+			20+i,
+		))
+	}
+
+	retryGroups := groupAnthropicCompactSummariesForMerge(compactPrompt, formattedSummaries, openAIAnthropicCompactMergeTargetChars/2)
+	require.Greater(t, len(retryGroups), 1)
+	responses = append(responses, testOpenAICompatSSEFailedContextResponse("resp_merge_too_big", "gpt-5.3-codex-spark", 280_000))
+	for i := range retryGroups {
+		responses = append(responses, testOpenAICompatSSECompletedResponse(
+			fmt.Sprintf("resp_group_merge_%d", i+1),
+			"gpt-5.3-codex-spark",
+			fmt.Sprintf("group %d compact summary", i+1),
+			400+i,
+			40+i,
+		))
+	}
+	responses = append(responses, testOpenAICompatSSECompletedResponse(
+		"resp_final_recursive_merge",
+		"gpt-5.3-codex-spark",
+		"final recursive compact summary",
+		900,
+		90,
+	))
+	upstream := &httpUpstreamRecorder{responses: responses}
+
+	svc := &OpenAIGatewayService{
+		httpUpstream: upstream,
+		cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
+	}
+	account := &Account{
+		ID:          1,
+		Name:        "openai-oauth",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"access_token":       "oauth-token",
+			"chatgpt_account_id": "chatgpt-acc",
+			"model_mapping": map[string]any{
+				"gpt-5.5": "gpt-5.5",
+			},
+			"compact_model_mapping": map[string]any{
+				"gpt-5.5": "gpt-5.3-codex-spark",
+			},
+		},
+	}
+
+	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "gpt-5.5")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), "final recursive compact summary")
+	require.Equal(t, "resp_final_recursive_merge", result.ResponseID)
+	require.Equal(t, "gpt-5.3-codex-spark", result.UpstreamModel)
+	require.Greater(t, result.Usage.InputTokens, 246_445)
+	require.Len(t, upstream.bodies, len(chunks)+len(retryGroups)+3)
+	for _, upstreamBody := range upstream.bodies {
+		require.Equal(t, "gpt-5.3-codex-spark", gjson.GetBytes(upstreamBody, "model").String())
+		require.False(t, gjson.GetBytes(upstreamBody, "previous_response_id").Exists())
+	}
+}
+
+func TestForwardAsAnthropic_ClaudeCodeCompactReturnsEmergencySummaryWhenMergeStillTooLarge(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	body := []byte(fmt.Sprintf(`{"model":"gpt-5.5","max_tokens":16,"messages":[{"role":"user","content":"active task: fix compact overflow"},{"role":"user","content":[{"type":"text","text":%q}]}],"stream":true}`,
+		testClaudeCodeCompactPrompt(),
+	))
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	upstream := &httpUpstreamRecorder{responses: []*http.Response{
+		testOpenAICompatSSEFailedContextResponse("resp_full_too_big", "gpt-5.3-codex-spark", 246_445),
+		testOpenAICompatSSECompletedResponse("resp_chunk_1", "gpt-5.3-codex-spark", "active task: fix compact overflow\nnext: continue tests", 100, 20),
+		testOpenAICompatSSEFailedContextResponse("resp_merge_too_big", "gpt-5.3-codex-spark", 280_000),
+	}}
+	svc := &OpenAIGatewayService{
+		httpUpstream: upstream,
+		cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
+	}
+	account := &Account{
+		ID:          1,
+		Name:        "openai-oauth",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"access_token":       "oauth-token",
+			"chatgpt_account_id": "chatgpt-acc",
+			"compact_model_mapping": map[string]any{
+				"gpt-5.5": "gpt-5.3-codex-spark",
+			},
+		},
+	}
+
+	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "gpt-5.5")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.True(t, strings.HasPrefix(result.ResponseID, "compact_fallback_"))
+	require.Contains(t, rec.Body.String(), "# Compact Capsule")
+	require.Contains(t, rec.Body.String(), "active task: fix compact overflow")
+	require.Len(t, upstream.bodies, 3)
+}
+
+func testOpenAICompatSSEFailedContextResponse(id, model string, inputTokens int) *http.Response {
+	body := fmt.Sprintf(
+		"data: {\"type\":\"response.failed\",\"response\":{\"id\":%q,\"object\":\"response\",\"model\":%q,\"status\":\"failed\",\"output\":[],\"error\":{\"code\":\"context_length_exceeded\",\"message\":\"Your input exceeds the context window of this model. Please adjust your input and try again.\"},\"usage\":{\"input_tokens\":%d,\"output_tokens\":0,\"total_tokens\":%d}}}\n\ndata: [DONE]\n\n",
+		id,
+		model,
+		inputTokens,
+		inputTokens,
+	)
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}, "x-request-id": []string{"rid_" + id}},
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
+}
+
+func testOpenAICompatJSONErrorResponse(statusCode int, code, message, requestID string) *http.Response {
+	body := fmt.Sprintf(`{"error":{"code":%q,"message":%q,"type":%q}}`, code, message, code)
+	return &http.Response{
+		StatusCode: statusCode,
+		Header:     http.Header{"Content-Type": []string{"application/json"}, "x-request-id": []string{requestID}},
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
+}
+
+func testOpenAICompatSSECompletedResponse(id, model, text string, inputTokens, outputTokens int) *http.Response {
+	body := fmt.Sprintf(
+		"data: {\"type\":\"response.completed\",\"response\":{\"id\":%q,\"object\":\"response\",\"model\":%q,\"status\":\"completed\",\"output\":[{\"type\":\"message\",\"id\":\"msg_%s\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":%q}]}],\"usage\":{\"input_tokens\":%d,\"output_tokens\":%d,\"total_tokens\":%d}}}\n\ndata: [DONE]\n\n",
+		id,
+		model,
+		id,
+		text,
+		inputTokens,
+		outputTokens,
+		inputTokens+outputTokens,
+	)
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}, "x-request-id": []string{"rid_" + id}},
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
+}
+
 func TestForwardAsAnthropic_MappedClaudeModelAcceptsChatUsageShape(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -287,6 +794,20 @@ func TestForwardAsAnthropic_MappedClaudeModelAcceptsChatUsageShape(t *testing.T)
 	require.Equal(t, 9, result.Usage.OutputTokens)
 	require.Equal(t, 11, result.Usage.CacheReadInputTokens)
 	require.Equal(t, "gpt-5.5", gjson.GetBytes(upstream.lastBody, "model").String())
+}
+
+func testClaudeCodeCompactPrompt() string {
+	return strings.Join([]string{
+		"Your task is to create a detailed summary of the conversation so far, paying close attention to the user's explicit requests and your previous actions.",
+		"Before providing your final summary, wrap your analysis in <analysis> tags.",
+		"<analysis>",
+		"</analysis>",
+		"<summary>",
+		"6. All user messages:",
+		"7. Pending Tasks:",
+		"8. Current Work:",
+		"</summary>",
+	}, "\n")
 }
 
 func TestForwardAsAnthropic_InjectsPromptCacheKeyForAPIKeyMessagesDispatch(t *testing.T) {
@@ -1898,6 +2419,8 @@ func TestForwardAsAnthropic_MissingTerminalAfterClientDisconnectSkipsOpsAndFailo
 
 	upstreamBody := strings.Join([]string{
 		`data: {"type":"response.created","response":{"id":"resp_1","model":"gpt-5.4","status":"in_progress","output":[]}}`,
+		"",
+		`data: {"type":"response.output_text.delta","delta":"partial"}`,
 		"",
 	}, "\n")
 	upstream := &httpUpstreamRecorder{resp: &http.Response{

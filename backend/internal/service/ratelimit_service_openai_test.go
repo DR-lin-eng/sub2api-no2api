@@ -184,7 +184,7 @@ func TestHandle429_OpenAIPersistsCodexSnapshotImmediately(t *testing.T) {
 	headers.Set("x-codex-secondary-reset-after-seconds", "18000")
 	headers.Set("x-codex-secondary-window-minutes", "300")
 
-	svc.handle429(context.Background(), account, headers, nil)
+	svc.handle429(context.Background(), account, headers, nil, "")
 
 	if repo.rateLimitedID != account.ID {
 		t.Fatalf("rateLimitedID = %d, want %d", repo.rateLimitedID, account.ID)
@@ -211,7 +211,7 @@ func TestHandle429_OpenAISyncsObservedPlanType(t *testing.T) {
 	}
 	body := []byte(`{"error":{"type":"usage_limit_reached","message":"limit reached","plan_type":"free","resets_at":1777283883}}`)
 
-	svc.handle429(context.Background(), account, http.Header{}, body)
+	svc.handle429(context.Background(), account, http.Header{}, body, "")
 
 	require.Equal(t, []int64{account.ID}, repo.bulkUpdatedIDs)
 	require.Equal(t, "free", repo.bulkUpdatedPayload.Credentials["plan_type"])
@@ -242,7 +242,7 @@ func TestHandle429_SkipsSparkShadow(t *testing.T) {
 		QuotaDimension:  QuotaDimensionSpark,
 	}
 
-	shadowSvc.handle429(context.Background(), shadow, headers, nil)
+	shadowSvc.handle429(context.Background(), shadow, headers, nil, "")
 
 	require.Zero(t, shadowRepo.rateLimitedID, "spark shadow must not be SetRateLimited from /responses global 429")
 	require.Empty(t, shadowRepo.updatedExtra, "spark shadow must not get a codex snapshot from /responses 429")
@@ -252,9 +252,32 @@ func TestHandle429_SkipsSparkShadow(t *testing.T) {
 	normalSvc := NewRateLimitService(normalRepo, nil, nil, nil, nil)
 	normal := &Account{ID: 902, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
 
-	normalSvc.handle429(context.Background(), normal, headers, nil)
+	normalSvc.handle429(context.Background(), normal, headers, nil, "")
 
 	require.Equal(t, normal.ID, normalRepo.rateLimitedID, "normal OpenAI OAuth account should still be rate limited")
+}
+
+func TestHandle429_OpenAIRequestedModelUsesModelRateLimit(t *testing.T) {
+	repo := &rateLimitAccountRepoStub{}
+	svc := NewRateLimitService(repo, nil, nil, nil, nil)
+	account := &Account{ID: 125, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+
+	headers := http.Header{}
+	headers.Set("x-codex-primary-used-percent", "0")
+	headers.Set("x-codex-primary-reset-after-seconds", "604800")
+	headers.Set("x-codex-primary-window-minutes", "10080")
+	headers.Set("x-codex-secondary-used-percent", "100")
+	headers.Set("x-codex-secondary-reset-after-seconds", "1200")
+	headers.Set("x-codex-secondary-window-minutes", "300")
+
+	svc.HandleUpstreamError(context.Background(), account, http.StatusTooManyRequests, headers, nil, "gpt-5.3-codex-spark")
+
+	require.Zero(t, repo.rateLimitedCalls, "OpenAI model 429 must not globally cool down the whole account")
+	require.Equal(t, 1, repo.modelRateLimitCalls)
+	require.Equal(t, account.ID, repo.lastModelRateID)
+	require.Equal(t, "gpt-5.3-codex-spark", repo.lastModelRateScope)
+	require.Equal(t, openAIModelRateLimitReason, repo.lastModelRateReason)
+	require.True(t, repo.lastModelRateResetAt.After(time.Now()))
 }
 
 func TestNormalizedCodexLimits(t *testing.T) {
@@ -345,9 +368,10 @@ func TestRateLimitService_HandleUpstreamError_403PreservesOriginalUpstreamMessag
 	)
 
 	require.True(t, shouldDisable)
-	require.Equal(t, 1, repo.setErrorCalls)
-	require.Contains(t, repo.lastErrorMsg, "workspace forbidden by policy")
-	require.NotContains(t, repo.lastErrorMsg, "account may be suspended or lack permissions")
+	require.Equal(t, 0, repo.setErrorCalls)
+	require.Equal(t, 1, repo.tempCalls)
+	require.Contains(t, repo.lastTempReason, "workspace forbidden by policy")
+	require.NotContains(t, repo.lastTempReason, "account may be suspended or lack permissions")
 }
 
 func TestRateLimitService_HandleUpstreamError_403FallsBackToRawBody(t *testing.T) {
@@ -368,10 +392,11 @@ func TestRateLimitService_HandleUpstreamError_403FallsBackToRawBody(t *testing.T
 	)
 
 	require.True(t, shouldDisable)
-	require.Equal(t, 1, repo.setErrorCalls)
-	require.Contains(t, repo.lastErrorMsg, `"access_denied"`)
-	require.Contains(t, repo.lastErrorMsg, `"ip_blocked"`)
-	require.NotContains(t, repo.lastErrorMsg, "account may be suspended or lack permissions")
+	require.Equal(t, 0, repo.setErrorCalls)
+	require.Equal(t, 1, repo.tempCalls)
+	require.Contains(t, repo.lastTempReason, `"access_denied"`)
+	require.Contains(t, repo.lastTempReason, `"ip_blocked"`)
+	require.NotContains(t, repo.lastTempReason, "account may be suspended or lack permissions")
 }
 
 func TestNormalizedCodexLimits_OnlySecondaryData(t *testing.T) {

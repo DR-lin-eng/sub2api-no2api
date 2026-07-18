@@ -65,11 +65,11 @@ func normalizeKnownOpenAICodexModel(model string) string {
 	}
 
 	switch {
-	case strings.Contains(normalized, "gpt-5.6-sol"):
+	case isKnownOpenAIModelVariant(normalized, "gpt-5.6-sol"):
 		return "gpt-5.6-sol"
-	case strings.Contains(normalized, "gpt-5.6-terra"):
+	case isKnownOpenAIModelVariant(normalized, "gpt-5.6-terra"):
 		return "gpt-5.6-terra"
-	case strings.Contains(normalized, "gpt-5.6-luna"):
+	case isKnownOpenAIModelVariant(normalized, "gpt-5.6-luna"):
 		return "gpt-5.6-luna"
 	case normalized == "gpt-5.6":
 		return "gpt-5.6-sol"
@@ -79,27 +79,27 @@ func normalizeKnownOpenAICodexModel(model string) string {
 			return "gpt-5.6-sol"
 		}
 		return ""
-	case strings.Contains(normalized, "gpt-5.5-pro"):
+	case isKnownOpenAIModelVariant(normalized, "gpt-5.5-pro"):
 		return "gpt-5.5-pro"
-	case strings.Contains(normalized, "gpt-5.5"):
+	case isKnownOpenAIModelVariant(normalized, "gpt-5.5"):
 		return "gpt-5.5"
-	case strings.Contains(normalized, "gpt-5.4-mini"):
+	case isKnownOpenAIModelVariant(normalized, "gpt-5.4-mini"):
 		return "gpt-5.4-mini"
-	case strings.Contains(normalized, "gpt-5.4-nano"):
+	case isKnownOpenAIModelVariant(normalized, "gpt-5.4-nano"):
 		return "gpt-5.4-nano"
-	case strings.Contains(normalized, "gpt-5.4"):
+	case isKnownOpenAIModelVariant(normalized, "gpt-5.4"):
 		return "gpt-5.4"
-	case strings.Contains(normalized, "gpt-5.2"):
+	case isKnownOpenAIModelVariant(normalized, "gpt-5.2"):
 		return "gpt-5.2"
-	case strings.Contains(normalized, "gpt-5.3-codex-spark"):
+	case isKnownOpenAIModelVariant(normalized, "gpt-5.3-codex-spark"):
 		return "gpt-5.3-codex-spark"
-	case strings.Contains(normalized, "gpt-5.3-codex"):
+	case isKnownOpenAIModelVariant(normalized, "gpt-5.3-codex"):
 		return "gpt-5.3-codex"
-	case strings.Contains(normalized, "gpt-5.3"):
+	case isKnownOpenAIModelVariant(normalized, "gpt-5.3"):
 		return "gpt-5.3-codex"
 	case strings.Contains(normalized, "codex"):
 		return "gpt-5.3-codex"
-	case strings.Contains(normalized, "gpt-5"):
+	case isKnownOpenAIModelVariant(normalized, "gpt-5"):
 		return "gpt-5.4"
 	default:
 		return ""
@@ -122,6 +122,14 @@ func isOpenAIGPT56Model(model string) bool {
 		}
 	}
 	return false
+}
+
+func isKnownOpenAIModelVariant(normalized string, base string) bool {
+	if normalized == base {
+		return true
+	}
+	suffix, ok := strings.CutPrefix(normalized, base+"-")
+	return ok && isKnownCodexModelSuffix(suffix)
 }
 
 func appendUsageBillingModelCandidate(candidates []string, seen map[string]struct{}, model string) []string {

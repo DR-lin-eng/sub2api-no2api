@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
 	"github.com/gin-gonic/gin"
@@ -1072,6 +1073,61 @@ func (s *OpenAIGatewayService) newOpenAIStreamFailoverError(
 	return &UpstreamFailoverError{
 		StatusCode:   http.StatusBadGateway,
 		ResponseBody: body,
+	}
+}
+
+func (s *OpenAIGatewayService) newOpenAIStreamClientError(
+	c *gin.Context,
+	account *Account,
+	upstreamRequestID string,
+	statusCode int,
+	errType string,
+	message string,
+) *UpstreamFailoverError {
+	message = sanitizeUpstreamErrorMessage(strings.TrimSpace(message))
+	if message == "" {
+		message = "OpenAI request failed"
+	}
+	errType = strings.TrimSpace(errType)
+	if errType == "" {
+		errType = "invalid_request_error"
+	}
+	if statusCode < 400 || statusCode >= 500 {
+		statusCode = http.StatusBadRequest
+	}
+	message = s.recordOpenAIStreamUpstreamError(c, account, false, upstreamRequestID, "client_error", nil, message)
+	fields := []zap.Field{
+		zap.String("upstream_request_id", strings.TrimSpace(upstreamRequestID)),
+		zap.Int("status_code", statusCode),
+		zap.String("error_type", errType),
+		zap.String("message", message),
+		zap.Bool("retryable_on_same_account", false),
+	}
+	if c != nil && c.Request != nil {
+		if requestID, _ := c.Request.Context().Value(ctxkey.RequestID).(string); strings.TrimSpace(requestID) != "" {
+			fields = append(fields, zap.String("request_id", strings.TrimSpace(requestID)))
+		}
+		if clientRequestID, _ := c.Request.Context().Value(ctxkey.ClientRequestID).(string); strings.TrimSpace(clientRequestID) != "" {
+			fields = append(fields, zap.String("client_request_id", strings.TrimSpace(clientRequestID)))
+		}
+	}
+	if account != nil {
+		fields = append(fields,
+			zap.Int64("account_id", account.ID),
+			zap.String("account_platform", account.Platform),
+		)
+	}
+	logger.L().Warn("openai_messages.stream_client_error", fields...)
+	body, _ := json.Marshal(gin.H{
+		"error": gin.H{
+			"type":    errType,
+			"message": message,
+		},
+	})
+	return &UpstreamFailoverError{
+		StatusCode:             statusCode,
+		ResponseBody:           body,
+		RetryableOnSameAccount: false,
 	}
 }
 

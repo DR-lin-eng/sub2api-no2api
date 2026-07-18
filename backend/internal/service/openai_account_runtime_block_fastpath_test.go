@@ -54,6 +54,33 @@ func TestOpenAI429FastPath_SkipsSparkShadow(t *testing.T) {
 	require.True(t, svc.isOpenAIAccountRuntimeBlocked(normal), "normal OpenAI OAuth account should still be runtime-blocked")
 }
 
+func TestOpenAI429FastPath_ModelScopedCooldownDoesNotBlockWholeOAuthAccount(t *testing.T) {
+	repo := &rateLimitAccountRepoStub{}
+	svc := &OpenAIGatewayService{
+		rateLimitService: &RateLimitService{accountRepo: repo},
+	}
+	account := &Account{ID: 48, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+	headers := http.Header{}
+	headers.Set("x-codex-primary-used-percent", "100")
+	headers.Set("x-codex-primary-reset-after-seconds", "300")
+	headers.Set("x-codex-primary-window-minutes", "300")
+
+	shouldDisable := svc.handleOpenAIAccountUpstreamError(
+		context.Background(),
+		account,
+		http.StatusTooManyRequests,
+		headers,
+		[]byte(`{"error":{"code":"rate_limit_exceeded","message":"The usage limit has been reached"}}`),
+		"gpt-5.3-codex-spark",
+	)
+
+	require.False(t, shouldDisable)
+	require.False(t, svc.isOpenAIAccountRuntimeBlocked(account), "model-scoped 429 must not runtime-block the whole OpenAI account")
+	require.Zero(t, repo.rateLimitedCalls, "model-scoped 429 must not write global account cooldown")
+	require.Equal(t, 1, repo.modelRateLimitCalls)
+	require.Equal(t, "gpt-5.3-codex-spark", repo.lastModelRateScope)
+}
+
 func TestOpenAIRuntimeBlock_AppliesToOpenAIAPIKeyWhenRateLimitServiceStopsScheduling(t *testing.T) {
 	svc := &OpenAIGatewayService{}
 	account := &Account{ID: 44, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}

@@ -105,7 +105,16 @@ func (m *mockAccountRepoForPlatform) ListActive(ctx context.Context) ([]Account,
 	return nil, nil
 }
 func (m *mockAccountRepoForPlatform) ListByPlatform(ctx context.Context, platform string) ([]Account, error) {
-	return nil, nil
+	if m.listPlatformFunc != nil {
+		return m.listPlatformFunc(ctx, platform)
+	}
+	var result []Account
+	for _, acc := range m.accounts {
+		if acc.Platform == platform && acc.Status == StatusActive {
+			result = append(result, acc)
+		}
+	}
+	return result, nil
 }
 func (m *mockAccountRepoForPlatform) UpdateLastUsed(ctx context.Context, id int64) error {
 	return nil

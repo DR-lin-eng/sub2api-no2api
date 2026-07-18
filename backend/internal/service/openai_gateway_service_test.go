@@ -47,6 +47,10 @@ func (r *snapshotUpdateAccountRepo) UpdateExtra(ctx context.Context, id int64, u
 	return nil
 }
 
+func (r *snapshotUpdateAccountRepo) GetByID(ctx context.Context, id int64) (*Account, error) {
+	return r.stubOpenAIAccountRepo.GetByID(ctx, id)
+}
+
 func (r stubOpenAIAccountRepo) GetByID(ctx context.Context, id int64) (*Account, error) {
 	for i := range r.accounts {
 		if r.accounts[i].ID == id {
@@ -546,6 +550,57 @@ func TestOpenAISelectAccountWithLoadAwareness_ImageRateLimitSkipsOnlyImageReques
 	require.Equal(t, imageLimited.ID, textSelection.Account.ID)
 	if textSelection.ReleaseFunc != nil {
 		textSelection.ReleaseFunc()
+	}
+}
+
+func TestOpenAISelectAccountWithLoadAwareness_SparkRateLimitDoesNotBlockGPT55(t *testing.T) {
+	future := time.Now().Add(10 * time.Minute).Format(time.RFC3339)
+	groupID := int64(1)
+
+	sparkLimited := Account{
+		ID:          1,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		Priority:    0,
+		Extra: map[string]any{
+			modelRateLimitsKey: map[string]any{
+				"gpt-5.3-codex-spark": map[string]any{
+					"rate_limit_reset_at": future,
+				},
+			},
+		},
+	}
+	available := Account{
+		ID:          2,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		Priority:    1,
+	}
+	svc := &OpenAIGatewayService{
+		accountRepo:        stubOpenAIAccountRepo{accounts: []Account{sparkLimited, available}},
+		concurrencyService: NewConcurrencyService(stubConcurrencyCache{}),
+	}
+
+	sparkSelection, err := svc.SelectAccountWithLoadAwareness(context.Background(), &groupID, "", "gpt-5.3-codex-spark", nil)
+	require.NoError(t, err)
+	require.NotNil(t, sparkSelection)
+	require.Equal(t, available.ID, sparkSelection.Account.ID)
+	if sparkSelection.ReleaseFunc != nil {
+		sparkSelection.ReleaseFunc()
+	}
+
+	gpt55Selection, err := svc.SelectAccountWithLoadAwareness(context.Background(), &groupID, "", "gpt-5.5", nil)
+	require.NoError(t, err)
+	require.NotNil(t, gpt55Selection)
+	require.Equal(t, sparkLimited.ID, gpt55Selection.Account.ID)
+	if gpt55Selection.ReleaseFunc != nil {
+		gpt55Selection.ReleaseFunc()
 	}
 }
 
@@ -2428,6 +2483,97 @@ func TestOpenAIUpdateCodexUsageSnapshotFromHeaders(t *testing.T) {
 		require.Equal(t, 86400, updates["codex_7d_reset_after_seconds"])
 	case <-time.After(2 * time.Second):
 		t.Fatal("expected UpdateExtra to be called")
+	}
+}
+
+func TestOpenAIUpdateCodexUsageSnapshotFromHeadersClearsStaleQuotaModelLimits(t *testing.T) {
+	repo := &snapshotUpdateAccountRepo{
+		stubOpenAIAccountRepo: stubOpenAIAccountRepo{
+			accounts: []Account{
+				{
+					ID:       223,
+					Platform: PlatformOpenAI,
+					Extra: map[string]any{
+						modelRateLimitsKey: map[string]any{
+							"gpt-5.5": map[string]any{
+								"reason":              openAIModelRateLimitReason,
+								"rate_limit_reset_at": "2026-07-13T20:21:48Z",
+							},
+							"gpt-5.6-luna": map[string]any{
+								"reason":              upstreamModelNotFoundReason,
+								"rate_limit_reset_at": "2026-07-10T22:40:35Z",
+							},
+						},
+					},
+				},
+			},
+		},
+		updateExtraCalls: make(chan map[string]any, 2),
+	}
+	svc := &OpenAIGatewayService{accountRepo: repo}
+	headers := http.Header{}
+	headers.Set("x-codex-primary-used-percent", "0")
+	headers.Set("x-codex-secondary-used-percent", "1")
+	headers.Set("x-codex-primary-window-minutes", "10080")
+	headers.Set("x-codex-secondary-window-minutes", "300")
+
+	svc.UpdateCodexUsageSnapshotFromHeaders(context.Background(), 223, headers)
+
+	var recovered map[string]any
+	deadline := time.After(2 * time.Second)
+	for recovered == nil {
+		select {
+		case updates := <-repo.updateExtraCalls:
+			if raw, ok := updates[modelRateLimitsKey].(map[string]any); ok {
+				recovered = raw
+			}
+		case <-deadline:
+			t.Fatal("expected stale quota model cooldowns to be cleared")
+		}
+	}
+	require.NotContains(t, recovered, "gpt-5.5")
+	require.Contains(t, recovered, "gpt-5.6-luna")
+}
+
+func TestOpenAIUpdateCodexUsageSnapshotFromHeadersKeepsQuotaLimitsWhenWindowExhausted(t *testing.T) {
+	repo := &snapshotUpdateAccountRepo{
+		stubOpenAIAccountRepo: stubOpenAIAccountRepo{
+			accounts: []Account{
+				{
+					ID:       323,
+					Platform: PlatformOpenAI,
+					Extra: map[string]any{
+						modelRateLimitsKey: map[string]any{
+							"gpt-5.5": map[string]any{
+								"reason":              openAIModelRateLimitReason,
+								"rate_limit_reset_at": "2026-07-13T20:21:48Z",
+							},
+						},
+					},
+				},
+			},
+		},
+		updateExtraCalls: make(chan map[string]any, 2),
+	}
+	svc := &OpenAIGatewayService{accountRepo: repo}
+	headers := http.Header{}
+	headers.Set("x-codex-primary-used-percent", "100")
+	headers.Set("x-codex-secondary-used-percent", "0")
+	headers.Set("x-codex-primary-window-minutes", "10080")
+	headers.Set("x-codex-secondary-window-minutes", "300")
+
+	svc.UpdateCodexUsageSnapshotFromHeaders(context.Background(), 323, headers)
+
+	select {
+	case updates := <-repo.updateExtraCalls:
+		require.NotContains(t, updates, modelRateLimitsKey)
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected snapshot UpdateExtra call")
+	}
+	select {
+	case updates := <-repo.updateExtraCalls:
+		require.NotContains(t, updates, modelRateLimitsKey, "exhausted windows must not clear quota model cooldowns")
+	case <-time.After(150 * time.Millisecond):
 	}
 }
 
