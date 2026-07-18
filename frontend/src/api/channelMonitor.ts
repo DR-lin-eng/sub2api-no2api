@@ -4,9 +4,9 @@
  */
 
 import { apiClient } from './client'
-import type { Provider, MonitorStatus } from './admin/channelMonitor'
+import type { Provider, MonitorMode, MonitorStatus } from './admin/channelMonitor'
 
-export type { Provider, MonitorStatus } from './admin/channelMonitor'
+export type { Provider, MonitorMode, MonitorStatus } from './admin/channelMonitor'
 
 export interface UserMonitorExtraModel {
   model: string
@@ -25,6 +25,7 @@ export interface UserMonitorView {
   id: number
   name: string
   provider: Provider
+  monitor_mode?: MonitorMode
   group_name: string
   primary_model: string
   primary_status: MonitorStatus
@@ -53,6 +54,7 @@ export interface UserMonitorDetail {
   id: number
   name: string
   provider: Provider
+  monitor_mode?: MonitorMode
   group_name: string
   models: UserMonitorModelDetail[]
 }

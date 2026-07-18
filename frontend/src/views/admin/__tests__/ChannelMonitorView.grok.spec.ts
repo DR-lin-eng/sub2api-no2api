@@ -10,15 +10,20 @@ import {
   PROVIDER_GROK,
 } from '@/constants/channelMonitor'
 
-const { listTemplates } = vi.hoisted(() => ({
+const { createMonitor, listChannels, listTemplates } = vi.hoisted(() => ({
+  createMonitor: vi.fn(),
+  listChannels: vi.fn(),
   listTemplates: vi.fn(),
 }))
 
 vi.mock('@/api/admin', () => ({
   adminAPI: {
     channelMonitor: {
-      create: vi.fn(),
+      create: createMonitor,
       update: vi.fn(),
+    },
+    channels: {
+      list: listChannels,
     },
     channelMonitorTemplate: {
       list: listTemplates,
@@ -55,6 +60,32 @@ const BaseDialogStub = defineComponent({
   template: '<div v-if="show"><slot /><slot name="footer" /></div>',
 })
 
+const SelectStub = defineComponent({
+  props: {
+    modelValue: { type: [String, Number], default: '' },
+    options: { type: Array, default: () => [] },
+    placeholder: { type: String, default: '' },
+  },
+  emits: ['update:modelValue'],
+  setup(_props, { emit }) {
+    return {
+      onChange(event: Event) {
+        emit('update:modelValue', (event.target as HTMLSelectElement).value)
+      },
+    }
+  },
+  template: `
+    <select
+      :data-testid="'select-' + placeholder"
+      :value="modelValue"
+      @change="onChange"
+    >
+      <option value=""></option>
+      <option v-for="option in options" :key="option.value" :value="option.value">{{ option.label }}</option>
+    </select>
+  `,
+})
+
 function mountDialog() {
   return mount(MonitorFormDialog, {
     props: { show: true, monitor: null },
@@ -62,7 +93,7 @@ function mountDialog() {
       stubs: {
         BaseDialog: BaseDialogStub,
         Toggle: true,
-        Select: true,
+        Select: SelectStub,
         ModelTagInput: true,
         MonitorKeyPickerDialog: true,
         MonitorAdvancedRequestConfig: true,
@@ -73,6 +104,8 @@ function mountDialog() {
 
 describe('channel monitor Grok provider', () => {
   beforeEach(() => {
+    createMonitor.mockReset().mockResolvedValue({})
+    listChannels.mockReset().mockResolvedValue({ items: [{ id: 7, name: 'Primary channel' }] })
     listTemplates.mockReset().mockResolvedValue({ items: [] })
   })
 
@@ -132,5 +165,34 @@ describe('channel monitor Grok provider', () => {
     await grokButton.trigger('click')
     expect((endpoint.element as HTMLInputElement).value).toBe(DEFAULT_GROK_ENDPOINT)
     expect((model.element as HTMLInputElement).value).toBe('grok-custom')
+  })
+
+  it('submits passive monitors without probe credentials', async () => {
+    const wrapper = mountDialog()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="monitor-mode-passive"]').trigger('click')
+    await flushPromises()
+
+    expect(listChannels).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('[data-testid="monitor-endpoint"]').exists()).toBe(false)
+    expect(wrapper.find('input[type="password"]').exists()).toBe(false)
+
+    await wrapper.get('[placeholder="admin.channelMonitor.form.namePlaceholder"]').setValue('Passive request monitor')
+    await wrapper.get('[data-testid="monitor-primary-model"]').setValue('gpt-5.4')
+    await wrapper.get('[data-testid="select-admin.channelMonitor.form.channelPlaceholder"]').setValue('7')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(createMonitor).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'Passive request monitor',
+      monitor_mode: 'passive',
+      channel_id: 7,
+      primary_model: 'gpt-5.4',
+      jitter_seconds: 0,
+    }))
+    const payload = createMonitor.mock.calls[0][0]
+    expect(payload).not.toHaveProperty('endpoint')
+    expect(payload).not.toHaveProperty('api_key')
   })
 })

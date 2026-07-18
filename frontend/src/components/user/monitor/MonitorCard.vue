@@ -23,6 +23,9 @@
           >
             {{ providerLabel(item.provider) }}
           </span>
+          <span class="inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-dark-700 dark:text-gray-300">
+            {{ t(`monitorCommon.modes.${item.monitor_mode || 'active'}`) }}
+          </span>
           <span class="font-mono text-xs truncate text-gray-500 dark:text-gray-400">
             {{ item.primary_model }}
           </span>
@@ -48,10 +51,10 @@
       :primary-label="t('monitorCommon.dialogLatency')"
       :primary-value="formatLatency(item.primary_latency_ms)"
       primary-unit="ms"
-      secondary-icon="globe"
-      :secondary-label="t('monitorCommon.endpointPing')"
-      :secondary-value="formatLatency(item.primary_ping_latency_ms)"
-      secondary-unit="ms"
+      :secondary-icon="item.monitor_mode === 'passive' ? 'link' : 'globe'"
+      :secondary-label="item.monitor_mode === 'passive' ? t('monitorCommon.monitorSource') : t('monitorCommon.endpointPing')"
+      :secondary-value="item.monitor_mode === 'passive' ? t('monitorCommon.realRequests') : formatLatency(item.primary_ping_latency_ms)"
+      :secondary-unit="item.monitor_mode === 'passive' ? '' : 'ms'"
     />
 
     <!-- Divider -->

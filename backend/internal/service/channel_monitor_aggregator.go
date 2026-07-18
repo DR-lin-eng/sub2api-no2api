@@ -171,11 +171,12 @@ func (s *ChannelMonitorService) GetUserDetail(ctx context.Context, id int64) (*U
 
 	models := mergeModelDetails(m, latest, availMap)
 	return &UserMonitorDetail{
-		ID:        m.ID,
-		Name:      m.Name,
-		Provider:  m.Provider,
-		GroupName: m.GroupName,
-		Models:    models,
+		ID:          m.ID,
+		Name:        m.Name,
+		Provider:    m.Provider,
+		MonitorMode: defaultMonitorMode(m.MonitorMode),
+		GroupName:   m.GroupName,
+		Models:      models,
 	}, nil
 }
 
@@ -218,11 +219,12 @@ func (s *ChannelMonitorService) GetUserDetails(ctx context.Context, ids []int64)
 			windows[windowDays] = indexAvailabilityByModel(rowsByMonitor[id])
 		}
 		details = append(details, &UserMonitorDetail{
-			ID:        monitor.ID,
-			Name:      monitor.Name,
-			Provider:  monitor.Provider,
-			GroupName: monitor.GroupName,
-			Models:    mergeModelDetails(monitor, latestMap[id], windows),
+			ID:          monitor.ID,
+			Name:        monitor.Name,
+			Provider:    monitor.Provider,
+			MonitorMode: defaultMonitorMode(monitor.MonitorMode),
+			GroupName:   monitor.GroupName,
+			Models:      mergeModelDetails(monitor, latestMap[id], windows),
 		})
 	}
 	return details, nil
@@ -303,6 +305,7 @@ func buildUserViewFromSummary(
 		ID:               m.ID,
 		Name:             m.Name,
 		Provider:         m.Provider,
+		MonitorMode:      defaultMonitorMode(m.MonitorMode),
 		GroupName:        m.GroupName,
 		PrimaryModel:     m.PrimaryModel,
 		PrimaryStatus:    summary.PrimaryStatus,

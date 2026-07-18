@@ -40,6 +40,7 @@ func (r *channelMonitorRepository) Create(ctx context.Context, m *service.Channe
 	builder := client.ChannelMonitor.Create().
 		SetName(m.Name).
 		SetProvider(channelmonitor.Provider(m.Provider)).
+		SetMonitorMode(channelmonitor.MonitorMode(defaultMonitorModeRepo(m.MonitorMode))).
 		SetAPIMode(defaultAPIModeRepo(m.APIMode)).
 		SetEndpoint(m.Endpoint).
 		SetAPIKeyEncrypted(m.APIKey). // 调用方传入的已是密文
@@ -52,6 +53,9 @@ func (r *channelMonitorRepository) Create(ctx context.Context, m *service.Channe
 		SetCreatedBy(m.CreatedBy).
 		SetExtraHeaders(channelMonitorHeadersForPersistence(m)).
 		SetBodyOverrideMode(defaultBodyModeRepo(m.BodyOverrideMode))
+	if m.ChannelID != nil {
+		builder = builder.SetChannelID(*m.ChannelID)
+	}
 	if m.TemplateID != nil {
 		builder = builder.SetTemplateID(*m.TemplateID)
 	}
@@ -108,6 +112,7 @@ func (r *channelMonitorRepository) Update(ctx context.Context, m *service.Channe
 	updater := client.ChannelMonitor.UpdateOneID(m.ID).
 		SetName(m.Name).
 		SetProvider(channelmonitor.Provider(m.Provider)).
+		SetMonitorMode(channelmonitor.MonitorMode(defaultMonitorModeRepo(m.MonitorMode))).
 		SetAPIMode(defaultAPIModeRepo(m.APIMode)).
 		SetEndpoint(m.Endpoint).
 		SetAPIKeyEncrypted(m.APIKey).
@@ -119,6 +124,11 @@ func (r *channelMonitorRepository) Update(ctx context.Context, m *service.Channe
 		SetJitterSeconds(m.JitterSeconds).
 		SetExtraHeaders(channelMonitorHeadersForPersistence(m)).
 		SetBodyOverrideMode(defaultBodyModeRepo(m.BodyOverrideMode))
+	if m.ChannelID != nil {
+		updater = updater.SetChannelID(*m.ChannelID)
+	} else {
+		updater = updater.ClearChannelID()
+	}
 	if m.TemplateID != nil {
 		updater = updater.SetTemplateID(*m.TemplateID)
 	} else {
@@ -216,6 +226,92 @@ func (r *channelMonitorRepository) MarkChecked(ctx context.Context, id int64, ch
 		return translatePersistenceError(err, service.ErrChannelMonitorNotFound, nil)
 	}
 	return nil
+}
+
+// ComputePassiveSamples aggregates real gateway traffic for a passive monitor.
+// Successes come from usage_logs; terminal request failures come from
+// ops_error_logs. Error rows do not yet carry channel_id, so their persisted
+// group_id is resolved through the channel_groups ownership table.
+func (r *channelMonitorRepository) ComputePassiveSamples(
+	ctx context.Context,
+	channelID int64,
+	provider string,
+	models []string,
+	startTime, endTime time.Time,
+) ([]*service.ChannelMonitorPassiveSample, error) {
+	if channelID <= 0 || len(models) == 0 || !endTime.After(startTime) {
+		return []*service.ChannelMonitorPassiveSample{}, nil
+	}
+	const q = `
+		WITH requested_models AS (
+		    SELECT model, LOWER(model) AS model_key, ord
+		    FROM UNNEST($3::text[]) WITH ORDINALITY AS requested(model, ord)
+		),
+		success_agg AS (
+		    SELECT LOWER(COALESCE(NULLIF(ul.requested_model, ''), ul.model)) AS model_key,
+		           COUNT(*) AS success_count,
+		           AVG(ul.duration_ms) FILTER (WHERE ul.duration_ms IS NOT NULL) AS avg_latency_ms
+		    FROM usage_logs ul
+		    JOIN groups g ON g.id = ul.group_id
+		    WHERE ul.channel_id = $1
+		      AND g.platform = $2
+		      AND ul.created_at >= $4
+		      AND ul.created_at < $5
+		      AND ul.actual_cost > 0
+		      AND LOWER(COALESCE(NULLIF(ul.requested_model, ''), ul.model)) IN (
+		          SELECT model_key FROM requested_models
+		      )
+		    GROUP BY 1
+		),
+		error_agg AS (
+		    SELECT LOWER(COALESCE(NULLIF(e.requested_model, ''), e.model)) AS model_key,
+		           COUNT(*) AS failure_count
+		    FROM ops_error_logs e
+		    JOIN channel_groups cg ON cg.group_id = e.group_id
+		    WHERE cg.channel_id = $1
+		      AND e.platform = $2
+		      AND e.created_at >= $4
+		      AND e.created_at < $5
+		      AND COALESCE(e.status_code, 0) >= 400
+		      AND e.is_business_limited = FALSE
+		      AND e.is_count_tokens = FALSE
+		      AND LOWER(COALESCE(NULLIF(e.requested_model, ''), e.model)) IN (
+		          SELECT model_key FROM requested_models
+		      )
+		    GROUP BY 1
+		)
+		SELECT rm.model,
+		       COALESCE(s.success_count, 0),
+		       COALESCE(e.failure_count, 0),
+		       s.avg_latency_ms
+		FROM requested_models rm
+		LEFT JOIN success_agg s ON s.model_key = rm.model_key
+		LEFT JOIN error_agg e ON e.model_key = rm.model_key
+		ORDER BY rm.ord
+	`
+	rows, err := r.db.QueryContext(ctx, q, channelID, provider, pq.Array(models), startTime, endTime)
+	if err != nil {
+		return nil, fmt.Errorf("compute passive channel monitor samples: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	out := make([]*service.ChannelMonitorPassiveSample, 0, len(models))
+	for rows.Next() {
+		sample := &service.ChannelMonitorPassiveSample{}
+		var avgLatency sql.NullFloat64
+		if err := rows.Scan(&sample.Model, &sample.SuccessCount, &sample.FailureCount, &avgLatency); err != nil {
+			return nil, fmt.Errorf("scan passive channel monitor sample: %w", err)
+		}
+		if avgLatency.Valid {
+			latency := int(avgLatency.Float64)
+			sample.AvgLatencyMs = &latency
+		}
+		out = append(out, sample)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate passive channel monitor samples: %w", err)
+	}
+	return out, nil
 }
 
 func (r *channelMonitorRepository) InsertHistoryBatch(ctx context.Context, rows []*service.ChannelMonitorHistoryRow) error {
@@ -336,7 +432,7 @@ func (r *channelMonitorRepository) ComputeAvailability(ctx context.Context, moni
 	}
 	const q = `
 		SELECT model,
-		       COUNT(*)                                                             AS total,
+		       COUNT(*) FILTER (WHERE status <> 'unknown')                           AS total,
 		       COUNT(*) FILTER (WHERE status IN ('operational','degraded'))         AS ok,
 		       CASE WHEN COUNT(latency_ms) > 0
 		            THEN SUM(latency_ms) FILTER (WHERE latency_ms IS NOT NULL)::float8 / COUNT(latency_ms)
@@ -538,7 +634,7 @@ func (r *channelMonitorRepository) ComputeAvailabilityForMonitors(ctx context.Co
 	const q = `
 		SELECT monitor_id,
 		       model,
-		       COUNT(*)                                                             AS total,
+		       COUNT(*) FILTER (WHERE status <> 'unknown')                           AS total,
 		       COUNT(*) FILTER (WHERE status IN ('operational','degraded'))         AS ok,
 		       CASE WHEN COUNT(latency_ms) > 0
 		            THEN SUM(latency_ms) FILTER (WHERE latency_ms IS NOT NULL)::float8 / COUNT(latency_ms)
@@ -593,7 +689,7 @@ func (r *channelMonitorRepository) UpsertDailyRollupsFor(ctx context.Context, ta
 		    monitor_id,
 		    model,
 		    $1::date AS bucket_date,
-		    COUNT(*)                                                         AS total_checks,
+		    COUNT(*) FILTER (WHERE status <> 'unknown')                       AS total_checks,
 		    COUNT(*) FILTER (WHERE status IN ('operational','degraded'))     AS ok_count,
 		    COUNT(*) FILTER (WHERE status = 'operational')                   AS operational_count,
 		    COUNT(*) FILTER (WHERE status = 'degraded')                      AS degraded_count,
@@ -741,6 +837,7 @@ func entToServiceMonitor(row *dbent.ChannelMonitor) *service.ChannelMonitor {
 		ID:                   row.ID,
 		Name:                 row.Name,
 		Provider:             string(row.Provider),
+		MonitorMode:          defaultMonitorModeRepo(string(row.MonitorMode)),
 		APIMode:              defaultAPIModeRepo(row.APIMode),
 		Endpoint:             row.Endpoint,
 		APIKey:               row.APIKeyEncrypted, // 仍为密文，service 层负责解密
@@ -758,6 +855,10 @@ func entToServiceMonitor(row *dbent.ChannelMonitor) *service.ChannelMonitor {
 		BodyOverrideMode:     row.BodyOverrideMode,
 		BodyOverride:         row.BodyOverride,
 		DuplicateOperationID: duplicateOperationID,
+	}
+	if row.ChannelID != nil {
+		id := *row.ChannelID
+		out.ChannelID = &id
 	}
 	if row.TemplateID != nil {
 		id := *row.TemplateID
@@ -805,6 +906,13 @@ func defaultAPIModeRepo(apiMode string) string {
 		return "chat_completions"
 	}
 	return apiMode
+}
+
+func defaultMonitorModeRepo(mode string) string {
+	if mode == "" {
+		return service.MonitorModeActive
+	}
+	return mode
 }
 
 func emptySliceIfNil(in []string) []string {

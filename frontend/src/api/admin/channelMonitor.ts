@@ -6,7 +6,8 @@
 import { apiClient } from '../client'
 
 export type Provider = 'openai' | 'anthropic' | 'gemini' | 'grok'
-export type MonitorStatus = 'operational' | 'degraded' | 'failed' | 'error'
+export type MonitorMode = 'active' | 'passive'
+export type MonitorStatus = 'operational' | 'degraded' | 'failed' | 'error' | 'unknown'
 export type BodyOverrideMode = 'off' | 'merge' | 'replace'
 export type APIMode = 'chat_completions' | 'responses'
 
@@ -14,6 +15,8 @@ export interface ChannelMonitor {
   id: number
   name: string
   provider: Provider
+  monitor_mode?: MonitorMode
+  channel_id?: number | null
   api_mode: APIMode
   endpoint: string
   api_key_masked: string
@@ -74,9 +77,11 @@ export interface ListResponse {
 export interface CreateParams {
   name: string
   provider: Provider
+  monitor_mode?: MonitorMode
+  channel_id?: number | null
   api_mode?: APIMode
-  endpoint: string
-  api_key: string
+  endpoint?: string
+  api_key?: string
   primary_model: string
   extra_models?: string[]
   group_name?: string
@@ -92,6 +97,7 @@ export interface CreateParams {
 // Update request: api_key 空串 = 不修改；clear_template=true 时把 template_id 置空
 export type UpdateParams = Partial<CreateParams> & {
   clear_template?: boolean
+  clear_channel?: boolean
 }
 
 export interface CheckResult {

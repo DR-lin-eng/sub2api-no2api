@@ -45,6 +45,7 @@ type channelMonitorUserListItem struct {
 	ID                   int64                                `json:"id"`
 	Name                 string                               `json:"name"`
 	Provider             string                               `json:"provider"`
+	MonitorMode          string                               `json:"monitor_mode"`
 	GroupName            string                               `json:"group_name"`
 	PrimaryModel         string                               `json:"primary_model"`
 	PrimaryStatus        string                               `json:"primary_status"`
@@ -65,11 +66,12 @@ type channelMonitorUserTimelinePoint struct {
 }
 
 type channelMonitorUserDetailResponse struct {
-	ID        int64                         `json:"id"`
-	Name      string                        `json:"name"`
-	Provider  string                        `json:"provider"`
-	GroupName string                        `json:"group_name"`
-	Models    []channelMonitorUserModelStat `json:"models"`
+	ID          int64                         `json:"id"`
+	Name        string                        `json:"name"`
+	Provider    string                        `json:"provider"`
+	MonitorMode string                        `json:"monitor_mode"`
+	GroupName   string                        `json:"group_name"`
+	Models      []channelMonitorUserModelStat `json:"models"`
 }
 
 type channelMonitorUserModelStat struct {
@@ -104,6 +106,7 @@ func userMonitorViewToItem(v *service.UserMonitorView) channelMonitorUserListIte
 		ID:                   v.ID,
 		Name:                 v.Name,
 		Provider:             v.Provider,
+		MonitorMode:          v.MonitorMode,
 		GroupName:            v.GroupName,
 		PrimaryModel:         v.PrimaryModel,
 		PrimaryStatus:        v.PrimaryStatus,
@@ -129,11 +132,12 @@ func userMonitorDetailToResponse(d *service.UserMonitorDetail) *channelMonitorUs
 		})
 	}
 	return &channelMonitorUserDetailResponse{
-		ID:        d.ID,
-		Name:      d.Name,
-		Provider:  d.Provider,
-		GroupName: d.GroupName,
-		Models:    models,
+		ID:          d.ID,
+		Name:        d.Name,
+		Provider:    d.Provider,
+		MonitorMode: d.MonitorMode,
+		GroupName:   d.GroupName,
+		Models:      models,
 	}
 }
 

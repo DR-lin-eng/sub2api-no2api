@@ -66,6 +66,47 @@ func (_u *ChannelMonitorUpdate) SetNillableProvider(v *channelmonitor.Provider) 
 	return _u
 }
 
+// SetMonitorMode sets the "monitor_mode" field.
+func (_u *ChannelMonitorUpdate) SetMonitorMode(v channelmonitor.MonitorMode) *ChannelMonitorUpdate {
+	_u.mutation.SetMonitorMode(v)
+	return _u
+}
+
+// SetNillableMonitorMode sets the "monitor_mode" field if the given value is not nil.
+func (_u *ChannelMonitorUpdate) SetNillableMonitorMode(v *channelmonitor.MonitorMode) *ChannelMonitorUpdate {
+	if v != nil {
+		_u.SetMonitorMode(*v)
+	}
+	return _u
+}
+
+// SetChannelID sets the "channel_id" field.
+func (_u *ChannelMonitorUpdate) SetChannelID(v int64) *ChannelMonitorUpdate {
+	_u.mutation.ResetChannelID()
+	_u.mutation.SetChannelID(v)
+	return _u
+}
+
+// SetNillableChannelID sets the "channel_id" field if the given value is not nil.
+func (_u *ChannelMonitorUpdate) SetNillableChannelID(v *int64) *ChannelMonitorUpdate {
+	if v != nil {
+		_u.SetChannelID(*v)
+	}
+	return _u
+}
+
+// AddChannelID adds value to the "channel_id" field.
+func (_u *ChannelMonitorUpdate) AddChannelID(v int64) *ChannelMonitorUpdate {
+	_u.mutation.AddChannelID(v)
+	return _u
+}
+
+// ClearChannelID clears the value of the "channel_id" field.
+func (_u *ChannelMonitorUpdate) ClearChannelID() *ChannelMonitorUpdate {
+	_u.mutation.ClearChannelID()
+	return _u
+}
+
 // SetAPIMode sets the "api_mode" field.
 func (_u *ChannelMonitorUpdate) SetAPIMode(v string) *ChannelMonitorUpdate {
 	_u.mutation.SetAPIMode(v)
@@ -453,6 +494,11 @@ func (_u *ChannelMonitorUpdate) check() error {
 			return &ValidationError{Name: "provider", err: fmt.Errorf(`ent: validator failed for field "ChannelMonitor.provider": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.MonitorMode(); ok {
+		if err := channelmonitor.MonitorModeValidator(v); err != nil {
+			return &ValidationError{Name: "monitor_mode", err: fmt.Errorf(`ent: validator failed for field "ChannelMonitor.monitor_mode": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.APIMode(); ok {
 		if err := channelmonitor.APIModeValidator(v); err != nil {
 			return &ValidationError{Name: "api_mode", err: fmt.Errorf(`ent: validator failed for field "ChannelMonitor.api_mode": %w`, err)}
@@ -461,11 +507,6 @@ func (_u *ChannelMonitorUpdate) check() error {
 	if v, ok := _u.mutation.Endpoint(); ok {
 		if err := channelmonitor.EndpointValidator(v); err != nil {
 			return &ValidationError{Name: "endpoint", err: fmt.Errorf(`ent: validator failed for field "ChannelMonitor.endpoint": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.APIKeyEncrypted(); ok {
-		if err := channelmonitor.APIKeyEncryptedValidator(v); err != nil {
-			return &ValidationError{Name: "api_key_encrypted", err: fmt.Errorf(`ent: validator failed for field "ChannelMonitor.api_key_encrypted": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.PrimaryModel(); ok {
@@ -516,6 +557,18 @@ func (_u *ChannelMonitorUpdate) sqlSave(ctx context.Context) (_node int, err err
 	}
 	if value, ok := _u.mutation.Provider(); ok {
 		_spec.SetField(channelmonitor.FieldProvider, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.MonitorMode(); ok {
+		_spec.SetField(channelmonitor.FieldMonitorMode, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.ChannelID(); ok {
+		_spec.SetField(channelmonitor.FieldChannelID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedChannelID(); ok {
+		_spec.AddField(channelmonitor.FieldChannelID, field.TypeInt64, value)
+	}
+	if _u.mutation.ChannelIDCleared() {
+		_spec.ClearField(channelmonitor.FieldChannelID, field.TypeInt64)
 	}
 	if value, ok := _u.mutation.APIMode(); ok {
 		_spec.SetField(channelmonitor.FieldAPIMode, field.TypeString, value)
@@ -752,6 +805,47 @@ func (_u *ChannelMonitorUpdateOne) SetNillableProvider(v *channelmonitor.Provide
 	if v != nil {
 		_u.SetProvider(*v)
 	}
+	return _u
+}
+
+// SetMonitorMode sets the "monitor_mode" field.
+func (_u *ChannelMonitorUpdateOne) SetMonitorMode(v channelmonitor.MonitorMode) *ChannelMonitorUpdateOne {
+	_u.mutation.SetMonitorMode(v)
+	return _u
+}
+
+// SetNillableMonitorMode sets the "monitor_mode" field if the given value is not nil.
+func (_u *ChannelMonitorUpdateOne) SetNillableMonitorMode(v *channelmonitor.MonitorMode) *ChannelMonitorUpdateOne {
+	if v != nil {
+		_u.SetMonitorMode(*v)
+	}
+	return _u
+}
+
+// SetChannelID sets the "channel_id" field.
+func (_u *ChannelMonitorUpdateOne) SetChannelID(v int64) *ChannelMonitorUpdateOne {
+	_u.mutation.ResetChannelID()
+	_u.mutation.SetChannelID(v)
+	return _u
+}
+
+// SetNillableChannelID sets the "channel_id" field if the given value is not nil.
+func (_u *ChannelMonitorUpdateOne) SetNillableChannelID(v *int64) *ChannelMonitorUpdateOne {
+	if v != nil {
+		_u.SetChannelID(*v)
+	}
+	return _u
+}
+
+// AddChannelID adds value to the "channel_id" field.
+func (_u *ChannelMonitorUpdateOne) AddChannelID(v int64) *ChannelMonitorUpdateOne {
+	_u.mutation.AddChannelID(v)
+	return _u
+}
+
+// ClearChannelID clears the value of the "channel_id" field.
+func (_u *ChannelMonitorUpdateOne) ClearChannelID() *ChannelMonitorUpdateOne {
+	_u.mutation.ClearChannelID()
 	return _u
 }
 
@@ -1155,6 +1249,11 @@ func (_u *ChannelMonitorUpdateOne) check() error {
 			return &ValidationError{Name: "provider", err: fmt.Errorf(`ent: validator failed for field "ChannelMonitor.provider": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.MonitorMode(); ok {
+		if err := channelmonitor.MonitorModeValidator(v); err != nil {
+			return &ValidationError{Name: "monitor_mode", err: fmt.Errorf(`ent: validator failed for field "ChannelMonitor.monitor_mode": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.APIMode(); ok {
 		if err := channelmonitor.APIModeValidator(v); err != nil {
 			return &ValidationError{Name: "api_mode", err: fmt.Errorf(`ent: validator failed for field "ChannelMonitor.api_mode": %w`, err)}
@@ -1163,11 +1262,6 @@ func (_u *ChannelMonitorUpdateOne) check() error {
 	if v, ok := _u.mutation.Endpoint(); ok {
 		if err := channelmonitor.EndpointValidator(v); err != nil {
 			return &ValidationError{Name: "endpoint", err: fmt.Errorf(`ent: validator failed for field "ChannelMonitor.endpoint": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.APIKeyEncrypted(); ok {
-		if err := channelmonitor.APIKeyEncryptedValidator(v); err != nil {
-			return &ValidationError{Name: "api_key_encrypted", err: fmt.Errorf(`ent: validator failed for field "ChannelMonitor.api_key_encrypted": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.PrimaryModel(); ok {
@@ -1235,6 +1329,18 @@ func (_u *ChannelMonitorUpdateOne) sqlSave(ctx context.Context) (_node *ChannelM
 	}
 	if value, ok := _u.mutation.Provider(); ok {
 		_spec.SetField(channelmonitor.FieldProvider, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.MonitorMode(); ok {
+		_spec.SetField(channelmonitor.FieldMonitorMode, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.ChannelID(); ok {
+		_spec.SetField(channelmonitor.FieldChannelID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedChannelID(); ok {
+		_spec.AddField(channelmonitor.FieldChannelID, field.TypeInt64, value)
+	}
+	if _u.mutation.ChannelIDCleared() {
+		_spec.ClearField(channelmonitor.FieldChannelID, field.TypeInt64)
 	}
 	if value, ok := _u.mutation.APIMode(); ok {
 		_spec.SetField(channelmonitor.FieldAPIMode, field.TypeString, value)

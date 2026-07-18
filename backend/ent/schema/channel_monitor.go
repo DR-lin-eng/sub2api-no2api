@@ -36,18 +36,24 @@ func (ChannelMonitor) Fields() []ent.Field {
 			MaxLen(100),
 		field.Enum("provider").
 			Values("openai", "anthropic", "gemini", "grok"),
+		field.Enum("monitor_mode").
+			Values("active", "passive").
+			Default("active").
+			Comment("active sends synthetic probes; passive derives status from real channel requests"),
+		field.Int64("channel_id").
+			Optional().
+			Nillable().
+			Comment("Pricing channel observed by passive monitors"),
 		field.String("api_mode").
 			Default("chat_completions").
 			MaxLen(32).
 			Comment("OpenAI request protocol: chat_completions or responses; non-OpenAI uses chat_completions"),
 		field.String("endpoint").
-			NotEmpty().
 			MaxLen(500).
-			Comment("Provider base origin, e.g. https://api.openai.com"),
+			Comment("Provider base origin for active monitors; empty for passive monitors"),
 		field.String("api_key_encrypted").
-			NotEmpty().
 			Sensitive().
-			Comment("AES-256-GCM encrypted API key"),
+			Comment("AES-256-GCM encrypted API key for active monitors; empty for passive monitors"),
 		field.String("primary_model").
 			NotEmpty().
 			MaxLen(200),
@@ -112,6 +118,7 @@ func (ChannelMonitor) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("enabled", "last_checked_at"),
 		index.Fields("provider"),
+		index.Fields("monitor_mode", "channel_id"),
 		index.Fields("provider", "api_mode"),
 		index.Fields("group_name"),
 		index.Fields("template_id"),

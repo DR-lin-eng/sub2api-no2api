@@ -18,6 +18,15 @@ func validateProvider(p string) error {
 	return nil
 }
 
+func validateMonitorMode(mode string) error {
+	switch defaultMonitorMode(mode) {
+	case MonitorModeActive, MonitorModePassive:
+		return nil
+	default:
+		return ErrChannelMonitorInvalidMode
+	}
+}
+
 // validateAPIMode 校验 provider 与 api_mode 的组合。
 // responses 只对 OpenAI 有意义；其它 provider 使用 chat_completions 作为默认占位。
 func validateAPIMode(provider, apiMode string) error {
@@ -140,4 +149,11 @@ func defaultAPIMode(apiMode string) string {
 		return MonitorAPIModeChatCompletions
 	}
 	return strings.TrimSpace(apiMode)
+}
+
+func defaultMonitorMode(mode string) string {
+	if strings.TrimSpace(mode) == "" {
+		return MonitorModeActive
+	}
+	return strings.TrimSpace(mode)
 }

@@ -7,7 +7,7 @@
  * `useChannelMonitorFormat`.
  */
 
-import type { APIMode, Provider, MonitorStatus } from '@/api/admin/channelMonitor'
+import type { APIMode, Provider, MonitorMode, MonitorStatus } from '@/api/admin/channelMonitor'
 
 export const PROVIDER_OPENAI: Provider = 'openai'
 export const PROVIDER_ANTHROPIC: Provider = 'anthropic'
@@ -19,6 +19,9 @@ export const DEFAULT_GROK_MODEL = 'grok-4.5'
 
 export const API_MODE_CHAT_COMPLETIONS: APIMode = 'chat_completions'
 export const API_MODE_RESPONSES: APIMode = 'responses'
+
+export const MONITOR_MODE_ACTIVE: MonitorMode = 'active'
+export const MONITOR_MODE_PASSIVE: MonitorMode = 'passive'
 
 export const PROVIDERS: readonly Provider[] = [
   PROVIDER_OPENAI,
@@ -36,12 +39,14 @@ export const STATUS_OPERATIONAL: MonitorStatus = 'operational'
 export const STATUS_DEGRADED: MonitorStatus = 'degraded'
 export const STATUS_FAILED: MonitorStatus = 'failed'
 export const STATUS_ERROR: MonitorStatus = 'error'
+export const STATUS_UNKNOWN: MonitorStatus = 'unknown'
 
 export const MONITOR_STATUSES: readonly MonitorStatus[] = [
   STATUS_OPERATIONAL,
   STATUS_DEGRADED,
   STATUS_FAILED,
   STATUS_ERROR,
+  STATUS_UNKNOWN,
 ]
 
 /** Default polling interval (seconds) for new monitors. */

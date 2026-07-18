@@ -29,6 +29,7 @@ type ChannelMonitorRepository interface {
 	// 调度器辅助
 	ListEnabled(ctx context.Context) ([]*ChannelMonitor, error)
 	MarkChecked(ctx context.Context, id int64, checkedAt time.Time) error
+	ComputePassiveSamples(ctx context.Context, channelID int64, provider string, models []string, startTime, endTime time.Time) ([]*ChannelMonitorPassiveSample, error)
 	InsertHistoryBatch(ctx context.Context, rows []*ChannelMonitorHistoryRow) error
 	DeleteHistoryBefore(ctx context.Context, before time.Time) (int64, error)
 
@@ -63,8 +64,9 @@ type ChannelMonitorRepository interface {
 
 // ChannelMonitorService 渠道监控管理服务。
 type ChannelMonitorService struct {
-	repo      ChannelMonitorRepository
-	encryptor SecretEncryptor
+	repo        ChannelMonitorRepository
+	encryptor   SecretEncryptor
+	channelRepo ChannelRepository
 	// scheduler 由 wire 通过 SetScheduler 注入；CRUD 后调用对应钩子即时同步任务。
 	// 测试或未注入场景下保持 nil，所有钩子调用变为 no-op。
 	scheduler MonitorScheduler
@@ -79,8 +81,12 @@ const maxChannelMonitorNameRunes = 100
 const ChannelMonitorDuplicateOperationIDMetadataKey = "sub2api:duplicate_operation_id"
 
 // NewChannelMonitorService 创建渠道监控服务实例。
-func NewChannelMonitorService(repo ChannelMonitorRepository, encryptor SecretEncryptor) *ChannelMonitorService {
-	return &ChannelMonitorService{repo: repo, encryptor: encryptor}
+func NewChannelMonitorService(repo ChannelMonitorRepository, encryptor SecretEncryptor, channelRepos ...ChannelRepository) *ChannelMonitorService {
+	svc := &ChannelMonitorService{repo: repo, encryptor: encryptor}
+	if len(channelRepos) > 0 {
+		svc.channelRepo = channelRepos[0]
+	}
+	return svc
 }
 
 // ---------- CRUD ----------
@@ -119,19 +125,28 @@ func (s *ChannelMonitorService) Create(ctx context.Context, p ChannelMonitorCrea
 	if err := validateCreateParams(p); err != nil {
 		return nil, err
 	}
+	if err := s.validatePassiveChannel(ctx, defaultMonitorMode(p.MonitorMode), p.ChannelID); err != nil {
+		return nil, err
+	}
 	if err := validateBodyModeForProtocol(p.Provider, p.APIMode, p.BodyOverrideMode, p.BodyOverride); err != nil {
 		return nil, err
 	}
 	if err := validateExtraHeaders(p.ExtraHeaders); err != nil {
 		return nil, err
 	}
-	encrypted, err := s.encryptor.Encrypt(p.APIKey)
-	if err != nil {
-		return nil, fmt.Errorf("encrypt api key: %w", err)
+	encrypted := ""
+	if strings.TrimSpace(p.APIKey) != "" {
+		var err error
+		encrypted, err = s.encryptor.Encrypt(strings.TrimSpace(p.APIKey))
+		if err != nil {
+			return nil, fmt.Errorf("encrypt api key: %w", err)
+		}
 	}
 	m := &ChannelMonitor{
 		Name:             strings.TrimSpace(p.Name),
 		Provider:         p.Provider,
+		MonitorMode:      defaultMonitorMode(p.MonitorMode),
+		ChannelID:        cloneInt64Pointer(p.ChannelID),
 		APIMode:          defaultAPIMode(p.APIMode),
 		Endpoint:         normalizeEndpoint(p.Endpoint),
 		APIKey:           encrypted, // 注意：传入 repository 时该字段为密文
@@ -185,9 +200,12 @@ func (s *ChannelMonitorService) Duplicate(
 	if err != nil {
 		return nil, err
 	}
-	encryptedAPIKey, err := s.encryptor.Encrypt(plainAPIKey)
-	if err != nil {
-		return nil, fmt.Errorf("encrypt duplicate channel monitor api key: %w", err)
+	encryptedAPIKey := ""
+	if plainAPIKey != "" {
+		encryptedAPIKey, err = s.encryptor.Encrypt(plainAPIKey)
+		if err != nil {
+			return nil, fmt.Errorf("encrypt duplicate channel monitor api key: %w", err)
+		}
 	}
 	bodyOverride, err := cloneChannelMonitorJSONMap(source.BodyOverride)
 	if err != nil {
@@ -197,6 +215,8 @@ func (s *ChannelMonitorService) Duplicate(
 	duplicate := &ChannelMonitor{
 		Name:                 duplicateChannelMonitorName(source.Name),
 		Provider:             source.Provider,
+		MonitorMode:          defaultMonitorMode(source.MonitorMode),
+		ChannelID:            cloneInt64Pointer(source.ChannelID),
 		APIMode:              source.APIMode,
 		Endpoint:             source.Endpoint,
 		APIKey:               encryptedAPIKey,
@@ -261,7 +281,13 @@ func duplicateChannelMonitorOperationID(sourceID int64, actorScope, operationKey
 }
 
 func (s *ChannelMonitorService) decryptAPIKeyForDuplicate(source *ChannelMonitor) (string, error) {
-	if source == nil || strings.TrimSpace(source.APIKey) == "" {
+	if source == nil {
+		return "", ErrChannelMonitorAPIKeyDecryptFailed
+	}
+	if strings.TrimSpace(source.APIKey) == "" {
+		if defaultMonitorMode(source.MonitorMode) == MonitorModePassive {
+			return "", nil
+		}
 		return "", ErrChannelMonitorAPIKeyDecryptFailed
 	}
 	plain, err := s.encryptor.Decrypt(source.APIKey)
@@ -319,6 +345,10 @@ func cloneChannelMonitorJSONMap(source map[string]any) (map[string]any, error) {
 
 // validateCreateParams 把 Create 入参的所有校验聚拢为一个函数，避免 Create 主体超过 30 行。
 func validateCreateParams(p ChannelMonitorCreateParams) error {
+	mode := defaultMonitorMode(p.MonitorMode)
+	if err := validateMonitorMode(mode); err != nil {
+		return err
+	}
 	if err := validateProvider(p.Provider); err != nil {
 		return err
 	}
@@ -331,14 +361,20 @@ func validateCreateParams(p ChannelMonitorCreateParams) error {
 	if err := validateJitter(p.JitterSeconds, p.IntervalSeconds); err != nil {
 		return err
 	}
+	if normalizeMonitorPrimaryModel(p.Provider, p.PrimaryModel) == "" {
+		return ErrChannelMonitorMissingPrimaryModel
+	}
+	if mode == MonitorModePassive {
+		if p.ChannelID == nil || *p.ChannelID <= 0 {
+			return ErrChannelMonitorMissingChannel
+		}
+		return nil
+	}
 	if err := validateEndpoint(p.Endpoint); err != nil {
 		return err
 	}
 	if strings.TrimSpace(p.APIKey) == "" {
 		return ErrChannelMonitorMissingAPIKey
-	}
-	if normalizeMonitorPrimaryModel(p.Provider, p.PrimaryModel) == "" {
-		return ErrChannelMonitorMissingPrimaryModel
 	}
 	return nil
 }
@@ -355,6 +391,9 @@ func (s *ChannelMonitorService) Update(ctx context.Context, id int64, p ChannelM
 
 	newPlainAPIKey, apiKeyUpdated, err := s.applyAPIKeyUpdate(existing, p.APIKey)
 	if err != nil {
+		return nil, err
+	}
+	if err := s.validateMonitorForUpdate(ctx, existing); err != nil {
 		return nil, err
 	}
 
@@ -432,12 +471,78 @@ func (s *ChannelMonitorService) RunCheck(ctx context.Context, id int64) ([]*Chec
 	if err != nil {
 		return nil, err
 	}
+	if defaultMonitorMode(m.MonitorMode) == MonitorModePassive {
+		results, err := s.runPassiveCheck(ctx, m)
+		if err != nil {
+			return nil, err
+		}
+		s.persistCheckResults(ctx, m, results)
+		return results, nil
+	}
 	if m.APIKeyDecryptFailed {
 		return nil, ErrChannelMonitorAPIKeyDecryptFailed
 	}
 	results := s.runChecksConcurrent(ctx, m)
 	s.persistCheckResults(ctx, m, results)
 	return results, nil
+}
+
+func (s *ChannelMonitorService) runPassiveCheck(ctx context.Context, m *ChannelMonitor) ([]*CheckResult, error) {
+	if m.ChannelID == nil || *m.ChannelID <= 0 {
+		return nil, ErrChannelMonitorMissingChannel
+	}
+	now := time.Now().UTC()
+	start := now.Add(-time.Duration(m.IntervalSeconds) * time.Second)
+	models := append([]string{m.PrimaryModel}, m.ExtraModels...)
+	samples, err := s.repo.ComputePassiveSamples(ctx, *m.ChannelID, m.Provider, models, start, now)
+	if err != nil {
+		return nil, err
+	}
+	results := make([]*CheckResult, 0, len(samples))
+	for _, sample := range samples {
+		results = append(results, passiveSampleToCheckResult(sample, now))
+	}
+	return results, nil
+}
+
+func passiveSampleToCheckResult(sample *ChannelMonitorPassiveSample, checkedAt time.Time) *CheckResult {
+	if sample == nil {
+		return &CheckResult{Status: MonitorStatusUnknown, Message: "no request samples in this window", CheckedAt: checkedAt}
+	}
+	total := sample.SuccessCount + sample.FailureCount
+	result := &CheckResult{
+		Model:     sample.Model,
+		LatencyMs: sample.AvgLatencyMs,
+		CheckedAt: checkedAt,
+	}
+	if total == 0 {
+		result.Status = MonitorStatusUnknown
+		result.Message = "no request samples in this window"
+		return result
+	}
+	successRate := float64(sample.SuccessCount) * 100 / float64(total)
+	result.Status = passiveStatus(successRate, sample.AvgLatencyMs)
+	result.Message = fmt.Sprintf(
+		"passive window: requests=%d, succeeded=%d, failed=%d, success_rate=%.2f%%",
+		total,
+		sample.SuccessCount,
+		sample.FailureCount,
+		successRate,
+	)
+	return result
+}
+
+func passiveStatus(successRate float64, avgLatencyMs *int) string {
+	if successRate < monitorPassiveDegradedRate {
+		return MonitorStatusFailed
+	}
+	if successRate < monitorPassiveOperationalRate {
+		return MonitorStatusDegraded
+	}
+	if avgLatencyMs != nil && time.Duration(*avgLatencyMs)*time.Millisecond > monitorDegradedThreshold {
+		return MonitorStatusDegraded
+	}
+	return MonitorStatusOperational
 }
 
 // persistCheckResults 写入本次检测的历史记录并更新 last_checked_at。
@@ -628,7 +733,15 @@ func (s *ChannelMonitorService) cleanupOldRollups(ctx context.Context, today tim
 // 解密失败时把字段清空 + 设置 APIKeyDecryptFailed=true（不返回错误，避免阻断列表渲染）。
 // runner / RunCheck 必须读取该标志位并拒绝执行检测。
 func (s *ChannelMonitorService) decryptInPlace(m *ChannelMonitor) {
-	if m == nil || m.APIKey == "" {
+	if m == nil {
+		return
+	}
+	if defaultMonitorMode(m.MonitorMode) == MonitorModePassive {
+		m.APIKey = ""
+		m.APIKeyDecryptFailed = false
+		return
+	}
+	if m.APIKey == "" {
 		return
 	}
 	plain, err := s.encryptor.Decrypt(m.APIKey)
@@ -648,6 +761,18 @@ func (s *ChannelMonitorService) decryptInPlace(m *ChannelMonitor) {
 // 行数稍超过 30：这是逐字段平铺的 dispatcher，每个 if 都是 1-3 行的"非 nil 则覆盖"模式，
 // 拆分反而会增加跳转噪音、影响可读性，故保留为单函数。
 func applyMonitorUpdate(existing *ChannelMonitor, p ChannelMonitorUpdateParams) error {
+	existing.MonitorMode = defaultMonitorMode(existing.MonitorMode)
+	if p.MonitorMode != nil {
+		if err := validateMonitorMode(*p.MonitorMode); err != nil {
+			return err
+		}
+		existing.MonitorMode = defaultMonitorMode(*p.MonitorMode)
+	}
+	if p.ClearChannel {
+		existing.ChannelID = nil
+	} else if p.ChannelID != nil {
+		existing.ChannelID = cloneInt64Pointer(p.ChannelID)
+	}
 	providerChanged := false
 	if p.Name != nil {
 		existing.Name = strings.TrimSpace(*p.Name)
@@ -699,6 +824,37 @@ func applyMonitorUpdate(existing *ChannelMonitor, p ChannelMonitorUpdateParams) 
 		}
 	}
 	return applyMonitorAdvancedUpdate(existing, p, providerChanged)
+}
+
+func (s *ChannelMonitorService) validateMonitorForUpdate(ctx context.Context, monitor *ChannelMonitor) error {
+	mode := defaultMonitorMode(monitor.MonitorMode)
+	if err := validateMonitorMode(mode); err != nil {
+		return err
+	}
+	if mode == MonitorModePassive {
+		return s.validatePassiveChannel(ctx, mode, monitor.ChannelID)
+	}
+	if strings.TrimSpace(monitor.Endpoint) == "" {
+		return ErrChannelMonitorInvalidEndpoint
+	}
+	if strings.TrimSpace(monitor.APIKey) == "" {
+		return ErrChannelMonitorMissingAPIKey
+	}
+	return nil
+}
+
+func (s *ChannelMonitorService) validatePassiveChannel(ctx context.Context, mode string, channelID *int64) error {
+	if defaultMonitorMode(mode) != MonitorModePassive {
+		return nil
+	}
+	if channelID == nil || *channelID <= 0 {
+		return ErrChannelMonitorMissingChannel
+	}
+	if s.channelRepo == nil {
+		return nil
+	}
+	_, err := s.channelRepo.GetByID(ctx, *channelID)
+	return err
 }
 
 // applyMonitorAdvancedUpdate 处理自定义请求快照相关字段，从 applyMonitorUpdate 拆出避免过长。

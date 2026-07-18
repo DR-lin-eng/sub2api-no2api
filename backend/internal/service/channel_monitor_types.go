@@ -31,6 +31,8 @@ type ChannelMonitor struct {
 	ID              int64
 	Name            string
 	Provider        string
+	MonitorMode     string
+	ChannelID       *int64
 	APIMode         string
 	Endpoint        string
 	APIKey          string // 解密后的明文 API Key（仅在 service 内部使用，handler 层不应直接序列化返回）
@@ -75,6 +77,8 @@ type ChannelMonitorListParams struct {
 type ChannelMonitorCreateParams struct {
 	Name             string
 	Provider         string
+	MonitorMode      string
+	ChannelID        *int64
 	APIMode          string
 	Endpoint         string
 	APIKey           string
@@ -95,6 +99,9 @@ type ChannelMonitorCreateParams struct {
 type ChannelMonitorUpdateParams struct {
 	Name            *string
 	Provider        *string
+	MonitorMode     *string
+	ChannelID       *int64
+	ClearChannel    bool
 	APIMode         *string
 	Endpoint        *string
 	APIKey          *string // 空字符串表示不修改；非空字符串覆盖
@@ -124,11 +131,21 @@ type CheckResult struct {
 	CheckedAt     time.Time
 }
 
+// ChannelMonitorPassiveSample is the request-derived input for one model in a
+// passive monitor window. A row is returned even when RequestCount is zero.
+type ChannelMonitorPassiveSample struct {
+	Model        string
+	SuccessCount int64
+	FailureCount int64
+	AvgLatencyMs *int
+}
+
 // UserMonitorView 用户只读视图：监控概览（含主模型最近状态 + 7d 可用率 + 附加模型最近状态）。
 type UserMonitorView struct {
 	ID                   int64
 	Name                 string
 	Provider             string
+	MonitorMode          string
 	GroupName            string
 	PrimaryModel         string
 	PrimaryStatus        string
@@ -156,11 +173,12 @@ type ExtraModelStatus struct {
 
 // UserMonitorDetail 用户只读视图：监控详情（含全部模型 7d/15d/30d 可用率与平均延迟）。
 type UserMonitorDetail struct {
-	ID        int64
-	Name      string
-	Provider  string
-	GroupName string
-	Models    []ModelDetail
+	ID          int64
+	Name        string
+	Provider    string
+	MonitorMode string
+	GroupName   string
+	Models      []ModelDetail
 }
 
 // ModelDetail 单个模型的可用率/延迟统计。

@@ -84,6 +84,7 @@ const (
 	StatusDegraded    Status = "degraded"
 	StatusFailed      Status = "failed"
 	StatusError       Status = "error"
+	StatusUnknown     Status = "unknown"
 )
 
 func (s Status) String() string {
@@ -93,7 +94,7 @@ func (s Status) String() string {
 // StatusValidator is a validator for the "status" field enum values. It is called by the builders before save.
 func StatusValidator(s Status) error {
 	switch s {
-	case StatusOperational, StatusDegraded, StatusFailed, StatusError:
+	case StatusOperational, StatusDegraded, StatusFailed, StatusError, StatusUnknown:
 		return nil
 	default:
 		return fmt.Errorf("channelmonitorhistory: invalid enum value for status field: %q", s)

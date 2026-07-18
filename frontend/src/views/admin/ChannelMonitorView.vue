@@ -19,6 +19,14 @@
           <template #cell-name="{ row, value }">
             <div class="flex items-center gap-1.5">
               <span class="font-medium text-gray-900 dark:text-white">{{ value }}</span>
+              <span
+                class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium"
+                :class="row.monitor_mode === 'passive'
+                  ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300'
+                  : 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300'"
+              >
+                {{ t(`monitorCommon.modes.${row.monitor_mode || 'active'}`) }}
+              </span>
               <HelpTooltip v-if="row.api_key_decrypt_failed" :content="t('admin.channelMonitor.apiKeyDecryptFailed')">
                 <Icon name="exclamationTriangle" size="sm" class="text-red-500" />
               </HelpTooltip>
@@ -282,7 +290,7 @@ async function handleRunNow(row: ChannelMonitor) {
 }
 
 async function handleDuplicate(row: ChannelMonitor) {
-  if (row.api_key_decrypt_failed) {
+  if ((row.monitor_mode || 'active') === 'active' && row.api_key_decrypt_failed) {
     appStore.showError(t('admin.channelMonitor.duplicateKeyUnavailable'))
     return
   }

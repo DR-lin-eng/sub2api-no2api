@@ -27,11 +27,15 @@ type ChannelMonitor struct {
 	Name string `json:"name,omitempty"`
 	// Provider holds the value of the "provider" field.
 	Provider channelmonitor.Provider `json:"provider,omitempty"`
+	// active sends synthetic probes; passive derives status from real channel requests
+	MonitorMode channelmonitor.MonitorMode `json:"monitor_mode,omitempty"`
+	// Pricing channel observed by passive monitors
+	ChannelID *int64 `json:"channel_id,omitempty"`
 	// OpenAI request protocol: chat_completions or responses; non-OpenAI uses chat_completions
 	APIMode string `json:"api_mode,omitempty"`
-	// Provider base origin, e.g. https://api.openai.com
+	// Provider base origin for active monitors; empty for passive monitors
 	Endpoint string `json:"endpoint,omitempty"`
-	// AES-256-GCM encrypted API key
+	// AES-256-GCM encrypted API key for active monitors; empty for passive monitors
 	APIKeyEncrypted string `json:"-"`
 	// PrimaryModel holds the value of the "primary_model" field.
 	PrimaryModel string `json:"primary_model,omitempty"`
@@ -114,9 +118,9 @@ func (*ChannelMonitor) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case channelmonitor.FieldEnabled:
 			values[i] = new(sql.NullBool)
-		case channelmonitor.FieldID, channelmonitor.FieldIntervalSeconds, channelmonitor.FieldJitterSeconds, channelmonitor.FieldCreatedBy, channelmonitor.FieldTemplateID:
+		case channelmonitor.FieldID, channelmonitor.FieldChannelID, channelmonitor.FieldIntervalSeconds, channelmonitor.FieldJitterSeconds, channelmonitor.FieldCreatedBy, channelmonitor.FieldTemplateID:
 			values[i] = new(sql.NullInt64)
-		case channelmonitor.FieldName, channelmonitor.FieldProvider, channelmonitor.FieldAPIMode, channelmonitor.FieldEndpoint, channelmonitor.FieldAPIKeyEncrypted, channelmonitor.FieldPrimaryModel, channelmonitor.FieldGroupName, channelmonitor.FieldBodyOverrideMode:
+		case channelmonitor.FieldName, channelmonitor.FieldProvider, channelmonitor.FieldMonitorMode, channelmonitor.FieldAPIMode, channelmonitor.FieldEndpoint, channelmonitor.FieldAPIKeyEncrypted, channelmonitor.FieldPrimaryModel, channelmonitor.FieldGroupName, channelmonitor.FieldBodyOverrideMode:
 			values[i] = new(sql.NullString)
 		case channelmonitor.FieldCreatedAt, channelmonitor.FieldUpdatedAt, channelmonitor.FieldLastCheckedAt:
 			values[i] = new(sql.NullTime)
@@ -164,6 +168,19 @@ func (_m *ChannelMonitor) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field provider", values[i])
 			} else if value.Valid {
 				_m.Provider = channelmonitor.Provider(value.String)
+			}
+		case channelmonitor.FieldMonitorMode:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field monitor_mode", values[i])
+			} else if value.Valid {
+				_m.MonitorMode = channelmonitor.MonitorMode(value.String)
+			}
+		case channelmonitor.FieldChannelID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field channel_id", values[i])
+			} else if value.Valid {
+				_m.ChannelID = new(int64)
+				*_m.ChannelID = value.Int64
 			}
 		case channelmonitor.FieldAPIMode:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -325,6 +342,14 @@ func (_m *ChannelMonitor) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("provider=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Provider))
+	builder.WriteString(", ")
+	builder.WriteString("monitor_mode=")
+	builder.WriteString(fmt.Sprintf("%v", _m.MonitorMode))
+	builder.WriteString(", ")
+	if v := _m.ChannelID; v != nil {
+		builder.WriteString("channel_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("api_mode=")
 	builder.WriteString(_m.APIMode)

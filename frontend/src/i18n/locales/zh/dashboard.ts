@@ -427,7 +427,11 @@ export default {
       degraded: '降级',
       failed: '失败',
       error: '错误',
-      unknown: '-'
+      unknown: '暂无数据'
+    },
+    modes: {
+      active: '主动',
+      passive: '被动'
     },
     providers: {
       openai: 'OpenAI',
@@ -441,6 +445,8 @@ export default {
     availabilityPrefix: '可用性',
     dialogLatency: '对话延迟',
     endpointPing: '端点 PING',
+    monitorSource: '监控来源',
+    realRequests: '真实请求',
     history60pts: '近 {n} 次记录',
     nextUpdateIn: '{n}s 后刷新',
     past: 'PAST',

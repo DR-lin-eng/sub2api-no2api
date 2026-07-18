@@ -62,6 +62,11 @@ const (
 	MonitorProviderGemini    = "gemini"
 	MonitorProviderGrok      = "grok"
 
+	// MonitorModeActive sends synthetic probes. MonitorModePassive only reads
+	// real request/error records associated with the configured channel.
+	MonitorModeActive  = "active"
+	MonitorModePassive = "passive"
+
 	// MonitorDefaultGrokModel 是新增 Grok 监控未显式指定模型时使用的轻量测活模型。
 	MonitorDefaultGrokModel = "grok-4.5"
 
@@ -70,6 +75,12 @@ const (
 	MonitorStatusDegraded    = "degraded"
 	MonitorStatusFailed      = "failed"
 	MonitorStatusError       = "error"
+	MonitorStatusUnknown     = "unknown"
+
+	// Passive status thresholds are based on the real-request success ratio in
+	// the current interval. Slow successful windows are degraded as well.
+	monitorPassiveOperationalRate = 99.0
+	monitorPassiveDegradedRate    = 90.0
 
 	// monitorAvailability7Days / 15 / 30 用于聚合查询窗口。
 	monitorAvailability7Days  = 7
@@ -119,6 +130,12 @@ var (
 	)
 	ErrChannelMonitorInvalidProvider = infraerrors.BadRequest(
 		"CHANNEL_MONITOR_INVALID_PROVIDER", "provider must be one of openai/anthropic/gemini/grok",
+	)
+	ErrChannelMonitorInvalidMode = infraerrors.BadRequest(
+		"CHANNEL_MONITOR_INVALID_MODE", "monitor_mode must be active or passive",
+	)
+	ErrChannelMonitorMissingChannel = infraerrors.BadRequest(
+		"CHANNEL_MONITOR_MISSING_CHANNEL", "channel_id is required for passive monitoring",
 	)
 	ErrChannelMonitorInvalidAPIMode = infraerrors.BadRequest(
 		"CHANNEL_MONITOR_INVALID_API_MODE", "api_mode must be chat_completions or responses; responses is only supported for openai",

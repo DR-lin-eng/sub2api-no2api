@@ -23,6 +23,10 @@ const (
 	FieldName = "name"
 	// FieldProvider holds the string denoting the provider field in the database.
 	FieldProvider = "provider"
+	// FieldMonitorMode holds the string denoting the monitor_mode field in the database.
+	FieldMonitorMode = "monitor_mode"
+	// FieldChannelID holds the string denoting the channel_id field in the database.
+	FieldChannelID = "channel_id"
 	// FieldAPIMode holds the string denoting the api_mode field in the database.
 	FieldAPIMode = "api_mode"
 	// FieldEndpoint holds the string denoting the endpoint field in the database.
@@ -91,6 +95,8 @@ var Columns = []string{
 	FieldUpdatedAt,
 	FieldName,
 	FieldProvider,
+	FieldMonitorMode,
+	FieldChannelID,
 	FieldAPIMode,
 	FieldEndpoint,
 	FieldAPIKeyEncrypted,
@@ -133,8 +139,6 @@ var (
 	APIModeValidator func(string) error
 	// EndpointValidator is a validator for the "endpoint" field. It is called by the builders before save.
 	EndpointValidator func(string) error
-	// APIKeyEncryptedValidator is a validator for the "api_key_encrypted" field. It is called by the builders before save.
-	APIKeyEncryptedValidator func(string) error
 	// PrimaryModelValidator is a validator for the "primary_model" field. It is called by the builders before save.
 	PrimaryModelValidator func(string) error
 	// DefaultExtraModels holds the default value on creation for the "extra_models" field.
@@ -184,6 +188,32 @@ func ProviderValidator(pr Provider) error {
 	}
 }
 
+// MonitorMode defines the type for the "monitor_mode" enum field.
+type MonitorMode string
+
+// MonitorModeActive is the default value of the MonitorMode enum.
+const DefaultMonitorMode = MonitorModeActive
+
+// MonitorMode values.
+const (
+	MonitorModeActive  MonitorMode = "active"
+	MonitorModePassive MonitorMode = "passive"
+)
+
+func (mm MonitorMode) String() string {
+	return string(mm)
+}
+
+// MonitorModeValidator is a validator for the "monitor_mode" field enum values. It is called by the builders before save.
+func MonitorModeValidator(mm MonitorMode) error {
+	switch mm {
+	case MonitorModeActive, MonitorModePassive:
+		return nil
+	default:
+		return fmt.Errorf("channelmonitor: invalid enum value for monitor_mode field: %q", mm)
+	}
+}
+
 // OrderOption defines the ordering options for the ChannelMonitor queries.
 type OrderOption func(*sql.Selector)
 
@@ -210,6 +240,16 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 // ByProvider orders the results by the provider field.
 func ByProvider(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldProvider, opts...).ToFunc()
+}
+
+// ByMonitorMode orders the results by the monitor_mode field.
+func ByMonitorMode(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMonitorMode, opts...).ToFunc()
+}
+
+// ByChannelID orders the results by the channel_id field.
+func ByChannelID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldChannelID, opts...).ToFunc()
 }
 
 // ByAPIMode orders the results by the api_mode field.

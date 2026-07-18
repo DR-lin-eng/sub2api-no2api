@@ -12,6 +12,35 @@
       </div>
 
       <div>
+        <label class="input-label">{{ t('admin.channelMonitor.form.monitorMode') }}</label>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <button
+            v-for="opt in monitorModeOptions"
+            :key="opt.value"
+            type="button"
+            :data-testid="`monitor-mode-${opt.value}`"
+            :aria-pressed="form.monitor_mode === opt.value"
+            class="rounded-lg border-2 px-3 py-2 text-left transition-colors"
+            :class="monitorModeButtonClass(opt.value)"
+            @click="form.monitor_mode = opt.value"
+          >
+            <span class="block text-sm font-semibold">{{ opt.label }}</span>
+            <span class="mt-0.5 block text-xs opacity-80">{{ opt.hint }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div v-if="form.monitor_mode === MONITOR_MODE_PASSIVE">
+        <label class="input-label">{{ t('admin.channelMonitor.form.channel') }} <span class="text-red-500">*</span></label>
+        <Select
+          v-model="channelSelectValue"
+          :options="channelOptions"
+          :placeholder="t('admin.channelMonitor.form.channelPlaceholder')"
+        />
+        <p class="mt-1 text-xs text-gray-400">{{ t('admin.channelMonitor.form.channelHint') }}</p>
+      </div>
+
+      <div>
         <label class="input-label">{{ t('admin.channelMonitor.form.provider') }} <span class="text-red-500">*</span></label>
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <button
@@ -30,7 +59,7 @@
         </div>
       </div>
 
-      <div v-if="form.provider === PROVIDER_OPENAI" class="rounded-lg border border-blue-100 bg-blue-50/50 p-3 dark:border-blue-500/20 dark:bg-blue-500/10">
+      <div v-if="form.monitor_mode === MONITOR_MODE_ACTIVE && form.provider === PROVIDER_OPENAI" class="rounded-lg border border-blue-100 bg-blue-50/50 p-3 dark:border-blue-500/20 dark:bg-blue-500/10">
         <label class="input-label">{{ t('admin.channelMonitor.form.apiMode') }}</label>
         <div class="grid gap-3 sm:grid-cols-2">
           <button
@@ -48,7 +77,7 @@
         </div>
       </div>
 
-      <div>
+      <div v-if="form.monitor_mode === MONITOR_MODE_ACTIVE">
         <label class="input-label">{{ t('admin.channelMonitor.form.endpoint') }} <span class="text-red-500">*</span></label>
         <div class="flex gap-2">
           <input v-model="form.endpoint" data-testid="monitor-endpoint" type="text" required class="input flex-1" :placeholder="t('admin.channelMonitor.form.endpointPlaceholder')" />
@@ -58,15 +87,15 @@
         </div>
       </div>
 
-      <div>
+      <div v-if="form.monitor_mode === MONITOR_MODE_ACTIVE">
         <label class="input-label">
-          {{ t('admin.channelMonitor.form.apiKey') }}<span v-if="!editing" class="text-red-500"> *</span>
+          {{ t('admin.channelMonitor.form.apiKey') }}<span v-if="!editing || !editing.api_key_masked" class="text-red-500"> *</span>
         </label>
         <div class="flex gap-2">
           <input
             v-model="form.api_key"
             type="password"
-            :required="!editing"
+            :required="form.monitor_mode === MONITOR_MODE_ACTIVE && (!editing || !editing.api_key_masked)"
             class="input flex-1"
             :placeholder="editing ? t('admin.channelMonitor.form.apiKeyEditPlaceholder') : t('admin.channelMonitor.form.apiKeyPlaceholder')"
           />
@@ -111,7 +140,7 @@
         <p class="mt-1 text-xs text-gray-400">{{ t('admin.channelMonitor.form.intervalSecondsHint') }}</p>
       </div>
 
-      <div>
+      <div v-if="form.monitor_mode === MONITOR_MODE_ACTIVE">
         <label class="input-label">{{ t('admin.channelMonitor.form.jitterSeconds') }}</label>
         <input v-model.number="form.jitter_seconds" type="number" min="0" :max="maxJitterSeconds" class="input" />
         <p class="mt-1 text-xs text-gray-400">{{ t('admin.channelMonitor.form.jitterSecondsHint') }}</p>
@@ -123,7 +152,7 @@
       </div>
 
       <!-- 高级设置区：请求模板 + 自定义 headers/body -->
-      <details class="rounded-lg border border-gray-200 bg-gray-50/50 p-3 dark:border-dark-700 dark:bg-dark-900/30">
+      <details v-if="form.monitor_mode === MONITOR_MODE_ACTIVE" class="rounded-lg border border-gray-200 bg-gray-50/50 p-3 dark:border-dark-700 dark:bg-dark-900/30">
         <summary class="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300">
           {{ t('admin.channelMonitor.advanced.section') }}
         </summary>
@@ -197,10 +226,12 @@ import type {
   ChannelMonitor,
   CreateParams,
   APIMode,
+  MonitorMode,
   Provider,
   UpdateParams,
 } from '@/api/admin/channelMonitor'
 import type { ChannelMonitorTemplate } from '@/api/admin/channelMonitorTemplate'
+import type { Channel } from '@/api/admin/channels'
 import type { ApiKey } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Toggle from '@/components/common/Toggle.vue'
@@ -221,6 +252,8 @@ import {
   DEFAULT_GROK_ENDPOINT,
   DEFAULT_GROK_MODEL,
   DEFAULT_INTERVAL_SECONDS,
+  MONITOR_MODE_ACTIVE,
+  MONITOR_MODE_PASSIVE,
 } from '@/constants/channelMonitor'
 
 const props = defineProps<{
@@ -257,6 +290,8 @@ const userGroupRates = ref<Record<number, number>>({})
 
 interface MonitorForm {
   name: string
+  monitor_mode: MonitorMode
+  channel_id: number | null
   provider: Provider
   api_mode: APIMode
   endpoint: string
@@ -276,6 +311,8 @@ interface MonitorForm {
 
 const form = reactive<MonitorForm>({
   name: '',
+  monitor_mode: MONITOR_MODE_ACTIVE,
+  channel_id: null,
   provider: PROVIDER_ANTHROPIC,
   api_mode: API_MODE_CHAT_COMPLETIONS,
   endpoint: '',
@@ -294,6 +331,31 @@ const form = reactive<MonitorForm>({
 
 // jitter 上限与后端校验一致：interval - jitter 不得低于最小检测间隔 15 秒。
 const maxJitterSeconds = computed<number>(() => Math.max(0, (form.interval_seconds || 0) - 15))
+
+const channelsCache = ref<Channel[]>([])
+
+const channelOptions = computed(() => channelsCache.value.map(channel => ({
+  value: String(channel.id),
+  label: channel.name,
+})))
+
+const channelSelectValue = computed<string>({
+  get: () => form.channel_id == null ? '' : String(form.channel_id),
+  set: (value: string) => {
+    const id = Number(value)
+    form.channel_id = Number.isSafeInteger(id) && id > 0 ? id : null
+  },
+})
+
+async function loadChannels() {
+  if (channelsCache.value.length > 0) return
+  try {
+    const response = await adminAPI.channels.list(1, 1000)
+    channelsCache.value = response.items || []
+  } catch (err: unknown) {
+    appStore.showError(extractApiErrorMessage(err, t('admin.channelMonitor.form.channelLoadError')))
+  }
+}
 
 let suppressFormWatchers = false
 
@@ -364,6 +426,25 @@ const apiModeOptions = computed<{ value: APIMode; label: string; hint: string }[
     hint: t('admin.channelMonitor.form.apiModeResponsesHint'),
   },
 ])
+
+const monitorModeOptions = computed<{ value: MonitorMode; label: string; hint: string }[]>(() => [
+  {
+    value: MONITOR_MODE_ACTIVE,
+    label: t('admin.channelMonitor.form.monitorModeActive'),
+    hint: t('admin.channelMonitor.form.monitorModeActiveHint'),
+  },
+  {
+    value: MONITOR_MODE_PASSIVE,
+    label: t('admin.channelMonitor.form.monitorModePassive'),
+    hint: t('admin.channelMonitor.form.monitorModePassiveHint'),
+  },
+])
+
+function monitorModeButtonClass(mode: MonitorMode): string {
+  return form.monitor_mode === mode
+    ? 'border-primary-500 bg-primary-50 text-primary-700 dark:border-primary-400 dark:bg-primary-500/15 dark:text-primary-300'
+    : 'border-gray-200 bg-white text-gray-600 hover:border-primary-300 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-400'
+}
 
 function normalizeAPIMode(mode: APIMode | undefined | null): APIMode {
   return mode === API_MODE_RESPONSES ? API_MODE_RESPONSES : API_MODE_CHAT_COMPLETIONS
@@ -442,9 +523,17 @@ watch(() => form.api_mode, () => {
   }
 }, { flush: 'sync' })
 
+watch(() => form.monitor_mode, (mode) => {
+  if (!props.show) return
+  if (mode === MONITOR_MODE_PASSIVE) void loadChannels()
+  else void loadTemplates()
+})
+
 function resetForm() {
   suppressFormWatchers = true
   form.name = ''
+  form.monitor_mode = MONITOR_MODE_ACTIVE
+  form.channel_id = null
   form.provider = PROVIDER_ANTHROPIC
   form.api_mode = API_MODE_CHAT_COMPLETIONS
   form.endpoint = ''
@@ -465,6 +554,8 @@ function resetForm() {
 function loadFromMonitor(m: ChannelMonitor) {
   suppressFormWatchers = true
   form.name = m.name
+  form.monitor_mode = m.monitor_mode || MONITOR_MODE_ACTIVE
+  form.channel_id = m.channel_id ?? null
   form.provider = m.provider
   form.api_mode = normalizeAPIMode(m.api_mode)
   form.endpoint = m.endpoint
@@ -488,9 +579,10 @@ watch(
   () => [props.show, props.monitor] as const,
   ([show, m]) => {
     if (!show) return
-    void loadTemplates()
     if (m) loadFromMonitor(m)
     else resetForm()
+    if ((m?.monitor_mode || MONITOR_MODE_ACTIVE) === MONITOR_MODE_PASSIVE) void loadChannels()
+    else void loadTemplates()
   },
   { immediate: true },
 )
@@ -529,23 +621,28 @@ function pickMyKey(k: ApiKey) {
 }
 
 function buildPayload(): CreateParams {
-  return {
+  const payload: CreateParams = {
     name: form.name.trim(),
     provider: form.provider,
+    monitor_mode: form.monitor_mode,
+    channel_id: form.monitor_mode === MONITOR_MODE_PASSIVE ? form.channel_id : null,
     api_mode: form.provider === PROVIDER_OPENAI ? form.api_mode : API_MODE_CHAT_COMPLETIONS,
-    endpoint: form.endpoint.trim(),
-    api_key: form.api_key.trim(),
     primary_model: form.primary_model.trim(),
     extra_models: form.extra_models,
     group_name: form.group_name.trim(),
     enabled: form.enabled,
     interval_seconds: form.interval_seconds,
-    jitter_seconds: form.jitter_seconds || 0,
-    template_id: form.template_id,
-    extra_headers: form.extra_headers,
-    body_override_mode: form.body_override_mode,
-    body_override: form.body_override,
+    jitter_seconds: form.monitor_mode === MONITOR_MODE_ACTIVE ? form.jitter_seconds || 0 : 0,
   }
+  if (form.monitor_mode === MONITOR_MODE_ACTIVE) {
+    payload.endpoint = form.endpoint.trim()
+    payload.api_key = form.api_key.trim()
+    payload.template_id = form.template_id
+    payload.extra_headers = form.extra_headers
+    payload.body_override_mode = form.body_override_mode
+    payload.body_override = form.body_override
+  }
+  return payload
 }
 
 async function handleSubmit() {
@@ -556,6 +653,10 @@ async function handleSubmit() {
   }
   if (!form.primary_model.trim()) {
     appStore.showError(t('admin.channelMonitor.primaryModelRequired'))
+    return
+  }
+  if (form.monitor_mode === MONITOR_MODE_PASSIVE && form.channel_id == null) {
+    appStore.showError(t('admin.channelMonitor.channelRequired'))
     return
   }
 
@@ -571,6 +672,10 @@ async function handleSubmit() {
       if (form.template_id == null) {
         req.clear_template = true
         delete req.template_id
+      }
+      if (form.monitor_mode === MONITOR_MODE_ACTIVE) {
+        req.clear_channel = true
+        delete req.channel_id
       }
       await adminAPI.channelMonitor.update(target.id, req)
       appStore.showSuccess(t('admin.channelMonitor.updateSuccess'))

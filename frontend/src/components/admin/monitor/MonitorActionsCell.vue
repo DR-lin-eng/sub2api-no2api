@@ -11,7 +11,7 @@
     <button
       data-testid="monitor-duplicate"
       :title="duplicateTitle"
-      :disabled="duplicating || Boolean(row.api_key_decrypt_failed)"
+      :disabled="duplicating || ((row.monitor_mode || 'active') === 'active' && Boolean(row.api_key_decrypt_failed))"
       @click="$emit('duplicate', row)"
       class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-dark-700 dark:hover:text-primary-400"
     >
@@ -58,7 +58,7 @@ defineEmits<{
 
 const { t } = useI18n()
 const duplicateTitle = computed(() => {
-  if (props.row.api_key_decrypt_failed) return t('admin.channelMonitor.duplicateKeyUnavailable')
+  if ((props.row.monitor_mode || 'active') === 'active' && props.row.api_key_decrypt_failed) return t('admin.channelMonitor.duplicateKeyUnavailable')
   if (props.duplicating) return t('admin.channelMonitor.duplicating')
   return t('admin.channelMonitor.duplicate')
 })

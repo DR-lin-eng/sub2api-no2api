@@ -422,7 +422,11 @@ export default {
       degraded: 'Degraded',
       failed: 'Failed',
       error: 'Error',
-      unknown: '-'
+      unknown: 'No data'
+    },
+    modes: {
+      active: 'Active',
+      passive: 'Passive'
     },
     providers: {
       openai: 'OpenAI',
@@ -436,6 +440,8 @@ export default {
     availabilityPrefix: 'Availability',
     dialogLatency: 'Dialog Latency',
     endpointPing: 'Endpoint PING',
+    monitorSource: 'Monitor Source',
+    realRequests: 'Real Requests',
     history60pts: 'HISTORY ({n} PTS)',
     nextUpdateIn: 'NEXT UPDATE IN {n}s',
     past: 'PAST',
