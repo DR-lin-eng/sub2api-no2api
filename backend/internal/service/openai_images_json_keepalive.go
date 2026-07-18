@@ -45,6 +45,14 @@ func StartOpenAIImagesSSEKeepalive(c *gin.Context, interval time.Duration) func(
 	return startOpenAIImagesKeepalive(c, interval, "text/event-stream", []byte("data: {}\n\n"), true)
 }
 
+// StartOpenAIResponsesImageSSEKeepalive keeps a forced Images-API bridge alive
+// without injecting non-standard data events into the Responses stream. SSE
+// comments are ignored by conforming clients and therefore do not disturb the
+// Responses event state machine.
+func StartOpenAIResponsesImageSSEKeepalive(c *gin.Context, interval time.Duration) func() {
+	return startOpenAIImagesKeepalive(c, interval, "text/event-stream", []byte(": keepalive\n\n"), false)
+}
+
 func startOpenAIImagesKeepalive(c *gin.Context, interval time.Duration, contentType string, payload []byte, beatImmediately bool) func() {
 	if c == nil || c.Writer == nil || interval <= 0 {
 		return func() {}

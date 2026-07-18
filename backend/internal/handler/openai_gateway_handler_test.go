@@ -26,6 +26,25 @@ import (
 	"github.com/tidwall/sjson"
 )
 
+func TestOpenAIResponsesRequiredCapability(t *testing.T) {
+	require.Equal(t,
+		service.OpenAIEndpointCapabilityResponsesOrForcedImageAPI,
+		openAIResponsesRequiredCapability(true, service.PlatformOpenAI, "gpt-image-2", false, ""),
+	)
+	require.Equal(t,
+		service.OpenAIEndpointCapabilityResponsesOrForcedImageAPI,
+		openAIResponsesRequiredCapability(true, service.PlatformOpenAI, "image-alias", true, "gpt-image-2"),
+	)
+	require.Equal(t,
+		service.OpenAIEndpointCapabilityResponses,
+		openAIResponsesRequiredCapability(true, service.PlatformOpenAI, "gpt-5.5", false, ""),
+	)
+	require.Equal(t,
+		service.OpenAIEndpointCapabilityChatCompletions,
+		openAIResponsesRequiredCapability(false, service.PlatformOpenAI, "gpt-image-2", false, ""),
+	)
+}
+
 func TestOpenAIHandleStreamingAwareError_JSONEscaping(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -78,6 +78,26 @@ func seedOpenAIForwardImageIntentHint(c *gin.Context, channelMapped bool, imageI
 	service.SetOpenAIImageIntentHint(c, imageIntent)
 }
 
+func openAIResponsesRequiredCapability(
+	imageIntent bool,
+	requestPlatform string,
+	requestedModel string,
+	channelMapped bool,
+	mappedModel string,
+) service.OpenAIEndpointCapability {
+	if !imageIntent || requestPlatform != service.PlatformOpenAI {
+		return service.OpenAIEndpointCapabilityChatCompletions
+	}
+	effectiveModel := strings.TrimSpace(requestedModel)
+	if channelMapped {
+		effectiveModel = strings.TrimSpace(mappedModel)
+	}
+	if service.IsGPTImageGenerationModel(effectiveModel) {
+		return service.OpenAIEndpointCapabilityResponsesOrForcedImageAPI
+	}
+	return service.OpenAIEndpointCapabilityResponses
+}
+
 func newOpenAIModelMappedBodyCache(body []byte, replace openAIModelBodyReplaceFunc) func(bool, string) []byte {
 	replacedBodies := make(map[string][]byte)
 	return func(mapped bool, mappedModel string) []byte {
@@ -385,10 +405,13 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	// 仅对 OpenAI 平台生效：Grok 生图走独立的 forwardGrokResponses 路径，不应被过滤。
 	// 使用 IsExplicitImageGenerationIntent 排除被动 image_gen namespace 声明，
 	// 避免 Codex 的被动工具目录使 CC-only 账号被误过滤（#4476）。
-	requiredCapability := service.OpenAIEndpointCapabilityChatCompletions
-	if imageIntent && requestPlatform == service.PlatformOpenAI {
-		requiredCapability = service.OpenAIEndpointCapabilityResponses
-	}
+	requiredCapability := openAIResponsesRequiredCapability(
+		imageIntent,
+		requestPlatform,
+		reqModel,
+		channelMapping.Mapped,
+		channelMapping.MappedModel,
+	)
 
 	for {
 		// Streaming Forward intentionally detaches the upstream request so usage can
@@ -2503,6 +2526,9 @@ func openAIForwardMayFailover(c *gin.Context, writerSizeBeforeForward int, failo
 		return false
 	}
 	if service.OpenAICompactKeepaliveAdjustedWrittenSize(c) == writerSizeBeforeForward {
+		return true
+	}
+	if service.OpenAIImagesJSONKeepaliveAdjustedWrittenSize(c) == writerSizeBeforeForward {
 		return true
 	}
 	return failoverErr != nil && failoverErr.SafeToFailoverAfterWrite

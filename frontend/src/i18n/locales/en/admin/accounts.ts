@@ -533,6 +533,9 @@ export default {
         responsesStatusAutoUnknown: 'Auto probe: unknown',
         responsesStatusForcedResponses: 'Forced Responses',
         responsesStatusForcedChatCompletions: 'Forced Chat Completions',
+        forceImageAPI: 'Force Images API for image models',
+        forceImageAPIDesc:
+          'Routes gpt-image-* requests from /v1/responses to this account API URL /v1/images/generations. Base64 is the default; explicit url requests return a local /generated/ hash URL. Billing uses only the image model request.',
         planType: 'Plan tier (manual override)',
         planTypeDesc:
           "Manually correct this account's ChatGPT plan tier (Plus / Pro / Free). Note: a token refresh near expiry or a 429 rate-limit response will auto-overwrite this with the real tier.",

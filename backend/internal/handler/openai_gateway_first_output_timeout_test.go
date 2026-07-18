@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
@@ -25,6 +26,20 @@ func TestOpenAIForwardMayFailoverOnlyAfterNonSemanticWrite(t *testing.T) {
 		SafeToFailoverAfterWrite: true,
 	}))
 	require.False(t, openAIForwardMayFailover(c, before, &service.UpstreamFailoverError{}))
+}
+
+func TestOpenAIForwardMayFailoverAfterForcedImagesKeepalive(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+	before := service.OpenAICompactKeepaliveAdjustedWrittenSize(c)
+
+	stop := service.StartOpenAIResponsesImageSSEKeepalive(c, time.Millisecond)
+	defer stop()
+	require.Eventually(t, c.Writer.Written, time.Second, time.Millisecond)
+
+	require.True(t, openAIForwardMayFailover(c, before, &service.UpstreamFailoverError{}))
 }
 
 func TestOpenAIFirstOutputFailoverStopsAfterOneAccountSwitch(t *testing.T) {

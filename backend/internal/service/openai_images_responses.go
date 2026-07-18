@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -1023,6 +1024,34 @@ func writeOpenAIImagesUpstreamErrorResponse(c *gin.Context, err *OpenAIImagesUps
 	if isPseudoStream {
 		if !committed {
 			c.Status(err.clientStatusCode())
+		}
+		if c.Request != nil && c.Request.URL != nil && strings.Contains(c.Request.URL.Path, "/responses") {
+			response := openAIResponsesImageAPIBridgeResponse{
+				ID:        newOpenAIResponsesBridgeID("resp_"),
+				Object:    "response",
+				CreatedAt: time.Now().Unix(),
+				Status:    "failed",
+				Error: map[string]string{
+					"code":    err.clientErrorType(),
+					"message": err.clientMessage(),
+				},
+				Output:   []openAIResponsesImageAPIBridgeItem{},
+				Metadata: map[string]string{},
+			}
+			payload, marshalErr := json.Marshal(openAIResponsesImageAPIBridgeEvent{
+				Type:     "response.failed",
+				Response: &response,
+			})
+			if marshalErr != nil {
+				return false
+			}
+			if _, writeErr := fmt.Fprintf(c.Writer, "event: response.failed\ndata: %s\n\n", payload); writeErr != nil {
+				return false
+			}
+			if flusher, ok := c.Writer.(http.Flusher); ok {
+				flusher.Flush()
+			}
+			return true
 		}
 		payload := openAIImagesUpstreamErrorResponseBody(err)
 		if _, writeErr := fmt.Fprintf(c.Writer, "event: upstream_error\ndata: %s\n\n", payload); writeErr != nil {

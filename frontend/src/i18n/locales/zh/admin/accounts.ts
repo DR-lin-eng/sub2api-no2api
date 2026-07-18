@@ -596,6 +596,9 @@ export default {
         responsesStatusAutoUnknown: '自动探测：未探测',
         responsesStatusForcedResponses: '已强制 Responses',
         responsesStatusForcedChatCompletions: '已强制 Chat Completions',
+        forceImageAPI: '图像模型强制使用 Images API',
+        forceImageAPIDesc:
+          '通过 /v1/responses 请求 gpt-image-* 模型时，强制转换到本账号 API URL 的 /v1/images/generations。默认返回 base64；显式请求 url 时返回本站 /generated/ 哈希地址。计费只按图像模型请求计算。',
         planType: '订阅档位（手动覆盖）',
         planTypeDesc: '手动纠正本账号的 ChatGPT 订阅档位（Plus / Pro / Free）。注意：令牌临期刷新或命中 429 限流时，会用真实档位自动覆盖此处设置。',
         planTypeClear: '清空（自动识别）',

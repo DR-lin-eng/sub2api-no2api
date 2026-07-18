@@ -1114,7 +1114,7 @@ func TestOpenAIImagesStreamingResponse_StopsSyntheticKeepaliveAfterFirstRealEven
 
 	reader, writer := io.Pipe()
 	go func() {
-		_, _ = io.WriteString(writer, "data: {\"type\":\"image_generation.completed\",\"url\":\"https://cdn.example/result.png\"}\n\n")
+		_, _ = io.WriteString(writer, "data: {\"type\":\"image_generation.completed\",\"b64_json\":\"aW1hZ2U=\"}\n\n")
 		time.Sleep(1100 * time.Millisecond)
 		_ = writer.Close()
 	}()
@@ -1218,6 +1218,49 @@ func TestOpenAIGatewayServiceForwardImages_APIKeyGenerationUsesConfiguredV1BaseU
 	require.Equal(t, "gpt-image-2", gjson.GetBytes(upstream.lastBody, "model").String())
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Equal(t, "aGVsbG8=", gjson.Get(rec.Body.String(), "data.0.b64_json").String())
+}
+
+func TestOpenAIGatewayServiceForwardImages_ResponseFormatURLForwardsAndUsesLocalGeneratedProxy(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"gpt-image-2","prompt":"draw a cat","response_format":"url"}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	req.Host = "api.funai.works"
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Forwarded-Proto", "https")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	rawURL := "https://cdn.image-upstream.example/generated/a4ef47a3dae7473a9bac3395e6b7fb9b.png"
+	store := &generatedImageStoreStub{}
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"created":1710000011,"data":[{"url":"` + rawURL + `"}]}`)),
+	}}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}, cache: store, httpUpstream: upstream}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+	account := &Account{
+		ID: 43, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://image-upstream.example/v1"},
+	}
+
+	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, "url", gjson.GetBytes(upstream.lastBody, "response_format").String())
+	localURL := gjson.Get(rec.Body.String(), "data.0.url").String()
+	require.True(t, strings.HasPrefix(localURL, "https://api.funai.works/generated/"))
+	require.True(t, strings.HasSuffix(localURL, ".png"))
+	require.NotContains(t, rec.Body.String(), "cdn.image-upstream.example")
+	require.Len(t, store.urls, 1)
+	for hash, storedURL := range store.urls {
+		require.Equal(t, rawURL, storedURL)
+		require.Equal(t, 30*time.Minute, store.ttls[hash])
+		require.Contains(t, localURL, hash)
+	}
 }
 
 func TestOpenAIGatewayServiceForwardImages_APIKeyStreamJSONResponseBillsImage(t *testing.T) {

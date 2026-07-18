@@ -79,6 +79,18 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	requestView := newOpenAIRequestView(body)
 	reqModel, reqStream, promptCacheKey := requestView.Model, requestView.Stream, requestView.PromptCacheKey
 	originalModel := reqModel
+	if !isOpenAIResponsesCompactPath(c) {
+		if imageModel, forced := account.forcedOpenAIResponsesImageModel(reqModel); forced {
+			logger.LegacyPrintf(
+				"service.openai_gateway",
+				"[OpenAI] Forced image-only Responses request onto Images API account_id=%d request_model=%s upstream_model=%s",
+				account.ID,
+				reqModel,
+				imageModel,
+			)
+			return s.forwardOpenAIResponsesViaImagesAPI(ctx, c, account, body, originalModel, imageModel, startTime)
+		}
+	}
 
 	if account.Platform == PlatformGrok {
 		return s.forwardGrokResponses(ctx, c, account, body, originalModel, reqStream, startTime)

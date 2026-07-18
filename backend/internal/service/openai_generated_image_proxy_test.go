@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -60,6 +62,48 @@ type generatedImageHTTPUpstreamStub struct {
 	resp    *http.Response
 }
 
+type generatedImageConcurrentUpstreamStub struct {
+	mu      sync.Mutex
+	current int
+	max     int
+	release <-chan struct{}
+}
+
+func (s *generatedImageConcurrentUpstreamStub) Do(req *http.Request, _ string, _ int64, _ int) (*http.Response, error) {
+	s.mu.Lock()
+	s.current++
+	if s.current > s.max {
+		s.max = s.current
+	}
+	s.mu.Unlock()
+	defer func() {
+		s.mu.Lock()
+		s.current--
+		s.mu.Unlock()
+	}()
+	select {
+	case <-s.release:
+	case <-req.Context().Done():
+		return nil, req.Context().Err()
+	}
+	return &http.Response{
+		StatusCode:    http.StatusOK,
+		Header:        http.Header{"Content-Type": []string{"image/png"}},
+		Body:          io.NopCloser(strings.NewReader("png-bytes")),
+		ContentLength: 9,
+	}, nil
+}
+
+func (s *generatedImageConcurrentUpstreamStub) DoWithTLS(req *http.Request, proxyURL string, accountID int64, accountConcurrency int, _ *tlsfingerprint.Profile) (*http.Response, error) {
+	return s.Do(req, proxyURL, accountID, accountConcurrency)
+}
+
+func (s *generatedImageConcurrentUpstreamStub) snapshot() (current, max int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.current, s.max
+}
+
 func (s *generatedImageHTTPUpstreamStub) Do(req *http.Request, _ string, _ int64, _ int) (*http.Response, error) {
 	s.request = req
 	return s.resp, nil
@@ -90,6 +134,110 @@ func TestOpenAIGeneratedImage_RewritesURLAndStoresThirtyMinuteMapping(t *testing
 	require.Equal(t, rawURL, store.urls[hash])
 	require.Equal(t, 30*time.Minute, store.ttls[hash])
 	require.NotContains(t, string(rewritten), "cdn.vendor.example")
+}
+
+func TestOpenAIGeneratedImage_StrictURLModeNeverLeaksUpstreamWithoutRedis(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := &OpenAIGatewayService{}
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "https://api.funai.works/v1/images/generations", nil)
+	rawURL := "https://cdn.vendor.example/generated/result.png"
+
+	response, err := svc.rewriteOpenAIImagesResponseURLsStrict(c, []byte(`{"data":[{"url":"`+rawURL+`"}]}`))
+
+	require.ErrorIs(t, err, ErrGeneratedImageUnavailable)
+	require.Empty(t, response)
+}
+
+func TestOpenAIGeneratedImage_UnexpectedURLBecomesBase64ByDefault(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "https://api.funai.works/v1/images/generations", nil)
+	rawURL := "https://cdn.vendor.example/generated/result.png"
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"data":[{"url":"` + rawURL + `"}]}`)),
+	}
+	upstream := &generatedImageHTTPUpstreamStub{resp: &http.Response{
+		StatusCode:    http.StatusOK,
+		Header:        http.Header{"Content-Type": []string{"image/png"}},
+		Body:          io.NopCloser(strings.NewReader("png-bytes")),
+		ContentLength: 9,
+	}}
+	svc := &OpenAIGatewayService{httpUpstream: upstream}
+
+	_, _, _, err := svc.handleOpenAIImagesNonStreamingResponse(resp, c)
+
+	require.NoError(t, err)
+	require.Equal(t, "cG5nLWJ5dGVz", gjson.Get(rec.Body.String(), "data.0.b64_json").String())
+	require.False(t, gjson.Get(rec.Body.String(), "data.0.url").Exists())
+	require.NotContains(t, rec.Body.String(), rawURL)
+}
+
+func TestOpenAIGeneratedImage_UnexpectedURLNeverLeaksWhenDownloadFails(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "https://api.funai.works/v1/images/generations", nil)
+	rawURL := "https://cdn.vendor.example/generated/result.png"
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"data":[{"url":"` + rawURL + `"}]}`)),
+	}
+	svc := &OpenAIGatewayService{}
+
+	_, _, _, err := svc.handleOpenAIImagesNonStreamingResponse(resp, c)
+
+	require.ErrorIs(t, err, ErrGeneratedImageUnavailable)
+	require.NotContains(t, rec.Body.String(), rawURL)
+}
+
+func TestOpenAIGeneratedImage_BackfillConcurrencyIsProcessWide(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	release := make(chan struct{})
+	released := false
+	defer func() {
+		if !released {
+			close(release)
+		}
+	}()
+	upstream := &generatedImageConcurrentUpstreamStub{release: release}
+	svc := &OpenAIGatewayService{httpUpstream: upstream}
+	errs := make(chan error, 3)
+
+	for requestIndex := 0; requestIndex < 3; requestIndex++ {
+		requestIndex := requestIndex
+		go func() {
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodPost, "https://api.funai.works/v1/images/generations", nil)
+			body := fmt.Sprintf(`{"data":[
+				{"url":"https://cdn.vendor.example/generated/%d-0.png"},
+				{"url":"https://cdn.vendor.example/generated/%d-1.png"},
+				{"url":"https://cdn.vendor.example/generated/%d-2.png"},
+				{"url":"https://cdn.vendor.example/generated/%d-3.png"}
+			]}`, requestIndex, requestIndex, requestIndex, requestIndex)
+			_, err := svc.rewriteOpenAIImagesResponseURLsAsBase64(c, []byte(body))
+			errs <- err
+		}()
+	}
+
+	require.Eventually(t, func() bool {
+		current, _ := upstream.snapshot()
+		return current == generatedImageDownloadConcurrency
+	}, time.Second, time.Millisecond)
+	close(release)
+	released = true
+	for i := 0; i < 3; i++ {
+		require.NoError(t, <-errs)
+	}
+	current, max := upstream.snapshot()
+	require.Zero(t, current)
+	require.Equal(t, generatedImageDownloadConcurrency, max)
 }
 
 func TestOpenAIGeneratedImage_NormalizesNamedSSEKeepalive(t *testing.T) {

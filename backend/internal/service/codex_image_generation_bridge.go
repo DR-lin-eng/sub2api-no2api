@@ -6,10 +6,29 @@ const featureKeyCodexImageGenerationBridge = "codex_image_generation_bridge"
 
 const (
 	featureKeyCodexImageGenerationExplicitToolPolicy = "codex_image_generation_explicit_tool_policy"
+	featureKeyOpenAIForceImageAPI                    = "openai_force_image_api"
 
 	codexImageGenerationExplicitToolPolicyAllow = "allow"
 	codexImageGenerationExplicitToolPolicyStrip = "strip"
 )
+
+// ForceOpenAIImageAPI reports whether this OpenAI API-key account must route
+// image-only Responses requests through its configured Images API endpoint.
+// OAuth accounts deliberately ignore this option because they do not have an
+// API URL-backed /v1/images/generations endpoint.
+func (a *Account) ForceOpenAIImageAPI() bool {
+	if a == nil || a.Platform != PlatformOpenAI || a.Type != AccountTypeAPIKey || a.Extra == nil {
+		return false
+	}
+	if override := boolOverrideFromMap(a.Extra, featureKeyOpenAIForceImageAPI); override != nil {
+		return *override
+	}
+	openaiConfig, _ := a.Extra[PlatformOpenAI].(map[string]any)
+	if override := boolOverrideFromMap(openaiConfig, featureKeyOpenAIForceImageAPI); override != nil {
+		return *override
+	}
+	return false
+}
 
 func boolOverridePtr(v bool) *bool {
 	return &v

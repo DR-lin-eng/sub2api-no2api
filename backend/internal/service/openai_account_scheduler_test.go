@@ -630,6 +630,12 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_ResponsesCapabilityExcl
 		Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5,
 		Extra: map[string]any{"openai_responses_supported": false},
 	}
+	forcedImages := unsupported
+	forcedImages.ID = 37003
+	forcedImages.Extra = map[string]any{
+		"openai_responses_supported": false,
+		"openai_force_image_api":     true,
+	}
 
 	t.Run("生图意图仅选中支持 responses 的账号", func(t *testing.T) {
 		svc := newSvc([]Account{supported, unsupported})
@@ -642,6 +648,19 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_ResponsesCapabilityExcl
 		require.NotNil(t, selection)
 		require.NotNil(t, selection.Account)
 		require.Equal(t, int64(37001), selection.Account.ID)
+	})
+
+	t.Run("强制 Images API 的 APIKey 可承接 image 模型 Responses 请求", func(t *testing.T) {
+		svc := newSvc([]Account{forcedImages})
+		selection, _, err := svc.SelectAccountWithSchedulerForCapability(
+			ctx, &groupID, "", "", "gpt-image-2", nil,
+			OpenAIUpstreamTransportAny, OpenAIEndpointCapabilityResponsesOrForcedImageAPI,
+			false, false, false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, selection)
+		require.NotNil(t, selection.Account)
+		require.Equal(t, int64(37003), selection.Account.ID)
 	})
 
 	t.Run("仅有不支持 responses 的账号时生图意图无可用账号", func(t *testing.T) {
