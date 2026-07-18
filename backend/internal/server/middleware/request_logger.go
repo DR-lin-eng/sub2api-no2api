@@ -20,6 +20,10 @@ func RequestLogger() gin.HandlerFunc {
 			c.Next()
 			return
 		}
+		if isCredentialKeyRequestPath(c.Request.URL.Path) {
+			c.Next()
+			return
+		}
 
 		requestID, validRequestID := normalizeCorrelationID(c.GetHeader(requestIDHeader))
 		if !validRequestID {

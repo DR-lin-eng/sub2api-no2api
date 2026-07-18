@@ -6,7 +6,13 @@
 import { defineStore } from 'pinia'
 import { ref, computed, readonly } from 'vue'
 import { authAPI, isTotp2FARequired, type LoginResponse } from '@/api'
-import type { User, LoginRequest, RegisterRequest, AuthResponse } from '@/types'
+import type {
+  User,
+  LoginRequest,
+  RegisterRequest,
+  EncryptedRegisterRequest,
+  AuthResponse
+} from '@/types'
 
 const AUTH_TOKEN_KEY = 'auth_token'
 const AUTH_USER_KEY = 'auth_user'
@@ -317,7 +323,7 @@ export const useAuthStore = defineStore('auth', () => {
    * @returns Promise resolving to the newly registered and authenticated user
    * @throws Error if registration fails
    */
-  async function register(userData: RegisterRequest): Promise<User> {
+  async function register(userData: RegisterRequest | EncryptedRegisterRequest): Promise<User> {
     try {
       const response = await authAPI.register(userData)
 

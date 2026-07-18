@@ -14,6 +14,10 @@ import (
 // User-Agent；成功配置后才通过 GetTrustedClientIP（走 trusted_proxies 链）绑定客户端 IP。
 func SessionBindingContext(includeIP bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if isCredentialKeyRequestPath(c.Request.URL.Path) {
+			c.Next()
+			return
+		}
 		binding := newSessionBinding(c, includeIP)
 		c.Request = c.Request.WithContext(service.WithSessionBinding(c.Request.Context(), binding))
 		c.Next()

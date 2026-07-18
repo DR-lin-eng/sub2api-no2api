@@ -171,6 +171,9 @@ import {
   persistOAuthTokenContext,
   getPublicSettings,
   isOAuthLoginCompletion,
+  clearCredentialKeyPrefetch,
+  createCredentialEnvelope,
+  prefetchCredentialKey,
   type PendingOAuthSendVerifyCodeResponse,
   sendPendingOAuthVerifyCode,
   sendVerifyCode,
@@ -188,6 +191,11 @@ import {
   loadAffiliateReferralCode,
   oauthAffiliatePayload
 } from '@/utils/oauthAffiliate'
+import {
+  clearPendingRegistrationCredentials,
+  getPendingRegistrationCredentials
+} from '@/utils/pendingRegistrationCredentials'
+import type { EncryptedRegisterRequest } from '@/types'
 
 const { t, locale } = useI18n()
 
@@ -282,6 +290,7 @@ watch(validationToastMessage, (value, previousValue) => {
 // ==================== Lifecycle ====================
 
 onMounted(async () => {
+  clearCredentialKeyPrefetch()
   const activePendingSession = authStore.pendingAuthSession as PendingAuthSessionSummary | null
 
   // Load registration data from sessionStorage
@@ -290,7 +299,8 @@ onMounted(async () => {
     try {
       const registerData = JSON.parse(registerDataStr)
       email.value = registerData.email || ''
-      password.value = registerData.password || ''
+      const credentials = getPendingRegistrationCredentials()
+      password.value = credentials?.email === email.value ? credentials.password : ''
       initialTurnstileToken.value = registerData.turnstile_token || ''
       initialLocalCaptchaId.value = registerData.captcha_id || ''
       initialLocalCaptchaCode.value = registerData.captcha_code || ''
@@ -317,6 +327,15 @@ onMounted(async () => {
     pendingProvider.value = activePendingSession.provider
     pendingRedirect.value = activePendingSession.redirect || ''
   }
+
+  if (!hasRegisterData.value) {
+    sessionStorage.removeItem('register_data')
+    clearPendingRegistrationCredentials()
+    await router.push('/register')
+    return
+  }
+
+  void prefetchCredentialKey()
 
   // Load public settings
   try {
@@ -453,6 +472,7 @@ async function sendCode(): Promise<void> {
       : null
     if (pendingSendCodeSession) {
       sessionStorage.removeItem('register_data')
+      clearPendingRegistrationCredentials()
       persistPendingOAuthSession(
         pendingSendCodeSession.provider || pendingProvider.value,
         pendingSendCodeSession.redirect,
@@ -554,9 +574,9 @@ async function handleVerify(): Promise<void> {
     }
 
     if (isPendingOAuthFlow()) {
+      const encryptedCredentials = await createCredentialEnvelope(email.value, password.value)
       const payload: Record<string, unknown> = {
-        email: email.value,
-        password: password.value,
+        credential_envelope: encryptedCredentials,
         verify_code: verifyCode.value.trim(),
         ...oauthAffiliatePayload(affCode.value || loadAffiliateReferralCode()),
       }
@@ -576,6 +596,7 @@ async function handleVerify(): Promise<void> {
       )
       if (isPendingOAuthSessionResponse(data)) {
         sessionStorage.removeItem('register_data')
+        clearPendingRegistrationCredentials()
         persistPendingOAuthSession(data.provider || pendingProvider.value, data.redirect)
         await router.push(resolvePendingOAuthCallbackRoute(data.provider || pendingProvider.value))
         return
@@ -589,19 +610,21 @@ async function handleVerify(): Promise<void> {
       authStore.clearPendingAuthSession?.()
     } else {
       // Register with verification code
-      await authStore.register({
-        email: email.value,
-        password: password.value,
+      const encryptedCredentials = await createCredentialEnvelope(email.value, password.value)
+      const request: EncryptedRegisterRequest = {
+        credential_envelope: encryptedCredentials,
         verify_code: verifyCode.value.trim(),
         turnstile_token: initialTurnstileToken.value || undefined,
         promo_code: promoCode.value || undefined,
         invitation_code: invitationCode.value || undefined,
         ...(affCode.value ? { aff_code: affCode.value } : {})
-      })
+      }
+      await authStore.register(request)
     }
 
     // Clear session data
     sessionStorage.removeItem('register_data')
+    clearPendingRegistrationCredentials()
     clearAllAffiliateReferralCodes()
 
     // Show success toast
@@ -610,6 +633,7 @@ async function handleVerify(): Promise<void> {
     // Redirect to dashboard
     await router.push(pendingRedirect.value || '/dashboard')
   } catch (error: unknown) {
+    void prefetchCredentialKey()
     errorMessage.value = buildAuthErrorMessage(error, {
       fallback: t('auth.verifyFailed')
     })
@@ -623,6 +647,8 @@ async function handleVerify(): Promise<void> {
 function handleBack(): void {
   // Clear session data
   sessionStorage.removeItem('register_data')
+  clearPendingRegistrationCredentials()
+  clearCredentialKeyPrefetch()
 
   // Go back to registration
   router.push('/register')

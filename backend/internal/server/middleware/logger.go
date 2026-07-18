@@ -13,6 +13,10 @@ import (
 // Logger 请求日志中间件
 func Logger() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if isCredentialKeyRequestPath(c.Request.URL.Path) {
+			c.Next()
+			return
+		}
 		// 开始时间
 		startTime := time.Now()
 

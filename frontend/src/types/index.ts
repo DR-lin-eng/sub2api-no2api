@@ -119,6 +119,14 @@ export interface LoginRequest {
   captcha_code?: string
 }
 
+export interface CredentialEnvelope {
+  algorithm: 'RSA-OAEP-256+A256GCM'
+  key_id: string
+  encrypted_key: string
+  iv: string
+  ciphertext: string
+}
+
 export interface RegisterRequest {
   email: string
   password: string
@@ -129,6 +137,10 @@ export interface RegisterRequest {
   promo_code?: string
   invitation_code?: string
   aff_code?: string
+}
+
+export interface EncryptedRegisterRequest extends Omit<RegisterRequest, 'email' | 'password'> {
+  credential_envelope: CredentialEnvelope
 }
 
 export interface AffiliateInvitee {

@@ -1,6 +1,10 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import EmailVerifyView from '@/views/auth/EmailVerifyView.vue'
+import {
+  clearPendingRegistrationCredentials,
+  setPendingRegistrationCredentials
+} from '@/utils/pendingRegistrationCredentials'
 
 const {
   pushMock,
@@ -14,6 +18,9 @@ const {
   sendVerifyCodeMock,
   sendPendingOAuthVerifyCodeMock,
   persistOAuthTokenContextMock,
+  createCredentialEnvelopeMock,
+  clearCredentialKeyPrefetchMock,
+  prefetchCredentialKeyMock,
   apiClientPostMock,
   authStoreState,
 } = vi.hoisted(() => ({
@@ -28,6 +35,9 @@ const {
   sendVerifyCodeMock: vi.fn(),
   sendPendingOAuthVerifyCodeMock: vi.fn(),
   persistOAuthTokenContextMock: vi.fn(),
+  createCredentialEnvelopeMock: vi.fn(),
+  clearCredentialKeyPrefetchMock: vi.fn(),
+  prefetchCredentialKeyMock: vi.fn(),
   apiClientPostMock: vi.fn(),
   authStoreState: {
     pendingAuthSession: null as null | {
@@ -87,6 +97,9 @@ vi.mock('@/api/auth', async () => {
     sendVerifyCode: (...args: any[]) => sendVerifyCodeMock(...args),
     sendPendingOAuthVerifyCode: (...args: any[]) => sendPendingOAuthVerifyCodeMock(...args),
     persistOAuthTokenContext: (...args: any[]) => persistOAuthTokenContextMock(...args),
+    createCredentialEnvelope: (...args: any[]) => createCredentialEnvelopeMock(...args),
+    clearCredentialKeyPrefetch: (...args: any[]) => clearCredentialKeyPrefetchMock(...args),
+    prefetchCredentialKey: (...args: any[]) => prefetchCredentialKeyMock(...args),
   }
 })
 
@@ -97,6 +110,12 @@ vi.mock('@/api/client', () => ({
 }))
 
 describe('EmailVerifyView', () => {
+  function seedRegisterData(data: Record<string, unknown> & { email: string; password?: string }): void {
+    const { password = 'secret-123', ...metadata } = data
+    sessionStorage.setItem('register_data', JSON.stringify(metadata))
+    setPendingRegistrationCredentials(data.email, password)
+  }
+
   beforeEach(() => {
     pushMock.mockReset()
     showSuccessMock.mockReset()
@@ -109,9 +128,13 @@ describe('EmailVerifyView', () => {
     sendVerifyCodeMock.mockReset()
     sendPendingOAuthVerifyCodeMock.mockReset()
     persistOAuthTokenContextMock.mockReset()
+    createCredentialEnvelopeMock.mockReset()
+    clearCredentialKeyPrefetchMock.mockReset()
+    prefetchCredentialKeyMock.mockReset()
     apiClientPostMock.mockReset()
     authStoreState.pendingAuthSession = null
     sessionStorage.clear()
+    clearPendingRegistrationCredentials()
     localStorage.clear()
 
     getPublicSettingsMock.mockResolvedValue({
@@ -123,6 +146,14 @@ describe('EmailVerifyView', () => {
     sendVerifyCodeMock.mockResolvedValue({ countdown: 60 })
     sendPendingOAuthVerifyCodeMock.mockResolvedValue({ countdown: 60 })
     setTokenMock.mockResolvedValue({})
+    prefetchCredentialKeyMock.mockResolvedValue(undefined)
+    createCredentialEnvelopeMock.mockResolvedValue({
+      algorithm: 'RSA-OAEP-256+A256GCM',
+      key_id: 'test-key',
+      encrypted_key: 'encrypted-key',
+      iv: 'random-iv',
+      ciphertext: 'encrypted-credentials',
+    })
   })
 
   it('uses the pending oauth verify-code endpoint when register data carries a pending auth session', async () => {
@@ -132,13 +163,7 @@ describe('EmailVerifyView', () => {
       provider: 'wechat',
       redirect: '/profile',
     }
-    sessionStorage.setItem(
-      'register_data',
-      JSON.stringify({
-        email: 'fresh@example.com',
-        password: 'secret-123',
-      })
-    )
+    seedRegisterData({ email: 'fresh@example.com' })
 
     mount(EmailVerifyView, {
       global: {
@@ -173,13 +198,7 @@ describe('EmailVerifyView', () => {
       site_name: 'Sub2API',
       registration_email_suffix_whitelist: ['allowed.com'],
     })
-    sessionStorage.setItem(
-      'register_data',
-      JSON.stringify({
-        email: 'fresh@example.com',
-        password: 'secret-123',
-      })
-    )
+    seedRegisterData({ email: 'fresh@example.com' })
 
     mount(EmailVerifyView, {
       global: {
@@ -214,13 +233,7 @@ describe('EmailVerifyView', () => {
       site_name: 'Sub2API',
       registration_email_suffix_whitelist: ['allowed.com'],
     })
-    sessionStorage.setItem(
-      'register_data',
-      JSON.stringify({
-        email: 'fresh@example.com',
-        password: 'secret-123',
-      })
-    )
+    seedRegisterData({ email: 'fresh@example.com' })
 
     mount(EmailVerifyView, {
       global: {
@@ -261,13 +274,7 @@ describe('EmailVerifyView', () => {
       provider: 'oidc',
       redirect: '/profile/security',
     })
-    sessionStorage.setItem(
-      'register_data',
-      JSON.stringify({
-        email: 'fresh@example.com',
-        password: 'secret-123',
-      })
-    )
+    seedRegisterData({ email: 'fresh@example.com' })
 
     mount(EmailVerifyView, {
       global: {
@@ -299,14 +306,10 @@ describe('EmailVerifyView', () => {
       provider: 'wechat',
       redirect: '/profile',
     }
-    sessionStorage.setItem(
-      'register_data',
-      JSON.stringify({
-        email: 'fresh@example.com',
-        password: 'secret-123',
-        aff_code: 'AFF123',
-      })
-    )
+    seedRegisterData({
+      email: 'fresh@example.com',
+      aff_code: 'AFF123',
+    })
     apiClientPostMock.mockResolvedValue({
       data: {
         access_token: 'oauth-access-token',
@@ -333,8 +336,13 @@ describe('EmailVerifyView', () => {
     await flushPromises()
 
     expect(apiClientPostMock).toHaveBeenCalledWith('/auth/oauth/pending/create-account', {
-      email: 'fresh@example.com',
-      password: 'secret-123',
+      credential_envelope: {
+        algorithm: 'RSA-OAEP-256+A256GCM',
+        key_id: 'test-key',
+        encrypted_key: 'encrypted-key',
+        iv: 'random-iv',
+        ciphertext: 'encrypted-credentials',
+      },
       verify_code: '123456',
       aff_code: 'AFF123',
     })
@@ -363,13 +371,7 @@ describe('EmailVerifyView', () => {
       site_name: 'Sub2API',
       registration_email_suffix_whitelist: ['allowed.com'],
     })
-    sessionStorage.setItem(
-      'register_data',
-      JSON.stringify({
-        email: 'fresh@example.com',
-        password: 'secret-123',
-      })
-    )
+    seedRegisterData({ email: 'fresh@example.com' })
     apiClientPostMock.mockResolvedValue({
       data: {
         auth_result: 'pending_session',
@@ -397,8 +399,13 @@ describe('EmailVerifyView', () => {
     await flushPromises()
 
     expect(apiClientPostMock).toHaveBeenCalledWith('/auth/oauth/pending/create-account', {
-      email: 'fresh@example.com',
-      password: 'secret-123',
+      credential_envelope: {
+        algorithm: 'RSA-OAEP-256+A256GCM',
+        key_id: 'test-key',
+        encrypted_key: 'encrypted-key',
+        iv: 'random-iv',
+        ciphertext: 'encrypted-credentials',
+      },
       verify_code: '123456',
     })
     expect(setPendingAuthSessionMock).toHaveBeenCalledWith({
@@ -414,16 +421,12 @@ describe('EmailVerifyView', () => {
     expect(showSuccessMock).not.toHaveBeenCalled()
   })
 
-  it('keeps the normal email registration flow unchanged', async () => {
-    sessionStorage.setItem(
-      'register_data',
-      JSON.stringify({
-        email: 'normal@example.com',
-        password: 'secret-456',
-        promo_code: 'PROMO',
-        invitation_code: 'INVITE',
-      })
-    )
+  it('encrypts normal registration credentials at verification submit time', async () => {
+    seedRegisterData({
+      email: 'normal@example.com',
+      promo_code: 'PROMO',
+      invitation_code: 'INVITE',
+    })
     registerMock.mockResolvedValue({})
 
     const wrapper = mount(EmailVerifyView, {
@@ -443,14 +446,43 @@ describe('EmailVerifyView', () => {
     await flushPromises()
 
     expect(registerMock).toHaveBeenCalledWith({
-      email: 'normal@example.com',
-      password: 'secret-456',
+      credential_envelope: {
+        algorithm: 'RSA-OAEP-256+A256GCM',
+        key_id: 'test-key',
+        encrypted_key: 'encrypted-key',
+        iv: 'random-iv',
+        ciphertext: 'encrypted-credentials',
+      },
       verify_code: '654321',
       turnstile_token: undefined,
       promo_code: 'PROMO',
       invitation_code: 'INVITE',
     })
+    expect(createCredentialEnvelopeMock).toHaveBeenCalledWith('normal@example.com', 'secret-123')
     expect(apiClientPostMock).not.toHaveBeenCalled()
     expect(pushMock).toHaveBeenCalledWith('/dashboard')
   })
+
+  it('returns to registration after refresh loses volatile credentials', async () => {
+    sessionStorage.setItem('register_data', JSON.stringify({ email: 'fresh@example.com' }))
+
+    mount(EmailVerifyView, {
+      global: {
+        stubs: {
+          AuthLayout: { template: '<div><slot /><slot name="footer" /></div>' },
+          Icon: true,
+          TurnstileWidget: true,
+          transition: false,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalledWith('/register')
+    expect(sessionStorage.getItem('register_data')).toBeNull()
+    expect(sendVerifyCodeMock).not.toHaveBeenCalled()
+    expect(createCredentialEnvelopeMock).not.toHaveBeenCalled()
+  })
+
 })

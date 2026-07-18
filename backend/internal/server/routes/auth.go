@@ -2,6 +2,7 @@ package routes
 
 import (
 	"context"
+	"database/sql"
 	"strings"
 	"time"
 
@@ -21,11 +22,13 @@ func RegisterAuthRoutes(
 	jwtAuth servermiddleware.JWTAuthMiddleware,
 	auditLog servermiddleware.AuditLogMiddleware,
 	redisClient *redis.Client,
+	db *sql.DB,
 	settingService *service.SettingService,
 ) {
 	// 创建速率限制器
 	rateLimiter := middleware.NewRateLimiter(redisClient)
 	localCaptcha := middleware.NewLocalCaptcha(redisClient)
+	credentialCipher := middleware.NewCredentialCipher(redisClient, db)
 	localCaptchaEnabled := func(ctx context.Context) bool {
 		return settingService != nil &&
 			settingService.IsLocalCaptchaEnabled(ctx) &&
@@ -42,23 +45,44 @@ func RegisterAuthRoutes(
 				strings.TrimSpace(payload.VerifyCode) != ""
 		},
 	})
+	v1.GET(
+		"/auth/credential-key",
+		servermiddleware.BackendModeAuthGuard(settingService),
+		credentialCipher.PublicKey,
+	)
+	v1.POST(
+		"/auth/register",
+		servermiddleware.BackendModeAuthGuard(settingService),
+		credentialCipher.RequireBrowserFlow(),
+		rateLimiter.LimitWithOptions("auth-register", 5, time.Minute, middleware.RateLimitOptions{
+			FailureMode: middleware.RateLimitFailClose,
+		}),
+		registerCaptchaRequired,
+		gin.HandlerFunc(auditLog),
+		h.Auth.Register,
+	)
+	v1.POST(
+		"/auth/login",
+		servermiddleware.BackendModeAuthGuard(settingService),
+		credentialCipher.RequireBrowserFlow(),
+		rateLimiter.LimitWithOptions("auth-login", 20, time.Minute, middleware.RateLimitOptions{
+			FailureMode: middleware.RateLimitFailClose,
+		}),
+		localCaptchaRequired,
+		gin.HandlerFunc(auditLog),
+		h.Auth.Login,
+	)
 
 	// 公开接口
 	auth := v1.Group("/auth")
 	auth.Use(servermiddleware.BackendModeAuthGuard(settingService))
-	// 认证事件（登录/注册/2FA/token 刷新失败）入审计
+	// 其余认证事件（2FA/token 刷新失败等）入审计；登录和注册在入口校验后单独挂载。
 	auth.Use(gin.HandlerFunc(auditLog))
 	{
 		auth.GET("/captcha", rateLimiter.LimitWithOptions("auth-captcha", 20, time.Minute, middleware.RateLimitOptions{
 			FailureMode: middleware.RateLimitFailClose,
 		}), localCaptcha.Generate(localCaptchaEnabled))
-		// 注册/登录/2FA/验证码发送均属于高风险入口，增加服务端兜底限流（Redis 故障时 fail-close）
-		auth.POST("/register", rateLimiter.LimitWithOptions("auth-register", 5, time.Minute, middleware.RateLimitOptions{
-			FailureMode: middleware.RateLimitFailClose,
-		}), registerCaptchaRequired, h.Auth.Register)
-		auth.POST("/login", rateLimiter.LimitWithOptions("auth-login", 20, time.Minute, middleware.RateLimitOptions{
-			FailureMode: middleware.RateLimitFailClose,
-		}), localCaptchaRequired, h.Auth.Login)
+		// 2FA/验证码发送属于高风险入口，增加服务端兜底限流（Redis 故障时 fail-close）
 		auth.POST("/login/2fa", rateLimiter.LimitWithOptions("auth-login-2fa", 20, time.Minute, middleware.RateLimitOptions{
 			FailureMode: middleware.RateLimitFailClose,
 		}), h.Auth.Login2FA)
@@ -137,6 +161,7 @@ func RegisterAuthRoutes(
 			rateLimiter.LimitWithOptions("oauth-pending-create-account", 10, time.Minute, middleware.RateLimitOptions{
 				FailureMode: middleware.RateLimitFailClose,
 			}),
+			credentialCipher.DecryptEnvelope(),
 			h.Auth.CreatePendingOAuthAccount,
 		)
 		auth.POST("/oauth/pending/bind-login",

@@ -193,6 +193,12 @@ func TestBackendModeAuthGuard(t *testing.T) {
 			wantStatus: http.StatusOK,
 		},
 		{
+			name:       "enabled_allows_credential_key",
+			enabled:    "true",
+			path:       "/api/v1/auth/credential-key",
+			wantStatus: http.StatusOK,
+		},
+		{
 			name:       "enabled_allows_logout",
 			enabled:    "true",
 			path:       "/api/v1/auth/logout",

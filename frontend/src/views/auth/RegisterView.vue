@@ -328,7 +328,9 @@ import {
   getPublicSettings,
   isWeChatWebOAuthEnabled,
   validatePromoCode,
-  validateInvitationCode
+  validateInvitationCode,
+  clearCredentialKeyPrefetch,
+  prefetchCredentialKey
 } from '@/api/auth'
 import { buildAuthErrorMessage } from '@/utils/authError'
 import { extractI18nErrorMessage } from '@/utils/apiError'
@@ -342,6 +344,10 @@ import {
   loadAffiliateReferralCode,
   resolveAffiliateReferralCode
 } from '@/utils/oauthAffiliate'
+import {
+  clearPendingRegistrationCredentials,
+  setPendingRegistrationCredentials
+} from '@/utils/pendingRegistrationCredentials'
 import type { LoginAgreementDocument } from '@/types'
 
 const { t, locale } = useI18n()
@@ -476,6 +482,9 @@ function syncAffiliateReferralCode(): string {
 // ==================== Lifecycle ====================
 
 onMounted(async () => {
+  clearPendingRegistrationCredentials()
+  clearCredentialKeyPrefetch()
+  void prefetchCredentialKey()
   syncAffiliateReferralCode()
 
   try {
@@ -895,12 +904,13 @@ async function handleRegister(): Promise<void> {
 
     // If email verification is enabled, redirect to verification page
     if (emailVerifyEnabled.value) {
-      // Store registration data in sessionStorage
+      setPendingRegistrationCredentials(formData.email, formData.password)
+      clearCredentialKeyPrefetch()
+      // Only non-secret registration metadata crosses the verification route.
       sessionStorage.setItem(
         'register_data',
         JSON.stringify({
           email: formData.email,
-          password: formData.password,
           turnstile_token: turnstileToken.value,
           captcha_id: localCaptchaId.value || undefined,
           captcha_code: localCaptchaCode.value || undefined,
@@ -934,6 +944,9 @@ async function handleRegister(): Promise<void> {
     // Redirect to dashboard
     await router.push('/dashboard')
   } catch (error: unknown) {
+    clearPendingRegistrationCredentials()
+    sessionStorage.removeItem('register_data')
+    void prefetchCredentialKey()
     // Reset Turnstile on error
     if (turnstileRef.value) {
       turnstileRef.value.reset()

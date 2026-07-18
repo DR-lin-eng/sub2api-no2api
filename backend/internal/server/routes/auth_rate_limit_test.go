@@ -10,6 +10,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler"
+	"github.com/Wei-Shaw/sub2api/internal/middleware"
 	servermiddleware "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/alicebob/miniredis/v2"
@@ -25,6 +26,7 @@ func newAuthRoutesTestRouter(redisClient *redis.Client) *gin.Engine {
 func newAuthRoutesTestRouterWithSettings(redisClient *redis.Client, settingService *service.SettingService) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
+	router.Use(middleware.NewCredentialAuthIngressLimiter())
 	v1 := router.Group("/api/v1")
 
 	RegisterAuthRoutes(
@@ -40,6 +42,7 @@ func newAuthRoutesTestRouterWithSettings(redisClient *redis.Client, settingServi
 			c.Next()
 		}),
 		redisClient,
+		nil,
 		settingService,
 	)
 
@@ -97,8 +100,6 @@ func TestAuthRoutesRateLimitFailCloseWhenRedisUnavailable(t *testing.T) {
 
 	router := newAuthRoutesTestRouter(rdb)
 	paths := []string{
-		"/api/v1/auth/register",
-		"/api/v1/auth/login",
 		"/api/v1/auth/login/2fa",
 		"/api/v1/auth/send-verify-code",
 		"/api/v1/auth/oauth/pending/send-verify-code",
@@ -117,6 +118,55 @@ func TestAuthRoutesRateLimitFailCloseWhenRedisUnavailable(t *testing.T) {
 	}
 }
 
+func TestCredentialKeyRouteUsesBoundedLocalLimiterWithoutRedisCounter(t *testing.T) {
+	server := miniredis.RunT(t)
+	rdb := redis.NewClient(&redis.Options{Addr: server.Addr()})
+	t.Cleanup(func() { _ = rdb.Close() })
+
+	router := newAuthRoutesTestRouter(rdb)
+	for index := 0; index < 30; index++ {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/credential-key", nil)
+		req.RemoteAddr = "203.0.113.20:1234"
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		require.Equal(t, http.StatusOK, w.Code, "request=%d", index+1)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/credential-key", nil)
+	req.RemoteAddr = "203.0.113.20:1234"
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusTooManyRequests, w.Code)
+	require.Equal(t, "60", w.Header().Get("Retry-After"))
+
+	keys := server.Keys()
+	for _, key := range keys {
+		require.NotContains(t, key, "rate_limit:auth-credential-key")
+	}
+}
+
+func TestAuthRoutesRejectSimpleCredentialRequestsWithoutBrowserFlow(t *testing.T) {
+	server := miniredis.RunT(t)
+	rdb := redis.NewClient(&redis.Options{Addr: server.Addr()})
+	t.Cleanup(func() { _ = rdb.Close() })
+	router := newAuthRoutesTestRouter(rdb)
+
+	for _, path := range []string{"/api/v1/auth/login", "/api/v1/auth/register"} {
+		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"email":"user@example.com","password":"secret-123"}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.RemoteAddr = "203.0.113.30:1234"
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusForbidden, w.Code, "path=%s", path)
+		require.Contains(t, w.Body.String(), "CREDENTIAL_BROWSER_FLOW_REQUIRED", "path=%s", path)
+	}
+	for _, key := range server.Keys() {
+		require.NotContains(t, key, "rate_limit:auth-login")
+		require.NotContains(t, key, "rate_limit:auth-register")
+	}
+}
+
 func TestAuthRoutesLocalCaptchaDefaultsOff(t *testing.T) {
 	server := miniredis.RunT(t)
 	rdb := redis.NewClient(&redis.Options{Addr: server.Addr()})
@@ -130,7 +180,7 @@ func TestAuthRoutesLocalCaptchaDefaultsOff(t *testing.T) {
 	require.Contains(t, w.Body.String(), "captcha protection is not enabled")
 }
 
-func TestAuthRoutesLocalCaptchaRejectsMissingChallengeWhenEnabled(t *testing.T) {
+func TestAuthRoutesBrowserFlowPrecedesLocalCaptcha(t *testing.T) {
 	server := miniredis.RunT(t)
 	rdb := redis.NewClient(&redis.Options{Addr: server.Addr()})
 	t.Cleanup(func() { _ = rdb.Close() })
@@ -144,8 +194,8 @@ func TestAuthRoutesLocalCaptchaRejectsMissingChallengeWhenEnabled(t *testing.T) 
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusBadRequest, w.Code)
-	require.Contains(t, w.Body.String(), "LOCAL_CAPTCHA_REQUIRED")
+	require.Equal(t, http.StatusForbidden, w.Code)
+	require.Contains(t, w.Body.String(), "CREDENTIAL_BROWSER_FLOW_REQUIRED")
 }
 
 func TestAuthRoutesTurnstileTakesPriorityOverLocalCaptcha(t *testing.T) {

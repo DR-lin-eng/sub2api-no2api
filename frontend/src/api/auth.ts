@@ -4,6 +4,7 @@
  */
 
 import { apiClient } from './client'
+import { createCredentialEnvelope } from './credentialEncryption'
 import type {
   LoginRequest,
   RegisterRequest,
@@ -13,8 +14,15 @@ import type {
   SendVerifyCodeResponse,
   PublicSettings,
   TotpLoginResponse,
-  TotpLogin2FARequest
+  TotpLogin2FARequest,
+  EncryptedRegisterRequest
 } from '@/types'
+
+export {
+  clearCredentialKeyPrefetch,
+  createCredentialEnvelope,
+  prefetchCredentialKey
+} from './credentialEncryption'
 
 /**
  * Login response type - can be either full auth or 2FA required
@@ -95,7 +103,12 @@ export function clearAuthToken(): void {
  * @returns Authentication response with token and user data, or 2FA required response
  */
 export async function login(credentials: LoginRequest): Promise<LoginResponse> {
-  const { data } = await apiClient.post<LoginResponse>('/auth/login', credentials)
+  const { email, password, ...requestData } = credentials
+  const credentialEnvelope = await createCredentialEnvelope(email, password)
+  const { data } = await apiClient.post<LoginResponse>('/auth/login', {
+    ...requestData,
+    credential_envelope: credentialEnvelope
+  })
 
   // Only store token if 2FA is not required
   if (!isTotp2FARequired(data)) {
@@ -138,8 +151,18 @@ export async function login2FA(request: TotpLogin2FARequest): Promise<AuthRespon
  * @param userData - Registration data (username, email, password)
  * @returns Authentication response with token and user data
  */
-export async function register(userData: RegisterRequest): Promise<AuthResponse> {
-  const { data } = await apiClient.post<AuthResponse>('/auth/register', userData)
+export async function register(userData: RegisterRequest | EncryptedRegisterRequest): Promise<AuthResponse> {
+  let requestData: EncryptedRegisterRequest
+  if ('credential_envelope' in userData) {
+    requestData = userData
+  } else {
+    const { email, password, ...registrationData } = userData
+    requestData = {
+      ...registrationData,
+      credential_envelope: await createCredentialEnvelope(email, password)
+    }
+  }
+  const { data } = await apiClient.post<AuthResponse>('/auth/register', requestData)
 
   // Store token and user data
   setAuthToken(data.access_token)
