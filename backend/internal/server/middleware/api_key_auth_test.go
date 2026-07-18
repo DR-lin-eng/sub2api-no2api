@@ -1311,6 +1311,65 @@ func TestAPIKeyAuthBillingInfoSkipsLastUsedInSimpleMode(t *testing.T) {
 	require.Zero(t, touchCalls)
 }
 
+func TestAPIKeyAuthMonitoringMetadataSkipsBillingAndSideEffects(t *testing.T) {
+	for _, path := range []string{"/v1/api-key-groups", "/v1/announcements"} {
+		t.Run(path, func(t *testing.T) {
+			group := &service.Group{
+				ID:               42,
+				Name:             "subscription",
+				Status:           service.StatusActive,
+				Hydrated:         true,
+				SubscriptionType: service.SubscriptionTypeSubscription,
+			}
+			user := &service.User{ID: 7, Role: service.RoleUser, Status: service.StatusActive, Balance: 0}
+			expiredAt := time.Now().Add(-time.Hour)
+			apiKey := &service.APIKey{
+				ID:        100,
+				UserID:    user.ID,
+				Key:       "monitoring-metadata-auth-only",
+				Status:    service.StatusAPIKeyQuotaExhausted,
+				User:      user,
+				GroupID:   &group.ID,
+				Group:     group,
+				ExpiresAt: &expiredAt,
+			}
+
+			touchCalls := 0
+			subscriptionCalls := 0
+			apiKeyRepo := &stubApiKeyRepo{
+				getByKey: func(context.Context, string) (*service.APIKey, error) {
+					clone := *apiKey
+					return &clone, nil
+				},
+				updateLastUsed: func(context.Context, int64, time.Time) error {
+					touchCalls++
+					return nil
+				},
+			}
+			subscriptionRepo := &stubUserSubscriptionRepo{
+				getActive: func(context.Context, int64, int64) (*service.UserSubscription, error) {
+					subscriptionCalls++
+					return nil, service.ErrSubscriptionNotFound
+				},
+			}
+			cfg := &config.Config{RunMode: config.RunModeStandard}
+			apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+			subscriptionService := service.NewSubscriptionService(nil, subscriptionRepo, nil, nil, cfg)
+			t.Cleanup(subscriptionService.Stop)
+			router := newAuthTestRouter(apiKeyService, subscriptionService, cfg)
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			req.Header.Set("x-api-key", apiKey.Key)
+			router.ServeHTTP(w, req)
+
+			require.Equal(t, http.StatusOK, w.Code)
+			require.Zero(t, subscriptionCalls)
+			require.Zero(t, touchCalls)
+		})
+	}
+}
+
 func TestAPIKeyAuthUsageStillTouchesLastUsed(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -1435,6 +1494,8 @@ func newAuthTestRouter(apiKeyService *service.APIKeyService, subscriptionService
 	router.GET("/t", ok)
 	router.GET("/v1/usage", ok)
 	router.GET("/v1/sub2api/billing", ok)
+	router.GET("/v1/api-key-groups", ok)
+	router.GET("/v1/announcements", ok)
 	return router
 }
 
