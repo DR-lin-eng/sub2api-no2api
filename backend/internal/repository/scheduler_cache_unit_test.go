@@ -320,6 +320,61 @@ func TestBuildSchedulerMetadataAccount_KeepsGrokMediaEligibility(t *testing.T) {
 	})
 }
 
+func TestBuildSchedulerMetadataAccount_KeepsRPMSchedulingFields(t *testing.T) {
+	account := service.Account{
+		ID:       43,
+		Platform: service.PlatformAnthropic,
+		Type:     service.AccountTypeOAuth,
+		Extra: map[string]any{
+			"base_rpm":           120,
+			"rpm_strategy":       "sticky_exempt",
+			"rpm_sticky_buffer":  12,
+			"unused_large_field": "drop-me",
+		},
+	}
+
+	got := buildSchedulerMetadataAccount(account)
+
+	require.Equal(t, 120, got.GetBaseRPM())
+	require.Equal(t, "sticky_exempt", got.GetRPMStrategy())
+	require.Equal(t, 12, got.GetRPMStickyBuffer())
+	require.Nil(t, got.Extra["unused_large_field"])
+}
+
+func TestBuildSchedulerMetadataAccount_KeepsOpenAIRoutingContract(t *testing.T) {
+	account := service.Account{
+		ID:       45,
+		Platform: service.PlatformOpenAI,
+		Type:     service.AccountTypeOAuth,
+		Credentials: map[string]any{
+			"auth_mode":               service.OpenAIAuthModePersonalAccessToken,
+			"openai_capabilities":     []any{"chat_completions"},
+			"model_mapping":           map[string]any{"alias": "gpt-5.4"},
+			"compact_model_mapping":   map[string]any{"gpt-5.4": "gpt-5.4-mini"},
+			"compact_model_fallbacks": map[string]any{"gpt-5.4-mini": []any{"gpt-5.3"}},
+			"access_token":            "drop-me",
+		},
+		Extra: map[string]any{
+			"openai_compact_mode":      service.OpenAICompactModeForceOn,
+			"openai_compact_supported": false,
+			"openai_passthrough":       true,
+			"unused_large_field":       "drop-me",
+		},
+	}
+
+	got := buildSchedulerMetadataAccount(account)
+
+	require.True(t, got.IsOpenAIPersonalAccessToken())
+	require.False(t, got.SupportsOpenAIEndpointCapability(service.OpenAIEndpointCapabilityAlphaSearch))
+	require.True(t, got.AllowsOpenAICompact())
+	require.True(t, got.IsOpenAIPassthroughEnabled())
+	require.Equal(t, map[string]string{"alias": "gpt-5.4"}, got.GetModelMapping())
+	require.Equal(t, map[string]string{"gpt-5.4": "gpt-5.4-mini"}, got.GetCompactModelMapping())
+	require.Equal(t, []string{"gpt-5.3"}, got.GetCompactModelFallbacks()["gpt-5.4-mini"])
+	require.Nil(t, got.Credentials["access_token"])
+	require.Nil(t, got.Extra["unused_large_field"])
+}
+
 func TestBuildSchedulerMetadataAccount_KeepsSlimGroupMembership(t *testing.T) {
 	account := service.Account{
 		ID:       42,

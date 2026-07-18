@@ -1355,6 +1355,13 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 	req OpenAIAccountScheduleRequest,
 ) (*AccountSelectionResult, int, int, float64, error) {
 	budget := newOpenAISelectionProbeBudget()
+	ctx = withSchedulerCandidateExclusions(ctx, req.ExcludedIDs)
+	ctx = s.service.withOpenAISchedulerCandidateFilter(ctx, req.GroupID, req.Platform, req.RequestedModel, req.RequireCompact, req.RequiredCapability)
+	requestCtx := ctx
+	ctx = withSchedulerCandidatePredicate(ctx, func(account *Account) bool {
+		return s.isAccountRequestCompatible(requestCtx, account, req) &&
+			s.isAccountTransportCompatible(account, req.RequiredTransport)
+	})
 	accounts, err := s.service.listSchedulableAccounts(ctx, req.GroupID, req.Platform)
 	if err != nil {
 		return nil, 0, 0, 0, err
