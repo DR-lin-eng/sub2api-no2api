@@ -56,7 +56,7 @@ func parseTimeRange(c *gin.Context) (time.Time, time.Time) {
 			if hasTime {
 				endTime = t
 			} else {
-				endTime = t.Add(24 * time.Hour) // Include the end date
+				endTime = t.AddDate(0, 0, 1) // Include the end date, preserving calendar-day semantics across DST.
 			}
 		} else {
 			endTime = timezone.StartOfDayInUserLocation(now.AddDate(0, 0, 1), userTZ)

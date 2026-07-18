@@ -3,6 +3,8 @@ package timezone
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestInit(t *testing.T) {
@@ -160,4 +162,22 @@ func TestStartOfWeek_Boundaries(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParseDateOrDateTimeInUserLocation(t *testing.T) {
+	t.Run("date keeps user location and calendar day", func(t *testing.T) {
+		parsed, hasTime, err := ParseDateOrDateTimeInUserLocation("2026-03-08", "America/New_York")
+		require.NoError(t, err)
+		require.False(t, hasTime)
+		require.Equal(t, "America/New_York", parsed.Location().String())
+		require.Equal(t, 23*time.Hour, parsed.AddDate(0, 0, 1).Sub(parsed))
+	})
+
+	t.Run("RFC3339 keeps explicit offset", func(t *testing.T) {
+		parsed, hasTime, err := ParseDateOrDateTimeInUserLocation("2026-07-11T14:03:22+08:00", "America/New_York")
+		require.NoError(t, err)
+		require.True(t, hasTime)
+		_, offset := parsed.Zone()
+		require.Equal(t, 8*60*60, offset)
+	})
 }

@@ -493,7 +493,7 @@ func (h *UsageHandler) CreateCleanupTask(c *gin.Context) {
 		return
 	}
 	if !endHasTime {
-		endTime = endTime.Add(24*time.Hour - time.Nanosecond)
+		endTime = endTime.AddDate(0, 0, 1).Add(-time.Nanosecond)
 	}
 
 	var requestType *int16
