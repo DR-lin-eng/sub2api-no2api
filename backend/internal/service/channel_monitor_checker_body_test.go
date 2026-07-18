@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tidwall/gjson"
 )
 
 // swapMonitorHTTPClient 临时替换 monitorHTTPClient 为不带 SSRF 校验的普通 client，
@@ -496,5 +498,40 @@ func TestValidateChallenge_AnthropicTextAfterThinking(t *testing.T) {
 
 	if !validateChallenge(respText, "2") {
 		t.Fatalf("validateChallenge(%q, %q) = false, want true", respText, "2")
+	}
+}
+
+func BenchmarkExtractAnthropicMonitorText(b *testing.B) {
+	singleText := []byte(`{"content":[{"type":"text","text":"2"}]}`)
+	thinkingBeforeText := []byte(`{"content":[{"type":"thinking","thinking":"reasoning"},{"type":"text","text":"2"}]}`)
+	multipleText := []byte(`{"content":[{"type":"text","text":"answer"},{"type":"tool_use","name":"x"},{"type":"text","text":"2"}]}`)
+
+	b.Run("legacy_first_text", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			if got := gjson.GetBytes(singleText, "content.0.text").String(); got != "2" {
+				b.Fatalf("unexpected text %q", got)
+			}
+		}
+	})
+
+	benchmarks := []struct {
+		name string
+		body []byte
+		want string
+	}{
+		{name: "single_text", body: singleText, want: "2"},
+		{name: "thinking_before_text", body: thinkingBeforeText, want: "2"},
+		{name: "multiple_text", body: multipleText, want: "answer\n2"},
+	}
+	for _, benchmark := range benchmarks {
+		b.Run(benchmark.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				if got := extractAnthropicMonitorText(benchmark.body); got != benchmark.want {
+					b.Fatalf("unexpected text %q", got)
+				}
+			}
+		})
 	}
 }

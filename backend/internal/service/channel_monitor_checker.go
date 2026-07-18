@@ -305,23 +305,37 @@ func extractMonitorResponseText(adapter providerAdapter, respBytes []byte) strin
 }
 
 func extractAnthropicMonitorText(respBytes []byte) string {
-	content := gjson.GetBytes(respBytes, "content")
+	content := parseRawJSONView(respBytes).Get("content")
 	if !content.IsArray() {
 		return ""
 	}
 
-	parts := make([]string, 0, 1)
+	var first string
+	var combined strings.Builder
 	content.ForEach(func(_, item gjson.Result) bool {
 		if item.Get("type").String() != "text" {
 			return true
 		}
 		text := strings.TrimSpace(item.Get("text").String())
-		if text != "" {
-			parts = append(parts, text)
+		if text == "" {
+			return true
 		}
+		if first == "" {
+			first = text
+			return true
+		}
+		if combined.Len() == 0 {
+			combined.Grow(len(first) + 1 + len(text))
+			_, _ = combined.WriteString(first)
+		}
+		_ = combined.WriteByte('\n')
+		_, _ = combined.WriteString(text)
 		return true
 	})
-	return strings.Join(parts, "\n")
+	if combined.Len() > 0 {
+		return combined.String()
+	}
+	return first
 }
 
 // extractOpenAIResponsesText 聚合 Responses API 的最终 assistant 文本。
