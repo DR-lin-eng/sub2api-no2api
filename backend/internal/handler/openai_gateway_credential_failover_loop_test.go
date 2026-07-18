@@ -368,7 +368,8 @@ func (u *grokCredentialHandlerUpstream) Do(req *http.Request, _ string, accountI
 			StatusCode: http.StatusOK,
 			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
 			Body: io.NopCloser(bytes.NewBufferString(
-				"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_healthy\",\"model\":\"grok-4.5\",\"usage\":{\"input_tokens\":1,\"output_tokens\":1}}}\n\n",
+				"data: {\"type\":\"response.output_text.delta\",\"delta\":\"ok\"}\n\n" +
+					"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_healthy\",\"model\":\"grok-4.5\",\"usage\":{\"input_tokens\":1,\"output_tokens\":1}}}\n\n",
 			)),
 		}, nil
 	}
@@ -760,10 +761,13 @@ func TestResponsesWebSocketCredentialFailoverLoop(t *testing.T) {
 		writeFirst(t, conn)
 
 		readCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		_, payload, err := conn.Read(readCtx)
-		cancel()
-		require.NoError(t, err)
-		require.Contains(t, string(payload), "resp_healthy")
+		defer cancel()
+		foundCompleted := false
+		for !foundCompleted {
+			_, payload, err := conn.Read(readCtx)
+			require.NoError(t, err)
+			foundCompleted = strings.Contains(string(payload), "resp_healthy")
+		}
 		require.Equal(t, []int64{801}, repo.errorIDs())
 		require.Equal(t, 2, repo.selectorCalls())
 		require.Equal(t, []int64{802}, upstream.accountHits())

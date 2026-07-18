@@ -190,7 +190,6 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 		}
 
 		// ── 5. 按端点需要加载订阅 ───────────────────────────────────
-		// ── 5. 加载订阅（订阅模式时始终加载） ───────────────────────
 
 		var subscription *service.UserSubscription
 		isSubscriptionType := apiKey.Group != nil && apiKey.Group.IsSubscriptionType()

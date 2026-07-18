@@ -111,7 +111,7 @@ func TestHandle429_AnthropicNoResetTimeUsesFallbackCooldown(t *testing.T) {
 
 	account := &Account{ID: 45, Platform: PlatformAnthropic, Type: AccountTypeOAuth}
 	before := time.Now()
-	svc.handle429(context.Background(), account, http.Header{}, []byte(`{"error":{"type":"rate_limit_error","message":"Extra usage required"}}`))
+	svc.handle429(context.Background(), account, http.Header{}, []byte(`{"error":{"type":"rate_limit_error","message":"Extra usage required"}}`), "")
 	after := time.Now()
 
 	require.Equal(t, 1, accountRepo.rateLimitCalls)
@@ -131,7 +131,7 @@ func TestHandle429_AnthropicNoResetTimeFallbackDisabledSkipsMark(t *testing.T) {
 	svc.SetSettingService(settingSvc)
 
 	account := &Account{ID: 46, Platform: PlatformAnthropic, Type: AccountTypeOAuth}
-	svc.handle429(context.Background(), account, http.Header{}, []byte(`{"error":{"type":"rate_limit_error","message":"Extra usage required"}}`))
+	svc.handle429(context.Background(), account, http.Header{}, []byte(`{"error":{"type":"rate_limit_error","message":"Extra usage required"}}`), "")
 
 	require.Zero(t, accountRepo.rateLimitCalls)
 }
