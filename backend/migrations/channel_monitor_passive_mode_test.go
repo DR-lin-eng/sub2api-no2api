@@ -28,3 +28,13 @@ func TestChannelMonitorPassiveIndexMigration(t *testing.T) {
 	require.Contains(t, sql, "ON usage_logs (channel_id, created_at DESC)")
 	require.Contains(t, sql, "WHERE channel_id IS NOT NULL")
 }
+
+func TestChannelMonitorGroupTargetMigration(t *testing.T) {
+	content, err := FS.ReadFile("189_channel_monitor_group_target.sql")
+	require.NoError(t, err)
+
+	sql := strings.Join(strings.Fields(string(content)), " ")
+	require.Contains(t, sql, "group_id BIGINT")
+	require.Contains(t, sql, "FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE SET NULL")
+	require.Contains(t, sql, "ON channel_monitors (monitor_mode, group_id)")
+}

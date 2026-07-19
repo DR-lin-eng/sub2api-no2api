@@ -17,6 +17,7 @@ export interface ChannelMonitor {
   provider: Provider
   monitor_mode?: MonitorMode
   channel_id?: number | null
+  group_id?: number | null
   api_mode: APIMode
   endpoint: string
   api_key_masked: string
@@ -79,6 +80,7 @@ export interface CreateParams {
   provider: Provider
   monitor_mode?: MonitorMode
   channel_id?: number | null
+  group_id?: number | null
   api_mode?: APIMode
   endpoint?: string
   api_key?: string
@@ -98,6 +100,7 @@ export interface CreateParams {
 export type UpdateParams = Partial<CreateParams> & {
   clear_template?: boolean
   clear_channel?: boolean
+  clear_group?: boolean
 }
 
 export interface CheckResult {

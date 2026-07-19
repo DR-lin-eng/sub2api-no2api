@@ -15,6 +15,7 @@ type passiveChannelMonitorRepoStub struct {
 	monitor         *ChannelMonitor
 	samples         []*ChannelMonitorPassiveSample
 	channelID       int64
+	groupID         int64
 	provider        string
 	models          []string
 	window          time.Duration
@@ -23,9 +24,19 @@ type passiveChannelMonitorRepoStub struct {
 	created         *ChannelMonitor
 }
 
+type passiveChannelMonitorGroupRepoStub struct {
+	group *Group
+	err   error
+}
+
+func (r *passiveChannelMonitorGroupRepoStub) GetByID(context.Context, int64) (*Group, error) {
+	return r.group, r.err
+}
+
 func (r *passiveChannelMonitorRepoStub) Create(_ context.Context, monitor *ChannelMonitor) error {
 	copy := *monitor
 	copy.ChannelID = cloneInt64Pointer(monitor.ChannelID)
+	copy.GroupID = cloneInt64Pointer(monitor.GroupID)
 	r.created = &copy
 	monitor.ID = 101
 	return nil
@@ -35,17 +46,23 @@ func (r *passiveChannelMonitorRepoStub) GetByID(context.Context, int64) (*Channe
 	copy := *r.monitor
 	copy.ExtraModels = append([]string(nil), r.monitor.ExtraModels...)
 	copy.ChannelID = cloneInt64Pointer(r.monitor.ChannelID)
+	copy.GroupID = cloneInt64Pointer(r.monitor.GroupID)
 	return &copy, nil
 }
 
 func (r *passiveChannelMonitorRepoStub) ComputePassiveSamples(
 	_ context.Context,
-	channelID int64,
+	channelID, groupID *int64,
 	provider string,
 	models []string,
 	startTime, endTime time.Time,
 ) ([]*ChannelMonitorPassiveSample, error) {
-	r.channelID = channelID
+	if channelID != nil {
+		r.channelID = *channelID
+	}
+	if groupID != nil {
+		r.groupID = *groupID
+	}
 	r.provider = provider
 	r.models = append([]string(nil), models...)
 	r.window = endTime.Sub(startTime)
@@ -106,7 +123,7 @@ func TestChannelMonitorRunCheckPassiveUsesRealRequestSamples(t *testing.T) {
 	require.False(t, repo.markedCheckedAt.IsZero())
 }
 
-func TestChannelMonitorPassiveCreateRequiresChannelButNotProbeCredentials(t *testing.T) {
+func TestChannelMonitorPassiveCreateRequiresOneTargetButNotProbeCredentials(t *testing.T) {
 	repo := &passiveChannelMonitorRepoStub{}
 	svc := NewChannelMonitorService(repo, nil)
 	params := ChannelMonitorCreateParams{
@@ -120,7 +137,7 @@ func TestChannelMonitorPassiveCreateRequiresChannelButNotProbeCredentials(t *tes
 
 	_, err := svc.Create(context.Background(), params)
 
-	require.ErrorIs(t, err, ErrChannelMonitorMissingChannel)
+	require.ErrorIs(t, err, ErrChannelMonitorMissingTarget)
 
 	channelID := int64(7)
 	params.ChannelID = &channelID
@@ -131,4 +148,66 @@ func TestChannelMonitorPassiveCreateRequiresChannelButNotProbeCredentials(t *tes
 	require.Equal(t, int64(7), *repo.created.ChannelID)
 	require.Empty(t, repo.created.Endpoint)
 	require.Empty(t, repo.created.APIKey)
+
+	groupID := int64(12)
+	params.ChannelID = nil
+	params.GroupID = &groupID
+	created, err = svc.Create(context.Background(), params)
+	require.NoError(t, err)
+	require.Nil(t, repo.created.ChannelID)
+	require.Equal(t, int64(12), *repo.created.GroupID)
+
+	params.ChannelID = &channelID
+	_, err = svc.Create(context.Background(), params)
+	require.ErrorIs(t, err, ErrChannelMonitorInvalidTarget)
+}
+
+func TestChannelMonitorRunCheckPassiveSupportsGroupTarget(t *testing.T) {
+	groupID := int64(12)
+	repo := &passiveChannelMonitorRepoStub{
+		monitor: &ChannelMonitor{
+			ID:              43,
+			MonitorMode:     MonitorModePassive,
+			GroupID:         &groupID,
+			Provider:        MonitorProviderAnthropic,
+			PrimaryModel:    "claude-sonnet-4-6",
+			IntervalSeconds: 90,
+		},
+		samples: []*ChannelMonitorPassiveSample{{Model: "claude-sonnet-4-6", SuccessCount: 10}},
+	}
+	svc := NewChannelMonitorService(repo, nil)
+
+	results, err := svc.RunCheck(context.Background(), 43)
+
+	require.NoError(t, err)
+	require.Zero(t, repo.channelID)
+	require.Equal(t, int64(12), repo.groupID)
+	require.Len(t, results, 1)
+	require.Equal(t, MonitorStatusOperational, results[0].Status)
+}
+
+func TestChannelMonitorPassiveCreateValidatesGroupProvider(t *testing.T) {
+	groupID := int64(12)
+	repo := &passiveChannelMonitorRepoStub{}
+	svc := NewChannelMonitorService(repo, nil)
+	svc.SetGroupRepository(&passiveChannelMonitorGroupRepoStub{
+		group: &Group{ID: groupID, Platform: MonitorProviderAnthropic},
+	})
+	params := ChannelMonitorCreateParams{
+		Name:             "group passive",
+		Provider:         MonitorProviderOpenAI,
+		MonitorMode:      MonitorModePassive,
+		GroupID:          &groupID,
+		PrimaryModel:     "gpt-5.4",
+		IntervalSeconds:  60,
+		BodyOverrideMode: MonitorBodyOverrideModeOff,
+	}
+
+	_, err := svc.Create(context.Background(), params)
+	require.ErrorIs(t, err, ErrChannelMonitorTargetProviderMismatch)
+
+	params.Provider = MonitorProviderAnthropic
+	params.PrimaryModel = "claude-sonnet-4-6"
+	_, err = svc.Create(context.Background(), params)
+	require.NoError(t, err)
 }

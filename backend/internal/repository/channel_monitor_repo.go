@@ -56,6 +56,9 @@ func (r *channelMonitorRepository) Create(ctx context.Context, m *service.Channe
 	if m.ChannelID != nil {
 		builder = builder.SetChannelID(*m.ChannelID)
 	}
+	if m.GroupID != nil {
+		builder = builder.SetGroupID(*m.GroupID)
+	}
 	if m.TemplateID != nil {
 		builder = builder.SetTemplateID(*m.TemplateID)
 	}
@@ -128,6 +131,11 @@ func (r *channelMonitorRepository) Update(ctx context.Context, m *service.Channe
 		updater = updater.SetChannelID(*m.ChannelID)
 	} else {
 		updater = updater.ClearChannelID()
+	}
+	if m.GroupID != nil {
+		updater = updater.SetGroupID(*m.GroupID)
+	} else {
+		updater = updater.ClearGroupID()
 	}
 	if m.TemplateID != nil {
 		updater = updater.SetTemplateID(*m.TemplateID)
@@ -229,34 +237,43 @@ func (r *channelMonitorRepository) MarkChecked(ctx context.Context, id int64, ch
 }
 
 // ComputePassiveSamples aggregates real gateway traffic for a passive monitor.
-// Successes come from usage_logs; terminal request failures come from
-// ops_error_logs. Error rows do not yet carry channel_id, so their persisted
-// group_id is resolved through the channel_groups ownership table.
+// Exactly one target is set: channelID resolves error rows through
+// channel_groups, while groupID filters both logs directly.
 func (r *channelMonitorRepository) ComputePassiveSamples(
 	ctx context.Context,
-	channelID int64,
+	channelID, groupID *int64,
 	provider string,
 	models []string,
 	startTime, endTime time.Time,
 ) ([]*service.ChannelMonitorPassiveSample, error) {
-	if channelID <= 0 || len(models) == 0 || !endTime.After(startTime) {
+	if (channelID == nil) == (groupID == nil) ||
+		(channelID != nil && *channelID <= 0) ||
+		(groupID != nil && *groupID <= 0) ||
+		len(models) == 0 || !endTime.After(startTime) {
 		return []*service.ChannelMonitorPassiveSample{}, nil
+	}
+	var channelArg, groupArg any
+	if channelID != nil {
+		channelArg = *channelID
+	}
+	if groupID != nil {
+		groupArg = *groupID
 	}
 	const q = `
 		WITH requested_models AS (
 		    SELECT model, LOWER(model) AS model_key, ord
-		    FROM UNNEST($3::text[]) WITH ORDINALITY AS requested(model, ord)
+		    FROM UNNEST($4::text[]) WITH ORDINALITY AS requested(model, ord)
 		),
 		success_agg AS (
 		    SELECT LOWER(COALESCE(NULLIF(ul.requested_model, ''), ul.model)) AS model_key,
 		           COUNT(*) AS success_count,
 		           AVG(ul.duration_ms) FILTER (WHERE ul.duration_ms IS NOT NULL) AS avg_latency_ms
 		    FROM usage_logs ul
-		    JOIN groups g ON g.id = ul.group_id
-		    WHERE ul.channel_id = $1
-		      AND g.platform = $2
-		      AND ul.created_at >= $4
-		      AND ul.created_at < $5
+		    JOIN groups g ON g.id = ul.group_id AND g.platform = $3
+		    WHERE (($1::BIGINT IS NOT NULL AND ul.channel_id = $1)
+		       OR ($2::BIGINT IS NOT NULL AND ul.group_id = $2))
+		      AND ul.created_at >= $5
+		      AND ul.created_at < $6
 		      AND ul.actual_cost > 0
 		      AND LOWER(COALESCE(NULLIF(ul.requested_model, ''), ul.model)) IN (
 		          SELECT model_key FROM requested_models
@@ -267,11 +284,14 @@ func (r *channelMonitorRepository) ComputePassiveSamples(
 		    SELECT LOWER(COALESCE(NULLIF(e.requested_model, ''), e.model)) AS model_key,
 		           COUNT(*) AS failure_count
 		    FROM ops_error_logs e
-		    JOIN channel_groups cg ON cg.group_id = e.group_id
-		    WHERE cg.channel_id = $1
-		      AND e.platform = $2
-		      AND e.created_at >= $4
-		      AND e.created_at < $5
+		    WHERE (($1::BIGINT IS NOT NULL AND EXISTS (
+		               SELECT 1 FROM channel_groups cg
+		               WHERE cg.channel_id = $1 AND cg.group_id = e.group_id
+		           ))
+		       OR ($2::BIGINT IS NOT NULL AND e.group_id = $2))
+		      AND e.platform = $3
+		      AND e.created_at >= $5
+		      AND e.created_at < $6
 		      AND COALESCE(e.status_code, 0) >= 400
 		      AND e.is_business_limited = FALSE
 		      AND e.is_count_tokens = FALSE
@@ -289,7 +309,7 @@ func (r *channelMonitorRepository) ComputePassiveSamples(
 		LEFT JOIN error_agg e ON e.model_key = rm.model_key
 		ORDER BY rm.ord
 	`
-	rows, err := r.db.QueryContext(ctx, q, channelID, provider, pq.Array(models), startTime, endTime)
+	rows, err := r.db.QueryContext(ctx, q, channelArg, groupArg, provider, pq.Array(models), startTime, endTime)
 	if err != nil {
 		return nil, fmt.Errorf("compute passive channel monitor samples: %w", err)
 	}
@@ -859,6 +879,10 @@ func entToServiceMonitor(row *dbent.ChannelMonitor) *service.ChannelMonitor {
 	if row.ChannelID != nil {
 		id := *row.ChannelID
 		out.ChannelID = &id
+	}
+	if row.GroupID != nil {
+		id := *row.GroupID
+		out.GroupID = &id
 	}
 	if row.TemplateID != nil {
 		id := *row.TemplateID

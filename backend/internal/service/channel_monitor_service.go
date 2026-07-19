@@ -29,7 +29,7 @@ type ChannelMonitorRepository interface {
 	// 调度器辅助
 	ListEnabled(ctx context.Context) ([]*ChannelMonitor, error)
 	MarkChecked(ctx context.Context, id int64, checkedAt time.Time) error
-	ComputePassiveSamples(ctx context.Context, channelID int64, provider string, models []string, startTime, endTime time.Time) ([]*ChannelMonitorPassiveSample, error)
+	ComputePassiveSamples(ctx context.Context, channelID, groupID *int64, provider string, models []string, startTime, endTime time.Time) ([]*ChannelMonitorPassiveSample, error)
 	InsertHistoryBatch(ctx context.Context, rows []*ChannelMonitorHistoryRow) error
 	DeleteHistoryBefore(ctx context.Context, before time.Time) (int64, error)
 
@@ -62,11 +62,18 @@ type ChannelMonitorRepository interface {
 	UpdateAggregationWatermark(ctx context.Context, date time.Time) error
 }
 
+// ChannelMonitorGroupRepository is the narrow group lookup dependency needed
+// to validate group-targeted passive monitors.
+type ChannelMonitorGroupRepository interface {
+	GetByID(ctx context.Context, id int64) (*Group, error)
+}
+
 // ChannelMonitorService 渠道监控管理服务。
 type ChannelMonitorService struct {
 	repo        ChannelMonitorRepository
 	encryptor   SecretEncryptor
 	channelRepo ChannelRepository
+	groupRepo   ChannelMonitorGroupRepository
 	// scheduler 由 wire 通过 SetScheduler 注入；CRUD 后调用对应钩子即时同步任务。
 	// 测试或未注入场景下保持 nil，所有钩子调用变为 no-op。
 	scheduler MonitorScheduler
@@ -87,6 +94,13 @@ func NewChannelMonitorService(repo ChannelMonitorRepository, encryptor SecretEnc
 		svc.channelRepo = channelRepos[0]
 	}
 	return svc
+}
+
+// SetGroupRepository injects the narrow group lookup used for passive-target
+// validation. It remains optional so focused service tests can use lightweight
+// repositories while production always injects it through wire.
+func (s *ChannelMonitorService) SetGroupRepository(repo ChannelMonitorGroupRepository) {
+	s.groupRepo = repo
 }
 
 // ---------- CRUD ----------
@@ -125,7 +139,7 @@ func (s *ChannelMonitorService) Create(ctx context.Context, p ChannelMonitorCrea
 	if err := validateCreateParams(p); err != nil {
 		return nil, err
 	}
-	if err := s.validatePassiveChannel(ctx, defaultMonitorMode(p.MonitorMode), p.ChannelID); err != nil {
+	if err := s.validatePassiveTarget(ctx, defaultMonitorMode(p.MonitorMode), p.Provider, p.ChannelID, p.GroupID); err != nil {
 		return nil, err
 	}
 	if err := validateBodyModeForProtocol(p.Provider, p.APIMode, p.BodyOverrideMode, p.BodyOverride); err != nil {
@@ -147,6 +161,7 @@ func (s *ChannelMonitorService) Create(ctx context.Context, p ChannelMonitorCrea
 		Provider:         p.Provider,
 		MonitorMode:      defaultMonitorMode(p.MonitorMode),
 		ChannelID:        cloneInt64Pointer(p.ChannelID),
+		GroupID:          cloneInt64Pointer(p.GroupID),
 		APIMode:          defaultAPIMode(p.APIMode),
 		Endpoint:         normalizeEndpoint(p.Endpoint),
 		APIKey:           encrypted, // 注意：传入 repository 时该字段为密文
@@ -217,6 +232,7 @@ func (s *ChannelMonitorService) Duplicate(
 		Provider:             source.Provider,
 		MonitorMode:          defaultMonitorMode(source.MonitorMode),
 		ChannelID:            cloneInt64Pointer(source.ChannelID),
+		GroupID:              cloneInt64Pointer(source.GroupID),
 		APIMode:              source.APIMode,
 		Endpoint:             source.Endpoint,
 		APIKey:               encryptedAPIKey,
@@ -365,10 +381,7 @@ func validateCreateParams(p ChannelMonitorCreateParams) error {
 		return ErrChannelMonitorMissingPrimaryModel
 	}
 	if mode == MonitorModePassive {
-		if p.ChannelID == nil || *p.ChannelID <= 0 {
-			return ErrChannelMonitorMissingChannel
-		}
-		return nil
+		return validatePassiveTargetIDs(p.ChannelID, p.GroupID)
 	}
 	if err := validateEndpoint(p.Endpoint); err != nil {
 		return err
@@ -488,13 +501,13 @@ func (s *ChannelMonitorService) RunCheck(ctx context.Context, id int64) ([]*Chec
 }
 
 func (s *ChannelMonitorService) runPassiveCheck(ctx context.Context, m *ChannelMonitor) ([]*CheckResult, error) {
-	if m.ChannelID == nil || *m.ChannelID <= 0 {
-		return nil, ErrChannelMonitorMissingChannel
+	if err := validatePassiveTargetIDs(m.ChannelID, m.GroupID); err != nil {
+		return nil, err
 	}
 	now := time.Now().UTC()
 	start := now.Add(-time.Duration(m.IntervalSeconds) * time.Second)
 	models := append([]string{m.PrimaryModel}, m.ExtraModels...)
-	samples, err := s.repo.ComputePassiveSamples(ctx, *m.ChannelID, m.Provider, models, start, now)
+	samples, err := s.repo.ComputePassiveSamples(ctx, m.ChannelID, m.GroupID, m.Provider, models, start, now)
 	if err != nil {
 		return nil, err
 	}
@@ -768,10 +781,20 @@ func applyMonitorUpdate(existing *ChannelMonitor, p ChannelMonitorUpdateParams) 
 		}
 		existing.MonitorMode = defaultMonitorMode(*p.MonitorMode)
 	}
+	if p.ChannelID != nil && p.GroupID != nil {
+		return ErrChannelMonitorInvalidTarget
+	}
 	if p.ClearChannel {
 		existing.ChannelID = nil
 	} else if p.ChannelID != nil {
 		existing.ChannelID = cloneInt64Pointer(p.ChannelID)
+		existing.GroupID = nil
+	}
+	if p.ClearGroup {
+		existing.GroupID = nil
+	} else if p.GroupID != nil {
+		existing.GroupID = cloneInt64Pointer(p.GroupID)
+		existing.ChannelID = nil
 	}
 	providerChanged := false
 	if p.Name != nil {
@@ -832,7 +855,7 @@ func (s *ChannelMonitorService) validateMonitorForUpdate(ctx context.Context, mo
 		return err
 	}
 	if mode == MonitorModePassive {
-		return s.validatePassiveChannel(ctx, mode, monitor.ChannelID)
+		return s.validatePassiveTarget(ctx, mode, monitor.Provider, monitor.ChannelID, monitor.GroupID)
 	}
 	if strings.TrimSpace(monitor.Endpoint) == "" {
 		return ErrChannelMonitorInvalidEndpoint
@@ -843,18 +866,51 @@ func (s *ChannelMonitorService) validateMonitorForUpdate(ctx context.Context, mo
 	return nil
 }
 
-func (s *ChannelMonitorService) validatePassiveChannel(ctx context.Context, mode string, channelID *int64) error {
+func validatePassiveTargetIDs(channelID, groupID *int64) error {
+	if channelID == nil && groupID == nil {
+		return ErrChannelMonitorMissingTarget
+	}
+	if channelID != nil && groupID != nil {
+		return ErrChannelMonitorInvalidTarget
+	}
+	if (channelID != nil && *channelID <= 0) || (groupID != nil && *groupID <= 0) {
+		return ErrChannelMonitorMissingTarget
+	}
+	return nil
+}
+
+func (s *ChannelMonitorService) validatePassiveTarget(
+	ctx context.Context,
+	mode, provider string,
+	channelID, groupID *int64,
+) error {
 	if defaultMonitorMode(mode) != MonitorModePassive {
 		return nil
 	}
-	if channelID == nil || *channelID <= 0 {
-		return ErrChannelMonitorMissingChannel
+	if err := validatePassiveTargetIDs(channelID, groupID); err != nil {
+		return err
 	}
-	if s.channelRepo == nil {
+	if channelID != nil {
+		if s.channelRepo == nil {
+			return nil
+		}
+		_, err := s.channelRepo.GetByID(ctx, *channelID)
+		return err
+	}
+	if s.groupRepo == nil {
 		return nil
 	}
-	_, err := s.channelRepo.GetByID(ctx, *channelID)
-	return err
+	group, err := s.groupRepo.GetByID(ctx, *groupID)
+	if err != nil {
+		return err
+	}
+	if group == nil {
+		return ErrGroupNotFound
+	}
+	if !strings.EqualFold(group.Platform, provider) {
+		return ErrChannelMonitorTargetProviderMismatch
+	}
+	return nil
 }
 
 // applyMonitorAdvancedUpdate 处理自定义请求快照相关字段，从 applyMonitorUpdate 拆出避免过长。

@@ -42,6 +42,7 @@ type channelMonitorCreateRequest struct {
 	Provider         string            `json:"provider" binding:"required,oneof=openai anthropic gemini grok"`
 	MonitorMode      string            `json:"monitor_mode" binding:"omitempty,oneof=active passive"`
 	ChannelID        *int64            `json:"channel_id" binding:"omitempty,min=1"`
+	GroupID          *int64            `json:"group_id" binding:"omitempty,min=1"`
 	APIMode          string            `json:"api_mode" binding:"omitempty,oneof=chat_completions responses"`
 	Endpoint         string            `json:"endpoint" binding:"omitempty,max=500"`
 	APIKey           string            `json:"api_key" binding:"omitempty,max=2000"`
@@ -63,6 +64,8 @@ type channelMonitorUpdateRequest struct {
 	MonitorMode      *string            `json:"monitor_mode" binding:"omitempty,oneof=active passive"`
 	ChannelID        *int64             `json:"channel_id" binding:"omitempty,min=1"`
 	ClearChannel     bool               `json:"clear_channel"`
+	GroupID          *int64             `json:"group_id" binding:"omitempty,min=1"`
+	ClearGroup       bool               `json:"clear_group"`
 	APIMode          *string            `json:"api_mode" binding:"omitempty,oneof=chat_completions responses"`
 	Endpoint         *string            `json:"endpoint" binding:"omitempty,max=500"`
 	APIKey           *string            `json:"api_key" binding:"omitempty,max=2000"`
@@ -85,6 +88,7 @@ type channelMonitorResponse struct {
 	Provider            string                               `json:"provider"`
 	MonitorMode         string                               `json:"monitor_mode"`
 	ChannelID           *int64                               `json:"channel_id"`
+	GroupID             *int64                               `json:"group_id"`
 	APIMode             string                               `json:"api_mode"`
 	Endpoint            string                               `json:"endpoint"`
 	APIKeyMasked        string                               `json:"api_key_masked"`
@@ -158,6 +162,7 @@ func channelMonitorToResponse(m *service.ChannelMonitor) *channelMonitorResponse
 		Provider:            m.Provider,
 		MonitorMode:         m.MonitorMode,
 		ChannelID:           m.ChannelID,
+		GroupID:             m.GroupID,
 		APIMode:             m.APIMode,
 		Endpoint:            m.Endpoint,
 		APIKeyMasked:        maskAPIKey(m.APIKey),
@@ -327,6 +332,7 @@ func (h *ChannelMonitorHandler) Create(c *gin.Context) {
 		Provider:         req.Provider,
 		MonitorMode:      req.MonitorMode,
 		ChannelID:        req.ChannelID,
+		GroupID:          req.GroupID,
 		APIMode:          req.APIMode,
 		Endpoint:         req.Endpoint,
 		APIKey:           req.APIKey,
@@ -424,6 +430,8 @@ func (h *ChannelMonitorHandler) Update(c *gin.Context) {
 		MonitorMode:      req.MonitorMode,
 		ChannelID:        req.ChannelID,
 		ClearChannel:     req.ClearChannel,
+		GroupID:          req.GroupID,
+		ClearGroup:       req.ClearGroup,
 		APIMode:          req.APIMode,
 		Endpoint:         req.Endpoint,
 		APIKey:           req.APIKey,

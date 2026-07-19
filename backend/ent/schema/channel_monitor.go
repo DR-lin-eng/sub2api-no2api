@@ -44,6 +44,10 @@ func (ChannelMonitor) Fields() []ent.Field {
 			Optional().
 			Nillable().
 			Comment("Pricing channel observed by passive monitors"),
+		field.Int64("group_id").
+			Optional().
+			Nillable().
+			Comment("Routing group observed by passive monitors"),
 		field.String("api_mode").
 			Default("chat_completions").
 			MaxLen(32).
@@ -119,6 +123,7 @@ func (ChannelMonitor) Indexes() []ent.Index {
 		index.Fields("enabled", "last_checked_at"),
 		index.Fields("provider"),
 		index.Fields("monitor_mode", "channel_id"),
+		index.Fields("monitor_mode", "group_id"),
 		index.Fields("provider", "api_mode"),
 		index.Fields("group_name"),
 		index.Fields("template_id"),

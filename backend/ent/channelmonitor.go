@@ -31,6 +31,8 @@ type ChannelMonitor struct {
 	MonitorMode channelmonitor.MonitorMode `json:"monitor_mode,omitempty"`
 	// Pricing channel observed by passive monitors
 	ChannelID *int64 `json:"channel_id,omitempty"`
+	// Routing group observed by passive monitors
+	GroupID *int64 `json:"group_id,omitempty"`
 	// OpenAI request protocol: chat_completions or responses; non-OpenAI uses chat_completions
 	APIMode string `json:"api_mode,omitempty"`
 	// Provider base origin for active monitors; empty for passive monitors
@@ -118,7 +120,7 @@ func (*ChannelMonitor) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case channelmonitor.FieldEnabled:
 			values[i] = new(sql.NullBool)
-		case channelmonitor.FieldID, channelmonitor.FieldChannelID, channelmonitor.FieldIntervalSeconds, channelmonitor.FieldJitterSeconds, channelmonitor.FieldCreatedBy, channelmonitor.FieldTemplateID:
+		case channelmonitor.FieldID, channelmonitor.FieldChannelID, channelmonitor.FieldGroupID, channelmonitor.FieldIntervalSeconds, channelmonitor.FieldJitterSeconds, channelmonitor.FieldCreatedBy, channelmonitor.FieldTemplateID:
 			values[i] = new(sql.NullInt64)
 		case channelmonitor.FieldName, channelmonitor.FieldProvider, channelmonitor.FieldMonitorMode, channelmonitor.FieldAPIMode, channelmonitor.FieldEndpoint, channelmonitor.FieldAPIKeyEncrypted, channelmonitor.FieldPrimaryModel, channelmonitor.FieldGroupName, channelmonitor.FieldBodyOverrideMode:
 			values[i] = new(sql.NullString)
@@ -181,6 +183,13 @@ func (_m *ChannelMonitor) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.ChannelID = new(int64)
 				*_m.ChannelID = value.Int64
+			}
+		case channelmonitor.FieldGroupID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field group_id", values[i])
+			} else if value.Valid {
+				_m.GroupID = new(int64)
+				*_m.GroupID = value.Int64
 			}
 		case channelmonitor.FieldAPIMode:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -348,6 +357,11 @@ func (_m *ChannelMonitor) String() string {
 	builder.WriteString(", ")
 	if v := _m.ChannelID; v != nil {
 		builder.WriteString("channel_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.GroupID; v != nil {
+		builder.WriteString("group_id=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")

@@ -946,8 +946,11 @@ func ProvideChannelMonitorService(
 	repo ChannelMonitorRepository,
 	encryptor SecretEncryptor,
 	channelRepo ChannelRepository,
+	groupRepo GroupRepository,
 ) *ChannelMonitorService {
-	return NewChannelMonitorService(repo, encryptor, channelRepo)
+	svc := NewChannelMonitorService(repo, encryptor, channelRepo)
+	svc.SetGroupRepository(groupRepo)
+	return svc
 }
 
 // ProvideChannelMonitorRunner 创建并启动渠道监控调度器。

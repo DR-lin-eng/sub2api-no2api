@@ -134,8 +134,17 @@ var (
 	ErrChannelMonitorInvalidMode = infraerrors.BadRequest(
 		"CHANNEL_MONITOR_INVALID_MODE", "monitor_mode must be active or passive",
 	)
-	ErrChannelMonitorMissingChannel = infraerrors.BadRequest(
-		"CHANNEL_MONITOR_MISSING_CHANNEL", "channel_id is required for passive monitoring",
+	ErrChannelMonitorMissingTarget = infraerrors.BadRequest(
+		"CHANNEL_MONITOR_MISSING_TARGET", "exactly one of channel_id or group_id is required for passive monitoring",
+	)
+	// ErrChannelMonitorMissingChannel is retained as an alias for callers that
+	// matched the pre-group-target service error directly.
+	ErrChannelMonitorMissingChannel = ErrChannelMonitorMissingTarget
+	ErrChannelMonitorInvalidTarget  = infraerrors.BadRequest(
+		"CHANNEL_MONITOR_INVALID_TARGET", "channel_id and group_id cannot both be set",
+	)
+	ErrChannelMonitorTargetProviderMismatch = infraerrors.BadRequest(
+		"CHANNEL_MONITOR_TARGET_PROVIDER_MISMATCH", "the selected group platform must match the monitor provider",
 	)
 	ErrChannelMonitorInvalidAPIMode = infraerrors.BadRequest(
 		"CHANNEL_MONITOR_INVALID_API_MODE", "api_mode must be chat_completions or responses; responses is only supported for openai",

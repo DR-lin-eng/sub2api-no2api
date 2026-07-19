@@ -30,16 +30,6 @@
         </div>
       </div>
 
-      <div v-if="form.monitor_mode === MONITOR_MODE_PASSIVE">
-        <label class="input-label">{{ t('admin.channelMonitor.form.channel') }} <span class="text-red-500">*</span></label>
-        <Select
-          v-model="channelSelectValue"
-          :options="channelOptions"
-          :placeholder="t('admin.channelMonitor.form.channelPlaceholder')"
-        />
-        <p class="mt-1 text-xs text-gray-400">{{ t('admin.channelMonitor.form.channelHint') }}</p>
-      </div>
-
       <div>
         <label class="input-label">{{ t('admin.channelMonitor.form.provider') }} <span class="text-red-500">*</span></label>
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -56,6 +46,52 @@
             <ProviderIcon :provider="opt.value" :size="18" />
             <span>{{ opt.label }}</span>
           </button>
+        </div>
+      </div>
+
+      <div v-if="form.monitor_mode === MONITOR_MODE_PASSIVE" class="space-y-3">
+        <div>
+          <label class="input-label">{{ t('admin.channelMonitor.form.passiveTarget') }}</label>
+          <div class="inline-flex rounded-md border border-gray-200 p-0.5 dark:border-dark-700">
+            <button
+              type="button"
+              data-testid="passive-target-channel"
+              class="rounded px-3 py-1.5 text-sm font-medium transition-colors"
+              :class="passiveTarget === 'channel' ? 'bg-primary-500 text-white' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700'"
+              @click="selectPassiveTarget('channel')"
+            >
+              {{ t('admin.channelMonitor.form.targetChannel') }}
+            </button>
+            <button
+              type="button"
+              data-testid="passive-target-group"
+              class="rounded px-3 py-1.5 text-sm font-medium transition-colors"
+              :class="passiveTarget === 'group' ? 'bg-primary-500 text-white' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700'"
+              @click="selectPassiveTarget('group')"
+            >
+              {{ t('admin.channelMonitor.form.targetGroup') }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="passiveTarget === 'channel'">
+          <label class="input-label">{{ t('admin.channelMonitor.form.channel') }} <span class="text-red-500">*</span></label>
+          <Select
+            v-model="channelSelectValue"
+            :options="channelOptions"
+            :placeholder="t('admin.channelMonitor.form.channelPlaceholder')"
+          />
+          <p class="mt-1 text-xs text-gray-400">{{ t('admin.channelMonitor.form.channelHint') }}</p>
+        </div>
+
+        <div v-else>
+          <label class="input-label">{{ t('admin.channelMonitor.form.group') }} <span class="text-red-500">*</span></label>
+          <Select
+            v-model="groupSelectValue"
+            :options="groupOptions"
+            :placeholder="t('admin.channelMonitor.form.groupPlaceholder')"
+          />
+          <p class="mt-1 text-xs text-gray-400">{{ t('admin.channelMonitor.form.groupHint') }}</p>
         </div>
       </div>
 
@@ -232,7 +268,7 @@ import type {
 } from '@/api/admin/channelMonitor'
 import type { ChannelMonitorTemplate } from '@/api/admin/channelMonitorTemplate'
 import type { Channel } from '@/api/admin/channels'
-import type { ApiKey } from '@/types'
+import type { AdminGroup, ApiKey } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Toggle from '@/components/common/Toggle.vue'
 import Select from '@/components/common/Select.vue'
@@ -292,6 +328,7 @@ interface MonitorForm {
   name: string
   monitor_mode: MonitorMode
   channel_id: number | null
+  group_id: number | null
   provider: Provider
   api_mode: APIMode
   endpoint: string
@@ -313,6 +350,7 @@ const form = reactive<MonitorForm>({
   name: '',
   monitor_mode: MONITOR_MODE_ACTIVE,
   channel_id: null,
+  group_id: null,
   provider: PROVIDER_ANTHROPIC,
   api_mode: API_MODE_CHAT_COMPLETIONS,
   endpoint: '',
@@ -333,6 +371,8 @@ const form = reactive<MonitorForm>({
 const maxJitterSeconds = computed<number>(() => Math.max(0, (form.interval_seconds || 0) - 15))
 
 const channelsCache = ref<Channel[]>([])
+const groupsCache = ref<AdminGroup[]>([])
+const passiveTarget = ref<'channel' | 'group'>('channel')
 
 const channelOptions = computed(() => channelsCache.value.map(channel => ({
   value: String(channel.id),
@@ -347,6 +387,27 @@ const channelSelectValue = computed<string>({
   },
 })
 
+const groupOptions = computed(() => groupsCache.value
+  .filter(group => group.platform === form.provider)
+  .map(group => ({
+    value: String(group.id),
+    label: group.name,
+  })))
+
+const groupSelectValue = computed<string>({
+  get: () => form.group_id == null ? '' : String(form.group_id),
+  set: (value: string) => {
+    const id = Number(value)
+    form.group_id = Number.isSafeInteger(id) && id > 0 ? id : null
+  },
+})
+
+function selectPassiveTarget(target: 'channel' | 'group') {
+  passiveTarget.value = target
+  if (target === 'channel') form.group_id = null
+  else form.channel_id = null
+}
+
 async function loadChannels() {
   if (channelsCache.value.length > 0) return
   try {
@@ -355,6 +416,19 @@ async function loadChannels() {
   } catch (err: unknown) {
     appStore.showError(extractApiErrorMessage(err, t('admin.channelMonitor.form.channelLoadError')))
   }
+}
+
+async function loadGroups() {
+  if (groupsCache.value.length > 0) return
+  try {
+    groupsCache.value = await adminAPI.groups.getAll()
+  } catch (err: unknown) {
+    appStore.showError(extractApiErrorMessage(err, t('admin.channelMonitor.form.groupLoadError')))
+  }
+}
+
+function loadPassiveTargets() {
+  void Promise.all([loadChannels(), loadGroups()])
 }
 
 let suppressFormWatchers = false
@@ -514,6 +588,9 @@ watch(() => form.provider, () => {
     form.api_mode = API_MODE_CHAT_COMPLETIONS
   }
   clearRequestSnapshot()
+  if (form.group_id != null && !groupOptions.value.some(option => Number(option.value) === form.group_id)) {
+    form.group_id = null
+  }
 }, { flush: 'sync' })
 
 watch(() => form.api_mode, () => {
@@ -525,7 +602,7 @@ watch(() => form.api_mode, () => {
 
 watch(() => form.monitor_mode, (mode) => {
   if (!props.show) return
-  if (mode === MONITOR_MODE_PASSIVE) void loadChannels()
+  if (mode === MONITOR_MODE_PASSIVE) loadPassiveTargets()
   else void loadTemplates()
 })
 
@@ -534,6 +611,8 @@ function resetForm() {
   form.name = ''
   form.monitor_mode = MONITOR_MODE_ACTIVE
   form.channel_id = null
+  form.group_id = null
+  passiveTarget.value = 'channel'
   form.provider = PROVIDER_ANTHROPIC
   form.api_mode = API_MODE_CHAT_COMPLETIONS
   form.endpoint = ''
@@ -556,6 +635,8 @@ function loadFromMonitor(m: ChannelMonitor) {
   form.name = m.name
   form.monitor_mode = m.monitor_mode || MONITOR_MODE_ACTIVE
   form.channel_id = m.channel_id ?? null
+  form.group_id = m.group_id ?? null
+  passiveTarget.value = m.group_id != null ? 'group' : 'channel'
   form.provider = m.provider
   form.api_mode = normalizeAPIMode(m.api_mode)
   form.endpoint = m.endpoint
@@ -581,7 +662,7 @@ watch(
     if (!show) return
     if (m) loadFromMonitor(m)
     else resetForm()
-    if ((m?.monitor_mode || MONITOR_MODE_ACTIVE) === MONITOR_MODE_PASSIVE) void loadChannels()
+    if ((m?.monitor_mode || MONITOR_MODE_ACTIVE) === MONITOR_MODE_PASSIVE) loadPassiveTargets()
     else void loadTemplates()
   },
   { immediate: true },
@@ -625,7 +706,8 @@ function buildPayload(): CreateParams {
     name: form.name.trim(),
     provider: form.provider,
     monitor_mode: form.monitor_mode,
-    channel_id: form.monitor_mode === MONITOR_MODE_PASSIVE ? form.channel_id : null,
+    channel_id: form.monitor_mode === MONITOR_MODE_PASSIVE && passiveTarget.value === 'channel' ? form.channel_id : null,
+    group_id: form.monitor_mode === MONITOR_MODE_PASSIVE && passiveTarget.value === 'group' ? form.group_id : null,
     api_mode: form.provider === PROVIDER_OPENAI ? form.api_mode : API_MODE_CHAT_COMPLETIONS,
     primary_model: form.primary_model.trim(),
     extra_models: form.extra_models,
@@ -655,8 +737,9 @@ async function handleSubmit() {
     appStore.showError(t('admin.channelMonitor.primaryModelRequired'))
     return
   }
-  if (form.monitor_mode === MONITOR_MODE_PASSIVE && form.channel_id == null) {
-    appStore.showError(t('admin.channelMonitor.channelRequired'))
+  if (form.monitor_mode === MONITOR_MODE_PASSIVE &&
+      (passiveTarget.value === 'channel' ? form.channel_id == null : form.group_id == null)) {
+    appStore.showError(t('admin.channelMonitor.targetRequired'))
     return
   }
 
@@ -674,6 +757,14 @@ async function handleSubmit() {
         delete req.template_id
       }
       if (form.monitor_mode === MONITOR_MODE_ACTIVE) {
+        req.clear_channel = true
+        req.clear_group = true
+        delete req.channel_id
+        delete req.group_id
+      } else if (passiveTarget.value === 'channel') {
+        req.clear_group = true
+        delete req.group_id
+      } else {
         req.clear_channel = true
         delete req.channel_id
       }

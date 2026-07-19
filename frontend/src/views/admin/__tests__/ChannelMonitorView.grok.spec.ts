@@ -10,9 +10,10 @@ import {
   PROVIDER_GROK,
 } from '@/constants/channelMonitor'
 
-const { createMonitor, listChannels, listTemplates } = vi.hoisted(() => ({
+const { createMonitor, listChannels, listGroups, listTemplates } = vi.hoisted(() => ({
   createMonitor: vi.fn(),
   listChannels: vi.fn(),
+  listGroups: vi.fn(),
   listTemplates: vi.fn(),
 }))
 
@@ -24,6 +25,9 @@ vi.mock('@/api/admin', () => ({
     },
     channels: {
       list: listChannels,
+    },
+    groups: {
+      getAll: listGroups,
     },
     channelMonitorTemplate: {
       list: listTemplates,
@@ -106,6 +110,7 @@ describe('channel monitor Grok provider', () => {
   beforeEach(() => {
     createMonitor.mockReset().mockResolvedValue({})
     listChannels.mockReset().mockResolvedValue({ items: [{ id: 7, name: 'Primary channel' }] })
+    listGroups.mockReset().mockResolvedValue([{ id: 12, name: 'Anthropic group', platform: 'anthropic' }])
     listTemplates.mockReset().mockResolvedValue({ items: [] })
   })
 
@@ -194,5 +199,29 @@ describe('channel monitor Grok provider', () => {
     const payload = createMonitor.mock.calls[0][0]
     expect(payload).not.toHaveProperty('endpoint')
     expect(payload).not.toHaveProperty('api_key')
+  })
+
+  it('submits a group-targeted passive monitor without selecting a channel', async () => {
+    listChannels.mockResolvedValue({ items: [] })
+    const wrapper = mountDialog()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="monitor-mode-passive"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="passive-target-group"]').trigger('click')
+
+    await wrapper.get('[placeholder="admin.channelMonitor.form.namePlaceholder"]').setValue('Group request monitor')
+    await wrapper.get('[data-testid="monitor-primary-model"]').setValue('claude-sonnet-4-6')
+    await wrapper.get('[data-testid="select-admin.channelMonitor.form.groupPlaceholder"]').setValue('12')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(createMonitor).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'Group request monitor',
+      monitor_mode: 'passive',
+      channel_id: null,
+      group_id: 12,
+      primary_model: 'claude-sonnet-4-6',
+    }))
   })
 })

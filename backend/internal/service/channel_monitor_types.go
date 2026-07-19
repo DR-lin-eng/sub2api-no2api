@@ -33,6 +33,7 @@ type ChannelMonitor struct {
 	Provider        string
 	MonitorMode     string
 	ChannelID       *int64
+	GroupID         *int64
 	APIMode         string
 	Endpoint        string
 	APIKey          string // 解密后的明文 API Key（仅在 service 内部使用，handler 层不应直接序列化返回）
@@ -79,6 +80,7 @@ type ChannelMonitorCreateParams struct {
 	Provider         string
 	MonitorMode      string
 	ChannelID        *int64
+	GroupID          *int64
 	APIMode          string
 	Endpoint         string
 	APIKey           string
@@ -102,6 +104,8 @@ type ChannelMonitorUpdateParams struct {
 	MonitorMode     *string
 	ChannelID       *int64
 	ClearChannel    bool
+	GroupID         *int64
+	ClearGroup      bool
 	APIMode         *string
 	Endpoint        *string
 	APIKey          *string // 空字符串表示不修改；非空字符串覆盖
