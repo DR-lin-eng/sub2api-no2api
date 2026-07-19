@@ -965,6 +965,9 @@ func TestOpenAIResponsesWebSocket_InvalidUpgradeDoesNotSetTransport(t *testing.T
 
 	require.Equal(t, http.StatusUpgradeRequired, w.Code)
 	require.Equal(t, service.OpenAIClientTransportUnknown, service.GetOpenAIClientTransport(c))
+	require.Equal(t, "websocket", w.Header().Get("Upgrade"))
+	require.Equal(t, "supported", w.Header().Get("X-OpenAI-Responses-SSE-Fallback"))
+	require.Contains(t, w.Body.String(), "retry with POST /v1/responses for HTTP SSE")
 }
 
 func TestOpenAIResponsesWebSocket_IngressCapacityRejected(t *testing.T) {

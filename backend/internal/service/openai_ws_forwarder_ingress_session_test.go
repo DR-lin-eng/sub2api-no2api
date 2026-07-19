@@ -1179,6 +1179,104 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_HTTPBridgeModeRe
 	require.NotNil(t, upstream.lastReq, "http_bridge 模式应调用 HTTP 上游")
 }
 
+func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_Dial426FallsBackToHTTPBridge(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	cfg := &config.Config{}
+	cfg.Security.URLAllowlist.Enabled = false
+	cfg.Security.URLAllowlist.AllowInsecureHTTP = true
+	cfg.Gateway.OpenAIWS.Enabled = true
+	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
+	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
+	cfg.Gateway.OpenAIWS.FallbackCooldownSeconds = 30
+	cfg.Gateway.OpenAIWS.DialTimeoutSeconds = 3
+	cfg.Gateway.OpenAIWS.ReadTimeoutSeconds = 3
+	cfg.Gateway.OpenAIWS.WriteTimeoutSeconds = 3
+
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+		Body: io.NopCloser(strings.NewReader(
+			"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_426_http\",\"output\":[{\"id\":\"ig_426_http\",\"type\":\"image_generation_call\",\"status\":\"completed\",\"result\":\"image-data\"}],\"usage\":{\"input_tokens\":1,\"output_tokens\":1}}}\n\n" +
+				"data: [DONE]\n\n",
+		)),
+	}}
+	dialer := &openAIWSUpgradeRequiredDialer{}
+	pool := newOpenAIWSConnPool(cfg)
+	pool.setClientDialerForTest(dialer)
+	defer pool.Close()
+	svc := &OpenAIGatewayService{
+		cfg:              cfg,
+		httpUpstream:     upstream,
+		cache:            &stubGatewayCache{},
+		openaiWSResolver: NewOpenAIWSProtocolResolver(cfg),
+		openaiWSPool:     pool,
+		toolCorrector:    NewCodexToolCorrector(),
+	}
+	account := &Account{
+		ID: 553, Name: "openai-ingress-426", Platform: PlatformOpenAI,
+		Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1,
+		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://api.openai.com/v1"},
+		Extra: map[string]any{
+			"responses_websockets_v2_enabled":            true,
+			"openai_apikey_responses_websockets_v2_mode": OpenAIWSIngressModeCtxPool,
+		},
+	}
+
+	serverErrCh := make(chan error, 1)
+	var hookMu sync.Mutex
+	beforeTurnCount := 0
+	hooks := &OpenAIWSIngressHooks{BeforeTurn: func(int) error {
+		hookMu.Lock()
+		beforeTurnCount++
+		hookMu.Unlock()
+		return nil
+	}}
+	wsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := coderws.Accept(w, r, nil)
+		if err != nil {
+			serverErrCh <- err
+			return
+		}
+		defer func() { _ = conn.CloseNow() }()
+		ginCtx, _ := gin.CreateTestContext(httptest.NewRecorder())
+		ginCtx.Request = r.Clone(r.Context())
+		_, firstMessage, readErr := conn.Read(r.Context())
+		if readErr != nil {
+			serverErrCh <- readErr
+			return
+		}
+		serverErrCh <- svc.ProxyResponsesWebSocketFromClient(r.Context(), ginCtx, conn, account, "sk-test", firstMessage, hooks)
+	}))
+	defer wsServer.Close()
+
+	clientConn, _, err := coderws.Dial(context.Background(), "ws"+strings.TrimPrefix(wsServer.URL, "http"), nil)
+	require.NoError(t, err)
+	request := []byte(`{"type":"response.create","model":"gpt-5.1","stream":true,"input":"draw","tools":[{"type":"image_generation"}]}`)
+	require.NoError(t, clientConn.Write(context.Background(), coderws.MessageText, request))
+	_, event, err := clientConn.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "response.completed", gjson.GetBytes(event, "type").String())
+	require.Equal(t, "image_generation_call", gjson.GetBytes(event, "response.output.0.type").String())
+	require.NoError(t, clientConn.Close(coderws.StatusNormalClosure, "done"))
+
+	select {
+	case serverErr := <-serverErrCh:
+		require.NoError(t, serverErr)
+	case <-time.After(5 * time.Second):
+		t.Fatal("等待 426 HTTP bridge fallback 结束超时")
+	}
+	require.Equal(t, 1, dialer.DialCount())
+	require.NotNil(t, upstream.lastReq)
+	require.Equal(t, "image_generation", gjson.GetBytes(upstream.lastBody, "tools.0.type").String())
+	require.True(t, svc.isOpenAIWSFallbackCooling(account.ID))
+	hookMu.Lock()
+	require.Equal(t, 1, beforeTurnCount, "426 fallback must not acquire the turn twice")
+	hookMu.Unlock()
+}
+
 func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_ModeOffReturnsPolicyViolation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -3957,6 +4055,29 @@ type openAIWSQueueDialer struct {
 	mu        sync.Mutex
 	conns     []openAIWSClientConn
 	dialCount int
+}
+
+type openAIWSUpgradeRequiredDialer struct {
+	mu        sync.Mutex
+	dialCount int
+}
+
+func (d *openAIWSUpgradeRequiredDialer) Dial(
+	context.Context,
+	string,
+	http.Header,
+	string,
+) (openAIWSClientConn, int, http.Header, error) {
+	d.mu.Lock()
+	d.dialCount++
+	d.mu.Unlock()
+	return nil, http.StatusUpgradeRequired, http.Header{"Server": []string{"test-cdn"}}, errors.New("websocket handshake failed: HTTP 426")
+}
+
+func (d *openAIWSUpgradeRequiredDialer) DialCount() int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.dialCount
 }
 
 func (d *openAIWSQueueDialer) Dial(

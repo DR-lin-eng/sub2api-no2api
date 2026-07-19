@@ -25,6 +25,62 @@ func (s *OpenAIGatewayService) openAIWSIngressInterTurnIdleTimeout() time.Durati
 	return time.Duration(s.cfg.Gateway.OpenAIWS.IngressInterTurnIdleTimeoutSeconds) * time.Second
 }
 
+func (s *OpenAIGatewayService) openAIWSHTTPBridgeKeepaliveInterval(imageIntent bool) time.Duration {
+	if s == nil || s.cfg == nil {
+		return 0
+	}
+	seconds := s.cfg.Gateway.StreamKeepaliveInterval
+	if imageIntent && s.cfg.Gateway.ImageStreamKeepaliveInterval > 0 {
+		seconds = s.cfg.Gateway.ImageStreamKeepaliveInterval
+	}
+	if seconds <= 0 {
+		return 0
+	}
+	return time.Duration(seconds) * time.Second
+}
+
+func startOpenAIWSIngressClientPing(ctx context.Context, clientConn *coderws.Conn, interval time.Duration) func() {
+	if clientConn == nil || interval <= 0 {
+		return func() {}
+	}
+	pingCtx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-pingCtx.Done():
+				return
+			case <-ticker.C:
+				onePingCtx, onePingCancel := context.WithTimeout(pingCtx, 5*time.Second)
+				_ = clientConn.Ping(onePingCtx)
+				onePingCancel()
+			}
+		}
+	}()
+	return func() {
+		cancel()
+		<-done
+	}
+}
+
+func skipFirstOpenAIWSBeforeTurnHook(hooks *OpenAIWSIngressHooks) *OpenAIWSIngressHooks {
+	if hooks == nil || hooks.BeforeTurn == nil {
+		return hooks
+	}
+	cloned := *hooks
+	original := hooks.BeforeTurn
+	cloned.BeforeTurn = func(turn int) error {
+		if turn == 1 {
+			return nil
+		}
+		return original(turn)
+	}
+	return &cloned
+}
+
 func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	ctx context.Context,
 	c *gin.Context,
@@ -60,7 +116,11 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	}
 
 	wsDecision := s.getOpenAIWSProtocolResolver().Resolve(account)
-	forceHTTPBridge := account.Platform == PlatformGrok
+	forcedHTTPBridgeFallbackValue, _ := c.Get("openai_ws_force_http_bridge_fallback")
+	forcedHTTPBridgeFallback, _ := forcedHTTPBridgeFallbackValue.(bool)
+	forceHTTPBridge := account.Platform == PlatformGrok ||
+		forcedHTTPBridgeFallback ||
+		s.isOpenAIWSFallbackCooling(account.ID)
 	modeRouterV2Enabled := s != nil && s.cfg != nil && s.cfg.Gateway.OpenAIWS.ModeRouterV2Enabled
 	ingressMode := OpenAIWSIngressModeCtxPool
 	if modeRouterV2Enabled && !forceHTTPBridge {
@@ -77,7 +137,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			if wsDecision.Transport != OpenAIUpstreamTransportResponsesWebsocketV2 {
 				return fmt.Errorf("websocket ingress requires ws_v2 transport, got=%s", wsDecision.Transport)
 			}
-			return s.proxyResponsesWebSocketV2Passthrough(
+			passthroughErr := s.proxyResponsesWebSocketV2Passthrough(
 				ctx,
 				c,
 				clientConn,
@@ -87,6 +147,16 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				hooks,
 				wsDecision,
 			)
+			if !isOpenAIWSUpgradeRequiredDialError(passthroughErr) {
+				return passthroughErr
+			}
+			s.markOpenAIWSFallbackCooling(account.ID, "upgrade_required")
+			c.Set("openai_ws_force_http_bridge_fallback", true)
+			logOpenAIWSModeInfo(
+				"ingress_ws_fallback_http_bridge account_id=%d mode=passthrough reason=upgrade_required",
+				account.ID,
+			)
+			return s.ProxyResponsesWebSocketFromClient(ctx, c, clientConn, account, token, firstClientMessage, hooks)
 		case OpenAIWSIngressModeHTTPBridge:
 			forceHTTPBridge = true
 		case OpenAIWSIngressModeCtxPool, OpenAIWSIngressModeShared, OpenAIWSIngressModeDedicated:
@@ -515,6 +585,11 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 					return fmt.Errorf("resolve Grok websocket cache identity: %w", err)
 				}
 			}
+			stopBridgeKeepalive := startOpenAIWSIngressClientPing(
+				ctx,
+				clientConn,
+				s.openAIWSHTTPBridgeKeepaliveInterval(currentBridgePayload.imageBillingModel != ""),
+			)
 			result, bridgeErr := s.proxyOpenAIWSHTTPBridgeTurn(
 				ctx,
 				c,
@@ -530,6 +605,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				turn,
 				writeClientMessage,
 			)
+			stopBridgeKeepalive()
 			if hooks != nil && hooks.AfterTurn != nil {
 				hooks.AfterTurn(turn, result, bridgeErr)
 			}
@@ -1368,6 +1444,24 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		if sessionLease == nil {
 			acquiredLease, acquireErr := acquireTurnLease(turn, preferredConnID, forcePreferredConn)
 			if acquireErr != nil {
+				if turn == 1 && isOpenAIWSUpgradeRequiredDialError(acquireErr) {
+					s.markOpenAIWSFallbackCooling(account.ID, "upgrade_required")
+					c.Set("openai_ws_force_http_bridge_fallback", true)
+					logOpenAIWSModeInfo(
+						"ingress_ws_fallback_http_bridge account_id=%d mode=%s reason=upgrade_required",
+						account.ID,
+						normalizeOpenAIWSLogValue(ingressMode),
+					)
+					return s.ProxyResponsesWebSocketFromClient(
+						ctx,
+						c,
+						clientConn,
+						account,
+						token,
+						firstClientMessage,
+						skipFirstOpenAIWSBeforeTurnHook(hooks),
+					)
+				}
 				return fmt.Errorf("acquire upstream websocket: %w", acquireErr)
 			}
 			sessionLease = acquiredLease

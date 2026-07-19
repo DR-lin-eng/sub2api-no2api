@@ -835,6 +835,39 @@ func resolveOpenAIWSFallbackErrorResponse(err error) (statusCode int, errType st
 	return statusCode, errType, clientMessage, upstreamMessage, true
 }
 
+// shouldFallbackOpenAIWSToHTTP reports handshake/protocol failures that are
+// safe to replay through the HTTP Responses/SSE endpoint. It is intentionally
+// limited to errors that occur before semantic output so a partially streamed
+// response is never duplicated.
+func shouldFallbackOpenAIWSToHTTP(err error) bool {
+	if err == nil {
+		return false
+	}
+	var fallbackErr *openAIWSFallbackError
+	if !errors.As(err, &fallbackErr) || fallbackErr == nil {
+		return false
+	}
+	reason := strings.TrimPrefix(strings.TrimSpace(fallbackErr.Reason), "prewarm_")
+	if reason != "upgrade_required" && reason != "ws_unsupported" {
+		return false
+	}
+	var dialErr *openAIWSDialError
+	if errors.As(fallbackErr.Err, &dialErr) && dialErr != nil {
+		return dialErr.StatusCode == http.StatusUpgradeRequired || dialErr.StatusCode == http.StatusBadRequest
+	}
+	// Upstream error events do not carry a dial status, but the classifier has
+	// already established that the request was rejected for WS capability.
+	return true
+}
+
+func isOpenAIWSUpgradeRequiredDialError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var dialErr *openAIWSDialError
+	return errors.As(err, &dialErr) && dialErr != nil && dialErr.StatusCode == http.StatusUpgradeRequired
+}
+
 func (s *OpenAIGatewayService) writeOpenAIWSFallbackErrorResponse(c *gin.Context, account *Account, wsErr error) bool {
 	if c == nil || c.Writer == nil || c.Writer.Written() {
 		return false

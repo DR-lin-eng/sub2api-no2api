@@ -63,6 +63,12 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	wsDecision := s.getOpenAIWSProtocolResolver().Resolve(account)
 	// 仅允许 WS 入站请求走 WS 上游，避免出现 HTTP -> WS 协议混用。
 	wsDecision = resolveOpenAIWSDecisionByClientTransport(wsDecision, GetOpenAIClientTransport(c))
+	// A proxy/CDN can reject the upstream Responses WebSocket with HTTP 426.
+	// Keep that account on HTTP SSE for a short period so every request does not
+	// pay another failed handshake before the fallback path below takes effect.
+	if wsDecision.Transport == OpenAIUpstreamTransportResponsesWebsocketV2 && s.isOpenAIWSFallbackCooling(account.ID) {
+		wsDecision = openAIWSHTTPDecision("ws_fallback_cooling")
+	}
 	passthroughEnabled := account.IsOpenAIPassthroughEnabled()
 	if shouldFlattenOpenAIResponsesNamespaces(account, wsDecision.Transport, passthroughEnabled) {
 		body, err = flattenOpenAIResponsesNamespaces(c, body)
@@ -723,6 +729,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			break
 		}
 		if wsErr == nil {
+			s.clearOpenAIWSFallbackCooling(account.ID)
 			firstTokenMs := int64(0)
 			hasFirstTokenMs := wsResult != nil && wsResult.FirstTokenMs != nil
 			if hasFirstTokenMs {
@@ -752,8 +759,26 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			}
 			return wsResult, nil
 		}
-		s.writeOpenAIWSFallbackErrorResponse(c, account, wsErr)
-		return nil, wsErr
+		canReplayThroughHTTP := c == nil || c.Writer == nil || !c.Writer.Written()
+		if canReplayThroughHTTP && shouldFallbackOpenAIWSToHTTP(wsErr) {
+			// The WS handshake/error event happened before any semantic output was
+			// written. Reuse the original request body through the normal HTTP
+			// Responses/SSE pipeline so callers receive one consistent response.
+			s.markOpenAIWSFallbackCooling(account.ID, "upgrade_required")
+			wsDecision = openAIWSHTTPDecision("ws_fallback_http_sse")
+			if c != nil {
+				c.Set("openai_ws_transport_decision", string(wsDecision.Transport))
+				c.Set("openai_ws_transport_reason", wsDecision.Reason)
+			}
+			logOpenAIWSModeInfo(
+				"fallback_http_sse account_id=%d reason=upstream_websocket_unavailable cooldown=%s",
+				account.ID,
+				s.openAIWSFallbackCooldown(),
+			)
+		} else {
+			s.writeOpenAIWSFallbackErrorResponse(c, account, wsErr)
+			return nil, wsErr
+		}
 	}
 
 	reasoningEffort := extractOpenAIReasoningEffortFromBody(body, upstreamModel, billingModel, originalModel)

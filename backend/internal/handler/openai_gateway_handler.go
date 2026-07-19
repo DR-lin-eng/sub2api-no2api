@@ -1479,7 +1479,9 @@ func (h *OpenAIGatewayHandler) acquireResponsesAccountSlot(
 // GET /openai/v1/responses (Upgrade: websocket)
 func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 	if !isOpenAIWSUpgradeRequest(c.Request) {
-		h.errorResponse(c, http.StatusUpgradeRequired, "invalid_request_error", "WebSocket upgrade required (Upgrade: websocket)")
+		c.Header("Upgrade", "websocket")
+		c.Header("X-OpenAI-Responses-SSE-Fallback", "supported")
+		h.errorResponse(c, http.StatusUpgradeRequired, "invalid_request_error", "WebSocket upgrade required (Upgrade: websocket); retry with POST /v1/responses for HTTP SSE")
 		return
 	}
 	setOpenAIClientTransportWS(c)

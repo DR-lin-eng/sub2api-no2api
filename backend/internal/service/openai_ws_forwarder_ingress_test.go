@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	coderws "github.com/coder/websocket"
@@ -78,6 +79,15 @@ func TestOpenAIWSIngressPreviousResponseRecoveryEnabled(t *testing.T) {
 
 	svc.cfg.Gateway.OpenAIWS.IngressPreviousResponseRecoveryEnabled = true
 	require.True(t, svc.openAIWSIngressPreviousResponseRecoveryEnabled())
+}
+
+func TestOpenAIWSHTTPBridgeKeepaliveIntervalUsesImageSetting(t *testing.T) {
+	svc := &OpenAIGatewayService{cfg: &config.Config{}}
+	svc.cfg.Gateway.StreamKeepaliveInterval = 10
+	svc.cfg.Gateway.ImageStreamKeepaliveInterval = 15
+
+	require.Equal(t, 10*time.Second, svc.openAIWSHTTPBridgeKeepaliveInterval(false))
+	require.Equal(t, 15*time.Second, svc.openAIWSHTTPBridgeKeepaliveInterval(true))
 }
 
 func TestDropPreviousResponseIDFromRawPayload(t *testing.T) {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -467,12 +468,15 @@ func TestOpenAIGatewayService_Forward_WSv2Dial426FallbackHTTP(t *testing.T) {
 
 	body := []byte(`{"model":"gpt-5.1","stream":false,"previous_response_id":"resp_426","input":[{"type":"input_text","text":"hello"}]}`)
 	result, err := svc.Forward(context.Background(), c, account, body)
-	require.Error(t, err)
-	require.Nil(t, result)
-	require.Contains(t, err.Error(), "upgrade_required")
-	require.Nil(t, upstream.lastReq, "WS 模式下不应再回退 HTTP")
-	require.Equal(t, http.StatusUpgradeRequired, rec.Code)
-	require.Contains(t, rec.Body.String(), "426")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.NotNil(t, upstream.lastReq, "426 握手失败后应回退 HTTP Responses/SSE")
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "resp_426", gjson.GetBytes(upstream.lastBody, "previous_response_id").String())
+	require.True(t, result.OpenAIWSMode == false, "HTTP fallback must be billed as HTTP forwarding")
+	reason, ok := c.Get("openai_ws_transport_reason")
+	require.True(t, ok)
+	require.Equal(t, "ws_fallback_http_sse", reason)
 }
 
 func TestOpenAIGatewayService_Forward_WSv2FallbackCoolingSkipWS(t *testing.T) {
@@ -530,12 +534,23 @@ func TestOpenAIGatewayService_Forward_WSv2FallbackCoolingSkipWS(t *testing.T) {
 	svc.markOpenAIWSFallbackCooling(account.ID, "upgrade_required")
 	body := []byte(`{"model":"gpt-5.1","stream":false,"previous_response_id":"resp_cooling","input":[{"type":"input_text","text":"hello"}]}`)
 	result, err := svc.Forward(context.Background(), c, account, body)
-	require.Error(t, err)
-	require.Nil(t, result)
-	require.Nil(t, upstream.lastReq, "WS 模式下不应再回退 HTTP")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.NotNil(t, upstream.lastReq, "fallback cooldown 应直接使用 HTTP")
+	require.Equal(t, http.StatusOK, rec.Code)
 
-	_, ok := c.Get("openai_ws_fallback_cooling")
-	require.False(t, ok, "已移除 fallback cooling 快捷回退路径")
+	reason, ok := c.Get("openai_ws_transport_reason")
+	require.True(t, ok)
+	require.Equal(t, "ws_fallback_cooling", reason)
+}
+
+func TestShouldFallbackOpenAIWSToHTTP(t *testing.T) {
+	require.True(t, shouldFallbackOpenAIWSToHTTP(wrapOpenAIWSFallback("upgrade_required", &openAIWSDialError{
+		StatusCode: http.StatusUpgradeRequired,
+		Err:        errors.New("426 upgrade required"),
+	})))
+	require.True(t, shouldFallbackOpenAIWSToHTTP(wrapOpenAIWSFallback("ws_unsupported", errors.New("unsupported"))))
+	require.False(t, shouldFallbackOpenAIWSToHTTP(wrapOpenAIWSFallback("auth_failed", errors.New("unauthorized"))))
 }
 
 func TestOpenAIGatewayService_Forward_ReturnErrorWhenOnlyWSv1Enabled(t *testing.T) {

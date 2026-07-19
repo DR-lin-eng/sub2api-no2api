@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 16 // v16: include API key concurrency limit
+const apiKeyAuthSnapshotVersion = 17 // v17: include group OpenAI image-tool injection policy
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
