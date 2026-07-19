@@ -876,7 +876,7 @@
               {{ t(imagePricingI18nKey(createForm.platform, "allowImageGeneration")) }}
             </label>
             <label
-              v-if="createForm.platform === 'openai'"
+              v-if="['openai', 'composite'].includes(createForm.platform)"
               class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
               :title="t('admin.groups.imagePricing.forceImageToolHint')"
             >
@@ -2402,7 +2402,7 @@
               {{ t(imagePricingI18nKey(editForm.platform, "allowImageGeneration")) }}
             </label>
             <label
-              v-if="editForm.platform === 'openai'"
+              v-if="['openai', 'composite'].includes(editForm.platform)"
               class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
               :title="t('admin.groups.imagePricing.forceImageToolHint')"
             >
@@ -5896,6 +5896,8 @@ watch(
     }
     if (newVal !== "openai") {
       resetMessagesDispatchFormState(createForm);
+    }
+    if (!["openai", "composite"].includes(newVal)) {
       createForm.openai_force_image_tool = false;
     }
     if (!["openai", "antigravity", "anthropic", "gemini"].includes(newVal)) {
@@ -5942,6 +5944,8 @@ watch(
     }
     if (newVal !== "openai") {
       resetMessagesDispatchFormState(editForm);
+    }
+    if (!["openai", "composite"].includes(newVal)) {
       editForm.openai_force_image_tool = false;
     }
     if (!["openai", "antigravity", "anthropic", "gemini"].includes(newVal)) {

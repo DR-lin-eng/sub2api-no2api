@@ -416,7 +416,7 @@ func TestAdminService_CreateGroup_DisablesBatchImageForNonGeminiPlatform(t *test
 	require.False(t, group.AllowBatchImageGeneration)
 }
 
-func TestAdminService_CreateGroup_EnablesForcedImageToolOnlyForOpenAIImageGroups(t *testing.T) {
+func TestAdminService_CreateGroup_EnablesForcedImageToolForSupportedImageGroups(t *testing.T) {
 	for _, testCase := range []struct {
 		name       string
 		platform   string
@@ -424,6 +424,7 @@ func TestAdminService_CreateGroup_EnablesForcedImageToolOnlyForOpenAIImageGroups
 		want       bool
 	}{
 		{name: "openai enabled", platform: PlatformOpenAI, allowImage: true, want: true},
+		{name: "composite enabled", platform: PlatformComposite, allowImage: true, want: true},
 		{name: "openai image disabled", platform: PlatformOpenAI, allowImage: false, want: false},
 		{name: "non openai", platform: PlatformGemini, allowImage: true, want: false},
 	} {
@@ -573,6 +574,28 @@ func TestAdminService_UpdateGroup_PreservesImageGenerationControlsWhenOmitted(t 
 	require.True(t, repo.updated.OpenAIForceImageTool)
 	require.True(t, repo.updated.ImageRateIndependent)
 	require.InDelta(t, 0.5, repo.updated.ImageRateMultiplier, 1e-12)
+}
+
+func TestAdminService_UpdateCompositeGroup_PreservesForcedOpenAIImageTool(t *testing.T) {
+	existingGroup := &Group{
+		ID:                   1,
+		Name:                 "existing-composite-group",
+		Platform:             PlatformComposite,
+		Status:               StatusActive,
+		AllowImageGeneration: true,
+		OpenAIForceImageTool: true,
+	}
+	repo := &groupRepoStubForAdmin{getByID: existingGroup}
+	svc := &adminServiceImpl{groupRepo: repo}
+
+	updatedDesc := "updated"
+	group, err := svc.UpdateGroup(context.Background(), 1, &UpdateGroupInput{Description: &updatedDesc})
+
+	require.NoError(t, err)
+	require.NotNil(t, group)
+	require.NotNil(t, repo.updated)
+	require.True(t, repo.updated.AllowImageGeneration)
+	require.True(t, repo.updated.OpenAIForceImageTool)
 }
 
 func TestAdminService_UpdateGroup_DisablesBatchImageWhenImageGenerationDisabled(t *testing.T) {

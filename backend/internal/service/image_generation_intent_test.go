@@ -444,4 +444,12 @@ func TestGroupForcesOpenAIImageToolRequiresOpenAIAndImagePermission(t *testing.T
 		AllowImageGeneration: true,
 		OpenAIForceImageTool: true,
 	}))
+	composite := &Group{
+		Platform:             PlatformComposite,
+		AllowImageGeneration: true,
+		OpenAIForceImageTool: true,
+	}
+	require.False(t, GroupForcesOpenAIImageTool(composite))
+	require.True(t, GroupForcesOpenAIImageToolForPlatform(composite, PlatformOpenAI))
+	require.False(t, GroupForcesOpenAIImageToolForPlatform(composite, PlatformGrok))
 }

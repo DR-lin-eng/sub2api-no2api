@@ -55,3 +55,10 @@ func effectiveAPIKeyPlatform(c *gin.Context, apiKey *service.APIKey) string {
 	}
 	return apiKey.Group.Platform
 }
+
+func groupForcesOpenAIImageTool(c *gin.Context, apiKey *service.APIKey) bool {
+	if apiKey == nil {
+		return false
+	}
+	return service.GroupForcesOpenAIImageToolForPlatform(apiKey.Group, effectiveAPIKeyPlatform(c, apiKey))
+}

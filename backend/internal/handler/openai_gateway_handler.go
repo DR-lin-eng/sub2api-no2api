@@ -297,7 +297,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", invalidStreamFieldTypeMessage)
 		return
 	}
-	forceImageTool := service.GroupForcesOpenAIImageTool(apiKey.Group) && isBareOpenAIResponsesPath(c)
+	forceImageTool := groupForcesOpenAIImageTool(c, apiKey) && isBareOpenAIResponsesPath(c)
 	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", reqStream))
 	previousResponseID := strings.TrimSpace(gjson.GetBytes(body, "previous_response_id").String())
 	if previousResponseID != "" {
@@ -1625,7 +1625,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		return
 	}
 
-	forceImageTool := service.GroupForcesOpenAIImageTool(apiKey.Group)
+	forceImageTool := groupForcesOpenAIImageTool(c, apiKey)
 	imageIntent := forceImageTool || service.IsExplicitImageGenerationIntent("/v1/responses", reqModel, firstMessage)
 	if imageIntent && !service.GroupAllowsImageGeneration(apiKey.Group) {
 		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, service.ImageGenerationPermissionMessage())

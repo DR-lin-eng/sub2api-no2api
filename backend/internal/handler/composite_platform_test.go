@@ -77,6 +77,35 @@ func TestCompositeTargetPlatformResolvedAllowsConcreteGroupWithoutResolution(t *
 	require.True(t, compositeTargetPlatformResolved(c, apiKey, "llama-4-maverick"))
 }
 
+func TestGroupForcesOpenAIImageToolUsesCompositeRequestTarget(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	apiKey := &service.APIKey{Group: &service.Group{
+		Platform:             service.PlatformComposite,
+		AllowImageGeneration: true,
+		OpenAIForceImageTool: true,
+	}}
+
+	openAICtx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	openAICtx.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+	ensureCompositeTargetPlatform(openAICtx, apiKey, "gpt-5.5")
+	require.True(t, groupForcesOpenAIImageTool(openAICtx, apiKey))
+
+	grokCtx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	grokCtx.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+	ensureCompositeTargetPlatform(grokCtx, apiKey, "grok-4.3")
+	require.False(t, groupForcesOpenAIImageTool(grokCtx, apiKey))
+
+	aliasCtx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	aliasCtx.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+	aliasCtx.Request = aliasCtx.Request.WithContext(service.WithCompositeRouteDecision(aliasCtx.Request.Context(), service.CompositeRouteDecision{
+		Matched:        true,
+		PublicModel:    "image-assistant",
+		TargetPlatform: service.PlatformOpenAI,
+		UpstreamModel:  "gpt-5.5",
+	}))
+	require.True(t, groupForcesOpenAIImageTool(aliasCtx, apiKey))
+}
+
 func TestClientRequestedModelUsesCompositePublicModel(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())

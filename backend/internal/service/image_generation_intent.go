@@ -39,10 +39,23 @@ func GroupAllowsImageGeneration(group *Group) bool {
 // GroupForcesOpenAIImageTool reports whether Responses requests in this group
 // must be served by the independent Images API bridge.
 func GroupForcesOpenAIImageTool(group *Group) bool {
-	return group != nil &&
-		group.Platform == PlatformOpenAI &&
-		group.AllowImageGeneration &&
-		group.OpenAIForceImageTool
+	if group == nil {
+		return false
+	}
+	return GroupForcesOpenAIImageToolForPlatform(group, group.Platform)
+}
+
+// GroupForcesOpenAIImageToolForPlatform applies the group switch to the
+// concrete provider selected for this request. Composite groups may contain
+// several providers, so only their OpenAI-targeted requests are hijacked.
+func GroupForcesOpenAIImageToolForPlatform(group *Group, targetPlatform string) bool {
+	if group == nil || !group.AllowImageGeneration || !group.OpenAIForceImageTool {
+		return false
+	}
+	if group.Platform == PlatformOpenAI {
+		return true
+	}
+	return group.Platform == PlatformComposite && targetPlatform == PlatformOpenAI
 }
 
 // IsImageGenerationIntent classifies requests that can produce generated images.

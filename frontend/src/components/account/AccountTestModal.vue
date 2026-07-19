@@ -250,6 +250,7 @@ import TextArea from '@/components/common/TextArea.vue'
 import { Icon } from '@/components/icons'
 import { useClipboard } from '@/composables/useClipboard'
 import { buildApiUrl } from '@/api/client'
+import { getAccessToken } from '@/api/tokenStore'
 import { adminAPI } from '@/api/admin'
 import type { Account, ClaudeModel } from '@/types'
 
@@ -420,12 +421,16 @@ const startTest = async () => {
   try {
     // Use the configured API base; EventSource does not support POST.
     const url = buildApiUrl(`/admin/accounts/${props.account.id}/test`)
+    const accessToken = getAccessToken()
+    if (!accessToken) {
+      throw new Error('Authentication required')
+    }
 
     // Use fetch with streaming for SSE since EventSource doesn't support POST
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({

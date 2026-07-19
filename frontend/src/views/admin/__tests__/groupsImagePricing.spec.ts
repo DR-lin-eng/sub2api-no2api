@@ -18,6 +18,11 @@ describe("groups image pricing platform support", () => {
     expect(imagePricingPlatforms.has("grok")).toBe(true);
   });
 
+  it("includes composite groups for routed image generation", () => {
+    expect(supportsImagePricingPlatform("composite")).toBe(true);
+    expect(imagePricingPlatforms.has("composite")).toBe(true);
+  });
+
   it("enables video pricing controls for Grok only", () => {
     expect(supportsVideoPricingPlatform("grok")).toBe(true);
     expect(supportsVideoPricingPlatform("openai")).toBe(false);

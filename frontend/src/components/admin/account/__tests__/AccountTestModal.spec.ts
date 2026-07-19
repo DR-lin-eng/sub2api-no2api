@@ -1,5 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { clearTokenMemory, setAccessToken } from '@/api/tokenStore'
 import AccountTestModal from '../AccountTestModal.vue'
 
 const { getAvailableModels, copyToClipboard } = vi.hoisted(() => ({
@@ -94,9 +95,10 @@ describe('AccountTestModal', () => {
       { id: 'gemini-3.1-flash-image', display_name: 'Gemini 3.1 Flash Image' }
     ])
     copyToClipboard.mockReset()
+    setAccessToken('test-token')
     Object.defineProperty(globalThis, 'localStorage', {
       value: {
-        getItem: vi.fn((key: string) => (key === 'auth_token' ? 'test-token' : null)),
+        getItem: vi.fn(() => null),
         setItem: vi.fn(),
         removeItem: vi.fn(),
         clear: vi.fn()
@@ -113,6 +115,7 @@ describe('AccountTestModal', () => {
   })
 
   afterEach(() => {
+    clearTokenMemory()
     vi.restoreAllMocks()
   })
 
@@ -135,6 +138,7 @@ describe('AccountTestModal', () => {
 
     expect(global.fetch).toHaveBeenCalledTimes(1)
     const [, request] = (global.fetch as any).mock.calls[0]
+    expect(request.headers.Authorization).toBe('Bearer test-token')
     expect(JSON.parse(request.body)).toEqual({
       model_id: 'gemini-3.1-flash-image',
       prompt: 'draw a tiny orange cat astronaut'
@@ -143,6 +147,24 @@ describe('AccountTestModal', () => {
     const preview = wrapper.find('img[alt="test-image-1"]')
     expect(preview.exists()).toBe(true)
     expect(preview.attributes('src')).toBe('data:image/png;base64,QUJD')
+  })
+
+  it('内存中没有 access token 时不会发送测试请求', async () => {
+    clearTokenMemory()
+    const wrapper = mountModal()
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+
+    const startButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('admin.accounts.startTest'))
+    expect(startButton).toBeTruthy()
+
+    await startButton!.trigger('click')
+    await flushPromises()
+
+    expect(global.fetch).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('Authentication required')
   })
 
   it('grok 账号测试默认选择 Grok 模型', async () => {
