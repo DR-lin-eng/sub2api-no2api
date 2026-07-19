@@ -373,37 +373,36 @@ func (s *AuthService) SendVerifyCodeAsync(ctx context.Context, email string, loc
 	}, nil
 }
 
-// VerifyTurnstileForRegister 在注册场景下验证 Turnstile。
-// 当邮箱验证开启且已提交验证码时，说明验证码发送阶段已完成 Turnstile 校验，
+// VerifyTurnstileForRegister 在注册场景下验证当前启用的人机验证渠道。
+// 当邮箱验证开启且已提交验证码时，说明验证码发送阶段已完成人机验证，
 // 此处跳过二次校验，避免一次性 token 在注册提交时重复使用导致误报失败。
 func (s *AuthService) VerifyTurnstileForRegister(ctx context.Context, token, remoteIP, verifyCode string) error {
 	if s.IsEmailVerifyEnabled(ctx) && strings.TrimSpace(verifyCode) != "" {
-		logger.LegacyPrintf("service.auth", "%s", "[Auth] Email verify flow detected, skip duplicate Turnstile check on register")
+		logger.LegacyPrintf("service.auth", "%s", "[Auth] Email verify flow detected, skip duplicate human verification on register")
 		return nil
 	}
 	return s.VerifyTurnstile(ctx, token, remoteIP)
 }
 
-// VerifyTurnstile 验证Turnstile token
+// VerifyTurnstile 验证当前启用的外部人机验证 token。保留旧方法名以兼容内部调用。
 func (s *AuthService) VerifyTurnstile(ctx context.Context, token string, remoteIP string) error {
 	required := s.cfg != nil && s.cfg.Server.Mode == "release" && s.cfg.Turnstile.Required
 
 	if required {
 		if s.settingService == nil {
-			logger.LegacyPrintf("service.auth", "%s", "[Auth] Turnstile required but settings service is not configured")
+			logger.LegacyPrintf("service.auth", "%s", "[Auth] Human verification required but settings service is not configured")
 			return ErrTurnstileNotConfigured
 		}
-		enabled := s.settingService.IsTurnstileEnabled(ctx)
-		secretConfigured := s.settingService.GetTurnstileSecretKey(ctx) != ""
-		if !enabled || !secretConfigured {
-			logger.LegacyPrintf("service.auth", "[Auth] Turnstile required but not configured (enabled=%v, secret_configured=%v)", enabled, secretConfigured)
+		provider := s.settingService.GetHumanVerificationProvider(ctx)
+		if provider == HumanVerificationProviderNone || provider == HumanVerificationProviderInvalid {
+			logger.LegacyPrintf("service.auth", "[Auth] Human verification required but provider is %s", provider)
 			return ErrTurnstileNotConfigured
 		}
 	}
 
 	if s.turnstileService == nil {
 		if required {
-			logger.LegacyPrintf("service.auth", "%s", "[Auth] Turnstile required but service not configured")
+			logger.LegacyPrintf("service.auth", "%s", "[Auth] Human verification required but service not configured")
 			return ErrTurnstileNotConfigured
 		}
 		return nil // 服务未配置则跳过验证
@@ -416,7 +415,7 @@ func (s *AuthService) VerifyTurnstile(ctx context.Context, token string, remoteI
 	return s.turnstileService.VerifyToken(ctx, token, remoteIP)
 }
 
-// IsTurnstileEnabled 检查是否启用Turnstile验证
+// IsTurnstileEnabled 检查是否启用任一人机验证渠道。保留旧方法名以兼容调用方。
 func (s *AuthService) IsTurnstileEnabled(ctx context.Context) bool {
 	if s.turnstileService == nil {
 		return false

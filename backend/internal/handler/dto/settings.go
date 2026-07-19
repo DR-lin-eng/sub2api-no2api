@@ -55,6 +55,12 @@ type SystemSettings struct {
 	TurnstileEnabled             bool   `json:"turnstile_enabled"`
 	TurnstileSiteKey             string `json:"turnstile_site_key"`
 	TurnstileSecretKeyConfigured bool   `json:"turnstile_secret_key_configured"`
+	RecaptchaEnabled             bool   `json:"recaptcha_enabled"`
+	RecaptchaSiteKey             string `json:"recaptcha_site_key"`
+	RecaptchaSecretKeyConfigured bool   `json:"recaptcha_secret_key_configured"`
+	CapEnabled                   bool   `json:"cap_enabled"`
+	CapAPIEndpoint               string `json:"cap_api_endpoint"`
+	CapSecretKeyConfigured       bool   `json:"cap_secret_key_configured"`
 	LocalCaptchaEnabled          bool   `json:"local_captcha_enabled"`
 	APIKeyACLTrustForwardedIP    bool   `json:"api_key_acl_trust_forwarded_ip"`
 
@@ -333,6 +339,10 @@ type PublicSettings struct {
 	LoginAgreementDocuments          []LoginAgreementDocument `json:"login_agreement_documents"`
 	TurnstileEnabled                 bool                     `json:"turnstile_enabled"`
 	TurnstileSiteKey                 string                   `json:"turnstile_site_key"`
+	RecaptchaEnabled                 bool                     `json:"recaptcha_enabled"`
+	RecaptchaSiteKey                 string                   `json:"recaptcha_site_key"`
+	CapEnabled                       bool                     `json:"cap_enabled"`
+	CapAPIEndpoint                   string                   `json:"cap_api_endpoint"`
 	LocalCaptchaEnabled              bool                     `json:"local_captcha_enabled"`
 	SiteName                         string                   `json:"site_name"`
 	SiteLogo                         string                   `json:"site_logo"`

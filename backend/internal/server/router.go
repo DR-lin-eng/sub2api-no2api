@@ -19,7 +19,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-const frameSrcRefreshTimeout = 5 * time.Second
+const cspOriginsRefreshTimeout = 5 * time.Second
 
 // SetupRouter 配置路由器中间件和路由
 func SetupRouter(
@@ -41,22 +41,29 @@ func SetupRouter(
 	db *sql.DB,
 ) *gin.Engine {
 	middleware2.SetIngressRejectRecorder(opsService)
-	// 缓存 iframe 页面的 origin 列表，用于动态注入 CSP frame-src
+	// 缓存动态 CSP origin，避免每个静态资源请求都读取设置。
 	var cachedFrameOrigins atomic.Pointer[[]string]
+	var cachedConnectOrigins atomic.Pointer[[]string]
 	emptyOrigins := []string{}
 	cachedFrameOrigins.Store(&emptyOrigins)
+	cachedConnectOrigins.Store(&emptyOrigins)
 
-	refreshFrameOrigins := func() {
-		ctx, cancel := context.WithTimeout(context.Background(), frameSrcRefreshTimeout)
+	refreshCSPOrigins := func() {
+		ctx, cancel := context.WithTimeout(context.Background(), cspOriginsRefreshTimeout)
 		defer cancel()
-		origins, err := settingService.GetFrameSrcOrigins(ctx)
+		frameOrigins, err := settingService.GetFrameSrcOrigins(ctx)
 		if err != nil {
-			// 获取失败时保留已有缓存，避免 frame-src 被意外清空
+			// 获取失败时保留已有缓存，避免 CSP 来源被意外清空。
 			return
 		}
-		cachedFrameOrigins.Store(&origins)
+		connectOrigins, err := settingService.GetConnectSrcOrigins(ctx)
+		if err != nil {
+			return
+		}
+		cachedFrameOrigins.Store(&frameOrigins)
+		cachedConnectOrigins.Store(&connectOrigins)
 	}
-	refreshFrameOrigins() // 启动时初始化
+	refreshCSPOrigins() // 启动时初始化
 
 	// 应用中间件
 	r.Use(coremiddleware.NewCredentialAuthIngressLimiter())
@@ -71,6 +78,11 @@ func SetupRouter(
 			return *p
 		}
 		return nil
+	}, func() []string {
+		if p := cachedConnectOrigins.Load(); p != nil {
+			return *p
+		}
+		return nil
 	}))
 	r.Use(middleware2.ServerTiming(cfg.Server.EnableServerTiming))
 
@@ -80,17 +92,17 @@ func SetupRouter(
 		if err != nil {
 			log.Printf("Warning: Failed to create frontend server with settings injection: %v, using legacy mode", err)
 			r.Use(web.ServeEmbeddedFrontend())
-			settingService.SetOnUpdateCallback(refreshFrameOrigins)
+			settingService.SetOnUpdateCallback(refreshCSPOrigins)
 		} else {
-			// Register combined callback: invalidate HTML cache + refresh frame origins
+			// Register combined callback: invalidate HTML cache + refresh CSP origins.
 			settingService.SetOnUpdateCallback(func() {
 				frontendServer.InvalidateCache()
-				refreshFrameOrigins()
+				refreshCSPOrigins()
 			})
 			r.Use(frontendServer.Middleware())
 		}
 	} else {
-		settingService.SetOnUpdateCallback(refreshFrameOrigins)
+		settingService.SetOnUpdateCallback(refreshCSPOrigins)
 	}
 
 	// 注册路由

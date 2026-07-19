@@ -170,6 +170,10 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyLoginAgreementDocuments,
 		SettingKeyTurnstileEnabled,
 		SettingKeyTurnstileSiteKey,
+		SettingKeyRecaptchaEnabled,
+		SettingKeyRecaptchaSiteKey,
+		SettingKeyCapEnabled,
+		SettingKeyCapAPIEndpoint,
 		SettingKeyLocalCaptchaEnabled,
 		SettingKeyAPIKeyACLTrustForwardedIP,
 		SettingKeySiteName,
@@ -297,6 +301,10 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		LoginAgreementDocuments:          loginAgreementDocuments,
 		TurnstileEnabled:                 settings[SettingKeyTurnstileEnabled] == "true",
 		TurnstileSiteKey:                 settings[SettingKeyTurnstileSiteKey],
+		RecaptchaEnabled:                 settings[SettingKeyRecaptchaEnabled] == "true",
+		RecaptchaSiteKey:                 settings[SettingKeyRecaptchaSiteKey],
+		CapEnabled:                       settings[SettingKeyCapEnabled] == "true",
+		CapAPIEndpoint:                   settings[SettingKeyCapAPIEndpoint],
 		LocalCaptchaEnabled:              settings[SettingKeyLocalCaptchaEnabled] == "true",
 		SiteName:                         s.getStringOrDefault(settings, SettingKeySiteName, "Sub2API"),
 		SiteLogo:                         settings[SettingKeySiteLogo],
@@ -455,6 +463,10 @@ type PublicSettingsInjectionPayload struct {
 	LoginAgreementDocuments          []LoginAgreementDocument `json:"login_agreement_documents"`
 	TurnstileEnabled                 bool                     `json:"turnstile_enabled"`
 	TurnstileSiteKey                 string                   `json:"turnstile_site_key"`
+	RecaptchaEnabled                 bool                     `json:"recaptcha_enabled"`
+	RecaptchaSiteKey                 string                   `json:"recaptcha_site_key"`
+	CapEnabled                       bool                     `json:"cap_enabled"`
+	CapAPIEndpoint                   string                   `json:"cap_api_endpoint"`
 	LocalCaptchaEnabled              bool                     `json:"local_captcha_enabled"`
 	SiteName                         string                   `json:"site_name"`
 	SiteLogo                         string                   `json:"site_logo"`
@@ -525,6 +537,10 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		LoginAgreementDocuments:          settings.LoginAgreementDocuments,
 		TurnstileEnabled:                 settings.TurnstileEnabled,
 		TurnstileSiteKey:                 settings.TurnstileSiteKey,
+		RecaptchaEnabled:                 settings.RecaptchaEnabled,
+		RecaptchaSiteKey:                 settings.RecaptchaSiteKey,
+		CapEnabled:                       settings.CapEnabled,
+		CapAPIEndpoint:                   settings.CapAPIEndpoint,
 		LocalCaptchaEnabled:              settings.LocalCaptchaEnabled,
 		SiteName:                         settings.SiteName,
 		SiteLogo:                         settings.SiteLogo,
@@ -651,6 +667,22 @@ func (s *SettingService) GetFrameSrcOrigins(ctx context.Context) ([]string, erro
 	}
 
 	return origins, nil
+}
+
+// GetConnectSrcOrigins returns origins needed by browser-side API clients.
+// CAP fetches challenge and redeem endpoints directly from the configured origin.
+func (s *SettingService) GetConnectSrcOrigins(ctx context.Context) ([]string, error) {
+	settings, err := s.GetPublicSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !settings.CapEnabled {
+		return nil, nil
+	}
+	if origin := extractOriginFromURL(settings.CapAPIEndpoint); origin != "" {
+		return []string{origin}, nil
+	}
+	return nil, nil
 }
 
 // extractOriginFromURL returns the scheme+host origin from rawURL.

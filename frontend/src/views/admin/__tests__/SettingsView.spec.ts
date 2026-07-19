@@ -383,8 +383,14 @@ const baseSettingsResponse = {
   smtp_use_tls: true,
   turnstile_enabled: false,
   turnstile_site_key: "",
-  local_captcha_enabled: false,
   turnstile_secret_key_configured: false,
+  recaptcha_enabled: false,
+  recaptcha_site_key: "",
+  recaptcha_secret_key_configured: false,
+  cap_enabled: false,
+  cap_api_endpoint: "",
+  cap_secret_key_configured: false,
+  local_captcha_enabled: false,
   linuxdo_connect_enabled: false,
   linuxdo_connect_client_id: "",
   linuxdo_connect_client_secret_configured: false,
@@ -693,6 +699,42 @@ describe("admin SettingsView payment visible method controls", () => {
 
     const payload = updateSettings.mock.calls.at(-1)?.[0] as Record<string, unknown>;
     expect(payload.stream_mode_performance_enabled).toBe(true);
+  });
+
+  it("keeps human verification provider switches mutually exclusive", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await openSecurityTab(wrapper);
+
+    const protectionCard = wrapper
+      .findAll(".card")
+      .find(node => node.text().includes("admin.settings.turnstile.title"));
+    expect(protectionCard).toBeDefined();
+
+    let providerToggles = protectionCard!.findAll('input.toggle-stub');
+    expect(providerToggles).toHaveLength(4);
+    await providerToggles[1]!.setValue(true);
+
+    providerToggles = protectionCard!.findAll('input.toggle-stub');
+    expect((providerToggles[1]!.element as HTMLInputElement).checked).toBe(true);
+    await providerToggles[2]!.setValue(true);
+
+    providerToggles = protectionCard!.findAll('input.toggle-stub');
+    expect(providerToggles.map(toggle => (toggle.element as HTMLInputElement).checked)).toEqual([
+      false,
+      false,
+      true,
+      false,
+    ]);
+
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+    expect(updateSettings.mock.calls.at(-1)?.[0]).toMatchObject({
+      turnstile_enabled: false,
+      recaptcha_enabled: false,
+      cap_enabled: true,
+      local_captcha_enabled: false,
+    });
   });
 
   it("loads and saves the global temporary scheduling pause switch", async () => {

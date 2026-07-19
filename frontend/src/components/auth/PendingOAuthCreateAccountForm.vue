@@ -16,15 +16,28 @@
       :placeholder="t('auth.passwordPlaceholder')"
       :disabled="isSubmitting"
     />
-    <div v-if="emailVerifyEnabled && turnstileEnabled && turnstileSiteKey" class="space-y-2">
-      <TurnstileWidget
+    <div
+      v-if="emailVerifyEnabled && turnstileEnabled && (turnstileSiteKey || humanVerificationAPIEndpoint)"
+      class="space-y-2"
+    >
+      <HumanVerificationWidget
         ref="turnstileRef"
+        :provider="humanVerificationProvider"
         :site-key="turnstileSiteKey"
+        :api-endpoint="humanVerificationAPIEndpoint"
         @verify="onTurnstileVerify"
         @expire="onTurnstileExpire"
         @error="onTurnstileError"
       />
     </div>
+    <LocalCaptchaWidget
+      v-else-if="emailVerifyEnabled && localCaptchaEnabled"
+      ref="localCaptchaRef"
+      v-model:captcha-id="localCaptchaId"
+      v-model:captcha-code="localCaptchaCode"
+      :disabled="isSubmitting || isSendingCode"
+      :input-id="`${testIdPrefix}-local-captcha`"
+    />
     <div v-if="emailVerifyEnabled" class="flex gap-3">
       <input
         v-model="verifyCode"
@@ -40,7 +53,7 @@
         :data-testid="`${testIdPrefix}-create-account-send-code`"
         type="button"
         class="btn btn-secondary shrink-0"
-        :disabled="isSubmitting || isSendingCode || countdown > 0 || !email.trim() || (turnstileEnabled && !turnstileToken)"
+        :disabled="isSubmitting || isSendingCode || countdown > 0 || !email.trim() || (turnstileEnabled && !turnstileToken) || (localCaptchaEnabled && (!localCaptchaId || !localCaptchaCode))"
         @click="handleSendCode"
       >
         {{
@@ -90,9 +103,14 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import TurnstileWidget from '@/components/TurnstileWidget.vue'
+import HumanVerificationWidget from '@/components/auth/HumanVerificationWidget.vue'
+import LocalCaptchaWidget from '@/components/auth/LocalCaptchaWidget.vue'
 import { getPublicSettings, sendPendingOAuthVerifyCode } from '@/api/auth'
 import { useAppStore } from '@/stores'
+import {
+  resolveHumanVerification,
+  type ExternalHumanVerificationProvider
+} from '@/utils/humanVerification'
 
 export type PendingOAuthCreateAccountPayload = {
   email: string
@@ -128,8 +146,14 @@ const invitationCodeEnabled = ref(false)
 const emailVerifyEnabled = ref(true)
 const turnstileEnabled = ref(false)
 const turnstileSiteKey = ref('')
+const humanVerificationProvider = ref<ExternalHumanVerificationProvider>('turnstile')
+const humanVerificationAPIEndpoint = ref('')
 const turnstileToken = ref('')
-const turnstileRef = ref<InstanceType<typeof TurnstileWidget> | null>(null)
+const turnstileRef = ref<InstanceType<typeof HumanVerificationWidget> | null>(null)
+const localCaptchaEnabled = ref(false)
+const localCaptchaId = ref('')
+const localCaptchaCode = ref('')
+const localCaptchaRef = ref<InstanceType<typeof LocalCaptchaWidget> | null>(null)
 
 let countdownTimer: ReturnType<typeof setInterval> | null = null
 
@@ -225,12 +249,18 @@ async function handleSendCode() {
   try {
     const response = await sendPendingOAuthVerifyCode({
       email: trimmedEmail,
-      turnstile_token: turnstileEnabled.value ? turnstileToken.value : undefined
+      ...(turnstileEnabled.value ? { captcha_token: turnstileToken.value } : {}),
+      ...(localCaptchaEnabled.value
+        ? { captcha_id: localCaptchaId.value, captcha_code: localCaptchaCode.value }
+        : {})
     })
     sendCodeSuccess.value = true
     startCountdown(response.countdown)
     if (turnstileEnabled.value) {
       resetTurnstile()
+    }
+    if (localCaptchaEnabled.value) {
+      await localCaptchaRef.value?.reset()
     }
   } catch (error: unknown) {
     sendCodeError.value = getRequestErrorMessage(error, t('auth.sendCodeFailed'))
@@ -262,13 +292,19 @@ onMounted(async () => {
     const settings = await getPublicSettings()
     invitationCodeEnabled.value = settings.invitation_code_enabled === true
     emailVerifyEnabled.value = settings.email_verify_enabled !== false
-    turnstileEnabled.value = settings.turnstile_enabled === true
-    turnstileSiteKey.value = settings.turnstile_site_key || ''
+    const verification = resolveHumanVerification(settings)
+    turnstileEnabled.value = verification.external
+    turnstileSiteKey.value = verification.siteKey
+    humanVerificationAPIEndpoint.value = verification.apiEndpoint
+    humanVerificationProvider.value = verification.externalProvider
+    localCaptchaEnabled.value = verification.provider === 'local'
   } catch {
     invitationCodeEnabled.value = false
     emailVerifyEnabled.value = true
     turnstileEnabled.value = false
     turnstileSiteKey.value = ''
+    humanVerificationAPIEndpoint.value = ''
+    localCaptchaEnabled.value = false
   }
 })
 

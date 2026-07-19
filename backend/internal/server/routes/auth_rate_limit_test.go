@@ -213,3 +213,25 @@ func TestAuthRoutesTurnstileTakesPriorityOverLocalCaptcha(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, w.Code)
 	require.Contains(t, w.Body.String(), "captcha protection is not enabled")
 }
+
+func TestAuthRoutesLocalCaptchaProtectsRecoveryAndPendingOAuthEmail(t *testing.T) {
+	server := miniredis.RunT(t)
+	rdb := redis.NewClient(&redis.Options{Addr: server.Addr()})
+	t.Cleanup(func() { _ = rdb.Close() })
+	router := newAuthRoutesTestRouterWithSettings(rdb, newAuthRouteSettingService(map[string]string{
+		service.SettingKeyLocalCaptchaEnabled: "true",
+	}))
+
+	for _, path := range []string{
+		"/api/v1/auth/forgot-password",
+		"/api/v1/auth/oauth/pending/send-verify-code",
+	} {
+		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"email":"user@example.com"}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusBadRequest, w.Code, "path=%s", path)
+		require.Contains(t, w.Body.String(), "LOCAL_CAPTCHA_REQUIRED", "path=%s", path)
+	}
+}

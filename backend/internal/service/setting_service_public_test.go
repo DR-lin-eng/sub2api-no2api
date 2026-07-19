@@ -108,6 +108,17 @@ func TestSettingService_GetPublicSettings_LocalCaptchaDefaultsOffAndCanBeEnabled
 	require.True(t, enabled.LocalCaptchaEnabled)
 }
 
+func TestSettingService_GetConnectSrcOrigins_IncludesEnabledCapEndpoint(t *testing.T) {
+	svc := NewSettingService(&settingPublicRepoStub{values: map[string]string{
+		SettingKeyCapEnabled:     "true",
+		SettingKeyCapAPIEndpoint: "https://cap.example.com/site-key",
+	}}, &config.Config{})
+
+	origins, err := svc.GetConnectSrcOrigins(context.Background())
+	require.NoError(t, err)
+	require.Contains(t, origins, "https://cap.example.com")
+}
+
 func TestSettingService_GetPublicSettings_ExposesAllowUserViewErrorRequests(t *testing.T) {
 	repo := &settingPublicRepoStub{
 		values: map[string]string{

@@ -182,11 +182,12 @@
           </transition>
         </div>
 
-        <!-- Turnstile Widget -->
-        <div v-if="turnstileEnabled && turnstileSiteKey">
-          <TurnstileWidget
+        <div v-if="turnstileEnabled && (turnstileSiteKey || humanVerificationAPIEndpoint)">
+          <HumanVerificationWidget
             ref="turnstileRef"
+            :provider="humanVerificationProvider"
             :site-key="turnstileSiteKey"
+            :api-endpoint="humanVerificationAPIEndpoint"
             @verify="onTurnstileVerify"
             @expire="onTurnstileExpire"
             @error="onTurnstileError"
@@ -322,7 +323,7 @@ import EmailOAuthButtons from '@/components/auth/EmailOAuthButtons.vue'
 import LoginAgreementPrompt from '@/components/auth/LoginAgreementPrompt.vue'
 import LocalCaptchaWidget from '@/components/auth/LocalCaptchaWidget.vue'
 import Icon from '@/components/icons/Icon.vue'
-import TurnstileWidget from '@/components/TurnstileWidget.vue'
+import HumanVerificationWidget from '@/components/auth/HumanVerificationWidget.vue'
 import { useAuthStore, useAppStore } from '@/stores'
 import {
   getPublicSettings,
@@ -344,6 +345,10 @@ import {
   loadAffiliateReferralCode,
   resolveAffiliateReferralCode
 } from '@/utils/oauthAffiliate'
+import {
+  resolveHumanVerification,
+  type ExternalHumanVerificationProvider
+} from '@/utils/humanVerification'
 import {
   clearPendingRegistrationCredentials,
   setPendingRegistrationCredentials
@@ -374,6 +379,8 @@ const promoCodeEnabled = ref<boolean>(true)
 const invitationCodeEnabled = ref<boolean>(false)
 const turnstileEnabled = ref<boolean>(false)
 const turnstileSiteKey = ref<string>('')
+const humanVerificationProvider = ref<ExternalHumanVerificationProvider>('turnstile')
+const humanVerificationAPIEndpoint = ref<string>('')
 const localCaptchaEnabled = ref<boolean>(false)
 const siteName = ref<string>('Sub2API')
 const linuxdoOAuthEnabled = ref<boolean>(false)
@@ -392,7 +399,7 @@ const agreementAccepted = ref<boolean>(false)
 const showAgreementModal = ref<boolean>(false)
 
 // Turnstile
-const turnstileRef = ref<InstanceType<typeof TurnstileWidget> | null>(null)
+const turnstileRef = ref<InstanceType<typeof HumanVerificationWidget> | null>(null)
 const turnstileToken = ref<string>('')
 const localCaptchaRef = ref<InstanceType<typeof LocalCaptchaWidget> | null>(null)
 const localCaptchaId = ref<string>('')
@@ -493,9 +500,12 @@ onMounted(async () => {
     emailVerifyEnabled.value = settings.email_verify_enabled
     promoCodeEnabled.value = settings.promo_code_enabled
     invitationCodeEnabled.value = settings.invitation_code_enabled
-    turnstileEnabled.value = settings.turnstile_enabled
-    turnstileSiteKey.value = settings.turnstile_site_key || ''
-    localCaptchaEnabled.value = settings.local_captcha_enabled === true
+    const verification = resolveHumanVerification(settings)
+    turnstileEnabled.value = verification.external
+    turnstileSiteKey.value = verification.siteKey
+    humanVerificationAPIEndpoint.value = verification.apiEndpoint
+    humanVerificationProvider.value = verification.externalProvider
+    localCaptchaEnabled.value = verification.provider === 'local'
     siteName.value = settings.site_name || 'Sub2API'
     linuxdoOAuthEnabled.value = settings.linuxdo_oauth_enabled
     wechatOAuthEnabled.value = isWeChatWebOAuthEnabled(settings)
@@ -911,7 +921,7 @@ async function handleRegister(): Promise<void> {
         'register_data',
         JSON.stringify({
           email: formData.email,
-          turnstile_token: turnstileToken.value,
+          captcha_token: turnstileToken.value,
           captcha_id: localCaptchaId.value || undefined,
           captcha_code: localCaptchaCode.value || undefined,
           promo_code: formData.promo_code || undefined,
@@ -929,7 +939,7 @@ async function handleRegister(): Promise<void> {
     await authStore.register({
       email: formData.email,
       password: formData.password,
-      turnstile_token: turnstileEnabled.value ? turnstileToken.value : undefined,
+      captcha_token: turnstileEnabled.value ? turnstileToken.value : undefined,
       captcha_id: localCaptchaRequired.value ? localCaptchaId.value : undefined,
       captcha_code: localCaptchaRequired.value ? localCaptchaCode.value : undefined,
       promo_code: formData.promo_code || undefined,

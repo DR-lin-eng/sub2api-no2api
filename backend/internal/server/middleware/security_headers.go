@@ -28,6 +28,11 @@ const (
 	AirwallexDemoStaticDomain = "https://static-demo.airwallex.com"
 	// AirwallexDemoCheckoutDomain 是 Airwallex 沙箱环境收银台元素和 iframe 域名。
 	AirwallexDemoCheckoutDomain = "https://checkout-demo.airwallex.com"
+	GoogleRecaptchaDomain       = "https://www.google.com"
+	GoogleRecaptchaFrameDomain  = "https://recaptcha.google.com"
+	GoogleStaticDomain          = "https://www.gstatic.com"
+	JSDelivrDomain              = "https://cdn.jsdelivr.net"
+	WASMUnsafeEval              = "'wasm-unsafe-eval'"
 )
 
 var requiredCSPDirectiveValues = []struct {
@@ -35,6 +40,16 @@ var requiredCSPDirectiveValues = []struct {
 	value     string
 }{
 	{"script-src", CloudflareInsightsDomain},
+	{"script-src", GoogleRecaptchaDomain},
+	{"script-src", GoogleStaticDomain},
+	{"script-src", JSDelivrDomain},
+	{"connect-src", JSDelivrDomain},
+	{"script-src", WASMUnsafeEval},
+	{"frame-src", "'self'"},
+	{"frame-src", GoogleRecaptchaDomain},
+	{"frame-src", GoogleRecaptchaFrameDomain},
+	{"worker-src", "'self'"},
+	{"worker-src", "blob:"},
 	{"script-src", StripeDomain},
 	{"frame-src", StripeDomain},
 	{"script-src", AirwallexStaticDomain},
@@ -70,9 +85,10 @@ func GetNonceFromContext(c *gin.Context) string {
 }
 
 // SecurityHeaders sets baseline security headers for all responses.
-// getFrameSrcOrigins is an optional function that returns extra origins to inject into frame-src;
-// pass nil to disable dynamic frame-src injection.
-func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string) gin.HandlerFunc {
+// getFrameSrcOrigins and getConnectSrcOrigins return dynamic origins for the
+// corresponding CSP directives. The variadic connect callback keeps existing
+// callers source-compatible.
+func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string, getConnectSrcOrigins ...func() []string) gin.HandlerFunc {
 	policy := strings.TrimSpace(cfg.Policy)
 	if policy == "" {
 		policy = config.DefaultCSPPolicy
@@ -87,6 +103,13 @@ func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string) g
 			for _, origin := range getFrameSrcOrigins() {
 				if origin != "" {
 					finalPolicy = addToDirective(finalPolicy, "frame-src", origin)
+				}
+			}
+		}
+		if len(getConnectSrcOrigins) > 0 && getConnectSrcOrigins[0] != nil {
+			for _, origin := range getConnectSrcOrigins[0]() {
+				if origin != "" {
+					finalPolicy = addToDirective(finalPolicy, "connect-src", origin)
 				}
 			}
 		}
@@ -168,6 +191,10 @@ func addToDirective(policy, directive, value string) string {
 	idx := strings.Index(policy, directivePrefix)
 
 	if idx == -1 {
+		newDirective := directive + " 'self'"
+		if value != "'self'" {
+			newDirective += " " + value
+		}
 		// Directive not found, add it after default-src or at the beginning
 		defaultSrcIdx := strings.Index(policy, "default-src ")
 		if defaultSrcIdx != -1 {
@@ -176,11 +203,11 @@ func addToDirective(policy, directive, value string) string {
 			if endIdx != -1 {
 				insertPos := defaultSrcIdx + endIdx + 1
 				// Insert new directive after default-src
-				return policy[:insertPos] + " " + directive + " 'self' " + value + ";" + policy[insertPos:]
+				return policy[:insertPos] + " " + newDirective + ";" + policy[insertPos:]
 			}
 		}
 		// Fallback: prepend the directive
-		return directive + " 'self' " + value + "; " + policy
+		return newDirective + "; " + policy
 	}
 
 	// Find the end of this directive (next semicolon or end of string)

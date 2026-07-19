@@ -197,11 +197,21 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeySMTPFromName] = settings.SMTPFromName
 	updates[SettingKeySMTPUseTLS] = strconv.FormatBool(settings.SMTPUseTLS)
 
-	// Cloudflare Turnstile 设置（只有非空才更新密钥）
+	// 人机验证设置（私密密钥只有非空才更新）
 	updates[SettingKeyTurnstileEnabled] = strconv.FormatBool(settings.TurnstileEnabled)
 	updates[SettingKeyTurnstileSiteKey] = settings.TurnstileSiteKey
 	if settings.TurnstileSecretKey != "" {
 		updates[SettingKeyTurnstileSecretKey] = settings.TurnstileSecretKey
+	}
+	updates[SettingKeyRecaptchaEnabled] = strconv.FormatBool(settings.RecaptchaEnabled)
+	updates[SettingKeyRecaptchaSiteKey] = settings.RecaptchaSiteKey
+	if settings.RecaptchaSecretKey != "" {
+		updates[SettingKeyRecaptchaSecretKey] = settings.RecaptchaSecretKey
+	}
+	updates[SettingKeyCapEnabled] = strconv.FormatBool(settings.CapEnabled)
+	updates[SettingKeyCapAPIEndpoint] = strings.TrimRight(strings.TrimSpace(settings.CapAPIEndpoint), "/")
+	if settings.CapSecretKey != "" {
+		updates[SettingKeyCapSecretKey] = settings.CapSecretKey
 	}
 	updates[SettingKeyLocalCaptchaEnabled] = strconv.FormatBool(settings.LocalCaptchaEnabled)
 	updates[SettingKeyAPIKeyACLTrustForwardedIP] = strconv.FormatBool(settings.APIKeyACLTrustForwardedIP)

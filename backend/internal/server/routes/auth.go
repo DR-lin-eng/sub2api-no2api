@@ -30,9 +30,7 @@ func RegisterAuthRoutes(
 	localCaptcha := middleware.NewLocalCaptcha(redisClient)
 	credentialCipher := middleware.NewCredentialCipher(redisClient, db)
 	localCaptchaEnabled := func(ctx context.Context) bool {
-		return settingService != nil &&
-			settingService.IsLocalCaptchaEnabled(ctx) &&
-			!settingService.IsTurnstileEnabled(ctx)
+		return settingService.GetHumanVerificationProvider(ctx) == service.HumanVerificationProviderLocal
 	}
 	localCaptchaRequired := localCaptcha.Require(middleware.LocalCaptchaRequireOptions{
 		Enabled: localCaptchaEnabled,
@@ -106,7 +104,7 @@ func RegisterAuthRoutes(
 		// 忘记密码接口添加速率限制：每分钟最多 5 次（Redis 故障时 fail-close）
 		auth.POST("/forgot-password", rateLimiter.LimitWithOptions("forgot-password", 5, time.Minute, middleware.RateLimitOptions{
 			FailureMode: middleware.RateLimitFailClose,
-		}), h.Auth.ForgotPassword)
+		}), localCaptchaRequired, h.Auth.ForgotPassword)
 		// 重置密码接口添加速率限制：每分钟最多 10 次（Redis 故障时 fail-close）
 		auth.POST("/reset-password", rateLimiter.LimitWithOptions("reset-password", 10, time.Minute, middleware.RateLimitOptions{
 			FailureMode: middleware.RateLimitFailClose,
@@ -155,6 +153,7 @@ func RegisterAuthRoutes(
 			rateLimiter.LimitWithOptions("oauth-pending-send-verify-code", 5, time.Minute, middleware.RateLimitOptions{
 				FailureMode: middleware.RateLimitFailClose,
 			}),
+			localCaptchaRequired,
 			h.Auth.SendPendingOAuthVerifyCode,
 		)
 		auth.POST("/oauth/pending/create-account",

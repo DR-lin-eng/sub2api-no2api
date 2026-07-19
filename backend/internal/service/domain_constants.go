@@ -159,11 +159,17 @@ const (
 	SettingKeySMTPFromName = "smtp_from_name" // 发件人名称
 	SettingKeySMTPUseTLS   = "smtp_use_tls"   // 是否使用TLS
 
-	// Cloudflare Turnstile 设置
-	SettingKeyTurnstileEnabled    = "turnstile_enabled"     // 是否启用 Turnstile 验证
+	// 人机验证设置。四种验证渠道互斥，由设置更新接口强制校验。
+	SettingKeyTurnstileEnabled    = "turnstile_enabled"     // 是否启用 Cloudflare Turnstile
 	SettingKeyTurnstileSiteKey    = "turnstile_site_key"    // Turnstile Site Key
 	SettingKeyTurnstileSecretKey  = "turnstile_secret_key"  // Turnstile Secret Key
-	SettingKeyLocalCaptchaEnabled = "local_captcha_enabled" // 是否启用本地验证码兜底（默认关闭）
+	SettingKeyRecaptchaEnabled    = "recaptcha_enabled"     // 是否启用 Google reCAPTCHA
+	SettingKeyRecaptchaSiteKey    = "recaptcha_site_key"    // reCAPTCHA Site Key
+	SettingKeyRecaptchaSecretKey  = "recaptcha_secret_key"  // reCAPTCHA Secret Key
+	SettingKeyCapEnabled          = "cap_enabled"           // 是否启用 Cap
+	SettingKeyCapAPIEndpoint      = "cap_api_endpoint"      // Cap 站点 API Endpoint
+	SettingKeyCapSecretKey        = "cap_secret_key"        // Cap Site Secret Key
+	SettingKeyLocalCaptchaEnabled = "local_captcha_enabled" // 是否启用本地图片验证码
 
 	// API Key IP 访问控制设置
 	SettingKeyAPIKeyACLTrustForwardedIP = "api_key_acl_trust_forwarded_ip" // API Key IP 白/黑名单是否信任转发 IP

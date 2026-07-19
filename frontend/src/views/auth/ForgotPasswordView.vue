@@ -66,21 +66,30 @@
           </div>
         </div>
 
-        <!-- Turnstile Widget -->
-        <div v-if="turnstileEnabled && turnstileSiteKey">
-          <TurnstileWidget
+        <div v-if="turnstileEnabled && (turnstileSiteKey || humanVerificationAPIEndpoint)">
+          <HumanVerificationWidget
             ref="turnstileRef"
+            :provider="humanVerificationProvider"
             :site-key="turnstileSiteKey"
+            :api-endpoint="humanVerificationAPIEndpoint"
             @verify="onTurnstileVerify"
             @expire="onTurnstileExpire"
             @error="onTurnstileError"
           />
         </div>
+        <LocalCaptchaWidget
+          v-else-if="localCaptchaEnabled"
+          ref="localCaptchaRef"
+          v-model:captcha-id="localCaptchaId"
+          v-model:captcha-code="localCaptchaCode"
+          :disabled="isLoading"
+          input-id="forgot-password-local-captcha"
+        />
 
         <!-- Submit Button -->
         <button
           type="submit"
-          :disabled="isLoading || (turnstileEnabled && !turnstileToken)"
+          :disabled="isLoading || (turnstileEnabled && !turnstileToken) || (localCaptchaEnabled && (!localCaptchaId || !localCaptchaCode))"
           class="btn btn-primary w-full"
         >
           <svg
@@ -129,9 +138,14 @@ import { computed, ref, reactive, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { AuthLayout } from '@/components/layout'
 import Icon from '@/components/icons/Icon.vue'
-import TurnstileWidget from '@/components/TurnstileWidget.vue'
+import HumanVerificationWidget from '@/components/auth/HumanVerificationWidget.vue'
+import LocalCaptchaWidget from '@/components/auth/LocalCaptchaWidget.vue'
 import { useAppStore } from '@/stores'
 import { getPublicSettings, forgotPassword } from '@/api/auth'
+import {
+  resolveHumanVerification,
+  type ExternalHumanVerificationProvider
+} from '@/utils/humanVerification'
 
 const { t } = useI18n()
 
@@ -148,10 +162,16 @@ const errorMessage = ref<string>('')
 // Public settings
 const turnstileEnabled = ref<boolean>(false)
 const turnstileSiteKey = ref<string>('')
+const humanVerificationProvider = ref<ExternalHumanVerificationProvider>('turnstile')
+const humanVerificationAPIEndpoint = ref<string>('')
+const localCaptchaEnabled = ref<boolean>(false)
 
 // Turnstile
-const turnstileRef = ref<InstanceType<typeof TurnstileWidget> | null>(null)
+const turnstileRef = ref<InstanceType<typeof HumanVerificationWidget> | null>(null)
 const turnstileToken = ref<string>('')
+const localCaptchaRef = ref<InstanceType<typeof LocalCaptchaWidget> | null>(null)
+const localCaptchaId = ref<string>('')
+const localCaptchaCode = ref<string>('')
 
 const formData = reactive({
   email: ''
@@ -175,8 +195,12 @@ watch(validationToastMessage, (value, previousValue) => {
 onMounted(async () => {
   try {
     const settings = await getPublicSettings()
-    turnstileEnabled.value = settings.turnstile_enabled
-    turnstileSiteKey.value = settings.turnstile_site_key || ''
+    const verification = resolveHumanVerification(settings)
+    turnstileEnabled.value = verification.external
+    turnstileSiteKey.value = verification.siteKey
+    humanVerificationAPIEndpoint.value = verification.apiEndpoint
+    humanVerificationProvider.value = verification.externalProvider
+    localCaptchaEnabled.value = verification.provider === 'local'
   } catch (error) {
     console.error('Failed to load public settings:', error)
   }
@@ -222,6 +246,11 @@ function validateForm(): boolean {
     isValid = false
   }
 
+  if (localCaptchaEnabled.value && (!localCaptchaId.value || !localCaptchaCode.value)) {
+    errors.turnstile = t('auth.localCaptchaRequired')
+    isValid = false
+  }
+
   return isValid
 }
 
@@ -239,7 +268,9 @@ async function handleSubmit(): Promise<void> {
   try {
     await forgotPassword({
       email: formData.email,
-      turnstile_token: turnstileEnabled.value ? turnstileToken.value : undefined
+      captcha_token: turnstileEnabled.value ? turnstileToken.value : undefined,
+      captcha_id: localCaptchaEnabled.value ? localCaptchaId.value : undefined,
+      captcha_code: localCaptchaEnabled.value ? localCaptchaCode.value : undefined
     })
 
     isSubmitted.value = true
@@ -249,6 +280,9 @@ async function handleSubmit(): Promise<void> {
     if (turnstileRef.value) {
       turnstileRef.value.reset()
       turnstileToken.value = ''
+    }
+    if (localCaptchaEnabled.value) {
+      await localCaptchaRef.value?.reset()
     }
 
     const err = error as { message?: string; response?: { data?: { detail?: string } } }

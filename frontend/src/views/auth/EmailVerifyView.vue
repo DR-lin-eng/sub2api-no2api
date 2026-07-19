@@ -66,11 +66,14 @@
           </div>
         </div>
 
-        <!-- Turnstile Widget for Resend -->
-        <div v-if="turnstileEnabled && turnstileSiteKey && showResendTurnstile">
-          <TurnstileWidget
+        <div
+          v-if="turnstileEnabled && (turnstileSiteKey || humanVerificationAPIEndpoint) && showResendTurnstile"
+        >
+          <HumanVerificationWidget
             ref="turnstileRef"
+            :provider="humanVerificationProvider"
             :site-key="turnstileSiteKey"
+            :api-endpoint="humanVerificationAPIEndpoint"
             @verify="onTurnstileVerify"
             @expire="onTurnstileExpire"
             @error="onTurnstileError"
@@ -164,7 +167,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { AuthLayout } from '@/components/layout'
 import Icon from '@/components/icons/Icon.vue'
-import TurnstileWidget from '@/components/TurnstileWidget.vue'
+import HumanVerificationWidget from '@/components/auth/HumanVerificationWidget.vue'
 import LocalCaptchaWidget from '@/components/auth/LocalCaptchaWidget.vue'
 import { useAuthStore, useAppStore } from '@/stores'
 import {
@@ -196,6 +199,10 @@ import {
   getPendingRegistrationCredentials
 } from '@/utils/pendingRegistrationCredentials'
 import type { EncryptedRegisterRequest } from '@/types'
+import {
+  resolveHumanVerification,
+  type ExternalHumanVerificationProvider
+} from '@/utils/humanVerification'
 
 const { t, locale } = useI18n()
 
@@ -254,12 +261,14 @@ const hasRegisterData = ref<boolean>(false)
 // Public settings
 const turnstileEnabled = ref<boolean>(false)
 const turnstileSiteKey = ref<string>('')
+const humanVerificationProvider = ref<ExternalHumanVerificationProvider>('turnstile')
+const humanVerificationAPIEndpoint = ref<string>('')
 const localCaptchaEnabled = ref<boolean>(false)
 const siteName = ref<string>('Sub2API')
 const registrationEmailSuffixWhitelist = ref<string[]>([])
 
 // Turnstile for resend
-const turnstileRef = ref<InstanceType<typeof TurnstileWidget> | null>(null)
+const turnstileRef = ref<InstanceType<typeof HumanVerificationWidget> | null>(null)
 const resendTurnstileToken = ref<string>('')
 const showResendTurnstile = ref<boolean>(false)
 const localCaptchaRef = ref<InstanceType<typeof LocalCaptchaWidget> | null>(null)
@@ -278,7 +287,7 @@ const validationToastMessage = computed(
 )
 
 const localCaptchaRequired = computed(
-  () => localCaptchaEnabled.value && !turnstileEnabled.value && !isPendingOAuthFlow()
+  () => localCaptchaEnabled.value && !turnstileEnabled.value
 )
 
 watch(validationToastMessage, (value, previousValue) => {
@@ -301,7 +310,7 @@ onMounted(async () => {
       email.value = registerData.email || ''
       const credentials = getPendingRegistrationCredentials()
       password.value = credentials?.email === email.value ? credentials.password : ''
-      initialTurnstileToken.value = registerData.turnstile_token || ''
+      initialTurnstileToken.value = registerData.captcha_token || registerData.turnstile_token || ''
       initialLocalCaptchaId.value = registerData.captcha_id || ''
       initialLocalCaptchaCode.value = registerData.captcha_code || ''
       promoCode.value = registerData.promo_code || ''
@@ -340,9 +349,12 @@ onMounted(async () => {
   // Load public settings
   try {
     const settings = await getPublicSettings()
-    turnstileEnabled.value = settings.turnstile_enabled
-    turnstileSiteKey.value = settings.turnstile_site_key || ''
-    localCaptchaEnabled.value = settings.local_captcha_enabled === true
+    const verification = resolveHumanVerification(settings)
+    turnstileEnabled.value = verification.external
+    turnstileSiteKey.value = verification.siteKey
+    humanVerificationAPIEndpoint.value = verification.apiEndpoint
+    humanVerificationProvider.value = verification.externalProvider
+    localCaptchaEnabled.value = verification.provider === 'local'
     siteName.value = settings.site_name || 'Sub2API'
     registrationEmailSuffixWhitelist.value = normalizeRegistrationEmailSuffixWhitelist(
       settings.registration_email_suffix_whitelist || []
@@ -459,7 +471,7 @@ async function sendCode(): Promise<void> {
       email: email.value,
       [pendingAuthTokenField.value]: pendingAuthToken.value || undefined,
       // 优先使用重发时新获取的 token（因为初始 token 可能已被使用）
-      turnstile_token: resendTurnstileToken.value || initialTurnstileToken.value || undefined,
+      captcha_token: resendTurnstileToken.value || initialTurnstileToken.value || undefined,
       captcha_id: resendLocalCaptchaId.value || initialLocalCaptchaId.value || undefined,
       captcha_code: resendLocalCaptchaCode.value || initialLocalCaptchaCode.value || undefined
     } as Parameters<typeof sendVerifyCode>[0]
@@ -614,7 +626,7 @@ async function handleVerify(): Promise<void> {
       const request: EncryptedRegisterRequest = {
         credential_envelope: encryptedCredentials,
         verify_code: verifyCode.value.trim(),
-        turnstile_token: initialTurnstileToken.value || undefined,
+        captcha_token: initialTurnstileToken.value || undefined,
         promo_code: promoCode.value || undefined,
         invitation_code: invitationCode.value || undefined,
         ...(affCode.value ? { aff_code: affCode.value } : {})

@@ -78,11 +78,12 @@
           </div>
         </div>
 
-        <!-- Turnstile Widget -->
-        <div v-if="turnstileEnabled && turnstileSiteKey">
-          <TurnstileWidget
+        <div v-if="turnstileEnabled && (turnstileSiteKey || humanVerificationAPIEndpoint)">
+          <HumanVerificationWidget
             ref="turnstileRef"
+            :provider="humanVerificationProvider"
             :site-key="turnstileSiteKey"
+            :api-endpoint="humanVerificationAPIEndpoint"
             @verify="onTurnstileVerify"
             @expire="onTurnstileExpire"
             @error="onTurnstileError"
@@ -224,7 +225,7 @@ import LoginAgreementPrompt from '@/components/auth/LoginAgreementPrompt.vue'
 import TotpLoginModal from '@/components/auth/TotpLoginModal.vue'
 import LocalCaptchaWidget from '@/components/auth/LocalCaptchaWidget.vue'
 import Icon from '@/components/icons/Icon.vue'
-import TurnstileWidget from '@/components/TurnstileWidget.vue'
+import HumanVerificationWidget from '@/components/auth/HumanVerificationWidget.vue'
 import { useAuthStore, useAppStore } from '@/stores'
 import {
   clearCredentialKeyPrefetch,
@@ -236,6 +237,10 @@ import {
 import type { LoginAgreementDocument, TotpLoginResponse } from '@/types'
 import { extractI18nErrorMessage } from '@/utils/apiError'
 import { clearAllAffiliateReferralCodes } from '@/utils/oauthAffiliate'
+import {
+  resolveHumanVerification,
+  type ExternalHumanVerificationProvider
+} from '@/utils/humanVerification'
 
 const { t } = useI18n()
 const LOGIN_AGREEMENT_STORAGE_KEY = 'sub2api_login_agreement_consent'
@@ -256,6 +261,8 @@ const publicSettingsLoaded = ref<boolean>(false)
 // Public settings
 const turnstileEnabled = ref<boolean>(false)
 const turnstileSiteKey = ref<string>('')
+const humanVerificationProvider = ref<ExternalHumanVerificationProvider>('turnstile')
+const humanVerificationAPIEndpoint = ref<string>('')
 const localCaptchaEnabled = ref<boolean>(false)
 const linuxdoOAuthEnabled = ref<boolean>(false)
 const dingtalkOAuthEnabled = ref<boolean>(false)
@@ -275,7 +282,7 @@ const agreementAccepted = ref<boolean>(false)
 const showAgreementModal = ref<boolean>(false)
 
 // Turnstile
-const turnstileRef = ref<InstanceType<typeof TurnstileWidget> | null>(null)
+const turnstileRef = ref<InstanceType<typeof HumanVerificationWidget> | null>(null)
 const turnstileToken = ref<string>('')
 const localCaptchaRef = ref<InstanceType<typeof LocalCaptchaWidget> | null>(null)
 const localCaptchaId = ref<string>('')
@@ -348,9 +355,12 @@ onMounted(async () => {
 
   try {
     const settings = await getPublicSettings()
-    turnstileEnabled.value = settings.turnstile_enabled
-    turnstileSiteKey.value = settings.turnstile_site_key || ''
-    localCaptchaEnabled.value = settings.local_captcha_enabled === true
+    const verification = resolveHumanVerification(settings)
+    turnstileEnabled.value = verification.external
+    turnstileSiteKey.value = verification.siteKey
+    humanVerificationAPIEndpoint.value = verification.apiEndpoint
+    humanVerificationProvider.value = verification.externalProvider
+    localCaptchaEnabled.value = verification.provider === 'local'
     linuxdoOAuthEnabled.value = settings.linuxdo_oauth_enabled
     dingtalkOAuthEnabled.value = settings.dingtalk_oauth_enabled ?? false
     wechatOAuthEnabled.value = isWeChatWebOAuthEnabled(settings)
@@ -519,7 +529,7 @@ async function handleLogin(): Promise<void> {
     const response = await authStore.login({
       email: formData.email,
       password: formData.password,
-      turnstile_token: turnstileEnabled.value ? turnstileToken.value : undefined,
+      captcha_token: turnstileEnabled.value ? turnstileToken.value : undefined,
       captcha_id: localCaptchaRequired.value ? localCaptchaId.value : undefined,
       captcha_code: localCaptchaRequired.value ? localCaptchaCode.value : undefined
     })

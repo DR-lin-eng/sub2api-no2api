@@ -45,10 +45,16 @@ type UpdateSettingsRequest struct {
 	SMTPFromName string `json:"smtp_from_name"`
 	SMTPUseTLS   bool   `json:"smtp_use_tls"`
 
-	// Cloudflare Turnstile 设置
+	// 人机验证设置。四种 enabled 字段在服务端强制互斥。
 	TurnstileEnabled    bool   `json:"turnstile_enabled"`
 	TurnstileSiteKey    string `json:"turnstile_site_key"`
 	TurnstileSecretKey  string `json:"turnstile_secret_key"`
+	RecaptchaEnabled    *bool  `json:"recaptcha_enabled"` // 省略=保持现值
+	RecaptchaSiteKey    string `json:"recaptcha_site_key"`
+	RecaptchaSecretKey  string `json:"recaptcha_secret_key"`
+	CapEnabled          *bool  `json:"cap_enabled"` // 省略=保持现值
+	CapAPIEndpoint      string `json:"cap_api_endpoint"`
+	CapSecretKey        string `json:"cap_secret_key"`
 	LocalCaptchaEnabled *bool  `json:"local_captcha_enabled"` // 省略=保持现值
 
 	// API Key IP 访问控制设置
@@ -411,6 +417,24 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	if req.LocalCaptchaEnabled != nil {
 		localCaptchaEnabled = *req.LocalCaptchaEnabled
 	}
+	recaptchaEnabled := previousSettings.RecaptchaEnabled
+	if req.RecaptchaEnabled != nil {
+		recaptchaEnabled = *req.RecaptchaEnabled
+	}
+	capEnabled := previousSettings.CapEnabled
+	if req.CapEnabled != nil {
+		capEnabled = *req.CapEnabled
+	}
+	providerCount := 0
+	for _, enabled := range []bool{req.TurnstileEnabled, recaptchaEnabled, capEnabled, localCaptchaEnabled} {
+		if enabled {
+			providerCount++
+		}
+	}
+	if providerCount > 1 {
+		response.BadRequest(c, "Only one human verification provider can be enabled")
+		return
+	}
 
 	// 开启敏感操作 step-up 门控属自锁风险操作：仅允许本人已启用 TOTP 的管理员会话开启，
 	// 否则开启后操作者立即被挡在所有敏感操作之外。仅在 false→true 的开启瞬间校验，
@@ -531,6 +555,57 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		secretKeyChanged := previousSettings.TurnstileSecretKey != req.TurnstileSecretKey
 		if siteKeyChanged || secretKeyChanged {
 			if err := h.turnstileService.ValidateSecretKey(c.Request.Context(), req.TurnstileSecretKey); err != nil {
+				response.ErrorFrom(c, err)
+				return
+			}
+		}
+	}
+
+	if recaptchaEnabled {
+		if strings.TrimSpace(req.RecaptchaSiteKey) == "" && previousSettings.RecaptchaSiteKey != "" {
+			req.RecaptchaSiteKey = previousSettings.RecaptchaSiteKey
+		}
+		if strings.TrimSpace(req.RecaptchaSiteKey) == "" {
+			response.BadRequest(c, "reCAPTCHA Site Key is required when enabled")
+			return
+		}
+		if req.RecaptchaSecretKey == "" {
+			if previousSettings.RecaptchaSecretKey == "" {
+				response.BadRequest(c, "reCAPTCHA Secret Key is required when enabled")
+				return
+			}
+			req.RecaptchaSecretKey = previousSettings.RecaptchaSecretKey
+		}
+		siteKeyChanged := previousSettings.RecaptchaSiteKey != req.RecaptchaSiteKey
+		secretKeyChanged := previousSettings.RecaptchaSecretKey != req.RecaptchaSecretKey
+		if (siteKeyChanged || secretKeyChanged) && h.turnstileService != nil {
+			if err := h.turnstileService.ValidateRecaptchaSecretKey(c.Request.Context(), req.RecaptchaSecretKey); err != nil {
+				response.ErrorFrom(c, err)
+				return
+			}
+		}
+	}
+
+	if capEnabled {
+		if strings.TrimSpace(req.CapAPIEndpoint) == "" && previousSettings.CapAPIEndpoint != "" {
+			req.CapAPIEndpoint = previousSettings.CapAPIEndpoint
+		}
+		req.CapAPIEndpoint = strings.TrimRight(strings.TrimSpace(req.CapAPIEndpoint), "/")
+		if err := service.ValidateCapAPIEndpoint(req.CapAPIEndpoint); err != nil {
+			response.BadRequest(c, err.Error())
+			return
+		}
+		if req.CapSecretKey == "" {
+			if previousSettings.CapSecretKey == "" {
+				response.BadRequest(c, "Cap Secret Key is required when enabled")
+				return
+			}
+			req.CapSecretKey = previousSettings.CapSecretKey
+		}
+		endpointChanged := previousSettings.CapAPIEndpoint != req.CapAPIEndpoint
+		secretKeyChanged := previousSettings.CapSecretKey != req.CapSecretKey
+		if (endpointChanged || secretKeyChanged) && h.turnstileService != nil {
+			if err := h.turnstileService.ValidateCapConfiguration(c.Request.Context(), req.CapAPIEndpoint, req.CapSecretKey); err != nil {
 				response.ErrorFrom(c, err)
 				return
 			}
@@ -1274,6 +1349,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		TurnstileEnabled:                 req.TurnstileEnabled,
 		TurnstileSiteKey:                 req.TurnstileSiteKey,
 		TurnstileSecretKey:               req.TurnstileSecretKey,
+		RecaptchaEnabled:                 recaptchaEnabled,
+		RecaptchaSiteKey:                 req.RecaptchaSiteKey,
+		RecaptchaSecretKey:               req.RecaptchaSecretKey,
+		CapEnabled:                       capEnabled,
+		CapAPIEndpoint:                   req.CapAPIEndpoint,
+		CapSecretKey:                     req.CapSecretKey,
 		LocalCaptchaEnabled:              localCaptchaEnabled,
 		APIKeyACLTrustForwardedIP: func() bool {
 			if req.APIKeyACLTrustForwardedIP != nil {
@@ -1831,6 +1912,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		TurnstileEnabled:                                       updatedSettings.TurnstileEnabled,
 		TurnstileSiteKey:                                       updatedSettings.TurnstileSiteKey,
 		TurnstileSecretKeyConfigured:                           updatedSettings.TurnstileSecretKeyConfigured,
+		RecaptchaEnabled:                                       updatedSettings.RecaptchaEnabled,
+		RecaptchaSiteKey:                                       updatedSettings.RecaptchaSiteKey,
+		RecaptchaSecretKeyConfigured:                           updatedSettings.RecaptchaSecretKeyConfigured,
+		CapEnabled:                                             updatedSettings.CapEnabled,
+		CapAPIEndpoint:                                         updatedSettings.CapAPIEndpoint,
+		CapSecretKeyConfigured:                                 updatedSettings.CapSecretKeyConfigured,
 		LocalCaptchaEnabled:                                    updatedSettings.LocalCaptchaEnabled,
 		APIKeyACLTrustForwardedIP:                              updatedSettings.APIKeyACLTrustForwardedIP,
 		LinuxDoConnectEnabled:                                  updatedSettings.LinuxDoConnectEnabled,

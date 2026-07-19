@@ -158,3 +158,33 @@ func TestUpdateSettingsOmittedSecuritySwitchesKeepDisabled(t *testing.T) {
 	require.Equal(t, "false", repo.values[service.SettingKeySessionBindingEnabled])
 	require.Equal(t, "false", repo.values[service.SettingKeyLocalCaptchaEnabled])
 }
+
+func TestUpdateSettingsRejectsMultipleHumanVerificationProviders(t *testing.T) {
+	h, repo := newStepUpSwitchTestHandler(t, map[string]string{})
+
+	rec := doUpdateSettings(t, h, map[string]any{
+		"turnstile_enabled": true,
+		"recaptcha_enabled": true,
+	}, nil)
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Contains(t, rec.Body.String(), "Only one human verification provider")
+	require.NotEqual(t, "true", repo.values[service.SettingKeyTurnstileEnabled])
+	require.NotEqual(t, "true", repo.values[service.SettingKeyRecaptchaEnabled])
+}
+
+func TestUpdateSettingsPersistsSingleHumanVerificationProvider(t *testing.T) {
+	h, repo := newStepUpSwitchTestHandler(t, map[string]string{})
+
+	rec := doUpdateSettings(t, h, map[string]any{
+		"recaptcha_enabled":    true,
+		"recaptcha_site_key":   "site-key",
+		"recaptcha_secret_key": "secret-key",
+	}, nil)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "false", repo.values[service.SettingKeyTurnstileEnabled])
+	require.Equal(t, "true", repo.values[service.SettingKeyRecaptchaEnabled])
+	require.Equal(t, "false", repo.values[service.SettingKeyCapEnabled])
+	require.Equal(t, "false", repo.values[service.SettingKeyLocalCaptchaEnabled])
+}

@@ -30,6 +30,9 @@ importers:
       axios:
         specifier: ^1.16.0
         version: 1.16.0
+      cap-widget:
+        specifier: 0.1.50
+        version: 0.1.50
       chart.js:
         specifier: ^4.4.1
         version: 4.5.1
@@ -1935,6 +1938,9 @@ packages:
 
   caniuse-lite@1.0.30001761:
     resolution: {integrity: sha512-JF9ptu1vP2coz98+5051jZ4PwQgd2ni8A+gYSN7EA7dPKIMf0pDlSUxhdmVOaV3/fYK5uWBkgSXJaRLr4+3A6g==}
+
+  cap-widget@0.1.50:
+    resolution: {integrity: sha512-kNmqBjf6f6IGdYwisrEtF2BurE0irjHGelTaMjRpFUPQbqW1hXVPq1u0WQYUWT8ZndRTFT9koCUifmp7FIANUQ==}
 
   ccount@2.0.1:
     resolution: {integrity: sha512-eyrF0jiFpY+3drT6383f1qhkbGsLSifNAjA61IUjZjmLCWjItY6LB9ft9YhoDgwfmclB2zhu51Lc7+95b8NRAg==}
@@ -6569,6 +6575,8 @@ snapshots:
   camelcase@5.3.1: {}
 
   caniuse-lite@1.0.30001761: {}
+
+  cap-widget@0.1.50: {}
 
   ccount@2.0.1: {}
 

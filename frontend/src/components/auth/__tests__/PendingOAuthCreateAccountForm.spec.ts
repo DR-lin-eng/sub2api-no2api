@@ -232,7 +232,7 @@ describe('PendingOAuthCreateAccountForm', () => {
 
     expect(sendPendingOAuthVerifyCode).toHaveBeenCalledWith({
       email: 'user@example.com',
-      turnstile_token: 'turnstile-token'
+      captcha_token: 'turnstile-token'
     })
   })
 })

@@ -107,7 +107,7 @@ describe('RegisterView credential storage', () => {
     expect(registerMock).not.toHaveBeenCalled()
     expect(sessionStorage.getItem('register_data')).toBe(JSON.stringify({
       email: 'user@example.com',
-      turnstile_token: '',
+      captcha_token: '',
     }))
     expect(sessionStorage.getItem('register_data')).not.toContain('secret-123')
     expect(sessionStorage.getItem('register_data')).not.toContain('credential_envelope')

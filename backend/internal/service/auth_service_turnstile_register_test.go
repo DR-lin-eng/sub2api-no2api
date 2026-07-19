@@ -15,6 +15,7 @@ type turnstileVerifierSpy struct {
 	lastToken string
 	result    *TurnstileVerifyResponse
 	err       error
+	returnNil bool
 }
 
 func (s *turnstileVerifierSpy) VerifyToken(_ context.Context, _ string, token, _ string) (*TurnstileVerifyResponse, error) {
@@ -22,6 +23,9 @@ func (s *turnstileVerifierSpy) VerifyToken(_ context.Context, _ string, token, _
 	s.lastToken = token
 	if s.err != nil {
 		return nil, s.err
+	}
+	if s.returnNil {
+		return nil, nil
 	}
 	if s.result != nil {
 		return s.result, nil
@@ -97,4 +101,18 @@ func TestAuthService_VerifyTurnstileForRegister_NoSkipWhenEmailVerifyDisabled(t 
 	require.NoError(t, err)
 	require.Equal(t, 1, verifier.called)
 	require.Equal(t, "turnstile-token", verifier.lastToken)
+}
+
+func TestAuthService_VerifyTurnstileForRegister_RejectsEmptyVerifierResponse(t *testing.T) {
+	verifier := &turnstileVerifierSpy{returnNil: true}
+	service := newAuthServiceForRegisterTurnstileTest(map[string]string{
+		SettingKeyEmailVerifyEnabled: "false",
+		SettingKeyTurnstileEnabled:   "true",
+		SettingKeyTurnstileSecretKey: "secret",
+	}, verifier)
+
+	err := service.VerifyTurnstileForRegister(context.Background(), "turnstile-token", "127.0.0.1", "")
+
+	require.ErrorIs(t, err, ErrTurnstileVerificationFailed)
+	require.Equal(t, 1, verifier.called)
 }

@@ -41,6 +41,14 @@ type SystemSettings struct {
 	TurnstileSiteKey             string
 	TurnstileSecretKey           string
 	TurnstileSecretKeyConfigured bool
+	RecaptchaEnabled             bool
+	RecaptchaSiteKey             string
+	RecaptchaSecretKey           string
+	RecaptchaSecretKeyConfigured bool
+	CapEnabled                   bool
+	CapAPIEndpoint               string
+	CapSecretKey                 string
+	CapSecretKeyConfigured       bool
 	LocalCaptchaEnabled          bool
 	APIKeyACLTrustForwardedIP    bool
 
@@ -299,6 +307,10 @@ type PublicSettings struct {
 	LoginAgreementDocuments          []LoginAgreementDocument
 	TurnstileEnabled                 bool
 	TurnstileSiteKey                 string
+	RecaptchaEnabled                 bool
+	RecaptchaSiteKey                 string
+	CapEnabled                       bool
+	CapAPIEndpoint                   string
 	LocalCaptchaEnabled              bool
 	SiteName                         string
 	SiteLogo                         string

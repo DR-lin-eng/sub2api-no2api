@@ -410,6 +410,37 @@ func TestAddToDirective(t *testing.T) {
 	})
 }
 
+func TestEnhanceCSPPolicyAllowsHumanVerificationRuntimes(t *testing.T) {
+	result := enhanceCSPPolicy("default-src 'self'; script-src 'self'; frame-src 'self'")
+
+	assert.Contains(t, result, GoogleRecaptchaDomain)
+	assert.Contains(t, result, GoogleStaticDomain)
+	assert.Contains(t, result, JSDelivrDomain)
+	assert.Contains(t, result, WASMUnsafeEval)
+	assert.Contains(t, result, GoogleRecaptchaFrameDomain)
+	assert.Equal(t, 1, countDirectiveValue(result, "connect-src", JSDelivrDomain))
+	assert.Contains(t, result, "worker-src 'self' blob:")
+}
+
+func TestSecurityHeadersInjectsDynamicConnectSrcOrigins(t *testing.T) {
+	middleware := SecurityHeaders(
+		config.CSPConfig{Enabled: true, Policy: "default-src 'self'; connect-src 'self'"},
+		nil,
+		func() []string { return []string{"https://cap.example.com"} },
+	)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+
+	middleware(c)
+
+	assert.Equal(t, 1, countDirectiveValue(
+		w.Header().Get("Content-Security-Policy"),
+		"connect-src",
+		"https://cap.example.com",
+	))
+}
+
 // Benchmark tests
 func BenchmarkGenerateNonce(b *testing.B) {
 	for i := 0; i < b.N; i++ {

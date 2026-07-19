@@ -451,10 +451,16 @@ export interface SystemSettings {
   smtp_from_email: string;
   smtp_from_name: string;
   smtp_use_tls: boolean;
-  // Cloudflare Turnstile settings
+  // Human verification settings
   turnstile_enabled: boolean;
   turnstile_site_key: string;
   turnstile_secret_key_configured: boolean;
+  recaptcha_enabled: boolean;
+  recaptcha_site_key: string;
+  recaptcha_secret_key_configured: boolean;
+  cap_enabled: boolean;
+  cap_api_endpoint: string;
+  cap_secret_key_configured: boolean;
   local_captcha_enabled: boolean;
   api_key_acl_trust_forwarded_ip: boolean;
 
@@ -766,6 +772,12 @@ export interface UpdateSettingsRequest {
   turnstile_enabled?: boolean;
   turnstile_site_key?: string;
   turnstile_secret_key?: string;
+  recaptcha_enabled?: boolean;
+  recaptcha_site_key?: string;
+  recaptcha_secret_key?: string;
+  cap_enabled?: boolean;
+  cap_api_endpoint?: string;
+  cap_secret_key?: string;
   local_captcha_enabled?: boolean;
   api_key_acl_trust_forwarded_ip?: boolean;
   linuxdo_connect_enabled?: boolean;

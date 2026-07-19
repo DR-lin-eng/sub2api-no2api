@@ -1766,31 +1766,23 @@
               </p>
             </div>
             <div class="space-y-5 p-6">
-              <!-- Enable Turnstile -->
-              <div class="flex items-center justify-between">
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">{{
-                    t("admin.settings.turnstile.enableTurnstile")
-                  }}</label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.turnstile.enableTurnstileHint") }}
-                  </p>
-                </div>
-                <Toggle v-model="form.turnstile_enabled" />
-              </div>
-
               <div
-                class="flex items-center justify-between gap-4 border-t border-gray-100 pt-4 dark:border-dark-700"
+                v-for="provider in humanVerificationProviders"
+                :key="provider.key"
+                class="flex items-center justify-between gap-4 border-b border-gray-100 pb-4 last:border-0 last:pb-0 dark:border-dark-700"
               >
                 <div>
                   <label class="font-medium text-gray-900 dark:text-white">
-                    {{ t("admin.settings.turnstile.enableLocalCaptcha") }}
+                    {{ t(provider.label) }}
                   </label>
                   <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.turnstile.enableLocalCaptchaHint") }}
+                    {{ t(provider.hint) }}
                   </p>
                 </div>
-                <Toggle v-model="form.local_captcha_enabled" />
+                <Toggle
+                  :model-value="form[provider.key]"
+                  @update:model-value="setHumanVerificationProvider(provider.key, $event)"
+                />
               </div>
 
               <!-- Turnstile Keys - Only show when enabled -->
@@ -1841,6 +1833,82 @@
                           ? t(
                               "admin.settings.turnstile.secretKeyConfiguredHint",
                             )
+                          : t("admin.settings.turnstile.secretKeyHint")
+                      }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                v-if="form.recaptcha_enabled"
+                class="border-t border-gray-100 pt-4 dark:border-dark-700"
+              >
+                <div class="grid grid-cols-1 gap-6">
+                  <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {{ t("admin.settings.turnstile.siteKey") }}
+                    </label>
+                    <input
+                      v-model="form.recaptcha_site_key"
+                      type="text"
+                      class="input font-mono text-sm"
+                      placeholder="6Lc..."
+                    />
+                  </div>
+                  <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {{ t("admin.settings.turnstile.secretKey") }}
+                    </label>
+                    <input
+                      v-model="form.recaptcha_secret_key"
+                      type="password"
+                      class="input font-mono text-sm"
+                      placeholder="6Lc..."
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{
+                        form.recaptcha_secret_key_configured
+                          ? t("admin.settings.turnstile.secretKeyConfiguredHint")
+                          : t("admin.settings.turnstile.secretKeyHint")
+                      }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                v-if="form.cap_enabled"
+                class="border-t border-gray-100 pt-4 dark:border-dark-700"
+              >
+                <div class="grid grid-cols-1 gap-6">
+                  <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {{ t("admin.settings.turnstile.capEndpoint") }}
+                    </label>
+                    <input
+                      v-model="form.cap_api_endpoint"
+                      type="url"
+                      class="input font-mono text-sm"
+                      placeholder="https://cap.example.com/site-key"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.turnstile.capEndpointHint") }}
+                    </p>
+                  </div>
+                  <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {{ t("admin.settings.turnstile.secretKey") }}
+                    </label>
+                    <input
+                      v-model="form.cap_secret_key"
+                      type="password"
+                      class="input font-mono text-sm"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{
+                        form.cap_secret_key_configured
+                          ? t("admin.settings.turnstile.secretKeyConfiguredHint")
                           : t("admin.settings.turnstile.secretKeyHint")
                       }}
                     </p>
@@ -8499,6 +8567,8 @@ type SettingsForm = Omit<
 > & {
   smtp_password: string;
   turnstile_secret_key: string;
+  recaptcha_secret_key: string;
+  cap_secret_key: string;
   linuxdo_connect_client_secret: string;
   dingtalk_connect_client_secret: string;
   wechat_connect_app_secret: string;
@@ -8536,6 +8606,53 @@ type SettingsForm = Omit<
   // 系统全局平台限额 map；form 内始终归一化为全 4 平台对象（模板非空绑定依赖此不变量）
   default_platform_quotas: DefaultPlatformQuotasMap;
 };
+
+type HumanVerificationEnabledKey =
+  | "turnstile_enabled"
+  | "recaptcha_enabled"
+  | "cap_enabled"
+  | "local_captcha_enabled";
+
+const humanVerificationProviders: Array<{
+  key: HumanVerificationEnabledKey;
+  label: string;
+  hint: string;
+}> = [
+  {
+    key: "turnstile_enabled",
+    label: "admin.settings.turnstile.enableTurnstile",
+    hint: "admin.settings.turnstile.enableTurnstileHint",
+  },
+  {
+    key: "recaptcha_enabled",
+    label: "admin.settings.turnstile.enableRecaptcha",
+    hint: "admin.settings.turnstile.enableRecaptchaHint",
+  },
+  {
+    key: "cap_enabled",
+    label: "admin.settings.turnstile.enableCap",
+    hint: "admin.settings.turnstile.enableCapHint",
+  },
+  {
+    key: "local_captcha_enabled",
+    label: "admin.settings.turnstile.enableLocalCaptcha",
+    hint: "admin.settings.turnstile.enableLocalCaptchaHint",
+  },
+];
+
+function setHumanVerificationProvider(
+  provider: HumanVerificationEnabledKey,
+  enabled: boolean,
+): void {
+  for (const option of humanVerificationProviders) {
+    form[option.key] = enabled && option.key === provider;
+  }
+}
+
+function normalizeHumanVerificationProvider(): void {
+  const selected = humanVerificationProviders.find(option => form[option.key]);
+  if (selected) setHumanVerificationProvider(selected.key, true);
+}
 
 const form = reactive<SettingsForm>({
   registration_enabled: true,
@@ -8622,12 +8739,20 @@ const form = reactive<SettingsForm>({
   smtp_from_email: "",
   smtp_from_name: "",
   smtp_use_tls: true,
-  // Cloudflare Turnstile
+  // Human verification
   turnstile_enabled: false,
   turnstile_site_key: "",
-  local_captcha_enabled: false,
   turnstile_secret_key: "",
   turnstile_secret_key_configured: false,
+  recaptcha_enabled: false,
+  recaptcha_site_key: "",
+  recaptcha_secret_key: "",
+  recaptcha_secret_key_configured: false,
+  cap_enabled: false,
+  cap_api_endpoint: "",
+  cap_secret_key: "",
+  cap_secret_key_configured: false,
+  local_captcha_enabled: false,
   api_key_acl_trust_forwarded_ip: false,
   // LinuxDo Connect OAuth 登录
   linuxdo_connect_enabled: false,
@@ -9581,6 +9706,7 @@ async function loadSettings() {
         (form as Record<string, unknown>)[key] = value;
       }
     }
+    normalizeHumanVerificationProvider();
     if (!form.claude_oauth_system_prompt_blocks?.trim()) {
       form.claude_oauth_system_prompt_blocks =
         defaultClaudeOAuthSystemPromptBlocks;
@@ -9631,6 +9757,8 @@ async function loadSettings() {
     form.smtp_password = "";
     smtpPasswordManuallyEdited.value = false;
     form.turnstile_secret_key = "";
+    form.recaptcha_secret_key = "";
+    form.cap_secret_key = "";
     form.linuxdo_connect_client_secret = "";
     form.dingtalk_connect_client_secret = "";
     form.github_oauth_client_secret = "";
@@ -9994,8 +10122,14 @@ async function saveSettings() {
       smtp_use_tls: form.smtp_use_tls,
       turnstile_enabled: form.turnstile_enabled,
       turnstile_site_key: form.turnstile_site_key,
-      local_captcha_enabled: form.local_captcha_enabled,
       turnstile_secret_key: form.turnstile_secret_key || undefined,
+      recaptcha_enabled: form.recaptcha_enabled,
+      recaptcha_site_key: form.recaptcha_site_key,
+      recaptcha_secret_key: form.recaptcha_secret_key || undefined,
+      cap_enabled: form.cap_enabled,
+      cap_api_endpoint: form.cap_api_endpoint,
+      cap_secret_key: form.cap_secret_key || undefined,
+      local_captcha_enabled: form.local_captcha_enabled,
       api_key_acl_trust_forwarded_ip: form.api_key_acl_trust_forwarded_ip,
       linuxdo_connect_enabled: form.linuxdo_connect_enabled,
       linuxdo_connect_client_id: form.linuxdo_connect_client_id,
@@ -10261,6 +10395,7 @@ async function saveSettings() {
         (form as Record<string, unknown>)[key] = value;
       }
     }
+    normalizeHumanVerificationProvider();
     Object.assign(authSourceDefaults, buildAuthSourceDefaultsState(updated));
     form.default_platform_quotas = normalizePlatformQuotasMap(updated.default_platform_quotas);
     registrationEmailSuffixWhitelistTags.value =
@@ -10276,6 +10411,8 @@ async function saveSettings() {
     form.smtp_password = "";
     smtpPasswordManuallyEdited.value = false;
     form.turnstile_secret_key = "";
+    form.recaptcha_secret_key = "";
+    form.cap_secret_key = "";
     form.linuxdo_connect_client_secret = "";
     form.dingtalk_connect_client_secret = "";
     form.github_oauth_client_secret = "";

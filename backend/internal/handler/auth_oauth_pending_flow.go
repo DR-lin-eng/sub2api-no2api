@@ -77,7 +77,10 @@ type createPendingOAuthAccountRequest struct {
 
 type sendPendingOAuthVerifyCodeRequest struct {
 	Email             string `json:"email" binding:"required,email"`
+	CaptchaToken      string `json:"captcha_token,omitempty"`
 	TurnstileToken    string `json:"turnstile_token,omitempty"`
+	CaptchaID         string `json:"captcha_id,omitempty"`
+	CaptchaCode       string `json:"captcha_code,omitempty"`
 	PendingAuthToken  string `json:"pending_auth_token,omitempty"`
 	PendingOAuthToken string `json:"pending_oauth_token,omitempty"`
 }
@@ -564,7 +567,7 @@ func (h *AuthHandler) SendPendingOAuthVerifyCode(c *gin.Context) {
 		return
 	}
 
-	if err := h.authService.VerifyTurnstile(c.Request.Context(), req.TurnstileToken, ip.GetClientIP(c)); err != nil {
+	if err := h.authService.VerifyTurnstile(c.Request.Context(), firstHumanVerificationToken(req.CaptchaToken, req.TurnstileToken), ip.GetClientIP(c)); err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}

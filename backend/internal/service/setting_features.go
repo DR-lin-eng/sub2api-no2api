@@ -406,6 +406,18 @@ func (s *SettingService) IsTurnstileEnabled(ctx context.Context) bool {
 	return value == "true"
 }
 
+// IsRecaptchaEnabled 检查是否启用 Google reCAPTCHA。
+func (s *SettingService) IsRecaptchaEnabled(ctx context.Context) bool {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyRecaptchaEnabled)
+	return err == nil && value == "true"
+}
+
+// IsCapEnabled 检查是否启用 Cap。
+func (s *SettingService) IsCapEnabled(ctx context.Context) bool {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyCapEnabled)
+	return err == nil && value == "true"
+}
+
 // IsLocalCaptchaEnabled 检查是否启用本地验证码兜底。缺少设置时默认关闭。
 func (s *SettingService) IsLocalCaptchaEnabled(ctx context.Context) bool {
 	value, err := s.settingRepo.GetValue(ctx, SettingKeyLocalCaptchaEnabled)
@@ -422,6 +434,76 @@ func (s *SettingService) GetTurnstileSecretKey(ctx context.Context) string {
 		return ""
 	}
 	return value
+}
+
+// GetRecaptchaSecretKey 获取 Google reCAPTCHA Secret Key。
+func (s *SettingService) GetRecaptchaSecretKey(ctx context.Context) string {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyRecaptchaSecretKey)
+	if err != nil {
+		return ""
+	}
+	return value
+}
+
+// GetCapAPIEndpoint 获取 Cap 站点 API Endpoint。
+func (s *SettingService) GetCapAPIEndpoint(ctx context.Context) string {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyCapAPIEndpoint)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimRight(strings.TrimSpace(value), "/")
+}
+
+// GetCapSecretKey 获取 Cap Site Secret Key。
+func (s *SettingService) GetCapSecretKey(ctx context.Context) string {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyCapSecretKey)
+	if err != nil {
+		return ""
+	}
+	return value
+}
+
+const (
+	HumanVerificationProviderNone      = "none"
+	HumanVerificationProviderTurnstile = "turnstile"
+	HumanVerificationProviderRecaptcha = "recaptcha"
+	HumanVerificationProviderCap       = "cap"
+	HumanVerificationProviderLocal     = "local"
+	HumanVerificationProviderInvalid   = "invalid"
+)
+
+// GetHumanVerificationProvider 返回当前唯一启用的人机验证渠道。
+// 数据库中若出现多个启用项则返回 invalid，让认证链路 fail-close。
+func (s *SettingService) GetHumanVerificationProvider(ctx context.Context) string {
+	if s == nil || s.settingRepo == nil {
+		return HumanVerificationProviderNone
+	}
+	providers := make([]string, 0, 4)
+	if s.IsTurnstileEnabled(ctx) {
+		providers = append(providers, HumanVerificationProviderTurnstile)
+	}
+	if s.IsRecaptchaEnabled(ctx) {
+		providers = append(providers, HumanVerificationProviderRecaptcha)
+	}
+	if s.IsCapEnabled(ctx) {
+		providers = append(providers, HumanVerificationProviderCap)
+	}
+	if s.IsLocalCaptchaEnabled(ctx) {
+		providers = append(providers, HumanVerificationProviderLocal)
+	}
+	if len(providers) == 0 {
+		return HumanVerificationProviderNone
+	}
+	if len(providers) == 2 && providers[0] == HumanVerificationProviderTurnstile && providers[1] == HumanVerificationProviderLocal {
+		// 旧版本允许同时开启 Turnstile 与本地兜底，且运行时始终以
+		// Turnstile 为优先。保留这一读取兼容性，下一次后台保存会
+		// 通过互斥选择自动清理旧状态。
+		return HumanVerificationProviderTurnstile
+	}
+	if len(providers) > 1 {
+		return HumanVerificationProviderInvalid
+	}
+	return providers[0]
 }
 
 // IsIdentityPatchEnabled 检查是否启用身份补丁（Claude -> Gemini systemInstruction 注入）

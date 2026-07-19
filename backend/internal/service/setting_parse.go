@@ -279,6 +279,12 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		TurnstileEnabled:                 settings[SettingKeyTurnstileEnabled] == "true",
 		TurnstileSiteKey:                 settings[SettingKeyTurnstileSiteKey],
 		TurnstileSecretKeyConfigured:     settings[SettingKeyTurnstileSecretKey] != "",
+		RecaptchaEnabled:                 settings[SettingKeyRecaptchaEnabled] == "true",
+		RecaptchaSiteKey:                 settings[SettingKeyRecaptchaSiteKey],
+		RecaptchaSecretKeyConfigured:     settings[SettingKeyRecaptchaSecretKey] != "",
+		CapEnabled:                       settings[SettingKeyCapEnabled] == "true",
+		CapAPIEndpoint:                   settings[SettingKeyCapAPIEndpoint],
+		CapSecretKeyConfigured:           settings[SettingKeyCapSecretKey] != "",
 		LocalCaptchaEnabled:              settings[SettingKeyLocalCaptchaEnabled] == "true", // 默认关闭
 		APIKeyACLTrustForwardedIP:        apiKeyACLTrustForwardedIP,
 		SiteName:                         s.getStringOrDefault(settings, SettingKeySiteName, "Sub2API"),
@@ -350,6 +356,8 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	// 敏感信息直接返回，方便测试连接时使用
 	result.SMTPPassword = settings[SettingKeySMTPPassword]
 	result.TurnstileSecretKey = settings[SettingKeyTurnstileSecretKey]
+	result.RecaptchaSecretKey = settings[SettingKeyRecaptchaSecretKey]
+	result.CapSecretKey = settings[SettingKeyCapSecretKey]
 
 	// LinuxDo Connect 设置：
 	// - 兼容 config.yaml/env（避免老部署因为未迁移到数据库设置而被意外关闭）
