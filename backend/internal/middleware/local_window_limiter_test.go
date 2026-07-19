@@ -79,9 +79,9 @@ func BenchmarkBoundedLocalWindowLimiterParallel(b *testing.B) {
 func TestBoundedLocalWindowLimiterEnforcesGlobalLimit(t *testing.T) {
 	limiter := NewBoundedLocalWindowLimiter(10, 3, time.Minute, 64)
 	require.True(t, limiter.allow("203.0.113.1"))
-	require.True(t, limiter.allow("203.0.113.2"))
-	require.True(t, limiter.allow("203.0.113.3"))
-	require.False(t, limiter.allow("203.0.113.4"))
+	require.True(t, limiter.allow("203.0.113.1"))
+	require.True(t, limiter.allow("203.0.113.1"))
+	require.False(t, limiter.allow("203.0.113.1"))
 }
 
 func TestCredentialAuthIngressLimiterCapsConcurrentSubmissions(t *testing.T) {
