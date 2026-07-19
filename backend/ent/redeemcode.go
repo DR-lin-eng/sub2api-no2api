@@ -27,6 +27,12 @@ type RedeemCode struct {
 	Value float64 `json:"value,omitempty"`
 	// Status holds the value of the "status" field.
 	Status string `json:"status,omitempty"`
+	// 最大使用次数，0表示不限
+	MaxUses int `json:"max_uses,omitempty"`
+	// 已使用次数
+	UsedCount int `json:"used_count,omitempty"`
+	// 同一用户最大使用次数，0表示不限
+	MaxUsesPerUser int `json:"max_uses_per_user,omitempty"`
 	// UsedBy holds the value of the "used_by" field.
 	UsedBy *int64 `json:"used_by,omitempty"`
 	// UsedAt holds the value of the "used_at" field.
@@ -53,9 +59,11 @@ type RedeemCodeEdges struct {
 	User *User `json:"user,omitempty"`
 	// Group holds the value of the group edge.
 	Group *Group `json:"group,omitempty"`
+	// UsageRecords holds the value of the usage_records edge.
+	UsageRecords []*RedeemCodeUsage `json:"usage_records,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [3]bool
 }
 
 // UserOrErr returns the User value or an error if the edge
@@ -80,6 +88,15 @@ func (e RedeemCodeEdges) GroupOrErr() (*Group, error) {
 	return nil, &NotLoadedError{edge: "group"}
 }
 
+// UsageRecordsOrErr returns the UsageRecords value or an error if the edge
+// was not loaded in eager-loading.
+func (e RedeemCodeEdges) UsageRecordsOrErr() ([]*RedeemCodeUsage, error) {
+	if e.loadedTypes[2] {
+		return e.UsageRecords, nil
+	}
+	return nil, &NotLoadedError{edge: "usage_records"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*RedeemCode) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -87,7 +104,7 @@ func (*RedeemCode) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case redeemcode.FieldValue:
 			values[i] = new(sql.NullFloat64)
-		case redeemcode.FieldID, redeemcode.FieldUsedBy, redeemcode.FieldGroupID, redeemcode.FieldValidityDays:
+		case redeemcode.FieldID, redeemcode.FieldMaxUses, redeemcode.FieldUsedCount, redeemcode.FieldMaxUsesPerUser, redeemcode.FieldUsedBy, redeemcode.FieldGroupID, redeemcode.FieldValidityDays:
 			values[i] = new(sql.NullInt64)
 		case redeemcode.FieldCode, redeemcode.FieldType, redeemcode.FieldStatus, redeemcode.FieldNotes:
 			values[i] = new(sql.NullString)
@@ -137,6 +154,24 @@ func (_m *RedeemCode) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field status", values[i])
 			} else if value.Valid {
 				_m.Status = value.String
+			}
+		case redeemcode.FieldMaxUses:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field max_uses", values[i])
+			} else if value.Valid {
+				_m.MaxUses = int(value.Int64)
+			}
+		case redeemcode.FieldUsedCount:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field used_count", values[i])
+			} else if value.Valid {
+				_m.UsedCount = int(value.Int64)
+			}
+		case redeemcode.FieldMaxUsesPerUser:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field max_uses_per_user", values[i])
+			} else if value.Valid {
+				_m.MaxUsesPerUser = int(value.Int64)
 			}
 		case redeemcode.FieldUsedBy:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -208,6 +243,11 @@ func (_m *RedeemCode) QueryGroup() *GroupQuery {
 	return NewRedeemCodeClient(_m.config).QueryGroup(_m)
 }
 
+// QueryUsageRecords queries the "usage_records" edge of the RedeemCode entity.
+func (_m *RedeemCode) QueryUsageRecords() *RedeemCodeUsageQuery {
+	return NewRedeemCodeClient(_m.config).QueryUsageRecords(_m)
+}
+
 // Update returns a builder for updating this RedeemCode.
 // Note that you need to call RedeemCode.Unwrap() before calling this method if this RedeemCode
 // was returned from a transaction, and the transaction was committed or rolled back.
@@ -242,6 +282,15 @@ func (_m *RedeemCode) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(_m.Status)
+	builder.WriteString(", ")
+	builder.WriteString("max_uses=")
+	builder.WriteString(fmt.Sprintf("%v", _m.MaxUses))
+	builder.WriteString(", ")
+	builder.WriteString("used_count=")
+	builder.WriteString(fmt.Sprintf("%v", _m.UsedCount))
+	builder.WriteString(", ")
+	builder.WriteString("max_uses_per_user=")
+	builder.WriteString(fmt.Sprintf("%v", _m.MaxUsesPerUser))
 	builder.WriteString(", ")
 	if v := _m.UsedBy; v != nil {
 		builder.WriteString("used_by=")

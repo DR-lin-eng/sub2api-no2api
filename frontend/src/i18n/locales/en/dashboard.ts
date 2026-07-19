@@ -603,7 +603,7 @@ export default {
     newBalance: 'New Balance',
     newConcurrency: 'New Concurrency',
     aboutCodes: 'About Redeem Codes',
-    codeRule1: 'Each code can only be used once',
+    codeRule1: 'Codes may be shared, with separate total and per-user usage limits',
     codeRule2: 'Codes may add balance, increase concurrency, or grant trial access',
     codeRule3: 'Contact support if you have issues redeeming a code',
     codeRule4: 'Balance and concurrency updates are immediate',

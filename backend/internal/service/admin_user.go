@@ -1255,6 +1255,20 @@ func (s *adminServiceImpl) GenerateRedeemCodes(ctx context.Context, input *Gener
 	if input.ExpiresAt != nil && !input.ExpiresAt.After(time.Now()) {
 		return nil, ErrRedeemCodeExpired
 	}
+	maxUses := 1
+	if input.MaxUses != nil {
+		if *input.MaxUses < 0 {
+			return nil, errors.New("max_uses must be zero or greater")
+		}
+		maxUses = *input.MaxUses
+	}
+	maxUsesPerUser := 1
+	if input.MaxUsesPerUser != nil {
+		if *input.MaxUsesPerUser < 0 {
+			return nil, errors.New("max_uses_per_user must be zero or greater")
+		}
+		maxUsesPerUser = *input.MaxUsesPerUser
+	}
 
 	// 如果是订阅类型，验证必须有 GroupID
 	if input.Type == RedeemTypeSubscription {
@@ -1278,11 +1292,14 @@ func (s *adminServiceImpl) GenerateRedeemCodes(ctx context.Context, input *Gener
 			return nil, err
 		}
 		code := RedeemCode{
-			Code:      codeValue,
-			Type:      input.Type,
-			Value:     input.Value,
-			Status:    StatusUnused,
-			ExpiresAt: input.ExpiresAt,
+			Code:             codeValue,
+			Type:             input.Type,
+			Value:            input.Value,
+			Status:           StatusUnused,
+			ExpiresAt:        input.ExpiresAt,
+			MaxUses:          maxUses,
+			MaxUsesPerUser:   maxUsesPerUser,
+			LimitsConfigured: true,
 		}
 		// 订阅类型专用字段
 		if input.Type == RedeemTypeSubscription {

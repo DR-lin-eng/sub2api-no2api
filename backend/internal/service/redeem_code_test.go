@@ -57,3 +57,20 @@ func TestRedeemCodeExpiry(t *testing.T) {
 		})
 	}
 }
+
+func TestRedeemCodeUsageLimits(t *testing.T) {
+	tests := []struct {
+		name string
+		code RedeemCode
+		want bool
+	}{
+		{name: "total limit reached", code: RedeemCode{Status: StatusUnused, MaxUses: 3, UsedCount: 3}, want: false},
+		{name: "total zero is unlimited", code: RedeemCode{Status: StatusUnused, MaxUses: 0, UsedCount: 999}, want: true},
+		{name: "total limit still available", code: RedeemCode{Status: StatusUnused, MaxUses: 3, UsedCount: 2}, want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, tt.code.CanUse())
+		})
+	}
+}

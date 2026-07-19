@@ -32,6 +32,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/redeemcodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/schema"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
@@ -1689,14 +1690,32 @@ func init() {
 	redeemcode.DefaultStatus = redeemcodeDescStatus.Default.(string)
 	// redeemcode.StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	redeemcode.StatusValidator = redeemcodeDescStatus.Validators[0].(func(string) error)
+	// redeemcodeDescMaxUses is the schema descriptor for max_uses field.
+	redeemcodeDescMaxUses := redeemcodeFields[4].Descriptor()
+	// redeemcode.DefaultMaxUses holds the default value on creation for the max_uses field.
+	redeemcode.DefaultMaxUses = redeemcodeDescMaxUses.Default.(int)
+	// redeemcodeDescUsedCount is the schema descriptor for used_count field.
+	redeemcodeDescUsedCount := redeemcodeFields[5].Descriptor()
+	// redeemcode.DefaultUsedCount holds the default value on creation for the used_count field.
+	redeemcode.DefaultUsedCount = redeemcodeDescUsedCount.Default.(int)
+	// redeemcodeDescMaxUsesPerUser is the schema descriptor for max_uses_per_user field.
+	redeemcodeDescMaxUsesPerUser := redeemcodeFields[6].Descriptor()
+	// redeemcode.DefaultMaxUsesPerUser holds the default value on creation for the max_uses_per_user field.
+	redeemcode.DefaultMaxUsesPerUser = redeemcodeDescMaxUsesPerUser.Default.(int)
 	// redeemcodeDescCreatedAt is the schema descriptor for created_at field.
-	redeemcodeDescCreatedAt := redeemcodeFields[7].Descriptor()
+	redeemcodeDescCreatedAt := redeemcodeFields[10].Descriptor()
 	// redeemcode.DefaultCreatedAt holds the default value on creation for the created_at field.
 	redeemcode.DefaultCreatedAt = redeemcodeDescCreatedAt.Default.(func() time.Time)
 	// redeemcodeDescValidityDays is the schema descriptor for validity_days field.
-	redeemcodeDescValidityDays := redeemcodeFields[10].Descriptor()
+	redeemcodeDescValidityDays := redeemcodeFields[13].Descriptor()
 	// redeemcode.DefaultValidityDays holds the default value on creation for the validity_days field.
 	redeemcode.DefaultValidityDays = redeemcodeDescValidityDays.Default.(int)
+	redeemcodeusageFields := schema.RedeemCodeUsage{}.Fields()
+	_ = redeemcodeusageFields
+	// redeemcodeusageDescUsedAt is the schema descriptor for used_at field.
+	redeemcodeusageDescUsedAt := redeemcodeusageFields[3].Descriptor()
+	// redeemcodeusage.DefaultUsedAt holds the default value on creation for the used_at field.
+	redeemcodeusage.DefaultUsedAt = redeemcodeusageDescUsedAt.Default.(func() time.Time)
 	securitysecretMixin := schema.SecuritySecret{}.Mixin()
 	securitysecretMixinFields0 := securitysecretMixin[0].Fields()
 	_ = securitysecretMixinFields0

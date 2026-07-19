@@ -608,7 +608,7 @@ export default {
     newBalance: '新余额',
     newConcurrency: '新并发数',
     aboutCodes: '关于兑换码',
-    codeRule1: '每个兑换码只能使用一次',
+    codeRule1: '兑换码可按管理员设置供多人使用，并分别限制总次数和每人次数',
     codeRule2: '兑换码可以增加余额、并发数或试用权限',
     codeRule3: '如有兑换问题，请联系客服',
     codeRule4: '余额和并发数即时更新',

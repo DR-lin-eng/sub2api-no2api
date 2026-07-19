@@ -397,6 +397,42 @@ func (s *RedeemCodeRepoSuite) TestUse_AlreadyUsed() {
 	s.Require().ErrorIs(err, service.ErrRedeemCodeUsed)
 }
 
+func (s *RedeemCodeRepoSuite) TestUse_MultiUseTotalAndPerUserLimits() {
+	user1 := s.createUser(uniqueTestValue(s.T(), "multi-1") + "@example.com")
+	user2 := s.createUser(uniqueTestValue(s.T(), "multi-2") + "@example.com")
+	user3 := s.createUser(uniqueTestValue(s.T(), "multi-3") + "@example.com")
+	user4 := s.createUser(uniqueTestValue(s.T(), "multi-4") + "@example.com")
+	code := &service.RedeemCode{
+		Code: "MULTI-LIMITED", Type: service.RedeemTypeBalance, Value: 1,
+		Status: service.StatusUnused, MaxUses: 3, MaxUsesPerUser: 1, LimitsConfigured: true,
+	}
+	s.Require().NoError(s.repo.Create(s.ctx, code))
+	s.Require().NoError(s.repo.Use(s.ctx, code.ID, user1.ID))
+	s.Require().ErrorIs(s.repo.Use(s.ctx, code.ID, user1.ID), service.ErrRedeemCodeUsed)
+	s.Require().NoError(s.repo.Use(s.ctx, code.ID, user2.ID))
+	s.Require().NoError(s.repo.Use(s.ctx, code.ID, user3.ID))
+	s.Require().ErrorIs(s.repo.Use(s.ctx, code.ID, user4.ID), service.ErrRedeemCodeUsed)
+
+	got, err := s.repo.GetByID(s.ctx, code.ID)
+	s.Require().NoError(err)
+	s.Require().Equal(3, got.UsedCount)
+	s.Require().Equal(service.StatusUsed, got.Status)
+
+	unlimited := &service.RedeemCode{
+		Code: "MULTI-PER-USER", Type: service.RedeemTypeBalance, Value: 1,
+		Status: service.StatusUnused, MaxUses: 0, MaxUsesPerUser: 2, LimitsConfigured: true,
+	}
+	s.Require().NoError(s.repo.Create(s.ctx, unlimited))
+	s.Require().NoError(s.repo.Use(s.ctx, unlimited.ID, user1.ID))
+	s.Require().NoError(s.repo.Use(s.ctx, unlimited.ID, user1.ID))
+	s.Require().ErrorIs(s.repo.Use(s.ctx, unlimited.ID, user1.ID), service.ErrRedeemCodeUsed)
+	s.Require().NoError(s.repo.Use(s.ctx, unlimited.ID, user2.ID))
+	got, err = s.repo.GetByID(s.ctx, unlimited.ID)
+	s.Require().NoError(err)
+	s.Require().Equal(3, got.UsedCount)
+	s.Require().Equal(service.StatusUnused, got.Status)
+}
+
 // --- ListByUser ---
 
 func (s *RedeemCodeRepoSuite) TestListByUser() {

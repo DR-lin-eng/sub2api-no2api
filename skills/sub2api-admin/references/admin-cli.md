@@ -145,9 +145,11 @@ node scripts/sub2api-admin.js redeem-codes export --file redeem-codes.csv
 
 ```bash
 node scripts/sub2api-admin.js redeem-codes generate \
-  --json '{"count":1,"type":"balance","value":10}' \
+  --json '{"count":1,"type":"balance","value":10,"max_uses":100,"max_uses_per_user":1}' \
   --idempotency-key "redeem-generate-$(date +%s)"
 ```
+
+`max_uses` 是兑换码总使用上限，`max_uses_per_user` 是单个用户使用上限；两者都默认为 `1`，填 `0` 表示对应维度不限次数。
 
 订阅兑换码需要 `group_id` 和非零 `validity_days`：
 

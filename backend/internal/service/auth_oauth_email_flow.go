@@ -11,6 +11,7 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/redeemcodeusage"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
 
@@ -324,7 +325,48 @@ func (s *AuthService) restoreOAuthRegistrationInvitation(ctx context.Context, in
 		}
 		return fmt.Errorf("load invitation code: %w", err)
 	}
-	if redeemCode.Type != RedeemTypeInvitation || redeemCode.Status != StatusUsed || redeemCode.UsedBy == nil || *redeemCode.UsedBy != userID {
+	if redeemCode.Type != RedeemTypeInvitation {
+		return nil
+	}
+	if client := s.oauthEmailFlowClient(ctx); client != nil {
+		usage, usageErr := client.RedeemCodeUsage.Query().Where(
+			redeemcodeusage.RedeemCodeIDEQ(redeemCode.ID),
+			redeemcodeusage.UserIDEQ(userID),
+		).Order(dbent.Desc(redeemcodeusage.FieldUsedAt)).First(ctx)
+		if usageErr != nil {
+			if dbent.IsNotFound(usageErr) {
+				return nil
+			}
+			return fmt.Errorf("load invitation usage: %w", usageErr)
+		}
+		if err := client.RedeemCodeUsage.DeleteOneID(usage.ID).Exec(ctx); err != nil {
+			return fmt.Errorf("delete invitation usage: %w", err)
+		}
+
+		newCount := redeemCode.UsedCount - 1
+		if newCount < 0 {
+			newCount = 0
+		}
+		update := client.RedeemCode.UpdateOneID(redeemCode.ID).
+			SetStatus(StatusUnused).
+			SetUsedCount(newCount)
+		latest, latestErr := client.RedeemCodeUsage.Query().Where(
+			redeemcodeusage.RedeemCodeIDEQ(redeemCode.ID),
+		).Order(dbent.Desc(redeemcodeusage.FieldUsedAt)).First(ctx)
+		switch {
+		case latestErr == nil:
+			update = update.SetUsedBy(latest.UserID).SetUsedAt(latest.UsedAt)
+		case dbent.IsNotFound(latestErr):
+			update = update.ClearUsedBy().ClearUsedAt()
+		default:
+			return fmt.Errorf("load latest invitation usage: %w", latestErr)
+		}
+		if _, err := update.Save(ctx); err != nil {
+			return fmt.Errorf("restore invitation code: %w", err)
+		}
+		return nil
+	}
+	if redeemCode.Status != StatusUsed || redeemCode.UsedBy == nil || *redeemCode.UsedBy != userID {
 		return nil
 	}
 
@@ -357,42 +399,30 @@ func (s *AuthService) loadOAuthRegistrationInvitation(ctx context.Context, invit
 			return nil, err
 		}
 		return &RedeemCode{
-			ID:           entity.ID,
-			Code:         entity.Code,
-			Type:         entity.Type,
-			Value:        entity.Value,
-			Status:       entity.Status,
-			UsedBy:       entity.UsedBy,
-			UsedAt:       entity.UsedAt,
-			Notes:        oauthEmailFlowStringValue(entity.Notes),
-			CreatedAt:    entity.CreatedAt,
-			ExpiresAt:    entity.ExpiresAt,
-			GroupID:      entity.GroupID,
-			ValidityDays: entity.ValidityDays,
+			ID:               entity.ID,
+			Code:             entity.Code,
+			Type:             entity.Type,
+			Value:            entity.Value,
+			Status:           entity.Status,
+			MaxUses:          entity.MaxUses,
+			UsedCount:        entity.UsedCount,
+			MaxUsesPerUser:   entity.MaxUsesPerUser,
+			LimitsConfigured: true,
+			UsedBy:           entity.UsedBy,
+			UsedAt:           entity.UsedAt,
+			Notes:            oauthEmailFlowStringValue(entity.Notes),
+			CreatedAt:        entity.CreatedAt,
+			ExpiresAt:        entity.ExpiresAt,
+			GroupID:          entity.GroupID,
+			ValidityDays:     entity.ValidityDays,
 		}, nil
 	}
 	return s.redeemRepo.GetByCode(ctx, invitationCode)
 }
 
 func (s *AuthService) useOAuthRegistrationInvitation(ctx context.Context, invitationID, userID int64) error {
-	if client := s.oauthEmailFlowClient(ctx); client != nil {
-		affected, err := client.RedeemCode.Update().
-			Where(
-				redeemcode.IDEQ(invitationID),
-				redeemcode.StatusEQ(StatusUnused),
-				redeemcode.Or(redeemcode.ExpiresAtIsNil(), redeemcode.ExpiresAtGT(time.Now().UTC())),
-			).
-			SetStatus(StatusUsed).
-			SetUsedBy(userID).
-			SetUsedAt(time.Now().UTC()).
-			Save(ctx)
-		if err != nil {
-			return err
-		}
-		if affected == 0 {
-			return ErrRedeemCodeUsed
-		}
-		return nil
+	if s == nil || s.redeemRepo == nil {
+		return ErrServiceUnavailable
 	}
 	return s.redeemRepo.Use(ctx, invitationID, userID)
 }
@@ -407,6 +437,9 @@ func (s *AuthService) updateOAuthRegistrationInvitation(ctx context.Context, cod
 			SetType(code.Type).
 			SetValue(code.Value).
 			SetStatus(code.Status).
+			SetMaxUses(code.MaxUses).
+			SetUsedCount(code.UsedCount).
+			SetMaxUsesPerUser(code.MaxUsesPerUser).
 			SetNotes(code.Notes).
 			SetValidityDays(code.ValidityDays)
 		if code.ExpiresAt != nil {

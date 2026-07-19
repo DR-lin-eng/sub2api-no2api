@@ -70,9 +70,11 @@ type RedeemCodeRepository interface {
 
 // GenerateCodesRequest 生成兑换码请求
 type GenerateCodesRequest struct {
-	Count int     `json:"count"`
-	Value float64 `json:"value"`
-	Type  string  `json:"type"`
+	Count          int     `json:"count"`
+	Value          float64 `json:"value"`
+	Type           string  `json:"type"`
+	MaxUses        *int    `json:"max_uses"`
+	MaxUsesPerUser *int    `json:"max_uses_per_user"`
 }
 
 // RedeemCodeResponse 兑换码响应
@@ -205,6 +207,20 @@ func (s *RedeemService) GenerateCodes(ctx context.Context, req GenerateCodesRequ
 	if req.Count > 1000 {
 		return nil, errors.New("cannot generate more than 1000 codes at once")
 	}
+	maxUses := 1
+	if req.MaxUses != nil {
+		if *req.MaxUses < 0 {
+			return nil, errors.New("max_uses must be zero or greater")
+		}
+		maxUses = *req.MaxUses
+	}
+	maxUsesPerUser := 1
+	if req.MaxUsesPerUser != nil {
+		if *req.MaxUsesPerUser < 0 {
+			return nil, errors.New("max_uses_per_user must be zero or greater")
+		}
+		maxUsesPerUser = *req.MaxUsesPerUser
+	}
 
 	codeType := req.Type
 	if codeType == "" {
@@ -225,10 +241,13 @@ func (s *RedeemService) GenerateCodes(ctx context.Context, req GenerateCodesRequ
 		}
 
 		codes = append(codes, RedeemCode{
-			Code:   code,
-			Type:   codeType,
-			Value:  value,
-			Status: StatusUnused,
+			Code:             code,
+			Type:             codeType,
+			Value:            value,
+			Status:           StatusUnused,
+			MaxUses:          maxUses,
+			MaxUsesPerUser:   maxUsesPerUser,
+			LimitsConfigured: true,
 		})
 	}
 
@@ -260,6 +279,16 @@ func (s *RedeemService) CreateCode(ctx context.Context, code *RedeemCode) error 
 	if code.Status == "" {
 		code.Status = StatusUnused
 	}
+	if code.MaxUses < 0 {
+		return errors.New("max_uses must be zero or greater")
+	}
+	// A zero-value service object comes from legacy integrations and must retain
+	// one-time semantics unless limits were explicitly supplied.
+	if code.MaxUses == 0 && code.UsedCount == 0 {
+		code.MaxUses = 1
+		code.MaxUsesPerUser = 1
+	}
+	code.LimitsConfigured = true
 	if code.IsExpired() {
 		return ErrRedeemCodeExpired
 	}
@@ -626,7 +655,7 @@ func (s *RedeemService) Delete(ctx context.Context, id int64) error {
 	}
 
 	// 不允许删除已使用的兑换码
-	if code.IsUsed() {
+	if code.IsUsed() || code.UsedCount > 0 {
 		return infraerrors.Conflict("REDEEM_CODE_DELETE_USED", "cannot delete used redeem code")
 	}
 

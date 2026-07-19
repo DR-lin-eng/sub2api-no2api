@@ -12,11 +12,18 @@ type RedeemCode struct {
 	Type      string
 	Value     float64
 	Status    string
-	UsedBy    *int64
-	UsedAt    *time.Time
-	Notes     string
-	CreatedAt time.Time
-	ExpiresAt *time.Time
+	MaxUses   int
+	UsedCount int
+	// MaxUsesPerUser limits successful uses by one user; 0 means unlimited.
+	MaxUsesPerUser int
+	// LimitsConfigured distinguishes explicit zero (unlimited) from legacy
+	// zero-value service objects created before multi-use support.
+	LimitsConfigured bool
+	UsedBy           *int64
+	UsedAt           *time.Time
+	Notes            string
+	CreatedAt        time.Time
+	ExpiresAt        *time.Time
 
 	GroupID      *int64
 	ValidityDays int
@@ -26,7 +33,7 @@ type RedeemCode struct {
 }
 
 func (r *RedeemCode) IsUsed() bool {
-	return r.Status == StatusUsed
+	return r.Status == StatusUsed || (r.MaxUses > 0 && r.UsedCount >= r.MaxUses)
 }
 
 func (r *RedeemCode) IsExpired() bool {
@@ -44,7 +51,7 @@ func (r *RedeemCode) IsExpiredAt(now time.Time) bool {
 }
 
 func (r *RedeemCode) CanUse() bool {
-	return r.Status == StatusUnused && !r.IsExpired()
+	return r.Status == StatusUnused && !r.IsExpired() && (r.MaxUses <= 0 || r.UsedCount < r.MaxUses)
 }
 
 func GenerateRedeemCode() (string, error) {

@@ -48,6 +48,15 @@ func (RedeemCode) Fields() []ent.Field {
 		field.String("status").
 			MaxLen(20).
 			Default(domain.StatusUnused),
+		field.Int("max_uses").
+			Default(1).
+			Comment("最大使用次数，0表示不限"),
+		field.Int("used_count").
+			Default(0).
+			Comment("已使用次数"),
+		field.Int("max_uses_per_user").
+			Default(1).
+			Comment("同一用户最大使用次数，0表示不限"),
 		field.Int64("used_by").
 			Optional().
 			Nillable(),
@@ -85,6 +94,7 @@ func (RedeemCode) Edges() []ent.Edge {
 			Ref("redeem_codes").
 			Field("group_id").
 			Unique(),
+		edge.To("usage_records", RedeemCodeUsage.Type),
 	}
 }
 

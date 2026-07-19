@@ -475,12 +475,14 @@ type UpdateProxyInput struct {
 }
 
 type GenerateRedeemCodesInput struct {
-	Count        int
-	Type         string
-	Value        float64
-	GroupID      *int64 // 订阅类型专用：关联的分组ID
-	ValidityDays int    // 订阅类型专用：有效天数
-	ExpiresAt    *time.Time
+	Count          int
+	Type           string
+	Value          float64
+	GroupID        *int64 // 订阅类型专用：关联的分组ID
+	ValidityDays   int    // 订阅类型专用：有效天数
+	ExpiresAt      *time.Time
+	MaxUses        *int // 0 means unlimited; nil defaults to 1 for backward compatibility
+	MaxUsesPerUser *int
 }
 
 type ProxyBatchDeleteResult struct {

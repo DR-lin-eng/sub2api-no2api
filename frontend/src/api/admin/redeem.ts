@@ -62,6 +62,8 @@ export async function getById(id: number): Promise<RedeemCode> {
  * @param groupId - Group ID (required for subscription type)
  * @param validityDays - Validity days (for subscription type)
  * @param expiresInDays - Days before the code itself expires
+ * @param maxUses - Total successful uses, 0 for unlimited
+ * @param maxUsesPerUser - Successful uses allowed for one user, 0 for unlimited
  * @returns Array of generated redeem codes
  */
 export async function generate(
@@ -70,7 +72,9 @@ export async function generate(
   value: number,
   groupId?: number | null,
   validityDays?: number,
-  expiresInDays?: number | null
+  expiresInDays?: number | null,
+  maxUses?: number,
+  maxUsesPerUser?: number
 ): Promise<RedeemCode[]> {
   const payload: GenerateRedeemCodesRequest = {
     count,
@@ -87,6 +91,12 @@ export async function generate(
   }
   if (expiresInDays && expiresInDays > 0) {
     payload.expires_in_days = expiresInDays
+  }
+  if (maxUses !== undefined) {
+    payload.max_uses = maxUses
+  }
+  if (maxUsesPerUser !== undefined) {
+    payload.max_uses_per_user = maxUsesPerUser
   }
 
   const { data } = await apiClient.post<RedeemCode[]>('/admin/redeem-codes/generate', payload)

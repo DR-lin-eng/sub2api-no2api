@@ -34,13 +34,15 @@ func NewRedeemHandler(adminService service.AdminService, redeemService *service.
 
 // GenerateRedeemCodesRequest represents generate redeem codes request
 type GenerateRedeemCodesRequest struct {
-	Count         int        `json:"count" binding:"required,min=1,max=100"`
-	Type          string     `json:"type" binding:"required,oneof=balance concurrency subscription invitation"`
-	Value         float64    `json:"value"`
-	GroupID       *int64     `json:"group_id"`      // 订阅类型必填
-	ValidityDays  int        `json:"validity_days"` // 订阅类型使用，正数增加/负数退款扣减
-	ExpiresAt     *time.Time `json:"expires_at"`
-	ExpiresInDays *int       `json:"expires_in_days" binding:"omitempty,min=1,max=3650"`
+	Count          int        `json:"count" binding:"required,min=1,max=100"`
+	Type           string     `json:"type" binding:"required,oneof=balance concurrency subscription invitation"`
+	Value          float64    `json:"value"`
+	GroupID        *int64     `json:"group_id"`      // 订阅类型必填
+	ValidityDays   int        `json:"validity_days"` // 订阅类型使用，正数增加/负数退款扣减
+	ExpiresAt      *time.Time `json:"expires_at"`
+	ExpiresInDays  *int       `json:"expires_in_days" binding:"omitempty,min=1,max=3650"`
+	MaxUses        *int       `json:"max_uses" binding:"omitempty,min=0,max=1000000000"`
+	MaxUsesPerUser *int       `json:"max_uses_per_user" binding:"omitempty,min=0,max=1000000000"`
 }
 
 // CreateAndRedeemCodeRequest represents creating a fixed code and redeeming it for a target user.
@@ -144,12 +146,14 @@ func (h *RedeemHandler) Generate(c *gin.Context) {
 
 	executeAdminIdempotentJSON(c, "admin.redeem_codes.generate", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
 		codes, execErr := h.adminService.GenerateRedeemCodes(ctx, &service.GenerateRedeemCodesInput{
-			Count:        req.Count,
-			Type:         req.Type,
-			Value:        req.Value,
-			GroupID:      req.GroupID,
-			ValidityDays: req.ValidityDays,
-			ExpiresAt:    expiresAt,
+			Count:          req.Count,
+			Type:           req.Type,
+			Value:          req.Value,
+			GroupID:        req.GroupID,
+			ValidityDays:   req.ValidityDays,
+			ExpiresAt:      expiresAt,
+			MaxUses:        req.MaxUses,
+			MaxUsesPerUser: req.MaxUsesPerUser,
 		})
 		if execErr != nil {
 			return nil, execErr
@@ -412,7 +416,7 @@ func (h *RedeemHandler) Export(c *gin.Context) {
 	writer := csv.NewWriter(&buf)
 
 	// Write header
-	if err := writer.Write([]string{"id", "code", "type", "value", "status", "used_by", "used_by_email", "used_at", "expires_at", "created_at"}); err != nil {
+	if err := writer.Write([]string{"id", "code", "type", "value", "status", "used_count", "max_uses", "max_uses_per_user", "used_by", "used_by_email", "used_at", "expires_at", "created_at"}); err != nil {
 		response.InternalError(c, "Failed to export redeem codes: "+err.Error())
 		return
 	}
@@ -441,6 +445,9 @@ func (h *RedeemHandler) Export(c *gin.Context) {
 			code.Type,
 			fmt.Sprintf("%.2f", code.Value),
 			code.Status,
+			fmt.Sprintf("%d", code.UsedCount),
+			fmt.Sprintf("%d", code.MaxUses),
+			fmt.Sprintf("%d", code.MaxUsesPerUser),
 			usedBy,
 			usedByEmail,
 			usedAt,

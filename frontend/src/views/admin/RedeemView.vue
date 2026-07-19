@@ -156,6 +156,16 @@
             </span>
           </template>
 
+          <template #cell-usage="{ row }">
+            <div class="text-sm text-gray-600 dark:text-gray-300">
+              {{ row.used_count }} /
+              {{ row.max_uses === 0 ? t('admin.redeem.unlimited') : row.max_uses }}
+              <span class="block text-xs text-gray-400 dark:text-gray-500">
+                {{ row.max_uses_per_user === 0 ? t('admin.redeem.unlimitedPerUser') : t('admin.redeem.perUserLimit', { count: row.max_uses_per_user }) }}
+              </span>
+            </div>
+          </template>
+
           <template #cell-used_by="{ value, row }">
             <span class="text-sm text-gray-500 dark:text-dark-400">
               {{ row.user?.email || (value ? t('admin.redeem.userPrefix', { id: value }) : '-') }}
@@ -356,6 +366,30 @@
                 />
               </div>
             </template>
+            <div>
+              <label class="input-label">{{ t('admin.redeem.maxUses') }}</label>
+              <input
+                v-model.number="generateForm.max_uses"
+                type="number"
+                min="0"
+                max="1000000000"
+                required
+                class="input"
+              />
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.redeem.maxUsesHint') }}</p>
+            </div>
+            <div>
+              <label class="input-label">{{ t('admin.redeem.maxUsesPerUser') }}</label>
+              <input
+                v-model.number="generateForm.max_uses_per_user"
+                type="number"
+                min="0"
+                max="1000000000"
+                required
+                class="input"
+              />
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.redeem.maxUsesPerUserHint') }}</p>
+            </div>
             <div>
               <label class="input-label">{{ t('admin.redeem.codeExpiry') }}</label>
               <div class="grid grid-cols-2 gap-2 sm:grid-cols-5">
@@ -724,6 +758,7 @@ const columns = computed<Column[]>(() => [
   { key: 'code', label: t('admin.redeem.columns.code') },
   { key: 'type', label: t('admin.redeem.columns.type'), sortable: true },
   { key: 'value', label: t('admin.redeem.columns.value'), sortable: true },
+  { key: 'usage', label: t('admin.redeem.columns.usage') },
   { key: 'status', label: t('admin.redeem.columns.status'), sortable: true },
   { key: 'used_by', label: t('admin.redeem.columns.usedBy') },
   { key: 'used_at', label: t('admin.redeem.columns.usedAt'), sortable: true },
@@ -834,7 +869,9 @@ const generateForm = reactive({
   group_id: null as number | null,
   validity_days: 30,
   expiry_option: 'never' as RedeemCodeExpiryOption,
-  custom_expiry_days: 7
+  custom_expiry_days: 7,
+  max_uses: 1,
+  max_uses_per_user: 1
 })
 
 // 监听类型变化，邀请码类型时自动设置 value 为 0
@@ -1038,7 +1075,9 @@ const handleGenerateCodes = async () => {
       generateForm.value,
       generateForm.type === 'subscription' ? generateForm.group_id : undefined,
       generateForm.type === 'subscription' ? generateForm.validity_days : undefined,
-      expiresInDays
+      expiresInDays,
+      generateForm.max_uses,
+      generateForm.max_uses_per_user
     )
     showGenerateDialog.value = false
     generatedCodes.value = result
@@ -1048,6 +1087,8 @@ const handleGenerateCodes = async () => {
     generateForm.validity_days = 30
     generateForm.expiry_option = 'never'
     generateForm.custom_expiry_days = 7
+    generateForm.max_uses = 1
+    generateForm.max_uses_per_user = 1
     loadCodes()
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.redeem.failedToGenerate'))

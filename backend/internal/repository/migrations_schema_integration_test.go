@@ -61,6 +61,10 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	// redeem_codes: subscription fields
 	requireColumn(t, tx, "redeem_codes", "group_id", "bigint", 0, true)
 	requireColumn(t, tx, "redeem_codes", "validity_days", "integer", 0, false)
+	requireColumn(t, tx, "redeem_codes", "max_uses", "integer", 0, false)
+	requireColumn(t, tx, "redeem_codes", "used_count", "integer", 0, false)
+	requireColumn(t, tx, "redeem_codes", "max_uses_per_user", "integer", 0, false)
+	requireColumn(t, tx, "redeem_code_usages", "redeem_code_id", "bigint", 0, false)
 
 	// usage_logs: billing_type used by filters/stats
 	requireColumn(t, tx, "usage_logs", "billing_type", "smallint", 0, false)

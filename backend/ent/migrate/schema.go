@@ -1477,6 +1477,9 @@ var (
 		{Name: "type", Type: field.TypeString, Size: 20, Default: "balance"},
 		{Name: "value", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "unused"},
+		{Name: "max_uses", Type: field.TypeInt, Default: 1},
+		{Name: "used_count", Type: field.TypeInt, Default: 0},
+		{Name: "max_uses_per_user", Type: field.TypeInt, Default: 1},
 		{Name: "used_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "notes", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
@@ -1493,13 +1496,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "redeem_codes_groups_redeem_codes",
-				Columns:    []*schema.Column{RedeemCodesColumns[10]},
+				Columns:    []*schema.Column{RedeemCodesColumns[13]},
 				RefColumns: []*schema.Column{GroupsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "redeem_codes_users_redeem_codes",
-				Columns:    []*schema.Column{RedeemCodesColumns[11]},
+				Columns:    []*schema.Column{RedeemCodesColumns[14]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -1513,17 +1516,67 @@ var (
 			{
 				Name:    "redeemcode_used_by",
 				Unique:  false,
-				Columns: []*schema.Column{RedeemCodesColumns[11]},
+				Columns: []*schema.Column{RedeemCodesColumns[14]},
 			},
 			{
 				Name:    "redeemcode_group_id",
 				Unique:  false,
-				Columns: []*schema.Column{RedeemCodesColumns[10]},
+				Columns: []*schema.Column{RedeemCodesColumns[13]},
 			},
 			{
 				Name:    "redeemcode_expires_at",
 				Unique:  false,
-				Columns: []*schema.Column{RedeemCodesColumns[8]},
+				Columns: []*schema.Column{RedeemCodesColumns[11]},
+			},
+		},
+	}
+	// RedeemCodeUsagesColumns holds the columns for the "redeem_code_usages" table.
+	RedeemCodeUsagesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "value", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "used_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "redeem_code_id", Type: field.TypeInt64},
+		{Name: "user_id", Type: field.TypeInt64},
+	}
+	// RedeemCodeUsagesTable holds the schema information for the "redeem_code_usages" table.
+	RedeemCodeUsagesTable = &schema.Table{
+		Name:       "redeem_code_usages",
+		Columns:    RedeemCodeUsagesColumns,
+		PrimaryKey: []*schema.Column{RedeemCodeUsagesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "redeem_code_usages_redeem_codes_usage_records",
+				Columns:    []*schema.Column{RedeemCodeUsagesColumns[3]},
+				RefColumns: []*schema.Column{RedeemCodesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "redeem_code_usages_users_redeem_code_usages",
+				Columns:    []*schema.Column{RedeemCodeUsagesColumns[4]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "redeemcodeusage_redeem_code_id",
+				Unique:  false,
+				Columns: []*schema.Column{RedeemCodeUsagesColumns[3]},
+			},
+			{
+				Name:    "redeemcodeusage_user_id",
+				Unique:  false,
+				Columns: []*schema.Column{RedeemCodeUsagesColumns[4]},
+			},
+			{
+				Name:    "redeemcodeusage_redeem_code_id_user_id",
+				Unique:  false,
+				Columns: []*schema.Column{RedeemCodeUsagesColumns[3], RedeemCodeUsagesColumns[4]},
+			},
+			{
+				Name:    "redeemcodeusage_redeem_code_id_used_at",
+				Unique:  false,
+				Columns: []*schema.Column{RedeemCodeUsagesColumns[3], RedeemCodeUsagesColumns[2]},
 			},
 		},
 	}
@@ -2131,6 +2184,7 @@ var (
 		PromoCodeUsagesTable,
 		ProxiesTable,
 		RedeemCodesTable,
+		RedeemCodeUsagesTable,
 		SecuritySecretsTable,
 		SettingsTable,
 		SubscriptionPlansTable,
@@ -2250,6 +2304,11 @@ func init() {
 	RedeemCodesTable.ForeignKeys[1].RefTable = UsersTable
 	RedeemCodesTable.Annotation = &entsql.Annotation{
 		Table: "redeem_codes",
+	}
+	RedeemCodeUsagesTable.ForeignKeys[0].RefTable = RedeemCodesTable
+	RedeemCodeUsagesTable.ForeignKeys[1].RefTable = UsersTable
+	RedeemCodeUsagesTable.Annotation = &entsql.Annotation{
+		Table: "redeem_code_usages",
 	}
 	SecuritySecretsTable.Annotation = &entsql.Annotation{
 		Table: "security_secrets",

@@ -560,7 +560,7 @@ func (h *AuthHandler) ValidateInvitationCode(c *gin.Context) {
 		return
 	}
 
-	if redeemCode.Status != service.StatusUnused {
+	if !redeemCode.CanUse() {
 		response.Success(c, ValidateInvitationCodeResponse{
 			Valid:     false,
 			ErrorCode: "INVITATION_CODE_USED",
