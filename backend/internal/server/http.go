@@ -11,6 +11,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler"
+	clientip "github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/websearch"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -23,9 +24,27 @@ import (
 
 // ProviderSet 提供服务器层的依赖
 var ProviderSet = wire.NewSet(
+	ProvideClientIPResolver,
 	ProvideRouter,
 	ProvideHTTPServer,
 )
+
+func ProvideClientIPResolver(cfg *config.Config, settingService *service.SettingService) *clientip.Resolver {
+	resolver, err := clientip.NewResolver(cfg.Server.TrustedProxies)
+	if err != nil {
+		log.Printf("Warning: invalid server.trusted_proxies ignored by client IP resolver: %v", err)
+		resolver, _ = clientip.NewResolver(nil)
+	}
+	settings, err := settingService.GetAllSettings(context.Background())
+	if err != nil {
+		log.Printf("Warning: client IP settings unavailable; using auto compatibility mode: %v", err)
+	} else if err := resolver.Configure(settings.ClientIPResolutionMode, settings.ClientIPTrustedProxies); err != nil {
+		log.Printf("Warning: invalid stored client IP settings ignored; using auto compatibility mode: %v", err)
+	}
+	settingService.SetClientIPResolver(resolver)
+	resolver.Start()
+	return resolver
+}
 
 // ProvideRouter 提供路由器
 func ProvideRouter(
@@ -41,6 +60,7 @@ func ProvideRouter(
 	opsService *service.OpsService,
 	settingService *service.SettingService,
 	compositeResolver *service.CompositeRouteResolver,
+	clientIPResolver *clientip.Resolver,
 	redisClient *redis.Client,
 	db *sql.DB,
 ) *gin.Engine {
@@ -50,11 +70,10 @@ func ProvideRouter(
 
 	r := gin.New()
 	r.Use(middleware2.Recovery())
-	includeSessionBindingIP := configureTrustedProxies(r, cfg.Server.TrustedProxies)
-	if len(cfg.Server.TrustedProxies) == 0 {
-		if cfg.Server.Mode == "release" {
-			log.Printf("Warning: server.trusted_proxies is empty in release mode; client IP trust chain is disabled")
-		}
+	// Gin's own forwarded-header parser remains disabled. All consumers use the
+	// bounded request-scoped resolver installed by SetupRouter.
+	if err := r.SetTrustedProxies(nil); err != nil {
+		log.Printf("Failed to disable Gin trusted proxies: %v", err)
 	}
 
 	// Wire up websearch Manager builder so it initializes on startup and rebuilds on config save.
@@ -93,26 +112,7 @@ func ProvideRouter(
 		service.SetWebSearchManager(websearch.NewManager(configs, redisClient))
 	})
 
-	return SetupRouter(r, handlers, jwtAuth, adminAuth, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, cfg, includeSessionBindingIP, redisClient, db)
-}
-
-func configureTrustedProxies(r *gin.Engine, trustedProxies []string) bool {
-	if len(trustedProxies) == 0 {
-		if err := r.SetTrustedProxies(nil); err != nil {
-			log.Printf("Failed to disable trusted proxies: %v", err)
-		}
-		return false
-	}
-
-	if err := r.SetTrustedProxies(trustedProxies); err == nil {
-		return true
-	} else {
-		log.Printf("Failed to set trusted proxies: %v", err)
-	}
-	if err := r.SetTrustedProxies(nil); err != nil {
-		log.Printf("Failed to disable trusted proxies after configuration failure: %v", err)
-	}
-	return false
+	return SetupRouter(r, handlers, jwtAuth, adminAuth, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, clientIPResolver, cfg, redisClient, db)
 }
 
 // ProvideHTTPServer 提供 HTTP 服务器

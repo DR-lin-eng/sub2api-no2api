@@ -15,6 +15,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
+	clientip "github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
@@ -1003,10 +1004,11 @@ func TestAPIKeyAuthIPRestrictionUsesConfiguredTrustedProxy(t *testing.T) {
 	}
 
 	cfg := &config.Config{RunMode: config.RunModeSimple}
-	cfg.SetTrustForwardedIPForAPIKeyACL(true)
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
 	router := gin.New()
-	require.NoError(t, router.SetTrustedProxies([]string{"9.9.9.9"}))
+	resolver, err := clientip.NewResolver([]string{"9.9.9.9"})
+	require.NoError(t, err)
+	router.Use(resolver.Middleware())
 	router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(apiKeyService, nil, cfg)))
 	router.GET("/t", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"ok": true})
@@ -1054,10 +1056,11 @@ func TestAPIKeyAuthIPRestrictionUsesForwardedClientIPInDenialWhenTrusted(t *test
 	}
 
 	cfg := &config.Config{RunMode: config.RunModeSimple}
-	cfg.SetTrustForwardedIPForAPIKeyACL(true)
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
 	router := gin.New()
-	require.NoError(t, router.SetTrustedProxies([]string{"9.9.9.9"}))
+	resolver, err := clientip.NewResolver([]string{"9.9.9.9"})
+	require.NoError(t, err)
+	router.Use(resolver.Middleware())
 	router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(apiKeyService, nil, cfg)))
 	router.GET("/t", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"ok": true})

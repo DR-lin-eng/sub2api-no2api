@@ -1,6 +1,10 @@
 package service
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
+)
 
 func firstNonEmpty(values ...string) string {
 	for _, value := range values {
@@ -51,6 +55,9 @@ type SystemSettings struct {
 	CapSecretKeyConfigured       bool
 	LocalCaptchaEnabled          bool
 	APIKeyACLTrustForwardedIP    bool
+	ClientIPResolutionMode       string
+	ClientIPTrustedProxies       []string
+	ClientIPResolutionStatus     ip.ResolutionStatus
 
 	// LinuxDo Connect OAuth 登录
 	LinuxDoConnectEnabled                bool

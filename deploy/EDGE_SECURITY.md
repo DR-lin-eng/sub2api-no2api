@@ -29,9 +29,18 @@ the application's responsibility.
 
 ## Trusted client IPs
 
-`server.trusted_proxies` must contain only the CIDR/IP addresses that connect
-directly to Sub2API, normally the local Nginx/Caddy address or the private load
-balancer subnet. An empty list disables forwarded-IP trust.
+Sub2API defaults to the `auto_compat` client-IP mode. Loopback/private peers,
+Cloudflare's embedded official ranges, and explicit trusted proxies may supply
+forwarded client addresses. Public non-Cloudflare peers cannot override their
+TCP peer address with forwarding headers. This supports common Nginx, Caddy,
+Docker, Cloudflare orange-cloud, and Cloudflare Tunnel deployments without a
+configuration-file change.
+
+`server.trusted_proxies` is an optional additional list of CIDR/IP addresses
+that connect directly to Sub2API. It is merged with proxy entries configured in
+the admin settings. Use the `trusted_proxy` mode in the admin settings when
+private infrastructure ranges should not be trusted automatically, or `direct`
+to ignore all forwarding headers.
 
 Never trust `CF-Connecting-IP`, `X-Real-IP`, or `X-Forwarded-For` merely because
 the header exists. A CDN deployment must firewall the origin so only the CDN or
@@ -134,9 +143,9 @@ api.example.com {
 
 Replace the documentation ranges with the CDN's published, automatically
 maintained egress ranges. `CF-Connecting-IP` is safe here only because direct
-origin access is blocked and Caddy trusts only those TCP peers. Configure
-Sub2API `server.trusted_proxies` with the Caddy address/private subnet so the
-application accepts only Caddy's rewritten headers.
+origin access is blocked and Caddy trusts only those TCP peers. Sub2API's
+default automatic mode recognizes a local/private Caddy peer; public custom
+proxy addresses can be added in the admin settings or `server.trusted_proxies`.
 
 Caddy core does not provide a general request-rate limiter; use a trusted
 CDN/WAF, a supported rate-limit module, or host firewall controls.

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	clientip "github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/gin-gonic/gin"
 )
 
@@ -111,7 +112,7 @@ func limitCredentialConcurrency(c *gin.Context, slots chan struct{}, next gin.Ha
 
 func (l *BoundedLocalWindowLimiter) Limit() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !l.allow(c.ClientIP()) {
+		if !l.allow(clientip.GetClientIP(c)) {
 			abortLocalWindowLimit(c, l.window)
 			return
 		}

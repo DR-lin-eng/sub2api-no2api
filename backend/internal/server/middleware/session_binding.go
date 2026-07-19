@@ -3,67 +3,52 @@ package middleware
 import (
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
 
-// SessionBindingContext injects the request's session binding. The argument
-// accepts the legacy bool form and *config.Config for compatibility with older
-// call sites; IP binding is enabled only when the resolved setting allows it.
-func SessionBindingContext(option any) gin.HandlerFunc {
-	includeIP := false
-	switch value := option.(type) {
-	case bool:
-		includeIP = value
-	case *config.Config:
-		if value != nil {
-			includeIP = value.TrustForwardedIPForAPIKeyACL()
-		}
-	}
+// SessionBindingContext injects the same request-scoped IP used by every
+// limiter, ACL and audit consumer. The argument remains for source compatibility.
+func SessionBindingContext(_ any) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if isCredentialKeyRequestPath(c.Request.URL.Path) {
 			c.Next()
 			return
 		}
-		binding := newSessionBinding(c, includeIP)
+		binding := newSessionBinding(c)
 		c.Request = c.Request.WithContext(service.WithSessionBinding(c.Request.Context(), binding))
 		c.Next()
 	}
 }
 
 // requestSessionBinding 返回当前请求的会话指纹，优先取 SessionBindingContext
-// 注入的解析结果；注入缺失时按可信代理链回退。
+// 注入的解析结果；注入缺失时回退到统一解析器的安全直连结果。
 func requestSessionBinding(c *gin.Context) *service.SessionBinding {
 	if binding := service.SessionBindingFromContext(c.Request.Context()); binding != nil {
 		return binding
 	}
 	return &service.SessionBinding{
-		IP:        ip.GetTrustedClientIP(c),
+		IP:        ip.GetClientIP(c),
 		UserAgent: normalizePersistentText(c.Request.UserAgent(), maxPersistentUserAgentBytes),
 	}
 }
 
 // SecurityClientIP 返回当前请求用于安全敏感记录（审计日志等）的客户端 IP。
-// 与会话绑定、API Key IP 限制共用 Gin trusted_proxies 信任链。
+// 与会话绑定、API Key IP 限制共用请求级统一解析结果。
 func SecurityClientIP(c *gin.Context) string {
 	if binding := service.SessionBindingFromContext(c.Request.Context()); binding != nil &&
 		strings.TrimSpace(binding.IP) != "" {
 		return binding.IP
 	}
-	return ip.GetTrustedClientIP(c)
+	return ip.GetClientIP(c)
 }
 
-func newSessionBinding(c *gin.Context, includeIP bool) *service.SessionBinding {
+func newSessionBinding(c *gin.Context) *service.SessionBinding {
 	userAgent := normalizePersistentText(c.Request.UserAgent(), maxPersistentUserAgentBytes)
 	c.Request.Header.Set("User-Agent", userAgent)
-	binding := &service.SessionBinding{UserAgent: userAgent}
-	if includeIP {
-		binding.IP = ip.GetTrustedClientIP(c)
-	}
-	return binding
+	return &service.SessionBinding{IP: ip.GetClientIP(c), UserAgent: userAgent}
 }
 
 // enforceSessionBinding 校验 access token 的会话指纹（始终绑定 UA，按可信代理配置可选绑定 IP）。

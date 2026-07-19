@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	clientip "github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
@@ -182,6 +183,10 @@ func TestLogCodexCLIOnlyDetection_RejectedIncludesRequestDetails(t *testing.T) {
 	c.Request.Header.Set("Content-Type", "application/json")
 	c.Request.Header.Set("X-Real-IP", "203.0.113.42")
 	c.Request.Header.Set("OpenAI-Beta", "assistants=v2")
+	resolver, err := clientip.NewResolver(nil)
+	require.NoError(t, err)
+	clientipMiddleware := resolver.Middleware()
+	clientipMiddleware(c)
 
 	body := []byte(`{"model":"gpt-5.2","stream":false,"prompt_cache_key":"pc-123","access_token":"secret-token","input":[{"type":"text","text":"hello"}]}`)
 	account := &Account{ID: 1001}

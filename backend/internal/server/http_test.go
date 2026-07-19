@@ -7,46 +7,29 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	clientip "github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func clientIPForTrustedProxyTest(t *testing.T, r *gin.Engine) string {
-	t.Helper()
+func TestAutoCompatResolverWorksWithoutGinTrustedProxyConfiguration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	resolver, err := clientip.NewResolver(nil)
+	require.NoError(t, err)
 
-	var clientIP string
-	r.GET("/", func(c *gin.Context) {
-		clientIP = c.ClientIP()
-		c.Status(http.StatusNoContent)
+	router := gin.New()
+	require.NoError(t, router.SetTrustedProxies(nil))
+	router.Use(resolver.Middleware())
+	router.GET("/", func(c *gin.Context) {
+		c.String(http.StatusOK, clientip.GetClientIP(c))
 	})
 
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
-	request.RemoteAddr = "10.0.0.2:1234"
-	request.Header.Set("X-Forwarded-For", "9.9.9.9")
+	request.RemoteAddr = "172.18.0.1:1234"
+	request.Header.Set("X-Forwarded-For", "203.0.113.42")
 	recorder := httptest.NewRecorder()
-	r.ServeHTTP(recorder, request)
+	router.ServeHTTP(recorder, request)
 
-	assert.Equal(t, http.StatusNoContent, recorder.Code)
-	return clientIP
-}
-
-func TestConfigureTrustedProxiesDisablesForwardedHeadersWhenEmpty(t *testing.T) {
-	r := gin.New()
-
-	assert.False(t, configureTrustedProxies(r, nil))
-	assert.Equal(t, "10.0.0.2", clientIPForTrustedProxyTest(t, r))
-}
-
-func TestConfigureTrustedProxiesTrustsForwardedHeadersForConfiguredPeer(t *testing.T) {
-	r := gin.New()
-
-	assert.True(t, configureTrustedProxies(r, []string{"10.0.0.0/8"}))
-	assert.Equal(t, "9.9.9.9", clientIPForTrustedProxyTest(t, r))
-}
-
-func TestConfigureTrustedProxiesFallsBackWhenConfigurationIsInvalid(t *testing.T) {
-	r := gin.New()
-
-	assert.False(t, configureTrustedProxies(r, []string{"not-a-cidr"}))
-	assert.Equal(t, "10.0.0.2", clientIPForTrustedProxyTest(t, r))
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, "203.0.113.42", recorder.Body.String())
 }

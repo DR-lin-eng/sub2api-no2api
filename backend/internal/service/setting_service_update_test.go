@@ -12,6 +12,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	clientip "github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/stretchr/testify/require"
 )
 
@@ -511,28 +512,46 @@ func TestSettingService_UpdateSettings_AntigravityUserAgentVersion(t *testing.T)
 	require.Equal(t, "1.23.2", repo.updates[SettingKeyAntigravityUserAgentVersion])
 }
 
-func TestSettingService_UpdateSettings_APIKeyACLTrustForwardedIPRefreshesConfig(t *testing.T) {
+func TestSettingService_UpdateSettings_ClientIPResolverSettings(t *testing.T) {
 	repo := &settingUpdateRepoStub{}
 	cfg := &config.Config{}
 	svc := NewSettingService(repo, cfg)
+	resolver, err := clientip.NewResolver(nil)
+	require.NoError(t, err)
+	svc.SetClientIPResolver(resolver)
 
-	err := svc.UpdateSettings(context.Background(), &SystemSettings{
-		APIKeyACLTrustForwardedIP: true,
+	err = svc.UpdateSettings(context.Background(), &SystemSettings{
+		ClientIPResolutionMode: clientip.ResolutionModeTrustedProxy,
+		ClientIPTrustedProxies: []string{"192.168.1.1", "2001:db8::/32"},
 	})
 	require.NoError(t, err)
 	require.Equal(t, "true", repo.updates[SettingKeyAPIKeyACLTrustForwardedIP])
-	require.True(t, cfg.Security.TrustForwardedIPForAPIKeyACL)
-	require.True(t, cfg.TrustForwardedIPForAPIKeyACL())
+	require.Equal(t, clientip.ResolutionModeTrustedProxy, repo.updates[SettingKeyClientIPResolutionMode])
+	require.JSONEq(t, `["192.168.1.1/32","2001:db8::/32"]`, repo.updates[SettingKeyClientIPTrustedProxies])
+	mode, proxies := resolver.CurrentConfiguration()
+	require.Equal(t, clientip.ResolutionModeTrustedProxy, mode)
+	require.Equal(t, []string{"192.168.1.1/32", "2001:db8::/32"}, proxies)
 }
 
-func TestSettingService_ParseSettings_APIKeyACLTrustForwardedIPFallsBackToConfigWhenMissing(t *testing.T) {
+func TestSettingService_ParseSettings_ClientIPModeDefaultsToAutoCompat(t *testing.T) {
 	cfg := &config.Config{}
-	cfg.Security.TrustForwardedIPForAPIKeyACL = true
 	svc := NewSettingService(&settingUpdateRepoStub{}, cfg)
 
-	got := svc.parseSettings(map[string]string{})
+	got := svc.parseSettings(map[string]string{SettingKeyAPIKeyACLTrustForwardedIP: "false"})
 
+	require.Equal(t, clientip.ResolutionModeAutoCompat, got.ClientIPResolutionMode)
 	require.True(t, got.APIKeyACLTrustForwardedIP)
+}
+
+func TestSettingService_UpdateSettings_RejectsInvalidClientIPSettingsAtomically(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	svc := NewSettingService(repo, &config.Config{})
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{
+		ClientIPResolutionMode: clientip.ResolutionModeAutoCompat,
+		ClientIPTrustedProxies: []string{"not-an-ip"},
+	})
+	require.Error(t, err)
+	require.Nil(t, repo.updates)
 }
 
 func TestSettingService_GetAntigravityUserAgentVersion_Precedence(t *testing.T) {

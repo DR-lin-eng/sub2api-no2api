@@ -3,32 +3,38 @@ package ip
 
 import (
 	"net"
+	"net/netip"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
-// GetClientIP resolves a client address only through Gin's configured trusted
-// proxy chain. Forwarding headers from a direct or untrusted peer are ignored.
+// GetClientIP returns the result cached by Resolver.Middleware. Contexts that
+// bypass the middleware fail closed to the TCP peer address.
 func GetClientIP(c *gin.Context) string {
-	return GetTrustedClientIP(c)
-}
-
-// GetTrustedClientIP 从 Gin 的可信代理解析链提取客户端 IP。
-// 该方法依赖 gin.Engine.SetTrustedProxies 配置，不会优先直接信任原始转发头值。
-// 适用于 ACL / 风控等安全敏感场景。
-func GetTrustedClientIP(c *gin.Context) string {
-	if c == nil {
+	if result, ok := ResultFromContext(c); ok {
+		return result.IP
+	}
+	if c == nil || c.Request == nil {
 		return ""
 	}
-	return normalizeIP(c.ClientIP())
+	addr, ok := parsePeerAddr(c.Request.RemoteAddr)
+	if !ok {
+		return ""
+	}
+	return addr.String()
 }
 
-// GetSecurityClientIP returns the address resolved through Gin's configured
-// trusted-proxy chain. The legacy toggle is retained for configuration/API
-// compatibility, but never makes raw forwarding headers trustworthy by itself.
+// GetTrustedClientIP is retained for API compatibility. All callers now use
+// the unified request-scoped resolver result.
+func GetTrustedClientIP(c *gin.Context) string {
+	return GetClientIP(c)
+}
+
+// GetSecurityClientIP is retained for source compatibility. The legacy toggle
+// no longer selects a separate IP surface.
 func GetSecurityClientIP(c *gin.Context, _ bool) string {
-	return GetTrustedClientIP(c)
+	return GetClientIP(c)
 }
 
 // normalizeIP 规范化 IP 地址，去除端口号和空格。
@@ -44,8 +50,7 @@ func normalizeIP(ip string) string {
 // CompiledIPRules 表示预编译的 IP 匹配规则。
 // PatternCount 记录原始规则数量，用于保留“规则存在但全无效”时的行为语义。
 type CompiledIPRules struct {
-	CIDRs        []*net.IPNet
-	IPs          []net.IP
+	Prefixes     []netip.Prefix
 	PatternCount int
 }
 
@@ -53,8 +58,7 @@ type CompiledIPRules struct {
 // 非法规则会被忽略，但 PatternCount 会保留原始规则条数。
 func CompileIPRules(patterns []string) *CompiledIPRules {
 	compiled := &CompiledIPRules{
-		CIDRs:        make([]*net.IPNet, 0, len(patterns)),
-		IPs:          make([]net.IP, 0, len(patterns)),
+		Prefixes:     make([]netip.Prefix, 0, len(patterns)),
 		PatternCount: len(patterns),
 	}
 	for _, pattern := range patterns {
@@ -62,34 +66,21 @@ func CompileIPRules(patterns []string) *CompiledIPRules {
 		if normalized == "" {
 			continue
 		}
-		if strings.Contains(normalized, "/") {
-			_, cidr, err := net.ParseCIDR(normalized)
-			if err != nil || cidr == nil {
-				continue
-			}
-			compiled.CIDRs = append(compiled.CIDRs, cidr)
+		prefix, err := parsePrefix(normalized)
+		if err != nil {
 			continue
 		}
-		parsedIP := net.ParseIP(normalized)
-		if parsedIP == nil {
-			continue
-		}
-		compiled.IPs = append(compiled.IPs, parsedIP)
+		compiled.Prefixes = append(compiled.Prefixes, prefix)
 	}
 	return compiled
 }
 
-func matchesCompiledRules(parsedIP net.IP, rules *CompiledIPRules) bool {
-	if parsedIP == nil || rules == nil {
+func matchesCompiledRules(parsedIP netip.Addr, rules *CompiledIPRules) bool {
+	if !parsedIP.IsValid() || rules == nil {
 		return false
 	}
-	for _, cidr := range rules.CIDRs {
-		if cidr.Contains(parsedIP) {
-			return true
-		}
-	}
-	for _, ruleIP := range rules.IPs {
-		if parsedIP.Equal(ruleIP) {
+	for _, prefix := range rules.Prefixes {
+		if prefix.Contains(parsedIP) {
 			return true
 		}
 	}
@@ -154,10 +145,11 @@ func CheckIPRestrictionWithCompiledRules(clientIP string, whitelist, blacklist *
 	if clientIP == "" {
 		return false, "access denied"
 	}
-	parsedIP := net.ParseIP(clientIP)
-	if parsedIP == nil {
+	parsedIP, err := netip.ParseAddr(clientIP)
+	if err != nil {
 		return false, "access denied"
 	}
+	parsedIP = parsedIP.Unmap()
 
 	// 1. 检查黑名单
 	if blacklist != nil && blacklist.PatternCount > 0 && matchesCompiledRules(parsedIP, blacklist) {

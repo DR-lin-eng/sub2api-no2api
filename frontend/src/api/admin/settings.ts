@@ -11,6 +11,20 @@ import type {
   NotifyEmailEntry,
 } from "@/types";
 
+export type ClientIPResolutionMode =
+  | "auto_compat"
+  | "trusted_proxy"
+  | "direct";
+
+export interface ClientIPResolutionStatus {
+  mode: ClientIPResolutionMode;
+  custom_prefix_count: number;
+  static_prefix_count: number;
+  cloudflare_prefix_count: number;
+  cloudflare_ranges_source: "embedded" | "refreshed";
+  cloudflare_last_success_at: string | null;
+}
+
 export interface DefaultSubscriptionSetting {
   group_id: number;
   validity_days: number;
@@ -463,6 +477,9 @@ export interface SystemSettings {
   cap_secret_key_configured: boolean;
   local_captcha_enabled: boolean;
   api_key_acl_trust_forwarded_ip: boolean;
+  client_ip_resolution_mode: ClientIPResolutionMode;
+  client_ip_trusted_proxies: string[];
+  client_ip_resolution_status: ClientIPResolutionStatus;
 
   // LinuxDo Connect OAuth settings
   linuxdo_connect_enabled: boolean;
@@ -780,6 +797,8 @@ export interface UpdateSettingsRequest {
   cap_secret_key?: string;
   local_captcha_enabled?: boolean;
   api_key_acl_trust_forwarded_ip?: boolean;
+  client_ip_resolution_mode?: ClientIPResolutionMode;
+  client_ip_trusted_proxies?: string[];
   linuxdo_connect_enabled?: boolean;
   linuxdo_connect_client_id?: string;
   linuxdo_connect_client_secret?: string;

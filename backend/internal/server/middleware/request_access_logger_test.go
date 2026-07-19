@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
+	clientip "github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -234,9 +235,11 @@ func TestLogger_AccessLogUsesForwardedClientIPFromTrustedProxy(t *testing.T) {
 	sink := initMiddlewareTestLogger(t)
 
 	r := gin.New()
-	if err := r.SetTrustedProxies([]string{"104.23.251.120"}); err != nil {
-		t.Fatalf("set trusted proxies: %v", err)
+	resolver, err := clientip.NewResolver([]string{"104.23.251.120"})
+	if err != nil {
+		t.Fatalf("create client IP resolver: %v", err)
 	}
+	r.Use(resolver.Middleware())
 	r.Use(Logger())
 	r.GET("/api/test", func(c *gin.Context) {
 		c.Status(http.StatusOK)

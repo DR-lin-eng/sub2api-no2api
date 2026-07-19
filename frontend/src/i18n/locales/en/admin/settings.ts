@@ -166,12 +166,28 @@ export default {
         secretKeyConfiguredHint: 'Secret key configured. Leave empty to keep the current value.'
       },
       apiKeyAcl: {
-        title: 'API Key IP Access Control',
+        title: 'Client IP Resolution',
         description:
-          'Choose which client IP is used by API Key allowlists/denylists, admin audit logs, and session IP/UA binding',
-        trustForwardedIp: 'Trust forwarded client IP',
-        trustForwardedIpHint:
-          'Disabled by default. Enable only when the origin is reachable only through Cloudflare or Nginx reverse proxy. When enabled, API Key IP allowlists/denylists, admin audit logs, and session IP/UA binding use CF-Connecting-IP, X-Real-IP, or X-Forwarded-For, matching the request IP shown in usage records. Toggling this switch changes the IP fingerprint of existing sessions; with session binding enabled they must sign in again.'
+          'Use one client IP for rate limits, API Key IP rules, usage records, audit logs, and session binding',
+        resolutionMode: 'Resolution mode',
+        resolutionModeHint: 'Automatic compatibility works with Nginx, Caddy, Cloudflare, and Docker without configuration changes',
+        trustedProxies: 'Additional trusted proxies',
+        trustedProxiesPlaceholder: 'One IP or CIDR per line, for example 203.0.113.10/32',
+        trustedProxiesHint: 'Up to 64 entries; existing server.trusted_proxies entries are merged automatically',
+        activeMode: 'Active mode',
+        customRules: 'Custom rules',
+        cloudflareRules: 'Cloudflare rules',
+        cloudflareSource: 'Cloudflare source',
+        lastRefresh: 'Cloudflare ranges last refreshed: {time}',
+        modes: {
+          auto_compat: 'Automatic compatibility (recommended)',
+          trusted_proxy: 'Strict trusted proxies',
+          direct: 'Direct peer only'
+        },
+        sources: {
+          embedded: 'Embedded ranges',
+          refreshed: 'Refreshed from official API'
+        }
       },
       linuxdo: {
         title: 'LinuxDo Connect Login',

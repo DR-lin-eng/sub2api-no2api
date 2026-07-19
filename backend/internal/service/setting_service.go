@@ -2,12 +2,12 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync/atomic"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -60,6 +60,7 @@ type SettingService struct {
 	version                     string // Application version
 	webSearchManagerBuilder     WebSearchManagerBuilder
 	schedulerEngineSwitcher     SchedulerEngineSwitcher
+	clientIPResolver            *ip.Resolver
 	antigravityUAVersionCache   atomic.Value // *cachedAntigravityUserAgentVersion
 	antigravityUAVersionSF      singleflight.Group
 	openAICodexUACache          atomic.Value // *cachedOpenAICodexUserAgent
@@ -245,21 +246,8 @@ func (s *SettingService) SetSchedulerEngineSwitcher(switcher SchedulerEngineSwit
 	s.schedulerEngineSwitcher = switcher
 }
 
-func (s *SettingService) LoadAPIKeyACLTrustForwardedIPSetting(ctx context.Context) error {
-	if s == nil || s.cfg == nil || s.settingRepo == nil {
-		return nil
-	}
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyAPIKeyACLTrustForwardedIP)
-	if err != nil {
-		if errors.Is(err, ErrSettingNotFound) {
-			s.cfg.SetTrustForwardedIPForAPIKeyACL(s.cfg.Security.TrustForwardedIPForAPIKeyACL)
-			return nil
-		}
-		return fmt.Errorf("get api key acl forwarded ip setting: %w", err)
-	}
-	enabled := value == "true"
-	s.cfg.SetTrustForwardedIPForAPIKeyACL(enabled)
-	return nil
+func (s *SettingService) SetClientIPResolver(resolver *ip.Resolver) {
+	s.clientIPResolver = resolver
 }
 
 // GetAllSettings 获取所有系统设置
@@ -270,6 +258,9 @@ func (s *SettingService) GetAllSettings(ctx context.Context) (*SystemSettings, e
 	}
 
 	result := s.parseSettings(settings)
+	if s.clientIPResolver != nil {
+		result.ClientIPResolutionStatus = s.clientIPResolver.Status()
+	}
 	if s.schedulerEngineSwitcher != nil {
 		state := s.schedulerEngineSwitcher.SchedulerEngineState(ctx)
 		result.SchedulerV2Enabled = state.V2Enabled()

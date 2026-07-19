@@ -104,6 +104,7 @@ func TestProvideCleanup_WithMinimalDependencies_NoPanic(t *testing.T) {
 		deferredSvc,
 		timingWheelSvc,
 		nil, // cluster
+		nil, // clientIPResolver
 	)
 
 	require.NotPanics(t, func() {

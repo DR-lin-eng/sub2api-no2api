@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetTrustedClientIPUsesGinClientIP(t *testing.T) {
+func TestGetTrustedClientIPFallsBackToPeerWithoutResolverMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	r := gin.New()
@@ -85,8 +85,10 @@ func TestGetSecurityClientIPNeverTrustsHeadersFromUntrustedPeer(t *testing.T) {
 
 func TestGetSecurityClientIPUsesConfiguredTrustedProxy(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	resolver, err := NewResolver([]string{"9.9.9.9"})
+	require.NoError(t, err)
 	r := gin.New()
-	require.NoError(t, r.SetTrustedProxies([]string{"9.9.9.9"}))
+	r.Use(resolver.Middleware())
 	r.GET("/t", func(c *gin.Context) { c.String(200, GetSecurityClientIP(c, true)) })
 
 	w := httptest.NewRecorder()

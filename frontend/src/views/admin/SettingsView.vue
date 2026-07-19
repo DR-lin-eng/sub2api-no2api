@@ -1739,17 +1739,70 @@
               </p>
             </div>
             <div class="space-y-5 p-6">
-              <div class="flex items-center justify-between gap-4">
+              <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(240px,360px)] md:items-center">
                 <div>
                   <label class="font-medium text-gray-900 dark:text-white">
-                    {{ t("admin.settings.apiKeyAcl.trustForwardedIp") }}
+                    {{ t("admin.settings.apiKeyAcl.resolutionMode") }}
                   </label>
                   <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.apiKeyAcl.trustForwardedIpHint") }}
+                    {{ t("admin.settings.apiKeyAcl.resolutionModeHint") }}
                   </p>
                 </div>
-                <Toggle v-model="form.api_key_acl_trust_forwarded_ip" />
+                <Select
+                  :modelValue="form.client_ip_resolution_mode"
+                  @update:modelValue="form.client_ip_resolution_mode = $event as ClientIPResolutionMode"
+                  :options="clientIPResolutionModeOptions"
+                  :searchable="false"
+                />
               </div>
+
+              <div v-if="form.client_ip_resolution_mode !== 'direct'">
+                <label class="mb-1 block text-sm font-medium text-gray-900 dark:text-white">
+                  {{ t("admin.settings.apiKeyAcl.trustedProxies") }}
+                </label>
+                <textarea
+                  v-model="clientIPTrustedProxiesText"
+                  class="input min-h-24 font-mono text-sm"
+                  :placeholder="t('admin.settings.apiKeyAcl.trustedProxiesPlaceholder')"
+                  spellcheck="false"
+                ></textarea>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t("admin.settings.apiKeyAcl.trustedProxiesHint") }}
+                </p>
+              </div>
+
+              <dl class="grid gap-3 border-t border-gray-100 pt-4 text-sm dark:border-dark-700 sm:grid-cols-2 lg:grid-cols-4">
+                <div>
+                  <dt class="text-gray-500 dark:text-gray-400">{{ t("admin.settings.apiKeyAcl.activeMode") }}</dt>
+                  <dd class="mt-1 font-medium text-gray-900 dark:text-white">
+                    {{ t(`admin.settings.apiKeyAcl.modes.${form.client_ip_resolution_status.mode || form.client_ip_resolution_mode}`) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-gray-500 dark:text-gray-400">{{ t("admin.settings.apiKeyAcl.customRules") }}</dt>
+                  <dd class="mt-1 font-medium text-gray-900 dark:text-white">
+                    {{ form.client_ip_resolution_status.custom_prefix_count }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-gray-500 dark:text-gray-400">{{ t("admin.settings.apiKeyAcl.cloudflareRules") }}</dt>
+                  <dd class="mt-1 font-medium text-gray-900 dark:text-white">
+                    {{ form.client_ip_resolution_status.cloudflare_prefix_count }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-gray-500 dark:text-gray-400">{{ t("admin.settings.apiKeyAcl.cloudflareSource") }}</dt>
+                  <dd class="mt-1 font-medium text-gray-900 dark:text-white">
+                    {{ t(`admin.settings.apiKeyAcl.sources.${form.client_ip_resolution_status.cloudflare_ranges_source || 'embedded'}`) }}
+                  </dd>
+                </div>
+              </dl>
+              <p
+                v-if="form.client_ip_resolution_status.cloudflare_last_success_at"
+                class="text-xs text-gray-500 dark:text-gray-400"
+              >
+                {{ t("admin.settings.apiKeyAcl.lastRefresh", { time: clientIPLastRefreshText }) }}
+              </p>
             </div>
           </div>
 
@@ -7874,6 +7927,7 @@ import {
 import type {
   AuthSourceDefaultsState,
   AuthSourceType,
+  ClientIPResolutionMode,
   SystemSettings,
   UpdateSettingsRequest,
   DefaultSubscriptionSetting,
@@ -8040,6 +8094,7 @@ const sendingTestEmail = ref(false);
 const smtpPasswordManuallyEdited = ref(false);
 const testEmailAddress = ref("");
 const registrationEmailSuffixWhitelistTags = ref<string[]>([]);
+const clientIPTrustedProxiesText = ref("");
 const registrationEmailSuffixWhitelistDraft = ref("");
 const tablePageSizeOptionsInput = ref("10, 20, 50, 100");
 
@@ -8640,6 +8695,39 @@ const humanVerificationProviders: Array<{
   },
 ];
 
+const clientIPResolutionModeOptions = computed(() => [
+  {
+    value: "auto_compat",
+    label: t("admin.settings.apiKeyAcl.modes.auto_compat"),
+  },
+  {
+    value: "trusted_proxy",
+    label: t("admin.settings.apiKeyAcl.modes.trusted_proxy"),
+  },
+  {
+    value: "direct",
+    label: t("admin.settings.apiKeyAcl.modes.direct"),
+  },
+]);
+
+const clientIPLastRefreshText = computed(() => {
+  const raw = form.client_ip_resolution_status.cloudflare_last_success_at;
+  if (!raw) return "";
+  const value = new Date(raw);
+  return Number.isNaN(value.getTime()) ? raw : value.toLocaleString();
+});
+
+function parseClientIPTrustedProxies(value: string): string[] {
+  return Array.from(
+    new Set(
+      value
+        .split(/[\n,]/)
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
 function setHumanVerificationProvider(
   provider: HumanVerificationEnabledKey,
   enabled: boolean,
@@ -8753,7 +8841,17 @@ const form = reactive<SettingsForm>({
   cap_secret_key: "",
   cap_secret_key_configured: false,
   local_captcha_enabled: false,
-  api_key_acl_trust_forwarded_ip: false,
+  api_key_acl_trust_forwarded_ip: true,
+  client_ip_resolution_mode: "auto_compat",
+  client_ip_trusted_proxies: [],
+  client_ip_resolution_status: {
+    mode: "auto_compat",
+    custom_prefix_count: 0,
+    static_prefix_count: 0,
+    cloudflare_prefix_count: 0,
+    cloudflare_ranges_source: "embedded",
+    cloudflare_last_success_at: null,
+  },
   // LinuxDo Connect OAuth 登录
   linuxdo_connect_enabled: false,
   linuxdo_connect_client_id: "",
@@ -9707,6 +9805,9 @@ async function loadSettings() {
       }
     }
     normalizeHumanVerificationProvider();
+    clientIPTrustedProxiesText.value = (
+      settings.client_ip_trusted_proxies || []
+    ).join("\n");
     if (!form.claude_oauth_system_prompt_blocks?.trim()) {
       form.claude_oauth_system_prompt_blocks =
         defaultClaudeOAuthSystemPromptBlocks;
@@ -10130,7 +10231,10 @@ async function saveSettings() {
       cap_api_endpoint: form.cap_api_endpoint,
       cap_secret_key: form.cap_secret_key || undefined,
       local_captcha_enabled: form.local_captcha_enabled,
-      api_key_acl_trust_forwarded_ip: form.api_key_acl_trust_forwarded_ip,
+      client_ip_resolution_mode: form.client_ip_resolution_mode,
+      client_ip_trusted_proxies: parseClientIPTrustedProxies(
+        clientIPTrustedProxiesText.value,
+      ),
       linuxdo_connect_enabled: form.linuxdo_connect_enabled,
       linuxdo_connect_client_id: form.linuxdo_connect_client_id,
       linuxdo_connect_client_secret:
@@ -10396,6 +10500,9 @@ async function saveSettings() {
       }
     }
     normalizeHumanVerificationProvider();
+    clientIPTrustedProxiesText.value = (
+      updated.client_ip_trusted_proxies || []
+    ).join("\n");
     Object.assign(authSourceDefaults, buildAuthSourceDefaultsState(updated));
     form.default_platform_quotas = normalizePlatformQuotasMap(updated.default_platform_quotas);
     registrationEmailSuffixWhitelistTags.value =

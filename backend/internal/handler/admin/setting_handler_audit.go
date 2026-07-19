@@ -2,6 +2,7 @@ package admin
 
 import (
 	"log/slog"
+	"slices"
 
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -125,8 +126,11 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if req.CapSecretKey != "" {
 		changed = append(changed, "cap_secret_key")
 	}
-	if before.APIKeyACLTrustForwardedIP != after.APIKeyACLTrustForwardedIP {
-		changed = append(changed, "api_key_acl_trust_forwarded_ip")
+	if before.ClientIPResolutionMode != after.ClientIPResolutionMode {
+		changed = append(changed, "client_ip_resolution_mode")
+	}
+	if !slices.Equal(before.ClientIPTrustedProxies, after.ClientIPTrustedProxies) {
+		changed = append(changed, "client_ip_trusted_proxies")
 	}
 	if before.LinuxDoConnectEnabled != after.LinuxDoConnectEnabled {
 		changed = append(changed, "linuxdo_connect_enabled")

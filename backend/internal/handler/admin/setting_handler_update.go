@@ -58,7 +58,9 @@ type UpdateSettingsRequest struct {
 	LocalCaptchaEnabled *bool  `json:"local_captcha_enabled"` // 省略=保持现值
 
 	// API Key IP 访问控制设置
-	APIKeyACLTrustForwardedIP *bool `json:"api_key_acl_trust_forwarded_ip"`
+	APIKeyACLTrustForwardedIP *bool     `json:"api_key_acl_trust_forwarded_ip"`
+	ClientIPResolutionMode    *string   `json:"client_ip_resolution_mode"`
+	ClientIPTrustedProxies    *[]string `json:"client_ip_trusted_proxies"`
 
 	// LinuxDo Connect OAuth 登录
 	LinuxDoConnectEnabled      bool   `json:"linuxdo_connect_enabled"`
@@ -424,6 +426,14 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	capEnabled := previousSettings.CapEnabled
 	if req.CapEnabled != nil {
 		capEnabled = *req.CapEnabled
+	}
+	clientIPResolutionMode := previousSettings.ClientIPResolutionMode
+	if req.ClientIPResolutionMode != nil {
+		clientIPResolutionMode = *req.ClientIPResolutionMode
+	}
+	clientIPTrustedProxies := append([]string(nil), previousSettings.ClientIPTrustedProxies...)
+	if req.ClientIPTrustedProxies != nil {
+		clientIPTrustedProxies = append([]string(nil), (*req.ClientIPTrustedProxies)...)
 	}
 	providerCount := 0
 	for _, enabled := range []bool{req.TurnstileEnabled, recaptchaEnabled, capEnabled, localCaptchaEnabled} {
@@ -1356,12 +1366,11 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		CapAPIEndpoint:                   req.CapAPIEndpoint,
 		CapSecretKey:                     req.CapSecretKey,
 		LocalCaptchaEnabled:              localCaptchaEnabled,
-		APIKeyACLTrustForwardedIP: func() bool {
-			if req.APIKeyACLTrustForwardedIP != nil {
-				return *req.APIKeyACLTrustForwardedIP
-			}
-			return previousSettings.APIKeyACLTrustForwardedIP
-		}(),
+		// The deprecated boolean is accepted but intentionally ignored so a
+		// cached pre-upgrade admin page cannot re-enable the v0.1.161 regression.
+		APIKeyACLTrustForwardedIP:              previousSettings.APIKeyACLTrustForwardedIP,
+		ClientIPResolutionMode:                 clientIPResolutionMode,
+		ClientIPTrustedProxies:                 clientIPTrustedProxies,
 		LinuxDoConnectEnabled:                  req.LinuxDoConnectEnabled,
 		LinuxDoConnectClientID:                 req.LinuxDoConnectClientID,
 		LinuxDoConnectClientSecret:             req.LinuxDoConnectClientSecret,
@@ -1920,6 +1929,9 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		CapSecretKeyConfigured:                                 updatedSettings.CapSecretKeyConfigured,
 		LocalCaptchaEnabled:                                    updatedSettings.LocalCaptchaEnabled,
 		APIKeyACLTrustForwardedIP:                              updatedSettings.APIKeyACLTrustForwardedIP,
+		ClientIPResolutionMode:                                 updatedSettings.ClientIPResolutionMode,
+		ClientIPTrustedProxies:                                 updatedSettings.ClientIPTrustedProxies,
+		ClientIPResolutionStatus:                               updatedSettings.ClientIPResolutionStatus,
 		LinuxDoConnectEnabled:                                  updatedSettings.LinuxDoConnectEnabled,
 		LinuxDoConnectClientID:                                 updatedSettings.LinuxDoConnectClientID,
 		LinuxDoConnectClientSecretConfigured:                   updatedSettings.LinuxDoConnectClientSecretConfigured,

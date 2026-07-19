@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	clientip "github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
@@ -52,17 +53,20 @@ type SystemSettings struct {
 	SMTPFromName           string `json:"smtp_from_name"`
 	SMTPUseTLS             bool   `json:"smtp_use_tls"`
 
-	TurnstileEnabled             bool   `json:"turnstile_enabled"`
-	TurnstileSiteKey             string `json:"turnstile_site_key"`
-	TurnstileSecretKeyConfigured bool   `json:"turnstile_secret_key_configured"`
-	RecaptchaEnabled             bool   `json:"recaptcha_enabled"`
-	RecaptchaSiteKey             string `json:"recaptcha_site_key"`
-	RecaptchaSecretKeyConfigured bool   `json:"recaptcha_secret_key_configured"`
-	CapEnabled                   bool   `json:"cap_enabled"`
-	CapAPIEndpoint               string `json:"cap_api_endpoint"`
-	CapSecretKeyConfigured       bool   `json:"cap_secret_key_configured"`
-	LocalCaptchaEnabled          bool   `json:"local_captcha_enabled"`
-	APIKeyACLTrustForwardedIP    bool   `json:"api_key_acl_trust_forwarded_ip"`
+	TurnstileEnabled             bool                      `json:"turnstile_enabled"`
+	TurnstileSiteKey             string                    `json:"turnstile_site_key"`
+	TurnstileSecretKeyConfigured bool                      `json:"turnstile_secret_key_configured"`
+	RecaptchaEnabled             bool                      `json:"recaptcha_enabled"`
+	RecaptchaSiteKey             string                    `json:"recaptcha_site_key"`
+	RecaptchaSecretKeyConfigured bool                      `json:"recaptcha_secret_key_configured"`
+	CapEnabled                   bool                      `json:"cap_enabled"`
+	CapAPIEndpoint               string                    `json:"cap_api_endpoint"`
+	CapSecretKeyConfigured       bool                      `json:"cap_secret_key_configured"`
+	LocalCaptchaEnabled          bool                      `json:"local_captcha_enabled"`
+	APIKeyACLTrustForwardedIP    bool                      `json:"api_key_acl_trust_forwarded_ip"`
+	ClientIPResolutionMode       string                    `json:"client_ip_resolution_mode"`
+	ClientIPTrustedProxies       []string                  `json:"client_ip_trusted_proxies"`
+	ClientIPResolutionStatus     clientip.ResolutionStatus `json:"client_ip_resolution_status"`
 
 	LinuxDoConnectEnabled                bool   `json:"linuxdo_connect_enabled"`
 	LinuxDoConnectClientID               string `json:"linuxdo_connect_client_id"`

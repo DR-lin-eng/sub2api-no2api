@@ -166,11 +166,27 @@ export default {
         secretKeyConfiguredHint: '密钥已配置，留空以保留当前值。'
       },
       apiKeyAcl: {
-        title: 'API Key IP 访问控制',
-        description: '控制 API Key 白/黑名单、操作审计日志与会话 IP/UA 绑定使用哪个客户端 IP 判断',
-        trustForwardedIp: '信任反代传递的客户端 IP',
-        trustForwardedIpHint:
-          '默认关闭。仅在源站只允许 Cloudflare 或 Nginx 反代访问时开启；开启后 API Key IP 白/黑名单、操作审计日志与会话 IP/UA 绑定会使用 CF-Connecting-IP、X-Real-IP 或 X-Forwarded-For，与使用记录中的请求 IP 保持一致。切换本开关会改变已登录会话的 IP 指纹，开启会话绑定时现有会话需重新登录。'
+        title: '客户端 IP 解析',
+        description: '统一控制限流、API Key IP 规则、使用记录、操作审计与会话绑定所使用的客户端 IP',
+        resolutionMode: '解析模式',
+        resolutionModeHint: '自动兼容模式无需修改 Nginx、Caddy、Cloudflare 或 Docker 配置',
+        trustedProxies: '额外可信代理',
+        trustedProxiesPlaceholder: '每行填写一个 IP 或 CIDR，例如 203.0.113.10/32',
+        trustedProxiesHint: '最多 64 条；已有 server.trusted_proxies 会自动合并，无需重复填写',
+        activeMode: '当前模式',
+        customRules: '自定义规则',
+        cloudflareRules: 'Cloudflare 规则',
+        cloudflareSource: 'Cloudflare 规则来源',
+        lastRefresh: 'Cloudflare 网段最后刷新：{time}',
+        modes: {
+          auto_compat: '自动兼容（推荐）',
+          trusted_proxy: '严格可信代理',
+          direct: '仅使用直连地址'
+        },
+        sources: {
+          embedded: '内置规则',
+          refreshed: '官方接口已刷新'
+        }
       },
       linuxdo: {
         title: 'LinuxDo Connect 登录',

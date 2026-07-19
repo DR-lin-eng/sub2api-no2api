@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	clientip "github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	servermiddleware "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -314,7 +315,7 @@ func closeWS(conn *websocket.Conn, code int, reason string) {
 // QPSWSHandler handles realtime QPS push via WebSocket.
 // GET /api/v1/admin/ops/ws/qps
 func (h *OpsHandler) QPSWSHandler(c *gin.Context) {
-	clientIP := requestClientIP(c.Request)
+	clientIP := clientip.GetClientIP(c)
 
 	if h == nil || h.opsService == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "ops service not initialized"})
@@ -607,31 +608,6 @@ func requestPeerIP(r *http.Request) (netip.Addr, bool) {
 		return netip.Addr{}, false
 	}
 	return addr.Unmap(), true
-}
-
-func requestClientIP(r *http.Request) string {
-	if r == nil {
-		return ""
-	}
-
-	trustProxyHeaders := shouldTrustOpsWSProxyHeaders(r)
-	if trustProxyHeaders {
-		xff := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
-		if xff != "" {
-			// Use the left-most entry (original client). If multiple proxies add values, they are comma-separated.
-			xff = strings.TrimSpace(strings.Split(xff, ",")[0])
-			xff = strings.TrimPrefix(xff, "[")
-			xff = strings.TrimSuffix(xff, "]")
-			if addr, err := netip.ParseAddr(xff); err == nil && addr.IsValid() {
-				return addr.Unmap().String()
-			}
-		}
-	}
-
-	if peer, ok := requestPeerIP(r); ok && peer.IsValid() {
-		return peer.String()
-	}
-	return ""
 }
 
 func isAddrInTrustedProxies(addr netip.Addr, trusted []netip.Prefix) bool {

@@ -12,6 +12,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 )
 
 // UpdateSettings 更新系统设置
@@ -121,6 +122,30 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	if err := s.normalizeOpenAIAdvancedSchedulerOverrides(settings); err != nil {
 		return nil, err
 	}
+	if strings.TrimSpace(settings.ClientIPResolutionMode) == "" {
+		if s.clientIPResolver != nil {
+			settings.ClientIPResolutionMode, settings.ClientIPTrustedProxies = s.clientIPResolver.CurrentConfiguration()
+		} else {
+			settings.ClientIPResolutionMode = ip.ResolutionModeAutoCompat
+		}
+	}
+	settings.ClientIPResolutionMode = strings.TrimSpace(settings.ClientIPResolutionMode)
+	if err := ip.ValidateResolutionMode(settings.ClientIPResolutionMode); err != nil {
+		return nil, infraerrors.BadRequest("INVALID_CLIENT_IP_RESOLUTION_MODE", err.Error())
+	}
+	if settings.ClientIPTrustedProxies == nil {
+		settings.ClientIPTrustedProxies = make([]string, 0)
+	}
+	normalizedClientIPTrustedProxies, err := ip.NormalizeTrustedProxies(settings.ClientIPTrustedProxies)
+	if err != nil {
+		return nil, infraerrors.BadRequest("INVALID_CLIENT_IP_TRUSTED_PROXIES", err.Error())
+	}
+	settings.ClientIPTrustedProxies = normalizedClientIPTrustedProxies
+	clientIPTrustedProxiesJSON, err := json.Marshal(settings.ClientIPTrustedProxies)
+	if err != nil {
+		return nil, fmt.Errorf("marshal client IP trusted proxies: %w", err)
+	}
+	settings.APIKeyACLTrustForwardedIP = settings.ClientIPResolutionMode != ip.ResolutionModeDirect
 	settings.PaymentVisibleMethodAlipaySource = alipaySource
 	settings.PaymentVisibleMethodWxpaySource = wxpaySource
 	settings.WeChatConnectAppID = strings.TrimSpace(settings.WeChatConnectAppID)
@@ -215,6 +240,8 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	}
 	updates[SettingKeyLocalCaptchaEnabled] = strconv.FormatBool(settings.LocalCaptchaEnabled)
 	updates[SettingKeyAPIKeyACLTrustForwardedIP] = strconv.FormatBool(settings.APIKeyACLTrustForwardedIP)
+	updates[SettingKeyClientIPResolutionMode] = settings.ClientIPResolutionMode
+	updates[SettingKeyClientIPTrustedProxies] = string(clientIPTrustedProxiesJSON)
 
 	// LinuxDo Connect OAuth 登录
 	updates[SettingKeyLinuxDoConnectEnabled] = strconv.FormatBool(settings.LinuxDoConnectEnabled)
@@ -645,8 +672,8 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 			expiresAt: 0,
 		})
 	}
-	if s.cfg != nil {
-		s.cfg.SetTrustForwardedIPForAPIKeyACL(settings.APIKeyACLTrustForwardedIP)
+	if s.clientIPResolver != nil {
+		_ = s.clientIPResolver.Configure(settings.ClientIPResolutionMode, settings.ClientIPTrustedProxies)
 	}
 	// codex_cli_only 加固策略缓存：设置更新后强制下次重载（涉及 4 个键 + JSON 解析，直接置过期）。
 	s.codexRestrictionPolicySF.Forget("codex_restriction_policy")

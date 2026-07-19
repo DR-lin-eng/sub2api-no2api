@@ -10,6 +10,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler"
 	coremiddleware "github.com/Wei-Shaw/sub2api/internal/middleware"
+	clientip "github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/server/routes"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -35,8 +36,8 @@ func SetupRouter(
 	opsService *service.OpsService,
 	settingService *service.SettingService,
 	compositeResolver *service.CompositeRouteResolver,
+	clientIPResolver *clientip.Resolver,
 	cfg *config.Config,
-	includeSessionBindingIP bool,
 	redisClient *redis.Client,
 	db *sql.DB,
 ) *gin.Engine {
@@ -66,11 +67,11 @@ func SetupRouter(
 	refreshCSPOrigins() // 启动时初始化
 
 	// 应用中间件
+	r.Use(clientIPResolver.Middleware())
 	r.Use(coremiddleware.NewCredentialAuthIngressLimiter())
 	r.Use(middleware2.RequestLogger())
 	// 将客户端 IP + UA 注入 request context，供 token 签发/会话绑定/审计日志统一读取。
-	// IP 取值与 API Key IP 限制共用 server.trusted_proxies 信任链。
-	r.Use(middleware2.SessionBindingContext(cfg))
+	r.Use(middleware2.SessionBindingContext(nil))
 	r.Use(middleware2.Logger())
 	r.Use(middleware2.CORS(cfg.CORS))
 	r.Use(middleware2.SecurityHeaders(cfg.Security.CSP, func() []string {

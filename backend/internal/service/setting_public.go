@@ -175,7 +175,6 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyCapEnabled,
 		SettingKeyCapAPIEndpoint,
 		SettingKeyLocalCaptchaEnabled,
-		SettingKeyAPIKeyACLTrustForwardedIP,
 		SettingKeySiteName,
 		SettingKeySiteLogo,
 		SettingKeySiteSubtitle,

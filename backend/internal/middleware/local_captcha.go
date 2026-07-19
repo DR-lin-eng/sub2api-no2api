@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	clientip "github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -103,7 +104,7 @@ func (l *LocalCaptcha) Generate(enabled func(context.Context) bool) gin.HandlerF
 			return
 		}
 
-		digest := hex.EncodeToString(localCaptchaDigest(captchaID, answer, c.ClientIP()))
+		digest := hex.EncodeToString(localCaptchaDigest(captchaID, answer, clientip.GetClientIP(c)))
 		created, err := l.redis.SetNX(c.Request.Context(), l.prefix+captchaID, digest, localCaptchaTTL).Result()
 		if err != nil || !created {
 			response.ErrorWithDetails(c, http.StatusServiceUnavailable, "captcha service is unavailable", "LOCAL_CAPTCHA_UNAVAILABLE", nil)
@@ -158,7 +159,7 @@ func (l *LocalCaptcha) Require(opts LocalCaptchaRequireOptions) gin.HandlerFunc 
 		}
 
 		expected, err := hex.DecodeString(expectedHex)
-		actual := localCaptchaDigest(strings.TrimSpace(payload.CaptchaID), payload.CaptchaCode, c.ClientIP())
+		actual := localCaptchaDigest(strings.TrimSpace(payload.CaptchaID), payload.CaptchaCode, clientip.GetClientIP(c))
 		if err != nil || len(expected) != len(actual) || subtle.ConstantTimeCompare(expected, actual) != 1 {
 			abortLocalCaptcha(c, "LOCAL_CAPTCHA_INVALID", "captcha verification failed")
 			return

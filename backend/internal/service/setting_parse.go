@@ -14,6 +14,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 )
 
@@ -55,6 +56,8 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyLoginAgreementUpdatedAt:                   defaultLoginAgreementDate,
 		SettingKeyLoginAgreementDocuments:                   loginAgreementDocumentsJSON,
 		SettingKeyAPIKeyACLTrustForwardedIP:                 "false",
+		SettingKeyClientIPResolutionMode:                    ip.ResolutionModeAutoCompat,
+		SettingKeyClientIPTrustedProxies:                    "[]",
 		SettingKeySiteName:                                  "Sub2API",
 		SettingKeySiteLogo:                                  "",
 		SettingKeyPurchaseSubscriptionEnabled:               "false",
@@ -248,11 +251,15 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	if loginAgreementUpdatedAt == "" {
 		loginAgreementUpdatedAt = defaultLoginAgreementDate
 	}
-	apiKeyACLTrustForwardedIP := false
-	if value, ok := settings[SettingKeyAPIKeyACLTrustForwardedIP]; ok {
-		apiKeyACLTrustForwardedIP = value == "true"
-	} else if s != nil && s.cfg != nil {
-		apiKeyACLTrustForwardedIP = s.cfg.Security.TrustForwardedIPForAPIKeyACL
+	clientIPResolutionMode := strings.TrimSpace(settings[SettingKeyClientIPResolutionMode])
+	if ip.ValidateResolutionMode(clientIPResolutionMode) != nil {
+		clientIPResolutionMode = ip.ResolutionModeAutoCompat
+	}
+	clientIPTrustedProxies := make([]string, 0)
+	if raw := strings.TrimSpace(settings[SettingKeyClientIPTrustedProxies]); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &clientIPTrustedProxies); err != nil {
+			clientIPTrustedProxies = make([]string, 0)
+		}
 	}
 	result := &SystemSettings{
 		RegistrationEnabled:              settings[SettingKeyRegistrationEnabled] == "true",
@@ -286,21 +293,27 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		CapAPIEndpoint:                   settings[SettingKeyCapAPIEndpoint],
 		CapSecretKeyConfigured:           settings[SettingKeyCapSecretKey] != "",
 		LocalCaptchaEnabled:              settings[SettingKeyLocalCaptchaEnabled] == "true", // 默认关闭
-		APIKeyACLTrustForwardedIP:        apiKeyACLTrustForwardedIP,
-		SiteName:                         s.getStringOrDefault(settings, SettingKeySiteName, "Sub2API"),
-		SiteLogo:                         settings[SettingKeySiteLogo],
-		SiteSubtitle:                     s.getStringOrDefault(settings, SettingKeySiteSubtitle, "Subscription to API Conversion Platform"),
-		APIBaseURL:                       settings[SettingKeyAPIBaseURL],
-		ContactInfo:                      settings[SettingKeyContactInfo],
-		DocURL:                           settings[SettingKeyDocURL],
-		HomeContent:                      settings[SettingKeyHomeContent],
-		HideCcsImportButton:              settings[SettingKeyHideCcsImportButton] == "true",
-		PurchaseSubscriptionEnabled:      settings[SettingKeyPurchaseSubscriptionEnabled] == "true",
-		PurchaseSubscriptionURL:          strings.TrimSpace(settings[SettingKeyPurchaseSubscriptionURL]),
-		CustomMenuItems:                  settings[SettingKeyCustomMenuItems],
-		CustomEndpoints:                  settings[SettingKeyCustomEndpoints],
-		BackendModeEnabled:               settings[SettingKeyBackendModeEnabled] == "true",
-		StreamModePerformanceEnabled:     settings[SettingKeyStreamModePerformanceEnabled] == "true",
+		APIKeyACLTrustForwardedIP:        clientIPResolutionMode != ip.ResolutionModeDirect,
+		ClientIPResolutionMode:           clientIPResolutionMode,
+		ClientIPTrustedProxies:           clientIPTrustedProxies,
+		ClientIPResolutionStatus: ip.ResolutionStatus{
+			Mode:                   clientIPResolutionMode,
+			CloudflareRangesSource: "embedded",
+		},
+		SiteName:                     s.getStringOrDefault(settings, SettingKeySiteName, "Sub2API"),
+		SiteLogo:                     settings[SettingKeySiteLogo],
+		SiteSubtitle:                 s.getStringOrDefault(settings, SettingKeySiteSubtitle, "Subscription to API Conversion Platform"),
+		APIBaseURL:                   settings[SettingKeyAPIBaseURL],
+		ContactInfo:                  settings[SettingKeyContactInfo],
+		DocURL:                       settings[SettingKeyDocURL],
+		HomeContent:                  settings[SettingKeyHomeContent],
+		HideCcsImportButton:          settings[SettingKeyHideCcsImportButton] == "true",
+		PurchaseSubscriptionEnabled:  settings[SettingKeyPurchaseSubscriptionEnabled] == "true",
+		PurchaseSubscriptionURL:      strings.TrimSpace(settings[SettingKeyPurchaseSubscriptionURL]),
+		CustomMenuItems:              settings[SettingKeyCustomMenuItems],
+		CustomEndpoints:              settings[SettingKeyCustomEndpoints],
+		BackendModeEnabled:           settings[SettingKeyBackendModeEnabled] == "true",
+		StreamModePerformanceEnabled: settings[SettingKeyStreamModePerformanceEnabled] == "true",
 	}
 	result.TableDefaultPageSize, result.TablePageSizeOptions = parseTablePreferences(
 		settings[SettingKeyTableDefaultPageSize],

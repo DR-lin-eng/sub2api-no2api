@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	clientip "github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
@@ -157,6 +158,37 @@ func TestUpdateSettingsOmittedSecuritySwitchesKeepDisabled(t *testing.T) {
 	require.Equal(t, "false", repo.values[service.SettingKeyStepUpEnabled])
 	require.Equal(t, "false", repo.values[service.SettingKeySessionBindingEnabled])
 	require.Equal(t, "false", repo.values[service.SettingKeyLocalCaptchaEnabled])
+}
+
+func TestUpdateSettingsLegacyForwardedIPFieldCannotChangeResolutionMode(t *testing.T) {
+	h, repo := newStepUpSwitchTestHandler(t, map[string]string{
+		service.SettingKeyClientIPResolutionMode: clientip.ResolutionModeTrustedProxy,
+		service.SettingKeyClientIPTrustedProxies: `["10.0.0.0/8"]`,
+	})
+
+	rec := doUpdateSettings(t, h, map[string]any{
+		"api_key_acl_trust_forwarded_ip": false,
+	}, nil)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, clientip.ResolutionModeTrustedProxy, repo.values[service.SettingKeyClientIPResolutionMode])
+	require.JSONEq(t, `["10.0.0.0/8"]`, repo.values[service.SettingKeyClientIPTrustedProxies])
+	require.Equal(t, "true", repo.values[service.SettingKeyAPIKeyACLTrustForwardedIP])
+}
+
+func TestUpdateSettingsRejectsInvalidClientIPProxyWithoutPartialWrite(t *testing.T) {
+	h, repo := newStepUpSwitchTestHandler(t, map[string]string{
+		service.SettingKeyClientIPResolutionMode: clientip.ResolutionModeAutoCompat,
+		service.SettingKeyClientIPTrustedProxies: `[]`,
+	})
+
+	rec := doUpdateSettings(t, h, map[string]any{
+		"client_ip_resolution_mode": clientip.ResolutionModeAutoCompat,
+		"client_ip_trusted_proxies": []string{"not-an-ip"},
+	}, nil)
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Equal(t, `[]`, repo.values[service.SettingKeyClientIPTrustedProxies])
 }
 
 func TestUpdateSettingsRejectsMultipleHumanVerificationProviders(t *testing.T) {

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	clientip "github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -24,8 +25,10 @@ func requestSessionBindingForTest(
 ) *service.SessionBinding {
 	t.Helper()
 
+	resolver, err := clientip.NewResolver(trustedProxies)
+	require.NoError(t, err)
 	engine := gin.New()
-	require.NoError(t, engine.SetTrustedProxies(trustedProxies))
+	engine.Use(resolver.Middleware())
 	engine.Use(SessionBindingContext(includeIP))
 
 	var binding *service.SessionBinding
@@ -68,13 +71,13 @@ func TestSessionBindingContextIgnoresTrustedProxyPeerChanges(t *testing.T) {
 	assert.Equal(t, first.Hash(), second.Hash())
 }
 
-func TestSessionBindingContextOmitsIPWhenDisabled(t *testing.T) {
+func TestSessionBindingContextUsesUnifiedIPRegardlessOfLegacyArgument(t *testing.T) {
 	first := requestSessionBindingForTest(t, false, nil, "10.0.0.2:1234", "test-agent", "9.9.9.9")
 	second := requestSessionBindingForTest(t, false, nil, "10.0.0.3:1234", "test-agent", "8.8.8.8")
 
-	assert.Empty(t, first.IP)
-	assert.Empty(t, second.IP)
-	assert.Equal(t, first.Hash(), second.Hash())
+	assert.Equal(t, "9.9.9.9", first.IP)
+	assert.Equal(t, "8.8.8.8", second.IP)
+	assert.NotEqual(t, first.Hash(), second.Hash())
 }
 
 func TestSessionBindingContextStillBindsUserAgentWhenIPDisabled(t *testing.T) {
@@ -116,8 +119,10 @@ func TestSecurityClientIPFallsBackWithoutInjectedBinding(t *testing.T) {
 }
 
 func TestRequestSessionBindingPrefersInjectedBinding(t *testing.T) {
+	resolver, err := clientip.NewResolver(nil)
+	require.NoError(t, err)
 	r := gin.New()
-	require.NoError(t, r.SetTrustedProxies([]string{"127.0.0.1"}))
+	r.Use(resolver.Middleware())
 	r.Use(SessionBindingContext(true))
 	r.GET("/t", func(c *gin.Context) {
 		issued := service.SessionBindingFromContext(c.Request.Context())

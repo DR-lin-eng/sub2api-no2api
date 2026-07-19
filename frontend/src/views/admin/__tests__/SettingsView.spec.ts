@@ -391,6 +391,17 @@ const baseSettingsResponse = {
   cap_api_endpoint: "",
   cap_secret_key_configured: false,
   local_captcha_enabled: false,
+  api_key_acl_trust_forwarded_ip: true,
+  client_ip_resolution_mode: "auto_compat",
+  client_ip_trusted_proxies: [],
+  client_ip_resolution_status: {
+    mode: "auto_compat",
+    custom_prefix_count: 0,
+    static_prefix_count: 0,
+    cloudflare_prefix_count: 22,
+    cloudflare_ranges_source: "embedded",
+    cloudflare_last_success_at: null,
+  },
   linuxdo_connect_enabled: false,
   linuxdo_connect_client_id: "",
   linuxdo_connect_client_secret_configured: false,
@@ -735,6 +746,30 @@ describe("admin SettingsView payment visible method controls", () => {
       cap_enabled: true,
       local_captcha_enabled: false,
     });
+  });
+
+  it("submits unified client IP mode without the deprecated boolean", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await openSecurityTab(wrapper);
+
+    const card = wrapper
+      .findAll(".card")
+      .find((node) => node.text().includes("admin.settings.apiKeyAcl.title"));
+    expect(card).toBeDefined();
+
+    await card!.get("select.select-stub").setValue("trusted_proxy");
+    await card!.get("textarea").setValue("10.0.0.0/8\n203.0.113.10");
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    const payload = updateSettings.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(payload.client_ip_resolution_mode).toBe("trusted_proxy");
+    expect(payload.client_ip_trusted_proxies).toEqual([
+      "10.0.0.0/8",
+      "203.0.113.10",
+    ]);
+    expect(payload).not.toHaveProperty("api_key_acl_trust_forwarded_ip");
   });
 
   it("loads and saves the global temporary scheduling pause switch", async () => {
