@@ -50,13 +50,19 @@ const fakeAuthResponse = {
   token_type: 'Bearer',
   user: { ...fakeUser },
 }
+const fakeRefreshResponse = {
+  access_token: fakeAuthResponse.access_token,
+  refresh_token: fakeAuthResponse.refresh_token,
+  expires_in: fakeAuthResponse.expires_in,
+  token_type: fakeAuthResponse.token_type,
+}
 
 describe('useAuthStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     localStorage.clear()
     vi.useFakeTimers()
-    vi.clearAllMocks()
+    vi.resetAllMocks()
   })
 
   afterEach(() => {
@@ -75,7 +81,7 @@ describe('useAuthStore', () => {
       expect(store.token).toBe('test-token-123')
       expect(store.user).toEqual(fakeUser)
       expect(store.isAuthenticated).toBe(true)
-      expect(localStorage.getItem('auth_token')).toBe('test-token-123')
+      expect(localStorage.getItem('auth_token')).toBeNull()
       expect(localStorage.getItem('auth_user')).toBe(JSON.stringify(fakeUser))
     })
 
@@ -151,63 +157,54 @@ describe('useAuthStore', () => {
       expect(store.token).toBeNull()
       expect(store.user).toBeNull()
       expect(store.isAuthenticated).toBe(false)
-      expect(localStorage.getItem('auth_token')).toBeNull()
       expect(localStorage.getItem('auth_user')).toBeNull()
-      expect(localStorage.getItem('refresh_token')).toBeNull()
-      expect(localStorage.getItem('token_expires_at')).toBeNull()
     })
   })
 
   // --- checkAuth ---
 
   describe('checkAuth', () => {
-    it('从 localStorage 恢复持久化状态', () => {
-      localStorage.setItem('auth_token', 'saved-token')
+    it('通过 HttpOnly refresh cookie 恢复内存 token', async () => {
       localStorage.setItem('auth_user', JSON.stringify(fakeUser))
 
-      // Mock refreshUser (getCurrentUser) 防止后台刷新报错
+      mockRefreshToken.mockResolvedValue(fakeRefreshResponse)
       mockGetCurrentUser.mockResolvedValue({ data: fakeUser })
 
       const store = useAuthStore()
-      store.checkAuth()
+      await store.checkAuth()
 
-      expect(store.token).toBe('saved-token')
+      expect(store.token).toBe('test-token-123')
       expect(store.user).toEqual(fakeUser)
       expect(store.isAuthenticated).toBe(true)
     })
 
-    it('localStorage 无数据时保持未认证状态', () => {
+    it('localStorage 无数据时保持未认证状态', async () => {
       const store = useAuthStore()
-      store.checkAuth()
+      await store.checkAuth()
 
       expect(store.token).toBeNull()
       expect(store.user).toBeNull()
       expect(store.isAuthenticated).toBe(false)
     })
 
-    it('localStorage 中用户数据损坏时清除状态', () => {
-      localStorage.setItem('auth_token', 'saved-token')
+    it('localStorage 中用户数据损坏时清除状态', async () => {
       localStorage.setItem('auth_user', 'invalid-json{{{')
 
       const store = useAuthStore()
-      store.checkAuth()
+      await store.checkAuth()
 
       expect(store.token).toBeNull()
       expect(store.user).toBeNull()
-      expect(localStorage.getItem('auth_token')).toBeNull()
     })
 
-    it('恢复 refresh token 和过期时间', () => {
-      const futureTs = String(Date.now() + 3600_000)
-      localStorage.setItem('auth_token', 'saved-token')
+    it('通过 HttpOnly refresh cookie 恢复认证', async () => {
       localStorage.setItem('auth_user', JSON.stringify(fakeUser))
-      localStorage.setItem('refresh_token', 'saved-refresh')
-      localStorage.setItem('token_expires_at', futureTs)
 
+      mockRefreshToken.mockResolvedValue(fakeRefreshResponse)
       mockGetCurrentUser.mockResolvedValue({ data: fakeUser })
 
       const store = useAuthStore()
-      store.checkAuth()
+      await store.checkAuth()
 
       expect(store.isAuthenticated).toBe(true)
     })

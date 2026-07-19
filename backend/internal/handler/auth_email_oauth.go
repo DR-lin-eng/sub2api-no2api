@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -182,6 +183,13 @@ func (h *AuthHandler) emailOAuthCallbackWithProfile(
 		redirectToFrontendCallback(c, frontendCallback)
 		return
 	}
+	if handled, err := h.emailOAuthRequireTotpPendingSession(c, provider, frontendCallback, redirectTo, input, profile); err != nil {
+		redirectOAuthError(c, frontendCallback, infraerrors.Reason(err), infraerrors.Message(err), "")
+		return
+	} else if handled {
+		redirectToFrontendCallback(c, frontendCallback)
+		return
+	}
 
 	tokenPair, user, err := h.authService.LoginOrRegisterVerifiedEmailOAuthWithSignupCodes(
 		c.Request.Context(),
@@ -213,6 +221,7 @@ func (h *AuthHandler) emailOAuthCallbackWithProfile(
 	fragment.Set("expires_in", fmt.Sprintf("%d", tokenPair.ExpiresIn))
 	fragment.Set("token_type", "Bearer")
 	fragment.Set("redirect", redirectTo)
+	setRefreshTokenCookie(c, tokenPair.RefreshToken, 30*24*time.Hour)
 	redirectWithFragment(c, frontendCallback, fragment)
 }
 
@@ -243,6 +252,84 @@ func (h *AuthHandler) emailOAuthShouldCreatePendingRegistration(ctx context.Cont
 		return false, err
 	}
 	return false, nil
+}
+
+// emailOAuthRequireTotpPendingSession prevents the verified-email fast path
+// from issuing a token pair for an existing TOTP-enabled account. The pending
+// browser session is completed by the shared Login2FA handler, which also
+// binds the provider identity only after the code is verified.
+func (h *AuthHandler) emailOAuthRequireTotpPendingSession(
+	c *gin.Context,
+	provider string,
+	frontendCallback string,
+	redirectTo string,
+	input service.EmailOAuthIdentityInput,
+	profile *emailOAuthProfile,
+) (bool, error) {
+	if h == nil || h.settingSvc == nil || h.entClient() == nil ||
+		!h.settingSvc.IsTotpEnabled(c.Request.Context()) || !input.EmailVerified {
+		return false, nil
+	}
+
+	identity := service.PendingAuthIdentityKey{
+		ProviderType:    strings.TrimSpace(input.ProviderType),
+		ProviderKey:     strings.TrimSpace(input.ProviderKey),
+		ProviderSubject: strings.TrimSpace(input.ProviderSubject),
+	}
+	target, err := h.findOAuthIdentityUser(c.Request.Context(), identity)
+	if err != nil {
+		return false, err
+	}
+	if target == nil {
+		target, err = findUserByNormalizedEmail(c.Request.Context(), h.entClient(), strings.TrimSpace(input.Email))
+		if err != nil {
+			if errors.Is(err, service.ErrUserNotFound) {
+				return false, nil
+			}
+			return false, err
+		}
+	}
+	if target == nil || !target.TotpEnabled {
+		return false, nil
+	}
+
+	browserSessionKey, err := generateOAuthPendingBrowserSession()
+	if err != nil {
+		return false, infraerrors.InternalServer("OAUTH_BROWSER_SESSION_GEN_FAILED", "failed to create oauth browser session").WithCause(err)
+	}
+	setOAuthPendingBrowserCookie(c, browserSessionKey, isRequestHTTPS(c))
+	claims := map[string]any{
+		"email":          strings.TrimSpace(input.Email),
+		"email_verified": true,
+		"username":       strings.TrimSpace(input.Username),
+		"provider":       provider,
+		"provider_key":   identity.ProviderKey,
+		"provider_subject": identity.ProviderSubject,
+	}
+	if profile != nil {
+		if profile.DisplayName != "" {
+			claims["suggested_display_name"] = profile.DisplayName
+		}
+		if profile.AvatarURL != "" {
+			claims["suggested_avatar_url"] = profile.AvatarURL
+		}
+		for key, value := range profile.Metadata {
+			if _, exists := claims[key]; !exists {
+				claims[key] = value
+			}
+		}
+	}
+	targetID := target.ID
+	return true, h.createOAuthPendingSession(c, oauthPendingSessionPayload{
+		Intent:                 oauthIntentLogin,
+		Identity:               identity,
+		TargetUserID:           &targetID,
+		ResolvedEmail:          target.Email,
+		RedirectTo:             redirectTo,
+		BrowserSessionKey:      browserSessionKey,
+		UpstreamIdentityClaims: claims,
+		CompletionResponse:     map[string]any{"provider": provider, "redirect": redirectTo},
+	})
 }
 
 func (h *AuthHandler) emailOAuthAffiliateCode(c *gin.Context) string {

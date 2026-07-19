@@ -46,6 +46,46 @@
 
         <!-- Tab: Security — Admin API Key -->
         <div v-show="activeTab === 'security'" class="space-y-6">
+          <!-- Scoped Admin API Key permission panel -->
+          <div class="card">
+            <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {{ t("admin.settings.adminApiKey.scopedTitle") }}
+              </h2>
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.adminApiKey.scopedDescription") }}
+              </p>
+            </div>
+            <div class="space-y-5 p-6">
+              <div class="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+                <input v-model="adminApiKeyForm.name" class="input" type="text" maxlength="100" :placeholder="t('admin.settings.adminApiKey.namePlaceholder')" />
+                <input v-model="adminApiKeyForm.expires_at" class="input" type="datetime-local" :min="adminApiKeyMinExpiry" />
+                <button type="button" class="btn btn-primary" :disabled="adminApiKeyPanelOperating || !adminApiKeyForm.name.trim()" @click="createScopedAdminApiKey">
+                  {{ editingAdminApiKeyId ? t("admin.settings.adminApiKey.saveScoped") : t("admin.settings.adminApiKey.createScoped") }}
+                </button>
+                <button v-if="editingAdminApiKeyId" type="button" class="btn btn-secondary" @click="cancelEditScopedAdminApiKey">{{ t("admin.settings.adminApiKey.cancel") }}</button>
+              </div>
+              <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <label v-for="scope in adminApiKeyScopeOptions" :key="scope.value" class="flex items-start gap-2 rounded border border-gray-200 p-2 text-xs dark:border-dark-600">
+                  <input v-model="adminApiKeyForm.scopes" type="checkbox" :value="scope.value" class="mt-0.5" />
+                  <span><strong class="block text-gray-800 dark:text-gray-100">{{ scope.label }}</strong><span class="text-gray-500 dark:text-gray-400">{{ scope.value }}</span></span>
+                </label>
+              </div>
+              <div v-if="adminApiKeyPanelSecret" class="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20">
+                <p class="text-sm font-medium text-green-700 dark:text-green-300">{{ t("admin.settings.adminApiKey.secretOnce") }}</p>
+                <div class="mt-2 flex gap-2"><code class="flex-1 select-all break-all rounded bg-white px-3 py-2 font-mono text-sm dark:bg-dark-800">{{ adminApiKeyPanelSecret }}</code><button type="button" class="btn btn-primary btn-sm" @click="copyScopedAdminApiKey">{{ t("admin.settings.adminApiKey.copyKey") }}</button></div>
+              </div>
+              <div v-if="adminApiKeyPanelLoading" class="text-sm text-gray-500">{{ t("common.loading") }}</div>
+              <div v-else class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                  <thead><tr class="border-b border-gray-200 text-xs text-gray-500 dark:border-dark-700"><th class="py-2">{{ t("admin.settings.adminApiKey.name") }}</th><th>{{ t("admin.settings.adminApiKey.scopes") }}</th><th>{{ t("admin.settings.adminApiKey.status") }}</th><th>{{ t("admin.settings.adminApiKey.lastUsed") }}</th><th class="text-right">{{ t("admin.settings.adminApiKey.actions") }}</th></tr></thead>
+                  <tbody><tr v-for="key in scopedAdminApiKeys" :key="key.id" class="border-b border-gray-100 dark:border-dark-800"><td class="py-3"><div class="font-medium">{{ key.name }}</div><code class="text-xs text-gray-500">{{ key.key_prefix }}...{{ key.last_four }}</code></td><td><div class="flex max-w-md flex-wrap gap-1"><span v-for="scope in key.scopes" :key="scope" class="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] dark:bg-dark-700">{{ scope }}</span></div></td><td><span :class="key.status === 'active' ? 'text-green-600' : 'text-red-500'">{{ key.status }}</span><span v-if="key.expires_at" class="ml-1 text-xs text-gray-500">{{ formatAdminApiKeyDate(key.expires_at) }}</span></td><td class="text-xs text-gray-500">{{ key.last_used_at ? formatAdminApiKeyDate(key.last_used_at) : '—' }}</td><td class="whitespace-nowrap text-right"><button v-if="key.id !== 'legacy' && key.status === 'active'" type="button" class="btn btn-secondary btn-sm mr-1" :disabled="adminApiKeyPanelOperating" @click="editScopedAdminApiKey(key)">{{ t("admin.settings.adminApiKey.edit") }}</button><button v-if="key.id !== 'legacy' && key.status === 'active'" type="button" class="btn btn-secondary btn-sm mr-1" :disabled="adminApiKeyPanelOperating" @click="rotateScopedAdminApiKey(key.id)">{{ t("admin.settings.adminApiKey.rotate") }}</button><button v-if="key.id !== 'legacy' && key.status === 'active'" type="button" class="btn btn-secondary btn-sm text-red-600" :disabled="adminApiKeyPanelOperating" @click="revokeScopedAdminApiKey(key.id)">{{ t("admin.settings.adminApiKey.revoke") }}</button></td></tr></tbody>
+                </table>
+                <p v-if="!scopedAdminApiKeys.length" class="py-5 text-center text-sm text-gray-500">{{ t("admin.settings.adminApiKey.noScopedKeys") }}</p>
+              </div>
+            </div>
+          </div>
+
           <!-- Admin API Key Settings -->
           <div class="card">
             <div
@@ -7938,6 +7978,8 @@ import type {
   WebSearchEmulationConfig,
   WebSearchProviderConfig,
   WebSearchTestResult,
+  AdminApiKey,
+  AdminApiKeyScope,
 } from "@/api/admin/settings";
 import type {
   AdminGroup,
@@ -8104,6 +8146,35 @@ const adminApiKeyExists = ref(false);
 const adminApiKeyMasked = ref("");
 const adminApiKeyOperating = ref(false);
 const newAdminApiKey = ref("");
+const scopedAdminApiKeys = ref<AdminApiKey[]>([]);
+const adminApiKeyPanelLoading = ref(true);
+const adminApiKeyPanelOperating = ref(false);
+const adminApiKeyPanelSecret = ref("");
+const editingAdminApiKeyId = ref<string | null>(null);
+const adminApiKeyMinExpiry = new Date(Date.now() + 60_000).toISOString().slice(0, 16);
+const adminApiKeyForm = reactive<{ name: string; scopes: AdminApiKeyScope[]; expires_at: string }>({
+  name: "",
+  scopes: ["admin.read"],
+  expires_at: "",
+});
+const adminApiKeyScopeOptions: Array<{ value: AdminApiKeyScope; label: string }> = [
+  { value: "admin.read", label: "全部只读" },
+  { value: "admin.write", label: "全部写入" },
+  { value: "admin.users.read", label: "用户读取" },
+  { value: "admin.users.write", label: "用户修改" },
+  { value: "admin.accounts.read", label: "账号读取" },
+  { value: "admin.accounts.write", label: "账号修改" },
+  { value: "admin.settings.read", label: "设置读取" },
+  { value: "admin.settings.write", label: "设置修改" },
+  { value: "admin.backups.read", label: "备份读取" },
+  { value: "admin.backups.write", label: "备份操作" },
+  { value: "admin.system.read", label: "系统读取" },
+  { value: "admin.system.write", label: "系统操作" },
+  { value: "admin.audit.read", label: "审计读取" },
+  { value: "admin.audit.write", label: "审计操作" },
+  { value: "admin.ops.read", label: "运维读取" },
+  { value: "admin.ops.write", label: "运维操作" },
+];
 const subscriptionGroups = ref<AdminGroup[]>([]);
 
 // Upstream billing probe state
@@ -10658,6 +10729,104 @@ async function sendTestEmail() {
 }
 
 // Admin API Key 方法
+async function loadScopedAdminApiKeys() {
+  adminApiKeyPanelLoading.value = true;
+  try {
+    scopedAdminApiKeys.value = (await adminAPI.settings.listAdminApiKeys()).items;
+  } catch (_error: unknown) {
+    // Keep the legacy card usable when the scoped-key endpoint is unavailable.
+  } finally {
+    adminApiKeyPanelLoading.value = false;
+  }
+}
+
+function formatAdminApiKeyDate(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+}
+
+function adminApiKeyExpiryPayload(): string | null {
+  if (!adminApiKeyForm.expires_at) return null;
+  const date = new Date(adminApiKeyForm.expires_at);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+async function createScopedAdminApiKey() {
+  adminApiKeyPanelOperating.value = true;
+  try {
+    const request = {
+      name: adminApiKeyForm.name.trim(),
+      scopes: adminApiKeyForm.scopes.length ? adminApiKeyForm.scopes : (["admin.read"] as AdminApiKeyScope[]),
+      expires_at: adminApiKeyExpiryPayload(),
+    };
+    if (editingAdminApiKeyId.value) {
+      await adminAPI.settings.updateAdminApiKey(editingAdminApiKeyId.value, request);
+      editingAdminApiKeyId.value = null;
+    } else {
+      const result = await adminAPI.settings.createAdminApiKey(request);
+      adminApiKeyPanelSecret.value = result.key;
+    }
+    adminApiKeyForm.name = "";
+    adminApiKeyForm.scopes = ["admin.read"];
+    adminApiKeyForm.expires_at = "";
+    await loadScopedAdminApiKeys();
+    appStore.showSuccess(t("admin.settings.adminApiKey.keyGenerated"));
+  } catch (error: unknown) {
+    appStore.showError(extractApiErrorMessage(error, t("common.error")));
+  } finally {
+    adminApiKeyPanelOperating.value = false;
+  }
+}
+
+function editScopedAdminApiKey(key: AdminApiKey) {
+  editingAdminApiKeyId.value = key.id;
+  adminApiKeyForm.name = key.name;
+  adminApiKeyForm.scopes = [...key.scopes];
+  adminApiKeyForm.expires_at = key.expires_at ? new Date(key.expires_at).toISOString().slice(0, 16) : "";
+  adminApiKeyPanelSecret.value = "";
+}
+
+function cancelEditScopedAdminApiKey() {
+  editingAdminApiKeyId.value = null;
+  adminApiKeyForm.name = "";
+  adminApiKeyForm.scopes = ["admin.read"];
+  adminApiKeyForm.expires_at = "";
+}
+
+async function rotateScopedAdminApiKey(id: string) {
+  if (!confirm(t("admin.settings.adminApiKey.regenerateConfirm"))) return;
+  adminApiKeyPanelOperating.value = true;
+  try {
+    const result = await adminAPI.settings.rotateAdminApiKey(id);
+    adminApiKeyPanelSecret.value = result.key;
+    await loadScopedAdminApiKeys();
+  } catch (error: unknown) {
+    appStore.showError(extractApiErrorMessage(error, t("common.error")));
+  } finally {
+    adminApiKeyPanelOperating.value = false;
+  }
+}
+
+async function revokeScopedAdminApiKey(id: string) {
+  if (!confirm(t("admin.settings.adminApiKey.deleteConfirm"))) return;
+  adminApiKeyPanelOperating.value = true;
+  try {
+    await adminAPI.settings.revokeAdminApiKey(id);
+    await loadScopedAdminApiKeys();
+    appStore.showSuccess(t("admin.settings.adminApiKey.keyDeleted"));
+  } catch (error: unknown) {
+    appStore.showError(extractApiErrorMessage(error, t("common.error")));
+  } finally {
+    adminApiKeyPanelOperating.value = false;
+  }
+}
+
+function copyScopedAdminApiKey() {
+  if (!adminApiKeyPanelSecret.value) return;
+  copyToClipboard(adminApiKeyPanelSecret.value);
+  appStore.showSuccess(t("admin.settings.adminApiKey.keyCopied"));
+}
+
 async function loadAdminApiKey() {
   adminApiKeyLoading.value = true;
   try {
@@ -11487,6 +11656,7 @@ onMounted(() => {
   loadSettings();
   loadSubscriptionGroups();
   loadAdminApiKey();
+  loadScopedAdminApiKeys();
   loadUpstreamBillingProbeSettings();
   loadOverloadCooldownSettings();
   loadRateLimit429CooldownSettings();

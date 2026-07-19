@@ -5,6 +5,15 @@
 
 import { apiClient } from './client'
 import { createCredentialEnvelope } from './credentialEncryption'
+import {
+  clearTokenMemory,
+  getAccessToken,
+  getRefreshTokenMemory,
+  getTokenExpiresAtMemory,
+  setAccessToken,
+  setRefreshTokenMemory,
+  setTokenExpiresAtMemory
+} from './tokenStore'
 import type {
   LoginRequest,
   RegisterRequest,
@@ -43,58 +52,56 @@ export function isTotp2FARequired(response: LoginResponse): response is TotpLogi
 }
 
 /**
- * Store authentication token in localStorage
+ * Store the short-lived access token in memory only.
  */
 export function setAuthToken(token: string): void {
-  localStorage.setItem('auth_token', token)
+	setAccessToken(token)
 }
 
 /**
- * Store refresh token in localStorage
+ * Keep a refresh token in memory only for legacy/OAuth response handling.
+ * Browser refresh uses the HttpOnly cookie and does not depend on this value.
  */
 export function setRefreshToken(token: string): void {
-  localStorage.setItem('refresh_token', token)
+	setRefreshTokenMemory(token)
 }
 
 /**
- * Store token expiration timestamp in localStorage
+ * Store token expiration timestamp in memory
  * Converts expires_in (seconds) to absolute timestamp (milliseconds)
  */
 export function setTokenExpiresAt(expiresIn: number): void {
   const expiresAt = Date.now() + expiresIn * 1000
-  localStorage.setItem('token_expires_at', String(expiresAt))
+	setTokenExpiresAtMemory(expiresAt)
 }
 
 /**
- * Get authentication token from localStorage
+ * Get authentication token from memory
  */
 export function getAuthToken(): string | null {
-  return localStorage.getItem('auth_token')
+	return getAccessToken()
 }
 
 /**
- * Get refresh token from localStorage
+ * Get refresh token from memory (normally the backend cookie is used)
  */
 export function getRefreshToken(): string | null {
-  return localStorage.getItem('refresh_token')
+	return getRefreshTokenMemory()
 }
 
 /**
- * Get token expiration timestamp from localStorage
+ * Get token expiration timestamp from memory
  */
 export function getTokenExpiresAt(): number | null {
-  const value = localStorage.getItem('token_expires_at')
-  return value ? parseInt(value, 10) : null
+	return getTokenExpiresAtMemory()
 }
 
 /**
- * Clear authentication token from localStorage
+ * Clear authentication state from memory and the non-sensitive cached profile.
  */
 export function clearAuthToken(): void {
-  localStorage.removeItem('auth_token')
-  localStorage.removeItem('refresh_token')
-  localStorage.removeItem('auth_user')
-  localStorage.removeItem('token_expires_at')
+	clearTokenMemory()
+	localStorage.removeItem('auth_user')
 }
 
 /**
@@ -187,22 +194,19 @@ export async function getCurrentUser() {
 
 /**
  * User logout
- * Clears authentication token and user data from localStorage
+ * Clears in-memory authentication state and asks the backend to revoke the
+ * HttpOnly refresh cookie.
  * Optionally revokes the refresh token on the server
  */
 export async function logout(): Promise<void> {
-  const refreshToken = getRefreshToken()
+	// Try to revoke the refresh cookie on the server.
+	try {
+	  await apiClient.post('/auth/logout')
+	} catch {
+	  // Ignore errors - we still want to clear local state
+	}
 
-  // Try to revoke the refresh token on the server
-  if (refreshToken) {
-    try {
-      await apiClient.post('/auth/logout', { refresh_token: refreshToken })
-    } catch {
-      // Ignore errors - we still want to clear local state
-    }
-  }
-
-  clearAuthToken()
+	clearAuthToken()
 }
 
 /**
@@ -322,16 +326,11 @@ export async function prepareOAuthBindAccessTokenCookie(): Promise<void> {
  * @returns New token pair
  */
 export async function refreshToken(): Promise<RefreshTokenResponse> {
-  const currentRefreshToken = getRefreshToken()
-  if (!currentRefreshToken) {
-    throw new Error('No refresh token available')
-  }
+	const { data } = await apiClient.post<RefreshTokenResponse>('/auth/refresh')
 
-  const { data } = await apiClient.post<RefreshTokenResponse>('/auth/refresh', {
-    refresh_token: currentRefreshToken
-  })
-
-  // Update tokens in localStorage
+  // Keep the short-lived access token and expiry in memory. The refresh token
+  // is also returned for compatibility, while the browser sends the HttpOnly
+  // cookie automatically on the next refresh.
   setAuthToken(data.access_token)
   setRefreshToken(data.refresh_token)
   setTokenExpiresAt(data.expires_in)
@@ -353,7 +352,7 @@ export async function revokeAllSessions(): Promise<{ message: string }> {
  * @returns True if user has valid token
  */
 export function isAuthenticated(): boolean {
-  return getAuthToken() !== null
+	return getAuthToken() !== null
 }
 
 /**

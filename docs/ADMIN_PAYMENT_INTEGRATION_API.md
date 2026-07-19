@@ -25,6 +25,8 @@
 
 说明：管理员 JWT 也可访问 admin 路由，但服务间调用建议使用 Admin API Key。
 
+Admin API Key 现在采用细粒度 scope。本文涉及的 Key 至少需要 `admin.users.read`、`admin.users.write` 和 `admin.write`。创建、轮换和撤销说明见 [Admin API 调用文档](./ADMIN_API.md)。
+
 ### 1) 一步完成创建并兑换
 `POST /api/v1/admin/redeem-codes/create-and-redeem`
 
@@ -144,6 +146,8 @@ Recommended headers:
 - `Idempotency-Key` for idempotent endpoints
 
 Note: Admin JWT can also access admin routes, but Admin API Key is recommended for server-to-server integration.
+
+Admin API Keys now use fine-grained scopes. The integration in this document requires at least `admin.users.read`, `admin.users.write`, and `admin.write`. See [Admin API documentation](./ADMIN_API.md) for key creation, rotation, and revocation.
 
 ### 1) Create and Redeem in one step
 `POST /api/v1/admin/redeem-codes/create-and-redeem`

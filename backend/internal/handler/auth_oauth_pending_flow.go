@@ -1609,6 +1609,7 @@ func (h *AuthHandler) transitionPendingOAuthAccountToChoiceState(
 }
 
 func writeOAuthTokenPairResponse(c *gin.Context, tokenPair *service.TokenPair) {
+	setRefreshTokenCookie(c, tokenPair.RefreshToken, 30*24*time.Hour)
 	c.JSON(http.StatusOK, gin.H{
 		"access_token":  tokenPair.AccessToken,
 		"refresh_token": tokenPair.RefreshToken,
@@ -1957,6 +1958,30 @@ func (h *AuthHandler) ExchangePendingOAuthCompletion(c *gin.Context) {
 		if err := h.ensureBackendModeAllowsUser(c.Request.Context(), loginUser); err != nil {
 			clearCookies()
 			response.ErrorFrom(c, err)
+			return
+		}
+		// Every OAuth login that resolves to an existing TOTP-enabled account
+		// must take the same one-time 2FA path as password login. Do this before
+		// adoption/consumption so Login2FA can atomically finish the pending flow.
+		if h.totpService != nil && h.settingSvc != nil &&
+			h.settingSvc.IsTotpEnabled(c.Request.Context()) && loginUser.TotpEnabled {
+			tempToken, err := h.totpService.CreatePendingOAuthBindLoginSession(
+				c.Request.Context(),
+				loginUser.ID,
+				loginUser.Email,
+				session.SessionToken,
+				session.BrowserSessionKey,
+			)
+			if err != nil {
+				clearCookies()
+				response.InternalError(c, "Failed to create 2FA session")
+				return
+			}
+			response.Success(c, TotpLoginResponse{
+				Requires2FA:     true,
+				TempToken:       tempToken,
+				UserEmailMasked: service.MaskEmail(loginUser.Email),
+			})
 			return
 		}
 	}

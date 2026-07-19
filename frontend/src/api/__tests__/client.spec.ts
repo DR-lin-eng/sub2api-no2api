@@ -9,12 +9,15 @@ vi.mock('@/i18n', () => ({
 
 describe('API Client', () => {
   let apiClient: AxiosInstance
+  let tokenStore: typeof import('@/api/tokenStore')
 
   beforeEach(async () => {
     localStorage.clear()
     window.history.replaceState({}, '', '/')
     // 每次测试重新导入以获取干净的模块状态
     vi.resetModules()
+    tokenStore = await import('@/api/tokenStore')
+    tokenStore.clearTokenMemory()
     const mod = await import('@/api/client')
     apiClient = mod.apiClient
   })
@@ -40,7 +43,7 @@ describe('API Client', () => {
     })
 
     it('自动附加 Authorization 头', async () => {
-      localStorage.setItem('auth_token', 'my-jwt-token')
+      tokenStore.setAccessToken('my-jwt-token')
 
       // 拦截实际请求
       const adapter = vi.fn().mockResolvedValue({
@@ -260,7 +263,7 @@ describe('API Client', () => {
     })
 
     it('部署与运营合规未确认时广播事件且保留登录态', async () => {
-      localStorage.setItem('auth_token', 'admin-token')
+      tokenStore.setAccessToken('admin-token')
       const listener = vi.fn()
       window.addEventListener('admin-compliance-required', listener)
 
@@ -301,7 +304,7 @@ describe('API Client', () => {
           version: 'v2026.06.10',
         })
       )
-      expect(localStorage.getItem('auth_token')).toBe('admin-token')
+      expect(tokenStore.getAccessToken()).toBe('admin-token')
 
       window.removeEventListener('admin-compliance-required', listener)
     })
@@ -310,8 +313,8 @@ describe('API Client', () => {
   // --- 401 Token 刷新 ---
 
   describe('401 Token 刷新', () => {
-    it('无 refresh_token 时 401 清除 localStorage', async () => {
-      localStorage.setItem('auth_token', 'expired-token')
+    it('无 refresh cookie 时 401 清除内存 token', async () => {
+      tokenStore.setAccessToken('expired-token')
       // 不设置 refresh_token
 
       // Mock window.location
@@ -336,7 +339,7 @@ describe('API Client', () => {
 
       await expect(apiClient.get('/test')).rejects.toBeDefined()
 
-      expect(localStorage.getItem('auth_token')).toBeNull()
+      expect(tokenStore.getAccessToken()).toBeNull()
 
       // 恢复 location
       Object.defineProperty(window, 'location', {

@@ -1163,6 +1163,95 @@ export interface AdminApiKeyStatus {
   masked_key: string;
 }
 
+export type AdminApiKeyScope =
+  | "admin.read"
+  | "admin.write"
+  | "admin.users.read"
+  | "admin.users.write"
+  | "admin.accounts.read"
+  | "admin.accounts.write"
+  | "admin.settings.read"
+  | "admin.settings.write"
+  | "admin.backups.read"
+  | "admin.backups.write"
+  | "admin.system.read"
+  | "admin.system.write"
+  | "admin.audit.read"
+  | "admin.audit.write"
+  | "admin.ops.read"
+  | "admin.ops.write";
+
+export interface AdminApiKey {
+  id: string;
+  name: string;
+  key_prefix: string;
+  last_four: string;
+  scopes: AdminApiKeyScope[];
+  status: "active" | "revoked" | string;
+  expires_at?: string | null;
+  created_by: number;
+  last_used_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  revoked_at?: string | null;
+}
+
+export interface CreateAdminApiKeyRequest {
+  name: string;
+  scopes: AdminApiKeyScope[];
+  expires_at?: string | null;
+}
+
+export interface UpdateAdminApiKeyRequest {
+  name?: string;
+  scopes?: AdminApiKeyScope[];
+  expires_at?: string | null;
+}
+
+export async function listAdminApiKeys(): Promise<{ items: AdminApiKey[] }> {
+  const { data } = await apiClient.get<{ items: AdminApiKey[] }>(
+    "/admin/settings/admin-api-keys",
+  );
+  return data;
+}
+
+export async function createAdminApiKey(
+  request: CreateAdminApiKeyRequest,
+): Promise<{ key: string; metadata: AdminApiKey }> {
+  const { data } = await apiClient.post<{ key: string; metadata: AdminApiKey }>(
+    "/admin/settings/admin-api-keys",
+    request,
+  );
+  return data;
+}
+
+export async function updateAdminApiKey(
+  id: string,
+  request: UpdateAdminApiKeyRequest,
+): Promise<AdminApiKey> {
+  const { data } = await apiClient.put<AdminApiKey>(
+    `/admin/settings/admin-api-keys/${encodeURIComponent(id)}`,
+    request,
+  );
+  return data;
+}
+
+export async function rotateAdminApiKey(
+  id: string,
+): Promise<{ key: string; metadata: AdminApiKey }> {
+  const { data } = await apiClient.post<{ key: string; metadata: AdminApiKey }>(
+    `/admin/settings/admin-api-keys/${encodeURIComponent(id)}/rotate`,
+  );
+  return data;
+}
+
+export async function revokeAdminApiKey(id: string): Promise<{ message: string }> {
+  const { data } = await apiClient.delete<{ message: string }>(
+    `/admin/settings/admin-api-keys/${encodeURIComponent(id)}`,
+  );
+  return data;
+}
+
 /**
  * Get admin API key status
  * @returns Status indicating if key exists and masked version
@@ -1502,6 +1591,11 @@ export const settingsAPI = {
   getAdminApiKey,
   regenerateAdminApiKey,
   deleteAdminApiKey,
+  listAdminApiKeys,
+  createAdminApiKey,
+  updateAdminApiKey,
+  rotateAdminApiKey,
+  revokeAdminApiKey,
   getOverloadCooldownSettings,
   updateOverloadCooldownSettings,
   getRateLimit429CooldownSettings,

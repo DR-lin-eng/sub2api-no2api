@@ -11,6 +11,18 @@
         </p>
       </div>
 
+      <div v-else-if="needsTotpChallenge" class="card p-6">
+        <h1 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('auth.oauth.callbackTitle') }}</h1>
+        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">{{ t('auth.oauthFlow.totpHint', { providerName, account: totpUserEmailMasked || t('auth.oauthFlow.yourAccount') }) }}</p>
+        <div class="mt-6 space-y-4">
+          <input v-model="totpCode" data-testid="oauth-callback-totp" type="text" inputmode="numeric" maxlength="6" class="input w-full" placeholder="123456" :disabled="isSubmitting" @keyup.enter="handleSubmitTotpChallenge" />
+          <p v-if="totpError" class="text-sm text-red-600 dark:text-red-400">{{ totpError }}</p>
+          <button class="btn btn-primary w-full" type="button" :disabled="isSubmitting || totpCode.trim().length !== 6" @click="handleSubmitTotpChallenge">
+            {{ isSubmitting ? t('common.processing') : t('auth.oauthFlow.verifyAndContinue') }}
+          </button>
+        </div>
+      </div>
+
       <div v-else-if="needsRegistrationCompletion" class="card p-6">
         <h1 class="text-lg font-semibold text-gray-900 dark:text-white">
           {{ t('auth.oidc.callbackTitle', { providerName }) }}
@@ -155,6 +167,7 @@ import { apiClient } from '@/api/client'
 import { buildApiUrl } from '@/api/url'
 import {
   exchangePendingOAuthCompletion,
+  login2FA,
   persistOAuthTokenContext,
   type OAuthTokenResponse
 } from '@/api/auth'
@@ -179,6 +192,11 @@ const password = ref('')
 const confirmPassword = ref('')
 const invitationCode = ref('')
 const registrationError = ref('')
+const needsTotpChallenge = ref(false)
+const totpTempToken = ref('')
+const totpCode = ref('')
+const totpError = ref('')
+const totpUserEmailMasked = ref('')
 const pendingProvider = ref<'github' | 'google'>('github')
 const redirectTo = ref('/dashboard')
 const invalidCallback = ref(false)
@@ -191,6 +209,9 @@ type EmailOAuthPendingCompletion = Partial<OAuthTokenResponse> & {
   email?: string
   resolved_email?: string
   invitation_required?: boolean
+  requires_2fa?: boolean
+  temp_token?: string
+  user_email_masked?: string
 }
 
 const code = computed(() => (route.query.code as string) || '')
@@ -291,6 +312,14 @@ async function resumePendingEmailOAuth() {
   try {
     const completion = await exchangePendingOAuthCompletion() as EmailOAuthPendingCompletion
     const completionRedirect = completion.redirect || '/dashboard'
+    if (completion.requires_2fa === true && completion.temp_token) {
+      needsTotpChallenge.value = true
+      totpTempToken.value = completion.temp_token
+      totpUserEmailMasked.value = completion.user_email_masked || ''
+      redirectTo.value = sanitizeRedirectPath(completionRedirect)
+      isProcessing.value = false
+      return
+    }
     if (hasOAuthTokenResponse(completion)) {
       await finalizeTokenResponse(completion, completionRedirect)
       return
@@ -320,6 +349,25 @@ async function resumePendingEmailOAuth() {
     if (!needsRegistrationCompletion.value) {
       isProcessing.value = false
     }
+  }
+}
+
+async function handleSubmitTotpChallenge() {
+  totpError.value = ''
+  const code = totpCode.value.trim()
+  if (!totpTempToken.value || code.length !== 6) return
+  isSubmitting.value = true
+  try {
+    const completion = await login2FA({ temp_token: totpTempToken.value, totp_code: code })
+    await authStore.setToken(completion.access_token)
+    clearAllAffiliateReferralCodes()
+    appStore.showSuccess(t('auth.loginSuccess'))
+    await router.replace(redirectTo.value)
+  } catch (e: unknown) {
+    const err = e as { message?: string; response?: { data?: { message?: string } } }
+    totpError.value = err.response?.data?.message || err.message || t('auth.loginFailed')
+  } finally {
+    isSubmitting.value = false
   }
 }
 

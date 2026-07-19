@@ -2,8 +2,8 @@
 package middleware
 
 import (
-	"crypto/subtle"
 	"errors"
+	"net/http"
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -124,15 +124,17 @@ func validateAdminAPIKey(
 	settingService *service.SettingService,
 	userService *service.UserService,
 ) bool {
-	storedKey, err := settingService.GetAdminAPIKey(c.Request.Context())
-	if err != nil {
+	if settingService == nil {
 		AbortWithError(c, 500, "INTERNAL_ERROR", "Internal server error")
 		return false
 	}
-
-	// 未配置或不匹配，统一返回相同错误（避免信息泄露）
-	if storedKey == "" || subtle.ConstantTimeCompare([]byte(key), []byte(storedKey)) != 1 {
+	keyInfo, err := settingService.AuthenticateAdminAPIKey(c.Request.Context(), key)
+	if err != nil || keyInfo == nil {
 		AbortWithError(c, 401, "INVALID_ADMIN_KEY", "Invalid admin API key")
+		return false
+	}
+	if !adminAPIKeyRequestAllowed(c, keyInfo.Scopes) {
+		AbortWithError(c, 403, "ADMIN_API_KEY_SCOPE_REQUIRED", "Admin API key does not have permission for this operation")
 		return false
 	}
 
@@ -150,7 +152,66 @@ func validateAdminAPIKey(
 	c.Set(string(ContextKeyUserRole), admin.Role)
 	c.Set(ContextKeyAuthEmail, admin.Email)
 	c.Set("auth_method", "admin_api_key")
+	c.Set("admin_api_key_id", keyInfo.ID)
+	c.Set("admin_api_key_scopes", append([]string(nil), keyInfo.Scopes...))
 	return true
+}
+
+func adminAPIKeyRequestAllowed(c *gin.Context, scopes []string) bool {
+	if c == nil || c.Request == nil {
+		return false
+	}
+
+	path := strings.TrimSpace(c.Request.URL.Path)
+	// These endpoints return credentials, account exports, or database backup
+	// access even though they use GET; a machine key must never reach them.
+	for _, denied := range []string{
+		"/api/v1/admin/accounts/data",
+		"/api/v1/admin/proxies/data",
+	} {
+		if path == denied {
+			return false
+		}
+	}
+	if strings.HasPrefix(path, "/api/v1/admin/backups/") && strings.HasSuffix(path, "/download-url") {
+		return false
+	}
+	required := adminAPIKeyRequiredScope(c.Request.Method, path)
+	for _, scope := range scopes {
+		if scope == required || scope == service.AdminAPIKeyScopeRead && strings.HasSuffix(required, ".read") || scope == service.AdminAPIKeyScopeWrite && strings.HasSuffix(required, ".write") {
+			return true
+		}
+	}
+	return false
+}
+
+func adminAPIKeyRequiredScope(method, path string) string {
+	read := strings.EqualFold(method, http.MethodGet) || strings.EqualFold(method, http.MethodHead) || strings.EqualFold(method, http.MethodOptions)
+	verb := ".write"
+	if read {
+		verb = ".read"
+	}
+	switch {
+	case strings.HasPrefix(path, "/api/v1/admin/users"):
+		return service.AdminAPIKeyScopeUsersRead[:len(service.AdminAPIKeyScopeUsersRead)-len(".read")] + verb
+	case strings.HasPrefix(path, "/api/v1/admin/accounts"):
+		return service.AdminAPIKeyScopeAccountsRead[:len(service.AdminAPIKeyScopeAccountsRead)-len(".read")] + verb
+	case strings.HasPrefix(path, "/api/v1/admin/settings"):
+		return service.AdminAPIKeyScopeSettingsRead[:len(service.AdminAPIKeyScopeSettingsRead)-len(".read")] + verb
+	case strings.HasPrefix(path, "/api/v1/admin/backups"):
+		return service.AdminAPIKeyScopeBackupsRead[:len(service.AdminAPIKeyScopeBackupsRead)-len(".read")] + verb
+	case strings.HasPrefix(path, "/api/v1/admin/system"):
+		return service.AdminAPIKeyScopeSystemRead[:len(service.AdminAPIKeyScopeSystemRead)-len(".read")] + verb
+	case strings.HasPrefix(path, "/api/v1/admin/audit"):
+		return service.AdminAPIKeyScopeAuditRead[:len(service.AdminAPIKeyScopeAuditRead)-len(".read")] + verb
+	case strings.HasPrefix(path, "/api/v1/admin/ops"):
+		return service.AdminAPIKeyScopeOpsRead[:len(service.AdminAPIKeyScopeOpsRead)-len(".read")] + verb
+	default:
+		if read {
+			return service.AdminAPIKeyScopeRead
+		}
+		return service.AdminAPIKeyScopeWrite
+	}
 }
 
 // validateJWTForAdmin 验证 JWT 并检查管理员权限

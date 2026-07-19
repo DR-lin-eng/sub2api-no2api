@@ -540,6 +540,11 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		adminSettings.PUT("/email-templates/:event/:locale", h.Admin.Setting.UpdateEmailTemplate)
 		adminSettings.POST("/email-templates/:event/:locale/restore-official", h.Admin.Setting.RestoreOfficialEmailTemplate)
 		// Admin API Key 管理
+		adminSettings.GET("/admin-api-keys", h.Admin.Setting.ListAdminAPIKeys)
+		adminSettings.POST("/admin-api-keys", h.Admin.Setting.CreateAdminAPIKey)
+		adminSettings.PUT("/admin-api-keys/:id", h.Admin.Setting.UpdateAdminAPIKey)
+		adminSettings.POST("/admin-api-keys/:id/rotate", h.Admin.Setting.RotateAdminAPIKey)
+		adminSettings.DELETE("/admin-api-keys/:id", h.Admin.Setting.RevokeAdminAPIKey)
 		adminSettings.GET("/admin-api-key", h.Admin.Setting.GetAdminAPIKey)
 		adminSettings.POST("/admin-api-key/regenerate", h.Admin.Setting.RegenerateAdminAPIKey)
 		adminSettings.DELETE("/admin-api-key", h.Admin.Setting.DeleteAdminAPIKey)

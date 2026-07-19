@@ -819,6 +819,7 @@ func redirectOAuthError(c *gin.Context, frontendCallback string, code string, me
 func redirectOAuthTokenPair(c *gin.Context, frontendCallback string, tokenPair *service.TokenPair, redirectTo string) {
 	fragment := url.Values{}
 	if tokenPair != nil {
+		setRefreshTokenCookie(c, tokenPair.RefreshToken, 30*24*time.Hour)
 		fragment.Set("access_token", truncateFragmentValue(tokenPair.AccessToken))
 		fragment.Set("refresh_token", truncateFragmentValue(tokenPair.RefreshToken))
 		fragment.Set("expires_in", strconv.Itoa(tokenPair.ExpiresIn))
