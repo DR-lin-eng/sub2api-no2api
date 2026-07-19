@@ -18,6 +18,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
 	"github.com/Wei-Shaw/sub2api/ent/pendingauthsession"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/redeemcodeusage"
 	dbuser "github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
@@ -2834,17 +2835,54 @@ func (r *oauthPendingFlowRedeemCodeRepo) Delete(context.Context, int64) error {
 }
 
 func (r *oauthPendingFlowRedeemCodeRepo) Use(ctx context.Context, id, userID int64) error {
-	affected, err := r.client.RedeemCode.Update().
-		Where(redeemcode.IDEQ(id), redeemcode.StatusEQ(service.StatusUnused)).
-		SetStatus(service.StatusUsed).
-		SetUsedBy(userID).
-		SetUsedAt(time.Now().UTC()).
-		Save(ctx)
+	client := r.client
+	if tx := dbent.TxFromContext(ctx); tx != nil {
+		client = tx.Client()
+	}
+	code, err := client.RedeemCode.Query().Where(redeemcode.IDEQ(id)).Only(ctx)
 	if err != nil {
+		if dbent.IsNotFound(err) {
+			return service.ErrRedeemCodeNotFound
+		}
 		return err
 	}
-	if affected == 0 {
+	if code.Status != service.StatusUnused || (code.MaxUses > 0 && code.UsedCount >= code.MaxUses) {
 		return service.ErrRedeemCodeUsed
+	}
+	if code.MaxUsesPerUser > 0 {
+		usedCount, err := client.RedeemCodeUsage.Query().Where(
+			redeemcodeusage.RedeemCodeIDEQ(id),
+			redeemcodeusage.UserIDEQ(userID),
+		).Count(ctx)
+		if err != nil {
+			return err
+		}
+		if usedCount >= code.MaxUsesPerUser {
+			return service.ErrRedeemCodeUsed
+		}
+	}
+
+	now := time.Now().UTC()
+	newCount := code.UsedCount + 1
+	status := service.StatusUnused
+	if code.MaxUses > 0 && newCount >= code.MaxUses {
+		status = service.StatusUsed
+	}
+	if _, err := client.RedeemCode.UpdateOneID(id).
+		SetStatus(status).
+		SetUsedCount(newCount).
+		SetUsedBy(userID).
+		SetUsedAt(now).
+		Save(ctx); err != nil {
+		return err
+	}
+	if _, err := client.RedeemCodeUsage.Create().
+		SetRedeemCodeID(id).
+		SetUserID(userID).
+		SetValue(code.Value).
+		SetUsedAt(now).
+		Save(ctx); err != nil {
+		return err
 	}
 	return nil
 }

@@ -12,6 +12,7 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/redeemcodeusage"
 	dbuser "github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -296,6 +297,13 @@ func TestCompleteEmailOAuthRegistrationUsesAffiliateCodeFromPendingSession(t *te
 	require.NoError(t, err)
 	require.NotNil(t, storedInvitation.UsedBy)
 	require.Equal(t, user.ID, *storedInvitation.UsedBy)
+	require.Equal(t, 1, storedInvitation.UsedCount)
+	usageCount, err := client.RedeemCodeUsage.Query().Where(
+		redeemcodeusage.RedeemCodeIDEQ(invitation.ID),
+		redeemcodeusage.UserIDEQ(user.ID),
+	).Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, usageCount)
 }
 
 func TestCompleteEmailOAuthRegistrationRequiresPassword(t *testing.T) {
