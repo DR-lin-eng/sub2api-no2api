@@ -5,9 +5,11 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
@@ -44,6 +46,75 @@ func TestLocalCaptchaGenerateStoresDigestAndReturnsPNG(t *testing.T) {
 	require.True(t, strings.HasPrefix(envelope.Data.ImageData, "data:image/png;base64,"))
 	require.Equal(t, int(localCaptchaTTL.Seconds()), envelope.Data.ExpiresIn)
 	require.True(t, server.Exists("auth_captcha:"+envelope.Data.CaptchaID))
+	require.Equal(t, int64(1), client.ZCard(context.Background(), "auth_captcha:active").Val())
+}
+
+func TestLocalCaptchaGenerateEvictsOldestChallengeAtCapacity(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	client, server := newLocalCaptchaTestClient(t)
+	captcha := NewLocalCaptcha(client)
+	captcha.maxActive = 2
+	router := gin.New()
+	router.GET("/captcha", captcha.Generate(func(context.Context) bool { return true }))
+
+	issue := func() string {
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/captcha", nil))
+		require.Equal(t, http.StatusOK, recorder.Code)
+		var envelope struct {
+			Data LocalCaptchaResponse `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &envelope))
+		return envelope.Data.CaptchaID
+	}
+
+	first := issue()
+	second := issue()
+	third := issue()
+
+	require.False(t, server.Exists("auth_captcha:"+first))
+	require.True(t, server.Exists("auth_captcha:"+second))
+	require.True(t, server.Exists("auth_captcha:"+third))
+	require.Equal(t, int64(2), client.ZCard(context.Background(), "auth_captcha:active").Val())
+}
+
+func TestLocalCaptchaIssueCapsConcurrentChallenges(t *testing.T) {
+	client, server := newLocalCaptchaTestClient(t)
+	captcha := NewLocalCaptcha(client)
+	captcha.maxActive = 32
+
+	const total = 256
+	errors := make(chan error, total)
+	var wg sync.WaitGroup
+	for index := 0; index < total; index++ {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			captchaID := fmt.Sprintf("%032x", index)
+			created, err := captcha.issue(context.Background(), captchaID, "digest")
+			if err != nil {
+				errors <- err
+				return
+			}
+			if !created {
+				errors <- fmt.Errorf("challenge %s was not created", captchaID)
+			}
+		}(index)
+	}
+	wg.Wait()
+	close(errors)
+	for err := range errors {
+		require.NoError(t, err)
+	}
+
+	require.Equal(t, int64(32), client.ZCard(context.Background(), "auth_captcha:active").Val())
+	challengeKeys := 0
+	for _, key := range server.Keys() {
+		if strings.HasPrefix(key, "auth_captcha:") && key != "auth_captcha:active" && key != "auth_captcha:sequence" {
+			challengeKeys++
+		}
+	}
+	require.Equal(t, 32, challengeKeys)
 }
 
 func TestLocalCaptchaRequireConsumesChallengeAndRestoresBody(t *testing.T) {
@@ -53,6 +124,7 @@ func TestLocalCaptchaRequireConsumesChallengeAndRestoresBody(t *testing.T) {
 	const captchaID = "0123456789abcdef0123456789abcdef"
 	const answer = "A7K9P"
 	require.NoError(t, server.Set("auth_captcha:"+captchaID, hex.EncodeToString(localCaptchaDigest(captchaID, answer, "192.0.2.1"))))
+	require.NoError(t, client.ZAdd(context.Background(), "auth_captcha:active", redis.Z{Score: 1, Member: captchaID}).Err())
 
 	router := gin.New()
 	router.POST("/login", captcha.Require(LocalCaptchaRequireOptions{
@@ -74,6 +146,8 @@ func TestLocalCaptchaRequireConsumesChallengeAndRestoresBody(t *testing.T) {
 
 	require.Equal(t, http.StatusNoContent, recorder.Code)
 	require.False(t, server.Exists("auth_captcha:"+captchaID))
+	_, err := client.ZScore(context.Background(), "auth_captcha:active", captchaID).Result()
+	require.ErrorIs(t, err, redis.Nil)
 
 	replay := httptest.NewRecorder()
 	replayReq := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(body))

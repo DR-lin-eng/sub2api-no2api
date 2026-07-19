@@ -34,6 +34,7 @@ const (
 	localCaptchaTTL          = 5 * time.Minute
 	localCaptchaAnswerLength = 5
 	localCaptchaMaxBodyBytes = 64 << 10
+	localCaptchaMaxActive    = 10_000 // New challenges retire the oldest entry once this global cap is reached.
 	localCaptchaAlphabet     = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 )
 
@@ -42,6 +43,37 @@ var (
 	localCaptchaFont     *opentype.Font
 	localCaptchaFontErr  error
 )
+
+var localCaptchaIssueScript = redis.NewScript(`
+local created = redis.call('SET', KEYS[1], ARGV[1], 'PX', ARGV[2], 'NX')
+if not created then
+  return 0
+end
+
+local sequence = redis.call('INCR', KEYS[3])
+redis.call('ZADD', KEYS[2], sequence, ARGV[3])
+redis.call('PEXPIRE', KEYS[2], ARGV[2] * 2)
+
+local excess = redis.call('ZCARD', KEYS[2]) - tonumber(ARGV[4])
+if excess > 0 then
+  local victims = redis.call('ZRANGE', KEYS[2], 0, excess - 1)
+  for _, victim in ipairs(victims) do
+    redis.call('DEL', ARGV[5] .. victim)
+    redis.call('ZREM', KEYS[2], victim)
+  end
+end
+
+return 1
+`)
+
+var localCaptchaConsumeScript = redis.NewScript(`
+local value = redis.call('GET', KEYS[1])
+if value then
+  redis.call('DEL', KEYS[1])
+end
+redis.call('ZREM', KEYS[2], ARGV[1])
+return value
+`)
 
 // LocalCaptchaPayload contains the challenge fields used by protected auth routes.
 type LocalCaptchaPayload struct {
@@ -56,8 +88,9 @@ type LocalCaptchaRequireOptions struct {
 }
 
 type LocalCaptcha struct {
-	redis  *redis.Client
-	prefix string
+	redis     *redis.Client
+	prefix    string
+	maxActive int
 }
 
 type LocalCaptchaResponse struct {
@@ -68,8 +101,9 @@ type LocalCaptchaResponse struct {
 
 func NewLocalCaptcha(redisClient *redis.Client) *LocalCaptcha {
 	return &LocalCaptcha{
-		redis:  redisClient,
-		prefix: "auth_captcha:",
+		redis:     redisClient,
+		prefix:    "auth_captcha:",
+		maxActive: localCaptchaMaxActive,
 	}
 }
 
@@ -105,7 +139,7 @@ func (l *LocalCaptcha) Generate(enabled func(context.Context) bool) gin.HandlerF
 		}
 
 		digest := hex.EncodeToString(localCaptchaDigest(captchaID, answer, clientip.GetClientIP(c)))
-		created, err := l.redis.SetNX(c.Request.Context(), l.prefix+captchaID, digest, localCaptchaTTL).Result()
+		created, err := l.issue(c.Request.Context(), captchaID, digest)
 		if err != nil || !created {
 			response.ErrorWithDetails(c, http.StatusServiceUnavailable, "captcha service is unavailable", "LOCAL_CAPTCHA_UNAVAILABLE", nil)
 			return
@@ -147,7 +181,8 @@ func (l *LocalCaptcha) Require(opts LocalCaptchaRequireOptions) gin.HandlerFunc 
 			return
 		}
 
-		expectedHex, err := l.redis.GetDel(ctx, l.prefix+strings.TrimSpace(payload.CaptchaID)).Result()
+		captchaID := strings.TrimSpace(payload.CaptchaID)
+		expectedHex, err := l.consume(ctx, captchaID)
 		if err != nil {
 			if errors.Is(err, redis.Nil) {
 				abortLocalCaptcha(c, "LOCAL_CAPTCHA_EXPIRED", "captcha expired, please refresh and try again")
@@ -159,7 +194,7 @@ func (l *LocalCaptcha) Require(opts LocalCaptchaRequireOptions) gin.HandlerFunc 
 		}
 
 		expected, err := hex.DecodeString(expectedHex)
-		actual := localCaptchaDigest(strings.TrimSpace(payload.CaptchaID), payload.CaptchaCode, clientip.GetClientIP(c))
+		actual := localCaptchaDigest(captchaID, payload.CaptchaCode, clientip.GetClientIP(c))
 		if err != nil || len(expected) != len(actual) || subtle.ConstantTimeCompare(expected, actual) != 1 {
 			abortLocalCaptcha(c, "LOCAL_CAPTCHA_INVALID", "captcha verification failed")
 			return
@@ -168,6 +203,33 @@ func (l *LocalCaptcha) Require(opts LocalCaptchaRequireOptions) gin.HandlerFunc 
 		c.Set("local_captcha_verified", true)
 		c.Next()
 	}
+}
+
+func (l *LocalCaptcha) issue(ctx context.Context, captchaID, digest string) (bool, error) {
+	maxActive := l.maxActive
+	if maxActive < 1 {
+		maxActive = localCaptchaMaxActive
+	}
+	created, err := localCaptchaIssueScript.Run(
+		ctx,
+		l.redis,
+		[]string{l.prefix + captchaID, l.prefix + "active", l.prefix + "sequence"},
+		digest,
+		localCaptchaTTL.Milliseconds(),
+		captchaID,
+		maxActive,
+		l.prefix,
+	).Int64()
+	return created == 1, err
+}
+
+func (l *LocalCaptcha) consume(ctx context.Context, captchaID string) (string, error) {
+	return localCaptchaConsumeScript.Run(
+		ctx,
+		l.redis,
+		[]string{l.prefix + captchaID, l.prefix + "active"},
+		captchaID,
+	).Text()
 }
 
 func readLocalCaptchaPayload(c *gin.Context) (LocalCaptchaPayload, bool) {
