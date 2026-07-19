@@ -216,13 +216,13 @@ func (s *TurnstileService) ValidateRecaptchaSecretKey(ctx context.Context, secre
 func ValidateCapAPIEndpoint(raw string) error {
 	parsed, err := url.ParseRequestURI(strings.TrimSpace(raw))
 	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
-		return fmt.Errorf("Cap API Endpoint must be a valid HTTP(S) URL")
+		return fmt.Errorf("cap API Endpoint must be a valid HTTP(S) URL")
 	}
 	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return fmt.Errorf("Cap API Endpoint must not contain credentials, query parameters, or fragments")
+		return fmt.Errorf("cap API Endpoint must not contain credentials, query parameters, or fragments")
 	}
 	if strings.Trim(strings.TrimSuffix(parsed.Path, "/"), "/") == "" {
-		return fmt.Errorf("Cap API Endpoint must include the site key path")
+		return fmt.Errorf("cap API Endpoint must include the site key path")
 	}
 	return nil
 }
