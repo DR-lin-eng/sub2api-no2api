@@ -141,6 +141,8 @@ export default {
         trustWarning: '此倍率由上游站点针对当前 API Key 自行声明。Sub2API 无法验证该值是否与实际扣费一致；上游站点或中间代理可能返回伪造、过期或被篡改的数据。请结合账单、余额变化和实际用量自行核验。',
         autoProbe: '自动探测上游声明倍率',
         autoProbeHint: '启用后按全局探测周期查询此账号的上游声明倍率；全局探测关闭时不会执行。',
+        autoDisableOnInsufficientBalance: '余额不足时自动停止调度',
+        autoDisableOnInsufficientBalanceHint: '识别到上游明确返回余额、credits 或 funds 耗尽时，将此账号设为不可调度。默认关闭；充值后需手动恢复调度。普通限流和周期配额耗尽不会触发。',
         manualProbe: '立即探测上游倍率',
         stale: '已过期',
         unsupported: '不支持',

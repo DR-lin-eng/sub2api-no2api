@@ -85,6 +85,11 @@ type OpenAIEndpointCapability string
 
 const openAILongContextBillingEnabledKey = "openai_long_context_billing_enabled"
 
+// AutoDisableOnUpstreamInsufficientBalanceExtraKey controls whether an account
+// is made unschedulable after the upstream reports a durable balance shortage.
+// Missing and non-boolean values intentionally default to false.
+const AutoDisableOnUpstreamInsufficientBalanceExtraKey = "auto_disable_on_upstream_insufficient_balance"
+
 const (
 	OpenAIEndpointCapabilityChatCompletions OpenAIEndpointCapability = "chat_completions"
 	OpenAIEndpointCapabilityEmbeddings      OpenAIEndpointCapability = "embeddings"
@@ -138,6 +143,14 @@ type TempUnschedulableRule struct {
 
 func (a *Account) IsActive() bool {
 	return a.Status == StatusActive
+}
+
+func (a *Account) AutoDisableOnUpstreamInsufficientBalanceEnabled() bool {
+	if a == nil || a.Extra == nil {
+		return false
+	}
+	enabled, ok := a.Extra[AutoDisableOnUpstreamInsufficientBalanceExtraKey].(bool)
+	return ok && enabled
 }
 
 // BillingRateMultiplier 返回账号计费倍率。

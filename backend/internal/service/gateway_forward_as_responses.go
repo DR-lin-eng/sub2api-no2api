@@ -153,6 +153,13 @@ func (s *GatewayService) ForwardAsResponses(
 
 		upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(respBody))
 		upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
+		if s.rateLimitService != nil && s.rateLimitService.handleUpstreamInsufficientBalance(ctx, account, resp.StatusCode, respBody) {
+			return nil, &UpstreamFailoverError{
+				StatusCode:             resp.StatusCode,
+				ResponseBody:           respBody,
+				RetryableOnSameAccount: false,
+			}
+		}
 
 		if s.shouldFailoverUpstreamError(resp.StatusCode) {
 			appendOpsUpstreamError(c, OpsUpstreamErrorEvent{

@@ -1143,6 +1143,22 @@
           <p v-if="apiKeyHint" class="input-hint">{{ apiKeyHint }}</p>
         </div>
 
+        <div class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600">
+          <div>
+            <label class="input-label mb-0">
+              {{ t('admin.accounts.upstreamBilling.autoDisableOnInsufficientBalance') }}
+            </label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.upstreamBilling.autoDisableOnInsufficientBalanceHint') }}
+            </p>
+          </div>
+          <Toggle
+            v-model="autoDisableOnUpstreamInsufficientBalance"
+            data-testid="auto-disable-on-insufficient-balance"
+            :aria-label="t('admin.accounts.upstreamBilling.autoDisableOnInsufficientBalance')"
+          />
+        </div>
+
         <div
           v-if="form.platform === 'openai'"
           class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
@@ -3704,6 +3720,7 @@ const addMethod = ref<AddMethod>('oauth') // For oauth-based: 'oauth' or 'setup-
 const apiKeyBaseUrl = ref('https://api.anthropic.com')
 const apiKeyValue = ref('')
 const upstreamBillingAutoProbeEnabled = ref(true)
+const autoDisableOnUpstreamInsufficientBalance = ref(false)
 
 const syncPreviewCredentials = computed(() => {
   if (!apiKeyValue.value) return undefined
@@ -4643,6 +4660,7 @@ const resetForm = () => {
   apiKeyBaseUrl.value = 'https://api.anthropic.com'
   apiKeyValue.value = ''
   upstreamBillingAutoProbeEnabled.value = true
+  autoDisableOnUpstreamInsufficientBalance.value = false
   editQuotaLimit.value = null
   editQuotaDailyLimit.value = null
   editQuotaWeeklyLimit.value = null
@@ -4834,6 +4852,21 @@ const buildAnthropicExtra = (base?: Record<string, unknown>): Record<string, unk
     extra.web_search_emulation = webSearchEmulationMode.value
   }
 
+  return Object.keys(extra).length > 0 ? extra : undefined
+}
+
+const buildUpstreamInsufficientBalanceExtra = (
+  base?: Record<string, unknown>
+): Record<string, unknown> | undefined => {
+  if (accountCategory.value !== 'apikey') {
+    return base
+  }
+  const extra: Record<string, unknown> = { ...(base || {}) }
+  if (autoDisableOnUpstreamInsufficientBalance.value) {
+    extra.auto_disable_on_upstream_insufficient_balance = true
+  } else {
+    delete extra.auto_disable_on_upstream_insufficient_balance
+  }
   return Object.keys(extra).length > 0 ? extra : undefined
 }
 
@@ -5142,7 +5175,7 @@ const handleSubmit = async () => {
   }
 
   form.credentials = credentials
-  const extra = buildAnthropicExtra(buildOpenAIExtra())
+  const extra = buildUpstreamInsufficientBalanceExtra(buildAnthropicExtra(buildOpenAIExtra()))
 
   await doCreateAccount({
     ...form,

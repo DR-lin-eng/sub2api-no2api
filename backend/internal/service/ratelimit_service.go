@@ -184,6 +184,9 @@ func (s *RateLimitService) CheckErrorPolicy(ctx context.Context, account *Accoun
 // 返回是否应该停止该账号的调度
 func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Account, statusCode int, headers http.Header, responseBody []byte, requestedModel ...string) (shouldDisable bool) {
 	ctx = withTempUnschedulableModel(ctx, requestedModel)
+	if s.handleUpstreamInsufficientBalance(ctx, account, statusCode, responseBody) {
+		return true
+	}
 	customErrorCodesEnabled := account.IsCustomErrorCodesEnabled()
 
 	// 池模式默认不标记本地账号状态；但管理员显式配置的临时不可调度规则优先。
@@ -406,6 +409,44 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 	}
 
 	return shouldDisable
+}
+
+func (s *RateLimitService) handleUpstreamInsufficientBalance(ctx context.Context, account *Account, statusCode int, responseBody []byte) bool {
+	if s == nil || account == nil || !account.AutoDisableOnUpstreamInsufficientBalanceEnabled() ||
+		!isUpstreamInsufficientBalanceError(statusCode, responseBody) {
+		return false
+	}
+	if !account.Schedulable {
+		return true
+	}
+
+	upstreamMsg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(responseBody)))
+	upstreamMsg = truncateForLog([]byte(upstreamMsg), 512)
+	if s.accountRepo == nil {
+		slog.Warn("account_auto_disable_insufficient_balance_repo_unavailable",
+			"account_id", account.ID,
+			"status_code", statusCode,
+			"upstream_message", upstreamMsg,
+		)
+		return true
+	}
+	if err := s.accountRepo.SetSchedulable(ctx, account.ID, false); err != nil {
+		slog.Warn("account_auto_disable_insufficient_balance_failed",
+			"account_id", account.ID,
+			"status_code", statusCode,
+			"upstream_message", upstreamMsg,
+			"error", err,
+		)
+		return true
+	}
+
+	s.notifyAccountSchedulingBlocked(account, time.Time{}, "upstream_insufficient_balance")
+	slog.Warn("account_auto_disabled_insufficient_balance",
+		"account_id", account.ID,
+		"status_code", statusCode,
+		"upstream_message", upstreamMsg,
+	)
+	return true
 }
 
 // PreCheckUsage proactively checks local quota before dispatching a request.

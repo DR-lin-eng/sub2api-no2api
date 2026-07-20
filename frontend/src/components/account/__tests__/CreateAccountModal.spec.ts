@@ -114,7 +114,8 @@ async function selectButtonByText(wrapper: ReturnType<typeof mountModal>, text: 
 async function submitApiKeyAccount(
   platform: 'openai' | 'anthropic',
   enableLongContextBilling = false,
-  disableUpstreamBillingProbe = false
+  disableUpstreamBillingProbe = false,
+  autoDisableOnInsufficientBalance = false
 ) {
   const wrapper = mountModal()
   await selectButtonByText(wrapper, platform === 'openai' ? 'OpenAI' : 'admin.accounts.claudeConsole')
@@ -128,6 +129,9 @@ async function submitApiKeyAccount(
   }
   if (disableUpstreamBillingProbe) {
     await wrapper.get('[data-testid="upstream-billing-auto-probe"]').trigger('click')
+  }
+  if (autoDisableOnInsufficientBalance) {
+    await wrapper.get('[data-testid="auto-disable-on-insufficient-balance"]').trigger('click')
   }
   await wrapper.get('form#create-account-form').trigger('submit.prevent')
   await flushPromises()
@@ -197,6 +201,18 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
 
     expect(createAccountMock.mock.calls[0]?.[0]?.upstream_billing_probe_enabled).toBe(false)
     expect(probeUpstreamBillingMock).not.toHaveBeenCalled()
+  })
+
+  it('keeps insufficient-balance auto-disable off by default', async () => {
+    await submitApiKeyAccount('openai')
+
+    expect(createAccountMock.mock.calls[0]?.[0]?.extra?.auto_disable_on_upstream_insufficient_balance).toBeUndefined()
+  })
+
+  it('stores the account-level insufficient-balance auto-disable switch', async () => {
+    await submitApiKeyAccount('openai', false, false, true)
+
+    expect(createAccountMock.mock.calls[0]?.[0]?.extra?.auto_disable_on_upstream_insufficient_balance).toBe(true)
   })
 
   it('exposes Agent Identity in the OpenAI authorization methods', async () => {

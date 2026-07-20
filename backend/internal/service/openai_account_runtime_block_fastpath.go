@@ -51,12 +51,20 @@ func isOpenAIAccount(account *Account) bool {
 	return account != nil && (account.Platform == PlatformOpenAI || account.Platform == PlatformGrok)
 }
 
+func (s *OpenAIGatewayService) autoDisableOnUpstreamInsufficientBalance(ctx context.Context, account *Account, statusCode int, responseBody []byte) bool {
+	return s != nil && s.rateLimitService != nil &&
+		s.rateLimitService.handleUpstreamInsufficientBalance(ctx, account, statusCode, responseBody)
+}
+
 // handleOpenAIAccountUpstreamError expects canonicalModel to be the model used
 // for scheduling after applying account mapping exactly once.
 func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Context, account *Account, statusCode int, headers http.Header, responseBody []byte, canonicalModel ...string) bool {
 	stateCtx, cancel := openAIAccountStateContext(ctx)
 	defer cancel()
 	modelScope := firstRequestedModel(canonicalModel)
+	if s.autoDisableOnUpstreamInsufficientBalance(stateCtx, account, statusCode, responseBody) {
+		return true
+	}
 
 	if account != nil && account.Platform == PlatformOpenAI && isOpenAIContextWindowError("", responseBody) {
 		return false

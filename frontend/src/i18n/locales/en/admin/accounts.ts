@@ -190,6 +190,8 @@ export default {
         trustWarning: 'This rate is declared by the upstream site for the current API key. Sub2API cannot verify that it matches actual charges. The upstream site or an intermediary may return forged, stale, or modified data. Verify it against bills, balance changes, and actual usage.',
         autoProbe: 'Automatically probe upstream declared rate',
         autoProbeHint: 'Probe this account\'s upstream declared rate on the global interval when global probing is enabled.',
+        autoDisableOnInsufficientBalance: 'Stop scheduling when balance is insufficient',
+        autoDisableOnInsufficientBalanceHint: 'Mark this account unschedulable when the upstream explicitly reports exhausted balance, credits, or funds. Off by default; scheduling must be restored manually after a top-up. Ordinary rate limits and rolling quota exhaustion do not trigger it.',
         manualProbe: 'Probe upstream rate now',
         stale: 'Stale',
         unsupported: 'Unsupported',

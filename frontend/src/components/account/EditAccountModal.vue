@@ -428,6 +428,25 @@
 
       </div>
 
+      <div
+        v-if="account.type === 'apikey'"
+        class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
+      >
+        <div>
+          <label class="input-label mb-0">
+            {{ t('admin.accounts.upstreamBilling.autoDisableOnInsufficientBalance') }}
+          </label>
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('admin.accounts.upstreamBilling.autoDisableOnInsufficientBalanceHint') }}
+          </p>
+        </div>
+        <Toggle
+          v-model="autoDisableOnUpstreamInsufficientBalance"
+          data-testid="auto-disable-on-insufficient-balance"
+          :aria-label="t('admin.accounts.upstreamBilling.autoDisableOnInsufficientBalance')"
+        />
+      </div>
+
       <!-- Grok OAuth client-tool prompt cache opt-in -->
       <div
         v-if="account.platform === 'grok' && account.type === 'oauth'"
@@ -2815,6 +2834,7 @@ const autoPause7dThreshold = ref<number | null>(null)
 const autoPause5hDisabled = ref(false)
 const autoPause7dDisabled = ref(false)
 const upstreamBillingAutoProbeEnabled = ref(false)
+const autoDisableOnUpstreamInsufficientBalance = ref(false)
 const mixedScheduling = ref(false) // For antigravity accounts: enable mixed scheduling
 const allowOverages = ref(false) // For antigravity accounts: enable AI Credits overages
 const antigravityProjectId = ref('')
@@ -3331,6 +3351,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
 	autoPause5hDisabled.value = extra?.auto_pause_5h_disabled === true
 	autoPause7dDisabled.value = extra?.auto_pause_7d_disabled === true
 	upstreamBillingAutoProbeEnabled.value = extra?.upstream_billing_probe_enabled === true
+	autoDisableOnUpstreamInsufficientBalance.value = extra?.auto_disable_on_upstream_insufficient_balance === true
 
   // Load OpenAI passthrough toggle (OpenAI OAuth/SetupToken/API Key)
   openaiPassthroughEnabled.value = false
@@ -4725,6 +4746,20 @@ const handleSubmit = async () => {
       }
       // Quota notify config
       writeQuotaNotifyToExtra(newExtra, 'update')
+      updatePayload.extra = newExtra
+    }
+
+    if (props.account.type === 'apikey') {
+      const currentExtra =
+        (updatePayload.extra as Record<string, unknown>) ||
+        (props.account.extra as Record<string, unknown>) ||
+        {}
+      const newExtra: Record<string, unknown> = { ...currentExtra }
+      if (autoDisableOnUpstreamInsufficientBalance.value) {
+        newExtra.auto_disable_on_upstream_insufficient_balance = true
+      } else {
+        delete newExtra.auto_disable_on_upstream_insufficient_balance
+      }
       updatePayload.extra = newExtra
     }
 

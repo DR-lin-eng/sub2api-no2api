@@ -88,6 +88,15 @@ func (s *OpenAIGatewayService) failoverOpenAIUpstreamHTTPError(
 	upstreamMsg string,
 	upstreamModel string,
 ) *UpstreamFailoverError {
+	if s.autoDisableOnUpstreamInsufficientBalance(ctx, account, resp.StatusCode, respBody) {
+		return newOpenAIUpstreamFailoverError(
+			resp.StatusCode,
+			resp.Header,
+			respBody,
+			upstreamMsg,
+			false,
+		)
+	}
 	if account != nil && account.Platform == PlatformGrok {
 		s.handleGrokAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
 	}
