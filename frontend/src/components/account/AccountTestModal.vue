@@ -55,7 +55,7 @@
         />
       </div>
 
-      <div v-if="isOpenAIAccount" class="space-y-1.5">
+      <div v-if="isOpenAIAccount && !supportsImageTest" class="space-y-1.5">
         <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
           {{ t('admin.accounts.openai.testMode') }}
         </label>
@@ -66,12 +66,12 @@
         />
       </div>
 
-      <div v-if="supportsImageTest" class="space-y-1.5">
+      <div v-if="supportsImageTest || showTextPrompt" class="space-y-1.5">
         <TextArea
           v-model="testPrompt"
-          :label="t('admin.accounts.imagePromptLabel')"
-          :placeholder="t('admin.accounts.imagePromptPlaceholder')"
-          :hint="t('admin.accounts.imageTestHint')"
+          :label="supportsImageTest ? t('admin.accounts.imagePromptLabel') : t('admin.accounts.customPromptLabel')"
+          :placeholder="supportsImageTest ? t('admin.accounts.imagePromptPlaceholder') : t('admin.accounts.customPromptPlaceholder')"
+          :hint="supportsImageTest ? t('admin.accounts.imageTestHint') : t('admin.accounts.customPromptHint')"
           :disabled="status === 'connecting'"
           rows="3"
         />
@@ -189,7 +189,7 @@
           {{
             supportsImageTest
               ? t('admin.accounts.imageTestMode')
-              : t('admin.accounts.testPrompt')
+              : t('admin.accounts.testPrompt', { prompt: effectiveTestPrompt })
           }}
         </span>
       </div>
@@ -287,12 +287,22 @@ const testPrompt = ref('')
 const loadingModels = ref(false)
 let abortController: AbortController | null = null
 const generatedImages = ref<PreviewImage[]>([])
-const testMode = ref<'default' | 'compact'>('default')
+type OpenAITestMode = 'default' | 'responses' | 'chat_completions' | 'compact'
+
+const testMode = ref<OpenAITestMode>('default')
 const isOpenAIAccount = computed(() => props.account?.platform === 'openai')
-const openAITestModeOptions = computed(() => [
-  { value: 'default', label: t('admin.accounts.openai.testModeDefault') },
-  { value: 'compact', label: t('admin.accounts.openai.testModeCompact') }
-])
+const openAITestModeOptions = computed(() => {
+  const options = [{ value: 'default', label: t('admin.accounts.openai.testModeDefault') }]
+  if (props.account?.type === 'apikey') {
+    options.push({ value: 'responses', label: t('admin.accounts.openai.testModeResponses') })
+    options.push({
+      value: 'chat_completions',
+      label: t('admin.accounts.openai.testModeChatCompletions')
+    })
+  }
+  options.push({ value: 'compact', label: t('admin.accounts.openai.testModeCompact') })
+  return options
+})
 const previewImageUrl = ref('')
 const prioritizedGeminiModels = ['gemini-3.1-flash-image', 'gemini-2.5-flash-image', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-2.0-flash']
 const supportsGeminiImageTest = computed(() => {
@@ -309,6 +319,8 @@ const supportsOpenAIImageTest = computed(() => {
 })
 
 const supportsImageTest = computed(() => supportsGeminiImageTest.value || supportsOpenAIImageTest.value)
+const showTextPrompt = computed(() => isOpenAIAccount.value && testMode.value !== 'compact')
+const effectiveTestPrompt = computed(() => testPrompt.value.trim() || 'hi')
 
 const sortTestModels = (models: ClaudeModel[]) => {
   const priorityMap = new Map(prioritizedGeminiModels.map((id, index) => [id, index]))
@@ -435,8 +447,8 @@ const startTest = async () => {
       },
       body: JSON.stringify({
         model_id: selectedModelId.value,
-        prompt: supportsImageTest.value ? testPrompt.value.trim() : '',
-        mode: isOpenAIAccount.value ? testMode.value : 'default'
+        prompt: testMode.value === 'compact' ? '' : testPrompt.value.trim(),
+        mode: isOpenAIAccount.value && !supportsImageTest.value ? testMode.value : 'default'
       }),
       signal: abortController.signal
     })
@@ -505,7 +517,7 @@ const handleEvent = (event: {
       addLine(
         supportsImageTest.value
             ? t('admin.accounts.sendingImageRequest')
-            : t('admin.accounts.sendingTestMessage'),
+            : t('admin.accounts.sendingTestMessage', { prompt: effectiveTestPrompt.value }),
         'text-gray-400'
       )
       addLine('', 'text-gray-300')

@@ -8,16 +8,20 @@ import (
 )
 
 const (
-	// AccountTestModeDefault drives the standard /responses connection test.
+	// AccountTestModeDefault follows the account's configured text endpoint.
 	AccountTestModeDefault = "default"
+	// AccountTestModeResponses explicitly probes /v1/responses.
+	AccountTestModeResponses = "responses"
+	// AccountTestModeChatCompletions explicitly probes /v1/chat/completions.
+	AccountTestModeChatCompletions = "chat_completions"
 	// AccountTestModeCompact drives the /responses/compact compact-probe test.
 	AccountTestModeCompact = "compact"
 )
 
 func normalizeAccountTestMode(mode string) string {
 	switch strings.ToLower(strings.TrimSpace(mode)) {
-	case AccountTestModeCompact:
-		return AccountTestModeCompact
+	case AccountTestModeResponses, AccountTestModeChatCompletions, AccountTestModeCompact:
+		return strings.ToLower(strings.TrimSpace(mode))
 	default:
 		return AccountTestModeDefault
 	}

@@ -225,6 +225,8 @@ describe('AccountTestModal', () => {
     await wrapper.setProps({ show: true })
     await flushPromises()
 
+    expect((wrapper.vm as any).openAITestModeOptions.map((option: { value: string }) => option.value))
+      .toEqual(['default', 'compact'])
     ;(wrapper.vm as any).selectedModelId = 'gpt-5.4'
     ;(wrapper.vm as any).testMode = 'compact'
     await (wrapper.vm as any).startTest()
@@ -236,6 +238,40 @@ describe('AccountTestModal', () => {
       model_id: 'gpt-5.4',
       prompt: '',
       mode: 'compact'
+    })
+  })
+
+  it.each([
+    ['responses', 'custom responses prompt'],
+    ['chat_completions', 'custom chat prompt']
+  ] as const)('OpenAI API Key 可选择 %s 并携带自定义提示词', async (mode, prompt) => {
+    getAvailableModels.mockResolvedValue([
+      { id: 'gpt-5.4', display_name: 'GPT-5.4' }
+    ])
+    const wrapper = mountModal({
+      id: 43,
+      name: 'OpenAI API Key',
+      platform: 'openai',
+      type: 'apikey',
+      status: 'active'
+    })
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+
+    expect((wrapper.vm as any).openAITestModeOptions.map((option: { value: string }) => option.value))
+      .toEqual(['default', 'responses', 'chat_completions', 'compact'])
+    ;(wrapper.vm as any).selectedModelId = 'gpt-5.4'
+    ;(wrapper.vm as any).testMode = mode
+    ;(wrapper.vm as any).testPrompt = prompt
+    await (wrapper.vm as any).startTest()
+    await flushPromises()
+
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+    const [, request] = (global.fetch as any).mock.calls[0]
+    expect(JSON.parse(request.body)).toMatchObject({
+      model_id: 'gpt-5.4',
+      prompt,
+      mode
     })
   })
 })

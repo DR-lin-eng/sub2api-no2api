@@ -14,6 +14,8 @@ func TestNormalizeAccountTestMode(t *testing.T) {
 	}{
 		{input: "", want: AccountTestModeDefault},
 		{input: "default", want: AccountTestModeDefault},
+		{input: " responses ", want: AccountTestModeResponses},
+		{input: "CHAT_COMPLETIONS", want: AccountTestModeChatCompletions},
 		{input: " compact ", want: AccountTestModeCompact},
 		{input: "COMPACT", want: AccountTestModeCompact},
 		{input: "unknown", want: AccountTestModeDefault},
