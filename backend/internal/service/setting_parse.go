@@ -44,7 +44,6 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
 	// 初始化默认设置
 	defaults := map[string]string{
 		SettingKeyRegistrationEnabled:                       "true",

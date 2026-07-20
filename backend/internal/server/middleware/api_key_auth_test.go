@@ -864,7 +864,7 @@ func TestRequireGroupAssignmentMarksUngroupedKeyBusinessLimited(t *testing.T) {
 	require.Equal(t, service.OpsClientBusinessLimitedReasonAPIKeyGroupUnassigned, businessLimitedReason)
 }
 
-func TestAPIKeyAuthIPRestrictionDoesNotTrustForwardedClientIPByDefault(t *testing.T) {
+func TestAPIKeyAuthIPRestrictionUsesTrustedPathWhenSwitchDisabled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	user := &service.User{
@@ -894,6 +894,7 @@ func TestAPIKeyAuthIPRestrictionDoesNotTrustForwardedClientIPByDefault(t *testin
 	}
 
 	cfg := &config.Config{RunMode: config.RunModeSimple}
+	cfg.SetTrustForwardedIPForAPIKeyACL(false)
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
 	router := gin.New()
 	require.NoError(t, router.SetTrustedProxies(nil))

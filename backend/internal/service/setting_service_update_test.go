@@ -17,7 +17,8 @@ import (
 )
 
 type settingUpdateRepoStub struct {
-	updates map[string]string
+	updates        map[string]string
+	setMultipleErr error
 }
 
 func (s *settingUpdateRepoStub) Get(ctx context.Context, key string) (*Setting, error) {
@@ -41,7 +42,7 @@ func (s *settingUpdateRepoStub) SetMultiple(ctx context.Context, settings map[st
 	for k, v := range settings {
 		s.updates[k] = v
 	}
-	return nil
+	return s.setMultipleErr
 }
 
 func (s *settingUpdateRepoStub) GetAll(ctx context.Context) (map[string]string, error) {
@@ -85,6 +86,62 @@ func (s *settingGetAllRepoStub) GetAll(ctx context.Context) (map[string]string, 
 }
 
 func (s *settingGetAllRepoStub) Delete(ctx context.Context, key string) error {
+	panic("unexpected Delete call")
+}
+
+type forwardedIPMigrationRepoStub struct {
+	values         map[string]string
+	updates        map[string]string
+	getMultipleErr error
+	setMultipleErr error
+}
+
+func (s *forwardedIPMigrationRepoStub) Get(context.Context, string) (*Setting, error) {
+	panic("unexpected Get call")
+}
+
+func (s *forwardedIPMigrationRepoStub) GetValue(_ context.Context, key string) (string, error) {
+	value, ok := s.values[key]
+	if !ok {
+		return "", ErrSettingNotFound
+	}
+	return value, nil
+}
+
+func (s *forwardedIPMigrationRepoStub) Set(context.Context, string, string) error {
+	panic("unexpected Set call")
+}
+
+func (s *forwardedIPMigrationRepoStub) GetMultiple(_ context.Context, keys []string) (map[string]string, error) {
+	if s.getMultipleErr != nil {
+		return nil, s.getMultipleErr
+	}
+	result := make(map[string]string, len(keys))
+	for _, key := range keys {
+		if value, ok := s.values[key]; ok {
+			result[key] = value
+		}
+	}
+	return result, nil
+}
+
+func (s *forwardedIPMigrationRepoStub) SetMultiple(_ context.Context, values map[string]string) error {
+	if s.setMultipleErr != nil {
+		return s.setMultipleErr
+	}
+	s.updates = make(map[string]string, len(values))
+	for key, value := range values {
+		s.values[key] = value
+		s.updates[key] = value
+	}
+	return nil
+}
+
+func (s *forwardedIPMigrationRepoStub) GetAll(context.Context) (map[string]string, error) {
+	panic("unexpected GetAll call")
+}
+
+func (s *forwardedIPMigrationRepoStub) Delete(context.Context, string) error {
 	panic("unexpected Delete call")
 }
 
@@ -553,7 +610,6 @@ func TestSettingService_UpdateSettings_RejectsInvalidClientIPSettingsAtomically(
 	require.Error(t, err)
 	require.Nil(t, repo.updates)
 }
-
 func TestSettingService_GetAntigravityUserAgentVersion_Precedence(t *testing.T) {
 	t.Run("后台设置优先", func(t *testing.T) {
 		svc := NewSettingService(&settingAntigravityUARepoStub{values: map[string]string{

@@ -56,11 +56,18 @@ func RegisterGatewayRoutes(
 			return false
 		}
 	}
-	isOpenAIGatewayPlatform := func(c *gin.Context) bool {
-		return getGroupPlatform(c) == service.PlatformOpenAI
-	}
 	isOpenAIOnlyEndpointGatewayPlatform := func(c *gin.Context) bool {
 		return getGroupPlatform(c) == service.PlatformOpenAI
+	}
+	countTokensHandler := func(c *gin.Context) {
+		switch getGroupPlatform(c) {
+		case service.PlatformOpenAI:
+			h.OpenAIGateway.CountTokens(c)
+		case service.PlatformGrok:
+			h.OpenAIGateway.GrokCountTokens(c)
+		default:
+			h.Gateway.CountTokens(c)
+		}
 	}
 	imagesHandler := func(c *gin.Context) {
 		switch getGroupPlatform(c) {
@@ -158,26 +165,9 @@ func RegisterGatewayRoutes(
 			}
 			h.Gateway.Messages(c)
 		})
-		// /v1/messages/count_tokens: OpenAI uses Anthropic-compat bridge; other
-		// OpenAI-compatible platforms keep the prior unsupported response.
-		gateway.POST("/messages/count_tokens", func(c *gin.Context) {
-			if isOpenAIGatewayPlatform(c) {
-				h.OpenAIGateway.CountTokens(c)
-				return
-			}
-			if isOpenAIResponsesCompatibleGatewayPlatform(c) {
-				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-				c.JSON(http.StatusNotFound, gin.H{
-					"type": "error",
-					"error": gin.H{
-						"type":    "not_found_error",
-						"message": "Token counting is not supported for this platform",
-					},
-				})
-				return
-			}
-			h.Gateway.CountTokens(c)
-		})
+		// /v1/messages/count_tokens: OpenAI bridges upstream, Grok estimates
+		// locally, and Anthropic-compatible platforms retain their existing path.
+		gateway.POST("/messages/count_tokens", countTokensHandler)
 		gateway.GET("/models", h.Gateway.Models)
 		gateway.GET("/usage", h.Gateway.Usage)
 		// OpenAI Responses API: auto-route based on group platform
@@ -276,6 +266,7 @@ func RegisterGatewayRoutes(
 	// Keep /models as a strict alias of the local /v1/models list endpoint.
 	// The explicit ChatGPT Codex manifest remains under /backend-api/codex/models.
 	r.GET("/models", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, h.Gateway.Models)
+	r.POST("/messages/count_tokens", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), compositeTarget, requireGroupAnthropic, countTokensHandler)
 	codexDirect := r.Group("/backend-api/codex")
 	codexDirect.Use(bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), compositeTarget, requireGroupAnthropic)
 	{

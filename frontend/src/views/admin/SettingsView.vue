@@ -10184,7 +10184,6 @@ async function saveSettings() {
     form.login_agreement_mode =
       form.login_agreement_mode === "checkbox" ? "checkbox" : "modal";
     form.login_agreement_documents = normalizedLoginAgreementDocuments;
-
     const normalizedDefaultSubscriptions = normalizeDefaultSubscriptionSettings(
       form.default_subscriptions,
     );

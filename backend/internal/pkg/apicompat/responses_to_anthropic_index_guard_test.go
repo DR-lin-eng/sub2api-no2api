@@ -77,7 +77,24 @@ func TestResponsesToAnthropicIgnoresStaleReasoningDoneByOutputIndex(t *testing.T
 		Type:        "response.reasoning_summary_text.done",
 		OutputIndex: 21,
 	}, state)
-	require.Len(t, events, 1)
-	require.Equal(t, "content_block_stop", events[0].Type)
-	require.Equal(t, 1, *events[0].Index)
+	require.Empty(t, events, "thinking stays open until encrypted_content can arrive on output_item.done")
+	require.True(t, state.ContentBlockOpen)
+
+	require.Empty(t, ResponsesEventToAnthropicEvents(&ResponsesStreamEvent{
+		Type:        "response.output_item.done",
+		OutputIndex: 20,
+		Item:        &ResponsesOutput{Type: "reasoning", EncryptedContent: "stale-signature"},
+	}, state))
+	require.True(t, state.ContentBlockOpen)
+
+	events = ResponsesEventToAnthropicEvents(&ResponsesStreamEvent{
+		Type:        "response.output_item.done",
+		OutputIndex: 21,
+		Item:        &ResponsesOutput{Type: "reasoning", EncryptedContent: "current-signature"},
+	}, state)
+	require.Len(t, events, 2)
+	require.Equal(t, "signature_delta", events[0].Delta.Type)
+	require.Equal(t, "current-signature", events[0].Delta.Signature)
+	require.Equal(t, "content_block_stop", events[1].Type)
+	require.Equal(t, 1, *events[1].Index)
 }

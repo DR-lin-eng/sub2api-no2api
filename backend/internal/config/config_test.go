@@ -92,10 +92,30 @@ func TestLoadHTTPIngressSafetyDefaults(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 10, cfg.Server.ReadHeaderTimeout)
 	require.Equal(t, 64*1024, cfg.Server.MaxHeaderBytes)
+	require.Empty(t, cfg.Server.TrustedProxies)
+	require.False(t, cfg.TrustForwardedIPForAPIKeyACL())
 	require.Equal(t, int64(32*1024*1024), cfg.Gateway.TextMaxBodySize)
 	require.True(t, cfg.APIKeyAuth.InvalidAbuse.Enabled)
 	require.Equal(t, 120, cfg.APIKeyAuth.InvalidAbuse.Threshold)
 	require.Equal(t, 16384, cfg.APIKeyAuth.InvalidAbuse.Capacity)
+}
+
+func TestLoadTrustedProxiesFromEnvironment(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("SERVER_TRUSTED_PROXIES", "127.0.0.1/32, ::1/128")
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Equal(t, []string{"127.0.0.1/32", "::1/128"}, cfg.Server.TrustedProxies)
+}
+
+func TestLoadExplicitEmptyTrustedProxiesFromEnvironment(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("SERVER_TRUSTED_PROXIES", "")
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Empty(t, cfg.Server.TrustedProxies)
 }
 
 func TestLoadForBootstrapAllowsMissingJWTSecret(t *testing.T) {

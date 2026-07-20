@@ -300,6 +300,22 @@ func (c *ImageStorageConfig) Active() bool {
 	return c.Enabled && c.IsConfigured()
 }
 
+// MissingCredentialKeys 返回 IsConfigured 所缺的配置键名。
+// 用于启动日志：只说"凭证不完整"会让运维以为自己漏填了，而实际可能是值填了却没被读到。
+func (c *ImageStorageConfig) MissingCredentialKeys() []string {
+	var missing []string
+	if c.Bucket == "" {
+		missing = append(missing, "image_storage.bucket")
+	}
+	if c.AccessKeyID == "" {
+		missing = append(missing, "image_storage.access_key_id")
+	}
+	if c.SecretAccessKey == "" {
+		missing = append(missing, "image_storage.secret_access_key")
+	}
+	return missing
+}
+
 type LinuxDoConnectConfig struct {
 	Enabled             bool   `mapstructure:"enabled"`
 	ClientID            string `mapstructure:"client_id"`
@@ -1633,10 +1649,14 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 		}
 		// 配置文件不存在时使用默认值
 	}
+	trustedProxiesEnv, trustedProxiesEnvConfigured := os.LookupEnv("SERVER_TRUSTED_PROXIES")
 
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("unmarshal config error: %w", err)
+	}
+	if trustedProxiesEnvConfigured {
+		cfg.Server.TrustedProxies = normalizeStringSlice(strings.Split(trustedProxiesEnv, ","))
 	}
 	if cfg.Gateway.OpenAIScheduler.StickyEscapeTTFTMs == 0 {
 		cfg.Gateway.OpenAIScheduler.StickyEscapeTTFTMs = 15000
@@ -1644,6 +1664,9 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 	if cfg.Gateway.OpenAIScheduler.StickyEscapeErrorRate == 0 {
 		cfg.Gateway.OpenAIScheduler.StickyEscapeErrorRate = 0.5
 	}
+	// Kept as a backstop: setEnvReachableDefaults now registers this key with its
+	// effective default (true), so IsSet always reports true and this branch no
+	// longer fires. It still guards the default if that registration is dropped.
 	if !cfg.Gateway.OpenAIScheduler.StickyEscapeEnabled && !viper.IsSet("gateway.openai_scheduler.sticky_escape_enabled") {
 		cfg.Gateway.OpenAIScheduler.StickyEscapeEnabled = true
 	}
@@ -1823,7 +1846,6 @@ func setDefaults() {
 	viper.SetDefault("server.read_header_timeout", 10) // 10秒读取请求头
 	viper.SetDefault("server.max_header_bytes", 64*1024)
 	viper.SetDefault("server.idle_timeout", 120) // 120秒空闲超时
-	viper.SetDefault("server.trusted_proxies", []string{})
 	viper.SetDefault("server.max_request_body_size", int64(256*1024*1024))
 	// H2C 默认配置
 	viper.SetDefault("server.h2c.enabled", false)
@@ -2059,6 +2081,15 @@ func setDefaults() {
 	viper.SetDefault("image_storage.presign_expiry_hours", 24)
 	viper.SetDefault("image_storage.max_download_bytes", 33554432)
 	viper.SetDefault("image_storage.max_in_flight", 8)
+	// Registered with empty defaults so AutomaticEnv can reach them: viper only
+	// decodes keys present in AllKeys(), so a credential that is supplied purely
+	// via IMAGE_STORAGE_* and never appears in config.yaml would be dropped and
+	// silently disable the whole async image feature.
+	viper.SetDefault("image_storage.endpoint", "")
+	viper.SetDefault("image_storage.bucket", "")
+	viper.SetDefault("image_storage.access_key_id", "")
+	viper.SetDefault("image_storage.secret_access_key", "")
+	viper.SetDefault("image_storage.public_base_url", "")
 
 	// Ops (vNext)
 	viper.SetDefault("ops.enabled", true)
@@ -2346,6 +2377,80 @@ func setDefaults() {
 	viper.SetDefault("subscription_maintenance.worker_count", 2)
 	viper.SetDefault("subscription_maintenance.queue_size", 1024)
 
+	setEnvReachableDefaults()
+}
+
+// setEnvReachableDefaults registers zero-valued defaults for keys that are
+// documented in deploy/config.example.yaml but had no default of their own.
+//
+// viper.Unmarshal only decodes the keys returned by AllKeys(), which unions
+// SetDefault keys, config-file keys and explicitly bound BindEnv keys.
+// AutomaticEnv can override a key already in that union, but it never adds one,
+// and the viper_bind_struct escape hatch is compiled out (we build with
+// -tags embed). So a key that lives only in the example file was unreachable by
+// environment variable: the value was read from the process environment and
+// then silently dropped. Deployments driven purely by env — which is what
+// deploy/docker-compose.yml does — got the zero value with no warning.
+//
+// The values below are deliberately zero rather than the documented example
+// values: an absent key already unmarshalled to the zero value, so registering
+// zero keeps behavior identical while making the key addressable from the
+// environment. Any subsystem that wants a richer default still applies it after
+// unmarshal, exactly as before.
+func setEnvReachableDefaults() {
+	viper.SetDefault("gateway.forced_codex_instructions_template_file", "")
+	viper.SetDefault("gateway.session_idle_timeout_minutes", 0)
+	viper.SetDefault("gateway.user_message_queue.mode", "")
+	viper.SetDefault("update.proxy_url", "")
+
+	// sticky_escape_enabled is the one exception to the zero-value rule: its
+	// effective default is true, applied post-unmarshal via a viper.IsSet guard.
+	// Registering false would make IsSet always report true and permanently
+	// disable sticky escape, so register the effective default instead. An
+	// explicit false in config or env still wins.
+	viper.SetDefault("gateway.openai_scheduler.sticky_escape_enabled", true)
+	viper.SetDefault("gateway.openai_scheduler.sticky_escape_error_rate", 0.0)
+	viper.SetDefault("gateway.openai_scheduler.sticky_escape_ttft_ms", 0)
+
+	// server.trusted_proxies is parsed explicitly from its comma-separated
+	// environment variable, and binding records that reachability for the guard.
+	_ = viper.BindEnv("server.trusted_proxies", "SERVER_TRUSTED_PROXIES")
+
+	// Third-party login providers. These carry client secrets and are exactly
+	// the settings an operator expects to inject via the environment, but every
+	// key here was previously unreachable that way.
+	for _, provider := range []string{"github_oauth", "google_oauth"} {
+		viper.SetDefault(provider+".enabled", false)
+		viper.SetDefault(provider+".client_id", "")
+		viper.SetDefault(provider+".client_secret", "")
+		viper.SetDefault(provider+".authorize_url", "")
+		viper.SetDefault(provider+".token_url", "")
+		viper.SetDefault(provider+".userinfo_url", "")
+		viper.SetDefault(provider+".emails_url", "")
+		viper.SetDefault(provider+".scopes", "")
+		viper.SetDefault(provider+".redirect_url", "")
+		viper.SetDefault(provider+".frontend_redirect_url", "")
+	}
+
+	viper.SetDefault("dingtalk_connect.client_id", "")
+	viper.SetDefault("dingtalk_connect.client_secret", "")
+	viper.SetDefault("dingtalk_connect.internal_corp_id", "")
+	viper.SetDefault("dingtalk_connect.redirect_url", "")
+	viper.SetDefault("dingtalk_connect.bypass_registration", false)
+	viper.SetDefault("dingtalk_connect.username_attribute_key", "")
+	viper.SetDefault("dingtalk_connect.enable_attribute_matching", false)
+	viper.SetDefault("dingtalk_connect.enable_attribute_sync", false)
+	viper.SetDefault("dingtalk_connect.attribute_sync_fields", []string{})
+	viper.SetDefault("dingtalk_connect.attribute_sync_overwrite_policy", "")
+	viper.SetDefault("dingtalk_connect.sync_display_name", false)
+	viper.SetDefault("dingtalk_connect.sync_display_name_attr_key", "")
+	viper.SetDefault("dingtalk_connect.sync_display_name_attr_name", "")
+	viper.SetDefault("dingtalk_connect.sync_dept", false)
+	viper.SetDefault("dingtalk_connect.sync_dept_attr_key", "")
+	viper.SetDefault("dingtalk_connect.sync_dept_attr_name", "")
+	viper.SetDefault("dingtalk_connect.sync_corp_email", false)
+	viper.SetDefault("dingtalk_connect.sync_corp_email_attr_key", "")
+	viper.SetDefault("dingtalk_connect.sync_corp_email_attr_name", "")
 }
 
 func (c *Config) Validate() error {

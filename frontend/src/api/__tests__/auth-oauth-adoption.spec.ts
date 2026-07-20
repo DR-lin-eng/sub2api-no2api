@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { clearTokenMemory, setAccessToken } from '@/api/tokenStore'
 
 const post = vi.fn()
 
@@ -13,6 +14,7 @@ describe('oauth adoption auth api', () => {
     post.mockReset()
     post.mockResolvedValue({ data: {} })
     localStorage.clear()
+    clearTokenMemory()
     document.cookie = 'oauth_bind_access_token=; Max-Age=0; path=/'
   })
 
@@ -214,7 +216,7 @@ describe('oauth adoption auth api', () => {
   })
 
   it('requests an HttpOnly oauth bind cookie before redirect binding', async () => {
-    localStorage.setItem('auth_token', 'access-token-value')
+    setAccessToken('access-token-value')
     const { prepareOAuthBindAccessTokenCookie } = await import('@/api/auth')
 
     await prepareOAuthBindAccessTokenCookie()
