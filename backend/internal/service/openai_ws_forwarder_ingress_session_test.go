@@ -149,7 +149,8 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_KeepLeaseAcrossT
 
 	overlongCallID := "srvtoolu_" + strings.Repeat("x", 69)
 	expectedCallID := sanitizeOpenAIResponsesCallID(overlongCallID)
-	writeMessage(`{"type":"response.create","model":"gpt-5.1","stream":false,"previous_response_id":"resp_ingress_turn_1","input":[{"type":"reasoning","id":"item_aaf212cbed95cf83ae9f2d5a","summary":[],"encrypted_content":"cipher"},{"type":"function_call","call_id":"` + overlongCallID + `","name":"tool","arguments":"{}"},{"type":"function_call_output","call_id":"` + overlongCallID + `","output":"ok"}]}`)
+	overlongItemID := "rs_" + strings.Repeat("i", 64)
+	writeMessage(`{"type":"response.create","model":"gpt-5.1","stream":false,"previous_response_id":"resp_ingress_turn_1","input":[{"type":"reasoning","id":"item_aaf212cbed95cf83ae9f2d5a","summary":[],"encrypted_content":"cipher"},{"type":"reasoning","id":"` + overlongItemID + `","summary":[],"encrypted_content":"long-id-cipher"},{"type":"function_call","call_id":"` + overlongCallID + `","name":"tool","arguments":"{}"},{"type":"function_call_output","call_id":"` + overlongCallID + `","output":"ok"}]}`)
 	secondTurnEvent := readMessage()
 	require.Equal(t, "response.completed", gjson.GetBytes(secondTurnEvent, "type").String())
 	require.Equal(t, "resp_ingress_turn_2", gjson.GetBytes(secondTurnEvent, "response.id").String())
@@ -172,8 +173,10 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_KeepLeaseAcrossT
 	secondWrite := requestToJSONString(captureConn.writes[1])
 	require.False(t, gjson.Get(secondWrite, "input.0.id").Exists(), "API-key WS 上游不得收到非法 reasoning item id")
 	require.Equal(t, "cipher", gjson.Get(secondWrite, "input.0.encrypted_content").String(), "清洗 id 时必须保留 reasoning 上下文")
-	require.Equal(t, expectedCallID, gjson.Get(secondWrite, "input.1.call_id").String(), "API-key WS 上游不得收到超长 call_id")
-	require.Equal(t, expectedCallID, gjson.Get(secondWrite, "input.2.call_id").String(), "function_call 与 output 必须保持压缩后配对")
+	require.False(t, gjson.Get(secondWrite, "input.1.id").Exists(), "API-key WS 上游不得收到 67 字符 item id")
+	require.Equal(t, "long-id-cipher", gjson.Get(secondWrite, "input.1.encrypted_content").String(), "清洗超长 id 时必须保留 reasoning 上下文")
+	require.Equal(t, expectedCallID, gjson.Get(secondWrite, "input.2.call_id").String(), "API-key WS 上游不得收到超长 call_id")
+	require.Equal(t, expectedCallID, gjson.Get(secondWrite, "input.3.call_id").String(), "function_call 与 output 必须保持压缩后配对")
 }
 
 func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_IdleTimeoutReleasesStoreDisabledSession(t *testing.T) {

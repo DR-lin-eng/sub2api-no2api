@@ -150,6 +150,7 @@ func TestOpenAIGatewayService_Forward_APIKeySanitizesInputIDs(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	overlongCallID := "srvtoolu_" + strings.Repeat("x", 69)
 	expectedCallID := sanitizeOpenAIResponsesCallID(overlongCallID)
+	overlongItemID := "rs_" + strings.Repeat("i", 64)
 
 	for _, passthrough := range []bool{false, true} {
 		t.Run(fmt.Sprintf("passthrough=%v", passthrough), func(t *testing.T) {
@@ -183,7 +184,7 @@ func TestOpenAIGatewayService_Forward_APIKeySanitizesInputIDs(t *testing.T) {
 			c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
 			SetOpenAIClientTransport(c, OpenAIClientTransportHTTP)
 
-			body := []byte(fmt.Sprintf(`{"model":"gpt-5.4","stream":false,"input":[{"type":"reasoning","id":"item_aaf212cbed95cf83ae9f2d5a","summary":[],"encrypted_content":"cipher"},{"type":"reasoning","id":"rs_persisted","summary":[]},{"type":"function_call","call_id":%q,"name":"tool","arguments":"{}"},{"type":"function_call_output","call_id":%q,"output":"ok"},{"type":"message","role":"user","content":"continue"}]}`, overlongCallID, overlongCallID))
+			body := []byte(fmt.Sprintf(`{"model":"gpt-5.4","stream":false,"input":[{"type":"reasoning","id":"item_aaf212cbed95cf83ae9f2d5a","summary":[],"encrypted_content":"cipher"},{"type":"reasoning","id":"rs_persisted","summary":[]},{"type":"reasoning","id":%q,"summary":[],"encrypted_content":"long-id-cipher"},{"type":"function_call","call_id":%q,"name":"tool","arguments":"{}"},{"type":"function_call_output","call_id":%q,"output":"ok"},{"type":"message","role":"user","content":"continue"}]}`, overlongItemID, overlongCallID, overlongCallID))
 			result, err := svc.Forward(context.Background(), c, account, body)
 
 			require.NoError(t, err)
@@ -192,8 +193,10 @@ func TestOpenAIGatewayService_Forward_APIKeySanitizesInputIDs(t *testing.T) {
 			require.False(t, gjson.GetBytes(upstream.lastBody, "input.0.id").Exists())
 			require.Equal(t, "cipher", gjson.GetBytes(upstream.lastBody, "input.0.encrypted_content").String())
 			require.Equal(t, "rs_persisted", gjson.GetBytes(upstream.lastBody, "input.1.id").String())
-			require.Equal(t, expectedCallID, gjson.GetBytes(upstream.lastBody, "input.2.call_id").String())
+			require.False(t, gjson.GetBytes(upstream.lastBody, "input.2.id").Exists())
+			require.Equal(t, "long-id-cipher", gjson.GetBytes(upstream.lastBody, "input.2.encrypted_content").String())
 			require.Equal(t, expectedCallID, gjson.GetBytes(upstream.lastBody, "input.3.call_id").String())
+			require.Equal(t, expectedCallID, gjson.GetBytes(upstream.lastBody, "input.4.call_id").String())
 		})
 	}
 }

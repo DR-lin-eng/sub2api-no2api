@@ -87,7 +87,7 @@ type codexOAuthTransformOptions struct {
 }
 
 const (
-	codexCallIDMaxLength = 64
+	codexCallIDMaxLength = openAIResponsesIDMaxLength
 	codexCallIDPrefix    = "fc_"
 )
 
@@ -1434,8 +1434,13 @@ func filterCodexInputWithOptions(input []any, opts codexInputFilterOptions) []an
 			for key, value := range m {
 				newItem[key] = value
 			}
-			if id, ok := newItem["id"].(string); ok && strings.HasPrefix(id, "call_") {
-				newItem["id"] = fixCallIDPrefix(id)
+			if id, ok := newItem["id"].(string); ok {
+				if len(id) > openAIResponsesIDMaxLength && !isLikelyOpenAIResponsesToolCallReferenceID(id) {
+					continue
+				}
+				if len(id) > openAIResponsesIDMaxLength || strings.HasPrefix(id, "call_") {
+					newItem["id"] = fixCallIDPrefix(id)
+				}
 			}
 			filtered = append(filtered, newItem)
 			continue

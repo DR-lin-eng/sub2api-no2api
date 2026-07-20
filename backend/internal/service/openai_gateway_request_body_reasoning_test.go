@@ -96,6 +96,45 @@ func TestSanitizeOpenAIResponsesInputIDs_CompactsOverlongCallIDsAndPreservesPair
 	require.Equal(t, boundaryCallID, gjson.GetBytes(sanitized, "input.2.call_id").String())
 }
 
+func TestSanitizeOpenAIResponsesInputIDs_RemovesOverlongItemIDsAndKeepsToolReferencesPaired(t *testing.T) {
+	overlongItemID := "rs_" + strings.Repeat("x", 64)
+	boundaryItemID := "rs_" + strings.Repeat("y", codexCallIDMaxLength-len("rs_"))
+	overlongMessageID := "msg_" + strings.Repeat("m", 63)
+	overlongFunctionID := "fc_" + strings.Repeat("f", 64)
+	overlongUnknownID := "item_" + strings.Repeat("u", 62)
+	overlongCallID := "srvtoolu_" + strings.Repeat("c", 69)
+	expectedCallID := sanitizeOpenAIResponsesCallID(overlongCallID)
+	body := []byte(fmt.Sprintf(`{
+		"model":"gpt-5.4",
+		"input":[
+			{"type":"reasoning","id":%q,"summary":[],"encrypted_content":"cipher"},
+			{"type":"reasoning","id":%q,"summary":[]},
+			{"type":"message","id":%q,"role":"assistant","content":"answer"},
+			{"type":"function_call","id":%q,"call_id":"call_short","name":"tool","arguments":"{}"},
+			{"type":"image_generation_call","id":%q,"status":"completed"},
+			{"type":"function_call","call_id":%q,"name":"paired","arguments":"{}"},
+			{"type":"item_reference","id":%q},
+			{"type":"item_reference","id":%q},
+			{"type":"message","role":"user","content":"continue"}
+		]
+	}`, overlongItemID, boundaryItemID, overlongMessageID, overlongFunctionID, overlongUnknownID, overlongCallID, overlongCallID, overlongItemID))
+
+	sanitized, changed, err := sanitizeOpenAIResponsesInputIDs(body, false)
+
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Len(t, overlongItemID, 67)
+	require.False(t, gjson.GetBytes(sanitized, "input.0.id").Exists())
+	require.Equal(t, "cipher", gjson.GetBytes(sanitized, "input.0.encrypted_content").String())
+	require.Equal(t, boundaryItemID, gjson.GetBytes(sanitized, "input.1.id").String())
+	require.False(t, gjson.GetBytes(sanitized, "input.2.id").Exists())
+	require.False(t, gjson.GetBytes(sanitized, "input.3.id").Exists())
+	require.False(t, gjson.GetBytes(sanitized, "input.4.id").Exists())
+	require.Equal(t, expectedCallID, gjson.GetBytes(sanitized, "input.5.call_id").String())
+	require.Equal(t, expectedCallID, gjson.GetBytes(sanitized, "input.6.id").String())
+	require.Equal(t, "message", gjson.GetBytes(sanitized, "input.7.type").String(), "无法解析的超长 rs_ item_reference 应被删除")
+}
+
 func TestSanitizeOpenAIResponsesInputIDs_SingleInputObject(t *testing.T) {
 	body := []byte(`{"model":"gpt-5.4","input":{"type":"reasoning","id":"item_invalid","summary":[]}}`)
 
@@ -116,6 +155,18 @@ func TestSanitizeOpenAIResponsesInputIDs_SingleInputObjectCompactsCallID(t *test
 	require.NoError(t, err)
 	require.True(t, changed)
 	require.Equal(t, sanitizeOpenAIResponsesCallID(overlongCallID), gjson.GetBytes(sanitized, "input.call_id").String())
+}
+
+func TestSanitizeOpenAIResponsesInputIDs_SingleOverlongUnresolvableReferenceBecomesEmptyInput(t *testing.T) {
+	overlongReferenceID := "rs_" + strings.Repeat("x", 64)
+	body := []byte(fmt.Sprintf(`{"model":"gpt-5.4","input":{"type":"item_reference","id":%q}}`, overlongReferenceID))
+
+	sanitized, changed, err := sanitizeOpenAIResponsesInputIDs(body, false)
+
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.True(t, gjson.GetBytes(sanitized, "input").IsArray())
+	require.Zero(t, gjson.GetBytes(sanitized, "input.#").Int())
 }
 
 func TestSanitizeOpenAIResponsesInputIDs_NoCandidateIsNoop(t *testing.T) {
@@ -151,6 +202,7 @@ func BenchmarkSanitizeOpenAIResponsesInputIDs(b *testing.B) {
 	}
 
 	overlongCallIDBody := []byte(fmt.Sprintf(`{"model":"gpt-5.4","input":[{"type":"function_call","call_id":%q,"name":"tool","arguments":"{}"}]}`, "srvtoolu_"+strings.Repeat("x", 69)))
+	overlongItemIDBody := []byte(fmt.Sprintf(`{"model":"gpt-5.4","input":[{"type":"reasoning","id":%q,"summary":[],"encrypted_content":"cipher"}]}`, "rs_"+strings.Repeat("x", 64)))
 	benchmarks := []struct {
 		name string
 		body []byte
@@ -158,6 +210,7 @@ func BenchmarkSanitizeOpenAIResponsesInputIDs(b *testing.B) {
 		{name: "no_ids", body: buildHistory(false, false)},
 		{name: "valid_ids", body: buildHistory(true, false)},
 		{name: "one_invalid_id", body: buildHistory(true, true)},
+		{name: "one_overlong_item_id", body: overlongItemIDBody},
 		{name: "one_overlong_call_id", body: overlongCallIDBody},
 	}
 	for _, benchmark := range benchmarks {

@@ -127,6 +127,50 @@ func TestApplyCodexOAuthTransform_ToolContinuationNormalizesToolReferenceIDsOnly
 	require.Equal(t, "fc_1", second["call_id"])
 }
 
+func TestApplyCodexOAuthTransform_StripsOverlongItemIDsAndKeepsToolReferencesPaired(t *testing.T) {
+	for _, preserveCallIDs := range []bool{false, true} {
+		t.Run(fmt.Sprintf("preserve_call_ids=%v", preserveCallIDs), func(t *testing.T) {
+			overlongMessageID := "msg_" + strings.Repeat("m", 63)
+			overlongFunctionID := "fc_" + strings.Repeat("f", 64)
+			overlongCallID := "srvtoolu_" + strings.Repeat("c", 69)
+			overlongReasoningReferenceID := "rs_" + strings.Repeat("r", 64)
+			expectedCallID := normalizeCodexCallID(overlongCallID)
+			if preserveCallIDs {
+				expectedCallID = sanitizeOpenAIResponsesCallID(overlongCallID)
+			}
+			reqBody := map[string]any{
+				"model": "gpt-5.2",
+				"input": []any{
+					map[string]any{"type": "message", "id": overlongMessageID, "role": "assistant", "content": "answer"},
+					map[string]any{"type": "function_call", "id": overlongFunctionID, "call_id": overlongCallID, "name": "tool", "arguments": "{}"},
+					map[string]any{"type": "item_reference", "id": overlongCallID},
+					map[string]any{"type": "function_call_output", "call_id": overlongCallID, "output": "ok"},
+					map[string]any{"type": "item_reference", "id": overlongReasoningReferenceID},
+				},
+			}
+
+			applyCodexOAuthTransformWithOptions(reqBody, codexOAuthTransformOptions{PreserveToolCallIDs: preserveCallIDs})
+
+			input, ok := reqBody["input"].([]any)
+			require.True(t, ok)
+			require.Len(t, input, 4)
+			message, ok := input[0].(map[string]any)
+			require.True(t, ok)
+			require.NotContains(t, message, "id")
+			call, ok := input[1].(map[string]any)
+			require.True(t, ok)
+			require.NotContains(t, call, "id")
+			require.Equal(t, expectedCallID, call["call_id"])
+			reference, ok := input[2].(map[string]any)
+			require.True(t, ok)
+			require.Equal(t, expectedCallID, reference["id"])
+			output, ok := input[3].(map[string]any)
+			require.True(t, ok)
+			require.Equal(t, expectedCallID, output["call_id"])
+		})
+	}
+}
+
 func TestApplyCodexOAuthTransform_BoundsLongCallIDsAndPreservesPairing(t *testing.T) {
 	suffix := strings.Repeat("z", 62)
 	for _, tc := range []struct {
