@@ -1773,6 +1773,70 @@ func TestForwardAsAnthropic_OAuthPreservesClaudeCodeToolCallID(t *testing.T) {
 	require.False(t, gjson.GetBytes(upstream.lastBody, "tools.0.strict").Bool())
 }
 
+func TestForwardAsAnthropic_CompactsOverlongToolCallIDForOpenAIAccounts(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+
+	overlongCallID := "srvtoolu_" + strings.Repeat("x", 69)
+	expectedCallID := sanitizeOpenAIResponsesCallID(overlongCallID)
+	accountCases := []struct {
+		name        string
+		accountType string
+		credentials map[string]any
+	}{
+		{
+			name:        "oauth",
+			accountType: AccountTypeOAuth,
+			credentials: map[string]any{
+				"access_token":       "oauth-token",
+				"chatgpt_account_id": "chatgpt-acc",
+			},
+		},
+		{
+			name:        "api_key",
+			accountType: AccountTypeAPIKey,
+			credentials: map[string]any{
+				"api_key":  "sk-test",
+				"base_url": "https://api.openai.com/v1",
+			},
+		},
+	}
+
+	for _, tc := range accountCases {
+		t.Run(tc.name, func(t *testing.T) {
+			upstream := &httpUpstreamRecorder{resp: openAICompatSSECompletedResponse("resp_overlong_tool", "gpt-5.4")}
+			svc := &OpenAIGatewayService{
+				httpUpstream: upstream,
+				cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
+			}
+			account := &Account{
+				ID:          1,
+				Name:        "openai-" + tc.name,
+				Platform:    PlatformOpenAI,
+				Type:        tc.accountType,
+				Concurrency: 1,
+				Credentials: tc.credentials,
+			}
+			body := []byte(fmt.Sprintf(`{"model":"claude-sonnet-4-5","max_tokens":16,"messages":[{"role":"user","content":"list files"},{"role":"assistant","content":[{"type":"tool_use","id":%q,"name":"Bash","input":{"command":"ls"}}]},{"role":"user","content":[{"type":"tool_result","tool_use_id":%q,"content":"ok"}]}],"tools":[{"name":"Bash","description":"run shell","input_schema":{"type":"object","properties":{"command":{"type":"string"}}}}],"stream":false}`, overlongCallID, overlongCallID))
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body))
+			c.Request.Header.Set("Content-Type", "application/json")
+
+			result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "stable-cache-key", "gpt-5.4")
+
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			callID := gjson.GetBytes(upstream.lastBody, `input.#(type=="function_call").call_id`).String()
+			outputCallID := gjson.GetBytes(upstream.lastBody, `input.#(type=="function_call_output").call_id`).String()
+			require.Equal(t, expectedCallID, callID)
+			require.Equal(t, callID, outputCallID)
+			require.Len(t, callID, codexCallIDMaxLength)
+			require.True(t, strings.HasPrefix(callID, codexCallIDPrefix))
+		})
+	}
+}
+
 func TestForwardAsAnthropic_StoresStreamingResponseIDWithoutUsage(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)

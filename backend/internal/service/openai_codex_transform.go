@@ -1421,7 +1421,7 @@ func filterCodexInputWithOptions(input []any, opts codexInputFilterOptions) []an
 		// 若 item_reference 指向 legacy call_* 标识，则仅修正该引用本身。
 		fixCallIDPrefix := func(id string) string {
 			if opts.PreserveCallIDs {
-				return id
+				return sanitizeOpenAIResponsesCallID(id)
 			}
 			return normalizeCodexCallID(id)
 		}

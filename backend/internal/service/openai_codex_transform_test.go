@@ -167,8 +167,36 @@ func TestApplyCodexOAuthTransform_BoundsLongCallIDsAndPreservesPairing(t *testin
 	}
 }
 
-func TestApplyCodexOAuthTransform_PreservesLongCallIDsWhenRequested(t *testing.T) {
-	callID := "call-" + strings.Repeat("x", 70)
+func TestApplyCodexOAuthTransform_PreservesCallIDsWithinLimitWhenRequested(t *testing.T) {
+	for _, callID := range []string{
+		"toolu_01ABCdefGHIjklMNOpqrsTUV",
+		"toolu_" + strings.Repeat("x", codexCallIDMaxLength-len("toolu_")),
+	} {
+		reqBody := map[string]any{
+			"model": "gpt-5.2",
+			"input": []any{
+				map[string]any{"type": "function_call", "call_id": callID, "name": "shell"},
+				map[string]any{"type": "function_call_output", "call_id": callID, "output": "done"},
+			},
+		}
+
+		applyCodexOAuthTransformWithOptions(reqBody, codexOAuthTransformOptions{
+			PreserveToolCallIDs: true,
+		})
+
+		input, ok := reqBody["input"].([]any)
+		require.True(t, ok)
+		call, ok := input[0].(map[string]any)
+		require.True(t, ok)
+		output, ok := input[1].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, callID, call["call_id"])
+		require.Equal(t, callID, output["call_id"])
+	}
+}
+
+func TestApplyCodexOAuthTransform_CompactsOverlongCallIDsWhenPreserveRequested(t *testing.T) {
+	callID := "srvtoolu_" + strings.Repeat("x", 69)
 	reqBody := map[string]any{
 		"model": "gpt-5.2",
 		"input": []any{
@@ -187,8 +215,12 @@ func TestApplyCodexOAuthTransform_PreservesLongCallIDsWhenRequested(t *testing.T
 	require.True(t, ok)
 	output, ok := input[1].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, callID, call["call_id"])
-	require.Equal(t, callID, output["call_id"])
+	compacted, ok := call["call_id"].(string)
+	require.True(t, ok)
+	require.Len(t, compacted, codexCallIDMaxLength)
+	require.True(t, strings.HasPrefix(compacted, codexCallIDPrefix))
+	require.Equal(t, compacted, output["call_id"])
+	require.Equal(t, sanitizeOpenAIResponsesCallID(callID), compacted)
 }
 
 func TestApplyCodexOAuthTransform_ToolSearchOutputPreservesCallID(t *testing.T) {

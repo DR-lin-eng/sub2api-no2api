@@ -70,6 +70,17 @@ func openAIResponsesInputItemIDString(value any) (string, bool) {
 	return id, ok
 }
 
+// sanitizeOpenAIResponsesCallID preserves valid client-provided call IDs and
+// only compacts values that OpenAI would reject for exceeding its 64-character
+// limit. compactCodexCallID is deterministic, so paired call/output items keep
+// the same ID across full-history replays and across every gateway transport.
+func sanitizeOpenAIResponsesCallID(id string) string {
+	if len(id) <= codexCallIDMaxLength {
+		return id
+	}
+	return compactCodexCallID(id)
+}
+
 func isOpenAIResponsesCallInputItemType(itemType string) bool {
 	switch strings.TrimSpace(itemType) {
 	case "function_call",
@@ -100,13 +111,61 @@ func rawOpenAIResponsesInputItemIDShouldBeStripped(item gjson.Result, stripAllRe
 	)
 }
 
-// sanitizeOpenAIResponsesInputItemIDs adapts the shared ID policy to raw HTTP
-// and WebSocket payloads. API-key accounts may replay genuine stored rs_* items,
-// while ChatGPT Codex OAuth runs with store=false and must strip every reasoning
-// ID. The input array is rebuilt at most once, preserving each item's raw JSON
-// so large integer and extension fields do not lose precision.
-func sanitizeOpenAIResponsesInputItemIDs(body []byte, stripAllReasoningIDs bool) ([]byte, bool, error) {
-	if len(body) == 0 || !bytes.Contains(body, []byte(`"id"`)) {
+func rawOpenAIResponsesInputItemCallID(item gjson.Result) (string, bool) {
+	if !item.IsObject() {
+		return "", false
+	}
+	callID := item.Get("call_id")
+	if callID.Type != gjson.String {
+		return "", false
+	}
+	sanitized := sanitizeOpenAIResponsesCallID(callID.String())
+	return sanitized, sanitized != callID.String()
+}
+
+func rawOpenAIResponsesInputItemNeedsSanitization(item gjson.Result, stripAllReasoningIDs bool) bool {
+	if rawOpenAIResponsesInputItemIDShouldBeStripped(item, stripAllReasoningIDs) {
+		return true
+	}
+	_, compactCallID := rawOpenAIResponsesInputItemCallID(item)
+	return compactCallID
+}
+
+func sanitizeRawOpenAIResponsesInputItem(item gjson.Result, stripAllReasoningIDs bool) (string, bool, error) {
+	if !item.IsObject() {
+		return item.Raw, false, nil
+	}
+
+	itemRaw := item.Raw
+	changed := false
+	if rawOpenAIResponsesInputItemIDShouldBeStripped(item, stripAllReasoningIDs) {
+		var err error
+		itemRaw, err = sjson.Delete(itemRaw, "id")
+		if err != nil {
+			return item.Raw, false, err
+		}
+		changed = true
+	}
+	if compactedCallID, compact := rawOpenAIResponsesInputItemCallID(item); compact {
+		var err error
+		itemRaw, err = sjson.Set(itemRaw, "call_id", compactedCallID)
+		if err != nil {
+			return item.Raw, false, err
+		}
+		changed = true
+	}
+	return itemRaw, changed, nil
+}
+
+// sanitizeOpenAIResponsesInputIDs adapts the shared item-ID and call-ID policy
+// to raw HTTP and WebSocket payloads. API-key accounts may replay genuine
+// stored rs_* items, while ChatGPT Codex OAuth runs with store=false and must
+// strip every reasoning ID. Overlong call_id values are compacted for every
+// account/transport while IDs within the upstream limit remain byte-for-byte
+// unchanged. The input array is rebuilt at most once, preserving each item's
+// raw JSON so large integers and extension fields do not lose precision.
+func sanitizeOpenAIResponsesInputIDs(body []byte, stripAllReasoningIDs bool) ([]byte, bool, error) {
+	if len(body) == 0 || (!bytes.Contains(body, []byte(`"id"`)) && !bytes.Contains(body, []byte(`"call_id"`))) {
 		return body, false, nil
 	}
 
@@ -118,7 +177,7 @@ func sanitizeOpenAIResponsesInputItemIDs(body []byte, stripAllReasoningIDs bool)
 	if input.IsArray() {
 		changed := false
 		input.ForEach(func(_, item gjson.Result) bool {
-			changed = rawOpenAIResponsesInputItemIDShouldBeStripped(item, stripAllReasoningIDs)
+			changed = rawOpenAIResponsesInputItemNeedsSanitization(item, stripAllReasoningIDs)
 			return !changed
 		})
 		if !changed {
@@ -135,16 +194,12 @@ func sanitizeOpenAIResponsesInputItemIDs(body []byte, stripAllReasoningIDs bool)
 				_ = rebuilt.WriteByte(',')
 			}
 			first = false
-			if rawOpenAIResponsesInputItemIDShouldBeStripped(item, stripAllReasoningIDs) {
-				itemRaw := ""
-				itemRaw, rebuildErr = sjson.Delete(item.Raw, "id")
-				if rebuildErr != nil {
-					return false
-				}
-				_, _ = rebuilt.WriteString(itemRaw)
-				return true
+			itemRaw, _, sanitizeErr := sanitizeRawOpenAIResponsesInputItem(item, stripAllReasoningIDs)
+			if sanitizeErr != nil {
+				rebuildErr = sanitizeErr
+				return false
 			}
-			_, _ = rebuilt.WriteString(item.Raw)
+			_, _ = rebuilt.WriteString(itemRaw)
 			return true
 		})
 		if rebuildErr != nil {
@@ -159,14 +214,14 @@ func sanitizeOpenAIResponsesInputItemIDs(body []byte, stripAllReasoningIDs bool)
 		return sanitized, true, nil
 	}
 
-	if !rawOpenAIResponsesInputItemIDShouldBeStripped(input, stripAllReasoningIDs) {
+	itemRaw, changed, err := sanitizeRawOpenAIResponsesInputItem(input, stripAllReasoningIDs)
+	if err != nil {
+		return body, false, fmt.Errorf("sanitize Responses input item: %w", err)
+	}
+	if !changed {
 		return body, false, nil
 	}
-	itemRaw, err := sjson.DeleteBytes([]byte(input.Raw), "id")
-	if err != nil {
-		return body, false, fmt.Errorf("sanitize Responses input item id: %w", err)
-	}
-	sanitized, err := sjson.SetRawBytes(body, "input", itemRaw)
+	sanitized, err := sjson.SetRawBytes(body, "input", []byte(itemRaw))
 	if err != nil {
 		return body, false, fmt.Errorf("replace sanitized Responses input item: %w", err)
 	}

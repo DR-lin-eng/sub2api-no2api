@@ -268,7 +268,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			)
 		}
 		if account.IsOpenAI() {
-			sanitized, _, sanitizeErr := sanitizeOpenAIResponsesInputItemIDs(normalized, account.IsOpenAIOAuth())
+			sanitized, _, sanitizeErr := sanitizeOpenAIResponsesInputIDs(normalized, account.IsOpenAIOAuth())
 			if sanitizeErr != nil {
 				return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", sanitizeErr)
 			}

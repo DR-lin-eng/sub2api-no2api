@@ -283,6 +283,12 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 			}
 		}
 	}
+	if account.IsOpenAI() {
+		responsesBody, _, err = sanitizeOpenAIResponsesInputIDs(responsesBody, account.IsOpenAIOAuth())
+		if err != nil {
+			return nil, fmt.Errorf("sanitize Responses input ids: %w", err)
+		}
+	}
 
 	// 4c. Apply OpenAI fast policy (may filter service_tier or block the request).
 	// Mirrors the Claude anthropic-beta "fast-mode-2026-02-01" filter, but keyed

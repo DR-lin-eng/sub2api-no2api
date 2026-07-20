@@ -10,7 +10,7 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func TestSanitizeOpenAIResponsesInputItemIDs_APIKeyRemovesInvalidPrefixes(t *testing.T) {
+func TestSanitizeOpenAIResponsesInputIDs_APIKeyRemovesInvalidPrefixes(t *testing.T) {
 	body := []byte(`{
 		"type":"response.create",
 		"model":"gpt-5.4",
@@ -36,7 +36,7 @@ func TestSanitizeOpenAIResponsesInputItemIDs_APIKeyRemovesInvalidPrefixes(t *tes
 		]
 	}`)
 
-	sanitized, changed, err := sanitizeOpenAIResponsesInputItemIDs(body, false)
+	sanitized, changed, err := sanitizeOpenAIResponsesInputIDs(body, false)
 
 	require.NoError(t, err)
 	require.True(t, changed)
@@ -53,7 +53,7 @@ func TestSanitizeOpenAIResponsesInputItemIDs_APIKeyRemovesInvalidPrefixes(t *tes
 	require.Equal(t, "item_reference_is_semantic", gjson.GetBytes(sanitized, "input.17.id").String())
 }
 
-func TestSanitizeOpenAIResponsesInputItemIDs_OAuthStripsAllReasoningIDs(t *testing.T) {
+func TestSanitizeOpenAIResponsesInputIDs_OAuthStripsAllReasoningIDs(t *testing.T) {
 	body := []byte(`{
 		"input":[
 			{"type":"reasoning","id":"rs_not_persisted","summary":[],"encrypted_content":"cipher"},
@@ -62,7 +62,7 @@ func TestSanitizeOpenAIResponsesInputItemIDs_OAuthStripsAllReasoningIDs(t *testi
 		]
 	}`)
 
-	sanitized, changed, err := sanitizeOpenAIResponsesInputItemIDs(body, true)
+	sanitized, changed, err := sanitizeOpenAIResponsesInputIDs(body, true)
 
 	require.NoError(t, err)
 	require.True(t, changed)
@@ -72,10 +72,34 @@ func TestSanitizeOpenAIResponsesInputItemIDs_OAuthStripsAllReasoningIDs(t *testi
 	require.Equal(t, "fc_persisted", gjson.GetBytes(sanitized, "input.2.id").String())
 }
 
-func TestSanitizeOpenAIResponsesInputItemIDs_SingleInputObject(t *testing.T) {
+func TestSanitizeOpenAIResponsesInputIDs_CompactsOverlongCallIDsAndPreservesPairing(t *testing.T) {
+	overlongCallID := "srvtoolu_" + strings.Repeat("x", 69)
+	boundaryCallID := "toolu_" + strings.Repeat("y", codexCallIDMaxLength-len("toolu_"))
+	body := []byte(fmt.Sprintf(`{
+		"model":"gpt-5.4",
+		"input":[
+			{"type":"function_call","call_id":%q,"name":"tool","arguments":"{}"},
+			{"type":"function_call_output","call_id":%q,"output":"ok"},
+			{"type":"function_call","call_id":%q,"name":"boundary","arguments":"{}"}
+		]
+	}`, overlongCallID, overlongCallID, boundaryCallID))
+
+	sanitized, changed, err := sanitizeOpenAIResponsesInputIDs(body, false)
+
+	require.NoError(t, err)
+	require.True(t, changed)
+	compacted := gjson.GetBytes(sanitized, "input.0.call_id").String()
+	require.Len(t, compacted, codexCallIDMaxLength)
+	require.True(t, strings.HasPrefix(compacted, codexCallIDPrefix))
+	require.Equal(t, sanitizeOpenAIResponsesCallID(overlongCallID), compacted)
+	require.Equal(t, compacted, gjson.GetBytes(sanitized, "input.1.call_id").String())
+	require.Equal(t, boundaryCallID, gjson.GetBytes(sanitized, "input.2.call_id").String())
+}
+
+func TestSanitizeOpenAIResponsesInputIDs_SingleInputObject(t *testing.T) {
 	body := []byte(`{"model":"gpt-5.4","input":{"type":"reasoning","id":"item_invalid","summary":[]}}`)
 
-	sanitized, changed, err := sanitizeOpenAIResponsesInputItemIDs(body, false)
+	sanitized, changed, err := sanitizeOpenAIResponsesInputIDs(body, false)
 
 	require.NoError(t, err)
 	require.True(t, changed)
@@ -83,17 +107,28 @@ func TestSanitizeOpenAIResponsesInputItemIDs_SingleInputObject(t *testing.T) {
 	require.Equal(t, "reasoning", gjson.GetBytes(sanitized, "input.type").String())
 }
 
-func TestSanitizeOpenAIResponsesInputItemIDs_NoCandidateIsNoop(t *testing.T) {
+func TestSanitizeOpenAIResponsesInputIDs_SingleInputObjectCompactsCallID(t *testing.T) {
+	overlongCallID := "srvtoolu_" + strings.Repeat("z", 69)
+	body := []byte(fmt.Sprintf(`{"model":"gpt-5.4","input":{"type":"function_call_output","call_id":%q,"output":"ok"}}`, overlongCallID))
+
+	sanitized, changed, err := sanitizeOpenAIResponsesInputIDs(body, false)
+
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, sanitizeOpenAIResponsesCallID(overlongCallID), gjson.GetBytes(sanitized, "input.call_id").String())
+}
+
+func TestSanitizeOpenAIResponsesInputIDs_NoCandidateIsNoop(t *testing.T) {
 	body := []byte(`{"model":"gpt-5.4","input":[{"type":"message","role":"user","content":"hello"}]}`)
 
-	sanitized, changed, err := sanitizeOpenAIResponsesInputItemIDs(body, false)
+	sanitized, changed, err := sanitizeOpenAIResponsesInputIDs(body, false)
 
 	require.NoError(t, err)
 	require.False(t, changed)
 	require.Equal(t, body, sanitized)
 }
 
-func BenchmarkSanitizeOpenAIResponsesInputItemIDs(b *testing.B) {
+func BenchmarkSanitizeOpenAIResponsesInputIDs(b *testing.B) {
 	buildHistory := func(includeIDs bool, invalidLastID bool) []byte {
 		var body strings.Builder
 		_, _ = body.WriteString(`{"model":"gpt-5.4","input":[`)
@@ -115,6 +150,7 @@ func BenchmarkSanitizeOpenAIResponsesInputItemIDs(b *testing.B) {
 		return []byte(body.String())
 	}
 
+	overlongCallIDBody := []byte(fmt.Sprintf(`{"model":"gpt-5.4","input":[{"type":"function_call","call_id":%q,"name":"tool","arguments":"{}"}]}`, "srvtoolu_"+strings.Repeat("x", 69)))
 	benchmarks := []struct {
 		name string
 		body []byte
@@ -122,13 +158,14 @@ func BenchmarkSanitizeOpenAIResponsesInputItemIDs(b *testing.B) {
 		{name: "no_ids", body: buildHistory(false, false)},
 		{name: "valid_ids", body: buildHistory(true, false)},
 		{name: "one_invalid_id", body: buildHistory(true, true)},
+		{name: "one_overlong_call_id", body: overlongCallIDBody},
 	}
 	for _, benchmark := range benchmarks {
 		b.Run(benchmark.name, func(b *testing.B) {
 			b.ReportAllocs()
 			b.SetBytes(int64(len(benchmark.body)))
 			for i := 0; i < b.N; i++ {
-				_, _, err := sanitizeOpenAIResponsesInputItemIDs(benchmark.body, false)
+				_, _, err := sanitizeOpenAIResponsesInputIDs(benchmark.body, false)
 				if err != nil {
 					b.Fatal(err)
 				}
