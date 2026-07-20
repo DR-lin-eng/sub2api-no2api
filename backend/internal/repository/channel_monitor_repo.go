@@ -237,6 +237,7 @@ func (r *channelMonitorRepository) MarkChecked(ctx context.Context, id int64, ch
 }
 
 // ComputePassiveSamples aggregates real gateway traffic for a passive monitor.
+// Conversation latency is the average TTFT of non-image/video requests.
 // Exactly one target is set: channelID resolves error rows through
 // channel_groups, while groupID filters both logs directly.
 func (r *channelMonitorRepository) ComputePassiveSamples(
@@ -267,7 +268,11 @@ func (r *channelMonitorRepository) ComputePassiveSamples(
 		success_agg AS (
 		    SELECT LOWER(COALESCE(NULLIF(ul.requested_model, ''), ul.model)) AS model_key,
 		           COUNT(*) AS success_count,
-		           AVG(ul.duration_ms) FILTER (WHERE ul.duration_ms IS NOT NULL) AS avg_latency_ms
+		           AVG(ul.first_token_ms) FILTER (
+		               WHERE ul.first_token_ms IS NOT NULL
+		                 AND COALESCE(ul.image_count, 0) = 0
+		                 AND COALESCE(ul.video_count, 0) = 0
+		           ) AS avg_ttft_ms
 		    FROM usage_logs ul
 		    JOIN groups g ON g.id = ul.group_id AND g.platform = $3
 		    WHERE (($1::BIGINT IS NOT NULL AND ul.channel_id = $1)
@@ -303,7 +308,7 @@ func (r *channelMonitorRepository) ComputePassiveSamples(
 		SELECT rm.model,
 		       COALESCE(s.success_count, 0),
 		       COALESCE(e.failure_count, 0),
-		       s.avg_latency_ms
+		       s.avg_ttft_ms
 		FROM requested_models rm
 		LEFT JOIN success_agg s ON s.model_key = rm.model_key
 		LEFT JOIN error_agg e ON e.model_key = rm.model_key
@@ -318,13 +323,13 @@ func (r *channelMonitorRepository) ComputePassiveSamples(
 	out := make([]*service.ChannelMonitorPassiveSample, 0, len(models))
 	for rows.Next() {
 		sample := &service.ChannelMonitorPassiveSample{}
-		var avgLatency sql.NullFloat64
-		if err := rows.Scan(&sample.Model, &sample.SuccessCount, &sample.FailureCount, &avgLatency); err != nil {
+		var avgTTFT sql.NullFloat64
+		if err := rows.Scan(&sample.Model, &sample.SuccessCount, &sample.FailureCount, &avgTTFT); err != nil {
 			return nil, fmt.Errorf("scan passive channel monitor sample: %w", err)
 		}
-		if avgLatency.Valid {
-			latency := int(avgLatency.Float64)
-			sample.AvgLatencyMs = &latency
+		if avgTTFT.Valid {
+			ttft := int(avgTTFT.Float64)
+			sample.AvgTTFTMs = &ttft
 		}
 		out = append(out, sample)
 	}

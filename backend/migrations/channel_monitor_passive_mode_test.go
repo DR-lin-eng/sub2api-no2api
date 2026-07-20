@@ -29,6 +29,20 @@ func TestChannelMonitorPassiveIndexMigration(t *testing.T) {
 	require.Contains(t, sql, "WHERE channel_id IS NOT NULL")
 }
 
+func TestChannelMonitorPassiveTTFTIndexMigration(t *testing.T) {
+	content, err := FS.ReadFile("190_channel_monitor_passive_ttft_index_notx.sql")
+	require.NoError(t, err)
+
+	sql := strings.Join(strings.Fields(string(content)), " ")
+	require.Contains(t, sql, "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_usage_logs_channel_created_monitor_ttft")
+	require.Contains(t, sql, "ON usage_logs (channel_id, created_at DESC)")
+	require.Contains(t, sql, "first_token_ms")
+	require.Contains(t, sql, "image_count")
+	require.Contains(t, sql, "video_count")
+	require.NotContains(t, sql, "duration_ms")
+	require.Contains(t, sql, "DROP INDEX CONCURRENTLY IF EXISTS idx_usage_logs_channel_created_monitor")
+}
+
 func TestChannelMonitorGroupTargetMigration(t *testing.T) {
 	content, err := FS.ReadFile("189_channel_monitor_group_target.sql")
 	require.NoError(t, err)

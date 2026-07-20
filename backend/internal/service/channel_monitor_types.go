@@ -141,7 +141,7 @@ type ChannelMonitorPassiveSample struct {
 	Model        string
 	SuccessCount int64
 	FailureCount int64
-	AvgLatencyMs *int
+	AvgTTFTMs    *int
 }
 
 // UserMonitorView 用户只读视图：监控概览（含主模型最近状态 + 7d 可用率 + 附加模型最近状态）。

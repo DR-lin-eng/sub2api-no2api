@@ -525,7 +525,7 @@ func passiveSampleToCheckResult(sample *ChannelMonitorPassiveSample, checkedAt t
 	total := sample.SuccessCount + sample.FailureCount
 	result := &CheckResult{
 		Model:     sample.Model,
-		LatencyMs: sample.AvgLatencyMs,
+		LatencyMs: sample.AvgTTFTMs,
 		CheckedAt: checkedAt,
 	}
 	if total == 0 {
@@ -534,7 +534,7 @@ func passiveSampleToCheckResult(sample *ChannelMonitorPassiveSample, checkedAt t
 		return result
 	}
 	successRate := float64(sample.SuccessCount) * 100 / float64(total)
-	result.Status = passiveStatus(successRate, sample.AvgLatencyMs)
+	result.Status = passiveStatus(successRate, sample.AvgTTFTMs)
 	result.Message = fmt.Sprintf(
 		"passive window: requests=%d, succeeded=%d, failed=%d, success_rate=%.2f%%",
 		total,
@@ -545,14 +545,14 @@ func passiveSampleToCheckResult(sample *ChannelMonitorPassiveSample, checkedAt t
 	return result
 }
 
-func passiveStatus(successRate float64, avgLatencyMs *int) string {
+func passiveStatus(successRate float64, avgTTFTMs *int) string {
 	if successRate < monitorPassiveDegradedRate {
 		return MonitorStatusFailed
 	}
 	if successRate < monitorPassiveOperationalRate {
 		return MonitorStatusDegraded
 	}
-	if avgLatencyMs != nil && time.Duration(*avgLatencyMs)*time.Millisecond > monitorDegradedThreshold {
+	if avgTTFTMs != nil && time.Duration(*avgTTFTMs)*time.Millisecond > monitorDegradedThreshold {
 		return MonitorStatusDegraded
 	}
 	return MonitorStatusOperational

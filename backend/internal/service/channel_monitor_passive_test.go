@@ -96,7 +96,7 @@ func TestChannelMonitorRunCheckPassiveUsesRealRequestSamples(t *testing.T) {
 			{Model: "gpt-5.4", SuccessCount: 99, FailureCount: 1},
 			{Model: "gpt-5.4-mini", SuccessCount: 9, FailureCount: 1},
 			{Model: "gpt-5.3", SuccessCount: 8, FailureCount: 2},
-			{Model: "gpt-5.2", SuccessCount: 10, AvgLatencyMs: &slowLatency},
+			{Model: "gpt-5.2", SuccessCount: 10, AvgTTFTMs: &slowLatency},
 			{Model: "gpt-5.1"},
 		},
 	}
