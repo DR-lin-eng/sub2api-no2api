@@ -45,6 +45,134 @@ func buildOpenAIResponsesURL(base string) string {
 	return buildOpenAIEndpointURL(base, "/v1/responses")
 }
 
+func shouldStripOpenAIResponsesInputItemID(itemType, id string, idIsString, stripAllReasoningIDs bool) bool {
+	itemType = strings.TrimSpace(itemType)
+	if itemType == "reasoning" && stripAllReasoningIDs {
+		return true
+	}
+
+	expectedPrefix := ""
+	switch {
+	case itemType == "reasoning":
+		expectedPrefix = "rs"
+	case itemType == "message":
+		expectedPrefix = "msg"
+	case isOpenAIResponsesCallInputItemType(itemType):
+		expectedPrefix = "fc"
+	default:
+		return false
+	}
+	return !idIsString || !strings.HasPrefix(id, expectedPrefix)
+}
+
+func openAIResponsesInputItemIDString(value any) (string, bool) {
+	id, ok := value.(string)
+	return id, ok
+}
+
+func isOpenAIResponsesCallInputItemType(itemType string) bool {
+	switch strings.TrimSpace(itemType) {
+	case "function_call",
+		"tool_call",
+		"local_shell_call",
+		"tool_search_call",
+		"custom_tool_call",
+		"mcp_tool_call":
+		return true
+	default:
+		return false
+	}
+}
+
+func rawOpenAIResponsesInputItemIDShouldBeStripped(item gjson.Result, stripAllReasoningIDs bool) bool {
+	if !item.IsObject() {
+		return false
+	}
+	id := item.Get("id")
+	if !id.Exists() {
+		return false
+	}
+	return shouldStripOpenAIResponsesInputItemID(
+		item.Get("type").String(),
+		id.String(),
+		id.Type == gjson.String,
+		stripAllReasoningIDs,
+	)
+}
+
+// sanitizeOpenAIResponsesInputItemIDs adapts the shared ID policy to raw HTTP
+// and WebSocket payloads. API-key accounts may replay genuine stored rs_* items,
+// while ChatGPT Codex OAuth runs with store=false and must strip every reasoning
+// ID. The input array is rebuilt at most once, preserving each item's raw JSON
+// so large integer and extension fields do not lose precision.
+func sanitizeOpenAIResponsesInputItemIDs(body []byte, stripAllReasoningIDs bool) ([]byte, bool, error) {
+	if len(body) == 0 || !bytes.Contains(body, []byte(`"id"`)) {
+		return body, false, nil
+	}
+
+	input := gjson.GetBytes(body, "input")
+	if !input.Exists() {
+		return body, false, nil
+	}
+
+	if input.IsArray() {
+		changed := false
+		input.ForEach(func(_, item gjson.Result) bool {
+			changed = rawOpenAIResponsesInputItemIDShouldBeStripped(item, stripAllReasoningIDs)
+			return !changed
+		})
+		if !changed {
+			return body, false, nil
+		}
+
+		var rebuilt bytes.Buffer
+		rebuilt.Grow(len(input.Raw))
+		_ = rebuilt.WriteByte('[')
+		first := true
+		var rebuildErr error
+		input.ForEach(func(_, item gjson.Result) bool {
+			if !first {
+				_ = rebuilt.WriteByte(',')
+			}
+			first = false
+			if rawOpenAIResponsesInputItemIDShouldBeStripped(item, stripAllReasoningIDs) {
+				itemRaw := ""
+				itemRaw, rebuildErr = sjson.Delete(item.Raw, "id")
+				if rebuildErr != nil {
+					return false
+				}
+				_, _ = rebuilt.WriteString(itemRaw)
+				return true
+			}
+			_, _ = rebuilt.WriteString(item.Raw)
+			return true
+		})
+		if rebuildErr != nil {
+			return body, false, fmt.Errorf("sanitize Responses input item ids: %w", rebuildErr)
+		}
+		_ = rebuilt.WriteByte(']')
+
+		sanitized, err := sjson.SetRawBytes(body, "input", rebuilt.Bytes())
+		if err != nil {
+			return body, false, fmt.Errorf("replace sanitized Responses input: %w", err)
+		}
+		return sanitized, true, nil
+	}
+
+	if !rawOpenAIResponsesInputItemIDShouldBeStripped(input, stripAllReasoningIDs) {
+		return body, false, nil
+	}
+	itemRaw, err := sjson.DeleteBytes([]byte(input.Raw), "id")
+	if err != nil {
+		return body, false, fmt.Errorf("sanitize Responses input item id: %w", err)
+	}
+	sanitized, err := sjson.SetRawBytes(body, "input", itemRaw)
+	if err != nil {
+		return body, false, fmt.Errorf("replace sanitized Responses input item: %w", err)
+	}
+	return sanitized, true, nil
+}
+
 func trimOpenAIEncryptedReasoningItems(reqBody map[string]any) bool {
 	if len(reqBody) == 0 {
 		return false

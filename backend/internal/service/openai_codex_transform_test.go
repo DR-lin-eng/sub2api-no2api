@@ -1783,6 +1783,49 @@ func TestFilterCodexInput_BareReasoningStripsIDBackfillsSummary(t *testing.T) {
 	require.Len(t, summary, 0)
 }
 
+func TestFilterCodexInput_StripsInvalidReasoningItemIDFromExistingConversation(t *testing.T) {
+	input := []any{
+		map[string]any{
+			"type":              "reasoning",
+			"id":                "item_aaf212cbed95cf83ae9f2d5a",
+			"summary":           []any{},
+			"encrypted_content": "cipher",
+		},
+	}
+
+	filtered := filterCodexInput(input, true)
+	require.Len(t, filtered, 1)
+
+	item, ok := filtered[0].(map[string]any)
+	require.True(t, ok)
+	_, hasID := item["id"]
+	require.False(t, hasID)
+	require.Equal(t, "cipher", item["encrypted_content"])
+}
+
+func TestApplyCodexOAuthTransform_NormalizesSingleReasoningInputAndStripsID(t *testing.T) {
+	reqBody := map[string]any{
+		"model": "gpt-5.4",
+		"input": map[string]any{
+			"type":              "reasoning",
+			"id":                "item_aaf212cbed95cf83ae9f2d5a",
+			"summary":           []any{},
+			"encrypted_content": "cipher",
+		},
+	}
+
+	applyCodexOAuthTransform(reqBody, false, false)
+
+	input, ok := reqBody["input"].([]any)
+	require.True(t, ok)
+	require.Len(t, input, 1)
+	item, ok := input[0].(map[string]any)
+	require.True(t, ok)
+	_, hasID := item["id"]
+	require.False(t, hasID)
+	require.Equal(t, "cipher", item["encrypted_content"])
+}
+
 // TestFilterCodexInput_ReasoningBackfillsMissingSummary isolates contract 5:
 // even when a reasoning item carries other content (here encrypted_content),
 // a missing summary field is always added as [] before forwarding upstream.

@@ -146,6 +146,54 @@ func TestOpenAIGatewayService_Forward_HTTPPatchPathKeepsLargeInputRaw(t *testing
 	require.Equal(t, "9007199254740993", gjson.GetBytes(upstream.lastBody, "input.0.content.0.nonce").Raw)
 }
 
+func TestOpenAIGatewayService_Forward_APIKeySanitizesInvalidInputItemIDs(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	for _, passthrough := range []bool{false, true} {
+		t.Run(fmt.Sprintf("passthrough=%v", passthrough), func(t *testing.T) {
+			upstream := &httpUpstreamRecorder{
+				resp: &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Body:       io.NopCloser(strings.NewReader(`{"usage":{"input_tokens":1,"output_tokens":2}}`)),
+				},
+			}
+			cfg := &config.Config{}
+			cfg.Security.URLAllowlist.Enabled = false
+			svc := &OpenAIGatewayService{cfg: cfg, httpUpstream: upstream}
+			account := &Account{
+				ID:          101,
+				Name:        "openai-apikey",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeAPIKey,
+				Concurrency: 1,
+				Credentials: map[string]any{
+					"api_key":  "sk-test",
+					"base_url": "https://example.com",
+				},
+				Extra: map[string]any{
+					"use_responses_api":  true,
+					"openai_passthrough": passthrough,
+				},
+			}
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
+			SetOpenAIClientTransport(c, OpenAIClientTransportHTTP)
+
+			body := []byte(`{"model":"gpt-5.4","stream":false,"input":[{"type":"reasoning","id":"item_aaf212cbed95cf83ae9f2d5a","summary":[],"encrypted_content":"cipher"},{"type":"reasoning","id":"rs_persisted","summary":[]},{"type":"message","role":"user","content":"continue"}]}`)
+			result, err := svc.Forward(context.Background(), c, account, body)
+
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			require.NotNil(t, upstream.lastReq)
+			require.False(t, gjson.GetBytes(upstream.lastBody, "input.0.id").Exists())
+			require.Equal(t, "cipher", gjson.GetBytes(upstream.lastBody, "input.0.encrypted_content").String())
+			require.Equal(t, "rs_persisted", gjson.GetBytes(upstream.lastBody, "input.1.id").String())
+		})
+	}
+}
+
 func TestOpenAIGatewayService_Forward_DecodedMutationKeepsLaterFieldDeletes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	upstream := &httpUpstreamRecorder{

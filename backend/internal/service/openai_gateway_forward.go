@@ -80,6 +80,14 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			return nil, err
 		}
 	}
+	// Standard OAuth requests are sanitized during their existing decoded input
+	// pass below. API-key and passthrough requests need the raw adapter here.
+	if account.IsOpenAI() && (!account.IsOpenAIOAuth() || passthroughEnabled) {
+		body, _, err = sanitizeOpenAIResponsesInputItemIDs(body, account.IsOpenAIOAuth())
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	originalBody := body
 	requestView := newOpenAIRequestView(body)

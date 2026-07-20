@@ -267,6 +267,13 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				nil,
 			)
 		}
+		if account.IsOpenAI() {
+			sanitized, _, sanitizeErr := sanitizeOpenAIResponsesInputItemIDs(normalized, account.IsOpenAIOAuth())
+			if sanitizeErr != nil {
+				return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", sanitizeErr)
+			}
+			normalized = sanitized
+		}
 
 		originalModel := strings.TrimSpace(values[1].String())
 		modelMissing := originalModel == ""

@@ -287,6 +287,15 @@ func applyCodexOAuthTransformWithOptions(reqBody map[string]any, opts codexOAuth
 		})
 		reqBody["input"] = input
 		result.Modified = true
+	} else if inputItem, ok := reqBody["input"].(map[string]any); ok {
+		// The public Responses API accepts a single input item, while the
+		// ChatGPT internal endpoint requires a list. Normalize the shape and
+		// reuse the same ID/context policy as array input.
+		reqBody["input"] = filterCodexInputWithOptions([]any{inputItem}, codexInputFilterOptions{
+			PreserveReferences: needsToolContinuation,
+			PreserveCallIDs:    opts.PreserveToolCallIDs,
+		})
+		result.Modified = true
 	} else if inputStr, ok := reqBody["input"].(string); ok {
 		// ChatGPT codex endpoint requires input to be a list, not a string.
 		// Convert string input to the expected message array format.
@@ -1392,8 +1401,11 @@ func filterCodexInputWithOptions(input []any, opts codexInputFilterOptions) []an
 			newItem := make(map[string]any, len(m))
 			for key, value := range m {
 				if key == "id" {
-					// rs_* id replayed under store=false 404s; strip it.
-					continue
+					id, idIsString := openAIResponsesInputItemIDString(value)
+					if shouldStripOpenAIResponsesInputItemID(typ, id, idIsString, true) {
+						// rs_* id replayed under store=false 404s; strip it.
+						continue
+					}
 				}
 				newItem[key] = value
 			}
@@ -1486,22 +1498,12 @@ func filterCodexInputWithOptions(input []any, opts codexInputFilterOptions) []an
 		if !opts.PreserveReferences {
 			ensureCopy()
 			delete(newItem, "id")
-		} else if isCodexToolCallInputType(typ) {
-			// 续链模式下保留 id 以维持上下文引用，但 function_call 等
-			// call-input 类 item 的 id 必须以 "fc" 开头（上游校验
-			// "Expected an ID that begins with 'fc'"）。item_* 形式的 id
-			// 来自客户端回放，需要删除。
-			// 注意：function_call_output 等 output 类的 id 无此约束，不动。
-			if id, ok := m["id"].(string); ok && id != "" && !strings.HasPrefix(id, "fc") {
-				ensureCopy()
-				delete(newItem, "id")
-			}
-		} else if typ == "message" {
-			// 同理，message 类 item 的 id 必须以 "msg" 开头（上游校验
-			// "Expected an ID that begins with 'msg'"）。item_* 形式的 id
-			// 来自客户端回放，需要删除。
-			// 注意：不改写成 msg_*，改写出的 id 未必对应真实的上游对象。
-			if id, ok := m["id"].(string); ok && id != "" && !strings.HasPrefix(id, "msg") {
+		} else if id, exists := m["id"]; exists {
+			// Reuse the same type-aware prefix contract as API-key and raw WS
+			// payloads. Do not synthesize IDs: only the upstream can issue a
+			// resolvable rs/msg/fc object reference.
+			idString, idIsString := openAIResponsesInputItemIDString(id)
+			if shouldStripOpenAIResponsesInputItemID(typ, idString, idIsString, false) {
 				ensureCopy()
 				delete(newItem, "id")
 			}
@@ -1524,22 +1526,6 @@ func isCodexToolCallItemType(typ string) bool {
 		"mcp_tool_call_output",
 		"custom_tool_call_output",
 		"tool_search_output":
-		return true
-	default:
-		return false
-	}
-}
-
-// isCodexToolCallInputType 仅匹配 call-input 类型（不含 output），这些类型的
-// id 必须以 "fc" 开头，上游会校验 "Expected an ID that begins with 'fc'."。
-func isCodexToolCallInputType(typ string) bool {
-	switch typ {
-	case "function_call",
-		"tool_call",
-		"local_shell_call",
-		"tool_search_call",
-		"custom_tool_call",
-		"mcp_tool_call":
 		return true
 	default:
 		return false

@@ -1,11 +1,141 @@
 package service
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 )
+
+func TestSanitizeOpenAIResponsesInputItemIDs_APIKeyRemovesInvalidPrefixes(t *testing.T) {
+	body := []byte(`{
+		"type":"response.create",
+		"model":"gpt-5.4",
+		"input":[
+			{"type":"message","role":"user","content":[{"type":"input_text","text":"turn 0","nonce":9007199254740993}]},
+			{"type":"message","role":"assistant","content":"turn 1"},
+			{"type":"message","role":"user","content":"turn 2"},
+			{"type":"message","role":"assistant","content":"turn 3"},
+			{"type":"message","role":"user","content":"turn 4"},
+			{"type":"message","role":"assistant","content":"turn 5"},
+			{"type":"message","role":"user","content":"turn 6"},
+			{"type":"message","role":"assistant","content":"turn 7"},
+			{"type":"message","role":"user","content":"turn 8"},
+			{"type":"message","role":"assistant","content":"turn 9"},
+			{"type":"reasoning","id":"item_aaf212cbed95cf83ae9f2d5a","summary":[],"encrypted_content":"cipher"},
+			{"type":"reasoning","id":"rs_persisted","summary":[]},
+			{"type":"message","id":"item_bad_message","role":"assistant","content":"answer"},
+			{"type":"message","id":"msg_persisted","role":"assistant","content":"answer"},
+			{"type":"function_call","id":"item_bad_call","call_id":"fc_call","name":"tool","arguments":"{}"},
+			{"type":"function_call","id":"fc_persisted","call_id":"fc_call_2","name":"tool","arguments":"{}"},
+			{"type":"function_call_output","id":"item_output_is_not_constrained","call_id":"fc_call","output":"ok"},
+			{"type":"item_reference","id":"item_reference_is_semantic"}
+		]
+	}`)
+
+	sanitized, changed, err := sanitizeOpenAIResponsesInputItemIDs(body, false)
+
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, "9007199254740993", gjson.GetBytes(sanitized, "input.0.content.0.nonce").Raw)
+	require.False(t, gjson.GetBytes(sanitized, "input.10.id").Exists())
+	require.Equal(t, "cipher", gjson.GetBytes(sanitized, "input.10.encrypted_content").String())
+	require.True(t, gjson.GetBytes(sanitized, "input.10.summary").IsArray())
+	require.Equal(t, "rs_persisted", gjson.GetBytes(sanitized, "input.11.id").String())
+	require.False(t, gjson.GetBytes(sanitized, "input.12.id").Exists())
+	require.Equal(t, "msg_persisted", gjson.GetBytes(sanitized, "input.13.id").String())
+	require.False(t, gjson.GetBytes(sanitized, "input.14.id").Exists())
+	require.Equal(t, "fc_persisted", gjson.GetBytes(sanitized, "input.15.id").String())
+	require.Equal(t, "item_output_is_not_constrained", gjson.GetBytes(sanitized, "input.16.id").String())
+	require.Equal(t, "item_reference_is_semantic", gjson.GetBytes(sanitized, "input.17.id").String())
+}
+
+func TestSanitizeOpenAIResponsesInputItemIDs_OAuthStripsAllReasoningIDs(t *testing.T) {
+	body := []byte(`{
+		"input":[
+			{"type":"reasoning","id":"rs_not_persisted","summary":[],"encrypted_content":"cipher"},
+			{"type":"message","id":"msg_persisted","role":"assistant","content":"answer"},
+			{"type":"function_call","id":"fc_persisted","call_id":"fc_call","name":"tool","arguments":"{}"}
+		]
+	}`)
+
+	sanitized, changed, err := sanitizeOpenAIResponsesInputItemIDs(body, true)
+
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.False(t, gjson.GetBytes(sanitized, "input.0.id").Exists())
+	require.Equal(t, "cipher", gjson.GetBytes(sanitized, "input.0.encrypted_content").String())
+	require.Equal(t, "msg_persisted", gjson.GetBytes(sanitized, "input.1.id").String())
+	require.Equal(t, "fc_persisted", gjson.GetBytes(sanitized, "input.2.id").String())
+}
+
+func TestSanitizeOpenAIResponsesInputItemIDs_SingleInputObject(t *testing.T) {
+	body := []byte(`{"model":"gpt-5.4","input":{"type":"reasoning","id":"item_invalid","summary":[]}}`)
+
+	sanitized, changed, err := sanitizeOpenAIResponsesInputItemIDs(body, false)
+
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.False(t, gjson.GetBytes(sanitized, "input.id").Exists())
+	require.Equal(t, "reasoning", gjson.GetBytes(sanitized, "input.type").String())
+}
+
+func TestSanitizeOpenAIResponsesInputItemIDs_NoCandidateIsNoop(t *testing.T) {
+	body := []byte(`{"model":"gpt-5.4","input":[{"type":"message","role":"user","content":"hello"}]}`)
+
+	sanitized, changed, err := sanitizeOpenAIResponsesInputItemIDs(body, false)
+
+	require.NoError(t, err)
+	require.False(t, changed)
+	require.Equal(t, body, sanitized)
+}
+
+func BenchmarkSanitizeOpenAIResponsesInputItemIDs(b *testing.B) {
+	buildHistory := func(includeIDs bool, invalidLastID bool) []byte {
+		var body strings.Builder
+		_, _ = body.WriteString(`{"model":"gpt-5.4","input":[`)
+		for i := 0; i < 64; i++ {
+			if i > 0 {
+				_ = body.WriteByte(',')
+			}
+			if includeIDs {
+				id := fmt.Sprintf("msg_%d", i)
+				if invalidLastID && i == 63 {
+					id = "item_aaf212cbed95cf83ae9f2d5a"
+				}
+				_, _ = fmt.Fprintf(&body, `{"type":"message","id":%q,"role":"user","content":"turn %d"}`, id, i)
+				continue
+			}
+			_, _ = fmt.Fprintf(&body, `{"type":"message","role":"user","content":"turn %d"}`, i)
+		}
+		_, _ = body.WriteString(`]}`)
+		return []byte(body.String())
+	}
+
+	benchmarks := []struct {
+		name string
+		body []byte
+	}{
+		{name: "no_ids", body: buildHistory(false, false)},
+		{name: "valid_ids", body: buildHistory(true, false)},
+		{name: "one_invalid_id", body: buildHistory(true, true)},
+	}
+	for _, benchmark := range benchmarks {
+		b.Run(benchmark.name, func(b *testing.B) {
+			b.ReportAllocs()
+			b.SetBytes(int64(len(benchmark.body)))
+			for i := 0; i < b.N; i++ {
+				_, _, err := sanitizeOpenAIResponsesInputItemIDs(benchmark.body, false)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
 
 func TestTrimOpenAIEncryptedReasoningItems_ContentNull(t *testing.T) {
 	reqBody := map[string]any{
