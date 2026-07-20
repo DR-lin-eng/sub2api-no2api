@@ -299,11 +299,11 @@ func (h *AuthHandler) emailOAuthRequireTotpPendingSession(
 	}
 	setOAuthPendingBrowserCookie(c, browserSessionKey, isRequestHTTPS(c))
 	claims := map[string]any{
-		"email":          strings.TrimSpace(input.Email),
-		"email_verified": true,
-		"username":       strings.TrimSpace(input.Username),
-		"provider":       provider,
-		"provider_key":   identity.ProviderKey,
+		"email":            strings.TrimSpace(input.Email),
+		"email_verified":   true,
+		"username":         strings.TrimSpace(input.Username),
+		"provider":         provider,
+		"provider_key":     identity.ProviderKey,
 		"provider_subject": identity.ProviderSubject,
 	}
 	if profile != nil {
