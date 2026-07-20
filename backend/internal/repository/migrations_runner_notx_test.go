@@ -49,6 +49,15 @@ DROP INDEX CONCURRENTLY IF EXISTS idx_b;
 		require.True(t, nonTx)
 		require.NoError(t, err)
 	})
+
+	t.Run("DROP索引名包含created时不误判为CREATE", func(t *testing.T) {
+		nonTx, err := validateMigrationExecutionMode("190_channel_monitor_passive_ttft_index_notx.sql", `
+	CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_usage_logs_channel_created_monitor_ttft ON usage_logs (channel_id);
+	DROP INDEX CONCURRENTLY IF EXISTS idx_usage_logs_channel_created_monitor;
+	`)
+		require.True(t, nonTx)
+		require.NoError(t, err)
+	})
 }
 
 func TestApplyMigrationsFS_NonTransactionalMigration(t *testing.T) {

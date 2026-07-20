@@ -494,8 +494,7 @@ func validateMigrationExecutionMode(name, content string) (bool, error) {
 		}
 
 		if strings.Contains(normalizedStmt, "CONCURRENTLY") {
-			isCreateIndex := strings.Contains(normalizedStmt, "CREATE") && strings.Contains(normalizedStmt, "INDEX")
-			isDropIndex := strings.Contains(normalizedStmt, "DROP") && strings.Contains(normalizedStmt, "INDEX")
+			isCreateIndex, isDropIndex := classifyConcurrentIndexStatement(normalizedStmt)
 			if !isCreateIndex && !isDropIndex {
 				return false, errors.New("*_notx.sql currently only supports CREATE/DROP INDEX CONCURRENTLY statements")
 			}
@@ -512,6 +511,20 @@ func validateMigrationExecutionMode(name, content string) (bool, error) {
 	}
 
 	return true, nil
+}
+
+func classifyConcurrentIndexStatement(normalizedStmt string) (isCreate, isDrop bool) {
+	fields := strings.Fields(normalizedStmt)
+	if len(fields) >= 3 && fields[0] == "DROP" && fields[1] == "INDEX" && fields[2] == "CONCURRENTLY" {
+		return false, true
+	}
+	if len(fields) >= 3 && fields[0] == "CREATE" && fields[1] == "INDEX" && fields[2] == "CONCURRENTLY" {
+		return true, false
+	}
+	if len(fields) >= 4 && fields[0] == "CREATE" && fields[1] == "UNIQUE" && fields[2] == "INDEX" && fields[3] == "CONCURRENTLY" {
+		return true, false
+	}
+	return false, false
 }
 
 func splitSQLStatements(content string) []string {
