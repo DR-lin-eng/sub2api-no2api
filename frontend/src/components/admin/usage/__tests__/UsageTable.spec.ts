@@ -77,6 +77,7 @@ const DataTableStub = {
         <slot name="cell-tokens" :row="row" />
         <slot name="cell-cost" :row="row" />
         <slot name="cell-latency" :row="row" />
+        <slot name="cell-actions" :row="row" />
       </div>
     </div>
   `,
@@ -155,6 +156,32 @@ describe('admin UsageTable tooltip', () => {
 
     expect(wrapper.findAll('[data-testid="long-context-billing-marker"]')).toHaveLength(1)
     expect(wrapper.get('[data-testid="long-context-billing-marker"]').text()).toBe('x2')
+  })
+
+  it('opens the selected usage record from the details action', async () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{ ...baseImageRow, id: 42 }],
+        loading: false,
+        columns: [{ key: 'actions', label: 'Details' }],
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+          UsageDetailModal: {
+            props: ['show', 'usage'],
+            template: '<div v-if="show" data-testid="usage-detail-stub">{{ usage.id }}</div>',
+          },
+        },
+      },
+    })
+
+    await wrapper.get('[data-testid="usage-detail-trigger"]').trigger('click')
+
+    expect(wrapper.get('[data-testid="usage-detail-stub"]').text()).toBe('42')
   })
 
   it('shows output token speed for valid text requests and skips unusable rows', () => {

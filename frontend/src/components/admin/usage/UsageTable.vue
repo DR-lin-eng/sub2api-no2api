@@ -235,6 +235,21 @@
           <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
         </template>
 
+        <template #cell-actions="{ row }">
+          <div class="flex items-center justify-end">
+            <button
+              type="button"
+              data-testid="usage-detail-trigger"
+              class="inline-flex h-8 w-8 items-center justify-center rounded text-gray-500 transition-colors hover:bg-primary-50 hover:text-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 dark:text-gray-400 dark:hover:bg-primary-900/30 dark:hover:text-primary-400"
+              :title="t('usage.detail.viewDetails')"
+              :aria-label="t('usage.detail.viewDetails')"
+              @click.stop="openUsageDetail(row)"
+            >
+              <Icon name="eye" size="sm" />
+            </button>
+          </div>
+        </template>
+
         <template #empty><EmptyState :message="t('usage.noRecords')" /></template>
       </DataTable>
     </div>
@@ -460,6 +475,13 @@
       </div>
     </div>
   </Teleport>
+
+  <UsageDetailModal
+    v-if="detailVisible"
+    :show="detailVisible"
+    :usage="detailUsage"
+    @close="closeUsageDetail"
+  />
 </template>
 
 <script setup lang="ts">
@@ -513,6 +535,7 @@ import DataTable from '@/components/common/DataTable.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import IpGeoCell from '@/components/common/IpGeoCell.vue'
 import Icon from '@/components/icons/Icon.vue'
+import UsageDetailModal from './UsageDetailModal.vue'
 import { fetchBatch, getEntry } from '@/utils/ipGeoLookup'
 import type { AdminUsageLog } from '@/types'
 import type { Column } from '@/components/common/types'
@@ -582,6 +605,21 @@ const tooltipData = ref<AdminUsageLog | null>(null)
 const tokenTooltipVisible = ref(false)
 const tokenTooltipPosition = ref({ x: 0, y: 0 })
 const tokenTooltipData = ref<AdminUsageLog | null>(null)
+
+const detailVisible = ref(false)
+const detailUsage = ref<AdminUsageLog | null>(null)
+
+const openUsageDetail = (row: AdminUsageLog) => {
+  hideTooltip()
+  hideTokenTooltip()
+  detailUsage.value = row
+  detailVisible.value = true
+}
+
+const closeUsageDetail = () => {
+  detailVisible.value = false
+  detailUsage.value = null
+}
 
 const getRequestTypeLabel = (row: AdminUsageLog): string => {
   const requestType = resolveUsageRequestType(row)

@@ -689,7 +689,7 @@ const exportToCSV = async () => {
   }
 }
 
-const ALWAYS_VISIBLE = ['created_at']
+const ALWAYS_VISIBLE = ['created_at', 'actions']
 const DEFAULT_HIDDEN_COLUMNS = ['user_agent']
 const HIDDEN_COLUMNS_KEY = 'user-usage-hidden-columns'
 
@@ -707,6 +707,7 @@ const allColumns = computed<Column[]>(() => [
   { key: 'latency', label: t('usage.latency'), sortable: false },
   { key: 'created_at', label: t('usage.time'), sortable: true },
   { key: 'user_agent', label: t('usage.userAgent'), sortable: false },
+  { key: 'actions', label: t('usage.detail.detailsColumn'), sortable: false },
 ])
 
 const hiddenColumns = reactive<Set<string>>(new Set())
