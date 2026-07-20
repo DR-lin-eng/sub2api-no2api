@@ -774,9 +774,10 @@ router.beforeEach(async (to, _from, next) => {
 
   const authStore = useAuthStore()
 
-  // Restore auth state from localStorage on first navigation (page refresh)
+  // Restore the in-memory access token from the HttpOnly refresh cookie before
+  // evaluating route permissions. Without awaiting this, reloads race the guard.
   if (!authInitialized) {
-    authStore.checkAuth()
+    await authStore.checkAuth()
     authInitialized = true
   }
 

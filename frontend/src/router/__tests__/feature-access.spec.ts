@@ -117,6 +117,22 @@ describe('feature route guard', () => {
     appStore.publicSettingsLoaded = false
     appStore.cachedPublicSettings = null
     appStore.fetchPublicSettings.mockReset()
+    authStore.checkAuth.mockReset().mockResolvedValue(undefined)
+  })
+
+  it('waits for cookie session restoration before evaluating the first route', async () => {
+    const deferred = createDeferred<void>()
+    authStore.isAuthenticated = false
+    authStore.checkAuth.mockReturnValueOnce(deferred.promise)
+
+    const { navigation, next } = runGuard({}, '/dashboard')
+    await Promise.resolve()
+    expect(next).not.toHaveBeenCalled()
+
+    authStore.isAuthenticated = true
+    deferred.resolve()
+    await navigation
+    expect(next).toHaveBeenCalledWith()
   })
 
   it('waits for the first public-settings request before deciding payment access', async () => {

@@ -1446,7 +1446,7 @@ type JWTConfig struct {
 	// - >0: 使用分钟配置（优先级高于 ExpireHour）
 	// - =0: 回退使用 ExpireHour（向后兼容旧配置）
 	AccessTokenExpireMinutes int `mapstructure:"access_token_expire_minutes"`
-	// RefreshTokenExpireDays: Refresh Token有效期（天），默认30天
+	// RefreshTokenExpireDays: Refresh Token有效期（天），默认30天，浏览器会话有效下限7天
 	RefreshTokenExpireDays int `mapstructure:"refresh_token_expire_days"`
 	// RefreshWindowMinutes: 刷新窗口（分钟），在Access Token过期前多久开始允许刷新
 	RefreshWindowMinutes int `mapstructure:"refresh_window_minutes"`
@@ -2515,6 +2515,9 @@ func (c *Config) Validate() error {
 	}
 	if c.JWT.RefreshTokenExpireDays <= 0 {
 		return fmt.Errorf("jwt.refresh_token_expire_days must be positive")
+	}
+	if c.JWT.RefreshTokenExpireDays < 7 {
+		slog.Warn("jwt.refresh_token_expire_days below browser session minimum; effective lifetime is 7 days", "refresh_token_expire_days", c.JWT.RefreshTokenExpireDays)
 	}
 	if c.JWT.RefreshTokenExpireDays > 90 {
 		slog.Warn("jwt.refresh_token_expire_days is high; consider shorter expiration for security", "refresh_token_expire_days", c.JWT.RefreshTokenExpireDays)

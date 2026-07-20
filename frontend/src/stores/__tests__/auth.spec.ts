@@ -63,6 +63,7 @@ describe('useAuthStore', () => {
     localStorage.clear()
     vi.useFakeTimers()
     vi.resetAllMocks()
+    mockRefreshToken.mockRejectedValue(new Error('no refresh cookie'))
   })
 
   afterEach(() => {
@@ -164,6 +165,23 @@ describe('useAuthStore', () => {
   // --- checkAuth ---
 
   describe('checkAuth', () => {
+    it('deduplicates concurrent session restoration in one tab', async () => {
+      let resolveRefresh!: (value: typeof fakeRefreshResponse) => void
+      mockRefreshToken.mockReturnValue(new Promise((resolve) => {
+        resolveRefresh = resolve
+      }))
+      mockGetCurrentUser.mockResolvedValue({ data: fakeUser })
+      const store = useAuthStore()
+
+      const first = store.checkAuth()
+      const second = store.checkAuth()
+      expect(mockRefreshToken).toHaveBeenCalledTimes(1)
+
+      resolveRefresh(fakeRefreshResponse)
+      await Promise.all([first, second])
+      expect(store.isAuthenticated).toBe(true)
+    })
+
     it('通过 HttpOnly refresh cookie 恢复内存 token', async () => {
       localStorage.setItem('auth_user', JSON.stringify(fakeUser))
 
@@ -206,6 +224,19 @@ describe('useAuthStore', () => {
       const store = useAuthStore()
       await store.checkAuth()
 
+      expect(store.isAuthenticated).toBe(true)
+    })
+
+    it('keeps a restored session when profile refresh fails transiently', async () => {
+      localStorage.setItem('auth_user', JSON.stringify(fakeUser))
+      mockRefreshToken.mockResolvedValue(fakeRefreshResponse)
+      mockGetCurrentUser.mockRejectedValue({ status: 0, message: 'network error' })
+
+      const store = useAuthStore()
+      await store.checkAuth()
+
+      expect(store.token).toBe(fakeRefreshResponse.access_token)
+      expect(store.user).toEqual(fakeUser)
       expect(store.isAuthenticated).toBe(true)
     })
 

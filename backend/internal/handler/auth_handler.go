@@ -142,8 +142,8 @@ func (h *AuthHandler) respondWithTokenPair(c *gin.Context, user *service.User) {
 }
 
 func (h *AuthHandler) refreshTokenCookieTTL() time.Duration {
-	days := 30
-	if h != nil && h.cfg != nil && h.cfg.JWT.RefreshTokenExpireDays > 0 {
+	days := service.MinimumRefreshTokenSessionDays
+	if h != nil && h.cfg != nil && h.cfg.JWT.RefreshTokenExpireDays > days {
 		days = h.cfg.JWT.RefreshTokenExpireDays
 	}
 	return time.Duration(days) * 24 * time.Hour

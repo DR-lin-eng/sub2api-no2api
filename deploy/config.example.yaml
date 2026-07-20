@@ -975,6 +975,12 @@ jwt:
   # - >0: 按分钟生效（优先于 expire_hour）
   # - =0: 回退使用 expire_hour
   access_token_expire_minutes: 0
+  # Refresh Token / HttpOnly session cookie lifetime in days.
+  # Values below 7 still use an effective minimum of 7 days so the same
+  # browser environment can restore login state across reloads and tabs.
+  # Refresh Token / HttpOnly 会话 Cookie 有效期（天）。低于 7 的配置仍按
+  # 7 天下限生效，以保证同一浏览器环境刷新页面或新开标签页后可恢复登录。
+  refresh_token_expire_days: 30
 
 # =============================================================================
 # TOTP (2FA) Configuration

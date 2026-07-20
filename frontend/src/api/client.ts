@@ -15,11 +15,9 @@ import {
 import { getAPIBaseURL } from './url'
 import {
   getAccessToken,
-  setAccessToken,
-  setRefreshTokenMemory,
-  setTokenExpiresAtMemory,
   clearTokenMemory
 } from './tokenStore'
+import { refreshBrowserSession } from './sessionRefresh'
 export { buildApiUrl, buildGatewayUrl } from './url'
 
 // ==================== Axios Instance Configuration ====================
@@ -224,28 +222,10 @@ apiClient.interceptors.response.use(
           isRefreshing = true
 
           try {
-            // Call refresh endpoint directly to avoid circular dependency
-            const refreshResponse = await axios.post(
-              `${getAPIBaseURL()}/auth/refresh`,
-              undefined,
-              // 显式设置超时：裸 axios 默认无限等待，若刷新请求挂起会导致 isRefreshing
-              // 永远为 true，所有排队的 401 重试请求永久卡死，页面 loading 无法恢复。
-              { headers: { 'Content-Type': 'application/json' }, timeout: 30000, withCredentials: true }
-            )
+            const refreshData = await refreshBrowserSession()
 
-            const refreshData = refreshResponse.data as ApiResponse<{
-              access_token: string
-              refresh_token: string
-              expires_in: number
-            }>
-
-            if (refreshData.code === 0 && refreshData.data) {
-              const { access_token, refresh_token: newRefreshToken, expires_in } = refreshData.data
-
-			  // Keep rotated tokens in memory; the refresh cookie is updated by the backend.
-			  setAccessToken(access_token)
-			  setRefreshTokenMemory(newRefreshToken)
-			  setTokenExpiresAtMemory(Date.now() + expires_in * 1000)
+            if (refreshData.access_token) {
+              const { access_token } = refreshData
 
               // Notify subscribers with new token
               onTokenRefreshed(access_token)

@@ -101,6 +101,7 @@ export const useAuthStore = defineStore('auth', () => {
   const pendingAuthSession = ref<PendingAuthSessionSummary | null>(null)
   let refreshIntervalId: ReturnType<typeof setInterval> | null = null
   let tokenRefreshTimeoutId: ReturnType<typeof setTimeout> | null = null
+  let authCheckPromise: Promise<void> | null = null
 
   // ==================== Computed ====================
 
@@ -122,23 +123,44 @@ export const useAuthStore = defineStore('auth', () => {
    * cookie. Only the non-sensitive cached profile remains in localStorage.
    */
   async function checkAuth(): Promise<void> {
-    pendingAuthSession.value = getPersistedPendingAuthSession()
-    const savedUser = localStorage.getItem(AUTH_USER_KEY)
-    if (savedUser) {
-      try {
-        user.value = JSON.parse(savedUser)
-      } catch {
-        localStorage.removeItem(AUTH_USER_KEY)
-      }
+    if (token.value && user.value) {
+      return
+    }
+    if (authCheckPromise) {
+      return authCheckPromise
     }
 
-    try {
-      const response = await authAPI.refreshToken()
+    authCheckPromise = (async () => {
+      pendingAuthSession.value = getPersistedPendingAuthSession()
+      const savedUser = localStorage.getItem(AUTH_USER_KEY)
+      if (savedUser) {
+        try {
+          user.value = JSON.parse(savedUser)
+        } catch {
+          localStorage.removeItem(AUTH_USER_KEY)
+        }
+      }
+
+      let response: RefreshTokenResponse
+      try {
+        response = await authAPI.refreshToken()
+      } catch {
+        clearAuth({ preservePendingAuthSession: true })
+        return
+      }
+
       setAuthFromResponse(response)
-      await refreshUser()
-    } catch {
-      clearAuth({ preservePendingAuthSession: true })
-    }
+      try {
+        await refreshUser()
+      } catch {
+        // A transient profile request failure must not discard a freshly
+        // restored session. refreshUser already clears auth for a real 401.
+      }
+    })().finally(() => {
+      authCheckPromise = null
+    })
+
+    return authCheckPromise
   }
 
   /**
@@ -219,7 +241,7 @@ export const useAuthStore = defineStore('auth', () => {
         setRefreshToken(response.refresh_token)
       }
 
-      // Schedule next refresh (this also updates tokenExpiresAt and localStorage)
+      // Schedule next refresh (this also updates the in-memory expiry timestamp)
       scheduleTokenRefresh(response.expires_in)
     } catch (error) {
       console.error('Token refresh failed:', error)

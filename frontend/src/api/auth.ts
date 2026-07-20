@@ -14,6 +14,7 @@ import {
   setRefreshTokenMemory,
   setTokenExpiresAtMemory
 } from './tokenStore'
+import { refreshBrowserSession, type SessionRefreshResult } from './sessionRefresh'
 import type {
   LoginRequest,
   RegisterRequest,
@@ -212,12 +213,7 @@ export async function logout(): Promise<void> {
 /**
  * Refresh token response
  */
-export interface RefreshTokenResponse {
-  access_token: string
-  refresh_token: string
-  expires_in: number
-  token_type: string
-}
+export type RefreshTokenResponse = SessionRefreshResult
 
 export interface OAuthTokenResponse {
   access_token: string
@@ -326,16 +322,7 @@ export async function prepareOAuthBindAccessTokenCookie(): Promise<void> {
  * @returns New token pair
  */
 export async function refreshToken(): Promise<RefreshTokenResponse> {
-	const { data } = await apiClient.post<RefreshTokenResponse>('/auth/refresh')
-
-  // Keep the short-lived access token and expiry in memory. The refresh token
-  // is also returned for compatibility, while the browser sends the HttpOnly
-  // cookie automatically on the next refresh.
-  setAuthToken(data.access_token)
-  setRefreshToken(data.refresh_token)
-  setTokenExpiresAt(data.expires_in)
-
-  return data
+	return refreshBrowserSession()
 }
 
 /**

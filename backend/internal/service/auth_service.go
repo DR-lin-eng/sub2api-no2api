@@ -48,6 +48,10 @@ var (
 // maxTokenLength 限制 token 大小，避免超长 header 触发解析时的异常内存分配。
 const maxTokenLength = 8192
 
+// MinimumRefreshTokenSessionDays guarantees the browser session can be
+// restored for at least seven days in the same bound environment.
+const MinimumRefreshTokenSessionDays = 7
+
 // refreshTokenPrefix is the prefix for refresh tokens to distinguish them from access tokens.
 const refreshTokenPrefix = "rt_"
 
@@ -1523,7 +1527,7 @@ func (s *AuthService) generateRefreshToken(ctx context.Context, user *User, fami
 	}
 
 	now := time.Now()
-	ttl := time.Duration(s.cfg.JWT.RefreshTokenExpireDays) * 24 * time.Hour
+	ttl := s.refreshTokenTTL()
 
 	data := &RefreshTokenData{
 		UserID:       user.ID,
@@ -1552,6 +1556,14 @@ func (s *AuthService) generateRefreshToken(ctx context.Context, user *User, fami
 	}
 
 	return rawToken, nil
+}
+
+func (s *AuthService) refreshTokenTTL() time.Duration {
+	days := MinimumRefreshTokenSessionDays
+	if s != nil && s.cfg != nil && s.cfg.JWT.RefreshTokenExpireDays > days {
+		days = s.cfg.JWT.RefreshTokenExpireDays
+	}
+	return time.Duration(days) * 24 * time.Hour
 }
 
 // RefreshTokenPair 使用Refresh Token刷新Token对
