@@ -5566,8 +5566,27 @@
             </p>
           </div>
           <div class="space-y-4 p-6">
+            <!-- User usage details visibility -->
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('admin.settings.user_usage_detail_view.label') }}
+                </label>
+                <p class="text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.user_usage_detail_view.description') }}
+                </p>
+              </div>
+              <label class="toggle shrink-0">
+                <input
+                  v-model="form.allow_user_view_usage_details"
+                  data-testid="allow-user-view-usage-details"
+                  type="checkbox"
+                />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
             <!-- User error requests visibility -->
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-4 border-t border-gray-100 pt-4 dark:border-dark-700">
               <div>
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
                   {{ t('admin.settings.user_error_view.label') }}
@@ -5576,7 +5595,7 @@
                   {{ t('admin.settings.user_error_view.description') }}
                 </p>
               </div>
-              <label class="toggle">
+              <label class="toggle shrink-0">
                 <input v-model="form.allow_user_view_error_requests" type="checkbox" />
                 <span class="toggle-slider"></span>
               </label>
@@ -9080,6 +9099,8 @@ const form = reactive<SettingsForm>({
   affiliate_enabled: false,
   // Allow user view error requests
   allow_user_view_error_requests: false,
+  // Allow user view usage details
+  allow_user_view_usage_details: false,
 });
 
 type OpenAIAdvancedSchedulerOverrideKey =
@@ -10524,6 +10545,7 @@ async function saveSettings() {
       // Affiliate (邀请返利) feature switch
       affiliate_enabled: form.affiliate_enabled,
       allow_user_view_error_requests: form.allow_user_view_error_requests,
+      allow_user_view_usage_details: form.allow_user_view_usage_details,
     };
 
     // 仅当 openai_fast_policy_settings 已成功从后端加载时才回写，

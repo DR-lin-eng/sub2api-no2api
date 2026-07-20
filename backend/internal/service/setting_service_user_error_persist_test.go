@@ -21,6 +21,7 @@ func TestAllowUserViewErrorRequests_PersistsToDB(t *testing.T) {
 
 	err := svc.UpdateSettings(context.Background(), &SystemSettings{
 		AllowUserViewErrorRequests: true,
+		AllowUserViewUsageDetails:  true,
 	})
 	require.NoError(t, err)
 
@@ -28,4 +29,8 @@ func TestAllowUserViewErrorRequests_PersistsToDB(t *testing.T) {
 	val, ok := repo.updates[SettingKeyAllowUserViewErrorRequests]
 	require.True(t, ok, "updates map 中应包含 SettingKeyAllowUserViewErrorRequests，但未找到（bug：buildSystemSettingsUpdates 漏写）")
 	require.Equal(t, "true", val)
+
+	detailVal, ok := repo.updates[SettingKeyAllowUserViewUsageDetails]
+	require.True(t, ok, "updates map should include SettingKeyAllowUserViewUsageDetails")
+	require.Equal(t, "true", detailVal)
 }

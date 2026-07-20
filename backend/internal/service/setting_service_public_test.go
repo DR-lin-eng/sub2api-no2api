@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -12,6 +13,7 @@ import (
 
 type settingPublicRepoStub struct {
 	values map[string]string
+	err    error
 }
 
 func (s *settingPublicRepoStub) Get(ctx context.Context, key string) (*Setting, error) {
@@ -27,6 +29,9 @@ func (s *settingPublicRepoStub) Set(ctx context.Context, key, value string) erro
 }
 
 func (s *settingPublicRepoStub) GetMultiple(ctx context.Context, keys []string) (map[string]string, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
 	out := make(map[string]string, len(keys))
 	for _, key := range keys {
 		if value, ok := s.values[key]; ok {
@@ -34,6 +39,28 @@ func (s *settingPublicRepoStub) GetMultiple(ctx context.Context, keys []string) 
 		}
 	}
 	return out, nil
+}
+
+func TestSettingService_IsUserUsageDetailViewAllowed_DefaultsOffAndRequiresExplicitTrue(t *testing.T) {
+	tests := []struct {
+		name    string
+		values  map[string]string
+		err     error
+		allowed bool
+	}{
+		{name: "missing", values: map[string]string{}, allowed: false},
+		{name: "explicit false", values: map[string]string{SettingKeyAllowUserViewUsageDetails: "false"}, allowed: false},
+		{name: "invalid value", values: map[string]string{SettingKeyAllowUserViewUsageDetails: "1"}, allowed: false},
+		{name: "explicit true", values: map[string]string{SettingKeyAllowUserViewUsageDetails: "true"}, allowed: true},
+		{name: "repository error", values: map[string]string{}, err: errors.New("database unavailable"), allowed: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := NewSettingService(&settingPublicRepoStub{values: tt.values, err: tt.err}, &config.Config{})
+			require.Equal(t, tt.allowed, svc.IsUserUsageDetailViewAllowed(context.Background()))
+		})
+	}
 }
 
 func (s *settingPublicRepoStub) SetMultiple(ctx context.Context, settings map[string]string) error {
@@ -130,6 +157,33 @@ func TestSettingService_GetPublicSettings_ExposesAllowUserViewErrorRequests(t *t
 	settings, err := svc.GetPublicSettings(context.Background())
 	require.NoError(t, err)
 	require.True(t, settings.AllowUserViewErrorRequests)
+}
+
+func TestSettingService_GetPublicSettings_ExposesAllowUserViewUsageDetails(t *testing.T) {
+	t.Run("disabled by default", func(t *testing.T) {
+		settings, err := NewSettingService(
+			&settingPublicRepoStub{values: map[string]string{}},
+			&config.Config{},
+		).GetPublicSettings(context.Background())
+		require.NoError(t, err)
+		require.False(t, settings.AllowUserViewUsageDetails)
+	})
+
+	t.Run("enabled explicitly and included in injection", func(t *testing.T) {
+		svc := NewSettingService(
+			&settingPublicRepoStub{values: map[string]string{SettingKeyAllowUserViewUsageDetails: "true"}},
+			&config.Config{},
+		)
+		settings, err := svc.GetPublicSettings(context.Background())
+		require.NoError(t, err)
+		require.True(t, settings.AllowUserViewUsageDetails)
+
+		injected, err := svc.GetPublicSettingsForInjection(context.Background())
+		require.NoError(t, err)
+		payload, ok := injected.(*PublicSettingsInjectionPayload)
+		require.True(t, ok)
+		require.True(t, payload.AllowUserViewUsageDetails)
+	})
 }
 
 func TestSettingService_GetPublicSettings_ExposesWeChatOAuthModeCapabilities(t *testing.T) {

@@ -563,3 +563,7 @@ const AdminAPIKeyPrefix = "admin-"
 // SettingKeyAllowUserViewErrorRequests controls whether end users can view
 // their own failed requests on the usage page. Default false (opt-in).
 const SettingKeyAllowUserViewErrorRequests = "allow_user_view_error_requests"
+
+// SettingKeyAllowUserViewUsageDetails controls whether end users can open
+// detailed usage records and billing calculations. Default false (opt-in).
+const SettingKeyAllowUserViewUsageDetails = "allow_user_view_usage_details"

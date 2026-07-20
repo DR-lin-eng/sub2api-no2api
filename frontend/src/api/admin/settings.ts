@@ -693,6 +693,8 @@ export interface SystemSettings {
 
   // Allow user view error requests
   allow_user_view_error_requests: boolean;
+  // Allow user view usage details and billing calculations
+  allow_user_view_usage_details: boolean;
 }
 
 export interface UpdateSettingsRequest {
@@ -973,6 +975,7 @@ export interface UpdateSettingsRequest {
   openai_fast_policy_settings?: OpenAIFastPolicySettings;
 
   allow_user_view_error_requests?: boolean;
+  allow_user_view_usage_details?: boolean;
 }
 
 /**

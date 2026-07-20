@@ -526,6 +526,7 @@ const baseSettingsResponse = {
   subscription_expiry_notify_enabled: true,
   account_quota_notify_enabled: false,
   account_quota_notify_emails: [],
+  allow_user_view_usage_details: false,
   // 平台限额嵌套字段（新后端契约）
   default_platform_quotas: {
     anthropic:   { daily: null, weekly: null, monthly: null },
@@ -798,6 +799,23 @@ describe("admin SettingsView payment visible method controls", () => {
 
     expect(updateGlobalTempUnschedulableSettings).toHaveBeenCalledWith({
       enabled: true,
+    });
+  });
+
+  it("loads usage detail access as disabled and saves an explicit enable", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+
+    const toggle = wrapper.get('[data-testid="allow-user-view-usage-details"]');
+    expect((toggle.element as HTMLInputElement).checked).toBe(false);
+
+    await toggle.setValue(true);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(updateSettings.mock.calls.at(-1)?.[0]).toMatchObject({
+      allow_user_view_usage_details: true,
     });
   });
 

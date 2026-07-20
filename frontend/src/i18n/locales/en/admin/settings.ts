@@ -1236,6 +1236,10 @@ export default {
         label: 'Allow users to view their own error requests',
         description: 'When enabled, users can see a redacted view of their failed requests on the usage page (no internal/upstream details). Requires ops monitoring enabled to have data.',
       },
+      user_usage_detail_view: {
+        label: 'Allow users to view usage details',
+        description: 'When enabled, users can inspect their request data, token breakdown, billing calculation, and reconciliation result. Disabling it hides the details action.',
+      },
       saveSettings: 'Save Settings',
       saving: 'Saving...',
       settingsSaved: 'Settings saved successfully',

@@ -7,3 +7,9 @@ func TestSettingKeyAllowUserViewErrorRequests_Constant(t *testing.T) {
 		t.Fatalf("unexpected key: %s", SettingKeyAllowUserViewErrorRequests)
 	}
 }
+
+func TestSettingKeyAllowUserViewUsageDetails_Constant(t *testing.T) {
+	if SettingKeyAllowUserViewUsageDetails != "allow_user_view_usage_details" {
+		t.Fatalf("unexpected key: %s", SettingKeyAllowUserViewUsageDetails)
+	}
+}

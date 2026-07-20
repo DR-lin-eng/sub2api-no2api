@@ -514,6 +514,7 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	}
 
 	updates[SettingKeyAllowUserViewErrorRequests] = strconv.FormatBool(settings.AllowUserViewErrorRequests)
+	updates[SettingKeyAllowUserViewUsageDetails] = strconv.FormatBool(settings.AllowUserViewUsageDetails)
 
 	return updates, nil
 }

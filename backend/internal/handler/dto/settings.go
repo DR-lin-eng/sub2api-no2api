@@ -320,6 +320,8 @@ type SystemSettings struct {
 
 	// 允许终端用户在用量页查看自己的失败请求
 	AllowUserViewErrorRequests bool `json:"allow_user_view_error_requests"`
+	// 允许终端用户查看自己的用量记录详情与计费过程
+	AllowUserViewUsageDetails bool `json:"allow_user_view_usage_details"`
 }
 
 type DefaultSubscriptionSetting struct {
@@ -395,6 +397,7 @@ type PublicSettings struct {
 	RiskControlEnabled bool `json:"risk_control_enabled"`
 
 	AllowUserViewErrorRequests bool `json:"allow_user_view_error_requests"`
+	AllowUserViewUsageDetails  bool `json:"allow_user_view_usage_details"`
 }
 
 type LoginAgreementDocument struct {

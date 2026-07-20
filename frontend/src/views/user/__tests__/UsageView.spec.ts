@@ -14,6 +14,7 @@ const {
   showWarning,
   showSuccess,
   showInfo,
+  appStoreState,
 } = vi.hoisted(() => ({
   query: vi.fn(),
   getStats: vi.fn(),
@@ -25,6 +26,9 @@ const {
   showWarning: vi.fn(),
   showSuccess: vi.fn(),
   showInfo: vi.fn(),
+  appStoreState: {
+    cachedPublicSettings: null as null | { allow_user_view_usage_details?: boolean },
+  },
 }))
 
 const messages: Record<string, string> = {
@@ -80,7 +84,13 @@ vi.mock('@/api', () => ({
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({ showError, showWarning, showSuccess, showInfo }),
+  useAppStore: () => ({
+    showError,
+    showWarning,
+    showSuccess,
+    showInfo,
+    cachedPublicSettings: appStoreState.cachedPublicSettings,
+  }),
 }))
 
 vi.mock('vue-i18n', async () => {
@@ -95,6 +105,11 @@ vi.mock('vue-i18n', async () => {
 
 const simpleStub = { template: '<div><slot /></div>' }
 const chartStub = { template: '<div />' }
+const usageTableStub = {
+  name: 'UsageTable',
+  props: ['columns'],
+  template: '<div data-testid="usage-table" />',
+}
 
 const usageLog = {
   id: 1,
@@ -137,7 +152,7 @@ function mountUsageView() {
         DateRangePicker: true,
         Icon: true,
         UsageStatsCards: chartStub,
-        UsageTable: chartStub,
+        UsageTable: usageTableStub,
         ModelDistributionChart: chartStub,
         GroupDistributionChart: chartStub,
         EndpointDistributionChart: chartStub,
@@ -159,6 +174,7 @@ describe('user UsageView', () => {
     showWarning.mockReset()
     showSuccess.mockReset()
     showInfo.mockReset()
+    appStoreState.cachedPublicSettings = null
 
     query.mockResolvedValue({ items: [usageLog], total: 1, pages: 1 })
     getStats.mockResolvedValue({
@@ -205,6 +221,19 @@ describe('user UsageView', () => {
     }))
     expect(list).toHaveBeenCalledWith(1, 100)
     expect(getAvailable).toHaveBeenCalled()
+  })
+
+  it('hides usage details by default and exposes the action only when enabled globally', async () => {
+    const disabledWrapper = mountUsageView()
+    await flushPromises()
+    expect(disabledWrapper.getComponent({ name: 'UsageTable' }).props('columns'))
+      .not.toEqual(expect.arrayContaining([expect.objectContaining({ key: 'actions' })]))
+
+    appStoreState.cachedPublicSettings = { allow_user_view_usage_details: true }
+    const enabledWrapper = mountUsageView()
+    await flushPromises()
+    expect(enabledWrapper.getComponent({ name: 'UsageTable' }).props('columns'))
+      .toEqual(expect.arrayContaining([expect.objectContaining({ key: 'actions' })]))
   })
 
   it('exports csv with current filters and without admin-only fields', async () => {

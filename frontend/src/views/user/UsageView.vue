@@ -343,6 +343,7 @@ const endpointDistributionMetric = ref<DistributionMetric>('tokens')
 const endpointDistributionSource = ref<EndpointSource>('inbound')
 const activeTab = ref<'usage' | 'errors'>('usage')
 const errorViewEnabled = computed(() => appStore.cachedPublicSettings?.allow_user_view_error_requests ?? false)
+const usageDetailEnabled = computed(() => appStore.cachedPublicSettings?.allow_user_view_usage_details ?? false)
 
 const filters = ref<UsageQueryParams>({
   start_date: startDate.value,
@@ -713,7 +714,10 @@ const allColumns = computed<Column[]>(() => [
 const hiddenColumns = reactive<Set<string>>(new Set())
 const toggleableColumns = computed(() => allColumns.value.filter((col) => !ALWAYS_VISIBLE.includes(col.key)))
 const visibleColumns = computed(() =>
-  allColumns.value.filter((col) => ALWAYS_VISIBLE.includes(col.key) || !hiddenColumns.has(col.key))
+  allColumns.value.filter((col) =>
+    (col.key !== 'actions' || usageDetailEnabled.value)
+    && (ALWAYS_VISIBLE.includes(col.key) || !hiddenColumns.has(col.key))
+  )
 )
 const isColumnVisible = (key: string) => !hiddenColumns.has(key)
 const toggleColumn = (key: string) => {

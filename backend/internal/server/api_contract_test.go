@@ -616,6 +616,9 @@ func TestAPIContracts(t *testing.T) {
 							"image_size_source": null,
 							"image_size_breakdown": null,
 							"media_type": null,
+							"video_count": 0,
+							"video_resolution": null,
+							"video_duration_seconds": null,
 							"cache_ttl_overridden": false,
 							"created_at": "2025-01-02T03:04:05Z",
 							"user_agent": null
@@ -998,7 +1001,8 @@ func TestAPIContracts(t *testing.T) {
 					"wechat_connect_redirect_url": "",
 					"wechat_connect_frontend_redirect_url": "/auth/wechat/callback",
 					"wechat_connect_scopes": "snsapi_login",
-					"allow_user_view_error_requests": false
+					"allow_user_view_error_requests": false,
+					"allow_user_view_usage_details": false
 				}
 			}`,
 		},
@@ -1335,7 +1339,8 @@ func TestAPIContracts(t *testing.T) {
 					"auth_source_default_dingtalk_grant_on_signup": false,
 					"auth_source_default_dingtalk_grant_on_first_bind": false,
 					"force_email_on_third_party_signup": false,
-					"allow_user_view_error_requests": false
+					"allow_user_view_error_requests": false,
+					"allow_user_view_usage_details": false
 				}
 			}`,
 		},

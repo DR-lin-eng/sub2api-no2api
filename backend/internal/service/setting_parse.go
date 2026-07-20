@@ -238,6 +238,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyOpenAIAdvancedSchedulerWeightSessionSticky:         "",
 
 		SettingKeyAllowUserViewErrorRequests: "false",
+		SettingKeyAllowUserViewUsageDetails:  "false",
 	}
 
 	return s.settingRepo.SetMultiple(ctx, defaults)
@@ -888,6 +889,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	}
 
 	result.AllowUserViewErrorRequests = settings[SettingKeyAllowUserViewErrorRequests] == "true" // default false
+	result.AllowUserViewUsageDetails = settings[SettingKeyAllowUserViewUsageDetails] == "true"
 
 	return result
 }

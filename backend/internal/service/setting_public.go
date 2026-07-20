@@ -227,6 +227,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyAffiliateEnabled,
 		SettingKeyRiskControlEnabled,
 		SettingKeyAllowUserViewErrorRequests,
+		SettingKeyAllowUserViewUsageDetails,
 	}
 
 	settings, err := s.settingRepo.GetMultiple(ctx, keys)
@@ -346,6 +347,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		RiskControlEnabled: settings[SettingKeyRiskControlEnabled] == "true",
 
 		AllowUserViewErrorRequests: settings[SettingKeyAllowUserViewErrorRequests] == "true",
+		AllowUserViewUsageDetails:  settings[SettingKeyAllowUserViewUsageDetails] == "true",
 	}, nil
 }
 
@@ -434,6 +436,17 @@ func (s *SettingService) IsUserErrorViewAllowed(ctx context.Context) bool {
 	return vals[SettingKeyAllowUserViewErrorRequests] == "true"
 }
 
+// IsUserUsageDetailViewAllowed reads the user-facing usage-detail visibility switch
+// directly from the settings store. Fail-closed: on error returns false (opt-in default).
+func (s *SettingService) IsUserUsageDetailViewAllowed(ctx context.Context) bool {
+	vals, err := s.settingRepo.GetMultiple(ctx, []string{SettingKeyAllowUserViewUsageDetails})
+	if err != nil {
+		slog.Warn("failed to get allow_user_view_usage_details setting, defaulting to false", "error", err)
+		return false
+	}
+	return vals[SettingKeyAllowUserViewUsageDetails] == "true"
+}
+
 // PublicSettingsInjectionPayload is the JSON shape embedded into HTML as
 // `window.__APP_CONFIG__` so the frontend can hydrate feature flags & site
 // config before the first XHR finishes.
@@ -511,6 +524,7 @@ type PublicSettingsInjectionPayload struct {
 	AffiliateEnabled                     bool `json:"affiliate_enabled"`
 	RiskControlEnabled                   bool `json:"risk_control_enabled"`
 	AllowUserViewErrorRequests           bool `json:"allow_user_view_error_requests"`
+	AllowUserViewUsageDetails            bool `json:"allow_user_view_usage_details"`
 }
 
 // GetPublicSettingsForInjection returns public settings in a format suitable for HTML injection.
@@ -581,6 +595,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		AffiliateEnabled:                     settings.AffiliateEnabled,
 		RiskControlEnabled:                   settings.RiskControlEnabled,
 		AllowUserViewErrorRequests:           settings.AllowUserViewErrorRequests,
+		AllowUserViewUsageDetails:            settings.AllowUserViewUsageDetails,
 	}, nil
 }
 

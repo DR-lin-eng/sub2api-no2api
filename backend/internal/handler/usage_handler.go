@@ -378,6 +378,10 @@ func (h *UsageHandler) GetByID(c *gin.Context) {
 		response.Unauthorized(c, "User not authenticated")
 		return
 	}
+	if h.settingService == nil || !h.settingService.IsUserUsageDetailViewAllowed(c.Request.Context()) {
+		response.Forbidden(c, "Usage detail view is disabled")
+		return
+	}
 
 	usageID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
