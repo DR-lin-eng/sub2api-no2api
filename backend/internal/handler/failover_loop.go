@@ -61,6 +61,24 @@ func NewFailoverState(maxSwitches int, hasBoundSession bool) *FailoverState {
 	}
 }
 
+func addFailedAccountID(failedAccountIDs *map[int64]struct{}, accountID int64) {
+	if *failedAccountIDs == nil {
+		*failedAccountIDs = make(map[int64]struct{}, 1)
+	}
+	(*failedAccountIDs)[accountID] = struct{}{}
+}
+
+func tryIncrementSameAccountRetry(counts *map[int64]int, accountID int64, limit int) (int, bool) {
+	if limit <= 0 || (*counts)[accountID] >= limit {
+		return (*counts)[accountID], false
+	}
+	if *counts == nil {
+		*counts = make(map[int64]int, 1)
+	}
+	(*counts)[accountID]++
+	return (*counts)[accountID], true
+}
+
 // ExcludeAccount lazily creates the exclusion set only after a request actually fails.
 func (s *FailoverState) ExcludeAccount(accountID int64) {
 	if s.FailedAccountIDs == nil {

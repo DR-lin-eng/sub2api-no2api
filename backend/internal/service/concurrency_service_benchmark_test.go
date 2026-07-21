@@ -126,25 +126,49 @@ func BenchmarkConcurrencyServiceAccountLoadCache(b *testing.B) {
 }
 
 func BenchmarkConcurrencyServiceAPIKeySlot(b *testing.B) {
-	svc := NewConcurrencyService(benchmarkAPIKeyConcurrencyCache{})
 	ctx := context.Background()
-
-	for _, tc := range []struct {
-		name  string
-		limit int
+	for _, mode := range []struct {
+		name       string
+		standalone bool
 	}{
-		{name: "unlimited_tracking", limit: 0},
-		{name: "limited_atomic_acquire", limit: 8},
+		{name: "redis"},
+		{name: "standalone", standalone: true},
 	} {
-		b.Run(tc.name, func(b *testing.B) {
-			b.ReportAllocs()
-			for b.Loop() {
-				result, err := svc.AcquireAPIKeySlot(ctx, 42, tc.limit)
+		for _, tc := range []struct {
+			name  string
+			limit int
+		}{
+			{name: "unlimited_tracking", limit: 0},
+			{name: "limited_atomic_acquire", limit: 8},
+		} {
+			b.Run(mode.name+"/"+tc.name, func(b *testing.B) {
+				svc := NewConcurrencyService(benchmarkAPIKeyConcurrencyCache{})
+				svc.SetStandaloneRequestSlots(mode.standalone)
+				b.ReportAllocs()
+				for b.Loop() {
+					result, err := svc.AcquireAPIKeySlot(ctx, 42, tc.limit)
+					if err != nil || !result.Acquired {
+						b.Fatalf("AcquireAPIKeySlot() = (%v, %v)", result, err)
+					}
+					result.ReleaseFunc()
+				}
+			})
+		}
+	}
+
+	b.Run("standalone/parallel_single_key", func(b *testing.B) {
+		svc := NewConcurrencyService(benchmarkAPIKeyConcurrencyCache{})
+		svc.SetStandaloneRequestSlots(true)
+		b.ReportAllocs()
+		b.RunParallel(func(pb *testing.PB) {
+			for pb.Next() {
+				result, err := svc.AcquireAPIKeySlot(ctx, 42, 0)
 				if err != nil || !result.Acquired {
-					b.Fatalf("AcquireAPIKeySlot() = (%v, %v)", result, err)
+					b.Errorf("AcquireAPIKeySlot() = (%v, %v)", result, err)
+					return
 				}
 				result.ReleaseFunc()
 			}
 		})
-	}
+	})
 }

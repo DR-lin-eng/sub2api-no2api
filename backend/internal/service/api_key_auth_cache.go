@@ -1,6 +1,10 @@
 package service
 
-import "time"
+import (
+	"sync"
+	"sync/atomic"
+	"time"
+)
 
 // APIKeyAuthSnapshot API Key 认证缓存快照（仅包含认证所需字段）
 type APIKeyAuthSnapshot struct {
@@ -118,4 +122,7 @@ type APIKeyAuthGroupSnapshot struct {
 type APIKeyAuthCacheEntry struct {
 	NotFound bool                `json:"not_found"`
 	Snapshot *APIKeyAuthSnapshot `json:"snapshot,omitempty"`
+
+	runtimeMu     sync.Mutex
+	runtimeAPIKey atomic.Pointer[APIKey]
 }

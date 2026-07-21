@@ -158,6 +158,11 @@ type APIKeyCache interface {
 	SubscribeAuthCacheInvalidation(ctx context.Context, handler func(cacheKey string)) error
 }
 
+type APIKeyLastUsedScheduler interface {
+	ScheduleAPIKeyLastUsedUpdate(apiKeyID int64, usedAt time.Time) bool
+	CancelAPIKeyLastUsedUpdate(apiKeyID int64)
+}
+
 type authCacheSubscriptionReadyKey struct{}
 
 func withAuthCacheSubscriptionReady(ctx context.Context, ready func()) context.Context {
@@ -251,6 +256,7 @@ type APIKeyService struct {
 	cfg                       *config.Config
 	authCacheL1               *ristretto.Cache
 	authNegativeCacheL1       *ristretto.Cache
+	authHotCache              atomic.Pointer[apiKeyAuthHotCacheEntry]
 	authCfg                   apiKeyAuthCacheConfig
 	authGroup                 singleflight.Group
 	authLookupSlots           chan struct{}
@@ -264,8 +270,9 @@ type APIKeyService struct {
 	authInvalidationWG        sync.WaitGroup
 	authInvalidationConnected atomic.Bool
 	authInvalidationFailures  atomic.Uint64
-	lastUsedTouchL1           sync.Map // keyID -> nextAllowedAt(time.Time)
+	lastUsedTouchL1           apiKeyLastUsedDebounceCache
 	lastUsedTouchSF           singleflight.Group
+	lastUsedScheduler         APIKeyLastUsedScheduler
 }
 
 type APIKeyAuthLookupMetrics struct {
@@ -324,6 +331,10 @@ func (s *APIKeyService) SetRateLimitCacheInvalidator(inv RateLimitCacheInvalidat
 
 func (s *APIKeyService) SetConcurrencyService(concurrencyService *ConcurrencyService) {
 	s.concurrencyService = concurrencyService
+}
+
+func (s *APIKeyService) SetLastUsedScheduler(scheduler APIKeyLastUsedScheduler) {
+	s.lastUsedScheduler = scheduler
 }
 
 func (s *APIKeyService) compileAPIKeyIPRules(apiKey *APIKey) {
@@ -659,14 +670,23 @@ func (s *APIKeyService) GetByKey(ctx context.Context, key string) (*APIKey, erro
 	if len(key) == 0 || len(key) > MaxAPIKeyCredentialBytes {
 		return nil, ErrAPIKeyNotFound
 	}
-	cacheKey := s.authCacheKey(key)
+	digest := authCacheDigest(key)
+	if entry, ok := s.getAuthHotCacheEntry(digest, time.Now()); ok {
+		if apiKey, used, err := s.applyAuthHotCacheEntry(key, entry); used {
+			if err != nil {
+				return nil, fmt.Errorf("get api key: %w", err)
+			}
+			return apiKey, nil
+		}
+	}
+	cacheKey := authCacheKeyFromDigest(digest)
 
 	if entry, ok := s.getAuthCacheEntry(ctx, cacheKey); ok {
+		s.setAuthHotCacheEntry(digest, key, entry)
 		if apiKey, used, err := s.applyAuthCacheEntry(key, entry); used {
 			if err != nil {
 				return nil, fmt.Errorf("get api key: %w", err)
 			}
-			s.compileAPIKeyIPRules(apiKey)
 			return apiKey, nil
 		}
 	}
@@ -679,11 +699,11 @@ func (s *APIKeyService) GetByKey(ctx context.Context, key string) (*APIKey, erro
 			return nil, err
 		}
 		entry, _ := value.(*APIKeyAuthCacheEntry)
+		s.setAuthHotCacheEntry(digest, key, entry)
 		if apiKey, used, err := s.applyAuthCacheEntry(key, entry); used {
 			if err != nil {
 				return nil, fmt.Errorf("get api key: %w", err)
 			}
-			s.compileAPIKeyIPRules(apiKey)
 			return apiKey, nil
 		}
 	} else {
@@ -691,11 +711,11 @@ func (s *APIKeyService) GetByKey(ctx context.Context, key string) (*APIKey, erro
 		if err != nil {
 			return nil, err
 		}
+		s.setAuthHotCacheEntry(digest, key, entry)
 		if apiKey, used, err := s.applyAuthCacheEntry(key, entry); used {
 			if err != nil {
 				return nil, fmt.Errorf("get api key: %w", err)
 			}
-			s.compileAPIKeyIPRules(apiKey)
 			return apiKey, nil
 		}
 	}
@@ -869,6 +889,9 @@ func (s *APIKeyService) Delete(ctx context.Context, id int64, userID int64) erro
 	}
 	s.InvalidateAuthCacheByKey(ctx, key)
 	s.lastUsedTouchL1.Delete(id)
+	if s.lastUsedScheduler != nil {
+		s.lastUsedScheduler.CancelAPIKeyLastUsedUpdate(id)
+	}
 
 	return nil
 }
@@ -908,20 +931,23 @@ func (s *APIKeyService) TouchLastUsed(ctx context.Context, keyID int64) error {
 	}
 
 	now := time.Now()
-	if v, ok := s.lastUsedTouchL1.Load(keyID); ok {
-		if nextAllowedAt, ok := v.(time.Time); ok && now.Before(nextAllowedAt) {
-			return nil
+	if _, ok := s.lastUsedTouchL1.Get(keyID, now); ok {
+		return nil
+	}
+
+	if s.lastUsedScheduler != nil {
+		if s.lastUsedScheduler.ScheduleAPIKeyLastUsedUpdate(keyID, now) {
+			s.lastUsedTouchL1.Store(keyID, now.Add(apiKeyLastUsedMinTouch))
+		} else {
+			s.lastUsedTouchL1.Store(keyID, now.Add(apiKeyLastUsedFailBackoff))
 		}
-		s.lastUsedTouchL1.Delete(keyID)
+		return nil
 	}
 
 	_, err, _ := s.lastUsedTouchSF.Do(strconv.FormatInt(keyID, 10), func() (any, error) {
 		latest := time.Now()
-		if v, ok := s.lastUsedTouchL1.Load(keyID); ok {
-			if nextAllowedAt, ok := v.(time.Time); ok && latest.Before(nextAllowedAt) {
-				return nil, nil
-			}
-			s.lastUsedTouchL1.Delete(keyID)
+		if _, ok := s.lastUsedTouchL1.Get(keyID, latest); ok {
+			return nil, nil
 		}
 
 		if err := s.apiKeyRepo.UpdateLastUsed(ctx, keyID, latest); err != nil {

@@ -35,7 +35,7 @@ func (h *OpenAIGatewayHandler) CodexModels(c *gin.Context) {
 	if maxAccountSwitches <= 0 {
 		maxAccountSwitches = 3
 	}
-	failedAccountIDs := make(map[int64]struct{})
+	var failedAccountIDs map[int64]struct{}
 	switchCount := 0
 	var lastUpstreamErr error
 
@@ -61,7 +61,7 @@ func (h *OpenAIGatewayHandler) CodexModels(c *gin.Context) {
 				return
 			}
 			if service.IsRetryableCodexModelsManifestError(err) && switchCount < maxAccountSwitches {
-				failedAccountIDs[account.ID] = struct{}{}
+				addFailedAccountID(&failedAccountIDs, account.ID)
 				switchCount++
 				lastUpstreamErr = err
 				continue

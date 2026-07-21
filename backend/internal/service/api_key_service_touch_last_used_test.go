@@ -35,10 +35,9 @@ func TestAPIKeyService_TouchLastUsed_FirstTouchSucceeds(t *testing.T) {
 	require.Len(t, repo.touchedUsedAts, 1)
 	require.False(t, repo.touchedUsedAts[0].IsZero())
 
-	cached, ok := svc.lastUsedTouchL1.Load(int64(123))
+	cached, ok := svc.lastUsedTouchL1.Get(int64(123), time.Now())
 	require.True(t, ok, "successful touch should update debounce cache")
-	_, isTime := cached.(time.Time)
-	require.True(t, isTime)
+	require.False(t, cached.IsZero())
 }
 
 func TestAPIKeyService_TouchLastUsed_DebouncedWithinWindow(t *testing.T) {
@@ -79,10 +78,9 @@ func TestAPIKeyService_TouchLastUsed_RepoError(t *testing.T) {
 	require.ErrorContains(t, err, "touch api key last used")
 	require.Equal(t, []int64{123}, repo.touchedIDs)
 
-	cached, ok := svc.lastUsedTouchL1.Load(int64(123))
+	cached, ok := svc.lastUsedTouchL1.Get(int64(123), time.Now())
 	require.True(t, ok, "failed touch should still update retry debounce cache")
-	_, isTime := cached.(time.Time)
-	require.True(t, isTime)
+	require.False(t, cached.IsZero())
 }
 
 func TestAPIKeyService_TouchLastUsed_RepoErrorDebounced(t *testing.T) {

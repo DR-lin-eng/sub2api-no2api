@@ -454,7 +454,7 @@ func (h *OpenAIGatewayHandler) runForcedOpenAIImageChild(
 	index int,
 	events chan<- openAIForcedImageChildEvent,
 ) openAIForcedImageChildResult {
-	failedAccountIDs := make(map[int64]struct{})
+	var failedAccountIDs map[int64]struct{}
 	maxSwitches := h.maxAccountSwitches
 	for switchCount := 0; ; switchCount++ {
 		selection, _, selectErr := h.gatewayService.SelectAccountWithSchedulerForImages(
@@ -508,7 +508,7 @@ func (h *OpenAIGatewayHandler) runForcedOpenAIImageChild(
 			if errors.As(forwardErr, &failoverErr) && switchCount < maxSwitches {
 				h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, upstreamModel, false, nil)
 				h.gatewayService.RecordOpenAIAccountSwitch()
-				failedAccountIDs[account.ID] = struct{}{}
+				addFailedAccountID(&failedAccountIDs, account.ID)
 				continue
 			}
 			if result == nil || result.ImageCount <= 0 {

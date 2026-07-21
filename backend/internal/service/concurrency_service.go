@@ -225,11 +225,17 @@ const (
 	maxAccountLoadBatchCacheEntries = 256
 	apiKeyConcurrencyFetchTimeout   = 3 * time.Second
 	apiKeySlotTrackTimeout          = 2 * time.Second
+	localRequestSlotCapacity        = 32768
+	localRequestSlotIdleTTL         = 10 * time.Minute
 )
 
 // ConcurrencyService 管理账号和用户的并发限制。
 type ConcurrencyService struct {
 	cache ConcurrencyCache
+
+	standaloneRequestSlots atomic.Bool
+	localAPIKeySlots       localSlotRegistry
+	localUserSlots         localSlotRegistry
 
 	accountLoadCacheTTL atomic.Int64
 	accountLoadCacheMu  sync.Mutex
@@ -240,6 +246,19 @@ type ConcurrencyService struct {
 	cleanupCancel       context.CancelFunc
 	cleanupWG           sync.WaitGroup
 	cleanupStopped      bool
+}
+
+type localSlotRegistry struct {
+	slots   sync.Map // int64 ID -> *localRequestSlot
+	size    atomic.Int64
+	pruneMu sync.Mutex
+}
+
+type localRequestSlot struct {
+	active   atomic.Int64
+	waiting  atomic.Int64
+	lastUsed atomic.Int64
+	retired  atomic.Bool
 }
 
 type cachedAccountLoadBatch struct {
@@ -270,6 +289,13 @@ func NewConcurrencyService(cache ConcurrencyCache) *ConcurrencyService {
 	svc := &ConcurrencyService{cache: cache}
 	svc.SetAccountLoadBatchCacheTTL(defaultAccountLoadBatchCacheTTL)
 	return svc
+}
+
+func (s *ConcurrencyService) SetStandaloneRequestSlots(enabled bool) {
+	if s == nil {
+		return
+	}
+	s.standaloneRequestSlots.Store(enabled)
 }
 
 // AcquireOpenAIWSIngressLease atomically reserves one live ingress connection
@@ -335,6 +361,8 @@ type AcquireResult struct {
 	Acquired    bool
 	ReleaseFunc func() // Must be called when done (typically via defer)
 }
+
+var rejectedAcquireResult = &AcquireResult{}
 
 type AccountWithConcurrency struct {
 	ID             int64
@@ -410,6 +438,14 @@ func (s *ConcurrencyService) AcquireUserSlot(ctx context.Context, userID int64, 
 			ReleaseFunc: func() {}, // no-op
 		}, nil
 	}
+	if s != nil && s.standaloneRequestSlots.Load() {
+		if result, ok := s.acquireStandaloneSlot(&s.localUserSlots, userID, maxConcurrency); ok {
+			return result, nil
+		}
+	}
+	if s == nil || s.cache == nil {
+		return &AcquireResult{Acquired: true, ReleaseFunc: func() {}}, nil
+	}
 
 	// Generate unique request ID for this slot
 	requestID := generateRequestID()
@@ -442,7 +478,15 @@ func (s *ConcurrencyService) AcquireUserSlot(ctx context.Context, userID int64, 
 // configured concurrency limit. A non-positive limit keeps stats without
 // restricting requests.
 func (s *ConcurrencyService) AcquireAPIKeySlot(ctx context.Context, apiKeyID int64, maxConcurrency int) (*AcquireResult, error) {
-	if s == nil || s.cache == nil || apiKeyID <= 0 {
+	if s == nil || apiKeyID <= 0 {
+		return &AcquireResult{Acquired: true, ReleaseFunc: func() {}}, nil
+	}
+	if s.standaloneRequestSlots.Load() {
+		if result, ok := s.acquireStandaloneSlot(&s.localAPIKeySlots, apiKeyID, maxConcurrency); ok {
+			return result, nil
+		}
+	}
+	if s.cache == nil {
 		return &AcquireResult{Acquired: true, ReleaseFunc: func() {}}, nil
 	}
 	cache, ok := s.cache.(APIKeyConcurrencyCache)
@@ -495,6 +539,23 @@ func (s *ConcurrencyService) GetAPIKeyConcurrencyBatch(ctx context.Context, apiK
 	if len(apiKeyIDs) == 0 {
 		return result, nil
 	}
+	if s != nil && s.standaloneRequestSlots.Load() {
+		for _, id := range apiKeyIDs {
+			if value, ok := s.localAPIKeySlots.slots.Load(id); ok {
+				if slot, ok := value.(*localRequestSlot); ok && slot != nil && !slot.retired.Load() {
+					count := slot.active.Load()
+					maxInt := int64(^uint(0) >> 1)
+					if count > maxInt {
+						count = maxInt
+					}
+					if count > 0 {
+						result[id] = int(count)
+					}
+				}
+			}
+		}
+		return result, nil
+	}
 	if s == nil || s.cache == nil {
 		return result, nil
 	}
@@ -517,6 +578,102 @@ func (s *ConcurrencyService) GetAPIKeyConcurrencyBatch(ctx context.Context, apiK
 	return result, nil
 }
 
+func (s *ConcurrencyService) acquireStandaloneSlot(registry *localSlotRegistry, id int64, maxConcurrency int) (*AcquireResult, bool) {
+	for {
+		slot := registry.getOrCreate(id)
+		if slot == nil {
+			return nil, false
+		}
+		for {
+			if slot.retired.Load() {
+				break
+			}
+			current := slot.active.Load()
+			if maxConcurrency > 0 && current >= int64(maxConcurrency) {
+				slot.lastUsed.Store(time.Now().UnixNano())
+				return rejectedAcquireResult, true
+			}
+			if !slot.active.CompareAndSwap(current, current+1) {
+				continue
+			}
+			if slot.retired.Load() {
+				slot.active.Add(-1)
+				break
+			}
+			slot.lastUsed.Store(time.Now().UnixNano())
+			released := &atomic.Bool{}
+			return &AcquireResult{
+				Acquired: true,
+				ReleaseFunc: func() {
+					if released.CompareAndSwap(false, true) {
+						slot.active.Add(-1)
+						slot.lastUsed.Store(time.Now().UnixNano())
+					}
+				},
+			}, true
+		}
+	}
+}
+
+func (r *localSlotRegistry) getOrCreate(id int64) *localRequestSlot {
+	if value, ok := r.slots.Load(id); ok {
+		if slot, ok := value.(*localRequestSlot); ok && slot != nil && !slot.retired.Load() {
+			return slot
+		}
+	}
+	if r.size.Load() >= localRequestSlotCapacity {
+		r.prune(time.Now())
+		if r.size.Load() >= localRequestSlotCapacity {
+			return nil
+		}
+	}
+	if r.size.Add(1) > localRequestSlotCapacity {
+		r.size.Add(-1)
+		return nil
+	}
+	candidate := &localRequestSlot{}
+	candidate.lastUsed.Store(time.Now().UnixNano())
+	actual, loaded := r.slots.LoadOrStore(id, candidate)
+	if !loaded {
+		return candidate
+	}
+	r.size.Add(-1)
+	slot, _ := actual.(*localRequestSlot)
+	if slot == nil || slot.retired.Load() {
+		if r.slots.CompareAndDelete(id, actual) {
+			r.size.Add(-1)
+		}
+		return r.getOrCreate(id)
+	}
+	return slot
+}
+
+func (r *localSlotRegistry) prune(now time.Time) {
+	if !r.pruneMu.TryLock() {
+		return
+	}
+	defer r.pruneMu.Unlock()
+	staleBefore := now.Add(-localRequestSlotIdleTTL).UnixNano()
+	r.slots.Range(func(key, value any) bool {
+		slot, ok := value.(*localRequestSlot)
+		if !ok || slot == nil {
+			if r.slots.CompareAndDelete(key, value) {
+				r.size.Add(-1)
+			}
+			return true
+		}
+		if slot.active.Load() != 0 || slot.waiting.Load() != 0 || slot.lastUsed.Load() > staleBefore || !slot.retired.CompareAndSwap(false, true) {
+			return true
+		}
+		if r.slots.CompareAndDelete(key, slot) {
+			r.size.Add(-1)
+		} else {
+			slot.retired.Store(false)
+		}
+		return true
+	})
+}
+
 func zeroAPIKeyConcurrencyMap(apiKeyIDs []int64) map[int64]int {
 	result := make(map[int64]int, len(apiKeyIDs))
 	for _, apiKeyID := range apiKeyIDs {
@@ -533,6 +690,21 @@ func zeroAPIKeyConcurrencyMap(apiKeyIDs []int64) map[int64]int {
 // Returns true if successful, false if the wait queue is full.
 // maxWait should be user.Concurrency + defaultExtraWaitSlots
 func (s *ConcurrencyService) IncrementWaitCount(ctx context.Context, userID int64, maxWait int) (bool, error) {
+	if s != nil && s.standaloneRequestSlots.Load() {
+		slot := s.localUserSlots.getOrCreate(userID)
+		if slot != nil {
+			for {
+				current := slot.waiting.Load()
+				if maxWait > 0 && current >= int64(maxWait) {
+					return false, nil
+				}
+				if slot.waiting.CompareAndSwap(current, current+1) {
+					slot.lastUsed.Store(time.Now().UnixNano())
+					return true, nil
+				}
+			}
+		}
+	}
 	if s.cache == nil {
 		// Redis not available, allow request
 		return true, nil
@@ -550,6 +722,20 @@ func (s *ConcurrencyService) IncrementWaitCount(ctx context.Context, userID int6
 // DecrementWaitCount decrements the wait queue counter for a user.
 // Should be called when a request completes or exits the wait queue.
 func (s *ConcurrencyService) DecrementWaitCount(ctx context.Context, userID int64) {
+	if s != nil && s.standaloneRequestSlots.Load() {
+		if value, ok := s.localUserSlots.slots.Load(userID); ok {
+			if slot, ok := value.(*localRequestSlot); ok && slot != nil && !slot.retired.Load() {
+				for {
+					current := slot.waiting.Load()
+					if current <= 0 || slot.waiting.CompareAndSwap(current, current-1) {
+						break
+					}
+				}
+				slot.lastUsed.Store(time.Now().UnixNano())
+				return
+			}
+		}
+	}
 	if s.cache == nil {
 		return
 	}
@@ -765,10 +951,37 @@ func cloneAccountLoadMap(loadMap map[int64]*AccountLoadInfo) map[int64]*AccountL
 
 // GetUsersLoadBatch returns load info for multiple users.
 func (s *ConcurrencyService) GetUsersLoadBatch(ctx context.Context, users []UserWithConcurrency) (map[int64]*UserLoadInfo, error) {
-	if s.cache == nil {
-		return map[int64]*UserLoadInfo{}, nil
+	loadMap := make(map[int64]*UserLoadInfo, len(users))
+	if s != nil && s.cache != nil {
+		cached, err := s.cache.GetUsersLoadBatch(ctx, users)
+		if err != nil {
+			return nil, err
+		}
+		loadMap = cached
+		if loadMap == nil {
+			loadMap = make(map[int64]*UserLoadInfo, len(users))
+		}
 	}
-	return s.cache.GetUsersLoadBatch(ctx, users)
+	if s == nil || !s.standaloneRequestSlots.Load() {
+		return loadMap, nil
+	}
+	for _, user := range users {
+		info := loadMap[user.ID]
+		if info == nil {
+			info = &UserLoadInfo{UserID: user.ID}
+			loadMap[user.ID] = info
+		}
+		if value, ok := s.localUserSlots.slots.Load(user.ID); ok {
+			if slot, ok := value.(*localRequestSlot); ok && slot != nil && !slot.retired.Load() {
+				info.CurrentConcurrency = int(slot.active.Load())
+				info.WaitingCount = int(slot.waiting.Load())
+			}
+		}
+		if user.MaxConcurrency > 0 {
+			info.LoadRate = (info.CurrentConcurrency + info.WaitingCount) * 100 / user.MaxConcurrency
+		}
+	}
+	return loadMap, nil
 }
 
 // CleanupExpiredAccountSlots removes expired slots for one account (background task).

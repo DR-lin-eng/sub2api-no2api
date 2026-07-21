@@ -110,6 +110,11 @@ postgres_connections = replicas * database.max_open_conns + reserved_connections
 redis_clients         = replicas * redis.pool_size + non_application_clients
 ```
 
+`deployment.mode: multi_instance` also keeps user and API-key concurrency slots in Redis
+so limits and live counts are cluster-wide. `standalone` uses process-local atomic
+slots instead, avoiding a single Redis sorted-set hot key when one API key carries
+very high concurrency.
+
 Reserve PostgreSQL connections for migrations, administration, backup tooling,
 and incident access. For example, four replicas at `max_open_conns: 64` require
 at least 256 application slots plus the reserve, not four pools of 256 unless

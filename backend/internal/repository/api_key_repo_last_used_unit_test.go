@@ -227,6 +227,22 @@ func TestAPIKeyRepository_UpdateLastUsedDBError(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestBuildAPIKeyLastUsedBatchQuery(t *testing.T) {
+	now := time.Now().UTC()
+	query, args := buildAPIKeyLastUsedBatchQuery(map[int64]time.Time{
+		11: now,
+		22: now.Add(time.Second),
+	})
+
+	require.Contains(t, query, "UPDATE api_keys AS target")
+	require.Contains(t, query, "FROM (VALUES")
+	require.Contains(t, query, "last_used_at = GREATEST")
+	require.Contains(t, query, "target.deleted_at IS NULL")
+	require.Contains(t, query, "$1::bigint")
+	require.Contains(t, query, "$2::timestamptz")
+	require.Len(t, args, 4)
+}
+
 func TestAPIKeyRepository_CreateDuplicateKey(t *testing.T) {
 	repo, client := newAPIKeyRepoSQLite(t)
 	ctx := context.Background()

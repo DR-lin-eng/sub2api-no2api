@@ -86,6 +86,36 @@ func (s *APIKeyRepoSuite) TestGetByKey_NotFound() {
 	s.Require().Error(err, "expected error for non-existent key")
 }
 
+func (s *APIKeyRepoSuite) TestBatchUpdateLastUsed() {
+	user := s.mustCreateUser("batch-last-used@test.com")
+	first := &service.APIKey{UserID: user.ID, Key: "sk-batch-last-used-1", Name: "first", Status: service.StatusActive}
+	second := &service.APIKey{UserID: user.ID, Key: "sk-batch-last-used-2", Name: "second", Status: service.StatusActive}
+	s.Require().NoError(s.repo.Create(s.ctx, first))
+	s.Require().NoError(s.repo.Create(s.ctx, second))
+
+	firstAt := time.Now().UTC().Add(-time.Minute).Truncate(time.Microsecond)
+	secondAt := firstAt.Add(10 * time.Second)
+	s.Require().NoError(s.repo.BatchUpdateLastUsed(s.ctx, map[int64]time.Time{
+		first.ID:  firstAt,
+		second.ID: secondAt,
+	}))
+
+	gotFirst, err := s.repo.GetByID(s.ctx, first.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(gotFirst.LastUsedAt)
+	s.Require().WithinDuration(firstAt, *gotFirst.LastUsedAt, time.Microsecond)
+	gotSecond, err := s.repo.GetByID(s.ctx, second.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(gotSecond.LastUsedAt)
+	s.Require().WithinDuration(secondAt, *gotSecond.LastUsedAt, time.Microsecond)
+
+	// A delayed older batch must not move last_used_at backwards.
+	s.Require().NoError(s.repo.BatchUpdateLastUsed(s.ctx, map[int64]time.Time{second.ID: firstAt}))
+	gotSecond, err = s.repo.GetByID(s.ctx, second.ID)
+	s.Require().NoError(err)
+	s.Require().WithinDuration(secondAt, *gotSecond.LastUsedAt, time.Microsecond)
+}
+
 func (s *APIKeyRepoSuite) TestGetByKeyForAuth_PreservesMessagesDispatchModelConfig() {
 	user := s.mustCreateUser("getbykey-auth-dispatch@test.com")
 	group, err := s.client.Group.Create().

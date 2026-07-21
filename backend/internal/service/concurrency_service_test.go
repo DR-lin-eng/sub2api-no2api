@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"errors"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -331,6 +332,150 @@ func TestAcquireAPIKeySlot_LimitedAcquiresAndReleases(t *testing.T) {
 	result.ReleaseFunc()
 	require.Equal(t, []int64{88}, cache.releasedAPIKeyIDs)
 	require.Equal(t, cache.trackedAPIKeyRequestIDs, cache.releasedAPIKeyRequestIDs)
+}
+
+func TestAcquireAPIKeySlot_StandaloneUsesLocalAtomicCounter(t *testing.T) {
+	cache := &stubConcurrencyCacheForTest{}
+	svc := NewConcurrencyService(cache)
+	svc.SetStandaloneRequestSlots(true)
+
+	first, err := svc.AcquireAPIKeySlot(context.Background(), 88, 2)
+	require.NoError(t, err)
+	require.True(t, first.Acquired)
+	second, err := svc.AcquireAPIKeySlot(context.Background(), 88, 2)
+	require.NoError(t, err)
+	require.True(t, second.Acquired)
+	third, err := svc.AcquireAPIKeySlot(context.Background(), 88, 2)
+	require.NoError(t, err)
+	require.False(t, third.Acquired)
+	require.Empty(t, cache.trackedAPIKeyIDs, "standalone slots must not touch the Redis cache")
+
+	counts, err := svc.GetAPIKeyConcurrencyBatch(context.Background(), []int64{88})
+	require.NoError(t, err)
+	require.Equal(t, 2, counts[88])
+	first.ReleaseFunc()
+	first.ReleaseFunc()
+	second.ReleaseFunc()
+	counts, err = svc.GetAPIKeyConcurrencyBatch(context.Background(), []int64{88})
+	require.NoError(t, err)
+	require.Zero(t, counts[88])
+}
+
+func TestAcquireAPIKeySlot_StandaloneSupports20KDistinctKeys(t *testing.T) {
+	svc := NewConcurrencyService(nil)
+	svc.SetStandaloneRequestSlots(true)
+	const keyCount = 20000
+	for id := int64(1); id <= keyCount; id++ {
+		result, err := svc.AcquireAPIKeySlot(context.Background(), id, 1)
+		require.NoError(t, err)
+		require.True(t, result.Acquired)
+		result.ReleaseFunc()
+	}
+	require.Equal(t, int64(keyCount), svc.localAPIKeySlots.size.Load())
+}
+
+func TestAcquireAPIKeySlot_StandaloneSupports200KActiveSameKey(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping 200k active-slot capacity test in short mode")
+	}
+	svc := NewConcurrencyService(nil)
+	svc.SetStandaloneRequestSlots(true)
+	const activeRequests = 200000
+	var before runtime.MemStats
+	runtime.ReadMemStats(&before)
+	startedAt := time.Now()
+	releases := make([]func(), 0, activeRequests)
+	for i := 0; i < activeRequests; i++ {
+		result, err := svc.AcquireAPIKeySlot(context.Background(), 42, activeRequests)
+		if err != nil || !result.Acquired {
+			t.Fatalf("acquire %d failed: result=%v err=%v", i, result, err)
+		}
+		releases = append(releases, result.ReleaseFunc)
+	}
+	result, err := svc.AcquireAPIKeySlot(context.Background(), 42, activeRequests)
+	require.NoError(t, err)
+	require.False(t, result.Acquired)
+	counts, err := svc.GetAPIKeyConcurrencyBatch(context.Background(), []int64{42})
+	require.NoError(t, err)
+	require.Equal(t, activeRequests, counts[42])
+	var afterAcquire runtime.MemStats
+	runtime.ReadMemStats(&afterAcquire)
+	t.Logf("acquired %d same-key slots in %s; allocated %.2f MiB", activeRequests, time.Since(startedAt), float64(afterAcquire.TotalAlloc-before.TotalAlloc)/(1024*1024))
+	for _, release := range releases {
+		release()
+	}
+}
+
+func TestAcquireAPIKeySlot_StandaloneConcurrentSingleKey(t *testing.T) {
+	svc := NewConcurrencyService(nil)
+	svc.SetStandaloneRequestSlots(true)
+	const workers = 64
+	const iterations = 1000
+	errCh := make(chan error, workers)
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < iterations; j++ {
+				result, err := svc.AcquireAPIKeySlot(context.Background(), 42, 0)
+				if err != nil || !result.Acquired {
+					errCh <- errors.New("standalone same-key acquire failed")
+					return
+				}
+				result.ReleaseFunc()
+			}
+		}()
+	}
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		require.NoError(t, err)
+	}
+	counts, err := svc.GetAPIKeyConcurrencyBatch(context.Background(), []int64{42})
+	require.NoError(t, err)
+	require.Zero(t, counts[42])
+}
+
+func TestAcquireUserSlot_StandaloneUsesLocalSlotAndWaitCounters(t *testing.T) {
+	svc := NewConcurrencyService(nil)
+	svc.SetStandaloneRequestSlots(true)
+
+	first, err := svc.AcquireUserSlot(context.Background(), 7, 2)
+	require.NoError(t, err)
+	require.True(t, first.Acquired)
+	second, err := svc.AcquireUserSlot(context.Background(), 7, 2)
+	require.NoError(t, err)
+	require.True(t, second.Acquired)
+	third, err := svc.AcquireUserSlot(context.Background(), 7, 2)
+	require.NoError(t, err)
+	require.False(t, third.Acquired)
+
+	allowed, err := svc.IncrementWaitCount(context.Background(), 7, 2)
+	require.NoError(t, err)
+	require.True(t, allowed)
+	allowed, err = svc.IncrementWaitCount(context.Background(), 7, 2)
+	require.NoError(t, err)
+	require.True(t, allowed)
+	allowed, err = svc.IncrementWaitCount(context.Background(), 7, 2)
+	require.NoError(t, err)
+	require.False(t, allowed)
+
+	loads, err := svc.GetUsersLoadBatch(context.Background(), []UserWithConcurrency{{ID: 7, MaxConcurrency: 2}})
+	require.NoError(t, err)
+	require.Equal(t, 2, loads[7].CurrentConcurrency)
+	require.Equal(t, 2, loads[7].WaitingCount)
+	require.Equal(t, 200, loads[7].LoadRate)
+
+	svc.DecrementWaitCount(context.Background(), 7)
+	svc.DecrementWaitCount(context.Background(), 7)
+	svc.DecrementWaitCount(context.Background(), 7)
+	first.ReleaseFunc()
+	second.ReleaseFunc()
+	loads, err = svc.GetUsersLoadBatch(context.Background(), []UserWithConcurrency{{ID: 7, MaxConcurrency: 2}})
+	require.NoError(t, err)
+	require.Zero(t, loads[7].CurrentConcurrency)
+	require.Zero(t, loads[7].WaitingCount)
 }
 
 func TestGetAPIKeyConcurrencyBatch_Fallbacks(t *testing.T) {

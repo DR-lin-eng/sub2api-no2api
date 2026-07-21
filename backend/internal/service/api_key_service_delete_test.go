@@ -324,14 +324,14 @@ func TestApiKeyService_Delete_Success(t *testing.T) {
 	}
 	cache := &apiKeyCacheStub{}
 	svc := &APIKeyService{apiKeyRepo: repo, cache: cache}
-	svc.lastUsedTouchL1.Store(int64(42), time.Now())
+	svc.lastUsedTouchL1.Store(int64(42), time.Now().Add(time.Minute))
 
 	err := svc.Delete(context.Background(), 42, 7) // API Key ID=42, 调用者 userID=7
 	require.NoError(t, err)
 	require.Equal(t, []int64{42}, repo.deletedIDs)  // 验证正确的 API Key 被删除
 	require.Equal(t, []int64{7}, cache.invalidated) // 验证所有者的缓存被清除
 	require.Equal(t, []string{svc.authCacheKey("k")}, cache.deleteAuthKeys)
-	_, exists := svc.lastUsedTouchL1.Load(int64(42))
+	_, exists := svc.lastUsedTouchL1.Get(int64(42), time.Now())
 	require.False(t, exists, "delete should clear touch debounce cache")
 }
 

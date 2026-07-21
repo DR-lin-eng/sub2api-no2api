@@ -25,6 +25,13 @@ type apiKeyAuthCacheConfig struct {
 	singleflight  bool
 }
 
+type apiKeyAuthHotCacheEntry struct {
+	digest    [sha256.Size]byte
+	entry     *APIKeyAuthCacheEntry
+	apiKey    *APIKey
+	expiresAt int64
+}
+
 func newAPIKeyAuthCacheConfig(cfg *config.Config) apiKeyAuthCacheConfig {
 	if cfg == nil {
 		return apiKeyAuthCacheConfig{}
@@ -162,6 +169,7 @@ func (s *APIKeyService) invalidateLocalAuthCache(cacheKey string) {
 	if s.authNegativeCacheL1 != nil {
 		s.authNegativeCacheL1.Del(cacheKey)
 	}
+	s.clearAuthHotCacheEntry(cacheKey)
 }
 
 type AuthCacheInvalidationSubscriberHealth struct {
@@ -192,8 +200,106 @@ func (s *APIKeyService) StopAuthCacheInvalidationSubscriber() {
 }
 
 func (s *APIKeyService) authCacheKey(key string) string {
-	sum := sha256.Sum256([]byte(key))
-	return hex.EncodeToString(sum[:])
+	return authCacheKeyFromDigest(authCacheDigest(key))
+}
+
+func authCacheDigest(key string) [sha256.Size]byte {
+	return sha256.Sum256([]byte(key))
+}
+
+func authCacheKeyFromDigest(digest [sha256.Size]byte) string {
+	return hex.EncodeToString(digest[:])
+}
+
+func (s *APIKeyService) getAuthHotCacheEntry(digest [sha256.Size]byte, now time.Time) (*apiKeyAuthHotCacheEntry, bool) {
+	if s == nil {
+		return nil, false
+	}
+	hot := s.authHotCache.Load()
+	if hot == nil || hot.digest != digest || hot.entry == nil {
+		return nil, false
+	}
+	if hot.expiresAt <= now.UnixNano() {
+		s.authHotCache.CompareAndSwap(hot, nil)
+		return nil, false
+	}
+	return hot, true
+}
+
+func (s *APIKeyService) setAuthHotCacheEntry(digest [sha256.Size]byte, key string, entry *APIKeyAuthCacheEntry) {
+	if s == nil || entry == nil || entry.NotFound || entry.Snapshot == nil || entry.Snapshot.Version != apiKeyAuthSnapshotVersion {
+		return
+	}
+	now := time.Now()
+	current := s.authHotCache.Load()
+	if current != nil && current.expiresAt > now.UnixNano() {
+		// Keep the current hot key stable. Replacing it on every ordinary L1 hit
+		// would turn mixed-key traffic into allocation and cache-line churn.
+		return
+	}
+	ttl := s.authCfg.l1TTL
+	if !s.authCfg.l1Enabled() {
+		return
+	}
+	if ttl <= 0 {
+		return
+	}
+	prototype := s.authCacheRuntimeAPIKey(entry)
+	if prototype == nil {
+		return
+	}
+	clone := *prototype
+	clone.Key = key
+	ttl = s.authCfg.jitterTTL(ttl)
+	hot := &apiKeyAuthHotCacheEntry{
+		digest:    digest,
+		entry:     entry,
+		apiKey:    &clone,
+		expiresAt: now.Add(ttl).UnixNano(),
+	}
+	if current == nil {
+		s.authHotCache.CompareAndSwap(nil, hot)
+		return
+	}
+	s.authHotCache.CompareAndSwap(current, hot)
+}
+
+func (s *APIKeyService) applyAuthHotCacheEntry(key string, hot *apiKeyAuthHotCacheEntry) (*APIKey, bool, error) {
+	if hot == nil || hot.entry == nil {
+		return nil, false, nil
+	}
+	entry := hot.entry
+	if entry.NotFound {
+		return nil, true, ErrAPIKeyNotFound
+	}
+	if entry.Snapshot == nil || entry.Snapshot.Version != apiKeyAuthSnapshotVersion {
+		return nil, false, nil
+	}
+	if hot.apiKey == nil || hot.apiKey.Key != key {
+		return s.applyAuthCacheEntry(key, entry)
+	}
+	return hot.apiKey, true, nil
+}
+
+func (s *APIKeyService) clearAuthHotCacheEntry(cacheKey string) {
+	if s == nil || len(cacheKey) != sha256.Size*2 {
+		return
+	}
+	decoded, err := hex.DecodeString(cacheKey)
+	if err != nil || len(decoded) != sha256.Size {
+		return
+	}
+	var digest [sha256.Size]byte
+	copy(digest[:], decoded)
+	for {
+		hot := s.authHotCache.Load()
+		if hot == nil || hot.digest != digest {
+			return
+		}
+		if s.authHotCache.CompareAndSwap(hot, nil) {
+			return
+		}
+	}
 }
 
 func (s *APIKeyService) getAuthCacheEntry(ctx context.Context, cacheKey string) (*APIKeyAuthCacheEntry, bool) {
@@ -252,6 +358,7 @@ func (s *APIKeyService) setAuthCacheEntry(ctx context.Context, cacheKey string, 
 }
 
 func (s *APIKeyService) deleteAuthCache(ctx context.Context, cacheKey string) {
+	s.clearAuthHotCacheEntry(cacheKey)
 	if s.authCacheL1 != nil {
 		s.authCacheL1.Del(cacheKey)
 	}
@@ -328,7 +435,34 @@ func (s *APIKeyService) applyAuthCacheEntry(key string, entry *APIKeyAuthCacheEn
 	if entry.Snapshot.Version != apiKeyAuthSnapshotVersion {
 		return nil, false, nil
 	}
-	return s.snapshotToAPIKey(key, entry.Snapshot), true, nil
+	prototype := s.authCacheRuntimeAPIKey(entry)
+	if prototype == nil {
+		return nil, false, nil
+	}
+	apiKey := *prototype
+	apiKey.Key = key
+	return &apiKey, true, nil
+}
+
+func (s *APIKeyService) authCacheRuntimeAPIKey(entry *APIKeyAuthCacheEntry) *APIKey {
+	if entry == nil || entry.Snapshot == nil {
+		return nil
+	}
+	if prototype := entry.runtimeAPIKey.Load(); prototype != nil {
+		return prototype
+	}
+	entry.runtimeMu.Lock()
+	defer entry.runtimeMu.Unlock()
+	if prototype := entry.runtimeAPIKey.Load(); prototype != nil {
+		return prototype
+	}
+	prototype := s.snapshotToAPIKey("", entry.Snapshot)
+	if prototype != nil {
+		// User, Group, compiled IP rules, and nested routing config are immutable for
+		// the lifetime of an auth-cache entry. Invalidation replaces the whole entry.
+		entry.runtimeAPIKey.Store(prototype)
+	}
+	return prototype
 }
 
 func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) *APIKeyAuthSnapshot {

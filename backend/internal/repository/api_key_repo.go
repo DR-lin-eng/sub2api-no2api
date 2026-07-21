@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -763,6 +764,39 @@ func (r *apiKeyRepository) UpdateLastUsed(ctx context.Context, id int64, usedAt 
 		return service.ErrAPIKeyNotFound
 	}
 	return nil
+}
+
+func (r *apiKeyRepository) BatchUpdateLastUsed(ctx context.Context, updates map[int64]time.Time) error {
+	if len(updates) == 0 {
+		return nil
+	}
+	query, args := buildAPIKeyLastUsedBatchQuery(updates)
+	_, err := r.sql.ExecContext(ctx, query, args...)
+	return err
+}
+
+func buildAPIKeyLastUsedBatchQuery(updates map[int64]time.Time) (string, []any) {
+	args := make([]any, 0, len(updates)*2)
+	var query strings.Builder
+	query.Grow(160 + len(updates)*32)
+	query.WriteString("UPDATE api_keys AS target SET last_used_at = GREATEST(COALESCE(target.last_used_at, source.used_at), source.used_at), updated_at = GREATEST(target.updated_at, source.used_at) FROM (VALUES ")
+	arg := 1
+	row := 0
+	for id, usedAt := range updates {
+		if row > 0 {
+			query.WriteByte(',')
+		}
+		query.WriteString("($")
+		query.WriteString(strconv.Itoa(arg))
+		query.WriteString("::bigint,$")
+		query.WriteString(strconv.Itoa(arg + 1))
+		query.WriteString("::timestamptz)")
+		args = append(args, id, usedAt)
+		arg += 2
+		row++
+	}
+	query.WriteString(") AS source(id, used_at) WHERE target.id = source.id AND target.deleted_at IS NULL")
+	return query.String(), args
 }
 
 // IncrementRateLimitUsage atomically increments all rate limit usage counters and initializes

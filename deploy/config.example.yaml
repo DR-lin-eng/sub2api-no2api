@@ -13,6 +13,9 @@
 deployment:
   # standalone or multi_instance. Every node always serves the complete API and frontend.
   # standalone 或 multi_instance。每个节点始终提供完整 API 与前端。
+  # standalone keeps user/API-key request slots in-process for single-hot-key throughput;
+  # multi_instance uses Redis-backed distributed slots across replicas.
+  # standalone 使用进程内用户/API Key 槽位以承受单热 Key；multi_instance 使用 Redis 分布式槽位。
   mode: "standalone"
   # Stable operator-defined node name. Empty falls back to the hostname.
   # 稳定节点名；留空时使用 hostname。多机部署建议显式设置且各节点不同。
