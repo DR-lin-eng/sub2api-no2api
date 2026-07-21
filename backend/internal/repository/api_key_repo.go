@@ -779,23 +779,23 @@ func buildAPIKeyLastUsedBatchQuery(updates map[int64]time.Time) (string, []any) 
 	args := make([]any, 0, len(updates)*2)
 	var query strings.Builder
 	query.Grow(160 + len(updates)*32)
-	query.WriteString("UPDATE api_keys AS target SET last_used_at = GREATEST(COALESCE(target.last_used_at, source.used_at), source.used_at), updated_at = GREATEST(target.updated_at, source.used_at) FROM (VALUES ")
+	_, _ = query.WriteString("UPDATE api_keys AS target SET last_used_at = GREATEST(COALESCE(target.last_used_at, source.used_at), source.used_at), updated_at = GREATEST(target.updated_at, source.used_at) FROM (VALUES ")
 	arg := 1
 	row := 0
 	for id, usedAt := range updates {
 		if row > 0 {
-			query.WriteByte(',')
+			_ = query.WriteByte(',')
 		}
-		query.WriteString("($")
-		query.WriteString(strconv.Itoa(arg))
-		query.WriteString("::bigint,$")
-		query.WriteString(strconv.Itoa(arg + 1))
-		query.WriteString("::timestamptz)")
+		_, _ = query.WriteString("($")
+		_, _ = query.WriteString(strconv.Itoa(arg))
+		_, _ = query.WriteString("::bigint,$")
+		_, _ = query.WriteString(strconv.Itoa(arg + 1))
+		_, _ = query.WriteString("::timestamptz)")
 		args = append(args, id, usedAt)
 		arg += 2
 		row++
 	}
-	query.WriteString(") AS source(id, used_at) WHERE target.id = source.id AND target.deleted_at IS NULL")
+	_, _ = query.WriteString(") AS source(id, used_at) WHERE target.id = source.id AND target.deleted_at IS NULL")
 	return query.String(), args
 }
 

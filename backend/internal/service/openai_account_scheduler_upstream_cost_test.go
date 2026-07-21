@@ -277,7 +277,7 @@ func TestAdvancedSchedulerSharesProbeBudgetWithFallbackDBRechecks(t *testing.T) 
 	require.NoError(t, err)
 	require.Nil(t, selection)
 	selection, _, _, _, err = scheduler.finishLoadBalanceSelectionFallback(
-		context.Background(), req, openAIAccountLoadSelectionAttempt{selectionOrder: selectionOrder}, budget,
+		context.Background(), nil, req, openAIAccountLoadSelectionAttempt{selectionOrder: selectionOrder}, budget,
 	)
 
 	require.Error(t, err)

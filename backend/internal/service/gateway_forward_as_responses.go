@@ -255,20 +255,19 @@ func (s *GatewayService) handleResponsesBufferedStreamingResponse(
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		if !strings.HasPrefix(line, "event: ") {
+		eventType, ok := extractOpenAISSEEventLine(line)
+		if !ok {
 			continue
 		}
-		eventType := strings.TrimPrefix(line, "event: ")
 
 		// Read the data line
 		if !scanner.Scan() {
 			break
 		}
-		dataLine := scanner.Text()
-		if !strings.HasPrefix(dataLine, "data: ") {
+		payload, ok := extractOpenAISSEDataLine(scanner.Text())
+		if !ok {
 			continue
 		}
-		payload := dataLine[6:]
 
 		var event apicompat.AnthropicStreamEvent
 		if err := json.Unmarshal([]byte(payload), &event); err != nil {
@@ -477,20 +476,19 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 	// Read Anthropic SSE events
 	for scanner.Scan() {
 		line := scanner.Text()
-		if !strings.HasPrefix(line, "event: ") {
+		eventType, ok := extractOpenAISSEEventLine(line)
+		if !ok {
 			continue
 		}
-		eventType := strings.TrimPrefix(line, "event: ")
 
 		// Read data line
 		if !scanner.Scan() {
 			break
 		}
-		dataLine := scanner.Text()
-		if !strings.HasPrefix(dataLine, "data: ") {
+		payload, ok := extractOpenAISSEDataLine(scanner.Text())
+		if !ok {
 			continue
 		}
-		payload := dataLine[6:]
 
 		var event apicompat.AnthropicStreamEvent
 		if err := json.Unmarshal([]byte(payload), &event); err != nil {

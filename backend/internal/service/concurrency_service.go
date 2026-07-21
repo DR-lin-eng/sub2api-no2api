@@ -584,10 +584,7 @@ func (s *ConcurrencyService) acquireStandaloneSlot(registry *localSlotRegistry, 
 		if slot == nil {
 			return nil, false
 		}
-		for {
-			if slot.retired.Load() {
-				break
-			}
+		for !slot.retired.Load() {
 			current := slot.active.Load()
 			if maxConcurrency > 0 && current >= int64(maxConcurrency) {
 				slot.lastUsed.Store(time.Now().UnixNano())

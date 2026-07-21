@@ -518,13 +518,15 @@ func (c *schedulerCache) SetSnapshot(ctx context.Context, bucket service.Schedul
 	if err != nil {
 		return err
 	}
-	if err := c.writeSnapshotVersion(ctx, bucket, version, accounts); err != nil {
+	// 快照成员最终只依赖可编码账号的有序 ID；直接复用 ID 路径，避免为
+	// 随后立即丢弃的完整 Account 再分配一份临时切片。
+	if _, err := c.writeSnapshotVersionAndReturnAccountIDs(ctx, bucket, version, accounts); err != nil {
 		return err
 	}
 	return c.activateSnapshotVersion(ctx, bucket, token, version)
 }
 
-// SetSnapshotAndReturnAccountIDs 完整发布快照，并返回 writeAccounts 实际接受的有序账号 ID。
+// SetSnapshotAndReturnAccountIDs 完整发布快照，并返回实际成功编码并写入的有序账号 ID。
 // 该可选能力只供同一重建批次复用，返回前仍会完成版本激活与 fencing 校验。
 func (c *schedulerCache) SetSnapshotAndReturnAccountIDs(ctx context.Context, bucket service.SchedulerBucket, token service.SchedulerBucketWriteToken, accounts []service.Account) ([]int64, error) {
 	if !token.ValidFor(bucket) {
@@ -576,14 +578,6 @@ func (c *schedulerCache) allocateSnapshotVersion(ctx context.Context, bucket ser
 	return strconv.FormatInt(result, 10), nil
 }
 
-func (c *schedulerCache) writeSnapshotVersion(ctx context.Context, bucket service.SchedulerBucket, version string, accounts []service.Account) error {
-	cacheableAccounts, err := c.writeAccounts(ctx, accounts)
-	if err != nil {
-		return err
-	}
-	return c.writeSnapshotAccounts(ctx, bucket, version, cacheableAccounts)
-}
-
 func (c *schedulerCache) writeSnapshotVersionAndReturnAccountIDs(ctx context.Context, bucket service.SchedulerBucket, version string, accounts []service.Account) ([]int64, error) {
 	accountIDs, err := c.writeAccountIDs(ctx, accounts)
 	if err != nil {
@@ -593,20 +587,6 @@ func (c *schedulerCache) writeSnapshotVersionAndReturnAccountIDs(ctx context.Con
 		return nil, err
 	}
 	return accountIDs, nil
-}
-
-func (c *schedulerCache) writeSnapshotAccounts(ctx context.Context, bucket service.SchedulerBucket, version string, accounts []service.Account) error {
-	if len(accounts) == 0 {
-		return nil
-	}
-	members := make([]redis.Z, 0, len(accounts))
-	for idx, account := range accounts {
-		members = append(members, redis.Z{
-			Score:  float64(idx),
-			Member: strconv.FormatInt(account.ID, 10),
-		})
-	}
-	return c.writeSnapshotMembers(ctx, bucket, version, members)
 }
 
 func (c *schedulerCache) writeSnapshotAccountIDs(ctx context.Context, bucket service.SchedulerBucket, version string, accountIDs []int64) error {
@@ -701,11 +681,11 @@ func (c *schedulerCache) SetAccount(ctx context.Context, account *service.Accoun
 	if account == nil || account.ID <= 0 {
 		return nil
 	}
-	cacheableAccounts, err := c.writeAccounts(ctx, []service.Account{*account})
+	accountIDs, err := c.writeAccountIDs(ctx, []service.Account{*account})
 	if err != nil {
 		return err
 	}
-	if len(cacheableAccounts) == 0 {
+	if len(accountIDs) == 0 {
 		return c.DeleteAccount(ctx, account.ID)
 	}
 	return nil
@@ -1302,6 +1282,9 @@ func decodeCachedAccount(val any) (*service.Account, error) {
 	return &account, nil
 }
 
+// writeAccounts is retained for candidate-index rebuilds, which need the
+// cacheable account metadata to calculate candidate scores. Snapshot-only
+// callers use writeAccountIDs to avoid materializing this slice.
 func (c *schedulerCache) writeAccounts(ctx context.Context, accounts []service.Account) ([]service.Account, error) {
 	cacheableAccounts, _, err := c.writeAccountPayloads(ctx, accounts, false)
 	return cacheableAccounts, err
@@ -1351,7 +1334,6 @@ func (c *schedulerCache) writeAccountPayloads(ctx context.Context, accounts []se
 		id := strconv.FormatInt(account.ID, 10)
 		pipe.Set(ctx, schedulerAccountKey(id), fullPayload, 0)
 		pipe.Set(ctx, schedulerAccountMetaKey(id), metaPayload, 0)
-		// 复用路径只保留有序 ID，避免先物化完整账号切片再做第二次扫描。
 		if collectIDs {
 			accountIDs = append(accountIDs, account.ID)
 		} else {
