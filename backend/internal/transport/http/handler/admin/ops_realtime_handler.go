@@ -108,25 +108,27 @@ func (h *OpsHandler) GetConcurrencySnapshot(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	concurrencyPayload := gin.H{
+		"enabled":  true,
+		"platform": platformConcurrency,
+		"group":    groupConcurrency,
+		"account":  accountConcurrency,
+	}
+	availabilityPayload := gin.H{
+		"enabled":  true,
+		"platform": platformAvailability,
+		"group":    groupAvailability,
+		"account":  accountAvailability,
+	}
 	payload := gin.H{
-		"enabled": true,
-		"concurrency": gin.H{
-			"enabled":  true,
-			"platform": platformConcurrency,
-			"group":    groupConcurrency,
-			"account":  accountConcurrency,
-		},
-		"availability": gin.H{
-			"enabled":  true,
-			"platform": platformAvailability,
-			"group":    groupAvailability,
-			"account":  accountAvailability,
-		},
+		"enabled":      true,
+		"concurrency":  concurrencyPayload,
+		"availability": availabilityPayload,
 	}
 	if collectedAt != nil {
 		payload["timestamp"] = collectedAt.UTC()
-		payload["concurrency"].(gin.H)["timestamp"] = collectedAt.UTC()
-		payload["availability"].(gin.H)["timestamp"] = collectedAt.UTC()
+		concurrencyPayload["timestamp"] = collectedAt.UTC()
+		availabilityPayload["timestamp"] = collectedAt.UTC()
 	}
 	response.Success(c, payload)
 }

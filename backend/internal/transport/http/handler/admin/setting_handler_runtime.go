@@ -396,7 +396,7 @@ func (h *SettingHandler) UpdateStreamTimeoutSettings(c *gin.Context) {
 		return
 	}
 
-	degradationEnabled := true
+	var degradationEnabled bool
 	if req.ResponseHeaderTimeoutDegradationEnabled != nil {
 		degradationEnabled = *req.ResponseHeaderTimeoutDegradationEnabled
 	} else {
