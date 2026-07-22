@@ -17,7 +17,7 @@ func TestAuthIdentityLegacyExternalBackfillMigration(t *testing.T) {
 	tx := testTx(t)
 	ctx := context.Background()
 
-	migrationPath := filepath.Join("..", "..", "migrations", "115_auth_identity_legacy_external_backfill.sql")
+	migrationPath := filepath.Join("..", "..", "..", "migrations", "115_auth_identity_legacy_external_backfill.sql")
 	migrationSQL, err := os.ReadFile(migrationPath)
 	require.NoError(t, err)
 
@@ -162,7 +162,7 @@ func TestAuthIdentityLegacyExternalBackfillMigration_IsSafeWhenLegacyTableMissin
 	tx := testTx(t)
 	ctx := context.Background()
 
-	migrationPath := filepath.Join("..", "..", "migrations", "115_auth_identity_legacy_external_backfill.sql")
+	migrationPath := filepath.Join("..", "..", "..", "migrations", "115_auth_identity_legacy_external_backfill.sql")
 	migrationSQL, err := os.ReadFile(migrationPath)
 	require.NoError(t, err)
 
@@ -187,11 +187,11 @@ func TestAuthIdentityLegacyExternalMigrations_ChainHandlesMalformedAndNonObjectM
 	tx := testTx(t)
 	ctx := context.Background()
 
-	migration115Path := filepath.Join("..", "..", "migrations", "115_auth_identity_legacy_external_backfill.sql")
+	migration115Path := filepath.Join("..", "..", "..", "migrations", "115_auth_identity_legacy_external_backfill.sql")
 	migration115SQL, err := os.ReadFile(migration115Path)
 	require.NoError(t, err)
 
-	migration116Path := filepath.Join("..", "..", "migrations", "116_auth_identity_legacy_external_safety_reports.sql")
+	migration116Path := filepath.Join("..", "..", "..", "migrations", "116_auth_identity_legacy_external_safety_reports.sql")
 	migration116SQL, err := os.ReadFile(migration116Path)
 	require.NoError(t, err)
 
@@ -357,7 +357,7 @@ func TestAuthIdentityLegacyExternalSafetyMigration_ReportsConflictsAndDowngrades
 	tx := testTx(t)
 	ctx := context.Background()
 
-	migrationPath := filepath.Join("..", "..", "migrations", "116_auth_identity_legacy_external_safety_reports.sql")
+	migrationPath := filepath.Join("..", "..", "..", "migrations", "116_auth_identity_legacy_external_safety_reports.sql")
 	migrationSQL, err := os.ReadFile(migrationPath)
 	require.NoError(t, err)
 
@@ -555,7 +555,7 @@ func TestAuthIdentityLegacyExternalSafetyMigration_IsSafeWhenLegacyTableMissing(
 	tx := testTx(t)
 	ctx := context.Background()
 
-	migrationPath := filepath.Join("..", "..", "migrations", "116_auth_identity_legacy_external_safety_reports.sql")
+	migrationPath := filepath.Join("..", "..", "..", "migrations", "116_auth_identity_legacy_external_safety_reports.sql")
 	migrationSQL, err := os.ReadFile(migrationPath)
 	require.NoError(t, err)
 
@@ -580,7 +580,7 @@ func TestAuthIdentityLegacyExternalBackfillMigration_SkipsAmbiguousCanonicalSubj
 	tx := testTx(t)
 	ctx := context.Background()
 
-	migrationPath := filepath.Join("..", "..", "migrations", "115_auth_identity_legacy_external_backfill.sql")
+	migrationPath := filepath.Join("..", "..", "..", "migrations", "115_auth_identity_legacy_external_backfill.sql")
 	migrationSQL, err := os.ReadFile(migrationPath)
 	require.NoError(t, err)
 
@@ -702,11 +702,11 @@ func TestAuthIdentityLegacyExternalMigrations_ReportAmbiguousCanonicalSubjectsWi
 	tx := testTx(t)
 	ctx := context.Background()
 
-	migration115Path := filepath.Join("..", "..", "migrations", "115_auth_identity_legacy_external_backfill.sql")
+	migration115Path := filepath.Join("..", "..", "..", "migrations", "115_auth_identity_legacy_external_backfill.sql")
 	migration115SQL, err := os.ReadFile(migration115Path)
 	require.NoError(t, err)
 
-	migration116Path := filepath.Join("..", "..", "migrations", "116_auth_identity_legacy_external_safety_reports.sql")
+	migration116Path := filepath.Join("..", "..", "..", "migrations", "116_auth_identity_legacy_external_safety_reports.sql")
 	migration116SQL, err := os.ReadFile(migration116Path)
 	require.NoError(t, err)
 
@@ -832,15 +832,15 @@ func TestAuthIdentityMigrationReportTypeWideningPreflightKeeps109And116SafeBefor
 	tx := testTx(t)
 	ctx := context.Background()
 
-	migration108aPath := filepath.Join("..", "..", "migrations", "108a_widen_auth_identity_migration_report_type.sql")
+	migration108aPath := filepath.Join("..", "..", "..", "migrations", "108a_widen_auth_identity_migration_report_type.sql")
 	migration108aSQL, err := os.ReadFile(migration108aPath)
 	require.NoError(t, err)
 
-	migration109Path := filepath.Join("..", "..", "migrations", "109_auth_identity_compat_backfill.sql")
+	migration109Path := filepath.Join("..", "..", "..", "migrations", "109_auth_identity_compat_backfill.sql")
 	migration109SQL, err := os.ReadFile(migration109Path)
 	require.NoError(t, err)
 
-	migration116Path := filepath.Join("..", "..", "migrations", "116_auth_identity_legacy_external_safety_reports.sql")
+	migration116Path := filepath.Join("..", "..", "..", "migrations", "116_auth_identity_legacy_external_safety_reports.sql")
 	migration116SQL, err := os.ReadFile(migration116Path)
 	require.NoError(t, err)
 

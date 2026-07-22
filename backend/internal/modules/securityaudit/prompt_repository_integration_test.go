@@ -44,7 +44,7 @@ func openPromptAuditIntegrationDB(t testing.TB) *sql.DB {
 	`)
 	require.NoError(t, err)
 	for _, name := range []string{"181_prompt_audit.sql", "182_prompt_audit_full_prompt.sql", "183_prompt_audit_queue_state.sql"} {
-		migration, err := os.ReadFile(filepath.Join("..", "..", "migrations", name))
+		migration, err := os.ReadFile(filepath.Join("..", "..", "..", "migrations", name))
 		require.NoError(t, err)
 		// The migration runner can retry an interrupted deployment; the migration
 		// must therefore be safe to execute more than once.
