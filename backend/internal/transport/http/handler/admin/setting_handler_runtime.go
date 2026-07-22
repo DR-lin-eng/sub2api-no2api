@@ -203,11 +203,13 @@ func (h *SettingHandler) GetStreamTimeoutSettings(c *gin.Context) {
 	}
 
 	response.Success(c, dto.StreamTimeoutSettings{
-		Enabled:                settings.Enabled,
-		Action:                 settings.Action,
-		TempUnschedMinutes:     settings.TempUnschedMinutes,
-		ThresholdCount:         settings.ThresholdCount,
-		ThresholdWindowMinutes: settings.ThresholdWindowMinutes,
+		ResponseHeaderTimeoutDegradationEnabled: settings.ResponseHeaderTimeoutDegradationEnabled,
+		ResponseHeaderTimeoutSeconds:            settings.ResponseHeaderTimeoutSeconds,
+		Enabled:                                 settings.Enabled,
+		Action:                                  settings.Action,
+		TempUnschedMinutes:                      settings.TempUnschedMinutes,
+		ThresholdCount:                          settings.ThresholdCount,
+		ThresholdWindowMinutes:                  settings.ThresholdWindowMinutes,
 	})
 }
 
@@ -376,11 +378,13 @@ func (h *SettingHandler) UpdateBetaPolicySettings(c *gin.Context) {
 
 // UpdateStreamTimeoutSettingsRequest 更新流超时配置请求
 type UpdateStreamTimeoutSettingsRequest struct {
-	Enabled                bool   `json:"enabled"`
-	Action                 string `json:"action"`
-	TempUnschedMinutes     int    `json:"temp_unsched_minutes"`
-	ThresholdCount         int    `json:"threshold_count"`
-	ThresholdWindowMinutes int    `json:"threshold_window_minutes"`
+	ResponseHeaderTimeoutDegradationEnabled *bool  `json:"response_header_timeout_degradation_enabled"`
+	ResponseHeaderTimeoutSeconds            int    `json:"response_header_timeout_seconds"`
+	Enabled                                 bool   `json:"enabled"`
+	Action                                  string `json:"action"`
+	TempUnschedMinutes                      int    `json:"temp_unsched_minutes"`
+	ThresholdCount                          int    `json:"threshold_count"`
+	ThresholdWindowMinutes                  int    `json:"threshold_window_minutes"`
 }
 
 // UpdateStreamTimeoutSettings 更新流超时处理配置
@@ -392,12 +396,26 @@ func (h *SettingHandler) UpdateStreamTimeoutSettings(c *gin.Context) {
 		return
 	}
 
+	degradationEnabled := true
+	if req.ResponseHeaderTimeoutDegradationEnabled != nil {
+		degradationEnabled = *req.ResponseHeaderTimeoutDegradationEnabled
+	} else {
+		current, err := h.settingService.GetStreamTimeoutSettings(c.Request.Context())
+		if err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
+		degradationEnabled = current.ResponseHeaderTimeoutDegradationEnabled
+	}
+
 	settings := &service.StreamTimeoutSettings{
-		Enabled:                req.Enabled,
-		Action:                 req.Action,
-		TempUnschedMinutes:     req.TempUnschedMinutes,
-		ThresholdCount:         req.ThresholdCount,
-		ThresholdWindowMinutes: req.ThresholdWindowMinutes,
+		ResponseHeaderTimeoutDegradationEnabled: degradationEnabled,
+		ResponseHeaderTimeoutSeconds:            req.ResponseHeaderTimeoutSeconds,
+		Enabled:                                 req.Enabled,
+		Action:                                  req.Action,
+		TempUnschedMinutes:                      req.TempUnschedMinutes,
+		ThresholdCount:                          req.ThresholdCount,
+		ThresholdWindowMinutes:                  req.ThresholdWindowMinutes,
 	}
 
 	if err := h.settingService.SetStreamTimeoutSettings(c.Request.Context(), settings); err != nil {
@@ -413,11 +431,13 @@ func (h *SettingHandler) UpdateStreamTimeoutSettings(c *gin.Context) {
 	}
 
 	response.Success(c, dto.StreamTimeoutSettings{
-		Enabled:                updatedSettings.Enabled,
-		Action:                 updatedSettings.Action,
-		TempUnschedMinutes:     updatedSettings.TempUnschedMinutes,
-		ThresholdCount:         updatedSettings.ThresholdCount,
-		ThresholdWindowMinutes: updatedSettings.ThresholdWindowMinutes,
+		ResponseHeaderTimeoutDegradationEnabled: updatedSettings.ResponseHeaderTimeoutDegradationEnabled,
+		ResponseHeaderTimeoutSeconds:            updatedSettings.ResponseHeaderTimeoutSeconds,
+		Enabled:                                 updatedSettings.Enabled,
+		Action:                                  updatedSettings.Action,
+		TempUnschedMinutes:                      updatedSettings.TempUnschedMinutes,
+		ThresholdCount:                          updatedSettings.ThresholdCount,
+		ThresholdWindowMinutes:                  updatedSettings.ThresholdWindowMinutes,
 	})
 }
 

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -23,6 +24,83 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+type httpUpstreamSettingRepo struct {
+	mu     sync.RWMutex
+	values map[string]string
+}
+
+func newHTTPUpstreamSettingRepo() *httpUpstreamSettingRepo {
+	return &httpUpstreamSettingRepo{values: make(map[string]string)}
+}
+
+func (r *httpUpstreamSettingRepo) Get(context.Context, string) (*service.Setting, error) {
+	return nil, service.ErrSettingNotFound
+}
+
+func (r *httpUpstreamSettingRepo) GetValue(_ context.Context, key string) (string, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	value, ok := r.values[key]
+	if !ok {
+		return "", service.ErrSettingNotFound
+	}
+	return value, nil
+}
+
+func (r *httpUpstreamSettingRepo) Set(_ context.Context, key, value string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.values[key] = value
+	return nil
+}
+
+func (r *httpUpstreamSettingRepo) GetMultiple(_ context.Context, keys []string) (map[string]string, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	values := make(map[string]string, len(keys))
+	for _, key := range keys {
+		if value, ok := r.values[key]; ok {
+			values[key] = value
+		}
+	}
+	return values, nil
+}
+
+func (r *httpUpstreamSettingRepo) SetMultiple(_ context.Context, values map[string]string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for key, value := range values {
+		r.values[key] = value
+	}
+	return nil
+}
+
+func (r *httpUpstreamSettingRepo) GetAll(context.Context) (map[string]string, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	values := make(map[string]string, len(r.values))
+	for key, value := range r.values {
+		values[key] = value
+	}
+	return values, nil
+}
+
+func (r *httpUpstreamSettingRepo) Delete(_ context.Context, key string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.values, key)
+	return nil
+}
+
+func newHTTPUpstreamWithStreamTimeout(t *testing.T, cfg *config.Config, seconds int) service.HTTPUpstream {
+	t.Helper()
+	settingService := service.NewSettingService(newHTTPUpstreamSettingRepo(), cfg)
+	settings := service.DefaultStreamTimeoutSettings()
+	settings.ResponseHeaderTimeoutSeconds = seconds
+	require.NoError(t, settingService.SetStreamTimeoutSettings(t.Context(), settings))
+	return NewHTTPUpstream(cfg, settingService)
+}
+
 func TestHTTPUpstreamDoCanDisableRedirectsPerRequest(t *testing.T) {
 	var redirectedCalls atomic.Int64
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -35,7 +113,7 @@ func TestHTTPUpstreamDoCanDisableRedirectsPerRequest(t *testing.T) {
 	}))
 	t.Cleanup(redirector.Close)
 
-	upstream := NewHTTPUpstream(nil)
+	upstream := NewHTTPUpstream(nil, nil)
 	req, err := http.NewRequestWithContext(
 		service.WithHTTPUpstreamRedirectsDisabled(t.Context()),
 		http.MethodGet,
@@ -67,7 +145,7 @@ func TestHTTPUpstreamDoWithTLSPlainHTTPUsesConfiguredHTTPProxy(t *testing.T) {
 
 	req, err := http.NewRequest(http.MethodGet, upstream.URL, nil)
 	require.NoError(t, err)
-	client := NewHTTPUpstream(nil)
+	client := NewHTTPUpstream(nil, nil)
 	resp, err := client.DoWithTLS(req, proxy.URL, 41, 1, &tlsfingerprint.Profile{Name: "unused-for-http"})
 	require.NoError(t, err)
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
@@ -87,7 +165,7 @@ func TestHTTPUpstreamDoWithTLSPlainHTTPUsesConfiguredSOCKSProxy(t *testing.T) {
 
 	req, err := http.NewRequest(http.MethodGet, upstream.URL, nil)
 	require.NoError(t, err)
-	client := NewHTTPUpstream(nil)
+	client := NewHTTPUpstream(nil, nil)
 	resp, err := client.DoWithTLS(req, proxyURL, 42, 1, &tlsfingerprint.Profile{Name: "unused-for-http"})
 	require.NoError(t, err)
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
@@ -194,7 +272,7 @@ func TestHTTPUpstreamDoAppliesGrokCLIIdentityBeforeOAuthRoundTrip(t *testing.T) 
 
 	for _, endpoint := range []string{"responses", "chat/completions"} {
 		t.Run(endpoint, func(t *testing.T) {
-			upstream := NewHTTPUpstream(nil)
+			upstream := NewHTTPUpstream(nil, nil)
 			svc, ok := upstream.(*httpUpstreamService)
 			require.True(t, ok)
 
@@ -244,7 +322,7 @@ func TestHTTPUpstreamDoAppliesGrokCLIIdentityBeforeOAuthRoundTrip(t *testing.T) 
 }
 
 func TestHTTPUpstreamDoFallsBackToOfficialGrokAPIOnCLIAccessDenied(t *testing.T) {
-	upstream := NewHTTPUpstream(nil)
+	upstream := NewHTTPUpstream(nil, nil)
 	svc, ok := upstream.(*httpUpstreamService)
 	require.True(t, ok)
 
@@ -602,7 +680,7 @@ func (s *HTTPUpstreamSuite) SetupTest() {
 // newService 创建测试用的 httpUpstreamService 实例
 // 返回具体类型以便访问内部状态进行断言
 func (s *HTTPUpstreamSuite) newService() *httpUpstreamService {
-	up := NewHTTPUpstream(s.cfg)
+	up := NewHTTPUpstream(s.cfg, nil)
 	svc, ok := up.(*httpUpstreamService)
 	require.True(s.T(), ok, "expected *httpUpstreamService")
 	return svc
@@ -620,7 +698,7 @@ func (s *HTTPUpstreamSuite) TestDefaultResponseHeaderTimeout() {
 
 // TestNilConfigResponseHeaderTimeoutFallback 验证 nil 配置使用代码级兜底值。
 func (s *HTTPUpstreamSuite) TestNilConfigResponseHeaderTimeoutFallback() {
-	up := NewHTTPUpstream(nil)
+	up := NewHTTPUpstream(nil, nil)
 	svc, ok := up.(*httpUpstreamService)
 	require.True(s.T(), ok, "expected *httpUpstreamService")
 	entry := mustGetOrCreateClient(s.T(), svc, "", 0, 0)
@@ -666,57 +744,38 @@ func (s *HTTPUpstreamSuite) TestOpenAIProfileDefaultsToHTTP2AndNoHeaderTimeout()
 	require.Equal(s.T(), upstreamProtocolModeOpenAIH2, entry.protocolMode)
 }
 
-func (s *HTTPUpstreamSuite) TestOpenAIProfileCustomHeaderTimeout() {
+func (s *HTTPUpstreamSuite) TestOpenAIStreamProfileUsesDefaultHeaderTimeout() {
 	s.cfg.Gateway = config.GatewayConfig{
-		ResponseHeaderTimeout:       600,
-		OpenAIResponseHeaderTimeout: 1800,
 		OpenAIHTTP2: config.GatewayOpenAIHTTP2Config{
 			Enabled: true,
 		},
 	}
 	svc := s.newService()
-	entry, err := svc.getClientEntry("", 1, 1, service.HTTPUpstreamProfileOpenAI, false, false)
+	entry, err := svc.getClientEntry("", 1, 1, service.HTTPUpstreamProfileOpenAIStream, false, false)
 	require.NoError(s.T(), err)
 	transport, ok := entry.client.Transport.(*http.Transport)
 	require.True(s.T(), ok, "expected *http.Transport")
-	require.Equal(s.T(), 1800*time.Second, transport.ResponseHeaderTimeout)
-}
-
-func (s *HTTPUpstreamSuite) TestOpenAIAPIKeyStreamProfileUsesDedicatedHeaderTimeout() {
-	s.cfg.Gateway = config.GatewayConfig{
-		OpenAIResponseHeaderTimeout:             1800,
-		OpenAIAPIKeyStreamResponseHeaderTimeout: 30,
-		OpenAIHTTP2: config.GatewayOpenAIHTTP2Config{
-			Enabled: true,
-		},
-	}
-	svc := s.newService()
-	entry, err := svc.getClientEntry("", 1, 1, service.HTTPUpstreamProfileOpenAIAPIKeyStream, false, false)
-	require.NoError(s.T(), err)
-	transport, ok := entry.client.Transport.(*http.Transport)
-	require.True(s.T(), ok, "expected *http.Transport")
-	require.Equal(s.T(), 30*time.Second, transport.ResponseHeaderTimeout)
+	require.Equal(s.T(), 20*time.Second, transport.ResponseHeaderTimeout)
 	require.True(s.T(), transport.ForceAttemptHTTP2)
 	require.Equal(s.T(), upstreamProtocolModeOpenAIH2, entry.protocolMode)
 }
 
-func (s *HTTPUpstreamSuite) TestOpenAIAPIKeyStreamProfileKeepsSeparateConnectionPool() {
+func (s *HTTPUpstreamSuite) TestOpenAIStreamProfileKeepsSeparateConnectionPool() {
 	s.cfg.Gateway = config.GatewayConfig{
-		ConnectionPoolIsolation:                 config.ConnectionPoolIsolationAccountProxy,
-		OpenAIAPIKeyStreamResponseHeaderTimeout: 30,
-		OpenAIHTTP2:                             config.GatewayOpenAIHTTP2Config{Enabled: true},
+		ConnectionPoolIsolation: config.ConnectionPoolIsolationAccountProxy,
+		OpenAIHTTP2:             config.GatewayOpenAIHTTP2Config{Enabled: true},
 	}
 	svc := s.newService()
 	nonStream, err := svc.getClientEntry("", 7, 8, service.HTTPUpstreamProfileOpenAI, false, false)
 	require.NoError(s.T(), err)
-	stream, err := svc.getClientEntry("", 7, 8, service.HTTPUpstreamProfileOpenAIAPIKeyStream, false, false)
+	stream, err := svc.getClientEntry("", 7, 8, service.HTTPUpstreamProfileOpenAIStream, false, false)
 	require.NoError(s.T(), err)
 
 	require.NotSame(s.T(), nonStream, stream)
 	require.Len(s.T(), svc.clients, 2, "stream and non-stream profiles must not evict each other's pooled connections")
 }
 
-func TestOpenAIAPIKeyStreamHeaderTimeoutBoundsConcurrentBlackhole(t *testing.T) {
+func TestOpenAIStreamHeaderTimeoutBoundsConcurrentBlackhole(t *testing.T) {
 	const requests = 64
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.Copy(io.Discard, r.Body)
@@ -728,11 +787,10 @@ func TestOpenAIAPIKeyStreamHeaderTimeoutBoundsConcurrentBlackhole(t *testing.T) 
 	defer upstream.Close()
 
 	cfg := &config.Config{Gateway: config.GatewayConfig{
-		ConnectionPoolIsolation:                 config.ConnectionPoolIsolationAccountProxy,
-		OpenAIAPIKeyStreamResponseHeaderTimeout: 1,
-		OpenAIHTTP2:                             config.GatewayOpenAIHTTP2Config{Enabled: false},
+		ConnectionPoolIsolation: config.ConnectionPoolIsolationAccountProxy,
+		OpenAIHTTP2:             config.GatewayOpenAIHTTP2Config{Enabled: false},
 	}}
-	svc := NewHTTPUpstream(cfg)
+	svc := newHTTPUpstreamWithStreamTimeout(t, cfg, 1)
 	body := bytes.Repeat([]byte("x"), 1024*1024)
 	errs := make(chan error, requests)
 	startedAt := time.Now()
@@ -747,7 +805,7 @@ func TestOpenAIAPIKeyStreamHeaderTimeoutBoundsConcurrentBlackhole(t *testing.T) 
 				errs <- err
 				return
 			}
-			req = req.WithContext(service.WithHTTPUpstreamProfile(req.Context(), service.HTTPUpstreamProfileOpenAIAPIKeyStream))
+			req = req.WithContext(service.WithHTTPUpstreamProfile(req.Context(), service.HTTPUpstreamProfileOpenAIStream))
 			resp, err := svc.Do(req, "", 9201, requests)
 			if resp != nil {
 				_ = resp.Body.Close()
@@ -761,6 +819,7 @@ func TestOpenAIAPIKeyStreamHeaderTimeoutBoundsConcurrentBlackhole(t *testing.T) 
 	for err := range errs {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "timeout awaiting response headers")
+		require.True(t, service.IsOpenAIStreamResponseHeaderTimeout(err))
 	}
 	require.Less(t, time.Since(startedAt), 3*time.Second, "blackholed streams must not retain all request bodies indefinitely")
 }
@@ -798,17 +857,31 @@ func (s *HTTPUpstreamSuite) TestOpenAIHeaderTimeoutChangeRebuildsClient() {
 	s.cfg.Gateway = config.GatewayConfig{
 		OpenAIHTTP2: config.GatewayOpenAIHTTP2Config{Enabled: true},
 	}
-	svc := s.newService()
-	entry1, err := svc.getClientEntry("", 1, 1, service.HTTPUpstreamProfileOpenAI, false, false)
+	settingService := service.NewSettingService(newHTTPUpstreamSettingRepo(), s.cfg)
+	up := NewHTTPUpstream(s.cfg, settingService)
+	svc, ok := up.(*httpUpstreamService)
+	require.True(s.T(), ok)
+	entry1, err := svc.getClientEntry("", 1, 1, service.HTTPUpstreamProfileOpenAIStream, false, false)
 	require.NoError(s.T(), err)
 
-	s.cfg.Gateway.OpenAIResponseHeaderTimeout = 1800
-	entry2, err := svc.getClientEntry("", 1, 1, service.HTTPUpstreamProfileOpenAI, false, false)
+	settings := service.DefaultStreamTimeoutSettings()
+	settings.ResponseHeaderTimeoutSeconds = 45
+	require.NoError(s.T(), settingService.SetStreamTimeoutSettings(s.T().Context(), settings))
+	entry2, err := svc.getClientEntry("", 1, 1, service.HTTPUpstreamProfileOpenAIStream, false, false)
 	require.NoError(s.T(), err)
 	require.NotSame(s.T(), entry1, entry2, "OpenAI header timeout changes must rebuild cached client")
 	transport, ok := entry2.client.Transport.(*http.Transport)
 	require.True(s.T(), ok, "expected *http.Transport")
-	require.Equal(s.T(), 1800*time.Second, transport.ResponseHeaderTimeout)
+	require.Equal(s.T(), 45*time.Second, transport.ResponseHeaderTimeout)
+
+	settings.ResponseHeaderTimeoutDegradationEnabled = false
+	require.NoError(s.T(), settingService.SetStreamTimeoutSettings(s.T().Context(), settings))
+	entry3, err := svc.getClientEntry("", 1, 1, service.HTTPUpstreamProfileOpenAIStream, false, false)
+	require.NoError(s.T(), err)
+	require.NotSame(s.T(), entry2, entry3, "disabling OpenAI stream degradation must rebuild the cached client")
+	transport, ok = entry3.client.Transport.(*http.Transport)
+	require.True(s.T(), ok, "expected *http.Transport")
+	require.Zero(s.T(), transport.ResponseHeaderTimeout)
 }
 
 func (s *HTTPUpstreamSuite) TestOpenAIHTTP2TimeoutDoesNotActivateProxyFallback() {
@@ -887,7 +960,7 @@ func (s *HTTPUpstreamSuite) TestDo_WithoutProxy_GoesDirect() {
 	}))
 	s.T().Cleanup(upstream.Close)
 
-	up := NewHTTPUpstream(s.cfg)
+	up := NewHTTPUpstream(s.cfg, nil)
 
 	req, err := http.NewRequest(http.MethodGet, upstream.URL+"/x", nil)
 	require.NoError(s.T(), err, "NewRequest")
@@ -911,7 +984,7 @@ func (s *HTTPUpstreamSuite) TestDo_WithHTTPProxy_UsesProxy() {
 	s.T().Cleanup(proxySrv.Close)
 
 	s.cfg.Gateway = config.GatewayConfig{ResponseHeaderTimeout: 1}
-	up := NewHTTPUpstream(s.cfg)
+	up := NewHTTPUpstream(s.cfg, nil)
 
 	// 发送请求到外部地址，应通过代理
 	req, err := http.NewRequest(http.MethodGet, "http://example.com/test", nil)
@@ -939,7 +1012,7 @@ func (s *HTTPUpstreamSuite) TestDo_EmptyProxy_UsesDirect() {
 	}))
 	s.T().Cleanup(upstream.Close)
 
-	up := NewHTTPUpstream(s.cfg)
+	up := NewHTTPUpstream(s.cfg, nil)
 	req, err := http.NewRequest(http.MethodGet, upstream.URL+"/y", nil)
 	require.NoError(s.T(), err, "NewRequest")
 	resp, err := up.Do(req, "", 1, 1)

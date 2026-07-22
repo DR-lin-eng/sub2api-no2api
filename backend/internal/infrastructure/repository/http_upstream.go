@@ -150,9 +150,10 @@ type openAIHTTP2FallbackState struct {
 // 7. 代理变更时清空旧连接池，避免复用错误代理
 // 8. 账号并发数与连接池上限对应（账号隔离策略下）
 type httpUpstreamService struct {
-	cfg     *config.Config                  // 全局配置
-	mu      sync.RWMutex                    // 保护 clients map 的读写锁
-	clients map[string]*upstreamClientEntry // 客户端缓存池，key 由隔离策略决定
+	cfg            *config.Config                  // 全局配置
+	settingService *service.SettingService         // 数据库系统设置（运行时热更新）
+	mu             sync.RWMutex                    // 保护 clients map 的读写锁
+	clients        map[string]*upstreamClientEntry // 客户端缓存池，key 由隔离策略决定
 	// OpenAI 走 HTTP/HTTPS 代理时的 H2->H1 回退状态（key=标准化 proxyKey）
 	openAIHTTP2FallbackMu sync.Mutex
 	openAIHTTP2Fallbacks  map[string]*openAIHTTP2FallbackState
@@ -166,9 +167,10 @@ type httpUpstreamService struct {
 //
 // 返回:
 //   - service.HTTPUpstream 接口实现
-func NewHTTPUpstream(cfg *config.Config) service.HTTPUpstream {
+func NewHTTPUpstream(cfg *config.Config, settingService *service.SettingService) service.HTTPUpstream {
 	return &httpUpstreamService{
 		cfg:                  cfg,
+		settingService:       settingService,
 		clients:              make(map[string]*upstreamClientEntry),
 		openAIHTTP2Fallbacks: make(map[string]*openAIHTTP2FallbackState),
 	}
@@ -210,6 +212,9 @@ func (s *httpUpstreamService) Do(req *http.Request, proxyURL string, accountID i
 	client := entry.clientForRequest(req)
 	resp, err := servertiming.Do(client, req)
 	if err != nil {
+		if profile == service.HTTPUpstreamProfileOpenAIStream {
+			err = service.WrapOpenAIStreamResponseHeaderTimeout(err)
+		}
 		s.recordOpenAIHTTP2Failure(profile, entry.protocolMode, entry.proxyKey, err)
 		// 请求失败，立即减少计数
 		atomic.AddInt64(&entry.inFlight, -1)
@@ -273,6 +278,9 @@ func (s *httpUpstreamService) DoWithTLS(req *http.Request, proxyURL string, acco
 	client := entry.clientForRequest(req)
 	resp, err := servertiming.Do(client, req)
 	if err != nil {
+		if upstreamProfile == service.HTTPUpstreamProfileOpenAIStream {
+			err = service.WrapOpenAIStreamResponseHeaderTimeout(err)
+		}
 		atomic.AddInt64(&entry.inFlight, -1)
 		atomic.StoreInt64(&entry.lastUsed, time.Now().UnixNano())
 		slog.Debug("tls_fingerprint_request_failed", "account_id", accountID)
@@ -907,21 +915,21 @@ func (s *httpUpstreamService) resolvePoolSettings(isolation string, accountConcu
 }
 
 func (s *httpUpstreamService) applyProfilePoolSettings(settings poolSettings, profile service.HTTPUpstreamProfile) poolSettings {
-	if profile != service.HTTPUpstreamProfileOpenAI && profile != service.HTTPUpstreamProfileOpenAIAPIKeyStream {
+	if profile != service.HTTPUpstreamProfileOpenAI && profile != service.HTTPUpstreamProfileOpenAIStream {
 		return settings
 	}
+	// OpenAI 非流式请求不设置本地响应头超时，避免截断耗时生成。
 	settings.responseHeaderTimeout = 0
-	if s == nil || s.cfg == nil {
-		return settings
-	}
-	if profile == service.HTTPUpstreamProfileOpenAIAPIKeyStream {
-		if s.cfg.Gateway.OpenAIAPIKeyStreamResponseHeaderTimeout > 0 {
-			settings.responseHeaderTimeout = time.Duration(s.cfg.Gateway.OpenAIAPIKeyStreamResponseHeaderTimeout) * time.Second
+	if profile == service.HTTPUpstreamProfileOpenAIStream {
+		enabled := true
+		seconds := service.DefaultStreamResponseHeaderTimeoutSeconds
+		if s != nil && s.settingService != nil {
+			enabled = s.settingService.IsStreamResponseHeaderTimeoutDegradationEnabled()
+			seconds = s.settingService.GetStreamResponseHeaderTimeoutSeconds()
 		}
-		return settings
-	}
-	if s.cfg.Gateway.OpenAIResponseHeaderTimeout > 0 {
-		settings.responseHeaderTimeout = time.Duration(s.cfg.Gateway.OpenAIResponseHeaderTimeout) * time.Second
+		if enabled {
+			settings.responseHeaderTimeout = time.Duration(seconds) * time.Second
+		}
 	}
 	return settings
 }
@@ -974,7 +982,7 @@ func buildCacheKey(isolation, proxyKey string, accountID int64, protocolMode str
 }
 
 func upstreamProfileCacheKeySuffix(profile service.HTTPUpstreamProfile) string {
-	if profile == service.HTTPUpstreamProfileOpenAIAPIKeyStream {
+	if profile == service.HTTPUpstreamProfileOpenAIStream {
 		return "|profile:" + string(profile)
 	}
 	return ""
@@ -1007,7 +1015,7 @@ func (s *httpUpstreamService) resolveOpenAIHTTP2Settings() openAIHTTP2Settings {
 }
 
 func (s *httpUpstreamService) resolveProtocolMode(profile service.HTTPUpstreamProfile, proxyKey string, parsedProxy *url.URL) string {
-	if profile != service.HTTPUpstreamProfileOpenAI && profile != service.HTTPUpstreamProfileOpenAIAPIKeyStream {
+	if profile != service.HTTPUpstreamProfileOpenAI && profile != service.HTTPUpstreamProfileOpenAIStream {
 		return upstreamProtocolModeDefault
 	}
 	settings := s.resolveOpenAIHTTP2Settings()
@@ -1133,7 +1141,7 @@ func isUpstreamTimeoutError(err error) bool {
 }
 
 func (s *httpUpstreamService) recordOpenAIHTTP2Failure(profile service.HTTPUpstreamProfile, protocolMode, proxyKey string, err error) {
-	if (profile != service.HTTPUpstreamProfileOpenAI && profile != service.HTTPUpstreamProfileOpenAIAPIKeyStream) || protocolMode != upstreamProtocolModeOpenAIH2 {
+	if (profile != service.HTTPUpstreamProfileOpenAI && profile != service.HTTPUpstreamProfileOpenAIStream) || protocolMode != upstreamProtocolModeOpenAIH2 {
 		return
 	}
 	settings := s.resolveOpenAIHTTP2Settings()
@@ -1153,7 +1161,7 @@ func (s *httpUpstreamService) recordOpenAIHTTP2Failure(profile service.HTTPUpstr
 }
 
 func (s *httpUpstreamService) recordOpenAIHTTP2Success(profile service.HTTPUpstreamProfile, protocolMode, proxyKey string) {
-	if (profile != service.HTTPUpstreamProfileOpenAI && profile != service.HTTPUpstreamProfileOpenAIAPIKeyStream) || protocolMode != upstreamProtocolModeOpenAIH2 {
+	if (profile != service.HTTPUpstreamProfileOpenAI && profile != service.HTTPUpstreamProfileOpenAIStream) || protocolMode != upstreamProtocolModeOpenAIH2 {
 		return
 	}
 	if !isHTTPProxyKey(proxyKey) {

@@ -90,6 +90,11 @@ type SettingService struct {
 	streamModePerformanceLoaded  atomic.Int64
 	streamModePerformanceSF      singleflight.Group
 
+	streamResponseHeaderTimeoutDegradationEnabled atomic.Bool
+	streamResponseHeaderTimeoutSeconds            atomic.Int64
+	streamResponseHeaderTimeoutLoaded             atomic.Int64
+	streamResponseHeaderTimeoutSF                 singleflight.Group
+
 	thinkingDisplayModeCache    atomic.Value // string
 	thinkingDisplayModeLoaded   atomic.Int64
 	thinkingDisplayModeRevision atomic.Uint64
@@ -230,6 +235,8 @@ func NewSettingService(settingRepo SettingRepository, cfg *config.Config) *Setti
 	}
 	// Preserve existing behavior until a persisted setting is loaded.
 	svc.globalTempUnschedulableEnabled.Store(true)
+	svc.streamResponseHeaderTimeoutDegradationEnabled.Store(true)
+	svc.streamResponseHeaderTimeoutSeconds.Store(DefaultStreamResponseHeaderTimeoutSeconds)
 	svc.thinkingDisplayModeCache.Store(ThinkingDisplayModeDisplayOnly)
 	return svc
 }

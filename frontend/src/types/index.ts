@@ -1092,6 +1092,11 @@ export interface Account {
   concurrency: number
   load_factor?: number | null
   current_concurrency?: number // Real-time concurrency count from Redis
+  stream_degraded?: boolean
+  stream_degradation_level?: number
+  stream_degradation_timeouts?: number
+  stream_degraded_since?: string | null
+  stream_next_probe_at?: string | null
   scheduler_score?: {
     base_score: number
     sticky_score?: number

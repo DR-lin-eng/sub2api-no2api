@@ -73,6 +73,9 @@ const DataTableStub = {
       <div v-for="row in data" :key="'hourly-' + row.id" :data-test="'hourly-usage-' + row.id">
         <slot name="cell-hourly_usage" :row="row" />
       </div>
+      <div v-for="row in data" :key="'status-' + row.id" :data-test="'status-' + row.id">
+        <slot name="cell-status" :row="row" />
+      </div>
     </div>
   `
 }
@@ -318,5 +321,28 @@ describe('admin AccountsView scheduler score column', () => {
     const emptyCell = wrapper.find('[data-test="scheduler-score-3"]')
     expect(emptyCell.exists()).toBe(true)
     expect(emptyCell.text()).toBe('-')
+  })
+
+  it('marks accounts whose stream scheduling is degraded', async () => {
+    listAccounts.mockResolvedValue({
+      items: [{
+        ...baseAccount,
+        id: 43,
+        name: 'degraded-stream',
+        stream_degraded: true,
+        stream_degradation_level: 2,
+        stream_next_probe_at: '2026-07-23T10:00:00Z'
+      }],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="status-43"]').text()).toContain('admin.accounts.streamDegraded')
+    expect(wrapper.find('[data-test="status-43"]').text()).toContain('admin.accounts.streamNextProbe')
   })
 })

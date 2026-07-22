@@ -536,8 +536,45 @@
               </div>
 
               <template v-else>
-                <!-- Enable Stream Timeout -->
                 <div class="flex items-center justify-between">
+                  <div>
+                    <label class="font-medium text-gray-900 dark:text-white">{{
+                      t("admin.settings.streamTimeout.responseHeaderEnabled")
+                    }}</label>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.streamTimeout.responseHeaderEnabledHint") }}
+                    </p>
+                  </div>
+                  <Toggle
+                    v-model="streamTimeoutForm.response_header_timeout_degradation_enabled"
+                  />
+                </div>
+
+                <div
+                  v-if="streamTimeoutForm.response_header_timeout_degradation_enabled"
+                  class="border-t border-gray-100 pt-4 dark:border-dark-700"
+                >
+                  <label
+                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    {{ t("admin.settings.streamTimeout.timeoutSeconds") }}
+                  </label>
+                  <input
+                    v-model.number="streamTimeoutForm.response_header_timeout_seconds"
+                    type="number"
+                    min="1"
+                    max="300"
+                    class="input w-32"
+                  />
+                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.streamTimeout.timeoutSecondsHint") }}
+                  </p>
+                </div>
+
+                <!-- Enable Stream Timeout -->
+                <div
+                  class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
+                >
                   <div>
                     <label class="font-medium text-gray-900 dark:text-white">{{
                       t("admin.settings.streamTimeout.enabled")
@@ -8231,6 +8268,8 @@ const globalTempUnschedulableForm = reactive({
 const streamTimeoutLoading = ref(true);
 const streamTimeoutSaving = ref(false);
 const streamTimeoutForm = reactive({
+  response_header_timeout_degradation_enabled: true,
+  response_header_timeout_seconds: 20,
   enabled: true,
   action: "temp_unsched" as "temp_unsched" | "error" | "none",
   temp_unsched_minutes: 5,
@@ -11065,6 +11104,10 @@ async function saveStreamTimeoutSettings() {
   streamTimeoutSaving.value = true;
   try {
     const updated = await adminAPI.settings.updateStreamTimeoutSettings({
+      response_header_timeout_degradation_enabled:
+        streamTimeoutForm.response_header_timeout_degradation_enabled,
+      response_header_timeout_seconds:
+        streamTimeoutForm.response_header_timeout_seconds,
       enabled: streamTimeoutForm.enabled,
       action: streamTimeoutForm.action,
       temp_unsched_minutes: streamTimeoutForm.temp_unsched_minutes,

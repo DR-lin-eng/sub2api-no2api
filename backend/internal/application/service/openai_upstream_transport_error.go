@@ -157,11 +157,24 @@ func (s *OpenAIGatewayService) handleOpenAIUpstreamTransportError(ctx context.Co
 		return err
 	}
 
-	// Response-header/TLS/dial timeouts are not persisted because a single slow
-	// request does not prove a durable credential fault. A short in-memory block
-	// is enough to make queued requests reselect instead of stampeding the same
-	// channel while it is degraded.
-	if isOpenAITransportTimeout(err) {
+	// A streaming response-header timeout is a soft scheduling signal. Keep the
+	// account schedulable and let the bounded degradation state reduce only its
+	// stream priority until a recovery response succeeds.
+	if IsOpenAIStreamResponseHeaderTimeout(err) {
+		snapshot := s.recordOpenAIStreamResponseHeaderTimeout(account.ID, time.Now())
+		if snapshot.Degraded {
+			logger.L().With(zap.String("component", "service.openai_gateway")).Warn(
+				"openai.stream_account_degraded",
+				zap.Int64("account_id", account.ID),
+				zap.String("account_name", account.Name),
+				zap.Int("level", snapshot.Level),
+				zap.Int("consecutive_timeouts", snapshot.ConsecutiveTimeouts),
+				zap.Time("next_probe_at", snapshot.NextProbeAt),
+			)
+		}
+	} else if isOpenAITransportTimeout(err) {
+		// Dial/TLS/caller-context timeouts keep their existing short runtime
+		// cooldown. Only the typed stream response-header timeout is soft-degraded.
 		s.BlockAccountScheduling(account, time.Now().Add(openAITransportTimeoutRuntimeCooldown), "transport_timeout")
 	}
 

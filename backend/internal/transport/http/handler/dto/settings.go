@@ -425,11 +425,13 @@ type GlobalTempUnschedulableSettings struct {
 
 // StreamTimeoutSettings 流超时处理配置 DTO
 type StreamTimeoutSettings struct {
-	Enabled                bool   `json:"enabled"`
-	Action                 string `json:"action"`
-	TempUnschedMinutes     int    `json:"temp_unsched_minutes"`
-	ThresholdCount         int    `json:"threshold_count"`
-	ThresholdWindowMinutes int    `json:"threshold_window_minutes"`
+	ResponseHeaderTimeoutDegradationEnabled bool   `json:"response_header_timeout_degradation_enabled"`
+	ResponseHeaderTimeoutSeconds            int    `json:"response_header_timeout_seconds"`
+	Enabled                                 bool   `json:"enabled"`
+	Action                                  string `json:"action"`
+	TempUnschedMinutes                      int    `json:"temp_unsched_minutes"`
+	ThresholdCount                          int    `json:"threshold_count"`
+	ThresholdWindowMinutes                  int    `json:"threshold_window_minutes"`
 }
 
 // RectifierSettings 请求整流器配置 DTO

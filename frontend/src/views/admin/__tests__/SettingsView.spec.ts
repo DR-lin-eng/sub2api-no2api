@@ -16,6 +16,7 @@ const {
   getGlobalTempUnschedulableSettings,
   updateGlobalTempUnschedulableSettings,
   getStreamTimeoutSettings,
+  updateStreamTimeoutSettings,
   getRectifierSettings,
   getBetaPolicySettings,
   getUpstreamBillingProbeSettings,
@@ -42,6 +43,7 @@ const {
   getGlobalTempUnschedulableSettings: vi.fn(),
   updateGlobalTempUnschedulableSettings: vi.fn(),
   getStreamTimeoutSettings: vi.fn(),
+  updateStreamTimeoutSettings: vi.fn(),
   getRectifierSettings: vi.fn(),
   getBetaPolicySettings: vi.fn(),
   getUpstreamBillingProbeSettings: vi.fn().mockResolvedValue({
@@ -77,6 +79,7 @@ vi.mock("@/api", () => ({
       getGlobalTempUnschedulableSettings,
       updateGlobalTempUnschedulableSettings,
       getStreamTimeoutSettings,
+      updateStreamTimeoutSettings,
       getRectifierSettings,
       getBetaPolicySettings,
     },
@@ -620,6 +623,7 @@ describe("admin SettingsView payment visible method controls", () => {
     getGlobalTempUnschedulableSettings.mockReset();
     updateGlobalTempUnschedulableSettings.mockReset();
     getStreamTimeoutSettings.mockReset();
+    updateStreamTimeoutSettings.mockReset();
     getRectifierSettings.mockReset();
     getBetaPolicySettings.mockReset();
     getUpstreamBillingProbeSettings.mockReset();
@@ -667,12 +671,15 @@ describe("admin SettingsView payment visible method controls", () => {
       async (payload) => payload,
     );
     getStreamTimeoutSettings.mockResolvedValue({
+      response_header_timeout_degradation_enabled: true,
+      response_header_timeout_seconds: 20,
       enabled: true,
       action: "temp_unsched",
       temp_unsched_minutes: 5,
       threshold_count: 3,
       threshold_window_minutes: 10,
     });
+    updateStreamTimeoutSettings.mockImplementation(async (payload) => payload);
     getRectifierSettings.mockResolvedValue({
       enabled: true,
       thinking_signature_enabled: true,
@@ -800,6 +807,37 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(updateGlobalTempUnschedulableSettings).toHaveBeenCalledWith({
       enabled: true,
     });
+  });
+
+  it("disables LLM header timeout degradation independently", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+
+    const card = wrapper
+      .findAll(".card")
+      .find((node) => node.text().includes("admin.settings.streamTimeout.title"));
+    expect(card).toBeDefined();
+
+    const featureToggle = card!.findAll('input[type="checkbox"]')[0];
+    expect((featureToggle!.element as HTMLInputElement).checked).toBe(true);
+    expect(card!.find('input[type="number"][max="300"]').exists()).toBe(true);
+
+    await featureToggle!.setValue(false);
+    expect(card!.find('input[type="number"][max="300"]').exists()).toBe(false);
+
+    const saveButton = card!
+      .findAll("button")
+      .find((node) => node.text().includes("common.save"));
+    await saveButton?.trigger("click");
+    await flushPromises();
+
+    expect(updateStreamTimeoutSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        response_header_timeout_degradation_enabled: false,
+        response_header_timeout_seconds: 20,
+      }),
+    );
   });
 
   it("loads usage detail access as disabled and saves an explicit enable", async () => {
@@ -1279,6 +1317,7 @@ describe("admin SettingsView wechat connect controls", () => {
     getGlobalTempUnschedulableSettings.mockReset();
     updateGlobalTempUnschedulableSettings.mockReset();
     getStreamTimeoutSettings.mockReset();
+    updateStreamTimeoutSettings.mockReset();
     getRectifierSettings.mockReset();
     getBetaPolicySettings.mockReset();
     getGroups.mockReset();
@@ -1327,12 +1366,15 @@ describe("admin SettingsView wechat connect controls", () => {
       async (payload) => payload,
     );
     getStreamTimeoutSettings.mockResolvedValue({
+      response_header_timeout_degradation_enabled: true,
+      response_header_timeout_seconds: 20,
       enabled: true,
       action: "temp_unsched",
       temp_unsched_minutes: 5,
       threshold_count: 3,
       threshold_window_minutes: 10,
     });
+    updateStreamTimeoutSettings.mockImplementation(async (payload) => payload);
     getRectifierSettings.mockResolvedValue({
       enabled: true,
       thinking_signature_enabled: true,
@@ -1531,6 +1573,7 @@ describe("admin SettingsView platform quota matrix", () => {
     getGlobalTempUnschedulableSettings.mockReset();
     updateGlobalTempUnschedulableSettings.mockReset();
     getStreamTimeoutSettings.mockReset();
+    updateStreamTimeoutSettings.mockReset();
     getRectifierSettings.mockReset();
     getBetaPolicySettings.mockReset();
     getGroups.mockReset();
@@ -1559,6 +1602,7 @@ describe("admin SettingsView platform quota matrix", () => {
     getGlobalTempUnschedulableSettings.mockResolvedValue({ enabled: true });
     updateGlobalTempUnschedulableSettings.mockResolvedValue({ enabled: true });
     getStreamTimeoutSettings.mockResolvedValue({});
+    updateStreamTimeoutSettings.mockResolvedValue({});
     getRectifierSettings.mockResolvedValue({});
     getBetaPolicySettings.mockResolvedValue({});
     getGroups.mockResolvedValue([]);

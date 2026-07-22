@@ -89,6 +89,7 @@ type OpenAIAccountScheduleRequest struct {
 	RequiredCapability      OpenAIEndpointCapability
 	RequiredImageCapability OpenAIImagesCapability
 	RequireCompact          bool
+	IsStreaming             bool
 	ExcludedIDs             map[int64]struct{}
 }
 
@@ -580,6 +581,11 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 		_ = s.service.deleteStickySessionAccountID(ctx, req.GroupID, sessionHash)
 		return nil, 0, nil
 	}
+	if req.IsStreaming {
+		if _, degraded := s.service.openAIStreamCandidateTier(account.ID, time.Now()); degraded {
+			return nil, 0, nil
+		}
+	}
 	escapeCfg := s.service.openAIStickyEscapeConfig()
 	if reason, errorRate, ttft, shouldEscape := s.shouldEscapeStickyAccount(accountID, escapeCfg); shouldEscape {
 		slog.Info("sticky_escape_triggered",
@@ -678,6 +684,8 @@ type openAIAccountCandidateScore struct {
 	errorRate          float64
 	ttft               float64
 	hasTTFT            bool
+	streamTier         int
+	streamDegraded     bool
 }
 
 type openAIAccountCandidateHeap []openAIAccountCandidateScore
@@ -712,6 +720,11 @@ func (h *openAIAccountCandidateHeap) Pop() any {
 }
 
 func isOpenAIAccountCandidateBetter(left openAIAccountCandidateScore, right openAIAccountCandidateScore) bool {
+	leftStreamTier := openAICandidateStreamTier(left)
+	rightStreamTier := openAICandidateStreamTier(right)
+	if leftStreamTier != rightStreamTier {
+		return leftStreamTier < rightStreamTier
+	}
 	leftPriority := openAIAccountSchedulingPriority(left.account)
 	rightPriority := openAIAccountSchedulingPriority(right.account)
 	if leftPriority != rightPriority {
@@ -738,6 +751,13 @@ func isOpenAIAccountCandidateBetter(left openAIAccountCandidateScore, right open
 		return leftShare > rightShare
 	}
 	return left.account.ID < right.account.ID
+}
+
+func openAICandidateStreamTier(candidate openAIAccountCandidateScore) int {
+	if !candidate.streamDegraded {
+		return openAIStreamCandidateTierHealthy
+	}
+	return candidate.streamTier
 }
 
 func compareOpenAIAccountCandidates(left, right openAIAccountCandidateScore) int {
@@ -913,14 +933,20 @@ func (s *defaultOpenAIAccountScheduler) buildOpenAIAccountLoadPlan(
 		if s.stats != nil {
 			errorRate, ttft, hasTTFT = s.stats.snapshot(account.ID)
 		}
+		streamTier, streamDegraded := openAIStreamCandidateTierHealthy, false
+		if req.IsStreaming && s.service != nil {
+			streamTier, streamDegraded = s.service.openAIStreamCandidateTier(account.ID, time.Now())
+		}
 		allCandidates = append(allCandidates, openAIAccountCandidateScore{
-			account:    account,
-			loadInfo:   loadInfo,
-			loadKnown:  loadKnown,
-			channelKey: openAIUpstreamChannelKey(account),
-			errorRate:  errorRate,
-			ttft:       ttft,
-			hasTTFT:    hasTTFT,
+			account:        account,
+			loadInfo:       loadInfo,
+			loadKnown:      loadKnown,
+			channelKey:     openAIUpstreamChannelKey(account),
+			errorRate:      errorRate,
+			ttft:           ttft,
+			hasTTFT:        hasTTFT,
+			streamTier:     streamTier,
+			streamDegraded: streamDegraded,
 		})
 	}
 
@@ -1141,7 +1167,7 @@ func (s *defaultOpenAIAccountScheduler) buildOpenAISelectionOrder(
 		for i, priority := range priorityLevels {
 			priorityCandidates := make([]openAIAccountCandidateScore, 0, len(pool))
 			for _, candidate := range pool {
-				if openAIAccountSchedulingPriority(candidate.account) == priority {
+				if openAICandidatePriorityLevelFor(candidate) == priority {
 					priorityCandidates = append(priorityCandidates, candidate)
 				}
 			}
@@ -1166,6 +1192,9 @@ func (s *defaultOpenAIAccountScheduler) buildOpenAISelectionOrder(
 				}
 				for i, candidate := range selectionOrder {
 					if candidate.account != nil && candidate.account.ID == stickyID {
+						if req.IsStreaming && candidate.streamDegraded {
+							continue
+						}
 						copy(selectionOrder[1:i+1], selectionOrder[:i])
 						selectionOrder[0] = candidate
 						return selectionOrder
@@ -1206,6 +1235,9 @@ func sortOpenAICompactRetryCandidates(pool []openAIAccountCandidateScore) []open
 	ordered := append([]openAIAccountCandidateScore(nil), pool...)
 	sort.SliceStable(ordered, func(i, j int) bool {
 		a, b := ordered[i], ordered[j]
+		if openAICandidateStreamTier(a) != openAICandidateStreamTier(b) {
+			return openAICandidateStreamTier(a) < openAICandidateStreamTier(b)
+		}
 		if a.account.Priority != b.account.Priority {
 			return a.account.Priority < b.account.Priority
 		}
@@ -1246,6 +1278,15 @@ func (s *defaultOpenAIAccountScheduler) tryAcquireOpenAISelectionOrderWithBudget
 	budget *openAISelectionProbeBudget,
 ) (*AccountSelectionResult, bool, error) {
 	compactBlocked := false
+	hasHealthyCandidate := false
+	if req.IsStreaming {
+		for _, candidate := range selectionOrder {
+			if candidate.account != nil && !candidate.streamDegraded {
+				hasHealthyCandidate = true
+				break
+			}
+		}
+	}
 	release := func(result *AcquireResult) {
 		if result != nil && result.ReleaseFunc != nil {
 			result.ReleaseFunc()
@@ -1303,6 +1344,15 @@ func (s *defaultOpenAIAccountScheduler) tryAcquireOpenAISelectionOrderWithBudget
 			}
 			if result == nil || !result.Acquired {
 				continue
+			}
+		}
+		if req.IsStreaming {
+			streamTier, degraded := s.service.openAIStreamCandidateTier(fresh.ID, time.Now())
+			if degraded && hasHealthyCandidate {
+				if streamTier != openAIStreamCandidateTierProbe || !s.service.claimOpenAIStreamRecoveryProbe(fresh.ID, time.Now()) {
+					release(result)
+					continue
+				}
 			}
 		}
 		if req.SessionHash != "" && !req.PreserveStickyBinding {
@@ -1378,6 +1428,11 @@ func (s *defaultOpenAIAccountScheduler) tryFallbackToWeightedSticky(
 		}
 		if req.RequireCompact && openAICompactSupportTier(account) == 0 {
 			continue
+		}
+		if req.IsStreaming {
+			if _, degraded := s.service.openAIStreamCandidateTier(account.ID, time.Now()); degraded {
+				continue
+			}
 		}
 		result, acquireErr := s.service.tryAcquireAccountSlot(ctx, account.ID, account.Concurrency)
 		if acquireErr != nil {
@@ -1786,6 +1841,15 @@ func (s *defaultOpenAIAccountScheduler) finishLoadBalanceSelectionFallback(
 
 	cfg := s.service.schedulingConfig()
 	compactBlocked := attempt.compactBlocked
+	hasHealthyCandidate := false
+	if req.IsStreaming {
+		for _, candidate := range attempt.selectionOrder {
+			if candidate.account != nil && !candidate.streamDegraded {
+				hasHealthyCandidate = true
+				break
+			}
+		}
+	}
 	// WaitPlan.MaxConcurrency 使用 Concurrency（非 EffectiveLoadFactor），因为 WaitPlan 控制的是 Redis 实际并发槽位等待。
 	passes := 1
 	if budget != nil && budget.limited {
@@ -1796,6 +1860,10 @@ func (s *defaultOpenAIAccountScheduler) finishLoadBalanceSelectionFallback(
 		wantKnownFull := pass >= 2
 		for _, candidate := range attempt.selectionOrder {
 			if candidate.account == nil {
+				continue
+			}
+			if req.IsStreaming && hasHealthyCandidate && candidate.streamDegraded &&
+				openAICandidateStreamTier(candidate) == openAIStreamCandidateTierProbe {
 				continue
 			}
 			if budget != nil && budget.limited {
@@ -2344,6 +2412,7 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 		RequiredCapability:      requiredCapability,
 		RequiredImageCapability: requiredImageCapability,
 		RequireCompact:          requireCompact,
+		IsStreaming:             isOpenAIStreamScheduling(ctx),
 		ExcludedIDs:             excludedIDs,
 	})
 }
@@ -2398,6 +2467,21 @@ func (s *OpenAIGatewayService) ReportOpenAIAccountScheduleResult(accountID int64
 		return
 	}
 	scheduler.ReportResult(accountID, success, firstTokenMs)
+}
+
+// ReportOpenAIAccountStreamScheduleResult adds stream degradation recovery to
+// the normal scheduler metrics hook. A successful stream clears degradation;
+// other results release any claimed recovery probe for the next backoff cycle.
+func (s *OpenAIGatewayService) ReportOpenAIAccountStreamScheduleResult(accountID int64, model string, success bool, firstTokenMs *int, stream bool) {
+	s.ReportOpenAIAccountScheduleResult(accountID, model, success, firstTokenMs)
+	if !stream {
+		return
+	}
+	if success {
+		s.clearOpenAIStreamDegradation(accountID)
+		return
+	}
+	s.releaseOpenAIStreamRecoveryProbe(accountID)
 }
 
 func (s *OpenAIGatewayService) RecordOpenAIAccountSwitch() {

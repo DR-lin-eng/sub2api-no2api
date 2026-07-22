@@ -15,9 +15,11 @@ import (
 )
 
 const (
-	globalTempUnschedulableRefreshInterval = time.Second
-	streamModePerformanceRefreshInterval   = 10 * time.Second
-	thinkingDisplayModeRefreshInterval     = 10 * time.Second
+	globalTempUnschedulableRefreshInterval     = time.Second
+	streamModePerformanceRefreshInterval       = 10 * time.Second
+	streamResponseHeaderTimeoutRefreshInterval = 10 * time.Second
+	streamResponseHeaderTimeoutDBTimeout       = 3 * time.Second
+	thinkingDisplayModeRefreshInterval         = 10 * time.Second
 )
 
 // IsRegistrationEnabled 检查是否开放注册
@@ -837,12 +839,16 @@ func (s *SettingService) GetStreamTimeoutSettings(ctx context.Context) (*StreamT
 		return DefaultStreamTimeoutSettings(), nil
 	}
 
-	var settings StreamTimeoutSettings
+	settings := *DefaultStreamTimeoutSettings()
 	if err := json.Unmarshal([]byte(value), &settings); err != nil {
 		return DefaultStreamTimeoutSettings(), nil
 	}
 
 	// 验证并修正配置值
+	if settings.ResponseHeaderTimeoutSeconds < MinStreamResponseHeaderTimeoutSeconds ||
+		settings.ResponseHeaderTimeoutSeconds > MaxStreamResponseHeaderTimeoutSeconds {
+		settings.ResponseHeaderTimeoutSeconds = DefaultStreamResponseHeaderTimeoutSeconds
+	}
 	if settings.TempUnschedMinutes < 1 {
 		settings.TempUnschedMinutes = 1
 	}
@@ -871,6 +877,67 @@ func (s *SettingService) GetStreamTimeoutSettings(ctx context.Context) (*StreamT
 	}
 
 	return &settings, nil
+}
+
+// refreshStreamResponseHeaderTimeoutCache 刷新 LLM 流响应头超时的运行时配置。
+// 热路径使用进程内缓存，后台保存设置时会立即刷新；多实例最多 10 秒收敛。
+func (s *SettingService) refreshStreamResponseHeaderTimeoutCache() {
+	if s == nil || s.settingRepo == nil {
+		return
+	}
+
+	now := time.Now()
+	loadedAt := s.streamResponseHeaderTimeoutLoaded.Load()
+	if loadedAt == 0 || now.Sub(time.Unix(0, loadedAt)) >= streamResponseHeaderTimeoutRefreshInterval {
+		_, _, _ = s.streamResponseHeaderTimeoutSF.Do("refresh", func() (any, error) {
+			ctx, cancel := context.WithTimeout(context.Background(), streamResponseHeaderTimeoutDBTimeout)
+			defer cancel()
+
+			settings, err := s.GetStreamTimeoutSettings(ctx)
+			if err != nil {
+				s.streamResponseHeaderTimeoutLoaded.Store(time.Now().UnixNano())
+				return nil, err
+			}
+			s.cacheStreamResponseHeaderTimeout(settings)
+			return nil, nil
+		})
+	}
+}
+
+// IsStreamResponseHeaderTimeoutDegradationEnabled 返回是否启用 LLM 流响应头超时降级。
+func (s *SettingService) IsStreamResponseHeaderTimeoutDegradationEnabled() bool {
+	if s == nil || s.settingRepo == nil {
+		return true
+	}
+	s.refreshStreamResponseHeaderTimeoutCache()
+	return s.streamResponseHeaderTimeoutDegradationEnabled.Load()
+}
+
+// GetStreamResponseHeaderTimeoutSeconds 返回 LLM 流请求等待上游响应头的运行时超时。
+func (s *SettingService) GetStreamResponseHeaderTimeoutSeconds() int {
+	if s == nil || s.settingRepo == nil {
+		return DefaultStreamResponseHeaderTimeoutSeconds
+	}
+	s.refreshStreamResponseHeaderTimeoutCache()
+
+	value := int(s.streamResponseHeaderTimeoutSeconds.Load())
+	if value < MinStreamResponseHeaderTimeoutSeconds || value > MaxStreamResponseHeaderTimeoutSeconds {
+		return DefaultStreamResponseHeaderTimeoutSeconds
+	}
+	return value
+}
+
+func (s *SettingService) cacheStreamResponseHeaderTimeout(settings *StreamTimeoutSettings) {
+	if settings == nil {
+		settings = DefaultStreamTimeoutSettings()
+	}
+	seconds := settings.ResponseHeaderTimeoutSeconds
+	if seconds < MinStreamResponseHeaderTimeoutSeconds || seconds > MaxStreamResponseHeaderTimeoutSeconds {
+		seconds = DefaultStreamResponseHeaderTimeoutSeconds
+	}
+	s.streamResponseHeaderTimeoutDegradationEnabled.Store(settings.ResponseHeaderTimeoutDegradationEnabled)
+	s.streamResponseHeaderTimeoutSeconds.Store(int64(seconds))
+	s.streamResponseHeaderTimeoutLoaded.Store(time.Now().UnixNano())
 }
 
 // IsUngroupedKeySchedulingAllowed 查询是否允许未分组 Key 调度
@@ -1159,6 +1226,10 @@ func (s *SettingService) SetStreamTimeoutSettings(ctx context.Context, settings 
 	}
 
 	// 验证配置值
+	if settings.ResponseHeaderTimeoutSeconds < MinStreamResponseHeaderTimeoutSeconds ||
+		settings.ResponseHeaderTimeoutSeconds > MaxStreamResponseHeaderTimeoutSeconds {
+		return fmt.Errorf("response_header_timeout_seconds must be between %d-%d", MinStreamResponseHeaderTimeoutSeconds, MaxStreamResponseHeaderTimeoutSeconds)
+	}
 	if settings.TempUnschedMinutes < 1 || settings.TempUnschedMinutes > 60 {
 		return fmt.Errorf("temp_unsched_minutes must be between 1-60")
 	}
@@ -1181,7 +1252,12 @@ func (s *SettingService) SetStreamTimeoutSettings(ctx context.Context, settings 
 		return fmt.Errorf("marshal stream timeout settings: %w", err)
 	}
 
-	return s.settingRepo.Set(ctx, SettingKeyStreamTimeoutSettings, string(data))
+	if err := s.settingRepo.Set(ctx, SettingKeyStreamTimeoutSettings, string(data)); err != nil {
+		return err
+	}
+	s.streamResponseHeaderTimeoutSF.Forget("refresh")
+	s.cacheStreamResponseHeaderTimeout(settings)
+	return nil
 }
 
 // GetDefaultPlatformQuotas 读取系统全局 platform quota JSON key，返回全部允许平台 x 3 window 的设置。

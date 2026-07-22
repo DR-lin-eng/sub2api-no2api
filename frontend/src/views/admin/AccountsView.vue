@@ -285,8 +285,20 @@
             <AccountCapacityCell :account="row" />
           </template>
           <template #cell-status="{ row }">
-            <div class="flex items-center gap-1.5">
+            <div class="flex flex-wrap items-center gap-1.5">
               <AccountStatusIndicator :account="row" @show-temp-unsched="handleShowTempUnsched" />
+              <div
+                v-if="row.stream_degraded"
+                class="flex flex-col items-start gap-0.5"
+                :title="t('admin.accounts.streamDegradedTip', { level: row.stream_degradation_level ?? 1, nextProbe: row.stream_next_probe_at ? formatDateTime(row.stream_next_probe_at) : '-' })"
+              >
+                <span class="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                  {{ t('admin.accounts.streamDegraded', { level: row.stream_degradation_level ?? 1 }) }}
+                </span>
+                <span class="text-[10px] leading-4 text-amber-700 dark:text-amber-300">
+                  {{ t('admin.accounts.streamNextProbe', { nextProbe: row.stream_next_probe_at ? formatDateTime(row.stream_next_probe_at) : '-' }) }}
+                </span>
+              </div>
             </div>
           </template>
           <template #cell-schedulable="{ row }">
@@ -1330,6 +1342,9 @@ const shouldReplaceAutoRefreshRow = (current: Account, next: Account) => {
     current.rate_limit_reset_at !== next.rate_limit_reset_at ||
     current.overload_until !== next.overload_until ||
     current.temp_unschedulable_until !== next.temp_unschedulable_until ||
+    current.stream_degraded !== next.stream_degraded ||
+    current.stream_degradation_level !== next.stream_degradation_level ||
+    current.stream_next_probe_at !== next.stream_next_probe_at ||
     buildOpenAIUsageRefreshKey(current) !== buildOpenAIUsageRefreshKey(next)
   )
 }

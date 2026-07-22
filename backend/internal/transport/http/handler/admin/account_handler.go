@@ -184,10 +184,15 @@ type CheckMixedChannelRequest struct {
 // AccountWithConcurrency extends Account with real-time concurrency info
 type AccountWithConcurrency struct {
 	*dto.Account
-	CurrentConcurrency int                                 `json:"current_concurrency"`
-	SchedulerScore     *AccountSchedulerScore              `json:"scheduler_score,omitempty"`
-	SchedulerScores    []AccountSchedulerGroupScore        `json:"scheduler_scores,omitempty"`
-	HourlyUsage        *usagestats.AccountHourlyUsageStats `json:"hourly_usage,omitempty"`
+	CurrentConcurrency        int                                 `json:"current_concurrency"`
+	StreamDegraded            bool                                `json:"stream_degraded"`
+	StreamDegradationLevel    int                                 `json:"stream_degradation_level,omitempty"`
+	StreamDegradationTimeouts int                                 `json:"stream_degradation_timeouts,omitempty"`
+	StreamDegradedSince       *time.Time                          `json:"stream_degraded_since,omitempty"`
+	StreamNextProbeAt         *time.Time                          `json:"stream_next_probe_at,omitempty"`
+	SchedulerScore            *AccountSchedulerScore              `json:"scheduler_score,omitempty"`
+	SchedulerScores           []AccountSchedulerGroupScore        `json:"scheduler_scores,omitempty"`
+	HourlyUsage               *usagestats.AccountHourlyUsageStats `json:"hourly_usage,omitempty"`
 	// 以下字段仅对 Anthropic OAuth/SetupToken 账号有效，且仅在启用相应功能时返回
 	CurrentWindowCost *float64 `json:"current_window_cost,omitempty"` // 当前窗口费用
 	ActiveSessions    *int     `json:"active_sessions,omitempty"`     // 当前活跃会话数
@@ -227,6 +232,7 @@ func (h *AccountHandler) buildAccountResponseWithRuntime(ctx context.Context, ac
 			item.CurrentConcurrency = counts[account.ID]
 		}
 	}
+	h.enrichOpenAIStreamDegradation(&item, account.ID)
 
 	if account.IsAnthropicOAuthOrSetupToken() {
 		if h.accountUsageService != nil && account.GetWindowCostLimit() > 0 {
@@ -257,6 +263,27 @@ func (h *AccountHandler) buildAccountResponseWithRuntime(ctx context.Context, ac
 	h.enrichShadowParents(ctx, []AccountWithConcurrency{item})
 
 	return item
+}
+
+func (h *AccountHandler) enrichOpenAIStreamDegradation(item *AccountWithConcurrency, accountID int64) {
+	if h == nil || item == nil || h.rateLimitService == nil || accountID <= 0 {
+		return
+	}
+	snapshot, degraded := h.rateLimitService.SnapshotOpenAIStreamDegradation(accountID)
+	if !degraded {
+		return
+	}
+	item.StreamDegraded = true
+	item.StreamDegradationLevel = snapshot.Level
+	item.StreamDegradationTimeouts = snapshot.ConsecutiveTimeouts
+	if !snapshot.DegradedSince.IsZero() {
+		degradedSince := snapshot.DegradedSince
+		item.StreamDegradedSince = &degradedSince
+	}
+	if !snapshot.NextProbeAt.IsZero() {
+		nextProbeAt := snapshot.NextProbeAt
+		item.StreamNextProbeAt = &nextProbeAt
+	}
 }
 
 // scoreOpenAIAccountSchedulerPool 对池内 OpenAI 账号计算调度分数快照。
@@ -643,6 +670,7 @@ func (h *AccountHandler) List(c *gin.Context) {
 			SchedulerScores:    schedulerGroupScores[acc.ID],
 			HourlyUsage:        hourlyUsage[acc.ID],
 		}
+		h.enrichOpenAIStreamDegradation(&item, acc.ID)
 
 		// 添加窗口费用（仅当启用时）
 		if windowCosts != nil {

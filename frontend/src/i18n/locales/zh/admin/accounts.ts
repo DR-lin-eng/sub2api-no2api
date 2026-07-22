@@ -2,6 +2,9 @@ export default {
     accounts: {
       title: '账号管理',
       description: '管理 AI 平台账号和 Cookie',
+      streamDegraded: 'LLM 流降级 L{level}',
+      streamDegradedTip: 'LLM 流请求调度已降级；恢复探测等级 L{level}，下次探测：{nextProbe}',
+      streamNextProbe: '下次探测：{nextProbe}',
       createAccount: '添加账号',
       autoRefresh: '自动刷新',
       enableAutoRefresh: '启用自动刷新',

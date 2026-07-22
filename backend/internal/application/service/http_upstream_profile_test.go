@@ -31,17 +31,21 @@ func TestWithHTTPUpstreamRedirectsDisabled(t *testing.T) {
 	}
 }
 
-func TestOpenAIHTTPUpstreamProfile_APIKeyStreamOnly(t *testing.T) {
+func TestOpenAIHTTPUpstreamProfile_StreamOnly(t *testing.T) {
 	apiKey := &Account{Type: AccountTypeAPIKey}
 	oauth := &Account{Type: AccountTypeOAuth}
 
-	if got := openAIHTTPUpstreamProfile(apiKey, true); got != HTTPUpstreamProfileOpenAIAPIKeyStream {
-		t.Fatalf("API-key stream profile = %q, want %q", got, HTTPUpstreamProfileOpenAIAPIKeyStream)
+	if got := openAIHTTPUpstreamProfile(context.Background(), apiKey, true); got != HTTPUpstreamProfileOpenAIStream {
+		t.Fatalf("API-key stream profile = %q, want %q", got, HTTPUpstreamProfileOpenAIStream)
 	}
-	if got := openAIHTTPUpstreamProfile(apiKey, false); got != HTTPUpstreamProfileOpenAI {
+	if got := openAIHTTPUpstreamProfile(context.Background(), apiKey, false); got != HTTPUpstreamProfileOpenAI {
 		t.Fatalf("API-key non-stream profile = %q, want %q", got, HTTPUpstreamProfileOpenAI)
 	}
-	if got := openAIHTTPUpstreamProfile(oauth, true); got != HTTPUpstreamProfileOpenAI {
-		t.Fatalf("OAuth stream profile = %q, want %q", got, HTTPUpstreamProfileOpenAI)
+	if got := openAIHTTPUpstreamProfile(context.Background(), oauth, true); got != HTTPUpstreamProfileOpenAIStream {
+		t.Fatalf("OAuth stream profile = %q, want %q", got, HTTPUpstreamProfileOpenAIStream)
+	}
+	imageCtx := WithOpenAIImageGenerationIntent(context.Background())
+	if got := openAIHTTPUpstreamProfile(imageCtx, oauth, true); got != HTTPUpstreamProfileOpenAI {
+		t.Fatalf("image generation stream profile = %q, want %q", got, HTTPUpstreamProfileOpenAI)
 	}
 }

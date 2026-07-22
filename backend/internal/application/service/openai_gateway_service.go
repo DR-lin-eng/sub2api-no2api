@@ -441,6 +441,8 @@ type OpenAIGatewayService struct {
 	openaiSchedulerOnce           sync.Once
 	openaiWSPassthroughDialerOnce sync.Once
 	openaiModelTransientOnce      sync.Once
+	openaiStreamDegradationOnce   sync.Once
+	openaiStreamDegradationOff    atomic.Bool
 	agentIdentityTaskMu           sync.Mutex
 	openaiWSPool                  *openAIWSConnPool
 	openaiWSStateStore            OpenAIWSStateStore
@@ -448,6 +450,7 @@ type OpenAIGatewayService struct {
 	openaiWSPassthroughDialer     openAIWSClientDialer
 	openaiAccountStats            *openAIAccountRuntimeStats
 	openaiModelTransient          *openAIAccountModelTransientState
+	openaiStreamDegradation       *openAIStreamDegradationState
 
 	openaiWSFallbackUntil               sync.Map // key: int64(accountID), value: time.Time
 	openaiAccountRuntimeBlockUntil      sync.Map // key: int64(accountID), value: time.Time
@@ -512,20 +515,21 @@ func NewOpenAIGatewayService(
 			nil,
 			"service.openai_gateway",
 		),
-		httpUpstream:          httpUpstream,
-		deferredService:       deferredService,
-		openAITokenProvider:   openAITokenProvider,
-		grokTokenProvider:     grokTokenProvider,
-		toolCorrector:         NewCodexToolCorrector(),
-		openaiWSResolver:      NewOpenAIWSProtocolResolver(cfg),
-		resolver:              resolver,
-		channelService:        channelService,
-		balanceNotifyService:  balanceNotifyService,
-		settingService:        settingService,
-		userPlatformQuotaRepo: userPlatformQuotaRepo,
-		responseHeaderFilter:  compileResponseHeaderFilter(cfg),
-		codexSnapshotThrottle: newAccountWriteThrottle(openAICodexSnapshotPersistMinInterval),
-		openaiModelTransient:  newOpenAIAccountModelTransientState(openAIModelTransientDefaultMax),
+		httpUpstream:            httpUpstream,
+		deferredService:         deferredService,
+		openAITokenProvider:     openAITokenProvider,
+		grokTokenProvider:       grokTokenProvider,
+		toolCorrector:           NewCodexToolCorrector(),
+		openaiWSResolver:        NewOpenAIWSProtocolResolver(cfg),
+		resolver:                resolver,
+		channelService:          channelService,
+		balanceNotifyService:    balanceNotifyService,
+		settingService:          settingService,
+		userPlatformQuotaRepo:   userPlatformQuotaRepo,
+		responseHeaderFilter:    compileResponseHeaderFilter(cfg),
+		codexSnapshotThrottle:   newAccountWriteThrottle(openAICodexSnapshotPersistMinInterval),
+		openaiModelTransient:    newOpenAIAccountModelTransientState(openAIModelTransientDefaultMax),
+		openaiStreamDegradation: newOpenAIStreamDegradationState(),
 	}
 	if rateLimitService != nil {
 		rateLimitService.SetAccountRuntimeBlocker(svc)

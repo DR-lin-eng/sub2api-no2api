@@ -1764,6 +1764,10 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 	if err != nil {
 		return nil, err
 	}
+	// OAuth image generation always consumes an upstream SSE response, including
+	// downstream non-stream requests. Keep it outside the short stream header
+	// timeout so image generation can legitimately wait for its first result.
+	upstreamReq = upstreamReq.WithContext(WithHTTPUpstreamProfile(upstreamReq.Context(), HTTPUpstreamProfileOpenAI))
 	upstreamReq.Header.Set("Content-Type", "application/json")
 	upstreamReq.Header.Set("Accept", "text/event-stream")
 

@@ -123,6 +123,19 @@ func (s *RateLimitService) SetAccountRuntimeBlocker(blocker AccountRuntimeBlocke
 	s.runtimeBlocker = blocker
 }
 
+func (s *RateLimitService) SnapshotOpenAIStreamDegradation(accountID int64) (OpenAIStreamDegradationSnapshot, bool) {
+	if s == nil || s.runtimeBlocker == nil {
+		return OpenAIStreamDegradationSnapshot{}, false
+	}
+	provider, ok := s.runtimeBlocker.(interface {
+		SnapshotOpenAIStreamDegradation(int64) (OpenAIStreamDegradationSnapshot, bool)
+	})
+	if !ok {
+		return OpenAIStreamDegradationSnapshot{}, false
+	}
+	return provider.SnapshotOpenAIStreamDegradation(accountID)
+}
+
 func (s *RateLimitService) IsOpenAIAdvancedSchedulerStickyWeightedEnabled(ctx context.Context) bool {
 	if s == nil || s.settingService == nil {
 		return false

@@ -441,8 +441,12 @@ func (cfg WeChatConnectOAuthConfig) AppSecretForMode(mode string) string {
 	return strings.TrimSpace(firstNonEmpty(cfg.OpenAppSecret, cfg.LegacyAppSecret))
 }
 
-// StreamTimeoutSettings 流超时处理配置（仅控制超时后的处理方式，超时判定由网关配置控制）
+// StreamTimeoutSettings 流请求响应头超时及超时后的账户处理配置。
 type StreamTimeoutSettings struct {
+	// ResponseHeaderTimeoutDegradationEnabled 是否启用 LLM 流响应头超时降级。
+	ResponseHeaderTimeoutDegradationEnabled bool `json:"response_header_timeout_degradation_enabled"`
+	// ResponseHeaderTimeoutSeconds 流请求等待上游响应头的时间（秒）。
+	ResponseHeaderTimeoutSeconds int `json:"response_header_timeout_seconds"`
 	// Enabled 是否启用流超时处理
 	Enabled bool `json:"enabled"`
 	// Action 超时后的处理方式: "temp_unsched" | "error" | "none"
@@ -455,6 +459,12 @@ type StreamTimeoutSettings struct {
 	ThresholdWindowMinutes int `json:"threshold_window_minutes"`
 }
 
+const (
+	DefaultStreamResponseHeaderTimeoutSeconds = 20
+	MinStreamResponseHeaderTimeoutSeconds     = 1
+	MaxStreamResponseHeaderTimeoutSeconds     = 300
+)
+
 // StreamTimeoutAction 流超时处理方式常量
 const (
 	StreamTimeoutActionTempUnsched = "temp_unsched" // 临时不可调度
@@ -465,11 +475,13 @@ const (
 // DefaultStreamTimeoutSettings 返回默认的流超时配置
 func DefaultStreamTimeoutSettings() *StreamTimeoutSettings {
 	return &StreamTimeoutSettings{
-		Enabled:                false,
-		Action:                 StreamTimeoutActionTempUnsched,
-		TempUnschedMinutes:     5,
-		ThresholdCount:         3,
-		ThresholdWindowMinutes: 10,
+		ResponseHeaderTimeoutDegradationEnabled: true,
+		ResponseHeaderTimeoutSeconds:            DefaultStreamResponseHeaderTimeoutSeconds,
+		Enabled:                                 false,
+		Action:                                  StreamTimeoutActionTempUnsched,
+		TempUnschedMinutes:                      5,
+		ThresholdCount:                          3,
+		ThresholdWindowMinutes:                  10,
 	}
 }
 

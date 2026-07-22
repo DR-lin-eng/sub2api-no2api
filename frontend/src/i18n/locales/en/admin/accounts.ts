@@ -2,6 +2,9 @@ export default {
     accounts: {
       title: 'Account Management',
       description: 'Manage AI platform accounts and credentials',
+      streamDegraded: 'LLM stream degraded L{level}',
+      streamDegradedTip: 'LLM stream scheduling is degraded at recovery level L{level}. Next probe: {nextProbe}',
+      streamNextProbe: 'Next probe: {nextProbe}',
       createAccount: 'Create Account',
       autoRefresh: 'Auto Refresh',
       enableAutoRefresh: 'Enable auto refresh',

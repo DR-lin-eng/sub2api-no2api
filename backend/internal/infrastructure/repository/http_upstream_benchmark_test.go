@@ -26,7 +26,7 @@ func BenchmarkHTTPUpstreamProxyClient(b *testing.B) {
 	cfg := &config.Config{
 		Gateway: config.GatewayConfig{ResponseHeaderTimeout: 300},
 	}
-	upstream := NewHTTPUpstream(cfg)
+	upstream := NewHTTPUpstream(cfg, nil)
 	svc, ok := upstream.(*httpUpstreamService)
 	if !ok {
 		b.Fatalf("类型断言失败，无法获取 httpUpstreamService")

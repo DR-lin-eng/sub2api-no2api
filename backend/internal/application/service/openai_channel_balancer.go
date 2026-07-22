@@ -134,6 +134,18 @@ type openAIChannelCandidateGroup struct {
 	candidates []openAIAccountCandidateScore
 }
 
+type openAICandidatePriorityLevel struct {
+	streamTier int
+	priority   int
+}
+
+func openAICandidatePriorityLevelFor(candidate openAIAccountCandidateScore) openAICandidatePriorityLevel {
+	return openAICandidatePriorityLevel{
+		streamTier: openAICandidateStreamTier(candidate),
+		priority:   openAIAccountSchedulingPriority(candidate.account),
+	}
+}
+
 func openAICandidateChannelKey(candidate openAIAccountCandidateScore) string {
 	if candidate.channelKey != "" {
 		return candidate.channelKey
@@ -190,21 +202,26 @@ func groupOpenAIAccountCandidatesByChannel(candidates []openAIAccountCandidateSc
 	return groups
 }
 
-func openAICandidatePriorityLevels(candidates []openAIAccountCandidateScore) []int {
+func openAICandidatePriorityLevels(candidates []openAIAccountCandidateScore) []openAICandidatePriorityLevel {
 	if len(candidates) == 0 {
 		return nil
 	}
-	levels := make([]int, 0, min(len(candidates), 8))
-	seen := make(map[int]struct{}, min(len(candidates), 8))
+	levels := make([]openAICandidatePriorityLevel, 0, min(len(candidates), 8))
+	seen := make(map[openAICandidatePriorityLevel]struct{}, min(len(candidates), 8))
 	for _, candidate := range candidates {
-		priority := openAIAccountSchedulingPriority(candidate.account)
+		priority := openAICandidatePriorityLevelFor(candidate)
 		if _, ok := seen[priority]; ok {
 			continue
 		}
 		seen[priority] = struct{}{}
 		levels = append(levels, priority)
 	}
-	sort.Ints(levels)
+	sort.Slice(levels, func(i, j int) bool {
+		if levels[i].streamTier != levels[j].streamTier {
+			return levels[i].streamTier < levels[j].streamTier
+		}
+		return levels[i].priority < levels[j].priority
+	})
 	return levels
 }
 
@@ -232,7 +249,7 @@ func selectTopKOpenAICandidatesByChannel(candidates []openAIAccountCandidateScor
 	for _, priority := range priorityLevels {
 		priorityCandidates := make([]openAIAccountCandidateScore, 0, len(candidates))
 		for _, candidate := range candidates {
-			if openAIAccountSchedulingPriority(candidate.account) == priority {
+			if openAICandidatePriorityLevelFor(candidate) == priority {
 				priorityCandidates = append(priorityCandidates, candidate)
 			}
 		}
