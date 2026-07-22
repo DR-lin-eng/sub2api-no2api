@@ -18,18 +18,18 @@ linters:
         service-no-repository:
           list-mode: original
           files:
-            - "**/internal/service/**"
-            - "!**/internal/service/ops_aggregation_service.go"
-            - "!**/internal/service/ops_alert_evaluator_service.go"
-            - "!**/internal/service/ops_cleanup_service.go"
-            - "!**/internal/service/ops_metrics_collector.go"
-            - "!**/internal/service/ops_scheduled_report_service.go"
-            - "!**/internal/service/ops_system_log_redis.go"
-            - "!**/internal/service/ops_system_log_redis_test.go"
-            - "!**/internal/service/ops_system_log_sink.go"
-            - "!**/internal/service/wire.go"
+            - "**/internal/application/service/**"
+            - "!**/internal/application/service/ops_aggregation_service.go"
+            - "!**/internal/application/service/ops_alert_evaluator_service.go"
+            - "!**/internal/application/service/ops_cleanup_service.go"
+            - "!**/internal/application/service/ops_metrics_collector.go"
+            - "!**/internal/application/service/ops_scheduled_report_service.go"
+            - "!**/internal/application/service/ops_system_log_redis.go"
+            - "!**/internal/application/service/ops_system_log_redis_test.go"
+            - "!**/internal/application/service/ops_system_log_sink.go"
+            - "!**/internal/application/service/wire.go"
           deny:
-            - pkg: github.com/Wei-Shaw/sub2api/internal/repository
+            - pkg: github.com/Wei-Shaw/sub2api/internal/infrastructure/repository
               desc: "service must not import repository"
             - pkg: gorm.io/gorm
               desc: "service must not import gorm"
@@ -38,9 +38,9 @@ linters:
         handler-no-repository:
           list-mode: original
           files:
-            - "**/internal/handler/**"
+            - "**/internal/transport/http/handler/**"
           deny:
-            - pkg: github.com/Wei-Shaw/sub2api/internal/repository
+            - pkg: github.com/Wei-Shaw/sub2api/internal/infrastructure/repository
               desc: "handler must not import repository"
             - pkg: gorm.io/gorm
               desc: "handler must not import gorm"

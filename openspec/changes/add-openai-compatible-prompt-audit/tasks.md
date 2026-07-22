@@ -4,13 +4,13 @@
 - [x] 1.2 为参考仓库未提交的 Prompt Audit/Prompt Guard 文件生成只读 patch 或固定到专用 commit/tag，并在 `source-baseline.md` 中记录校验和
 - [x] 1.3 复核并维护 `source-feature-map.md` 的“源功能 → OpenSpec Requirement → 目标代码 → 目标测试”追踪表，覆盖异步、同步、HTTP、SSE、WS、配置、风险摘要、身份展示、事件、运行态和页面
 - [x] 1.4 确认设计中的五个 Open Questions，并把已确认结论回写 `design.md`，未确认项不得在实现中自行漂移
-- [x] 1.5 运行并保存现有基线信号：`cd backend && go test ./internal/service -run ContentModeration -count=1`
+- [x] 1.5 运行并保存现有基线信号：`cd backend && go test ./internal/application/service -run ContentModeration -count=1`
 - [x] 1.6 运行并保存前端现有风控页面和路由相关 Vitest，证明修改前基线通过
 - [x] 1.7 将实现拆成数据基础、异步审计、控制台、同步门禁和灰度五个可独立评审的提交/PR 阶段
 
 ## 2. 建立独立模块和公共契约
 
-- [x] 2.1 创建 `backend/internal/securityaudit/` 并按 design 的文件职责建立最小包骨架，不在现有 `content_moderation.go` 中加入 Prompt Audit 实现
+- [x] 2.1 创建 `backend/internal/modules/securityaudit/` 并按 design 的文件职责建立最小包骨架，不在现有 `content_moderation.go` 中加入 Prompt Audit 实现
 - [x] 2.2 定义可信 `Request`、分列身份快照、脱敏 `PromptSnapshot`、`Decision`、`NormalizedResult`、`IssueSummary`、`RuntimeSnapshot` 和稳定枚举/错误码
 - [x] 2.3 定义 ConfigStore、JobRepository、PayloadStore、PromptScanner、Clock 和 Metrics 等可注入接口，避免核心逻辑依赖包级全局变量
 - [x] 2.4 实现 Coordinator 的 off/async/blocking 分支和固定阻断优先级，并用 fake engine 单测覆盖两个引擎所有组合
@@ -172,9 +172,9 @@
 ## 14. 完成验证、质量门禁和灰度准备
 
 - [x] 14.1 运行 `openspec validate add-openai-compatible-prompt-audit --type change --strict --no-interactive`
-- [x] 14.2 运行 `cd backend && go test ./internal/securityaudit/... -count=1`
-- [x] 14.3 运行 `cd backend && go test ./internal/handler/... ./internal/server/... -count=1` 并保存路由矩阵结果
-- [x] 14.4 运行 `cd backend && go test -race ./internal/securityaudit/... -count=1`
+- [x] 14.2 运行 `cd backend && go test ./internal/modules/securityaudit/... -count=1`
+- [x] 14.3 运行 `cd backend && go test ./internal/transport/http/handler/... ./internal/transport/http/server/... -count=1` 并保存路由矩阵结果
+- [x] 14.4 运行 `cd backend && go test -race ./internal/modules/securityaudit/... -count=1`
 - [x] 14.5 在可用 PostgreSQL/Redis 环境运行 migration、Repository、多 Worker 和配置失效集成测试
 - [x] 14.6 运行 `make test-backend`，记录全量 Go test 和 golangci-lint 结果
 - [x] 14.7 运行 `pnpm --dir frontend run lint:check`、`pnpm --dir frontend run typecheck` 和 Prompt Audit/RiskControl Vitest

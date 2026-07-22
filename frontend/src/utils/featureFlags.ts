@@ -34,7 +34,7 @@
  *
  * For `opt-in` flags to render immediately on refresh, the backend **must**
  * inject the field through `PublicSettingsInjectionPayload`. A drift test in
- * `backend/internal/handler/dto/public_settings_injection_schema_test.go`
+ * `backend/internal/transport/http/handler/dto/public_settings_injection_schema_test.go`
  * catches omissions.
  *
  * ## Adding a new flag

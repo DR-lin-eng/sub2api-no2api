@@ -508,7 +508,7 @@ npm install -g pnpm
 cd frontend
 pnpm install
 pnpm run build
-# 出力先: ../backend/internal/web/dist/
+# 出力先: ../backend/internal/transport/webassets/dist/
 
 # 4. フロントエンドを組み込んだバックエンドをビルド
 cd ../backend

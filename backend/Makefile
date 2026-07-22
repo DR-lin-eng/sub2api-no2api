@@ -1,4 +1,4 @@
-.PHONY: build generate test test-unit test-integration test-e2e
+.PHONY: build generate check-layout test test-unit test-integration test-e2e
 
 VERSION ?= $(shell ./scripts/resolve-version.sh)
 LDFLAGS ?= -s -w -X main.Version=$(VERSION)
@@ -10,7 +10,10 @@ generate:
 	go generate ./ent
 	go generate ./cmd/server
 
-test:
+check-layout:
+	./scripts/check-source-layout.sh
+
+test: check-layout
 	go test ./...
 	golangci-lint run ./...
 

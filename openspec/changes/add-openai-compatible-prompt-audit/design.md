@@ -4,9 +4,9 @@
 
 sub2api 当前已经存在一套完整的内容审核能力：
 
-- 核心实现位于 `backend/internal/service/content_moderation*.go`。
-- 管理 API 位于 `backend/internal/handler/admin/content_moderation_handler.go`，路由前缀为 `/admin/risk-control`。
-- 网关统一接线位于 `backend/internal/handler/content_moderation_helper.go`，各协议 Handler 在解析完请求体和模型后调用 `checkContentModeration`。
+- 核心实现位于 `backend/internal/application/service/content_moderation*.go`。
+- 管理 API 位于 `backend/internal/transport/http/handler/admin/content_moderation_handler.go`，路由前缀为 `/admin/risk-control`。
+- 网关统一接线位于 `backend/internal/transport/http/handler/content_moderation_helper.go`，各协议 Handler 在解析完请求体和模型后调用 `checkContentModeration`。
 - 数据保存在 `content_moderation_logs`，配置保存在 settings 的 `content_moderation_config`。
 - 管理页面为 `frontend/src/views/admin/RiskControlView.vue`。
 - 能力包括 OpenAI Moderations、关键词阻断、命中 Hash、异步观察、同步前置阻断、API Key 健康、邮件、违规计数和自动封号。
@@ -88,7 +88,7 @@ sub2api 当前已经存在一套完整的内容审核能力：
 新增目录：
 
 ```text
-backend/internal/securityaudit/
+backend/internal/modules/securityaudit/
 ├── coordinator.go
 ├── prompt_config.go
 ├── prompt_types.go
@@ -117,7 +117,7 @@ backend/internal/securityaudit/
 
 SQL migration、前端和少量路由/注入接线由于项目结构约束仍位于各自事实源目录。
 
-**备选方案：继续平铺在 `internal/service`、`internal/repository` 和 `internal/handler`。** 放弃，因为无法满足独立模块要求，也会增加 AI 和人工定位所需上下文。
+**备选方案：继续平铺在 `internal/application/service`、`internal/infrastructure/repository` 和 `internal/transport/http/handler`。** 放弃，因为无法满足独立模块要求，也会增加 AI 和人工定位所需上下文。
 
 ### 3. 使用薄协调器组合两个引擎
 
@@ -748,5 +748,5 @@ prompt_audit.events_filter_deleted
 1. **源基线标识**：采用 `source-freeze/` 中的只读 tracked patch + untracked archive；base commit、SHA-256 和恢复测试已登记在 `source-baseline.md`。
 2. **事件自动保留期**：第一版只提供管理员安全删除，不增加自动保留清理；真实事件量稳定后另起 change。
 3. **同步两个引擎并行或串行**：采用受控并行；实现必须通过 race test，并保持 Legacy Block 优先级和两引擎独立记录。
-4. **目标项目额外文本入口**：以实施时 `backend/internal/server/routes/gateway.go` 的自动/结构枚举为事实源；所有用户文本入口必须接入 Coordinator 或提供不会旁路/重复扫描的测试证明。
+4. **目标项目额外文本入口**：以实施时 `backend/internal/transport/http/server/routes/gateway.go` 的自动/结构枚举为事实源；所有用户文本入口必须接入 Coordinator 或提供不会旁路/重复扫描的测试证明。
 5. **生产启用阈值**：实现和部署验证期间只允许 off/async；blocking 生产启用必须满足 `verification.md` 的建议阈值并由安全、运营和业务责任人签字，未签字不得生产开启。

@@ -16,12 +16,12 @@ import (
 	"time"
 
 	_ "github.com/Wei-Shaw/sub2api/ent/runtime"
-	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/handler"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
-	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
-	"github.com/Wei-Shaw/sub2api/internal/setup"
-	"github.com/Wei-Shaw/sub2api/internal/web"
+	"github.com/Wei-Shaw/sub2api/internal/bootstrap/setup"
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
+	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler"
+	"github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
+	"github.com/Wei-Shaw/sub2api/internal/transport/webassets"
 
 	"github.com/gin-gonic/gin"
 )

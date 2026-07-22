@@ -33,7 +33,7 @@
 
 ## Impact
 
-- **后端模块**：新增 `backend/internal/securityaudit/` 垂直模块；现有 Handler 仅增加协调器依赖和接入调用。
+- **后端模块**：新增 `backend/internal/modules/securityaudit/` 垂直模块；现有 Handler 仅增加协调器依赖和接入调用。
 - **网关入口**：机械替换现有统一内容审核调用点为安全审计协调调用，保持其位于鉴权之后、账号选择/计费/上游之前；WebSocket 保持逐轮检查。
 - **管理 API**：新增 `/admin/prompt-audit/*`，复用现有管理员鉴权和管理操作审计。
 - **数据库**：新增 `prompt_audit_jobs`、`prompt_audit_events` 和相应索引；配置存入现有 `settings`，API Key 加密保存；不修改现有内容审核表。

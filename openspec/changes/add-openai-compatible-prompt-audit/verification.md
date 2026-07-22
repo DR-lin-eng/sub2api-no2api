@@ -91,13 +91,13 @@ openspec show add-openai-compatible-prompt-audit
 ```bash
 cd /Users/mt/code/mt-ai/sub2api/sub2api-mt/backend
 
-go test ./internal/securityaudit/... -count=1
-go test ./internal/handler/... ./internal/server/... -count=1
-go test ./internal/service -run ContentModeration -count=1
-go test -race ./internal/securityaudit/... -count=1
+go test ./internal/modules/securityaudit/... -count=1
+go test ./internal/transport/http/handler/... ./internal/transport/http/server/... -count=1
+go test ./internal/application/service -run ContentModeration -count=1
+go test -race ./internal/modules/securityaudit/... -count=1
 ```
 
-如果新模块采用单一 package，第一条可以写成 `go test ./internal/securityaudit -count=1`；以最终目录结构为准，但不能省略 race。
+如果新模块采用单一 package，第一条可以写成 `go test ./internal/modules/securityaudit -count=1`；以最终目录结构为准，但不能省略 race。
 
 ### 3.3 PostgreSQL/Redis 集成
 
@@ -105,8 +105,8 @@ go test -race ./internal/securityaudit/... -count=1
 
 ```bash
 cd /Users/mt/code/mt-ai/sub2api/sub2api-mt/backend
-go test -tags=integration ./internal/repository ./internal/securityaudit/... -run 'PromptAudit|PromptGuard' -count=1
-go test -tags=integration -race ./internal/securityaudit/... -run 'MultiWorker|MultiInstance|Lease|ConfigInvalidation' -count=1
+go test -tags=integration ./internal/infrastructure/repository ./internal/modules/securityaudit/... -run 'PromptAudit|PromptGuard' -count=1
+go test -tags=integration -race ./internal/modules/securityaudit/... -run 'MultiWorker|MultiInstance|Lease|ConfigInvalidation' -count=1
 ```
 
 CI 中 Docker 不可用必须失败；本地跳过要在证据中明确写“未执行”，不能标为通过。
@@ -329,7 +329,7 @@ URL_QUERY_CANARY_<random>
 
 ```bash
 cd /Users/mt/code/mt-ai/sub2api/sub2api-mt/backend
-go test ./internal/securityaudit -run TestPromptAuditSyntheticAsyncBaseline -count=1 -v
+go test ./internal/modules/securityaudit -run TestPromptAuditSyntheticAsyncBaseline -count=1 -v
 ```
 
 ### 11.1 先决条件
@@ -452,10 +452,10 @@ go test ./internal/securityaudit -run TestPromptAuditSyntheticAsyncBaseline -cou
 | 门禁 | 实际证据 |
 | --- | --- |
 | OpenSpec | `openspec validate add-openai-compatible-prompt-audit --type change --strict --no-interactive` → valid |
-| SecurityAudit 单元/集成 | PostgreSQL `127.0.0.1:32768`、Redis `127.0.0.1:32769` 下 `go test ./internal/securityaudit/... -count=1` → pass |
-| Race | 同一真实依赖下 `go test -race ./internal/securityaudit/... -count=1` → pass |
+| SecurityAudit 单元/集成 | PostgreSQL `127.0.0.1:32768`、Redis `127.0.0.1:32769` 下 `go test ./internal/modules/securityaudit/... -count=1` → pass |
+| Race | 同一真实依赖下 `go test -race ./internal/modules/securityaudit/... -count=1` → pass |
 | Migration/Repository/Config | `TestPromptAuditConfigCASSecretRoundTripInvalidationAndTTL`、migration/schema、admission/fencing/FK/high-water/concurrent delete、Redis TTL、Worker lifecycle 全部 pass |
-| Handler/Routes | `go test ./internal/handler/... ./internal/server/... -count=1` → pass；路由矩阵由 `TestEveryGatewayPOSTRouteIsClassifiedForPromptAuditCoverage` 固定 |
+| Handler/Routes | `go test ./internal/transport/http/handler/... ./internal/transport/http/server/... -count=1` → pass；路由矩阵由 `TestEveryGatewayPOSTRouteIsClassifiedForPromptAuditCoverage` 固定 |
 | 全量后端 | 临时安装 CI 同版 golangci-lint v2.9 后 `make test-backend` → 全量 Go tests pass，`0 issues` |
 | 前端 | ESLint pass；vue-tsc pass；Prompt Audit、RiskControl、Sidebar、router 共 8 个文件 34 tests pass |
 | 生产构建 | `make build` → Go binary 与 Vite production build pass，独立 `PromptAuditView` chunk 生成 |

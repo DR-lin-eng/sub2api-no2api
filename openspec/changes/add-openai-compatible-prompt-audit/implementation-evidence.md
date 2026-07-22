@@ -15,7 +15,7 @@ This file records reproducible implementation-time evidence. It contains no prom
 
 ### Target pre-change baseline
 
-- `cd backend && go test ./internal/service -run ContentModeration -count=1`: passed (`1.138s`).
+- `cd backend && go test ./internal/application/service -run ContentModeration -count=1`: passed (`1.138s`).
 - `pnpm --dir frontend exec vitest run src/views/admin/__tests__/RiskControlView.spec.ts src/router/__tests__/feature-access.spec.ts`: passed (2 files, 9 tests).
 
 ### Review slices

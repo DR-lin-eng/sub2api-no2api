@@ -34,7 +34,7 @@ Example: `017_add_gemini_tier_id.sql`
 
 ## Migration File Structure
 
-This project uses a custom migration runner (`internal/repository/migrations_runner.go`) that executes the full SQL file content as-is.
+This project uses a custom migration runner (`internal/infrastructure/repository/migrations_runner.go`) that executes the full SQL file content as-is.
 
 - Regular migrations (`*.sql`): executed in a transaction.
 - Non-transactional migrations (`*_notx.sql`): split by statement and executed without transaction (for `CONCURRENTLY`).
@@ -115,7 +115,7 @@ touch migrations/018_your_new_change.sql
 
 - **Checksum Algorithm**: SHA256 of trimmed file content
 - **Tracking Table**: `schema_migrations` (filename, checksum, applied_at)
-- **Runner**: `internal/repository/migrations_runner.go`
+- **Runner**: `internal/infrastructure/repository/migrations_runner.go`
 - **Auto-run**: Migrations run automatically on service startup
 
 ## Best Practices
@@ -180,5 +180,5 @@ VALUES ('NNN_migration.sql', 'calculated_checksum', NOW());
 
 ## References
 
-- Migration runner: `internal/repository/migrations_runner.go`
+- Migration runner: `internal/infrastructure/repository/migrations_runner.go`
 - PostgreSQL docs: https://www.postgresql.org/docs/

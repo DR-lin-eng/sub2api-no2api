@@ -526,7 +526,7 @@ npm install -g pnpm
 cd frontend
 pnpm install
 pnpm run build
-# 构建产物输出到 ../backend/internal/web/dist/
+# 构建产物输出到 ../backend/internal/transport/webassets/dist/
 
 # 4. 编译后端（嵌入前端）
 cd ../backend

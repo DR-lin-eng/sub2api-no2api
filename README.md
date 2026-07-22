@@ -511,7 +511,7 @@ npm install -g pnpm
 cd frontend
 pnpm install
 pnpm run build
-# Output will be in ../backend/internal/web/dist/
+# Output will be in ../backend/internal/transport/webassets/dist/
 
 # 4. Build backend with embedded frontend
 cd ../backend

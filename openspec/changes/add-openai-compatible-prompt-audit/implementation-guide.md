@@ -32,7 +32,7 @@ flowchart TD
 
 依赖规则：
 
-1. 现有 `internal/service` 不得 import `internal/securityaudit`；否则会把新能力反向渗入既有业务层。
+1. 现有 `internal/application/service` 不得 import `internal/modules/securityaudit`；否则会把新能力反向渗入既有业务层。
 2. `securityaudit` 可以通过小接口适配现有 service/repository/Redis/加密能力，但不得修改这些接口的全局语义来迁就新模块。
 3. Coordinator 只归并客户端决策，不写 job/event、不发送邮件、不封号、不更新现有 Hash。
 4. Handler 只负责构造可信请求、调用 Coordinator、使用本协议原有错误 helper 返回结果。
@@ -44,7 +44,7 @@ flowchart TD
 ## 3. 建议目录和文件职责
 
 ```text
-backend/internal/securityaudit/
+backend/internal/modules/securityaudit/
 ├── coordinator.go                 # 双引擎编排、固定优先级
 ├── coordinator_test.go
 ├── prompt_types.go                # Request/Decision/Job/Event/Runtime 与枚举
@@ -75,9 +75,9 @@ backend/internal/securityaudit/
 └── prompt_module.go                # provider set、Start/Shutdown 组合
 
 backend/migrations/181_prompt_audit.sql
-backend/internal/handler/security_audit_helper.go
-backend/internal/server/routes/admin.go
-backend/internal/server/routes/gateway.go
+backend/internal/transport/http/handler/security_audit_helper.go
+backend/internal/transport/http/server/routes/admin.go
+backend/internal/transport/http/server/routes/gateway.go
 backend/internal/wire/或项目实际 provider 文件
 
 frontend/src/features/prompt-audit/
@@ -411,7 +411,7 @@ input_limit, enabled, has_token, token_status
 | Responses WebSocket 首轮 | `GET /v1/responses`、`/responses`、`/backend-api/codex/responses` | `openai_gateway_handler.go: ResponsesWebSocket` | first_turn | close 4403/1013 |
 | Responses WebSocket 后续轮次 | 每个 `response.create` | 同上 BeforeRequest/turn callback | subsequent_turn | close 4403/1013 |
 
-实施时还必须从 `backend/internal/server/routes/gateway.go` 枚举所有携带用户文本的新增/旁路入口，重点复核：
+实施时还必须从 `backend/internal/transport/http/server/routes/gateway.go` 枚举所有携带用户文本的新增/旁路入口，重点复核：
 
 - `/v1/images/generations/async`、`/v1/images/edits/async`。
 - `/v1/images/batches` 及 batch item 的实际提交入口。
