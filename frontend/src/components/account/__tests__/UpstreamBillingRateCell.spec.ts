@@ -352,4 +352,89 @@ describe('UpstreamBillingRateCell', () => {
     )
     expect(wrapper.text()).not.toContain('-admin.accounts.upstreamBilling.unsupported')
   })
+
+  it('queries and renders transient upstream quota independently from the rate probe', async () => {
+    const wrapper = mount(UpstreamBillingRateCell, {
+      props: {
+        account: makeAccount(),
+        now: Date.now(),
+        quotaResult: {
+          account_id: 1,
+          observed_at: '2026-07-13T00:00:00Z',
+          quota: {
+            provider: 'new_api',
+            mode: 'quota',
+            unit: 'USD',
+            remaining: 87.66,
+            used: 12.34,
+            total: 100
+          }
+        }
+      }
+    })
+
+    expect(wrapper.get('[data-testid="upstream-quota-value"]').text()).toBe('$87.66')
+    const quotaButton = wrapper.get('[data-testid="upstream-quota-query"]')
+    expect(quotaButton.attributes('aria-label')).toBe('admin.accounts.upstreamBilling.refreshQuota')
+    await quotaButton.trigger('click')
+    expect(wrapper.emitted('query-quota')).toHaveLength(1)
+    expect(wrapper.emitted('probe')).toBeUndefined()
+
+    await wrapper.setProps({ quotaLoading: true })
+    expect(quotaButton.attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-testid="upstream-quota-value"]').text()).toBe(
+      'admin.accounts.upstreamBilling.queryingQuota'
+    )
+  })
+
+  it('summarizes unlimited subscriptions and exposes query errors', async () => {
+    const wrapper = mount(UpstreamBillingRateCell, {
+      props: {
+        account: makeAccount(),
+        now: Date.now(),
+        quotaResult: {
+          account_id: 1,
+          observed_at: '2026-07-13T00:00:00Z',
+          quota: {
+            provider: 'sub2api',
+            mode: 'subscription',
+            unit: 'USD',
+            subscription: {
+              plan_name: 'Unlimited',
+              unlimited: true,
+              expires_at: '2026-08-01T00:00:00Z'
+            }
+          }
+        }
+      }
+    })
+
+    expect(wrapper.get('[data-testid="upstream-quota-value"]').text()).toBe(
+      'admin.accounts.upstreamBilling.unlimited'
+    )
+    await wrapper.setProps({ quotaError: 'upstream unavailable' })
+    expect(wrapper.get('[data-testid="upstream-quota-value"]').classes()).toContain('text-red-600')
+  })
+
+  it('renders short-lived success and error action feedback icons', async () => {
+    const wrapper = mount(UpstreamBillingRateCell, {
+      props: {
+        account: makeAccount(),
+        now: Date.now(),
+        rateFeedback: 'success',
+        quotaFeedback: 'error'
+      }
+    })
+
+    const rateButton = wrapper.get('[data-testid="upstream-billing-probe"]')
+    const quotaButton = wrapper.get('[data-testid="upstream-quota-query"]')
+    expect(rateButton.findComponent({ name: 'Icon' }).props('name')).toBe('check')
+    expect(rateButton.classes()).toContain('text-emerald-600')
+    expect(quotaButton.findComponent({ name: 'Icon' }).props('name')).toBe('x')
+    expect(quotaButton.classes()).toContain('text-red-600')
+
+    await wrapper.setProps({ rateFeedback: null, quotaFeedback: null })
+    expect(rateButton.findComponent({ name: 'Icon' }).props('name')).toBe('refresh')
+    expect(quotaButton.findComponent({ name: 'Icon' }).props('name')).toBe('search')
+  })
 })

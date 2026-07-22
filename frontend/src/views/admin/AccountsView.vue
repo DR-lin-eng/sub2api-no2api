@@ -177,9 +177,11 @@
       <template #table>
         <AccountBulkActionsBar
           :selected-ids="selIds"
+          :querying-upstream-quota="bulkQueryingUpstreamQuota"
           @delete="handleBulkDelete"
           @reset-status="handleBulkResetStatus"
           @refresh-token="handleBulkRefreshToken"
+          @query-upstream-quota="handleBulkQueryUpstreamQuota"
           @probe-upstream-billing="handleBulkProbeUpstreamBilling"
           @edit-selected="openBulkEditSelected"
           @edit-filtered="openBulkEditFiltered"
@@ -323,6 +325,8 @@
               :today-stats="todayStatsByAccountId[String(row.id)] ?? null"
               :today-stats-loading="todayStatsLoading"
               :manual-refresh-token="usageManualRefreshToken"
+              :upstream-quota-result="upstreamQuotaResults.get(row.id)"
+              :now="upstreamBillingNow"
             />
           </template>
           <template #cell-proxy="{ row }">
@@ -365,7 +369,13 @@
               :global-probe-enabled="upstreamBillingProbeGloballyEnabled"
               :now="upstreamBillingNow"
               :probing="probingUpstreamBilling.has(row.id)"
+              :quota-result="upstreamQuotaResults.get(row.id)"
+              :quota-error="upstreamQuotaErrors.get(row.id)"
+              :quota-loading="queryingUpstreamQuota.has(row.id)"
+              :rate-feedback="upstreamBillingFeedback.get(row.id)"
+              :quota-feedback="upstreamQuotaFeedback.get(row.id)"
               @probe="handleProbeUpstreamBilling(row)"
+              @query-quota="handleQueryUpstreamQuota(row)"
             />
           </template>
           <template #cell-priority="{ value }">
@@ -447,7 +457,7 @@
     <AccountStatsModal :show="showStats" :account="statsAcc" @close="closeStatsModal" />
     <ScheduledTestsPanel :show="showSchedulePanel" :account-id="scheduleAcc?.id ?? null" :model-options="scheduleModelOptions" @close="closeSchedulePanel" />
     <AccountActionMenu :show="menu.show" :account="menu.acc" :position="menu.pos" @close="menu.show = false" @test="handleTest" @stats="handleViewStats" @schedule="handleSchedule" @duplicate="handleDuplicateAccount" @reauth="handleReAuth" @refresh-token="handleRefresh" @recover-state="handleRecoverState" @reset-quota="handleResetQuota" @set-privacy="handleSetPrivacy" @create-spark-shadow="handleCreateSparkShadow" />
-    <SyncFromCrsModal :show="showSync" @close="showSync = false" @synced="reload" />
+    <SyncFromCrsModal :show="showSync" @close="showSync = false" @synced="handleSyncCompleted" />
     <ImportDataModal :show="showImportData" @close="showImportData = false" @imported="handleDataImported" />
     <BulkEditAccountModal
       :show="showBulkEdit"
@@ -470,7 +480,7 @@
       </label>
     </ConfirmDialog>
     <ErrorPassthroughRulesModal :show="showErrorPassthrough" @close="showErrorPassthrough = false" />
-    <TLSFingerprintProfilesModal :show="showTLSFingerprintProfiles" @close="showTLSFingerprintProfiles = false" />
+    <TLSFingerprintProfilesModal :show="showTLSFingerprintProfiles" @close="handleTLSFingerprintProfilesClosed" />
     <TotpStepUpDialog :controller="accountExportStepUp" />
   </AppLayout>
 </template>
@@ -521,7 +531,13 @@ import { proxyExpiryBadgeClass, proxyExpiryLabelKey } from '@/utils/proxyExpiry'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { sanitizeUrl } from '@/utils/url'
 import { getFloatingPanelPosition } from '@/utils/floatingPanel'
-import type { Account, AccountPlatform, AccountSchedulerGroupScore, AccountType, Proxy as AccountProxy, AdminGroup, WindowStats, ClaudeModel, UpstreamBillingProbeSnapshot } from '@/types'
+import {
+  persistUpstreamQuotaCache,
+  readUpstreamQuotaCache,
+  removeUpstreamQuotaCache,
+  upstreamQuotaCacheIdentity
+} from '@/utils/upstreamQuotaCache'
+import type { Account, AccountPlatform, AccountSchedulerGroupScore, AccountType, Proxy as AccountProxy, AdminGroup, WindowStats, ClaudeModel, UpstreamBillingProbeResult, UpstreamBillingProbeSnapshot, UpstreamQuotaQueryResult } from '@/types'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -600,9 +616,75 @@ const togglingSchedulable = ref<number | null>(null)
 const menu = reactive<{show:boolean, acc:Account|null, pos:{top:number, left:number}|null}>({ show: false, acc: null, pos: null })
 const exportingData = ref(false)
 const probingUpstreamBilling = reactive(new Set<number>())
+const queryingUpstreamQuota = reactive(new Map<number, symbol>())
+const upstreamQuotaResults = reactive(new Map<number, UpstreamQuotaQueryResult>())
+const upstreamQuotaErrors = reactive(new Map<number, string>())
+const upstreamQuotaStateIdentities = new Map<number, string>()
+let upstreamQuotaGlobalGeneration = 0
+const upstreamQuotaAccountGenerations = new Map<number, number>()
+const bulkQueryingUpstreamQuota = ref(false)
+type UpstreamActionFeedback = 'success' | 'error'
+const upstreamBillingFeedback = reactive(new Map<number, UpstreamActionFeedback>())
+const upstreamQuotaFeedback = reactive(new Map<number, UpstreamActionFeedback>())
+const upstreamBillingFeedbackTimers = new Map<number, ReturnType<typeof setTimeout>>()
+const upstreamQuotaFeedbackTimers = new Map<number, ReturnType<typeof setTimeout>>()
+let upstreamFeedbackDisposed = false
+const clearUpstreamActionFeedback = (
+  feedback: Map<number, UpstreamActionFeedback>,
+  timers: Map<number, ReturnType<typeof setTimeout>>,
+  accountID: number
+) => {
+  const timer = timers.get(accountID)
+  if (timer !== undefined) clearTimeout(timer)
+  timers.delete(accountID)
+  feedback.delete(accountID)
+}
+const showUpstreamActionFeedback = (
+  feedback: Map<number, UpstreamActionFeedback>,
+  timers: Map<number, ReturnType<typeof setTimeout>>,
+  accountID: number,
+  value: UpstreamActionFeedback
+) => {
+  clearUpstreamActionFeedback(feedback, timers, accountID)
+  if (upstreamFeedbackDisposed) return
+  feedback.set(accountID, value)
+  timers.set(accountID, setTimeout(() => {
+    feedback.delete(accountID)
+    timers.delete(accountID)
+  }, 1000))
+}
+const currentAdminID = () => authStore.user?.id ?? null
+const removePersistedUpstreamQuota = (accountID?: number) => {
+  const adminID = currentAdminID()
+  if (typeof adminID === 'number') removeUpstreamQuotaCache(localStorage, adminID, accountID)
+}
+const invalidateUpstreamQuotaState = (accountID?: number) => {
+  if (accountID == null) {
+    upstreamQuotaGlobalGeneration += 1
+    upstreamQuotaAccountGenerations.clear()
+    queryingUpstreamQuota.clear()
+    upstreamQuotaResults.clear()
+    upstreamQuotaStateIdentities.clear()
+    upstreamQuotaErrors.clear()
+    upstreamQuotaFeedbackTimers.forEach(timer => clearTimeout(timer))
+    upstreamQuotaFeedbackTimers.clear()
+    upstreamQuotaFeedback.clear()
+    removePersistedUpstreamQuota()
+    return
+  }
+  upstreamQuotaAccountGenerations.set(accountID, (upstreamQuotaAccountGenerations.get(accountID) ?? 0) + 1)
+  queryingUpstreamQuota.delete(accountID)
+  upstreamQuotaResults.delete(accountID)
+  upstreamQuotaStateIdentities.delete(accountID)
+  upstreamQuotaErrors.delete(accountID)
+  clearUpstreamActionFeedback(upstreamQuotaFeedback, upstreamQuotaFeedbackTimers, accountID)
+  removePersistedUpstreamQuota(accountID)
+}
 const upstreamBillingProbeGloballyEnabled = ref<boolean | undefined>(undefined)
 const upstreamBillingNow = ref(Date.now())
-let lastUpstreamBillingSortRefreshMinute = -1
+const upstreamBillingRateETag = ref<string | null>(null)
+const upstreamBillingRateRefreshing = ref(false)
+let upstreamBillingRateAbortController: AbortController | null = null
 useIntervalFn(() => { upstreamBillingNow.value = Date.now() }, 60_000)
 
 // Account tools dropdown
@@ -934,6 +1016,49 @@ const {
   }
 })
 
+let hydratedUpstreamQuotaAdminID: number | null | undefined
+watch(
+  () => ({ accounts: accounts.value, adminID: currentAdminID() }),
+  ({ accounts: visibleAccounts, adminID }) => {
+    if (hydratedUpstreamQuotaAdminID !== adminID) {
+      upstreamQuotaGlobalGeneration += 1
+      queryingUpstreamQuota.clear()
+      upstreamQuotaResults.clear()
+      upstreamQuotaStateIdentities.clear()
+      upstreamQuotaErrors.clear()
+      upstreamBillingFeedbackTimers.forEach(timer => clearTimeout(timer))
+      upstreamQuotaFeedbackTimers.forEach(timer => clearTimeout(timer))
+      upstreamBillingFeedbackTimers.clear()
+      upstreamQuotaFeedbackTimers.clear()
+      upstreamBillingFeedback.clear()
+      upstreamQuotaFeedback.clear()
+      hydratedUpstreamQuotaAdminID = adminID
+    }
+    if (typeof adminID !== 'number') return
+
+    for (const account of visibleAccounts) {
+      if (account.platform !== 'openai' || account.type !== 'apikey') {
+        upstreamQuotaResults.delete(account.id)
+        upstreamQuotaStateIdentities.delete(account.id)
+        upstreamQuotaErrors.delete(account.id)
+        removeUpstreamQuotaCache(localStorage, adminID, account.id)
+        continue
+      }
+
+      const identity = upstreamQuotaCacheIdentity(account)
+      const previousIdentity = upstreamQuotaStateIdentities.get(account.id)
+      if (previousIdentity && previousIdentity !== identity) invalidateUpstreamQuotaState(account.id)
+      if (upstreamQuotaResults.has(account.id)) continue
+
+      const cached = readUpstreamQuotaCache(localStorage, adminID, account)
+      if (!cached) continue
+      upstreamQuotaResults.set(account.id, cached)
+      upstreamQuotaStateIdentities.set(account.id, identity)
+    }
+  },
+  { immediate: true }
+)
+
 const {
   selectedIds: selIds,
   allVisibleSelected,
@@ -967,19 +1092,17 @@ useSwipeSelect(accountTableRef, {
 
 const resetAutoRefreshCache = () => {
   autoRefreshETag.value = null
+  upstreamBillingRateETag.value = null
 }
 
 const isFirstLoad = ref(true)
 
-function markUpstreamBillingSortRefresh() {
-  if (sortState.sort_by === 'upstream_billing_rate') {
-    lastUpstreamBillingSortRefreshMinute = Math.floor(Date.now() / 60_000)
-  }
+type AccountLoadOptions = {
+  refreshTodayStats?: boolean
 }
 
-const load = async () => {
+const load = async (options: AccountLoadOptions = {}) => {
   const requestParams = params as any
-  markUpstreamBillingSortRefresh()
   syncAccountListDerivedParams()
   hasPendingListSync.value = false
   resetAutoRefreshCache()
@@ -992,11 +1115,10 @@ const load = async () => {
     isFirstLoad.value = false
     delete requestParams.lite
   }
-  await refreshTodayStatsBatch()
+  if (options.refreshTodayStats !== false) await refreshTodayStatsBatch()
 }
 
 const reload = async () => {
-  markUpstreamBillingSortRefresh()
   syncAccountListDerivedParams()
   hasPendingListSync.value = false
   resetAutoRefreshCache()
@@ -1005,18 +1127,114 @@ const reload = async () => {
   await refreshTodayStatsBatch()
 }
 
-const refreshUpstreamBillingSortedList = async (force = false) => {
-  if (sortState.sort_by !== 'upstream_billing_rate') return
-
-  const minute = Math.floor(upstreamBillingNow.value / 60_000)
-  if (!force && lastUpstreamBillingSortRefreshMinute === minute) return
-  lastUpstreamBillingSortRefreshMinute = minute
-  try {
-    await reload()
-  } catch (error) {
-    console.error('Failed to refresh upstream billing sort:', error)
+const buildUpstreamBillingRateFilters = () => {
+  const rawParams = toRaw(params) as Record<string, unknown>
+  return {
+    platform: typeof rawParams.platform === 'string' ? rawParams.platform : '',
+    type: typeof rawParams.type === 'string' ? rawParams.type : '',
+    status: typeof rawParams.status === 'string' ? rawParams.status : '',
+    group: typeof rawParams.group === 'string' ? rawParams.group : '',
+    search: typeof rawParams.search === 'string' ? rawParams.search : '',
+    privacy_mode: typeof rawParams.privacy_mode === 'string' ? rawParams.privacy_mode : '',
+    sort_by: sortState.sort_by,
+    sort_order: sortState.sort_order
   }
 }
+
+const upstreamBillingRateContextKey = (page = pagination.page, pageSize = pagination.page_size) =>
+  JSON.stringify({ page, pageSize, filters: buildUpstreamBillingRateFilters() })
+
+const sameAccountIDOrder = (left: number[], right: number[]) =>
+  left.length === right.length && left.every((id, index) => id === right[index])
+
+const applyUpstreamBillingRateSnapshots = async (
+  result: NonNullable<Awaited<ReturnType<typeof adminAPI.accounts.getUpstreamBillingRatesWithEtag>>['data']>
+) => {
+  const nextIDs = result.items.map(item => item.account_id)
+  const currentIDs = accounts.value.map(account => account.id)
+  if (result.total !== pagination.total || !sameAccountIDOrder(nextIDs, currentIDs)) {
+    await load({ refreshTodayStats: false })
+    return
+  }
+
+  const itemsByID = new Map(result.items.map(item => [item.account_id, item]))
+  let changed = false
+  const nextAccounts = accounts.value.map(account => {
+    const item = itemsByID.get(account.id)
+    if (!item) return account
+    const nextSnapshot = item.snapshot ?? null
+    const previousSnapshot = account.extra?.upstream_billing_probe ?? null
+    if (JSON.stringify(previousSnapshot) === JSON.stringify(nextSnapshot)) return account
+
+    const nextExtra = { ...(account.extra ?? {}) }
+    if (nextSnapshot) nextExtra.upstream_billing_probe = nextSnapshot
+    else delete nextExtra.upstream_billing_probe
+    const nextAccount = { ...account, extra: nextExtra }
+    syncAccountRefs(nextAccount)
+    changed = true
+    return nextAccount
+  })
+  if (changed) {
+    accounts.value = nextAccounts
+    upstreamBillingNow.value = Date.now()
+  }
+}
+
+const refreshUpstreamBillingRates = async (force = false) => {
+  if (upstreamBillingRateRefreshing.value || loading.value) return
+  if (!force && (
+    accounts.value.length === 0 ||
+    probingUpstreamBilling.size > 0 ||
+    isAnyModalOpen.value ||
+    menu.show ||
+    showAccountToolsDropdown.value ||
+    showAutoRefreshDropdown.value ||
+    (typeof document !== 'undefined' && document.hidden)
+  )) return
+
+  const controller = new AbortController()
+  upstreamBillingRateAbortController = controller
+  upstreamBillingRateRefreshing.value = true
+  try {
+    syncAccountListDerivedParams()
+    const requestPage = pagination.page
+    const requestPageSize = pagination.page_size
+    const requestContext = upstreamBillingRateContextKey(requestPage, requestPageSize)
+    const result = await adminAPI.accounts.getUpstreamBillingRatesWithEtag(
+      requestPage,
+      requestPageSize,
+      buildUpstreamBillingRateFilters(),
+      { etag: force ? null : upstreamBillingRateETag.value, signal: controller.signal }
+    )
+    if (loading.value || requestContext !== upstreamBillingRateContextKey()) return
+    if (result.etag) upstreamBillingRateETag.value = result.etag
+    if (!result.notModified && result.data) await applyUpstreamBillingRateSnapshots(result.data)
+  } catch (error) {
+    const refreshError = error as { name?: string; code?: string }
+    if (refreshError.name !== 'AbortError' &&
+      refreshError.name !== 'CanceledError' &&
+      refreshError.code !== 'ERR_CANCELED') {
+      console.error('Failed to refresh upstream billing rates:', error)
+    }
+  } finally {
+    if (upstreamBillingRateAbortController === controller) upstreamBillingRateAbortController = null
+    upstreamBillingRateRefreshing.value = false
+  }
+}
+
+const refreshUpstreamBillingSortedList = async (force = false) => {
+  if (!force && sortState.sort_by !== 'upstream_billing_rate') return
+  await refreshUpstreamBillingRates(force)
+}
+
+const {
+  pause: pauseUpstreamBillingRateRefresh,
+  resume: resumeUpstreamBillingRateRefresh
+} = useIntervalFn(
+  () => { void refreshUpstreamBillingRates() },
+  5 * 60_000,
+  { immediate: false }
+)
 
 const debouncedReload = () => {
   syncAccountListDerivedParams()
@@ -1066,12 +1284,6 @@ watch(loading, (isLoading, wasLoading) => {
       console.error('Failed to refresh account today stats after table load:', error)
     })
   }
-})
-
-watch(upstreamBillingNow, () => {
-  if (sortState.sort_by !== 'upstream_billing_rate' || loading.value) return
-  if (typeof document !== 'undefined' && document.hidden) return
-  void refreshUpstreamBillingSortedList()
 })
 
 const isAnyModalOpen = computed(() => {
@@ -1191,7 +1403,6 @@ const refreshAccountsIncrementally = async () => {
       pagination.pages = result.data.pages || 0
       mergeAccountsIncrementally(result.data.items || [])
       hasPendingListSync.value = false
-      markUpstreamBillingSortRefresh()
     }
     upstreamBillingNow.value = Date.now()
 
@@ -1264,6 +1475,18 @@ const openErrorPassthrough = () => {
 const openTLSFingerprintProfiles = () => {
   closeAccountToolsDropdown()
   showTLSFingerprintProfiles.value = true
+}
+
+const handleSyncCompleted = () => {
+  invalidateUpstreamQuotaState()
+  showSync.value = false
+  reload()
+}
+
+const handleTLSFingerprintProfilesClosed = () => {
+  // A profile can change the outbound TLS identity without changing the account row.
+  invalidateUpstreamQuotaState()
+  showTLSFingerprintProfiles.value = false
 }
 
 const syncPendingListChanges = async () => {
@@ -1520,7 +1743,17 @@ const toggleSelectAllVisible = (event: Event) => {
   const target = event.target as HTMLInputElement
   toggleVisible(target.checked)
 }
-const handleBulkDelete = async () => { if(!confirm(t('common.confirm'))) return; try { await Promise.all(selIds.value.map(id => adminAPI.accounts.delete(id))); clearSelection(); reload() } catch (error) { console.error('Failed to bulk delete accounts:', error) } }
+const handleBulkDelete = async () => {
+  if (!confirm(t('common.confirm'))) return
+  const accountIDs = [...selIds.value]
+  const results = await Promise.allSettled(accountIDs.map(id => adminAPI.accounts.delete(id)))
+  const deletedIDs = accountIDs.filter((_, index) => results[index].status === 'fulfilled')
+  deletedIDs.forEach(id => invalidateUpstreamQuotaState(id))
+  removeSelectedAccounts(deletedIDs)
+  if (deletedIDs.length > 0) reload()
+  const failed = results.find((result): result is PromiseRejectedResult => result.status === 'rejected')
+  if (failed) console.error('Failed to bulk delete some accounts:', failed.reason)
+}
 const handleBulkResetStatus = async () => {
   if (!confirm(t('common.confirm'))) return
   try {
@@ -1553,38 +1786,112 @@ const handleBulkRefreshToken = async () => {
     appStore.showError(String(error))
   }
 }
+const UPSTREAM_BILLING_PROBE_BATCH_SIZE = 20
+const replaceProgressToast = (toastID: string | null, message: string) => {
+  if (toastID) appStore.hideToast(toastID)
+  return appStore.showToast('info', message)
+}
 const handleBulkProbeUpstreamBilling = async () => {
   const accountIDs = [...selIds.value]
   if (accountIDs.length === 0) {
     appStore.showError(t('admin.accounts.upstreamBilling.noEligibleAccounts'))
     return
   }
-  if (accountIDs.length > 20) {
-    appStore.showError(t('admin.accounts.upstreamBilling.batchLimit'))
-    return
+  const batches: number[][] = []
+  for (let start = 0; start < accountIDs.length; start += UPSTREAM_BILLING_PROBE_BATCH_SIZE) {
+    batches.push(accountIDs.slice(start, start + UPSTREAM_BILLING_PROBE_BATCH_SIZE))
   }
+  let progressToastID: string | null = batches.length > 1
+    ? replaceProgressToast(null, t('admin.accounts.upstreamBilling.batchStarted', {
+        count: accountIDs.length,
+        total: batches.length
+      }))
+    : null
   accountIDs.forEach(id => probingUpstreamBilling.add(id))
   try {
-    const results = await adminAPI.accounts.probeUpstreamBillingBatch(accountIDs)
     let patched = false
-    results.forEach(result => {
-      if (result.snapshot) {
-        patchUpstreamBillingSnapshot(result.account_id, result.snapshot)
-        patched = true
+    let resultCount = 0
+    let failed = 0
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex += 1) {
+      const results: UpstreamBillingProbeResult[] = await adminAPI.accounts.probeUpstreamBillingBatch(batches[batchIndex])
+      resultCount += results.length
+      failed += results.filter(result => result.error).length
+      results.forEach(result => {
+        if (result.snapshot) {
+          patchUpstreamBillingSnapshot(result.account_id, result.snapshot)
+          patched = true
+        }
+      })
+      if (progressToastID && batchIndex < batches.length - 1) {
+        progressToastID = replaceProgressToast(progressToastID, t('admin.accounts.upstreamBilling.batchProgress', {
+          completed: batchIndex + 1,
+          next: batchIndex + 2,
+          total: batches.length
+        }))
       }
-    })
+    }
     if (patched) await refreshUpstreamBillingSortedList(true)
-    const failed = results.filter(result => result.error).length
     if (failed > 0) {
-      appStore.showError(t('admin.accounts.upstreamBilling.batchPartial', { success: results.length - failed, failed }))
+      appStore.showError(t('admin.accounts.upstreamBilling.batchPartial', { success: resultCount - failed, failed }))
     } else {
-      appStore.showSuccess(t('admin.accounts.upstreamBilling.batchCompleted', { count: results.length }))
+      appStore.showSuccess(t('admin.accounts.upstreamBilling.batchCompleted', { count: resultCount }))
     }
   } catch (error) {
     console.error('Failed to probe upstream billing in batch:', error)
     appStore.showError(extractApiErrorMessage(error, t('admin.accounts.upstreamBilling.probeFailed')))
   } finally {
+    if (progressToastID) appStore.hideToast(progressToastID)
     accountIDs.forEach(id => probingUpstreamBilling.delete(id))
+  }
+}
+const UPSTREAM_QUOTA_QUERY_BATCH_SIZE = 4
+const handleBulkQueryUpstreamQuota = async () => {
+  if (bulkQueryingUpstreamQuota.value) return
+  const accountIDs = [...selIds.value]
+  if (accountIDs.length === 0) {
+    appStore.showError(t('admin.accounts.upstreamBilling.noEligibleAccounts'))
+    return
+  }
+
+  const batches: number[][] = []
+  for (let start = 0; start < accountIDs.length; start += UPSTREAM_QUOTA_QUERY_BATCH_SIZE) {
+    batches.push(accountIDs.slice(start, start + UPSTREAM_QUOTA_QUERY_BATCH_SIZE))
+  }
+  let progressToastID: string | null = batches.length > 1
+    ? replaceProgressToast(null, t('admin.accounts.upstreamBilling.quotaBatchStarted', {
+        count: accountIDs.length,
+        total: batches.length
+      }))
+    : null
+  bulkQueryingUpstreamQuota.value = true
+  let succeeded = 0
+  let failed = 0
+  try {
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex += 1) {
+      const results = await Promise.allSettled(batches[batchIndex].map(async accountID => {
+        const account = accounts.value.find(item => item.id === accountID) ?? await adminAPI.accounts.getById(accountID)
+        if (account.platform !== 'openai' || account.type !== 'apikey') return false
+        return handleQueryUpstreamQuota(account)
+      }))
+      const batchSucceeded = results.filter(result => result.status === 'fulfilled' && result.value).length
+      succeeded += batchSucceeded
+      failed += results.length - batchSucceeded
+      if (progressToastID && batchIndex < batches.length - 1) {
+        progressToastID = replaceProgressToast(progressToastID, t('admin.accounts.upstreamBilling.quotaBatchProgress', {
+          completed: batchIndex + 1,
+          next: batchIndex + 2,
+          total: batches.length
+        }))
+      }
+    }
+    if (failed > 0) {
+      appStore.showError(t('admin.accounts.upstreamBilling.quotaBatchPartial', { success: succeeded, failed }))
+    } else {
+      appStore.showSuccess(t('admin.accounts.upstreamBilling.quotaBatchCompleted', { count: succeeded }))
+    }
+  } finally {
+    if (progressToastID) appStore.hideToast(progressToastID)
+    bulkQueryingUpstreamQuota.value = false
   }
 }
 const updateSchedulableInList = (accountIds: number[], schedulable: boolean) => {
@@ -1735,12 +2042,17 @@ const openBulkEditFiltered = async () => {
 }
 
 const handleBulkUpdated = () => {
+  invalidateUpstreamQuotaState()
   showBulkEdit.value = false
   bulkEditTarget.value = null
   clearSelection()
   reload()
 }
-const handleDataImported = () => { showImportData.value = false; reload() }
+const handleDataImported = () => {
+  invalidateUpstreamQuotaState()
+  showImportData.value = false
+  reload()
+}
 const ACCOUNT_UNGROUPED_GROUP_QUERY_VALUE = 'ungrouped'
 const ACCOUNT_PRIVACY_MODE_UNSET_QUERY_VALUE = '__unset__'
 const buildAccountQueryFilters = () => ({
@@ -1839,7 +2151,6 @@ const patchAccountInList = (updatedAccount: Account) => {
 const patchUpstreamBillingSnapshot = (accountID: number, snapshot: UpstreamBillingProbeSnapshot) => {
   const account = accounts.value.find(item => item.id === accountID)
   if (!account) return
-  markUpstreamBillingSortRefresh()
   upstreamBillingNow.value = Date.now()
   patchAccountInList({
     ...account,
@@ -1848,21 +2159,74 @@ const patchUpstreamBillingSnapshot = (accountID: number, snapshot: UpstreamBilli
 }
 const handleProbeUpstreamBilling = async (account: Account) => {
   if (probingUpstreamBilling.has(account.id)) return
+  clearUpstreamActionFeedback(upstreamBillingFeedback, upstreamBillingFeedbackTimers, account.id)
   probingUpstreamBilling.add(account.id)
+  let feedback: UpstreamActionFeedback = 'error'
   try {
     const result = await adminAPI.accounts.probeUpstreamBilling(account.id)
     if (result.snapshot) {
       patchUpstreamBillingSnapshot(account.id, result.snapshot)
       await refreshUpstreamBillingSortedList(true)
     }
+    feedback = result.snapshot?.status === 'ok' ? 'success' : 'error'
   } catch (error) {
     console.error('Failed to probe upstream billing:', error)
     appStore.showError(extractApiErrorMessage(error, t('admin.accounts.upstreamBilling.probeFailed')))
   } finally {
     probingUpstreamBilling.delete(account.id)
+    showUpstreamActionFeedback(upstreamBillingFeedback, upstreamBillingFeedbackTimers, account.id, feedback)
+  }
+}
+const handleQueryUpstreamQuota = async (account: Account): Promise<boolean> => {
+  if (queryingUpstreamQuota.has(account.id)) return false
+  clearUpstreamActionFeedback(upstreamQuotaFeedback, upstreamQuotaFeedbackTimers, account.id)
+  const requestToken = Symbol()
+  const adminID = currentAdminID()
+  const globalGeneration = upstreamQuotaGlobalGeneration
+  const accountGeneration = upstreamQuotaAccountGenerations.get(account.id) ?? 0
+  const identity = upstreamQuotaCacheIdentity(account)
+  queryingUpstreamQuota.set(account.id, requestToken)
+  upstreamQuotaStateIdentities.set(account.id, identity)
+  upstreamQuotaErrors.delete(account.id)
+  const isCurrent = () => (
+    adminID === currentAdminID() &&
+    globalGeneration === upstreamQuotaGlobalGeneration &&
+    queryingUpstreamQuota.get(account.id) === requestToken &&
+    (upstreamQuotaAccountGenerations.get(account.id) ?? 0) === accountGeneration &&
+    upstreamQuotaCacheIdentity(accounts.value.find(item => item.id === account.id) ?? account) === identity
+  )
+  let feedback: UpstreamActionFeedback | null = null
+  try {
+    const result = await adminAPI.accounts.queryUpstreamQuota(account.id)
+    if (!isCurrent()) return false
+    if (!result.quota) {
+      upstreamQuotaErrors.set(account.id, t('admin.accounts.upstreamBilling.noQuotaData'))
+      feedback = 'error'
+      return false
+    }
+    upstreamQuotaResults.set(account.id, result)
+    upstreamQuotaStateIdentities.set(account.id, identity)
+    if (typeof adminID === 'number') persistUpstreamQuotaCache(localStorage, adminID, account, result)
+    feedback = 'success'
+    return true
+  } catch (error) {
+    if (isCurrent()) {
+      upstreamQuotaErrors.set(
+        account.id,
+        extractApiErrorMessage(error, t('admin.accounts.upstreamBilling.quotaQueryFailed'))
+      )
+      feedback = 'error'
+    }
+    return false
+  } finally {
+    if (queryingUpstreamQuota.get(account.id) === requestToken) queryingUpstreamQuota.delete(account.id)
+    if (feedback) {
+      showUpstreamActionFeedback(upstreamQuotaFeedback, upstreamQuotaFeedbackTimers, account.id, feedback)
+    }
   }
 }
 const handleAccountUpdated = (updatedAccount: Account) => {
+  invalidateUpstreamQuotaState(updatedAccount.id)
   patchAccountInList(updatedAccount)
   enterAutoRefreshSilentWindow()
 }
@@ -1957,6 +2321,7 @@ const handleDuplicateAccount = async (a: Account) => {
 const handleRefresh = async (a: Account) => {
   try {
     const updated = await adminAPI.accounts.refreshCredentials(a.id)
+    invalidateUpstreamQuotaState(a.id)
     patchAccountInList(updated)
     enterAutoRefreshSilentWindow()
   } catch (error) {
@@ -2025,6 +2390,7 @@ const handleSetPrivacy = async (a: Account) => {
 const onRevertFallback = async (a: Account) => {
   try {
     await adminAPI.accounts.revertProxyFallback(a.id)
+    invalidateUpstreamQuotaState(a.id)
     appStore.showSuccess(t('admin.accounts.revertProxySuccess'))
     reload()
   } catch (error: any) {
@@ -2051,7 +2417,19 @@ const confirmCreateSparkShadow = async () => {
   }
 }
 const handleDelete = (a: Account) => { deletingAcc.value = a; showDeleteDialog.value = true }
-const confirmDelete = async () => { if(!deletingAcc.value) return; try { await adminAPI.accounts.delete(deletingAcc.value.id); showDeleteDialog.value = false; deletingAcc.value = null; reload() } catch (error) { console.error('Failed to delete account:', error) } }
+const confirmDelete = async () => {
+  if (!deletingAcc.value) return
+  const accountID = deletingAcc.value.id
+  try {
+    await adminAPI.accounts.delete(accountID)
+    invalidateUpstreamQuotaState(accountID)
+    showDeleteDialog.value = false
+    deletingAcc.value = null
+    reload()
+  } catch (error) {
+    console.error('Failed to delete account:', error)
+  }
+}
 const handleToggleSchedulable = async (a: Account) => {
   const nextSchedulable = !a.schedulable
   togglingSchedulable.value = a.id
@@ -2123,6 +2501,7 @@ const handleClickOutside = (event: MouseEvent) => {
 onMounted(async () => {
   load()
   loadUpstreamBillingProbeGlobalState()
+  resumeUpstreamBillingRateRefresh()
   try {
     const [p, g] = await Promise.all([adminAPI.proxies.getAll(), adminAPI.groups.getAll()])
     proxies.value = p
@@ -2143,6 +2522,14 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  upstreamBillingRateAbortController?.abort()
+  upstreamBillingRateAbortController = null
+  pauseUpstreamBillingRateRefresh()
+  upstreamFeedbackDisposed = true
+  upstreamBillingFeedbackTimers.forEach(timer => clearTimeout(timer))
+  upstreamQuotaFeedbackTimers.forEach(timer => clearTimeout(timer))
+  upstreamBillingFeedbackTimers.clear()
+  upstreamQuotaFeedbackTimers.clear()
   window.removeEventListener('scroll', handleScroll, true)
   window.removeEventListener('resize', handleViewportResize)
   document.removeEventListener('click', handleClickOutside)

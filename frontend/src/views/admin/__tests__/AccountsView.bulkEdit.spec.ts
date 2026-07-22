@@ -6,6 +6,7 @@ import AccountsView from '../AccountsView.vue'
 const {
   listAccounts,
   listWithEtag,
+  getUpstreamBillingRatesWithEtag,
   getBatchTodayStats,
   getUpstreamBillingProbeSettings,
   getAllProxies,
@@ -14,6 +15,7 @@ const {
 } = vi.hoisted(() => ({
   listAccounts: vi.fn(),
   listWithEtag: vi.fn(),
+  getUpstreamBillingRatesWithEtag: vi.fn(),
   getBatchTodayStats: vi.fn(),
   getUpstreamBillingProbeSettings: vi.fn(),
   getAllProxies: vi.fn(),
@@ -26,6 +28,7 @@ vi.mock('@/api/admin', () => ({
     accounts: {
       list: listAccounts,
       listWithEtag,
+      getUpstreamBillingRatesWithEtag,
       getBatchTodayStats,
       getUpstreamBillingProbeSettings,
       delete: vi.fn(),
@@ -107,6 +110,7 @@ describe('admin AccountsView bulk edit scope', () => {
 
     listAccounts.mockReset()
     listWithEtag.mockReset()
+    getUpstreamBillingRatesWithEtag.mockReset()
     getBatchTodayStats.mockReset()
     getUpstreamBillingProbeSettings.mockReset()
     getAllProxies.mockReset()
@@ -121,6 +125,11 @@ describe('admin AccountsView bulk edit scope', () => {
       pages: 0
     })
     listWithEtag.mockResolvedValue({
+      notModified: true,
+      etag: null,
+      data: null
+    })
+    getUpstreamBillingRatesWithEtag.mockResolvedValue({
       notModified: true,
       etag: null,
       data: null
@@ -388,9 +397,7 @@ describe('admin AccountsView bulk edit scope', () => {
       created_at: '2026-07-13T00:00:00Z',
       updated_at: '2026-07-13T00:00:00Z'
     })
-    listAccounts
-      .mockResolvedValueOnce({ items: [account(7)], total: 1, page: 1, page_size: 20, pages: 1 })
-      .mockResolvedValueOnce({ items: [account(7)], total: 1, page: 1, page_size: 20, pages: 1 })
+    listAccounts.mockResolvedValueOnce({ items: [account(7)], total: 1, page: 1, page_size: 20, pages: 1 })
     probeUpstreamBillingBatch.mockResolvedValue([
       {
         account_id: 7,
@@ -402,6 +409,24 @@ describe('admin AccountsView bulk edit scope', () => {
         }
       }
     ])
+    getUpstreamBillingRatesWithEtag.mockResolvedValueOnce({
+      notModified: false,
+      etag: '"billing-1"',
+      data: {
+        items: [{
+          account_id: 7,
+          snapshot: {
+            status: 'ok',
+            data: { effective_rate_multiplier: 0.5 },
+            last_attempt_at: '2026-07-13T00:00:00Z',
+            next_probe_at: '2026-07-13T00:30:00Z'
+          }
+        }],
+        total: 1,
+        page: 1,
+        page_size: 20
+      }
+    })
 
     const wrapper = mount(AccountsView, {
       global: {
@@ -444,6 +469,7 @@ describe('admin AccountsView bulk edit scope', () => {
     await flushPromises()
 
     expect(probeUpstreamBillingBatch).toHaveBeenCalledWith([7])
-    expect(listAccounts).toHaveBeenCalledTimes(2)
+    expect(getUpstreamBillingRatesWithEtag).toHaveBeenCalledTimes(1)
+    expect(listAccounts).toHaveBeenCalledTimes(1)
   })
 })

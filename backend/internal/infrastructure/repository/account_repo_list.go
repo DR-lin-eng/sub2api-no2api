@@ -149,6 +149,41 @@ func (r *accountRepository) ListWithFilters(ctx context.Context, params paginati
 	return outAccounts, paginationResultFromTotal(int64(total), params), nil
 }
 
+// ListUpstreamBillingRateProjections keeps the periodic admin refresh off the
+// full account hydration path. Only ID and extra are selected; credentials,
+// proxy relations, groups, runtime counters, and usage data are not loaded.
+func (r *accountRepository) ListUpstreamBillingRateProjections(
+	ctx context.Context,
+	params pagination.PaginationParams,
+	filters service.UpstreamBillingRateListFilters,
+) ([]service.UpstreamBillingRateProjection, int64, error) {
+	q := r.accountListFilteredQuery(
+		filters.Platform,
+		filters.AccountType,
+		filters.Status,
+		filters.Search,
+		filters.GroupID,
+		filters.PrivacyMode,
+	)
+	total, err := q.Clone().Count(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	accountsQuery := q.Select(dbaccount.FieldID, dbaccount.FieldExtra).Offset(params.Offset()).Limit(params.Limit())
+	for _, order := range accountListOrder(params) {
+		accountsQuery = accountsQuery.Order(order)
+	}
+	accounts, err := accountsQuery.All(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	items := make([]service.UpstreamBillingRateProjection, 0, len(accounts))
+	for _, account := range accounts {
+		items = append(items, service.UpstreamBillingRateProjection{AccountID: account.ID, Extra: account.Extra})
+	}
+	return items, int64(total), nil
+}
+
 func (r *accountRepository) ListAllWithFilters(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]service.Account, error) {
 	accounts, err := r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode).All(ctx)
 	if err != nil {

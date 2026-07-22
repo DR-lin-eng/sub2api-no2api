@@ -1395,4 +1395,93 @@ describe('AccountUsageCell', () => {
     expect(wrapper.text()).not.toContain('7d S')
     expect(wrapper.text()).not.toContain('7d F')
   })
+
+  it('区分本地限额、上游 Key 限额和上游订阅窗口', async () => {
+    const wrapper = mount(AccountUsageCell, {
+      props: {
+        account: makeAccount({
+          id: 3005,
+          platform: 'openai',
+          type: 'apikey',
+          quota_daily_limit: 100,
+          quota_daily_used: 10
+        }),
+        upstreamQuotaResult: {
+          account_id: 3005,
+          observed_at: '2026-07-19T00:00:00Z',
+          quota: {
+            provider: 'sub2api',
+            mode: 'quota',
+            unit: 'USD',
+            used: 13,
+            total: 100,
+            windows: [{ name: '1d', used: 20, limit: 100, reset_at: '2026-07-20T00:00:00Z' }],
+            subscription: {
+              plan_name: 'Shared Pro',
+              expires_at: '2026-08-01T00:00:00Z',
+              windows: [{ name: 'weekly', used: 30, limit: 100, reset_at: '2026-07-26T00:00:00Z' }]
+            }
+          }
+        },
+        now: Date.parse('2026-07-19T00:00:00Z')
+      },
+      global: {
+        stubs: {
+          UsageProgressBar: {
+            props: ['label', 'utilization'],
+            template: '<div class="usage-bar">{{ label }}|{{ utilization }}</div>'
+          },
+          AccountQuotaInfo: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.localSource')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.keySource')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.subscriptionSource')
+    expect(wrapper.text()).toContain('1d|10')
+    expect(wrapper.text()).toContain('1d|20')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.totalLimit|13')
+    expect(wrapper.text()).toContain('7d|30')
+    expect(getUsage).not.toHaveBeenCalled()
+  })
+
+  it('区分无限订阅和已过期订阅', async () => {
+    const wrapper = mount(AccountUsageCell, {
+      props: {
+        account: makeAccount({ id: 3006, platform: 'openai', type: 'apikey' }),
+        upstreamQuotaResult: {
+          account_id: 3006,
+          observed_at: '2026-07-19T00:00:00Z',
+          quota: {
+            provider: 'sub2api',
+            mode: 'subscription',
+            subscription: {
+              plan_name: 'Unlimited',
+              unlimited: true,
+              expires_at: '2026-08-01T00:00:00Z'
+            }
+          }
+        },
+        now: Date.parse('2026-07-19T00:00:00Z')
+      },
+      global: {
+        stubs: {
+          UsageProgressBar: true,
+          AccountQuotaInfo: true
+        }
+      }
+    })
+
+    await flushPromises()
+    expect(wrapper.get('[data-testid="upstream-subscription-unlimited"]').text())
+      .toBe('admin.accounts.usageWindow.unlimitedSubscription')
+
+    await wrapper.setProps({ now: Date.parse('2026-08-02T00:00:00Z') })
+    expect(wrapper.get('[data-testid="upstream-subscription-expired"]').text())
+      .toBe('admin.accounts.usageWindow.subscriptionExpired')
+    expect(wrapper.find('[data-testid="upstream-subscription-unlimited"]').exists()).toBe(false)
+  })
 })

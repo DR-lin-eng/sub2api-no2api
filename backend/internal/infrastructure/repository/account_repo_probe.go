@@ -100,7 +100,15 @@ func (r *accountRepository) ListDueUpstreamBillingProbeAccounts(ctx context.Cont
 				jsonb_path_query_first_tz(
 					jsonb_build_object(
 						'value',
-						replace(regexp_replace(next_probe_at, 'Z$', '+00:00'), 'T', ' ')
+						replace(
+							regexp_replace(
+								regexp_replace(next_probe_at, '(\.[0-9]{6})[0-9]+(Z|[+-])', '\1\2'),
+								'Z$',
+								'+00:00'
+							),
+							'T',
+							' '
+						)
 					),
 					'$.value.datetime()',
 					'{}'::jsonb,
