@@ -770,6 +770,8 @@ func parseOpsDuration(v string) (time.Duration, bool) {
 		return 30 * time.Minute, true
 	case "1h":
 		return time.Hour, true
+	case "5h":
+		return 5 * time.Hour, true
 	case "6h":
 		return 6 * time.Hour, true
 	case "24h":

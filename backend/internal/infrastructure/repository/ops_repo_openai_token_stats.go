@@ -59,10 +59,12 @@ WITH stats AS (
 )
 `
 
-	countSQL := baseCTE + `SELECT COUNT(*) FROM stats`
 	var total int64
-	if err := r.db.QueryRowContext(ctx, countSQL, baseArgs...).Scan(&total); err != nil {
-		return nil, err
+	if !filter.IsTopNMode() {
+		countSQL := baseCTE + `SELECT COUNT(*) FROM stats`
+		if err := r.db.QueryRowContext(ctx, countSQL, baseArgs...).Scan(&total); err != nil {
+			return nil, err
+		}
 	}
 
 	querySQL := baseCTE + `
@@ -73,7 +75,12 @@ SELECT
   avg_first_token_ms,
   total_output_tokens,
   avg_duration_ms,
-  requests_with_first_token
+  requests_with_first_token`
+	if filter.IsTopNMode() {
+		querySQL += `,
+  COUNT(*) OVER() AS total_count`
+	}
+	querySQL += `
 FROM stats
 ORDER BY request_count DESC, model ASC`
 
@@ -100,7 +107,7 @@ ORDER BY request_count DESC, model ASC`
 		item := &service.OpsOpenAITokenStatsItem{}
 		var avgTPS sql.NullFloat64
 		var avgFirstToken sql.NullFloat64
-		if err := rows.Scan(
+		scanArgs := []any{
 			&item.Model,
 			&item.RequestCount,
 			&avgTPS,
@@ -108,7 +115,11 @@ ORDER BY request_count DESC, model ASC`
 			&item.TotalOutputTokens,
 			&item.AvgDurationMs,
 			&item.RequestsWithFirstToken,
-		); err != nil {
+		}
+		if filter.IsTopNMode() {
+			scanArgs = append(scanArgs, &total)
+		}
+		if err := rows.Scan(scanArgs...); err != nil {
 			return nil, err
 		}
 		if avgTPS.Valid {

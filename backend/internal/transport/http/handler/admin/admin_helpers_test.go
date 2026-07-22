@@ -55,6 +55,10 @@ func TestParseOpsDuration(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, time.Hour, dur)
 
+	dur, ok = parseOpsDuration("5h")
+	require.True(t, ok)
+	require.Equal(t, 5*time.Hour, dur)
+
 	_, ok = parseOpsDuration("invalid")
 	require.False(t, ok)
 }

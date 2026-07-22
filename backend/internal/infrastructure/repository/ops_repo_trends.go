@@ -31,73 +31,7 @@ func (r *opsRepository) GetThroughputTrend(ctx context.Context, filter *service.
 
 	start := filter.StartTime.UTC()
 	end := filter.EndTime.UTC()
-
-	usageJoin, usageWhere, usageArgs, next := buildUsageWhere(filter, start, end, 1)
-	errorWhere, errorArgs, _ := buildErrorWhere(filter, start, end, next)
-
-	usageBucketExpr := opsBucketExprForUsage(bucketSeconds)
-	errorBucketExpr := opsBucketExprForError(bucketSeconds)
-
-	q := `
-WITH usage_buckets AS (
-  SELECT ` + usageBucketExpr + ` AS bucket,
-         COUNT(*) AS success_count,
-         COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) AS token_consumed
-  FROM usage_logs ul
-  ` + usageJoin + `
-  ` + usageWhere + `
-  GROUP BY 1
-),
-error_buckets AS (
-  SELECT ` + errorBucketExpr + ` AS bucket,
-         COUNT(*) AS error_count
-  FROM ops_error_logs
-  ` + errorWhere + `
-    AND COALESCE(status_code, 0) >= 400
-  GROUP BY 1
-),
-switch_buckets AS (
-  SELECT ` + errorBucketExpr + ` AS bucket,
-         COALESCE(SUM(CASE
-           WHEN split_part(ev->>'kind', ':', 1) IN ('failover', 'retry_exhausted_failover', 'failover_on_400') THEN 1
-           ELSE 0
-         END), 0) AS switch_count
-  FROM ops_error_logs
-  CROSS JOIN LATERAL jsonb_array_elements(
-    COALESCE(NULLIF(upstream_errors, 'null'::jsonb), '[]'::jsonb)
-  ) AS ev
-  ` + errorWhere + `
-    AND upstream_errors IS NOT NULL
-  GROUP BY 1
-),
-combined AS (
-  SELECT
-    bucket,
-    SUM(success_count) AS success_count,
-    SUM(error_count) AS error_count,
-    SUM(token_consumed) AS token_consumed,
-    SUM(switch_count) AS switch_count
-  FROM (
-    SELECT bucket, success_count, 0 AS error_count, token_consumed, 0 AS switch_count
-    FROM usage_buckets
-    UNION ALL
-    SELECT bucket, 0, error_count, 0, 0
-    FROM error_buckets
-    UNION ALL
-    SELECT bucket, 0, 0, 0, switch_count
-    FROM switch_buckets
-  ) t
-  GROUP BY bucket
-)
-SELECT
-  bucket,
-  (success_count + error_count) AS request_count,
-  token_consumed,
-  switch_count
-FROM combined
-ORDER BY bucket ASC`
-
-	args := append(usageArgs, errorArgs...)
+	q, args := buildOpsThroughputTrendQuery(filter, start, end, bucketSeconds)
 
 	rows, err := r.db.QueryContext(ctx, q, args...)
 	if err != nil {
@@ -182,6 +116,94 @@ ORDER BY bucket ASC`
 		ByPlatform: byPlatform,
 		TopGroups:  topGroups,
 	}, nil
+}
+
+func buildOpsThroughputTrendQuery(filter *service.OpsDashboardFilter, start, end time.Time, bucketSeconds int) (string, []any) {
+	usageJoin, usageWhere, usageArgs, next := buildUsageWhere(filter, start, end, 1)
+	usageBucketExpr := opsBucketExprForUsage(bucketSeconds)
+	errorBucketExpr := opsBucketExprForError(bucketSeconds)
+
+	ctes := []string{`
+usage_buckets AS (
+  SELECT ` + usageBucketExpr + ` AS bucket,
+         COUNT(*) AS success_count,
+         COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) AS token_consumed
+  FROM usage_logs ul
+  ` + usageJoin + `
+  ` + usageWhere + `
+  GROUP BY 1
+)`}
+	combinedParts := []string{`
+    SELECT bucket, success_count, 0 AS error_count, token_consumed, 0 AS switch_count
+    FROM usage_buckets`}
+	args := usageArgs
+
+	includeErrorBuckets := filter == nil || !filter.ReuseErrorTrendCounts
+	includeSwitchBuckets := filter == nil || !filter.ExcludeSwitchCounts
+	if includeErrorBuckets || includeSwitchBuckets {
+		errorWhere, errorArgs, _ := buildErrorWhere(filter, start, end, next)
+		args = append(args, errorArgs...)
+
+		if includeErrorBuckets {
+			ctes = append(ctes, `
+error_buckets AS (
+  SELECT `+errorBucketExpr+` AS bucket,
+         COUNT(*) AS error_count
+  FROM ops_error_logs
+  `+errorWhere+`
+    AND COALESCE(status_code, 0) >= 400
+  GROUP BY 1
+)`)
+			combinedParts = append(combinedParts, `
+    SELECT bucket, 0, error_count, 0, 0
+    FROM error_buckets`)
+		}
+
+		if includeSwitchBuckets {
+			ctes = append(ctes, `
+switch_buckets AS (
+  SELECT `+errorBucketExpr+` AS bucket,
+         COALESCE(SUM(CASE
+           WHEN split_part(ev->>'kind', ':', 1) IN ('failover', 'retry_exhausted_failover', 'failover_on_400') THEN 1
+           ELSE 0
+         END), 0) AS switch_count
+  FROM ops_error_logs
+  CROSS JOIN LATERAL jsonb_array_elements(
+    COALESCE(NULLIF(upstream_errors, 'null'::jsonb), '[]'::jsonb)
+  ) AS ev
+  `+errorWhere+`
+    AND upstream_errors IS NOT NULL
+  GROUP BY 1
+)`)
+			combinedParts = append(combinedParts, `
+    SELECT bucket, 0, 0, 0, switch_count
+    FROM switch_buckets`)
+		}
+	}
+
+	ctes = append(ctes, `
+combined AS (
+  SELECT
+    bucket,
+    SUM(success_count) AS success_count,
+    SUM(error_count) AS error_count,
+    SUM(token_consumed) AS token_consumed,
+    SUM(switch_count) AS switch_count
+  FROM (
+	`+strings.Join(combinedParts, "\n    UNION ALL")+`
+  ) t
+  GROUP BY bucket
+)`)
+
+	q := `WITH ` + strings.Join(ctes, ",\n") + `
+SELECT
+  bucket,
+  (success_count + error_count) AS request_count,
+  token_consumed,
+  switch_count
+FROM combined
+ORDER BY bucket ASC`
+	return q, args
 }
 
 func (r *opsRepository) getThroughputBreakdownByPlatform(ctx context.Context, start, end time.Time) ([]*service.OpsThroughputPlatformBreakdownItem, error) {

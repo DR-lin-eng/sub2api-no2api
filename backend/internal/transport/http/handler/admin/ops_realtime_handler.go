@@ -68,6 +68,69 @@ func (h *OpsHandler) GetConcurrencyStats(c *gin.Context) {
 	response.Success(c, payload)
 }
 
+// GetConcurrencySnapshot returns concurrency and availability from one shared
+// account snapshot.
+func (h *OpsHandler) GetConcurrencySnapshot(c *gin.Context) {
+	if h.opsService == nil {
+		response.Error(c, http.StatusServiceUnavailable, "Ops service not available")
+		return
+	}
+	if err := h.opsService.RequireMonitoringEnabled(c.Request.Context()); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	if !h.opsService.IsRealtimeMonitoringEnabled(c.Request.Context()) {
+		response.Success(c, gin.H{
+			"enabled":      false,
+			"concurrency":  gin.H{"platform": map[string]any{}, "group": map[int64]any{}, "account": map[int64]any{}},
+			"availability": gin.H{"platform": map[string]any{}, "group": map[int64]any{}, "account": map[int64]any{}},
+			"timestamp":    time.Now().UTC(),
+		})
+		return
+	}
+	platformFilter := strings.TrimSpace(c.Query("platform"))
+	var groupID *int64
+	if value := strings.TrimSpace(c.Query("group_id")); value != "" {
+		id, err := strconv.ParseInt(value, 10, 64)
+		if err != nil || id <= 0 {
+			response.BadRequest(c, "Invalid group_id")
+			return
+		}
+		groupID = &id
+	}
+	platformConcurrency, groupConcurrency, accountConcurrency,
+		platformAvailability, groupAvailability, accountAvailability,
+		collectedAt, err := h.opsService.GetConcurrencySnapshot(c.Request.Context(), platformFilter, groupID)
+	if err != nil {
+		if isOpsRealtimeRequestCanceled(c, err) {
+			return
+		}
+		response.ErrorFrom(c, err)
+		return
+	}
+	payload := gin.H{
+		"enabled": true,
+		"concurrency": gin.H{
+			"enabled":  true,
+			"platform": platformConcurrency,
+			"group":    groupConcurrency,
+			"account":  accountConcurrency,
+		},
+		"availability": gin.H{
+			"enabled":  true,
+			"platform": platformAvailability,
+			"group":    groupAvailability,
+			"account":  accountAvailability,
+		},
+	}
+	if collectedAt != nil {
+		payload["timestamp"] = collectedAt.UTC()
+		payload["concurrency"].(gin.H)["timestamp"] = collectedAt.UTC()
+		payload["availability"].(gin.H)["timestamp"] = collectedAt.UTC()
+	}
+	response.Success(c, payload)
+}
+
 // GetUserConcurrencyStats returns real-time concurrency usage for all active users.
 // GET /api/v1/admin/ops/user-concurrency
 func (h *OpsHandler) GetUserConcurrencyStats(c *gin.Context) {

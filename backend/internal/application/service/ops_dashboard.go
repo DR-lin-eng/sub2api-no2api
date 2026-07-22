@@ -42,6 +42,16 @@ func (s *OpsService) GetDashboardOverview(ctx context.Context, filter *OpsDashbo
 		return nil, err
 	}
 
+	s.enrichDashboardOverview(ctx, overview)
+
+	return overview, nil
+}
+
+func (s *OpsService) enrichDashboardOverview(ctx context.Context, overview *OpsDashboardOverview) {
+	if s == nil || s.opsRepo == nil || overview == nil {
+		return
+	}
+
 	// Best-effort system health + jobs; dashboard metrics should still render if these are missing.
 	if metrics, err := s.opsRepo.GetLatestSystemMetrics(ctx, 1); err == nil {
 		// Attach config-derived limits so the UI can show "current / max" for connection pools.
@@ -66,8 +76,6 @@ func (s *OpsService) GetDashboardOverview(ctx context.Context, filter *OpsDashbo
 	}
 
 	overview.HealthScore = computeDashboardHealthScore(time.Now().UTC(), overview)
-
-	return overview, nil
 }
 
 func (s *OpsService) resolveOpsQueryMode(ctx context.Context, requested OpsQueryMode) OpsQueryMode {

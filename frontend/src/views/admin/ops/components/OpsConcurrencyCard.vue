@@ -270,12 +270,9 @@ async function loadData() {
       userConcurrency.value = userData
     } else {
       // 常规模式加载账号/平台/分组数据
-      const [concData, availData] = await Promise.all([
-        opsAPI.getConcurrencyStats(props.platformFilter, props.groupIdFilter),
-        opsAPI.getAccountAvailabilityStats(props.platformFilter, props.groupIdFilter)
-      ])
-      concurrency.value = concData
-      availability.value = availData
+      const snapshot = await opsAPI.getConcurrencySnapshot(props.platformFilter, props.groupIdFilter)
+      concurrency.value = snapshot.concurrency
+      availability.value = snapshot.availability
     }
   } catch (err: any) {
     console.error('[OpsConcurrencyCard] Failed to load data', err)

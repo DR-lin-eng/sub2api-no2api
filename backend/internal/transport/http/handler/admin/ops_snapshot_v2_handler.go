@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -10,10 +11,11 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/shared/response"
 	"github.com/gin-gonic/gin"
-	"golang.org/x/sync/errgroup"
 )
 
 var opsDashboardSnapshotV2Cache = newSnapshotCache(30 * time.Second)
+
+const opsDashboardSnapshotV2LoadTimeout = 10 * time.Second
 
 type opsDashboardSnapshotV2Response struct {
 	GeneratedAt string `json:"generated_at"`
@@ -36,6 +38,7 @@ type opsDashboardSnapshotV2CacheKey struct {
 	IncludeLatencyHistogram  bool                 `json:"include_latency_histogram"`
 	IncludeErrorTrend        bool                 `json:"include_error_trend"`
 	IncludeErrorDistribution bool                 `json:"include_error_distribution"`
+	IncludeSwitchCount       bool                 `json:"include_switch_count"`
 }
 
 // GetDashboardSnapshotV2 returns ops dashboard core snapshot in one request.
@@ -59,7 +62,7 @@ func (h *OpsHandler) GetDashboardSnapshotV2(c *gin.Context) {
 	filter := &service.OpsDashboardFilter{
 		StartTime: startTime,
 		EndTime:   endTime,
-		Platform:  strings.TrimSpace(c.Query("platform")),
+		Platform:  strings.ToLower(strings.TrimSpace(c.Query("platform"))),
 		QueryMode: parseOpsQueryMode(c),
 	}
 	if v := strings.TrimSpace(c.Query("group_id")); v != "" {
@@ -75,10 +78,15 @@ func (h *OpsHandler) GetDashboardSnapshotV2(c *gin.Context) {
 	includeLatencyHistogram := parseBoolQueryWithDefault(c.Query("include_latency_histogram"), true)
 	includeErrorTrend := parseBoolQueryWithDefault(c.Query("include_error_trend"), true)
 	includeErrorDistribution := parseBoolQueryWithDefault(c.Query("include_error_distribution"), true)
+	// The snapshot's throughput panel only displays QPS/TPS. Switch-rate data has
+	// its own endpoint and chart, so avoid parsing upstream_errors JSON unless an
+	// API caller explicitly asks for the legacy field values.
+	includeSwitchCount := parseBoolQueryWithDefault(c.Query("include_switch_count"), false)
 
+	cacheStart, cacheEnd := opsDashboardCacheWindowKey(c, startTime, endTime, "1h")
 	keyRaw, _ := json.Marshal(opsDashboardSnapshotV2CacheKey{
-		StartTime:                startTime.UTC().Format(time.RFC3339),
-		EndTime:                  endTime.UTC().Format(time.RFC3339),
+		StartTime:                cacheStart,
+		EndTime:                  cacheEnd,
 		Platform:                 filter.Platform,
 		GroupID:                  filter.GroupID,
 		QueryMode:                filter.QueryMode,
@@ -87,103 +95,59 @@ func (h *OpsHandler) GetDashboardSnapshotV2(c *gin.Context) {
 		IncludeLatencyHistogram:  includeLatencyHistogram,
 		IncludeErrorTrend:        includeErrorTrend,
 		IncludeErrorDistribution: includeErrorDistribution,
+		IncludeSwitchCount:       includeSwitchCount,
 	})
 	cacheKey := string(keyRaw)
 
-	if cached, ok := opsDashboardSnapshotV2Cache.Get(cacheKey); ok {
-		if cached.ETag != "" {
-			c.Header("ETag", cached.ETag)
-			c.Header("Vary", "If-None-Match")
-			if ifNoneMatchMatched(c.GetHeader("If-None-Match"), cached.ETag) {
-				c.Status(http.StatusNotModified)
-				return
-			}
-		}
-		c.Header("X-Snapshot-Cache", "hit")
-		response.Success(c, cached.Payload)
-		return
-	}
-
-	var (
-		overview          *service.OpsDashboardOverview
-		trend             *service.OpsThroughputTrendResponse
-		latencyHistogram  *service.OpsLatencyHistogramResponse
-		errTrend          *service.OpsErrorTrendResponse
-		errorDistribution *service.OpsErrorDistributionResponse
-	)
-	g, gctx := errgroup.WithContext(c.Request.Context())
-	g.Go(func() error {
+	cached, hit, err := opsDashboardSnapshotV2Cache.GetOrLoad(cacheKey, func() (any, error) {
 		f := *filter
-		result, err := h.opsService.GetDashboardOverview(gctx, &f)
+		loadCtx, cancel := context.WithTimeout(context.WithoutCancel(c.Request.Context()), opsDashboardSnapshotV2LoadTimeout)
+		defer cancel()
+		core, err := h.opsService.GetDashboardCoreSnapshot(
+			loadCtx,
+			&f,
+			bucketSeconds,
+			includeThroughputTrend,
+			includeLatencyHistogram,
+			includeErrorTrend,
+			includeErrorDistribution,
+			includeSwitchCount,
+		)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		overview = result
-		return nil
+		return &opsDashboardSnapshotV2Response{
+			GeneratedAt:       time.Now().UTC().Format(time.RFC3339),
+			Overview:          core.Overview,
+			ThroughputTrend:   core.ThroughputTrend,
+			LatencyHistogram:  core.LatencyHistogram,
+			ErrorTrend:        core.ErrorTrend,
+			ErrorDistribution: core.ErrorDistribution,
+		}, nil
 	})
-	if includeThroughputTrend {
-		g.Go(func() error {
-			f := *filter
-			result, err := h.opsService.GetThroughputTrend(gctx, &f, bucketSeconds)
-			if err != nil {
-				return err
-			}
-			trend = result
-			return nil
-		})
-	}
-	if includeErrorTrend {
-		g.Go(func() error {
-			f := *filter
-			result, err := h.opsService.GetErrorTrend(gctx, &f, bucketSeconds)
-			if err != nil {
-				return err
-			}
-			errTrend = result
-			return nil
-		})
-	}
-	if includeLatencyHistogram {
-		g.Go(func() error {
-			f := *filter
-			result, err := h.opsService.GetLatencyHistogram(gctx, &f)
-			if err != nil {
-				return err
-			}
-			latencyHistogram = result
-			return nil
-		})
-	}
-	if includeErrorDistribution {
-		g.Go(func() error {
-			f := *filter
-			result, err := h.opsService.GetErrorDistribution(gctx, &f)
-			if err != nil {
-				return err
-			}
-			errorDistribution = result
-			return nil
-		})
-	}
-	if err := g.Wait(); err != nil {
+	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
-
-	resp := &opsDashboardSnapshotV2Response{
-		GeneratedAt:       time.Now().UTC().Format(time.RFC3339),
-		Overview:          overview,
-		ThroughputTrend:   trend,
-		LatencyHistogram:  latencyHistogram,
-		ErrorTrend:        errTrend,
-		ErrorDistribution: errorDistribution,
-	}
-
-	cached := opsDashboardSnapshotV2Cache.Set(cacheKey, resp)
 	if cached.ETag != "" {
 		c.Header("ETag", cached.ETag)
 		c.Header("Vary", "If-None-Match")
+		if ifNoneMatchMatched(c.GetHeader("If-None-Match"), cached.ETag) {
+			c.Status(http.StatusNotModified)
+			return
+		}
 	}
-	c.Header("X-Snapshot-Cache", "miss")
-	response.Success(c, resp)
+	c.Header("X-Snapshot-Cache", cacheStatusValue(hit))
+	response.Success(c, cached.Payload)
+}
+
+func opsDashboardCacheWindowKey(c *gin.Context, startTime, endTime time.Time, defaultRange string) (string, string) {
+	if c != nil && strings.TrimSpace(c.Query("start_time")) == "" && strings.TrimSpace(c.Query("end_time")) == "" {
+		timeRange := strings.TrimSpace(c.Query("time_range"))
+		if timeRange == "" {
+			timeRange = defaultRange
+		}
+		return "relative:" + timeRange, ""
+	}
+	return startTime.UTC().Format(time.RFC3339Nano), endTime.UTC().Format(time.RFC3339Nano)
 }

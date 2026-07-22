@@ -12,6 +12,15 @@ type OpsDashboardFilter struct {
 	// QueryMode controls whether dashboard queries should use raw logs or pre-aggregated tables.
 	// Expected values: auto/raw/preagg (see OpsQueryMode).
 	QueryMode OpsQueryMode
+
+	// ReuseErrorTrendCounts lets snapshot callers omit the duplicate error-bucket
+	// scan in the throughput query. The caller must merge ErrorTrend totals back
+	// into the returned throughput points before sending the response.
+	ReuseErrorTrendCounts bool
+
+	// ExcludeSwitchCounts avoids expanding upstream_errors JSON when the caller
+	// does not consume switch_count (the main throughput chart does not).
+	ExcludeSwitchCounts bool
 }
 
 type OpsRateSummary struct {
@@ -67,6 +76,17 @@ type OpsDashboardOverview struct {
 
 	Duration OpsPercentiles `json:"duration"`
 	TTFT     OpsPercentiles `json:"ttft"`
+}
+
+// OpsDashboardCoreSnapshot groups metrics that can share the same usage/error
+// bucket sources. It is intentionally separate from switch-event expansion,
+// which is substantially slower on large error windows.
+type OpsDashboardCoreSnapshot struct {
+	Overview          *OpsDashboardOverview
+	ThroughputTrend   *OpsThroughputTrendResponse
+	LatencyHistogram  *OpsLatencyHistogramResponse
+	ErrorTrend        *OpsErrorTrendResponse
+	ErrorDistribution *OpsErrorDistributionResponse
 }
 
 type OpsLatencyHistogramBucket struct {

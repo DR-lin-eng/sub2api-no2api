@@ -25,17 +25,14 @@ func TestOpsRepositoryGetUserUsageStats_TopNMode(t *testing.T) {
 		TopN:      20,
 	}
 
-	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM stats`).
-		WithArgs(start, end, groupID, "openai").
-		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(int64(2)))
 	mock.ExpectQuery(`ORDER BY actual_cost DESC, total_tokens DESC, user_id ASC\s+LIMIT \$5`).
 		WithArgs(start, end, groupID, "openai", 20).
 		WillReturnRows(sqlmock.NewRows([]string{
 			"user_id", "username", "email", "request_count", "input_tokens", "output_tokens",
-			"cache_tokens", "total_tokens", "actual_cost", "last_request_at",
+			"cache_tokens", "total_tokens", "actual_cost", "last_request_at", "total_count",
 		}).AddRow(
 			int64(7), "alice", "alice@example.com", int64(12), int64(1000), int64(300),
-			int64(200), int64(1500), 1.25, end.Add(-time.Minute),
+			int64(200), int64(1500), 1.25, end.Add(-time.Minute), int64(2),
 		))
 
 	resp, err := repo.GetUserUsageStats(context.Background(), filter)
@@ -67,7 +64,8 @@ func TestOpsRepositoryGetUserUsageStats_PaginationModeEmpty(t *testing.T) {
 
 	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM stats`).
 		WithArgs(start, end).
-		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(int64(0)))
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(int64(17)))
+
 	mock.ExpectQuery(`ORDER BY actual_cost DESC, total_tokens DESC, user_id ASC\s+LIMIT \$3 OFFSET \$4`).
 		WithArgs(start, end, 10, 10).
 		WillReturnRows(sqlmock.NewRows([]string{
@@ -78,6 +76,7 @@ func TestOpsRepositoryGetUserUsageStats_PaginationModeEmpty(t *testing.T) {
 	resp, err := repo.GetUserUsageStats(context.Background(), filter)
 	require.NoError(t, err)
 	require.Empty(t, resp.Items)
+	require.Equal(t, int64(17), resp.Total)
 	require.Equal(t, 2, resp.Page)
 	require.Equal(t, 10, resp.PageSize)
 	require.NoError(t, mock.ExpectationsWereMet())

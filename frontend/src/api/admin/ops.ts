@@ -486,6 +486,21 @@ export interface OpsAccountAvailabilityStatsResponse {
   timestamp?: string
 }
 
+export interface OpsConcurrencySnapshotResponse {
+  enabled: boolean
+  concurrency: OpsConcurrencyStatsResponse
+  availability: OpsAccountAvailabilityStatsResponse
+  timestamp?: string
+}
+
+export async function getConcurrencySnapshot(platform?: string, groupId?: number | null): Promise<OpsConcurrencySnapshotResponse> {
+  const params: Record<string, any> = {}
+  if (platform) params.platform = platform
+  if (typeof groupId === 'number' && groupId > 0) params.group_id = groupId
+  const { data } = await apiClient.get<OpsConcurrencySnapshotResponse>('/admin/ops/concurrency-snapshot', { params })
+  return data
+}
+
 export async function getAccountAvailabilityStats(platform?: string, groupId?: number | null): Promise<OpsAccountAvailabilityStatsResponse> {
   const params: Record<string, any> = {}
   if (platform) {
@@ -1095,6 +1110,7 @@ export async function getDashboardSnapshotV2(
   include_latency_histogram?: boolean
   include_error_trend?: boolean
   include_error_distribution?: boolean
+  include_switch_count?: boolean
   },
   options: OpsRequestOptions = {}
 ): Promise<OpsDashboardSnapshotV2Response> {
@@ -1117,6 +1133,24 @@ export async function getThroughputTrend(
   options: OpsRequestOptions = {}
 ): Promise<OpsThroughputTrendResponse> {
   const { data } = await apiClient.get<OpsThroughputTrendResponse>('/admin/ops/dashboard/throughput-trend', {
+    params,
+    signal: options.signal
+  })
+  return data
+}
+
+export async function getSwitchTrend(
+  params: {
+    time_range?: '5m' | '30m' | '1h' | '5h' | '6h' | '24h'
+    start_time?: string
+    end_time?: string
+    platform?: string
+    group_id?: number | null
+    mode?: OpsQueryMode
+  },
+  options: OpsRequestOptions = {}
+): Promise<OpsThroughputTrendResponse> {
+  const { data } = await apiClient.get<OpsThroughputTrendResponse>('/admin/ops/dashboard/switch-trend', {
     params,
     signal: options.signal
   })
@@ -1445,6 +1479,7 @@ export const opsAPI = {
   getDashboardSnapshotV2,
   getDashboardOverview,
   getThroughputTrend,
+  getSwitchTrend,
   getLatencyHistogram,
   getErrorTrend,
   getErrorDistribution,
@@ -1452,6 +1487,7 @@ export const opsAPI = {
   getOpenAITokenStats,
   getUserUsageStats,
   getConcurrencyStats,
+  getConcurrencySnapshot,
   getUserConcurrencyStats,
   getAccountAvailabilityStats,
   getRealtimeTrafficSummary,

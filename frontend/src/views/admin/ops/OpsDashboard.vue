@@ -225,9 +225,7 @@ const groupId = ref<number | null>(null)
 const queryMode = ref<QueryMode>('auto')
 const customStartTime = ref<string | null>(null)
 const customEndTime = ref<string | null>(null)
-const switchTrendWindowHours = 5
-const switchTrendTimeRange = `${switchTrendWindowHours}h`
-const switchTrendWindowMs = switchTrendWindowHours * 60 * 60 * 1000
+const switchTrendTimeRange = '5h' as const
 
 const QUERY_KEYS = {
   timeRange: 'tr',
@@ -637,21 +635,19 @@ function buildSnapshotApiParams() {
     include_throughput_trend: showThroughputTrend.value,
     include_latency_histogram: showLatencyHistogram.value,
     include_error_trend: showErrorTrend.value,
-    include_error_distribution: showErrorDistribution.value
+    include_error_distribution: showErrorDistribution.value,
+    // Switch-rate uses its own 5h request; the throughput panel only needs QPS/TPS.
+    include_switch_count: false
   }
 }
 
 function buildSwitchTrendParams() {
-  const params: any = {
+  return {
     platform: platform.value || undefined,
     group_id: groupId.value ?? undefined,
-    mode: queryMode.value
+    mode: queryMode.value,
+    time_range: switchTrendTimeRange
   }
-  const endTime = new Date()
-  const startTime = new Date(endTime.getTime() - switchTrendWindowMs)
-  params.start_time = startTime.toISOString()
-  params.end_time = endTime.toISOString()
-  return params
 }
 
 async function refreshOverviewWithCancel(fetchSeq: number, signal: AbortSignal) {
@@ -671,7 +667,7 @@ async function refreshSwitchTrendWithCancel(fetchSeq: number, signal: AbortSigna
   if (!opsEnabled.value || !showSwitchRateTrend.value) return
   loadingSwitchTrend.value = true
   try {
-    const data = await opsAPI.getThroughputTrend(buildSwitchTrendParams(), { signal })
+    const data = await opsAPI.getSwitchTrend(buildSwitchTrendParams(), { signal })
     if (fetchSeq !== dashboardFetchSeq) return
     switchTrend.value = data
   } catch (err: any) {
@@ -818,17 +814,19 @@ async function fetchData() {
   loading.value = true
   errorMessage.value = ''
   try {
-    const requests: Array<Promise<void>> = [refreshCoreSnapshotWithCancel(fetchSeq, dashboardFetchController.signal)]
-    if (showSwitchRateTrend.value) {
-      requests.push(refreshSwitchTrendWithCancel(fetchSeq, dashboardFetchController.signal))
-    }
-    await Promise.all(requests)
+    await refreshCoreSnapshotWithCancel(fetchSeq, dashboardFetchController.signal)
     if (fetchSeq !== dashboardFetchSeq) return
 
     lastUpdated.value = new Date()
 
     // Trigger child component refreshes using the same cadence as the header.
     dashboardRefreshToken.value += 1
+
+    // Switch-event JSON expansion is the slow path. Start it only after the core
+    // snapshot has released its database work; the backend coalesces refreshes.
+    if (showSwitchRateTrend.value) {
+      void refreshSwitchTrendWithCancel(fetchSeq, dashboardFetchController.signal)
+    }
 
     // Reset auto refresh countdown after successful fetch
     if (autoRefreshEnabled.value) {

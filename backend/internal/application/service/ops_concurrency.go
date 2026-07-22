@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -17,7 +18,12 @@ type opsAccountStatsRepository interface {
 	ListOpsAccountsForStats(ctx context.Context, platformFilter string, groupIDFilter *int64) ([]Account, error)
 }
 
+type opsAccountsSnapshotContextKey struct{}
+
 func (s *OpsService) listAllAccountsForOps(ctx context.Context, platformFilter string, groupIDFilter *int64) ([]Account, error) {
+	if accounts, ok := ctx.Value(opsAccountsSnapshotContextKey{}).([]Account); ok {
+		return accounts, nil
+	}
 	if s == nil || s.accountRepo == nil {
 		return []Account{}, nil
 	}
@@ -59,6 +65,61 @@ func (s *OpsService) listAllAccountsForOps(ctx context.Context, platformFilter s
 	}
 
 	return out, nil
+}
+
+// GetConcurrencySnapshot reuses one account/relation load for both cards. The
+// existing methods still own their aggregation semantics and Redis lookups.
+func (s *OpsService) GetConcurrencySnapshot(
+	ctx context.Context,
+	platformFilter string,
+	groupIDFilter *int64,
+) (
+	map[string]*PlatformConcurrencyInfo,
+	map[int64]*GroupConcurrencyInfo,
+	map[int64]*AccountConcurrencyInfo,
+	map[string]*PlatformAvailability,
+	map[int64]*GroupAvailability,
+	map[int64]*AccountAvailability,
+	*time.Time,
+	error,
+) {
+	if err := s.RequireMonitoringEnabled(ctx); err != nil {
+		return nil, nil, nil, nil, nil, nil, nil, err
+	}
+	accounts, err := s.listAllAccountsForOps(ctx, platformFilter, groupIDFilter)
+	if err != nil {
+		return nil, nil, nil, nil, nil, nil, nil, err
+	}
+	sharedCtx := context.WithValue(ctx, opsAccountsSnapshotContextKey{}, accounts)
+	var platformConcurrency map[string]*PlatformConcurrencyInfo
+	var groupConcurrency map[int64]*GroupConcurrencyInfo
+	var accountConcurrency map[int64]*AccountConcurrencyInfo
+	var platformAvailability map[string]*PlatformAvailability
+	var groupAvailability map[int64]*GroupAvailability
+	var accountAvailability map[int64]*AccountAvailability
+	var collectedAt, availabilityAt *time.Time
+
+	g, gctx := errgroup.WithContext(sharedCtx)
+	g.Go(func() error {
+		var queryErr error
+		platformConcurrency, groupConcurrency, accountConcurrency, collectedAt, queryErr =
+			s.GetConcurrencyStats(gctx, platformFilter, groupIDFilter)
+		return queryErr
+	})
+	g.Go(func() error {
+		var queryErr error
+		platformAvailability, groupAvailability, accountAvailability, availabilityAt, queryErr =
+			s.GetAccountAvailabilityStats(gctx, platformFilter, groupIDFilter)
+		return queryErr
+	})
+	if err := g.Wait(); err != nil {
+		return nil, nil, nil, nil, nil, nil, nil, err
+	}
+	if availabilityAt != nil && (collectedAt == nil || availabilityAt.After(*collectedAt)) {
+		collectedAt = availabilityAt
+	}
+	return platformConcurrency, groupConcurrency, accountConcurrency,
+		platformAvailability, groupAvailability, accountAvailability, collectedAt, nil
 }
 
 func (s *OpsService) getAccountsLoadMapBestEffort(ctx context.Context, accounts []Account) map[int64]*AccountLoadInfo {

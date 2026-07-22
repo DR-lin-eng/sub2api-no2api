@@ -51,10 +51,12 @@ WITH stats AS (
 )
 `
 
-	countSQL := baseCTE + `SELECT COUNT(*) FROM stats`
 	var total int64
-	if err := r.db.QueryRowContext(ctx, countSQL, baseArgs...).Scan(&total); err != nil {
-		return nil, err
+	if !filter.IsTopNMode() {
+		countSQL := baseCTE + `SELECT COUNT(*) FROM stats`
+		if err := r.db.QueryRowContext(ctx, countSQL, baseArgs...).Scan(&total); err != nil {
+			return nil, err
+		}
 	}
 
 	querySQL := baseCTE + `
@@ -68,7 +70,12 @@ SELECT
   cache_tokens,
   total_tokens,
   actual_cost,
-  last_request_at
+  last_request_at`
+	if filter.IsTopNMode() {
+		querySQL += `,
+  COUNT(*) OVER() AS total_count`
+	}
+	querySQL += `
 FROM stats
 ORDER BY actual_cost DESC, total_tokens DESC, user_id ASC`
 
@@ -91,7 +98,7 @@ ORDER BY actual_cost DESC, total_tokens DESC, user_id ASC`
 	items := make([]*service.OpsUserUsageStatsItem, 0, 32)
 	for rows.Next() {
 		item := &service.OpsUserUsageStatsItem{}
-		if err := rows.Scan(
+		scanArgs := []any{
 			&item.UserID,
 			&item.Username,
 			&item.Email,
@@ -102,7 +109,11 @@ ORDER BY actual_cost DESC, total_tokens DESC, user_id ASC`
 			&item.TotalTokens,
 			&item.ActualCost,
 			&item.LastRequestAt,
-		); err != nil {
+		}
+		if filter.IsTopNMode() {
+			scanArgs = append(scanArgs, &total)
+		}
+		if err := rows.Scan(scanArgs...); err != nil {
 			return nil, err
 		}
 		items = append(items, item)

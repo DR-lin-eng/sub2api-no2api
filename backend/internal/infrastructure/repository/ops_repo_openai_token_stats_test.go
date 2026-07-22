@@ -81,10 +81,6 @@ func TestOpsRepositoryGetOpenAITokenStats_TopNMode(t *testing.T) {
 		TopN:      5,
 	}
 
-	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM stats`).
-		WithArgs(start, end).
-		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(int64(1)))
-
 	rows := sqlmock.NewRows([]string{
 		"model",
 		"request_count",
@@ -93,8 +89,9 @@ func TestOpsRepositoryGetOpenAITokenStats_TopNMode(t *testing.T) {
 		"total_output_tokens",
 		"avg_duration_ms",
 		"requests_with_first_token",
+		"total_count",
 	}).
-		AddRow("gpt-4o", int64(5), nil, nil, int64(0), int64(0), int64(0))
+		AddRow("gpt-4o", int64(5), nil, nil, int64(0), int64(0), int64(0), int64(1))
 
 	mock.ExpectQuery(`ORDER BY request_count DESC, model ASC\s+LIMIT \$3`).
 		WithArgs(start, end, 5).
