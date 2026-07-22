@@ -253,6 +253,10 @@ func upstreamBillingProbeSnapshotClearRequested(extra map[string]any) bool {
 	return ok && value == nil
 }
 
+func accountBulkUpdateRequiresImmediateSchedulerSync(updates service.AccountBulkUpdate) bool {
+	return updates.Concurrency != nil || updates.Priority != nil || updates.LoadFactor != nil
+}
+
 func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates service.AccountBulkUpdate) (int64, error) {
 	if len(ids) == 0 {
 		return 0, nil
@@ -409,7 +413,7 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 		}
 	}
 	if rows > 0 && contextTx == nil {
-		shouldSync := false
+		shouldSync := accountBulkUpdateRequiresImmediateSchedulerSync(updates)
 		if updates.Status != nil && (*updates.Status == service.StatusError || *updates.Status == service.StatusDisabled) {
 			shouldSync = true
 		}

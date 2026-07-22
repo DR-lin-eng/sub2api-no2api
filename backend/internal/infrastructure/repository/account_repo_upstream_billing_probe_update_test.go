@@ -179,6 +179,28 @@ func TestBulkUpdateDisablingProbeRemovesSnapshot(t *testing.T) {
 	require.Equal(t, `{"upstream_billing_probe_enabled":false}`, string(payload))
 }
 
+func TestBulkUpdateClearsLoadFactor(t *testing.T) {
+	exec := &recordingSQLExecutor{result: rowsAffectedResult(1)}
+	repo := newAccountRepositoryWithSQL(nil, exec, nil)
+	zero := 0
+
+	_, err := repo.BulkUpdate(context.Background(), []int64{27}, service.AccountBulkUpdate{
+		LoadFactor: &zero,
+	})
+
+	require.NoError(t, err)
+	require.NotEmpty(t, exec.execQueries)
+	require.Contains(t, normalizeSQLWhitespace(exec.execQueries[0]), "load_factor = NULL")
+}
+
+func TestAccountBulkUpdateSchedulingFieldsRequireImmediateSnapshotSync(t *testing.T) {
+	zero := 0
+	require.True(t, accountBulkUpdateRequiresImmediateSchedulerSync(service.AccountBulkUpdate{Concurrency: &zero}))
+	require.True(t, accountBulkUpdateRequiresImmediateSchedulerSync(service.AccountBulkUpdate{Priority: &zero}))
+	require.True(t, accountBulkUpdateRequiresImmediateSchedulerSync(service.AccountBulkUpdate{LoadFactor: &zero}))
+	require.False(t, accountBulkUpdateRequiresImmediateSchedulerSync(service.AccountBulkUpdate{}))
+}
+
 func TestBulkUpdateProbeEligibilityMismatchRollsBack(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)

@@ -190,6 +190,24 @@ func groupOpenAIAccountCandidatesByChannel(candidates []openAIAccountCandidateSc
 	return groups
 }
 
+func openAICandidatePriorityLevels(candidates []openAIAccountCandidateScore) []int {
+	if len(candidates) == 0 {
+		return nil
+	}
+	levels := make([]int, 0, min(len(candidates), 8))
+	seen := make(map[int]struct{}, min(len(candidates), 8))
+	for _, candidate := range candidates {
+		priority := openAIAccountSchedulingPriority(candidate.account)
+		if _, ok := seen[priority]; ok {
+			continue
+		}
+		seen[priority] = struct{}{}
+		levels = append(levels, priority)
+	}
+	sort.Ints(levels)
+	return levels
+}
+
 // selectTopKOpenAICandidatesByChannel fills top-K in channel rounds. The best
 // account from each upstream is considered before a second account from an
 // already represented upstream, preventing a large channel from crowding every
@@ -198,11 +216,41 @@ func selectTopKOpenAICandidatesByChannel(candidates []openAIAccountCandidateScor
 	if len(candidates) == 0 {
 		return nil
 	}
-	if !hasMultipleOpenAIAPIKeyChannels(candidates) {
-		return selectTopKOpenAICandidates(candidates, topK)
-	}
 	if topK <= 0 {
 		topK = 1
+	}
+	if topK > len(candidates) {
+		topK = len(candidates)
+	}
+
+	priorityLevels := openAICandidatePriorityLevels(candidates)
+	if len(priorityLevels) <= 1 {
+		return selectTopKOpenAICandidatesByChannelWithinPriority(candidates, topK)
+	}
+
+	selected := make([]openAIAccountCandidateScore, 0, topK)
+	for _, priority := range priorityLevels {
+		priorityCandidates := make([]openAIAccountCandidateScore, 0, len(candidates))
+		for _, candidate := range candidates {
+			if openAIAccountSchedulingPriority(candidate.account) == priority {
+				priorityCandidates = append(priorityCandidates, candidate)
+			}
+		}
+		remaining := topK - len(selected)
+		selected = append(selected, selectTopKOpenAICandidatesByChannelWithinPriority(priorityCandidates, remaining)...)
+		if len(selected) >= topK {
+			break
+		}
+	}
+	return selected
+}
+
+func selectTopKOpenAICandidatesByChannelWithinPriority(candidates []openAIAccountCandidateScore, topK int) []openAIAccountCandidateScore {
+	if len(candidates) == 0 || topK <= 0 {
+		return nil
+	}
+	if !hasMultipleOpenAIAPIKeyChannels(candidates) {
+		return selectTopKOpenAICandidates(candidates, topK)
 	}
 	if topK > len(candidates) {
 		topK = len(candidates)
@@ -241,26 +289,20 @@ func finiteOpenAICandidateScore(score float64) float64 {
 	return score
 }
 
-func openAICandidateAvailableCapacity(candidate openAIAccountCandidateScore) float64 {
+func openAICandidateSchedulingShare(candidate openAIAccountCandidateScore) float64 {
 	if candidate.account == nil {
 		return 1
 	}
-	capacity := candidate.account.EffectiveLoadFactor()
-	current := 0
-	if candidate.loadInfo != nil {
-		current = candidate.loadInfo.CurrentConcurrency
+	share := candidate.account.EffectiveLoadFactor()
+	if share < 1 {
+		share = 1
 	}
-	available := capacity - current
-	if available < 1 {
-		available = 1
-	}
-	return float64(available)
+	return float64(share)
 }
 
-func openAICandidateWeights(candidates []openAIAccountCandidateScore) []float64 {
-	weights := make([]float64, len(candidates))
+func minFiniteOpenAICandidateScore(candidates []openAIAccountCandidateScore) float64 {
 	if len(candidates) == 0 {
-		return weights
+		return 0
 	}
 	minScore := finiteOpenAICandidateScore(candidates[0].score)
 	for i := 1; i < len(candidates); i++ {
@@ -268,13 +310,26 @@ func openAICandidateWeights(candidates []openAIAccountCandidateScore) []float64 
 			minScore = score
 		}
 	}
+	return minScore
+}
+
+func openAICandidateWeight(candidate openAIAccountCandidateScore, minScore float64) float64 {
+	quality := finiteOpenAICandidateScore(candidate.score) - minScore + 1
+	weight := quality * openAICandidateSchedulingShare(candidate)
+	if math.IsNaN(weight) || math.IsInf(weight, 0) || weight <= 0 {
+		return 1
+	}
+	return weight
+}
+
+func openAICandidateWeights(candidates []openAIAccountCandidateScore) []float64 {
+	weights := make([]float64, len(candidates))
+	if len(candidates) == 0 {
+		return weights
+	}
+	minScore := minFiniteOpenAICandidateScore(candidates)
 	for i, candidate := range candidates {
-		quality := finiteOpenAICandidateScore(candidate.score) - minScore + 1
-		weight := quality * math.Sqrt(openAICandidateAvailableCapacity(candidate))
-		if math.IsNaN(weight) || math.IsInf(weight, 0) || weight <= 0 {
-			weight = 1
-		}
-		weights[i] = weight
+		weights[i] = openAICandidateWeight(candidate, minScore)
 	}
 	return weights
 }
@@ -301,21 +356,19 @@ func weightedOpenAIIndex(weights []float64, rng *openAISelectionRNG) int {
 	return len(weights) - 1
 }
 
-func openAIChannelWeight(group openAIChannelCandidateGroup) float64 {
+func openAIChannelWeight(group openAIChannelCandidateGroup, minScore float64) float64 {
 	if len(group.candidates) == 0 {
 		return 0
 	}
-	bestScore := finiteOpenAICandidateScore(group.candidates[0].score)
-	capacity := 0.0
+	maxAccountWeight := 0.0
 	for _, candidate := range group.candidates {
-		if score := finiteOpenAICandidateScore(candidate.score); score > bestScore {
-			bestScore = score
+		if weight := openAICandidateWeight(candidate, minScore); weight > maxAccountWeight {
+			maxAccountWeight = weight
 		}
-		capacity += openAICandidateAvailableCapacity(candidate)
 	}
-	// Square-root capacity scaling preserves configured capacity differences
-	// without making account cardinality a linear traffic multiplier.
-	return math.Max(1, bestScore+1) * math.Sqrt(math.Max(1, capacity))
+	// Explicit account share remains linear. Channel cardinality is moderated so
+	// adding equivalent keys behind one upstream does not multiply its traffic.
+	return math.Max(1, maxAccountWeight) * math.Sqrt(float64(len(group.candidates)))
 }
 
 // buildOpenAIChannelAwareWeightedSelectionOrder creates a weighted channel
@@ -334,6 +387,7 @@ func buildOpenAIChannelAwareWeightedSelectionOrder(
 	}
 
 	groups := groupOpenAIAccountCandidatesByChannel(candidates)
+	minScore := minFiniteOpenAICandidateScore(candidates)
 	rng := newOpenAISelectionRNG(deriveOpenAISelectionSeed(req))
 	order := make([]openAIAccountCandidateScore, 0, len(candidates))
 	for len(groups) > 0 {
@@ -342,7 +396,7 @@ func buildOpenAIChannelAwareWeightedSelectionOrder(
 		for len(roundGroups) > 0 {
 			weights := make([]float64, len(roundGroups))
 			for i, group := range roundGroups {
-				weights[i] = openAIChannelWeight(group)
+				weights[i] = openAIChannelWeight(group, minScore)
 			}
 			idx := weightedOpenAIIndex(weights, &rng)
 			channelOrder = append(channelOrder, roundGroups[idx])
@@ -381,20 +435,7 @@ func buildOpenAILegacyWeightedSelectionOrder(
 	req OpenAIAccountScheduleRequest,
 ) []openAIAccountCandidateScore {
 	pool := append([]openAIAccountCandidateScore(nil), candidates...)
-	weights := make([]float64, len(pool))
-	minScore := pool[0].score
-	for i := 1; i < len(pool); i++ {
-		if pool[i].score < minScore {
-			minScore = pool[i].score
-		}
-	}
-	for i := range pool {
-		weight := (pool[i].score - minScore) + 1
-		if math.IsNaN(weight) || math.IsInf(weight, 0) || weight <= 0 {
-			weight = 1
-		}
-		weights[i] = weight
-	}
+	weights := openAICandidateWeights(pool)
 
 	order := make([]openAIAccountCandidateScore, 0, len(pool))
 	rng := newOpenAISelectionRNG(deriveOpenAISelectionSeed(req))

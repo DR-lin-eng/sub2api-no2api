@@ -3223,15 +3223,46 @@ func TestSelectTopKOpenAICandidates(t *testing.T) {
 
 	top2 := selectTopKOpenAICandidates(candidates, 2)
 	require.Len(t, top2, 2)
-	require.Equal(t, int64(13), top2[0].account.ID)
-	require.Equal(t, int64(11), top2[1].account.ID)
+	require.Equal(t, int64(14), top2[0].account.ID)
+	require.Equal(t, int64(13), top2[1].account.ID)
 
 	topAll := selectTopKOpenAICandidates(candidates, 8)
 	require.Len(t, topAll, len(candidates))
-	require.Equal(t, int64(13), topAll[0].account.ID)
-	require.Equal(t, int64(11), topAll[1].account.ID)
+	require.Equal(t, int64(14), topAll[0].account.ID)
+	require.Equal(t, int64(13), topAll[1].account.ID)
 	require.Equal(t, int64(12), topAll[2].account.ID)
-	require.Equal(t, int64(14), topAll[3].account.ID)
+	require.Equal(t, int64(11), topAll[3].account.ID)
+}
+
+func TestBuildOpenAISelectionOrderExhaustsHigherPriorityBeforeFallback(t *testing.T) {
+	scheduler := &defaultOpenAIAccountScheduler{}
+	highFirst := openAIAccountCandidateScore{
+		account:  &Account{ID: 71, Priority: 0},
+		loadInfo: &AccountLoadInfo{},
+		score:    1,
+	}
+	highSecond := openAIAccountCandidateScore{
+		account:  &Account{ID: 72, Priority: 0},
+		loadInfo: &AccountLoadInfo{},
+		score:    1,
+	}
+	low := openAIAccountCandidateScore{
+		account:  &Account{ID: 81, Priority: 100},
+		loadInfo: &AccountLoadInfo{},
+		score:    100,
+	}
+
+	order := scheduler.buildOpenAISelectionOrder(OpenAIAccountScheduleRequest{
+		SessionHash: "priority-tier-fallback",
+	}, openAIAccountLoadPlan{
+		candidates: []openAIAccountCandidateScore{highFirst, highSecond, low},
+		topK:       1,
+	})
+
+	require.Len(t, order, 3)
+	require.Equal(t, 0, order[0].account.Priority)
+	require.Equal(t, 0, order[1].account.Priority)
+	require.Equal(t, 100, order[2].account.Priority)
 }
 
 func TestSelectTopKOpenAICandidatesMatchesFullSortAcrossThresholds(t *testing.T) {

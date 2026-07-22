@@ -69,6 +69,24 @@ func TestSelectTopKOpenAICandidatesByChannelPreservesChannelDiversity(t *testing
 	require.Equal(t, int64(21), top2[1].account.ID)
 }
 
+func TestSelectTopKOpenAICandidatesByChannelPreservesPriorityBeforeChannelDiversity(t *testing.T) {
+	highPriorityFirst := openAIChannelTestCandidate(31, "https://channel-a.example/v1", 10)
+	highPrioritySecond := openAIChannelTestCandidate(32, "https://channel-a.example/v1", 9)
+	lowPriorityOtherChannel := openAIChannelTestCandidate(41, "https://channel-b.example/v1", 100)
+	highPriorityFirst.account.Priority = 0
+	highPrioritySecond.account.Priority = 0
+	lowPriorityOtherChannel.account.Priority = 100
+
+	top2 := selectTopKOpenAICandidatesByChannel([]openAIAccountCandidateScore{
+		highPriorityFirst,
+		highPrioritySecond,
+		lowPriorityOtherChannel,
+	}, 2)
+
+	require.Len(t, top2, 2)
+	require.Equal(t, []int64{31, 32}, []int64{top2[0].account.ID, top2[1].account.ID})
+}
+
 func TestBuildOpenAIWeightedSelectionOrderCrossesChannelsBeforeSameChannelRetry(t *testing.T) {
 	candidates := []openAIAccountCandidateScore{
 		openAIChannelTestCandidate(101, "https://channel-a.example/v1", 5),
@@ -108,6 +126,32 @@ func TestBuildOpenAIWeightedSelectionOrderModeratesChannelCardinalityBias(t *tes
 	// traffic. Channel-aware square-root capacity keeps it materially above 20%.
 	require.Greater(t, smallChannelSelections, samples/5)
 	require.Less(t, smallChannelSelections, samples/2)
+}
+
+func TestBuildOpenAIWeightedSelectionOrderUsesLoadFactorWithinOneChannel(t *testing.T) {
+	highShare := openAIChannelTestCandidate(110, "https://same-channel.example/v1", 5)
+	lowShare := openAIChannelTestCandidate(120, "https://same-channel.example/v1", 5)
+	highLoadFactor := 16
+	lowLoadFactor := 1
+	highShare.account.LoadFactor = &highLoadFactor
+	lowShare.account.LoadFactor = &lowLoadFactor
+	highShare.loadInfo.CurrentConcurrency = 0
+	lowShare.loadInfo.CurrentConcurrency = 0
+
+	const samples = 4000
+	highSelections := 0
+	for i := 0; i < samples; i++ {
+		order := buildOpenAIWeightedSelectionOrder(
+			[]openAIAccountCandidateScore{highShare, lowShare},
+			OpenAIAccountScheduleRequest{SessionHash: fmt.Sprintf("load-factor-one-channel-%d", i)},
+		)
+		if order[0].account.ID == highShare.account.ID {
+			highSelections++
+		}
+	}
+
+	share := float64(highSelections) / samples
+	require.InDelta(t, 16.0/17.0, share, 0.03)
 }
 
 func TestInterleaveOpenAIAPIKeyChannelsByLoad(t *testing.T) {
