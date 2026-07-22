@@ -243,11 +243,11 @@ describe('admin AccountsView scheduler score column', () => {
     })
 
     await wrapper.find('button[title="admin.accounts.moreActions"]').trigger('click')
-    const hourlyToggle = wrapper.findAll('button').find(button =>
-      button.text().includes('admin.accounts.columns.hourlyUsage')
+    const hourlyToggle = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(button =>
+      button.textContent?.includes('admin.accounts.columns.hourlyUsage')
     )
     expect(hourlyToggle).toBeDefined()
-    await hourlyToggle!.trigger('click')
+    hourlyToggle!.click()
     await flushPromises()
 
     expect(listAccounts).toHaveBeenCalledTimes(2)

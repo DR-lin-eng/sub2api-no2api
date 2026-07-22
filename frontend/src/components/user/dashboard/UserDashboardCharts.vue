@@ -30,11 +30,11 @@
         <div v-if="!models.length" class="flex h-48 items-center justify-center text-sm text-gray-500 dark:text-gray-400">
           {{ t('dashboard.noDataAvailable') }}
         </div>
-        <div v-else class="flex items-center gap-6">
-          <div class="h-48 w-48">
+        <div v-else class="flex flex-col items-center gap-4 sm:flex-row sm:gap-6">
+          <div class="h-48 w-48 shrink-0">
             <Doughnut v-if="modelData" :data="modelData" :options="doughnutOptions" />
           </div>
-          <div class="max-h-48 flex-1 overflow-y-auto">
+          <div class="max-h-48 w-full min-w-0 flex-1 overflow-auto">
             <table class="w-full text-xs">
               <thead>
                 <tr class="text-gray-500 dark:text-gray-400">

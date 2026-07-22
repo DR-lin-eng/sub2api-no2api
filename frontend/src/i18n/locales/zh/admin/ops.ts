@@ -76,6 +76,7 @@ export default {
         cleanupConfirm: '确定要清理匹配当前筛选条件的系统日志吗？此操作不可撤销。',
         cleanupAllConfirm: '确定要清理全部系统日志吗？所有系统日志都将被永久删除，此操作不可撤销。',
         cleanupSuccess: '清理完成，已删除 {count} 条日志。',
+        cleanupFilterRequired: '清理需要至少一个筛选条件（起止时间或其他字段）',
         cleanupFailed: '清理系统日志失败'
       },
       requestsTotal: '请求（总计）',

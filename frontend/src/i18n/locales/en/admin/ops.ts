@@ -76,6 +76,7 @@ export default {
         cleanupConfirm: 'Clean up system logs matching the current filters? This cannot be undone.',
         cleanupAllConfirm: 'Delete all system logs? Every system log entry will be permanently deleted. This cannot be undone.',
         cleanupSuccess: 'Cleanup complete. Deleted {count} log entries.',
+        cleanupFilterRequired: 'Cleanup requires at least one filter condition (start/end time or another field)',
         cleanupFailed: 'Failed to clean up system logs'
       },
       requestsTotal: 'Requests (total)',
