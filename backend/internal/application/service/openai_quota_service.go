@@ -411,7 +411,11 @@ func (s *OpenAIQuotaService) recoverAgentIdentityTask(ctx context.Context, accou
 	if !account.IsOpenAIAgentIdentity() {
 		return nil
 	}
-	return ensureAgentIdentityTaskForAccount(ctx, s.accountRepo, s.agentIdentityWS, &s.agentIdentityTaskMu, account, expectedTaskID)
+	err = ensureAgentIdentityTaskForAccount(ctx, s.accountRepo, s.agentIdentityWS, &s.agentIdentityTaskMu, account, expectedTaskID)
+	if err != nil && ctx.Err() == nil {
+		_ = setOpenAIAgentIdentityAccountError(ctx, s.accountRepo, s.agentIdentityWS, account, "Agent Identity task recovery failed: "+err.Error())
+	}
+	return err
 }
 
 func (s *OpenAIQuotaService) isAgentIdentityAccount(ctx context.Context, accountID int64) bool {
@@ -454,14 +458,23 @@ func (s *OpenAIQuotaService) buildCodexQuotaHeaders(ctx context.Context, account
 		return headers, "", nil
 	}
 	if err := ensureAgentIdentityTaskForAccount(ctx, s.accountRepo, s.agentIdentityWS, &s.agentIdentityTaskMu, account, ""); err != nil {
+		if ctx.Err() == nil {
+			_ = setOpenAIAgentIdentityAccountError(ctx, s.accountRepo, s.agentIdentityWS, account, "Agent Identity authentication failed: "+err.Error())
+		}
 		return nil, "", err
 	}
 	key, err := agentIdentityKeyFromAccount(account)
 	if err != nil {
+		if ctx.Err() == nil {
+			_ = setOpenAIAgentIdentityAccountError(ctx, s.accountRepo, s.agentIdentityWS, account, "Agent Identity authentication failed: "+err.Error())
+		}
 		return nil, "", err
 	}
 	assertion, err := buildAgentAssertion(key, time.Now())
 	if err != nil {
+		if ctx.Err() == nil {
+			_ = setOpenAIAgentIdentityAccountError(ctx, s.accountRepo, s.agentIdentityWS, account, "Agent Identity authentication failed: "+err.Error())
+		}
 		return nil, "", err
 	}
 	headers["authorization"] = assertion

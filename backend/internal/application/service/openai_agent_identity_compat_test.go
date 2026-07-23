@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -103,6 +104,38 @@ func TestAccountTestServiceOpenAICompactAgentIdentityRecoversInvalidTaskOnce(t *
 	require.Equal(t, []int64{account.ID}, invalidator.accountIDs)
 }
 
+func TestAccountTestServiceOpenAICompactAgentIdentityBuildFailureSetsError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	account := &Account{
+		ID:          23,
+		Name:        "agent-identity-invalid",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"auth_mode":          OpenAIAuthModeAgentIdentity,
+			"agent_runtime_id":   "runtime-invalid",
+			"task_id":            "task-invalid",
+			"chatgpt_account_id": "account-agent-invalid",
+		},
+	}
+	repo := &accountTestAgentIdentityRepo{account: account}
+	svc := &AccountTestService{accountRepo: repo, cfg: &config.Config{}}
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/23/test", bytes.NewReader(nil))
+
+	err := svc.TestAccountConnection(c, account.ID, "gpt-5.4", "", AccountTestModeCompact)
+
+	require.Error(t, err)
+	require.Equal(t, 1, repo.setErrorCalls)
+	require.Equal(t, account.ID, repo.lastSetErrorID)
+	require.Contains(t, repo.lastSetErrorMessage, "private key is missing")
+	require.Equal(t, StatusError, account.Status)
+}
+
 func TestOpenAIAgentIdentityPassthroughKeepsSessionAndPromptCacheHeaders(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	key, privateKey := newTestAgentIdentityKey(t)
@@ -159,6 +192,174 @@ func TestOpenAIAgentIdentityPassthroughKeepsSessionAndPromptCacheHeaders(t *test
 	require.NoError(t, err)
 	require.Equal(t, oauthReq.Header.Get("session_id"), req.Header.Get("session_id"))
 	require.Equal(t, oauthReq.Header.Get("conversation_id"), req.Header.Get("conversation_id"))
+}
+
+func TestOpenAIAgentIdentityAuthenticationFailureDisablesCredentialAccountAndFailsOver(t *testing.T) {
+	account := &Account{
+		ID:          25,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Status:      StatusActive,
+		Schedulable: true,
+		Credentials: map[string]any{
+			"auth_mode":        OpenAIAuthModeAgentIdentity,
+			"agent_runtime_id": "runtime-auth-failure",
+			"task_id":          "task-auth-failure",
+		},
+	}
+	repo := &accountTestAgentIdentityRepo{account: account}
+	svc := &OpenAIGatewayService{accountRepo: repo}
+
+	_, err := svc.buildOpenAIAuthenticationHeaders(context.Background(), account, "")
+
+	var failoverErr *UpstreamFailoverError
+	require.ErrorAs(t, err, &failoverErr)
+	require.Equal(t, GatewayFailureStageAccountAuth, failoverErr.Stage)
+	require.Equal(t, GatewayFailureScopeAccount, failoverErr.Scope)
+	require.Equal(t, NextAccountRetry, failoverErr.NextAccountAction)
+	require.Equal(t, http.StatusServiceUnavailable, failoverErr.ClientStatusCode)
+	require.Equal(t, OpenAIAgentIdentityUnavailableClientMessage, failoverErr.ClientMessage)
+	require.Equal(t, 1, repo.setErrorCalls)
+	require.Equal(t, account.ID, repo.lastSetErrorID)
+	require.Contains(t, repo.lastSetErrorMessage, "private key is missing")
+	require.Equal(t, StatusError, account.Status)
+	require.True(t, svc.isOpenAIAccountRuntimeBlocked(account))
+}
+
+func TestOpenAIAgentIdentityAuthenticationFailureDisablesShadowCredentialOwner(t *testing.T) {
+	parent := &Account{
+		ID:          26,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Status:      StatusActive,
+		Schedulable: true,
+		Credentials: map[string]any{
+			"auth_mode":        OpenAIAuthModeAgentIdentity,
+			"agent_runtime_id": "runtime-parent-auth-failure",
+			"task_id":          "task-parent-auth-failure",
+		},
+	}
+	parentID := parent.ID
+	shadow := &Account{
+		ID:              27,
+		Platform:        PlatformOpenAI,
+		Type:            AccountTypeOAuth,
+		Status:          StatusActive,
+		Schedulable:     true,
+		ParentAccountID: &parentID,
+	}
+	repo := &accountTestAgentIdentityRepo{account: parent}
+	svc := &OpenAIGatewayService{accountRepo: repo}
+
+	_, err := svc.buildOpenAIAuthenticationHeaders(context.Background(), shadow, "")
+
+	var failoverErr *UpstreamFailoverError
+	require.ErrorAs(t, err, &failoverErr)
+	require.Equal(t, GatewayFailureStageAccountAuth, failoverErr.Stage)
+	require.Equal(t, parent.ID, repo.lastSetErrorID)
+	require.Equal(t, StatusError, parent.Status)
+	require.Equal(t, StatusActive, shadow.Status)
+	require.True(t, svc.isOpenAIAccountRuntimeBlocked(parent))
+	require.True(t, svc.isOpenAIAccountRuntimeBlocked(shadow))
+}
+
+func TestOpenAIAgentIdentityAuthenticationCancellationDoesNotDisableAccount(t *testing.T) {
+	account := &Account{
+		ID:       28,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+		Status:   StatusActive,
+		Credentials: map[string]any{
+			"auth_mode":        OpenAIAuthModeAgentIdentity,
+			"agent_runtime_id": "runtime-canceled",
+			"task_id":          "task-canceled",
+		},
+	}
+	repo := &accountTestAgentIdentityRepo{account: account}
+	svc := &OpenAIGatewayService{accountRepo: repo}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := svc.buildOpenAIAuthenticationHeaders(ctx, account, "")
+
+	require.ErrorIs(t, err, context.Canceled)
+	var failoverErr *UpstreamFailoverError
+	require.False(t, errors.As(err, &failoverErr))
+	require.Zero(t, repo.setErrorCalls)
+	require.Equal(t, StatusActive, account.Status)
+	require.False(t, svc.isOpenAIAccountRuntimeBlocked(account))
+}
+
+func TestOpenAIAgentIdentityForbiddenDisablesImmediately(t *testing.T) {
+	account := &Account{
+		ID:          29,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Status:      StatusActive,
+		Schedulable: true,
+		Credentials: map[string]any{
+			"auth_mode": OpenAIAuthModeAgentIdentity,
+		},
+	}
+	repo := &accountTestAgentIdentityRepo{account: account}
+	svc := &OpenAIGatewayService{accountRepo: repo}
+
+	disabled := svc.handleOpenAIAccountUpstreamError(
+		context.Background(),
+		account,
+		http.StatusForbidden,
+		http.Header{},
+		[]byte(`<html><head><title>Access forbidden</title></head></html>`),
+	)
+
+	require.True(t, disabled)
+	require.Equal(t, 1, repo.setErrorCalls)
+	require.Equal(t, account.ID, repo.lastSetErrorID)
+	require.Contains(t, repo.lastSetErrorMessage, "Agent Identity access forbidden (403)")
+	require.Equal(t, StatusError, account.Status)
+	require.True(t, svc.isOpenAIAccountRuntimeBlocked(account))
+}
+
+func TestOpenAIAgentIdentityForwardForbiddenReturnsFailoverAndDisablesAccount(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	key, privateKey := newTestAgentIdentityKey(t)
+	account := &Account{
+		ID:          30,
+		Name:        "agent-identity-forbidden",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"auth_mode":          OpenAIAuthModeAgentIdentity,
+			"agent_runtime_id":   key.runtimeID,
+			"agent_private_key":  privateKey,
+			"task_id":            key.taskID,
+			"chatgpt_account_id": "account-agent-forbidden",
+		},
+	}
+	repo := &accountTestAgentIdentityRepo{account: account}
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusForbidden,
+		Header:     http.Header{"Content-Type": []string{"text/html"}},
+		Body:       io.NopCloser(strings.NewReader(`<html><head><title>Access forbidden</title></head></html>`)),
+	}}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}, accountRepo: repo, httpUpstream: upstream}
+	body := []byte(`{"model":"gpt-5.4","instructions":"Reply OK","input":[],"stream":false}`)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
+
+	_, err := svc.Forward(context.Background(), c, account, body)
+
+	var failoverErr *UpstreamFailoverError
+	require.ErrorAs(t, err, &failoverErr)
+	require.Equal(t, http.StatusForbidden, failoverErr.StatusCode)
+	require.True(t, failoverErr.ShouldRetryNextAccount())
+	require.Equal(t, 1, repo.setErrorCalls)
+	require.Equal(t, StatusError, account.Status)
+	require.True(t, svc.isOpenAIAccountRuntimeBlocked(account))
 }
 
 func TestOpenAIAgentIdentityErrorRedactionDoesNotLeakCredentialValues(t *testing.T) {
@@ -491,8 +692,10 @@ func (r *agentIdentityWSInvalidationRecorder) InvalidateAgentIdentityWSConnectio
 
 type accountTestAgentIdentityRepo struct {
 	AccountRepository
-	account       *Account
-	setErrorCalls int
+	account             *Account
+	setErrorCalls       int
+	lastSetErrorID      int64
+	lastSetErrorMessage string
 }
 
 func (r *accountTestAgentIdentityRepo) GetByID(_ context.Context, _ int64) (*Account, error) {
@@ -508,8 +711,10 @@ func (r *accountTestAgentIdentityRepo) UpdateExtra(_ context.Context, _ int64, _
 	return nil
 }
 
-func (r *accountTestAgentIdentityRepo) SetError(_ context.Context, _ int64, _ string) error {
+func (r *accountTestAgentIdentityRepo) SetError(_ context.Context, id int64, message string) error {
 	r.setErrorCalls++
+	r.lastSetErrorID = id
+	r.lastSetErrorMessage = message
 	return nil
 }
 

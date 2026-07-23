@@ -342,6 +342,10 @@ func (h *GatewayHandler) handleResponsesFailoverExhausted(c *gin.Context, lastEr
 	if lastErr != nil {
 		copyFailoverRetryAfter(c, lastErr.ResponseHeaders)
 	}
+	if lastErr != nil && lastErr.IsOpenAIInvalidPromptPolicyError() {
+		h.responsesErrorResponse(c, http.StatusBadRequest, "invalid_request_error", service.OpenAIInvalidPromptPolicyClientMessage)
+		return
+	}
 	if lastErr != nil && lastErr.IsCredentialFailure() {
 		status, message := credentialFailoverClientResponse(lastErr)
 		h.responsesErrorResponse(c, status, "server_error", message)

@@ -621,6 +621,7 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 	if credentialAccount.IsOpenAIAgentIdentity() {
 		authHeaders, authErr := buildAgentIdentityAuthenticationHeaders(ctx, s.accountRepo, s.agentIdentityWS, &s.agentIdentityTaskMu, credentialAccount)
 		if authErr != nil {
+			_ = setOpenAIAgentIdentityAccountError(ctx, s.accountRepo, s.agentIdentityWS, credentialAccount, "Agent Identity authentication failed: "+authErr.Error())
 			return s.sendErrorAndEnd(c, "Failed to build Agent Identity authentication")
 		}
 		for key, values := range authHeaders {
@@ -676,6 +677,7 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 		if !agentIdentityTaskRecoveryWasTried(ctx) && credentialAccount.IsOpenAIAgentIdentity() && isAgentIdentityTaskInvalidHTTPResponse(resp.StatusCode, body) {
 			expectedTaskID := credentialAccount.GetCredential("task_id")
 			if err := ensureAgentIdentityTaskForAccount(ctx, s.accountRepo, s.agentIdentityWS, &s.agentIdentityTaskMu, credentialAccount, expectedTaskID); err != nil {
+				_ = setOpenAIAgentIdentityAccountError(ctx, s.accountRepo, s.agentIdentityWS, credentialAccount, "Agent Identity task recovery failed: "+err.Error())
 				return s.sendErrorAndEnd(c, fmt.Sprintf("Agent Identity task recovery failed: %s", err.Error()))
 			}
 			c.Request = c.Request.WithContext(markAgentIdentityTaskRecoveryTried(ctx))
@@ -683,6 +685,11 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 		}
 		if resp.StatusCode == http.StatusTooManyRequests {
 			s.reconcileOpenAI429State(ctx, account, resp.Header, body)
+		}
+		if resp.StatusCode == http.StatusForbidden && credentialAccount.IsOpenAIAgentIdentity() {
+			_ = setOpenAIAgentIdentityAccountError(ctx, s.accountRepo, s.agentIdentityWS, credentialAccount, buildForbiddenErrorMessage(
+				"Agent Identity access forbidden (403):", extractUpstreamErrorMessage(body), body, "credentials require account action",
+			))
 		}
 		// 401 Unauthorized: 标记账号为永久错误
 		if resp.StatusCode == http.StatusUnauthorized && s.accountRepo != nil {
@@ -935,6 +942,7 @@ func (s *AccountTestService) testOpenAICompactConnection(c *gin.Context, account
 	if credentialAccount.IsOpenAIAgentIdentity() {
 		authHeaders, authErr := buildAgentIdentityAuthenticationHeaders(ctx, s.accountRepo, s.agentIdentityWS, &s.agentIdentityTaskMu, credentialAccount)
 		if authErr != nil {
+			_ = setOpenAIAgentIdentityAccountError(ctx, s.accountRepo, s.agentIdentityWS, credentialAccount, "Agent Identity authentication failed: "+authErr.Error())
 			return s.sendErrorAndEnd(c, "Failed to build Agent Identity authentication")
 		}
 		for key, values := range authHeaders {
@@ -979,6 +987,7 @@ func (s *AccountTestService) testOpenAICompactConnection(c *gin.Context, account
 	if !agentIdentityTaskRecoveryWasTried(ctx) && credentialAccount.IsOpenAIAgentIdentity() && isAgentIdentityTaskInvalidHTTPResponse(resp.StatusCode, body) {
 		expectedTaskID := credentialAccount.GetCredential("task_id")
 		if err := ensureAgentIdentityTaskForAccount(ctx, s.accountRepo, s.agentIdentityWS, &s.agentIdentityTaskMu, credentialAccount, expectedTaskID); err != nil {
+			_ = setOpenAIAgentIdentityAccountError(ctx, s.accountRepo, s.agentIdentityWS, credentialAccount, "Agent Identity task recovery failed: "+err.Error())
 			return s.sendErrorAndEnd(c, fmt.Sprintf("Agent Identity task recovery failed: %s", err.Error()))
 		}
 		c.Request = c.Request.WithContext(markAgentIdentityTaskRecoveryTried(ctx))
@@ -1001,6 +1010,11 @@ func (s *AccountTestService) testOpenAICompactConnection(c *gin.Context, account
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusForbidden && credentialAccount.IsOpenAIAgentIdentity() {
+			_ = setOpenAIAgentIdentityAccountError(ctx, s.accountRepo, s.agentIdentityWS, credentialAccount, buildForbiddenErrorMessage(
+				"Agent Identity access forbidden (403):", extractUpstreamErrorMessage(body), body, "credentials require account action",
+			))
+		}
 		if resp.StatusCode == http.StatusUnauthorized && s.accountRepo != nil {
 			errMsg := fmt.Sprintf("Authentication failed (401): %s", string(body))
 			_ = s.accountRepo.SetError(ctx, account.ID, errMsg)
@@ -1827,6 +1841,7 @@ func (s *AccountTestService) testOpenAIImageOAuth(c *gin.Context, ctx context.Co
 	if credentialAccount.IsOpenAIAgentIdentity() {
 		authHeaders, authErr := buildAgentIdentityAuthenticationHeaders(ctx, s.accountRepo, s.agentIdentityWS, &s.agentIdentityTaskMu, credentialAccount)
 		if authErr != nil {
+			_ = setOpenAIAgentIdentityAccountError(ctx, s.accountRepo, s.agentIdentityWS, credentialAccount, "Agent Identity authentication failed: "+authErr.Error())
 			return s.sendErrorAndEnd(c, "Failed to build Agent Identity authentication")
 		}
 		for key, values := range authHeaders {
@@ -1866,6 +1881,11 @@ func (s *AccountTestService) testOpenAIImageOAuth(c *gin.Context, ctx context.Co
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 		body = redactAgentIdentitySensitiveBodyForAccount(ctx, s.accountRepo, credentialAccount, body)
+		if resp.StatusCode == http.StatusForbidden && credentialAccount.IsOpenAIAgentIdentity() {
+			_ = setOpenAIAgentIdentityAccountError(ctx, s.accountRepo, s.agentIdentityWS, credentialAccount, buildForbiddenErrorMessage(
+				"Agent Identity access forbidden (403):", extractUpstreamErrorMessage(body), body, "credentials require account action",
+			))
+		}
 		message := strings.TrimSpace(extractUpstreamErrorMessage(body))
 		if message == "" {
 			message = fmt.Sprintf("Responses API returned %d", resp.StatusCode)

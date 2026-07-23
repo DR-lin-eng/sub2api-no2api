@@ -219,6 +219,11 @@ func (s *OpenAIGatewayService) shouldFailoverUpstreamError(statusCode int) bool 
 }
 
 func (s *OpenAIGatewayService) shouldFailoverOpenAIUpstreamResponse(statusCode int, upstreamMsg string, upstreamBody []byte) bool {
+	if isOpenAIInvalidPromptPolicyError(upstreamMsg, upstreamBody) {
+		// Route through the failover envelope so the handler can stop immediately
+		// with a request-scoped 400 instead of retrying this prompt on other accounts.
+		return true
+	}
 	if isOpenAIContextWindowError(upstreamMsg, upstreamBody) {
 		return false
 	}
@@ -235,7 +240,31 @@ func (s *OpenAIGatewayService) shouldFailoverOpenAIUpstreamResponse(statusCode i
 // after all account-specific request body limit failovers are exhausted.
 const OpenAIRequestBodyTooLargeClientMessage = "Request payload is too large"
 
-const openAIRequestBodyTooLargeReason = GatewayFailureReason("openai_request_body_too_large")
+const OpenAIInvalidPromptPolicyClientMessage = "Invalid prompt: your prompt was flagged as potentially violating our usage policy. Please try again with a different prompt: https://platform.openai.com/docs/guides/reasoning#advice-on-prompting"
+
+const (
+	openAIRequestBodyTooLargeReason = GatewayFailureReason("openai_request_body_too_large")
+	openAIInvalidPromptPolicyReason = GatewayFailureReason("openai_invalid_prompt_policy")
+)
+
+func isOpenAIInvalidPromptPolicyError(upstreamMsg string, upstreamBody []byte) bool {
+	const marker = "invalid prompt: your prompt was flagged as potentially violating our usage policy"
+	match := func(value string) bool {
+		return strings.Contains(strings.ToLower(strings.TrimSpace(value)), marker)
+	}
+	if match(upstreamMsg) {
+		return true
+	}
+	if len(upstreamBody) == 0 {
+		return false
+	}
+	for _, path := range []string{"error.message", "response.error.message", "message"} {
+		if match(gjson.GetBytes(upstreamBody, path).String()) {
+			return true
+		}
+	}
+	return false
+}
 
 func isOpenAIRequestBodyTooLargeError(statusCode int, upstreamMsg string, upstreamBody []byte) bool {
 	return statusCode == http.StatusRequestEntityTooLarge && !isOpenAIContextWindowError(upstreamMsg, upstreamBody)
@@ -254,6 +283,15 @@ func newOpenAIUpstreamFailoverError(
 		ResponseHeaders:        responseHeaders.Clone(),
 		RetryableOnSameAccount: retryableOnSameAccount,
 	}
+	if isOpenAIInvalidPromptPolicyError(upstreamMsg, responseBody) {
+		failoverErr.RetryableOnSameAccount = false
+		failoverErr.Scope = GatewayFailureScopeRequest
+		failoverErr.Reason = openAIInvalidPromptPolicyReason
+		failoverErr.NextAccountAction = NextAccountStop
+		failoverErr.ClientStatusCode = http.StatusBadRequest
+		failoverErr.ClientMessage = OpenAIInvalidPromptPolicyClientMessage
+		return failoverErr
+	}
 	if isOpenAIRequestBodyTooLargeError(statusCode, upstreamMsg, responseBody) {
 		failoverErr.RetryableOnSameAccount = false
 		failoverErr.Scope = GatewayFailureScopeAccount
@@ -269,6 +307,10 @@ func newOpenAIUpstreamFailoverError(
 // same request even though the selected account rejected its serialized size.
 func (e *UpstreamFailoverError) IsOpenAIRequestBodyTooLarge() bool {
 	return e != nil && e.Reason == openAIRequestBodyTooLargeReason
+}
+
+func (e *UpstreamFailoverError) IsOpenAIInvalidPromptPolicyError() bool {
+	return e != nil && e.Reason == openAIInvalidPromptPolicyReason
 }
 
 func marshalOpenAIUpstreamJSON(v any) ([]byte, error) {
@@ -322,8 +364,17 @@ func (s *OpenAIGatewayService) handleErrorResponse(
 ) (*OpenAIForwardResult, error) {
 	body := s.readUpstreamErrorBody(resp)
 	body = s.redactAgentIdentitySensitiveBody(ctx, account, body)
+	upstreamMsg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(body)))
+	if isOpenAIInvalidPromptPolicyError(upstreamMsg, body) {
+		return nil, newOpenAIUpstreamFailoverError(
+			resp.StatusCode,
+			resp.Header,
+			body,
+			upstreamMsg,
+			false,
+		)
+	}
 	if s.autoDisableOnUpstreamInsufficientBalance(ctx, account, resp.StatusCode, body) {
-		upstreamMsg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(body)))
 		return nil, newOpenAIUpstreamFailoverError(
 			resp.StatusCode,
 			resp.Header,
@@ -369,8 +420,7 @@ func (s *OpenAIGatewayService) handleErrorResponse(
 		return nil, fmt.Errorf("grok content policy rejection: %s", clientMsg)
 	}
 
-	upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(body))
-	upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
+	upstreamMsg = sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(body)))
 	upstreamDetail := ""
 	if s.cfg != nil && s.cfg.Gateway.LogUpstreamErrorBody {
 		maxBytes := s.cfg.Gateway.LogUpstreamErrorBodyMaxBytes
@@ -489,11 +539,7 @@ func (s *OpenAIGatewayService) handleErrorResponse(
 		Detail:             upstreamDetail,
 	})
 	if shouldDisable {
-		return nil, &UpstreamFailoverError{
-			StatusCode:             resp.StatusCode,
-			ResponseBody:           body,
-			RetryableOnSameAccount: false,
-		}
+		return nil, newOpenAIUpstreamFailoverError(resp.StatusCode, resp.Header, body, upstreamMsg, false)
 	}
 
 	MarkResponseCommitted(c)
@@ -563,8 +609,11 @@ func (s *OpenAIGatewayService) handleCompatErrorResponse(
 	if c != nil && c.Request != nil {
 		requestCtx = c.Request.Context()
 	}
+	upstreamMsg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(body)))
+	if isOpenAIInvalidPromptPolicyError(upstreamMsg, body) {
+		return nil, newOpenAIUpstreamFailoverError(resp.StatusCode, resp.Header, body, upstreamMsg, false)
+	}
 	if s.autoDisableOnUpstreamInsufficientBalance(requestCtx, account, resp.StatusCode, body) {
-		upstreamMsg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(body)))
 		return nil, newOpenAIUpstreamFailoverError(
 			resp.StatusCode,
 			resp.Header,
@@ -604,7 +653,6 @@ func (s *OpenAIGatewayService) handleCompatErrorResponse(
 		return nil, fmt.Errorf("grok content policy rejection: %s", clientMsg)
 	}
 
-	upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(body))
 	if upstreamMsg == "" {
 		upstreamMsg = fmt.Sprintf("Upstream error: %d", resp.StatusCode)
 	}
@@ -680,11 +728,7 @@ func (s *OpenAIGatewayService) handleCompatErrorResponse(
 		Detail:             upstreamDetail,
 	})
 	if shouldDisable {
-		return nil, &UpstreamFailoverError{
-			StatusCode:             resp.StatusCode,
-			ResponseBody:           body,
-			RetryableOnSameAccount: false,
-		}
+		return nil, newOpenAIUpstreamFailoverError(resp.StatusCode, resp.Header, body, upstreamMsg, false)
 	}
 
 	MarkResponseCommitted(c)

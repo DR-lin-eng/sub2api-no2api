@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -25,7 +26,13 @@ const (
 	OpenAIAuthModeAgentIdentity          = "agentIdentity"
 	agentIdentityAuthAPIBaseURL          = "https://auth.openai.com/api/accounts"
 	agentIdentityTaskRegistrationTimeout = 30 * time.Second
+	openAIAgentIdentityAuthFailureReason = GatewayFailureReason("openai_agent_identity_auth_failed")
 )
+
+// OpenAIAgentIdentityUnavailableClientMessage is intentionally generic: the
+// underlying failure can contain account or proxy details that must stay in
+// administrator-only state and logs.
+const OpenAIAgentIdentityUnavailableClientMessage = "OpenAI Agent Identity authentication is unavailable"
 
 var openAIAgentIdentityAuthAPIBaseURL = agentIdentityAuthAPIBaseURL
 
@@ -209,6 +216,9 @@ func registerAgentIdentityTask(ctx context.Context, account *Account) (string, e
 	req.Header.Set("Accept", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return "", ctxErr
+		}
 		return "", errors.New("agent task registration request failed")
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -384,7 +394,7 @@ func (s *OpenAIGatewayService) buildOpenAIAuthenticationHeaders(ctx context.Cont
 	if credAccount != nil && credAccount.IsOpenAIAgentIdentity() {
 		agentHeaders, err := buildAgentIdentityAuthenticationHeaders(ctx, s.accountRepo, s, &s.agentIdentityTaskMu, credAccount)
 		if err != nil {
-			return nil, err
+			return nil, s.handleOpenAIAgentIdentityAuthenticationFailure(ctx, account, credAccount, err)
 		}
 		return agentHeaders, nil
 	}
@@ -433,19 +443,167 @@ func (s *OpenAIGatewayService) refreshOpenAIAgentIdentityHeaders(ctx context.Con
 	}
 	authHeaders, err := buildAgentIdentityAuthenticationHeaders(ctx, s.accountRepo, s, &s.agentIdentityTaskMu, credAccount)
 	if err != nil {
-		return nil, err
+		return nil, s.handleOpenAIAgentIdentityAuthenticationFailure(ctx, account, credAccount, err)
 	}
 	refreshed.Set("Authorization", authHeaders.Get("Authorization"))
 	return refreshed, nil
 }
 
 func (s *OpenAIGatewayService) recoverAgentIdentityTask(ctx context.Context, account *Account, expectedTaskID string) error {
+	credAccount := account
 	if account != nil && account.IsShadow() {
-		if resolved, err := resolveCredentialAccount(ctx, s.accountRepo, account); err == nil && resolved != nil && strings.TrimSpace(expectedTaskID) == "" {
+		resolved, err := resolveCredentialAccount(ctx, s.accountRepo, account)
+		if err != nil {
+			return err
+		}
+		credAccount = resolved
+		if resolved != nil && strings.TrimSpace(expectedTaskID) == "" {
 			expectedTaskID = strings.TrimSpace(resolved.GetCredential("task_id"))
 		}
 	}
-	return s.ensureAgentIdentityTask(ctx, account, expectedTaskID)
+	err := s.ensureAgentIdentityTask(ctx, account, expectedTaskID)
+	if err == nil || credAccount == nil || !credAccount.IsOpenAIAgentIdentity() {
+		return err
+	}
+	return s.handleOpenAIAgentIdentityAuthenticationFailure(ctx, account, credAccount, err)
+}
+
+func newOpenAIAgentIdentityAuthenticationFailoverError() *UpstreamFailoverError {
+	return &UpstreamFailoverError{
+		StatusCode:        http.StatusServiceUnavailable,
+		Stage:             GatewayFailureStageAccountAuth,
+		Scope:             GatewayFailureScopeAccount,
+		Reason:            openAIAgentIdentityAuthFailureReason,
+		NextAccountAction: NextAccountRetry,
+		ClientStatusCode:  http.StatusServiceUnavailable,
+		ClientMessage:     OpenAIAgentIdentityUnavailableClientMessage,
+	}
+}
+
+func (e *UpstreamFailoverError) IsOpenAIAgentIdentityAuthenticationFailure() bool {
+	return e != nil && e.Reason == openAIAgentIdentityAuthFailureReason
+}
+
+func (s *OpenAIGatewayService) handleOpenAIAgentIdentityAuthenticationFailure(
+	ctx context.Context,
+	selectedAccount *Account,
+	credentialAccount *Account,
+	cause error,
+) error {
+	if cause == nil {
+		return nil
+	}
+	// A caller cancellation is request-scoped and says nothing about credential
+	// health. Preserve it instead of quarantining a usable account.
+	if ctx != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+	}
+	if errors.Is(cause, context.Canceled) {
+		return cause
+	}
+
+	detail := sanitizeUpstreamErrorMessage(strings.TrimSpace(cause.Error()))
+	if detail == "" {
+		detail = "unknown Agent Identity authentication failure"
+	}
+	detail = truncateString(detail, 512)
+	s.quarantineOpenAIAgentIdentityAccount(ctx, selectedAccount, credentialAccount, "Agent Identity authentication failed: "+detail)
+	return newOpenAIAgentIdentityAuthenticationFailoverError()
+}
+
+func (s *OpenAIGatewayService) quarantineOpenAIAgentIdentityAccount(
+	ctx context.Context,
+	selectedAccount *Account,
+	credentialAccount *Account,
+	reason string,
+) {
+	if s == nil || credentialAccount == nil || !credentialAccount.IsOpenAIAgentIdentity() {
+		return
+	}
+
+	// Block both the selected shadow (if any) and the credential owner so the
+	// scheduler fast path cannot reselect either while the durable status update
+	// propagates through repository and scheduler caches.
+	if selectedAccount != nil {
+		s.BlockAccountScheduling(selectedAccount, time.Time{}, "agent_identity_auth_error")
+	}
+	if selectedAccount == nil || selectedAccount.ID != credentialAccount.ID {
+		s.BlockAccountScheduling(credentialAccount, time.Time{}, "agent_identity_auth_error")
+	}
+
+	if err := setOpenAIAgentIdentityAccountError(ctx, s.accountRepo, s, credentialAccount, reason); err != nil {
+		slog.Warn("agent_identity_set_error_failed", "account_id", credentialAccount.ID, "error", err)
+		return
+	}
+	slog.Warn("agent_identity_account_disabled", "account_id", credentialAccount.ID, "error", credentialAccount.ErrorMessage)
+}
+
+func setOpenAIAgentIdentityAccountError(
+	ctx context.Context,
+	repo AccountRepository,
+	wsInvalidator agentIdentityWSConnectionInvalidator,
+	credentialAccount *Account,
+	reason string,
+) error {
+	if credentialAccount == nil || !credentialAccount.IsOpenAIAgentIdentity() {
+		return errors.New("Agent Identity credential account is unavailable")
+	}
+	if ctx != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+	}
+	if repo == nil {
+		return errors.New("account repository is unavailable")
+	}
+	reason = truncateString(sanitizeUpstreamErrorMessage(strings.TrimSpace(reason)), 1024)
+	if reason == "" {
+		reason = "Agent Identity authentication failed"
+	}
+	stateCtx, cancel := openAIAccountStateContext(ctx)
+	defer cancel()
+	if err := repo.SetError(stateCtx, credentialAccount.ID, reason); err != nil {
+		return err
+	}
+	credentialAccount.Status = StatusError
+	credentialAccount.ErrorMessage = reason
+	if wsInvalidator != nil {
+		wsInvalidator.InvalidateAgentIdentityWSConnections(credentialAccount.ID)
+	}
+	return nil
+}
+
+func (s *OpenAIGatewayService) disableOpenAIAgentIdentityOnForbidden(
+	ctx context.Context,
+	account *Account,
+	responseBody []byte,
+) bool {
+	if s == nil || account == nil {
+		return false
+	}
+	stateCtx, cancel := openAIAccountStateContext(ctx)
+	defer cancel()
+	credentialAccount := account
+	if account.IsShadow() {
+		resolved, err := resolveCredentialAccount(stateCtx, s.accountRepo, account)
+		if err != nil || resolved == nil {
+			return false
+		}
+		credentialAccount = resolved
+	}
+	if !credentialAccount.IsOpenAIAgentIdentity() {
+		return false
+	}
+	message := buildForbiddenErrorMessage(
+		"Agent Identity access forbidden (403):",
+		strings.TrimSpace(extractUpstreamErrorMessage(responseBody)),
+		responseBody,
+		"credentials require account action",
+	)
+	s.quarantineOpenAIAgentIdentityAccount(stateCtx, account, credentialAccount, message)
+	return true
 }
 
 func (s *OpenAIGatewayService) isAgentIdentityAccount(ctx context.Context, account *Account) bool {

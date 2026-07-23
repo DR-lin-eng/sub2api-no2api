@@ -62,6 +62,12 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
 	if account != nil && account.Platform == PlatformGrok && isGrokContentPolicyRejection(statusCode, responseBody) {
 		return false
 	}
+	if account != nil && account.Platform == PlatformOpenAI && isOpenAIInvalidPromptPolicyError("", responseBody) {
+		return false
+	}
+	if statusCode == http.StatusForbidden && s.disableOpenAIAgentIdentityOnForbidden(ctx, account, responseBody) {
+		return true
+	}
 	stateCtx, cancel := openAIAccountStateContext(ctx)
 	defer cancel()
 	modelScope := firstRequestedModel(canonicalModel)

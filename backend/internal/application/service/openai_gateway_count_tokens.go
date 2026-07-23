@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -114,6 +115,10 @@ func (s *OpenAIGatewayService) ForwardCountTokensAsAnthropic(
 
 	upstreamReq, err := s.buildInputTokensUpstreamRequest(ctx, c, account, upstreamBody, token)
 	if err != nil {
+		var failoverErr *UpstreamFailoverError
+		if errors.As(err, &failoverErr) {
+			return err
+		}
 		writeAnthropicCountTokensError(c, http.StatusInternalServerError, "api_error", "Failed to build request")
 		return fmt.Errorf("build input_tokens request: %w", err)
 	}
@@ -139,13 +144,18 @@ func (s *OpenAIGatewayService) ForwardCountTokensAsAnthropic(
 
 	if resp.StatusCode >= 400 {
 		upstreamMsg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(respBody)))
+		if isOpenAIInvalidPromptPolicyError(upstreamMsg, respBody) {
+			setOpsUpstreamError(c, resp.StatusCode, OpenAIInvalidPromptPolicyClientMessage, "")
+			return newOpenAIUpstreamFailoverError(resp.StatusCode, resp.Header, respBody, upstreamMsg, false)
+		}
 		if account.Type == AccountTypeOAuth && isOpenAIOAuthInputTokensUnsupported(resp.StatusCode, respBody) {
 			writeOpenAIOAuthInputTokensFallback(c, account, prepared, resp.StatusCode)
 			return nil
 		}
 
-		if s.rateLimitService != nil {
-			s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
+		shouldDisable := s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody, prepared.UpstreamModel)
+		if shouldDisable && s.isAgentIdentityAccount(ctx, account) {
+			return newOpenAIUpstreamFailoverError(resp.StatusCode, resp.Header, respBody, upstreamMsg, false)
 		}
 
 		if isOpenAIInputTokensUnsupported(resp.StatusCode, respBody) {

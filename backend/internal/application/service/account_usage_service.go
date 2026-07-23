@@ -892,6 +892,9 @@ func (s *AccountUsageService) probeOpenAICodexSnapshot(ctx context.Context, acco
 	if account.IsOpenAIAgentIdentity() {
 		authHeaders, authErr := buildAgentIdentityAuthenticationHeaders(ctx, s.accountRepo, s.agentIdentityWS, &s.agentIdentityTaskMu, account)
 		if authErr != nil {
+			if ctx.Err() == nil {
+				_ = setOpenAIAgentIdentityAccountError(ctx, s.accountRepo, s.agentIdentityWS, account, "Agent Identity authentication failed: "+authErr.Error())
+			}
 			return nil, fmt.Errorf("build Agent Identity authentication: %w", authErr)
 		}
 		for key, values := range authHeaders {

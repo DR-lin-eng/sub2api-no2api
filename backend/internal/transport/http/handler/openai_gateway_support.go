@@ -243,6 +243,17 @@ func (h *OpenAIGatewayHandler) handleFailoverExhausted(c *gin.Context, failoverE
 		)
 		return
 	}
+	if failoverErr.IsOpenAIInvalidPromptPolicyError() {
+		service.SetOpsUpstreamError(c, failoverErr.StatusCode, service.OpenAIInvalidPromptPolicyClientMessage, "")
+		h.handleStreamingAwareError(
+			c,
+			http.StatusBadRequest,
+			"invalid_request_error",
+			service.OpenAIInvalidPromptPolicyClientMessage,
+			streamStarted,
+		)
+		return
+	}
 	copyFailoverRetryAfter(c, failoverErr.ResponseHeaders)
 	if failoverErr.IsCredentialFailure() {
 		status, message := credentialFailoverClientResponse(failoverErr)
@@ -304,7 +315,9 @@ func (h *OpenAIGatewayHandler) handleFailoverExhausted(c *gin.Context, failoverE
 }
 
 func credentialFailoverClientResponse(failoverErr *service.UpstreamFailoverError) (int, string) {
-	_ = failoverErr
+	if failoverErr != nil && failoverErr.IsOpenAIAgentIdentityAuthenticationFailure() {
+		return http.StatusServiceUnavailable, service.OpenAIAgentIdentityUnavailableClientMessage
+	}
 	return http.StatusServiceUnavailable, service.GrokCredentialUnavailableClientMessage
 }
 
@@ -668,7 +681,12 @@ func closeOpenAIWSFailoverExhausted(conn *coderws.Conn, failoverErr *service.Ups
 		return
 	}
 	if failoverErr.Stage == service.GatewayFailureStageAccountAuth {
-		closeOpenAIClientWS(conn, coderws.StatusTryAgainLater, service.GrokCredentialUnavailableClientMessage)
+		_, message := credentialFailoverClientResponse(failoverErr)
+		closeOpenAIClientWS(conn, coderws.StatusTryAgainLater, message)
+		return
+	}
+	if failoverErr.IsOpenAIInvalidPromptPolicyError() {
+		closeOpenAIClientWS(conn, coderws.StatusPolicyViolation, service.OpenAIInvalidPromptPolicyClientMessage)
 		return
 	}
 	switch failoverErr.StatusCode {

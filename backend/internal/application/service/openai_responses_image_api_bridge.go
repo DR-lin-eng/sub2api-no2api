@@ -719,12 +719,13 @@ func (s *OpenAIGatewayService) ForwardOpenAIResponsesImagePlan(
 		upstreamMessage := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(respBody)))
 		if s.shouldFailoverOpenAIUpstreamResponse(resp.StatusCode, upstreamMessage, respBody) {
 			s.handleFailoverSideEffects(upstreamCtx, resp, account, respBody, upstreamImageModel)
-			return nil, &UpstreamFailoverError{
-				StatusCode:             resp.StatusCode,
-				ResponseBody:           respBody,
-				ResponseHeaders:        resp.Header.Clone(),
-				RetryableOnSameAccount: account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
-			}
+			return nil, newOpenAIUpstreamFailoverError(
+				resp.StatusCode,
+				resp.Header,
+				respBody,
+				upstreamMessage,
+				account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
+			)
 		}
 		return s.handleOpenAIImagesErrorResponse(upstreamCtx, resp, c, account, upstreamImageModel)
 	}
