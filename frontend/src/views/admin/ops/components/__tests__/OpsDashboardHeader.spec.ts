@@ -112,4 +112,40 @@ describe('OpsDashboardHeader', () => {
     const redisCard = wrapper.findAll('div').find((element) => element.text().startsWith('Redis'))
     expect(redisCard?.text()).toContain('0%')
   })
+
+  it.each([
+    { count: 22_200, status: 'admin.ops.ok' },
+    { count: 30_000, status: 'common.warning' },
+    { count: 50_000, status: 'common.critical' }
+  ])('协程数 $count 显示 $status', async ({ count, status }) => {
+    const wrapper = mount(OpsDashboardHeader, {
+      props: {
+        overview: {
+          system_metrics: {
+            goroutine_count: count
+          }
+        } as any,
+        platform: '',
+        groupId: null,
+        timeRange: '1h',
+        queryMode: 'auto',
+        loading: false,
+        lastUpdated: null
+      },
+      global: {
+        stubs: {
+          Select: EmptyStub,
+          HelpTooltip: EmptyStub,
+          BaseDialog: EmptyStub,
+          Icon: EmptyStub
+        }
+      }
+    })
+    await flushPromises()
+
+    const goroutineCard = wrapper.get('[data-test="goroutine-card"]')
+    expect(goroutineCard.get('[data-test="goroutine-status"]').text()).toBe(status)
+    expect(goroutineCard.text()).toContain('30K')
+    expect(goroutineCard.text()).toContain('50K')
+  })
 })

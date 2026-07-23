@@ -780,8 +780,8 @@ const goroutineCountValue = computed<number | null>(() => {
   return typeof v === 'number' && Number.isFinite(v) ? v : null
 })
 
-const goroutinesWarnThreshold = 8_000
-const goroutinesCriticalThreshold = 15_000
+const goroutinesWarnThreshold = 30_000
+const goroutinesCriticalThreshold = 50_000
 
 const goroutineStatus = computed<'ok' | 'warning' | 'critical' | 'unknown'>(() => {
   const n = goroutineCountValue.value
@@ -1514,12 +1514,12 @@ function handleToolbarRefresh() {
         </div>
 
         <!-- Goroutines -->
-        <div class="rounded-xl bg-gray-50 p-3 dark:bg-dark-900">
+        <div data-test="goroutine-card" class="rounded-xl bg-gray-50 p-3 dark:bg-dark-900">
           <div class="flex items-center gap-1">
             <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.goroutines') }}</div>
             <HelpTooltip v-if="!props.fullscreen" :content="t('admin.ops.tooltips.goroutines')" />
           </div>
-          <div class="mt-1 text-lg font-black" :class="goroutineStatusClass">
+          <div data-test="goroutine-status" class="mt-1 text-lg font-black" :class="goroutineStatusClass">
             {{ goroutineStatusLabel }}
           </div>
           <div v-if="!props.fullscreen" class="mt-1 text-[10px] text-gray-500 dark:text-gray-400">

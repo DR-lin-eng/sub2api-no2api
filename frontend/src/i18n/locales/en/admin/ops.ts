@@ -856,7 +856,7 @@ export default {
         errorTrend: 'Error counts over time (SLA scope excludes business limits; upstream excludes 429/529).',
         errorDistribution: 'Error distribution by status code (SLA scope, excluding business limits).',
         goroutines:
-          'Number of Go runtime goroutines (lightweight threads). There is no absolute "safe" number—use your historical baseline. Heuristic: <2k is common; 2k–8k watch; >8k plus rising queue/latency often suggests blocking/leaks.',
+          'Number of Go runtime goroutines (lightweight threads). High concurrency and long-lived connections naturally increase this count, so the count alone does not indicate heavy system pressure. Display thresholds: <30k normal; 30k-49,999 warning; >=50k critical. Also check queue depth, latency, and sustained growth trends.',
         cpu: 'CPU usage percentage, showing system processor load.',
         memory: 'Memory usage, including used and total available memory.',
         db: 'Database connection pool status, including active, idle, and waiting connections.',
