@@ -28,6 +28,9 @@ const (
 	opsMetricsCollectorMaxInterval = 1 * time.Hour
 
 	opsMetricsCollectorTimeout = 10 * time.Second
+	opsRedisProbeTimeout       = 1500 * time.Millisecond
+	opsRedisProbeAttempts      = 2
+	opsMetricsFreshnessGrace   = 15 * time.Second
 
 	opsMetricsCollectorLeaderLockKey = "ops:metrics:collector:leader"
 	opsMetricsCollectorLeaderLockTTL = 90 * time.Second
@@ -111,15 +114,16 @@ func (c *OpsMetricsCollector) Stop() {
 }
 
 func (c *OpsMetricsCollector) run() {
+	interval := c.getInterval()
 	// First run immediately so the dashboard has data soon after startup.
-	c.collectOnce()
+	c.collectOnce(interval)
 
 	for {
-		interval := c.getInterval()
 		timer := time.NewTimer(interval)
 		select {
 		case <-timer.C:
-			c.collectOnce()
+			c.collectOnce(interval)
+			interval = c.getInterval()
 		case <-c.stopCh:
 			timer.Stop()
 			return
@@ -128,10 +132,8 @@ func (c *OpsMetricsCollector) run() {
 }
 
 func (c *OpsMetricsCollector) getInterval() time.Duration {
-	interval := opsMetricsCollectorMinInterval
-
 	if c.settingRepo == nil {
-		return interval
+		return opsMetricsCollectorMinInterval
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -139,16 +141,15 @@ func (c *OpsMetricsCollector) getInterval() time.Duration {
 
 	raw, err := c.settingRepo.GetValue(ctx, SettingKeyOpsMetricsIntervalSeconds)
 	if err != nil {
-		return interval
+		return opsMetricsCollectorMinInterval
 	}
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return interval
-	}
+	return parseOpsMetricsCollectorInterval(raw)
+}
 
-	seconds, err := strconv.Atoi(raw)
+func parseOpsMetricsCollectorInterval(raw string) time.Duration {
+	seconds, err := strconv.Atoi(strings.TrimSpace(raw))
 	if err != nil {
-		return interval
+		return opsMetricsCollectorMinInterval
 	}
 	if seconds < int(opsMetricsCollectorMinInterval.Seconds()) {
 		seconds = int(opsMetricsCollectorMinInterval.Seconds())
@@ -159,7 +160,17 @@ func (c *OpsMetricsCollector) getInterval() time.Duration {
 	return time.Duration(seconds) * time.Second
 }
 
-func (c *OpsMetricsCollector) collectOnce() {
+func opsMetricsSnapshotFresh(now, createdAt time.Time, interval time.Duration) bool {
+	if createdAt.IsZero() {
+		return false
+	}
+	if interval < opsMetricsCollectorMinInterval {
+		interval = opsMetricsCollectorMinInterval
+	}
+	return !createdAt.Before(now.Add(-(2*interval + opsMetricsFreshnessGrace)))
+}
+
+func (c *OpsMetricsCollector) collectOnce(interval time.Duration) {
 	if c == nil {
 		return
 	}
@@ -189,7 +200,7 @@ func (c *OpsMetricsCollector) collectOnce() {
 	}
 
 	startedAt := time.Now().UTC()
-	err := c.collectAndPersist(ctx)
+	err := c.collectAndPersist(ctx, interval)
 	finishedAt := time.Now().UTC()
 
 	durationMs := finishedAt.Sub(startedAt).Milliseconds()
@@ -253,7 +264,7 @@ func (c *OpsMetricsCollector) isMonitoringEnabled(ctx context.Context) bool {
 	}
 }
 
-func (c *OpsMetricsCollector) collectAndPersist(ctx context.Context) error {
+func (c *OpsMetricsCollector) collectAndPersist(ctx context.Context, interval time.Duration) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -270,7 +281,12 @@ func (c *OpsMetricsCollector) collectAndPersist(ctx context.Context) error {
 	}
 
 	dbOK := c.checkDB(ctx)
-	redisOK := c.checkRedis(ctx)
+	redisProbeOK := c.checkRedis(ctx)
+	var previousMetrics *OpsSystemMetricsSnapshot
+	if !redisProbeOK {
+		previousMetrics = c.latestSystemMetrics(ctx)
+	}
+	redisOK := resolveOpsRedisHealth(redisProbeOK, previousMetrics, windowEnd, interval)
 	active, idle := c.dbPoolStats()
 	redisTotal, redisIdle, redisStatsOK := c.redisPoolStats()
 
@@ -343,7 +359,7 @@ func (c *OpsMetricsCollector) collectAndPersist(ctx context.Context) error {
 		MemoryUsagePercent: sys.memoryUsagePercent,
 
 		DBOK:    boolPtr(dbOK),
-		RedisOK: boolPtr(redisOK),
+		RedisOK: redisOK,
 
 		RedisConnTotal: func() *int {
 			if !redisStatsOK {
@@ -841,7 +857,57 @@ func (c *OpsMetricsCollector) checkRedis(ctx context.Context) bool {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	return c.redisClient.Ping(ctx).Err() == nil
+	for range opsRedisProbeAttempts {
+		probeCtx, cancel := context.WithTimeout(ctx, opsRedisProbeTimeout)
+		err := c.redisClient.Ping(probeCtx).Err()
+		cancel()
+		if err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *OpsMetricsCollector) latestSystemMetrics(ctx context.Context) *OpsSystemMetricsSnapshot {
+	if c == nil || c.opsRepo == nil {
+		return nil
+	}
+	metrics, err := c.opsRepo.GetLatestSystemMetrics(ctx, 1)
+	if err != nil {
+		return nil
+	}
+	return metrics
+}
+
+func resolveOpsRedisHealth(
+	probeOK bool,
+	previous *OpsSystemMetricsSnapshot,
+	sampledAt time.Time,
+	interval time.Duration,
+) *bool {
+	if probeOK {
+		return boolPtr(true)
+	}
+	if previous == nil || !opsMetricsSnapshotFresh(sampledAt, previous.CreatedAt, interval) {
+		return nil
+	}
+	if previous.RedisOK == nil || !*previous.RedisOK {
+		return boolPtr(false)
+	}
+	return nil
+}
+
+func normalizeOpsRedisPoolStats(total, idle int) (int, int) {
+	if total < 0 {
+		total = 0
+	}
+	if idle < 0 {
+		idle = 0
+	}
+	if idle > total {
+		idle = total
+	}
+	return total, idle
 }
 
 func (c *OpsMetricsCollector) redisPoolStats() (total int, idle int, ok bool) {
@@ -852,7 +918,8 @@ func (c *OpsMetricsCollector) redisPoolStats() (total int, idle int, ok bool) {
 	if stats == nil {
 		return 0, 0, false
 	}
-	return int(stats.TotalConns), int(stats.IdleConns), true
+	total, idle = normalizeOpsRedisPoolStats(int(stats.TotalConns), int(stats.IdleConns))
+	return total, idle, true
 }
 
 func (c *OpsMetricsCollector) dbPoolStats() (active int, idle int) {

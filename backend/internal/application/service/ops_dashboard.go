@@ -52,8 +52,11 @@ func (s *OpsService) enrichDashboardOverview(ctx context.Context, overview *OpsD
 		return
 	}
 
+	now := time.Now().UTC()
+
 	// Best-effort system health + jobs; dashboard metrics should still render if these are missing.
 	if metrics, err := s.opsRepo.GetLatestSystemMetrics(ctx, 1); err == nil {
+		normalizeOpsRedisSnapshot(metrics, now, s.opsMetricsInterval())
 		// Attach config-derived limits so the UI can show "current / max" for connection pools.
 		// These are best-effort and should never block the dashboard rendering.
 		if s != nil && s.cfg != nil {
@@ -75,7 +78,34 @@ func (s *OpsService) enrichDashboardOverview(ctx context.Context, overview *OpsD
 		log.Printf("[Ops] ListJobHeartbeats failed: %v", err)
 	}
 
-	overview.HealthScore = computeDashboardHealthScore(time.Now().UTC(), overview)
+	overview.HealthScore = computeDashboardHealthScore(now, overview)
+}
+
+func (s *OpsService) opsMetricsInterval() time.Duration {
+	if s != nil {
+		if snapshot := s.runtimeSettings.Load(); snapshot != nil && snapshot.metricsInterval > 0 {
+			return snapshot.metricsInterval
+		}
+	}
+	return opsMetricsCollectorMinInterval
+}
+
+func normalizeOpsRedisSnapshot(metrics *OpsSystemMetricsSnapshot, now time.Time, interval time.Duration) {
+	if metrics == nil {
+		return
+	}
+	if !opsMetricsSnapshotFresh(now, metrics.CreatedAt, interval) {
+		metrics.RedisOK = nil
+		metrics.RedisConnTotal = nil
+		metrics.RedisConnIdle = nil
+		return
+	}
+	if metrics.RedisConnTotal == nil || metrics.RedisConnIdle == nil {
+		return
+	}
+	total, idle := normalizeOpsRedisPoolStats(*metrics.RedisConnTotal, *metrics.RedisConnIdle)
+	metrics.RedisConnTotal = intPtr(total)
+	metrics.RedisConnIdle = intPtr(idle)
 }
 
 func (s *OpsService) resolveOpsQueryMode(ctx context.Context, requested OpsQueryMode) OpsQueryMode {

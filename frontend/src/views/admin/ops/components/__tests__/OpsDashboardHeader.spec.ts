@@ -113,6 +113,40 @@ describe('OpsDashboardHeader', () => {
     expect(redisCard?.text()).toContain('0%')
   })
 
+  it('Redis 健康状态未知时不使用连接池百分比伪装为正常', async () => {
+    const wrapper = mount(OpsDashboardHeader, {
+      props: {
+        overview: {
+          system_metrics: {
+            redis_ok: null,
+            redis_pool_size: 4096,
+            redis_conn_total: 1,
+            redis_conn_idle: 1
+          }
+        } as any,
+        platform: '',
+        groupId: null,
+        timeRange: '1h',
+        queryMode: 'auto',
+        loading: false,
+        lastUpdated: null
+      },
+      global: {
+        stubs: {
+          Select: EmptyStub,
+          HelpTooltip: EmptyStub,
+          BaseDialog: EmptyStub,
+          Icon: EmptyStub
+        }
+      }
+    })
+    await flushPromises()
+
+    const redisCard = wrapper.findAll('div').find((element) => element.text().startsWith('Redis'))
+    expect(redisCard?.text()).toContain('admin.ops.noData')
+    expect(redisCard?.text()).not.toContain('0%')
+  })
+
   it.each([
     { count: 22_200, status: 'admin.ops.ok' },
     { count: 30_000, status: 'common.warning' },

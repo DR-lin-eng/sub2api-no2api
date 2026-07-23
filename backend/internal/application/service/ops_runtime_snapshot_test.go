@@ -64,6 +64,7 @@ func waitForOpsRefresh(t *testing.T, timeout time.Duration, condition func() boo
 func TestOpsRuntimeSettingsSnapshotLoadsOnceAndServesHotPath(t *testing.T) {
 	repo := newRuntimeSettingRepoStub()
 	repo.values[SettingKeyOpsMonitoringEnabled] = "false"
+	repo.values[SettingKeyOpsMetricsIntervalSeconds] = "300"
 	repo.values[SettingKeyOpsAdvancedSettings] = `{"ignore_context_canceled":false,"auto_refresh_interval_seconds":45}`
 
 	svc := &OpsService{settingRepo: repo}
@@ -87,11 +88,15 @@ func TestOpsRuntimeSettingsSnapshotLoadsOnceAndServesHotPath(t *testing.T) {
 	if repo.getValueCalls != 0 || repo.getMultipleCalls != 1 {
 		t.Fatalf("hot path touched repository: get=%d get_multiple=%d", repo.getValueCalls, repo.getMultipleCalls)
 	}
+	if got := svc.opsMetricsInterval(); got != 5*time.Minute {
+		t.Fatalf("metrics interval = %v, want 5m", got)
+	}
 }
 
 func TestOpsRuntimeSettingsAdministrativeUpdatesAreImmediatelyVisible(t *testing.T) {
 	svc := &OpsService{}
 	svc.initRuntimeSettings(context.Background())
+	initialInterval := svc.opsMetricsInterval()
 
 	svc.SetMonitoringEnabled(false)
 	if svc.IsMonitoringEnabled(context.Background()) {
@@ -110,6 +115,9 @@ func TestOpsRuntimeSettingsAdministrativeUpdatesAreImmediatelyVisible(t *testing
 	}
 	if svc.IsMonitoringEnabled(context.Background()) {
 		t.Fatal("advanced update overwrote monitoring setting")
+	}
+	if svc.opsMetricsInterval() != initialInterval {
+		t.Fatal("administrative update overwrote metrics interval")
 	}
 }
 

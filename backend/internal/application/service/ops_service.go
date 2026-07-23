@@ -32,6 +32,7 @@ const (
 
 type opsRuntimeSettingsSnapshot struct {
 	monitoringEnabled bool
+	metricsInterval   time.Duration
 	advanced          OpsAdvancedSettings
 }
 
@@ -188,7 +189,11 @@ func (s *OpsService) initRuntimeSettings(ctx context.Context) {
 		return
 	}
 	defaults := defaultOpsAdvancedSettingsForConfig(s.cfg)
-	s.runtimeSettings.Store(&opsRuntimeSettingsSnapshot{monitoringEnabled: true, advanced: *defaults})
+	s.runtimeSettings.Store(&opsRuntimeSettingsSnapshot{
+		monitoringEnabled: true,
+		metricsInterval:   opsMetricsCollectorMinInterval,
+		advanced:          *defaults,
+	})
 	_ = s.RefreshRuntimeSettings(ctx)
 }
 
@@ -207,6 +212,7 @@ func (s *OpsService) RefreshRuntimeSettings(ctx context.Context) error {
 
 	values, err := s.settingRepo.GetMultiple(ctx, []string{
 		SettingKeyOpsMonitoringEnabled,
+		SettingKeyOpsMetricsIntervalSeconds,
 		SettingKeyOpsAdvancedSettings,
 	})
 	if err != nil {
@@ -217,6 +223,7 @@ func (s *OpsService) RefreshRuntimeSettings(ctx context.Context) error {
 	if raw, ok := values[SettingKeyOpsMonitoringEnabled]; ok {
 		monitoringEnabled = parseOpsMonitoringEnabled(raw)
 	}
+	metricsInterval := parseOpsMetricsCollectorInterval(values[SettingKeyOpsMetricsIntervalSeconds])
 	advancedDefaults := defaultOpsAdvancedSettingsForConfig(s.cfg)
 	advanced := defaultOpsAdvancedSettingsForConfig(s.cfg)
 	if raw, ok := values[SettingKeyOpsAdvancedSettings]; ok {
@@ -229,7 +236,11 @@ func (s *OpsService) RefreshRuntimeSettings(ctx context.Context) error {
 	}
 	normalizeOpsAdvancedSettings(advanced)
 
-	s.runtimeSettings.Store(&opsRuntimeSettingsSnapshot{monitoringEnabled: monitoringEnabled, advanced: *advanced})
+	s.runtimeSettings.Store(&opsRuntimeSettingsSnapshot{
+		monitoringEnabled: monitoringEnabled,
+		metricsInterval:   metricsInterval,
+		advanced:          *advanced,
+	})
 	return nil
 }
 
@@ -374,8 +385,13 @@ func (s *OpsService) SetMonitoringEnabled(enabled bool) {
 	}
 	s.runtimeSettingsMu.Lock()
 	current := s.runtimeSettings.Load()
-	next := &opsRuntimeSettingsSnapshot{monitoringEnabled: enabled, advanced: *defaultOpsAdvancedSettingsForConfig(s.cfg)}
+	next := &opsRuntimeSettingsSnapshot{
+		monitoringEnabled: enabled,
+		metricsInterval:   opsMetricsCollectorMinInterval,
+		advanced:          *defaultOpsAdvancedSettingsForConfig(s.cfg),
+	}
 	if current != nil {
+		next.metricsInterval = current.metricsInterval
 		next.advanced = current.advanced
 	}
 	s.runtimeSettings.Store(next)
@@ -388,9 +404,14 @@ func (s *OpsService) storeAdvancedSettingsSnapshot(cfg *OpsAdvancedSettings) {
 	}
 	s.runtimeSettingsMu.Lock()
 	current := s.runtimeSettings.Load()
-	next := &opsRuntimeSettingsSnapshot{monitoringEnabled: true, advanced: *cfg}
+	next := &opsRuntimeSettingsSnapshot{
+		monitoringEnabled: true,
+		metricsInterval:   opsMetricsCollectorMinInterval,
+		advanced:          *cfg,
+	}
 	if current != nil {
 		next.monitoringEnabled = current.monitoringEnabled
+		next.metricsInterval = current.metricsInterval
 	}
 	s.runtimeSettings.Store(next)
 	s.runtimeSettingsMu.Unlock()

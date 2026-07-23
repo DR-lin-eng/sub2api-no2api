@@ -757,22 +757,27 @@ const redisUsagePercent = computed<number | null>(() => {
   return Math.min(100, Math.max(0, (redisConnActiveValue.value / redisPoolSizeValue.value) * 100))
 })
 
+const redisHealthValue = computed<boolean | null>(() => {
+  const v = systemMetrics.value?.redis_ok
+  return typeof v === 'boolean' ? v : null
+})
+
 const redisMiddleLabel = computed(() => {
-  if (systemMetrics.value?.redis_ok === false) return 'FAIL'
+  if (redisHealthValue.value == null) return t('admin.ops.noData')
+  if (!redisHealthValue.value) return 'FAIL'
   if (redisUsagePercent.value != null) return `${redisUsagePercent.value.toFixed(0)}%`
-  if (systemMetrics.value?.redis_ok === true) return t('admin.ops.ok')
-  return t('admin.ops.noData')
+  return t('admin.ops.ok')
 })
 
 const redisMiddleClass = computed(() => {
-  if (systemMetrics.value?.redis_ok === false) return 'text-rose-600 dark:text-rose-400'
+  if (redisHealthValue.value == null) return 'text-gray-900 dark:text-white'
+  if (!redisHealthValue.value) return 'text-rose-600 dark:text-rose-400'
   if (redisUsagePercent.value != null) {
     if (redisUsagePercent.value >= 90) return 'text-rose-600 dark:text-rose-400'
     if (redisUsagePercent.value >= 70) return 'text-yellow-600 dark:text-yellow-400'
     return 'text-emerald-600 dark:text-emerald-400'
   }
-  if (systemMetrics.value?.redis_ok === true) return 'text-emerald-600 dark:text-emerald-400'
-  return 'text-gray-900 dark:text-white'
+  return 'text-emerald-600 dark:text-emerald-400'
 })
 
 const goroutineCountValue = computed<number | null>(() => {
