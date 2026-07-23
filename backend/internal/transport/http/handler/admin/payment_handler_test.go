@@ -50,6 +50,7 @@ func TestSanitizeAdminPaymentOrderForResponseAddsCurrency(t *testing.T) {
 
 func TestAdminSubscriptionPlansForResponseIncludesCompositeGroupInfo(t *testing.T) {
 	weekly := 25.0
+	now := time.Now()
 	plans := []*dbent.SubscriptionPlan{
 		{
 			ID:           11,
@@ -57,12 +58,15 @@ func TestAdminSubscriptionPlansForResponseIncludesCompositeGroupInfo(t *testing.
 			Name:         "All models",
 			Description:  "Composite access",
 			Price:        19.99,
+			Currency:     "CNY",
 			ValidityDays: 30,
 			ValidityUnit: "days",
 			Features:     "OpenAI\nClaude\nGemini\nGrok",
 			ProductName:  "Sub2API",
 			ForSale:      true,
 			SortOrder:    1,
+			CreatedAt:    now,
+			UpdatedAt:    now,
 		},
 	}
 	groupInfo := map[int64]service.PlanGroupInfo{
@@ -91,5 +95,11 @@ func TestAdminSubscriptionPlansForResponseIncludesCompositeGroupInfo(t *testing.
 	}
 	if strings.Join(got[0].ModelScopes, ",") != "openai,claude,gemini,grok" {
 		t.Fatalf("expected model scopes to be preserved, got %#v", got[0].ModelScopes)
+	}
+	if got[0].Currency != "CNY" {
+		t.Fatalf("expected currency to be preserved, got %q", got[0].Currency)
+	}
+	if !got[0].CreatedAt.Equal(now) || !got[0].UpdatedAt.Equal(now) {
+		t.Fatalf("expected created_at/updated_at to be preserved, got %v / %v", got[0].CreatedAt, got[0].UpdatedAt)
 	}
 }

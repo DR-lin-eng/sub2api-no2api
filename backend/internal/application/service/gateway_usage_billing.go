@@ -730,13 +730,25 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	multiplier, imageMultiplier := computePeakAwareMultipliers(apiKey, multiplier, timezone.Now())
 
 	// 确定计费模型
-	billingModel := forwardResultBillingModel(result.Model, result.UpstreamModel)
+	concreteBillingModel := forwardResultBillingModel(result.Model, result.UpstreamModel)
+	billingModel := concreteBillingModel
 	if input.BillingModelSource == BillingModelSourceChannelMapped && input.ChannelMappedModel != "" {
 		billingModel = input.ChannelMappedModel
 	}
 	if input.BillingModelSource == BillingModelSourceRequested && input.OriginalModel != "" {
 		billingModel = input.OriginalModel
 	}
+	// Composite public aliases are billable only when they have explicit channel
+	// pricing. Otherwise bill the concrete forwarded model. Resolve the selected
+	// pricing once and pass it into the cost path to avoid repeated model parsing.
+	billingModel, resolvedBillingPricing := s.selectBillableModelPricing(
+		ctx,
+		apiKey,
+		billingModel,
+		concreteBillingModel,
+		result.UpstreamModel,
+		result.Model,
+	)
 
 	// 确定 RequestedModel（渠道映射前的原始模型）
 	requestedModel := result.Model
@@ -745,7 +757,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	}
 
 	// 计算费用
-	cost := s.calculateRecordUsageCost(ctx, result, apiKey, billingModel, multiplier, imageMultiplier, opts)
+	cost := s.calculateRecordUsageCostWithPricing(ctx, result, apiKey, billingModel, multiplier, imageMultiplier, opts, resolvedBillingPricing)
 
 	// 判断计费方式：订阅模式 vs 余额模式
 	isSubscriptionBilling := subscription != nil && apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
@@ -825,46 +837,132 @@ func (s *GatewayService) calculateRecordUsageCost(
 	imageMultiplier float64,
 	opts *recordUsageOpts,
 ) *CostBreakdown {
-	// 图片生成：渠道定价为 token 计费时走 token 路径，否则走图片计费
-	if result.ImageCount > 0 {
-		if resolved := s.resolveChannelPricing(ctx, billingModel, apiKey); resolved != nil && resolved.Mode == BillingModeToken {
-			return s.calculateTokenCost(ctx, result, apiKey, billingModel, multiplier, opts)
-		}
-		return s.calculateImageCost(ctx, result, apiKey, billingModel, imageMultiplier)
-	}
-
-	// Token 计费
-	return s.calculateTokenCost(ctx, result, apiKey, billingModel, multiplier, opts)
+	resolved := s.resolveBillingPricing(ctx, apiKey, billingModel)
+	return s.calculateRecordUsageCostWithPricing(ctx, result, apiKey, billingModel, multiplier, imageMultiplier, opts, resolved)
 }
 
-// resolveChannelPricing 检查指定模型是否存在渠道级别定价。
-// 返回非 nil 的 ResolvedPricing 表示有渠道定价，nil 表示走默认定价路径。
-func (s *GatewayService) resolveChannelPricing(ctx context.Context, billingModel string, apiKey *APIKey) *ResolvedPricing {
-	if s.resolver == nil || apiKey.Group == nil {
-		return nil
-	}
-	gid := apiKey.Group.ID
-	resolved := s.resolver.Resolve(ctx, PricingInput{Model: billingModel, GroupID: &gid})
-	if resolved.Source == PricingSourceChannel {
-		return resolved
-	}
-	return nil
-}
-
-// calculateImageCost 计算图片生成费用：渠道级别定价优先，否则走按次计费。
-func (s *GatewayService) calculateImageCost(
+func (s *GatewayService) calculateRecordUsageCostWithPricing(
 	ctx context.Context,
 	result *ForwardResult,
 	apiKey *APIKey,
 	billingModel string,
 	multiplier float64,
+	imageMultiplier float64,
+	opts *recordUsageOpts,
+	resolved *ResolvedPricing,
+) *CostBreakdown {
+	// 图片生成：渠道定价为 token 计费时走 token 路径，否则走图片计费
+	if result.ImageCount > 0 {
+		if resolved != nil && resolved.Source == PricingSourceChannel && resolved.Mode == BillingModeToken {
+			return s.calculateTokenCostWithPricing(ctx, result, apiKey, billingModel, multiplier, opts, resolved)
+		}
+		return s.calculateImageCostWithPricing(ctx, result, apiKey, billingModel, imageMultiplier, resolved)
+	}
+
+	// Token 计费
+	return s.calculateTokenCostWithPricing(ctx, result, apiKey, billingModel, multiplier, opts, resolved)
+}
+
+// selectBillableModelPricing returns the model and its already-resolved pricing.
+// Composite aliases skip global family fallback unless the alias has explicit
+// channel pricing; unknown aliases fall back to a concrete forwarded model.
+func (s *GatewayService) selectBillableModelPricing(
+	ctx context.Context,
+	apiKey *APIKey,
+	billingModel string,
+	concreteBillingModel string,
+	fallbacks ...string,
+) (string, *ResolvedPricing) {
+	billingModel = strings.TrimSpace(billingModel)
+	concreteBillingModel = strings.TrimSpace(concreteBillingModel)
+	if apiKey != nil && apiKey.Group != nil && apiKey.Group.Platform == PlatformComposite &&
+		concreteBillingModel != "" && billingModel != concreteBillingModel &&
+		!s.hasExplicitChannelPricing(ctx, apiKey, billingModel) {
+		billingModel = concreteBillingModel
+	}
+
+	resolved := s.resolveBillingPricing(ctx, apiKey, billingModel)
+	if billingPricingResolvable(resolved) {
+		return billingModel, resolved
+	}
+	for i, fallback := range fallbacks {
+		fallback = strings.TrimSpace(fallback)
+		if fallback == "" || fallback == billingModel || duplicateBillingFallback(fallbacks[:i], fallback) {
+			continue
+		}
+		fallbackResolved := s.resolveBillingPricing(ctx, apiKey, fallback)
+		if billingPricingResolvable(fallbackResolved) {
+			return fallback, fallbackResolved
+		}
+	}
+	return billingModel, resolved
+}
+
+func duplicateBillingFallback(previous []string, candidate string) bool {
+	for _, model := range previous {
+		if strings.TrimSpace(model) == candidate {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *GatewayService) hasExplicitChannelPricing(ctx context.Context, apiKey *APIKey, model string) bool {
+	if apiKey == nil || apiKey.Group == nil || strings.TrimSpace(model) == "" {
+		return false
+	}
+	channelService := s.channelService
+	if channelService == nil && s.resolver != nil {
+		channelService = s.resolver.channelService
+	}
+	return channelService != nil && channelService.GetChannelModelPricing(ctx, apiKey.Group.ID, model) != nil
+}
+
+func (s *GatewayService) resolveBillingPricing(ctx context.Context, apiKey *APIKey, model string) *ResolvedPricing {
+	model = strings.TrimSpace(model)
+	if model == "" {
+		return nil
+	}
+	if s.resolver != nil {
+		var groupID *int64
+		if apiKey != nil && apiKey.Group != nil {
+			gid := apiKey.Group.ID
+			groupID = &gid
+		}
+		return s.resolver.Resolve(ctx, PricingInput{Model: model, GroupID: groupID})
+	}
+	if s.billingService == nil {
+		return nil
+	}
+	pricing, err := s.billingService.GetModelPricing(model)
+	if err != nil {
+		return nil
+	}
+	return &ResolvedPricing{Mode: BillingModeToken, BasePricing: pricing, Source: PricingSourceFallback}
+}
+
+func billingPricingResolvable(resolved *ResolvedPricing) bool {
+	if resolved == nil {
+		return false
+	}
+	return resolved.Source == PricingSourceChannel || resolved.BasePricing != nil ||
+		len(resolved.Intervals) > 0 || len(resolved.RequestTiers) > 0
+}
+
+func (s *GatewayService) calculateImageCostWithPricing(
+	ctx context.Context,
+	result *ForwardResult,
+	apiKey *APIKey,
+	billingModel string,
+	multiplier float64,
+	resolved *ResolvedPricing,
 ) *CostBreakdown {
 	sizeTier := NormalizeImageBillingTierOrDefault(result.ImageSize)
 	groupConfig := imagePriceConfigFromAPIKey(apiKey)
 	if apiKeyHasConfiguredImagePrice(apiKey, sizeTier) {
 		return s.billingService.CalculateImageCost(billingModel, sizeTier, result.ImageCount, groupConfig, multiplier)
 	}
-	if resolved := s.resolveChannelPricing(ctx, billingModel, apiKey); resolved != nil {
+	if resolved != nil && resolved.Source == PricingSourceChannel && s.resolver != nil && apiKey != nil && apiKey.Group != nil {
 		tokens := UsageTokens{
 			InputTokens:       result.Usage.InputTokens,
 			OutputTokens:      result.Usage.OutputTokens,
@@ -892,14 +990,14 @@ func (s *GatewayService) calculateImageCost(
 	return s.billingService.CalculateImageCost(billingModel, sizeTier, result.ImageCount, groupConfig, multiplier)
 }
 
-// calculateTokenCost 计算 Token 计费：根据 opts 决定走普通/长上下文/渠道统一计费。
-func (s *GatewayService) calculateTokenCost(
+func (s *GatewayService) calculateTokenCostWithPricing(
 	ctx context.Context,
 	result *ForwardResult,
 	apiKey *APIKey,
 	billingModel string,
 	multiplier float64,
 	opts *recordUsageOpts,
+	resolved *ResolvedPricing,
 ) *CostBreakdown {
 	tokens := UsageTokens{
 		InputTokens:           result.Usage.InputTokens,
@@ -914,20 +1012,27 @@ func (s *GatewayService) calculateTokenCost(
 	var cost *CostBreakdown
 	var err error
 
-	// 优先尝试渠道定价 → CalculateCostUnified
-	if resolved := s.resolveChannelPricing(ctx, billingModel, apiKey); resolved != nil {
-		gid := apiKey.Group.ID
+	// Reuse the selected model's pricing for normal and channel billing. The
+	// legacy partial-over-threshold path remains separate for Gemini callers.
+	useUnified := resolved != nil && s.resolver != nil &&
+		(resolved.Source == PricingSourceChannel || opts == nil || opts.LongContextThreshold <= 0)
+	if useUnified {
+		var groupID *int64
+		if apiKey != nil && apiKey.Group != nil {
+			gid := apiKey.Group.ID
+			groupID = &gid
+		}
 		cost, err = s.billingService.CalculateCostUnified(CostInput{
 			Ctx:            ctx,
 			Model:          billingModel,
-			GroupID:        &gid,
+			GroupID:        groupID,
 			Tokens:         tokens,
 			RequestCount:   1,
 			RateMultiplier: multiplier,
 			Resolver:       s.resolver,
 			Resolved:       resolved,
 		})
-	} else if opts.LongContextThreshold > 0 {
+	} else if opts != nil && opts.LongContextThreshold > 0 {
 		// 长上下文双倍计费（如 Gemini 200K 阈值）
 		cost, err = s.billingService.CalculateCostWithLongContext(billingModel, tokens, multiplier, opts.LongContextThreshold, opts.LongContextMultiplier)
 	} else {

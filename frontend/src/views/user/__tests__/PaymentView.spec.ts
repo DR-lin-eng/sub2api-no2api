@@ -345,6 +345,46 @@ describe('PaymentView payment recovery', () => {
     ;(window as Window & { WeixinJSBridge?: { invoke: typeof bridgeInvoke } }).WeixinJSBridge = undefined
   })
 
+  function storeRecoverySnapshot(alipayMobilePrecreateDeepLink: boolean) {
+    window.localStorage.setItem(PAYMENT_RECOVERY_STORAGE_KEY, JSON.stringify({
+      orderId: 888,
+      amount: 66,
+      qrCode: 'https://pay.example.com/qr/888',
+      expiresAt: '2099-01-01T00:10:00.000Z',
+      paymentType: 'alipay',
+      payUrl: '',
+      outTradeNo: 'sub2_alipay_888',
+      clientSecret: '',
+      intentId: '',
+      currency: 'CNY',
+      countryCode: '',
+      paymentEnv: '',
+      payAmount: 66,
+      orderType: 'balance',
+      paymentMode: 'qr',
+      resumeToken: '',
+      alipayMobilePrecreateDeepLink,
+      createdAt: Date.now(),
+    }))
+  }
+
+  function mountRecoveredPayment() {
+    return shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          PaymentStatusPanel: {
+            template: '<button data-test="payment-success" @click="$emit(\'success\')" />',
+          },
+          Teleport: true,
+          Transition: false,
+        },
+      },
+    })
+  }
+
   it('restores a custom EasyPay method as the selected payment method', async () => {
     getCheckoutInfo.mockResolvedValue(checkoutInfoFixture({
       methods: {
@@ -405,6 +445,38 @@ describe('PaymentView payment recovery', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-test="method-selector"]').text()).toBe('ldc')
+  })
+
+  it('keeps the existing in-panel success flow for payments without mobile Alipay handoff', async () => {
+    getCheckoutInfo.mockResolvedValue(checkoutInfoFixture())
+    storeRecoverySnapshot(false)
+    const wrapper = mountRecoveredPayment()
+    await flushPromises()
+
+    await wrapper.get('[data-test="payment-success"]').trigger('click')
+    await flushPromises()
+
+    expect(refreshUser).toHaveBeenCalled()
+    expect(routerPush).not.toHaveBeenCalled()
+    expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).toBeNull()
+  })
+
+  it('redirects a completed mobile Alipay handoff order to the result route', async () => {
+    getCheckoutInfo.mockResolvedValue(checkoutInfoFixture())
+    storeRecoverySnapshot(true)
+    const wrapper = mountRecoveredPayment()
+    await flushPromises()
+
+    await wrapper.get('[data-test="payment-success"]').trigger('click')
+    await flushPromises()
+
+    expect(routerPush).toHaveBeenCalledWith({
+      path: '/payment/result',
+      query: {
+        order_id: '888',
+        out_trade_no: 'sub2_alipay_888',
+      },
+    })
   })
 })
 

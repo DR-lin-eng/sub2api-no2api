@@ -42,6 +42,27 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT COUNT(*) FROM schema_migrations").Scan(&applied))
 	require.GreaterOrEqual(t, applied, 7, "expected schema_migrations to contain applied migrations")
 
+	expected186 := []string{
+		"186_alipay_mobile_precreate_deep_link.sql",
+		"186_channel_monitor_passive_mode.sql",
+		"186_group_auth_cache_image_generation.sql",
+	}
+	rows, err := tx.QueryContext(
+		context.Background(),
+		"SELECT filename FROM schema_migrations WHERE filename IN ($1, $2, $3)",
+		expected186[0], expected186[1], expected186[2],
+	)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, rows.Close()) }()
+	var applied186 []string
+	for rows.Next() {
+		var filename string
+		require.NoError(t, rows.Scan(&filename))
+		applied186 = append(applied186, filename)
+	}
+	require.NoError(t, rows.Err())
+	require.ElementsMatch(t, expected186, applied186, "same-number migrations must coexist by full filename")
+
 	// users: columns required by repository queries
 	requireColumn(t, tx, "users", "username", "character varying", 100, false)
 	requireColumn(t, tx, "users", "notes", "text", 0, false)

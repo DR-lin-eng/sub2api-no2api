@@ -548,7 +548,7 @@ func setOpenAIAgentIdentityAccountError(
 	reason string,
 ) error {
 	if credentialAccount == nil || !credentialAccount.IsOpenAIAgentIdentity() {
-		return errors.New("Agent Identity credential account is unavailable")
+		return errors.New("agent identity credential account is unavailable")
 	}
 	if ctx != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
