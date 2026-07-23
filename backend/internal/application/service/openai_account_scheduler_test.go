@@ -3520,7 +3520,9 @@ func TestOpenAIAccountLoadPlan_ContentSessionConcurrentRemovesSessionStickyBonus
 	cfg.Gateway.OpenAIWS.SchedulerScoreWeights.TTFT = 1
 	cfg.Gateway.OpenAIWS.SchedulerScoreWeights.SessionSticky = 3
 	svc := &OpenAIGatewayService{cfg: cfg}
-	scheduler := newDefaultOpenAIAccountScheduler(svc, newOpenAIAccountRuntimeStats()).(*defaultOpenAIAccountScheduler)
+	schedulerAny := newDefaultOpenAIAccountScheduler(svc, newOpenAIAccountRuntimeStats())
+	scheduler, ok := schedulerAny.(*defaultOpenAIAccountScheduler)
+	require.True(t, ok)
 	loadMap := map[int64]*AccountLoadInfo{
 		15201: {AccountID: 15201, LoadRate: 10},
 		15202: {AccountID: 15202, LoadRate: 10},
