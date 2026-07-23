@@ -507,6 +507,7 @@ const baseSettingsResponse = {
   payment_visible_method_wxpay_enabled: true,
   openai_low_upstream_rate_priority_enabled: false,
   openai_oauth_scheduling_rate_multiplier: 1,
+  openai_content_session_burst_balance_enabled: false,
   openai_advanced_scheduler_enabled: false,
   openai_advanced_scheduler_sticky_weighted_enabled: false,
   openai_advanced_scheduler_subscription_priority_enabled: false,
@@ -1181,6 +1182,11 @@ describe("admin SettingsView payment visible method controls", () => {
     ).toBe(false);
 
     const lowRateToggle = wrapper.get('[data-testid="openai-low-rate-priority-toggle"]');
+    const burstBalanceToggle = wrapper.get(
+      '[data-testid="openai-content-session-burst-balance-toggle"]',
+    );
+    expect((burstBalanceToggle.element as HTMLInputElement).checked).toBe(false);
+    await burstBalanceToggle.setValue(true);
     await lowRateToggle.setValue(true);
     const priorityModeText = wrapper.text();
     expect(priorityModeText).toContain(
@@ -1205,6 +1211,7 @@ describe("admin SettingsView payment visible method controls", () => {
       expect.objectContaining({
         openai_low_upstream_rate_priority_enabled: true,
         openai_oauth_scheduling_rate_multiplier: 0.05,
+        openai_content_session_burst_balance_enabled: true,
       }),
     );
 

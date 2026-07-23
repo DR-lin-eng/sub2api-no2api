@@ -176,6 +176,7 @@ func TestOpenAIStreamLegacySelectionRechecksAfterProbeClaimRace(t *testing.T) {
 		false,
 		"",
 		true,
+		false,
 	)
 	require.NoError(t, err)
 	require.True(t, claimed)

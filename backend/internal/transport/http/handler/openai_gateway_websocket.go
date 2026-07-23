@@ -245,11 +245,14 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		return
 	}
 
-	sessionHash := h.gatewayService.GenerateSessionHashWithFallback(
+	sessionHash := h.gatewayService.GenerateSessionHashWithFallbackForRequest(
 		c,
+		apiKey.GroupID,
 		firstMessage,
 		openAIWSIngressFallbackSessionSeed(subject.UserID, apiKey.ID, apiKey.GroupID),
 	)
+	defer h.gatewayService.ReleaseOpenAIContentSessionRequest(c.Request.Context(), apiKey.GroupID, sessionHash)
+	ctx = c.Request.Context()
 	if forceImageTool {
 		h.handleForcedOpenAIImageResponsesWebSocket(
 			service.WithOpenAIStreamScheduling(ctx, true),

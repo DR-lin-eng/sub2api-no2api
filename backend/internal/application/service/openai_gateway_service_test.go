@@ -325,6 +325,68 @@ func TestOpenAIGatewayService_GenerateSessionHash_AttachesLegacyHashToContext(t 
 	require.NotEmpty(t, openAILegacySessionHashFromContext(c.Request.Context()))
 }
 
+func TestOpenAIGatewayService_ContentSessionRequestTracking_DefaultOff(t *testing.T) {
+	resetOpenAIAdvancedSchedulerSettingCacheForTest()
+	defer resetOpenAIAdvancedSchedulerSettingCacheForTest()
+
+	svc := &OpenAIGatewayService{rateLimitService: newOpenAIAdvancedSchedulerRateLimitService("")}
+	groupID := int64(41)
+	body := []byte(`{"model":"gpt-5.1","input":"same request"}`)
+	newContext := func() *gin.Context {
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
+		return c
+	}
+
+	c1 := newContext()
+	hash1 := svc.GenerateSessionHashForRequest(c1, &groupID, body)
+	c2 := newContext()
+	hash2 := svc.GenerateSessionHashForRequest(c2, &groupID, body)
+	require.Equal(t, hash1, hash2)
+	require.False(t, openAIContentSessionRequestTracked(c1.Request.Context()))
+	require.False(t, openAIContentSessionRequestConcurrent(c2.Request.Context()))
+	require.Nil(t, svc.openaiContentSessions)
+}
+
+func TestOpenAIGatewayService_ContentSessionRequestTracking_OnlyOverlappingContent(t *testing.T) {
+	resetOpenAIAdvancedSchedulerSettingCacheForTest()
+	defer resetOpenAIAdvancedSchedulerSettingCacheForTest()
+
+	svc := &OpenAIGatewayService{rateLimitService: newOpenAIAdvancedSchedulerRateLimitService("", "", "", "true")}
+	groupID := int64(42)
+	body := []byte(`{"model":"gpt-5.1","input":"same request"}`)
+	newContext := func() *gin.Context {
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
+		return c
+	}
+
+	c1 := newContext()
+	hash1 := svc.GenerateSessionHashForRequest(c1, &groupID, body)
+	require.True(t, openAIContentSessionRequestTracked(c1.Request.Context()))
+	require.False(t, openAIContentSessionRequestConcurrent(c1.Request.Context()))
+
+	c2 := newContext()
+	hash2 := svc.GenerateSessionHashForRequest(c2, &groupID, body)
+	require.Equal(t, hash1, hash2)
+	require.True(t, openAIContentSessionRequestConcurrent(c2.Request.Context()))
+
+	svc.ReleaseOpenAIContentSessionRequest(c2.Request.Context(), &groupID, hash2)
+	svc.ReleaseOpenAIContentSessionRequest(c1.Request.Context(), &groupID, hash1)
+
+	c3 := newContext()
+	hash3 := svc.GenerateSessionHashForRequest(c3, &groupID, body)
+	require.Equal(t, hash1, hash3)
+	require.False(t, openAIContentSessionRequestConcurrent(c3.Request.Context()), "顺序请求应继续使用原粘性")
+	svc.ReleaseOpenAIContentSessionRequest(c3.Request.Context(), &groupID, hash3)
+
+	explicit := newContext()
+	explicit.Request.Header.Set("session_id", "explicit-session")
+	explicitHash := svc.GenerateSessionHashForRequest(explicit, &groupID, body)
+	require.NotEmpty(t, explicitHash)
+	require.False(t, openAIContentSessionRequestTracked(explicit.Request.Context()))
+}
+
 func TestExtractOpenAIResponseIDFromJSONBytes(t *testing.T) {
 	require.Equal(t, "resp_json", extractOpenAIResponseIDFromJSONBytes([]byte(`{"id":"resp_json"}`)))
 	require.Equal(t, "resp_sse", extractOpenAIResponseIDFromJSONBytes([]byte(`{"type":"response.completed","response":{"id":"resp_sse"}}`)))

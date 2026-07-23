@@ -267,6 +267,9 @@ func newOpenAIAdvancedSchedulerRateLimitService(enabled string, values ...string
 	if len(values) > 1 && values[1] != "" {
 		repo.values[SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled] = values[1]
 	}
+	if len(values) > 2 && values[2] != "" {
+		repo.values[SettingKeyOpenAIContentSessionBurstBalanceEnabled] = values[2]
+	}
 	return &RateLimitService{
 		settingService: NewSettingService(repo, &config.Config{}),
 	}
@@ -3450,6 +3453,87 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_LoadBalanceDistributesA
 
 	// 多 session 应该能打散到多个账号，避免“恒定单账号命中”。
 	require.GreaterOrEqual(t, len(selected), 2)
+}
+
+func TestOpenAIGatewayService_SelectAccountWithScheduler_ContentSessionConcurrentSkipsHardSticky(t *testing.T) {
+	resetOpenAIAdvancedSchedulerSettingCacheForTest()
+	defer resetOpenAIAdvancedSchedulerSettingCacheForTest()
+
+	ctx := withOpenAISessionHashMetadata(context.Background(), openAISessionHashMetadata{
+		contentDerived:           true,
+		contentRequestTracked:    true,
+		contentRequestConcurrent: true,
+	})
+	groupID := int64(151)
+	sessionHash := "content-burst-session"
+	accounts := []Account{
+		{ID: 15101, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 8},
+		{ID: 15102, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 8},
+	}
+	cache := &schedulerTestGatewayCache{sessionBindings: map[string]int64{
+		"openai:" + sessionHash: 15101,
+	}}
+	svc := &OpenAIGatewayService{
+		accountRepo: schedulerTestOpenAIAccountRepo{accounts: accounts},
+		cache:       cache,
+		cfg: &config.Config{Gateway: config.GatewayConfig{Scheduling: config.GatewaySchedulingConfig{
+			LoadBatchEnabled: true,
+		}}},
+		rateLimitService: newOpenAIAdvancedSchedulerRateLimitService("", "", "", "true"),
+		concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{loadMap: map[int64]*AccountLoadInfo{
+			15101: {AccountID: 15101, LoadRate: 90, CurrentConcurrency: 7},
+			15102: {AccountID: 15102, LoadRate: 10, CurrentConcurrency: 1},
+		}}),
+	}
+
+	selection, decision, err := svc.SelectAccountWithScheduler(
+		ctx,
+		&groupID,
+		"",
+		sessionHash,
+		"gpt-5.1",
+		nil,
+		OpenAIUpstreamTransportAny,
+		false,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	require.Equal(t, int64(15102), selection.Account.ID)
+	require.Equal(t, openAIAccountScheduleLayerLoadBalance, decision.Layer)
+	require.Equal(t, int64(15101), cache.sessionBindings["openai:"+sessionHash], "并发分散不应覆盖顺序会话绑定")
+	if selection.ReleaseFunc != nil {
+		selection.ReleaseFunc()
+	}
+}
+
+func TestOpenAIAccountLoadPlan_ContentSessionConcurrentRemovesSessionStickyBonus(t *testing.T) {
+	candidates := []*Account{
+		{ID: 15201, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Priority: 0, Concurrency: 8},
+		{ID: 15202, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Priority: 0, Concurrency: 8},
+	}
+	cfg := &config.Config{}
+	cfg.Gateway.OpenAIWS.LBTopK = 2
+	cfg.Gateway.OpenAIWS.SchedulerScoreWeights.Priority = 1
+	cfg.Gateway.OpenAIWS.SchedulerScoreWeights.Load = 1
+	cfg.Gateway.OpenAIWS.SchedulerScoreWeights.Queue = 1
+	cfg.Gateway.OpenAIWS.SchedulerScoreWeights.ErrorRate = 1
+	cfg.Gateway.OpenAIWS.SchedulerScoreWeights.TTFT = 1
+	cfg.Gateway.OpenAIWS.SchedulerScoreWeights.SessionSticky = 3
+	svc := &OpenAIGatewayService{cfg: cfg}
+	scheduler := newDefaultOpenAIAccountScheduler(svc, newOpenAIAccountRuntimeStats()).(*defaultOpenAIAccountScheduler)
+	loadMap := map[int64]*AccountLoadInfo{
+		15201: {AccountID: 15201, LoadRate: 10},
+		15202: {AccountID: 15202, LoadRate: 10},
+	}
+
+	plan := scheduler.buildOpenAIAccountLoadPlan(context.Background(), OpenAIAccountScheduleRequest{
+		SessionHash:              "same-content",
+		StickyAccountID:          15201,
+		StickyWeighted:           true,
+		ContentSessionConcurrent: true,
+	}, candidates, loadMap)
+	require.Len(t, plan.candidates, 2)
+	require.Equal(t, plan.candidates[0].score, plan.candidates[1].score)
 }
 
 func TestDeriveOpenAISelectionSeed_NoAffinityAddsEntropy(t *testing.T) {

@@ -51,6 +51,7 @@ const (
 type cachedOpenAIAdvancedSchedulerSetting struct {
 	lowUpstreamRatePriorityEnabled bool
 	oauthSchedulingRateMultiplier  float64
+	contentSessionBurstBalance     bool
 	enabled                        bool
 	stickyWeightedEnabled          bool
 	subscriptionPriorityEnabled    bool
@@ -62,6 +63,7 @@ type cachedOpenAIAdvancedSchedulerSetting struct {
 type openAIAdvancedSchedulerRuntimeSettings struct {
 	lowUpstreamRatePriorityEnabled bool
 	oauthSchedulingRateMultiplier  float64
+	contentSessionBurstBalance     bool
 	enabled                        bool
 	stickyWeightedEnabled          bool
 	subscriptionPriorityEnabled    bool
@@ -73,24 +75,25 @@ var openAIAdvancedSchedulerSettingCache atomic.Value // *cachedOpenAIAdvancedSch
 var openAIAdvancedSchedulerSettingSF singleflight.Group
 
 type OpenAIAccountScheduleRequest struct {
-	GroupID                 *int64
-	Platform                string
-	SessionHash             string
-	StickyAccountID         int64
-	StickyPreviousAccountID int64
-	StickyWeighted          bool
-	SubscriptionPriority    bool
-	PreserveStickyBinding   bool
-	PreviousResponseID      string
-	PreviousResponseCanMove bool
-	UseUpstreamTokenCost    bool
-	RequestedModel          string
-	RequiredTransport       OpenAIUpstreamTransport
-	RequiredCapability      OpenAIEndpointCapability
-	RequiredImageCapability OpenAIImagesCapability
-	RequireCompact          bool
-	IsStreaming             bool
-	ExcludedIDs             map[int64]struct{}
+	GroupID                  *int64
+	Platform                 string
+	SessionHash              string
+	StickyAccountID          int64
+	StickyPreviousAccountID  int64
+	StickyWeighted           bool
+	SubscriptionPriority     bool
+	PreserveStickyBinding    bool
+	ContentSessionConcurrent bool
+	PreviousResponseID       string
+	PreviousResponseCanMove  bool
+	UseUpstreamTokenCost     bool
+	RequestedModel           string
+	RequiredTransport        OpenAIUpstreamTransport
+	RequiredCapability       OpenAIEndpointCapability
+	RequiredImageCapability  OpenAIImagesCapability
+	RequireCompact           bool
+	IsStreaming              bool
+	ExcludedIDs              map[int64]struct{}
 }
 
 type OpenAIAccountScheduleDecision struct {
@@ -489,7 +492,7 @@ func (s *defaultOpenAIAccountScheduler) Select(
 		}
 	}
 
-	if !req.StickyWeighted {
+	if !req.StickyWeighted && !req.ContentSessionConcurrent {
 		selection, escapedStickyAccountID, err := s.selectBySessionHash(ctx, req)
 		if err != nil {
 			return nil, decision, err
@@ -900,7 +903,7 @@ func deriveOpenAISelectionSeed(req OpenAIAccountScheduleRequest) uint64 {
 
 	seed := hasher.Sum64()
 	// 对“无会话锚点”的纯负载均衡请求引入时间熵，避免固定命中同一账号。
-	if strings.TrimSpace(req.SessionHash) == "" && strings.TrimSpace(req.PreviousResponseID) == "" {
+	if (strings.TrimSpace(req.SessionHash) == "" || req.ContentSessionConcurrent) && strings.TrimSpace(req.PreviousResponseID) == "" {
 		seed ^= uint64(time.Now().UnixNano())
 	}
 	if seed == 0 {
@@ -1088,7 +1091,7 @@ func (s *defaultOpenAIAccountScheduler) buildOpenAIAccountLoadPlan(
 			if req.PreviousResponseCanMove && req.StickyPreviousAccountID > 0 && item.account.ID == req.StickyPreviousAccountID {
 				item.score += weights.Previous
 			}
-			if req.StickyAccountID > 0 && item.account.ID == req.StickyAccountID {
+			if !req.ContentSessionConcurrent && req.StickyAccountID > 0 && item.account.ID == req.StickyAccountID {
 				item.score += weights.SessionSticky
 			}
 		}
@@ -1122,7 +1125,11 @@ func (s *defaultOpenAIAccountScheduler) buildOpenAISelectionOrder(
 		ranked := selectTopKOpenAICandidatesByChannel(pool, groupTopK)
 		var primary []openAIAccountCandidateScore
 		if req.StickyWeighted {
-			for _, stickyID := range []int64{req.StickyPreviousAccountID, req.StickyAccountID} {
+			sessionStickyID := req.StickyAccountID
+			if req.ContentSessionConcurrent {
+				sessionStickyID = 0
+			}
+			for _, stickyID := range []int64{req.StickyPreviousAccountID, sessionStickyID} {
 				if stickyID <= 0 {
 					continue
 				}
@@ -1179,7 +1186,11 @@ func (s *defaultOpenAIAccountScheduler) buildOpenAISelectionOrder(
 				globalTopK = len(pool)
 			}
 			ranked := selectTopKOpenAICandidatesByChannel(pool, globalTopK)
-			for _, stickyID := range []int64{req.StickyPreviousAccountID, req.StickyAccountID} {
+			sessionStickyID := req.StickyAccountID
+			if req.ContentSessionConcurrent {
+				sessionStickyID = 0
+			}
+			for _, stickyID := range []int64{req.StickyPreviousAccountID, sessionStickyID} {
 				eligible := false
 				for _, candidate := range ranked {
 					if candidate.account != nil && candidate.account.ID == stickyID {
@@ -1394,7 +1405,11 @@ func (s *defaultOpenAIAccountScheduler) tryFallbackToWeightedSticky(
 	if !req.StickyWeighted {
 		return nil, nil
 	}
-	for _, accountID := range []int64{req.StickyPreviousAccountID, req.StickyAccountID} {
+	sessionStickyID := req.StickyAccountID
+	if req.ContentSessionConcurrent {
+		sessionStickyID = 0
+	}
+	for _, accountID := range []int64{req.StickyPreviousAccountID, sessionStickyID} {
 		if accountID <= 0 {
 			continue
 		}
@@ -2040,6 +2055,7 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 			return openAIAdvancedSchedulerRuntimeSettings{
 				lowUpstreamRatePriorityEnabled: cached.lowUpstreamRatePriorityEnabled,
 				oauthSchedulingRateMultiplier:  cached.oauthSchedulingRateMultiplier,
+				contentSessionBurstBalance:     cached.contentSessionBurstBalance,
 				enabled:                        cached.enabled,
 				stickyWeightedEnabled:          cached.stickyWeightedEnabled,
 				subscriptionPriorityEnabled:    cached.subscriptionPriorityEnabled,
@@ -2055,6 +2071,7 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 				return openAIAdvancedSchedulerRuntimeSettings{
 					lowUpstreamRatePriorityEnabled: cached.lowUpstreamRatePriorityEnabled,
 					oauthSchedulingRateMultiplier:  cached.oauthSchedulingRateMultiplier,
+					contentSessionBurstBalance:     cached.contentSessionBurstBalance,
 					enabled:                        cached.enabled,
 					stickyWeightedEnabled:          cached.stickyWeightedEnabled,
 					subscriptionPriorityEnabled:    cached.subscriptionPriorityEnabled,
@@ -2066,6 +2083,7 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 
 		lowUpstreamRatePriorityEnabled := false
 		oauthSchedulingRateMultiplier := defaultOpenAIOAuthSchedulingRateMultiplier
+		contentSessionBurstBalance := false
 		enabled := false
 		stickyWeightedEnabled := false
 		subscriptionPriorityEnabled := false
@@ -2078,6 +2096,7 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 			if values, err := repo.GetMultiple(dbCtx, openAIAdvancedSchedulerRuntimeSettingKeys()); err == nil {
 				lowUpstreamRatePriorityEnabled = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAILowUpstreamRatePriorityEnabled]), "true")
 				oauthSchedulingRateMultiplier = parseOpenAIOAuthSchedulingRateMultiplier(values[SettingKeyOpenAIOAuthSchedulingRateMultiplier])
+				contentSessionBurstBalance = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAIContentSessionBurstBalanceEnabled]), "true")
 				enabled = strings.EqualFold(strings.TrimSpace(values[openAIAdvancedSchedulerSettingKey]), "true")
 				stickyWeightedEnabled = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled]), "true")
 				subscriptionPriorityEnabled = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled]), "true")
@@ -2095,6 +2114,7 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 				}
 				lowUpstreamRatePriorityEnabled = strings.EqualFold(strings.TrimSpace(fallbackValues[SettingKeyOpenAILowUpstreamRatePriorityEnabled]), "true")
 				oauthSchedulingRateMultiplier = parseOpenAIOAuthSchedulingRateMultiplier(fallbackValues[SettingKeyOpenAIOAuthSchedulingRateMultiplier])
+				contentSessionBurstBalance = strings.EqualFold(strings.TrimSpace(fallbackValues[SettingKeyOpenAIContentSessionBurstBalanceEnabled]), "true")
 				enabled = strings.EqualFold(strings.TrimSpace(fallbackValues[openAIAdvancedSchedulerSettingKey]), "true")
 				stickyWeightedEnabled = strings.EqualFold(strings.TrimSpace(fallbackValues[SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled]), "true")
 				subscriptionPriorityEnabled = strings.EqualFold(strings.TrimSpace(fallbackValues[SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled]), "true")
@@ -2106,6 +2126,7 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 		openAIAdvancedSchedulerSettingCache.Store(&cachedOpenAIAdvancedSchedulerSetting{
 			lowUpstreamRatePriorityEnabled: lowUpstreamRatePriorityEnabled,
 			oauthSchedulingRateMultiplier:  oauthSchedulingRateMultiplier,
+			contentSessionBurstBalance:     contentSessionBurstBalance,
 			enabled:                        enabled,
 			stickyWeightedEnabled:          stickyWeightedEnabled,
 			subscriptionPriorityEnabled:    subscriptionPriorityEnabled,
@@ -2116,6 +2137,7 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 		return openAIAdvancedSchedulerRuntimeSettings{
 			lowUpstreamRatePriorityEnabled: lowUpstreamRatePriorityEnabled,
 			oauthSchedulingRateMultiplier:  oauthSchedulingRateMultiplier,
+			contentSessionBurstBalance:     contentSessionBurstBalance,
 			enabled:                        enabled,
 			stickyWeightedEnabled:          stickyWeightedEnabled,
 			subscriptionPriorityEnabled:    subscriptionPriorityEnabled,
@@ -2141,6 +2163,10 @@ func (s *OpenAIGatewayService) openAIOAuthSchedulingRateMultiplier(ctx context.C
 	return s.openAIAdvancedSchedulerRuntimeSettings(ctx).oauthSchedulingRateMultiplier
 }
 
+func (s *OpenAIGatewayService) isOpenAIContentSessionBurstBalanceEnabled(ctx context.Context) bool {
+	return s.openAIAdvancedSchedulerRuntimeSettings(ctx).contentSessionBurstBalance
+}
+
 func (s *OpenAIGatewayService) isOpenAIAdvancedSchedulerStickyWeightedEnabled(ctx context.Context) bool {
 	settings := s.openAIAdvancedSchedulerRuntimeSettings(ctx)
 	return settings.enabled && settings.stickyWeightedEnabled
@@ -2155,6 +2181,7 @@ func openAIAdvancedSchedulerRuntimeSettingKeys() []string {
 	keys := []string{
 		SettingKeyOpenAILowUpstreamRatePriorityEnabled,
 		SettingKeyOpenAIOAuthSchedulingRateMultiplier,
+		SettingKeyOpenAIContentSessionBurstBalanceEnabled,
 		openAIAdvancedSchedulerSettingKey,
 		SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled,
 		SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled,
@@ -2323,6 +2350,7 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 ) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
 	ctx = s.withOpenAIQuotaAutoPauseContext(ctx)
 	platform = normalizeOpenAICompatiblePlatform(platform)
+	contentSessionConcurrent := openAIContentSessionRequestConcurrent(ctx)
 	decision := OpenAIAccountScheduleDecision{}
 	scheduler := s.getOpenAIAccountScheduler(ctx)
 	if scheduler == nil {
@@ -2330,7 +2358,7 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 		if requiredTransport == OpenAIUpstreamTransportAny || requiredTransport == OpenAIUpstreamTransportHTTPSSE {
 			effectiveExcludedIDs := cloneExcludedAccountIDs(excludedIDs)
 			for {
-				selection, err := s.selectAccountWithLoadAwareness(ctx, groupID, platform, sessionHash, requestedModel, effectiveExcludedIDs, requireCompact, requiredCapability, useUpstreamTokenCost)
+				selection, err := s.selectAccountWithLoadAwareness(ctx, groupID, platform, sessionHash, requestedModel, effectiveExcludedIDs, requireCompact, requiredCapability, useUpstreamTokenCost, contentSessionConcurrent)
 				if err != nil {
 					return nil, decision, err
 				}
@@ -2355,7 +2383,7 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 
 		effectiveExcludedIDs := cloneExcludedAccountIDs(excludedIDs)
 		for {
-			selection, err := s.selectAccountWithLoadAwareness(ctx, groupID, platform, sessionHash, requestedModel, effectiveExcludedIDs, requireCompact, requiredCapability, useUpstreamTokenCost)
+			selection, err := s.selectAccountWithLoadAwareness(ctx, groupID, platform, sessionHash, requestedModel, effectiveExcludedIDs, requireCompact, requiredCapability, useUpstreamTokenCost, contentSessionConcurrent)
 			if err != nil {
 				return nil, decision, err
 			}
@@ -2400,23 +2428,25 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 	}
 
 	return scheduler.Select(ctx, OpenAIAccountScheduleRequest{
-		GroupID:                 groupID,
-		Platform:                platform,
-		SessionHash:             sessionHash,
-		StickyAccountID:         stickyAccountID,
-		StickyPreviousAccountID: stickyPreviousAccountID,
-		StickyWeighted:          stickyWeighted,
-		SubscriptionPriority:    subscriptionPriority,
-		PreviousResponseID:      previousResponseID,
-		PreviousResponseCanMove: previousResponseCanMove,
-		UseUpstreamTokenCost:    useUpstreamTokenCost,
-		RequestedModel:          requestedModel,
-		RequiredTransport:       requiredTransport,
-		RequiredCapability:      requiredCapability,
-		RequiredImageCapability: requiredImageCapability,
-		RequireCompact:          requireCompact,
-		IsStreaming:             isOpenAIStreamScheduling(ctx),
-		ExcludedIDs:             excludedIDs,
+		GroupID:                  groupID,
+		Platform:                 platform,
+		SessionHash:              sessionHash,
+		StickyAccountID:          stickyAccountID,
+		StickyPreviousAccountID:  stickyPreviousAccountID,
+		StickyWeighted:           stickyWeighted,
+		SubscriptionPriority:     subscriptionPriority,
+		PreserveStickyBinding:    contentSessionConcurrent,
+		ContentSessionConcurrent: contentSessionConcurrent,
+		PreviousResponseID:       previousResponseID,
+		PreviousResponseCanMove:  previousResponseCanMove,
+		UseUpstreamTokenCost:     useUpstreamTokenCost,
+		RequestedModel:           requestedModel,
+		RequiredTransport:        requiredTransport,
+		RequiredCapability:       requiredCapability,
+		RequiredImageCapability:  requiredImageCapability,
+		RequireCompact:           requireCompact,
+		IsStreaming:              isOpenAIStreamScheduling(ctx),
+		ExcludedIDs:              excludedIDs,
 	})
 }
 

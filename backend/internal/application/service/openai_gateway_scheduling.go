@@ -112,20 +112,41 @@ func (s *OpenAIGatewayService) GenerateExplicitSessionHash(c *gin.Context, body 
 //  6. Body:   prompt_cache_key
 //  7. Body:   content-based fallback (model + system + tools + first user message)
 func (s *OpenAIGatewayService) GenerateSessionHash(c *gin.Context, body []byte) string {
+	return s.generateSessionHash(c, nil, body, false)
+}
+
+// GenerateSessionHashForRequest derives the normal session hash and, when the
+// burst-balance setting is enabled, tracks overlapping content-derived requests.
+// Callers must pair a non-empty result with ReleaseOpenAIContentSessionRequest.
+func (s *OpenAIGatewayService) GenerateSessionHashForRequest(c *gin.Context, groupID *int64, body []byte) string {
+	return s.generateSessionHash(c, groupID, body, true)
+}
+
+func (s *OpenAIGatewayService) generateSessionHash(c *gin.Context, groupID *int64, body []byte, trackContentRequest bool) string {
 	if c == nil {
 		return ""
 	}
 
 	sessionID := explicitOpenAIRequestSessionID(c, body)
+	contentDerived := false
 	if sessionID == "" && len(body) > 0 {
 		sessionID = deriveOpenAIContentSessionSeed(body)
+		contentDerived = sessionID != ""
 	}
 	if sessionID == "" {
 		return ""
 	}
 
 	currentHash, legacyHash := deriveOpenAISessionHashes(sessionID)
-	attachOpenAILegacySessionHashToGin(c, legacyHash)
+	metadata := openAISessionHashMetadata{
+		legacyHash:     legacyHash,
+		contentDerived: contentDerived,
+	}
+	if trackContentRequest && contentDerived && c.Request != nil {
+		metadata.contentRequestTracked, metadata.contentRequestConcurrent =
+			s.beginOpenAIContentSessionRequest(c.Request.Context(), groupID, currentHash)
+	}
+	attachOpenAISessionHashMetadataToGin(c, metadata)
 	return currentHash
 }
 
@@ -143,6 +164,27 @@ func (s *OpenAIGatewayService) GenerateSessionHashWithFallback(c *gin.Context, b
 		return ""
 	}
 
+	currentHash, legacyHash := deriveOpenAISessionHashes(seed)
+	attachOpenAILegacySessionHashToGin(c, legacyHash)
+	return currentHash
+}
+
+// GenerateSessionHashWithFallbackForRequest is the request-lifetime tracking
+// variant used by the WebSocket ingress handler.
+func (s *OpenAIGatewayService) GenerateSessionHashWithFallbackForRequest(
+	c *gin.Context,
+	groupID *int64,
+	body []byte,
+	fallbackSeed string,
+) string {
+	sessionHash := s.GenerateSessionHashForRequest(c, groupID, body)
+	if sessionHash != "" {
+		return sessionHash
+	}
+	seed := strings.TrimSpace(fallbackSeed)
+	if seed == "" {
+		return ""
+	}
 	currentHash, legacyHash := deriveOpenAISessionHashes(seed)
 	attachOpenAILegacySessionHashToGin(c, legacyHash)
 	return currentHash
@@ -860,10 +902,10 @@ func (s *OpenAIGatewayService) selectBestAccount(ctx context.Context, groupID *i
 
 // SelectAccountWithLoadAwareness selects an account with load-awareness and wait plan.
 func (s *OpenAIGatewayService) SelectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*AccountSelectionResult, error) {
-	return s.selectAccountWithLoadAwareness(s.withOpenAIQuotaAutoPauseContext(ctx), groupID, PlatformOpenAI, sessionHash, requestedModel, excludedIDs, false, "", true)
+	return s.selectAccountWithLoadAwareness(s.withOpenAIQuotaAutoPauseContext(ctx), groupID, PlatformOpenAI, sessionHash, requestedModel, excludedIDs, false, "", true, false)
 }
 
-func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Context, groupID *int64, platform string, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, requireCompact bool, requiredCapability OpenAIEndpointCapability, useUpstreamTokenCost bool) (*AccountSelectionResult, error) {
+func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Context, groupID *int64, platform string, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, requireCompact bool, requiredCapability OpenAIEndpointCapability, useUpstreamTokenCost bool, contentSessionConcurrent bool) (*AccountSelectionResult, error) {
 	ctx = withSchedulerCandidateExclusions(ctx, excludedIDs)
 	platform = normalizeOpenAICompatiblePlatform(platform)
 	if s.checkChannelPricingRestriction(ctx, groupID, requestedModel) {
@@ -938,7 +980,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 	}
 
 	// ============ Layer 1: Sticky session ============
-	if sessionHash != "" {
+	if sessionHash != "" && !contentSessionConcurrent {
 		accountID := stickyAccountID
 		if accountID > 0 && !isExcluded(accountID) {
 			account, err := s.getSchedulableAccount(ctx, accountID)
@@ -1137,7 +1179,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 				if selectErr != nil {
 					return nil, true, selectErr
 				}
-				if sessionHash != "" {
+				if sessionHash != "" && !contentSessionConcurrent {
 					_ = s.setStickySessionAccountID(ctx, groupID, sessionHash, fresh.ID, openaiStickySessionTTL)
 				}
 				return selection, true, nil
@@ -1178,7 +1220,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 				if selectErr != nil {
 					return nil, selectErr
 				}
-				if sessionHash != "" {
+				if sessionHash != "" && !contentSessionConcurrent {
 					_ = s.setStickySessionAccountID(ctx, groupID, sessionHash, fresh.ID, openaiStickySessionTTL)
 				}
 				return selection, nil

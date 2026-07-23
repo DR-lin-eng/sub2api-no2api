@@ -17,6 +17,13 @@ type openAILegacySessionHashContextKey struct{}
 
 var openAILegacySessionHashKey = openAILegacySessionHashContextKey{}
 
+type openAISessionHashMetadata struct {
+	legacyHash               string
+	contentDerived           bool
+	contentRequestTracked    bool
+	contentRequestConcurrent bool
+}
+
 var (
 	openAIStickyLegacyReadFallbackTotal atomic.Int64
 	openAIStickyLegacyReadFallbackHit   atomic.Int64
@@ -49,29 +56,59 @@ func deriveOpenAISessionHashes(sessionID string) (currentHash string, legacyHash
 }
 
 func withOpenAILegacySessionHash(ctx context.Context, legacyHash string) context.Context {
+	return withOpenAISessionHashMetadata(ctx, openAISessionHashMetadata{legacyHash: legacyHash})
+}
+
+func withOpenAISessionHashMetadata(ctx context.Context, metadata openAISessionHashMetadata) context.Context {
 	if ctx == nil {
 		return nil
 	}
-	trimmed := strings.TrimSpace(legacyHash)
-	if trimmed == "" {
+	metadata.legacyHash = strings.TrimSpace(metadata.legacyHash)
+	if metadata.legacyHash == "" && !metadata.contentDerived {
 		return ctx
 	}
-	return context.WithValue(ctx, openAILegacySessionHashKey, trimmed)
+	return context.WithValue(ctx, openAILegacySessionHashKey, metadata)
+}
+
+func openAISessionHashMetadataFromContext(ctx context.Context) openAISessionHashMetadata {
+	if ctx == nil {
+		return openAISessionHashMetadata{}
+	}
+	value := ctx.Value(openAILegacySessionHashKey)
+	switch metadata := value.(type) {
+	case openAISessionHashMetadata:
+		metadata.legacyHash = strings.TrimSpace(metadata.legacyHash)
+		return metadata
+	case string:
+		return openAISessionHashMetadata{legacyHash: strings.TrimSpace(metadata)}
+	default:
+		return openAISessionHashMetadata{}
+	}
 }
 
 func openAILegacySessionHashFromContext(ctx context.Context) string {
-	if ctx == nil {
-		return ""
-	}
-	value, _ := ctx.Value(openAILegacySessionHashKey).(string)
-	return strings.TrimSpace(value)
+	return openAISessionHashMetadataFromContext(ctx).legacyHash
+}
+
+func openAIContentSessionRequestConcurrent(ctx context.Context) bool {
+	metadata := openAISessionHashMetadataFromContext(ctx)
+	return metadata.contentDerived && metadata.contentRequestTracked && metadata.contentRequestConcurrent
+}
+
+func openAIContentSessionRequestTracked(ctx context.Context) bool {
+	metadata := openAISessionHashMetadataFromContext(ctx)
+	return metadata.contentDerived && metadata.contentRequestTracked
 }
 
 func attachOpenAILegacySessionHashToGin(c *gin.Context, legacyHash string) {
+	attachOpenAISessionHashMetadataToGin(c, openAISessionHashMetadata{legacyHash: legacyHash})
+}
+
+func attachOpenAISessionHashMetadataToGin(c *gin.Context, metadata openAISessionHashMetadata) {
 	if c == nil || c.Request == nil {
 		return
 	}
-	c.Request = c.Request.WithContext(withOpenAILegacySessionHash(c.Request.Context(), legacyHash))
+	c.Request = c.Request.WithContext(withOpenAISessionHashMetadata(c.Request.Context(), metadata))
 }
 
 func (s *OpenAIGatewayService) openAISessionHashReadOldFallbackEnabled() bool {
