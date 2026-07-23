@@ -17,9 +17,10 @@ import (
 // 2. 无超时控制可能导致慢操作阻塞
 //
 // 新实现支持可配置的连接池和超时参数：
-// 1. PoolSize: 控制最大并发连接数（默认 128）
-// 2. MinIdleConns: 保持最小空闲连接，减少冷启动延迟（默认 10）
-// 3. DialTimeout/ReadTimeout/WriteTimeout: 精确控制各阶段超时
+// 1. PoolSize: 控制最大并发连接数（默认 1024）
+// 2. MinIdleConns: 保持最小空闲连接，减少冷启动延迟
+// 3. MaxIdleConns: 峰值流量结束后立即释放超过上限的空闲连接
+// 4. DialTimeout/ReadTimeout/WriteTimeout: 精确控制各阶段超时
 func InitRedis(cfg *config.Config) *redis.Client {
 	client := redis.NewClient(buildRedisOptions(cfg))
 	if cfg.Server.EnableServerTiming {
@@ -31,6 +32,7 @@ func InitRedis(cfg *config.Config) *redis.Client {
 // buildRedisOptions 构建 Redis 连接选项
 // 从配置文件读取连接池和超时参数，支持生产环境调优
 func buildRedisOptions(cfg *config.Config) *redis.Options {
+	maxIdleConns := clampRedisMaxIdleConns(cfg.Redis.PoolSize, cfg.Redis.MinIdleConns, cfg.Redis.MaxIdleConns)
 	opts := &redis.Options{
 		Addr:         cfg.Redis.Address(),
 		Username:     cfg.Redis.Username,
@@ -41,6 +43,7 @@ func buildRedisOptions(cfg *config.Config) *redis.Options {
 		WriteTimeout: time.Duration(cfg.Redis.WriteTimeoutSeconds) * time.Second, // 写入超时
 		PoolSize:     cfg.Redis.PoolSize,                                         // 连接池大小
 		MinIdleConns: cfg.Redis.MinIdleConns,                                     // 最小空闲连接
+		MaxIdleConns: maxIdleConns,                                               // 峰值结束后立即收缩空闲连接
 	}
 
 	if cfg.Redis.EnableTLS {
@@ -51,4 +54,17 @@ func buildRedisOptions(cfg *config.Config) *redis.Options {
 	}
 
 	return opts
+}
+
+func clampRedisMaxIdleConns(poolSize, minIdleConns, maxIdleConns int) int {
+	if maxIdleConns <= 0 {
+		return 0
+	}
+	if maxIdleConns > poolSize {
+		maxIdleConns = poolSize
+	}
+	if maxIdleConns < minIdleConns {
+		maxIdleConns = minIdleConns
+	}
+	return maxIdleConns
 }

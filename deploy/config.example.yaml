@@ -946,6 +946,9 @@ redis:
   # Minimum number of idle connections (高并发场景建议 128+，保持足够热连接)
   # 最小空闲连接数
   min_idle_conns: 128
+  # Maximum number of idle connections retained after a traffic spike; 0 disables the limit.
+  # 流量峰值结束后保留的最大空闲连接数；0 表示不限制。
+  max_idle_conns: 256
   # Enable TLS/SSL connection
   # 是否启用 TLS/SSL 连接
   enable_tls: false

@@ -860,7 +860,7 @@ export default {
         cpu: 'CPU usage percentage, showing system processor load.',
         memory: 'Memory usage, including used and total available memory.',
         db: 'Database connection pool status, including active, idle, and waiting connections.',
-        redis: 'Redis connection pool status, showing active and idle connections.',
+        redis: 'Redis connection pool status. The percentage uses active connections; total and idle connections are shown below.',
         jobs: 'Background job execution status, including last run time, success time, and error information.',
         qps: 'Queries Per Second (QPS) and Tokens Per Second (TPS), real-time system throughput.',
         tokens: 'Total number of tokens processed in the current time window.',

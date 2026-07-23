@@ -206,6 +206,7 @@ func setDefaults() {
 	viper.SetDefault("redis.write_timeout_seconds", 3)
 	viper.SetDefault("redis.pool_size", 1024)
 	viper.SetDefault("redis.min_idle_conns", 128)
+	viper.SetDefault("redis.max_idle_conns", 256)
 	viper.SetDefault("redis.enable_tls", false)
 
 	// Batch Image queue

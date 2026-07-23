@@ -12,6 +12,7 @@ REDIS_MAXMEMORY=1536mb
 REDIS_MAXCLIENTS=50000
 REDIS_POOL_SIZE=1024
 REDIS_MIN_IDLE_CONNS=10
+REDIS_MAX_IDLE_CONNS=256
 ```
 
 `REDIS_MEM_LIMIT` 是容器总内存限制，`REDIS_MAXMEMORY` 只限制 Redis 键空间。两者不能设成相同值；默认保留约 512MB 给客户端连接缓冲区、复制/命令临时内存、分配器碎片和 Redis 自身开销，避免容器在 Redis 开始淘汰键之前被 OOM Kill。
@@ -28,9 +29,10 @@ REDIS_MAXMEMORY=10gb
 REDIS_MAXCLIENTS=50000
 REDIS_POOL_SIZE=4096
 REDIS_MIN_IDLE_CONNS=256
+REDIS_MAX_IDLE_CONNS=256
 ```
 
-这保留了 2GB 容器余量，适合较大的缓存、更多并发连接和 `50k+ RPM` 部署。`50k RPM` 不等于 50000 个同时连接；如果请求很快或连接复用率高，默认连接池可能已经足够。先观察连接池等待和 Redis 指标，再逐步增加池大小，避免过多连接造成额外内存占用和上下文切换。
+这保留了 2GB 容器余量，适合较大的缓存、更多并发连接和 `50k+ RPM` 部署。`50k RPM` 不等于 50000 个同时连接；如果请求很快或连接复用率高，默认连接池可能已经足够。先观察连接池等待和 Redis 指标，再逐步增加池大小，避免过多连接造成额外内存占用和上下文切换。`REDIS_MAX_IDLE_CONNS` 会在峰值结束、连接归还池时立即关闭超过上限的空闲连接，避免 4096 个峰值连接长期常驻；需要为短周期突发保留更多热连接时再逐步提高它。
 
 Compose 已固定以下稳定性参数，无需在 `.env` 重复配置：
 
@@ -50,7 +52,8 @@ Redis 密码继续由 `REDIS_PASSWORD` 注入；健康检查通过 `REDISCLI_AUT
 1. 保证 `REDIS_MAXMEMORY < REDIS_MEM_LIMIT`。高连接数或大响应场景应预留更多容器余量。
 2. 多个 Sub2API 实例共用 Redis 时，连接池总量约为 `实例数 * REDIS_POOL_SIZE`，必须低于 `REDIS_MAXCLIENTS` 并保留运维余量。
 3. 只有出现连接池等待时才增加 `REDIS_POOL_SIZE`；只有冷启动或突发流量的建连延迟明显时才增加 `REDIS_MIN_IDLE_CONNS`。
-4. 如果宿主机总内存不足以覆盖 Redis、PostgreSQL、Sub2API 和系统页缓存，应继续下调 Redis，而不是依赖 swap 承受长期压力。
+4. `REDIS_MAX_IDLE_CONNS` 应不低于 `REDIS_MIN_IDLE_CONNS`。程序会把超出连接池大小的值压到池大小，并把低于最小空闲数的正数抬到最小空闲数，避免错误配置导致连接抖动；设为 `0` 可恢复不限制空闲连接的旧行为。
+5. 如果宿主机总内存不足以覆盖 Redis、PostgreSQL、Sub2API 和系统页缓存，应继续下调 Redis，而不是依赖 swap 承受长期压力。
 
 ## 监控与检查
 

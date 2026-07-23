@@ -79,4 +79,37 @@ describe('OpsDashboardHeader', () => {
       ttft_only: true
     })
   })
+
+  it('Redis 使用率按活跃连接计算而不是空闲连接总数', async () => {
+    const wrapper = mount(OpsDashboardHeader, {
+      props: {
+        overview: {
+          system_metrics: {
+            redis_ok: true,
+            redis_pool_size: 4096,
+            redis_conn_total: 4096,
+            redis_conn_idle: 4096
+          }
+        } as any,
+        platform: '',
+        groupId: null,
+        timeRange: '1h',
+        queryMode: 'auto',
+        loading: false,
+        lastUpdated: null
+      },
+      global: {
+        stubs: {
+          Select: EmptyStub,
+          HelpTooltip: EmptyStub,
+          BaseDialog: EmptyStub,
+          Icon: EmptyStub
+        }
+      }
+    })
+    await flushPromises()
+
+    const redisCard = wrapper.findAll('div').find((element) => element.text().startsWith('Redis'))
+    expect(redisCard?.text()).toContain('0%')
+  })
 })

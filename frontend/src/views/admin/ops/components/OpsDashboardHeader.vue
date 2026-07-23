@@ -748,8 +748,13 @@ const redisPoolSizeValue = computed<number | null>(() => {
 })
 
 const redisUsagePercent = computed<number | null>(() => {
-  if (redisConnTotalValue.value == null || redisPoolSizeValue.value == null || redisPoolSizeValue.value <= 0) return null
-  return Math.min(100, Math.max(0, (redisConnTotalValue.value / redisPoolSizeValue.value) * 100))
+  if (
+    redisConnActiveValue.value == null ||
+    redisPoolSizeValue.value == null ||
+    redisPoolSizeValue.value <= 0
+  )
+    return null
+  return Math.min(100, Math.max(0, (redisConnActiveValue.value / redisPoolSizeValue.value) * 100))
 })
 
 const redisMiddleLabel = computed(() => {

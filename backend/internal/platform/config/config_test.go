@@ -95,6 +95,15 @@ func TestLoadRedisUsernameFromEnvironment(t *testing.T) {
 	require.Equal(t, "app-user", cfg.Redis.Username)
 }
 
+func TestLoadRedisMaxIdleConnsFromEnvironment(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("REDIS_MAX_IDLE_CONNS", "96")
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Equal(t, 96, cfg.Redis.MaxIdleConns)
+}
+
 func TestLoadHTTPIngressSafetyDefaults(t *testing.T) {
 	resetViperWithJWTSecret(t)
 	cfg, err := Load()
@@ -1460,6 +1469,11 @@ func TestValidateConfigErrors(t *testing.T) {
 			name:    "redis idle exceeds pool",
 			mutate:  func(c *Config) { c.Redis.MinIdleConns = c.Redis.PoolSize + 1 },
 			wantErr: "redis.min_idle_conns cannot exceed",
+		},
+		{
+			name:    "redis max idle negative",
+			mutate:  func(c *Config) { c.Redis.MaxIdleConns = -1 },
+			wantErr: "redis.max_idle_conns must be non-negative",
 		},
 		{
 			name:    "dashboard cache disabled negative",

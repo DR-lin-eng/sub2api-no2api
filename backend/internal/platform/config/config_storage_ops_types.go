@@ -87,6 +87,8 @@ type RedisConfig struct {
 	PoolSize int `mapstructure:"pool_size"`
 	// MinIdleConns: 最小空闲连接数，保持热连接减少冷启动延迟
 	MinIdleConns int `mapstructure:"min_idle_conns"`
+	// MaxIdleConns: 最大空闲连接数，峰值流量结束后及时释放多余连接；0 表示不限制
+	MaxIdleConns int `mapstructure:"max_idle_conns"`
 	// EnableTLS: 是否启用 TLS/SSL 连接
 	EnableTLS bool `mapstructure:"enable_tls"`
 }
