@@ -1621,6 +1621,12 @@ const loadApiKeys = async () => {
     pagination.value.total = response.total
     pagination.value.pages = response.pages
 
+    // Usage aggregation can be much slower than the key list. Render the keys as soon as
+    // the list request finishes and keep the usage column on its own loading state.
+    if (abortController === controller) {
+      loading.value = false
+    }
+
     // Load usage stats for all API keys in the list
     if (response.items.length > 0) {
       const keyIds = response.items.map((k) => k.id)

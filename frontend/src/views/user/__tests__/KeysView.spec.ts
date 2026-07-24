@@ -166,7 +166,7 @@ const TablePageLayoutStub = {
 
 const DataTableStub = {
   name: 'DataTable',
-  props: ['columns', 'data'],
+  props: ['columns', 'data', 'loading'],
   emits: ['sort'],
   template: `
     <div>
@@ -459,13 +459,16 @@ describe('user KeysView column settings', () => {
     expect(usage).not.toContain('$0.0000')
   })
 
-  it('shows loading state instead of zero before usage stats resolve', async () => {
+  it('renders API keys while usage stats continue loading', async () => {
     let resolveUsage!: (value: { stats: Record<string, never> }) => void
     getDashboardApiKeysUsage.mockReturnValueOnce(new Promise((resolve) => {
       resolveUsage = resolve
     }))
 
     const wrapper = await mountView()
+    expect(wrapper.findComponent({ name: 'DataTable' }).props('loading')).toBe(false)
+    expect(wrapper.get('button[title="Refresh"]').attributes('disabled')).toBeUndefined()
+    expect(wrapper.get('[data-test="current-concurrency"]').text()).toBe('3')
     const usage = wrapper.get('[data-test="usage"]').text()
     expect(usage).toContain('Loading...')
     expect(usage).not.toContain('$0.0000')
