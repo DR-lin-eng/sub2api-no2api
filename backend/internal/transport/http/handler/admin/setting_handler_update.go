@@ -223,10 +223,13 @@ type UpdateSettingsRequest struct {
 	MaxClaudeCodeVersion string `json:"max_claude_code_version"`
 
 	// 分组隔离
-	AllowUngroupedKeyScheduling bool  `json:"allow_ungrouped_key_scheduling"`
-	SchedulerV2Enabled          *bool `json:"scheduler_v2_enabled"`
-	SchedulerV2CandidateLimit   *int  `json:"scheduler_v2_candidate_limit"`
-	SchedulerV2ScanLimit        *int  `json:"scheduler_v2_scan_limit"`
+	AllowUngroupedKeyScheduling            bool  `json:"allow_ungrouped_key_scheduling"`
+	SchedulerV2Enabled                     *bool `json:"scheduler_v2_enabled"`
+	SchedulerV2CandidateLimit              *int  `json:"scheduler_v2_candidate_limit"`
+	SchedulerV2ScanLimit                   *int  `json:"scheduler_v2_scan_limit"`
+	RequestPriorityAdmissionEnabled        *bool `json:"request_priority_admission_enabled"`
+	RequestPriorityPendingLimitPerInstance *int  `json:"request_priority_pending_limit_per_instance"`
+	RequestPriorityPendingMiBPerInstance   *int  `json:"request_priority_pending_mib_per_instance"`
 
 	// Backend Mode
 	BackendModeEnabled bool `json:"backend_mode_enabled"`
@@ -1494,6 +1497,24 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.SchedulerV2ScanLimit
 		}(),
+		RequestPriorityAdmissionEnabled: func() bool {
+			if req.RequestPriorityAdmissionEnabled != nil {
+				return *req.RequestPriorityAdmissionEnabled
+			}
+			return previousSettings.RequestPriorityAdmissionEnabled
+		}(),
+		RequestPriorityPendingLimitPerInstance: func() int {
+			if req.RequestPriorityPendingLimitPerInstance != nil {
+				return *req.RequestPriorityPendingLimitPerInstance
+			}
+			return previousSettings.RequestPriorityPendingLimitPerInstance
+		}(),
+		RequestPriorityPendingMiBPerInstance: func() int {
+			if req.RequestPriorityPendingMiBPerInstance != nil {
+				return *req.RequestPriorityPendingMiBPerInstance
+			}
+			return previousSettings.RequestPriorityPendingMiBPerInstance
+		}(),
 		BackendModeEnabled: req.BackendModeEnabled,
 		StreamModePerformanceEnabled: func() bool {
 			if req.StreamModePerformanceEnabled != nil {
@@ -2059,6 +2080,9 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		SchedulerV2Error:                                       updatedSettings.SchedulerV2Error,
 		SchedulerV2CandidateLimit:                              updatedSettings.SchedulerV2CandidateLimit,
 		SchedulerV2ScanLimit:                                   updatedSettings.SchedulerV2ScanLimit,
+		RequestPriorityAdmissionEnabled:                        updatedSettings.RequestPriorityAdmissionEnabled,
+		RequestPriorityPendingLimitPerInstance:                 updatedSettings.RequestPriorityPendingLimitPerInstance,
+		RequestPriorityPendingMiBPerInstance:                   updatedSettings.RequestPriorityPendingMiBPerInstance,
 		BackendModeEnabled:                                     updatedSettings.BackendModeEnabled,
 		StreamModePerformanceEnabled:                           updatedSettings.StreamModePerformanceEnabled,
 		EnableFingerprintUnification:                           updatedSettings.EnableFingerprintUnification,

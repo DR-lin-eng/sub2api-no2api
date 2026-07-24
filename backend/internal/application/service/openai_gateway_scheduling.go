@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -976,6 +977,9 @@ func (s *OpenAIGatewayService) selectLegacyStickyAccountBeforePoolScan(
 	}
 
 	result, acquireErr := s.tryAcquireAccountSlot(ctx, accountID, account.Concurrency)
+	if errors.Is(acquireErr, ErrPriorityAdmissionUnavailable) {
+		return nil, false, false, acquireErr
+	}
 	if acquireErr == nil && result != nil && result.Acquired {
 		selection, selectErr := s.newAcquiredSelectionResult(ctx, account, result.ReleaseFunc)
 		if selectErr != nil {
@@ -1118,6 +1122,9 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 			return nil, err
 		}
 		result, err := s.tryAcquireOpenAIStreamAwareAccountSlot(ctx, account, hasHealthyStreamAccount)
+		if errors.Is(err, ErrPriorityAdmissionUnavailable) {
+			return nil, err
+		}
 		if err == nil && result == nil && hasHealthyStreamAccount && isOpenAIStreamScheduling(ctx) {
 			// A concurrent request may have claimed the due recovery probe after
 			// selection. Re-select once so this request falls back to a healthy
@@ -1127,6 +1134,9 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 				return nil, err
 			}
 			result, err = s.tryAcquireOpenAIStreamAwareAccountSlot(ctx, account, hasHealthyStreamAccount)
+			if errors.Is(err, ErrPriorityAdmissionUnavailable) {
+				return nil, err
+			}
 		}
 		if err == nil && result != nil && result.Acquired {
 			return s.newAcquiredSelectionResult(ctx, account, result.ReleaseFunc)
@@ -1194,6 +1204,9 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 						// due for a recovery probe or needed as the only fallback.
 					} else {
 						result, err := s.tryAcquireAccountSlot(ctx, accountID, account.Concurrency)
+						if errors.Is(err, ErrPriorityAdmissionUnavailable) {
+							return nil, err
+						}
 						if err == nil && result != nil && result.Acquired {
 							selection, selectErr := s.newAcquiredSelectionResult(ctx, account, result.ReleaseFunc)
 							if selectErr != nil {
@@ -1362,6 +1375,9 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 				continue
 			}
 			result, err := s.tryAcquireOpenAIStreamAwareAccountSlot(ctx, fresh, hasHealthyStreamAccount)
+			if errors.Is(err, ErrPriorityAdmissionUnavailable) {
+				return nil, true, err
+			}
 			if err == nil && result != nil && result.Acquired {
 				selection, selectErr := s.newAcquiredSelectionResult(ctx, fresh, result.ReleaseFunc)
 				if selectErr != nil {
@@ -1371,6 +1387,9 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 					_ = s.setStickySessionAccountID(ctx, groupID, sessionHash, fresh.ID, openaiStickySessionTTL)
 				}
 				return selection, true, nil
+			}
+			if result != nil && result.PriorityAdmissionTerminal {
+				return priorityAdmissionTerminalSelection(fresh, cfg.FallbackWaitTimeout, cfg.FallbackMaxWaiting), true, nil
 			}
 		}
 		return nil, true, nil
@@ -1403,6 +1422,9 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 				continue
 			}
 			result, err := s.tryAcquireOpenAIStreamAwareAccountSlot(ctx, fresh, hasHealthyStreamAccount)
+			if errors.Is(err, ErrPriorityAdmissionUnavailable) {
+				return nil, err
+			}
 			if err == nil && result != nil && result.Acquired {
 				selection, selectErr := s.newAcquiredSelectionResult(ctx, fresh, result.ReleaseFunc)
 				if selectErr != nil {
@@ -1412,6 +1434,9 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 					_ = s.setStickySessionAccountID(ctx, groupID, sessionHash, fresh.ID, openaiStickySessionTTL)
 				}
 				return selection, nil
+			}
+			if result != nil && result.PriorityAdmissionTerminal {
+				return priorityAdmissionTerminalSelection(fresh, cfg.FallbackWaitTimeout, cfg.FallbackMaxWaiting), nil
 			}
 		}
 	} else {
@@ -1516,6 +1541,9 @@ func (s *OpenAIGatewayService) withOpenAISchedulerCandidateFilter(ctx context.Co
 func (s *OpenAIGatewayService) tryAcquireAccountSlot(ctx context.Context, accountID int64, maxConcurrency int) (*AcquireResult, error) {
 	if s.concurrencyService == nil {
 		return &AcquireResult{Acquired: true, ReleaseFunc: func() {}}, nil
+	}
+	if tier, ok := RequestSchedulingTierFromContextOK(ctx); ok && s.concurrencyService.PriorityAdmissionEnabledForRequest(ctx) {
+		return s.concurrencyService.AcquireAccountSlotForTier(ctx, accountID, maxConcurrency, tier)
 	}
 	return s.concurrencyService.AcquireAccountSlot(ctx, accountID, maxConcurrency)
 }

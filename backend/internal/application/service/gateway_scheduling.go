@@ -6,6 +6,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	mathrand "math/rand"
@@ -175,6 +176,9 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			}
 
 			result, err := s.tryAcquireAccountSlot(ctx, account.ID, account.Concurrency)
+			if errors.Is(err, ErrPriorityAdmissionUnavailable) {
+				return nil, err
+			}
 			if err == nil && result.Acquired {
 				// 获取槽位后检查会话限制（使用 sessionHash 作为会话标识符）
 				if !s.checkAndRegisterSession(ctx, account, sessionHash) {
@@ -183,6 +187,9 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 					continue                               // 重新选择
 				}
 				return s.newSelectionResult(ctx, account, true, result.ReleaseFunc, nil)
+			}
+			if result != nil && result.PriorityAdmissionTerminal {
+				return priorityAdmissionTerminalSelection(account, cfg.FallbackWaitTimeout, cfg.FallbackMaxWaiting), nil
 			}
 
 			// 对于等待计划的情况，也需要先检查会话限制
@@ -353,6 +360,9 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 
 						if rpmPass { // 粘性会话窗口费用+RPM 检查
 							result, err := s.tryAcquireAccountSlot(ctx, stickyAccountID, stickyAccount.Concurrency)
+							if errors.Is(err, ErrPriorityAdmissionUnavailable) {
+								return nil, err
+							}
 							if err == nil && result.Acquired {
 								// 会话数量限制检查
 								if !s.checkAndRegisterSession(ctx, stickyAccount, sessionHash) {
@@ -370,6 +380,9 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 									}
 									return s.newSelectionResult(ctx, stickyAccount, true, result.ReleaseFunc, nil)
 								}
+							}
+							if result != nil && result.PriorityAdmissionTerminal {
+								return priorityAdmissionTerminalSelection(stickyAccount, cfg.StickySessionWaitTimeout, cfg.StickySessionMaxWaiting), nil
 							}
 
 							if stickyCacheMissReason == "" {
@@ -467,6 +480,9 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 				// 4. 尝试获取槽位
 				for _, item := range routingAvailable {
 					result, err := s.tryAcquireAccountSlot(ctx, item.account.ID, item.account.Concurrency)
+					if errors.Is(err, ErrPriorityAdmissionUnavailable) {
+						return nil, err
+					}
 					if err == nil && result.Acquired {
 						// 会话数量限制检查
 						if !s.checkAndRegisterSession(ctx, item.account, sessionHash) {
@@ -480,6 +496,9 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 							logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] routed select: group_id=%v model=%s session=%s account=%d", derefGroupID(groupID), requestedModel, shortSessionHash(sessionHash), item.account.ID)
 						}
 						return s.newSelectionResult(ctx, item.account, true, result.ReleaseFunc, nil)
+					}
+					if result != nil && result.PriorityAdmissionTerminal {
+						return priorityAdmissionTerminalSelection(item.account, cfg.FallbackWaitTimeout, cfg.FallbackMaxWaiting), nil
 					}
 				}
 
@@ -549,6 +568,9 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 
 				if !clearSticky && platformOK && modelSupported && modelSchedulable && quotaOK && windowCostOK && rpmOK && schedulable {
 					result, err := s.tryAcquireAccountSlot(ctx, accountID, account.Concurrency)
+					if errors.Is(err, ErrPriorityAdmissionUnavailable) {
+						return nil, err
+					}
 					if err == nil && result.Acquired {
 						// 会话数量限制检查
 						if !s.checkAndRegisterSession(ctx, account, sessionHash) {
@@ -574,6 +596,9 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 							"account_id", accountID,
 							"session", shortSessionHash(sessionHash),
 						)
+					}
+					if result != nil && result.PriorityAdmissionTerminal {
+						return priorityAdmissionTerminalSelection(account, cfg.StickySessionWaitTimeout, cfg.StickySessionMaxWaiting), nil
 					}
 
 					waitingCount, _ := s.concurrencyService.GetAccountWaitingCount(ctx, accountID)
@@ -718,6 +743,9 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			}
 
 			result, err := s.tryAcquireAccountSlot(ctx, selected.account.ID, selected.account.Concurrency)
+			if errors.Is(err, ErrPriorityAdmissionUnavailable) {
+				return nil, err
+			}
 			if err == nil && result.Acquired {
 				// 会话数量限制检查
 				if !s.checkAndRegisterSession(ctx, selected.account, sessionHash) {
@@ -728,6 +756,9 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 					}
 					return s.newSelectionResult(ctx, selected.account, true, result.ReleaseFunc, nil)
 				}
+			}
+			if result != nil && result.PriorityAdmissionTerminal {
+				return priorityAdmissionTerminalSelection(selected.account, cfg.FallbackWaitTimeout, cfg.FallbackMaxWaiting), nil
 			}
 
 			// 移除已尝试的账号，重新进行分层过滤
@@ -765,6 +796,9 @@ func (s *GatewayService) tryAcquireByLegacyOrder(ctx context.Context, candidates
 
 	for _, acc := range ordered {
 		result, err := s.tryAcquireAccountSlot(ctx, acc.ID, acc.Concurrency)
+		if errors.Is(err, ErrPriorityAdmissionUnavailable) {
+			return nil, false, err
+		}
 		if err == nil && result.Acquired {
 			// 会话数量限制检查
 			if !s.checkAndRegisterSession(ctx, acc, sessionHash) {
@@ -779,6 +813,10 @@ func (s *GatewayService) tryAcquireByLegacyOrder(ctx context.Context, candidates
 				return nil, false, err
 			}
 			return selection, true, nil
+		}
+		if result != nil && result.PriorityAdmissionTerminal {
+			cfg := s.schedulingConfig()
+			return priorityAdmissionTerminalSelection(acc, cfg.FallbackWaitTimeout, cfg.FallbackMaxWaiting), true, nil
 		}
 	}
 
@@ -1143,6 +1181,9 @@ func (s *GatewayService) isAccountInGroup(account *Account, groupID *int64) bool
 func (s *GatewayService) tryAcquireAccountSlot(ctx context.Context, accountID int64, maxConcurrency int) (*AcquireResult, error) {
 	if s.concurrencyService == nil {
 		return &AcquireResult{Acquired: true, ReleaseFunc: func() {}}, nil
+	}
+	if tier, ok := RequestSchedulingTierFromContextOK(ctx); ok && s.concurrencyService.PriorityAdmissionEnabledForRequest(ctx) {
+		return s.concurrencyService.AcquireAccountSlotForTier(ctx, accountID, maxConcurrency, tier)
 	}
 	return s.concurrencyService.AcquireAccountSlot(ctx, accountID, maxConcurrency)
 }

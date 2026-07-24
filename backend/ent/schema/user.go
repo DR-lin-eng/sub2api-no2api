@@ -22,7 +22,12 @@ type User struct {
 
 func (User) Annotations() []schema.Annotation {
 	return []schema.Annotation{
-		entsql.Annotation{Table: "users"},
+		entsql.Annotation{
+			Table: "users",
+			Checks: map[string]string{
+				"users_request_scheduling_tier_check": "request_scheduling_tier IN (0, 1, 2)",
+			},
+		},
 	}
 }
 
@@ -54,6 +59,8 @@ func (User) Fields() []ent.Field {
 			Default(0),
 		field.Int("concurrency").
 			Default(5),
+		field.Int16("request_scheduling_tier").
+			Default(1),
 		field.String("status").
 			MaxLen(20).
 			Default(domain.StatusActive),
@@ -143,6 +150,9 @@ func (User) Indexes() []ent.Index {
 	return []ent.Index{
 		// email 字段已在 Fields() 中声明 Unique()，无需重复索引
 		index.Fields("status"),
+		index.Fields("request_scheduling_tier").
+			StorageKey("idx_users_request_scheduling_tier_active").
+			Annotations(entsql.IndexWhere("deleted_at IS NULL")),
 		index.Fields("deleted_at"),
 	}
 }

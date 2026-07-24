@@ -439,6 +439,7 @@ export default {
         selectUser: 'Select {email}',
         enableConcurrency: 'Update concurrency',
         enableRPMLimit: 'Update RPM limit',
+        enableSchedulingTier: 'Update scheduling tier',
         unlimited: 'Unlimited',
         nonNegativeInteger: 'Enter a non-negative whole number.',
         apply: 'Apply limits',
@@ -446,6 +447,7 @@ export default {
         concurrencyValue: 'Concurrency: {value}',
         rpmValue: 'RPM: {value}',
         rpmUnlimitedValue: 'RPM: Unlimited',
+        schedulingTierValue: 'Scheduling tier: {value}',
         confirm: 'Overwrite limits for {count} users?\n{fields}',
         success: 'Updated limits for {count} users',
         failed: 'Failed to update user limits'
@@ -457,6 +459,7 @@ export default {
       searchUsers: 'Search by email, username, notes, or API key',
       roleFilter: 'Role Filter',
       allRoles: 'All Roles',
+      allSchedulingTiers: 'All Scheduling Tiers',
       allStatus: 'All Status',
       allGroups: 'All Groups',
       searchGroups: 'Search groups...',
@@ -509,7 +512,9 @@ export default {
         selectStatus: 'Select status',
         rpmLimit: 'Requests Per Minute (RPM)',
         rpmLimitPlaceholder: '0 = unlimited',
-        rpmLimitHint: 'Max requests per minute for this user; 0 = unlimited. Acts as a fallback only when the group has no rpm_limit set.'
+        rpmLimitHint: 'Max requests per minute for this user; 0 = unlimited. Acts as a fallback only when the group has no rpm_limit set.',
+        schedulingTier: 'Scheduling Tier',
+        schedulingTierHint: 'Priority requests receive free capacity first; low-tier requests do not queue when capacity is exhausted.'
       },
       columns: {
         user: 'User',
@@ -518,6 +523,7 @@ export default {
         username: 'Username',
         notes: 'Notes',
         role: 'Role',
+        schedulingTier: 'Scheduling Tier',
         groups: 'Groups',
         subscriptions: 'Subscriptions',
         balance: 'Balance',
@@ -666,6 +672,11 @@ export default {
       roles: {
         admin: 'Admin',
         user: 'User'
+      },
+      schedulingTiers: {
+        priority: 'Priority',
+        normal: 'Normal',
+        low: 'Low'
       },
       // Settings Dropdowns
       filterSettings: 'Filter Settings',

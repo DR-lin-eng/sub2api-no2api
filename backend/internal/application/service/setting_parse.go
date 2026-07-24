@@ -212,6 +212,9 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeySchedulerV2Enabled:                                 "false",
 		SettingKeySchedulerV2CandidateLimit:                          strconv.Itoa(DefaultSchedulerCandidateFetchLimit),
 		SettingKeySchedulerV2ScanLimit:                               strconv.Itoa(DefaultSchedulerCandidateScanLimit),
+		SettingKeyRequestPriorityAdmissionEnabled:                    "false",
+		SettingKeyRequestPriorityPendingLimitPerInstance:             strconv.Itoa(DefaultRequestPriorityPendingLimitPerInstance),
+		SettingKeyRequestPriorityPendingMiBPerInstance:               strconv.Itoa(DefaultRequestPriorityPendingMiBPerInstance),
 		SettingKeyEnableAnthropicCacheTTL1hInjection:                 "false",
 		SettingKeyRewriteMessageCacheControl:                         strconv.FormatBool(s.defaultRewriteMessageCacheControl()),
 		SettingKeyEnableClientDatelineNormalization:                  "true",
@@ -774,6 +777,10 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		settings[SettingKeySchedulerV2CandidateLimit],
 		settings[SettingKeySchedulerV2ScanLimit],
 	)
+	requestPrioritySettings := parseRequestPriorityAdmissionSettings(settings)
+	result.RequestPriorityAdmissionEnabled = requestPrioritySettings.Enabled
+	result.RequestPriorityPendingLimitPerInstance = requestPrioritySettings.PendingLimitPerInstance
+	result.RequestPriorityPendingMiBPerInstance = requestPrioritySettings.PendingMiBPerInstance
 	if result.SchedulerV2Enabled {
 		result.SchedulerV2Status = SchedulerEngineStatusBuilding
 	} else {

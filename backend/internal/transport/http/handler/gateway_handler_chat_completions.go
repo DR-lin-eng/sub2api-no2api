@@ -58,6 +58,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		h.chatCompletionsErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Request body is empty")
 		return
 	}
+	h.concurrencyHelper.SetPriorityAdmissionPendingBytes(c, int64(len(body)))
 
 	setOpsRequestContext(c, "", false)
 
@@ -120,7 +121,9 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 
 	userReleaseFunc, err := h.concurrencyHelper.AcquireUserSlotWithWait(c, subject.UserID, subject.Concurrency, reqStream, &streamStarted)
 	if err != nil {
-		reqLog.Warn("gateway.cc.user_slot_acquire_failed", zap.Error(err))
+		if shouldLogConcurrencyAcquireError(err) {
+			reqLog.Warn("gateway.cc.user_slot_acquire_failed", zap.Error(err))
+		}
 		h.handleConcurrencyError(c, err, "user", streamStarted)
 		return
 	}
@@ -170,6 +173,10 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		}
 		selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), apiKey.GroupID, selectionSessionHash, reqModel, fs.FailedAccountIDs, "", int64(0))
 		if err != nil {
+			if errors.Is(err, service.ErrPriorityAdmissionUnavailable) {
+				h.chatCompletionsErrorResponse(c, http.StatusServiceUnavailable, "api_error", "Service temporarily unavailable, please retry later")
+				return
+			}
 			if len(fs.FailedAccountIDs) == 0 {
 				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, groupPlatform)
 				if !cls.ModelNotFound {
@@ -209,16 +216,31 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 				h.chatCompletionsErrorResponse(c, http.StatusServiceUnavailable, "api_error", "No available accounts")
 				return
 			}
-			accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotWithWaitTimeout(
-				c,
-				account.ID,
-				selection.WaitPlan.MaxConcurrency,
-				selection.WaitPlan.Timeout,
-				reqStream,
-				&streamStarted,
-			)
+			if h.concurrencyHelper.concurrencyService.PriorityAdmissionEnabledForRequest(c.Request.Context()) {
+				accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotWithPriorityWaitTimeout(
+					c,
+					account.ID,
+					selection.WaitPlan.MaxConcurrency,
+					selection.WaitPlan.MaxWaiting,
+					selection.WaitPlan.Timeout,
+					int64(len(body)),
+					reqStream,
+					&streamStarted,
+				)
+			} else {
+				accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotWithWaitTimeout(
+					c,
+					account.ID,
+					selection.WaitPlan.MaxConcurrency,
+					selection.WaitPlan.Timeout,
+					reqStream,
+					&streamStarted,
+				)
+			}
 			if err != nil {
-				reqLog.Warn("gateway.cc.account_slot_acquire_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+				if shouldLogConcurrencyAcquireError(err) {
+					reqLog.Warn("gateway.cc.account_slot_acquire_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+				}
 				h.handleConcurrencyError(c, err, "account", streamStarted)
 				return
 			}
@@ -326,6 +348,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 
 // chatCompletionsErrorResponse writes an error in OpenAI Chat Completions format.
 func (h *GatewayHandler) chatCompletionsErrorResponse(c *gin.Context, status int, errType, message string) {
+	markOpsLocalBusinessLimited429(c, status)
 	c.JSON(status, gin.H{
 		"error": gin.H{
 			"type":    errType,

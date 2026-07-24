@@ -4,7 +4,7 @@
  */
 
 import { apiClient } from '../client'
-import type { AdminUser, UpdateUserRequest, PaginatedResponse, ApiKey } from '@/types'
+import type { AdminUser, UpdateUserRequest, PaginatedResponse, ApiKey, RequestSchedulingTier } from '@/types'
 
 export interface AdminBindAuthIdentityChannelRequest {
   channel: string
@@ -49,6 +49,7 @@ export interface BatchUpdateUserLimitsRequest {
   all?: boolean
   concurrency?: number
   rpm_limit?: number
+  scheduling_tier?: RequestSchedulingTier
 }
 
 export interface BatchUpdateUserLimitsResponse {
@@ -69,6 +70,7 @@ export async function list(
   filters?: {
     status?: 'active' | 'disabled'
     role?: 'admin' | 'user'
+    scheduling_tier?: RequestSchedulingTier
     search?: string
     group_name?: string         // fuzzy filter by allowed group name
     api_key_group_id?: number   // filter users by the group their API keys are bound to
@@ -87,6 +89,7 @@ export async function list(
     page_size: pageSize,
     status: filters?.status,
     role: filters?.role,
+    scheduling_tier: filters?.scheduling_tier,
     search: filters?.search,
     group_name: filters?.group_name,
     api_key_group_id: filters?.api_key_group_id,
@@ -136,6 +139,7 @@ export async function create(userData: {
   balance?: number
   concurrency?: number
   rpm_limit?: number
+  scheduling_tier?: RequestSchedulingTier
   allowed_groups?: number[] | null
 }): Promise<AdminUser> {
   const { data } = await apiClient.post<AdminUser>('/admin/users', userData)

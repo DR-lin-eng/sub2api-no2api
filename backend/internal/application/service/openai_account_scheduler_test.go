@@ -603,6 +603,55 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_DefaultDisabled_Embeddi
 	require.Equal(t, openAIAccountScheduleLayerLoadBalance, decision.Layer)
 }
 
+func TestOpenAIGatewayService_SelectAccountWithScheduler_PropagatesPriorityAdmissionUnavailable(t *testing.T) {
+	resetOpenAIAdvancedSchedulerSettingCacheForTest()
+	defer resetOpenAIAdvancedSchedulerSettingCacheForTest()
+
+	groupID := int64(10111)
+	account := Account{
+		ID:          36033,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"openai_capabilities": []any{"chat_completions"},
+		},
+	}
+	concurrency := NewConcurrencyService(nil)
+	concurrency.SetPriorityAdmissionRuntimeConfig(PriorityAdmissionRuntimeConfig{
+		Enabled:                 true,
+		PendingLimitPerInstance: 256,
+		PendingBytesPerInstance: 256 << 20,
+	})
+	cfg := &config.Config{}
+	cfg.Gateway.Scheduling.LoadBatchEnabled = false
+	svc := &OpenAIGatewayService{
+		accountRepo:        schedulerTestOpenAIAccountRepo{accounts: []Account{account}},
+		cache:              &schedulerTestGatewayCache{},
+		cfg:                cfg,
+		concurrencyService: concurrency,
+	}
+	ctx := WithRequestSchedulingTier(context.Background(), RequestSchedulingTierNormal)
+
+	selection, _, err := svc.SelectAccountWithSchedulerForCapability(
+		ctx,
+		&groupID,
+		"",
+		"",
+		"gpt-5.2",
+		nil,
+		OpenAIUpstreamTransportAny,
+		OpenAIEndpointCapabilityChatCompletions,
+		false,
+		false,
+		true,
+	)
+	require.Nil(t, selection)
+	require.ErrorIs(t, err, ErrPriorityAdmissionUnavailable)
+}
+
 // 生图意图的 /v1/responses 请求要求 OpenAIEndpointCapabilityResponses：探测确认
 // 不支持 Responses API 的 APIKey 账号必须被排除，避免 forward 阶段降级为无法生图
 // 的 Chat Completions 直转（#4417）。

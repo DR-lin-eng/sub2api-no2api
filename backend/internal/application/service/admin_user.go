@@ -141,6 +141,13 @@ func normalizeUserRole(role, fallback string) (string, error) {
 	return role, nil
 }
 
+func validateRequestSchedulingTier(tier RequestSchedulingTier) error {
+	if !tier.Valid() {
+		return fmt.Errorf("invalid request scheduling tier: %d (must be 0, 1, or 2)", tier)
+	}
+	return nil
+}
+
 func (s *adminServiceImpl) CreateUser(ctx context.Context, input *CreateUserInput) (*User, error) {
 	balance := 0.0
 	if input.Balance != nil {
@@ -154,17 +161,25 @@ func (s *adminServiceImpl) CreateUser(ctx context.Context, input *CreateUserInpu
 	if err != nil {
 		return nil, err
 	}
+	schedulingTier := RequestSchedulingTierNormal
+	if input.SchedulingTier != nil {
+		if err := validateRequestSchedulingTier(*input.SchedulingTier); err != nil {
+			return nil, err
+		}
+		schedulingTier = *input.SchedulingTier
+	}
 
 	user := &User{
-		Email:         input.Email,
-		Username:      input.Username,
-		Notes:         input.Notes,
-		Role:          role,
-		Balance:       balance,
-		Concurrency:   input.Concurrency,
-		RPMLimit:      input.RPMLimit,
-		Status:        StatusActive,
-		AllowedGroups: input.AllowedGroups,
+		Email:          input.Email,
+		Username:       input.Username,
+		Notes:          input.Notes,
+		Role:           role,
+		Balance:        balance,
+		Concurrency:    input.Concurrency,
+		RPMLimit:       input.RPMLimit,
+		SchedulingTier: schedulingTier,
+		Status:         StatusActive,
+		AllowedGroups:  input.AllowedGroups,
 	}
 	if err := user.SetPassword(input.Password); err != nil {
 		return nil, err
@@ -176,6 +191,10 @@ func (s *adminServiceImpl) CreateUser(ctx context.Context, input *CreateUserInpu
 	if user.Role == RoleAdmin {
 		logger.LegacyPrintf("service.admin", "audit: admin user created actor_admin_id=%d target_user_id=%d",
 			input.ActorAdminID, user.ID)
+	}
+	if user.SchedulingTier != RequestSchedulingTierNormal {
+		logger.LegacyPrintf("service.admin", "audit: user scheduling tier assigned actor_admin_id=%d target_user_id=%d scheduling_tier=%d",
+			input.ActorAdminID, user.ID, user.SchedulingTier)
 	}
 	s.assignDefaultSubscriptions(ctx, user.ID)
 	return user, nil
@@ -240,6 +259,7 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 	oldStatus := user.Status
 	oldRole := user.Role
 	oldRPMLimit := user.RPMLimit
+	oldSchedulingTier := user.SchedulingTier
 	oldAllowedGroups := append([]int64(nil), user.AllowedGroups...)
 
 	if input.Email != "" {
@@ -285,6 +305,12 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 	if input.RPMLimit != nil {
 		user.RPMLimit = *input.RPMLimit
 	}
+	if input.SchedulingTier != nil {
+		if err := validateRequestSchedulingTier(*input.SchedulingTier); err != nil {
+			return nil, err
+		}
+		user.SchedulingTier = *input.SchedulingTier
+	}
 
 	if input.AllowedGroups != nil {
 		user.AllowedGroups = *input.AllowedGroups
@@ -299,6 +325,10 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 		logger.LegacyPrintf("service.admin", "audit: user role changed actor_admin_id=%d target_user_id=%d old_role=%s new_role=%s",
 			input.ActorAdminID, user.ID, oldRole, user.Role)
 	}
+	if user.SchedulingTier != oldSchedulingTier {
+		logger.LegacyPrintf("service.admin", "audit: user scheduling tier changed actor_admin_id=%d target_user_id=%d old_tier=%d new_tier=%d",
+			input.ActorAdminID, user.ID, oldSchedulingTier, user.SchedulingTier)
+	}
 
 	// 同步用户专属分组倍率
 	if input.GroupRates != nil && s.userGroupRateRepo != nil {
@@ -310,7 +340,7 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 	if s.authCacheInvalidator != nil {
 		// RPMLimit 直接参与 billing_cache_service.checkRPM 的三级级联，
 		// allowed_groups 参与 API Key 专属分组授权判断；不失效缓存会让修改在一个 L2 TTL 内失去效果。
-		if user.Concurrency != oldConcurrency || user.Status != oldStatus || user.Role != oldRole || user.RPMLimit != oldRPMLimit || !sameInt64Set(user.AllowedGroups, oldAllowedGroups) {
+		if user.Concurrency != oldConcurrency || user.Status != oldStatus || user.Role != oldRole || user.RPMLimit != oldRPMLimit || user.SchedulingTier != oldSchedulingTier || !sameInt64Set(user.AllowedGroups, oldAllowedGroups) {
 			s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, user.ID)
 		}
 	}
@@ -483,9 +513,14 @@ func (s *adminServiceImpl) BatchUpdateConcurrency(ctx context.Context, userIDs [
 	return affected, nil
 }
 
-func (s *adminServiceImpl) BatchUpdateLimits(ctx context.Context, userIDs []int64, concurrency, rpmLimit *int) (int, error) {
-	if concurrency == nil && rpmLimit == nil {
-		return 0, fmt.Errorf("at least one of concurrency or rpm_limit is required")
+func (s *adminServiceImpl) BatchUpdateLimits(ctx context.Context, userIDs []int64, concurrency, rpmLimit *int, schedulingTier *RequestSchedulingTier, actorAdminID int64) (int, error) {
+	if concurrency == nil && rpmLimit == nil && schedulingTier == nil {
+		return 0, fmt.Errorf("at least one of concurrency, rpm_limit, or scheduling_tier is required")
+	}
+	if schedulingTier != nil {
+		if err := validateRequestSchedulingTier(*schedulingTier); err != nil {
+			return 0, err
+		}
 	}
 
 	cleaned := make([]int64, 0, len(userIDs))
@@ -504,7 +539,7 @@ func (s *adminServiceImpl) BatchUpdateLimits(ctx context.Context, userIDs []int6
 		return 0, nil
 	}
 
-	affected, err := s.userRepo.BatchUpdateLimits(ctx, cleaned, concurrency, rpmLimit)
+	affected, err := s.userRepo.BatchUpdateLimits(ctx, cleaned, concurrency, rpmLimit, schedulingTier)
 	if err != nil {
 		return 0, err
 	}
@@ -512,6 +547,10 @@ func (s *adminServiceImpl) BatchUpdateLimits(ctx context.Context, userIDs []int6
 		for _, userID := range cleaned {
 			s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, userID)
 		}
+	}
+	if schedulingTier != nil {
+		logger.LegacyPrintf("service.admin", "audit: user scheduling tier batch changed actor_admin_id=%d target_count=%d scheduling_tier=%d",
+			actorAdminID, affected, *schedulingTier)
 	}
 	return affected, nil
 }

@@ -99,6 +99,12 @@ type SettingService struct {
 	thinkingDisplayModeLoaded   atomic.Int64
 	thinkingDisplayModeRevision atomic.Uint64
 	thinkingDisplayModeSF       singleflight.Group
+
+	requestPriorityAdmissionSettings     atomic.Pointer[RequestPriorityAdmissionSettings]
+	requestPriorityAdmissionSinkMu       sync.RWMutex
+	requestPriorityAdmissionSettingsSink func(RequestPriorityAdmissionSettings)
+	requestPriorityAdmissionSyncMu       sync.Mutex
+	requestPriorityAdmissionSync         *requestPriorityAdmissionSyncState
 }
 
 // DefaultPlatformQuotaSetting 单 platform 三档限额（nil = 沿用上层；0 = 显式禁用；>0 = 上限）
@@ -238,6 +244,7 @@ func NewSettingService(settingRepo SettingRepository, cfg *config.Config) *Setti
 	svc.streamResponseHeaderTimeoutDegradationEnabled.Store(true)
 	svc.streamResponseHeaderTimeoutSeconds.Store(DefaultStreamResponseHeaderTimeoutSeconds)
 	svc.thinkingDisplayModeCache.Store(ThinkingDisplayModeDisplayOnly)
+	svc.requestPriorityAdmissionSettings.Store(defaultRequestPriorityAdmissionSettings())
 	return svc
 }
 

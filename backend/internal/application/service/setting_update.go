@@ -27,7 +27,11 @@ func (s *SettingService) UpdateSettings(ctx context.Context, settings *SystemSet
 		if switchErr := s.applySchedulerEngineSettings(ctx, settings); switchErr != nil {
 			return switchErr
 		}
+		previousRequestPriority := s.RequestPriorityAdmissionSettingsSnapshot()
 		s.refreshCachedSettings(settings)
+		if previousRequestPriority != s.RequestPriorityAdmissionSettingsSnapshot() {
+			s.publishRequestPriorityAdmissionSettingsUpdate(ctx)
+		}
 	}
 	return err
 }
@@ -52,7 +56,11 @@ func (s *SettingService) UpdateSettingsWithAuthSourceDefaults(ctx context.Contex
 		if switchErr := s.applySchedulerEngineSettings(ctx, settings); switchErr != nil {
 			return switchErr
 		}
+		previousRequestPriority := s.RequestPriorityAdmissionSettingsSnapshot()
 		s.refreshCachedSettings(settings)
+		if previousRequestPriority != s.RequestPriorityAdmissionSettingsSnapshot() {
+			s.publishRequestPriorityAdmissionSettingsUpdate(ctx)
+		}
 	}
 	return err
 }
@@ -100,6 +108,13 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	if err := ValidateSchedulerV2Limits(settings.SchedulerV2CandidateLimit, settings.SchedulerV2ScanLimit); err != nil {
 		return nil, infraerrors.BadRequest("INVALID_SCHEDULER_V2_LIMITS", err.Error())
 	}
+	requestPrioritySettings := normalizeRequestPriorityAdmissionSettings(RequestPriorityAdmissionSettings{
+		Enabled:                 settings.RequestPriorityAdmissionEnabled,
+		PendingLimitPerInstance: settings.RequestPriorityPendingLimitPerInstance,
+		PendingMiBPerInstance:   settings.RequestPriorityPendingMiBPerInstance,
+	})
+	settings.RequestPriorityPendingLimitPerInstance = requestPrioritySettings.PendingLimitPerInstance
+	settings.RequestPriorityPendingMiBPerInstance = requestPrioritySettings.PendingMiBPerInstance
 	if err := s.validateDefaultSubscriptionGroups(ctx, settings.DefaultSubscriptions); err != nil {
 		return nil, err
 	}
@@ -443,6 +458,9 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeySchedulerV2Enabled] = strconv.FormatBool(settings.SchedulerV2Enabled)
 	updates[SettingKeySchedulerV2CandidateLimit] = strconv.Itoa(settings.SchedulerV2CandidateLimit)
 	updates[SettingKeySchedulerV2ScanLimit] = strconv.Itoa(settings.SchedulerV2ScanLimit)
+	updates[SettingKeyRequestPriorityAdmissionEnabled] = strconv.FormatBool(settings.RequestPriorityAdmissionEnabled)
+	updates[SettingKeyRequestPriorityPendingLimitPerInstance] = strconv.Itoa(settings.RequestPriorityPendingLimitPerInstance)
+	updates[SettingKeyRequestPriorityPendingMiBPerInstance] = strconv.Itoa(settings.RequestPriorityPendingMiBPerInstance)
 
 	// Backend Mode
 	updates[SettingKeyBackendModeEnabled] = strconv.FormatBool(settings.BackendModeEnabled)
@@ -610,6 +628,11 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 	})
 	s.streamModePerformanceEnabled.Store(settings.StreamModePerformanceEnabled)
 	s.streamModePerformanceLoaded.Store(time.Now().UnixNano())
+	s.storeRequestPriorityAdmissionSettings(RequestPriorityAdmissionSettings{
+		Enabled:                 settings.RequestPriorityAdmissionEnabled,
+		PendingLimitPerInstance: settings.RequestPriorityPendingLimitPerInstance,
+		PendingMiBPerInstance:   settings.RequestPriorityPendingMiBPerInstance,
+	})
 	gatewayForwardingSF.Forget("gateway_forwarding")
 	gatewayForwardingCache.Store(&cachedGatewayForwardingSettings{
 		fingerprintUnification:           settings.EnableFingerprintUnification,

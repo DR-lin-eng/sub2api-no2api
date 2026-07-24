@@ -2061,6 +2061,61 @@
               </p>
             </div>
             <div class="space-y-5 p-6">
+              <div>
+                <div class="flex items-start justify-between gap-4">
+                  <div class="min-w-0">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {{ t("admin.settings.scheduling.requestPriorityAdmission") }}
+                    </label>
+                    <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.scheduling.requestPriorityAdmissionHint") }}
+                    </p>
+                  </div>
+                  <Toggle
+                    v-model="form.request_priority_admission_enabled"
+                    data-testid="request-priority-admission-toggle"
+                  />
+                </div>
+
+                <div
+                  v-if="form.request_priority_admission_enabled"
+                  class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2"
+                >
+                  <label class="block">
+                    <span class="input-label">{{
+                      t("admin.settings.scheduling.requestPriorityPendingLimit")
+                    }}</span>
+                    <input
+                      v-model.number="form.request_priority_pending_limit_per_instance"
+                      type="number"
+                      min="1"
+                      required
+                      class="input"
+                      data-testid="request-priority-pending-limit"
+                    />
+                    <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.scheduling.requestPriorityPendingLimitHint") }}
+                    </span>
+                  </label>
+                  <label class="block">
+                    <span class="input-label">{{
+                      t("admin.settings.scheduling.requestPriorityPendingMiB")
+                    }}</span>
+                    <input
+                      v-model.number="form.request_priority_pending_mib_per_instance"
+                      type="number"
+                      min="1"
+                      required
+                      class="input"
+                      data-testid="request-priority-pending-mib"
+                    />
+                    <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.scheduling.requestPriorityPendingMiBHint") }}
+                    </span>
+                  </label>
+                </div>
+              </div>
+
               <div class="flex items-center justify-between">
                 <div>
                   <label class="font-medium text-gray-900 dark:text-white">{{
@@ -8908,6 +8963,9 @@ type SettingsForm = Omit<
   scheduler_v2_error: string;
   scheduler_v2_candidate_limit: number;
   scheduler_v2_scan_limit: number;
+  request_priority_admission_enabled: boolean;
+  request_priority_pending_limit_per_instance: number;
+  request_priority_pending_mib_per_instance: number;
   // 系统全局平台限额 map；form 内始终归一化为全 4 平台对象（模板非空绑定依赖此不变量）
   default_platform_quotas: DefaultPlatformQuotasMap;
 };
@@ -9211,6 +9269,9 @@ const form = reactive<SettingsForm>({
   scheduler_v2_error: "",
   scheduler_v2_candidate_limit: 64,
   scheduler_v2_scan_limit: 256,
+  request_priority_admission_enabled: false,
+  request_priority_pending_limit_per_instance: 256,
+  request_priority_pending_mib_per_instance: 256,
   openai_advanced_scheduler_enabled: false,
   openai_advanced_scheduler_sticky_weighted_enabled: false,
   openai_advanced_scheduler_subscription_priority_enabled: false,
@@ -10590,6 +10651,14 @@ async function saveSettings() {
       scheduler_v2_enabled: form.scheduler_v2_enabled,
       scheduler_v2_candidate_limit: Number(form.scheduler_v2_candidate_limit),
       scheduler_v2_scan_limit: Number(form.scheduler_v2_scan_limit),
+      request_priority_admission_enabled:
+        form.request_priority_admission_enabled,
+      request_priority_pending_limit_per_instance: Number(
+        form.request_priority_pending_limit_per_instance,
+      ),
+      request_priority_pending_mib_per_instance: Number(
+        form.request_priority_pending_mib_per_instance,
+      ),
       enable_fingerprint_unification: form.enable_fingerprint_unification,
       enable_metadata_passthrough: form.enable_metadata_passthrough,
       enable_cch_signing: form.enable_cch_signing,

@@ -439,6 +439,7 @@ export default {
         selectUser: '选择 {email}',
         enableConcurrency: '修改并发数',
         enableRPMLimit: '修改 RPM 限制',
+        enableSchedulingTier: '修改调度等级',
         unlimited: '不限制',
         nonNegativeInteger: '请输入非负整数。',
         apply: '应用限制',
@@ -446,6 +447,7 @@ export default {
         concurrencyValue: '并发数：{value}',
         rpmValue: 'RPM：{value}',
         rpmUnlimitedValue: 'RPM：不限制',
+        schedulingTierValue: '调度等级：{value}',
         confirm: '确定覆盖 {count} 个用户的限制吗？\n{fields}',
         success: '已更新 {count} 个用户的限制',
         failed: '批量更新用户限制失败'
@@ -457,6 +459,7 @@ export default {
       searchUsers: '邮箱/用户名/备注/API Key 模糊搜索',
       roleFilter: '角色筛选',
       allRoles: '全部角色',
+      allSchedulingTiers: '全部调度等级',
       allStatus: '全部状态',
       allGroups: '全部分组',
       searchGroups: '搜索分组...',
@@ -498,6 +501,7 @@ export default {
         username: '用户名',
         notes: '备注',
         role: '角色',
+        schedulingTier: '调度等级',
         groups: '分组',
         subscriptions: '订阅分组',
         balance: '余额',
@@ -556,6 +560,11 @@ export default {
         admin: '管理员',
         user: '用户'
       },
+      schedulingTiers: {
+        priority: '优先',
+        normal: '普通',
+        low: '低调度'
+      },
       form: {
         emailLabel: '邮箱',
         emailPlaceholder: '请输入邮箱',
@@ -574,7 +583,9 @@ export default {
         selectStatus: '选择状态',
         rpmLimit: '每分钟请求数 (RPM)',
         rpmLimitPlaceholder: '0 表示不限制',
-        rpmLimitHint: '该用户每分钟最大请求数，0 = 不限制；仅在所用分组未设置 rpm_limit 时作为兜底生效'
+        rpmLimitHint: '该用户每分钟最大请求数，0 = 不限制；仅在所用分组未设置 rpm_limit 时作为兜底生效',
+        schedulingTier: '调度等级',
+        schedulingTierHint: '优先请求先获得空闲容量；低调度请求在容量不足时不会排队。'
       },
       adjustBalance: '调整余额',
       adjustConcurrency: '调整并发数',

@@ -200,7 +200,7 @@ func (s *stubUserRepo) UpdateConcurrency(ctx context.Context, id int64, amount i
 
 func (s *stubUserRepo) BatchSetConcurrency(context.Context, []int64, int) (int, error) { return 0, nil }
 func (s *stubUserRepo) BatchAddConcurrency(context.Context, []int64, int) (int, error) { return 0, nil }
-func (s *stubUserRepo) BatchUpdateLimits(context.Context, []int64, *int, *int) (int, error) {
+func (s *stubUserRepo) BatchUpdateLimits(context.Context, []int64, *int, *int, *service.RequestSchedulingTier) (int, error) {
 	return 0, nil
 }
 

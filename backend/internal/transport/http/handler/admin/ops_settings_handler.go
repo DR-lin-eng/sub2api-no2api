@@ -250,6 +250,11 @@ func (h *OpsHandler) GetAdvancedSettings(c *gin.Context) {
 
 // UpdateAdvancedSettings updates Ops advanced settings (DB-backed).
 // PUT /api/v1/admin/ops/advanced-settings
+type updateOpsAdvancedSettingsRequest struct {
+	service.OpsAdvancedSettings
+	RecordBusinessLimited429 *bool `json:"record_business_limited_429"`
+}
+
 func (h *OpsHandler) UpdateAdvancedSettings(c *gin.Context) {
 	if h.opsService == nil {
 		response.Error(c, http.StatusServiceUnavailable, "Ops service not available")
@@ -260,13 +265,21 @@ func (h *OpsHandler) UpdateAdvancedSettings(c *gin.Context) {
 		return
 	}
 
-	var req service.OpsAdvancedSettings
+	var req updateOpsAdvancedSettingsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request body")
 		return
 	}
 
-	updated, err := h.opsService.UpdateOpsAdvancedSettings(c.Request.Context(), &req)
+	if req.RecordBusinessLimited429 != nil {
+		req.OpsAdvancedSettings.RecordBusinessLimited429 = *req.RecordBusinessLimited429
+	} else if current, getErr := h.opsService.GetOpsAdvancedSettings(c.Request.Context()); getErr == nil {
+		req.OpsAdvancedSettings.RecordBusinessLimited429 = current.RecordBusinessLimited429
+	} else {
+		req.OpsAdvancedSettings.RecordBusinessLimited429 = true
+	}
+
+	updated, err := h.opsService.UpdateOpsAdvancedSettings(c.Request.Context(), &req.OpsAdvancedSettings)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return

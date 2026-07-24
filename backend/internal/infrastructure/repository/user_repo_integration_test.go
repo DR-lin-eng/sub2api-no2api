@@ -169,7 +169,7 @@ func (s *UserRepoSuite) TestBatchUpdateLimitsUpdatesOnlyProvidedFields() {
 	})
 	concurrency := 9
 
-	affected, err := s.repo.BatchUpdateLimits(s.ctx, []int64{user.ID}, &concurrency, nil)
+	affected, err := s.repo.BatchUpdateLimits(s.ctx, []int64{user.ID}, &concurrency, nil, nil)
 	s.Require().NoError(err)
 	s.Equal(1, affected)
 
@@ -187,7 +187,7 @@ func (s *UserRepoSuite) TestBatchUpdateLimitsUpdatesBothFieldsToZero() {
 	})
 	zero := 0
 
-	affected, err := s.repo.BatchUpdateLimits(s.ctx, []int64{user.ID}, &zero, &zero)
+	affected, err := s.repo.BatchUpdateLimits(s.ctx, []int64{user.ID}, &zero, &zero, nil)
 	s.Require().NoError(err)
 	s.Equal(1, affected)
 
@@ -197,13 +197,83 @@ func (s *UserRepoSuite) TestBatchUpdateLimitsUpdatesBothFieldsToZero() {
 	s.Zero(updated.RPMLimit)
 }
 
+func (s *UserRepoSuite) TestBatchUpdateLimitsUpdatesSchedulingTier() {
+	user := s.mustCreateUser(&service.User{
+		Email:          "batch-scheduling-tier@test.com",
+		SchedulingTier: service.RequestSchedulingTierNormal,
+	})
+	tier := service.RequestSchedulingTierLow
+
+	affected, err := s.repo.BatchUpdateLimits(s.ctx, []int64{user.ID}, nil, nil, &tier)
+	s.Require().NoError(err)
+	s.Equal(1, affected)
+
+	updated, err := s.repo.GetByID(s.ctx, user.ID)
+	s.Require().NoError(err)
+	s.Equal(service.RequestSchedulingTierLow, updated.SchedulingTier)
+}
+
+func (s *UserRepoSuite) TestListWithFiltersBySchedulingTier() {
+	priority := s.mustCreateUser(&service.User{Email: "priority-filter@test.com"})
+	priority.SchedulingTier = service.RequestSchedulingTierPriority
+	s.Require().NoError(s.repo.Update(s.ctx, priority))
+	s.mustCreateUser(&service.User{
+		Email:          "normal-filter@test.com",
+		SchedulingTier: service.RequestSchedulingTierNormal,
+	})
+	tier := service.RequestSchedulingTierPriority
+
+	users, result, err := s.repo.ListWithFilters(
+		s.ctx,
+		pagination.PaginationParams{Page: 1, PageSize: 20},
+		service.UserListFilters{SchedulingTier: &tier},
+	)
+
+	s.Require().NoError(err)
+	s.Require().NotNil(result)
+	s.Equal(int64(1), result.Total)
+	s.Require().Len(users, 1)
+	s.Equal(priority.ID, users[0].ID)
+}
+
+func (s *UserRepoSuite) TestListOrdersBySchedulingTier() {
+	priority := s.mustCreateUser(&service.User{
+		Email:          "priority-sort@test.com",
+		SchedulingTier: service.RequestSchedulingTierPriority,
+	})
+	normal := s.mustCreateUser(&service.User{
+		Email:          "normal-sort@test.com",
+		SchedulingTier: service.RequestSchedulingTierNormal,
+	})
+	low := s.mustCreateUser(&service.User{
+		Email:          "low-sort@test.com",
+		SchedulingTier: service.RequestSchedulingTierLow,
+	})
+
+	users, result, err := s.repo.ListWithFilters(
+		s.ctx,
+		pagination.PaginationParams{
+			Page:      1,
+			PageSize:  20,
+			SortBy:    "scheduling_tier",
+			SortOrder: pagination.SortOrderAsc,
+		},
+		service.UserListFilters{},
+	)
+
+	s.Require().NoError(err)
+	s.Require().NotNil(result)
+	s.Require().Len(users, 3)
+	s.Equal([]int64{priority.ID, normal.ID, low.ID}, []int64{users[0].ID, users[1].ID, users[2].ID})
+}
+
 func (s *UserRepoSuite) TestBatchUpdateLimitsIgnoresDeletedUsersAndReturnsAffectedRows() {
 	active := s.mustCreateUser(&service.User{Email: "batch-limits-active@test.com", RPMLimit: 10})
 	deleted := s.mustCreateUser(&service.User{Email: "batch-limits-deleted@test.com", RPMLimit: 10})
 	s.Require().NoError(s.client.User.DeleteOneID(deleted.ID).Exec(s.ctx))
 	rpmLimit := 45
 
-	affected, err := s.repo.BatchUpdateLimits(s.ctx, []int64{active.ID, deleted.ID}, nil, &rpmLimit)
+	affected, err := s.repo.BatchUpdateLimits(s.ctx, []int64{active.ID, deleted.ID}, nil, &rpmLimit, nil)
 	s.Require().NoError(err)
 	s.Equal(1, affected)
 

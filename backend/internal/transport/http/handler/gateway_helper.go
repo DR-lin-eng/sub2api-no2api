@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand/v2"
 	"net/http"
@@ -108,6 +109,8 @@ type SSEPingFormat string
 
 const ssePingFormatOverrideKey = "handler_sse_ping_format_override"
 
+const priorityAdmissionPendingBytesKey = "handler_priority_admission_pending_bytes"
+
 const (
 	// SSEPingFormatClaude is the Claude/Anthropic SSE ping format
 	SSEPingFormatClaude SSEPingFormat = "data: {\"type\": \"ping\"}\n\n"
@@ -134,6 +137,11 @@ func (e *ConcurrencyError) Error() string {
 
 type WaitQueueFullError struct {
 	SlotType string
+}
+
+func shouldLogConcurrencyAcquireError(err error) bool {
+	var queueFull *WaitQueueFullError
+	return !errors.As(err, &queueFull)
 }
 
 func (e *WaitQueueFullError) Error() string {
@@ -178,6 +186,103 @@ func resolveSSEPingFormat(c *gin.Context, fallback SSEPingFormat) SSEPingFormat 
 		return fallback
 	}
 	return format
+}
+
+// SetPriorityAdmissionPendingBytes records the actual in-memory request body
+// size after a gateway handler has buffered it. Callers that do not set it use
+// Content-Length as a conservative compatibility fallback.
+func SetPriorityAdmissionPendingBytes(c *gin.Context, size int64) {
+	if c == nil {
+		return
+	}
+	if size < 0 {
+		size = 0
+	}
+	c.Set(priorityAdmissionPendingBytesKey, size)
+}
+
+// SetPriorityAdmissionPendingBytes records body memory only for requests that
+// can enter the priority queues. The feature-off path therefore avoids a Gin
+// context write and its possible map growth allocation.
+func (h *ConcurrencyHelper) SetPriorityAdmissionPendingBytes(c *gin.Context, size int64) {
+	if h == nil || h.concurrencyService == nil || c == nil || c.Request == nil || !h.concurrencyService.PriorityAdmissionEnabledForRequest(c.Request.Context()) {
+		return
+	}
+	_, _, _ = h.priorityAdmissionRequestSnapshot(c)
+	SetPriorityAdmissionPendingBytes(c, size)
+}
+
+func (h *ConcurrencyHelper) RefreshPriorityAdmissionRequestSnapshot(c *gin.Context) bool {
+	if h == nil || h.concurrencyService == nil || c == nil || c.Request == nil {
+		return false
+	}
+	tier := service.RequestSchedulingTierNormal
+	if subject, ok := middleware2.GetAuthSubjectFromContext(c); ok {
+		tier = service.NormalizeRequestSchedulingTier(subject.SchedulingTier)
+	}
+	ctx, enabled := h.concurrencyService.RefreshPriorityAdmissionRequestSnapshot(c.Request.Context(), tier)
+	c.Request = c.Request.WithContext(ctx)
+	SetPriorityAdmissionPendingBytes(c, 0)
+	return enabled
+}
+
+// priorityAdmissionRequestSnapshot tags a gateway request only when priority
+// admission is enabled as it enters the user-slot stage. Presence of the
+// context value is the per-request snapshot used by the later scheduler and
+// account-slot stage, including while an administrator toggles the feature.
+func (h *ConcurrencyHelper) priorityAdmissionRequestSnapshot(c *gin.Context) (context.Context, service.RequestSchedulingTier, bool) {
+	if c == nil || c.Request == nil {
+		return context.Background(), service.RequestSchedulingTierNormal, false
+	}
+	ctx := c.Request.Context()
+	if h == nil || h.concurrencyService == nil {
+		return ctx, service.RequestSchedulingTierNormal, false
+	}
+	if tier, ok := service.RequestSchedulingTierFromContextOK(ctx); ok {
+		ctx, enabled := h.concurrencyService.WithPriorityAdmissionRequestSnapshot(ctx, tier)
+		if enabled {
+			c.Request = c.Request.WithContext(ctx)
+		}
+		return ctx, tier, enabled
+	}
+	if !h.concurrencyService.PriorityAdmissionEnabled() {
+		return ctx, service.RequestSchedulingTierNormal, false
+	}
+	tier := service.RequestSchedulingTierNormal
+	if subject, ok := middleware2.GetAuthSubjectFromContext(c); ok {
+		tier = service.NormalizeRequestSchedulingTier(subject.SchedulingTier)
+	}
+	var enabled bool
+	ctx, enabled = h.concurrencyService.WithPriorityAdmissionRequestSnapshot(ctx, tier)
+	if !enabled {
+		return c.Request.Context(), service.RequestSchedulingTierNormal, false
+	}
+	c.Request = c.Request.WithContext(ctx)
+	return ctx, tier, true
+}
+
+func priorityAdmissionPendingBytes(c *gin.Context) int64 {
+	if c == nil {
+		return 0
+	}
+	if value, ok := c.Get(priorityAdmissionPendingBytesKey); ok {
+		switch size := value.(type) {
+		case int64:
+			if size > 0 {
+				return size
+			}
+			return 0
+		case int:
+			if size > 0 {
+				return int64(size)
+			}
+			return 0
+		}
+	}
+	if c.Request != nil && c.Request.ContentLength > 0 {
+		return c.Request.ContentLength
+	}
+	return 0
 }
 
 // wrapReleaseOnDone ensures release runs at most once and still triggers on context cancellation.
@@ -270,12 +375,24 @@ func (h *ConcurrencyHelper) AcquireUserSlotWithWait(c *gin.Context, userID int64
 }
 
 func (h *ConcurrencyHelper) acquireUserSlotWithWaitTimeout(c *gin.Context, userID int64, maxConcurrency int, timeout time.Duration, isStream bool, streamStarted *bool) (func(), error) {
-	ctx := c.Request.Context()
+	ctx, tier, priorityEnabled := h.priorityAdmissionRequestSnapshot(c)
 
 	// Try to acquire immediately
-	releaseFunc, acquired, err := h.TryAcquireUserSlot(ctx, userID, maxConcurrency)
-	if err != nil {
-		return nil, err
+	var releaseFunc func()
+	var acquired bool
+	var err error
+	if priorityEnabled {
+		result, acquireErr := h.concurrencyService.AcquireUserSlotForTier(ctx, userID, maxConcurrency, tier)
+		if acquireErr != nil {
+			return nil, acquireErr
+		}
+		acquired = result.Acquired
+		releaseFunc = result.ReleaseFunc
+	} else {
+		releaseFunc, acquired, err = h.TryAcquireUserSlot(ctx, userID, maxConcurrency)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if acquired {
@@ -285,6 +402,39 @@ func (h *ConcurrencyHelper) acquireUserSlotWithWaitTimeout(c *gin.Context, userI
 	queueLimit := service.CalculateMaxWait(maxConcurrency) - maxConcurrency
 	if queueLimit < 1 {
 		queueLimit = 1
+	}
+	if priorityEnabled {
+		waitLease, canWait, waitErr := h.concurrencyService.BeginPriorityUserWaitForContext(
+			ctx,
+			userID,
+			maxConcurrency,
+			queueLimit,
+			tier,
+			priorityAdmissionPendingBytes(c),
+			timeout,
+		)
+		if waitErr != nil {
+			return nil, waitErr
+		}
+		if !canWait {
+			return nil, &WaitQueueFullError{SlotType: "user"}
+		}
+		defer waitLease.Close()
+
+		priorityCtx, cancel := context.WithTimeout(c.Request.Context(), timeout)
+		defer cancel()
+		releaseFunc, err = h.waitForPrioritySlotWithPing(
+			priorityCtx,
+			c,
+			"user",
+			isStream,
+			streamStarted,
+			waitLease.TryAcquire,
+		)
+		if err != nil {
+			return nil, err
+		}
+		return h.withAPIKeySlotFromGin(c, releaseFunc)
 	}
 	canWait, err := h.IncrementWaitCount(ctx, userID, queueLimit)
 	if err != nil {
@@ -466,6 +616,130 @@ func (h *ConcurrencyHelper) waitForSlotWithPingTimeout(c *gin.Context, slotType 
 func (h *ConcurrencyHelper) AcquireAccountSlotWithWaitTimeout(c *gin.Context, accountID int64, maxConcurrency int, timeout time.Duration, isStream bool, streamStarted *bool) (func(), error) {
 	return h.waitForSlotWithPingTimeout(c, "account", accountID, maxConcurrency, timeout, isStream, streamStarted, true)
 }
+
+// AcquireAccountSlotWithPriorityWaitTimeout is the complete priority-aware
+// account admission path. maxWaiting comes from the scheduler WaitPlan and
+// pendingBytes must be the size of the already-buffered request body.
+func (h *ConcurrencyHelper) AcquireAccountSlotWithPriorityWaitTimeout(c *gin.Context, accountID int64, maxConcurrency int, maxWaiting int, timeout time.Duration, pendingBytes int64, isStream bool, streamStarted *bool) (func(), error) {
+	if h == nil || h.concurrencyService == nil {
+		return nil, fmt.Errorf("concurrency service is unavailable")
+	}
+	if c == nil || c.Request == nil {
+		return nil, fmt.Errorf("request context is unavailable")
+	}
+	requestCtx := c.Request.Context()
+	tier, priorityEnabled := service.RequestSchedulingTierFromContextOK(requestCtx)
+	if !priorityEnabled || !h.concurrencyService.PriorityAdmissionEnabledForRequest(requestCtx) {
+		return h.AcquireAccountSlotWithWaitTimeout(c, accountID, maxConcurrency, timeout, isStream, streamStarted)
+	}
+
+	result, err := h.concurrencyService.AcquireAccountSlotForTier(requestCtx, accountID, maxConcurrency, tier)
+	if err != nil {
+		return nil, err
+	}
+	if result.Acquired {
+		return result.ReleaseFunc, nil
+	}
+	if tier == service.RequestSchedulingTierLow {
+		return nil, &WaitQueueFullError{SlotType: "account"}
+	}
+
+	ctx, cancel := context.WithTimeout(requestCtx, timeout)
+	defer cancel()
+
+	waiter, canWait, err := h.concurrencyService.BeginPriorityAccountWaitForContext(
+		requestCtx,
+		accountID,
+		maxConcurrency,
+		maxWaiting,
+		tier,
+		pendingBytes,
+		timeout,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if !canWait {
+		return nil, &WaitQueueFullError{SlotType: "account"}
+	}
+	defer waiter.Close()
+	return h.waitForPrioritySlotWithPing(ctx, c, "account", isStream, streamStarted, waiter.TryAcquire)
+}
+
+type prioritySlotAcquireFunc func(context.Context) (*service.AcquireResult, service.PriorityAccountAdmissionStatus, error)
+
+func (h *ConcurrencyHelper) waitForPrioritySlotWithPing(ctx context.Context, c *gin.Context, slotType string, isStream bool, streamStarted *bool, acquire prioritySlotAcquireFunc) (func(), error) {
+	tryAcquire := func() (*service.AcquireResult, error) {
+		result, status, err := acquire(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if status == service.PriorityAccountAdmissionQueueFull || status == service.PriorityAccountAdmissionRejected {
+			return nil, &WaitQueueFullError{SlotType: slotType}
+		}
+		if result == nil {
+			return rejectedAcquireResultForHandler, nil
+		}
+		return result, nil
+	}
+	if result, err := tryAcquire(); err != nil {
+		return nil, err
+	} else if result.Acquired {
+		return result.ReleaseFunc, nil
+	}
+	pingFormat := resolveSSEPingFormat(c, h.pingFormat)
+	needPing := isStream && pingFormat != ""
+	var flusher http.Flusher
+	if needPing {
+		var ok bool
+		flusher, ok = c.Writer.(http.Flusher)
+		if !ok {
+			return nil, fmt.Errorf("streaming not supported")
+		}
+	}
+	var pingCh <-chan time.Time
+	if needPing {
+		pingTicker := time.NewTicker(h.pingInterval)
+		defer pingTicker.Stop()
+		pingCh = pingTicker.C
+	}
+	backoff := initialBackoff
+	timer := time.NewTimer(backoff)
+	defer timer.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			if parentErr := c.Request.Context().Err(); parentErr != nil {
+				return nil, parentErr
+			}
+			return nil, &ConcurrencyError{SlotType: slotType, IsTimeout: true}
+		case <-pingCh:
+			if !*streamStarted {
+				c.Header("Content-Type", "text/event-stream")
+				c.Header("Cache-Control", "no-cache")
+				c.Header("Connection", "keep-alive")
+				c.Header("X-Accel-Buffering", "no")
+				*streamStarted = true
+			}
+			if _, writeErr := fmt.Fprint(c.Writer, string(pingFormat)); writeErr != nil {
+				return nil, writeErr
+			}
+			flusher.Flush()
+		case <-timer.C:
+			acquired, acquireErr := tryAcquire()
+			if acquireErr != nil {
+				return nil, acquireErr
+			}
+			if acquired.Acquired {
+				return acquired.ReleaseFunc, nil
+			}
+			backoff = nextBackoff(backoff)
+			timer.Reset(backoff)
+		}
+	}
+}
+
+var rejectedAcquireResultForHandler = &service.AcquireResult{}
 
 // nextBackoff 计算下一次退避时间
 // 性能优化：使用指数退避 + 随机抖动，避免惊群效应

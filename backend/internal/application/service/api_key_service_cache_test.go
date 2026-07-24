@@ -125,9 +125,10 @@ func (s *authRepoStub) GetRateLimitData(ctx context.Context, id int64) (*APIKeyR
 }
 
 type authCacheStub struct {
-	getAuthCache   func(ctx context.Context, key string) (*APIKeyAuthCacheEntry, error)
-	setAuthKeys    []string
-	deleteAuthKeys []string
+	getAuthCache      func(ctx context.Context, key string) (*APIKeyAuthCacheEntry, error)
+	setAuthKeys       []string
+	deleteAuthKeys    []string
+	publishedAuthKeys []string
 }
 
 func (s *authCacheStub) GetCreateAttemptCount(ctx context.Context, userID int64) (int, error) {
@@ -168,6 +169,7 @@ func (s *authCacheStub) DeleteAuthCache(ctx context.Context, key string) error {
 }
 
 func (s *authCacheStub) PublishAuthCacheInvalidation(ctx context.Context, cacheKey string) error {
+	s.publishedAuthKeys = append(s.publishedAuthKeys, cacheKey)
 	return nil
 }
 
@@ -504,14 +506,25 @@ func TestAPIKeyService_InvalidateAuthCacheByUserID(t *testing.T) {
 	}
 	cfg := &config.Config{
 		APIKeyAuth: config.APIKeyAuthCacheConfig{
+			L1Size:             100,
+			L1TTLSeconds:       60,
 			L2TTLSeconds:       60,
 			NegativeTTLSeconds: 30,
 		},
 	}
 	svc := NewAPIKeyService(repo, nil, nil, nil, nil, cache, cfg)
+	cacheKey := svc.authCacheKey("k1")
+	svc.setAuthCacheL1(cacheKey, &APIKeyAuthCacheEntry{Snapshot: &APIKeyAuthSnapshot{Version: apiKeyAuthSnapshotVersion}})
+	svc.authCacheL1.Wait()
+	_, cached := svc.authCacheL1.Get(cacheKey)
+	require.True(t, cached)
 
 	svc.InvalidateAuthCacheByUserID(context.Background(), 7)
+	svc.authCacheL1.Wait()
 	require.Len(t, cache.deleteAuthKeys, 2)
+	require.Len(t, cache.publishedAuthKeys, 2)
+	_, cached = svc.authCacheL1.Get(cacheKey)
+	require.False(t, cached)
 }
 
 func TestAPIKeyService_InvalidateAuthCacheByGroupID(t *testing.T) {

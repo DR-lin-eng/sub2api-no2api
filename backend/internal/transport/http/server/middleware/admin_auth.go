@@ -145,10 +145,7 @@ func validateAdminAPIKey(
 		return false
 	}
 
-	c.Set(string(ContextKeyUser), AuthSubject{
-		UserID:      admin.ID,
-		Concurrency: admin.Concurrency,
-	})
+	setAuthSubject(c, admin.ID, admin.Concurrency, admin.SchedulingTier)
 	c.Set(string(ContextKeyUserRole), admin.Role)
 	c.Set(ContextKeyAuthEmail, admin.Email)
 	c.Set("auth_method", "admin_api_key")
@@ -264,10 +261,7 @@ func validateJWTForAdmin(
 		return false
 	}
 
-	c.Set(string(ContextKeyUser), AuthSubject{
-		UserID:      user.ID,
-		Concurrency: user.Concurrency,
-	})
+	setAuthSubject(c, user.ID, user.Concurrency, user.SchedulingTier)
 	c.Set(string(ContextKeyUserRole), user.Role)
 	c.Set(ContextKeyAuthEmail, user.Email)
 	c.Set(ContextKeySessionID, claims.SessionID)

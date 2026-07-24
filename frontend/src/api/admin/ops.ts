@@ -895,6 +895,7 @@ export interface OpsAdvancedSettings {
   ignore_no_available_accounts: boolean
   ignore_invalid_api_key_errors: boolean
   ignore_insufficient_balance_errors: boolean
+  record_business_limited_429: boolean
   display_openai_token_stats: boolean
   display_user_usage_stats: boolean
   display_alert_events: boolean

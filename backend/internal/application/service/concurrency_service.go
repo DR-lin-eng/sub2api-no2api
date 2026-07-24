@@ -237,6 +237,11 @@ type ConcurrencyService struct {
 	localAPIKeySlots       localSlotRegistry
 	localUserSlots         localSlotRegistry
 
+	priorityAdmissionConfig atomic.Pointer[priorityAdmissionRuntimeConfig]
+	priorityPendingMu       sync.Mutex
+	priorityPendingCount    [2]int64
+	priorityPendingBytes    [2]int64
+
 	accountLoadCacheTTL atomic.Int64
 	accountLoadCacheMu  sync.Mutex
 	accountLoadCache    sync.Map // map[accountLoadBatchKey]*cachedAccountLoadBatch; hits stay lock-free
@@ -269,9 +274,10 @@ type cachedAccountLoadBatch struct {
 // Two independently seeded hashes keep the cache key comparable and allocation-free
 // on hits while retaining collision resistance appropriate for process-local caching.
 type accountLoadBatchKey struct {
-	count int
-	hashA uint64
-	hashB uint64
+	count             int
+	hashA             uint64
+	hashB             uint64
+	priorityAdmission bool
 }
 
 func (k accountLoadBatchKey) singleflightKey() string {
@@ -281,6 +287,9 @@ func (k accountLoadBatchKey) singleflightKey() string {
 	encoded = strconv.AppendUint(encoded, k.hashA, 16)
 	encoded = append(encoded, ':')
 	encoded = strconv.AppendUint(encoded, k.hashB, 16)
+	if k.priorityAdmission {
+		encoded = append(encoded, ':', 'p')
+	}
 	return string(encoded)
 }
 
@@ -288,6 +297,7 @@ func (k accountLoadBatchKey) singleflightKey() string {
 func NewConcurrencyService(cache ConcurrencyCache) *ConcurrencyService {
 	svc := &ConcurrencyService{cache: cache}
 	svc.SetAccountLoadBatchCacheTTL(defaultAccountLoadBatchCacheTTL)
+	svc.SetPriorityAdmissionRuntimeConfig(DefaultPriorityAdmissionRuntimeConfig())
 	return svc
 }
 
@@ -358,11 +368,13 @@ func (s *ConcurrencyService) SetAccountLoadBatchCacheTTL(ttl time.Duration) {
 
 // AcquireResult represents the result of acquiring a concurrency slot
 type AcquireResult struct {
-	Acquired    bool
-	ReleaseFunc func() // Must be called when done (typically via defer)
+	Acquired                  bool
+	ReleaseFunc               func() // Must be called when done (typically via defer)
+	PriorityAdmissionTerminal bool   // low-tier account admission failed; do not probe another account
 }
 
 var rejectedAcquireResult = &AcquireResult{}
+var priorityAdmissionTerminalAcquireResult = &AcquireResult{PriorityAdmissionTerminal: true}
 
 type AccountWithConcurrency struct {
 	ID             int64
@@ -392,6 +404,13 @@ type UserLoadInfo struct {
 // If the account is at max concurrency, it waits until a slot is available or timeout.
 // Returns a release function that MUST be called when the request completes.
 func (s *ConcurrencyService) AcquireAccountSlot(ctx context.Context, accountID int64, maxConcurrency int) (*AcquireResult, error) {
+	return s.acquireAccountSlotLegacy(ctx, accountID, maxConcurrency)
+}
+
+// acquireAccountSlotLegacy is deliberately kept as the feature-off path. Do
+// not add priority queue work here: internal callers without an explicitly
+// tagged gateway context must retain the existing behavior.
+func (s *ConcurrencyService) acquireAccountSlotLegacy(ctx context.Context, accountID int64, maxConcurrency int) (*AcquireResult, error) {
 	// If maxConcurrency is 0 or negative, no limit
 	if maxConcurrency <= 0 {
 		return &AcquireResult{
@@ -431,6 +450,10 @@ func (s *ConcurrencyService) AcquireAccountSlot(ctx context.Context, accountID i
 // If the user is at max concurrency, it waits until a slot is available or timeout.
 // Returns a release function that MUST be called when the request completes.
 func (s *ConcurrencyService) AcquireUserSlot(ctx context.Context, userID int64, maxConcurrency int) (*AcquireResult, error) {
+	return s.acquireUserSlotLegacy(ctx, userID, maxConcurrency)
+}
+
+func (s *ConcurrencyService) acquireUserSlotLegacy(ctx context.Context, userID int64, maxConcurrency int) (*AcquireResult, error) {
 	// If maxConcurrency is 0 or negative, no limit
 	if maxConcurrency <= 0 {
 		return &AcquireResult{
@@ -779,6 +802,10 @@ func (s *ConcurrencyService) GetAccountWaitingCount(ctx context.Context, account
 	if s.cache == nil {
 		return 0, nil
 	}
+	config, _ := s.priorityAdmissionRequestConfig(ctx)
+	if config.enabled {
+		ctx = withPriorityAdmissionLoadCounts(ctx)
+	}
 	return s.cache.GetAccountWaitingCount(ctx, accountID)
 }
 
@@ -814,7 +841,8 @@ func (s *ConcurrencyService) getAccountsLoadBatch(ctx context.Context, accounts 
 		return s.fetchAccountsLoadBatch(ctx, accounts)
 	}
 
-	key := accountLoadBatchCacheKey(accounts)
+	config, _ := s.priorityAdmissionRequestConfig(ctx)
+	key := accountLoadBatchCacheKey(accounts, config.enabled)
 	if cached, ok := s.getCachedAccountLoadBatch(key, time.Now()); ok {
 		return cached, nil
 	}
@@ -849,6 +877,10 @@ func (s *ConcurrencyService) fetchAccountsLoadBatch(ctx context.Context, account
 	baseCtx := context.Background()
 	if ctx != nil {
 		baseCtx = context.WithoutCancel(ctx)
+	}
+	config, _ := s.priorityAdmissionRequestConfig(ctx)
+	if config.enabled {
+		baseCtx = withPriorityAdmissionLoadCounts(baseCtx)
 	}
 	redisCtx, cancel := context.WithTimeout(baseCtx, accountLoadBatchFetchTimeout)
 	defer cancel()
@@ -913,7 +945,7 @@ func (s *ConcurrencyService) storeCachedAccountLoadBatch(key accountLoadBatchKey
 	s.accountLoadCacheMu.Unlock()
 }
 
-func accountLoadBatchCacheKey(accounts []AccountWithConcurrency) accountLoadBatchKey {
+func accountLoadBatchCacheKey(accounts []AccountWithConcurrency, priorityAdmission bool) accountLoadBatchKey {
 	hashA := xxhash.NewWithSeed(0x9e3779b185ebca87)
 	hashB := xxhash.NewWithSeed(0xc2b2ae3d27d4eb4f)
 	var buf [16]byte
@@ -924,9 +956,10 @@ func accountLoadBatchCacheKey(accounts []AccountWithConcurrency) accountLoadBatc
 		_, _ = hashB.Write(buf[:])
 	}
 	return accountLoadBatchKey{
-		count: len(accounts),
-		hashA: hashA.Sum64(),
-		hashB: hashB.Sum64(),
+		count:             len(accounts),
+		hashA:             hashA.Sum64(),
+		hashB:             hashB.Sum64(),
+		priorityAdmission: priorityAdmission,
 	}
 }
 
@@ -950,7 +983,12 @@ func cloneAccountLoadMap(loadMap map[int64]*AccountLoadInfo) map[int64]*AccountL
 func (s *ConcurrencyService) GetUsersLoadBatch(ctx context.Context, users []UserWithConcurrency) (map[int64]*UserLoadInfo, error) {
 	loadMap := make(map[int64]*UserLoadInfo, len(users))
 	if s != nil && s.cache != nil {
-		cached, err := s.cache.GetUsersLoadBatch(ctx, users)
+		loadCtx := ctx
+		config, _ := s.priorityAdmissionRequestConfig(ctx)
+		if config.enabled {
+			loadCtx = withPriorityAdmissionLoadCounts(loadCtx)
+		}
+		cached, err := s.cache.GetUsersLoadBatch(loadCtx, users)
 		if err != nil {
 			return nil, err
 		}

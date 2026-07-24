@@ -41,6 +41,9 @@ func TestGetOpsAdvancedSettings_DefaultSnapshotHidesOpenAITokenStats(t *testing.
 	if cfg.DataRetention.UserRequestLogRetentionDays != 90 {
 		t.Fatalf("UserRequestLogRetentionDays = %d, want 90", cfg.DataRetention.UserRequestLogRetentionDays)
 	}
+	if !cfg.RecordBusinessLimited429 {
+		t.Fatal("RecordBusinessLimited429 = false, want true by default")
+	}
 	if repo.getValueCalls != 0 || repo.getMultipleCalls != 0 {
 		t.Fatalf("hot-path snapshot read touched repository: get=%d get_multiple=%d", repo.getValueCalls, repo.getMultipleCalls)
 	}
@@ -176,6 +179,24 @@ func TestGetOpsAdvancedSettings_BackfillsNewDisplayFlagsFromDefaults(t *testing.
 	}
 	if cfg.DataRetention.UserRequestLogRetentionDays != 90 {
 		t.Fatalf("UserRequestLogRetentionDays = %d, want 90 default backfill", cfg.DataRetention.UserRequestLogRetentionDays)
+	}
+	if !cfg.RecordBusinessLimited429 {
+		t.Fatal("RecordBusinessLimited429 = false, want true for legacy JSON")
+	}
+}
+
+func TestGetOpsAdvancedSettings_ExplicitBusinessLimited429FalseIsPreserved(t *testing.T) {
+	repo := newRuntimeSettingRepoStub()
+	repo.values[SettingKeyOpsAdvancedSettings] = `{"record_business_limited_429":false}`
+	svc := &OpsService{settingRepo: repo}
+	svc.initRuntimeSettings(context.Background())
+
+	cfg, err := svc.GetOpsAdvancedSettings(context.Background())
+	if err != nil {
+		t.Fatalf("GetOpsAdvancedSettings() error = %v", err)
+	}
+	if cfg.RecordBusinessLimited429 {
+		t.Fatal("RecordBusinessLimited429 = true, want explicit false")
 	}
 }
 

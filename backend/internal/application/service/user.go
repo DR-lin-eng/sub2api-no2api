@@ -21,6 +21,7 @@ type User struct {
 	Balance        float64
 	FrozenBalance  float64
 	Concurrency    int
+	SchedulingTier RequestSchedulingTier
 	Status         string
 	AllowedGroups  []int64
 	TokenVersion   int64 // Incremented on password change to invalidate existing tokens

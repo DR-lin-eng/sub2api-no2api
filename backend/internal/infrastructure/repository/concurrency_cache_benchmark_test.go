@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -90,6 +91,34 @@ func BenchmarkAccountConcurrency(b *testing.B) {
 				b.Fatalf("清理扫描键失败: %v", err)
 			}
 		})
+	}
+}
+
+func BenchmarkPriorityAdmissionAccountFastPath(b *testing.B) {
+	rdb := newBenchmarkRedisClient(b)
+	defer func() { _ = rdb.Close() }()
+	cache := NewConcurrencyCache(rdb, benchSlotTTLMinutes, int(benchSlotTTL.Seconds())).(*concurrencyCache)
+	ctx := context.Background()
+	request := service.PriorityAccountAdmissionRequest{
+		AccountID:      time.Now().UnixNano(),
+		MaxConcurrency: 64,
+		MaxWaiting:     100,
+		Tier:           service.RequestSchedulingTierNormal,
+		RequestID:      "benchmark-stable-request",
+		WaitTimeout:    30 * time.Second,
+	}
+	status, err := cache.AcquirePriorityAccountSlot(ctx, request)
+	if err != nil || status != service.PriorityAccountAdmissionAcquired {
+		b.Fatalf("warm priority admission script: status=%d err=%v", status, err)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		status, err = cache.AcquirePriorityAccountSlot(ctx, request)
+		if err != nil || status != service.PriorityAccountAdmissionAcquired {
+			b.Fatalf("priority admission: status=%d err=%v", status, err)
+		}
 	}
 }
 

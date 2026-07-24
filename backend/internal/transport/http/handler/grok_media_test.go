@@ -165,3 +165,19 @@ func TestEnsureGrokMediaAccountEligibility(t *testing.T) {
 		require.Equal(t, "billing_unobserved", reason)
 	})
 }
+
+func TestReleaseRejectedGrokMediaSelectionReleasesAcquiredSlotOnce(t *testing.T) {
+	releaseCalls := 0
+	selection := &service.AccountSelectionResult{
+		Account:     &service.Account{ID: 73},
+		Acquired:    true,
+		ReleaseFunc: func() { releaseCalls++ },
+	}
+
+	releaseRejectedGrokMediaSelection(selection)
+	releaseRejectedGrokMediaSelection(selection)
+
+	require.Equal(t, 1, releaseCalls)
+	require.False(t, selection.Acquired)
+	require.Nil(t, selection.ReleaseFunc)
+}

@@ -737,6 +737,8 @@ export default {
         openaiQuotaAutoPauseDefault7d: 'Default 7d usage threshold (%)',
         openaiQuotaAutoPauseThresholdHint: 'Value 0-100; leave blank or 0 to disable the global default threshold.',
         errorFiltering: 'Error Filtering',
+        recordBusinessLimited429: 'Record local business-limit 429s',
+        recordBusinessLimited429Hint: 'When disabled, locally generated concurrency, queue, RPM, and API-key quota 429s skip response capture, async queueing, and ops error-log storage. Upstream 429s are still recorded.',
         ignoreCountTokensErrors: 'Ignore count_tokens errors',
         ignoreCountTokensErrorsHint: 'When enabled, errors from count_tokens requests will not be written to the error log.',
         ignoreContextCanceled: 'Ignore client disconnect errors',

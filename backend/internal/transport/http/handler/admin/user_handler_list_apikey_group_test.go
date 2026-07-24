@@ -51,3 +51,39 @@ func TestAdminUserList_ParsesAPIKeyGroupID(t *testing.T) {
 		})
 	}
 }
+
+func TestAdminUserList_ParsesSchedulingTierIncludingPriorityZero(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, tc := range []struct {
+		query string
+		want  service.RequestSchedulingTier
+	}{
+		{"?scheduling_tier=0", service.RequestSchedulingTierPriority},
+		{"?scheduling_tier=1", service.RequestSchedulingTierNormal},
+		{"?scheduling_tier=2", service.RequestSchedulingTierLow},
+	} {
+		stub := &listUsersFilterStub{AdminService: newStubAdminService()}
+		r := gin.New()
+		r.GET("/admin/users", NewUserHandler(stub, nil, nil, nil, nil, nil, nil).List)
+
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest(http.MethodGet, "/admin/users"+tc.query, nil)
+		r.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusOK, w.Code)
+		require.NotNil(t, stub.captured.SchedulingTier)
+		require.Equal(t, tc.want, *stub.captured.SchedulingTier)
+	}
+}
+
+func TestAdminUserList_RejectsInvalidSchedulingTier(t *testing.T) {
+	stub := &listUsersFilterStub{AdminService: newStubAdminService()}
+	r := gin.New()
+	r.GET("/admin/users", NewUserHandler(stub, nil, nil, nil, nil, nil, nil).List)
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/admin/users?scheduling_tier=3", nil)
+
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+}

@@ -89,8 +89,8 @@ func (h *OpenAIGatewayHandler) executeForcedOpenAIImageResponses(
 		if _, ok := childEvent.event["output_index"]; ok {
 			childEvent.event["output_index"] = childEvent.index
 		}
-		if err := emit(childEvent.event); err != nil && firstErr == nil {
-			firstErr = err
+		if err := emit(childEvent.event); err != nil {
+			firstErr = chooseOpenAIForcedImageError(firstErr, err)
 		}
 		sequence++
 	}
@@ -101,17 +101,13 @@ func (h *OpenAIGatewayHandler) executeForcedOpenAIImageResponses(
 		case child := <-results:
 			completed++
 			if child.err != nil {
-				if firstErr == nil {
-					firstErr = child.err
-				}
+				firstErr = chooseOpenAIForcedImageError(firstErr, child.err)
 				continue
 			}
 			outputs[child.index] = child.output
 			mergeOpenAIForcedImageUsage(usage, child.usage)
 		case <-ctx.Done():
-			if firstErr == nil {
-				firstErr = ctx.Err()
-			}
+			firstErr = chooseOpenAIForcedImageError(firstErr, ctx.Err())
 		}
 	}
 drainEvents:
@@ -135,7 +131,8 @@ drainEvents:
 	finalResponse["usage"] = usage
 	if firstErr != nil {
 		finalResponse["status"] = "failed"
-		finalResponse["error"] = map[string]any{"code": "image_generation_failed", "message": firstErr.Error()}
+		code, message := openAIForcedImageFailureDetails(firstErr)
+		finalResponse["error"] = map[string]any{"code": code, "message": message}
 		if emit != nil {
 			_ = emit(map[string]any{"type": "response.failed", "sequence_number": sequence, "response": finalResponse})
 		}
@@ -195,6 +192,32 @@ func openAIForcedImageOutputString(output map[string]any, key string) string {
 	return strings.TrimSpace(value)
 }
 
+type openAIForcedImageAdmissionError struct {
+	cause error
+}
+
+func (e *openAIForcedImageAdmissionError) Error() string {
+	if e == nil {
+		return "Service temporarily unavailable, please retry later"
+	}
+	_, _, message := concurrencyErrorResponse(e.cause, "account")
+	return message
+}
+
+func (e *openAIForcedImageAdmissionError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.cause
+}
+
+func newOpenAIForcedImageAdmissionError(err error) error {
+	if err == nil {
+		err = service.ErrNoAvailableAccounts
+	}
+	return &openAIForcedImageAdmissionError{cause: err}
+}
+
 func openAIForcedImageGroupID(apiKey *service.APIKey) int64 {
 	if apiKey == nil || apiKey.GroupID == nil {
 		return 0
@@ -224,6 +247,9 @@ func (h *OpenAIGatewayHandler) runForcedOpenAIImageChild(
 			if selectErr == nil {
 				selectErr = service.ErrNoAvailableAccounts
 			}
+			if errors.Is(selectErr, service.ErrPriorityAdmissionUnavailable) {
+				selectErr = newOpenAIForcedImageAdmissionError(selectErr)
+			}
 			return openAIForcedImageChildResult{index: index, err: selectErr}
 		}
 		account := selection.Account
@@ -236,17 +262,27 @@ func (h *OpenAIGatewayHandler) runForcedOpenAIImageChild(
 		})
 		childContext.Writer = writer
 		childStreamStarted := false
-		release, acquired := h.acquireResponsesAccountSlot(
+		waitedForAccount := !selection.Acquired
+		release, acquireErr := acquireAccountSelectionSlot(
 			childContext,
-			input.apiKey.GroupID,
-			fmt.Sprintf("%s:image:%d", input.sessionHash, index),
+			h.concurrencyHelper,
 			selection,
 			input.stream,
 			&childStreamStarted,
 			input.reqLog,
 		)
-		if !acquired {
-			return openAIForcedImageChildResult{index: index, err: errors.New("image account is busy")}
+		if acquireErr != nil {
+			return openAIForcedImageChildResult{index: index, err: newOpenAIForcedImageAdmissionError(acquireErr)}
+		}
+		if waitedForAccount {
+			if bindErr := h.gatewayService.BindStickySession(
+				ctx,
+				input.apiKey.GroupID,
+				fmt.Sprintf("%s:image:%d", input.sessionHash, index),
+				account.ID,
+			); bindErr != nil && input.reqLog != nil {
+				input.reqLog.Warn("openai.forced_image.bind_sticky_session_failed", zap.Int64("account_id", account.ID), zap.Error(bindErr))
+			}
 		}
 		upstreamModel := account.GetMappedModel(input.plan.ImageModel)
 		start := time.Now()
@@ -438,11 +474,7 @@ func (h *OpenAIGatewayHandler) handleForcedOpenAIImageResponses(
 		stopKeepalive := service.StartOpenAIImagesJSONKeepalive(c, h.openAIImagesJSONKeepaliveInterval())
 		response, runErr := h.executeForcedOpenAIImageResponses(c.Request.Context(), c, input, plan.N, nil)
 		stopKeepalive()
-		status := http.StatusOK
-		if runErr != nil {
-			status = openAIForcedImageHTTPErrorStatus(runErr)
-		}
-		c.JSON(status, response)
+		writeOpenAIForcedImageHTTPResult(c, response, runErr)
 		return
 	}
 
@@ -465,12 +497,76 @@ func (h *OpenAIGatewayHandler) handleForcedOpenAIImageResponses(
 	stopKeepalive()
 }
 
+func openAIForcedImageAdmissionCause(err error) (error, bool) {
+	var admissionErr *openAIForcedImageAdmissionError
+	if errors.As(err, &admissionErr) {
+		return admissionErr.Unwrap(), true
+	}
+	var queueFullErr *WaitQueueFullError
+	if errors.As(err, &queueFullErr) || errors.Is(err, service.ErrPriorityAdmissionUnavailable) {
+		return err, true
+	}
+	return nil, false
+}
+
+func chooseOpenAIForcedImageError(current, candidate error) error {
+	if candidate == nil {
+		return current
+	}
+	if current == nil || openAIForcedImageErrorRank(candidate) > openAIForcedImageErrorRank(current) {
+		return candidate
+	}
+	return current
+}
+
+func openAIForcedImageErrorRank(err error) int {
+	if err == nil {
+		return 0
+	}
+	if errors.Is(err, service.ErrPriorityAdmissionUnavailable) {
+		return 3
+	}
+	if _, ok := openAIForcedImageAdmissionCause(err); ok {
+		return 2
+	}
+	return 1
+}
+
+func openAIForcedImageFailureDetails(err error) (string, string) {
+	if cause, ok := openAIForcedImageAdmissionCause(err); ok {
+		_, errType, message := concurrencyErrorResponse(cause, "account")
+		return errType, message
+	}
+	if err == nil {
+		return "image_generation_failed", "Image generation failed"
+	}
+	return "image_generation_failed", err.Error()
+}
+
 func openAIForcedImageHTTPErrorStatus(err error) int {
+	if cause, ok := openAIForcedImageAdmissionCause(err); ok {
+		status, _, _ := concurrencyErrorResponse(cause, "account")
+		return status
+	}
 	var upstreamErr *service.OpenAIImagesUpstreamError
 	if errors.As(err, &upstreamErr) && upstreamErr.StatusCode >= 400 && upstreamErr.StatusCode < 500 {
 		return upstreamErr.StatusCode
 	}
 	return http.StatusBadGateway
+}
+
+func writeOpenAIForcedImageHTTPResult(c *gin.Context, response map[string]any, runErr error) {
+	status := http.StatusOK
+	if runErr != nil {
+		status = openAIForcedImageHTTPErrorStatus(runErr)
+		if response == nil {
+			response = make(map[string]any)
+		}
+		response["status"] = "failed"
+		code, message := openAIForcedImageFailureDetails(runErr)
+		response["error"] = map[string]any{"code": code, "message": message}
+	}
+	c.JSON(status, response)
 }
 
 func (h *OpenAIGatewayHandler) handleForcedOpenAIImageResponsesWebSocket(
@@ -491,6 +587,11 @@ func (h *OpenAIGatewayHandler) handleForcedOpenAIImageResponsesWebSocket(
 	turn := 1
 	lastResponseID := ""
 	for {
+		if _, snapshotted := service.RequestSchedulingTierFromContextOK(c.Request.Context()); snapshotted {
+			SetPriorityAdmissionPendingBytes(c, int64(len(payload)))
+		} else if h.concurrencyHelper != nil {
+			h.concurrencyHelper.SetPriorityAdmissionPendingBytes(c, int64(len(payload)))
+		}
 		if turn > 1 && !ensureUserSlotHeld() {
 			return
 		}

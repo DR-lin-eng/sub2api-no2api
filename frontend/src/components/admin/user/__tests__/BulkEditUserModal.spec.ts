@@ -118,6 +118,22 @@ describe('BulkEditUserModal', () => {
     })
   })
 
+  it('submits priority tier zero without requiring numeric limits', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const wrapper = mountModal()
+
+    await wrapper.get('[data-test="enable-scheduling-tier"]').trigger('click')
+    await wrapper.get('[data-test="scheduling-tier-select"]').setValue('0')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(batchUpdateLimits).toHaveBeenCalledWith({
+      user_ids: [4, 7],
+      all: false,
+      scheduling_tier: 0
+    })
+  })
+
   it('does not call the API when overwrite confirmation is cancelled', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(false)
     const wrapper = mountModal()

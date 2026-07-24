@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"net/http"
 	"testing"
 	"time"
 
@@ -143,6 +144,74 @@ func TestOpsServiceRecordErrorPersistsExplicitAccountAuthStatusZero(t *testing.T
 	require.NotNil(t, captured.UpstreamErrorsJSON)
 	require.Contains(t, *captured.UpstreamErrorsJSON, `"upstream_status_code":403`)
 	require.Contains(t, *captured.UpstreamErrorsJSON, `"stage":"account_auth"`)
+}
+
+func TestOpsServiceRecordErrorDropsBusinessLimited429AtPersistenceBoundary(t *testing.T) {
+	t.Parallel()
+
+	insertCalls := 0
+	repo := &opsRepoMock{
+		InsertErrorLogFn: func(context.Context, *OpsInsertErrorLogInput) (int64, error) {
+			insertCalls++
+			return 1, nil
+		},
+	}
+	svc := NewOpsService(repo, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	cfg := defaultOpsAdvancedSettings()
+	cfg.RecordBusinessLimited429 = false
+	svc.storeAdvancedSettingsSnapshot(cfg)
+
+	err := svc.RecordError(context.Background(), &OpsInsertErrorLogInput{
+		StatusCode:        429,
+		IsBusinessLimited: true,
+		ErrorType:         "rate_limit_error",
+		ErrorPhase:        "request",
+	})
+	require.NoError(t, err)
+	require.Zero(t, insertCalls)
+}
+
+func TestOpsServiceRecordErrorBatchDropsLocalBusiness429AndRetainsUpstream429(t *testing.T) {
+	t.Parallel()
+
+	var captured []*OpsInsertErrorLogInput
+	repo := &opsRepoMock{
+		InsertErrorLogFn: func(_ context.Context, input *OpsInsertErrorLogInput) (int64, error) {
+			captured = append(captured, input)
+			return 1, nil
+		},
+		BatchInsertErrorLogsFn: func(_ context.Context, inputs []*OpsInsertErrorLogInput) (int64, error) {
+			captured = append(captured, inputs...)
+			return int64(len(inputs)), nil
+		},
+	}
+	svc := NewOpsService(repo, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	cfg := defaultOpsAdvancedSettings()
+	cfg.RecordBusinessLimited429 = false
+	svc.storeAdvancedSettingsSnapshot(cfg)
+	upstreamStatus := http.StatusTooManyRequests
+
+	err := svc.RecordErrorBatch(context.Background(), []*OpsInsertErrorLogInput{
+		{
+			StatusCode:        http.StatusTooManyRequests,
+			IsBusinessLimited: true,
+			ErrorType:         "rate_limit_error",
+			ErrorPhase:        "concurrency",
+		},
+		{
+			StatusCode:         http.StatusTooManyRequests,
+			IsBusinessLimited:  false,
+			ErrorType:          "rate_limit_error",
+			ErrorPhase:         "upstream",
+			UpstreamStatusCode: &upstreamStatus,
+		},
+	})
+
+	require.NoError(t, err)
+	require.Len(t, captured, 1)
+	require.False(t, captured[0].IsBusinessLimited)
+	require.NotNil(t, captured[0].UpstreamStatusCode)
+	require.Equal(t, http.StatusTooManyRequests, *captured[0].UpstreamStatusCode)
 }
 
 func strPtr(v string) *string {

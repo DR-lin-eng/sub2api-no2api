@@ -306,6 +306,66 @@ func TestAcquireUserSlotWithWait_ImmediateAcquireSkipsWaitQueue(t *testing.T) {
 	require.Equal(t, 1, cache.userReleaseCalls)
 }
 
+func TestPriorityAdmissionRequestMetadataIsLazyWhenFeatureDisabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{
+		UserID:         1,
+		Concurrency:    1,
+		SchedulingTier: service.RequestSchedulingTierLow,
+	})
+
+	concurrencyService := service.NewConcurrencyService(&helperConcurrencyCacheStub{})
+	helper := NewConcurrencyHelper(concurrencyService, SSEPingFormatNone, time.Second)
+	helper.SetPriorityAdmissionPendingBytes(c, 123)
+
+	_, hasPendingBytes := c.Get(priorityAdmissionPendingBytesKey)
+	require.False(t, hasPendingBytes)
+	_, hasTierContext := service.RequestSchedulingTierFromContextOK(c.Request.Context())
+	require.False(t, hasTierContext)
+
+	concurrencyService.SetPriorityAdmissionRuntimeConfig(service.PriorityAdmissionRuntimeConfig{
+		Enabled:                 true,
+		PendingLimitPerInstance: 256,
+		PendingBytesPerInstance: 256 << 20,
+	})
+	helper.SetPriorityAdmissionPendingBytes(c, 123)
+
+	require.Equal(t, int64(123), priorityAdmissionPendingBytes(c))
+	tier, hasTierContext := service.RequestSchedulingTierFromContextOK(c.Request.Context())
+	require.True(t, hasTierContext)
+	require.Equal(t, service.RequestSchedulingTierLow, tier)
+}
+
+func TestPriorityAdmissionWebSocketTurnRefreshClearsBytesAndUsesCurrentSwitch(t *testing.T) {
+	c, _ := newHelperTestContext(http.MethodPost, "/v1/responses")
+	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{
+		UserID:         1,
+		Concurrency:    1,
+		SchedulingTier: service.RequestSchedulingTierLow,
+	})
+	concurrencyService := service.NewConcurrencyService(&helperConcurrencyCacheStub{})
+	concurrencyService.SetPriorityAdmissionRuntimeConfig(service.PriorityAdmissionRuntimeConfig{
+		Enabled:                 true,
+		PendingLimitPerInstance: 256,
+		PendingBytesPerInstance: 256 << 20,
+	})
+	helper := NewConcurrencyHelper(concurrencyService, SSEPingFormatNone, time.Second)
+	helper.SetPriorityAdmissionPendingBytes(c, 123)
+	require.Equal(t, int64(123), priorityAdmissionPendingBytes(c))
+
+	require.True(t, helper.RefreshPriorityAdmissionRequestSnapshot(c))
+	require.Zero(t, priorityAdmissionPendingBytes(c))
+	require.True(t, concurrencyService.PriorityAdmissionEnabledForRequest(c.Request.Context()))
+
+	concurrencyService.SetPriorityAdmissionRuntimeConfig(service.DefaultPriorityAdmissionRuntimeConfig())
+	require.False(t, helper.RefreshPriorityAdmissionRequestSnapshot(c))
+	require.Zero(t, priorityAdmissionPendingBytes(c))
+	require.False(t, concurrencyService.PriorityAdmissionEnabledForRequest(c.Request.Context()))
+}
+
 func TestAcquireUserSlotWithWait_TracksAPIKeySlot(t *testing.T) {
 	cache := &helperConcurrencyCacheStub{
 		userSeq: []bool{true},

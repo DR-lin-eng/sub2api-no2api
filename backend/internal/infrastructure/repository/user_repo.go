@@ -92,6 +92,7 @@ func (r *userRepository) Create(ctx context.Context, userIn *service.User) error
 		SetRole(userIn.Role).
 		SetBalance(userIn.Balance).
 		SetConcurrency(userIn.Concurrency).
+		SetRequestSchedulingTier(int16(service.NormalizeRequestSchedulingTier(userIn.SchedulingTier))).
 		SetStatus(userIn.Status).
 		SetSignupSource(userSignupSourceOrDefault(userIn.SignupSource)).
 		SetNillableLastLoginAt(userIn.LastLoginAt).
@@ -235,6 +236,7 @@ func (r *userRepository) Update(ctx context.Context, userIn *service.User) error
 		SetRole(userIn.Role).
 		SetBalance(userIn.Balance).
 		SetConcurrency(userIn.Concurrency).
+		SetRequestSchedulingTier(int16(service.NormalizeRequestSchedulingTier(userIn.SchedulingTier))).
 		SetStatus(userIn.Status).
 		SetBalanceNotifyEnabled(userIn.BalanceNotifyEnabled).
 		SetBalanceNotifyThresholdType(userIn.BalanceNotifyThresholdType).
@@ -484,6 +486,9 @@ func (r *userRepository) ListWithFilters(ctx context.Context, params pagination.
 	if filters.Role != "" {
 		q = q.Where(dbuser.RoleEQ(filters.Role))
 	}
+	if filters.SchedulingTier != nil {
+		q = q.Where(dbuser.RequestSchedulingTierEQ(int16(*filters.SchedulingTier)))
+	}
 	if filters.Search != "" {
 		q = q.Where(
 			dbuser.Or(
@@ -618,6 +623,9 @@ func userListOrder(params pagination.PaginationParams) []func(*entsql.Selector) 
 		defaultField = false
 	case "concurrency":
 		field = dbuser.FieldConcurrency
+		defaultField = false
+	case "scheduling_tier":
+		field = dbuser.FieldRequestSchedulingTier
 		defaultField = false
 	case "status":
 		field = dbuser.FieldStatus
@@ -904,8 +912,8 @@ func (r *userRepository) BatchAddConcurrency(ctx context.Context, userIDs []int6
 	return int(affected), nil
 }
 
-func (r *userRepository) BatchUpdateLimits(ctx context.Context, userIDs []int64, concurrency, rpmLimit *int) (int, error) {
-	if len(userIDs) == 0 || (concurrency == nil && rpmLimit == nil) {
+func (r *userRepository) BatchUpdateLimits(ctx context.Context, userIDs []int64, concurrency, rpmLimit *int, schedulingTier *service.RequestSchedulingTier) (int, error) {
+	if len(userIDs) == 0 || (concurrency == nil && rpmLimit == nil && schedulingTier == nil) {
 		return 0, nil
 	}
 
@@ -920,6 +928,10 @@ func (r *userRepository) BatchUpdateLimits(ctx context.Context, userIDs []int64,
 		value := max(*rpmLimit, 0)
 		args = append(args, value)
 		setClauses = append(setClauses, fmt.Sprintf("rpm_limit = $%d", len(args)))
+	}
+	if schedulingTier != nil {
+		args = append(args, int16(*schedulingTier))
+		setClauses = append(setClauses, fmt.Sprintf("request_scheduling_tier = $%d", len(args)))
 	}
 	setClauses = append(setClauses, "updated_at = NOW()")
 	args = append(args, pq.Array(userIDs))

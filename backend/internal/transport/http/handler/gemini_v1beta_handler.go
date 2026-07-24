@@ -52,8 +52,30 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 		return
 	}
 
+	priorityAdmissionEnabled := metadataPriorityAdmissionEnabled(c, h.concurrencyHelper)
+	if priorityAdmissionEnabled {
+		authSubject, ok := middleware.GetAuthSubjectFromContext(c)
+		if !ok {
+			googleError(c, http.StatusInternalServerError, "User context not found")
+			return
+		}
+		userRelease, err := acquireMetadataUserSlot(c, h.concurrencyHelper, authSubject)
+		if err != nil {
+			status, _, message := concurrencyErrorResponse(err, "user")
+			googleError(c, status, message)
+			return
+		}
+		if userRelease != nil {
+			defer userRelease()
+		}
+	}
+
 	account, err := h.geminiCompatService.SelectAccountForAIStudioEndpoints(c.Request.Context(), apiKey.GroupID)
 	if err != nil {
+		if errors.Is(err, service.ErrPriorityAdmissionUnavailable) {
+			googleError(c, http.StatusServiceUnavailable, "Service temporarily unavailable, please retry later")
+			return
+		}
 		// 没有 gemini 账户，检查是否有 antigravity 账户可用
 		hasAntigravity, _ := h.geminiCompatService.HasAntigravityAccounts(c.Request.Context(), apiKey.GroupID)
 		if hasAntigravity {
@@ -64,6 +86,17 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 		markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
 		googleError(c, http.StatusServiceUnavailable, "No available Gemini accounts: "+err.Error())
 		return
+	}
+	if priorityAdmissionEnabled {
+		accountRelease, acquireErr := acquireMetadataAccountSlot(c, h.concurrencyHelper, h.cfg, account)
+		if acquireErr != nil {
+			status, _, message := concurrencyErrorResponse(acquireErr, "account")
+			googleError(c, status, message)
+			return
+		}
+		if accountRelease != nil {
+			defer accountRelease()
+		}
 	}
 
 	res, err := h.geminiCompatService.ForwardAIStudioGET(c.Request.Context(), account, "/v1beta/models")
@@ -108,8 +141,30 @@ func (h *GatewayHandler) GeminiV1BetaGetModel(c *gin.Context) {
 		return
 	}
 
+	priorityAdmissionEnabled := metadataPriorityAdmissionEnabled(c, h.concurrencyHelper)
+	if priorityAdmissionEnabled {
+		authSubject, ok := middleware.GetAuthSubjectFromContext(c)
+		if !ok {
+			googleError(c, http.StatusInternalServerError, "User context not found")
+			return
+		}
+		userRelease, err := acquireMetadataUserSlot(c, h.concurrencyHelper, authSubject)
+		if err != nil {
+			status, _, message := concurrencyErrorResponse(err, "user")
+			googleError(c, status, message)
+			return
+		}
+		if userRelease != nil {
+			defer userRelease()
+		}
+	}
+
 	account, err := h.geminiCompatService.SelectAccountForAIStudioEndpoints(c.Request.Context(), apiKey.GroupID)
 	if err != nil {
+		if errors.Is(err, service.ErrPriorityAdmissionUnavailable) {
+			googleError(c, http.StatusServiceUnavailable, "Service temporarily unavailable, please retry later")
+			return
+		}
 		// 没有 gemini 账户，检查是否有 antigravity 账户可用
 		hasAntigravity, _ := h.geminiCompatService.HasAntigravityAccounts(c.Request.Context(), apiKey.GroupID)
 		if hasAntigravity {
@@ -120,6 +175,17 @@ func (h *GatewayHandler) GeminiV1BetaGetModel(c *gin.Context) {
 		markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
 		googleError(c, http.StatusServiceUnavailable, "No available Gemini accounts: "+err.Error())
 		return
+	}
+	if priorityAdmissionEnabled {
+		accountRelease, acquireErr := acquireMetadataAccountSlot(c, h.concurrencyHelper, h.cfg, account)
+		if acquireErr != nil {
+			status, _, message := concurrencyErrorResponse(acquireErr, "account")
+			googleError(c, status, message)
+			return
+		}
+		if accountRelease != nil {
+			defer accountRelease()
+		}
 	}
 
 	res, err := h.geminiCompatService.ForwardAIStudioGET(c.Request.Context(), account, "/v1beta/models/"+modelName)
@@ -189,6 +255,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		googleError(c, http.StatusBadRequest, "Request body is empty")
 		return
 	}
+	h.concurrencyHelper.SetPriorityAdmissionPendingBytes(c, int64(len(body)))
 
 	setOpsRequestContext(c, modelName, stream)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(stream, false)))
@@ -218,8 +285,11 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 	}
 	userReleaseFunc, err := geminiConcurrency.AcquireUserSlotWithWait(c, authSubject.UserID, authSubject.Concurrency, stream, &streamStarted)
 	if err != nil {
-		reqLog.Warn("gemini.user_slot_acquire_failed", zap.Error(err))
-		googleError(c, http.StatusTooManyRequests, err.Error())
+		if shouldLogConcurrencyAcquireError(err) {
+			reqLog.Warn("gemini.user_slot_acquire_failed", zap.Error(err))
+		}
+		status, _, message := concurrencyErrorResponse(err, "user")
+		googleError(c, status, message)
 		return
 	}
 	// 确保请求取消时也会释放槽位，避免长连接被动中断造成泄漏
@@ -355,6 +425,10 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 	for {
 		selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), apiKey.GroupID, sessionKey, modelName, fs.FailedAccountIDs, "", int64(0)) // Gemini 不使用会话限制
 		if err != nil {
+			if errors.Is(err, service.ErrPriorityAdmissionUnavailable) {
+				googleError(c, http.StatusServiceUnavailable, "Service temporarily unavailable, please retry later")
+				return
+			}
 			if len(fs.FailedAccountIDs) == 0 {
 				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, modelName, modelName, service.PlatformGemini)
 				if !cls.ModelNotFound {
@@ -416,43 +490,64 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 				googleError(c, http.StatusServiceUnavailable, "No available Gemini accounts")
 				return
 			}
-			accountWaitCounted := false
-			canWait, err := geminiConcurrency.IncrementAccountWaitCount(c.Request.Context(), account.ID, selection.WaitPlan.MaxWaiting)
-			if err != nil {
-				reqLog.Warn("gemini.account_wait_counter_increment_failed", zap.Int64("account_id", account.ID), zap.Error(err))
-			} else if !canWait {
-				reqLog.Info("gemini.account_wait_queue_full",
-					zap.Int64("account_id", account.ID),
-					zap.Int("max_waiting", selection.WaitPlan.MaxWaiting),
+			if h.concurrencyHelper.concurrencyService.PriorityAdmissionEnabledForRequest(c.Request.Context()) {
+				accountReleaseFunc, err = geminiConcurrency.AcquireAccountSlotWithPriorityWaitTimeout(
+					c,
+					account.ID,
+					selection.WaitPlan.MaxConcurrency,
+					selection.WaitPlan.MaxWaiting,
+					selection.WaitPlan.Timeout,
+					int64(len(body)),
+					stream,
+					&streamStarted,
 				)
-				googleError(c, http.StatusTooManyRequests, "Too many pending requests, please retry later")
-				return
-			}
-			if err == nil && canWait {
-				accountWaitCounted = true
-			}
-			defer func() {
+				if err != nil {
+					if shouldLogConcurrencyAcquireError(err) {
+						reqLog.Warn("gemini.account_slot_priority_acquire_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+					}
+					status, _, message := concurrencyErrorResponse(err, "account")
+					googleError(c, status, message)
+					return
+				}
+			} else {
+				accountWaitCounted := false
+				canWait, err := geminiConcurrency.IncrementAccountWaitCount(c.Request.Context(), account.ID, selection.WaitPlan.MaxWaiting)
+				if err != nil {
+					reqLog.Warn("gemini.account_wait_counter_increment_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+				} else if !canWait {
+					reqLog.Info("gemini.account_wait_queue_full",
+						zap.Int64("account_id", account.ID),
+						zap.Int("max_waiting", selection.WaitPlan.MaxWaiting),
+					)
+					googleError(c, http.StatusTooManyRequests, "Too many pending requests, please retry later")
+					return
+				}
+				if err == nil && canWait {
+					accountWaitCounted = true
+				}
+				defer func() {
+					if accountWaitCounted {
+						geminiConcurrency.DecrementAccountWaitCount(c.Request.Context(), account.ID)
+					}
+				}()
+
+				accountReleaseFunc, err = geminiConcurrency.AcquireAccountSlotWithWaitTimeout(
+					c,
+					account.ID,
+					selection.WaitPlan.MaxConcurrency,
+					selection.WaitPlan.Timeout,
+					stream,
+					&streamStarted,
+				)
+				if err != nil {
+					reqLog.Warn("gemini.account_slot_acquire_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+					googleError(c, http.StatusTooManyRequests, err.Error())
+					return
+				}
 				if accountWaitCounted {
 					geminiConcurrency.DecrementAccountWaitCount(c.Request.Context(), account.ID)
+					accountWaitCounted = false
 				}
-			}()
-
-			accountReleaseFunc, err = geminiConcurrency.AcquireAccountSlotWithWaitTimeout(
-				c,
-				account.ID,
-				selection.WaitPlan.MaxConcurrency,
-				selection.WaitPlan.Timeout,
-				stream,
-				&streamStarted,
-			)
-			if err != nil {
-				reqLog.Warn("gemini.account_slot_acquire_failed", zap.Int64("account_id", account.ID), zap.Error(err))
-				googleError(c, http.StatusTooManyRequests, err.Error())
-				return
-			}
-			if accountWaitCounted {
-				geminiConcurrency.DecrementAccountWaitCount(c.Request.Context(), account.ID)
-				accountWaitCounted = false
 			}
 			if err := h.gatewayService.BindStickySession(c.Request.Context(), apiKey.GroupID, sessionKey, account.ID); err != nil {
 				reqLog.Warn("gemini.bind_sticky_session_failed", zap.Int64("account_id", account.ID), zap.Error(err))
@@ -596,6 +691,8 @@ func (h *GatewayHandler) handleGeminiFailoverExhausted(c *gin.Context, failoverE
 
 	statusCode := failoverErr.StatusCode
 	responseBody := failoverErr.ResponseBody
+	upstreamMsg := service.ExtractUpstreamErrorMessage(responseBody)
+	service.SetOpsUpstreamError(c, statusCode, upstreamMsg, "")
 
 	// 先检查透传规则
 	if h.errorPassthroughService != nil && len(responseBody) > 0 {
@@ -620,10 +717,6 @@ func (h *GatewayHandler) handleGeminiFailoverExhausted(c *gin.Context, failoverE
 			return
 		}
 	}
-
-	// 记录原始上游状态码，以便 ops 错误日志捕获真实的上游错误
-	upstreamMsg := service.ExtractUpstreamErrorMessage(responseBody)
-	service.SetOpsUpstreamError(c, statusCode, upstreamMsg, "")
 
 	// 使用默认的错误映射
 	status, message := mapGeminiUpstreamError(statusCode)
@@ -652,6 +745,7 @@ type pathParseError struct{ msg string }
 func (e *pathParseError) Error() string { return e.msg }
 
 func googleError(c *gin.Context, status int, message string) {
+	markOpsLocalBusinessLimited429(c, status)
 	c.JSON(status, gin.H{
 		"error": gin.H{
 			"code":    status,

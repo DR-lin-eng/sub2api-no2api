@@ -587,6 +587,9 @@ export interface SystemSettings {
   scheduler_v2_error: string;
   scheduler_v2_candidate_limit: number;
   scheduler_v2_scan_limit: number;
+  request_priority_admission_enabled: boolean;
+  request_priority_pending_limit_per_instance: number;
+  request_priority_pending_mib_per_instance: number;
 
   // Gateway forwarding behavior
   enable_fingerprint_unification: boolean;
@@ -888,6 +891,9 @@ export interface UpdateSettingsRequest {
   scheduler_v2_enabled?: boolean;
   scheduler_v2_candidate_limit?: number;
   scheduler_v2_scan_limit?: number;
+  request_priority_admission_enabled?: boolean;
+  request_priority_pending_limit_per_instance?: number;
+  request_priority_pending_mib_per_instance?: number;
   enable_fingerprint_unification?: boolean;
   enable_metadata_passthrough?: boolean;
   enable_cch_signing?: boolean;

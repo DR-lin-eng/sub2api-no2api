@@ -219,13 +219,14 @@ func (s *AuthService) RegisterWithVerification(ctx context.Context, email, passw
 
 	// 创建用户
 	user := &User{
-		Email:        email,
-		PasswordHash: hashedPassword,
-		Role:         RoleUser,
-		Balance:      grantPlan.Balance,
-		Concurrency:  grantPlan.Concurrency,
-		RPMLimit:     defaultRPMLimit,
-		Status:       StatusActive,
+		Email:          email,
+		PasswordHash:   hashedPassword,
+		Role:           RoleUser,
+		Balance:        grantPlan.Balance,
+		Concurrency:    grantPlan.Concurrency,
+		SchedulingTier: RequestSchedulingTierNormal,
+		RPMLimit:       defaultRPMLimit,
+		Status:         StatusActive,
 	}
 
 	if err := s.userRepo.Create(ctx, user); err != nil {
@@ -521,15 +522,16 @@ func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, email, username 
 			}
 
 			newUser := &User{
-				Email:        email,
-				Username:     username,
-				PasswordHash: hashedPassword,
-				Role:         RoleUser,
-				Balance:      grantPlan.Balance,
-				Concurrency:  grantPlan.Concurrency,
-				RPMLimit:     defaultRPMLimit,
-				Status:       StatusActive,
-				SignupSource: signupSource,
+				Email:          email,
+				Username:       username,
+				PasswordHash:   hashedPassword,
+				Role:           RoleUser,
+				Balance:        grantPlan.Balance,
+				Concurrency:    grantPlan.Concurrency,
+				SchedulingTier: RequestSchedulingTierNormal,
+				RPMLimit:       defaultRPMLimit,
+				Status:         StatusActive,
+				SignupSource:   signupSource,
 			}
 
 			if err := s.userRepo.Create(ctx, newUser); err != nil {
@@ -670,15 +672,16 @@ func (s *AuthService) loginOrRegisterOAuthWithTokenPair(ctx context.Context, ema
 			}
 
 			newUser := &User{
-				Email:        email,
-				Username:     username,
-				PasswordHash: hashedPassword,
-				Role:         RoleUser,
-				Balance:      grantPlan.Balance,
-				Concurrency:  grantPlan.Concurrency,
-				RPMLimit:     defaultRPMLimit,
-				Status:       StatusActive,
-				SignupSource: signupSource,
+				Email:          email,
+				Username:       username,
+				PasswordHash:   hashedPassword,
+				Role:           RoleUser,
+				Balance:        grantPlan.Balance,
+				Concurrency:    grantPlan.Concurrency,
+				SchedulingTier: RequestSchedulingTierNormal,
+				RPMLimit:       defaultRPMLimit,
+				Status:         StatusActive,
+				SignupSource:   signupSource,
 			}
 
 			if s.entClient != nil && invitationRedeemCode != nil {

@@ -1,17 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { post } = vi.hoisted(() => ({
+const { get, post } = vi.hoisted(() => ({
+  get: vi.fn(),
   post: vi.fn(),
 }))
 
 vi.mock('@/api/client', () => ({
   apiClient: {
+    get,
     post,
   },
 }))
 
 import {
   batchUpdateLimits,
+  list,
   bindUserAuthIdentity,
   type AdminBindAuthIdentityRequest,
   type AdminBoundAuthIdentity,
@@ -74,6 +77,7 @@ const batchRequestContractExact: Assert<
       all?: boolean
       concurrency?: number
       rpm_limit?: number
+      scheduling_tier?: 0 | 1 | 2
     }
   >
 > = true
@@ -83,6 +87,7 @@ const batchResponseContractExact: Assert<
 
 describe('admin users api auth identity binding', () => {
   beforeEach(() => {
+    get.mockReset()
     post.mockReset()
   })
 
@@ -146,5 +151,27 @@ describe('admin users api auth identity binding', () => {
     expect(result).toEqual({ affected: 2 })
     expect(batchRequestContractExact).toBe(true)
     expect(batchResponseContractExact).toBe(true)
+  })
+
+  it('preserves priority tier zero in list filters', async () => {
+    get.mockResolvedValue({ data: { items: [], total: 0, page: 1, page_size: 20 } })
+
+    await list(1, 20, { scheduling_tier: 0 })
+
+    expect(get).toHaveBeenCalledWith('/admin/users', expect.objectContaining({
+      params: expect.objectContaining({ scheduling_tier: 0 })
+    }))
+  })
+
+  it('preserves priority tier zero in batch updates', async () => {
+    const request: BatchUpdateUserLimitsRequest = {
+      user_ids: [4, 7],
+      scheduling_tier: 0,
+    }
+    post.mockResolvedValue({ data: { affected: 2 } satisfies BatchUpdateUserLimitsResponse })
+
+    await batchUpdateLimits(request)
+
+    expect(post).toHaveBeenCalledWith('/admin/users/batch-limits', request)
   })
 })

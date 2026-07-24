@@ -31,11 +31,14 @@ func (h *OpenAIGatewayHandler) GrokCountTokens(c *gin.Context) {
 		h.anthropicErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Request body is empty")
 		return
 	}
+	h.concurrencyHelper.SetPriorityAdmissionPendingBytes(c, int64(len(body)))
+	priorityAdmissionEnabled := priorityAdmissionActiveForRequest(c, h.concurrencyHelper)
+	reqLog := requestLogger(c, "handler.openai_gateway.grok_count_tokens")
 
 	bodyRef := service.NewRequestBodyRef(body)
 	parsedReq, err := service.ParseGatewayRequest(bodyRef, domain.PlatformAnthropic)
 	if err != nil {
-		logRequestBodyParseFailure(requestLogger(c, "handler.openai_gateway.grok_count_tokens"), body, err)
+		logRequestBodyParseFailure(reqLog, body, err)
 		h.anthropicErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
 		return
 	}
@@ -43,10 +46,31 @@ func (h *OpenAIGatewayHandler) GrokCountTokens(c *gin.Context) {
 		h.anthropicErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "model is required")
 		return
 	}
+	if priorityAdmissionEnabled {
+		subject, ok := middleware2.GetAuthSubjectFromContext(c)
+		if !ok {
+			h.anthropicErrorResponse(c, http.StatusInternalServerError, "api_error", "User context not found")
+			return
+		}
+		streamStarted := false
+		userRelease, acquireErr := h.concurrencyHelper.AcquireUserSlotWithWait(c, subject.UserID, subject.Concurrency, false, &streamStarted)
+		if acquireErr != nil {
+			if shouldLogConcurrencyAcquireError(acquireErr) {
+				reqLog.Warn("grok_count_tokens.user_slot_acquire_failed", zap.Error(acquireErr))
+			}
+			status, errType, message := concurrencyErrorResponse(acquireErr, "user")
+			h.anthropicErrorResponse(c, status, errType, message)
+			return
+		}
+		userRelease = wrapReleaseOnDone(c.Request.Context(), userRelease)
+		if userRelease != nil {
+			defer userRelease()
+		}
+	}
 
 	estimated, err := service.EstimateGrokCountTokens(parsedReq.Body.Bytes())
 	if err != nil {
-		requestLogger(c, "handler.openai_gateway.grok_count_tokens").Warn("grok_count_tokens.local_estimate_failed", zap.Error(err))
+		reqLog.Warn("grok_count_tokens.local_estimate_failed", zap.Error(err))
 		h.anthropicErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
 		return
 	}
@@ -57,8 +81,8 @@ func (h *OpenAIGatewayHandler) GrokCountTokens(c *gin.Context) {
 }
 
 // CountTokens handles Anthropic-compatible POST /v1/messages/count_tokens for OpenAI groups.
-// It validates billing and routes to an OpenAI token-count bridge without taking concurrency slots
-// or recording usage.
+// It validates billing and routes to an OpenAI token-count bridge without
+// recording usage. User/account admission is applied only when enabled.
 func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 	apiKey, ok := middleware2.GetAPIKeyFromContext(c)
 	if !ok {
@@ -102,6 +126,8 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 		h.anthropicErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Request body is empty")
 		return
 	}
+	h.concurrencyHelper.SetPriorityAdmissionPendingBytes(c, int64(len(body)))
+	priorityAdmissionEnabled := priorityAdmissionActiveForRequest(c, h.concurrencyHelper)
 
 	bodyRef := service.NewRequestBodyRef(body)
 	parsedReq, err := service.ParseGatewayRequest(bodyRef, domain.PlatformAnthropic)
@@ -128,6 +154,22 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 
 	setOpsRequestContext(c, reqModel, false)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(false, false)))
+	var streamStarted bool
+	if priorityAdmissionEnabled {
+		userRelease, acquireErr := h.concurrencyHelper.AcquireUserSlotWithWait(c, subject.UserID, subject.Concurrency, false, &streamStarted)
+		if acquireErr != nil {
+			if shouldLogConcurrencyAcquireError(acquireErr) {
+				reqLog.Warn("openai_count_tokens.user_slot_acquire_failed", zap.Error(acquireErr))
+			}
+			status, errType, message := concurrencyErrorResponse(acquireErr, "user")
+			h.anthropicErrorResponse(c, status, errType, message)
+			return
+		}
+		userRelease = wrapReleaseOnDone(c.Request.Context(), userRelease)
+		if userRelease != nil {
+			defer userRelease()
+		}
+	}
 
 	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
 	mappedBodyForMessages := newOpenAIModelMappedBodyCache(body, h.gatewayService.ReplaceModelInBody)
@@ -174,6 +216,12 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 		)
 		service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
 		if selectErr != nil || selection == nil || selection.Account == nil {
+			if priorityAdmissionEnabled && errors.Is(selectErr, service.ErrPriorityAdmissionUnavailable) {
+				reqLog.Warn("openai_count_tokens.priority_admission_unavailable", zap.Error(selectErr))
+				status, errType, message := concurrencyErrorResponse(selectErr, "account")
+				h.anthropicErrorResponse(c, status, errType, message)
+				return
+			}
 			if lastFailoverErr != nil {
 				h.handleAnthropicFailoverExhausted(c, lastFailoverErr, false)
 				return
@@ -195,9 +243,29 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 
 		account := selection.Account
 		setOpsSelectedAccount(c, account.ID, account.Platform)
+		var accountRelease func()
+		if priorityAdmissionEnabled {
+			waitedForAccount := !selection.Acquired
+			accountRelease, err = acquireAccountSelectionSlot(c, h.concurrencyHelper, selection, false, &streamStarted, reqLog)
+			if err != nil {
+				if shouldLogConcurrencyAcquireError(err) {
+					reqLog.Warn("openai_count_tokens.account_slot_acquire_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+				}
+				status, errType, message := concurrencyErrorResponse(err, "account")
+				h.anthropicErrorResponse(c, status, errType, message)
+				return
+			}
+			if waitedForAccount {
+				if bindErr := h.gatewayService.BindStickySession(c.Request.Context(), apiKey.GroupID, sessionHash, account.ID); bindErr != nil {
+					reqLog.Warn("openai_count_tokens.bind_sticky_session_failed", zap.Int64("account_id", account.ID), zap.Error(bindErr))
+				}
+			}
+		} else if selection.Acquired {
+			accountRelease = selection.ReleaseFunc
+		}
 		forwardErr := func() error {
-			if selection.Acquired && selection.ReleaseFunc != nil {
-				defer selection.ReleaseFunc()
+			if accountRelease != nil {
+				defer accountRelease()
 			}
 			return h.gatewayService.ForwardCountTokensAsAnthropic(c.Request.Context(), c, account, forwardBody, defaultMappedModel)
 		}()

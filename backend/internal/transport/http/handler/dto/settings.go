@@ -187,12 +187,15 @@ type SystemSettings struct {
 	MaxClaudeCodeVersion string `json:"max_claude_code_version"`
 
 	// 分组隔离
-	AllowUngroupedKeyScheduling bool   `json:"allow_ungrouped_key_scheduling"`
-	SchedulerV2Enabled          bool   `json:"scheduler_v2_enabled"`
-	SchedulerV2Status           string `json:"scheduler_v2_status"`
-	SchedulerV2Error            string `json:"scheduler_v2_error"`
-	SchedulerV2CandidateLimit   int    `json:"scheduler_v2_candidate_limit"`
-	SchedulerV2ScanLimit        int    `json:"scheduler_v2_scan_limit"`
+	AllowUngroupedKeyScheduling            bool   `json:"allow_ungrouped_key_scheduling"`
+	SchedulerV2Enabled                     bool   `json:"scheduler_v2_enabled"`
+	SchedulerV2Status                      string `json:"scheduler_v2_status"`
+	SchedulerV2Error                       string `json:"scheduler_v2_error"`
+	SchedulerV2CandidateLimit              int    `json:"scheduler_v2_candidate_limit"`
+	SchedulerV2ScanLimit                   int    `json:"scheduler_v2_scan_limit"`
+	RequestPriorityAdmissionEnabled        bool   `json:"request_priority_admission_enabled"`
+	RequestPriorityPendingLimitPerInstance int    `json:"request_priority_pending_limit_per_instance"`
+	RequestPriorityPendingMiBPerInstance   int    `json:"request_priority_pending_mib_per_instance"`
 
 	// Backend Mode
 	BackendModeEnabled bool `json:"backend_mode_enabled"`

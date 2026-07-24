@@ -93,10 +93,7 @@ func jwtAuth(
 			return
 		}
 
-		c.Set(string(ContextKeyUser), AuthSubject{
-			UserID:      user.ID,
-			Concurrency: user.Concurrency,
-		})
+		setAuthSubject(c, user.ID, user.Concurrency, user.SchedulingTier)
 		c.Set(string(ContextKeyUserRole), user.Role)
 		c.Set(ContextKeyAuthEmail, user.Email)
 		c.Set(ContextKeySessionID, claims.SessionID)

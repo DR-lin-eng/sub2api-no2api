@@ -31,6 +31,23 @@ func (h *OpenAIGatewayHandler) CodexModels(c *gin.Context) {
 		return
 	}
 
+	priorityAdmissionEnabled := metadataPriorityAdmissionEnabled(c, h.concurrencyHelper)
+	if priorityAdmissionEnabled {
+		authSubject, ok := middleware2.GetAuthSubjectFromContext(c)
+		if !ok {
+			h.errorResponse(c, http.StatusInternalServerError, "api_error", "User context not found")
+			return
+		}
+		userRelease, err := acquireMetadataUserSlot(c, h.concurrencyHelper, authSubject)
+		if err != nil {
+			h.handleConcurrencyError(c, err, "user", false)
+			return
+		}
+		if userRelease != nil {
+			defer userRelease()
+		}
+	}
+
 	maxAccountSwitches := h.maxAccountSwitches
 	if maxAccountSwitches <= 0 {
 		maxAccountSwitches = 3
@@ -55,7 +72,21 @@ func (h *OpenAIGatewayHandler) CodexModels(c *gin.Context) {
 		// 让 ops 错误日志携带实际选中的上游账号，便于定位失效账号（#4544）。
 		setOpsSelectedAccount(c, account.ID, account.Platform)
 
-		manifest, err := h.gatewayService.FetchCodexModelsManifest(c.Request.Context(), account, c.Query("client_version"), c.GetHeader("If-None-Match"))
+		var accountRelease func()
+		if priorityAdmissionEnabled {
+			accountRelease, err = acquireMetadataAccountSlot(c, h.concurrencyHelper, h.cfg, account)
+			if err != nil {
+				h.handleConcurrencyError(c, err, "account", false)
+				return
+			}
+		}
+
+		manifest, err := func() (*service.CodexModelsManifest, error) {
+			if accountRelease != nil {
+				defer accountRelease()
+			}
+			return h.gatewayService.FetchCodexModelsManifest(c.Request.Context(), account, c.Query("client_version"), c.GetHeader("If-None-Match"))
+		}()
 		if err != nil {
 			if c.Request.Context().Err() != nil {
 				return

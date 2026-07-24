@@ -68,6 +68,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		return
 	}
 	body = parsedReq.Body.Bytes()
+	h.concurrencyHelper.SetPriorityAdmissionPendingBytes(c, int64(len(body)))
 	reqModel := parsedReq.Model
 	reqStream := parsedReq.Stream
 	ensureCompositeTargetPlatform(c, apiKey, reqModel)
@@ -127,7 +128,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	// 1. 首先获取用户并发槽位
 	userReleaseFunc, err := h.concurrencyHelper.AcquireUserSlotWithWait(c, subject.UserID, subject.Concurrency, reqStream, &streamStarted)
 	if err != nil {
-		reqLog.Warn("gateway.user_slot_acquire_failed", zap.Error(err))
+		if shouldLogConcurrencyAcquireError(err) {
+			reqLog.Warn("gateway.user_slot_acquire_failed", zap.Error(err))
+		}
 		h.handleConcurrencyError(c, err, "user", streamStarted)
 		return
 	}
@@ -215,6 +218,10 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		for {
 			selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), apiKey.GroupID, sessionKey, reqModel, fs.FailedAccountIDs, "", int64(0)) // Gemini 不使用会话限制
 			if err != nil {
+				if errors.Is(err, service.ErrPriorityAdmissionUnavailable) {
+					h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "Service temporarily unavailable, please retry later", streamStarted)
+					return
+				}
 				if len(fs.FailedAccountIDs) == 0 {
 					cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, service.PlatformGemini)
 					if !cls.ModelNotFound {
@@ -284,44 +291,64 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "No available accounts", streamStarted)
 					return
 				}
-				accountWaitCounted := false
-				canWait, err := h.concurrencyHelper.IncrementAccountWaitCount(c.Request.Context(), account.ID, selection.WaitPlan.MaxWaiting)
-				if err != nil {
-					reqLog.Warn("gateway.account_wait_counter_increment_failed", zap.Int64("account_id", account.ID), zap.Error(err))
-				} else if !canWait {
-					reqLog.Info("gateway.account_wait_queue_full",
-						zap.Int64("account_id", account.ID),
-						zap.Int("max_waiting", selection.WaitPlan.MaxWaiting),
+				if h.concurrencyHelper.concurrencyService.PriorityAdmissionEnabledForRequest(c.Request.Context()) {
+					accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotWithPriorityWaitTimeout(
+						c,
+						account.ID,
+						selection.WaitPlan.MaxConcurrency,
+						selection.WaitPlan.MaxWaiting,
+						selection.WaitPlan.Timeout,
+						int64(len(body)),
+						reqStream,
+						&streamStarted,
 					)
-					h.handleStreamingAwareError(c, http.StatusTooManyRequests, "rate_limit_error", "Too many pending requests, please retry later", streamStarted)
-					return
-				}
-				if err == nil && canWait {
-					accountWaitCounted = true
-				}
-				releaseWait := func() {
-					if accountWaitCounted {
-						h.concurrencyHelper.DecrementAccountWaitCount(c.Request.Context(), account.ID)
-						accountWaitCounted = false
+					if err != nil {
+						if shouldLogConcurrencyAcquireError(err) {
+							reqLog.Warn("gateway.account_slot_priority_acquire_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+						}
+						h.handleConcurrencyError(c, err, "account", streamStarted)
+						return
 					}
-				}
+				} else {
+					accountWaitCounted := false
+					canWait, err := h.concurrencyHelper.IncrementAccountWaitCount(c.Request.Context(), account.ID, selection.WaitPlan.MaxWaiting)
+					if err != nil {
+						reqLog.Warn("gateway.account_wait_counter_increment_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+					} else if !canWait {
+						reqLog.Info("gateway.account_wait_queue_full",
+							zap.Int64("account_id", account.ID),
+							zap.Int("max_waiting", selection.WaitPlan.MaxWaiting),
+						)
+						h.handleStreamingAwareError(c, http.StatusTooManyRequests, "rate_limit_error", "Too many pending requests, please retry later", streamStarted)
+						return
+					}
+					if err == nil && canWait {
+						accountWaitCounted = true
+					}
+					releaseWait := func() {
+						if accountWaitCounted {
+							h.concurrencyHelper.DecrementAccountWaitCount(c.Request.Context(), account.ID)
+							accountWaitCounted = false
+						}
+					}
 
-				accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotWithWaitTimeout(
-					c,
-					account.ID,
-					selection.WaitPlan.MaxConcurrency,
-					selection.WaitPlan.Timeout,
-					reqStream,
-					&streamStarted,
-				)
-				if err != nil {
-					reqLog.Warn("gateway.account_slot_acquire_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+					accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotWithWaitTimeout(
+						c,
+						account.ID,
+						selection.WaitPlan.MaxConcurrency,
+						selection.WaitPlan.Timeout,
+						reqStream,
+						&streamStarted,
+					)
+					if err != nil {
+						reqLog.Warn("gateway.account_slot_acquire_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+						releaseWait()
+						h.handleConcurrencyError(c, err, "account", streamStarted)
+						return
+					}
+					// Slot acquired: no longer waiting in queue.
 					releaseWait()
-					h.handleConcurrencyError(c, err, "account", streamStarted)
-					return
 				}
-				// Slot acquired: no longer waiting in queue.
-				releaseWait()
 				if err := h.gatewayService.BindStickySession(c.Request.Context(), apiKey.GroupID, sessionKey, account.ID); err != nil {
 					reqLog.Warn("gateway.bind_sticky_session_failed", zap.Int64("account_id", account.ID), zap.Error(err))
 				}
@@ -502,6 +529,10 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			)
 			selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), currentAPIKey.GroupID, sessionKey, reqModel, fs.FailedAccountIDs, parsedReq.MetadataUserID, subject.UserID)
 			if err != nil {
+				if errors.Is(err, service.ErrPriorityAdmissionUnavailable) {
+					h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "Service temporarily unavailable, please retry later", streamStarted)
+					return
+				}
 				if len(fs.FailedAccountIDs) == 0 {
 					cls := classifyNoAccountErrorFromGin(c, h.gatewayService, currentAPIKey, reqModel, reqModel, platform)
 					if !cls.ModelNotFound {
@@ -582,44 +613,64 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "No available accounts", streamStarted)
 					return
 				}
-				accountWaitCounted := false
-				canWait, err := h.concurrencyHelper.IncrementAccountWaitCount(c.Request.Context(), account.ID, selection.WaitPlan.MaxWaiting)
-				if err != nil {
-					reqLog.Warn("gateway.account_wait_counter_increment_failed", zap.Int64("account_id", account.ID), zap.Error(err))
-				} else if !canWait {
-					reqLog.Info("gateway.account_wait_queue_full",
-						zap.Int64("account_id", account.ID),
-						zap.Int("max_waiting", selection.WaitPlan.MaxWaiting),
+				if h.concurrencyHelper.concurrencyService.PriorityAdmissionEnabledForRequest(c.Request.Context()) {
+					accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotWithPriorityWaitTimeout(
+						c,
+						account.ID,
+						selection.WaitPlan.MaxConcurrency,
+						selection.WaitPlan.MaxWaiting,
+						selection.WaitPlan.Timeout,
+						int64(len(body)),
+						reqStream,
+						&streamStarted,
 					)
-					h.handleStreamingAwareError(c, http.StatusTooManyRequests, "rate_limit_error", "Too many pending requests, please retry later", streamStarted)
-					return
-				}
-				if err == nil && canWait {
-					accountWaitCounted = true
-				}
-				releaseWait := func() {
-					if accountWaitCounted {
-						h.concurrencyHelper.DecrementAccountWaitCount(c.Request.Context(), account.ID)
-						accountWaitCounted = false
+					if err != nil {
+						if shouldLogConcurrencyAcquireError(err) {
+							reqLog.Warn("gateway.account_slot_priority_acquire_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+						}
+						h.handleConcurrencyError(c, err, "account", streamStarted)
+						return
 					}
-				}
+				} else {
+					accountWaitCounted := false
+					canWait, err := h.concurrencyHelper.IncrementAccountWaitCount(c.Request.Context(), account.ID, selection.WaitPlan.MaxWaiting)
+					if err != nil {
+						reqLog.Warn("gateway.account_wait_counter_increment_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+					} else if !canWait {
+						reqLog.Info("gateway.account_wait_queue_full",
+							zap.Int64("account_id", account.ID),
+							zap.Int("max_waiting", selection.WaitPlan.MaxWaiting),
+						)
+						h.handleStreamingAwareError(c, http.StatusTooManyRequests, "rate_limit_error", "Too many pending requests, please retry later", streamStarted)
+						return
+					}
+					if err == nil && canWait {
+						accountWaitCounted = true
+					}
+					releaseWait := func() {
+						if accountWaitCounted {
+							h.concurrencyHelper.DecrementAccountWaitCount(c.Request.Context(), account.ID)
+							accountWaitCounted = false
+						}
+					}
 
-				accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotWithWaitTimeout(
-					c,
-					account.ID,
-					selection.WaitPlan.MaxConcurrency,
-					selection.WaitPlan.Timeout,
-					reqStream,
-					&streamStarted,
-				)
-				if err != nil {
-					reqLog.Warn("gateway.account_slot_acquire_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+					accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotWithWaitTimeout(
+						c,
+						account.ID,
+						selection.WaitPlan.MaxConcurrency,
+						selection.WaitPlan.Timeout,
+						reqStream,
+						&streamStarted,
+					)
+					if err != nil {
+						reqLog.Warn("gateway.account_slot_acquire_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+						releaseWait()
+						h.handleConcurrencyError(c, err, "account", streamStarted)
+						return
+					}
+					// Slot acquired: no longer waiting in queue.
 					releaseWait()
-					h.handleConcurrencyError(c, err, "account", streamStarted)
-					return
 				}
-				// Slot acquired: no longer waiting in queue.
-				releaseWait()
 				reqLog.Info("sticky.bind_after_wait",
 					zap.String("session_key", sessionKey),
 					zap.Int64("account_id", account.ID),

@@ -20,7 +20,9 @@ func (h *OpenAIGatewayHandler) acquireResponsesUserSlot(
 	ctx := c.Request.Context()
 	userReleaseFunc, err := h.concurrencyHelper.AcquireUserSlotWithWait(c, userID, userConcurrency, reqStream, streamStarted)
 	if err != nil {
-		reqLog.Warn("openai.user_slot_acquire_failed", zap.Error(err))
+		if shouldLogConcurrencyAcquireError(err) {
+			reqLog.Warn("openai.user_slot_acquire_failed", zap.Error(err))
+		}
 		h.handleConcurrencyError(c, err, "user", *streamStarted)
 		return nil, false
 	}
@@ -51,6 +53,29 @@ func (h *OpenAIGatewayHandler) acquireResponsesAccountSlot(
 		markOpsRoutingCapacityLimited(c)
 		h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "No available accounts", *streamStarted)
 		return nil, false
+	}
+	if h.concurrencyHelper.concurrencyService.PriorityAdmissionEnabledForRequest(c.Request.Context()) {
+		accountReleaseFunc, err := h.concurrencyHelper.AcquireAccountSlotWithPriorityWaitTimeout(
+			c,
+			account.ID,
+			selection.WaitPlan.MaxConcurrency,
+			selection.WaitPlan.MaxWaiting,
+			selection.WaitPlan.Timeout,
+			priorityAdmissionPendingBytes(c),
+			reqStream,
+			streamStarted,
+		)
+		if err != nil {
+			if shouldLogConcurrencyAcquireError(err) {
+				reqLog.Warn("openai.account_slot_priority_acquire_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+			}
+			h.handleConcurrencyError(c, err, "account", *streamStarted)
+			return nil, false
+		}
+		if err := h.gatewayService.BindStickySession(ctx, groupID, sessionHash, account.ID); err != nil {
+			reqLog.Warn("openai.bind_sticky_session_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+		}
+		return wrapReleaseOnDone(ctx, accountReleaseFunc), true
 	}
 
 	fastReleaseFunc, fastAcquired, err := h.concurrencyHelper.TryAcquireAccountSlot(

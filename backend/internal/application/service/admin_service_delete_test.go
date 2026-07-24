@@ -133,7 +133,7 @@ func (s *userRepoStub) UpdateConcurrency(ctx context.Context, id int64, amount i
 
 func (s *userRepoStub) BatchSetConcurrency(context.Context, []int64, int) (int, error) { return 0, nil }
 func (s *userRepoStub) BatchAddConcurrency(context.Context, []int64, int) (int, error) { return 0, nil }
-func (s *userRepoStub) BatchUpdateLimits(context.Context, []int64, *int, *int) (int, error) {
+func (s *userRepoStub) BatchUpdateLimits(context.Context, []int64, *int, *int, *RequestSchedulingTier) (int, error) {
 	return 0, nil
 }
 

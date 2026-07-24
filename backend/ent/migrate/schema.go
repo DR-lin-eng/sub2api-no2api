@@ -1874,6 +1874,7 @@ var (
 		{Name: "balance", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
 		{Name: "frozen_balance", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
 		{Name: "concurrency", Type: field.TypeInt, Default: 5},
+		{Name: "request_scheduling_tier", Type: field.TypeInt16, Default: 1},
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
 		{Name: "username", Type: field.TypeString, Size: 100, Default: ""},
 		{Name: "notes", Type: field.TypeString, Default: "", SchemaType: map[string]string{"postgres": "text"}},
@@ -1899,7 +1900,15 @@ var (
 			{
 				Name:    "user_status",
 				Unique:  false,
+				Columns: []*schema.Column{UsersColumns[11]},
+			},
+			{
+				Name:    "idx_users_request_scheduling_tier_active",
+				Unique:  false,
 				Columns: []*schema.Column{UsersColumns[10]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "deleted_at IS NULL",
+				},
 			},
 			{
 				Name:    "user_deleted_at",
@@ -2343,6 +2352,9 @@ func init() {
 	}
 	UsersTable.Annotation = &entsql.Annotation{
 		Table: "users",
+	}
+	UsersTable.Annotation.Checks = map[string]string{
+		"users_request_scheduling_tier_check": "request_scheduling_tier IN (0, 1, 2)",
 	}
 	UserAllowedGroupsTable.ForeignKeys[0].RefTable = UsersTable
 	UserAllowedGroupsTable.ForeignKeys[1].RefTable = GroupsTable

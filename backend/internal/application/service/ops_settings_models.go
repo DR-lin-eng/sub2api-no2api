@@ -102,6 +102,7 @@ type OpsAdvancedSettings struct {
 	// Deprecated compatibility field. Admission rejects are always excluded.
 	IgnoreInvalidApiKeyErrors       bool `json:"ignore_invalid_api_key_errors"`
 	IgnoreInsufficientBalanceErrors bool `json:"ignore_insufficient_balance_errors"`
+	RecordBusinessLimited429        bool `json:"record_business_limited_429"`
 	DisplayConcurrency              bool `json:"display_concurrency"`
 	DisplaySwitchRateTrend          bool `json:"display_switch_rate_trend"`
 	DisplayThroughputTrend          bool `json:"display_throughput_trend"`

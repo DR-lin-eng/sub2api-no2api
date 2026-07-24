@@ -386,6 +386,7 @@ func defaultOpsAdvancedSettingsForConfig(cfg *config.Config) *OpsAdvancedSetting
 		IgnoreNoAvailableAccounts:       false, // Default to false - this is a real routing issue
 		IgnoreInvalidApiKeyErrors:       true,  // Legacy compatibility field; admission rejects are always excluded.
 		IgnoreInsufficientBalanceErrors: false, // 默认不忽略，余额不足可能需要关注
+		RecordBusinessLimited429:        true,
 		DisplayConcurrency:              true,
 		DisplaySwitchRateTrend:          true,
 		DisplayThroughputTrend:          true,
@@ -490,6 +491,18 @@ func (s *OpsService) OpsAdvancedSettingsSnapshot() OpsAdvancedSettings {
 		runtimeCfg = s.cfg
 	}
 	return *defaultOpsAdvancedSettingsForConfig(runtimeCfg)
+}
+
+// RecordBusinessLimited429Enabled is a lock-free hot-path read used before
+// response capture and asynchronous error-log queueing.
+func (s *OpsService) RecordBusinessLimited429Enabled() bool {
+	if s == nil {
+		return true
+	}
+	if snapshot := s.runtimeSettings.Load(); snapshot != nil {
+		return snapshot.advanced.RecordBusinessLimited429
+	}
+	return true
 }
 
 func (s *OpsService) UpdateOpsAdvancedSettings(ctx context.Context, cfg *OpsAdvancedSettings) (*OpsAdvancedSettings, error) {

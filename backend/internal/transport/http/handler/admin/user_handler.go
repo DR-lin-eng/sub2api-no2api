@@ -60,30 +60,32 @@ func NewUserHandler(
 
 // CreateUserRequest represents admin create user request
 type CreateUserRequest struct {
-	Email         string   `json:"email" binding:"required,email"`
-	Password      string   `json:"password" binding:"required,min=6"`
-	Username      string   `json:"username"`
-	Notes         string   `json:"notes"`
-	Role          string   `json:"role" binding:"omitempty,oneof=admin user"`
-	Balance       *float64 `json:"balance"`
-	Concurrency   int      `json:"concurrency"`
-	RPMLimit      int      `json:"rpm_limit"`
-	AllowedGroups []int64  `json:"allowed_groups"`
+	Email          string                         `json:"email" binding:"required,email"`
+	Password       string                         `json:"password" binding:"required,min=6"`
+	Username       string                         `json:"username"`
+	Notes          string                         `json:"notes"`
+	Role           string                         `json:"role" binding:"omitempty,oneof=admin user"`
+	Balance        *float64                       `json:"balance"`
+	Concurrency    int                            `json:"concurrency"`
+	RPMLimit       int                            `json:"rpm_limit"`
+	SchedulingTier *service.RequestSchedulingTier `json:"scheduling_tier" binding:"omitempty,oneof=0 1 2"`
+	AllowedGroups  []int64                        `json:"allowed_groups"`
 }
 
 // UpdateUserRequest represents admin update user request
 // 使用指针类型来区分"未提供"和"设置为0"
 type UpdateUserRequest struct {
-	Email         string   `json:"email" binding:"omitempty,email"`
-	Password      string   `json:"password" binding:"omitempty,min=6"`
-	Username      *string  `json:"username"`
-	Notes         *string  `json:"notes"`
-	Role          string   `json:"role" binding:"omitempty,oneof=admin user"`
-	Balance       *float64 `json:"balance"`
-	Concurrency   *int     `json:"concurrency"`
-	RPMLimit      *int     `json:"rpm_limit"`
-	Status        string   `json:"status" binding:"omitempty,oneof=active disabled"`
-	AllowedGroups *[]int64 `json:"allowed_groups"`
+	Email          string                         `json:"email" binding:"omitempty,email"`
+	Password       string                         `json:"password" binding:"omitempty,min=6"`
+	Username       *string                        `json:"username"`
+	Notes          *string                        `json:"notes"`
+	Role           string                         `json:"role" binding:"omitempty,oneof=admin user"`
+	Balance        *float64                       `json:"balance"`
+	Concurrency    *int                           `json:"concurrency"`
+	RPMLimit       *int                           `json:"rpm_limit"`
+	SchedulingTier *service.RequestSchedulingTier `json:"scheduling_tier" binding:"omitempty,oneof=0 1 2"`
+	Status         string                         `json:"status" binding:"omitempty,oneof=active disabled"`
+	AllowedGroups  *[]int64                       `json:"allowed_groups"`
 	// GroupRates 用户专属分组倍率配置
 	// map[groupID]*rate，nil 表示删除该分组的专属倍率
 	GroupRates map[int64]*float64 `json:"group_rates"`
@@ -137,6 +139,15 @@ func (h *UserHandler) List(c *gin.Context) {
 		Search:     search,
 		GroupName:  strings.TrimSpace(c.Query("group_name")),
 		Attributes: parseAttributeFilters(c),
+	}
+	if raw, ok := c.GetQuery("scheduling_tier"); ok {
+		value, parseErr := strconv.ParseInt(strings.TrimSpace(raw), 10, 16)
+		tier := service.RequestSchedulingTier(value)
+		if parseErr != nil || !tier.Valid() {
+			response.BadRequest(c, "scheduling_tier must be 0, 1, or 2")
+			return
+		}
+		filters.SchedulingTier = &tier
 	}
 	if raw := strings.TrimSpace(c.Query("api_key_group_id")); raw != "" {
 		if id, parseErr := strconv.ParseInt(raw, 10, 64); parseErr == nil && id > 0 {
@@ -285,16 +296,17 @@ func (h *UserHandler) Create(c *gin.Context) {
 	}
 
 	user, err := h.adminService.CreateUser(c.Request.Context(), &service.CreateUserInput{
-		Email:         req.Email,
-		Password:      req.Password,
-		Username:      req.Username,
-		Notes:         req.Notes,
-		Role:          req.Role,
-		Balance:       req.Balance,
-		Concurrency:   req.Concurrency,
-		RPMLimit:      req.RPMLimit,
-		AllowedGroups: req.AllowedGroups,
-		ActorAdminID:  getAdminIDFromContext(c),
+		Email:          req.Email,
+		Password:       req.Password,
+		Username:       req.Username,
+		Notes:          req.Notes,
+		Role:           req.Role,
+		Balance:        req.Balance,
+		Concurrency:    req.Concurrency,
+		RPMLimit:       req.RPMLimit,
+		SchedulingTier: req.SchedulingTier,
+		AllowedGroups:  req.AllowedGroups,
+		ActorAdminID:   getAdminIDFromContext(c),
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -343,18 +355,19 @@ func (h *UserHandler) Update(c *gin.Context) {
 
 	// 使用指针类型直接传递，nil 表示未提供该字段
 	user, err := h.adminService.UpdateUser(c.Request.Context(), userID, &service.UpdateUserInput{
-		Email:         req.Email,
-		Password:      req.Password,
-		Username:      req.Username,
-		Notes:         req.Notes,
-		Role:          req.Role,
-		Balance:       req.Balance,
-		Concurrency:   req.Concurrency,
-		RPMLimit:      req.RPMLimit,
-		Status:        req.Status,
-		AllowedGroups: req.AllowedGroups,
-		GroupRates:    req.GroupRates,
-		ActorAdminID:  getAdminIDFromContext(c),
+		Email:          req.Email,
+		Password:       req.Password,
+		Username:       req.Username,
+		Notes:          req.Notes,
+		Role:           req.Role,
+		Balance:        req.Balance,
+		Concurrency:    req.Concurrency,
+		RPMLimit:       req.RPMLimit,
+		SchedulingTier: req.SchedulingTier,
+		Status:         req.Status,
+		AllowedGroups:  req.AllowedGroups,
+		GroupRates:     req.GroupRates,
+		ActorAdminID:   getAdminIDFromContext(c),
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -613,10 +626,11 @@ func (h *UserHandler) BatchUpdateConcurrency(c *gin.Context) {
 // BatchUpdateLimits overwrites concurrency and/or RPM limits for multiple users.
 // POST /api/v1/admin/users/batch-limits
 type BatchUpdateLimitsRequest struct {
-	UserIDs     []int64 `json:"user_ids"`
-	All         bool    `json:"all"`
-	Concurrency *int    `json:"concurrency" binding:"omitempty,min=0"`
-	RPMLimit    *int    `json:"rpm_limit" binding:"omitempty,min=0"`
+	UserIDs        []int64                        `json:"user_ids"`
+	All            bool                           `json:"all"`
+	Concurrency    *int                           `json:"concurrency" binding:"omitempty,min=0"`
+	RPMLimit       *int                           `json:"rpm_limit" binding:"omitempty,min=0"`
+	SchedulingTier *service.RequestSchedulingTier `json:"scheduling_tier" binding:"omitempty,oneof=0 1 2"`
 }
 
 func (h *UserHandler) BatchUpdateLimits(c *gin.Context) {
@@ -625,8 +639,8 @@ func (h *UserHandler) BatchUpdateLimits(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
-	if req.Concurrency == nil && req.RPMLimit == nil {
-		response.BadRequest(c, "at least one of concurrency or rpm_limit is required")
+	if req.Concurrency == nil && req.RPMLimit == nil && req.SchedulingTier == nil {
+		response.BadRequest(c, "at least one of concurrency, rpm_limit, or scheduling_tier is required")
 		return
 	}
 	if !req.All && len(req.UserIDs) == 0 {
@@ -669,6 +683,8 @@ func (h *UserHandler) BatchUpdateLimits(c *gin.Context) {
 		userIDs,
 		req.Concurrency,
 		req.RPMLimit,
+		req.SchedulingTier,
+		getAdminIDFromContext(c),
 	)
 	if err != nil {
 		response.ErrorFrom(c, err)

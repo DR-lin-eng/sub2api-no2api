@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 18 // v18: include group OpenAI image-tool and reasoning-effort policies
+const apiKeyAuthSnapshotVersion = 19 // v19: include user request scheduling tier
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -491,6 +491,7 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			Role:                       apiKey.User.Role,
 			Balance:                    apiKey.User.Balance,
 			Concurrency:                apiKey.User.Concurrency,
+			SchedulingTier:             NormalizeRequestSchedulingTier(apiKey.User.SchedulingTier),
 			AllowedGroups:              apiKey.User.AllowedGroups,
 			Email:                      apiKey.User.Email,
 			Username:                   apiKey.User.Username,
@@ -586,6 +587,7 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			Role:                       snapshot.User.Role,
 			Balance:                    snapshot.User.Balance,
 			Concurrency:                snapshot.User.Concurrency,
+			SchedulingTier:             NormalizeRequestSchedulingTier(snapshot.User.SchedulingTier),
 			AllowedGroups:              snapshot.User.AllowedGroups,
 			Email:                      snapshot.User.Email,
 			Username:                   snapshot.User.Username,

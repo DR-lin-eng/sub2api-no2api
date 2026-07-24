@@ -38,9 +38,25 @@ func TestAdminService_CreateUser_Success(t *testing.T) {
 	require.Equal(t, input.AllowedGroups, user.AllowedGroups)
 	require.Equal(t, RoleUser, user.Role)
 	require.Equal(t, StatusActive, user.Status)
+	require.Equal(t, RequestSchedulingTierNormal, user.SchedulingTier)
 	require.True(t, user.CheckPassword(input.Password))
 	require.Len(t, repo.created, 1)
 	require.Equal(t, user, repo.created[0])
+}
+
+func TestAdminService_CreateUser_AcceptsExplicitPriorityTier(t *testing.T) {
+	repo := &userRepoStub{nextID: 13}
+	svc := &adminServiceImpl{userRepo: repo}
+	tier := RequestSchedulingTierPriority
+
+	user, err := svc.CreateUser(context.Background(), &CreateUserInput{
+		Email:          "priority@test.com",
+		Password:       "strong-pass",
+		SchedulingTier: &tier,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, RequestSchedulingTierPriority, user.SchedulingTier)
 }
 
 func TestAdminService_CreateUser_UsesDefaultBalanceWhenBalanceOmitted(t *testing.T) {

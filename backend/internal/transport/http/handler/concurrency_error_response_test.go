@@ -69,3 +69,9 @@ func TestConcurrencyErrorResponse(t *testing.T) {
 		})
 	}
 }
+
+func TestShouldLogConcurrencyAcquireError(t *testing.T) {
+	require.False(t, shouldLogConcurrencyAcquireError(&WaitQueueFullError{SlotType: "account"}))
+	require.True(t, shouldLogConcurrencyAcquireError(&ConcurrencyError{SlotType: "account", IsTimeout: true}))
+	require.True(t, shouldLogConcurrencyAcquireError(errors.New("redis unavailable")))
+}

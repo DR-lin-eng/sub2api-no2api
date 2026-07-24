@@ -60,6 +60,30 @@
             </p>
           </div>
         </div>
+
+        <div class="space-y-3 py-4">
+          <div class="flex items-center justify-between gap-4">
+            <label for="bulk-scheduling-tier" class="input-label mb-0">
+              {{ t('admin.users.form.schedulingTier') }}
+            </label>
+            <Toggle
+              v-model="enableSchedulingTier"
+              :aria-label="t('admin.users.bulkLimits.enableSchedulingTier')"
+              data-test="enable-scheduling-tier"
+            />
+          </div>
+          <select
+            v-if="enableSchedulingTier"
+            id="bulk-scheduling-tier"
+            v-model.number="schedulingTierValue"
+            class="input"
+            data-test="scheduling-tier-select"
+          >
+            <option :value="0">{{ t('admin.users.schedulingTiers.priority') }}</option>
+            <option :value="1">{{ t('admin.users.schedulingTiers.normal') }}</option>
+            <option :value="2">{{ t('admin.users.schedulingTiers.low') }}</option>
+          </select>
+        </div>
       </div>
 
       <p v-if="hasInvalidValue" class="text-sm text-red-600 dark:text-red-400">
@@ -97,6 +121,7 @@ import type { BatchUpdateUserLimitsRequest } from '@/api/admin/users'
 import { useAppStore } from '@/stores/app'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Toggle from '@/components/common/Toggle.vue'
+import type { RequestSchedulingTier } from '@/types'
 
 const props = defineProps<{
   show: boolean
@@ -112,8 +137,10 @@ const { t } = useI18n()
 const appStore = useAppStore()
 const enableConcurrency = ref(false)
 const enableRPMLimit = ref(false)
+const enableSchedulingTier = ref(false)
 const concurrencyValue = ref<string | number>('')
 const rpmLimitValue = ref<string | number>('')
+const schedulingTierValue = ref<RequestSchedulingTier>(1)
 const submitting = ref(false)
 const MAX_BATCH_USER_IDS = 500
 
@@ -137,6 +164,7 @@ const hasInvalidValue = computed(() =>
 const hasUpdate = computed(() =>
   (parsedConcurrency.value !== undefined && parsedConcurrency.value !== null)
   || (parsedRPMLimit.value !== undefined && parsedRPMLimit.value !== null)
+  || enableSchedulingTier.value
 )
 const selectionTooLarge = computed(() => props.selectedIds.length > MAX_BATCH_USER_IDS)
 const canSubmit = computed(() =>
@@ -150,8 +178,10 @@ const canSubmit = computed(() =>
 const reset = () => {
   enableConcurrency.value = false
   enableRPMLimit.value = false
+  enableSchedulingTier.value = false
   concurrencyValue.value = ''
   rpmLimitValue.value = ''
+  schedulingTierValue.value = 1
   submitting.value = false
 }
 
@@ -182,6 +212,14 @@ const handleSubmit = async () => {
       parsedRPMLimit.value === 0
         ? t('admin.users.bulkLimits.rpmUnlimitedValue')
         : t('admin.users.bulkLimits.rpmValue', { value: parsedRPMLimit.value })
+    )
+  }
+  if (enableSchedulingTier.value) {
+    request.scheduling_tier = schedulingTierValue.value
+    fields.push(
+      t('admin.users.bulkLimits.schedulingTierValue', {
+        value: t(`admin.users.schedulingTiers.${schedulingTierValue.value === 0 ? 'priority' : schedulingTierValue.value === 2 ? 'low' : 'normal'}`)
+      })
     )
   }
 

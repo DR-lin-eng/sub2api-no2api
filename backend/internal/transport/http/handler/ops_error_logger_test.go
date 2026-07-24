@@ -112,6 +112,7 @@ func resetOpsErrorLoggerStateForTest(t *testing.T) {
 	opsErrorLogStopping = false
 
 	opsErrorLogQueueLen.Store(0)
+	opsErrorLogQueueBytes.Store(0)
 	opsErrorLogEnqueued.Store(0)
 	opsErrorLogDropped.Store(0)
 	opsErrorLogProcessed.Store(0)
@@ -204,6 +205,36 @@ func TestOpsCaptureWriterPool_DropsLargeBuffers(t *testing.T) {
 	require.False(t, shouldPoolOpsCaptureWriter(w))
 }
 
+func opsServiceWithBusinessLimited429Disabled(t *testing.T) *service.OpsService {
+	t.Helper()
+	settings := &ingressRejectSettingRepo{}
+	ops := service.NewOpsService(nil, settings, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	cfg, err := ops.GetOpsAdvancedSettings(context.Background())
+	require.NoError(t, err)
+	cfg.RecordBusinessLimited429 = false
+	_, err = ops.UpdateOpsAdvancedSettings(context.Background(), cfg)
+	require.NoError(t, err)
+	return ops
+}
+
+func TestOpsCaptureWriterSkipsLocalBusinessLimited429Body(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+
+	w := acquireOpsCaptureWriter(c.Writer)
+	w.ctx = c
+	w.ops = opsServiceWithBusinessLimited429Disabled(t)
+	defer releaseOpsCaptureWriter(w)
+	service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalRateLimit)
+	w.WriteHeader(http.StatusTooManyRequests)
+	_, err := w.WriteString(`{"type":"error","error":{"type":"rate_limit_error","message":"Concurrency limit exceeded"}}`)
+	require.NoError(t, err)
+	require.Zero(t, w.buf.Len())
+	require.Contains(t, rec.Body.String(), "Concurrency limit exceeded")
+}
+
 func TestEnqueueOpsErrorLog_SanitizesAndBoundsBodyBeforeQueue(t *testing.T) {
 	setupOpsErrorLogTestQueue(t, 1)
 	ops := service.NewOpsService(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
@@ -279,6 +310,97 @@ func TestOpsErrorLoggerMiddleware_HardSkipsIngressRejection(t *testing.T) {
 	require.Zero(t, OpsErrorLogEnqueuedTotal(), "ingress rejection must not enter the error queue")
 }
 
+func TestOpsErrorLoggerMiddleware_SkipsLocalBusinessLimited429BeforeQueue(t *testing.T) {
+	setupOpsErrorLogTestQueue(t, 4)
+	gin.SetMode(gin.TestMode)
+	ops := opsServiceWithBusinessLimited429Disabled(t)
+
+	router := gin.New()
+	router.Use(OpsErrorLoggerMiddleware(ops))
+	router.POST("/v1/messages", func(c *gin.Context) {
+		service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalRateLimit)
+		c.JSON(http.StatusTooManyRequests, gin.H{"type": "error", "error": gin.H{
+			"type": "rate_limit_error", "message": "Too many pending requests",
+		}})
+	})
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/v1/messages", nil))
+	require.Equal(t, http.StatusTooManyRequests, rec.Code)
+	require.Zero(t, OpsErrorLogEnqueuedTotal())
+	require.Zero(t, OpsErrorLogQueueLength())
+	require.Zero(t, OpsErrorLogQueueBytes())
+	require.Zero(t, OpsErrorLogSanitizedTotal())
+	require.Zero(t, OpsErrorLogDroppedTotal())
+}
+
+func TestOpsErrorLoggerMiddleware_SkipsAsyncImageCapacity429BeforeCapture(t *testing.T) {
+	setupOpsErrorLogTestQueue(t, 4)
+	gin.SetMode(gin.TestMode)
+	ops := opsServiceWithBusinessLimited429Disabled(t)
+
+	router := gin.New()
+	router.Use(OpsErrorLoggerMiddleware(ops))
+	router.POST("/v1/images/generations/async", func(c *gin.Context) {
+		imageTaskJSONError(c, http.StatusTooManyRequests, "rate_limit_error", "async image task capacity is full; retry later")
+	})
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/v1/images/generations/async", nil))
+	require.Equal(t, http.StatusTooManyRequests, rec.Code)
+	require.Contains(t, rec.Body.String(), "async image task capacity is full")
+	require.Zero(t, OpsErrorLogEnqueuedTotal())
+	require.Zero(t, OpsErrorLogQueueLength())
+	require.Zero(t, OpsErrorLogQueueBytes())
+	require.Zero(t, OpsErrorLogSanitizedTotal())
+}
+
+func TestOpsErrorLoggerMiddleware_RetainsUnmarked429WhenBusinessLoggingDisabled(t *testing.T) {
+	setupOpsErrorLogTestQueue(t, 4)
+	gin.SetMode(gin.TestMode)
+	ops := opsServiceWithBusinessLimited429Disabled(t)
+
+	router := gin.New()
+	router.Use(OpsErrorLoggerMiddleware(ops))
+	router.POST("/v1/custom", func(c *gin.Context) {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": gin.H{
+			"type": "api_error", "message": "custom application rejection",
+		}})
+	})
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/v1/custom", nil))
+	require.Equal(t, http.StatusTooManyRequests, rec.Code)
+	require.Equal(t, int64(1), OpsErrorLogEnqueuedTotal())
+	job := <-opsErrorLogQueue
+	require.False(t, job.entry.IsBusinessLimited)
+	require.Contains(t, job.entry.ErrorBody, "custom application rejection")
+}
+
+func TestOpsErrorLoggerMiddleware_RetainsUpstream429WhenBusinessLoggingDisabled(t *testing.T) {
+	setupOpsErrorLogTestQueue(t, 4)
+	gin.SetMode(gin.TestMode)
+	ops := opsServiceWithBusinessLimited429Disabled(t)
+
+	router := gin.New()
+	router.Use(OpsErrorLoggerMiddleware(ops))
+	router.POST("/v1/chat/completions", func(c *gin.Context) {
+		c.Set(service.OpsUpstreamStatusCodeKey, http.StatusTooManyRequests)
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": gin.H{
+			"type": "rate_limit_error", "message": "upstream rate limit",
+		}})
+	})
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil))
+	require.Equal(t, http.StatusTooManyRequests, rec.Code)
+	require.Equal(t, int64(1), OpsErrorLogEnqueuedTotal())
+	job := <-opsErrorLogQueue
+	require.False(t, job.entry.IsBusinessLimited)
+	require.Equal(t, http.StatusTooManyRequests, job.entry.StatusCode)
+	require.Contains(t, job.entry.ErrorBody, "upstream rate limit")
+}
+
 func TestNormalizeOpsPersistentUserAgentBoundsAndPreservesUTF8(t *testing.T) {
 	value := strings.Repeat("a", opsErrorLogMaxUserAgentBytes-1) + "你" + strings.Repeat("b", 32)
 	got := normalizeOpsPersistentUserAgent("  " + value + "  ")
@@ -318,6 +440,83 @@ func TestLogOpsStreamError_RecordsInBandConcurrencyLimit(t *testing.T) {
 	require.Equal(t, "P1", job.entry.Severity)            // 用 IntendedStatus 429 分级
 	require.Equal(t, "test-model", job.entry.Model)
 	require.Equal(t, "Concurrency limit exceeded for account, please retry later", job.entry.ErrorMessage)
+}
+
+func TestLogOpsStreamError_SkipsBusinessLimited429WhenDisabled(t *testing.T) {
+	setupOpsErrorLogTestQueue(t, 4)
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+	service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalRateLimit)
+	service.MarkOpsStreamError(c, "rate_limit_error", "Concurrency limit exceeded", http.StatusTooManyRequests)
+
+	logOpsStreamError(c, opsServiceWithBusinessLimited429Disabled(t), http.StatusOK)
+	require.Zero(t, OpsErrorLogEnqueuedTotal())
+	require.Zero(t, OpsErrorLogQueueLength())
+}
+
+func TestLogOpsStreamError_SkipsMarkedBusinessLimited429EvenWhenCountedTowardsSLA(t *testing.T) {
+	setupOpsErrorLogTestQueue(t, 4)
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+	service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalRateLimit)
+	service.MarkOpsStreamFailure(c, "rate_limit_error", "local_queue_full", "Too many pending requests", http.StatusTooManyRequests)
+
+	logOpsStreamError(c, opsServiceWithBusinessLimited429Disabled(t), http.StatusOK)
+	require.Zero(t, OpsErrorLogEnqueuedTotal())
+	require.Zero(t, OpsErrorLogQueueLength())
+}
+
+func TestOpsErrorLoggerMiddleware_RetainsAnthropicUpstream429WhenBusinessLoggingDisabled(t *testing.T) {
+	setupOpsErrorLogTestQueue(t, 4)
+	gin.SetMode(gin.TestMode)
+	ops := opsServiceWithBusinessLimited429Disabled(t)
+	h := &OpenAIGatewayHandler{}
+
+	router := gin.New()
+	router.Use(OpsErrorLoggerMiddleware(ops))
+	router.POST("/v1/messages", func(c *gin.Context) {
+		h.handleAnthropicFailoverExhausted(c, &service.UpstreamFailoverError{
+			StatusCode:   http.StatusTooManyRequests,
+			ResponseBody: []byte(`{"error":{"type":"rate_limit_error","message":"provider quota exceeded"}}`),
+		}, false)
+	})
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/v1/messages", nil))
+	require.Equal(t, http.StatusTooManyRequests, rec.Code)
+	require.Equal(t, int64(1), OpsErrorLogEnqueuedTotal())
+	job := <-opsErrorLogQueue
+	require.False(t, job.entry.IsBusinessLimited)
+	require.NotNil(t, job.entry.UpstreamStatusCode)
+	require.Equal(t, http.StatusTooManyRequests, *job.entry.UpstreamStatusCode)
+	require.Contains(t, job.entry.ErrorBody, "provider quota exceeded")
+}
+
+func TestLogOpsStreamError_RetainsUpstream429WhenBusinessLoggingDisabled(t *testing.T) {
+	setupOpsErrorLogTestQueue(t, 4)
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	service.MarkOpsStreamFailure(c, "rate_limit_error", "upstream_rate_limit", "Upstream rate limit", http.StatusTooManyRequests)
+
+	logOpsStreamError(c, opsServiceWithBusinessLimited429Disabled(t), http.StatusOK)
+	require.Equal(t, int64(1), OpsErrorLogEnqueuedTotal())
+	job := <-opsErrorLogQueue
+	require.Equal(t, http.StatusTooManyRequests, job.entry.StatusCode)
+	require.False(t, job.entry.IsBusinessLimited)
+}
+
+func TestEnqueueOpsErrorLog_SkipsBusinessLimited429WhenDisabled(t *testing.T) {
+	setupOpsErrorLogTestQueue(t, 4)
+	enqueueOpsErrorLog(opsServiceWithBusinessLimited429Disabled(t), &service.OpsInsertErrorLogInput{
+		StatusCode: 429, IsBusinessLimited: true,
+	})
+	require.Zero(t, OpsErrorLogEnqueuedTotal())
 }
 
 func TestLogOpsStreamError_UpstreamFailureCountsTowardsSLA(t *testing.T) {

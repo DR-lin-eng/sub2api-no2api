@@ -349,6 +349,12 @@ export default {
         description: 'Control API Key scheduling behavior',
         allowUngroupedKey: 'Allow Ungrouped Key Scheduling',
         allowUngroupedKeyHint: 'When disabled, API Keys not assigned to any group cannot make requests (403 Forbidden). Keep disabled to ensure all Keys belong to a specific group.',
+        requestPriorityAdmission: 'Enable user-tier request admission',
+        requestPriorityAdmissionHint: 'Disabled by default. When enabled, priority, normal, and low scheduling tiers control admission to user and account slots. Low-tier requests receive 429 immediately when capacity is unavailable.',
+        requestPriorityPendingLimit: 'Pending requests per instance',
+        requestPriorityPendingLimitHint: 'Hard process-level budget shared by priority and normal requests. Default: 256. Low-tier requests never enter the wait queue.',
+        requestPriorityPendingMiB: 'Pending request bodies per instance (MiB)',
+        requestPriorityPendingMiBHint: 'Caps request bodies actually buffered in this process. Default: 256 MiB. Request bodies are never stored in Redis.',
         contentSessionBurstBalance: 'Spread concurrent content sessions',
         contentSessionBurstBalanceHint: 'Disabled by default. When enabled, an initial bounded set of overlapping requests with identical content and no explicit session identifier is spread by account load. High-concurrency overflow is sent directly through a bounded pool of previously validated accounts, trying two accounts before using the existing queue limits. Sequential requests and explicit session_id, prompt_cache_key, and previous_response_id affinity remain unchanged.'
       },

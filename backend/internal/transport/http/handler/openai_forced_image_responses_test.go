@@ -3,12 +3,16 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
@@ -105,4 +109,74 @@ func TestRunOpenAIForcedImageChildInGlobalSlotReleasesSlotAfterPanic(t *testing.
 	require.Error(t, result.err)
 	require.True(t, strings.Contains(result.err.Error(), "forced test panic"))
 	require.Empty(t, openAIForcedImageGlobalChildSlots)
+}
+
+func TestWriteOpenAIForcedImageHTTPResultMapsAdmissionErrors(t *testing.T) {
+	tests := []struct {
+		name        string
+		err         error
+		wantStatus  int
+		wantCode    string
+		wantMessage string
+	}{
+		{
+			name:        "queue rejection remains generic 429",
+			err:         newOpenAIForcedImageAdmissionError(&WaitQueueFullError{SlotType: "account"}),
+			wantStatus:  http.StatusTooManyRequests,
+			wantCode:    "rate_limit_error",
+			wantMessage: "Too many pending requests, please retry later",
+		},
+		{
+			name:        "redis admission failure becomes generic 503",
+			err:         fmt.Errorf("%w: redis dial timeout", service.ErrPriorityAdmissionUnavailable),
+			wantStatus:  http.StatusServiceUnavailable,
+			wantCode:    "api_error",
+			wantMessage: "Service temporarily unavailable, please retry later",
+		},
+		{
+			name:        "wrapped redis admission failure becomes generic 503",
+			err:         newOpenAIForcedImageAdmissionError(fmt.Errorf("%w: redis eval timeout", service.ErrPriorityAdmissionUnavailable)),
+			wantStatus:  http.StatusServiceUnavailable,
+			wantCode:    "api_error",
+			wantMessage: "Service temporarily unavailable, please retry later",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+
+			writeOpenAIForcedImageHTTPResult(c, map[string]any{
+				"id":     "resp_test",
+				"status": "in_progress",
+			}, tt.err)
+
+			require.Equal(t, tt.wantStatus, recorder.Code)
+			var body struct {
+				Status string `json:"status"`
+				Error  struct {
+					Code    string `json:"code"`
+					Message string `json:"message"`
+				} `json:"error"`
+			}
+			require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &body))
+			require.Equal(t, "failed", body.Status)
+			require.Equal(t, tt.wantCode, body.Error.Code)
+			require.Equal(t, tt.wantMessage, body.Error.Message)
+			require.NotContains(t, recorder.Body.String(), "redis dial timeout")
+		})
+	}
+}
+
+func TestChooseOpenAIForcedImageErrorPrioritizesAdmissionFailures(t *testing.T) {
+	upstreamErr := errors.New("upstream failed")
+	queueErr := newOpenAIForcedImageAdmissionError(&WaitQueueFullError{SlotType: "account"})
+	redisErr := newOpenAIForcedImageAdmissionError(fmt.Errorf("%w: redis failed", service.ErrPriorityAdmissionUnavailable))
+
+	require.Equal(t, queueErr, chooseOpenAIForcedImageError(upstreamErr, queueErr))
+	require.Equal(t, redisErr, chooseOpenAIForcedImageError(queueErr, redisErr))
+	require.Equal(t, redisErr, chooseOpenAIForcedImageError(redisErr, queueErr))
 }

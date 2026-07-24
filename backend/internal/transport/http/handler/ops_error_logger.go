@@ -212,6 +212,9 @@ func enqueueOpsErrorLog(ops *service.OpsService, entry *service.OpsInsertErrorLo
 	if ops == nil || entry == nil {
 		return
 	}
+	if !ops.RecordBusinessLimited429Enabled() && entry.StatusCode == http.StatusTooManyRequests && entry.IsBusinessLimited {
+		return
+	}
 	entry.UserAgent = normalizeOpsPersistentUserAgent(entry.UserAgent)
 	if entry.ErrorBody != "" {
 		originalBody := entry.ErrorBody
@@ -522,6 +525,7 @@ type opsCaptureWriter struct {
 	limit int
 	buf   bytes.Buffer
 	ctx   *gin.Context
+	ops   *service.OpsService
 }
 
 const opsCaptureWriterLimit = service.OpsErrorLogQueueBodyMaxBytes
@@ -551,6 +555,7 @@ func releaseOpsCaptureWriter(w *opsCaptureWriter) {
 	}
 	w.ResponseWriter = nil
 	w.ctx = nil
+	w.ops = nil
 	w.limit = opsCaptureWriterLimit
 	if !shouldPoolOpsCaptureWriter(w) {
 		return
@@ -676,7 +681,24 @@ func (w *opsCaptureWriter) shouldCapture() bool {
 		return true
 	}
 	_, rejected := middleware2.GetIngressRejectReason(w.ctx)
-	return !rejected
+	return !rejected && !shouldSuppressOpsBusinessLimited429(w.ctx, w.ops, w.Status())
+}
+
+func shouldSuppressOpsBusinessLimited429(c *gin.Context, ops *service.OpsService, status int) bool {
+	if ops == nil || status != http.StatusTooManyRequests || ops.RecordBusinessLimited429Enabled() {
+		return false
+	}
+	if hasOpsUpstreamErrorContext(c) {
+		return false
+	}
+	return service.HasOpsClientBusinessLimited(c) || isOpsRoutingCapacityLimited(c)
+}
+
+func markOpsLocalBusinessLimited429(c *gin.Context, status int) {
+	if status != http.StatusTooManyRequests || hasOpsUpstreamErrorContext(c) {
+		return
+	}
+	service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalRateLimit)
 }
 
 // OpsErrorLoggerMiddleware records error responses (status >= 400) into ops_error_logs.
@@ -689,6 +711,7 @@ func OpsErrorLoggerMiddleware(ops *service.OpsService) gin.HandlerFunc {
 		originalWriter := c.Writer
 		w := acquireOpsCaptureWriter(originalWriter)
 		w.ctx = c
+		w.ops = ops
 		defer func() {
 			// Restore the original writer before returning so outer middlewares
 			// don't observe a pooled wrapper that has been released.
@@ -716,6 +739,9 @@ func OpsErrorLoggerMiddleware(ops *service.OpsService) gin.HandlerFunc {
 		}
 
 		status := c.Writer.Status()
+		if shouldSuppressOpsBusinessLimited429(c, ops, status) {
+			return
+		}
 		if status < 400 {
 			// Even when the client request succeeds, we still want to persist upstream error attempts
 			// (retries/failover) so ops can observe upstream instability that gets "covered" by retries.
@@ -1117,6 +1143,9 @@ func OpsErrorLoggerMiddleware(ops *service.OpsService) gin.HandlerFunc {
 func logOpsStreamError(c *gin.Context, ops *service.OpsService, wireStatus int) {
 	streamErr, ok := service.GetOpsStreamError(c)
 	if !ok {
+		return
+	}
+	if shouldSuppressOpsBusinessLimited429(c, ops, streamErr.IntendedStatus) {
 		return
 	}
 

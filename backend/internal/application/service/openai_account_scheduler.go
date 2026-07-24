@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"log/slog"
@@ -683,6 +684,9 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 		return nil, accountID, nil
 	}
 	result, acquireErr := s.service.tryAcquireAccountSlot(ctx, accountID, account.Concurrency)
+	if errors.Is(acquireErr, ErrPriorityAdmissionUnavailable) {
+		return nil, 0, acquireErr
+	}
 	if acquireErr == nil && result != nil && result.Acquired {
 		if !req.EphemeralStickyAccount {
 			_ = s.service.refreshStickySessionTTL(ctx, req.GroupID, sessionHash, s.service.openAIWSSessionStickyTTL())
@@ -742,6 +746,9 @@ func (s *defaultOpenAIAccountScheduler) selectByContentSessionBurstCandidates(
 			continue
 		}
 		if selection.Acquired {
+			return selection, nil
+		}
+		if selection.PriorityAdmissionTerminal {
 			return selection, nil
 		}
 		if waitSelection == nil {
@@ -1437,6 +1444,10 @@ func (s *defaultOpenAIAccountScheduler) tryAcquireOpenAISelectionOrderWithBudget
 			return nil, compactBlocked, acquireErr
 		}
 		if result == nil || !result.Acquired {
+			if result != nil && result.PriorityAdmissionTerminal {
+				cfg := s.service.schedulingConfig()
+				return priorityAdmissionTerminalSelection(candidate.account, cfg.FallbackWaitTimeout, cfg.FallbackMaxWaiting), compactBlocked, nil
+			}
 			continue
 		}
 

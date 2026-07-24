@@ -753,10 +753,11 @@ func TestAccountLoadBatchCacheKey_TracksOrderAndConcurrency(t *testing.T) {
 	reordered := []AccountWithConcurrency{{ID: 2, MaxConcurrency: 16}, {ID: 1, MaxConcurrency: 8}}
 	changedLimit := []AccountWithConcurrency{{ID: 1, MaxConcurrency: 9}, {ID: 2, MaxConcurrency: 16}}
 
-	baseKey := accountLoadBatchCacheKey(base)
-	require.Equal(t, baseKey, accountLoadBatchCacheKey(same))
-	require.NotEqual(t, baseKey, accountLoadBatchCacheKey(reordered))
-	require.NotEqual(t, baseKey, accountLoadBatchCacheKey(changedLimit))
+	baseKey := accountLoadBatchCacheKey(base, false)
+	require.Equal(t, baseKey, accountLoadBatchCacheKey(same, false))
+	require.NotEqual(t, baseKey, accountLoadBatchCacheKey(reordered, false))
+	require.NotEqual(t, baseKey, accountLoadBatchCacheKey(changedLimit, false))
+	require.NotEqual(t, baseKey, accountLoadBatchCacheKey(base, true))
 	require.NotEmpty(t, baseKey.singleflightKey())
 }
 

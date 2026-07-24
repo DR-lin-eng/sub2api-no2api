@@ -903,6 +903,9 @@ func TestAPIContracts(t *testing.T) {
 					"scheduler_v2_error": "",
 					"scheduler_v2_candidate_limit": 64,
 					"scheduler_v2_scan_limit": 256,
+					"request_priority_admission_enabled": false,
+					"request_priority_pending_limit_per_instance": 256,
+					"request_priority_pending_mib_per_instance": 256,
 					"backend_mode_enabled": false,
 					"stream_mode_performance_enabled": false,
 					"enable_cch_signing": false,
@@ -1203,6 +1206,9 @@ func TestAPIContracts(t *testing.T) {
 					"scheduler_v2_error": "",
 					"scheduler_v2_candidate_limit": 64,
 					"scheduler_v2_scan_limit": 256,
+					"request_priority_admission_enabled": false,
+					"request_priority_pending_limit_per_instance": 256,
+					"request_priority_pending_mib_per_instance": 256,
 					"backend_mode_enabled": false,
 					"stream_mode_performance_enabled": false,
 					"enable_fingerprint_unification": true,
@@ -1623,7 +1629,7 @@ func (r *stubUserRepo) UpdateConcurrency(ctx context.Context, id int64, amount i
 
 func (r *stubUserRepo) BatchSetConcurrency(context.Context, []int64, int) (int, error) { return 0, nil }
 func (r *stubUserRepo) BatchAddConcurrency(context.Context, []int64, int) (int, error) { return 0, nil }
-func (r *stubUserRepo) BatchUpdateLimits(context.Context, []int64, *int, *int) (int, error) {
+func (r *stubUserRepo) BatchUpdateLimits(context.Context, []int64, *int, *int, *service.RequestSchedulingTier) (int, error) {
 	return 0, nil
 }
 

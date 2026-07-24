@@ -737,6 +737,8 @@ export default {
         openaiQuotaAutoPauseDefault7d: '默认 7d 用量阈值 (%)',
         openaiQuotaAutoPauseThresholdHint: '取值 0-100，留空或 0 表示不启用全局默认阈值。',
         errorFiltering: '错误过滤',
+        recordBusinessLimited429: '记录本地业务限制 429',
+        recordBusinessLimited429Hint: '关闭后，本地生成的并发、等待队列、RPM、API Key 配额等业务 429 不再复制响应体、进入异步队列或写入运维错误日志；上游 429 仍会记录。',
         ignoreCountTokensErrors: '忽略 count_tokens 错误',
         ignoreCountTokensErrorsHint: '启用后，count_tokens 请求的错误将不会写入错误日志。',
         ignoreContextCanceled: '忽略客户端断连错误',

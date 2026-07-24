@@ -374,6 +374,7 @@ func imageTaskError(c *gin.Context, err error) {
 }
 
 func imageTaskJSONError(c *gin.Context, status int, code, message string) {
+	markOpsLocalBusinessLimited429(c, status)
 	c.Header("Cache-Control", "no-store")
 	c.JSON(status, gin.H{"error": gin.H{"type": code, "code": code, "message": message}})
 }

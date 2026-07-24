@@ -814,6 +814,15 @@ func (c *concurrencyCache) DecrementAccountWaitCount(ctx context.Context, accoun
 
 func (c *concurrencyCache) GetAccountWaitingCount(ctx context.Context, accountID int64) (int, error) {
 	key := accountWaitKey(accountID)
+	if service.PriorityAdmissionLoadCountsEnabled(ctx) {
+		pipe := c.rdb.Pipeline()
+		legacyCmd := pipe.Get(ctx, key)
+		priorityCmd := pipe.Get(ctx, priorityWaitCountKey(priorityAccountWaitPrefix, accountID))
+		if _, err := pipe.Exec(ctx); err != nil && !errors.Is(err, redis.Nil) {
+			return 0, err
+		}
+		return redisOptionalInt(legacyCmd) + redisOptionalInt(priorityCmd), nil
+	}
 	val, err := c.rdb.Get(ctx, key).Int()
 	if err != nil && !errors.Is(err, redis.Nil) {
 		return 0, err
@@ -822,6 +831,17 @@ func (c *concurrencyCache) GetAccountWaitingCount(ctx context.Context, accountID
 		return 0, nil
 	}
 	return val, nil
+}
+
+func redisOptionalInt(cmd *redis.StringCmd) int {
+	if cmd == nil {
+		return 0
+	}
+	value, err := cmd.Int()
+	if err != nil {
+		return 0
+	}
+	return value
 }
 
 func (c *concurrencyCache) GetAccountsLoadBatch(ctx context.Context, accounts []service.AccountWithConcurrency) (map[int64]*service.AccountLoadInfo, error) {
@@ -844,6 +864,7 @@ func (c *concurrencyCache) GetAccountsLoadBatch(ctx context.Context, accounts []
 		maxConcurrency int
 		zcardCmd       *redis.IntCmd
 		getCmd         *redis.StringCmd
+		priorityGetCmd *redis.StringCmd
 	}
 	cmds := make([]accountCmds, 0, len(accounts))
 	for _, acc := range accounts {
@@ -855,6 +876,9 @@ func (c *concurrencyCache) GetAccountsLoadBatch(ctx context.Context, accounts []
 			maxConcurrency: acc.MaxConcurrency,
 			zcardCmd:       pipe.ZCard(ctx, slotKey),
 			getCmd:         pipe.Get(ctx, waitKey),
+		}
+		if service.PriorityAdmissionLoadCountsEnabled(ctx) {
+			ac.priorityGetCmd = pipe.Get(ctx, priorityWaitCountKey(priorityAccountWaitPrefix, acc.ID))
 		}
 		cmds = append(cmds, ac)
 	}
@@ -870,6 +894,7 @@ func (c *concurrencyCache) GetAccountsLoadBatch(ctx context.Context, accounts []
 		if v, err := ac.getCmd.Int(); err == nil {
 			waitingCount = v
 		}
+		waitingCount += redisOptionalInt(ac.priorityGetCmd)
 		loadRate := 0
 		if ac.maxConcurrency > 0 {
 			loadRate = (currentConcurrency + waitingCount) * 100 / ac.maxConcurrency
@@ -904,6 +929,7 @@ func (c *concurrencyCache) GetUsersLoadBatch(ctx context.Context, users []servic
 		maxConcurrency int
 		zcardCmd       *redis.IntCmd
 		getCmd         *redis.StringCmd
+		priorityGetCmd *redis.StringCmd
 	}
 	cmds := make([]userCmds, 0, len(users))
 	for _, u := range users {
@@ -915,6 +941,9 @@ func (c *concurrencyCache) GetUsersLoadBatch(ctx context.Context, users []servic
 			maxConcurrency: u.MaxConcurrency,
 			zcardCmd:       pipe.ZCard(ctx, slotKey),
 			getCmd:         pipe.Get(ctx, waitKey),
+		}
+		if service.PriorityAdmissionLoadCountsEnabled(ctx) {
+			uc.priorityGetCmd = pipe.Get(ctx, priorityWaitCountKey(priorityUserWaitPrefix, u.ID))
 		}
 		cmds = append(cmds, uc)
 	}
@@ -930,6 +959,7 @@ func (c *concurrencyCache) GetUsersLoadBatch(ctx context.Context, users []servic
 		if v, err := uc.getCmd.Int(); err == nil {
 			waitingCount = v
 		}
+		waitingCount += redisOptionalInt(uc.priorityGetCmd)
 		loadRate := 0
 		if uc.maxConcurrency > 0 {
 			loadRate = (currentConcurrency + waitingCount) * 100 / uc.maxConcurrency

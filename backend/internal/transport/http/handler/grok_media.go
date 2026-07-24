@@ -95,6 +95,7 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 			h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Request body is empty")
 			return
 		}
+		h.concurrencyHelper.SetPriorityAdmissionPendingBytes(c, int64(len(body)))
 	}
 
 	contentType := c.GetHeader("Content-Type")
@@ -218,6 +219,10 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 				zap.Error(err),
 				zap.Int("excluded_account_count", len(failedAccountIDs)),
 			)
+			if errors.Is(err, service.ErrPriorityAdmissionUnavailable) {
+				h.errorResponse(c, http.StatusServiceUnavailable, "api_error", "Service temporarily unavailable, please retry later")
+				return
+			}
 			if endpoint.IsGenerationRequest() && errors.Is(err, service.ErrNoAvailableAccounts) &&
 				(len(failedAccountIDs) == 0 || (mediaEligibilityRejected && lastFailoverErr == nil)) {
 				markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
@@ -274,6 +279,7 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		if endpoint.IsGenerationRequest() {
 			eligible, eligibilityReason, eligibilityErr := h.ensureGrokMediaAccountEligibility(requestCtx, account)
 			if !eligible {
+				releaseRejectedGrokMediaSelection(selection)
 				mediaEligibilityRejected = true
 				addFailedAccountID(&failedAccountIDs, account.ID)
 				reqLog.Warn("grok_media.account_eligibility_rejected",
@@ -412,6 +418,16 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		)
 		return
 	}
+}
+
+func releaseRejectedGrokMediaSelection(selection *service.AccountSelectionResult) {
+	if selection == nil || !selection.Acquired || selection.ReleaseFunc == nil {
+		return
+	}
+	release := selection.ReleaseFunc
+	selection.Acquired = false
+	selection.ReleaseFunc = nil
+	release()
 }
 
 func (h *OpenAIGatewayHandler) ensureGrokMediaAccountEligibility(ctx context.Context, account *service.Account) (bool, string, error) {

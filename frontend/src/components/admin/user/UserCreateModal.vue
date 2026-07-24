@@ -32,6 +32,15 @@
           <option value="admin">{{ t('admin.users.roles.admin') }}</option>
         </select>
       </div>
+      <div>
+        <label class="input-label">{{ t('admin.users.form.schedulingTier') }}</label>
+        <select v-model.number="form.scheduling_tier" class="input" data-test="scheduling-tier-select">
+          <option :value="0">{{ t('admin.users.schedulingTiers.priority') }}</option>
+          <option :value="1">{{ t('admin.users.schedulingTiers.normal') }}</option>
+          <option :value="2">{{ t('admin.users.schedulingTiers.low') }}</option>
+        </select>
+        <p class="input-hint">{{ t('admin.users.form.schedulingTierHint') }}</p>
+      </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label class="input-label">{{ t('admin.users.columns.balance') }}</label>
@@ -77,12 +86,13 @@ import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useStepUp, isStepUpBlocked, isStepUpCancelled, stepUpBlockReason } from '@/composables/useStepUp'
 import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
+import type { RequestSchedulingTier } from '@/types'
 
 const props = defineProps<{ show: boolean }>()
 const emit = defineEmits(['close', 'success']); const { t } = useI18n()
 const appStore = useAppStore()
 
-const form = reactive({ email: '', password: '', username: '', notes: '', role: 'user' as 'user' | 'admin', balance: '', concurrency: 1, rpm_limit: 0 })
+const form = reactive({ email: '', password: '', username: '', notes: '', role: 'user' as 'user' | 'admin', balance: '', concurrency: 1, rpm_limit: 0, scheduling_tier: 1 as RequestSchedulingTier })
 
 const stepUp = useStepUp()
 const loading = ref(false)
@@ -116,7 +126,7 @@ const submit = async () => {
   } finally { loading.value = false }
 }
 
-watch(() => props.show, (v) => { if(v) Object.assign(form, { email: '', password: '', username: '', notes: '', role: 'user', balance: '', concurrency: 1, rpm_limit: 0 }) })
+watch(() => props.show, (v) => { if(v) Object.assign(form, { email: '', password: '', username: '', notes: '', role: 'user', balance: '', concurrency: 1, rpm_limit: 0, scheduling_tier: 1 }) })
 
 const generateRandomPassword = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%^&*'

@@ -19,9 +19,11 @@ type batchLimitsAdminServiceStub struct {
 }
 
 type batchLimitsAdminServiceCall struct {
-	userIDs     []int64
-	concurrency *int
-	rpmLimit    *int
+	userIDs        []int64
+	concurrency    *int
+	rpmLimit       *int
+	schedulingTier *service.RequestSchedulingTier
+	actorAdminID   int64
 }
 
 func cloneIntPointer(value *int) *int {
@@ -32,13 +34,23 @@ func cloneIntPointer(value *int) *int {
 	return &cloned
 }
 
-func (s *batchLimitsAdminServiceStub) BatchUpdateLimits(_ context.Context, userIDs []int64, concurrency, rpmLimit *int) (int, error) {
+func (s *batchLimitsAdminServiceStub) BatchUpdateLimits(_ context.Context, userIDs []int64, concurrency, rpmLimit *int, schedulingTier *service.RequestSchedulingTier, actorAdminID int64) (int, error) {
 	s.calls = append(s.calls, batchLimitsAdminServiceCall{
-		userIDs:     append([]int64(nil), userIDs...),
-		concurrency: cloneIntPointer(concurrency),
-		rpmLimit:    cloneIntPointer(rpmLimit),
+		userIDs:        append([]int64(nil), userIDs...),
+		concurrency:    cloneIntPointer(concurrency),
+		rpmLimit:       cloneIntPointer(rpmLimit),
+		schedulingTier: cloneSchedulingTierPointer(schedulingTier),
+		actorAdminID:   actorAdminID,
 	})
 	return len(userIDs), nil
+}
+
+func cloneSchedulingTierPointer(value *service.RequestSchedulingTier) *service.RequestSchedulingTier {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
 }
 
 func setupBatchLimitsRouter(serviceStub service.AdminService) *gin.Engine {
@@ -72,6 +84,7 @@ func TestUserHandlerBatchUpdateLimitsAcceptsPartialAndZeroValues(t *testing.T) {
 		{name: "concurrency only", body: `{"user_ids":[1,2],"concurrency":10}`, expectedConcurrency: pointerTo(10)},
 		{name: "both limits", body: `{"user_ids":[1,2],"concurrency":8,"rpm_limit":60}`, expectedConcurrency: pointerTo(8), expectedRPMLimit: pointerTo(60)},
 		{name: "explicit zero", body: `{"user_ids":[1,2],"concurrency":0,"rpm_limit":0}`, expectedConcurrency: pointerTo(0), expectedRPMLimit: pointerTo(0)},
+		{name: "priority tier", body: `{"user_ids":[1,2],"scheduling_tier":0}`},
 	}
 
 	for _, test := range tests {
@@ -84,6 +97,9 @@ func TestUserHandlerBatchUpdateLimitsAcceptsPartialAndZeroValues(t *testing.T) {
 			require.Equal(t, []int64{1, 2}, serviceStub.calls[0].userIDs)
 			require.Equal(t, test.expectedConcurrency, serviceStub.calls[0].concurrency)
 			require.Equal(t, test.expectedRPMLimit, serviceStub.calls[0].rpmLimit)
+			if test.name == "priority tier" {
+				require.Equal(t, service.RequestSchedulingTierPriority, *serviceStub.calls[0].schedulingTier)
+			}
 
 			var response struct {
 				Data struct {
@@ -111,6 +127,7 @@ func TestUserHandlerBatchUpdateLimitsRejectsInvalidRequests(t *testing.T) {
 		{name: "no limits", body: []byte(`{"user_ids":[1]}`)},
 		{name: "invalid json", body: []byte(`{"user_ids":`)},
 		{name: "missing user ids", body: []byte(`{"rpm_limit":10}`)},
+		{name: "invalid scheduling tier", body: []byte(`{"user_ids":[1],"scheduling_tier":3}`)},
 		{name: "more than 500 ids", body: tooManyBody},
 	}
 

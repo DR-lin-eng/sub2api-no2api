@@ -172,6 +172,27 @@ func (_u *UserUpdate) AddConcurrency(v int) *UserUpdate {
 	return _u
 }
 
+// SetRequestSchedulingTier sets the "request_scheduling_tier" field.
+func (_u *UserUpdate) SetRequestSchedulingTier(v int16) *UserUpdate {
+	_u.mutation.ResetRequestSchedulingTier()
+	_u.mutation.SetRequestSchedulingTier(v)
+	return _u
+}
+
+// SetNillableRequestSchedulingTier sets the "request_scheduling_tier" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableRequestSchedulingTier(v *int16) *UserUpdate {
+	if v != nil {
+		_u.SetRequestSchedulingTier(*v)
+	}
+	return _u
+}
+
+// AddRequestSchedulingTier adds value to the "request_scheduling_tier" field.
+func (_u *UserUpdate) AddRequestSchedulingTier(v int16) *UserUpdate {
+	_u.mutation.AddRequestSchedulingTier(v)
+	return _u
+}
+
 // SetStatus sets the "status" field.
 func (_u *UserUpdate) SetStatus(v string) *UserUpdate {
 	_u.mutation.SetStatus(v)
@@ -1067,6 +1088,12 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.AddedConcurrency(); ok {
 		_spec.AddField(user.FieldConcurrency, field.TypeInt, value)
 	}
+	if value, ok := _u.mutation.RequestSchedulingTier(); ok {
+		_spec.SetField(user.FieldRequestSchedulingTier, field.TypeInt16, value)
+	}
+	if value, ok := _u.mutation.AddedRequestSchedulingTier(); ok {
+		_spec.AddField(user.FieldRequestSchedulingTier, field.TypeInt16, value)
+	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(user.FieldStatus, field.TypeString, value)
 	}
@@ -1926,6 +1953,27 @@ func (_u *UserUpdateOne) SetNillableConcurrency(v *int) *UserUpdateOne {
 // AddConcurrency adds value to the "concurrency" field.
 func (_u *UserUpdateOne) AddConcurrency(v int) *UserUpdateOne {
 	_u.mutation.AddConcurrency(v)
+	return _u
+}
+
+// SetRequestSchedulingTier sets the "request_scheduling_tier" field.
+func (_u *UserUpdateOne) SetRequestSchedulingTier(v int16) *UserUpdateOne {
+	_u.mutation.ResetRequestSchedulingTier()
+	_u.mutation.SetRequestSchedulingTier(v)
+	return _u
+}
+
+// SetNillableRequestSchedulingTier sets the "request_scheduling_tier" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableRequestSchedulingTier(v *int16) *UserUpdateOne {
+	if v != nil {
+		_u.SetRequestSchedulingTier(*v)
+	}
+	return _u
+}
+
+// AddRequestSchedulingTier adds value to the "request_scheduling_tier" field.
+func (_u *UserUpdateOne) AddRequestSchedulingTier(v int16) *UserUpdateOne {
+	_u.mutation.AddRequestSchedulingTier(v)
 	return _u
 }
 
@@ -2853,6 +2901,12 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	}
 	if value, ok := _u.mutation.AddedConcurrency(); ok {
 		_spec.AddField(user.FieldConcurrency, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.RequestSchedulingTier(); ok {
+		_spec.SetField(user.FieldRequestSchedulingTier, field.TypeInt16, value)
+	}
+	if value, ok := _u.mutation.AddedRequestSchedulingTier(); ok {
+		_spec.AddField(user.FieldRequestSchedulingTier, field.TypeInt16, value)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(user.FieldStatus, field.TypeString, value)

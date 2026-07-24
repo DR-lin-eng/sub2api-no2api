@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log"
 	"math/rand/v2"
+	"net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -491,6 +492,9 @@ func (s *OpsService) RecordErrorBatch(ctx context.Context, entries []*OpsInsertE
 
 func (s *OpsService) prepareErrorLogInput(ctx context.Context, entry *OpsInsertErrorLogInput) (*OpsInsertErrorLogInput, bool, error) {
 	if entry == nil {
+		return nil, false, nil
+	}
+	if !s.RecordBusinessLimited429Enabled() && entry.StatusCode == http.StatusTooManyRequests && entry.IsBusinessLimited {
 		return nil, false, nil
 	}
 	if !s.IsMonitoringEnabled(ctx) {

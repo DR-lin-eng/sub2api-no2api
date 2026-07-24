@@ -60,6 +60,9 @@ async function loadAllSettings() {
     if (advancedSettings.value && typeof advancedSettings.value.display_image_generation_stats !== 'boolean') {
       advancedSettings.value.display_image_generation_stats = true
     }
+    if (advancedSettings.value && typeof advancedSettings.value.record_business_limited_429 !== 'boolean') {
+      advancedSettings.value.record_business_limited_429 = true
+    }
     // 如果后端返回了阈值，使用后端的值；否则保持默认值
     if (settings.metric_thresholds && Object.keys(settings.metric_thresholds).length > 0) {
         metricThresholds.value = {
@@ -577,6 +580,19 @@ async function saveAllSettings() {
           <!-- Error Filtering -->
           <div class="space-y-3">
             <h5 class="text-xs font-semibold text-gray-700 dark:text-gray-300">{{ t('admin.ops.settings.errorFiltering') }}</h5>
+
+            <div class="flex items-center justify-between gap-4">
+              <div class="min-w-0">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.ops.settings.recordBusinessLimited429') }}</label>
+                <p class="mt-1 text-xs text-gray-500">
+                  {{ t('admin.ops.settings.recordBusinessLimited429Hint') }}
+                </p>
+              </div>
+              <Toggle
+                v-model="advancedSettings.record_business_limited_429"
+                data-testid="ops-record-business-limited-429-toggle"
+              />
+            </div>
 
             <div class="flex items-center justify-between">
               <div>

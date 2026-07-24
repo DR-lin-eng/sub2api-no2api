@@ -100,6 +100,11 @@ func Concurrency(v int) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldConcurrency, v))
 }
 
+// RequestSchedulingTier applies equality check predicate on the "request_scheduling_tier" field. It's identical to RequestSchedulingTierEQ.
+func RequestSchedulingTier(v int16) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldRequestSchedulingTier, v))
+}
+
 // Status applies equality check predicate on the "status" field. It's identical to StatusEQ.
 func Status(v string) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldStatus, v))
@@ -618,6 +623,46 @@ func ConcurrencyLT(v int) predicate.User {
 // ConcurrencyLTE applies the LTE predicate on the "concurrency" field.
 func ConcurrencyLTE(v int) predicate.User {
 	return predicate.User(sql.FieldLTE(FieldConcurrency, v))
+}
+
+// RequestSchedulingTierEQ applies the EQ predicate on the "request_scheduling_tier" field.
+func RequestSchedulingTierEQ(v int16) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldRequestSchedulingTier, v))
+}
+
+// RequestSchedulingTierNEQ applies the NEQ predicate on the "request_scheduling_tier" field.
+func RequestSchedulingTierNEQ(v int16) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldRequestSchedulingTier, v))
+}
+
+// RequestSchedulingTierIn applies the In predicate on the "request_scheduling_tier" field.
+func RequestSchedulingTierIn(vs ...int16) predicate.User {
+	return predicate.User(sql.FieldIn(FieldRequestSchedulingTier, vs...))
+}
+
+// RequestSchedulingTierNotIn applies the NotIn predicate on the "request_scheduling_tier" field.
+func RequestSchedulingTierNotIn(vs ...int16) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldRequestSchedulingTier, vs...))
+}
+
+// RequestSchedulingTierGT applies the GT predicate on the "request_scheduling_tier" field.
+func RequestSchedulingTierGT(v int16) predicate.User {
+	return predicate.User(sql.FieldGT(FieldRequestSchedulingTier, v))
+}
+
+// RequestSchedulingTierGTE applies the GTE predicate on the "request_scheduling_tier" field.
+func RequestSchedulingTierGTE(v int16) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldRequestSchedulingTier, v))
+}
+
+// RequestSchedulingTierLT applies the LT predicate on the "request_scheduling_tier" field.
+func RequestSchedulingTierLT(v int16) predicate.User {
+	return predicate.User(sql.FieldLT(FieldRequestSchedulingTier, v))
+}
+
+// RequestSchedulingTierLTE applies the LTE predicate on the "request_scheduling_tier" field.
+func RequestSchedulingTierLTE(v int16) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldRequestSchedulingTier, v))
 }
 
 // StatusEQ applies the EQ predicate on the "status" field.

@@ -33,6 +33,8 @@ const (
 	FieldFrozenBalance = "frozen_balance"
 	// FieldConcurrency holds the string denoting the concurrency field in the database.
 	FieldConcurrency = "concurrency"
+	// FieldRequestSchedulingTier holds the string denoting the request_scheduling_tier field in the database.
+	FieldRequestSchedulingTier = "request_scheduling_tier"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
 	// FieldUsername holds the string denoting the username field in the database.
@@ -212,6 +214,7 @@ var Columns = []string{
 	FieldBalance,
 	FieldFrozenBalance,
 	FieldConcurrency,
+	FieldRequestSchedulingTier,
 	FieldStatus,
 	FieldUsername,
 	FieldNotes,
@@ -273,6 +276,8 @@ var (
 	DefaultFrozenBalance float64
 	// DefaultConcurrency holds the default value on creation for the "concurrency" field.
 	DefaultConcurrency int
+	// DefaultRequestSchedulingTier holds the default value on creation for the "request_scheduling_tier" field.
+	DefaultRequestSchedulingTier int16
 	// DefaultStatus holds the default value on creation for the "status" field.
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
@@ -352,6 +357,11 @@ func ByFrozenBalance(opts ...sql.OrderTermOption) OrderOption {
 // ByConcurrency orders the results by the concurrency field.
 func ByConcurrency(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldConcurrency, opts...).ToFunc()
+}
+
+// ByRequestSchedulingTier orders the results by the request_scheduling_tier field.
+func ByRequestSchedulingTier(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRequestSchedulingTier, opts...).ToFunc()
 }
 
 // ByStatus orders the results by the status field.

@@ -726,6 +726,7 @@ func ProvideOpsService(
 	)
 	if settingService != nil {
 		svc.SetOpenAIQuotaAutoPauseSettingsSink(settingService.SetOpenAIQuotaAutoPauseSettings)
+		settingService.SetRequestPriorityAdmissionSettingsSink(concurrencyService.ApplyRequestPriorityAdmissionSettings)
 		// Optional warm-up so the first scheduled request after process start observes
 		// a populated cache rather than zero defaults. Best-effort, sync-bounded.
 		settingService.WarmOpenAIQuotaAutoPauseSettings(context.Background())
@@ -750,7 +751,7 @@ func ProvideOpsIngressRejectAggregator(opsRepo OpsRepository, opsService *OpsSer
 }
 
 // ProvideSettingService wires SettingService with group reader and proxy repo.
-func ProvideSettingService(settingRepo SettingRepository, groupRepo GroupRepository, proxyRepo ProxyRepository, schedulerSnapshot *SchedulerSnapshotService, cfg *config.Config) *SettingService {
+func ProvideSettingService(settingRepo SettingRepository, groupRepo GroupRepository, proxyRepo ProxyRepository, schedulerSnapshot *SchedulerSnapshotService, redisClient *redis.Client, cfg *config.Config) *SettingService {
 	svc := NewSettingService(settingRepo, cfg)
 	svc.SetDefaultSubscriptionGroupReader(groupRepo)
 	svc.SetProxyRepository(proxyRepo)
@@ -761,6 +762,10 @@ func ProvideSettingService(settingRepo SettingRepository, groupRepo GroupReposit
 	if err := svc.LoadStreamModePerformanceSetting(context.Background()); err != nil {
 		logger.LegacyPrintf("service.setting", "Warning: load stream mode performance setting failed: %v", err)
 	}
+	if err := svc.LoadRequestPriorityAdmissionSettings(context.Background()); err != nil {
+		logger.LegacyPrintf("service.setting", "Warning: load request priority admission settings failed: %v", err)
+	}
+	svc.StartRequestPriorityAdmissionSettingsSync(context.Background(), redisClient)
 	if err := svc.MigrateOpenAIAllowClaudeCodeCodexPluginSetting(context.Background()); err != nil {
 		logger.LegacyPrintf("service.setting", "Warning: migrate openai allow Claude Code Codex plugin setting failed: %v", err)
 	}

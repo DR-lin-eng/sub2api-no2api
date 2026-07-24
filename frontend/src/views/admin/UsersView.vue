@@ -35,6 +35,19 @@
               />
             </div>
 
+            <div v-if="visibleFilters.has('schedulingTier')" class="w-full sm:w-36">
+              <Select
+                v-model="filters.schedulingTier"
+                :options="[
+                  { value: null, label: t('admin.users.allSchedulingTiers') },
+                  { value: 0, label: t('admin.users.schedulingTiers.priority') },
+                  { value: 1, label: t('admin.users.schedulingTiers.normal') },
+                  { value: 2, label: t('admin.users.schedulingTiers.low') }
+                ]"
+                @change="applyFilter"
+              />
+            </div>
+
             <!-- Status Filter (visible when enabled) -->
             <div v-if="visibleFilters.has('status')" class="w-full sm:w-32">
               <Select
@@ -328,6 +341,12 @@
           <template #cell-role="{ value }">
             <span :class="['badge', value === 'admin' ? 'badge-purple' : 'badge-gray']">
               {{ t('admin.users.roles.' + value) }}
+            </span>
+          </template>
+
+          <template #cell-scheduling_tier="{ value }">
+            <span :class="['badge', schedulingTierBadgeClass(value)]">
+              {{ t(`admin.users.schedulingTiers.${schedulingTierKey(value)}`) }}
             </span>
           </template>
 
@@ -782,7 +801,7 @@ import Icon from '@/components/icons/Icon.vue'
 
 const { t } = useI18n()
 import { adminAPI } from '@/api/admin'
-import type { AdminUser, AdminGroup, UserAttributeDefinition } from '@/types'
+import type { AdminUser, AdminGroup, RequestSchedulingTier, UserAttributeDefinition } from '@/types'
 import type { BatchUserUsageStats } from '@/api/admin/dashboard'
 import type { PlatformQuotaItem } from '@/api/admin/users'
 import type { Column } from '@/components/common/types'
@@ -812,6 +831,18 @@ import UserBalanceHistoryModal from '@/components/admin/user/UserBalanceHistoryM
 import GroupReplaceModal from '@/components/admin/user/GroupReplaceModal.vue'
 
 const appStore = useAppStore()
+
+const schedulingTierKey = (tier: RequestSchedulingTier | number): 'priority' | 'normal' | 'low' => {
+  if (tier === 0) return 'priority'
+  if (tier === 2) return 'low'
+  return 'normal'
+}
+
+const schedulingTierBadgeClass = (tier: RequestSchedulingTier | number): string => {
+  if (tier === 0) return 'badge-primary'
+  if (tier === 2) return 'badge-warning'
+  return 'badge-gray'
+}
 
 // Generate dynamic attribute columns from enabled definitions
 const attributeColumns = computed<Column[]>(() =>
@@ -868,6 +899,7 @@ const allColumns = computed<Column[]>(() => [
   // Dynamic attribute columns
   ...attributeColumns.value,
   { key: 'role', label: t('admin.users.columns.role'), sortable: true },
+  { key: 'scheduling_tier', label: t('admin.users.columns.schedulingTier'), sortable: true },
   { key: 'groups', label: t('admin.users.columns.groups'), sortable: false },
   { key: 'subscriptions', label: t('admin.users.columns.subscriptions'), sortable: false },
   { key: 'balance', label: t('admin.users.columns.balance'), sortable: true },
@@ -1025,7 +1057,7 @@ const searchQuery = ref('')
 const USER_SORT_STORAGE_KEY = 'admin-users-table-sort'
 const loadInitialSortState = (): { sort_by: string; sort_order: 'asc' | 'desc' } => {
   const fallback = { sort_by: 'created_at', sort_order: 'desc' as 'asc' | 'desc' }
-  const sortable = new Set(['email', 'id', 'username', 'role', 'balance', 'concurrency', 'status', 'last_used_at', 'last_active_at', 'created_at'])
+  const sortable = new Set(['email', 'id', 'username', 'role', 'scheduling_tier', 'balance', 'concurrency', 'status', 'last_used_at', 'last_active_at', 'created_at'])
   try {
     const raw = localStorage.getItem(USER_SORT_STORAGE_KEY)
     if (!raw) return fallback
@@ -1108,6 +1140,7 @@ const apiKeyGroupFilterOptions = computed(() =>
 // Filter values (role, status, and custom attributes)
 const filters = reactive({
   role: '',
+  schedulingTier: null as RequestSchedulingTier | null,
   status: '',
   group: '',  // group name for fuzzy match, '' = all
   apiKeyGroup: null as number | null  // group id bound to the user's API keys, null = all
@@ -1138,6 +1171,7 @@ const filterableAttributes = computed(() =>
 // Built-in filter definitions
 const builtInFilters = computed(() => [
   { key: 'role', name: t('admin.users.columns.role'), type: 'select' as const },
+  { key: 'schedulingTier', name: t('admin.users.columns.schedulingTier'), type: 'select' as const },
   { key: 'status', name: t('admin.users.columns.status'), type: 'select' as const },
   { key: 'group', name: t('admin.users.authorizedGroupFilter'), type: 'select' as const },
   { key: 'apiKeyGroup', name: t('admin.users.apiKeyGroupFilter'), type: 'select' as const }
@@ -1157,6 +1191,7 @@ const loadSavedFilters = () => {
     if (savedValues) {
       const parsed = JSON.parse(savedValues)
       if (parsed.role) filters.role = parsed.role
+      if ([0, 1, 2].includes(parsed.schedulingTier)) filters.schedulingTier = parsed.schedulingTier
       if (parsed.status) filters.status = parsed.status
       if (parsed.group) filters.group = parsed.group
       if (typeof parsed.apiKeyGroup === 'number') filters.apiKeyGroup = parsed.apiKeyGroup
@@ -1177,6 +1212,7 @@ const saveFiltersToStorage = () => {
     // Save filter values
     const values = {
       role: filters.role,
+      schedulingTier: filters.schedulingTier,
       status: filters.status,
       group: filters.group,
       apiKeyGroup: filters.apiKeyGroup,
@@ -1567,6 +1603,7 @@ const loadUsers = async () => {
       pagination.page_size,
       {
         role: filters.role as any,
+        scheduling_tier: filters.schedulingTier ?? undefined,
         status: filters.status as any,
         search: searchQuery.value || undefined,
         group_name: filters.group || undefined,
@@ -1659,6 +1696,7 @@ const toggleBuiltInFilter = (key: string) => {
   if (visibleFilters.has(key)) {
     visibleFilters.delete(key)
     if (key === 'role') filters.role = ''
+    if (key === 'schedulingTier') filters.schedulingTier = null
     if (key === 'status') filters.status = ''
     if (key === 'group') filters.group = ''
     if (key === 'apiKeyGroup') filters.apiKeyGroup = null

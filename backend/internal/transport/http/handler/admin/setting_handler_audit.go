@@ -414,6 +414,15 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.SchedulerV2ScanLimit != after.SchedulerV2ScanLimit {
 		changed = append(changed, "scheduler_v2_scan_limit")
 	}
+	if before.RequestPriorityAdmissionEnabled != after.RequestPriorityAdmissionEnabled {
+		changed = append(changed, "request_priority_admission_enabled")
+	}
+	if before.RequestPriorityPendingLimitPerInstance != after.RequestPriorityPendingLimitPerInstance {
+		changed = append(changed, "request_priority_pending_limit_per_instance")
+	}
+	if before.RequestPriorityPendingMiBPerInstance != after.RequestPriorityPendingMiBPerInstance {
+		changed = append(changed, "request_priority_pending_mib_per_instance")
+	}
 	if before.BackendModeEnabled != after.BackendModeEnabled {
 		changed = append(changed, "backend_mode_enabled")
 	}

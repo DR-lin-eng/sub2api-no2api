@@ -342,6 +342,12 @@ export default {
         description: '控制 API Key 的调度行为',
         allowUngroupedKey: '允许未分组 Key 调度',
         allowUngroupedKeyHint: '关闭后，未分配到任何分组的 API Key 将无法发起请求（返回 403）。建议保持关闭以确保所有 Key 都归属明确的分组。',
+        requestPriorityAdmission: '启用用户请求分级准入',
+        requestPriorityAdmissionHint: '默认关闭。开启后按优先、普通、低调度等级控制用户与账号槽位准入；低调度请求在无空闲容量时直接返回 429。',
+        requestPriorityPendingLimit: '单实例等待请求上限',
+        requestPriorityPendingLimitHint: '优先和普通请求共享的进程级硬上限，默认 256；低调度请求不进入等待队列。',
+        requestPriorityPendingMiB: '单实例等待请求体上限（MiB）',
+        requestPriorityPendingMiBHint: '仅限制进程内实际缓冲的等待请求体，默认 256 MiB；Redis 不保存请求体。',
         contentSessionBurstBalance: '内容会话并发分散',
         contentSessionBurstBalanceHint: '默认关闭。开启后，对没有显式会话标识且请求内容相同的重叠请求执行有上限的初始负载分散；高并发超额请求在已筛选的有界候选池内直接轮转并尝试两个账号，均忙时沿用账号排队限制。顺序请求、显式 session_id、prompt_cache_key 和 previous_response_id 的粘性保持不变。'
       },

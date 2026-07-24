@@ -145,6 +145,20 @@ func (_c *UserCreate) SetNillableConcurrency(v *int) *UserCreate {
 	return _c
 }
 
+// SetRequestSchedulingTier sets the "request_scheduling_tier" field.
+func (_c *UserCreate) SetRequestSchedulingTier(v int16) *UserCreate {
+	_c.mutation.SetRequestSchedulingTier(v)
+	return _c
+}
+
+// SetNillableRequestSchedulingTier sets the "request_scheduling_tier" field if the given value is not nil.
+func (_c *UserCreate) SetNillableRequestSchedulingTier(v *int16) *UserCreate {
+	if v != nil {
+		_c.SetRequestSchedulingTier(*v)
+	}
+	return _c
+}
+
 // SetStatus sets the "status" field.
 func (_c *UserCreate) SetStatus(v string) *UserCreate {
 	_c.mutation.SetStatus(v)
@@ -632,6 +646,10 @@ func (_c *UserCreate) defaults() error {
 		v := user.DefaultConcurrency
 		_c.mutation.SetConcurrency(v)
 	}
+	if _, ok := _c.mutation.RequestSchedulingTier(); !ok {
+		v := user.DefaultRequestSchedulingTier
+		_c.mutation.SetRequestSchedulingTier(v)
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := user.DefaultStatus
 		_c.mutation.SetStatus(v)
@@ -715,6 +733,9 @@ func (_c *UserCreate) check() error {
 	}
 	if _, ok := _c.mutation.Concurrency(); !ok {
 		return &ValidationError{Name: "concurrency", err: errors.New(`ent: missing required field "User.concurrency"`)}
+	}
+	if _, ok := _c.mutation.RequestSchedulingTier(); !ok {
+		return &ValidationError{Name: "request_scheduling_tier", err: errors.New(`ent: missing required field "User.request_scheduling_tier"`)}
 	}
 	if _, ok := _c.mutation.Status(); !ok {
 		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "User.status"`)}
@@ -823,6 +844,10 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Concurrency(); ok {
 		_spec.SetField(user.FieldConcurrency, field.TypeInt, value)
 		_node.Concurrency = value
+	}
+	if value, ok := _c.mutation.RequestSchedulingTier(); ok {
+		_spec.SetField(user.FieldRequestSchedulingTier, field.TypeInt16, value)
+		_node.RequestSchedulingTier = value
 	}
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(user.FieldStatus, field.TypeString, value)
@@ -1284,6 +1309,24 @@ func (u *UserUpsert) AddConcurrency(v int) *UserUpsert {
 	return u
 }
 
+// SetRequestSchedulingTier sets the "request_scheduling_tier" field.
+func (u *UserUpsert) SetRequestSchedulingTier(v int16) *UserUpsert {
+	u.Set(user.FieldRequestSchedulingTier, v)
+	return u
+}
+
+// UpdateRequestSchedulingTier sets the "request_scheduling_tier" field to the value that was provided on create.
+func (u *UserUpsert) UpdateRequestSchedulingTier() *UserUpsert {
+	u.SetExcluded(user.FieldRequestSchedulingTier)
+	return u
+}
+
+// AddRequestSchedulingTier adds v to the "request_scheduling_tier" field.
+func (u *UserUpsert) AddRequestSchedulingTier(v int16) *UserUpsert {
+	u.Add(user.FieldRequestSchedulingTier, v)
+	return u
+}
+
 // SetStatus sets the "status" field.
 func (u *UserUpsert) SetStatus(v string) *UserUpsert {
 	u.Set(user.FieldStatus, v)
@@ -1694,6 +1737,27 @@ func (u *UserUpsertOne) AddConcurrency(v int) *UserUpsertOne {
 func (u *UserUpsertOne) UpdateConcurrency() *UserUpsertOne {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdateConcurrency()
+	})
+}
+
+// SetRequestSchedulingTier sets the "request_scheduling_tier" field.
+func (u *UserUpsertOne) SetRequestSchedulingTier(v int16) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetRequestSchedulingTier(v)
+	})
+}
+
+// AddRequestSchedulingTier adds v to the "request_scheduling_tier" field.
+func (u *UserUpsertOne) AddRequestSchedulingTier(v int16) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.AddRequestSchedulingTier(v)
+	})
+}
+
+// UpdateRequestSchedulingTier sets the "request_scheduling_tier" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateRequestSchedulingTier() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateRequestSchedulingTier()
 	})
 }
 
@@ -2311,6 +2375,27 @@ func (u *UserUpsertBulk) AddConcurrency(v int) *UserUpsertBulk {
 func (u *UserUpsertBulk) UpdateConcurrency() *UserUpsertBulk {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdateConcurrency()
+	})
+}
+
+// SetRequestSchedulingTier sets the "request_scheduling_tier" field.
+func (u *UserUpsertBulk) SetRequestSchedulingTier(v int16) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetRequestSchedulingTier(v)
+	})
+}
+
+// AddRequestSchedulingTier adds v to the "request_scheduling_tier" field.
+func (u *UserUpsertBulk) AddRequestSchedulingTier(v int16) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.AddRequestSchedulingTier(v)
+	})
+}
+
+// UpdateRequestSchedulingTier sets the "request_scheduling_tier" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateRequestSchedulingTier() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateRequestSchedulingTier()
 	})
 }
 

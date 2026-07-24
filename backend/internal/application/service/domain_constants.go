@@ -487,6 +487,12 @@ const (
 	SettingKeySchedulerV2Enabled        = "scheduler_v2_enabled"
 	SettingKeySchedulerV2CandidateLimit = "scheduler_v2_candidate_limit"
 	SettingKeySchedulerV2ScanLimit      = "scheduler_v2_scan_limit"
+	// SettingKeyRequestPriorityAdmissionEnabled controls user-tier-aware request admission.
+	SettingKeyRequestPriorityAdmissionEnabled = "request_priority_admission_enabled"
+	// SettingKeyRequestPriorityPendingLimitPerInstance caps process-local queued requests.
+	SettingKeyRequestPriorityPendingLimitPerInstance = "request_priority_pending_limit_per_instance"
+	// SettingKeyRequestPriorityPendingMiBPerInstance caps process-local buffered request bodies.
+	SettingKeyRequestPriorityPendingMiBPerInstance = "request_priority_pending_mib_per_instance"
 
 	// SettingKeyBackendModeEnabled Backend 模式：禁用用户注册和自助服务，仅管理员可登录
 	SettingKeyBackendModeEnabled = "backend_mode_enabled"

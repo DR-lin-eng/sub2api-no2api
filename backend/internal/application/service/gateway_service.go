@@ -535,10 +535,27 @@ type AccountWaitPlan struct {
 }
 
 type AccountSelectionResult struct {
-	Account     *Account
-	Acquired    bool
-	ReleaseFunc func()
-	WaitPlan    *AccountWaitPlan // nil means no wait allowed
+	Account                   *Account
+	Acquired                  bool
+	ReleaseFunc               func()
+	WaitPlan                  *AccountWaitPlan // nil means no wait allowed
+	PriorityAdmissionTerminal bool             // low tier failed its only account probe
+}
+
+func priorityAdmissionTerminalSelection(account *Account, timeout time.Duration, maxWaiting int) *AccountSelectionResult {
+	if account == nil {
+		return nil
+	}
+	return &AccountSelectionResult{
+		Account:                   account,
+		PriorityAdmissionTerminal: true,
+		WaitPlan: &AccountWaitPlan{
+			AccountID:      account.ID,
+			MaxConcurrency: account.Concurrency,
+			Timeout:        timeout,
+			MaxWaiting:     maxWaiting,
+		},
+	}
 }
 
 // ClaudeUsage 表示Claude API返回的usage信息
