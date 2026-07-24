@@ -29,6 +29,8 @@ var _ GatewayCache = (*stubGatewayCache)(nil)
 type stubOpenAIAccountRepo struct {
 	AccountRepository
 	accounts []Account
+	getErr   error
+	listErr  error
 }
 
 type snapshotUpdateAccountRepo struct {
@@ -52,6 +54,9 @@ func (r *snapshotUpdateAccountRepo) GetByID(ctx context.Context, id int64) (*Acc
 }
 
 func (r stubOpenAIAccountRepo) GetByID(ctx context.Context, id int64) (*Account, error) {
+	if r.getErr != nil {
+		return nil, r.getErr
+	}
 	for i := range r.accounts {
 		if r.accounts[i].ID == id {
 			return &r.accounts[i], nil
@@ -61,6 +66,9 @@ func (r stubOpenAIAccountRepo) GetByID(ctx context.Context, id int64) (*Account,
 }
 
 func (r stubOpenAIAccountRepo) ListSchedulableByGroupIDAndPlatform(ctx context.Context, groupID int64, platform string) ([]Account, error) {
+	if r.listErr != nil {
+		return nil, r.listErr
+	}
 	var result []Account
 	for _, acc := range r.accounts {
 		if acc.Platform == platform {
@@ -71,6 +79,9 @@ func (r stubOpenAIAccountRepo) ListSchedulableByGroupIDAndPlatform(ctx context.C
 }
 
 func (r stubOpenAIAccountRepo) ListSchedulableByPlatform(ctx context.Context, platform string) ([]Account, error) {
+	if r.listErr != nil {
+		return nil, r.listErr
+	}
 	var result []Account
 	for _, acc := range r.accounts {
 		if acc.Platform == platform {
@@ -920,6 +931,38 @@ func TestOpenAISelectAccountWithLoadAwareness_StickyOutsideGroupClearsSession(t 
 	}
 	if selection.ReleaseFunc != nil {
 		selection.ReleaseFunc()
+	}
+}
+
+func TestOpenAISelectAccountWithLoadAwareness_StickyLookupErrorPreservesSession(t *testing.T) {
+	sessionHash := "session-transient-sticky-error"
+	groupID := int64(1)
+	repo := stubOpenAIAccountRepo{
+		accounts: []Account{
+			{ID: 2, Platform: PlatformOpenAI, Status: StatusActive, Schedulable: true, Concurrency: 1},
+		},
+		getErr:  errors.New("transient account lookup error"),
+		listErr: errors.New("transient account list error"),
+	}
+	cache := &stubGatewayCache{
+		sessionBindings: map[string]int64{"openai:" + sessionHash: 1},
+	}
+
+	svc := &OpenAIGatewayService{
+		accountRepo:        repo,
+		cache:              cache,
+		concurrencyService: NewConcurrencyService(stubConcurrencyCache{}),
+	}
+
+	_, err := svc.SelectAccountWithLoadAwareness(context.Background(), &groupID, sessionHash, "gpt-4", nil)
+	if err == nil {
+		t.Fatal("expected account selection to fail while account lookups are unavailable")
+	}
+	if cache.deletedSessions["openai:"+sessionHash] != 0 {
+		t.Fatal("transient account lookup error deleted sticky session")
+	}
+	if cache.sessionBindings["openai:"+sessionHash] != 1 {
+		t.Fatal("transient account lookup error changed sticky session")
 	}
 }
 

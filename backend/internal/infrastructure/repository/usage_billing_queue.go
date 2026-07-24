@@ -514,7 +514,6 @@ func (r *queuedUsageBillingRepository) flushEnqueueBatch(batch []usageBillingEnq
 		seen[key] = true
 		req.resultCh <- result
 	}
-	r.wakeConsumers()
 }
 
 func (r *queuedUsageBillingRepository) insertEnqueueBatch(ctx context.Context, payload []byte) (map[string]usageBillingEnqueueResult, error) {

@@ -143,7 +143,7 @@ func (s *OpenAIGatewayService) generateSessionHash(c *gin.Context, groupID *int6
 		contentDerived: contentDerived,
 	}
 	if trackContentRequest && contentDerived && c.Request != nil {
-		metadata.contentRequestTracked, metadata.contentRequestConcurrent =
+		metadata.contentRequestTracked, metadata.contentRequestConcurrent, metadata.contentRequestOverflow =
 			s.beginOpenAIContentSessionRequest(c.Request.Context(), groupID, currentHash)
 	}
 	attachOpenAISessionHashMetadataToGin(c, metadata)
@@ -905,6 +905,150 @@ func (s *OpenAIGatewayService) SelectAccountWithLoadAwareness(ctx context.Contex
 	return s.selectAccountWithLoadAwareness(s.withOpenAIQuotaAutoPauseContext(ctx), groupID, PlatformOpenAI, sessionHash, requestedModel, excludedIDs, false, "", true, false)
 }
 
+func (s *OpenAIGatewayService) selectLegacyStickyAccountBeforePoolScan(
+	ctx context.Context,
+	groupID *int64,
+	platform string,
+	sessionHash string,
+	requestedModel string,
+	excludedIDs map[int64]struct{},
+	requireCompact bool,
+	requiredCapability OpenAIEndpointCapability,
+	requiredImageCapability OpenAIImagesCapability,
+	requiredTransport OpenAIUpstreamTransport,
+	accountID int64,
+	needsUpstreamCheck bool,
+	cfg config.GatewaySchedulingConfig,
+	forceSticky bool,
+	preserveStickyBinding bool,
+) (*AccountSelectionResult, bool, bool, error) {
+	if accountID <= 0 || s.concurrencyService == nil {
+		return nil, false, false, nil
+	}
+	if _, excluded := excludedIDs[accountID]; excluded {
+		return nil, false, false, nil
+	}
+	account, err := s.getSchedulableAccount(ctx, accountID)
+	if err != nil {
+		return nil, false, false, nil
+	}
+	if account == nil {
+		if !preserveStickyBinding {
+			_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
+		}
+		return nil, false, true, nil
+	}
+	if shouldClearStickySession(account, requestedModel) || !isOpenAICompatibleAccountEligibleForRequest(ctx, account, platform, requestedModel, false, requiredCapability) {
+		if !preserveStickyBinding {
+			_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
+		}
+		return nil, false, true, nil
+	}
+	if !accountSupportsOpenAICapabilities(account, requiredCapability, requiredImageCapability) ||
+		!s.isOpenAIAccountTransportCompatible(account, requiredTransport) {
+		return nil, false, false, nil
+	}
+	account = s.recheckSelectedOpenAIAccountFromDB(ctx, account, groupID, platform, requestedModel, requireCompact, requiredCapability)
+	if account == nil || !s.openAIAccountMatchesSchedulingGroup(account, groupID) || s.isOpenAIAccountRequestRuntimeBlocked(account, requestedModel) {
+		if !preserveStickyBinding {
+			_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
+		}
+		return nil, false, true, nil
+	}
+	if !accountSupportsOpenAICapabilities(account, requiredCapability, requiredImageCapability) ||
+		!s.isOpenAIAccountTransportCompatible(account, requiredTransport) {
+		return nil, false, false, nil
+	}
+	if needsUpstreamCheck && s.isUpstreamModelRestrictedByChannel(ctx, *groupID, account, requestedModel, requireCompact) {
+		if !preserveStickyBinding {
+			_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
+		}
+		return nil, false, true, nil
+	}
+	if !parentHealthyForShadow(account, s.parentAccountLookup(ctx)) {
+		if !preserveStickyBinding {
+			_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
+		}
+		return nil, false, true, nil
+	}
+	if _, degraded := s.openAIStreamCandidateTier(account.ID, time.Now()); isOpenAIStreamScheduling(ctx) && degraded {
+		return nil, false, false, nil
+	}
+
+	result, acquireErr := s.tryAcquireAccountSlot(ctx, accountID, account.Concurrency)
+	if acquireErr == nil && result != nil && result.Acquired {
+		selection, selectErr := s.newAcquiredSelectionResult(ctx, account, result.ReleaseFunc)
+		if selectErr != nil {
+			return nil, false, false, selectErr
+		}
+		if !preserveStickyBinding {
+			_ = s.refreshStickySessionTTL(ctx, groupID, sessionHash, openaiStickySessionTTL)
+		}
+		return selection, true, false, nil
+	}
+	if !forceSticky {
+		waitingCount, _ := s.concurrencyService.GetAccountWaitingCount(ctx, accountID)
+		if waitingCount >= cfg.StickySessionMaxWaiting {
+			return nil, false, false, nil
+		}
+	}
+	selection, selectErr := s.newSelectionResult(ctx, account, false, nil, &AccountWaitPlan{
+		AccountID:      accountID,
+		MaxConcurrency: account.Concurrency,
+		Timeout:        cfg.StickySessionWaitTimeout,
+		MaxWaiting:     cfg.StickySessionMaxWaiting,
+	})
+	return selection, true, false, selectErr
+}
+
+// selectOpenAIContentSessionBurstCandidates continues high-concurrency content
+// spreading without returning to a full account-pool scan. Candidates were
+// previously selected through the normal scheduler and are still validated for
+// this exact request before their slot is acquired.
+func (s *OpenAIGatewayService) selectOpenAIContentSessionBurstCandidates(
+	ctx context.Context,
+	groupID *int64,
+	platform string,
+	sessionHash string,
+	requestedModel string,
+	excludedIDs map[int64]struct{},
+	requireCompact bool,
+	requiredTransport OpenAIUpstreamTransport,
+	requiredCapability OpenAIEndpointCapability,
+	requiredImageCapability OpenAIImagesCapability,
+) (*AccountSelectionResult, error) {
+	candidates, count := s.nextOpenAIContentSessionBurstCandidates(ctx, groupID, sessionHash)
+	if count == 0 {
+		return nil, nil
+	}
+
+	cfg := s.schedulingConfig()
+	needsUpstreamCheck := s.needsUpstreamChannelRestrictionCheck(ctx, groupID)
+	var waitSelection *AccountSelectionResult
+	for i := 0; i < count; i++ {
+		selection, handled, invalidated, selectErr := s.selectLegacyStickyAccountBeforePoolScan(
+			ctx, groupID, platform, sessionHash, requestedModel, excludedIDs, requireCompact,
+			requiredCapability, requiredImageCapability, requiredTransport, candidates[i], needsUpstreamCheck, cfg, true, true,
+		)
+		if selectErr != nil {
+			return nil, selectErr
+		}
+		if invalidated {
+			s.dropOpenAIContentSessionCandidate(ctx, groupID, sessionHash, candidates[i])
+		}
+		if !handled || selection == nil || selection.Account == nil {
+			continue
+		}
+		if selection.Acquired {
+			return selection, nil
+		}
+		if waitSelection == nil {
+			waitSelection = selection
+		}
+	}
+	return waitSelection, nil
+}
+
 func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Context, groupID *int64, platform string, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, requireCompact bool, requiredCapability OpenAIEndpointCapability, useUpstreamTokenCost bool, contentSessionConcurrent bool) (*AccountSelectionResult, error) {
 	ctx = withSchedulerCandidateExclusions(ctx, excludedIDs)
 	platform = normalizeOpenAICompatiblePlatform(platform)
@@ -922,6 +1066,50 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 	if sessionHash != "" && s.cache != nil {
 		if accountID, err := s.getStickySessionAccountID(ctx, groupID, sessionHash); err == nil {
 			stickyAccountID = accountID
+		}
+	}
+	contentSessionOverflow := openAIContentSessionRequestOverflow(ctx)
+	if !contentSessionConcurrent && sessionHash != "" {
+		selection, handled, invalidated, stickyErr := s.selectLegacyStickyAccountBeforePoolScan(
+			ctx, groupID, platform, sessionHash, requestedModel, excludedIDs, requireCompact,
+			requiredCapability, "", OpenAIUpstreamTransportAny, stickyAccountID, needsUpstreamCheck, cfg, contentSessionOverflow, false,
+		)
+		if stickyErr != nil {
+			return nil, stickyErr
+		}
+		if handled {
+			return selection, nil
+		}
+		if invalidated {
+			stickyAccountID = 0
+		}
+	}
+	if openAIContentSessionRequestTracked(ctx) {
+		releaseLoadBalance, acquireErr := s.acquireOpenAIContentSessionLoadBalance(ctx)
+		if acquireErr != nil {
+			return nil, acquireErr
+		}
+		defer releaseLoadBalance()
+
+		// The sticky binding can be created while an overflow request waits. Check
+		// again after admission before falling through to a full candidate scan.
+		if contentSessionOverflow && sessionHash != "" {
+			refreshedStickyID, stickyErr := s.getStickySessionAccountID(ctx, groupID, sessionHash)
+			if stickyErr == nil && refreshedStickyID > 0 {
+				selection, handled, invalidated, stickyErr := s.selectLegacyStickyAccountBeforePoolScan(
+					ctx, groupID, platform, sessionHash, requestedModel, excludedIDs, requireCompact,
+					requiredCapability, "", OpenAIUpstreamTransportAny, refreshedStickyID, needsUpstreamCheck, cfg, true, false,
+				)
+				if stickyErr != nil {
+					return nil, stickyErr
+				}
+				if handled {
+					return selection, nil
+				}
+				if invalidated {
+					stickyAccountID = 0
+				}
+			}
 		}
 	}
 	if s.concurrencyService == nil || !cfg.LoadBatchEnabled {

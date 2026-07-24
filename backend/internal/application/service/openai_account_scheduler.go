@@ -21,6 +21,7 @@ import (
 const (
 	openAIAccountScheduleLayerPreviousResponse = "previous_response_id"
 	openAIAccountScheduleLayerSessionSticky    = "session_hash"
+	openAIAccountScheduleLayerContentBurst     = "content_session_burst"
 	openAIAccountScheduleLayerLoadBalance      = "load_balance"
 	openAIAdvancedSchedulerSettingKey          = "openai_advanced_scheduler_enabled"
 )
@@ -79,6 +80,7 @@ type OpenAIAccountScheduleRequest struct {
 	Platform                 string
 	SessionHash              string
 	StickyAccountID          int64
+	EphemeralStickyAccount   bool
 	StickyPreviousAccountID  int64
 	StickyWeighted           bool
 	SubscriptionPriority     bool
@@ -492,7 +494,8 @@ func (s *defaultOpenAIAccountScheduler) Select(
 		}
 	}
 
-	if !req.StickyWeighted && !req.ContentSessionConcurrent {
+	contentSessionOverflow := openAIContentSessionRequestOverflow(ctx)
+	if !req.StickyWeighted && !req.ContentSessionConcurrent && !contentSessionOverflow {
 		selection, escapedStickyAccountID, err := s.selectBySessionHash(ctx, req)
 		if err != nil {
 			return nil, decision, err
@@ -511,6 +514,57 @@ func (s *defaultOpenAIAccountScheduler) Select(
 				req.ExcludedIDs = make(map[int64]struct{}, 1)
 			}
 			req.ExcludedIDs[escapedStickyAccountID] = struct{}{}
+		}
+	}
+
+	if contentSessionOverflow {
+		selection, candidateErr := s.selectByContentSessionBurstCandidates(ctx, req)
+		if candidateErr != nil {
+			return nil, decision, candidateErr
+		}
+		if selection != nil && selection.Account != nil {
+			decision.Layer = openAIAccountScheduleLayerContentBurst
+			decision.SelectedAccountID = selection.Account.ID
+			decision.SelectedAccountType = selection.Account.Type
+			return selection, decision, nil
+		}
+	}
+
+	if openAIContentSessionRequestTracked(ctx) {
+		releaseLoadBalance, acquireErr := s.service.acquireOpenAIContentSessionLoadBalance(ctx)
+		if acquireErr != nil {
+			return nil, decision, acquireErr
+		}
+		defer releaseLoadBalance()
+
+		// Overflow requests may have observed an empty binding before waiting for
+		// admission. Re-read it now so only the first admitted overflow scans.
+		if contentSessionOverflow {
+			selection, candidateErr := s.selectByContentSessionBurstCandidates(ctx, req)
+			if candidateErr != nil {
+				return nil, decision, candidateErr
+			}
+			if selection != nil && selection.Account != nil {
+				decision.Layer = openAIAccountScheduleLayerContentBurst
+				decision.SelectedAccountID = selection.Account.ID
+				decision.SelectedAccountType = selection.Account.Type
+				return selection, decision, nil
+			}
+
+			stickyReq := req
+			stickyReq.StickyAccountID = 0
+			stickyReq.StickyWeighted = false
+			selection, _, stickyErr := s.selectBySessionHash(ctx, stickyReq)
+			if stickyErr != nil {
+				return nil, decision, stickyErr
+			}
+			if selection != nil && selection.Account != nil {
+				decision.Layer = openAIAccountScheduleLayerSessionSticky
+				decision.StickySessionHit = true
+				decision.SelectedAccountID = selection.Account.ID
+				decision.SelectedAccountType = selection.Account.Type
+				return selection, decision, nil
+			}
 		}
 	}
 
@@ -542,12 +596,15 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 	req OpenAIAccountScheduleRequest,
 ) (*AccountSelectionResult, int64, error) {
 	sessionHash := strings.TrimSpace(req.SessionHash)
-	if sessionHash == "" || s == nil || s.service == nil || s.service.cache == nil {
+	if sessionHash == "" || s == nil || s.service == nil {
 		return nil, 0, nil
 	}
 
 	accountID := req.StickyAccountID
 	if accountID <= 0 {
+		if s.service.cache == nil {
+			return nil, 0, nil
+		}
 		var err error
 		accountID, err = s.service.getStickySessionAccountID(ctx, req.GroupID, sessionHash)
 		if err != nil || accountID <= 0 {
@@ -564,24 +621,49 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 	}
 
 	account, err := s.service.getSchedulableAccount(ctx, accountID)
-	if err != nil || account == nil {
-		_ = s.service.deleteStickySessionAccountID(ctx, req.GroupID, sessionHash)
+	if err != nil {
+		return nil, 0, nil
+	}
+	if account == nil {
+		if req.EphemeralStickyAccount {
+			s.service.dropOpenAIContentSessionCandidate(ctx, req.GroupID, sessionHash, accountID)
+		} else {
+			_ = s.service.deleteStickySessionAccountID(ctx, req.GroupID, sessionHash)
+		}
 		return nil, 0, nil
 	}
 	if shouldClearStickySession(account, req.RequestedModel) || account.Platform != normalizeOpenAICompatiblePlatform(req.Platform) || !account.IsOpenAICompatible() || !account.IsSchedulable() {
-		_ = s.service.deleteStickySessionAccountID(ctx, req.GroupID, sessionHash)
+		if req.EphemeralStickyAccount {
+			s.service.dropOpenAIContentSessionCandidate(ctx, req.GroupID, sessionHash, accountID)
+		} else {
+			_ = s.service.deleteStickySessionAccountID(ctx, req.GroupID, sessionHash)
+		}
 		return nil, 0, nil
 	}
-	if !s.isAccountRequestCompatible(ctx, account, req) {
+	if !s.isAccountRequestCompatible(ctx, account, req) ||
+		!accountSupportsOpenAICapabilities(account, req.RequiredCapability, req.RequiredImageCapability) {
 		return nil, 0, nil
 	}
 	if !s.isAccountTransportCompatible(account, req.RequiredTransport) {
-		_ = s.service.deleteStickySessionAccountID(ctx, req.GroupID, sessionHash)
+		if !req.EphemeralStickyAccount {
+			_ = s.service.deleteStickySessionAccountID(ctx, req.GroupID, sessionHash)
+		}
 		return nil, 0, nil
 	}
 	account = s.service.recheckSelectedOpenAIAccountFromDB(ctx, account, req.GroupID, req.Platform, req.RequestedModel, req.RequireCompact, req.RequiredCapability)
-	if account == nil || !s.service.openAIAccountMatchesSchedulingGroup(account, req.GroupID) || !s.isAccountTransportCompatible(account, req.RequiredTransport) {
-		_ = s.service.deleteStickySessionAccountID(ctx, req.GroupID, sessionHash)
+	if account == nil || !s.service.openAIAccountMatchesSchedulingGroup(account, req.GroupID) {
+		if req.EphemeralStickyAccount {
+			s.service.dropOpenAIContentSessionCandidate(ctx, req.GroupID, sessionHash, accountID)
+		} else {
+			_ = s.service.deleteStickySessionAccountID(ctx, req.GroupID, sessionHash)
+		}
+		return nil, 0, nil
+	}
+	if !s.isAccountTransportCompatible(account, req.RequiredTransport) ||
+		!accountSupportsOpenAICapabilities(account, req.RequiredCapability, req.RequiredImageCapability) {
+		if !req.EphemeralStickyAccount {
+			_ = s.service.deleteStickySessionAccountID(ctx, req.GroupID, sessionHash)
+		}
 		return nil, 0, nil
 	}
 	if req.IsStreaming {
@@ -590,7 +672,8 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 		}
 	}
 	escapeCfg := s.service.openAIStickyEscapeConfig()
-	if reason, errorRate, ttft, shouldEscape := s.shouldEscapeStickyAccount(accountID, escapeCfg); shouldEscape {
+	contentSessionOverflow := openAIContentSessionRequestOverflow(ctx)
+	if reason, errorRate, ttft, shouldEscape := s.shouldEscapeStickyAccount(accountID, escapeCfg); !contentSessionOverflow && shouldEscape {
 		slog.Info("sticky_escape_triggered",
 			"account_id", accountID,
 			"reason", reason,
@@ -601,7 +684,9 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 	}
 	result, acquireErr := s.service.tryAcquireAccountSlot(ctx, accountID, account.Concurrency)
 	if acquireErr == nil && result != nil && result.Acquired {
-		_ = s.service.refreshStickySessionTTL(ctx, req.GroupID, sessionHash, s.service.openAIWSSessionStickyTTL())
+		if !req.EphemeralStickyAccount {
+			_ = s.service.refreshStickySessionTTL(ctx, req.GroupID, sessionHash, s.service.openAIWSSessionStickyTTL())
+		}
 		return &AccountSelectionResult{
 			Account:     account,
 			Acquired:    true,
@@ -612,7 +697,7 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 	cfg := s.service.schedulingConfig()
 	// WaitPlan.MaxConcurrency 使用 Concurrency（非 EffectiveLoadFactor），因为 WaitPlan 控制的是 Redis 实际并发槽位等待。
 	if s.service.concurrencyService != nil {
-		if escapeCfg.enabled && acquireErr == nil && result != nil && !result.Acquired {
+		if escapeCfg.enabled && !contentSessionOverflow && acquireErr == nil && result != nil && !result.Acquired {
 			errorRate, ttft, _ := s.stats.snapshot(accountID)
 			slog.Info("sticky_escape_triggered",
 				"account_id", accountID,
@@ -633,6 +718,37 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 		}, 0, nil
 	}
 	return nil, 0, nil
+}
+
+// selectByContentSessionBurstCandidates keeps overflow scheduling on a bounded
+// per-session candidate set. A busy candidate yields a normal WaitPlan rather
+// than falling through to another full account-pool scan.
+func (s *defaultOpenAIAccountScheduler) selectByContentSessionBurstCandidates(
+	ctx context.Context,
+	req OpenAIAccountScheduleRequest,
+) (*AccountSelectionResult, error) {
+	candidates, count := s.service.nextOpenAIContentSessionBurstCandidates(ctx, req.GroupID, req.SessionHash)
+	var waitSelection *AccountSelectionResult
+	for i := 0; i < count; i++ {
+		candidateReq := req
+		candidateReq.StickyAccountID = candidates[i]
+		candidateReq.StickyWeighted = false
+		candidateReq.EphemeralStickyAccount = true
+		selection, _, err := s.selectBySessionHash(ctx, candidateReq)
+		if err != nil {
+			return nil, err
+		}
+		if selection == nil || selection.Account == nil {
+			continue
+		}
+		if selection.Acquired {
+			return selection, nil
+		}
+		if waitSelection == nil {
+			waitSelection = selection
+		}
+	}
+	return waitSelection, nil
 }
 
 func openAIStickyAccountMatchesGroup(account *Account, groupID *int64) bool {
@@ -2164,6 +2280,10 @@ func (s *OpenAIGatewayService) openAIOAuthSchedulingRateMultiplier(ctx context.C
 }
 
 func (s *OpenAIGatewayService) isOpenAIContentSessionBurstBalanceEnabled(ctx context.Context) bool {
+	if cached, ok := openAIAdvancedSchedulerSettingCache.Load().(*cachedOpenAIAdvancedSchedulerSetting); ok && cached != nil &&
+		time.Now().UnixNano() < cached.expiresAt {
+		return cached.contentSessionBurstBalance
+	}
 	return s.openAIAdvancedSchedulerRuntimeSettings(ctx).contentSessionBurstBalance
 }
 
@@ -2285,7 +2405,11 @@ func (s *OpenAIGatewayService) SelectAccountWithScheduler(
 	requiredTransport OpenAIUpstreamTransport,
 	requireCompact bool,
 ) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
-	return s.selectAccountWithScheduler(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, "", "", requireCompact, PlatformOpenAI, false, true)
+	selection, decision, err := s.selectAccountWithScheduler(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, "", "", requireCompact, PlatformOpenAI, false, true)
+	if selection != nil && selection.Account != nil {
+		s.recordOpenAIContentSessionCandidate(ctx, groupID, sessionHash, selection.Account.ID)
+	}
+	return selection, decision, err
 }
 
 // SelectAccountWithSchedulerForCapability 按能力要求调度账号。
@@ -2309,7 +2433,11 @@ func (s *OpenAIGatewayService) SelectAccountWithSchedulerForCapability(
 	if len(platformOverride) > 0 {
 		platform = platformOverride[0]
 	}
-	return s.selectAccountWithScheduler(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, requiredCapability, "", requireCompact, platform, previousResponseCanMove, useUpstreamTokenCost)
+	selection, decision, err := s.selectAccountWithScheduler(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, requiredCapability, "", requireCompact, platform, previousResponseCanMove, useUpstreamTokenCost)
+	if selection != nil && selection.Account != nil {
+		s.recordOpenAIContentSessionCandidate(ctx, groupID, sessionHash, selection.Account.ID)
+	}
+	return selection, decision, err
 }
 
 func (s *OpenAIGatewayService) SelectAccountWithSchedulerForImages(
@@ -2322,13 +2450,17 @@ func (s *OpenAIGatewayService) SelectAccountWithSchedulerForImages(
 ) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
 	selection, decision, err := s.selectAccountWithScheduler(ctx, groupID, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, "", requiredCapability, false, PlatformOpenAI, false, false)
 	if err == nil && selection != nil && selection.Account != nil {
+		s.recordOpenAIContentSessionCandidate(ctx, groupID, sessionHash, selection.Account.ID)
 		return selection, decision, nil
 	}
 	// Forced API capability must never fall back to OAuth/basic accounts.
 	// The group-level Responses bridge relies on the account's configured
 	// /v1/images endpoint and records image-only billing against that account.
 	if requiredCapability == OpenAIImagesCapabilityNative {
-		return s.selectAccountWithScheduler(ctx, groupID, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, "", OpenAIImagesCapabilityBasic, false, PlatformOpenAI, false, false)
+		selection, decision, err = s.selectAccountWithScheduler(ctx, groupID, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, "", OpenAIImagesCapabilityBasic, false, PlatformOpenAI, false, false)
+	}
+	if selection != nil && selection.Account != nil {
+		s.recordOpenAIContentSessionCandidate(ctx, groupID, sessionHash, selection.Account.ID)
 	}
 	return selection, decision, err
 }
@@ -2351,14 +2483,31 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 	ctx = s.withOpenAIQuotaAutoPauseContext(ctx)
 	platform = normalizeOpenAICompatiblePlatform(platform)
 	contentSessionConcurrent := openAIContentSessionRequestConcurrent(ctx)
+	contentSessionOverflow := openAIContentSessionRequestOverflow(ctx)
+	contentSessionBurst := contentSessionConcurrent || contentSessionOverflow
 	decision := OpenAIAccountScheduleDecision{}
 	scheduler := s.getOpenAIAccountScheduler(ctx)
 	if scheduler == nil {
 		decision.Layer = openAIAccountScheduleLayerLoadBalance
+		if contentSessionOverflow {
+			selection, candidateErr := s.selectOpenAIContentSessionBurstCandidates(
+				ctx, groupID, platform, sessionHash, requestedModel, excludedIDs, requireCompact,
+				requiredTransport, requiredCapability, requiredImageCapability,
+			)
+			if candidateErr != nil {
+				return nil, decision, candidateErr
+			}
+			if selection != nil && selection.Account != nil {
+				decision.Layer = openAIAccountScheduleLayerContentBurst
+				decision.SelectedAccountID = selection.Account.ID
+				decision.SelectedAccountType = selection.Account.Type
+				return selection, decision, nil
+			}
+		}
 		if requiredTransport == OpenAIUpstreamTransportAny || requiredTransport == OpenAIUpstreamTransportHTTPSSE {
 			effectiveExcludedIDs := cloneExcludedAccountIDs(excludedIDs)
 			for {
-				selection, err := s.selectAccountWithLoadAwareness(ctx, groupID, platform, sessionHash, requestedModel, effectiveExcludedIDs, requireCompact, requiredCapability, useUpstreamTokenCost, contentSessionConcurrent)
+				selection, err := s.selectAccountWithLoadAwareness(ctx, groupID, platform, sessionHash, requestedModel, effectiveExcludedIDs, requireCompact, requiredCapability, useUpstreamTokenCost, contentSessionBurst)
 				if err != nil {
 					return nil, decision, err
 				}
@@ -2383,7 +2532,7 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 
 		effectiveExcludedIDs := cloneExcludedAccountIDs(excludedIDs)
 		for {
-			selection, err := s.selectAccountWithLoadAwareness(ctx, groupID, platform, sessionHash, requestedModel, effectiveExcludedIDs, requireCompact, requiredCapability, useUpstreamTokenCost, contentSessionConcurrent)
+			selection, err := s.selectAccountWithLoadAwareness(ctx, groupID, platform, sessionHash, requestedModel, effectiveExcludedIDs, requireCompact, requiredCapability, useUpstreamTokenCost, contentSessionBurst)
 			if err != nil {
 				return nil, decision, err
 			}
@@ -2420,7 +2569,9 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 			stickyAccountID = accountID
 		}
 	}
-	stickyWeighted := s.isOpenAIAdvancedSchedulerStickyWeightedEnabled(ctx)
+	// Overflow requests must return to the sticky account after admission. Letting
+	// weighted sticky run here would still scan the full pool for every overflow.
+	stickyWeighted := !contentSessionOverflow && s.isOpenAIAdvancedSchedulerStickyWeightedEnabled(ctx)
 	subscriptionPriority := s.isOpenAIAdvancedSchedulerSubscriptionPriorityEnabled(ctx)
 	stickyPreviousAccountID := int64(0)
 	if stickyWeighted && previousResponseCanMove && strings.TrimSpace(previousResponseID) != "" && platform == PlatformOpenAI {
@@ -2435,8 +2586,8 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 		StickyPreviousAccountID:  stickyPreviousAccountID,
 		StickyWeighted:           stickyWeighted,
 		SubscriptionPriority:     subscriptionPriority,
-		PreserveStickyBinding:    contentSessionConcurrent,
-		ContentSessionConcurrent: contentSessionConcurrent,
+		PreserveStickyBinding:    contentSessionBurst,
+		ContentSessionConcurrent: contentSessionBurst,
 		PreviousResponseID:       previousResponseID,
 		PreviousResponseCanMove:  previousResponseCanMove,
 		UseUpstreamTokenCost:     useUpstreamTokenCost,

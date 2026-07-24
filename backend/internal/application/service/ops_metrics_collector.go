@@ -679,14 +679,14 @@ func (c *OpsMetricsCollector) tryCgroupCPUPercent(now time.Time) *float64 {
 	if c.lastCgroupCPUSampleAt.IsZero() {
 		c.lastCgroupCPUUsageNanos = usageNanos
 		c.lastCgroupCPUSampleAt = now
-		return nil
+		return zeroCPUPercent()
 	}
 
 	elapsed := now.Sub(c.lastCgroupCPUSampleAt)
 	if elapsed <= 0 {
 		c.lastCgroupCPUUsageNanos = usageNanos
 		c.lastCgroupCPUSampleAt = now
-		return nil
+		return zeroCPUPercent()
 	}
 
 	prev := c.lastCgroupCPUUsageNanos
@@ -695,21 +695,35 @@ func (c *OpsMetricsCollector) tryCgroupCPUPercent(now time.Time) *float64 {
 
 	if usageNanos < prev {
 		// Counter reset (container restarted).
-		return nil
+		return zeroCPUPercent()
 	}
 
 	deltaUsageSec := float64(usageNanos-prev) / 1e9
 	elapsedSec := elapsed.Seconds()
 	if elapsedSec <= 0 {
-		return nil
+		return zeroCPUPercent()
 	}
 
 	cores := readCgroupCPULimitCores()
 	if cores <= 0 {
-		// Can't reliably normalize; skip and fall back to gopsutil.
-		return nil
+		// An unlimited cgroup can use every CPU visible to the process. Keep the
+		// container usage sample instead of falling back to host/VM-wide CPU.
+		cores = float64(runtime.NumCPU())
 	}
+	pct := normalizeCgroupCPUPercent(deltaUsageSec, elapsedSec, cores)
+	v := roundTo1DP(pct)
+	return &v
+}
 
+func zeroCPUPercent() *float64 {
+	zero := 0.0
+	return &zero
+}
+
+func normalizeCgroupCPUPercent(deltaUsageSec, elapsedSec, cores float64) float64 {
+	if deltaUsageSec <= 0 || elapsedSec <= 0 || cores <= 0 {
+		return 0
+	}
 	pct := (deltaUsageSec / (elapsedSec * cores)) * 100
 	if pct < 0 {
 		pct = 0
@@ -718,8 +732,7 @@ func (c *OpsMetricsCollector) tryCgroupCPUPercent(now time.Time) *float64 {
 	if pct > 100 {
 		pct = 100
 	}
-	v := roundTo1DP(pct)
-	return &v
+	return pct
 }
 
 func readCgroupMemoryBytes() (usedBytes uint64, totalBytes uint64, ok bool) {

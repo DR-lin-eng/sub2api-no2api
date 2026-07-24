@@ -125,6 +125,7 @@ func TestDurableUsageBillingFlushBatchDeduplicatesInMemory(t *testing.T) {
 	require.Equal(t, usageBillingEnqueueInserted, (<-batch[0].resultCh).status)
 	require.Equal(t, usageBillingEnqueuePending, (<-batch[1].resultCh).status)
 	require.Equal(t, usageBillingEnqueueConflict, (<-batch[2].resultCh).status)
+	require.Empty(t, repo.wakeCh, "batcher must not wake consumers before Apply publishes the Redis overlay")
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -132,6 +133,27 @@ func TestUsageBillingRetryDelayIsBounded(t *testing.T) {
 	require.Equal(t, time.Second, usageBillingRetryDelay(1, 30*time.Second))
 	require.Equal(t, 8*time.Second, usageBillingRetryDelay(4, 30*time.Second))
 	require.Equal(t, 30*time.Second, usageBillingRetryDelay(20, 30*time.Second))
+}
+
+func TestUsageBillingConsumerWaitOnlyLeaderPolls(t *testing.T) {
+	repo := &queuedUsageBillingRepository{
+		pollInterval: 10 * time.Millisecond,
+		wakeCh:       make(chan struct{}, 2),
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	require.True(t, repo.waitForConsumer(ctx, 0), "leader should wake on fallback timer")
+
+	followerDone := make(chan bool, 1)
+	go func() { followerDone <- repo.waitForConsumer(ctx, 1) }()
+	select {
+	case <-followerDone:
+		t.Fatal("non-leader consumer polled without an explicit wake")
+	case <-time.After(30 * time.Millisecond):
+	}
+	repo.wakeCh <- struct{}{}
+	require.True(t, <-followerDone)
 }
 
 func TestTruncateUsageBillingError(t *testing.T) {

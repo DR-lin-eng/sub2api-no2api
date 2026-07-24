@@ -350,7 +350,7 @@ export default {
         allowUngroupedKey: 'Allow Ungrouped Key Scheduling',
         allowUngroupedKeyHint: 'When disabled, API Keys not assigned to any group cannot make requests (403 Forbidden). Keep disabled to ensure all Keys belong to a specific group.',
         contentSessionBurstBalance: 'Spread concurrent content sessions',
-        contentSessionBurstBalanceHint: 'Disabled by default. When enabled, overlapping requests with identical content and no explicit session identifier are spread by account load. Sequential requests and explicit session_id, prompt_cache_key, and previous_response_id affinity remain unchanged.'
+        contentSessionBurstBalanceHint: 'Disabled by default. When enabled, an initial bounded set of overlapping requests with identical content and no explicit session identifier is spread by account load. High-concurrency overflow is sent directly through a bounded pool of previously validated accounts, trying two accounts before using the existing queue limits. Sequential requests and explicit session_id, prompt_cache_key, and previous_response_id affinity remain unchanged.'
       },
       upstreamBillingProbe: {
         title: 'Upstream Rate Auto Detection',

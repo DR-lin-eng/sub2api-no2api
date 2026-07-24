@@ -72,7 +72,7 @@ services:
       - REDIS_DB=${REDIS_DB:-0}
       - REDIS_POOL_SIZE=${REDIS_POOL_SIZE:-1024}
       - REDIS_MIN_IDLE_CONNS=${REDIS_MIN_IDLE_CONNS:-10}
-      - REDIS_MAX_IDLE_CONNS=${REDIS_MAX_IDLE_CONNS:-256}
+      - REDIS_MAX_IDLE_CONNS=${REDIS_MAX_IDLE_CONNS:-0}
       - REDIS_ENABLE_TLS=${REDIS_ENABLE_TLS:-false}
 
       # =======================================================================

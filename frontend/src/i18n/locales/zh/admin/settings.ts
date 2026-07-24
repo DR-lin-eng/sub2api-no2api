@@ -343,7 +343,7 @@ export default {
         allowUngroupedKey: '允许未分组 Key 调度',
         allowUngroupedKeyHint: '关闭后，未分配到任何分组的 API Key 将无法发起请求（返回 403）。建议保持关闭以确保所有 Key 都归属明确的分组。',
         contentSessionBurstBalance: '内容会话并发分散',
-        contentSessionBurstBalanceHint: '默认关闭。开启后，仅将没有显式会话标识且请求内容相同的重叠请求按账号负载分散；顺序请求、显式 session_id、prompt_cache_key 和 previous_response_id 的粘性保持不变。'
+        contentSessionBurstBalanceHint: '默认关闭。开启后，对没有显式会话标识且请求内容相同的重叠请求执行有上限的初始负载分散；高并发超额请求在已筛选的有界候选池内直接轮转并尝试两个账号，均忙时沿用账号排队限制。顺序请求、显式 session_id、prompt_cache_key 和 previous_response_id 的粘性保持不变。'
       },
       upstreamBillingProbe: {
         title: '上游倍率自动探测',

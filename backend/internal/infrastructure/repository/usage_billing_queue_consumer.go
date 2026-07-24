@@ -16,23 +16,47 @@ import (
 
 func (r *queuedUsageBillingRepository) runConsumer(ctx context.Context, workerID int) {
 	defer r.wg.Done()
+	// One leader performs startup and cross-instance discovery. Other workers
+	// stay event-driven until a local enqueue or discovered backlog wakes them.
+	if workerID != 0 && !r.waitForConsumer(ctx, workerID) {
+		return
+	}
 	for ctx.Err() == nil {
 		processed, err := r.processJobBatch(ctx)
 		if err != nil && !errors.Is(err, context.Canceled) {
 			slog.Error("durable usage billing consumer failed", "worker", workerID, "error", err)
 		}
 		if processed > 0 {
+			if workerID == 0 {
+				r.wakeConsumers()
+			}
 			continue
 		}
-		timer := time.NewTimer(r.pollInterval)
+		if !r.waitForConsumer(ctx, workerID) {
+			return
+		}
+	}
+}
+
+func (r *queuedUsageBillingRepository) waitForConsumer(ctx context.Context, workerID int) bool {
+	if workerID != 0 {
 		select {
 		case <-ctx.Done():
-			timer.Stop()
-			return
+			return false
 		case <-r.wakeCh:
-			timer.Stop()
-		case <-timer.C:
+			return true
 		}
+	}
+
+	timer := time.NewTimer(r.pollInterval)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-r.wakeCh:
+		return true
+	case <-timer.C:
+		return true
 	}
 }
 

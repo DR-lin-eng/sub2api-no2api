@@ -22,6 +22,7 @@ type openAISessionHashMetadata struct {
 	contentDerived           bool
 	contentRequestTracked    bool
 	contentRequestConcurrent bool
+	contentRequestOverflow   bool
 }
 
 var (
@@ -98,6 +99,11 @@ func openAIContentSessionRequestConcurrent(ctx context.Context) bool {
 func openAIContentSessionRequestTracked(ctx context.Context) bool {
 	metadata := openAISessionHashMetadataFromContext(ctx)
 	return metadata.contentDerived && metadata.contentRequestTracked
+}
+
+func openAIContentSessionRequestOverflow(ctx context.Context) bool {
+	metadata := openAISessionHashMetadataFromContext(ctx)
+	return metadata.contentDerived && metadata.contentRequestTracked && metadata.contentRequestOverflow
 }
 
 func attachOpenAILegacySessionHashToGin(c *gin.Context, legacyHash string) {

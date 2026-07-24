@@ -5,7 +5,9 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,6 +29,7 @@ func newDurableBillingQueueIntegrationRepo() *queuedUsageBillingRepository {
 		pollInterval:   10 * time.Millisecond,
 		commandTimeout: 15 * time.Second,
 		maxRetryDelay:  time.Second,
+		enqueueCh:      make(chan usageBillingEnqueueRequest, usageBillingEnqueueQueueSize),
 		wakeCh:         make(chan struct{}, 2),
 	}
 }
@@ -197,6 +201,155 @@ func TestDurableUsageBillingQueueConcurrentConsumersApplyExactlyOnce(t *testing.
 	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT COUNT(*) FROM usage_billing_dedup WHERE api_key_id = $1", apiKey.ID).Scan(&dedup))
 	require.Zero(t, jobs)
 	require.Equal(t, jobCount, dedup)
+}
+
+func TestDurableUsageBillingQueueConcurrent50000(t *testing.T) {
+	if os.Getenv("SUB2API_RUN_50K_BILLING_TEST") != "1" {
+		t.Skip("set SUB2API_RUN_50K_BILLING_TEST=1 to run the 50k billing stress test")
+	}
+
+	resetDurableBillingQueueTables(t)
+	client := testEntClient(t)
+	const (
+		jobCount       = 50_000
+		initialBalance = 100_000.0
+		costPerJob     = 0.001
+	)
+	user := mustCreateUser(t, client, &service.User{
+		Email:        fmt.Sprintf("durable-billing-50k-%d@example.com", time.Now().UnixNano()),
+		PasswordHash: "hash",
+		Balance:      initialBalance,
+	})
+	apiKey := mustCreateApiKey(t, client, &service.APIKey{
+		UserID: user.ID,
+		Key:    "sk-durable-50k-" + uuid.NewString(),
+		Name:   "durable-50k",
+	})
+	account := mustCreateAccount(t, client, &service.Account{
+		Name: "durable-50k-account-" + uuid.NewString(),
+		Type: service.AccountTypeAPIKey,
+	})
+
+	prefix := uuid.NewString()
+	commands := make([]service.UsageBillingCommand, jobCount)
+	for i := range commands {
+		commands[i] = service.UsageBillingCommand{
+			RequestID:   fmt.Sprintf("durable-50k-%s-%d", prefix, i),
+			APIKeyID:    apiKey.ID,
+			UserID:      user.ID,
+			AccountID:   account.ID,
+			AccountType: service.AccountTypeAPIKey,
+			BalanceCost: costPerJob,
+		}
+	}
+
+	repo := newDurableBillingQueueIntegrationRepo()
+	repo.consumerCount = 4
+	repo.wakeCh = make(chan struct{}, repo.consumerCount)
+	repo.start()
+	defer repo.Stop()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	start := make(chan struct{})
+	var ready sync.WaitGroup
+	var done sync.WaitGroup
+	var failures atomic.Int64
+	firstErr := make(chan error, 1)
+	ready.Add(jobCount)
+	done.Add(jobCount)
+	for i := range commands {
+		go func(cmd *service.UsageBillingCommand) {
+			defer done.Done()
+			ready.Done()
+			<-start
+			if _, err := repo.Apply(ctx, cmd); err != nil {
+				failures.Add(1)
+				select {
+				case firstErr <- err:
+				default:
+				}
+			}
+		}(&commands[i])
+	}
+
+	ready.Wait()
+	startedAt := time.Now()
+	close(start)
+	done.Wait()
+	enqueueElapsed := time.Since(startedAt)
+	if failures.Load() != 0 {
+		t.Fatalf("%d of %d billing submissions failed: %v", failures.Load(), jobCount, <-firstErr)
+	}
+
+	drainStartedAt := time.Now()
+	var jobs, dedup int
+	for {
+		require.NoError(t, integrationDB.QueryRowContext(ctx, `
+			SELECT
+				(SELECT COUNT(*) FROM usage_billing_jobs),
+				(SELECT COUNT(*) FROM usage_billing_dedup WHERE api_key_id = $1)
+		`, apiKey.ID).Scan(&jobs, &dedup))
+		if jobs == 0 && dedup == jobCount {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatalf("billing queue did not drain: jobs=%d dedup=%d: %v", jobs, dedup, ctx.Err())
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+	drainElapsed := time.Since(drainStartedAt)
+	repo.Stop()
+
+	var balance float64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT balance FROM users WHERE id = $1", user.ID).Scan(&balance))
+	require.InDelta(t, initialBalance-jobCount*costPerJob, balance, 1e-6)
+	require.Zero(t, jobs)
+	require.Equal(t, jobCount, dedup)
+	pendingBalance := 0.0
+	for {
+		pending, pendingErr := integrationRedis.Get(ctx, usageBillingPendingBalanceKey(user.ID)).Float64()
+		if errors.Is(pendingErr, redis.Nil) {
+			pending = 0
+		} else {
+			require.NoError(t, pendingErr)
+		}
+		pendingBalance = pending
+		if pendingBalance == 0 {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatalf("billing Redis overlay did not settle: pending_balance=%f", pendingBalance)
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+	activeMarkers := 0
+	var cursor uint64
+	for {
+		keys, next, scanErr := integrationRedis.Scan(ctx, cursor, usageBillingOverlayPrefix+"*", 1000).Result()
+		require.NoError(t, scanErr)
+		activeMarkers += len(keys)
+		cursor = next
+		if cursor == 0 {
+			break
+		}
+	}
+	require.Zero(t, pendingBalance)
+	require.Zero(t, activeMarkers)
+	t.Logf(
+		"jobs=%d concurrent=%d enqueue_elapsed=%s enqueue_rate=%.0f jobs/s drain_elapsed=%s balance=%.3f dedup=%d pending_balance=%.3f active_overlays=%d",
+		jobCount,
+		jobCount,
+		enqueueElapsed,
+		float64(jobCount)/enqueueElapsed.Seconds(),
+		drainElapsed,
+		balance,
+		dedup,
+		pendingBalance,
+		activeMarkers,
+	)
 }
 
 func BenchmarkDurableUsageBillingQueueEnqueue(b *testing.B) {

@@ -102,7 +102,7 @@ func setDefaults() {
 	viper.SetDefault("billing.queue.consumer_count", 4)
 	viper.SetDefault("billing.queue.max_consumer_count", 8)
 	viper.SetDefault("billing.queue.read_batch_size", 128)
-	viper.SetDefault("billing.queue.read_block_milliseconds", 50)
+	viper.SetDefault("billing.queue.read_block_milliseconds", 1000)
 	viper.SetDefault("billing.queue.command_timeout_seconds", 15)
 	viper.SetDefault("billing.queue.max_retry_delay_seconds", 30)
 
@@ -206,7 +206,7 @@ func setDefaults() {
 	viper.SetDefault("redis.write_timeout_seconds", 3)
 	viper.SetDefault("redis.pool_size", 1024)
 	viper.SetDefault("redis.min_idle_conns", 128)
-	viper.SetDefault("redis.max_idle_conns", 256)
+	viper.SetDefault("redis.max_idle_conns", 0)
 	viper.SetDefault("redis.enable_tls", false)
 
 	// Batch Image queue

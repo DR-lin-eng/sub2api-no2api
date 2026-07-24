@@ -946,9 +946,11 @@ redis:
   # Minimum number of idle connections (高并发场景建议 128+，保持足够热连接)
   # 最小空闲连接数
   min_idle_conns: 128
-  # Maximum number of idle connections retained after a traffic spike; 0 disables the limit.
-  # 流量峰值结束后保留的最大空闲连接数；0 表示不限制。
-  max_idle_conns: 256
+  # Maximum number of idle connections retained after a traffic spike; 0 keeps
+  # hot connections up to pool_size. Set a positive limit on memory-first hosts.
+  # 流量峰值结束后保留的最大空闲连接数；0 表示在 pool_size 内保留热连接。
+  # 内存优先的小机器可显式设置正数上限。
+  max_idle_conns: 0
   # Enable TLS/SSL connection
   # 是否启用 TLS/SSL 连接
   enable_tls: false
@@ -1164,8 +1166,10 @@ billing:
     # Jobs applied in one PostgreSQL transaction.
     # 单个 PostgreSQL 事务处理的任务数。
     read_batch_size: 128
-    # Empty-queue polling interval; local commits also wake workers immediately.
-    read_block_milliseconds: 50
+    # Cross-instance fallback polling interval. Local commits wake workers immediately.
+    # Lower explicit values reduce cross-instance latency at the cost of more empty DB queries.
+    # 跨实例兜底轮询间隔；本实例入队会立即唤醒。显式降低该值会增加空队列查询。
+    read_block_milliseconds: 1000
     command_timeout_seconds: 15
     max_retry_delay_seconds: 30
   # Cache TTL (seconds) for per-user × per-platform quota records

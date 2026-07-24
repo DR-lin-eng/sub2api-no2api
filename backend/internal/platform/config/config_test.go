@@ -104,6 +104,15 @@ func TestLoadRedisMaxIdleConnsFromEnvironment(t *testing.T) {
 	require.Equal(t, 96, cfg.Redis.MaxIdleConns)
 }
 
+func TestLoadPerformanceDefaults(t *testing.T) {
+	resetViperWithJWTSecret(t)
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Zero(t, cfg.Redis.MaxIdleConns)
+	require.Equal(t, 1000, cfg.Billing.Queue.ReadBlockMilliseconds)
+}
+
 func TestLoadHTTPIngressSafetyDefaults(t *testing.T) {
 	resetViperWithJWTSecret(t)
 	cfg, err := Load()
