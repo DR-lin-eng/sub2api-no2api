@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -112,8 +113,8 @@ func (r *queuedUsageBillingRepository) processJobBatch(parent context.Context) (
 		return 0, err
 	}
 	tx = nil
-	for _, completion := range completions {
-		r.completePendingOverlay(&completion.cmd)
+	if err := r.finalizeUsageBillingCompletions(completions); err != nil {
+		return len(jobs), err
 	}
 	return len(jobs), nil
 }
@@ -162,9 +163,46 @@ func (r *queuedUsageBillingRepository) processSingleJob(parent context.Context) 
 	}
 	tx = nil
 	if cmd != nil {
-		r.completePendingOverlay(cmd)
+		if err := r.finalizeUsageBillingCompletions([]usageBillingCompletion{{jobID: job.id, cmd: *cmd}}); err != nil {
+			return 1, err
+		}
 	}
 	return 1, nil
+}
+
+func (r *queuedUsageBillingRepository) finalizeUsageBillingCompletions(completions []usageBillingCompletion) error {
+	if len(completions) == 0 {
+		return nil
+	}
+	completedJobIDs := make([]int64, 0, len(completions))
+	var firstErr error
+	for i := range completions {
+		completion := &completions[i]
+		if err := r.completePendingOverlay(&completion.cmd); err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		completedJobIDs = append(completedJobIDs, completion.jobID)
+	}
+	if len(completedJobIDs) > 0 {
+		payload, err := json.Marshal(completedJobIDs)
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), r.commandTimeout)
+		defer cancel()
+		if _, err := r.db.ExecContext(ctx, `
+			DELETE FROM usage_billing_jobs
+			WHERE id IN (
+				SELECT value::bigint FROM jsonb_array_elements_text($1::jsonb)
+			)
+		`, payload); err != nil {
+			return err
+		}
+	}
+	return firstErr
 }
 
 func (r *queuedUsageBillingRepository) applyJobBatchFast(ctx context.Context, tx *sql.Tx, jobs []usageBillingJob) ([]usageBillingCompletion, error) {
@@ -232,15 +270,15 @@ func (r *queuedUsageBillingRepository) applyJobBatchFast(ctx context.Context, tx
 		case usageBillingEnqueueInserted:
 			inserted = append(inserted, cmd)
 			terminalIDs = append(terminalIDs, jobID)
-			completions = append(completions, usageBillingCompletion{cmd: *cmd})
+			completions = append(completions, usageBillingCompletion{jobID: jobID, cmd: *cmd})
 		case usageBillingEnqueueApplied:
 			terminalIDs = append(terminalIDs, jobID)
-			completions = append(completions, usageBillingCompletion{cmd: *cmd})
+			completions = append(completions, usageBillingCompletion{jobID: jobID, cmd: *cmd})
 		default:
 			if err := deadLetterUsageBillingJob(ctx, tx, jobsByID[jobID], service.ErrUsageBillingRequestConflict.Error()); err != nil {
 				return nil, err
 			}
-			completions = append(completions, usageBillingCompletion{cmd: *cmd})
+			completions = append(completions, usageBillingCompletion{jobID: jobID, cmd: *cmd})
 		}
 	}
 	if err := applyAggregatedUsageBillingEffects(ctx, tx, inserted); err != nil {
@@ -252,11 +290,14 @@ func (r *queuedUsageBillingRepository) applyJobBatchFast(ctx context.Context, tx
 			return nil, err
 		}
 		if _, err := tx.ExecContext(ctx, `
-			DELETE FROM usage_billing_jobs
+			UPDATE usage_billing_jobs
+			SET settled_at = COALESCE(settled_at, NOW()),
+				available_at = NOW() + ($2 * INTERVAL '1 millisecond'),
+				updated_at = NOW()
 			WHERE id IN (
 				SELECT value::bigint FROM jsonb_array_elements_text($1::jsonb)
 			)
-		`, idsJSON); err != nil {
+		`, idsJSON, r.maxRetryDelay.Milliseconds()); err != nil {
 			return nil, err
 		}
 	}
@@ -300,37 +341,57 @@ func applyAggregatedUsageBillingEffects(ctx context.Context, tx *sql.Tx, command
 			aggregate.amount += cmd.UserPlatformQuotaCost
 		}
 	}
-	for subscriptionID, amount := range subscriptions {
+	for _, subscriptionID := range sortedUsageBillingInt64Keys(subscriptions) {
+		amount := subscriptions[subscriptionID]
 		if err := incrementUsageBillingSubscription(ctx, tx, subscriptionID, amount); err != nil {
 			return err
 		}
 	}
-	for userID, amount := range balances {
+	for _, userID := range sortedUsageBillingInt64Keys(balances) {
+		amount := balances[userID]
 		if _, _, err := deductUsageBillingBalance(ctx, tx, userID, amount); err != nil {
 			return err
 		}
 	}
-	for apiKeyID, amount := range apiKeyQuotas {
+	for _, apiKeyID := range sortedUsageBillingInt64Keys(apiKeyQuotas) {
+		amount := apiKeyQuotas[apiKeyID]
 		if _, err := incrementUsageBillingAPIKeyQuota(ctx, tx, apiKeyID, amount); err != nil {
 			return err
 		}
 	}
-	for apiKeyID, amount := range apiKeyRateLimits {
+	for _, apiKeyID := range sortedUsageBillingInt64Keys(apiKeyRateLimits) {
+		amount := apiKeyRateLimits[apiKeyID]
 		if err := incrementUsageBillingAPIKeyRateLimit(ctx, tx, apiKeyID, amount); err != nil {
 			return err
 		}
 	}
-	for accountID, amount := range accountQuotas {
+	for _, accountID := range sortedUsageBillingInt64Keys(accountQuotas) {
+		amount := accountQuotas[accountID]
 		if _, err := incrementUsageBillingAccountQuota(ctx, tx, accountID, amount); err != nil {
 			return err
 		}
 	}
-	for _, quota := range platformQuotas {
+	platformKeys := make([]string, 0, len(platformQuotas))
+	for key := range platformQuotas {
+		platformKeys = append(platformKeys, key)
+	}
+	sort.Strings(platformKeys)
+	for _, key := range platformKeys {
+		quota := platformQuotas[key]
 		if err := incrementUsageBillingUserPlatformQuota(ctx, tx, quota.userID, quota.platform, quota.amount); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func sortedUsageBillingInt64Keys[T any](values map[int64]T) []int64 {
+	keys := make([]int64, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	return keys
 }
 
 func (r *queuedUsageBillingRepository) applyJobWithSavepoint(ctx context.Context, tx *sql.Tx, job usageBillingJob) (*service.UsageBillingCommand, bool, error) {
@@ -361,8 +422,14 @@ func (r *queuedUsageBillingRepository) applyJobWithSavepoint(ctx context.Context
 			}
 		}
 		if err == nil {
-			if _, deleteErr := tx.ExecContext(ctx, "DELETE FROM usage_billing_jobs WHERE id = $1", job.id); deleteErr != nil {
-				return nil, false, deleteErr
+			if _, updateErr := tx.ExecContext(ctx, `
+				UPDATE usage_billing_jobs
+				SET settled_at = COALESCE(settled_at, NOW()),
+					available_at = NOW() + ($2 * INTERVAL '1 millisecond'),
+					updated_at = NOW()
+				WHERE id = $1
+			`, job.id, r.maxRetryDelay.Milliseconds()); updateErr != nil {
+				return nil, false, updateErr
 			}
 			if _, releaseErr := tx.ExecContext(ctx, "RELEASE SAVEPOINT usage_billing_job"); releaseErr != nil {
 				return nil, false, releaseErr

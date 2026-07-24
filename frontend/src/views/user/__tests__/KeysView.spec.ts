@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { nextTick } from 'vue'
 
@@ -9,6 +9,7 @@ const {
   listKeys,
   getPublicSettings,
   getDashboardApiKeysUsage,
+  getDashboardApiKeysPendingUsage,
   getAvailableGroups,
   getUserGroupRates,
   updateKey,
@@ -21,6 +22,7 @@ const {
   listKeys: vi.fn(),
   getPublicSettings: vi.fn(),
   getDashboardApiKeysUsage: vi.fn(),
+  getDashboardApiKeysPendingUsage: vi.fn(),
   getAvailableGroups: vi.fn(),
   getUserGroupRates: vi.fn(),
   updateKey: vi.fn(),
@@ -77,6 +79,7 @@ vi.mock('@/api', () => ({
   },
   usageAPI: {
     getDashboardApiKeysUsage,
+    getDashboardApiKeysPendingUsage,
   },
   userGroupsAPI: {
     getAvailable: getAvailableGroups,
@@ -284,6 +287,7 @@ describe('user KeysView column settings', () => {
     listKeys.mockReset()
     getPublicSettings.mockReset()
     getDashboardApiKeysUsage.mockReset()
+    getDashboardApiKeysPendingUsage.mockReset()
     getAvailableGroups.mockReset()
     getUserGroupRates.mockReset()
     updateKey.mockReset()
@@ -302,10 +306,18 @@ describe('user KeysView column settings', () => {
     })
     getPublicSettings.mockResolvedValue({})
     getDashboardApiKeysUsage.mockResolvedValue({ stats: {} })
+    getDashboardApiKeysPendingUsage.mockResolvedValue({
+      pending_actual_costs: {},
+      pending_usage_available: true,
+    })
     getAvailableGroups.mockResolvedValue([])
     getUserGroupRates.mockResolvedValue({})
     updateKey.mockResolvedValue(createApiKey())
     isCurrentStep.mockReturnValue(false)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('uses the default API key columns with low-frequency columns hidden', async () => {
@@ -470,6 +482,72 @@ describe('user KeysView column settings', () => {
 
     const wrapper = await mountView()
     expect(wrapper.get('[data-test="usage"]').text()).toContain('Pending usage syncing')
+  })
+
+  it('refreshes active pending usage and transfers it into settled totals', async () => {
+    vi.useFakeTimers()
+    getDashboardApiKeysUsage
+      .mockResolvedValueOnce({
+        pending_usage_available: true,
+        stats: {
+          1: {
+            api_key_id: 1,
+            today_actual_cost: 1.1,
+            total_actual_cost: 2.2,
+            total_tokens: 10,
+            pending_actual_cost: 0.3,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        pending_usage_available: true,
+        stats: {
+          1: {
+            api_key_id: 1,
+            today_actual_cost: 1.4,
+            total_actual_cost: 2.5,
+            total_tokens: 12,
+            pending_actual_cost: 0,
+          },
+        },
+      })
+    getDashboardApiKeysPendingUsage.mockResolvedValueOnce({
+      pending_actual_costs: { 1: 0 },
+      pending_usage_available: true,
+    })
+
+    const wrapper = await mountView()
+    await vi.advanceTimersByTimeAsync(5000)
+    await flushPromises()
+
+    expect(getDashboardApiKeysPendingUsage).toHaveBeenCalledWith([1], expect.any(Object))
+    expect(getDashboardApiKeysUsage).toHaveBeenCalledTimes(2)
+    const usage = wrapper.get('[data-test="usage"]').text()
+    expect(usage).toContain('$1.4000')
+    expect(usage).not.toContain('Of which pending')
+    wrapper.unmount()
+  })
+
+  it('stops pending usage polling when the view unmounts', async () => {
+    vi.useFakeTimers()
+    getDashboardApiKeysUsage.mockResolvedValueOnce({
+      pending_usage_available: true,
+      stats: {
+        1: {
+          api_key_id: 1,
+          today_actual_cost: 1.1,
+          total_actual_cost: 2.2,
+          total_tokens: 10,
+          pending_actual_cost: 0.3,
+        },
+      },
+    })
+
+    const wrapper = await mountView()
+    wrapper.unmount()
+    await vi.advanceTimersByTimeAsync(5000)
+
+    expect(getDashboardApiKeysPendingUsage).not.toHaveBeenCalled()
   })
 
   it('marks current concurrency as sortable', async () => {

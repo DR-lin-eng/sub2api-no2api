@@ -256,7 +256,8 @@ type usageBillingJob struct {
 }
 
 type usageBillingCompletion struct {
-	cmd service.UsageBillingCommand
+	jobID int64
+	cmd   service.UsageBillingCommand
 }
 
 type usageBillingPlatformQuotaAggregate struct {

@@ -587,6 +587,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/security-audit/ingress',
+    name: 'AdminIngressRisk',
+    component: () => import('@/views/admin/IngressRiskView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Ingress Protection',
+      titleKey: 'admin.ingressRisk.title',
+      descriptionKey: 'admin.ingressRisk.description'
+    }
+  },
+  {
     path: '/admin/risk-control',
     name: 'AdminRiskControl',
     component: () => import('@/views/admin/RiskControlView.vue'),

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -27,9 +28,13 @@ func (s *dashboardAPIKeyUsageRepoStub) GetBatchAPIKeyUsageStats(context.Context,
 
 type dashboardAPIKeyOwnershipRepoStub struct {
 	service.APIKeyRepository
+	validIDs []int64
 }
 
 func (s *dashboardAPIKeyOwnershipRepoStub) VerifyOwnership(_ context.Context, _ int64, apiKeyIDs []int64) ([]int64, error) {
+	if s.validIDs != nil {
+		return s.validIDs, nil
+	}
 	return apiKeyIDs, nil
 }
 
@@ -38,8 +43,15 @@ type dashboardPendingUsageReaderStub struct {
 	err   error
 }
 
-func (s *dashboardPendingUsageReaderStub) GetPendingAPIKeyUsageCosts(context.Context, []int64) (map[int64]float64, error) {
-	return s.costs, s.err
+func (s *dashboardPendingUsageReaderStub) GetPendingAPIKeyUsageCosts(_ context.Context, apiKeyIDs []int64) (map[int64]float64, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	result := make(map[int64]float64, len(apiKeyIDs))
+	for _, apiKeyID := range apiKeyIDs {
+		result[apiKeyID] = s.costs[apiKeyID]
+	}
+	return result, nil
 }
 
 func TestDashboardAPIKeyUsageRange(t *testing.T) {
@@ -126,4 +138,54 @@ func TestDashboardAPIKeysUsageExposesPendingCosts(t *testing.T) {
 	require.True(t, body.Data.PendingUsageAvailable)
 	require.InDelta(t, 0.75, body.Data.Stats["7"].PendingActualCost, 1e-9)
 	require.InDelta(t, 1, body.Data.Stats["7"].TodayActualCost, 1e-9)
+}
+
+func TestDashboardAPIKeysPendingUsageIsLightweightAndOwnershipScoped(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	apiKeySvc := service.NewAPIKeyService(&dashboardAPIKeyOwnershipRepoStub{validIDs: []int64{7}}, nil, nil, nil, nil, nil, nil)
+	apiKeySvc.SetPendingUsageReader(&dashboardPendingUsageReaderStub{costs: map[int64]float64{7: 0.75, 8: 99}})
+	handler := NewUsageHandler(nil, apiKeySvc, nil, nil)
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 42})
+		c.Next()
+	})
+	router.POST("/usage/dashboard/api-keys-pending-usage", handler.DashboardAPIKeysPendingUsage)
+
+	req := httptest.NewRequest(http.MethodPost, "/usage/dashboard/api-keys-pending-usage", bytes.NewBufferString(`{"api_key_ids":[7,8]}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var body struct {
+		Data struct {
+			PendingActualCosts    map[string]float64 `json:"pending_actual_costs"`
+			PendingUsageAvailable bool               `json:"pending_usage_available"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	require.True(t, body.Data.PendingUsageAvailable)
+	require.Equal(t, map[string]float64{"7": 0.75}, body.Data.PendingActualCosts)
+}
+
+func TestDashboardAPIKeysPendingUsageReportsRedisUnavailable(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	apiKeySvc := service.NewAPIKeyService(&dashboardAPIKeyOwnershipRepoStub{}, nil, nil, nil, nil, nil, nil)
+	apiKeySvc.SetPendingUsageReader(&dashboardPendingUsageReaderStub{err: errors.New("redis unavailable")})
+	handler := NewUsageHandler(nil, apiKeySvc, nil, nil)
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 42})
+		c.Next()
+	})
+	router.POST("/usage/dashboard/api-keys-pending-usage", handler.DashboardAPIKeysPendingUsage)
+
+	req := httptest.NewRequest(http.MethodPost, "/usage/dashboard/api-keys-pending-usage", bytes.NewBufferString(`{"api_key_ids":[7]}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), `"pending_usage_available":false`)
 }

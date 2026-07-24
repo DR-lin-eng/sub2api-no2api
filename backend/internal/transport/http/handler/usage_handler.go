@@ -646,6 +646,10 @@ type BatchAPIKeysUsageRequest struct {
 	Timezone  string  `json:"timezone"`
 }
 
+type batchAPIKeysPendingUsageRequest struct {
+	APIKeyIDs []int64 `json:"api_key_ids" binding:"required"`
+}
+
 const maxDashboardAPIKeyUsageRangeDays = 366
 
 func dashboardAPIKeyUsageRange(req BatchAPIKeysUsageRequest) (time.Time, time.Time, error) {
@@ -749,6 +753,58 @@ func (h *UsageHandler) DashboardAPIKeysUsage(c *gin.Context) {
 
 	response.Success(c, gin.H{
 		"stats":                   stats,
+		"pending_usage_available": pendingAvailable,
+	})
+}
+
+// DashboardAPIKeysPendingUsage returns only the Redis pending-cost overlay.
+// POST /api/v1/usage/dashboard/api-keys-pending-usage
+func (h *UsageHandler) DashboardAPIKeysPendingUsage(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	var req batchAPIKeysPendingUsageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if len(req.APIKeyIDs) == 0 {
+		response.Success(c, gin.H{
+			"pending_actual_costs":    map[string]any{},
+			"pending_usage_available": true,
+		})
+		return
+	}
+	if len(req.APIKeyIDs) > 100 {
+		response.BadRequest(c, "Too many API key IDs (maximum 100 allowed)")
+		return
+	}
+
+	validAPIKeyIDs, err := h.apiKeyService.VerifyOwnership(c.Request.Context(), subject.UserID, req.APIKeyIDs)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	if len(validAPIKeyIDs) == 0 {
+		response.Success(c, gin.H{
+			"pending_actual_costs":    map[string]any{},
+			"pending_usage_available": true,
+		})
+		return
+	}
+
+	pendingCosts, pendingAvailable, pendingErr := h.apiKeyService.GetPendingUsageCosts(c.Request.Context(), validAPIKeyIDs)
+	if pendingErr != nil {
+		slog.Warn("read pending API key usage failed", "user_id", subject.UserID, "api_key_count", len(validAPIKeyIDs), "error", pendingErr)
+	}
+	if pendingCosts == nil {
+		pendingCosts = make(map[int64]float64)
+	}
+	response.Success(c, gin.H{
+		"pending_actual_costs":    pendingCosts,
 		"pending_usage_available": pendingAvailable,
 	})
 }

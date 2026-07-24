@@ -144,6 +144,7 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	require.True(t, usageBillingJobsRegclass.Valid, "expected usage_billing_jobs table to exist")
 	requireColumn(t, tx, "usage_billing_jobs", "payload", "jsonb", 0, false)
 	requireColumn(t, tx, "usage_billing_jobs", "available_at", "timestamp with time zone", 0, false)
+	requireColumn(t, tx, "usage_billing_jobs", "settled_at", "timestamp with time zone", 0, true)
 	requireIndex(t, tx, "usage_billing_jobs", "idx_usage_billing_jobs_ready")
 
 	var usageBillingDeadLettersRegclass sql.NullString

@@ -1302,6 +1302,9 @@ const loading = ref(false)
 const submitting = ref(false)
 const now = ref(new Date())
 let resetTimer: ReturnType<typeof setInterval> | null = null
+let usageRefreshTimer: ReturnType<typeof setTimeout> | null = null
+let usageRefreshAbortController: AbortController | null = null
+let lastFullUsageRefreshAt = 0
 const usageStats = ref<Record<string, BatchApiKeyUsageStats>>({})
 const usageStatsLoading = ref(false)
 const usageStatsError = ref(false)
@@ -1350,6 +1353,11 @@ const columnDropdownRef = ref<HTMLElement | null>(null)
 const dropdownPosition = ref<{ top?: number; bottom?: number; left: number } | null>(null)
 const groupButtonRefs = ref<Map<number, HTMLElement>>(new Map())
 let abortController: AbortController | null = null
+
+const ACTIVE_PENDING_REFRESH_MS = 5000
+const IDLE_PENDING_REFRESH_MS = 60000
+const FULL_USAGE_REFRESH_MS = 60000
+const PENDING_USAGE_EPSILON = 0.0000000001
 
 // Get the currently selected key for group change
 const selectedKeyForGroup = computed(() => {
@@ -1490,7 +1498,97 @@ const isAbortError = (error: unknown) => {
   return name === 'AbortError' || code === 'ERR_CANCELED'
 }
 
+const hasPendingUsage = () =>
+  pendingUsageAvailable.value &&
+  apiKeys.value.some((apiKey) => pendingUsage(apiKey.id) > PENDING_USAGE_EPSILON)
+
+const stopUsageRefresh = () => {
+  if (usageRefreshTimer) {
+    clearTimeout(usageRefreshTimer)
+    usageRefreshTimer = null
+  }
+  usageRefreshAbortController?.abort()
+  usageRefreshAbortController = null
+}
+
+const scheduleUsageRefresh = (delay?: number) => {
+  if (document.hidden || apiKeys.value.length === 0) return
+  if (usageRefreshTimer) clearTimeout(usageRefreshTimer)
+  usageRefreshTimer = setTimeout(
+    refreshVisibleUsage,
+    delay ?? (hasPendingUsage() ? ACTIVE_PENDING_REFRESH_MS : IDLE_PENDING_REFRESH_MS)
+  )
+}
+
+const applyPendingUsage = (costs: Record<string, number>) => {
+  const next = { ...usageStats.value }
+  for (const apiKey of apiKeys.value) {
+    const current = next[apiKey.id]
+    if (!current) continue
+    next[apiKey.id] = {
+      ...current,
+      pending_actual_cost: Number(costs[apiKey.id] ?? 0)
+    }
+  }
+  usageStats.value = next
+}
+
+const refreshVisibleUsage = async () => {
+  usageRefreshTimer = null
+  if (document.hidden || apiKeys.value.length === 0) return
+
+  const controller = new AbortController()
+  usageRefreshAbortController = controller
+  const keyIds = apiKeys.value.map((apiKey) => apiKey.id)
+  const hadPending = hasPendingUsage()
+  try {
+    const shouldRefreshFullStats = Date.now() - lastFullUsageRefreshAt >= FULL_USAGE_REFRESH_MS
+    if (shouldRefreshFullStats) {
+      const response = await usageAPI.getDashboardApiKeysUsage(keyIds, { signal: controller.signal })
+      if (controller.signal.aborted) return
+      usageStats.value = response.stats
+      pendingUsageAvailable.value = response.pending_usage_available !== false
+      usageStatsError.value = false
+      lastFullUsageRefreshAt = Date.now()
+    } else {
+      const response = await usageAPI.getDashboardApiKeysPendingUsage(keyIds, { signal: controller.signal })
+      if (controller.signal.aborted) return
+      pendingUsageAvailable.value = response.pending_usage_available !== false
+      if (pendingUsageAvailable.value) {
+        applyPendingUsage(response.pending_actual_costs)
+      }
+
+      if (hadPending && !hasPendingUsage()) {
+        const settledResponse = await usageAPI.getDashboardApiKeysUsage(keyIds, { signal: controller.signal })
+        if (controller.signal.aborted) return
+        usageStats.value = settledResponse.stats
+        pendingUsageAvailable.value = settledResponse.pending_usage_available !== false
+        usageStatsError.value = false
+        lastFullUsageRefreshAt = Date.now()
+      }
+    }
+  } catch (error) {
+    if (!isAbortError(error)) {
+      console.error('Failed to refresh API key usage:', error)
+    }
+  } finally {
+    if (usageRefreshAbortController === controller) {
+      usageRefreshAbortController = null
+      scheduleUsageRefresh()
+    }
+  }
+}
+
+const handleUsageVisibilityChange = () => {
+  if (document.hidden) {
+    stopUsageRefresh()
+    return
+  }
+  scheduleUsageRefresh(0)
+}
+
 const loadApiKeys = async () => {
+  stopUsageRefresh()
   abortController?.abort()
   const controller = new AbortController()
   abortController = controller
@@ -1531,6 +1629,7 @@ const loadApiKeys = async () => {
         if (signal.aborted) return
         usageStats.value = usageResponse.stats
         pendingUsageAvailable.value = usageResponse.pending_usage_available !== false
+        lastFullUsageRefreshAt = Date.now()
       } catch (e) {
         if (!isAbortError(e)) {
           console.error('Failed to load usage stats:', e)
@@ -1547,6 +1646,7 @@ const loadApiKeys = async () => {
     if (abortController === controller) {
       loading.value = false
       usageStatsLoading.value = false
+      scheduleUsageRefresh()
     }
   }
 }
@@ -2009,11 +2109,15 @@ onMounted(() => {
   loadUserGroupRates()
   loadPublicSettings()
   document.addEventListener('click', closeGroupSelector)
+  document.addEventListener('visibilitychange', handleUsageVisibilityChange)
   resetTimer = setInterval(() => { now.value = new Date() }, 60000)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', closeGroupSelector)
+  document.removeEventListener('visibilitychange', handleUsageVisibilityChange)
+  stopUsageRefresh()
+  abortController?.abort()
   if (resetTimer) clearInterval(resetTimer)
 })
 </script>

@@ -333,6 +333,11 @@ export interface BatchApiKeysUsageResponse {
   pending_usage_available?: boolean
 }
 
+export interface BatchApiKeysPendingUsageResponse {
+  pending_actual_costs: Record<string, number>
+  pending_usage_available: boolean
+}
+
 /**
  * Get batch usage stats for user's own API keys
  * @param apiKeyIds - Array of API key IDs
@@ -358,6 +363,18 @@ export async function getDashboardApiKeysUsage(
     {
       signal: options?.signal
     }
+  )
+  return data
+}
+
+export async function getDashboardApiKeysPendingUsage(
+  apiKeyIds: number[],
+  options?: { signal?: AbortSignal }
+): Promise<BatchApiKeysPendingUsageResponse> {
+  const { data } = await apiClient.post<BatchApiKeysPendingUsageResponse>(
+    '/usage/dashboard/api-keys-pending-usage',
+    { api_key_ids: apiKeyIds },
+    { signal: options?.signal }
   )
   return data
 }
@@ -390,6 +407,7 @@ export const usageAPI = {
   getMyApiKeyDailyUsage,
   getDashboardSnapshotV2,
   getDashboardApiKeysUsage,
+  getDashboardApiKeysPendingUsage,
   // Error requests
   listMyErrorRequests,
   getMyErrorDetail

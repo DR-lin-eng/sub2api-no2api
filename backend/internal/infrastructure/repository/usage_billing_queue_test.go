@@ -50,7 +50,7 @@ func TestDurableUsageBillingOverlayIsIdempotentAndCompletes(t *testing.T) {
 	require.NoError(t, rdb.Set(ctx, billingBalanceKey(15), 100, time.Hour).Err())
 	require.NoError(t, rdb.HSet(ctx, billingSubKey(15, 16), "status", "active").Err())
 	require.NoError(t, rdb.HSet(ctx, billingRateLimitKey(17), "usage_5h", 1).Err())
-	repo.completePendingOverlay(cmd)
+	require.NoError(t, repo.completePendingOverlay(cmd))
 
 	require.Zero(t, mustRedisFloat(t, rdb, usageBillingPendingBalanceKey(15)))
 	require.Zero(t, mustRedisFloat(t, rdb, usageBillingPendingSubscriptionKey(15, 16)))
