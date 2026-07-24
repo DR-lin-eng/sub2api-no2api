@@ -98,6 +98,12 @@ type BillingPendingUsageReader interface {
 	GetPendingAPIKeyRateLimitCost(ctx context.Context, apiKeyID int64) (float64, error)
 }
 
+// BillingPendingAPIKeyUsageReader exposes a batched view of not-yet-settled
+// actual cost for every API key, including keys without a configured quota.
+type BillingPendingAPIKeyUsageReader interface {
+	GetPendingAPIKeyUsageCosts(ctx context.Context, apiKeyIDs []int64) (map[int64]float64, error)
+}
+
 // BillingMutationVersionCache prevents a DB snapshot loaded before a queued
 // billing transition from repopulating Redis after that transition completed.
 // Implementations compare and write atomically in Redis.

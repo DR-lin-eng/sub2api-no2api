@@ -531,6 +531,9 @@ func (h *UserHandler) ToggleNotifyEmail(c *gin.Context) {
 }
 
 func (h *UserHandler) buildUserProfileResponse(ctx context.Context, userID int64, user *service.User) (userProfileResponse, error) {
+	if user != nil && user.BalanceSyncStatus == "" {
+		h.userService.HydrateWalletSnapshot(ctx, user)
+	}
 	identities, err := h.userService.GetProfileIdentitySummaries(ctx, userID, user)
 	if err != nil {
 		return userProfileResponse{}, err

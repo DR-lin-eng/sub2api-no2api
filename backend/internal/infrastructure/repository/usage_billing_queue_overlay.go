@@ -38,6 +38,7 @@ func (r *queuedUsageBillingRepository) reconcilePendingOverlay(cmd *service.Usag
 		cmd.APIKeyRateLimitCost,
 		int64(usageBillingMutationTTL/time.Second),
 		cmd.RequestFingerprint,
+		usageBillingPendingActualCost(cmd),
 	).Result(); err != nil {
 		slog.Warn("durable usage billing Redis overlay failed", "request_id", cmd.RequestID, "error", err)
 	}
@@ -104,6 +105,7 @@ func (r *queuedUsageBillingRepository) recoverPendingOverlays() {
 			cmd.APIKeyRateLimitCost,
 			int64(usageBillingMutationTTL/time.Second),
 			cmd.RequestFingerprint,
+			usageBillingPendingActualCost(&cmd),
 		)
 		queued++
 		if queued >= pipelineSize && !flush() {
@@ -136,6 +138,7 @@ func (r *queuedUsageBillingRepository) completePendingOverlay(cmd *service.Usage
 		cmd.APIKeyRateLimitCost,
 		int64(usageBillingMutationTTL/time.Second),
 		cmd.RequestFingerprint,
+		usageBillingPendingActualCost(cmd),
 	).Result(); err != nil {
 		slog.Warn("durable usage billing Redis overlay completion failed", "request_id", cmd.RequestID, "error", err)
 	}
@@ -170,7 +173,15 @@ func usageBillingRedisKeys(cmd *service.UsageBillingCommand) []string {
 		usageBillingSubscriptionMutationKey(userID, groupID),
 		usageBillingAPIKeyRateLimitMutationKey(apiKeyID),
 		usageBillingOverlayKey(requestID, apiKeyID),
+		usageBillingPendingAPIKeyUsageKey(apiKeyID),
 	}
+}
+
+func usageBillingPendingActualCost(cmd *service.UsageBillingCommand) float64 {
+	if cmd == nil {
+		return 0
+	}
+	return max(0, cmd.BalanceCost, cmd.SubscriptionCost, cmd.APIKeyQuotaCost, cmd.APIKeyRateLimitCost)
 }
 
 func usageBillingRequestKey(requestID string, apiKeyID int64) string {
@@ -196,6 +207,10 @@ func usageBillingPendingAPIKeyQuotaKey(apiKeyID int64) string {
 
 func usageBillingPendingAPIKeyRateLimitKey(apiKeyID int64) string {
 	return usageBillingPendingPrefix + "api-rate:" + strconv.FormatInt(apiKeyID, 10)
+}
+
+func usageBillingPendingAPIKeyUsageKey(apiKeyID int64) string {
+	return usageBillingPendingPrefix + "api-usage:" + strconv.FormatInt(apiKeyID, 10)
 }
 
 func usageBillingBalanceMutationKey(userID int64) string {

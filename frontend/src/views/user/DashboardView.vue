@@ -3,7 +3,16 @@
     <div class="space-y-6">
       <div v-if="loading" class="flex items-center justify-center py-12"><LoadingSpinner /></div>
       <template v-else-if="stats">
-        <UserDashboardStats :stats="stats" :balance="user?.balance || 0" :is-simple="authStore.isSimpleMode" :platform-quotas="platformQuotas" />
+        <UserDashboardStats
+          :stats="stats"
+          :balance="user?.balance || 0"
+          :available-balance="user?.available_balance"
+          :pending-settlement="user?.pending_settlement"
+          :frozen-balance="user?.frozen_balance"
+          :balance-sync-status="user?.balance_sync_status"
+          :is-simple="authStore.isSimpleMode"
+          :platform-quotas="platformQuotas"
+        />
         <UserDashboardCharts v-model:startDate="startDate" v-model:endDate="endDate" v-model:granularity="granularity" :loading="loadingCharts" :trend="trendData" :models="modelStats" @dateRangeChange="loadRangeData" @granularityChange="loadCharts" @refresh="refreshAll" />
         <UserDashboardApiKeyUsage :rows="apiKeyUsageRows" :loading="loadingApiKeys" :error="apiKeyUsageError" @retry="loadApiKeyUsage" />
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">

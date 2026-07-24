@@ -252,6 +252,7 @@ type APIKeyService struct {
 	userGroupRateRepo         UserGroupRateRepository
 	cache                     APIKeyCache
 	rateLimitCacheInvalid     RateLimitCacheInvalidator // optional: invalidate Redis rate limit cache
+	pendingUsageReader        BillingPendingAPIKeyUsageReader
 	concurrencyService        *ConcurrencyService
 	cfg                       *config.Config
 	authCacheL1               *ristretto.Cache
@@ -327,6 +328,21 @@ func NewAPIKeyService(
 // Called after construction (e.g. in wire) to avoid circular dependencies.
 func (s *APIKeyService) SetRateLimitCacheInvalidator(inv RateLimitCacheInvalidator) {
 	s.rateLimitCacheInvalid = inv
+}
+
+func (s *APIKeyService) SetPendingUsageReader(reader BillingPendingAPIKeyUsageReader) {
+	s.pendingUsageReader = reader
+}
+
+func (s *APIKeyService) GetPendingUsageCosts(ctx context.Context, apiKeyIDs []int64) (map[int64]float64, bool, error) {
+	if s == nil || s.pendingUsageReader == nil {
+		return nil, false, nil
+	}
+	costs, err := s.pendingUsageReader.GetPendingAPIKeyUsageCosts(ctx, apiKeyIDs)
+	if err != nil {
+		return nil, false, err
+	}
+	return costs, true, nil
 }
 
 func (s *APIKeyService) SetConcurrencyService(concurrencyService *ConcurrencyService) {

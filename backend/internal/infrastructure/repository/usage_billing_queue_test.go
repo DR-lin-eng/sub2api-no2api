@@ -44,6 +44,7 @@ func TestDurableUsageBillingOverlayIsIdempotentAndCompletes(t *testing.T) {
 	require.InDelta(t, 3.5, mustRedisFloat(t, rdb, usageBillingPendingSubscriptionKey(15, 16)), 1e-9)
 	require.InDelta(t, 4.75, mustRedisFloat(t, rdb, usageBillingPendingAPIKeyQuotaKey(17)), 1e-9)
 	require.InDelta(t, 5.25, mustRedisFloat(t, rdb, usageBillingPendingAPIKeyRateLimitKey(17)), 1e-9)
+	require.InDelta(t, 5.25, mustRedisFloat(t, rdb, usageBillingPendingAPIKeyUsageKey(17)), 1e-9)
 	require.EqualValues(t, 1, rdb.Exists(ctx, usageBillingOverlayKey(cmd.RequestID, cmd.APIKeyID)).Val())
 
 	require.NoError(t, rdb.Set(ctx, billingBalanceKey(15), 100, time.Hour).Err())
@@ -55,6 +56,7 @@ func TestDurableUsageBillingOverlayIsIdempotentAndCompletes(t *testing.T) {
 	require.Zero(t, mustRedisFloat(t, rdb, usageBillingPendingSubscriptionKey(15, 16)))
 	require.Zero(t, mustRedisFloat(t, rdb, usageBillingPendingAPIKeyQuotaKey(17)))
 	require.Zero(t, mustRedisFloat(t, rdb, usageBillingPendingAPIKeyRateLimitKey(17)))
+	require.Zero(t, mustRedisFloat(t, rdb, usageBillingPendingAPIKeyUsageKey(17)))
 	require.Zero(t, rdb.Exists(ctx, usageBillingOverlayKey(cmd.RequestID, cmd.APIKeyID)).Val())
 	require.Zero(t, rdb.Exists(ctx, billingBalanceKey(15), billingSubKey(15, 16), billingRateLimitKey(17)).Val())
 }
@@ -69,6 +71,19 @@ func TestDurableUsageBillingOverlayCanRebuildAfterRedisLoss(t *testing.T) {
 	require.NoError(t, rdb.FlushDB(ctx).Err())
 	repo.reconcilePendingOverlay(cmd)
 	require.InDelta(t, 1.5, mustRedisFloat(t, rdb, usageBillingPendingBalanceKey(9)), 1e-9)
+	require.InDelta(t, 1.5, mustRedisFloat(t, rdb, usageBillingPendingAPIKeyUsageKey(7)), 1e-9)
+}
+
+func TestPendingAPIKeyUsageCostsUsesBatchedRedisRead(t *testing.T) {
+	_, rdb := newDurableUsageBillingRedisTestRepository(t)
+	ctx := context.Background()
+	require.NoError(t, rdb.Set(ctx, usageBillingPendingAPIKeyUsageKey(7), "1.25", 0).Err())
+	require.NoError(t, rdb.Set(ctx, usageBillingPendingAPIKeyUsageKey(9), "2.5", 0).Err())
+
+	cache := &billingCache{rdb: rdb}
+	costs, err := cache.GetPendingAPIKeyUsageCosts(ctx, []int64{7, 8, 9})
+	require.NoError(t, err)
+	require.Equal(t, map[int64]float64{7: 1.25, 8: 0, 9: 2.5}, costs)
 }
 
 func TestDurableUsageBillingInsertBatchReturnsStatuses(t *testing.T) {

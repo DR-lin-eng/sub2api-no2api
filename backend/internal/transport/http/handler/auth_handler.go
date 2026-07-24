@@ -114,6 +114,9 @@ func (h *AuthHandler) respondWithTokenPair(c *gin.Context, user *service.User) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	if h.userService != nil {
+		h.userService.HydrateWalletSnapshot(c.Request.Context(), user)
+	}
 
 	tokenPair, err := h.authService.GenerateTokenPair(c.Request.Context(), user, "")
 	if err != nil {

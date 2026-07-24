@@ -137,6 +137,7 @@ var usageBillingOverlayScript = redis.NewScript(`
 	local subscription_cost = tonumber(ARGV[2]) or 0
 	local api_quota_cost = tonumber(ARGV[3]) or 0
 	local rate_limit_cost = tonumber(ARGV[4]) or 0
+	local api_usage_cost = tonumber(ARGV[7]) or 0
 
 	if balance_cost > 0 then
 		redis.call('INCRBYFLOAT', KEYS[3], balance_cost)
@@ -155,6 +156,9 @@ var usageBillingOverlayScript = redis.NewScript(`
 		redis.call('INCRBYFLOAT', KEYS[6], rate_limit_cost)
 		redis.call('INCR', KEYS[12])
 		redis.call('EXPIRE', KEYS[12], ARGV[5])
+	end
+	if api_usage_cost > 0 then
+		redis.call('INCRBYFLOAT', KEYS[14], api_usage_cost)
 	end
 	return 1
 `)
@@ -177,12 +181,14 @@ var usageBillingCompleteOverlayScript = redis.NewScript(`
 	local subscription_cost = tonumber(ARGV[2]) or 0
 	local api_quota_cost = tonumber(ARGV[3]) or 0
 	local rate_limit_cost = tonumber(ARGV[4]) or 0
+	local api_usage_cost = tonumber(ARGV[7]) or 0
 	local marker = redis.call('GET', KEYS[13])
 	if marker == ARGV[6] then
 		subtract_pending(KEYS[3], balance_cost)
 		subtract_pending(KEYS[4], subscription_cost)
 		subtract_pending(KEYS[5], api_quota_cost)
 		subtract_pending(KEYS[6], rate_limit_cost)
+		subtract_pending(KEYS[14], api_usage_cost)
 		redis.call('DEL', KEYS[13])
 	end
 

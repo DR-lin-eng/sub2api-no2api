@@ -291,6 +291,21 @@ type mockBillingCache struct {
 	invalidateCallCount atomic.Int64
 	invalidatedUserIDs  []int64
 	mu                  sync.Mutex
+	pendingBalance      float64
+	pendingBalanceErr   error
+}
+
+func (m *mockBillingCache) GetPendingUserBalanceCost(context.Context, int64) (float64, error) {
+	return m.pendingBalance, m.pendingBalanceErr
+}
+func (m *mockBillingCache) GetPendingSubscriptionCost(context.Context, int64, int64) (float64, error) {
+	return 0, nil
+}
+func (m *mockBillingCache) GetPendingAPIKeyQuotaCost(context.Context, int64) (float64, error) {
+	return 0, nil
+}
+func (m *mockBillingCache) GetPendingAPIKeyRateLimitCost(context.Context, int64) (float64, error) {
+	return 0, nil
 }
 
 func (m *mockBillingCache) GetUserBalance(context.Context, int64) (float64, error)  { return 0, nil }
@@ -357,6 +372,32 @@ func (m *mockBillingCache) BatchGetUserPlatformQuotaCache(context.Context, []Use
 }
 
 // --- 测试 ---
+
+func TestGetProfileHydratesWalletSnapshot(t *testing.T) {
+	repo := &mockUserRepo{getByIDUser: &User{ID: 42, Balance: 10, FrozenBalance: 3}}
+	cache := &mockBillingCache{pendingBalance: 2.25}
+
+	user, err := NewUserService(repo, nil, nil, cache).GetProfile(context.Background(), 42)
+	require.NoError(t, err)
+	require.Equal(t, "synced", user.BalanceSyncStatus)
+	require.NotNil(t, user.AvailableBalance)
+	require.NotNil(t, user.PendingSettlement)
+	require.InDelta(t, 7.75, *user.AvailableBalance, 1e-9)
+	require.InDelta(t, 2.25, *user.PendingSettlement, 1e-9)
+	require.InDelta(t, 10, user.Balance, 1e-9)
+	require.InDelta(t, 3, user.FrozenBalance, 1e-9)
+}
+
+func TestGetProfileMarksWalletSnapshotUnavailableOnPendingReadFailure(t *testing.T) {
+	repo := &mockUserRepo{getByIDUser: &User{ID: 42, Balance: 10}}
+	cache := &mockBillingCache{pendingBalanceErr: errors.New("redis unavailable")}
+
+	user, err := NewUserService(repo, nil, nil, cache).GetProfile(context.Background(), 42)
+	require.NoError(t, err)
+	require.Equal(t, "unavailable", user.BalanceSyncStatus)
+	require.Nil(t, user.AvailableBalance)
+	require.Nil(t, user.PendingSettlement)
+}
 
 func TestUpdateBalance_Success(t *testing.T) {
 	repo := &mockUserRepo{}

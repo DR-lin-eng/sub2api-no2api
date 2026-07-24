@@ -87,6 +87,9 @@ export interface User {
   role: 'admin' | 'user' // User role for authorization
   balance: number // User balance for API usage
   frozen_balance?: number // Balance currently held by async batch jobs
+  available_balance?: number // Balance after queued usage awaiting settlement
+  pending_settlement?: number // Queued usage not yet persisted to the ledger balance
+  balance_sync_status?: 'synced' | 'unavailable'
   concurrency: number // Allowed concurrent requests
   rpm_limit?: number // User-level RPM cap (0 = unlimited); effective as fallback when group has no rpm_limit
   status: 'active' | 'disabled' // Account status

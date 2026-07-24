@@ -94,6 +94,7 @@ func TestDurableUsageBillingQueueSurvivesRedisLoss(t *testing.T) {
 	require.NoError(t, integrationRedis.FlushDB(ctx).Err())
 	repo.recoverPendingOverlays()
 	require.InDelta(t, 1.25, mustRedisFloat(t, integrationRedis, usageBillingPendingBalanceKey(user.ID)), 1e-9)
+	require.InDelta(t, 1.25, mustRedisFloat(t, integrationRedis, usageBillingPendingAPIKeyUsageKey(apiKey.ID)), 1e-9)
 	processed, err := repo.processJobBatch(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, processed)
@@ -115,6 +116,7 @@ func TestDurableUsageBillingQueueSurvivesRedisLoss(t *testing.T) {
 	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT COUNT(*) FROM usage_billing_dedup WHERE request_id = $1 AND api_key_id = $2", cmd.RequestID, cmd.APIKeyID).Scan(&dedup))
 	require.Zero(t, jobs)
 	require.Equal(t, 1, dedup)
+	require.Zero(t, mustRedisFloat(t, integrationRedis, usageBillingPendingAPIKeyUsageKey(apiKey.ID)))
 
 	statuses, err = repo.insertEnqueueBatch(ctx, input)
 	require.NoError(t, err)
@@ -337,6 +339,7 @@ func TestDurableUsageBillingQueueConcurrent50000(t *testing.T) {
 		}
 	}
 	require.Zero(t, pendingBalance)
+	require.Zero(t, mustRedisFloat(t, integrationRedis, usageBillingPendingAPIKeyUsageKey(apiKey.ID)))
 	require.Zero(t, activeMarkers)
 	t.Logf(
 		"jobs=%d concurrent=%d enqueue_elapsed=%s enqueue_rate=%.0f jobs/s drain_elapsed=%s balance=%.3f dedup=%d pending_balance=%.3f active_overlays=%d",

@@ -10,9 +10,12 @@
           </svg>
         </div>
         <div>
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.balance') }}</p>
-          <p class="text-xl font-bold text-emerald-600 dark:text-emerald-400">${{ formatBalance(balance) }}</p>
-          <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('common.available') }}</p>
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('common.availableBalance') }}</p>
+          <p v-if="balanceSyncStatus !== 'unavailable'" class="text-xl font-bold text-emerald-600 dark:text-emerald-400">${{ formatBalance(effectiveAvailableBalance) }}</p>
+          <p v-else class="text-sm font-semibold text-amber-600 dark:text-amber-300">{{ t('common.balanceSyncing') }}</p>
+          <p class="break-all text-xs text-orange-600 dark:text-orange-300">{{ t('common.pendingSettlement') }} ${{ formatBalance(pendingSettlement || 0) }}</p>
+          <p class="break-all text-xs text-amber-600 dark:text-amber-300">{{ t('common.frozenBalance') }} ${{ formatBalance(frozenBalance || 0) }}</p>
+          <p class="break-all text-xs text-gray-400 dark:text-gray-500">{{ t('common.ledgerBalance') }} ${{ formatBalance(balance) }}</p>
         </div>
       </div>
     </div>
@@ -242,10 +245,15 @@ interface FusedPlatformCard {
 const props = defineProps<{
   stats: UserStatsType
   balance: number
+  availableBalance?: number
+  pendingSettlement?: number
+  frozenBalance?: number
+  balanceSyncStatus?: 'synced' | 'unavailable'
   isSimple: boolean
   platformQuotas?: PlatformQuotaItem[] | null
 }>()
 const { t } = useI18n()
+const effectiveAvailableBalance = computed(() => props.availableBalance ?? props.balance)
 
 const PLATFORM_LABELS: Record<string, string> = {
   anthropic: 'Claude',

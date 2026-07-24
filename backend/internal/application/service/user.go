@@ -20,11 +20,16 @@ type User struct {
 	Role           string
 	Balance        float64
 	FrozenBalance  float64
-	Concurrency    int
-	SchedulingTier RequestSchedulingTier
-	Status         string
-	AllowedGroups  []int64
-	TokenVersion   int64 // Incremented on password change to invalidate existing tokens
+	// AvailableBalance and PendingSettlement are transient wallet snapshot fields.
+	// Balance remains the persisted ledger balance for backward compatibility.
+	AvailableBalance  *float64
+	PendingSettlement *float64
+	BalanceSyncStatus string
+	Concurrency       int
+	SchedulingTier    RequestSchedulingTier
+	Status            string
+	AllowedGroups     []int64
+	TokenVersion      int64 // Incremented on password change to invalidate existing tokens
 	// TokenVersionResolved indicates TokenVersion already contains the fingerprint-derived
 	// value expected in JWT claims and refresh-token state.
 	TokenVersionResolved bool

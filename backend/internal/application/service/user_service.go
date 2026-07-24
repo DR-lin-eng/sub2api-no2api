@@ -262,7 +262,40 @@ func (s *UserService) GetProfile(ctx context.Context, userID int64) (*User, erro
 	if err := s.hydrateUserAvatar(ctx, user); err != nil {
 		return nil, fmt.Errorf("get user avatar: %w", err)
 	}
+	s.HydrateWalletSnapshot(ctx, user)
 	return user, nil
+}
+
+// HydrateWalletSnapshot attaches the Redis pending-billing view to a persisted user.
+// A failed Redis read is represented explicitly so clients do not label ledger balance
+// as immediately available balance.
+func (s *UserService) HydrateWalletSnapshot(ctx context.Context, user *User) {
+	if user == nil {
+		return
+	}
+	user.AvailableBalance = nil
+	user.PendingSettlement = nil
+	user.BalanceSyncStatus = ""
+	if s == nil || s.billingCache == nil {
+		return
+	}
+	reader, ok := s.billingCache.(BillingPendingUsageReader)
+	if !ok {
+		return
+	}
+	pending, err := reader.GetPendingUserBalanceCost(ctx, user.ID)
+	if err != nil {
+		user.BalanceSyncStatus = "unavailable"
+		slog.Warn("read wallet pending settlement failed", "user_id", user.ID, "error", err)
+		return
+	}
+	if pending < 0 {
+		pending = 0
+	}
+	available := user.Balance - pending
+	user.PendingSettlement = &pending
+	user.AvailableBalance = &available
+	user.BalanceSyncStatus = "synced"
 }
 
 func (s *UserService) GetProfileIdentitySummaries(ctx context.Context, userID int64, user *User) (UserIdentitySummarySet, error) {
@@ -980,6 +1013,7 @@ func (s *UserService) GetByID(ctx context.Context, id int64) (*User, error) {
 	if err := s.hydrateUserAvatar(ctx, user); err != nil {
 		return nil, fmt.Errorf("get user avatar: %w", err)
 	}
+	s.HydrateWalletSnapshot(ctx, user)
 	return user, nil
 }
 

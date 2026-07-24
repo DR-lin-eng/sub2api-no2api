@@ -325,10 +325,12 @@ export interface BatchApiKeyUsageStats {
   today_actual_cost: number
   total_actual_cost: number
   total_tokens: number
+  pending_actual_cost: number
 }
 
 export interface BatchApiKeysUsageResponse {
   stats: Record<string, BatchApiKeyUsageStats>
+  pending_usage_available?: boolean
 }
 
 /**

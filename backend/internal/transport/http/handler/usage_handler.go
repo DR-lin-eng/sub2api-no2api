@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -728,8 +729,28 @@ func (h *UsageHandler) DashboardAPIKeysUsage(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	if stats == nil {
+		stats = make(map[int64]*usagestats.BatchAPIKeyUsageStats, len(validAPIKeyIDs))
+	}
+	pendingCosts, pendingAvailable, pendingErr := h.apiKeyService.GetPendingUsageCosts(c.Request.Context(), validAPIKeyIDs)
+	if pendingErr != nil {
+		slog.Warn("read pending API key usage failed", "user_id", subject.UserID, "api_key_count", len(validAPIKeyIDs), "error", pendingErr)
+	}
+	for _, apiKeyID := range validAPIKeyIDs {
+		stat := stats[apiKeyID]
+		if stat == nil {
+			stat = &usagestats.BatchAPIKeyUsageStats{APIKeyID: apiKeyID}
+			stats[apiKeyID] = stat
+		}
+		if pendingAvailable {
+			stat.PendingActualCost = pendingCosts[apiKeyID]
+		}
+	}
 
-	response.Success(c, gin.H{"stats": stats})
+	response.Success(c, gin.H{
+		"stats":                   stats,
+		"pending_usage_available": pendingAvailable,
+	})
 }
 
 // GetMyAPIKeyDailyUsage handles getting daily usage details for the current user's API key.

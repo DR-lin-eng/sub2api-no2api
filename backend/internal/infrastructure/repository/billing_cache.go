@@ -455,6 +455,37 @@ func (c *billingCache) GetPendingAPIKeyRateLimitCost(ctx context.Context, apiKey
 	return redisFloatOrZero(ctx, c.rdb, usageBillingPendingAPIKeyRateLimitKey(apiKeyID))
 }
 
+func (c *billingCache) GetPendingAPIKeyUsageCosts(ctx context.Context, apiKeyIDs []int64) (map[int64]float64, error) {
+	result := make(map[int64]float64, len(apiKeyIDs))
+	if len(apiKeyIDs) == 0 {
+		return result, nil
+	}
+	keys := make([]string, len(apiKeyIDs))
+	for i, apiKeyID := range apiKeyIDs {
+		keys[i] = usageBillingPendingAPIKeyUsageKey(apiKeyID)
+		result[apiKeyID] = 0
+	}
+	values, err := c.rdb.MGet(ctx, keys...).Result()
+	if err != nil {
+		return nil, err
+	}
+	for i, value := range values {
+		if value == nil {
+			continue
+		}
+		raw, ok := value.(string)
+		if !ok {
+			return nil, fmt.Errorf("unexpected pending API key usage type %T", value)
+		}
+		parsed, err := strconv.ParseFloat(raw, 64)
+		if err != nil {
+			return nil, fmt.Errorf("parse pending API key usage: %w", err)
+		}
+		result[apiKeyIDs[i]] = parsed
+	}
+	return result, nil
+}
+
 func redisFloatOrZero(ctx context.Context, rdb *redis.Client, key string) (float64, error) {
 	value, err := rdb.Get(ctx, key).Float64()
 	if errors.Is(err, redis.Nil) {

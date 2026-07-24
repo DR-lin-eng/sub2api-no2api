@@ -188,18 +188,31 @@
           </template>
 
           <template #cell-usage="{ row }">
-            <div class="text-sm">
+            <div v-if="usageStatsLoading" class="text-xs text-gray-400 dark:text-dark-500">
+              {{ t('common.loading') }}
+            </div>
+            <div v-else-if="usageStatsError" class="text-xs font-medium text-red-500">
+              {{ t('keys.usageLoadFailed') }}
+            </div>
+            <div v-else class="text-sm">
               <div class="flex items-center gap-1.5">
                 <span class="text-gray-500 dark:text-gray-400">{{ t('keys.today') }}:</span>
                 <span class="font-medium text-gray-900 dark:text-white">
-                  ${{ (usageStats[row.id]?.today_actual_cost ?? 0).toFixed(4) }}
+                  ${{ usageCost(row.id, 'today_actual_cost').toFixed(4) }}
                 </span>
               </div>
               <div class="mt-0.5 flex items-center gap-1.5">
                 <span class="text-gray-500 dark:text-gray-400">{{ t('keys.total') }}:</span>
                 <span class="font-medium text-gray-900 dark:text-white">
-                  ${{ (usageStats[row.id]?.total_actual_cost ?? 0).toFixed(4) }}
+                  ${{ usageCost(row.id, 'total_actual_cost').toFixed(4) }}
                 </span>
+              </div>
+              <div v-if="pendingUsage(row.id) > 0" class="mt-0.5 flex items-center gap-1.5 text-xs text-orange-600 dark:text-orange-300">
+                <span>{{ t('keys.pendingSettlement') }}:</span>
+                <span class="font-medium">${{ pendingUsage(row.id).toFixed(4) }}</span>
+              </div>
+              <div v-else-if="!pendingUsageAvailable" class="mt-0.5 text-xs text-amber-600 dark:text-amber-300">
+                {{ t('keys.pendingUsageUnavailable') }}
               </div>
               <!-- Quota progress (if quota is set) -->
               <div v-if="row.quota > 0" class="mt-1.5">
@@ -207,22 +220,22 @@
                   <span class="text-gray-500 dark:text-gray-400">{{ t('keys.quota') }}:</span>
                   <span :class="[
                     'font-medium',
-                    row.quota_used >= row.quota ? 'text-red-500' :
-                    row.quota_used >= row.quota * 0.8 ? 'text-yellow-500' :
+                    quotaUsedWithPending(row) >= row.quota ? 'text-red-500' :
+                    quotaUsedWithPending(row) >= row.quota * 0.8 ? 'text-yellow-500' :
                     'text-gray-900 dark:text-white'
                   ]">
-                    ${{ row.quota_used?.toFixed(2) || '0.00' }} / ${{ row.quota?.toFixed(2) }}
+                    ${{ quotaUsedWithPending(row).toFixed(2) }} / ${{ row.quota?.toFixed(2) }}
                   </span>
                 </div>
                 <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-dark-600">
                   <div
                     :class="[
                       'h-full rounded-full transition-all',
-                      row.quota_used >= row.quota ? 'bg-red-500' :
-                      row.quota_used >= row.quota * 0.8 ? 'bg-yellow-500' :
+                      quotaUsedWithPending(row) >= row.quota ? 'bg-red-500' :
+                      quotaUsedWithPending(row) >= row.quota * 0.8 ? 'bg-yellow-500' :
                       'bg-primary-500'
                     ]"
-                    :style="{ width: Math.min((row.quota_used / row.quota) * 100, 100) + '%' }"
+                    :style="{ width: Math.min((quotaUsedWithPending(row) / row.quota) * 100, 100) + '%' }"
                   />
                 </div>
               </div>
@@ -1290,7 +1303,18 @@ const submitting = ref(false)
 const now = ref(new Date())
 let resetTimer: ReturnType<typeof setInterval> | null = null
 const usageStats = ref<Record<string, BatchApiKeyUsageStats>>({})
+const usageStatsLoading = ref(false)
+const usageStatsError = ref(false)
+const pendingUsageAvailable = ref(true)
 const userGroupRates = ref<Record<number, number>>({})
+
+const pendingUsage = (apiKeyId: number) => Number(usageStats.value[apiKeyId]?.pending_actual_cost ?? 0)
+const usageCost = (apiKeyId: number, field: 'today_actual_cost' | 'total_actual_cost') =>
+  Number(usageStats.value[apiKeyId]?.[field] ?? 0)
+const quotaUsedWithPending = (apiKey: ApiKey) => {
+  const settled = Number(apiKey.quota_used ?? 0)
+  return settled + (pendingUsageAvailable.value ? pendingUsage(apiKey.id) : 0)
+}
 
 const pagination = ref({
   page: 1,
@@ -1472,6 +1496,10 @@ const loadApiKeys = async () => {
   abortController = controller
   const { signal } = controller
   loading.value = true
+  usageStats.value = {}
+  usageStatsLoading.value = true
+  usageStatsError.value = false
+  pendingUsageAvailable.value = true
   try {
     // Build filters
     const filters: {
@@ -1502,9 +1530,11 @@ const loadApiKeys = async () => {
         const usageResponse = await usageAPI.getDashboardApiKeysUsage(keyIds, { signal })
         if (signal.aborted) return
         usageStats.value = usageResponse.stats
+        pendingUsageAvailable.value = usageResponse.pending_usage_available !== false
       } catch (e) {
         if (!isAbortError(e)) {
           console.error('Failed to load usage stats:', e)
+          usageStatsError.value = true
         }
       }
     }
@@ -1516,6 +1546,7 @@ const loadApiKeys = async () => {
   } finally {
     if (abortController === controller) {
       loading.value = false
+      usageStatsLoading.value = false
     }
   }
 }

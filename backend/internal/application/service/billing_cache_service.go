@@ -181,6 +181,17 @@ func (s *BillingCacheService) Stop() {
 	})
 }
 
+func (s *BillingCacheService) GetPendingAPIKeyUsageCosts(ctx context.Context, apiKeyIDs []int64) (map[int64]float64, error) {
+	if s == nil || s.cache == nil {
+		return nil, errBillingCacheUnavailable
+	}
+	reader, ok := s.cache.(BillingPendingAPIKeyUsageReader)
+	if !ok {
+		return nil, errBillingCacheUnavailable
+	}
+	return reader.GetPendingAPIKeyUsageCosts(ctx, apiKeyIDs)
+}
+
 func (s *BillingCacheService) startCacheWriteWorkers() {
 	ch := make(chan cacheWriteTask, cacheWriteBufferSize)
 	s.cacheWriteChan = ch

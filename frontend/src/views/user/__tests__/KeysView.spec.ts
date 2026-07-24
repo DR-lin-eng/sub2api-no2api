@@ -35,6 +35,7 @@ const messages: Record<string, string> = {
   'common.actions': 'Actions',
   'common.edit': 'Edit',
   'common.name': 'Name',
+  'common.loading': 'Loading...',
   'common.refresh': 'Refresh',
   'common.status': 'Status',
   'keys.apiKey': 'API Key',
@@ -56,6 +57,11 @@ const messages: Record<string, string> = {
   'keys.status.inactive': 'Inactive',
   'keys.status.quota_exhausted': 'Quota exhausted',
   'keys.usage': 'Usage',
+  'keys.today': 'Today',
+  'keys.total': 'Last 30d',
+  'keys.pendingSettlement': 'Of which pending',
+  'keys.pendingUsageUnavailable': 'Pending usage syncing',
+  'keys.usageLoadFailed': 'Usage unavailable',
 }
 
 vi.mock('@/api', () => ({
@@ -176,6 +182,9 @@ const DataTableStub = {
         <slot name="cell-name" :value="row.name" :row="row" />
         <div data-test="current-concurrency">
           <slot name="cell-current_concurrency" :value="row.current_concurrency" :row="row" />
+        </div>
+        <div data-test="usage">
+          <slot name="cell-usage" :row="row" />
         </div>
         <div
           v-if="columns.some((col) => col.key === 'last_used_ip')"
@@ -406,6 +415,61 @@ describe('user KeysView column settings', () => {
     const wrapper = await mountView()
 
     expect(wrapper.get('[data-test="current-concurrency"]').text()).toBe('3')
+  })
+
+  it('shows pending settlement separately without double-counting usage logs', async () => {
+    getDashboardApiKeysUsage.mockResolvedValueOnce({
+      pending_usage_available: true,
+      stats: {
+        1: {
+          api_key_id: 1,
+          today_actual_cost: 1.1,
+          total_actual_cost: 2.2,
+          total_tokens: 10,
+          pending_actual_cost: 0.3,
+        },
+      },
+    })
+
+    const wrapper = await mountView()
+    const usage = wrapper.get('[data-test="usage"]').text()
+    expect(usage).toContain('$1.1000')
+    expect(usage).toContain('$2.2000')
+    expect(usage).toContain('Of which pending:$0.3000')
+  })
+
+  it('shows a usage error instead of fabricated zero values', async () => {
+    getDashboardApiKeysUsage.mockRejectedValueOnce(new Error('stats timed out'))
+
+    const wrapper = await mountView()
+    const usage = wrapper.get('[data-test="usage"]').text()
+    expect(usage).toContain('Usage unavailable')
+    expect(usage).not.toContain('$0.0000')
+  })
+
+  it('shows loading state instead of zero before usage stats resolve', async () => {
+    let resolveUsage!: (value: { stats: Record<string, never> }) => void
+    getDashboardApiKeysUsage.mockReturnValueOnce(new Promise((resolve) => {
+      resolveUsage = resolve
+    }))
+
+    const wrapper = await mountView()
+    const usage = wrapper.get('[data-test="usage"]').text()
+    expect(usage).toContain('Loading...')
+    expect(usage).not.toContain('$0.0000')
+
+    resolveUsage({ stats: {} })
+    await flushPromises()
+  })
+
+  it('marks pending usage as syncing when Redis overlay is unavailable', async () => {
+    getDashboardApiKeysUsage.mockResolvedValueOnce({
+      pending_usage_available: false,
+      stats: {},
+    })
+
+    const wrapper = await mountView()
+    expect(wrapper.get('[data-test="usage"]').text()).toContain('Pending usage syncing')
   })
 
   it('marks current concurrency as sortable', async () => {
