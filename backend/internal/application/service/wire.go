@@ -751,7 +751,7 @@ func ProvideOpsIngressRejectAggregator(opsRepo OpsRepository, opsService *OpsSer
 }
 
 // ProvideSettingService wires SettingService with group reader and proxy repo.
-func ProvideSettingService(settingRepo SettingRepository, groupRepo GroupRepository, proxyRepo ProxyRepository, schedulerSnapshot *SchedulerSnapshotService, redisClient *redis.Client, cfg *config.Config) *SettingService {
+func ProvideSettingService(settingRepo SettingRepository, groupRepo GroupRepository, proxyRepo ProxyRepository, schedulerSnapshot *SchedulerSnapshotService, notifier RequestPriorityAdmissionSettingsNotifier, cfg *config.Config) *SettingService {
 	svc := NewSettingService(settingRepo, cfg)
 	svc.SetDefaultSubscriptionGroupReader(groupRepo)
 	svc.SetProxyRepository(proxyRepo)
@@ -765,7 +765,7 @@ func ProvideSettingService(settingRepo SettingRepository, groupRepo GroupReposit
 	if err := svc.LoadRequestPriorityAdmissionSettings(context.Background()); err != nil {
 		logger.LegacyPrintf("service.setting", "Warning: load request priority admission settings failed: %v", err)
 	}
-	svc.StartRequestPriorityAdmissionSettingsSync(context.Background(), redisClient)
+	svc.StartRequestPriorityAdmissionSettingsSync(context.Background(), notifier)
 	if err := svc.MigrateOpenAIAllowClaudeCodeCodexPluginSetting(context.Background()); err != nil {
 		logger.LegacyPrintf("service.setting", "Warning: migrate openai allow Claude Code Codex plugin setting failed: %v", err)
 	}

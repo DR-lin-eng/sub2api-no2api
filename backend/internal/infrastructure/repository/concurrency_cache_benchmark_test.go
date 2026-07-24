@@ -23,7 +23,7 @@ func BenchmarkAccountConcurrency(b *testing.B) {
 		_ = rdb.Close()
 	}()
 
-	cache, _ := NewConcurrencyCache(rdb, benchSlotTTLMinutes, int(benchSlotTTL.Seconds())).(*concurrencyCache)
+	cache := newBenchmarkConcurrencyCache(b, rdb)
 	ctx := context.Background()
 
 	for _, size := range []int{10, 100, 1000} {
@@ -97,7 +97,7 @@ func BenchmarkAccountConcurrency(b *testing.B) {
 func BenchmarkPriorityAdmissionAccountFastPath(b *testing.B) {
 	rdb := newBenchmarkRedisClient(b)
 	defer func() { _ = rdb.Close() }()
-	cache := NewConcurrencyCache(rdb, benchSlotTTLMinutes, int(benchSlotTTL.Seconds())).(*concurrencyCache)
+	cache := newBenchmarkConcurrencyCache(b, rdb)
 	ctx := context.Background()
 	request := service.PriorityAccountAdmissionRequest{
 		AccountID:      time.Now().UnixNano(),
@@ -161,4 +161,13 @@ func newBenchmarkRedisClient(b *testing.B) *redis.Client {
 	}
 
 	return client
+}
+
+func newBenchmarkConcurrencyCache(b *testing.B, redisClient *redis.Client) *concurrencyCache {
+	b.Helper()
+	cache, ok := NewConcurrencyCache(redisClient, benchSlotTTLMinutes, int(benchSlotTTL.Seconds())).(*concurrencyCache)
+	if !ok {
+		b.Fatal("unexpected concurrency cache implementation")
+	}
+	return cache
 }

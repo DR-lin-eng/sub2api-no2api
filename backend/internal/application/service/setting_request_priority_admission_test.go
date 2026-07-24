@@ -8,14 +8,68 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
-	"github.com/alicebob/miniredis/v2"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
 
 type requestPrioritySettingRepo struct {
 	mu     sync.RWMutex
 	values map[string]string
+}
+
+type requestPrioritySettingsNotifier struct {
+	mu            sync.Mutex
+	subscriptions map[*requestPrioritySettingsSubscription]struct{}
+}
+
+type requestPrioritySettingsSubscription struct {
+	notifier *requestPrioritySettingsNotifier
+	messages chan struct{}
+}
+
+func newRequestPrioritySettingsNotifier() *requestPrioritySettingsNotifier {
+	return &requestPrioritySettingsNotifier{
+		subscriptions: make(map[*requestPrioritySettingsSubscription]struct{}),
+	}
+}
+
+func (n *requestPrioritySettingsNotifier) Subscribe(context.Context) RequestPriorityAdmissionSettingsSubscription {
+	subscription := &requestPrioritySettingsSubscription{
+		notifier: n,
+		messages: make(chan struct{}, 1),
+	}
+	n.mu.Lock()
+	n.subscriptions[subscription] = struct{}{}
+	n.mu.Unlock()
+	return subscription
+}
+
+func (n *requestPrioritySettingsNotifier) Publish(context.Context) error {
+	n.mu.Lock()
+	for subscription := range n.subscriptions {
+		select {
+		case subscription.messages <- struct{}{}:
+		default:
+		}
+	}
+	n.mu.Unlock()
+	return nil
+}
+
+func (n *requestPrioritySettingsNotifier) subscriberCount() int {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return len(n.subscriptions)
+}
+
+func (s *requestPrioritySettingsSubscription) Messages() <-chan struct{} {
+	return s.messages
+}
+
+func (s *requestPrioritySettingsSubscription) Close() error {
+	s.notifier.mu.Lock()
+	delete(s.notifier.subscriptions, s)
+	s.notifier.mu.Unlock()
+	return nil
 }
 
 func newRequestPrioritySettingRepo() *requestPrioritySettingRepo {
@@ -146,21 +200,19 @@ func TestRequestPriorityAdmissionSettingsPubSubAndPeriodicReconcile(t *testing.T
 	repo := newRequestPrioritySettingRepo()
 	setRequestPriorityRepoValues(repo, false, 256, 256)
 
-	redisServer := miniredis.RunT(t)
-	redisClient := redis.NewClient(&redis.Options{Addr: redisServer.Addr()})
-	t.Cleanup(func() { _ = redisClient.Close() })
+	notifier := newRequestPrioritySettingsNotifier()
 
 	first := NewSettingService(repo, &config.Config{})
 	second := NewSettingService(repo, &config.Config{})
 	require.NoError(t, first.LoadRequestPriorityAdmissionSettings(context.Background()))
 	require.NoError(t, second.LoadRequestPriorityAdmissionSettings(context.Background()))
-	first.startRequestPriorityAdmissionSettingsSync(context.Background(), redisClient, time.Hour)
-	second.startRequestPriorityAdmissionSettingsSync(context.Background(), redisClient, time.Hour)
+	first.startRequestPriorityAdmissionSettingsSync(context.Background(), notifier, time.Hour)
+	second.startRequestPriorityAdmissionSettingsSync(context.Background(), notifier, time.Hour)
 	t.Cleanup(first.StopRequestPriorityAdmissionSettingsSync)
 	t.Cleanup(second.StopRequestPriorityAdmissionSettingsSync)
 
 	waitForRequestPrioritySettings(t, func() bool {
-		return redisClient.PubSubNumSub(context.Background(), requestPriorityAdmissionSettingsChannel).Val()[requestPriorityAdmissionSettingsChannel] == 2
+		return notifier.subscriberCount() == 2
 	})
 	setRequestPriorityRepoValues(repo, true, 400, 320)
 	first.publishRequestPriorityAdmissionSettingsUpdate(context.Background())

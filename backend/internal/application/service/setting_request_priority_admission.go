@@ -7,21 +7,29 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
-	"github.com/redis/go-redis/v9"
 )
 
 const (
 	DefaultRequestPriorityPendingLimitPerInstance = 256
 	DefaultRequestPriorityPendingMiBPerInstance   = 256
-	requestPriorityAdmissionSettingsChannel       = "settings:request_priority_admission:updated:v1"
 	requestPriorityAdmissionReconcileInterval     = 30 * time.Second
 	requestPriorityAdmissionReloadTimeout         = 5 * time.Second
 )
 
+type RequestPriorityAdmissionSettingsSubscription interface {
+	Messages() <-chan struct{}
+	Close() error
+}
+
+type RequestPriorityAdmissionSettingsNotifier interface {
+	Subscribe(ctx context.Context) RequestPriorityAdmissionSettingsSubscription
+	Publish(ctx context.Context) error
+}
+
 type requestPriorityAdmissionSyncState struct {
-	redis  *redis.Client
-	cancel context.CancelFunc
-	done   chan struct{}
+	notifier RequestPriorityAdmissionSettingsNotifier
+	cancel   context.CancelFunc
+	done     chan struct{}
 }
 
 // RequestPriorityAdmissionSettings is an immutable snapshot read by the
@@ -119,11 +127,11 @@ func (s *SettingService) storeRequestPriorityAdmissionSettings(settings RequestP
 // StartRequestPriorityAdmissionSettingsSync subscribes to cross-instance
 // invalidations and periodically reconciles with the database in case a
 // Pub/Sub message is missed. Neither path is used by request processing.
-func (s *SettingService) StartRequestPriorityAdmissionSettingsSync(ctx context.Context, redisClient *redis.Client) {
-	s.startRequestPriorityAdmissionSettingsSync(ctx, redisClient, requestPriorityAdmissionReconcileInterval)
+func (s *SettingService) StartRequestPriorityAdmissionSettingsSync(ctx context.Context, notifier RequestPriorityAdmissionSettingsNotifier) {
+	s.startRequestPriorityAdmissionSettingsSync(ctx, notifier, requestPriorityAdmissionReconcileInterval)
 }
 
-func (s *SettingService) startRequestPriorityAdmissionSettingsSync(ctx context.Context, redisClient *redis.Client, reconcileInterval time.Duration) {
+func (s *SettingService) startRequestPriorityAdmissionSettingsSync(ctx context.Context, notifier RequestPriorityAdmissionSettingsNotifier, reconcileInterval time.Duration) {
 	if s == nil {
 		return
 	}
@@ -137,9 +145,9 @@ func (s *SettingService) startRequestPriorityAdmissionSettingsSync(ctx context.C
 
 	syncCtx, cancel := context.WithCancel(ctx)
 	state := &requestPriorityAdmissionSyncState{
-		redis:  redisClient,
-		cancel: cancel,
-		done:   make(chan struct{}),
+		notifier: notifier,
+		cancel:   cancel,
+		done:     make(chan struct{}),
 	}
 	s.requestPriorityAdmissionSyncMu.Lock()
 	s.requestPriorityAdmissionSync = state
@@ -153,14 +161,13 @@ func (s *SettingService) runRequestPriorityAdmissionSettingsSync(ctx context.Con
 	ticker := time.NewTicker(reconcileInterval)
 	defer ticker.Stop()
 
-	var (
-		messages     <-chan *redis.Message
-		subscription *redis.PubSub
-	)
-	if state.redis != nil {
-		subscription = state.redis.Subscribe(ctx, requestPriorityAdmissionSettingsChannel)
-		messages = subscription.Channel()
-		defer func() { _ = subscription.Close() }()
+	var messages <-chan struct{}
+	if state.notifier != nil {
+		subscription := state.notifier.Subscribe(ctx)
+		if subscription != nil {
+			messages = subscription.Messages()
+			defer func() { _ = subscription.Close() }()
+		}
 	}
 
 	reload := func() {
@@ -214,18 +221,18 @@ func (s *SettingService) publishRequestPriorityAdmissionSettingsUpdate(ctx conte
 	}
 	s.requestPriorityAdmissionSyncMu.Lock()
 	state := s.requestPriorityAdmissionSync
-	var redisClient *redis.Client
+	var notifier RequestPriorityAdmissionSettingsNotifier
 	if state != nil {
-		redisClient = state.redis
+		notifier = state.notifier
 	}
 	s.requestPriorityAdmissionSyncMu.Unlock()
-	if redisClient == nil {
+	if notifier == nil {
 		return
 	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if err := redisClient.Publish(ctx, requestPriorityAdmissionSettingsChannel, "refresh").Err(); err != nil {
+	if err := notifier.Publish(ctx); err != nil {
 		logger.LegacyPrintf("service.setting", "Warning: publish request priority admission settings update failed: %v", err)
 	}
 }
