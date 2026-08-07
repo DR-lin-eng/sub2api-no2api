@@ -170,6 +170,7 @@ export function createSettingsForm(localText: LocalText): SettingsForm {
     tencent_captcha_cloud_secret_id_configured: false,
     tencent_captcha_cloud_secret_key: "",
     tencent_captcha_cloud_secret_key_configured: false,
+    tencent_captcha_region: "cn",
     aliyun_captcha_enabled: false,
     aliyun_captcha_access_key_id: "",
     aliyun_captcha_access_key_secret: "",

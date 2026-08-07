@@ -259,6 +259,7 @@ describe("settings save payload", () => {
     form.tencent_captcha_app_secret_key = "app-secret";
     form.tencent_captcha_cloud_secret_id = "cloud-id";
     form.tencent_captcha_cloud_secret_key = "";
+    form.tencent_captcha_region = "intl";
 
     const payload = buildSettingsSavePayload({
       form,
@@ -282,6 +283,7 @@ describe("settings save payload", () => {
       tencent_captcha_app_secret_key: "app-secret",
       tencent_captcha_cloud_secret_id: "cloud-id",
       tencent_captcha_cloud_secret_key: undefined,
+      tencent_captcha_region: "intl",
     });
   });
 

@@ -127,6 +127,7 @@ function buildIdentitySettingsPayload({
       form.tencent_captcha_cloud_secret_id || undefined,
     tencent_captcha_cloud_secret_key:
       form.tencent_captcha_cloud_secret_key || undefined,
+    tencent_captcha_region: form.tencent_captcha_region,
     aliyun_captcha_enabled: form.aliyun_captcha_enabled,
     aliyun_captcha_access_key_id: form.aliyun_captcha_access_key_id,
     aliyun_captcha_access_key_secret:

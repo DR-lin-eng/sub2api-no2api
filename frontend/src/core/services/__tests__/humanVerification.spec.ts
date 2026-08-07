@@ -65,21 +65,37 @@ describe('resolveHumanVerification', () => {
       aliyunRegion: 'sgp'
     })
   })
+
+  it('normalizes the Tencent service site and defaults legacy settings to China', () => {
+    expect(resolveHumanVerification(settings({
+      tencent_captcha_enabled: true,
+      tencent_captcha_app_id: '123456789',
+      tencent_captcha_region: 'INTL'
+    })).tencentRegion).toBe('intl')
+    expect(resolveHumanVerification(settings({
+      tencent_captcha_enabled: true,
+      tencent_captcha_app_id: '123456789'
+    })).tencentRegion).toBe('cn')
+  })
 })
 
 describe('loadTencentCaptcha', () => {
   const scriptSelector = 'script[src="https://turing.captcha.qcloud.com/TJCaptcha.js"]'
+  const internationalScriptSelector =
+    'script[src="https://ca.turing.captcha.qcloud.com/TJNCaptcha-global.js"]'
 
   beforeEach(() => {
     resetTencentCaptchaLoaderForTest()
     delete window.TencentCaptcha
-    document.querySelectorAll(scriptSelector).forEach(element => element.remove())
+    delete window.TCaptchaGlobal
+    document.querySelectorAll(`${scriptSelector}, ${internationalScriptSelector}`).forEach(element => element.remove())
   })
 
   afterEach(() => {
     resetTencentCaptchaLoaderForTest()
     delete window.TencentCaptcha
-    document.querySelectorAll(scriptSelector).forEach(element => element.remove())
+    delete window.TCaptchaGlobal
+    document.querySelectorAll(`${scriptSelector}, ${internationalScriptSelector}`).forEach(element => element.remove())
   })
 
   it('singleflights concurrent SDK loads', async () => {
@@ -108,6 +124,22 @@ describe('loadTencentCaptcha', () => {
     const second = loadTencentCaptcha()
     expect(second).not.toBe(first)
     expect(document.querySelectorAll(scriptSelector)).toHaveLength(1)
+  })
+
+  it('loads the international SDK only for an international app', async () => {
+    const pending = loadTencentCaptcha('intl')
+    expect(document.querySelectorAll(internationalScriptSelector)).toHaveLength(1)
+    expect(document.querySelectorAll(scriptSelector)).toHaveLength(0)
+
+    class TencentCaptchaMock {
+      show() {}
+      destroy() {}
+    }
+    window.TCaptchaGlobal = true
+    window.TencentCaptcha = TencentCaptchaMock as unknown as TencentCaptchaConstructor
+    document.querySelector<HTMLScriptElement>(internationalScriptSelector)?.dispatchEvent(new Event('load'))
+
+    await expect(pending).resolves.toBe(window.TencentCaptcha)
   })
 })
 

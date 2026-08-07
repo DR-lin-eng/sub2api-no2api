@@ -255,6 +255,7 @@ export interface PublicSettings {
   cap_api_endpoint: string
   tencent_captcha_enabled?: boolean
   tencent_captcha_app_id?: string
+  tencent_captcha_region?: 'cn' | 'intl' | string
   aliyun_captcha_enabled?: boolean
   aliyun_captcha_scene_id?: string
   aliyun_captcha_prefix?: string

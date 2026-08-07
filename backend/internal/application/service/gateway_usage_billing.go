@@ -240,7 +240,7 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 	}
 
 	cmd := &UsageBillingCommand{
-		RequestID:          requestID,
+		RequestID:          strings.TrimSpace(requestID),
 		APIKeyID:           p.APIKey.ID,
 		UserID:             p.User.ID,
 		AccountID:          p.Account.ID,
@@ -291,7 +291,6 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 		cmd.AccountQuotaCost = p.Cost.TotalCost * p.AccountRateMultiplier
 	}
 
-	cmd.Normalize()
 	return cmd
 }
 
@@ -309,10 +308,11 @@ func applyUsageBilling(ctx context.Context, requestID string, usageLog *UsageLog
 		deps.billingCacheService.HasUserPlatformQuotaLimit(ctx, p.User.ID, p.Platform) {
 		cmd.QuotaPlatform = p.Platform
 		cmd.UserPlatformQuotaCost = p.Cost.ActualCost
-		cmd.RequestFingerprint = ""
-		cmd.Normalize()
 		p.DurablePlatformQuota = true
 	}
+	// Populate every optional quota field before normalization so the idempotency
+	// fingerprint remains derived from the pre-quantized values across upgrades.
+	cmd.Normalize()
 
 	billingCtx, cancel := detachedBillingContext(ctx)
 	defer cancel()
@@ -1081,6 +1081,16 @@ func (s *GatewayService) buildRecordUsageLog(
 ) *UsageLog {
 	durationMs := int(result.Duration.Milliseconds())
 	requestID := resolveUsageBillingRequestID(ctx, result.RequestID)
+	sentModel := upstreamSentModel(result.Model, result.UpstreamModel)
+	if result.UpstreamResponseModelConflict {
+		slog.Warn("upstream_response_model_conflict",
+			"platform", account.Platform,
+			"account_id", account.ID,
+			"request_id", requestID,
+			"sent_model", sentModel,
+			"selected_response_model", strings.TrimSpace(result.UpstreamResponseModel),
+		)
+	}
 	usageLog := &UsageLog{
 		UserID:                user.ID,
 		APIKeyID:              apiKey.ID,
@@ -1089,6 +1099,8 @@ func (s *GatewayService) buildRecordUsageLog(
 		Model:                 result.Model,
 		RequestedModel:        requestedModel,
 		UpstreamModel:         optionalUsageUpstreamModel(result.UpstreamModel, result.Model, requestedModel),
+		UpstreamResponseModel: optionalTrimmedStringPtr(result.UpstreamResponseModel),
+		UpstreamModelMismatch: upstreamModelMismatch(sentModel, result.UpstreamResponseModel),
 		ReasoningEffort:       result.ReasoningEffort,
 		InboundEndpoint:       optionalTrimmedStringPtr(input.InboundEndpoint),
 		UpstreamEndpoint:      optionalTrimmedStringPtr(input.UpstreamEndpoint),

@@ -1216,6 +1216,23 @@ func TestForwardGrokMediaVideoGenerationReturnsUsageAndResponseID(t *testing.T) 
 	require.Equal(t, 10, result.VideoDurationSeconds)
 }
 
+func TestExtractGrokMediaVideoRequestIDSupportsTaskIDFallbacks(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		body string
+		want string
+	}{
+		{name: "root", body: `{"task_id":"task-root"}`, want: "task-root"},
+		{name: "data", body: `{"data":{"task_id":"task-data"}}`, want: "task-data"},
+		{name: "video", body: `{"video":{"task_id":"task-video"}}`, want: "task-video"},
+		{name: "existing precedence", body: `{"request_id":"request-id","id":"id","task_id":"task-id"}`, want: "request-id"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, extractGrokMediaVideoRequestID([]byte(tc.body)))
+		})
+	}
+}
+
 func TestForwardGrokMediaVideoGenerationPreservesImageToVideoModel(t *testing.T) {
 	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
 	gin.SetMode(gin.TestMode)

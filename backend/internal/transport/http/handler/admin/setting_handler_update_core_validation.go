@@ -177,6 +177,11 @@ func (h *SettingHandler) validateCoreSettingsUpdate(c *gin.Context, prepared *pr
 		}
 	}
 
+	if strings.EqualFold(strings.TrimSpace(req.TencentCaptchaRegion), service.TencentCaptchaRegionINTL) {
+		req.TencentCaptchaRegion = service.TencentCaptchaRegionINTL
+	} else {
+		req.TencentCaptchaRegion = service.TencentCaptchaRegionCN
+	}
 	if tencentCaptchaEnabled {
 		req.TencentCaptchaAppID = strings.TrimSpace(req.TencentCaptchaAppID)
 		appID, err := strconv.ParseUint(req.TencentCaptchaAppID, 10, 64)

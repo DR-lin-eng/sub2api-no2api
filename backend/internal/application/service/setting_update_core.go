@@ -78,6 +78,7 @@ func writeAccessSystemSettingUpdates(updates map[string]string, settings *System
 	if settings.TencentCaptchaCloudSecretKey != "" {
 		updates[SettingKeyTencentCaptchaCloudSecretKey] = settings.TencentCaptchaCloudSecretKey
 	}
+	updates[SettingKeyTencentCaptchaRegion] = normalizeTencentCaptchaRegion(settings.TencentCaptchaRegion)
 	updates[SettingKeyAliyunCaptchaEnabled] = strconv.FormatBool(settings.AliyunCaptchaEnabled)
 	if settings.AliyunCaptchaAccessKeyID != "" {
 		updates[SettingKeyAliyunCaptchaAccessKeyID] = strings.TrimSpace(settings.AliyunCaptchaAccessKeyID)

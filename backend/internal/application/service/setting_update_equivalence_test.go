@@ -93,13 +93,14 @@ func TestBuildSystemSettingsUpdatesGolden(t *testing.T) {
 	updates, err := svc.buildSystemSettingsUpdates(context.Background(), settings)
 	require.NoError(t, err)
 
-	require.Equal(t, 220, len(updates), "system setting key count")
-	require.Equal(t, "0afc06f3e1429aaea3b6a53b9e25bce6a5e936fb8728ffca1501f5fee8c2fa8d", digestSystemSettingUpdates(t, updates), "system setting digest")
+	require.Equal(t, 221, len(updates), "system setting key count")
+	require.Equal(t, "8455e720c6950e6a9c52026c0f631e87cf80247e0b6c9cfeb7f64d5898bcf363", digestSystemSettingUpdates(t, updates), "system setting digest")
 	require.Equal(t, []string{"@example.com", "*.edu.cn"}, settings.RegistrationEmailSuffixWhitelist)
 	require.Equal(t, clientip.ResolutionModeTrustedProxy, settings.ClientIPResolutionMode)
 	require.Equal(t, []string{"192.0.2.7/32", "2001:db8::/32"}, settings.ClientIPTrustedProxies)
 	require.Equal(t, "open-app", settings.WeChatConnectOpenAppID)
 	require.Equal(t, "open-secret", settings.WeChatConnectOpenAppSecret)
+	require.Equal(t, TencentCaptchaRegionCN, settings.TencentCaptchaRegion)
 	require.Equal(t, "3", settings.OpenAIAdvancedSchedulerLBTopK)
 }
 

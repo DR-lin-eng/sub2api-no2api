@@ -49,6 +49,7 @@ type UpdateSettingsRequest struct {
 	TencentCaptchaAppSecretKey   string `json:"tencent_captcha_app_secret_key"`
 	TencentCaptchaCloudSecretID  string `json:"tencent_captcha_cloud_secret_id"`
 	TencentCaptchaCloudSecretKey string `json:"tencent_captcha_cloud_secret_key"`
+	TencentCaptchaRegion         string `json:"tencent_captcha_region"`
 	AliyunCaptchaEnabled         *bool  `json:"aliyun_captcha_enabled"`
 	AliyunCaptchaAccessKeyID     string `json:"aliyun_captcha_access_key_id"`
 	AliyunCaptchaAccessKeySecret string `json:"aliyun_captcha_access_key_secret"`

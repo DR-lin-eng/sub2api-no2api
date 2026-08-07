@@ -46,6 +46,10 @@ func (s *OpenAIGatewayService) handleStreamingResponse(ctx context.Context, resp
 }
 
 func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.Context, resp *http.Response, c *gin.Context, account *Account, startTime time.Time, originalModel, mappedModel, reasoningEffort string) (*openaiStreamingResult, error) {
+	observer := upstreamResponseModelObserverFromContext(c)
+	if observer == nil {
+		observer = beginUpstreamResponseModelObservation(c)
+	}
 	firstOutputTimeout := time.Duration(0)
 	if account != nil && account.Platform == PlatformOpenAI {
 		firstOutputTimeout = s.openAIFirstOutputTimeout(reasoningEffort)
@@ -413,6 +417,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			trimmedData := strings.TrimSpace(data)
 			eventTypeRaw := gjson.GetBytes(dataBytes, "type").String()
 			eventType := strings.TrimSpace(eventTypeRaw)
+			observer.ObserveOpenAI(dataBytes, eventTypeRaw)
 			if openAIStreamDataSignalsOutputProgressTrimmed(trimmedData, eventType) {
 				sawOutputProgressEvent = true
 			}
@@ -1161,6 +1166,15 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
 	if err != nil {
 		return nil, err
 	}
+	observer := upstreamResponseModelObserverFromContext(c)
+	if observer == nil {
+		observer = beginUpstreamResponseModelObservation(c)
+	}
+	if bodyHasSSEFraming(body) {
+		observeOpenAISSEBody(observer, string(body))
+	} else {
+		observer.ObserveOpenAI(body, strings.TrimSpace(gjson.GetBytes(body, "type").String()))
+	}
 
 	// Detect SSE responses for ALL account types via Content-Type header.
 	// Some OpenAI-compatible upstreams (including other sub2api instances)
@@ -1550,15 +1564,25 @@ func sanitizeOpenAIResponseFailedEventForClient(payload []byte, eventType string
 		return payload, false
 	}
 	updated := payload
+	capacityShed := isOpenAIUpstreamCapacityShedEvent(payload)
+	if capacityShed {
+		if rewritten, changed := sanitizeOpenAICapacityShedErrorCodeForClient(updated); changed {
+			updated = rewritten
+		}
+	}
 	message := extractOpenAISSEErrorMessage(payload)
 	if clientOutputStarted && openAIStreamFailureIsExplicitlyRetryable(payload, message) {
 		errorPath := "error"
 		if gjson.GetBytes(updated, "response.error").Exists() {
 			errorPath = "response.error"
 		}
+		code := "upstream_unavailable"
+		if capacityShed {
+			code = openAICapacityShedRetryableClientCode
+		}
 		for path, value := range map[string]string{
 			errorPath + ".type":    "upstream_error",
-			errorPath + ".code":    "upstream_unavailable",
+			errorPath + ".code":    code,
 			errorPath + ".message": openAIReplayUnsafeTransientFailureMessage,
 		} {
 			next, err := sjson.SetBytes(updated, path, value)

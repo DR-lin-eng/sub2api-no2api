@@ -1052,6 +1052,35 @@ describe("admin SettingsView payment visible method controls", () => {
     });
   });
 
+  it("renders and saves the Tencent Captcha service site", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await openSecurityTab(wrapper);
+
+    const protectionCard = wrapper
+      .findAll(".card")
+      .find((node) => node.text().includes("admin.settings.turnstile.title"));
+    expect(protectionCard).toBeDefined();
+
+    const providerToggles = protectionCard!.findAll("input.toggle-stub");
+    await providerToggles[3]!.setValue(true);
+    expect(wrapper.get('[data-testid="tencent-captcha-settings"]').exists()).toBe(true);
+
+    await wrapper.get('[data-testid="tencent-captcha-region"]').setValue("intl");
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(updateSettings.mock.calls.at(-1)?.[0]).toMatchObject({
+      tencent_captcha_enabled: true,
+      tencent_captcha_region: "intl",
+      turnstile_enabled: false,
+      recaptcha_enabled: false,
+      cap_enabled: false,
+      aliyun_captcha_enabled: false,
+      local_captcha_enabled: false,
+    });
+  });
+
   it("mounts panel rate limit settings only after opening the security tab", async () => {
     const wrapper = mountView();
     await flushPromises();

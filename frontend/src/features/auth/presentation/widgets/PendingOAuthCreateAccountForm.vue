@@ -22,6 +22,7 @@
         :provider="humanVerificationProvider"
         :site-key="turnstileSiteKey"
         :api-endpoint="humanVerificationAPIEndpoint"
+        :tencent-region="tencentCaptchaRegion"
         :aliyun-scene-id="aliyunCaptchaSceneId"
         :aliyun-prefix="aliyunCaptchaPrefix"
         :aliyun-region="aliyunCaptchaRegion"
@@ -111,6 +112,7 @@ import {
   resolveHumanVerification,
   type AliyunCaptchaRegion,
   type ExternalHumanVerificationProvider,
+  type TencentCaptchaRegion,
   type TencentCaptchaProof
 } from '@/core/services/humanVerification'
 
@@ -155,6 +157,7 @@ const turnstileEnabled = ref(false)
 const turnstileSiteKey = ref('')
 const humanVerificationProvider = ref<ExternalHumanVerificationProvider>('turnstile')
 const humanVerificationAPIEndpoint = ref('')
+const tencentCaptchaRegion = ref<TencentCaptchaRegion>('cn')
 const aliyunCaptchaSceneId = ref('')
 const aliyunCaptchaPrefix = ref('')
 const aliyunCaptchaRegion = ref<AliyunCaptchaRegion>('cn')
@@ -377,6 +380,7 @@ onMounted(async () => {
     turnstileSiteKey.value = verification.siteKey
     humanVerificationAPIEndpoint.value = verification.apiEndpoint
     humanVerificationProvider.value = verification.externalProvider
+    tencentCaptchaRegion.value = verification.tencentRegion
     aliyunCaptchaSceneId.value = verification.aliyunSceneId
     aliyunCaptchaPrefix.value = verification.aliyunPrefix
     aliyunCaptchaRegion.value = verification.aliyunRegion
@@ -387,6 +391,7 @@ onMounted(async () => {
     turnstileEnabled.value = false
     turnstileSiteKey.value = ''
     humanVerificationAPIEndpoint.value = ''
+    tencentCaptchaRegion.value = 'cn'
     aliyunCaptchaSceneId.value = ''
     aliyunCaptchaPrefix.value = ''
     aliyunCaptchaRegion.value = 'cn'

@@ -6,10 +6,13 @@ import Select from '@/common/widgets/forms/Select.vue'
 import OpsErrorLogTable from './OpsErrorLogTable.vue'
 import { opsAPI, type OpsErrorLog } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
 import { formatCompactNumber, formatExactNumber } from '../opsFormatter'
+import { buildOpsErrorTimeParams } from '../opsErrorParams'
 
 interface Props {
   show: boolean
   timeRange: string
+  customStartTime?: string | null
+  customEndTime?: string | null
   platform?: string
   groupId?: number | null
   errorType: 'request' | 'upstream'
@@ -104,11 +107,11 @@ async function fetchErrorLogs() {
     const params: Record<string, any> = {
       page: page.value,
       page_size: pageSize.value,
-      time_range: props.timeRange,
       view: viewMode.value,
       sort_by: sortBy.value,
       sort_order: sortOrder.value
     }
+    Object.assign(params, buildOpsErrorTimeParams(props.timeRange, props.customStartTime, props.customEndTime))
 
     const platform = String(props.platform || '').trim()
     if (platform) params.platform = platform
@@ -161,7 +164,7 @@ watch(
 )
 
 watch(
-  () => [props.timeRange, props.platform, props.groupId] as const,
+  () => [props.timeRange, props.customStartTime, props.customEndTime, props.platform, props.groupId] as const,
   () => {
     if (!props.show) return
     page.value = 1

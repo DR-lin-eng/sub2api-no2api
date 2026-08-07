@@ -12,16 +12,18 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/shared/antigravity"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
+	"github.com/gin-gonic/gin"
 )
 
 // collectClaudeStreamResponse collects a Gemini stream for a non-streaming
 // Claude-compatible client while keeping accumulated payload and tool state bounded.
 func (s *AntigravityGatewayService) collectClaudeStreamResponse(
+	c *gin.Context,
 	resp *http.Response,
 	startTime time.Time,
 	originalModel string,
 ) ([]byte, *antigravityStreamResult, error) {
-	return s.collectClaudeStreamResponseWithLimits(resp, startTime, originalModel, defaultAntigravityStreamLimits())
+	return s.collectClaudeStreamResponseWithLimitsAndObserver(c, resp, startTime, originalModel, defaultAntigravityStreamLimits())
 }
 
 func (s *AntigravityGatewayService) collectClaudeStreamResponseWithLimits(
@@ -30,6 +32,23 @@ func (s *AntigravityGatewayService) collectClaudeStreamResponseWithLimits(
 	originalModel string,
 	limits antigravityStreamLimits,
 ) ([]byte, *antigravityStreamResult, error) {
+	return s.collectClaudeStreamResponseWithLimitsAndObserver(nil, resp, startTime, originalModel, limits)
+}
+
+func (s *AntigravityGatewayService) collectClaudeStreamResponseWithLimitsAndObserver(
+	c *gin.Context,
+	resp *http.Response,
+	startTime time.Time,
+	originalModel string,
+	limits antigravityStreamLimits,
+) ([]byte, *antigravityStreamResult, error) {
+	var observer *upstreamResponseModelObserver
+	if c != nil {
+		observer = upstreamResponseModelObserverFromContext(c)
+		if observer == nil {
+			observer = beginUpstreamResponseModelObservation(c)
+		}
+	}
 	scanner := bufio.NewScanner(resp.Body)
 	maxLineSize := defaultMaxLineSize
 	if s.settingService != nil && s.settingService.cfg != nil && s.settingService.cfg.Gateway.MaxLineSize > 0 {
@@ -116,6 +135,7 @@ func (s *AntigravityGatewayService) collectClaudeStreamResponseWithLimits(
 			if parseErr != nil {
 				continue
 			}
+			observer.ObserveGemini(inner)
 
 			var parsed map[string]any
 			if err := json.Unmarshal(inner, &parsed); err != nil {

@@ -239,6 +239,29 @@ describe('admin UsageView route filters', () => {
     expect(list).toHaveBeenCalledWith(expect.objectContaining({ user_id: 42 }), expect.anything())
     expect(wrapper.find('[data-test="user-filter-label"]').text()).toBe('42')
   })
+
+  it('forwards the false model-audit state to all usage dashboard queries', async () => {
+    const wrapper = mountRouteFilteredUsageView()
+    await flushPromises()
+
+    list.mockClear()
+    getStats.mockClear()
+    getModelStats.mockClear()
+    getSnapshotV2.mockClear()
+
+    const vm = wrapper.vm as any
+    vm.filters.upstream_model_mismatch = false
+    vm.applyFilters()
+    await flushPromises()
+
+    expect(list).toHaveBeenCalledWith(
+      expect.objectContaining({ upstream_model_mismatch: false }),
+      expect.anything(),
+    )
+    expect(getStats).toHaveBeenCalledWith(expect.objectContaining({ upstream_model_mismatch: false }))
+    expect(getModelStats).toHaveBeenCalledWith(expect.objectContaining({ upstream_model_mismatch: false }))
+    expect(getSnapshotV2).toHaveBeenCalledWith(expect.objectContaining({ upstream_model_mismatch: false }))
+  })
 })
 
 describe('admin UsageView distribution metric toggles', () => {

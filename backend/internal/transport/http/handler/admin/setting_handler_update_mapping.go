@@ -77,6 +77,7 @@ func buildSystemSettingsUpdate(prepared *preparedSettingsUpdate) *service.System
 		TencentCaptchaAppSecretKey:       req.TencentCaptchaAppSecretKey,
 		TencentCaptchaCloudSecretID:      req.TencentCaptchaCloudSecretID,
 		TencentCaptchaCloudSecretKey:     req.TencentCaptchaCloudSecretKey,
+		TencentCaptchaRegion:             req.TencentCaptchaRegion,
 		AliyunCaptchaEnabled:             aliyunCaptchaEnabled,
 		AliyunCaptchaAccessKeyID:         req.AliyunCaptchaAccessKeyID,
 		AliyunCaptchaAccessKeySecret:     req.AliyunCaptchaAccessKeySecret,

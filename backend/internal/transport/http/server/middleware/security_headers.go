@@ -34,6 +34,10 @@ const (
 	JSDelivrDomain              = "https://cdn.jsdelivr.net"
 	TencentCaptchaDomain        = "https://turing.captcha.qcloud.com"
 	TencentCaptchaStaticDomain  = "https://*.captcha.gtimg.com"
+	TencentCaptchaCDNDomain     = "https://turing.captcha.gtimg.com"
+	TencentCaptchaGlobalDomain  = "https://ca.turing.captcha.qcloud.com"
+	TencentCaptchaGlobalCDN     = "https://global.turing.captcha.gtimg.com"
+	TencentCaptchaPrehandle     = "https://www.tycaptcha.com"
 	AliyunCaptchaLoaderDomain   = "https://o.alicdn.com"
 	AliyunCaptchaCDNDomain      = "https://g.alicdn.com"
 	AliyunCaptchaFallbackDomain = "https://x.alicdn.com"
@@ -55,6 +59,13 @@ var requiredCSPDirectiveValues = []struct {
 	{"connect-src", TencentCaptchaDomain},
 	{"frame-src", TencentCaptchaDomain},
 	{"style-src", TencentCaptchaStaticDomain},
+	{"script-src", TencentCaptchaCDNDomain},
+	{"script-src", TencentCaptchaGlobalDomain},
+	{"script-src", TencentCaptchaGlobalCDN},
+	{"script-src", TencentCaptchaPrehandle},
+	{"connect-src", TencentCaptchaPrehandle},
+	{"frame-src", TencentCaptchaGlobalDomain},
+	{"frame-src", TencentCaptchaPrehandle},
 	{"script-src", AliyunCaptchaLoaderDomain},
 	{"script-src", AliyunCaptchaCDNDomain},
 	{"script-src", AliyunCaptchaFallbackDomain},

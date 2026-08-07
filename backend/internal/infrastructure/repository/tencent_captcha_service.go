@@ -19,6 +19,7 @@ import (
 
 const (
 	tencentCaptchaEndpoint      = "https://captcha.tencentcloudapi.com"
+	tencentCaptchaIntlEndpoint  = "https://captcha.intl.tencentcloudapi.com"
 	tencentCaptchaAction        = "DescribeCaptchaResult"
 	tencentCaptchaVersion       = "2019-07-22"
 	tencentCaptchaService       = "captcha"
@@ -106,7 +107,15 @@ func (v *tencentCaptchaVerifier) VerifyTicket(
 		return nil, fmt.Errorf("encode tencent captcha request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, v.endpoint, bytes.NewReader(payload))
+	endpoint := v.endpoint
+	switch credentials.Endpoint {
+	case "", tencentCaptchaEndpoint:
+	case tencentCaptchaIntlEndpoint:
+		endpoint = tencentCaptchaIntlEndpoint
+	default:
+		return nil, fmt.Errorf("unsupported tencent captcha endpoint")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payload))
 	if err != nil {
 		return nil, fmt.Errorf("create tencent captcha request: %w", err)
 	}

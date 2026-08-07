@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOpsSystemLogSink_ShouldIndex(t *testing.T) {
@@ -247,6 +248,49 @@ func TestOpsSystemLogSink_FlushFailureUpdatesHealth(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 	}
 	t.Fatalf("write_failed_count not updated")
+}
+
+func TestOpsSystemLogSinkFlushBackoffFor(t *testing.T) {
+	sink := &OpsSystemLogSink{flushBackoff: time.Second, flushBackoffMax: 8 * time.Second}
+	for failures, want := range map[int]time.Duration{
+		0: time.Second,
+		1: time.Second,
+		2: 2 * time.Second,
+		3: 4 * time.Second,
+		4: 8 * time.Second,
+		9: 8 * time.Second,
+	} {
+		require.Equal(t, want, sink.flushBackoffFor(failures))
+	}
+}
+
+func TestOpsSystemLogSinkSuppressesRetriesDuringBackoff(t *testing.T) {
+	var calls int64
+	repo := &opsRepoMock{BatchInsertSystemLogsFn: func(_ context.Context, _ []*OpsInsertSystemLogInput) (int64, error) {
+		atomic.AddInt64(&calls, 1)
+		return 0, errors.New("db unavailable")
+	}}
+	sink := NewOpsSystemLogSink(repo)
+	sink.batchSize = 1
+	sink.flushInterval = 5 * time.Millisecond
+	sink.flushBackoff = 500 * time.Millisecond
+	sink.flushBackoffMax = 500 * time.Millisecond
+	sink.Start()
+	defer sink.Stop()
+
+	deadline := time.Now().Add(time.Second)
+	for atomic.LoadInt64(&calls) == 0 && time.Now().Before(deadline) {
+		sink.WriteLogEvent(&logger.LogEvent{Time: time.Now(), Level: "warn", Component: "app", Message: "boom"})
+		time.Sleep(2 * time.Millisecond)
+	}
+	require.Equal(t, int64(1), atomic.LoadInt64(&calls))
+
+	for i := 0; i < 20; i++ {
+		sink.WriteLogEvent(&logger.LogEvent{Time: time.Now(), Level: "warn", Component: "app", Message: "boom"})
+		time.Sleep(5 * time.Millisecond)
+	}
+	require.Equal(t, int64(1), atomic.LoadInt64(&calls))
+	require.Greater(t, sink.Health().DroppedCount, uint64(0))
 }
 
 func TestOpsSystemLogSink_StopFlushUsesActiveContextAndDrainsQueue(t *testing.T) {

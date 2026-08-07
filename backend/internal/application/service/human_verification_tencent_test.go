@@ -62,6 +62,7 @@ func TestGetHumanVerificationConfigUsesOneSettingsSnapshot(t *testing.T) {
 		SettingKeyTencentCaptchaAppSecretKey:   " app-secret ",
 		SettingKeyTencentCaptchaCloudSecretID:  " cloud-id ",
 		SettingKeyTencentCaptchaCloudSecretKey: " cloud-secret ",
+		SettingKeyTencentCaptchaRegion:         " INTL ",
 	}}
 	settingService := NewSettingService(repo, nil)
 
@@ -77,6 +78,7 @@ func TestGetHumanVerificationConfigUsesOneSettingsSnapshot(t *testing.T) {
 		AppSecretKey:   "app-secret",
 		CloudSecretID:  "cloud-id",
 		CloudSecretKey: "cloud-secret",
+		Region:         TencentCaptchaRegionINTL,
 	}, config.Tencent)
 }
 
@@ -114,6 +116,7 @@ func TestTencentCaptchaVerificationUsesSnapshotCredentials(t *testing.T) {
 		SettingKeyTencentCaptchaAppSecretKey:   "app-secret",
 		SettingKeyTencentCaptchaCloudSecretID:  "cloud-id",
 		SettingKeyTencentCaptchaCloudSecretKey: "cloud-secret",
+		SettingKeyTencentCaptchaRegion:         TencentCaptchaRegionINTL,
 	}}
 	settingService := NewSettingService(repo, nil)
 	verifier := &tencentCaptchaVerifierSpy{result: &TencentCaptchaVerifyResponse{CaptchaCode: 1}}
@@ -132,9 +135,31 @@ func TestTencentCaptchaVerificationUsesSnapshotCredentials(t *testing.T) {
 		AppSecretKey:   "app-secret",
 		CloudSecretID:  "cloud-id",
 		CloudSecretKey: "cloud-secret",
+		Endpoint:       tencentCaptchaEndpointINTL,
 	}, verifier.credentials)
 	require.Equal(t, TencentCaptchaProof{Ticket: "ticket", Randstr: "rand"}, verifier.proof)
 	require.Equal(t, "203.0.113.10", verifier.remoteIP)
+}
+
+func TestTencentCaptchaRegionDefaultsToChineseMainland(t *testing.T) {
+	repo := &humanVerificationSettingRepoSpy{values: map[string]string{
+		SettingKeyTencentCaptchaEnabled:        "true",
+		SettingKeyTencentCaptchaAppID:          "123456",
+		SettingKeyTencentCaptchaAppSecretKey:   "app-secret",
+		SettingKeyTencentCaptchaCloudSecretID:  "cloud-id",
+		SettingKeyTencentCaptchaCloudSecretKey: "cloud-secret",
+		SettingKeyTencentCaptchaRegion:         "unsupported",
+	}}
+	settingService := NewSettingService(repo, nil)
+	verifier := &tencentCaptchaVerifierSpy{result: &TencentCaptchaVerifyResponse{CaptchaCode: 1}}
+	humanVerification := NewHumanVerificationService(settingService, nil, nil, nil, verifier)
+
+	err := humanVerification.VerifyProof(context.Background(), HumanVerificationProof{
+		TencentTicket: "ticket", TencentRandstr: "rand",
+	}, "203.0.113.10", false)
+
+	require.NoError(t, err)
+	require.Equal(t, tencentCaptchaEndpointCN, verifier.credentials.Endpoint)
 }
 
 func TestTencentCaptchaVerificationRejectsInvalidProofBeforeNetwork(t *testing.T) {

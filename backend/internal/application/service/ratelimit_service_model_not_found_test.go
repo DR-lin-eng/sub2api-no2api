@@ -392,3 +392,57 @@ func openAICodexPlanGatedOAuthAccount() *Account {
 		Credentials: map[string]any{},
 	}
 }
+
+func TestRateLimitService_CodexPlanGatedImageModelSkipsCooldownOnTextEndpoint(t *testing.T) {
+	for _, model := range []string{"gpt-image-1", "gpt-image-1.5", "gpt-image-2"} {
+		t.Run(model, func(t *testing.T) {
+			repo := &modelNotFoundAccountRepoStub{}
+			svc := &RateLimitService{accountRepo: repo}
+			handled := svc.HandleUpstreamError(
+				context.Background(), openAICodexPlanGatedOAuthAccount(), http.StatusBadRequest, http.Header{},
+				[]byte(`{"detail":"The '`+model+`' model is not supported when using Codex with a ChatGPT account."}`), model,
+			)
+			require.True(t, handled)
+			require.Empty(t, repo.modelRateLimitCalls)
+		})
+	}
+}
+
+func TestRateLimitService_CodexPlanGatedImageModelKeepsCooldownOnImagesEndpoint(t *testing.T) {
+	repo := &modelNotFoundAccountRepoStub{}
+	svc := &RateLimitService{accountRepo: repo}
+	handled := svc.HandleUpstreamError(
+		WithOpenAIImagesEndpoint(context.Background()), openAICodexPlanGatedOAuthAccount(),
+		http.StatusBadRequest, http.Header{},
+		[]byte(`{"detail":"The 'gpt-image-2' model is not supported when using Codex with a ChatGPT account."}`), "gpt-image-2",
+	)
+	require.True(t, handled)
+	require.Len(t, repo.modelRateLimitCalls, 1)
+	require.Equal(t, upstreamCodexPlanGatedModelReason, repo.modelRateLimitCalls[0].reason)
+}
+
+func TestRateLimitService_CodexPlanGatedImageModelUsesMappedCooldownKeyForGuard(t *testing.T) {
+	repo := &modelNotFoundAccountRepoStub{}
+	svc := &RateLimitService{accountRepo: repo}
+	account := openAICodexPlanGatedOAuthAccount()
+	account.Credentials["model_mapping"] = map[string]any{"draw-alias": "gpt-image-2"}
+
+	handled := svc.HandleUpstreamError(
+		context.Background(), account, http.StatusBadRequest, http.Header{},
+		[]byte(`{"detail":"The 'gpt-image-2' model is not supported when using Codex with a ChatGPT account."}`), "draw-alias",
+	)
+	require.True(t, handled)
+	require.Empty(t, repo.modelRateLimitCalls)
+}
+
+func TestRateLimitService_ModelNotFoundImageModelStillCoolsDown(t *testing.T) {
+	repo := &modelNotFoundAccountRepoStub{}
+	svc := &RateLimitService{accountRepo: repo}
+	handled := svc.HandleUpstreamError(
+		context.Background(), openAICodexPlanGatedOAuthAccount(), http.StatusNotFound, http.Header{},
+		[]byte(`{"error":{"message":"The model 'gpt-image-2' does not exist","code":"model_not_found"}}`), "gpt-image-2",
+	)
+	require.True(t, handled)
+	require.Len(t, repo.modelRateLimitCalls, 1)
+	require.Equal(t, upstreamModelNotFoundReason, repo.modelRateLimitCalls[0].reason)
+}

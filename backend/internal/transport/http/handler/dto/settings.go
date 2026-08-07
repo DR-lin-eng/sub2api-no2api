@@ -71,6 +71,7 @@ type SystemSettings struct {
 	TencentCaptchaAppSecretKeyConfigured   bool                      `json:"tencent_captcha_app_secret_key_configured"`
 	TencentCaptchaCloudSecretIDConfigured  bool                      `json:"tencent_captcha_cloud_secret_id_configured"`
 	TencentCaptchaCloudSecretKeyConfigured bool                      `json:"tencent_captcha_cloud_secret_key_configured"`
+	TencentCaptchaRegion                   string                    `json:"tencent_captcha_region"`
 	AliyunCaptchaEnabled                   bool                      `json:"aliyun_captcha_enabled"`
 	AliyunCaptchaAccessKeyID               string                    `json:"aliyun_captcha_access_key_id"`
 	AliyunCaptchaAccessKeySecretConfigured bool                      `json:"aliyun_captcha_access_key_secret_configured"`
@@ -387,6 +388,7 @@ type PublicSettings struct {
 	CapAPIEndpoint                   string                   `json:"cap_api_endpoint"`
 	TencentCaptchaEnabled            bool                     `json:"tencent_captcha_enabled"`
 	TencentCaptchaAppID              string                   `json:"tencent_captcha_app_id"`
+	TencentCaptchaRegion             string                   `json:"tencent_captcha_region"`
 	AliyunCaptchaEnabled             bool                     `json:"aliyun_captcha_enabled"`
 	AliyunCaptchaSceneID             string                   `json:"aliyun_captcha_scene_id"`
 	AliyunCaptchaPrefix              string                   `json:"aliyun_captcha_prefix"`

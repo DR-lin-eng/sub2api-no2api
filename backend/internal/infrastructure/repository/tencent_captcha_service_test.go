@@ -126,6 +126,52 @@ func TestTencentCaptchaVerifierRejectsInvalidResponses(t *testing.T) {
 	}
 }
 
+func TestTencentCaptchaVerifierUsesInternationalEndpoint(t *testing.T) {
+	verifier := &tencentCaptchaVerifier{
+		httpClient: &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			require.Equal(t, tencentCaptchaIntlEndpoint, req.URL.String())
+			return jsonResponse(http.StatusOK, map[string]any{
+				"Response": map[string]any{"CaptchaCode": int64(1)},
+			}), nil
+		})},
+		endpoint: tencentCaptchaEndpoint,
+		now:      time.Now,
+	}
+
+	_, err := verifier.VerifyTicket(
+		context.Background(),
+		service.TencentCaptchaCredentials{
+			AppID: 1, CloudSecretID: "id", CloudSecretKey: "key", Endpoint: tencentCaptchaIntlEndpoint,
+		},
+		service.TencentCaptchaProof{Ticket: "ticket", Randstr: "rand"},
+		"203.0.113.10",
+	)
+
+	require.NoError(t, err)
+}
+
+func TestTencentCaptchaVerifierRejectsUnknownEndpoint(t *testing.T) {
+	verifier := &tencentCaptchaVerifier{
+		httpClient: &http.Client{Transport: roundTripperFunc(func(*http.Request) (*http.Response, error) {
+			t.Fatal("unexpected request")
+			return nil, nil
+		})},
+		endpoint: tencentCaptchaEndpoint,
+		now:      time.Now,
+	}
+
+	_, err := verifier.VerifyTicket(
+		context.Background(),
+		service.TencentCaptchaCredentials{
+			AppID: 1, CloudSecretID: "id", CloudSecretKey: "key", Endpoint: "https://example.com",
+		},
+		service.TencentCaptchaProof{Ticket: "ticket", Randstr: "rand"},
+		"203.0.113.10",
+	)
+
+	require.ErrorContains(t, err, "unsupported tencent captcha endpoint")
+}
+
 func TestTencentCaptchaVerifierFailsClosedWithoutRestrictedHTTPClient(t *testing.T) {
 	verifier := &tencentCaptchaVerifier{initErr: context.Canceled}
 

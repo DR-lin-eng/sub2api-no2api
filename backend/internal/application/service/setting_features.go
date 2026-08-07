@@ -524,12 +524,23 @@ type TencentCaptchaConfig struct {
 	AppSecretKey   string
 	CloudSecretID  string
 	CloudSecretKey string
+	Region         string
 }
 
 const (
+	TencentCaptchaRegionCN   = "cn"
+	TencentCaptchaRegionINTL = "intl"
+
 	AliyunCaptchaRegionCN  = "cn"
 	AliyunCaptchaRegionSGP = "sgp"
 )
+
+func normalizeTencentCaptchaRegion(value string) string {
+	if strings.EqualFold(strings.TrimSpace(value), TencentCaptchaRegionINTL) {
+		return TencentCaptchaRegionINTL
+	}
+	return TencentCaptchaRegionCN
+}
 
 type AliyunCaptchaConfig struct {
 	Enabled         bool
@@ -592,6 +603,7 @@ var humanVerificationSettingKeys = []string{
 	SettingKeyTencentCaptchaAppSecretKey,
 	SettingKeyTencentCaptchaCloudSecretID,
 	SettingKeyTencentCaptchaCloudSecretKey,
+	SettingKeyTencentCaptchaRegion,
 	SettingKeyAliyunCaptchaEnabled,
 	SettingKeyAliyunCaptchaAccessKeyID,
 	SettingKeyAliyunCaptchaAccessKeySecret,
@@ -656,6 +668,7 @@ func (s *SettingService) GetHumanVerificationConfig(ctx context.Context) (HumanV
 			AppSecretKey:   strings.TrimSpace(values[SettingKeyTencentCaptchaAppSecretKey]),
 			CloudSecretID:  strings.TrimSpace(values[SettingKeyTencentCaptchaCloudSecretID]),
 			CloudSecretKey: strings.TrimSpace(values[SettingKeyTencentCaptchaCloudSecretKey]),
+			Region:         normalizeTencentCaptchaRegion(values[SettingKeyTencentCaptchaRegion]),
 		},
 		Aliyun: AliyunCaptchaConfig{
 			Enabled:         values[SettingKeyAliyunCaptchaEnabled] == "true",

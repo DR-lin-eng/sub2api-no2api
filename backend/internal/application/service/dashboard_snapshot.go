@@ -10,14 +10,15 @@ import (
 )
 
 type DashboardSnapshotFilters struct {
-	UserID      int64
-	APIKeyID    int64
-	AccountID   int64
-	GroupID     int64
-	Model       string
-	RequestType *int16
-	Stream      *bool
-	BillingType *int8
+	UserID                int64
+	APIKeyID              int64
+	AccountID             int64
+	GroupID               int64
+	Model                 string
+	RequestType           *int16
+	Stream                *bool
+	BillingType           *int8
+	UpstreamModelMismatch *bool
 }
 
 type DashboardSnapshotQuery struct {
@@ -86,7 +87,11 @@ func (s *DashboardService) GetDashboardSnapshot(ctx context.Context, query Dashb
 	}
 	if query.IncludeTrend {
 		g.Go(func() error {
-			trend, err := s.GetUsageTrendWithFilters(queryCtx, query.StartTime, query.EndTime, query.Granularity, filters.UserID, filters.APIKeyID, filters.AccountID, filters.GroupID, filters.Model, filters.RequestType, filters.Stream, filters.BillingType)
+			trend, err := s.GetUsageTrendWithUsageFilters(queryCtx, query.StartTime, query.EndTime, query.Granularity, usagestats.UsageLogFilters{
+				UserID: filters.UserID, APIKeyID: filters.APIKeyID, AccountID: filters.AccountID, GroupID: filters.GroupID,
+				Model: filters.Model, RequestType: filters.RequestType, Stream: filters.Stream, BillingType: filters.BillingType,
+				UpstreamModelMismatch: filters.UpstreamModelMismatch,
+			})
 			if err != nil {
 				return err
 			}
@@ -96,7 +101,11 @@ func (s *DashboardService) GetDashboardSnapshot(ctx context.Context, query Dashb
 	}
 	if query.IncludeModels {
 		g.Go(func() error {
-			models, err := s.GetModelStatsWithFiltersBySource(queryCtx, query.StartTime, query.EndTime, filters.UserID, filters.APIKeyID, filters.AccountID, filters.GroupID, filters.RequestType, filters.Stream, filters.BillingType, usagestats.ModelSourceRequested)
+			models, err := s.GetModelStatsWithUsageFiltersBySource(queryCtx, query.StartTime, query.EndTime, usagestats.UsageLogFilters{
+				UserID: filters.UserID, APIKeyID: filters.APIKeyID, AccountID: filters.AccountID, GroupID: filters.GroupID,
+				Model: filters.Model, RequestType: filters.RequestType, Stream: filters.Stream, BillingType: filters.BillingType,
+				UpstreamModelMismatch: filters.UpstreamModelMismatch,
+			}, usagestats.ModelSourceRequested)
 			if err != nil {
 				return err
 			}
@@ -106,7 +115,11 @@ func (s *DashboardService) GetDashboardSnapshot(ctx context.Context, query Dashb
 	}
 	if query.IncludeGroups {
 		g.Go(func() error {
-			groups, err := s.GetGroupStatsWithFilters(queryCtx, query.StartTime, query.EndTime, filters.UserID, filters.APIKeyID, filters.AccountID, filters.GroupID, filters.RequestType, filters.Stream, filters.BillingType)
+			groups, err := s.GetGroupStatsWithUsageFilters(queryCtx, query.StartTime, query.EndTime, usagestats.UsageLogFilters{
+				UserID: filters.UserID, APIKeyID: filters.APIKeyID, AccountID: filters.AccountID, GroupID: filters.GroupID,
+				Model: filters.Model, RequestType: filters.RequestType, Stream: filters.Stream, BillingType: filters.BillingType,
+				UpstreamModelMismatch: filters.UpstreamModelMismatch,
+			})
 			if err != nil {
 				return err
 			}

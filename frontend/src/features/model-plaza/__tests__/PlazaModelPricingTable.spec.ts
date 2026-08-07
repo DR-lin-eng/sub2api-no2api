@@ -349,4 +349,24 @@ describe('PlazaModelPricingTable', () => {
     expect(wrapper.text()).toContain('$0.01')
     expect(wrapper.findAll('tbody tr td').at(-1)?.text()).toContain('0.05x')
   })
+
+  it('Composite 分组按具体平台分别展示同名模型', () => {
+    const wrapper = mount(PlazaModelPricingTable, {
+      props: {
+        models: [
+          tokenModel({ name: 'shared-model', platform: 'anthropic' }),
+          tokenModel({ name: 'shared-model', platform: 'openai' })
+        ],
+        platform: 'composite',
+        rateMultiplier: 1
+      }
+    })
+
+    const rows = wrapper.findAll('tbody tr')
+    expect(rows).toHaveLength(2)
+    expect(rows.map((row) => row.find('td').text())).toEqual([
+      'shared-modelAnthropic',
+      'shared-modelOpenAI'
+    ])
+  })
 })

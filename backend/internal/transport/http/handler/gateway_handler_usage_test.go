@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	"github.com/Wei-Shaw/sub2api/internal/shared/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -109,7 +110,7 @@ func TestUsageQuotaLimitedIncludesSubscriptionMetadata(t *testing.T) {
 	require.Equal(t, "quota_limited", response.Mode)
 	require.Equal(t, "Pro Monthly", response.PlanName)
 	require.Equal(t, 75.0, response.Quota.Remaining)
-	require.Equal(t, dailyStart.Add(24*time.Hour), *response.Subscription.DailyResetAt)
+	require.True(t, timezone.StartOfDay(dailyStart).AddDate(0, 0, 1).Equal(*response.Subscription.DailyResetAt))
 	require.Equal(t, weeklyStart.Add(7*24*time.Hour), *response.Subscription.WeeklyResetAt)
 	require.Equal(t, monthlyStart.Add(30*24*time.Hour), *response.Subscription.MonthlyResetAt)
 	require.Equal(t, expiresAt, response.Subscription.ExpiresAt)

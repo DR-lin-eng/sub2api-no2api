@@ -566,6 +566,21 @@
         <div class="grid grid-cols-1 gap-6">
           <div>
             <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {{ t("admin.settings.turnstile.tencentRegion") }}
+            </label>
+            <Select
+              :model-value="form.tencent_captcha_region"
+              :options="tencentCaptchaRegionOptions"
+              :searchable="false"
+              data-testid="tencent-captcha-region"
+              @update:model-value="form.tencent_captcha_region = $event as string"
+            />
+            <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+              {{ t("admin.settings.turnstile.tencentRegionHint") }}
+            </p>
+          </div>
+          <div>
+            <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
               {{ t("admin.settings.turnstile.tencentAppId") }}
             </label>
             <input
@@ -737,5 +752,5 @@ import Toggle from '@/common/widgets/forms/Toggle.vue'
 import { useSettingsPageContext } from '@/features/admin-settings/presentation/composables/settingsPageContext'
 import type { ClientIPResolutionMode } from '@/features/admin-settings/data/datasources/adminSettingsDatasource'
 
-const { aliyunCaptchaRegionOptions, clientIPLastRefreshText, clientIPResolutionModeOptions, clientIPTrustedProxiesText, commitRegistrationEmailSuffixWhitelistDraft, form, handleRegistrationEmailSuffixWhitelistDraftInput, handleRegistrationEmailSuffixWhitelistDraftKeydown, handleRegistrationEmailSuffixWhitelistPaste, humanVerificationProviders, panelRateLimitSettingsMounted, registrationEmailSuffixWhitelistDraft, registrationEmailSuffixWhitelistTags, removeRegistrationEmailSuffixWhitelistTag, setHumanVerificationProvider, t } = useSettingsPageContext()
+const { aliyunCaptchaRegionOptions, clientIPLastRefreshText, clientIPResolutionModeOptions, clientIPTrustedProxiesText, commitRegistrationEmailSuffixWhitelistDraft, form, handleRegistrationEmailSuffixWhitelistDraftInput, handleRegistrationEmailSuffixWhitelistDraftKeydown, handleRegistrationEmailSuffixWhitelistPaste, humanVerificationProviders, panelRateLimitSettingsMounted, registrationEmailSuffixWhitelistDraft, registrationEmailSuffixWhitelistTags, removeRegistrationEmailSuffixWhitelistTag, setHumanVerificationProvider, t, tencentCaptchaRegionOptions } = useSettingsPageContext()
 </script>

@@ -127,6 +127,7 @@ func TestSettingService_GetPublicSettingsExposesOnlyTencentPublicFields(t *testi
 		SettingKeyTencentCaptchaAppSecretKey:   "app-secret-canary",
 		SettingKeyTencentCaptchaCloudSecretID:  "cloud-id-canary",
 		SettingKeyTencentCaptchaCloudSecretKey: "cloud-secret-canary",
+		SettingKeyTencentCaptchaRegion:         TencentCaptchaRegionINTL,
 	}}
 	svc := NewSettingService(repo, &config.Config{})
 
@@ -134,6 +135,7 @@ func TestSettingService_GetPublicSettingsExposesOnlyTencentPublicFields(t *testi
 	require.NoError(t, err)
 	require.True(t, settings.TencentCaptchaEnabled)
 	require.Equal(t, "123456789", settings.TencentCaptchaAppID)
+	require.Equal(t, TencentCaptchaRegionINTL, settings.TencentCaptchaRegion)
 
 	payload, err := json.Marshal(settings)
 	require.NoError(t, err)

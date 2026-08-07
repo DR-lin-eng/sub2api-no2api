@@ -3,6 +3,7 @@ import type { PublicSettings } from '@/types'
 export type ExternalHumanVerificationProvider = 'turnstile' | 'recaptcha' | 'cap' | 'tencent' | 'aliyun'
 export type HumanVerificationProvider = 'none' | 'local' | ExternalHumanVerificationProvider
 export type AliyunCaptchaRegion = 'cn' | 'sgp'
+export type TencentCaptchaRegion = 'cn' | 'intl'
 
 export interface HumanVerificationConfig {
   provider: HumanVerificationProvider
@@ -10,6 +11,7 @@ export interface HumanVerificationConfig {
   external: boolean
   siteKey: string
   apiEndpoint: string
+  tencentRegion: TencentCaptchaRegion
   aliyunSceneId: string
   aliyunPrefix: string
   aliyunRegion: AliyunCaptchaRegion
@@ -21,6 +23,10 @@ const emptyAliyunConfig = {
   aliyunRegion: 'cn' as AliyunCaptchaRegion
 }
 
+const emptyTencentConfig = {
+  tencentRegion: 'cn' as TencentCaptchaRegion
+}
+
 export function resolveHumanVerification(settings: PublicSettings): HumanVerificationConfig {
   if (settings.turnstile_enabled) {
     return {
@@ -29,6 +35,7 @@ export function resolveHumanVerification(settings: PublicSettings): HumanVerific
       external: true,
       siteKey: settings.turnstile_site_key || '',
       apiEndpoint: '',
+      ...emptyTencentConfig,
       ...emptyAliyunConfig
     }
   }
@@ -39,6 +46,7 @@ export function resolveHumanVerification(settings: PublicSettings): HumanVerific
       external: true,
       siteKey: settings.recaptcha_site_key || '',
       apiEndpoint: '',
+      ...emptyTencentConfig,
       ...emptyAliyunConfig
     }
   }
@@ -49,6 +57,7 @@ export function resolveHumanVerification(settings: PublicSettings): HumanVerific
       external: true,
       siteKey: '',
       apiEndpoint: settings.cap_api_endpoint || '',
+      ...emptyTencentConfig,
       ...emptyAliyunConfig
     }
   }
@@ -59,6 +68,7 @@ export function resolveHumanVerification(settings: PublicSettings): HumanVerific
       external: true,
       siteKey: settings.tencent_captcha_app_id || '',
       apiEndpoint: '',
+      tencentRegion: normalizeTencentCaptchaRegion(settings.tencent_captcha_region),
       ...emptyAliyunConfig
     }
   }
@@ -69,6 +79,7 @@ export function resolveHumanVerification(settings: PublicSettings): HumanVerific
       external: true,
       siteKey: '',
       apiEndpoint: '',
+      ...emptyTencentConfig,
       aliyunSceneId: settings.aliyun_captcha_scene_id || '',
       aliyunPrefix: settings.aliyun_captcha_prefix || '',
       aliyunRegion: settings.aliyun_captcha_region === 'sgp' ? 'sgp' : 'cn'
@@ -81,6 +92,7 @@ export function resolveHumanVerification(settings: PublicSettings): HumanVerific
       external: false,
       siteKey: '',
       apiEndpoint: '',
+      ...emptyTencentConfig,
       ...emptyAliyunConfig
     }
   }
@@ -90,6 +102,7 @@ export function resolveHumanVerification(settings: PublicSettings): HumanVerific
     external: false,
     siteKey: '',
     apiEndpoint: '',
+    ...emptyTencentConfig,
     ...emptyAliyunConfig
   }
 }
@@ -112,36 +125,71 @@ export interface TencentCaptchaInstance {
   destroy(): void
 }
 
-export type TencentCaptchaConstructor = new (
-  appId: string,
-  callback: (result: TencentCaptchaResult) => void,
-  options?: Record<string, unknown>
-) => TencentCaptchaInstance
+type TencentCaptchaCallback = (result: TencentCaptchaResult) => void
+
+export type TencentCaptchaConstructor = {
+  new (
+    appId: string,
+    callback: TencentCaptchaCallback,
+    options?: Record<string, unknown>
+  ): TencentCaptchaInstance
+  new (
+    element: HTMLElement,
+    appId: string,
+    callback: TencentCaptchaCallback,
+    options?: Record<string, unknown>
+  ): TencentCaptchaInstance
+}
 
 declare global {
   interface Window {
     TencentCaptcha?: TencentCaptchaConstructor
+    TCaptchaGlobal?: boolean
   }
 }
 
-const tencentCaptchaScriptSrc = 'https://turing.captcha.qcloud.com/TJCaptcha.js'
+const tencentCaptchaScriptSrc: Record<TencentCaptchaRegion, string> = {
+  cn: 'https://turing.captcha.qcloud.com/TJCaptcha.js',
+  intl: 'https://ca.turing.captcha.qcloud.com/TJNCaptcha-global.js'
+}
 let tencentCaptchaLoadPromise: Promise<TencentCaptchaConstructor> | null = null
+let tencentCaptchaLoadedRegion: TencentCaptchaRegion | null = null
 
-export function loadTencentCaptcha(): Promise<TencentCaptchaConstructor> {
-  if (window.TencentCaptcha) return Promise.resolve(window.TencentCaptcha)
-  if (tencentCaptchaLoadPromise) return tencentCaptchaLoadPromise
+export function normalizeTencentCaptchaRegion(value?: string | null): TencentCaptchaRegion {
+  return value?.trim().toLowerCase() === 'intl' ? 'intl' : 'cn'
+}
 
+function existingTencentCaptchaRegion(): TencentCaptchaRegion {
+  return window.TCaptchaGlobal === true ? 'intl' : 'cn'
+}
+
+export function loadTencentCaptcha(
+  region: TencentCaptchaRegion = 'cn'
+): Promise<TencentCaptchaConstructor> {
+  const globalRegion = window.TencentCaptcha ? existingTencentCaptchaRegion() : null
+  if (
+    window.TencentCaptcha &&
+    (tencentCaptchaLoadedRegion === region || globalRegion === region)
+  ) {
+    return Promise.resolve(window.TencentCaptcha)
+  }
+  if (tencentCaptchaLoadPromise && tencentCaptchaLoadedRegion === region) {
+    return tencentCaptchaLoadPromise
+  }
+
+  tencentCaptchaLoadedRegion = region
   tencentCaptchaLoadPromise = new Promise((resolve, reject) => {
     const script = document.createElement('script')
-    script.src = tencentCaptchaScriptSrc
+    script.src = tencentCaptchaScriptSrc[region]
     script.async = true
     const fail = (message: string): void => {
       script.remove()
       tencentCaptchaLoadPromise = null
+      tencentCaptchaLoadedRegion = null
       reject(new Error(message))
     }
     script.onload = () => {
-      if (window.TencentCaptcha) {
+      if (window.TencentCaptcha && existingTencentCaptchaRegion() === region) {
         resolve(window.TencentCaptcha)
         return
       }
@@ -156,6 +204,7 @@ export function loadTencentCaptcha(): Promise<TencentCaptchaConstructor> {
 
 export function resetTencentCaptchaLoaderForTest(): void {
   tencentCaptchaLoadPromise = null
+  tencentCaptchaLoadedRegion = null
 }
 
 export interface AliyunCaptchaVerifyResult {

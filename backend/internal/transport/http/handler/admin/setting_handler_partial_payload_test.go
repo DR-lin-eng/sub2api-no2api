@@ -194,6 +194,26 @@ func TestUpdateSettingsTencentCaptchaPreservesStoredSecretsWhenBlank(t *testing.
 	require.Equal(t, "stored-cloud-secret", repo.values[service.SettingKeyTencentCaptchaCloudSecretKey])
 }
 
+func TestUpdateSettingsPartialPayloadPreservesTencentCaptchaRegion(t *testing.T) {
+	h, repo := newStepUpSwitchTestHandler(t, map[string]string{
+		service.SettingKeyTencentCaptchaRegion: service.TencentCaptchaRegionINTL,
+	})
+
+	rec := doUpdateSettings(t, h, map[string]any{"risk_control_enabled": true}, nil)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, service.TencentCaptchaRegionINTL, repo.values[service.SettingKeyTencentCaptchaRegion])
+}
+
+func TestUpdateSettingsNormalizesTencentCaptchaRegion(t *testing.T) {
+	h, repo := newStepUpSwitchTestHandler(t, map[string]string{})
+
+	rec := doUpdateSettings(t, h, map[string]any{"tencent_captcha_region": "unexpected"}, nil)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, service.TencentCaptchaRegionCN, repo.values[service.SettingKeyTencentCaptchaRegion])
+}
+
 func TestUpdateSettingsTencentCaptchaRejectsStoredProviderConflict(t *testing.T) {
 	stored := map[string]string{
 		service.SettingKeyTurnstileEnabled:   "true",

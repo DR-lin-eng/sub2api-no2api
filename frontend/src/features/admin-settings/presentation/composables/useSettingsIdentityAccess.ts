@@ -92,6 +92,17 @@ export function useSettingsIdentityAccess(
     },
   ]);
 
+  const tencentCaptchaRegionOptions = computed(() => [
+    {
+      value: "cn",
+      label: t("admin.settings.turnstile.tencentRegionCn"),
+    },
+    {
+      value: "intl",
+      label: t("admin.settings.turnstile.tencentRegionIntl"),
+    },
+  ]);
+
   const clientIPLastRefreshText = computed(() => {
     const raw = form.client_ip_resolution_status.cloudflare_last_success_at;
     if (!raw) return "";
@@ -269,6 +280,7 @@ export function useSettingsIdentityAccess(
 
   return {
     aliyunCaptchaRegionOptions,
+		tencentCaptchaRegionOptions,
     clientIPLastRefreshText,
     clientIPResolutionModeOptions,
     clientIPTrustedProxiesText,

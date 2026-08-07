@@ -58,6 +58,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyTencentCaptchaAppSecretKey:                "",
 		SettingKeyTencentCaptchaCloudSecretID:               "",
 		SettingKeyTencentCaptchaCloudSecretKey:              "",
+		SettingKeyTencentCaptchaRegion:                      TencentCaptchaRegionCN,
 		SettingKeyAliyunCaptchaEnabled:                      "false",
 		SettingKeyAliyunCaptchaAccessKeyID:                  "",
 		SettingKeyAliyunCaptchaAccessKeySecret:              "",

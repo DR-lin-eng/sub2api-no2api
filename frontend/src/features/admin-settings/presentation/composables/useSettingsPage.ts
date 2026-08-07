@@ -177,6 +177,7 @@ export function useSettingsPage() {
 
   const {
     aliyunCaptchaRegionOptions,
+		tencentCaptchaRegionOptions,
     clientIPLastRefreshText,
     clientIPResolutionModeOptions,
     clientIPTrustedProxiesText,
@@ -786,6 +787,7 @@ export function useSettingsPage() {
   return {
     activeTab,
     aliyunCaptchaRegionOptions,
+		tencentCaptchaRegionOptions,
     addAuthSourceDefaultSubscription,
     addClaudeOAuthSystemPromptBlock,
     addCodexBlacklistRow,

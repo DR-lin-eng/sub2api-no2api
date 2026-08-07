@@ -49,6 +49,8 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	promptCacheKey string,
 	defaultMappedModel string,
 ) (*OpenAIForwardResult, error) {
+	beginUpstreamResponseModelObservation(c)
+
 	if err := s.openAIAccountRuntimeBlockedFailover(account); err != nil {
 		return nil, err
 	}
@@ -769,17 +771,24 @@ func (s *OpenAIGatewayService) writeAnthropicBufferedFinalResponse(
 	clientStream bool,
 	requestID string,
 ) (*OpenAIForwardResult, error) {
+	observer := upstreamResponseModelObserverFromContext(c)
+	if observer == nil {
+		observer = beginUpstreamResponseModelObservation(c)
+	}
+	observer.Observe(finalResponse.Model, true)
 	anthropicResp := apicompat.ResponsesToAnthropic(finalResponse, originalModel)
 	if !anthropicResponseHasVisibleOutput(anthropicResp) {
 		result := &OpenAIForwardResult{
-			RequestID:     requestID,
-			ResponseID:    finalResponse.ID,
-			Usage:         usage,
-			Model:         originalModel,
-			BillingModel:  billingModel,
-			UpstreamModel: upstreamModel,
-			Stream:        clientStream,
-			Duration:      time.Since(startTime),
+			RequestID:                     requestID,
+			ResponseID:                    finalResponse.ID,
+			Usage:                         usage,
+			Model:                         originalModel,
+			BillingModel:                  billingModel,
+			UpstreamModel:                 upstreamModel,
+			UpstreamResponseModel:         observedUpstreamResponseModel(c),
+			UpstreamResponseModelConflict: observedUpstreamResponseModelConflict(c),
+			Stream:                        clientStream,
+			Duration:                      time.Since(startTime),
 		}
 		message := "OpenAI messages buffered response completed without assistant content or tool output"
 		return result, s.newOpenAIStreamFailoverError(c, account, false, requestID, nil, message)
@@ -798,14 +807,16 @@ func (s *OpenAIGatewayService) writeAnthropicBufferedFinalResponse(
 	}
 
 	return &OpenAIForwardResult{
-		RequestID:     requestID,
-		ResponseID:    finalResponse.ID,
-		Usage:         usage,
-		Model:         originalModel,
-		BillingModel:  billingModel,
-		UpstreamModel: upstreamModel,
-		Stream:        clientStream,
-		Duration:      time.Since(startTime),
+		RequestID:                     requestID,
+		ResponseID:                    finalResponse.ID,
+		Usage:                         usage,
+		Model:                         originalModel,
+		BillingModel:                  billingModel,
+		UpstreamModel:                 upstreamModel,
+		UpstreamResponseModel:         observedUpstreamResponseModel(c),
+		UpstreamResponseModelConflict: observedUpstreamResponseModelConflict(c),
+		Stream:                        clientStream,
+		Duration:                      time.Since(startTime),
 	}, nil
 }
 
@@ -2128,21 +2139,27 @@ func (s *OpenAIGatewayService) handleAnthropicStreamingResponse(
 	if intervalTicker != nil {
 		intervalCh = intervalTicker.C
 	}
+	observer := upstreamResponseModelObserverFromContext(c)
+	if observer == nil {
+		observer = beginUpstreamResponseModelObservation(c)
+	}
 
 	// resultWithUsage builds the final result snapshot.
 	resultWithUsage := func() *OpenAIForwardResult {
 		return &OpenAIForwardResult{
-			RequestID:           requestID,
-			ResponseID:          responseID,
-			Usage:               usage,
-			Model:               originalModel,
-			BillingModel:        billingModel,
-			UpstreamModel:       upstreamModel,
-			Stream:              true,
-			Duration:            time.Since(startTime),
-			FirstTokenMs:        firstTokenMs,
-			ClientDisconnect:    clientDisconnected,
-			ClientOutputStarted: clientOutputStarted,
+			RequestID:                     requestID,
+			ResponseID:                    responseID,
+			Usage:                         usage,
+			Model:                         originalModel,
+			BillingModel:                  billingModel,
+			UpstreamModel:                 upstreamModel,
+			UpstreamResponseModel:         observedUpstreamResponseModel(c),
+			UpstreamResponseModelConflict: observedUpstreamResponseModelConflict(c),
+			Stream:                        true,
+			Duration:                      time.Since(startTime),
+			FirstTokenMs:                  firstTokenMs,
+			ClientDisconnect:              clientDisconnected,
+			ClientOutputStarted:           clientOutputStarted,
 		}
 	}
 
@@ -2168,6 +2185,7 @@ func (s *OpenAIGatewayService) handleAnthropicStreamingResponse(
 
 	// processDataLine handles a single "data: ..." SSE line from upstream.
 	processDataLine := func(payload string) bool {
+		observer.ObserveOpenAI([]byte(payload), strings.TrimSpace(gjson.Get(payload, "type").String()))
 		if firstChunk {
 			firstChunk = false
 			ms := int(time.Since(startTime).Milliseconds())

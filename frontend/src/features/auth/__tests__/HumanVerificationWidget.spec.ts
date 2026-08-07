@@ -33,19 +33,21 @@ describe('HumanVerificationWidget Tencent mode', () => {
   let callback: ((result: TencentCaptchaResult) => void) | undefined
   let show: ReturnType<typeof vi.fn>
   let destroy: ReturnType<typeof vi.fn>
+  let constructorArgs: unknown[]
 
   beforeEach(() => {
     callback = undefined
     show = vi.fn()
     destroy = vi.fn()
+    constructorArgs = []
     loadTencentCaptcha.mockReset()
 
     class TencentCaptchaMock {
-      constructor(
-        _appId: string,
-        resultCallback: (result: TencentCaptchaResult) => void
-      ) {
-        callback = resultCallback
+      constructor(...args: unknown[]) {
+        constructorArgs = args
+        callback = (typeof args[0] === 'string' ? args[1] : args[2]) as (
+          result: TencentCaptchaResult
+        ) => void
       }
 
       show = show
@@ -57,9 +59,9 @@ describe('HumanVerificationWidget Tencent mode', () => {
     )
   })
 
-  function mountWidget() {
+  function mountWidget(region: 'cn' | 'intl' = 'cn') {
     return mount(HumanVerificationWidget, {
-      props: { provider: 'tencent', siteKey: '123456789' },
+      props: { provider: 'tencent', siteKey: '123456789', tencentRegion: region },
       global: { stubs: { TurnstileWidget: true } }
     })
   }
@@ -136,5 +138,25 @@ describe('HumanVerificationWidget Tencent mode', () => {
     resolveSDK?.(TencentCaptchaMock as unknown as TencentCaptchaConstructor)
     await flushPromises()
     expect(show).not.toHaveBeenCalled()
+  })
+
+  it('preloads the international checkbox in its visible container', async () => {
+    const wrapper = mountWidget('intl')
+    await flushPromises()
+
+    const container = wrapper.get('[data-testid="tencent-captcha-international-container"]')
+    expect(loadTencentCaptcha).toHaveBeenCalledWith('intl')
+    expect(constructorArgs[0]).toBe(container.element)
+    expect(constructorArgs[1]).toBe('123456789')
+    expect(constructorArgs[3]).toMatchObject({ enableAutoCheck: false, type: 'popup' })
+    expect(show).toHaveBeenCalledTimes(1)
+
+    callback?.({ ret: 0, ticket: 'ticket', randstr: 'rand' })
+    await flushPromises()
+    await expect((wrapper.vm as unknown as WidgetVM).verifyTencent()).resolves.toEqual({
+      ticket: 'ticket',
+      randstr: 'rand'
+    })
+    expect(destroy).not.toHaveBeenCalled()
   })
 })

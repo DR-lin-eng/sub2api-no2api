@@ -20,21 +20,33 @@
   <div v-else-if="provider !== 'tencent'" class="human-verification-wrapper">
     <div ref="containerRef" class="human-verification-container"></div>
   </div>
+  <div
+    v-else-if="isTencentInternational"
+    ref="tencentInternationalContainerRef"
+    data-testid="tencent-captcha-international-container"
+    :class="
+      tencentInternationalContainerVisible
+        ? 'flex min-h-[60px] w-full justify-center'
+        : 'pointer-events-none fixed left-1/2 top-0 flex h-[60px] w-[302px] -translate-x-1/2 scale-[0.01] opacity-0'
+    "
+  />
   <span v-else class="hidden" aria-hidden="true"></span>
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import TurnstileWidget from '@/features/auth/presentation/widgets/TurnstileWidget.vue'
 import AliyunCaptchaWidget from '@/features/auth/presentation/widgets/AliyunCaptchaWidget.vue'
 import type { ActionCaptchaRequestProof } from '@/types'
 import {
   loadTencentCaptcha,
+  normalizeTencentCaptchaRegion,
   type AliyunCaptchaRegion,
   type ExternalHumanVerificationProvider,
   type TencentCaptchaInstance,
   type TencentCaptchaProof,
+  type TencentCaptchaRegion,
   type TencentCaptchaResult
 } from '@/core/services/humanVerification'
 
@@ -61,6 +73,7 @@ const props = defineProps<{
   provider: ExternalHumanVerificationProvider
   siteKey?: string
   apiEndpoint?: string
+  tencentRegion?: TencentCaptchaRegion
   aliyunSceneId?: string
   aliyunPrefix?: string
   aliyunRegion?: AliyunCaptchaRegion
@@ -78,9 +91,17 @@ const containerRef = ref<HTMLElement | null>(null)
 const turnstileRef = ref<InstanceType<typeof TurnstileWidget> | null>(null)
 const aliyunRef = ref<InstanceType<typeof AliyunCaptchaWidget> | null>(null)
 const recaptchaWidgetId = ref<number | null>(null)
+const isTencentInternational = computed(
+  () => props.provider === 'tencent' && normalizeTencentCaptchaRegion(props.tencentRegion) === 'intl'
+)
+const tencentInternationalContainerRef = ref<HTMLDivElement | null>(null)
+const tencentInternationalContainerVisible = ref(isTencentInternational.value)
 let tencentInstance: TencentCaptchaInstance | null = null
 let tencentPending: Promise<TencentCaptchaProof | null> | null = null
 let cancelTencentPending: (() => void) | null = null
+let tencentCachedProof: TencentCaptchaProof | null = null
+let tencentPreloading = false
+let isMounted = false
 
 let recaptchaLoadPromise: Promise<void> | null = null
 
@@ -159,28 +180,46 @@ function cancelTencent(): void {
   tencentInstance = null
   cancelTencentPending?.()
   cancelTencentPending = null
+  tencentPending = null
+  tencentCachedProof = null
+  tencentPreloading = false
+  tencentInternationalContainerVisible.value = isTencentInternational.value
 }
 
-function createTencentVerification(): Promise<TencentCaptchaProof | null> {
+function createTencentVerification(
+  revealInternational: boolean = true
+): Promise<TencentCaptchaProof | null> {
   return new Promise((resolve, reject) => {
     let settled = false
 
-    const finish = (callback: () => void): void => {
+    const finish = (
+      callback: () => void,
+      keepInternationalContainer: boolean = false
+    ): void => {
       if (settled) return
       settled = true
       if (cancelTencentPending === cancel) cancelTencentPending = null
-      tencentInstance?.destroy()
-      tencentInstance = null
+      if (!keepInternationalContainer) {
+        tencentInstance?.destroy()
+        tencentInstance = null
+        tencentInternationalContainerVisible.value = false
+      }
       callback()
     }
     const cancel = (): void => finish(() => resolve(null))
     cancelTencentPending = cancel
 
-    void loadTencentCaptcha()
+    const region = normalizeTencentCaptchaRegion(props.tencentRegion)
+    if (region === 'intl' && revealInternational) {
+      tencentInternationalContainerVisible.value = true
+    }
+
+    void nextTick()
+      .then(() => loadTencentCaptcha(region))
       .then((TencentCaptcha) => {
         if (cancelTencentPending !== cancel || props.provider !== 'tencent') return
         const userLanguage = locale.value.toLowerCase().startsWith('zh') ? 'zh-cn' : 'en'
-        tencentInstance = new TencentCaptcha(props.siteKey || '', (result: TencentCaptchaResult) => {
+        const handleResult = (result: TencentCaptchaResult): void => {
           if (result.ret === 2) {
             finish(() => resolve(null))
             return
@@ -191,8 +230,21 @@ function createTencentVerification(): Promise<TencentCaptchaProof | null> {
             finish(() => reject(new Error('Tencent Captcha verification failed')))
             return
           }
-          finish(() => resolve({ ticket, randstr }))
-        }, { userLanguage })
+          finish(() => resolve({ ticket, randstr }), region === 'intl')
+        }
+        if (region === 'intl') {
+          const container = tencentInternationalContainerRef.value
+          if (!container) {
+            throw new Error('Tencent Captcha international container is unavailable')
+          }
+          tencentInstance = new TencentCaptcha(container, props.siteKey || '', handleResult, {
+            enableAutoCheck: false,
+            userLanguage,
+            type: 'popup'
+          })
+        } else {
+          tencentInstance = new TencentCaptcha(props.siteKey || '', handleResult, { userLanguage })
+        }
         tencentInstance.show()
       })
       .catch((error: unknown) => finish(() => reject(error)))
@@ -201,11 +253,51 @@ function createTencentVerification(): Promise<TencentCaptchaProof | null> {
 
 function verifyTencent(): Promise<TencentCaptchaProof | null> {
   if (props.provider !== 'tencent' || !props.siteKey) return Promise.resolve(null)
-  if (tencentPending) return tencentPending
-  tencentPending = createTencentVerification().finally(() => {
-    tencentPending = null
-  })
-  return tencentPending
+  if (tencentCachedProof) {
+    const proof = tencentCachedProof
+    tencentCachedProof = null
+    return Promise.resolve(proof)
+  }
+  if (tencentPending) {
+    const verification = tencentPending
+    tencentInternationalContainerVisible.value = true
+    void nextTick().then(() => {
+      if (tencentPending === verification) tencentInstance?.show()
+    })
+    if (!tencentPreloading) return verification
+    return verification.then((proof) => {
+      if (tencentCachedProof === proof) tencentCachedProof = null
+      return proof
+    })
+  }
+
+  const verification = createTencentVerification(true)
+  tencentPending = verification
+  tencentPreloading = false
+  const clearPending = (): void => {
+    if (tencentPending === verification) tencentPending = null
+  }
+  void verification.then(clearPending, clearPending)
+  return verification
+}
+
+function preloadTencent(): void {
+  if (!isTencentInternational.value || !props.siteKey || tencentPending || tencentCachedProof) return
+
+  const verification = createTencentVerification(true)
+  tencentPending = verification
+  tencentPreloading = true
+  void verification
+    .then((proof) => {
+      if (proof) tencentCachedProof = proof
+    })
+    .catch(() => undefined)
+    .finally(() => {
+      if (tencentPending === verification) {
+        tencentPending = null
+        tencentPreloading = false
+      }
+    })
 }
 
 function verifyAliyun(): Promise<string | null> {
@@ -241,6 +333,11 @@ function reset(): void {
     void renderCap()
   } else if (props.provider === 'tencent') {
     cancelTencent()
+    if (isMounted && isTencentInternational.value) {
+      void nextTick().then(() => {
+        if (isMounted) preloadTencent()
+      })
+    }
   } else if (props.provider === 'aliyun') {
     aliyunRef.value?.reset()
   }
@@ -251,19 +348,31 @@ watch(
     props.provider,
     props.siteKey,
     props.apiEndpoint,
+    props.tencentRegion,
     props.aliyunSceneId,
     props.aliyunPrefix,
     props.aliyunRegion
   ] as const,
   (current, previous) => {
-    if (previous?.[0] === 'tencent' && (current[0] !== 'tencent' || current[1] !== previous[1])) {
+    if (
+      previous?.[0] === 'tencent' &&
+      (current[0] !== 'tencent' || current[1] !== previous[1] || current[3] !== previous[3])
+    ) {
       cancelTencent()
     }
     void render()
+    if (current[0] === 'tencent' && normalizeTencentCaptchaRegion(current[3]) === 'intl') {
+      void nextTick().then(preloadTencent)
+    }
   }
 )
-onMounted(() => void render())
+onMounted(() => {
+  isMounted = true
+  void render()
+  preloadTencent()
+})
 onUnmounted(() => {
+  isMounted = false
   clearContainer()
   cancelTencent()
 })

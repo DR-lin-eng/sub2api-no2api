@@ -174,6 +174,7 @@ const (
 	SettingKeyTencentCaptchaAppSecretKey   = "tencent_captcha_app_secret_key"
 	SettingKeyTencentCaptchaCloudSecretID  = "tencent_captcha_cloud_secret_id"
 	SettingKeyTencentCaptchaCloudSecretKey = "tencent_captcha_cloud_secret_key"
+	SettingKeyTencentCaptchaRegion         = "tencent_captcha_region"
 	SettingKeyAliyunCaptchaEnabled         = "aliyun_captcha_enabled"
 	SettingKeyAliyunCaptchaAccessKeyID     = "aliyun_captcha_access_key_id"
 	SettingKeyAliyunCaptchaAccessKeySecret = "aliyun_captcha_access_key_secret"

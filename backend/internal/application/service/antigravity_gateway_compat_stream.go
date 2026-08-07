@@ -155,6 +155,7 @@ func (s *AntigravityGatewayService) handleAntigravityCompatStream(
 				return s.handleAntigravityCompatReadError(c, session, event.err, maxLineSize, prefix)
 			}
 			resetAntigravityCompatTimer(timeoutTimer, timeout)
+			s.observeAntigravityGeminiSSELine(c, event.line)
 			if consumeErr := session.consume(event.line); consumeErr != nil {
 				return s.handleAntigravityCompatLimitError(c, session, consumeErr, prefix)
 			}
