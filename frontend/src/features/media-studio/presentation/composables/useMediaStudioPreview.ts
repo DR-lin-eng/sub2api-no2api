@@ -2,42 +2,26 @@ export type MediaStudioModeId = 'image' | 'video' | 'batch'
 
 export interface MediaStudioMode {
   id: MediaStudioModeId
-  icon: string
-  accentClass: string
+  iconName: 'grid' | 'play' | 'copy'
   available: boolean
-}
-
-export interface MediaStudioPreviewStage {
-  id: 'prompt' | 'configure' | 'generate' | 'deliver'
-  step: number
 }
 
 const mediaStudioModes: MediaStudioMode[] = [
   {
     id: 'image',
-    icon: '✦',
-    accentClass: 'from-fuchsia-500 to-rose-500',
+    iconName: 'grid',
     available: false,
   },
   {
     id: 'video',
-    icon: '▶',
-    accentClass: 'from-sky-500 to-indigo-500',
+    iconName: 'play',
     available: false,
   },
   {
     id: 'batch',
-    icon: '▦',
-    accentClass: 'from-emerald-500 to-teal-500',
+    iconName: 'copy',
     available: false,
   },
-]
-
-const mediaStudioPreviewStages: MediaStudioPreviewStage[] = [
-  { id: 'prompt', step: 1 },
-  { id: 'configure', step: 2 },
-  { id: 'generate', step: 3 },
-  { id: 'deliver', step: 4 },
 ]
 
 export function useMediaStudioPreview() {
@@ -47,7 +31,6 @@ export function useMediaStudioPreview() {
 
   return {
     modes: mediaStudioModes,
-    previewStages: mediaStudioPreviewStages,
     getModeById,
   }
 }
