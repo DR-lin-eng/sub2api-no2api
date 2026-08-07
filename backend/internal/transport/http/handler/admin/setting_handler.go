@@ -400,6 +400,8 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		ModelPlazaAutoPublicModels: settings.ModelPlazaAutoPublicModels,
 		ModelPlazaDescription:      settings.ModelPlazaDescription,
 
+		MediaStudioEnabled: settings.MediaStudioEnabled,
+
 		AffiliateEnabled: settings.AffiliateEnabled,
 
 		AllowUserViewErrorRequests: settings.AllowUserViewErrorRequests,

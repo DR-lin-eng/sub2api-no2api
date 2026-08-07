@@ -340,6 +340,9 @@ type SystemSettings struct {
 	ModelPlazaAutoPublicModels bool   `json:"model_plaza_auto_public_models"`
 	ModelPlazaDescription      string `json:"model_plaza_description"`
 
+	// Media Studio feature switch
+	MediaStudioEnabled bool `json:"media_studio_enabled"`
+
 	// 风控中心功能开关
 	RiskControlEnabled bool `json:"risk_control_enabled"`
 
@@ -445,6 +448,8 @@ type PublicSettings struct {
 
 	ModelPlazaEnabled     bool `json:"model_plaza_enabled"`
 	ModelPlazaRequireAuth bool `json:"model_plaza_require_auth"`
+
+	MediaStudioEnabled bool `json:"media_studio_enabled"`
 
 	AffiliateEnabled bool `json:"affiliate_enabled"`
 

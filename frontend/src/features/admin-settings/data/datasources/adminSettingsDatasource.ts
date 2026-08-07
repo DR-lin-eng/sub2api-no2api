@@ -722,6 +722,9 @@ export interface SystemSettings {
   model_plaza_auto_public_models: boolean;
   model_plaza_description: string;
 
+  // Media Studio feature switch
+  media_studio_enabled: boolean;
+
   // Affiliate (邀请返利) feature switch
   affiliate_enabled: boolean;
 
@@ -1037,6 +1040,9 @@ export interface UpdateSettingsRequest {
   model_plaza_require_auth?: boolean;
   model_plaza_auto_public_models?: boolean;
   model_plaza_description?: string;
+
+  // Media Studio feature switch
+  media_studio_enabled?: boolean;
 
   // Affiliate (邀请返利) feature switch
   affiliate_enabled?: boolean;

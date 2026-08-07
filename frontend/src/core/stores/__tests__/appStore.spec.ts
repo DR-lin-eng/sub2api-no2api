@@ -61,6 +61,7 @@ function createPublicSettings(overrides: Partial<PublicSettings> = {}): PublicSe
     support_chat_enabled: false,
     model_plaza_enabled: false,
     model_plaza_require_auth: false,
+    media_studio_enabled: false,
     service_quota_enabled: false,
     affiliate_enabled: false,
     ...overrides,
@@ -468,6 +469,7 @@ describe('useAppStore', () => {
         linuxdo_oauth_enabled: false,
         backend_mode_enabled: false,
         support_chat_enabled: true,
+        media_studio_enabled: false,
         version: '1.0.0'
       })
 

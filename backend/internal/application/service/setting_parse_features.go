@@ -59,6 +59,9 @@ func (s *SettingService) applyFeatureSettings(result *SystemSettings, settings m
 	result.ModelPlazaAutoPublicModels = settings[SettingKeyModelPlazaAutoPublicModels] == "true"
 	result.ModelPlazaDescription = settings[SettingKeyModelPlazaDescription]
 
+	// Media Studio feature (default: disabled; strict true)
+	result.MediaStudioEnabled = settings[SettingKeyMediaStudioEnabled] == "true"
+
 	// Affiliate (邀请返利) feature (default: disabled; strict true)
 	result.AffiliateEnabled = settings[SettingKeyAffiliateEnabled] == "true"
 
