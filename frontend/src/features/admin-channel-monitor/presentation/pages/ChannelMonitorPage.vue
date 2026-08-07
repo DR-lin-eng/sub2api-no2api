@@ -158,6 +158,7 @@ const appStore = useAppStore()
 const {
   providerLabel,
   providerBadgeClass,
+  latencyUnit,
   formatLatency,
   formatAvailability,
 } = useChannelMonitorFormat()
@@ -187,7 +188,7 @@ const columns = computed<Column[]>(() => [
   { key: 'provider', label: t('admin.channelMonitor.columns.provider'), sortable: false },
   { key: 'primary_model', label: t('admin.channelMonitor.columns.primaryModel'), sortable: false },
   { key: 'availability_7d', label: t('admin.channelMonitor.columns.availability7d'), sortable: false },
-  { key: 'latency', label: t('admin.channelMonitor.columns.latency'), sortable: false },
+  { key: 'latency', label: t('admin.channelMonitor.columns.latency', { unit: latencyUnit.value }), sortable: false },
   { key: 'enabled', label: t('admin.channelMonitor.columns.enabled'), sortable: false },
   { key: 'actions', label: t('admin.channelMonitor.columns.actions'), sortable: false },
 ])

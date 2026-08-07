@@ -92,6 +92,35 @@ func TestSettingService_GetModelPlazaRuntime_AutoPublicModelsRequiresExplicitTru
 	require.False(t, failed.AutoPublicModels)
 }
 
+func TestSettingService_GetChannelMonitorPublicShareRuntime_OptInAndRequiresMonitorEnabled(t *testing.T) {
+	ctx := context.Background()
+
+	enabled := NewSettingService(&settingPublicRepoStub{values: map[string]string{
+		SettingKeyChannelMonitorEnabled:                "true",
+		SettingKeyChannelMonitorPublicShareEnabled:     "true",
+		SettingKeyChannelMonitorPublicShareRequireAuth: "true",
+	}}, &config.Config{}).GetChannelMonitorPublicShareRuntime(ctx)
+	require.True(t, enabled.Enabled)
+	require.True(t, enabled.RequireAuth)
+
+	missingShareSwitch := NewSettingService(&settingPublicRepoStub{values: map[string]string{
+		SettingKeyChannelMonitorEnabled: "true",
+	}}, &config.Config{}).GetChannelMonitorPublicShareRuntime(ctx)
+	require.False(t, missingShareSwitch.Enabled)
+
+	monitorDisabled := NewSettingService(&settingPublicRepoStub{values: map[string]string{
+		SettingKeyChannelMonitorEnabled:            "false",
+		SettingKeyChannelMonitorPublicShareEnabled: "true",
+	}}, &config.Config{}).GetChannelMonitorPublicShareRuntime(ctx)
+	require.False(t, monitorDisabled.Enabled)
+
+	failed := NewSettingService(
+		&settingPublicRepoStub{err: errors.New("database unavailable")},
+		&config.Config{},
+	).GetChannelMonitorPublicShareRuntime(ctx)
+	require.False(t, failed.Enabled)
+}
+
 func (s *settingPublicRepoStub) SetMultiple(ctx context.Context, settings map[string]string) error {
 	panic("unexpected SetMultiple call")
 }

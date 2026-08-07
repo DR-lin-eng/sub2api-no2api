@@ -500,7 +500,7 @@ export default {
         provider: '供应商',
         primaryModel: '主模型',
         availability7d: '7 天可用率',
-        latency: '延迟 (ms)',
+        latency: '延迟 ({unit})',
         enabled: '启用',
         actions: '操作'
       },

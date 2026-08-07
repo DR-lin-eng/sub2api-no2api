@@ -48,6 +48,53 @@
                 {{ t('admin.settings.features.channelMonitor.defaultIntervalHint') }}
               </p>
             </div>
+
+            <div v-if="form.channel_monitor_enabled">
+              <label class="input-label">
+                {{ t('admin.settings.features.channelMonitor.latencyUnit') }}
+              </label>
+              <select
+                v-model="form.channel_monitor_latency_unit"
+                class="input"
+              >
+                <option value="ms">
+                  {{ t('admin.settings.features.channelMonitor.latencyUnitMs') }}
+                </option>
+                <option value="s">
+                  {{ t('admin.settings.features.channelMonitor.latencyUnitSeconds') }}
+                </option>
+              </select>
+              <p class="mt-1 text-xs text-gray-400">
+                {{ t('admin.settings.features.channelMonitor.latencyUnitHint') }}
+              </p>
+            </div>
+
+            <div v-if="form.channel_monitor_enabled" class="flex items-center justify-between gap-6">
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('admin.settings.features.channelMonitor.publicShare') }}
+                </label>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.features.channelMonitor.publicShareHint') }}
+                </p>
+              </div>
+              <Toggle v-model="form.channel_monitor_public_share_enabled" />
+            </div>
+
+            <div
+              v-if="form.channel_monitor_enabled && form.channel_monitor_public_share_enabled"
+              class="flex items-center justify-between gap-6"
+            >
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('admin.settings.features.channelMonitor.publicShareRequireAuth') }}
+                </label>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.features.channelMonitor.publicShareRequireAuthHint') }}
+                </p>
+              </div>
+              <Toggle v-model="form.channel_monitor_public_share_require_auth" />
+            </div>
           </div>
         </div>
 

@@ -17,11 +17,11 @@
           <tr class="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
             <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.model') }}</th>
             <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.latestStatus') }}</th>
-            <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.latestLatency') }}</th>
+            <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.latestLatency', { unit: latencyUnit }) }}</th>
             <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.availability7d') }}</th>
             <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.availability15d') }}</th>
             <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.availability30d') }}</th>
-            <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.avgLatency7d') }}</th>
+            <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.avgLatency7d', { unit: latencyUnit }) }}</th>
           </tr>
         </thead>
         <tbody>
@@ -84,7 +84,7 @@ defineEmits<{
 
 const { t } = useI18n()
 const appStore = useAppStore()
-const { statusLabel, statusBadgeClass, formatLatency, formatPercent } = useChannelMonitorFormat()
+const { statusLabel, statusBadgeClass, latencyUnit, formatLatency, formatPercent } = useChannelMonitorFormat()
 
 const detail = ref<UserMonitorDetail | null>(null)
 const loading = ref(false)

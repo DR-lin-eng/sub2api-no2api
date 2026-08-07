@@ -211,8 +211,11 @@ type SystemSettings struct {
 	OpsMetricsIntervalSeconds    int
 
 	// Channel Monitor feature
-	ChannelMonitorEnabled                bool `json:"channel_monitor_enabled"`
-	ChannelMonitorDefaultIntervalSeconds int  `json:"channel_monitor_default_interval_seconds"`
+	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
+	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
+	ChannelMonitorLatencyUnit            string `json:"channel_monitor_latency_unit"`
+	ChannelMonitorPublicShareEnabled     bool   `json:"channel_monitor_public_share_enabled"`
+	ChannelMonitorPublicShareRequireAuth bool   `json:"channel_monitor_public_share_require_auth"`
 
 	// Available Channels feature (user-facing aggregate view)
 	AvailableChannelsEnabled bool `json:"available_channels_enabled"`
@@ -401,8 +404,11 @@ type PublicSettings struct {
 	BalanceLowNotifyRechargeURL string
 
 	// Channel Monitor feature
-	ChannelMonitorEnabled                bool `json:"channel_monitor_enabled"`
-	ChannelMonitorDefaultIntervalSeconds int  `json:"channel_monitor_default_interval_seconds"`
+	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
+	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
+	ChannelMonitorLatencyUnit            string `json:"channel_monitor_latency_unit"`
+	ChannelMonitorPublicShareEnabled     bool   `json:"channel_monitor_public_share_enabled"`
+	ChannelMonitorPublicShareRequireAuth bool   `json:"channel_monitor_public_share_require_auth"`
 
 	// Available Channels feature (user-facing aggregate view)
 	AvailableChannelsEnabled bool `json:"available_channels_enabled"`

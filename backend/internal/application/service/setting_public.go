@@ -231,6 +231,9 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyAccountQuotaNotifyEnabled,
 		SettingKeyChannelMonitorEnabled,
 		SettingKeyChannelMonitorDefaultIntervalSeconds,
+		SettingKeyChannelMonitorLatencyUnit,
+		SettingKeyChannelMonitorPublicShareEnabled,
+		SettingKeyChannelMonitorPublicShareRequireAuth,
 		SettingKeyAvailableChannelsEnabled,
 		SettingKeySupportChatEnabled,
 		SettingKeyModelPlazaEnabled,
@@ -358,6 +361,9 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 
 		ChannelMonitorEnabled:                !isFalseSettingValue(settings[SettingKeyChannelMonitorEnabled]),
 		ChannelMonitorDefaultIntervalSeconds: parseChannelMonitorInterval(settings[SettingKeyChannelMonitorDefaultIntervalSeconds]),
+		ChannelMonitorLatencyUnit:            normalizeChannelMonitorLatencyUnit(settings[SettingKeyChannelMonitorLatencyUnit]),
+		ChannelMonitorPublicShareEnabled:     settings[SettingKeyChannelMonitorPublicShareEnabled] == "true",
+		ChannelMonitorPublicShareRequireAuth: settings[SettingKeyChannelMonitorPublicShareRequireAuth] == "true",
 
 		AvailableChannelsEnabled: settings[SettingKeyAvailableChannelsEnabled] == "true",
 		SupportChatEnabled:       settings[SettingKeySupportChatEnabled] == "true",
@@ -406,6 +412,17 @@ func clampChannelMonitorInterval(v int) int {
 	return v
 }
 
+func normalizeChannelMonitorLatencyUnit(raw string) string {
+	switch strings.TrimSpace(strings.ToLower(raw)) {
+	case "s":
+		return "s"
+	case "ms":
+		return "ms"
+	default:
+		return "ms"
+	}
+}
+
 // ChannelMonitorRuntime is the lightweight view of the channel monitor feature
 // consumed by the runner and user-facing handlers.
 type ChannelMonitorRuntime struct {
@@ -426,6 +443,31 @@ func (s *SettingService) GetChannelMonitorRuntime(ctx context.Context) ChannelMo
 	return ChannelMonitorRuntime{
 		Enabled:                !isFalseSettingValue(vals[SettingKeyChannelMonitorEnabled]),
 		DefaultIntervalSeconds: parseChannelMonitorInterval(vals[SettingKeyChannelMonitorDefaultIntervalSeconds]),
+	}
+}
+
+// ChannelMonitorPublicShareRuntime is the lightweight view consumed by the
+// copy-link/share endpoints for the channel monitor read-only status page.
+type ChannelMonitorPublicShareRuntime struct {
+	Enabled     bool
+	RequireAuth bool
+}
+
+// GetChannelMonitorPublicShareRuntime reads the channel status share switches
+// directly from the settings store. Fail-closed: on error the share surface is
+// disabled because it is an opt-in public endpoint.
+func (s *SettingService) GetChannelMonitorPublicShareRuntime(ctx context.Context) ChannelMonitorPublicShareRuntime {
+	vals, err := s.settingRepo.GetMultiple(ctx, []string{
+		SettingKeyChannelMonitorEnabled,
+		SettingKeyChannelMonitorPublicShareEnabled,
+		SettingKeyChannelMonitorPublicShareRequireAuth,
+	})
+	if err != nil {
+		return ChannelMonitorPublicShareRuntime{Enabled: false}
+	}
+	return ChannelMonitorPublicShareRuntime{
+		Enabled:     !isFalseSettingValue(vals[SettingKeyChannelMonitorEnabled]) && vals[SettingKeyChannelMonitorPublicShareEnabled] == "true",
+		RequireAuth: vals[SettingKeyChannelMonitorPublicShareRequireAuth] == "true",
 	}
 }
 
@@ -579,16 +621,19 @@ type PublicSettingsInjectionPayload struct {
 	// Feature flags — MUST match the opt-in/opt-out registry in
 	// frontend/src/utils/featureFlags.ts. Missing a field here is the bug
 	// that hid the "可用渠道" menu on page refresh.
-	ChannelMonitorEnabled                bool `json:"channel_monitor_enabled"`
-	ChannelMonitorDefaultIntervalSeconds int  `json:"channel_monitor_default_interval_seconds"`
-	AvailableChannelsEnabled             bool `json:"available_channels_enabled"`
-	SupportChatEnabled                   bool `json:"support_chat_enabled"`
-	ModelPlazaEnabled                    bool `json:"model_plaza_enabled"`
-	ModelPlazaRequireAuth                bool `json:"model_plaza_require_auth"`
-	AffiliateEnabled                     bool `json:"affiliate_enabled"`
-	RiskControlEnabled                   bool `json:"risk_control_enabled"`
-	AllowUserViewErrorRequests           bool `json:"allow_user_view_error_requests"`
-	AllowUserViewUsageDetails            bool `json:"allow_user_view_usage_details"`
+	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
+	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
+	ChannelMonitorLatencyUnit            string `json:"channel_monitor_latency_unit"`
+	ChannelMonitorPublicShareEnabled     bool   `json:"channel_monitor_public_share_enabled"`
+	ChannelMonitorPublicShareRequireAuth bool   `json:"channel_monitor_public_share_require_auth"`
+	AvailableChannelsEnabled             bool   `json:"available_channels_enabled"`
+	SupportChatEnabled                   bool   `json:"support_chat_enabled"`
+	ModelPlazaEnabled                    bool   `json:"model_plaza_enabled"`
+	ModelPlazaRequireAuth                bool   `json:"model_plaza_require_auth"`
+	AffiliateEnabled                     bool   `json:"affiliate_enabled"`
+	RiskControlEnabled                   bool   `json:"risk_control_enabled"`
+	AllowUserViewErrorRequests           bool   `json:"allow_user_view_error_requests"`
+	AllowUserViewUsageDetails            bool   `json:"allow_user_view_usage_details"`
 }
 
 // GetPublicSettingsForInjection returns public settings in a format suitable for HTML injection.
@@ -663,6 +708,9 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 
 		ChannelMonitorEnabled:                settings.ChannelMonitorEnabled,
 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
+		ChannelMonitorLatencyUnit:            settings.ChannelMonitorLatencyUnit,
+		ChannelMonitorPublicShareEnabled:     settings.ChannelMonitorPublicShareEnabled,
+		ChannelMonitorPublicShareRequireAuth: settings.ChannelMonitorPublicShareRequireAuth,
 		AvailableChannelsEnabled:             settings.AvailableChannelsEnabled,
 		SupportChatEnabled:                   settings.SupportChatEnabled,
 		ModelPlazaEnabled:                    settings.ModelPlazaEnabled,

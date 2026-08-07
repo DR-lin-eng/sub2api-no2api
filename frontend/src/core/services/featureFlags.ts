@@ -99,6 +99,11 @@ export const FeatureFlags = {
     mode: 'opt-out',
     label: 'Channel Monitor',
   }),
+  channelMonitorShare: defineFlag({
+    key: 'channel_monitor_public_share_enabled',
+    mode: 'opt-in',
+    label: 'Channel Status Share',
+  }),
   availableChannels: defineFlag({
     key: 'available_channels_enabled',
     mode: 'opt-in',

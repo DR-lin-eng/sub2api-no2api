@@ -188,6 +188,9 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		// Channel monitor defaults (enabled, 60s)
 		SettingKeyChannelMonitorEnabled:                "true",
 		SettingKeyChannelMonitorDefaultIntervalSeconds: "60",
+		SettingKeyChannelMonitorLatencyUnit:            "ms",
+		SettingKeyChannelMonitorPublicShareEnabled:     "false",
+		SettingKeyChannelMonitorPublicShareRequireAuth: "false",
 
 		// Available channels feature (default disabled; opt-in)
 		SettingKeyAvailableChannelsEnabled: "false",

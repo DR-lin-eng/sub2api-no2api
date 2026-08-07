@@ -399,6 +399,20 @@ const (
 	// pre-filled when creating a new channel monitor from the admin UI. Range: [15, 3600].
 	SettingKeyChannelMonitorDefaultIntervalSeconds = "channel_monitor_default_interval_seconds"
 
+	// SettingKeyChannelMonitorLatencyUnit controls how channel monitor latency values
+	// are displayed in the admin and user-facing UI. Allowed values: "ms" or "s".
+	SettingKeyChannelMonitorLatencyUnit = "channel_monitor_latency_unit"
+
+	// SettingKeyChannelMonitorPublicShareEnabled controls whether administrators can
+	// expose a copyable public status link for the channel monitor read-only view.
+	// Defaults to false (opt-in share surface).
+	SettingKeyChannelMonitorPublicShareEnabled = "channel_monitor_public_share_enabled"
+
+	// SettingKeyChannelMonitorPublicShareRequireAuth controls whether the public
+	// status link requires a logged-in user. When false, anonymous visitors can
+	// access the read-only status data through the share endpoints.
+	SettingKeyChannelMonitorPublicShareRequireAuth = "channel_monitor_public_share_require_auth"
+
 	// SettingKeyAvailableChannelsEnabled is a DB-backed soft switch for the "Available Channels"
 	// user-facing aggregate view. When false: user endpoint returns an empty list and the
 	// sidebar entry is hidden. Defaults to false (opt-in feature).

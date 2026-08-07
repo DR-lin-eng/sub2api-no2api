@@ -108,6 +108,9 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 
 		ChannelMonitorEnabled:                settings.ChannelMonitorEnabled,
 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
+		ChannelMonitorLatencyUnit:            settings.ChannelMonitorLatencyUnit,
+		ChannelMonitorPublicShareEnabled:     settings.ChannelMonitorPublicShareEnabled,
+		ChannelMonitorPublicShareRequireAuth: settings.ChannelMonitorPublicShareRequireAuth,
 
 		AvailableChannelsEnabled: settings.AvailableChannelsEnabled,
 		SupportChatEnabled:       settings.SupportChatEnabled,

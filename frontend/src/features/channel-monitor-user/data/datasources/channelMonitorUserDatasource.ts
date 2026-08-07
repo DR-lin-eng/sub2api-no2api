@@ -69,11 +69,23 @@ export async function list(options?: { signal?: AbortSignal }): Promise<UserMoni
   return data
 }
 
+export async function listShared(options?: { signal?: AbortSignal }): Promise<UserMonitorListResponse> {
+  const { data } = await apiClient.get<UserMonitorListResponse>('/channel-status-share', {
+    signal: options?.signal,
+  })
+  return data
+}
+
 /**
  * Get detailed status (multi-window availability + latency) for a single monitor.
  */
 export async function status(id: number): Promise<UserMonitorDetail> {
   const { data } = await apiClient.get<UserMonitorDetail>(`/channel-monitors/${id}/status`)
+  return data
+}
+
+export async function statusShared(id: number): Promise<UserMonitorDetail> {
+  const { data } = await apiClient.get<UserMonitorDetail>(`/channel-status-share/${id}/status`)
   return data
 }
 
@@ -85,10 +97,21 @@ export async function statusBatch(ids: number[]): Promise<UserMonitorDetail[]> {
   return data.items
 }
 
+export async function statusBatchShared(ids: number[]): Promise<UserMonitorDetail[]> {
+  const { data } = await apiClient.post<{ items: UserMonitorDetail[] }>(
+    '/channel-status-share/status/batch',
+    { ids }
+  )
+  return data.items
+}
+
 export const channelMonitorUserAPI = {
   list,
+  listShared,
   status,
+  statusShared,
   statusBatch,
+  statusBatchShared,
 }
 
 export default channelMonitorUserAPI

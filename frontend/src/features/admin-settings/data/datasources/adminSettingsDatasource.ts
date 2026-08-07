@@ -706,6 +706,9 @@ export interface SystemSettings {
   // Channel Monitor feature switch
   channel_monitor_enabled: boolean;
   channel_monitor_default_interval_seconds: number;
+  channel_monitor_latency_unit: "ms" | "s" | string;
+  channel_monitor_public_share_enabled: boolean;
+  channel_monitor_public_share_require_auth: boolean;
 
   // Available Channels feature switch
   available_channels_enabled: boolean;
@@ -1019,6 +1022,9 @@ export interface UpdateSettingsRequest {
   // Channel Monitor feature switch
   channel_monitor_enabled?: boolean;
   channel_monitor_default_interval_seconds?: number;
+  channel_monitor_latency_unit?: "ms" | "s" | string;
+  channel_monitor_public_share_enabled?: boolean;
+  channel_monitor_public_share_require_auth?: boolean;
 
   // Available Channels feature switch
   available_channels_enabled?: boolean;

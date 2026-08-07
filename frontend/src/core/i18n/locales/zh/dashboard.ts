@@ -546,20 +546,25 @@ export default {
       groupName: '分组',
       primaryModel: '主模型',
       availability7d: '7 天可用率',
-      latency: '延迟 (ms)'
+      latency: '延迟 ({unit})'
     },
     detailColumns: {
       model: '模型',
       latestStatus: '最新状态',
-      latestLatency: '最新延迟 (ms)',
+      latestLatency: '最新延迟 ({unit})',
       availability7d: '7 天可用率',
       availability15d: '15 天可用率',
       availability30d: '30 天可用率',
-      avgLatency7d: '7 天平均延迟 (ms)'
+      avgLatency7d: '7 天平均延迟 ({unit})'
     },
     empty: {
       title: '暂无可显示的渠道',
       description: '管理员尚未配置可监控的渠道。'
+    },
+    share: {
+      copyLink: '复制状态链接',
+      copied: '状态链接已复制',
+      copyFailed: '复制状态链接失败'
     }
   },
 

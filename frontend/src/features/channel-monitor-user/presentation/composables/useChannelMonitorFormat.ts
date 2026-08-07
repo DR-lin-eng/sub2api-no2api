@@ -10,7 +10,9 @@
  * same translation source.
  */
 
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useAppStore } from '@/core/stores/appStore'
 import type { MonitorStatus, Provider } from '@/features/admin-channel-monitor/data/datasources/adminChannelMonitorDatasource'
 import {
   PROVIDER_OPENAI,
@@ -38,6 +40,11 @@ export interface AvailabilityRow {
 
 export function useChannelMonitorFormat() {
   const { t } = useI18n()
+  const appStore = useAppStore()
+
+  const latencyUnit = computed<'ms' | 's'>(() =>
+    appStore.cachedPublicSettings?.channel_monitor_latency_unit === 's' ? 's' : 'ms'
+  )
 
   function statusLabel(s: MonitorStatus | ''): string {
     if (!s) return t('monitorCommon.status.unknown')
@@ -118,7 +125,21 @@ export function useChannelMonitorFormat() {
 
   function formatLatency(ms: number | null | undefined): string {
     if (ms == null) return t('monitorCommon.latencyEmpty')
+    if (latencyUnit.value === 's') {
+      const seconds = ms / 1000
+      let precision = 1
+      if (seconds < 1) precision = 3
+      else if (seconds < 10) precision = 2
+      const fixed = seconds.toFixed(precision)
+      return fixed.replace(/\.?0+$/, '')
+    }
     return String(Math.round(ms))
+  }
+
+  function formatLatencyWithUnit(ms: number | null | undefined): string {
+    const value = formatLatency(ms)
+    if (value === t('monitorCommon.latencyEmpty')) return value
+    return `${value}${latencyUnit.value}`
   }
 
   function formatPercent(v: number | null | undefined): string {
@@ -151,7 +172,9 @@ export function useChannelMonitorFormat() {
     providerLabel,
     providerBadgeClass,
     providerPickerClass,
+    latencyUnit,
     formatLatency,
+    formatLatencyWithUnit,
     formatPercent,
     formatAvailability,
     formatRelativeTime,

@@ -42,6 +42,17 @@
         <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
       </button>
 
+      <button
+        v-if="showShareButton"
+        type="button"
+        class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-800 dark:border-dark-700 dark:text-gray-300 dark:hover:bg-dark-700 dark:hover:text-white"
+        :title="t('channelStatus.share.copyLink')"
+        @click="emit('copy-share-link')"
+      >
+        <Icon name="copy" size="sm" />
+        <span>{{ t('channelStatus.share.copyLink') }}</span>
+      </button>
+
       <AutoRefreshButton
         v-if="autoRefresh"
         :enabled="autoRefresh.enabled.value"
@@ -68,6 +79,7 @@ const props = defineProps<{
   intervalSeconds: number
   window: MonitorWindow
   loading: boolean
+  showShareButton?: boolean
   autoRefresh?: {
     enabled: { value: boolean }
     intervalSeconds: { value: number }
@@ -81,6 +93,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:window', value: MonitorWindow): void
   (e: 'refresh'): void
+  (e: 'copy-share-link'): void
 }>()
 
 const { t } = useI18n()
