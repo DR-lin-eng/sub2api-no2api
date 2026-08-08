@@ -2032,6 +2032,14 @@ func (h *AuthHandler) ExchangePendingOAuthCompletion(c *gin.Context) {
 		response.Success(c, payload)
 		return
 	}
+	// A non-terminal login session may point at an existing user solely because
+	// the browser submitted that user's email. Do not let an adoption decision
+	// turn that unproven target into an identity binding. bind_current_user is
+	// exempt because its target comes from the authenticated user session.
+	if !canIssueTokenPair && !strings.EqualFold(strings.TrimSpace(session.Intent), oauthIntentBindCurrentUser) {
+		response.Success(c, payload)
+		return
+	}
 	if !adoptionDecision.hasDecision() {
 		adoptionRequired, _ := payload["adoption_required"].(bool)
 		if adoptionRequired {

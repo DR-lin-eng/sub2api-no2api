@@ -164,10 +164,18 @@ func convertResponsesInputToAnthropic(instructions string, inputRaw json.RawMess
 				Content: blockJSON,
 			})
 
+		case item.Type == "reasoning":
+			// OpenAI encrypted reasoning is opaque, while Anthropic thinking replay
+			// requires an Anthropic-issued signature. Neither representation is safe
+			// to forward as an Anthropic input block.
+
 		case item.Role == "user":
 			content, err := convertResponsesUserToAnthropicContent(item.Content)
 			if err != nil {
 				return nil, nil, err
+			}
+			if anthropicContentIsEmpty(content) {
+				continue
 			}
 			messages = append(messages, AnthropicMessage{
 				Role:    "user",
@@ -179,19 +187,31 @@ func convertResponsesInputToAnthropic(instructions string, inputRaw json.RawMess
 			if err != nil {
 				return nil, nil, err
 			}
+			if anthropicContentIsEmpty(content) || anthropicContentIsOnlyBlankText(content) {
+				continue
+			}
 			messages = append(messages, AnthropicMessage{
 				Role:    "assistant",
 				Content: content,
 			})
 
 		default:
-			// Unknown role/type — attempt as user message
-			if item.Content != nil {
-				messages = append(messages, AnthropicMessage{
-					Role:    "user",
-					Content: item.Content,
-				})
+			// Preserve recognizable user content without forwarding Responses-only
+			// block types that Anthropic rejects.
+			if item.Content == nil {
+				continue
 			}
+			content, err := convertResponsesUserToAnthropicContent(item.Content)
+			if err != nil {
+				return nil, nil, err
+			}
+			if anthropicContentIsEmpty(content) {
+				continue
+			}
+			messages = append(messages, AnthropicMessage{
+				Role:    "user",
+				Content: content,
+			})
 		}
 	}
 
@@ -389,6 +409,28 @@ func extractTextFromContent(raw json.RawMessage) string {
 		return strings.Join(texts, "\n\n")
 	}
 	return ""
+}
+
+func anthropicContentIsEmpty(content json.RawMessage) bool {
+	switch strings.TrimSpace(string(content)) {
+	case "", "null", `""`, "[]":
+		return true
+	default:
+		return false
+	}
+}
+
+func anthropicContentIsOnlyBlankText(content json.RawMessage) bool {
+	blocks := parseContentBlocks(content)
+	if len(blocks) == 0 {
+		return false
+	}
+	for _, block := range blocks {
+		if block.Type != "text" || strings.TrimSpace(block.Text) != "" {
+			return false
+		}
+	}
+	return true
 }
 
 // convertResponsesUserToAnthropicContent converts a Responses user message
