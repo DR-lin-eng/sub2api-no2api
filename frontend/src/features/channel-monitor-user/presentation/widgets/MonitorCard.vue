@@ -50,11 +50,11 @@
       primary-icon="bolt"
       :primary-label="t('monitorCommon.dialogLatency')"
       :primary-value="formatLatency(item.primary_latency_ms)"
-      primary-unit="ms"
+      :primary-unit="latencyUnit"
       :secondary-icon="item.monitor_mode === 'passive' ? 'link' : 'globe'"
       :secondary-label="item.monitor_mode === 'passive' ? t('monitorCommon.monitorSource') : t('monitorCommon.endpointPing')"
       :secondary-value="item.monitor_mode === 'passive' ? t('monitorCommon.realRequests') : formatLatency(item.primary_ping_latency_ms)"
-      :secondary-unit="item.monitor_mode === 'passive' ? '' : 'ms'"
+      :secondary-unit="item.monitor_mode === 'passive' ? '' : latencyUnit"
     />
 
     <!-- Divider -->
@@ -112,6 +112,7 @@ const {
   statusBadgeClass,
   providerLabel,
   providerBadgeClass,
+  latencyUnit,
   formatLatency,
 } = useChannelMonitorFormat()
 

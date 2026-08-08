@@ -85,6 +85,9 @@ func writeFeatureSystemSettingUpdates(updates map[string]string, settings *Syste
 	if v := clampChannelMonitorInterval(settings.ChannelMonitorDefaultIntervalSeconds); v > 0 {
 		updates[SettingKeyChannelMonitorDefaultIntervalSeconds] = strconv.Itoa(v)
 	}
+	updates[SettingKeyChannelMonitorLatencyUnit] = normalizeChannelMonitorLatencyUnit(settings.ChannelMonitorLatencyUnit)
+	updates[SettingKeyChannelMonitorPublicShareEnabled] = strconv.FormatBool(settings.ChannelMonitorPublicShareEnabled)
+	updates[SettingKeyChannelMonitorPublicShareRequireAuth] = strconv.FormatBool(settings.ChannelMonitorPublicShareRequireAuth)
 	updates[SettingKeyAvailableChannelsEnabled] = strconv.FormatBool(settings.AvailableChannelsEnabled)
 	updates[SettingKeySupportChatEnabled] = strconv.FormatBool(settings.SupportChatEnabled)
 	updates[SettingKeyModelPlazaEnabled] = strconv.FormatBool(settings.ModelPlazaEnabled)

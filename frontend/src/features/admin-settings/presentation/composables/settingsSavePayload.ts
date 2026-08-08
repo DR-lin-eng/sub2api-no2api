@@ -400,6 +400,12 @@ function buildNotificationAndFeatureSettingsPayload({
     channel_monitor_enabled: form.channel_monitor_enabled,
     channel_monitor_default_interval_seconds:
       Number(form.channel_monitor_default_interval_seconds) || 60,
+    channel_monitor_latency_unit:
+      form.channel_monitor_latency_unit === "s" ? "s" : "ms",
+    channel_monitor_public_share_enabled:
+      form.channel_monitor_public_share_enabled,
+    channel_monitor_public_share_require_auth:
+      form.channel_monitor_public_share_require_auth,
     available_channels_enabled: form.available_channels_enabled,
     support_chat_enabled: form.support_chat_enabled,
     model_plaza_enabled: form.model_plaza_enabled,

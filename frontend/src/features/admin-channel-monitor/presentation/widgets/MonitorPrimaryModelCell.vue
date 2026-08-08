@@ -32,7 +32,7 @@
               <tr class="text-gray-400">
                 <th class="py-0.5 pr-2 font-medium">{{ t('admin.channelMonitor.columns.primaryModel') }}</th>
                 <th class="py-0.5 pr-2 font-medium">{{ t('admin.channelMonitor.columns.actions') }}</th>
-                <th class="py-0.5 font-medium">{{ t('admin.channelMonitor.columns.latency') }}</th>
+                <th class="py-0.5 font-medium">{{ t('admin.channelMonitor.columns.latency', { unit: latencyUnit }) }}</th>
               </tr>
             </thead>
             <tbody>
@@ -67,5 +67,5 @@ defineProps<{
 }>()
 
 const { t } = useI18n()
-const { statusLabel, statusBadgeClass, formatLatency } = useChannelMonitorFormat()
+const { statusLabel, statusBadgeClass, latencyUnit, formatLatency } = useChannelMonitorFormat()
 </script>

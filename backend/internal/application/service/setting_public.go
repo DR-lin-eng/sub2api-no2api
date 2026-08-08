@@ -5,11 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/shared/timezone"
 )
@@ -232,6 +234,9 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyAccountQuotaNotifyEnabled,
 		SettingKeyChannelMonitorEnabled,
 		SettingKeyChannelMonitorDefaultIntervalSeconds,
+		SettingKeyChannelMonitorLatencyUnit,
+		SettingKeyChannelMonitorPublicShareEnabled,
+		SettingKeyChannelMonitorPublicShareRequireAuth,
 		SettingKeyAvailableChannelsEnabled,
 		SettingKeySupportChatEnabled,
 		SettingKeyModelPlazaEnabled,
@@ -360,6 +365,9 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 
 		ChannelMonitorEnabled:                !isFalseSettingValue(settings[SettingKeyChannelMonitorEnabled]),
 		ChannelMonitorDefaultIntervalSeconds: parseChannelMonitorInterval(settings[SettingKeyChannelMonitorDefaultIntervalSeconds]),
+		ChannelMonitorLatencyUnit:            normalizeChannelMonitorLatencyUnit(settings[SettingKeyChannelMonitorLatencyUnit]),
+		ChannelMonitorPublicShareEnabled:     settings[SettingKeyChannelMonitorPublicShareEnabled] == "true",
+		ChannelMonitorPublicShareRequireAuth: settings[SettingKeyChannelMonitorPublicShareRequireAuth] == "true",
 
 		AvailableChannelsEnabled: settings[SettingKeyAvailableChannelsEnabled] == "true",
 		SupportChatEnabled:       settings[SettingKeySupportChatEnabled] == "true",
@@ -408,6 +416,17 @@ func clampChannelMonitorInterval(v int) int {
 	return v
 }
 
+func normalizeChannelMonitorLatencyUnit(raw string) string {
+	switch strings.TrimSpace(strings.ToLower(raw)) {
+	case "s":
+		return "s"
+	case "ms":
+		return "ms"
+	default:
+		return "ms"
+	}
+}
+
 // ChannelMonitorRuntime is the lightweight view of the channel monitor feature
 // consumed by the runner and user-facing handlers.
 type ChannelMonitorRuntime struct {
@@ -429,6 +448,89 @@ func (s *SettingService) GetChannelMonitorRuntime(ctx context.Context) ChannelMo
 		Enabled:                !isFalseSettingValue(vals[SettingKeyChannelMonitorEnabled]),
 		DefaultIntervalSeconds: parseChannelMonitorInterval(vals[SettingKeyChannelMonitorDefaultIntervalSeconds]),
 	}
+}
+
+// ChannelMonitorPublicShareRuntime is the lightweight view consumed by the
+// copy-link/share endpoints for the channel monitor read-only status page.
+type ChannelMonitorPublicShareRuntime struct {
+	Enabled     bool
+	RequireAuth bool
+}
+
+const (
+	channelMonitorPublicShareCacheTTL   = 60 * time.Second
+	channelMonitorPublicShareErrorTTL   = 5 * time.Second
+	channelMonitorPublicShareDBTimeout  = 5 * time.Second
+	channelMonitorPublicShareRefreshKey = "channel_monitor_public_share_runtime"
+)
+
+type cachedChannelMonitorPublicShareRuntime struct {
+	value     ChannelMonitorPublicShareRuntime
+	expiresAt int64
+}
+
+// GetChannelMonitorPublicShareRuntime returns cached channel status share
+// switches. Fail-closed: on error the share surface is disabled because it is
+// an opt-in public endpoint.
+func (s *SettingService) GetChannelMonitorPublicShareRuntime(ctx context.Context) ChannelMonitorPublicShareRuntime {
+	if s == nil || s.settingRepo == nil {
+		return ChannelMonitorPublicShareRuntime{}
+	}
+	if cached, ok := s.channelMonitorPublicShareCache.Load().(*cachedChannelMonitorPublicShareRuntime); ok && cached != nil {
+		if time.Now().UnixNano() < cached.expiresAt {
+			return cached.value
+		}
+	}
+
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	result, _, _ := s.channelMonitorPublicShareSF.Do(channelMonitorPublicShareRefreshKey, func() (any, error) {
+		s.channelMonitorPublicShareCacheMu.Lock()
+		defer s.channelMonitorPublicShareCacheMu.Unlock()
+
+		if cached, ok := s.channelMonitorPublicShareCache.Load().(*cachedChannelMonitorPublicShareRuntime); ok && cached != nil {
+			if time.Now().UnixNano() < cached.expiresAt {
+				return cached, nil
+			}
+		}
+
+		dbCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), channelMonitorPublicShareDBTimeout)
+		defer cancel()
+		vals, err := s.settingRepo.GetMultiple(dbCtx, []string{
+			SettingKeyChannelMonitorEnabled,
+			SettingKeyChannelMonitorPublicShareEnabled,
+			SettingKeyChannelMonitorPublicShareRequireAuth,
+		})
+		if err != nil {
+			ttl := channelMonitorPublicShareErrorTTL
+			if errors.Is(err, ErrSettingNotFound) {
+				ttl = channelMonitorPublicShareCacheTTL
+			} else {
+				slog.Warn("failed to read channel monitor public share settings", "error", err)
+			}
+			entry := &cachedChannelMonitorPublicShareRuntime{
+				value:     ChannelMonitorPublicShareRuntime{},
+				expiresAt: time.Now().Add(ttl).UnixNano(),
+			}
+			s.channelMonitorPublicShareCache.Store(entry)
+			return entry, nil
+		}
+
+		entry := &cachedChannelMonitorPublicShareRuntime{
+			value: ChannelMonitorPublicShareRuntime{
+				Enabled:     !isFalseSettingValue(vals[SettingKeyChannelMonitorEnabled]) && vals[SettingKeyChannelMonitorPublicShareEnabled] == "true",
+				RequireAuth: vals[SettingKeyChannelMonitorPublicShareRequireAuth] == "true",
+			},
+			expiresAt: time.Now().Add(channelMonitorPublicShareCacheTTL).UnixNano(),
+		}
+		s.channelMonitorPublicShareCache.Store(entry)
+		return entry, nil
+	})
+	if cached, ok := result.(*cachedChannelMonitorPublicShareRuntime); ok && cached != nil {
+		return cached.value
+	}
+	return ChannelMonitorPublicShareRuntime{}
 }
 
 // AvailableChannelsRuntime is the lightweight view of the available-channels feature
@@ -582,16 +684,19 @@ type PublicSettingsInjectionPayload struct {
 	// Feature flags — MUST match the opt-in/opt-out registry in
 	// frontend/src/utils/featureFlags.ts. Missing a field here is the bug
 	// that hid the "可用渠道" menu on page refresh.
-	ChannelMonitorEnabled                bool `json:"channel_monitor_enabled"`
-	ChannelMonitorDefaultIntervalSeconds int  `json:"channel_monitor_default_interval_seconds"`
-	AvailableChannelsEnabled             bool `json:"available_channels_enabled"`
-	SupportChatEnabled                   bool `json:"support_chat_enabled"`
-	ModelPlazaEnabled                    bool `json:"model_plaza_enabled"`
-	ModelPlazaRequireAuth                bool `json:"model_plaza_require_auth"`
-	AffiliateEnabled                     bool `json:"affiliate_enabled"`
-	RiskControlEnabled                   bool `json:"risk_control_enabled"`
-	AllowUserViewErrorRequests           bool `json:"allow_user_view_error_requests"`
-	AllowUserViewUsageDetails            bool `json:"allow_user_view_usage_details"`
+	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
+	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
+	ChannelMonitorLatencyUnit            string `json:"channel_monitor_latency_unit"`
+	ChannelMonitorPublicShareEnabled     bool   `json:"channel_monitor_public_share_enabled"`
+	ChannelMonitorPublicShareRequireAuth bool   `json:"channel_monitor_public_share_require_auth"`
+	AvailableChannelsEnabled             bool   `json:"available_channels_enabled"`
+	SupportChatEnabled                   bool   `json:"support_chat_enabled"`
+	ModelPlazaEnabled                    bool   `json:"model_plaza_enabled"`
+	ModelPlazaRequireAuth                bool   `json:"model_plaza_require_auth"`
+	AffiliateEnabled                     bool   `json:"affiliate_enabled"`
+	RiskControlEnabled                   bool   `json:"risk_control_enabled"`
+	AllowUserViewErrorRequests           bool   `json:"allow_user_view_error_requests"`
+	AllowUserViewUsageDetails            bool   `json:"allow_user_view_usage_details"`
 }
 
 // GetPublicSettingsForInjection returns public settings in a format suitable for HTML injection.
@@ -667,6 +772,9 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 
 		ChannelMonitorEnabled:                settings.ChannelMonitorEnabled,
 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
+		ChannelMonitorLatencyUnit:            settings.ChannelMonitorLatencyUnit,
+		ChannelMonitorPublicShareEnabled:     settings.ChannelMonitorPublicShareEnabled,
+		ChannelMonitorPublicShareRequireAuth: settings.ChannelMonitorPublicShareRequireAuth,
 		AvailableChannelsEnabled:             settings.AvailableChannelsEnabled,
 		SupportChatEnabled:                   settings.SupportChatEnabled,
 		ModelPlazaEnabled:                    settings.ModelPlazaEnabled,

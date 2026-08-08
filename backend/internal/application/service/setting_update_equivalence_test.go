@@ -93,8 +93,8 @@ func TestBuildSystemSettingsUpdatesGolden(t *testing.T) {
 	updates, err := svc.buildSystemSettingsUpdates(context.Background(), settings)
 	require.NoError(t, err)
 
-	require.Equal(t, 221, len(updates), "system setting key count")
-	require.Equal(t, "8455e720c6950e6a9c52026c0f631e87cf80247e0b6c9cfeb7f64d5898bcf363", digestSystemSettingUpdates(t, updates), "system setting digest")
+	require.Equal(t, 224, len(updates), "system setting key count")
+	require.Equal(t, "138b182ff16fe85bd075b28599edfebc21de3163ee9752f370aa6ce61dfea4a9", digestSystemSettingUpdates(t, updates), "system setting digest")
 	require.Equal(t, []string{"@example.com", "*.edu.cn"}, settings.RegistrationEmailSuffixWhitelist)
 	require.Equal(t, clientip.ResolutionModeTrustedProxy, settings.ClientIPResolutionMode)
 	require.Equal(t, []string{"192.0.2.7/32", "2001:db8::/32"}, settings.ClientIPTrustedProxies)

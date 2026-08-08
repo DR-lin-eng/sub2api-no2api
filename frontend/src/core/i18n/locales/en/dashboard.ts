@@ -546,20 +546,25 @@ export default {
       groupName: 'Group',
       primaryModel: 'Primary Model',
       availability7d: '7d Availability',
-      latency: 'Latency (ms)'
+      latency: 'Latency ({unit})'
     },
     detailColumns: {
       model: 'Model',
       latestStatus: 'Latest Status',
-      latestLatency: 'Latest Latency (ms)',
+      latestLatency: 'Latest Latency ({unit})',
       availability7d: '7d Availability',
       availability15d: '15d Availability',
       availability30d: '30d Availability',
-      avgLatency7d: '7d Avg Latency (ms)'
+      avgLatency7d: '7d Avg Latency ({unit})'
     },
     empty: {
       title: 'No channels available',
       description: 'No monitored channels have been configured yet.'
+    },
+    share: {
+      copyLink: 'Copy status link',
+      copied: 'Status link copied',
+      copyFailed: 'Failed to copy status link'
     }
   },
 

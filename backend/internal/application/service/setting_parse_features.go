@@ -43,6 +43,9 @@ func (s *SettingService) applyFeatureSettings(result *SystemSettings, settings m
 	result.ChannelMonitorDefaultIntervalSeconds = parseChannelMonitorInterval(
 		settings[SettingKeyChannelMonitorDefaultIntervalSeconds],
 	)
+	result.ChannelMonitorLatencyUnit = normalizeChannelMonitorLatencyUnit(settings[SettingKeyChannelMonitorLatencyUnit])
+	result.ChannelMonitorPublicShareEnabled = settings[SettingKeyChannelMonitorPublicShareEnabled] == "true"
+	result.ChannelMonitorPublicShareRequireAuth = settings[SettingKeyChannelMonitorPublicShareRequireAuth] == "true"
 
 	// Available channels feature (default: disabled; strict true)
 	result.AvailableChannelsEnabled = settings[SettingKeyAvailableChannelsEnabled] == "true"

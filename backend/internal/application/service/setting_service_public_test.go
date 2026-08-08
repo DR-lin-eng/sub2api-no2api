@@ -6,15 +6,20 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	"github.com/stretchr/testify/require"
 )
 
 type settingPublicRepoStub struct {
+	mu     sync.Mutex
 	values map[string]string
 	err    error
+	delay  time.Duration
+	calls  int
 }
 
 func (s *settingPublicRepoStub) Get(ctx context.Context, key string) (*Setting, error) {
@@ -30,6 +35,12 @@ func (s *settingPublicRepoStub) Set(ctx context.Context, key, value string) erro
 }
 
 func (s *settingPublicRepoStub) GetMultiple(ctx context.Context, keys []string) (map[string]string, error) {
+	if s.delay > 0 {
+		time.Sleep(s.delay)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.calls++
 	if s.err != nil {
 		return nil, s.err
 	}
@@ -40,6 +51,18 @@ func (s *settingPublicRepoStub) GetMultiple(ctx context.Context, keys []string) 
 		}
 	}
 	return out, nil
+}
+
+func (s *settingPublicRepoStub) setValues(values map[string]string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.values = values
+}
+
+func (s *settingPublicRepoStub) callCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.calls
 }
 
 func TestSettingService_IsUserUsageDetailViewAllowed_DefaultsOffAndRequiresExplicitTrue(t *testing.T) {
@@ -90,6 +113,102 @@ func TestSettingService_GetModelPlazaRuntime_AutoPublicModelsRequiresExplicitTru
 	).GetModelPlazaRuntime(ctx)
 	require.False(t, failed.Enabled)
 	require.False(t, failed.AutoPublicModels)
+}
+
+func TestSettingService_GetChannelMonitorPublicShareRuntime_OptInAndRequiresMonitorEnabled(t *testing.T) {
+	ctx := context.Background()
+
+	enabled := NewSettingService(&settingPublicRepoStub{values: map[string]string{
+		SettingKeyChannelMonitorEnabled:                "true",
+		SettingKeyChannelMonitorPublicShareEnabled:     "true",
+		SettingKeyChannelMonitorPublicShareRequireAuth: "true",
+	}}, &config.Config{}).GetChannelMonitorPublicShareRuntime(ctx)
+	require.True(t, enabled.Enabled)
+	require.True(t, enabled.RequireAuth)
+
+	missingShareSwitch := NewSettingService(&settingPublicRepoStub{values: map[string]string{
+		SettingKeyChannelMonitorEnabled: "true",
+	}}, &config.Config{}).GetChannelMonitorPublicShareRuntime(ctx)
+	require.False(t, missingShareSwitch.Enabled)
+
+	monitorDisabled := NewSettingService(&settingPublicRepoStub{values: map[string]string{
+		SettingKeyChannelMonitorEnabled:            "false",
+		SettingKeyChannelMonitorPublicShareEnabled: "true",
+	}}, &config.Config{}).GetChannelMonitorPublicShareRuntime(ctx)
+	require.False(t, monitorDisabled.Enabled)
+
+	failed := NewSettingService(
+		&settingPublicRepoStub{err: errors.New("database unavailable")},
+		&config.Config{},
+	).GetChannelMonitorPublicShareRuntime(ctx)
+	require.False(t, failed.Enabled)
+}
+
+func TestSettingService_GetChannelMonitorPublicShareRuntime_CachesAndRefreshesImmediately(t *testing.T) {
+	repo := &settingPublicRepoStub{values: map[string]string{
+		SettingKeyChannelMonitorEnabled:            "true",
+		SettingKeyChannelMonitorPublicShareEnabled: "true",
+	}}
+	svc := NewSettingService(repo, &config.Config{})
+
+	require.True(t, svc.GetChannelMonitorPublicShareRuntime(context.Background()).Enabled)
+	repo.setValues(map[string]string{
+		SettingKeyChannelMonitorEnabled:            "true",
+		SettingKeyChannelMonitorPublicShareEnabled: "false",
+	})
+	require.True(t, svc.GetChannelMonitorPublicShareRuntime(context.Background()).Enabled)
+	require.Equal(t, 1, repo.callCount(), "unexpired reads must not query the settings store")
+
+	svc.refreshCachedSettings(&SystemSettings{
+		ChannelMonitorEnabled:                true,
+		ChannelMonitorPublicShareEnabled:     false,
+		ChannelMonitorPublicShareRequireAuth: true,
+	})
+	refreshed := svc.GetChannelMonitorPublicShareRuntime(context.Background())
+	require.False(t, refreshed.Enabled)
+	require.True(t, refreshed.RequireAuth)
+	require.Equal(t, 1, repo.callCount(), "settings updates must refresh the cache without another read")
+}
+
+func TestSettingService_GetChannelMonitorPublicShareRuntime_CollapsesConcurrentReads(t *testing.T) {
+	repo := &settingPublicRepoStub{
+		values: map[string]string{
+			SettingKeyChannelMonitorEnabled:            "true",
+			SettingKeyChannelMonitorPublicShareEnabled: "true",
+		},
+		delay: 20 * time.Millisecond,
+	}
+	svc := NewSettingService(repo, &config.Config{})
+
+	const readers = 32
+	start := make(chan struct{})
+	results := make(chan ChannelMonitorPublicShareRuntime, readers)
+	var wg sync.WaitGroup
+	for range readers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			results <- svc.GetChannelMonitorPublicShareRuntime(context.Background())
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(results)
+
+	for result := range results {
+		require.True(t, result.Enabled)
+	}
+	require.Equal(t, 1, repo.callCount())
+}
+
+func TestSettingService_GetChannelMonitorPublicShareRuntime_CachesFailuresClosed(t *testing.T) {
+	repo := &settingPublicRepoStub{err: errors.New("database unavailable")}
+	svc := NewSettingService(repo, &config.Config{})
+
+	require.False(t, svc.GetChannelMonitorPublicShareRuntime(context.Background()).Enabled)
+	require.False(t, svc.GetChannelMonitorPublicShareRuntime(context.Background()).Enabled)
+	require.Equal(t, 1, repo.callCount(), "transient failures should be cached briefly")
 }
 
 func (s *settingPublicRepoStub) SetMultiple(ctx context.Context, settings map[string]string) error {

@@ -57,6 +57,15 @@ describe('frontend architecture boundaries', () => {
     ])
   })
 
+  it('allows imports from another feature stable owner contract', () => {
+    const messages = verify(
+      "import { useAuthStore } from '@/features/auth'",
+      'src/features/channels-user/presentation/newOwnerContractImport.ts',
+    )
+
+    expect(messages).toEqual([])
+  })
+
   it('blocks relative imports that reverse data and presentation dependencies', () => {
     const messages = verify(
       "import KeyDialog from '../presentation/widgets/KeyDialog.vue'",

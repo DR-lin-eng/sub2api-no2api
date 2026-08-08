@@ -1,49 +1,58 @@
 <template>
-  <AppLayout>
-    <MonitorHero
-      :overall-status="overallStatus"
-      :interval-seconds="DEFAULT_INTERVAL_SECONDS"
-      :window="currentWindow"
-      :loading="loading"
-      :auto-refresh="autoRefresh"
-      :show-share-button="showShareButton"
-      @update:window="handleWindowChange"
-      @refresh="manualReload"
-      @copy-share-link="copyShareLink"
-    />
+  <div class="min-h-screen bg-gray-50 dark:bg-dark-950">
+    <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <section class="mb-6 space-y-2">
+        <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-50">
+          {{ t('channelStatus.title') }}
+        </h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400">
+          {{ t('channelStatus.description') }}
+        </p>
+      </section>
 
-    <MonitorCardGrid
-      :items="items"
-      :window="currentWindow"
-      :countdown-seconds="countdown"
-      :loading="loading"
-      :detail-cache="detailCache"
-      @card-click="openDetail"
-    />
+      <MonitorHero
+        :overall-status="overallStatus"
+        :interval-seconds="DEFAULT_INTERVAL_SECONDS"
+        :window="currentWindow"
+        :loading="loading"
+        :auto-refresh="autoRefresh"
+        @update:window="handleWindowChange"
+        @refresh="manualReload"
+      />
 
-    <MonitorDetailDialog
-      :show="showDetail"
-      :monitor-id="detailTarget?.id ?? null"
-      :title="detailTitle"
-      :initial-detail="detailTarget ? detailCache[detailTarget.id] : null"
-      @close="closeDetail"
-    />
-  </AppLayout>
+      <MonitorCardGrid
+        :items="items"
+        :window="currentWindow"
+        :countdown-seconds="countdown"
+        :loading="loading"
+        :detail-cache="detailCache"
+        @card-click="openDetail"
+      />
+
+      <MonitorDetailDialog
+        :show="showDetail"
+        :monitor-id="detailTarget?.id ?? null"
+        :title="detailTitle"
+        :initial-detail="detailTarget ? detailCache[detailTarget.id] : null"
+        :fetch-detail="fetchSharedChannelMonitorDetail"
+        @close="closeDetail"
+      />
+    </main>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
-import { useAuthStore } from '@/features/auth'
 import { extractApiErrorMessage } from '@/core/utils/apiError'
 import {
-  list as listChannelMonitorViews,
-  statusBatch as fetchChannelMonitorDetails,
+  listShared as listSharedChannelMonitorViews,
+  statusShared as fetchSharedChannelMonitorDetail,
+  statusBatchShared as fetchSharedChannelMonitorDetails,
   type UserMonitorView,
   type UserMonitorDetail,
 } from '@/features/channel-monitor-user/data/datasources/channelMonitorUserDatasource'
-import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import MonitorHero, {
   type MonitorWindow,
   type OverallStatus,
@@ -55,7 +64,6 @@ import { useAutoRefresh } from '@/common/composables/useAutoRefresh'
 
 const { t } = useI18n()
 const appStore = useAppStore()
-const authStore = useAuthStore()
 
 const items = ref<UserMonitorView[]>([])
 const loading = ref(false)
@@ -67,7 +75,7 @@ const detailTarget = ref<UserMonitorView | null>(null)
 let abortController: AbortController | null = null
 
 const autoRefresh = useAutoRefresh({
-  storageKey: 'channel-status-auto-refresh',
+  storageKey: 'channel-status-share-auto-refresh',
   intervals: [30, 60, 120] as const,
   defaultInterval: DEFAULT_INTERVAL_SECONDS,
   onRefresh: () => reload(true),
@@ -86,20 +94,13 @@ const overallStatus = computed<OverallStatus>(() => {
 
 const detailTitle = computed(() => detailTarget.value?.name || t('channelStatus.detailTitle'))
 
-const shareURL = computed(() => `${window.location.origin}/monitor/public`)
-const showShareButton = computed(() => {
-  return authStore.isAdmin &&
-    appStore.cachedPublicSettings?.channel_monitor_enabled !== false &&
-    appStore.cachedPublicSettings?.channel_monitor_public_share_enabled === true
-})
-
 async function reload(silent = false) {
   if (abortController) abortController.abort()
   const ctrl = new AbortController()
   abortController = ctrl
   if (!silent) loading.value = true
   try {
-    const res = await listChannelMonitorViews({ signal: ctrl.signal })
+    const res = await listSharedChannelMonitorViews({ signal: ctrl.signal })
     if (ctrl.signal.aborted || abortController !== ctrl) return
     items.value = res.items || []
   } catch (err: unknown) {
@@ -131,7 +132,7 @@ async function loadDetails(ids: number[], force = false) {
   const missing = force ? ids : ids.filter(id => !detailCache[id])
   if (missing.length === 0) return
   try {
-    const details = await fetchChannelMonitorDetails(missing)
+    const details = await fetchSharedChannelMonitorDetails(missing)
     for (const detail of details) detailCache[detail.id] = detail
   } catch (err: unknown) {
     appStore.showError(extractApiErrorMessage(err, t('channelStatus.detailLoadError')))
@@ -151,29 +152,6 @@ function openDetail(row: UserMonitorView) {
 function closeDetail() {
   showDetail.value = false
   detailTarget.value = null
-}
-
-async function copyShareLink() {
-  const url = shareURL.value
-  try {
-    await navigator.clipboard.writeText(url)
-    appStore.showSuccess(t('channelStatus.share.copied'))
-  } catch {
-    const input = document.createElement('input')
-    input.value = url
-    input.setAttribute('readonly', 'readonly')
-    input.style.position = 'fixed'
-    input.style.opacity = '0'
-    document.body.appendChild(input)
-    input.select()
-    const ok = document.execCommand('copy')
-    document.body.removeChild(input)
-    if (ok) {
-      appStore.showSuccess(t('channelStatus.share.copied'))
-    } else {
-      appStore.showError(t('channelStatus.share.copyFailed'))
-    }
-  }
 }
 
 watch(items, () => {

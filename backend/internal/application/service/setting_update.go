@@ -266,6 +266,16 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 		expiresAt: time.Now().Add(supportChatCacheTTL).UnixNano(),
 	})
 	s.supportChatCacheMu.Unlock()
+	s.channelMonitorPublicShareCacheMu.Lock()
+	s.channelMonitorPublicShareSF.Forget(channelMonitorPublicShareRefreshKey)
+	s.channelMonitorPublicShareCache.Store(&cachedChannelMonitorPublicShareRuntime{
+		value: ChannelMonitorPublicShareRuntime{
+			Enabled:     settings.ChannelMonitorEnabled && settings.ChannelMonitorPublicShareEnabled,
+			RequireAuth: settings.ChannelMonitorPublicShareRequireAuth,
+		},
+		expiresAt: time.Now().Add(channelMonitorPublicShareCacheTTL).UnixNano(),
+	})
+	s.channelMonitorPublicShareCacheMu.Unlock()
 	s.streamModePerformanceEnabled.Store(settings.StreamModePerformanceEnabled)
 	s.streamModePerformanceLoaded.Store(time.Now().UnixNano())
 	s.openAIWSModeRouterV2Enabled.Store(settings.OpenAIWSModeRouterV2Enabled)

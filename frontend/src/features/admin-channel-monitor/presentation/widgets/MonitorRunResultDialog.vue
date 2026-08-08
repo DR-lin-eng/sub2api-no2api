@@ -22,7 +22,7 @@
           >
             {{ statusLabel(r.status) }}
           </span>
-          <span class="text-xs text-gray-500 dark:text-gray-400">{{ formatLatency(r.latency_ms) }} ms</span>
+          <span class="text-xs text-gray-500 dark:text-gray-400">{{ formatLatencyWithUnit(r.latency_ms) }}</span>
         </div>
       </div>
     </div>
@@ -52,5 +52,5 @@ defineEmits<{
 }>()
 
 const { t } = useI18n()
-const { statusLabel, statusBadgeClass, formatLatency } = useChannelMonitorFormat()
+const { statusLabel, statusBadgeClass, formatLatencyWithUnit } = useChannelMonitorFormat()
 </script>

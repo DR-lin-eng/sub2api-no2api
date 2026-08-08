@@ -185,6 +185,16 @@ const routes: RouteRecordRaw[] = [
       titleKey: 'modelPlaza.title'
     }
   },
+  {
+    path: '/monitor/public',
+    name: 'ChannelStatusShare',
+    component: () => import('@/features/channel-monitor-user/presentation/pages/ChannelStatusSharePage.vue'),
+    meta: {
+      requiresAuth: false,
+      title: 'Channel Status',
+      titleKey: 'nav.channelStatus'
+    }
+  },
 
   // ==================== User Routes ====================
   {
@@ -868,8 +878,9 @@ router.beforeEach(async (to, _from, next) => {
       next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
       return
     }
-    // Model Plaza:公开路由但受「启用开关 + 可选强制登录」双重控制(后端同口径 fail-closed)
-    if (to.path === '/model-plaza') {
+    // Model Plaza / Channel Status Share:公开路由但受「启用开关 + 可选强制登录」
+    // 双重控制(后端同口径 fail-closed)
+    if (to.path === '/model-plaza' || to.path === '/monitor/public') {
       if (!appStore.publicSettingsLoaded) {
         try {
           await appStore.fetchPublicSettings()
@@ -877,26 +888,49 @@ router.beforeEach(async (to, _from, next) => {
           console.warn('Failed to load public settings in route guard', error)
         }
       }
-      const plazaSettings = appStore.cachedPublicSettings
-      // 仅在设置成功加载且明确为 false 时拦截(瞬时加载失败视为未知,由后端 404 兜底)
-      if (appStore.publicSettingsLoaded && plazaSettings?.model_plaza_enabled === false) {
-        next(
-          authStore.isAuthenticated
-            ? authStore.isAdmin
-              ? '/admin/dashboard'
-              : '/dashboard'
-            : '/home'
-        )
-        return
-      }
-      if (plazaSettings?.model_plaza_require_auth === true && !authStore.isAuthenticated) {
-        next({ path: '/login', query: { redirect: to.fullPath } })
-        return
-      }
-      // Backend mode:登录的非管理员也不可见(匿名由下方公共拦截处理,广场不在白名单)
-      if (appStore.backendModeEnabled && authStore.isAuthenticated && !authStore.isAdmin) {
-        next('/login')
-        return
+      const publicSettings = appStore.cachedPublicSettings
+      if (to.path === '/model-plaza') {
+        // 仅在设置成功加载且明确为 false 时拦截(瞬时加载失败视为未知,由后端 404 兜底)
+        if (appStore.publicSettingsLoaded && publicSettings?.model_plaza_enabled === false) {
+          next(
+            authStore.isAuthenticated
+              ? authStore.isAdmin
+                ? '/admin/dashboard'
+                : '/dashboard'
+              : '/home'
+          )
+          return
+        }
+        if (publicSettings?.model_plaza_require_auth === true && !authStore.isAuthenticated) {
+          next({ path: '/login', query: { redirect: to.fullPath } })
+          return
+        }
+        // Backend mode:登录的非管理员也不可见(匿名由下方公共拦截处理,广场不在白名单)
+        if (appStore.backendModeEnabled && authStore.isAuthenticated && !authStore.isAdmin) {
+          next('/login')
+          return
+        }
+      } else {
+        if (
+          appStore.publicSettingsLoaded &&
+          (
+            publicSettings?.channel_monitor_enabled === false ||
+            publicSettings?.channel_monitor_public_share_enabled !== true
+          )
+        ) {
+          next(
+            authStore.isAuthenticated
+              ? authStore.isAdmin
+                ? '/admin/dashboard'
+                : '/dashboard'
+              : '/home'
+          )
+          return
+        }
+        if (publicSettings?.channel_monitor_public_share_require_auth === true && !authStore.isAuthenticated) {
+          next({ path: '/login', query: { redirect: to.fullPath } })
+          return
+        }
       }
     }
     // Backend mode: block public pages for unauthenticated users (except login, key-usage, setup)

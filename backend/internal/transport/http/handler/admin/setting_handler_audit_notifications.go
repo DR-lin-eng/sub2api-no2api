@@ -27,6 +27,15 @@ func appendNotificationAndRiskSettingChanges(changed []string, before, after *se
 	if before.ChannelMonitorDefaultIntervalSeconds != after.ChannelMonitorDefaultIntervalSeconds {
 		changed = append(changed, "channel_monitor_default_interval_seconds")
 	}
+	if before.ChannelMonitorLatencyUnit != after.ChannelMonitorLatencyUnit {
+		changed = append(changed, "channel_monitor_latency_unit")
+	}
+	if before.ChannelMonitorPublicShareEnabled != after.ChannelMonitorPublicShareEnabled {
+		changed = append(changed, "channel_monitor_public_share_enabled")
+	}
+	if before.ChannelMonitorPublicShareRequireAuth != after.ChannelMonitorPublicShareRequireAuth {
+		changed = append(changed, "channel_monitor_public_share_require_auth")
+	}
 	if before.AvailableChannelsEnabled != after.AvailableChannelsEnabled {
 		changed = append(changed, "available_channels_enabled")
 	}

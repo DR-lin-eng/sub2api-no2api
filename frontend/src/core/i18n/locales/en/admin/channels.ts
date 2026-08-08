@@ -500,7 +500,7 @@ export default {
         provider: 'Provider',
         primaryModel: 'Primary Model',
         availability7d: '7d Availability',
-        latency: 'Latency (ms)',
+        latency: 'Latency ({unit})',
         enabled: 'Enabled',
         actions: 'Actions'
       },

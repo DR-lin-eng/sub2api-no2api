@@ -8,6 +8,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/shared/response"
 	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin"
 	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto"
+	"github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -37,6 +38,25 @@ func (h *ChannelMonitorUserHandler) featureEnabled(c *gin.Context) bool {
 		return true
 	}
 	return h.settingService.GetChannelMonitorRuntime(c.Request.Context()).Enabled
+}
+
+func (h *ChannelMonitorUserHandler) publicShareAllowed(c *gin.Context) bool {
+	if h.settingService == nil {
+		response.NotFound(c, "Channel status share is not enabled")
+		return false
+	}
+	rt := h.settingService.GetChannelMonitorPublicShareRuntime(c.Request.Context())
+	if !rt.Enabled {
+		response.NotFound(c, "Channel status share is not enabled")
+		return false
+	}
+	if rt.RequireAuth {
+		if subject, ok := middleware.GetAuthSubjectFromContext(c); !ok || subject.UserID <= 0 {
+			response.Unauthorized(c, "Authentication required")
+			return false
+		}
+	}
+	return true
 }
 
 // --- Response ---
@@ -161,12 +181,32 @@ func (h *ChannelMonitorUserHandler) List(c *gin.Context) {
 	response.Success(c, gin.H{"items": items})
 }
 
+// PublicList GET /api/v1/channel-status-share
+func (h *ChannelMonitorUserHandler) PublicList(c *gin.Context) {
+	if !h.publicShareAllowed(c) {
+		return
+	}
+	h.listEnabledMonitors(c)
+}
+
 // GetStatus GET /api/v1/channel-monitors/:id/status
 func (h *ChannelMonitorUserHandler) GetStatus(c *gin.Context) {
 	if !h.featureEnabled(c) {
 		response.ErrorFrom(c, service.ErrChannelMonitorNotFound)
 		return
 	}
+	h.getStatus(c)
+}
+
+// PublicGetStatus GET /api/v1/channel-status-share/:id/status
+func (h *ChannelMonitorUserHandler) PublicGetStatus(c *gin.Context) {
+	if !h.publicShareAllowed(c) {
+		return
+	}
+	h.getStatus(c)
+}
+
+func (h *ChannelMonitorUserHandler) getStatus(c *gin.Context) {
 	// 复用 admin.ParseChannelMonitorID 保持错误码与日志一致。
 	id, ok := admin.ParseChannelMonitorID(c)
 	if !ok {
@@ -190,8 +230,37 @@ func (h *ChannelMonitorUserHandler) GetBatchStatus(c *gin.Context) {
 		response.Success(c, gin.H{"items": []channelMonitorUserDetailResponse{}})
 		return
 	}
+	h.getBatchStatus(c)
+}
+
+// PublicGetBatchStatus POST /api/v1/channel-status-share/status/batch
+func (h *ChannelMonitorUserHandler) PublicGetBatchStatus(c *gin.Context) {
+	if !h.publicShareAllowed(c) {
+		return
+	}
+	h.getBatchStatus(c)
+}
+
+func (h *ChannelMonitorUserHandler) listEnabledMonitors(c *gin.Context) {
+	views, err := h.monitorService.ListUserView(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	items := make([]channelMonitorUserListItem, 0, len(views))
+	for _, v := range views {
+		items = append(items, userMonitorViewToItem(v))
+	}
+	response.Success(c, gin.H{"items": items})
+}
+
+func (h *ChannelMonitorUserHandler) getBatchStatus(c *gin.Context) {
 	var req channelMonitorBatchStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		if _, ok := extractMaxBytesError(err); ok {
+			response.RequestEntityTooLarge(c, "Request body too large")
+			return
+		}
 		response.BadRequest(c, "ids is required")
 		return
 	}

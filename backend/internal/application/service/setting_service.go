@@ -83,6 +83,13 @@ type SettingService struct {
 	supportChatCache   atomic.Value // *cachedSupportChatEnabled
 	supportChatSF      singleflight.Group
 
+	// Channel monitor public sharing is polled by anonymous clients. Keep the
+	// opt-in switches off the request-path database while preserving fail-closed
+	// behavior when the control plane is unavailable.
+	channelMonitorPublicShareCacheMu sync.Mutex
+	channelMonitorPublicShareCache   atomic.Value // *cachedChannelMonitorPublicShareRuntime
+	channelMonitorPublicShareSF      singleflight.Group
+
 	// panelRateLimitCache 面板 API 限流配置进程内缓存（*cachedPanelRateLimitSettings）。
 	// 面板每个认证请求都会读取，禁止在热路径上直接访问 DB。
 	panelRateLimitCache           atomic.Value

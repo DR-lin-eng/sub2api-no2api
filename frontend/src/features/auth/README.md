@@ -2,6 +2,9 @@
 
 This directory contains Vue 3 authentication views for the Sub2API frontend application.
 
+Cross-feature consumers must import the stable authentication contract from
+`@/features/auth`; private `presentation/` paths remain owned by this feature.
+
 ## Components
 
 ### LoginView.vue
