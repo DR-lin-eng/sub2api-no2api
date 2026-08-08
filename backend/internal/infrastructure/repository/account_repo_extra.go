@@ -290,6 +290,7 @@ func accountBulkUpdateRequiresImmediateSchedulerSync(updates service.AccountBulk
 		service.CPAManagementURLCredentialKey,
 		service.CPAManagementKeyCredentialKey,
 		service.CPAConcurrencyPerCredentialCredentialKey,
+		service.CPAExcludeAbnormalCredentialsCredentialKey,
 	} {
 		if _, ok := updates.Credentials[key]; ok {
 			return true

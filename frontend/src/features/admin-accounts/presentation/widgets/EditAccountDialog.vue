@@ -75,10 +75,7 @@ import { ref, reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
 import { useAuthStore } from '@/features/auth/presentation/stores/authStore'
-import {
-  syncUpstreamModels,
-  testCPAConnection as testCPAConnectionRequest
-} from '@/features/admin-accounts/data/datasources/adminAccountActions'
+import { syncUpstreamModels } from '@/features/admin-accounts/data/datasources/adminAccountActions'
 import {
   getWebSearchEmulationConfig
 } from '@/features/admin-settings/data/datasources/adminSettingsDatasource'
@@ -130,6 +127,7 @@ import EditAccountCredentialFields from './edit/EditAccountCredentialFields.vue'
 import EditAccountAdvancedFields from './edit/EditAccountAdvancedFields.vue'
 import EditAccountPolicyFields from './edit/EditAccountPolicyFields.vue'
 import { useEditAccountSubmission } from '../composables/useEditAccountSubmission'
+import { useCPATestConnection } from '../composables/useCPATestConnection'
 import {
   DEFAULT_POOL_MODE_RETRY_COUNT,
   DEFAULT_POOL_MODE_RETRY_STATUS_CODES,
@@ -230,7 +228,11 @@ const cpaUseBaseUrl = ref(true)
 const cpaManagementUrl = ref('')
 const cpaManagementKey = ref('')
 const cpaConcurrencyPerCredential = ref(10)
-const isTestingCPA = ref(false)
+const cpaExcludeAbnormalCredentials = ref(false)
+const { isTestingCPA, testCPAConnection } = useCPATestConnection({
+  account: () => props.account, cpaConcurrencyPerCredential, cpaExcludeAbnormalCredentials,
+  cpaManagementKey, cpaManagementUrl, cpaUseBaseUrl, editBaseUrl, notifications, t,
+})
 
 const customErrorCodesEnabled = ref(false)
 const selectedErrorCodes = ref<number[]>([])
@@ -994,6 +996,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     cpaConcurrencyPerCredential.value = Number.isInteger(storedCPAConcurrency) && storedCPAConcurrency > 0
       ? Math.min(storedCPAConcurrency, MAX_CPA_CONCURRENCY_PER_CREDENTIAL)
       : 10
+    cpaExcludeAbnormalCredentials.value = credentials.cpa_exclude_abnormal_credentials === true
     cpaManagementKey.value = ''
 
     // Load custom error codes
@@ -1074,6 +1077,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     cpaManagementUrl.value = ''
     cpaManagementKey.value = ''
     cpaConcurrencyPerCredential.value = 10
+    cpaExcludeAbnormalCredentials.value = false
     customErrorCodesEnabled.value = false
     selectedErrorCodes.value = []
   }
@@ -1392,7 +1396,7 @@ const {
   autoPause7dDisabled, autoPause7dThreshold, autoPauseOnExpired, baseRpm,
   buildModelRestrictionMapping, cacheTTLOverrideEnabled, cacheTTLOverrideTarget,
   codexPrewarmContinuationEnabled, codexCLIOnlyAppServerEnabled, codexCLIOnlyEnabled, codexImageToolMode,
-  cpaConcurrencyPerCredential, cpaManagementKey, cpaManagementUrl, cpaModeEnabled,
+  cpaConcurrencyPerCredential, cpaExcludeAbnormalCredentials, cpaManagementKey, cpaManagementUrl, cpaModeEnabled,
   cpaUseBaseUrl,
   customBaseUrl, customBaseUrlEnabled, customErrorCodesEnabled, defaultBaseUrl,
   editApiKey, editBaseUrl, editBedrockAccessKeyId, editBedrockApiKeyValue,
@@ -1422,35 +1426,13 @@ const {
   writeQuotaNotifyToExtra,
 })
 
-const testCPAConnection = async () => {
-  if (!props.account || isTestingCPA.value) return
-  isTestingCPA.value = true
-  try {
-    const result = await testCPAConnectionRequest(props.account.id, {
-      use_account_base_url: cpaUseBaseUrl.value,
-      base_url: editBaseUrl.value.trim(),
-      management_url: cpaUseBaseUrl.value ? undefined : cpaManagementUrl.value.trim(),
-      management_password: cpaManagementKey.value.trim() || undefined,
-      concurrency_per_credential: Math.trunc(Number(cpaConcurrencyPerCredential.value)),
-    })
-    appStore.showSuccess(t('admin.accounts.cpaTestSuccess', {
-      available: result.available_credentials,
-      concurrency: result.effective_concurrency,
-      latency: result.latency_ms,
-    }))
-  } catch (error: any) {
-    appStore.showError(error?.message || t('admin.accounts.cpaTestFailed'))
-  } finally {
-    isTestingCPA.value = false
-  }
-}
 const editAccountCredentialContext = {
   CPA_SNAPSHOT_INTERVAL_SECONDS, DEFAULT_POOL_MODE_RETRY_COUNT, DEFAULT_POOL_MODE_RETRY_STATUS_CODES,
   MAX_CPA_CONCURRENCY_PER_CREDENTIAL, MAX_POOL_MODE_RETRY_COUNT, VERTEX_LOCATION_OPTIONS,
   account: activeAccount, addAntigravityModelMapping, addAntigravityPresetMapping, addCustomErrorCode,
   addModelMapping, addPresetMapping, allowedModels, antigravityModelMappings,
   antigravityPresetMappings, antigravityProjectId, autoDisableOnUpstreamInsufficientBalance,
-  baseUrlHint, bedrockPresets, commonErrorCodes, cpaConcurrencyPerCredential, cpaManagementKey,
+  baseUrlHint, bedrockPresets, commonErrorCodes, cpaConcurrencyPerCredential, cpaExcludeAbnormalCredentials, cpaManagementKey,
   cpaManagementUrl, cpaModeEnabled, cpaUseBaseUrl, customErrorCodeInput, customErrorCodesEnabled, editApiKey,
   editBaseUrl, editBedrockAccessKeyId, editBedrockApiKeyValue, editBedrockForceGlobal,
   editBedrockRegion, editBedrockSecretAccessKey, editBedrockSessionToken, editVertexLocation,

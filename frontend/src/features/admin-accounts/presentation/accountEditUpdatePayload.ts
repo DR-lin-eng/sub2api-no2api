@@ -33,6 +33,7 @@ type EditorFields =
     | 'antigravityProjectId'
     | 'autoDisableOnUpstreamInsufficientBalance'
     | 'cpaConcurrencyPerCredential'
+    | 'cpaExcludeAbnormalCredentials'
     | 'cpaManagementKey'
     | 'cpaManagementUrl'
     | 'cpaModeEnabled'
@@ -263,12 +264,14 @@ function buildAPIKeyCredentials(
       credentials.cpa_management_url = managementURL
     }
     credentials.cpa_concurrency_per_credential = perCredential
+    credentials.cpa_exclude_abnormal_credentials = context.cpaExcludeAbnormalCredentials.value
     if (managementKey) credentials.cpa_management_key = managementKey
   } else {
     credentials.cpa_mode = false
     credentials.cpa_management_key = ''
     delete credentials.cpa_management_url
     delete credentials.cpa_concurrency_per_credential
+    delete credentials.cpa_exclude_abnormal_credentials
   }
 
   applyPoolModeCredentials(credentials, context)

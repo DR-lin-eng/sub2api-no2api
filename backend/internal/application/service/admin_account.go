@@ -1122,7 +1122,9 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	if input.Schedulable != nil {
 		repoUpdates.Schedulable = input.Schedulable
 	}
-	if _, updatesCPA := input.Credentials[CPAModeCredentialKey]; updatesCPA {
+	_, updatesCPAMode := input.Credentials[CPAModeCredentialKey]
+	_, updatesCPAAbnormalPolicy := input.Credentials[CPAExcludeAbnormalCredentialsCredentialKey]
+	if updatesCPAMode || updatesCPAAbnormalPolicy {
 		return s.bulkUpdateAccountsWithCPA(ctx, input, cachedTargets, repoUpdates, result)
 	}
 
@@ -1202,6 +1204,7 @@ func normalizeBulkCPACredentials(account *Account, incoming map[string]any) (map
 		CPAManagementURLCredentialKey,
 		CPAManagementKeyCredentialKey,
 		CPAConcurrencyPerCredentialCredentialKey,
+		CPAExcludeAbnormalCredentialsCredentialKey,
 	} {
 		delete(patch, key)
 	}
@@ -1211,11 +1214,15 @@ func normalizeBulkCPACredentials(account *Account, incoming map[string]any) (map
 			CPAManagementURLCredentialKey,
 			CPAManagementKeyCredentialKey,
 			CPAConcurrencyPerCredentialCredentialKey,
+			CPAExcludeAbnormalCredentialsCredentialKey,
 		}, nil
 	}
 
 	patch[CPAModeCredentialKey] = true
 	patch[CPAConcurrencyPerCredentialCredentialKey] = merged[CPAConcurrencyPerCredentialCredentialKey]
+	if excludeAbnormal, configured := merged[CPAExcludeAbnormalCredentialsCredentialKey]; configured {
+		patch[CPAExcludeAbnormalCredentialsCredentialKey] = excludeAbnormal
+	}
 	credentialKeysToDelete := make([]string, 0, 1)
 	if managementURL, overridden := merged[CPAManagementURLCredentialKey]; overridden {
 		patch[CPAManagementURLCredentialKey] = managementURL

@@ -298,6 +298,7 @@ export interface EditAccountCredentialContext extends SharedMappingActions {
   bedrockPresets: ComputedRef<ModelPreset[]>
   commonErrorCodes: Array<{ value: number; label: string }>
   cpaConcurrencyPerCredential: Ref<number>
+  cpaExcludeAbnormalCredentials: Ref<boolean>
   cpaManagementKey: Ref<string>
   cpaManagementUrl: Ref<string>
   cpaModeEnabled: Ref<boolean>

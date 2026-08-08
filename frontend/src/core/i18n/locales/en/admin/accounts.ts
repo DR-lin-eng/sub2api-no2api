@@ -320,8 +320,8 @@ export default {
       subscriptionExpires: 'Expires',
       // Capacity status tooltips
       capacity: {
-        cpaAvailableCredentials: 'Available credentials {count}',
-        cpaAvailableCredentialsUnknown: 'Available credentials --',
+        cpaCapacityCredentials: 'Capacity credentials {count}',
+        cpaCapacityCredentialsUnknown: 'Capacity credentials --',
         cpaFresh: 'CPA capacity is fresh. Fallback concurrency after disabling CPA: {fallback}',
         cpaStale: 'CPA is using a stale snapshot. Fallback concurrency after disabling CPA: {fallback}',
         cpaUnavailable: 'CPA capacity is unavailable and scheduling is stopped. Fallback concurrency after disabling CPA: {fallback}',

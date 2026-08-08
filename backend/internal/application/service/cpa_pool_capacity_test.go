@@ -29,7 +29,7 @@ func cpaTestAccount(serverURL string, concurrency, perCredential int) *Account {
 	}
 }
 
-func TestCPAPoolCapacityUsesEnabledMinusAbnormalCredentials(t *testing.T) {
+func TestCPAPoolCapacityAbnormalExclusionIsIndependentAndOffByDefault(t *testing.T) {
 	now := time.Date(2026, 7, 26, 12, 0, 0, 0, time.UTC)
 	future := now.Add(time.Hour)
 	past := now.Add(-time.Minute)
@@ -54,14 +54,14 @@ func TestCPAPoolCapacityUsesEnabledMinusAbnormalCredentials(t *testing.T) {
 
 	effective, available := service.effectiveConcurrency(context.Background(), account)
 	require.True(t, available)
-	require.Equal(t, 2, effective)
+	require.Equal(t, 6, effective)
 	require.Equal(t, int64(1), requests.Load())
 
 	// CPA capacity replaces the configured fallback concurrency while enabled.
 	account.Concurrency = 1
 	effective, available = service.effectiveConcurrency(context.Background(), account)
 	require.True(t, available)
-	require.Equal(t, 2, effective)
+	require.Equal(t, 6, effective)
 	require.Equal(t, int64(1), requests.Load())
 
 	status, err := service.capacityStatus(context.Background(), account)
@@ -70,8 +70,42 @@ func TestCPAPoolCapacityUsesEnabledMinusAbnormalCredentials(t *testing.T) {
 	require.Equal(t, 3, status.EnabledCredentials)
 	require.Equal(t, 2, status.AbnormalCredentials)
 	require.Equal(t, 1, status.AvailableCredentials)
+	require.Equal(t, 3, status.CapacityCredentials)
+	require.False(t, status.ExcludeAbnormalCredentials)
+	require.Equal(t, 6, status.EffectiveConcurrency)
+	require.Equal(t, CPACapacityStateFresh, status.State)
+
+	account.Credentials[CPAExcludeAbnormalCredentialsCredentialKey] = true
+	effective, available = service.effectiveConcurrency(context.Background(), account)
+	require.True(t, available)
+	require.Equal(t, 2, effective)
+	status, err = service.capacityStatus(context.Background(), account)
+	require.NoError(t, err)
+	require.Equal(t, 1, status.AvailableCredentials)
+	require.Equal(t, 1, status.CapacityCredentials)
+	require.True(t, status.ExcludeAbnormalCredentials)
 	require.Equal(t, 2, status.EffectiveConcurrency)
 	require.Equal(t, CPACapacityStateFresh, status.State)
+	require.Equal(t, int64(1), requests.Load(), "changing the policy must reuse the raw capacity snapshot")
+}
+
+func TestCPAPoolCapacityDefaultDoesNotDropAllAbnormalCredentialsToZero(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"files":[{"status":"error","unavailable":true},{"status":"error","unavailable":true}]}`))
+	}))
+	defer server.Close()
+
+	service := newCPAPoolCapacityService()
+	account := cpaTestAccount(server.URL, 100, 10)
+
+	effective, available := service.effectiveConcurrency(context.Background(), account)
+	require.True(t, available)
+	require.Equal(t, 20, effective)
+
+	account.Credentials[CPAExcludeAbnormalCredentialsCredentialKey] = true
+	effective, available = service.effectiveConcurrency(context.Background(), account)
+	require.False(t, available)
+	require.Zero(t, effective)
 }
 
 func TestCPAPoolCapacitySingleflightAndNinetySecondCache(t *testing.T) {
@@ -223,15 +257,17 @@ func TestApplyCPAPoolCapacityBatchCopiesOnlyWhenCapacityChanges(t *testing.T) {
 
 func TestNormalizeCPACredentials(t *testing.T) {
 	credentials := map[string]any{
-		CPAModeCredentialKey:                     true,
-		CPAManagementURLCredentialKey:            " https://cpa.example.com/ ",
-		CPAManagementKeyCredentialKey:            " secret ",
-		CPAConcurrencyPerCredentialCredentialKey: float64(3),
+		CPAModeCredentialKey:                       true,
+		CPAManagementURLCredentialKey:              " https://cpa.example.com/ ",
+		CPAManagementKeyCredentialKey:              " secret ",
+		CPAConcurrencyPerCredentialCredentialKey:   float64(3),
+		CPAExcludeAbnormalCredentialsCredentialKey: "true",
 	}
 	require.NoError(t, NormalizeCPACredentials(AccountTypeAPIKey, credentials))
 	require.Equal(t, "https://cpa.example.com", credentials[CPAManagementURLCredentialKey])
 	require.Equal(t, "secret", credentials[CPAManagementKeyCredentialKey])
 	require.Equal(t, 3, credentials[CPAConcurrencyPerCredentialCredentialKey])
+	require.Equal(t, true, credentials[CPAExcludeAbnormalCredentialsCredentialKey])
 	require.True(t, IsSensitiveCredentialKey(CPAManagementKeyCredentialKey))
 
 	credentials[CPAModeCredentialKey] = false
@@ -240,6 +276,7 @@ func TestNormalizeCPACredentials(t *testing.T) {
 	require.NotContains(t, credentials, CPAManagementURLCredentialKey)
 	require.NotContains(t, credentials, CPAManagementKeyCredentialKey)
 	require.NotContains(t, credentials, CPAConcurrencyPerCredentialCredentialKey)
+	require.NotContains(t, credentials, CPAExcludeAbnormalCredentialsCredentialKey)
 }
 
 func TestNormalizeCPACredentialsFallsBackToBaseURLAndDefaultsToTen(t *testing.T) {
@@ -251,11 +288,23 @@ func TestNormalizeCPACredentialsFallsBackToBaseURLAndDefaultsToTen(t *testing.T)
 	require.NoError(t, NormalizeCPACredentials(AccountTypeAPIKey, credentials))
 	require.NotContains(t, credentials, CPAManagementURLCredentialKey)
 	require.Equal(t, DefaultCPAConcurrencyPerCredential, credentials[CPAConcurrencyPerCredentialCredentialKey])
+	require.NotContains(t, credentials, CPAExcludeAbnormalCredentialsCredentialKey)
 	account := &Account{Type: AccountTypeAPIKey, Credentials: credentials}
 	config, enabled := cpaPoolConfigFromAccount(account)
 	require.True(t, enabled)
+	require.False(t, config.excludeAbnormalCredentials)
 	require.Equal(t, "https://cpa.example.com/v1", config.managementURL)
 	require.Equal(t, "https://cpa.example.com/v0/management/auth-files", cpaAuthFilesURL(config.managementURL))
+}
+
+func TestNormalizeCPACredentialsDropsAbnormalPolicyOutsideCPAMode(t *testing.T) {
+	credentials := map[string]any{
+		"base_url": "https://api.example.com/v1",
+		CPAExcludeAbnormalCredentialsCredentialKey: true,
+	}
+
+	require.NoError(t, NormalizeCPACredentials(AccountTypeAPIKey, credentials))
+	require.NotContains(t, credentials, CPAExcludeAbnormalCredentialsCredentialKey)
 }
 
 func TestCPAPoolCapacityForceSnapshotBypassesFreshCache(t *testing.T) {
@@ -285,6 +334,7 @@ func TestCPAPoolCapacityForceSnapshotBypassesFreshCache(t *testing.T) {
 	require.NoError(t, err)
 	status = cpaCapacityFromSnapshot(snapshot, config, CPACapacityStateFresh)
 	require.Equal(t, 3, status.AvailableCredentials)
+	require.Equal(t, 3, status.CapacityCredentials)
 	require.Equal(t, 30, status.EffectiveConcurrency)
 	require.Equal(t, int64(2), requests.Load())
 }
@@ -360,6 +410,7 @@ func TestNormalizeCPACredentialsRejectsIncompleteConfig(t *testing.T) {
 		{CPAModeCredentialKey: true},
 		{CPAModeCredentialKey: true, CPAManagementURLCredentialKey: "ftp://cpa.example.com", CPAManagementKeyCredentialKey: "secret"},
 		{CPAModeCredentialKey: true, CPAManagementURLCredentialKey: "https://cpa.example.com", CPAManagementKeyCredentialKey: "secret", CPAConcurrencyPerCredentialCredentialKey: 0},
+		{CPAModeCredentialKey: true, CPAManagementURLCredentialKey: "https://cpa.example.com", CPAManagementKeyCredentialKey: "secret", CPAExcludeAbnormalCredentialsCredentialKey: "sometimes"},
 	}
 	for _, credentials := range tests {
 		require.Error(t, NormalizeCPACredentials(AccountTypeAPIKey, credentials))

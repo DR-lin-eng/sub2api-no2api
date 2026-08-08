@@ -24,8 +24,10 @@ export interface CPACapacityStatus {
   enabled_credentials: number
   abnormal_credentials: number
   available_credentials: number
+  capacity_credentials?: number
   effective_concurrency: number
   concurrency_per_credential: number
+  exclude_abnormal_credentials?: boolean
   fetched_at?: string
   state: 'fresh' | 'stale' | 'unavailable'
 }
@@ -76,6 +78,7 @@ export interface CPATestRequest {
   management_url?: string
   management_password?: string
   concurrency_per_credential?: number
+  exclude_abnormal_credentials?: boolean
 }
 
 export interface CPATestResult extends CPACapacityStatus {

@@ -268,8 +268,8 @@ export default {
       subscriptionExpires: '到期',
       // 容量状态提示
       capacity: {
-        cpaAvailableCredentials: '可用凭据 {count}',
-        cpaAvailableCredentialsUnknown: '可用凭据 --',
+        cpaCapacityCredentials: '计入并发凭据 {count}',
+        cpaCapacityCredentialsUnknown: '计入并发凭据 --',
         cpaFresh: 'CPA 容量为最新快照；关闭联动后的备用并发为 {fallback}',
         cpaStale: 'CPA 当前使用过期快照；关闭联动后的备用并发为 {fallback}',
         cpaUnavailable: 'CPA 容量不可用，当前已停止调度；关闭联动后的备用并发为 {fallback}',

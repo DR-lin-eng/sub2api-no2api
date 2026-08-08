@@ -977,6 +977,7 @@ const cpaUseBaseUrl = ref(true)
 const cpaManagementUrl = ref('')
 const cpaManagementPassword = ref('')
 const cpaConcurrencyPerCredential = ref(10)
+const cpaExcludeAbnormalCredentials = ref(false)
 const MAX_CPA_CONCURRENCY_PER_CREDENTIAL = 10000
 const umqModeOptions = computed(() => [
   { value: '', label: t('admin.accounts.quotaControl.rpmLimit.umqModeOff') },
@@ -1144,6 +1145,7 @@ const bulkEditRoutingPolicyContext = {
 const bulkEditCPAContext = {
   MAX_CPA_CONCURRENCY_PER_CREDENTIAL,
   cpaConcurrencyPerCredential,
+  cpaExcludeAbnormalCredentials,
   cpaManagementPassword,
   cpaManagementUrl,
   cpaModeEnabled,
@@ -1215,6 +1217,7 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
     cpaManagementUrl: cpaManagementUrl.value,
     cpaManagementPassword: cpaManagementPassword.value,
     cpaConcurrencyPerCredential: cpaConcurrencyPerCredential.value,
+    cpaExcludeAbnormalCredentials: cpaExcludeAbnormalCredentials.value,
   })
 }
 
@@ -1478,6 +1481,7 @@ watch(
       cpaManagementUrl.value = ''
       cpaManagementPassword.value = ''
       cpaConcurrencyPerCredential.value = 10
+      cpaExcludeAbnormalCredentials.value = false
 
       // Reset mixed channel warning state
       showMixedChannelWarning.value = false

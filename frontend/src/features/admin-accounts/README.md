@@ -37,6 +37,7 @@ OAuth composable 和创建账号的 OAuth 兑换编排直接依赖账号 OAuth A
 - `useCreateAccountOAuthActions.ts`: 创建账号的 OAuth exchange/import/batch 流程。
 - `accountEditUpdatePayload.ts`: 按账号类型和平台构造编辑 payload。
 - `useEditAccountSubmission.ts`: 编辑校验、风险确认与更新请求编排。
+- `useCPATestConnection.ts`: CPA 未保存表单的连接测试、策略参数和反馈状态。
 - `useAccountsUpstreamBilling.ts`: 上游计费探测、额度缓存、批量查询和定时刷新。
 - `useAccountColumnPreferences.ts`: 列可见性迁移与服务端派生查询参数。
 - `useAccountTodayStats.ts`: 当前页今日统计的请求并发保护。

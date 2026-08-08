@@ -168,8 +168,10 @@ describe('admin account actions', () => {
       enabled_credentials: 3,
       abnormal_credentials: 1,
       available_credentials: 2,
-      effective_concurrency: 20,
+      capacity_credentials: 3,
+      effective_concurrency: 30,
       concurrency_per_credential: 10,
+      exclude_abnormal_credentials: false,
       state: 'fresh',
       latency_ms: 12
     }
@@ -180,7 +182,8 @@ describe('admin account actions', () => {
       base_url: 'http://cpa:8317/v1',
       management_url: 'http://cpa:8317',
       management_password: 'secret',
-      concurrency_per_credential: 10
+      concurrency_per_credential: 10,
+      exclude_abnormal_credentials: false
     }
     const importPayload = {
       content: '{"auth_mode":"agent_identity"}',

@@ -722,8 +722,10 @@ export interface CPACapacityStatus {
   enabled_credentials: number
   abnormal_credentials: number
   available_credentials: number
+  capacity_credentials?: number
   effective_concurrency: number
   concurrency_per_credential: number
+  exclude_abnormal_credentials?: boolean
   fetched_at?: string
   state: 'fresh' | 'stale' | 'unavailable'
 }

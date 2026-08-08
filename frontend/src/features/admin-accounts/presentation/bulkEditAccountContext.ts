@@ -52,6 +52,7 @@ export interface BulkEditRoutingPolicyContext {
 export interface BulkEditCPAContext {
   MAX_CPA_CONCURRENCY_PER_CREDENTIAL: number
   cpaConcurrencyPerCredential: Ref<number>
+  cpaExcludeAbnormalCredentials: Ref<boolean>
   cpaManagementPassword: Ref<string>
   cpaManagementUrl: Ref<string>
   cpaModeEnabled: Ref<boolean>

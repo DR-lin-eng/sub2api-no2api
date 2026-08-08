@@ -11,10 +11,10 @@
       v-if="cpaCapacity"
       class="inline-flex items-center gap-1 px-1.5 text-[10px] font-medium text-gray-600 dark:text-gray-400"
       :title="cpaCapacityTooltip"
-      data-testid="cpa-available-credentials"
+      data-testid="cpa-capacity-credentials"
     >
       <Icon name="key" size="xs" />
-      {{ cpaAvailableCredentialsLabel }}
+      {{ cpaCapacityCredentialsLabel }}
     </span>
 
     <!-- 5h窗口费用限制 -->
@@ -65,12 +65,12 @@ const cpaCapacity = computed(() => props.account.cpa_capacity ?? null)
 const effectiveConcurrency = computed(() =>
   cpaCapacity.value ? cpaCapacity.value.effective_concurrency : props.account.concurrency
 )
-const cpaAvailableCredentialsLabel = computed(() => {
+const cpaCapacityCredentialsLabel = computed(() => {
   if (!cpaCapacity.value || cpaCapacity.value.state === 'unavailable') {
-    return t('admin.accounts.capacity.cpaAvailableCredentialsUnknown')
+    return t('admin.accounts.capacity.cpaCapacityCredentialsUnknown')
   }
-  return t('admin.accounts.capacity.cpaAvailableCredentials', {
-    count: cpaCapacity.value.available_credentials,
+  return t('admin.accounts.capacity.cpaCapacityCredentials', {
+    count: cpaCapacity.value.capacity_credentials ?? cpaCapacity.value.available_credentials,
   })
 })
 const cpaCapacityTooltip = computed(() => {

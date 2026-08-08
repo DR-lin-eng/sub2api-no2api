@@ -1218,7 +1218,7 @@ const handleSyncCPA = async (a: Account) => {
     appStore.showSuccess(t('admin.accounts.syncCPASuccess', {
       enabled: capacity.enabled_credentials,
       abnormal: capacity.abnormal_credentials,
-      available: capacity.available_credentials,
+      capacity: capacity.capacity_credentials ?? capacity.available_credentials,
     }))
   } catch (error: any) {
     appStore.showError(error?.message || t('admin.accounts.syncCPAFailed'))

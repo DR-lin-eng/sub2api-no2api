@@ -88,6 +88,35 @@
           {{ t('admin.accounts.cpaConcurrencyHint', { seconds: CPA_SNAPSHOT_INTERVAL_SECONDS }) }}
         </p>
       </div>
+      <div class="flex items-center justify-between gap-4">
+        <div>
+          <p id="cpa-exclude-abnormal-label" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+            {{ t('admin.accounts.cpaExcludeAbnormalCredentials') }}
+          </p>
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('admin.accounts.cpaExcludeAbnormalCredentialsHint') }}
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          data-testid="cpa-exclude-abnormal-toggle"
+          aria-labelledby="cpa-exclude-abnormal-label"
+          :aria-checked="cpaExcludeAbnormalCredentials"
+          @click="cpaExcludeAbnormalCredentials = !cpaExcludeAbnormalCredentials"
+          :class="[
+            'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+            cpaExcludeAbnormalCredentials ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+          ]"
+        >
+          <span
+            :class="[
+              'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+              cpaExcludeAbnormalCredentials ? 'translate-x-5' : 'translate-x-0'
+            ]"
+          />
+        </button>
+      </div>
       <button
         type="button"
         class="btn btn-secondary inline-flex items-center gap-2"
@@ -111,6 +140,7 @@ const {
   CPA_SNAPSHOT_INTERVAL_SECONDS,
   MAX_CPA_CONCURRENCY_PER_CREDENTIAL,
   cpaConcurrencyPerCredential,
+  cpaExcludeAbnormalCredentials,
   cpaManagementKey,
   cpaManagementUrl,
   cpaModeEnabled,

@@ -66,6 +66,7 @@ export interface BulkAccountUpdatePayloadState {
   cpaManagementUrl: string
   cpaManagementPassword: string
   cpaConcurrencyPerCredential: number
+  cpaExcludeAbnormalCredentials: boolean
 }
 
 export function buildBulkAccountUpdatePayload(
@@ -141,6 +142,7 @@ export function buildBulkAccountUpdatePayload(
         ? null
         : state.cpaManagementUrl.trim().replace(/\/+$/, '')
       credentials.cpa_concurrency_per_credential = Math.trunc(state.cpaConcurrencyPerCredential)
+      credentials.cpa_exclude_abnormal_credentials = state.cpaExcludeAbnormalCredentials
       const password = state.cpaManagementPassword.trim()
       if (password) credentials.cpa_management_key = password
     }

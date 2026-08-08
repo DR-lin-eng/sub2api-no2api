@@ -78,7 +78,8 @@ function buildAccount(overrides: Record<string, unknown> = {}) {
       base_url: 'http://cpa:8317/v1',
       cpa_mode: true,
       cpa_management_url: 'http://cpa:8317',
-      cpa_concurrency_per_credential: 2
+      cpa_concurrency_per_credential: 2,
+      cpa_exclude_abnormal_credentials: true
     },
     credentials_status: { has_api_key: true, has_cpa_management_key: true },
     extra: {},
@@ -124,8 +125,10 @@ describe('EditAccountModal CPA concurrency sync', () => {
       enabled_credentials: 3,
       abnormal_credentials: 1,
       available_credentials: 2,
-      effective_concurrency: 20,
+      capacity_credentials: 3,
+      effective_concurrency: 30,
       concurrency_per_credential: 10,
+      exclude_abnormal_credentials: false,
       state: 'fresh',
       latency_ms: 12
     })
@@ -140,6 +143,7 @@ describe('EditAccountModal CPA concurrency sync', () => {
     expect(wrapper.get('[data-testid="cpa-mode-toggle"]').attributes('aria-checked')).toBe('true')
     expect((wrapper.get('[data-testid="cpa-management-url"]').element as HTMLInputElement).value).toBe('http://cpa:8317')
     expect((wrapper.get('[data-testid="cpa-concurrency-per-credential"]').element as HTMLInputElement).value).toBe('2')
+    expect(wrapper.get('[data-testid="cpa-exclude-abnormal-toggle"]').attributes('aria-checked')).toBe('true')
 
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
     await vi.waitFor(() => expect(updateAccountMock).toHaveBeenCalledTimes(1))
@@ -148,7 +152,8 @@ describe('EditAccountModal CPA concurrency sync', () => {
     expect(payload.credentials).toMatchObject({
       cpa_mode: true,
       cpa_management_url: 'http://cpa:8317',
-      cpa_concurrency_per_credential: 2
+      cpa_concurrency_per_credential: 2,
+      cpa_exclude_abnormal_credentials: true
     })
     expect(payload.credentials).not.toHaveProperty('cpa_management_key')
   })
@@ -168,6 +173,7 @@ describe('EditAccountModal CPA concurrency sync', () => {
       cpa_mode: false,
       cpa_management_key: ''
     })
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('cpa_exclude_abnormal_credentials')
   })
 
   it('defaults to the account Base URL and 10 concurrency per credential', async () => {
@@ -181,6 +187,7 @@ describe('EditAccountModal CPA concurrency sync', () => {
 
     expect(wrapper.find('[data-testid="cpa-management-url"]').exists()).toBe(false)
     expect((wrapper.get('[data-testid="cpa-concurrency-per-credential"]').element as HTMLInputElement).value).toBe('10')
+    expect(wrapper.get('[data-testid="cpa-exclude-abnormal-toggle"]').attributes('aria-checked')).toBe('false')
 
     await wrapper.get('[data-testid="cpa-test-connection"]').trigger('click')
     await vi.waitFor(() => expect(testCPAConnectionMock).toHaveBeenCalledTimes(1))
@@ -189,7 +196,8 @@ describe('EditAccountModal CPA concurrency sync', () => {
       base_url: 'http://cpa:8317/v1',
       management_url: undefined,
       management_password: undefined,
-      concurrency_per_credential: 10
+      concurrency_per_credential: 10,
+      exclude_abnormal_credentials: false
     })
     expect(showSuccessMock).toHaveBeenCalledWith('admin.accounts.cpaTestSuccess')
   })

@@ -21,10 +21,11 @@ import (
 )
 
 const (
-	CPAModeCredentialKey                     = "cpa_mode"
-	CPAManagementURLCredentialKey            = "cpa_management_url"
-	CPAManagementKeyCredentialKey            = "cpa_management_key"
-	CPAConcurrencyPerCredentialCredentialKey = "cpa_concurrency_per_credential"
+	CPAModeCredentialKey                       = "cpa_mode"
+	CPAManagementURLCredentialKey              = "cpa_management_url"
+	CPAManagementKeyCredentialKey              = "cpa_management_key"
+	CPAConcurrencyPerCredentialCredentialKey   = "cpa_concurrency_per_credential"
+	CPAExcludeAbnormalCredentialsCredentialKey = "cpa_exclude_abnormal_credentials"
 
 	DefaultCPAConcurrencyPerCredential = 10
 	maxCPAConcurrencyPerCredential     = 10000
@@ -37,9 +38,10 @@ const (
 var errCPAPoolCapacityUnavailable = errors.New("CPA pool capacity is unavailable")
 
 type cpaPoolConfig struct {
-	managementURL            string
-	managementKey            string
-	concurrencyPerCredential int
+	managementURL              string
+	managementKey              string
+	concurrencyPerCredential   int
+	excludeAbnormalCredentials bool
 }
 
 const (
@@ -51,22 +53,25 @@ const (
 // CPACapacityStatus is safe to expose through admin APIs. It never includes
 // the management URL or administrator password.
 type CPACapacityStatus struct {
-	TotalCredentials         int       `json:"total_credentials"`
-	EnabledCredentials       int       `json:"enabled_credentials"`
-	AbnormalCredentials      int       `json:"abnormal_credentials"`
-	AvailableCredentials     int       `json:"available_credentials"`
-	EffectiveConcurrency     int       `json:"effective_concurrency"`
-	ConcurrencyPerCredential int       `json:"concurrency_per_credential"`
-	FetchedAt                time.Time `json:"fetched_at"`
-	State                    string    `json:"state"`
+	TotalCredentials           int       `json:"total_credentials"`
+	EnabledCredentials         int       `json:"enabled_credentials"`
+	AbnormalCredentials        int       `json:"abnormal_credentials"`
+	AvailableCredentials       int       `json:"available_credentials"`
+	CapacityCredentials        int       `json:"capacity_credentials"`
+	EffectiveConcurrency       int       `json:"effective_concurrency"`
+	ConcurrencyPerCredential   int       `json:"concurrency_per_credential"`
+	ExcludeAbnormalCredentials bool      `json:"exclude_abnormal_credentials"`
+	FetchedAt                  time.Time `json:"fetched_at"`
+	State                      string    `json:"state"`
 }
 
 type CPATestInput struct {
-	UseAccountBaseURL        bool
-	BaseURL                  string
-	ManagementURL            string
-	ManagementPassword       string
-	ConcurrencyPerCredential *int
+	UseAccountBaseURL          bool
+	BaseURL                    string
+	ManagementURL              string
+	ManagementPassword         string
+	ConcurrencyPerCredential   *int
+	ExcludeAbnormalCredentials *bool
 }
 
 type CPATestResult struct {
@@ -144,6 +149,7 @@ func NormalizeCPACredentials(accountType string, credentials map[string]any) err
 	}
 	rawEnabled, exists := credentials[CPAModeCredentialKey]
 	if !exists {
+		delete(credentials, CPAExcludeAbnormalCredentialsCredentialKey)
 		return nil
 	}
 	enabled, ok := cpaBool(rawEnabled)
@@ -155,10 +161,21 @@ func NormalizeCPACredentials(accountType string, credentials map[string]any) err
 		delete(credentials, CPAManagementURLCredentialKey)
 		delete(credentials, CPAManagementKeyCredentialKey)
 		delete(credentials, CPAConcurrencyPerCredentialCredentialKey)
+		delete(credentials, CPAExcludeAbnormalCredentialsCredentialKey)
 		return nil
 	}
 	if accountType != AccountTypeAPIKey {
 		return infraerrors.BadRequest("CPA_MODE_REQUIRES_API_KEY_ACCOUNT", "CPA mode is only supported for API-key accounts")
+	}
+	if raw, provided := credentials[CPAExcludeAbnormalCredentialsCredentialKey]; provided {
+		excludeAbnormal, valid := cpaBool(raw)
+		if !valid {
+			return infraerrors.BadRequest(
+				"INVALID_CPA_EXCLUDE_ABNORMAL_CREDENTIALS",
+				"cpa_exclude_abnormal_credentials must be a boolean",
+			)
+		}
+		credentials[CPAExcludeAbnormalCredentialsCredentialKey] = excludeAbnormal
 	}
 
 	managementURL := ""
@@ -241,10 +258,15 @@ func cpaPoolConfigFromAccount(account *Account) (cpaPoolConfig, bool) {
 	if parsed, ok := cpaPositiveInt(account.Credentials[CPAConcurrencyPerCredentialCredentialKey]); ok {
 		perCredential = parsed
 	}
+	excludeAbnormalCredentials := false
+	if parsed, ok := cpaBool(account.Credentials[CPAExcludeAbnormalCredentialsCredentialKey]); ok {
+		excludeAbnormalCredentials = parsed
+	}
 	return cpaPoolConfig{
-		managementURL:            managementURL,
-		managementKey:            managementKey,
-		concurrencyPerCredential: perCredential,
+		managementURL:              managementURL,
+		managementKey:              managementKey,
+		concurrencyPerCredential:   perCredential,
+		excludeAbnormalCredentials: excludeAbnormalCredentials,
 	}, true
 }
 
@@ -476,25 +498,39 @@ func (s *cpaPoolCapacityService) fetch(ctx context.Context, config cpaPoolConfig
 	}, nil
 }
 
-func cpaCapacityFromSnapshot(snapshot *cpaCapacitySnapshot, config cpaPoolConfig, state string) *CPACapacityStatus {
+func cpaCapacityCredentialCount(snapshot *cpaCapacitySnapshot, config cpaPoolConfig) int {
 	if snapshot == nil {
-		return &CPACapacityStatus{ConcurrencyPerCredential: config.concurrencyPerCredential, State: CPACapacityStateUnavailable}
+		return 0
 	}
-	capacity64 := int64(snapshot.availableCredentials) * int64(config.concurrencyPerCredential)
+	if config.excludeAbnormalCredentials {
+		return snapshot.availableCredentials
+	}
+	return snapshot.enabledCredentials
+}
+
+func cpaCapacityFromSnapshot(snapshot *cpaCapacitySnapshot, config cpaPoolConfig, state string) *CPACapacityStatus {
+	status := &CPACapacityStatus{
+		ConcurrencyPerCredential:   config.concurrencyPerCredential,
+		ExcludeAbnormalCredentials: config.excludeAbnormalCredentials,
+		State:                      state,
+	}
+	if snapshot == nil {
+		return status
+	}
+	capacityCredentials := cpaCapacityCredentialCount(snapshot, config)
+	capacity64 := int64(capacityCredentials) * int64(config.concurrencyPerCredential)
 	maxInt := int64(^uint(0) >> 1)
 	if capacity64 > maxInt {
 		capacity64 = maxInt
 	}
-	return &CPACapacityStatus{
-		TotalCredentials:         snapshot.totalCredentials,
-		EnabledCredentials:       snapshot.enabledCredentials,
-		AbnormalCredentials:      snapshot.abnormalCredentials,
-		AvailableCredentials:     snapshot.availableCredentials,
-		EffectiveConcurrency:     int(capacity64),
-		ConcurrencyPerCredential: config.concurrencyPerCredential,
-		FetchedAt:                snapshot.fetchedAt,
-		State:                    state,
-	}
+	status.TotalCredentials = snapshot.totalCredentials
+	status.EnabledCredentials = snapshot.enabledCredentials
+	status.AbnormalCredentials = snapshot.abnormalCredentials
+	status.AvailableCredentials = snapshot.availableCredentials
+	status.CapacityCredentials = capacityCredentials
+	status.EffectiveConcurrency = int(capacity64)
+	status.FetchedAt = snapshot.fetchedAt
+	return status
 }
 
 func (s *cpaPoolCapacityService) capacityStatus(ctx context.Context, account *Account) (*CPACapacityStatus, error) {
@@ -503,7 +539,7 @@ func (s *cpaPoolCapacityService) capacityStatus(ctx context.Context, account *Ac
 		return nil, nil
 	}
 	if config.managementURL == "" || config.managementKey == "" {
-		return &CPACapacityStatus{ConcurrencyPerCredential: config.concurrencyPerCredential, State: CPACapacityStateUnavailable}, errCPAPoolCapacityUnavailable
+		return cpaCapacityFromSnapshot(nil, config, CPACapacityStateUnavailable), errCPAPoolCapacityUnavailable
 	}
 	snapshot, state, err := s.snapshot(ctx, config)
 	if err != nil {
@@ -525,10 +561,11 @@ func (s *cpaPoolCapacityService) effectiveConcurrency(ctx context.Context, accou
 		slog.Warn("cpa_pool_capacity_unavailable", "account_id", account.ID, "management_url", config.managementURL, "error", err)
 		return 0, false
 	}
-	if snapshot.availableCredentials <= 0 {
+	capacityCredentials := cpaCapacityCredentialCount(snapshot, config)
+	if capacityCredentials <= 0 {
 		return 0, false
 	}
-	capacity64 := int64(snapshot.availableCredentials) * int64(config.concurrencyPerCredential)
+	capacity64 := int64(capacityCredentials) * int64(config.concurrencyPerCredential)
 	maxInt := int64(^uint(0) >> 1)
 	if capacity64 > maxInt {
 		capacity64 = maxInt
@@ -581,6 +618,9 @@ func (s *ConcurrencyService) TestCPACapacity(ctx context.Context, account *Accou
 	}
 	if input.ConcurrencyPerCredential != nil {
 		credentials[CPAConcurrencyPerCredentialCredentialKey] = *input.ConcurrencyPerCredential
+	}
+	if input.ExcludeAbnormalCredentials != nil {
+		credentials[CPAExcludeAbnormalCredentialsCredentialKey] = *input.ExcludeAbnormalCredentials
 	}
 	if err := NormalizeCPACredentials(account.Type, credentials); err != nil {
 		return nil, err

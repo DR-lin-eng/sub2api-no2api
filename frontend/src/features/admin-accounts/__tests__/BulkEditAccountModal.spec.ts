@@ -320,6 +320,7 @@ describe('BulkEditAccountModal', () => {
 
     await wrapper.get('#bulk-edit-cpa-enabled').setValue(true)
     expect((wrapper.get('[data-testid="bulk-edit-cpa-concurrency-per-credential"]').element as HTMLInputElement).value).toBe('10')
+    expect(wrapper.get('[data-testid="bulk-edit-cpa-exclude-abnormal-toggle"]').attributes('aria-checked')).toBe('false')
     await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
     await flushPromises()
 
@@ -327,7 +328,8 @@ describe('BulkEditAccountModal', () => {
       credentials: {
         cpa_mode: true,
         cpa_management_url: null,
-        cpa_concurrency_per_credential: 10
+        cpa_concurrency_per_credential: 10,
+        cpa_exclude_abnormal_credentials: false
       }
     })
   })
@@ -340,6 +342,7 @@ describe('BulkEditAccountModal', () => {
     await wrapper.get('[data-testid="bulk-edit-cpa-management-url"]').setValue('https://cpa.example.com/v0/management/')
     await wrapper.get('[data-testid="bulk-edit-cpa-management-password"]').setValue('rotated-password')
     await wrapper.get('[data-testid="bulk-edit-cpa-concurrency-per-credential"]').setValue('4')
+    await wrapper.get('[data-testid="bulk-edit-cpa-exclude-abnormal-toggle"]').trigger('click')
     await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
     await flushPromises()
 
@@ -348,7 +351,8 @@ describe('BulkEditAccountModal', () => {
         cpa_mode: true,
         cpa_management_url: 'https://cpa.example.com/v0/management',
         cpa_management_key: 'rotated-password',
-        cpa_concurrency_per_credential: 4
+        cpa_concurrency_per_credential: 4,
+        cpa_exclude_abnormal_credentials: true
       }
     })
   })

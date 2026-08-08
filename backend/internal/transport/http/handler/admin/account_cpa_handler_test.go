@@ -33,10 +33,11 @@ func TestAccountHandlerCPAConnectionTestAndSync(t *testing.T) {
 	adminService.getAccountResult = &service.Account{
 		ID: 9, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, Concurrency: 99,
 		Credentials: map[string]any{
-			"base_url":                                       server.URL + "/v1",
-			service.CPAModeCredentialKey:                     true,
-			service.CPAManagementKeyCredentialKey:            "stored-password",
-			service.CPAConcurrencyPerCredentialCredentialKey: 10,
+			"base_url":                                         server.URL + "/v1",
+			service.CPAModeCredentialKey:                       true,
+			service.CPAManagementKeyCredentialKey:              "stored-password",
+			service.CPAConcurrencyPerCredentialCredentialKey:   10,
+			service.CPAExcludeAbnormalCredentialsCredentialKey: true,
 		},
 	}
 	concurrencyService := service.NewConcurrencyService(nil)
@@ -46,7 +47,7 @@ func TestAccountHandlerCPAConnectionTestAndSync(t *testing.T) {
 	router.POST("/accounts/:id/cpa/test", handler.TestCPAConnection)
 	router.POST("/accounts/:id/cpa/sync", handler.SyncCPACapacity)
 
-	body := bytes.NewBufferString(`{"use_account_base_url":true,"base_url":"` + server.URL + `/v1","management_password":"unsaved-password","concurrency_per_credential":10}`)
+	body := bytes.NewBufferString(`{"use_account_base_url":true,"base_url":"` + server.URL + `/v1","management_password":"unsaved-password","concurrency_per_credential":10,"exclude_abnormal_credentials":false}`)
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/accounts/9/cpa/test", body)
 	request.Header.Set("Content-Type", "application/json")
@@ -59,11 +60,16 @@ func TestAccountHandlerCPAConnectionTestAndSync(t *testing.T) {
 	require.Equal(t, 2, testResponse.Data.EnabledCredentials)
 	require.Equal(t, 1, testResponse.Data.AbnormalCredentials)
 	require.Equal(t, 1, testResponse.Data.AvailableCredentials)
-	require.Equal(t, 10, testResponse.Data.EffectiveConcurrency)
+	require.Equal(t, 2, testResponse.Data.CapacityCredentials)
+	require.False(t, testResponse.Data.ExcludeAbnormalCredentials)
+	require.Equal(t, 20, testResponse.Data.EffectiveConcurrency)
 
 	status, err := concurrencyService.GetCPACapacityStatus(context.Background(), adminService.getAccountResult)
 	require.NoError(t, err)
 	require.Equal(t, 1, status.AvailableCredentials)
+	require.Equal(t, 1, status.CapacityCredentials)
+	require.True(t, status.ExcludeAbnormalCredentials)
+	require.Equal(t, 10, status.EffectiveConcurrency)
 
 	recorder = httptest.NewRecorder()
 	request = httptest.NewRequest(http.MethodPost, "/accounts/9/cpa/sync", nil)

@@ -12,11 +12,12 @@ import (
 )
 
 type testCPACapacityRequest struct {
-	UseAccountBaseURL        bool   `json:"use_account_base_url"`
-	BaseURL                  string `json:"base_url"`
-	ManagementURL            string `json:"management_url"`
-	ManagementPassword       string `json:"management_password"`
-	ConcurrencyPerCredential *int   `json:"concurrency_per_credential"`
+	UseAccountBaseURL          bool   `json:"use_account_base_url"`
+	BaseURL                    string `json:"base_url"`
+	ManagementURL              string `json:"management_url"`
+	ManagementPassword         string `json:"management_password"`
+	ConcurrencyPerCredential   *int   `json:"concurrency_per_credential"`
+	ExcludeAbnormalCredentials *bool  `json:"exclude_abnormal_credentials"`
 }
 
 // TestCPAConnection validates unsaved CPA settings without mutating account
@@ -38,11 +39,12 @@ func (h *AccountHandler) TestCPAConnection(c *gin.Context) {
 		return
 	}
 	result, err := h.concurrencyService.TestCPACapacity(c.Request.Context(), account, service.CPATestInput{
-		UseAccountBaseURL:        req.UseAccountBaseURL,
-		BaseURL:                  strings.TrimSpace(req.BaseURL),
-		ManagementURL:            strings.TrimSpace(req.ManagementURL),
-		ManagementPassword:       strings.TrimSpace(req.ManagementPassword),
-		ConcurrencyPerCredential: req.ConcurrencyPerCredential,
+		UseAccountBaseURL:          req.UseAccountBaseURL,
+		BaseURL:                    strings.TrimSpace(req.BaseURL),
+		ManagementURL:              strings.TrimSpace(req.ManagementURL),
+		ManagementPassword:         strings.TrimSpace(req.ManagementPassword),
+		ConcurrencyPerCredential:   req.ConcurrencyPerCredential,
+		ExcludeAbnormalCredentials: req.ExcludeAbnormalCredentials,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
