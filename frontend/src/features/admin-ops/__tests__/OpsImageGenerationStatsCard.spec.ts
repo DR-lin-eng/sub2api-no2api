@@ -5,10 +5,8 @@ import OpsImageGenerationStatsCard from '../presentation/widgets/OpsImageGenerat
 
 const mockGetImageGenerationStats = vi.fn()
 
-vi.mock('@/features/admin-ops/data/datasources/adminOpsDatasource', () => ({
-  opsAPI: {
-    getImageGenerationStats: (...args: any[]) => mockGetImageGenerationStats(...args)
-  }
+vi.mock('@/features/admin-ops/data/datasources/opsMetricsQueries', () => ({
+  getImageGenerationStats: (...args: any[]) => mockGetImageGenerationStats(...args)
 }))
 
 vi.mock('vue-i18n', async (importOriginal) => {

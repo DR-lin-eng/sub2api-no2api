@@ -4,12 +4,12 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import Select from '@/common/widgets/forms/Select.vue'
 import EmptyState from '@/common/widgets/feedback/EmptyState.vue'
+import { getUserUsageStats } from '@/features/admin-ops/data/datasources/opsMetricsQueries'
 import {
-  opsAPI,
   type OpsUserUsageStatsParams,
   type OpsUserUsageStatsResponse,
   type OpsUserUsageStatsTimeRange
-} from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+} from '@/features/admin-ops/data/dtos/opsMetricsDtos'
 import { formatCurrency, formatDateTime } from '@/core/utils/format'
 import { formatCompactNumber, formatExactNumber } from '../opsFormatter'
 
@@ -80,10 +80,10 @@ async function loadData() {
   loading.value = true
   errorMessage.value = ''
   try {
-    response.value = await opsAPI.getUserUsageStats(buildParams())
+    response.value = await getUserUsageStats(buildParams())
     if (viewMode.value === 'pagination' && page.value > totalPages.value) {
       page.value = totalPages.value
-      response.value = await opsAPI.getUserUsageStats(buildParams())
+      response.value = await getUserUsageStats(buildParams())
     }
   } catch (err: any) {
     console.error('[OpsUserUsageStatsCard] Failed to load data', err)

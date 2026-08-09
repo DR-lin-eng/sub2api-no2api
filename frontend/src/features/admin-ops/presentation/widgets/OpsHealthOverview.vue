@@ -3,10 +3,8 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import HelpTooltip from '@/common/widgets/feedback/HelpTooltip.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
-import type {
-  OpsDashboardOverview,
-  OpsRealtimeTrafficSummary,
-} from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import type { OpsDashboardOverview } from '@/features/admin-ops/data/dtos/opsDashboardDtos'
+import type { OpsRealtimeTrafficSummary } from '@/features/admin-ops/data/dtos/opsMetricsDtos'
 import type { OpsRealtimeWindow } from '../composables/useOpsRealtimeTraffic'
 import {
   formatCompactNumber,

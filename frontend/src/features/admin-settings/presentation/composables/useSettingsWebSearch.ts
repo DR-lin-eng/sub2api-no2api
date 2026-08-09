@@ -1,12 +1,17 @@
 import { reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { proxiesAPI } from '@/features/admin-proxies/data/datasources/adminProxiesDatasource'
+import type {
+  WebSearchEmulationConfig,
+  WebSearchProviderConfig,
+  WebSearchTestResult,
+} from '@/features/admin-settings/data/dtos/adminSettingsDtos'
+import { getWebSearchEmulationConfig } from '@/features/admin-settings/data/datasources/adminSettingsQueries'
 import {
-  settingsAPI,
-  type WebSearchEmulationConfig,
-  type WebSearchProviderConfig,
-  type WebSearchTestResult,
-} from '@/features/admin-settings/data/datasources/adminSettingsDatasource'
+  resetWebSearchUsage as resetWebSearchUsageAction,
+  testWebSearchEmulation,
+  updateWebSearchEmulationConfig,
+} from '@/features/admin-settings/data/datasources/adminSettingsActions'
 import type { Proxy } from '@/types'
 import { extractApiErrorMessage } from '@/core/utils/apiError'
 import { useAppStore } from '@/core/stores/appStore'
@@ -101,7 +106,7 @@ export function useSettingsWebSearch() {
     if (!confirm(t("admin.settings.webSearchEmulation.resetUsageConfirm")))
       return;
     try {
-      await settingsAPI.resetWebSearchUsage({
+      await resetWebSearchUsageAction({
         provider_type: provider.type,
       });
       provider.quota_used = 0;
@@ -136,7 +141,7 @@ export function useSettingsWebSearch() {
       const query =
         wsTestQuery.value.trim() ||
         t("admin.settings.webSearchEmulation.testDefaultQuery");
-      wsTestResult.value = await settingsAPI.testWebSearchEmulation(query);
+      wsTestResult.value = await testWebSearchEmulation(query);
     } catch (err: unknown) {
       appStore.showError(extractApiErrorMessage(err, t("common.error")));
     } finally {
@@ -147,7 +152,7 @@ export function useSettingsWebSearch() {
   async function loadWebSearchConfig() {
     try {
       const [resp, proxiesResp] = await Promise.all([
-        settingsAPI.getWebSearchEmulationConfig(),
+        getWebSearchEmulationConfig(),
         proxiesAPI.list().catch(() => ({ items: [] as Proxy[] })),
       ]);
       if (resp) {
@@ -181,7 +186,7 @@ export function useSettingsWebSearch() {
           quota_limit: Number(p.quota_limit) > 0 ? Number(p.quota_limit) : null,
         }),
       );
-      await settingsAPI.updateWebSearchEmulationConfig({
+      await updateWebSearchEmulationConfig({
         enabled: webSearchConfig.enabled,
         providers,
       });

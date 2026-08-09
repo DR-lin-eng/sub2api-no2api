@@ -330,8 +330,7 @@
 import { ref, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
-import { adminAPI } from '@/api/admin'
-import type { TLSFingerprintProfile } from '@/features/admin-settings/data/datasources/tlsFingerprintProfileDatasource'
+import tlsFingerprintProfileAPI, { type TLSFingerprintProfile } from '@/features/admin-settings/data/datasources/tlsFingerprintProfileDatasource'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import ConfirmDialog from '@/common/widgets/feedback/ConfirmDialog.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
@@ -389,7 +388,7 @@ watch(() => props.show, (newVal) => {
 const loadProfiles = async () => {
   loading.value = true
   try {
-    profiles.value = await adminAPI.tlsFingerprintProfiles.list()
+    profiles.value = await tlsFingerprintProfileAPI.list()
   } catch (error) {
     appStore.showError(t('admin.tlsFingerprintProfiles.loadFailed'))
     console.error('Error loading TLS fingerprint profiles:', error)
@@ -591,10 +590,10 @@ const handleSubmit = async () => {
     }
 
     if (showEditModal.value && editingProfile.value) {
-      await adminAPI.tlsFingerprintProfiles.update(editingProfile.value.id, data)
+      await tlsFingerprintProfileAPI.update(editingProfile.value.id, data)
       appStore.showSuccess(t('admin.tlsFingerprintProfiles.updateSuccess'))
     } else {
-      await adminAPI.tlsFingerprintProfiles.create(data)
+      await tlsFingerprintProfileAPI.create(data)
       appStore.showSuccess(t('admin.tlsFingerprintProfiles.createSuccess'))
     }
 
@@ -612,7 +611,7 @@ const confirmDelete = async () => {
   if (!deletingProfile.value) return
 
   try {
-    await adminAPI.tlsFingerprintProfiles.delete(deletingProfile.value.id)
+    await tlsFingerprintProfileAPI.delete(deletingProfile.value.id)
     appStore.showSuccess(t('admin.tlsFingerprintProfiles.deleteSuccess'))
     showDeleteDialog.value = false
     deletingProfile.value = null

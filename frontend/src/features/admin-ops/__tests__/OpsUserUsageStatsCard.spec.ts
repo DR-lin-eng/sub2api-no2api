@@ -6,10 +6,8 @@ import OpsUserUsageStatsCard from '../presentation/widgets/OpsUserUsageStatsCard
 const mockGetUserUsageStats = vi.fn()
 const mockPush = vi.fn()
 
-vi.mock('@/features/admin-ops/data/datasources/adminOpsDatasource', () => ({
-  opsAPI: {
-    getUserUsageStats: (...args: any[]) => mockGetUserUsageStats(...args)
-  }
+vi.mock('@/features/admin-ops/data/datasources/opsMetricsQueries', () => ({
+  getUserUsageStats: (...args: any[]) => mockGetUserUsageStats(...args)
 }))
 
 vi.mock('vue-router', () => ({

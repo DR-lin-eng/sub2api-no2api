@@ -99,7 +99,7 @@ import {
 } from '@/features/admin-accounts/data/datasources/adminAccountActions'
 import {
   getWebSearchEmulationConfig
-} from '@/features/admin-settings/data/datasources/adminSettingsDatasource'
+} from '@/features/admin-settings/data/datasources/adminSettingsQueries'
 import {
   list as listTLSFingerprintProfiles
 } from '@/features/admin-settings/data/datasources/tlsFingerprintProfileDatasource'

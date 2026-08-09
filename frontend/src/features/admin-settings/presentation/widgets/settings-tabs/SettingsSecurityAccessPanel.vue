@@ -750,7 +750,7 @@ import PanelRateLimitSettingsCard from '@/features/admin-settings/presentation/w
 import Select from '@/common/widgets/forms/Select.vue'
 import Toggle from '@/common/widgets/forms/Toggle.vue'
 import { useSettingsPageContext } from '@/features/admin-settings/presentation/composables/settingsPageContext'
-import type { ClientIPResolutionMode } from '@/features/admin-settings/data/datasources/adminSettingsDatasource'
+import type { ClientIPResolutionMode } from '@/features/admin-settings/data/dtos/systemSettingsDtos'
 
 const { aliyunCaptchaRegionOptions, clientIPLastRefreshText, clientIPResolutionModeOptions, clientIPTrustedProxiesText, commitRegistrationEmailSuffixWhitelistDraft, form, handleRegistrationEmailSuffixWhitelistDraftInput, handleRegistrationEmailSuffixWhitelistDraftKeydown, handleRegistrationEmailSuffixWhitelistPaste, humanVerificationProviders, panelRateLimitSettingsMounted, registrationEmailSuffixWhitelistDraft, registrationEmailSuffixWhitelistTags, removeRegistrationEmailSuffixWhitelistTag, setHumanVerificationProvider, t, tencentCaptchaRegionOptions } = useSettingsPageContext()
 </script>

@@ -433,8 +433,7 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
-import { adminAPI } from '@/api/admin'
-import type { ErrorPassthroughRule } from '@/features/admin-settings/data/datasources/errorPassthroughDatasource'
+import errorPassthroughAPI, { type ErrorPassthroughRule } from '@/features/admin-settings/data/datasources/errorPassthroughDatasource'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import ConfirmDialog from '@/common/widgets/feedback/ConfirmDialog.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
@@ -503,7 +502,7 @@ watch(() => props.show, (newVal) => {
 const loadRules = async () => {
   loading.value = true
   try {
-    rules.value = await adminAPI.errorPassthrough.list()
+    rules.value = await errorPassthroughAPI.list()
   } catch (error) {
     appStore.showError(t('admin.errorPassthrough.failedToLoad'))
     console.error('Error loading rules:', error)
@@ -607,10 +606,10 @@ const handleSubmit = async () => {
     }
 
     if (showEditModal.value && editingRule.value) {
-      await adminAPI.errorPassthrough.update(editingRule.value.id, data)
+      await errorPassthroughAPI.update(editingRule.value.id, data)
       appStore.showSuccess(t('admin.errorPassthrough.ruleUpdated'))
     } else {
-      await adminAPI.errorPassthrough.create(data)
+      await errorPassthroughAPI.create(data)
       appStore.showSuccess(t('admin.errorPassthrough.ruleCreated'))
     }
 
@@ -626,7 +625,7 @@ const handleSubmit = async () => {
 
 const toggleEnabled = async (rule: ErrorPassthroughRule) => {
   try {
-    await adminAPI.errorPassthrough.toggleEnabled(rule.id, !rule.enabled)
+    await errorPassthroughAPI.toggleEnabled(rule.id, !rule.enabled)
     rule.enabled = !rule.enabled
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.errorPassthrough.failedToToggle'))
@@ -638,7 +637,7 @@ const confirmDelete = async () => {
   if (!deletingRule.value) return
 
   try {
-    await adminAPI.errorPassthrough.delete(deletingRule.value.id)
+    await errorPassthroughAPI.delete(deletingRule.value.id)
     appStore.showSuccess(t('admin.errorPassthrough.ruleDeleted'))
     showDeleteDialog.value = false
     deletingRule.value = null

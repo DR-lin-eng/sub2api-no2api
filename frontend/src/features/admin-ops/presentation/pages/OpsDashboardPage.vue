@@ -173,15 +173,26 @@ import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import {
-  opsAPI,
   type OpsDashboardOverview,
   type OpsErrorDistributionResponse,
   type OpsErrorTrendResponse,
   type OpsLatencyHistogramResponse,
-  type OpsThroughputTrendResponse,
-  type OpsMetricThresholds,
-  type OpsAdvancedSettings
+  type OpsThroughputTrendResponse
+} from '@/features/admin-ops/data/dtos/opsDashboardDtos'
+import type {
+  OpsAdvancedSettings,
+  OpsMetricThresholds
 } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import {
+  getDashboardOverview,
+  getDashboardSnapshotV2,
+  getErrorDistribution,
+  getErrorTrend,
+  getLatencyHistogram,
+  getSwitchTrend,
+  getThroughputTrend
+} from '@/features/admin-ops/data/datasources/opsDashboardQueries'
+import { opsAPI } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
 import { useAdminSettingsStore, useAppStore } from '@/stores'
 import OpsDashboardHeader from '../widgets/OpsDashboardHeader.vue'
 import OpsDashboardSkeleton from '../widgets/OpsDashboardSkeleton.vue'
@@ -656,7 +667,7 @@ function buildSwitchTrendParams() {
 async function refreshOverviewWithCancel(fetchSeq: number, signal: AbortSignal) {
   if (!opsEnabled.value) return
   try {
-    const data = await opsAPI.getDashboardOverview(buildApiParams(), { signal })
+    const data = await getDashboardOverview(buildApiParams(), { signal })
     if (fetchSeq !== dashboardFetchSeq) return
     overview.value = data
   } catch (err: any) {
@@ -670,7 +681,7 @@ async function refreshSwitchTrendWithCancel(fetchSeq: number, signal: AbortSigna
   if (!opsEnabled.value || !showSwitchRateTrend.value) return
   loadingSwitchTrend.value = true
   try {
-    const data = await opsAPI.getSwitchTrend(buildSwitchTrendParams(), { signal })
+    const data = await getSwitchTrend(buildSwitchTrendParams(), { signal })
     if (fetchSeq !== dashboardFetchSeq) return
     switchTrend.value = data
   } catch (err: any) {
@@ -688,7 +699,7 @@ async function refreshThroughputTrendWithCancel(fetchSeq: number, signal: AbortS
   if (!opsEnabled.value || !showThroughputTrend.value) return
   loadingTrend.value = true
   try {
-    const data = await opsAPI.getThroughputTrend(buildApiParams(), { signal })
+    const data = await getThroughputTrend(buildApiParams(), { signal })
     if (fetchSeq !== dashboardFetchSeq) return
     throughputTrend.value = data
   } catch (err: any) {
@@ -709,7 +720,7 @@ async function refreshCoreSnapshotWithCancel(fetchSeq: number, signal: AbortSign
   loadingLatency.value = showLatencyHistogram.value
   loadingErrorDistribution.value = showErrorDistribution.value
   try {
-    const data = await opsAPI.getDashboardSnapshotV2(buildSnapshotApiParams(), { signal })
+    const data = await getDashboardSnapshotV2(buildSnapshotApiParams(), { signal })
     if (fetchSeq !== dashboardFetchSeq) return
     overview.value = data.overview
     throughputTrend.value = showThroughputTrend.value ? data.throughput_trend ?? null : null
@@ -746,7 +757,7 @@ async function refreshLatencyHistogramWithCancel(fetchSeq: number, signal: Abort
   if (!opsEnabled.value || !showLatencyHistogram.value) return
   loadingLatency.value = true
   try {
-    const data = await opsAPI.getLatencyHistogram(buildApiParams(), { signal })
+    const data = await getLatencyHistogram(buildApiParams(), { signal })
     if (fetchSeq !== dashboardFetchSeq) return
     latencyHistogram.value = data
   } catch (err: any) {
@@ -764,7 +775,7 @@ async function refreshErrorTrendWithCancel(fetchSeq: number, signal: AbortSignal
   if (!opsEnabled.value || !showErrorTrend.value) return
   loadingErrorTrend.value = true
   try {
-    const data = await opsAPI.getErrorTrend(buildApiParams(), { signal })
+    const data = await getErrorTrend(buildApiParams(), { signal })
     if (fetchSeq !== dashboardFetchSeq) return
     errorTrend.value = data
   } catch (err: any) {
@@ -782,7 +793,7 @@ async function refreshErrorDistributionWithCancel(fetchSeq: number, signal: Abor
   if (!opsEnabled.value || !showErrorDistribution.value) return
   loadingErrorDistribution.value = true
   try {
-    const data = await opsAPI.getErrorDistribution(buildApiParams(), { signal })
+    const data = await getErrorDistribution(buildApiParams(), { signal })
     if (fetchSeq !== dashboardFetchSeq) return
     errorDistribution.value = data
   } catch (err: any) {

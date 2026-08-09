@@ -153,7 +153,7 @@ describe('admin accounts modularization', () => {
   it('reads the global quota notification switch from its settings owner', () => {
     expect(quotaNotifySource).not.toContain("from '@/api/admin'")
     expect(quotaNotifySource).toContain(
-      "from '@/features/admin-settings/data/datasources/adminSettingsDatasource'"
+      "from '@/features/admin-settings/data/datasources/adminSettingsQueries'"
     )
   })
 
@@ -208,7 +208,7 @@ describe('admin accounts modularization', () => {
         "from '@/features/admin-accounts/data/datasources/adminAccountActions'"
       )
       expect(source).toContain(
-        "from '@/features/admin-settings/data/datasources/adminSettingsDatasource'"
+        "from '@/features/admin-settings/data/datasources/adminSettingsQueries'"
       )
       expect(source).toContain(
         "from '@/features/admin-settings/data/datasources/tlsFingerprintProfileDatasource'"

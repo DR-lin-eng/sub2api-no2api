@@ -82,8 +82,11 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { adminAPI } from "@/api/admin";
-import type { SimpleUser } from "@/features/admin-usage/data/datasources/adminUsageDatasource";
+import {
+  searchUsers,
+  type SimpleUser,
+} from "@/features/admin-usage/data/datasources/adminUsageDatasource";
+import { getById as getUserById } from "@/features/admin-users/data/datasources/adminUsersDatasource";
 import Icon from "@/common/widgets/icons/Icon.vue";
 
 const props = defineProps<{
@@ -142,7 +145,7 @@ function debounceSearch(): void {
   searchTimer = setTimeout(async () => {
     searchLoading.value = true;
     try {
-      const results = await adminAPI.usage.searchUsers(query);
+      const results = await searchUsers(query);
       if (sequence === searchSequence) {
         searchResults.value = results;
       }
@@ -182,7 +185,7 @@ async function hydrateSelectedUsers(userIds: number[]): Promise<void> {
   const users = await Promise.all(
     missing.map(async (id) => {
       try {
-        const user = await adminAPI.users.getById(id, true);
+        const user = await getUserById(id, true);
         return {
           id: user.id,
           email: user.email,

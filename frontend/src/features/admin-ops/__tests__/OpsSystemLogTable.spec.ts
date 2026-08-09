@@ -9,14 +9,19 @@ const mockListSystemLogs = vi.fn()
 const mockCleanupSystemLogs = vi.fn()
 const mockGetSystemLogSinkHealth = vi.fn()
 const mockGetRuntimeLogConfig = vi.fn()
+const mockUpdateRuntimeLogConfig = vi.fn()
+const mockResetRuntimeLogConfig = vi.fn()
 
-vi.mock('@/features/admin-ops/data/datasources/adminOpsDatasource', () => ({
-  opsAPI: {
-    listSystemLogs: (...args: any[]) => mockListSystemLogs(...args),
-    cleanupSystemLogs: (...args: any[]) => mockCleanupSystemLogs(...args),
-    getSystemLogSinkHealth: (...args: any[]) => mockGetSystemLogSinkHealth(...args),
-    getRuntimeLogConfig: (...args: any[]) => mockGetRuntimeLogConfig(...args),
-  },
+vi.mock('@/features/admin-ops/data/datasources/opsLogQueries', () => ({
+  listSystemLogs: (...args: any[]) => mockListSystemLogs(...args),
+  getSystemLogSinkHealth: (...args: any[]) => mockGetSystemLogSinkHealth(...args),
+  getRuntimeLogConfig: (...args: any[]) => mockGetRuntimeLogConfig(...args),
+}))
+
+vi.mock('@/features/admin-ops/data/datasources/opsLogActions', () => ({
+  cleanupSystemLogs: (...args: any[]) => mockCleanupSystemLogs(...args),
+  updateRuntimeLogConfig: (...args: any[]) => mockUpdateRuntimeLogConfig(...args),
+  resetRuntimeLogConfig: (...args: any[]) => mockResetRuntimeLogConfig(...args),
 }))
 
 vi.mock('@/stores', () => ({
@@ -93,6 +98,8 @@ describe('OpsSystemLogTable host support', () => {
     mockCleanupSystemLogs.mockResolvedValue({ deleted: 1 })
     mockGetSystemLogSinkHealth.mockResolvedValue(sinkHealth)
     mockGetRuntimeLogConfig.mockResolvedValue(runtimeConfig)
+    mockUpdateRuntimeLogConfig.mockResolvedValue(runtimeConfig)
+    mockResetRuntimeLogConfig.mockResolvedValue(runtimeConfig)
   })
 
   it('renders the host and sends it with list and cleanup filters', async () => {

@@ -2,10 +2,25 @@ import { computed, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { accountsAPI } from '@/features/admin-accounts/data/datasources/adminAccountsDatasource'
 import {
-  settingsAPI,
   type OpenAIFastPolicyRule,
   type ThinkingDisplayMode,
-} from '@/features/admin-settings/data/datasources/adminSettingsDatasource'
+} from '@/features/admin-settings/data/dtos/adminSettingsDtos'
+import {
+  getBetaPolicySettings,
+  getGlobalTempUnschedulableSettings,
+  getOverloadCooldownSettings,
+  getRateLimit429CooldownSettings,
+  getRectifierSettings,
+  getStreamTimeoutSettings,
+} from '@/features/admin-settings/data/datasources/adminSettingsQueries'
+import {
+  updateBetaPolicySettings,
+  updateGlobalTempUnschedulableSettings,
+  updateOverloadCooldownSettings,
+  updateRateLimit429CooldownSettings,
+  updateRectifierSettings,
+  updateStreamTimeoutSettings,
+} from '@/features/admin-settings/data/datasources/adminSettingsActions'
 import { extractApiErrorMessage } from '@/core/utils/apiError'
 import { useAppStore } from '@/core/stores/appStore'
 
@@ -172,7 +187,7 @@ export function useSettingsGatewayPolicies() {
   async function loadOverloadCooldownSettings() {
     overloadCooldownLoading.value = true;
     try {
-      const settings = await settingsAPI.getOverloadCooldownSettings();
+      const settings = await getOverloadCooldownSettings();
       Object.assign(overloadCooldownForm, settings);
     } catch {
       // Silent fail - settings will use defaults
@@ -184,7 +199,7 @@ export function useSettingsGatewayPolicies() {
   async function saveOverloadCooldownSettings() {
     overloadCooldownSaving.value = true;
     try {
-      const updated = await settingsAPI.updateOverloadCooldownSettings({
+      const updated = await updateOverloadCooldownSettings({
         enabled: overloadCooldownForm.enabled,
         cooldown_minutes: overloadCooldownForm.cooldown_minutes,
       });
@@ -206,7 +221,7 @@ export function useSettingsGatewayPolicies() {
   async function loadRateLimit429CooldownSettings() {
     rateLimit429CooldownLoading.value = true;
     try {
-      const settings = await settingsAPI.getRateLimit429CooldownSettings();
+      const settings = await getRateLimit429CooldownSettings();
       Object.assign(rateLimit429CooldownForm, settings);
     } catch {
       // Silent fail - settings will use defaults
@@ -218,7 +233,7 @@ export function useSettingsGatewayPolicies() {
   async function saveRateLimit429CooldownSettings() {
     rateLimit429CooldownSaving.value = true;
     try {
-      const updated = await settingsAPI.updateRateLimit429CooldownSettings({
+      const updated = await updateRateLimit429CooldownSettings({
         enabled: rateLimit429CooldownForm.enabled,
         cooldown_seconds: rateLimit429CooldownForm.cooldown_seconds,
       });
@@ -241,7 +256,7 @@ export function useSettingsGatewayPolicies() {
     globalTempUnschedulableLoading.value = true;
     try {
       const settings =
-        await settingsAPI.getGlobalTempUnschedulableSettings();
+        await getGlobalTempUnschedulableSettings();
       Object.assign(globalTempUnschedulableForm, settings);
     } catch {
       // Silent fail - settings will use defaults
@@ -254,7 +269,7 @@ export function useSettingsGatewayPolicies() {
     globalTempUnschedulableSaving.value = true;
     try {
       const updated =
-        await settingsAPI.updateGlobalTempUnschedulableSettings({
+        await updateGlobalTempUnschedulableSettings({
           enabled: globalTempUnschedulableForm.enabled,
         });
       Object.assign(globalTempUnschedulableForm, updated);
@@ -277,7 +292,7 @@ export function useSettingsGatewayPolicies() {
   async function loadStreamTimeoutSettings() {
     streamTimeoutLoading.value = true;
     try {
-      const settings = await settingsAPI.getStreamTimeoutSettings();
+      const settings = await getStreamTimeoutSettings();
       Object.assign(streamTimeoutForm, settings);
     } catch {
       // Silent fail - settings will use defaults
@@ -289,7 +304,7 @@ export function useSettingsGatewayPolicies() {
   async function saveStreamTimeoutSettings() {
     streamTimeoutSaving.value = true;
     try {
-      const updated = await settingsAPI.updateStreamTimeoutSettings({
+      const updated = await updateStreamTimeoutSettings({
         response_header_timeout_degradation_enabled:
           streamTimeoutForm.response_header_timeout_degradation_enabled,
         response_header_timeout_seconds:
@@ -318,7 +333,7 @@ export function useSettingsGatewayPolicies() {
   async function loadRectifierSettings() {
     rectifierLoading.value = true;
     try {
-      const settings = await settingsAPI.getRectifierSettings();
+      const settings = await getRectifierSettings();
       Object.assign(rectifierForm, settings);
       // 确保 patterns 是数组（旧数据可能为 null）
       if (!Array.isArray(rectifierForm.apikey_signature_patterns)) {
@@ -334,7 +349,7 @@ export function useSettingsGatewayPolicies() {
   async function saveRectifierSettings() {
     rectifierSaving.value = true;
     try {
-      const updated = await settingsAPI.updateRectifierSettings({
+      const updated = await updateRectifierSettings({
         enabled: rectifierForm.enabled,
         thinking_signature_enabled: rectifierForm.thinking_signature_enabled,
         thinking_budget_enabled: rectifierForm.thinking_budget_enabled,
@@ -437,7 +452,7 @@ export function useSettingsGatewayPolicies() {
   async function loadBetaPolicySettings() {
     betaPolicyLoading.value = true;
     try {
-      const settings = await settingsAPI.getBetaPolicySettings();
+      const settings = await getBetaPolicySettings();
       betaPolicyForm.rules = settings.rules;
     } catch {
       // Silent fail - settings will use defaults
@@ -528,7 +543,7 @@ export function useSettingsGatewayPolicies() {
               : undefined,
         };
       });
-      const updated = await settingsAPI.updateBetaPolicySettings({
+      const updated = await updateBetaPolicySettings({
         rules: cleanedRules,
       });
       betaPolicyForm.rules = updated.rules;

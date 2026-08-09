@@ -113,16 +113,17 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { adminAPI } from '@/api'
 import {
   normalizePanelRateLimitSettings,
   type PanelRateLimitSettings,
-} from '@/features/admin-settings/data/datasources/adminSettingsDatasource'
+} from '@/features/admin-settings/data/dtos/adminSettingsDtos'
+import { getPanelRateLimitSettings } from '@/features/admin-settings/data/datasources/adminSettingsQueries'
+import { updatePanelRateLimitSettings } from '@/features/admin-settings/data/datasources/adminSettingsActions'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import LoadingSpinner from '@/common/widgets/feedback/LoadingSpinner.vue'
 import Toggle from '@/common/widgets/forms/Toggle.vue'
 import RateInput from '@/features/admin-settings/presentation/widgets/RateInput.vue'
-import { useAppStore } from '@/stores'
+import { useAppStore } from '@/core/stores/appStore'
 import { extractApiErrorMessage } from '@/core/utils/apiError'
 
 const { t } = useI18n()
@@ -144,7 +145,7 @@ function isNotFoundError(error: unknown): boolean {
 async function loadSettings(): Promise<void> {
   loading.value = true
   try {
-    const settings = await adminAPI.settings.getPanelRateLimitSettings()
+    const settings = await getPanelRateLimitSettings()
     form.value = normalizePanelRateLimitSettings(settings)
   } catch (error: unknown) {
     form.value = null
@@ -164,7 +165,7 @@ async function saveSettings(): Promise<void> {
   if (!form.value || saving.value) return
   saving.value = true
   try {
-    const updated = await adminAPI.settings.updatePanelRateLimitSettings({ ...form.value })
+    const updated = await updatePanelRateLimitSettings({ ...form.value })
     form.value = normalizePanelRateLimitSettings(updated)
     appStore.showSuccess(t('admin.settings.panelRateLimit.saved'))
   } catch (error: unknown) {

@@ -17,8 +17,13 @@ import {
   normalizeDefaultSubscriptionSettings,
   normalizePlatformQuotasMap,
   resolveWeChatConnectModeCapabilities,
-  settingsAPI,
-} from "@/features/admin-settings/data/datasources/adminSettingsDatasource";
+} from "@/features/admin-settings/data/dtos/systemSettingsDtos";
+import { getSettings } from "@/features/admin-settings/data/datasources/adminSettingsQueries";
+import {
+  sendTestEmail as sendTestEmailAction,
+  testSmtpConnection as testSmtpConnectionAction,
+  updateSettings,
+} from "@/features/admin-settings/data/datasources/adminSettingsActions";
 import { useAdminSettingsStore } from "@/features/admin-settings/presentation/stores/adminSettingsStore";
 import {
   defaultLoginAgreementDocuments,
@@ -393,7 +398,7 @@ export function useSettingsPage() {
     loading.value = true;
     loadFailed.value = false;
     try {
-      const settings = await settingsAPI.getSettings();
+      const settings = await getSettings();
       settings.payment_load_balance_strategy =
         settings.payment_load_balance_strategy || "round-robin";
       // Only assign non-null values from backend (null means unconfigured, keep defaults)
@@ -656,7 +661,7 @@ export function useSettingsPage() {
       });
 
       const updated = await settingsStepUp.run(() =>
-        settingsAPI.updateSettings(payload),
+        updateSettings(payload),
       );
       applySettingsSaveResponse({
         form,
@@ -715,7 +720,7 @@ export function useSettingsPage() {
       const smtpPasswordForTest = smtpPasswordManuallyEdited.value
         ? form.smtp_password
         : "";
-      const result = await settingsAPI.testSmtpConnection({
+      const result = await testSmtpConnectionAction({
         smtp_host: form.smtp_host,
         smtp_port: form.smtp_port,
         smtp_username: form.smtp_username,
@@ -746,7 +751,7 @@ export function useSettingsPage() {
       const smtpPasswordForSend = smtpPasswordManuallyEdited.value
         ? form.smtp_password
         : "";
-      const result = await settingsAPI.sendTestEmail({
+      const result = await sendTestEmailAction({
         email: testEmailAddress.value,
         smtp_host: form.smtp_host,
         smtp_port: form.smtp_port,

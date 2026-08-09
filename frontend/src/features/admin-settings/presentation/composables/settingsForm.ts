@@ -2,7 +2,7 @@ import {
   normalizePlatformQuotasMap,
   type DefaultPlatformQuotasMap,
   type SystemSettings,
-} from "@/features/admin-settings/data/datasources/adminSettingsDatasource";
+} from "@/features/admin-settings/data/dtos/systemSettingsDtos";
 import type { NotifyEmailEntry } from "@/types";
 import { defaultLoginAgreementDocuments } from "./settingsAgreementResolver";
 import { defaultClaudeOAuthSystemPromptBlocks } from "./settingsClaudePromptResolver";

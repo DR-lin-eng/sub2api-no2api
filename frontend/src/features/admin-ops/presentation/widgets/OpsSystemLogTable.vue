@@ -3,12 +3,21 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useMediaQuery } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import {
-  opsAPI,
-  type OpsRuntimeLogConfig,
-  type OpsSystemLog,
-  type OpsSystemLogCleanupRequest,
-  type OpsSystemLogSinkHealth
-} from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+  cleanupSystemLogs,
+  resetRuntimeLogConfig,
+  updateRuntimeLogConfig
+} from '@/features/admin-ops/data/datasources/opsLogActions'
+import {
+  getRuntimeLogConfig,
+  getSystemLogSinkHealth,
+  listSystemLogs
+} from '@/features/admin-ops/data/datasources/opsLogQueries'
+import type {
+  OpsRuntimeLogConfig,
+  OpsSystemLog,
+  OpsSystemLogCleanupRequest,
+  OpsSystemLogSinkHealth
+} from '@/features/admin-ops/data/dtos/opsLogDtos'
 import Pagination from '@/common/widgets/data/Pagination.vue'
 import Select from '@/common/widgets/forms/Select.vue'
 import Toggle from '@/common/widgets/forms/Toggle.vue'
@@ -216,7 +225,7 @@ const buildQuery = () => {
 const fetchLogs = async () => {
   loading.value = true
   try {
-    const res = await opsAPI.listSystemLogs(buildQuery())
+    const res = await listSystemLogs(buildQuery())
     logs.value = res.items || []
     total.value = res.total || 0
   } catch (err: any) {
@@ -229,7 +238,7 @@ const fetchLogs = async () => {
 
 const fetchHealth = async () => {
   try {
-    health.value = await opsAPI.getSystemLogSinkHealth()
+    health.value = await getSystemLogSinkHealth()
   } catch {
     // 忽略健康数据读取失败，不影响主流程。
   }
@@ -238,7 +247,7 @@ const fetchHealth = async () => {
 const loadRuntimeConfig = async () => {
   runtimeLoading.value = true
   try {
-    const cfg = await opsAPI.getRuntimeLogConfig()
+    const cfg = await getRuntimeLogConfig()
     runtimeConfig.level = cfg.level
     runtimeConfig.enable_sampling = cfg.enable_sampling
     runtimeConfig.sampling_initial = cfg.sampling_initial
@@ -257,7 +266,7 @@ const loadRuntimeConfig = async () => {
 const saveRuntimeConfig = async () => {
   runtimeSaving.value = true
   try {
-    const saved = await opsAPI.updateRuntimeLogConfig({ ...runtimeConfig })
+    const saved = await updateRuntimeLogConfig({ ...runtimeConfig })
     runtimeConfig.level = saved.level
     runtimeConfig.enable_sampling = saved.enable_sampling
     runtimeConfig.sampling_initial = saved.sampling_initial
@@ -281,7 +290,7 @@ const resetRuntimeConfig = async () => {
 
   runtimeSaving.value = true
   try {
-    const saved = await opsAPI.resetRuntimeLogConfig()
+    const saved = await resetRuntimeLogConfig()
     runtimeConfig.level = saved.level
     runtimeConfig.enable_sampling = saved.enable_sampling
     runtimeConfig.sampling_initial = saved.sampling_initial
@@ -342,7 +351,7 @@ const cleanupCurrentFilter = async () => {
       model: filters.model.trim() || undefined,
       q: filters.q.trim() || undefined
     }
-    const res = await opsAPI.cleanupSystemLogs(payload)
+    const res = await cleanupSystemLogs(payload)
     appStore.showSuccess(t('admin.ops.systemLogs.cleanupSuccess', { count: res.deleted || 0 }))
     page.value = 1
     await Promise.all([fetchLogs(), fetchHealth()])

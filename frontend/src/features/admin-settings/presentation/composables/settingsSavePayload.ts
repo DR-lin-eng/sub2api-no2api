@@ -4,10 +4,10 @@ import {
   sanitizePlatformQuotasMap,
   type AuthSourceDefaultsState,
   type DefaultSubscriptionSetting,
-  type OpenAIFastPolicyRule,
   type UpdateSettingsRequest,
   type WeChatConnectMode,
-} from "@/features/admin-settings/data/datasources/adminSettingsDatasource";
+} from "@/features/admin-settings/data/dtos/systemSettingsDtos";
+import type { OpenAIFastPolicyRule } from "@/features/admin-settings/data/dtos/adminSettingsDtos";
 import type { SettingsForm } from "./settingsForm";
 
 export interface SettingsSavePayloadContext {

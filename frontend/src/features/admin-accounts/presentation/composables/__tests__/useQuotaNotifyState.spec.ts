@@ -6,7 +6,7 @@ const { getSettings } = vi.hoisted(() => ({
   getSettings: vi.fn()
 }))
 
-vi.mock('@/features/admin-settings/data/datasources/adminSettingsDatasource', () => ({
+vi.mock('@/features/admin-settings/data/datasources/adminSettingsQueries', () => ({
   getSettings
 }))
 

@@ -42,7 +42,7 @@ vi.mock('@/features/admin-accounts/data/datasources/adminAccountActions', () => 
   probeUpstreamBilling: probeUpstreamBillingMock,
 }))
 
-vi.mock('@/features/admin-settings/data/datasources/adminSettingsDatasource', () => ({
+vi.mock('@/features/admin-settings/data/datasources/adminSettingsQueries', () => ({
   getSettings: vi.fn().mockResolvedValue({}),
   getWebSearchEmulationConfig: vi.fn().mockResolvedValue({ enabled: false, providers: [] }),
 }))

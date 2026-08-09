@@ -5,7 +5,7 @@ import {
   type AuthSourceType,
   type DefaultSubscriptionSetting,
   type WeChatConnectMode,
-} from "@/features/admin-settings/data/datasources/adminSettingsDatasource";
+} from "@/features/admin-settings/data/dtos/systemSettingsDtos";
 import type { LoginAgreementDocument } from "@/types";
 import {
   tablePageSizeMax,

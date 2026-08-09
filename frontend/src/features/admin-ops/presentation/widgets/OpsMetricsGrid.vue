@@ -2,10 +2,8 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import HelpTooltip from '@/common/widgets/feedback/HelpTooltip.vue'
-import type {
-  OpsDashboardOverview,
-  OpsMetricThresholds,
-} from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import type { OpsMetricThresholds } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import type { OpsDashboardOverview } from '@/features/admin-ops/data/dtos/opsDashboardDtos'
 import type { OpsRequestDetailsPreset } from '../opsTypeSignals'
 import {
   formatCompactNumber,

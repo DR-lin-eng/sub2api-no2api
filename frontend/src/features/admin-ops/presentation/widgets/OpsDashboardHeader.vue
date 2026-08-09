@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { toRefs } from 'vue'
-import type {
-  OpsDashboardOverview,
-  OpsMetricThresholds,
-} from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import type { OpsMetricThresholds } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import type { OpsDashboardOverview } from '@/features/admin-ops/data/dtos/opsDashboardDtos'
 import type { OpsRequestDetailsPreset } from '../opsTypeSignals'
 import { useOpsRealtimeTraffic } from '../composables/useOpsRealtimeTraffic'
 import OpsDashboardToolbar from './OpsDashboardToolbar.vue'

@@ -4,7 +4,8 @@ import { useMediaQuery } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import Select from '@/common/widgets/forms/Select.vue'
 import EmptyState from '@/common/widgets/feedback/EmptyState.vue'
-import { opsAPI, type OpsOpenAITokenStatsResponse, type OpsOpenAITokenStatsTimeRange } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import { getOpenAITokenStats } from '@/features/admin-ops/data/datasources/opsMetricsQueries'
+import type { OpsOpenAITokenStatsResponse, OpsOpenAITokenStatsTimeRange } from '@/features/admin-ops/data/dtos/opsMetricsDtos'
 import { formatCompactNumber, formatDurationMs, formatExactDurationMs, formatExactNumber } from '../opsFormatter'
 
 interface Props {
@@ -98,11 +99,11 @@ async function loadData() {
   loading.value = true
   errorMessage.value = ''
   try {
-    response.value = await opsAPI.getOpenAITokenStats(buildParams())
+    response.value = await getOpenAITokenStats(buildParams())
     // 防御：若 total 变化导致当前页超出最大页，则回退到末页并重新拉取一次。
     if (viewMode.value === 'pagination' && page.value > totalPages.value) {
       page.value = totalPages.value
-      response.value = await opsAPI.getOpenAITokenStats(buildParams())
+      response.value = await getOpenAITokenStats(buildParams())
     }
   } catch (err: any) {
     console.error('[OpsOpenAITokenStatsCard] Failed to load data', err)

@@ -7,7 +7,7 @@ import {
   sanitizePlatformQuotasMap,
   type UpdateSettingsRequest,
   type DefaultPlatformQuotasMap,
-} from "@/features/admin-settings/data/datasources/adminSettingsDatasource";
+} from "@/features/admin-settings/data/dtos/systemSettingsDtos";
 
 /** 全 null 的 5 平台 map，用于断言归一化默认值 */
 const allNullQuotas: DefaultPlatformQuotasMap = {

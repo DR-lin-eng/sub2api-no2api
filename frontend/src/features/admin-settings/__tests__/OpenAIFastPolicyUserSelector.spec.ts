@@ -29,15 +29,12 @@ vi.mock('vue-i18n', () => ({
 const mockSearchUsers = vi.fn()
 const mockGetUserById = vi.fn()
 
-vi.mock('@/api/admin', () => ({
-  adminAPI: {
-    usage: {
-      searchUsers: (...args: unknown[]) => mockSearchUsers(...args),
-    },
-    users: {
-      getById: (...args: unknown[]) => mockGetUserById(...args),
-    },
-  },
+vi.mock('@/features/admin-usage/data/datasources/adminUsageDatasource', () => ({
+  searchUsers: (...args: unknown[]) => mockSearchUsers(...args),
+}))
+
+vi.mock('@/features/admin-users/data/datasources/adminUsersDatasource', () => ({
+  getById: (...args: unknown[]) => mockGetUserById(...args),
 }))
 
 describe('OpenAIFastPolicyUserSelector', () => {

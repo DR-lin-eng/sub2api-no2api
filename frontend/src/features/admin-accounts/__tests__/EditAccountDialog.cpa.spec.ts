@@ -37,7 +37,7 @@ vi.mock('@/features/admin-accounts/data/datasources/adminAccountActions', () => 
   updateAccount: updateAccountMock
 }))
 
-vi.mock('@/features/admin-settings/data/datasources/adminSettingsDatasource', () => ({
+vi.mock('@/features/admin-settings/data/datasources/adminSettingsQueries', () => ({
   getSettings: vi.fn().mockResolvedValue({}),
   getWebSearchEmulationConfig: vi.fn().mockResolvedValue({ enabled: false, providers: [] })
 }))

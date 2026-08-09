@@ -232,12 +232,20 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { adminAPI } from "@/api";
 import type {
   EmailTemplateEventOption,
   EmailTemplateOption,
-} from "@/features/admin-settings/data/datasources/adminSettingsDatasource";
-import { useAppStore } from "@/stores";
+} from "@/features/admin-settings/data/dtos/adminSettingsDtos";
+import {
+  getEmailTemplate,
+  getEmailTemplates,
+} from "@/features/admin-settings/data/datasources/adminSettingsQueries";
+import {
+  previewEmailTemplate,
+  restoreOfficialEmailTemplate,
+  updateEmailTemplate,
+} from "@/features/admin-settings/data/datasources/adminSettingsActions";
+import { useAppStore } from "@/core/stores/appStore";
 import { extractApiErrorMessage } from "@/core/utils/apiError";
 
 const { t, locale } = useI18n();
@@ -601,7 +609,7 @@ async function loadTemplate() {
   if (!selectedEvent.value || !selectedLocale.value) return;
   loadingTemplate.value = true;
   try {
-    const template = await adminAPI.settings.getEmailTemplate(
+    const template = await getEmailTemplate(
       selectedEvent.value,
       selectedLocale.value,
     );
@@ -617,7 +625,7 @@ async function loadTemplate() {
 async function loadTemplateList() {
   loadingList.value = true;
   try {
-    const response = await adminAPI.settings.getEmailTemplates();
+    const response = await getEmailTemplates();
     eventOptions.value = response.events.map(normalizeEventOption);
     localeOptions.value = response.locales;
     placeholders.value = response.placeholders || [];
@@ -641,7 +649,7 @@ async function saveTemplate() {
   }
   saving.value = true;
   try {
-    const template = await adminAPI.settings.updateEmailTemplate(
+    const template = await updateEmailTemplate(
       selectedEvent.value,
       selectedLocale.value,
       {
@@ -667,7 +675,7 @@ async function refreshPreview() {
   }
   previewing.value = true;
   try {
-    const preview = await adminAPI.settings.previewEmailTemplate({
+    const preview = await previewEmailTemplate({
       event: selectedEvent.value,
       locale: selectedLocale.value,
       subject: subject.value,
@@ -688,7 +696,7 @@ async function restoreOfficial() {
 
   restoring.value = true;
   try {
-    const template = await adminAPI.settings.restoreOfficialEmailTemplate(
+    const template = await restoreOfficialEmailTemplate(
       selectedEvent.value,
       selectedLocale.value,
     );

@@ -5,10 +5,8 @@ import OpsOpenAITokenStatsCard from '../presentation/widgets/OpsOpenAITokenStats
 
 const mockGetOpenAITokenStats = vi.fn()
 
-vi.mock('@/features/admin-ops/data/datasources/adminOpsDatasource', () => ({
-  opsAPI: {
-    getOpenAITokenStats: (...args: any[]) => mockGetOpenAITokenStats(...args),
-  },
+vi.mock('@/features/admin-ops/data/datasources/opsMetricsQueries', () => ({
+  getOpenAITokenStats: (...args: any[]) => mockGetOpenAITokenStats(...args),
 }))
 
 vi.mock('vue-i18n', async (importOriginal) => {

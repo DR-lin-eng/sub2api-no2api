@@ -7,9 +7,9 @@ import {
   normalizePlatformQuotasMap,
   resolveWeChatConnectModeCapabilities,
   type AuthSourceDefaultsState,
-  type OpenAIFastPolicyRule,
   type SystemSettings,
-} from "@/features/admin-settings/data/datasources/adminSettingsDatasource";
+} from "@/features/admin-settings/data/dtos/systemSettingsDtos";
+import type { OpenAIFastPolicyRule } from "@/features/admin-settings/data/dtos/adminSettingsDtos";
 import type { SettingsForm } from "./settingsForm";
 
 interface SettingsSaveResponseContext {

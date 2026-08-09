@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   defaultWeChatConnectScopesForMode,
   normalizeWeChatConnectMode,
-} from "@/features/admin-settings/data/datasources/adminSettingsDatasource";
+} from "@/features/admin-settings/data/dtos/systemSettingsDtos";
 
 describe("admin settings wechat connect helpers", () => {
   it("normalizes legacy or noisy mode values to the backend contract", () => {

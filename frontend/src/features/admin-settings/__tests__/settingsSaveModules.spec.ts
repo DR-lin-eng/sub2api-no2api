@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildAuthSourceDefaultsState,
   type DefaultSubscriptionSetting,
-} from "@/features/admin-settings/data/datasources/adminSettingsDatasource";
+} from "@/features/admin-settings/data/dtos/systemSettingsDtos";
 import { createSettingsForm } from "@/features/admin-settings/presentation/composables/settingsForm";
 import { buildSettingsSavePayload } from "@/features/admin-settings/presentation/composables/settingsSavePayload";
 import { prepareSettingsSave } from "@/features/admin-settings/presentation/composables/settingsSavePreparation";

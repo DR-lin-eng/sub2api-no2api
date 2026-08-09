@@ -4,7 +4,7 @@ import {
   deriveWeChatConnectStoredMode,
   resolveWeChatConnectModeCapabilities,
   type WeChatConnectMode,
-} from "@/features/admin-settings/data/datasources/adminSettingsDatasource";
+} from "@/features/admin-settings/data/dtos/systemSettingsDtos";
 import type { SettingsForm } from "./settingsForm";
 
 type Translate = (key: string) => string;

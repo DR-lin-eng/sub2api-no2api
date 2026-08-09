@@ -2,7 +2,8 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import EmptyState from '@/common/widgets/feedback/EmptyState.vue'
-import { opsAPI, type OpsImageGenerationStatsResponse } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import { getImageGenerationStats } from '@/features/admin-ops/data/datasources/opsMetricsQueries'
+import type { OpsImageGenerationStatsResponse } from '@/features/admin-ops/data/dtos/opsMetricsDtos'
 import { formatCompactNumber, formatDurationMs, formatExactDurationMs, formatExactNumber } from '../opsFormatter'
 
 interface Props {
@@ -66,7 +67,7 @@ async function loadData() {
   loading.value = true
   errorMessage.value = ''
   try {
-    const result = await opsAPI.getImageGenerationStats(buildParams(), { signal: requestController.signal })
+    const result = await getImageGenerationStats(buildParams(), { signal: requestController.signal })
     if (sequence !== requestSequence) return
     response.value = result
   } catch (err: any) {

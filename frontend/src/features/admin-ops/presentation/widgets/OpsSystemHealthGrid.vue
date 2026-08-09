@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import HelpTooltip from '@/common/widgets/feedback/HelpTooltip.vue'
-import type { OpsDashboardOverview } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import type { OpsDashboardOverview } from '@/features/admin-ops/data/dtos/opsDashboardDtos'
 import { formatBytes } from '@/core/utils/format'
 import {
   formatCompactNumber,

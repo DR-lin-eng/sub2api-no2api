@@ -16,6 +16,11 @@ const {
   updateRateLimit429CooldownSettings,
   getGlobalTempUnschedulableSettings,
   updateGlobalTempUnschedulableSettings,
+  getEmailTemplates,
+  getEmailTemplate,
+  updateEmailTemplate,
+  restoreOfficialEmailTemplate,
+  previewEmailTemplate,
   getPanelRateLimitSettings,
   updatePanelRateLimitSettings,
   getStreamTimeoutSettings,
@@ -47,6 +52,11 @@ const {
   updateRateLimit429CooldownSettings: vi.fn(),
   getGlobalTempUnschedulableSettings: vi.fn(),
   updateGlobalTempUnschedulableSettings: vi.fn(),
+  getEmailTemplates: vi.fn(),
+  getEmailTemplate: vi.fn(),
+  updateEmailTemplate: vi.fn(),
+  restoreOfficialEmailTemplate: vi.fn(),
+  previewEmailTemplate: vi.fn(),
   getPanelRateLimitSettings: vi.fn(),
   updatePanelRateLimitSettings: vi.fn(),
   getStreamTimeoutSettings: vi.fn(),
@@ -120,31 +130,60 @@ vi.mock("@/api", () => ({
 }));
 
 vi.mock(
-  "@/features/admin-settings/data/datasources/adminSettingsDatasource",
+  "@/features/admin-settings/data/datasources/adminSettingsQueries",
   async (importOriginal) => {
     const actual = await importOriginal<
-      typeof import("@/features/admin-settings/data/datasources/adminSettingsDatasource")
+      typeof import("@/features/admin-settings/data/datasources/adminSettingsQueries")
     >();
     return {
       ...actual,
-      settingsAPI: {
-        getSettings,
-        updateSettings,
-        getWebSearchEmulationConfig,
-        updateWebSearchEmulationConfig,
-        getAdminApiKey,
-        getOverloadCooldownSettings,
-        getRateLimit429CooldownSettings,
-        updateRateLimit429CooldownSettings,
-        getGlobalTempUnschedulableSettings,
-        updateGlobalTempUnschedulableSettings,
-        getPanelRateLimitSettings,
-        updatePanelRateLimitSettings,
-        getStreamTimeoutSettings,
-        updateStreamTimeoutSettings,
-        getRectifierSettings,
-        getBetaPolicySettings,
-      },
+      getAdminApiKey,
+      getBetaPolicySettings,
+      getEmailTemplates,
+      getEmailTemplate,
+      getGlobalTempUnschedulableSettings,
+      getOverloadCooldownSettings,
+      getPanelRateLimitSettings,
+      getRateLimit429CooldownSettings,
+      getRectifierSettings,
+      getSettings,
+      getStreamTimeoutSettings,
+      getWebSearchEmulationConfig,
+      listAdminApiKeys: vi.fn().mockResolvedValue({ items: [] }),
+    };
+  },
+);
+
+vi.mock(
+  "@/features/admin-settings/data/datasources/adminSettingsActions",
+  async (importOriginal) => {
+    const actual = await importOriginal<
+      typeof import("@/features/admin-settings/data/datasources/adminSettingsActions")
+    >();
+    return {
+      ...actual,
+      createAdminApiKey: vi.fn(),
+      deleteAdminApiKey: vi.fn(),
+      updateEmailTemplate,
+      restoreOfficialEmailTemplate,
+      previewEmailTemplate,
+      regenerateAdminApiKey: vi.fn(),
+      resetWebSearchUsage: vi.fn(),
+      revokeAdminApiKey: vi.fn(),
+      rotateAdminApiKey: vi.fn(),
+      sendTestEmail: vi.fn(),
+      testSmtpConnection: vi.fn(),
+      testWebSearchEmulation: vi.fn(),
+      updateAdminApiKey: vi.fn(),
+      updateBetaPolicySettings: vi.fn(),
+      updateGlobalTempUnschedulableSettings,
+      updateOverloadCooldownSettings: vi.fn(),
+      updatePanelRateLimitSettings,
+      updateRateLimit429CooldownSettings,
+      updateRectifierSettings: vi.fn(),
+      updateSettings,
+      updateStreamTimeoutSettings,
+      updateWebSearchEmulationConfig,
     };
   },
 );
@@ -774,6 +813,11 @@ describe("admin SettingsView payment visible method controls", () => {
     updateRateLimit429CooldownSettings.mockReset();
     getGlobalTempUnschedulableSettings.mockReset();
     updateGlobalTempUnschedulableSettings.mockReset();
+    getEmailTemplates.mockReset();
+    getEmailTemplate.mockReset();
+    updateEmailTemplate.mockReset();
+    restoreOfficialEmailTemplate.mockReset();
+    previewEmailTemplate.mockReset();
     getPanelRateLimitSettings.mockReset();
     updatePanelRateLimitSettings.mockReset();
     getStreamTimeoutSettings.mockReset();
@@ -826,6 +870,7 @@ describe("admin SettingsView payment visible method controls", () => {
     updateGlobalTempUnschedulableSettings.mockImplementation(
       async (payload) => payload,
     );
+    getEmailTemplates.mockResolvedValue({ events: [], locales: [] });
     getPanelRateLimitSettings.mockResolvedValue({
       enabled: true,
       user_rpm: 240,

@@ -1,6 +1,6 @@
 # 前端架构优化计划
 
-> 状态：阶段性完成。阶段 1 的渐进式架构门禁已于 2026-08-03 落地，阶段 2 的 `admin-accounts` 试点已于 2026-08-04 收口；阶段 3 待后续任务启动。
+> 状态：阶段性完成。阶段 1 的渐进式架构门禁已于 2026-08-03 落地，阶段 2 的 `admin-accounts` 试点已于 2026-08-04 收口；阶段 3 已于 2026-08-09 启动，`admin-settings` 已完成三切片迁移。
 >
 > 基线日期：2026-08-03。后续迁移批次开始前必须重新统计代码和依赖，源码与测试始终是最终事实来源。
 
@@ -213,12 +213,32 @@ features/<domain>/
 
 ### 阶段 3：迁移复杂管理域
 
-- [ ] `admin-settings` 按设置子域拆 DTO、加载 Query 和保存 Action。
+- [x] `admin-settings` 按设置子域拆 DTO、加载 Query 和保存 Action。
 - [ ] `admin-ops` 按 snapshot、日志、错误详情和指标拆只读查询。
 - [ ] `admin-users` 迁移用户管理专属 DTO 和旧 admin barrel 调用。
 - [ ] `admin-groups` 迁移分组、组合路由和倍率协议 owner。
 - [ ] `admin-usage` 消除对 `admin-users`、`admin-ops` 私有 presentation 的直接依赖。
 - [ ] `admin-orders` 与 `billing` 提取稳定的 payment 共享契约和格式化能力。
+
+已完成 `admin-settings` 第一切片：邮件模板与面板限流 DTO 迁入 `data/dtos/adminSettingsDtos.ts`，读取进入 `adminSettingsQueries.ts`，写入与预览进入 `adminSettingsActions.ts`；旧 `adminSettingsDatasource.ts` 和 `settingsAPI` 保留同名兼容导出及相同函数身份。邮件模板的路径分段编码、payload、预览和恢复时序，以及面板限流的旧响应归一化保持不变。
+
+同一切片将 `admin-settings` 运行时代码中的 9 条 `@/api`、`@/api/admin` 和 `@/stores` 引用全部迁到明确 owner；管理员支付配置、错误透传、TLS 指纹、用户搜索、合规状态和通知 Store 仍调用原接口与原状态 owner。仓库精确 legacy barrel 基线从 100 条降至 91 条（87 个文件），该 feature 的运行时旧 barrel 引用归零。主设置 DTO、统一加载/保存和其余设置子域仍待后续切片，因此本阶段检查项保持未完成。
+
+已完成 `admin-settings` 第二切片：管理员 API Key、529/429 冷却、全局临时不可调度、流超时、请求修正、Beta Policy、Web Search 和 SMTP 测试协议迁入同一 feature 的 DTO、Query、Action owner。相关 composable 直接调用明确 owner，ID 路径编码、各独立 URL、payload、失败降级和保存后回填时序保持不变；旧 `settingsAPI` 继续以相同函数身份提供兼容出口。
+
+第二切片后，`admin-settings` presentation 仅有主设置的一次 `getSettings` 和一次 `updateSettings` 继续使用兼容 facade；独立设置子域不再通过 `settingsAPI` 调用。`SystemSettings`、`UpdateSettingsRequest`、注册/支付/微信兼容归一化和主设置 Query/Action 留给下一切片，避免把主设置加载/统一保存与独立端点迁移混在同一风险面。
+
+已完成 `admin-settings` 第三切片：`SystemSettings`、`UpdateSettingsRequest`、认证来源默认值、平台限额、支付可见渠道和微信模式兼容归一化迁入 `data/dtos/systemSettingsDtos.ts`；统一主设置读取进入 Query owner，统一保存进入 Action owner。设置页、领域 Store、保存模块和账号创建/编辑相关调用均直接依赖明确 owner，单次主加载、统一保存、step-up 重试、保存后公开设置刷新和本地缓存回填顺序保持不变。
+
+第三切片后，`adminSettingsDatasource.ts` 缩为 89 行的纯兼容 facade，不再拥有 `apiClient`、DTO 或归一化实现；运行时代码只有旧 `src/api/admin/index.ts` 仍导入该路径。结构测试锁定主 DTO 的无网络依赖、Query/Action 的请求所有权、presentation 对 facade 的零引用及 `settingsAPI` 函数身份，因此 `admin-settings` 阶段项完成。
+
+已完成 `admin-ops` 第一切片：overview、`snapshot-v2`、吞吐/切换趋势、延迟分布和错误趋势/分布协议迁入 `opsDashboardDtos.ts`，对应请求进入 `opsDashboardQueries.ts`；图片生成、OpenAI Token、用户用量、并发、账号可用性和实时流量摘要协议与请求分别进入 `opsMetricsDtos.ts` 和 `opsMetricsQueries.ts`。
+
+仪表盘页面、趋势组件、指标卡、并发卡和实时摘要 composable 已直接依赖明确 owner，`include_*` 查询裁剪、混合版本 fallback、AbortSignal、筛选参数、刷新触发和静态路由 chunk 保持不变。旧 `opsAPI` 继续以相同函数身份提供兼容出口，`adminOpsDatasource.ts` 从 1537 行降至 922 行；系统/请求日志、错误详情、告警和设置仍待后续切片，因此 `admin-ops` 阶段项保持未完成。
+
+已完成 `admin-ops` 第二切片：请求明细、系统日志、运行时日志配置、清理 payload 与 sink health 协议迁入 `opsLogDtos.ts`；四个只读请求进入 `opsLogQueries.ts`，配置保存/重置和日志清理进入 `opsLogActions.ts`。请求明细和系统日志组件直接依赖新 owner，TTFT preset、分页/时间范围/筛选、`redis_only` 回填、保存/重置时序、显式 `clear_all` 与筛选清理语义保持不变。
+
+第二切片后，7 个兼容 `opsAPI` 方法继续保持相同函数身份，`adminOpsDatasource.ts` 从 922 行降至 764 行。错误列表与详情、告警、设置和 WebSocket 订阅仍待后续切片，因此 `admin-ops` 阶段项继续保持未完成。
 
 完成条件：管理端复杂域不再依赖统一 `adminAPI` 对象，跨域依赖具有明确公开 owner。
 
@@ -355,4 +375,44 @@ make test-frontend
 - Docker 隔离验证镜像 `sub2api-frontend-dto-test-suite:20260804` 内的全局 lint、typecheck、262 个测试文件/1685 项测试和 production build 全部通过（`linux/arm64`，manifest `sha256:7291373296e2eb92aa7a5cc67348a98ce30462b0763f472749dbc9523def2c4f`）。
 - 正式多阶段运行时镜像 `sub2api-frontend-arch-runtime:20260804-dto` 构建成功（`linux/arm64`，40,262,958 bytes，manifest `sha256:c08b9edf650e65616a51f7e8eb7d60b021911ec1c1875a195ace04541bdbd9e2`）；容器内 `sub2api --version` 正常返回 `Sub2API 0.1.173`。
 
-下一步进入阶段 3 的复杂管理域迁移；继续保持每个 owner 切片的兼容出口、全量前端验证和 Docker 镜像证据。
+2026-08-09 `admin-settings` 第一切片记录：
+
+- 邮件模板和面板限流已建立 DTO、Query、Action owner；兼容 `settingsAPI` 继续保留相同函数身份。
+- `admin-settings` 的运行时旧 barrel 引用由 9 条降至 0，仓库精确基线由 100 条降至 91 条。
+- 定向 owner、组件和设置页验证通过，共 4 个测试文件、55 项测试；`admin-settings` feature 回归通过，共 12 个测试文件、91 项测试。
+- 宿主机全局 lint、typecheck、全量测试（268 个测试文件/1745 项）和 production build 全部通过；`make test-frontend` 的 6 个关键测试文件/115 项测试及 `make check-docs` 通过。
+- 正式多阶段运行时镜像 `sub2api-frontend-arch-runtime:20260809-settings` 构建成功（`linux/arm64`，40,398,265 bytes，manifest `sha256:c220c6e6669f770bdd2af19942a71f76f2aff86f56562da2b91732a16185219b`）；容器内 `sub2api --version` 正常返回 `Sub2API 0.1.178`。
+
+2026-08-09 `admin-settings` 第二切片记录：
+
+- 管理员 API Key、独立网关策略、Web Search 和 SMTP 测试协议进入 DTO、Query、Action owner；兼容 `settingsAPI` 保持相同函数身份。
+- `adminSettingsDatasource.ts` 从 1631 行降至 1224 行；presentation 仅剩主设置 `getSettings/updateSettings` 继续通过兼容 facade。
+- 定向 owner 和设置页验证通过，共 2 个测试文件、51 项测试；`admin-settings` feature 回归通过，共 12 个测试文件、96 项测试。
+- 宿主机全局 lint、typecheck、全量测试（268 个测试文件/1750 项）和 production build 全部通过；`make test-frontend` 的 6 个关键测试文件/115 项测试及 `make check-docs` 通过。
+- 正式多阶段运行时镜像 `sub2api-frontend-arch-runtime:20260809-settings2` 构建成功（`linux/arm64`，40,398,463 bytes，manifest `sha256:0e746f336684b2c3df1d25ce55e8d717ade2926d2728048d3a83e910b63bca25`）；容器内 `sub2api --version` 正常返回 `Sub2API 0.1.178`。
+
+2026-08-09 `admin-settings` 第三切片记录：
+
+- `systemSettingsDtos.ts` 接管主设置协议以及注册、认证来源、平台额度、支付方式和微信模式兼容归一化；`adminSettingsQueries.ts` 与 `adminSettingsActions.ts` 分别接管主设置统一加载和保存。
+- `adminSettingsDatasource.ts` 收缩为 89 行的兼容 facade，不再声明 DTO、实现归一化或直接访问 `apiClient`；`settingsAPI` 的函数身份保持不变，运行时仅 `src/api/admin/index.ts` 继续使用该兼容出口。
+- 主设置定向验证通过，共 6 个测试文件、78 项测试；`admin-settings` 回归通过，共 13 个测试文件、101 项测试；受影响的 `admin-accounts` 回归通过，共 45 个测试文件、382 项测试。
+- 宿主机全局 lint、typecheck、全量测试（269 个测试文件/1755 项）和 production build 全部通过；`make test-frontend` 的 6 个关键测试文件/115 项测试及 `make check-docs` 通过。
+- 正式多阶段运行时镜像 `sub2api-frontend-arch-runtime:20260809-settings3` 构建成功（`linux/arm64`，40,398,129 bytes，manifest `sha256:9445bdde0dda477d826a4a59b1a7d16ed6fe27cc2c1f4da353ed34b73adc510d`）；容器内 `sub2api --version` 正常返回 `Sub2API 0.1.178`。Docker Desktop 无法解析 Docker Hub 的 Dockerfile frontend，本次使用仅移除 `# syntax=docker/dockerfile:1.7` 的临时 Dockerfile 和本地已有基础镜像完成等价构建，仓库 Dockerfile 未修改。
+
+2026-08-09 `admin-ops` snapshot/metrics 第一切片记录：
+
+- `opsDashboardDtos.ts` 与 `opsDashboardQueries.ts` 接管 overview、`snapshot-v2`、吞吐/切换趋势、延迟分布和错误趋势/分布；`opsMetricsDtos.ts` 与 `opsMetricsQueries.ts` 接管图片、Token、用户用量、并发、可用性和实时流量摘要。
+- 页面、趋势组件、指标卡、并发卡和实时摘要 composable 已直接依赖 Query/DTO owner；15 个兼容 `opsAPI` 方法保持原函数身份，`adminOpsDatasource.ts` 从 1537 行降至 922 行，legacy barrel 基线仍为 91 条。
+- 定向 owner、结构和受影响组件验证通过，共 6 个测试文件、24 项测试；`admin-ops` feature 回归通过，共 14 个测试文件、64 项测试。
+- 宿主机全局 lint、typecheck、全量测试（271 个测试文件/1762 项）和 production build 全部通过；`make test-frontend` 的 6 个关键测试文件/115 项测试通过。
+- 正式多阶段运行时镜像 `sub2api-frontend-arch-runtime:20260809-ops-dashboard` 构建成功（`linux/arm64`，40,398,365 bytes，manifest `sha256:5b2343c2d012a4dced9fbad18568deed6983dc9f41c0dcb9fa179c1fc7a0f22b`）；容器内 `sub2api --version` 正常返回 `Sub2API 0.1.178`。沿用仅移除 Dockerfile frontend 声明的临时等价 Dockerfile 和本地基础镜像，仓库 Dockerfile 未修改。
+
+2026-08-09 `admin-ops` 日志/请求明细第二切片记录：
+
+- `opsLogDtos.ts` 接管请求明细、系统日志、运行时日志配置、清理 payload 和 sink health 协议；`opsLogQueries.ts` 接管四个只读端点，`opsLogActions.ts` 接管配置保存/重置和日志清理。
+- 请求明细和系统日志组件直接依赖新 owner；7 个兼容 `opsAPI` 方法保持原函数身份，`adminOpsDatasource.ts` 从 922 行降至 764 行，legacy barrel 基线仍为 91 条。
+- 定向 owner、结构和组件验证通过，共 4 个测试文件、12 项测试；`admin-ops` feature 回归通过，共 15 个测试文件、67 项测试。
+- 宿主机全局 lint、typecheck、全量测试（272 个测试文件/1765 项）和 production build 全部通过；`make test-frontend` 的 6 个关键测试文件/115 项测试通过。
+- 正式多阶段运行时镜像 `sub2api-frontend-arch-runtime:20260809-ops-logs` 构建成功（`linux/arm64`，40,398,364 bytes，manifest `sha256:3dcaae87fa3d423938067703f80f2fbf5f6e3311275cbc003f20c61774593c54`）；容器内 `sub2api --version` 正常返回 `Sub2API 0.1.178`。沿用仅移除 Dockerfile frontend 声明的临时等价 Dockerfile 和本地基础镜像，仓库 Dockerfile 未修改。
+
+下一步迁移 `admin-ops` 的错误列表、详情和 resolved 操作，保持 legacy unified 与 request/upstream split 端点、`view=errors|excluded|all`、分页筛选、`include_detail` 以及 `admin-usage` 跨 feature 读取行为不变。

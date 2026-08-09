@@ -1,8 +1,6 @@
 import { computed, ref, watch, type Ref } from 'vue'
-import {
-  opsAPI,
-  type OpsRealtimeTrafficSummary,
-} from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import { getRealtimeTrafficSummary } from '@/features/admin-ops/data/datasources/opsMetricsQueries'
+import type { OpsRealtimeTrafficSummary } from '@/features/admin-ops/data/dtos/opsMetricsDtos'
 import { useAdminSettingsStore } from '@/features/admin-settings/presentation/stores/adminSettingsStore'
 
 export type OpsRealtimeWindow = '1min' | '5min' | '30min' | '1h'
@@ -66,7 +64,7 @@ export function useOpsRealtimeTraffic(options: OpsRealtimeTrafficOptions) {
 
     realtimeTrafficLoading.value = true
     try {
-      const response = await opsAPI.getRealtimeTrafficSummary(
+      const response = await getRealtimeTrafficSummary(
         realtimeWindow.value,
         options.platform.value,
         options.groupId.value,

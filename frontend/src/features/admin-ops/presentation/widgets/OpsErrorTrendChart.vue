@@ -13,7 +13,7 @@ import {
   Tooltip
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
-import type { OpsErrorTrendPoint } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import type { OpsErrorTrendPoint } from '@/features/admin-ops/data/dtos/opsDashboardDtos'
 import type { ChartState } from '../opsTypeSignals'
 import { formatCompactNumber, formatHistoryLabel, sumNumbers } from '../opsFormatter'
 import HelpTooltip from '@/common/widgets/feedback/HelpTooltip.vue'

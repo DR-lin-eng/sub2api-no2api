@@ -5,10 +5,8 @@ import OpsRequestDetailsModal from '../presentation/widgets/OpsRequestDetailsDia
 
 const mockListRequestDetails = vi.fn()
 
-vi.mock('@/features/admin-ops/data/datasources/adminOpsDatasource', () => ({
-  opsAPI: {
-    listRequestDetails: (...args: any[]) => mockListRequestDetails(...args)
-  }
+vi.mock('@/features/admin-ops/data/datasources/opsLogQueries', () => ({
+  listRequestDetails: (...args: any[]) => mockListRequestDetails(...args)
 }))
 
 vi.mock('@/stores', () => ({

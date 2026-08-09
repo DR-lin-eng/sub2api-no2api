@@ -2,7 +2,11 @@
 
 系统设置 feature 负责设置读取、编辑、敏感保存与后台配置对话框。
 
-- `data/datasources/`: 设置协议、归一化规则和管理端 API。
+- `data/dtos/adminSettingsDtos.ts`: 独立设置子域的请求/响应 DTO 与面板限流兼容归一化。
+- `data/dtos/systemSettingsDtos.ts`: 主设置协议与注册、平台限额、支付、微信兼容归一化规则。
+- `data/datasources/adminSettingsQueries.ts`: 已迁移设置子域的只读请求 owner。
+- `data/datasources/adminSettingsActions.ts`: 已迁移设置子域的保存、恢复和预览请求 owner。
+- `data/datasources/adminSettingsDatasource.ts`: 迁移期纯兼容 facade；新调用直接进入明确 DTO、Query 或 Action owner。
 - `presentation/pages/`: 路由级加载、保存、step-up 与对话框编排。
 - `presentation/widgets/settings-tabs/`: 按设置领域拆分的 tab 和 panel。
 - `presentation/widgets/settings-tabs/gateway-resilience/`: 临时不可调度、冷却、流超时、请求修正与策略设置卡片；直接复用页面 context，由网关韧性 panel 按原顺序装配。
@@ -13,6 +17,8 @@
 - `presentation/composables/settingsSaveResponse.ts`: 回填保存响应并清理敏感输入，保持后续缓存刷新与通知顺序。
 
 新增设置项时，先确定所属 tab 和 datasource 字段，再把交互放入对应 controller。feature 内组件使用静态 import；不要把页面 context 提升为全局 Store，也不要通过 `@/api` 或 `@/stores` 兼容 barrel 新增依赖。保留单次设置加载、统一保存、敏感操作 step-up 和按需挂载语义。
+
+邮件模板、面板限流、管理员 API Key、独立网关策略、Web Search、SMTP 测试及主设置均已迁入明确 owner。`adminSettingsDatasource.ts` 仅服务旧 `src/api/admin` 兼容出口；新调用不得继续扩展 `settingsAPI`。
 
 验证入口：
 

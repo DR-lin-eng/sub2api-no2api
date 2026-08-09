@@ -1,4 +1,4 @@
-import type { OpsRequestDetailsParams } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import type { OpsRequestDetailsParams } from '@/features/admin-ops/data/dtos/opsLogDtos'
 
 // Ops 前端视图层的共享类型（与后端 DTO 解耦）。
 
@@ -13,8 +13,7 @@ export interface OpsRequestDetailsPreset {
   ttft_only?: boolean
 }
 
-// Re-export ops alert/settings types so view components can import from a single place
-// while keeping the API contract centralized in `@/features/admin-ops/data/datasources/adminOpsDatasource`.
+// Re-export ops alert/settings types so view components can import from a single place.
 export type {
   AlertRule,
   AlertEvent,
@@ -28,8 +27,11 @@ export type {
   OpsMetricThresholds,
   OpsAdvancedSettings,
   OpsDataRetentionSettings,
-  OpsAggregationSettings,
+  OpsAggregationSettings
+} from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+
+export type {
   OpsRuntimeLogConfig,
   OpsSystemLog,
   OpsSystemLogSinkHealth
-} from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+} from '@/features/admin-ops/data/dtos/opsLogDtos'

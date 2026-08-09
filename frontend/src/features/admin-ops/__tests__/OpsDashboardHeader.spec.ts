@@ -11,10 +11,8 @@ vi.mock('@/features/admin-groups/data/datasources/adminGroupsDatasource', () => 
   }
 }))
 
-vi.mock('@/features/admin-ops/data/datasources/adminOpsDatasource', () => ({
-  opsAPI: {
-    getRealtimeTrafficSummary: vi.fn()
-  }
+vi.mock('@/features/admin-ops/data/datasources/opsMetricsQueries', () => ({
+  getRealtimeTrafficSummary: vi.fn()
 }))
 
 vi.mock('@/features/admin-settings/presentation/stores/adminSettingsStore', () => ({

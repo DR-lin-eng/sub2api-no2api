@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { opsAPI, type OpsAccountAvailabilityStatsResponse, type OpsConcurrencyStatsResponse, type OpsUserConcurrencyStatsResponse } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import { getConcurrencySnapshot, getUserConcurrencyStats } from '@/features/admin-ops/data/datasources/opsMetricsQueries'
+import type { OpsAccountAvailabilityStatsResponse, OpsConcurrencyStatsResponse, OpsUserConcurrencyStatsResponse } from '@/features/admin-ops/data/dtos/opsMetricsDtos'
 import { formatCompactNumber, formatExactNumber } from '../opsFormatter'
 
 interface Props {
@@ -266,11 +267,11 @@ async function loadData() {
   try {
     if (showByUser.value) {
       // 用户视图模式只加载用户并发数据
-      const userData = await opsAPI.getUserConcurrencyStats()
+      const userData = await getUserConcurrencyStats()
       userConcurrency.value = userData
     } else {
       // 常规模式加载账号/平台/分组数据
-      const snapshot = await opsAPI.getConcurrencySnapshot(props.platformFilter, props.groupIdFilter)
+      const snapshot = await getConcurrencySnapshot(props.platformFilter, props.groupIdFilter)
       concurrency.value = snapshot.concurrency
       availability.value = snapshot.availability
     }

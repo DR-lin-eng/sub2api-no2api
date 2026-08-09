@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   getPaymentVisibleMethodSourceOptions,
   normalizePaymentVisibleMethodSource,
-} from '@/features/admin-settings/data/datasources/adminSettingsDatasource'
+} from '@/features/admin-settings/data/dtos/systemSettingsDtos'
 
 describe('admin settings payment visible method helpers', () => {
   it('normalizes aliases into canonical source keys per visible method', () => {

@@ -6,7 +6,8 @@ import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import Pagination from '@/common/widgets/data/Pagination.vue'
 import { useClipboard } from '@/common/composables/useClipboard'
 import { useAppStore } from '@/stores'
-import { opsAPI, type OpsRequestDetailsParams, type OpsRequestDetail } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import { listRequestDetails } from '@/features/admin-ops/data/datasources/opsLogQueries'
+import type { OpsRequestDetailsParams, OpsRequestDetail } from '@/features/admin-ops/data/dtos/opsLogDtos'
 import type { OpsRequestDetailsPreset } from '../opsTypeSignals'
 import { formatDateTime, formatDurationMs, formatExactDurationMs, parseTimeRangeMinutes } from '../opsFormatter'
 
@@ -76,7 +77,7 @@ const fetchData = async () => {
     if (typeof props.preset.max_duration_ms === 'number') params.max_duration_ms = props.preset.max_duration_ms
     if (props.preset.ttft_only) params.ttft_only = true
 
-    const res = await opsAPI.listRequestDetails(params)
+    const res = await listRequestDetails(params)
     items.value = res.items || []
     total.value = res.total || 0
   } catch (e: any) {
