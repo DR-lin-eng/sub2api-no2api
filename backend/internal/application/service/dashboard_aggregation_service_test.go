@@ -11,20 +11,24 @@ import (
 )
 
 type dashboardAggregationRepoTestStub struct {
-	aggregateCalls       int
-	recomputeCalls       int
-	cleanupUsageCalls    int
-	cleanupDedupCalls    int
-	ensurePartitionCalls int
-	lastStart            time.Time
-	lastEnd              time.Time
-	lastUsageCutoff      time.Time
-	watermark            time.Time
-	aggregateErr         error
-	cleanupAggregatesErr error
-	cleanupUsageErr      error
-	cleanupDedupErr      error
-	ensurePartitionErr   error
+	aggregateCalls        int
+	accountUsageCalls     int
+	recomputeCalls        int
+	cleanupUsageCalls     int
+	cleanupDedupCalls     int
+	ensurePartitionCalls  int
+	lastStart             time.Time
+	lastEnd               time.Time
+	lastAccountUsageStart time.Time
+	lastAccountUsageEnd   time.Time
+	lastUsageCutoff       time.Time
+	watermark             time.Time
+	aggregateErr          error
+	accountUsageErr       error
+	cleanupAggregatesErr  error
+	cleanupUsageErr       error
+	cleanupDedupErr       error
+	ensurePartitionErr    error
 }
 
 func (s *dashboardAggregationRepoTestStub) AggregateRange(ctx context.Context, start, end time.Time) error {
@@ -32,6 +36,13 @@ func (s *dashboardAggregationRepoTestStub) AggregateRange(ctx context.Context, s
 	s.lastStart = start
 	s.lastEnd = end
 	return s.aggregateErr
+}
+
+func (s *dashboardAggregationRepoTestStub) AggregateAccountUsageRange(ctx context.Context, start, end time.Time) error {
+	s.accountUsageCalls++
+	s.lastAccountUsageStart = start
+	s.lastAccountUsageEnd = end
+	return s.accountUsageErr
 }
 
 func (s *dashboardAggregationRepoTestStub) RecomputeRange(ctx context.Context, start, end time.Time) error {
@@ -127,6 +138,52 @@ func TestDashboardAggregationService_CleanupDedupFailure_DoesNotRecord(t *testin
 
 	require.Nil(t, svc.lastRetentionCleanup.Load())
 	require.Equal(t, 1, repo.cleanupDedupCalls)
+}
+
+func TestDashboardAggregationService_CleanupPreserveFailureSkipsUsageLogDelete(t *testing.T) {
+	repo := &dashboardAggregationRepoTestStub{accountUsageErr: errors.New("preserve failed")}
+	svc := &DashboardAggregationService{
+		repo: repo,
+		cfg: config.DashboardAggregationConfig{
+			Retention: config.DashboardAggregationRetentionConfig{
+				UsageLogsDays:         1,
+				UsageBillingDedupDays: 2,
+				HourlyDays:            1,
+				DailyDays:             1,
+			},
+		},
+	}
+
+	svc.maybeCleanupRetention(context.Background(), time.Now().UTC())
+
+	require.Equal(t, 1, repo.accountUsageCalls)
+	require.Equal(t, 0, repo.cleanupUsageCalls)
+	require.Equal(t, 1, repo.cleanupDedupCalls)
+	require.Nil(t, svc.lastRetentionCleanup.Load())
+}
+
+func TestDashboardAggregationService_PreserveAccountUsageRangeClampsToDisplayWindow(t *testing.T) {
+	repo := &dashboardAggregationRepoTestStub{}
+	svc := &DashboardAggregationService{repo: repo}
+	now := time.Now()
+	wantStart, wantWindowEnd := accountUsageDisplayRange(now)
+	wantEnd := now.Add(time.Hour)
+	if wantEnd.After(wantWindowEnd) {
+		wantEnd = wantWindowEnd
+	}
+
+	require.NoError(t, svc.PreserveAccountUsageRange(context.Background(), now.AddDate(-1, 0, 0), now.Add(time.Hour)))
+	require.Equal(t, 1, repo.accountUsageCalls)
+	require.WithinDuration(t, wantStart, repo.lastAccountUsageStart, time.Second)
+	require.WithinDuration(t, wantEnd, repo.lastAccountUsageEnd, time.Second)
+
+	require.NoError(t, svc.PreserveAccountUsageRange(context.Background(), now.AddDate(-1, 0, 0), now.AddDate(0, -2, 0)))
+	require.Equal(t, 1, repo.accountUsageCalls)
+}
+
+func TestAccountUsageDisplayRangeContainsThirtyCalendarDays(t *testing.T) {
+	start, end := accountUsageDisplayRange(time.Now())
+	require.Equal(t, start, end.AddDate(0, 0, -AccountUsageDisplayDays))
 }
 
 func TestDashboardAggregationService_UserRequestLogRetentionUsesRuntimeSetting(t *testing.T) {

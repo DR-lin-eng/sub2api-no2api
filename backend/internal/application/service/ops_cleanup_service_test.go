@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -56,6 +57,13 @@ func TestIsMissingRelationError(t *testing.T) {
 				t.Fatalf("got %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestOpsCleanupDeletedCountsIncludesAccountUsage(t *testing.T) {
+	counts := opsCleanupDeletedCounts{accountUsage: 7}
+	if got := counts.String(); !strings.Contains(got, "account_usage=7") {
+		t.Fatalf("counts.String() = %q, want account usage count", got)
 	}
 }
 

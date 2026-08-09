@@ -101,6 +101,10 @@ func (s *dashboardAggregationRepoStub) AggregateRange(ctx context.Context, start
 	return nil
 }
 
+func (s *dashboardAggregationRepoStub) AggregateAccountUsageRange(ctx context.Context, start, end time.Time) error {
+	return nil
+}
+
 func (s *dashboardAggregationRepoStub) RecomputeRange(ctx context.Context, start, end time.Time) error {
 	return nil
 }

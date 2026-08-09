@@ -73,7 +73,6 @@ internal/infrastructure/repository/ops_repo.go
 internal/infrastructure/repository/scheduler_cache.go
 internal/infrastructure/repository/usage_log_repo_insert.go
 internal/infrastructure/repository/usage_log_repo_integration_test.go
-internal/infrastructure/repository/usage_log_repo_stats.go
 internal/infrastructure/repository/user_repo.go
 internal/platform/config/config_test.go
 internal/shared/antigravity/client_test.go

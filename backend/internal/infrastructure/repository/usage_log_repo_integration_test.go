@@ -1630,6 +1630,7 @@ func (s *UsageLogRepoSuite) TestGetAccountUsageStats() {
 	s.Require().NoError(err, "GetAccountUsageStats")
 
 	s.Require().Len(resp.History, 2, "expected 2 days of history")
+	s.Require().Equal(3, resp.Summary.Days)
 	s.Require().Equal(int64(3), resp.Summary.TotalRequests)
 	s.Require().Equal(int64(450), resp.Summary.TotalTokens)
 	s.Require().NotNil(resp.Summary.AvgFirstTokenMs)
@@ -1648,8 +1649,84 @@ func (s *UsageLogRepoSuite) TestGetAccountUsageStats_EmptyRange() {
 	s.Require().NoError(err, "GetAccountUsageStats empty")
 
 	s.Require().Len(resp.History, 0)
+	s.Require().Equal(3, resp.Summary.Days)
+	s.Require().Equal(0, resp.Summary.ActualDaysUsed)
 	s.Require().Equal(int64(0), resp.Summary.TotalRequests)
 	s.Require().Nil(resp.Summary.AvgFirstTokenMs)
+}
+
+func (s *UsageLogRepoSuite) TestGetAccountUsageStatsPreservedAfterRawDeletion() {
+	user := mustCreateUser(s.T(), s.client, &service.User{Email: "accstats-preserved@test.com"})
+	apiKey := mustCreateApiKey(s.T(), s.client, &service.APIKey{UserID: user.ID, Key: "sk-accstats-preserved", Name: "k"})
+	account := mustCreateAccount(s.T(), s.client, &service.Account{Name: "accstats-preserved"})
+
+	base := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
+	inboundChat := "/v1/chat/completions"
+	upstreamResponses := "/v1/responses"
+	duration1, duration2, duration3 := 1000, 3000, 2000
+	ttft, imageTTFT := 120, 5000
+	imageSize := "1024x1024"
+	accountRate := 2.0
+	accountStatsCost := 0.3
+
+	for _, usage := range []*service.UsageLog{
+		{
+			UserID: user.ID, APIKeyID: apiKey.ID, AccountID: account.ID,
+			RequestID: uuid.NewString(), Model: "mapped-model", RequestedModel: "gpt-5",
+			InputTokens: 100, OutputTokens: 200, CacheCreationTokens: 30, CacheReadTokens: 40,
+			TotalCost: 0.5, ActualCost: 0.4, AccountRateMultiplier: &accountRate, AccountStatsCost: &accountStatsCost,
+			DurationMs: &duration1, FirstTokenMs: &ttft, InboundEndpoint: &inboundChat, UpstreamEndpoint: &upstreamResponses,
+			CreatedAt: base.Add(12 * time.Hour),
+		},
+		{
+			UserID: user.ID, APIKeyID: apiKey.ID, AccountID: account.ID,
+			RequestID: uuid.NewString(), Model: "mapped-model", RequestedModel: "gpt-5",
+			InputTokens: 10, OutputTokens: 20, TotalCost: 0.1, ActualCost: 0.08,
+			DurationMs: &duration2, FirstTokenMs: &imageTTFT, ImageCount: 1, ImageSize: &imageSize,
+			InboundEndpoint: &inboundChat, UpstreamEndpoint: &upstreamResponses,
+			CreatedAt: base.Add(13 * time.Hour),
+		},
+	} {
+		_, err := s.repo.Create(s.ctx, usage)
+		s.Require().NoError(err)
+	}
+
+	aggregator := newDashboardAggregationRepositoryWithSQL(s.repo.sql)
+	startTime := base
+	endTime := base.Add(72 * time.Hour)
+	s.Require().NoError(aggregator.AggregateAccountUsageRange(s.ctx, startTime, endTime))
+	s.Require().NoError(aggregator.AggregateAccountUsageRange(s.ctx, startTime, endTime), "aggregation must be idempotent")
+
+	inboundMessages := "/v1/messages"
+	upstreamMessages := "/v1/messages"
+	_, err := s.repo.Create(s.ctx, &service.UsageLog{
+		UserID: user.ID, APIKeyID: apiKey.ID, AccountID: account.ID,
+		RequestID: uuid.NewString(), Model: "claude-3", RequestedModel: "claude-3",
+		InputTokens: 50, OutputTokens: 60, CacheReadTokens: 5,
+		TotalCost: 0.2, ActualCost: 0.15, DurationMs: &duration3,
+		InboundEndpoint: &inboundMessages, UpstreamEndpoint: &upstreamMessages,
+		CreatedAt: base.Add(36 * time.Hour),
+	})
+	s.Require().NoError(err)
+
+	expected, err := s.repo.GetAccountUsageStats(s.ctx, account.ID, startTime, endTime)
+	s.Require().NoError(err)
+	s.Require().Equal(2, expected.Summary.ActualDaysUsed)
+	s.Require().Equal(2, len(expected.Models))
+	s.Require().Equal(2, len(expected.Endpoints))
+	s.Require().NotNil(expected.Summary.AvgFirstTokenMs)
+	s.Require().Equal(float64(ttft), *expected.Summary.AvgFirstTokenMs)
+
+	s.Require().NoError(aggregator.AggregateAccountUsageRange(s.ctx, startTime, endTime))
+	afterIncrementalAggregate, err := s.repo.GetAccountUsageStats(s.ctx, account.ID, startTime, endTime)
+	s.Require().NoError(err)
+	s.Require().Equal(expected, afterIncrementalAggregate, "incremental aggregation must not double count raw rows")
+
+	_, err = s.repo.sql.ExecContext(s.ctx, "DELETE FROM usage_logs WHERE account_id = $1", account.ID)
+	s.Require().NoError(err)
+	afterDelete, err := s.repo.GetAccountUsageStats(s.ctx, account.ID, startTime, endTime)
+	s.Require().NoError(err)
+	s.Require().Equal(expected, afterDelete, "deleting detailed logs must not change any account display statistic")
 }
 
 // --- GetUserUsageTrend ---

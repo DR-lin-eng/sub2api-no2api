@@ -11,6 +11,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
+	"github.com/Wei-Shaw/sub2api/internal/shared/timezone"
 	"github.com/google/uuid"
 )
 
@@ -18,6 +19,9 @@ const (
 	defaultDashboardAggregationTimeout         = 2 * time.Minute
 	defaultDashboardAggregationBackfillTimeout = 30 * time.Minute
 	dashboardAggregationRetentionInterval      = 6 * time.Hour
+	// AccountUsageDisplayDays is the fixed account/channel statistics window.
+	// Its durable aggregates have an Ops lifecycle independent of usage_logs.
+	AccountUsageDisplayDays = 30
 
 	// dashboardAggregationLeaderLockKey gates the periodic scheduled aggregation so
 	// that only one instance runs it per cycle in a multi-replica deployment.
@@ -38,6 +42,7 @@ var (
 // DashboardAggregationRepository 定义仪表盘预聚合仓储接口。
 type DashboardAggregationRepository interface {
 	AggregateRange(ctx context.Context, start, end time.Time) error
+	AggregateAccountUsageRange(ctx context.Context, start, end time.Time) error
 	// RecomputeRange 重新计算指定时间范围内的聚合数据（包含活跃用户等派生表）。
 	// 设计目的：当 usage_logs 被批量删除/回滚后，确保聚合表可恢复一致性。
 	RecomputeRange(ctx context.Context, start, end time.Time) error
@@ -47,6 +52,38 @@ type DashboardAggregationRepository interface {
 	CleanupUsageLogs(ctx context.Context, cutoff time.Time) error
 	CleanupUsageBillingDedup(ctx context.Context, cutoff time.Time) error
 	EnsureUsageLogsPartitions(ctx context.Context, now time.Time) error
+}
+
+// PreserveAccountUsageRange synchronously stores the account/channel display
+// aggregates before raw request logs in the same range are removed.
+func (s *DashboardAggregationService) PreserveAccountUsageRange(ctx context.Context, start, end time.Time) error {
+	if s == nil || s.repo == nil {
+		return errors.New("仪表盘聚合服务未初始化")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if !end.After(start) {
+		return errors.New("聚合时间范围无效")
+	}
+	windowStart, windowEnd := accountUsageDisplayRange(timezone.Now())
+	if start.Before(windowStart) {
+		start = windowStart
+	}
+	if end.After(windowEnd) {
+		end = windowEnd
+	}
+	if !end.After(start) {
+		return nil
+	}
+	return s.repo.AggregateAccountUsageRange(ctx, start, end)
+}
+
+func accountUsageDisplayRange(now time.Time) (time.Time, time.Time) {
+	loc := timezone.Location()
+	localNow := now.In(loc)
+	today := time.Date(localNow.Year(), localNow.Month(), localNow.Day(), 0, 0, 0, 0, loc)
+	return today.AddDate(0, 0, -AccountUsageDisplayDays+1), today.AddDate(0, 0, 1)
 }
 
 // DashboardAggregationService 负责定时聚合与回填。
@@ -354,9 +391,23 @@ func (s *DashboardAggregationService) maybeCleanupRetention(ctx context.Context,
 	if aggErr != nil {
 		logger.LegacyPrintf("service.dashboard_aggregation", "[DashboardAggregation] 聚合保留清理失败: %v", aggErr)
 	}
-	usageErr := s.repo.CleanupUsageLogs(ctx, usageCutoff)
-	if usageErr != nil {
-		logger.LegacyPrintf("service.dashboard_aggregation", "[DashboardAggregation] usage_logs 保留清理失败: %v", usageErr)
+	var usageErr error
+	displayStart, _ := accountUsageDisplayRange(now)
+	if usageCutoff.After(displayStart) {
+		preserveEnd := usageCutoff
+		if preserveEnd.After(now) {
+			preserveEnd = now
+		}
+		usageErr = s.repo.AggregateAccountUsageRange(ctx, displayStart, preserveEnd)
+		if usageErr != nil {
+			logger.LegacyPrintf("service.dashboard_aggregation", "[DashboardAggregation] 账号统计保存失败，跳过 usage_logs 清理: %v", usageErr)
+		}
+	}
+	if usageErr == nil {
+		usageErr = s.repo.CleanupUsageLogs(ctx, usageCutoff)
+		if usageErr != nil {
+			logger.LegacyPrintf("service.dashboard_aggregation", "[DashboardAggregation] usage_logs 保留清理失败: %v", usageErr)
+		}
 	}
 	dedupErr := s.repo.CleanupUsageBillingDedup(ctx, dedupCutoff)
 	if dedupErr != nil {

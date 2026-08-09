@@ -324,6 +324,24 @@ func (s *OpsCleanupService) runCleanupOnce(ctx context.Context) (opsCleanupDelet
 		*t.counter = n
 	}
 
+	// Account/channel statistics are an Ops-owned 30-day display dataset. Its
+	// retention is deliberately fixed and never follows raw request-log cleanup.
+	accountUsageCutoff, _ := accountUsageDisplayRange(now)
+	n, err := opsCleanupRunOne(
+		ctx,
+		s.db,
+		false,
+		accountUsageCutoff,
+		"ops_account_usage_daily",
+		"bucket_date",
+		true,
+		opsCleanupBatchSize,
+	)
+	if err != nil {
+		return out, err
+	}
+	out.accountUsage = n
+
 	// Channel monitor 每日维护（聚合昨日明细 + 软删过期明细/聚合）。
 	// 失败只记日志，不影响 ops 清理的成功状态（与 ops 各步骤风格一致）；
 	// 维护本身已经把每步错误打到 slog，heartbeat result 不再分项记录。

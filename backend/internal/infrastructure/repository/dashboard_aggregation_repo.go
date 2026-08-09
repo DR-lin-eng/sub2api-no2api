@@ -82,6 +82,28 @@ func (r *dashboardAggregationRepository) AggregateRange(ctx context.Context, sta
 	return r.aggregateRangeInTx(ctx, hourStart, hourEnd, dayStart, dayEnd)
 }
 
+// AggregateAccountUsageRange snapshots every account-usage display dimension
+// for the affected local calendar days. It is also called synchronously before
+// an administrator deletes raw request logs.
+func (r *dashboardAggregationRepository) AggregateAccountUsageRange(ctx context.Context, start, end time.Time) error {
+	if r == nil || r.sql == nil {
+		return nil
+	}
+	loc := timezone.Location()
+	startLocal := start.In(loc)
+	endLocal := end.In(loc)
+	if !endLocal.After(startLocal) {
+		return nil
+	}
+
+	dayStart := truncateToDay(startLocal)
+	dayEnd := truncateToDay(endLocal)
+	if endLocal.After(dayEnd) {
+		dayEnd = dayEnd.AddDate(0, 0, 1)
+	}
+	return r.upsertAccountDailyAggregates(ctx, dayStart, dayEnd)
+}
+
 func (r *dashboardAggregationRepository) aggregateRangeInTx(ctx context.Context, hourStart, hourEnd, dayStart, dayEnd time.Time) error {
 	// 以桶边界聚合，允许覆盖 end 所在桶的剩余区间。
 	if err := r.insertHourlyActiveUsers(ctx, hourStart, hourEnd); err != nil {
@@ -94,6 +116,9 @@ func (r *dashboardAggregationRepository) aggregateRangeInTx(ctx context.Context,
 		return err
 	}
 	if err := r.upsertDailyAggregates(ctx, dayStart, dayEnd); err != nil {
+		return err
+	}
+	if err := r.upsertAccountDailyAggregates(ctx, dayStart, dayEnd); err != nil {
 		return err
 	}
 	return nil
@@ -459,6 +484,155 @@ func (r *dashboardAggregationRepository) upsertDailyAggregates(ctx context.Conte
 			computed_at = EXCLUDED.computed_at
 	`
 	_, err := r.sql.ExecContext(ctx, query, start, end, start, end, tzName)
+	return err
+}
+
+func (r *dashboardAggregationRepository) upsertAccountDailyAggregates(ctx context.Context, start, end time.Time) error {
+	tzName := timezone.Name()
+	query := `
+		WITH normalized AS (
+			SELECT
+				id AS usage_log_id,
+				(created_at AT TIME ZONE $3)::date AS bucket_date,
+				account_id,
+				COALESCE(NULLIF(TRIM(requested_model), ''), model) AS model,
+				COALESCE(NULLIF(TRIM(inbound_endpoint), ''), 'unknown') AS inbound_endpoint,
+				COALESCE(NULLIF(TRIM(upstream_endpoint), ''), 'unknown') AS upstream_endpoint,
+				input_tokens,
+				output_tokens,
+				cache_creation_tokens,
+				cache_read_tokens,
+				total_cost AS standard_cost,
+				COALESCE(account_stats_cost, total_cost) * COALESCE(account_rate_multiplier, 1) AS account_cost,
+				actual_cost AS user_cost,
+				duration_ms,
+				CASE
+					WHEN COALESCE(image_count, 0) = 0 AND COALESCE(video_count, 0) = 0
+					THEN first_token_ms
+				END AS first_token_ms
+			FROM usage_logs
+			WHERE created_at >= $1 AND created_at < $2
+		),
+		delta AS (
+			SELECT
+				n.bucket_date,
+				n.account_id,
+				n.model,
+				n.inbound_endpoint,
+				n.upstream_endpoint,
+				COUNT(*) AS request_count,
+				COALESCE(SUM(n.input_tokens), 0) AS input_tokens,
+				COALESCE(SUM(n.output_tokens), 0) AS output_tokens,
+				COALESCE(SUM(n.cache_creation_tokens), 0) AS cache_creation_tokens,
+				COALESCE(SUM(n.cache_read_tokens), 0) AS cache_read_tokens,
+				COALESCE(SUM(n.standard_cost), 0) AS standard_cost,
+				COALESCE(SUM(n.account_cost), 0) AS account_cost,
+				COALESCE(SUM(n.user_cost), 0) AS user_cost,
+				COALESCE(SUM(n.duration_ms), 0) AS duration_sum_ms,
+				COUNT(n.duration_ms) AS duration_sample_count,
+				COALESCE(SUM(n.first_token_ms), 0) AS ttft_sum_ms,
+				COUNT(n.first_token_ms) AS ttft_sample_count,
+				MAX(n.usage_log_id) AS last_usage_log_id
+			FROM normalized n
+			LEFT JOIN ops_account_usage_daily current
+				ON current.bucket_date = n.bucket_date
+				AND current.account_id = n.account_id
+				AND current.model = n.model
+				AND current.inbound_endpoint = n.inbound_endpoint
+				AND current.upstream_endpoint = n.upstream_endpoint
+			WHERE n.usage_log_id > COALESCE(current.last_usage_log_id, 0)
+			GROUP BY 1, 2, 3, 4, 5
+		),
+		candidates AS (
+			SELECT
+				d.bucket_date,
+				d.account_id,
+				d.model,
+				d.inbound_endpoint,
+				d.upstream_endpoint,
+				COALESCE(current.request_count, 0) + d.request_count AS request_count,
+				COALESCE(current.input_tokens, 0) + d.input_tokens AS input_tokens,
+				COALESCE(current.output_tokens, 0) + d.output_tokens AS output_tokens,
+				COALESCE(current.cache_creation_tokens, 0) + d.cache_creation_tokens AS cache_creation_tokens,
+				COALESCE(current.cache_read_tokens, 0) + d.cache_read_tokens AS cache_read_tokens,
+				COALESCE(current.standard_cost, 0) + d.standard_cost AS standard_cost,
+				COALESCE(current.account_cost, 0) + d.account_cost AS account_cost,
+				COALESCE(current.user_cost, 0) + d.user_cost AS user_cost,
+				COALESCE(current.duration_sum_ms, 0) + d.duration_sum_ms AS duration_sum_ms,
+				COALESCE(current.duration_sample_count, 0) + d.duration_sample_count AS duration_sample_count,
+				COALESCE(current.ttft_sum_ms, 0) + d.ttft_sum_ms AS ttft_sum_ms,
+				COALESCE(current.ttft_sample_count, 0) + d.ttft_sample_count AS ttft_sample_count,
+				d.last_usage_log_id
+			FROM delta d
+			LEFT JOIN ops_account_usage_daily current
+				ON current.bucket_date = d.bucket_date
+				AND current.account_id = d.account_id
+				AND current.model = d.model
+				AND current.inbound_endpoint = d.inbound_endpoint
+				AND current.upstream_endpoint = d.upstream_endpoint
+		)
+		INSERT INTO ops_account_usage_daily (
+			bucket_date,
+			account_id,
+			model,
+			inbound_endpoint,
+			upstream_endpoint,
+			request_count,
+			input_tokens,
+			output_tokens,
+			cache_creation_tokens,
+			cache_read_tokens,
+			standard_cost,
+			account_cost,
+			user_cost,
+			duration_sum_ms,
+			duration_sample_count,
+			ttft_sum_ms,
+			ttft_sample_count,
+			last_usage_log_id,
+			computed_at
+		)
+		SELECT
+			bucket_date,
+			account_id,
+			model,
+			inbound_endpoint,
+			upstream_endpoint,
+			request_count,
+			input_tokens,
+			output_tokens,
+			cache_creation_tokens,
+			cache_read_tokens,
+			standard_cost,
+			account_cost,
+			user_cost,
+			duration_sum_ms,
+			duration_sample_count,
+			ttft_sum_ms,
+			ttft_sample_count,
+			last_usage_log_id,
+			NOW()
+		FROM candidates
+		ON CONFLICT ON CONSTRAINT ops_account_usage_daily_dimension_key
+		DO UPDATE SET
+			request_count = EXCLUDED.request_count,
+			input_tokens = EXCLUDED.input_tokens,
+			output_tokens = EXCLUDED.output_tokens,
+			cache_creation_tokens = EXCLUDED.cache_creation_tokens,
+			cache_read_tokens = EXCLUDED.cache_read_tokens,
+			standard_cost = EXCLUDED.standard_cost,
+			account_cost = EXCLUDED.account_cost,
+			user_cost = EXCLUDED.user_cost,
+			duration_sum_ms = EXCLUDED.duration_sum_ms,
+			duration_sample_count = EXCLUDED.duration_sample_count,
+			ttft_sum_ms = EXCLUDED.ttft_sum_ms,
+			ttft_sample_count = EXCLUDED.ttft_sample_count,
+			last_usage_log_id = EXCLUDED.last_usage_log_id,
+			computed_at = EXCLUDED.computed_at
+		WHERE EXCLUDED.last_usage_log_id > ops_account_usage_daily.last_usage_log_id
+			AND EXCLUDED.request_count >= ops_account_usage_daily.request_count
+	`
+	_, err := r.sql.ExecContext(ctx, query, start, end, tzName)
 	return err
 }
 

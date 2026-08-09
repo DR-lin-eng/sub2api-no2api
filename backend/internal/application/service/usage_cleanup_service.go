@@ -195,6 +195,12 @@ func (s *UsageCleanupService) executeTask(ctx context.Context, task *UsageCleanu
 	deletedTotal := task.DeletedRows
 	start := time.Now()
 	logger.LegacyPrintf("service.usage_cleanup", "[UsageCleanup] task started: task=%d batch_size=%d deleted_rows=%d %s", task.ID, batchSize, deletedTotal, describeUsageCleanupFilters(task.Filters))
+	if s.dashboard != nil {
+		if err := s.dashboard.PreserveAccountUsageRange(ctx, task.Filters.StartTime, task.Filters.EndTime); err != nil {
+			s.markTaskFailed(task.ID, deletedTotal, fmt.Errorf("preserve account usage statistics: %w", err))
+			return
+		}
+	}
 	var batchNum int
 
 	for {

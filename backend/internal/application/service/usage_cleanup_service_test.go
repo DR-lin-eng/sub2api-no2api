@@ -56,12 +56,19 @@ type cleanupRepoStub struct {
 }
 
 type dashboardRepoStub struct {
-	recomputeErr   error
-	recomputeCalls int
+	recomputeErr         error
+	preserveErr          error
+	recomputeCalls       int
+	preserveAccountCalls int
 }
 
 func (s *dashboardRepoStub) AggregateRange(ctx context.Context, start, end time.Time) error {
 	return nil
+}
+
+func (s *dashboardRepoStub) AggregateAccountUsageRange(ctx context.Context, start, end time.Time) error {
+	s.preserveAccountCalls++
+	return s.preserveErr
 }
 
 func (s *dashboardRepoStub) RecomputeRange(ctx context.Context, start, end time.Time) error {
@@ -609,6 +616,34 @@ func TestUsageCleanupServiceExecuteTaskDashboardRecomputeSuccess(t *testing.T) {
 	defer repo.mu.Unlock()
 	require.Len(t, repo.markSucceeded, 1)
 	require.Eventually(t, func() bool { return dashboardRepo.recomputeCalls == 1 }, time.Second, 10*time.Millisecond)
+}
+
+func TestUsageCleanupServiceExecuteTaskPreserveFailureSkipsDelete(t *testing.T) {
+	dashboardRepo := &dashboardRepoStub{preserveErr: errors.New("preserve failed")}
+	repo := &cleanupRepoStub{}
+	dashboard := NewDashboardAggregationService(dashboardRepo, nil, &config.Config{
+		DashboardAgg: config.DashboardAggregationConfig{Enabled: true},
+	})
+	svc := NewUsageCleanupService(repo, nil, dashboard, &config.Config{
+		UsageCleanup: config.UsageCleanupConfig{Enabled: true, BatchSize: 2},
+	})
+	task := &UsageCleanupTask{
+		ID: 16,
+		Filters: UsageCleanupFilters{
+			StartTime: time.Now().UTC().Add(-time.Hour),
+			EndTime:   time.Now().UTC().Add(time.Hour),
+		},
+	}
+
+	svc.executeTask(context.Background(), task)
+
+	repo.mu.Lock()
+	defer repo.mu.Unlock()
+	require.Equal(t, 1, dashboardRepo.preserveAccountCalls)
+	require.Empty(t, repo.deleteCalls)
+	require.Empty(t, repo.markSucceeded)
+	require.Len(t, repo.markFailed, 1)
+	require.Contains(t, repo.markFailed[0].errMsg, "preserve account usage statistics")
 }
 
 func TestUsageCleanupServiceExecuteTaskCanceled(t *testing.T) {

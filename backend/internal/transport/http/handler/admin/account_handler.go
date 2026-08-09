@@ -1565,10 +1565,10 @@ func (h *AccountHandler) GetStats(c *gin.Context) {
 		return
 	}
 
-	// Parse days parameter (default 30)
-	days := 30
+	// Account/channel display data has a fixed 30-day durable retention window.
+	days := service.AccountUsageDisplayDays
 	if daysStr := c.Query("days"); daysStr != "" {
-		if d, err := strconv.Atoi(daysStr); err == nil && d > 0 && d <= 90 {
+		if d, err := strconv.Atoi(daysStr); err == nil && d > 0 && d <= service.AccountUsageDisplayDays {
 			days = d
 		}
 	}
