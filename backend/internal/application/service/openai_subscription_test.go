@@ -125,3 +125,100 @@ func TestShouldApplyChatGPTAccountInfoPlanType(t *testing.T) {
 	require.False(t, shouldApplyChatGPTAccountInfoPlanType("", ""))
 	require.True(t, shouldApplyChatGPTAccountInfoPlanType("", "pro"))
 }
+
+func TestChatGPTAccountInfoBelongsToTokenAccount(t *testing.T) {
+	require.False(t, chatGPTAccountInfoBelongsToTokenAccount(
+		&OpenAITokenInfo{ChatGPTAccountID: "personal-a"}, &ChatGPTAccountInfo{AccountID: "workspace-b"}))
+	require.True(t, chatGPTAccountInfoBelongsToTokenAccount(
+		&OpenAITokenInfo{ChatGPTAccountID: "personal-a"}, &ChatGPTAccountInfo{AccountID: "PERSONAL-A"}))
+	require.True(t, chatGPTAccountInfoBelongsToTokenAccount(
+		&OpenAITokenInfo{}, &ChatGPTAccountInfo{AccountID: "workspace-b"}))
+}
+
+func TestFetchChatGPTAccountInfoReportsNestedAccountID(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"accounts": map[string]any{
+				"default": map[string]any{
+					"account": map[string]any{
+						"account_id": "personal-account-a", "plan_type": "plus", "is_default": true,
+					},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	got := fetchChatGPTAccountInfo(context.Background(), newQuotaRedirectingFactory(server), "access-token", "", "")
+	require.NotNil(t, got)
+	require.Equal(t, "personal-account-a", got.AccountID)
+}
+
+func TestEnrichTokenInfoWorkspaceExpiryDoesNotOverridePersonalSubscription(t *testing.T) {
+	const (
+		personalID     = "personal-account-a"
+		workspaceID    = "personal-workspace-b"
+		personalExpiry = "2027-03-01T00:00:00Z"
+	)
+	workspaceExpiry := time.Now().Add(720 * time.Hour).UTC().Format(time.RFC3339)
+	subscriptionCalls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/backend-api/accounts/check/v4-2023-04-27":
+			_ = json.NewEncoder(w).Encode(map[string]any{"accounts": map[string]any{
+				workspaceID: map[string]any{
+					"account":     map[string]any{"account_id": workspaceID, "plan_type": "pro", "is_default": true},
+					"entitlement": map[string]any{"expires_at": workspaceExpiry},
+				},
+			}})
+		case "/backend-api/subscriptions":
+			subscriptionCalls++
+			require.Equal(t, personalID, r.URL.Query().Get("account_id"))
+			_ = json.NewEncoder(w).Encode(map[string]any{"active_until": personalExpiry})
+		default:
+			_ = json.NewEncoder(w).Encode(map[string]any{})
+		}
+	}))
+	defer server.Close()
+
+	tokenInfo := &OpenAITokenInfo{
+		AccessToken: "access-token", ChatGPTAccountID: personalID, OrganizationID: workspaceID, PlanType: "pro",
+	}
+	(&OpenAIOAuthService{privacyClientFactory: newQuotaRedirectingFactory(server)}).enrichTokenInfo(context.Background(), tokenInfo, "")
+	require.Equal(t, personalExpiry, tokenInfo.SubscriptionExpiresAt)
+	require.NotEqual(t, workspaceExpiry, tokenInfo.SubscriptionExpiresAt)
+	require.Equal(t, 1, subscriptionCalls)
+}
+
+func TestEnrichTokenInfoMatchingAccountKeepsEntitlementWithoutExtraLookup(t *testing.T) {
+	const accountID = "personal-account-a"
+	expiry := time.Now().Add(720 * time.Hour).UTC().Format(time.RFC3339)
+	subscriptionCalls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/backend-api/accounts/check/v4-2023-04-27":
+			_ = json.NewEncoder(w).Encode(map[string]any{"accounts": map[string]any{
+				accountID: map[string]any{
+					"account":     map[string]any{"account_id": accountID, "plan_type": "plus", "is_default": true},
+					"entitlement": map[string]any{"expires_at": expiry},
+				},
+			}})
+		case "/backend-api/subscriptions":
+			subscriptionCalls++
+			_ = json.NewEncoder(w).Encode(map[string]any{})
+		default:
+			_ = json.NewEncoder(w).Encode(map[string]any{})
+		}
+	}))
+	defer server.Close()
+
+	tokenInfo := &OpenAITokenInfo{
+		AccessToken: "access-token", ChatGPTAccountID: accountID, OrganizationID: accountID, PlanType: "plus",
+	}
+	(&OpenAIOAuthService{privacyClientFactory: newQuotaRedirectingFactory(server)}).enrichTokenInfo(context.Background(), tokenInfo, "")
+	require.Equal(t, expiry, tokenInfo.SubscriptionExpiresAt)
+	require.Zero(t, subscriptionCalls)
+}

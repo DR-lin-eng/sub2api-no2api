@@ -53,34 +53,30 @@ func normalizeObservedUpstreamResponseModel(model string) string {
 }
 
 func (o *upstreamResponseModelObserver) ObserveOpenAI(payload []byte, eventType string) {
-	if o == nil || len(payload) == 0 || !gjson.ValidBytes(payload) {
+	if o == nil {
 		return
 	}
-	model := firstTrimmedGJSONModel(
-		gjson.GetBytes(payload, "response.model"),
-		gjson.GetBytes(payload, "model"),
-	)
+	model := firstValidTrimmedGJSONModel(payload, "response.model", "model")
 	o.Observe(model, isUpstreamResponseModelTerminalEvent(eventType))
 }
 
 func (o *upstreamResponseModelObserver) ObserveAnthropic(payload []byte) {
-	if o == nil || len(payload) == 0 || !gjson.ValidBytes(payload) {
+	if o == nil {
 		return
 	}
-	model := firstTrimmedGJSONModel(
-		gjson.GetBytes(payload, "message.model"),
-		gjson.GetBytes(payload, "model"),
-	)
+	model := firstValidTrimmedGJSONModel(payload, "message.model", "model")
 	o.Observe(model, false)
 }
 
 func (o *upstreamResponseModelObserver) ObserveGemini(payload []byte) {
-	if o == nil || len(payload) == 0 || !gjson.ValidBytes(payload) {
+	if o == nil {
 		return
 	}
-	model := firstTrimmedGJSONModel(
-		gjson.GetBytes(payload, "modelVersion"),
-		gjson.GetBytes(payload, "response.modelVersion"),
+	model := firstValidTrimmedGJSONModel(
+		payload,
+		"modelVersion",
+		"response.modelVersion",
+		"response.response.modelVersion",
 	)
 	// Gemini streams do not have one universal terminal model declaration, so
 	// retain the latest declaration.
@@ -139,12 +135,19 @@ func observeOpenAISSEBody(observer *upstreamResponseModelObserver, body string) 
 	})
 }
 
-func firstTrimmedGJSONModel(values ...gjson.Result) string {
-	for _, value := range values {
+func firstValidTrimmedGJSONModel(payload []byte, paths ...string) string {
+	if len(payload) == 0 {
+		return ""
+	}
+	for _, path := range paths {
+		value := gjson.GetBytes(payload, path)
 		if !value.Exists() || value.Type != gjson.String {
 			continue
 		}
 		if model := strings.TrimSpace(value.String()); model != "" {
+			if !gjson.ValidBytes(payload) {
+				return ""
+			}
 			return model
 		}
 	}

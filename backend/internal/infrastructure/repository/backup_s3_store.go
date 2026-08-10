@@ -1,10 +1,10 @@
 package repository
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"path"
 	"time"
 
@@ -37,26 +37,34 @@ func NewS3BackupStoreFactory() service.BackupObjectStoreFactory {
 	}
 }
 
-func (s *S3BackupStore) Upload(ctx context.Context, key string, body io.Reader, contentType string) (int64, error) {
-	// 读取全部内容以获取大小（S3 PutObject 需要知道内容长度）
-	// 注意：阿里云 OSS 不兼容 s3manager 分片上传的签名方式，因此使用 PutObject
-	data, err := io.ReadAll(body)
+func (s *S3BackupStore) UploadFileRange(ctx context.Context, key, filePath string, offset, sizeBytes int64, contentType string) error {
+	file, err := os.Open(filePath)
 	if err != nil {
-		return 0, fmt.Errorf("read body: %w", err)
+		return fmt.Errorf("open upload file: %w", err)
 	}
+	defer func() { _ = file.Close() }()
+	info, err := file.Stat()
+	if err != nil {
+		return fmt.Errorf("stat upload file: %w", err)
+	}
+	if offset < 0 || sizeBytes <= 0 || offset > info.Size()-sizeBytes {
+		return fmt.Errorf("invalid upload range offset=%d size=%d file_size=%d", offset, sizeBytes, info.Size())
+	}
+	body := io.NewSectionReader(file, offset, sizeBytes)
 
 	finish := servertiming.ObserveDependency(ctx, "s3")
 	_, err = s.client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket:      &s.bucket,
-		Key:         &key,
-		Body:        bytes.NewReader(data),
-		ContentType: &contentType,
+		Bucket:        &s.bucket,
+		Key:           &key,
+		Body:          body,
+		ContentLength: &sizeBytes,
+		ContentType:   &contentType,
 	})
 	finish()
 	if err != nil {
-		return 0, fmt.Errorf("S3 PutObject: %w", err)
+		return fmt.Errorf("S3 PutObject file range: %w", err)
 	}
-	return int64(len(data)), nil
+	return nil
 }
 
 func (s *S3BackupStore) Download(ctx context.Context, key string) (io.ReadCloser, error) {

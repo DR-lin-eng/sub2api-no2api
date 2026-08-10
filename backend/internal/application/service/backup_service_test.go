@@ -4,10 +4,14 @@ package service
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -159,23 +163,67 @@ func (d *blockingDumper) Restore(_ context.Context, data io.Reader) error {
 }
 
 type mockObjectStore struct {
-	objects map[string][]byte
-	mu      sync.Mutex
+	objects           map[string][]byte
+	deletedKeys       []string
+	failDeleteKeys    map[string]error
+	failUploadRangeAt int
+	uploadRangeCalls  int
+	mu                sync.Mutex
+}
+
+type trackingReadCloser struct {
+	reader io.Reader
+	read   int64
+}
+
+func (r *trackingReadCloser) Read(p []byte) (int, error) {
+	n, err := r.reader.Read(p)
+	r.read += int64(n)
+	return n, err
+}
+
+func (r *trackingReadCloser) Close() error { return nil }
+
+type trackingDownloadStore struct {
+	*mockObjectStore
+	body *trackingReadCloser
+}
+
+func (s *trackingDownloadStore) Download(context.Context, string) (io.ReadCloser, error) {
+	return s.body, nil
 }
 
 func newMockObjectStore() *mockObjectStore {
-	return &mockObjectStore{objects: make(map[string][]byte)}
+	return &mockObjectStore{
+		objects:        make(map[string][]byte),
+		failDeleteKeys: make(map[string]error),
+	}
 }
 
-func (m *mockObjectStore) Upload(_ context.Context, key string, body io.Reader, _ string) (int64, error) {
-	data, err := io.ReadAll(body)
+func (m *mockObjectStore) UploadFileRange(ctx context.Context, key, filePath string, offset, sizeBytes int64, _ string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	file, err := os.Open(filePath)
 	if err != nil {
-		return 0, err
+		return err
+	}
+	defer func() { _ = file.Close() }()
+	data, err := io.ReadAll(io.NewSectionReader(file, offset, sizeBytes))
+	if err != nil {
+		return err
+	}
+	if int64(len(data)) != sizeBytes {
+		return fmt.Errorf("short range: got %d want %d", len(data), sizeBytes)
 	}
 	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.uploadRangeCalls++
+	if m.failUploadRangeAt > 0 && m.uploadRangeCalls == m.failUploadRangeAt {
+		return errors.New("upload range failed")
+	}
 	m.objects[key] = data
-	m.mu.Unlock()
-	return int64(len(data)), nil
+	return nil
 }
 
 func (m *mockObjectStore) Download(_ context.Context, key string) (io.ReadCloser, error) {
@@ -190,8 +238,12 @@ func (m *mockObjectStore) Download(_ context.Context, key string) (io.ReadCloser
 
 func (m *mockObjectStore) Delete(_ context.Context, key string) error {
 	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.deletedKeys = append(m.deletedKeys, key)
+	if err := m.failDeleteKeys[key]; err != nil {
+		return err
+	}
 	delete(m.objects, key)
-	m.mu.Unlock()
 	return nil
 }
 
@@ -384,7 +436,7 @@ func TestBackupService_LoadRecords_Corrupted(t *testing.T) {
 	require.Nil(t, records)
 }
 
-func TestBackupService_CreateBackup_Streaming(t *testing.T) {
+func TestBackupService_CreateBackupSingleArchive(t *testing.T) {
 	repo := newMockSettingRepo()
 	seedS3Config(t, repo)
 
@@ -403,6 +455,63 @@ func TestBackupService_CreateBackup_Streaming(t *testing.T) {
 	store.mu.Lock()
 	require.Len(t, store.objects, 1)
 	store.mu.Unlock()
+}
+
+func TestBackupServiceCreateBackupSplitsCompressedArchive(t *testing.T) {
+	repo := newMockSettingRepo()
+	seedS3Config(t, repo)
+	dumpContent := entropyBackupFixture(512)
+	store := newMockObjectStore()
+	svc := newTestBackupService(repo, &mockDumper{dumpData: dumpContent}, store)
+	svc.partSizeBytes = 32
+
+	record, err := svc.CreateBackup(context.Background(), "manual", 14)
+	require.NoError(t, err)
+	require.Equal(t, "completed", record.Status)
+	require.Greater(t, len(record.Parts), 1)
+	require.Empty(t, record.S3Key)
+
+	var compressed bytes.Buffer
+	store.mu.Lock()
+	for _, part := range record.Parts {
+		data, ok := store.objects[part.S3Key]
+		require.True(t, ok)
+		require.LessOrEqual(t, len(data), 32)
+		require.Equal(t, fmt.Sprintf("%x", sha256.Sum256(data)), part.SHA256)
+		compressed.Write(data)
+	}
+	store.mu.Unlock()
+
+	gzReader, err := gzip.NewReader(bytes.NewReader(compressed.Bytes()))
+	require.NoError(t, err)
+	decompressed, err := io.ReadAll(gzReader)
+	require.NoError(t, err)
+	require.NoError(t, gzReader.Close())
+	require.Equal(t, dumpContent, decompressed)
+}
+
+func TestBackupServiceStartBackupUploadFailureCleansPlannedParts(t *testing.T) {
+	repo := newMockSettingRepo()
+	seedS3Config(t, repo)
+	store := newMockObjectStore()
+	store.failUploadRangeAt = 2
+	svc := newTestBackupService(repo, &mockDumper{dumpData: entropyBackupFixture(512)}, store)
+	svc.partSizeBytes = 32
+
+	record, err := svc.StartBackup(context.Background(), "manual", 14)
+	require.NoError(t, err)
+	svc.wg.Wait()
+	final, err := svc.GetBackupRecord(context.Background(), record.ID)
+	require.NoError(t, err)
+	require.Equal(t, "failed", final.Status)
+	require.Greater(t, len(final.Parts), 1)
+
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	for _, part := range final.Parts {
+		require.Contains(t, store.deletedKeys, part.S3Key)
+		require.NotContains(t, store.objects, part.S3Key)
+	}
 }
 
 func TestBackupService_CreateBackup_DumpFailure(t *testing.T) {
@@ -461,6 +570,10 @@ func TestBackupService_ScheduledBackupSkipsWhenPeerHoldsLock(t *testing.T) {
 	require.Empty(t, store.objects)
 }
 
+func TestBackupScheduledLockCoversMaximumOperationTime(t *testing.T) {
+	require.Greater(t, backupScheduledLockTTL, backupOperationTimeout)
+}
+
 func TestBackupService_RestoreBackup_Streaming(t *testing.T) {
 	repo := newMockSettingRepo()
 	seedS3Config(t, repo)
@@ -480,6 +593,59 @@ func TestBackupService_RestoreBackup_Streaming(t *testing.T) {
 
 	// 验证 psql 收到的数据是否与原始 dump 内容一致
 	require.Equal(t, dumpContent, string(dumper.restored))
+}
+
+func TestBackupServiceRestoreBackupSplitParts(t *testing.T) {
+	repo := newMockSettingRepo()
+	seedS3Config(t, repo)
+	dumpContent := entropyBackupFixture(512)
+	dumper := &mockDumper{}
+	store := newMockObjectStore()
+	svc := newTestBackupService(repo, dumper, store)
+	compressed := gzipBackupBytes(t, dumpContent)
+	chunks := splitBackupBytes(compressed, 11)
+	parts := make([]BackupPart, 0, len(chunks))
+	for i, data := range chunks {
+		key := fmt.Sprintf("backups/split/payload.part-%06d", i+1)
+		store.objects[key] = data
+		parts = append(parts, BackupPart{
+			Index: i + 1, S3Key: key, SizeBytes: int64(len(data)), SHA256: fmt.Sprintf("%x", sha256.Sum256(data)),
+		})
+	}
+	record := &BackupRecord{ID: "split", Status: "completed", Parts: parts, SizeBytes: int64(len(compressed))}
+	require.NoError(t, svc.saveRecord(context.Background(), record))
+
+	require.NoError(t, svc.RestoreBackup(context.Background(), record.ID))
+	require.Equal(t, dumpContent, dumper.restored)
+}
+
+func TestBackupServiceRestoreRejectsCorruptPartBeforeDatabaseWrite(t *testing.T) {
+	repo := newMockSettingRepo()
+	seedS3Config(t, repo)
+	dumper := &mockDumper{}
+	store := newMockObjectStore()
+	svc := newTestBackupService(repo, dumper, store)
+	key := "backups/corrupt/payload.part-000001"
+	store.objects[key] = []byte("abc")
+	record := &BackupRecord{ID: "corrupt", Status: "completed", Parts: []BackupPart{
+		{Index: 1, S3Key: key, SizeBytes: 3, SHA256: "not-the-checksum"},
+	}}
+	require.NoError(t, svc.saveRecord(context.Background(), record))
+
+	err := svc.RestoreBackup(context.Background(), record.ID)
+	require.ErrorContains(t, err, "checksum mismatch")
+	require.Empty(t, dumper.restored)
+}
+
+func TestBackupServiceRestoreBoundsOversizedPartRead(t *testing.T) {
+	body := &trackingReadCloser{reader: bytes.NewReader(bytes.Repeat([]byte("x"), 1024*1024))}
+	store := &trackingDownloadStore{mockObjectStore: newMockObjectStore(), body: body}
+
+	_, err := (&BackupService{}).downloadBackupParts(context.Background(), store, []BackupPart{
+		{Index: 1, S3Key: "backups/oversized/payload.part-000001", SizeBytes: 3},
+	})
+	require.ErrorContains(t, err, "size mismatch")
+	require.Equal(t, int64(4), body.read, "oversized objects must be rejected without draining the remote body")
 }
 
 func TestBackupService_RestoreBackup_NotCompleted(t *testing.T) {
@@ -528,6 +694,26 @@ func TestBackupService_DeleteBackup(t *testing.T) {
 	require.ErrorIs(t, err, ErrBackupNotFound)
 }
 
+func TestBackupServiceDeleteRunningBackupKeepsObjects(t *testing.T) {
+	repo := newMockSettingRepo()
+	seedS3Config(t, repo)
+	store := newMockObjectStore()
+	svc := newTestBackupService(repo, &mockDumper{}, store)
+	part := BackupPart{Index: 1, S3Key: "backups/running/payload.part-000001", SizeBytes: 3}
+	store.objects[part.S3Key] = []byte("abc")
+	require.NoError(t, svc.saveRecord(context.Background(), &BackupRecord{
+		ID: "running", Status: "running", Parts: []BackupPart{part},
+	}))
+
+	require.ErrorIs(t, svc.DeleteBackup(context.Background(), "running"), ErrBackupInProgress)
+	store.mu.Lock()
+	require.Contains(t, store.objects, part.S3Key)
+	require.Empty(t, store.deletedKeys)
+	store.mu.Unlock()
+	_, err := svc.GetBackupRecord(context.Background(), "running")
+	require.NoError(t, err)
+}
+
 func TestBackupService_GetDownloadURL(t *testing.T) {
 	repo := newMockSettingRepo()
 	seedS3Config(t, repo)
@@ -539,9 +725,30 @@ func TestBackupService_GetDownloadURL(t *testing.T) {
 	record, err := svc.CreateBackup(context.Background(), "manual", 14)
 	require.NoError(t, err)
 
-	url, err := svc.GetBackupDownloadURL(context.Background(), record.ID)
+	download, err := svc.GetBackupDownloadURL(context.Background(), record.ID)
 	require.NoError(t, err)
-	require.Contains(t, url, "https://presigned.example.com/")
+	require.Contains(t, download.URL, "https://presigned.example.com/")
+	require.Empty(t, download.Parts)
+}
+
+func TestBackupServiceGetDownloadURLSplitParts(t *testing.T) {
+	repo := newMockSettingRepo()
+	seedS3Config(t, repo)
+	svc := newTestBackupService(repo, &mockDumper{}, newMockObjectStore())
+	require.NoError(t, svc.saveRecord(context.Background(), &BackupRecord{
+		ID: "split-download", Status: "completed", Parts: []BackupPart{
+			{Index: 2, S3Key: "backups/split/payload.part-000002", SizeBytes: 7},
+			{Index: 1, S3Key: "backups/split/payload.part-000001", SizeBytes: 5},
+		},
+	}))
+
+	download, err := svc.GetBackupDownloadURL(context.Background(), "split-download")
+	require.NoError(t, err)
+	require.Empty(t, download.URL)
+	require.Len(t, download.Parts, 2)
+	require.Equal(t, 1, download.Parts[0].Index)
+	require.Equal(t, int64(5), download.Parts[0].SizeBytes)
+	require.Contains(t, download.Parts[0].URL, "payload.part-000001")
 }
 
 func TestBackupService_ListBackups_Sorted(t *testing.T) {
@@ -704,6 +911,62 @@ func TestRecoverStaleRecords(t *testing.T) {
 	r2, _ := svc.GetBackupRecord(context.Background(), "stale-2")
 	require.Equal(t, "failed", r2.RestoreStatus)
 	require.Contains(t, r2.RestoreError, "server restart")
+}
+
+func TestRecoverStaleSplitBackupCleansAllParts(t *testing.T) {
+	repo := newMockSettingRepo()
+	seedS3Config(t, repo)
+	store := newMockObjectStore()
+	svc := newTestBackupService(repo, &mockDumper{}, store)
+	parts := []BackupPart{
+		{Index: 1, S3Key: "backups/stale/payload.part-000001", SizeBytes: 3},
+		{Index: 2, S3Key: "backups/stale/payload.part-000002", SizeBytes: 3},
+	}
+	for _, part := range parts {
+		store.objects[part.S3Key] = []byte("abc")
+	}
+	require.NoError(t, svc.saveRecord(context.Background(), &BackupRecord{
+		ID: "stale-parts", Status: "running", Parts: parts,
+	}))
+
+	svc.recoverStaleRecords()
+	record, err := svc.GetBackupRecord(context.Background(), "stale-parts")
+	require.NoError(t, err)
+	require.Equal(t, "failed", record.Status)
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	for _, part := range parts {
+		require.Contains(t, store.deletedKeys, part.S3Key)
+		require.NotContains(t, store.objects, part.S3Key)
+	}
+}
+
+func entropyBackupFixture(size int) []byte {
+	data := make([]byte, size)
+	for i := range data {
+		data[i] = byte((i*31 + 17) % 251)
+	}
+	return data
+}
+
+func gzipBackupBytes(t *testing.T, content []byte) []byte {
+	t.Helper()
+	var out bytes.Buffer
+	w := gzip.NewWriter(&out)
+	_, err := w.Write(content)
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
+	return out.Bytes()
+}
+
+func splitBackupBytes(data []byte, partSize int) [][]byte {
+	parts := make([][]byte, 0, (len(data)+partSize-1)/partSize)
+	for len(data) > 0 {
+		size := min(partSize, len(data))
+		parts = append(parts, append([]byte(nil), data[:size]...))
+		data = data[size:]
+	}
+	return parts
 }
 
 func TestGracefulShutdown(t *testing.T) {

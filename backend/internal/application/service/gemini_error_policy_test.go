@@ -490,6 +490,59 @@ func TestHandleGeminiUpstreamError_GoogleOneCapacityExhaustedUsesTierCooldown(t 
 	require.True(t, repo.lastRateLimitReset.Before(after.Add(5*time.Minute).Add(2*time.Second)))
 }
 
+func TestHandleGeminiUpstreamErrorPoolMode429(t *testing.T) {
+	body := []byte(`{"error":{"code":429,"message":"You have exhausted your capacity on this model. Your quota will reset after 6h53m10s."}}`)
+	tests := []struct {
+		name              string
+		account           *Account
+		expectRateLimited bool
+	}{
+		{
+			name: "pool API key stays schedulable",
+			account: &Account{ID: 600, Platform: PlatformGemini, Type: AccountTypeAPIKey,
+				Credentials: map[string]any{"pool_mode": true}},
+		},
+		{
+			name: "matching custom error code overrides pool mode",
+			account: &Account{ID: 601, Platform: PlatformGemini, Type: AccountTypeAPIKey,
+				Credentials: map[string]any{
+					"pool_mode": true, "custom_error_codes_enabled": true,
+					"custom_error_codes": []any{float64(429)},
+				}},
+			expectRateLimited: true,
+		},
+		{
+			name:              "non-pool API key keeps legacy cooldown",
+			account:           &Account{ID: 602, Platform: PlatformGemini, Type: AccountTypeAPIKey},
+			expectRateLimited: true,
+		},
+		{
+			name: "OAuth ignores pool flag",
+			account: &Account{ID: 603, Platform: PlatformGemini, Type: AccountTypeOAuth,
+				Credentials: map[string]any{"pool_mode": true}},
+			expectRateLimited: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &rateLimit429AccountRepoStub{}
+			svc := &GeminiMessagesCompatService{
+				accountRepo:      repo,
+				rateLimitService: NewRateLimitService(repo, nil, &config.Config{}, nil, nil),
+			}
+			svc.handleGeminiUpstreamError(context.Background(), tt.account, http.StatusTooManyRequests, http.Header{}, body)
+
+			if !tt.expectRateLimited {
+				require.Zero(t, repo.rateLimitCalls)
+				return
+			}
+			require.Equal(t, 1, repo.rateLimitCalls)
+			require.Equal(t, tt.account.ID, repo.lastRateLimitID)
+		})
+	}
+}
+
 type geminiErrorPolicyRepo struct {
 	mockAccountRepoForGemini
 	setErrorCalls            int

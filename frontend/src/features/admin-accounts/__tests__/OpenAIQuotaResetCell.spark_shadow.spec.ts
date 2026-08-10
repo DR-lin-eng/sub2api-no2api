@@ -144,6 +144,7 @@ describe('OpenAIQuotaResetCell — 外审 F6:影子禁用重置', () => {
   })
 
   it('从账号缓存恢复次数时会丢弃过期卡并收紧可用次数', () => {
+    const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-08-05T00:00:00Z'))
     const account = makeAccount({
       extra: {
         codex_reset_credit_snapshot: {
@@ -158,10 +159,14 @@ describe('OpenAIQuotaResetCell — 外审 F6:影子禁用重置', () => {
 
     const wrapper = mount(OpenAIQuotaResetCell, { props: { account } })
 
-    expect(wrapper.findAll('button')[0].text()).toContain('1')
-    expect(resetButton(wrapper).attributes('disabled')).toBeUndefined()
-    expect(wrapper.text()).toContain('admin.accounts.openaiQuotaReset.expiresAt:')
-    wrapper.unmount()
+    try {
+      expect(wrapper.findAll('button')[0].text()).toContain('1')
+      expect(resetButton(wrapper).attributes('disabled')).toBeUndefined()
+      expect(wrapper.text()).toContain('admin.accounts.openaiQuotaReset.expiresAt:')
+    } finally {
+      wrapper.unmount()
+      dateNowSpy.mockRestore()
+    }
   })
 
   it('实时查询成功但缓存写入失败时仍显示次数并给出局部失败提示', async () => {
