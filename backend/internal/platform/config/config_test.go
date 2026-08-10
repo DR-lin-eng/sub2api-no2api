@@ -55,14 +55,22 @@ func TestLoadDeploymentWorkerModes(t *testing.T) {
 	t.Run("explicit api-only node keeps worker disabled", func(t *testing.T) {
 		resetViperWithJWTSecret(t)
 		t.Setenv("DEPLOYMENT_MODE", DeploymentModeMultiInstance)
+		t.Setenv("DEPLOYMENT_NODE_ID", "node-api-01")
+		t.Setenv("DEPLOYMENT_NODE_ID_FILE", "/app/data/custom-node-id")
 		t.Setenv("NODE_NAME", "api-only-01")
 		t.Setenv("WORKER_ENABLED", "false")
+		t.Setenv("DEPLOYMENT_UPDATE_DRIVER", DeploymentUpdateDriverBinary)
+		t.Setenv("DEPLOYMENT_ROLLOUT_POLL_SECONDS", "7")
 		cfg, err := Load()
 		require.NoError(t, err)
 		require.Equal(t, DeploymentModeMultiInstance, cfg.Deployment.Mode)
+		require.Equal(t, "node-api-01", cfg.Deployment.NodeID)
+		require.Equal(t, "/app/data/custom-node-id", cfg.Deployment.NodeIDFile)
 		require.Equal(t, "api-only-01", cfg.Deployment.NodeName)
 		require.Equal(t, WorkerModeDisabled, cfg.Deployment.WorkerMode())
 		require.False(t, cfg.Deployment.WorkerEnabledResolved())
+		require.Equal(t, DeploymentUpdateDriverBinary, cfg.Deployment.UpdateDriverMode())
+		require.Equal(t, 7, cfg.Deployment.RolloutPollSeconds)
 	})
 }
 

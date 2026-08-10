@@ -126,6 +126,7 @@ func provideCleanup(
 	dashboardAggregation *service.DashboardAggregationService,
 	deferred *service.DeferredService,
 	timingWheel *service.TimingWheelService,
+	clusterRelease *service.ClusterReleaseService,
 	cluster *service.ClusterService,
 	clientIPResolver *clientip.Resolver,
 ) func() {
@@ -182,7 +183,13 @@ func provideCleanup(
 				}
 				return nil
 			}},
-			{"ClusterService", func() error {
+			{"ClusterReleaseService", func() error {
+				if clusterRelease != nil {
+					clusterRelease.Stop()
+				}
+				return nil
+			}},
+			{"ClusterHeartbeatService", func() error {
 				if cluster != nil {
 					cluster.Stop()
 				}

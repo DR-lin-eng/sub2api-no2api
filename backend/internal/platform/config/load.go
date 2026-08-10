@@ -224,6 +224,8 @@ func normalizeDeploymentConfig(cfg *DeploymentConfig) {
 		cfg.Mode = DeploymentModeStandalone
 	}
 	cfg.WorkerEnabled = cfg.WorkerMode()
+	cfg.NodeID = strings.TrimSpace(cfg.NodeID)
+	cfg.NodeIDFile = strings.TrimSpace(cfg.NodeIDFile)
 	cfg.NodeName = strings.TrimSpace(cfg.NodeName)
 	if cfg.NodeName == "" {
 		if hostname, err := os.Hostname(); err == nil {
@@ -241,5 +243,21 @@ func normalizeDeploymentConfig(cfg *DeploymentConfig) {
 	}
 	if cfg.TaskLeaseSeconds <= 0 {
 		cfg.TaskLeaseSeconds = 60
+	}
+	cfg.UpdateDriver = strings.ToLower(strings.TrimSpace(cfg.UpdateDriver))
+	if cfg.UpdateDriver == "" {
+		cfg.UpdateDriver = DeploymentUpdateDriverExternal
+	}
+	if cfg.RolloutPollSeconds <= 0 {
+		cfg.RolloutPollSeconds = 5
+	}
+	if cfg.RolloutDrainGraceSeconds < 0 {
+		cfg.RolloutDrainGraceSeconds = 0
+	}
+	if cfg.RolloutDrainTimeoutSeconds <= 0 {
+		cfg.RolloutDrainTimeoutSeconds = 900
+	}
+	if cfg.RolloutVerifyHeartbeats <= 0 {
+		cfg.RolloutVerifyHeartbeats = 2
 	}
 }

@@ -112,6 +112,7 @@ backend/data/
 backend/config.yaml
 deploy/config.yaml
 backend/.installed
+.cluster-node-id
 .release-secrets/
 
 # ===================

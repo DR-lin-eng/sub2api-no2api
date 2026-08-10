@@ -10,17 +10,95 @@ Configure every replica explicitly:
 ```yaml
 deployment:
   mode: multi_instance
+  node_id_file: /app/data/.cluster-node-id
   node_name: api-01
   worker_enabled: auto
   heartbeat_interval_seconds: 30
   stale_after_seconds: 90
   task_lease_seconds: 60
+  update_driver: external
+  rollout_poll_seconds: 5
+  rollout_drain_grace_seconds: 10
+  rollout_drain_timeout_seconds: 900
+  rollout_verify_heartbeats: 2
 ```
 
 Every replica continues to serve the complete API and embedded frontend.
 `worker_enabled` only controls cluster-wide scheduled work. `auto` and `true`
 join lease-based worker election; `false` keeps the node API/frontend-only.
-Use a stable, unique `node_name` per replica.
+
+## Stable node identity and names
+
+A logical node has three separate identifiers:
+
+- `node_id` is the durable identity used by rollout targets. When it is not
+  configured explicitly, Sub2API creates it once in `node_id_file`.
+- `node_name` is only the initial display name. An administrator can rename a
+  node from `/admin/multi-instance`; the PostgreSQL alias survives restarts and
+  later changes to the container hostname. If two new nodes use the same
+  initial name, the later node receives a stable ID suffix so both can register
+  and then be renamed from the page.
+- `runner_id` identifies one process lifetime. It changes on every restart and
+  is retained only as history.
+
+The node table shows only the newest runner for each `node_id`. Recreating a
+container or upgrading its image therefore does not add another visible node as
+long as the node identity file is preserved.
+
+For Docker, mount `/app/data` on a node-local persistent volume. Preserve that
+same volume when replacing the container on the same machine. Every replica
+must have its own volume: sharing one `/app/data/.cluster-node-id` between two
+live replicas makes them the same logical node and is unsupported. When cloning
+a machine to add capacity, assign a new explicit `DEPLOYMENT_NODE_ID` or start
+the clone with a fresh node-local identity file.
+
+## Cluster release workflow
+
+All release plans and per-node targets are stored in the shared PostgreSQL
+database. Consequently, an administrator connected to any replica sees every
+logical node and its version, can rename any node, and can create or control the
+same rollout. The request does not depend on the load balancer routing it to a
+specific target node.
+
+A rollout resolves `latest` to one exact stable version before creating its
+targets. Only one plan can be active, and targets advance in a fixed order with
+`max_unavailable=1`:
+
+```text
+pending -> draining -> installing -> restarting -> verifying -> succeeded
+```
+
+A failure pauses the plan. Retry the failed target to continue, or cancel only
+when no target is actively draining, installing, restarting, or verifying.
+Multi-instance mode rejects the legacy local update, rollback, and restart
+endpoints with `MULTI_INSTANCE_ROLLOUT_REQUIRED`.
+
+`deployment.update_driver` selects how a target is changed:
+
+- `external` is the default for Docker and Kubernetes. The rollout records the
+  target task in PostgreSQL; the external orchestrator replaces that node's
+  image while preserving its node-local data volume. Replace nodes in target
+  order and wait for `/ready` to return `200` before moving to the next one.
+- `binary` is for a systemd or bare-binary deployment. The selected node drains
+  requests, installs the exact signed release, restarts itself, and verifies the
+  new runner through heartbeats.
+
+`/health` remains a liveness probe. `/ready` is the load-balancer and Compose
+readiness probe; it returns `503` while a node is draining, awaiting version
+verification, or running a version different from the cluster's desired
+version. Keep non-ready nodes out of request traffic.
+
+Run the disposable two-node Docker scenario from the repository root:
+
+```sh
+sh deploy/tests/cluster-rollout-docker-test.sh
+```
+
+The scenario builds distinct source and target application images, starts two
+replicas with separate persistent identity volumes and shared PostgreSQL/Redis,
+renames and recreates a node, creates a rollout through the other replica,
+rolls both nodes in order, and verifies version convergence and `/ready`
+rejection after an old image is reintroduced. Resources are removed on exit.
 
 ## Installation and secrets
 
@@ -55,10 +133,12 @@ canceled and cannot record a successful completion. Stale leases are marked lost
 before another worker takes over. Redis/PostgreSQL leader locks remain as a
 compatibility fallback when the cluster coordinator is not injected.
 Finished task history is retained for seven days and capped at 10,000 rows;
-stopped node records are retained for seven days.
+runner history is retained for seven days. Historical runners do not increase
+the logical node count.
 
 The admin page at `/admin/multi-instance` shows node heartbeats, dependency
-health, resolved worker mode, active leases, and recent task history.
+health, editable node names, version distribution, rollout targets, resolved
+worker mode, active leases, and recent task history.
 
 Do not point replicas at different Redis databases. That would split the lock and
 OAuth state domains and restore duplicate execution and callback misses.

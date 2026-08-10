@@ -66,7 +66,7 @@ infrastructure implements application ports
 | --- | --- | --- | --- |
 | 公共/登录/用户/管理 API | `/api/v1/...` | 公共、JWT、Admin、step-up 等 | `routes/auth.go`, `user.go`, `admin.go`, `payment.go` |
 | 模型网关 | `/v1/...`, `/responses`, `/v1beta/...`, 专用平台前缀 | API Key + 分组/订阅约束 | `routes/gateway.go` |
-| 健康与首次设置 | `/health`, `/setup/...` | 依端点而定 | `routes/common.go` 与 bootstrap setup |
+| 健康、就绪与首次设置 | `/health`, `/ready`, `/setup/...` | 依端点而定 | `routes/common.go` 与 bootstrap setup |
 
 路由文件只组合路径、中间件和 handler。handler 负责协议边界；业务选择、调度、上游访问编排和计费进入 application service。
 
@@ -79,6 +79,7 @@ infrastructure implements application ports
 | 并发槽位、限流、粘性会话、调度快照 | Redis/进程内短期状态 | 必须有过期、释放、容量上限和故障降级策略 |
 | 用量结算队列 | Redis Stream + PostgreSQL 幂等落库 | 关键计费任务不能静默丢弃；Redis 故障时使用受限 fallback |
 | 前端运行设置 | 后端注入 + 管理 API | 浏览器状态不是权限或计费事实源 |
+| 逻辑节点、期望版本与滚动发布 | PostgreSQL + 节点本地 identity file | PostgreSQL 保存节点别名和发布任务；每个节点本地持久卷保存稳定 `node_id`，进程级 `runner_id` 只作为历史 |
 
 数据库变更必须同时考虑 Ent schema、迁移、repository、DTO/API 兼容和测试 fixture。只改 schema 或只写迁移都不完整。
 

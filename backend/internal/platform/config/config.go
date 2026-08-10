@@ -18,6 +18,9 @@ const (
 	WorkerModeAuto     = "auto"
 	WorkerModeEnabled  = "true"
 	WorkerModeDisabled = "false"
+
+	DeploymentUpdateDriverExternal = "external"
+	DeploymentUpdateDriverBinary   = "binary"
 )
 
 // 使用量记录队列溢出策略
@@ -104,12 +107,19 @@ type Config struct {
 // is tri-state: auto/true are worker candidates, while false disables only
 // cluster-wide scheduled workers on this node.
 type DeploymentConfig struct {
-	Mode                     string `mapstructure:"mode"`
-	NodeName                 string `mapstructure:"node_name"`
-	WorkerEnabled            string `mapstructure:"worker_enabled"`
-	HeartbeatIntervalSeconds int    `mapstructure:"heartbeat_interval_seconds"`
-	StaleAfterSeconds        int    `mapstructure:"stale_after_seconds"`
-	TaskLeaseSeconds         int    `mapstructure:"task_lease_seconds"`
+	Mode                       string `mapstructure:"mode"`
+	NodeID                     string `mapstructure:"node_id"`
+	NodeIDFile                 string `mapstructure:"node_id_file"`
+	NodeName                   string `mapstructure:"node_name"`
+	WorkerEnabled              string `mapstructure:"worker_enabled"`
+	HeartbeatIntervalSeconds   int    `mapstructure:"heartbeat_interval_seconds"`
+	StaleAfterSeconds          int    `mapstructure:"stale_after_seconds"`
+	TaskLeaseSeconds           int    `mapstructure:"task_lease_seconds"`
+	UpdateDriver               string `mapstructure:"update_driver"`
+	RolloutPollSeconds         int    `mapstructure:"rollout_poll_seconds"`
+	RolloutDrainGraceSeconds   int    `mapstructure:"rollout_drain_grace_seconds"`
+	RolloutDrainTimeoutSeconds int    `mapstructure:"rollout_drain_timeout_seconds"`
+	RolloutVerifyHeartbeats    int    `mapstructure:"rollout_verify_heartbeats"`
 }
 
 func (c DeploymentConfig) IsMultiInstance() bool {
@@ -133,6 +143,14 @@ func (c DeploymentConfig) WorkerMode() string {
 // the actual executor and preserves failover without a manually selected master.
 func (c DeploymentConfig) WorkerEnabledResolved() bool {
 	return c.WorkerMode() != WorkerModeDisabled
+}
+
+func (c DeploymentConfig) UpdateDriverMode() string {
+	mode := strings.ToLower(strings.TrimSpace(c.UpdateDriver))
+	if mode == DeploymentUpdateDriverBinary {
+		return DeploymentUpdateDriverBinary
+	}
+	return DeploymentUpdateDriverExternal
 }
 
 type LogConfig struct {

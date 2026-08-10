@@ -840,6 +840,7 @@ func ProvideAPIKeyService(
 // ProviderSet is the Wire provider set for all services
 var ProviderSet = wire.NewSet(
 	ProvideClusterService,
+	ProvideClusterReleaseService,
 	// Core services
 	NewAuthService,
 	NewPasskeyService,

@@ -19,6 +19,7 @@ export interface VersionInfo {
   cached: boolean
   warning?: string
   build_type: string // "source" for manual builds, "release" for CI builds
+  deployment_mode?: 'standalone' | 'multi_instance'
 }
 
 /**

@@ -19,6 +19,8 @@ export default {
 
   // Version Badge
   version: {
+    clusterUpdate: '多节点版本发布',
+    openClusterRollout: '打开多机发布',
     currentVersion: '当前版本',
     latestVersion: '最新版本',
     upToDate: '已是最新版本',

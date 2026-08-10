@@ -24,6 +24,28 @@ func validateDeployment(c *Config) error {
 	if len(c.Deployment.NodeName) > 128 {
 		return fmt.Errorf("deployment.node_name must not exceed 128 characters")
 	}
+	if len(c.Deployment.NodeID) > 64 {
+		return fmt.Errorf("deployment.node_id must not exceed 64 characters")
+	}
+	if len(c.Deployment.NodeIDFile) > 1024 {
+		return fmt.Errorf("deployment.node_id_file must not exceed 1024 characters")
+	}
+	driver := strings.ToLower(strings.TrimSpace(c.Deployment.UpdateDriver))
+	if driver != DeploymentUpdateDriverExternal && driver != DeploymentUpdateDriverBinary {
+		return fmt.Errorf("deployment.update_driver must be one of: external/binary")
+	}
+	if c.Deployment.RolloutPollSeconds < 1 || c.Deployment.RolloutPollSeconds > 60 {
+		return fmt.Errorf("deployment.rollout_poll_seconds must be between 1 and 60")
+	}
+	if c.Deployment.RolloutDrainGraceSeconds < 0 || c.Deployment.RolloutDrainGraceSeconds > 300 {
+		return fmt.Errorf("deployment.rollout_drain_grace_seconds must be between 0 and 300")
+	}
+	if c.Deployment.RolloutDrainTimeoutSeconds < 30 || c.Deployment.RolloutDrainTimeoutSeconds > 3600 {
+		return fmt.Errorf("deployment.rollout_drain_timeout_seconds must be between 30 and 3600")
+	}
+	if c.Deployment.RolloutVerifyHeartbeats < 1 || c.Deployment.RolloutVerifyHeartbeats > 10 {
+		return fmt.Errorf("deployment.rollout_verify_heartbeats must be between 1 and 10")
+	}
 	return nil
 }
 

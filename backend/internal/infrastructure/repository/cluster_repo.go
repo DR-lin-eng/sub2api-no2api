@@ -2,10 +2,12 @@ package repository
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
@@ -19,17 +21,103 @@ func NewClusterRepository(db *sql.DB) service.ClusterRepository {
 	return &clusterRepository{db: db}
 }
 
+func initialClusterNodeDisplayName(configuredName, nodeID string) string {
+	digest := sha256.Sum256([]byte(nodeID))
+	suffix := fmt.Sprintf("-%x", digest[:4])
+	runes := []rune(strings.TrimSpace(configuredName))
+	if limit := 128 - len(suffix); len(runes) > limit {
+		runes = runes[:limit]
+	}
+	return string(runes) + suffix
+}
+
+func touchClusterNode(ctx context.Context, tx *sql.Tx, instance service.ClusterInstance) (bool, error) {
+	result, err := tx.ExecContext(ctx, `
+		UPDATE cluster_nodes
+		SET configured_name = $2,
+			last_seen_at = $3,
+			updated_at = NOW()
+		WHERE node_id = $1
+	`, instance.NodeID, instance.NodeName, instance.LastSeenAt)
+	if err != nil {
+		return false, err
+	}
+	rows, err := result.RowsAffected()
+	return rows > 0, err
+}
+
+func insertClusterNode(ctx context.Context, tx *sql.Tx, instance service.ClusterInstance, displayName string) (bool, error) {
+	result, err := tx.ExecContext(ctx, `
+		INSERT INTO cluster_nodes (node_id, display_name, configured_name, last_seen_at)
+		VALUES ($1,$2,$3,$4)
+		ON CONFLICT DO NOTHING
+	`, instance.NodeID, displayName, instance.NodeName, instance.LastSeenAt)
+	if err != nil {
+		return false, err
+	}
+	rows, err := result.RowsAffected()
+	return rows > 0, err
+}
+
+func ensureClusterNode(ctx context.Context, tx *sql.Tx, instance service.ClusterInstance) error {
+	if touched, err := touchClusterNode(ctx, tx, instance); err != nil || touched {
+		return err
+	}
+	if inserted, err := insertClusterNode(ctx, tx, instance, instance.NodeName); err != nil || inserted {
+		return err
+	}
+	// A concurrent heartbeat may have inserted this node while the first insert
+	// lost a display-name race.
+	if touched, err := touchClusterNode(ctx, tx, instance); err != nil || touched {
+		return err
+	}
+	fallback := initialClusterNodeDisplayName(instance.NodeName, instance.NodeID)
+	if inserted, err := insertClusterNode(ctx, tx, instance, fallback); err != nil || inserted {
+		return err
+	}
+	if touched, err := touchClusterNode(ctx, tx, instance); err != nil || touched {
+		return err
+	}
+	return service.ErrClusterNodeNameConflict
+}
+
 func (r *clusterRepository) UpsertInstance(ctx context.Context, instance service.ClusterInstance) error {
 	if r == nil || r.db == nil {
 		return errors.New("cluster repository database is unavailable")
 	}
-	_, err := r.db.ExecContext(ctx, `
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// The first heartbeat after migration adopts history that used the old
+	// configured node name as identity. The FK cascades the durable node_id into
+	// historical runner rows, so upgrades stop creating visible logical nodes.
+	_, err = tx.ExecContext(ctx, `
+		UPDATE cluster_nodes
+		SET node_id = $1,
+			configured_name = $2,
+			last_seen_at = $3,
+			updated_at = NOW()
+		WHERE node_id LIKE 'legacy-%'
+			AND configured_name = $2
+			AND NOT EXISTS (SELECT 1 FROM cluster_nodes WHERE node_id = $1)
+	`, instance.NodeID, instance.NodeName, instance.LastSeenAt)
+	if err != nil {
+		return err
+	}
+	if err := ensureClusterNode(ctx, tx, instance); err != nil {
+		return err
+	}
+	_, err = tx.ExecContext(ctx, `
 		INSERT INTO cluster_instances (
-			runner_id, node_name, deployment_mode, worker_mode, worker_enabled,
+			runner_id, node_id, node_name, deployment_mode, worker_mode, worker_enabled,
 			version, hostname, process_id, database_ok, redis_ok,
 			started_at, last_seen_at, stopped_at, updated_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NULL,NOW())
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NULL,NOW())
 		ON CONFLICT (runner_id) DO UPDATE SET
+			node_id = EXCLUDED.node_id,
 			node_name = EXCLUDED.node_name,
 			deployment_mode = EXCLUDED.deployment_mode,
 			worker_mode = EXCLUDED.worker_mode,
@@ -42,10 +130,35 @@ func (r *clusterRepository) UpsertInstance(ctx context.Context, instance service
 			last_seen_at = EXCLUDED.last_seen_at,
 			stopped_at = NULL,
 			updated_at = NOW()
-	`, instance.RunnerID, instance.NodeName, instance.DeploymentMode, instance.WorkerMode,
+	`, instance.RunnerID, instance.NodeID, instance.NodeName, instance.DeploymentMode, instance.WorkerMode,
 		instance.WorkerEnabled, instance.Version, instance.Hostname, instance.ProcessID,
 		instance.DatabaseOK, instance.RedisOK, instance.StartedAt, instance.LastSeenAt)
-	return err
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (r *clusterRepository) RenameNode(ctx context.Context, nodeID, displayName string) error {
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE cluster_nodes
+		SET display_name = $2, updated_at = NOW()
+		WHERE node_id = $1
+	`, nodeID, displayName)
+	if err != nil {
+		if isUniqueViolation(err) {
+			return service.ErrClusterNodeNameConflict
+		}
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return service.ErrClusterNodeNotFound
+	}
+	return nil
 }
 
 func (r *clusterRepository) MarkInstanceStopped(ctx context.Context, runnerID string, stoppedAt time.Time) error {
@@ -62,10 +175,31 @@ func (r *clusterRepository) MarkInstanceStopped(ctx context.Context, runnerID st
 
 func (r *clusterRepository) ListInstances(ctx context.Context) ([]service.ClusterInstance, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT runner_id, node_name, deployment_mode, worker_mode, worker_enabled,
-			version, hostname, process_id, database_ok, redis_ok,
-			started_at, last_seen_at, stopped_at
-		FROM cluster_instances
+		SELECT node_id, runner_id, node_name, deployment_mode, worker_mode, worker_enabled,
+			version, hostname, process_id, database_ok, redis_ok, started_at, last_seen_at, stopped_at
+		FROM (
+			SELECT DISTINCT ON (instance.node_id)
+				instance.node_id,
+				instance.runner_id,
+				node.display_name AS node_name,
+				instance.deployment_mode,
+				instance.worker_mode,
+				instance.worker_enabled,
+				instance.version,
+				instance.hostname,
+				instance.process_id,
+				instance.database_ok,
+				instance.redis_ok,
+				instance.started_at,
+				instance.last_seen_at,
+				instance.stopped_at
+			FROM cluster_instances AS instance
+			JOIN cluster_nodes AS node ON node.node_id = instance.node_id
+			ORDER BY instance.node_id,
+				(instance.stopped_at IS NULL) DESC,
+				instance.started_at DESC,
+				instance.last_seen_at DESC
+		) AS latest
 		ORDER BY last_seen_at DESC, node_name ASC
 		LIMIT 200
 	`)
@@ -78,7 +212,7 @@ func (r *clusterRepository) ListInstances(ctx context.Context) ([]service.Cluste
 		var instance service.ClusterInstance
 		var stoppedAt sql.NullTime
 		if err := rows.Scan(
-			&instance.RunnerID, &instance.NodeName, &instance.DeploymentMode,
+			&instance.NodeID, &instance.RunnerID, &instance.NodeName, &instance.DeploymentMode,
 			&instance.WorkerMode, &instance.WorkerEnabled, &instance.Version,
 			&instance.Hostname, &instance.ProcessID, &instance.DatabaseOK,
 			&instance.RedisOK, &instance.StartedAt, &instance.LastSeenAt, &stoppedAt,
@@ -128,7 +262,7 @@ func (r *clusterRepository) PruneRuntime(ctx context.Context, stoppedBefore, tas
 	}
 	if _, err := tx.ExecContext(ctx, `
 		DELETE FROM cluster_instances
-		WHERE stopped_at IS NOT NULL AND stopped_at < $1
+		WHERE COALESCE(stopped_at, last_seen_at) < $1
 	`, stoppedBefore); err != nil {
 		return err
 	}

@@ -27,6 +27,7 @@ import (
 var (
 	ErrNoUpdateAvailable         = infraerrors.Conflict("ALREADY_UP_TO_DATE", "no update available; current version is latest")
 	ErrRollbackVersionNotAllowed = infraerrors.BadRequest("ROLLBACK_VERSION_NOT_ALLOWED", "version is not in the allowed rollback list")
+	ErrReleaseVersionNotFound    = infraerrors.NotFound("RELEASE_VERSION_NOT_FOUND", "release version was not found")
 )
 
 const (
@@ -93,6 +94,7 @@ type UpdateInfo struct {
 	Cached         bool         `json:"cached"`
 	Warning        string       `json:"warning,omitempty"`
 	BuildType      string       `json:"build_type"` // "source" or "release"
+	DeploymentMode string       `json:"deployment_mode,omitempty"`
 }
 
 // ReleaseInfo contains GitHub release details
@@ -183,6 +185,73 @@ func (s *UpdateService) PerformUpdate(ctx context.Context) error {
 	}
 
 	return s.applyReleaseAssets(ctx, info.ReleaseInfo.Assets)
+}
+
+// ResolveReleaseVersion freezes a rollout target. Empty and "latest" resolve
+// once through the live latest-release endpoint; explicit versions must exist
+// in the recent stable release set.
+func (s *UpdateService) ResolveReleaseVersion(ctx context.Context, requested string) (string, error) {
+	target := strings.TrimPrefix(strings.TrimSpace(requested), "v")
+	if target == "" || strings.EqualFold(target, "latest") {
+		info, err := s.fetchLatestRelease(ctx)
+		if err != nil {
+			return "", fmt.Errorf("fetch latest release: %w", err)
+		}
+		return strings.TrimPrefix(info.LatestVersion, "v"), nil
+	}
+	release, err := s.findStableRelease(ctx, target)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimPrefix(release.TagName, "v"), nil
+}
+
+// InstallVersion installs one exact stable release. Cluster rollouts use this
+// instead of resolving "latest" independently on every node.
+func (s *UpdateService) InstallVersion(ctx context.Context, version string) error {
+	target := strings.TrimPrefix(strings.TrimSpace(version), "v")
+	if target == "" {
+		return ErrReleaseVersionNotFound
+	}
+	if normalizeClusterReleaseVersion(s.currentVersion) == target {
+		return nil
+	}
+	release, err := s.findStableRelease(ctx, target)
+	if err != nil {
+		return err
+	}
+	return s.applyReleaseAssets(ctx, releaseAssets(release))
+}
+
+func (s *UpdateService) findStableRelease(ctx context.Context, target string) (*GitHubRelease, error) {
+	releases, err := s.githubClient.FetchRecentReleases(ctx, githubRepo, 100)
+	if err != nil {
+		return nil, err
+	}
+	for _, release := range releases {
+		if release == nil || release.Draft || release.Prerelease {
+			continue
+		}
+		if strings.TrimPrefix(release.TagName, "v") == target {
+			return release, nil
+		}
+	}
+	return nil, ErrReleaseVersionNotFound.WithMetadata(map[string]string{"version": target})
+}
+
+func releaseAssets(release *GitHubRelease) []Asset {
+	if release == nil {
+		return nil
+	}
+	assets := make([]Asset, len(release.Assets))
+	for i, asset := range release.Assets {
+		assets[i] = Asset{
+			Name:        asset.Name,
+			DownloadURL: asset.BrowserDownloadURL,
+			Size:        asset.Size,
+		}
+	}
+	return assets
 }
 
 // applyReleaseAssets downloads the platform archive from the given release assets,
@@ -381,16 +450,7 @@ func (s *UpdateService) RollbackToVersion(ctx context.Context, version string) e
 		return ErrRollbackVersionNotAllowed
 	}
 
-	assets := make([]Asset, len(match.Assets))
-	for i, a := range match.Assets {
-		assets[i] = Asset{
-			Name:        a.Name,
-			DownloadURL: a.BrowserDownloadURL,
-			Size:        a.Size,
-		}
-	}
-
-	return s.applyReleaseAssets(ctx, assets)
+	return s.applyReleaseAssets(ctx, releaseAssets(match))
 }
 
 // fetchRollbackCandidates fetches recent releases and keeps the newest

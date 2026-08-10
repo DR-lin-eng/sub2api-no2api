@@ -37,6 +37,7 @@ func SetupRouter(
 	opsService *service.OpsService,
 	settingService *service.SettingService,
 	compositeResolver *service.CompositeRouteResolver,
+	clusterReleaseService *service.ClusterReleaseService,
 	clientIPResolver *clientip.Resolver,
 	cfg *config.Config,
 	redisClient *redis.Client,
@@ -87,6 +88,7 @@ func SetupRouter(
 		return nil
 	}))
 	r.Use(middleware2.ServerTiming(cfg.Server.EnableServerTiming))
+	r.Use(middleware2.ClusterReadiness(clusterReleaseService))
 
 	// Serve embedded frontend with settings injection if available
 	if web.HasEmbeddedFrontend() {
@@ -108,7 +110,7 @@ func SetupRouter(
 	}
 
 	// 注册路由
-	registerRoutes(r, handlers, jwtAuth, optionalJWTAuth, adminAuth, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, cfg, redisClient, db)
+	registerRoutes(r, handlers, jwtAuth, optionalJWTAuth, adminAuth, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, clusterReleaseService, cfg, redisClient, db)
 
 	return r
 }
@@ -128,12 +130,13 @@ func registerRoutes(
 	opsService *service.OpsService,
 	settingService *service.SettingService,
 	compositeResolver *service.CompositeRouteResolver,
+	clusterReleaseService *service.ClusterReleaseService,
 	cfg *config.Config,
 	redisClient *redis.Client,
 	db *sql.DB,
 ) {
 	// 通用路由（健康检查、状态等）
-	routes.RegisterCommonRoutes(r)
+	routes.RegisterCommonRoutes(r, clusterReleaseService)
 
 	// API v1
 	v1 := r.Group("/api/v1")

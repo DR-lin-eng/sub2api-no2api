@@ -231,7 +231,28 @@
                 </button>
               </div>
 
-              <!-- Priority 3: Update available for source build - show git pull hint -->
+              <!-- Priority 3: Multi-instance updates are orchestrated from the cluster page -->
+              <div v-else-if="hasUpdate && isMultiInstance" class="space-y-2">
+                <div class="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800/50 dark:bg-blue-900/20">
+                  <div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50">
+                    <Icon name="server" size="sm" class="text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-blue-700 dark:text-blue-300">{{ t('version.clusterUpdate') }}</p>
+                    <p class="text-xs text-blue-600/70 dark:text-blue-400/70">v{{ latestVersion }}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600"
+                  @click="openClusterPage"
+                >
+                  <Icon name="server" size="sm" />
+                  {{ t('version.openClusterRollout') }}
+                </button>
+              </div>
+
+              <!-- Priority 4: Update available for source build - show git pull hint -->
               <div v-else-if="hasUpdate && !isReleaseBuild" class="space-y-2">
                 <a
                   v-if="releaseInfo?.html_url && releaseInfo.html_url !== '#'"
@@ -291,7 +312,7 @@
                 </div>
               </div>
 
-              <!-- Priority 4: Update available for release build - show update button -->
+              <!-- Priority 5: Update available for release build - show update button -->
               <div v-else-if="hasUpdate && isReleaseBuild" class="space-y-2">
                 <!-- Update info card -->
                 <div
@@ -355,7 +376,7 @@
                 </a>
               </div>
 
-              <!-- Priority 5: Up to date - GitHub link + version rollback -->
+              <!-- Priority 6: Up to date - GitHub link + version rollback -->
               <div v-else class="space-y-2">
                 <a
                   v-if="releaseInfo?.html_url && releaseInfo.html_url !== '#'"
@@ -375,7 +396,7 @@
                 </a>
 
                 <!-- Version rollback entry -->
-                <div class="border-t border-gray-100 pt-2 dark:border-dark-700">
+                <div v-if="!isMultiInstance" class="border-t border-gray-100 pt-2 dark:border-dark-700">
                   <button
                     @click="toggleRollbackPanel"
                     class="group flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-xs text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-600 dark:text-dark-500 dark:hover:bg-dark-700/50 dark:hover:text-dark-300"
@@ -640,6 +661,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { useAuthStore, useAppStore } from '@/stores'
 import {
   performUpdate,
@@ -656,6 +678,7 @@ const GITHUB_REPO = 'DR-lin-eng/sub2api-no2api'
 const DOCKER_IMAGE = 'ghcr.io/dr-lin-eng/sub2api-no2api'
 
 const { t } = useI18n()
+const router = useRouter()
 
 const props = defineProps<{
   version?: string
@@ -730,6 +753,12 @@ const activeManualCommand = computed(() =>
 
 // Only show update check for release builds (binary/docker deployment)
 const isReleaseBuild = computed(() => buildType.value === 'release')
+const isMultiInstance = computed(() => appStore.deploymentMode === 'multi_instance')
+
+function openClusterPage() {
+  closeDropdown()
+  void router.push('/admin/multi-instance')
+}
 
 function toggleDropdown() {
   dropdownOpen.value = !dropdownOpen.value

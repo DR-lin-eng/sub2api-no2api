@@ -81,7 +81,7 @@ func RegisterAdminRoutes(
 		registerSystemRoutes(admin, h)
 
 		// 多机部署状态
-		registerClusterRoutes(admin, h)
+		registerClusterRoutes(admin, h, stepUpAuth)
 
 		// 订阅管理
 		registerSubscriptionRoutes(admin, h)
@@ -165,10 +165,17 @@ func registerAuditLogRoutes(admin *gin.RouterGroup, h *handler.Handlers, _ middl
 	}
 }
 
-func registerClusterRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+func registerClusterRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAuth middleware.StepUpAuthMiddleware) {
 	cluster := admin.Group("/cluster")
 	{
 		cluster.GET("/status", h.Admin.Cluster.GetStatus)
+		cluster.PUT("/nodes/:node_id", h.Admin.Cluster.RenameNode)
+		cluster.POST("/rollouts", gin.HandlerFunc(stepUpAuth), h.Admin.Cluster.CreateRollout)
+		cluster.GET("/rollouts/:id", h.Admin.Cluster.GetRollout)
+		cluster.POST("/rollouts/:id/pause", h.Admin.Cluster.PauseRollout)
+		cluster.POST("/rollouts/:id/resume", h.Admin.Cluster.ResumeRollout)
+		cluster.POST("/rollouts/:id/cancel", gin.HandlerFunc(stepUpAuth), h.Admin.Cluster.CancelRollout)
+		cluster.POST("/rollouts/:id/targets/:node_id/retry", h.Admin.Cluster.RetryTarget)
 	}
 }
 

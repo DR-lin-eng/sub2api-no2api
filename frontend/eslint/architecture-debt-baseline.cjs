@@ -30,7 +30,6 @@ module.exports = {
       'src/features/admin-channel-monitor/presentation/widgets/MonitorTemplateApplyPickerDialog.vue',
       'src/features/admin-channel-monitor/presentation/widgets/MonitorTemplateManagerDialog.vue',
       'src/features/admin-channels/presentation/pages/ChannelsPage.vue',
-      'src/features/admin-cluster/presentation/pages/MultiInstancePage.vue',
       'src/features/admin-dashboard/presentation/pages/DashboardPage.vue',
       'src/features/admin-groups/presentation/widgets/CompositeRoutesDialog.vue',
       'src/features/admin-groups/presentation/widgets/GroupRPMOverridesDialog.vue',

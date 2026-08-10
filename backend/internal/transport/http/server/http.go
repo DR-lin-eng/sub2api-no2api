@@ -61,6 +61,7 @@ func ProvideRouter(
 	opsService *service.OpsService,
 	settingService *service.SettingService,
 	compositeResolver *service.CompositeRouteResolver,
+	clusterReleaseService *service.ClusterReleaseService,
 	clientIPResolver *clientip.Resolver,
 	redisClient *redis.Client,
 	db *sql.DB,
@@ -113,7 +114,7 @@ func ProvideRouter(
 		service.SetWebSearchManager(websearch.NewManager(configs, redisClient))
 	})
 
-	return SetupRouter(r, handlers, jwtAuth, optionalJWTAuth, adminAuth, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, clientIPResolver, cfg, redisClient, db)
+	return SetupRouter(r, handlers, jwtAuth, optionalJWTAuth, adminAuth, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, clusterReleaseService, clientIPResolver, cfg, redisClient, db)
 }
 
 // ProvideHTTPServer 提供 HTTP 服务器

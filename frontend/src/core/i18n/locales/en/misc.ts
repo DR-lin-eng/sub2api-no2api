@@ -19,6 +19,8 @@ export default {
 
   // Version Badge
   version: {
+    clusterUpdate: 'Multi-node release',
+    openClusterRollout: 'Open cluster rollout',
     currentVersion: 'Current Version',
     latestVersion: 'Latest Version',
     upToDate: "You're running the latest version.",

@@ -201,6 +201,39 @@ func TestSystemHandlerHighImpactActionsRequireConfirmation(t *testing.T) {
 	require.Zero(t, updateSvc.rollbackToCall)
 }
 
+func TestSystemHandlerRejectsLocalOperationsInMultiInstanceMode(t *testing.T) {
+	updateSvc := &systemHandlerUpdateServiceStub{}
+	repo := newMemoryIdempotencyRepoStub()
+	lockSvc := service.NewSystemOperationLockService(repo, service.IdempotencyConfig{
+		ProcessingTimeout:  time.Second,
+		SystemOperationTTL: time.Minute,
+	})
+	handler := NewSystemHandler(updateSvc, lockSvc)
+	handler.SetMultiInstance(true)
+
+	router := gin.New()
+	router.POST("/api/v1/admin/system/update", handler.PerformUpdate)
+	router.POST("/api/v1/admin/system/rollback", handler.Rollback)
+	router.POST("/api/v1/admin/system/restart", handler.RestartService)
+
+	for _, path := range []string{
+		"/api/v1/admin/system/update",
+		"/api/v1/admin/system/rollback",
+		"/api/v1/admin/system/restart",
+	} {
+		recorder := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"confirm":true}`))
+		request.Header.Set("Content-Type", "application/json")
+		router.ServeHTTP(recorder, request)
+
+		require.Equal(t, http.StatusConflict, recorder.Code, path)
+		require.Contains(t, recorder.Body.String(), `"reason":"MULTI_INSTANCE_ROLLOUT_REQUIRED"`, path)
+	}
+	require.Zero(t, updateSvc.performCall)
+	require.Zero(t, updateSvc.rollbackCall)
+	require.Zero(t, updateSvc.rollbackToCall)
+}
+
 // TestSystemHandlerPerformUpdateSurvivesClientDisconnect reproduces #4504:
 // the browser or a reverse proxy (axios 30s default, nginx proxy_read_timeout
 // 60s) aborts the long-running update request and cancels the request

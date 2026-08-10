@@ -97,6 +97,31 @@ func TestUpdateServicePerformUpdateFailsWhenLiveReleaseLookupFails(t *testing.T)
 	require.Equal(t, "DR-lin-eng/sub2api-no2api", client.latestRepo)
 }
 
+func TestUpdateServiceResolveReleaseVersionFreezesStableTarget(t *testing.T) {
+	client := &updateServiceGitHubClientStub{
+		recentReleases: []*GitHubRelease{
+			{TagName: "v1.2.4-beta.1", Prerelease: true},
+			{TagName: "v1.2.4", Name: "v1.2.4"},
+		},
+	}
+	svc := NewUpdateService(&updateServiceCacheStub{}, client, "1.2.3", "release")
+
+	version, err := svc.ResolveReleaseVersion(context.Background(), "v1.2.4")
+
+	require.NoError(t, err)
+	require.Equal(t, "1.2.4", version)
+	require.Equal(t, githubRepo, client.recentRepo)
+}
+
+func TestUpdateServiceResolveReleaseVersionRejectsUnknownTarget(t *testing.T) {
+	client := &updateServiceGitHubClientStub{recentReleases: []*GitHubRelease{{TagName: "v1.2.3"}}}
+	svc := NewUpdateService(&updateServiceCacheStub{}, client, "1.2.3", "release")
+
+	_, err := svc.ResolveReleaseVersion(context.Background(), "1.2.99")
+
+	require.ErrorIs(t, err, ErrReleaseVersionNotFound)
+}
+
 func TestApplyReleaseAssetsRequiresSignedChecksumManifest(t *testing.T) {
 	svc := NewUpdateService(&updateServiceCacheStub{}, &updateServiceGitHubClientStub{}, "0.1.132", "release")
 	archive := Asset{

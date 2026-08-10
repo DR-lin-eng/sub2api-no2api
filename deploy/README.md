@@ -246,6 +246,11 @@ docker compose down -v
 | `ADMIN_EMAIL` | No | `admin@sub2api.local` | Admin email |
 | `ADMIN_PASSWORD` | No | *(auto-generated)* | Admin password |
 | `TZ` | No | `Asia/Shanghai` | Timezone |
+| `DEPLOYMENT_MODE` | No | `standalone` | Set `multi_instance` on every load-balanced replica. |
+| `DEPLOYMENT_NODE_ID` | No | *(generated)* | Optional fixed logical node identity. |
+| `DEPLOYMENT_NODE_ID_FILE` | No | `/app/data/.cluster-node-id` | Node-local persistent identity file; never share it between replicas. |
+| `NODE_NAME` | No | hostname | Initial display name; it can later be changed in the multi-instance admin page. |
+| `DEPLOYMENT_UPDATE_DRIVER` | No | `external` | `external` for container orchestration or `binary` for signed in-place updates. |
 | `UPDATE_GITHUB_TOKEN` | No | *(empty)* | Token for `api.github.com` release checks only; asset downloads remain anonymous. |
 | `GEMINI_OAUTH_CLIENT_ID` | No | *(builtin)* | Google OAuth client ID (Gemini OAuth). Leave empty to use the built-in Gemini CLI client. |
 | `GEMINI_OAUTH_CLIENT_SECRET` | No | *(builtin)* | Google OAuth client secret (Gemini OAuth). Leave empty to use the built-in Gemini CLI client. |

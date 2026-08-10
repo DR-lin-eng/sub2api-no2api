@@ -106,6 +106,7 @@ func TestProvideCleanup_WithMinimalDependencies_NoPanic(t *testing.T) {
 		&service.DashboardAggregationService{},
 		deferredSvc,
 		timingWheelSvc,
+		nil, // clusterRelease
 		nil, // cluster
 		nil, // clientIPResolver
 	)

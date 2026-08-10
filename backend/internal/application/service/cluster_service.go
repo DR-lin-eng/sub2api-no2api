@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
 	"github.com/google/uuid"
 )
@@ -29,9 +30,15 @@ const (
 	ClusterTaskStatusLost      = "lost"
 )
 
-var ErrClusterTaskLeaseLost = errors.New("cluster task lease lost")
+var (
+	ErrClusterTaskLeaseLost    = errors.New("cluster task lease lost")
+	ErrClusterNodeNotFound     = infraerrors.NotFound("CLUSTER_NODE_NOT_FOUND", "cluster node not found")
+	ErrClusterNodeNameConflict = infraerrors.Conflict("CLUSTER_NODE_NAME_CONFLICT", "cluster node name is already in use")
+	ErrClusterNodeNameInvalid  = infraerrors.BadRequest("CLUSTER_NODE_NAME_INVALID", "cluster node name is invalid")
+)
 
 type ClusterInstance struct {
+	NodeID         string     `json:"node_id"`
 	RunnerID       string     `json:"runner_id"`
 	NodeName       string     `json:"node_name"`
 	DeploymentMode string     `json:"deployment_mode"`
@@ -67,6 +74,7 @@ type ClusterTaskRun struct {
 
 type ClusterRepository interface {
 	UpsertInstance(ctx context.Context, instance ClusterInstance) error
+	RenameNode(ctx context.Context, nodeID, displayName string) error
 	MarkInstanceStopped(ctx context.Context, runnerID string, stoppedAt time.Time) error
 	ListInstances(ctx context.Context) ([]ClusterInstance, error)
 	ExpireStaleTasks(ctx context.Context, now time.Time) error
@@ -82,15 +90,21 @@ type ClusterHealthChecker interface {
 }
 
 type ClusterDeploymentStatus struct {
-	Mode                     string `json:"mode"`
-	NodeName                 string `json:"node_name"`
-	RunnerID                 string `json:"runner_id"`
-	WorkerMode               string `json:"worker_mode"`
-	WorkerEnabled            bool   `json:"worker_enabled"`
-	FrontendEnabled          bool   `json:"frontend_enabled"`
-	HeartbeatIntervalSeconds int    `json:"heartbeat_interval_seconds"`
-	StaleAfterSeconds        int    `json:"stale_after_seconds"`
-	TaskLeaseSeconds         int    `json:"task_lease_seconds"`
+	Mode                       string `json:"mode"`
+	NodeID                     string `json:"node_id"`
+	NodeName                   string `json:"node_name"`
+	RunnerID                   string `json:"runner_id"`
+	WorkerMode                 string `json:"worker_mode"`
+	WorkerEnabled              bool   `json:"worker_enabled"`
+	FrontendEnabled            bool   `json:"frontend_enabled"`
+	HeartbeatIntervalSeconds   int    `json:"heartbeat_interval_seconds"`
+	StaleAfterSeconds          int    `json:"stale_after_seconds"`
+	TaskLeaseSeconds           int    `json:"task_lease_seconds"`
+	UpdateDriver               string `json:"update_driver"`
+	RolloutPollSeconds         int    `json:"rollout_poll_seconds"`
+	RolloutDrainGraceSeconds   int    `json:"rollout_drain_grace_seconds"`
+	RolloutDrainTimeoutSeconds int    `json:"rollout_drain_timeout_seconds"`
+	RolloutVerifyHeartbeats    int    `json:"rollout_verify_heartbeats"`
 }
 
 type ClusterSummary struct {
@@ -107,6 +121,7 @@ type ClusterStatus struct {
 	Summary    ClusterSummary          `json:"summary"`
 	Instances  []ClusterInstance       `json:"instances"`
 	Tasks      []ClusterTaskRun        `json:"tasks"`
+	Release    *ClusterReleaseOverview `json:"release,omitempty"`
 	ObservedAt time.Time               `json:"observed_at"`
 }
 
@@ -121,6 +136,7 @@ type ClusterService struct {
 	health    ClusterHealthChecker
 	buildInfo BuildInfo
 
+	nodeID    string
 	nodeName  string
 	runnerID  string
 	startedAt time.Time
@@ -135,6 +151,16 @@ type ClusterService struct {
 }
 
 func NewClusterService(repo ClusterRepository, cfg *config.Config, health ClusterHealthChecker, buildInfo BuildInfo) *ClusterService {
+	nodeID := "sub2api-node"
+	if cfg != nil && strings.TrimSpace(cfg.Deployment.NodeID) != "" {
+		nodeID = strings.TrimSpace(cfg.Deployment.NodeID)
+	} else if cfg != nil && strings.TrimSpace(cfg.Deployment.NodeName) != "" {
+		nodeID = strings.TrimSpace(cfg.Deployment.NodeName)
+	}
+	return newClusterService(repo, cfg, health, buildInfo, nodeID)
+}
+
+func newClusterService(repo ClusterRepository, cfg *config.Config, health ClusterHealthChecker, buildInfo BuildInfo, nodeID string) *ClusterService {
 	ctx, cancel := context.WithCancel(context.Background())
 	nodeName := "sub2api-node"
 	if cfg != nil && strings.TrimSpace(cfg.Deployment.NodeName) != "" {
@@ -145,18 +171,28 @@ func NewClusterService(repo ClusterRepository, cfg *config.Config, health Cluste
 		cfg:       cfg,
 		health:    health,
 		buildInfo: buildInfo,
+		nodeID:    nodeID,
 		nodeName:  nodeName,
-		runnerID:  fmt.Sprintf("%s-%s", nodeName, uuid.NewString()),
+		runnerID:  fmt.Sprintf("%s-%s", nodeID, uuid.NewString()),
 		startedAt: time.Now().UTC(),
 		ctx:       ctx,
 		cancel:    cancel,
 	}
 }
 
-func ProvideClusterService(repo ClusterRepository, cfg *config.Config, health ClusterHealthChecker, buildInfo BuildInfo) *ClusterService {
-	svc := NewClusterService(repo, cfg, health, buildInfo)
+func ProvideClusterService(repo ClusterRepository, cfg *config.Config, health ClusterHealthChecker, buildInfo BuildInfo) (*ClusterService, error) {
+	if cfg == nil || !cfg.Deployment.IsMultiInstance() {
+		svc := NewClusterService(repo, cfg, health, buildInfo)
+		svc.Start()
+		return svc, nil
+	}
+	nodeID, err := resolveClusterNodeID(cfg)
+	if err != nil {
+		return nil, err
+	}
+	svc := newClusterService(repo, cfg, health, buildInfo, nodeID)
 	svc.Start()
-	return svc
+	return svc, nil
 }
 
 func (s *ClusterService) Start() {
@@ -202,6 +238,51 @@ func (s *ClusterService) WorkerEnabled() bool {
 	return s != nil && s.cfg != nil && s.cfg.Deployment.WorkerEnabledResolved()
 }
 
+func (s *ClusterService) NodeName() string {
+	if s == nil {
+		return ""
+	}
+	return s.nodeName
+}
+
+func (s *ClusterService) NodeID() string {
+	if s == nil {
+		return ""
+	}
+	return s.nodeID
+}
+
+func (s *ClusterService) RunnerID() string {
+	if s == nil {
+		return ""
+	}
+	return s.runnerID
+}
+
+func (s *ClusterService) Version() string {
+	if s == nil {
+		return ""
+	}
+	return s.buildInfo.Version
+}
+
+func (s *ClusterService) RenameNode(ctx context.Context, nodeID, displayName string) error {
+	if s == nil || s.repo == nil {
+		return errors.New("cluster service is unavailable")
+	}
+	nodeID = strings.TrimSpace(nodeID)
+	displayName = strings.TrimSpace(displayName)
+	if nodeID == "" || displayName == "" || len(displayName) > 128 {
+		return ErrClusterNodeNameInvalid
+	}
+	for _, char := range displayName {
+		if char < 0x20 || char == 0x7f {
+			return ErrClusterNodeNameInvalid
+		}
+	}
+	return s.repo.RenameNode(ctx, nodeID, displayName)
+}
+
 func (s *ClusterService) heartbeatInterval() time.Duration {
 	seconds := 30
 	if s != nil && s.cfg != nil && s.cfg.Deployment.HeartbeatIntervalSeconds > 0 {
@@ -243,6 +324,7 @@ func (s *ClusterService) currentInstance(ctx context.Context) ClusterInstance {
 		workerEnabled = s.cfg.Deployment.WorkerEnabledResolved()
 	}
 	return ClusterInstance{
+		NodeID:         s.nodeID,
 		RunnerID:       s.runnerID,
 		NodeName:       s.nodeName,
 		DeploymentMode: mode,
@@ -324,15 +406,21 @@ func (s *ClusterService) GetStatus(ctx context.Context) (*ClusterStatus, error) 
 	}
 	status := &ClusterStatus{
 		Deployment: ClusterDeploymentStatus{
-			Mode:                     deployment.Mode,
-			NodeName:                 s.nodeName,
-			RunnerID:                 s.runnerID,
-			WorkerMode:               deployment.WorkerMode(),
-			WorkerEnabled:            deployment.WorkerEnabledResolved(),
-			FrontendEnabled:          true,
-			HeartbeatIntervalSeconds: deployment.HeartbeatIntervalSeconds,
-			StaleAfterSeconds:        deployment.StaleAfterSeconds,
-			TaskLeaseSeconds:         deployment.TaskLeaseSeconds,
+			Mode:                       deployment.Mode,
+			NodeID:                     s.nodeID,
+			NodeName:                   s.nodeName,
+			RunnerID:                   s.runnerID,
+			WorkerMode:                 deployment.WorkerMode(),
+			WorkerEnabled:              deployment.WorkerEnabledResolved(),
+			FrontendEnabled:            true,
+			HeartbeatIntervalSeconds:   deployment.HeartbeatIntervalSeconds,
+			StaleAfterSeconds:          deployment.StaleAfterSeconds,
+			TaskLeaseSeconds:           deployment.TaskLeaseSeconds,
+			UpdateDriver:               deployment.UpdateDriverMode(),
+			RolloutPollSeconds:         deployment.RolloutPollSeconds,
+			RolloutDrainGraceSeconds:   deployment.RolloutDrainGraceSeconds,
+			RolloutDrainTimeoutSeconds: deployment.RolloutDrainTimeoutSeconds,
+			RolloutVerifyHeartbeats:    deployment.RolloutVerifyHeartbeats,
 		},
 		Instances:  instances,
 		Tasks:      tasks,
@@ -342,6 +430,9 @@ func (s *ClusterService) GetStatus(ctx context.Context) (*ClusterStatus, error) 
 	for i := range status.Instances {
 		instance := &status.Instances[i]
 		instance.Current = instance.RunnerID == s.runnerID
+		if instance.Current {
+			status.Deployment.NodeName = instance.NodeName
+		}
 		switch {
 		case instance.StoppedAt != nil:
 			instance.Status = ClusterInstanceStatusStopped

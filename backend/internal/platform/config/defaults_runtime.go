@@ -8,11 +8,18 @@ func setRuntimeDefaults() {
 	// Deployment. API and frontend remain enabled on every node; this only
 	// controls cluster identity and scheduled worker candidacy.
 	viper.SetDefault("deployment.mode", DeploymentModeStandalone)
+	viper.SetDefault("deployment.node_id", "")
+	viper.SetDefault("deployment.node_id_file", "")
 	viper.SetDefault("deployment.node_name", "")
 	viper.SetDefault("deployment.worker_enabled", WorkerModeAuto)
 	viper.SetDefault("deployment.heartbeat_interval_seconds", 30)
 	viper.SetDefault("deployment.stale_after_seconds", 90)
 	viper.SetDefault("deployment.task_lease_seconds", 60)
+	viper.SetDefault("deployment.update_driver", DeploymentUpdateDriverExternal)
+	viper.SetDefault("deployment.rollout_poll_seconds", 5)
+	viper.SetDefault("deployment.rollout_drain_grace_seconds", 10)
+	viper.SetDefault("deployment.rollout_drain_timeout_seconds", 900)
+	viper.SetDefault("deployment.rollout_verify_heartbeats", 2)
 
 	// Server
 	viper.SetDefault("server.host", "0.0.0.0")

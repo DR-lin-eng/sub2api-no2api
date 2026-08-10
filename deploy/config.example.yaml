@@ -17,8 +17,14 @@ deployment:
   # multi_instance uses Redis-backed distributed slots across replicas.
   # standalone 使用进程内用户/API Key 槽位以承受单热 Key；multi_instance 使用 Redis 分布式槽位。
   mode: "standalone"
-  # Stable operator-defined node name. Empty falls back to the hostname.
-  # 稳定节点名；留空时使用 hostname。多机部署建议显式设置且各节点不同。
+  # Stable logical identity. Leave empty to create it once in node_id_file.
+  # 稳定逻辑节点 ID。留空时会在 node_id_file 中生成一次并持续复用。
+  node_id: ""
+  # Keep this file on a node-local persistent volume. Never share it between replicas.
+  # 此文件必须放在每个节点各自的持久卷中，多个副本不能共享。
+  node_id_file: "/app/data/.cluster-node-id"
+  # Initial display name. It can later be changed from /admin/multi-instance.
+  # 初始显示名称；启动后可在 /admin/multi-instance 中重命名。
   node_name: ""
   # auto, true, or false. auto joins worker election; false disables only cluster jobs.
   # auto、true 或 false。auto 自动参与 Worker 选举；false 仅停用集群后台任务。
@@ -26,6 +32,13 @@ deployment:
   heartbeat_interval_seconds: 30
   stale_after_seconds: 90
   task_lease_seconds: 60
+  # external: Docker/Kubernetes replaces the image; binary: the node installs a signed release itself.
+  # external：由 Docker/Kubernetes 替换镜像；binary：节点自行安装签名发布包。
+  update_driver: "external"
+  rollout_poll_seconds: 5
+  rollout_drain_grace_seconds: 10
+  rollout_drain_timeout_seconds: 900
+  rollout_verify_heartbeats: 2
 
 # =============================================================================
 # Server Configuration

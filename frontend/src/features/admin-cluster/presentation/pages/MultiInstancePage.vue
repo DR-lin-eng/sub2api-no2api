@@ -54,6 +54,17 @@
         </dl>
       </section>
 
+      <ClusterReleasePanel
+        :overview="status?.release"
+        :deployment="status?.deployment"
+        :busy="actionBusy"
+        @create="handleCreateRollout"
+        @pause="handlePauseRollout"
+        @resume="handleResumeRollout"
+        @cancel="handleCancelRollout"
+        @retry="handleRetryTarget"
+      />
+
       <section aria-labelledby="cluster-nodes-title">
         <div class="mb-3 flex items-center justify-between">
           <h2 id="cluster-nodes-title" class="text-sm font-semibold text-gray-900 dark:text-white">
@@ -74,17 +85,55 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 dark:divide-dark-700">
-              <tr v-for="instance in instances" :key="instance.runner_id" class="align-top">
+              <tr v-for="instance in instances" :key="instance.node_id" class="align-top">
                 <td class="px-4 py-3">
                   <div class="flex min-w-0 items-center gap-2">
                     <span class="h-2 w-2 flex-none rounded-full" :class="instanceDotClass(instance.status)" />
                     <div class="min-w-0">
-                      <div class="flex items-center gap-2">
+                      <div v-if="editingNodeId === instance.node_id" class="flex items-center gap-1.5">
+                        <input
+                          v-model.trim="editingNodeName"
+                          type="text"
+                          maxlength="128"
+                          class="h-8 min-w-0 flex-1 rounded-md border border-gray-300 bg-white px-2 text-sm text-gray-900 outline-none focus:border-primary-500 dark:border-dark-600 dark:bg-dark-900 dark:text-white"
+                          @keyup.enter="saveNodeName(instance.node_id)"
+                          @keyup.esc="cancelNodeRename"
+                        />
+                        <button
+                          type="button"
+                          class="inline-flex h-8 w-8 flex-none items-center justify-center rounded-md text-emerald-600 hover:bg-emerald-50 disabled:opacity-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+                          :title="t('admin.cluster.nodes.saveName')"
+                          :disabled="actionBusy || !editingNodeName"
+                          @click="saveNodeName(instance.node_id)"
+                        >
+                          <Icon name="check" size="sm" />
+                        </button>
+                        <button
+                          type="button"
+                          class="inline-flex h-8 w-8 flex-none items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-dark-700"
+                          :title="t('admin.cluster.nodes.cancelRename')"
+                          @click="cancelNodeRename"
+                        >
+                          <Icon name="x" size="sm" />
+                        </button>
+                      </div>
+                      <div v-else class="flex items-center gap-2">
                         <span class="truncate font-medium text-gray-900 dark:text-white">{{ instance.node_name }}</span>
                         <span v-if="instance.current" class="rounded bg-primary-50 px-1.5 py-0.5 text-[11px] font-medium text-primary-700 dark:bg-primary-950/50 dark:text-primary-300">
                           {{ t('admin.cluster.nodes.current') }}
                         </span>
+                        <button
+                          type="button"
+                          class="inline-flex h-7 w-7 flex-none items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-dark-700 dark:hover:text-gray-200"
+                          :title="t('admin.cluster.nodes.rename')"
+                          @click="beginNodeRename(instance.node_id, instance.node_name)"
+                        >
+                          <Icon name="edit" size="xs" />
+                        </button>
                       </div>
+                      <p class="mt-0.5 truncate font-mono text-[11px] text-gray-500 dark:text-gray-400" :title="instance.node_id">
+                        {{ instance.node_id }}
+                      </p>
                       <p class="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400" :title="instance.runner_id">
                         {{ instance.hostname }} · PID {{ instance.process_id }}
                       </p>
@@ -179,8 +228,13 @@ import { useI18n } from 'vue-i18n'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import Toggle from '@/common/widgets/forms/Toggle.vue'
-import { adminAPI } from '@/api/admin'
-import type { ClusterInstanceStatus, ClusterStatusResponse, ClusterTaskRun, ClusterTaskStatus } from '@/features/admin-cluster/data/datasources/adminClusterDatasource'
+import ClusterReleasePanel from '@/features/admin-cluster/presentation/widgets/ClusterReleasePanel.vue'
+import clusterAPI, {
+  type ClusterInstanceStatus,
+  type ClusterStatusResponse,
+  type ClusterTaskRun,
+  type ClusterTaskStatus,
+} from '@/features/admin-cluster/data/datasources/adminClusterDatasource'
 import { formatDateTime, formatRelativeTime } from '@/core/utils/format'
 import { extractApiErrorMessage } from '@/core/utils/apiError'
 
@@ -189,6 +243,9 @@ const status = ref<ClusterStatusResponse | null>(null)
 const loading = ref(false)
 const errorMessage = ref('')
 const autoRefresh = ref(true)
+const actionBusy = ref(false)
+const editingNodeId = ref('')
+const editingNodeName = ref('')
 let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 const instances = computed(() => status.value?.instances ?? [])
@@ -262,12 +319,76 @@ async function fetchStatus(): Promise<void> {
   loading.value = true
   errorMessage.value = ''
   try {
-    status.value = await adminAPI.cluster.getStatus()
+    status.value = await clusterAPI.getStatus()
   } catch (error) {
     errorMessage.value = extractApiErrorMessage(error, t('admin.cluster.loadFailed'))
   } finally {
     loading.value = false
   }
+}
+
+function beginNodeRename(nodeId: string, currentName: string): void {
+  editingNodeId.value = nodeId
+  editingNodeName.value = currentName
+}
+
+function cancelNodeRename(): void {
+  editingNodeId.value = ''
+  editingNodeName.value = ''
+}
+
+async function saveNodeName(nodeId: string): Promise<void> {
+  const name = editingNodeName.value.trim()
+  if (!name || actionBusy.value) return
+  actionBusy.value = true
+  errorMessage.value = ''
+  try {
+    await clusterAPI.renameNode(nodeId, name)
+    cancelNodeRename()
+    await fetchStatus()
+  } catch (error) {
+    errorMessage.value = extractApiErrorMessage(error, t('admin.cluster.nodes.renameFailed'))
+  } finally {
+    actionBusy.value = false
+  }
+}
+
+async function runRolloutAction(action: () => Promise<unknown>): Promise<void> {
+  if (actionBusy.value) return
+  actionBusy.value = true
+  errorMessage.value = ''
+  try {
+    await action()
+    await fetchStatus()
+  } catch (error) {
+    errorMessage.value = extractApiErrorMessage(error, t('admin.cluster.release.actionFailed'))
+  } finally {
+    actionBusy.value = false
+  }
+}
+
+function handleCreateRollout(targetVersion: string): void {
+  const target = targetVersion.trim()
+  const label = target ? `v${target.replace(/^v/, '')}` : t('admin.cluster.release.latest')
+  if (!window.confirm(t('admin.cluster.release.confirmStart', { version: label }))) return
+  void runRolloutAction(() => clusterAPI.createRollout(target))
+}
+
+function handlePauseRollout(rolloutId: string): void {
+  void runRolloutAction(() => clusterAPI.pauseRollout(rolloutId))
+}
+
+function handleResumeRollout(rolloutId: string): void {
+  void runRolloutAction(() => clusterAPI.resumeRollout(rolloutId))
+}
+
+function handleCancelRollout(rolloutId: string): void {
+  if (!window.confirm(t('admin.cluster.release.confirmCancel'))) return
+  void runRolloutAction(() => clusterAPI.cancelRollout(rolloutId))
+}
+
+function handleRetryTarget(rolloutId: string, nodeId: string): void {
+  void runRolloutAction(() => clusterAPI.retryRolloutTarget(rolloutId, nodeId))
 }
 
 function startTimer(): void {
@@ -286,4 +407,3 @@ onBeforeUnmount(() => {
   if (refreshTimer) clearInterval(refreshTimer)
 })
 </script>
-

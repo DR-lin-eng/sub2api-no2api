@@ -19,6 +19,7 @@
 | 修改支付 | `internal/modules/payment/` | `routes/payment.go`, payment handlers/repositories | provider、webhook、订单状态测试 |
 | 修改数据库表 | `backend/ent/schema/` | `backend/migrations/`, repository, DTO | generate + migration/integration tests |
 | 修改运行配置 | `platform/config/` | `deploy/config.example.yaml`, setting service/admin UI | config tests + 相关 service/前端测试 |
+| 修改多实例节点或集群发布 | `application/service/cluster*` | `repository/cluster*`, admin cluster handler, `features/admin-cluster/` | cluster service/repository + handler + 页面测试 |
 | 修改 Ops/审计 | `handler/admin/ops*`, `application/service/ops*` | `repository/ops*`, 前端 `features/admin-ops/`, `features/admin-audit/` | query/service + 前端 feature 测试 |
 | 修改前端页面 | `frontend/src/core/routes/index.ts`, `features/<domain>/presentation/pages/` | 同 feature 的 `widgets/`, `composables/`, `stores/`, `data/datasources/` 与 `core/i18n/` | 相邻 spec + typecheck |
 
@@ -37,6 +38,7 @@
 | `auth*`, `api_key*`, `oauth*`, `token*`, `totp*` | 用户身份、会话和各平台凭据 |
 | `ops*`, `audit*`, `content_moderation*` | 运维指标、审计和内容安全 |
 | `setting*`, `notification*`, `backup*` | 持久设置、通知和维护任务 |
+| `cluster*` | 逻辑节点身份、心跳、共享任务租约、版本就绪与滚动发布 |
 | `batch_image*`, `image_task*` | 异步和批量图片任务 |
 
 同一前缀通常按 `request`, `scheduling`, `forward`, `response`, `usage`, `support` 等职责拆分。不要先打开该前缀所有文件；从公开入口函数追调用即可。
@@ -52,6 +54,7 @@
 | `scheduler*`, `concurrency*`, `session_limit*`, `rpm_cache*` | Redis 调度和限流状态 |
 | `ops*`, `audit_log*`, `channel_monitor*` | 运维聚合、审计和探测 |
 | `payment*`, `subscription*`, `promo_code*`, `redeem_code*` | 商业对象 |
+| `cluster*` | PostgreSQL 节点清单、runner 历史、共享任务租约与发布状态机 |
 | `http_upstream*`, `proxy*`, `*_oauth_*` | 外部 HTTP、代理和凭据访问 |
 
 复杂 repository 按 `query`, `command`, `cache`, `batch`, `recovery` 拆分。事务边界应留在同一个公开 repository 方法内。

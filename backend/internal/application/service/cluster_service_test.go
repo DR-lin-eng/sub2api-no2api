@@ -35,6 +35,19 @@ func (r *clusterRepositoryStub) UpsertInstance(_ context.Context, instance Clust
 	return nil
 }
 
+func (r *clusterRepositoryStub) RenameNode(_ context.Context, nodeID, displayName string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for runnerID, instance := range r.instances {
+		if instance.NodeID == nodeID {
+			instance.NodeName = displayName
+			r.instances[runnerID] = instance
+			return nil
+		}
+	}
+	return ErrClusterNodeNotFound
+}
+
 func (r *clusterRepositoryStub) MarkInstanceStopped(_ context.Context, runnerID string, stoppedAt time.Time) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

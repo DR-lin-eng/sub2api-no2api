@@ -19,8 +19,23 @@ import (
 
 // SystemHandler handles system-related operations
 type SystemHandler struct {
-	updateSvc systemUpdateService
-	lockSvc   *service.SystemOperationLockService
+	updateSvc     systemUpdateService
+	lockSvc       *service.SystemOperationLockService
+	multiInstance bool
+}
+
+func (h *SystemHandler) SetMultiInstance(enabled bool) {
+	if h != nil {
+		h.multiInstance = enabled
+	}
+}
+
+func (h *SystemHandler) rejectMultiInstanceLocalOperation(c *gin.Context) bool {
+	if h == nil || !h.multiInstance {
+		return false
+	}
+	response.ErrorFrom(c, service.ErrClusterRolloutRequiresMultiInstance)
+	return true
 }
 
 // systemUpdateTimeout bounds a full in-place update or rollback: the release
@@ -90,12 +105,20 @@ func (h *SystemHandler) CheckUpdates(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if h.multiInstance {
+		info.DeploymentMode = "multi_instance"
+	} else {
+		info.DeploymentMode = "standalone"
+	}
 	response.Success(c, info)
 }
 
 // PerformUpdate downloads and applies the update
 // POST /api/v1/admin/system/update
 func (h *SystemHandler) PerformUpdate(c *gin.Context) {
+	if h.rejectMultiInstanceLocalOperation(c) {
+		return
+	}
 	if !requireSystemActionConfirmation(c, &systemActionConfirmation{}) {
 		return
 	}
@@ -170,6 +193,9 @@ func (h *SystemHandler) GetRollbackVersions(c *gin.Context) {
 // {"confirm": true}.
 // POST /api/v1/admin/system/rollback
 func (h *SystemHandler) Rollback(c *gin.Context) {
+	if h.rejectMultiInstanceLocalOperation(c) {
+		return
+	}
 	var req struct {
 		Version string `json:"version"`
 		Confirm bool   `json:"confirm"`
@@ -223,6 +249,9 @@ func (h *SystemHandler) Rollback(c *gin.Context) {
 // RestartService restarts the systemd service
 // POST /api/v1/admin/system/restart
 func (h *SystemHandler) RestartService(c *gin.Context) {
+	if h.rejectMultiInstanceLocalOperation(c) {
+		return
+	}
 	if !requireSystemActionConfirmation(c, &systemActionConfirmation{}) {
 		return
 	}
