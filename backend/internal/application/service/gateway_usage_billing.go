@@ -772,6 +772,9 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 
 	// 计算费用
 	cost := s.calculateRecordUsageCostWithPricing(ctx, result, apiKey, billingModel, multiplier, imageMultiplier, opts, resolvedBillingPricing)
+	cost = s.applyResponseModelBilling(
+		ctx, input, result, apiKey, account, billingModel, resolvedBillingPricing, cost, multiplier, imageMultiplier, opts,
+	)
 
 	// 判断计费方式：订阅模式 vs 余额模式
 	isSubscriptionBilling := subscription != nil && apiKey.Group != nil && apiKey.Group.IsSubscriptionType()

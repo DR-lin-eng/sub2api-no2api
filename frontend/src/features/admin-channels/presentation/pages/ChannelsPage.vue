@@ -629,6 +629,7 @@ import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
 import { extractApiErrorMessage } from '@/core/utils/apiError'
+import type { BillingModelSource } from '@/core/constants/channel'
 import { adminAPI } from '@/api/admin'
 import type { Channel, CreateChannelRequest, UpdateChannelRequest, AccountStatsPricingRule } from '@/features/admin-channels/data/datasources/adminChannelsDatasource'
 import type { PricingFormEntry } from '@/features/admin-channels/presentation/adminChannelSignals'
@@ -699,7 +700,8 @@ const statusEditOptions = computed(() => [
 const billingModelSourceOptions = computed(() => [
   { value: 'channel_mapped', label: t('admin.channels.form.billingModelSourceChannelMapped', 'Bill by channel-mapped model') },
   { value: 'requested', label: t('admin.channels.form.billingModelSourceRequested', 'Bill by requested model') },
-  { value: 'upstream', label: t('admin.channels.form.billingModelSourceUpstream', 'Bill by final upstream model') }
+  { value: 'upstream', label: t('admin.channels.form.billingModelSourceUpstream', 'Bill by final upstream model') },
+  { value: 'response_model', label: t('admin.channels.form.billingModelSourceResponse', 'Bill by upstream response model') }
 ])
 
 // ── State ──
@@ -738,7 +740,7 @@ const form = reactive({
   description: '',
   status: 'active',
   restrict_models: false,
-  billing_model_source: 'channel_mapped' as string,
+  billing_model_source: 'channel_mapped' as BillingModelSource,
   platforms: [] as PlatformSection[],
   apply_pricing_to_account_stats: false,
 })

@@ -94,13 +94,12 @@ func (r *ModelPricingResolver) Resolve(ctx context.Context, input PricingInput) 
 		SupportsCacheBreakdown: basePricing != nil && basePricing.SupportsCacheBreakdown,
 	}
 
-	// 2. 如果有 GroupID，尝试渠道覆盖
+	// 2. 如果有渠道定价，应用覆盖。chPricing 已在函数入口查询，
+	// 不再对无渠道定价的常规请求重复读取同一缓存。
 	if chPricing != nil {
 		resolved.Source = PricingSourceChannel
 		resolved.channelPricing = chPricing
 		r.applyTokenOverrides(chPricing, resolved)
-	} else if input.GroupID != nil {
-		r.applyChannelOverrides(ctx, *input.GroupID, input.Model, resolved)
 	}
 
 	return resolved
@@ -115,28 +114,6 @@ func (r *ModelPricingResolver) resolveBasePricing(model string) (*ModelPricing, 
 		return nil, PricingSourceFallback
 	}
 	return pricing, PricingSourceLiteLLM
-}
-
-// applyChannelOverrides 应用渠道定价覆盖
-func (r *ModelPricingResolver) applyChannelOverrides(ctx context.Context, groupID int64, model string, resolved *ResolvedPricing) {
-	chPricing := r.channelService.GetChannelModelPricing(ctx, groupID, model)
-	if chPricing == nil {
-		return
-	}
-
-	resolved.Source = PricingSourceChannel
-	resolved.channelPricing = chPricing
-	resolved.Mode = chPricing.BillingMode
-	if resolved.Mode == "" {
-		resolved.Mode = BillingModeToken
-	}
-
-	switch resolved.Mode {
-	case BillingModeToken:
-		r.applyTokenOverrides(chPricing, resolved)
-	case BillingModePerRequest, BillingModeImage:
-		r.applyRequestTierOverrides(chPricing, resolved)
-	}
 }
 
 // applyTokenOverrides 应用 token 模式的渠道覆盖

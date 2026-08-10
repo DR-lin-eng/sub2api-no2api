@@ -13,7 +13,9 @@ const (
 )
 
 // upstreamResponseModelObserver tracks one forwarding attempt or WebSocket
-// turn. A terminal declaration wins; conflicts are diagnostic only.
+// turn. A terminal declaration wins. Observation never affects forwarding.
+// Billing also ignores it unless a channel explicitly selects response_model;
+// a conflict then forces billing back to the existing baseline model.
 type upstreamResponseModelObserver struct {
 	first    string
 	terminal string

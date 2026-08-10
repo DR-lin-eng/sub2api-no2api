@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var identifiedModelPricingBenchmarkSink *LiteLLMModelPricing
+
 func TestPricingSchedulerBlankRemoteURLDoesNotStart(t *testing.T) {
 	svc := NewPricingService(&config.Config{Pricing: config.PricingConfig{RemoteURL: "  \t  "}}, nil)
 	defer svc.Stop()
@@ -39,6 +41,80 @@ func TestPricingNonEmptyInvalidRemoteURLStillReturnsValidationError(t *testing.T
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid pricing url")
+}
+
+func TestPricingServiceGetIdentifiedModelPricing_DeterministicIdentities(t *testing.T) {
+	canonical := &LiteLLMModelPricing{InputCostPerToken: 1e-6, OutputCostPerToken: 2e-6}
+	svc := &PricingService{pricingData: map[string]*LiteLLMModelPricing{
+		"Known-Model-20260101": canonical,
+		"known-model":          canonical,
+		"gemini-3.6-flash":     canonical,
+	}}
+	svc.identifiedPricingIndex = buildIdentifiedModelPricingIndex(svc.pricingData)
+
+	require.Same(t, canonical, svc.GetIdentifiedModelPricing("known-model-20260101"))
+	require.Same(t, canonical, svc.GetIdentifiedModelPricing("models/gemini-3.6-flash-high"))
+	require.Nil(t, svc.GetIdentifiedModelPricing("known-20260101-model"))
+	require.Nil(t, svc.GetIdentifiedModelPricing("unknown-model"))
+}
+
+func TestPricingServiceGetIdentifiedModelPricing_RejectsAmbiguousDateSuffixes(t *testing.T) {
+	first := &LiteLLMModelPricing{InputCostPerToken: 1e-6, OutputCostPerToken: 2e-6}
+	second := &LiteLLMModelPricing{InputCostPerToken: 3e-6, OutputCostPerToken: 4e-6}
+	svc := &PricingService{pricingData: map[string]*LiteLLMModelPricing{
+		"dated-model-20260101": first,
+		"dated-model-20260202": second,
+	}}
+	svc.identifiedPricingIndex = buildIdentifiedModelPricingIndex(svc.pricingData)
+
+	for i := 0; i < 1000; i++ {
+		require.Nil(t, svc.GetIdentifiedModelPricing("dated-model-20260303"), "iteration=%d", i)
+	}
+
+	svc.pricingData["dated-model-20260202"] = first
+	svc.identifiedPricingIndex = buildIdentifiedModelPricingIndex(svc.pricingData)
+	require.Same(t, first, svc.GetIdentifiedModelPricing("dated-model-20260303"))
+}
+
+func TestPricingServiceLoadPricingDataPublishesIdentifiedIndex(t *testing.T) {
+	pricingFile := filepath.Join(t.TempDir(), "pricing.json")
+	require.NoError(t, os.WriteFile(pricingFile, []byte(`{
+		"future-model": {
+			"input_cost_per_token": 0.000001,
+			"output_cost_per_token": 0.000002
+		}
+	}`), 0o600))
+
+	svc := NewPricingService(&config.Config{}, nil)
+	require.NoError(t, svc.loadPricingData(pricingFile))
+	require.NotNil(t, svc.identifiedPricingIndex)
+	require.Same(t, svc.pricingData["future-model"], svc.GetIdentifiedModelPricing("future-model-20990101"))
+}
+
+func BenchmarkPricingServiceGetIdentifiedModelPricing(b *testing.B) {
+	body, err := os.ReadFile("../../../resources/model-pricing/model_prices_and_context_window.json")
+	if err != nil {
+		b.Fatal(err)
+	}
+	svc := &PricingService{}
+	pricingData, err := svc.parsePricingData(body)
+	if err != nil {
+		b.Fatal(err)
+	}
+	svc.pricingData = pricingData
+	svc.identifiedPricingIndex = buildIdentifiedModelPricingIndex(pricingData)
+
+	for _, model := range []string{
+		"claude-sonnet-4-5-20250929",
+		"claude-opus-4-8-20990101",
+	} {
+		b.Run(model, func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				identifiedModelPricingBenchmarkSink = svc.GetIdentifiedModelPricing(model)
+			}
+		})
+	}
 }
 
 func TestParsePricingData_ParsesPriorityAndServiceTierFields(t *testing.T) {

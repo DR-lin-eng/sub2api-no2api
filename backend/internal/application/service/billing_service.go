@@ -847,6 +847,28 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 	return nil
 }
 
+// HasIdentifiedTokenPricing reports whether an externally supplied model name
+// is deterministically present in a token price source. Unlike GetModelPricing,
+// it rejects broad family fallbacks such as an arbitrary name containing
+// "haiku" or "opus".
+func (s *BillingService) HasIdentifiedTokenPricing(model string) bool {
+	if s == nil {
+		return false
+	}
+	model = strings.ToLower(strings.TrimSpace(model))
+	if model == "" {
+		return false
+	}
+	if s.pricingService != nil {
+		pricing := s.pricingService.GetIdentifiedModelPricing(model)
+		if pricing != nil && !pricing.TokenPricingAbsent {
+			return true
+		}
+	}
+	pricing, ok := s.fallbackPrices[model]
+	return ok && pricing != nil
+}
+
 // GetModelPricing 获取模型价格配置
 func (s *BillingService) GetModelPricing(model string) (*ModelPricing, error) {
 	// 标准化模型名称（转小写）

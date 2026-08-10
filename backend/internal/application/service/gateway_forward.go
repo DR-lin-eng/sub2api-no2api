@@ -951,6 +951,10 @@ func billingModelForRestriction(source, requestedModel, channelMappedModel strin
 		return requestedModel
 	case BillingModelSourceUpstream:
 		return ""
+	case BillingModelSourceResponse:
+		// The response is unavailable during dispatch. Use the mapped model for
+		// restriction checks, then decide the billing basis after the response.
+		return channelMappedModel
 	case BillingModelSourceChannelMapped:
 		return channelMappedModel
 	default:

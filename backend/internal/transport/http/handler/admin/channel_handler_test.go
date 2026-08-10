@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +14,54 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
+
+func TestChannelRequestsAcceptResponseModelBillingSource(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		target  any
+		wantErr bool
+	}{
+		{
+			name:   "create",
+			body:   `{"name":"response-model","billing_model_source":"response_model"}`,
+			target: &createChannelRequest{},
+		},
+		{
+			name:   "update",
+			body:   `{"billing_model_source":"response_model"}`,
+			target: &updateChannelRequest{},
+		},
+		{
+			name:    "unknown_source_rejected",
+			body:    `{"name":"invalid","billing_model_source":"response"}`,
+			target:  &createChannelRequest{},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(recorder)
+			ctx.Request = httptest.NewRequest(http.MethodPost, "/", strings.NewReader(tt.body))
+			ctx.Request.Header.Set("Content-Type", "application/json")
+
+			err := ctx.ShouldBindJSON(tt.target)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			switch request := tt.target.(type) {
+			case *createChannelRequest:
+				require.Equal(t, service.BillingModelSourceResponse, request.BillingModelSource)
+			case *updateChannelRequest:
+				require.Equal(t, service.BillingModelSourceResponse, request.BillingModelSource)
+			}
+		})
+	}
+}
 
 // ---------------------------------------------------------------------------
 // helpers

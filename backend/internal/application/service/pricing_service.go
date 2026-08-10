@@ -164,12 +164,13 @@ type LiteLLMRawEntry struct {
 
 // PricingService 动态价格服务
 type PricingService struct {
-	cfg          *config.Config
-	remoteClient PricingRemoteClient
-	mu           sync.RWMutex
-	pricingData  map[string]*LiteLLMModelPricing
-	lastUpdated  time.Time
-	localHash    string
+	cfg                    *config.Config
+	remoteClient           PricingRemoteClient
+	mu                     sync.RWMutex
+	pricingData            map[string]*LiteLLMModelPricing
+	identifiedPricingIndex *identifiedModelPricingIndex
+	lastUpdated            time.Time
+	localHash              string
 
 	// 停止信号
 	stopCh chan struct{}
@@ -407,8 +408,10 @@ func (s *PricingService) downloadPricingData() error {
 	}
 
 	// 更新内存数据
+	identifiedIndex := buildIdentifiedModelPricingIndex(data)
 	s.mu.Lock()
 	s.pricingData = data
+	s.identifiedPricingIndex = identifiedIndex
 	s.lastUpdated = time.Now()
 	s.localHash = syncHash
 	s.mu.Unlock()
@@ -532,8 +535,10 @@ func (s *PricingService) loadPricingData(filePath string) error {
 	hash := sha256.Sum256(data)
 	hashStr := hex.EncodeToString(hash[:])
 
+	identifiedIndex := buildIdentifiedModelPricingIndex(pricingData)
 	s.mu.Lock()
 	s.pricingData = pricingData
+	s.identifiedPricingIndex = identifiedIndex
 	s.localHash = hashStr
 
 	info, _ := os.Stat(filePath)

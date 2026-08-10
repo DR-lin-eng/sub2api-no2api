@@ -9,6 +9,10 @@ const readFeatureSource = (relativePath: string) =>
 
 const pageSource = readFeatureSource('../presentation/pages/ChannelsPage.vue')
 const codecSource = readFeatureSource('../presentation/channelFormCodec.ts')
+const datasourceSource = readFeatureSource('../data/datasources/adminChannelsDatasource.ts')
+const channelConstantsSource = readFeatureSource('../../../core/constants/channel.ts')
+const englishLocaleSource = readFeatureSource('../../../core/i18n/locales/en/admin/channels.ts')
+const chineseLocaleSource = readFeatureSource('../../../core/i18n/locales/zh/admin/channels.ts')
 
 describe('admin channels modularization', () => {
   it('keeps the page and codec below their maintenance targets', () => {
@@ -33,5 +37,13 @@ describe('admin channels modularization', () => {
     expect(codecSource).not.toContain('watch(')
     expect(codecSource).not.toContain('setTimeout')
     expect(codecSource).not.toContain('onMounted')
+  })
+
+  it('exposes response-model billing through the typed admin channel contract', () => {
+    expect(channelConstantsSource).toContain("BILLING_MODEL_SOURCE_RESPONSE = 'response_model'")
+    expect(datasourceSource).toContain('billing_model_source?: BillingModelSource')
+    expect(pageSource).toContain("value: 'response_model'")
+    expect(englishLocaleSource).toContain('billingModelSourceResponse:')
+    expect(chineseLocaleSource).toContain('billingModelSourceResponse:')
   })
 })
