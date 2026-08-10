@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -281,6 +282,12 @@ func TestIsOpenAITransientProcessingError(t *testing.T) {
 
 	require.True(t, isOpenAITransientProcessingError(
 		http.StatusBadRequest,
+		"Our servers are currently overloaded. Please try again later.",
+		[]byte(`{"error":{"message":"Our servers are currently overloaded. Please try again later.","type":"invalid_request_error"}}`),
+	))
+
+	require.True(t, isOpenAITransientProcessingError(
+		http.StatusBadRequest,
 		"",
 		[]byte(`{"error":{"code":"server_is_overloaded","message":"Please retry later.","type":"invalid_request_error"}}`),
 	))
@@ -302,6 +309,15 @@ func TestIsOpenAITransientProcessingError(t *testing.T) {
 		"Missing required parameter: 'instructions'",
 		[]byte(`{"error":{"message":"Missing required parameter: 'instructions'"}}`),
 	))
+}
+
+func TestOpenAICompactUnavailableRecognizesServersCurrentlyOverloaded(t *testing.T) {
+	message := "Our servers are currently overloaded. Please try again later."
+
+	require.True(t, isOpenAICompactUnavailableText(message))
+	require.True(t, isOpenAICompactModelUnavailableHTTP(http.StatusBadRequest, message, []byte(
+		`{"error":{"message":"Our servers are currently overloaded. Please try again later."}}`,
+	)))
 }
 
 func TestIsOpenAIContextWindowError(t *testing.T) {
@@ -429,54 +445,75 @@ func TestOpenAIGatewayService_Forward_TransientProcessingErrorTriggersFailover(t
 	require.False(t, c.Writer.Written(), "service 层应返回 failover 错误给上层换号，而不是直接向客户端写响应")
 }
 
-func TestOpenAIGatewayService_Forward_ModelCapacityErrorTriggersFailoverAndSameAccountRetry(t *testing.T) {
+func TestOpenAIGatewayService_Forward_CapacityErrorsTriggerFailoverAndSameAccountRetry(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	rec := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(rec)
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(nil))
-	c.Request.Header.Set("User-Agent", "codex_cli_rs/0.1.0")
-	c.Request.Header.Set("Content-Type", "application/json")
-
-	upstream := &httpUpstreamRecorder{
-		resp: &http.Response{
-			StatusCode: http.StatusBadRequest,
-			Header: http.Header{
-				"Content-Type": []string{"application/json"},
-				"x-request-id": []string{"rid-capacity-400"},
-			},
-			Body: io.NopCloser(strings.NewReader(`{"error":{"message":"Selected model is at capacity. Please try a different model.","type":"invalid_request_error"}}`)),
+	for _, tt := range []struct {
+		name      string
+		requestID string
+		message   string
+	}{
+		{
+			name:      "selected_model_at_capacity",
+			requestID: "rid-capacity-400",
+			message:   "Selected model is at capacity. Please try a different model.",
 		},
-	}
-	svc := &OpenAIGatewayService{
-		cfg: &config.Config{
-			Gateway: config.GatewayConfig{ForceCodexCLI: false},
+		{
+			name:      "servers_currently_overloaded",
+			requestID: "rid-overloaded-400",
+			message:   "Our servers are currently overloaded. Please try again later.",
 		},
-		httpUpstream: upstream,
-	}
-	account := &Account{
-		ID:          1001,
-		Name:        "codex max套餐",
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Concurrency: 1,
-		Credentials: map[string]any{
-			"api_key":   "sk-test",
-			"pool_mode": true,
-		},
-		Status:         StatusActive,
-		Schedulable:    true,
-		RateMultiplier: f64p(1),
-	}
-	body := []byte(`{"model":"gpt-5.4","stream":false,"input":[{"type":"text","text":"hello"}]}`)
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(nil))
+			c.Request.Header.Set("User-Agent", "codex_cli_rs/0.1.0")
+			c.Request.Header.Set("Content-Type", "application/json")
 
-	_, err := svc.Forward(context.Background(), c, account, body)
-	require.Error(t, err)
+			upstream := &httpUpstreamRecorder{
+				resp: &http.Response{
+					StatusCode: http.StatusBadRequest,
+					Header: http.Header{
+						"Content-Type": []string{"application/json"},
+						"x-request-id": []string{tt.requestID},
+					},
+					Body: io.NopCloser(strings.NewReader(fmt.Sprintf(
+						`{"error":{"message":%q,"type":"invalid_request_error"}}`, tt.message,
+					))),
+				},
+			}
+			svc := &OpenAIGatewayService{
+				cfg: &config.Config{
+					Gateway: config.GatewayConfig{ForceCodexCLI: false},
+				},
+				httpUpstream: upstream,
+			}
+			account := &Account{
+				ID:          1001,
+				Name:        "codex max套餐",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeAPIKey,
+				Concurrency: 1,
+				Credentials: map[string]any{
+					"api_key":   "sk-test",
+					"pool_mode": true,
+				},
+				Status:         StatusActive,
+				Schedulable:    true,
+				RateMultiplier: f64p(1),
+			}
+			body := []byte(`{"model":"gpt-5.4","stream":false,"input":[{"type":"text","text":"hello"}]}`)
 
-	var failoverErr *UpstreamFailoverError
-	require.ErrorAs(t, err, &failoverErr)
-	require.Equal(t, http.StatusBadRequest, failoverErr.StatusCode)
-	require.True(t, failoverErr.RetryableOnSameAccount)
-	require.Contains(t, string(failoverErr.ResponseBody), "Selected model is at capacity")
-	require.False(t, c.Writer.Written(), "service 层应返回 failover 错误给上层重试/换号，而不是直接向客户端写响应")
+			_, err := svc.Forward(context.Background(), c, account, body)
+			require.Error(t, err)
+
+			var failoverErr *UpstreamFailoverError
+			require.ErrorAs(t, err, &failoverErr)
+			require.Equal(t, http.StatusBadRequest, failoverErr.StatusCode)
+			require.True(t, failoverErr.RetryableOnSameAccount)
+			require.Contains(t, string(failoverErr.ResponseBody), tt.message)
+			require.False(t, c.Writer.Written(), "service 层应返回 failover 错误给上层重试/换号，而不是直接向客户端写响应")
+		})
+	}
 }

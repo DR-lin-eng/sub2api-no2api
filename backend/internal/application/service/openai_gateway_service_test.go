@@ -141,7 +141,7 @@ func TestFailoverOpenAIUpstreamHTTPErrorAppliesTempUnschedulablePolicyBeforeComm
 	require.False(t, IsResponseCommitted(c))
 }
 
-func TestFailoverOpenAIUpstreamHTTPErrorNilGinContextSkipsTempUnschedulablePolicy(t *testing.T) {
+func TestFailoverOpenAIUpstreamHTTPErrorNilGinContextSkipsCustomTempUnschedulablePolicy(t *testing.T) {
 	repo := &tempUnschedulableOpenAIAccountRepo{}
 	svc := &OpenAIGatewayService{
 		rateLimitService: NewRateLimitService(repo, nil, &config.Config{}, nil, nil),
@@ -152,17 +152,17 @@ func TestFailoverOpenAIUpstreamHTTPErrorNilGinContextSkipsTempUnschedulablePolic
 			"temp_unschedulable_enabled": true,
 			"temp_unschedulable_rules": []any{map[string]any{
 				"error_code":       float64(http.StatusBadRequest),
-				"keywords":         []any{"servers are currently overloaded"},
+				"keywords":         []any{"custom temporary account overload"},
 				"duration_minutes": float64(1),
 			}},
 		},
 	}
-	body := []byte(`{"error":{"message":"Our servers are currently overloaded."}}`)
+	body := []byte(`{"error":{"message":"Custom temporary account overload"}}`)
 	resp := &http.Response{StatusCode: http.StatusBadRequest, Header: http.Header{}}
 
 	got := svc.failoverOpenAIUpstreamHTTPError(
 		context.Background(), nil, account, resp, body,
-		"Our servers are currently overloaded.", "gpt-5.4",
+		"Custom temporary account overload", "gpt-5.4",
 	)
 
 	require.Nil(t, got)

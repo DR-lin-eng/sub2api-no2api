@@ -880,6 +880,7 @@ func isOpenAICompactUnavailableText(text string) bool {
 		"no available accounts",
 		"selected model is at capacity",
 		"server is overloaded",
+		"servers are currently overloaded",
 		"slow_down",
 		"unsupported model",
 		"unknown model",
