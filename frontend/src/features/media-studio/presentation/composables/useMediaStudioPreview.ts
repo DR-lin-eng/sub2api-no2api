@@ -10,7 +10,7 @@ const mediaStudioModes: MediaStudioMode[] = [
   {
     id: 'image',
     iconName: 'grid',
-    available: false,
+    available: true,
   },
   {
     id: 'video',
