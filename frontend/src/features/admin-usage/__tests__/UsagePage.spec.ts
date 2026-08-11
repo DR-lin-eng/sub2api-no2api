@@ -27,6 +27,8 @@ const messages: Record<string, string> = {
   'admin.dashboard.day': 'Day',
   'admin.dashboard.hour': 'Hour',
   'admin.usage.failedToLoadUser': 'Failed to load user',
+  'admin.usage.requestId': 'Request ID',
+  'admin.users.columnSettings': 'Column settings',
 }
 
 const RFC3339_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/
@@ -105,6 +107,7 @@ const UsageFiltersStub = defineComponent({
   template: '<div><span data-test="user-filter-label">{{ userKeyword }}</span><slot name="after-reset" /></div>',
 })
 const UsageTableStub = {
+  props: ['columns'],
   emits: ['userClick'],
   template: '<div data-test="usage-table"><button class="user-click" @click="$emit(\'userClick\', 2)">user</button></div>',
 }
@@ -142,6 +145,62 @@ const mountRouteFilteredUsageView = () => mount(UsageView, {
     ModelDistributionChart: true, GroupDistributionChart: true,
     EndpointDistributionChart: true, UserTokenRanking: true,
   } },
+})
+
+describe('admin UsageView request ID column visibility', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.mocked(localStorage.getItem).mockReset().mockImplementation((key: string) => {
+      if (key === 'usage-hidden-columns') return JSON.stringify(['user_agent'])
+      return null
+    })
+    vi.mocked(localStorage.setItem).mockReset()
+    list.mockReset().mockResolvedValue({ items: [], total: 0, pages: 0 })
+    getStats.mockReset().mockResolvedValue({
+      total_requests: 0, total_input_tokens: 0, total_output_tokens: 0,
+      total_cache_tokens: 0, total_tokens: 0, total_cost: 0, total_actual_cost: 0, average_duration_ms: 0,
+    })
+    getSnapshotV2.mockReset().mockResolvedValue({ trend: [], models: [], groups: [] })
+    getModelStats.mockReset().mockResolvedValue({ models: [] })
+    listErrorLogs.mockReset().mockResolvedValue({ items: [], total: 0, pages: 0 })
+  })
+
+  afterEach(() => {
+    vi.mocked(localStorage.getItem).mockReset().mockReturnValue(null)
+    vi.useRealTimers()
+  })
+
+  it('migrates saved preferences with request ID hidden and allows enabling it', async () => {
+    const wrapper = mount(UsageView, {
+      global: { stubs: {
+        AppLayout: AppLayoutStub, UsageStatsCards: true, UsageFilters: UsageFiltersStub,
+        UsageTable: UsageTableStub, UsageExportProgress: true, UsageCleanupDialog: true,
+        UserBalanceHistoryModal: true, AuditLogModal: true, Pagination: true, Select: true,
+        DateRangePicker: true, Icon: true, TokenUsageTrend: true,
+        ModelDistributionChart: true, GroupDistributionChart: true, EndpointDistributionChart: true,
+        UserTokenRanking: true, OpsErrorLogTable: true, OpsErrorDetailModal: true,
+      } },
+    })
+    await wrapper.vm.$nextTick()
+
+    const usageTable = wrapper.findComponent(UsageTableStub)
+    expect(usageTable.props('columns')).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ key: 'request_id' })]),
+    )
+    expect(localStorage.setItem).toHaveBeenCalledWith(
+      'usage-hidden-columns-version',
+      'request-id-hidden-by-default',
+    )
+
+    await wrapper.get('button[title="Column settings"]').trigger('click')
+    const requestIdToggle = wrapper.findAll('button').find((button) => button.text() === 'Request ID')
+    expect(requestIdToggle).toBeDefined()
+    await requestIdToggle!.trigger('click')
+
+    expect(usageTable.props('columns')).toEqual(
+      expect.arrayContaining([expect.objectContaining({ key: 'request_id', label: 'Request ID' })]),
+    )
+  })
 })
 
 describe('admin UsageView route filters', () => {

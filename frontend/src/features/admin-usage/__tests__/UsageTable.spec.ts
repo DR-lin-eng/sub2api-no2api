@@ -4,7 +4,14 @@ const ipGeoMocks = vi.hoisted(() => ({
   fetchBatch: vi.fn(),
 }))
 
+const clipboardMocks = vi.hoisted(() => ({
+  copyToClipboard: vi.fn().mockResolvedValue(true),
+}))
+
 vi.mock('@/core/utils/ipGeoLookup', () => ipGeoMocks)
+vi.mock('@/common/composables/useClipboard', () => ({
+  useClipboard: () => ({ copied: { value: false }, copyToClipboard: clipboardMocks.copyToClipboard }),
+}))
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
@@ -60,6 +67,8 @@ const messages: Record<string, string> = {
   'usage.upstreamResponseModel': 'Upstream response',
   'usage.modelVariant': 'Possible version variant',
   'usage.modelMismatch': 'Different model',
+  'usage.detail.copyRequestId': 'Copy request ID',
+  'usage.detail.requestIdCopied': 'Request ID copied',
 }
 
 vi.mock('vue-i18n', async () => {
@@ -82,6 +91,7 @@ const DataTableStub = {
         <slot name="cell-tokens" :row="row" />
         <slot name="cell-cost" :row="row" />
         <slot name="cell-latency" :row="row" />
+        <slot name="cell-request_id" :row="row" />
         <slot name="cell-actions" :row="row" />
       </div>
     </div>
@@ -115,6 +125,39 @@ const baseImageRow = {
   image_size_source: null,
   image_size_breakdown: null,
 }
+
+describe('admin UsageTable request ID column', () => {
+  beforeEach(() => {
+    clipboardMocks.copyToClipboard.mockReset().mockResolvedValue(true)
+  })
+
+  it('renders and copies the full request ID', async () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{ ...baseImageRow, request_id: 'req-admin-visible-id' }],
+        loading: false,
+        columns: [{ key: 'request_id', label: 'Request ID' }],
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+          UsageDetailModal: true,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('req-admin-visible-id')
+    await wrapper.get('[data-testid="copy-request-id"]').trigger('click')
+    expect(clipboardMocks.copyToClipboard).toHaveBeenCalledWith(
+      'req-admin-visible-id',
+      'Request ID copied',
+    )
+    expect(wrapper.get('[data-testid="copy-request-id"]').attributes('title')).toBe('Request ID copied')
+  })
+})
 
 describe('admin UsageTable tooltip', () => {
   beforeEach(() => {

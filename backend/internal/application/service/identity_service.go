@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -19,11 +18,137 @@ import (
 	"github.com/tidwall/sjson"
 )
 
-// 预编译正则表达式（避免每次调用重新编译）
 var (
-	// 匹配 User-Agent 版本号: xxx/x.y.z
-	userAgentVersionRegex = regexp.MustCompile(`/(\d+)\.(\d+)\.(\d+)`)
+	claudeCLICurrentMajor = func() int {
+		_, version, ok := parseFingerprintUserAgentShape("claude-cli/" + claude.CLICurrentVersion)
+		if !ok {
+			return 0
+		}
+		return version.major
+	}()
 )
+
+const (
+	claudeCLIUserAgentProduct       = "claude-cli"
+	maxFingerprintUserAgentLength   = 256
+	maxClaudeCLIMajorVersionSkew    = 2
+	maxFingerprintUserAgentLogBytes = 256
+)
+
+type fingerprintUserAgentVersion struct {
+	product             string
+	major, minor, patch int
+}
+
+func parseFingerprintUserAgentShape(raw string) (string, fingerprintUserAgentVersion, bool) {
+	ua := strings.TrimSpace(raw)
+	if ua == "" || len(ua) > maxFingerprintUserAgentLength {
+		return ua, fingerprintUserAgentVersion{}, false
+	}
+
+	slash := strings.IndexByte(ua, '/')
+	if slash <= 0 {
+		return ua, fingerprintUserAgentVersion{}, false
+	}
+	for i := 0; i < slash; i++ {
+		c := ua[i]
+		if !isFingerprintUserAgentProductByte(c) {
+			return ua, fingerprintUserAgentVersion{}, false
+		}
+	}
+
+	major, cursor, ok := parseFingerprintVersionComponent(ua, slash+1)
+	if !ok || cursor >= len(ua) || ua[cursor] != '.' {
+		return ua, fingerprintUserAgentVersion{}, false
+	}
+	minor, cursor, ok := parseFingerprintVersionComponent(ua, cursor+1)
+	if !ok || cursor >= len(ua) || ua[cursor] != '.' {
+		return ua, fingerprintUserAgentVersion{}, false
+	}
+	patch, cursor, ok := parseFingerprintVersionComponent(ua, cursor+1)
+	if !ok {
+		return ua, fingerprintUserAgentVersion{}, false
+	}
+	if cursor < len(ua) && ua[cursor] != ' ' && ua[cursor] != '\t' {
+		return ua, fingerprintUserAgentVersion{}, false
+	}
+	for i := cursor; i < len(ua); i++ {
+		if ua[i] == '\r' || ua[i] == '\n' || ua[i] == 0 || (ua[i] < 0x20 && ua[i] != '\t') {
+			return ua, fingerprintUserAgentVersion{}, false
+		}
+	}
+
+	return ua, fingerprintUserAgentVersion{
+		product: ua[:slash],
+		major:   major,
+		minor:   minor,
+		patch:   patch,
+	}, true
+}
+
+func isFingerprintUserAgentProductByte(c byte) bool {
+	switch {
+	case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
+		return true
+	case c == '.', c == '_', c == '-':
+		return true
+	default:
+		return false
+	}
+}
+
+func parseFingerprintVersionComponent(value string, start int) (int, int, bool) {
+	end := start
+	for end < len(value) && value[end] >= '0' && value[end] <= '9' {
+		end++
+	}
+	if end == start {
+		return 0, start, false
+	}
+	parsed, err := strconv.Atoi(value[start:end])
+	return parsed, end, err == nil
+}
+
+func acceptableFingerprintUserAgent(raw string) (string, fingerprintUserAgentVersion, bool) {
+	ua, version, ok := parseFingerprintUserAgentShape(raw)
+	if !ok {
+		return ua, version, false
+	}
+	if strings.EqualFold(version.product, claudeCLIUserAgentProduct) && claudeCLICurrentMajor > 0 &&
+		version.major > claudeCLICurrentMajor+maxClaudeCLIMajorVersionSkew {
+		return ua, version, false
+	}
+	return ua, version, true
+}
+
+func isAcceptableFingerprintUserAgent(ua string) bool {
+	_, _, ok := acceptableFingerprintUserAgent(ua)
+	return ok
+}
+
+func isNewerFingerprintUserAgentVersion(next, current fingerprintUserAgentVersion) bool {
+	if next.product == "" || !strings.EqualFold(next.product, current.product) {
+		return false
+	}
+	if next.major != current.major {
+		return next.major > current.major
+	}
+	if next.minor != current.minor {
+		return next.minor > current.minor
+	}
+	return next.patch > current.patch
+}
+
+func fingerprintUserAgentForLog(ua string) string {
+	return truncateString(ua, maxFingerprintUserAgentLogBytes)
+}
+
+func fingerprintUserAgentLooksLikeClaudeCLI(ua string) bool {
+	if len(ua) <= len(claudeCLIUserAgentProduct) || ua[len(claudeCLIUserAgentProduct)] != '/' {
+		return false
+	}
+	return strings.EqualFold(ua[:len(claudeCLIUserAgentProduct)], claudeCLIUserAgentProduct)
+}
 
 // 默认指纹值（当客户端未提供时使用）
 var defaultFingerprint = Fingerprint{
@@ -76,20 +201,48 @@ func NewIdentityService(cache IdentityCache) *IdentityService {
 // 如果缓存存在，检测user-agent版本，新版本则更新
 // 如果缓存不存在，生成随机ClientID并从请求头创建指纹，然后缓存
 func (s *IdentityService) GetOrCreateFingerprint(ctx context.Context, accountID int64, headers http.Header) (*Fingerprint, error) {
+	clientUA, clientVersion, clientUAAcceptable := acceptableFingerprintUserAgent(headers.Get("User-Agent"))
+
 	// 尝试从缓存获取指纹
 	cached, err := s.cache.GetFingerprint(ctx, accountID)
 	if err == nil && cached != nil {
 		needWrite := false
+		_, cachedVersion, cachedUAAcceptable := acceptableFingerprintUserAgent(cached.UserAgent)
 
-		// 检查客户端的user-agent是否是更新版本
-		clientUA := headers.Get("User-Agent")
-		if clientUA != "" && isNewerVersion(clientUA, cached.UserAgent) {
+		if !clientUAAcceptable && fingerprintUserAgentLooksLikeClaudeCLI(clientUA) {
+			logger.LegacyPrintf(
+				"service.identity",
+				"Rejected fingerprint user-agent for account %d: %q (malformed or implausible version)",
+				accountID,
+				fingerprintUserAgentForLog(clientUA),
+			)
+		}
+
+		if !cachedUAAcceptable {
+			poisoned := cached.UserAgent
+			if clientUAAcceptable {
+				mergeHeadersIntoFingerprint(cached, headers)
+				cached.UserAgent = clientUA
+			} else {
+				cached.UserAgent = defaultFingerprint.UserAgent
+			}
+			needWrite = true
+			logger.LegacyPrintf(
+				"service.identity",
+				"Replaced malformed cached fingerprint for account %d: %q -> %q",
+				accountID,
+				fingerprintUserAgentForLog(poisoned),
+				cached.UserAgent,
+			)
+		} else if clientUAAcceptable && isNewerFingerprintUserAgentVersion(clientVersion, cachedVersion) {
 			// 版本升级：merge 语义 — 仅更新请求中实际携带的字段，保留缓存值
 			// 避免缺失的头被硬编码默认值覆盖（如新 CLI 版本 + 旧 SDK 默认值的不一致）
 			mergeHeadersIntoFingerprint(cached, headers)
+			cached.UserAgent = clientUA
 			needWrite = true
 			logger.LegacyPrintf("service.identity", "Updated fingerprint for account %d: %s (merge update)", accountID, clientUA)
-		} else if time.Since(time.Unix(cached.UpdatedAt, 0)) > 24*time.Hour {
+		}
+		if !needWrite && time.Since(time.Unix(cached.UpdatedAt, 0)) > 24*time.Hour {
 			// 距上次写入超过24小时，续期TTL
 			needWrite = true
 		}
@@ -104,6 +257,14 @@ func (s *IdentityService) GetOrCreateFingerprint(ctx context.Context, accountID 
 	}
 
 	// 缓存不存在或解析失败，创建新指纹
+	if !clientUAAcceptable && clientUA != "" {
+		logger.LegacyPrintf(
+			"service.identity",
+			"Rejected fingerprint user-agent for account %d: %q (malformed or implausible version)",
+			accountID,
+			fingerprintUserAgentForLog(clientUA),
+		)
+	}
 	fp := s.createFingerprintFromHeaders(headers)
 
 	// 生成随机ClientID
@@ -124,7 +285,7 @@ func (s *IdentityService) createFingerprintFromHeaders(headers http.Header) *Fin
 	fp := &Fingerprint{}
 
 	// 获取User-Agent
-	if ua := headers.Get("User-Agent"); ua != "" {
+	if ua, _, ok := acceptableFingerprintUserAgent(headers.Get("User-Agent")); ok {
 		fp.UserAgent = ua
 	} else {
 		fp.UserAgent = defaultFingerprint.UserAgent
@@ -147,7 +308,7 @@ func (s *IdentityService) createFingerprintFromHeaders(headers http.Header) *Fin
 // 本函数用于升级更新，缺失头保留缓存值，避免将已知的真实值退化为硬编码默认值
 func mergeHeadersIntoFingerprint(fp *Fingerprint, headers http.Header) {
 	// User-Agent：版本升级的触发条件，一定存在
-	if ua := headers.Get("User-Agent"); ua != "" {
+	if ua := strings.TrimSpace(headers.Get("User-Agent")); ua != "" {
 		fp.UserAgent = ua
 	}
 	// X-Stainless-* 头：仅在请求中实际携带时才更新，否则保留缓存值
@@ -382,62 +543,4 @@ func generateUUIDFromSeed(seed string) string {
 
 	return fmt.Sprintf("%x-%x-%x-%x-%x",
 		bytes[0:4], bytes[4:6], bytes[6:8], bytes[8:10], bytes[10:16])
-}
-
-// parseUserAgentVersion 解析user-agent版本号
-// 例如：claude-cli/2.1.2 -> (2, 1, 2)
-func parseUserAgentVersion(ua string) (major, minor, patch int, ok bool) {
-	// 匹配 xxx/x.y.z 格式
-	matches := userAgentVersionRegex.FindStringSubmatch(ua)
-	if len(matches) != 4 {
-		return 0, 0, 0, false
-	}
-	major, _ = strconv.Atoi(matches[1])
-	minor, _ = strconv.Atoi(matches[2])
-	patch, _ = strconv.Atoi(matches[3])
-	return major, minor, patch, true
-}
-
-// extractProduct 提取 User-Agent 中 "/" 前的产品名
-// 例如：claude-cli/2.1.22 (external, cli) -> "claude-cli"
-func extractProduct(ua string) string {
-	if idx := strings.Index(ua, "/"); idx > 0 {
-		return strings.ToLower(ua[:idx])
-	}
-	return ""
-}
-
-// isNewerVersion 比较版本号，判断newUA是否比cachedUA更新
-// 要求产品名一致（防止浏览器 UA 如 Mozilla/5.0 误判为更新版本）
-func isNewerVersion(newUA, cachedUA string) bool {
-	// 校验产品名一致性
-	newProduct := extractProduct(newUA)
-	cachedProduct := extractProduct(cachedUA)
-	if newProduct == "" || cachedProduct == "" || newProduct != cachedProduct {
-		return false
-	}
-
-	newMajor, newMinor, newPatch, newOk := parseUserAgentVersion(newUA)
-	cachedMajor, cachedMinor, cachedPatch, cachedOk := parseUserAgentVersion(cachedUA)
-
-	if !newOk || !cachedOk {
-		return false
-	}
-
-	// 比较版本号
-	if newMajor > cachedMajor {
-		return true
-	}
-	if newMajor < cachedMajor {
-		return false
-	}
-
-	if newMinor > cachedMinor {
-		return true
-	}
-	if newMinor < cachedMinor {
-		return false
-	}
-
-	return newPatch > cachedPatch
 }

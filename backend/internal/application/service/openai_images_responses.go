@@ -1288,8 +1288,15 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthNonStreamingResponse(
 	responseFormat string,
 	fallbackModel string,
 ) (OpenAIUsage, int, []string, error) {
+	var requestCtx context.Context
+	if c != nil && c.Request != nil {
+		requestCtx = c.Request.Context()
+	}
 	body, err := ReadUpstreamResponseBody(resp.Body, s.cfg, c, openAITooLargeError)
 	if err != nil {
+		if shouldClassifyOpenAIUpstreamStreamReadError(err, requestCtx) {
+			err = newOpenAIUpstreamStreamReadError(err)
+		}
 		return OpenAIUsage{}, 0, nil, err
 	}
 
@@ -1362,6 +1369,10 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthStreamingResponse(
 	streamPrefix string,
 	fallbackModel string,
 ) (OpenAIUsage, int, []string, *int, error) {
+	var requestCtx context.Context
+	if c != nil && c.Request != nil {
+		requestCtx = c.Request.Context()
+	}
 	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
@@ -1591,7 +1602,9 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthStreamingResponse(
 				} else if done {
 					return usage, imageCount, imageOutputSizes, firstTokenMs, nil
 				}
-				writeStreamEvent("proxy_error", buildOpenAIImagesStreamErrorBody(err.Error()))
+				if shouldClassifyOpenAIUpstreamStreamReadError(err, requestCtx) {
+					err = newOpenAIUpstreamStreamReadError(err)
+				}
 				return usage, imageCount, imageOutputSizes, firstTokenMs, err
 			}
 		}
@@ -1684,7 +1697,9 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthStreamingResponse(
 				} else if done {
 					return usage, imageCount, imageOutputSizes, firstTokenMs, nil
 				}
-				writeStreamEvent("proxy_error", buildOpenAIImagesStreamErrorBody(ev.err.Error()))
+				if shouldClassifyOpenAIUpstreamStreamReadError(ev.err, requestCtx) {
+					ev.err = newOpenAIUpstreamStreamReadError(ev.err)
+				}
 				return usage, imageCount, imageOutputSizes, firstTokenMs, ev.err
 			}
 			done, processErr := processLine(ev.line)
@@ -1911,13 +1926,56 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthResponseError(
 	writerSizeBeforeResponse int,
 	err error,
 ) error {
+	responseWritten := c != nil && c.Writer != nil && OpenAIImagesJSONKeepaliveAdjustedWrittenSize(c) != writerSizeBeforeResponse
+	if code, message, ok := OpenAIUpstreamStreamReadErrorDetails(err); ok {
+		headers := http.Header(nil)
+		requestID := ""
+		if resp != nil {
+			headers = resp.Header.Clone()
+			requestID = strings.TrimSpace(resp.Header.Get("x-request-id"))
+		}
+		kind := "failover"
+		if responseWritten {
+			kind = "retry_exhausted_failover"
+		}
+		appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+			Platform:           account.Platform,
+			AccountID:          account.ID,
+			AccountName:        account.Name,
+			UpstreamStatusCode: http.StatusBadGateway,
+			UpstreamRequestID:  requestID,
+			UpstreamURL:        upstreamURL,
+			Kind:               kind,
+			Message:            message,
+		})
+		if responseWritten {
+			return err
+		}
+		responseBody, marshalErr := json.Marshal(gin.H{
+			"error": gin.H{
+				"type":    "upstream_error",
+				"code":    code,
+				"message": message,
+			},
+		})
+		if marshalErr != nil {
+			responseBody = []byte(`{"error":{"type":"upstream_error","code":"upstream_stream_read_error","message":"Upstream response stream was interrupted"}}`)
+		}
+		shouldDisable := s.handleOpenAIAccountUpstreamError(ctx, account, http.StatusBadGateway, headers, responseBody, requestedModel)
+		return newOpenAIUpstreamFailoverError(
+			http.StatusBadGateway,
+			headers,
+			responseBody,
+			message,
+			!shouldDisable && account.IsPoolMode() && account.IsPoolModeRetryableStatus(http.StatusBadGateway),
+		)
+	}
 	var upstreamErr *OpenAIImagesUpstreamError
 	if !errors.As(err, &upstreamErr) {
 		return err
 	}
 
 	retryable := IsOpenAIImagesRetryableUpstreamError(upstreamErr)
-	responseWritten := c != nil && c.Writer != nil && OpenAIImagesJSONKeepaliveAdjustedWrittenSize(c) != writerSizeBeforeResponse
 	kind := "http_error"
 	if retryable {
 		kind = "failover"

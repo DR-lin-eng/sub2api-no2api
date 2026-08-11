@@ -432,16 +432,16 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 					if failoverErr.RetryableOnSameAccount {
 						retryLimit := account.GetPoolModeRetryCount()
 						if retryCount, retry := tryIncrementSameAccountRetry(&sameAccountRetryCount, account.ID, retryLimit); retry {
+							retryDelay := sameAccountRetryDelayFor(failoverErr, retryCount)
 							reqLog.Warn("openai.pool_mode_same_account_retry",
 								zap.Int64("account_id", account.ID),
 								zap.Int("upstream_status", failoverErr.StatusCode),
 								zap.Int("retry_limit", retryLimit),
 								zap.Int("retry_count", retryCount),
+								zap.Duration("retry_delay", retryDelay),
 							)
-							select {
-							case <-c.Request.Context().Done():
+							if !sleepWithContext(c.Request.Context(), retryDelay) {
 								return
-							case <-time.After(sameAccountRetryDelay):
 							}
 							continue
 						}

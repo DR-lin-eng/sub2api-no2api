@@ -34,3 +34,18 @@ func TestShouldFailoverOpenAIPassthroughResponseAvoidsRequestAmplification(t *te
 		})
 	}
 }
+
+func TestShouldFailoverOpenAIPassthroughResponseHonorsPoolRetryStatuses(t *testing.T) {
+	poolAccount := &Account{Type: AccountTypeAPIKey, Credentials: map[string]any{
+		"pool_mode":                    true,
+		"pool_mode_retry_status_codes": []any{float64(http.StatusConflict)},
+	}}
+	nonPoolAccount := &Account{Type: AccountTypeAPIKey, Credentials: map[string]any{
+		"pool_mode_retry_status_codes": []any{float64(http.StatusConflict)},
+	}}
+	body := []byte(`{"error":{"message":"temporary credential pool conflict"}}`)
+
+	require.True(t, shouldFailoverOpenAIPassthroughResponse(poolAccount, http.StatusConflict, body))
+	require.False(t, shouldFailoverOpenAIPassthroughResponse(nonPoolAccount, http.StatusConflict, body))
+	require.True(t, shouldFailoverOpenAIPassthroughResponse(poolAccount, http.StatusUnauthorized, body))
+}

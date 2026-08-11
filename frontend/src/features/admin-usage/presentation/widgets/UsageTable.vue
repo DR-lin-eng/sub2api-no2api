@@ -240,6 +240,26 @@
           <span class="text-sm text-gray-600 dark:text-gray-400">{{ formatDateTime(value) }}</span>
         </template>
 
+        <template #cell-request_id="{ row }">
+          <div v-if="row.request_id" class="flex max-w-[160px] items-center gap-1.5">
+            <span class="truncate font-mono text-xs text-gray-500 dark:text-gray-400" :title="row.request_id">
+              {{ row.request_id }}
+            </span>
+            <button
+              type="button"
+              data-testid="copy-request-id"
+              class="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 dark:hover:bg-dark-700 dark:hover:text-gray-300"
+              :class="copiedRequestId === row.request_id ? 'text-emerald-500 hover:text-emerald-500' : ''"
+              :title="copiedRequestId === row.request_id ? t('usage.detail.requestIdCopied') : t('usage.detail.copyRequestId')"
+              :aria-label="copiedRequestId === row.request_id ? t('usage.detail.requestIdCopied') : t('usage.detail.copyRequestId')"
+              @click.stop="copyRequestId(row.request_id)"
+            >
+              <Icon :name="copiedRequestId === row.request_id ? 'check' : 'copy'" size="sm" class="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
+        </template>
+
         <template #cell-user_agent="{ row }">
           <span v-if="row.user_agent" class="text-sm text-gray-600 dark:text-gray-400 block max-w-[320px] truncate" :title="row.user_agent">{{ formatUserAgent(row.user_agent) }}</span>
           <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
@@ -505,6 +525,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useClipboard } from '@/common/composables/useClipboard'
 import { formatDateTime, formatReasoningEffort } from '@/core/utils/format'
 import { formatCacheTokens, formatMultiplier } from '@/core/utils/formatters'
 import { formatTokenPricePerMillion } from '@/core/utils/usagePricing'
@@ -586,6 +607,8 @@ const emit = defineEmits<{
   ipGeoBatchFailed: []
 }>()
 const { t } = useI18n()
+const { copyToClipboard } = useClipboard()
+const copiedRequestId = ref<string | null>(null)
 const showAccountBilling = props.showAccountBilling
 const showUpstreamEndpoint = props.showUpstreamEndpoint
 const ipGeoBatchLoading = ref(false)
@@ -633,6 +656,14 @@ const handleBatchFetchIpGeo = async () => {
   } finally {
     ipGeoBatchLoading.value = false
   }
+}
+
+const copyRequestId = async (requestId: string) => {
+  if (!await copyToClipboard(requestId, t('usage.detail.requestIdCopied'))) return
+  copiedRequestId.value = requestId
+  window.setTimeout(() => {
+    if (copiedRequestId.value === requestId) copiedRequestId.value = null
+  }, 2000)
 }
 
 // Tooltip state - cost

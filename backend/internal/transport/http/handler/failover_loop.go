@@ -36,6 +36,9 @@ const (
 	maxSameAccountRetries = 3
 	// sameAccountRetryDelay 同账号重试间隔
 	sameAccountRetryDelay = 500 * time.Millisecond
+	// maxRequestScopedRetryDelay caps exponential backoff for request-scoped
+	// transient failures so high retry budgets cannot create minute-long waits.
+	maxRequestScopedRetryDelay = 8 * time.Second
 	// singleAccountBackoffDelay 单账号分组 503 退避重试固定延时。
 	// Service 层在 SingleAccountRetry 模式下已做充分原地重试（最多 3 次、总等待 30s），
 	// Handler 层只需短暂间隔后重新进入 Service 层即可。
@@ -45,6 +48,21 @@ const (
 )
 
 const profitVetoExhaustedMessage = "No available accounts: all candidates rejected by group profit control"
+
+func sameAccountRetryDelayFor(failoverErr *service.UpstreamFailoverError, retryCount int) time.Duration {
+	if failoverErr == nil || failoverErr.Scope != service.GatewayFailureScopeRequest || retryCount <= 1 {
+		return sameAccountRetryDelay
+	}
+
+	delay := sameAccountRetryDelay
+	for i := 1; i < retryCount; i++ {
+		if delay >= maxRequestScopedRetryDelay/2 {
+			return maxRequestScopedRetryDelay
+		}
+		delay *= 2
+	}
+	return delay
+}
 
 // FailoverState 跨循环迭代共享的 failover 状态
 type FailoverState struct {
@@ -160,13 +178,15 @@ func (s *FailoverState) HandleFailoverError(
 			s.SameAccountRetryCount = make(map[int64]int, 1)
 		}
 		s.SameAccountRetryCount[accountID]++
+		retryDelay := sameAccountRetryDelayFor(failoverErr, s.SameAccountRetryCount[accountID])
 		logger.FromContext(ctx).Warn("gateway.failover_same_account_retry",
 			zap.Int64("account_id", accountID),
 			zap.Int("upstream_status", failoverErr.StatusCode),
 			zap.Int("same_account_retry_count", s.SameAccountRetryCount[accountID]),
 			zap.Int("same_account_retry_max", retryLimit),
+			zap.Duration("retry_delay", retryDelay),
 		)
-		if !sleepWithContext(ctx, sameAccountRetryDelay) {
+		if !sleepWithContext(ctx, retryDelay) {
 			return FailoverCanceled
 		}
 		return FailoverContinue

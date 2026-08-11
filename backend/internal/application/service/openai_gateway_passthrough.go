@@ -576,7 +576,7 @@ func stripOpenAILegacyResponsesBeta(headers http.Header) {
 	}
 }
 
-func shouldFailoverOpenAIPassthroughResponse(_ *Account, statusCode int, responseBody []byte) bool {
+func shouldFailoverOpenAIPassthroughResponse(account *Account, statusCode int, responseBody []byte) bool {
 	if statusCode < http.StatusBadRequest {
 		return false
 	}
@@ -584,6 +584,9 @@ func shouldFailoverOpenAIPassthroughResponse(_ *Account, statusCode int, respons
 		return false
 	}
 	if isOpenAIRequestBodyTooLargeError(statusCode, "", responseBody) {
+		return true
+	}
+	if account != nil && account.IsPoolMode() && account.IsPoolModeRetryableStatus(statusCode) {
 		return true
 	}
 	switch statusCode {
@@ -1582,6 +1585,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 	sawDone := false
 	sawTerminalEvent := false
 	sawFailedEvent := false
+	responsesSemanticOutputSeen := false
 	failedMessage := ""
 	clientOutputStarted := false
 	sawOutputProgressEvent := false
@@ -1764,6 +1768,16 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 				)
 			} else {
 				lineNeedsFlush = forceFlushFailedEvent
+			}
+			if lineStartsClientOutput && !openAIStreamEventTypeIsTerminal(eventType) {
+				responsesSemanticOutputSeen = true
+			}
+			if account != nil && account.Platform == PlatformOpenAI &&
+				(eventType == "response.completed" || eventType == "response.done") &&
+				!sawFailedEvent && !responsesSemanticOutputSeen &&
+				!openAIStreamClientOutputStarted(c, clientOutputStarted) &&
+				openAIResponsesCompletedEventIsEmpty(dataBytes, usage) {
+				return resultWithUsage(), newOpenAIResponsesEmptyCompletedFailoverError(c, account, upstreamRequestID)
 			}
 			if firstTokenMs == nil && lineStartsClientOutput && trimmedData != "[DONE]" {
 				ms := int(time.Since(startTime).Milliseconds())
