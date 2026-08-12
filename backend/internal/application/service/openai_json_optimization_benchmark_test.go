@@ -14,6 +14,7 @@ var (
 	benchmarkWSParseStringSink        string
 	benchmarkWSParseMapSink           map[string]any
 	benchmarkUsageSink                OpenAIUsage
+	benchmarkClassificationSink       bool
 )
 
 func BenchmarkToolContinuationValidationLegacy(b *testing.B) {
@@ -87,6 +88,23 @@ func BenchmarkOpenAIUsageExtractOptimized(b *testing.B) {
 		if ok {
 			benchmarkUsageSink = usage
 		}
+	}
+}
+
+func BenchmarkOpenAIVisibleOutputClassification(b *testing.B) {
+	data := `{"type":"response.output_text.delta","delta":"benchmark output"}`
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchmarkClassificationSink = openAIStreamDataStartsVisibleOutput(data, "response.output_text.delta")
+	}
+}
+
+func BenchmarkOpenAIWSTokenEventClassification(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchmarkClassificationSink = isOpenAIWSTokenEvent("response.output_text.delta")
 	}
 }
 

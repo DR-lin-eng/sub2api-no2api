@@ -254,6 +254,21 @@ function applyFeatureFlags(items: NavItem[]): NavItem[] {
   return out
 }
 
+function applySimpleMode(items: NavItem[]): NavItem[] {
+  const out: NavItem[] = []
+  for (const item of items) {
+    if (item.hideInSimpleMode) continue
+    if (item.children) {
+      const children = applySimpleMode(item.children)
+      if (children.length === 0) continue
+      out.push({ ...item, children })
+    } else {
+      out.push(item)
+    }
+  }
+  return out
+}
+
 const { t } = useI18n()
 
 const route = useRoute()
@@ -780,7 +795,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
 // finalizeNav 合并三重过滤：featureFlag 过滤 + simple 模式过滤。
 function finalizeNav(items: NavItem[]): NavItem[] {
   const visible = applyFeatureFlags(items)
-  return authStore.isSimpleMode ? visible.filter(item => !item.hideInSimpleMode) : visible
+  return authStore.isSimpleMode ? applySimpleMode(visible) : visible
 }
 
 // User navigation items (for regular users)
@@ -833,10 +848,9 @@ const adminNavItems = computed((): NavItem[] => {
       path: '/admin/security-audit',
       label: t('nav.securityAudit'),
       icon: ShieldIcon,
-      hideInSimpleMode: true,
       expandOnly: true,
       children: [
-        { path: '/admin/security-audit/ingress', label: t('nav.ingressRisk'), icon: ShieldIcon, featureFlag: flagOpsMonitoring },
+        { path: '/admin/security-audit/ingress', label: t('nav.ingressRisk'), icon: ShieldIcon, hideInSimpleMode: true, featureFlag: flagOpsMonitoring },
         { path: '/admin/risk-control', label: t('nav.contentModeration'), icon: ShieldIcon, featureFlag: flagRiskControl },
         { path: '/admin/prompt-audit', label: t('nav.promptAudit'), icon: ShieldIcon, featureFlag: flagRiskControl },
       ],
@@ -877,7 +891,7 @@ const adminNavItems = computed((): NavItem[] => {
 
   // 简单模式下，在系统设置前插入 API密钥
   if (authStore.isSimpleMode) {
-    const filtered = visible.filter(item => !item.hideInSimpleMode)
+    const filtered = applySimpleMode(visible)
     filtered.push({ path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon })
     filtered.push({ path: '/admin/settings', label: t('nav.settings'), icon: CogIcon })
     for (const cm of customMenuItemsForAdmin.value) {

@@ -365,8 +365,13 @@ func isOpenAIOAuthInputTokensUnsupported(statusCode int, body []byte) bool {
 }
 
 func isHTMLResponse(body []byte) bool {
-	trimmed := strings.TrimSpace(strings.ToLower(string(body)))
-	return strings.HasPrefix(trimmed, "<!doctype html") || strings.HasPrefix(trimmed, "<html")
+	trimmed := bytes.TrimSpace(body)
+	doctypeLen := len("<!doctype html")
+	if len(trimmed) >= doctypeLen && bytes.EqualFold(trimmed[:doctypeLen], []byte("<!doctype html")) {
+		return true
+	}
+	htmlLen := len("<html")
+	return len(trimmed) >= htmlLen && bytes.EqualFold(trimmed[:htmlLen], []byte("<html"))
 }
 
 func estimateOpenAIInputTokens(req openAIInputTokensCountRequest) (int, error) {

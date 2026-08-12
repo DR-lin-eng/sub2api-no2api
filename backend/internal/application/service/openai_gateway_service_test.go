@@ -504,6 +504,40 @@ func TestExtractOpenAIUsage_CapturesImageInputTokens(t *testing.T) {
 	require.Zero(t, tu.ImageInputTokens)
 }
 
+func TestExtractOpenAIUsage_ReadsNestedDataEnvelopes(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		body string
+	}{
+		{
+			name: "cline data envelope",
+			body: `{"data":{"usage":{"prompt_tokens":8,"completion_tokens":27,"prompt_tokens_details":{"cached_tokens":4}}},"success":true}`,
+		},
+		{
+			name: "wrapped responses envelope",
+			body: `{"data":{"response":{"usage":{"input_tokens":8,"output_tokens":27,"input_tokens_details":{"cached_tokens":4}}}}}`,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			usage, ok := extractOpenAIUsageFromJSONBytes([]byte(tt.body))
+			require.True(t, ok)
+			require.Equal(t, 8, usage.InputTokens)
+			require.Equal(t, 27, usage.OutputTokens)
+			require.Equal(t, 4, usage.CacheReadInputTokens)
+		})
+	}
+}
+
+func TestExtractOpenAIUsage_PreservesExistingPathPriority(t *testing.T) {
+	body := []byte(`{"usage":{"input_tokens":1,"output_tokens":2},"response":{"usage":{"input_tokens":3,"output_tokens":4}},"data":{"usage":{"prompt_tokens":100,"completion_tokens":50}}}`)
+
+	usage, ok := extractOpenAIUsageFromJSONBytes(body)
+
+	require.True(t, ok)
+	require.Equal(t, 1, usage.InputTokens)
+	require.Equal(t, 2, usage.OutputTokens)
+}
+
 func TestOpenAIGatewayService_BindHTTPResponseAccount(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()

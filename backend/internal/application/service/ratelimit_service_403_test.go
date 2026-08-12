@@ -89,29 +89,58 @@ func TestRateLimitService_HandleUpstreamError_OpenAI403ThresholdStaysTemporaryFo
 	require.Contains(t, repo.lastTempReason, "consecutive_403=3/3")
 }
 
-func TestRateLimitService_HandleUpstreamError_OpenAI403TempWriteFailureDoesNotDisableOAuth(t *testing.T) {
-	repo := &rateLimitAccountRepoStub{tempErr: context.Canceled}
-	counter := &openAI403CounterCacheStub{counts: []int64{3}}
-	service := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
-	service.SetOpenAI403CounterCache(counter)
-	account := &Account{
-		ID:       303,
-		Platform: PlatformOpenAI,
-		Type:     AccountTypeOAuth,
+func TestRateLimitService_HandleUpstreamError_OpenAIHTML403DoesNotPenalizeAccount(t *testing.T) {
+	for _, accountType := range []string{AccountTypeOAuth, AccountTypeAPIKey} {
+		t.Run(accountType, func(t *testing.T) {
+			repo := &rateLimitAccountRepoStub{}
+			counter := &openAI403CounterCacheStub{counts: []int64{3}}
+			blocker := &runtimeBlockRecorder{}
+			service := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+			service.SetOpenAI403CounterCache(counter)
+			service.SetAccountRuntimeBlocker(blocker)
+			account := &Account{ID: 303, Platform: PlatformOpenAI, Type: accountType}
+
+			for _, body := range [][]byte{
+				[]byte(`<html>Access denied</html>`),
+				[]byte("\n\t<!DOCTYPE HTML><html><body>Forbidden</body></html>"),
+			} {
+				shouldDisable := service.HandleUpstreamError(
+					context.Background(), account, http.StatusForbidden, http.Header{}, body,
+				)
+
+				require.False(t, shouldDisable)
+			}
+			require.Equal(t, 0, repo.setErrorCalls)
+			require.Equal(t, 0, repo.tempCalls)
+			require.Equal(t, 0, counter.increments)
+			require.Empty(t, blocker.accounts)
+		})
 	}
+}
 
-	shouldDisable := service.HandleUpstreamError(
-		context.Background(),
-		account,
-		http.StatusForbidden,
-		http.Header{},
-		[]byte(`<html>Access denied</html>`),
-	)
+func TestIsHTMLResponse(t *testing.T) {
+	for _, tc := range []struct {
+		body string
+		want bool
+	}{
+		{body: "<!doctype html><html></html>", want: true},
+		{body: "\n  <!DOCTYPE HTML>", want: true},
+		{body: "<HTML lang=\"en\">", want: true},
+		{body: `{"error":{"message":"forbidden"}}`, want: false},
+		{body: "Forbidden", want: false},
+		{body: `<?xml version="1.0"?><error/>`, want: false},
+	} {
+		require.Equal(t, tc.want, isHTMLResponse([]byte(tc.body)), tc.body)
+	}
+}
 
-	require.True(t, shouldDisable)
-	require.Equal(t, 0, repo.setErrorCalls)
-	require.Equal(t, 1, repo.tempCalls)
-	require.Contains(t, repo.lastTempReason, "threshold reached")
+func BenchmarkIsHTMLResponseLargeBody(b *testing.B) {
+	body := append([]byte("  <!DOCTYPE HTML>"), make([]byte, 1<<20)...)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = isHTMLResponse(body)
+	}
 }
 
 func TestRateLimitService_HandleUpstreamError_OpenAI403NonOAuthStillDisables(t *testing.T) {

@@ -1027,6 +1027,66 @@ func openAIStreamItemIsReplayUnsafe(data string) bool {
 	return openAIStreamItemTypeIsReplayUnsafe(itemType)
 }
 
+func openAIStreamItemHasVisibleOutput(item gjson.Result) bool {
+	if openAIStreamJSONValueHasSemanticValue(item.Get("arguments")) ||
+		openAIStreamJSONValueHasSemanticValue(item.Get("input")) ||
+		openAIStreamJSONValueHasSemanticValue(item.Get("result")) {
+		return true
+	}
+	for _, path := range []string{"content", "summary"} {
+		for _, part := range item.Get(path).Array() {
+			if openAIStreamJSONValueHasSemanticValue(part.Get("text")) ||
+				openAIStreamJSONValueHasSemanticValue(part.Get("transcript")) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// Output progress and replay safety remain separate from TTFT. This predicate
+// records latency only when a client-usable value is present.
+func openAIStreamDataStartsVisibleOutput(data, eventType string) bool {
+	trimmed := strings.TrimSpace(data)
+	if trimmed == "" || trimmed == "[DONE]" {
+		return false
+	}
+	eventType = strings.TrimSpace(eventType)
+	if eventType == "" {
+		eventType = strings.TrimSpace(gjson.Get(trimmed, "type").String())
+	}
+	if strings.HasSuffix(eventType, ".delta") {
+		return openAIStreamJSONValueHasSemanticValue(gjson.Get(trimmed, "delta"))
+	}
+	switch eventType {
+	case "response.output_text.done",
+		"response.reasoning_summary_text.done",
+		"response.reasoning_text.done",
+		"response.audio_transcript.done":
+		return openAIStreamJSONValueHasSemanticValue(gjson.Get(trimmed, "text"))
+	case "response.function_call_arguments.done":
+		return openAIStreamJSONValueHasSemanticValue(gjson.Get(trimmed, "arguments"))
+	case "response.custom_tool_call_input.done":
+		return openAIStreamJSONValueHasSemanticValue(gjson.Get(trimmed, "input"))
+	case "response.image_generation_call.partial_image":
+		return openAIStreamJSONValueHasSemanticValue(gjson.Get(trimmed, "partial_image_b64"))
+	case "response.content_part.added", "response.content_part.done",
+		"response.reasoning_summary_part.added", "response.reasoning_summary_part.done":
+		part := gjson.Get(trimmed, "part")
+		return openAIStreamJSONValueHasSemanticValue(part.Get("text")) ||
+			openAIStreamJSONValueHasSemanticValue(part.Get("transcript"))
+	case "response.output_item.added", "response.output_item.done":
+		return openAIStreamItemHasVisibleOutput(gjson.Get(trimmed, "item"))
+	case "response.completed", "response.done":
+		for _, item := range gjson.Get(trimmed, "response.output").Array() {
+			if openAIStreamItemHasVisibleOutput(item) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func openAIStreamDataStartsClientOutput(data, eventType string) bool {
 	return openAIStreamDataStartsClientOutputTrimmed(strings.TrimSpace(data), strings.TrimSpace(eventType))
 }
@@ -1779,7 +1839,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 				openAIResponsesCompletedEventIsEmpty(dataBytes, usage) {
 				return resultWithUsage(), newOpenAIResponsesEmptyCompletedFailoverError(c, account, upstreamRequestID)
 			}
-			if firstTokenMs == nil && lineStartsClientOutput && trimmedData != "[DONE]" {
+			if firstTokenMs == nil && openAIStreamDataStartsVisibleOutput(trimmedData, eventType) {
 				ms := int(time.Since(startTime).Milliseconds())
 				firstTokenMs = &ms
 			}

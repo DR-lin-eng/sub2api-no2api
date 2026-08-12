@@ -86,10 +86,12 @@ type tokenCacheInvalidatorRecorder struct {
 type openAI403CounterCacheStub struct {
 	counts     []int64
 	resetCalls []int64
+	increments int
 	err        error
 }
 
 func (s *openAI403CounterCacheStub) IncrementOpenAI403Count(_ context.Context, _ int64, _ int) (int64, error) {
+	s.increments++
 	if s.err != nil {
 		return 0, s.err
 	}
