@@ -10,7 +10,7 @@ const mockGetCurrentUser = vi.fn()
 const mockRegister = vi.fn()
 const mockRefreshToken = vi.fn()
 
-vi.mock('@/api', () => ({
+vi.mock('@/features/auth/data/datasources/authDatasource', () => ({
   authAPI: {
     login: (...args: any[]) => mockLogin(...args),
     login2FA: (...args: any[]) => mockLogin2FA(...args),

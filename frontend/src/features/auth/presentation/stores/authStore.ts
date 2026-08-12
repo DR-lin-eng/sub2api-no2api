@@ -9,7 +9,7 @@ import {
   authAPI,
   isTotp2FARequired,
   type LoginResponse
-} from '@/api'
+} from '@/features/auth/data/datasources/authDatasource'
 import {
   clearTokenMemory,
   getTokenExpiresAtMemory,

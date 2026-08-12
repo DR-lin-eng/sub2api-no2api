@@ -4,9 +4,10 @@ import { ref } from 'vue'
 
 import DashboardView from '../presentation/pages/DashboardPage.vue'
 
-const { keysList, getDashboardApiKeysUsage } = vi.hoisted(() => ({
+const { keysList, getDashboardApiKeysUsage, getDashboardStats } = vi.hoisted(() => ({
   keysList: vi.fn(),
-  getDashboardApiKeysUsage: vi.fn()
+  getDashboardApiKeysUsage: vi.fn(),
+  getDashboardStats: vi.fn()
 }))
 
 vi.mock('@/features/auth/presentation/stores/authStore', () => ({
@@ -20,7 +21,7 @@ vi.mock('@/features/auth/presentation/stores/authStore', () => ({
 vi.mock('@/features/keys/data/datasources/keysDatasource', () => ({ keysAPI: { list: keysList } }))
 vi.mock('@/features/usage/data/datasources/usageDatasource', () => ({
   usageAPI: {
-    getDashboardStats: vi.fn().mockResolvedValue({}),
+    getDashboardStats,
     getDashboardTrend: vi.fn().mockResolvedValue({ trend: [] }),
     getDashboardModels: vi.fn().mockResolvedValue({ models: [] }),
     getByDateRange: vi.fn().mockResolvedValue({ items: [] }),
@@ -43,6 +44,9 @@ const page = (items: ReturnType<typeof key>[], current: number, pages: number) =
 
 const mountDashboard = () => mount(DashboardView, {
   global: {
+    mocks: {
+      $t: (key: string) => key
+    },
     stubs: {
       AppLayout: { template: '<div><slot /></div>' },
       LoadingSpinner: true,
@@ -68,8 +72,25 @@ describe('user DashboardView API key usage orchestration', () => {
   beforeEach(() => {
     keysList.mockReset()
     getDashboardApiKeysUsage.mockReset()
+    getDashboardStats.mockReset()
     keysList.mockResolvedValue(page([], 1, 1))
     getDashboardApiKeysUsage.mockResolvedValue({ stats: {} })
+    getDashboardStats.mockResolvedValue({})
+  })
+
+  it('keeps the stats layout visible and exposes a retry after an initial failure', async () => {
+    getDashboardStats.mockRejectedValueOnce(new Error('stats failed')).mockResolvedValueOnce({ total_requests: 12 })
+    const wrapper = mountDashboard()
+    await flushPromises()
+
+    expect(wrapper.find('user-dashboard-stats-stub').exists()).toBe(true)
+    expect(wrapper.get('[role="alert"]').text()).toContain('dashboard.statsLoadFailed')
+
+    await wrapper.get('[data-test="dashboard-stats-retry"]').trigger('click')
+    await flushPromises()
+
+    expect(getDashboardStats).toHaveBeenCalledTimes(2)
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
   })
 
   it('retrieves every key page and requests usage in chunks of at most 100 IDs', async () => {

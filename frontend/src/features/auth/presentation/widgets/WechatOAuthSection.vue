@@ -35,7 +35,7 @@ import {
   resolveWeChatOAuthStart,
   type OAuthLoginStart
 } from '@/features/auth/data/datasources/authDatasource'
-import { useAppStore } from '@/stores'
+import { useAppStore } from '@/core/stores/appStore'
 import { resolveAffiliateReferralCode, storeOAuthAffiliateCode } from '@/core/utils/oauthAffiliate'
 
 const props = withDefaults(defineProps<{

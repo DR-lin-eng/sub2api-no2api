@@ -1,15 +1,25 @@
 <script setup lang="ts">
 import { RouterView, useRouter, useRoute } from 'vue-router'
-import { onMounted, onBeforeUnmount, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, onBeforeUnmount, watch } from 'vue'
 import Toast from '@/common/widgets/feedback/Toast.vue'
 import NavigationProgress from '@/common/widgets/feedback/NavigationProgress.vue'
-import AdminComplianceDialog from '@/features/admin-settings/presentation/widgets/AdminComplianceDialog.vue'
 import { resolveRouteDocumentTitle } from '@/core/routes/title'
-import AnnouncementPopup from '@/common/widgets/data/AnnouncementPopup.vue'
-import { useAppStore, useAuthStore, useSubscriptionStore, useAnnouncementStore, useAdminComplianceStore, useAdminSettingsStore } from '@/stores'
+import { useAppStore } from '@/core/stores/appStore'
+import { useAuthStore } from '@/features/auth/presentation/stores/authStore'
+import { useSubscriptionStore } from '@/features/subscriptions/presentation/stores/subscriptionsStore'
+import { useAnnouncementStore } from '@/features/announcements/presentation/stores/announcementsStore'
+import { useAdminComplianceStore } from '@/features/admin-settings/presentation/stores/adminComplianceStore'
+import { useAdminSettingsStore } from '@/features/admin-settings/presentation/stores/adminSettingsStore'
 import { getSetupStatus } from '@/features/setup/data/datasources/setupDatasource'
 import { useSupportUnreadPolling } from '@/features/support-chat/presentation/composables/useSupportUnreadPolling'
 import { updateFavicon } from '@/core/services/branding'
+
+const AnnouncementPopup = defineAsyncComponent(
+  () => import('@/common/widgets/data/AnnouncementPopup.vue'),
+)
+const AdminComplianceDialog = defineAsyncComponent(
+  () => import('@/features/admin-settings/presentation/widgets/AdminComplianceDialog.vue'),
+)
 
 const router = useRouter()
 const route = useRoute()
@@ -19,6 +29,10 @@ const subscriptionStore = useSubscriptionStore()
 const announcementStore = useAnnouncementStore()
 const adminComplianceStore = useAdminComplianceStore()
 const adminSettingsStore = useAdminSettingsStore()
+const hasAnnouncementPopup = computed(() => announcementStore.currentPopup !== null)
+const needsAdminCompliance = computed(
+  () => authStore.isAuthenticated && authStore.isAdmin && adminComplianceStore.shouldShow,
+)
 useSupportUnreadPolling({
   isAuthenticated: () => authStore.isAuthenticated,
   isAdmin: () => authStore.isAdmin,
@@ -145,6 +159,6 @@ onMounted(async () => {
   <NavigationProgress />
   <RouterView />
   <Toast />
-  <AnnouncementPopup />
-  <AdminComplianceDialog />
+  <AnnouncementPopup v-if="hasAnnouncementPopup" />
+  <AdminComplianceDialog v-if="needsAdminCompliance" />
 </template>

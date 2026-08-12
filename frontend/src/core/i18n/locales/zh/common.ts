@@ -237,6 +237,12 @@ export default {
     passwordRequired: '请输入密码',
     passwordMinLength: '密码至少需要 6 个字符',
     loginFailed: '登录失败，请检查您的凭据后重试。',
+    accountLinked: '账号绑定成功',
+    twoFactor: {
+      title: '双因素认证',
+      hint: '请输入您认证器应用显示的 6 位验证码',
+      failed: '验证失败，请重试',
+    },
     errors: {
       USER_NOT_ACTIVE: '账号已被禁用',
       LOCAL_CAPTCHA_REQUIRED: '请输入图形验证码',

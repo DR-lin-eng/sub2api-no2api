@@ -237,6 +237,12 @@ export default {
     passwordRequired: 'Password is required',
     passwordMinLength: 'Password must be at least 6 characters',
     loginFailed: 'Login failed. Please check your credentials and try again.',
+    accountLinked: 'Account linked successfully',
+    twoFactor: {
+      title: 'Two-Factor Authentication',
+      hint: 'Enter the 6-digit code from your authenticator app',
+      failed: 'Verification failed, please try again',
+    },
     errors: {
       USER_NOT_ACTIVE: 'Account has been disabled.',
       LOCAL_CAPTCHA_REQUIRED: 'Enter the image CAPTCHA',

@@ -213,6 +213,7 @@ func (s *FrontendServer) injectSettings(settingsJSON []byte) []byte {
 	// Apply custom branding before the browser paints the static defaults.
 	result = injectSiteTitle(result, settingsJSON)
 	result = injectSiteFavicon(result, settingsJSON)
+	result = injectSiteLogoPreload(result, settingsJSON)
 
 	return result
 }
@@ -241,6 +242,39 @@ func injectSiteFavicon(html, settingsJSON []byte) []byte {
 	}
 	linkEnd := linkStart + linkEndOffset + 1
 	replacement := []byte(`<link rel="icon" href="` + htmlpkg.EscapeString(logoURL) + `" />`)
+
+	var buf bytes.Buffer
+	buf.Write(html[:linkStart])
+	buf.Write(replacement)
+	buf.Write(html[linkEnd:])
+	return buf.Bytes()
+}
+
+// injectSiteLogoPreload keeps the high-priority logo request aligned with the
+// configured brand image rendered by the frontend.
+func injectSiteLogoPreload(html, settingsJSON []byte) []byte {
+	var cfg struct {
+		SiteLogo string `json:"site_logo"`
+	}
+	if err := json.Unmarshal(settingsJSON, &cfg); err != nil {
+		return html
+	}
+
+	logoURL := safeImageURL(cfg.SiteLogo)
+	if logoURL == "" {
+		return html
+	}
+
+	linkStart := bytes.Index(html, []byte(`<link id="app-logo-preload"`))
+	if linkStart == -1 {
+		return html
+	}
+	linkEndOffset := bytes.IndexByte(html[linkStart:], '>')
+	if linkEndOffset == -1 {
+		return html
+	}
+	linkEnd := linkStart + linkEndOffset + 1
+	replacement := []byte(`<link id="app-logo-preload" rel="preload" as="image" href="` + htmlpkg.EscapeString(logoURL) + `" fetchpriority="high" />`)
 
 	var buf bytes.Buffer
 	buf.Write(html[:linkStart])

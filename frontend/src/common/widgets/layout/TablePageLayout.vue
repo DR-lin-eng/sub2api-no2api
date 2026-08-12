@@ -27,19 +27,32 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 
-const isMobile = ref(false)
+const MOBILE_MEDIA_QUERY = '(max-width: 1023px)'
+const mediaQuery = window.matchMedia?.(MOBILE_MEDIA_QUERY)
+const isMobile = ref(mediaQuery?.matches ?? window.innerWidth < 1024)
 
-const checkMobile = () => {
-  isMobile.value = window.innerWidth < 1024
+const syncMobile = (matches = mediaQuery?.matches ?? window.innerWidth < 1024) => {
+  isMobile.value = matches
 }
 
+const onMediaChange = (event: MediaQueryListEvent) => syncMobile(event.matches)
+const onWindowResize = () => syncMobile()
+
 onMounted(() => {
-  checkMobile()
-  window.addEventListener('resize', checkMobile)
+  syncMobile()
+  if (mediaQuery?.addEventListener) {
+    mediaQuery.addEventListener('change', onMediaChange)
+  } else {
+    window.addEventListener('resize', onWindowResize)
+  }
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', checkMobile)
+  if (mediaQuery?.removeEventListener) {
+    mediaQuery.removeEventListener('change', onMediaChange)
+  } else {
+    window.removeEventListener('resize', onWindowResize)
+  }
 })
 </script>
 

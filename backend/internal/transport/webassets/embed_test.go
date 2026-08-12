@@ -149,6 +149,35 @@ func TestInjectSiteFavicon(t *testing.T) {
 	})
 }
 
+func TestInjectSiteLogoPreload(t *testing.T) {
+	t.Run("replaces_preload_with_site_logo", func(t *testing.T) {
+		html := []byte(`<html><head><link id="app-logo-preload" rel="preload" as="image" href="/logo.svg" fetchpriority="high" /></head></html>`)
+		settingsJSON := []byte(`{"site_logo":"https://example.com/custom-logo.png"}`)
+
+		result := injectSiteLogoPreload(html, settingsJSON)
+
+		assert.Contains(t, string(result), `href="https://example.com/custom-logo.png"`)
+		assert.Contains(t, string(result), `fetchpriority="high"`)
+		assert.NotContains(t, string(result), `href="/logo.svg"`)
+	})
+
+	t.Run("rejects_unsafe_logo_urls", func(t *testing.T) {
+		html := []byte(`<link id="app-logo-preload" rel="preload" as="image" href="/logo.svg" />`)
+
+		result := injectSiteLogoPreload(html, []byte(`{"site_logo":"javascript:alert(1)"}`))
+
+		assert.Equal(t, string(html), string(result))
+	})
+
+	t.Run("escapes_logo_url_for_html", func(t *testing.T) {
+		html := []byte(`<link id="app-logo-preload" rel="preload" as="image" href="/logo.svg" />`)
+
+		result := injectSiteLogoPreload(html, []byte(`{"site_logo":"https://example.com/logo.png?a=1&b=2"}`))
+
+		assert.Contains(t, string(result), `a=1&amp;b=2`)
+	})
+}
+
 func TestReplaceNoncePlaceholder(t *testing.T) {
 	t.Run("replaces_single_placeholder", func(t *testing.T) {
 		html := []byte(`<script nonce="__CSP_NONCE_VALUE__">console.log('test');</script>`)
@@ -651,11 +680,11 @@ func TestFrontendServer_Middleware(t *testing.T) {
 
 		// Request for existing static file
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, "/logo.png", nil)
+		req := httptest.NewRequest(http.MethodGet, "/logo.svg", nil)
 		router.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Contains(t, w.Header().Get("Content-Type"), "image/png")
+		assert.Contains(t, w.Header().Get("Content-Type"), "image/svg+xml")
 		assert.Empty(t, w.Header().Get("Cache-Control"))
 
 		entries, err := fs.ReadDir(server.distFS, "assets")
@@ -740,11 +769,11 @@ func TestServeEmbeddedFrontend(t *testing.T) {
 		router.Use(middleware)
 
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, "/logo.png", nil)
+		req := httptest.NewRequest(http.MethodGet, "/logo.svg", nil)
 		router.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Contains(t, w.Header().Get("Content-Type"), "image/png")
+		assert.Contains(t, w.Header().Get("Content-Type"), "image/svg+xml")
 	})
 
 	t.Run("serves_index_html_for_root", func(t *testing.T) {

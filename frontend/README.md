@@ -44,6 +44,13 @@ pnpm run build
 - i18n：`src/core/i18n/index.ts` 与 `src/core/i18n/locales/`
 - 主题：`src/core/themes/style.css` 及同目录专题样式
 
+## 首屏与按需加载
+
+- i18n 启动时只加载 `base` 文案；Router 在进入页面前按路由加载 `user`、`batchImage`、`supportChat` 或 `admin` scope。新增路由或把文案移入独立语言文件时，同步更新 `src/core/i18n/index.ts` 的路由映射和 scope 测试。
+- 公告、管理员合规等非必现的全局对话框使用 `defineAsyncComponent` 并只在状态需要时挂载。不要把低频弹窗或它们的重依赖静态导入应用壳层。
+- `vite.config.ts` 将 Markdown、二维码、表格虚拟化、引导、支付和导出等低频依赖拆为独立 chunk。新增重依赖后检查生产 `index.html` 的 `modulepreload`，避免它重新进入匿名用户首屏。
+- `index.html` 中的 `#app-logo-preload` 是登录页 Logo 的高优先级预加载入口。修改其结构时同步检查 Vite 开发态 branding 注入和后端 `internal/transport/webassets` 的生产 HTML 注入，确保自定义 Logo 使用同一 URL。
+
 ## 模块分层
 
 推荐依赖方向：

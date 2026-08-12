@@ -90,7 +90,7 @@ describe('frontend architecture boundaries', () => {
   })
 
   it('requires a migrated import to be removed from the exact baseline', () => {
-    const messages = verify('export {}', 'src/App.vue')
+    const messages = verify('export {}', 'src/common/widgets/data/SubscriptionProgressMini.vue')
 
     expect(messages).toEqual([
       expect.objectContaining({

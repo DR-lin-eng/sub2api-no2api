@@ -38,9 +38,14 @@ function injectBranding(html: string, config: { site_name?: string; site_logo?: 
 
   const siteLogo = config.site_logo?.trim()
   if (siteLogo && isSafeImageUrl(siteLogo)) {
+    const escapedLogo = escapeHtml(siteLogo)
     brandedHtml = brandedHtml.replace(
       /<link\s+rel=["']icon["'][^>]*>/i,
-      `<link rel="icon" href="${escapeHtml(siteLogo)}" />`,
+      `<link rel="icon" href="${escapedLogo}" />`,
+    )
+    brandedHtml = brandedHtml.replace(
+      /<link\s+id=["']app-logo-preload["'][^>]*>/i,
+      `<link id="app-logo-preload" rel="preload" as="image" href="${escapedLogo}" fetchpriority="high" />`,
     )
   }
   return brandedHtml
@@ -142,6 +147,39 @@ export default defineConfig(({ mode }) => {
             // 国际化
             if (id.includes('/vue-i18n/') || id.includes('/@intlify/')) {
               return 'vendor-i18n'
+            }
+
+            // 全局 HTTP 客户端保持轻量，不能与低频工具库绑定进首屏。
+            if (id.includes('/axios/')) {
+              return 'vendor-http'
+            }
+
+            if (id.includes('/marked/') || id.includes('/dompurify/')) {
+              return 'vendor-markdown'
+            }
+
+            if (id.includes('/qrcode/') || id.includes('/dijkstrajs/')) {
+              return 'vendor-qrcode'
+            }
+
+            if (id.includes('/@tanstack/vue-virtual/')) {
+              return 'vendor-table'
+            }
+
+            if (id.includes('/driver.js/')) {
+              return 'vendor-onboarding'
+            }
+
+            if (id.includes('/@airwallex/components-sdk/')) {
+              return 'vendor-airwallex'
+            }
+
+            if (id.includes('/vue-draggable-plus/')) {
+              return 'vendor-dragdrop'
+            }
+
+            if (id.includes('/file-saver/')) {
+              return 'vendor-export'
             }
 
             // Stripe 仅在支付流程中按需加载，避免进入首页公共依赖。

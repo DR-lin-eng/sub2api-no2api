@@ -23,4 +23,10 @@ describe('TablePageLayout responsive table scrolling', () => {
       true
     )
   })
+
+  it('derives mobile mode from matchMedia during setup', () => {
+    expect(componentSource).toContain("const MOBILE_MEDIA_QUERY = '(max-width: 1023px)'")
+    expect(componentSource).toContain('const isMobile = ref(mediaQuery?.matches')
+    expect(componentSource).toContain("mediaQuery.addEventListener('change', onMediaChange)")
+  })
 })

@@ -235,7 +235,7 @@
 import { computed, ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { AuthLayout } from '@/common/widgets/layout'
+import AuthLayout from '@/common/widgets/layout/AuthLayout.vue'
 import LinuxDoOAuthSection from '@/features/auth/presentation/widgets/LinuxDoOAuthSection.vue'
 import DingTalkOAuthSection from '@/features/auth/presentation/widgets/DingTalkOAuthSection.vue'
 import OidcOAuthSection from '@/features/auth/presentation/widgets/OidcOAuthSection.vue'
@@ -246,7 +246,8 @@ import TotpLoginModal from '@/features/auth/presentation/widgets/TotpLoginDialog
 import LocalCaptchaWidget from '@/features/auth/presentation/widgets/LocalCaptchaWidget.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import HumanVerificationWidget from '@/features/auth/presentation/widgets/HumanVerificationWidget.vue'
-import { useAuthStore, useAppStore } from '@/stores'
+import { useAuthStore } from '@/features/auth/presentation/stores/authStore'
+import { useAppStore } from '@/core/stores/appStore'
 import {
   buildOAuthLoginStartURL,
   clearCredentialKeyPrefetch,
@@ -727,7 +728,7 @@ async function handle2FAVerify(code: string): Promise<void> {
     await router.push(redirectTo)
   } catch (error: unknown) {
     const err = error as { message?: string; response?: { data?: { message?: string } } }
-    const message = err.response?.data?.message || err.message || t('profile.totp.loginFailed')
+    const message = err.response?.data?.message || err.message || t('auth.twoFactor.failed')
 
     if (totpModalRef.value) {
       totpModalRef.value.setError(message)

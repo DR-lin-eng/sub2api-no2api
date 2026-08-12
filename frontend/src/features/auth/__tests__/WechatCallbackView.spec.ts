@@ -479,7 +479,7 @@ describe('WechatCallbackView', () => {
     })
     expect(setTokenMock).not.toHaveBeenCalled()
     expect(clearPendingAuthSessionMock).toHaveBeenCalledTimes(1)
-    expect(showSuccessMock).toHaveBeenCalledWith('profile.authBindings.bindSuccess')
+    expect(showSuccessMock).toHaveBeenCalledWith('auth.accountLinked')
     expect(replaceMock).toHaveBeenCalledWith('/profile/connections')
   })
 

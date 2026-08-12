@@ -3,13 +3,101 @@ import { createI18n } from 'vue-i18n'
 type LocaleCode = 'en' | 'zh'
 
 type LocaleMessages = Record<string, any>
+export type LocaleScope = 'base' | 'user' | 'batchImage' | 'supportChat' | 'admin'
 
 const LOCALE_KEY = 'sub2api_locale'
 const DEFAULT_LOCALE: LocaleCode = 'en'
 
-const localeLoaders: Record<LocaleCode, () => Promise<{ default: LocaleMessages }>> = {
-  en: () => import('./locales/en'),
-  zh: () => import('./locales/zh')
+const localeLoaders: Record<LocaleCode, Record<LocaleScope, () => Promise<LocaleMessages>>> = {
+  en: {
+    base: async () => {
+      const [landing, common] = await Promise.all([
+        import('./locales/en/landing'),
+        import('./locales/en/common'),
+      ])
+      return { ...landing.default, ...common.default }
+    },
+    user: async () => {
+      const [dashboard, misc] = await Promise.all([
+        import('./locales/en/dashboard'),
+        import('./locales/en/misc'),
+      ])
+      return { ...dashboard.default, ...misc.default }
+    },
+    batchImage: async () => (await import('./locales/en/batchImage')).default,
+    supportChat: async () => (await import('./locales/en/supportChat')).default,
+    admin: async () => ({ admin: (await import('./locales/en/admin')).default }),
+  },
+  zh: {
+    base: async () => {
+      const [landing, common] = await Promise.all([
+        import('./locales/zh/landing'),
+        import('./locales/zh/common'),
+      ])
+      return { ...landing.default, ...common.default }
+    },
+    user: async () => {
+      const [dashboard, misc] = await Promise.all([
+        import('./locales/zh/dashboard'),
+        import('./locales/zh/misc'),
+      ])
+      return { ...dashboard.default, ...misc.default }
+    },
+    batchImage: async () => (await import('./locales/zh/batchImage')).default,
+    supportChat: async () => (await import('./locales/zh/supportChat')).default,
+    admin: async () => ({ admin: (await import('./locales/zh/admin')).default }),
+  },
+}
+
+const USER_ROUTE_PREFIXES = [
+  '/dashboard',
+  '/keys',
+  '/batch-image',
+  '/usage',
+  '/redeem',
+  '/affiliate',
+  '/available-channels',
+  '/profile',
+  '/subscriptions',
+  '/support',
+  '/purchase',
+  '/orders',
+  '/payment',
+  '/custom',
+  '/model-plaza',
+  '/monitor',
+]
+
+function matchesRoutePrefix(path: string, prefix: string): boolean {
+  return path === prefix || path.startsWith(`${prefix}/`)
+}
+
+export function getLocaleScopesForRoute(pathname: string): LocaleScope[] {
+  const path = pathname.split(/[?#]/, 1)[0] || '/'
+  const scopes: LocaleScope[] = ['base']
+
+  if (matchesRoutePrefix(path, '/admin')) {
+    scopes.push('user', 'admin')
+    if (matchesRoutePrefix(path, '/admin/support')) {
+      scopes.push('supportChat')
+    }
+    return scopes
+  }
+
+  if (
+    USER_ROUTE_PREFIXES.some((prefix) => matchesRoutePrefix(path, prefix)) ||
+    path === '/auth/wechat/payment/callback'
+  ) {
+    scopes.push('user')
+  }
+  if (matchesRoutePrefix(path, '/batch-image')) {
+    scopes.push('batchImage')
+  }
+  if (matchesRoutePrefix(path, '/support')) {
+    scopes.push('supportChat')
+  }
+
+  return scopes
 }
 
 function isLocaleCode(value: string): value is LocaleCode {
@@ -40,22 +128,46 @@ export const i18n = createI18n({
   warnHtmlMessage: false
 })
 
-const loadedLocales = new Set<LocaleCode>()
+const loadedScopes = new Map<LocaleCode, Set<LocaleScope>>()
+const scopeLoadPromises = new Map<string, Promise<void>>()
+const activatedScopes = new Set<LocaleScope>(['base'])
 
-export async function loadLocaleMessages(locale: LocaleCode): Promise<void> {
-  if (loadedLocales.has(locale)) {
-    return
+export async function loadLocaleMessages(
+  locale: LocaleCode,
+  scopes: readonly LocaleScope[] = [...activatedScopes],
+): Promise<void> {
+  scopes.forEach((scope) => activatedScopes.add(scope))
+  let localeScopes = loadedScopes.get(locale)
+  if (!localeScopes) {
+    localeScopes = new Set<LocaleScope>()
+    loadedScopes.set(locale, localeScopes)
   }
 
-  const loader = localeLoaders[locale]
-  const module = await loader()
-  i18n.global.setLocaleMessage(locale, module.default)
-  loadedLocales.add(locale)
+  await Promise.all(scopes.map(async (scope) => {
+    if (localeScopes.has(scope)) return
+
+    const loadKey = `${locale}:${scope}`
+    let pending = scopeLoadPromises.get(loadKey)
+    if (!pending) {
+      pending = localeLoaders[locale][scope]().then((messages) => {
+        i18n.global.mergeLocaleMessage(locale, messages)
+        localeScopes.add(scope)
+      }).finally(() => {
+        scopeLoadPromises.delete(loadKey)
+      })
+      scopeLoadPromises.set(loadKey, pending)
+    }
+    await pending
+  }))
+}
+
+export async function loadRouteLocaleMessages(pathname: string): Promise<void> {
+  await loadLocaleMessages(getLocale(), getLocaleScopesForRoute(pathname))
 }
 
 export async function initI18n(): Promise<void> {
   const current = getLocale()
-  await loadLocaleMessages(current)
+  await loadLocaleMessages(current, ['base'])
   document.documentElement.setAttribute('lang', current)
 }
 

@@ -283,7 +283,7 @@ describe('OidcCallbackView', () => {
       adoptAvatar: true
     })
     expect(setToken).not.toHaveBeenCalled()
-    expect(showSuccess).toHaveBeenCalledWith('profile.authBindings.bindSuccess')
+    expect(showSuccess).toHaveBeenCalledWith('auth.accountLinked')
     expect(replace).toHaveBeenCalledWith('/profile')
   })
 

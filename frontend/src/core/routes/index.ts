@@ -13,6 +13,7 @@ import { useRoutePrefetch } from '@/common/composables/useRoutePrefetch'
 import { getSetupStatus } from '@/features/setup/data/datasources/setupDatasource'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveRouteDocumentTitle } from './title'
+import { loadRouteLocaleMessages } from '@/core/i18n'
 
 /**
  * Route definitions with lazy loading
@@ -839,6 +840,16 @@ router.beforeEach(async (to, _from, next) => {
     authInitialized = true
   }
 
+  const requiresAuth = to.meta.requiresAuth !== false // Default to true
+  const requiresAdmin = to.meta.requiresAdmin === true
+  const canEnterRequestedScope =
+    (!requiresAuth || authStore.isAuthenticated) &&
+    (!requiresAdmin || authStore.isAdmin)
+  if (canEnterRequestedScope) {
+    // Resolve the route's messages before rendering or resolving translated titles.
+    await loadRouteLocaleMessages(to.path)
+  }
+
   // Set page title
   const appStore = useAppStore()
   const adminSettingsStore = useAdminSettingsStore()
@@ -849,9 +860,6 @@ router.beforeEach(async (to, _from, next) => {
   document.title = resolveRouteDocumentTitle(to, appStore.siteName, customMenuItems)
 
   // Check if route requires authentication
-  const requiresAuth = to.meta.requiresAuth !== false // Default to true
-  const requiresAdmin = to.meta.requiresAdmin === true
-
   if (to.path === '/setup') {
     try {
       const status = await getSetupStatus()

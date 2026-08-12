@@ -43,6 +43,7 @@ export default {
     actualSpend: 'Actual Spend',
     noApiKeys: 'No API keys',
     noApiKeysDescription: 'Create an API key to see usage for the selected range.',
+    statsLoadFailed: 'Dashboard statistics could not be loaded. The values below may be placeholders or previously loaded data.',
     apiKeyUsageLoadFailed: 'Failed to load API key usage. Previous data is still shown when available.',
     retry: 'Retry',
     actual: 'Actual',

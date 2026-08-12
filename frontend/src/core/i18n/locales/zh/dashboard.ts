@@ -43,6 +43,7 @@ export default {
     actualSpend: '实际消费',
     noApiKeys: '暂无 API 密钥',
     noApiKeysDescription: '创建 API 密钥后可查看所选时间范围内的用量。',
+    statsLoadFailed: '仪表盘统计加载失败。下方数值可能是占位值或上次成功加载的数据。',
     apiKeyUsageLoadFailed: 'API 密钥用量加载失败。如有历史数据，仍会继续显示。',
     retry: '重试',
     actual: '实际',

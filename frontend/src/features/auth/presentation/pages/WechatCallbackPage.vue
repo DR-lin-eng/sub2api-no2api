@@ -379,7 +379,7 @@ const totpTempToken = ref('')
 const totpCode = ref('')
 const totpError = ref('')
 const totpUserEmailMasked = ref('')
-const bindSuccessMessage = t('profile.authBindings.bindSuccess')
+const bindSuccessMessage = t('auth.accountLinked')
 
 const providerName = t('auth.wechatProviderName')
 const showBackToChooser = computed(
