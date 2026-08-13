@@ -110,14 +110,17 @@ func TestCodexFingerprintHeadersAndMetadataStayConsistent(t *testing.T) {
 	require.Equal(t, ids.sessionID, headers.Get("Session-Id"))
 	require.Equal(t, ids.threadID, headers.Get("Thread-Id"))
 
-	clientMetadata := body["client_metadata"].(map[string]any)
+	clientMetadata, ok := body["client_metadata"].(map[string]any)
+	require.True(t, ok)
 	require.Equal(t, true, clientMetadata["preserved"])
 	require.Equal(t, ids.installationID, clientMetadata["x-codex-installation-id"])
 	require.Equal(t, ids.turnID, clientMetadata["turn_id"])
 	require.Equal(t, ids.threadID, clientMetadata["thread_id"])
 
 	headerMetadata := decodeFingerprintMetadata(t, headers.Get("X-Codex-Turn-Metadata"))
-	bodyMetadata := decodeFingerprintMetadata(t, clientMetadata["x-codex-turn-metadata"].(string))
+	rawBodyMetadata, ok := clientMetadata["x-codex-turn-metadata"].(string)
+	require.True(t, ok)
+	bodyMetadata := decodeFingerprintMetadata(t, rawBodyMetadata)
 	require.Equal(t, "workspace-write", headerMetadata["sandbox"])
 	require.Equal(t, headerMetadata["turn_id"], bodyMetadata["turn_id"])
 	require.Equal(t, headerMetadata["turn_started_at_unix_ms"], bodyMetadata["turn_started_at_unix_ms"])
@@ -136,7 +139,9 @@ func TestCodexFingerprintDeviceModeDoesNotInventSessionFields(t *testing.T) {
 	require.True(t, applyCodexFingerprintClientMetadata(body, ids))
 	require.Equal(t, "client-session", headers.Get("Session-Id"))
 	require.Equal(t, "client-request", headers.Get("X-Client-Request-Id"))
-	require.Equal(t, "client-session", body["client_metadata"].(map[string]any)["session_id"])
+	clientMetadata, ok := body["client_metadata"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "client-session", clientMetadata["session_id"])
 	require.Equal(t, "client-session", decodeFingerprintMetadata(t, headers.Get("X-Codex-Turn-Metadata"))["session_id"])
 
 	wsHeaders := headers.Clone()
@@ -201,7 +206,8 @@ func TestOpenAIPassthroughFingerprintBodyAndHeadersStayConsistent(t *testing.T) 
 
 	var decodedBody map[string]any
 	require.NoError(t, json.Unmarshal(rewrittenBody, &decodedBody))
-	clientMetadata := decodedBody["client_metadata"].(map[string]any)
+	clientMetadata, ok := decodedBody["client_metadata"].(map[string]any)
+	require.True(t, ok)
 	require.Equal(t, true, clientMetadata["preserved"])
 	require.Equal(t, request.Header.Get("X-Codex-Installation-ID"), clientMetadata["x-codex-installation-id"])
 	require.Equal(t, request.Header.Get("Session-Id"), clientMetadata["session_id"])
@@ -209,7 +215,9 @@ func TestOpenAIPassthroughFingerprintBodyAndHeadersStayConsistent(t *testing.T) 
 	require.Equal(t, request.Header.Get("X-Client-Request-ID"), clientMetadata["turn_id"])
 
 	headerMetadata := decodeFingerprintMetadata(t, request.Header.Get("X-Codex-Turn-Metadata"))
-	bodyMetadata := decodeFingerprintMetadata(t, clientMetadata["x-codex-turn-metadata"].(string))
+	rawBodyMetadata, ok := clientMetadata["x-codex-turn-metadata"].(string)
+	require.True(t, ok)
+	bodyMetadata := decodeFingerprintMetadata(t, rawBodyMetadata)
 	require.Equal(t, headerMetadata["turn_id"], bodyMetadata["turn_id"])
 	require.Equal(t, headerMetadata["turn_started_at_unix_ms"], bodyMetadata["turn_started_at_unix_ms"])
 }
@@ -272,7 +280,9 @@ func TestCodexFingerprintWSCompatibilityKeyIsStableAndInternal(t *testing.T) {
 		Headers: firstHeaders,
 	})
 	require.Error(t, err)
-	captured := pool.clientDialer.(*fingerprintHeaderCaptureDialer).headers
+	dialer, ok := pool.clientDialer.(*fingerprintHeaderCaptureDialer)
+	require.True(t, ok)
+	captured := dialer.headers
 	require.Empty(t, captured.Get(codexFingerprintWSKeyHeader))
 	require.Equal(t, first.installationID, captured.Get("X-Codex-Installation-ID"))
 }
