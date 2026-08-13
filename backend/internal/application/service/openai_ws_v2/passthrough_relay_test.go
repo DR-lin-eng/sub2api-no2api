@@ -908,6 +908,38 @@ func TestRelay_NoSemanticOutputTerminalSequence_FirstTokenMsNil(t *testing.T) {
 	}
 }
 
+func TestRelay_LegacyTTFTRecordsTerminalFallback(t *testing.T) {
+	t.Parallel()
+
+	clientConn := newPassthroughTestFrameConn(nil, false)
+	upstreamConn := newPassthroughTestFrameConn([]passthroughTestFrame{
+		{msgType: coderws.MessageText, payload: []byte(`{"type":"response.created","response":{"id":"resp_legacy"}}`)},
+		{msgType: coderws.MessageText, payload: []byte(`{"type":"response.completed","response":{"id":"resp_legacy","usage":{"input_tokens":2,"output_tokens":0}}}`)},
+	}, true)
+
+	base := time.Unix(0, 0)
+	var nowTick atomic.Int64
+	nowFn := func() time.Time {
+		return base.Add(time.Duration(nowTick.Add(1)) * 10 * time.Millisecond)
+	}
+	var turn RelayTurnResult
+	result, relayExit := Relay(
+		context.Background(),
+		clientConn,
+		upstreamConn,
+		[]byte(`{"type":"response.create","model":"gpt-5.3-codex","input":[]}`),
+		RelayOptions{
+			LegacyTTFT:     true,
+			Now:            nowFn,
+			OnTurnComplete: func(current RelayTurnResult) { turn = current },
+		},
+	)
+
+	require.Nil(t, relayExit)
+	require.NotNil(t, turn.FirstTokenMs)
+	require.NotNil(t, result.FirstTokenMs)
+}
+
 func TestRelay_NoDeltaOutputDoneEvent_RecordsFirstTokenBeforeTerminal(t *testing.T) {
 	t.Parallel()
 

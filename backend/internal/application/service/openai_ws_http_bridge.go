@@ -207,6 +207,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 	if writeClientMessage == nil {
 		return nil, errors.New("client websocket writer is nil")
 	}
+	visibleOutputTTFT := s.useOpenAIVisibleOutputTTFT(ctx)
 	responseModelObserver := &upstreamResponseModelObserver{}
 
 	body, err := prepareOpenAIWSHTTPBridgeBody(payload)
@@ -396,12 +397,13 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 			}
 			lastEventType = eventType
 		}
-		if isOpenAIWSTokenEvent(eventType) {
+		isTokenEvent := isOpenAIWSTokenEvent(eventType)
+		if isTokenEvent {
 			tokenEventCount++
-			if firstTokenMs == nil {
-				ms := int(time.Since(turnStart).Milliseconds())
-				firstTokenMs = &ms
-			}
+		}
+		if firstTokenMs == nil && isOpenAIWSTTFTEvent(eventType, visibleOutputTTFT) {
+			ms := int(time.Since(turnStart).Milliseconds())
+			firstTokenMs = &ms
 		}
 		if openAIWSEventShouldParseUsage(eventType) {
 			parseOpenAIWSResponseUsageFromCompletedEvent(upstreamMessage, &usage)

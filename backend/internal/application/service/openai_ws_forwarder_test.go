@@ -61,6 +61,12 @@ func TestIsOpenAIWSTokenEvent_TerminalEventsExcluded(t *testing.T) {
 	}
 }
 
+func TestOpenAIWSTTFTMeasurementMode(t *testing.T) {
+	require.False(t, isOpenAIWSTTFTEvent("response.output_audio.done", true))
+	require.True(t, isOpenAIWSTTFTEvent("response.output_audio.done", false))
+	require.False(t, isOpenAIWSTTFTEvent("response.completed", false))
+}
+
 // TestOpenAIWSCyberPolicyMark_ResponseFailed 验证 WS 路径 response.failed cyber_policy 标记逻辑。
 //
 // 全量转发循环（forwardOpenAIWSV2 / sendAndRelay）依赖真实 WebSocket 连接，

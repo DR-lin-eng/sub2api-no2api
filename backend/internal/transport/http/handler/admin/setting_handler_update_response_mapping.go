@@ -192,6 +192,7 @@ func buildSettingsUpdateResponsePayload(
 		BackendModeEnabled:                                     updatedSettings.BackendModeEnabled,
 		StreamModePerformanceEnabled:                           updatedSettings.StreamModePerformanceEnabled,
 		OpenAIWSModeRouterV2Enabled:                            updatedSettings.OpenAIWSModeRouterV2Enabled,
+		OpenAIVisibleOutputTTFTEnabled:                         updatedSettings.OpenAIVisibleOutputTTFTEnabled,
 		EnableFingerprintUnification:                           updatedSettings.EnableFingerprintUnification,
 		EnableMetadataPassthrough:                              updatedSettings.EnableMetadataPassthrough,
 		EnableCCHSigning:                                       updatedSettings.EnableCCHSigning,

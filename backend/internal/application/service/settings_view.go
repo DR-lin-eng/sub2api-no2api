@@ -252,6 +252,8 @@ type SystemSettings struct {
 	StreamModePerformanceEnabled bool
 	// OpenAI WS mode 路由：数据库未配置时沿用 gateway.openai_ws.mode_router_v2_enabled。
 	OpenAIWSModeRouterV2Enabled bool
+	// OpenAI TTFT 使用首个客户端可见输出口径；默认开启，关闭后使用 0.1.179 口径。
+	OpenAIVisibleOutputTTFTEnabled bool
 
 	// Gateway forwarding behavior
 	EnableFingerprintUnification           bool   // 是否统一 OAuth 账号的指纹头（默认 true）

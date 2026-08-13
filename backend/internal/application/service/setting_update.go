@@ -296,6 +296,7 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 		anthropicCacheTTL1hInjection:     settings.EnableAnthropicCacheTTL1hInjection,
 		rewriteMessageCacheControl:       settings.RewriteMessageCacheControl,
 		clientDatelineNormalization:      settings.EnableClientDatelineNormalization,
+		openAIVisibleOutputTTFT:          settings.OpenAIVisibleOutputTTFTEnabled,
 		expiresAt:                        time.Now().Add(gatewayForwardingCacheTTL).UnixNano(),
 	})
 	s.antigravityUAVersionSF.Forget("antigravity_user_agent_version")

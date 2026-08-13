@@ -28,8 +28,23 @@
           />
         </div>
 
-        <!-- Fingerprint Unification -->
         <div class="flex items-center justify-between border-t border-gray-100 pt-5 dark:border-dark-700">
+          <div>
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {{ t("admin.settings.gatewayForwarding.openAIVisibleOutputTTFT") }}
+            </label>
+            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+              {{ t("admin.settings.gatewayForwarding.openAIVisibleOutputTTFTHint") }}
+            </p>
+          </div>
+          <Toggle
+            v-model="form.openai_visible_output_ttft_enabled"
+            data-testid="openai-visible-output-ttft-toggle"
+          />
+        </div>
+
+        <!-- Fingerprint Unification -->
+        <div class="flex items-center justify-between">
           <div>
             <label
               class="text-sm font-medium text-gray-700 dark:text-gray-300"

@@ -317,6 +317,7 @@ export function createSettingsForm(localText: LocalText): SettingsForm {
     openai_advanced_scheduler_weight_session_sticky: "",
     stream_mode_performance_enabled: false,
     openai_ws_mode_router_v2_enabled: false,
+    openai_visible_output_ttft_enabled: true,
     enable_fingerprint_unification: true,
     enable_metadata_passthrough: false,
     enable_cch_signing: false,

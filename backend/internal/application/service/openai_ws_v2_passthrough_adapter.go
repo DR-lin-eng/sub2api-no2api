@@ -675,6 +675,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	if err := validateOpenAIWSBearerToken(account, token); err != nil {
 		return err
 	}
+	visibleOutputTTFT := s.useOpenAIVisibleOutputTTFT(ctx)
 	if account.IsOpenAIOAuth() && isOpenAIResponsesLiteWebSocketPayload(firstClientMessage) {
 		liteFirstMessage, _, liteErr := normalizeOpenAIResponsesLiteToolsPayload(firstClientMessage)
 		if liteErr != nil {
@@ -1108,6 +1109,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 		FirstClientMessage: firstClientMessage,
 		Options: openaiwsv2.RelayOptions{
 			WriteTimeout: s.openAIWSWriteTimeout(),
+			LegacyTTFT:   !visibleOutputTTFT,
 			// Passthrough idle is enforced only after a completed turn by
 			// clientFrameConn. The relay-wide activity watchdog would also
 			// terminate a healthy active upstream turn.

@@ -38,6 +38,34 @@ func TestOpenAIVisibleOutputClassification(t *testing.T) {
 	}
 }
 
+func TestOpenAITTFTMeasurementModeClassifiesLegacySemanticOutput(t *testing.T) {
+	data := `{"type":"response.output_item.added","item":{"type":"reasoning","encrypted_content":"encrypted"}}`
+	require.False(t, openAIStreamDataStartsTTFT(data, "response.output_item.added", true))
+	require.True(t, openAIStreamDataStartsTTFT(data, "response.output_item.added", false))
+}
+
+func TestOpenAIResponsesTTFTMeasurementMode(t *testing.T) {
+	for _, passthrough := range []bool{false, true} {
+		name := "native"
+		if passthrough {
+			name = "passthrough"
+		}
+		t.Run(name, func(t *testing.T) {
+			legacy := runSyntheticTTFTStream(t, passthrough, false, 120*time.Millisecond, 0,
+				`{"type":"response.output_item.added","item":{"type":"reasoning","encrypted_content":"encrypted"}}`,
+				`{"type":"response.output_text.delta","delta":"test output"}`)
+			current := runSyntheticTTFTStream(t, passthrough, true, 120*time.Millisecond, 0,
+				`{"type":"response.output_item.added","item":{"type":"reasoning","encrypted_content":"encrypted"}}`,
+				`{"type":"response.output_text.delta","delta":"test output"}`)
+
+			require.NotNil(t, legacy.firstTokenMs)
+			require.NotNil(t, current.firstTokenMs)
+			require.Less(t, *legacy.firstTokenMs, 100)
+			require.GreaterOrEqual(t, *current.firstTokenMs, 100)
+		})
+	}
+}
+
 func TestOpenAIResponsesTTFTStartsAtVisibleOutput(t *testing.T) {
 	for _, passthrough := range []bool{false, true} {
 		name := "native"
@@ -76,6 +104,11 @@ func TestOpenAINativeProgressDisarmsTimeoutWithoutStartingTTFT(t *testing.T) {
 }
 
 func runSyntheticVisibleTTFTStream(t *testing.T, passthrough bool, visibleDelay time.Duration, timeoutSeconds int, visibleEvent string) *openaiStreamingResult {
+	return runSyntheticTTFTStream(t, passthrough, true, visibleDelay, timeoutSeconds,
+		`{"type":"response.output_item.added","item":{"type":"reasoning","summary":[]}}`, visibleEvent)
+}
+
+func runSyntheticTTFTStream(t *testing.T, passthrough, visibleOutputTTFT bool, visibleDelay time.Duration, timeoutSeconds int, preVisibleEvent, visibleEvent string) *openaiStreamingResult {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	cfg := &config.Config{Gateway: config.GatewayConfig{
@@ -89,7 +122,7 @@ func runSyntheticVisibleTTFTStream(t *testing.T, passthrough bool, visibleDelay 
 		defer close(writerDone)
 		defer func() { _ = writer.Close() }()
 		_, _ = io.WriteString(writer, "data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_test\"}}\n\n")
-		_, _ = io.WriteString(writer, "data: {\"type\":\"response.output_item.added\",\"item\":{\"type\":\"reasoning\",\"summary\":[]}}\n\n")
+		_, _ = io.WriteString(writer, "data: "+preVisibleEvent+"\n\n")
 		time.Sleep(visibleDelay)
 		_, _ = io.WriteString(writer, "data: "+visibleEvent+"\n\n")
 		_, _ = io.WriteString(writer, "data: {\"type\":\"response.completed\",\"response\":{\"usage\":{\"input_tokens\":1,\"output_tokens\":1}}}\n\n")
@@ -104,14 +137,15 @@ func runSyntheticVisibleTTFTStream(t *testing.T, passthrough bool, visibleDelay 
 
 	var result *openaiStreamingResult
 	var err error
+	streamCtx := withOpenAIVisibleOutputTTFT(context.Background(), visibleOutputTTFT)
 	if passthrough {
 		var passResult *openaiStreamingResultPassthrough
-		passResult, err = svc.handleStreamingResponsePassthrough(context.Background(), resp, c, account, started, "test-model", "test-model")
+		passResult, err = svc.handleStreamingResponsePassthrough(streamCtx, resp, c, account, started, "test-model", "test-model")
 		if passResult != nil {
 			result = &openaiStreamingResult{firstTokenMs: passResult.firstTokenMs}
 		}
 	} else {
-		result, err = svc.handleStreamingResponse(context.Background(), resp, c, account, started, "test-model", "test-model")
+		result, err = svc.handleStreamingResponse(streamCtx, resp, c, account, started, "test-model", "test-model")
 	}
 	require.NoError(t, err)
 	require.NotNil(t, result)

@@ -68,6 +68,7 @@ type RelayOptions struct {
 	FirstMessageType                coderws.MessageType
 	FirstMessageSent                bool
 	StartClientAfterFirstDownstream bool
+	LegacyTTFT                      bool
 	OnUsageParseFailure             func(eventType string, usageRaw string)
 	OnTurnComplete                  func(turn RelayTurnResult)
 	BeforeWriteClient               func(msgType coderws.MessageType, payload []byte, wroteDownstream bool) error
@@ -98,6 +99,7 @@ type relayState struct {
 	responseConflict  bool
 	terminalEventType string
 	firstTokenMs      *int
+	legacyTTFT        bool
 	turnTimingByID    map[string]*relayTurnTiming
 	activeTurn        *relayTurnTiming
 }
@@ -162,7 +164,7 @@ func Relay(
 		firstMessageType = coderws.MessageText
 	}
 	startAt := nowFn()
-	state := &relayState{requestModel: result.RequestModel}
+	state := &relayState{requestModel: result.RequestModel, legacyTTFT: options.LegacyTTFT}
 	onTrace := options.OnTrace
 
 	relayCtx, relayCancel := context.WithCancel(ctx)
@@ -676,7 +678,7 @@ func observeUpstreamMessage(
 	}
 	now := nowFn()
 
-	if state.firstTokenMs == nil && isTokenEvent(eventType) {
+	if state.firstTokenMs == nil && isTTFTEvent(eventType, state.legacyTTFT) {
 		ms := int(now.Sub(startAt).Milliseconds())
 		if ms >= 0 {
 			state.firstTokenMs = &ms
@@ -697,7 +699,7 @@ func observeUpstreamMessage(
 	var turnTiming *relayTurnTiming
 	if responseID != "" {
 		turnTiming = openAIWSRelayGetOrInitTurnTiming(state, responseID, now)
-		if turnTiming != nil && turnTiming.firstTokenMs == nil && isTokenEvent(eventType) {
+		if turnTiming != nil && turnTiming.firstTokenMs == nil && isTTFTEvent(eventType, state.legacyTTFT) {
 			ms := int(now.Sub(turnTiming.startAt).Milliseconds())
 			if ms >= 0 {
 				turnTiming.firstTokenMs = &ms
@@ -1038,6 +1040,26 @@ func isTokenEvent(eventType string) bool {
 	return strings.HasSuffix(eventType, ".delta") ||
 		eventType == "response.output_text.done" ||
 		eventType == "response.function_call_arguments.done"
+}
+
+func isTTFTEvent(eventType string, legacy bool) bool {
+	if !legacy {
+		return isTokenEvent(eventType)
+	}
+	eventType = strings.TrimSpace(eventType)
+	if eventType == "" {
+		return false
+	}
+	switch eventType {
+	case "response.created", "response.in_progress", "response.output_item.added", "response.output_item.done":
+		return false
+	}
+	if strings.Contains(eventType, ".delta") ||
+		strings.HasPrefix(eventType, "response.output_text") ||
+		strings.HasPrefix(eventType, "response.output") {
+		return true
+	}
+	return eventType == "response.completed" || eventType == "response.done"
 }
 
 func minDuration(a, b time.Duration) time.Duration {

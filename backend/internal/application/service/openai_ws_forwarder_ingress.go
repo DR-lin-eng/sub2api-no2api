@@ -117,6 +117,8 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	if account == nil {
 		return errors.New("account is nil")
 	}
+	visibleOutputTTFT := s.useOpenAIVisibleOutputTTFT(ctx)
+	ctx = withOpenAIVisibleOutputTTFT(ctx, visibleOutputTTFT)
 	if err := validateOpenAIWSBearerToken(account, token); err != nil {
 		return err
 	}
@@ -1154,6 +1156,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			}
 			rateLimitsPreambleOpen = false
 			isTokenEvent := isOpenAIWSTokenEvent(eventType)
+			isTTFTEvent := isOpenAIWSTTFTEvent(eventType, visibleOutputTTFT)
 			if isTokenEvent {
 				tokenEventCount++
 			}
@@ -1161,7 +1164,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			if isTerminalEvent {
 				terminalEventCount++
 			}
-			if firstTokenMs == nil && isTokenEvent {
+			if firstTokenMs == nil && isTTFTEvent {
 				ms := int(time.Since(turnStart).Milliseconds())
 				firstTokenMs = &ms
 			}

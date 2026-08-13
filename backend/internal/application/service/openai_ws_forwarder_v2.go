@@ -37,6 +37,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	if s == nil || account == nil {
 		return nil, wrapOpenAIWSFallback("invalid_state", errors.New("service or account is nil"))
 	}
+	visibleOutputTTFT := s.useOpenAIVisibleOutputTTFT(ctx)
 	responseModelObserver := &upstreamResponseModelObserver{}
 
 	wsURL, err := s.buildOpenAIResponsesWSURL(account)
@@ -360,6 +361,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	usage := &OpenAIUsage{}
 	imageCounter := newOpenAIImageOutputCounter()
 	var firstTokenMs *int
+	streamOutputStarted := false
 	responseID := ""
 	var finalResponse []byte
 	wroteDownstream := false
@@ -551,14 +553,16 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		}
 
 		isTokenEvent := isOpenAIWSTokenEvent(eventType)
+		isTTFTEvent := isOpenAIWSTTFTEvent(eventType, visibleOutputTTFT)
 		if isTokenEvent {
 			tokenEventCount++
+			streamOutputStarted = true
 		}
 		isTerminalEvent := isOpenAIWSTerminalEvent(eventType)
 		if isTerminalEvent {
 			terminalEventCount++
 		}
-		if firstTokenMs == nil && isTokenEvent {
+		if firstTokenMs == nil && isTTFTEvent {
 			ms := int(time.Since(startTime).Milliseconds())
 			firstTokenMs = &ms
 		}
@@ -695,7 +699,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		if reqStream {
 			// 在首个 token 前先缓冲事件（如 response.created），
 			// 以便上游早期断连时仍可安全回退到 HTTP，不给下游发送半截流。
-			shouldBuffer := firstTokenMs == nil && !isTokenEvent && !isTerminalEvent
+			shouldBuffer := !streamOutputStarted && !isTokenEvent && !isTerminalEvent
 			if shouldBuffer {
 				isRateLimitsPreamble := account.BypassesLocalOpenAI429SchedulingBlocks() &&
 					isOpenAIWSRateLimitsPreamble(eventType)

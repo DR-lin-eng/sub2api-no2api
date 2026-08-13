@@ -304,6 +304,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		BackendModeEnabled:                                     settings.BackendModeEnabled,
 		StreamModePerformanceEnabled:                           settings.StreamModePerformanceEnabled,
 		OpenAIWSModeRouterV2Enabled:                            settings.OpenAIWSModeRouterV2Enabled,
+		OpenAIVisibleOutputTTFTEnabled:                         settings.OpenAIVisibleOutputTTFTEnabled,
 		EnableFingerprintUnification:                           settings.EnableFingerprintUnification,
 		EnableMetadataPassthrough:                              settings.EnableMetadataPassthrough,
 		EnableCCHSigning:                                       settings.EnableCCHSigning,

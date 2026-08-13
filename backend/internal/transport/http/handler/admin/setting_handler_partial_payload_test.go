@@ -132,13 +132,14 @@ func TestMergeOmittedUpdateSettingsRequestConvertsDTOFields(t *testing.T) {
 
 func TestUpdateSettingsPartialPayloadKeepsUnsentKeys(t *testing.T) {
 	h, repo := newStepUpSwitchTestHandler(t, map[string]string{
-		service.SettingKeySiteName:           "Example Gateway",
-		service.SettingKeySiteSubtitle:       "Example Gateway Platform",
-		service.SettingKeySMTPHost:           "smtp.example.com",
-		service.SettingKeySMTPFrom:           "noreply@example.com",
-		service.SettingKeyTurnstileEnabled:   "true",
-		service.SettingKeyTurnstileSiteKey:   "site-key",
-		service.SettingKeyTurnstileSecretKey: "secret-key",
+		service.SettingKeySiteName:                       "Example Gateway",
+		service.SettingKeySiteSubtitle:                   "Example Gateway Platform",
+		service.SettingKeySMTPHost:                       "smtp.example.com",
+		service.SettingKeySMTPFrom:                       "noreply@example.com",
+		service.SettingKeyTurnstileEnabled:               "true",
+		service.SettingKeyTurnstileSiteKey:               "site-key",
+		service.SettingKeyTurnstileSecretKey:             "secret-key",
+		service.SettingKeyOpenAIVisibleOutputTTFTEnabled: "false",
 	})
 
 	rec := doUpdateSettings(t, h, map[string]any{"risk_control_enabled": true}, nil)
@@ -152,6 +153,7 @@ func TestUpdateSettingsPartialPayloadKeepsUnsentKeys(t *testing.T) {
 	require.Equal(t, "smtp.example.com", repo.values[service.SettingKeySMTPHost])
 	require.Equal(t, "noreply@example.com", repo.values[service.SettingKeySMTPFrom])
 	require.Equal(t, "true", repo.values[service.SettingKeyTurnstileEnabled])
+	require.Equal(t, "false", repo.values[service.SettingKeyOpenAIVisibleOutputTTFTEnabled])
 }
 
 func TestUpdateSettingsPartialPayloadValidatesAgainstStoredCaptchaProvider(t *testing.T) {

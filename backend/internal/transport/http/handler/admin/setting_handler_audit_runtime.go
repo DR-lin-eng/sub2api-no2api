@@ -69,6 +69,9 @@ func appendRuntimeSettingChanges(changed []string, before, after *service.System
 	if before.OpenAIWSModeRouterV2Enabled != after.OpenAIWSModeRouterV2Enabled {
 		changed = append(changed, "openai_ws_mode_router_v2_enabled")
 	}
+	if before.OpenAIVisibleOutputTTFTEnabled != after.OpenAIVisibleOutputTTFTEnabled {
+		changed = append(changed, "openai_visible_output_ttft_enabled")
+	}
 	if before.PurchaseSubscriptionEnabled != after.PurchaseSubscriptionEnabled {
 		changed = append(changed, "purchase_subscription_enabled")
 	}

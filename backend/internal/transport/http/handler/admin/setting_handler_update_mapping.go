@@ -201,6 +201,7 @@ func buildSystemSettingsUpdate(prepared *preparedSettingsUpdate) *service.System
 		BackendModeEnabled:                                 req.BackendModeEnabled,
 		StreamModePerformanceEnabled:                       boolValueOrDefault(req.StreamModePerformanceEnabled, previousSettings.StreamModePerformanceEnabled),
 		OpenAIWSModeRouterV2Enabled:                        boolValueOrDefault(req.OpenAIWSModeRouterV2Enabled, previousSettings.OpenAIWSModeRouterV2Enabled),
+		OpenAIVisibleOutputTTFTEnabled:                     boolValueOrDefault(req.OpenAIVisibleOutputTTFTEnabled, previousSettings.OpenAIVisibleOutputTTFTEnabled),
 		AllowUserViewErrorRequests:                         boolValueOrDefault(req.AllowUserViewErrorRequests, previousSettings.AllowUserViewErrorRequests),
 		AllowUserViewUsageDetails:                          boolValueOrDefault(req.AllowUserViewUsageDetails, previousSettings.AllowUserViewUsageDetails),
 		OpsMonitoringEnabled:                               boolValueOrDefault(req.OpsMonitoringEnabled, previousSettings.OpsMonitoringEnabled),

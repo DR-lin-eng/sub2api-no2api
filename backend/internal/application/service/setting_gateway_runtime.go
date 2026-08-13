@@ -62,6 +62,7 @@ type cachedGatewayForwardingSettings struct {
 	anthropicCacheTTL1hInjection     bool
 	rewriteMessageCacheControl       bool
 	clientDatelineNormalization      bool
+	openAIVisibleOutputTTFT          bool
 	expiresAt                        int64 // unix nano
 }
 
@@ -689,7 +690,7 @@ func (s *SettingService) IsBackendModeEnabled(ctx context.Context) bool {
 
 type gatewayForwardingSettingsResult struct {
 	fp, mp, cch, claudeOAuthSystemPromptInjection, cacheTTL1h, rewriteMessageCacheControl bool
-	clientDatelineNormalization                                                           bool
+	clientDatelineNormalization, openAIVisibleOutputTTFT                                  bool
 	claudeOAuthSystemPrompt, claudeOAuthSystemPromptBlocks                                string
 }
 
@@ -706,6 +707,7 @@ func (s *SettingService) getGatewayForwardingSettingsCached(ctx context.Context)
 				cacheTTL1h:                       cached.anthropicCacheTTL1hInjection,
 				rewriteMessageCacheControl:       cached.rewriteMessageCacheControl,
 				clientDatelineNormalization:      cached.clientDatelineNormalization,
+				openAIVisibleOutputTTFT:          cached.openAIVisibleOutputTTFT,
 			}
 		}
 	}
@@ -722,6 +724,7 @@ func (s *SettingService) getGatewayForwardingSettingsCached(ctx context.Context)
 					cacheTTL1h:                       cached.anthropicCacheTTL1hInjection,
 					rewriteMessageCacheControl:       cached.rewriteMessageCacheControl,
 					clientDatelineNormalization:      cached.clientDatelineNormalization,
+					openAIVisibleOutputTTFT:          cached.openAIVisibleOutputTTFT,
 				}, nil
 			}
 		}
@@ -737,6 +740,7 @@ func (s *SettingService) getGatewayForwardingSettingsCached(ctx context.Context)
 			SettingKeyEnableAnthropicCacheTTL1hInjection,
 			SettingKeyRewriteMessageCacheControl,
 			SettingKeyEnableClientDatelineNormalization,
+			SettingKeyOpenAIVisibleOutputTTFTEnabled,
 		})
 		if err != nil {
 			slog.Warn("failed to get gateway forwarding settings", "error", err)
@@ -748,9 +752,10 @@ func (s *SettingService) getGatewayForwardingSettingsCached(ctx context.Context)
 				anthropicCacheTTL1hInjection:     false,
 				rewriteMessageCacheControl:       s.defaultRewriteMessageCacheControl(),
 				clientDatelineNormalization:      true,
+				openAIVisibleOutputTTFT:          true,
 				expiresAt:                        time.Now().Add(gatewayForwardingErrorTTL).UnixNano(),
 			})
-			return gatewayForwardingSettingsResult{fp: true, claudeOAuthSystemPromptInjection: true, rewriteMessageCacheControl: s.defaultRewriteMessageCacheControl(), clientDatelineNormalization: true}, nil
+			return gatewayForwardingSettingsResult{fp: true, claudeOAuthSystemPromptInjection: true, rewriteMessageCacheControl: s.defaultRewriteMessageCacheControl(), clientDatelineNormalization: true, openAIVisibleOutputTTFT: true}, nil
 		}
 		fp := true
 		if v, ok := values[SettingKeyEnableFingerprintUnification]; ok && v != "" {
@@ -773,6 +778,10 @@ func (s *SettingService) getGatewayForwardingSettingsCached(ctx context.Context)
 		if v, ok := values[SettingKeyEnableClientDatelineNormalization]; ok && v != "" {
 			clientDatelineNormalization = v == "true"
 		}
+		openAIVisibleOutputTTFT := true
+		if v, ok := values[SettingKeyOpenAIVisibleOutputTTFTEnabled]; ok && v != "" {
+			openAIVisibleOutputTTFT = v == "true"
+		}
 		gatewayForwardingCache.Store(&cachedGatewayForwardingSettings{
 			fingerprintUnification:           fp,
 			metadataPassthrough:              mp,
@@ -783,6 +792,7 @@ func (s *SettingService) getGatewayForwardingSettingsCached(ctx context.Context)
 			anthropicCacheTTL1hInjection:     cacheTTL1h,
 			rewriteMessageCacheControl:       rewriteMessageCacheControl,
 			clientDatelineNormalization:      clientDatelineNormalization,
+			openAIVisibleOutputTTFT:          openAIVisibleOutputTTFT,
 			expiresAt:                        time.Now().Add(gatewayForwardingCacheTTL).UnixNano(),
 		})
 		return gatewayForwardingSettingsResult{
@@ -795,12 +805,13 @@ func (s *SettingService) getGatewayForwardingSettingsCached(ctx context.Context)
 			cacheTTL1h:                       cacheTTL1h,
 			rewriteMessageCacheControl:       rewriteMessageCacheControl,
 			clientDatelineNormalization:      clientDatelineNormalization,
+			openAIVisibleOutputTTFT:          openAIVisibleOutputTTFT,
 		}, nil
 	})
 	if r, ok := val.(gatewayForwardingSettingsResult); ok {
 		return r
 	}
-	return gatewayForwardingSettingsResult{fp: true, claudeOAuthSystemPromptInjection: true, clientDatelineNormalization: true}
+	return gatewayForwardingSettingsResult{fp: true, claudeOAuthSystemPromptInjection: true, clientDatelineNormalization: true, openAIVisibleOutputTTFT: true}
 }
 
 // GetGatewayForwardingSettings returns cached gateway forwarding settings.
@@ -825,6 +836,16 @@ func (s *SettingService) IsRewriteMessageCacheControlEnabled(ctx context.Context
 // 的客户端 dateline 归一化。默认开启。
 func (s *SettingService) IsClientDatelineNormalizationEnabled(ctx context.Context) bool {
 	return s.getGatewayForwardingSettingsCached(ctx).clientDatelineNormalization
+}
+
+// IsOpenAIVisibleOutputTTFTEnabled reports whether TTFT uses the current
+// client-visible-output definition. Missing settings and read failures default
+// to enabled so upgrades preserve the 0.1.180 behavior.
+func (s *SettingService) IsOpenAIVisibleOutputTTFTEnabled(ctx context.Context) bool {
+	if s == nil || s.settingRepo == nil {
+		return true
+	}
+	return s.getGatewayForwardingSettingsCached(ctx).openAIVisibleOutputTTFT
 }
 
 // GetClaudeOAuthSystemPromptInjectionSettings returns the Claude OAuth mimic

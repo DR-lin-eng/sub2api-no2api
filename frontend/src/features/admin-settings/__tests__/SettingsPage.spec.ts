@@ -531,6 +531,7 @@ const baseSettingsResponse = {
   backend_mode_enabled: false,
   stream_mode_performance_enabled: false,
   openai_ws_mode_router_v2_enabled: false,
+  openai_visible_output_ttft_enabled: true,
   custom_menu_items: [],
   custom_endpoints: [],
   frontend_url: "",
@@ -948,6 +949,21 @@ describe("admin SettingsView payment visible method controls", () => {
 
     const payload = updateSettings.mock.calls.at(-1)?.[0] as Record<string, unknown>;
     expect(payload.openai_ws_mode_router_v2_enabled).toBe(true);
+  });
+
+  it("switches OpenAI TTFT to the legacy measurement from gateway settings", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+
+    const toggle = wrapper.get('[data-testid="openai-visible-output-ttft-toggle"]');
+    expect((toggle.element as HTMLInputElement).checked).toBe(true);
+    await toggle.setValue(false);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    const payload = updateSettings.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(payload.openai_visible_output_ttft_enabled).toBe(false);
   });
 
   it("shows and saves automatic public models under the enabled model plaza", async () => {

@@ -46,6 +46,7 @@ func (s *OpenAIGatewayService) handleStreamingResponse(ctx context.Context, resp
 }
 
 func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.Context, resp *http.Response, c *gin.Context, account *Account, startTime time.Time, originalModel, mappedModel, reasoningEffort string) (*openaiStreamingResult, error) {
+	visibleOutputTTFT := s.useOpenAIVisibleOutputTTFT(ctx)
 	observer := upstreamResponseModelObserverFromContext(c)
 	if observer == nil {
 		observer = beginUpstreamResponseModelObservation(c)
@@ -104,6 +105,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 		maxLineSize = s.cfg.Gateway.MaxLineSize
 	}
 	var firstTokenMs *int
+	visibleOutputObserved := false
 	firstOutputProgressObserved := false
 	bufferedWriter := bufio.NewWriterSize(w, 4*1024)
 	var firstOutputStage *openAIFirstOutputStage
@@ -231,6 +233,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 	eventCompletesFirstOutput := false
 	eventSignalsOutputProgress := false
 	eventStartsVisibleOutput := false
+	eventStartsTTFT := false
 	eventShouldFlush := false
 	handlePendingWriteError := func(err error) {
 		if firstOutputStage != nil && !firstOutputStage.closed {
@@ -252,6 +255,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 		completedCommitEvent := eventCompletesFirstOutput
 		completedProgressEvent := completedCommitEvent || eventSignalsOutputProgress
 		completedVisibleEvent := eventStartsVisibleOutput
+		completedTTFTEvent := eventStartsTTFT
 		shouldFlush := eventShouldFlush || (queueDrained && clientOutputStarted)
 		eventInProgress = false
 		if !clientDisconnected {
@@ -273,7 +277,10 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			firstOutputProgressObserved = true
 			stopFirstOutputTimer()
 		}
-		if completedVisibleEvent && firstTokenMs == nil {
+		if completedVisibleEvent {
+			visibleOutputObserved = true
+		}
+		if completedTTFTEvent && firstTokenMs == nil {
 			ms := int(time.Since(startTime).Milliseconds())
 			firstTokenMs = &ms
 		}
@@ -281,6 +288,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 		eventCompletesFirstOutput = false
 		eventSignalsOutputProgress = false
 		eventStartsVisibleOutput = false
+		eventStartsTTFT = false
 		eventShouldFlush = false
 	}
 	sendErrorEvent := func(reason string) {
@@ -556,12 +564,16 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 				line = s.replaceModelInSSELine(line, mappedModel, originalModel)
 			}
 			startsClientOutput := false
-			if !clientOutputStarted || firstTokenMs == nil {
+			if !clientOutputStarted || !visibleOutputObserved {
 				startsClientOutput = openAIStreamDataStartsClientOutputTrimmed(trimmedData, eventType)
 			}
 			startsVisibleOutput := false
-			if firstTokenMs == nil {
+			if !visibleOutputObserved {
 				startsVisibleOutput = openAIStreamDataStartsVisibleOutput(trimmedData, eventType)
+			}
+			startsTTFT := false
+			if firstTokenMs == nil {
+				startsTTFT = openAIStreamDataStartsTTFT(trimmedData, eventType, visibleOutputTTFT)
 			}
 			if startsClientOutput && !openAIStreamEventTypeIsTerminal(eventType) {
 				responsesSemanticOutputSeen = true
@@ -589,12 +601,13 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 				eventSignalsOutputProgress = eventSignalsOutputProgress ||
 					openAIStreamDataSignalsOutputProgressTrimmed(trimmedData, eventType)
 				eventStartsVisibleOutput = eventStartsVisibleOutput || startsVisibleOutput
+				eventStartsTTFT = eventStartsTTFT || startsTTFT
 			}
 
 			// 写入客户端（客户端断开后继续 drain 上游）
 			if !clientDisconnected {
 				shouldFlush := queueDrained && (clientOutputStarted || eventNeedsFlush)
-				if firstTokenMs == nil && startsVisibleOutput {
+				if !visibleOutputObserved && startsVisibleOutput {
 					// 保证首个 token 事件尽快出站，避免影响 TTFT。
 					shouldFlush = true
 				}
@@ -609,7 +622,10 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			}
 
 			// Record first token time
-			if !guardFirstOutput && firstTokenMs == nil && startsVisibleOutput {
+			if !guardFirstOutput && startsVisibleOutput {
+				visibleOutputObserved = true
+			}
+			if !guardFirstOutput && firstTokenMs == nil && startsTTFT {
 				ms := int(time.Since(startTime).Milliseconds())
 				firstTokenMs = &ms
 				stopFirstOutputTimer()

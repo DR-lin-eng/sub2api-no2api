@@ -469,6 +469,8 @@ export default {
         description: 'Control how requests are forwarded to upstream OAuth accounts',
         openAIWSModeRouterV2: 'OpenAI WS account mode router',
         openAIWSModeRouterV2Hint: 'Web control for gateway.openai_ws.mode_router_v2_enabled. When enabled, each OpenAI account\'s WS mode selects ctx_pool, passthrough, http_bridge, or off. Changes apply at runtime.',
+        openAIVisibleOutputTTFT: 'OpenAI visible-output TTFT',
+        openAIVisibleOutputTTFTHint: 'Enabled by default. Records TTFT at the first client-usable text, audio, or tool argument. Disable to use the 0.1.179 event definition. This affects metrics only, not stream delivery.',
         fingerprintUnification: 'Fingerprint Unification',
         fingerprintUnificationHint: 'Unify X-Stainless-* headers across users sharing the same OAuth account. Disabling passes through each client\'s original headers.',
         metadataPassthrough: 'Metadata Passthrough',

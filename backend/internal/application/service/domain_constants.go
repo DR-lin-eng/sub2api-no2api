@@ -557,6 +557,10 @@ const (
 	// SettingKeyOpenAIWSModeRouterV2Enabled controls the OpenAI WS account-mode router.
 	// When absent, runtime behavior falls back to gateway.openai_ws.mode_router_v2_enabled.
 	SettingKeyOpenAIWSModeRouterV2Enabled = "openai_ws_mode_router_v2_enabled"
+	// SettingKeyOpenAIVisibleOutputTTFTEnabled controls whether OpenAI TTFT is
+	// measured from the first client-usable value (true) or the legacy semantic
+	// output event classifier (false). Missing values default to true.
+	SettingKeyOpenAIVisibleOutputTTFTEnabled = "openai_visible_output_ttft_enabled"
 
 	// Gateway Forwarding Behavior
 	// SettingKeyEnableFingerprintUnification 是否统一 OAuth 账号的 X-Stainless-* 指纹头（默认 true）

@@ -1645,6 +1645,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 	originalModel string,
 	mappedModel string,
 ) (*openaiStreamingResultPassthrough, error) {
+	visibleOutputTTFT := s.useOpenAIVisibleOutputTTFT(ctx)
 	observer := upstreamResponseModelObserverFromContext(c)
 	if observer == nil {
 		observer = beginUpstreamResponseModelObservation(c)
@@ -1669,6 +1670,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 	usage := &OpenAIUsage{}
 	imageCounter := newOpenAIImageOutputCounter()
 	var firstTokenMs *int
+	visibleOutputObserved := false
 	responseID := ""
 	clientDisconnected := false
 	sawDone := false
@@ -1846,7 +1848,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 				trimmedData = strings.TrimSpace(string(sanitizedData))
 				line = "data: " + string(sanitizedData)
 			}
-			if !clientOutputStarted || firstTokenMs == nil {
+			if !clientOutputStarted || !visibleOutputObserved {
 				lineStartsClientOutput = openAIStreamDataStartsClientOutputTrimmed(trimmedData, eventType)
 				lineNeedsFlush = openAIStreamEventNeedsFlushKnownValidity(
 					trimmedData,
@@ -1868,7 +1870,10 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 				openAIResponsesCompletedEventIsEmpty(dataBytes, usage) {
 				return resultWithUsage(), newOpenAIResponsesEmptyCompletedFailoverError(c, account, upstreamRequestID)
 			}
-			if firstTokenMs == nil && openAIStreamDataStartsVisibleOutput(trimmedData, eventType) {
+			if !visibleOutputObserved && openAIStreamDataStartsVisibleOutput(trimmedData, eventType) {
+				visibleOutputObserved = true
+			}
+			if firstTokenMs == nil && openAIStreamDataStartsTTFT(trimmedData, eventType, visibleOutputTTFT) {
 				ms := int(time.Since(startTime).Milliseconds())
 				firstTokenMs = &ms
 			}

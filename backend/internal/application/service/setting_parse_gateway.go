@@ -14,6 +14,11 @@ func (s *SettingService) applyGatewaySettings(result *SystemSettings, settings m
 	} else {
 		result.OpenAIWSModeRouterV2Enabled = s.defaultOpenAIWSModeRouterV2Enabled()
 	}
+	if value, ok := settings[SettingKeyOpenAIVisibleOutputTTFTEnabled]; ok && strings.TrimSpace(value) != "" {
+		result.OpenAIVisibleOutputTTFTEnabled = strings.EqualFold(strings.TrimSpace(value), "true")
+	} else {
+		result.OpenAIVisibleOutputTTFTEnabled = true
+	}
 	// Gateway forwarding behavior (defaults: fingerprint=true, metadata_passthrough=false,
 	// cch_signing=false, claude_oauth_system_prompt_injection=true)
 	if v, ok := settings[SettingKeyEnableFingerprintUnification]; ok && v != "" {

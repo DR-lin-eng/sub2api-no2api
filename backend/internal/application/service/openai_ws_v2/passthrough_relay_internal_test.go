@@ -422,6 +422,15 @@ func TestIsTokenEventCoverageBranches(t *testing.T) {
 	require.False(t, isTokenEvent("response.output_text.annotation.added"))
 }
 
+func TestIsTTFTEventSupportsLegacyMeasurement(t *testing.T) {
+	t.Parallel()
+
+	require.False(t, isTTFTEvent("response.output_audio.done", false))
+	require.True(t, isTTFTEvent("response.output_audio.done", true))
+	require.False(t, isTTFTEvent("response.completed", false))
+	require.True(t, isTTFTEvent("response.completed", true))
+}
+
 func BenchmarkIsTokenEvent(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
