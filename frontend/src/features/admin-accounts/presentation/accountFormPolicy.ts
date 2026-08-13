@@ -3,6 +3,34 @@ export interface ModelMapping {
   to: string
 }
 
+export type CodexFingerprintMode = 'off' | 'device' | 'session' | 'full'
+
+export function normalizeCodexFingerprintMode(value: unknown): CodexFingerprintMode {
+  if (typeof value !== 'string') return 'off'
+
+  switch (value.trim().toLowerCase()) {
+    case 'device':
+      return 'device'
+    case 'session':
+      return 'session'
+    case 'full':
+      return 'full'
+    default:
+      return 'off'
+  }
+}
+
+export function getCodexFingerprintModeOptions(
+  translate: (key: string) => string,
+): Array<{ value: CodexFingerprintMode; label: string }> {
+  return [
+    { value: 'off', label: translate('admin.accounts.openai.codexFingerprintModeOff') },
+    { value: 'device', label: translate('admin.accounts.openai.codexFingerprintModeDevice') },
+    { value: 'session', label: translate('admin.accounts.openai.codexFingerprintModeSession') },
+    { value: 'full', label: translate('admin.accounts.openai.codexFingerprintModeFull') },
+  ]
+}
+
 export interface TempUnschedRuleForm {
   error_code: number | null
   keywords: string

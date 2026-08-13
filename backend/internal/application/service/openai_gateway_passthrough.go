@@ -41,6 +41,10 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 ) (*OpenAIForwardResult, error) {
 	responseHeaderSnapshot := cloneOpenAIUncommittedResponseHeaders(c)
 	agentTaskRecoveryTried := false
+	var fingerprintIDs *codexFingerprintIDs
+	if account != nil && account.Type == AccountTypeOAuth && !isOpenAIResponsesCompactPath(c) {
+		fingerprintIDs = resolveCodexFingerprintIDsFromGinContext(account, c)
+	}
 	for completedRetries := 0; ; completedRetries++ {
 		if completedRetries > 0 && ctx != nil {
 			if ctxErr := ctx.Err(); ctxErr != nil {
@@ -59,6 +63,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 			reqStream,
 			startTime,
 			&agentTaskRecoveryTried,
+			fingerprintIDs,
 		)
 		if err == nil {
 			return result, nil
@@ -108,6 +113,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 	reqStream bool,
 	startTime time.Time,
 	agentTaskRecoveryTried *bool,
+	fingerprintIDs *codexFingerprintIDs,
 ) (*OpenAIForwardResult, error) {
 	upstreamPassthroughModel := ""
 	if isOpenAIResponsesCompactPath(c) {
@@ -150,6 +156,15 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 		}
 		if normalized {
 			body = normalizedBody
+		}
+		if !isOpenAIResponsesCompactPath(c) {
+			fingerprintedBody, fingerprinted, fingerprintErr := applyCodexFingerprintClientMetadataToBody(body, fingerprintIDs)
+			if fingerprintErr != nil {
+				return nil, fingerprintErr
+			}
+			if fingerprinted {
+				body = fingerprintedBody
+			}
 		}
 		reqStream = gjson.GetBytes(body, "stream").Bool()
 	}
@@ -266,7 +281,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 	var resp *http.Response
 	for {
 		upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
-		upstreamReq, buildErr := s.buildUpstreamRequestOpenAIPassthrough(upstreamCtx, c, account, body, token)
+		upstreamReq, buildErr := s.buildUpstreamRequestOpenAIPassthroughWithFingerprint(upstreamCtx, c, account, body, token, fingerprintIDs)
 		releaseUpstreamCtx()
 		if buildErr != nil {
 			return nil, buildErr
@@ -422,6 +437,17 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthrough(
 	body []byte,
 	token string,
 ) (*http.Request, error) {
+	return s.buildUpstreamRequestOpenAIPassthroughWithFingerprint(ctx, c, account, body, token, nil)
+}
+
+func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerprint(
+	ctx context.Context,
+	c *gin.Context,
+	account *Account,
+	body []byte,
+	token string,
+	fingerprintIDs *codexFingerprintIDs,
+) (*http.Request, error) {
 	targetURL := openaiPlatformAPIURL
 	switch account.Type {
 	case AccountTypeOAuth:
@@ -531,6 +557,9 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthrough(
 		req.Header.Set("user-agent", codexCLIUserAgent)
 	}
 	if account.Type == AccountTypeOAuth {
+		if !isOpenAIResponsesCompactPath(c) {
+			applyCodexFingerprintHeaders(req.Header, fingerprintIDs)
+		}
 		enforceCodexIdentityHeadersWithUA(req.Header, s.codexIdentityOverrideUA(account))
 	}
 

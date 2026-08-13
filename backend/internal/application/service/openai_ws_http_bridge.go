@@ -168,6 +168,33 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 	turn int,
 	writeClientMessage func([]byte) error,
 ) (*OpenAIForwardResult, error) {
+	fingerprintIDs := resolveCodexFingerprintIDsFromGinContext(account, c)
+	if turn > 1 {
+		fingerprintIDs = nextCodexFingerprintTurn(fingerprintIDs)
+	}
+	return s.proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
+		ctx, c, account, token, payload, payloadBytes, originalModel,
+		imageBillingModel, imageSizeTier, imageInputSize, grokCacheIdentity, turn,
+		fingerprintIDs, writeClientMessage,
+	)
+}
+
+func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
+	ctx context.Context,
+	c *gin.Context,
+	account *Account,
+	token string,
+	payload []byte,
+	payloadBytes int,
+	originalModel string,
+	imageBillingModel string,
+	imageSizeTier string,
+	imageInputSize string,
+	grokCacheIdentity string,
+	turn int,
+	fingerprintIDs *codexFingerprintIDs,
+	writeClientMessage func([]byte) error,
+) (*OpenAIForwardResult, error) {
 	if s == nil {
 		return nil, errors.New("service is nil")
 	}
@@ -210,7 +237,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 		}
 		upstreamReq, err = buildGrokResponsesRequest(upstreamCtx, c, account, body, token, grokCacheIdentity, s.cfg)
 	} else {
-		upstreamReq, err = s.buildUpstreamRequestOpenAIPassthrough(upstreamCtx, c, account, body, token)
+		upstreamReq, err = s.buildUpstreamRequestOpenAIPassthroughWithFingerprint(upstreamCtx, c, account, body, token, fingerprintIDs)
 	}
 	releaseUpstreamCtx()
 	if err != nil {

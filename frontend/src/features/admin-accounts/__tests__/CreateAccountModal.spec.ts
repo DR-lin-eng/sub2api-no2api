@@ -98,7 +98,21 @@ function mountModal() {
         BaseDialog: BaseDialogStub,
         OAuthAuthorizationFlow: OAuthAuthorizationFlowStub,
         ConfirmDialog: true,
-        Select: true,
+        Select: {
+          props: ['modelValue', 'options'],
+          emits: ['update:modelValue'],
+          template: `
+            <select
+              v-bind="$attrs"
+              :value="modelValue"
+              @change="$emit('update:modelValue', $event.target.value)"
+            >
+              <option v-for="option in options" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+          `,
+        },
         Icon: true,
         PlatformIcon: true,
         ProxySelector: true,
@@ -208,6 +222,26 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
       expect(
         apiKeyWrapper.find('[data-testid="create-codex-prewarm-continuation"]').exists()
       ).toBe(false)
+    })
+
+    it('keeps Codex fingerprint convergence off by default and stores explicit session mode', async () => {
+      const wrapper = mountModal()
+      await selectButtonByText(wrapper, 'OpenAI')
+      const select = wrapper.get('[data-testid="create-codex-fingerprint-mode-select"]')
+      expect((select.element as HTMLSelectElement).value).toBe('off')
+
+      await select.setValue('session')
+      await wrapper.get('form#create-account-form input[type="text"]').setValue('Codex fingerprint')
+      await wrapper.get('form#create-account-form').trigger('submit.prevent')
+      await wrapper.get('[data-testid="import-codex-session"]').trigger('click')
+      await flushPromises()
+
+      expect(importCodexSessionMock.mock.calls[0]?.[0]?.extra?.codex_fingerprint_mode).toBe('session')
+
+      const apiKeyWrapper = mountModal()
+      await selectButtonByText(apiKeyWrapper, 'OpenAI')
+      await selectButtonByText(apiKeyWrapper, 'API Key')
+      expect(apiKeyWrapper.find('[data-testid="create-codex-fingerprint-mode-select"]').exists()).toBe(false)
     })
 
   it('enables upstream billing probes by default for new OpenAI API key accounts', async () => {

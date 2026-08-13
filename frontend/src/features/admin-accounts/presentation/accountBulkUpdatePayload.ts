@@ -1,6 +1,6 @@
 import { buildHeaderOverridesObject, HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY, HEADER_OVERRIDES_CREDENTIAL_KEY } from './credentialsBuilder'
 import { buildModelMappingObject } from './composables/useModelWhitelist'
-import type { ModelMapping } from './accountFormPolicy'
+import type { CodexFingerprintMode, ModelMapping } from './accountFormPolicy'
 import { isOpenAIWSModeEnabled, type OpenAIWSMode } from '@/core/utils/openaiWsMode'
 import type { OpenAICompactMode } from '@/types'
 
@@ -40,11 +40,15 @@ export interface BulkAccountUpdatePayloadState {
   headerOverrideRows: Array<{ name: string; value: string }>
   enableOpenAIWSMode: boolean
   openaiOAuthResponsesWebSocketV2Mode: OpenAIWSMode
-    enableOpenAIAPIKeyWSMode: boolean
-    openaiAPIKeyResponsesWebSocketV2Mode: OpenAIWSMode
-    enableCodexPrewarmContinuation: boolean
-    codexPrewarmContinuationEnabled: boolean
-    enableUpstreamBillingAutoProbe: boolean
+  enableOpenAIAPIKeyWSMode: boolean
+  openaiAPIKeyResponsesWebSocketV2Mode: OpenAIWSMode
+  enableCodexPrewarmContinuation: boolean
+  codexPrewarmContinuationEnabled: boolean
+  enableCodexFingerprintMode: boolean
+  codexFingerprintMode: CodexFingerprintMode
+  enableCodexThinkingTagNormalization: boolean
+  codexThinkingTagNormalizationEnabled: boolean
+  enableUpstreamBillingAutoProbe: boolean
   upstreamBillingAutoProbeMode: 'enabled' | 'disabled'
   enableCodexCLIOnly: boolean
   codexCLIOnlyEnabled: boolean
@@ -165,6 +169,14 @@ export function buildBulkAccountUpdatePayload(
   if (state.enableCodexPrewarmContinuation) {
     ensureExtra().codex_prewarm_continuation_enabled =
       state.codexPrewarmContinuationEnabled
+  }
+  if (state.enableCodexFingerprintMode) {
+    // Bulk updates are partial merges, so "off" must be explicit to disable
+    // an already-enabled account.
+    ensureExtra().codex_fingerprint_mode = state.codexFingerprintMode
+  }
+  if (state.enableCodexThinkingTagNormalization) {
+    ensureExtra().codex_thinking_tag_normalization_enabled = state.codexThinkingTagNormalizationEnabled
   }
   if (state.enableUpstreamBillingAutoProbe) {
     updates.upstream_billing_probe_enabled = state.upstreamBillingAutoProbeMode === 'enabled'

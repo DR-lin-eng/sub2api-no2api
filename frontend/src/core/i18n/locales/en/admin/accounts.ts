@@ -1,4 +1,5 @@
 import cpaMessages from './accounts.cpa'
+import codexMessages from './accounts.codex'
 
 export default {
     accounts: {
@@ -590,9 +591,7 @@ export default {
         oauthPassthrough: 'Auto passthrough (auth only)',
         oauthPassthroughDesc:
           'When enabled, this OpenAI account uses automatic passthrough: the gateway forwards request/response as-is and only swaps auth, while keeping billing/concurrency/audit and necessary safety filtering.',
-        flattenNamespaces: 'Flatten Codex namespace tools',
-        flattenNamespacesDesc:
-          'OAuth compatibility switch for relays that reject namespace tools. Disabled by default so native Codex requests preserve namespace declarations; compact requests always use flattened tools.',
+        ...codexMessages,
         longContextBilling: 'API long-context pricing',
         longContextBillingDesc:
           'Disabled by default. Enable only when this account\'s upstream charges OpenAI API long-context rates above the model threshold.',
@@ -611,7 +610,6 @@ export default {
         wsModeConcurrencyHint:
           'When WS mode is enabled, account concurrency becomes the WS connection pool limit for this account.',
         wsModePassthroughHint: 'Passthrough mode does not use the WS connection pool.',
-        codexPrewarmContinuation: 'Codex account prewarm',
         oauthResponsesWebsocketsV2: 'OAuth WebSocket Mode',
         oauthResponsesWebsocketsV2Desc:
           'Only applies to OpenAI OAuth. This account can use OpenAI WebSocket Mode only when enabled.',

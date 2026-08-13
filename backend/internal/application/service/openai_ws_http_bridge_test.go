@@ -888,12 +888,13 @@ func TestOpenAIWSHTTPBridgeKeepsContinuationFramesOnHTTPWithoutPreviousResponseI
 	}
 	account := &Account{
 		ID:          19,
-		Name:        "api-key-bridge-handoff",
+		Name:        "oauth-bridge-handoff",
 		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "sk-upstream"},
+		Type:        AccountTypeOAuth,
+		Credentials: map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "bridge-upstream-account"},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
+			codexFingerprintModeExtraKey:      "session",
 		},
 		Concurrency: 1,
 		Status:      StatusActive,
@@ -926,9 +927,11 @@ func TestOpenAIWSHTTPBridgeKeepsContinuationFramesOnHTTPWithoutPreviousResponseI
 		req := r.Clone(r.Context())
 		req.Header = req.Header.Clone()
 		req.Header.Set("User-Agent", "codex_cli_rs/0.135.0")
+		req.Header.Set("Session-Id", "client-bridge-session")
+		req.Header.Set(openAIWSTurnMetadataHeader, "{\"sandbox\":\"workspace-write\",\"turn_id\":\"client-turn\",\"turn_started_at_unix_ms\":1}")
 		ginCtx.Request = req
 
-		errCh <- svc.ProxyResponsesWebSocketFromClient(r.Context(), ginCtx, conn, account, "sk-test", firstMessage, nil)
+		errCh <- svc.ProxyResponsesWebSocketFromClient(r.Context(), ginCtx, conn, account, "oauth-token", firstMessage, nil)
 	}))
 	defer wsServer.Close()
 
@@ -971,8 +974,26 @@ func TestOpenAIWSHTTPBridgeKeepsContinuationFramesOnHTTPWithoutPreviousResponseI
 	}
 
 	require.Len(t, upstream.bodies, 2, "进入 HTTP bridge 后同一客户端 WS 连接内应保持 HTTP/SSE bridge")
+	require.Len(t, upstream.requests, 2)
 	require.False(t, gjson.GetBytes(upstream.bodies[0], "previous_response_id").Exists())
 	require.False(t, gjson.GetBytes(upstream.bodies[1], "previous_response_id").Exists())
+	firstTurnID := gjson.GetBytes(upstream.bodies[0], "client_metadata.turn_id").String()
+	secondTurnID := gjson.GetBytes(upstream.bodies[1], "client_metadata.turn_id").String()
+	require.NotEmpty(t, firstTurnID)
+	require.NotEmpty(t, secondTurnID)
+	require.NotEqual(t, firstTurnID, secondTurnID, "each bridge turn needs a unique request identity")
+	for index, turnID := range []string{firstTurnID, secondTurnID} {
+		require.Equal(t, turnID, upstream.requests[index].Header.Get("X-Client-Request-ID"))
+		require.Equal(t, upstream.requests[index].Header.Get("X-Codex-Installation-ID"), gjson.GetBytes(upstream.bodies[index], "client_metadata.x-codex-installation-id").String())
+		require.Equal(t, upstream.requests[index].Header.Get("Session-Id"), gjson.GetBytes(upstream.bodies[index], "client_metadata.session_id").String())
+		require.Equal(t, upstream.requests[index].Header.Get("Thread-Id"), gjson.GetBytes(upstream.bodies[index], "client_metadata.thread_id").String())
+		headerMetadata := decodeFingerprintMetadata(t, upstream.requests[index].Header.Get(openAIWSTurnMetadataHeader))
+		bodyMetadata := decodeFingerprintMetadata(t, gjson.GetBytes(upstream.bodies[index], "client_metadata.x-codex-turn-metadata").String())
+		require.Equal(t, headerMetadata["turn_id"], bodyMetadata["turn_id"])
+		require.Equal(t, headerMetadata["turn_started_at_unix_ms"], bodyMetadata["turn_started_at_unix_ms"])
+	}
+	require.Equal(t, upstream.requests[0].Header.Get("Session-Id"), upstream.requests[1].Header.Get("Session-Id"))
+	require.Equal(t, upstream.requests[0].Header.Get("Thread-Id"), upstream.requests[1].Header.Get("Thread-Id"))
 	secondInput := gjson.GetBytes(upstream.bodies[1], "input").Array()
 	require.Len(t, secondInput, 3)
 	require.Equal(t, "first", secondInput[0].String())

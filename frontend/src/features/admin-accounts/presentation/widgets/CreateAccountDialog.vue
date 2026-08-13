@@ -162,8 +162,10 @@ import {
   DEFAULT_POOL_MODE_RETRY_COUNT,
   DEFAULT_POOL_MODE_RETRY_STATUS_CODES,
   MAX_POOL_MODE_RETRY_COUNT,
+  getCodexFingerprintModeOptions,
   normalizePoolModeRetryCount,
   parsePoolModeRetryStatusCodes,
+  type CodexFingerprintMode,
   type ModelMapping,
   type TempUnschedRuleForm,
 } from '@/features/admin-accounts/presentation/accountFormPolicy'
@@ -359,7 +361,9 @@ const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_comple
 const openAIForceImageAPIEnabled = ref(false)
 const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
+const codexFingerprintMode = ref<CodexFingerprintMode>('off')
 const codexPrewarmContinuationEnabled = ref(false)
+const codexThinkingTagNormalizationEnabled = ref(false)
 const codexCLIOnlyEnabled = ref(false)
 const codexCLIOnlyAppServerEnabled = ref(false)
 type AnthropicAPIKeyAuthScheme = 'x_api_key' | 'authorization_bearer'
@@ -552,6 +556,7 @@ const openAIWSModeOptions = computed<Array<{ value: OpenAIWSMode; label: string 
   { value: OPENAI_WS_MODE_PASSTHROUGH, label: t('admin.accounts.openai.wsModePassthrough') },
   { value: OPENAI_WS_MODE_HTTP_BRIDGE, label: t('admin.accounts.openai.wsModeHttpBridge') }
 ])
+const codexFingerprintModeOptions = computed(() => getCodexFingerprintModeOptions(t))
 
 const openaiResponsesWebSocketV2Mode = computed({
   get: () => {
@@ -712,7 +717,7 @@ const {
   antigravityModelRestrictionMode, antigravityOAuth, antigravityProjectId,
   antigravityWhitelistModels, apiKeyBaseUrl, bedrockAccessKeyId, bedrockApiKeyValue,
   bedrockAuthMode, bedrockForceGlobal, bedrockRegion, bedrockSecretAccessKey,
-    bedrockSessionToken, codexPrewarmContinuationEnabled, codexCLIOnlyAppServerEnabled, codexCLIOnlyEnabled,
+    bedrockSessionToken, codexPrewarmContinuationEnabled, codexThinkingTagNormalizationEnabled, codexCLIOnlyAppServerEnabled, codexCLIOnlyEnabled,
   customErrorCodeInput, form, geminiAIStudioOAuthEnabled, geminiOAuth, geminiOAuthType,
   grokOAuth, grokOAuthBaseUrl, grokOAuthCustomBaseUrlEnabled, headerOverrideEnabled,
   headerOverrideRows, interceptWarmupRequests,
@@ -897,7 +902,9 @@ const resetForm = () => {
   openAIForceImageAPIEnabled.value = false
   openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
   openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
+  codexFingerprintMode.value = 'off'
   codexPrewarmContinuationEnabled.value = false
+  codexThinkingTagNormalizationEnabled.value = false
   codexCLIOnlyEnabled.value = false
   codexCLIOnlyAppServerEnabled.value = false
   anthropicPassthroughEnabled.value = false
@@ -984,6 +991,16 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
     extra.codex_prewarm_continuation_enabled = true
   } else {
     delete extra.codex_prewarm_continuation_enabled
+  }
+  if (form.type === 'oauth' && codexFingerprintMode.value !== 'off') {
+    extra.codex_fingerprint_mode = codexFingerprintMode.value
+  } else {
+    delete extra.codex_fingerprint_mode
+  }
+  if (form.type === 'apikey' && codexThinkingTagNormalizationEnabled.value) {
+    extra.codex_thinking_tag_normalization_enabled = true
+  } else {
+    delete extra.codex_thinking_tag_normalization_enabled
   }
   extra.openai_long_context_billing_enabled = openAILongContextBillingEnabled.value
 
@@ -1442,7 +1459,8 @@ const createAccountCredentialContext = {
 const createAccountAdvancedContext = {
   accountCategory, addOpenAICompactModelMapping, addTempUnschedRule, allowOverages,
   anthropicAPIKeyAuthScheme, anthropicPassthroughEnabled, isSimpleMode, autoPauseOnExpired, baseRpm,
-    cacheTTLOverrideEnabled, cacheTTLOverrideTarget, codexPrewarmContinuationEnabled,
+    cacheTTLOverrideEnabled, cacheTTLOverrideTarget, codexFingerprintMode,
+    codexFingerprintModeOptions, codexPrewarmContinuationEnabled, codexThinkingTagNormalizationEnabled,
     codexCLIOnlyAppServerEnabled, codexCLIOnlyEnabled,
   customBaseUrl, customBaseUrlEnabled, expiresAtInput, form, getOpenAICompactModelMappingKey,
   getTempUnschedRuleKey, groups: availableGroups, interceptWarmupRequests, maxSessions,

@@ -91,6 +91,12 @@ const openAILongContextBillingEnabledKey = "openai_long_context_billing_enabled"
 // continuation request is still forwarded upstream.
 const CodexPrewarmContinuationExtraKey = "codex_prewarm_continuation_enabled"
 
+// CodexThinkingTagNormalizationExtraKey enables conversion of a complete
+// leading <thinking>...</thinking> block returned as ordinary Chat
+// Completions content into a Responses reasoning item. It is deliberately
+// opt-in because malformed or provider-specific tags must remain visible.
+const CodexThinkingTagNormalizationExtraKey = "codex_thinking_tag_normalization_enabled"
+
 // AutoDisableOnUpstreamInsufficientBalanceExtraKey controls whether an account
 // is made unschedulable after the upstream reports a durable balance shortage.
 // Missing and non-boolean values intentionally default to false.
@@ -1424,6 +1430,19 @@ func (a *Account) IsCodexPrewarmContinuationEnabled() bool {
 		return false
 	}
 	enabled, ok := a.Extra[CodexPrewarmContinuationExtraKey].(bool)
+	return ok && enabled
+}
+
+// IsCodexThinkingTagNormalizationEnabled reports whether the narrow legacy
+// thinking-tag compatibility path is enabled for this OpenAI API-key account.
+// The Responses -> Chat Completions fallback is API-key-only; keeping this
+// boundary here prevents the setting from being advertised or applied on
+// native OAuth/Responses paths where it cannot affect the wire format.
+func (a *Account) IsCodexThinkingTagNormalizationEnabled() bool {
+	if a == nil || !a.IsOpenAI() || a.Type != AccountTypeAPIKey || a.Extra == nil {
+		return false
+	}
+	enabled, ok := a.Extra[CodexThinkingTagNormalizationExtraKey].(bool)
 	return ok && enabled
 }
 

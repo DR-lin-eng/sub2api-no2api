@@ -306,6 +306,38 @@ describe('BulkEditAccountModal', () => {
       })
     })
 
+    it('OpenAI OAuth 批量编辑应显式提交 off 以关闭已有指纹收敛', async () => {
+      const wrapper = mountModal({
+        selectedPlatforms: ['openai'],
+        selectedTypes: ['oauth']
+      })
+
+      await wrapper.get('#bulk-edit-codex-fingerprint-mode-enabled').setValue(true)
+      await wrapper.get('[data-testid="bulk-codex-fingerprint-mode-select"]').setValue('off')
+      await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
+      await flushPromises()
+
+      expect(bulkUpdate).toHaveBeenCalledWith([1, 2], {
+        extra: {
+          codex_fingerprint_mode: 'off'
+        }
+      })
+    })
+
+    it('Codex 指纹收敛不对 setup-token 混合类型或 API Key 展示', () => {
+      const mixedWrapper = mountModal({
+        selectedPlatforms: ['openai'],
+        selectedTypes: ['oauth', 'setup-token']
+      })
+      expect(mixedWrapper.find('#bulk-edit-codex-fingerprint-mode-enabled').exists()).toBe(false)
+
+      const apiKeyWrapper = mountModal({
+        selectedPlatforms: ['openai'],
+        selectedTypes: ['apikey']
+      })
+      expect(apiKeyWrapper.find('#bulk-edit-codex-fingerprint-mode-enabled').exists()).toBe(false)
+    })
+
   it('OpenAI API Key 批量编辑不显示 WS mode 入口', () => {
     const wrapper = mountModal({
       selectedPlatforms: ['openai'],

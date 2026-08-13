@@ -77,7 +77,8 @@ type openAIWSAcquireRequest struct {
 }
 
 type openAIWSHandshakeCompatibilityKey struct {
-	betaFeatures string
+	betaFeatures   string
+	fingerprintKey string
 }
 
 type openAIWSConnLease struct {
@@ -1804,6 +1805,7 @@ func (p *openAIWSConnPool) dialConn(ctx context.Context, req openAIWSAcquireRequ
 		return nil, errors.New("openai ws client dialer is nil")
 	}
 	headers := cloneHeader(req.Headers)
+	headers.Del(codexFingerprintWSKeyHeader)
 	var err error
 	if req.HeadersFactory != nil {
 		headers, err = req.HeadersFactory(ctx, headers)
@@ -2050,7 +2052,8 @@ func normalizeOpenAIWSBetaFeatures(headers http.Header) string {
 
 func normalizeOpenAIWSHandshakeCompatibility(headers http.Header) openAIWSHandshakeCompatibilityKey {
 	return openAIWSHandshakeCompatibilityKey{
-		betaFeatures: normalizeOpenAIWSBetaFeatures(headers),
+		betaFeatures:   normalizeOpenAIWSBetaFeatures(headers),
+		fingerprintKey: headers.Get(codexFingerprintWSKeyHeader),
 	}
 }
 

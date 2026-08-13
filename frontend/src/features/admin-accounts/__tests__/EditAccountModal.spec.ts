@@ -485,6 +485,33 @@ describe('EditAccountModal', () => {
       )
     })
 
+    it('loads and clears Codex fingerprint convergence while preserving unrelated extra fields', async () => {
+      const account = buildAccount()
+      account.type = 'oauth'
+      account.extra = {
+        codex_fingerprint_mode: 'session',
+        custom_setting: 'keep-me'
+      }
+      updateAccountMock.mockReset().mockResolvedValue(account)
+      checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+      const wrapper = mountModal(account)
+      const select = wrapper.get('[data-testid="edit-codex-fingerprint-mode-select"]')
+      expect((select.element as HTMLSelectElement).value).toBe('session')
+
+      await select.setValue('off')
+      await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+      expect(updateAccountMock).toHaveBeenCalledTimes(1)
+      expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.custom_setting).toBe('keep-me')
+      expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('codex_fingerprint_mode')
+    })
+
+    it('does not show Codex fingerprint convergence for OpenAI API key accounts', () => {
+      const wrapper = mountModal(buildAccount())
+      expect(wrapper.find('[data-testid="edit-codex-fingerprint-mode-select"]').exists()).toBe(false)
+    })
+
   it('defaults legacy OpenAI accounts to long-context billing disabled', async () => {
     const account = buildAccount()
     updateAccountMock.mockReset()

@@ -55,8 +55,9 @@ type EditorFields =
     CreateAccountAdvancedContext,
     | 'allowOverages'
       | 'anthropicAPIKeyAuthScheme'
-      | 'anthropicPassthroughEnabled'
-      | 'codexPrewarmContinuationEnabled'
+    | 'anthropicPassthroughEnabled'
+    | 'codexPrewarmContinuationEnabled'
+    | 'codexThinkingTagNormalizationEnabled'
       | 'codexCLIOnlyAppServerEnabled'
     | 'codexCLIOnlyEnabled'
     | 'interceptWarmupRequests'

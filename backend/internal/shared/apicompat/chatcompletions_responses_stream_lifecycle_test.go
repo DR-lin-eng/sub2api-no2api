@@ -105,6 +105,53 @@ func TestStream_ReasoningOnlyBlankDoesNotSynthesizeVisibleText(t *testing.T) {
 	}
 }
 
+func TestStream_LiteralThinkingNormalizationPreservesLifecycle(t *testing.T) {
+	state := NewChatCompletionsToResponsesStreamStateWithOptions("gpt-5", ChatCompletionsResponsesBridgeOptions{NormalizeLiteralThinking: true})
+	var events []ResponsesStreamEvent
+	for _, payload := range []string{
+		`{"choices":[{"index":0,"delta":{"content":"<think"}}]}`,
+		`{"choices":[{"index":0,"delta":{"content":"ing>plan****check</thinking>fi"}}]}`,
+		`{"choices":[{"index":0,"delta":{"content":"nal"},"finish_reason":"stop"}]}`,
+	} {
+		var chunk ChatCompletionsChunk
+		require.NoError(t, json.Unmarshal([]byte(payload), &chunk))
+		events = append(events, ChatCompletionsChunkToResponsesEvents(&chunk, state)...)
+	}
+	events = append(events, FinalizeChatCompletionsResponsesStream(state)...)
+	var types []string
+	var visible strings.Builder
+	for _, event := range events {
+		types = append(types, event.Type)
+		if event.Type == "response.output_text.delta" {
+			_, _ = visible.WriteString(event.Delta)
+		}
+	}
+	require.Contains(t, types, "response.reasoning_summary_text.delta")
+	require.Contains(t, types, "response.reasoning_summary_text.done")
+	for _, event := range events {
+		if event.Type == "response.reasoning_summary_text.delta" {
+			require.Equal(t, "plan****check", event.Delta)
+		}
+	}
+	require.Equal(t, "final", visible.String())
+}
+
+func TestLiteralThinkingParserMalformedAndBoundedInputRemainLiteral(t *testing.T) {
+	cases := []string{
+		"prefix<thinking>hidden</thinking>",
+		"<thinking><thinking>nested</thinking>visible",
+		"<thinking>unterminated",
+		strings.Repeat("<thinking>", 1) + strings.Repeat("x", literalThinkingMaxBufferedBytes),
+	}
+	for _, input := range cases {
+		p := newLiteralThinkingStreamParser(true)
+		r, v := p.feed(input)
+		v += p.flush()
+		require.Empty(t, r)
+		require.Equal(t, input, v)
+	}
+}
+
 func TestStream_ReasoningThenContentDoesNotDuplicateFallbackText(t *testing.T) {
 	events := collectStreamEvents(t, []string{
 		`{"choices":[{"index":0,"delta":{"reasoning_content":"private plan"}}]}`,

@@ -137,9 +137,12 @@ import {
   buildTempUnschedRules,
   createTempUnschedRule,
   formatPoolModeRetryStatusCodes,
+  getCodexFingerprintModeOptions,
   moveTempUnschedRule as moveTempUnschedRuleInPlace,
+  normalizeCodexFingerprintMode,
   normalizePoolModeRetryCount,
   removeModelMapping as removeModelMappingAt,
+  type CodexFingerprintMode,
   type ModelMapping,
   type TempUnschedRuleForm,
 } from '@/features/admin-accounts/presentation/accountFormPolicy'
@@ -329,7 +332,9 @@ const openAIForceImageAPIEnabled = ref(false)
 const codexWebSearchEnabled = ref(true)
 const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
+const codexFingerprintMode = ref<CodexFingerprintMode>('off')
 const codexPrewarmContinuationEnabled = ref(false)
+const codexThinkingTagNormalizationEnabled = ref(false)
 const codexCLIOnlyEnabled = ref(false)
 const codexCLIOnlyAppServerEnabled = ref(false)
 type CodexImageToolMode = 'inherit' | 'enabled' | 'disabled' | 'block'
@@ -369,6 +374,7 @@ const openAIWSModeOptions = computed<Array<{ value: OpenAIWSMode; label: string 
   { value: OPENAI_WS_MODE_PASSTHROUGH, label: t('admin.accounts.openai.wsModePassthrough') },
   { value: OPENAI_WS_MODE_HTTP_BRIDGE, label: t('admin.accounts.openai.wsModeHttpBridge') }
 ])
+const codexFingerprintModeOptions = computed(() => getCodexFingerprintModeOptions(t))
 const openaiResponsesWebSocketV2Mode = computed({
   get: () => {
     if (props.account?.type === 'apikey') {
@@ -790,7 +796,9 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   openAICompactModelMappings.value = []
   openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
   openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
+  codexFingerprintMode.value = 'off'
   codexPrewarmContinuationEnabled.value = codexCLIOnlyEnabled.value = codexCLIOnlyAppServerEnabled.value = false
+  codexThinkingTagNormalizationEnabled.value = false
   codexImageToolMode.value = 'inherit'
   anthropicPassthroughEnabled.value = false
   anthropicAPIKeyAuthScheme.value = 'x_api_key'
@@ -838,7 +846,11 @@ const syncFormFromAccount = (newAccount: Account | null) => {
       fallbackEnabledKeys: ['responses_websockets_v2_enabled', 'openai_ws_enabled'],
       defaultMode: OPENAI_WS_MODE_OFF
     })
+    codexFingerprintMode.value = newAccount.type === 'oauth'
+      ? normalizeCodexFingerprintMode(extra?.codex_fingerprint_mode)
+      : 'off'
     codexPrewarmContinuationEnabled.value = newAccount.type === 'oauth' && extra?.codex_prewarm_continuation_enabled === true
+    codexThinkingTagNormalizationEnabled.value = newAccount.type === 'apikey' && extra?.codex_thinking_tag_normalization_enabled === true
     if (newAccount.type === 'oauth' || newAccount.type === 'setup-token') {
       codexCLIOnlyEnabled.value = extra?.codex_cli_only === true
       codexCLIOnlyAppServerEnabled.value =
@@ -1395,7 +1407,7 @@ const {
   autoDisableOnUpstreamInsufficientBalance, autoPause5hDisabled, autoPause5hThreshold,
   autoPause7dDisabled, autoPause7dThreshold, autoPauseOnExpired, baseRpm,
   buildModelRestrictionMapping, cacheTTLOverrideEnabled, cacheTTLOverrideTarget,
-  codexPrewarmContinuationEnabled, codexCLIOnlyAppServerEnabled, codexCLIOnlyEnabled, codexImageToolMode,
+  codexFingerprintMode, codexPrewarmContinuationEnabled, codexThinkingTagNormalizationEnabled, codexCLIOnlyAppServerEnabled, codexCLIOnlyEnabled, codexImageToolMode,
   cpaConcurrencyPerCredential, cpaExcludeAbnormalCredentials, cpaManagementKey, cpaManagementUrl, cpaModeEnabled,
   cpaUseBaseUrl,
   customBaseUrl, customBaseUrlEnabled, customErrorCodesEnabled, defaultBaseUrl,
@@ -1448,7 +1460,8 @@ const editAccountCredentialContext = {
 
 const editAccountAdvancedContext = {
   account: activeAccount, addTempUnschedRule, anthropicAPIKeyAuthScheme,
-  anthropicPassthroughEnabled, codexPrewarmContinuationEnabled, codexCLIOnlyAppServerEnabled, codexCLIOnlyEnabled,
+  anthropicPassthroughEnabled, codexFingerprintMode, codexFingerprintModeOptions,
+  codexPrewarmContinuationEnabled, codexThinkingTagNormalizationEnabled, codexCLIOnlyAppServerEnabled, codexCLIOnlyEnabled,
   codexImageToolBadgeClass, codexImageToolBadgeLabel, codexImageToolMode, codexImageToolOptions,
   codexWebSearchEnabled, editDailyResetHour, editDailyResetMode, editQuotaDailyLimit,
   editQuotaLimit, editQuotaWeeklyLimit, editResetTimezone, editWeeklyResetDay,

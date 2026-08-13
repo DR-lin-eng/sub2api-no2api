@@ -112,9 +112,9 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 	}
 
 	if clientStream {
-		return s.streamChatCompletionsAsResponses(c, resp, originalModel, customTools, toolSearch, namespaceTools, billingModel, upstreamModel, reasoningEffort, serviceTier, startTime)
+		return s.streamChatCompletionsAsResponses(c, resp, originalModel, customTools, toolSearch, namespaceTools, billingModel, upstreamModel, reasoningEffort, serviceTier, startTime, account.IsCodexThinkingTagNormalizationEnabled())
 	}
-	return s.bufferChatCompletionsAsResponses(c, resp, originalModel, customTools, toolSearch, namespaceTools, billingModel, upstreamModel, reasoningEffort, serviceTier, startTime)
+	return s.bufferChatCompletionsAsResponses(c, resp, originalModel, customTools, toolSearch, namespaceTools, billingModel, upstreamModel, reasoningEffort, serviceTier, startTime, account.IsCodexThinkingTagNormalizationEnabled())
 }
 
 func (s *OpenAIGatewayService) bufferChatCompletionsAsResponses(
@@ -129,13 +129,14 @@ func (s *OpenAIGatewayService) bufferChatCompletionsAsResponses(
 	reasoningEffort *string,
 	serviceTier *string,
 	startTime time.Time,
+	normalizeLiteralThinking bool,
 ) (*OpenAIForwardResult, error) {
 	requestID := resp.Header.Get("x-request-id")
 	ccResp, usage, err := s.readCCUpstreamJSONResponse(c, resp, writeOpenAIResponsesFallbackError)
 	if err != nil {
 		return nil, err
 	}
-	responsesResp := apicompat.ChatCompletionsResponseToResponses(ccResp, originalModel, customTools, toolSearch, namespaceTools)
+	responsesResp := apicompat.ChatCompletionsResponseToResponsesWithOptions(ccResp, originalModel, customTools, toolSearch, namespaceTools, apicompat.ChatCompletionsResponsesBridgeOptions{NormalizeLiteralThinking: normalizeLiteralThinking})
 
 	if s.responseHeaderFilter != nil {
 		responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
@@ -167,11 +168,12 @@ func (s *OpenAIGatewayService) streamChatCompletionsAsResponses(
 	reasoningEffort *string,
 	serviceTier *string,
 	startTime time.Time,
+	normalizeLiteralThinking bool,
 ) (*OpenAIForwardResult, error) {
 	requestID := resp.Header.Get("x-request-id")
 	writeStreamHeaders := s.newStreamHeaderWriter(c, resp.Header)
 
-	state := apicompat.NewChatCompletionsToResponsesStreamState(originalModel)
+	state := apicompat.NewChatCompletionsToResponsesStreamStateWithOptions(originalModel, apicompat.ChatCompletionsResponsesBridgeOptions{NormalizeLiteralThinking: normalizeLiteralThinking})
 	state.CustomTools = customTools
 	state.ToolSearchDeclared = toolSearch
 	state.NamespaceTools = namespaceTools

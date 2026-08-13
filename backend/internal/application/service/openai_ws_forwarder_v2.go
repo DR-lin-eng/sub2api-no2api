@@ -32,6 +32,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	attempt int,
 	lastFailureReason string,
 	agentTaskRecoveryTried *bool,
+	fingerprintIDs *codexFingerprintIDs,
 ) (*OpenAIForwardResult, error) {
 	if s == nil || account == nil {
 		return nil, wrapOpenAIWSFallback("invalid_state", errors.New("service or account is nil"))
@@ -85,6 +86,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		turnState = strings.TrimSpace(c.GetHeader(openAIWSTurnStateHeader))
 		turnMetadata = strings.TrimSpace(c.GetHeader(openAIWSTurnMetadataHeader))
 	}
+	turnMetadata = rewriteCodexTurnMetadataValue(turnMetadata, fingerprintIDs)
 	setOpenAIWSTurnMetadata(payload, turnMetadata)
 	payloadEventType := openAIWSPayloadString(payload, "type")
 	if payloadEventType == "" {
@@ -155,6 +157,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	if buildHdrErr != nil {
 		return nil, fmt.Errorf("build ws headers: %w", buildHdrErr)
 	}
+	applyCodexFingerprintWSHeaders(wsHeaders, fingerprintIDs)
 	logOpenAIWSModeDebug(
 		"acquire_start account_id=%d account_type=%s transport=%s preferred_conn_id=%s has_previous_response_id=%v session_hash=%s has_turn_state=%v turn_state_len=%d has_turn_metadata=%v turn_metadata_len=%d store_disabled=%v store_disabled_conn_mode=%s retry_last_reason=%s force_new_conn=%v header_user_agent=%s header_openai_beta=%s header_originator=%s header_accept_language=%s header_session_id=%s header_conversation_id=%s session_id_source=%s conversation_id_source=%s has_prompt_cache_key=%v has_chatgpt_account_id=%v has_authorization=%v has_session_id=%v has_conversation_id=%v proxy_enabled=%v",
 		account.ID,

@@ -22,6 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 func f64p(v float64) *float64 { return &v }
@@ -1798,6 +1799,8 @@ func TestOpenAIGatewayService_OpenAIPassthrough_RetriesTransientTransportErrorsO
 		responses: []*http.Response{openAIPassthroughTransportRetrySuccessResponse()},
 	}
 	svc, c, _, account, body := newOpenAIPassthroughTransportRetryFixture(t, upstream)
+	c.Request.Header.Set("Session-Id", "retry-client-session")
+	account.Extra[codexFingerprintModeExtraKey] = "session"
 
 	result, err := svc.Forward(context.Background(), c, account, body)
 
@@ -1805,9 +1808,36 @@ func TestOpenAIGatewayService_OpenAIPassthrough_RetriesTransientTransportErrorsO
 	require.NotNil(t, result)
 	require.Len(t, upstream.requests, 3, "首次请求失败后应在同一账号重试")
 	require.Len(t, upstream.bodies, 3)
+	require.NotEmpty(t, upstream.requests[0].Header.Get("X-Client-Request-ID"))
 	for i := 1; i < len(upstream.bodies); i++ {
 		require.Equal(t, upstream.bodies[0], upstream.bodies[i], "每次重试必须完整重放相同请求体")
+		require.Equal(t, upstream.requests[0].Header.Get("X-Client-Request-ID"), upstream.requests[i].Header.Get("X-Client-Request-ID"), "同一账号的传输重试必须复用同一 turn")
 	}
+}
+
+func TestOpenAIGatewayService_OpenAIPassthrough_FingerprintConvergesRequestBodyAndHeaders(t *testing.T) {
+	upstream := &httpUpstreamRecorder{resp: openAIPassthroughTransportRetrySuccessResponse()}
+	svc, c, _, account, body := newOpenAIPassthroughTransportRetryFixture(t, upstream)
+	c.Request.Header.Set("Session-Id", "client-session")
+	c.Request.Header.Set("X-Codex-Installation-ID", "client-installation")
+	c.Request.Header.Set("X-Client-Request-ID", "client-request")
+	account.Extra[codexFingerprintModeExtraKey] = "session"
+	body, err := sjson.SetBytes(body, "client_metadata", map[string]any{"preserved": true})
+	require.NoError(t, err)
+
+	result, err := svc.Forward(context.Background(), c, account, body)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.NotNil(t, upstream.lastReq)
+	require.NotEqual(t, "client-installation", upstream.lastReq.Header.Get("X-Codex-Installation-ID"))
+	require.NotEqual(t, "client-session", upstream.lastReq.Header.Get("Session-Id"))
+	require.NotEqual(t, "client-request", upstream.lastReq.Header.Get("X-Client-Request-ID"))
+	require.Equal(t, upstream.lastReq.Header.Get("X-Codex-Installation-ID"), gjson.GetBytes(upstream.lastBody, "client_metadata.x-codex-installation-id").String())
+	require.Equal(t, upstream.lastReq.Header.Get("Session-Id"), gjson.GetBytes(upstream.lastBody, "client_metadata.session_id").String())
+	require.Equal(t, upstream.lastReq.Header.Get("Thread-Id"), gjson.GetBytes(upstream.lastBody, "client_metadata.thread_id").String())
+	require.Equal(t, upstream.lastReq.Header.Get("X-Client-Request-ID"), gjson.GetBytes(upstream.lastBody, "client_metadata.turn_id").String())
+	require.True(t, gjson.GetBytes(upstream.lastBody, "client_metadata.preserved").Bool())
 }
 
 func TestOpenAIGatewayService_OpenAIPassthrough_TransportRetryExhaustionFailsOver(t *testing.T) {

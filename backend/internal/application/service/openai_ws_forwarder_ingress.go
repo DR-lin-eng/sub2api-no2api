@@ -212,6 +212,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	type openAIWSClientPayload struct {
 		payloadRaw         []byte
 		rawForHash         []byte
+		fingerprintIDs     *codexFingerprintIDs
 		promptCacheKey     string
 		previousResponseID string
 		originalModel      string
@@ -221,6 +222,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		payloadBytes       int
 	}
 	ingressSessionOriginalModel := ""
+	fingerprintIDs := resolveCodexFingerprintIDsFromGinContext(account, c)
 
 	applyPayloadMutation := func(current []byte, path string, value any) ([]byte, error) {
 		next, err := sjson.SetBytes(current, path, value)
@@ -467,11 +469,23 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			)
 		}
 		normalized = policyApplied
+		turnFingerprintIDs := fingerprintIDs
+		if turn > 1 {
+			turnFingerprintIDs = nextCodexFingerprintTurn(fingerprintIDs)
+		}
+		fingerprinted, changed, fingerprintErr := applyCodexFingerprintClientMetadataToBody(normalized, turnFingerprintIDs)
+		if fingerprintErr != nil {
+			return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", fingerprintErr)
+		}
+		if changed {
+			normalized = fingerprinted
+		}
 		ingressSessionOriginalModel = originalModel
 
 		return openAIWSClientPayload{
 			payloadRaw:         normalized,
 			rawForHash:         trimmed,
+			fingerprintIDs:     turnFingerprintIDs,
 			promptCacheKey:     promptCacheKey,
 			previousResponseID: previousResponseID,
 			originalModel:      originalModel,
@@ -633,7 +647,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				clientConn,
 				s.openAIWSHTTPBridgeKeepaliveInterval(currentBridgePayload.imageBillingModel != ""),
 			)
-			result, bridgeErr := s.proxyOpenAIWSHTTPBridgeTurn(
+			result, bridgeErr := s.proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 				ctx,
 				c,
 				account,
@@ -646,6 +660,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				currentBridgePayload.imageInputSize,
 				grokCacheIdentity,
 				turn,
+				currentBridgePayload.fingerprintIDs,
 				writeClientMessage,
 			)
 			stopBridgeKeepalive()
@@ -715,6 +730,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	if buildHdrErr != nil {
 		return fmt.Errorf("build ws headers: %w", buildHdrErr)
 	}
+	applyCodexFingerprintWSHeaders(wsHeaders, fingerprintIDs)
 	baseAcquireReq := openAIWSAcquireRequest{
 		Account: account,
 		WSURL:   wsURL,

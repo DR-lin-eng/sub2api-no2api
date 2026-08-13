@@ -252,29 +252,48 @@
             aria-labelledby="bulk-edit-openai-ws-mode-label"
           />
         </div>
-        </div>
+      </div>
 
-        <div v-if="allOpenAIOAuthOnly" class="border-t border-gray-200 pt-4 dark:border-dark-600">
-          <div class="mb-3 flex items-center justify-between">
-            <label id="bulk-edit-codex-prewarm-continuation-label" class="input-label mb-0" for="bulk-edit-codex-prewarm-continuation-enabled">
-              {{ t('admin.accounts.openai.codexPrewarmContinuation') }}
-            </label>
-            <input
-              v-model="enableCodexPrewarmContinuation"
-              id="bulk-edit-codex-prewarm-continuation-enabled"
-              type="checkbox"
-              aria-controls="bulk-edit-codex-prewarm-continuation"
-              class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-          </div>
-          <div
-            id="bulk-edit-codex-prewarm-continuation"
-            class="flex items-center justify-between gap-4"
-            :class="!enableCodexPrewarmContinuation && 'pointer-events-none opacity-50'"
+      <BulkEditCodexOptions
+        v-if="allOpenAIOAuthOnly"
+        v-model:enable-fingerprint="enableCodexFingerprintMode"
+        v-model:fingerprint-mode="codexFingerprintMode"
+        v-model:enable-prewarm="enableCodexPrewarmContinuation"
+        v-model:prewarm-enabled="codexPrewarmContinuationEnabled"
+      />
+
+      <div v-if="allOpenAIAPIKey" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="mb-3 flex items-center justify-between">
+          <label
+            id="bulk-edit-codex-thinking-tag-label"
+            class="input-label mb-0"
+            for="bulk-edit-codex-thinking-tag-enabled"
           >
-            <Toggle v-model="codexPrewarmContinuationEnabled" data-testid="bulk-edit-codex-prewarm-continuation-toggle" :aria-label="t('admin.accounts.openai.codexPrewarmContinuation')" />
-          </div>
+            {{ t('admin.accounts.openai.codexThinkingTagNormalization') }}
+          </label>
+          <input
+            v-model="enableCodexThinkingTagNormalization"
+            id="bulk-edit-codex-thinking-tag-enabled"
+            type="checkbox"
+            aria-controls="bulk-edit-codex-thinking-tag-body"
+            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+          />
         </div>
+        <div
+          id="bulk-edit-codex-thinking-tag-body"
+          class="flex items-center justify-between gap-4"
+          :class="!enableCodexThinkingTagNormalization && 'pointer-events-none opacity-50'"
+        >
+          <p class="text-xs text-gray-500 dark:text-gray-400">
+            {{ t('admin.accounts.openai.codexThinkingTagNormalizationDesc') }}
+          </p>
+          <Toggle
+            v-model="codexThinkingTagNormalizationEnabled"
+            data-testid="bulk-codex-thinking-tag-normalization-toggle"
+            :aria-label="t('admin.accounts.openai.codexThinkingTagNormalization')"
+          />
+        </div>
+      </div>
 
         <!-- OpenAI OAuth Codex CLI only -->
       <div v-if="allOpenAIOAuth" class="border-t border-gray-200 pt-4 dark:border-dark-600">
@@ -782,11 +801,15 @@ import {
 } from '@/core/utils/openaiWsMode'
 import type { OpenAIWSMode } from '@/core/utils/openaiWsMode'
 import { buildBulkAccountUpdatePayload } from '@/features/admin-accounts/presentation/accountBulkUpdatePayload'
-import type { ModelMapping } from '@/features/admin-accounts/presentation/accountFormPolicy'
+import {
+  type CodexFingerprintMode,
+  type ModelMapping,
+} from '@/features/admin-accounts/presentation/accountFormPolicy'
 import type { BulkEditCPAContext, BulkEditRoutingPolicyContext } from '@/features/admin-accounts/presentation/bulkEditAccountContext'
 import { areUpstreamBillingProbeTargetsEligible } from '@/features/admin-accounts/presentation/upstreamBillingProbeEligibility'
 import BulkEditRoutingPolicyFields from './BulkEditRoutingPolicyFields.vue'
 import BulkEditCPAFields from './BulkEditCPAFields.vue'
+import BulkEditCodexOptions from './BulkEditCodexOptions.vue'
 
 interface Props {
   show: boolean
@@ -927,7 +950,9 @@ const enableOpenAIPassthrough = ref(false)
 const enableOpenAIFlattenNamespaces = ref(false)
 const enableOpenAIWSMode = ref(false)
 const enableOpenAIAPIKeyWSMode = ref(false)
+const enableCodexFingerprintMode = ref(false)
 const enableCodexPrewarmContinuation = ref(false)
+const enableCodexThinkingTagNormalization = ref(false)
 const enableUpstreamBillingAutoProbe = ref(false)
 const enableCodexCLIOnly = ref(false)
 const enableCodexCLIOnlyAppServer = ref(false)
@@ -961,7 +986,9 @@ const openaiPassthroughEnabled = ref(false)
 const openaiFlattenNamespacesEnabled = ref(false)
 const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
+const codexFingerprintMode = ref<CodexFingerprintMode>('off')
 const codexPrewarmContinuationEnabled = ref(false)
+const codexThinkingTagNormalizationEnabled = ref(false)
 const upstreamBillingAutoProbeMode = ref<'enabled' | 'disabled'>('enabled')
 const codexCLIOnlyEnabled = ref(false)
 const codexCLIOnlyAppServerEnabled = ref(false)
@@ -1193,8 +1220,12 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
     openaiOAuthResponsesWebSocketV2Mode: openaiOAuthResponsesWebSocketV2Mode.value,
     enableOpenAIAPIKeyWSMode: enableOpenAIAPIKeyWSMode.value,
     openaiAPIKeyResponsesWebSocketV2Mode: openaiAPIKeyResponsesWebSocketV2Mode.value,
+    enableCodexFingerprintMode: enableCodexFingerprintMode.value,
+    codexFingerprintMode: codexFingerprintMode.value,
     enableCodexPrewarmContinuation: enableCodexPrewarmContinuation.value,
     codexPrewarmContinuationEnabled: codexPrewarmContinuationEnabled.value,
+    enableCodexThinkingTagNormalization: enableCodexThinkingTagNormalization.value,
+    codexThinkingTagNormalizationEnabled: codexThinkingTagNormalizationEnabled.value,
     enableUpstreamBillingAutoProbe: enableUpstreamBillingAutoProbe.value,
     upstreamBillingAutoProbeMode: upstreamBillingAutoProbeMode.value,
     enableCodexCLIOnly: enableCodexCLIOnly.value,
@@ -1284,7 +1315,9 @@ const handleSubmit = async () => {
     enableGroups.value ||
     enableOpenAIWSMode.value ||
     enableOpenAIAPIKeyWSMode.value ||
+    enableCodexFingerprintMode.value ||
     enableCodexPrewarmContinuation.value ||
+    enableCodexThinkingTagNormalization.value ||
     enableUpstreamBillingAutoProbe.value ||
     enableCodexCLIOnly.value ||
     enableCodexCLIOnlyAppServer.value ||
@@ -1433,10 +1466,12 @@ watch(
       enableGroups.value = false
       enableOpenAIPassthrough.value = false
       enableOpenAIFlattenNamespaces.value = false
-        enableOpenAIWSMode.value = false
-        enableOpenAIAPIKeyWSMode.value = false
-        enableCodexPrewarmContinuation.value = false
-        enableUpstreamBillingAutoProbe.value = false
+      enableOpenAIWSMode.value = false
+      enableOpenAIAPIKeyWSMode.value = false
+      enableCodexFingerprintMode.value = false
+      enableCodexPrewarmContinuation.value = false
+      enableCodexThinkingTagNormalization.value = false
+      enableUpstreamBillingAutoProbe.value = false
       enableCodexCLIOnly.value = false
       enableCodexCLIOnlyAppServer.value = false
       enableOpenAICompactMode.value = false
@@ -1463,10 +1498,12 @@ watch(
       rateMultiplier.value = 1
       status.value = 'active'
       groupIds.value = []
-        openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
-        openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
-        codexPrewarmContinuationEnabled.value = false
-        upstreamBillingAutoProbeMode.value = 'enabled'
+      openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
+      openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
+      codexFingerprintMode.value = 'off'
+      codexPrewarmContinuationEnabled.value = false
+      codexThinkingTagNormalizationEnabled.value = false
+      upstreamBillingAutoProbeMode.value = 'enabled'
       codexCLIOnlyEnabled.value = false
       codexCLIOnlyAppServerEnabled.value = false
       openAICompactMode.value = 'auto'

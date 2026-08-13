@@ -1,4 +1,5 @@
 import cpaMessages from './accounts.cpa'
+import codexMessages from './accounts.codex'
 
 export default {
     accounts: {
@@ -629,9 +630,7 @@ export default {
         oauthPassthrough: '自动透传（仅替换认证）',
         oauthPassthroughDesc:
           '开启后，该 OpenAI 账号将自动透传请求与响应，仅替换认证并保留计费/并发/审计及必要安全过滤；如遇兼容性问题可随时关闭回滚。',
-        flattenNamespaces: '摊平 Codex namespace 工具',
-        flattenNamespacesDesc:
-          '仅用于不接受 namespace 工具的 OAuth 中继兼容。默认关闭以保留原生 Codex namespace 声明；compact 请求始终使用摊平工具。',
+        ...codexMessages,
         longContextBilling: 'API 长上下文计费',
         longContextBillingDesc: '默认关闭。仅当该账号的上游会按模型阈值收取 OpenAI API 长上下文费率时开启。',
         responsesWebsocketsV2: 'Responses WebSocket v2',
@@ -648,7 +647,6 @@ export default {
         wsModeDedicated: '独享（dedicated）',
         wsModeConcurrencyHint: '启用 WS mode 后，该账号并发数将作为该账号 WS 连接池上限。',
         wsModePassthroughHint: 'passthrough 模式不使用 WS 连接池。',
-        codexPrewarmContinuation: 'Codex 账号预热',
         oauthResponsesWebsocketsV2: 'OAuth WebSocket Mode',
         oauthResponsesWebsocketsV2Desc:
           '仅对 OpenAI OAuth 生效。开启后该账号才允许使用 OpenAI WebSocket Mode 协议。',

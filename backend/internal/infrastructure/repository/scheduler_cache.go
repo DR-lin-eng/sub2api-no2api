@@ -1645,6 +1645,8 @@ func filterSchedulerExtra(extra map[string]any) map[string]any {
 		"auto_pause_5h_disabled",
 		"auto_pause_7d_disabled",
 		service.CodexPrewarmContinuationExtraKey,
+		service.CodexThinkingTagNormalizationExtraKey,
+		"codex_fingerprint_mode",
 		service.AutoDisableOnUpstreamInsufficientBalanceExtraKey,
 		"model_rate_limits",
 		service.UpstreamBillingProbeExtraKey,

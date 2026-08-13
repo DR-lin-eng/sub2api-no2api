@@ -141,6 +141,81 @@ func TestForwardResponses_DeepSeekReasoningOnlyStreamProducesVisibleText(t *test
 	require.Contains(t, rec.Body.String(), "data: [DONE]")
 }
 
+func TestForwardResponses_LiteralThinkingNormalizationIsAccountScoped(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"gpt-5.4","input":"hello","stream":false}`)
+	upstreamResponse := `{"id":"chatcmpl_literal","object":"chat.completion","model":"gpt-5.4","choices":[{"index":0,"message":{"role":"assistant","content":"<thinking>plan</thinking>final"},"finish_reason":"stop"}]}`
+	for _, enabled := range []bool{false, true} {
+		t.Run(map[bool]string{false: "disabled", true: "enabled"}[enabled], func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
+			upstream := &httpUpstreamRecorder{resp: &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(upstreamResponse)),
+			}}
+			svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
+			account := forceChatResponsesFallbackAccount()
+			account.Extra[CodexThinkingTagNormalizationExtraKey] = enabled
+			_, err := svc.Forward(context.Background(), c, account, body)
+			require.NoError(t, err)
+			if enabled {
+				require.Equal(t, "reasoning", gjson.Get(rec.Body.String(), "output.0.type").String())
+				require.Equal(t, "final", gjson.Get(rec.Body.String(), "output.1.content.0.text").String())
+			} else {
+				require.Equal(t, "<thinking>plan</thinking>final", gjson.Get(rec.Body.String(), "output.0.content.0.text").String())
+			}
+		})
+	}
+}
+
+func TestForwardResponses_LiteralThinkingNormalizationStreamingWire(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"gpt-5.4","input":"hello","stream":true}`)
+	upstreamBody := strings.Join([]string{
+		`data: {"id":"chatcmpl_literal_stream","object":"chat.completion.chunk","model":"gpt-5.4","choices":[{"index":0,"delta":{"role":"assistant","content":"<think"},"finish_reason":null}]}`,
+		"",
+		`data: {"id":"chatcmpl_literal_stream","object":"chat.completion.chunk","model":"gpt-5.4","choices":[{"index":0,"delta":{"content":"ing>Starting Docker targeted tests****Checking for compile errors and test failures</thinking>normal"},"finish_reason":null}]}`,
+		"",
+		`data: {"id":"chatcmpl_literal_stream","object":"chat.completion.chunk","model":"gpt-5.4","choices":[{"index":0,"delta":{"content":" text"},"finish_reason":"stop"}]}`,
+		"",
+		`data: {"id":"chatcmpl_literal_stream","object":"chat.completion.chunk","model":"gpt-5.4","choices":[],"usage":{"prompt_tokens":4,"completion_tokens":8,"total_tokens":12}}`,
+		"",
+		"data: [DONE]",
+		"",
+	}, "\n")
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}, "x-request-id": []string{"rid_literal_stream"}},
+		Body:       io.NopCloser(strings.NewReader(upstreamBody)),
+	}}
+	svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
+	account := forceChatResponsesFallbackAccount()
+	account.Extra[CodexThinkingTagNormalizationExtraKey] = true
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
+
+	result, err := svc.Forward(context.Background(), c, account, body)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	wire := rec.Body.String()
+	require.Contains(t, wire, "event: response.output_item.added")
+	require.Contains(t, wire, `"type":"reasoning"`)
+	require.Contains(t, wire, "event: response.reasoning_summary_part.added")
+	require.Contains(t, wire, "event: response.reasoning_summary_text.delta")
+	require.Contains(t, wire, `"delta":"Starting Docker targeted tests****Checking for compile errors and test failures"`)
+	require.Contains(t, wire, "event: response.reasoning_summary_text.done")
+	require.Contains(t, wire, "event: response.reasoning_summary_part.done")
+	require.Contains(t, wire, "event: response.output_text.delta")
+	require.Contains(t, wire, `"delta":"normal"`)
+	require.Contains(t, wire, `"delta":" text"`)
+	require.Contains(t, wire, "event: response.completed")
+	require.Contains(t, wire, "data: [DONE]")
+	require.NotContains(t, wire, "<thinking>")
+}
+
 func TestForwardResponses_AutoSupportedAccountStillUsesResponsesEndpoint(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

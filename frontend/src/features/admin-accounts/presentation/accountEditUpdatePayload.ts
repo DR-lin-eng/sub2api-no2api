@@ -63,10 +63,12 @@ type EditorFields =
   > &
   Pick<
     EditAccountAdvancedContext,
-      | 'anthropicAPIKeyAuthScheme'
-      | 'anthropicPassthroughEnabled'
-      | 'codexPrewarmContinuationEnabled'
-      | 'codexCLIOnlyAppServerEnabled'
+    | 'anthropicAPIKeyAuthScheme'
+    | 'anthropicPassthroughEnabled'
+    | 'codexFingerprintMode'
+    | 'codexPrewarmContinuationEnabled'
+    | 'codexThinkingTagNormalizationEnabled'
+    | 'codexCLIOnlyAppServerEnabled'
     | 'codexCLIOnlyEnabled'
     | 'codexImageToolMode'
     | 'editDailyResetHour'
@@ -844,11 +846,28 @@ function applyOpenAIExtra(
     delete extra.openai_responses_flatten_namespaces
   }
   if (account.type === 'oauth') {
+    if (context.codexFingerprintMode.value === 'off') {
+      delete extra.codex_fingerprint_mode
+    } else {
+      extra.codex_fingerprint_mode = context.codexFingerprintMode.value
+    }
     if (context.codexPrewarmContinuationEnabled.value) {
       extra.codex_prewarm_continuation_enabled = true
     } else {
       delete extra.codex_prewarm_continuation_enabled
     }
+  }
+  if (account.type !== 'oauth') {
+    delete extra.codex_fingerprint_mode
+  }
+  if (account.type === 'apikey') {
+    if (context.codexThinkingTagNormalizationEnabled.value) {
+      extra.codex_thinking_tag_normalization_enabled = true
+    } else {
+      delete extra.codex_thinking_tag_normalization_enabled
+    }
+  } else {
+    delete extra.codex_thinking_tag_normalization_enabled
   }
   if (context.isSparkShadow.value) {
     delete extra.openai_long_context_billing_enabled

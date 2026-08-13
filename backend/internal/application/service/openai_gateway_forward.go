@@ -212,6 +212,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 
 	bodyModified := false
 	var reqBody map[string]any
+	var fingerprintIDs *codexFingerprintIDs
 	ensureReqBody := func() (map[string]any, error) {
 		if requestView.HasPatches() {
 			patchedBody, patchErr := requestView.ApplyPatches()
@@ -438,6 +439,12 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		// 带真实 device_id 时补齐 client_metadata 安装标识，与真实 Codex 对齐（compact 形态不同，跳过）。
 		if !isCompactRequest && applyCodexClientMetadata(decoded, account) {
 			markDecodedModified()
+		}
+		if !isCompactRequest {
+			fingerprintIDs = resolveCodexFingerprintIDsFromGinContext(account, c)
+			if applyCodexFingerprintClientMetadata(decoded, fingerprintIDs) {
+				markDecodedModified()
+			}
 		}
 		if codexResult.NormalizedModel != "" {
 			upstreamModel = codexResult.NormalizedModel
@@ -690,6 +697,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 				attempt,
 				wsLastFailureReason,
 				&agentTaskRecoveryTried,
+				fingerprintIDs,
 			)
 			if wsErr == nil {
 				break
@@ -850,7 +858,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 				upstreamCtx, releaseUpstreamCtx, startTime.Add(firstOutputTimeout),
 			)
 		}
-		upstreamReq, err := s.buildUpstreamRequest(upstreamCtx, c, account, body, token, reqStream, promptCacheKey, isCodexCLI)
+		upstreamReq, err := s.buildUpstreamRequestWithFingerprint(upstreamCtx, c, account, body, token, reqStream, promptCacheKey, isCodexCLI, fingerprintIDs)
 		if headerGuard == nil {
 			releaseUpstreamCtx()
 		}
@@ -1047,6 +1055,10 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 }
 
 func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Context, account *Account, body []byte, token string, isStream bool, promptCacheKey string, isCodexCLI bool) (*http.Request, error) {
+	return s.buildUpstreamRequestWithFingerprint(ctx, c, account, body, token, isStream, promptCacheKey, isCodexCLI, nil)
+}
+
+func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.Context, c *gin.Context, account *Account, body []byte, token string, isStream bool, promptCacheKey string, isCodexCLI bool, fingerprintIDs *codexFingerprintIDs) (*http.Request, error) {
 	// Determine target URL based on account type
 	var targetURL string
 	switch account.Type {
@@ -1153,6 +1165,9 @@ func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.
 	// 用于网关未透传/改写 User-Agent 时，仍能命中 Codex 侧识别逻辑。
 	if s.cfg != nil && s.cfg.Gateway.ForceCodexCLI {
 		req.Header.Set("user-agent", codexCLIUserAgent)
+	}
+	if account.Type == AccountTypeOAuth {
+		applyCodexFingerprintHeaders(req.Header, fingerprintIDs)
 	}
 
 	// OAuth requests leave through one canonical identity. Account-level UA

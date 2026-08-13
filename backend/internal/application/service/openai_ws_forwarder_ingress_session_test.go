@@ -1135,6 +1135,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughHeade
 		},
 		Extra: map[string]any{
 			"openai_oauth_responses_websockets_v2_mode": OpenAIWSIngressModePassthrough,
+			codexFingerprintModeExtraKey:                "session",
 		},
 	}
 
@@ -1156,8 +1157,10 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughHeade
 		req := r.Clone(r.Context())
 		req.Header = req.Header.Clone()
 		req.Header.Set("User-Agent", "codex_cli_rs/0.98.0")
+		req.Header.Set("Session-Id", "client-fingerprint-session")
+		req.Header.Set("X-Codex-Installation-ID", "client-installation")
 		req.Header.Set(openAIWSTurnStateHeader, "turn-state-1")
-		req.Header.Set(openAIWSTurnMetadataHeader, "turn-meta-1")
+		req.Header.Set(openAIWSTurnMetadataHeader, "{\"sandbox\":\"workspace-write\",\"turn_id\":\"client-turn\",\"turn_started_at_unix_ms\":1}")
 		ginCtx.Request = req
 
 		readCtx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
@@ -1191,7 +1194,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughHeade
 		"stream":false,
 		"prompt_cache_key":"pcache_passthrough",
 		"reasoning":{"effort":"medium","context":"current_turn"},
-		"client_metadata":{"ws_request_header_x_openai_internal_codex_responses_lite":"true"},
+			"client_metadata":{"ws_request_header_x_openai_internal_codex_responses_lite":"true","x-codex-turn-metadata":"{\"sandbox\":\"workspace-write\",\"turn_id\":\"client-turn\",\"turn_started_at_unix_ms\":1}"},
 		"tools":[{"type":"namespace","name":"collaboration","tools":[{"type":"function","name":"spawn_agent"}]}],
 		"input":[{"type":"message","role":"user","content":"hello"}],
 		"tool_choice":{"type":"namespace","name":"collaboration"}
@@ -1215,11 +1218,23 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughHeade
 		t.Fatal("等待 passthrough websocket 结束超时")
 	}
 
-	require.Equal(t, isolateOpenAISessionID(0, "pcache_passthrough"), captureDialer.lastHeaders.Get("session_id"))
+	require.Equal(t, resolveConvergedSessionID(account), captureDialer.lastHeaders.Get("session_id"))
+	require.Equal(t, resolveConvergedInstallationID(account), captureDialer.lastHeaders.Get("X-Codex-Installation-ID"))
+	require.NotEmpty(t, captureDialer.lastHeaders.Get("Thread-Id"))
 	require.Equal(t, "turn-state-1", captureDialer.lastHeaders.Get(openAIWSTurnStateHeader))
-	require.Equal(t, "turn-meta-1", captureDialer.lastHeaders.Get(openAIWSTurnMetadataHeader))
+	require.Empty(t, captureDialer.lastHeaders.Get(codexFingerprintWSKeyHeader), "direct passthrough must not expose the pool compatibility key upstream")
 	require.Len(t, upstreamConn.writes, 1)
 	forwarded := requestToJSONString(upstreamConn.writes[0])
+	require.Equal(t, captureDialer.lastHeaders.Get("X-Codex-Installation-ID"), gjson.Get(forwarded, "client_metadata.x-codex-installation-id").String())
+	require.Equal(t, captureDialer.lastHeaders.Get("Session-Id"), gjson.Get(forwarded, "client_metadata.session_id").String())
+	require.Equal(t, captureDialer.lastHeaders.Get("Thread-Id"), gjson.Get(forwarded, "client_metadata.thread_id").String())
+	require.NotEmpty(t, gjson.Get(forwarded, "client_metadata.turn_id").String())
+	headerTurnMetadata := decodeFingerprintMetadata(t, captureDialer.lastHeaders.Get(openAIWSTurnMetadataHeader))
+	bodyTurnMetadata := decodeFingerprintMetadata(t, gjson.Get(forwarded, "client_metadata.x-codex-turn-metadata").String())
+	require.Equal(t, "workspace-write", headerTurnMetadata["sandbox"])
+	require.Equal(t, headerTurnMetadata["turn_id"], bodyTurnMetadata["turn_id"])
+	require.Equal(t, headerTurnMetadata["turn_started_at_unix_ms"], bodyTurnMetadata["turn_started_at_unix_ms"])
+	require.Equal(t, gjson.Get(forwarded, "client_metadata.turn_id").String(), bodyTurnMetadata["turn_id"])
 	require.False(t, gjson.Get(forwarded, `tools.#(type=="namespace")`).Exists())
 	require.Equal(t, "collaboration", gjson.Get(forwarded, `input.#(type=="additional_tools").tools.0.name`).String())
 	require.Equal(t, "namespace", gjson.Get(forwarded, "tool_choice.type").String())

@@ -687,6 +687,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			firstClientMessage = capped
 		}
 	}
+	fingerprintIDs := resolveCodexFingerprintIDsFromGinContext(account, c)
 	requestModel := strings.TrimSpace(gjson.GetBytes(firstClientMessage, "model").String())
 	requestPreviousResponseID := strings.TrimSpace(gjson.GetBytes(firstClientMessage, "previous_response_id").String())
 	logOpenAIWSV2Passthrough(
@@ -753,6 +754,11 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 		return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, blocked.Message, blocked)
 	}
 	firstClientMessage = updatedFirst
+	if fingerprinted, changed, fingerprintErr := applyCodexFingerprintClientMetadataToBody(firstClientMessage, fingerprintIDs); fingerprintErr != nil {
+		return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", fingerprintErr)
+	} else if changed {
+		firstClientMessage = fingerprinted
+	}
 
 	// 在 policy filter 之后再提取 service_tier / reasoning_effort 用于
 	// usage 上报：filter
@@ -817,6 +823,10 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	if buildHdrErr != nil {
 		return fmt.Errorf("build ws headers: %w", buildHdrErr)
 	}
+	applyCodexFingerprintWSHeaders(headers, fingerprintIDs)
+	// The compatibility key is only for the managed connection pool. This
+	// passthrough path dials upstream directly and must never expose it.
+	headers.Del(codexFingerprintWSKeyHeader)
 	proxyURL := ""
 	if account.ProxyID != nil && account.Proxy != nil {
 		proxyURL = account.Proxy.URL()
@@ -1019,6 +1029,16 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 				payload = s.ReplaceModelInBody(payload, model)
 			}
 			out, blocked, policyErr := s.applyOpenAIFastPolicyToWSResponseCreate(ctx, account, model, payload)
+			if policyErr == nil && blocked == nil && isResponseCreate {
+				turnFingerprintIDs := nextCodexFingerprintTurn(fingerprintIDs)
+				fingerprinted, changed, fingerprintErr := applyCodexFingerprintClientMetadataToBody(out, turnFingerprintIDs)
+				if fingerprintErr != nil {
+					return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", fingerprintErr)
+				}
+				if changed {
+					out = fingerprinted
+				}
+			}
 			// 多轮 passthrough usage：仅在成功（non-block / non-err）
 			// 的 response.create 帧上更新 usageMeta，使用
 			// filter 处理后的 payload，与首帧 policy-after-extract 语义

@@ -32,6 +32,33 @@ func TestChatCompletionsToResponses_BasicText(t *testing.T) {
 	assert.Equal(t, "user", items[0].Role)
 }
 
+func TestChatCompletionsResponseToResponses_LiteralThinkingRequiresAssistantRole(t *testing.T) {
+	for _, role := range []string{"user", ""} {
+		t.Run("role="+role, func(t *testing.T) {
+			resp := &ChatCompletionsResponse{
+				Model: "gpt-5",
+				Choices: []ChatChoice{{
+					Message: ChatMessage{
+						Role:    role,
+						Content: json.RawMessage(`"<thinking>plan</thinking>final"`),
+					},
+				}},
+			}
+			out := ChatCompletionsResponseToResponsesWithOptions(
+				resp,
+				"gpt-5",
+				nil,
+				false,
+				nil,
+				ChatCompletionsResponsesBridgeOptions{NormalizeLiteralThinking: true},
+			)
+			require.Len(t, out.Output, 1)
+			require.Equal(t, "message", out.Output[0].Type)
+			require.Equal(t, "<thinking>plan</thinking>final", out.Output[0].Content[0].Text)
+		})
+	}
+}
+
 func TestUsageConversionsPreserveCacheWriteTokens(t *testing.T) {
 	var responsesUsage ResponsesUsage
 	require.NoError(t, json.Unmarshal([]byte(`{
@@ -466,6 +493,28 @@ func TestChatCompletionsResponseToResponses_DeepSeekReasoningOnlyFallsBackToMess
 	require.Equal(t, "message", out.Output[1].Type)
 	require.Len(t, out.Output[1].Content, 1)
 	assert.Equal(t, "reasoning-only answer", out.Output[1].Content[0].Text)
+}
+
+func TestChatCompletionsResponseToResponses_NormalizesLiteralThinkingWhenEnabled(t *testing.T) {
+	resp := &ChatCompletionsResponse{Choices: []ChatChoice{{Message: ChatMessage{
+		Role:    "assistant",
+		Content: json.RawMessage(`"<thinking>plan****check</thinking>final"`),
+	}}}}
+	out := ChatCompletionsResponseToResponsesWithOptions(resp, "gpt-5", nil, false, nil, ChatCompletionsResponsesBridgeOptions{NormalizeLiteralThinking: true})
+	require.Len(t, out.Output, 2)
+	assert.Equal(t, "reasoning", out.Output[0].Type)
+	assert.Equal(t, "plan****check", out.Output[0].Summary[0].Text)
+	assert.Equal(t, "final", out.Output[1].Content[0].Text)
+}
+
+func TestChatCompletionsResponseToResponses_LiteralThinkingDisabledPreservesContent(t *testing.T) {
+	resp := &ChatCompletionsResponse{Choices: []ChatChoice{{Message: ChatMessage{
+		Role:    "assistant",
+		Content: json.RawMessage(`"<thinking>plan</thinking>final"`),
+	}}}}
+	out := ChatCompletionsResponseToResponses(resp, "gpt-5", nil, false, nil)
+	require.Len(t, out.Output, 1)
+	assert.Equal(t, "<thinking>plan</thinking>final", out.Output[0].Content[0].Text)
 }
 
 func TestChatCompletionsResponseToResponses_DeepSeekReasoningToolCallDoesNotFallbackToMessageText(t *testing.T) {

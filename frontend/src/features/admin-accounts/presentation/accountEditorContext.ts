@@ -14,7 +14,11 @@ import type {
 import type { QuotaThresholdType } from '@/core/constants/account'
 import type { OpenAIWSMode } from '@/core/utils/openaiWsMode'
 import type { HeaderOverrideRow } from './credentialsBuilder'
-import type { ModelMapping, TempUnschedRuleForm } from './accountFormPolicy'
+import type {
+  CodexFingerprintMode,
+  ModelMapping,
+  TempUnschedRuleForm,
+} from './accountFormPolicy'
 
 type Translate = ReturnType<typeof useI18n>['t']
 type AccountCategory = 'oauth-based' | 'apikey' | 'bedrock' | 'service_account'
@@ -66,8 +70,11 @@ interface SharedTempUnschedContext {
 }
 
 interface SharedOpenAIOptionsContext {
-   codexPrewarmContinuationEnabled: Ref<boolean>
-   openAICompactMode: Ref<OpenAICompactMode>
+  codexFingerprintMode: Ref<CodexFingerprintMode>
+  codexFingerprintModeOptions: ComputedRef<Array<SelectOption<CodexFingerprintMode>>>
+  codexPrewarmContinuationEnabled: Ref<boolean>
+  codexThinkingTagNormalizationEnabled: Ref<boolean>
+  openAICompactMode: Ref<OpenAICompactMode>
   openAICompactModeOptions: ComputedRef<Array<SelectOption<OpenAICompactMode>>>
   openAICompactModelMappings: Ref<ModelMapping[]>
   addOpenAICompactModelMapping: () => void
@@ -360,6 +367,7 @@ export interface EditAccountAdvancedContext
   anthropicPassthroughEnabled: Ref<boolean>
   codexCLIOnlyAppServerEnabled: Ref<boolean>
   codexCLIOnlyEnabled: Ref<boolean>
+  codexThinkingTagNormalizationEnabled: Ref<boolean>
   codexImageToolBadgeClass: ComputedRef<string>
   codexImageToolBadgeLabel: ComputedRef<string>
   codexImageToolMode: Ref<CodexImageToolMode>
