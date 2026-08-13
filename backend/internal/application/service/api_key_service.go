@@ -420,6 +420,9 @@ func (s *APIKeyService) compileAPIKeyIPRules(apiKey *APIKey) {
 	}
 	apiKey.CompiledIPWhitelist = ip.CompileIPRules(apiKey.IPWhitelist)
 	apiKey.CompiledIPBlacklist = ip.CompileIPRules(apiKey.IPBlacklist)
+	if apiKey.Group != nil {
+		apiKey.Group.compileModelPricingIndex()
+	}
 }
 
 // GenerateKey 生成随机API Key

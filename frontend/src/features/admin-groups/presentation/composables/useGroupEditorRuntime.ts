@@ -31,6 +31,8 @@ export function useGroupEditorRuntime() {
       label: t("admin.groups.subscription.subscription"),
     },
   ]);
+  const loadModelDefaultPricing = (model: string) =>
+    groupsAPI.getModelDefaultPricing(model);
 
   const modelsListCandidatesTracker = createModelsListCandidatesTracker();
   const loadModelsListCandidates = async (
@@ -213,6 +215,7 @@ export function useGroupEditorRuntime() {
     submitting,
     platformOptions,
     subscriptionTypeOptions,
+    loadModelDefaultPricing,
     loadModelsListCandidates,
     accountSearchKeyword,
     accountSearchResults,

@@ -44,3 +44,24 @@ func BenchmarkModelPricingResolverNoChannelPricing(b *testing.B) {
 		}
 	})
 }
+
+func BenchmarkGroupModelPricingLookup(b *testing.B) {
+	group := &Group{ModelPricing: []ChannelModelPricing{
+		testGroupPricing(2e-6, 6e-6, "grok-4.6"),
+		testGroupPricing(3e-6, 9e-6, "grok-*"),
+	}}
+	group.compileModelPricingIndex()
+
+	b.Run("exact", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			modelPricingResolverChannelBenchmarkSink = group.modelPricingFor("grok-4.6")
+		}
+	})
+	b.Run("wildcard", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			modelPricingResolverChannelBenchmarkSink = group.modelPricingFor("grok-5")
+		}
+	})
+}

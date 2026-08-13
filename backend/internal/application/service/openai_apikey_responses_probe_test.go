@@ -49,6 +49,70 @@ func TestProbeOpenAIAPIKeyResponsesSupportUsesCodexProbeHeaders(t *testing.T) {
 	require.Equal(t, true, updates[openai_compat.ExtraKeyResponsesSupported])
 }
 
+func TestProbeOpenAIAPIKeyResponsesSupportPersistsOnlyConclusiveVerdicts(t *testing.T) {
+	tests := []struct {
+		name       string
+		body       string
+		wantUpdate *bool
+	}{
+		{
+			name: "incomplete output budget keeps unknown",
+			body: `{"status":"incomplete","incomplete_details":{"reason":"max_output_tokens"},"output":[{"type":"reasoning"}]}`,
+		},
+		{
+			name: "failed response keeps unknown",
+			body: `{"status":"failed","error":{"message":"temporary upstream failure"}}`,
+		},
+		{
+			name:       "completed reasoning only persists unsupported",
+			body:       `{"status":"completed","output":[{"type":"reasoning"}]}`,
+			wantUpdate: boolPointer(false),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			account := Account{
+				ID:          97,
+				Name:        "compat upstream",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeAPIKey,
+				Concurrency: 1,
+				Credentials: map[string]any{
+					"api_key":  "sk-test",
+					"base_url": "https://compat-upstream.example/v1",
+				},
+			}
+			updates := make(chan map[string]any, 1)
+			repo := &snapshotUpdateAccountRepo{
+				stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{account}},
+				updateExtraCalls:      updates,
+			}
+			svc := &AccountTestService{
+				accountRepo: repo,
+				httpUpstream: &httpUpstreamRecorder{resp: &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader(tc.body)),
+				}},
+				cfg: &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
+			}
+
+			svc.ProbeOpenAIAPIKeyResponsesSupport(context.Background(), account.ID)
+
+			select {
+			case update := <-updates:
+				require.NotNil(t, tc.wantUpdate, "inconclusive verdict must not be persisted")
+				require.Equal(t, *tc.wantUpdate, update[openai_compat.ExtraKeyResponsesSupported])
+			default:
+				require.Nil(t, tc.wantUpdate, "conclusive verdict must be persisted")
+			}
+		})
+	}
+}
+
+func boolPointer(value bool) *bool { return &value }
+
 func TestDecideResponsesProbeSupport(t *testing.T) {
 	fnCall := []byte(`{"output":[{"type":"reasoning"},{"type":"function_call","name":"probe_ping"}]}`)
 	reasoningOnly := []byte(`{"output":[{"type":"reasoning"}]}`)
@@ -76,6 +140,30 @@ func TestDecideResponsesProbeSupport(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			require.Equal(t, tc.want, decideResponsesProbeSupport(tc.status, tc.body))
+		})
+	}
+}
+
+func TestResponsesProbeVerdictIsConclusive(t *testing.T) {
+	cases := []struct {
+		name   string
+		status int
+		body   string
+		want   bool
+	}{
+		{"completed", 200, `{"status":"completed","output":[]}`, true},
+		{"incomplete max output tokens", 200, `{"status":"incomplete","incomplete_details":{"reason":"max_output_tokens"}}`, false},
+		{"incomplete content filter", 200, `{"status":"incomplete","incomplete_details":{"reason":"content_filter"}}`, true},
+		{"failed", 200, `{"status":"failed"}`, false},
+		{"missing status", 200, `{"output":[]}`, true},
+		{"invalid json", 200, `not-json`, true},
+		{"404 ignores body", 404, `{"status":"failed"}`, true},
+		{"500 ignores body", 500, `{"status":"incomplete","incomplete_details":{"reason":"max_output_tokens"}}`, true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, responsesProbeVerdictIsConclusive(tc.status, []byte(tc.body)))
 		})
 	}
 }

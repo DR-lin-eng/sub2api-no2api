@@ -4,37 +4,11 @@
  */
 
 import { apiClient } from '@/core/networks/client'
-import type { BillingMode, ChannelStatus, BillingModelSource } from '@/core/constants/channel'
+import type { ChannelStatus, BillingModelSource } from '@/core/constants/channel'
+import type { ChannelModelPricing } from '@/types'
 
 export type { BillingMode } from '@/core/constants/channel'
-
-export interface PricingInterval {
-  id?: number
-  min_tokens: number
-  max_tokens: number | null
-  tier_label: string
-  input_price: number | null
-  output_price: number | null
-  cache_write_price: number | null
-  cache_read_price: number | null
-  per_request_price: number | null
-  sort_order: number
-}
-
-export interface ChannelModelPricing {
-  id?: number
-  platform: string
-  models: string[]
-  billing_mode: BillingMode
-  input_price: number | null
-  output_price: number | null
-  cache_write_price: number | null
-  cache_read_price: number | null
-  image_input_price: number | null
-  image_output_price: number | null
-  per_request_price: number | null
-  intervals: PricingInterval[]
-}
+export type { ChannelModelPricing, PricingInterval } from '@/types'
 
 export interface AccountStatsPricingRule {
   id?: number

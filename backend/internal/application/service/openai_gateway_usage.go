@@ -206,7 +206,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 			return err
 		}
 	}
-	longContextBillingEnabled := billingAccount.IsOpenAILongContextBillingEnabled()
+	longContextBillingEnabled := accountLongContextBillingEnabled(billingAccount)
 	costResolution, err = s.calculateOpenAIRecordUsageCostWithResolution(
 		ctx,
 		result,
@@ -579,6 +579,12 @@ func isUsagePricingUnavailableError(err error) bool {
 	return strings.Contains(msg, "no pricing available") || strings.Contains(msg, "pricing not found")
 }
 
+// The account-level switch belongs to OpenAI accounts. Other platforms, most
+// notably Grok, are governed by the group switch and their model price card.
+func accountLongContextBillingEnabled(account *Account) bool {
+	return account == nil || !account.IsOpenAI() || account.IsOpenAILongContextBillingEnabled()
+}
+
 func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 	ctx context.Context,
 	apiKey *APIKey,
@@ -593,12 +599,13 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 	if s.resolver != nil && apiKey.Group != nil {
 		gid := apiKey.Group.ID
 		if resolved == nil {
-			resolved = s.resolver.Resolve(ctx, PricingInput{Model: billingModel, GroupID: &gid})
+			resolved = s.resolver.Resolve(ctx, PricingInput{Model: billingModel, GroupID: &gid, Group: apiKey.Group})
 		}
 		cost, err := s.billingService.CalculateCostUnified(CostInput{
 			Ctx:                       ctx,
 			Model:                     billingModel,
 			GroupID:                   &gid,
+			Group:                     apiKey.Group,
 			Tokens:                    tokens,
 			RequestCount:              1,
 			RateMultiplier:            multiplier,
@@ -630,6 +637,20 @@ func (s *OpenAIGatewayService) calculateOpenAIImageCost(
 	multiplier float64,
 ) *CostBreakdown {
 	sizeTier := NormalizeImageBillingTierOrDefault(result.ImageSize)
+	resolved := s.resolveOpenAIChannelPricing(ctx, billingModel, apiKey)
+	if resolved != nil && resolved.Source == PricingSourceGroup &&
+		(resolved.Mode == BillingModePerRequest || resolved.Mode == BillingModeImage) {
+		gid := apiKey.Group.ID
+		cost, err := s.billingService.CalculateCostUnified(CostInput{
+			Ctx: ctx, Model: billingModel, GroupID: &gid, Group: apiKey.Group,
+			RequestCount: result.ImageCount, SizeTier: sizeTier,
+			RateMultiplier: multiplier, Resolver: s.resolver, Resolved: resolved,
+		})
+		if err == nil {
+			return cost
+		}
+		logger.LegacyPrintf("service.openai_gateway", "Calculate image group cost failed: %v", err)
+	}
 	groupConfig := imagePriceConfigFromAPIKey(apiKey)
 	if apiKeyHasConfiguredImagePrice(apiKey, sizeTier) {
 		return s.billingService.CalculateImageCost(billingModel, sizeTier, result.ImageCount, groupConfig, multiplier)
@@ -641,13 +662,14 @@ func (s *OpenAIGatewayService) calculateOpenAIImageCost(
 			return s.billingService.CalculateImageCost(billingModel, sizeTier, result.ImageCount, groupConfig, multiplier)
 		}
 	}
-	if resolved := s.resolveOpenAIChannelPricing(ctx, billingModel, apiKey); resolved != nil &&
+	if resolved != nil && resolved.Source == PricingSourceChannel &&
 		(resolved.Mode == BillingModePerRequest || resolved.Mode == BillingModeImage) {
 		gid := apiKey.Group.ID
 		cost, err := s.billingService.CalculateCostUnified(CostInput{
 			Ctx:            ctx,
 			Model:          billingModel,
 			GroupID:        &gid,
+			Group:          apiKey.Group,
 			RequestCount:   result.ImageCount,
 			SizeTier:       sizeTier,
 			RateMultiplier: multiplier,
@@ -676,6 +698,19 @@ func (s *OpenAIGatewayService) calculateOpenAIVideoCost(
 	}
 	resolution := NormalizeVideoBillingResolutionOrDefault(result.VideoResolution)
 	durationSeconds := NormalizeVideoBillingDurationSecondsOrDefault(result.VideoDurationSeconds)
+	resolved := s.resolveOpenAIChannelPricing(ctx, billingModel, apiKey)
+	if resolved != nil && resolved.Source == PricingSourceGroup && resolved.Mode == BillingModeVideo {
+		gid := apiKey.Group.ID
+		cost, err := s.billingService.CalculateCostUnified(CostInput{
+			Ctx: ctx, Model: billingModel, GroupID: &gid, Group: apiKey.Group,
+			UsageUnits: float64(videoCount * durationSeconds), SizeTier: resolution,
+			RateMultiplier: multiplier, Resolver: s.resolver, Resolved: resolved,
+		})
+		if err == nil {
+			return cost
+		}
+		logger.LegacyPrintf("service.openai_gateway", "Calculate video group cost failed: %v", err)
+	}
 	groupConfig := videoPriceConfigFromAPIKey(apiKey)
 	if apiKeyHasConfiguredVideoPrice(apiKey, resolution) {
 		return s.billingService.CalculateVideoCost(billingModel, resolution, videoCount, durationSeconds, groupConfig, multiplier)
@@ -687,15 +722,21 @@ func (s *OpenAIGatewayService) calculateOpenAIVideoCost(
 			return s.billingService.CalculateVideoCost(billingModel, resolution, videoCount, durationSeconds, groupConfig, multiplier)
 		}
 	}
-	if resolved := s.resolveOpenAIChannelPricing(ctx, billingModel, apiKey); resolved != nil &&
-		(resolved.Mode == BillingModePerRequest || resolved.Mode == BillingModeImage) {
+	if resolved != nil && resolved.Source == PricingSourceChannel &&
+		(resolved.Mode == BillingModePerRequest || resolved.Mode == BillingModeImage || resolved.Mode == BillingModeVideo) {
 		// 渠道 per_request/image 定价保持"按请求次数"口径（价格由管理员按次配置），不乘视频时长。
 		gid := apiKey.Group.ID
+		units := float64(videoCount)
+		if resolved.Mode == BillingModeVideo {
+			units = float64(videoCount * durationSeconds)
+		}
 		cost, err := s.billingService.CalculateCostUnified(CostInput{
 			Ctx:            ctx,
 			Model:          billingModel,
 			GroupID:        &gid,
+			Group:          apiKey.Group,
 			RequestCount:   videoCount,
+			UsageUnits:     units,
 			SizeTier:       resolution,
 			RateMultiplier: multiplier,
 			Resolver:       s.resolver,
@@ -744,6 +785,9 @@ func groupMediaPricingLooksIncomplete(group *Group) bool {
 	if group.ImageRateMultiplier != 0 || group.VideoRateMultiplier != 0 {
 		return false
 	}
+	if len(group.ModelPricing) > 0 || group.LongContextPricingEnabled {
+		return false
+	}
 	return group.ImagePrice1K == nil && group.ImagePrice2K == nil && group.ImagePrice4K == nil &&
 		group.VideoPrice480P == nil && group.VideoPrice720P == nil && group.VideoPrice1080P == nil
 }
@@ -753,7 +797,7 @@ func (s *OpenAIGatewayService) resolveOpenAIBillingPricing(ctx context.Context, 
 		return nil
 	}
 	gid := apiKey.Group.ID
-	return s.resolver.Resolve(ctx, PricingInput{Model: billingModel, GroupID: &gid})
+	return s.resolver.Resolve(ctx, PricingInput{Model: billingModel, GroupID: &gid, Group: apiKey.Group})
 }
 
 func (s *OpenAIGatewayService) resolveOpenAIChannelPricing(ctx context.Context, billingModel string, apiKey *APIKey) *ResolvedPricing {
@@ -761,7 +805,7 @@ func (s *OpenAIGatewayService) resolveOpenAIChannelPricing(ctx context.Context, 
 	if resolved == nil {
 		return nil
 	}
-	if resolved.Source == PricingSourceChannel {
+	if isExplicitAdminPricing(resolved) {
 		return resolved
 	}
 	return nil

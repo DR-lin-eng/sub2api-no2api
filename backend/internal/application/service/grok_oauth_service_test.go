@@ -49,6 +49,28 @@ func TestGrokOAuthServiceRefreshTokenPreservesOriginalRefreshTokenWhenNotRotated
 	require.Equal(t, "client-id", info.ClientID)
 }
 
+func TestGrokOAuthServiceRefreshAccountTokenUsesFreshJWTSubscriptionTier(t *testing.T) {
+	svc := NewGrokOAuthService(nil, &grokOAuthClientStub{
+		refreshResponse: &xai.TokenResponse{
+			AccessToken: makeGrokOAuthJWT(map[string]any{"tier": 0}),
+			TokenType:   "Bearer",
+			ExpiresIn:   3600,
+		},
+	})
+	defer svc.Stop()
+
+	info, err := svc.RefreshAccountToken(context.Background(), &Account{
+		Platform: PlatformGrok,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"refresh_token":     "refresh-token",
+			"subscription_tier": "supergrok_heavy",
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, "free", info.SubscriptionTier)
+}
+
 func TestGrokOAuthServiceExchangeCodeRequiresStateForCallbackURLAndConsumesSession(t *testing.T) {
 	client := &grokOAuthClientStub{}
 	svc := NewGrokOAuthService(nil, client)

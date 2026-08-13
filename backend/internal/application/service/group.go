@@ -60,6 +60,13 @@ type Group struct {
 	// nil 表示使用默认价 defaultWebSearchPricePerCall（官方 $10/1000 次）。
 	WebSearchPricePerCall *float64
 
+	// ModelPricing overrides channel and built-in prices for matching models.
+	// LongContextPricingEnabled gates official and channel long-context tiers;
+	// group token cards always provide only the base price.
+	LongContextPricingEnabled bool
+	ModelPricing              []ChannelModelPricing
+	modelPricingIndex         *groupModelPricingIndex
+
 	// Claude Code 客户端限制
 	ClaudeCodeOnly  bool
 	FallbackGroupID *int64
@@ -112,6 +119,62 @@ type Group struct {
 	AccountCount            int64
 	ActiveAccountCount      int64
 	RateLimitedAccountCount int64
+}
+
+type groupModelPricingWildcard struct {
+	prefix  string
+	pricing *ChannelModelPricing
+}
+
+type groupModelPricingIndex struct {
+	exact     map[string]*ChannelModelPricing
+	wildcards []groupModelPricingWildcard
+}
+
+func (g *Group) compileModelPricingIndex() {
+	if g == nil || len(g.ModelPricing) == 0 {
+		if g != nil {
+			g.modelPricingIndex = nil
+		}
+		return
+	}
+	index := &groupModelPricingIndex{exact: make(map[string]*ChannelModelPricing)}
+	for i := range g.ModelPricing {
+		pricing := &g.ModelPricing[i]
+		if pricing.BillingMode == "" || pricing.BillingMode == BillingModeToken {
+			// Old rows may still contain token intervals from the original upstream
+			// implementation. Normalize once while materializing the auth prototype;
+			// group token cards own only the base tier.
+			pricing.Intervals = nil
+		}
+		for _, pattern := range pricing.Models {
+			pattern = strings.TrimSpace(pattern)
+			if strings.HasSuffix(pattern, "*") {
+				prefix := normalizeChannelPricingModelName(strings.TrimSuffix(pattern, "*"))
+				index.wildcards = append(index.wildcards, groupModelPricingWildcard{prefix: prefix, pricing: pricing})
+				continue
+			}
+			index.exact[normalizeChannelPricingModelName(pattern)] = pricing
+		}
+	}
+	g.modelPricingIndex = index
+}
+
+func (g *Group) modelPricingFor(model string) *ChannelModelPricing {
+	if g == nil || g.modelPricingIndex == nil {
+		return nil
+	}
+	model = normalizeChannelPricingModelName(model)
+	if pricing := g.modelPricingIndex.exact[model]; pricing != nil {
+		return pricing
+	}
+	for i := range g.modelPricingIndex.wildcards {
+		entry := &g.modelPricingIndex.wildcards[i]
+		if strings.HasPrefix(model, entry.prefix) {
+			return entry.pricing
+		}
+	}
+	return nil
 }
 
 func (g *Group) IsActive() bool {

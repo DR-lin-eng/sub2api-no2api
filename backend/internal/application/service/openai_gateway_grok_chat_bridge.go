@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/shared/apicompat"
+	"github.com/Wei-Shaw/sub2api/internal/shared/xai"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 )
@@ -93,6 +94,9 @@ func grokChatResponsesBridgeEligibility(body []byte) (bool, string) {
 		var choice string
 		if json.Unmarshal(raw, &choice) == nil && choice == "required" && !grokChatHasFunctionDeclarations(root) {
 			return false, "required_tool_choice_without_tools"
+		}
+		if grokChatToolChoiceSelectsXSearch(raw) && !grokChatHasToolType(root, "x_search") {
+			return false, "x_search_tool_choice_without_tool"
 		}
 	}
 	if raw, exists := root["function_call"]; exists && !grokChatNullOrNone(raw) {
@@ -261,14 +265,23 @@ func grokChatFunctionDeclarationsBridgeable(raw json.RawMessage) (bool, string) 
 		if json.Unmarshal(declaration, &tool) != nil || tool == nil {
 			return false, "invalid_tool"
 		}
+		var toolType string
+		if rawType, exists := tool["type"]; !exists || json.Unmarshal(rawType, &toolType) != nil {
+			return false, "unsupported_tool_type"
+		}
+		if toolType == "x_search" {
+			if ok, reason := grokChatXSearchDeclarationBridgeable(tool); !ok {
+				return false, reason
+			}
+			continue
+		}
+		if toolType != "function" {
+			return false, "unsupported_tool_type"
+		}
 		for field := range tool {
 			if field != "type" && field != "function" {
 				return false, "unsafe_tool_field_" + field
 			}
-		}
-		var toolType string
-		if rawType, exists := tool["type"]; !exists || json.Unmarshal(rawType, &toolType) != nil || toolType != "function" {
-			return false, "unsupported_tool_type"
 		}
 		functionRaw, exists := tool["function"]
 		if !exists {
@@ -310,20 +323,83 @@ func grokChatFunctionDeclarationsBridgeable(raw json.RawMessage) (bool, string) 
 	return true, ""
 }
 
+func grokChatXSearchDeclarationBridgeable(tool map[string]json.RawMessage) (bool, string) {
+	for field, raw := range tool {
+		switch field {
+		case "type":
+		case "allowed_x_handles", "excluded_x_handles":
+			var handles []string
+			if json.Unmarshal(raw, &handles) != nil {
+				return false, "invalid_x_search_" + field
+			}
+		case "from_date", "to_date":
+			var value string
+			if json.Unmarshal(raw, &value) != nil {
+				return false, "invalid_x_search_" + field
+			}
+		case "enable_image_understanding", "enable_video_understanding":
+			var value bool
+			if json.Unmarshal(raw, &value) != nil {
+				return false, "invalid_x_search_" + field
+			}
+		default:
+			return false, "unsafe_tool_field_" + field
+		}
+	}
+	return true, ""
+}
+
 func grokChatToolChoiceBridgeable(raw json.RawMessage) (bool, string) {
 	if strings.TrimSpace(string(raw)) == "null" {
 		return true, ""
 	}
 	var choice string
-	if json.Unmarshal(raw, &choice) != nil {
+	if json.Unmarshal(raw, &choice) == nil {
+		switch choice {
+		case "auto", "none", "required", "x_search":
+			return true, ""
+		default:
+			return false, "unsupported_tool_choice"
+		}
+	}
+	var object map[string]json.RawMessage
+	if json.Unmarshal(raw, &object) != nil || object == nil || len(object) != 1 {
 		return false, "unsupported_tool_choice"
 	}
-	switch choice {
-	case "auto", "none", "required":
+	var toolType string
+	if json.Unmarshal(object["type"], &toolType) == nil && toolType == "x_search" {
 		return true, ""
-	default:
-		return false, "unsupported_tool_choice"
 	}
+	return false, "unsupported_tool_choice"
+}
+
+func grokChatToolChoiceSelectsXSearch(raw json.RawMessage) bool {
+	var choice string
+	if json.Unmarshal(raw, &choice) == nil {
+		return choice == "x_search"
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	return json.Unmarshal(raw, &object) == nil && object.Type == "x_search"
+}
+
+func grokChatHasToolType(root map[string]json.RawMessage, wanted string) bool {
+	raw, exists := root["tools"]
+	if !exists {
+		return false
+	}
+	var declarations []map[string]json.RawMessage
+	if json.Unmarshal(raw, &declarations) != nil {
+		return false
+	}
+	for _, declaration := range declarations {
+		var toolType string
+		if json.Unmarshal(declaration["type"], &toolType) == nil && toolType == wanted {
+			return true
+		}
+	}
+	return false
 }
 
 func grokChatHasFunctionDeclarations(root map[string]json.RawMessage) bool {
@@ -495,8 +571,17 @@ func grokChatResponsesCacheIntentBody(body []byte) ([]byte, error) {
 	return json.Marshal(root)
 }
 
+func grokChatResponsesBridgeModel(model string) bool {
+	switch strings.ToLower(xai.StripGrokProviderPrefix(strings.TrimSpace(model))) {
+	case "grok-4.5", "grok-4.6", "grok-4.6-latest":
+		return true
+	default:
+		return false
+	}
+}
+
 func grokChatResponsesRuntimeEligible(upstreamModel, cacheIdentity string) bool {
-	return strings.TrimSpace(upstreamModel) == "grok-4.5" && strings.TrimSpace(cacheIdentity) != ""
+	return grokChatResponsesBridgeModel(upstreamModel) && strings.TrimSpace(cacheIdentity) != ""
 }
 
 // forwardGrokChatCompletionsViaResponses converts a strictly compatible Chat
@@ -521,13 +606,14 @@ func (s *OpenAIGatewayService) forwardGrokChatCompletionsViaResponses(
 	clientStream := chatReq.Stream
 	billingModel := resolveOpenAIForwardModel(account, originalModel, defaultMappedModel)
 	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
+	modelCtx := withGrokTeamRateLimitModel(ctx, upstreamModel)
 	cacheIdentity := resolveGrokCacheIdentity(c, body, promptCacheKey, upstreamModel)
 	// Image inputs must go through the Responses bridge: the raw Chat
 	// Completions path cannot forward image_url parts to Grok's native vision
 	// for non-composer models, so they would be silently dropped. Route them to
 	// Responses even when no prompt-cache identity is available.
 	hasImageInput := openAIJSONValueMayContainImageInput(gjson.GetBytes(body, "messages"))
-	if !grokChatResponsesRuntimeEligible(upstreamModel, cacheIdentity) && (!hasImageInput || strings.TrimSpace(upstreamModel) != "grok-4.5") {
+	if !grokChatResponsesRuntimeEligible(upstreamModel, cacheIdentity) && (!hasImageInput || !grokChatResponsesBridgeModel(upstreamModel)) {
 		return s.forwardAsRawChatCompletions(ctx, c, account, body, defaultMappedModel)
 	}
 
@@ -570,7 +656,7 @@ func (s *OpenAIGatewayService) forwardGrokChatCompletionsViaResponses(
 		return nil, fmt.Errorf("apply grok responses bridge function-tool cache route: %w", err)
 	}
 
-	updatedBody, policyErr := s.applyOpenAIFastPolicyToBody(ctx, account, upstreamModel, responsesBody)
+	updatedBody, policyErr := s.applyOpenAIFastPolicyToBody(modelCtx, account, upstreamModel, responsesBody)
 	if policyErr != nil {
 		var blocked *OpenAIFastBlockedError
 		if errors.As(policyErr, &blocked) {
@@ -581,11 +667,11 @@ func (s *OpenAIGatewayService) forwardGrokChatCompletionsViaResponses(
 	}
 	responsesBody = updatedBody
 
-	token, _, err := s.getRequestCredential(ctx, c, account)
+	token, _, err := s.getRequestCredential(modelCtx, c, account)
 	if err != nil {
 		return nil, fmt.Errorf("get grok access token: %w", err)
 	}
-	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
+	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(modelCtx)
 	upstreamReq, err := buildGrokResponsesRequest(upstreamCtx, c, account, responsesBody, token, cacheIdentity, s.cfg)
 	releaseUpstreamCtx()
 	if err != nil {
@@ -599,7 +685,7 @@ func (s *OpenAIGatewayService) forwardGrokChatCompletionsViaResponses(
 	}
 	resp, err := s.httpUpstream.Do(upstreamReq, proxyURL, account.ID, account.Concurrency)
 	if err != nil {
-		return nil, s.handleOpenAIUpstreamTransportError(ctx, c, account, err, false)
+		return nil, s.handleOpenAIUpstreamTransportError(modelCtx, c, account, err, false)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -621,7 +707,7 @@ func (s *OpenAIGatewayService) forwardGrokChatCompletionsViaResponses(
 			Kind:               kind,
 			Message:            upstreamMsg,
 		})
-		s.handleGrokAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
+		s.handleGrokAccountUpstreamError(modelCtx, account, resp.StatusCode, resp.Header, respBody)
 		if s.shouldFailoverGrokUpstreamError(resp.StatusCode, respBody) {
 			return nil, &UpstreamFailoverError{
 				StatusCode:             resp.StatusCode,
@@ -633,7 +719,7 @@ func (s *OpenAIGatewayService) forwardGrokChatCompletionsViaResponses(
 		return s.handleChatCompletionsErrorResponse(resp, c, account, billingModel)
 	}
 
-	s.updateGrokUsageFromResponse(ctx, account, resp.Header, resp.StatusCode)
+	s.updateGrokUsageFromResponse(modelCtx, account, resp.Header, resp.StatusCode)
 
 	var result *OpenAIForwardResult
 	if clientStream {

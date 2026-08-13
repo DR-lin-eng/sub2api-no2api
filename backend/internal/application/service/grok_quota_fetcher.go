@@ -157,7 +157,7 @@ func (f *GrokQuotaFetcher) BuildUsageInfo(account *Account) *UsageInfo {
 	}
 
 	if err != nil || snapshot == nil {
-		applyGrokCredentialUsageFallback(usage, account)
+		applyGrokCredentialUsageFallback(usage, account, billing, snapshot)
 		if billing == nil {
 			usage.ErrorCode = "quota_unknown"
 			usage.Error = "Grok quota is unknown until billing is probed or an upstream response includes xAI rate-limit headers"
@@ -219,7 +219,7 @@ func (f *GrokQuotaFetcher) BuildUsageInfo(account *Account) *UsageInfo {
 			usage.ErrorCode = "rate_limited"
 		}
 	}
-	applyGrokCredentialUsageFallback(usage, account)
+	applyGrokCredentialUsageFallback(usage, account, billing, snapshot)
 	if activeProbeClearsForbidden && strings.TrimSpace(snapshot.EntitlementStatus) == "" &&
 		strings.EqualFold(strings.TrimSpace(usage.GrokEntitlementStatus), "forbidden") {
 		usage.GrokEntitlementStatus = ""
@@ -250,17 +250,46 @@ func firstGrokObservationTime(values ...string) (time.Time, bool) {
 	return time.Time{}, false
 }
 
-func applyGrokCredentialUsageFallback(usage *UsageInfo, account *Account) {
+func applyGrokCredentialUsageFallback(usage *UsageInfo, account *Account, billing *xai.BillingSummary, snapshot *xai.QuotaSnapshot) {
 	if usage == nil || account == nil {
 		return
 	}
-	if usage.SubscriptionTier == "" {
-		tier := strings.TrimSpace(account.GetCredential("subscription_tier"))
-		usage.SubscriptionTier = tier
-		usage.SubscriptionTierRaw = tier
-	}
 	if usage.GrokEntitlementStatus == "" {
 		usage.GrokEntitlementStatus = strings.TrimSpace(account.GetCredential("entitlement_status"))
+	}
+	applyGrokResolvedSubscriptionTier(usage, account, billing, snapshot)
+}
+
+func applyGrokResolvedSubscriptionTier(usage *UsageInfo, account *Account, billing *xai.BillingSummary, snapshot *xai.QuotaSnapshot) {
+	if usage == nil || account == nil {
+		return
+	}
+	if jwtTier := xai.SubscriptionTierFromJWT(account.GetCredential("access_token")); jwtTier != "" {
+		usage.SubscriptionTier = jwtTier
+		usage.SubscriptionTierRaw = jwtTier
+		return
+	}
+	signal := strings.TrimSpace(account.GetCredential("subscription_tier"))
+	if signal == "" && snapshot != nil {
+		signal = strings.TrimSpace(snapshot.SubscriptionTier)
+	}
+	if signal == "" && billing != nil {
+		signal = strings.TrimSpace(billing.Plan)
+	}
+	var monthlyLimit *float64
+	if billing != nil {
+		monthlyLimit = billing.MonthlyLimitCents
+	}
+	if plan := xai.CanonicalGrokPlan(monthlyLimit, signal, snapshot); plan != "" {
+		usage.SubscriptionTier = plan
+		if usage.SubscriptionTierRaw == "" {
+			usage.SubscriptionTierRaw = firstNonEmpty(signal, plan)
+		}
+		return
+	}
+	if usage.SubscriptionTier == "" && signal != "" {
+		usage.SubscriptionTier = signal
+		usage.SubscriptionTierRaw = signal
 	}
 }
 
@@ -357,4 +386,20 @@ func grokQuotaSnapshotFromExtra(extra map[string]any) (*xai.QuotaSnapshot, error
 		}
 		return &out, nil
 	}
+}
+
+func stampGrokQuotaSnapshotForPlan(account *Account, snapshot *xai.QuotaSnapshot, model string) {
+	if snapshot == nil {
+		return
+	}
+	if strings.TrimSpace(snapshot.Model) == "" {
+		if model = strings.TrimSpace(model); model != "" {
+			snapshot.Model = xai.ResolveGrokTextResponsesModelID(model)
+		}
+	}
+	var previous *xai.QuotaSnapshot
+	if account != nil {
+		previous, _ = grokQuotaSnapshotFromExtra(account.Extra)
+	}
+	snapshot.ApplyGrok45ResponsesPlanSignal(previous)
 }

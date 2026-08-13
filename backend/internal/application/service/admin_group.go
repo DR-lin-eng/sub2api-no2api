@@ -317,6 +317,14 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 	}
 
 	platform := NormalizeGroupPlatform(input.Platform)
+	modelPricing, err := normalizeGroupModelPricing(platform, input.ModelPricing)
+	if err != nil {
+		return nil, err
+	}
+	longContextPricingEnabled := true
+	if input.LongContextPricingEnabled != nil {
+		longContextPricingEnabled = *input.LongContextPricingEnabled
+	}
 	maxReasoningEffort, err := normalizeMaxReasoningEffortForPlatform(platform, input.MaxReasoningEffort)
 	if err != nil {
 		return nil, infraerrors.Newf(http.StatusBadRequest, "INVALID_MAX_REASONING_EFFORT", "%v", err)
@@ -475,6 +483,8 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		DailyLimitUSD:                   dailyLimit,
 		WeeklyLimitUSD:                  weeklyLimit,
 		MonthlyLimitUSD:                 monthlyLimit,
+		LongContextPricingEnabled:       longContextPricingEnabled,
+		ModelPricing:                    modelPricing,
 		AllowImageGeneration:            allowImageGeneration,
 		OpenAIForceImageTool:            input.OpenAIForceImageTool && groupSupportsOpenAIForceImageTool(platform) && allowImageGeneration,
 		AllowBatchImageGeneration:       allowBatchImageGeneration,
@@ -646,6 +656,7 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	if err != nil {
 		return nil, err
 	}
+	previousPlatform := group.Platform
 
 	if input.Name != "" {
 		group.Name = input.Name
@@ -667,6 +678,20 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	}
 	if input.Status != "" {
 		group.Status = input.Status
+	}
+	if input.LongContextPricingEnabled != nil {
+		group.LongContextPricingEnabled = *input.LongContextPricingEnabled
+	}
+	if input.ModelPricing != nil || (group.Platform != previousPlatform && len(group.ModelPricing) > 0) {
+		pricing := group.ModelPricing
+		if input.ModelPricing != nil {
+			pricing = *input.ModelPricing
+		}
+		modelPricing, normalizeErr := normalizeGroupModelPricing(group.Platform, pricing)
+		if normalizeErr != nil {
+			return nil, normalizeErr
+		}
+		group.ModelPricing = modelPricing
 	}
 
 	// 订阅相关字段
@@ -888,6 +913,9 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	if s.authCacheInvalidator != nil {
 		s.authCacheInvalidator.InvalidateAuthCacheByGroupID(ctx, id)
 	}
+	if group.Platform != previousPlatform && s.channelCacheInvalidator != nil {
+		s.channelCacheInvalidator.InvalidateCache()
+	}
 
 	// 如果指定了复制账号的源分组，同步绑定（替换当前分组的账号）
 	if len(input.CopyAccountsFromGroupIDs) > 0 {
@@ -958,6 +986,43 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	}
 
 	return group, nil
+}
+
+func normalizeGroupModelPricing(platform string, pricing []ChannelModelPricing) ([]ChannelModelPricing, error) {
+	out := make([]ChannelModelPricing, len(pricing))
+	for i := range pricing {
+		out[i] = pricing[i].Clone()
+		out[i].ID = 0
+		out[i].ChannelID = 0
+		out[i].Platform = platform
+		out[i].CreatedAt = time.Time{}
+		out[i].UpdatedAt = time.Time{}
+		if out[i].BillingMode == "" || out[i].BillingMode == BillingModeToken {
+			// Group token cards override only the base tier. Long-context ladders
+			// continue to come from channel or built-in pricing.
+			out[i].Intervals = nil
+		}
+		for j := range out[i].Models {
+			out[i].Models[j] = strings.TrimSpace(out[i].Models[j])
+			if out[i].Models[j] == "" {
+				return nil, infraerrors.New(http.StatusBadRequest, "GROUP_MODEL_PRICING_MODEL_REQUIRED", "group model pricing models cannot contain empty values")
+			}
+		}
+		if len(out[i].Models) == 0 {
+			return nil, infraerrors.New(http.StatusBadRequest, "GROUP_MODEL_PRICING_MODELS_REQUIRED", "group model pricing entry requires at least one model")
+		}
+		for j := range out[i].Intervals {
+			out[i].Intervals[j].ID = 0
+			out[i].Intervals[j].PricingID = 0
+			out[i].Intervals[j].TierLabel = strings.TrimSpace(out[i].Intervals[j].TierLabel)
+			out[i].Intervals[j].CreatedAt = time.Time{}
+			out[i].Intervals[j].UpdatedAt = time.Time{}
+		}
+	}
+	if err := validatePricingEntries(out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (s *adminServiceImpl) DeleteGroup(ctx context.Context, id int64) error {

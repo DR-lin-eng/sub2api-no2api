@@ -282,6 +282,50 @@ func TestAPIKeyService_SnapshotRoundTrip_PreservesMessagesDispatchModelConfig(t 
 	require.Equal(t, apiKey.Group.MessagesDispatchModelConfig, roundTrip.Group.MessagesDispatchModelConfig)
 }
 
+func TestAPIKeyService_SnapshotV22RoundTripCompilesGroupPricing(t *testing.T) {
+	svc := NewAPIKeyService(nil, nil, nil, nil, nil, nil, &config.Config{})
+	groupID := int64(9)
+	apiKey := &APIKey{
+		ID: 1, UserID: 2, GroupID: &groupID, Key: "k-pricing", Status: StatusActive,
+		User: &User{ID: 2, Status: StatusActive, Role: RoleUser, Balance: 10, Concurrency: 1},
+		Group: &Group{
+			ID: groupID, Name: "grok", Platform: PlatformGrok, Status: StatusActive,
+			SubscriptionType: SubscriptionTypeStandard, RateMultiplier: 1,
+			LongContextPricingEnabled: false,
+			ModelPricing:              []ChannelModelPricing{testGroupPricing(2e-6, 6e-6, "grok-*")},
+		},
+	}
+
+	snapshot := svc.snapshotFromAPIKey(context.Background(), apiKey)
+	require.Equal(t, apiKeyAuthSnapshotVersion, snapshot.Version)
+	roundTrip := svc.snapshotToAPIKey(apiKey.Key, snapshot)
+	require.NotNil(t, roundTrip.Group)
+	require.False(t, roundTrip.Group.LongContextPricingEnabled)
+	require.NotNil(t, roundTrip.Group.modelPricingFor("grok-4.6"))
+	require.NotSame(t, &apiKey.Group.ModelPricing[0], &roundTrip.Group.ModelPricing[0])
+}
+
+func TestAPIKeyService_GetByKeyRejectsV21Snapshot(t *testing.T) {
+	cache := &authCacheStub{}
+	var repoCalls int32
+	repo := &authRepoStub{getByKeyForAuth: func(context.Context, string) (*APIKey, error) {
+		atomic.AddInt32(&repoCalls, 1)
+		return &APIKey{
+			ID: 1, UserID: 2, Status: StatusActive,
+			User: &User{ID: 2, Status: StatusActive, Role: RoleUser, Balance: 10, Concurrency: 1},
+		}, nil
+	}}
+	cache.getAuthCache = func(context.Context, string) (*APIKeyAuthCacheEntry, error) {
+		return &APIKeyAuthCacheEntry{Snapshot: &APIKeyAuthSnapshot{Version: 21}}, nil
+	}
+	svc := NewAPIKeyService(repo, nil, nil, nil, nil, cache, &config.Config{APIKeyAuth: config.APIKeyAuthCacheConfig{L2TTLSeconds: 60}})
+
+	got, err := svc.GetByKey(context.Background(), "k-v21")
+	require.NoError(t, err)
+	require.Equal(t, int64(1), got.ID)
+	require.Equal(t, int32(1), atomic.LoadInt32(&repoCalls))
+}
+
 func TestAPIKeyService_SnapshotRoundTrip_PreservesReasoningEffortPolicy(t *testing.T) {
 	svc := NewAPIKeyService(nil, nil, nil, nil, nil, nil, &config.Config{})
 	groupID := int64(9)

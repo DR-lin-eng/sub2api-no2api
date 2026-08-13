@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	"github.com/Wei-Shaw/sub2api/internal/shared/xai"
 )
 
 // APIKeyRateLimitCacheData holds rate limit usage data cached in Redis.
@@ -132,6 +133,7 @@ type ModelPricing struct {
 	CacheCreation1hPrice               float64 // 1小时缓存创建每token价格 (USD)
 	SupportsCacheBreakdown             bool    // 是否支持详细的缓存分类
 	LongContextInputThreshold          int     // 超过阈值后按整次会话提升输入价格
+	LongContextThresholdInclusive      bool    // 阈值是否包含等于边界（xAI >= 200k）
 	LongContextInputMultiplier         float64 // 长上下文整次会话输入倍率
 	LongContextOutputMultiplier        float64 // 长上下文整次会话输出倍率
 	ImageOutputPricePerToken           float64 // 图片输出 token 价格 (USD)
@@ -614,32 +616,55 @@ func (s *BillingService) initFallbackPricing() {
 		SupportsCacheBreakdown:  false,
 	}
 
-	// xAI Grok 4.5 (official docs: $2 input / $0.50 cached input / $6 output per MTok)
+	// xAI Grok 4.5: $2 input / $0.30 cached input / $6 output below 200k.
 	s.fallbackPrices["grok-4.5"] = &ModelPricing{
-		InputPricePerToken:     2e-6,
-		OutputPricePerToken:    6e-6,
-		CacheReadPricePerToken: 0.5e-6,
-		SupportsCacheBreakdown: false,
+		InputPricePerToken:            2e-6,
+		OutputPricePerToken:           6e-6,
+		CacheReadPricePerToken:        0.3e-6,
+		SupportsCacheBreakdown:        false,
+		LongContextInputThreshold:     200000,
+		LongContextThresholdInclusive: true,
+		LongContextInputMultiplier:    2,
+		LongContextOutputMultiplier:   2,
 	}
 
-	// xAI Grok 4.3 (official docs: $1.25 input / $2.50 output per MTok)
+	// xAI Grok 4.6: $2 input / $0.50 cached input / $6 output below
+	// 200k prompt tokens; at 200k and above all token prices are doubled.
+	s.fallbackPrices["grok-4.6"] = &ModelPricing{
+		InputPricePerToken:            2e-6,
+		OutputPricePerToken:           6e-6,
+		CacheReadPricePerToken:        0.5e-6,
+		SupportsCacheBreakdown:        false,
+		LongContextInputThreshold:     200000,
+		LongContextThresholdInclusive: true,
+		LongContextInputMultiplier:    2,
+		LongContextOutputMultiplier:   2,
+	}
+
+	// xAI Grok 4.3: $1.25 input / $0.20 cached / $2.50 output below 200k.
 	s.fallbackPrices["grok-4.3"] = &ModelPricing{
-		InputPricePerToken:         1.25e-6,
-		OutputPricePerToken:        2.5e-6,
-		CacheReadPricePerToken:     0.2e-6,
-		SupportsCacheBreakdown:     false,
-		LongContextInputThreshold:  1000000,
-		LongContextInputMultiplier: 1,
+		InputPricePerToken:            1.25e-6,
+		OutputPricePerToken:           2.5e-6,
+		CacheReadPricePerToken:        0.2e-6,
+		SupportsCacheBreakdown:        false,
+		LongContextInputThreshold:     200000,
+		LongContextThresholdInclusive: true,
+		LongContextInputMultiplier:    2,
+		LongContextOutputMultiplier:   2,
 	}
 	// xAI Grok Build 0.1 (official docs: $1 input / $0.20 cached input /
 	// $2 output per MTok). Composer is available only through Grok Build and
 	// has no standalone public API rate card, so its aliases use this coding
 	// model rate instead of silently billing at zero.
 	s.fallbackPrices["grok-build-0.1"] = &ModelPricing{
-		InputPricePerToken:     1e-6,
-		OutputPricePerToken:    2e-6,
-		CacheReadPricePerToken: 0.2e-6,
-		SupportsCacheBreakdown: false,
+		InputPricePerToken:            1e-6,
+		OutputPricePerToken:           2e-6,
+		CacheReadPricePerToken:        0.2e-6,
+		SupportsCacheBreakdown:        false,
+		LongContextInputThreshold:     200000,
+		LongContextThresholdInclusive: true,
+		LongContextInputMultiplier:    2,
+		LongContextOutputMultiplier:   2,
 	}
 }
 
@@ -831,8 +856,10 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 	}
 
 	switch modelLower {
-	case "grok", "grok-latest", "grok-4.5", "grok-4.5-latest", "grok-build-latest":
+	case "grok", "grok-latest", "grok-4.5", "grok-4.5-latest":
 		return s.fallbackPrices["grok-4.5"]
+	case "grok-4.6", "grok-4.6-latest":
+		return s.fallbackPrices["grok-4.6"]
 	case "grok-4.3",
 		"grok-4.20-0309-reasoning",
 		"grok-4.20-0309-non-reasoning",
@@ -840,11 +867,53 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 		"grok-4.20-reasoning",
 		"grok-4.20-non-reasoning":
 		return s.fallbackPrices["grok-4.3"]
-	case "grok-build", "grok-build-0.1", "grok-composer", "grok-composer-2.5-fast", "composer-2.5":
+	case "grok-build", "grok-build-latest", "grok-build-0.1", "grok-composer", "grok-composer-2.5-fast", "composer-2.5":
 		return s.fallbackPrices["grok-build-0.1"]
 	}
 
+	if pricing := s.grokUnknownTextFamilyFallback(modelLower); pricing != nil {
+		return pricing
+	}
+
 	return nil
+}
+
+func (s *BillingService) grokUnknownTextFamilyFallback(model string) *ModelPricing {
+	if s == nil || !isGrokUnknownTextFamilyModel(model) {
+		return nil
+	}
+	return s.fallbackPrices["grok-4.5"]
+}
+
+func isGrokUnknownTextFamilyModel(model string) bool {
+	native := strings.ToLower(strings.TrimSpace(xai.StripGrokProviderPrefix(model)))
+	if isGrokMediaFamilyModel(native) {
+		return false
+	}
+	switch {
+	case native == "grok", native == "grok-latest":
+		return true
+	case strings.HasPrefix(native, "grok-build"),
+		strings.HasPrefix(native, "grok-composer"),
+		strings.HasPrefix(native, "composer-"):
+		return true
+	case len(native) > len("grok-") && strings.HasPrefix(native, "grok-"):
+		rest := native[len("grok-"):]
+		return rest[0] >= '0' && rest[0] <= '9'
+	default:
+		return false
+	}
+}
+
+// Per-unit media IDs must not inherit a token card merely because they carry
+// a numeric Grok version. Vision chat models remain token-billed.
+func isGrokMediaFamilyModel(native string) bool {
+	for _, marker := range []string{"imagine", "image", "video", "audio", "speech", "tts", "transcribe", "realtime"} {
+		if strings.Contains(native, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 // HasIdentifiedTokenPricing reports whether an externally supplied model name
@@ -973,9 +1042,11 @@ type CostInput struct {
 	Ctx                       context.Context
 	Model                     string
 	GroupID                   *int64 // 用于渠道定价查找
+	Group                     *Group
 	Tokens                    UsageTokens
-	RequestCount              int    // 按次计费时使用
-	SizeTier                  string // 按次/图片模式的层级标签（"1K","2K","4K","HD" 等）
+	RequestCount              int     // 按次计费时使用
+	UsageUnits                float64 // 音频、视频等连续计量单位
+	SizeTier                  string  // 按次/图片模式的层级标签（"1K","2K","4K","HD" 等）
 	RateMultiplier            float64
 	ImageRateMultiplier       *float64              // token 计费时可选：图片输入/输出费用使用的独立倍率
 	ServiceTier               string                // "priority","flex","" 等
@@ -1010,6 +1081,7 @@ func (s *BillingService) CalculateCostUnified(input CostInput) (*CostBreakdown, 
 		resolved = input.Resolver.Resolve(input.Ctx, PricingInput{
 			Model:   input.Model,
 			GroupID: input.GroupID,
+			Group:   input.Group,
 		})
 	}
 
@@ -1021,7 +1093,7 @@ func (s *BillingService) CalculateCostUnified(input CostInput) (*CostBreakdown, 
 	var breakdown *CostBreakdown
 	var err error
 	switch resolved.Mode {
-	case BillingModePerRequest, BillingModeImage:
+	case BillingModePerRequest, BillingModeImage, BillingModeVideo:
 		breakdown, err = s.calculatePerRequestCost(resolved, input)
 	default: // BillingModeToken
 		breakdown, err = s.calculateTokenCost(resolved, input)
@@ -1047,7 +1119,7 @@ func (s *BillingService) calculateTokenCost(resolved *ResolvedPricing, input Cos
 	pricing = s.applyModelSpecificPricingPolicy(input.Model, pricing)
 
 	// 长上下文定价仅在无区间定价时应用（区间定价已包含上下文分层）
-	applyLongCtx := len(resolved.Intervals) == 0
+	applyLongCtx := len(resolved.Intervals) == 0 && !resolved.longContextPricingDisabled
 	if input.LongContextBillingEnabled != nil {
 		applyLongCtx = applyLongCtx && *input.LongContextBillingEnabled
 	}
@@ -1193,9 +1265,13 @@ func (s *BillingService) computeCacheCreationCost(pricing *ModelPricing, tokens 
 
 // calculatePerRequestCost 按次/图片计费
 func (s *BillingService) calculatePerRequestCost(resolved *ResolvedPricing, input CostInput) (*CostBreakdown, error) {
-	count := input.RequestCount
-	if count <= 0 {
-		count = 1
+	units := input.UsageUnits
+	if units <= 0 {
+		count := input.RequestCount
+		if count <= 0 {
+			count = 1
+		}
+		units = float64(count)
 	}
 
 	var unitPrice float64
@@ -1214,7 +1290,7 @@ func (s *BillingService) calculatePerRequestCost(resolved *ResolvedPricing, inpu
 		unitPrice = resolved.DefaultPerRequestPrice
 	}
 
-	totalCost := unitPrice * float64(count)
+	totalCost := unitPrice * units
 	actualCost := totalCost * input.RateMultiplier
 
 	return &CostBreakdown{
@@ -1307,6 +1383,9 @@ func (s *BillingService) shouldApplySessionLongContextPricing(tokens UsageTokens
 		return false
 	}
 	totalInputTokens := tokens.InputTokens + tokens.CacheCreationTokens + tokens.CacheReadTokens
+	if pricing.LongContextThresholdInclusive {
+		return totalInputTokens >= pricing.LongContextInputThreshold
+	}
 	return totalInputTokens > pricing.LongContextInputThreshold
 }
 

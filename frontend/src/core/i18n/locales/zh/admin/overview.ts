@@ -1007,6 +1007,14 @@ export default {
         finalPricePreview: '最终每秒价格预览',
         notConfigured: '未配置'
       },
+      modelPricing: {
+        title: '分组逐模型定价',
+        description: '匹配模型后覆盖渠道和内置价格。长上下文阶梯沿用官方或渠道价卡，Token 价卡只设置基础档；媒体和音频变体可使用按次层级。',
+        longContext: '启用长上下文阶梯定价',
+        longContextHint: '开启后应用官方或渠道长上下文阶梯；关闭后 Token 模型始终使用第一档基础价。',
+        add: '添加模型价格',
+        modelInputHint: '按回车添加模型；可粘贴逗号、分号或换行分隔的多个模型名。'
+      },
       webSearchPricing: {
         title: 'Codex 网页搜索计费',
         pricePerCall: '搜索单次价格（USD/次）',

@@ -1153,17 +1153,58 @@ func TestCalculateCostWithLongContext_PropagatesError(t *testing.T) {
 func TestGetModelPricing_Grok45OfficialFallback(t *testing.T) {
 	svc := newTestBillingService()
 
-	for _, model := range []string{"grok", "grok-latest", "grok-4.5", "grok-4.5-latest", "grok-build-latest"} {
+	for _, model := range []string{"grok", "grok-latest", "grok-4.5", "grok-4.5-latest"} {
 		model := model
 		t.Run(model, func(t *testing.T) {
 			pricing, err := svc.GetModelPricing(model)
 			require.NoError(t, err)
 			require.InDelta(t, 2e-6, pricing.InputPricePerToken, 1e-12)
 			require.InDelta(t, 6e-6, pricing.OutputPricePerToken, 1e-12)
-			require.InDelta(t, 0.5e-6, pricing.CacheReadPricePerToken, 1e-12)
+			require.InDelta(t, 0.3e-6, pricing.CacheReadPricePerToken, 1e-12)
 			require.False(t, pricing.SupportsCacheBreakdown)
 		})
 	}
+}
+
+func TestGetModelPricing_Grok46OfficialFallbackAndInclusiveLongContext(t *testing.T) {
+	svc := newTestBillingService()
+
+	for _, model := range []string{"grok-4.6", "grok-4.6-latest"} {
+		pricing, err := svc.GetModelPricing(model)
+		require.NoError(t, err)
+		require.InDelta(t, 2e-6, pricing.InputPricePerToken, 1e-12)
+		require.InDelta(t, 6e-6, pricing.OutputPricePerToken, 1e-12)
+		require.InDelta(t, 0.5e-6, pricing.CacheReadPricePerToken, 1e-12)
+		require.Equal(t, 200000, pricing.LongContextInputThreshold)
+		require.True(t, pricing.LongContextThresholdInclusive)
+	}
+
+	resolver := NewModelPricingResolver(nil, svc)
+	cost, err := svc.CalculateCostUnified(CostInput{
+		Model: "grok-4.6", Group: &Group{LongContextPricingEnabled: true},
+		Tokens:         UsageTokens{InputTokens: 200000, OutputTokens: 1000},
+		RateMultiplier: 1, Resolver: resolver,
+	})
+	require.NoError(t, err)
+	require.True(t, cost.LongContextBillingApplied)
+}
+
+func TestGetModelPricing_UnknownGrokTextFallsBackWithoutMediaLeak(t *testing.T) {
+	svc := newTestBillingService()
+	baseline, err := svc.GetModelPricing("grok-4.5")
+	require.NoError(t, err)
+
+	for _, model := range []string{"grok-5", "grok-5-latest", "x-ai/grok-7", "grok-4.7-beta"} {
+		pricing, pricingErr := svc.GetModelPricing(model)
+		require.NoError(t, pricingErr, model)
+		require.InDelta(t, baseline.InputPricePerToken, pricing.InputPricePerToken, 1e-12, model)
+		require.InDelta(t, baseline.OutputPricePerToken, pricing.OutputPricePerToken, 1e-12, model)
+	}
+
+	for _, model := range []string{"grok-2-image-1212", "grok-2-audio", "grok-5-video", "x-ai/grok-6-image"} {
+		require.False(t, isGrokUnknownTextFamilyModel(model), model)
+	}
+	require.True(t, isGrokUnknownTextFamilyModel("grok-2-vision-1212"))
 }
 
 func TestGetModelPricing_GrokCatalogFallbacks(t *testing.T) {

@@ -9,6 +9,7 @@ const {
   createGroup,
   updateGroup,
   getModelsListCandidates,
+  getModelDefaultPricing,
   getLiveCapability,
   listAccounts,
   getAccountByID,
@@ -20,6 +21,7 @@ const {
   createGroup: vi.fn(),
   updateGroup: vi.fn(),
   getModelsListCandidates: vi.fn(),
+  getModelDefaultPricing: vi.fn(),
   getLiveCapability: vi.fn(),
   listAccounts: vi.fn(),
   getAccountByID: vi.fn(),
@@ -35,6 +37,7 @@ vi.mock(
     create: createGroup,
     update: updateGroup,
     getModelsListCandidates,
+    getModelDefaultPricing,
     getLiveCapability,
   }),
 );
@@ -72,6 +75,22 @@ const sourceGroup: AdminGroup = {
   daily_limit_usd: null,
   weekly_limit_usd: null,
   monthly_limit_usd: null,
+  long_context_pricing_enabled: false,
+  model_pricing: [
+    {
+      platform: "openai",
+      models: ["gpt-5.4"],
+      billing_mode: "token",
+      input_price: 2.5e-6,
+      output_price: 15e-6,
+      cache_write_price: null,
+      cache_read_price: 0.25e-6,
+      image_input_price: null,
+      image_output_price: null,
+      per_request_price: null,
+      intervals: [],
+    },
+  ],
   allow_image_generation: false,
   allow_batch_image_generation: false,
   image_rate_independent: false,
@@ -121,6 +140,7 @@ describe("group editor controllers", () => {
       createGroup,
       updateGroup,
       getModelsListCandidates,
+      getModelDefaultPricing,
       getLiveCapability,
       listAccounts,
       getAccountByID,
@@ -132,6 +152,7 @@ describe("group editor controllers", () => {
       mock.mockReset();
     }
     getModelsListCandidates.mockResolvedValue([]);
+    getModelDefaultPricing.mockResolvedValue({ found: false });
     getLiveCapability.mockResolvedValue({ supported: true });
     isCurrentStep.mockReturnValue(false);
   });
@@ -153,6 +174,23 @@ describe("group editor controllers", () => {
     form.name = "Created";
     form.daily_limit_usd = "";
     form.image_price_1k = "";
+    controller.dialogContext.addModelPricing();
+    form.model_pricing[0].models = ["grok-4.6"];
+    form.model_pricing[0].input_price = 3;
+    form.model_pricing[0].output_price = 15;
+    form.model_pricing[0].intervals = [
+      {
+        min_tokens: 200_000,
+        max_tokens: null,
+        tier_label: "long",
+        input_price: 6,
+        output_price: 30,
+        cache_write_price: null,
+        cache_read_price: null,
+        per_request_price: null,
+        sort_order: 0,
+      },
+    ];
 
     let resolveCreate!: (group: AdminGroup) => void;
     createGroup.mockImplementationOnce(
@@ -170,6 +208,16 @@ describe("group editor controllers", () => {
       name: "Created",
       daily_limit_usd: null,
       image_price_1k: null,
+      long_context_pricing_enabled: true,
+      model_pricing: [
+        expect.objectContaining({
+          platform: "anthropic",
+          models: ["grok-4.6"],
+          input_price: 3e-6,
+          output_price: 15e-6,
+          intervals: [],
+        }),
+      ],
       messages_dispatch_model_config: undefined,
     });
 
@@ -197,6 +245,13 @@ describe("group editor controllers", () => {
     expect(controller.form.default_mapped_model).toBe("");
     expect(controller.form.allow_messages_dispatch).toBe(false);
     expect(controller.form.allow_live).toBe(false);
+    expect(controller.form.long_context_pricing_enabled).toBe(false);
+    expect(controller.form.model_pricing[0]).toMatchObject({
+      models: ["gpt-5.4"],
+      input_price: 2.5,
+      output_price: 15,
+      cache_read_price: 0.25,
+    });
 
     let resolveUpdate!: (group: AdminGroup) => void;
     updateGroup.mockImplementationOnce(
@@ -216,6 +271,15 @@ describe("group editor controllers", () => {
       fallback_group_id: 0,
       fallback_group_id_on_invalid_request: 0,
       image_price_1k: -1,
+      long_context_pricing_enabled: false,
+      model_pricing: [
+        expect.objectContaining({
+          platform: "anthropic",
+          models: ["gpt-5.4"],
+          input_price: 2.5e-6,
+          output_price: 15e-6,
+        }),
+      ],
       messages_dispatch_model_config: undefined,
     });
 

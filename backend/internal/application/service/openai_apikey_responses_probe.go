@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"sort"
 	"strings"
@@ -23,6 +24,11 @@ const openaiResponsesProbeTimeout = 15 * time.Second
 
 // responsesProbeMaxBodyBytes 限制读取探测响应体的字节数,够判定 output 项类型即可。
 const responsesProbeMaxBodyBytes = 256 * 1024
+
+// openaiResponsesProbeMaxOutputTokens is intentionally bounded. If a model
+// spends the whole budget on reasoning, that response is inconclusive rather
+// than evidence that Responses tool calling is unsupported.
+const openaiResponsesProbeMaxOutputTokens = 512
 
 // openaiResponsesProbePayload 构造探测用的 Responses 请求体。
 //
@@ -61,7 +67,7 @@ func openaiResponsesProbePayload(modelID string) []byte {
 			},
 		},
 		"tool_choice":       "required",
-		"max_output_tokens": 512,
+		"max_output_tokens": openaiResponsesProbeMaxOutputTokens,
 		"stream":            false,
 	})
 	return body
@@ -175,6 +181,16 @@ func (s *AccountTestService) ProbeOpenAIAPIKeyResponsesSupport(ctx context.Conte
 		return
 	}
 
+	if !responsesProbeVerdictIsConclusive(resp.StatusCode, bodyBytes) {
+		logger.LegacyPrintf("service.openai_probe",
+			"probe_inconclusive_keep_unknown: account_id=%d base_url=%s probe_model=%s status=%d response_status=%s reason=%s",
+			accountID, normalizedBaseURL, probeModel, resp.StatusCode,
+			gjson.GetBytes(bodyBytes, "status").String(),
+			gjson.GetBytes(bodyBytes, "incomplete_details.reason").String(),
+		)
+		return
+	}
+
 	supported := decideResponsesProbeSupport(resp.StatusCode, bodyBytes)
 
 	if err := s.accountRepo.UpdateExtra(ctx, accountID, map[string]any{
@@ -183,11 +199,38 @@ func (s *AccountTestService) ProbeOpenAIAPIKeyResponsesSupport(ctx context.Conte
 		logger.LegacyPrintf("service.openai_probe", "probe_persist_failed: account_id=%d supported=%v err=%v", accountID, supported, err)
 		return
 	}
+	if !supported {
+		slog.Warn("openai_responses_probe_marked_unsupported",
+			"account_id", accountID,
+			"account_name", account.Name,
+			"base_url", normalizedBaseURL,
+			"probe_model", probeModel,
+			"upstream_status", resp.StatusCode,
+		)
+	}
 
 	logger.LegacyPrintf("service.openai_probe",
 		"probe_done: account_id=%d base_url=%s probe_model=%s status=%d supported=%v",
 		accountID, normalizedBaseURL, probeModel, resp.StatusCode, supported,
 	)
+}
+
+// responsesProbeVerdictIsConclusive reports whether a probe response can
+// safely update the durable capability flag. Non-2xx responses are classified
+// by status code only. A 2xx failed response or a response truncated by this
+// probe's own output budget must keep the previous unknown state.
+func responsesProbeVerdictIsConclusive(status int, body []byte) bool {
+	if status < 200 || status >= 300 {
+		return true
+	}
+	switch strings.TrimSpace(gjson.GetBytes(body, "status").String()) {
+	case "failed":
+		return false
+	case "incomplete":
+		return strings.TrimSpace(gjson.GetBytes(body, "incomplete_details.reason").String()) != "max_output_tokens"
+	default:
+		return true
+	}
 }
 
 // isResponsesEndpointSupportedByStatus 根据探测响应的 HTTP 状态码判定上游

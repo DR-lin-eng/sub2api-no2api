@@ -5,6 +5,7 @@ import type { ModelsListState } from "../groupsModelsListResolver";
 import { createModelsListState } from "../groupsModelsListResolver";
 import type { ReasoningEffortMappingRow } from "../groupsReasoningEffort";
 import type { GroupEditorRoutingRule } from "../groupEditorContext";
+import type { GroupPricingFormEntry } from "../groupsModelPricing";
 import {
   getDefaultImagePreviewPrice,
   getDefaultVideoPreviewPrice,
@@ -22,6 +23,8 @@ const baseGroupFormState = () => {
     daily_limit_usd: null as number | null,
     weekly_limit_usd: null as number | null,
     monthly_limit_usd: null as number | null,
+    long_context_pricing_enabled: true,
+    model_pricing: [] as GroupPricingFormEntry[],
     allow_image_generation: false,
     openai_force_image_tool: false,
     allow_batch_image_generation: false,

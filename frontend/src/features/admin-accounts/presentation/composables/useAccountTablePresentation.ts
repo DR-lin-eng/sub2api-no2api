@@ -5,6 +5,7 @@ import { formatDateTime } from '@/core/utils/format'
 import { proxyExpiryBadgeClass, proxyExpiryLabelKey } from '@/core/utils/proxyExpiry'
 import { sanitizeUrl } from '@/core/utils/url'
 import type { Account, AccountSchedulerGroupScore, Proxy as AccountProxy } from '@/types'
+import { resolveAccountPlanType } from '../grokPlanResolver'
 
 type OpenAICompactBadgeState = 'active' | 'blocked' | 'auto'
 
@@ -12,26 +13,8 @@ export function useAccountTablePresentation(hiddenColumns: Reactive<Set<string>>
   const { t } = useI18n()
   const authStore = useAuthStore()
 
-  // Fresh billing/quota snapshots are authoritative. Imported credential tiers
-  // remain fallbacks together with legacy plan_type fields.
-  const getAccountPlanType = (row: any): string | undefined => {
-    if (!row) return undefined
-    if (row.platform === 'grok') {
-      const extra = (row.extra || {}) as Record<string, any>
-      const billing = extra.grok_billing_snapshot as Record<string, any> | undefined
-      const quota = extra.grok_quota_snapshot as Record<string, any> | undefined
-      return (
-        billing?.plan ||
-        quota?.subscription_tier ||
-        row.credentials?.subscription_tier ||
-        extra.subscription_tier ||
-        row.credentials?.plan_type ||
-        row.parent_plan_type ||
-        undefined
-      )
-    }
-    return row.credentials?.plan_type || row.parent_plan_type || undefined
-  }
+  const getAccountPlanType = (row: Account): string | undefined =>
+    resolveAccountPlanType(row)
 
   const getOpenAIAuthMode = (row: any): string | undefined => {
     if (!row || row.platform !== 'openai' || row.type !== 'oauth') return undefined

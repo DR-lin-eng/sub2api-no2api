@@ -91,6 +91,10 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 			anthropicCompactFallbackUpstreamModels = resolveOpenAICompactFallbackForwardModels(account, anthropicCompactRequestedModel, billingModel)
 		}
 	}
+	modelCtx := ctx
+	if account.Platform == PlatformGrok {
+		modelCtx = withGrokTeamRateLimitModel(ctx, upstreamModel)
+	}
 	promptCacheKey = strings.TrimSpace(promptCacheKey)
 	apiKeyID := getAPIKeyIDFromContext(c)
 	anthropicDigestChain := ""
@@ -307,7 +311,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	// 4c. Apply OpenAI fast policy (may filter service_tier or block the request).
 	// Mirrors the Claude anthropic-beta "fast-mode-2026-02-01" filter, but keyed
 	// on the body-level service_tier field (priority/flex).
-	updatedBody, policyErr := s.applyOpenAIFastPolicyToBody(ctx, account, upstreamModel, responsesBody)
+	updatedBody, policyErr := s.applyOpenAIFastPolicyToBody(modelCtx, account, upstreamModel, responsesBody)
 	if policyErr != nil {
 		var blocked *OpenAIFastBlockedError
 		if errors.As(policyErr, &blocked) {
@@ -337,7 +341,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	estimatedInputTokens := estimateOpenAIAnthropicStreamInputTokens(responsesBody, upstreamModel)
 
 	// 5. Get access token
-	token, _, err := s.getRequestCredential(ctx, c, account)
+	token, _, err := s.getRequestCredential(modelCtx, c, account)
 	if err != nil {
 		return nil, fmt.Errorf("get access token: %w", err)
 	}
@@ -349,7 +353,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 		// 既有 body/session/conversation 行为。身份头在 post-build 阶段统一恢复。
 		setOpenAICompatMessagesBridgeContext(c, true)
 	}
-	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
+	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(modelCtx)
 	var upstreamReq *http.Request
 	if account.Platform == PlatformGrok {
 		upstreamReq, err = buildGrokResponsesRequest(upstreamCtx, c, account, responsesBody, token, grokCacheIdentity, s.cfg)
@@ -403,7 +407,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 			if account.Platform != PlatformGrok {
 				break
 			}
-			upstreamCtxRetry, releaseRetry := detachUpstreamContext(ctx)
+			upstreamCtxRetry, releaseRetry := detachUpstreamContext(modelCtx)
 			upstreamReq, err = buildGrokResponsesRequest(upstreamCtxRetry, c, account, responsesBody, token, grokCacheIdentity, s.cfg)
 			releaseRetry()
 			if err != nil {
@@ -412,7 +416,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 		}
 		resp, err = s.httpUpstream.Do(upstreamReq, proxyURL, account.ID, account.Concurrency)
 		if err != nil {
-			return nil, s.handleOpenAIUpstreamTransportError(ctx, c, account, err, false)
+			return nil, s.handleOpenAIUpstreamTransportError(modelCtx, c, account, err, false)
 		}
 		if account.Platform != PlatformGrok || attempt > 0 || resp.StatusCode != http.StatusBadRequest {
 			break
@@ -508,14 +512,14 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 				return s.ForwardAsAnthropic(markGrokEncryptedContentStripRetried(ctx), c, account, strippedBody, promptCacheKey, defaultMappedModel)
 			}
 		}
-		if foErr := s.failoverOpenAIUpstreamHTTPError(ctx, c, account, resp, respBody, upstreamMsg, upstreamModel); foErr != nil {
+		if foErr := s.failoverOpenAIUpstreamHTTPError(modelCtx, c, account, resp, respBody, upstreamMsg, upstreamModel); foErr != nil {
 			return nil, foErr
 		}
 		// Non-failover error: return Anthropic-formatted error to client
 		return s.handleAnthropicErrorResponse(resp, c, account, billingModel)
 	}
 	if account.Platform == PlatformGrok && account.Type == AccountTypeOAuth && !account.IsShadow() {
-		s.updateGrokUsageFromResponse(ctx, account, resp.Header, resp.StatusCode)
+		s.updateGrokUsageFromResponse(modelCtx, account, resp.Header, resp.StatusCode)
 	}
 
 	if account.Type == AccountTypeOAuth && promptCacheKey != "" {

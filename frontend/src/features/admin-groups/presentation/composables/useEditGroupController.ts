@@ -34,6 +34,13 @@ import type {
   GroupReasoningEffortFieldsExpose,
 } from "../groupEditorContext";
 import {
+  createGroupPricingEntry,
+  groupPricingFromAPI,
+  groupPricingToAPI,
+  updateGroupPricingModels,
+  type GroupPricingFormEntry,
+} from "../groupsModelPricing";
+import {
   buildImageFinalPricePreview,
   buildVideoFinalPricePreview,
   buildWebSearchFinalPricePreview,
@@ -193,6 +200,25 @@ export function useEditGroupController({
     const index = editForm.exact_model_mappings.indexOf(row);
     if (index !== -1) editForm.exact_model_mappings.splice(index, 1);
   };
+  const addModelPricing = () => {
+    editForm.model_pricing.push(createGroupPricingEntry());
+  };
+  const removeModelPricing = (index: number) => {
+    editForm.model_pricing.splice(index, 1);
+  };
+  const updateModelPricing = (
+    index: number,
+    entry: GroupPricingFormEntry,
+  ) => {
+    editForm.model_pricing[index] = entry;
+  };
+  const updateModelPricingEntryModels = (index: number, models: string[]) =>
+    updateGroupPricingModels(
+      editForm.model_pricing,
+      index,
+      models,
+      runtime.loadModelDefaultPricing,
+    );
 
   const handleEdit = async (group: AdminGroup) => {
     editingGroup.value = group;
@@ -206,6 +232,9 @@ export function useEditGroupController({
     editForm.daily_limit_usd = group.daily_limit_usd;
     editForm.weekly_limit_usd = group.weekly_limit_usd;
     editForm.monthly_limit_usd = group.monthly_limit_usd;
+    editForm.long_context_pricing_enabled =
+      group.long_context_pricing_enabled ?? true;
+    editForm.model_pricing = groupPricingFromAPI(group.model_pricing);
     editForm.allow_image_generation = group.allow_image_generation ?? false;
     editForm.openai_force_image_tool = group.openai_force_image_tool ?? false;
     editForm.allow_batch_image_generation =
@@ -303,6 +332,8 @@ export function useEditGroupController({
     editForm.video_price_720p = null;
     editForm.video_price_1080p = null;
     editForm.web_search_price_per_call = null;
+    editForm.long_context_pricing_enabled = true;
+    editForm.model_pricing = [];
     resetMessagesDispatchFormState(editForm);
     editForm.allow_live = false;
     resetModelsListState(modelsListState);
@@ -350,6 +381,10 @@ export function useEditGroupController({
         daily_limit_usd: normalizeOptionalLimit(editForm.daily_limit_usd),
         weekly_limit_usd: normalizeOptionalLimit(editForm.weekly_limit_usd),
         monthly_limit_usd: normalizeOptionalLimit(editForm.monthly_limit_usd),
+        model_pricing: groupPricingToAPI(
+          editForm.model_pricing,
+          editForm.platform,
+        ),
         fallback_group_id:
           editForm.fallback_group_id === null
             ? 0
@@ -536,6 +571,10 @@ export function useEditGroupController({
     removeMessagesDispatchMapping,
     getMessagesDispatchRowKey,
     reasoningEffortPolicyRef,
+    addModelPricing,
+    removeModelPricing,
+    updateModelPricing,
+    updateModelPricingModels: updateModelPricingEntryModels,
   };
 
   return {

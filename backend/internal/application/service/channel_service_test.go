@@ -367,6 +367,30 @@ func TestValidateNoConflictingModels(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "claude dot and hyphen spelling conflict",
+			pricingList: []ChannelModelPricing{
+				{Platform: "anthropic", Models: []string{"claude-sonnet-4.5"}},
+				{Platform: "anthropic", Models: []string{"claude-sonnet-4-5"}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "surrounding whitespace conflict",
+			pricingList: []ChannelModelPricing{
+				{Platform: "openai", Models: []string{"gpt-5.6"}},
+				{Platform: "openai", Models: []string{" gpt-5.6 "}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "non claude dot spelling remains distinct",
+			pricingList: []ChannelModelPricing{
+				{Platform: "openai", Models: []string{"gpt-5.6"}},
+				{Platform: "openai", Models: []string{"gpt-5-6"}},
+			},
+			wantErr: false,
+		},
+		{
 			name:        "empty list (nil)",
 			pricingList: nil,
 			wantErr:     false,
@@ -468,6 +492,13 @@ func TestValidateNoConflictingMappings(t *testing.T) {
 			},
 			wantErr:     true,
 			errContains: "conflict",
+		},
+		{
+			name: "mapping keeps dot and hyphen spelling separate",
+			mapping: map[string]map[string]string{
+				"anthropic": {"claude-sonnet-4.5": "a", "claude-sonnet-4-5": "b"},
+			},
+			wantErr: false,
 		},
 		{
 			name: "wildcard vs exact conflict",

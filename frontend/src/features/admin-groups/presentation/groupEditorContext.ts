@@ -7,6 +7,7 @@ import type {
 import type { ModelsListState } from "./groupsModelsListResolver";
 import type { MessagesDispatchMappingRow } from "./groupsMessagesDispatchResolver";
 import type { ReasoningEffortMappingRow } from "./groupsReasoningEffort";
+import type { GroupPricingFormEntry } from "./groupsModelPricing";
 
 export interface GroupEditorOption {
   value: string | number | boolean | null;
@@ -51,6 +52,8 @@ export interface GroupEditorFormState {
   daily_limit_usd: number | string | null;
   weekly_limit_usd: number | string | null;
   monthly_limit_usd: number | string | null;
+  long_context_pricing_enabled: boolean;
+  model_pricing: GroupPricingFormEntry[];
   allow_image_generation: boolean;
   openai_force_image_tool: boolean;
   allow_batch_image_generation: boolean;
@@ -137,6 +140,10 @@ export interface GroupEditorDialogContext {
   removeMessagesDispatchMapping: (row: MessagesDispatchMappingRow) => void;
   getMessagesDispatchRowKey: (row: MessagesDispatchMappingRow) => string;
   reasoningEffortPolicyRef: Ref<GroupReasoningEffortFieldsExpose | null>;
+  addModelPricing: () => void;
+  removeModelPricing: (index: number) => void;
+  updateModelPricing: (index: number, entry: GroupPricingFormEntry) => void;
+  updateModelPricingModels: (index: number, models: string[]) => void | Promise<void>;
 }
 
 export interface EditGroupDialogContext extends GroupEditorDialogContext {

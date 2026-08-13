@@ -46,7 +46,7 @@ func TestGrokQuotaFetcherUsesCredentialTierWhenBillingHasNoPlan(t *testing.T) {
 	usage := NewGrokQuotaFetcher().BuildUsageInfo(account)
 
 	require.NotNil(t, usage.GrokBilling)
-	require.Equal(t, "FREE", usage.SubscriptionTier)
+	require.Equal(t, "free", usage.SubscriptionTier)
 	require.Equal(t, "FREE", usage.SubscriptionTierRaw)
 	require.Equal(t, "active", usage.GrokEntitlementStatus)
 }

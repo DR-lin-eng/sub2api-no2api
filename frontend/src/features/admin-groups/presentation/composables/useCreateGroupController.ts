@@ -33,6 +33,12 @@ import type {
   GroupReasoningEffortFieldsExpose,
 } from "../groupEditorContext";
 import {
+  createGroupPricingEntry,
+  groupPricingToAPI,
+  updateGroupPricingModels,
+  type GroupPricingFormEntry,
+} from "../groupsModelPricing";
+import {
   buildImageFinalPricePreview,
   buildVideoFinalPricePreview,
   buildWebSearchFinalPricePreview,
@@ -185,6 +191,25 @@ export function useCreateGroupController({
     const index = createForm.exact_model_mappings.indexOf(row);
     if (index !== -1) createForm.exact_model_mappings.splice(index, 1);
   };
+  const addModelPricing = () => {
+    createForm.model_pricing.push(createGroupPricingEntry());
+  };
+  const removeModelPricing = (index: number) => {
+    createForm.model_pricing.splice(index, 1);
+  };
+  const updateModelPricing = (
+    index: number,
+    entry: GroupPricingFormEntry,
+  ) => {
+    createForm.model_pricing[index] = entry;
+  };
+  const updateModelPricingEntryModels = (index: number, models: string[]) =>
+    updateGroupPricingModels(
+      createForm.model_pricing,
+      index,
+      models,
+      runtime.loadModelDefaultPricing,
+    );
 
   const openCreateModal = () => {
     showCreateModal.value = true;
@@ -205,6 +230,8 @@ export function useCreateGroupController({
     createForm.daily_limit_usd = null;
     createForm.weekly_limit_usd = null;
     createForm.monthly_limit_usd = null;
+    createForm.long_context_pricing_enabled = true;
+    createForm.model_pricing = [];
     createForm.allow_image_generation = false;
     createForm.openai_force_image_tool = false;
     createForm.allow_batch_image_generation = false;
@@ -291,6 +318,10 @@ export function useCreateGroupController({
         daily_limit_usd: normalizeOptionalLimit(createForm.daily_limit_usd),
         weekly_limit_usd: normalizeOptionalLimit(createForm.weekly_limit_usd),
         monthly_limit_usd: normalizeOptionalLimit(createForm.monthly_limit_usd),
+        model_pricing: groupPricingToAPI(
+          createForm.model_pricing,
+          createForm.platform,
+        ),
         model_routing: convertRoutingRulesToApiFormat(modelRoutingRules.value),
         models_list_config: buildModelsListConfig(modelsListState),
         supported_model_scopes: normalizeSupportedModelScopesForPlatform(
@@ -465,6 +496,10 @@ export function useCreateGroupController({
     removeMessagesDispatchMapping,
     getMessagesDispatchRowKey,
     reasoningEffortPolicyRef,
+    addModelPricing,
+    removeModelPricing,
+    updateModelPricing,
+    updateModelPricingModels: updateModelPricingEntryModels,
   };
 
   return {

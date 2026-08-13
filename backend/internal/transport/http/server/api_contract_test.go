@@ -356,7 +356,8 @@ func TestAPIContracts(t *testing.T) {
 						"peak_start": "",
 						"peak_end": "",
 						"peak_rate_multiplier": 1,
-						"is_exclusive": false,
+							"is_exclusive": false,
+							"long_context_pricing_enabled": false,
 						"status": "active",
 						"subscription_type": "standard",
 						"daily_limit_usd": null,
@@ -926,6 +927,7 @@ func TestAPIContracts(t *testing.T) {
 					"request_priority_pending_mib_per_instance": 256,
 					"backend_mode_enabled": false,
 					"stream_mode_performance_enabled": false,
+					"openai_visible_output_ttft_enabled": true,
 					"openai_ws_mode_router_v2_enabled": false,
 					"enable_cch_signing": false,
 					"enable_claude_oauth_system_prompt_injection": true,
@@ -1258,6 +1260,7 @@ func TestAPIContracts(t *testing.T) {
 					"request_priority_pending_mib_per_instance": 256,
 					"backend_mode_enabled": false,
 					"stream_mode_performance_enabled": false,
+					"openai_visible_output_ttft_enabled": true,
 					"openai_ws_mode_router_v2_enabled": false,
 					"enable_fingerprint_unification": true,
 					"enable_metadata_passthrough": false,
@@ -1521,7 +1524,7 @@ func newContractDeps(t *testing.T) *contractDeps {
 	settingRepo := newStubSettingRepo()
 	settingService := service.NewSettingService(settingRepo, cfg)
 
-	adminService := service.NewAdminService(userRepo, groupRepo, &accountRepo, proxyRepo, apiKeyRepo, redeemRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	adminService := service.NewAdminService(userRepo, groupRepo, &accountRepo, proxyRepo, apiKeyRepo, redeemRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	authHandler := handler.NewAuthHandler(cfg, nil, userService, settingService, nil, redeemService, nil, nil)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
 	usageHandler := handler.NewUsageHandler(usageService, apiKeyService, nil, nil)

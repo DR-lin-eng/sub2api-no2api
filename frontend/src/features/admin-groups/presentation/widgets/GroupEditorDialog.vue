@@ -7,6 +7,7 @@ import GroupEditorAntigravityFields from "./GroupEditorAntigravityFields.vue";
 import GroupEditorCoreFields from "./GroupEditorCoreFields.vue";
 import GroupEditorProviderFields from "./GroupEditorProviderFields.vue";
 import GroupEditorProfitControlFields from "./GroupEditorProfitControlFields.vue";
+import GroupEditorModelPricingFields from "./GroupEditorModelPricingFields.vue";
 import type {
   EditGroupDialogContext,
   GroupEditorDialogContext,
@@ -52,6 +53,7 @@ const {
       :is-edit="isEdit"
       :status-options="statusOptions"
     />
+    <GroupEditorModelPricingFields :context="editorContext" />
     <GroupEditorAntigravityFields :context="editorContext" />
     <GroupEditorProviderFields :context="editorContext" />
     <GroupEditorProfitControlFields :context="editorContext" />

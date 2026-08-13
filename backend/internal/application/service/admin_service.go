@@ -223,6 +223,9 @@ type CreateGroupInput struct {
 	DailyLimitUSD    *float64 // 日限额 (USD)
 	WeeklyLimitUSD   *float64 // 周限额 (USD)
 	MonthlyLimitUSD  *float64 // 月限额 (USD)
+	// nil defaults to true so old clients preserve pre-feature long-context billing.
+	LongContextPricingEnabled *bool
+	ModelPricing              []ChannelModelPricing
 	// 图片生成权限与计费配置
 	AllowImageGeneration         bool
 	OpenAIForceImageTool         bool
@@ -278,16 +281,18 @@ type CreateGroupInput struct {
 }
 
 type UpdateGroupInput struct {
-	Name             string
-	Description      *string
-	Platform         string
-	RateMultiplier   *float64 // 使用指针以支持设置为0
-	IsExclusive      *bool
-	Status           string
-	SubscriptionType string   // standard/subscription
-	DailyLimitUSD    *float64 // 日限额 (USD)
-	WeeklyLimitUSD   *float64 // 周限额 (USD)
-	MonthlyLimitUSD  *float64 // 月限额 (USD)
+	Name                      string
+	Description               *string
+	Platform                  string
+	RateMultiplier            *float64 // 使用指针以支持设置为0
+	IsExclusive               *bool
+	Status                    string
+	SubscriptionType          string   // standard/subscription
+	DailyLimitUSD             *float64 // 日限额 (USD)
+	WeeklyLimitUSD            *float64 // 周限额 (USD)
+	MonthlyLimitUSD           *float64 // 月限额 (USD)
+	LongContextPricingEnabled *bool
+	ModelPricing              *[]ChannelModelPricing
 	// 图片生成权限与计费配置
 	AllowImageGeneration         *bool
 	OpenAIForceImageTool         *bool
@@ -573,6 +578,13 @@ type groupExistenceBatchReader interface {
 	ExistsByIDs(ctx context.Context, ids []int64) (map[int64]bool, error)
 }
 
+// ChannelCacheInvalidator is the narrow dependency needed when a group's
+// platform changes. Channel pricing, mappings, and restrictions are all keyed
+// by the cached platform value.
+type ChannelCacheInvalidator interface {
+	InvalidateCache()
+}
+
 type proxyQualityTarget struct {
 	Target          string
 	URL             string
@@ -629,31 +641,32 @@ var ErrRPMStatusUnavailable = infraerrors.New(http.StatusNotImplemented, "RPM_ST
 
 // adminServiceImpl implements AdminService
 type adminServiceImpl struct {
-	userRepo             UserRepository
-	groupRepo            GroupRepository
-	groupDuplicateRepo   GroupDuplicateRepository
-	accountRepo          AccountRepository
-	accountDuplicateRepo AccountDuplicateRepository
-	accountBillingRepo   AccountBillingSettingsRepository
-	proxyRepo            ProxyRepository
-	apiKeyRepo           APIKeyRepository
-	redeemCodeRepo       RedeemCodeRepository
-	userGroupRateRepo    UserGroupRateRepository
-	userRPMCache         UserRPMCache
-	billingCacheService  *BillingCacheService
-	proxyProber          ProxyExitInfoProber
-	proxyLatencyCache    ProxyLatencyCache
-	authCacheInvalidator APIKeyAuthCacheInvalidator
-	entClient            *dbent.Client // 用于开启数据库事务
-	settingService       *SettingService
-	defaultSubAssigner   DefaultSubscriptionAssigner
-	userSubRepo          UserSubscriptionRepository
-	privacyClientFactory PrivacyClientFactory
-	runtimeBlocker       AccountRuntimeBlocker
-	affiliateService     adminRechargeAffiliateAccruer
-	runtimeStateCleaner  AccountRuntimeStateCleaner
-	compositeRouteRepo   CompositeModelRouteRepository
-	compositeResolver    *CompositeRouteResolver
+	userRepo                UserRepository
+	groupRepo               GroupRepository
+	groupDuplicateRepo      GroupDuplicateRepository
+	accountRepo             AccountRepository
+	accountDuplicateRepo    AccountDuplicateRepository
+	accountBillingRepo      AccountBillingSettingsRepository
+	proxyRepo               ProxyRepository
+	apiKeyRepo              APIKeyRepository
+	redeemCodeRepo          RedeemCodeRepository
+	userGroupRateRepo       UserGroupRateRepository
+	userRPMCache            UserRPMCache
+	billingCacheService     *BillingCacheService
+	proxyProber             ProxyExitInfoProber
+	proxyLatencyCache       ProxyLatencyCache
+	authCacheInvalidator    APIKeyAuthCacheInvalidator
+	channelCacheInvalidator ChannelCacheInvalidator
+	entClient               *dbent.Client // 用于开启数据库事务
+	settingService          *SettingService
+	defaultSubAssigner      DefaultSubscriptionAssigner
+	userSubRepo             UserSubscriptionRepository
+	privacyClientFactory    PrivacyClientFactory
+	runtimeBlocker          AccountRuntimeBlocker
+	affiliateService        adminRechargeAffiliateAccruer
+	runtimeStateCleaner     AccountRuntimeStateCleaner
+	compositeRouteRepo      CompositeModelRouteRepository
+	compositeResolver       *CompositeRouteResolver
 }
 
 type adminRechargeAffiliateAccruer interface {
@@ -678,6 +691,7 @@ func NewAdminService(
 	proxyProber ProxyExitInfoProber,
 	proxyLatencyCache ProxyLatencyCache,
 	authCacheInvalidator APIKeyAuthCacheInvalidator,
+	channelCacheInvalidator ChannelCacheInvalidator,
 	entClient *dbent.Client,
 	settingService *SettingService,
 	defaultSubAssigner DefaultSubscriptionAssigner,
@@ -690,30 +704,31 @@ func NewAdminService(
 	compositeResolver *CompositeRouteResolver,
 ) AdminService {
 	return &adminServiceImpl{
-		userRepo:             userRepo,
-		groupRepo:            groupRepo,
-		groupDuplicateRepo:   groupRepo,
-		accountRepo:          accountRepo,
-		accountDuplicateRepo: accountRepo,
-		accountBillingRepo:   accountRepo,
-		proxyRepo:            proxyRepo,
-		apiKeyRepo:           apiKeyRepo,
-		redeemCodeRepo:       redeemCodeRepo,
-		userGroupRateRepo:    userGroupRateRepo,
-		userRPMCache:         userRPMCache,
-		billingCacheService:  billingCacheService,
-		proxyProber:          proxyProber,
-		proxyLatencyCache:    proxyLatencyCache,
-		authCacheInvalidator: authCacheInvalidator,
-		entClient:            entClient,
-		settingService:       settingService,
-		defaultSubAssigner:   defaultSubAssigner,
-		userSubRepo:          userSubRepo,
-		privacyClientFactory: privacyClientFactory,
-		runtimeBlocker:       runtimeBlocker,
-		affiliateService:     affiliateService,
-		runtimeStateCleaner:  runtimeStateCleaner,
-		compositeRouteRepo:   compositeRouteRepo,
-		compositeResolver:    compositeResolver,
+		userRepo:                userRepo,
+		groupRepo:               groupRepo,
+		groupDuplicateRepo:      groupRepo,
+		accountRepo:             accountRepo,
+		accountDuplicateRepo:    accountRepo,
+		accountBillingRepo:      accountRepo,
+		proxyRepo:               proxyRepo,
+		apiKeyRepo:              apiKeyRepo,
+		redeemCodeRepo:          redeemCodeRepo,
+		userGroupRateRepo:       userGroupRateRepo,
+		userRPMCache:            userRPMCache,
+		billingCacheService:     billingCacheService,
+		proxyProber:             proxyProber,
+		proxyLatencyCache:       proxyLatencyCache,
+		authCacheInvalidator:    authCacheInvalidator,
+		channelCacheInvalidator: channelCacheInvalidator,
+		entClient:               entClient,
+		settingService:          settingService,
+		defaultSubAssigner:      defaultSubAssigner,
+		userSubRepo:             userSubRepo,
+		privacyClientFactory:    privacyClientFactory,
+		runtimeBlocker:          runtimeBlocker,
+		affiliateService:        affiliateService,
+		runtimeStateCleaner:     runtimeStateCleaner,
+		compositeRouteRepo:      compositeRouteRepo,
+		compositeResolver:       compositeResolver,
 	}
 }

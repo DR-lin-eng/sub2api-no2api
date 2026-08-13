@@ -37,14 +37,18 @@ func responseModelBillingAdoptable(baseline, response *CostBreakdown, baselineCh
 }
 
 func responseModelPricingIdentified(resolved *ResolvedPricing, billingService *BillingService, model string) bool {
-	if resolved != nil && resolved.Source == PricingSourceChannel {
+	if isExplicitAdminPricing(resolved) {
 		return true
 	}
 	return billingService != nil && billingService.HasIdentifiedTokenPricing(model)
 }
 
 func pricingResolvedFromChannel(resolved *ResolvedPricing) bool {
-	return resolved != nil && resolved.Source == PricingSourceChannel
+	return isExplicitAdminPricing(resolved)
+}
+
+func isExplicitAdminPricing(resolved *ResolvedPricing) bool {
+	return resolved != nil && (resolved.Source == PricingSourceGroup || resolved.Source == PricingSourceChannel)
 }
 
 func (s *GatewayService) applyResponseModelBilling(

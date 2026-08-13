@@ -75,8 +75,10 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	// 2. Resolve model mapping (same as ForwardAsChatCompletions)
 	billingModel := resolveOpenAIForwardModel(account, originalModel, defaultMappedModel)
 	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
+	modelCtx := ctx
 	grokCacheIdentity := ""
 	if account.Platform == PlatformGrok {
+		modelCtx = withGrokTeamRateLimitModel(ctx, upstreamModel)
 		// Resolve before image bridging or other body rewrites so the fallback is
 		// anchored to the client's stable conversation prefix.
 		grokCacheIdentity = resolveGrokCacheIdentity(c, body, "", upstreamModel)
@@ -108,7 +110,7 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 
 	// Grok Composer does not accept image_url parts directly, but Grok Build
 	// can describe the images first. Bridge only this exact failure mode.
-	token, tokenKind, err := s.getRequestCredential(ctx, c, account)
+	token, tokenKind, err := s.getRequestCredential(modelCtx, c, account)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +120,7 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 
 	var bridgeUsage OpenAIUsage
 	if account.Platform == PlatformGrok {
-		bridgedBody, usage, bridged, bridgeErr := s.bridgeGrokComposerImageInputs(ctx, c, account, upstreamBody, token)
+		bridgedBody, usage, bridged, bridgeErr := s.bridgeGrokComposerImageInputs(modelCtx, c, account, upstreamBody, token)
 		if bridgeErr != nil {
 			var failoverErr *UpstreamFailoverError
 			if !errors.As(bridgeErr, &failoverErr) && c != nil && c.Writer != nil && !c.Writer.Written() {
@@ -164,7 +166,7 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	if customUA == "" && account.IsGrokOAuth() {
 		customUA = "sub2api-grok/1.0"
 	}
-	resp, err := s.sendCCUpstreamRequest(ctx, c, account, targetURL, upstreamBody, clientStream, token, customUA, grokCacheIdentity)
+	resp, err := s.sendCCUpstreamRequest(modelCtx, c, account, targetURL, upstreamBody, clientStream, token, customUA, grokCacheIdentity)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +189,7 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 				Kind:               kind,
 				Message:            upstreamMsg,
 			})
-			s.handleGrokAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
+			s.handleGrokAccountUpstreamError(modelCtx, account, resp.StatusCode, resp.Header, respBody)
 			if s.shouldFailoverGrokUpstreamError(resp.StatusCode, respBody) {
 				return nil, &UpstreamFailoverError{
 					StatusCode:             resp.StatusCode,
@@ -205,7 +207,7 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	}
 
 	if account.Platform == PlatformGrok {
-		s.updateGrokUsageFromResponse(ctx, account, resp.Header, resp.StatusCode)
+		s.updateGrokUsageFromResponse(modelCtx, account, resp.Header, resp.StatusCode)
 	}
 
 	// 8. Forward response

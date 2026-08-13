@@ -285,6 +285,9 @@ func TestBillingServiceHasIdentifiedTokenPricing_RejectsGuessesAndImageOnlyEntri
 	require.False(t, billing.HasIdentifiedTokenPricing("totally-made-up-haiku-v9"))
 	require.False(t, billing.HasIdentifiedTokenPricing("unknown-gpt-99"))
 	require.False(t, billing.HasIdentifiedTokenPricing(""))
+	require.False(t, billing.HasIdentifiedTokenPricing("grok-2-image-1212"))
+	require.False(t, billing.HasIdentifiedTokenPricing("grok-2-audio"))
+	require.False(t, billing.HasIdentifiedTokenPricing("grok-5-video"))
 }
 
 func TestGatewayServiceRecordUsage_ResponseModelSkippedForImageBilling(t *testing.T) {

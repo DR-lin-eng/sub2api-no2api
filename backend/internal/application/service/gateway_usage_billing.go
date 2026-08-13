@@ -872,7 +872,7 @@ func (s *GatewayService) calculateRecordUsageCostWithPricing(
 ) *CostBreakdown {
 	// 图片生成：渠道定价为 token 计费时走 token 路径，否则走图片计费
 	if result.ImageCount > 0 {
-		if resolved != nil && resolved.Source == PricingSourceChannel && resolved.Mode == BillingModeToken {
+		if resolved != nil && isExplicitAdminPricing(resolved) && resolved.Mode == BillingModeToken {
 			return s.calculateTokenCostWithPricing(ctx, result, apiKey, billingModel, multiplier, opts, resolved)
 		}
 		return s.calculateImageCostWithPricing(ctx, result, apiKey, billingModel, imageMultiplier, resolved)
@@ -896,7 +896,7 @@ func (s *GatewayService) selectBillableModelPricing(
 	concreteBillingModel = strings.TrimSpace(concreteBillingModel)
 	if apiKey != nil && apiKey.Group != nil && apiKey.Group.Platform == PlatformComposite &&
 		concreteBillingModel != "" && billingModel != concreteBillingModel &&
-		!s.hasExplicitChannelPricing(ctx, apiKey, billingModel) {
+		!s.hasExplicitAdminPricing(ctx, apiKey, billingModel) {
 		billingModel = concreteBillingModel
 	}
 
@@ -926,9 +926,12 @@ func duplicateBillingFallback(previous []string, candidate string) bool {
 	return false
 }
 
-func (s *GatewayService) hasExplicitChannelPricing(ctx context.Context, apiKey *APIKey, model string) bool {
+func (s *GatewayService) hasExplicitAdminPricing(ctx context.Context, apiKey *APIKey, model string) bool {
 	if apiKey == nil || apiKey.Group == nil || strings.TrimSpace(model) == "" {
 		return false
+	}
+	if apiKey.Group.modelPricingFor(model) != nil {
+		return true
 	}
 	channelService := s.channelService
 	if channelService == nil && s.resolver != nil {
@@ -944,11 +947,13 @@ func (s *GatewayService) resolveBillingPricing(ctx context.Context, apiKey *APIK
 	}
 	if s.resolver != nil {
 		var groupID *int64
+		var group *Group
 		if apiKey != nil && apiKey.Group != nil {
 			gid := apiKey.Group.ID
 			groupID = &gid
+			group = apiKey.Group
 		}
-		return s.resolver.Resolve(ctx, PricingInput{Model: model, GroupID: groupID})
+		return s.resolver.Resolve(ctx, PricingInput{Model: model, GroupID: groupID, Group: group})
 	}
 	if s.billingService == nil {
 		return nil
@@ -964,7 +969,7 @@ func billingPricingResolvable(resolved *ResolvedPricing) bool {
 	if resolved == nil {
 		return false
 	}
-	return resolved.Source == PricingSourceChannel || resolved.BasePricing != nil ||
+	return isExplicitAdminPricing(resolved) || resolved.BasePricing != nil ||
 		len(resolved.Intervals) > 0 || len(resolved.RequestTiers) > 0
 }
 
@@ -981,7 +986,7 @@ func (s *GatewayService) calculateImageCostWithPricing(
 	if apiKeyHasConfiguredImagePrice(apiKey, sizeTier) {
 		return s.billingService.CalculateImageCost(billingModel, sizeTier, result.ImageCount, groupConfig, multiplier)
 	}
-	if resolved != nil && resolved.Source == PricingSourceChannel && s.resolver != nil && apiKey != nil && apiKey.Group != nil {
+	if resolved != nil && isExplicitAdminPricing(resolved) && s.resolver != nil && apiKey != nil && apiKey.Group != nil {
 		tokens := UsageTokens{
 			InputTokens:       result.Usage.InputTokens,
 			OutputTokens:      result.Usage.OutputTokens,
@@ -992,6 +997,7 @@ func (s *GatewayService) calculateImageCostWithPricing(
 			Ctx:            ctx,
 			Model:          billingModel,
 			GroupID:        &gid,
+			Group:          apiKey.Group,
 			Tokens:         tokens,
 			RequestCount:   result.ImageCount,
 			SizeTier:       sizeTier,
@@ -1034,24 +1040,29 @@ func (s *GatewayService) calculateTokenCostWithPricing(
 	// Reuse the selected model's pricing for normal and channel billing. The
 	// legacy partial-over-threshold path remains separate for Gemini callers.
 	useUnified := resolved != nil && s.resolver != nil &&
-		(resolved.Source == PricingSourceChannel || opts == nil || opts.LongContextThreshold <= 0)
+		(isExplicitAdminPricing(resolved) || opts == nil || opts.LongContextThreshold <= 0 ||
+			(apiKey != nil && apiKey.Group != nil && !apiKey.Group.LongContextPricingEnabled))
 	if useUnified {
 		var groupID *int64
+		var group *Group
 		if apiKey != nil && apiKey.Group != nil {
 			gid := apiKey.Group.ID
 			groupID = &gid
+			group = apiKey.Group
 		}
 		cost, err = s.billingService.CalculateCostUnified(CostInput{
 			Ctx:            ctx,
 			Model:          billingModel,
 			GroupID:        groupID,
+			Group:          group,
 			Tokens:         tokens,
 			RequestCount:   1,
 			RateMultiplier: multiplier,
 			Resolver:       s.resolver,
 			Resolved:       resolved,
 		})
-	} else if opts != nil && opts.LongContextThreshold > 0 {
+	} else if opts != nil && opts.LongContextThreshold > 0 &&
+		(apiKey == nil || apiKey.Group == nil || apiKey.Group.LongContextPricingEnabled) {
 		// 长上下文双倍计费（如 Gemini 200K 阈值）
 		cost, err = s.billingService.CalculateCostWithLongContext(billingModel, tokens, multiplier, opts.LongContextThreshold, opts.LongContextMultiplier)
 	} else {

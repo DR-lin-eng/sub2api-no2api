@@ -105,6 +105,31 @@ func TestGrokChatResponsesBridgeEligibility(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "native x search tool and choice bridge",
+			body: `{"model":"grok","messages":[{"role":"user","content":"latest xAI post"}],"tools":[{"type":"x_search","allowed_x_handles":["xai"],"excluded_x_handles":["spam"],"from_date":"2026-08-01","to_date":"2026-08-10","enable_image_understanding":true,"enable_video_understanding":false}],"tool_choice":{"type":"x_search"}}`,
+			want: true,
+		},
+		{
+			name: "x search string choice bridge",
+			body: `{"model":"grok","messages":[{"role":"user","content":"latest xAI post"}],"tools":[{"type":"x_search"}],"tool_choice":"x_search"}`,
+			want: true,
+		},
+		{
+			name:   "x search choice without declaration falls back",
+			body:   `{"model":"grok","messages":[{"role":"user","content":"latest xAI post"}],"tools":[],"tool_choice":{"type":"x_search"}}`,
+			reason: "x_search_tool_choice_without_tool",
+		},
+		{
+			name:   "unsafe x search field falls back",
+			body:   `{"model":"grok","messages":[{"role":"user","content":"latest xAI post"}],"tools":[{"type":"x_search","unknown":true}]}`,
+			reason: "unsafe_tool_field_unknown",
+		},
+		{
+			name:   "invalid x search handles fall back",
+			body:   `{"model":"grok","messages":[{"role":"user","content":"latest xAI post"}],"tools":[{"type":"x_search","allowed_x_handles":"xai"}]}`,
+			reason: "invalid_x_search_allowed_x_handles",
+		},
+		{
 			name:   "legacy functions fall back",
 			body:   `{"model":"grok","messages":[{"role":"user","content":"hi"}],"functions":[{"name":"lookup","parameters":{"type":"object"}}]}`,
 			reason: "unsupported_functions",
@@ -218,6 +243,8 @@ func TestGrokChatResponsesBridgeEligibility(t *testing.T) {
 func TestGrokChatResponsesRuntimeEligibility(t *testing.T) {
 	t.Parallel()
 	require.True(t, grokChatResponsesRuntimeEligible("grok-4.5", "isolated-id"))
+	require.True(t, grokChatResponsesRuntimeEligible("grok-4.6", "isolated-id"))
+	require.True(t, grokChatResponsesRuntimeEligible("x-ai/grok-4.6-latest", "isolated-id"))
 	require.False(t, grokChatResponsesRuntimeEligible("grok-4.3", "isolated-id"))
 	require.False(t, grokChatResponsesRuntimeEligible("grok-4.5-build-free", "isolated-id"))
 	require.False(t, grokChatResponsesRuntimeEligible("grok-4.5", ""))

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildOpenAIUsageRefreshKey } from '../accountUsageRefresh'
+import { buildGrokUsageRefreshKey, buildOpenAIUsageRefreshKey } from '../accountUsageRefresh'
 
 describe('buildOpenAIUsageRefreshKey', () => {
   it('会在 codex 快照变化时生成不同 key', () => {
@@ -59,5 +59,69 @@ describe('buildOpenAIUsageRefreshKey', () => {
       last_used_at: '2026-03-07T10:00:00Z',
       extra: {}
     } as any)).toBe('')
+  })
+})
+
+describe('buildGrokUsageRefreshKey', () => {
+  it('changes when canonical billing or usage snapshots change', () => {
+    const base = {
+      platform: 'grok',
+      extra: {
+        grok_billing_snapshot: { plan: 'Free', usage_percent: 0 },
+        grok_usage_snapshot: { subscription_tier: 'Free', status_code: 200 }
+      }
+    } as any
+
+    expect(buildGrokUsageRefreshKey(base)).not.toBe(buildGrokUsageRefreshKey({
+      ...base,
+      extra: {
+        ...base.extra,
+        grok_usage_snapshot: { subscription_tier: 'SuperGrok', status_code: 200 }
+      }
+    }))
+  })
+
+  it('ignores object key order and a legacy alias shadowed by canonical usage', () => {
+    const first = {
+      platform: 'grok',
+      extra: {
+        grok_billing_snapshot: { plan: 'SuperGrok', limits: { monthly: 100, weekly: 25 } },
+        grok_usage_snapshot: { status_code: 200, subscription_tier: 'SuperGrok' },
+        grok_quota_snapshot: { subscription_tier: 'Free' }
+      }
+    } as any
+    const reordered = {
+      platform: 'grok',
+      extra: {
+        grok_quota_snapshot: { subscription_tier: 'SuperGrok Heavy' },
+        grok_usage_snapshot: { subscription_tier: 'SuperGrok', status_code: 200 },
+        grok_billing_snapshot: { limits: { weekly: 25, monthly: 100 }, plan: 'SuperGrok' }
+      }
+    } as any
+
+    expect(buildGrokUsageRefreshKey(first)).toBe(buildGrokUsageRefreshKey(reordered))
+  })
+
+  it('tracks the legacy alias when canonical usage has no valid tier', () => {
+    const base = {
+      platform: 'grok',
+      extra: {
+        grok_usage_snapshot: { status_code: 200 },
+        grok_quota_snapshot: { subscription_tier: 'Free' }
+      }
+    } as any
+    const next = {
+      ...base,
+      extra: {
+        ...base.extra,
+        grok_quota_snapshot: { subscription_tier: 'SuperGrok' }
+      }
+    }
+
+    expect(buildGrokUsageRefreshKey(base)).not.toBe(buildGrokUsageRefreshKey(next))
+  })
+
+  it('returns an empty key for non-Grok accounts', () => {
+    expect(buildGrokUsageRefreshKey({ platform: 'openai', extra: {} } as any)).toBe('')
   })
 })

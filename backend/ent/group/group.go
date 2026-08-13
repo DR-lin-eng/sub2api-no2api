@@ -86,6 +86,10 @@ const (
 	FieldVideoPrice1080p = "video_price_1080p"
 	// FieldWebSearchPricePerCall holds the string denoting the web_search_price_per_call field in the database.
 	FieldWebSearchPricePerCall = "web_search_price_per_call"
+	// FieldLongContextPricingEnabled holds the string denoting the long_context_pricing_enabled field in the database.
+	FieldLongContextPricingEnabled = "long_context_pricing_enabled"
+	// FieldModelPricing holds the string denoting the model_pricing field in the database.
+	FieldModelPricing = "model_pricing"
 	// FieldClaudeCodeOnly holds the string denoting the claude_code_only field in the database.
 	FieldClaudeCodeOnly = "claude_code_only"
 	// FieldFallbackGroupID holds the string denoting the fallback_group_id field in the database.
@@ -238,6 +242,8 @@ var Columns = []string{
 	FieldVideoPrice720p,
 	FieldVideoPrice1080p,
 	FieldWebSearchPricePerCall,
+	FieldLongContextPricingEnabled,
+	FieldModelPricing,
 	FieldClaudeCodeOnly,
 	FieldFallbackGroupID,
 	FieldFallbackGroupIDOnInvalidRequest,
@@ -346,6 +352,8 @@ var (
 	DefaultVideoRateIndependent bool
 	// DefaultVideoRateMultiplier holds the default value on creation for the "video_rate_multiplier" field.
 	DefaultVideoRateMultiplier float64
+	// DefaultLongContextPricingEnabled holds the default value on creation for the "long_context_pricing_enabled" field.
+	DefaultLongContextPricingEnabled bool
 	// DefaultClaudeCodeOnly holds the default value on creation for the "claude_code_only" field.
 	DefaultClaudeCodeOnly bool
 	// DefaultModelRoutingEnabled holds the default value on creation for the "model_routing_enabled" field.
@@ -569,6 +577,11 @@ func ByVideoPrice1080p(opts ...sql.OrderTermOption) OrderOption {
 // ByWebSearchPricePerCall orders the results by the web_search_price_per_call field.
 func ByWebSearchPricePerCall(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldWebSearchPricePerCall, opts...).ToFunc()
+}
+
+// ByLongContextPricingEnabled orders the results by the long_context_pricing_enabled field.
+func ByLongContextPricingEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLongContextPricingEnabled, opts...).ToFunc()
 }
 
 // ByClaudeCodeOnly orders the results by the claude_code_only field.

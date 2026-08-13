@@ -1,3 +1,5 @@
+import type { BillingMode } from '@/core/constants/channel'
+
 export type GroupPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'grok' | 'composite'
 
 export type SubscriptionType = 'standard' | 'subscription'
@@ -12,6 +14,34 @@ export interface OpenAIMessagesDispatchModelConfig {
 export interface ReasoningEffortMapping {
   from: string
   to: string
+}
+
+export interface PricingInterval {
+  id?: number
+  min_tokens: number
+  max_tokens: number | null
+  tier_label: string
+  input_price: number | null
+  output_price: number | null
+  cache_write_price: number | null
+  cache_read_price: number | null
+  per_request_price: number | null
+  sort_order: number
+}
+
+export interface ChannelModelPricing {
+  id?: number
+  platform: string
+  models: string[]
+  billing_mode: BillingMode
+  input_price: number | null
+  output_price: number | null
+  cache_write_price: number | null
+  cache_read_price: number | null
+  image_input_price: number | null
+  image_output_price: number | null
+  per_request_price: number | null
+  intervals: PricingInterval[]
 }
 
 export interface Group {
@@ -29,6 +59,7 @@ export interface Group {
   daily_limit_usd: number | null
   weekly_limit_usd: number | null
   monthly_limit_usd: number | null
+  long_context_pricing_enabled?: boolean
   // 图片生成计费配置
   allow_image_generation: boolean
   openai_force_image_tool: boolean
@@ -69,6 +100,7 @@ export interface Group {
 }
 
 export interface AdminGroup extends Group {
+  model_pricing?: ChannelModelPricing[]
   profit_control_enabled: boolean
   profit_min_margin: number
   profit_safety_buffer: number
@@ -231,6 +263,8 @@ export interface CreateGroupRequest {
   daily_limit_usd?: number | null
   weekly_limit_usd?: number | null
   monthly_limit_usd?: number | null
+  long_context_pricing_enabled?: boolean
+  model_pricing?: ChannelModelPricing[]
   allow_image_generation?: boolean
   openai_force_image_tool?: boolean
   allow_batch_image_generation?: boolean
@@ -286,6 +320,8 @@ export interface UpdateGroupRequest {
   daily_limit_usd?: number | null
   weekly_limit_usd?: number | null
   monthly_limit_usd?: number | null
+  long_context_pricing_enabled?: boolean
+  model_pricing?: ChannelModelPricing[]
   allow_image_generation?: boolean
   openai_force_image_tool?: boolean
   allow_batch_image_generation?: boolean

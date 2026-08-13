@@ -215,7 +215,11 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 		return nil, fmt.Errorf("prepare http bridge body: %w", err)
 	}
 
-	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
+	modelCtx := ctx
+	if account.Platform == PlatformGrok {
+		modelCtx = withGrokTeamRateLimitModel(ctx, resolveGrokWSUpstreamModel(account, body, originalModel))
+	}
+	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(modelCtx)
 	var upstreamReq *http.Request
 	if account.Platform == PlatformGrok {
 		upstreamModel := resolveGrokWSUpstreamModel(account, body, originalModel)
@@ -261,7 +265,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 	resp, err := s.httpUpstream.Do(upstreamReq, proxyURL, account.ID, account.Concurrency)
 	if err != nil {
 		if turn == 1 {
-			return nil, s.handleOpenAIUpstreamTransportError(ctx, c, account, err, true)
+			return nil, s.handleOpenAIUpstreamTransportError(modelCtx, c, account, err, true)
 		}
 		safeErr := sanitizeUpstreamErrorMessage(err.Error())
 		_ = writeClientMessage(buildOpenAIWSHTTPBridgeErrorEvent(http.StatusBadGateway, "Upstream request failed"))
@@ -278,7 +282,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 		shouldFailover := s.shouldFailoverOpenAIUpstreamResponse(resp.StatusCode, upstreamMsg, respBody)
 		if account.Platform == PlatformGrok {
 			shouldFailover = s.shouldFailoverGrokUpstreamError(resp.StatusCode, respBody)
-			s.handleGrokAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
+			s.handleGrokAccountUpstreamError(modelCtx, account, resp.StatusCode, resp.Header, respBody)
 			if turn == 1 && shouldFailover {
 				return nil, newOpenAIUpstreamFailoverError(resp.StatusCode, resp.Header, respBody, upstreamMsg, false)
 			}
@@ -293,7 +297,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 		return nil, fmt.Errorf("upstream http bridge error: status=%d message=%s", resp.StatusCode, upstreamMsg)
 	}
 	if account.Platform == PlatformGrok {
-		s.updateGrokUsageFromResponse(ctx, account, resp.Header, resp.StatusCode)
+		s.updateGrokUsageFromResponse(modelCtx, account, resp.Header, resp.StatusCode)
 	}
 
 	responseID := ""
@@ -438,7 +442,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 					shouldFailover = false
 				} else {
 					shouldFailover = s.shouldFailoverGrokUpstreamError(statusCode, upstreamMessage)
-					s.handleGrokAccountUpstreamError(ctx, account, statusCode, resp.Header, upstreamMessage)
+					s.handleGrokAccountUpstreamError(modelCtx, account, statusCode, resp.Header, upstreamMessage)
 				}
 			} else if shouldFailover {
 				accountStatus := statusCode
@@ -515,7 +519,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 	if err := scanner.Err(); err != nil {
 		streamErr := fmt.Errorf("read upstream http bridge stream: %w", err)
 		if turn == 1 && !wroteDownstream {
-			return nil, s.handleOpenAIUpstreamTransportError(ctx, c, account, streamErr, true)
+			return nil, s.handleOpenAIUpstreamTransportError(modelCtx, c, account, streamErr, true)
 		}
 		return resultWithUsage(), streamErr
 	}
@@ -524,7 +528,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 		terminalErr = errors.New("upstream http bridge stream sent [DONE] before terminal event")
 	}
 	if turn == 1 && !wroteDownstream {
-		return nil, s.handleOpenAIUpstreamTransportError(ctx, c, account, terminalErr, true)
+		return nil, s.handleOpenAIUpstreamTransportError(modelCtx, c, account, terminalErr, true)
 	}
 	return resultWithUsage(), terminalErr
 }

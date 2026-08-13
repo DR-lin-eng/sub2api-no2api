@@ -30,7 +30,61 @@ const (
 	grokRateLimitSustainedCooldown         = 30 * time.Minute
 	grokRateLimitMaxAdaptiveCooldown       = time.Hour
 	grokRateLimitBackoffQuietPeriod        = time.Hour
+	grokModelCapacityCooldown              = 3 * time.Minute
 )
+
+type grokTeamRateLimitModelContextKey struct{}
+
+func withGrokTeamRateLimitModel(ctx context.Context, model string) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	model = strings.TrimSpace(model)
+	if model == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, grokTeamRateLimitModelContextKey{}, model)
+}
+
+func grokRequestedModelFromCtx(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	model, _ := ctx.Value(grokTeamRateLimitModelContextKey{}).(string)
+	return strings.TrimSpace(model)
+}
+
+func isGrokHeavyTransientModel(model string) bool {
+	model = strings.ToLower(xai.ResolveGrokTextResponsesModelID(model))
+	return strings.Contains(model, "multi-agent")
+}
+
+func isGrokModelCapacityBurst(responseBody []byte) bool {
+	low := strings.ToLower(strings.TrimSpace(string(responseBody)))
+	return strings.Contains(low, "engine_overloaded") ||
+		strings.Contains(low, "server_busy") ||
+		strings.Contains(low, "too many concurrent") ||
+		strings.Contains(low, "model capacity") ||
+		strings.Contains(low, "capacity exceeded")
+}
+
+func (s *OpenAIGatewayService) blockGrokTransientModelCapacity(ctx context.Context, account *Account, responseBody []byte) bool {
+	model := grokRequestedModelFromCtx(ctx)
+	if s == nil || account == nil || account.IsPoolMode() || !isGrokHeavyTransientModel(model) || !isGrokModelCapacityBurst(responseBody) {
+		return false
+	}
+	decision := s.blockOpenAIAccountModelTransient(account, model, grokModelCapacityCooldown, time.Now())
+	if decision.BlockUntil.IsZero() {
+		return false
+	}
+	slog.Warn("grok_model_capacity_state",
+		"account_id", account.ID,
+		"model", openAIAccountModelTransientModel(model),
+		"cooldown_ms", decision.Cooldown.Milliseconds(),
+		"block_scope", "account_model",
+	)
+	return true
+}
 
 func (s *OpenAIGatewayService) forwardGrokResponses(
 	ctx context.Context,
@@ -49,6 +103,7 @@ func (s *OpenAIGatewayService) forwardGrokResponses(
 	if strings.TrimSpace(upstreamModel) == "" {
 		upstreamModel = grokDefaultResponsesModel
 	}
+	modelCtx := withGrokTeamRateLimitModel(ctx, upstreamModel)
 	if isGrokImageGenerationModel(upstreamModel) {
 		return nil, fmt.Errorf("model %s is an image model and is not available on the Responses endpoint; use /v1/images/generations instead", upstreamModel)
 	}
@@ -85,12 +140,12 @@ func (s *OpenAIGatewayService) forwardGrokResponses(
 		return nil, fmt.Errorf("apply grok Free function-tool cache route: %w", err)
 	}
 
-	token, _, err := s.getRequestCredential(ctx, c, account)
+	token, _, err := s.getRequestCredential(modelCtx, c, account)
 	if err != nil {
 		return nil, err
 	}
 
-	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
+	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(modelCtx)
 	defer releaseUpstreamCtx()
 
 	proxyURL := ""
@@ -109,7 +164,7 @@ func (s *OpenAIGatewayService) forwardGrokResponses(
 		resp, err = s.httpUpstream.Do(upstreamReq, proxyURL, account.ID, account.Concurrency)
 		SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
 		if err != nil {
-			return nil, s.handleOpenAIUpstreamTransportError(ctx, c, account, err, false)
+			return nil, s.handleOpenAIUpstreamTransportError(modelCtx, c, account, err, false)
 		}
 
 		// xAI can reject encrypted reasoning copied from a response produced under
@@ -161,7 +216,7 @@ func (s *OpenAIGatewayService) forwardGrokResponses(
 			Kind:               kind,
 			Message:            upstreamMsg,
 		})
-		s.handleGrokAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
+		s.handleGrokAccountUpstreamError(modelCtx, account, resp.StatusCode, resp.Header, respBody)
 		if s.shouldFailoverGrokUpstreamError(resp.StatusCode, respBody) {
 			return nil, &UpstreamFailoverError{
 				StatusCode:             resp.StatusCode,
@@ -170,10 +225,10 @@ func (s *OpenAIGatewayService) forwardGrokResponses(
 				RetryableOnSameAccount: account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
 			}
 		}
-		return s.handleErrorResponse(ctx, resp, c, account, patchedBody, upstreamModel)
+		return s.handleErrorResponse(modelCtx, resp, c, account, patchedBody, upstreamModel)
 	}
 
-	s.updateGrokUsageFromResponse(ctx, account, resp.Header, resp.StatusCode)
+	s.updateGrokUsageFromResponse(modelCtx, account, resp.Header, resp.StatusCode)
 
 	var usage *OpenAIUsage
 	var firstTokenMs *int
@@ -884,12 +939,13 @@ func (s *OpenAIGatewayService) describeGrokComposerImage(
 	imageURL string,
 	index int,
 ) (string, OpenAIUsage, error) {
+	modelCtx := withGrokTeamRateLimitModel(ctx, grokComposerImageBridgeVisionModel)
 	body, err := buildGrokComposerImageDescriptionBody(imageURL, index)
 	if err != nil {
 		return "", OpenAIUsage{}, err
 	}
 
-	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
+	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(modelCtx)
 	// Image-description probes are auxiliary requests, not conversation turns.
 	// Do not bind them to the caller's Grok prompt-cache identity.
 	upstreamReq, err := buildGrokResponsesRequest(upstreamCtx, c, account, body, token, "", s.cfg)
@@ -905,7 +961,7 @@ func (s *OpenAIGatewayService) describeGrokComposerImage(
 
 	resp, err := s.httpUpstream.Do(upstreamReq, proxyURL, account.ID, account.Concurrency)
 	if err != nil {
-		return "", OpenAIUsage{}, s.handleOpenAIUpstreamTransportError(ctx, c, account, err, false)
+		return "", OpenAIUsage{}, s.handleOpenAIUpstreamTransportError(modelCtx, c, account, err, false)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -928,7 +984,7 @@ func (s *OpenAIGatewayService) describeGrokComposerImage(
 			Kind:               kind,
 			Message:            upstreamMsg,
 		})
-		s.handleGrokAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
+		s.handleGrokAccountUpstreamError(modelCtx, account, resp.StatusCode, resp.Header, respBody)
 		if s.shouldFailoverGrokUpstreamError(resp.StatusCode, respBody) {
 			return "", OpenAIUsage{}, &UpstreamFailoverError{
 				StatusCode:             resp.StatusCode,
@@ -940,7 +996,7 @@ func (s *OpenAIGatewayService) describeGrokComposerImage(
 		return "", OpenAIUsage{}, fmt.Errorf("grok composer image bridge upstream error: %s", upstreamMsg)
 	}
 
-	s.updateGrokUsageFromResponse(ctx, account, resp.Header, resp.StatusCode)
+	s.updateGrokUsageFromResponse(modelCtx, account, resp.Header, resp.StatusCode)
 	respBody, err := ReadUpstreamResponseBody(resp.Body, s.cfg, c, nil)
 	if err != nil {
 		return "", OpenAIUsage{}, fmt.Errorf("read grok composer image bridge response: %w", err)
@@ -1142,6 +1198,7 @@ func (s *OpenAIGatewayService) updateGrokUsageSnapshot(ctx context.Context, acco
 func (s *OpenAIGatewayService) updateGrokUsageFromResponse(ctx context.Context, account *Account, headers http.Header, statusCode int) {
 	snapshot := parseGrokQuotaSnapshot(headers, statusCode, time.Now())
 	if snapshot != nil {
+		stampGrokQuotaSnapshotForPlan(account, snapshot, grokRequestedModelFromCtx(ctx))
 		s.updateGrokUsageSnapshot(ctx, account, snapshot)
 		return
 	}
@@ -1356,7 +1413,12 @@ func (s *OpenAIGatewayService) handleGrokAccountUpstreamError(ctx context.Contex
 		return
 	}
 	now := time.Now()
-	s.updateGrokUsageSnapshot(ctx, account, parseGrokQuotaSnapshot(headers, statusCode, now))
+	snapshot := parseGrokQuotaSnapshot(headers, statusCode, now)
+	stampGrokQuotaSnapshotForPlan(account, snapshot, grokRequestedModelFromCtx(ctx))
+	s.updateGrokUsageSnapshot(ctx, account, snapshot)
+	if s.blockGrokTransientModelCapacity(ctx, account, responseBody) {
+		return
+	}
 	if statusCode == http.StatusForbidden && s.applyGrokForbiddenPolicy(ctx, account, responseBody) {
 		return
 	}

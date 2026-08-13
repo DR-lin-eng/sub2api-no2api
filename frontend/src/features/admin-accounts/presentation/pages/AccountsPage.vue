@@ -72,7 +72,7 @@ import ScheduledTestsPanel from '@/features/admin-accounts/presentation/widgets/
 import type { SelectOption } from '@/common/widgets/forms/Select.vue'
 import ErrorPassthroughRulesModal from '@/features/admin-settings/presentation/widgets/ErrorPassthroughRulesDialog.vue'
 import TLSFingerprintProfilesModal from '@/features/admin-settings/presentation/widgets/TLSFingerprintProfilesDialog.vue'
-import { buildOpenAIUsageRefreshKey } from '@/core/utils/accountUsageRefresh'
+import { buildGrokUsageRefreshKey, buildOpenAIUsageRefreshKey } from '@/core/utils/accountUsageRefresh'
 import { getFloatingPanelPosition } from '@/core/utils/floatingPanel'
 import { useAccountsUpstreamBilling } from '@/features/admin-accounts/presentation/composables/useAccountsUpstreamBilling'
 import { useAccountTablePresentation } from '@/features/admin-accounts/presentation/composables/useAccountTablePresentation'
@@ -536,7 +536,8 @@ const shouldReplaceAutoRefreshRow = (current: Account, next: Account) => {
     current.stream_degraded !== next.stream_degraded ||
     current.stream_degradation_level !== next.stream_degradation_level ||
     current.stream_next_probe_at !== next.stream_next_probe_at ||
-    buildOpenAIUsageRefreshKey(current) !== buildOpenAIUsageRefreshKey(next)
+    buildOpenAIUsageRefreshKey(current) !== buildOpenAIUsageRefreshKey(next) ||
+    buildGrokUsageRefreshKey(current) !== buildGrokUsageRefreshKey(next)
   )
 }
 

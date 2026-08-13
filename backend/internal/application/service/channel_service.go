@@ -385,6 +385,12 @@ func (s *ChannelService) invalidateCache() {
 	}
 }
 
+// InvalidateCache invalidates the platform-aware pricing/mapping snapshot.
+// It is exported through a narrow application interface for group updates.
+func (s *ChannelService) InvalidateCache() {
+	s.invalidateCache()
+}
+
 // matchWildcard 在通配符定价中查找匹配项（最先匹配到优先）
 func (c *channelCache) matchWildcard(groupID int64, platform, modelLower string) *ChannelModelPricing {
 	gpKey := channelGroupPlatformKey{groupID: groupID, platform: platform}
@@ -659,11 +665,11 @@ func validatePricingBillingMode(pricing []ChannelModelPricing) error {
 }
 
 func checkBillingModeRequirements(p ChannelModelPricing) error {
-	if p.BillingMode == BillingModePerRequest || p.BillingMode == BillingModeImage {
+	if p.BillingMode == BillingModePerRequest || p.BillingMode == BillingModeImage || p.BillingMode == BillingModeVideo {
 		if p.PerRequestPrice == nil && len(p.Intervals) == 0 {
 			return infraerrors.BadRequest(
 				"BILLING_MODE_MISSING_PRICE",
-				"per-request price or intervals required for per_request/image billing mode",
+				"per-request price or intervals required for per_request/image/video billing mode",
 			)
 		}
 	}
@@ -968,13 +974,24 @@ func toModelEntry(pattern string) modelEntry {
 	return modelEntry{pattern: pattern, prefix: prefix, wildcard: isWild}
 }
 
+// toPricingModelEntry must use exactly the same normalization as channel
+// pricing cache keys. Mapping keys intentionally keep their existing rules.
+func toPricingModelEntry(pattern string) modelEntry {
+	prefix, isWild := splitWildcardSuffix(pattern)
+	return modelEntry{
+		pattern:  pattern,
+		prefix:   normalizeChannelPricingModelName(prefix),
+		wildcard: isWild,
+	}
+}
+
 // validateNoConflictingModels 检查定价列表中是否有冲突模型模式（同一平台下）。
 // 冲突包括：精确重复、通配符之间的前缀包含、通配符与精确名的前缀匹配。
 func validateNoConflictingModels(pricingList []ChannelModelPricing) error {
 	byPlatform := make(map[string][]modelEntry)
 	for _, p := range pricingList {
 		for _, model := range p.Models {
-			byPlatform[p.Platform] = append(byPlatform[p.Platform], toModelEntry(model))
+			byPlatform[p.Platform] = append(byPlatform[p.Platform], toPricingModelEntry(model))
 		}
 	}
 	for platform, entries := range byPlatform {

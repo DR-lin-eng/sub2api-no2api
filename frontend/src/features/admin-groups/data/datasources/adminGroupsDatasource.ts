@@ -21,6 +21,16 @@ export interface LiveCapability {
   reason?: string
 }
 
+export interface ModelDefaultPricing {
+  found: boolean
+  input_price?: number
+  output_price?: number
+  cache_write_price?: number
+  cache_read_price?: number
+  image_input_price?: number
+  image_output_price?: number
+}
+
 /**
  * List all groups with pagination
  * @param page - Page number (default: 1)
@@ -89,6 +99,13 @@ export async function getByPlatform(platform: GroupPlatform): Promise<AdminGroup
 /** 获取当前 Sub2API 服务端的 Live 运行环境能力。 */
 export async function getLiveCapability(): Promise<LiveCapability> {
   const { data } = await apiClient.get<LiveCapability>('/admin/groups/live-capability')
+  return data
+}
+
+export async function getModelDefaultPricing(model: string): Promise<ModelDefaultPricing> {
+  const { data } = await apiClient.get<ModelDefaultPricing>('/admin/channels/model-pricing', {
+    params: { model }
+  })
   return data
 }
 

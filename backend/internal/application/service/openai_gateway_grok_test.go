@@ -1021,12 +1021,17 @@ func TestForwardGrokMediaAppliesAccountModelMappingAfterEndpointNormalization(t 
 					"model_mapping": tt.modelMapping,
 				},
 			}
+			repo := &grokQuotaAccountRepo{}
 			upstream := &httpUpstreamRecorder{resp: &http.Response{
 				StatusCode: http.StatusOK,
-				Header:     http.Header{"Content-Type": []string{"application/json"}},
-				Body:       io.NopCloser(strings.NewReader(tt.responseBody)),
+				Header: http.Header{
+					"Content-Type":                   []string{"application/json"},
+					"X-Ratelimit-Limit-Requests":     []string{"100"},
+					"X-Ratelimit-Remaining-Requests": []string{"99"},
+				},
+				Body: io.NopCloser(strings.NewReader(tt.responseBody)),
 			}}
-			svc := &OpenAIGatewayService{httpUpstream: upstream}
+			svc := &OpenAIGatewayService{accountRepo: repo, httpUpstream: upstream}
 
 			result, err := svc.ForwardGrokMedia(context.Background(), c, account, tt.endpoint, "", []byte(tt.body), "application/json")
 
@@ -1035,6 +1040,9 @@ func TestForwardGrokMediaAppliesAccountModelMappingAfterEndpointNormalization(t 
 			require.Equal(t, tt.wantRequestModel, result.Model)
 			require.Equal(t, tt.wantRequestModel, result.BillingModel)
 			require.Equal(t, tt.wantUpstream, result.UpstreamModel)
+			stored, ok := repo.updates[account.ID][grokQuotaSnapshotExtraKey].(*xai.QuotaSnapshot)
+			require.True(t, ok)
+			require.Equal(t, tt.wantUpstream, stored.Model)
 		})
 	}
 }
