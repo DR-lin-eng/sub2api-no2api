@@ -16,13 +16,15 @@ import (
 // direct dependency on the transport layer.
 type Broadcaster interface {
 	BroadcastMessage(conversationID, recipientUserID int64, msg *Message, toAdmins bool)
+	BroadcastReadState(conversationID, recipientUserID int64, reader SenderType, toAdmins bool)
 }
 
 // noopBroadcaster is used until SetBroadcaster is called, so tests and
 // early wiring don't need a real Hub.
 type noopBroadcaster struct{}
 
-func (noopBroadcaster) BroadcastMessage(int64, int64, *Message, bool) {}
+func (noopBroadcaster) BroadcastMessage(int64, int64, *Message, bool)     {}
+func (noopBroadcaster) BroadcastReadState(int64, int64, SenderType, bool) {}
 
 type Service struct {
 	conversationRepo ConversationRepository
@@ -171,13 +173,24 @@ func (s *Service) MarkReadByUser(ctx context.Context, userID int64) error {
 	if err != nil {
 		return err
 	}
-	return s.conversationRepo.MarkRead(ctx, conv.ID, SenderTypeUser)
+	if err := s.conversationRepo.MarkRead(ctx, conv.ID, SenderTypeUser); err != nil {
+		return err
+	}
+	// Broadcast to admins that user has read their messages
+	s.broadcaster.BroadcastReadState(conv.ID, userID, SenderTypeUser, true)
+	return nil
 }
 
 // MarkReadByAdmin clears the admin-side unread counter for the given conversation.
 func (s *Service) MarkReadByAdmin(ctx context.Context, conversationID int64) error {
-	if _, err := s.conversationRepo.GetByID(ctx, conversationID); err != nil {
+	conv, err := s.conversationRepo.GetByID(ctx, conversationID)
+	if err != nil {
 		return err
 	}
-	return s.conversationRepo.MarkRead(ctx, conversationID, SenderTypeAdmin)
+	if err := s.conversationRepo.MarkRead(ctx, conversationID, SenderTypeAdmin); err != nil {
+		return err
+	}
+	// Broadcast to the specific user that admin has read their messages
+	s.broadcaster.BroadcastReadState(conversationID, conv.UserID, SenderTypeAdmin, false)
+	return nil
 }

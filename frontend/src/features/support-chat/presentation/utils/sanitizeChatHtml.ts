@@ -8,6 +8,7 @@ const CHAT_ALLOWED_TAGS = [
   'div',
   'em',
   'i',
+  'img',
   'li',
   'ol',
   'p',
@@ -18,11 +19,11 @@ const CHAT_ALLOWED_TAGS = [
   'ul',
 ]
 
-const CHAT_ALLOWED_ATTR = ['href', 'title']
+const CHAT_ALLOWED_ATTR = ['alt', 'href', 'src', 'title']
 
 // Keep links useful for support replies while rejecting executable, data, and
 // protocol-relative URLs. DOMPurify still applies its normal URI handling.
-const CHAT_ALLOWED_URI = /^(?![^\s]*\\)(?:(?:https?|mailto|tel):|(?:\/(?!\/)|\.\.?\/|[#?]|[^:/?#\s]+(?:[/?#]|$)))/i
+const CHAT_ALLOWED_URI = /^(?![^\s]*\\)(?:(?:https?|mailto|tel|blob):|(?:\/(?!\/)|\.\.?\/|[#?]|[^:/?#\s]+(?:[/?#]|$)))/i
 
 export function sanitizeChatHtml(content: string): string {
   return DOMPurify.sanitize(content, {

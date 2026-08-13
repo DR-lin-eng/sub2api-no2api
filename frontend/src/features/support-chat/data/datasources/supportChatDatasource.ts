@@ -25,6 +25,33 @@ export interface ChatMessage {
   created_at: string
 }
 
+export interface ChatAssetUpload {
+  url: string
+  name: string
+  size: number
+  mime_type: string
+}
+
+export interface ChatImageLibraryItem {
+  id: string
+  name: string
+  category: string
+  url: string
+  size: number
+  mime_type: string
+  created_at: string
+}
+
+export interface ChatStickerItem {
+  id: string
+  name: string
+  group: string
+  url: string
+  size: number
+  mime_type: string
+  created_at: string
+}
+
 export interface ChatConversationListParams {
   page?: number
   page_size?: number
@@ -78,6 +105,18 @@ interface RawSocketEvent {
   Type?: string
   message?: RawChatMessage
   Message?: RawChatMessage
+  read_state?: {
+    conversation_id?: number
+    ConversationID?: number
+    reader?: string
+    Reader?: string
+  }
+  ReadState?: {
+    conversation_id?: number
+    ConversationID?: number
+    reader?: string
+    Reader?: string
+  }
 }
 
 const USER_CHAT_WS_PROTOCOL = 'sub2api-chat'
@@ -136,13 +175,24 @@ function normalizePaginatedConversations(data: PaginatedResponse<RawChatConversa
   }
 }
 
-export function parseChatSocketEvent(raw: string): { type: string; message?: ChatMessage } | null {
+export function parseChatSocketEvent(raw: string): { type: string; message?: ChatMessage; read_state?: { conversation_id: number; reader: 'user' | 'admin' } } | null {
   try {
     const data = JSON.parse(raw) as RawSocketEvent
     const type = stringValue(data.type ?? data.Type)
     const message = data.message ?? data.Message
+    const rawReadState = data.read_state ?? data.ReadState
     if (!type) return null
-    return { type, message: message ? normalizeChatMessage(message) : undefined }
+
+    let readState: { conversation_id: number; reader: 'user' | 'admin' } | undefined
+    if (rawReadState) {
+      const conversationID = numberValue(rawReadState.conversation_id ?? rawReadState.ConversationID)
+      const reader = stringValue(rawReadState.reader ?? rawReadState.Reader)
+      if (conversationID && (reader === 'user' || reader === 'admin')) {
+        readState = { conversation_id: conversationID, reader }
+      }
+    }
+
+    return { type, message: message ? normalizeChatMessage(message) : undefined, read_state: readState }
   } catch {
     return null
   }
@@ -161,6 +211,15 @@ export async function listUserChatMessages(params: ChatMessageListParams): Promi
 export async function sendUserChatMessage(content: string): Promise<ChatMessage> {
   const { data } = await apiClient.post<RawChatMessage>('/chat/messages', { content })
   return normalizeChatMessage(data)
+}
+
+export async function uploadUserChatAsset(file: File): Promise<ChatAssetUpload> {
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await apiClient.post<ChatAssetUpload>('/chat/assets', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data
 }
 
 export async function markUserChatRead(): Promise<void> {
@@ -195,6 +254,63 @@ export async function sendAdminChatMessage(conversationID: number, content: stri
   return normalizeChatMessage(data)
 }
 
+export async function uploadAdminChatAsset(file: File): Promise<ChatAssetUpload> {
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await apiClient.post<ChatAssetUpload>('/admin/chat/assets', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data
+}
+
+export async function listAdminChatImageLibrary(): Promise<ChatImageLibraryItem[]> {
+  const { data } = await apiClient.get<ChatImageLibraryItem[]>('/admin/chat/image-library')
+  return Array.isArray(data) ? data : []
+}
+
+export async function createAdminChatImageLibraryItem(params: {
+  file: File
+  name?: string
+  category?: string
+}): Promise<ChatImageLibraryItem> {
+  const form = new FormData()
+  form.append('file', params.file)
+  if (params.name) form.append('name', params.name)
+  if (params.category) form.append('category', params.category)
+  const { data } = await apiClient.post<ChatImageLibraryItem>('/admin/chat/image-library', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data
+}
+
+export async function deleteAdminChatImageLibraryItem(id: string): Promise<void> {
+  await apiClient.delete(`/admin/chat/image-library/${encodeURIComponent(id)}`)
+}
+
+export async function listAdminChatStickers(): Promise<ChatStickerItem[]> {
+  const { data } = await apiClient.get<ChatStickerItem[]>('/admin/chat/stickers')
+  return Array.isArray(data) ? data : []
+}
+
+export async function createAdminChatSticker(params: {
+  file: File
+  name?: string
+  group?: string
+}): Promise<ChatStickerItem> {
+  const form = new FormData()
+  form.append('file', params.file)
+  if (params.name) form.append('name', params.name)
+  if (params.group) form.append('group', params.group)
+  const { data } = await apiClient.post<ChatStickerItem>('/admin/chat/stickers', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data
+}
+
+export async function deleteAdminChatSticker(id: string): Promise<void> {
+  await apiClient.delete(`/admin/chat/stickers/${encodeURIComponent(id)}`)
+}
+
 export async function markAdminChatRead(conversationID: number): Promise<void> {
   await apiClient.post(`/admin/chat/conversations/${conversationID}/read`)
 }
@@ -205,9 +321,19 @@ export function buildChatWebSocket(scope: 'user' | 'admin'): WebSocket | null {
 
   const path = scope === 'admin' ? '/admin/chat/ws' : '/chat/ws'
   const httpURL = buildApiUrl(path)
-  const url = new URL(httpURL, window.location.origin)
-  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+
+  // 构建完整的 WebSocket URL
+  let wsURL: string
+  if (httpURL.startsWith('http://') || httpURL.startsWith('https://')) {
+    // 绝对 URL：直接替换协议
+    wsURL = httpURL.replace(/^https?:/, httpURL.startsWith('https:') ? 'wss:' : 'ws:')
+  } else {
+    // 相对 URL：基于当前页面构建
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const host = window.location.host
+    wsURL = `${protocol}//${host}${httpURL}`
+  }
 
   const protocol = scope === 'admin' ? ADMIN_CHAT_WS_PROTOCOL : USER_CHAT_WS_PROTOCOL
-  return new WebSocket(url.toString(), [protocol, `jwt.${token}`])
+  return new WebSocket(wsURL, [protocol, `jwt.${token}`])
 }

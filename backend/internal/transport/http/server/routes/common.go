@@ -3,6 +3,8 @@ package routes
 import (
 	"net/http"
 
+	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,6 +19,10 @@ func RegisterCommonRoutes(r *gin.Engine) {
 	r.POST("/api/event_logging/batch", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
+
+	// Public, unguessable support-chat image objects. Upload stays behind
+	// authenticated chat routes; serving must work from plain <img src>.
+	r.GET("/api/v1/chat/assets/:name", supportchatasset.Serve)
 
 	// Setup status endpoint (always returns needs_setup: false in normal mode)
 	// This is used by the frontend to detect when the service has restarted after setup

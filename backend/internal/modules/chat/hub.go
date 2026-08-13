@@ -16,8 +16,15 @@ type conn struct {
 
 // outboundEvent is the JSON payload pushed to connected websocket clients.
 type outboundEvent struct {
-	Type    string   `json:"type"`
-	Message *Message `json:"message,omitempty"`
+	Type      string            `json:"type"`
+	Message   *Message          `json:"message,omitempty"`
+	ReadState *readStatePayload `json:"read_state,omitempty"`
+}
+
+// readStatePayload carries information about who marked what as read.
+type readStatePayload struct {
+	ConversationID int64      `json:"conversation_id"`
+	Reader         SenderType `json:"reader"` // "user" or "admin"
 }
 
 // Hub is a package-level singleton connection registry (constructed once
@@ -89,6 +96,43 @@ func (h *Hub) UnregisterAdmin(c *conn) {
 // connections only.
 func (h *Hub) BroadcastMessage(_ int64, recipientUserID int64, msg *Message, toAdmins bool) {
 	payload, err := json.Marshal(outboundEvent{Type: "message", Message: msg})
+	if err != nil {
+		return
+	}
+
+	h.mu.Lock()
+	var targets []*conn
+	if toAdmins {
+		targets = make([]*conn, 0, len(h.admins))
+		for c := range h.admins {
+			targets = append(targets, c)
+		}
+	} else {
+		targets = append(targets, h.users[recipientUserID]...)
+	}
+	h.mu.Unlock()
+
+	for _, c := range targets {
+		select {
+		case c.send <- payload:
+		default:
+			// Slow consumer: drop rather than block the broadcaster.
+		}
+	}
+}
+
+// BroadcastReadState implements Broadcaster. Pushes a read-state event to
+// notify the other side that their messages have been read. When toAdmins is
+// true (user marked as read), it fans out to all admins; otherwise (admin
+// marked as read) it goes to the specific user.
+func (h *Hub) BroadcastReadState(conversationID int64, recipientUserID int64, reader SenderType, toAdmins bool) {
+	payload, err := json.Marshal(outboundEvent{
+		Type: "read_state",
+		ReadState: &readStatePayload{
+			ConversationID: conversationID,
+			Reader:         reader,
+		},
+	})
 	if err != nil {
 		return
 	}

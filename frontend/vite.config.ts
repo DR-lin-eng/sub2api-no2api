@@ -165,17 +165,19 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': {
           target: backendUrl,
-          changeOrigin: true,
-          ws: true
+          changeOrigin: false,  // 改为 false，保留原始 Host
+          ws: true,
+          rewrite: undefined
         },
         '/v1': {
           target: backendUrl,
-          changeOrigin: true,
-          ws: true
+          changeOrigin: false,
+          ws: true,
+          rewrite: undefined
         },
         '/setup': {
           target: backendUrl,
-          changeOrigin: true,
+          changeOrigin: false,
           ws: true
         }
       }

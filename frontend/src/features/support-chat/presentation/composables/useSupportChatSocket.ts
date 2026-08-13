@@ -9,6 +9,7 @@ export interface SupportChatSocketOptions {
   scope: 'user' | 'admin'
   onMessage: (message: ChatMessage) => void
   onStatusChange?: (connected: boolean) => void
+  onReadState?: (conversationID: number, reader: 'user' | 'admin') => void
 }
 
 const RECONNECT_DELAYS_MS = [800, 1600, 3000, 5000, 15_000, 30_000]
@@ -67,6 +68,8 @@ export function useSupportChatSocket(options: SupportChatSocketOptions) {
       const parsed = parseChatSocketEvent(event.data)
       if (parsed?.type === 'message' && parsed.message) {
         options.onMessage(parsed.message)
+      } else if (parsed?.type === 'read_state' && parsed.read_state) {
+        options.onReadState?.(parsed.read_state.conversation_id, parsed.read_state.reader)
       }
     }
     ws.onerror = () => {

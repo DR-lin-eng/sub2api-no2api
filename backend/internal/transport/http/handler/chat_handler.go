@@ -3,6 +3,8 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
@@ -10,6 +12,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/shared/response"
 	"github.com/Wei-Shaw/sub2api/internal/shared/wsutil"
+	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -33,7 +36,23 @@ func NewChatHandler(chatService *chat.Service, hub *chat.Hub) *ChatHandler {
 		hub:         hub,
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
-				return wsutil.IsAllowedOrigin(r, true, wsutil.DefaultTrustedProxies(), wsutil.OriginPolicyPermissive)
+				// In development with Vite proxy (changeOrigin: false), the Host header
+				// is preserved as the frontend's host (e.g., localhost:3000).
+				// Accept requests where Origin matches Host for local development.
+				origin := strings.TrimSpace(r.Header.Get("Origin"))
+				if origin == "" {
+					return true
+				}
+
+				originURL, err := url.Parse(origin)
+				if err != nil {
+					return false
+				}
+
+				reqHost := strings.ToLower(strings.TrimSpace(r.Host))
+				originHost := strings.ToLower(originURL.Host)
+
+				return originHost == reqHost
 			},
 			Subprotocols: []string{"sub2api-chat"},
 		},
@@ -131,6 +150,12 @@ func (h *ChatHandler) SendMessage(c *gin.Context) {
 	response.Success(c, msg)
 }
 
+// UploadAsset stores an image that can be embedded in a support-chat message.
+// POST /api/v1/chat/assets
+func (h *ChatHandler) UploadAsset(c *gin.Context) {
+	supportchatasset.Upload(c)
+}
+
 // MarkRead clears the caller's own unread counter.
 // POST /api/v1/chat/read
 func (h *ChatHandler) MarkRead(c *gin.Context) {
@@ -155,7 +180,7 @@ const (
 	chatWSPingInterval   = 30 * time.Second
 	chatWSMaxReadBytes   = 1024
 	chatWSSendBufferSize = 16
-	chatWSMaxAuthAge     = 5 * time.Minute
+	chatWSMaxAuthAge     = 0
 )
 
 // WS handles the realtime push connection for the caller's own conversation.
@@ -185,14 +210,12 @@ func (h *ChatHandler) WS(c *gin.Context) {
 	send := make(chan []byte, chatWSSendBufferSize)
 	handle := h.hub.RegisterUser(subject.UserID, send)
 	defer h.hub.UnregisterUser(subject.UserID, handle)
-	authExpiresAt, _ := middleware2.GetJWTExpiresAtFromContext(c)
 
 	wsutil.PumpWebSocket(conn, send, wsutil.PumpConfig{
-		WriteTimeout:  chatWSWriteTimeout,
-		PongWait:      chatWSPongWait,
-		PingInterval:  chatWSPingInterval,
-		MaxReadBytes:  chatWSMaxReadBytes,
-		AuthExpiresAt: authExpiresAt,
-		MaxAuthAge:    chatWSMaxAuthAge,
+		WriteTimeout: chatWSWriteTimeout,
+		PongWait:     chatWSPongWait,
+		PingInterval: chatWSPingInterval,
+		MaxReadBytes: chatWSMaxReadBytes,
+		MaxAuthAge:   chatWSMaxAuthAge,
 	})
 }

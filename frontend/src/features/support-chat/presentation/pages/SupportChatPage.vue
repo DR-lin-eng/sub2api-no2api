@@ -30,27 +30,47 @@
           <p class="text-sm font-medium text-gray-700 dark:text-dark-200">{{ t('supportChat.emptyTitle') }}</p>
           <p class="mt-1 text-sm">{{ t('supportChat.emptyDescription') }}</p>
         </div>
-        <SupportMessageList v-else :messages="messages" own-sender="user" />
+        <SupportMessageList
+          v-else
+          :messages="messages"
+          own-sender="user"
+          :receiver-unread-count="conversation?.unread_by_admin ?? 0"
+        />
       </div>
 
-      <SupportMessageComposer :sending="sending" :disabled="loading" @submit="handleSend" />
+      <SupportMessageComposer
+        :sending="sending"
+        :disabled="loading"
+        draft-key="user:support"
+        :clear-nonce="composerClearNonce"
+        @submit="handleSend"
+        @submit-rich="handleRichSend"
+      />
     </section>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import { useAppStore } from '@/core/stores/appStore'
 import {
+  getUserChatConversation,
   listUserChatMessages,
   markUserChatRead,
   sendUserChatMessage,
+  uploadUserChatAsset,
+  type ChatConversation,
   type ChatMessage,
 } from '@/features/support-chat/data/datasources/supportChatDatasource'
 import { useSupportChatSocket } from '@/features/support-chat/presentation/composables/useSupportChatSocket'
 import { useSupportChatAdminStore } from '@/features/support-chat/presentation/stores/supportChatAdminStore'
+import {
+  appendTextContent,
+  buildImageMessageContent,
+  buildStickerMessageContent,
+} from '@/features/support-chat/presentation/utils/supportChatMessageContent'
 import SupportMessageComposer from '@/features/support-chat/presentation/widgets/SupportMessageComposer.vue'
 import SupportMessageList from '@/features/support-chat/presentation/widgets/SupportMessageList.vue'
 
@@ -60,10 +80,22 @@ const supportChatAdminStore = useSupportChatAdminStore()
 const loading = ref(false)
 const sending = ref(false)
 const messages = ref<ChatMessage[]>([])
+const conversation = ref<ChatConversation | null>(null)
 const messagePaneRef = ref<HTMLElement | null>(null)
 const socketConnected = ref(false)
-let fallbackPollTimer: ReturnType<typeof setInterval> | null = null
-const SUPPORT_CHAT_RESYNC_MS = 15000
+const composerClearNonce = ref(0)
+const pageVisible = ref(!document.hidden)
+let optimisticMessageSeed = 0
+
+type ComposerAttachment =
+  | { type: 'imageFile'; file: File; previewUrl: string; name: string }
+  | { type: 'imageUrl'; url: string; name: string }
+  | { type: 'sticker'; id: string; name: string; url?: string; emoji?: string }
+
+interface ComposerSubmitPayload {
+  text: string
+  attachment: ComposerAttachment | null
+}
 
 const socket = useSupportChatSocket({
   scope: 'user',
@@ -73,20 +105,44 @@ const socket = useSupportChatSocket({
   onMessage: (message) => {
     appendMessage(message)
     if (message.sender_type === 'admin') {
+      // Mark as unread, will be cleared when user views the page
       appStore.setSupportUserUnread(true)
       supportChatAdminStore.markUserHasUnread()
-      void markUserChatRead().then(() => {
-        appStore.setSupportUserUnread(false)
-        supportChatAdminStore.markUserRead()
-      })
+      if (conversation.value) {
+        conversation.value.unread_by_user += 1
+      }
+      // Only auto-mark as read if user is actively viewing the page
+      if (pageVisible.value) {
+        void markAsReadIfVisible()
+      }
     }
     void scrollToBottom()
+  },
+  onReadState: (conversationID, reader) => {
+    // When admin marks as read, clear unread_by_admin for this conversation
+    if (reader === 'admin' && conversation.value?.id === conversationID) {
+      conversation.value.unread_by_admin = 0
+    }
   },
 })
 
 function appendMessage(message: ChatMessage) {
   if (messages.value.some((item) => item.id === message.id)) return
   messages.value.push(message)
+}
+
+function mergeMessages(nextMessages: ChatMessage[]): boolean {
+  let changed = false
+  for (const message of nextMessages) {
+    const index = messages.value.findIndex((item) => item.id === message.id)
+    if (index >= 0) {
+      messages.value[index] = { ...messages.value[index], ...message }
+    } else {
+      messages.value.push(message)
+      changed = true
+    }
+  }
+  return changed
 }
 
 function messageScrollSignature(): string {
@@ -102,23 +158,88 @@ function errorMessage(error: unknown, fallback: string): string {
   return fallback
 }
 
+function imageMessageContent(url: string, name: string): string {
+  return buildImageMessageContent(url, name, t('supportChat.composer.imageAlt'))
+}
+
+function stickerMessageContent(sticker: { id: string; name: string; url?: string; emoji?: string }): string {
+  return buildStickerMessageContent(sticker)
+}
+
+function nextOptimisticMessageID(): number {
+  optimisticMessageSeed += 1
+  return -(Date.now() + optimisticMessageSeed)
+}
+
+function appendOptimisticMessage(content: string): ChatMessage | null {
+  if (!conversation.value || !content) return null
+  const message: ChatMessage = {
+    id: nextOptimisticMessageID(),
+    conversation_id: conversation.value.id,
+    sender_type: 'user',
+    sender_id: conversation.value.user_id,
+    content,
+    created_at: new Date().toISOString(),
+  }
+  appendMessage(message)
+  return message
+}
+
+function replaceMessage(messageID: number, nextMessage: ChatMessage) {
+  messages.value = messages.value.filter((item) => item.id === messageID || item.id !== nextMessage.id)
+  const index = messages.value.findIndex((item) => item.id === messageID)
+  if (index >= 0) {
+    messages.value.splice(index, 1, nextMessage)
+    return
+  }
+  appendMessage(nextMessage)
+}
+
 async function scrollToBottom() {
   await nextTick()
   const pane = messagePaneRef.value
   if (pane) pane.scrollTop = pane.scrollHeight
 }
 
+async function markAsReadIfVisible() {
+  // Only mark as read if page is visible and user has scrolled near bottom
+  if (!pageVisible.value || !conversation.value) return
+  const pane = messagePaneRef.value
+  if (!pane) return
+
+  // Check if user is near bottom (within 100px)
+  const isNearBottom = pane.scrollHeight - pane.scrollTop - pane.clientHeight < 100
+  if (!isNearBottom) return
+
+  // Mark as read
+  await markUserChatRead()
+  if (conversation.value) conversation.value.unread_by_user = 0
+  appStore.setSupportUserUnread(false)
+  supportChatAdminStore.markUserRead()
+}
+
+function handleVisibilityChange() {
+  pageVisible.value = !document.hidden
+  if (pageVisible.value) {
+    void markAsReadIfVisible()
+  }
+}
+
 async function syncMessages(showLoading: boolean) {
   if (showLoading) loading.value = true
   try {
+    conversation.value = await getUserChatConversation()
     const page = await listUserChatMessages({ page: 1, page_size: 100 })
-    messages.value = page.items
-    if (page.total > 0) {
-      await markUserChatRead()
-      appStore.setSupportUserUnread(false)
-      supportChatAdminStore.markUserRead()
+    if (showLoading) {
+      messages.value = page.items
+    } else {
+      mergeMessages(page.items)
     }
     await scrollToBottom()
+    // Mark as read only if user is viewing the page
+    if (page.total > 0 && pageVisible.value) {
+      await markAsReadIfVisible()
+    }
   } catch (error) {
     appStore.showError(errorMessage(error, t('supportChat.loadFailed')))
   } finally {
@@ -130,16 +251,13 @@ async function reload() {
   await syncMessages(true)
 }
 
-async function resyncMessages() {
-  if (loading.value || sending.value) return
-  await syncMessages(false)
-}
-
 async function handleSend(content: string) {
   sending.value = true
   try {
     const message = await sendUserChatMessage(content)
     appendMessage(message)
+    if (conversation.value) conversation.value.unread_by_admin += 1
+    composerClearNonce.value += 1
     await scrollToBottom()
   } catch (error) {
     appStore.showError(errorMessage(error, t('supportChat.sendFailed')))
@@ -148,22 +266,73 @@ async function handleSend(content: string) {
   }
 }
 
+async function handleRichSend(payload: ComposerSubmitPayload) {
+  sending.value = true
+  let optimisticMessage: ChatMessage | null = null
+  let shouldRevokePreviewUrl: string | null = null
+  try {
+    let content = payload.text.trim()
+    if (payload.attachment?.type === 'imageFile') {
+      const optimisticContent = appendTextContent(content, imageMessageContent(payload.attachment.previewUrl, payload.attachment.name))
+      optimisticMessage = appendOptimisticMessage(optimisticContent)
+      shouldRevokePreviewUrl = payload.attachment.previewUrl
+      composerClearNonce.value += 1
+      await scrollToBottom()
+      const asset = await uploadUserChatAsset(payload.attachment.file)
+      content = appendTextContent(content, imageMessageContent(asset.url, asset.name || payload.attachment.name))
+    } else if (payload.attachment?.type === 'imageUrl') {
+      content = appendTextContent(content, imageMessageContent(payload.attachment.url, payload.attachment.name))
+      optimisticMessage = appendOptimisticMessage(content)
+      composerClearNonce.value += 1
+      await scrollToBottom()
+    } else if (payload.attachment?.type === 'sticker') {
+      content = appendTextContent(content, stickerMessageContent(payload.attachment))
+      optimisticMessage = appendOptimisticMessage(content)
+      composerClearNonce.value += 1
+      await scrollToBottom()
+    }
+    if (!content) return
+    const message = await sendUserChatMessage(content)
+    if (optimisticMessage) {
+      replaceMessage(optimisticMessage.id, message)
+    } else {
+      appendMessage(message)
+    }
+    if (conversation.value) conversation.value.unread_by_admin += 1
+    composerClearNonce.value += 1
+    await scrollToBottom()
+  } catch (error) {
+    if (optimisticMessage) {
+      const optimisticMessageID = optimisticMessage.id
+      messages.value = messages.value.filter((item) => item.id !== optimisticMessageID)
+    }
+    appStore.showError(errorMessage(error, t('supportChat.sendFailed')))
+  } finally {
+    if (shouldRevokePreviewUrl) URL.revokeObjectURL(shouldRevokePreviewUrl)
+    sending.value = false
+  }
+}
+
 onMounted(async () => {
   await reload()
   socket.connect()
-  fallbackPollTimer = setInterval(() => {
-    void resyncMessages()
-  }, SUPPORT_CHAT_RESYNC_MS)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+
+  // Mark as read when user scrolls
+  const pane = messagePaneRef.value
+  if (pane) {
+    pane.addEventListener('scroll', () => {
+      void markAsReadIfVisible()
+    })
+  }
+})
+
+onUnmounted(() => {
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 
 watch(messageScrollSignature, () => {
   void scrollToBottom()
 }, { flush: 'post' })
 
-onBeforeUnmount(() => {
-  if (fallbackPollTimer) {
-    clearInterval(fallbackPollTimer)
-    fallbackPollTimer = null
-  }
-})
 </script>

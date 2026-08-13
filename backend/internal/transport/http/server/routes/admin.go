@@ -132,8 +132,15 @@ func registerChatRoutes(admin *gin.RouterGroup, h *handler.Handlers, settingServ
 	{
 		chat.GET("/conversations", h.Admin.Chat.ListConversations)
 		chat.GET("/unread-count", h.Admin.Chat.GetUnreadCount)
+		chat.GET("/image-library", h.Admin.Chat.ListLibrary)
+		chat.POST("/image-library", h.Admin.Chat.CreateLibraryItem)
+		chat.DELETE("/image-library/:id", h.Admin.Chat.DeleteLibraryItem)
+		chat.GET("/stickers", h.Admin.Chat.ListStickers)
+		chat.POST("/stickers", h.Admin.Chat.CreateSticker)
+		chat.DELETE("/stickers/:id", h.Admin.Chat.DeleteSticker)
 		chat.GET("/conversations/:id/messages", h.Admin.Chat.ListMessages)
 		chat.POST("/conversations/:id/messages", h.Admin.Chat.SendMessage)
+		chat.POST("/assets", h.Admin.Chat.UploadAsset)
 		chat.POST("/conversations/:id/read", h.Admin.Chat.MarkRead)
 		chat.GET("/ws", h.Admin.Chat.WS)
 	}
