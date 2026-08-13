@@ -61,8 +61,8 @@ export interface KeysTableContext {
   ) => void
   openGroupSelector: (key: ApiKey) => void
   userGroupRates: Ref<Record<number, number>>
-  usageStatsLoading: Ref<boolean>
-  usageStatsError: Ref<boolean>
+  isUsageStatsLoading: (apiKeyId: number) => boolean
+  hasUsageStatsError: (apiKeyId: number) => boolean
   pendingUsageAvailable: Ref<boolean>
   usageCost: (
     apiKeyId: number,

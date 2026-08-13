@@ -3,7 +3,7 @@
 API Key feature 负责密钥列表、创建编辑、用量刷新和客户端导入。
 
 - `data/datasources/`: API Key CRUD、用量与待结算查询协议。
-- `presentation/pages/`: 列表请求、5s/60s 刷新调度、visibility 和弹窗编排。
+- `presentation/pages/`: 列表请求、用量小批次有界并发、5s/60s 刷新调度、visibility 和弹窗编排。
 - `presentation/widgets/`: 表格、创建编辑器、端点说明和使用说明。
 - `presentation/resolvers/`: 客户端配置的纯序列化逻辑与 feature-private 静态模型目录。
 - `presentation/keysPageContext.ts`: 表格与编辑器消费的有界类型契约。

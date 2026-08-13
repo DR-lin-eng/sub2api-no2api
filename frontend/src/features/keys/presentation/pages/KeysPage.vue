@@ -412,11 +412,13 @@ let usageRefreshTimer: ReturnType<typeof setTimeout> | null = null
 let usageRefreshAbortController: AbortController | null = null
 let lastFullUsageRefreshAt = 0
 const usageStats = ref<Record<string, BatchApiKeyUsageStats>>({})
-const usageStatsLoading = ref(false)
-const usageStatsError = ref(false)
+const usageStatsLoadingKeyIds = ref<Set<number>>(new Set())
+const usageStatsErrorKeyIds = ref<Set<number>>(new Set())
 const pendingUsageAvailable = ref(true)
 const userGroupRates = ref<Record<number, number>>({})
 
+const isUsageStatsLoading = (apiKeyId: number) => usageStatsLoadingKeyIds.value.has(apiKeyId)
+const hasUsageStatsError = (apiKeyId: number) => usageStatsErrorKeyIds.value.has(apiKeyId)
 const pendingUsage = (apiKeyId: number) => Number(usageStats.value[apiKeyId]?.pending_actual_cost ?? 0)
 const usageCost = (apiKeyId: number, field: 'today_actual_cost' | 'total_actual_cost') =>
   Number(usageStats.value[apiKeyId]?.[field] ?? 0)
@@ -464,6 +466,8 @@ const ACTIVE_PENDING_REFRESH_MS = 5000
 const IDLE_PENDING_REFRESH_MS = 60000
 const FULL_USAGE_REFRESH_MS = 60000
 const PENDING_USAGE_EPSILON = 0.0000000001
+const USAGE_STATS_BATCH_SIZE = 5
+const USAGE_STATS_REQUEST_CONCURRENCY = 2
 
 // Get the currently selected key for group change
 const selectedKeyForGroup = computed(() => {
@@ -604,6 +608,76 @@ const isAbortError = (error: unknown) => {
   return name === 'AbortError' || code === 'ERR_CANCELED'
 }
 
+const updateUsageKeySet = (current: Set<number>, apiKeyIds: number[], enabled: boolean) => {
+  const next = new Set(current)
+  for (const apiKeyId of apiKeyIds) {
+    if (enabled) {
+      next.add(apiKeyId)
+    } else {
+      next.delete(apiKeyId)
+    }
+  }
+  return next
+}
+
+const loadUsageStatsInBatches = async (apiKeyIds: number[], signal: AbortSignal) => {
+  const batches: number[][] = []
+  for (let start = 0; start < apiKeyIds.length; start += USAGE_STATS_BATCH_SIZE) {
+    batches.push(apiKeyIds.slice(start, start + USAGE_STATS_BATCH_SIZE))
+  }
+
+  let nextBatchIndex = 0
+  let receivedResponse = false
+  let allPendingUsageAvailable = true
+  const worker = async () => {
+    while (!signal.aborted) {
+      const batchIndex = nextBatchIndex
+      nextBatchIndex += 1
+      if (batchIndex >= batches.length) return
+
+      const batch = batches[batchIndex]
+      try {
+        const response = await usageAPI.getDashboardApiKeysUsage(batch, { signal })
+        if (signal.aborted) return
+        receivedResponse = true
+        usageStats.value = { ...usageStats.value, ...response.stats }
+        allPendingUsageAvailable =
+          allPendingUsageAvailable && response.pending_usage_available !== false
+        usageStatsErrorKeyIds.value = updateUsageKeySet(
+          usageStatsErrorKeyIds.value,
+          batch,
+          false
+        )
+      } catch (error) {
+        if (signal.aborted || isAbortError(error)) return
+        const missingStatsKeyIds = batch.filter((apiKeyId) => !usageStats.value[apiKeyId])
+        if (missingStatsKeyIds.length > 0) {
+          usageStatsErrorKeyIds.value = updateUsageKeySet(
+            usageStatsErrorKeyIds.value,
+            missingStatsKeyIds,
+            true
+          )
+        }
+        console.error('Failed to load API key usage batch:', error)
+      } finally {
+        if (!signal.aborted) {
+          usageStatsLoadingKeyIds.value = updateUsageKeySet(
+            usageStatsLoadingKeyIds.value,
+            batch,
+            false
+          )
+        }
+      }
+    }
+  }
+
+  const workerCount = Math.min(USAGE_STATS_REQUEST_CONCURRENCY, batches.length)
+  await Promise.all(Array.from({ length: workerCount }, () => worker()))
+  if (!signal.aborted && receivedResponse) {
+    pendingUsageAvailable.value = allPendingUsageAvailable
+  }
+}
+
 const hasPendingUsage = () =>
   pendingUsageAvailable.value &&
   apiKeys.value.some((apiKey) => pendingUsage(apiKey.id) > PENDING_USAGE_EPSILON)
@@ -650,11 +724,8 @@ const refreshVisibleUsage = async () => {
   try {
     const shouldRefreshFullStats = Date.now() - lastFullUsageRefreshAt >= FULL_USAGE_REFRESH_MS
     if (shouldRefreshFullStats) {
-      const response = await usageAPI.getDashboardApiKeysUsage(keyIds, { signal: controller.signal })
+      await loadUsageStatsInBatches(keyIds, controller.signal)
       if (controller.signal.aborted) return
-      usageStats.value = response.stats
-      pendingUsageAvailable.value = response.pending_usage_available !== false
-      usageStatsError.value = false
       lastFullUsageRefreshAt = Date.now()
     } else {
       const response = await usageAPI.getDashboardApiKeysPendingUsage(keyIds, { signal: controller.signal })
@@ -665,11 +736,8 @@ const refreshVisibleUsage = async () => {
       }
 
       if (hadPending && !hasPendingUsage()) {
-        const settledResponse = await usageAPI.getDashboardApiKeysUsage(keyIds, { signal: controller.signal })
+        await loadUsageStatsInBatches(keyIds, controller.signal)
         if (controller.signal.aborted) return
-        usageStats.value = settledResponse.stats
-        pendingUsageAvailable.value = settledResponse.pending_usage_available !== false
-        usageStatsError.value = false
         lastFullUsageRefreshAt = Date.now()
       }
     }
@@ -701,8 +769,8 @@ const loadApiKeys = async () => {
   const { signal } = controller
   loading.value = true
   usageStats.value = {}
-  usageStatsLoading.value = true
-  usageStatsError.value = false
+  usageStatsLoadingKeyIds.value = new Set()
+  usageStatsErrorKeyIds.value = new Set()
   pendingUsageAvailable.value = true
   try {
     // Build filters
@@ -723,6 +791,8 @@ const loadApiKeys = async () => {
       signal
     })
     if (signal.aborted) return
+    const keyIds = response.items.map((apiKey) => apiKey.id)
+    usageStatsLoadingKeyIds.value = new Set(keyIds)
     apiKeys.value = response.items
     pagination.value.total = response.total
     pagination.value.pages = response.pages
@@ -733,21 +803,10 @@ const loadApiKeys = async () => {
       loading.value = false
     }
 
-    // Load usage stats for all API keys in the list
-    if (response.items.length > 0) {
-      const keyIds = response.items.map((k) => k.id)
-      try {
-        const usageResponse = await usageAPI.getDashboardApiKeysUsage(keyIds, { signal })
-        if (signal.aborted) return
-        usageStats.value = usageResponse.stats
-        pendingUsageAvailable.value = usageResponse.pending_usage_available !== false
-        lastFullUsageRefreshAt = Date.now()
-      } catch (e) {
-        if (!isAbortError(e)) {
-          console.error('Failed to load usage stats:', e)
-          usageStatsError.value = true
-        }
-      }
+    if (keyIds.length > 0) {
+      await loadUsageStatsInBatches(keyIds, signal)
+      if (signal.aborted) return
+      lastFullUsageRefreshAt = Date.now()
     }
   } catch (error) {
     if (isAbortError(error)) {
@@ -757,7 +816,6 @@ const loadApiKeys = async () => {
   } finally {
     if (abortController === controller) {
       loading.value = false
-      usageStatsLoading.value = false
       scheduleUsageRefresh()
     }
   }
@@ -1223,8 +1281,8 @@ const keysTableContext: KeysTableContext = {
   setGroupButtonRef,
   openGroupSelector,
   userGroupRates,
-  usageStatsLoading,
-  usageStatsError,
+  isUsageStatsLoading,
+  hasUsageStatsError,
   pendingUsageAvailable,
   usageCost,
   pendingUsage,

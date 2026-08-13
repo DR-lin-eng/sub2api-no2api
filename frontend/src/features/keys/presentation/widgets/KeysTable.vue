@@ -23,7 +23,9 @@ const {
   editKey,
   formatResetTime,
   handleSort,
+  hasUsageStatsError,
   importToCcswitch,
+  isUsageStatsLoading,
   loading,
   openGroupSelector,
   openUseKeyModal,
@@ -35,8 +37,6 @@ const {
   showCreateModal,
   toggleKeyStatus,
   usageCost,
-  usageStatsError,
-  usageStatsLoading,
   userGroupRates
 } = props.context
 </script>
@@ -149,10 +149,10 @@ const {
           </template>
 
           <template #cell-usage="{ row }">
-            <div v-if="usageStatsLoading" class="text-xs text-gray-400 dark:text-dark-500">
+            <div v-if="isUsageStatsLoading(row.id)" class="text-xs text-gray-400 dark:text-dark-500">
               {{ t('common.loading') }}
             </div>
-            <div v-else-if="usageStatsError" class="text-xs font-medium text-red-500">
+            <div v-else-if="hasUsageStatsError(row.id)" class="text-xs font-medium text-red-500">
               {{ t('keys.usageLoadFailed') }}
             </div>
             <div v-else class="text-sm">

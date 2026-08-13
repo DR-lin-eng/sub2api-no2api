@@ -186,7 +186,7 @@ const DataTableStub = {
         <div data-test="current-concurrency">
           <slot name="cell-current_concurrency" :value="row.current_concurrency" :row="row" />
         </div>
-        <div data-test="usage">
+        <div data-test="usage" :data-key-id="row.id">
           <slot name="cell-usage" :row="row" />
         </div>
         <div
@@ -459,6 +459,116 @@ describe('user KeysView column settings', () => {
     expect(usage).not.toContain('$0.0000')
   })
 
+  it('splits 25 API keys into five usage requests', async () => {
+    const items = Array.from({ length: 25 }, (_, index) => ({
+      ...createApiKey(),
+      id: index + 1,
+      name: `key-${index + 1}`,
+    }))
+    listKeys.mockResolvedValueOnce({
+      items,
+      total: items.length,
+      page: 1,
+      page_size: 25,
+      pages: 1,
+    })
+
+    const wrapper = await mountView()
+
+    expect(getDashboardApiKeysUsage).toHaveBeenCalledTimes(5)
+    expect(getDashboardApiKeysUsage.mock.calls.map(([ids]) => ids)).toEqual([
+      [1, 2, 3, 4, 5],
+      [6, 7, 8, 9, 10],
+      [11, 12, 13, 14, 15],
+      [16, 17, 18, 19, 20],
+      [21, 22, 23, 24, 25],
+    ])
+    wrapper.unmount()
+  })
+
+  it('limits API key usage requests to two concurrent batches', async () => {
+    const items = Array.from({ length: 25 }, (_, index) => ({
+      ...createApiKey(),
+      id: index + 1,
+      name: `key-${index + 1}`,
+    }))
+    listKeys.mockResolvedValueOnce({
+      items,
+      total: items.length,
+      page: 1,
+      page_size: 25,
+      pages: 1,
+    })
+
+    let activeRequests = 0
+    let maxActiveRequests = 0
+    const resolveRequests: Array<() => void> = []
+    getDashboardApiKeysUsage.mockImplementation(() => {
+      activeRequests += 1
+      maxActiveRequests = Math.max(maxActiveRequests, activeRequests)
+      return new Promise((resolve) => {
+        resolveRequests.push(() => {
+          activeRequests -= 1
+          resolve({ stats: {}, pending_usage_available: true })
+        })
+      })
+    })
+
+    const wrapper = await mountView()
+    expect(getDashboardApiKeysUsage).toHaveBeenCalledTimes(2)
+
+    while (getDashboardApiKeysUsage.mock.calls.length < 5 || activeRequests > 0) {
+      const resolveNext = resolveRequests.shift()
+      expect(resolveNext).toBeDefined()
+      resolveNext?.()
+      await flushPromises()
+    }
+
+    expect(getDashboardApiKeysUsage).toHaveBeenCalledTimes(5)
+    expect(maxActiveRequests).toBe(2)
+    wrapper.unmount()
+  })
+
+  it('keeps successful usage batches visible when one batch fails', async () => {
+    const items = Array.from({ length: 10 }, (_, index) => ({
+      ...createApiKey(),
+      id: index + 1,
+      name: `key-${index + 1}`,
+    }))
+    listKeys.mockResolvedValueOnce({
+      items,
+      total: items.length,
+      page: 1,
+      page_size: 10,
+      pages: 1,
+    })
+    getDashboardApiKeysUsage.mockImplementation(async (ids: number[]) => {
+      if (ids.includes(6)) throw new Error('one usage batch timed out')
+      return {
+        pending_usage_available: true,
+        stats: Object.fromEntries(ids.map((id) => [id, {
+          api_key_id: id,
+          today_actual_cost: id,
+          total_actual_cost: id * 2,
+          total_tokens: id * 10,
+          pending_actual_cost: 0,
+        }])),
+      }
+    })
+
+    const wrapper = await mountView()
+
+    const successfulUsage = wrapper.get('[data-test="usage"][data-key-id="1"]').text()
+    expect(successfulUsage).toContain('$1.0000')
+    expect(successfulUsage).toContain('$2.0000')
+    expect(successfulUsage).not.toContain('Usage unavailable')
+
+    const failedUsage = wrapper.get('[data-test="usage"][data-key-id="6"]').text()
+    expect(failedUsage).toContain('Usage unavailable')
+    expect(failedUsage).not.toContain('$0.0000')
+    wrapper.unmount()
+  })
+
   it('renders API keys while usage stats continue loading', async () => {
     let resolveUsage!: (value: { stats: Record<string, never> }) => void
     getDashboardApiKeysUsage.mockReturnValueOnce(new Promise((resolve) => {
@@ -528,6 +638,35 @@ describe('user KeysView column settings', () => {
     const usage = wrapper.get('[data-test="usage"]').text()
     expect(usage).toContain('$1.4000')
     expect(usage).not.toContain('Of which pending')
+    wrapper.unmount()
+  })
+
+  it('keeps the last successful usage values when a background refresh fails', async () => {
+    vi.useFakeTimers()
+    getDashboardApiKeysUsage
+      .mockResolvedValueOnce({
+        pending_usage_available: false,
+        stats: {
+          1: {
+            api_key_id: 1,
+            today_actual_cost: 1.1,
+            total_actual_cost: 2.2,
+            total_tokens: 10,
+            pending_actual_cost: 0,
+          },
+        },
+      })
+      .mockRejectedValueOnce(new Error('background refresh timed out'))
+
+    const wrapper = await mountView()
+    await vi.advanceTimersByTimeAsync(60000)
+    await flushPromises()
+
+    const usage = wrapper.get('[data-test="usage"]').text()
+    expect(usage).toContain('$1.1000')
+    expect(usage).toContain('$2.2000')
+    expect(usage).toContain('Pending usage syncing')
+    expect(usage).not.toContain('Usage unavailable')
     wrapper.unmount()
   })
 
