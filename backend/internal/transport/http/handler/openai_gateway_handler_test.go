@@ -1862,6 +1862,7 @@ type openAIWSFailoverHandlerAccountRepoStub struct {
 
 type openAIHTTPPassthroughFailoverUpstream struct {
 	service.HTTPUpstream
+	statusCode int
 	mu         sync.Mutex
 	accountIDs []int64
 }
@@ -1870,8 +1871,12 @@ func (u *openAIHTTPPassthroughFailoverUpstream) Do(_ *http.Request, _ string, ac
 	u.mu.Lock()
 	u.accountIDs = append(u.accountIDs, accountID)
 	u.mu.Unlock()
+	statusCode := u.statusCode
+	if statusCode == 0 {
+		statusCode = http.StatusBadGateway
+	}
 	return &http.Response{
-		StatusCode: http.StatusBadGateway,
+		StatusCode: statusCode,
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
 		Body:       io.NopCloser(strings.NewReader(`{"error":{"message":"temporary upstream failure"}}`)),
 	}, nil
@@ -1993,7 +1998,7 @@ func (s *openAIWSUsageHandlerChannelRepoStub) GetGroupPlatforms(ctx context.Cont
 	return out, nil
 }
 
-func TestOpenAIResponses_APIKeyPassthroughPool5xxSwitchesImmediatelyThenExhaustsMaxSwitches(t *testing.T) {
+func TestOpenAIResponses_APIKeyPassthroughPool429RetriesThenExhaustsMaxSwitches(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	groupID := int64(4203)
 	accounts := []service.Account{
@@ -2001,11 +2006,10 @@ func TestOpenAIResponses_APIKeyPassthroughPool5xxSwitchesImmediatelyThenExhausts
 			ID: 9910, Name: "pool-api-key", Platform: service.PlatformOpenAI,
 			Type: service.AccountTypeAPIKey, Status: service.StatusActive, Schedulable: true, Priority: 1,
 			Credentials: map[string]any{
-				"api_key":                      "sk-pool",
-				"base_url":                     "https://api.example.test",
-				"pool_mode":                    true,
-				"pool_mode_retry_count":        float64(1),
-				"pool_mode_retry_status_codes": []any{float64(http.StatusBadGateway)},
+				"api_key":               "sk-pool",
+				"base_url":              "https://api.example.test",
+				"pool_mode":             true,
+				"pool_mode_retry_count": float64(1),
 			},
 			Extra: map[string]any{"openai_passthrough": true},
 		},
@@ -2025,7 +2029,7 @@ func TestOpenAIResponses_APIKeyPassthroughPool5xxSwitchesImmediatelyThenExhausts
 	cfg.Gateway.MaxAccountSwitches = 1
 
 	accountRepo := &openAIWSFailoverHandlerAccountRepoStub{accounts: accounts}
-	upstream := &openAIHTTPPassthroughFailoverUpstream{}
+	upstream := &openAIHTTPPassthroughFailoverUpstream{statusCode: http.StatusTooManyRequests}
 	billingCacheSvc := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg, nil)
 	t.Cleanup(billingCacheSvc.Stop)
 	gatewaySvc := service.NewOpenAIGatewayService(
@@ -2077,10 +2081,10 @@ func TestOpenAIResponses_APIKeyPassthroughPool5xxSwitchesImmediatelyThenExhausts
 
 	h.Responses(c)
 
-	require.Equal(t, []int64{9910, 9911}, upstream.calls())
-	require.Equal(t, http.StatusBadGateway, rec.Code)
+	require.Equal(t, []int64{9910, 9910, 9911}, upstream.calls())
+	require.Equal(t, http.StatusTooManyRequests, rec.Code)
 	require.Equal(t, "upstream_error", gjson.GetBytes(rec.Body.Bytes(), "error.type").String())
-	require.Equal(t, "Upstream service temporarily unavailable", gjson.GetBytes(rec.Body.Bytes(), "error.message").String())
+	require.Equal(t, "Upstream request failed", gjson.GetBytes(rec.Body.Bytes(), "error.message").String())
 }
 
 func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T) {

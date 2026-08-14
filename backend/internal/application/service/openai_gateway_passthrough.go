@@ -25,6 +25,16 @@ import (
 	"go.uber.org/zap"
 )
 
+const openAIPassthroughTransportRetryReason GatewayFailureReason = "openai_passthrough_transport_retry"
+
+func markOpenAIPassthroughTransportRetry(err *UpstreamFailoverError) {
+	if err == nil {
+		return
+	}
+	err.RetryableOnSameAccount = true
+	err.Reason = openAIPassthroughTransportRetryReason
+}
+
 const openAIPassthroughPreOutputBufferLimit = openAIStreamPreOutputBufferLimit
 
 func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
@@ -77,6 +87,9 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 		}
 		var failoverErr *UpstreamFailoverError
 		if !errors.As(err, &failoverErr) || !failoverErr.RetryableOnSameAccount {
+			return result, err
+		}
+		if failoverErr.Reason != openAIPassthroughTransportRetryReason {
 			return result, err
 		}
 		if completedRetries >= len(openAIPassthroughTransportRetryBackoffs) {
@@ -299,7 +312,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 			// unschedule the account on durable faults (e.g. rejected proxy credentials).
 			failoverErr := s.handleOpenAIUpstreamTransportError(ctx, c, account, err, true)
 			if typed, ok := failoverErr.(*UpstreamFailoverError); ok && !classifyOpenAITransportError(err).Persistent {
-				typed.RetryableOnSameAccount = true
+				markOpenAIPassthroughTransportRetry(typed)
 			}
 			return nil, failoverErr
 		}
@@ -772,7 +785,7 @@ func (s *OpenAIGatewayService) handleFailoverErrorResponsePassthrough(
 		resp.Header,
 		body,
 		upstreamMsg,
-		false,
+		account != nil && account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
 	)
 	_, clientMessage := sanitizedOpenAIPassthroughErrorStatusAndMessage(resp.StatusCode)
 	if isOpenAIContextWindowError(upstreamMsg, body) && upstreamMsg != "" {
@@ -1632,7 +1645,7 @@ func (s *OpenAIGatewayService) newRetryableOpenAIStreamFailoverError(
 	message string,
 ) *UpstreamFailoverError {
 	err := s.newOpenAIStreamFailoverError(c, account, passthrough, upstreamRequestID, payload, message)
-	err.RetryableOnSameAccount = true
+	markOpenAIPassthroughTransportRetry(err)
 	return err
 }
 
@@ -1999,7 +2012,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 		}
 		failoverErr := s.handleOpenAIUpstreamTransportError(ctx, c, account, err, true)
 		if typed, ok := failoverErr.(*UpstreamFailoverError); ok && !classifyOpenAITransportError(err).Persistent {
-			typed.RetryableOnSameAccount = true
+			markOpenAIPassthroughTransportRetry(typed)
 		}
 		return nil, failoverErr
 	}

@@ -1706,40 +1706,54 @@ func TestOpenAIGatewayService_APIKeyPassthrough_ContextWindow502TriggersFailover
 	require.True(t, body.closed)
 }
 
-func TestOpenAIGatewayService_APIKeyPassthrough_PoolModeConfigured5xxSwitchesImmediately(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	rec := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(rec)
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(nil))
+func TestOpenAIGatewayService_APIKeyPassthrough_PoolModeHTTPRetryDelegatesToHandler(t *testing.T) {
+	for _, tt := range []struct {
+		name        string
+		statusCode  int
+		retryStatus []any
+	}{
+		{name: "default_429", statusCode: http.StatusTooManyRequests},
+		{name: "configured_502", statusCode: http.StatusBadGateway, retryStatus: []any{float64(http.StatusBadGateway)}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(nil))
 
-	upstream := &httpUpstreamRecorder{resp: &http.Response{
-		StatusCode: http.StatusBadGateway,
-		Header:     http.Header{"Content-Type": []string{"application/json"}},
-		Body:       io.NopCloser(strings.NewReader(`{"error":{"message":"temporary upstream failure"}}`)),
-	}}
-	svc := &OpenAIGatewayService{
-		cfg:          &config.Config{Gateway: config.GatewayConfig{ForceCodexCLI: false}},
-		httpUpstream: upstream,
+			upstream := &httpUpstreamRecorder{resp: &http.Response{
+				StatusCode: tt.statusCode,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(`{"error":{"message":"temporary upstream failure"}}`)),
+			}}
+			svc := &OpenAIGatewayService{
+				cfg:          &config.Config{Gateway: config.GatewayConfig{ForceCodexCLI: false}},
+				httpUpstream: upstream,
+			}
+			credentials := map[string]any{
+				"api_key":   "sk-test",
+				"base_url":  "https://api.example.test",
+				"pool_mode": true,
+			}
+			if tt.retryStatus != nil {
+				credentials["pool_mode_retry_status_codes"] = tt.retryStatus
+			}
+			account := &Account{
+				ID: 128, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1,
+				Credentials: credentials,
+				Extra:       map[string]any{"openai_passthrough": true}, Status: StatusActive, Schedulable: true,
+			}
+
+			_, err := svc.Forward(context.Background(), c, account, []byte(`{"model":"gpt-5.2","input":"hello"}`))
+
+			var failoverErr *UpstreamFailoverError
+			require.ErrorAs(t, err, &failoverErr)
+			require.True(t, failoverErr.RetryableOnSameAccount)
+			require.Len(t, upstream.requests, 1, "handler must own the account-configured retry budget")
+			require.Equal(t, []int64{account.ID}, upstream.accountIDs)
+			require.False(t, c.Writer.Written())
+		})
 	}
-	account := &Account{
-		ID: 128, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1,
-		Credentials: map[string]any{
-			"api_key":                      "sk-test",
-			"base_url":                     "https://api.example.test",
-			"pool_mode":                    true,
-			"pool_mode_retry_status_codes": []any{float64(http.StatusBadGateway)},
-		},
-		Extra: map[string]any{"openai_passthrough": true}, Status: StatusActive, Schedulable: true,
-	}
-
-	_, err := svc.Forward(context.Background(), c, account, []byte(`{"model":"gpt-5.2","input":"hello"}`))
-
-	var failoverErr *UpstreamFailoverError
-	require.ErrorAs(t, err, &failoverErr)
-	require.False(t, failoverErr.RetryableOnSameAccount, "HTTP errors must switch accounts immediately")
-	require.Len(t, upstream.requests, 1)
-	require.Equal(t, []int64{account.ID}, upstream.accountIDs)
-	require.False(t, c.Writer.Written())
 }
 
 func newOpenAIPassthroughTransportRetryFixture(t *testing.T, upstream *httpUpstreamRecorder) (*OpenAIGatewayService, *gin.Context, *httptest.ResponseRecorder, *Account, []byte) {
