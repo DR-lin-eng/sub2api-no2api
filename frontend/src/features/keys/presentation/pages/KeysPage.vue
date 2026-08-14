@@ -287,7 +287,10 @@ import KeyEditorDialog from '@/features/keys/presentation/widgets/KeyEditorDialo
 import KeysTable from '@/features/keys/presentation/widgets/KeysTable.vue'
 	import type { ApiKey, Group, PublicSettings, UpdateApiKeyRequest } from '@/types'
 import type { Column } from '@/common/types/uiTypes'
-import type { BatchApiKeyUsageStats } from '@/features/usage/data/datasources/usageDatasource'
+import type {
+  BatchApiKeysUsageResponse,
+  BatchApiKeyUsageStats
+} from '@/features/usage/data/datasources/usageDatasource'
 import type {
   KeyEditorDialogContext,
   KeysTableContext
@@ -629,6 +632,47 @@ const loadUsageStatsInBatches = async (apiKeyIds: number[], signal: AbortSignal)
   let nextBatchIndex = 0
   let receivedResponse = false
   let allPendingUsageAvailable = true
+  const mergeUsageResponse = (
+    apiKeyIdsForResponse: number[],
+    response: BatchApiKeysUsageResponse
+  ) => {
+    receivedResponse = true
+    usageStats.value = { ...usageStats.value, ...response.stats }
+    allPendingUsageAvailable =
+      allPendingUsageAvailable && response.pending_usage_available !== false
+    usageStatsErrorKeyIds.value = updateUsageKeySet(
+      usageStatsErrorKeyIds.value,
+      apiKeyIdsForResponse,
+      false
+    )
+  }
+
+  const loadSingleKeyUsage = async (apiKeyId: number) => {
+    try {
+      const response = await usageAPI.getDashboardApiKeysUsage([apiKeyId], { signal })
+      if (signal.aborted) return
+      mergeUsageResponse([apiKeyId], response)
+    } catch (error) {
+      if (signal.aborted || isAbortError(error)) return
+      if (!usageStats.value[apiKeyId]) {
+        usageStatsErrorKeyIds.value = updateUsageKeySet(
+          usageStatsErrorKeyIds.value,
+          [apiKeyId],
+          true
+        )
+      }
+      console.error(`Failed to load API key ${apiKeyId} usage:`, error)
+    } finally {
+      if (!signal.aborted) {
+        usageStatsLoadingKeyIds.value = updateUsageKeySet(
+          usageStatsLoadingKeyIds.value,
+          [apiKeyId],
+          false
+        )
+      }
+    }
+  }
+
   const worker = async () => {
     while (!signal.aborted) {
       const batchIndex = nextBatchIndex
@@ -639,26 +683,14 @@ const loadUsageStatsInBatches = async (apiKeyIds: number[], signal: AbortSignal)
       try {
         const response = await usageAPI.getDashboardApiKeysUsage(batch, { signal })
         if (signal.aborted) return
-        receivedResponse = true
-        usageStats.value = { ...usageStats.value, ...response.stats }
-        allPendingUsageAvailable =
-          allPendingUsageAvailable && response.pending_usage_available !== false
-        usageStatsErrorKeyIds.value = updateUsageKeySet(
-          usageStatsErrorKeyIds.value,
-          batch,
-          false
-        )
+        mergeUsageResponse(batch, response)
       } catch (error) {
         if (signal.aborted || isAbortError(error)) return
-        const missingStatsKeyIds = batch.filter((apiKeyId) => !usageStats.value[apiKeyId])
-        if (missingStatsKeyIds.length > 0) {
-          usageStatsErrorKeyIds.value = updateUsageKeySet(
-            usageStatsErrorKeyIds.value,
-            missingStatsKeyIds,
-            true
-          )
-        }
         console.error('Failed to load API key usage batch:', error)
+        for (const apiKeyId of batch) {
+          if (signal.aborted) return
+          await loadSingleKeyUsage(apiKeyId)
+        }
       } finally {
         if (!signal.aborted) {
           usageStatsLoadingKeyIds.value = updateUsageKeySet(

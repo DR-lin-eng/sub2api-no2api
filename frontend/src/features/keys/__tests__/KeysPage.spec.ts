@@ -451,12 +451,13 @@ describe('user KeysView column settings', () => {
   })
 
   it('shows a usage error instead of fabricated zero values', async () => {
-    getDashboardApiKeysUsage.mockRejectedValueOnce(new Error('stats timed out'))
+    getDashboardApiKeysUsage.mockRejectedValue(new Error('stats timed out'))
 
     const wrapper = await mountView()
     const usage = wrapper.get('[data-test="usage"]').text()
     expect(usage).toContain('Usage unavailable')
     expect(usage).not.toContain('$0.0000')
+    expect(getDashboardApiKeysUsage.mock.calls.map(([ids]) => ids)).toEqual([[1], [1]])
   })
 
   it('splits 25 API keys into five usage requests', async () => {
@@ -529,7 +530,7 @@ describe('user KeysView column settings', () => {
     wrapper.unmount()
   })
 
-  it('keeps successful usage batches visible when one batch fails', async () => {
+  it('falls back to single-key usage requests and isolates remaining failures', async () => {
     const items = Array.from({ length: 10 }, (_, index) => ({
       ...createApiKey(),
       id: index + 1,
@@ -543,7 +544,8 @@ describe('user KeysView column settings', () => {
       pages: 1,
     })
     getDashboardApiKeysUsage.mockImplementation(async (ids: number[]) => {
-      if (ids.includes(6)) throw new Error('one usage batch timed out')
+      if (ids.length > 1 && ids.includes(6)) throw new Error('one usage batch timed out')
+      if (ids.length === 1 && ids[0] === 8) throw new Error('one API key timed out')
       return {
         pending_usage_available: true,
         stats: Object.fromEntries(ids.map((id) => [id, {
@@ -563,9 +565,23 @@ describe('user KeysView column settings', () => {
     expect(successfulUsage).toContain('$2.0000')
     expect(successfulUsage).not.toContain('Usage unavailable')
 
-    const failedUsage = wrapper.get('[data-test="usage"][data-key-id="6"]').text()
+    const recoveredUsage = wrapper.get('[data-test="usage"][data-key-id="6"]').text()
+    expect(recoveredUsage).toContain('$6.0000')
+    expect(recoveredUsage).toContain('$12.0000')
+    expect(recoveredUsage).not.toContain('Usage unavailable')
+
+    const failedUsage = wrapper.get('[data-test="usage"][data-key-id="8"]').text()
     expect(failedUsage).toContain('Usage unavailable')
     expect(failedUsage).not.toContain('$0.0000')
+    expect(getDashboardApiKeysUsage.mock.calls.map(([ids]) => ids)).toEqual([
+      [1, 2, 3, 4, 5],
+      [6, 7, 8, 9, 10],
+      [6],
+      [7],
+      [8],
+      [9],
+      [10],
+    ])
     wrapper.unmount()
   })
 
@@ -656,7 +672,7 @@ describe('user KeysView column settings', () => {
           },
         },
       })
-      .mockRejectedValueOnce(new Error('background refresh timed out'))
+      .mockRejectedValue(new Error('background refresh timed out'))
 
     const wrapper = await mountView()
     await vi.advanceTimersByTimeAsync(60000)
