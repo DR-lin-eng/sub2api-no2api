@@ -11,10 +11,13 @@ import (
 )
 
 type clusterReleaseRepositoryStub struct {
-	state    ClusterReleaseState
-	rollout  *ClusterRollout
-	targets  map[string]ClusterRolloutTarget
-	instance map[string]ClusterInstance
+	state             ClusterReleaseState
+	rollout           *ClusterRollout
+	targets           map[string]ClusterRolloutTarget
+	instance          map[string]ClusterInstance
+	claimEnabled      bool
+	claimedNodeIDs    []string
+	statusTransitions []string
 }
 
 func newClusterReleaseRepositoryStub(desiredVersion string) *clusterReleaseRepositoryStub {
@@ -91,11 +94,34 @@ func (r *clusterReleaseRepositoryStub) GetRunnerInstance(_ context.Context, runn
 	return &instance, nil
 }
 
-func (r *clusterReleaseRepositoryStub) ClaimTarget(context.Context, string, string, string, time.Time) (bool, error) {
-	return false, nil
+func (r *clusterReleaseRepositoryStub) ClaimTarget(_ context.Context, rolloutID, nodeID, runnerID string, leaseUntil time.Time) (bool, error) {
+	if !r.claimEnabled {
+		return false, nil
+	}
+	target, ok := r.targets[nodeID]
+	if !ok || target.RolloutID != rolloutID || target.Status != ClusterRolloutTargetPending {
+		return false, nil
+	}
+	target.Status = ClusterRolloutTargetDraining
+	target.LeaseOwner = runnerID
+	target.LeaseUntil = &leaseUntil
+	target.Attempt++
+	r.targets[nodeID] = target
+	r.claimedNodeIDs = append(r.claimedNodeIDs, nodeID)
+	return true, nil
 }
 
-func (r *clusterReleaseRepositoryStub) SetTargetStatus(context.Context, string, string, string, string, string, *time.Time) error {
+func (r *clusterReleaseRepositoryStub) SetTargetStatus(_ context.Context, rolloutID, nodeID, runnerID, status, errorMessage string, leaseUntil *time.Time) error {
+	target, ok := r.targets[nodeID]
+	if !ok || target.RolloutID != rolloutID {
+		return ErrClusterRolloutTargetNotFound
+	}
+	target.Status = status
+	target.LeaseOwner = runnerID
+	target.LeaseUntil = leaseUntil
+	target.ErrorMessage = errorMessage
+	r.targets[nodeID] = target
+	r.statusTransitions = append(r.statusTransitions, status)
 	return nil
 }
 
@@ -125,6 +151,19 @@ func (r *clusterReleaseRepositoryStub) RetryTarget(context.Context, string, stri
 
 type clusterReleaseGitHubClientStub struct {
 	releases []*GitHubRelease
+}
+
+type clusterReleaseUpdaterStub struct {
+	installedVersions []string
+}
+
+func (s *clusterReleaseUpdaterStub) ResolveReleaseVersion(_ context.Context, version string) (string, error) {
+	return normalizeClusterReleaseVersion(version), nil
+}
+
+func (s *clusterReleaseUpdaterStub) InstallVersion(_ context.Context, version string) error {
+	s.installedVersions = append(s.installedVersions, normalizeClusterReleaseVersion(version))
+	return nil
 }
 
 func (s *clusterReleaseGitHubClientStub) FetchLatestRelease(context.Context, string) (*GitHubRelease, error) {
@@ -166,7 +205,6 @@ func TestClusterReleaseService_CreateRolloutTargetsEveryLogicalNode(t *testing.T
 
 	cfg := clusterTestConfig("api-a", config.WorkerModeAuto)
 	cfg.Deployment.NodeID = "node-a"
-	cfg.Deployment.UpdateDriver = config.DeploymentUpdateDriverExternal
 	cluster := NewClusterService(clusterRepo, cfg, clusterHealthCheckerStub(true), BuildInfo{Version: "1.0.0"})
 	releaseRepo := newClusterReleaseRepositoryStub("1.0.0")
 	updater := NewUpdateService(nil, &clusterReleaseGitHubClientStub{releases: []*GitHubRelease{
@@ -198,6 +236,48 @@ func TestClusterReleaseService_CreateRolloutTargetsEveryLogicalNode(t *testing.T
 	readiness := releases.GetReadiness()
 	require.False(t, readiness.Ready)
 	require.Equal(t, "awaiting_target_verification", readiness.Reason)
+}
+
+func TestClusterReleaseService_FixedBinaryDriverInstallsAndRestartsClaimedTarget(t *testing.T) {
+	cfg := clusterTestConfig("api-a", config.WorkerModeAuto)
+	cfg.Deployment.NodeID = "node-a"
+	cluster := NewClusterService(newClusterRepositoryStub(), cfg, clusterHealthCheckerStub(true), BuildInfo{Version: "1.0.0"})
+
+	releaseRepo := newClusterReleaseRepositoryStub("1.0.0")
+	releaseRepo.state.ActiveRolloutID = "rollout-1"
+	releaseRepo.rollout = &ClusterRollout{
+		ID:            "rollout-1",
+		TargetVersion: "1.1.0",
+		Status:        ClusterRolloutStatusRunning,
+	}
+	releaseRepo.targets["node-a"] = ClusterRolloutTarget{
+		RolloutID:     "rollout-1",
+		NodeID:        "node-a",
+		NodeName:      "api-a",
+		SourceVersion: "1.0.0",
+		TargetVersion: "1.1.0",
+		Status:        ClusterRolloutTargetPending,
+	}
+	releaseRepo.claimEnabled = true
+
+	releases := NewClusterReleaseService(releaseRepo, cluster, nil, cfg)
+	updater := &clusterReleaseUpdaterStub{}
+	releases.updater = updater
+	restarted := make(chan struct{}, 1)
+	releases.restartAsync = func() { restarted <- struct{}{} }
+
+	require.NoError(t, releases.processOnce(context.Background()))
+	require.Equal(t, []string{"node-a"}, releaseRepo.claimedNodeIDs)
+	require.Equal(t, []string{ClusterRolloutTargetInstalling, ClusterRolloutTargetRestarting}, releaseRepo.statusTransitions)
+	require.Equal(t, []string{"1.1.0"}, updater.installedVersions)
+	require.Equal(t, ClusterRolloutTargetRestarting, releaseRepo.targets["node-a"].Status)
+	require.True(t, releases.GetReadiness().Draining)
+
+	select {
+	case <-restarted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for binary rollout restart")
+	}
 }
 
 func TestSnapshotOnlineClusterNodesRejectsOverlappingRunnersForOneIdentity(t *testing.T) {

@@ -22,10 +22,15 @@ const (
 	clusterRolloutRestartTimeout = 5 * time.Minute
 )
 
+type clusterReleaseUpdater interface {
+	ResolveReleaseVersion(context.Context, string) (string, error)
+	InstallVersion(context.Context, string) error
+}
+
 type ClusterReleaseService struct {
 	repo    ClusterReleaseRepository
 	cluster *ClusterService
-	updater *UpdateService
+	updater clusterReleaseUpdater
 	cfg     *config.Config
 
 	readiness atomic.Pointer[ClusterReadiness]
@@ -48,10 +53,14 @@ func NewClusterReleaseService(
 	cfg *config.Config,
 ) *ClusterReleaseService {
 	ctx, cancel := context.WithCancel(context.Background())
+	var releaseUpdater clusterReleaseUpdater
+	if updater != nil {
+		releaseUpdater = updater
+	}
 	svc := &ClusterReleaseService{
 		repo:         repo,
 		cluster:      cluster,
-		updater:      updater,
+		updater:      releaseUpdater,
 		cfg:          cfg,
 		ctx:          ctx,
 		cancel:       cancel,
@@ -143,13 +152,6 @@ func (s *ClusterReleaseService) currentVersion() string {
 		return ""
 	}
 	return normalizeClusterReleaseVersion(s.cluster.Version())
-}
-
-func (s *ClusterReleaseService) updateDriver() string {
-	if s == nil || s.cfg == nil {
-		return config.DeploymentUpdateDriverExternal
-	}
-	return s.cfg.Deployment.UpdateDriverMode()
 }
 
 func (s *ClusterReleaseService) pollInterval() time.Duration {
@@ -488,9 +490,6 @@ func (s *ClusterReleaseService) processOnce(ctx context.Context) error {
 		return s.observeUpdatedNode(ctx, rollout, target)
 	}
 	if rollout.Status != ClusterRolloutStatusRunning || target.Status != ClusterRolloutTargetPending {
-		return nil
-	}
-	if s.updateDriver() != config.DeploymentUpdateDriverBinary {
 		return nil
 	}
 	leaseUntil := time.Now().UTC().Add(s.drainTimeout() + time.Minute)

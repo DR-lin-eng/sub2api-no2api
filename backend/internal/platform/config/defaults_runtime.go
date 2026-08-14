@@ -15,7 +15,6 @@ func setRuntimeDefaults() {
 	viper.SetDefault("deployment.heartbeat_interval_seconds", 30)
 	viper.SetDefault("deployment.stale_after_seconds", 90)
 	viper.SetDefault("deployment.task_lease_seconds", 60)
-	viper.SetDefault("deployment.update_driver", DeploymentUpdateDriverExternal)
 	viper.SetDefault("deployment.rollout_poll_seconds", 5)
 	viper.SetDefault("deployment.rollout_drain_grace_seconds", 10)
 	viper.SetDefault("deployment.rollout_drain_timeout_seconds", 900)

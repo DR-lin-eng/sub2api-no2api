@@ -46,7 +46,7 @@ function statusFixture() {
       heartbeat_interval_seconds: 30,
       stale_after_seconds: 90,
       task_lease_seconds: 60,
-      update_driver: 'external',
+      update_driver: 'binary',
       rollout_poll_seconds: 5,
       rollout_drain_grace_seconds: 10,
       rollout_drain_timeout_seconds: 900,
@@ -125,6 +125,24 @@ describe('MultiInstanceView', () => {
     expect(wrapper.text()).toContain('api-a')
     expect(wrapper.text()).toContain('backup:scheduled')
     expect(wrapper.text()).toContain('1.2.3')
+  })
+
+  it('shows node-managed updates when the binary rollout driver is active', async () => {
+    clusterAPI.getStatus.mockResolvedValue(statusFixture())
+    const wrapper = mount(MultiInstanceView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          Icon: { template: '<span />' },
+          Toggle: { props: ['modelValue'], template: '<button type="button" />' },
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('admin.cluster.release.binaryDriver')
+    expect(wrapper.text()).not.toContain('admin.cluster.release.externalDriver')
   })
 
   it('renames a logical node without changing its stable identity', async () => {

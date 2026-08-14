@@ -59,7 +59,6 @@ func TestLoadDeploymentWorkerModes(t *testing.T) {
 		t.Setenv("DEPLOYMENT_NODE_ID_FILE", "/app/data/custom-node-id")
 		t.Setenv("NODE_NAME", "api-only-01")
 		t.Setenv("WORKER_ENABLED", "false")
-		t.Setenv("DEPLOYMENT_UPDATE_DRIVER", DeploymentUpdateDriverBinary)
 		t.Setenv("DEPLOYMENT_ROLLOUT_POLL_SECONDS", "7")
 		cfg, err := Load()
 		require.NoError(t, err)
@@ -69,7 +68,6 @@ func TestLoadDeploymentWorkerModes(t *testing.T) {
 		require.Equal(t, "api-only-01", cfg.Deployment.NodeName)
 		require.Equal(t, WorkerModeDisabled, cfg.Deployment.WorkerMode())
 		require.False(t, cfg.Deployment.WorkerEnabledResolved())
-		require.Equal(t, DeploymentUpdateDriverBinary, cfg.Deployment.UpdateDriverMode())
 		require.Equal(t, 7, cfg.Deployment.RolloutPollSeconds)
 	})
 }

@@ -16,7 +16,6 @@ deployment:
   heartbeat_interval_seconds: 30
   stale_after_seconds: 90
   task_lease_seconds: 60
-  update_driver: external
   rollout_poll_seconds: 5
   rollout_drain_grace_seconds: 10
   rollout_drain_timeout_seconds: 900
@@ -73,15 +72,16 @@ when no target is actively draining, installing, restarting, or verifying.
 Multi-instance mode rejects the legacy local update, rollback, and restart
 endpoints with `MULTI_INSTANCE_ROLLOUT_REQUIRED`.
 
-`deployment.update_driver` selects how a target is changed:
+Each selected node drains requests, installs the exact signed release, exits,
+and verifies the restarted runner through heartbeats. This binary rollout mode
+is fixed and has no environment or configuration switch. Docker deployments
+must keep `/app` writable and use a restart policy such as `unless-stopped`; the
+supplied images and Compose files already do both.
 
-- `external` is the default for Docker and Kubernetes. The rollout records the
-  target task in PostgreSQL; the external orchestrator replaces that node's
-  image while preserving its node-local data volume. Replace nodes in target
-  order and wait for `/ready` to return `200` before moving to the next one.
-- `binary` is for a systemd or bare-binary deployment. The selected node drains
-  requests, installs the exact signed release, restarts itself, and verifies the
-  new runner through heartbeats.
+The rollout changes the running container's writable layer, not its image
+reference. Recreating that container from an older image can therefore restore
+an older binary and make `/ready` return `503`. Before recreating a node, ensure
+the selected image is at least the cluster's desired version.
 
 `/health` remains a liveness probe. `/ready` is the load-balancer and Compose
 readiness probe; it returns `503` while a node is draining, awaiting version

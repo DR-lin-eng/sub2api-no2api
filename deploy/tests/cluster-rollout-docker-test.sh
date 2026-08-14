@@ -85,6 +85,29 @@ wait_http_status() {
   done
 }
 
+wait_internal_http_status() {
+  container_name=$1
+  path=$2
+  expected=$3
+  attempts=0
+  while :; do
+    probe=$(docker exec "$postgres_name" wget -S -O /dev/null -T 2 \
+      "http://$container_name:8080$path" 2>&1 || true)
+    status=$(printf '%s\n' "$probe" | sed -n 's/.*HTTP\/[0-9.]* \([0-9][0-9][0-9]\).*/\1/p' | tail -n 1)
+    if [ "$status" = "$expected" ]; then
+      return
+    fi
+    attempts=$((attempts + 1))
+    if [ "$attempts" -ge 180 ]; then
+      printf 'timed out waiting for internal http://%s:8080%s to return %s; last status=%s\n' \
+        "$container_name" "$path" "$expected" "$status" >&2
+      docker logs "$container_name" >&2 || true
+      return 1
+    fi
+    sleep 1
+  done
+}
+
 run_app() {
   container_name=$1
   volume_name=$2
@@ -92,6 +115,7 @@ run_app() {
   configured_name=$4
   docker run --detach \
     --name "$container_name" \
+    --restart unless-stopped \
     --network "$network_name" \
     --publish 127.0.0.1::8080 \
     --volume "$volume_name:/app/data" \
@@ -106,7 +130,6 @@ run_app() {
     --env DEPLOYMENT_HEARTBEAT_INTERVAL_SECONDS=2 \
     --env DEPLOYMENT_STALE_AFTER_SECONDS=6 \
     --env DEPLOYMENT_TASK_LEASE_SECONDS=15 \
-    --env DEPLOYMENT_UPDATE_DRIVER=external \
     --env DEPLOYMENT_ROLLOUT_POLL_SECONDS=1 \
     --env DEPLOYMENT_ROLLOUT_DRAIN_GRACE_SECONDS=0 \
     --env DEPLOYMENT_ROLLOUT_DRAIN_TIMEOUT_SECONDS=30 \
@@ -180,6 +203,22 @@ api_call() (
   esac
 )
 
+api_get_internal() (
+  container_name=$1
+  path=$2
+  response_file=$(mktemp "${TMPDIR:-/tmp}/sub2api-cluster-api.XXXXXX")
+  if ! docker exec "$postgres_name" wget -q -O - \
+    --header "x-api-key: $admin_key" \
+    "http://$container_name:8080$path" >"$response_file"; then
+    printf 'internal API request failed: GET http://%s:8080%s\n' "$container_name" "$path" >&2
+    cat "$response_file" >&2
+    rm -f "$response_file"
+    return 1
+  fi
+  cat "$response_file"
+  rm -f "$response_file"
+)
+
 assert_json() {
   json=$1
   filter=$2
@@ -192,13 +231,13 @@ assert_json() {
 }
 
 wait_rollout_target_status() (
-  base_url=$1
+  container_name=$1
   rollout_id=$2
   node_id=$3
   expected=$4
   attempts=0
   while :; do
-    rollout_json=$(api_call GET "$base_url" "/api/v1/admin/cluster/rollouts/$rollout_id")
+    rollout_json=$(api_get_internal "$container_name" "/api/v1/admin/cluster/rollouts/$rollout_id")
     target_status=$(printf '%s' "$rollout_json" | jq -r --arg node_id "$node_id" '.data.targets[] | select(.node_id == $node_id) | .status')
     if [ "$target_status" = "$expected" ]; then
       return
@@ -297,25 +336,16 @@ assert_json "$rollout" ".data.targets | length == 2" "rollout created through no
 assert_json "$rollout" ".data.targets | all(.target_version == \"$target_version\")" "every target must use one exact version"
 assert_json "$rollout" ".data.targets[0].node_id == \"$node_a_id\"" "alpha must be the first serial target"
 
-docker rm -f "$app_a_name" >/dev/null
-run_app "$app_a_name" "$app_a_volume" "$target_image" alpha
-app_a_url=$(container_url "$app_a_name")
-wait_http_status "$app_a_url/health" 200 "$app_a_name"
-wait_rollout_target_status "$app_b_url" "$rollout_id" "$node_a_id" succeeded
-wait_http_status "$app_a_url/ready" 200 "$app_a_name"
+wait_rollout_target_status "$app_b_name" "$rollout_id" "$node_a_id" succeeded
+wait_internal_http_status "$app_a_name" /ready 200
 
-rollout_after_a=$(api_call GET "$app_b_url" "/api/v1/admin/cluster/rollouts/$rollout_id")
+rollout_after_a=$(api_get_internal "$app_a_name" "/api/v1/admin/cluster/rollouts/$rollout_id")
 assert_json "$rollout_after_a" ".data.targets[] | select(.node_id == \"$node_a_id\") | .status == \"succeeded\"" "the first target must verify before the second replacement"
-assert_json "$rollout_after_a" ".data.targets[] | select(.node_id == \"$node_b_id\") | .status == \"pending\"" "the second target must remain pending"
 
-docker rm -f "$app_b_name" >/dev/null
-run_app "$app_b_name" "$app_b_volume" "$target_image" alpha
-app_b_url=$(container_url "$app_b_name")
-wait_http_status "$app_b_url/health" 200 "$app_b_name"
-wait_rollout_target_status "$app_a_url" "$rollout_id" "$node_b_id" succeeded
-wait_http_status "$app_b_url/ready" 200 "$app_b_name"
+wait_rollout_target_status "$app_a_name" "$rollout_id" "$node_b_id" succeeded
+wait_internal_http_status "$app_b_name" /ready 200
 
-final_status=$(api_call GET "$app_a_url" /api/v1/admin/cluster/status)
+final_status=$(api_get_internal "$app_a_name" /api/v1/admin/cluster/status)
 assert_json "$final_status" ".data.instances | length == 2" "completed rollout must still expose two logical nodes"
 assert_json "$final_status" ".data.release.consistent == true" "cluster versions must converge"
 assert_json "$final_status" ".data.release.state.desired_version == \"$target_version\"" "desired version must advance after verification"
@@ -324,17 +354,15 @@ assert_json "$final_status" ".data.instances[] | select(.node_id == \"$node_b_id
 
 docker rm -f "$app_a_name" >/dev/null
 run_app "$app_a_name" "$app_a_volume" "$source_image" alpha
-app_a_url=$(container_url "$app_a_name")
-wait_http_status "$app_a_url/health" 200 "$app_a_name"
-wait_http_status "$app_a_url/ready" 503 "$app_a_name"
+wait_internal_http_status "$app_a_name" /health 200
+wait_internal_http_status "$app_a_name" /ready 503
 
-status_with_old_node=$(api_call GET "$app_a_url" /api/v1/admin/cluster/status)
+status_with_old_node=$(api_get_internal "$app_a_name" /api/v1/admin/cluster/status)
 assert_json "$status_with_old_node" ".data.instances | length == 2" "a non-ready node must retain access to the authenticated cluster recovery API"
 assert_json "$status_with_old_node" ".data.instances[] | select(.node_id == \"$node_a_id\") | .version == \"$source_version\"" "inventory must expose the regressed version"
 
 docker rm -f "$app_a_name" >/dev/null
 run_app "$app_a_name" "$app_a_volume" "$target_image" alpha
-app_a_url=$(container_url "$app_a_name")
-wait_http_status "$app_a_url/ready" 200 "$app_a_name"
+wait_internal_http_status "$app_a_name" /ready 200
 
 printf 'cluster rollout Docker test passed: nodes=2 target=%s rollout=%s\n' "$target_version" "$rollout_id"

@@ -19,8 +19,7 @@ const (
 	WorkerModeEnabled  = "true"
 	WorkerModeDisabled = "false"
 
-	DeploymentUpdateDriverExternal = "external"
-	DeploymentUpdateDriverBinary   = "binary"
+	DeploymentUpdateDriverBinary = "binary"
 )
 
 // 使用量记录队列溢出策略
@@ -115,7 +114,6 @@ type DeploymentConfig struct {
 	HeartbeatIntervalSeconds   int    `mapstructure:"heartbeat_interval_seconds"`
 	StaleAfterSeconds          int    `mapstructure:"stale_after_seconds"`
 	TaskLeaseSeconds           int    `mapstructure:"task_lease_seconds"`
-	UpdateDriver               string `mapstructure:"update_driver"`
 	RolloutPollSeconds         int    `mapstructure:"rollout_poll_seconds"`
 	RolloutDrainGraceSeconds   int    `mapstructure:"rollout_drain_grace_seconds"`
 	RolloutDrainTimeoutSeconds int    `mapstructure:"rollout_drain_timeout_seconds"`
@@ -143,14 +141,6 @@ func (c DeploymentConfig) WorkerMode() string {
 // the actual executor and preserves failover without a manually selected master.
 func (c DeploymentConfig) WorkerEnabledResolved() bool {
 	return c.WorkerMode() != WorkerModeDisabled
-}
-
-func (c DeploymentConfig) UpdateDriverMode() string {
-	mode := strings.ToLower(strings.TrimSpace(c.UpdateDriver))
-	if mode == DeploymentUpdateDriverBinary {
-		return DeploymentUpdateDriverBinary
-	}
-	return DeploymentUpdateDriverExternal
 }
 
 type LogConfig struct {

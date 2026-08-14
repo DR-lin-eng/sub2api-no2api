@@ -200,6 +200,7 @@ func TestClusterService_StatusReportsCurrentNodeAndWorker(t *testing.T) {
 	require.Equal(t, "api-a", status.Deployment.NodeName)
 	require.True(t, status.Deployment.FrontendEnabled)
 	require.True(t, status.Deployment.WorkerEnabled)
+	require.Equal(t, config.DeploymentUpdateDriverBinary, status.Deployment.UpdateDriver)
 	require.Equal(t, 1, status.Summary.OnlineNodes)
 	require.Equal(t, 1, status.Summary.WorkerNodes)
 	require.Len(t, status.Instances, 1)

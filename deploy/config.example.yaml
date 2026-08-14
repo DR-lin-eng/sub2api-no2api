@@ -32,9 +32,6 @@ deployment:
   heartbeat_interval_seconds: 30
   stale_after_seconds: 90
   task_lease_seconds: 60
-  # external: Docker/Kubernetes replaces the image; binary: the node installs a signed release itself.
-  # external：由 Docker/Kubernetes 替换镜像；binary：节点自行安装签名发布包。
-  update_driver: "external"
   rollout_poll_seconds: 5
   rollout_drain_grace_seconds: 10
   rollout_drain_timeout_seconds: 900

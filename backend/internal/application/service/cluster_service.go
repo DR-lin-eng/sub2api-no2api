@@ -416,7 +416,7 @@ func (s *ClusterService) GetStatus(ctx context.Context) (*ClusterStatus, error) 
 			HeartbeatIntervalSeconds:   deployment.HeartbeatIntervalSeconds,
 			StaleAfterSeconds:          deployment.StaleAfterSeconds,
 			TaskLeaseSeconds:           deployment.TaskLeaseSeconds,
-			UpdateDriver:               deployment.UpdateDriverMode(),
+			UpdateDriver:               config.DeploymentUpdateDriverBinary,
 			RolloutPollSeconds:         deployment.RolloutPollSeconds,
 			RolloutDrainGraceSeconds:   deployment.RolloutDrainGraceSeconds,
 			RolloutDrainTimeoutSeconds: deployment.RolloutDrainTimeoutSeconds,

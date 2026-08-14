@@ -244,10 +244,6 @@ func normalizeDeploymentConfig(cfg *DeploymentConfig) {
 	if cfg.TaskLeaseSeconds <= 0 {
 		cfg.TaskLeaseSeconds = 60
 	}
-	cfg.UpdateDriver = strings.ToLower(strings.TrimSpace(cfg.UpdateDriver))
-	if cfg.UpdateDriver == "" {
-		cfg.UpdateDriver = DeploymentUpdateDriverExternal
-	}
 	if cfg.RolloutPollSeconds <= 0 {
 		cfg.RolloutPollSeconds = 5
 	}

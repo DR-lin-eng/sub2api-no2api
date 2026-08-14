@@ -30,10 +30,6 @@ func validateDeployment(c *Config) error {
 	if len(c.Deployment.NodeIDFile) > 1024 {
 		return fmt.Errorf("deployment.node_id_file must not exceed 1024 characters")
 	}
-	driver := strings.ToLower(strings.TrimSpace(c.Deployment.UpdateDriver))
-	if driver != DeploymentUpdateDriverExternal && driver != DeploymentUpdateDriverBinary {
-		return fmt.Errorf("deployment.update_driver must be one of: external/binary")
-	}
 	if c.Deployment.RolloutPollSeconds < 1 || c.Deployment.RolloutPollSeconds > 60 {
 		return fmt.Errorf("deployment.rollout_poll_seconds must be between 1 and 60")
 	}
