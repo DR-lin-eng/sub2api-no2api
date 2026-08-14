@@ -86,6 +86,151 @@ func TestOpenAISelectAccountForModelWithExclusions_UpstreamRestrictionSkipsDisal
 	require.Equal(t, int64(2), account.ID)
 }
 
+func TestIsUpstreamModelRestrictedByChannel_CompactMappingMatchesForwardPath(t *testing.T) {
+	t.Parallel()
+
+	account := &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"model_mapping":         map[string]any{"gpt-5.4-channel": "gpt-5.4-account"},
+			"compact_model_mapping": map[string]any{"gpt-5.4-account": "gpt-5.4-compact"},
+		},
+	}
+	for _, tt := range []struct {
+		name                   string
+		allowedUpstreamModel   string
+		useCompactModelMapping bool
+	}{
+		{name: "legacy compact", allowedUpstreamModel: "gpt-5.4-compact", useCompactModelMapping: true},
+		{name: "native v2", allowedUpstreamModel: "gpt-5.4-account"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			channelSvc := newTestChannelService(makeStandardRepo(Channel{
+				ID:                 1,
+				Status:             StatusActive,
+				GroupIDs:           []int64{10},
+				RestrictModels:     true,
+				BillingModelSource: BillingModelSourceUpstream,
+				ModelPricing: []ChannelModelPricing{
+					{Platform: PlatformOpenAI, Models: []string{tt.allowedUpstreamModel}},
+				},
+				ModelMapping: map[string]map[string]string{
+					PlatformOpenAI: {"gpt-5.4": "gpt-5.4-channel"},
+				},
+			}, map[int64]string{10: PlatformOpenAI}))
+			svc := &OpenAIGatewayService{channelService: channelSvc}
+			ctx := WithOpenAIForwardModel(context.Background(), "gpt-5.4-channel", tt.useCompactModelMapping)
+
+			require.False(t, svc.isUpstreamModelRestrictedByChannel(ctx, 10, account, "gpt-5.4", true))
+		})
+	}
+}
+
+func TestIsUpstreamModelRestrictedByChannel_PassthroughMatchesForwardPath(t *testing.T) {
+	t.Parallel()
+
+	account := &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"model_mapping":         map[string]any{"gpt-5.4-channel": "gpt-5.4-account"},
+			"compact_model_mapping": map[string]any{"gpt-5.4-channel": "gpt-5.4-compact"},
+		},
+		Extra: map[string]any{"openai_passthrough": true},
+	}
+	for _, tt := range []struct {
+		name                   string
+		allowedUpstreamModel   string
+		useCompactModelMapping bool
+	}{
+		{name: "native v2", allowedUpstreamModel: "gpt-5.4-channel"},
+		{name: "legacy compact", allowedUpstreamModel: "gpt-5.4-compact", useCompactModelMapping: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			channelSvc := newTestChannelService(makeStandardRepo(Channel{
+				ID:                 1,
+				Status:             StatusActive,
+				GroupIDs:           []int64{10},
+				RestrictModels:     true,
+				BillingModelSource: BillingModelSourceUpstream,
+				ModelPricing: []ChannelModelPricing{
+					{Platform: PlatformOpenAI, Models: []string{tt.allowedUpstreamModel}},
+				},
+			}, map[int64]string{10: PlatformOpenAI}))
+			svc := &OpenAIGatewayService{channelService: channelSvc}
+			ctx := WithOpenAIForwardModel(context.Background(), "gpt-5.4-channel", tt.useCompactModelMapping)
+
+			require.False(t, svc.isUpstreamModelRestrictedByChannel(ctx, 10, account, "gpt-5.4", true))
+		})
+	}
+}
+
+func TestIsUpstreamModelRestrictedByChannel_RawChatFallbackIgnoresCompactMapping(t *testing.T) {
+	t.Parallel()
+
+	account := &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"model_mapping":         map[string]any{"gpt-5.4-channel": "gpt-5.4-account"},
+			"compact_model_mapping": map[string]any{"gpt-5.4-account": "gpt-5.4-compact"},
+		},
+		Extra: map[string]any{
+			"openai_passthrough":         true,
+			"openai_responses_supported": false,
+		},
+	}
+	channelSvc := newTestChannelService(makeStandardRepo(Channel{
+		ID:                 1,
+		Status:             StatusActive,
+		GroupIDs:           []int64{10},
+		RestrictModels:     true,
+		BillingModelSource: BillingModelSourceUpstream,
+		ModelPricing: []ChannelModelPricing{
+			{Platform: PlatformOpenAI, Models: []string{"gpt-5.4-account"}},
+		},
+	}, map[int64]string{10: PlatformOpenAI}))
+	svc := &OpenAIGatewayService{channelService: channelSvc}
+
+	for _, legacyCompact := range []bool{false, true} {
+		ctx := WithOpenAIForwardModel(context.Background(), "gpt-5.4-channel", legacyCompact)
+		require.False(t, svc.isUpstreamModelRestrictedByChannel(ctx, 10, account, "gpt-5.4", legacyCompact))
+	}
+}
+
+func TestIsUpstreamModelRestrictedByChannel_PrewarmContinuationUsesNormalForwardMapping(t *testing.T) {
+	t.Parallel()
+
+	account := &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"model_mapping": map[string]any{"custom-channel": "custom-account"},
+		},
+		Extra: map[string]any{
+			"openai_passthrough":             true,
+			CodexPrewarmContinuationExtraKey: true,
+		},
+	}
+	channelSvc := newTestChannelService(makeStandardRepo(Channel{
+		ID:                 1,
+		Status:             StatusActive,
+		GroupIDs:           []int64{10},
+		RestrictModels:     true,
+		BillingModelSource: BillingModelSourceUpstream,
+		ModelPricing: []ChannelModelPricing{
+			{Platform: PlatformOpenAI, Models: []string{"custom-account"}},
+		},
+	}, map[int64]string{10: PlatformOpenAI}))
+	svc := &OpenAIGatewayService{channelService: channelSvc}
+	ctx := WithOpenAIForwardModel(context.Background(), "custom-channel", false)
+
+	require.False(t, svc.isUpstreamModelRestrictedByChannel(ctx, 10, account, "custom-request", false))
+}
+
 func TestOpenAISelectAccountForModelWithExclusions_StickyRestrictedUpstreamFallsBack(t *testing.T) {
 	t.Parallel()
 

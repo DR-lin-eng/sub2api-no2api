@@ -112,14 +112,22 @@ func TestIsOpenAIRemoteCompactPath(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses/compact", nil)
-	require.True(t, isOpenAIRemoteCompactPath(c))
-
-	c.Request = httptest.NewRequest(http.MethodPost, "/responses/compact/", nil)
-	require.True(t, isOpenAIRemoteCompactPath(c))
-
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
-	require.False(t, isOpenAIRemoteCompactPath(c))
+	for _, tt := range []struct {
+		path string
+		want bool
+	}{
+		{path: "/v1/responses/compact", want: true},
+		{path: "/v1/responses/compact/detail", want: true},
+		{path: "/responses/compact/", want: true},
+		{path: "/v1/responses", want: false},
+		{path: "/openai/v1/responses", want: false},
+		{path: "/responses", want: false},
+		{path: "/backend-api/codex/responses", want: false},
+		{path: "/v1/responses/resp_123/cancel", want: false},
+	} {
+		c.Request = httptest.NewRequest(http.MethodPost, tt.path, nil)
+		require.Equal(t, tt.want, isOpenAIRemoteCompactPath(c), tt.path)
+	}
 }
 
 func TestLogOpenAIRemoteCompactOutcome_Succeeded(t *testing.T) {

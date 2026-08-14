@@ -1712,6 +1712,25 @@ func TestApplyCodexOAuthTransform_StripsChatGPTInternalUnsupportedFields(t *test
 	}
 }
 
+func TestApplyCodexOAuthTransform_StripsOnlyDisabledTruncation(t *testing.T) {
+	disabled := map[string]any{
+		"model":      "gpt-5.4",
+		"truncation": "disabled",
+		"input":      []any{map[string]any{"role": "user", "content": "hi"}},
+	}
+	result := applyCodexOAuthTransform(disabled, false, false)
+	require.True(t, result.Modified)
+	require.NotContains(t, disabled, "truncation")
+
+	auto := map[string]any{
+		"model":      "gpt-5.4",
+		"truncation": "auto",
+		"input":      []any{map[string]any{"role": "user", "content": "hi"}},
+	}
+	applyCodexOAuthTransform(auto, false, false)
+	require.Equal(t, "auto", auto["truncation"])
+}
+
 func TestApplyCodexOAuthTransform_ExtractsSystemMessages(t *testing.T) {
 	reqBody := map[string]any{
 		"model": "gpt-5.1",

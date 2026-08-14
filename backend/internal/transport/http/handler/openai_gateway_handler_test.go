@@ -44,6 +44,14 @@ func TestOpenAIResponsesRequiredCapability(t *testing.T) {
 		service.OpenAIEndpointCapabilityChatCompletions,
 		openAIResponsesRequiredCapability(false, service.PlatformOpenAI, "gpt-image-2", false, ""),
 	)
+	require.Equal(t,
+		service.OpenAIEndpointCapabilityResponses,
+		openAIResponsesRequiredCapabilityForRequest(false, true, service.PlatformOpenAI, "gpt-5.6-sol", false, ""),
+	)
+	require.Equal(t,
+		service.OpenAIEndpointCapabilityChatCompletions,
+		openAIResponsesRequiredCapabilityForRequest(false, true, service.PlatformGrok, "grok-4.6", false, ""),
+	)
 }
 
 func TestOpenAIHandleStreamingAwareError_JSONEscaping(t *testing.T) {

@@ -40,6 +40,17 @@ func grokOAuthModelSyncTestAccount(baseURL string) *Account {
 	}
 }
 
+type openAIModelsManifestFetcherStub struct {
+	manifest *CodexModelsManifest
+	err      error
+	calls    int
+}
+
+func (s *openAIModelsManifestFetcherStub) FetchCodexModelsManifest(context.Context, *Account, string, string) (*CodexModelsManifest, error) {
+	s.calls++
+	return s.manifest, s.err
+}
+
 func TestBuildV1ModelsURL(t *testing.T) {
 	t.Parallel()
 
@@ -340,6 +351,87 @@ func TestFetchUpstreamSupportedModelsParsesOpenAIResponse(t *testing.T) {
 	require.Equal(t, []string{"gpt-5", "o3"}, models)
 	require.Equal(t, "https://openai.example.com/v1/models", upstream.lastReq.URL.String())
 	require.Equal(t, "Bearer openai-key", upstream.lastReq.Header.Get("Authorization"))
+}
+
+func TestFetchUpstreamSupportedModelsOpenAIOAuthUsesCodexManifest(t *testing.T) {
+	t.Parallel()
+
+	fetcher := &openAIModelsManifestFetcherStub{manifest: &CodexModelsManifest{
+		Body: []byte(`{"models":[{"slug":" z-model "},{"slug":""},{"slug":"a-model"},{"slug":"z-model"},{"slug":"   "}]}`),
+	}}
+	svc := &AccountTestService{openAIModelsManifest: fetcher}
+
+	models, err := svc.FetchUpstreamSupportedModels(context.Background(), &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"access_token": "oauth-access-token",
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, []string{"a-model", "z-model"}, models)
+	require.Equal(t, 1, fetcher.calls)
+}
+
+func TestFetchUpstreamSupportedModelsOpenAIOAuthSanitizesManifestFailure(t *testing.T) {
+	t.Parallel()
+
+	fetcher := &openAIModelsManifestFetcherStub{err: errors.New("upstream leaked SECRET_TOKEN")}
+	svc := &AccountTestService{openAIModelsManifest: fetcher}
+
+	_, err := svc.FetchUpstreamSupportedModels(context.Background(), &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+	})
+	require.Error(t, err)
+
+	var syncErr *UpstreamModelSyncError
+	require.ErrorAs(t, err, &syncErr)
+	require.Equal(t, UpstreamModelSyncErrorUpstream, syncErr.Kind)
+	require.Equal(t, "Failed to request OpenAI models manifest", syncErr.SafeMessage())
+	require.NotContains(t, syncErr.SafeMessage(), "SECRET_TOKEN")
+}
+
+func TestFetchUpstreamSupportedModelsOpenAIOAuthRejectsUnusableManifest(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		manifest *CodexModelsManifest
+	}{
+		{name: "missing", manifest: nil},
+		{name: "not_modified", manifest: &CodexModelsManifest{NotModified: true}},
+		{name: "invalid_json", manifest: &CodexModelsManifest{Body: []byte(`{"models":[`)}},
+		{name: "empty_models", manifest: &CodexModelsManifest{Body: []byte(`{"models":[{"slug":"  "}]}`)}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fetcher := &openAIModelsManifestFetcherStub{manifest: tt.manifest}
+			_, err := (&AccountTestService{openAIModelsManifest: fetcher}).FetchUpstreamSupportedModels(
+				context.Background(),
+				&Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth},
+			)
+			require.Error(t, err)
+			var syncErr *UpstreamModelSyncError
+			require.ErrorAs(t, err, &syncErr)
+			require.Equal(t, UpstreamModelSyncErrorUpstream, syncErr.Kind)
+		})
+	}
+}
+
+func TestFetchUpstreamSupportedModelsOpenAIOAuthRequiresManifestService(t *testing.T) {
+	t.Parallel()
+
+	_, err := (&AccountTestService{}).FetchUpstreamSupportedModels(context.Background(), &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+	})
+	require.Error(t, err)
+
+	var syncErr *UpstreamModelSyncError
+	require.ErrorAs(t, err, &syncErr)
+	require.Equal(t, UpstreamModelSyncErrorConfiguration, syncErr.Kind)
+	require.Equal(t, "OpenAI models manifest service is not configured", syncErr.SafeMessage())
 }
 
 func TestFetchUpstreamSupportedModelsParsesGrokAPIKeyResponse(t *testing.T) {

@@ -410,8 +410,16 @@ func sanitizeEncryptedReasoningInputItem(item any) (next any, changed bool, keep
 	return inputItem, true, true
 }
 
-func IsOpenAIResponsesCompactPathForTest(c *gin.Context) bool {
+// IsOpenAIResponsesCompactPath reports whether the request targets the legacy
+// /responses/compact endpoint, including its forwardable subpaths.
+func IsOpenAIResponsesCompactPath(c *gin.Context) bool {
 	return isOpenAIResponsesCompactPath(c)
+}
+
+// IsOpenAIResponsesCompactPathForTest is retained for compatibility with
+// existing package tests while callers migrate to the production helper.
+func IsOpenAIResponsesCompactPathForTest(c *gin.Context) bool {
+	return IsOpenAIResponsesCompactPath(c)
 }
 
 func OpenAICompactSessionSeedKeyForTest() string {

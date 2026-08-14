@@ -71,7 +71,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 
 	setOpsRequestContext(c, "", false)
 	sessionHashBody := body
-	body, ok = h.normalizeOpenAIResponsesCompactRequest(c, reqLog, body)
+	body, compactionRoute, ok := h.normalizeOpenAIResponsesCompactRequest(c, reqLog, body)
 	if !ok {
 		return
 	}
@@ -180,6 +180,13 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
 	forwardBody := openAIModelMappedBody(body, channelMapping.Mapped, channelMapping.MappedModel, h.gatewayService.ReplaceModelInBody)
 	seedOpenAIForwardImageIntentHint(c, channelMapping.Mapped, imageIntent)
+	if channelMapping.Mapped {
+		c.Request = c.Request.WithContext(service.WithOpenAIForwardModel(
+			c.Request.Context(),
+			channelMapping.MappedModel,
+			compactionRoute.legacyCompact,
+		))
+	}
 
 	// 提前校验 function_call_output 是否具备可关联上下文，避免上游 400。
 	if !forceImageTool && !h.validateFunctionCallOutputRequest(c, body, reqLog) {
@@ -240,7 +247,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		)
 		return
 	}
-	requireCompact := isOpenAIRemoteCompactPath(c)
+	requireCompact := compactionRoute.legacyCompact
 
 	maxAccountSwitches := h.maxAccountSwitches
 	switchCount := 0
@@ -257,8 +264,9 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	// 仅对 OpenAI 平台生效：Grok 生图走独立的 forwardGrokResponses 路径，不应被过滤。
 	// 使用 IsExplicitImageGenerationIntent 排除被动 image_gen namespace 声明，
 	// 避免 Codex 的被动工具目录使 CC-only 账号被误过滤（#4476）。
-	requiredCapability := openAIResponsesRequiredCapability(
+	requiredCapability := openAIResponsesRequiredCapabilityForRequest(
 		imageIntent,
+		compactionRoute.requiresResponses(),
 		requestPlatform,
 		reqModel,
 		channelMapping.Mapped,
@@ -302,7 +310,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 				return
 			}
 			if len(failedAccountIDs) == 0 {
-				if errors.Is(err, service.ErrNoAvailableCompactAccounts) {
+				if compactionRoute.legacyCompact && errors.Is(err, service.ErrNoAvailableCompactAccounts) {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
 					h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "compact_not_supported", "No available accounts support /responses/compact", streamStarted)
 					return
@@ -556,11 +564,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 }
 
 func isOpenAIRemoteCompactPath(c *gin.Context) bool {
-	if c == nil || c.Request == nil || c.Request.URL == nil {
-		return false
-	}
-	normalizedPath := strings.TrimRight(strings.TrimSpace(c.Request.URL.Path), "/")
-	return strings.HasSuffix(normalizedPath, "/responses/compact")
+	return service.IsOpenAIResponsesCompactPath(c)
 }
 
 // isBareOpenAIResponsesPath 仅匹配裸 /responses 端点（无 /compact 等子路径），
@@ -570,44 +574,46 @@ func isBareOpenAIResponsesPath(c *gin.Context) bool {
 		return false
 	}
 	normalizedPath := strings.TrimRight(strings.TrimSpace(c.Request.URL.Path), "/")
-	return strings.HasSuffix(normalizedPath, "/responses")
-}
-
-func isOpenAIRemoteCompactionV2Request(c *gin.Context, body []byte) bool {
-	stream, valid := parseOpenAICompatibleStream(body)
-	if !valid || !stream || c == nil || c.Request == nil {
+	switch normalizedPath {
+	case EndpointResponses, "/openai/v1/responses", "/responses", "/backend-api/codex/responses":
+		return true
+	default:
 		return false
 	}
-	for _, header := range c.Request.Header.Values("x-codex-beta-features") {
-		for _, feature := range strings.Split(header, ",") {
-			if strings.TrimSpace(feature) == "remote_compaction_v2" {
-				return true
-			}
-		}
-	}
-	return false
+}
+
+type openAIResponsesCompactionRoute struct {
+	legacyCompact bool
+	nativeV2      bool
+}
+
+func (r openAIResponsesCompactionRoute) requiresResponses() bool {
+	return r.legacyCompact || r.nativeV2
 }
 
 // normalizeOpenAIResponsesCompactRequest keeps Codex remote compaction v2 on
 // its native streaming /responses wire and preserves the legacy body-signal
-// promotion for clients that do not explicitly advertise that protocol.
+// promotion for non-streaming requests. It classifies the request while the
+// input is already being inspected so the hot path does not scan it twice.
 // 返回归一化后的 body；ok=false 表示错误响应已写出，调用方应直接 return。
-func (h *OpenAIGatewayHandler) normalizeOpenAIResponsesCompactRequest(c *gin.Context, reqLog *zap.Logger, body []byte) ([]byte, bool) {
-	isCompactRequest := service.IsOpenAIResponsesCompactPathForTest(c)
-	if !isCompactRequest && isBareOpenAIResponsesPath(c) && service.HasCompactionTriggerInInput(body) {
-		if isOpenAIRemoteCompactionV2Request(c, body) {
-			return body, true
+func (h *OpenAIGatewayHandler) normalizeOpenAIResponsesCompactRequest(c *gin.Context, reqLog *zap.Logger, body []byte) ([]byte, openAIResponsesCompactionRoute, bool) {
+	route := openAIResponsesCompactionRoute{legacyCompact: service.IsOpenAIResponsesCompactPath(c)}
+	if !route.legacyCompact && isBareOpenAIResponsesPath(c) && service.HasCompactionTriggerInInput(body) {
+		stream, valid := parseOpenAICompatibleStream(body)
+		if valid && stream {
+			route.nativeV2 = true
+			return body, route, true
 		}
 		c.Request.URL.Path = strings.TrimRight(c.Request.URL.Path, "/") + "/compact"
-		isCompactRequest = true
+		route.legacyCompact = true
 		clientStream := gjson.GetBytes(body, "stream").Bool()
 		if clientStream {
 			service.MarkOpenAICompactClientStream(c)
 		}
 		reqLog.Info("codex.remote_compact.detected_body_signal", zap.Bool("client_stream", clientStream))
 	}
-	if !isCompactRequest {
-		return body, true
+	if !route.legacyCompact {
+		return body, route, true
 	}
 	if compactSeed := strings.TrimSpace(gjson.GetBytes(body, "prompt_cache_key").String()); compactSeed != "" {
 		c.Set(service.OpenAICompactSessionSeedKeyForTest(), compactSeed)
@@ -615,12 +621,12 @@ func (h *OpenAIGatewayHandler) normalizeOpenAIResponsesCompactRequest(c *gin.Con
 	normalizedCompactBody, normalizedCompact, compactErr := service.NormalizeOpenAICompactRequestBodyForTest(body)
 	if compactErr != nil {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to normalize compact request body")
-		return nil, false
+		return nil, route, false
 	}
 	if normalizedCompact {
 		body = normalizedCompactBody
 	}
-	return body, true
+	return body, route, true
 }
 
 func (h *OpenAIGatewayHandler) logOpenAIRemoteCompactOutcome(c *gin.Context, startedAt time.Time) {

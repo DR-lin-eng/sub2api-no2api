@@ -72,6 +72,7 @@ type AccountTestService struct {
 	httpUpstream              HTTPUpstream
 	cfg                       *config.Config
 	tlsFPProfileService       *TLSFingerprintProfileService
+	openAIModelsManifest      openAIModelsManifestFetcher
 	agentIdentityTaskMu       sync.Mutex
 	agentIdentityWS           agentIdentityWSConnectionInvalidator
 }

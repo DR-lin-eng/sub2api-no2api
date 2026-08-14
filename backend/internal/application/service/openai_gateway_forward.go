@@ -12,7 +12,6 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
 	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
-	"github.com/Wei-Shaw/sub2api/internal/shared/openai_compat"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 )
@@ -137,7 +136,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		return s.forwardGrokResponses(ctx, c, account, body, originalModel, reqStream, startTime)
 	}
 
-	if account.Type == AccountTypeAPIKey && !openai_compat.ShouldUseResponsesAPI(account.Extra) {
+	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) {
 		return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body)
 	}
 

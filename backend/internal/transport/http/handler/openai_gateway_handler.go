@@ -90,6 +90,28 @@ func openAIResponsesRequiredCapability(
 	return service.OpenAIEndpointCapabilityResponses
 }
 
+// openAIResponsesRequiredCapabilityForRequest extends the image capability
+// decision to protocol shapes that must stay on the Responses endpoint.
+func openAIResponsesRequiredCapabilityForRequest(
+	imageIntent bool,
+	needsResponses bool,
+	requestPlatform string,
+	requestedModel string,
+	channelMapped bool,
+	mappedModel string,
+) service.OpenAIEndpointCapability {
+	if needsResponses && requestPlatform == service.PlatformOpenAI {
+		return service.OpenAIEndpointCapabilityResponses
+	}
+	return openAIResponsesRequiredCapability(
+		imageIntent,
+		requestPlatform,
+		requestedModel,
+		channelMapped,
+		mappedModel,
+	)
+}
+
 func newOpenAIModelMappedBodyCache(body []byte, replace openAIModelBodyReplaceFunc) func(bool, string) []byte {
 	replacedBodies := make(map[string][]byte)
 	return func(mapped bool, mappedModel string) []byte {

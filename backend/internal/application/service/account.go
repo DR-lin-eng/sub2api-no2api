@@ -115,8 +115,8 @@ const (
 	// OpenAIEndpointCapabilityResponses 表示上游确实提供 /v1/responses 端点。
 	// 与其他能力不同：支持状态来自 accounts.extra 的自动探测标记
 	// （openai_responses_supported / openai_responses_mode），而非
-	// credentials["openai_capabilities"] 配置集。仅用于生图意图的 /v1/responses
-	// 调度，避免把请求调度到会在 forward 阶段被降级为 Chat Completions 的账号（#4417）。
+	// credentials["openai_capabilities"] 配置集。用于必须保留 Responses 语义的
+	// 请求，例如生图和原生远程压缩，避免在 forward 阶段降级为 Chat Completions。
 	OpenAIEndpointCapabilityResponses OpenAIEndpointCapability = "responses"
 	// OpenAIEndpointCapabilityResponsesOrForcedImageAPI is used only for
 	// image-model requests received on /v1/responses. Besides regular Responses

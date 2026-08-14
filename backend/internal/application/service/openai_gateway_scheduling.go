@@ -670,18 +670,41 @@ func prioritizeOpenAICompactAccounts(accounts []*Account) []*Account {
 	return out
 }
 
-// resolveOpenAIAccountUpstreamModelForRequest resolves the upstream model that
-// would be sent for a given request, honouring compact-only mappings when the
-// caller is on the /responses/compact path.
+// resolveOpenAIAccountUpstreamModelForRequest mirrors Forward's model chain so
+// upstream channel restrictions evaluate the model that will actually be sent.
 func resolveOpenAIAccountUpstreamModelForRequest(account *Account, requestedModel string, requireCompact bool) string {
+	// Raw Chat Completions fallback runs before passthrough and never applies
+	// compact_model_mapping, even if the passthrough flag is also present.
+	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) {
+		upstreamModel := resolveOpenAIForwardModel(account, requestedModel, "")
+		return normalizeOpenAIModelForUpstream(account, upstreamModel)
+	}
+
+	// Passthrough preserves the channel-mapped body model. The explicit Codex
+	// continuation bundle disables passthrough in Forward, so keep that local
+	// invariant here as well.
+	if account != nil && account.IsOpenAIPassthroughEnabled() && !account.IsCodexPrewarmContinuationEnabled() {
+		upstreamModel := strings.TrimSpace(requestedModel)
+		if upstreamModel == "" {
+			return ""
+		}
+		if requireCompact {
+			return resolveOpenAICompactForwardModel(account, upstreamModel)
+		}
+		return upstreamModel
+	}
+
 	upstreamModel := resolveOpenAIForwardModel(account, requestedModel, "")
 	if upstreamModel == "" {
 		return ""
 	}
 	if requireCompact {
-		return resolveOpenAICompactForwardModel(account, upstreamModel)
+		compactModel := resolveOpenAICompactForwardModel(account, upstreamModel)
+		if compactModel != upstreamModel {
+			return compactModel
+		}
 	}
-	return upstreamModel
+	return normalizeOpenAIModelForUpstream(account, upstreamModel)
 }
 
 func (s *OpenAIGatewayService) selectAccountForModelWithExclusions(ctx context.Context, groupID *int64, platform string, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, requireCompact bool, stickyAccountID int64, requiredCapability OpenAIEndpointCapability, preferLowUpstreamRate bool) (*Account, error) {

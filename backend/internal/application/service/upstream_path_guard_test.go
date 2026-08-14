@@ -71,8 +71,39 @@ func TestOpenAIResponsesRequestPathSuffixRejectsNonConformingSubpaths(t *testing
 	}
 }
 
+func TestIsOpenAIResponsesCompactPathUsesLegacyEndpointShape(t *testing.T) {
+	for _, path := range []string{
+		"/v1/responses/compact",
+		"/v1/responses/compact/detail",
+		"/responses/compact/",
+	} {
+		t.Run("legacy_"+path, func(t *testing.T) {
+			require.True(t, IsOpenAIResponsesCompactPath(newResponsesSuffixTestContext(t, path)))
+		})
+	}
+
+	for _, path := range []string{
+		"/v1/responses",
+		"/openai/v1/responses",
+		"/responses",
+		"/backend-api/codex/responses",
+		"/v1/responses/resp_123/cancel",
+	} {
+		t.Run("non_legacy_"+path, func(t *testing.T) {
+			require.False(t, IsOpenAIResponsesCompactPath(newResponsesSuffixTestContext(t, path)))
+		})
+	}
+}
+
 func TestAppendOpenAIResponsesRequestPathSuffixRefusesUnsafeSuffix(t *testing.T) {
 	require.Equal(t, chatgptCodexURL, appendOpenAIResponsesRequestPathSuffix(chatgptCodexURL, "/../../x"))
 	require.Equal(t, chatgptCodexURL, appendOpenAIResponsesRequestPathSuffix(chatgptCodexURL, "/?a=b"))
 	require.Equal(t, chatgptCodexURL+"/compact", appendOpenAIResponsesRequestPathSuffix(chatgptCodexURL, "/compact"))
+}
+
+func newResponsesSuffixTestContext(t *testing.T, path string) *gin.Context {
+	t.Helper()
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, path, nil)
+	return c
 }
