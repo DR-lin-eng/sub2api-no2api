@@ -6,7 +6,7 @@
 
 | 工具 | 版本来源 | 用途 |
 | --- | --- | --- |
-| Go | `backend/go.mod`，当前为 1.26.5 | 后端构建、生成和测试 |
+| Go | `backend/go.mod`，当前为 1.26.6 | 后端构建、生成和测试 |
 | Node.js | `.github/workflows/backend-ci.yml`，当前为 24 | 前端工具链 |
 | pnpm | `frontend/package.json`，当前为 11.17.0 | 前端依赖和脚本；不要混用 npm/yarn |
 | PostgreSQL | `deploy/docker-compose.dev.yml` | 持久化数据和迁移 |

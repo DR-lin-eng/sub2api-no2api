@@ -12,7 +12,7 @@
 
 ## 仓库结构
 
-- `backend/`: Go 1.26.5 模块化单体。入口在 `backend/cmd/server/`。
+- `backend/`: Go 1.26.6 模块化单体。入口在 `backend/cmd/server/`。
 - `frontend/`: Vue 3、TypeScript、Vite、Pinia，使用 pnpm。
 - `deploy/`: Docker Compose、安装脚本和运行配置示例。
 - `docs/`: 架构、API、功能和运维专题文档。
