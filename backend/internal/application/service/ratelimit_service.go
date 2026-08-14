@@ -431,7 +431,15 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 }
 
 func (s *RateLimitService) handleUpstreamInsufficientBalance(ctx context.Context, account *Account, statusCode int, responseBody []byte) bool {
-	if s == nil || account == nil || !account.AutoDisableOnUpstreamInsufficientBalanceEnabled() ||
+	if s == nil || account == nil {
+		return false
+	}
+	// Pool mode keeps default upstream failures request-local. An explicitly configured
+	// custom error code is still evaluated by HandleUpstreamError after this helper.
+	if account.IsPoolMode() {
+		return false
+	}
+	if !account.AutoDisableOnUpstreamInsufficientBalanceEnabled() ||
 		!isUpstreamInsufficientBalanceError(statusCode, responseBody) {
 		return false
 	}

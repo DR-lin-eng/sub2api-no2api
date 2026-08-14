@@ -2581,6 +2581,37 @@ func TestHandleGrokAccountUpstreamError402RecoversAfterCooldownExpiry(t *testing
 	require.True(t, account.IsSchedulable())
 }
 
+func TestHandleGrokAccountUpstreamError402PoolModeIgnoresAutomaticBalanceDisable(t *testing.T) {
+	repo := &insufficientBalanceAccountRepoStub{}
+	rateLimitService := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+	svc := &OpenAIGatewayService{
+		accountRepo:      repo,
+		rateLimitService: rateLimitService,
+	}
+	rateLimitService.SetAccountRuntimeBlocker(svc)
+	account := &Account{
+		ID:          614,
+		Platform:    PlatformGrok,
+		Type:        AccountTypeAPIKey,
+		Status:      StatusActive,
+		Schedulable: true,
+		Credentials: map[string]any{"pool_mode": true},
+		Extra:       map[string]any{AutoDisableOnUpstreamInsufficientBalanceExtraKey: true},
+	}
+
+	svc.handleGrokAccountUpstreamError(
+		context.Background(),
+		account,
+		http.StatusPaymentRequired,
+		nil,
+		[]byte(`{"error":{"type":"billing_error","message":"insufficient balance"}}`),
+	)
+
+	require.Zero(t, repo.setSchedulableCalls)
+	require.True(t, account.Schedulable)
+	require.False(t, svc.isOpenAIAccountRuntimeBlocked(account))
+}
+
 func TestHandleGrokAccountUpstreamError429UsesLatestExhaustedWindowReset(t *testing.T) {
 	now := time.Now()
 	requestReset := now.Add(10 * time.Minute).Truncate(time.Second)

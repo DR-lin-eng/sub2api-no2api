@@ -125,7 +125,37 @@ func TestRateLimitServiceInsufficientBalanceAutoDisable(t *testing.T) {
 		require.True(t, account.Schedulable)
 	})
 
-	t.Run("enabled switch preempts pool and custom error exclusions", func(t *testing.T) {
+	t.Run("enabled switch disables non-pool account", func(t *testing.T) {
+		repo := &insufficientBalanceAccountRepoStub{}
+		blocker := &runtimeBlockRecorder{}
+		svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+		svc.SetAccountRuntimeBlocker(blocker)
+		account := &Account{
+			ID:          606,
+			Platform:    PlatformOpenAI,
+			Type:        AccountTypeAPIKey,
+			Schedulable: true,
+			Extra:       map[string]any{AutoDisableOnUpstreamInsufficientBalanceExtraKey: true},
+		}
+
+		shouldDisable := svc.HandleUpstreamError(
+			context.Background(),
+			account,
+			http.StatusPaymentRequired,
+			http.Header{},
+			[]byte(`{"error":{"type":"billing_error","message":"insufficient balance"}}`),
+		)
+
+		require.True(t, shouldDisable)
+		require.Equal(t, 1, repo.setSchedulableCalls)
+		require.Equal(t, account.ID, repo.lastSchedulableID)
+		require.False(t, repo.lastSchedulable)
+		require.Len(t, blocker.accounts, 1)
+		require.Equal(t, "upstream_insufficient_balance", blocker.reasons[0])
+		require.Zero(t, repo.setErrorCalls)
+	})
+
+	t.Run("pool mode 402 bypasses automatic balance disable", func(t *testing.T) {
 		repo := &insufficientBalanceAccountRepoStub{}
 		blocker := &runtimeBlockRecorder{}
 		svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
@@ -146,19 +176,49 @@ func TestRateLimitServiceInsufficientBalanceAutoDisable(t *testing.T) {
 		shouldDisable := svc.HandleUpstreamError(
 			context.Background(),
 			account,
-			http.StatusBadRequest,
+			http.StatusPaymentRequired,
+			http.Header{},
+			[]byte(`{"error":{"type":"billing_error","message":"insufficient balance"}}`),
+		)
+
+		require.False(t, shouldDisable)
+		require.Zero(t, repo.setSchedulableCalls)
+		require.True(t, account.Schedulable)
+		require.Empty(t, blocker.accounts)
+		require.Zero(t, repo.setErrorCalls)
+	})
+
+	t.Run("pool mode explicit custom 402 still disables", func(t *testing.T) {
+		repo := &insufficientBalanceAccountRepoStub{}
+		blocker := &runtimeBlockRecorder{}
+		svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+		svc.SetAccountRuntimeBlocker(blocker)
+		account := &Account{
+			ID:          605,
+			Platform:    PlatformOpenAI,
+			Type:        AccountTypeAPIKey,
+			Schedulable: true,
+			Credentials: map[string]any{
+				"pool_mode":                  true,
+				"custom_error_codes_enabled": true,
+				"custom_error_codes":         []any{float64(http.StatusPaymentRequired)},
+			},
+			Extra: map[string]any{AutoDisableOnUpstreamInsufficientBalanceExtraKey: true},
+		}
+
+		shouldDisable := svc.HandleUpstreamError(
+			context.Background(),
+			account,
+			http.StatusPaymentRequired,
 			http.Header{},
 			[]byte(`{"error":{"type":"billing_error","message":"insufficient balance"}}`),
 		)
 
 		require.True(t, shouldDisable)
-		require.Equal(t, 1, repo.setSchedulableCalls)
-		require.Equal(t, account.ID, repo.lastSchedulableID)
-		require.False(t, repo.lastSchedulable)
-		require.True(t, account.Schedulable, "request snapshots remain immutable after persistence")
+		require.Zero(t, repo.setSchedulableCalls)
+		require.Equal(t, 1, repo.setErrorCalls)
 		require.Len(t, blocker.accounts, 1)
-		require.Equal(t, "upstream_insufficient_balance", blocker.reasons[0])
-		require.Zero(t, repo.setErrorCalls)
+		require.Equal(t, "auth_error", blocker.reasons[0])
 	})
 
 	t.Run("persistence failure still fails over without a permanent runtime block", func(t *testing.T) {

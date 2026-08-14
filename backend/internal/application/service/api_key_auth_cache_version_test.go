@@ -1,6 +1,9 @@
 package service
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
 
 func TestAPIKeyService_RejectsV10AuthSnapshotWithoutModelsListConfig(t *testing.T) {
 	groupID := int64(9)
@@ -97,5 +100,53 @@ func TestAPIKeyService_RoundTripsRequestSchedulingTierInAuthSnapshot(t *testing.
 	roundTripped := svc.snapshotToAPIKey("sk-test", snapshot)
 	if roundTripped == nil || roundTripped.User == nil || roundTripped.User.SchedulingTier != RequestSchedulingTierLow {
 		t.Fatalf("expected low tier after snapshot materialization, got %#v", roundTripped)
+	}
+}
+
+func TestAPIKeyService_RoundTripsGroupPricingInAuthSnapshot(t *testing.T) {
+	groupID := int64(30)
+	inputPrice := 9.99
+	outputPrice := 19.99
+	svc := &APIKeyService{}
+	key := &APIKey{
+		ID:      10,
+		UserID:  20,
+		GroupID: &groupID,
+		User: &User{
+			ID:     20,
+			Status: StatusActive,
+		},
+		Group: &Group{
+			ID:                        groupID,
+			LongContextPricingEnabled: true,
+			ModelPricing: []ChannelModelPricing{{
+				Models:      []string{"some-model"},
+				BillingMode: BillingModeToken,
+				InputPrice:  &inputPrice,
+				OutputPrice: &outputPrice,
+			}},
+		},
+	}
+
+	snapshot := svc.snapshotFromAPIKey(t.Context(), key)
+	if snapshot == nil || snapshot.Group == nil || !snapshot.Group.LongContextPricingEnabled || len(snapshot.Group.ModelPricing) != 1 {
+		t.Fatalf("expected group pricing fields in auth snapshot, got %#v", snapshot)
+	}
+	raw, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatalf("marshal auth snapshot: %v", err)
+	}
+	var cached APIKeyAuthSnapshot
+	if err := json.Unmarshal(raw, &cached); err != nil {
+		t.Fatalf("unmarshal auth snapshot: %v", err)
+	}
+	roundTripped := svc.snapshotToAPIKey("sk-test", &cached)
+	if roundTripped == nil || roundTripped.Group == nil || !roundTripped.Group.LongContextPricingEnabled {
+		t.Fatalf("expected long-context pricing gate after snapshot materialization, got %#v", roundTripped)
+	}
+	if len(roundTripped.Group.ModelPricing) != 1 || roundTripped.Group.ModelPricing[0].InputPrice == nil ||
+		*roundTripped.Group.ModelPricing[0].InputPrice != inputPrice || roundTripped.Group.ModelPricing[0].OutputPrice == nil ||
+		*roundTripped.Group.ModelPricing[0].OutputPrice != outputPrice {
+		t.Fatalf("expected group model pricing after snapshot materialization, got %#v", roundTripped.Group.ModelPricing)
 	}
 }
