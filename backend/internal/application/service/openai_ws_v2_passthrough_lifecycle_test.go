@@ -152,8 +152,13 @@ func startPassthroughLifecycleServer(
 	controlCtx context.Context,
 	svc *OpenAIGatewayService,
 	account *Account,
+	hooks ...*OpenAIWSIngressHooks,
 ) (*httptest.Server, <-chan error) {
 	t.Helper()
+	var ingressHooks *OpenAIWSIngressHooks
+	if len(hooks) > 0 {
+		ingressHooks = hooks[0]
+	}
 	serverErr := make(chan error, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := coderws.Accept(w, r, &coderws.AcceptOptions{CompressionMode: coderws.CompressionContextTakeover})
@@ -184,7 +189,7 @@ func startPassthroughLifecycleServer(
 		req := r.Clone(controlCtx)
 		req.Header = req.Header.Clone()
 		ginCtx.Request = req
-		serverErr <- svc.ProxyResponsesWebSocketFromClient(controlCtx, ginCtx, conn, account, "sk-test", firstMessage, nil)
+		serverErr <- svc.ProxyResponsesWebSocketFromClient(controlCtx, ginCtx, conn, account, "sk-test", firstMessage, ingressHooks)
 	}))
 	return server, serverErr
 }
@@ -495,6 +500,276 @@ func TestPassthroughLifecycle_TerminalSwitchesToInterTurnIdleTimeout(t *testing.
 	case <-time.After(3 * time.Second):
 		t.Fatal("passthrough terminal turn did not use inter-turn idle timeout")
 	}
+}
+
+func TestPassthroughLifecycle_FollowUpTurnRunsHooksBeforeForward(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	controlCtx, cancelControl := context.WithCancelCause(context.Background())
+	defer cancelControl(context.Canceled)
+	upstream := newStagedPassthroughConn()
+	type hookEvent struct {
+		name string
+		turn int
+	}
+	var hookMu sync.Mutex
+	var hookEvents []hookEvent
+	recordHook := func(name string, turn int) {
+		hookMu.Lock()
+		hookEvents = append(hookEvents, hookEvent{name: name, turn: turn})
+		hookMu.Unlock()
+	}
+	snapshotHooks := func() []hookEvent {
+		hookMu.Lock()
+		defer hookMu.Unlock()
+		return append([]hookEvent(nil), hookEvents...)
+	}
+	beforeTurnEntered := make(chan struct{})
+	allowBeforeTurn := make(chan struct{})
+	hooks := &OpenAIWSIngressHooks{
+		BeforeRequest: func(turn int, _ []byte, _ string) error {
+			recordHook("before_request", turn)
+			return nil
+		},
+		BeforeTurn: func(turn int) error {
+			recordHook("before_turn", turn)
+			close(beforeTurnEntered)
+			<-allowBeforeTurn
+			return nil
+		},
+		AfterTurn: func(turn int, _ *OpenAIForwardResult, _ error) {
+			recordHook("after_turn", turn)
+		},
+	}
+	server, serverErr := startPassthroughLifecycleServer(
+		t, controlCtx, newPassthroughLifecycleService(passthroughLifecycleConfig(), upstream), passthroughLifecycleAccount(), hooks,
+	)
+	defer server.Close()
+	clientConn := dialPassthroughLifecycleClient(t, server)
+	defer func() { _ = clientConn.CloseNow() }()
+	require.Equal(t, "response.create", gjson.GetBytes(requirePassthroughUpstreamWrite(t, upstream, time.Second), "type").String())
+
+	upstream.Send(`{"type":"response.completed","response":{"id":"resp_hook_first","model":"gpt-5.1","usage":{"input_tokens":1,"output_tokens":1}}}`)
+	completed, err := readPassthroughLifecycleFrame(t, clientConn, time.Second)
+	require.NoError(t, err)
+	require.Equal(t, "resp_hook_first", gjson.GetBytes(completed, "response.id").String())
+	require.Eventually(t, func() bool {
+		return len(snapshotHooks()) == 1
+	}, time.Second, 10*time.Millisecond)
+
+	writeCtx, cancelWrite := context.WithTimeout(context.Background(), time.Second)
+	err = clientConn.Write(writeCtx, coderws.MessageText, []byte(`{"type":"response.create","model":"gpt-5.1","previous_response_id":"resp_hook_first"}`))
+	cancelWrite()
+	require.NoError(t, err)
+	select {
+	case <-beforeTurnEntered:
+	case <-time.After(time.Second):
+		t.Fatal("follow-up turn did not call BeforeTurn")
+	}
+	select {
+	case payload := <-upstream.writes:
+		t.Fatalf("follow-up frame reached upstream before BeforeTurn returned: %s", payload)
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(allowBeforeTurn)
+	require.Equal(t, "response.create", gjson.GetBytes(requirePassthroughUpstreamWrite(t, upstream, time.Second), "type").String())
+
+	upstream.Send(`{"type":"response.completed","response":{"id":"resp_hook_second","model":"gpt-5.1","usage":{"input_tokens":1,"output_tokens":1}}}`)
+	completed, err = readPassthroughLifecycleFrame(t, clientConn, time.Second)
+	require.NoError(t, err)
+	require.Equal(t, "resp_hook_second", gjson.GetBytes(completed, "response.id").String())
+	require.Eventually(t, func() bool {
+		return len(snapshotHooks()) == 4
+	}, time.Second, 10*time.Millisecond)
+	require.NoError(t, clientConn.Close(coderws.StatusNormalClosure, "done"))
+	select {
+	case <-serverErr:
+	case <-time.After(3 * time.Second):
+		t.Fatal("passthrough hook test server did not exit")
+	}
+	require.Equal(t, []hookEvent{
+		{name: "after_turn", turn: 1},
+		{name: "before_request", turn: 2},
+		{name: "before_turn", turn: 2},
+		{name: "after_turn", turn: 2},
+	}, snapshotHooks())
+}
+
+func TestPassthroughLifecycle_BeforeTurnRejectionDoesNotForward(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	controlCtx, cancelControl := context.WithCancelCause(context.Background())
+	defer cancelControl(context.Canceled)
+	upstream := newStagedPassthroughConn()
+	var hookMu sync.Mutex
+	var beforeTurns []int
+	var afterTurns []int
+	hooks := &OpenAIWSIngressHooks{
+		BeforeTurn: func(turn int) error {
+			hookMu.Lock()
+			beforeTurns = append(beforeTurns, turn)
+			hookMu.Unlock()
+			return NewOpenAIWSClientCloseError(coderws.StatusTryAgainLater, "account is busy", nil)
+		},
+		AfterTurn: func(turn int, _ *OpenAIForwardResult, _ error) {
+			hookMu.Lock()
+			afterTurns = append(afterTurns, turn)
+			hookMu.Unlock()
+		},
+	}
+	server, serverErr := startPassthroughLifecycleServer(
+		t, controlCtx, newPassthroughLifecycleService(passthroughLifecycleConfig(), upstream), passthroughLifecycleAccount(), hooks,
+	)
+	defer server.Close()
+	clientConn := dialPassthroughLifecycleClient(t, server)
+	defer func() { _ = clientConn.CloseNow() }()
+	require.Equal(t, "response.create", gjson.GetBytes(requirePassthroughUpstreamWrite(t, upstream, time.Second), "type").String())
+
+	upstream.Send(`{"type":"response.completed","response":{"id":"resp_reject_first","model":"gpt-5.1","usage":{"input_tokens":1,"output_tokens":1}}}`)
+	completed, err := readPassthroughLifecycleFrame(t, clientConn, time.Second)
+	require.NoError(t, err)
+	require.Equal(t, "resp_reject_first", gjson.GetBytes(completed, "response.id").String())
+	writeCtx, cancelWrite := context.WithTimeout(context.Background(), time.Second)
+	err = clientConn.Write(writeCtx, coderws.MessageText, []byte(`{"type":"response.create","model":"gpt-5.1","previous_response_id":"resp_reject_first"}`))
+	cancelWrite()
+	require.NoError(t, err)
+
+	_, err = readPassthroughLifecycleFrame(t, clientConn, 2*time.Second)
+	var websocketCloseErr coderws.CloseError
+	require.ErrorAs(t, err, &websocketCloseErr)
+	require.Equal(t, coderws.StatusTryAgainLater, websocketCloseErr.Code)
+	require.Equal(t, "account is busy", websocketCloseErr.Reason)
+	select {
+	case payload := <-upstream.writes:
+		t.Fatalf("rejected follow-up frame reached upstream: %s", payload)
+	case <-time.After(200 * time.Millisecond):
+	}
+	select {
+	case err := <-serverErr:
+		var closeErr *OpenAIWSClientCloseError
+		require.ErrorAs(t, err, &closeErr)
+		require.Equal(t, coderws.StatusTryAgainLater, closeErr.StatusCode())
+	case <-time.After(3 * time.Second):
+		t.Fatal("passthrough rejection server did not exit")
+	}
+	hookMu.Lock()
+	require.Equal(t, []int{2}, beforeTurns)
+	require.Equal(t, []int{1}, afterTurns)
+	hookMu.Unlock()
+}
+
+func TestPassthroughLifecycle_ActiveFollowUpClientCloseReleasesOnce(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	controlCtx, cancelControl := context.WithCancelCause(context.Background())
+	defer cancelControl(context.Canceled)
+	upstream := newStagedPassthroughConn()
+	var hookMu sync.Mutex
+	var beforeTurns []int
+	var afterTurns []int
+	hooks := &OpenAIWSIngressHooks{
+		BeforeTurn: func(turn int) error {
+			hookMu.Lock()
+			beforeTurns = append(beforeTurns, turn)
+			hookMu.Unlock()
+			return nil
+		},
+		AfterTurn: func(turn int, _ *OpenAIForwardResult, _ error) {
+			hookMu.Lock()
+			afterTurns = append(afterTurns, turn)
+			hookMu.Unlock()
+		},
+	}
+	server, serverErr := startPassthroughLifecycleServer(
+		t, controlCtx, newPassthroughLifecycleService(passthroughLifecycleConfig(), upstream), passthroughLifecycleAccount(), hooks,
+	)
+	defer server.Close()
+	clientConn := dialPassthroughLifecycleClient(t, server)
+	defer func() { _ = clientConn.CloseNow() }()
+	require.Equal(t, "response.create", gjson.GetBytes(requirePassthroughUpstreamWrite(t, upstream, time.Second), "type").String())
+
+	upstream.Send(`{"type":"response.completed","response":{"id":"resp_cancel_first","model":"gpt-5.1","usage":{"input_tokens":1,"output_tokens":1}}}`)
+	completed, err := readPassthroughLifecycleFrame(t, clientConn, time.Second)
+	require.NoError(t, err)
+	require.Equal(t, "resp_cancel_first", gjson.GetBytes(completed, "response.id").String())
+	writeCtx, cancelWrite := context.WithTimeout(context.Background(), time.Second)
+	err = clientConn.Write(writeCtx, coderws.MessageText, []byte(`{"type":"response.create","model":"gpt-5.1","previous_response_id":"resp_cancel_first"}`))
+	cancelWrite()
+	require.NoError(t, err)
+	require.Equal(t, "response.create", gjson.GetBytes(requirePassthroughUpstreamWrite(t, upstream, time.Second), "type").String())
+	require.NoError(t, clientConn.Close(coderws.StatusNormalClosure, "done"))
+	select {
+	case <-serverErr:
+	case <-time.After(3 * time.Second):
+		t.Fatal("passthrough cancellation server did not exit")
+	}
+	hookMu.Lock()
+	require.Equal(t, []int{2}, beforeTurns)
+	require.Equal(t, []int{1, 2}, afterTurns)
+	hookMu.Unlock()
+}
+
+func TestPassthroughLifecycle_UpstreamExitWaitsForActiveBeforeTurn(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	controlCtx, cancelControl := context.WithCancelCause(context.Background())
+	defer cancelControl(context.Canceled)
+	upstream := newStagedPassthroughConn()
+	beforeTurnEntered := make(chan struct{})
+	allowBeforeTurn := make(chan struct{})
+	var hookMu sync.Mutex
+	var beforeTurns []int
+	var afterTurns []int
+	hooks := &OpenAIWSIngressHooks{
+		BeforeTurn: func(turn int) error {
+			hookMu.Lock()
+			beforeTurns = append(beforeTurns, turn)
+			hookMu.Unlock()
+			close(beforeTurnEntered)
+			<-allowBeforeTurn
+			return nil
+		},
+		AfterTurn: func(turn int, _ *OpenAIForwardResult, _ error) {
+			hookMu.Lock()
+			afterTurns = append(afterTurns, turn)
+			hookMu.Unlock()
+		},
+	}
+	server, serverErr := startPassthroughLifecycleServer(
+		t, controlCtx, newPassthroughLifecycleService(passthroughLifecycleConfig(), upstream), passthroughLifecycleAccount(), hooks,
+	)
+	defer server.Close()
+	clientConn := dialPassthroughLifecycleClient(t, server)
+	defer func() { _ = clientConn.CloseNow() }()
+	require.Equal(t, "response.create", gjson.GetBytes(requirePassthroughUpstreamWrite(t, upstream, time.Second), "type").String())
+
+	upstream.Send(`{"type":"response.completed","response":{"id":"resp_gate_first","model":"gpt-5.1","usage":{"input_tokens":1,"output_tokens":1}}}`)
+	completed, err := readPassthroughLifecycleFrame(t, clientConn, time.Second)
+	require.NoError(t, err)
+	require.Equal(t, "resp_gate_first", gjson.GetBytes(completed, "response.id").String())
+	writeCtx, cancelWrite := context.WithTimeout(context.Background(), time.Second)
+	err = clientConn.Write(writeCtx, coderws.MessageText, []byte(`{"type":"response.create","model":"gpt-5.1","previous_response_id":"resp_gate_first"}`))
+	cancelWrite()
+	require.NoError(t, err)
+	select {
+	case <-beforeTurnEntered:
+	case <-time.After(time.Second):
+		t.Fatal("follow-up turn did not enter BeforeTurn")
+	}
+	require.NoError(t, upstream.Close())
+	_, err = readPassthroughLifecycleFrame(t, clientConn, 2*time.Second)
+	require.Error(t, err)
+	select {
+	case err := <-serverErr:
+		t.Fatalf("passthrough returned before active BeforeTurn completed: %v", err)
+	case <-time.After(350 * time.Millisecond):
+	}
+	close(allowBeforeTurn)
+	select {
+	case <-serverErr:
+	case <-time.After(3 * time.Second):
+		t.Fatal("passthrough did not exit after active BeforeTurn completed")
+	}
+	hookMu.Lock()
+	require.Equal(t, []int{2}, beforeTurns)
+	require.Equal(t, []int{1, 2}, afterTurns)
+	hookMu.Unlock()
 }
 
 func TestPassthroughLifecycle_FirstOutputTimeoutRemainsBounded(t *testing.T) {

@@ -302,6 +302,53 @@ type openAIWSPassthroughTurnLifecycle struct {
 	inFlight bool
 }
 
+// openAIWSPassthroughTurnHookGate keeps relay shutdown from racing an
+// in-progress follow-up admission hook that may still acquire concurrency slots.
+type openAIWSPassthroughTurnHookGate struct {
+	mu     sync.Mutex
+	closed bool
+	active chan struct{}
+}
+
+func (g *openAIWSPassthroughTurnHookGate) begin() (func(), bool) {
+	if g == nil {
+		return nil, false
+	}
+	g.mu.Lock()
+	if g.closed || g.active != nil {
+		g.mu.Unlock()
+		return nil, false
+	}
+	done := make(chan struct{})
+	g.active = done
+	g.mu.Unlock()
+
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			g.mu.Lock()
+			if g.active == done {
+				g.active = nil
+				close(done)
+			}
+			g.mu.Unlock()
+		})
+	}, true
+}
+
+func (g *openAIWSPassthroughTurnHookGate) closeAndWait() {
+	if g == nil {
+		return
+	}
+	g.mu.Lock()
+	g.closed = true
+	done := g.active
+	g.mu.Unlock()
+	if done != nil {
+		<-done
+	}
+}
+
 func newOpenAIWSPassthroughTurnLifecycle(inFlight bool) *openAIWSPassthroughTurnLifecycle {
 	return &openAIWSPassthroughTurnLifecycle{inFlight: inFlight}
 }
@@ -926,6 +973,29 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	}
 
 	completedTurns := atomic.Int32{}
+	// activeHookTurn: -1 means relay closed, 0 means idle, and positive values
+	// identify the admitted turn whose AfterTurn callback is still pending.
+	activeHookTurn := atomic.Int32{}
+	activeHookTurn.Store(1)
+	turnHookGate := &openAIWSPassthroughTurnHookGate{}
+	finishHookTurn := func(turnNo int, result *OpenAIForwardResult, turnErr error) {
+		if turnNo <= 0 || !activeHookTurn.CompareAndSwap(int32(turnNo), 0) {
+			return
+		}
+		if hooks != nil && hooks.AfterTurn != nil {
+			hooks.AfterTurn(turnNo, result, turnErr)
+		}
+	}
+	closeActiveHookTurn := func(result *OpenAIForwardResult, turnErr error) {
+		turnHookGate.closeAndWait()
+		turnNo := activeHookTurn.Swap(-1)
+		if turnNo <= 0 {
+			return
+		}
+		if hooks != nil && hooks.AfterTurn != nil {
+			hooks.AfterTurn(int(turnNo), result, turnErr)
+		}
+	}
 	turnLifecycle := newOpenAIWSPassthroughTurnLifecycle(true)
 	clientFrameConn := &openAIWSClientFrameConn{
 		conn:                 clientConn,
@@ -963,6 +1033,12 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 						turnLifecycle.cancelResponseCreate()
 					}
 				}()
+				endHookProcessing, ok := turnHookGate.begin()
+				if !ok {
+					err := errors.New("websocket passthrough turn admission is closed")
+					return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusGoingAway, "websocket request canceled", err)
+				}
+				defer endHookProcessing()
 			}
 			if isResponseCreate {
 				if account.IsOpenAIOAuth() && isOpenAIResponsesLiteWebSocketPayload(payload) {
@@ -992,6 +1068,24 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 					if err := hooks.BeforeRequest(turnNo, payload, requestModelForThisFrame); err != nil {
 						return payload, nil, err
 					}
+				}
+				beforeTurnSucceeded := false
+				if hooks != nil && hooks.BeforeTurn != nil {
+					if err := hooks.BeforeTurn(turnNo); err != nil {
+						return payload, nil, err
+					}
+					beforeTurnSucceeded = true
+				}
+				if !activeHookTurn.CompareAndSwap(0, int32(turnNo)) {
+					err := fmt.Errorf(
+						"openai websocket passthrough turn hook overlap: active=%d requested=%d",
+						activeHookTurn.Load(),
+						turnNo,
+					)
+					if beforeTurnSucceeded && hooks != nil && hooks.AfterTurn != nil {
+						hooks.AfterTurn(turnNo, nil, err)
+					}
+					return payload, nil, err
 				}
 				if hooks != nil && hooks.MapRequestModel != nil {
 					upstreamModel, err := hooks.MapRequestModel(turnNo, requestModelForThisFrame)
@@ -1079,11 +1173,13 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	firstWriteErr := relayUpstreamFrameConn.WriteFrame(firstWriteCtx, coderws.MessageText, firstClientMessage)
 	cancelFirstWrite()
 	if firstWriteErr != nil {
-		return wrapOpenAIWSIngressTurnError(
+		turnErr := wrapOpenAIWSIngressTurnError(
 			"write_upstream",
 			fmt.Errorf("write first upstream websocket request: %w", firstWriteErr),
 			false,
 		)
+		closeActiveHookTurn(nil, turnErr)
+		return turnErr
 	}
 	upstreamFirstMessageSent = true
 
@@ -1164,9 +1260,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 					turnResult.Usage.OutputTokens,
 					turnResult.Usage.CacheReadInputTokens,
 				)
-				if hooks != nil && hooks.AfterTurn != nil {
-					hooks.AfterTurn(turnNo, turnResult, nil)
-				}
+				finishHookTurn(turnNo, turnResult, nil)
 			},
 			BeforeClientWrite: func(msgType coderws.MessageType, payload []byte) {
 				if msgType == coderws.MessageText && openAIWSPassthroughIsTerminalOutput(payload) {
@@ -1245,7 +1339,9 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 		}
 		_ = clientConn.Close(status, reason)
 		_ = clientConn.CloseNow()
-		return NewOpenAIWSClientCloseError(status, reason, cause)
+		turnErr := NewOpenAIWSClientCloseError(status, reason, cause)
+		closeActiveHookTurn(nil, turnErr)
+		return turnErr
 	}
 
 	resultRequestModel, resultUpstreamModel := usageMeta.turnModels(relayResult.RequestModel)
@@ -1285,10 +1381,9 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			relayResult.DroppedDownstreamFrames,
 			turnCount,
 		)
-		// 正常路径按 terminal 事件逐 turn 已回调；仅在零 turn 场景兜底回调一次。
-		if turnCount == 0 && hooks != nil && hooks.AfterTurn != nil {
-			hooks.AfterTurn(1, result, nil)
-		}
+		// Terminal turns have already completed their hook. A graceful client close
+		// can still leave the current turn active, so release that turn exactly once.
+		closeActiveHookTurn(result, nil)
 		return nil
 	}
 	logOpenAIWSV2Passthrough(
@@ -1352,9 +1447,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 		relayErr,
 		relayExit.WroteDownstream,
 	)
-	if hooks != nil && hooks.AfterTurn != nil {
-		hooks.AfterTurn(turnCount+1, nil, turnErr)
-	}
+	closeActiveHookTurn(nil, turnErr)
 	return turnErr
 }
 

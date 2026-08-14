@@ -1208,6 +1208,37 @@ func TestResponsesEventToChatChunks_ToolCallDelta(t *testing.T) {
 	assert.Equal(t, 0, *tc.Index, "first tool arg delta must still use index 0")
 }
 
+func TestResponsesEventToChatChunks_ArgumentsDeltaOmitsEmptyName(t *testing.T) {
+	state := NewResponsesEventToChatState()
+	state.Model = "gpt-4o"
+	state.SentRole = true
+
+	added := ResponsesEventToChatChunks(&ResponsesStreamEvent{
+		Type:        "response.output_item.added",
+		OutputIndex: 0,
+		Item: &ResponsesOutput{
+			Type:   "function_call",
+			CallID: "call_exec",
+			Name:   "exec",
+		},
+	}, state)
+	require.Len(t, added, 1)
+	addedJSON, err := json.Marshal(added[0])
+	require.NoError(t, err)
+	require.Contains(t, string(addedJSON), `"name":"exec"`)
+
+	argumentDelta := ResponsesEventToChatChunks(&ResponsesStreamEvent{
+		Type:        "response.function_call_arguments.delta",
+		OutputIndex: 0,
+		Delta:       `{"command":"pwd"}`,
+	}, state)
+	require.Len(t, argumentDelta, 1)
+	argumentJSON, err := json.Marshal(argumentDelta[0])
+	require.NoError(t, err)
+	require.NotContains(t, string(argumentJSON), `"name":`)
+	require.Contains(t, string(argumentJSON), `"arguments":"{\"command\":\"pwd\"}"`)
+}
+
 func TestResponsesEventToChatChunks_Completed(t *testing.T) {
 	state := NewResponsesEventToChatState()
 	state.Model = "gpt-4o"
