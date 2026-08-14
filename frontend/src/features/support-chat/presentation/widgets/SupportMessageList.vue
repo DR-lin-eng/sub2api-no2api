@@ -11,14 +11,34 @@
           class="mb-1 flex items-center gap-2 text-xs text-gray-500 dark:text-dark-400"
           :class="message.sender_type === ownSender ? 'justify-end' : 'justify-start'"
         >
-          <span v-if="ownMessageReadState(index)" class="font-medium">
+          <span v-if="props.showReadState && ownMessageReadState(index)" class="font-medium">
             {{ ownMessageReadState(index) }}
           </span>
-          <span v-if="ownMessageReadState(index)">·</span>
+          <span v-if="props.showReadState && ownMessageReadState(index)">·</span>
           <span>{{ senderLabel(message.sender_type) }}</span>
           <span>·</span>
           <time :datetime="message.created_at">{{ formatTime(message.created_at) }}</time>
         </div>
+
+        <!-- 引用消息预览 -->
+        <div
+          v-if="message.parsed.replyToId && findMessageById(message.parsed.replyToId)"
+          class="mb-2 rounded-lg border-l-4 bg-gray-50 px-3 py-2 text-xs dark:bg-dark-800"
+          :class="message.sender_type === ownSender
+            ? 'border-primary-400 dark:border-primary-500'
+            : 'border-gray-400 dark:border-gray-600'"
+        >
+          <div class="flex items-center gap-1.5 text-gray-500 dark:text-dark-400">
+            <svg class="h-3 w-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+            </svg>
+            <span class="font-medium">{{ senderLabel(findMessageById(message.parsed.replyToId)!.sender_type) }}</span>
+          </div>
+          <div class="mt-1 truncate text-gray-700 dark:text-dark-300">
+            {{ getMessagePreviewText(findMessageById(message.parsed.replyToId)!) }}
+          </div>
+        </div>
+
         <div
           class="rounded-2xl text-sm leading-6 shadow-sm"
           :class="messageBubbleClass(message)"
@@ -28,7 +48,6 @@
             v-if="message.parsed.sticker"
             class="support-chat-sticker"
             :class="message.parsed.html ? 'mt-3' : ''"
-            :title="message.parsed.sticker.name"
           >
             <img
               v-if="message.parsed.sticker.url"
@@ -37,16 +56,51 @@
               class="support-chat-sticker-image"
             />
             <span v-else class="support-chat-sticker-emoji">{{ message.parsed.sticker.emoji }}</span>
-            <span class="support-chat-sticker-name">{{ message.parsed.sticker.name }}</span>
           </div>
         </div>
+        <button
+          v-if="message.sender_type !== ownSender"
+          type="button"
+          class="mt-1.5 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-dark-200"
+          @click="emit('reply', message)"
+        >
+          <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+          </svg>
+          <span>{{ t('supportChat.composer.replyingTo') }}</span>
+        </button>
       </div>
     </div>
   </div>
+
+  <!-- 图片预览模态框 -->
+  <Teleport to="body">
+    <Transition name="image-preview">
+      <div
+        v-if="previewImage"
+        class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm"
+        @click="closePreview"
+      >
+        <button
+          type="button"
+          class="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-3xl leading-none text-white transition-colors hover:bg-white/20"
+          @click="closePreview"
+        >
+          ×
+        </button>
+        <img
+          :src="previewImage"
+          alt=""
+          class="max-h-[90vh] max-w-[90vw] object-contain"
+          @click.stop
+        />
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ChatMessage, ChatSenderType } from '@/features/support-chat/data/datasources/supportChatDatasource'
 import { parseSupportMessageContent } from '@/features/support-chat/presentation/utils/supportChatMessageContent'
@@ -55,9 +109,16 @@ const props = defineProps<{
   messages: ChatMessage[]
   ownSender: ChatSenderType
   receiverUnreadCount?: number
+  showReadState?: boolean // 是否显示已读状态，默认 false
+}>()
+
+const emit = defineEmits<{
+  reply: [message: ChatMessage]
 }>()
 
 const { t, locale } = useI18n()
+
+const previewImage = ref<string | null>(null)
 
 const orderedMessages = computed(() => {
   return [...props.messages].sort((a, b) => {
@@ -114,6 +175,50 @@ function ownMessageReadState(index: number): string | null {
   const unreadOwnMessages = ownMessages.slice(Math.max(0, ownMessages.length - unreadCount))
   return unreadOwnMessages.some((item) => item.id === message.id) ? t('supportChat.unread') : t('supportChat.read')
 }
+
+function findMessageById(id: number): ChatMessage | undefined {
+  return props.messages.find((msg) => msg.id === id)
+}
+
+function getMessagePreviewText(message: ChatMessage): string {
+  const parsed = parseSupportMessageContent(message.content)
+  if (parsed.sticker) {
+    return `[${parsed.sticker.name}]`
+  }
+  // 移除 HTML 标签并截取前 50 个字符
+  const text = parsed.html.replace(/<[^>]+>/g, '').trim()
+  return text.length > 50 ? text.substring(0, 50) + '...' : text
+}
+
+function handleImageClick(event: Event) {
+  const target = event.target as HTMLElement
+  if (target.tagName === 'IMG' && target.closest('.support-chat-message-content')) {
+    const img = target as HTMLImageElement
+    if (img.src && !img.closest('.support-chat-sticker')) {
+      previewImage.value = img.src
+    }
+  }
+}
+
+function closePreview() {
+  previewImage.value = null
+}
+
+function handleEscKey(event: KeyboardEvent) {
+  if (event.key === 'Escape' && previewImage.value) {
+    closePreview()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleImageClick)
+  document.addEventListener('keydown', handleEscKey)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleImageClick)
+  document.removeEventListener('keydown', handleEscKey)
+})
 </script>
 
 <style scoped>
@@ -132,6 +237,13 @@ function ownMessageReadState(index: number): string | null {
   max-height: 22rem;
   border-radius: 0.75rem;
   object-fit: contain;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.support-chat-message-content :deep(img:hover) {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
 }
 
 .support-chat-message-content :deep(p),
@@ -208,14 +320,23 @@ function ownMessageReadState(index: number): string | null {
   filter: drop-shadow(0 8px 12px rgb(15 23 42 / 0.14));
 }
 
-.support-chat-sticker-name {
-  max-width: 8rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 1rem;
-  opacity: 0.78;
+.image-preview-enter-active,
+.image-preview-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.image-preview-enter-from,
+.image-preview-leave-to {
+  opacity: 0;
+}
+
+.image-preview-enter-active img,
+.image-preview-leave-active img {
+  transition: transform 0.2s ease;
+}
+
+.image-preview-enter-from img,
+.image-preview-leave-to img {
+  transform: scale(0.9);
 }
 </style>

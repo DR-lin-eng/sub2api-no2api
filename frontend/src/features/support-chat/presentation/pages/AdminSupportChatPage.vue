@@ -84,6 +84,8 @@
             :messages="messages"
             own-sender="admin"
             :receiver-unread-count="selectedConversation?.unread_by_user ?? 0"
+            :show-read-state="true"
+            @reply="handleReply"
           />
         </div>
 
@@ -94,6 +96,7 @@
           :clear-nonce="composerClearNonce"
           :image-library="imageLibrary"
           :stickers="stickers"
+          :replying-to="replyingTo"
           show-assistant-tools
           @submit="handleSend"
           @submit-rich="handleRichSend"
@@ -101,6 +104,7 @@
           @library-image-delete="handleLibraryImageDelete"
           @sticker-add-selected="handleStickerAddSelected"
           @sticker-delete="handleStickerDelete"
+          @cancel-reply="handleCancelReply"
         />
         </div>
       </div>
@@ -141,7 +145,6 @@ import {
 import { useSupportChatSocket } from '@/features/support-chat/presentation/composables/useSupportChatSocket'
 import { useSupportChatAdminStore } from '@/features/support-chat/presentation/stores/supportChatAdminStore'
 import {
-  appendTextContent,
   buildImageMessageContent,
   buildStickerMessageContent,
 } from '@/features/support-chat/presentation/utils/supportChatMessageContent'
@@ -171,17 +174,30 @@ const userProfile = ref<AdminUser | null>(null)
 const composerClearNonce = ref(0)
 const imageLibrary = ref<ChatImageLibraryItem[]>([])
 const stickers = ref<ChatStickerItem[]>([])
+const replyingTo = ref<ChatMessage | null>(null)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 let optimisticMessageSeed = 0
 
-type ComposerAttachment =
-  | { type: 'imageFile'; file: File; previewUrl: string; name: string }
-  | { type: 'imageUrl'; url: string; name: string }
-  | { type: 'sticker'; id: string; name: string; url?: string; emoji?: string }
+interface PendingImage {
+  type: 'imageFile' | 'imageUrl'
+  file?: File
+  previewUrl?: string
+  url?: string
+  name: string
+}
+
+interface PendingSticker {
+  id?: string
+  name: string
+  url?: string
+  emoji?: string
+}
 
 interface ComposerSubmitPayload {
   text: string
-  attachment: ComposerAttachment | null
+  images?: PendingImage[]
+  sticker?: PendingSticker | null
+  replyTo?: number
 }
 
 const selectedConversation = computed(() => {
@@ -264,8 +280,8 @@ function imageMessageContent(url: string, name: string): string {
   return buildImageMessageContent(url, name, t('supportChat.composer.imageAlt'))
 }
 
-function stickerMessageContent(sticker: { id: string; name: string; url?: string; emoji?: string }): string {
-  return buildStickerMessageContent(sticker)
+function stickerMessageContent(sticker: { id?: string; name: string; url?: string; emoji?: string }): string {
+  return buildStickerMessageContent(sticker as { id: string; name: string; url?: string; emoji?: string })
 }
 
 function nextOptimisticMessageID(): number {
@@ -439,28 +455,62 @@ async function handleRichSend(payload: ComposerSubmitPayload) {
   if (!selectedConversationID.value) return
   sending.value = true
   let optimisticMessage: ChatMessage | null = null
-  let shouldRevokePreviewUrl: string | null = null
+  const shouldRevokePreviewUrls: string[] = []
   try {
     let content = payload.text.trim()
-    if (payload.attachment?.type === 'imageFile') {
-      const optimisticContent = appendTextContent(content, imageMessageContent(payload.attachment.previewUrl, payload.attachment.name))
-      optimisticMessage = appendOptimisticMessage(optimisticContent)
-      shouldRevokePreviewUrl = payload.attachment.previewUrl
-      composerClearNonce.value += 1
-      await scrollToBottom()
-      const asset = await uploadAdminChatAsset(payload.attachment.file)
-      content = appendTextContent(content, imageMessageContent(asset.url, asset.name || payload.attachment.name))
-    } else if (payload.attachment?.type === 'imageUrl') {
-      content = appendTextContent(content, imageMessageContent(payload.attachment.url, payload.attachment.name))
-      optimisticMessage = appendOptimisticMessage(content)
-      composerClearNonce.value += 1
-      await scrollToBottom()
-    } else if (payload.attachment?.type === 'sticker') {
-      content = appendTextContent(content, stickerMessageContent(payload.attachment))
+
+    // 处理回复
+    if (payload.replyTo) {
+      const replyPrefix = `[reply:${payload.replyTo}]`
+      content = content ? `${replyPrefix}\n${content}` : replyPrefix
+    }
+
+    // 处理多图上传
+    if (payload.images && payload.images.length > 0) {
+      const imageContents: string[] = []
+
+      for (const img of payload.images) {
+        if (img.type === 'imageFile' && img.previewUrl && img.name) {
+          // 先显示 optimistic 预览
+          imageContents.push(imageMessageContent(img.previewUrl, img.name))
+          shouldRevokePreviewUrls.push(img.previewUrl)
+        } else if (img.type === 'imageUrl' && img.url && img.name) {
+          // 直接使用 URL
+          imageContents.push(imageMessageContent(img.url, img.name))
+        }
+      }
+
+      // 显示 optimistic 消息
+      if (imageContents.length > 0) {
+        const optimisticContent = content ? `${content}\n${imageContents.join('\n')}` : imageContents.join('\n')
+        optimisticMessage = appendOptimisticMessage(optimisticContent)
+        composerClearNonce.value += 1
+        await scrollToBottom()
+      }
+
+      // 上传所有图片文件
+      const uploadedContents: string[] = []
+      for (const img of payload.images) {
+        if (img.type === 'imageFile' && img.file) {
+          const asset = await uploadAdminChatAsset(img.file)
+          uploadedContents.push(imageMessageContent(asset.url, asset.name || img.name))
+        } else if (img.type === 'imageUrl' && img.url && img.name) {
+          uploadedContents.push(imageMessageContent(img.url, img.name))
+        }
+      }
+      if (uploadedContents.length > 0) {
+        content = content ? `${content}\n${uploadedContents.join('\n')}` : uploadedContents.join('\n')
+      }
+    }
+    // 处理表情包
+    else if (payload.sticker) {
+      const stickerContent = stickerMessageContent(payload.sticker)
+      content = content ? `${content}\n${stickerContent}` : stickerContent
       optimisticMessage = appendOptimisticMessage(content)
       composerClearNonce.value += 1
       await scrollToBottom()
     }
+
     if (!content) return
     const message = await sendAdminChatMessage(selectedConversationID.value, content)
     if (optimisticMessage) {
@@ -474,6 +524,7 @@ async function handleRichSend(payload: ComposerSubmitPayload) {
     await markSelectedRead()
     await scrollToBottom()
     composerClearNonce.value += 1
+    replyingTo.value = null
   } catch (error) {
     if (optimisticMessage) {
       const optimisticMessageID = optimisticMessage.id
@@ -481,9 +532,19 @@ async function handleRichSend(payload: ComposerSubmitPayload) {
     }
     appStore.showError(errorMessage(error, t('supportChat.sendFailed')))
   } finally {
-    if (shouldRevokePreviewUrl) URL.revokeObjectURL(shouldRevokePreviewUrl)
+    for (const url of shouldRevokePreviewUrls) {
+      URL.revokeObjectURL(url)
+    }
     sending.value = false
   }
+}
+
+function handleReply(message: ChatMessage) {
+  replyingTo.value = message
+}
+
+function handleCancelReply() {
+  replyingTo.value = null
 }
 
 async function handleLibraryImageAddSelected(file: File) {

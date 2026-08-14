@@ -10,9 +10,11 @@ export interface SupportStickerPayload {
 export interface ParsedSupportMessageContent {
   html: string
   sticker: SupportStickerPayload | null
+  replyToId: number | null
 }
 
 const STICKER_MARKER_PATTERN = /\[\[support-sticker:([^\]]+)\]\]/
+const REPLY_MARKER_PATTERN = /^\[reply:(\d+)\]\n?/
 const LEGACY_STICKER_PATTERN = /^<strong\s+title="([^"]{1,80})">([^<]{1,120})<\/strong>$/i
 
 const LEGACY_STICKER_EMOJI_BY_NAME: Record<string, string> = {
@@ -54,27 +56,40 @@ export function appendTextContent(prefix: string, content: string): string {
 }
 
 export function parseSupportMessageContent(content: string): ParsedSupportMessageContent {
-  const markerMatch = content.match(STICKER_MARKER_PATTERN)
+  // 先提取回复标记
+  let replyToId: number | null = null
+  let textContent = content
+  const replyMatch = content.match(REPLY_MARKER_PATTERN)
+  if (replyMatch) {
+    replyToId = parseInt(replyMatch[1], 10)
+    textContent = content.slice(replyMatch[0].length)
+  }
+
+  // 再提取表情包标记
+  const markerMatch = textContent.match(STICKER_MARKER_PATTERN)
   if (markerMatch) {
     const sticker = parseStickerPayload(markerMatch[1])
-    const textContent = `${content.slice(0, markerMatch.index)}${content.slice((markerMatch.index ?? 0) + markerMatch[0].length)}`.trim()
+    const remainingText = `${textContent.slice(0, markerMatch.index)}${textContent.slice((markerMatch.index ?? 0) + markerMatch[0].length)}`.trim()
     return {
-      html: textContent ? sanitizeChatHtml(textContent) : '',
+      html: remainingText ? sanitizeChatHtml(remainingText) : '',
       sticker,
+      replyToId,
     }
   }
 
-  const legacySticker = parseLegacySticker(content)
+  const legacySticker = parseLegacySticker(textContent)
   if (legacySticker) {
     return {
       html: '',
       sticker: legacySticker,
+      replyToId,
     }
   }
 
   return {
-    html: sanitizeChatHtml(content),
+    html: sanitizeChatHtml(textContent),
     sticker: null,
+    replyToId,
   }
 }
 

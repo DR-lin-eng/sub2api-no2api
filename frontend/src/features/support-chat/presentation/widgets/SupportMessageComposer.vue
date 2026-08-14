@@ -1,5 +1,34 @@
 <template>
   <form class="border-t border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900" @submit.prevent="submit">
+    <!-- 回复预览条 -->
+    <transition name="support-reply">
+      <div
+        v-if="replyingTo"
+        class="mb-3 flex items-start gap-3 rounded-xl border border-primary-200 bg-primary-50/50 p-3 dark:border-primary-800 dark:bg-primary-900/20"
+      >
+        <div class="min-w-0 flex-1">
+          <div class="mb-1 flex items-center gap-2 text-xs font-medium text-primary-700 dark:text-primary-300">
+            <svg class="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+            </svg>
+            <span>{{ t('supportChat.composer.replyingTo') }}</span>
+          </div>
+          <div class="truncate text-sm text-gray-700 dark:text-dark-300">
+            {{ replyingTo.content.substring(0, 100) }}{{ replyingTo.content.length > 100 ? '...' : '' }}
+          </div>
+        </div>
+        <button
+          type="button"
+          class="flex-shrink-0 rounded-lg p-1 text-gray-500 transition-colors hover:bg-primary-100 hover:text-primary-700 dark:text-dark-400 dark:hover:bg-primary-800 dark:hover:text-primary-300"
+          @click="emit('cancelReply')"
+        >
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    </transition>
+
     <transition name="support-panel">
       <div
         v-if="activePanel"
@@ -67,48 +96,77 @@
         </div>
 
         <div v-else-if="activePanel === 'stickers'" class="space-y-3">
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <p class="text-sm font-medium text-gray-800 dark:text-dark-100">
-                {{ t('supportChat.composer.stickers') }}
-              </p>
-              <p class="text-xs text-gray-500 dark:text-dark-400">
-                {{ t('supportChat.composer.stickersHint') }}
-              </p>
+          <div class="border-b border-gray-200 dark:border-dark-700">
+            <div class="flex gap-1">
+              <button
+                type="button"
+                class="px-4 py-2 text-sm font-medium transition-colors"
+                :class="stickerTab === 'emoji' ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400' : 'text-gray-600 hover:text-gray-900 dark:text-dark-400 dark:hover:text-dark-100'"
+                @click="stickerTab = 'emoji'"
+              >
+                {{ t('supportChat.composer.systemEmoji') }}
+              </button>
+              <button
+                type="button"
+                class="px-4 py-2 text-sm font-medium transition-colors"
+                :class="stickerTab === 'custom' ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400' : 'text-gray-600 hover:text-gray-900 dark:text-dark-400 dark:hover:text-dark-100'"
+                @click="stickerTab = 'custom'"
+              >
+                {{ t('supportChat.composer.customStickers') }}
+              </button>
             </div>
-            <button type="button" class="btn btn-secondary btn-sm" @click.stop="openStickerImagePicker">
-              {{ t('supportChat.composer.addSticker') }}
-            </button>
           </div>
-          <input
-            ref="stickerImageInputRef"
-            type="file"
-            class="sr-only"
-            accept="image/png,image/jpeg,image/gif,image/webp"
-            @change="handleStickerImageInputChange"
-          />
-          <div v-if="stickers.length" class="grid max-h-64 grid-cols-4 gap-2 overflow-y-auto sm:grid-cols-6 lg:grid-cols-8">
-            <button
-              v-for="sticker in stickers"
-              :key="sticker.id"
-              type="button"
-              class="group relative flex h-24 flex-col items-center justify-center gap-1 rounded-xl border border-gray-200 bg-white px-2 text-center transition-colors hover:border-primary-300 hover:bg-primary-50 dark:border-dark-700 dark:bg-dark-800 dark:hover:border-primary-700 dark:hover:bg-primary-900/20"
-              :title="sticker.name"
-              @click.stop="sendSticker(sticker)"
-            >
-              <span
-                v-if="sticker.url"
-                class="absolute right-1 top-1 z-10 hidden h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white shadow-sm group-hover:inline-flex"
-                :title="t('common.delete')"
-                @click.stop="deleteSticker(sticker)"
-              >×</span>
-              <img v-if="sticker.url" :src="sticker.url" :alt="sticker.name" class="h-14 w-14 object-contain" />
-              <span v-else class="text-2xl leading-none">{{ sticker.emoji }}</span>
-              <span class="max-w-full truncate text-[11px] text-gray-500 dark:text-dark-400">{{ sticker.name }}</span>
-            </button>
+
+          <div v-if="stickerTab === 'emoji'">
+            <div class="grid max-h-64 grid-cols-6 gap-2 overflow-y-auto sm:grid-cols-8 lg:grid-cols-10">
+              <button
+                v-for="emoji in builtinStickers"
+                :key="emoji.id"
+                type="button"
+                class="flex h-14 w-14 items-center justify-center rounded-xl border border-gray-200 bg-white transition-colors hover:border-primary-300 hover:bg-primary-50 dark:border-dark-700 dark:bg-dark-800 dark:hover:border-primary-700 dark:hover:bg-primary-900/20"
+                :title="emoji.name"
+                @click.stop="sendSticker(emoji)"
+              >
+                <span class="text-3xl leading-none">{{ emoji.emoji }}</span>
+              </button>
+            </div>
           </div>
-          <div v-else class="rounded-xl border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-500 dark:border-dark-700 dark:text-dark-400">
-            {{ t('supportChat.composer.stickersEmpty') }}
+
+          <div v-else-if="stickerTab === 'custom'">
+            <div class="mb-3 flex items-center justify-between gap-3">
+              <p class="text-xs text-gray-500 dark:text-dark-400">
+                {{ t('supportChat.composer.customStickersHint') }}
+              </p>
+              <button type="button" class="btn btn-secondary btn-sm" @click.stop="openStickerImagePicker">
+                {{ t('supportChat.composer.addSticker') }}
+              </button>
+            </div>
+            <input
+              ref="stickerImageInputRef"
+              type="file"
+              class="sr-only"
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              @change="handleStickerImageInputChange"
+            />
+            <div v-if="customStickers.length" class="grid max-h-64 grid-cols-4 gap-2 overflow-y-auto sm:grid-cols-6 lg:grid-cols-8">
+              <button
+                v-for="sticker in customStickers"
+                :key="sticker.id"
+                type="button"
+                class="group relative flex h-20 w-20 items-center justify-center rounded-xl border border-gray-200 bg-white p-2 transition-colors hover:border-primary-300 hover:bg-primary-50 dark:border-dark-700 dark:bg-dark-800 dark:hover:border-primary-700 dark:hover:bg-primary-900/20"
+                @click.stop="sendSticker(sticker)"
+              >
+                <span
+                  class="absolute right-1 top-1 z-10 hidden h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white shadow-sm group-hover:inline-flex"
+                  :title="t('common.delete')"
+                  @click.stop="deleteSticker(sticker)"
+                >×</span>
+                <img :src="sticker.url" :alt="sticker.name" class="max-h-full max-w-full object-contain" />
+              </button>
+            </div>
+            <div v-else class="rounded-xl border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-500 dark:border-dark-700 dark:text-dark-400">
+              {{ t('supportChat.composer.customStickersEmpty') }}
+            </div>
           </div>
         </div>
 
@@ -270,15 +328,18 @@
 
       <div
         class="support-composer-input"
-        :class="pendingAttachment ? 'support-composer-input-has-attachment' : ''"
+        :class="{ 'support-composer-input-has-attachment': pendingImages.length > 0 || pendingSticker, 'dragging': isDragging }"
         @click="focusTextarea"
+        @dragover="handleDragOver"
+        @dragleave="handleDragLeave"
+        @drop="handleDrop"
       >
         <textarea
           id="support-chat-content"
           ref="textareaRef"
           v-model="draft"
           class="support-composer-textarea"
-          :class="pendingAttachment ? 'support-composer-textarea-with-attachment' : ''"
+          :class="{ 'support-composer-textarea-with-attachment': pendingImages.length > 0 || pendingSticker }"
           :maxlength="maxLength"
           :placeholder="inputPlaceholder"
           :disabled="disabled || sending"
@@ -286,27 +347,62 @@
           @paste="handlePaste"
         />
 
+        <!-- 多图预览 -->
         <div
-          v-if="pendingAttachment"
-          class="support-composer-attachment"
+          v-if="pendingImages.length > 0"
+          class="support-composer-images"
           @click.stop
         >
-          <div v-if="pendingAttachment.type === 'imageFile'" class="support-composer-attachment-media">
-            <img :src="pendingAttachment.previewUrl" :alt="pendingAttachment.name" class="h-full w-full object-contain" />
+          <div
+            v-for="(img, index) in pendingImages"
+            :key="index"
+            class="support-composer-image-item"
+          >
+            <img
+              :src="img.type === 'imageFile' ? img.previewUrl : img.url"
+              :alt="img.name"
+              class="h-full w-full object-cover"
+            />
+            <!-- 上传进度条 -->
+            <div
+              v-if="img.uploadProgress !== undefined && img.uploadProgress < 100"
+              class="absolute inset-0 flex items-center justify-center bg-black/50"
+            >
+              <div class="w-3/4">
+                <div class="h-1.5 overflow-hidden rounded-full bg-white/30">
+                  <div
+                    class="h-full rounded-full bg-white transition-all duration-300"
+                    :style="{ width: `${img.uploadProgress}%` }"
+                  />
+                </div>
+                <p class="mt-1 text-center text-xs font-medium text-white">{{ Math.round(img.uploadProgress) }}%</p>
+              </div>
+            </div>
+            <button
+              v-if="!img.uploadProgress || img.uploadProgress >= 100"
+              type="button"
+              class="support-composer-attachment-remove"
+              :title="t('common.cancel')"
+              @click="removeImage(index)"
+            >
+              ×
+            </button>
           </div>
-          <div v-else-if="pendingAttachment.type === 'imageUrl'" class="support-composer-attachment-media">
-            <img :src="pendingAttachment.url" :alt="pendingAttachment.name" class="h-full w-full object-contain" />
-          </div>
-          <div v-else class="support-composer-attachment-sticker">
-            <img v-if="pendingAttachment.url" :src="pendingAttachment.url" :alt="pendingAttachment.name" class="h-16 w-16 object-contain" />
-            <span v-else class="text-4xl leading-none">{{ pendingAttachment.emoji }}</span>
-            <span class="mt-1 max-w-full truncate px-1 text-[11px] font-medium text-gray-500 dark:text-dark-400">{{ pendingAttachment.name }}</span>
-          </div>
+        </div>
+
+        <!-- 表情包预览（不显示文件名） -->
+        <div
+          v-if="pendingSticker"
+          class="support-composer-sticker"
+          @click.stop
+        >
+          <img v-if="pendingSticker.url" :src="pendingSticker.url" alt="" class="h-20 w-20 object-contain" />
+          <span v-else class="text-5xl leading-none">{{ pendingSticker.emoji }}</span>
           <button
             type="button"
             class="support-composer-attachment-remove"
             :title="t('common.cancel')"
-            @click="clearPendingAttachment"
+            @click="clearPendingAttachments"
           >
             ×
           </button>
@@ -318,7 +414,7 @@
         <button
           type="submit"
           class="btn btn-primary min-w-24"
-          :disabled="disabled || sending || (!draft.trim() && !pendingAttachment)"
+          :disabled="disabled || sending || (!draft.trim() && pendingImages.length === 0 && !pendingSticker)"
         >
           {{ sending ? t('common.submitting') : t('supportChat.send') }}
         </button>
@@ -352,6 +448,7 @@
 import { computed, h, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { sanitizeChatHtml } from '@/features/support-chat/presentation/utils/sanitizeChatHtml'
+import type { ChatMessage } from '@/features/support-chat/data/datasources/supportChatDatasource'
 
 interface QuickReply {
   id: string
@@ -374,6 +471,15 @@ interface ImageLibraryItem {
   url: string
 }
 
+interface PendingImage {
+  type: 'imageFile' | 'imageUrl'
+  file?: File
+  url?: string
+  previewUrl?: string
+  name: string
+  uploadProgress?: number // 0-100, undefined means not uploading
+}
+
 interface StickerItem {
   id: string
   name: string
@@ -382,14 +488,11 @@ interface StickerItem {
   emoji?: string
 }
 
-type PendingAttachment =
-  | { type: 'imageFile'; file: File; previewUrl: string; name: string }
-  | { type: 'imageUrl'; url: string; name: string }
-  | { type: 'sticker'; id: string; name: string; url?: string; emoji?: string }
-
 interface SubmitPayload {
   text: string
-  attachment: PendingAttachment | null
+  images: PendingImage[]
+  sticker: { id: string; name: string; url?: string; emoji?: string } | null
+  replyTo?: number // 回复的消息 ID
 }
 
 const props = withDefaults(defineProps<{
@@ -401,6 +504,7 @@ const props = withDefaults(defineProps<{
   clearNonce?: number
   imageLibrary?: ImageLibraryItem[]
   stickers?: StickerItem[]
+  replyingTo?: ChatMessage | null // 正在回复的消息
 }>(), {
   sending: false,
   disabled: false,
@@ -419,16 +523,19 @@ const emit = defineEmits<{
   libraryImageDelete: [image: ImageLibraryItem]
   stickerAddSelected: [file: File]
   stickerDelete: [sticker: StickerItem]
+  cancelReply: []
 }>()
 
 const { t } = useI18n()
 const draft = ref('')
-const pendingAttachment = ref<PendingAttachment | null>(null)
+const pendingImages = ref<PendingImage[]>([])
+const pendingSticker = ref<{ id: string; name: string; url?: string; emoji?: string } | null>(null)
 const imageInputRef = ref<HTMLInputElement | null>(null)
 const libraryImageInputRef = ref<HTMLInputElement | null>(null)
 const stickerImageInputRef = ref<HTMLInputElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const activePanel = ref<'tools' | 'replies' | 'imageLibrary' | 'stickers' | null>(null)
+const stickerTab = ref<'emoji' | 'custom'>('emoji')
 const oneClickReplyEnabled = ref(false)
 const showReplyEditor = ref(false)
 const editingReplyId = ref<string | null>(null)
@@ -441,6 +548,7 @@ const customReplyStorageKey = 'support_chat_custom_replies_v1'
 const oneClickReplyStorageKey = 'support_chat_one_click_reply_v1'
 let longPressTimer: ReturnType<typeof setTimeout> | null = null
 let suppressedReplyId: string | null = null
+const isDragging = ref(false)
 let loadingDraft = false
 
 const PlusIcon = {
@@ -502,32 +610,147 @@ const builtinReplies = computed<QuickReply[]>(() => [
 ])
 
 const builtinStickers = computed<StickerItem[]>(() => [
-  { id: 'romance', name: 'Romance', emoji: '💗' },
+  // 常用反馈
+  { id: 'thumbsup', name: t('supportChat.composer.stickerThumbsup'), emoji: '👍' },
+  { id: 'thumbsdown', name: t('supportChat.composer.stickerThumbsdown'), emoji: '👎' },
   { id: 'ok', name: 'OK', emoji: '👌' },
-  { id: 'received', name: t('supportChat.composer.stickerReceived'), emoji: '🫡' },
-  { id: 'thanks', name: t('supportChat.composer.stickerThanks'), emoji: '🙏' },
-  { id: 'checking', name: t('supportChat.composer.stickerChecking'), emoji: '🔍' },
-  { id: 'done', name: t('supportChat.composer.stickerDone'), emoji: '✅' },
+  { id: 'clap', name: t('supportChat.composer.stickerClap'), emoji: '👏' },
+  { id: 'pray', name: t('supportChat.composer.stickerPray'), emoji: '🙏' },
+  { id: 'muscle', name: t('supportChat.composer.stickerMuscle'), emoji: '💪' },
+  { id: 'wave', name: t('supportChat.composer.stickerWave'), emoji: '👋' },
+  { id: 'eyes', name: t('supportChat.composer.stickerEyes'), emoji: '👀' },
+
+  // 表情
   { id: 'smile', name: t('supportChat.composer.stickerSmile'), emoji: '😊' },
-  { id: 'wait', name: t('supportChat.composer.stickerWait'), emoji: '⏳' },
-  { id: 'paid', name: t('supportChat.composer.stickerPaid'), emoji: '💰' },
-  { id: 'fixing', name: t('supportChat.composer.stickerFixing'), emoji: '🛠️' },
-  { id: 'refresh', name: t('supportChat.composer.stickerRefresh'), emoji: '🔄' },
-  { id: 'sorry', name: t('supportChat.composer.stickerSorry'), emoji: '🙇' },
-  { id: 'celebrate', name: t('supportChat.composer.stickerCelebrate'), emoji: '🎉' },
-  { id: 'question', name: t('supportChat.composer.stickerQuestion'), emoji: '❓' },
+  { id: 'laugh', name: t('supportChat.composer.stickerLaugh'), emoji: '😂' },
+  { id: 'grin', name: '笑脸', emoji: '😁' },
+  { id: 'happy', name: '开心', emoji: '😄' },
+  { id: 'sweat-smile', name: '尬笑', emoji: '😅' },
+  { id: 'rolling', name: '笑翻', emoji: '🤣' },
+  { id: 'cool', name: t('supportChat.composer.stickerCool'), emoji: '😎' },
+  { id: 'thinking', name: t('supportChat.composer.stickerThinking'), emoji: '🤔' },
+  { id: 'neutral', name: '面无表情', emoji: '😐' },
+  { id: 'expressionless', name: '冷漠', emoji: '😑' },
+  { id: 'unamused', name: '不悦', emoji: '😒' },
+  { id: 'rolling-eyes', name: '翻白眼', emoji: '🙄' },
+  { id: 'confused', name: '困惑', emoji: '😕' },
+  { id: 'worried', name: '担心', emoji: '😟' },
+  { id: 'frowning', name: '皱眉', emoji: '☹️' },
+  { id: 'anguished', name: '痛苦', emoji: '😧' },
+  { id: 'cry', name: t('supportChat.composer.stickerCry'), emoji: '😢' },
+  { id: 'sob', name: '大哭', emoji: '😭' },
+  { id: 'angry', name: t('supportChat.composer.stickerAngry'), emoji: '😠' },
+  { id: 'rage', name: '愤怒', emoji: '😡' },
+  { id: 'surprise', name: t('supportChat.composer.stickerSurprise'), emoji: '😮' },
+  { id: 'astonished', name: '震惊', emoji: '😲' },
+  { id: 'flushed', name: '脸红', emoji: '😳' },
+  { id: 'dizzy', name: '晕', emoji: '😵' },
+  { id: 'sleep', name: t('supportChat.composer.stickerSleep'), emoji: '😴' },
+  { id: 'tired', name: '疲惫', emoji: '😫' },
+  { id: 'relieved', name: '如释重负', emoji: '😌' },
+  { id: 'wink', name: '眨眼', emoji: '😉' },
+  { id: 'smirk', name: '得意', emoji: '😏' },
+  { id: 'hugging', name: '拥抱', emoji: '🤗' },
+  { id: 'salute', name: t('supportChat.composer.stickerReceived'), emoji: '🫡' },
+  { id: 'shush', name: '嘘', emoji: '🤫' },
+  { id: 'zipper', name: '闭嘴', emoji: '🤐' },
+  { id: 'nerd', name: '书呆子', emoji: '🤓' },
+  { id: 'monocle', name: '审视', emoji: '🧐' },
+
+  // 爱心与符号
+  { id: 'heart', name: t('supportChat.composer.stickerHeart'), emoji: '❤️' },
+  { id: 'romance', name: 'Romance', emoji: '💗' },
+  { id: 'heartbeat', name: '心跳', emoji: '💓' },
+  { id: 'sparkling-heart', name: '闪耀的心', emoji: '💖' },
+  { id: 'two-hearts', name: '双心', emoji: '💕' },
+  { id: 'broken-heart', name: '心碎', emoji: '💔' },
+  { id: 'heart-hands', name: '比心', emoji: '🫶' },
+  { id: 'fire', name: t('supportChat.composer.stickerFire'), emoji: '🔥' },
+  { id: 'star', name: t('supportChat.composer.stickerStar'), emoji: '⭐' },
+  { id: 'sparkles', name: '闪光', emoji: '✨' },
+  { id: 'boom', name: '爆炸', emoji: '💥' },
+  { id: 'dizzy-symbol', name: '晕眩', emoji: '💫' },
+  { id: 'check', name: t('supportChat.composer.stickerCheck'), emoji: '✅' },
+  { id: 'cross', name: t('supportChat.composer.stickerCross'), emoji: '❌' },
   { id: 'warning', name: t('supportChat.composer.stickerWarning'), emoji: '⚠️' },
+  { id: 'question', name: t('supportChat.composer.stickerQuestion'), emoji: '❓' },
+  { id: 'exclamation', name: '感叹号', emoji: '❗' },
+  { id: 'zzz', name: '睡觉', emoji: '💤' },
+
+  // 庆祝与活动
+  { id: 'party', name: t('supportChat.composer.stickerParty'), emoji: '🎉' },
+  { id: 'celebrate', name: t('supportChat.composer.stickerCelebrate'), emoji: '🎊' },
+  { id: 'balloon', name: '气球', emoji: '🎈' },
+  { id: 'tada', name: 'Tada', emoji: '🎊' },
+  { id: 'confetti', name: '彩纸', emoji: '🎉' },
+  { id: 'fireworks', name: '烟花', emoji: '🎆' },
+
+  // 物品与工具
   { id: 'rocket', name: t('supportChat.composer.stickerRocket'), emoji: '🚀' },
+  { id: 'lightbulb', name: t('supportChat.composer.stickerLightbulb'), emoji: '💡' },
+  { id: 'gear', name: '设置', emoji: '⚙️' },
+  { id: 'wrench', name: t('supportChat.composer.stickerFixing'), emoji: '🔧' },
+  { id: 'hammer', name: '锤子', emoji: '🔨' },
+  { id: 'tools', name: '工具', emoji: '🛠️' },
+  { id: 'magnifying', name: t('supportChat.composer.stickerChecking'), emoji: '🔍' },
+  { id: 'magnifying-right', name: '右搜索', emoji: '🔎' },
+  { id: 'lock', name: '锁定', emoji: '🔒' },
+  { id: 'unlock', name: '解锁', emoji: '🔓' },
+  { id: 'key', name: '钥匙', emoji: '🔑' },
+  { id: 'bookmark', name: '书签', emoji: '🔖' },
+  { id: 'link', name: '链接', emoji: '🔗' },
+  { id: 'paperclip', name: '回形针', emoji: '📎' },
+  { id: 'pushpin', name: '图钉', emoji: '📌' },
+  { id: 'hourglass', name: t('supportChat.composer.stickerWait'), emoji: '⏳' },
+  { id: 'alarm', name: '闹钟', emoji: '⏰' },
+  { id: 'stopwatch', name: '秒表', emoji: '⏱️' },
+  { id: 'timer', name: '计时器', emoji: '⏲️' },
+  { id: 'refresh', name: t('supportChat.composer.stickerRefresh'), emoji: '🔄' },
+  { id: 'recycle', name: '回收', emoji: '♻️' },
+  { id: 'chart-up', name: '上涨', emoji: '📈' },
+  { id: 'chart-down', name: '下跌', emoji: '📉' },
+  { id: 'bar-chart', name: '柱状图', emoji: '📊' },
+  { id: 'calendar', name: '日历', emoji: '📅' },
+  { id: 'clipboard', name: '剪贴板', emoji: '📋' },
+  { id: 'folder', name: '文件夹', emoji: '📁' },
+  { id: 'file', name: '文件', emoji: '📄' },
+  { id: 'page', name: '页面', emoji: '📃' },
+  { id: 'memo', name: '备忘录', emoji: '📝' },
+  { id: 'inbox', name: '收件箱', emoji: '📥' },
+  { id: 'outbox', name: '发件箱', emoji: '📤' },
+  { id: 'email', name: '邮件', emoji: '📧' },
+  { id: 'envelope', name: '信封', emoji: '✉️' },
+  { id: 'package', name: '包裹', emoji: '📦' },
+  { id: 'label', name: '标签', emoji: '🏷️' },
+
+  // 金钱与商业
+  { id: 'money-bag', name: t('supportChat.composer.stickerPaid'), emoji: '💰' },
+  { id: 'dollar', name: '美元', emoji: '💵' },
+  { id: 'yen', name: '人民币', emoji: '💴' },
+  { id: 'euro', name: '欧元', emoji: '💶' },
+  { id: 'pound', name: '英镑', emoji: '💷' },
+  { id: 'credit-card', name: '信用卡', emoji: '💳' },
+  { id: 'receipt', name: '收据', emoji: '🧾' },
+  { id: 'chart', name: '图表', emoji: '💹' },
+
+  // 其它符号
+  { id: 'bow', name: t('supportChat.composer.stickerSorry'), emoji: '🙇' },
+  { id: 'done-hand', name: t('supportChat.composer.stickerDone'), emoji: '✋' },
+  { id: 'peace', name: '和平', emoji: '✌️' },
+  { id: 'point-up', name: '向上指', emoji: '☝️' },
+  { id: 'point-right', name: '向右指', emoji: '👉' },
+  { id: 'point-down', name: '向下指', emoji: '👇' },
+  { id: 'point-left', name: '向左指', emoji: '👈' },
 ])
 
 const allQuickReplies = computed(() => [...builtinReplies.value, ...customReplies.value])
 const imageLibrary = computed(() => props.imageLibrary ?? [])
-const stickers = computed(() => [...(props.stickers ?? []), ...builtinStickers.value])
+const customStickers = computed(() => props.stickers ?? [])
 const quickReplyMenuReply = computed(() => customReplies.value.find((reply) => reply.id === openReplyMenuId.value) ?? null)
 const customReplyPreview = computed(() => sanitizeHtml(customReplyContent.value || t('supportChat.composer.emptyPreview')))
 const canSaveCustomReply = computed(() => customReplyTitle.value.trim() !== '' && customReplyContent.value.trim() !== '')
 const draftStorageKey = computed(() => `support_chat_draft_v1:${props.draftKey || 'default'}`)
-const inputPlaceholder = computed(() => pendingAttachment.value ? '' : t('supportChat.inputPlaceholder'))
+const inputPlaceholder = computed(() => (pendingImages.value.length > 0 || pendingSticker.value) ? '' : t('supportChat.inputPlaceholder'))
 
 function sanitizeHtml(content: string): string {
   return sanitizeChatHtml(content)
@@ -570,32 +793,92 @@ function openImagePicker() {
   imageInputRef.value?.click()
 }
 
-function submitImageFile(file: File | null | undefined) {
-  if (!file || props.disabled || props.sending) return
-  if (!file.type.startsWith('image/')) return
-  setPendingAttachment({
-    type: 'imageFile',
-    file,
-    previewUrl: URL.createObjectURL(file),
-    name: file.name || t('supportChat.composer.imageAlt'),
-  })
+function addImageFiles(files: File[]) {
+  if (props.disabled || props.sending) return
+  const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'))
+  if (imageFiles.length === 0) return
+
+  // 如果有 sticker，先清除
+  pendingSticker.value = null
+
+  // 添加新图片并模拟上传进度
+  for (const file of imageFiles) {
+    const newImage: PendingImage = {
+      type: 'imageFile',
+      file,
+      previewUrl: URL.createObjectURL(file),
+      name: file.name || t('supportChat.composer.imageAlt'),
+      uploadProgress: 0,
+    }
+    pendingImages.value.push(newImage)
+
+    // 模拟上传进度
+    simulateUploadProgress(newImage)
+  }
+
   activePanel.value = null
+  requestAnimationFrame(() => {
+    textareaRef.value?.focus()
+  })
+}
+
+function simulateUploadProgress(image: PendingImage) {
+  // 模拟上传：0.5-2秒内完成
+  const duration = 500 + Math.random() * 1500
+  const startTime = Date.now()
+
+  const updateProgress = () => {
+    const elapsed = Date.now() - startTime
+    const progress = Math.min((elapsed / duration) * 100, 100)
+
+    image.uploadProgress = progress
+
+    if (progress < 100) {
+      requestAnimationFrame(updateProgress)
+    }
+  }
+
+  requestAnimationFrame(updateProgress)
 }
 
 function handleImageInputChange(event: Event) {
   const input = event.target instanceof HTMLInputElement ? event.target : null
-  submitImageFile(input?.files?.[0])
-  if (input) input.value = ''
+  if (input?.files) {
+    addImageFiles(Array.from(input.files))
+    input.value = ''
+  }
 }
 
 function handlePaste(event: ClipboardEvent) {
   const items = Array.from(event.clipboardData?.items ?? [])
-  const imageItem = items.find((item) => item.kind === 'file' && item.type.startsWith('image/'))
-  if (!imageItem) return
-  const file = imageItem.getAsFile()
-  if (!file) return
+  const imageItems = items.filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+  if (imageItems.length === 0) return
+
+  const files = imageItems.map(item => item.getAsFile()).filter((f): f is File => f !== null)
+  if (files.length === 0) return
+
   event.preventDefault()
-  submitImageFile(file)
+  addImageFiles(files)
+}
+
+function handleDragOver(event: DragEvent) {
+  event.preventDefault()
+  if (props.disabled || props.sending) return
+  isDragging.value = true
+}
+
+function handleDragLeave(event: DragEvent) {
+  event.preventDefault()
+  isDragging.value = false
+}
+
+function handleDrop(event: DragEvent) {
+  event.preventDefault()
+  isDragging.value = false
+  if (props.disabled || props.sending) return
+
+  const files = Array.from(event.dataTransfer?.files ?? [])
+  addImageFiles(files)
 }
 
 function openLibraryImagePicker() {
@@ -628,12 +911,19 @@ function handleStickerImageInputChange(event: Event) {
 
 function sendLibraryImage(image: ImageLibraryItem) {
   if (props.disabled || props.sending) return
-  setPendingAttachment({
+
+  // 如果有 sticker，先清除
+  pendingSticker.value = null
+
+  pendingImages.value.push({
     type: 'imageUrl',
     url: image.url,
     name: image.name || t('supportChat.composer.imageAlt'),
   })
   activePanel.value = null
+  requestAnimationFrame(() => {
+    textareaRef.value?.focus()
+  })
 }
 
 function deleteLibraryImage(image: ImageLibraryItem) {
@@ -642,14 +932,20 @@ function deleteLibraryImage(image: ImageLibraryItem) {
 
 function sendSticker(sticker: StickerItem) {
   if (props.disabled || props.sending) return
-  setPendingAttachment({
-    type: 'sticker',
+
+  // 清除已有的图片和 sticker
+  clearPendingAttachments()
+
+  pendingSticker.value = {
     id: sticker.id,
     name: sticker.name,
     url: sticker.url,
     emoji: sticker.emoji,
-  })
+  }
   activePanel.value = null
+  requestAnimationFrame(() => {
+    textareaRef.value?.focus()
+  })
 }
 
 function deleteSticker(sticker: StickerItem) {
@@ -657,19 +953,25 @@ function deleteSticker(sticker: StickerItem) {
   emit('stickerDelete', sticker)
 }
 
-function setPendingAttachment(next: PendingAttachment) {
-  clearPendingAttachment()
-  pendingAttachment.value = next
+function removeImage(index: number) {
+  const img = pendingImages.value[index]
+  if (img.type === 'imageFile' && img.previewUrl) {
+    URL.revokeObjectURL(img.previewUrl)
+  }
+  pendingImages.value.splice(index, 1)
   requestAnimationFrame(() => {
     textareaRef.value?.focus()
   })
 }
 
-function clearPendingAttachment() {
-  if (pendingAttachment.value?.type === 'imageFile') {
-    URL.revokeObjectURL(pendingAttachment.value.previewUrl)
+function clearPendingAttachments() {
+  for (const img of pendingImages.value) {
+    if (img.type === 'imageFile' && img.previewUrl) {
+      URL.revokeObjectURL(img.previewUrl)
+    }
   }
-  pendingAttachment.value = null
+  pendingImages.value = []
+  pendingSticker.value = null
   requestAnimationFrame(() => {
     textareaRef.value?.focus()
   })
@@ -840,7 +1142,7 @@ function persistDraft() {
 
 function clearCurrentDraft() {
   draft.value = ''
-  clearPendingAttachment()
+  clearPendingAttachments()
   try {
     localStorage.removeItem(draftStorageKey.value)
   } catch {
@@ -851,11 +1153,20 @@ function clearCurrentDraft() {
 function submit() {
   if (props.disabled || props.sending) return
   const content = draft.value.trim()
-  if (!content && !pendingAttachment.value) return
-  if (pendingAttachment.value) {
-    const attachment = pendingAttachment.value
-    pendingAttachment.value = null
-    emit('submitRich', { text: content, attachment })
+  if (!content && pendingImages.value.length === 0 && !pendingSticker.value) return
+
+  // 如果有图片、表情或回复，使用 submitRich
+  if (pendingImages.value.length > 0 || pendingSticker.value || props.replyingTo) {
+    const images = [...pendingImages.value]
+    const sticker = pendingSticker.value
+    pendingImages.value = []
+    pendingSticker.value = null
+    emit('submitRich', {
+      text: content,
+      images,
+      sticker,
+      replyTo: props.replyingTo?.id
+    })
     return
   }
   emit('submit', content)
@@ -880,7 +1191,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   cancelLongPress()
-  clearPendingAttachment()
+  clearPendingAttachments()
   document.removeEventListener('click', handleOutsideQuickReplyMenuClick)
   window.removeEventListener('resize', closeQuickReplyMenu)
   window.removeEventListener('scroll', closeQuickReplyMenu, true)
@@ -908,8 +1219,12 @@ onBeforeUnmount(() => {
   @apply relative min-h-[132px] cursor-text overflow-hidden rounded-2xl border border-gray-200 bg-white transition-colors focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20 dark:border-dark-700 dark:bg-dark-800;
 }
 
+.support-composer-input.dragging {
+  @apply border-primary-500 bg-primary-50/50 ring-2 ring-primary-500/20 dark:bg-primary-900/20;
+}
+
 .support-composer-input-has-attachment {
-  @apply min-h-[168px];
+  @apply min-h-[200px];
 }
 
 .support-composer-textarea {
@@ -920,16 +1235,16 @@ onBeforeUnmount(() => {
   @apply pb-28;
 }
 
-.support-composer-attachment {
-  @apply absolute bottom-3 left-3 flex h-24 w-24 items-center justify-center overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm dark:border-dark-700 dark:bg-dark-950;
+.support-composer-images {
+  @apply absolute bottom-3 left-3 right-3 flex flex-wrap gap-2;
 }
 
-.support-composer-attachment-media {
-  @apply h-full w-full bg-white dark:bg-dark-950;
+.support-composer-image-item {
+  @apply relative h-24 w-24 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm dark:border-dark-700 dark:bg-dark-950;
 }
 
-.support-composer-attachment-sticker {
-  @apply flex h-full w-full flex-col items-center justify-center bg-white dark:bg-dark-950;
+.support-composer-sticker {
+  @apply absolute bottom-3 left-3 flex h-24 w-24 items-center justify-center overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-dark-700 dark:bg-dark-950;
 }
 
 .support-composer-attachment-remove {
@@ -945,5 +1260,16 @@ onBeforeUnmount(() => {
 .support-panel-leave-to {
   opacity: 0;
   transform: translateY(6px);
+}
+
+.support-reply-enter-active,
+.support-reply-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.support-reply-enter-from,
+.support-reply-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 </style>

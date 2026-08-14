@@ -23,6 +23,7 @@ export interface ChatMessage {
   sender_id: number
   content: string
   created_at: string
+  reply_to?: number // 回复的消息 ID
 }
 
 export interface ChatAssetUpload {
