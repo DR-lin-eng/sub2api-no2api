@@ -19,6 +19,10 @@ func TestClusterRepository_NodeHeartbeatAndTaskLease(t *testing.T) {
 	suffix := uuid.NewString()
 	runnerID := "runner-a-" + suffix
 	now := time.Now().UTC().Truncate(time.Microsecond)
+	cpuUsage := 37.5
+	memoryUsed := int64(256 * 1024 * 1024)
+	memoryLimit := int64(1024 * 1024 * 1024)
+	memoryPercent := 25.0
 
 	require.NoError(t, repo.UpsertInstance(ctx, service.ClusterInstance{
 		NodeID:         "node-a-" + suffix,
@@ -34,10 +38,36 @@ func TestClusterRepository_NodeHeartbeatAndTaskLease(t *testing.T) {
 		RedisOK:        true,
 		StartedAt:      now,
 		LastSeenAt:     now,
+		Load: &service.ClusterInstanceLoad{
+			CPUUsagePercent:        &cpuUsage,
+			MemoryUsedBytes:        &memoryUsed,
+			MemoryLimitBytes:       &memoryLimit,
+			MemoryUsagePercent:     &memoryPercent,
+			InFlightRequests:       6,
+			GoroutineCount:         48,
+			DBConnectionsActive:    3,
+			DBConnectionsIdle:      5,
+			DBConnectionsMax:       20,
+			RedisConnectionsActive: 2,
+			RedisConnectionsIdle:   8,
+			RedisConnectionsMax:    50,
+			CollectedAt:            now,
+		},
 	}))
 	instances, err := repo.ListInstances(ctx)
 	require.NoError(t, err)
 	require.Contains(t, instanceRunnerIDs(instances), runnerID)
+	for _, instance := range instances {
+		if instance.RunnerID != runnerID {
+			continue
+		}
+		require.NotNil(t, instance.Load)
+		require.Equal(t, 37.5, *instance.Load.CPUUsagePercent)
+		require.Equal(t, memoryUsed, *instance.Load.MemoryUsedBytes)
+		require.Equal(t, int64(6), instance.Load.InFlightRequests)
+		require.Equal(t, 3, instance.Load.DBConnectionsActive)
+		require.Equal(t, 50, instance.Load.RedisConnectionsMax)
+	}
 	require.NoError(t, repo.RenameNode(ctx, "node-a-"+suffix, "primary-"+suffix))
 	instances, err = repo.ListInstances(ctx)
 	require.NoError(t, err)

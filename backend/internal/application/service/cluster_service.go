@@ -38,22 +38,23 @@ var (
 )
 
 type ClusterInstance struct {
-	NodeID         string     `json:"node_id"`
-	RunnerID       string     `json:"runner_id"`
-	NodeName       string     `json:"node_name"`
-	DeploymentMode string     `json:"deployment_mode"`
-	WorkerMode     string     `json:"worker_mode"`
-	WorkerEnabled  bool       `json:"worker_enabled"`
-	Version        string     `json:"version"`
-	Hostname       string     `json:"hostname"`
-	ProcessID      int        `json:"process_id"`
-	DatabaseOK     bool       `json:"database_ok"`
-	RedisOK        bool       `json:"redis_ok"`
-	StartedAt      time.Time  `json:"started_at"`
-	LastSeenAt     time.Time  `json:"last_seen_at"`
-	StoppedAt      *time.Time `json:"stopped_at,omitempty"`
-	Status         string     `json:"status"`
-	Current        bool       `json:"current"`
+	NodeID         string               `json:"node_id"`
+	RunnerID       string               `json:"runner_id"`
+	NodeName       string               `json:"node_name"`
+	DeploymentMode string               `json:"deployment_mode"`
+	WorkerMode     string               `json:"worker_mode"`
+	WorkerEnabled  bool                 `json:"worker_enabled"`
+	Version        string               `json:"version"`
+	Hostname       string               `json:"hostname"`
+	ProcessID      int                  `json:"process_id"`
+	DatabaseOK     bool                 `json:"database_ok"`
+	RedisOK        bool                 `json:"redis_ok"`
+	StartedAt      time.Time            `json:"started_at"`
+	LastSeenAt     time.Time            `json:"last_seen_at"`
+	StoppedAt      *time.Time           `json:"stopped_at,omitempty"`
+	Status         string               `json:"status"`
+	Current        bool                 `json:"current"`
+	Load           *ClusterInstanceLoad `json:"load,omitempty"`
 }
 
 type ClusterTaskRun struct {
@@ -148,6 +149,9 @@ type ClusterService struct {
 	wg              sync.WaitGroup
 	maintenanceMu   sync.Mutex
 	lastMaintenance time.Time
+	loadSampler     clusterLoadSampler
+	requestLoadMu   sync.RWMutex
+	requestLoad     clusterRequestLoadSource
 }
 
 func NewClusterService(repo ClusterRepository, cfg *config.Config, health ClusterHealthChecker, buildInfo BuildInfo) *ClusterService {
@@ -167,16 +171,17 @@ func newClusterService(repo ClusterRepository, cfg *config.Config, health Cluste
 		nodeName = strings.TrimSpace(cfg.Deployment.NodeName)
 	}
 	return &ClusterService{
-		repo:      repo,
-		cfg:       cfg,
-		health:    health,
-		buildInfo: buildInfo,
-		nodeID:    nodeID,
-		nodeName:  nodeName,
-		runnerID:  fmt.Sprintf("%s-%s", nodeID, uuid.NewString()),
-		startedAt: time.Now().UTC(),
-		ctx:       ctx,
-		cancel:    cancel,
+		repo:        repo,
+		cfg:         cfg,
+		health:      health,
+		buildInfo:   buildInfo,
+		nodeID:      nodeID,
+		nodeName:    nodeName,
+		runnerID:    fmt.Sprintf("%s-%s", nodeID, uuid.NewString()),
+		startedAt:   time.Now().UTC(),
+		loadSampler: newDefaultClusterLoadSampler(),
+		ctx:         ctx,
+		cancel:      cancel,
 	}
 }
 
@@ -259,6 +264,15 @@ func (s *ClusterService) RunnerID() string {
 	return s.runnerID
 }
 
+func (s *ClusterService) SetRequestLoadSource(source clusterRequestLoadSource) {
+	if s == nil {
+		return
+	}
+	s.requestLoadMu.Lock()
+	s.requestLoad = source
+	s.requestLoadMu.Unlock()
+}
+
 func (s *ClusterService) Version() string {
 	if s == nil {
 		return ""
@@ -339,7 +353,42 @@ func (s *ClusterService) currentInstance(ctx context.Context) ClusterInstance {
 		LastSeenAt:     time.Now().UTC(),
 		Status:         ClusterInstanceStatusOnline,
 		Current:        true,
+		Load:           s.currentLoad(ctx),
 	}
+}
+
+func (s *ClusterService) currentLoad(ctx context.Context) *ClusterInstanceLoad {
+	load := ClusterInstanceLoad{CollectedAt: time.Now().UTC()}
+	if s.loadSampler != nil {
+		load = s.loadSampler.Sample(ctx)
+	}
+	s.requestLoadMu.RLock()
+	requestLoad := s.requestLoad
+	s.requestLoadMu.RUnlock()
+	if requestLoad != nil {
+		load.InFlightRequests = requestLoad.InFlightRequests()
+	}
+	if statsProvider, ok := s.repo.(clusterConnectionStatsProvider); ok {
+		stats := statsProvider.ClusterConnectionStats()
+		load.DBConnectionsActive = stats.Active
+		load.DBConnectionsIdle = stats.Idle
+		load.DBConnectionsMax = stats.Max
+	}
+	if statsProvider, ok := s.health.(clusterConnectionStatsProvider); ok {
+		stats := statsProvider.ClusterConnectionStats()
+		load.RedisConnectionsActive = stats.Active
+		load.RedisConnectionsIdle = stats.Idle
+		load.RedisConnectionsMax = stats.Max
+	}
+	if s.cfg != nil {
+		if load.DBConnectionsMax <= 0 {
+			load.DBConnectionsMax = s.cfg.Database.MaxOpenConns
+		}
+		if load.RedisConnectionsMax <= 0 {
+			load.RedisConnectionsMax = s.cfg.Redis.PoolSize
+		}
+	}
+	return &load
 }
 
 func (s *ClusterService) reportWithLog() {
@@ -393,6 +442,12 @@ func (s *ClusterService) GetStatus(ctx context.Context) (*ClusterStatus, error) 
 	if err != nil {
 		return nil, fmt.Errorf("list cluster tasks: %w", err)
 	}
+	activeTasksByRunner := make(map[string]int)
+	for i := range tasks {
+		if tasks[i].Status == ClusterTaskStatusRunning {
+			activeTasksByRunner[tasks[i].RunnerID]++
+		}
+	}
 
 	deployment := config.DeploymentConfig{
 		Mode:                     config.DeploymentModeStandalone,
@@ -429,6 +484,13 @@ func (s *ClusterService) GetStatus(ctx context.Context) (*ClusterStatus, error) 
 	staleBefore := now.Add(-s.staleAfter())
 	for i := range status.Instances {
 		instance := &status.Instances[i]
+		if instance.Load != nil {
+			if instance.Load.CollectedAt.Before(instance.LastSeenAt.Add(-2 * s.heartbeatInterval())) {
+				instance.Load = nil
+			} else {
+				instance.Load.ActiveTasks = activeTasksByRunner[instance.RunnerID]
+			}
+		}
 		instance.Current = instance.RunnerID == s.runnerID
 		if instance.Current {
 			status.Deployment.NodeName = instance.NodeName

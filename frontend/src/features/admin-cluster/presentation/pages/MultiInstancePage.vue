@@ -32,27 +32,14 @@
         {{ errorMessage }}
       </div>
 
-      <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <div v-for="metric in summaryMetrics" :key="metric.label" class="rounded-lg border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-800">
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ metric.label }}</p>
-          <div class="mt-2 flex items-end justify-between gap-3">
-            <p class="text-2xl font-semibold text-gray-950 dark:text-white">{{ metric.value }}</p>
-            <Icon :name="metric.icon" size="md" :class="metric.iconClass" />
-          </div>
-        </div>
-      </div>
+      <ClusterLoadSummary :instances="instances" :summary="status?.summary" />
 
-      <section v-if="status" aria-labelledby="deployment-config-title">
-        <h2 id="deployment-config-title" class="mb-3 text-sm font-semibold text-gray-900 dark:text-white">
-          {{ t('admin.cluster.deployment.title') }}
-        </h2>
-        <dl class="grid grid-cols-2 overflow-hidden rounded-lg border border-gray-200 bg-white sm:grid-cols-4 dark:border-dark-700 dark:bg-dark-800">
-          <div v-for="item in deploymentItems" :key="item.label" class="min-w-0 border-b border-r border-gray-200 p-4 last:border-r-0 dark:border-dark-700">
-            <dt class="text-xs text-gray-500 dark:text-gray-400">{{ item.label }}</dt>
-            <dd class="mt-1 truncate text-sm font-semibold text-gray-900 dark:text-white" :title="item.value">{{ item.value }}</dd>
-          </div>
-        </dl>
-      </section>
+      <ClusterNodeLoadGrid
+        :instances="instances"
+        :busy="actionBusy"
+        :loading="loading"
+        @rename="saveNodeName"
+      />
 
       <ClusterReleasePanel
         :overview="status?.release"
@@ -64,110 +51,6 @@
         @cancel="handleCancelRollout"
         @retry="handleRetryTarget"
       />
-
-      <section aria-labelledby="cluster-nodes-title">
-        <div class="mb-3 flex items-center justify-between">
-          <h2 id="cluster-nodes-title" class="text-sm font-semibold text-gray-900 dark:text-white">
-            {{ t('admin.cluster.nodes.title') }}
-          </h2>
-          <span class="text-xs text-gray-500 dark:text-gray-400">{{ instances.length }}</span>
-        </div>
-        <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800">
-          <table class="min-w-[960px] w-full table-fixed text-left text-sm">
-            <thead class="bg-gray-50 text-xs text-gray-500 dark:bg-dark-900/60 dark:text-gray-400">
-              <tr>
-                <th class="w-60 px-4 py-3 font-medium">{{ t('admin.cluster.nodes.node') }}</th>
-                <th class="w-44 px-4 py-3 font-medium">{{ t('admin.cluster.nodes.role') }}</th>
-                <th class="w-52 px-4 py-3 font-medium">{{ t('admin.cluster.nodes.health') }}</th>
-                <th class="w-28 px-4 py-3 font-medium">{{ t('admin.cluster.nodes.version') }}</th>
-                <th class="w-44 px-4 py-3 font-medium">{{ t('admin.cluster.nodes.startedAt') }}</th>
-                <th class="w-44 px-4 py-3 font-medium">{{ t('admin.cluster.nodes.lastSeenAt') }}</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100 dark:divide-dark-700">
-              <tr v-for="instance in instances" :key="instance.node_id" class="align-top">
-                <td class="px-4 py-3">
-                  <div class="flex min-w-0 items-center gap-2">
-                    <span class="h-2 w-2 flex-none rounded-full" :class="instanceDotClass(instance.status)" />
-                    <div class="min-w-0">
-                      <div v-if="editingNodeId === instance.node_id" class="flex items-center gap-1.5">
-                        <input
-                          v-model.trim="editingNodeName"
-                          type="text"
-                          maxlength="128"
-                          class="h-8 min-w-0 flex-1 rounded-md border border-gray-300 bg-white px-2 text-sm text-gray-900 outline-none focus:border-primary-500 dark:border-dark-600 dark:bg-dark-900 dark:text-white"
-                          @keyup.enter="saveNodeName(instance.node_id)"
-                          @keyup.esc="cancelNodeRename"
-                        />
-                        <button
-                          type="button"
-                          class="inline-flex h-8 w-8 flex-none items-center justify-center rounded-md text-emerald-600 hover:bg-emerald-50 disabled:opacity-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
-                          :title="t('admin.cluster.nodes.saveName')"
-                          :disabled="actionBusy || !editingNodeName"
-                          @click="saveNodeName(instance.node_id)"
-                        >
-                          <Icon name="check" size="sm" />
-                        </button>
-                        <button
-                          type="button"
-                          class="inline-flex h-8 w-8 flex-none items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-dark-700"
-                          :title="t('admin.cluster.nodes.cancelRename')"
-                          @click="cancelNodeRename"
-                        >
-                          <Icon name="x" size="sm" />
-                        </button>
-                      </div>
-                      <div v-else class="flex items-center gap-2">
-                        <span class="truncate font-medium text-gray-900 dark:text-white">{{ instance.node_name }}</span>
-                        <span v-if="instance.current" class="rounded bg-primary-50 px-1.5 py-0.5 text-[11px] font-medium text-primary-700 dark:bg-primary-950/50 dark:text-primary-300">
-                          {{ t('admin.cluster.nodes.current') }}
-                        </span>
-                        <button
-                          type="button"
-                          class="inline-flex h-7 w-7 flex-none items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-dark-700 dark:hover:text-gray-200"
-                          :title="t('admin.cluster.nodes.rename')"
-                          @click="beginNodeRename(instance.node_id, instance.node_name)"
-                        >
-                          <Icon name="edit" size="xs" />
-                        </button>
-                      </div>
-                      <p class="mt-0.5 truncate font-mono text-[11px] text-gray-500 dark:text-gray-400" :title="instance.node_id">
-                        {{ instance.node_id }}
-                      </p>
-                      <p class="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400" :title="instance.runner_id">
-                        {{ instance.hostname }} · PID {{ instance.process_id }}
-                      </p>
-                    </div>
-                  </div>
-                </td>
-                <td class="px-4 py-3">
-                  <p class="font-medium text-gray-800 dark:text-gray-200">{{ t('admin.cluster.nodes.apiFrontend') }}</p>
-                  <p class="mt-1 text-xs" :class="instance.worker_enabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'">
-                    {{ instance.worker_enabled ? t('admin.cluster.nodes.worker') : workerModeLabel(instance.worker_mode) }}
-                  </p>
-                </td>
-                <td class="px-4 py-3">
-                  <div class="space-y-1.5">
-                    <HealthLine :healthy="instance.database_ok" :label="t('admin.cluster.nodes.database')" />
-                    <HealthLine :healthy="instance.redis_ok" :label="t('admin.cluster.nodes.redis')" />
-                  </div>
-                </td>
-                <td class="px-4 py-3 text-gray-700 dark:text-gray-300">{{ instance.version || '-' }}</td>
-                <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ formatDateTime(instance.started_at) }}</td>
-                <td class="px-4 py-3">
-                  <p class="text-gray-700 dark:text-gray-200">{{ formatRelativeTime(instance.last_seen_at) }}</p>
-                  <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ statusLabel(instance.status) }}</p>
-                </td>
-              </tr>
-              <tr v-if="!loading && instances.length === 0">
-                <td colspan="6" class="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-                  {{ t('admin.cluster.nodes.empty') }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
 
       <section aria-labelledby="cluster-tasks-title">
         <div class="mb-3 flex items-center justify-between">
@@ -196,7 +79,7 @@
                 </td>
                 <td class="px-4 py-3">
                   <span class="inline-flex rounded-md px-2 py-1 text-xs font-medium" :class="taskStatusClass(task.status)">
-                    {{ statusLabel(task.status) }}
+                    {{ taskStatusLabel(task.status) }}
                   </span>
                 </td>
                 <td class="px-4 py-3">
@@ -218,19 +101,32 @@
           </table>
         </div>
       </section>
+
+      <section v-if="status" aria-labelledby="deployment-config-title">
+        <h2 id="deployment-config-title" class="mb-3 text-sm font-semibold text-gray-900 dark:text-white">
+          {{ t('admin.cluster.deployment.title') }}
+        </h2>
+        <dl class="grid grid-cols-2 overflow-hidden rounded-lg border border-gray-200 bg-white sm:grid-cols-4 dark:border-dark-700 dark:bg-dark-800">
+          <div v-for="item in deploymentItems" :key="item.label" class="min-w-0 border-b border-r border-gray-200 p-4 last:border-r-0 dark:border-dark-700">
+            <dt class="text-xs text-gray-500 dark:text-gray-400">{{ item.label }}</dt>
+            <dd class="mt-1 truncate text-sm font-semibold text-gray-900 dark:text-white" :title="item.value">{{ item.value }}</dd>
+          </div>
+        </dl>
+      </section>
     </div>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import Toggle from '@/common/widgets/forms/Toggle.vue'
+import ClusterLoadSummary from '@/features/admin-cluster/presentation/widgets/ClusterLoadSummary.vue'
+import ClusterNodeLoadGrid from '@/features/admin-cluster/presentation/widgets/ClusterNodeLoadGrid.vue'
 import ClusterReleasePanel from '@/features/admin-cluster/presentation/widgets/ClusterReleasePanel.vue'
 import clusterAPI, {
-  type ClusterInstanceStatus,
   type ClusterStatusResponse,
   type ClusterTaskRun,
   type ClusterTaskStatus,
@@ -244,18 +140,10 @@ const loading = ref(false)
 const errorMessage = ref('')
 const autoRefresh = ref(true)
 const actionBusy = ref(false)
-const editingNodeId = ref('')
-const editingNodeName = ref('')
 let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 const instances = computed(() => status.value?.instances ?? [])
 const tasks = computed(() => status.value?.tasks ?? [])
-const summaryMetrics = computed(() => [
-  { label: t('admin.cluster.summary.online'), value: status.value?.summary.online_nodes ?? 0, icon: 'server' as const, iconClass: 'text-emerald-500' },
-  { label: t('admin.cluster.summary.workers'), value: status.value?.summary.worker_nodes ?? 0, icon: 'cpu' as const, iconClass: 'text-primary-500' },
-  { label: t('admin.cluster.summary.activeTasks'), value: status.value?.summary.active_tasks ?? 0, icon: 'clock' as const, iconClass: 'text-amber-500' },
-  { label: t('admin.cluster.summary.unhealthy'), value: status.value?.summary.unhealthy_nodes ?? 0, icon: 'exclamationTriangle' as const, iconClass: 'text-red-500' },
-])
 const deploymentItems = computed(() => {
   const deployment = status.value?.deployment
   if (!deployment) return []
@@ -271,30 +159,14 @@ const deploymentItems = computed(() => {
   ]
 })
 
-const HealthLine = defineComponent({
-  props: { healthy: { type: Boolean, required: true }, label: { type: String, required: true } },
-  setup(props) {
-    return () => h('div', { class: 'flex items-center gap-1.5 text-xs' }, [
-      h(Icon, { name: props.healthy ? 'checkCircle' : 'xCircle', size: 'xs', class: props.healthy ? 'text-emerald-500' : 'text-red-500' }),
-      h('span', { class: props.healthy ? 'text-gray-700 dark:text-gray-200' : 'text-red-600 dark:text-red-400' }, props.label),
-    ])
-  },
-})
-
 function workerModeLabel(mode: string): string {
   if (mode === 'true') return t('admin.cluster.deployment.explicitTrue')
   if (mode === 'false') return t('admin.cluster.deployment.explicitFalse')
   return t('admin.cluster.deployment.auto')
 }
 
-function statusLabel(value: ClusterInstanceStatus | ClusterTaskStatus): string {
+function taskStatusLabel(value: ClusterTaskStatus): string {
   return t(`admin.cluster.status.${value}`)
-}
-
-function instanceDotClass(value: ClusterInstanceStatus): string {
-  if (value === 'online') return 'bg-emerald-500'
-  if (value === 'stale') return 'bg-amber-500'
-  return 'bg-gray-400'
 }
 
 function taskStatusClass(value: ClusterTaskStatus): string {
@@ -327,24 +199,12 @@ async function fetchStatus(): Promise<void> {
   }
 }
 
-function beginNodeRename(nodeId: string, currentName: string): void {
-  editingNodeId.value = nodeId
-  editingNodeName.value = currentName
-}
-
-function cancelNodeRename(): void {
-  editingNodeId.value = ''
-  editingNodeName.value = ''
-}
-
-async function saveNodeName(nodeId: string): Promise<void> {
-  const name = editingNodeName.value.trim()
+async function saveNodeName(nodeId: string, name: string): Promise<void> {
   if (!name || actionBusy.value) return
   actionBusy.value = true
   errorMessage.value = ''
   try {
     await clusterAPI.renameNode(nodeId, name)
-    cancelNodeRename()
     await fetchStatus()
   } catch (error) {
     errorMessage.value = extractApiErrorMessage(error, t('admin.cluster.nodes.renameFailed'))

@@ -110,12 +110,50 @@ func (r *clusterRepository) UpsertInstance(ctx context.Context, instance service
 	if err := ensureClusterNode(ctx, tx, instance); err != nil {
 		return err
 	}
+	var (
+		cpuUsagePercent        *float64
+		memoryUsedBytes        *int64
+		memoryLimitBytes       *int64
+		memoryUsagePercent     *float64
+		inFlightRequests       *int64
+		goroutineCount         *int
+		dbConnectionsActive    *int
+		dbConnectionsIdle      *int
+		dbConnectionsMax       *int
+		redisConnectionsActive *int
+		redisConnectionsIdle   *int
+		redisConnectionsMax    *int
+		metricsCollectedAt     *time.Time
+	)
+	if load := instance.Load; load != nil {
+		cpuUsagePercent = load.CPUUsagePercent
+		memoryUsedBytes = load.MemoryUsedBytes
+		memoryLimitBytes = load.MemoryLimitBytes
+		memoryUsagePercent = load.MemoryUsagePercent
+		inFlightRequests = &load.InFlightRequests
+		goroutineCount = &load.GoroutineCount
+		dbConnectionsActive = &load.DBConnectionsActive
+		dbConnectionsIdle = &load.DBConnectionsIdle
+		dbConnectionsMax = &load.DBConnectionsMax
+		redisConnectionsActive = &load.RedisConnectionsActive
+		redisConnectionsIdle = &load.RedisConnectionsIdle
+		redisConnectionsMax = &load.RedisConnectionsMax
+		metricsCollectedAt = &load.CollectedAt
+	}
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO cluster_instances (
 			runner_id, node_id, node_name, deployment_mode, worker_mode, worker_enabled,
 			version, hostname, process_id, database_ok, redis_ok,
-			started_at, last_seen_at, stopped_at, updated_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NULL,NOW())
+			started_at, last_seen_at, stopped_at,
+			cpu_usage_percent, memory_used_bytes, memory_limit_bytes, memory_usage_percent,
+			in_flight_requests, goroutine_count,
+			db_connections_active, db_connections_idle, db_connections_max,
+			redis_connections_active, redis_connections_idle, redis_connections_max,
+			metrics_collected_at, updated_at
+		) VALUES (
+			$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NULL,
+			$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,NOW()
+		)
 		ON CONFLICT (runner_id) DO UPDATE SET
 			node_id = EXCLUDED.node_id,
 			node_name = EXCLUDED.node_name,
@@ -129,10 +167,26 @@ func (r *clusterRepository) UpsertInstance(ctx context.Context, instance service
 			redis_ok = EXCLUDED.redis_ok,
 			last_seen_at = EXCLUDED.last_seen_at,
 			stopped_at = NULL,
+			cpu_usage_percent = EXCLUDED.cpu_usage_percent,
+			memory_used_bytes = EXCLUDED.memory_used_bytes,
+			memory_limit_bytes = EXCLUDED.memory_limit_bytes,
+			memory_usage_percent = EXCLUDED.memory_usage_percent,
+			in_flight_requests = EXCLUDED.in_flight_requests,
+			goroutine_count = EXCLUDED.goroutine_count,
+			db_connections_active = EXCLUDED.db_connections_active,
+			db_connections_idle = EXCLUDED.db_connections_idle,
+			db_connections_max = EXCLUDED.db_connections_max,
+			redis_connections_active = EXCLUDED.redis_connections_active,
+			redis_connections_idle = EXCLUDED.redis_connections_idle,
+			redis_connections_max = EXCLUDED.redis_connections_max,
+			metrics_collected_at = EXCLUDED.metrics_collected_at,
 			updated_at = NOW()
 	`, instance.RunnerID, instance.NodeID, instance.NodeName, instance.DeploymentMode, instance.WorkerMode,
 		instance.WorkerEnabled, instance.Version, instance.Hostname, instance.ProcessID,
-		instance.DatabaseOK, instance.RedisOK, instance.StartedAt, instance.LastSeenAt)
+		instance.DatabaseOK, instance.RedisOK, instance.StartedAt, instance.LastSeenAt,
+		cpuUsagePercent, memoryUsedBytes, memoryLimitBytes, memoryUsagePercent,
+		inFlightRequests, goroutineCount, dbConnectionsActive, dbConnectionsIdle, dbConnectionsMax,
+		redisConnectionsActive, redisConnectionsIdle, redisConnectionsMax, metricsCollectedAt)
 	if err != nil {
 		return err
 	}
@@ -176,7 +230,12 @@ func (r *clusterRepository) MarkInstanceStopped(ctx context.Context, runnerID st
 func (r *clusterRepository) ListInstances(ctx context.Context) ([]service.ClusterInstance, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT node_id, runner_id, node_name, deployment_mode, worker_mode, worker_enabled,
-			version, hostname, process_id, database_ok, redis_ok, started_at, last_seen_at, stopped_at
+			version, hostname, process_id, database_ok, redis_ok, started_at, last_seen_at, stopped_at,
+			cpu_usage_percent, memory_used_bytes, memory_limit_bytes, memory_usage_percent,
+			in_flight_requests, goroutine_count,
+			db_connections_active, db_connections_idle, db_connections_max,
+			redis_connections_active, redis_connections_idle, redis_connections_max,
+			metrics_collected_at
 		FROM (
 			SELECT DISTINCT ON (instance.node_id)
 				instance.node_id,
@@ -192,7 +251,20 @@ func (r *clusterRepository) ListInstances(ctx context.Context) ([]service.Cluste
 				instance.redis_ok,
 				instance.started_at,
 				instance.last_seen_at,
-				instance.stopped_at
+				instance.stopped_at,
+				instance.cpu_usage_percent,
+				instance.memory_used_bytes,
+				instance.memory_limit_bytes,
+				instance.memory_usage_percent,
+				instance.in_flight_requests,
+				instance.goroutine_count,
+				instance.db_connections_active,
+				instance.db_connections_idle,
+				instance.db_connections_max,
+				instance.redis_connections_active,
+				instance.redis_connections_idle,
+				instance.redis_connections_max,
+				instance.metrics_collected_at
 			FROM cluster_instances AS instance
 			JOIN cluster_nodes AS node ON node.node_id = instance.node_id
 			ORDER BY instance.node_id,
@@ -211,11 +283,21 @@ func (r *clusterRepository) ListInstances(ctx context.Context) ([]service.Cluste
 	for rows.Next() {
 		var instance service.ClusterInstance
 		var stoppedAt sql.NullTime
+		var cpuUsagePercent, memoryUsagePercent sql.NullFloat64
+		var memoryUsedBytes, memoryLimitBytes, inFlightRequests sql.NullInt64
+		var goroutineCount, dbConnectionsActive, dbConnectionsIdle, dbConnectionsMax sql.NullInt64
+		var redisConnectionsActive, redisConnectionsIdle, redisConnectionsMax sql.NullInt64
+		var metricsCollectedAt sql.NullTime
 		if err := rows.Scan(
 			&instance.NodeID, &instance.RunnerID, &instance.NodeName, &instance.DeploymentMode,
 			&instance.WorkerMode, &instance.WorkerEnabled, &instance.Version,
 			&instance.Hostname, &instance.ProcessID, &instance.DatabaseOK,
 			&instance.RedisOK, &instance.StartedAt, &instance.LastSeenAt, &stoppedAt,
+			&cpuUsagePercent, &memoryUsedBytes, &memoryLimitBytes, &memoryUsagePercent,
+			&inFlightRequests, &goroutineCount,
+			&dbConnectionsActive, &dbConnectionsIdle, &dbConnectionsMax,
+			&redisConnectionsActive, &redisConnectionsIdle, &redisConnectionsMax,
+			&metricsCollectedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -223,9 +305,51 @@ func (r *clusterRepository) ListInstances(ctx context.Context) ([]service.Cluste
 			value := stoppedAt.Time
 			instance.StoppedAt = &value
 		}
+		if metricsCollectedAt.Valid {
+			load := &service.ClusterInstanceLoad{
+				InFlightRequests:       inFlightRequests.Int64,
+				GoroutineCount:         int(goroutineCount.Int64),
+				DBConnectionsActive:    int(dbConnectionsActive.Int64),
+				DBConnectionsIdle:      int(dbConnectionsIdle.Int64),
+				DBConnectionsMax:       int(dbConnectionsMax.Int64),
+				RedisConnectionsActive: int(redisConnectionsActive.Int64),
+				RedisConnectionsIdle:   int(redisConnectionsIdle.Int64),
+				RedisConnectionsMax:    int(redisConnectionsMax.Int64),
+				CollectedAt:            metricsCollectedAt.Time,
+			}
+			if cpuUsagePercent.Valid {
+				value := cpuUsagePercent.Float64
+				load.CPUUsagePercent = &value
+			}
+			if memoryUsedBytes.Valid {
+				value := memoryUsedBytes.Int64
+				load.MemoryUsedBytes = &value
+			}
+			if memoryLimitBytes.Valid {
+				value := memoryLimitBytes.Int64
+				load.MemoryLimitBytes = &value
+			}
+			if memoryUsagePercent.Valid {
+				value := memoryUsagePercent.Float64
+				load.MemoryUsagePercent = &value
+			}
+			instance.Load = load
+		}
 		instances = append(instances, instance)
 	}
 	return instances, rows.Err()
+}
+
+func (r *clusterRepository) ClusterConnectionStats() service.ClusterConnectionStats {
+	if r == nil || r.db == nil {
+		return service.ClusterConnectionStats{}
+	}
+	stats := r.db.Stats()
+	return service.ClusterConnectionStats{
+		Active: stats.InUse,
+		Idle:   stats.Idle,
+		Max:    stats.MaxOpenConnections,
+	}
 }
 
 func (r *clusterRepository) ExpireStaleTasks(ctx context.Context, now time.Time) error {

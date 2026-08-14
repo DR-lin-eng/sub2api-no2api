@@ -40,6 +40,23 @@ export interface ClusterSummary {
   unhealthy_nodes: number
 }
 
+export interface ClusterInstanceLoad {
+  cpu_usage_percent?: number
+  memory_used_bytes?: number
+  memory_limit_bytes?: number
+  memory_usage_percent?: number
+  in_flight_requests: number
+  active_tasks: number
+  goroutine_count: number
+  db_connections_active: number
+  db_connections_idle: number
+  db_connections_max: number
+  redis_connections_active: number
+  redis_connections_idle: number
+  redis_connections_max: number
+  collected_at: string
+}
+
 export interface ClusterInstance {
   node_id: string
   runner_id: string
@@ -57,6 +74,7 @@ export interface ClusterInstance {
   stopped_at?: string
   status: ClusterInstanceStatus
   current: boolean
+  load?: ClusterInstanceLoad
 }
 
 export interface ClusterReleaseState {

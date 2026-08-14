@@ -66,6 +66,9 @@ func NewClusterReleaseService(
 		cancel:       cancel,
 		restartAsync: sysutil.RestartServiceAsync,
 	}
+	if cluster != nil {
+		cluster.SetRequestLoadSource(svc)
+	}
 	svc.readiness.Store(&ClusterReadiness{
 		Ready:          !svc.isMultiInstance(),
 		Reason:         "initializing_release_state",
@@ -451,6 +454,17 @@ func (s *ClusterReleaseService) EndRequest() {
 		return
 	}
 	s.inFlight.Add(-1)
+}
+
+func (s *ClusterReleaseService) InFlightRequests() int64 {
+	if s == nil {
+		return 0
+	}
+	value := s.inFlight.Load()
+	if value < 0 {
+		return 0
+	}
+	return value
 }
 
 func (s *ClusterReleaseService) runLoop() {

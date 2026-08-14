@@ -20,13 +20,21 @@ vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
   return {
     ...actual,
-    useI18n: () => ({ t: (key: string, params?: Record<string, unknown>) => params ? `${key}:${JSON.stringify(params)}` : key }),
+    useI18n: () => ({
+      t: (key: string, params?: Record<string, unknown>) => params ? `${key}:${JSON.stringify(params)}` : key,
+      locale: { value: 'en' },
+    }),
   }
 })
 
 vi.mock('@/core/utils/format', () => ({
   formatDateTime: (value: string) => value,
   formatRelativeTime: () => 'now',
+  formatBytes: (value: number) => {
+    if (value >= 1024 ** 3) return `${value / 1024 ** 3} GB`
+    if (value >= 1024 ** 2) return `${value / 1024 ** 2} MB`
+    return `${value} Bytes`
+  },
 }))
 
 vi.mock('@/core/utils/apiError', () => ({
@@ -52,7 +60,7 @@ function statusFixture() {
       rollout_drain_timeout_seconds: 900,
       rollout_verify_heartbeats: 2,
     },
-    summary: { online_nodes: 2, stale_nodes: 0, stopped_nodes: 0, worker_nodes: 2, active_tasks: 1, unhealthy_nodes: 0 },
+    summary: { online_nodes: 1, stale_nodes: 0, stopped_nodes: 0, worker_nodes: 1, active_tasks: 1, unhealthy_nodes: 0 },
     instances: [{
       node_id: 'node-a',
       runner_id: 'api-a-runner',
@@ -69,6 +77,22 @@ function statusFixture() {
       last_seen_at: '2026-07-15T00:01:00Z',
       status: 'online',
       current: true,
+      load: {
+        cpu_usage_percent: 61.5,
+        memory_used_bytes: 512 * 1024 * 1024,
+        memory_limit_bytes: 1024 * 1024 * 1024,
+        memory_usage_percent: 50,
+        in_flight_requests: 7,
+        active_tasks: 1,
+        goroutine_count: 42,
+        db_connections_active: 4,
+        db_connections_idle: 6,
+        db_connections_max: 20,
+        redis_connections_active: 2,
+        redis_connections_idle: 8,
+        redis_connections_max: 50,
+        collected_at: '2026-07-15T00:01:00Z',
+      },
     }],
     release: {
       state: {
@@ -125,6 +149,87 @@ describe('MultiInstanceView', () => {
     expect(wrapper.text()).toContain('api-a')
     expect(wrapper.text()).toContain('backup:scheduled')
     expect(wrapper.text()).toContain('1.2.3')
+  })
+
+  it('renders per-node load, connection pools, and cluster load summary', async () => {
+    const wrapper = mount(MultiInstanceView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          Icon: { template: '<span />' },
+          Toggle: { props: ['modelValue'], template: '<button type="button" />' },
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="cpu-value"]').text()).toBe('61.5%')
+    expect(wrapper.get('[data-test="memory-value"]').text()).toBe('50%')
+    expect(wrapper.text()).toContain('512 MB / 1 GB')
+    expect(wrapper.text()).toContain('admin.cluster.loadSummary.averageCpu')
+    expect(wrapper.text()).toContain('admin.cluster.nodes.poolIdle:{"count":6}')
+    expect(wrapper.text()).toContain('admin.cluster.nodes.poolIdle:{"count":8}')
+  })
+
+  it('shows missing telemetry explicitly for nodes running an older response shape', async () => {
+    const fixture = statusFixture()
+    delete fixture.instances[0].load
+    clusterAPI.getStatus.mockResolvedValue(fixture)
+
+    const wrapper = mount(MultiInstanceView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          Icon: { template: '<span />' },
+          Toggle: { props: ['modelValue'], template: '<button type="button" />' },
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('admin.cluster.nodes.noMetrics')
+    expect(wrapper.find('[data-test="cpu-value"]').exists()).toBe(false)
+  })
+
+  it('sorts live nodes by load and lets the operator switch to node name', async () => {
+    const fixture = statusFixture()
+    fixture.instances.push({
+      ...fixture.instances[0],
+      node_id: 'node-b',
+      runner_id: 'api-b-runner',
+      node_name: 'edge-b',
+      hostname: 'host-b',
+      process_id: 11,
+      current: false,
+      load: {
+        ...fixture.instances[0].load,
+        cpu_usage_percent: 92,
+        memory_usage_percent: 84,
+        in_flight_requests: 12,
+      },
+    })
+    fixture.summary.online_nodes = 2
+    clusterAPI.getStatus.mockResolvedValue(fixture)
+
+    const wrapper = mount(MultiInstanceView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          Icon: { template: '<span />' },
+          Toggle: { props: ['modelValue'], template: '<button type="button" />' },
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const nodeIds = () => wrapper.findAll('[data-test="cluster-node-card"]').map((card) => card.attributes('data-node-id'))
+    expect(nodeIds()).toEqual(['node-b', 'node-a'])
+
+    await wrapper.get('[data-test="node-sort"]').setValue('name')
+    expect(nodeIds()).toEqual(['node-a', 'node-b'])
   })
 
   it('shows node-managed updates when the binary rollout driver is active', async () => {

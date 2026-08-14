@@ -12,16 +12,35 @@ import (
 )
 
 type clusterRepositoryStub struct {
-	mu        sync.Mutex
-	instances map[string]ClusterInstance
-	tasks     map[string]ClusterTaskRun
-	renewals  int
+	mu              sync.Mutex
+	instances       map[string]ClusterInstance
+	tasks           map[string]ClusterTaskRun
+	renewals        int
+	connectionStats ClusterConnectionStats
 }
 
 type clusterHealthCheckerStub bool
 
 func (s clusterHealthCheckerStub) RedisHealthy(context.Context) bool {
 	return bool(s)
+}
+
+func (s clusterHealthCheckerStub) ClusterConnectionStats() ClusterConnectionStats {
+	return ClusterConnectionStats{Active: 2, Idle: 8, Max: 50}
+}
+
+type clusterLoadSamplerStub struct {
+	load ClusterInstanceLoad
+}
+
+func (s clusterLoadSamplerStub) Sample(context.Context) ClusterInstanceLoad {
+	return s.load
+}
+
+type clusterRequestLoadSourceStub int64
+
+func (s clusterRequestLoadSourceStub) InFlightRequests() int64 {
+	return int64(s)
 }
 
 func newClusterRepositoryStub() *clusterRepositoryStub {
@@ -135,6 +154,10 @@ func (r *clusterRepositoryStub) ListTaskRuns(context.Context, int) ([]ClusterTas
 	return out, nil
 }
 
+func (r *clusterRepositoryStub) ClusterConnectionStats() ClusterConnectionStats {
+	return r.connectionStats
+}
+
 func clusterTestConfig(nodeName, workerMode string) *config.Config {
 	return &config.Config{Deployment: config.DeploymentConfig{
 		Mode:                     config.DeploymentModeMultiInstance,
@@ -194,7 +217,30 @@ func TestClusterService_ExplicitDisabledWorkerDoesNotRun(t *testing.T) {
 
 func TestClusterService_StatusReportsCurrentNodeAndWorker(t *testing.T) {
 	repo := newClusterRepositoryStub()
+	repo.connectionStats = ClusterConnectionStats{Active: 4, Idle: 6, Max: 20}
 	node := NewClusterService(repo, clusterTestConfig("api-a", config.WorkerModeAuto), clusterHealthCheckerStub(true), BuildInfo{Version: "1.2.3"})
+	cpu := 61.5
+	memoryUsed := int64(512 * 1024 * 1024)
+	memoryLimit := int64(1024 * 1024 * 1024)
+	memoryPercent := 50.0
+	node.loadSampler = clusterLoadSamplerStub{load: ClusterInstanceLoad{
+		CPUUsagePercent:    &cpu,
+		MemoryUsedBytes:    &memoryUsed,
+		MemoryLimitBytes:   &memoryLimit,
+		MemoryUsagePercent: &memoryPercent,
+		GoroutineCount:     42,
+		CollectedAt:        time.Now().UTC(),
+	}}
+	node.SetRequestLoadSource(clusterRequestLoadSourceStub(7))
+	repo.tasks["backup:scheduled"] = ClusterTaskRun{
+		RunID:       "run-1",
+		TaskKey:     "backup:scheduled",
+		Status:      ClusterTaskStatusRunning,
+		RunnerID:    node.RunnerID(),
+		StartedAt:   time.Now().UTC(),
+		HeartbeatAt: time.Now().UTC(),
+		LeaseUntil:  time.Now().UTC().Add(time.Minute),
+	}
 	status, err := node.GetStatus(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, "api-a", status.Deployment.NodeName)
@@ -206,4 +252,47 @@ func TestClusterService_StatusReportsCurrentNodeAndWorker(t *testing.T) {
 	require.Len(t, status.Instances, 1)
 	require.True(t, status.Instances[0].Current)
 	require.True(t, status.Instances[0].RedisOK)
+	require.NotNil(t, status.Instances[0].Load)
+	require.Equal(t, 61.5, *status.Instances[0].Load.CPUUsagePercent)
+	require.Equal(t, int64(7), status.Instances[0].Load.InFlightRequests)
+	require.Equal(t, 1, status.Instances[0].Load.ActiveTasks)
+	require.Equal(t, 42, status.Instances[0].Load.GoroutineCount)
+	require.Equal(t, 4, status.Instances[0].Load.DBConnectionsActive)
+	require.Equal(t, 20, status.Instances[0].Load.DBConnectionsMax)
+	require.Equal(t, 2, status.Instances[0].Load.RedisConnectionsActive)
+	require.Equal(t, 50, status.Instances[0].Load.RedisConnectionsMax)
+}
+
+func TestClusterService_StatusHidesMetricsOlderThanHeartbeat(t *testing.T) {
+	repo := newClusterRepositoryStub()
+	node := NewClusterService(repo, clusterTestConfig("api-a", config.WorkerModeAuto), nil, BuildInfo{Version: "1.2.3"})
+	now := time.Now().UTC()
+	cpu := 88.0
+	node.loadSampler = clusterLoadSamplerStub{load: ClusterInstanceLoad{CollectedAt: now}}
+	repo.instances["remote-runner"] = ClusterInstance{
+		NodeID:         "remote-node",
+		RunnerID:       "remote-runner",
+		NodeName:       "remote",
+		DeploymentMode: config.DeploymentModeMultiInstance,
+		WorkerMode:     config.WorkerModeAuto,
+		WorkerEnabled:  true,
+		DatabaseOK:     true,
+		RedisOK:        true,
+		StartedAt:      now.Add(-time.Hour),
+		LastSeenAt:     now,
+		Load: &ClusterInstanceLoad{
+			CPUUsagePercent: &cpu,
+			CollectedAt:     now.Add(-61 * time.Second),
+		},
+	}
+
+	status, err := node.GetStatus(context.Background())
+	require.NoError(t, err)
+	for i := range status.Instances {
+		if status.Instances[i].RunnerID == "remote-runner" {
+			require.Nil(t, status.Instances[i].Load)
+			return
+		}
+	}
+	t.Fatal("remote instance not found")
 }

@@ -136,9 +136,20 @@ Finished task history is retained for seven days and capped at 10,000 rows;
 runner history is retained for seven days. Historical runners do not increase
 the logical node count.
 
-The admin page at `/admin/multi-instance` shows node heartbeats, dependency
-health, editable node names, version distribution, rollout targets, resolved
-worker mode, active leases, and recent task history.
+Each heartbeat also stores one current runtime-load snapshot for that node. The
+snapshot includes normalized CPU and memory usage, accepted in-flight requests,
+active background tasks, goroutine count, and active/idle/maximum PostgreSQL and
+Redis pool connections. Container deployments read CPU and memory from cgroups;
+other environments fall back to process metrics. Sampling failures leave the
+affected CPU or memory value unavailable instead of reporting a false zero.
+
+The admin page at `/admin/multi-instance` puts these load snapshots first, with
+cluster averages and peaks plus sortable per-node cards. It also shows node
+heartbeats, dependency health, editable node names, version distribution,
+rollout targets, resolved worker mode, active leases, and recent task history.
+Load data is a latest-heartbeat snapshot rather than a historical time series.
+Nodes running an older binary remain visible and show no load metrics until
+they are upgraded; telemetry that falls behind continuing heartbeats is hidden.
 
 Do not point replicas at different Redis databases. That would split the lock and
 OAuth state domains and restore duplicate execution and callback misses.
