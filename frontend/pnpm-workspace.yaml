@@ -13,6 +13,7 @@ overrides:
   js-cookie: 3.0.7
   js-yaml@>=4.0.0 <4.3.0: 4.3.0
   lodash@<4.18.1: 4.18.1
+  nanoid@<3.3.18: 3.3.18
   picomatch@<2.3.2: 2.3.2
   picomatch@>=4.0.0 <4.0.4: 4.0.5
   postcss@<8.5.18: 8.5.23
