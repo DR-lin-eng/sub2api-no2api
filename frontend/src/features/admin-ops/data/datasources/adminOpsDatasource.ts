@@ -408,6 +408,7 @@ export interface OpsAdvancedSettings {
   display_concurrency: boolean
   display_switch_rate_trend: boolean
   display_throughput_trend: boolean
+  display_network_bandwidth: boolean
   display_latency_histogram: boolean
   display_error_distribution: boolean
   display_error_trend: boolean

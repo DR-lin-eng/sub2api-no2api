@@ -26,6 +26,9 @@ func TestGetOpsAdvancedSettings_DefaultSnapshotHidesOpenAITokenStats(t *testing.
 	if !cfg.DisplayConcurrency || !cfg.DisplaySwitchRateTrend || !cfg.DisplayThroughputTrend {
 		t.Fatalf("primary dashboard panels should be visible by default: %+v", cfg)
 	}
+	if !cfg.DisplayNetworkBandwidth {
+		t.Fatalf("DisplayNetworkBandwidth = false, want true by default")
+	}
 	if !cfg.DisplayLatencyHistogram || !cfg.DisplayErrorDistribution || !cfg.DisplayErrorTrend {
 		t.Fatalf("analysis dashboard panels should be visible by default: %+v", cfg)
 	}
@@ -59,6 +62,7 @@ func TestUpdateOpsAdvancedSettings_PersistsOpenAITokenStatsVisibility(t *testing
 	cfg.DisplayConcurrency = false
 	cfg.DisplaySwitchRateTrend = false
 	cfg.DisplayThroughputTrend = false
+	cfg.DisplayNetworkBandwidth = false
 	cfg.DisplayLatencyHistogram = false
 	cfg.DisplayErrorDistribution = false
 	cfg.DisplayErrorTrend = false
@@ -78,6 +82,9 @@ func TestUpdateOpsAdvancedSettings_PersistsOpenAITokenStatsVisibility(t *testing
 	}
 	if updated.DisplayConcurrency || updated.DisplaySwitchRateTrend || updated.DisplayThroughputTrend {
 		t.Fatalf("primary dashboard panel settings were not persisted: %+v", updated)
+	}
+	if updated.DisplayNetworkBandwidth {
+		t.Fatalf("DisplayNetworkBandwidth = true, want false")
 	}
 	if updated.DisplayLatencyHistogram || updated.DisplayErrorDistribution || updated.DisplayErrorTrend {
 		t.Fatalf("analysis dashboard panel settings were not persisted: %+v", updated)
@@ -105,6 +112,9 @@ func TestUpdateOpsAdvancedSettings_PersistsOpenAITokenStatsVisibility(t *testing
 	}
 	if reloaded.DisplayConcurrency || reloaded.DisplaySwitchRateTrend || reloaded.DisplayThroughputTrend {
 		t.Fatalf("reloaded primary dashboard panel settings were not persisted: %+v", reloaded)
+	}
+	if reloaded.DisplayNetworkBandwidth {
+		t.Fatalf("reloaded DisplayNetworkBandwidth = true, want false")
 	}
 	if reloaded.DisplayLatencyHistogram || reloaded.DisplayErrorDistribution || reloaded.DisplayErrorTrend {
 		t.Fatalf("reloaded analysis dashboard panel settings were not persisted: %+v", reloaded)
@@ -164,6 +174,9 @@ func TestGetOpsAdvancedSettings_BackfillsNewDisplayFlagsFromDefaults(t *testing.
 	}
 	if !cfg.DisplayConcurrency || !cfg.DisplaySwitchRateTrend || !cfg.DisplayThroughputTrend {
 		t.Fatalf("primary dashboard panels should be backfilled as visible: %+v", cfg)
+	}
+	if !cfg.DisplayNetworkBandwidth {
+		t.Fatalf("DisplayNetworkBandwidth = false, want true default backfill")
 	}
 	if !cfg.DisplayLatencyHistogram || !cfg.DisplayErrorDistribution || !cfg.DisplayErrorTrend {
 		t.Fatalf("analysis dashboard panels should be backfilled as visible: %+v", cfg)

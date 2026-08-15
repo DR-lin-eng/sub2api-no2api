@@ -54,6 +54,7 @@ describe('admin ops modularization', () => {
 
   it('keeps dashboard and metrics network calls in explicit query owners', () => {
     expect(dashboardQuerySource).toContain("'/admin/ops/dashboard/snapshot-v2'")
+    expect(dashboardQuerySource).toContain("'/admin/ops/dashboard/network-bandwidth-trend'")
     expect(dashboardQuerySource).toContain('signal: options.signal')
     expect(metricsQuerySource).toContain("'/admin/ops/concurrency-snapshot'")
     expect(metricsQuerySource).toContain("'/admin/ops/dashboard/image-generation-stats'")

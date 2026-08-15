@@ -20,11 +20,12 @@ const opsDashboardSnapshotV2LoadTimeout = 10 * time.Second
 type opsDashboardSnapshotV2Response struct {
 	GeneratedAt string `json:"generated_at"`
 
-	Overview          *service.OpsDashboardOverview         `json:"overview"`
-	ThroughputTrend   *service.OpsThroughputTrendResponse   `json:"throughput_trend,omitempty"`
-	LatencyHistogram  *service.OpsLatencyHistogramResponse  `json:"latency_histogram,omitempty"`
-	ErrorTrend        *service.OpsErrorTrendResponse        `json:"error_trend,omitempty"`
-	ErrorDistribution *service.OpsErrorDistributionResponse `json:"error_distribution,omitempty"`
+	Overview          *service.OpsDashboardOverview             `json:"overview"`
+	ThroughputTrend   *service.OpsThroughputTrendResponse       `json:"throughput_trend,omitempty"`
+	LatencyHistogram  *service.OpsLatencyHistogramResponse      `json:"latency_histogram,omitempty"`
+	ErrorTrend        *service.OpsErrorTrendResponse            `json:"error_trend,omitempty"`
+	ErrorDistribution *service.OpsErrorDistributionResponse     `json:"error_distribution,omitempty"`
+	NetworkBandwidth  *service.OpsNetworkBandwidthTrendResponse `json:"network_bandwidth_trend,omitempty"`
 }
 
 type opsDashboardSnapshotV2CacheKey struct {
@@ -39,6 +40,7 @@ type opsDashboardSnapshotV2CacheKey struct {
 	IncludeErrorTrend        bool                 `json:"include_error_trend"`
 	IncludeErrorDistribution bool                 `json:"include_error_distribution"`
 	IncludeSwitchCount       bool                 `json:"include_switch_count"`
+	IncludeNetworkBandwidth  bool                 `json:"include_network_bandwidth"`
 }
 
 // GetDashboardSnapshotV2 returns ops dashboard core snapshot in one request.
@@ -78,6 +80,8 @@ func (h *OpsHandler) GetDashboardSnapshotV2(c *gin.Context) {
 	includeLatencyHistogram := parseBoolQueryWithDefault(c.Query("include_latency_histogram"), true)
 	includeErrorTrend := parseBoolQueryWithDefault(c.Query("include_error_trend"), true)
 	includeErrorDistribution := parseBoolQueryWithDefault(c.Query("include_error_distribution"), true)
+	// New fields remain opt-in so older clients do not pay for queries they cannot render.
+	includeNetworkBandwidth := parseBoolQueryWithDefault(c.Query("include_network_bandwidth"), false)
 	// The snapshot's throughput panel only displays QPS/TPS. Switch-rate data has
 	// its own endpoint and chart, so avoid parsing upstream_errors JSON unless an
 	// API caller explicitly asks for the legacy field values.
@@ -96,6 +100,7 @@ func (h *OpsHandler) GetDashboardSnapshotV2(c *gin.Context) {
 		IncludeErrorTrend:        includeErrorTrend,
 		IncludeErrorDistribution: includeErrorDistribution,
 		IncludeSwitchCount:       includeSwitchCount,
+		IncludeNetworkBandwidth:  includeNetworkBandwidth,
 	})
 	cacheKey := string(keyRaw)
 
@@ -116,6 +121,13 @@ func (h *OpsHandler) GetDashboardSnapshotV2(c *gin.Context) {
 		if err != nil {
 			return nil, err
 		}
+		var networkBandwidth *service.OpsNetworkBandwidthTrendResponse
+		if includeNetworkBandwidth {
+			networkBandwidth, err = h.opsService.GetNetworkBandwidthTrend(loadCtx, f.StartTime, f.EndTime, bucketSeconds)
+			if err != nil {
+				return nil, err
+			}
+		}
 		return &opsDashboardSnapshotV2Response{
 			GeneratedAt:       time.Now().UTC().Format(time.RFC3339),
 			Overview:          core.Overview,
@@ -123,6 +135,7 @@ func (h *OpsHandler) GetDashboardSnapshotV2(c *gin.Context) {
 			LatencyHistogram:  core.LatencyHistogram,
 			ErrorTrend:        core.ErrorTrend,
 			ErrorDistribution: core.ErrorDistribution,
+			NetworkBandwidth:  networkBandwidth,
 		}, nil
 	})
 	if err != nil {

@@ -13,6 +13,7 @@ import {
   getErrorDistribution,
   getErrorTrend,
   getLatencyHistogram,
+  getNetworkBandwidthTrend,
   getSwitchTrend,
   getThroughputTrend
 } from '@/features/admin-ops/data/datasources/opsDashboardQueries'
@@ -62,6 +63,7 @@ describe('admin ops dashboard and metrics query owners', () => {
     const snapshotParams = {
       ...params,
       include_throughput_trend: true,
+      include_network_bandwidth: true,
       include_latency_histogram: false,
       include_error_trend: true,
       include_error_distribution: false,
@@ -73,6 +75,7 @@ describe('admin ops dashboard and metrics query owners', () => {
     await expect(getDashboardOverview(params, { signal: controller.signal })).resolves.toBe(response)
     await expect(getDashboardSnapshotV2(snapshotParams, { signal: controller.signal })).resolves.toBe(response)
     await expect(getThroughputTrend(params, { signal: controller.signal })).resolves.toBe(response)
+    await expect(getNetworkBandwidthTrend({ time_range: '1h' }, { signal: controller.signal })).resolves.toBe(response)
     await expect(getSwitchTrend(switchParams, { signal: controller.signal })).resolves.toBe(response)
     await expect(getLatencyHistogram(params, { signal: controller.signal })).resolves.toBe(response)
     await expect(getErrorTrend(params, { signal: controller.signal })).resolves.toBe(response)
@@ -85,10 +88,11 @@ describe('admin ops dashboard and metrics query owners', () => {
     expect(get).toHaveBeenNthCalledWith(1, ...request('/admin/ops/dashboard/overview', params))
     expect(get).toHaveBeenNthCalledWith(2, ...request('/admin/ops/dashboard/snapshot-v2', snapshotParams))
     expect(get).toHaveBeenNthCalledWith(3, ...request('/admin/ops/dashboard/throughput-trend', params))
-    expect(get).toHaveBeenNthCalledWith(4, ...request('/admin/ops/dashboard/switch-trend', switchParams))
-    expect(get).toHaveBeenNthCalledWith(5, ...request('/admin/ops/dashboard/latency-histogram', params))
-    expect(get).toHaveBeenNthCalledWith(6, ...request('/admin/ops/dashboard/error-trend', params))
-    expect(get).toHaveBeenNthCalledWith(7, ...request('/admin/ops/dashboard/error-distribution', params))
+    expect(get).toHaveBeenNthCalledWith(4, ...request('/admin/ops/dashboard/network-bandwidth-trend', { time_range: '1h' }))
+    expect(get).toHaveBeenNthCalledWith(5, ...request('/admin/ops/dashboard/switch-trend', switchParams))
+    expect(get).toHaveBeenNthCalledWith(6, ...request('/admin/ops/dashboard/latency-histogram', params))
+    expect(get).toHaveBeenNthCalledWith(7, ...request('/admin/ops/dashboard/error-trend', params))
+    expect(get).toHaveBeenNthCalledWith(8, ...request('/admin/ops/dashboard/error-distribution', params))
   })
 
   it('preserves concurrency, realtime, and independent metrics query contracts', async () => {

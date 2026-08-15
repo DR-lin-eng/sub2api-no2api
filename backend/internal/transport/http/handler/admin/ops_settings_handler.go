@@ -253,6 +253,7 @@ func (h *OpsHandler) GetAdvancedSettings(c *gin.Context) {
 type updateOpsAdvancedSettingsRequest struct {
 	service.OpsAdvancedSettings
 	RecordBusinessLimited429 *bool `json:"record_business_limited_429"`
+	DisplayNetworkBandwidth  *bool `json:"display_network_bandwidth"`
 }
 
 func (h *OpsHandler) UpdateAdvancedSettings(c *gin.Context) {
@@ -271,12 +272,24 @@ func (h *OpsHandler) UpdateAdvancedSettings(c *gin.Context) {
 		return
 	}
 
+	var current *service.OpsAdvancedSettings
+	if req.RecordBusinessLimited429 == nil || req.DisplayNetworkBandwidth == nil {
+		current, _ = h.opsService.GetOpsAdvancedSettings(c.Request.Context())
+	}
+
 	if req.RecordBusinessLimited429 != nil {
 		req.OpsAdvancedSettings.RecordBusinessLimited429 = *req.RecordBusinessLimited429
-	} else if current, getErr := h.opsService.GetOpsAdvancedSettings(c.Request.Context()); getErr == nil {
+	} else if current != nil {
 		req.OpsAdvancedSettings.RecordBusinessLimited429 = current.RecordBusinessLimited429
 	} else {
 		req.OpsAdvancedSettings.RecordBusinessLimited429 = true
+	}
+	if req.DisplayNetworkBandwidth != nil {
+		req.OpsAdvancedSettings.DisplayNetworkBandwidth = *req.DisplayNetworkBandwidth
+	} else if current != nil {
+		req.OpsAdvancedSettings.DisplayNetworkBandwidth = current.DisplayNetworkBandwidth
+	} else {
+		req.OpsAdvancedSettings.DisplayNetworkBandwidth = true
 	}
 
 	updated, err := h.opsService.UpdateOpsAdvancedSettings(c.Request.Context(), &req.OpsAdvancedSettings)

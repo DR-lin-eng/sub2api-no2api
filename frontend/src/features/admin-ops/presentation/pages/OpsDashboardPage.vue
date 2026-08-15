@@ -67,6 +67,16 @@
         </div>
       </div>
 
+      <!-- Row: Public Network Bandwidth -->
+      <div v-if="opsEnabled && showNetworkBandwidth && !(loading && !hasLoadedOnce)" class="h-[360px]">
+        <OpsNetworkBandwidthChart
+          :points="networkBandwidthTrend?.points ?? []"
+          :interfaces="overview?.system_metrics?.network_interfaces ?? []"
+          :loading="loadingNetworkBandwidth"
+          :time-range="timeRange"
+        />
+      </div>
+
       <!-- Row: Visual Analysis (baseline 3-up grid) -->
       <div
         v-if="opsEnabled && showAnalysisPanels && !(loading && !hasLoadedOnce)"
@@ -177,6 +187,8 @@ import {
   type OpsErrorDistributionResponse,
   type OpsErrorTrendResponse,
   type OpsLatencyHistogramResponse,
+  type OpsNetworkBandwidthQueryParams,
+  type OpsNetworkBandwidthTrendResponse,
   type OpsThroughputTrendResponse
 } from '@/features/admin-ops/data/dtos/opsDashboardDtos'
 import type {
@@ -189,6 +201,7 @@ import {
   getErrorDistribution,
   getErrorTrend,
   getLatencyHistogram,
+  getNetworkBandwidthTrend,
   getSwitchTrend,
   getThroughputTrend
 } from '@/features/admin-ops/data/datasources/opsDashboardQueries'
@@ -202,6 +215,7 @@ import OpsErrorDistributionChart from '../widgets/OpsErrorDistributionChart.vue'
 import OpsErrorDetailsDialog from '../widgets/OpsErrorDetailsDialog.vue'
 import OpsErrorTrendChart from '../widgets/OpsErrorTrendChart.vue'
 import OpsLatencyChart from '../widgets/OpsLatencyChart.vue'
+import OpsNetworkBandwidthChart from '../widgets/OpsNetworkBandwidthChart.vue'
 import OpsImageGenerationStatsCard from '../widgets/OpsImageGenerationStatsCard.vue'
 import OpsThroughputTrendChart from '../widgets/OpsThroughputTrendChart.vue'
 import OpsSwitchRateTrendChart from '../widgets/OpsSwitchRateTrendChart.vue'
@@ -392,6 +406,9 @@ const metricThresholds = ref<OpsMetricThresholds | null>(null)
 const throughputTrend = ref<OpsThroughputTrendResponse | null>(null)
 const loadingTrend = ref(false)
 
+const networkBandwidthTrend = ref<OpsNetworkBandwidthTrendResponse | null>(null)
+const loadingNetworkBandwidth = ref(false)
+
 const switchTrend = ref<OpsThroughputTrendResponse | null>(null)
 const loadingSwitchTrend = ref(false)
 
@@ -430,6 +447,7 @@ const showSystemLogs = ref(true)
 const showConcurrency = ref(true)
 const showSwitchRateTrend = ref(true)
 const showThroughputTrend = ref(true)
+const showNetworkBandwidth = ref(true)
 const showLatencyHistogram = ref(true)
 const showErrorDistribution = ref(true)
 const showErrorTrend = ref(true)
@@ -482,6 +500,7 @@ function applyDashboardAdvancedSettings(settings: OpsAdvancedSettings) {
   showConcurrency.value = settings.display_concurrency
   showSwitchRateTrend.value = settings.display_switch_rate_trend
   showThroughputTrend.value = settings.display_throughput_trend
+  showNetworkBandwidth.value = settings.display_network_bandwidth ?? true
   showLatencyHistogram.value = settings.display_latency_histogram
   showErrorDistribution.value = settings.display_error_distribution
   showErrorTrend.value = settings.display_error_trend
@@ -496,6 +515,7 @@ function applyDashboardAdvancedSettings(settings: OpsAdvancedSettings) {
 
   if (!showSwitchRateTrend.value) switchTrend.value = null
   if (!showThroughputTrend.value) throughputTrend.value = null
+  if (!showNetworkBandwidth.value) networkBandwidthTrend.value = null
   if (!showLatencyHistogram.value) latencyHistogram.value = null
   if (!showErrorDistribution.value) errorDistribution.value = null
   if (!showErrorTrend.value) errorTrend.value = null
@@ -505,6 +525,7 @@ function resetDashboardAdvancedSettings() {
   showConcurrency.value = true
   showSwitchRateTrend.value = true
   showThroughputTrend.value = true
+  showNetworkBandwidth.value = true
   showLatencyHistogram.value = true
   showErrorDistribution.value = true
   showErrorTrend.value = true
@@ -647,12 +668,26 @@ function buildSnapshotApiParams() {
   return {
     ...buildApiParams(),
     include_throughput_trend: showThroughputTrend.value,
+    include_network_bandwidth: showNetworkBandwidth.value,
     include_latency_histogram: showLatencyHistogram.value,
     include_error_trend: showErrorTrend.value,
     include_error_distribution: showErrorDistribution.value,
     // Switch-rate uses its own 5h request; the throughput panel only needs QPS/TPS.
     include_switch_count: false
   }
+}
+
+function buildNetworkBandwidthApiParams(): OpsNetworkBandwidthQueryParams {
+  if (timeRange.value === 'custom') {
+    if (customStartTime.value && customEndTime.value) {
+      return {
+        start_time: customStartTime.value,
+        end_time: customEndTime.value
+      }
+    }
+    return { time_range: '1h' }
+  }
+  return { time_range: timeRange.value }
 }
 
 function buildSwitchTrendParams() {
@@ -713,9 +748,29 @@ async function refreshThroughputTrendWithCancel(fetchSeq: number, signal: AbortS
   }
 }
 
+async function refreshNetworkBandwidthWithCancel(fetchSeq: number, signal: AbortSignal) {
+  if (!opsEnabled.value || !showNetworkBandwidth.value) return
+  loadingNetworkBandwidth.value = true
+  try {
+    const data = await getNetworkBandwidthTrend(buildNetworkBandwidthApiParams(), { signal })
+    if (fetchSeq !== dashboardFetchSeq) return
+    networkBandwidthTrend.value = data
+  } catch (err) {
+    if (fetchSeq !== dashboardFetchSeq || isCanceledRequest(err)) return
+    // Mixed-version deployments may temporarily serve an older backend without this endpoint.
+    networkBandwidthTrend.value = null
+    console.warn('[OpsDashboard] Failed to load public network bandwidth', err)
+  } finally {
+    if (fetchSeq === dashboardFetchSeq) {
+      loadingNetworkBandwidth.value = false
+    }
+  }
+}
+
 async function refreshCoreSnapshotWithCancel(fetchSeq: number, signal: AbortSignal) {
   if (!opsEnabled.value) return
   loadingTrend.value = showThroughputTrend.value
+  loadingNetworkBandwidth.value = showNetworkBandwidth.value
   loadingErrorTrend.value = showErrorTrend.value
   loadingLatency.value = showLatencyHistogram.value
   loadingErrorDistribution.value = showErrorDistribution.value
@@ -724,12 +779,14 @@ async function refreshCoreSnapshotWithCancel(fetchSeq: number, signal: AbortSign
     if (fetchSeq !== dashboardFetchSeq) return
     overview.value = data.overview
     throughputTrend.value = showThroughputTrend.value ? data.throughput_trend ?? null : null
+    networkBandwidthTrend.value = showNetworkBandwidth.value ? data.network_bandwidth_trend ?? null : null
     errorTrend.value = showErrorTrend.value ? data.error_trend ?? null : null
     latencyHistogram.value = showLatencyHistogram.value ? data.latency_histogram ?? null : null
     errorDistribution.value = showErrorDistribution.value ? data.error_distribution ?? null : null
 
     const missingRequests: Array<Promise<void>> = []
     if (showThroughputTrend.value && !data.throughput_trend) missingRequests.push(refreshThroughputTrendWithCancel(fetchSeq, signal))
+    if (showNetworkBandwidth.value && !data.network_bandwidth_trend) missingRequests.push(refreshNetworkBandwidthWithCancel(fetchSeq, signal))
     if (showLatencyHistogram.value && !data.latency_histogram) missingRequests.push(refreshLatencyHistogramWithCancel(fetchSeq, signal))
     if (showErrorTrend.value && !data.error_trend) missingRequests.push(refreshErrorTrendWithCancel(fetchSeq, signal))
     if (showErrorDistribution.value && !data.error_distribution) missingRequests.push(refreshErrorDistributionWithCancel(fetchSeq, signal))
@@ -739,6 +796,7 @@ async function refreshCoreSnapshotWithCancel(fetchSeq: number, signal: AbortSign
     // Fallback to legacy split endpoints when snapshot endpoint is unavailable.
     const fallbackRequests: Array<Promise<void>> = [refreshOverviewWithCancel(fetchSeq, signal)]
     if (showThroughputTrend.value) fallbackRequests.push(refreshThroughputTrendWithCancel(fetchSeq, signal))
+    if (showNetworkBandwidth.value) fallbackRequests.push(refreshNetworkBandwidthWithCancel(fetchSeq, signal))
     if (showLatencyHistogram.value) fallbackRequests.push(refreshLatencyHistogramWithCancel(fetchSeq, signal))
     if (showErrorTrend.value) fallbackRequests.push(refreshErrorTrendWithCancel(fetchSeq, signal))
     if (showErrorDistribution.value) fallbackRequests.push(refreshErrorDistributionWithCancel(fetchSeq, signal))
@@ -746,6 +804,7 @@ async function refreshCoreSnapshotWithCancel(fetchSeq: number, signal: AbortSign
   } finally {
     if (fetchSeq === dashboardFetchSeq) {
       loadingTrend.value = false
+      loadingNetworkBandwidth.value = false
       loadingErrorTrend.value = false
       loadingLatency.value = false
       loadingErrorDistribution.value = false

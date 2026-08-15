@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUpdateAdvancedSettingsLegacyClientPreservesBusinessLimited429Setting(t *testing.T) {
+func TestUpdateAdvancedSettingsLegacyClientPreservesNewBooleanSettings(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	repo := newTestSettingRepo()
 	ops := service.NewOpsService(nil, repo, &config.Config{Ops: config.OpsConfig{Enabled: true}}, nil, nil, nil, nil, nil, nil, nil, nil)
@@ -22,6 +22,7 @@ func TestUpdateAdvancedSettingsLegacyClientPreservesBusinessLimited429Setting(t 
 	current, err := ops.GetOpsAdvancedSettings(context.Background())
 	require.NoError(t, err)
 	current.RecordBusinessLimited429 = false
+	current.DisplayNetworkBandwidth = false
 	_, err = ops.UpdateOpsAdvancedSettings(context.Background(), current)
 	require.NoError(t, err)
 
@@ -30,6 +31,7 @@ func TestUpdateAdvancedSettingsLegacyClientPreservesBusinessLimited429Setting(t 
 	var legacyPayload map[string]any
 	require.NoError(t, json.Unmarshal(raw, &legacyPayload))
 	delete(legacyPayload, "record_business_limited_429")
+	delete(legacyPayload, "display_network_bandwidth")
 	raw, err = json.Marshal(legacyPayload)
 	require.NoError(t, err)
 
@@ -41,8 +43,10 @@ func TestUpdateAdvancedSettingsLegacyClientPreservesBusinessLimited429Setting(t 
 	router.ServeHTTP(recorder, request)
 	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
 	require.False(t, ops.OpsAdvancedSettingsSnapshot().RecordBusinessLimited429)
+	require.False(t, ops.OpsAdvancedSettingsSnapshot().DisplayNetworkBandwidth)
 
 	legacyPayload["record_business_limited_429"] = true
+	legacyPayload["display_network_bandwidth"] = true
 	raw, err = json.Marshal(legacyPayload)
 	require.NoError(t, err)
 	recorder = httptest.NewRecorder()
@@ -51,4 +55,5 @@ func TestUpdateAdvancedSettingsLegacyClientPreservesBusinessLimited429Setting(t 
 	router.ServeHTTP(recorder, request)
 	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
 	require.True(t, ops.OpsAdvancedSettingsSnapshot().RecordBusinessLimited429)
+	require.True(t, ops.OpsAdvancedSettingsSnapshot().DisplayNetworkBandwidth)
 }

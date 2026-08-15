@@ -166,6 +166,10 @@ type OpsInsertSystemMetricsInput struct {
 	MemoryTotalMB      *int64
 	MemoryUsagePercent *float64
 
+	NetworkReceiveBytesPerSecond  *float64
+	NetworkTransmitBytesPerSecond *float64
+	NetworkInterfaces             []string
+
 	DBOK    *bool
 	RedisOK *bool
 
@@ -261,6 +265,10 @@ type OpsSystemMetricsSnapshot struct {
 	MemoryUsedMB       *int64   `json:"memory_used_mb"`
 	MemoryTotalMB      *int64   `json:"memory_total_mb"`
 	MemoryUsagePercent *float64 `json:"memory_usage_percent"`
+
+	NetworkReceiveBytesPerSecond  *float64 `json:"network_receive_bytes_per_second"`
+	NetworkTransmitBytesPerSecond *float64 `json:"network_transmit_bytes_per_second"`
+	NetworkInterfaces             []string `json:"network_interfaces"`
 
 	DBOK    *bool `json:"db_ok"`
 	RedisOK *bool `json:"redis_ok"`

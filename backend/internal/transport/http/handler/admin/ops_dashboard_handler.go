@@ -95,6 +95,32 @@ func (h *OpsHandler) GetDashboardThroughputTrend(c *gin.Context) {
 	response.Success(c, data)
 }
 
+// GetDashboardNetworkBandwidthTrend returns public default-route network rates.
+// GET /api/v1/admin/ops/dashboard/network-bandwidth-trend
+func (h *OpsHandler) GetDashboardNetworkBandwidthTrend(c *gin.Context) {
+	if h.opsService == nil {
+		response.Error(c, http.StatusServiceUnavailable, "Ops service not available")
+		return
+	}
+	if err := h.opsService.RequireMonitoringEnabled(c.Request.Context()); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	startTime, endTime, err := parseOpsTimeRange(c, "1h")
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	bucketSeconds := pickThroughputBucketSeconds(endTime.Sub(startTime))
+	data, err := h.opsService.GetNetworkBandwidthTrend(c.Request.Context(), startTime, endTime, bucketSeconds)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, data)
+}
+
 // GetDashboardLatencyHistogram returns the latency distribution histogram (success requests).
 // GET /api/v1/admin/ops/dashboard/latency-histogram
 func (h *OpsHandler) GetDashboardLatencyHistogram(c *gin.Context) {

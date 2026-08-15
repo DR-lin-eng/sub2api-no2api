@@ -24,6 +24,7 @@ type opsSnapshotQueryProbe struct {
 	latencyHistogram  atomic.Int64
 	errorTrend        atomic.Int64
 	errorDistribution atomic.Int64
+	networkBandwidth  atomic.Int64
 
 	reuseErrorTrendCounts atomic.Bool
 	excludeSwitchCounts   atomic.Bool
@@ -70,6 +71,27 @@ func (p *opsSnapshotQueryProbe) GetErrorDistribution(context.Context, *service.O
 	return &service.OpsErrorDistributionResponse{}, nil
 }
 
+func (p *opsSnapshotQueryProbe) GetNetworkBandwidthTrend(
+	_ context.Context,
+	start time.Time,
+	end time.Time,
+	_ int,
+) (*service.OpsNetworkBandwidthTrendResponse, error) {
+	p.networkBandwidth.Add(1)
+	receive := 1024.0
+	transmit := 512.0
+	return &service.OpsNetworkBandwidthTrendResponse{
+		StartTime: start,
+		EndTime:   end,
+		Bucket:    "1m",
+		Points: []*service.OpsNetworkBandwidthTrendPoint{{
+			BucketStart:            start,
+			ReceiveBytesPerSecond:  &receive,
+			TransmitBytesPerSecond: &transmit,
+		}},
+	}, nil
+}
+
 func (p *opsSnapshotQueryProbe) GetLatestSystemMetrics(context.Context, int) (*service.OpsSystemMetricsSnapshot, error) {
 	return nil, sql.ErrNoRows
 }
@@ -99,13 +121,39 @@ func TestGetDashboardSnapshotV2SkipsDisabledPanelQueries(t *testing.T) {
 	if got := probe.overview.Load(); got != 1 {
 		t.Fatalf("overview queries = %d, want 1", got)
 	}
-	if got := probe.throughputTrend.Load() + probe.latencyHistogram.Load() + probe.errorTrend.Load() + probe.errorDistribution.Load(); got != 0 {
+	if got := probe.throughputTrend.Load() + probe.latencyHistogram.Load() + probe.errorTrend.Load() + probe.errorDistribution.Load() + probe.networkBandwidth.Load(); got != 0 {
 		t.Fatalf("optional panel queries = %d, want 0", got)
 	}
-	for _, field := range []string{"throughput_trend", "latency_histogram", "error_trend", "error_distribution"} {
+	for _, field := range []string{"throughput_trend", "latency_histogram", "error_trend", "error_distribution", "network_bandwidth_trend"} {
 		if strings.Contains(rec.Body.String(), `"`+field+`"`) {
 			t.Fatalf("disabled field %q unexpectedly present in response: %s", field, rec.Body.String())
 		}
+	}
+}
+
+func TestGetDashboardSnapshotV2IncludesNetworkBandwidthWhenRequested(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	opsDashboardSnapshotV2Cache = newSnapshotCache(30 * time.Second)
+
+	probe := &opsSnapshotQueryProbe{}
+	svc := service.NewOpsService(probe, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	router := gin.New()
+	router.GET("/admin/ops/dashboard/snapshot-v2", NewOpsHandler(svc).GetDashboardSnapshotV2)
+
+	url := "/admin/ops/dashboard/snapshot-v2?start_time=2026-08-15T00:00:00Z&end_time=2026-08-15T01:00:00Z" +
+		"&include_throughput_trend=false&include_latency_histogram=false" +
+		"&include_error_trend=false&include_error_distribution=false&include_network_bandwidth=true"
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, url, nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if got := probe.networkBandwidth.Load(); got != 1 {
+		t.Fatalf("network bandwidth queries = %d, want 1", got)
+	}
+	if !strings.Contains(rec.Body.String(), `"network_bandwidth_trend"`) {
+		t.Fatalf("network bandwidth response missing: %s", rec.Body.String())
 	}
 }
 

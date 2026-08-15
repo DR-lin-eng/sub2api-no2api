@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   formatCompactNumber,
+  formatBytesPerSecond,
   formatDurationMs,
   formatExactDurationMs,
   formatExactNumber
@@ -41,5 +42,11 @@ describe('opsFormatters adaptive units', () => {
   it('keeps exact values available for titles', () => {
     expect(formatExactNumber(12_345_678.9)).toBe('12,345,678.9')
     expect(formatExactDurationMs(125_000)).toBe('125,000 ms')
+  })
+
+  it('formats byte-per-second network rates', () => {
+    expect(formatBytesPerSecond(0)).toBe('0 Bytes/s')
+    expect(formatBytesPerSecond(1536)).toBe('1.5 KB/s')
+    expect(formatBytesPerSecond(null)).toBe('-')
   })
 })

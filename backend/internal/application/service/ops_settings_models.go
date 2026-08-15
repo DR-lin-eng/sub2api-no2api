@@ -106,6 +106,7 @@ type OpsAdvancedSettings struct {
 	DisplayConcurrency              bool `json:"display_concurrency"`
 	DisplaySwitchRateTrend          bool `json:"display_switch_rate_trend"`
 	DisplayThroughputTrend          bool `json:"display_throughput_trend"`
+	DisplayNetworkBandwidth         bool `json:"display_network_bandwidth"`
 	DisplayLatencyHistogram         bool `json:"display_latency_histogram"`
 	DisplayErrorDistribution        bool `json:"display_error_distribution"`
 	DisplayErrorTrend               bool `json:"display_error_trend"`

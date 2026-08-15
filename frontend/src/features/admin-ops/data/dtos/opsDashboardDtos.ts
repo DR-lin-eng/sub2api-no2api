@@ -18,6 +18,7 @@ export interface OpsDashboardQueryParams {
 
 export interface OpsDashboardSnapshotParams extends OpsDashboardQueryParams {
   include_throughput_trend?: boolean
+  include_network_bandwidth?: boolean
   include_latency_histogram?: boolean
   include_error_trend?: boolean
   include_error_distribution?: boolean
@@ -33,6 +34,12 @@ export interface OpsSwitchTrendParams {
   mode?: OpsQueryMode
 }
 
+export interface OpsNetworkBandwidthQueryParams {
+  time_range?: OpsDashboardTimeRange
+  start_time?: string
+  end_time?: string
+}
+
 export interface OpsSystemMetricsSnapshot {
   id: number
   created_at: string
@@ -42,6 +49,10 @@ export interface OpsSystemMetricsSnapshot {
   memory_used_mb?: number | null
   memory_total_mb?: number | null
   memory_usage_percent?: number | null
+
+  network_receive_bytes_per_second?: number | null
+  network_transmit_bytes_per_second?: number | null
+  network_interfaces?: string[] | null
 
   db_ok?: boolean | null
   redis_ok?: boolean | null
@@ -152,6 +163,19 @@ export interface OpsThroughputTrendResponse {
   top_groups?: OpsThroughputGroupBreakdownItem[]
 }
 
+export interface OpsNetworkBandwidthTrendPoint {
+  bucket_start: string
+  receive_bytes_per_second?: number | null
+  transmit_bytes_per_second?: number | null
+}
+
+export interface OpsNetworkBandwidthTrendResponse {
+  start_time: string
+  end_time: string
+  bucket: string
+  points: OpsNetworkBandwidthTrendPoint[]
+}
+
 export interface OpsLatencyHistogramBucket {
   range: string
   count: number
@@ -198,6 +222,7 @@ export interface OpsDashboardSnapshotV2Response {
   generated_at: string
   overview: OpsDashboardOverview
   throughput_trend?: OpsThroughputTrendResponse | null
+  network_bandwidth_trend?: OpsNetworkBandwidthTrendResponse | null
   latency_histogram?: OpsLatencyHistogramResponse | null
   error_trend?: OpsErrorTrendResponse | null
   error_distribution?: OpsErrorDistributionResponse | null

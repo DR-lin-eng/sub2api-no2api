@@ -7,6 +7,8 @@ import type {
   OpsErrorDistributionResponse,
   OpsErrorTrendResponse,
   OpsLatencyHistogramResponse,
+  OpsNetworkBandwidthQueryParams,
+  OpsNetworkBandwidthTrendResponse,
   OpsRequestOptions,
   OpsSwitchTrendParams,
   OpsThroughputTrendResponse
@@ -39,6 +41,17 @@ export async function getThroughputTrend(
   options: OpsRequestOptions = {}
 ): Promise<OpsThroughputTrendResponse> {
   const { data } = await apiClient.get<OpsThroughputTrendResponse>('/admin/ops/dashboard/throughput-trend', {
+    params,
+    signal: options.signal
+  })
+  return data
+}
+
+export async function getNetworkBandwidthTrend(
+  params: OpsNetworkBandwidthQueryParams,
+  options: OpsRequestOptions = {}
+): Promise<OpsNetworkBandwidthTrendResponse> {
+  const { data } = await apiClient.get<OpsNetworkBandwidthTrendResponse>('/admin/ops/dashboard/network-bandwidth-trend', {
     params,
     signal: options.signal
   })

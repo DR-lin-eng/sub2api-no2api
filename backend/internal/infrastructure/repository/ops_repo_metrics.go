@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	"github.com/lib/pq"
 )
 
 func (r *opsRepository) InsertSystemMetrics(ctx context.Context, input *service.OpsInsertSystemMetricsInput) error {
@@ -66,6 +67,10 @@ INSERT INTO ops_system_metrics (
   memory_total_mb,
   memory_usage_percent,
 
+  network_receive_bytes_per_second,
+  network_transmit_bytes_per_second,
+  network_interfaces,
+
   db_ok,
   redis_ok,
 
@@ -86,10 +91,11 @@ INSERT INTO ops_system_metrics (
   $16,$17,$18,$19,$20,$21,
   $22,$23,$24,$25,$26,$27,
   $28,$29,$30,$31,
-  $32,$33,
-  $34,$35,
-  $36,$37,$38,
-  $39,$40
+  $32,$33,$34,
+  $35,$36,
+  $37,$38,
+  $39,$40,$41,
+  $42,$43
 )`
 
 	_, err := r.db.ExecContext(
@@ -133,6 +139,10 @@ INSERT INTO ops_system_metrics (
 		opsNullInt(input.MemoryTotalMB),
 		opsNullFloat64(input.MemoryUsagePercent),
 
+		opsNullFloat64(input.NetworkReceiveBytesPerSecond),
+		opsNullFloat64(input.NetworkTransmitBytesPerSecond),
+		opsNullStringArray(input.NetworkInterfaces),
+
 		opsNullBool(input.DBOK),
 		opsNullBool(input.RedisOK),
 
@@ -168,6 +178,10 @@ SELECT
   memory_total_mb,
   memory_usage_percent,
 
+  network_receive_bytes_per_second,
+  network_transmit_bytes_per_second,
+  network_interfaces,
+
   db_ok,
   redis_ok,
 
@@ -193,6 +207,9 @@ LIMIT 1`
 	var memUsed sql.NullInt64
 	var memTotal sql.NullInt64
 	var memPct sql.NullFloat64
+	var networkReceive sql.NullFloat64
+	var networkTransmit sql.NullFloat64
+	var networkInterfaces pq.StringArray
 	var dbOK sql.NullBool
 	var redisOK sql.NullBool
 	var redisTotal sql.NullInt64
@@ -212,6 +229,9 @@ LIMIT 1`
 		&memUsed,
 		&memTotal,
 		&memPct,
+		&networkReceive,
+		&networkTransmit,
+		&networkInterfaces,
 		&dbOK,
 		&redisOK,
 		&redisTotal,
@@ -241,6 +261,17 @@ LIMIT 1`
 	if memPct.Valid {
 		v := memPct.Float64
 		out.MemoryUsagePercent = &v
+	}
+	if networkReceive.Valid {
+		v := networkReceive.Float64
+		out.NetworkReceiveBytesPerSecond = &v
+	}
+	if networkTransmit.Valid {
+		v := networkTransmit.Float64
+		out.NetworkTransmitBytesPerSecond = &v
+	}
+	if len(networkInterfaces) > 0 {
+		out.NetworkInterfaces = append([]string(nil), networkInterfaces...)
 	}
 	if dbOK.Valid {
 		v := dbOK.Bool
@@ -428,6 +459,13 @@ func opsNullBool(v *bool) any {
 		return sql.NullBool{}
 	}
 	return sql.NullBool{Bool: *v, Valid: true}
+}
+
+func opsNullStringArray(values []string) any {
+	if len(values) == 0 {
+		return nil
+	}
+	return pq.Array(values)
 }
 
 func opsNullFloat64(v *float64) any {

@@ -390,6 +390,7 @@ func defaultOpsAdvancedSettingsForConfig(cfg *config.Config) *OpsAdvancedSetting
 		DisplayConcurrency:              true,
 		DisplaySwitchRateTrend:          true,
 		DisplayThroughputTrend:          true,
+		DisplayNetworkBandwidth:         true,
 		DisplayLatencyHistogram:         true,
 		DisplayErrorDistribution:        true,
 		DisplayErrorTrend:               true,

@@ -142,3 +142,8 @@ export function formatByteRate(bytes: number, windowMinutes: number): string {
   const seconds = Math.max(1, (windowMinutes || 1) * 60)
   return `${formatBytes(bytes / seconds, 1)}/s`
 }
+
+export function formatBytesPerSecond(value: number | null | undefined): string {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return '-'
+  return `${formatBytes(value, 1)}/s`
+}

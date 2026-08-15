@@ -60,6 +60,10 @@ type OpsMetricsCollector struct {
 
 	lastCgroupCPUUsageNanos uint64
 	lastCgroupCPUSampleAt   time.Time
+	networkSampleMu         sync.Mutex
+	lastNetworkSample       opsNetworkIOSnapshot
+	lastNetworkSampleAt     time.Time
+	networkIOReader         opsNetworkIOReader
 
 	stopCh    chan struct{}
 	startOnce sync.Once
@@ -87,6 +91,7 @@ func NewOpsMetricsCollector(
 		db:                 db,
 		redisClient:        redisClient,
 		instanceID:         uuid.NewString(),
+		networkIOReader:    readDefaultRouteNetworkIO,
 	}
 }
 
@@ -358,6 +363,10 @@ func (c *OpsMetricsCollector) collectAndPersist(ctx context.Context, interval ti
 		MemoryTotalMB:      sys.memoryTotalMB,
 		MemoryUsagePercent: sys.memoryUsagePercent,
 
+		NetworkReceiveBytesPerSecond:  sys.networkReceiveBytesPerSecond,
+		NetworkTransmitBytesPerSecond: sys.networkTransmitBytesPerSecond,
+		NetworkInterfaces:             sys.networkInterfaces,
+
 		DBOK:    boolPtr(dbOK),
 		RedisOK: redisOK,
 
@@ -604,10 +613,13 @@ WHERE o.created_at >= $1 AND o.created_at < $2
 }
 
 type opsCollectedSystemStats struct {
-	cpuUsagePercent    *float64
-	memoryUsedMB       *int64
-	memoryTotalMB      *int64
-	memoryUsagePercent *float64
+	cpuUsagePercent               *float64
+	memoryUsedMB                  *int64
+	memoryTotalMB                 *int64
+	memoryUsagePercent            *float64
+	networkReceiveBytesPerSecond  *float64
+	networkTransmitBytesPerSecond *float64
+	networkInterfaces             []string
 }
 
 func (c *OpsMetricsCollector) collectSystemStats(ctx context.Context) (*opsCollectedSystemStats, error) {
@@ -665,6 +677,9 @@ func (c *OpsMetricsCollector) collectSystemStats(ctx context.Context) (*opsColle
 			}
 		}
 	}
+
+	out.networkReceiveBytesPerSecond, out.networkTransmitBytesPerSecond, out.networkInterfaces =
+		c.collectDefaultRouteNetworkRates(ctx, sampleAt)
 
 	return out, nil
 }
