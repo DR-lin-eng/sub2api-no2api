@@ -228,6 +228,48 @@ func TestOpenAIResponseFlush_BurstDoesNotIncreaseFlushes(t *testing.T) {
 	require.Equal(t, first+burst, flushes[1])
 }
 
+func TestOpenAIResponseFlush_SemanticOutputBypassesQueuedVisibleOutput(t *testing.T) {
+	for _, visibleOutputTTFT := range []bool{true, false} {
+		name := "visible_ttft"
+		if !visibleOutputTTFT {
+			name = "legacy_ttft"
+		}
+		t.Run(name, func(t *testing.T) {
+			semanticOutput := `data: {"type":"response.output_item.added","item":{"type":"reasoning","encrypted_content":"encrypted"}}` + "\n"
+			queuedLines := strings.Repeat(": queued\n", openAIDefaultStreamQueueSize+1)
+			firstEvent := semanticOutput + queuedLines + "\n"
+			visibleOutput := `data: {"type":"response.output_text.delta","delta":"visible"}` + "\n\n"
+			terminal := "data: [DONE]\n\n"
+			allowVisible := make(chan struct{})
+			visibleWaiting := make(chan struct{})
+			reader := &stagedOpenAISSEReadCloser{
+				segments: [][]byte{[]byte(firstEvent), []byte(visibleOutput + terminal)},
+				gates:    []<-chan struct{}{nil, allowVisible},
+				waiting:  []chan struct{}{nil, visibleWaiting},
+			}
+			recorder := newOpenAIResponseFlushRecorder()
+			streamCtx := withOpenAIVisibleOutputTTFT(context.Background(), visibleOutputTTFT)
+			resultCh, errCh := runOpenAIResponseFlushTestAsyncWithContext(
+				streamCtx,
+				recorder,
+				reader,
+				config.GatewayConfig{StreamDataIntervalTimeout: 30},
+			)
+
+			waitOpenAIResponseFlushSignal(t, visibleWaiting)
+			waitOpenAIResponseFlushCount(t, recorder, 1)
+			_, flushes := recorder.snapshot()
+			require.Equal(t, []string{firstEvent}, flushes, "semantic output must flush before a later visible token is read")
+
+			close(allowVisible)
+			require.NoError(t, <-errCh)
+			result := <-resultCh
+			require.NotNil(t, result)
+			require.NotNil(t, result.firstTokenMs, "TTFT measurement must remain independent from delivery")
+		})
+	}
+}
+
 func TestOpenAIResponseFlush_CommentAndEOFOnlyFlushCompleteResidual(t *testing.T) {
 	body := "data: {\"type\":\"response.output_text.delta\",\"delta\":\"a\"}\n\n" +
 		": upstream-comment\n\n" +
@@ -454,6 +496,10 @@ func TestOpenAIResponseFlush_ClientDisconnectStillDrainsUsage(t *testing.T) {
 }
 
 func runOpenAIResponseFlushTest(recorder *openAIResponseFlushRecorder, body io.ReadCloser, gatewayCfg config.GatewayConfig) (*openaiStreamingResult, error) {
+	return runOpenAIResponseFlushTestWithContext(context.Background(), recorder, body, gatewayCfg)
+}
+
+func runOpenAIResponseFlushTestWithContext(ctx context.Context, recorder *openAIResponseFlushRecorder, body io.ReadCloser, gatewayCfg config.GatewayConfig) (*openaiStreamingResult, error) {
 	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
@@ -466,14 +512,18 @@ func runOpenAIResponseFlushTest(recorder *openAIResponseFlushRecorder, body io.R
 		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
 		Body:       body,
 	}
-	return svc.handleStreamingResponse(context.Background(), resp, c, &Account{ID: 1, Platform: PlatformOpenAI}, time.Now(), "gpt-5", "gpt-5")
+	return svc.handleStreamingResponse(ctx, resp, c, &Account{ID: 1, Platform: PlatformOpenAI}, time.Now(), "gpt-5", "gpt-5")
 }
 
 func runOpenAIResponseFlushTestAsync(recorder *openAIResponseFlushRecorder, body io.ReadCloser, gatewayCfg config.GatewayConfig) (<-chan *openaiStreamingResult, <-chan error) {
+	return runOpenAIResponseFlushTestAsyncWithContext(context.Background(), recorder, body, gatewayCfg)
+}
+
+func runOpenAIResponseFlushTestAsyncWithContext(ctx context.Context, recorder *openAIResponseFlushRecorder, body io.ReadCloser, gatewayCfg config.GatewayConfig) (<-chan *openaiStreamingResult, <-chan error) {
 	resultCh := make(chan *openaiStreamingResult, 1)
 	errCh := make(chan error, 1)
 	go func() {
-		result, err := runOpenAIResponseFlushTest(recorder, body, gatewayCfg)
+		result, err := runOpenAIResponseFlushTestWithContext(ctx, recorder, body, gatewayCfg)
 		resultCh <- result
 		errCh <- err
 	}()

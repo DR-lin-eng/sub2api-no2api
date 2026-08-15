@@ -435,7 +435,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		clientDisconnected = true
 		logger.LegacyPrintf("service.openai_gateway", "[OpenAI WS Mode] client disconnected, continue draining upstream: account=%d", account.ID)
 	}
-	flushBufferedStreamEvents := func(reason string) {
+	flushBufferedStreamEvents := func(reason string, forceFlush bool) {
 		if len(bufferedStreamEvents) == 0 {
 			return
 		}
@@ -446,7 +446,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		bufferedStreamEvents = bufferedStreamEvents[:0]
 		bufferedStreamEventBytes = 0
 		bufferedRateLimitsEventBytes = 0
-		flushStreamWriter(true)
+		flushStreamWriter(forceFlush)
 		flushedBufferedEventCount += flushed
 		if debugEnabled {
 			logOpenAIWSModeDebug(
@@ -553,9 +553,12 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		}
 
 		isTokenEvent := isOpenAIWSTokenEvent(eventType)
+		startsStreamOutput := isTokenEvent || isLegacyOpenAIWSTokenEvent(eventType)
 		isTTFTEvent := isOpenAIWSTTFTEvent(eventType, visibleOutputTTFT)
 		if isTokenEvent {
 			tokenEventCount++
+		}
+		if startsStreamOutput {
 			streamOutputStarted = true
 		}
 		isTerminalEvent := isOpenAIWSTerminalEvent(eventType)
@@ -671,7 +674,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			statusCode := openAIWSErrorHTTPStatusFromRaw(errCodeRaw, errTypeRaw)
 			setOpsUpstreamError(c, statusCode, errMsg, "")
 			if reqStream && !clientDisconnected {
-				flushBufferedStreamEvents("error_event")
+				flushBufferedStreamEvents("error_event", false)
 				emitStreamMessage(message, true)
 			}
 			if !reqStream {
@@ -697,9 +700,9 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		}
 
 		if reqStream {
-			// 在首个 token 前先缓冲事件（如 response.created），
+			// 在首个客户端语义输出前先缓冲事件（如 response.created），
 			// 以便上游早期断连时仍可安全回退到 HTTP，不给下游发送半截流。
-			shouldBuffer := !streamOutputStarted && !isTokenEvent && !isTerminalEvent
+			shouldBuffer := !streamOutputStarted && !startsStreamOutput && !isTerminalEvent
 			if shouldBuffer {
 				isRateLimitsPreamble := account.BypassesLocalOpenAI429SchedulingBlocks() &&
 					isOpenAIWSRateLimitsPreamble(eventType)
@@ -736,11 +739,14 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 					)
 				}
 				if bufferedStreamEventBytes-bufferedRateLimitsEventBytes >= openAIStreamPreOutputBufferLimit {
-					flushBufferedStreamEvents("buffer_limit")
+					flushBufferedStreamEvents("buffer_limit", true)
 				}
 			} else {
-				flushBufferedStreamEvents(eventType)
-				emitStreamMessage(message, isTerminalEvent)
+				// Release the buffered preamble and the event that crossed the
+				// semantic-output boundary in one downstream flush. Otherwise a
+				// configured event batch can hold the boundary event until later.
+				flushBufferedStreamEvents(eventType, false)
+				emitStreamMessage(message, startsStreamOutput || isTerminalEvent)
 			}
 		} else {
 			if responseField.Exists() && responseField.Type == gjson.JSON {

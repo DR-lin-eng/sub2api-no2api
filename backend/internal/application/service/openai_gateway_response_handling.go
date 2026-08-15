@@ -607,8 +607,10 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			// 写入客户端（客户端断开后继续 drain 上游）
 			if !clientDisconnected {
 				shouldFlush := queueDrained && (clientOutputStarted || eventNeedsFlush)
-				if !visibleOutputObserved && startsVisibleOutput {
-					// 保证首个 token 事件尽快出站，避免影响 TTFT。
+				if !clientOutputStarted && (startsClientOutput || startsVisibleOutput) {
+					// Delivery and TTFT are separate concerns. Commit the first
+					// replay-unsafe semantic event at the 0.1.179 boundary even
+					// when the read queue already contains later events.
 					shouldFlush = true
 				}
 				eventShouldFlush = eventShouldFlush || shouldFlush
