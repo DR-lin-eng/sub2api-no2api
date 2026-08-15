@@ -1081,7 +1081,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	}
 	targetURL = appendOpenAIResponsesRequestPathSuffix(targetURL, openAIResponsesRequestPathSuffix(c))
 
-	req, err := http.NewRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(body))
+	req, err := newOpenAIHTTPUpstreamRequest(ctx, http.MethodPost, targetURL, account, body)
 	if err != nil {
 		return nil, err
 	}

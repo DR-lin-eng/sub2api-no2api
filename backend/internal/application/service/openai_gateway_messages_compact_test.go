@@ -56,6 +56,9 @@ func TestBuildAnthropicCompactEmergencyResponseReturnsCompletedSummary(t *testin
 	if resp.Model != "gpt-5.3-codex-spark" {
 		t.Fatalf("model = %q", resp.Model)
 	}
+	if resp.CreatedAt <= 0 {
+		t.Fatalf("created_at = %d, want positive unix timestamp", resp.CreatedAt)
+	}
 	if got := openAIResponsesOutputText(resp); got != "summary text" {
 		t.Fatalf("output text = %q", got)
 	}

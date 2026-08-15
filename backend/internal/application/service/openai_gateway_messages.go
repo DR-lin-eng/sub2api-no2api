@@ -1757,11 +1757,13 @@ func buildAnthropicCompactEmergencyResponse(model string, summary string, usage 
 	if strings.TrimSpace(model) == "" {
 		model = "compact-fallback"
 	}
+	now := time.Now()
 	return &apicompat.ResponsesResponse{
-		ID:     fmt.Sprintf("compact_fallback_%d", time.Now().UnixNano()),
-		Object: "response",
-		Model:  model,
-		Status: "completed",
+		ID:        fmt.Sprintf("compact_fallback_%d", now.UnixNano()),
+		Object:    "response",
+		CreatedAt: now.Unix(),
+		Model:     model,
+		Status:    "completed",
 		Output: []apicompat.ResponsesOutput{{
 			Type:   "message",
 			Role:   "assistant",
