@@ -22,6 +22,17 @@ import (
 // Falls back to default models if no whitelist is configured
 func (h *GatewayHandler) Models(c *gin.Context) {
 	apiKey, _ := middleware2.GetAPIKeyFromContext(c)
+	if apiKey != nil && len(apiKey.GroupBindings) > 0 {
+		bindings := service.EligibleAPIKeyGroupBindings(apiKey)
+		if len(bindings) != 1 || len(apiKey.GroupBindings) > 1 {
+			models, platform := h.apiKeyBindingsAvailableModels(c.Request.Context(), bindings)
+			if forcedPlatform, ok := middleware2.GetForcePlatformFromContext(c); ok && strings.TrimSpace(forcedPlatform) != "" {
+				platform = forcedPlatform
+			}
+			writeModelsList(c, platform, models)
+			return
+		}
+	}
 
 	var groupID *int64
 	var platform string
@@ -88,6 +99,47 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 		"object": "list",
 		"data":   claude.DefaultModels,
 	})
+}
+
+func (h *GatewayHandler) apiKeyBindingsAvailableModels(ctx context.Context, bindings []service.APIKeyGroupBinding) ([]string, string) {
+	seen := make(map[string]struct{})
+	models := make([]string, 0)
+	platform := service.PlatformAnthropic
+	for i := range bindings {
+		group := bindings[i].Group
+		if group == nil {
+			continue
+		}
+		platform = group.Platform
+		groupID := group.ID
+		var groupModels []string
+		if group.Platform == service.PlatformComposite {
+			groupModels = h.compositeAvailableModels(ctx, &groupID)
+		} else {
+			groupModels = h.gatewayService.GetAvailableModels(ctx, &groupID, group.Platform)
+			if len(groupModels) == 0 {
+				if _, ok := h.gatewayService.GetSchedulablePlatforms(ctx, &groupID)[group.Platform]; ok {
+					groupModels = defaultModelIDsForPlatform(group.Platform)
+				}
+			}
+		}
+		if group.CustomModelsListEnabled() {
+			fallback := defaultModelIDsForPlatform(group.Platform)
+			groupModels = filterModelsByCustomList(customModelsListSource(group.Platform, groupModels, fallback), fallback, group.ModelsListConfig.Models)
+		}
+		for _, model := range groupModels {
+			model = strings.TrimSpace(model)
+			if model == "" {
+				continue
+			}
+			if _, exists := seen[model]; exists {
+				continue
+			}
+			seen[model] = struct{}{}
+			models = append(models, model)
+		}
+	}
+	return models, platform
 }
 
 func (h *GatewayHandler) compositeAvailableModels(ctx context.Context, groupID *int64) []string {

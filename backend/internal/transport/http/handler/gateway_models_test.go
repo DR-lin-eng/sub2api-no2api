@@ -101,6 +101,53 @@ func TestGatewayModels_GeminiGroupFallsBackToGeminiModels(t *testing.T) {
 	require.NotContains(t, modelIDsForTest(got.Data), "claude-sonnet-4-6")
 }
 
+func TestGatewayModels_UnionsEligibleAPIKeyGroupsInPriorityOrder(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	firstID := int64(201)
+	secondID := int64(202)
+	firstGroup := &service.Group{
+		ID: firstID, Name: "first", Platform: service.PlatformOpenAI,
+		Status: service.StatusActive, SubscriptionType: service.SubscriptionTypeStandard,
+	}
+	secondGroup := &service.Group{
+		ID: secondID, Name: "second", Platform: service.PlatformOpenAI,
+		Status: service.StatusActive, SubscriptionType: service.SubscriptionTypeStandard,
+	}
+	h := newGatewayModelsHandlerForTest(&gatewayModelsAccountRepoStub{byGroup: map[int64][]service.Account{
+		firstID: {{
+			ID: 1, Platform: service.PlatformOpenAI,
+			Credentials: map[string]any{"model_mapping": map[string]any{"alpha": "alpha", "shared": "shared"}},
+		}},
+		secondID: {{
+			ID: 2, Platform: service.PlatformOpenAI,
+			Credentials: map[string]any{"model_mapping": map[string]any{"beta": "beta", "shared": "shared"}},
+		}},
+	}})
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	bindings := []service.APIKeyGroupBinding{
+		{Group: firstGroup, EffectiveRateMultiplier: 1},
+		{Group: secondGroup, EffectiveRateMultiplier: 1},
+	}
+	bindings[0].GroupID = firstID
+	bindings[1].GroupID = secondID
+	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
+		GroupID:       &firstID,
+		Group:         firstGroup,
+		GroupBindings: bindings,
+	})
+
+	h.Models(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var got gatewayModelsResponseForTest
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	require.Equal(t, []string{"alpha", "shared", "beta"}, modelIDsForTest(got.Data))
+}
+
 func TestGatewayModels_Grok45AdvertisesReasoningEffortForGrokBuild(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

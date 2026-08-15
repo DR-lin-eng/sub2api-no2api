@@ -3,6 +3,9 @@ package service
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/Wei-Shaw/sub2api/internal/domain"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAPIKeyService_RejectsV10AuthSnapshotWithoutModelsListConfig(t *testing.T) {
@@ -101,6 +104,44 @@ func TestAPIKeyService_RoundTripsRequestSchedulingTierInAuthSnapshot(t *testing.
 	if roundTripped == nil || roundTripped.User == nil || roundTripped.User.SchedulingTier != RequestSchedulingTierLow {
 		t.Fatalf("expected low tier after snapshot materialization, got %#v", roundTripped)
 	}
+}
+
+func TestAPIKeyService_RoundTripsOrderedGroupBindingsInAuthSnapshot(t *testing.T) {
+	groupID := int64(41)
+	ceiling := 1.2
+	first := &Group{ID: groupID, Name: "first", Platform: PlatformOpenAI, Status: StatusActive, RateMultiplier: 1}
+	second := &Group{ID: 42, Name: "second", Platform: PlatformOpenAI, Status: StatusActive, RateMultiplier: 0.8}
+	key := &APIKey{
+		ID:      10,
+		UserID:  20,
+		GroupID: &groupID,
+		Group:   first,
+		User:    &User{ID: 20, Status: StatusActive},
+		GroupBindings: []APIKeyGroupBinding{
+			{
+				APIKeyGroupBinding:      domain.APIKeyGroupBinding{GroupID: groupID, MaxRateMultiplier: &ceiling},
+				Group:                   first,
+				EffectiveRateMultiplier: 1.1,
+			},
+			{
+				APIKeyGroupBinding:      domain.APIKeyGroupBinding{GroupID: second.ID},
+				Group:                   second,
+				EffectiveRateMultiplier: 0.7,
+			},
+		},
+	}
+
+	svc := &APIKeyService{}
+	snapshot := svc.snapshotFromAPIKey(t.Context(), key)
+	require.Len(t, snapshot.GroupBindings, 2)
+	require.Equal(t, []int64{41, 42}, []int64{snapshot.GroupBindings[0].GroupID, snapshot.GroupBindings[1].GroupID})
+
+	roundTripped := svc.snapshotToAPIKey("sk-test", snapshot)
+	require.Len(t, roundTripped.GroupBindings, 2)
+	require.Equal(t, 1.2, *roundTripped.GroupBindings[0].MaxRateMultiplier)
+	require.Equal(t, 1.1, roundTripped.GroupBindings[0].EffectiveRateMultiplier)
+	require.Equal(t, "second", roundTripped.GroupBindings[1].Group.Name)
+	require.Equal(t, 0.7, roundTripped.GroupBindings[1].EffectiveRateMultiplier)
 }
 
 func TestAPIKeyService_RoundTripsGroupPricingInAuthSnapshot(t *testing.T) {

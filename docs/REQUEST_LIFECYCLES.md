@@ -16,11 +16,11 @@ sequenceDiagram
     participant Billing as Usage/Billing Pipeline
 
     Client->>Route: API Key request
-    Route->>Route: body limit, request ID, auth, group/platform resolution
+    Route->>Route: body limit, request ID, auth, ordered group eligibility
     Route->>Handler: protocol-specific handler
     Handler->>Handler: parse, validate, security checks
     Handler->>Scheduler: acquire user slot and select account
-    Scheduler->>Scheduler: sticky session, filters, account slot, failover state
+    Scheduler->>Scheduler: group order, sticky session, filters, account slot, failover state
     Scheduler->>Upstream: normalized upstream request
     Upstream-->>Handler: JSON, SSE or WebSocket events
     par client response
@@ -45,6 +45,8 @@ sequenceDiagram
 ### 关键不变量
 
 - API Key auth 完成后，handler 从 context 读取完整 auth subject，不自行重查一套不一致的身份。
+- API Key 的 `group_bindings` 按顺序保存候选，兼容字段 `group_id` 镜像首项。认证时跳过停用、失权或超过倍率保护上限的分组；账号选择只在当前候选返回“无可用账号”后尝试下一项。
+- 多分组当前只允许同平台的标准计费分组。调度命中后，请求内 API Key、会话释放、日志与用量结算都必须使用实际命中的分组，不能继续沿用首项。
 - 获取用户槽位后必须再次检查计费资格；排队期间余额、订阅或平台额度可能变化。
 - 账号槽位、用户槽位和图片槽位在所有返回与取消路径释放。
 - failover 必须记录失败账号并受最大切换次数约束。

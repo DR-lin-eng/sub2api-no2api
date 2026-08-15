@@ -285,7 +285,7 @@ import TablePageLayout from '@/common/widgets/layout/TablePageLayout.vue'
 	import GroupOptionItem from '@/common/widgets/data/GroupOptionItem.vue'
 import KeyEditorDialog from '@/features/keys/presentation/widgets/KeyEditorDialog.vue'
 import KeysTable from '@/features/keys/presentation/widgets/KeysTable.vue'
-	import type { ApiKey, Group, PublicSettings, UpdateApiKeyRequest } from '@/types'
+	import type { ApiKey, ApiKeyGroupBinding, Group, PublicSettings, UpdateApiKeyRequest } from '@/types'
 import type { Column } from '@/common/types/uiTypes'
 import type {
   BatchApiKeysUsageResponse,
@@ -489,6 +489,7 @@ const setGroupButtonRef = (keyId: number, el: Element | ComponentPublicInstance 
 const formData = ref({
   name: '',
   group_id: null as number | null,
+  group_bindings: [] as ApiKeyGroupBinding[],
   status: 'active' as 'active' | 'inactive',
   use_custom_key: false,
   custom_key: '',
@@ -909,9 +910,15 @@ const editKey = (key: ApiKey) => {
   selectedKey.value = key
   const hasIPRestriction = (key.ip_whitelist?.length > 0) || (key.ip_blacklist?.length > 0)
   const hasExpiration = !!key.expires_at
+  const groupBindings = key.group_bindings?.length
+    ? key.group_bindings.map(binding => ({ ...binding }))
+    : key.group_id
+      ? [{ group_id: key.group_id, max_rate_multiplier: null }]
+      : []
   formData.value = {
     name: key.name,
-    group_id: key.group_id,
+    group_id: groupBindings[0]?.group_id ?? null,
+    group_bindings: groupBindings,
     status: key.status === 'quota_exhausted' || key.status === 'expired' ? 'inactive' : key.status,
     use_custom_key: false,
     custom_key: '',
@@ -984,8 +991,30 @@ const changeGroup = async (key: ApiKey, newGroupId: number | null) => {
   dropdownPosition.value = null
   if (key.group_id === newGroupId) return
 
+  const selectedGroup = newGroupId === null
+    ? null
+    : groupOptions.value.find(option => option.value === newGroupId)
+  const existingBindings = key.group_bindings?.length
+    ? key.group_bindings
+    : key.group_id
+      ? [{ group_id: key.group_id, max_rate_multiplier: null }]
+      : []
+  const compatibleFallbacks = selectedGroup?.subscriptionType === 'standard'
+    ? existingBindings.filter((binding) => {
+        if (binding.group_id === newGroupId) return false
+        const option = groupOptions.value.find(candidate => candidate.value === binding.group_id)
+        return option?.platform === selectedGroup.platform && option.subscriptionType === 'standard'
+      })
+    : []
+  const groupBindings: ApiKeyGroupBinding[] = newGroupId === null
+    ? []
+    : [{ group_id: newGroupId, max_rate_multiplier: null }, ...compatibleFallbacks]
+
   try {
-    await keysAPI.update(key.id, { group_id: newGroupId })
+    await keysAPI.update(key.id, {
+      group_id: newGroupId,
+      group_bindings: groupBindings
+    })
     appStore.showSuccess(t('keys.groupChangedSuccess'))
     loadApiKeys()
   } catch {
@@ -1011,9 +1040,17 @@ const confirmDelete = (key: ApiKey) => {
 }
 
 const handleSubmit = async () => {
-  // Validate group_id is required
-  if (formData.value.group_id === null) {
+  const groupBindings = formData.value.group_bindings.map(binding => ({ ...binding }))
+  const groupID = groupBindings[0]?.group_id ?? null
+
+  if (groupBindings.length === 0) {
     appStore.showError(t('keys.groupRequired'))
+    return
+  }
+  if (groupBindings.some(binding => binding.max_rate_multiplier !== null && (
+    !Number.isFinite(binding.max_rate_multiplier) || binding.max_rate_multiplier <= 0
+  ))) {
+    appStore.showError(t('keys.groupBindings.invalidRateProtection'))
     return
   }
 
@@ -1069,7 +1106,8 @@ const handleSubmit = async () => {
     if (showEditModal.value && selectedKey.value) {
       const updates: UpdateApiKeyRequest = {
         name: formData.value.name,
-        group_id: formData.value.group_id,
+        group_id: groupID,
+        group_bindings: groupBindings,
         ip_whitelist: ipWhitelist,
         ip_blacklist: ipBlacklist,
         quota: quota,
@@ -1088,13 +1126,14 @@ const handleSubmit = async () => {
       const customKey = formData.value.use_custom_key ? formData.value.custom_key : undefined
       await keysAPI.create(
         formData.value.name,
-        formData.value.group_id,
+        groupID,
         customKey,
         ipWhitelist,
         ipBlacklist,
         quota,
         expiresInDays,
-        rateLimitData
+        rateLimitData,
+        groupBindings
       )
       appStore.showSuccess(t('keys.keyCreatedSuccess'))
       // Only advance tour if active, on submit step, and creation succeeded
@@ -1140,6 +1179,7 @@ const closeModals = () => {
   formData.value = {
     name: '',
     group_id: null,
+    group_bindings: [],
     status: 'active',
     use_custom_key: false,
     custom_key: '',

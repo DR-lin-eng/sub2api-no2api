@@ -937,7 +937,37 @@ func (s *OpenAIGatewayService) selectBestAccount(ctx context.Context, groupID *i
 
 // SelectAccountWithLoadAwareness selects an account with load-awareness and wait plan.
 func (s *OpenAIGatewayService) SelectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*AccountSelectionResult, error) {
-	return s.selectAccountWithLoadAwareness(s.withOpenAIQuotaAutoPauseContext(ctx), groupID, PlatformOpenAI, sessionHash, requestedModel, excludedIDs, false, "", true, false)
+	candidates, routed := apiKeyGroupRoutingCandidates(ctx, groupID)
+	if !routed {
+		return s.selectAccountWithLoadAwareness(s.withOpenAIQuotaAutoPauseContext(ctx), groupID, PlatformOpenAI, sessionHash, requestedModel, excludedIDs, false, "", true, false)
+	}
+	var lastErr error = ErrNoAvailableAccounts
+	for i := range candidates {
+		candidateID := candidates[i].GroupID
+		selection, err := s.selectAccountWithLoadAwareness(
+			s.withOpenAIQuotaAutoPauseContext(withAPIKeyGroupRoutingAttempt(ctx, candidates[i])),
+			&candidateID,
+			PlatformOpenAI,
+			sessionHash,
+			requestedModel,
+			excludedIDs,
+			false,
+			"",
+			true,
+			false,
+		)
+		if err == nil && selection != nil && selection.Account != nil {
+			markAPIKeyGroupRoutingSelected(ctx, candidateID)
+			return selection, nil
+		}
+		if err != nil {
+			lastErr = err
+			if !errors.Is(err, ErrNoAvailableAccounts) && !errors.Is(err, ErrNoAvailableCompactAccounts) {
+				return nil, err
+			}
+		}
+	}
+	return nil, lastErr
 }
 
 func (s *OpenAIGatewayService) selectLegacyStickyAccountBeforePoolScan(

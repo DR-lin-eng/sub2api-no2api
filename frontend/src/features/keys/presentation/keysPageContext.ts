@@ -3,6 +3,7 @@ import type { Column } from '@/common/types/uiTypes'
 import type { PublicSettings } from '@/types/common'
 import type {
   ApiKey,
+  ApiKeyGroupBinding,
   GroupPlatform,
   SubscriptionType
 } from '@/types/gateway'
@@ -31,6 +32,7 @@ export interface KeySelectOption {
 export interface KeyFormState {
   name: string
   group_id: number | null
+  group_bindings: ApiKeyGroupBinding[]
   status: 'active' | 'inactive'
   use_custom_key: boolean
   custom_key: string

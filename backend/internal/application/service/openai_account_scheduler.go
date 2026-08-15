@@ -2494,6 +2494,61 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 	previousResponseCanMove bool,
 	useUpstreamTokenCost bool,
 ) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
+	candidates, routed := apiKeyGroupRoutingCandidates(ctx, groupID)
+	if !routed {
+		return s.selectAccountWithSchedulerInGroup(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, requiredCapability, requiredImageCapability, requireCompact, platform, previousResponseCanMove, useUpstreamTokenCost)
+	}
+	var (
+		lastDecision OpenAIAccountScheduleDecision
+		lastErr      error = ErrNoAvailableAccounts
+	)
+	for i := range candidates {
+		candidateID := candidates[i].GroupID
+		selection, decision, err := s.selectAccountWithSchedulerInGroup(
+			withAPIKeyGroupRoutingAttempt(ctx, candidates[i]),
+			&candidateID,
+			previousResponseID,
+			sessionHash,
+			requestedModel,
+			excludedIDs,
+			requiredTransport,
+			requiredCapability,
+			requiredImageCapability,
+			requireCompact,
+			platform,
+			previousResponseCanMove,
+			useUpstreamTokenCost,
+		)
+		lastDecision = decision
+		if err == nil && selection != nil && selection.Account != nil {
+			markAPIKeyGroupRoutingSelected(ctx, candidateID)
+			return selection, decision, nil
+		}
+		if err != nil {
+			lastErr = err
+			if !errors.Is(err, ErrNoAvailableAccounts) && !errors.Is(err, ErrNoAvailableCompactAccounts) {
+				return selection, decision, err
+			}
+		}
+	}
+	return nil, lastDecision, lastErr
+}
+
+func (s *OpenAIGatewayService) selectAccountWithSchedulerInGroup(
+	ctx context.Context,
+	groupID *int64,
+	previousResponseID string,
+	sessionHash string,
+	requestedModel string,
+	excludedIDs map[int64]struct{},
+	requiredTransport OpenAIUpstreamTransport,
+	requiredCapability OpenAIEndpointCapability,
+	requiredImageCapability OpenAIImagesCapability,
+	requireCompact bool,
+	platform string,
+	previousResponseCanMove bool,
+	useUpstreamTokenCost bool,
+) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
 	if requiredImageCapability == "" {
 		ctx = s.withOpenAIProfitControlGate(ctx, groupID)
 	}

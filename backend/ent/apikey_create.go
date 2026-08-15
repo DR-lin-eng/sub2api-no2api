@@ -15,6 +15,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // APIKeyCreate is the builder for creating a APIKey entity.
@@ -96,6 +97,12 @@ func (_c *APIKeyCreate) SetNillableGroupID(v *int64) *APIKeyCreate {
 	if v != nil {
 		_c.SetGroupID(*v)
 	}
+	return _c
+}
+
+// SetGroupBindings sets the "group_bindings" field.
+func (_c *APIKeyCreate) SetGroupBindings(v []domain.APIKeyGroupBinding) *APIKeyCreate {
+	_c.mutation.SetGroupBindings(v)
 	return _c
 }
 
@@ -397,6 +404,10 @@ func (_c *APIKeyCreate) defaults() error {
 		v := apikey.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := _c.mutation.GroupBindings(); !ok {
+		v := apikey.DefaultGroupBindings
+		_c.mutation.SetGroupBindings(v)
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := apikey.DefaultStatus
 		_c.mutation.SetStatus(v)
@@ -556,6 +567,10 @@ func (_c *APIKeyCreate) createSpec() (*APIKey, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(apikey.FieldName, field.TypeString, value)
 		_node.Name = value
+	}
+	if value, ok := _c.mutation.GroupBindings(); ok {
+		_spec.SetField(apikey.FieldGroupBindings, field.TypeJSON, value)
+		_node.GroupBindings = value
 	}
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(apikey.FieldStatus, field.TypeString, value)
@@ -808,6 +823,24 @@ func (u *APIKeyUpsert) UpdateGroupID() *APIKeyUpsert {
 // ClearGroupID clears the value of the "group_id" field.
 func (u *APIKeyUpsert) ClearGroupID() *APIKeyUpsert {
 	u.SetNull(apikey.FieldGroupID)
+	return u
+}
+
+// SetGroupBindings sets the "group_bindings" field.
+func (u *APIKeyUpsert) SetGroupBindings(v []domain.APIKeyGroupBinding) *APIKeyUpsert {
+	u.Set(apikey.FieldGroupBindings, v)
+	return u
+}
+
+// UpdateGroupBindings sets the "group_bindings" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateGroupBindings() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldGroupBindings)
+	return u
+}
+
+// ClearGroupBindings clears the value of the "group_bindings" field.
+func (u *APIKeyUpsert) ClearGroupBindings() *APIKeyUpsert {
+	u.SetNull(apikey.FieldGroupBindings)
 	return u
 }
 
@@ -1251,6 +1284,27 @@ func (u *APIKeyUpsertOne) UpdateGroupID() *APIKeyUpsertOne {
 func (u *APIKeyUpsertOne) ClearGroupID() *APIKeyUpsertOne {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.ClearGroupID()
+	})
+}
+
+// SetGroupBindings sets the "group_bindings" field.
+func (u *APIKeyUpsertOne) SetGroupBindings(v []domain.APIKeyGroupBinding) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetGroupBindings(v)
+	})
+}
+
+// UpdateGroupBindings sets the "group_bindings" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateGroupBindings() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateGroupBindings()
+	})
+}
+
+// ClearGroupBindings clears the value of the "group_bindings" field.
+func (u *APIKeyUpsertOne) ClearGroupBindings() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.ClearGroupBindings()
 	})
 }
 
@@ -1910,6 +1964,27 @@ func (u *APIKeyUpsertBulk) UpdateGroupID() *APIKeyUpsertBulk {
 func (u *APIKeyUpsertBulk) ClearGroupID() *APIKeyUpsertBulk {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.ClearGroupID()
+	})
+}
+
+// SetGroupBindings sets the "group_bindings" field.
+func (u *APIKeyUpsertBulk) SetGroupBindings(v []domain.APIKeyGroupBinding) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetGroupBindings(v)
+	})
+}
+
+// UpdateGroupBindings sets the "group_bindings" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateGroupBindings() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateGroupBindings()
+	})
+}
+
+// ClearGroupBindings clears the value of the "group_bindings" field.
+func (u *APIKeyUpsertBulk) ClearGroupBindings() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.ClearGroupBindings()
 	})
 }
 

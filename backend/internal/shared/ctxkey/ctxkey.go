@@ -56,6 +56,9 @@ const (
 	// Group 认证后的分组信息，由 API Key 认证中间件设置
 	Group Key = "ctx_group"
 
+	// APIKeyGroupRouting carries request-local ordered group routing state.
+	APIKeyGroupRouting Key = "ctx_api_key_group_routing"
+
 	// UserID 认证后的 Sub2API 用户 ID，由 API Key 认证中间件设置。
 	// 供 service 层执行用户级策略，不能使用客户端请求体中的 user 标识替代。
 	UserID Key = "ctx_user_id"

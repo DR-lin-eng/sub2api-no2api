@@ -112,6 +112,10 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 			AbortWithError(c, 500, "INTERNAL_ERROR", "Failed to validate API key")
 			return
 		}
+		// Auth cache entries are shared across requests. Routing may advance this
+		// request to another configured group, so mutate only a request-local copy.
+		apiKey = apiKey.CloneForRequest()
+		c.Request = c.Request.WithContext(service.WithAPIKeyGroupRouting(c.Request.Context(), apiKey))
 
 		// apiKey 已加载（含 User/Group）。即便后续因分组停用/Key 停用/用户停用/
 		// IP 限制等早退中断，也让 Ops 错误日志能回退取到 user/group/platform。

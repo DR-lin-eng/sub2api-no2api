@@ -60,6 +60,14 @@ func tokenRequestBillingGroupFromContext(ctx context.Context) *Group {
 	if ctx == nil {
 		return nil
 	}
+	if ctx.Value(apiKeyGroupRoutingAttemptKey{}) != nil {
+		if group, _ := ctx.Value(tokenRequestBillingGroupCtxKey{}).(*Group); IsGroupContextValid(group) {
+			return group
+		}
+	}
+	if group := currentAPIKeyRoutingGroup(ctx); IsGroupContextValid(group) {
+		return group
+	}
 	group, _ := ctx.Value(tokenRequestBillingGroupCtxKey{}).(*Group)
 	if IsGroupContextValid(group) {
 		return group

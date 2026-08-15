@@ -123,6 +123,7 @@ const createApiKey = (): ApiKey => ({
   key: 'sk-test-key',
   name: 'test-key',
   group_id: null,
+  group_bindings: [],
   status: 'active',
   ip_whitelist: [],
   ip_blacklist: [],
@@ -737,7 +738,11 @@ describe('user KeysView column settings', () => {
 
     expect(updateKey).toHaveBeenCalledWith(
       1,
-      expect.objectContaining({ concurrency_limit: 5 })
+      expect.objectContaining({
+        concurrency_limit: 5,
+        group_id: 42,
+        group_bindings: [{ group_id: 42, max_rate_multiplier: null }],
+      })
     )
   })
 

@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 	"github.com/Wei-Shaw/sub2api/internal/shared/ip"
@@ -34,6 +35,7 @@ var (
 	ErrAPIKeyAuthOverloaded          = infraerrors.ServiceUnavailable("API_KEY_AUTH_OVERLOADED", "api key authentication is temporarily overloaded")
 	ErrInvalidIPPattern              = infraerrors.BadRequest("INVALID_IP_PATTERN", "invalid IP or CIDR pattern")
 	ErrAPIKeyGroupNotBound           = infraerrors.NotFound("API_KEY_GROUP_NOT_BOUND", "api key is not bound to a group")
+	ErrAPIKeyGroupBindingsInvalid    = infraerrors.BadRequest("API_KEY_GROUP_BINDINGS_INVALID", "api key group bindings are invalid")
 	// ErrAPIKeyExpired        = infraerrors.Forbidden("API_KEY_EXPIRED", "api key has expired")
 	ErrAPIKeyExpired = infraerrors.Forbidden("API_KEY_EXPIRED", "api key 已过期")
 	// ErrAPIKeyQuotaExhausted = infraerrors.TooManyRequests("API_KEY_QUOTA_EXHAUSTED", "api key quota exhausted")
@@ -54,6 +56,7 @@ const (
 	apiKeySortCurrentConcurrency = "current_concurrency"
 	// DB 写失败后的短退避，避免请求路径持续同步重试造成写风暴与高延迟。
 	apiKeyLastUsedFailBackoff = 5 * time.Second
+	maxAPIKeyGroupBindings    = 20
 )
 
 // APIKeyUpdateFields 声明 APIKeyRepository.Update 允许写回的列。
@@ -67,6 +70,7 @@ type APIKeyUpdateFields struct {
 	Status           bool
 	Quota            bool
 	GroupID          bool
+	GroupBindings    bool
 	ExpiresAt        bool
 	ConcurrencyLimit bool
 	// QuotaUsed 仅供"重置配额用量"路径声明；常规计费走 IncrementQuotaUsed。
@@ -217,11 +221,12 @@ type APIKeyAuthCacheInvalidator interface {
 
 // CreateAPIKeyRequest 创建API Key请求
 type CreateAPIKeyRequest struct {
-	Name        string   `json:"name"`
-	GroupID     *int64   `json:"group_id"`
-	CustomKey   *string  `json:"custom_key"`   // 可选的自定义key
-	IPWhitelist []string `json:"ip_whitelist"` // IP 白名单
-	IPBlacklist []string `json:"ip_blacklist"` // IP 黑名单
+	Name          string                     `json:"name"`
+	GroupID       *int64                     `json:"group_id"`
+	GroupBindings *[]APIKeyGroupBindingInput `json:"group_bindings"`
+	CustomKey     *string                    `json:"custom_key"`   // 可选的自定义key
+	IPWhitelist   []string                   `json:"ip_whitelist"` // IP 白名单
+	IPBlacklist   []string                   `json:"ip_blacklist"` // IP 黑名单
 
 	// Quota fields
 	Quota         float64 `json:"quota"`           // Quota limit in USD (0 = unlimited)
@@ -235,11 +240,12 @@ type CreateAPIKeyRequest struct {
 
 // UpdateAPIKeyRequest 更新API Key请求
 type UpdateAPIKeyRequest struct {
-	Name        *string   `json:"name"`
-	GroupID     *int64    `json:"group_id"`
-	Status      *string   `json:"status"`
-	IPWhitelist *[]string `json:"ip_whitelist"` // IP 白名单（nil 不修改，空数组清空）
-	IPBlacklist *[]string `json:"ip_blacklist"` // IP 黑名单（nil 不修改，空数组清空）
+	Name          *string                    `json:"name"`
+	GroupID       *int64                     `json:"group_id"`
+	GroupBindings *[]APIKeyGroupBindingInput `json:"group_bindings"`
+	Status        *string                    `json:"status"`
+	IPWhitelist   *[]string                  `json:"ip_whitelist"` // IP 白名单（nil 不修改，空数组清空）
+	IPBlacklist   *[]string                  `json:"ip_blacklist"` // IP 黑名单（nil 不修改，空数组清空）
 
 	// Quota fields
 	Quota            *float64   `json:"quota"`             // Quota limit in USD (nil = no change, 0 = unlimited)
@@ -253,6 +259,11 @@ type UpdateAPIKeyRequest struct {
 	RateLimit1d         *float64 `json:"rate_limit_1d"`
 	RateLimit7d         *float64 `json:"rate_limit_7d"`
 	ResetRateLimitUsage *bool    `json:"reset_rate_limit_usage"` // Reset all usage counters to 0
+}
+
+type APIKeyGroupBindingInput struct {
+	GroupID           int64    `json:"group_id"`
+	MaxRateMultiplier *float64 `json:"max_rate_multiplier"`
 }
 
 func validateAPIKeyLimit(v float64) error {
@@ -271,6 +282,9 @@ func validateCreateAPIKeyRequest(req CreateAPIKeyRequest) error {
 	if req.ExpiresInDays != nil && *req.ExpiresInDays <= 0 {
 		return infraerrors.BadRequest("API_KEY_EXPIRY_INVALID", "expires_in_days must be greater than zero")
 	}
+	if _, err := normalizeAPIKeyGroupBindingInputs(req.GroupID, req.GroupBindings); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -282,7 +296,115 @@ func validateUpdateAPIKeyRequest(req UpdateAPIKeyRequest) error {
 			}
 		}
 	}
+	if req.GroupBindings != nil {
+		if _, err := normalizeAPIKeyGroupBindingInputs(req.GroupID, req.GroupBindings); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func normalizeAPIKeyGroupBindingInputs(groupID *int64, inputs *[]APIKeyGroupBindingInput) ([]APIKeyGroupBinding, error) {
+	if inputs == nil {
+		if groupID == nil {
+			return nil, nil
+		}
+		if *groupID <= 0 {
+			return nil, fmt.Errorf("%w: group_id must be positive", ErrAPIKeyGroupBindingsInvalid)
+		}
+		return []APIKeyGroupBinding{{APIKeyGroupBinding: domain.APIKeyGroupBinding{GroupID: *groupID}}}, nil
+	}
+	if len(*inputs) > maxAPIKeyGroupBindings {
+		return nil, fmt.Errorf("%w: at most %d groups are allowed", ErrAPIKeyGroupBindingsInvalid, maxAPIKeyGroupBindings)
+	}
+	if groupID != nil {
+		if len(*inputs) == 0 || (*inputs)[0].GroupID != *groupID {
+			return nil, fmt.Errorf("%w: group_id must match the first group binding", ErrAPIKeyGroupBindingsInvalid)
+		}
+	}
+
+	seen := make(map[int64]struct{}, len(*inputs))
+	out := make([]APIKeyGroupBinding, 0, len(*inputs))
+	for i, input := range *inputs {
+		if input.GroupID <= 0 {
+			return nil, fmt.Errorf("%w: group_bindings[%d].group_id must be positive", ErrAPIKeyGroupBindingsInvalid, i)
+		}
+		if _, exists := seen[input.GroupID]; exists {
+			return nil, fmt.Errorf("%w: duplicate group_id %d", ErrAPIKeyGroupBindingsInvalid, input.GroupID)
+		}
+		seen[input.GroupID] = struct{}{}
+		if input.MaxRateMultiplier != nil {
+			value := *input.MaxRateMultiplier
+			if math.IsNaN(value) || math.IsInf(value, 0) || value <= 0 {
+				return nil, fmt.Errorf("%w: group_bindings[%d].max_rate_multiplier must be finite and greater than zero", ErrAPIKeyGroupBindingsInvalid, i)
+			}
+		}
+		out = append(out, APIKeyGroupBinding{APIKeyGroupBinding: domain.APIKeyGroupBinding{
+			GroupID:           input.GroupID,
+			MaxRateMultiplier: input.MaxRateMultiplier,
+		}})
+	}
+	return out, nil
+}
+
+func (s *APIKeyService) validateAndHydrateAPIKeyGroupBindings(ctx context.Context, user *User, bindings []APIKeyGroupBinding) ([]APIKeyGroupBinding, error) {
+	if len(bindings) == 0 {
+		return nil, nil
+	}
+	var userRates map[int64]float64
+	if s.userGroupRateRepo != nil && user != nil {
+		var err error
+		userRates, err = s.userGroupRateRepo.GetByUserID(ctx, user.ID)
+		if err != nil {
+			return nil, fmt.Errorf("get user group rates: %w", err)
+		}
+	}
+
+	out := make([]APIKeyGroupBinding, 0, len(bindings))
+	primaryPlatform := ""
+	for i := range bindings {
+		binding := bindings[i]
+		group, err := s.groupRepo.GetByID(ctx, binding.GroupID)
+		if err != nil {
+			return nil, fmt.Errorf("get group %d: %w", binding.GroupID, err)
+		}
+		if user == nil || !s.canUserBindGroup(ctx, user, group) {
+			return nil, ErrGroupNotAllowed
+		}
+		// Subscription enforcement is currently performed before account
+		// selection and is tied to one group. Keep subscription keys single-group
+		// until that contract can be made request-routable as well.
+		if len(bindings) > 1 && group.IsSubscriptionType() {
+			return nil, fmt.Errorf("%w: subscription groups cannot be combined on one API key", ErrAPIKeyGroupBindingsInvalid)
+		}
+		if primaryPlatform == "" {
+			primaryPlatform = group.Platform
+		} else if len(bindings) > 1 && group.Platform != primaryPlatform {
+			return nil, fmt.Errorf("%w: all groups on one API key must use the same platform", ErrAPIKeyGroupBindingsInvalid)
+		}
+		binding.Group = group
+		binding.EffectiveRateMultiplier = group.RateMultiplier
+		if value, ok := userRates[group.ID]; ok {
+			binding.EffectiveRateMultiplier = value
+		}
+		out = append(out, binding)
+	}
+	return out, nil
+}
+
+func applyAPIKeyGroupBindings(apiKey *APIKey, bindings []APIKeyGroupBinding) {
+	if apiKey == nil {
+		return
+	}
+	apiKey.GroupBindings = bindings
+	if len(bindings) == 0 {
+		apiKey.GroupID = nil
+		apiKey.Group = nil
+		return
+	}
+	groupID := bindings[0].GroupID
+	apiKey.GroupID = &groupID
+	apiKey.Group = bindings[0].Group
 }
 
 // APIKeyGroupRateInfo describes the effective group billing multiplier for one
@@ -530,17 +652,13 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		}
 	}
 
-	// 验证分组权限（如果指定了分组）
-	if req.GroupID != nil {
-		group, err := s.groupRepo.GetByID(ctx, *req.GroupID)
-		if err != nil {
-			return nil, fmt.Errorf("get group: %w", err)
-		}
-
-		// 检查用户是否可以绑定该分组
-		if !s.canUserBindGroup(ctx, user, group) {
-			return nil, ErrGroupNotAllowed
-		}
+	bindings, err := normalizeAPIKeyGroupBindingInputs(req.GroupID, req.GroupBindings)
+	if err != nil {
+		return nil, err
+	}
+	bindings, err = s.validateAndHydrateAPIKeyGroupBindings(ctx, user, bindings)
+	if err != nil {
+		return nil, err
 	}
 
 	var key string
@@ -583,7 +701,6 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		UserID:      userID,
 		Key:         key,
 		Name:        html.EscapeString(req.Name),
-		GroupID:     req.GroupID,
 		Status:      StatusActive,
 		IPWhitelist: req.IPWhitelist,
 		IPBlacklist: req.IPBlacklist,
@@ -593,6 +710,7 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		RateLimit1d: req.RateLimit1d,
 		RateLimit7d: req.RateLimit7d,
 	}
+	applyAPIKeyGroupBindings(apiKey, bindings)
 
 	// Set expiration time if specified
 	if req.ExpiresInDays != nil && *req.ExpiresInDays > 0 {
@@ -858,24 +976,23 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 		fields.Name = true
 	}
 
-	if req.GroupID != nil {
-		// 验证分组权限
+	if req.GroupBindings != nil || req.GroupID != nil {
 		user, err := s.userRepo.GetByID(ctx, userID)
 		if err != nil {
 			return nil, fmt.Errorf("get user: %w", err)
 		}
 
-		group, err := s.groupRepo.GetByID(ctx, *req.GroupID)
+		bindings, err := normalizeAPIKeyGroupBindingInputs(req.GroupID, req.GroupBindings)
 		if err != nil {
-			return nil, fmt.Errorf("get group: %w", err)
+			return nil, err
 		}
-
-		if !s.canUserBindGroup(ctx, user, group) {
-			return nil, ErrGroupNotAllowed
+		bindings, err = s.validateAndHydrateAPIKeyGroupBindings(ctx, user, bindings)
+		if err != nil {
+			return nil, err
 		}
-
-		apiKey.GroupID = req.GroupID
+		applyAPIKeyGroupBindings(apiKey, bindings)
 		fields.GroupID = true
+		fields.GroupBindings = true
 	}
 
 	if req.Status != nil {

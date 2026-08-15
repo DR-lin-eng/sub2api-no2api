@@ -10,11 +10,12 @@ import (
 	"math/rand/v2"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 22 // v22: include group model pricing and long-context gate
+const apiKeyAuthSnapshotVersion = 23 // v23: include ordered API key group bindings
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -403,7 +404,11 @@ func (s *APIKeyService) lookupAPIKeyForAuth(ctx context.Context, key string) (*A
 		return nil, ErrAPIKeyNotFound
 	}
 	if s.authLookupSlots == nil {
-		return s.apiKeyRepo.GetByKeyForAuth(ctx, key)
+		apiKey, err := s.apiKeyRepo.GetByKeyForAuth(ctx, key)
+		if err == nil {
+			s.hydrateAPIKeyGroupBindingsForAuth(ctx, apiKey)
+		}
+		return apiKey, err
 	}
 	s.authLookupTotal.Add(1)
 	select {
@@ -419,7 +424,46 @@ func (s *APIKeyService) lookupAPIKeyForAuth(ctx context.Context, key string) (*A
 		s.authLookupRejected.Add(1)
 		return nil, ErrAPIKeyAuthOverloaded
 	}
-	return s.apiKeyRepo.GetByKeyForAuth(ctx, key)
+	apiKey, err := s.apiKeyRepo.GetByKeyForAuth(ctx, key)
+	if err == nil {
+		s.hydrateAPIKeyGroupBindingsForAuth(ctx, apiKey)
+	}
+	return apiKey, err
+}
+
+func (s *APIKeyService) hydrateAPIKeyGroupBindingsForAuth(ctx context.Context, apiKey *APIKey) {
+	if s == nil || apiKey == nil {
+		return
+	}
+	bindings := apiKey.GroupBindings
+	if len(bindings) == 0 && apiKey.GroupID != nil && *apiKey.GroupID > 0 {
+		bindings = []APIKeyGroupBinding{{APIKeyGroupBinding: domain.APIKeyGroupBinding{GroupID: *apiKey.GroupID}}}
+	}
+	if len(bindings) == 0 {
+		return
+	}
+
+	var userRates map[int64]float64
+	if s.userGroupRateRepo != nil && apiKey.UserID > 0 {
+		userRates, _ = s.userGroupRateRepo.GetByUserID(ctx, apiKey.UserID)
+	}
+	for i := range bindings {
+		group := bindings[i].Group
+		if group == nil && apiKey.Group != nil && apiKey.Group.ID == bindings[i].GroupID {
+			group = apiKey.Group
+		}
+		if group == nil && s.groupRepo != nil {
+			group, _ = s.groupRepo.GetByID(ctx, bindings[i].GroupID)
+		}
+		bindings[i].Group = group
+		if group != nil {
+			bindings[i].EffectiveRateMultiplier = group.RateMultiplier
+		}
+		if rate, ok := userRates[bindings[i].GroupID]; ok {
+			bindings[i].EffectiveRateMultiplier = rate
+		}
+	}
+	apiKey.GroupBindings = bindings
 }
 
 func (s *APIKeyService) applyAuthCacheEntry(key string, entry *APIKeyAuthCacheEntry) (*APIKey, bool, error) {
@@ -564,6 +608,17 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			ProfitSafetyBuffer:              apiKey.Group.ProfitSafetyBuffer,
 		}
 	}
+	if len(apiKey.GroupBindings) > 0 {
+		snapshot.GroupBindings = make([]APIKeyAuthGroupBindingSnapshot, 0, len(apiKey.GroupBindings))
+		for i := range apiKey.GroupBindings {
+			binding := apiKey.GroupBindings[i]
+			snapshot.GroupBindings = append(snapshot.GroupBindings, APIKeyAuthGroupBindingSnapshot{
+				APIKeyGroupBinding:      binding.APIKeyGroupBinding,
+				EffectiveRateMultiplier: binding.EffectiveRateMultiplier,
+				Group:                   apiKeyAuthGroupSnapshotFromGroup(binding.Group),
+			})
+		}
+	}
 	return snapshot
 }
 
@@ -660,6 +715,132 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 		}
 		apiKey.Group.compileModelPricingIndex()
 	}
+	if len(snapshot.GroupBindings) > 0 {
+		apiKey.GroupBindings = make([]APIKeyGroupBinding, 0, len(snapshot.GroupBindings))
+		for i := range snapshot.GroupBindings {
+			binding := snapshot.GroupBindings[i]
+			apiKey.GroupBindings = append(apiKey.GroupBindings, APIKeyGroupBinding{
+				APIKeyGroupBinding:      binding.APIKeyGroupBinding,
+				EffectiveRateMultiplier: binding.EffectiveRateMultiplier,
+				Group:                   apiKeyGroupFromAuthSnapshot(binding.Group),
+			})
+		}
+	}
 	s.compileAPIKeyIPRules(apiKey)
 	return apiKey
+}
+
+func apiKeyAuthGroupSnapshotFromGroup(group *Group) *APIKeyAuthGroupSnapshot {
+	if group == nil {
+		return nil
+	}
+	return &APIKeyAuthGroupSnapshot{
+		ID:                              group.ID,
+		Name:                            group.Name,
+		Platform:                        group.Platform,
+		IsExclusive:                     group.IsExclusive,
+		Status:                          group.Status,
+		SubscriptionType:                group.SubscriptionType,
+		RateMultiplier:                  group.RateMultiplier,
+		DailyLimitUSD:                   group.DailyLimitUSD,
+		WeeklyLimitUSD:                  group.WeeklyLimitUSD,
+		MonthlyLimitUSD:                 group.MonthlyLimitUSD,
+		AllowImageGeneration:            group.AllowImageGeneration,
+		OpenAIForceImageTool:            group.OpenAIForceImageTool,
+		AllowBatchImageGeneration:       group.AllowBatchImageGeneration,
+		ImageRateIndependent:            group.ImageRateIndependent,
+		ImageRateMultiplier:             group.ImageRateMultiplier,
+		ImagePrice1K:                    group.ImagePrice1K,
+		ImagePrice2K:                    group.ImagePrice2K,
+		ImagePrice4K:                    group.ImagePrice4K,
+		VideoRateIndependent:            group.VideoRateIndependent,
+		VideoRateMultiplier:             group.VideoRateMultiplier,
+		VideoPrice480P:                  group.VideoPrice480P,
+		VideoPrice720P:                  group.VideoPrice720P,
+		VideoPrice1080P:                 group.VideoPrice1080P,
+		WebSearchPricePerCall:           group.WebSearchPricePerCall,
+		LongContextPricingEnabled:       group.LongContextPricingEnabled,
+		ModelPricing:                    cloneGroupModelPricing(group.ModelPricing),
+		ClaudeCodeOnly:                  group.ClaudeCodeOnly,
+		FallbackGroupID:                 group.FallbackGroupID,
+		FallbackGroupIDOnInvalidRequest: group.FallbackGroupIDOnInvalidRequest,
+		ModelRouting:                    group.ModelRouting,
+		ModelRoutingEnabled:             group.ModelRoutingEnabled,
+		MCPXMLInject:                    group.MCPXMLInject,
+		SupportedModelScopes:            group.SupportedModelScopes,
+		AllowMessagesDispatch:           group.AllowMessagesDispatch,
+		AllowLive:                       group.AllowLive,
+		DefaultMappedModel:              group.DefaultMappedModel,
+		MessagesDispatchModelConfig:     group.MessagesDispatchModelConfig,
+		ModelsListConfig:                group.ModelsListConfig,
+		RPMLimit:                        group.RPMLimit,
+		MaxReasoningEffort:              group.MaxReasoningEffort,
+		ReasoningEffortMappings:         group.ReasoningEffortMappings,
+		PeakRateEnabled:                 group.PeakRateEnabled,
+		PeakStart:                       group.PeakStart,
+		PeakEnd:                         group.PeakEnd,
+		PeakRateMultiplier:              group.PeakRateMultiplier,
+		ProfitControlEnabled:            group.ProfitControlEnabled,
+		ProfitMinMargin:                 group.ProfitMinMargin,
+		ProfitSafetyBuffer:              group.ProfitSafetyBuffer,
+	}
+}
+
+func apiKeyGroupFromAuthSnapshot(snapshot *APIKeyAuthGroupSnapshot) *Group {
+	if snapshot == nil {
+		return nil
+	}
+	group := &Group{
+		ID:                              snapshot.ID,
+		Name:                            snapshot.Name,
+		Platform:                        snapshot.Platform,
+		IsExclusive:                     snapshot.IsExclusive,
+		Status:                          snapshot.Status,
+		Hydrated:                        true,
+		SubscriptionType:                snapshot.SubscriptionType,
+		RateMultiplier:                  snapshot.RateMultiplier,
+		DailyLimitUSD:                   snapshot.DailyLimitUSD,
+		WeeklyLimitUSD:                  snapshot.WeeklyLimitUSD,
+		MonthlyLimitUSD:                 snapshot.MonthlyLimitUSD,
+		AllowImageGeneration:            snapshot.AllowImageGeneration,
+		OpenAIForceImageTool:            snapshot.OpenAIForceImageTool,
+		AllowBatchImageGeneration:       snapshot.AllowBatchImageGeneration,
+		ImageRateIndependent:            snapshot.ImageRateIndependent,
+		ImageRateMultiplier:             snapshot.ImageRateMultiplier,
+		ImagePrice1K:                    snapshot.ImagePrice1K,
+		ImagePrice2K:                    snapshot.ImagePrice2K,
+		ImagePrice4K:                    snapshot.ImagePrice4K,
+		VideoRateIndependent:            snapshot.VideoRateIndependent,
+		VideoRateMultiplier:             snapshot.VideoRateMultiplier,
+		VideoPrice480P:                  snapshot.VideoPrice480P,
+		VideoPrice720P:                  snapshot.VideoPrice720P,
+		VideoPrice1080P:                 snapshot.VideoPrice1080P,
+		WebSearchPricePerCall:           snapshot.WebSearchPricePerCall,
+		LongContextPricingEnabled:       snapshot.LongContextPricingEnabled,
+		ModelPricing:                    snapshot.ModelPricing,
+		ClaudeCodeOnly:                  snapshot.ClaudeCodeOnly,
+		FallbackGroupID:                 snapshot.FallbackGroupID,
+		FallbackGroupIDOnInvalidRequest: snapshot.FallbackGroupIDOnInvalidRequest,
+		ModelRouting:                    snapshot.ModelRouting,
+		ModelRoutingEnabled:             snapshot.ModelRoutingEnabled,
+		MCPXMLInject:                    snapshot.MCPXMLInject,
+		SupportedModelScopes:            snapshot.SupportedModelScopes,
+		AllowMessagesDispatch:           snapshot.AllowMessagesDispatch,
+		AllowLive:                       snapshot.AllowLive,
+		DefaultMappedModel:              snapshot.DefaultMappedModel,
+		MessagesDispatchModelConfig:     snapshot.MessagesDispatchModelConfig,
+		ModelsListConfig:                snapshot.ModelsListConfig,
+		RPMLimit:                        snapshot.RPMLimit,
+		MaxReasoningEffort:              snapshot.MaxReasoningEffort,
+		ReasoningEffortMappings:         snapshot.ReasoningEffortMappings,
+		PeakRateEnabled:                 snapshot.PeakRateEnabled,
+		PeakStart:                       snapshot.PeakStart,
+		PeakEnd:                         snapshot.PeakEnd,
+		PeakRateMultiplier:              snapshot.PeakRateMultiplier,
+		ProfitControlEnabled:            snapshot.ProfitControlEnabled,
+		ProfitMinMargin:                 snapshot.ProfitMinMargin,
+		ProfitSafetyBuffer:              snapshot.ProfitSafetyBuffer,
+	}
+	group.compileModelPricingIndex()
+	return group
 }

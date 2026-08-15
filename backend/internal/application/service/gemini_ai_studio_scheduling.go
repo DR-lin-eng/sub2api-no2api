@@ -16,6 +16,33 @@ func (s *GeminiMessagesCompatService) SelectAccountForAIStudioEndpoints(ctx cont
 // SelectAccountForAIStudioEndpointsWithExclusions keeps metadata retries away
 // from accounts whose scheduling state changed after a queued slot was granted.
 func (s *GeminiMessagesCompatService) SelectAccountForAIStudioEndpointsWithExclusions(ctx context.Context, groupID *int64, excludedAccountIDs map[int64]struct{}) (*Account, error) {
+	candidates, routed := apiKeyGroupRoutingCandidates(ctx, groupID)
+	if !routed {
+		return s.selectAccountForAIStudioEndpointsWithExclusionsInGroup(ctx, groupID, excludedAccountIDs)
+	}
+	var lastErr error = ErrNoAvailableAccounts
+	for i := range candidates {
+		candidateID := candidates[i].GroupID
+		account, err := s.selectAccountForAIStudioEndpointsWithExclusionsInGroup(
+			withAPIKeyGroupRoutingAttempt(ctx, candidates[i]),
+			&candidateID,
+			excludedAccountIDs,
+		)
+		if err == nil && account != nil {
+			markAPIKeyGroupRoutingSelected(ctx, candidateID)
+			return account, nil
+		}
+		if err != nil {
+			lastErr = err
+			if !errors.Is(err, ErrNoAvailableAccounts) {
+				return nil, err
+			}
+		}
+	}
+	return nil, lastErr
+}
+
+func (s *GeminiMessagesCompatService) selectAccountForAIStudioEndpointsWithExclusionsInGroup(ctx context.Context, groupID *int64, excludedAccountIDs map[int64]struct{}) (*Account, error) {
 	accounts, err := s.listSchedulableAccountsOnce(ctx, groupID, PlatformGemini, true)
 	if err != nil {
 		return nil, fmt.Errorf("query accounts failed: %w", err)
@@ -32,7 +59,7 @@ func (s *GeminiMessagesCompatService) SelectAccountForAIStudioEndpointsWithExclu
 		}
 	}
 	if selected == nil {
-		return nil, errors.New("no available Gemini accounts")
+		return nil, fmt.Errorf("%w: no available Gemini accounts", ErrNoAvailableAccounts)
 	}
 	return s.hydrateSelectedAccount(ctx, selected)
 }

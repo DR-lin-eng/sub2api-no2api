@@ -1,14 +1,10 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
-import GroupBadge from '@/common/widgets/data/GroupBadge.vue'
-import GroupOptionItem from '@/common/widgets/data/GroupOptionItem.vue'
 import Select from '@/common/widgets/forms/Select.vue'
 import { formatDateTime } from '@/core/utils/format'
-import type {
-  GroupOption,
-  KeyEditorDialogContext
-} from '../keysPageContext'
+import KeyGroupBindingsEditor from './KeyGroupBindingsEditor.vue'
+import type { KeyEditorDialogContext } from '../keysPageContext'
 
 const props = defineProps<{
   context: KeyEditorDialogContext
@@ -53,46 +49,12 @@ const {
         </div>
 
         <div>
-          <label class="input-label">{{ t('keys.groupLabel') }}</label>
-          <Select
-            v-model="formData.group_id"
-            :options="groupOptions"
-            :placeholder="t('keys.selectGroup')"
-            :searchable="true"
-            :search-placeholder="t('keys.searchGroup')"
+          <label class="input-label">{{ t('keys.groupBindings.label') }}</label>
+          <KeyGroupBindingsEditor
+            v-model="formData.group_bindings"
+            :group-options="groupOptions"
             data-tour="key-form-group"
-          >
-            <template #selected="{ option }">
-              <GroupBadge
-                v-if="option"
-                :name="(option as unknown as GroupOption).label"
-                :platform="(option as unknown as GroupOption).platform"
-                :subscription-type="(option as unknown as GroupOption).subscriptionType"
-                :rate-multiplier="(option as unknown as GroupOption).rate"
-                :user-rate-multiplier="(option as unknown as GroupOption).userRate"
-                :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
-                :peak-start="(option as unknown as GroupOption).peakStart"
-                :peak-end="(option as unknown as GroupOption).peakEnd"
-                :peak-rate-multiplier="(option as unknown as GroupOption).peakRateMultiplier"
-              />
-              <span v-else class="text-gray-400">{{ t('keys.selectGroup') }}</span>
-            </template>
-            <template #option="{ option, selected }">
-              <GroupOptionItem
-                :name="(option as unknown as GroupOption).label"
-                :platform="(option as unknown as GroupOption).platform"
-                :subscription-type="(option as unknown as GroupOption).subscriptionType"
-                :rate-multiplier="(option as unknown as GroupOption).rate"
-                :user-rate-multiplier="(option as unknown as GroupOption).userRate"
-                :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
-                :peak-start="(option as unknown as GroupOption).peakStart"
-                :peak-end="(option as unknown as GroupOption).peakEnd"
-                :peak-rate-multiplier="(option as unknown as GroupOption).peakRateMultiplier"
-                :description="(option as unknown as GroupOption).description"
-                :selected="selected"
-              />
-            </template>
-          </Select>
+          />
         </div>
 
         <!-- Custom Key Section (only for create) -->

@@ -6,6 +6,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/stretchr/testify/require"
 )
 
@@ -40,4 +41,17 @@ func TestValidateAPIKeyUpdateRequest(t *testing.T) {
 	} {
 		require.Error(t, validateAPIKeyUpdateRequest(req))
 	}
+}
+
+func TestAPIKeyUpdateRequestToServiceCarriesGroupBindingsWithoutExpiration(t *testing.T) {
+	groupID := int64(7)
+	bindings := []service.APIKeyGroupBindingInput{{GroupID: groupID}, {GroupID: 8}}
+
+	got := apiKeyUpdateRequestToService(UpdateAPIKeyRequest{
+		GroupID:       &groupID,
+		GroupBindings: &bindings,
+	})
+
+	require.Equal(t, &groupID, got.GroupID)
+	require.Equal(t, &bindings, got.GroupBindings)
 }

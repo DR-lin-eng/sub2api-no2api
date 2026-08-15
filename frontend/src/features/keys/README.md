@@ -4,11 +4,13 @@ API Key feature 负责密钥列表、创建编辑、用量刷新和客户端导�
 
 - `data/datasources/`: API Key CRUD、用量与待结算查询协议。
 - `presentation/pages/`: 列表请求、用量小批次有界并发与失败批次的单 Key 降级、5s/60s 刷新调度、visibility 和弹窗编排。
-- `presentation/widgets/`: 表格、创建编辑器、端点说明和使用说明。
+- `presentation/widgets/`: 表格、创建编辑器、可排序分组绑定、端点说明和使用说明。
 - `presentation/resolvers/`: 客户端配置的纯序列化逻辑与 feature-private 静态模型目录。
 - `presentation/keysPageContext.ts`: 表格与编辑器消费的有界类型契约。
 
 `KeysPage.vue` 是请求、AbortController、localStorage、轮询和弹窗状态 owner。静态 widget 只消费 typed context，不自行加载数据。扩展字段时同步检查创建/编辑 payload、列偏好版本和 pending usage 刷新条件。
+
+API Key 的 `group_bindings` 是有序路由候选，`group_id` 始终镜像第一项以兼容旧客户端。`KeyGroupBindingsEditor.vue` 负责拖拽/上下移动、搜索添加和每组倍率保护上限；多绑定只允许同平台的标准计费分组，空倍率上限表示不限制。列表里的快速换组会替换第一项并保留仍兼容的后续候选。
 
 验证入口：
 

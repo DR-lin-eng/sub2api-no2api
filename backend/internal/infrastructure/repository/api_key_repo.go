@@ -14,9 +14,11 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	dbpredicate "github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/lib/pq"
 
 	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
@@ -50,6 +52,7 @@ func (r *apiKeyRepository) Create(ctx context.Context, key *service.APIKey) erro
 		SetName(key.Name).
 		SetStatus(key.Status).
 		SetNillableGroupID(key.GroupID).
+		SetGroupBindings(apiKeyGroupBindingsToDomain(key.GroupBindings)).
 		SetNillableLastUsedAt(key.LastUsedAt).
 		SetQuota(key.Quota).
 		SetQuotaUsed(key.QuotaUsed).
@@ -136,6 +139,7 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 			apikey.FieldID,
 			apikey.FieldUserID,
 			apikey.FieldGroupID,
+			apikey.FieldGroupBindings,
 			apikey.FieldName,
 			apikey.FieldStatus,
 			apikey.FieldIPWhitelist,
@@ -300,6 +304,9 @@ func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey, fiel
 			builder.ClearGroupID()
 		}
 	}
+	if fields.GroupBindings {
+		builder.SetGroupBindings(apiKeyGroupBindingsToDomain(key.GroupBindings))
+	}
 
 	// Expiration time
 	if fields.ExpiresAt {
@@ -442,7 +449,7 @@ func (r *apiKeyRepository) apiKeyListByUserIDQuery(userID int64, filters service
 		if *filters.GroupID == 0 {
 			q = q.Where(apikey.GroupIDIsNil())
 		} else {
-			q = q.Where(apikey.GroupIDEQ(*filters.GroupID))
+			q = q.Where(apiKeyBoundToGroupPredicate(*filters.GroupID))
 		}
 	}
 
@@ -614,7 +621,7 @@ func (r *apiKeyRepository) ExistsByKey(ctx context.Context, key string) (bool, e
 }
 
 func (r *apiKeyRepository) ListByGroupID(ctx context.Context, groupID int64, params pagination.PaginationParams) ([]service.APIKey, *pagination.PaginationResult, error) {
-	q := r.activeQuery().Where(apikey.GroupIDEQ(groupID))
+	q := r.activeQuery().Where(apiKeyBoundToGroupPredicate(groupID))
 
 	total, err := q.Count(ctx)
 	if err != nil {
@@ -701,28 +708,68 @@ func (r *apiKeyRepository) SearchAPIKeys(ctx context.Context, userID int64, keyw
 	return outKeys, nil
 }
 
-// ClearGroupIDByGroupID 将指定分组的所有 API Key 的 group_id 设为 nil
+// ClearGroupIDByGroupID removes the group from every ordered binding list and
+// promotes the next candidate into the legacy group_id column.
 func (r *apiKeyRepository) ClearGroupIDByGroupID(ctx context.Context, groupID int64) (int64, error) {
-	n, err := r.client.APIKey.Update().
-		Where(apikey.GroupIDEQ(groupID), apikey.DeletedAtIsNil()).
-		ClearGroupID().
-		Save(ctx)
-	return int64(n), err
+	client := clientFromContext(ctx, r.client)
+	keys, err := client.APIKey.Query().
+		Where(apikey.DeletedAtIsNil(), apiKeyBoundToGroupPredicate(groupID)).
+		All(ctx)
+	if err != nil {
+		return 0, err
+	}
+	var affected int64
+	for _, key := range keys {
+		bindings, changed := removeAPIKeyGroupBinding(normalizePersistedAPIKeyGroupBindings(key.GroupBindings, key.GroupID), groupID)
+		if !changed {
+			continue
+		}
+		builder := client.APIKey.UpdateOneID(key.ID).SetGroupBindings(bindings)
+		if len(bindings) > 0 {
+			builder.SetGroupID(bindings[0].GroupID)
+		} else {
+			builder.ClearGroupID()
+		}
+		if _, err := builder.Save(ctx); err != nil {
+			return affected, err
+		}
+		affected++
+	}
+	return affected, nil
 }
 
 // UpdateGroupIDByUserAndGroup 将用户下绑定 oldGroupID 的所有 Key 迁移到 newGroupID
 func (r *apiKeyRepository) UpdateGroupIDByUserAndGroup(ctx context.Context, userID, oldGroupID, newGroupID int64) (int64, error) {
 	client := clientFromContext(ctx, r.client)
-	n, err := client.APIKey.Update().
-		Where(apikey.UserIDEQ(userID), apikey.GroupIDEQ(oldGroupID), apikey.DeletedAtIsNil()).
-		SetGroupID(newGroupID).
-		Save(ctx)
-	return int64(n), err
+	keys, err := client.APIKey.Query().
+		Where(apikey.UserIDEQ(userID), apikey.DeletedAtIsNil(), apiKeyBoundToGroupPredicate(oldGroupID)).
+		All(ctx)
+	if err != nil {
+		return 0, err
+	}
+	var affected int64
+	for _, key := range keys {
+		bindings, changed := replaceAPIKeyGroupBinding(normalizePersistedAPIKeyGroupBindings(key.GroupBindings, key.GroupID), oldGroupID, newGroupID)
+		if !changed {
+			continue
+		}
+		builder := client.APIKey.UpdateOneID(key.ID).SetGroupBindings(bindings)
+		if len(bindings) > 0 {
+			builder.SetGroupID(bindings[0].GroupID)
+		} else {
+			builder.ClearGroupID()
+		}
+		if _, err := builder.Save(ctx); err != nil {
+			return affected, err
+		}
+		affected++
+	}
+	return affected, nil
 }
 
 // CountByGroupID 获取分组的 API Key 数量
 func (r *apiKeyRepository) CountByGroupID(ctx context.Context, groupID int64) (int64, error) {
-	count, err := r.activeQuery().Where(apikey.GroupIDEQ(groupID)).Count(ctx)
+	count, err := r.activeQuery().Where(apiKeyBoundToGroupPredicate(groupID)).Count(ctx)
 	return int64(count), err
 }
 
@@ -739,13 +786,71 @@ func (r *apiKeyRepository) ListKeysByUserID(ctx context.Context, userID int64) (
 
 func (r *apiKeyRepository) ListKeysByGroupID(ctx context.Context, groupID int64) ([]string, error) {
 	keys, err := r.activeQuery().
-		Where(apikey.GroupIDEQ(groupID)).
+		Where(apiKeyBoundToGroupPredicate(groupID)).
 		Select(apikey.FieldKey).
 		Strings(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return keys, nil
+}
+
+func apiKeyBoundToGroupPredicate(groupID int64) dbpredicate.APIKey {
+	jsonPredicate := dbpredicate.APIKey(func(selector *entsql.Selector) {
+		column := selector.C(apikey.FieldGroupBindings)
+		selector.Where(entsql.P(func(builder *entsql.Builder) {
+			switch builder.Dialect() {
+			case dialect.Postgres:
+				payload := fmt.Sprintf(`[{"group_id":%d}]`, groupID)
+				builder.WriteString("COALESCE(").Ident(column).WriteString(", '[]'::jsonb) @> ").Arg(payload).WriteString("::jsonb")
+			case dialect.SQLite:
+				builder.WriteString("EXISTS (SELECT 1 FROM json_each(COALESCE(").Ident(column).WriteString(", '[]')) WHERE CAST(json_extract(value, '$.group_id') AS INTEGER) = ").Arg(groupID).WriteByte(')')
+			default:
+				payload := fmt.Sprintf(`[{"group_id":%d}]`, groupID)
+				builder.WriteString("JSON_CONTAINS(").Ident(column).Comma().Arg(payload).WriteByte(')')
+			}
+		}))
+	})
+	return apikey.Or(apikey.GroupIDEQ(groupID), jsonPredicate)
+}
+
+func removeAPIKeyGroupBinding(bindings []domain.APIKeyGroupBinding, groupID int64) ([]domain.APIKeyGroupBinding, bool) {
+	out := make([]domain.APIKeyGroupBinding, 0, len(bindings))
+	changed := false
+	for _, binding := range bindings {
+		if binding.GroupID == groupID {
+			changed = true
+			continue
+		}
+		out = append(out, binding)
+	}
+	return out, changed
+}
+
+func normalizePersistedAPIKeyGroupBindings(bindings []domain.APIKeyGroupBinding, groupID *int64) []domain.APIKeyGroupBinding {
+	if len(bindings) == 0 && groupID != nil && *groupID > 0 {
+		return []domain.APIKeyGroupBinding{{GroupID: *groupID}}
+	}
+	return bindings
+}
+
+func replaceAPIKeyGroupBinding(bindings []domain.APIKeyGroupBinding, oldGroupID, newGroupID int64) ([]domain.APIKeyGroupBinding, bool) {
+	out := make([]domain.APIKeyGroupBinding, 0, len(bindings))
+	seen := make(map[int64]struct{}, len(bindings))
+	changed := false
+	for _, binding := range bindings {
+		if binding.GroupID == oldGroupID {
+			binding.GroupID = newGroupID
+			changed = true
+		}
+		if _, exists := seen[binding.GroupID]; exists {
+			changed = true
+			continue
+		}
+		seen[binding.GroupID] = struct{}{}
+		out = append(out, binding)
+	}
+	return out, changed
 }
 
 // IncrementQuotaUsed 使用 Ent 原子递增 quota_used 字段并返回新值
@@ -911,6 +1016,7 @@ func apiKeyEntityToService(m *dbent.APIKey) *service.APIKey {
 		CreatedAt:        m.CreatedAt,
 		UpdatedAt:        m.UpdatedAt,
 		GroupID:          m.GroupID,
+		GroupBindings:    apiKeyGroupBindingsFromDomain(m.GroupBindings, m.GroupID),
 		Quota:            m.Quota,
 		QuotaUsed:        m.QuotaUsed,
 		ExpiresAt:        m.ExpiresAt,
@@ -938,6 +1044,31 @@ func apiKeyEntityToService(m *dbent.APIKey) *service.APIKey {
 	}
 	if m.Edges.Group != nil {
 		out.Group = groupEntityToService(m.Edges.Group)
+	}
+	return out
+}
+
+func apiKeyGroupBindingsToDomain(bindings []service.APIKeyGroupBinding) []domain.APIKeyGroupBinding {
+	if len(bindings) == 0 {
+		return []domain.APIKeyGroupBinding{}
+	}
+	out := make([]domain.APIKeyGroupBinding, 0, len(bindings))
+	for i := range bindings {
+		out = append(out, bindings[i].APIKeyGroupBinding)
+	}
+	return out
+}
+
+func apiKeyGroupBindingsFromDomain(bindings []domain.APIKeyGroupBinding, legacyGroupID *int64) []service.APIKeyGroupBinding {
+	if len(bindings) == 0 && legacyGroupID != nil && *legacyGroupID > 0 {
+		bindings = []domain.APIKeyGroupBinding{{GroupID: *legacyGroupID}}
+	}
+	out := make([]service.APIKeyGroupBinding, 0, len(bindings))
+	for i := range bindings {
+		if bindings[i].GroupID <= 0 {
+			continue
+		}
+		out = append(out, service.APIKeyGroupBinding{APIKeyGroupBinding: bindings[i]})
 	}
 	return out
 }

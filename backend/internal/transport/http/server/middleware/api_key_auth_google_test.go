@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	"github.com/Wei-Shaw/sub2api/internal/shared/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
@@ -71,6 +72,67 @@ func TestGoogleAPIKeyAuthMarksLookupBulkheadRejection(t *testing.T) {
 	require.Equal(t, http.StatusServiceUnavailable, w.Code)
 	require.True(t, rejected)
 	require.Equal(t, IngressRejectAPIKeyAuthOverloaded, reason)
+}
+
+func TestGoogleAPIKeyAuthInstallsRequestLocalOrderedGroupRouting(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	firstID := int64(71)
+	secondID := int64(72)
+	ceiling := 1.0
+	first := &service.Group{
+		ID: firstID, Name: "first", Platform: service.PlatformGemini,
+		Status: service.StatusActive, SubscriptionType: service.SubscriptionTypeStandard,
+		RateMultiplier: 2, Hydrated: true,
+	}
+	second := &service.Group{
+		ID: secondID, Name: "second", Platform: service.PlatformGemini,
+		Status: service.StatusActive, SubscriptionType: service.SubscriptionTypeStandard,
+		RateMultiplier: 0.5, Hydrated: true,
+	}
+	cached := &service.APIKey{
+		ID: 1, UserID: 9, Key: "gemini-routing", GroupID: &firstID, Group: first,
+		Status: service.StatusActive,
+		User:   &service.User{ID: 9, Status: service.StatusActive},
+		GroupBindings: []service.APIKeyGroupBinding{
+			{
+				APIKeyGroupBinding:      domain.APIKeyGroupBinding{GroupID: firstID, MaxRateMultiplier: &ceiling},
+				Group:                   first,
+				EffectiveRateMultiplier: 2,
+			},
+			{
+				APIKeyGroupBinding:      domain.APIKeyGroupBinding{GroupID: secondID},
+				Group:                   second,
+				EffectiveRateMultiplier: 0.5,
+			},
+		},
+	}
+	repo := fakeAPIKeyRepo{getByKey: func(context.Context, string) (*service.APIKey, error) {
+		return cached, nil
+	}}
+	cfg := &config.Config{RunMode: config.RunModeSimple}
+	svc := service.NewAPIKeyService(repo, nil, nil, nil, nil, nil, cfg)
+	router := gin.New()
+	router.Use(APIKeyAuthGoogle(svc, cfg))
+	var selectedID int64
+	var routingInstalled bool
+	router.GET("/v1beta/models", func(c *gin.Context) {
+		apiKey, ok := GetAPIKeyFromContext(c)
+		require.True(t, ok)
+		selectedID = *apiKey.GroupID
+		routingInstalled = c.Request.Context().Value(ctxkey.APIKeyGroupRouting) != nil
+		c.Status(http.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/v1beta/models", nil)
+	req.Header.Set("x-goog-api-key", cached.Key)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, secondID, selectedID)
+	require.True(t, routingInstalled)
+	require.Equal(t, firstID, *cached.GroupID)
+	require.Same(t, first, cached.Group)
 }
 
 type fakeAPIKeyRepo struct {

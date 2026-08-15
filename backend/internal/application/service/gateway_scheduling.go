@@ -33,6 +33,35 @@ func (s *GatewayService) SelectAccountForModel(ctx context.Context, groupID *int
 
 // SelectAccountForModelWithExclusions selects an account supporting the requested model while excluding specified accounts.
 func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*Account, error) {
+	candidates, routed := apiKeyGroupRoutingCandidates(ctx, groupID)
+	if !routed {
+		return s.selectAccountForModelWithExclusionsInGroup(ctx, groupID, sessionHash, requestedModel, excludedIDs)
+	}
+	var lastErr error = ErrNoAvailableAccounts
+	for i := range candidates {
+		candidateID := candidates[i].GroupID
+		account, err := s.selectAccountForModelWithExclusionsInGroup(
+			withAPIKeyGroupRoutingAttempt(ctx, candidates[i]),
+			&candidateID,
+			sessionHash,
+			requestedModel,
+			excludedIDs,
+		)
+		if err == nil && account != nil {
+			markAPIKeyGroupRoutingSelected(ctx, candidateID)
+			return account, nil
+		}
+		if err != nil {
+			lastErr = err
+			if !errors.Is(err, ErrNoAvailableAccounts) && !errors.Is(err, ErrClaudeCodeOnly) {
+				return nil, err
+			}
+		}
+	}
+	return nil, lastErr
+}
+
+func (s *GatewayService) selectAccountForModelWithExclusionsInGroup(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*Account, error) {
 	localExcluded := excludedIDs
 	localExcludedOwned := false
 	ctx = withSchedulerCandidateExclusions(ctx, excludedIDs)
@@ -133,6 +162,37 @@ func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context
 // metadataUserID: 用于客户端亲和调度，从中提取客户端 ID
 // sub2apiUserID: 系统用户 ID，用于二维亲和调度
 func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, metadataUserID string, sub2apiUserID int64) (*AccountSelectionResult, error) {
+	candidates, routed := apiKeyGroupRoutingCandidates(ctx, groupID)
+	if !routed {
+		return s.selectAccountWithLoadAwarenessInGroup(ctx, groupID, sessionHash, requestedModel, excludedIDs, metadataUserID, sub2apiUserID)
+	}
+	var lastErr error = ErrNoAvailableAccounts
+	for i := range candidates {
+		candidateID := candidates[i].GroupID
+		selection, err := s.selectAccountWithLoadAwarenessInGroup(
+			withAPIKeyGroupRoutingAttempt(ctx, candidates[i]),
+			&candidateID,
+			sessionHash,
+			requestedModel,
+			excludedIDs,
+			metadataUserID,
+			sub2apiUserID,
+		)
+		if err == nil && selection != nil && selection.Account != nil {
+			markAPIKeyGroupRoutingSelected(ctx, candidateID)
+			return selection, nil
+		}
+		if err != nil {
+			lastErr = err
+			if !errors.Is(err, ErrNoAvailableAccounts) && !errors.Is(err, ErrClaudeCodeOnly) {
+				return nil, err
+			}
+		}
+	}
+	return nil, lastErr
+}
+
+func (s *GatewayService) selectAccountWithLoadAwarenessInGroup(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, metadataUserID string, sub2apiUserID int64) (*AccountSelectionResult, error) {
 	ctx = withSchedulerCandidateExclusions(ctx, excludedIDs)
 	// 调试日志：记录调度入口参数
 	excludedIDsList := make([]int64, 0, len(excludedIDs))
@@ -893,6 +953,9 @@ func (s *GatewayService) withGroupContext(ctx context.Context, group *Group) con
 }
 
 func (s *GatewayService) groupFromContext(ctx context.Context, groupID int64) *Group {
+	if group := selectedAPIKeyRoutingGroup(ctx, groupID); IsGroupContextValid(group) {
+		return group
+	}
 	if group, ok := ctx.Value(ctxkey.Group).(*Group); ok && IsGroupContextValid(group) && group.ID == groupID {
 		return group
 	}

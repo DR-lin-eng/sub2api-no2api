@@ -3,6 +3,7 @@ package service
 import (
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/shared/ip"
 )
 
@@ -28,14 +29,17 @@ func IsWindowExpired(windowStart *time.Time, duration time.Duration) bool {
 }
 
 type APIKey struct {
-	ID          int64
-	UserID      int64
-	Key         string
-	Name        string
-	GroupID     *int64
-	Status      string
-	IPWhitelist []string
-	IPBlacklist []string
+	ID      int64
+	UserID  int64
+	Key     string
+	Name    string
+	GroupID *int64
+	// GroupBindings is ordered. GroupID always mirrors its first item for
+	// compatibility with older instances and clients.
+	GroupBindings []APIKeyGroupBinding
+	Status        string
+	IPWhitelist   []string
+	IPBlacklist   []string
 	// 预编译的 IP 规则，用于认证热路径避免重复 ParseIP/ParseCIDR。
 	CompiledIPWhitelist *ip.CompiledIPRules `json:"-"`
 	CompiledIPBlacklist *ip.CompiledIPRules `json:"-"`
@@ -63,6 +67,37 @@ type APIKey struct {
 	Window5hStart *time.Time // Start of current 5h window
 	Window1dStart *time.Time // Start of current 1d window
 	Window7dStart *time.Time // Start of current 7d window
+}
+
+// APIKeyGroupBinding is the runtime form of the persisted binding. Group and
+// EffectiveRateMultiplier are hydrated into the authentication snapshot so the
+// scheduling hot path does not query the database for every candidate.
+type APIKeyGroupBinding struct {
+	domain.APIKeyGroupBinding
+	Group                   *Group  `json:"-"`
+	EffectiveRateMultiplier float64 `json:"effective_rate_multiplier"`
+}
+
+func (k *APIKey) CloneForRequest() *APIKey {
+	if k == nil {
+		return nil
+	}
+	clone := *k
+	if k.GroupID != nil {
+		groupID := *k.GroupID
+		clone.GroupID = &groupID
+	}
+	if len(k.GroupBindings) > 0 {
+		clone.GroupBindings = make([]APIKeyGroupBinding, len(k.GroupBindings))
+		copy(clone.GroupBindings, k.GroupBindings)
+		for i := range clone.GroupBindings {
+			if k.GroupBindings[i].MaxRateMultiplier != nil {
+				ceiling := *k.GroupBindings[i].MaxRateMultiplier
+				clone.GroupBindings[i].MaxRateMultiplier = &ceiling
+			}
+		}
+	}
+	return &clone
 }
 
 func (k *APIKey) IsActive() bool {

@@ -10,6 +10,7 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -307,6 +308,44 @@ func (s *APIKeyRepoSuite) TestCountByGroupID() {
 	count, err := s.repo.CountByGroupID(s.ctx, group.ID)
 	s.Require().NoError(err, "CountByGroupID")
 	s.Require().Equal(int64(1), count)
+}
+
+func (s *APIKeyRepoSuite) TestOrderedGroupBindingsIncludeSecondaryAndPromoteOnRemoval() {
+	user := s.mustCreateUser("group-bindings@test.com")
+	first := s.mustCreateGroup("g-bindings-first")
+	second := s.mustCreateGroup("g-bindings-second")
+	ceiling := 0.8
+	key := &service.APIKey{
+		UserID:  user.ID,
+		Key:     "sk-group-bindings",
+		Name:    "Bindings",
+		GroupID: &first.ID,
+		GroupBindings: []service.APIKeyGroupBinding{
+			{APIKeyGroupBinding: domain.APIKeyGroupBinding{GroupID: first.ID}},
+			{APIKeyGroupBinding: domain.APIKeyGroupBinding{GroupID: second.ID, MaxRateMultiplier: &ceiling}},
+		},
+		Status: service.StatusActive,
+	}
+	s.Require().NoError(s.repo.Create(s.ctx, key))
+
+	count, err := s.repo.CountByGroupID(s.ctx, second.ID)
+	s.Require().NoError(err)
+	s.Require().Equal(int64(1), count)
+	keys, err := s.repo.ListKeysByGroupID(s.ctx, second.ID)
+	s.Require().NoError(err)
+	s.Require().Equal([]string{key.Key}, keys)
+
+	affected, err := s.repo.ClearGroupIDByGroupID(s.ctx, first.ID)
+	s.Require().NoError(err)
+	s.Require().Equal(int64(1), affected)
+
+	got, err := s.repo.GetByID(s.ctx, key.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got.GroupID)
+	s.Require().Equal(second.ID, *got.GroupID)
+	s.Require().Len(got.GroupBindings, 1)
+	s.Require().Equal(second.ID, got.GroupBindings[0].GroupID)
+	s.Require().Equal(ceiling, *got.GroupBindings[0].MaxRateMultiplier)
 }
 
 // --- ExistsByKey ---
