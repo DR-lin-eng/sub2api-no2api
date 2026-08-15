@@ -19,7 +19,8 @@ func TestNormalizeImageReencodesAndStripsTrailingPayload(t *testing.T) {
 	input.Set(0, 0, color.RGBA{R: 255, A: 255})
 	var encoded bytes.Buffer
 	require.NoError(t, png.Encode(&encoded, input))
-	encoded.WriteString("<script>alert(1)</script>")
+	_, err := encoded.WriteString("<script>alert(1)</script>")
+	require.NoError(t, err)
 
 	got, mimeType, name, ok := normalizeImage(encoded.Bytes())
 	require.True(t, ok)
