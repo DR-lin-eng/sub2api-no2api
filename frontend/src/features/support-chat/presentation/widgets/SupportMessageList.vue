@@ -157,6 +157,15 @@ function formatTime(value: string): string {
 function messageBubbleClass(message: ChatMessage & { parsed: ReturnType<typeof parseSupportMessageContent> }): string {
   const isOwn = message.sender_type === props.ownSender
   const stickerOnly = message.parsed.sticker && !message.parsed.html
+
+  // 检测充值消息（以 ✅ 充值成功 或 ✅ Recharge successful 开头）
+  const isRechargeMessage = message.parsed.html?.includes('✅') &&
+    (message.parsed.html.includes('充值成功') || message.parsed.html.includes('Recharge successful'))
+
+  if (isRechargeMessage) {
+    return 'border-2 border-green-400 bg-green-50 px-4 py-3 text-green-900 dark:border-green-600 dark:bg-green-900/20 dark:text-green-100'
+  }
+
   if (stickerOnly) {
     return isOwn
       ? 'border border-primary-200 bg-primary-50 px-3 py-2 text-primary-900 dark:border-primary-700 dark:bg-primary-900/20 dark:text-primary-50'

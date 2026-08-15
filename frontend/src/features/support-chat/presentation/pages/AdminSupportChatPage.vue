@@ -97,6 +97,7 @@
           :image-library="imageLibrary"
           :stickers="stickers"
           :replying-to="replyingTo"
+          :conversation="selectedConversation"
           show-assistant-tools
           @submit="handleSend"
           @submit-rich="handleRichSend"

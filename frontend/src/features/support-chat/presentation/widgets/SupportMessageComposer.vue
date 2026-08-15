@@ -35,17 +35,67 @@
         class="mb-3 rounded-2xl border border-gray-200 bg-gray-50 p-3 dark:border-dark-700 dark:bg-dark-950/60"
         @click="closeQuickReplyMenu"
       >
-        <div v-if="activePanel === 'tools'" class="flex gap-2 overflow-x-auto pb-1">
-          <button
-            v-for="tool in toolActions"
-            :key="tool.id"
-            type="button"
-            class="inline-flex shrink-0 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 dark:border-dark-700 dark:bg-dark-800 dark:text-dark-200 dark:hover:border-primary-700 dark:hover:bg-primary-900/20 dark:hover:text-primary-200"
-            @click="insertSnippet(tool.template)"
-          >
-            <span class="text-base">{{ tool.icon }}</span>
-            <span>{{ tool.label }}</span>
-          </button>
+        <div v-if="activePanel === 'tools'" class="space-y-3">
+          <!-- 功能网格 -->
+          <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <button
+              type="button"
+              class="flex flex-col items-center gap-2 rounded-xl border border-gray-200 bg-white p-4 transition-all hover:border-primary-300 hover:bg-primary-50 dark:border-dark-700 dark:bg-dark-800 dark:hover:border-primary-600 dark:hover:bg-dark-700"
+              @click="activeToolPanel = 'recharge'"
+            >
+              <span class="text-3xl">💰</span>
+              <span class="text-sm font-medium text-gray-900 dark:text-white">{{ t('supportChat.composer.toolTransferBalance') }}</span>
+            </button>
+            <!-- 未来可以添加更多功能按钮 -->
+          </div>
+
+          <!-- 充值详情面板 -->
+          <div v-if="activeToolPanel === 'recharge'" class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-800">
+            <div class="mb-3 flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <span class="text-2xl">💰</span>
+                <div>
+                  <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('supportChat.composer.toolTransferBalance') }}</h3>
+                  <p class="mt-0.5 text-xs text-gray-500 dark:text-dark-400">{{ t('supportChat.composer.toolTransferBalanceHint') }}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                class="text-gray-400 transition-colors hover:text-gray-600 dark:text-dark-500 dark:hover:text-dark-300"
+                @click="activeToolPanel = null"
+              >
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div class="space-y-2">
+              <input
+                v-model.number="transferAmount"
+                type="number"
+                :placeholder="t('supportChat.composer.transferAmountPlaceholder')"
+                class="input input-sm w-full"
+                :disabled="transferring"
+                step="0.01"
+                min="0"
+              />
+              <input
+                v-model="transferNotes"
+                type="text"
+                :placeholder="t('supportChat.composer.transferNotesPlaceholder')"
+                class="input input-sm w-full"
+                :disabled="transferring"
+              />
+              <button
+                type="button"
+                class="btn btn-primary btn-sm w-full"
+                :disabled="transferring || !transferAmount || transferAmount <= 0"
+                @click="handleTransferBalance"
+              >
+                {{ transferring ? t('supportChat.composer.transferring') : t('supportChat.composer.executeTransfer') }}
+              </button>
+            </div>
+          </div>
         </div>
 
         <div v-else-if="activePanel === 'imageLibrary'" class="space-y-3">
@@ -451,13 +501,6 @@ import { sanitizeChatHtml } from '@/features/support-chat/presentation/utils/san
 import type { ChatMessage } from '@/features/support-chat/data/datasources/supportChatDatasource'
 import { useQuickReplies, type QuickReply } from '@/features/support-chat/presentation/composables/useQuickReplies'
 
-interface ToolAction {
-  id: string
-  label: string
-  icon: string
-  template: string
-}
-
 interface ImageLibraryItem {
   id: string
   name: string
@@ -500,6 +543,7 @@ const props = withDefaults(defineProps<{
   imageLibrary?: ImageLibraryItem[]
   stickers?: StickerItem[]
   replyingTo?: ChatMessage | null // 正在回复的消息
+  conversation?: any | null // 当前会话对象，用于获取用户信息
 }>(), {
   sending: false,
   disabled: false,
@@ -542,6 +586,10 @@ const oneClickReplyStorageKey = 'support_chat_one_click_reply_v1'
 let longPressTimer: ReturnType<typeof setTimeout> | null = null
 let suppressedReplyId: string | number | null = null
 const isDragging = ref(false)
+const transferring = ref(false)
+const transferAmount = ref<number | null>(null)
+const transferNotes = ref('')
+const activeToolPanel = ref<string | null>(null)
 let loadingDraft = false
 
 // 使用快捷回复 composable（仅管理员端）
@@ -593,12 +641,6 @@ const TrashIcon = {
     h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.684.107 1.026.163m-1.026-.163L18.16 19.673a2.25 2.25 0 01-2.245 2.077H8.085a2.25 2.25 0 01-2.245-2.077L4.772 5.79m14.5 0a48.108 48.108 0 00-3.478-.397m-10.85.563c.34-.053.683-.11 1.026-.166m0 0a48.11 48.11 0 013.478-.397m7.372 0v-.526A2.25 2.25 0 0012 2.25h-3.75A2.25 2.25 0 006 4.5v.526m7.372 0a48.11 48.11 0 00-7.372 0' }),
   ]),
 }
-
-const toolActions = computed<ToolAction[]>(() => [
-  { id: 'order-info', label: t('supportChat.composer.toolOrderInfo'), icon: '🧾', template: t('supportChat.composer.toolOrderInfoTemplate') },
-  { id: 'api-key', label: t('supportChat.composer.toolApiKey'), icon: '🔑', template: t('supportChat.composer.toolApiKeyTemplate') },
-  { id: 'usage-check', label: t('supportChat.composer.toolUsageCheck'), icon: '📊', template: t('supportChat.composer.toolUsageCheckTemplate') },
-])
 
 const builtinReplies = computed<QuickReply[]>(() => [
   { id: 'hello', title: t('supportChat.composer.replyHello'), content: t('supportChat.composer.replyHelloContent') },
@@ -762,17 +804,15 @@ function togglePanel(panel: 'tools' | 'replies' | 'imageLibrary' | 'stickers') {
     showReplyEditor.value = false
     editingReplyId.value = null
   }
+  // 切换面板时重置工具子面板
+  if (activePanel.value !== 'tools') {
+    activeToolPanel.value = null
+  }
 }
 
 function toggleOneClickReply() {
   if (!props.showAssistantTools) return
   oneClickReplyEnabled.value = !oneClickReplyEnabled.value
-}
-
-function insertSnippet(content: string) {
-  const snippet = content.trim()
-  if (!snippet) return
-  draft.value = draft.value.trim() ? `${draft.value.trim()}\n${snippet}` : snippet
 }
 
 function replaceDraft(content: string) {
@@ -1153,6 +1193,45 @@ function submit() {
     return
   }
   emit('submit', content)
+}
+
+async function handleTransferBalance() {
+  if (transferring.value || !transferAmount.value || transferAmount.value <= 0) return
+
+  transferring.value = true
+  try {
+    const { updateBalance } = await import('@/features/admin-users/data/datasources/adminUsersDatasource')
+    const userId = props.conversation.user_id
+
+    if (!userId) {
+      throw new Error('User ID not found')
+    }
+
+    const result = await updateBalance(
+      userId,
+      transferAmount.value,
+      'add',
+      transferNotes.value || undefined
+    )
+
+    // 转账成功后发送一条消息通知
+    const message = t('supportChat.composer.transferSuccess', {
+      amount: transferAmount.value,
+      newBalance: result.balance
+    })
+    emit('submit', message)
+
+    // 重置表单并关闭面板
+    transferAmount.value = null
+    transferNotes.value = ''
+    activePanel.value = null
+  } catch (error: any) {
+    const { useAppStore } = await import('@/core/stores/appStore')
+    const appStore = useAppStore()
+    appStore.showError(error?.message || t('supportChat.composer.transferFailed'))
+  } finally {
+    transferring.value = false
+  }
 }
 
 function handleOutsideQuickReplyMenuClick() {
