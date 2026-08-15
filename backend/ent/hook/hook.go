@@ -201,6 +201,18 @@ func (f ChatMessageFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value,
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ChatMessageMutation", m)
 }
 
+// The ChatQuickReplyFunc type is an adapter to allow the use of ordinary
+// function as ChatQuickReply mutator.
+type ChatQuickReplyFunc func(context.Context, *ent.ChatQuickReplyMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ChatQuickReplyFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ChatQuickReplyMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ChatQuickReplyMutation", m)
+}
+
 // The CompositeModelRouteFunc type is an adapter to allow the use of ordinary
 // function as CompositeModelRoute mutator.
 type CompositeModelRouteFunc func(context.Context, *ent.CompositeModelRouteMutation) (ent.Value, error)

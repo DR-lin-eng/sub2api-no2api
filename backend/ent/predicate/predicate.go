@@ -54,6 +54,9 @@ type ChatConversation func(*sql.Selector)
 // ChatMessage is the predicate function for chatmessage builders.
 type ChatMessage func(*sql.Selector)
 
+// ChatQuickReply is the predicate function for chatquickreply builders.
+type ChatQuickReply func(*sql.Selector)
+
 // CompositeModelRoute is the predicate function for compositemodelroute builders.
 type CompositeModelRoute func(*sql.Selector)
 

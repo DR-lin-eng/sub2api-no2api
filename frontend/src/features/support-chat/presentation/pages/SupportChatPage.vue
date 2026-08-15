@@ -42,6 +42,7 @@
       <SupportMessageComposer
         :sending="sending"
         :disabled="loading"
+        system-emoji-only
         draft-key="user:support"
         :clear-nonce="composerClearNonce"
         :replying-to="replyingTo"

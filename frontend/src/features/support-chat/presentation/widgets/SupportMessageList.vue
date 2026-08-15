@@ -3,6 +3,7 @@
     <div
       v-for="(message, index) in renderedMessages"
       :key="message.id"
+      :data-message-id="message.id"
       class="flex"
       :class="message.sender_type === ownSender ? 'justify-end' : 'justify-start'"
     >
@@ -23,10 +24,11 @@
         <!-- 引用消息预览 -->
         <div
           v-if="message.parsed.replyToId && findMessageById(message.parsed.replyToId)"
-          class="mb-2 rounded-lg border-l-4 bg-gray-50 px-3 py-2 text-xs dark:bg-dark-800"
+          class="mb-2 cursor-pointer rounded-lg border-l-4 bg-gray-50 px-3 py-2 text-xs transition-colors hover:bg-gray-100 dark:bg-dark-800 dark:hover:bg-dark-700"
           :class="message.sender_type === ownSender
             ? 'border-primary-400 dark:border-primary-500'
             : 'border-gray-400 dark:border-gray-600'"
+          @click="scrollToMessage(message.parsed.replyToId!)"
         >
           <div class="flex items-center gap-1.5 text-gray-500 dark:text-dark-400">
             <svg class="h-3 w-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -190,6 +192,26 @@ function getMessagePreviewText(message: ChatMessage): string {
   return text.length > 50 ? text.substring(0, 50) + '...' : text
 }
 
+function scrollToMessage(messageId: number) {
+  const element = document.querySelector(`[data-message-id="${messageId}"]`)
+  if (!element) return
+
+  // 滚动到消息
+  element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+  // 添加高亮动画
+  const bubble = element.querySelector('.rounded-2xl') as HTMLElement
+  if (!bubble) return
+
+  // 添加高亮类
+  bubble.classList.add('message-highlight')
+
+  // 2 秒后移除高亮
+  setTimeout(() => {
+    bubble.classList.remove('message-highlight')
+  }, 2000)
+}
+
 function handleImageClick(event: Event) {
   const target = event.target as HTMLElement
   if (target.tagName === 'IMG' && target.closest('.support-chat-message-content')) {
@@ -333,6 +355,42 @@ onUnmounted(() => {
 .image-preview-enter-active img,
 .image-preview-leave-active img {
   transition: transform 0.2s ease;
+}
+
+/* 消息高亮动画 */
+.message-highlight {
+  position: relative;
+  animation: highlight-fade 2s ease;
+}
+
+.message-highlight::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgb(59 130 246 / 0.2);
+  animation: highlight-expand 0.6s ease;
+  pointer-events: none;
+}
+
+@keyframes highlight-expand {
+  0% {
+    transform: scaleX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+@keyframes highlight-fade {
+  0%, 30% {
+    background-color: rgb(59 130 246 / 0.15);
+  }
+  100% {
+    background-color: transparent;
+  }
 }
 
 .image-preview-enter-from img,

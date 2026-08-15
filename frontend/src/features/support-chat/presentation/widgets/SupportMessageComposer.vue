@@ -96,7 +96,7 @@
         </div>
 
         <div v-else-if="activePanel === 'stickers'" class="space-y-3">
-          <div class="border-b border-gray-200 dark:border-dark-700">
+          <div v-if="!props.systemEmojiOnly" class="border-b border-gray-200 dark:border-dark-700">
             <div class="flex gap-1">
               <button
                 type="button"
@@ -117,7 +117,7 @@
             </div>
           </div>
 
-          <div v-if="stickerTab === 'emoji'">
+          <div v-if="props.systemEmojiOnly || stickerTab === 'emoji'">
             <div class="grid max-h-64 grid-cols-6 gap-2 overflow-y-auto sm:grid-cols-8 lg:grid-cols-10">
               <button
                 v-for="emoji in builtinStickers"
@@ -301,7 +301,7 @@
             <span>{{ t('supportChat.composer.quickReplies') }}</span>
           </button>
           <button
-            v-if="showAssistantTools"
+            v-if="showAssistantTools || systemEmojiOnly"
             type="button"
             class="composer-tool-button"
             :class="activePanel === 'stickers' ? 'composer-tool-button-active' : ''"
@@ -449,13 +449,7 @@ import { computed, h, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { sanitizeChatHtml } from '@/features/support-chat/presentation/utils/sanitizeChatHtml'
 import type { ChatMessage } from '@/features/support-chat/data/datasources/supportChatDatasource'
-
-interface QuickReply {
-  id: string
-  title: string
-  content: string
-  custom?: boolean
-}
+import { useQuickReplies, type QuickReply } from '@/features/support-chat/presentation/composables/useQuickReplies'
 
 interface ToolAction {
   id: string
@@ -500,6 +494,7 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
   maxLength?: number
   showAssistantTools?: boolean
+  systemEmojiOnly?: boolean // 是否只显示系统表情（隐藏自定义表情包）
   draftKey?: string
   clearNonce?: number
   imageLibrary?: ImageLibraryItem[]
@@ -538,18 +533,20 @@ const activePanel = ref<'tools' | 'replies' | 'imageLibrary' | 'stickers' | null
 const stickerTab = ref<'emoji' | 'custom'>('emoji')
 const oneClickReplyEnabled = ref(false)
 const showReplyEditor = ref(false)
-const editingReplyId = ref<string | null>(null)
+const editingReplyId = ref<string | number | null>(null)
 const customReplyTitle = ref('')
 const customReplyContent = ref('')
-const customReplies = ref<QuickReply[]>([])
-const openReplyMenuId = ref<string | null>(null)
+const openReplyMenuId = ref<string | number | null>(null)
 const quickReplyMenuStyle = ref<Record<string, string>>({})
-const customReplyStorageKey = 'support_chat_custom_replies_v1'
 const oneClickReplyStorageKey = 'support_chat_one_click_reply_v1'
 let longPressTimer: ReturnType<typeof setTimeout> | null = null
-let suppressedReplyId: string | null = null
+let suppressedReplyId: string | number | null = null
 const isDragging = ref(false)
 let loadingDraft = false
+
+// 使用快捷回复 composable（仅管理员端）
+const quickRepliesComposable = props.showAssistantTools ? useQuickReplies() : null
+const customReplies = computed(() => quickRepliesComposable?.quickReplies.value ?? [])
 
 const PlusIcon = {
   render: () => h('svg', { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.8' }, [
@@ -757,7 +754,8 @@ function sanitizeHtml(content: string): string {
 }
 
 function togglePanel(panel: 'tools' | 'replies' | 'imageLibrary' | 'stickers') {
-  if (!props.showAssistantTools) return
+  // 表情包面板在 systemEmojiOnly 模式下也可用
+  if (!props.showAssistantTools && !(props.systemEmojiOnly && panel === 'stickers')) return
   activePanel.value = activePanel.value === panel ? null : panel
   closeQuickReplyMenu()
   if (activePanel.value !== 'replies') {
@@ -801,44 +799,22 @@ function addImageFiles(files: File[]) {
   // 如果有 sticker，先清除
   pendingSticker.value = null
 
-  // 添加新图片并模拟上传进度
+  // 添加新图片（不设置 uploadProgress，等发送时才显示上传进度）
   for (const file of imageFiles) {
     const newImage: PendingImage = {
       type: 'imageFile',
       file,
       previewUrl: URL.createObjectURL(file),
       name: file.name || t('supportChat.composer.imageAlt'),
-      uploadProgress: 0,
+      // uploadProgress 保持 undefined，不显示进度条
     }
     pendingImages.value.push(newImage)
-
-    // 模拟上传进度
-    simulateUploadProgress(newImage)
   }
 
   activePanel.value = null
   requestAnimationFrame(() => {
     textareaRef.value?.focus()
   })
-}
-
-function simulateUploadProgress(image: PendingImage) {
-  // 模拟上传：0.5-2秒内完成
-  const duration = 500 + Math.random() * 1500
-  const startTime = Date.now()
-
-  const updateProgress = () => {
-    const elapsed = Date.now() - startTime
-    const progress = Math.min((elapsed / duration) * 100, 100)
-
-    image.uploadProgress = progress
-
-    if (progress < 100) {
-      requestAnimationFrame(updateProgress)
-    }
-  }
-
-  requestAnimationFrame(updateProgress)
 }
 
 function handleImageInputChange(event: Event) {
@@ -994,7 +970,7 @@ function handleQuickReply(reply: QuickReply) {
   replaceDraft(reply.content)
 }
 
-function openQuickReplyMenu(id: string, event?: MouseEvent | PointerEvent | KeyboardEvent) {
+function openQuickReplyMenu(id: string | number, event?: MouseEvent | PointerEvent | KeyboardEvent) {
   cancelLongPress()
   quickReplyMenuStyle.value = getQuickReplyMenuStyle(event)
   openReplyMenuId.value = id
@@ -1077,39 +1053,46 @@ function cancelReplyEdit() {
   customReplyContent.value = ''
 }
 
-function saveCustomReply() {
-  if (!canSaveCustomReply.value) return
-  const nextReply = { id: editingReplyId.value || `custom-${Date.now()}`, title: customReplyTitle.value.trim(), content: customReplyContent.value.trim(), custom: true }
-  const existingIndex = customReplies.value.findIndex((reply) => reply.id === nextReply.id)
-  if (existingIndex >= 0) customReplies.value.splice(existingIndex, 1, nextReply)
-  else customReplies.value.push(nextReply)
-  cancelReplyEdit()
-}
+async function saveCustomReply() {
+  if (!canSaveCustomReply.value || !quickRepliesComposable) return
+  const title = customReplyTitle.value.trim()
+  const content = customReplyContent.value.trim()
 
-function deleteCustomReply(id: string) {
-  closeQuickReplyMenu()
-  customReplies.value = customReplies.value.filter((reply) => reply.id !== id)
-  if (editingReplyId.value === id) cancelReplyEdit()
-}
-
-function loadCustomReplies() {
   try {
-    const raw = localStorage.getItem(customReplyStorageKey)
-    if (raw) {
-      const parsed = JSON.parse(raw) as QuickReply[]
-      if (Array.isArray(parsed)) {
-        customReplies.value = parsed.filter((item) => item && typeof item.title === 'string' && typeof item.content === 'string').slice(0, 20)
-      }
+    if (editingReplyId.value && typeof editingReplyId.value === 'number') {
+      // 更新现有快捷回复
+      await quickRepliesComposable.updateQuickReply(editingReplyId.value, title, content)
+    } else {
+      // 创建新快捷回复
+      await quickRepliesComposable.addQuickReply(title, content)
     }
-    const quickReplyMode = localStorage.getItem(oneClickReplyStorageKey)
-    if (quickReplyMode !== null) oneClickReplyEnabled.value = quickReplyMode === 'true'
-  } catch {
-    customReplies.value = []
+    cancelReplyEdit()
+  } catch (err) {
+    console.error('Failed to save quick reply:', err)
+    // 可以添加错误提示
   }
 }
 
-function persistCustomReplies() {
-  localStorage.setItem(customReplyStorageKey, JSON.stringify(customReplies.value))
+async function deleteCustomReply(id: string | number) {
+  if (!quickRepliesComposable || typeof id !== 'number') return
+  closeQuickReplyMenu()
+
+  try {
+    await quickRepliesComposable.removeQuickReply(id)
+    if (editingReplyId.value === id) cancelReplyEdit()
+  } catch (err) {
+    console.error('Failed to delete quick reply:', err)
+    // 可以添加错误提示
+  }
+}
+
+function loadOneClickReplyPreference() {
+  try {
+    const quickReplyMode = localStorage.getItem(oneClickReplyStorageKey)
+    if (quickReplyMode !== null) oneClickReplyEnabled.value = quickReplyMode === 'true'
+  } catch {
+    // ignore
+  }
 }
 
 function persistOneClickReply() {
@@ -1176,14 +1159,13 @@ function handleOutsideQuickReplyMenuClick() {
   closeQuickReplyMenu()
 }
 
-watch(customReplies, persistCustomReplies, { deep: true })
 watch(oneClickReplyEnabled, persistOneClickReply)
 watch(draft, persistDraft)
 watch(() => props.draftKey, loadDraft, { immediate: true })
 watch(() => props.clearNonce, clearCurrentDraft)
 
 onMounted(() => {
-  loadCustomReplies()
+  loadOneClickReplyPreference()
   document.addEventListener('click', handleOutsideQuickReplyMenuClick)
   window.addEventListener('resize', closeQuickReplyMenu)
   window.addEventListener('scroll', closeQuickReplyMenu, true)

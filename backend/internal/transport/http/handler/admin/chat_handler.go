@@ -225,6 +225,151 @@ func (h *ChatHandler) MarkRead(c *gin.Context) {
 	response.Success(c, gin.H{"message": "ok"})
 }
 
+// ListQuickReplies returns the logged-in admin's quick replies.
+// GET /api/v1/admin/chat/quick-replies
+func (h *ChatHandler) ListQuickReplies(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not found in context")
+		return
+	}
+
+	items, err := h.chatService.ListQuickReplies(c.Request.Context(), subject.UserID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, items)
+}
+
+type createQuickReplyRequest struct {
+	Title   string `json:"title" binding:"required,max=100"`
+	Content string `json:"content" binding:"required"`
+}
+
+// CreateQuickReply adds a new quick reply for the logged-in admin.
+// POST /api/v1/admin/chat/quick-replies
+func (h *ChatHandler) CreateQuickReply(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not found in context")
+		return
+	}
+
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxChatRequestBodyBytes)
+	var req createQuickReplyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			response.RequestEntityTooLarge(c, "Request body too large")
+			return
+		}
+		response.BadRequest(c, "Invalid request")
+		return
+	}
+
+	item, err := h.chatService.CreateQuickReply(c.Request.Context(), subject.UserID, req.Title, req.Content)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, item)
+}
+
+type updateQuickReplyRequest struct {
+	Title   string `json:"title" binding:"required,max=100"`
+	Content string `json:"content" binding:"required"`
+}
+
+// UpdateQuickReply updates an existing quick reply.
+// PUT /api/v1/admin/chat/quick-replies/:id
+func (h *ChatHandler) UpdateQuickReply(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not found in context")
+		return
+	}
+
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		response.BadRequest(c, "Invalid quick reply ID")
+		return
+	}
+
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxChatRequestBodyBytes)
+	var req updateQuickReplyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			response.RequestEntityTooLarge(c, "Request body too large")
+			return
+		}
+		response.BadRequest(c, "Invalid request")
+		return
+	}
+
+	item, err := h.chatService.UpdateQuickReply(c.Request.Context(), subject.UserID, id, req.Title, req.Content)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, item)
+}
+
+// DeleteQuickReply removes a quick reply.
+// DELETE /api/v1/admin/chat/quick-replies/:id
+func (h *ChatHandler) DeleteQuickReply(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not found in context")
+		return
+	}
+
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		response.BadRequest(c, "Invalid quick reply ID")
+		return
+	}
+
+	if err := h.chatService.DeleteQuickReply(c.Request.Context(), subject.UserID, id); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"message": "ok"})
+}
+
+type reorderQuickRepliesRequest struct {
+	IDs []int64 `json:"ids" binding:"required"`
+}
+
+// ReorderQuickReplies updates the sort order of quick replies.
+// POST /api/v1/admin/chat/quick-replies/reorder
+func (h *ChatHandler) ReorderQuickReplies(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not found in context")
+		return
+	}
+
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxChatRequestBodyBytes)
+	var req reorderQuickRepliesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			response.RequestEntityTooLarge(c, "Request body too large")
+			return
+		}
+		response.BadRequest(c, "Invalid request")
+		return
+	}
+
+	if err := h.chatService.ReorderQuickReplies(c.Request.Context(), subject.UserID, req.IDs); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"message": "ok"})
+}
+
 const (
 	chatAdminWSMaxConnsTotal  = 200
 	chatAdminWSMaxConnsPerIP  = 20

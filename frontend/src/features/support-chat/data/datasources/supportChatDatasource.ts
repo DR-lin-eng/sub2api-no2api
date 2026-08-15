@@ -338,3 +338,68 @@ export function buildChatWebSocket(scope: 'user' | 'admin'): WebSocket | null {
   const protocol = scope === 'admin' ? ADMIN_CHAT_WS_PROTOCOL : USER_CHAT_WS_PROTOCOL
   return new WebSocket(wsURL, [protocol, `jwt.${token}`])
 }
+
+// ============== 快捷回复 ==============
+
+export interface ChatQuickReply {
+  id: number
+  admin_id: number
+  title: string
+  content: string
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+interface RawChatQuickReply {
+  id?: number
+  ID?: number
+  admin_id?: number
+  AdminID?: number
+  title?: string
+  Title?: string
+  content?: string
+  Content?: string
+  sort_order?: number
+  SortOrder?: number
+  created_at?: string
+  CreatedAt?: string
+  updated_at?: string
+  UpdatedAt?: string
+}
+
+function normalizeChatQuickReply(raw: RawChatQuickReply): ChatQuickReply {
+  return {
+    id: numberValue(raw.id ?? raw.ID),
+    admin_id: numberValue(raw.admin_id ?? raw.AdminID),
+    title: stringValue(raw.title ?? raw.Title),
+    content: stringValue(raw.content ?? raw.Content),
+    sort_order: numberValue(raw.sort_order ?? raw.SortOrder),
+    created_at: stringValue(raw.created_at ?? raw.CreatedAt),
+    updated_at: stringValue(raw.updated_at ?? raw.UpdatedAt),
+  }
+}
+
+export async function listAdminChatQuickReplies(): Promise<ChatQuickReply[]> {
+  const { data } = await apiClient.get<RawChatQuickReply[]>('/admin/chat/quick-replies')
+  if (!Array.isArray(data)) return []
+  return data.map(normalizeChatQuickReply)
+}
+
+export async function createAdminChatQuickReply(params: { title: string; content: string }): Promise<ChatQuickReply> {
+  const { data } = await apiClient.post<RawChatQuickReply>('/admin/chat/quick-replies', params)
+  return normalizeChatQuickReply(data)
+}
+
+export async function updateAdminChatQuickReply(id: number, params: { title: string; content: string }): Promise<ChatQuickReply> {
+  const { data } = await apiClient.put<RawChatQuickReply>(`/admin/chat/quick-replies/${id}`, params)
+  return normalizeChatQuickReply(data)
+}
+
+export async function deleteAdminChatQuickReply(id: number): Promise<void> {
+  await apiClient.delete(`/admin/chat/quick-replies/${id}`)
+}
+
+export async function reorderAdminChatQuickReplies(ids: number[]): Promise<void> {
+  await apiClient.post('/admin/chat/quick-replies/reorder', { ids })
+}

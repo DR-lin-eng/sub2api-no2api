@@ -24,6 +24,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/chatconversation"
 	"github.com/Wei-Shaw/sub2api/ent/chatmessage"
+	"github.com/Wei-Shaw/sub2api/ent/chatquickreply"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
@@ -539,6 +540,33 @@ func (f TraverseChatMessage) Traverse(ctx context.Context, q ent.Query) error {
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.ChatMessageQuery", q)
+}
+
+// The ChatQuickReplyFunc type is an adapter to allow the use of ordinary function as a Querier.
+type ChatQuickReplyFunc func(context.Context, *ent.ChatQuickReplyQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f ChatQuickReplyFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.ChatQuickReplyQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.ChatQuickReplyQuery", q)
+}
+
+// The TraverseChatQuickReply type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseChatQuickReply func(context.Context, *ent.ChatQuickReplyQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseChatQuickReply) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseChatQuickReply) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.ChatQuickReplyQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.ChatQuickReplyQuery", q)
 }
 
 // The CompositeModelRouteFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -1278,6 +1306,8 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.ChatConversationQuery, predicate.ChatConversation, chatconversation.OrderOption]{typ: ent.TypeChatConversation, tq: q}, nil
 	case *ent.ChatMessageQuery:
 		return &query[*ent.ChatMessageQuery, predicate.ChatMessage, chatmessage.OrderOption]{typ: ent.TypeChatMessage, tq: q}, nil
+	case *ent.ChatQuickReplyQuery:
+		return &query[*ent.ChatQuickReplyQuery, predicate.ChatQuickReply, chatquickreply.OrderOption]{typ: ent.TypeChatQuickReply, tq: q}, nil
 	case *ent.CompositeModelRouteQuery:
 		return &query[*ent.CompositeModelRouteQuery, predicate.CompositeModelRoute, compositemodelroute.OrderOption]{typ: ent.TypeCompositeModelRoute, tq: q}, nil
 	case *ent.ErrorPassthroughRuleQuery:

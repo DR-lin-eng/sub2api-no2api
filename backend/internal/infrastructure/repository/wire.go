@@ -107,6 +107,7 @@ var ProviderSet = wire.NewSet(
 	NewUserPlatformQuotaServiceAdapter, // T14: adapter → service.UserPlatformQuotaRepository
 	NewChatConversationRepository,
 	NewChatMessageRepository,
+	NewChatQuickReplyRepository,
 
 	// Cache implementations
 	NewGatewayCache,

@@ -31,6 +31,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/chatconversation"
 	"github.com/Wei-Shaw/sub2api/ent/chatmessage"
+	"github.com/Wei-Shaw/sub2api/ent/chatquickreply"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
@@ -98,6 +99,8 @@ type Client struct {
 	ChatConversation *ChatConversationClient
 	// ChatMessage is the client for interacting with the ChatMessage builders.
 	ChatMessage *ChatMessageClient
+	// ChatQuickReply is the client for interacting with the ChatQuickReply builders.
+	ChatQuickReply *ChatQuickReplyClient
 	// CompositeModelRoute is the client for interacting with the CompositeModelRoute builders.
 	CompositeModelRoute *CompositeModelRouteClient
 	// ErrorPassthroughRule is the client for interacting with the ErrorPassthroughRule builders.
@@ -177,6 +180,7 @@ func (c *Client) init() {
 	c.ChannelMonitorRequestTemplate = NewChannelMonitorRequestTemplateClient(c.config)
 	c.ChatConversation = NewChatConversationClient(c.config)
 	c.ChatMessage = NewChatMessageClient(c.config)
+	c.ChatQuickReply = NewChatQuickReplyClient(c.config)
 	c.CompositeModelRoute = NewCompositeModelRouteClient(c.config)
 	c.ErrorPassthroughRule = NewErrorPassthroughRuleClient(c.config)
 	c.Group = NewGroupClient(c.config)
@@ -311,6 +315,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ChannelMonitorRequestTemplate: NewChannelMonitorRequestTemplateClient(cfg),
 		ChatConversation:              NewChatConversationClient(cfg),
 		ChatMessage:                   NewChatMessageClient(cfg),
+		ChatQuickReply:                NewChatQuickReplyClient(cfg),
 		CompositeModelRoute:           NewCompositeModelRouteClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
 		Group:                         NewGroupClient(cfg),
@@ -372,6 +377,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ChannelMonitorRequestTemplate: NewChannelMonitorRequestTemplateClient(cfg),
 		ChatConversation:              NewChatConversationClient(cfg),
 		ChatMessage:                   NewChatMessageClient(cfg),
+		ChatQuickReply:                NewChatQuickReplyClient(cfg),
 		CompositeModelRoute:           NewCompositeModelRouteClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
 		Group:                         NewGroupClient(cfg),
@@ -431,8 +437,8 @@ func (c *Client) Use(hooks ...Hook) {
 		c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent, c.BatchImageItem,
 		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
 		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate, c.ChatConversation,
-		c.ChatMessage, c.CompositeModelRoute, c.ErrorPassthroughRule, c.Group,
-		c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
+		c.ChatMessage, c.ChatQuickReply, c.CompositeModelRoute, c.ErrorPassthroughRule,
+		c.Group, c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
 		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
 		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.RedeemCodeUsage, c.SecuritySecret,
 		c.Setting, c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask,
@@ -451,8 +457,8 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent, c.BatchImageItem,
 		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
 		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate, c.ChatConversation,
-		c.ChatMessage, c.CompositeModelRoute, c.ErrorPassthroughRule, c.Group,
-		c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
+		c.ChatMessage, c.ChatQuickReply, c.CompositeModelRoute, c.ErrorPassthroughRule,
+		c.Group, c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
 		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
 		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.RedeemCodeUsage, c.SecuritySecret,
 		c.Setting, c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask,
@@ -498,6 +504,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ChatConversation.mutate(ctx, m)
 	case *ChatMessageMutation:
 		return c.ChatMessage.mutate(ctx, m)
+	case *ChatQuickReplyMutation:
+		return c.ChatQuickReply.mutate(ctx, m)
 	case *CompositeModelRouteMutation:
 		return c.CompositeModelRoute.mutate(ctx, m)
 	case *ErrorPassthroughRuleMutation:
@@ -3067,6 +3075,139 @@ func (c *ChatMessageClient) mutate(ctx context.Context, m *ChatMessageMutation) 
 		return (&ChatMessageDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown ChatMessage mutation op: %q", m.Op())
+	}
+}
+
+// ChatQuickReplyClient is a client for the ChatQuickReply schema.
+type ChatQuickReplyClient struct {
+	config
+}
+
+// NewChatQuickReplyClient returns a client for the ChatQuickReply from the given config.
+func NewChatQuickReplyClient(c config) *ChatQuickReplyClient {
+	return &ChatQuickReplyClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `chatquickreply.Hooks(f(g(h())))`.
+func (c *ChatQuickReplyClient) Use(hooks ...Hook) {
+	c.hooks.ChatQuickReply = append(c.hooks.ChatQuickReply, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `chatquickreply.Intercept(f(g(h())))`.
+func (c *ChatQuickReplyClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ChatQuickReply = append(c.inters.ChatQuickReply, interceptors...)
+}
+
+// Create returns a builder for creating a ChatQuickReply entity.
+func (c *ChatQuickReplyClient) Create() *ChatQuickReplyCreate {
+	mutation := newChatQuickReplyMutation(c.config, OpCreate)
+	return &ChatQuickReplyCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ChatQuickReply entities.
+func (c *ChatQuickReplyClient) CreateBulk(builders ...*ChatQuickReplyCreate) *ChatQuickReplyCreateBulk {
+	return &ChatQuickReplyCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ChatQuickReplyClient) MapCreateBulk(slice any, setFunc func(*ChatQuickReplyCreate, int)) *ChatQuickReplyCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ChatQuickReplyCreateBulk{err: fmt.Errorf("calling to ChatQuickReplyClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ChatQuickReplyCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ChatQuickReplyCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ChatQuickReply.
+func (c *ChatQuickReplyClient) Update() *ChatQuickReplyUpdate {
+	mutation := newChatQuickReplyMutation(c.config, OpUpdate)
+	return &ChatQuickReplyUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ChatQuickReplyClient) UpdateOne(_m *ChatQuickReply) *ChatQuickReplyUpdateOne {
+	mutation := newChatQuickReplyMutation(c.config, OpUpdateOne, withChatQuickReply(_m))
+	return &ChatQuickReplyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ChatQuickReplyClient) UpdateOneID(id int64) *ChatQuickReplyUpdateOne {
+	mutation := newChatQuickReplyMutation(c.config, OpUpdateOne, withChatQuickReplyID(id))
+	return &ChatQuickReplyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ChatQuickReply.
+func (c *ChatQuickReplyClient) Delete() *ChatQuickReplyDelete {
+	mutation := newChatQuickReplyMutation(c.config, OpDelete)
+	return &ChatQuickReplyDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ChatQuickReplyClient) DeleteOne(_m *ChatQuickReply) *ChatQuickReplyDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ChatQuickReplyClient) DeleteOneID(id int64) *ChatQuickReplyDeleteOne {
+	builder := c.Delete().Where(chatquickreply.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ChatQuickReplyDeleteOne{builder}
+}
+
+// Query returns a query builder for ChatQuickReply.
+func (c *ChatQuickReplyClient) Query() *ChatQuickReplyQuery {
+	return &ChatQuickReplyQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeChatQuickReply},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ChatQuickReply entity by its id.
+func (c *ChatQuickReplyClient) Get(ctx context.Context, id int64) (*ChatQuickReply, error) {
+	return c.Query().Where(chatquickreply.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ChatQuickReplyClient) GetX(ctx context.Context, id int64) *ChatQuickReply {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *ChatQuickReplyClient) Hooks() []Hook {
+	return c.hooks.ChatQuickReply
+}
+
+// Interceptors returns the client interceptors.
+func (c *ChatQuickReplyClient) Interceptors() []Interceptor {
+	return c.inters.ChatQuickReply
+}
+
+func (c *ChatQuickReplyClient) mutate(ctx context.Context, m *ChatQuickReplyMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ChatQuickReplyCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ChatQuickReplyUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ChatQuickReplyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ChatQuickReplyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ChatQuickReply mutation op: %q", m.Op())
 	}
 }
 
@@ -7379,7 +7520,7 @@ type (
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
-		ChannelMonitorRequestTemplate, ChatConversation, ChatMessage,
+		ChannelMonitorRequestTemplate, ChatConversation, ChatMessage, ChatQuickReply,
 		CompositeModelRoute, ErrorPassthroughRule, Group, IdempotencyRecord,
 		IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
 		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
@@ -7392,7 +7533,7 @@ type (
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
-		ChannelMonitorRequestTemplate, ChatConversation, ChatMessage,
+		ChannelMonitorRequestTemplate, ChatConversation, ChatMessage, ChatQuickReply,
 		CompositeModelRoute, ErrorPassthroughRule, Group, IdempotencyRecord,
 		IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
 		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,

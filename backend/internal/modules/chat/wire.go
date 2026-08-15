@@ -5,8 +5,8 @@ import "github.com/google/wire"
 // ProvideService constructs the Service and wires the Hub in as its
 // Broadcaster, mirroring the SetXxx post-construction pattern used elsewhere
 // in this codebase (e.g. handler.ProvideAdminSettingHandler).
-func ProvideService(conversationRepo ConversationRepository, messageRepo MessageRepository, hub *Hub) *Service {
-	svc := NewService(conversationRepo, messageRepo)
+func ProvideService(conversationRepo ConversationRepository, messageRepo MessageRepository, quickReplyRepo QuickReplyRepository, hub *Hub) *Service {
+	svc := NewService(conversationRepo, messageRepo, quickReplyRepo)
 	svc.SetBroadcaster(hub)
 	return svc
 }

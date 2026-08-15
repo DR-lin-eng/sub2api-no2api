@@ -142,6 +142,11 @@ func registerChatRoutes(admin *gin.RouterGroup, h *handler.Handlers, settingServ
 		chat.POST("/conversations/:id/messages", h.Admin.Chat.SendMessage)
 		chat.POST("/assets", h.Admin.Chat.UploadAsset)
 		chat.POST("/conversations/:id/read", h.Admin.Chat.MarkRead)
+		chat.GET("/quick-replies", h.Admin.Chat.ListQuickReplies)
+		chat.POST("/quick-replies", h.Admin.Chat.CreateQuickReply)
+		chat.PUT("/quick-replies/:id", h.Admin.Chat.UpdateQuickReply)
+		chat.DELETE("/quick-replies/:id", h.Admin.Chat.DeleteQuickReply)
+		chat.POST("/quick-replies/reorder", h.Admin.Chat.ReorderQuickReplies)
 		chat.GET("/ws", h.Admin.Chat.WS)
 	}
 }

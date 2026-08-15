@@ -21,6 +21,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/chatconversation"
 	"github.com/Wei-Shaw/sub2api/ent/chatmessage"
+	"github.com/Wei-Shaw/sub2api/ent/chatquickreply"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
@@ -904,6 +905,44 @@ func init() {
 	chatmessageDescCreatedAt := chatmessageFields[4].Descriptor()
 	// chatmessage.DefaultCreatedAt holds the default value on creation for the created_at field.
 	chatmessage.DefaultCreatedAt = chatmessageDescCreatedAt.Default.(func() time.Time)
+	chatquickreplyFields := schema.ChatQuickReply{}.Fields()
+	_ = chatquickreplyFields
+	// chatquickreplyDescTitle is the schema descriptor for title field.
+	chatquickreplyDescTitle := chatquickreplyFields[1].Descriptor()
+	// chatquickreply.TitleValidator is a validator for the "title" field. It is called by the builders before save.
+	chatquickreply.TitleValidator = func() func(string) error {
+		validators := chatquickreplyDescTitle.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(title string) error {
+			for _, fn := range fns {
+				if err := fn(title); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// chatquickreplyDescContent is the schema descriptor for content field.
+	chatquickreplyDescContent := chatquickreplyFields[2].Descriptor()
+	// chatquickreply.ContentValidator is a validator for the "content" field. It is called by the builders before save.
+	chatquickreply.ContentValidator = chatquickreplyDescContent.Validators[0].(func(string) error)
+	// chatquickreplyDescSortOrder is the schema descriptor for sort_order field.
+	chatquickreplyDescSortOrder := chatquickreplyFields[3].Descriptor()
+	// chatquickreply.DefaultSortOrder holds the default value on creation for the sort_order field.
+	chatquickreply.DefaultSortOrder = chatquickreplyDescSortOrder.Default.(int)
+	// chatquickreplyDescCreatedAt is the schema descriptor for created_at field.
+	chatquickreplyDescCreatedAt := chatquickreplyFields[4].Descriptor()
+	// chatquickreply.DefaultCreatedAt holds the default value on creation for the created_at field.
+	chatquickreply.DefaultCreatedAt = chatquickreplyDescCreatedAt.Default.(func() time.Time)
+	// chatquickreplyDescUpdatedAt is the schema descriptor for updated_at field.
+	chatquickreplyDescUpdatedAt := chatquickreplyFields[5].Descriptor()
+	// chatquickreply.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	chatquickreply.DefaultUpdatedAt = chatquickreplyDescUpdatedAt.Default.(func() time.Time)
+	// chatquickreply.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	chatquickreply.UpdateDefaultUpdatedAt = chatquickreplyDescUpdatedAt.UpdateDefault.(func() time.Time)
 	compositemodelrouteMixin := schema.CompositeModelRoute{}.Mixin()
 	compositemodelrouteMixinHooks1 := compositemodelrouteMixin[1].Hooks()
 	compositemodelroute.Hooks[0] = compositemodelrouteMixinHooks1[0]

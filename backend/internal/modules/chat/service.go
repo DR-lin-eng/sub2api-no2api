@@ -8,6 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
 )
 
@@ -29,13 +30,15 @@ func (noopBroadcaster) BroadcastReadState(int64, int64, SenderType, bool) {}
 type Service struct {
 	conversationRepo ConversationRepository
 	messageRepo      MessageRepository
+	quickReplyRepo   QuickReplyRepository
 	broadcaster      Broadcaster
 }
 
-func NewService(conversationRepo ConversationRepository, messageRepo MessageRepository) *Service {
+func NewService(conversationRepo ConversationRepository, messageRepo MessageRepository, quickReplyRepo QuickReplyRepository) *Service {
 	return &Service{
 		conversationRepo: conversationRepo,
 		messageRepo:      messageRepo,
+		quickReplyRepo:   quickReplyRepo,
 		broadcaster:      noopBroadcaster{},
 	}
 }
@@ -193,4 +196,72 @@ func (s *Service) MarkReadByAdmin(ctx context.Context, conversationID int64) err
 	// Broadcast to the specific user that admin has read their messages
 	s.broadcaster.BroadcastReadState(conversationID, conv.UserID, SenderTypeAdmin, false)
 	return nil
+}
+
+// ListQuickReplies returns all quick replies for the given admin, sorted by sort_order.
+func (s *Service) ListQuickReplies(ctx context.Context, adminID int64) ([]QuickReply, error) {
+	return s.quickReplyRepo.ListByAdminID(ctx, adminID)
+}
+
+// CreateQuickReply adds a new quick reply for the admin.
+func (s *Service) CreateQuickReply(ctx context.Context, adminID int64, title, content string) (*QuickReply, error) {
+	title = strings.TrimSpace(title)
+	content = strings.TrimSpace(content)
+
+	if title == "" {
+		return nil, infraerrors.BadRequest("QUICK_REPLY_TITLE_REQUIRED", "title is required")
+	}
+	if content == "" {
+		return nil, infraerrors.BadRequest("QUICK_REPLY_CONTENT_REQUIRED", "content is required")
+	}
+
+	qr := &QuickReply{
+		AdminID:   adminID,
+		Title:     title,
+		Content:   content,
+		SortOrder: 0,
+	}
+	if err := s.quickReplyRepo.Create(ctx, qr); err != nil {
+		return nil, fmt.Errorf("create quick reply: %w", err)
+	}
+	return qr, nil
+}
+
+// UpdateQuickReply updates an existing quick reply.
+func (s *Service) UpdateQuickReply(ctx context.Context, adminID, id int64, title, content string) (*QuickReply, error) {
+	title = strings.TrimSpace(title)
+	content = strings.TrimSpace(content)
+
+	if title == "" {
+		return nil, infraerrors.BadRequest("QUICK_REPLY_TITLE_REQUIRED", "title is required")
+	}
+	if content == "" {
+		return nil, infraerrors.BadRequest("QUICK_REPLY_CONTENT_REQUIRED", "content is required")
+	}
+
+	qr, err := s.quickReplyRepo.GetByID(ctx, adminID, id)
+	if err != nil {
+		return nil, err
+	}
+
+	qr.Title = title
+	qr.Content = content
+	if err := s.quickReplyRepo.Update(ctx, qr); err != nil {
+		return nil, fmt.Errorf("update quick reply: %w", err)
+	}
+	return qr, nil
+}
+
+// DeleteQuickReply removes a quick reply.
+func (s *Service) DeleteQuickReply(ctx context.Context, adminID, id int64) error {
+	return s.quickReplyRepo.Delete(ctx, adminID, id)
+}
+
+// ReorderQuickReplies updates the sort order of quick replies based on the given ID list.
+func (s *Service) ReorderQuickReplies(ctx context.Context, adminID int64, orderedIDs []int64) error {
+	idOrderMap := make(map[int64]int, len(orderedIDs))
+	for i, id := range orderedIDs {
+		idOrderMap[id] = i
+	}
+	return s.quickReplyRepo.UpdateSortOrders(ctx, adminID, idOrderMap)
 }

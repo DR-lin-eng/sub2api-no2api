@@ -94,3 +94,24 @@ type MessageRepository interface {
 	CreateAndTouch(ctx context.Context, m *Message, at time.Time, sender SenderType) error
 	List(ctx context.Context, conversationID int64, params pagination.PaginationParams) ([]Message, *pagination.PaginationResult, error)
 }
+
+// QuickReply is an admin's saved quick reply template.
+type QuickReply struct {
+	ID        int64
+	AdminID   int64
+	Title     string
+	Content   string
+	SortOrder int
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// QuickReplyRepository persists quick reply templates.
+type QuickReplyRepository interface {
+	ListByAdminID(ctx context.Context, adminID int64) ([]QuickReply, error)
+	Create(ctx context.Context, qr *QuickReply) error
+	Update(ctx context.Context, qr *QuickReply) error
+	Delete(ctx context.Context, adminID, id int64) error
+	GetByID(ctx context.Context, adminID, id int64) (*QuickReply, error)
+	UpdateSortOrders(ctx context.Context, adminID int64, idOrderMap map[int64]int) error
+}

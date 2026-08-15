@@ -911,6 +911,34 @@ var (
 			},
 		},
 	}
+	// ChatQuickRepliesColumns holds the columns for the "chat_quick_replies" table.
+	ChatQuickRepliesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "admin_id", Type: field.TypeInt64},
+		{Name: "title", Type: field.TypeString, Size: 100},
+		{Name: "content", Type: field.TypeString, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "sort_order", Type: field.TypeInt, Default: 0},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+	}
+	// ChatQuickRepliesTable holds the schema information for the "chat_quick_replies" table.
+	ChatQuickRepliesTable = &schema.Table{
+		Name:       "chat_quick_replies",
+		Columns:    ChatQuickRepliesColumns,
+		PrimaryKey: []*schema.Column{ChatQuickRepliesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "chatquickreply_admin_id",
+				Unique:  false,
+				Columns: []*schema.Column{ChatQuickRepliesColumns[1]},
+			},
+			{
+				Name:    "chatquickreply_admin_id_sort_order",
+				Unique:  false,
+				Columns: []*schema.Column{ChatQuickRepliesColumns[1], ChatQuickRepliesColumns[4]},
+			},
+		},
+	}
 	// CompositeModelRoutesColumns holds the columns for the "composite_model_routes" table.
 	CompositeModelRoutesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -2263,6 +2291,7 @@ var (
 		ChannelMonitorRequestTemplatesTable,
 		ChatConversationsTable,
 		ChatMessagesTable,
+		ChatQuickRepliesTable,
 		CompositeModelRoutesTable,
 		ErrorPassthroughRulesTable,
 		GroupsTable,
@@ -2355,6 +2384,9 @@ func init() {
 	ChatMessagesTable.ForeignKeys[0].RefTable = ChatConversationsTable
 	ChatMessagesTable.Annotation = &entsql.Annotation{
 		Table: "chat_messages",
+	}
+	ChatQuickRepliesTable.Annotation = &entsql.Annotation{
+		Table: "chat_quick_replies",
 	}
 	CompositeModelRoutesTable.ForeignKeys[0].RefTable = GroupsTable
 	CompositeModelRoutesTable.Annotation = &entsql.Annotation{

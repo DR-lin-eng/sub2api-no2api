@@ -9,6 +9,7 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/chatconversation"
 	"github.com/Wei-Shaw/sub2api/ent/chatmessage"
+	"github.com/Wei-Shaw/sub2api/ent/chatquickreply"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
 	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
@@ -266,4 +267,118 @@ func (r *chatMessageRepository) List(
 		})
 	}
 	return out, paginationResultFromTotal(int64(total), params), nil
+}
+
+type chatQuickReplyRepository struct {
+	client *dbent.Client
+}
+
+func NewChatQuickReplyRepository(client *dbent.Client) chat.QuickReplyRepository {
+	return &chatQuickReplyRepository{client: client}
+}
+
+func (r *chatQuickReplyRepository) ListByAdminID(ctx context.Context, adminID int64) ([]chat.QuickReply, error) {
+	items, err := clientFromContext(ctx, r.client).ChatQuickReply.Query().
+		Where(chatquickreply.AdminIDEQ(adminID)).
+		Order(dbent.Asc(chatquickreply.FieldSortOrder), dbent.Asc(chatquickreply.FieldID)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]chat.QuickReply, 0, len(items))
+	for i := range items {
+		out = append(out, chat.QuickReply{
+			ID:        items[i].ID,
+			AdminID:   items[i].AdminID,
+			Title:     items[i].Title,
+			Content:   items[i].Content,
+			SortOrder: items[i].SortOrder,
+			CreatedAt: items[i].CreatedAt,
+			UpdatedAt: items[i].UpdatedAt,
+		})
+	}
+	return out, nil
+}
+
+func (r *chatQuickReplyRepository) Create(ctx context.Context, qr *chat.QuickReply) error {
+	created, err := clientFromContext(ctx, r.client).ChatQuickReply.Create().
+		SetAdminID(qr.AdminID).
+		SetTitle(qr.Title).
+		SetContent(qr.Content).
+		SetSortOrder(qr.SortOrder).
+		Save(ctx)
+	if err != nil {
+		return err
+	}
+	qr.ID = created.ID
+	qr.CreatedAt = created.CreatedAt
+	qr.UpdatedAt = created.UpdatedAt
+	return nil
+}
+
+func (r *chatQuickReplyRepository) Update(ctx context.Context, qr *chat.QuickReply) error {
+	updated, err := clientFromContext(ctx, r.client).ChatQuickReply.UpdateOneID(qr.ID).
+		SetTitle(qr.Title).
+		SetContent(qr.Content).
+		Save(ctx)
+	if err != nil {
+		return translatePersistenceError(err, chat.ErrConversationNotFound, nil)
+	}
+	qr.UpdatedAt = updated.UpdatedAt
+	return nil
+}
+
+func (r *chatQuickReplyRepository) Delete(ctx context.Context, adminID, id int64) error {
+	deleted, err := clientFromContext(ctx, r.client).ChatQuickReply.Delete().
+		Where(
+			chatquickreply.IDEQ(id),
+			chatquickreply.AdminIDEQ(adminID),
+		).
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+	if deleted == 0 {
+		return chat.ErrConversationNotFound
+	}
+	return nil
+}
+
+func (r *chatQuickReplyRepository) GetByID(ctx context.Context, adminID, id int64) (*chat.QuickReply, error) {
+	item, err := clientFromContext(ctx, r.client).ChatQuickReply.Query().
+		Where(
+			chatquickreply.IDEQ(id),
+			chatquickreply.AdminIDEQ(adminID),
+		).
+		Only(ctx)
+	if err != nil {
+		return nil, translatePersistenceError(err, chat.ErrConversationNotFound, nil)
+	}
+	return &chat.QuickReply{
+		ID:        item.ID,
+		AdminID:   item.AdminID,
+		Title:     item.Title,
+		Content:   item.Content,
+		SortOrder: item.SortOrder,
+		CreatedAt: item.CreatedAt,
+		UpdatedAt: item.UpdatedAt,
+	}, nil
+}
+
+func (r *chatQuickReplyRepository) UpdateSortOrders(ctx context.Context, adminID int64, idOrderMap map[int64]int) error {
+	client := clientFromContext(ctx, r.client)
+
+	for id, order := range idOrderMap {
+		if _, err := client.ChatQuickReply.Update().
+			Where(
+				chatquickreply.IDEQ(id),
+				chatquickreply.AdminIDEQ(adminID),
+			).
+			SetSortOrder(order).
+			Save(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
 }
