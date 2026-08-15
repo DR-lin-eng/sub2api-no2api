@@ -217,6 +217,17 @@ func (p *UsageRecordWorkerPool) Stats() UsageRecordWorkerPoolStats {
 	}
 }
 
+func (p *UsageRecordWorkerPool) UsageBillingWorkerBacklog() int64 {
+	if p == nil || p.pool == nil {
+		return 0
+	}
+	waiting := p.pool.WaitingTasks()
+	if waiting > uint64(^uint64(0)>>1) {
+		return int64(^uint64(0) >> 1)
+	}
+	return int64(waiting)
+}
+
 // Stop 停止池并等待队列任务完成。
 func (p *UsageRecordWorkerPool) Stop() {
 	if p == nil || p.pool == nil {

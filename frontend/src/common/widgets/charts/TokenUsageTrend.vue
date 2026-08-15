@@ -1,7 +1,7 @@
 <template>
   <div class="card p-4">
     <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
-      {{ t('admin.dashboard.tokenUsageTrend') }}
+      {{ t('dashboard.tokenUsageTrend') }}
     </h3>
     <div v-if="loading" class="flex h-48 items-center justify-center">
       <LoadingSpinner />
@@ -13,7 +13,7 @@
       v-else
       class="flex h-48 items-center justify-center text-sm text-gray-500 dark:text-gray-400"
     >
-      {{ t('admin.dashboard.noDataAvailable') }}
+      {{ t('dashboard.noDataAvailable') }}
     </div>
   </div>
 </template>

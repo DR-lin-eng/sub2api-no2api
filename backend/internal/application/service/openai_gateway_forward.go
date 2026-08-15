@@ -452,7 +452,6 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			promptCacheKey = codexResult.PromptCacheKey
 		}
 	}
-
 	if !SupportsVerbosity(upstreamModel) && gjson.GetBytes(body, "text.verbosity").Exists() {
 		markPatchDelete("text.verbosity")
 	}
@@ -1058,6 +1057,10 @@ func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.
 }
 
 func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.Context, c *gin.Context, account *Account, body []byte, token string, isStream bool, promptCacheKey string, isCodexCLI bool, fingerprintIDs *codexFingerprintIDs) (*http.Request, error) {
+	// A Gin context can be reused across account failover attempts. The caller's
+	// explicit plan is the source of truth for this attempt, including nil when
+	// the selected account has convergence disabled.
+	stageCodexFingerprintIDs(c, fingerprintIDs)
 	// Determine target URL based on account type
 	var targetURL string
 	switch account.Type {
@@ -1117,6 +1120,9 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 			}
 		}
 	}
+	// A turn-state minted by another account is incompatible with this
+	// attempt's outbound identity. Unknown and same-account values pass through.
+	s.guardOpenAICodexTurnStateEcho(c, account, req.Header)
 	if account.Type == AccountTypeOAuth {
 		compatMessagesBridge := isOpenAICompatMessagesBridgeContext(c) || isOpenAICompatMessagesBridgeBody(body)
 		// 清除客户端透传的 session 头，后续用隔离后的值重新设置，防止跨用户会话碰撞。
@@ -1165,9 +1171,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	if s.cfg != nil && s.cfg.Gateway.ForceCodexCLI {
 		req.Header.Set("user-agent", codexCLIUserAgent)
 	}
-	if account.Type == AccountTypeOAuth {
-		applyCodexFingerprintHeaders(req.Header, fingerprintIDs)
-	}
+	applyStagedCodexFingerprintHeaders(c, account, req.Header)
 
 	// OAuth requests leave through one canonical identity. Account-level UA
 	// overrides keep their fingerprint but their version is rebuilt.
@@ -1182,17 +1186,8 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 
 	// 账号级请求头覆写（仅 openai api_key 账号启用时生效；OAuth 路径 no-op）
 	account.ApplyHeaderOverrides(req.Header)
+	applyOpenAICodexBetaFeatures(c, account, req.Header)
 	applyOpenAICodexRoutingHintFromBody(ctx, account, "http", req.Header, body, "not_applicable")
 
 	return req, nil
-}
-
-func (s *OpenAIGatewayService) codexIdentityOverrideUA(account *Account) string {
-	if s != nil && s.cfg != nil && s.cfg.Gateway.ForceCodexCLI {
-		return ""
-	}
-	if account == nil {
-		return ""
-	}
-	return account.GetOpenAIUserAgent()
 }

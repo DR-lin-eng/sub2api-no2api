@@ -31,6 +31,19 @@ type dashboardAggregationRepoTestStub struct {
 	ensurePartitionErr    error
 }
 
+type dashboardAggregationRollupRepoTestStub struct {
+	*dashboardAggregationRepoTestStub
+	groupRollupCalls int
+	groupRollupAt    time.Time
+	groupRollupErr   error
+}
+
+func (s *dashboardAggregationRollupRepoTestStub) SyncGroupUsageRollups(_ context.Context, todayStart time.Time) error {
+	s.groupRollupCalls++
+	s.groupRollupAt = todayStart
+	return s.groupRollupErr
+}
+
 func (s *dashboardAggregationRepoTestStub) AggregateRange(ctx context.Context, start, end time.Time) error {
 	s.aggregateCalls++
 	s.lastStart = start
@@ -99,6 +112,50 @@ func TestDashboardAggregationService_RunScheduledAggregation_EpochUsesRetentionS
 	require.Equal(t, 1, repo.aggregateCalls)
 	require.False(t, repo.lastEnd.IsZero())
 	require.Equal(t, truncateToDayUTC(repo.lastEnd.AddDate(0, 0, -1)), repo.lastStart)
+}
+
+func TestDashboardAggregationService_RunScheduledAggregationSyncsGroupUsageRollups(t *testing.T) {
+	baseRepo := &dashboardAggregationRepoTestStub{watermark: time.Now().UTC()}
+	repo := &dashboardAggregationRollupRepoTestStub{dashboardAggregationRepoTestStub: baseRepo}
+	svc := &DashboardAggregationService{
+		repo: repo,
+		cfg: config.DashboardAggregationConfig{
+			Enabled:         true,
+			IntervalSeconds: 60,
+			LookbackSeconds: 120,
+			Retention: config.DashboardAggregationRetentionConfig{
+				UsageLogsDays:         1,
+				UsageBillingDedupDays: 2,
+				HourlyDays:            1,
+				DailyDays:             1,
+			},
+		},
+	}
+
+	before := GroupUsageTodayStart(time.Now())
+	svc.runScheduledAggregation()
+	after := GroupUsageTodayStart(time.Now())
+
+	require.Equal(t, 1, repo.groupRollupCalls)
+	require.Contains(t, []time.Time{before, after}, repo.groupRollupAt)
+}
+
+func TestDashboardAggregationService_RunScheduledAggregationSyncsGroupAfterFailure(t *testing.T) {
+	baseRepo := &dashboardAggregationRepoTestStub{aggregateErr: errors.New("aggregate failed")}
+	repo := &dashboardAggregationRollupRepoTestStub{dashboardAggregationRepoTestStub: baseRepo}
+	svc := &DashboardAggregationService{
+		repo: repo,
+		cfg: config.DashboardAggregationConfig{
+			Enabled:         true,
+			IntervalSeconds: 60,
+			LookbackSeconds: 120,
+			Retention:       config.DashboardAggregationRetentionConfig{UsageLogsDays: 1},
+		},
+	}
+
+	svc.runScheduledAggregation()
+
+	require.Equal(t, 1, repo.groupRollupCalls)
 }
 
 func TestDashboardAggregationService_CleanupRetentionFailure_DoesNotRecord(t *testing.T) {

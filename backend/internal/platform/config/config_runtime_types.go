@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"sync/atomic"
 )
 
@@ -161,13 +162,57 @@ type BillingConfig struct {
 
 // UsageBillingQueueConfig controls the PostgreSQL WAL-backed billing queue.
 type UsageBillingQueueConfig struct {
+	Enabled               bool                          `mapstructure:"enabled"`
+	ConsumerMode          string                        `mapstructure:"consumer_mode"`
+	ConsumerCount         int                           `mapstructure:"consumer_count"`
+	MaxConsumerCount      int                           `mapstructure:"max_consumer_count"`
+	ClusterMaxConsumers   int                           `mapstructure:"cluster_max_consumers"`
+	ReadBatchSize         int                           `mapstructure:"read_batch_size"`
+	CleanupBatchSize      int                           `mapstructure:"cleanup_batch_size"`
+	ReadBlockMilliseconds int                           `mapstructure:"read_block_milliseconds"`
+	CommandTimeoutSeconds int                           `mapstructure:"command_timeout_seconds"`
+	MaxRetryDelaySeconds  int                           `mapstructure:"max_retry_delay_seconds"`
+	PubSubWakeupEnabled   bool                          `mapstructure:"pubsub_wakeup_enabled"`
+	Auto                  UsageBillingQueueAutoConfig   `mapstructure:"auto"`
+	Rescue                UsageBillingQueueRescueConfig `mapstructure:"rescue"`
+}
+
+const (
+	UsageBillingConsumerModeActive       = "active"
+	UsageBillingConsumerModeAuto         = "auto"
+	UsageBillingConsumerModeStandby      = "standby"
+	UsageBillingConsumerModeProducerOnly = "producer_only"
+)
+
+func (c UsageBillingQueueConfig) ConsumerModeResolved() string {
+	mode := strings.ToLower(strings.TrimSpace(c.ConsumerMode))
+	if mode == "" {
+		return UsageBillingConsumerModeActive
+	}
+	return mode
+}
+
+type UsageBillingQueueAutoConfig struct {
+	MinConsumers               int     `mapstructure:"min_consumers"`
+	ScaleIntervalSeconds       int     `mapstructure:"scale_interval_seconds"`
+	ScaleCooldownSeconds       int     `mapstructure:"scale_cooldown_seconds"`
+	CPUHighPercent             float64 `mapstructure:"cpu_high_percent"`
+	CPULowPercent              float64 `mapstructure:"cpu_low_percent"`
+	InFlightHigh               int64   `mapstructure:"in_flight_high"`
+	UsageWorkerBacklogHigh     int64   `mapstructure:"usage_worker_backlog_high"`
+	DBPoolWaitHighMilliseconds int     `mapstructure:"db_pool_wait_high_milliseconds"`
+}
+
+type UsageBillingQueueRescueConfig struct {
 	Enabled               bool `mapstructure:"enabled"`
-	ConsumerCount         int  `mapstructure:"consumer_count"`
-	MaxConsumerCount      int  `mapstructure:"max_consumer_count"`
-	ReadBatchSize         int  `mapstructure:"read_batch_size"`
-	ReadBlockMilliseconds int  `mapstructure:"read_block_milliseconds"`
-	CommandTimeoutSeconds int  `mapstructure:"command_timeout_seconds"`
-	MaxRetryDelaySeconds  int  `mapstructure:"max_retry_delay_seconds"`
+	StaleAfterSeconds     int  `mapstructure:"stale_after_seconds"`
+	ScanIntervalSeconds   int  `mapstructure:"scan_interval_seconds"`
+	BatchSize             int  `mapstructure:"batch_size"`
+	CleanupBatchSize      int  `mapstructure:"cleanup_batch_size"`
+	ClusterMaxConcurrency int  `mapstructure:"cluster_max_concurrency"`
+	RetryAlertAttempts    int  `mapstructure:"retry_alert_attempts"`
+	OldestAgeAlertSeconds int  `mapstructure:"oldest_age_alert_seconds"`
+	ReconcileRetrySeconds int  `mapstructure:"reconcile_retry_seconds"`
 }
 
 type CircuitBreakerConfig struct {

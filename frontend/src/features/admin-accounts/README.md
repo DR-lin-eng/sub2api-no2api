@@ -42,6 +42,7 @@ OAuth composable 和创建账号的 OAuth 兑换编排直接依赖账号 OAuth A
 - `useAccountColumnPreferences.ts`: 列可见性迁移与服务端派生查询参数。
 - `useAccountTodayStats.ts`: 当前页今日统计的请求并发保护。
 - `useAccountTablePresentation.ts`: 纯列定义、徽标和单元格格式化。
+- `BulkEditCodexThinkingTagOption.vue`: 批量更新 Codex thinking tag 规范化开关，保持批量编辑主对话框在维护上限内。
 
 新增平台字段时同步检查创建、编辑和批量更新 payload。不要复制无边界表单、把完整 Pinia Store 传入字段组件，或把控制器重新堆回单一 SFC。运行时代码保持在 1500 行以内，新增职责应进入现有有界组件或 composable。
 

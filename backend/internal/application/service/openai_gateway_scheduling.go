@@ -941,7 +941,7 @@ func (s *OpenAIGatewayService) SelectAccountWithLoadAwareness(ctx context.Contex
 	if !routed {
 		return s.selectAccountWithLoadAwareness(s.withOpenAIQuotaAutoPauseContext(ctx), groupID, PlatformOpenAI, sessionHash, requestedModel, excludedIDs, false, "", true, false)
 	}
-	var lastErr error = ErrNoAvailableAccounts
+	lastErr := ErrNoAvailableAccounts
 	for i := range candidates {
 		candidateID := candidates[i].GroupID
 		selection, err := s.selectAccountWithLoadAwareness(

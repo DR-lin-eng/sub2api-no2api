@@ -4,17 +4,17 @@ import { mount } from '@vue/test-utils'
 import GroupDistributionChart from '../GroupDistributionChart.vue'
 
 const messages: Record<string, string> = {
-  'admin.dashboard.groupDistribution': 'Group Distribution',
-  'admin.dashboard.group': 'Group',
-  'admin.dashboard.noGroup': 'No Group',
-  'admin.dashboard.requests': 'Requests',
-  'admin.dashboard.tokens': 'Tokens',
-  'admin.dashboard.actual': 'Actual',
-  'admin.dashboard.accountCost': 'Account Cost',
-  'admin.dashboard.standard': 'Standard',
-  'admin.dashboard.metricTokens': 'By Tokens',
-  'admin.dashboard.metricActualCost': 'By Actual Cost',
-  'admin.dashboard.noDataAvailable': 'No data available',
+  'dashboard.groupDistribution': 'Group Distribution',
+  'dashboard.group': 'Group',
+  'dashboard.noGroup': 'No Group',
+  'dashboard.requests': 'Requests',
+  'dashboard.tokens': 'Tokens',
+  'dashboard.actual': 'Actual',
+  'dashboard.accountCost': 'Account Cost',
+  'dashboard.standard': 'Standard',
+  'dashboard.metricTokens': 'By Tokens',
+  'dashboard.metricActualCost': 'By Actual Cost',
+  'dashboard.noDataAvailable': 'No data available',
 }
 
 vi.mock('vue-i18n', async () => {

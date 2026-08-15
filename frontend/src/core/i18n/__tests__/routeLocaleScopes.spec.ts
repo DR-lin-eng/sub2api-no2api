@@ -1,6 +1,58 @@
 import { describe, expect, it } from 'vitest'
 
-import { getLocaleScopesForRoute } from '@/core/i18n'
+import { getLocaleScopesForRoute, i18n, loadLocaleMessages } from '@/core/i18n'
+
+const USAGE_ROUTE_KEYS = [
+  'dashboard.timeRange',
+  'dashboard.granularity',
+  'dashboard.day',
+  'dashboard.hour',
+  'dashboard.modelDistribution',
+  'dashboard.groupDistribution',
+  'dashboard.metricTokens',
+  'dashboard.metricActualCost',
+  'dashboard.viewModelDistribution',
+  'dashboard.viewSpendingRanking',
+  'dashboard.spendingRankingTitle',
+  'dashboard.spendingRankingUser',
+  'dashboard.spendingRankingRequests',
+  'dashboard.spendingRankingTokens',
+  'dashboard.spendingRankingSpend',
+  'dashboard.spendingRankingOther',
+  'dashboard.userPrefix',
+  'dashboard.tokenUsageTrend',
+  'dashboard.model',
+  'dashboard.group',
+  'dashboard.requests',
+  'dashboard.tokens',
+  'dashboard.actual',
+  'dashboard.accountCost',
+  'dashboard.standard',
+  'dashboard.noDataAvailable',
+  'dashboard.failedToLoad',
+  'keys.columnSettings',
+  'usage.group',
+  'usage.allGroups',
+  'usage.allModels',
+  'usage.allTypes',
+  'usage.billingType',
+  'usage.allBillingTypes',
+  'usage.billingTypeBalance',
+  'usage.billingTypeSubscription',
+  'usage.billingMode',
+  'usage.allBillingModes',
+  'usage.billingModeToken',
+  'usage.billingModePerRequest',
+  'usage.billingModeImage',
+  'usage.billingModeVideo',
+] as const
+
+function resolveMessage(messages: Record<string, unknown>, key: string): unknown {
+  return key.split('.').reduce<unknown>((current, segment) => {
+    if (!current || typeof current !== 'object') return undefined
+    return (current as Record<string, unknown>)[segment]
+  }, messages)
+}
 
 describe('route locale scopes', () => {
   it.each(['/home', '/login', '/register', '/key-usage', '/setup'])(
@@ -30,4 +82,19 @@ describe('route locale scopes', () => {
       'supportChat',
     ])
   })
+
+  it.each(['en', 'zh'] as const)(
+    'resolves every shared usage-page key from the %s user scope',
+    async (locale) => {
+      const scopes = getLocaleScopesForRoute('/usage')
+      expect(scopes).toEqual(['base', 'user'])
+
+      await loadLocaleMessages(locale, scopes)
+      const messages = i18n.global.getLocaleMessage(locale) as Record<string, unknown>
+
+      for (const key of USAGE_ROUTE_KEYS) {
+        expect(resolveMessage(messages, key), `${locale}:${key}`).toEqual(expect.any(String))
+      }
+    },
+  )
 })

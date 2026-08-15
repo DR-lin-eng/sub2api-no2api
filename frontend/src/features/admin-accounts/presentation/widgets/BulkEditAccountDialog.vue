@@ -261,39 +261,9 @@
         v-model:enable-prewarm="enableCodexPrewarmContinuation"
         v-model:prewarm-enabled="codexPrewarmContinuationEnabled"
       />
-
-      <div v-if="allOpenAIAPIKey" class="border-t border-gray-200 pt-4 dark:border-dark-600">
-        <div class="mb-3 flex items-center justify-between">
-          <label
-            id="bulk-edit-codex-thinking-tag-label"
-            class="input-label mb-0"
-            for="bulk-edit-codex-thinking-tag-enabled"
-          >
-            {{ t('admin.accounts.openai.codexThinkingTagNormalization') }}
-          </label>
-          <input
-            v-model="enableCodexThinkingTagNormalization"
-            id="bulk-edit-codex-thinking-tag-enabled"
-            type="checkbox"
-            aria-controls="bulk-edit-codex-thinking-tag-body"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-          />
-        </div>
-        <div
-          id="bulk-edit-codex-thinking-tag-body"
-          class="flex items-center justify-between gap-4"
-          :class="!enableCodexThinkingTagNormalization && 'pointer-events-none opacity-50'"
-        >
-          <p class="text-xs text-gray-500 dark:text-gray-400">
-            {{ t('admin.accounts.openai.codexThinkingTagNormalizationDesc') }}
-          </p>
-          <Toggle
-            v-model="codexThinkingTagNormalizationEnabled"
-            data-testid="bulk-codex-thinking-tag-normalization-toggle"
-            :aria-label="t('admin.accounts.openai.codexThinkingTagNormalization')"
-          />
-        </div>
-      </div>
+      <BulkEditCodexThinkingTagOption v-if="allOpenAIAPIKey"
+        v-model:enable-update="enableCodexThinkingTagNormalization"
+        v-model:normalization-enabled="codexThinkingTagNormalizationEnabled" />
 
         <!-- OpenAI OAuth Codex CLI only -->
       <div v-if="allOpenAIOAuth" class="border-t border-gray-200 pt-4 dark:border-dark-600">
@@ -780,7 +750,6 @@ import type { Proxy as ProxyConfig, AdminGroup, AccountPlatform, AccountType, Op
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import ConfirmDialog from '@/common/widgets/feedback/ConfirmDialog.vue'
 import Select from '@/common/widgets/forms/Select.vue'
-import Toggle from '@/common/widgets/forms/Toggle.vue'
 import ProxySelector from '@/common/widgets/data/ProxySelector.vue'
 import GroupSelector from '@/common/widgets/data/GroupSelector.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
@@ -801,15 +770,13 @@ import {
 } from '@/core/utils/openaiWsMode'
 import type { OpenAIWSMode } from '@/core/utils/openaiWsMode'
 import { buildBulkAccountUpdatePayload } from '@/features/admin-accounts/presentation/accountBulkUpdatePayload'
-import {
-  type CodexFingerprintMode,
-  type ModelMapping,
-} from '@/features/admin-accounts/presentation/accountFormPolicy'
+import { type CodexFingerprintMode, type ModelMapping } from '@/features/admin-accounts/presentation/accountFormPolicy'
 import type { BulkEditCPAContext, BulkEditRoutingPolicyContext } from '@/features/admin-accounts/presentation/bulkEditAccountContext'
 import { areUpstreamBillingProbeTargetsEligible } from '@/features/admin-accounts/presentation/upstreamBillingProbeEligibility'
 import BulkEditRoutingPolicyFields from './BulkEditRoutingPolicyFields.vue'
 import BulkEditCPAFields from './BulkEditCPAFields.vue'
 import BulkEditCodexOptions from './BulkEditCodexOptions.vue'
+import BulkEditCodexThinkingTagOption from './BulkEditCodexThinkingTagOption.vue'
 
 interface Props {
   show: boolean

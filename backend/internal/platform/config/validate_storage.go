@@ -21,6 +21,15 @@ func validateBilling(c *Config) error {
 		return fmt.Errorf("billing.minimum_balance_reserve must be non-negative")
 	}
 	if c.Billing.Queue.Enabled {
+		mode := c.Billing.Queue.ConsumerModeResolved()
+		switch mode {
+		case UsageBillingConsumerModeActive,
+			UsageBillingConsumerModeAuto,
+			UsageBillingConsumerModeStandby,
+			UsageBillingConsumerModeProducerOnly:
+		default:
+			return fmt.Errorf("billing.queue.consumer_mode must be active, auto, standby, or producer_only")
+		}
 		if c.Billing.Queue.ConsumerCount <= 0 {
 			return fmt.Errorf("billing.queue.consumer_count must be positive")
 		}
@@ -30,8 +39,14 @@ func validateBilling(c *Config) error {
 		if c.Billing.Queue.ConsumerCount > c.Billing.Queue.MaxConsumerCount {
 			return fmt.Errorf("billing.queue.consumer_count cannot exceed max_consumer_count")
 		}
+		if c.Billing.Queue.ClusterMaxConsumers < 0 {
+			return fmt.Errorf("billing.queue.cluster_max_consumers must be non-negative")
+		}
 		if c.Billing.Queue.ReadBatchSize <= 0 {
 			return fmt.Errorf("billing.queue.read_batch_size must be positive")
+		}
+		if c.Billing.Queue.CleanupBatchSize <= 0 {
+			return fmt.Errorf("billing.queue.cleanup_batch_size must be positive")
 		}
 		if c.Billing.Queue.ReadBlockMilliseconds <= 0 {
 			return fmt.Errorf("billing.queue.read_block_milliseconds must be positive")
@@ -41,6 +56,39 @@ func validateBilling(c *Config) error {
 		}
 		if c.Billing.Queue.MaxRetryDelaySeconds <= 0 {
 			return fmt.Errorf("billing.queue.max_retry_delay_seconds must be positive")
+		}
+		if mode == UsageBillingConsumerModeAuto {
+			auto := c.Billing.Queue.Auto
+			if auto.MinConsumers < 0 || auto.MinConsumers > c.Billing.Queue.ConsumerCount {
+				return fmt.Errorf("billing.queue.auto.min_consumers must be between 0 and consumer_count")
+			}
+			if auto.ScaleIntervalSeconds <= 0 || auto.ScaleCooldownSeconds <= 0 {
+				return fmt.Errorf("billing.queue.auto scale intervals must be positive")
+			}
+			if auto.CPULowPercent < 0 || auto.CPUHighPercent <= auto.CPULowPercent || auto.CPUHighPercent > 100 {
+				return fmt.Errorf("billing.queue.auto CPU thresholds are invalid")
+			}
+			if auto.InFlightHigh <= 0 || auto.UsageWorkerBacklogHigh <= 0 {
+				return fmt.Errorf("billing.queue.auto load thresholds must be positive")
+			}
+			if auto.DBPoolWaitHighMilliseconds < 0 {
+				return fmt.Errorf("billing.queue.auto.db_pool_wait_high_milliseconds must be non-negative")
+			}
+		}
+		if c.Billing.Queue.Rescue.Enabled {
+			rescue := c.Billing.Queue.Rescue
+			if rescue.StaleAfterSeconds <= 0 || rescue.ScanIntervalSeconds <= 0 {
+				return fmt.Errorf("billing.queue.rescue age and scan intervals must be positive")
+			}
+			if rescue.BatchSize <= 0 || rescue.CleanupBatchSize <= 0 {
+				return fmt.Errorf("billing.queue.rescue batch sizes must be positive")
+			}
+			if rescue.ClusterMaxConcurrency <= 0 {
+				return fmt.Errorf("billing.queue.rescue.cluster_max_concurrency must be positive")
+			}
+			if rescue.RetryAlertAttempts <= 0 || rescue.OldestAgeAlertSeconds <= 0 || rescue.ReconcileRetrySeconds <= 0 {
+				return fmt.Errorf("billing.queue.rescue alert and reconcile thresholds must be positive")
+			}
 		}
 	}
 	return nil

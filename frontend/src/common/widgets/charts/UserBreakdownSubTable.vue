@@ -4,7 +4,7 @@
       <LoadingSpinner />
     </div>
     <div v-else-if="items.length === 0" class="py-2 text-center text-xs text-gray-400">
-      {{ t('admin.dashboard.noDataAvailable') }}
+      {{ t('dashboard.noDataAvailable') }}
     </div>
     <table v-else class="w-full text-xs">
       <tbody>

@@ -55,6 +55,9 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 	if account != nil && account.Type == AccountTypeOAuth && !isOpenAIResponsesCompactPath(c) {
 		fingerprintIDs = resolveCodexFingerprintIDsFromGinContext(account, c)
 	}
+	// Reset the request-scoped plan even when this attempt uses an API-key or
+	// legacy compact account. Failover reuses the Gin context across attempts.
+	stageCodexFingerprintIDs(c, fingerprintIDs)
 	for completedRetries := 0; ; completedRetries++ {
 		if completedRetries > 0 && ctx != nil {
 			if ctxErr := ctx.Err(); ctxErr != nil {
@@ -461,6 +464,9 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 	token string,
 	fingerprintIDs *codexFingerprintIDs,
 ) (*http.Request, error) {
+	// Failover reuses the request context; replace any prior account's plan
+	// before headers are assembled so identities cannot cross account attempts.
+	stageCodexFingerprintIDs(c, fingerprintIDs)
 	targetURL := openaiPlatformAPIURL
 	switch account.Type {
 	case AccountTypeOAuth:
@@ -497,6 +503,9 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 			}
 		}
 	}
+	// Failover can reuse the downstream turn-state with a different account.
+	// Strip only values whose provenance is known to be cross-account.
+	s.guardOpenAICodexTurnStateEcho(c, account, req.Header)
 
 	// 覆盖入站鉴权残留，并注入上游认证
 	req.Header.Del("authorization")
@@ -571,7 +580,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 	}
 	if account.Type == AccountTypeOAuth {
 		if !isOpenAIResponsesCompactPath(c) {
-			applyCodexFingerprintHeaders(req.Header, fingerprintIDs)
+			applyStagedCodexFingerprintHeaders(c, account, req.Header)
 		}
 		enforceCodexIdentityHeadersWithUA(req.Header, s.codexIdentityOverrideUA(account))
 	}
@@ -582,6 +591,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 
 	// 账号级请求头覆写（仅 openai api_key 账号启用时生效；OAuth 路径 no-op）
 	account.ApplyHeaderOverrides(req.Header)
+	applyOpenAICodexBetaFeatures(c, account, req.Header)
 	applyOpenAICodexRoutingHintFromBody(ctx, account, "http_passthrough", req.Header, body, "not_applicable")
 
 	return req, nil
@@ -1697,6 +1707,14 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 	// pendingLines 在首个可见输出前保留前导事件，确保无输出失败仍可安全 failover。
 	pendingLines := make([]string, 0, 16)
 	pendingBytes := 0
+	turnStateNoted := false
+	noteTurnStateCommitted := func() {
+		if turnStateNoted || extractOpenAICodexTurnState(resp.Header) == "" {
+			return
+		}
+		s.noteStagedOpenAICodexTurnStateCommitted(c, account, resp.Header)
+		turnStateNoted = true
+	}
 	// flushPending 表示已写入但未到 SSE 空行边界的脏状态；defer 兜底函数退出前的残留，断连后不再 Flush。
 	flushPending := false
 	flushPendingOutput := func() {
@@ -1715,6 +1733,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 				return false
 			}
 		}
+		noteTurnStateCommitted()
 		pendingLines = pendingLines[:0]
 		pendingBytes = 0
 		return true
@@ -1914,6 +1933,9 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 				clientDisconnected = true
 				logger.LegacyPrintf("service.openai_gateway", "[OpenAI passthrough] Client disconnected during streaming, continue draining upstream for usage: account=%d", account.ID)
 			} else {
+				if !clientOutputStarted {
+					noteTurnStateCommitted()
+				}
 				clientOutputStarted = true
 				flushPending = true
 				if line == "" {
@@ -2051,6 +2073,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 	}
 
 	writeOpenAIPassthroughResponseHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
+	s.relayOpenAICodexTurnState(c, account, resp.Header)
 
 	contentType := resp.Header.Get("Content-Type")
 	if contentType == "" {
@@ -2142,6 +2165,7 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSONWithAccount(
 	}
 
 	writeOpenAIPassthroughResponseHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
+	s.relayOpenAICodexTurnState(c, account, resp.Header)
 
 	contentType := "application/json; charset=utf-8"
 	if !ok {
@@ -2208,5 +2232,13 @@ func writeOpenAIPassthroughResponseHeaders(dst http.Header, src http.Header, fil
 		for _, v := range vals {
 			dst.Add(key, v)
 		}
+	}
+
+	// Codex clients echo this opaque response header on later requests in the
+	// same turn. Clear stale values when the selected upstream omits it.
+	turnStateKey := http.CanonicalHeaderKey(openAICodexTurnStateHeader)
+	dst.Del(turnStateKey)
+	for _, value := range getCaseInsensitiveValues(src, openAICodexTurnStateHeader) {
+		dst.Add(turnStateKey, value)
 	}
 }

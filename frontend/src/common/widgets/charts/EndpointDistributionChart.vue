@@ -53,7 +53,7 @@
               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
             @click="emit('update:metric', 'tokens')"
           >
-            {{ t('admin.dashboard.metricTokens') }}
+            {{ t('dashboard.metricTokens') }}
           </button>
           <button
             type="button"
@@ -63,7 +63,7 @@
               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
             @click="emit('update:metric', 'actual_cost')"
           >
-            {{ t('admin.dashboard.metricActualCost') }}
+            {{ t('dashboard.metricActualCost') }}
           </button>
         </div>
       </div>
@@ -80,10 +80,10 @@
           <thead>
             <tr class="text-gray-500 dark:text-gray-400">
               <th class="pb-2 text-left">{{ t('usage.endpoint') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.requests') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.tokens') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.actual') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.standard') }}</th>
+              <th class="pb-2 text-right">{{ t('dashboard.requests') }}</th>
+              <th class="pb-2 text-right">{{ t('dashboard.tokens') }}</th>
+              <th class="pb-2 text-right">{{ t('dashboard.actual') }}</th>
+              <th class="pb-2 text-right">{{ t('dashboard.standard') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -127,7 +127,7 @@
       </div>
     </div>
     <div v-else class="flex h-48 items-center justify-center text-sm text-gray-500 dark:text-gray-400">
-      {{ t('admin.dashboard.noDataAvailable') }}
+      {{ t('dashboard.noDataAvailable') }}
     </div>
   </div>
 </template>

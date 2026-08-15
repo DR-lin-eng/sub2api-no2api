@@ -37,7 +37,7 @@ func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context
 	if !routed {
 		return s.selectAccountForModelWithExclusionsInGroup(ctx, groupID, sessionHash, requestedModel, excludedIDs)
 	}
-	var lastErr error = ErrNoAvailableAccounts
+	var lastErr = ErrNoAvailableAccounts
 	for i := range candidates {
 		candidateID := candidates[i].GroupID
 		account, err := s.selectAccountForModelWithExclusionsInGroup(
@@ -166,7 +166,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 	if !routed {
 		return s.selectAccountWithLoadAwarenessInGroup(ctx, groupID, sessionHash, requestedModel, excludedIDs, metadataUserID, sub2apiUserID)
 	}
-	var lastErr error = ErrNoAvailableAccounts
+	var lastErr = ErrNoAvailableAccounts
 	for i := range candidates {
 		candidateID := candidates[i].GroupID
 		selection, err := s.selectAccountWithLoadAwarenessInGroup(

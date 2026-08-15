@@ -4,8 +4,8 @@ import { mount } from '@vue/test-utils'
 import TokenUsageTrend from '../TokenUsageTrend.vue'
 
 const messages: Record<string, string> = {
-  'admin.dashboard.tokenUsageTrend': 'Token Usage Trend',
-  'admin.dashboard.noDataAvailable': 'No data available',
+  'dashboard.tokenUsageTrend': 'Token Usage Trend',
+  'dashboard.noDataAvailable': 'No data available',
 }
 
 vi.mock('vue-i18n', async () => {

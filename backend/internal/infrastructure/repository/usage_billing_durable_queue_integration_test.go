@@ -95,7 +95,7 @@ func TestDurableUsageBillingQueueSurvivesRedisLoss(t *testing.T) {
 	repo.recoverPendingOverlays()
 	require.InDelta(t, 1.25, mustRedisFloat(t, integrationRedis, usageBillingPendingBalanceKey(user.ID)), 1e-9)
 	require.InDelta(t, 1.25, mustRedisFloat(t, integrationRedis, usageBillingPendingAPIKeyUsageKey(apiKey.ID)), 1e-9)
-	processed, err := repo.processJobBatch(ctx)
+	processed, err := repo.processUsageBillingCycle(ctx, 0, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, processed)
 
@@ -177,7 +177,7 @@ func TestDurableUsageBillingQueueRetriesOverlayCompletionAfterPostgresCommit(t *
 		MaxRetries:   0,
 	})
 	repo.rdb = brokenRedis
-	processed, err := repo.processJobBatch(ctx)
+	processed, err := repo.processUsageBillingCycle(ctx, 0, false)
 	require.Equal(t, 1, processed)
 	require.Error(t, err)
 	require.NoError(t, brokenRedis.Close())
@@ -199,13 +199,58 @@ func TestDurableUsageBillingQueueRetriesOverlayCompletionAfterPostgresCommit(t *
 	require.Zero(t, mustRedisFloat(t, integrationRedis, usageBillingPendingAPIKeyUsageKey(apiKey.ID)))
 	_, err = integrationDB.ExecContext(ctx, "UPDATE usage_billing_jobs SET available_at = NOW()")
 	require.NoError(t, err)
-	processed, err = repo.processJobBatch(ctx)
+	processed, err = repo.processUsageBillingCycle(ctx, 0, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, processed)
 	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT COUNT(*) FROM usage_billing_jobs").Scan(&jobs))
 	require.Zero(t, jobs)
 	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT balance FROM users WHERE id = $1", user.ID).Scan(&balance))
 	require.InDelta(t, 98.75, balance, 1e-9)
+}
+
+func TestDurableUsageBillingPermanentFailureCleansOverlayAndBlocksAutoRequeue(t *testing.T) {
+	resetDurableBillingQueueTables(t)
+	ctx := context.Background()
+	cmd := service.UsageBillingCommand{
+		RequestID:       "durable-permanent-" + uuid.NewString(),
+		APIKeyID:        987654321,
+		UserID:          987654321,
+		BalanceCost:     1.25,
+		APIKeyQuotaCost: 1.25,
+	}
+	cmd.Normalize()
+	payload, err := json.Marshal(&cmd)
+	require.NoError(t, err)
+	_, err = integrationDB.ExecContext(ctx, `
+		INSERT INTO usage_billing_jobs (request_id, api_key_id, request_fingerprint, payload)
+		VALUES ($1, $2, $3, $4)
+	`, cmd.RequestID, cmd.APIKeyID, cmd.RequestFingerprint, payload)
+	require.NoError(t, err)
+	repo := newDurableBillingQueueIntegrationRepo()
+	repo.reconcilePendingOverlay(&cmd)
+	require.InDelta(t, cmd.BalanceCost, mustRedisFloat(t, integrationRedis, usageBillingPendingBalanceKey(cmd.UserID)), 1e-9)
+
+	processed, err := repo.processUsageBillingCycle(ctx, 0, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, processed)
+
+	var deadLetters, jobs int
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT COUNT(*) FROM usage_billing_dead_letters WHERE request_id = $1", cmd.RequestID).Scan(&deadLetters))
+	require.Equal(t, 1, deadLetters)
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT COUNT(*) FROM usage_billing_jobs WHERE request_id = $1", cmd.RequestID).Scan(&jobs))
+	require.Zero(t, jobs, "dead-letter cleanup should remove the settled queue row")
+	require.Zero(t, mustRedisFloat(t, integrationRedis, usageBillingPendingBalanceKey(cmd.UserID)))
+
+	input, err := json.Marshal([]usageBillingBatchInput{{
+		RequestID:          cmd.RequestID,
+		APIKeyID:           cmd.APIKeyID,
+		RequestFingerprint: cmd.RequestFingerprint,
+		Payload:            payload,
+	}})
+	require.NoError(t, err)
+	statuses, err := repo.insertEnqueueBatch(ctx, input)
+	require.NoError(t, err)
+	require.Equal(t, usageBillingEnqueueConflict, statuses[usageBillingRequestKey(cmd.RequestID, cmd.APIKeyID)].status)
 }
 
 func TestDurableUsageBillingQueueConcurrentConsumersApplyExactlyOnce(t *testing.T) {
@@ -263,7 +308,7 @@ func TestDurableUsageBillingQueueConcurrentConsumersApplyExactlyOnce(t *testing.
 		go func(repo *queuedUsageBillingRepository) {
 			defer wg.Done()
 			for {
-				processed, processErr := repo.processJobBatch(ctx)
+				processed, processErr := repo.processUsageBillingCycle(ctx, 0, false)
 				if processErr != nil {
 					errCh <- processErr
 					return

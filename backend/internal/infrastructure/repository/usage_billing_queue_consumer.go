@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	"github.com/lib/pq"
 )
 
 func (r *queuedUsageBillingRepository) runConsumer(ctx context.Context, workerID int) {
@@ -23,7 +24,13 @@ func (r *queuedUsageBillingRepository) runConsumer(ctx context.Context, workerID
 		return
 	}
 	for ctx.Err() == nil {
-		processed, err := r.processJobBatch(ctx)
+		if !r.consumerAllowed(workerID) {
+			if !r.waitForConsumer(ctx, workerID) {
+				return
+			}
+			continue
+		}
+		processed, err := r.processUsageBillingCycle(ctx, workerID, false)
 		if err != nil && !errors.Is(err, context.Canceled) {
 			slog.Error("durable usage billing consumer failed", "worker", workerID, "error", err)
 		}
@@ -35,6 +42,29 @@ func (r *queuedUsageBillingRepository) runConsumer(ctx context.Context, workerID
 		}
 		if !r.waitForConsumer(ctx, workerID) {
 			return
+		}
+	}
+}
+
+func (r *queuedUsageBillingRepository) runRescue(ctx context.Context) {
+	defer r.wg.Done()
+	ticker := time.NewTicker(r.rescueScanInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if !r.rescueAllowed() {
+				continue
+			}
+			processed, err := r.processUsageBillingCycle(ctx, 0, true)
+			if err != nil && !errors.Is(err, context.Canceled) {
+				slog.Error("durable usage billing rescue failed", "error", err)
+			}
+			if processed > 0 {
+				r.wakeConsumers()
+			}
 		}
 	}
 }
@@ -61,10 +91,41 @@ func (r *queuedUsageBillingRepository) waitForConsumer(ctx context.Context, work
 	}
 }
 
-func (r *queuedUsageBillingRepository) processJobBatch(parent context.Context) (_ int, err error) {
+func (r *queuedUsageBillingRepository) processUsageBillingCycle(parent context.Context, workerID int, rescue bool) (int, error) {
+	beginner := usageBillingTxBeginner(r.db)
+	release := func() {}
+	if rescue {
+		acquireCtx, cancel := context.WithTimeout(parent, r.commandTimeout)
+		conn, unlock, acquired, err := r.tryAcquireUsageBillingRescueSlot(acquireCtx)
+		cancel()
+		if err != nil {
+			return 0, err
+		}
+		if !acquired {
+			return 0, nil
+		}
+		if conn != nil {
+			beginner = conn
+			release = unlock
+		}
+	}
+	defer release()
+	settled, settleErr := r.processUnsettledJobBatch(parent, workerID, rescue, beginner)
+	cleaned, cleanupErr := r.processCleanupJobBatch(parent, workerID, rescue, beginner)
+	// The return value is a liveness hint used by the worker loop. Keep it in
+	// job units rather than double-counting a job settled and cleaned in one cycle.
+	return max(settled, cleaned), errors.Join(settleErr, cleanupErr)
+}
+
+func (r *queuedUsageBillingRepository) processUnsettledJobBatch(parent context.Context, workerID int, rescue bool, beginner usageBillingTxBeginner) (processed int, err error) {
+	started := time.Now()
+	defer func() { r.recordUsageBillingBatch(started, processed, rescue, false, err) }()
 	ctx, cancel := context.WithTimeout(parent, r.commandTimeout)
 	defer cancel()
-	tx, err := r.db.BeginTx(ctx, nil)
+	if beginner == nil {
+		beginner = r.db
+	}
+	tx, err := beginner.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, err
 	}
@@ -73,15 +134,34 @@ func (r *queuedUsageBillingRepository) processJobBatch(parent context.Context) (
 			_ = tx.Rollback()
 		}
 	}()
+	if !rescue {
+		acquired, err := r.tryAcquireUsageBillingClusterSlot(ctx, tx)
+		if err != nil {
+			return 0, err
+		}
+		if !acquired {
+			return 0, nil
+		}
+	}
+	if r.runtime != nil {
+		r.runtime.activeBatches.Add(1)
+		defer r.runtime.activeBatches.Add(-1)
+	}
+	batchSize := r.readBatchSize
+	if rescue {
+		batchSize = r.rescueBatchSize
+	}
 
 	rows, err := tx.QueryContext(ctx, `
 		SELECT id, request_id, api_key_id, request_fingerprint, payload, attempts, created_at
 		FROM usage_billing_jobs
-		WHERE available_at <= NOW()
+		WHERE settled_at IS NULL
+			AND available_at <= NOW()
+			AND (NOT $2::boolean OR created_at <= NOW() - ($3 * INTERVAL '1 millisecond'))
 		ORDER BY available_at, id
 		FOR UPDATE SKIP LOCKED
 		LIMIT $1
-	`, r.readBatchSize)
+	`, batchSize, rescue, r.rescueStaleAfter.Milliseconds())
 	if err != nil {
 		return 0, err
 	}
@@ -100,29 +180,33 @@ func (r *queuedUsageBillingRepository) processJobBatch(parent context.Context) (
 	if len(jobs) == 0 {
 		return 0, nil
 	}
+	if err := markUsageBillingJobsClaimed(ctx, tx, jobs, r.usageBillingInstanceID()); err != nil {
+		return 0, err
+	}
 
-	completions, fastErr := r.applyJobBatchFast(ctx, tx, jobs)
+	settledCount, fastErr := r.applyJobBatchFast(ctx, tx, jobs)
 	if fastErr != nil {
 		_ = tx.Rollback()
 		tx = nil
 		// Isolate an invalid or concurrently deleted entity without degrading the
 		// normal batch path. The next loop retries the remaining healthy jobs.
-		return r.processSingleJob(parent)
+		return r.processSingleUnsettledJob(parent, workerID, rescue, beginner)
 	}
 	if err := tx.Commit(); err != nil {
 		return 0, err
 	}
 	tx = nil
-	if err := r.finalizeUsageBillingCompletions(completions); err != nil {
-		return len(jobs), err
-	}
-	return len(jobs), nil
+	r.wakeConsumers()
+	return settledCount, nil
 }
 
-func (r *queuedUsageBillingRepository) processSingleJob(parent context.Context) (_ int, err error) {
+func (r *queuedUsageBillingRepository) processSingleUnsettledJob(parent context.Context, workerID int, rescue bool, beginner usageBillingTxBeginner) (_ int, err error) {
 	ctx, cancel := context.WithTimeout(parent, r.commandTimeout)
 	defer cancel()
-	tx, err := r.db.BeginTx(ctx, nil)
+	if beginner == nil {
+		beginner = r.db
+	}
+	tx, err := beginner.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, err
 	}
@@ -131,14 +215,25 @@ func (r *queuedUsageBillingRepository) processSingleJob(parent context.Context) 
 			_ = tx.Rollback()
 		}
 	}()
+	if !rescue {
+		acquired, err := r.tryAcquireUsageBillingClusterSlot(ctx, tx)
+		if err != nil {
+			return 0, err
+		}
+		if !acquired {
+			return 0, nil
+		}
+	}
 	rows, err := tx.QueryContext(ctx, `
 		SELECT id, request_id, api_key_id, request_fingerprint, payload, attempts, created_at
 		FROM usage_billing_jobs
-		WHERE available_at <= NOW()
+		WHERE settled_at IS NULL
+			AND available_at <= NOW()
+			AND (NOT $1::boolean OR created_at <= NOW() - ($2 * INTERVAL '1 millisecond'))
 		ORDER BY available_at, id
 		FOR UPDATE SKIP LOCKED
 		LIMIT 1
-	`)
+	`, rescue, r.rescueStaleAfter.Milliseconds())
 	if err != nil {
 		return 0, err
 	}
@@ -154,6 +249,9 @@ func (r *queuedUsageBillingRepository) processSingleJob(parent context.Context) 
 	if err := rows.Close(); err != nil {
 		return 0, err
 	}
+	if err := markUsageBillingJobsClaimed(ctx, tx, []usageBillingJob{job}, r.usageBillingInstanceID()); err != nil {
+		return 0, err
+	}
 	cmd, _, err := r.applyJobWithSavepoint(ctx, tx, job)
 	if err != nil {
 		return 0, err
@@ -163,66 +261,275 @@ func (r *queuedUsageBillingRepository) processSingleJob(parent context.Context) 
 	}
 	tx = nil
 	if cmd != nil {
-		if err := r.finalizeUsageBillingCompletions([]usageBillingCompletion{{jobID: job.id, cmd: *cmd}}); err != nil {
-			return 1, err
-		}
+		r.wakeConsumers()
 	}
 	return 1, nil
 }
 
-func (r *queuedUsageBillingRepository) finalizeUsageBillingCompletions(completions []usageBillingCompletion) error {
-	if len(completions) == 0 {
-		return nil
+type usageBillingCleanupFailure struct {
+	jobID      int64
+	errorClass string
+	errorText  string
+}
+
+type usageBillingCleanupFailureInput struct {
+	JobID      int64  `json:"job_id"`
+	ErrorClass string `json:"error_class"`
+	ErrorText  string `json:"error_text"`
+}
+
+func (r *queuedUsageBillingRepository) processCleanupJobBatch(parent context.Context, workerID int, rescue bool, beginner usageBillingTxBeginner) (processed int, err error) {
+	started := time.Now()
+	defer func() { r.recordUsageBillingBatch(started, processed, rescue, true, err) }()
+	ctx, cancel := context.WithTimeout(parent, r.commandTimeout)
+	defer cancel()
+	if beginner == nil {
+		beginner = r.db
 	}
-	completedJobIDs := make([]int64, 0, len(completions))
-	var firstErr error
-	for i := range completions {
-		completion := &completions[i]
-		if err := r.completePendingOverlay(&completion.cmd); err != nil {
-			if firstErr == nil {
-				firstErr = err
-			}
+	tx, err := beginner.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer func() {
+		if tx != nil {
+			_ = tx.Rollback()
+		}
+	}()
+	if !rescue {
+		acquired, err := r.tryAcquireUsageBillingClusterSlot(ctx, tx)
+		if err != nil {
+			return 0, err
+		}
+		if !acquired {
+			return 0, nil
+		}
+	}
+	if r.runtime != nil {
+		r.runtime.activeBatches.Add(1)
+		defer r.runtime.activeBatches.Add(-1)
+	}
+	batchSize := max(1, r.cleanupBatchSize)
+	if rescue {
+		batchSize = max(1, r.rescueCleanupBatchSize)
+	}
+	rows, err := tx.QueryContext(ctx, `
+		SELECT id, request_id, api_key_id, request_fingerprint, payload, attempts, created_at
+		FROM usage_billing_jobs
+		WHERE settled_at IS NOT NULL
+			AND available_at <= NOW()
+			AND (NOT $2::boolean OR settled_at <= NOW() - ($3 * INTERVAL '1 millisecond'))
+		ORDER BY available_at, id
+		FOR UPDATE SKIP LOCKED
+		LIMIT $1
+	`, batchSize, rescue, r.rescueStaleAfter.Milliseconds())
+	if err != nil {
+		return 0, err
+	}
+	jobs := make([]usageBillingJob, 0, batchSize)
+	for rows.Next() {
+		var job usageBillingJob
+		if err := rows.Scan(&job.id, &job.requestID, &job.apiKeyID, &job.requestFingerprint, &job.payload, &job.attempts, &job.createdAt); err != nil {
+			_ = rows.Close()
+			return 0, err
+		}
+		jobs = append(jobs, job)
+	}
+	if err := rows.Close(); err != nil {
+		return 0, err
+	}
+	if len(jobs) == 0 {
+		return 0, nil
+	}
+	ids := make([]int64, 0, len(jobs))
+	for _, job := range jobs {
+		ids = append(ids, job.id)
+	}
+	idsJSON, err := json.Marshal(ids)
+	if err != nil {
+		return 0, err
+	}
+	lease := max(r.commandTimeout*2, time.Minute)
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE usage_billing_jobs
+		SET available_at = NOW() + ($2 * INTERVAL '1 millisecond'),
+			last_attempt_at = NOW(),
+			last_claimed_by = $3,
+			updated_at = NOW()
+		WHERE id IN (
+			SELECT value::bigint FROM jsonb_array_elements_text($1::jsonb)
+		)
+	`, idsJSON, lease.Milliseconds(), r.usageBillingInstanceID()); err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	tx = nil
+
+	completed := make([]int64, 0, len(jobs))
+	failures := make([]usageBillingCleanupFailure, 0)
+	errorsSeen := make([]error, 0)
+	for _, job := range jobs {
+		var cmd service.UsageBillingCommand
+		if unmarshalErr := json.Unmarshal(job.payload, &cmd); unmarshalErr != nil {
+			failure := fmt.Errorf("%w: %v", errUsageBillingJobPayloadInvalid, unmarshalErr)
+			failures = append(failures, usageBillingCleanupFailure{jobID: job.id, errorClass: "cleanup_payload_invalid", errorText: truncateUsageBillingError(failure)})
+			errorsSeen = append(errorsSeen, failure)
 			continue
 		}
-		completedJobIDs = append(completedJobIDs, completion.jobID)
+		cmd.Normalize()
+		if cmd.RequestID != job.requestID || cmd.APIKeyID != job.apiKeyID || cmd.RequestFingerprint != job.requestFingerprint {
+			failure := fmt.Errorf("%w: identity mismatch", errUsageBillingJobPayloadInvalid)
+			failures = append(failures, usageBillingCleanupFailure{jobID: job.id, errorClass: "cleanup_payload_invalid", errorText: truncateUsageBillingError(failure)})
+			errorsSeen = append(errorsSeen, failure)
+			continue
+		}
+		if cleanupErr := r.completePendingOverlayContext(ctx, &cmd); cleanupErr != nil {
+			failures = append(failures, usageBillingCleanupFailure{jobID: job.id, errorClass: "redis_overlay_cleanup", errorText: truncateUsageBillingError(cleanupErr)})
+			errorsSeen = append(errorsSeen, cleanupErr)
+			continue
+		}
+		completed = append(completed, job.id)
 	}
-	if len(completedJobIDs) > 0 {
-		payload, err := json.Marshal(completedJobIDs)
+	if err := r.finalizeUsageBillingCleanup(ctx, beginner, completed, failures); err != nil {
+		return 0, errors.Join(append(errorsSeen, err)...)
+	}
+	return len(completed), errors.Join(errorsSeen...)
+}
+
+func (r *queuedUsageBillingRepository) finalizeUsageBillingCleanup(
+	ctx context.Context,
+	beginner usageBillingTxBeginner,
+	completed []int64,
+	failures []usageBillingCleanupFailure,
+) error {
+	if len(completed) == 0 && len(failures) == 0 {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if beginner == nil {
+		beginner = r.db
+	}
+	tx, err := beginner.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if len(completed) > 0 {
+		payload, err := json.Marshal(completed)
 		if err != nil {
 			return err
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), r.commandTimeout)
-		defer cancel()
-		if _, err := r.db.ExecContext(ctx, `
+		if _, err := tx.ExecContext(ctx, `
 			DELETE FROM usage_billing_jobs
-			WHERE id IN (
-				SELECT value::bigint FROM jsonb_array_elements_text($1::jsonb)
-			)
+			WHERE settled_at IS NOT NULL
+				AND id IN (
+					SELECT value::bigint FROM jsonb_array_elements_text($1::jsonb)
+				)
 		`, payload); err != nil {
 			return err
 		}
 	}
-	return firstErr
+	if len(failures) > 0 {
+		inputs := make([]usageBillingCleanupFailureInput, 0, len(failures))
+		for _, failure := range failures {
+			inputs = append(inputs, usageBillingCleanupFailureInput{
+				JobID:      failure.jobID,
+				ErrorClass: failure.errorClass,
+				ErrorText:  failure.errorText,
+			})
+		}
+		payload, err := json.Marshal(inputs)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+			WITH failed AS (
+				SELECT job_id, error_class, error_text
+				FROM jsonb_to_recordset($1::jsonb) AS x(
+					job_id bigint,
+					error_class text,
+					error_text text
+				)
+			)
+			UPDATE usage_billing_jobs AS jobs
+			SET cleanup_attempts = jobs.cleanup_attempts + 1,
+				last_error = failed.error_text,
+				last_error_class = failed.error_class,
+				reconcile_required_at = CASE
+					WHEN jobs.cleanup_attempts + 1 >= $2
+					OR COALESCE(jobs.settled_at, jobs.created_at) <= NOW() - ($3 * INTERVAL '1 millisecond')
+					THEN COALESCE(jobs.reconcile_required_at, NOW())
+					ELSE jobs.reconcile_required_at
+				END,
+				available_at = NOW() + (
+					CASE
+						WHEN jobs.cleanup_attempts + 1 >= $2
+							OR COALESCE(jobs.settled_at, jobs.created_at) <= NOW() - ($3 * INTERVAL '1 millisecond')
+						THEN $4
+						ELSE $5
+					END * INTERVAL '1 millisecond'
+				),
+				updated_at = NOW()
+			FROM failed
+			WHERE jobs.id = failed.job_id
+				AND jobs.settled_at IS NOT NULL
+		`, payload, r.retryAlertThreshold(), r.oldestAgeThreshold().Milliseconds(), r.reconcileRetryInterval().Milliseconds(), max(time.Second, r.maxRetryDelay).Milliseconds()); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	for _, failure := range failures {
+		r.recordUsageBillingRetryClass(failure.errorClass, 1)
+	}
+	return nil
 }
 
-func (r *queuedUsageBillingRepository) applyJobBatchFast(ctx context.Context, tx *sql.Tx, jobs []usageBillingJob) ([]usageBillingCompletion, error) {
+func markUsageBillingJobsClaimed(ctx context.Context, tx *sql.Tx, jobs []usageBillingJob, instanceID string) error {
+	if len(jobs) == 0 {
+		return nil
+	}
+	ids := make([]int64, 0, len(jobs))
+	for _, job := range jobs {
+		ids = append(ids, job.id)
+	}
+	payload, err := json.Marshal(ids)
+	if err != nil {
+		return err
+	}
+	_, err = tx.ExecContext(ctx, `
+		UPDATE usage_billing_jobs
+		SET last_attempt_at = NOW(),
+			last_claimed_by = $2,
+			updated_at = NOW()
+		WHERE id IN (
+			SELECT value::bigint FROM jsonb_array_elements_text($1::jsonb)
+		)
+	`, payload, instanceID)
+	return err
+}
+
+func (r *queuedUsageBillingRepository) applyJobBatchFast(ctx context.Context, tx *sql.Tx, jobs []usageBillingJob) (int, error) {
 	commands := make(map[int64]*service.UsageBillingCommand, len(jobs))
 	jobsByID := make(map[int64]usageBillingJob, len(jobs))
 	claimInputs := make([]usageBillingClaimInput, 0, len(jobs))
-	completions := make([]usageBillingCompletion, 0, len(jobs))
 	for _, job := range jobs {
 		jobsByID[job.id] = job
 		var cmd service.UsageBillingCommand
 		if err := json.Unmarshal(job.payload, &cmd); err != nil {
 			if deadErr := deadLetterUsageBillingJob(ctx, tx, job, fmt.Sprintf("%v: %v", errUsageBillingJobPayloadInvalid, err)); deadErr != nil {
-				return nil, deadErr
+				return 0, deadErr
 			}
 			continue
 		}
 		cmd.Normalize()
 		if cmd.RequestID != job.requestID || cmd.APIKeyID != job.apiKeyID || cmd.RequestFingerprint != job.requestFingerprint {
 			if deadErr := deadLetterUsageBillingJob(ctx, tx, job, errUsageBillingJobPayloadInvalid.Error()+": identity mismatch"); deadErr != nil {
-				return nil, deadErr
+				return 0, deadErr
 			}
 			continue
 		}
@@ -235,15 +542,15 @@ func (r *queuedUsageBillingRepository) applyJobBatchFast(ctx context.Context, tx
 		})
 	}
 	if len(claimInputs) == 0 {
-		return completions, nil
+		return 0, nil
 	}
 	payload, err := json.Marshal(claimInputs)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 	rows, err := tx.QueryContext(ctx, usageBillingClaimBatchSQL, payload)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 	claimStatus := make(map[int64]usageBillingEnqueueStatus, len(claimInputs))
 	for rows.Next() {
@@ -251,12 +558,12 @@ func (r *queuedUsageBillingRepository) applyJobBatchFast(ctx context.Context, tx
 		var status string
 		if err := rows.Scan(&jobID, &status); err != nil {
 			_ = rows.Close()
-			return nil, err
+			return 0, err
 		}
 		claimStatus[jobID] = usageBillingEnqueueStatus(status)
 	}
 	if err := rows.Close(); err != nil {
-		return nil, err
+		return 0, err
 	}
 
 	inserted := make([]*service.UsageBillingCommand, 0, len(commands))
@@ -264,44 +571,44 @@ func (r *queuedUsageBillingRepository) applyJobBatchFast(ctx context.Context, tx
 	for jobID, cmd := range commands {
 		status, ok := claimStatus[jobID]
 		if !ok {
-			return nil, errors.New("durable usage billing claim result missing")
+			return 0, errors.New("durable usage billing claim result missing")
 		}
 		switch status {
 		case usageBillingEnqueueInserted:
 			inserted = append(inserted, cmd)
 			terminalIDs = append(terminalIDs, jobID)
-			completions = append(completions, usageBillingCompletion{jobID: jobID, cmd: *cmd})
 		case usageBillingEnqueueApplied:
 			terminalIDs = append(terminalIDs, jobID)
-			completions = append(completions, usageBillingCompletion{jobID: jobID, cmd: *cmd})
 		default:
 			if err := deadLetterUsageBillingJob(ctx, tx, jobsByID[jobID], service.ErrUsageBillingRequestConflict.Error()); err != nil {
-				return nil, err
+				return 0, err
 			}
-			completions = append(completions, usageBillingCompletion{jobID: jobID, cmd: *cmd})
 		}
 	}
 	if err := applyAggregatedUsageBillingEffects(ctx, tx, inserted); err != nil {
-		return nil, err
+		return 0, err
 	}
 	if len(terminalIDs) > 0 {
 		idsJSON, err := json.Marshal(terminalIDs)
 		if err != nil {
-			return nil, err
+			return 0, err
 		}
 		if _, err := tx.ExecContext(ctx, `
 			UPDATE usage_billing_jobs
 			SET settled_at = COALESCE(settled_at, NOW()),
-				available_at = NOW() + ($2 * INTERVAL '1 millisecond'),
+				available_at = NOW(),
+				last_error = NULL,
+				last_error_class = NULL,
+				reconcile_required_at = NULL,
 				updated_at = NOW()
 			WHERE id IN (
 				SELECT value::bigint FROM jsonb_array_elements_text($1::jsonb)
 			)
-		`, idsJSON, r.maxRetryDelay.Milliseconds()); err != nil {
-			return nil, err
+		`, idsJSON); err != nil {
+			return 0, err
 		}
 	}
-	return completions, nil
+	return len(terminalIDs), nil
 }
 
 func applyAggregatedUsageBillingEffects(ctx context.Context, tx *sql.Tx, commands []*service.UsageBillingCommand) error {
@@ -425,10 +732,13 @@ func (r *queuedUsageBillingRepository) applyJobWithSavepoint(ctx context.Context
 			if _, updateErr := tx.ExecContext(ctx, `
 				UPDATE usage_billing_jobs
 				SET settled_at = COALESCE(settled_at, NOW()),
-					available_at = NOW() + ($2 * INTERVAL '1 millisecond'),
+					available_at = NOW(),
+					last_error = NULL,
+					last_error_class = NULL,
+					reconcile_required_at = NULL,
 					updated_at = NOW()
 				WHERE id = $1
-			`, job.id, r.maxRetryDelay.Milliseconds()); updateErr != nil {
+			`, job.id); updateErr != nil {
 				return nil, false, updateErr
 			}
 			if _, releaseErr := tx.ExecContext(ctx, "RELEASE SAVEPOINT usage_billing_job"); releaseErr != nil {
@@ -455,16 +765,32 @@ func (r *queuedUsageBillingRepository) applyJobWithSavepoint(ctx context.Context
 	}
 
 	delay := usageBillingRetryDelay(job.attempts+1, r.maxRetryDelay)
+	errorClass := classifyUsageBillingError(err)
 	if _, updateErr := tx.ExecContext(ctx, `
 		UPDATE usage_billing_jobs
 		SET attempts = attempts + 1,
 			last_error = $2,
-			available_at = NOW() + ($3 * INTERVAL '1 millisecond'),
+			last_error_class = $3,
+			reconcile_required_at = CASE
+				WHEN attempts + 1 >= $4
+					OR created_at <= NOW() - ($5 * INTERVAL '1 millisecond')
+				THEN COALESCE(reconcile_required_at, NOW())
+				ELSE reconcile_required_at
+			END,
+			available_at = NOW() + (
+				CASE
+					WHEN attempts + 1 >= $4
+						OR created_at <= NOW() - ($5 * INTERVAL '1 millisecond')
+					THEN $6
+					ELSE $7
+				END * INTERVAL '1 millisecond'
+			),
 			updated_at = NOW()
 		WHERE id = $1
-	`, job.id, truncateUsageBillingError(err), delay.Milliseconds()); updateErr != nil {
+	`, job.id, truncateUsageBillingError(err), errorClass, r.retryAlertThreshold(), r.oldestAgeThreshold().Milliseconds(), r.reconcileRetryInterval().Milliseconds(), delay.Milliseconds()); updateErr != nil {
 		return nil, false, updateErr
 	}
+	r.recordUsageBillingRetryClass(errorClass, 1)
 	if _, releaseErr := tx.ExecContext(ctx, "RELEASE SAVEPOINT usage_billing_job"); releaseErr != nil {
 		return nil, false, releaseErr
 	}
@@ -484,7 +810,19 @@ func deadLetterUsageBillingJob(ctx context.Context, tx *sql.Tx, job usageBilling
 	`, job.id, job.requestID, job.apiKeyID, job.requestFingerprint, job.payload, job.attempts+1, truncateUsageBillingError(errors.New(reason)), job.createdAt); err != nil {
 		return err
 	}
-	_, err := tx.ExecContext(ctx, "DELETE FROM usage_billing_jobs WHERE id = $1", job.id)
+	// Keep the durable row in the settled cleanup channel. Permanent failures
+	// must never be retried automatically, but any Redis overlay created by the
+	// producer still needs the normal idempotent cleanup path.
+	_, err := tx.ExecContext(ctx, `
+		UPDATE usage_billing_jobs
+		SET settled_at = COALESCE(settled_at, NOW()),
+			available_at = NOW(),
+			last_error = $2,
+			last_error_class = 'permanent',
+			reconcile_required_at = NULL,
+			updated_at = NOW()
+		WHERE id = $1
+	`, job.id, truncateUsageBillingError(errors.New(reason)))
 	return err
 }
 
@@ -509,4 +847,31 @@ func truncateUsageBillingError(err error) string {
 		message = message[:2000]
 	}
 	return message
+}
+
+func classifyUsageBillingError(err error) string {
+	if err == nil {
+		return ""
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "timeout"
+	}
+	if errors.Is(err, context.Canceled) {
+		return "canceled"
+	}
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) {
+		switch pqErr.Code.Class() {
+		case "08", "40", "53", "55", "57", "58":
+			return "postgres_transient"
+		case "23":
+			return "postgres_constraint"
+		default:
+			return "postgres"
+		}
+	}
+	if isPermanentUsageBillingError(err) {
+		return "permanent"
+	}
+	return "transient"
 }

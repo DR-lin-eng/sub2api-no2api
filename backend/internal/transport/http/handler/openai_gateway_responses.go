@@ -247,6 +247,12 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		)
 		return
 	}
+	// The native v2 route stays on the ordinary /responses wire and must not use
+	// the legacy compact probe gate. Existing accounts can carry a stale
+	// openai_compact_supported=false value from the retired /responses/compact
+	// probe; blocking those accounts would make a rolling upgrade fail closed.
+	// Native v2 is constrained by requiredCapability=Responses below, while the
+	// legacy endpoint alone keeps the compact-capability scheduler gate.
 	requireCompact := compactionRoute.legacyCompact
 
 	maxAccountSwitches := h.maxAccountSwitches
@@ -602,6 +608,7 @@ func (h *OpenAIGatewayHandler) normalizeOpenAIResponsesCompactRequest(c *gin.Con
 		stream, valid := parseOpenAICompatibleStream(body)
 		if valid && stream {
 			route.nativeV2 = true
+			service.MarkOpenAINativeCompactionV2(c)
 			return body, route, true
 		}
 		c.Request.URL.Path = strings.TrimRight(c.Request.URL.Path, "/") + "/compact"

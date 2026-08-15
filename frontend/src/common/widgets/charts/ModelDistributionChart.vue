@@ -3,8 +3,8 @@
     <div class="mb-4 flex items-center justify-between gap-3">
       <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
         {{ !enableRankingView || activeView === 'model_distribution'
-          ? t('admin.dashboard.modelDistribution')
-          : t('admin.dashboard.spendingRankingTitle') }}
+          ? t('dashboard.modelDistribution')
+          : t('dashboard.spendingRankingTitle') }}
       </h3>
       <div class="flex flex-wrap items-center justify-end gap-2">
         <div
@@ -54,7 +54,7 @@
               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
             @click="emit('update:metric', 'tokens')"
           >
-            {{ t('admin.dashboard.metricTokens') }}
+            {{ t('dashboard.metricTokens') }}
           </button>
           <button
             type="button"
@@ -64,7 +64,7 @@
               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
             @click="emit('update:metric', 'actual_cost')"
           >
-            {{ t('admin.dashboard.metricActualCost') }}
+            {{ t('dashboard.metricActualCost') }}
           </button>
         </div>
         <div v-if="enableRankingView" class="inline-flex rounded-lg bg-gray-100 p-1 dark:bg-dark-800">
@@ -78,7 +78,7 @@
             "
             @click="activeView = 'model_distribution'"
           >
-            {{ t('admin.dashboard.viewModelDistribution') }}
+            {{ t('dashboard.viewModelDistribution') }}
           </button>
           <button
             type="button"
@@ -90,7 +90,7 @@
             "
             @click="activeView = 'spending_ranking'"
           >
-            {{ t('admin.dashboard.viewSpendingRanking') }}
+            {{ t('dashboard.viewSpendingRanking') }}
           </button>
         </div>
       </div>
@@ -110,12 +110,12 @@
         <table class="w-full text-xs">
           <thead>
             <tr class="text-gray-500 dark:text-gray-400">
-              <th class="pb-2 text-left">{{ t('admin.dashboard.model') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.requests') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.tokens') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.actual') }}</th>
-              <th v-if="showAccountCost" class="pb-2 text-right">{{ t('admin.dashboard.accountCost') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.standard') }}</th>
+              <th class="pb-2 text-left">{{ t('dashboard.model') }}</th>
+              <th class="pb-2 text-right">{{ t('dashboard.requests') }}</th>
+              <th class="pb-2 text-right">{{ t('dashboard.tokens') }}</th>
+              <th class="pb-2 text-right">{{ t('dashboard.actual') }}</th>
+              <th v-if="showAccountCost" class="pb-2 text-right">{{ t('dashboard.accountCost') }}</th>
+              <th class="pb-2 text-right">{{ t('dashboard.standard') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -170,7 +170,7 @@
       v-else-if="activeView === 'model_distribution'"
       class="flex h-48 items-center justify-center text-sm text-gray-500 dark:text-gray-400"
     >
-      {{ t('admin.dashboard.noDataAvailable') }}
+      {{ t('dashboard.noDataAvailable') }}
     </div>
 
     <div v-else-if="rankingLoading" class="flex h-48 items-center justify-center">
@@ -180,7 +180,7 @@
       v-else-if="rankingError"
       class="flex h-48 items-center justify-center text-sm text-gray-500 dark:text-gray-400"
     >
-      {{ t('admin.dashboard.failedToLoad') }}
+      {{ t('dashboard.failedToLoad') }}
     </div>
     <div v-else-if="rankingDisplayItems.length > 0 && rankingChartData" class="flex flex-col items-center gap-4 sm:flex-row sm:gap-6">
       <div class="h-48 w-48 shrink-0">
@@ -190,10 +190,10 @@
         <table class="w-full text-xs">
           <thead>
             <tr class="text-gray-500 dark:text-gray-400">
-              <th class="pb-2 text-left">{{ t('admin.dashboard.spendingRankingUser') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.spendingRankingRequests') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.spendingRankingTokens') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.spendingRankingSpend') }}</th>
+              <th class="pb-2 text-left">{{ t('dashboard.spendingRankingUser') }}</th>
+              <th class="pb-2 text-right">{{ t('dashboard.spendingRankingRequests') }}</th>
+              <th class="pb-2 text-right">{{ t('dashboard.spendingRankingTokens') }}</th>
+              <th class="pb-2 text-right">{{ t('dashboard.spendingRankingSpend') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -237,7 +237,7 @@
       v-else
       class="flex h-48 items-center justify-center text-sm text-gray-500 dark:text-gray-400"
     >
-      {{ t('admin.dashboard.noDataAvailable') }}
+      {{ t('dashboard.noDataAvailable') }}
     </div>
   </div>
 </template>
@@ -389,7 +389,7 @@ const rankingChartData = computed(() => {
   const backgroundColor = chartColors.slice(0, props.rankingItems.length)
 
   if (otherRankingItem.value) {
-    labels.push(t('admin.dashboard.spendingRankingOther'))
+    labels.push(t('dashboard.spendingRankingOther'))
     data.push(otherRankingItem.value.actual_cost)
     backgroundColor.push('#94a3b8')
   }
@@ -497,11 +497,11 @@ const formatNumber = (value: number): string => {
 const getRankingUserLabel = (item: UserSpendingRankingItem): string => {
   if (item.username?.trim()) return item.username.trim()
   if (item.email?.trim()) return item.email.trim()
-  return t('admin.redeem.userPrefix', { id: item.user_id })
+  return t('dashboard.userPrefix', { id: item.user_id })
 }
 
 const getRankingRowLabel = (item: RankingDisplayItem): string => {
-  if (item.isOther) return t('admin.dashboard.spendingRankingOther')
+  if (item.isOther) return t('dashboard.spendingRankingOther')
   return getRankingUserLabel(item)
 }
 

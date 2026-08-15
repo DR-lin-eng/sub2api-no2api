@@ -5,10 +5,10 @@ export const BILLING_MODE_VIDEO = 'video'
 
 export function getBillingModeLabel(mode: string | null | undefined, t: (key: string) => string): string {
   switch (mode) {
-    case BILLING_MODE_PER_REQUEST: return t('admin.usage.billingModePerRequest')
-    case BILLING_MODE_IMAGE: return t('admin.usage.billingModeImage')
-    case BILLING_MODE_VIDEO: return t('admin.usage.billingModeVideo')
-    default: return t('admin.usage.billingModeToken')
+    case BILLING_MODE_PER_REQUEST: return t('usage.billingModePerRequest')
+    case BILLING_MODE_IMAGE: return t('usage.billingModeImage')
+    case BILLING_MODE_VIDEO: return t('usage.billingModeVideo')
+    default: return t('usage.billingModeToken')
   }
 }
 

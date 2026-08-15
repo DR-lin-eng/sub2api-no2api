@@ -21,7 +21,42 @@ func resetViperWithJWTSecret(t *testing.T) {
 	t.Setenv("SUB2API_CONFIG_FILE", "")
 	t.Setenv("CONFIG_FILE", "")
 	t.Setenv("DATA_DIR", "")
+	t.Setenv("TZ", "")
 	t.Setenv("JWT_SECRET", strings.Repeat("x", 32))
+}
+
+func TestLoadTimezonePrecedence(t *testing.T) {
+	tests := []struct {
+		name         string
+		fileTimezone string
+		timezoneEnv  string
+		tzEnv        string
+		want         string
+	}{
+		{name: "default", want: "Asia/Shanghai"},
+		{name: "config_file", fileTimezone: "Europe/London", want: "Europe/London"},
+		{name: "timezone_env", fileTimezone: "Europe/London", timezoneEnv: "UTC", want: "UTC"},
+		{name: "tz_env_without_explicit_timezone", tzEnv: "America/New_York", want: "America/New_York"},
+		{name: "config_file_preserved_over_compose_tz", fileTimezone: "Europe/London", tzEnv: "America/New_York", want: "Europe/London"},
+		{name: "timezone_env_over_tz", timezoneEnv: "UTC", tzEnv: "America/New_York", want: "UTC"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resetViperWithJWTSecret(t)
+			t.Setenv("TIMEZONE", tt.timezoneEnv)
+			t.Setenv("TZ", tt.tzEnv)
+			if tt.fileTimezone != "" {
+				configFile := filepath.Join(t.TempDir(), "config.yaml")
+				require.NoError(t, os.WriteFile(configFile, []byte("timezone: "+tt.fileTimezone+"\n"), 0o600))
+				t.Setenv("SUB2API_CONFIG_FILE", configFile)
+			}
+
+			cfg, err := Load()
+			require.NoError(t, err)
+			require.Equal(t, tt.want, cfg.Timezone)
+		})
+	}
 }
 
 func TestLoadServerTimingConfig(t *testing.T) {
@@ -85,8 +120,14 @@ func TestLoadDurableBillingQueueDefaultsAndOverride(t *testing.T) {
 		cfg, err := Load()
 		require.NoError(t, err)
 		require.True(t, cfg.Billing.Queue.Enabled)
+		require.Equal(t, UsageBillingConsumerModeActive, cfg.Billing.Queue.ConsumerModeResolved())
 		require.Equal(t, 4, cfg.Billing.Queue.ConsumerCount)
+		require.Zero(t, cfg.Billing.Queue.ClusterMaxConsumers)
 		require.Equal(t, 128, cfg.Billing.Queue.ReadBatchSize)
+		require.Equal(t, 128, cfg.Billing.Queue.CleanupBatchSize)
+		require.False(t, cfg.Billing.Queue.PubSubWakeupEnabled)
+		require.False(t, cfg.Billing.Queue.Rescue.Enabled)
+		require.Equal(t, 60, cfg.Billing.Queue.Rescue.StaleAfterSeconds)
 	})
 
 	t.Run("disabled by environment", func(t *testing.T) {
@@ -95,6 +136,15 @@ func TestLoadDurableBillingQueueDefaultsAndOverride(t *testing.T) {
 		cfg, err := Load()
 		require.NoError(t, err)
 		require.False(t, cfg.Billing.Queue.Enabled)
+	})
+
+	t.Run("producer only remains durably queued", func(t *testing.T) {
+		resetViperWithJWTSecret(t)
+		t.Setenv("BILLING_QUEUE_CONSUMER_MODE", UsageBillingConsumerModeProducerOnly)
+		cfg, err := Load()
+		require.NoError(t, err)
+		require.True(t, cfg.Billing.Queue.Enabled)
+		require.Equal(t, UsageBillingConsumerModeProducerOnly, cfg.Billing.Queue.ConsumerModeResolved())
 	})
 }
 
@@ -1552,6 +1602,32 @@ func TestValidateConfigErrors(t *testing.T) {
 				c.Billing.Queue.ConsumerCount = c.Billing.Queue.MaxConsumerCount + 1
 			},
 			wantErr: "billing.queue.consumer_count cannot exceed max_consumer_count",
+		},
+		{
+			name:    "billing queue consumer mode",
+			mutate:  func(c *Config) { c.Billing.Queue.ConsumerMode = "invalid" },
+			wantErr: "billing.queue.consumer_mode",
+		},
+		{
+			name:    "billing queue cluster consumers non-negative",
+			mutate:  func(c *Config) { c.Billing.Queue.ClusterMaxConsumers = -1 },
+			wantErr: "billing.queue.cluster_max_consumers",
+		},
+		{
+			name: "billing queue auto thresholds",
+			mutate: func(c *Config) {
+				c.Billing.Queue.ConsumerMode = UsageBillingConsumerModeAuto
+				c.Billing.Queue.Auto.CPUHighPercent = c.Billing.Queue.Auto.CPULowPercent
+			},
+			wantErr: "billing.queue.auto CPU thresholds",
+		},
+		{
+			name: "billing queue rescue concurrency",
+			mutate: func(c *Config) {
+				c.Billing.Queue.Rescue.Enabled = true
+				c.Billing.Queue.Rescue.ClusterMaxConcurrency = 0
+			},
+			wantErr: "billing.queue.rescue.cluster_max_concurrency",
 		},
 		{
 			name:    "billing queue retry delay positive",

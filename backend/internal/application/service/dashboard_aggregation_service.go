@@ -29,6 +29,11 @@ const (
 	// dashboardAggregationLeaderLockTTL must exceed the job's worst-case runtime
 	// (defaultDashboardAggregationTimeout) so the lock never expires mid-run.
 	dashboardAggregationLeaderLockTTL = 5 * time.Minute
+
+	// Startup history backfill can take much longer than the periodic pass. It
+	// uses a separate singleton lock whose TTL exceeds the bounded job timeout.
+	dashboardAggregationGroupUsageBackfillLeaderLockKey = "dashboard:aggregation:group-usage-backfill:leader"
+	dashboardAggregationGroupUsageBackfillLeaderLockTTL = defaultDashboardAggregationBackfillTimeout + time.Minute
 )
 
 var (
@@ -143,6 +148,7 @@ func (s *DashboardAggregationService) Start() {
 		logger.LegacyPrintf("service.dashboard_aggregation", "[DashboardAggregation] 聚合作业已禁用")
 		return
 	}
+	go s.runStartupGroupUsageSync()
 
 	interval := time.Duration(s.cfg.IntervalSeconds) * time.Second
 	if interval <= 0 {
@@ -284,6 +290,7 @@ func (s *DashboardAggregationService) runScheduledAggregation() {
 		return
 	}
 	defer release()
+	defer s.runScheduledGroupUsageSync()
 
 	now := time.Now().UTC()
 	last, err := s.repo.GetAggregationWatermark(ctx)
@@ -322,6 +329,42 @@ func (s *DashboardAggregationService) runScheduledAggregation() {
 	)
 
 	s.maybeCleanupRetention(ctx, now)
+}
+
+func (s *DashboardAggregationService) runScheduledGroupUsageSync() {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultDashboardAggregationTimeout)
+	defer cancel()
+	if err := s.syncGroupUsageRollups(ctx, time.Now().UTC()); err != nil {
+		logger.LegacyPrintf("service.dashboard_aggregation", "[DashboardAggregation] group usage rollup failed: %v", err)
+	}
+}
+
+func (s *DashboardAggregationService) runStartupGroupUsageSync() {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultDashboardAggregationBackfillTimeout)
+	defer cancel()
+	release, ok := tryAcquireSingletonLeaderLock(
+		ctx,
+		s.lockCache,
+		s.db,
+		dashboardAggregationGroupUsageBackfillLeaderLockKey,
+		s.instanceID,
+		dashboardAggregationGroupUsageBackfillLeaderLockTTL,
+	)
+	if !ok {
+		return
+	}
+	defer release()
+	if err := s.syncGroupUsageRollups(ctx, time.Now().UTC()); err != nil {
+		logger.LegacyPrintf("service.dashboard_aggregation", "[DashboardAggregation] startup group usage backfill failed: %v", err)
+	}
+}
+
+func (s *DashboardAggregationService) syncGroupUsageRollups(ctx context.Context, now time.Time) error {
+	repo, ok := s.repo.(GroupUsageRollupRepository)
+	if !ok {
+		return nil
+	}
+	return repo.SyncGroupUsageRollups(ctx, GroupUsageTodayStart(now))
 }
 
 func (s *DashboardAggregationService) backfillRange(ctx context.Context, start, end time.Time) error {

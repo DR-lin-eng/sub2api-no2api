@@ -104,6 +104,7 @@ func provideCleanup(
 	billingCache *service.BillingCacheService,
 	usageRecordWorkerPool *service.UsageRecordWorkerPool,
 	usageBillingRepository service.UsageBillingRepository,
+	_ *service.UsageBillingQueueRuntimeCoordinator,
 	subscriptionService *service.SubscriptionService,
 	oauth *service.OAuthService,
 	openaiOAuth *service.OpenAIOAuthService,

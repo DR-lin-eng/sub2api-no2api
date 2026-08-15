@@ -20,10 +20,16 @@ const (
 	usageBillingPendingPrefix       = "billing:usage:pending:"
 	usageBillingMutationPrefix      = "billing:usage:mutation:"
 	usageBillingOverlayPrefix       = "billing:usage:overlay:"
+	usageBillingCompletedPrefix     = "billing:usage:completed:"
 	usageBillingEnqueueBatchMaxSize = 256
 	usageBillingEnqueueBatchWindow  = 3 * time.Millisecond
 	usageBillingEnqueueQueueSize    = 32768
 	usageBillingMutationTTL         = 24 * time.Hour
+	// A producer can be delayed after PostgreSQL commits (for example during a
+	// rolling restart). Keep the completion marker for at least as long as the
+	// pending mutation overlay; otherwise a late producer could recreate a
+	// settled overlay after the marker expired.
+	usageBillingCompletionTTL = usageBillingMutationTTL
 )
 
 var errUsageBillingJobPayloadInvalid = errors.New("usage billing job payload is invalid")
@@ -45,7 +51,9 @@ const usageBillingEnqueueBatchSQL = `
 			ON d.request_id = i.request_id AND d.api_key_id = i.api_key_id
 		LEFT JOIN usage_billing_dedup_archive a
 			ON a.request_id = i.request_id AND a.api_key_id = i.api_key_id
-		WHERE d.id IS NULL AND a.request_id IS NULL
+		LEFT JOIN usage_billing_dead_letters dl
+			ON dl.request_id = i.request_id AND dl.api_key_id = i.api_key_id
+		WHERE d.id IS NULL AND a.request_id IS NULL AND dl.id IS NULL
 	),
 	inserted AS (
 		INSERT INTO usage_billing_jobs (
@@ -79,7 +87,9 @@ const usageBillingEnqueueBatchSQL = `
 		ON d.request_id = i.request_id AND d.api_key_id = i.api_key_id
 	LEFT JOIN usage_billing_dedup_archive a
 		ON a.request_id = i.request_id AND a.api_key_id = i.api_key_id
-`
+	LEFT JOIN usage_billing_dead_letters dl
+		ON dl.request_id = i.request_id AND dl.api_key_id = i.api_key_id
+	`
 
 const usageBillingClaimBatchSQL = `
 	WITH input AS (
@@ -124,6 +134,14 @@ const usageBillingClaimBatchSQL = `
 `
 
 var usageBillingOverlayScript = redis.NewScript(`
+	local completed = redis.call('GET', KEYS[15])
+	if completed then
+		if completed == ARGV[6] then
+			return 0
+		end
+		return redis.error_reply('usage billing completion fingerprint conflict')
+	end
+
 	local existing = redis.call('GET', KEYS[13])
 	if existing then
 		if existing == ARGV[6] then
@@ -207,6 +225,7 @@ var usageBillingCompleteOverlayScript = redis.NewScript(`
 		redis.call('INCR', KEYS[12])
 		redis.call('EXPIRE', KEYS[12], ARGV[5])
 	end
+	redis.call('SET', KEYS[15], ARGV[6], 'EX', ARGV[8])
 	return 1
 `)
 
@@ -255,11 +274,6 @@ type usageBillingJob struct {
 	createdAt          time.Time
 }
 
-type usageBillingCompletion struct {
-	jobID int64
-	cmd   service.UsageBillingCommand
-}
-
 type usageBillingPlatformQuotaAggregate struct {
 	userID   int64
 	platform string
@@ -267,21 +281,42 @@ type usageBillingPlatformQuotaAggregate struct {
 }
 
 type queuedUsageBillingRepository struct {
-	direct         *usageBillingRepository
-	db             *sql.DB
-	rdb            *redis.Client
-	consumerCount  int
-	readBatchSize  int
-	pollInterval   time.Duration
-	commandTimeout time.Duration
-	maxRetryDelay  time.Duration
+	direct                      *usageBillingRepository
+	db                          *sql.DB
+	rdb                         *redis.Client
+	consumerCount               int
+	readBatchSize               int
+	cleanupBatchSize            int
+	pollInterval                time.Duration
+	commandTimeout              time.Duration
+	maxRetryDelay               time.Duration
+	clusterMaxConsumers         int
+	pubSubWakeupEnabled         bool
+	autoMinConsumers            int
+	autoScaleInterval           time.Duration
+	autoScaleCooldown           time.Duration
+	autoCPUHighPercent          float64
+	autoCPULowPercent           float64
+	autoInFlightHigh            int64
+	autoUsageWorkerBacklogHigh  int64
+	autoDBPoolWaitHigh          time.Duration
+	rescueStaleAfter            time.Duration
+	rescueScanInterval          time.Duration
+	rescueBatchSize             int
+	rescueCleanupBatchSize      int
+	rescueClusterMaxConcurrency int
+	retryAlertAttempts          int
+	oldestAgeAlert              time.Duration
+	reconcileRetryDelay         time.Duration
+	runtime                     *usageBillingQueueRuntime
 
-	enqueueCh chan usageBillingEnqueueRequest
-	wakeCh    chan struct{}
-	cancel    context.CancelFunc
-	wg        sync.WaitGroup
-	stopped   atomic.Bool
-	lifecycle sync.RWMutex
+	enqueueCh     chan usageBillingEnqueueRequest
+	wakeCh        chan struct{}
+	wakePublishCh chan struct{}
+	cancel        context.CancelFunc
+	wg            sync.WaitGroup
+	stopped       atomic.Bool
+	lifecycle     sync.RWMutex
 }
 
 // ProvideUsageBillingRepository uses a PostgreSQL WAL-backed queue in
@@ -297,17 +332,38 @@ func ProvideUsageBillingRepository(_ *dbent.Client, sqlDB *sql.DB, rdb *redis.Cl
 		consumerCount = min(consumerCount, queueCfg.MaxConsumerCount)
 	}
 	repo := &queuedUsageBillingRepository{
-		direct:         direct,
-		db:             sqlDB,
-		rdb:            rdb,
-		consumerCount:  consumerCount,
-		readBatchSize:  max(1, queueCfg.ReadBatchSize),
-		pollInterval:   time.Duration(max(1, queueCfg.ReadBlockMilliseconds)) * time.Millisecond,
-		commandTimeout: time.Duration(max(1, queueCfg.CommandTimeoutSeconds)) * time.Second,
-		maxRetryDelay:  time.Duration(max(1, queueCfg.MaxRetryDelaySeconds)) * time.Second,
-		enqueueCh:      make(chan usageBillingEnqueueRequest, usageBillingEnqueueQueueSize),
-		wakeCh:         make(chan struct{}, consumerCount),
+		direct:                      direct,
+		db:                          sqlDB,
+		rdb:                         rdb,
+		consumerCount:               consumerCount,
+		readBatchSize:               max(1, queueCfg.ReadBatchSize),
+		cleanupBatchSize:            max(1, queueCfg.CleanupBatchSize),
+		pollInterval:                time.Duration(max(1, queueCfg.ReadBlockMilliseconds)) * time.Millisecond,
+		commandTimeout:              time.Duration(max(1, queueCfg.CommandTimeoutSeconds)) * time.Second,
+		maxRetryDelay:               time.Duration(max(1, queueCfg.MaxRetryDelaySeconds)) * time.Second,
+		clusterMaxConsumers:         max(0, queueCfg.ClusterMaxConsumers),
+		pubSubWakeupEnabled:         queueCfg.PubSubWakeupEnabled,
+		autoMinConsumers:            max(0, queueCfg.Auto.MinConsumers),
+		autoScaleInterval:           time.Duration(max(1, queueCfg.Auto.ScaleIntervalSeconds)) * time.Second,
+		autoScaleCooldown:           time.Duration(max(1, queueCfg.Auto.ScaleCooldownSeconds)) * time.Second,
+		autoCPUHighPercent:          queueCfg.Auto.CPUHighPercent,
+		autoCPULowPercent:           queueCfg.Auto.CPULowPercent,
+		autoInFlightHigh:            max(int64(1), queueCfg.Auto.InFlightHigh),
+		autoUsageWorkerBacklogHigh:  max(int64(1), queueCfg.Auto.UsageWorkerBacklogHigh),
+		autoDBPoolWaitHigh:          time.Duration(max(1, queueCfg.Auto.DBPoolWaitHighMilliseconds)) * time.Millisecond,
+		rescueStaleAfter:            time.Duration(max(1, queueCfg.Rescue.StaleAfterSeconds)) * time.Second,
+		rescueScanInterval:          time.Duration(max(1, queueCfg.Rescue.ScanIntervalSeconds)) * time.Second,
+		rescueBatchSize:             max(1, queueCfg.Rescue.BatchSize),
+		rescueCleanupBatchSize:      max(1, queueCfg.Rescue.CleanupBatchSize),
+		rescueClusterMaxConcurrency: max(1, queueCfg.Rescue.ClusterMaxConcurrency),
+		retryAlertAttempts:          max(1, queueCfg.Rescue.RetryAlertAttempts),
+		oldestAgeAlert:              time.Duration(max(1, queueCfg.Rescue.OldestAgeAlertSeconds)) * time.Second,
+		reconcileRetryDelay:         time.Duration(max(1, queueCfg.Rescue.ReconcileRetrySeconds)) * time.Second,
+		enqueueCh:                   make(chan usageBillingEnqueueRequest, usageBillingEnqueueQueueSize),
+		wakeCh:                      make(chan struct{}, consumerCount),
+		wakePublishCh:               make(chan struct{}, 1),
 	}
+	repo.runtime = newUsageBillingQueueRuntime(queueCfg, consumerCount)
 	repo.recoverPendingOverlays()
 	repo.start()
 	return repo
@@ -356,11 +412,15 @@ func (r *queuedUsageBillingRepository) Apply(ctx context.Context, cmd *service.U
 		switch result.status {
 		case usageBillingEnqueueInserted:
 			r.reconcilePendingOverlay(&cloned)
-			r.wakeConsumers()
+			// The PostgreSQL row is visible before the Redis overlay is rebuilt.
+			// Wake only after reconciliation so a cross-node consumer cannot
+			// settle and remove an overlay that the producer has not published yet.
+			r.signalConsumersAfterCommit()
 			return &service.UsageBillingApplyResult{Applied: true, Deferred: true}, nil
 		case usageBillingEnqueuePending:
 			// Rebuild the Redis overlay after a Redis restart without double-counting.
 			r.reconcilePendingOverlay(&cloned)
+			r.signalConsumersAfterCommit()
 			return &service.UsageBillingApplyResult{Applied: false, Deferred: true}, nil
 		case usageBillingEnqueueApplied:
 			return &service.UsageBillingApplyResult{Applied: false}, nil
@@ -400,9 +460,27 @@ func (r *queuedUsageBillingRepository) start() {
 	r.cancel = cancel
 	r.wg.Add(1)
 	go r.runEnqueueBatcher(ctx)
-	for i := 0; i < r.consumerCount; i++ {
+	r.wg.Add(1)
+	go r.runLoadController(ctx)
+	if r.pubSubWakeupEnabled && r.rdb != nil {
 		r.wg.Add(1)
-		go r.runConsumer(ctx, i)
+		go r.runWakePublisher(ctx)
+	}
+	normalConsumers := r.runtime == nil ||
+		(r.runtime.mode == config.UsageBillingConsumerModeActive || r.runtime.mode == config.UsageBillingConsumerModeAuto)
+	if normalConsumers && r.pubSubWakeupEnabled && r.rdb != nil {
+		r.wg.Add(1)
+		go r.runWakeSubscriber(ctx)
+	}
+	if normalConsumers {
+		for i := 0; i < r.consumerCount; i++ {
+			r.wg.Add(1)
+			go r.runConsumer(ctx, i)
+		}
+	}
+	if r.runtime != nil && r.runtime.rescueEnabled {
+		r.wg.Add(1)
+		go r.runRescue(ctx)
 	}
 }
 
@@ -503,6 +581,17 @@ func (r *queuedUsageBillingRepository) flushEnqueueBatch(batch []usageBillingEnq
 		}
 		return
 	}
+	inserted := 0
+	for _, result := range results {
+		if result.status == usageBillingEnqueueInserted {
+			inserted++
+		}
+	}
+	// The caller reconciles its Redis overlay after receiving the result. Do not
+	// wake consumers here: doing so creates a commit-before-overlay race during
+	// rolling upgrades. Context-cancelled producers are still recovered by the
+	// PostgreSQL polling leader.
+	r.notifyConsumersAfterCommit(inserted)
 
 	seen := make(map[string]bool, len(unique))
 	for i, req := range batch {

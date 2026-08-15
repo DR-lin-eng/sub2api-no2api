@@ -16,6 +16,7 @@ const VERSION_NEW_HIDDEN_COLUMNS: Record<number, string[]> = { 2: ["id"] };
 
 type GroupUsageSummary = {
   today_cost: number;
+  yesterday_cost: number;
   total_cost: number;
 };
 
@@ -207,12 +208,12 @@ export function useGroupsListController() {
     }
     usageLoading.value = true;
     try {
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const data = await groupsAPI.getUsageSummary(timezone);
+      const data = await groupsAPI.getUsageSummary();
       const map = new Map<number, GroupUsageSummary>();
       for (const item of data) {
         map.set(item.group_id, {
           today_cost: item.today_cost,
+          yesterday_cost: item.yesterday_cost,
           total_cost: item.total_cost,
         });
       }

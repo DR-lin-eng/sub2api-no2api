@@ -64,6 +64,7 @@ type OpsService struct {
 	ingressRejectAggregator     *OpsIngressRejectAggregator
 	authCacheInvalidationWorker *AuthCacheInvalidationWorker
 	apiKeyService               *APIKeyService
+	usageBillingQueueAdmin      UsageBillingQueueAdmin
 
 	// cleanupReloader 由 wire 在 OpsCleanupService 构造完成后通过 SetCleanupReloader 注入。
 	// 解耦避免 OpsService -> OpsCleanupService 的硬依赖（cleanup 也读 settings，会循环）。
@@ -87,6 +88,13 @@ type OpsService struct {
 	runtimeRefreshSuccess        atomic.Uint64
 	runtimeRefreshFailure        atomic.Uint64
 	runtimeRefreshLastFailureLog atomic.Int64
+}
+
+func (s *OpsService) SetUsageBillingQueueAdmin(admin UsageBillingQueueAdmin) {
+	if s == nil {
+		return
+	}
+	s.usageBillingQueueAdmin = admin
 }
 
 // SetImageConcurrencySnapshotProvider connects the gateway's process-local image

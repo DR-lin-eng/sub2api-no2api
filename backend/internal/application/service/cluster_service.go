@@ -152,6 +152,8 @@ type ClusterService struct {
 	loadSampler     clusterLoadSampler
 	requestLoadMu   sync.RWMutex
 	requestLoad     clusterRequestLoadSource
+	billingLoadMu   sync.RWMutex
+	billingLoad     UsageBillingQueueLoadSource
 }
 
 func NewClusterService(repo ClusterRepository, cfg *config.Config, health ClusterHealthChecker, buildInfo BuildInfo) *ClusterService {
@@ -273,6 +275,15 @@ func (s *ClusterService) SetRequestLoadSource(source clusterRequestLoadSource) {
 	s.requestLoadMu.Unlock()
 }
 
+func (s *ClusterService) SetUsageBillingQueueLoadSource(source UsageBillingQueueLoadSource) {
+	if s == nil {
+		return
+	}
+	s.billingLoadMu.Lock()
+	s.billingLoad = source
+	s.billingLoadMu.Unlock()
+}
+
 func (s *ClusterService) Version() string {
 	if s == nil {
 		return ""
@@ -367,6 +378,13 @@ func (s *ClusterService) currentLoad(ctx context.Context) *ClusterInstanceLoad {
 	s.requestLoadMu.RUnlock()
 	if requestLoad != nil {
 		load.InFlightRequests = requestLoad.InFlightRequests()
+	}
+	s.billingLoadMu.RLock()
+	billingLoad := s.billingLoad
+	s.billingLoadMu.RUnlock()
+	if billingLoad != nil {
+		stats := billingLoad.UsageBillingQueueNodeStats()
+		load.UsageBilling = &stats
 	}
 	if statsProvider, ok := s.repo.(clusterConnectionStatsProvider); ok {
 		stats := statsProvider.ClusterConnectionStats()

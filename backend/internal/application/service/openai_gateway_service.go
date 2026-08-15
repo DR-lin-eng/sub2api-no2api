@@ -482,6 +482,10 @@ type OpenAIGatewayService struct {
 	codexModelsManifestCache            codexModelsManifestCache
 	openaiCompatSessionResponses        boundedOpenAICompatSessionCache
 	openaiCompatAnthropicDigestSessions boundedOpenAICompatSessionCache
+	// Tracks the account that minted the latest turn-state for each downstream
+	// API-key/session pair so failover cannot echo a known cross-account value.
+	openaiCodexTurnStateOrigins sync.Map
+	openaiCodexTurnStateWrites  atomic.Uint64
 }
 
 // NewOpenAIGatewayService creates a new OpenAIGatewayService

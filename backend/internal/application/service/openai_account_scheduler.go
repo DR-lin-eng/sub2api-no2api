@@ -2500,7 +2500,7 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 	}
 	var (
 		lastDecision OpenAIAccountScheduleDecision
-		lastErr      error = ErrNoAvailableAccounts
+		lastErr      = ErrNoAvailableAccounts
 	)
 	for i := range candidates {
 		candidateID := candidates[i].GroupID

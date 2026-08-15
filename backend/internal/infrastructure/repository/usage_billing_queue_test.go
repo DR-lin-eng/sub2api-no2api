@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"regexp"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -59,6 +60,34 @@ func TestDurableUsageBillingOverlayIsIdempotentAndCompletes(t *testing.T) {
 	require.Zero(t, mustRedisFloat(t, rdb, usageBillingPendingAPIKeyUsageKey(17)))
 	require.Zero(t, rdb.Exists(ctx, usageBillingOverlayKey(cmd.RequestID, cmd.APIKeyID)).Val())
 	require.Zero(t, rdb.Exists(ctx, billingBalanceKey(15), billingSubKey(15, 16), billingRateLimitKey(17)).Val())
+	require.EqualValues(t, 1, rdb.Exists(ctx, usageBillingCompletedKey(cmd.RequestID, cmd.APIKeyID)).Val())
+
+	// A cross-node wake can complete the job before the producer publishes its
+	// Redis overlay. The completion marker makes that late projection a no-op.
+	repo.reconcilePendingOverlay(cmd)
+	require.Zero(t, mustRedisFloat(t, rdb, usageBillingPendingBalanceKey(15)))
+	require.Zero(t, rdb.Exists(ctx, usageBillingOverlayKey(cmd.RequestID, cmd.APIKeyID)).Val())
+}
+
+func TestDurableUsageBillingCompletionMarkerOutlivesMutationOverlay(t *testing.T) {
+	mr := miniredis.RunT(t)
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = rdb.Close() })
+	repo := &queuedUsageBillingRepository{rdb: rdb}
+	cmd := &service.UsageBillingCommand{RequestID: "completion-marker-ttl", APIKeyID: 41, UserID: 42, BalanceCost: 1}
+	cmd.Normalize()
+
+	repo.reconcilePendingOverlay(cmd)
+	require.NoError(t, repo.completePendingOverlay(cmd))
+	marker := usageBillingCompletedKey(cmd.RequestID, cmd.APIKeyID)
+	require.EqualValues(t, 1, rdb.Exists(context.Background(), marker).Val())
+
+	// A delayed producer must still be a no-op after the old five-minute window;
+	// the marker is deliberately aligned with the mutation overlay TTL.
+	mr.FastForward(usageBillingCompletionTTL - time.Second)
+	require.EqualValues(t, 1, rdb.Exists(context.Background(), marker).Val())
+	repo.reconcilePendingOverlay(cmd)
+	require.Zero(t, mustRedisFloat(t, rdb, usageBillingPendingBalanceKey(cmd.UserID)))
 }
 
 func TestDurableUsageBillingOverlayCanRebuildAfterRedisLoss(t *testing.T) {
@@ -140,7 +169,7 @@ func TestDurableUsageBillingFlushBatchDeduplicatesInMemory(t *testing.T) {
 	require.Equal(t, usageBillingEnqueueInserted, (<-batch[0].resultCh).status)
 	require.Equal(t, usageBillingEnqueuePending, (<-batch[1].resultCh).status)
 	require.Equal(t, usageBillingEnqueueConflict, (<-batch[2].resultCh).status)
-	require.Empty(t, repo.wakeCh, "batcher must not wake consumers before Apply publishes the Redis overlay")
+	require.Empty(t, repo.wakeCh, "the batcher must wait for overlay reconciliation before waking consumers")
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -169,6 +198,37 @@ func TestUsageBillingConsumerWaitOnlyLeaderPolls(t *testing.T) {
 	}
 	repo.wakeCh <- struct{}{}
 	require.True(t, <-followerDone)
+}
+
+func TestUsageBillingAutoModeWakesFromDurableReadyBacklog(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT EXISTS")).WillReturnRows(
+		sqlmock.NewRows([]string{"exists"}).AddRow(true),
+	)
+
+	repo := &queuedUsageBillingRepository{
+		db:                         db,
+		commandTimeout:             time.Second,
+		autoMinConsumers:           0,
+		autoScaleCooldown:          time.Second,
+		autoInFlightHigh:           100,
+		autoUsageWorkerBacklogHigh: 100,
+		autoDBPoolWaitHigh:         time.Second,
+		runtime: &usageBillingQueueRuntime{
+			mode:                "auto",
+			configuredConsumers: 4,
+			effectiveConsumers:  atomic.Int64{},
+			retryClassTotals:    make(map[string]uint64),
+		},
+		wakeCh: make(chan struct{}, 4),
+	}
+	repo.runtime.effectiveConsumers.Store(0)
+	repo.sampleAndAdjustUsageBillingLoad(context.Background())
+	require.Equal(t, int64(1), repo.runtime.effectiveConsumers.Load())
+	require.True(t, repo.runtime.readyBacklog)
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestTruncateUsageBillingError(t *testing.T) {

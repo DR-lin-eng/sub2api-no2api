@@ -61,6 +61,14 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 		}
 		// 配置文件不存在时使用默认值
 	}
+	if tz := strings.TrimSpace(os.Getenv("TZ")); tz != "" &&
+		strings.TrimSpace(os.Getenv("TIMEZONE")) == "" &&
+		!viper.InConfig("timezone") {
+		// Compose has historically injected a default TZ value. Only use it when
+		// timezone was not explicitly configured, so upgrades do not overwrite an
+		// existing config.yaml choice. TIMEZONE remains the explicit env override.
+		viper.Set("timezone", tz)
+	}
 	trustedProxiesEnv, trustedProxiesEnvConfigured := os.LookupEnv("SERVER_TRUSTED_PROXIES")
 
 	var cfg Config

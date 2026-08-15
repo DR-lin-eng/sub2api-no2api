@@ -2,7 +2,7 @@
   <div class="card p-4">
     <div class="mb-4 flex items-center justify-between gap-3">
       <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
-        {{ t('admin.dashboard.groupDistribution') }}
+        {{ t('dashboard.groupDistribution') }}
       </h3>
       <div
         v-if="showMetricToggle"
@@ -16,7 +16,7 @@
             : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
           @click="emit('update:metric', 'tokens')"
         >
-          {{ t('admin.dashboard.metricTokens') }}
+          {{ t('dashboard.metricTokens') }}
         </button>
         <button
           type="button"
@@ -26,7 +26,7 @@
             : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
           @click="emit('update:metric', 'actual_cost')"
         >
-          {{ t('admin.dashboard.metricActualCost') }}
+          {{ t('dashboard.metricActualCost') }}
         </button>
       </div>
     </div>
@@ -41,12 +41,12 @@
         <table class="w-full text-xs">
           <thead>
             <tr class="text-gray-500 dark:text-gray-400">
-              <th class="pb-2 text-left">{{ t('admin.dashboard.group') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.requests') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.tokens') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.actual') }}</th>
-              <th v-if="showAccountCost" class="pb-2 text-right">{{ t('admin.dashboard.accountCost') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.standard') }}</th>
+              <th class="pb-2 text-left">{{ t('dashboard.group') }}</th>
+              <th class="pb-2 text-right">{{ t('dashboard.requests') }}</th>
+              <th class="pb-2 text-right">{{ t('dashboard.tokens') }}</th>
+              <th class="pb-2 text-right">{{ t('dashboard.actual') }}</th>
+              <th v-if="showAccountCost" class="pb-2 text-right">{{ t('dashboard.accountCost') }}</th>
+              <th class="pb-2 text-right">{{ t('dashboard.standard') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -64,7 +64,7 @@
                   <span class="inline-flex items-center gap-1">
                     <svg v-if="enableBreakdown && group.group_id > 0 && expandedKey === `group-${group.group_id}`" class="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                     <svg v-else-if="enableBreakdown && group.group_id > 0" class="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                    {{ group.group_name || t('admin.dashboard.noGroup') }}
+                    {{ group.group_name || t('dashboard.noGroup') }}
                   </span>
                 </td>
                 <td class="py-1.5 text-right text-gray-600 dark:text-gray-400">
@@ -102,7 +102,7 @@
       v-else
       class="flex h-48 items-center justify-center text-sm text-gray-500 dark:text-gray-400"
     >
-      {{ t('admin.dashboard.noDataAvailable') }}
+      {{ t('dashboard.noDataAvailable') }}
     </div>
   </div>
 </template>

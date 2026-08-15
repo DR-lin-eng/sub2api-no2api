@@ -13,20 +13,21 @@ import (
 )
 
 type ClusterInstanceLoad struct {
-	CPUUsagePercent        *float64  `json:"cpu_usage_percent,omitempty"`
-	MemoryUsedBytes        *int64    `json:"memory_used_bytes,omitempty"`
-	MemoryLimitBytes       *int64    `json:"memory_limit_bytes,omitempty"`
-	MemoryUsagePercent     *float64  `json:"memory_usage_percent,omitempty"`
-	InFlightRequests       int64     `json:"in_flight_requests"`
-	ActiveTasks            int       `json:"active_tasks"`
-	GoroutineCount         int       `json:"goroutine_count"`
-	DBConnectionsActive    int       `json:"db_connections_active"`
-	DBConnectionsIdle      int       `json:"db_connections_idle"`
-	DBConnectionsMax       int       `json:"db_connections_max"`
-	RedisConnectionsActive int       `json:"redis_connections_active"`
-	RedisConnectionsIdle   int       `json:"redis_connections_idle"`
-	RedisConnectionsMax    int       `json:"redis_connections_max"`
-	CollectedAt            time.Time `json:"collected_at"`
+	CPUUsagePercent        *float64                    `json:"cpu_usage_percent,omitempty"`
+	MemoryUsedBytes        *int64                      `json:"memory_used_bytes,omitempty"`
+	MemoryLimitBytes       *int64                      `json:"memory_limit_bytes,omitempty"`
+	MemoryUsagePercent     *float64                    `json:"memory_usage_percent,omitempty"`
+	InFlightRequests       int64                       `json:"in_flight_requests"`
+	ActiveTasks            int                         `json:"active_tasks"`
+	GoroutineCount         int                         `json:"goroutine_count"`
+	DBConnectionsActive    int                         `json:"db_connections_active"`
+	DBConnectionsIdle      int                         `json:"db_connections_idle"`
+	DBConnectionsMax       int                         `json:"db_connections_max"`
+	RedisConnectionsActive int                         `json:"redis_connections_active"`
+	RedisConnectionsIdle   int                         `json:"redis_connections_idle"`
+	RedisConnectionsMax    int                         `json:"redis_connections_max"`
+	UsageBilling           *UsageBillingQueueNodeStats `json:"usage_billing,omitempty"`
+	CollectedAt            time.Time                   `json:"collected_at"`
 }
 
 type ClusterConnectionStats struct {
@@ -43,9 +44,11 @@ type clusterRequestLoadSource interface {
 	InFlightRequests() int64
 }
 
-type clusterLoadSampler interface {
+type ClusterLoadSampler interface {
 	Sample(context.Context) ClusterInstanceLoad
 }
+
+type clusterLoadSampler = ClusterLoadSampler
 
 type defaultClusterLoadSampler struct {
 	mu sync.Mutex
@@ -60,6 +63,10 @@ type defaultClusterLoadSampler struct {
 func newDefaultClusterLoadSampler() clusterLoadSampler {
 	proc, _ := process.NewProcess(int32(os.Getpid()))
 	return &defaultClusterLoadSampler{process: proc}
+}
+
+func NewClusterLoadSampler() ClusterLoadSampler {
+	return newDefaultClusterLoadSampler()
 }
 
 func (s *defaultClusterLoadSampler) Sample(ctx context.Context) ClusterInstanceLoad {

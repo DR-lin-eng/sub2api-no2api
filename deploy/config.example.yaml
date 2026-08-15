@@ -1196,19 +1196,60 @@ billing:
   # 即使关闭 Redis 持久化也不会丢失计费任务。
   queue:
     enabled: true
+    # active preserves the pre-upgrade behavior. Use auto for load-aware
+    # consumers, standby for rescue-only nodes, or producer_only to enqueue
+    # without running any local settlement consumer.
+    # active 保持升级前行为；auto 按负载调节，standby 只运行 rescue，
+    # producer_only 仅可靠入队且不在本节点消费。
+    consumer_mode: active
     # Bounded SKIP LOCKED workers per application instance.
     # 每个应用实例的有界 SKIP LOCKED 消费者数量。
     consumer_count: 4
     max_consumer_count: 8
+    # 0 preserves the old per-node behavior. Set a positive value (8 is a
+    # practical starting point) to cap active settlement transactions cluster-wide.
+    # 0 保持旧版逐节点行为；设为正数可限制全集群活跃结算事务总数。
+    cluster_max_consumers: 0
     # Jobs applied in one PostgreSQL transaction.
     # 单个 PostgreSQL 事务处理的任务数。
     read_batch_size: 128
+    # Settled overlay-cleanup jobs have a separate budget so they cannot starve
+    # unsettled billing work.
+    # 已结算 overlay 清理使用独立预算，避免阻塞真正未结算任务。
+    cleanup_batch_size: 128
     # Cross-instance fallback polling interval. Local commits wake workers immediately.
     # Lower explicit values reduce cross-instance latency at the cost of more empty DB queries.
     # 跨实例兜底轮询间隔；本实例入队会立即唤醒。显式降低该值会增加空队列查询。
     read_block_milliseconds: 1000
     command_timeout_seconds: 15
     max_retry_delay_seconds: 30
+    # Publish a best-effort Redis wakeup after the PostgreSQL commit. Polling is
+    # always retained as the durable fallback when Redis is unavailable.
+    # PostgreSQL 提交后通过 Redis 尽力唤醒；Redis 故障时仍由数据库轮询恢复。
+    # Disabled by default to preserve the pre-upgrade polling behavior. Enable
+    # after Redis Pub/Sub has been observed in the target deployment.
+    pubsub_wakeup_enabled: false
+    auto:
+      min_consumers: 1
+      scale_interval_seconds: 2
+      scale_cooldown_seconds: 10
+      cpu_high_percent: 75
+      cpu_low_percent: 50
+      in_flight_high: 128
+      usage_worker_backlog_high: 128
+      db_pool_wait_high_milliseconds: 100
+    rescue:
+      # Disabled on first rollout. Enable on one low-load node before widening.
+      # 首次发布默认关闭，建议先只在一个低负载节点灰度。
+      enabled: false
+      stale_after_seconds: 60
+      scan_interval_seconds: 5
+      batch_size: 32
+      cleanup_batch_size: 32
+      cluster_max_concurrency: 1
+      retry_alert_attempts: 10
+      oldest_age_alert_seconds: 120
+      reconcile_retry_seconds: 300
   # Cache TTL (seconds) for per-user × per-platform quota records
   # 用户 × 平台 quota 缓存 TTL（秒），默认 86400=1天，覆盖典型 daily 窗口
   user_platform_quota_cache_ttl_seconds: 86400

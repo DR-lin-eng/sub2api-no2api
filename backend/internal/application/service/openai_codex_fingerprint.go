@@ -25,7 +25,39 @@ const (
 
 	codexFingerprintModeExtraKey = "codex_fingerprint_mode"
 	codexFingerprintWSKeyHeader  = "x-sub2api-internal-codex-fingerprint-key"
+	// codexFingerprintIDsContextKey stores the per-attempt identity plan. The
+	// request body and outbound headers must consume the same plan so turn IDs
+	// and timestamps cannot drift between the two representations.
+	codexFingerprintIDsContextKey = "codex_fingerprint_ids"
 )
+
+// stageCodexFingerprintIDs always overwrites the attempt value, including nil.
+// Account failover can move from an opted-in OAuth account to an account with
+// convergence disabled; leaving the previous plan in the context would leak
+// the old account's identity into the next request.
+func stageCodexFingerprintIDs(c *gin.Context, ids *codexFingerprintIDs) {
+	if c != nil {
+		c.Set(codexFingerprintIDsContextKey, ids)
+	}
+}
+
+// applyStagedCodexFingerprintHeaders applies the plan staged by the current
+// request attempt. The account/type guard prevents stale context values from
+// affecting API-key or non-OAuth failover attempts.
+func applyStagedCodexFingerprintHeaders(c *gin.Context, account *Account, headers http.Header) {
+	if c == nil || account == nil || !account.IsOpenAIOAuth() || headers == nil {
+		return
+	}
+	value, ok := c.Get(codexFingerprintIDsContextKey)
+	if !ok {
+		return
+	}
+	ids, ok := value.(*codexFingerprintIDs)
+	if !ok || ids == nil {
+		return
+	}
+	applyCodexFingerprintHeaders(headers, ids)
+}
 
 // GetCodexFingerprintMode keeps existing accounts opt-out unless an
 // administrator explicitly selects a convergence mode.
@@ -195,6 +227,16 @@ func applyCodexFingerprintHeaders(headers http.Header, ids *codexFingerprintIDs)
 	rewriteCodexTurnMetadataHeader(headers, ids)
 }
 
+func (s *OpenAIGatewayService) codexIdentityOverrideUA(account *Account) string {
+	if s != nil && s.cfg != nil && s.cfg.Gateway.ForceCodexCLI {
+		return ""
+	}
+	if account == nil {
+		return ""
+	}
+	return account.GetOpenAIUserAgent()
+}
+
 func applyCodexFingerprintWSHeaders(headers http.Header, ids *codexFingerprintIDs) {
 	if headers == nil || ids == nil || ids.installationID == "" {
 		return
@@ -271,6 +313,20 @@ func applyCodexFingerprintClientMetadata(reqBody map[string]any, ids *codexFinge
 	if !ok {
 		return false
 	}
+	if !applyCodexFingerprintClientMetadataMap(metadata, ids) {
+		return false
+	}
+	reqBody["client_metadata"] = metadata
+	return true
+}
+
+// applyCodexFingerprintClientMetadataMap is the shared mutation core used by
+// decoded and raw-body paths. Keeping the field policy in one place prevents
+// passthrough and normal forwarding from diverging.
+func applyCodexFingerprintClientMetadataMap(metadata map[string]any, ids *codexFingerprintIDs) bool {
+	if metadata == nil || ids == nil || ids.installationID == "" {
+		return false
+	}
 	metadata["x-codex-installation-id"] = ids.installationID
 	if ids.mode != codexFingerprintDevice {
 		metadata["session_id"] = ids.sessionID
@@ -279,7 +335,6 @@ func applyCodexFingerprintClientMetadata(reqBody map[string]any, ids *codexFinge
 		metadata["x-codex-window-id"] = ids.windowID
 	}
 	rewriteEmbeddedCodexTurnMetadata(metadata, ids)
-	reqBody["client_metadata"] = metadata
 	return true
 }
 
@@ -301,11 +356,10 @@ func applyCodexFingerprintClientMetadataToBody(body []byte, ids *codexFingerprin
 		}
 	}
 
-	requestBody := map[string]any{"client_metadata": metadata}
-	if !applyCodexFingerprintClientMetadata(requestBody, ids) {
+	if !applyCodexFingerprintClientMetadataMap(metadata, ids) {
 		return body, false, nil
 	}
-	rebuiltMetadata, err := json.Marshal(requestBody["client_metadata"])
+	rebuiltMetadata, err := json.Marshal(metadata)
 	if err != nil {
 		return body, false, fmt.Errorf("encode codex client_metadata: %w", err)
 	}

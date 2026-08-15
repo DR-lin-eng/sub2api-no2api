@@ -16,6 +16,7 @@
 | 修改 Gemini/Antigravity/Grok | `routes/gateway.go` | `application/service/gemini*`, `antigravity*`, `grok*` | 平台专项 service/handler 测试 |
 | 修改账号调度 | `application/service/gateway_scheduling.go`, `openai_account_scheduler.go` | `infrastructure/repository/scheduler*`, `concurrency*` | scheduler、并发、失败切换测试和 benchmark |
 | 修改计费/余额 | `application/service/gateway_usage_billing.go`, `openai_gateway_usage.go` | `billing_service.go`, `infrastructure/repository/usage_billing*`, `billing_cache*` | billing unit + repository integration |
+| 修改分组用量汇总 | `application/service/group_usage_rollup.go` | `infrastructure/repository/group_usage_rollup_repo.go`, `usage_log_repo_group_rollup.go`, `features/admin-groups/` | rollup unit/integration + admin-groups feature tests |
 | 修改订阅配额 | `application/service/subscription*` | `repository/subscription*`, middleware | subscription + gateway billing 测试 |
 | 修改支付 | `internal/modules/payment/` | `routes/payment.go`, payment handlers/repositories | provider、webhook、订单状态测试 |
 | 修改数据库表 | `backend/ent/schema/` | `backend/migrations/`, repository, DTO | generate + migration/integration tests |

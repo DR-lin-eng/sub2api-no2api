@@ -270,6 +270,19 @@ func (r *queuedUsageBillingRepository) completePendingOverlay(cmd *service.Usage
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
+	return r.completePendingOverlayContext(ctx, cmd)
+}
+
+// completePendingOverlayContext binds Redis work to the caller's batch
+// deadline. Cleanup batches can contain many jobs; creating a fresh one-second
+// context per item would let the batch outlive its PostgreSQL lease.
+func (r *queuedUsageBillingRepository) completePendingOverlayContext(ctx context.Context, cmd *service.UsageBillingCommand) error {
+	if r == nil || r.rdb == nil || cmd == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	keys := usageBillingRedisKeys(cmd)
 	if _, err := usageBillingCompleteOverlayScript.Run(ctx, r.rdb, keys,
 		cmd.BalanceCost,
@@ -279,6 +292,7 @@ func (r *queuedUsageBillingRepository) completePendingOverlay(cmd *service.Usage
 		int64(usageBillingMutationTTL/time.Second),
 		cmd.RequestFingerprint,
 		usageBillingPendingActualCost(cmd),
+		int64(usageBillingCompletionTTL/time.Second),
 	).Result(); err != nil {
 		slog.Warn("durable usage billing Redis overlay completion failed", "request_id", cmd.RequestID, "error", err)
 		return err
@@ -317,6 +331,7 @@ func usageBillingRedisKeys(cmd *service.UsageBillingCommand) []string {
 		usageBillingAPIKeyRateLimitMutationKey(apiKeyID),
 		usageBillingOverlayKey(requestID, apiKeyID),
 		usageBillingPendingAPIKeyUsageKey(apiKeyID),
+		usageBillingCompletedKey(requestID, apiKeyID),
 	}
 }
 
@@ -334,6 +349,11 @@ func usageBillingRequestKey(requestID string, apiKeyID int64) string {
 func usageBillingOverlayKey(requestID string, apiKeyID int64) string {
 	sum := sha256.Sum256([]byte(usageBillingRequestKey(requestID, apiKeyID)))
 	return usageBillingOverlayPrefix + hex.EncodeToString(sum[:])
+}
+
+func usageBillingCompletedKey(requestID string, apiKeyID int64) string {
+	sum := sha256.Sum256([]byte(usageBillingRequestKey(requestID, apiKeyID)))
+	return usageBillingCompletedPrefix + hex.EncodeToString(sum[:])
 }
 
 func usageBillingPendingBalanceKey(userID int64) string {

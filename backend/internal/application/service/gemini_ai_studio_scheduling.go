@@ -20,7 +20,7 @@ func (s *GeminiMessagesCompatService) SelectAccountForAIStudioEndpointsWithExclu
 	if !routed {
 		return s.selectAccountForAIStudioEndpointsWithExclusionsInGroup(ctx, groupID, excludedAccountIDs)
 	}
-	var lastErr error = ErrNoAvailableAccounts
+	var lastErr = ErrNoAvailableAccounts
 	for i := range candidates {
 		candidateID := candidates[i].GroupID
 		account, err := s.selectAccountForAIStudioEndpointsWithExclusionsInGroup(
