@@ -30,6 +30,10 @@ type ChatConversation struct {
 	UnreadByUser int `json:"unread_by_user,omitempty"`
 	// 客服未读消息数（用户发出待客服查看）
 	UnreadByAdmin int `json:"unread_by_admin,omitempty"`
+	// LastReadByUserAt holds the value of the "last_read_by_user_at" field.
+	LastReadByUserAt *time.Time `json:"last_read_by_user_at,omitempty"`
+	// LastReadByAdminAt holds the value of the "last_read_by_admin_at" field.
+	LastReadByAdminAt *time.Time `json:"last_read_by_admin_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ChatConversationQuery when eager-loading is set.
 	Edges        ChatConversationEdges `json:"edges"`
@@ -74,7 +78,7 @@ func (*ChatConversation) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case chatconversation.FieldID, chatconversation.FieldUserID, chatconversation.FieldUnreadByUser, chatconversation.FieldUnreadByAdmin:
 			values[i] = new(sql.NullInt64)
-		case chatconversation.FieldCreatedAt, chatconversation.FieldUpdatedAt, chatconversation.FieldLastMessageAt:
+		case chatconversation.FieldCreatedAt, chatconversation.FieldUpdatedAt, chatconversation.FieldLastMessageAt, chatconversation.FieldLastReadByUserAt, chatconversation.FieldLastReadByAdminAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -133,6 +137,20 @@ func (_m *ChatConversation) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field unread_by_admin", values[i])
 			} else if value.Valid {
 				_m.UnreadByAdmin = int(value.Int64)
+			}
+		case chatconversation.FieldLastReadByUserAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field last_read_by_user_at", values[i])
+			} else if value.Valid {
+				_m.LastReadByUserAt = new(time.Time)
+				*_m.LastReadByUserAt = value.Time
+			}
+		case chatconversation.FieldLastReadByAdminAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field last_read_by_admin_at", values[i])
+			} else if value.Valid {
+				_m.LastReadByAdminAt = new(time.Time)
+				*_m.LastReadByAdminAt = value.Time
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -199,6 +217,16 @@ func (_m *ChatConversation) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("unread_by_admin=")
 	builder.WriteString(fmt.Sprintf("%v", _m.UnreadByAdmin))
+	builder.WriteString(", ")
+	if v := _m.LastReadByUserAt; v != nil {
+		builder.WriteString("last_read_by_user_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.LastReadByAdminAt; v != nil {
+		builder.WriteString("last_read_by_admin_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

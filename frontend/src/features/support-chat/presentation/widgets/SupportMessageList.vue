@@ -6,7 +6,7 @@
       class="flex"
       :class="message.sender_type === ownSender ? 'justify-end' : 'justify-start'"
     >
-      <div class="max-w-[82%] sm:max-w-[70%]">
+      <div class="group max-w-[88%] sm:max-w-[72%]">
         <div
           class="mb-1 flex items-center gap-2 text-xs text-gray-500 dark:text-dark-400"
           :class="message.sender_type === ownSender ? 'justify-end' : 'justify-start'"
@@ -15,13 +15,75 @@
           <span>·</span>
           <time :datetime="message.created_at">{{ formatTime(message.created_at) }}</time>
         </div>
+
         <div
-          class="rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm"
+          class="overflow-hidden rounded-2xl text-sm leading-6 shadow-sm"
           :class="message.sender_type === ownSender
             ? 'bg-primary-600 text-white dark:bg-primary-500'
             : 'border border-gray-200 bg-white text-gray-900 dark:border-dark-700 dark:bg-dark-800 dark:text-white'"
         >
-          <div class="support-chat-message-content" v-html="renderMessageContent(message.content)"></div>
+          <div
+            v-if="message.reply_to_id"
+            class="mx-3 mt-3 rounded-xl border-l-2 px-3 py-2 text-xs opacity-80"
+            :class="message.sender_type === ownSender ? 'border-white/70 bg-black/10' : 'border-primary-400 bg-gray-50 dark:bg-dark-900'"
+          >
+            <span class="font-medium">{{ t('supportChat.reply.quote') }} #{{ message.reply_to_id }}</span>
+            <p class="mt-0.5 line-clamp-2 whitespace-pre-wrap break-words">{{ replyPreview(message.reply_to_id) }}</p>
+          </div>
+
+          <div v-if="message.kind === 'balance_transfer'" class="min-w-64 p-4">
+            <p class="text-xs font-medium opacity-75">{{ t('supportChat.transfer.receipt') }}</p>
+            <p class="mt-1 text-2xl font-semibold">+{{ formatAmount(transferMetadata(message).amount) }}</p>
+            <p class="mt-1 text-xs opacity-80">
+              {{ t('supportChat.transfer.balanceAfter', { amount: formatAmount(transferMetadata(message).balance_after) }) }}
+            </p>
+            <p v-if="transferMetadata(message).notes" class="mt-2 whitespace-pre-wrap break-words text-sm opacity-90">
+              {{ transferMetadata(message).notes }}
+            </p>
+          </div>
+
+          <div v-else-if="message.kind === 'image'" class="p-2">
+            <div class="grid max-w-xl gap-2" :class="message.assets.length > 1 ? 'grid-cols-2' : 'grid-cols-1'">
+              <SupportAssetImage
+                v-for="asset in message.assets"
+                :key="asset.id"
+                :asset-id="asset.id"
+                :scope="assetScope"
+                :alt="message.content"
+                container-class="min-h-40 rounded-xl"
+              />
+            </div>
+            <p v-if="message.content && message.content !== '[image]'" class="whitespace-pre-wrap break-words px-2 pb-1 pt-2">
+              {{ message.content }}
+            </p>
+          </div>
+
+          <div v-else-if="message.kind === 'sticker'" class="p-3">
+            <SupportAssetImage
+              v-if="message.assets[0]"
+              :asset-id="message.assets[0].id"
+              :scope="assetScope"
+              :alt="message.content"
+              container-class="h-36 w-36 rounded-xl bg-transparent"
+            />
+            <span v-else class="block px-3 py-2 text-5xl leading-none" role="img" :aria-label="stickerName(message)">
+              {{ stickerEmoji(message) }}
+            </span>
+          </div>
+
+          <p v-else class="whitespace-pre-wrap break-words px-4 py-3">{{ message.content }}</p>
+        </div>
+
+        <div
+          class="mt-1 flex items-center gap-3 text-[11px] text-gray-400 dark:text-dark-500"
+          :class="message.sender_type === ownSender ? 'justify-end' : 'justify-start'"
+        >
+          <span v-if="message.sender_type === ownSender">
+            {{ isPeerRead(message) ? t('supportChat.read.read') : t('supportChat.read.sent') }}
+          </span>
+          <button type="button" class="opacity-70 hover:opacity-100 hover:underline" @click="emit('reply', message)">
+            {{ t('supportChat.reply.action') }}
+          </button>
         </div>
       </div>
     </div>
@@ -31,24 +93,35 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { ChatMessage, ChatSenderType } from '@/features/support-chat/data/datasources/supportChatDatasource'
-import { sanitizeChatHtml } from '@/features/support-chat/presentation/utils/sanitizeChatHtml'
+import {
+  type ChatBalanceTransferMetadata,
+  type ChatMessage,
+  type ChatSenderType,
+} from '@/features/support-chat/data/datasources/supportChatDatasource'
+import SupportAssetImage from '@/features/support-chat/presentation/widgets/SupportAssetImage.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   messages: ChatMessage[]
   ownSender: ChatSenderType
+  assetScope: 'user' | 'admin'
+  peerReadAt?: string | null
+}>(), {
+  peerReadAt: null,
+})
+
+const emit = defineEmits<{
+  reply: [message: ChatMessage]
 }>()
 
 const { t, locale } = useI18n()
 
-const orderedMessages = computed(() => {
-  return [...props.messages].sort((a, b) => {
-    const at = Date.parse(a.created_at) || 0
-    const bt = Date.parse(b.created_at) || 0
-    if (at !== bt) return at - bt
-    return a.id - b.id
-  })
-})
+const orderedMessages = computed(() => [...props.messages].sort((a, b) => {
+  const at = Date.parse(a.created_at) || 0
+  const bt = Date.parse(b.created_at) || 0
+  return at === bt ? a.id - b.id : at - bt
+}))
+
+const messagesByID = computed(() => new Map(props.messages.map(message => [message.id, message])))
 
 function senderLabel(sender: ChatSenderType): string {
   return sender === 'admin' ? t('supportChat.supportAgent') : t('supportChat.user')
@@ -66,69 +139,42 @@ function formatTime(value: string): string {
   }).format(date)
 }
 
-function renderMessageContent(content: string): string {
-  return sanitizeChatHtml(content)
+function replyPreview(id: number): string {
+  const message = messagesByID.value.get(id)
+  if (!message) return t('supportChat.reply.notLoaded')
+  if (message.kind === 'image') return t('supportChat.assets.image')
+  if (message.kind === 'sticker') return stickerEmoji(message)
+  if (message.kind === 'balance_transfer') return t('supportChat.transfer.receipt')
+  return message.content.slice(0, 180)
+}
+
+function stickerEmoji(message: ChatMessage): string {
+  const emoji = message.metadata.emoji
+  return typeof emoji === 'string' && emoji.trim() ? emoji.slice(0, 16) : message.content.slice(0, 16)
+}
+
+function stickerName(message: ChatMessage): string {
+  const name = message.metadata.name
+  return typeof name === 'string' && name.trim() ? name : t('supportChat.assets.sticker')
+}
+
+function transferMetadata(message: ChatMessage): ChatBalanceTransferMetadata {
+  const amount = Number(message.metadata.amount)
+  const balanceAfter = Number(message.metadata.balance_after)
+  return {
+    amount: Number.isFinite(amount) ? amount : 0,
+    balance_after: Number.isFinite(balanceAfter) ? balanceAfter : 0,
+    notes: typeof message.metadata.notes === 'string' ? message.metadata.notes : '',
+  }
+}
+
+function formatAmount(value: number): string {
+  return new Intl.NumberFormat(locale.value, { minimumFractionDigits: 2, maximumFractionDigits: 8 }).format(value)
+}
+
+function isPeerRead(message: ChatMessage): boolean {
+  const readAt = Date.parse(props.peerReadAt || '')
+  const createdAt = Date.parse(message.created_at)
+  return Number.isFinite(readAt) && Number.isFinite(createdAt) && createdAt <= readAt
 }
 </script>
-
-<style scoped>
-.support-chat-message-content {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.support-chat-message-content :deep(a) {
-  text-decoration: underline;
-}
-
-.support-chat-message-content :deep(p),
-.support-chat-message-content :deep(div) {
-  margin: 0.25rem 0;
-}
-
-.support-chat-message-content :deep(p:first-child),
-.support-chat-message-content :deep(div:first-child),
-.support-chat-message-content :deep(ul:first-child),
-.support-chat-message-content :deep(ol:first-child),
-.support-chat-message-content :deep(pre:first-child) {
-  margin-top: 0;
-}
-
-.support-chat-message-content :deep(p:last-child),
-.support-chat-message-content :deep(div:last-child),
-.support-chat-message-content :deep(ul:last-child),
-.support-chat-message-content :deep(ol:last-child),
-.support-chat-message-content :deep(pre:last-child) {
-  margin-bottom: 0;
-}
-
-.support-chat-message-content :deep(ul),
-.support-chat-message-content :deep(ol) {
-  margin: 0.35rem 0;
-  padding-left: 1.25rem;
-}
-
-.support-chat-message-content :deep(ul) {
-  list-style: disc;
-}
-
-.support-chat-message-content :deep(ol) {
-  list-style: decimal;
-}
-
-.support-chat-message-content :deep(pre) {
-  max-width: 100%;
-  overflow-x: auto;
-  border-radius: 0.75rem;
-  margin: 0.5rem 0;
-  padding: 0.75rem;
-  background: rgb(17 24 39 / 0.12);
-  white-space: pre;
-}
-
-.support-chat-message-content :deep(code) {
-  border-radius: 0.375rem;
-  padding: 0.1rem 0.25rem;
-  background: rgb(17 24 39 / 0.12);
-}
-</style>

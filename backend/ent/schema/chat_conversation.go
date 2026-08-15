@@ -47,6 +47,14 @@ func (ChatConversation) Fields() []ent.Field {
 		field.Int("unread_by_admin").
 			Default(0).
 			Comment("客服未读消息数（用户发出待客服查看）"),
+		field.Time("last_read_by_user_at").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
+		field.Time("last_read_by_admin_at").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
 	}
 }
 

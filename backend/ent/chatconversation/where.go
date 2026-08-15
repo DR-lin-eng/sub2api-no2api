@@ -85,6 +85,16 @@ func UnreadByAdmin(v int) predicate.ChatConversation {
 	return predicate.ChatConversation(sql.FieldEQ(FieldUnreadByAdmin, v))
 }
 
+// LastReadByUserAt applies equality check predicate on the "last_read_by_user_at" field. It's identical to LastReadByUserAtEQ.
+func LastReadByUserAt(v time.Time) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldEQ(FieldLastReadByUserAt, v))
+}
+
+// LastReadByAdminAt applies equality check predicate on the "last_read_by_admin_at" field. It's identical to LastReadByAdminAtEQ.
+func LastReadByAdminAt(v time.Time) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldEQ(FieldLastReadByAdminAt, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.ChatConversation {
 	return predicate.ChatConversation(sql.FieldEQ(FieldCreatedAt, v))
@@ -313,6 +323,106 @@ func UnreadByAdminLT(v int) predicate.ChatConversation {
 // UnreadByAdminLTE applies the LTE predicate on the "unread_by_admin" field.
 func UnreadByAdminLTE(v int) predicate.ChatConversation {
 	return predicate.ChatConversation(sql.FieldLTE(FieldUnreadByAdmin, v))
+}
+
+// LastReadByUserAtEQ applies the EQ predicate on the "last_read_by_user_at" field.
+func LastReadByUserAtEQ(v time.Time) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldEQ(FieldLastReadByUserAt, v))
+}
+
+// LastReadByUserAtNEQ applies the NEQ predicate on the "last_read_by_user_at" field.
+func LastReadByUserAtNEQ(v time.Time) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldNEQ(FieldLastReadByUserAt, v))
+}
+
+// LastReadByUserAtIn applies the In predicate on the "last_read_by_user_at" field.
+func LastReadByUserAtIn(vs ...time.Time) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldIn(FieldLastReadByUserAt, vs...))
+}
+
+// LastReadByUserAtNotIn applies the NotIn predicate on the "last_read_by_user_at" field.
+func LastReadByUserAtNotIn(vs ...time.Time) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldNotIn(FieldLastReadByUserAt, vs...))
+}
+
+// LastReadByUserAtGT applies the GT predicate on the "last_read_by_user_at" field.
+func LastReadByUserAtGT(v time.Time) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldGT(FieldLastReadByUserAt, v))
+}
+
+// LastReadByUserAtGTE applies the GTE predicate on the "last_read_by_user_at" field.
+func LastReadByUserAtGTE(v time.Time) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldGTE(FieldLastReadByUserAt, v))
+}
+
+// LastReadByUserAtLT applies the LT predicate on the "last_read_by_user_at" field.
+func LastReadByUserAtLT(v time.Time) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldLT(FieldLastReadByUserAt, v))
+}
+
+// LastReadByUserAtLTE applies the LTE predicate on the "last_read_by_user_at" field.
+func LastReadByUserAtLTE(v time.Time) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldLTE(FieldLastReadByUserAt, v))
+}
+
+// LastReadByUserAtIsNil applies the IsNil predicate on the "last_read_by_user_at" field.
+func LastReadByUserAtIsNil() predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldIsNull(FieldLastReadByUserAt))
+}
+
+// LastReadByUserAtNotNil applies the NotNil predicate on the "last_read_by_user_at" field.
+func LastReadByUserAtNotNil() predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldNotNull(FieldLastReadByUserAt))
+}
+
+// LastReadByAdminAtEQ applies the EQ predicate on the "last_read_by_admin_at" field.
+func LastReadByAdminAtEQ(v time.Time) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldEQ(FieldLastReadByAdminAt, v))
+}
+
+// LastReadByAdminAtNEQ applies the NEQ predicate on the "last_read_by_admin_at" field.
+func LastReadByAdminAtNEQ(v time.Time) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldNEQ(FieldLastReadByAdminAt, v))
+}
+
+// LastReadByAdminAtIn applies the In predicate on the "last_read_by_admin_at" field.
+func LastReadByAdminAtIn(vs ...time.Time) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldIn(FieldLastReadByAdminAt, vs...))
+}
+
+// LastReadByAdminAtNotIn applies the NotIn predicate on the "last_read_by_admin_at" field.
+func LastReadByAdminAtNotIn(vs ...time.Time) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldNotIn(FieldLastReadByAdminAt, vs...))
+}
+
+// LastReadByAdminAtGT applies the GT predicate on the "last_read_by_admin_at" field.
+func LastReadByAdminAtGT(v time.Time) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldGT(FieldLastReadByAdminAt, v))
+}
+
+// LastReadByAdminAtGTE applies the GTE predicate on the "last_read_by_admin_at" field.
+func LastReadByAdminAtGTE(v time.Time) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldGTE(FieldLastReadByAdminAt, v))
+}
+
+// LastReadByAdminAtLT applies the LT predicate on the "last_read_by_admin_at" field.
+func LastReadByAdminAtLT(v time.Time) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldLT(FieldLastReadByAdminAt, v))
+}
+
+// LastReadByAdminAtLTE applies the LTE predicate on the "last_read_by_admin_at" field.
+func LastReadByAdminAtLTE(v time.Time) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldLTE(FieldLastReadByAdminAt, v))
+}
+
+// LastReadByAdminAtIsNil applies the IsNil predicate on the "last_read_by_admin_at" field.
+func LastReadByAdminAtIsNil() predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldIsNull(FieldLastReadByAdminAt))
+}
+
+// LastReadByAdminAtNotNil applies the NotNil predicate on the "last_read_by_admin_at" field.
+func LastReadByAdminAtNotNil() predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldNotNull(FieldLastReadByAdminAt))
 }
 
 // HasUser applies the HasEdge predicate on the "user" edge.

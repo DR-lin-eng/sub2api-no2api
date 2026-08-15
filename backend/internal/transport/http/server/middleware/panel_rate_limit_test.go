@@ -303,6 +303,8 @@ func TestPanelHeavyPathCoverage(t *testing.T) {
 		"/api/v1/admin/ops/dashboard/overview",
 		"/api/v1/admin/payment/dashboard",
 		"/api/v1/admin/payment/orders",
+		"/api/v1/chat/messages",
+		"/api/v1/admin/chat/conversations/:id/messages",
 	} {
 		require.Truef(t, isPanelHeavyPath(path), "expected heavy route %s", path)
 	}

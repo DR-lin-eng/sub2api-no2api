@@ -100,6 +100,34 @@ func (_c *ChatConversationCreate) SetNillableUnreadByAdmin(v *int) *ChatConversa
 	return _c
 }
 
+// SetLastReadByUserAt sets the "last_read_by_user_at" field.
+func (_c *ChatConversationCreate) SetLastReadByUserAt(v time.Time) *ChatConversationCreate {
+	_c.mutation.SetLastReadByUserAt(v)
+	return _c
+}
+
+// SetNillableLastReadByUserAt sets the "last_read_by_user_at" field if the given value is not nil.
+func (_c *ChatConversationCreate) SetNillableLastReadByUserAt(v *time.Time) *ChatConversationCreate {
+	if v != nil {
+		_c.SetLastReadByUserAt(*v)
+	}
+	return _c
+}
+
+// SetLastReadByAdminAt sets the "last_read_by_admin_at" field.
+func (_c *ChatConversationCreate) SetLastReadByAdminAt(v time.Time) *ChatConversationCreate {
+	_c.mutation.SetLastReadByAdminAt(v)
+	return _c
+}
+
+// SetNillableLastReadByAdminAt sets the "last_read_by_admin_at" field if the given value is not nil.
+func (_c *ChatConversationCreate) SetNillableLastReadByAdminAt(v *time.Time) *ChatConversationCreate {
+	if v != nil {
+		_c.SetLastReadByAdminAt(*v)
+	}
+	return _c
+}
+
 // SetUser sets the "user" edge to the User entity.
 func (_c *ChatConversationCreate) SetUser(v *User) *ChatConversationCreate {
 	return _c.SetUserID(v.ID)
@@ -239,6 +267,14 @@ func (_c *ChatConversationCreate) createSpec() (*ChatConversation, *sqlgraph.Cre
 	if value, ok := _c.mutation.UnreadByAdmin(); ok {
 		_spec.SetField(chatconversation.FieldUnreadByAdmin, field.TypeInt, value)
 		_node.UnreadByAdmin = value
+	}
+	if value, ok := _c.mutation.LastReadByUserAt(); ok {
+		_spec.SetField(chatconversation.FieldLastReadByUserAt, field.TypeTime, value)
+		_node.LastReadByUserAt = &value
+	}
+	if value, ok := _c.mutation.LastReadByAdminAt(); ok {
+		_spec.SetField(chatconversation.FieldLastReadByAdminAt, field.TypeTime, value)
+		_node.LastReadByAdminAt = &value
 	}
 	if nodes := _c.mutation.UserIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -403,6 +439,42 @@ func (u *ChatConversationUpsert) AddUnreadByAdmin(v int) *ChatConversationUpsert
 	return u
 }
 
+// SetLastReadByUserAt sets the "last_read_by_user_at" field.
+func (u *ChatConversationUpsert) SetLastReadByUserAt(v time.Time) *ChatConversationUpsert {
+	u.Set(chatconversation.FieldLastReadByUserAt, v)
+	return u
+}
+
+// UpdateLastReadByUserAt sets the "last_read_by_user_at" field to the value that was provided on create.
+func (u *ChatConversationUpsert) UpdateLastReadByUserAt() *ChatConversationUpsert {
+	u.SetExcluded(chatconversation.FieldLastReadByUserAt)
+	return u
+}
+
+// ClearLastReadByUserAt clears the value of the "last_read_by_user_at" field.
+func (u *ChatConversationUpsert) ClearLastReadByUserAt() *ChatConversationUpsert {
+	u.SetNull(chatconversation.FieldLastReadByUserAt)
+	return u
+}
+
+// SetLastReadByAdminAt sets the "last_read_by_admin_at" field.
+func (u *ChatConversationUpsert) SetLastReadByAdminAt(v time.Time) *ChatConversationUpsert {
+	u.Set(chatconversation.FieldLastReadByAdminAt, v)
+	return u
+}
+
+// UpdateLastReadByAdminAt sets the "last_read_by_admin_at" field to the value that was provided on create.
+func (u *ChatConversationUpsert) UpdateLastReadByAdminAt() *ChatConversationUpsert {
+	u.SetExcluded(chatconversation.FieldLastReadByAdminAt)
+	return u
+}
+
+// ClearLastReadByAdminAt clears the value of the "last_read_by_admin_at" field.
+func (u *ChatConversationUpsert) ClearLastReadByAdminAt() *ChatConversationUpsert {
+	u.SetNull(chatconversation.FieldLastReadByAdminAt)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -536,6 +608,48 @@ func (u *ChatConversationUpsertOne) AddUnreadByAdmin(v int) *ChatConversationUps
 func (u *ChatConversationUpsertOne) UpdateUnreadByAdmin() *ChatConversationUpsertOne {
 	return u.Update(func(s *ChatConversationUpsert) {
 		s.UpdateUnreadByAdmin()
+	})
+}
+
+// SetLastReadByUserAt sets the "last_read_by_user_at" field.
+func (u *ChatConversationUpsertOne) SetLastReadByUserAt(v time.Time) *ChatConversationUpsertOne {
+	return u.Update(func(s *ChatConversationUpsert) {
+		s.SetLastReadByUserAt(v)
+	})
+}
+
+// UpdateLastReadByUserAt sets the "last_read_by_user_at" field to the value that was provided on create.
+func (u *ChatConversationUpsertOne) UpdateLastReadByUserAt() *ChatConversationUpsertOne {
+	return u.Update(func(s *ChatConversationUpsert) {
+		s.UpdateLastReadByUserAt()
+	})
+}
+
+// ClearLastReadByUserAt clears the value of the "last_read_by_user_at" field.
+func (u *ChatConversationUpsertOne) ClearLastReadByUserAt() *ChatConversationUpsertOne {
+	return u.Update(func(s *ChatConversationUpsert) {
+		s.ClearLastReadByUserAt()
+	})
+}
+
+// SetLastReadByAdminAt sets the "last_read_by_admin_at" field.
+func (u *ChatConversationUpsertOne) SetLastReadByAdminAt(v time.Time) *ChatConversationUpsertOne {
+	return u.Update(func(s *ChatConversationUpsert) {
+		s.SetLastReadByAdminAt(v)
+	})
+}
+
+// UpdateLastReadByAdminAt sets the "last_read_by_admin_at" field to the value that was provided on create.
+func (u *ChatConversationUpsertOne) UpdateLastReadByAdminAt() *ChatConversationUpsertOne {
+	return u.Update(func(s *ChatConversationUpsert) {
+		s.UpdateLastReadByAdminAt()
+	})
+}
+
+// ClearLastReadByAdminAt clears the value of the "last_read_by_admin_at" field.
+func (u *ChatConversationUpsertOne) ClearLastReadByAdminAt() *ChatConversationUpsertOne {
+	return u.Update(func(s *ChatConversationUpsert) {
+		s.ClearLastReadByAdminAt()
 	})
 }
 
@@ -838,6 +952,48 @@ func (u *ChatConversationUpsertBulk) AddUnreadByAdmin(v int) *ChatConversationUp
 func (u *ChatConversationUpsertBulk) UpdateUnreadByAdmin() *ChatConversationUpsertBulk {
 	return u.Update(func(s *ChatConversationUpsert) {
 		s.UpdateUnreadByAdmin()
+	})
+}
+
+// SetLastReadByUserAt sets the "last_read_by_user_at" field.
+func (u *ChatConversationUpsertBulk) SetLastReadByUserAt(v time.Time) *ChatConversationUpsertBulk {
+	return u.Update(func(s *ChatConversationUpsert) {
+		s.SetLastReadByUserAt(v)
+	})
+}
+
+// UpdateLastReadByUserAt sets the "last_read_by_user_at" field to the value that was provided on create.
+func (u *ChatConversationUpsertBulk) UpdateLastReadByUserAt() *ChatConversationUpsertBulk {
+	return u.Update(func(s *ChatConversationUpsert) {
+		s.UpdateLastReadByUserAt()
+	})
+}
+
+// ClearLastReadByUserAt clears the value of the "last_read_by_user_at" field.
+func (u *ChatConversationUpsertBulk) ClearLastReadByUserAt() *ChatConversationUpsertBulk {
+	return u.Update(func(s *ChatConversationUpsert) {
+		s.ClearLastReadByUserAt()
+	})
+}
+
+// SetLastReadByAdminAt sets the "last_read_by_admin_at" field.
+func (u *ChatConversationUpsertBulk) SetLastReadByAdminAt(v time.Time) *ChatConversationUpsertBulk {
+	return u.Update(func(s *ChatConversationUpsert) {
+		s.SetLastReadByAdminAt(v)
+	})
+}
+
+// UpdateLastReadByAdminAt sets the "last_read_by_admin_at" field to the value that was provided on create.
+func (u *ChatConversationUpsertBulk) UpdateLastReadByAdminAt() *ChatConversationUpsertBulk {
+	return u.Update(func(s *ChatConversationUpsert) {
+		s.UpdateLastReadByAdminAt()
+	})
+}
+
+// ClearLastReadByAdminAt clears the value of the "last_read_by_admin_at" field.
+func (u *ChatConversationUpsertBulk) ClearLastReadByAdminAt() *ChatConversationUpsertBulk {
+	return u.Update(func(s *ChatConversationUpsert) {
+		s.ClearLastReadByAdminAt()
 	})
 }
 

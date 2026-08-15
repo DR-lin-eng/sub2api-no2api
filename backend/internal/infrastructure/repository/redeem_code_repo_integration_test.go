@@ -9,8 +9,10 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -30,6 +32,29 @@ func (s *RedeemCodeRepoSuite) SetupTest() {
 
 func TestRedeemCodeRepoSuite(t *testing.T) {
 	suite.Run(t, new(RedeemCodeRepoSuite))
+}
+
+func TestRedeemCodeCreateHonorsOuterTransactionRollback(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	repo := NewRedeemCodeRepository(client)
+	codeValue := "TXRB-" + time.Now().UTC().Format("150405.000000000")
+	t.Cleanup(func() {
+		_, _ = client.RedeemCode.Delete().Where(redeemcode.CodeEQ(codeValue)).Exec(context.Background())
+	})
+
+	tx, err := client.Tx(ctx)
+	require.NoError(t, err)
+	txCtx := dbent.NewTxContext(ctx, tx)
+	err = repo.Create(txCtx, &service.RedeemCode{
+		Code: codeValue, Type: service.RedeemTypeBalance, Value: 1, Status: service.StatusUsed,
+	})
+	require.NoError(t, err)
+	require.NoError(t, tx.Rollback())
+
+	exists, err := client.RedeemCode.Query().Where(redeemcode.CodeEQ(codeValue)).Exist(ctx)
+	require.NoError(t, err)
+	require.False(t, exists, "redeem-code history must roll back with its enclosing balance transaction")
 }
 
 func (s *RedeemCodeRepoSuite) createUser(email string) *dbent.User {

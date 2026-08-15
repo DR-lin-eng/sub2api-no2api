@@ -3,6 +3,7 @@ package chat
 import (
 	"encoding/json"
 	"sync"
+	"time"
 )
 
 // conn is the minimal surface the hub needs from a websocket connection.
@@ -16,8 +17,15 @@ type conn struct {
 
 // outboundEvent is the JSON payload pushed to connected websocket clients.
 type outboundEvent struct {
-	Type    string   `json:"type"`
-	Message *Message `json:"message,omitempty"`
+	Type      string            `json:"type"`
+	Message   *Message          `json:"message,omitempty"`
+	ReadState *readStatePayload `json:"read_state,omitempty"`
+}
+
+type readStatePayload struct {
+	ConversationID int64      `json:"conversation_id"`
+	Reader         SenderType `json:"reader"`
+	ReadAt         time.Time  `json:"read_at"`
 }
 
 // Hub is a package-level singleton connection registry (constructed once
@@ -92,7 +100,30 @@ func (h *Hub) BroadcastMessage(_ int64, recipientUserID int64, msg *Message, toA
 	if err != nil {
 		return
 	}
+	h.broadcast(payload, recipientUserID, toAdmins)
+}
 
+func (h *Hub) BroadcastReadState(
+	conversationID, recipientUserID int64,
+	reader SenderType,
+	readAt time.Time,
+	toAdmins bool,
+) {
+	payload, err := json.Marshal(outboundEvent{
+		Type: "read_state",
+		ReadState: &readStatePayload{
+			ConversationID: conversationID,
+			Reader:         reader,
+			ReadAt:         readAt,
+		},
+	})
+	if err != nil {
+		return
+	}
+	h.broadcast(payload, recipientUserID, toAdmins)
+}
+
+func (h *Hub) broadcast(payload []byte, recipientUserID int64, toAdmins bool) {
 	h.mu.Lock()
 	var targets []*conn
 	if toAdmins {

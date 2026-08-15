@@ -66,6 +66,12 @@ export default {
           priceDescription: '价格说明（Markdown）',
           priceDescriptionHint: '展示在模型广场页面顶部，可用于说明计费规则、汇率、优惠活动等。',
         },
+        mediaStudio: {
+          title: '媒体工坊',
+          description: '控制完整的图片、视频和批量生成工作台。为保证平滑升级，默认保持关闭。',
+          enabled: '启用媒体工坊',
+          enabledHint: '关闭后用户侧边栏隐藏媒体工坊入口，直接访问 /media-studio 会返回控制台。',
+        },
         riskControl: {
           title: '风控中心',
           description: '启用内容审计菜单和全端点请求审核入口。默认关闭。',

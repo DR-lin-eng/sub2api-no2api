@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/chatasset"
 	"github.com/Wei-Shaw/sub2api/ent/chatconversation"
 	"github.com/Wei-Shaw/sub2api/ent/chatmessage"
 )
@@ -47,6 +49,54 @@ func (_c *ChatMessageCreate) SetContent(v string) *ChatMessageCreate {
 	return _c
 }
 
+// SetKind sets the "kind" field.
+func (_c *ChatMessageCreate) SetKind(v chatmessage.Kind) *ChatMessageCreate {
+	_c.mutation.SetKind(v)
+	return _c
+}
+
+// SetNillableKind sets the "kind" field if the given value is not nil.
+func (_c *ChatMessageCreate) SetNillableKind(v *chatmessage.Kind) *ChatMessageCreate {
+	if v != nil {
+		_c.SetKind(*v)
+	}
+	return _c
+}
+
+// SetReplyToID sets the "reply_to_id" field.
+func (_c *ChatMessageCreate) SetReplyToID(v int64) *ChatMessageCreate {
+	_c.mutation.SetReplyToID(v)
+	return _c
+}
+
+// SetNillableReplyToID sets the "reply_to_id" field if the given value is not nil.
+func (_c *ChatMessageCreate) SetNillableReplyToID(v *int64) *ChatMessageCreate {
+	if v != nil {
+		_c.SetReplyToID(*v)
+	}
+	return _c
+}
+
+// SetMetadata sets the "metadata" field.
+func (_c *ChatMessageCreate) SetMetadata(v json.RawMessage) *ChatMessageCreate {
+	_c.mutation.SetMetadata(v)
+	return _c
+}
+
+// SetIdempotencyKey sets the "idempotency_key" field.
+func (_c *ChatMessageCreate) SetIdempotencyKey(v string) *ChatMessageCreate {
+	_c.mutation.SetIdempotencyKey(v)
+	return _c
+}
+
+// SetNillableIdempotencyKey sets the "idempotency_key" field if the given value is not nil.
+func (_c *ChatMessageCreate) SetNillableIdempotencyKey(v *string) *ChatMessageCreate {
+	if v != nil {
+		_c.SetIdempotencyKey(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *ChatMessageCreate) SetCreatedAt(v time.Time) *ChatMessageCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -64,6 +114,21 @@ func (_c *ChatMessageCreate) SetNillableCreatedAt(v *time.Time) *ChatMessageCrea
 // SetConversation sets the "conversation" edge to the ChatConversation entity.
 func (_c *ChatMessageCreate) SetConversation(v *ChatConversation) *ChatMessageCreate {
 	return _c.SetConversationID(v.ID)
+}
+
+// AddAssetIDs adds the "assets" edge to the ChatAsset entity by IDs.
+func (_c *ChatMessageCreate) AddAssetIDs(ids ...int64) *ChatMessageCreate {
+	_c.mutation.AddAssetIDs(ids...)
+	return _c
+}
+
+// AddAssets adds the "assets" edges to the ChatAsset entity.
+func (_c *ChatMessageCreate) AddAssets(v ...*ChatAsset) *ChatMessageCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAssetIDs(ids...)
 }
 
 // Mutation returns the ChatMessageMutation object of the builder.
@@ -101,6 +166,10 @@ func (_c *ChatMessageCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *ChatMessageCreate) defaults() {
+	if _, ok := _c.mutation.Kind(); !ok {
+		v := chatmessage.DefaultKind
+		_c.mutation.SetKind(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := chatmessage.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
@@ -129,6 +198,19 @@ func (_c *ChatMessageCreate) check() error {
 	if v, ok := _c.mutation.Content(); ok {
 		if err := chatmessage.ContentValidator(v); err != nil {
 			return &ValidationError{Name: "content", err: fmt.Errorf(`ent: validator failed for field "ChatMessage.content": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.Kind(); !ok {
+		return &ValidationError{Name: "kind", err: errors.New(`ent: missing required field "ChatMessage.kind"`)}
+	}
+	if v, ok := _c.mutation.Kind(); ok {
+		if err := chatmessage.KindValidator(v); err != nil {
+			return &ValidationError{Name: "kind", err: fmt.Errorf(`ent: validator failed for field "ChatMessage.kind": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.IdempotencyKey(); ok {
+		if err := chatmessage.IdempotencyKeyValidator(v); err != nil {
+			return &ValidationError{Name: "idempotency_key", err: fmt.Errorf(`ent: validator failed for field "ChatMessage.idempotency_key": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
@@ -176,6 +258,22 @@ func (_c *ChatMessageCreate) createSpec() (*ChatMessage, *sqlgraph.CreateSpec) {
 		_spec.SetField(chatmessage.FieldContent, field.TypeString, value)
 		_node.Content = value
 	}
+	if value, ok := _c.mutation.Kind(); ok {
+		_spec.SetField(chatmessage.FieldKind, field.TypeEnum, value)
+		_node.Kind = value
+	}
+	if value, ok := _c.mutation.ReplyToID(); ok {
+		_spec.SetField(chatmessage.FieldReplyToID, field.TypeInt64, value)
+		_node.ReplyToID = &value
+	}
+	if value, ok := _c.mutation.Metadata(); ok {
+		_spec.SetField(chatmessage.FieldMetadata, field.TypeJSON, value)
+		_node.Metadata = value
+	}
+	if value, ok := _c.mutation.IdempotencyKey(); ok {
+		_spec.SetField(chatmessage.FieldIdempotencyKey, field.TypeString, value)
+		_node.IdempotencyKey = &value
+	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(chatmessage.FieldCreatedAt, field.TypeTime, value)
 		_node.CreatedAt = value
@@ -195,6 +293,26 @@ func (_c *ChatMessageCreate) createSpec() (*ChatMessage, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.ConversationID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AssetsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   chatmessage.AssetsTable,
+			Columns: chatmessage.AssetsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatasset.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &ChatMessageAssetCreate{config: _c.config, mutation: newChatMessageAssetMutation(_c.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
@@ -303,6 +421,78 @@ func (u *ChatMessageUpsert) UpdateContent() *ChatMessageUpsert {
 	return u
 }
 
+// SetKind sets the "kind" field.
+func (u *ChatMessageUpsert) SetKind(v chatmessage.Kind) *ChatMessageUpsert {
+	u.Set(chatmessage.FieldKind, v)
+	return u
+}
+
+// UpdateKind sets the "kind" field to the value that was provided on create.
+func (u *ChatMessageUpsert) UpdateKind() *ChatMessageUpsert {
+	u.SetExcluded(chatmessage.FieldKind)
+	return u
+}
+
+// SetReplyToID sets the "reply_to_id" field.
+func (u *ChatMessageUpsert) SetReplyToID(v int64) *ChatMessageUpsert {
+	u.Set(chatmessage.FieldReplyToID, v)
+	return u
+}
+
+// UpdateReplyToID sets the "reply_to_id" field to the value that was provided on create.
+func (u *ChatMessageUpsert) UpdateReplyToID() *ChatMessageUpsert {
+	u.SetExcluded(chatmessage.FieldReplyToID)
+	return u
+}
+
+// AddReplyToID adds v to the "reply_to_id" field.
+func (u *ChatMessageUpsert) AddReplyToID(v int64) *ChatMessageUpsert {
+	u.Add(chatmessage.FieldReplyToID, v)
+	return u
+}
+
+// ClearReplyToID clears the value of the "reply_to_id" field.
+func (u *ChatMessageUpsert) ClearReplyToID() *ChatMessageUpsert {
+	u.SetNull(chatmessage.FieldReplyToID)
+	return u
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *ChatMessageUpsert) SetMetadata(v json.RawMessage) *ChatMessageUpsert {
+	u.Set(chatmessage.FieldMetadata, v)
+	return u
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *ChatMessageUpsert) UpdateMetadata() *ChatMessageUpsert {
+	u.SetExcluded(chatmessage.FieldMetadata)
+	return u
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (u *ChatMessageUpsert) ClearMetadata() *ChatMessageUpsert {
+	u.SetNull(chatmessage.FieldMetadata)
+	return u
+}
+
+// SetIdempotencyKey sets the "idempotency_key" field.
+func (u *ChatMessageUpsert) SetIdempotencyKey(v string) *ChatMessageUpsert {
+	u.Set(chatmessage.FieldIdempotencyKey, v)
+	return u
+}
+
+// UpdateIdempotencyKey sets the "idempotency_key" field to the value that was provided on create.
+func (u *ChatMessageUpsert) UpdateIdempotencyKey() *ChatMessageUpsert {
+	u.SetExcluded(chatmessage.FieldIdempotencyKey)
+	return u
+}
+
+// ClearIdempotencyKey clears the value of the "idempotency_key" field.
+func (u *ChatMessageUpsert) ClearIdempotencyKey() *ChatMessageUpsert {
+	u.SetNull(chatmessage.FieldIdempotencyKey)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -408,6 +598,90 @@ func (u *ChatMessageUpsertOne) SetContent(v string) *ChatMessageUpsertOne {
 func (u *ChatMessageUpsertOne) UpdateContent() *ChatMessageUpsertOne {
 	return u.Update(func(s *ChatMessageUpsert) {
 		s.UpdateContent()
+	})
+}
+
+// SetKind sets the "kind" field.
+func (u *ChatMessageUpsertOne) SetKind(v chatmessage.Kind) *ChatMessageUpsertOne {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.SetKind(v)
+	})
+}
+
+// UpdateKind sets the "kind" field to the value that was provided on create.
+func (u *ChatMessageUpsertOne) UpdateKind() *ChatMessageUpsertOne {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.UpdateKind()
+	})
+}
+
+// SetReplyToID sets the "reply_to_id" field.
+func (u *ChatMessageUpsertOne) SetReplyToID(v int64) *ChatMessageUpsertOne {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.SetReplyToID(v)
+	})
+}
+
+// AddReplyToID adds v to the "reply_to_id" field.
+func (u *ChatMessageUpsertOne) AddReplyToID(v int64) *ChatMessageUpsertOne {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.AddReplyToID(v)
+	})
+}
+
+// UpdateReplyToID sets the "reply_to_id" field to the value that was provided on create.
+func (u *ChatMessageUpsertOne) UpdateReplyToID() *ChatMessageUpsertOne {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.UpdateReplyToID()
+	})
+}
+
+// ClearReplyToID clears the value of the "reply_to_id" field.
+func (u *ChatMessageUpsertOne) ClearReplyToID() *ChatMessageUpsertOne {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.ClearReplyToID()
+	})
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *ChatMessageUpsertOne) SetMetadata(v json.RawMessage) *ChatMessageUpsertOne {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.SetMetadata(v)
+	})
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *ChatMessageUpsertOne) UpdateMetadata() *ChatMessageUpsertOne {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.UpdateMetadata()
+	})
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (u *ChatMessageUpsertOne) ClearMetadata() *ChatMessageUpsertOne {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.ClearMetadata()
+	})
+}
+
+// SetIdempotencyKey sets the "idempotency_key" field.
+func (u *ChatMessageUpsertOne) SetIdempotencyKey(v string) *ChatMessageUpsertOne {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.SetIdempotencyKey(v)
+	})
+}
+
+// UpdateIdempotencyKey sets the "idempotency_key" field to the value that was provided on create.
+func (u *ChatMessageUpsertOne) UpdateIdempotencyKey() *ChatMessageUpsertOne {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.UpdateIdempotencyKey()
+	})
+}
+
+// ClearIdempotencyKey clears the value of the "idempotency_key" field.
+func (u *ChatMessageUpsertOne) ClearIdempotencyKey() *ChatMessageUpsertOne {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.ClearIdempotencyKey()
 	})
 }
 
@@ -682,6 +956,90 @@ func (u *ChatMessageUpsertBulk) SetContent(v string) *ChatMessageUpsertBulk {
 func (u *ChatMessageUpsertBulk) UpdateContent() *ChatMessageUpsertBulk {
 	return u.Update(func(s *ChatMessageUpsert) {
 		s.UpdateContent()
+	})
+}
+
+// SetKind sets the "kind" field.
+func (u *ChatMessageUpsertBulk) SetKind(v chatmessage.Kind) *ChatMessageUpsertBulk {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.SetKind(v)
+	})
+}
+
+// UpdateKind sets the "kind" field to the value that was provided on create.
+func (u *ChatMessageUpsertBulk) UpdateKind() *ChatMessageUpsertBulk {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.UpdateKind()
+	})
+}
+
+// SetReplyToID sets the "reply_to_id" field.
+func (u *ChatMessageUpsertBulk) SetReplyToID(v int64) *ChatMessageUpsertBulk {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.SetReplyToID(v)
+	})
+}
+
+// AddReplyToID adds v to the "reply_to_id" field.
+func (u *ChatMessageUpsertBulk) AddReplyToID(v int64) *ChatMessageUpsertBulk {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.AddReplyToID(v)
+	})
+}
+
+// UpdateReplyToID sets the "reply_to_id" field to the value that was provided on create.
+func (u *ChatMessageUpsertBulk) UpdateReplyToID() *ChatMessageUpsertBulk {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.UpdateReplyToID()
+	})
+}
+
+// ClearReplyToID clears the value of the "reply_to_id" field.
+func (u *ChatMessageUpsertBulk) ClearReplyToID() *ChatMessageUpsertBulk {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.ClearReplyToID()
+	})
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *ChatMessageUpsertBulk) SetMetadata(v json.RawMessage) *ChatMessageUpsertBulk {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.SetMetadata(v)
+	})
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *ChatMessageUpsertBulk) UpdateMetadata() *ChatMessageUpsertBulk {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.UpdateMetadata()
+	})
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (u *ChatMessageUpsertBulk) ClearMetadata() *ChatMessageUpsertBulk {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.ClearMetadata()
+	})
+}
+
+// SetIdempotencyKey sets the "idempotency_key" field.
+func (u *ChatMessageUpsertBulk) SetIdempotencyKey(v string) *ChatMessageUpsertBulk {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.SetIdempotencyKey(v)
+	})
+}
+
+// UpdateIdempotencyKey sets the "idempotency_key" field to the value that was provided on create.
+func (u *ChatMessageUpsertBulk) UpdateIdempotencyKey() *ChatMessageUpsertBulk {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.UpdateIdempotencyKey()
+	})
+}
+
+// ClearIdempotencyKey clears the value of the "idempotency_key" field.
+func (u *ChatMessageUpsertBulk) ClearIdempotencyKey() *ChatMessageUpsertBulk {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.ClearIdempotencyKey()
 	})
 }
 

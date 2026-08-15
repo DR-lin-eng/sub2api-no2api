@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -26,6 +27,14 @@ type ChatMessage struct {
 	SenderID int64 `json:"sender_id,omitempty"`
 	// Content holds the value of the "content" field.
 	Content string `json:"content,omitempty"`
+	// Kind holds the value of the "kind" field.
+	Kind chatmessage.Kind `json:"kind,omitempty"`
+	// ReplyToID holds the value of the "reply_to_id" field.
+	ReplyToID *int64 `json:"reply_to_id,omitempty"`
+	// Metadata holds the value of the "metadata" field.
+	Metadata json.RawMessage `json:"metadata,omitempty"`
+	// IdempotencyKey holds the value of the "idempotency_key" field.
+	IdempotencyKey *string `json:"idempotency_key,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -38,9 +47,13 @@ type ChatMessage struct {
 type ChatMessageEdges struct {
 	// Conversation holds the value of the conversation edge.
 	Conversation *ChatConversation `json:"conversation,omitempty"`
+	// Assets holds the value of the assets edge.
+	Assets []*ChatAsset `json:"assets,omitempty"`
+	// MessageAssets holds the value of the message_assets edge.
+	MessageAssets []*ChatMessageAsset `json:"message_assets,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [3]bool
 }
 
 // ConversationOrErr returns the Conversation value or an error if the edge
@@ -54,14 +67,34 @@ func (e ChatMessageEdges) ConversationOrErr() (*ChatConversation, error) {
 	return nil, &NotLoadedError{edge: "conversation"}
 }
 
+// AssetsOrErr returns the Assets value or an error if the edge
+// was not loaded in eager-loading.
+func (e ChatMessageEdges) AssetsOrErr() ([]*ChatAsset, error) {
+	if e.loadedTypes[1] {
+		return e.Assets, nil
+	}
+	return nil, &NotLoadedError{edge: "assets"}
+}
+
+// MessageAssetsOrErr returns the MessageAssets value or an error if the edge
+// was not loaded in eager-loading.
+func (e ChatMessageEdges) MessageAssetsOrErr() ([]*ChatMessageAsset, error) {
+	if e.loadedTypes[2] {
+		return e.MessageAssets, nil
+	}
+	return nil, &NotLoadedError{edge: "message_assets"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*ChatMessage) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case chatmessage.FieldID, chatmessage.FieldConversationID, chatmessage.FieldSenderID:
+		case chatmessage.FieldMetadata:
+			values[i] = new([]byte)
+		case chatmessage.FieldID, chatmessage.FieldConversationID, chatmessage.FieldSenderID, chatmessage.FieldReplyToID:
 			values[i] = new(sql.NullInt64)
-		case chatmessage.FieldSenderType, chatmessage.FieldContent:
+		case chatmessage.FieldSenderType, chatmessage.FieldContent, chatmessage.FieldKind, chatmessage.FieldIdempotencyKey:
 			values[i] = new(sql.NullString)
 		case chatmessage.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -110,6 +143,34 @@ func (_m *ChatMessage) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Content = value.String
 			}
+		case chatmessage.FieldKind:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field kind", values[i])
+			} else if value.Valid {
+				_m.Kind = chatmessage.Kind(value.String)
+			}
+		case chatmessage.FieldReplyToID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field reply_to_id", values[i])
+			} else if value.Valid {
+				_m.ReplyToID = new(int64)
+				*_m.ReplyToID = value.Int64
+			}
+		case chatmessage.FieldMetadata:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field metadata", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Metadata); err != nil {
+					return fmt.Errorf("unmarshal field metadata: %w", err)
+				}
+			}
+		case chatmessage.FieldIdempotencyKey:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field idempotency_key", values[i])
+			} else if value.Valid {
+				_m.IdempotencyKey = new(string)
+				*_m.IdempotencyKey = value.String
+			}
 		case chatmessage.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
@@ -132,6 +193,16 @@ func (_m *ChatMessage) Value(name string) (ent.Value, error) {
 // QueryConversation queries the "conversation" edge of the ChatMessage entity.
 func (_m *ChatMessage) QueryConversation() *ChatConversationQuery {
 	return NewChatMessageClient(_m.config).QueryConversation(_m)
+}
+
+// QueryAssets queries the "assets" edge of the ChatMessage entity.
+func (_m *ChatMessage) QueryAssets() *ChatAssetQuery {
+	return NewChatMessageClient(_m.config).QueryAssets(_m)
+}
+
+// QueryMessageAssets queries the "message_assets" edge of the ChatMessage entity.
+func (_m *ChatMessage) QueryMessageAssets() *ChatMessageAssetQuery {
+	return NewChatMessageClient(_m.config).QueryMessageAssets(_m)
 }
 
 // Update returns a builder for updating this ChatMessage.
@@ -168,6 +239,22 @@ func (_m *ChatMessage) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("content=")
 	builder.WriteString(_m.Content)
+	builder.WriteString(", ")
+	builder.WriteString("kind=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Kind))
+	builder.WriteString(", ")
+	if v := _m.ReplyToID; v != nil {
+		builder.WriteString("reply_to_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("metadata=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Metadata))
+	builder.WriteString(", ")
+	if v := _m.IdempotencyKey; v != nil {
+		builder.WriteString("idempotency_key=")
+		builder.WriteString(*v)
+	}
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

@@ -112,6 +112,46 @@ func (_u *ChatConversationUpdate) AddUnreadByAdmin(v int) *ChatConversationUpdat
 	return _u
 }
 
+// SetLastReadByUserAt sets the "last_read_by_user_at" field.
+func (_u *ChatConversationUpdate) SetLastReadByUserAt(v time.Time) *ChatConversationUpdate {
+	_u.mutation.SetLastReadByUserAt(v)
+	return _u
+}
+
+// SetNillableLastReadByUserAt sets the "last_read_by_user_at" field if the given value is not nil.
+func (_u *ChatConversationUpdate) SetNillableLastReadByUserAt(v *time.Time) *ChatConversationUpdate {
+	if v != nil {
+		_u.SetLastReadByUserAt(*v)
+	}
+	return _u
+}
+
+// ClearLastReadByUserAt clears the value of the "last_read_by_user_at" field.
+func (_u *ChatConversationUpdate) ClearLastReadByUserAt() *ChatConversationUpdate {
+	_u.mutation.ClearLastReadByUserAt()
+	return _u
+}
+
+// SetLastReadByAdminAt sets the "last_read_by_admin_at" field.
+func (_u *ChatConversationUpdate) SetLastReadByAdminAt(v time.Time) *ChatConversationUpdate {
+	_u.mutation.SetLastReadByAdminAt(v)
+	return _u
+}
+
+// SetNillableLastReadByAdminAt sets the "last_read_by_admin_at" field if the given value is not nil.
+func (_u *ChatConversationUpdate) SetNillableLastReadByAdminAt(v *time.Time) *ChatConversationUpdate {
+	if v != nil {
+		_u.SetLastReadByAdminAt(*v)
+	}
+	return _u
+}
+
+// ClearLastReadByAdminAt clears the value of the "last_read_by_admin_at" field.
+func (_u *ChatConversationUpdate) ClearLastReadByAdminAt() *ChatConversationUpdate {
+	_u.mutation.ClearLastReadByAdminAt()
+	return _u
+}
+
 // SetUser sets the "user" edge to the User entity.
 func (_u *ChatConversationUpdate) SetUser(v *User) *ChatConversationUpdate {
 	return _u.SetUserID(v.ID)
@@ -240,6 +280,18 @@ func (_u *ChatConversationUpdate) sqlSave(ctx context.Context) (_node int, err e
 	}
 	if value, ok := _u.mutation.AddedUnreadByAdmin(); ok {
 		_spec.AddField(chatconversation.FieldUnreadByAdmin, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.LastReadByUserAt(); ok {
+		_spec.SetField(chatconversation.FieldLastReadByUserAt, field.TypeTime, value)
+	}
+	if _u.mutation.LastReadByUserAtCleared() {
+		_spec.ClearField(chatconversation.FieldLastReadByUserAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.LastReadByAdminAt(); ok {
+		_spec.SetField(chatconversation.FieldLastReadByAdminAt, field.TypeTime, value)
+	}
+	if _u.mutation.LastReadByAdminAtCleared() {
+		_spec.ClearField(chatconversation.FieldLastReadByAdminAt, field.TypeTime)
 	}
 	if _u.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -417,6 +469,46 @@ func (_u *ChatConversationUpdateOne) AddUnreadByAdmin(v int) *ChatConversationUp
 	return _u
 }
 
+// SetLastReadByUserAt sets the "last_read_by_user_at" field.
+func (_u *ChatConversationUpdateOne) SetLastReadByUserAt(v time.Time) *ChatConversationUpdateOne {
+	_u.mutation.SetLastReadByUserAt(v)
+	return _u
+}
+
+// SetNillableLastReadByUserAt sets the "last_read_by_user_at" field if the given value is not nil.
+func (_u *ChatConversationUpdateOne) SetNillableLastReadByUserAt(v *time.Time) *ChatConversationUpdateOne {
+	if v != nil {
+		_u.SetLastReadByUserAt(*v)
+	}
+	return _u
+}
+
+// ClearLastReadByUserAt clears the value of the "last_read_by_user_at" field.
+func (_u *ChatConversationUpdateOne) ClearLastReadByUserAt() *ChatConversationUpdateOne {
+	_u.mutation.ClearLastReadByUserAt()
+	return _u
+}
+
+// SetLastReadByAdminAt sets the "last_read_by_admin_at" field.
+func (_u *ChatConversationUpdateOne) SetLastReadByAdminAt(v time.Time) *ChatConversationUpdateOne {
+	_u.mutation.SetLastReadByAdminAt(v)
+	return _u
+}
+
+// SetNillableLastReadByAdminAt sets the "last_read_by_admin_at" field if the given value is not nil.
+func (_u *ChatConversationUpdateOne) SetNillableLastReadByAdminAt(v *time.Time) *ChatConversationUpdateOne {
+	if v != nil {
+		_u.SetLastReadByAdminAt(*v)
+	}
+	return _u
+}
+
+// ClearLastReadByAdminAt clears the value of the "last_read_by_admin_at" field.
+func (_u *ChatConversationUpdateOne) ClearLastReadByAdminAt() *ChatConversationUpdateOne {
+	_u.mutation.ClearLastReadByAdminAt()
+	return _u
+}
+
 // SetUser sets the "user" edge to the User entity.
 func (_u *ChatConversationUpdateOne) SetUser(v *User) *ChatConversationUpdateOne {
 	return _u.SetUserID(v.ID)
@@ -575,6 +667,18 @@ func (_u *ChatConversationUpdateOne) sqlSave(ctx context.Context) (_node *ChatCo
 	}
 	if value, ok := _u.mutation.AddedUnreadByAdmin(); ok {
 		_spec.AddField(chatconversation.FieldUnreadByAdmin, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.LastReadByUserAt(); ok {
+		_spec.SetField(chatconversation.FieldLastReadByUserAt, field.TypeTime, value)
+	}
+	if _u.mutation.LastReadByUserAtCleared() {
+		_spec.ClearField(chatconversation.FieldLastReadByUserAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.LastReadByAdminAt(); ok {
+		_spec.SetField(chatconversation.FieldLastReadByAdminAt, field.TypeTime, value)
+	}
+	if _u.mutation.LastReadByAdminAtCleared() {
+		_spec.ClearField(chatconversation.FieldLastReadByAdminAt, field.TypeTime)
 	}
 	if _u.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{

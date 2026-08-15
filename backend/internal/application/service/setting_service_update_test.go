@@ -77,6 +77,16 @@ func TestSettingService_UpdateSettings_PersistsModelPlazaAutoPublicModels(t *tes
 	require.Equal(t, "true", repo.updates[SettingKeyModelPlazaAutoPublicModels])
 }
 
+func TestSettingService_UpdateSettings_PersistsMediaStudioEnabled(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	err := NewSettingService(repo, &config.Config{}).UpdateSettings(
+		context.Background(),
+		&SystemSettings{MediaStudioEnabled: true},
+	)
+	require.NoError(t, err)
+	require.Equal(t, "true", repo.updates[SettingKeyMediaStudioEnabled])
+}
+
 func (s *settingGetAllRepoStub) Get(ctx context.Context, key string) (*Setting, error) {
 	panic("unexpected Get call")
 }

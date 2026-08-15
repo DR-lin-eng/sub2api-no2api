@@ -29,8 +29,11 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
+	"github.com/Wei-Shaw/sub2api/ent/chatasset"
 	"github.com/Wei-Shaw/sub2api/ent/chatconversation"
 	"github.com/Wei-Shaw/sub2api/ent/chatmessage"
+	"github.com/Wei-Shaw/sub2api/ent/chatmessageasset"
+	"github.com/Wei-Shaw/sub2api/ent/chatquickreply"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
@@ -94,10 +97,16 @@ type Client struct {
 	ChannelMonitorHistory *ChannelMonitorHistoryClient
 	// ChannelMonitorRequestTemplate is the client for interacting with the ChannelMonitorRequestTemplate builders.
 	ChannelMonitorRequestTemplate *ChannelMonitorRequestTemplateClient
+	// ChatAsset is the client for interacting with the ChatAsset builders.
+	ChatAsset *ChatAssetClient
 	// ChatConversation is the client for interacting with the ChatConversation builders.
 	ChatConversation *ChatConversationClient
 	// ChatMessage is the client for interacting with the ChatMessage builders.
 	ChatMessage *ChatMessageClient
+	// ChatMessageAsset is the client for interacting with the ChatMessageAsset builders.
+	ChatMessageAsset *ChatMessageAssetClient
+	// ChatQuickReply is the client for interacting with the ChatQuickReply builders.
+	ChatQuickReply *ChatQuickReplyClient
 	// CompositeModelRoute is the client for interacting with the CompositeModelRoute builders.
 	CompositeModelRoute *CompositeModelRouteClient
 	// ErrorPassthroughRule is the client for interacting with the ErrorPassthroughRule builders.
@@ -175,8 +184,11 @@ func (c *Client) init() {
 	c.ChannelMonitorDailyRollup = NewChannelMonitorDailyRollupClient(c.config)
 	c.ChannelMonitorHistory = NewChannelMonitorHistoryClient(c.config)
 	c.ChannelMonitorRequestTemplate = NewChannelMonitorRequestTemplateClient(c.config)
+	c.ChatAsset = NewChatAssetClient(c.config)
 	c.ChatConversation = NewChatConversationClient(c.config)
 	c.ChatMessage = NewChatMessageClient(c.config)
+	c.ChatMessageAsset = NewChatMessageAssetClient(c.config)
+	c.ChatQuickReply = NewChatQuickReplyClient(c.config)
 	c.CompositeModelRoute = NewCompositeModelRouteClient(c.config)
 	c.ErrorPassthroughRule = NewErrorPassthroughRuleClient(c.config)
 	c.Group = NewGroupClient(c.config)
@@ -309,8 +321,11 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ChannelMonitorDailyRollup:     NewChannelMonitorDailyRollupClient(cfg),
 		ChannelMonitorHistory:         NewChannelMonitorHistoryClient(cfg),
 		ChannelMonitorRequestTemplate: NewChannelMonitorRequestTemplateClient(cfg),
+		ChatAsset:                     NewChatAssetClient(cfg),
 		ChatConversation:              NewChatConversationClient(cfg),
 		ChatMessage:                   NewChatMessageClient(cfg),
+		ChatMessageAsset:              NewChatMessageAssetClient(cfg),
+		ChatQuickReply:                NewChatQuickReplyClient(cfg),
 		CompositeModelRoute:           NewCompositeModelRouteClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
 		Group:                         NewGroupClient(cfg),
@@ -370,8 +385,11 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ChannelMonitorDailyRollup:     NewChannelMonitorDailyRollupClient(cfg),
 		ChannelMonitorHistory:         NewChannelMonitorHistoryClient(cfg),
 		ChannelMonitorRequestTemplate: NewChannelMonitorRequestTemplateClient(cfg),
+		ChatAsset:                     NewChatAssetClient(cfg),
 		ChatConversation:              NewChatConversationClient(cfg),
 		ChatMessage:                   NewChatMessageClient(cfg),
+		ChatMessageAsset:              NewChatMessageAssetClient(cfg),
+		ChatQuickReply:                NewChatQuickReplyClient(cfg),
 		CompositeModelRoute:           NewCompositeModelRouteClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
 		Group:                         NewGroupClient(cfg),
@@ -430,14 +448,15 @@ func (c *Client) Use(hooks ...Hook) {
 		c.APIKey, c.Account, c.AccountGroup, c.Announcement, c.AnnouncementRead,
 		c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent, c.BatchImageItem,
 		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
-		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate, c.ChatConversation,
-		c.ChatMessage, c.CompositeModelRoute, c.ErrorPassthroughRule, c.Group,
-		c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
-		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
-		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.RedeemCodeUsage, c.SecuritySecret,
-		c.Setting, c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask,
-		c.UsageLog, c.User, c.UserAllowedGroup, c.UserAttributeDefinition,
-		c.UserAttributeValue, c.UserPlatformQuota, c.UserSubscription,
+		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate, c.ChatAsset,
+		c.ChatConversation, c.ChatMessage, c.ChatMessageAsset, c.ChatQuickReply,
+		c.CompositeModelRoute, c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
+		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
+		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
+		c.Proxy, c.RedeemCode, c.RedeemCodeUsage, c.SecuritySecret, c.Setting,
+		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
+		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
+		c.UserPlatformQuota, c.UserSubscription,
 	} {
 		n.Use(hooks...)
 	}
@@ -450,14 +469,15 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.APIKey, c.Account, c.AccountGroup, c.Announcement, c.AnnouncementRead,
 		c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent, c.BatchImageItem,
 		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
-		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate, c.ChatConversation,
-		c.ChatMessage, c.CompositeModelRoute, c.ErrorPassthroughRule, c.Group,
-		c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
-		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
-		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.RedeemCodeUsage, c.SecuritySecret,
-		c.Setting, c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask,
-		c.UsageLog, c.User, c.UserAllowedGroup, c.UserAttributeDefinition,
-		c.UserAttributeValue, c.UserPlatformQuota, c.UserSubscription,
+		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate, c.ChatAsset,
+		c.ChatConversation, c.ChatMessage, c.ChatMessageAsset, c.ChatQuickReply,
+		c.CompositeModelRoute, c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
+		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
+		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
+		c.Proxy, c.RedeemCode, c.RedeemCodeUsage, c.SecuritySecret, c.Setting,
+		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
+		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
+		c.UserPlatformQuota, c.UserSubscription,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -494,10 +514,16 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ChannelMonitorHistory.mutate(ctx, m)
 	case *ChannelMonitorRequestTemplateMutation:
 		return c.ChannelMonitorRequestTemplate.mutate(ctx, m)
+	case *ChatAssetMutation:
+		return c.ChatAsset.mutate(ctx, m)
 	case *ChatConversationMutation:
 		return c.ChatConversation.mutate(ctx, m)
 	case *ChatMessageMutation:
 		return c.ChatMessage.mutate(ctx, m)
+	case *ChatMessageAssetMutation:
+		return c.ChatMessageAsset.mutate(ctx, m)
+	case *ChatQuickReplyMutation:
+		return c.ChatQuickReply.mutate(ctx, m)
 	case *CompositeModelRouteMutation:
 		return c.CompositeModelRoute.mutate(ctx, m)
 	case *ErrorPassthroughRuleMutation:
@@ -2756,6 +2782,171 @@ func (c *ChannelMonitorRequestTemplateClient) mutate(ctx context.Context, m *Cha
 	}
 }
 
+// ChatAssetClient is a client for the ChatAsset schema.
+type ChatAssetClient struct {
+	config
+}
+
+// NewChatAssetClient returns a client for the ChatAsset from the given config.
+func NewChatAssetClient(c config) *ChatAssetClient {
+	return &ChatAssetClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `chatasset.Hooks(f(g(h())))`.
+func (c *ChatAssetClient) Use(hooks ...Hook) {
+	c.hooks.ChatAsset = append(c.hooks.ChatAsset, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `chatasset.Intercept(f(g(h())))`.
+func (c *ChatAssetClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ChatAsset = append(c.inters.ChatAsset, interceptors...)
+}
+
+// Create returns a builder for creating a ChatAsset entity.
+func (c *ChatAssetClient) Create() *ChatAssetCreate {
+	mutation := newChatAssetMutation(c.config, OpCreate)
+	return &ChatAssetCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ChatAsset entities.
+func (c *ChatAssetClient) CreateBulk(builders ...*ChatAssetCreate) *ChatAssetCreateBulk {
+	return &ChatAssetCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ChatAssetClient) MapCreateBulk(slice any, setFunc func(*ChatAssetCreate, int)) *ChatAssetCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ChatAssetCreateBulk{err: fmt.Errorf("calling to ChatAssetClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ChatAssetCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ChatAssetCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ChatAsset.
+func (c *ChatAssetClient) Update() *ChatAssetUpdate {
+	mutation := newChatAssetMutation(c.config, OpUpdate)
+	return &ChatAssetUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ChatAssetClient) UpdateOne(_m *ChatAsset) *ChatAssetUpdateOne {
+	mutation := newChatAssetMutation(c.config, OpUpdateOne, withChatAsset(_m))
+	return &ChatAssetUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ChatAssetClient) UpdateOneID(id int64) *ChatAssetUpdateOne {
+	mutation := newChatAssetMutation(c.config, OpUpdateOne, withChatAssetID(id))
+	return &ChatAssetUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ChatAsset.
+func (c *ChatAssetClient) Delete() *ChatAssetDelete {
+	mutation := newChatAssetMutation(c.config, OpDelete)
+	return &ChatAssetDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ChatAssetClient) DeleteOne(_m *ChatAsset) *ChatAssetDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ChatAssetClient) DeleteOneID(id int64) *ChatAssetDeleteOne {
+	builder := c.Delete().Where(chatasset.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ChatAssetDeleteOne{builder}
+}
+
+// Query returns a query builder for ChatAsset.
+func (c *ChatAssetClient) Query() *ChatAssetQuery {
+	return &ChatAssetQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeChatAsset},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ChatAsset entity by its id.
+func (c *ChatAssetClient) Get(ctx context.Context, id int64) (*ChatAsset, error) {
+	return c.Query().Where(chatasset.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ChatAssetClient) GetX(ctx context.Context, id int64) *ChatAsset {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryMessages queries the messages edge of a ChatAsset.
+func (c *ChatAssetClient) QueryMessages(_m *ChatAsset) *ChatMessageQuery {
+	query := (&ChatMessageClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(chatasset.Table, chatasset.FieldID, id),
+			sqlgraph.To(chatmessage.Table, chatmessage.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, chatasset.MessagesTable, chatasset.MessagesPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryMessageAssets queries the message_assets edge of a ChatAsset.
+func (c *ChatAssetClient) QueryMessageAssets(_m *ChatAsset) *ChatMessageAssetQuery {
+	query := (&ChatMessageAssetClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(chatasset.Table, chatasset.FieldID, id),
+			sqlgraph.To(chatmessageasset.Table, chatmessageasset.AssetColumn),
+			sqlgraph.Edge(sqlgraph.O2M, true, chatasset.MessageAssetsTable, chatasset.MessageAssetsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ChatAssetClient) Hooks() []Hook {
+	return c.hooks.ChatAsset
+}
+
+// Interceptors returns the client interceptors.
+func (c *ChatAssetClient) Interceptors() []Interceptor {
+	return c.inters.ChatAsset
+}
+
+func (c *ChatAssetClient) mutate(ctx context.Context, m *ChatAssetMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ChatAssetCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ChatAssetUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ChatAssetUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ChatAssetDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ChatAsset mutation op: %q", m.Op())
+	}
+}
+
 // ChatConversationClient is a client for the ChatConversation schema.
 type ChatConversationClient struct {
 	config
@@ -3045,6 +3236,38 @@ func (c *ChatMessageClient) QueryConversation(_m *ChatMessage) *ChatConversation
 	return query
 }
 
+// QueryAssets queries the assets edge of a ChatMessage.
+func (c *ChatMessageClient) QueryAssets(_m *ChatMessage) *ChatAssetQuery {
+	query := (&ChatAssetClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(chatmessage.Table, chatmessage.FieldID, id),
+			sqlgraph.To(chatasset.Table, chatasset.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, chatmessage.AssetsTable, chatmessage.AssetsPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryMessageAssets queries the message_assets edge of a ChatMessage.
+func (c *ChatMessageClient) QueryMessageAssets(_m *ChatMessage) *ChatMessageAssetQuery {
+	query := (&ChatMessageAssetClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(chatmessage.Table, chatmessage.FieldID, id),
+			sqlgraph.To(chatmessageasset.Table, chatmessageasset.MessageColumn),
+			sqlgraph.Edge(sqlgraph.O2M, true, chatmessage.MessageAssetsTable, chatmessage.MessageAssetsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *ChatMessageClient) Hooks() []Hook {
 	return c.hooks.ChatMessage
@@ -3067,6 +3290,255 @@ func (c *ChatMessageClient) mutate(ctx context.Context, m *ChatMessageMutation) 
 		return (&ChatMessageDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown ChatMessage mutation op: %q", m.Op())
+	}
+}
+
+// ChatMessageAssetClient is a client for the ChatMessageAsset schema.
+type ChatMessageAssetClient struct {
+	config
+}
+
+// NewChatMessageAssetClient returns a client for the ChatMessageAsset from the given config.
+func NewChatMessageAssetClient(c config) *ChatMessageAssetClient {
+	return &ChatMessageAssetClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `chatmessageasset.Hooks(f(g(h())))`.
+func (c *ChatMessageAssetClient) Use(hooks ...Hook) {
+	c.hooks.ChatMessageAsset = append(c.hooks.ChatMessageAsset, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `chatmessageasset.Intercept(f(g(h())))`.
+func (c *ChatMessageAssetClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ChatMessageAsset = append(c.inters.ChatMessageAsset, interceptors...)
+}
+
+// Create returns a builder for creating a ChatMessageAsset entity.
+func (c *ChatMessageAssetClient) Create() *ChatMessageAssetCreate {
+	mutation := newChatMessageAssetMutation(c.config, OpCreate)
+	return &ChatMessageAssetCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ChatMessageAsset entities.
+func (c *ChatMessageAssetClient) CreateBulk(builders ...*ChatMessageAssetCreate) *ChatMessageAssetCreateBulk {
+	return &ChatMessageAssetCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ChatMessageAssetClient) MapCreateBulk(slice any, setFunc func(*ChatMessageAssetCreate, int)) *ChatMessageAssetCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ChatMessageAssetCreateBulk{err: fmt.Errorf("calling to ChatMessageAssetClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ChatMessageAssetCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ChatMessageAssetCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ChatMessageAsset.
+func (c *ChatMessageAssetClient) Update() *ChatMessageAssetUpdate {
+	mutation := newChatMessageAssetMutation(c.config, OpUpdate)
+	return &ChatMessageAssetUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ChatMessageAssetClient) UpdateOne(_m *ChatMessageAsset) *ChatMessageAssetUpdateOne {
+	mutation := newChatMessageAssetMutation(c.config, OpUpdateOne)
+	mutation.message = &_m.MessageID
+	mutation.asset = &_m.AssetID
+	return &ChatMessageAssetUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ChatMessageAsset.
+func (c *ChatMessageAssetClient) Delete() *ChatMessageAssetDelete {
+	mutation := newChatMessageAssetMutation(c.config, OpDelete)
+	return &ChatMessageAssetDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Query returns a query builder for ChatMessageAsset.
+func (c *ChatMessageAssetClient) Query() *ChatMessageAssetQuery {
+	return &ChatMessageAssetQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeChatMessageAsset},
+		inters: c.Interceptors(),
+	}
+}
+
+// QueryMessage queries the message edge of a ChatMessageAsset.
+func (c *ChatMessageAssetClient) QueryMessage(_m *ChatMessageAsset) *ChatMessageQuery {
+	return c.Query().
+		Where(chatmessageasset.MessageID(_m.MessageID), chatmessageasset.AssetID(_m.AssetID)).
+		QueryMessage()
+}
+
+// QueryAsset queries the asset edge of a ChatMessageAsset.
+func (c *ChatMessageAssetClient) QueryAsset(_m *ChatMessageAsset) *ChatAssetQuery {
+	return c.Query().
+		Where(chatmessageasset.MessageID(_m.MessageID), chatmessageasset.AssetID(_m.AssetID)).
+		QueryAsset()
+}
+
+// Hooks returns the client hooks.
+func (c *ChatMessageAssetClient) Hooks() []Hook {
+	return c.hooks.ChatMessageAsset
+}
+
+// Interceptors returns the client interceptors.
+func (c *ChatMessageAssetClient) Interceptors() []Interceptor {
+	return c.inters.ChatMessageAsset
+}
+
+func (c *ChatMessageAssetClient) mutate(ctx context.Context, m *ChatMessageAssetMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ChatMessageAssetCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ChatMessageAssetUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ChatMessageAssetUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ChatMessageAssetDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ChatMessageAsset mutation op: %q", m.Op())
+	}
+}
+
+// ChatQuickReplyClient is a client for the ChatQuickReply schema.
+type ChatQuickReplyClient struct {
+	config
+}
+
+// NewChatQuickReplyClient returns a client for the ChatQuickReply from the given config.
+func NewChatQuickReplyClient(c config) *ChatQuickReplyClient {
+	return &ChatQuickReplyClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `chatquickreply.Hooks(f(g(h())))`.
+func (c *ChatQuickReplyClient) Use(hooks ...Hook) {
+	c.hooks.ChatQuickReply = append(c.hooks.ChatQuickReply, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `chatquickreply.Intercept(f(g(h())))`.
+func (c *ChatQuickReplyClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ChatQuickReply = append(c.inters.ChatQuickReply, interceptors...)
+}
+
+// Create returns a builder for creating a ChatQuickReply entity.
+func (c *ChatQuickReplyClient) Create() *ChatQuickReplyCreate {
+	mutation := newChatQuickReplyMutation(c.config, OpCreate)
+	return &ChatQuickReplyCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ChatQuickReply entities.
+func (c *ChatQuickReplyClient) CreateBulk(builders ...*ChatQuickReplyCreate) *ChatQuickReplyCreateBulk {
+	return &ChatQuickReplyCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ChatQuickReplyClient) MapCreateBulk(slice any, setFunc func(*ChatQuickReplyCreate, int)) *ChatQuickReplyCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ChatQuickReplyCreateBulk{err: fmt.Errorf("calling to ChatQuickReplyClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ChatQuickReplyCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ChatQuickReplyCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ChatQuickReply.
+func (c *ChatQuickReplyClient) Update() *ChatQuickReplyUpdate {
+	mutation := newChatQuickReplyMutation(c.config, OpUpdate)
+	return &ChatQuickReplyUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ChatQuickReplyClient) UpdateOne(_m *ChatQuickReply) *ChatQuickReplyUpdateOne {
+	mutation := newChatQuickReplyMutation(c.config, OpUpdateOne, withChatQuickReply(_m))
+	return &ChatQuickReplyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ChatQuickReplyClient) UpdateOneID(id int64) *ChatQuickReplyUpdateOne {
+	mutation := newChatQuickReplyMutation(c.config, OpUpdateOne, withChatQuickReplyID(id))
+	return &ChatQuickReplyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ChatQuickReply.
+func (c *ChatQuickReplyClient) Delete() *ChatQuickReplyDelete {
+	mutation := newChatQuickReplyMutation(c.config, OpDelete)
+	return &ChatQuickReplyDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ChatQuickReplyClient) DeleteOne(_m *ChatQuickReply) *ChatQuickReplyDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ChatQuickReplyClient) DeleteOneID(id int64) *ChatQuickReplyDeleteOne {
+	builder := c.Delete().Where(chatquickreply.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ChatQuickReplyDeleteOne{builder}
+}
+
+// Query returns a query builder for ChatQuickReply.
+func (c *ChatQuickReplyClient) Query() *ChatQuickReplyQuery {
+	return &ChatQuickReplyQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeChatQuickReply},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ChatQuickReply entity by its id.
+func (c *ChatQuickReplyClient) Get(ctx context.Context, id int64) (*ChatQuickReply, error) {
+	return c.Query().Where(chatquickreply.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ChatQuickReplyClient) GetX(ctx context.Context, id int64) *ChatQuickReply {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *ChatQuickReplyClient) Hooks() []Hook {
+	return c.hooks.ChatQuickReply
+}
+
+// Interceptors returns the client interceptors.
+func (c *ChatQuickReplyClient) Interceptors() []Interceptor {
+	return c.inters.ChatQuickReply
+}
+
+func (c *ChatQuickReplyClient) mutate(ctx context.Context, m *ChatQuickReplyMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ChatQuickReplyCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ChatQuickReplyUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ChatQuickReplyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ChatQuickReplyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ChatQuickReply mutation op: %q", m.Op())
 	}
 }
 
@@ -7379,27 +7851,27 @@ type (
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
-		ChannelMonitorRequestTemplate, ChatConversation, ChatMessage,
-		CompositeModelRoute, ErrorPassthroughRule, Group, IdempotencyRecord,
-		IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
-		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
-		RedeemCode, RedeemCodeUsage, SecuritySecret, Setting, SubscriptionPlan,
-		TLSFingerprintProfile, UsageCleanupTask, UsageLog, User, UserAllowedGroup,
-		UserAttributeDefinition, UserAttributeValue, UserPlatformQuota,
-		UserSubscription []ent.Hook
+		ChannelMonitorRequestTemplate, ChatAsset, ChatConversation, ChatMessage,
+		ChatMessageAsset, ChatQuickReply, CompositeModelRoute, ErrorPassthroughRule,
+		Group, IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog,
+		PaymentOrder, PaymentProviderInstance, PendingAuthSession, PromoCode,
+		PromoCodeUsage, Proxy, RedeemCode, RedeemCodeUsage, SecuritySecret, Setting,
+		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
+		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
+		UserPlatformQuota, UserSubscription []ent.Hook
 	}
 	inters struct {
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
-		ChannelMonitorRequestTemplate, ChatConversation, ChatMessage,
-		CompositeModelRoute, ErrorPassthroughRule, Group, IdempotencyRecord,
-		IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
-		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
-		RedeemCode, RedeemCodeUsage, SecuritySecret, Setting, SubscriptionPlan,
-		TLSFingerprintProfile, UsageCleanupTask, UsageLog, User, UserAllowedGroup,
-		UserAttributeDefinition, UserAttributeValue, UserPlatformQuota,
-		UserSubscription []ent.Interceptor
+		ChannelMonitorRequestTemplate, ChatAsset, ChatConversation, ChatMessage,
+		ChatMessageAsset, ChatQuickReply, CompositeModelRoute, ErrorPassthroughRule,
+		Group, IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog,
+		PaymentOrder, PaymentProviderInstance, PendingAuthSession, PromoCode,
+		PromoCodeUsage, Proxy, RedeemCode, RedeemCodeUsage, SecuritySecret, Setting,
+		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
+		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
+		UserPlatformQuota, UserSubscription []ent.Interceptor
 	}
 )
 

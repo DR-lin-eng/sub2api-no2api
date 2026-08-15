@@ -157,6 +157,7 @@ describe("settings save payload", () => {
     const form = createForm();
     form.balance_low_notify_recharge_url = "";
     form.model_plaza_auto_public_models = true;
+    form.media_studio_enabled = true;
 
     const payload = buildSettingsSavePayload({
       form,
@@ -196,6 +197,7 @@ describe("settings save payload", () => {
       "https://admin.example.com",
     );
     expect(payload.model_plaza_auto_public_models).toBe(true);
+    expect(payload.media_studio_enabled).toBe(true);
     expect(form.balance_low_notify_recharge_url).toBe(
       "https://admin.example.com",
     );

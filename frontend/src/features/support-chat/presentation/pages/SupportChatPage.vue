@@ -30,10 +30,24 @@
           <p class="text-sm font-medium text-gray-700 dark:text-dark-200">{{ t('supportChat.emptyTitle') }}</p>
           <p class="mt-1 text-sm">{{ t('supportChat.emptyDescription') }}</p>
         </div>
-        <SupportMessageList v-else :messages="messages" own-sender="user" />
+        <SupportMessageList
+          v-else
+          :messages="messages"
+          own-sender="user"
+          asset-scope="user"
+          :peer-read-at="conversation?.last_read_by_admin_at"
+          @reply="replyingTo = $event"
+        />
       </div>
 
-      <SupportMessageComposer :sending="sending" :disabled="loading" @submit="handleSend" />
+      <SupportMessageComposer
+        :sending="sending"
+        :disabled="loading"
+        :replying-to="replyingTo"
+        @submit="handleSend"
+        @upload="handleUpload"
+        @cancel-reply="replyingTo = null"
+      />
     </section>
   </AppLayout>
 </template>
@@ -44,10 +58,14 @@ import { useI18n } from 'vue-i18n'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import { useAppStore } from '@/core/stores/appStore'
 import {
+  getUserChatConversation,
   listUserChatMessages,
   markUserChatRead,
   sendUserChatMessage,
+  uploadUserChatAsset,
+  type ChatConversation,
   type ChatMessage,
+  type ChatSendMessageInput,
 } from '@/features/support-chat/data/datasources/supportChatDatasource'
 import { useSupportChatSocket } from '@/features/support-chat/presentation/composables/useSupportChatSocket'
 import { useSupportChatAdminStore } from '@/features/support-chat/presentation/stores/supportChatAdminStore'
@@ -60,10 +78,14 @@ const supportChatAdminStore = useSupportChatAdminStore()
 const loading = ref(false)
 const sending = ref(false)
 const messages = ref<ChatMessage[]>([])
+const conversation = ref<ChatConversation | null>(null)
+const replyingTo = ref<ChatMessage | null>(null)
 const messagePaneRef = ref<HTMLElement | null>(null)
 const socketConnected = ref(false)
 let fallbackPollTimer: ReturnType<typeof setInterval> | null = null
 const SUPPORT_CHAT_RESYNC_MS = 15000
+const SUPPORT_CHAT_CONNECTED_RESYNC_MS = 60000
+let lastResyncAt = 0
 
 const socket = useSupportChatSocket({
   scope: 'user',
@@ -81,6 +103,11 @@ const socket = useSupportChatSocket({
       })
     }
     void scrollToBottom()
+  },
+  onReadState: (readState) => {
+    if (readState.reader === 'admin' && conversation.value?.id === readState.conversation_id) {
+      conversation.value.last_read_by_admin_at = readState.read_at
+    }
   },
 })
 
@@ -111,10 +138,17 @@ async function scrollToBottom() {
 async function syncMessages(showLoading: boolean) {
   if (showLoading) loading.value = true
   try {
-    const page = await listUserChatMessages({ page: 1, page_size: 100 })
+    const [currentConversation, page] = await Promise.all([
+      getUserChatConversation(),
+      listUserChatMessages({ page: 1, page_size: 100 }),
+    ])
+    conversation.value = currentConversation
     messages.value = page.items
-    if (page.total > 0) {
+    lastResyncAt = Date.now()
+    if (currentConversation.unread_by_user > 0) {
       await markUserChatRead()
+      currentConversation.unread_by_user = 0
+      currentConversation.last_read_by_user_at = new Date().toISOString()
       appStore.setSupportUserUnread(false)
       supportChatAdminStore.markUserRead()
     }
@@ -132,17 +166,40 @@ async function reload() {
 
 async function resyncMessages() {
   if (loading.value || sending.value) return
+  if (socketConnected.value && Date.now() - lastResyncAt < SUPPORT_CHAT_CONNECTED_RESYNC_MS) return
   await syncMessages(false)
 }
 
-async function handleSend(content: string) {
+async function handleSend(input: ChatSendMessageInput) {
   sending.value = true
   try {
-    const message = await sendUserChatMessage(content)
+    const message = await sendUserChatMessage(input)
     appendMessage(message)
+    replyingTo.value = null
     await scrollToBottom()
   } catch (error) {
     appStore.showError(errorMessage(error, t('supportChat.sendFailed')))
+  } finally {
+    sending.value = false
+  }
+}
+
+async function handleUpload(value: { file: File; content: string; reply_to_id: number | null }) {
+  if (sending.value) return
+  sending.value = true
+  try {
+    const asset = await uploadUserChatAsset(value.file)
+    const message = await sendUserChatMessage({
+      content: value.content || '[image]',
+      kind: 'image',
+      asset_ids: [asset.id],
+      reply_to_id: value.reply_to_id,
+    })
+    appendMessage(message)
+    replyingTo.value = null
+    await scrollToBottom()
+  } catch (error) {
+    appStore.showError(errorMessage(error, t('supportChat.assets.uploadFailed')))
   } finally {
     sending.value = false
   }

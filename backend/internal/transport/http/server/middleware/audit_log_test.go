@@ -109,7 +109,7 @@ func TestPromptAuditAdminOperationsUseOmittedBodiesAndAllowlistedDetails(t *test
 	byAction := make(map[string]*service.AuditLog, len(logs))
 	for _, entry := range logs {
 		byAction[entry.Action] = entry
-		require.Equal(t, "<credential-bearing body omitted>", entry.RequestBody)
+		require.Equal(t, "<sensitive body omitted>", entry.RequestBody)
 		require.NotContains(t, entry.RequestBody, "audit-canary")
 		require.NotContains(t, entry.Extra, "token")
 		require.NotContains(t, entry.Extra, "raw_prompt")
@@ -144,6 +144,39 @@ func TestPromptAuditMutationAuditRoutesHaveStableActionsAndOmitBodies(t *testing
 		require.Equal(t, action, auditActionOverrides[route])
 		_, omitted := auditBodyOmittedRoutes[route]
 		require.Truef(t, omitted, "%s must not persist its credential or confirmation-bearing body", route)
+	}
+}
+
+func TestSupportChatSensitiveReadsHaveStableAuditActions(t *testing.T) {
+	expected := map[string]string{
+		"GET /api/v1/admin/chat/conversations":              "admin.chat.conversations.read",
+		"GET /api/v1/admin/chat/unread-count":               "admin.chat.unread_count.read",
+		"GET /api/v1/admin/chat/image-library":              "admin.chat.image_library.read",
+		"GET /api/v1/admin/chat/stickers":                   "admin.chat.stickers.read",
+		"GET /api/v1/admin/chat/assets/:id":                 "admin.chat.assets.read",
+		"GET /api/v1/admin/chat/conversations/:id/messages": "admin.chat.messages.read",
+		"GET /api/v1/admin/chat/quick-replies":              "admin.chat.quick_replies.read",
+	}
+	for route, action := range expected {
+		require.Equal(t, action, auditSensitiveReads[route])
+	}
+	require.NotContains(t, auditSensitiveReads, "GET /api/v1/admin/chat/ws")
+}
+
+func TestSupportChatPrivateAndUploadBodiesAreOmittedFromAudit(t *testing.T) {
+	for _, route := range []string{
+		"POST /api/v1/chat/messages",
+		"POST /api/v1/chat/assets",
+		"POST /api/v1/admin/chat/conversations/:id/messages",
+		"POST /api/v1/admin/chat/conversations/:id/assets",
+		"POST /api/v1/admin/chat/conversations/:id/balance-transfers",
+		"POST /api/v1/admin/chat/image-library",
+		"POST /api/v1/admin/chat/stickers",
+		"POST /api/v1/admin/chat/quick-replies",
+		"PUT /api/v1/admin/chat/quick-replies/:id",
+		"POST /api/v1/admin/chat/quick-replies/import",
+	} {
+		require.Containsf(t, auditBodyOmittedRoutes, route, "%s must not duplicate private or binary content into audit storage", route)
 	}
 }
 
@@ -186,6 +219,6 @@ func TestOllamaCloudUsageSessionRouteOmitsAuditBody(t *testing.T) {
 	logs := append([]*service.AuditLog(nil), repository.logs...)
 	repository.mu.Unlock()
 	require.Len(t, logs, 1)
-	require.Equal(t, "<credential-bearing body omitted>", logs[0].RequestBody)
+	require.Equal(t, "<sensitive body omitted>", logs[0].RequestBody)
 	require.NotContains(t, logs[0].RequestBody, "audit-canary")
 }

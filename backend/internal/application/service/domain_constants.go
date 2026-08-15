@@ -443,6 +443,10 @@ const (
 	// the Model Plaza page (global pricing notes, exchange rate, promotions, ...).
 	SettingKeyModelPlazaDescription = "model_plaza_description"
 
+	// SettingKeyMediaStudioEnabled is a DB-backed soft switch for the Media Studio page.
+	// It is opt-in so rolling upgrades do not expose a new generation workspace unexpectedly.
+	SettingKeyMediaStudioEnabled = "media_studio_enabled"
+
 	// SettingKeyUpstreamBillingProbeSettings stores the global enable switch and interval
 	// for probing remote Sub2API API-key billing metadata.
 	SettingKeyUpstreamBillingProbeSettings = "upstream_billing_probe_settings"

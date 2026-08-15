@@ -22,8 +22,11 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
+	"github.com/Wei-Shaw/sub2api/ent/chatasset"
 	"github.com/Wei-Shaw/sub2api/ent/chatconversation"
 	"github.com/Wei-Shaw/sub2api/ent/chatmessage"
+	"github.com/Wei-Shaw/sub2api/ent/chatmessageasset"
+	"github.com/Wei-Shaw/sub2api/ent/chatquickreply"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
@@ -487,6 +490,33 @@ func (f TraverseChannelMonitorRequestTemplate) Traverse(ctx context.Context, q e
 	return fmt.Errorf("unexpected query type %T. expect *ent.ChannelMonitorRequestTemplateQuery", q)
 }
 
+// The ChatAssetFunc type is an adapter to allow the use of ordinary function as a Querier.
+type ChatAssetFunc func(context.Context, *ent.ChatAssetQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f ChatAssetFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.ChatAssetQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.ChatAssetQuery", q)
+}
+
+// The TraverseChatAsset type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseChatAsset func(context.Context, *ent.ChatAssetQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseChatAsset) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseChatAsset) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.ChatAssetQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.ChatAssetQuery", q)
+}
+
 // The ChatConversationFunc type is an adapter to allow the use of ordinary function as a Querier.
 type ChatConversationFunc func(context.Context, *ent.ChatConversationQuery) (ent.Value, error)
 
@@ -539,6 +569,60 @@ func (f TraverseChatMessage) Traverse(ctx context.Context, q ent.Query) error {
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.ChatMessageQuery", q)
+}
+
+// The ChatMessageAssetFunc type is an adapter to allow the use of ordinary function as a Querier.
+type ChatMessageAssetFunc func(context.Context, *ent.ChatMessageAssetQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f ChatMessageAssetFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.ChatMessageAssetQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.ChatMessageAssetQuery", q)
+}
+
+// The TraverseChatMessageAsset type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseChatMessageAsset func(context.Context, *ent.ChatMessageAssetQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseChatMessageAsset) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseChatMessageAsset) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.ChatMessageAssetQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.ChatMessageAssetQuery", q)
+}
+
+// The ChatQuickReplyFunc type is an adapter to allow the use of ordinary function as a Querier.
+type ChatQuickReplyFunc func(context.Context, *ent.ChatQuickReplyQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f ChatQuickReplyFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.ChatQuickReplyQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.ChatQuickReplyQuery", q)
+}
+
+// The TraverseChatQuickReply type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseChatQuickReply func(context.Context, *ent.ChatQuickReplyQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseChatQuickReply) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseChatQuickReply) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.ChatQuickReplyQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.ChatQuickReplyQuery", q)
 }
 
 // The CompositeModelRouteFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -1274,10 +1358,16 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.ChannelMonitorHistoryQuery, predicate.ChannelMonitorHistory, channelmonitorhistory.OrderOption]{typ: ent.TypeChannelMonitorHistory, tq: q}, nil
 	case *ent.ChannelMonitorRequestTemplateQuery:
 		return &query[*ent.ChannelMonitorRequestTemplateQuery, predicate.ChannelMonitorRequestTemplate, channelmonitorrequesttemplate.OrderOption]{typ: ent.TypeChannelMonitorRequestTemplate, tq: q}, nil
+	case *ent.ChatAssetQuery:
+		return &query[*ent.ChatAssetQuery, predicate.ChatAsset, chatasset.OrderOption]{typ: ent.TypeChatAsset, tq: q}, nil
 	case *ent.ChatConversationQuery:
 		return &query[*ent.ChatConversationQuery, predicate.ChatConversation, chatconversation.OrderOption]{typ: ent.TypeChatConversation, tq: q}, nil
 	case *ent.ChatMessageQuery:
 		return &query[*ent.ChatMessageQuery, predicate.ChatMessage, chatmessage.OrderOption]{typ: ent.TypeChatMessage, tq: q}, nil
+	case *ent.ChatMessageAssetQuery:
+		return &query[*ent.ChatMessageAssetQuery, predicate.ChatMessageAsset, chatmessageasset.OrderOption]{typ: ent.TypeChatMessageAsset, tq: q}, nil
+	case *ent.ChatQuickReplyQuery:
+		return &query[*ent.ChatQuickReplyQuery, predicate.ChatQuickReply, chatquickreply.OrderOption]{typ: ent.TypeChatQuickReply, tq: q}, nil
 	case *ent.CompositeModelRouteQuery:
 		return &query[*ent.CompositeModelRouteQuery, predicate.CompositeModelRoute, compositemodelroute.OrderOption]{typ: ent.TypeCompositeModelRoute, tq: q}, nil
 	case *ent.ErrorPassthroughRuleQuery:

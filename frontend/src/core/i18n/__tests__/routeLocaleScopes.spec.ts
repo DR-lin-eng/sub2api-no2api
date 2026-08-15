@@ -70,6 +70,7 @@ describe('route locale scopes', () => {
 
   it('adds feature messages only for their routes', () => {
     expect(getLocaleScopesForRoute('/batch-image')).toEqual(['base', 'user', 'batchImage'])
+    expect(getLocaleScopesForRoute('/media-studio')).toEqual(['base', 'user', 'mediaStudio'])
     expect(getLocaleScopesForRoute('/support')).toEqual(['base', 'user', 'supportChat'])
   })
 

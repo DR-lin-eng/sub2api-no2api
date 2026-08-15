@@ -66,6 +66,12 @@ export default {
           priceDescription: 'Pricing notes (Markdown)',
           priceDescriptionHint: 'Rendered at the top of the plaza page. Use it for billing rules, exchange rates, promotions, etc.',
         },
+        mediaStudio: {
+          title: 'Media Studio',
+          description: 'Controls the complete image, video, and batch-generation workspace. It remains disabled by default for smooth upgrades.',
+          enabled: 'Enable Media Studio',
+          enabledHint: 'When off, the user sidebar entry is hidden and direct visits to /media-studio return to the dashboard.',
+        },
         riskControl: {
           title: 'Risk Control',
           description: 'Enable the content moderation menu and gateway audit entry point. Disabled by default.',

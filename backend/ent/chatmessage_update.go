@@ -4,12 +4,15 @@ package ent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/chatasset"
 	"github.com/Wei-Shaw/sub2api/ent/chatconversation"
 	"github.com/Wei-Shaw/sub2api/ent/chatmessage"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
@@ -91,9 +94,103 @@ func (_u *ChatMessageUpdate) SetNillableContent(v *string) *ChatMessageUpdate {
 	return _u
 }
 
+// SetKind sets the "kind" field.
+func (_u *ChatMessageUpdate) SetKind(v chatmessage.Kind) *ChatMessageUpdate {
+	_u.mutation.SetKind(v)
+	return _u
+}
+
+// SetNillableKind sets the "kind" field if the given value is not nil.
+func (_u *ChatMessageUpdate) SetNillableKind(v *chatmessage.Kind) *ChatMessageUpdate {
+	if v != nil {
+		_u.SetKind(*v)
+	}
+	return _u
+}
+
+// SetReplyToID sets the "reply_to_id" field.
+func (_u *ChatMessageUpdate) SetReplyToID(v int64) *ChatMessageUpdate {
+	_u.mutation.ResetReplyToID()
+	_u.mutation.SetReplyToID(v)
+	return _u
+}
+
+// SetNillableReplyToID sets the "reply_to_id" field if the given value is not nil.
+func (_u *ChatMessageUpdate) SetNillableReplyToID(v *int64) *ChatMessageUpdate {
+	if v != nil {
+		_u.SetReplyToID(*v)
+	}
+	return _u
+}
+
+// AddReplyToID adds value to the "reply_to_id" field.
+func (_u *ChatMessageUpdate) AddReplyToID(v int64) *ChatMessageUpdate {
+	_u.mutation.AddReplyToID(v)
+	return _u
+}
+
+// ClearReplyToID clears the value of the "reply_to_id" field.
+func (_u *ChatMessageUpdate) ClearReplyToID() *ChatMessageUpdate {
+	_u.mutation.ClearReplyToID()
+	return _u
+}
+
+// SetMetadata sets the "metadata" field.
+func (_u *ChatMessageUpdate) SetMetadata(v json.RawMessage) *ChatMessageUpdate {
+	_u.mutation.SetMetadata(v)
+	return _u
+}
+
+// AppendMetadata appends value to the "metadata" field.
+func (_u *ChatMessageUpdate) AppendMetadata(v json.RawMessage) *ChatMessageUpdate {
+	_u.mutation.AppendMetadata(v)
+	return _u
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (_u *ChatMessageUpdate) ClearMetadata() *ChatMessageUpdate {
+	_u.mutation.ClearMetadata()
+	return _u
+}
+
+// SetIdempotencyKey sets the "idempotency_key" field.
+func (_u *ChatMessageUpdate) SetIdempotencyKey(v string) *ChatMessageUpdate {
+	_u.mutation.SetIdempotencyKey(v)
+	return _u
+}
+
+// SetNillableIdempotencyKey sets the "idempotency_key" field if the given value is not nil.
+func (_u *ChatMessageUpdate) SetNillableIdempotencyKey(v *string) *ChatMessageUpdate {
+	if v != nil {
+		_u.SetIdempotencyKey(*v)
+	}
+	return _u
+}
+
+// ClearIdempotencyKey clears the value of the "idempotency_key" field.
+func (_u *ChatMessageUpdate) ClearIdempotencyKey() *ChatMessageUpdate {
+	_u.mutation.ClearIdempotencyKey()
+	return _u
+}
+
 // SetConversation sets the "conversation" edge to the ChatConversation entity.
 func (_u *ChatMessageUpdate) SetConversation(v *ChatConversation) *ChatMessageUpdate {
 	return _u.SetConversationID(v.ID)
+}
+
+// AddAssetIDs adds the "assets" edge to the ChatAsset entity by IDs.
+func (_u *ChatMessageUpdate) AddAssetIDs(ids ...int64) *ChatMessageUpdate {
+	_u.mutation.AddAssetIDs(ids...)
+	return _u
+}
+
+// AddAssets adds the "assets" edges to the ChatAsset entity.
+func (_u *ChatMessageUpdate) AddAssets(v ...*ChatAsset) *ChatMessageUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAssetIDs(ids...)
 }
 
 // Mutation returns the ChatMessageMutation object of the builder.
@@ -105,6 +202,27 @@ func (_u *ChatMessageUpdate) Mutation() *ChatMessageMutation {
 func (_u *ChatMessageUpdate) ClearConversation() *ChatMessageUpdate {
 	_u.mutation.ClearConversation()
 	return _u
+}
+
+// ClearAssets clears all "assets" edges to the ChatAsset entity.
+func (_u *ChatMessageUpdate) ClearAssets() *ChatMessageUpdate {
+	_u.mutation.ClearAssets()
+	return _u
+}
+
+// RemoveAssetIDs removes the "assets" edge to ChatAsset entities by IDs.
+func (_u *ChatMessageUpdate) RemoveAssetIDs(ids ...int64) *ChatMessageUpdate {
+	_u.mutation.RemoveAssetIDs(ids...)
+	return _u
+}
+
+// RemoveAssets removes "assets" edges to ChatAsset entities.
+func (_u *ChatMessageUpdate) RemoveAssets(v ...*ChatAsset) *ChatMessageUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAssetIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -146,6 +264,16 @@ func (_u *ChatMessageUpdate) check() error {
 			return &ValidationError{Name: "content", err: fmt.Errorf(`ent: validator failed for field "ChatMessage.content": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Kind(); ok {
+		if err := chatmessage.KindValidator(v); err != nil {
+			return &ValidationError{Name: "kind", err: fmt.Errorf(`ent: validator failed for field "ChatMessage.kind": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.IdempotencyKey(); ok {
+		if err := chatmessage.IdempotencyKeyValidator(v); err != nil {
+			return &ValidationError{Name: "idempotency_key", err: fmt.Errorf(`ent: validator failed for field "ChatMessage.idempotency_key": %w`, err)}
+		}
+	}
 	if _u.mutation.ConversationCleared() && len(_u.mutation.ConversationIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "ChatMessage.conversation"`)
 	}
@@ -176,6 +304,35 @@ func (_u *ChatMessageUpdate) sqlSave(ctx context.Context) (_node int, err error)
 	if value, ok := _u.mutation.Content(); ok {
 		_spec.SetField(chatmessage.FieldContent, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.Kind(); ok {
+		_spec.SetField(chatmessage.FieldKind, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.ReplyToID(); ok {
+		_spec.SetField(chatmessage.FieldReplyToID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedReplyToID(); ok {
+		_spec.AddField(chatmessage.FieldReplyToID, field.TypeInt64, value)
+	}
+	if _u.mutation.ReplyToIDCleared() {
+		_spec.ClearField(chatmessage.FieldReplyToID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.Metadata(); ok {
+		_spec.SetField(chatmessage.FieldMetadata, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedMetadata(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, chatmessage.FieldMetadata, value)
+		})
+	}
+	if _u.mutation.MetadataCleared() {
+		_spec.ClearField(chatmessage.FieldMetadata, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.IdempotencyKey(); ok {
+		_spec.SetField(chatmessage.FieldIdempotencyKey, field.TypeString, value)
+	}
+	if _u.mutation.IdempotencyKeyCleared() {
+		_spec.ClearField(chatmessage.FieldIdempotencyKey, field.TypeString)
+	}
 	if _u.mutation.ConversationCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -203,6 +360,63 @@ func (_u *ChatMessageUpdate) sqlSave(ctx context.Context) (_node int, err error)
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AssetsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   chatmessage.AssetsTable,
+			Columns: chatmessage.AssetsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatasset.FieldID, field.TypeInt64),
+			},
+		}
+		createE := &ChatMessageAssetCreate{config: _u.config, mutation: newChatMessageAssetMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAssetsIDs(); len(nodes) > 0 && !_u.mutation.AssetsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   chatmessage.AssetsTable,
+			Columns: chatmessage.AssetsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatasset.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &ChatMessageAssetCreate{config: _u.config, mutation: newChatMessageAssetMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AssetsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   chatmessage.AssetsTable,
+			Columns: chatmessage.AssetsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatasset.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &ChatMessageAssetCreate{config: _u.config, mutation: newChatMessageAssetMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
@@ -288,9 +502,103 @@ func (_u *ChatMessageUpdateOne) SetNillableContent(v *string) *ChatMessageUpdate
 	return _u
 }
 
+// SetKind sets the "kind" field.
+func (_u *ChatMessageUpdateOne) SetKind(v chatmessage.Kind) *ChatMessageUpdateOne {
+	_u.mutation.SetKind(v)
+	return _u
+}
+
+// SetNillableKind sets the "kind" field if the given value is not nil.
+func (_u *ChatMessageUpdateOne) SetNillableKind(v *chatmessage.Kind) *ChatMessageUpdateOne {
+	if v != nil {
+		_u.SetKind(*v)
+	}
+	return _u
+}
+
+// SetReplyToID sets the "reply_to_id" field.
+func (_u *ChatMessageUpdateOne) SetReplyToID(v int64) *ChatMessageUpdateOne {
+	_u.mutation.ResetReplyToID()
+	_u.mutation.SetReplyToID(v)
+	return _u
+}
+
+// SetNillableReplyToID sets the "reply_to_id" field if the given value is not nil.
+func (_u *ChatMessageUpdateOne) SetNillableReplyToID(v *int64) *ChatMessageUpdateOne {
+	if v != nil {
+		_u.SetReplyToID(*v)
+	}
+	return _u
+}
+
+// AddReplyToID adds value to the "reply_to_id" field.
+func (_u *ChatMessageUpdateOne) AddReplyToID(v int64) *ChatMessageUpdateOne {
+	_u.mutation.AddReplyToID(v)
+	return _u
+}
+
+// ClearReplyToID clears the value of the "reply_to_id" field.
+func (_u *ChatMessageUpdateOne) ClearReplyToID() *ChatMessageUpdateOne {
+	_u.mutation.ClearReplyToID()
+	return _u
+}
+
+// SetMetadata sets the "metadata" field.
+func (_u *ChatMessageUpdateOne) SetMetadata(v json.RawMessage) *ChatMessageUpdateOne {
+	_u.mutation.SetMetadata(v)
+	return _u
+}
+
+// AppendMetadata appends value to the "metadata" field.
+func (_u *ChatMessageUpdateOne) AppendMetadata(v json.RawMessage) *ChatMessageUpdateOne {
+	_u.mutation.AppendMetadata(v)
+	return _u
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (_u *ChatMessageUpdateOne) ClearMetadata() *ChatMessageUpdateOne {
+	_u.mutation.ClearMetadata()
+	return _u
+}
+
+// SetIdempotencyKey sets the "idempotency_key" field.
+func (_u *ChatMessageUpdateOne) SetIdempotencyKey(v string) *ChatMessageUpdateOne {
+	_u.mutation.SetIdempotencyKey(v)
+	return _u
+}
+
+// SetNillableIdempotencyKey sets the "idempotency_key" field if the given value is not nil.
+func (_u *ChatMessageUpdateOne) SetNillableIdempotencyKey(v *string) *ChatMessageUpdateOne {
+	if v != nil {
+		_u.SetIdempotencyKey(*v)
+	}
+	return _u
+}
+
+// ClearIdempotencyKey clears the value of the "idempotency_key" field.
+func (_u *ChatMessageUpdateOne) ClearIdempotencyKey() *ChatMessageUpdateOne {
+	_u.mutation.ClearIdempotencyKey()
+	return _u
+}
+
 // SetConversation sets the "conversation" edge to the ChatConversation entity.
 func (_u *ChatMessageUpdateOne) SetConversation(v *ChatConversation) *ChatMessageUpdateOne {
 	return _u.SetConversationID(v.ID)
+}
+
+// AddAssetIDs adds the "assets" edge to the ChatAsset entity by IDs.
+func (_u *ChatMessageUpdateOne) AddAssetIDs(ids ...int64) *ChatMessageUpdateOne {
+	_u.mutation.AddAssetIDs(ids...)
+	return _u
+}
+
+// AddAssets adds the "assets" edges to the ChatAsset entity.
+func (_u *ChatMessageUpdateOne) AddAssets(v ...*ChatAsset) *ChatMessageUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAssetIDs(ids...)
 }
 
 // Mutation returns the ChatMessageMutation object of the builder.
@@ -302,6 +610,27 @@ func (_u *ChatMessageUpdateOne) Mutation() *ChatMessageMutation {
 func (_u *ChatMessageUpdateOne) ClearConversation() *ChatMessageUpdateOne {
 	_u.mutation.ClearConversation()
 	return _u
+}
+
+// ClearAssets clears all "assets" edges to the ChatAsset entity.
+func (_u *ChatMessageUpdateOne) ClearAssets() *ChatMessageUpdateOne {
+	_u.mutation.ClearAssets()
+	return _u
+}
+
+// RemoveAssetIDs removes the "assets" edge to ChatAsset entities by IDs.
+func (_u *ChatMessageUpdateOne) RemoveAssetIDs(ids ...int64) *ChatMessageUpdateOne {
+	_u.mutation.RemoveAssetIDs(ids...)
+	return _u
+}
+
+// RemoveAssets removes "assets" edges to ChatAsset entities.
+func (_u *ChatMessageUpdateOne) RemoveAssets(v ...*ChatAsset) *ChatMessageUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAssetIDs(ids...)
 }
 
 // Where appends a list predicates to the ChatMessageUpdate builder.
@@ -356,6 +685,16 @@ func (_u *ChatMessageUpdateOne) check() error {
 			return &ValidationError{Name: "content", err: fmt.Errorf(`ent: validator failed for field "ChatMessage.content": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Kind(); ok {
+		if err := chatmessage.KindValidator(v); err != nil {
+			return &ValidationError{Name: "kind", err: fmt.Errorf(`ent: validator failed for field "ChatMessage.kind": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.IdempotencyKey(); ok {
+		if err := chatmessage.IdempotencyKeyValidator(v); err != nil {
+			return &ValidationError{Name: "idempotency_key", err: fmt.Errorf(`ent: validator failed for field "ChatMessage.idempotency_key": %w`, err)}
+		}
+	}
 	if _u.mutation.ConversationCleared() && len(_u.mutation.ConversationIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "ChatMessage.conversation"`)
 	}
@@ -403,6 +742,35 @@ func (_u *ChatMessageUpdateOne) sqlSave(ctx context.Context) (_node *ChatMessage
 	if value, ok := _u.mutation.Content(); ok {
 		_spec.SetField(chatmessage.FieldContent, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.Kind(); ok {
+		_spec.SetField(chatmessage.FieldKind, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.ReplyToID(); ok {
+		_spec.SetField(chatmessage.FieldReplyToID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedReplyToID(); ok {
+		_spec.AddField(chatmessage.FieldReplyToID, field.TypeInt64, value)
+	}
+	if _u.mutation.ReplyToIDCleared() {
+		_spec.ClearField(chatmessage.FieldReplyToID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.Metadata(); ok {
+		_spec.SetField(chatmessage.FieldMetadata, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedMetadata(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, chatmessage.FieldMetadata, value)
+		})
+	}
+	if _u.mutation.MetadataCleared() {
+		_spec.ClearField(chatmessage.FieldMetadata, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.IdempotencyKey(); ok {
+		_spec.SetField(chatmessage.FieldIdempotencyKey, field.TypeString, value)
+	}
+	if _u.mutation.IdempotencyKeyCleared() {
+		_spec.ClearField(chatmessage.FieldIdempotencyKey, field.TypeString)
+	}
 	if _u.mutation.ConversationCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -430,6 +798,63 @@ func (_u *ChatMessageUpdateOne) sqlSave(ctx context.Context) (_node *ChatMessage
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AssetsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   chatmessage.AssetsTable,
+			Columns: chatmessage.AssetsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatasset.FieldID, field.TypeInt64),
+			},
+		}
+		createE := &ChatMessageAssetCreate{config: _u.config, mutation: newChatMessageAssetMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAssetsIDs(); len(nodes) > 0 && !_u.mutation.AssetsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   chatmessage.AssetsTable,
+			Columns: chatmessage.AssetsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatasset.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &ChatMessageAssetCreate{config: _u.config, mutation: newChatMessageAssetMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AssetsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   chatmessage.AssetsTable,
+			Columns: chatmessage.AssetsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatasset.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &ChatMessageAssetCreate{config: _u.config, mutation: newChatMessageAssetMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &ChatMessage{config: _u.config}

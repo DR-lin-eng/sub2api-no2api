@@ -230,6 +230,9 @@ type SystemSettings struct {
 	ModelPlazaAutoPublicModels bool   `json:"model_plaza_auto_public_models"`
 	ModelPlazaDescription      string `json:"model_plaza_description"`
 
+	// Media Studio image, video, and batch generation workspace.
+	MediaStudioEnabled bool `json:"media_studio_enabled"`
+
 	// Claude Code version check
 	MinClaudeCodeVersion string
 	MaxClaudeCodeVersion string
@@ -423,6 +426,9 @@ type PublicSettings struct {
 	// Model Plaza feature (public group/model pricing showcase)
 	ModelPlazaEnabled     bool `json:"model_plaza_enabled"`
 	ModelPlazaRequireAuth bool `json:"model_plaza_require_auth"`
+
+	// Media Studio image, video, and batch generation workspace.
+	MediaStudioEnabled bool `json:"media_studio_enabled"`
 
 	// Affiliate (邀请返利) feature toggle
 	AffiliateEnabled bool `json:"affiliate_enabled"`

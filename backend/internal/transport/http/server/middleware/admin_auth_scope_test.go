@@ -55,3 +55,43 @@ func TestGeneratedRedeemExportRequiresAdminAuthentication(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, recorder.Code)
 	require.Contains(t, recorder.Body.String(), "UNAUTHORIZED")
 }
+
+func TestAdminAPIKeyCannotReachAnySupportChatEndpoint(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	checks := []struct {
+		method string
+		path   string
+	}{
+		{http.MethodGet, "/api/v1/admin/chat/conversations"},
+		{http.MethodGet, "/api/v1/admin/chat/unread-count"},
+		{http.MethodGet, "/api/v1/admin/chat/image-library"},
+		{http.MethodPost, "/api/v1/admin/chat/image-library"},
+		{http.MethodDelete, "/api/v1/admin/chat/image-library/1"},
+		{http.MethodGet, "/api/v1/admin/chat/stickers"},
+		{http.MethodPost, "/api/v1/admin/chat/stickers"},
+		{http.MethodDelete, "/api/v1/admin/chat/stickers/1"},
+		{http.MethodGet, "/api/v1/admin/chat/assets/1"},
+		{http.MethodGet, "/api/v1/admin/chat/conversations/1/messages"},
+		{http.MethodPost, "/api/v1/admin/chat/conversations/1/messages"},
+		{http.MethodPost, "/api/v1/admin/chat/conversations/1/assets"},
+		{http.MethodPost, "/api/v1/admin/chat/conversations/1/balance-transfers"},
+		{http.MethodPost, "/api/v1/admin/chat/conversations/1/read"},
+		{http.MethodGet, "/api/v1/admin/chat/quick-replies"},
+		{http.MethodPost, "/api/v1/admin/chat/quick-replies"},
+		{http.MethodPost, "/api/v1/admin/chat/quick-replies/import"},
+		{http.MethodPost, "/api/v1/admin/chat/quick-replies/reorder"},
+		{http.MethodPut, "/api/v1/admin/chat/quick-replies/1"},
+		{http.MethodDelete, "/api/v1/admin/chat/quick-replies/1"},
+		{http.MethodGet, "/api/v1/admin/chat/ws"},
+	}
+	for _, check := range checks {
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		parsed, err := url.Parse(check.path)
+		require.NoError(t, err)
+		c.Request = &http.Request{Method: check.method, URL: parsed}
+		require.Falsef(t, adminAPIKeyRequestAllowed(c, []string{
+			service.AdminAPIKeyScopeRead,
+			service.AdminAPIKeyScopeWrite,
+		}), "%s %s must require a human admin JWT", check.method, check.path)
+	}
+}

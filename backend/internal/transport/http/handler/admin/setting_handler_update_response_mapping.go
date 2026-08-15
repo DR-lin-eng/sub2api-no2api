@@ -289,6 +289,8 @@ func buildSettingsUpdateResponsePayload(
 		ModelPlazaAutoPublicModels: updatedSettings.ModelPlazaAutoPublicModels,
 		ModelPlazaDescription:      updatedSettings.ModelPlazaDescription,
 
+		MediaStudioEnabled: updatedSettings.MediaStudioEnabled,
+
 		AffiliateEnabled: updatedSettings.AffiliateEnabled,
 
 		RiskControlEnabled:          updatedSettings.RiskControlEnabled,

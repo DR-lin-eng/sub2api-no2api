@@ -346,6 +346,9 @@ type UpdateSettingsRequest struct {
 	ModelPlazaAutoPublicModels *bool   `json:"model_plaza_auto_public_models"`
 	ModelPlazaDescription      *string `json:"model_plaza_description"`
 
+	// Media Studio feature switch
+	MediaStudioEnabled *bool `json:"media_studio_enabled"`
+
 	// Affiliate (邀请返利) feature switch
 	AffiliateEnabled *bool `json:"affiliate_enabled"`
 

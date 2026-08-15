@@ -42,10 +42,15 @@ func NewChatHandler(chatService *chat.Service, hub *chat.Hub) *ChatHandler {
 }
 
 type sendMessageRequest struct {
-	Content string `json:"content" binding:"required"`
+	Content        string                `json:"content"`
+	Kind           chat.MessageKind      `json:"kind"`
+	ReplyToID      *int64                `json:"reply_to_id"`
+	AssetIDs       []int64               `json:"asset_ids"`
+	Sticker        *chat.StickerMetadata `json:"sticker"`
+	IdempotencyKey string                `json:"idempotency_key"`
 }
 
-const maxChatRequestBodyBytes = 32 << 10
+const maxChatRequestBodyBytes = 64 << 10
 
 // GetConversation returns (creating if necessary) the caller's own conversation.
 // GET /api/v1/chat/conversation
@@ -73,7 +78,7 @@ func (h *ChatHandler) ListMessages(c *gin.Context) {
 		return
 	}
 
-	page, pageSize := response.ParsePagination(c)
+	page, pageSize := response.ParsePaginationWithMax(c, 100)
 	items, paginationResult, err := h.chatService.ListMessagesForUser(c.Request.Context(), subject.UserID, pagination.PaginationParams{
 		Page:     page,
 		PageSize: pageSize,
@@ -123,7 +128,17 @@ func (h *ChatHandler) SendMessage(c *gin.Context) {
 		return
 	}
 
-	msg, err := h.chatService.PostMessageFromUser(c.Request.Context(), subject.UserID, req.Content)
+	if req.IdempotencyKey == "" {
+		req.IdempotencyKey = c.GetHeader("Idempotency-Key")
+	}
+	msg, err := h.chatService.PostRichMessageFromUser(c.Request.Context(), subject.UserID, chat.SendMessageInput{
+		Content:        req.Content,
+		Kind:           req.Kind,
+		ReplyToID:      req.ReplyToID,
+		AssetIDs:       req.AssetIDs,
+		Sticker:        req.Sticker,
+		IdempotencyKey: req.IdempotencyKey,
+	})
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return

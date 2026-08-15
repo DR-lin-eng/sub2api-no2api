@@ -79,14 +79,36 @@
           <div v-else-if="messages.length === 0" class="flex h-full items-center justify-center text-sm text-gray-500 dark:text-dark-400">
             {{ t('supportChat.noMessagesYet') }}
           </div>
-          <SupportMessageList v-else :messages="messages" own-sender="admin" />
+          <SupportMessageList
+            v-else
+            :messages="messages"
+            own-sender="admin"
+            asset-scope="admin"
+            :peer-read-at="selectedConversation?.last_read_by_user_at"
+            @reply="replyingTo = $event"
+          />
         </div>
 
         <SupportMessageComposer
           :sending="sending"
           :disabled="!selectedConversationID || messagesLoading"
-          show-assistant-tools
+          admin-mode
+          :tools-busy="toolsBusy"
+          :replying-to="replyingTo"
+          :quick-replies="quickReplies"
+          :library-assets="libraryAssets"
+          :sticker-assets="stickerAssets"
           @submit="handleSend"
+          @upload="handleUpload"
+          @cancel-reply="replyingTo = null"
+          @transfer="handleTransfer"
+          @quick-reply-create="handleQuickReplyCreate"
+          @quick-reply-update="handleQuickReplyUpdate"
+          @quick-reply-delete="handleQuickReplyDelete"
+          @quick-reply-reorder="handleQuickReplyReorder"
+          @quick-reply-import="handleQuickReplyImport"
+          @catalog-create="handleCatalogCreate"
+          @catalog-delete="handleCatalogDelete"
         />
         </div>
       </div>
@@ -108,12 +130,26 @@ import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import { useAppStore } from '@/core/stores/appStore'
 import { getById as getAdminUserById } from '@/features/admin-users/data/datasources/adminUsersDatasource'
 import {
+  createAdminChatCatalogAsset,
+  createAdminChatQuickReply,
+  deleteAdminChatCatalogAsset,
+  deleteAdminChatQuickReply,
+  importAdminChatQuickReplies,
+  listAdminChatCatalog,
   listAdminChatConversations,
   listAdminChatMessages,
+  listAdminChatQuickReplies,
   markAdminChatRead,
+  reorderAdminChatQuickReplies,
   sendAdminChatMessage,
+  transferAdminChatBalance,
+  updateAdminChatQuickReply,
+  uploadAdminChatAsset,
+  type ChatAsset,
   type ChatConversation,
   type ChatMessage,
+  type ChatQuickReply,
+  type ChatSendMessageInput,
 } from '@/features/support-chat/data/datasources/supportChatDatasource'
 import { useSupportChatSocket } from '@/features/support-chat/presentation/composables/useSupportChatSocket'
 import { useSupportChatAdminStore } from '@/features/support-chat/presentation/stores/supportChatAdminStore'
@@ -131,8 +167,13 @@ const conversationTotal = ref(0)
 const conversationsLoading = ref(false)
 const selectedConversationID = ref<number | null>(null)
 const messages = ref<ChatMessage[]>([])
+const replyingTo = ref<ChatMessage | null>(null)
 const messagesLoading = ref(false)
 const sending = ref(false)
+const toolsBusy = ref(false)
+const quickReplies = ref<ChatQuickReply[]>([])
+const libraryAssets = ref<ChatAsset[]>([])
+const stickerAssets = ref<ChatAsset[]>([])
 const search = ref('')
 const unreadOnly = ref(false)
 const socketConnected = ref(false)
@@ -142,7 +183,12 @@ const userProfileLoading = ref(false)
 const userProfile = ref<AdminUser | null>(null)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 let fallbackPollTimer: ReturnType<typeof setInterval> | null = null
+let messageLoadSequence = 0
 const SUPPORT_CHAT_RESYNC_MS = 15000
+const SUPPORT_CHAT_CONNECTED_RESYNC_MS = 60000
+let lastResyncAt = 0
+const LEGACY_QUICK_REPLY_KEY = 'support_chat_custom_replies_v1'
+const LEGACY_QUICK_REPLY_MIGRATED_KEY = 'support_chat_quick_replies_migrated_v2'
 
 const selectedConversation = computed(() => {
   if (!selectedConversationID.value) return null
@@ -158,8 +204,15 @@ const socket = useSupportChatSocket({
     upsertConversationActivity(message)
     if (selectedConversationID.value === message.conversation_id) {
       appendMessage(message)
+      if (message.sender_type === 'user') await markSelectedRead()
       await scrollToBottom()
     }
+  },
+  onReadState: (readState) => {
+    const conversation = conversations.value.find(item => item.id === readState.conversation_id)
+    if (!conversation) return
+    if (readState.reader === 'user') conversation.last_read_by_user_at = readState.read_at
+    else conversation.last_read_by_admin_at = readState.read_at
   },
 })
 
@@ -222,6 +275,7 @@ async function loadConversations() {
       search: search.value.trim() || undefined,
     })
     conversations.value = page.items
+    lastResyncAt = Date.now()
     conversationTotal.value = page.total
     if (unreadOnly.value) {
       supportChatAdminStore.setUnreadConversationCount(page.total)
@@ -242,14 +296,17 @@ async function loadConversations() {
 async function selectConversation(conversationID: number) {
   if (selectedConversationID.value === conversationID) return
   selectedConversationID.value = conversationID
+  replyingTo.value = null
   messages.value = []
   await reloadSelectedMessages()
   await markSelectedRead()
 }
 
 function backToConversationList() {
+  messageLoadSequence += 1
   selectedConversationID.value = null
   messages.value = []
+  replyingTo.value = null
 }
 
 async function openUserProfile(conversation: ChatConversation) {
@@ -272,37 +329,47 @@ function closeUserProfile() {
 }
 
 async function reloadSelectedMessages() {
-  if (!selectedConversationID.value || messagesLoading.value) return
+  if (!selectedConversationID.value) return
+  const conversationID = selectedConversationID.value
+  const sequence = ++messageLoadSequence
   messagesLoading.value = true
   try {
-    const page = await listAdminChatMessages(selectedConversationID.value, { page: 1, page_size: 100 })
+    const page = await listAdminChatMessages(conversationID, { page: 1, page_size: 100 })
+    if (sequence !== messageLoadSequence || selectedConversationID.value !== conversationID) return
     messages.value = page.items
     await scrollToBottom()
   } catch (error) {
     appStore.showError(errorMessage(error, t('supportChat.loadFailed')))
   } finally {
-    messagesLoading.value = false
+    if (sequence === messageLoadSequence) messagesLoading.value = false
   }
 }
 
-async function markSelectedRead() {
-  if (!selectedConversationID.value) return
-  await markAdminChatRead(selectedConversationID.value)
-  const existing = conversations.value.find((item) => item.id === selectedConversationID.value)
-  if (existing) existing.unread_by_admin = 0
+async function markSelectedRead(conversationID = selectedConversationID.value) {
+  if (!conversationID) return
+  await markAdminChatRead(conversationID)
+  const existing = conversations.value.find((item) => item.id === conversationID)
+  if (existing) {
+    existing.unread_by_admin = 0
+    existing.last_read_by_admin_at = new Date().toISOString()
+  }
   await supportChatAdminStore.refreshUnreadIndicator(true)
   appStore.setSupportInboxUnread(supportChatAdminStore.hasUnread)
 }
 
-async function handleSend(content: string) {
+async function handleSend(input: ChatSendMessageInput) {
   if (!selectedConversationID.value) return
+  const conversationID = selectedConversationID.value
   sending.value = true
   try {
-    const message = await sendAdminChatMessage(selectedConversationID.value, content)
-    appendMessage(message)
+    const message = await sendAdminChatMessage(conversationID, input)
+    if (selectedConversationID.value === conversationID) appendMessage(message)
     upsertConversationActivity(message)
-    await markSelectedRead()
-    await scrollToBottom()
+    if (selectedConversationID.value === conversationID) {
+      replyingTo.value = null
+      await markSelectedRead(conversationID)
+      await scrollToBottom()
+    }
     void supportChatAdminStore.refreshUnreadIndicator(true)
   } catch (error) {
     appStore.showError(errorMessage(error, t('supportChat.sendFailed')))
@@ -311,8 +378,151 @@ async function handleSend(content: string) {
   }
 }
 
+async function handleUpload(value: { file: File; content: string; reply_to_id: number | null }) {
+  if (!selectedConversationID.value || sending.value) return
+  const conversationID = selectedConversationID.value
+  sending.value = true
+  try {
+    const asset = await uploadAdminChatAsset(conversationID, value.file)
+    const message = await sendAdminChatMessage(conversationID, {
+      content: value.content || '[image]',
+      kind: 'image',
+      asset_ids: [asset.id],
+      reply_to_id: value.reply_to_id,
+    })
+    if (selectedConversationID.value === conversationID) appendMessage(message)
+    upsertConversationActivity(message)
+    if (selectedConversationID.value === conversationID) {
+      replyingTo.value = null
+      await scrollToBottom()
+    }
+  } catch (error) {
+    appStore.showError(errorMessage(error, t('supportChat.assets.uploadFailed')))
+  } finally {
+    sending.value = false
+  }
+}
+
+async function handleTransfer(value: { amount: number; notes: string }) {
+  if (!selectedConversationID.value || sending.value) return
+  const conversationID = selectedConversationID.value
+  sending.value = true
+  try {
+    const result = await transferAdminChatBalance(conversationID, value.amount, value.notes)
+    if (selectedConversationID.value === conversationID) appendMessage(result.message)
+    upsertConversationActivity(result.message)
+    if (selectedConversationID.value === conversationID) await scrollToBottom()
+    appStore.showSuccess(t('supportChat.transfer.success'))
+  } catch (error) {
+    appStore.showError(errorMessage(error, t('supportChat.transfer.failed')))
+  } finally {
+    sending.value = false
+  }
+}
+
+async function loadSupportTools() {
+  await migrateLegacyQuickReplies()
+  try {
+    const [replies, library, stickers] = await Promise.all([
+      listAdminChatQuickReplies(),
+      listAdminChatCatalog('library'),
+      listAdminChatCatalog('sticker'),
+    ])
+    quickReplies.value = replies
+    libraryAssets.value = library
+    stickerAssets.value = stickers
+  } catch (error) {
+    appStore.showError(errorMessage(error, t('supportChat.toolsLoadFailed')))
+  }
+}
+
+async function migrateLegacyQuickReplies() {
+  try {
+    if (localStorage.getItem(LEGACY_QUICK_REPLY_MIGRATED_KEY) === 'true') return
+    const raw = localStorage.getItem(LEGACY_QUICK_REPLY_KEY)
+    const parsed = raw ? JSON.parse(raw) as unknown : []
+    const items = Array.isArray(parsed) ? parsed.map((value) => {
+      if (!value || typeof value !== 'object') return null
+      const record = value as Record<string, unknown>
+      const title = typeof record.title === 'string' ? record.title.trim().slice(0, 100) : ''
+      const content = typeof record.content === 'string' ? record.content.trim().slice(0, 10000) : ''
+      return title && content ? { title, content } : null
+    }).filter((item): item is { title: string; content: string } => Boolean(item)).slice(0, 50) : []
+    if (items.length > 0) await importAdminChatQuickReplies(items)
+    localStorage.removeItem(LEGACY_QUICK_REPLY_KEY)
+    localStorage.setItem(LEGACY_QUICK_REPLY_MIGRATED_KEY, 'true')
+  } catch {
+    // Keep legacy data for a future retry without blocking the support inbox.
+  }
+}
+
+async function runTool(operation: () => Promise<void>) {
+  if (toolsBusy.value) return
+  toolsBusy.value = true
+  try {
+    await operation()
+  } catch (error) {
+    appStore.showError(errorMessage(error, t('supportChat.toolActionFailed')))
+  } finally {
+    toolsBusy.value = false
+  }
+}
+
+function handleQuickReplyCreate(value: { title: string; content: string }) {
+  void runTool(async () => {
+    await createAdminChatQuickReply(value.title, value.content)
+    quickReplies.value = await listAdminChatQuickReplies()
+  })
+}
+
+function handleQuickReplyUpdate(value: { id: number; title: string; content: string }) {
+  void runTool(async () => {
+    await updateAdminChatQuickReply(value.id, value.title, value.content)
+    quickReplies.value = await listAdminChatQuickReplies()
+  })
+}
+
+function handleQuickReplyDelete(id: number) {
+  void runTool(async () => {
+    await deleteAdminChatQuickReply(id)
+    quickReplies.value = await listAdminChatQuickReplies()
+  })
+}
+
+function handleQuickReplyReorder(ids: number[]) {
+  void runTool(async () => {
+    await reorderAdminChatQuickReplies(ids)
+    quickReplies.value = await listAdminChatQuickReplies()
+  })
+}
+
+function handleQuickReplyImport(items: Array<{ title: string; content: string }>) {
+  void runTool(async () => {
+    quickReplies.value = await importAdminChatQuickReplies(items)
+  })
+}
+
+function handleCatalogCreate(value: { scope: 'library' | 'sticker'; file: File; collection: string }) {
+  void runTool(async () => {
+    await createAdminChatCatalogAsset(value.scope, value.file, value.collection)
+    const items = await listAdminChatCatalog(value.scope)
+    if (value.scope === 'library') libraryAssets.value = items
+    else stickerAssets.value = items
+  })
+}
+
+function handleCatalogDelete(value: { scope: 'library' | 'sticker'; id: number }) {
+  void runTool(async () => {
+    await deleteAdminChatCatalogAsset(value.scope, value.id)
+    const items = await listAdminChatCatalog(value.scope)
+    if (value.scope === 'library') libraryAssets.value = items
+    else stickerAssets.value = items
+  })
+}
+
 async function resyncMessages() {
   if (sending.value) return
+  if (socketConnected.value && Date.now() - lastResyncAt < SUPPORT_CHAT_CONNECTED_RESYNC_MS) return
   await loadConversations()
   if (selectedConversationID.value) {
     await reloadSelectedMessages()
@@ -331,7 +541,7 @@ watch(messageScrollSignature, () => {
 }, { flush: 'post' })
 
 onMounted(async () => {
-  await loadConversations()
+  await Promise.all([loadConversations(), loadSupportTools()])
   socket.connect()
   fallbackPollTimer = setInterval(() => {
     void resyncMessages()

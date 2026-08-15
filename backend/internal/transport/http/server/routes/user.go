@@ -150,6 +150,8 @@ func RegisterUserRoutes(
 			chat.GET("/unread-count", h.Chat.GetUnreadCount)
 			chat.GET("/messages", h.Chat.ListMessages)
 			chat.POST("/messages", h.Chat.SendMessage)
+			chat.POST("/assets", h.Chat.UploadAsset)
+			chat.GET("/assets/:id", h.Chat.GetAsset)
 			chat.POST("/read", h.Chat.MarkRead)
 			chat.GET("/ws", h.Chat.WS)
 		}

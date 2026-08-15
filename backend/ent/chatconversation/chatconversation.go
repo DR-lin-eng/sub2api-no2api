@@ -26,6 +26,10 @@ const (
 	FieldUnreadByUser = "unread_by_user"
 	// FieldUnreadByAdmin holds the string denoting the unread_by_admin field in the database.
 	FieldUnreadByAdmin = "unread_by_admin"
+	// FieldLastReadByUserAt holds the string denoting the last_read_by_user_at field in the database.
+	FieldLastReadByUserAt = "last_read_by_user_at"
+	// FieldLastReadByAdminAt holds the string denoting the last_read_by_admin_at field in the database.
+	FieldLastReadByAdminAt = "last_read_by_admin_at"
 	// EdgeUser holds the string denoting the user edge name in mutations.
 	EdgeUser = "user"
 	// EdgeMessages holds the string denoting the messages edge name in mutations.
@@ -57,6 +61,8 @@ var Columns = []string{
 	FieldLastMessageAt,
 	FieldUnreadByUser,
 	FieldUnreadByAdmin,
+	FieldLastReadByUserAt,
+	FieldLastReadByAdminAt,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -118,6 +124,16 @@ func ByUnreadByUser(opts ...sql.OrderTermOption) OrderOption {
 // ByUnreadByAdmin orders the results by the unread_by_admin field.
 func ByUnreadByAdmin(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUnreadByAdmin, opts...).ToFunc()
+}
+
+// ByLastReadByUserAt orders the results by the last_read_by_user_at field.
+func ByLastReadByUserAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLastReadByUserAt, opts...).ToFunc()
+}
+
+// ByLastReadByAdminAt orders the results by the last_read_by_admin_at field.
+func ByLastReadByAdminAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLastReadByAdminAt, opts...).ToFunc()
 }
 
 // ByUserField orders the results by user field.

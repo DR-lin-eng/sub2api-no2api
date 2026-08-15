@@ -37,6 +37,7 @@ rg -n 'path:|name:|component:' frontend/src/core/routes/index.ts
 | `requiresPayment` | 是否要求内部支付功能启用 |
 | `requiresRiskControl` | 是否要求风控功能启用 |
 | `requiresSupportChat` | 是否要求在线客服功能显式启用 |
+| `requiresMediaStudio` | 是否要求媒体工坊功能显式启用 |
 | `title`, `titleKey`, `descriptionKey` | 页面标题和 i18n 元数据 |
 | `breadcrumbs`, `icon`, `hideInMenu` | 导航展示元数据 |
 
@@ -51,7 +52,7 @@ rg -n 'path:|name:|component:' frontend/src/core/routes/index.ts
 3. 处理 `/setup` 已完成重定向。
 4. 处理公共路由、登录态和 backend mode 公共白名单。
 5. 验证登录和管理员角色。
-6. 确保支付/风控所需的公开设置已加载，再应用功能开关。
+6. 确保支付、风控、客服和媒体工坊所需的公开设置已加载，再应用功能开关。
 7. 应用 simple mode 和 backend mode 的访问限制。
 8. 导航完成后停止 loading 并触发空闲预加载。
 

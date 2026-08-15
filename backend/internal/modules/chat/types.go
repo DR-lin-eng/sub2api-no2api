@@ -2,11 +2,12 @@
 //
 // Every admin acts as a support agent (no separate agent role). Each user
 // has exactly one long-lived conversation with "support" — there is no
-// per-ticket/session splitting. v1 is text-only: no attachments or images.
+// per-ticket/session splitting.
 package chat
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
@@ -23,13 +24,15 @@ const (
 
 // Conversation is the single long-lived thread between a user and support.
 type Conversation struct {
-	ID            int64
-	UserID        int64
-	LastMessageAt *time.Time
-	UnreadByUser  int
-	UnreadByAdmin int
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID                int64
+	UserID            int64
+	LastMessageAt     *time.Time
+	UnreadByUser      int
+	UnreadByAdmin     int
+	LastReadByUserAt  *time.Time
+	LastReadByAdminAt *time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 
 	// UserEmail/UserUsername are only populated by List (the admin inbox),
 	// which eager-loads the owning user so admins can identify conversations
@@ -38,14 +41,50 @@ type Conversation struct {
 	UserUsername string
 }
 
-// Message is a single text message within a conversation.
+// MessageKind identifies the server-validated presentation contract.
+type MessageKind string
+
+const (
+	MessageKindText            MessageKind = "text"
+	MessageKindImage           MessageKind = "image"
+	MessageKindSticker         MessageKind = "sticker"
+	MessageKindBalanceTransfer MessageKind = "balance_transfer"
+)
+
+// Message is one persisted message within a conversation.
 type Message struct {
 	ID             int64
 	ConversationID int64
 	SenderType     SenderType
 	SenderID       int64
 	Content        string
+	Kind           MessageKind
+	ReplyToID      *int64
+	Metadata       json.RawMessage
+	IdempotencyKey *string `json:"-"`
+	Assets         []Asset
+	AssetIDs       []int64 `json:"-"`
 	CreatedAt      time.Time
+}
+
+type StickerMetadata struct {
+	Name  string `json:"name"`
+	Emoji string `json:"emoji,omitempty"`
+}
+
+type BalanceTransferMetadata struct {
+	Amount       float64 `json:"amount"`
+	BalanceAfter float64 `json:"balance_after"`
+	Notes        string  `json:"notes,omitempty"`
+}
+
+type SendMessageInput struct {
+	Content        string
+	Kind           MessageKind
+	ReplyToID      *int64
+	AssetIDs       []int64
+	Sticker        *StickerMetadata
+	IdempotencyKey string
 }
 
 // ConversationListFilters narrows the admin conversation list.
@@ -63,10 +102,25 @@ var (
 		"CHAT_MESSAGE_CONTENT_TOO_LONG",
 		"message content exceeds the maximum length",
 	)
+	ErrMessageKindInvalid         = infraerrors.BadRequest("CHAT_MESSAGE_KIND_INVALID", "message kind is invalid")
+	ErrMessageReplyInvalid        = infraerrors.BadRequest("CHAT_MESSAGE_REPLY_INVALID", "reply target is invalid")
+	ErrMessageAssetsInvalid       = infraerrors.BadRequest("CHAT_MESSAGE_ASSETS_INVALID", "message assets are invalid")
+	ErrMessageNotFound            = infraerrors.NotFound("CHAT_MESSAGE_NOT_FOUND", "chat message not found")
+	ErrMessageIdempotencyConflict = infraerrors.Conflict(
+		"CHAT_MESSAGE_IDEMPOTENCY_CONFLICT",
+		"idempotency key was already used for a different chat message",
+	)
+	ErrAssetNotFound          = infraerrors.NotFound("CHAT_ASSET_NOT_FOUND", "chat asset not found")
+	ErrQuickReplyNotFound     = infraerrors.NotFound("CHAT_QUICK_REPLY_NOT_FOUND", "quick reply not found")
+	ErrQuickReplyLimitReached = infraerrors.BadRequest("CHAT_QUICK_REPLY_LIMIT_REACHED", "quick reply limit reached")
 )
 
 // MaxMessageContentLen bounds a single message's length (matches the ent schema's MaxLen).
-const MaxMessageContentLen = 10000
+const (
+	MaxMessageContentLen = 10000
+	MaxMessageAssets     = 4
+	MaxQuickReplies      = 50
+)
 
 // ConversationRepository persists chat conversations.
 type ConversationRepository interface {
@@ -82,8 +136,9 @@ type ConversationRepository interface {
 	// GetUnreadByUserID returns the user's unread count without creating a conversation.
 	GetUnreadByUserID(ctx context.Context, userID int64) (int, error)
 
-	// MarkRead zeroes the unread counter for the given side.
-	MarkRead(ctx context.Context, conversationID int64, sender SenderType) error
+	// MarkRead zeroes the unread counter and returns the persisted read time.
+	// changed is false when the same side has already read every message.
+	MarkRead(ctx context.Context, conversationID int64, sender SenderType) (readAt time.Time, changed bool, err error)
 }
 
 // MessageRepository persists chat messages.
@@ -93,4 +148,58 @@ type MessageRepository interface {
 	// separate writes because callers broadcast only after this method succeeds.
 	CreateAndTouch(ctx context.Context, m *Message, at time.Time, sender SenderType) error
 	List(ctx context.Context, conversationID int64, params pagination.PaginationParams) ([]Message, *pagination.PaginationResult, error)
+	GetByIdempotencyKey(ctx context.Context, sender SenderType, senderID int64, key string) (*Message, error)
+}
+
+type AssetScope string
+
+const (
+	AssetScopeMessage AssetScope = "message"
+	AssetScopeLibrary AssetScope = "library"
+	AssetScopeSticker AssetScope = "sticker"
+)
+
+// Asset contains image metadata; Data is populated only by authorized reads.
+type Asset struct {
+	ID             int64      `json:"id"`
+	Scope          AssetScope `json:"scope"`
+	ConversationID *int64     `json:"-"`
+	UploadedBy     *int64     `json:"-"`
+	Name           string     `json:"name"`
+	MIMEType       string     `json:"mime_type"`
+	Size           int        `json:"size"`
+	Data           []byte     `json:"-"`
+	Collection     string     `json:"collection,omitempty"`
+	CatalogVisible bool       `json:"-"`
+	CreatedAt      time.Time  `json:"created_at"`
+}
+
+type AssetRepository interface {
+	Create(ctx context.Context, asset *Asset) error
+	ListCatalog(ctx context.Context, scope AssetScope, limit int) ([]Asset, error)
+	HideCatalog(ctx context.Context, scope AssetScope, id int64) error
+	GetForUser(ctx context.Context, id, userID, conversationID int64) (*Asset, error)
+	GetForAdmin(ctx context.Context, id, adminID int64) (*Asset, error)
+	DeleteUnattachedBefore(ctx context.Context, before time.Time, limit int) (int, error)
+}
+
+// QuickReply is an administrator-owned reusable message template.
+type QuickReply struct {
+	ID        int64
+	AdminID   int64
+	Title     string
+	Content   string
+	SortOrder int
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type QuickReplyRepository interface {
+	ListByAdminID(ctx context.Context, adminID int64) ([]QuickReply, error)
+	Create(ctx context.Context, reply *QuickReply) error
+	Update(ctx context.Context, reply *QuickReply) error
+	Delete(ctx context.Context, adminID, id int64) error
+	GetByID(ctx context.Context, adminID, id int64) (*QuickReply, error)
+	Reorder(ctx context.Context, adminID int64, orderedIDs []int64) error
+	Import(ctx context.Context, adminID int64, replies []QuickReply) ([]QuickReply, error)
 }

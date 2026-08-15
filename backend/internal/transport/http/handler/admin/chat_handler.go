@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -8,6 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
 	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
@@ -24,10 +26,15 @@ import (
 // WebSocket push shared by every connected admin (all admins act as support
 // agents; there is no separate agent identity).
 type ChatHandler struct {
-	chatService *chat.Service
-	hub         *chat.Hub
-	upgrader    websocket.Upgrader
-	limiter     *wsutil.ConnLimiter
+	chatService     *chat.Service
+	transferService *service.SupportChatTransferService
+	hub             *chat.Hub
+	upgrader        websocket.Upgrader
+	limiter         *wsutil.ConnLimiter
+}
+
+func (h *ChatHandler) SetTransferService(transferService *service.SupportChatTransferService) {
+	h.transferService = transferService
 }
 
 // NewChatHandler creates the admin-facing chat handler.
@@ -46,11 +53,16 @@ func NewChatHandler(chatService *chat.Service, hub *chat.Hub) *ChatHandler {
 }
 
 type adminSendMessageRequest struct {
-	Content string `json:"content" binding:"required"`
+	Content        string                `json:"content"`
+	Kind           chat.MessageKind      `json:"kind"`
+	ReplyToID      *int64                `json:"reply_to_id"`
+	AssetIDs       []int64               `json:"asset_ids"`
+	Sticker        *chat.StickerMetadata `json:"sticker"`
+	IdempotencyKey string                `json:"idempotency_key"`
 }
 
 const (
-	maxChatRequestBodyBytes = 32 << 10
+	maxChatRequestBodyBytes = 64 << 10
 	maxChatSearchRunes      = 200
 )
 
@@ -66,7 +78,7 @@ func limitChatSearch(search string) string {
 // filtered to unread-by-admin conversations or a user email/username search.
 // GET /api/v1/admin/chat/conversations
 func (h *ChatHandler) ListConversations(c *gin.Context) {
-	page, pageSize := response.ParsePagination(c)
+	page, pageSize := response.ParsePaginationWithMax(c, 100)
 	unreadOnly := parseBoolQueryWithDefault(c.Query("unread_only"), false)
 	search := limitChatSearch(c.Query("search"))
 
@@ -102,7 +114,7 @@ func (h *ChatHandler) ListMessages(c *gin.Context) {
 		return
 	}
 
-	page, pageSize := response.ParsePagination(c)
+	page, pageSize := response.ParsePaginationWithMax(c, 100)
 	items, paginationResult, err := h.chatService.ListMessagesForAdmin(c.Request.Context(), conversationID, pagination.PaginationParams{
 		Page:     page,
 		PageSize: pageSize,
@@ -141,12 +153,69 @@ func (h *ChatHandler) SendMessage(c *gin.Context) {
 		return
 	}
 
-	msg, err := h.chatService.PostMessageFromAdmin(c.Request.Context(), conversationID, subject.UserID, req.Content)
+	if req.IdempotencyKey == "" {
+		req.IdempotencyKey = c.GetHeader("Idempotency-Key")
+	}
+	msg, err := h.chatService.PostRichMessageFromAdmin(c.Request.Context(), conversationID, subject.UserID, chat.SendMessageInput{
+		Content:        req.Content,
+		Kind:           req.Kind,
+		ReplyToID:      req.ReplyToID,
+		AssetIDs:       req.AssetIDs,
+		Sticker:        req.Sticker,
+		IdempotencyKey: req.IdempotencyKey,
+	})
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
 	response.Success(c, msg)
+}
+
+type balanceTransferRequest struct {
+	Amount float64 `json:"amount" binding:"required,gt=0,lte=1000000000"`
+	Notes  string  `json:"notes"`
+}
+
+// TransferBalance atomically credits the conversation owner and persists a
+// structured chat receipt. Idempotency-Key is required by the shared admin
+// idempotency coordinator and is also enforced durably by chat_messages.
+func (h *ChatHandler) TransferBalance(c *gin.Context) {
+	conversationID, ok := parsePositiveChatID(c, "id", "Invalid conversation ID")
+	if !ok {
+		return
+	}
+	adminID, ok := chatAdminID(c)
+	if !ok {
+		return
+	}
+	if h.transferService == nil {
+		response.InternalError(c, "Balance transfer service is unavailable")
+		return
+	}
+	var req balanceTransferRequest
+	if !bindChatJSON(c, &req) {
+		return
+	}
+	payload := struct {
+		ConversationID int64                  `json:"conversation_id"`
+		Body           balanceTransferRequest `json:"body"`
+	}{ConversationID: conversationID, Body: req}
+	executeAdminIdempotentJSON(
+		c,
+		"admin.chat.balance.transfer",
+		payload,
+		service.DefaultWriteIdempotencyTTL(),
+		func(ctx context.Context) (any, error) {
+			return h.transferService.Transfer(
+				ctx,
+				conversationID,
+				adminID,
+				req.Amount,
+				req.Notes,
+				c.GetHeader("Idempotency-Key"),
+			)
+		},
+	)
 }
 
 // MarkRead clears the admin-side unread counter for the given conversation.

@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"encoding/json"
 	"time"
 
 	"entgo.io/ent"
@@ -14,7 +15,8 @@ import (
 
 // ChatMessage holds the schema definition for the ChatMessage entity.
 //
-// v1 仅支持文本消息，不支持附件/图片。
+// Messages may contain validated text, image/sticker references, replies, or
+// an administrator-created balance-transfer receipt.
 type ChatMessage struct {
 	ent.Schema
 }
@@ -37,6 +39,14 @@ func (ChatMessage) Fields() []ent.Field {
 			SchemaType(map[string]string{dialect.Postgres: "text"}).
 			NotEmpty().
 			MaxLen(10000),
+		field.Enum("kind").
+			Values("text", "image", "sticker", "balance_transfer").
+			Default("text"),
+		field.Int64("reply_to_id").Optional().Nillable(),
+		field.JSON("metadata", json.RawMessage{}).
+			Optional().
+			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
+		field.String("idempotency_key").Optional().Nillable().MaxLen(128),
 		field.Time("created_at").
 			Immutable().
 			Default(time.Now).
@@ -51,11 +61,15 @@ func (ChatMessage) Edges() []ent.Edge {
 			Field("conversation_id").
 			Unique().
 			Required(),
+		edge.To("assets", ChatAsset.Type).
+			Through("message_assets", ChatMessageAsset.Type),
 	}
 }
 
 func (ChatMessage) Indexes() []ent.Index {
 	return []ent.Index{
-		index.Fields("conversation_id", "created_at"),
+		index.Fields("conversation_id", "created_at", "id"),
+		index.Fields("reply_to_id"),
+		index.Fields("sender_type", "sender_id", "idempotency_key").Unique(),
 	}
 }

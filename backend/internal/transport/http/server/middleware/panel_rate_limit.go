@@ -29,6 +29,8 @@ var panelHeavyPathPrefixes = [...]string{
 	"/api/v1/admin/dashboard",
 	"/api/v1/admin/ops",
 	"/api/v1/admin/payment",
+	"/api/v1/chat",
+	"/api/v1/admin/chat",
 }
 
 type panelRateLimitAllower interface {

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
 	"github.com/Wei-Shaw/sub2api/internal/modules/securityaudit"
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin"
@@ -155,6 +156,16 @@ func ProvideSystemHandler(updateService *service.UpdateService, lockService *ser
 	return handler
 }
 
+func ProvideAdminChatHandler(
+	chatService *chat.Service,
+	hub *chat.Hub,
+	transferService *service.SupportChatTransferService,
+) *admin.ChatHandler {
+	handler := admin.NewChatHandler(chatService, hub)
+	handler.SetTransferService(transferService)
+	return handler
+}
+
 // ProvideSettingHandler creates SettingHandler with version from BuildInfo
 func ProvideSettingHandler(settingService *service.SettingService, buildInfo BuildInfo, notificationEmailService *service.NotificationEmailService) *SettingHandler {
 	h := NewSettingHandler(settingService, buildInfo.Version)
@@ -282,7 +293,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewComplianceHandler,
 	admin.NewAuditLogHandler,
 	admin.NewClusterHandler,
-	admin.NewChatHandler,
+	ProvideAdminChatHandler,
 
 	// AdminHandlers and Handlers constructors
 	ProvideAdminHandlers,

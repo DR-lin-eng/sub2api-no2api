@@ -197,6 +197,16 @@ func ParsePagination(c *gin.Context) (page, pageSize int) {
 	return page, pageSize
 }
 
+// ParsePaginationWithMax applies a route-specific response-size ceiling while
+// preserving the shared parser's defaults and backwards-compatible inputs.
+func ParsePaginationWithMax(c *gin.Context, maxPageSize int) (page, pageSize int) {
+	page, pageSize = ParsePagination(c)
+	if maxPageSize > 0 && pageSize > maxPageSize {
+		pageSize = maxPageSize
+	}
+	return page, pageSize
+}
+
 func parseInt(s string) (int, error) {
 	var result int
 	for _, c := range s {

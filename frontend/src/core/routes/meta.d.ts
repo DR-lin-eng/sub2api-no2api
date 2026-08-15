@@ -62,6 +62,12 @@ declare module 'vue-router' {
     requiresSupportChat?: boolean
 
     /**
+     * Whether this route requires media studio to be enabled.
+     * @default false
+     */
+    requiresMediaStudio?: boolean
+
+    /**
      * i18n key for the page title
      */
     titleKey?: string

@@ -37,6 +37,10 @@ describe('support chat datasource normalization', () => {
       sender_type: 'admin',
       sender_id: 1,
       content: 'hello',
+      kind: 'text',
+      reply_to_id: null,
+      metadata: {},
+      assets: [],
       created_at: '2026-01-02T03:04:05Z',
     })
 
@@ -46,7 +50,44 @@ describe('support chat datasource normalization', () => {
       sender_type: 'admin',
       sender_id: 1,
       content: 'hello',
+      kind: 'text',
+      reply_to_id: null,
+      metadata: {},
+      assets: [],
       created_at: '2026-01-02T03:04:05Z',
+    })
+  })
+
+  it('normalizes structured messages, protected asset metadata, and read-state events', () => {
+    const message = normalizeChatMessage({
+      ID: 11,
+      ConversationID: 8,
+      SenderType: 'admin',
+      SenderID: 3,
+      Content: '[image]',
+      Kind: 'image',
+      ReplyToID: 10,
+      Metadata: { caption: '<script>not rendered</script>' },
+      Assets: [{ id: 5, scope: 'library', name: 'asset.png', mime_type: 'image/png', size: 42 }],
+      CreatedAt: '2026-01-02T03:04:05Z',
+    })
+
+    expect(message).toMatchObject({
+      id: 11,
+      kind: 'image',
+      reply_to_id: 10,
+      metadata: { caption: '<script>not rendered</script>' },
+      assets: [{ id: 5, scope: 'library', mime_type: 'image/png' }],
+    })
+
+    const event = parseChatSocketEvent(JSON.stringify({
+      type: 'read_state',
+      read_state: { conversation_id: 8, reader: 'user', read_at: '2026-01-02T04:00:00Z' },
+    }))
+    expect(event?.read_state).toEqual({
+      conversation_id: 8,
+      reader: 'user',
+      read_at: '2026-01-02T04:00:00Z',
     })
   })
 

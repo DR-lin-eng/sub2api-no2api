@@ -7,8 +7,11 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/chatasset"
 	"github.com/Wei-Shaw/sub2api/ent/chatconversation"
 	"github.com/Wei-Shaw/sub2api/ent/chatmessage"
+	"github.com/Wei-Shaw/sub2api/ent/chatmessageasset"
+	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
 	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
@@ -52,7 +55,7 @@ func (r *chatConversationRepository) GetOrCreateByUserID(ctx context.Context, us
 }
 
 func (r *chatConversationRepository) GetByID(ctx context.Context, id int64) (*chat.Conversation, error) {
-	m, err := r.client.ChatConversation.Get(ctx, id)
+	m, err := clientFromContext(ctx, r.client).ChatConversation.Get(ctx, id)
 	if err != nil {
 		return nil, translatePersistenceError(err, chat.ErrConversationNotFound, nil)
 	}
@@ -60,7 +63,7 @@ func (r *chatConversationRepository) GetByID(ctx context.Context, id int64) (*ch
 }
 
 func (r *chatConversationRepository) GetByUserID(ctx context.Context, userID int64) (*chat.Conversation, error) {
-	m, err := r.client.ChatConversation.Query().
+	m, err := clientFromContext(ctx, r.client).ChatConversation.Query().
 		Where(chatconversation.UserIDEQ(userID)).
 		Only(ctx)
 	if err != nil {
@@ -74,7 +77,7 @@ func (r *chatConversationRepository) List(
 	params pagination.PaginationParams,
 	filters chat.ConversationListFilters,
 ) ([]chat.Conversation, *pagination.PaginationResult, error) {
-	q := r.client.ChatConversation.Query()
+	q := clientFromContext(ctx, r.client).ChatConversation.Query()
 
 	if filters.UnreadOnly {
 		q = q.Where(chatconversation.UnreadByAdminGT(0))
@@ -140,18 +143,38 @@ func (r *chatConversationRepository) GetUnreadByUserID(ctx context.Context, user
 	return conversation.UnreadByUser, nil
 }
 
-func (r *chatConversationRepository) MarkRead(ctx context.Context, conversationID int64, sender chat.SenderType) error {
+func (r *chatConversationRepository) MarkRead(
+	ctx context.Context,
+	conversationID int64,
+	sender chat.SenderType,
+) (time.Time, bool, error) {
 	client := clientFromContext(ctx, r.client)
-	builder := client.ChatConversation.UpdateOneID(conversationID)
+	readAt := time.Now().UTC()
+	builder := client.ChatConversation.Update().Where(chatconversation.IDEQ(conversationID))
 
 	if sender == chat.SenderTypeUser {
-		builder = builder.SetUnreadByUser(0)
+		builder = builder.
+			Where(chatconversation.Or(
+				chatconversation.UnreadByUserGT(0),
+				chatconversation.LastReadByUserAtIsNil(),
+			)).
+			SetUnreadByUser(0).
+			SetLastReadByUserAt(readAt)
 	} else {
-		builder = builder.SetUnreadByAdmin(0)
+		builder = builder.
+			Where(chatconversation.Or(
+				chatconversation.UnreadByAdminGT(0),
+				chatconversation.LastReadByAdminAtIsNil(),
+			)).
+			SetUnreadByAdmin(0).
+			SetLastReadByAdminAt(readAt)
 	}
 
-	_, err := builder.Save(ctx)
-	return translatePersistenceError(err, chat.ErrConversationNotFound, nil)
+	affected, err := builder.Save(ctx)
+	if err != nil {
+		return time.Time{}, false, translatePersistenceError(err, chat.ErrConversationNotFound, nil)
+	}
+	return readAt, affected > 0, nil
 }
 
 func chatConversationEntityToDomain(m *dbent.ChatConversation) *chat.Conversation {
@@ -159,13 +182,15 @@ func chatConversationEntityToDomain(m *dbent.ChatConversation) *chat.Conversatio
 		return nil
 	}
 	return &chat.Conversation{
-		ID:            m.ID,
-		UserID:        m.UserID,
-		LastMessageAt: m.LastMessageAt,
-		UnreadByUser:  m.UnreadByUser,
-		UnreadByAdmin: m.UnreadByAdmin,
-		CreatedAt:     m.CreatedAt,
-		UpdatedAt:     m.UpdatedAt,
+		ID:                m.ID,
+		UserID:            m.UserID,
+		LastMessageAt:     m.LastMessageAt,
+		UnreadByUser:      m.UnreadByUser,
+		UnreadByAdmin:     m.UnreadByAdmin,
+		LastReadByUserAt:  m.LastReadByUserAt,
+		LastReadByAdminAt: m.LastReadByAdminAt,
+		CreatedAt:         m.CreatedAt,
+		UpdatedAt:         m.UpdatedAt,
 	}
 }
 
@@ -207,17 +232,52 @@ func (r *chatMessageRepository) createAndTouchWithClient(
 	at time.Time,
 	sender chat.SenderType,
 ) error {
-	created, err := client.ChatMessage.Create().
+	if m.ReplyToID != nil {
+		exists, err := client.ChatMessage.Query().
+			Where(chatmessage.IDEQ(*m.ReplyToID), chatmessage.ConversationIDEQ(m.ConversationID)).
+			Exist(ctx)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return chat.ErrMessageReplyInvalid
+		}
+	}
+
+	assets, err := loadMessageAssetsForCreate(ctx, client, m, sender)
+	if err != nil {
+		return err
+	}
+
+	create := client.ChatMessage.Create().
 		SetConversationID(m.ConversationID).
 		SetSenderType(chatmessage.SenderType(m.SenderType)).
 		SetSenderID(m.SenderID).
 		SetContent(m.Content).
-		Save(ctx)
+		SetKind(chatmessage.Kind(m.Kind)).
+		SetNillableReplyToID(m.ReplyToID).
+		SetMetadata(m.Metadata).
+		SetNillableIdempotencyKey(m.IdempotencyKey)
+	created, err := create.Save(ctx)
 	if err != nil {
 		return err
 	}
 	m.ID = created.ID
 	m.CreatedAt = created.CreatedAt
+	m.Assets = assets
+
+	if len(assets) > 0 {
+		builders := make([]*dbent.ChatMessageAssetCreate, 0, len(assets))
+		for i := range assets {
+			builders = append(builders, client.ChatMessageAsset.Create().
+				SetMessageID(created.ID).
+				SetAssetID(assets[i].ID).
+				SetSortOrder(i))
+		}
+		if _, err := client.ChatMessageAsset.CreateBulk(builders...).Save(ctx); err != nil {
+			return err
+		}
+	}
 
 	builder := client.ChatConversation.UpdateOneID(m.ConversationID).
 		SetLastMessageAt(at)
@@ -232,12 +292,70 @@ func (r *chatMessageRepository) createAndTouchWithClient(
 	return nil
 }
 
+func loadMessageAssetsForCreate(
+	ctx context.Context,
+	client *dbent.Client,
+	m *chat.Message,
+	sender chat.SenderType,
+) ([]chat.Asset, error) {
+	if len(m.AssetIDs) == 0 {
+		return nil, nil
+	}
+	predicates := []predicate.ChatAsset{
+		chatasset.IDIn(m.AssetIDs...),
+	}
+	if sender == chat.SenderTypeUser {
+		predicates = append(predicates,
+			chatasset.ScopeEQ(chatasset.ScopeMessage),
+			chatasset.ConversationIDEQ(m.ConversationID),
+			chatasset.UploadedByEQ(m.SenderID),
+		)
+	} else {
+		predicates = append(predicates, chatasset.Or(
+			chatasset.And(
+				chatasset.ScopeEQ(chatasset.ScopeMessage),
+				chatasset.ConversationIDEQ(m.ConversationID),
+				chatasset.UploadedByEQ(m.SenderID),
+			),
+			chatasset.And(
+				chatasset.ScopeIn(chatasset.ScopeLibrary, chatasset.ScopeSticker),
+				chatasset.CatalogVisibleEQ(true),
+			),
+		))
+	}
+	items, err := client.ChatAsset.Query().
+		Where(predicates...).
+		Select(chatAssetMetadataFields()...).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(items) != len(m.AssetIDs) {
+		return nil, chat.ErrMessageAssetsInvalid
+	}
+	byID := make(map[int64]*dbent.ChatAsset, len(items))
+	for _, item := range items {
+		byID[item.ID] = item
+	}
+	assets := make([]chat.Asset, 0, len(m.AssetIDs))
+	for _, id := range m.AssetIDs {
+		item := byID[id]
+		if item == nil || (m.Kind == chat.MessageKindSticker && item.Scope != chatasset.ScopeSticker) ||
+			(m.Kind == chat.MessageKindImage && item.Scope == chatasset.ScopeSticker) {
+			return nil, chat.ErrMessageAssetsInvalid
+		}
+		assets = append(assets, *chatAssetEntityToDomain(item, false))
+	}
+	return assets, nil
+}
+
 func (r *chatMessageRepository) List(
 	ctx context.Context,
 	conversationID int64,
 	params pagination.PaginationParams,
 ) ([]chat.Message, *pagination.PaginationResult, error) {
-	q := r.client.ChatMessage.Query().
+	client := clientFromContext(ctx, r.client)
+	q := client.ChatMessage.Query().
 		Where(chatmessage.ConversationIDEQ(conversationID))
 
 	total, err := q.Count(ctx)
@@ -253,17 +371,94 @@ func (r *chatMessageRepository) List(
 	if err != nil {
 		return nil, nil, err
 	}
+	if err := loadChatMessageAssets(ctx, client, items); err != nil {
+		return nil, nil, err
+	}
 
 	out := make([]chat.Message, 0, len(items))
 	for i := range items {
-		out = append(out, chat.Message{
-			ID:             items[i].ID,
-			ConversationID: items[i].ConversationID,
-			SenderType:     chat.SenderType(items[i].SenderType),
-			SenderID:       items[i].SenderID,
-			Content:        items[i].Content,
-			CreatedAt:      items[i].CreatedAt,
-		})
+		out = append(out, *chatMessageEntityToDomain(items[i]))
 	}
 	return out, paginationResultFromTotal(int64(total), params), nil
+}
+
+func (r *chatMessageRepository) GetByIdempotencyKey(
+	ctx context.Context,
+	sender chat.SenderType,
+	senderID int64,
+	key string,
+) (*chat.Message, error) {
+	client := clientFromContext(ctx, r.client)
+	item, err := client.ChatMessage.Query().
+		Where(
+			chatmessage.SenderTypeEQ(chatmessage.SenderType(sender)),
+			chatmessage.SenderIDEQ(senderID),
+			chatmessage.IdempotencyKeyEQ(key),
+		).
+		Only(ctx)
+	if err != nil {
+		return nil, translatePersistenceError(err, chat.ErrMessageNotFound, nil)
+	}
+	if err := loadChatMessageAssets(ctx, client, []*dbent.ChatMessage{item}); err != nil {
+		return nil, err
+	}
+	return chatMessageEntityToDomain(item), nil
+}
+
+func loadChatMessageAssets(ctx context.Context, client *dbent.Client, messages []*dbent.ChatMessage) error {
+	if len(messages) == 0 {
+		return nil
+	}
+	messageByID := make(map[int64]*dbent.ChatMessage, len(messages))
+	ids := make([]int64, 0, len(messages))
+	for _, message := range messages {
+		if message == nil {
+			continue
+		}
+		message.Edges.Assets = nil
+		messageByID[message.ID] = message
+		ids = append(ids, message.ID)
+	}
+	links, err := client.ChatMessageAsset.Query().
+		Where(chatmessageasset.MessageIDIn(ids...)).
+		WithAsset(func(query *dbent.ChatAssetQuery) {
+			query.Select(chatAssetMetadataFields()...)
+		}).
+		Order(
+			dbent.Asc(chatmessageasset.FieldMessageID),
+			dbent.Asc(chatmessageasset.FieldSortOrder),
+		).
+		All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, link := range links {
+		if message := messageByID[link.MessageID]; message != nil && link.Edges.Asset != nil {
+			message.Edges.Assets = append(message.Edges.Assets, link.Edges.Asset)
+		}
+	}
+	return nil
+}
+
+func chatMessageEntityToDomain(item *dbent.ChatMessage) *chat.Message {
+	if item == nil {
+		return nil
+	}
+	assets := make([]chat.Asset, 0, len(item.Edges.Assets))
+	for _, asset := range item.Edges.Assets {
+		assets = append(assets, *chatAssetEntityToDomain(asset, false))
+	}
+	return &chat.Message{
+		ID:             item.ID,
+		ConversationID: item.ConversationID,
+		SenderType:     chat.SenderType(item.SenderType),
+		SenderID:       item.SenderID,
+		Content:        item.Content,
+		Kind:           chat.MessageKind(item.Kind),
+		ReplyToID:      item.ReplyToID,
+		Metadata:       item.Metadata,
+		IdempotencyKey: item.IdempotencyKey,
+		Assets:         assets,
+		CreatedAt:      item.CreatedAt,
+	}
 }

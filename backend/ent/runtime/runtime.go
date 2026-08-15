@@ -19,8 +19,11 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
+	"github.com/Wei-Shaw/sub2api/ent/chatasset"
 	"github.com/Wei-Shaw/sub2api/ent/chatconversation"
 	"github.com/Wei-Shaw/sub2api/ent/chatmessage"
+	"github.com/Wei-Shaw/sub2api/ent/chatmessageasset"
+	"github.com/Wei-Shaw/sub2api/ent/chatquickreply"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
@@ -861,6 +864,30 @@ func init() {
 	channelmonitorrequesttemplate.DefaultBodyOverrideMode = channelmonitorrequesttemplateDescBodyOverrideMode.Default.(string)
 	// channelmonitorrequesttemplate.BodyOverrideModeValidator is a validator for the "body_override_mode" field. It is called by the builders before save.
 	channelmonitorrequesttemplate.BodyOverrideModeValidator = channelmonitorrequesttemplateDescBodyOverrideMode.Validators[0].(func(string) error)
+	chatassetFields := schema.ChatAsset{}.Fields()
+	_ = chatassetFields
+	// chatassetDescName is the schema descriptor for name field.
+	chatassetDescName := chatassetFields[3].Descriptor()
+	// chatasset.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	chatasset.NameValidator = chatassetDescName.Validators[0].(func(string) error)
+	// chatassetDescMimeType is the schema descriptor for mime_type field.
+	chatassetDescMimeType := chatassetFields[4].Descriptor()
+	// chatasset.MimeTypeValidator is a validator for the "mime_type" field. It is called by the builders before save.
+	chatasset.MimeTypeValidator = chatassetDescMimeType.Validators[0].(func(string) error)
+	// chatassetDescCollection is the schema descriptor for collection field.
+	chatassetDescCollection := chatassetFields[7].Descriptor()
+	// chatasset.DefaultCollection holds the default value on creation for the collection field.
+	chatasset.DefaultCollection = chatassetDescCollection.Default.(string)
+	// chatasset.CollectionValidator is a validator for the "collection" field. It is called by the builders before save.
+	chatasset.CollectionValidator = chatassetDescCollection.Validators[0].(func(string) error)
+	// chatassetDescCatalogVisible is the schema descriptor for catalog_visible field.
+	chatassetDescCatalogVisible := chatassetFields[8].Descriptor()
+	// chatasset.DefaultCatalogVisible holds the default value on creation for the catalog_visible field.
+	chatasset.DefaultCatalogVisible = chatassetDescCatalogVisible.Default.(bool)
+	// chatassetDescCreatedAt is the schema descriptor for created_at field.
+	chatassetDescCreatedAt := chatassetFields[9].Descriptor()
+	// chatasset.DefaultCreatedAt holds the default value on creation for the created_at field.
+	chatasset.DefaultCreatedAt = chatassetDescCreatedAt.Default.(func() time.Time)
 	chatconversationMixin := schema.ChatConversation{}.Mixin()
 	chatconversationMixinFields0 := chatconversationMixin[0].Fields()
 	_ = chatconversationMixinFields0
@@ -904,10 +931,75 @@ func init() {
 			return nil
 		}
 	}()
+	// chatmessageDescIdempotencyKey is the schema descriptor for idempotency_key field.
+	chatmessageDescIdempotencyKey := chatmessageFields[7].Descriptor()
+	// chatmessage.IdempotencyKeyValidator is a validator for the "idempotency_key" field. It is called by the builders before save.
+	chatmessage.IdempotencyKeyValidator = chatmessageDescIdempotencyKey.Validators[0].(func(string) error)
 	// chatmessageDescCreatedAt is the schema descriptor for created_at field.
-	chatmessageDescCreatedAt := chatmessageFields[4].Descriptor()
+	chatmessageDescCreatedAt := chatmessageFields[8].Descriptor()
 	// chatmessage.DefaultCreatedAt holds the default value on creation for the created_at field.
 	chatmessage.DefaultCreatedAt = chatmessageDescCreatedAt.Default.(func() time.Time)
+	chatmessageassetFields := schema.ChatMessageAsset{}.Fields()
+	_ = chatmessageassetFields
+	// chatmessageassetDescSortOrder is the schema descriptor for sort_order field.
+	chatmessageassetDescSortOrder := chatmessageassetFields[2].Descriptor()
+	// chatmessageasset.DefaultSortOrder holds the default value on creation for the sort_order field.
+	chatmessageasset.DefaultSortOrder = chatmessageassetDescSortOrder.Default.(int)
+	chatquickreplyMixin := schema.ChatQuickReply{}.Mixin()
+	chatquickreplyMixinFields0 := chatquickreplyMixin[0].Fields()
+	_ = chatquickreplyMixinFields0
+	chatquickreplyFields := schema.ChatQuickReply{}.Fields()
+	_ = chatquickreplyFields
+	// chatquickreplyDescCreatedAt is the schema descriptor for created_at field.
+	chatquickreplyDescCreatedAt := chatquickreplyMixinFields0[0].Descriptor()
+	// chatquickreply.DefaultCreatedAt holds the default value on creation for the created_at field.
+	chatquickreply.DefaultCreatedAt = chatquickreplyDescCreatedAt.Default.(func() time.Time)
+	// chatquickreplyDescUpdatedAt is the schema descriptor for updated_at field.
+	chatquickreplyDescUpdatedAt := chatquickreplyMixinFields0[1].Descriptor()
+	// chatquickreply.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	chatquickreply.DefaultUpdatedAt = chatquickreplyDescUpdatedAt.Default.(func() time.Time)
+	// chatquickreply.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	chatquickreply.UpdateDefaultUpdatedAt = chatquickreplyDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// chatquickreplyDescTitle is the schema descriptor for title field.
+	chatquickreplyDescTitle := chatquickreplyFields[1].Descriptor()
+	// chatquickreply.TitleValidator is a validator for the "title" field. It is called by the builders before save.
+	chatquickreply.TitleValidator = func() func(string) error {
+		validators := chatquickreplyDescTitle.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(title string) error {
+			for _, fn := range fns {
+				if err := fn(title); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// chatquickreplyDescContent is the schema descriptor for content field.
+	chatquickreplyDescContent := chatquickreplyFields[2].Descriptor()
+	// chatquickreply.ContentValidator is a validator for the "content" field. It is called by the builders before save.
+	chatquickreply.ContentValidator = func() func(string) error {
+		validators := chatquickreplyDescContent.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(content string) error {
+			for _, fn := range fns {
+				if err := fn(content); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// chatquickreplyDescSortOrder is the schema descriptor for sort_order field.
+	chatquickreplyDescSortOrder := chatquickreplyFields[3].Descriptor()
+	// chatquickreply.DefaultSortOrder holds the default value on creation for the sort_order field.
+	chatquickreply.DefaultSortOrder = chatquickreplyDescSortOrder.Default.(int)
 	compositemodelrouteMixin := schema.CompositeModelRoute{}.Mixin()
 	compositemodelrouteMixinHooks1 := compositemodelrouteMixin[1].Hooks()
 	compositemodelroute.Hooks[0] = compositemodelrouteMixinHooks1[0]

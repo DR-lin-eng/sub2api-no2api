@@ -23,10 +23,22 @@ const (
 	FieldSenderID = "sender_id"
 	// FieldContent holds the string denoting the content field in the database.
 	FieldContent = "content"
+	// FieldKind holds the string denoting the kind field in the database.
+	FieldKind = "kind"
+	// FieldReplyToID holds the string denoting the reply_to_id field in the database.
+	FieldReplyToID = "reply_to_id"
+	// FieldMetadata holds the string denoting the metadata field in the database.
+	FieldMetadata = "metadata"
+	// FieldIdempotencyKey holds the string denoting the idempotency_key field in the database.
+	FieldIdempotencyKey = "idempotency_key"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeConversation holds the string denoting the conversation edge name in mutations.
 	EdgeConversation = "conversation"
+	// EdgeAssets holds the string denoting the assets edge name in mutations.
+	EdgeAssets = "assets"
+	// EdgeMessageAssets holds the string denoting the message_assets edge name in mutations.
+	EdgeMessageAssets = "message_assets"
 	// Table holds the table name of the chatmessage in the database.
 	Table = "chat_messages"
 	// ConversationTable is the table that holds the conversation relation/edge.
@@ -36,6 +48,18 @@ const (
 	ConversationInverseTable = "chat_conversations"
 	// ConversationColumn is the table column denoting the conversation relation/edge.
 	ConversationColumn = "conversation_id"
+	// AssetsTable is the table that holds the assets relation/edge. The primary key declared below.
+	AssetsTable = "chat_message_assets"
+	// AssetsInverseTable is the table name for the ChatAsset entity.
+	// It exists in this package in order to avoid circular dependency with the "chatasset" package.
+	AssetsInverseTable = "chat_assets"
+	// MessageAssetsTable is the table that holds the message_assets relation/edge.
+	MessageAssetsTable = "chat_message_assets"
+	// MessageAssetsInverseTable is the table name for the ChatMessageAsset entity.
+	// It exists in this package in order to avoid circular dependency with the "chatmessageasset" package.
+	MessageAssetsInverseTable = "chat_message_assets"
+	// MessageAssetsColumn is the table column denoting the message_assets relation/edge.
+	MessageAssetsColumn = "message_id"
 )
 
 // Columns holds all SQL columns for chatmessage fields.
@@ -45,8 +69,18 @@ var Columns = []string{
 	FieldSenderType,
 	FieldSenderID,
 	FieldContent,
+	FieldKind,
+	FieldReplyToID,
+	FieldMetadata,
+	FieldIdempotencyKey,
 	FieldCreatedAt,
 }
+
+var (
+	// AssetsPrimaryKey and AssetsColumn2 are the table columns denoting the
+	// primary key for the assets relation (M2M).
+	AssetsPrimaryKey = []string{"message_id", "asset_id"}
+)
 
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
@@ -61,6 +95,8 @@ func ValidColumn(column string) bool {
 var (
 	// ContentValidator is a validator for the "content" field. It is called by the builders before save.
 	ContentValidator func(string) error
+	// IdempotencyKeyValidator is a validator for the "idempotency_key" field. It is called by the builders before save.
+	IdempotencyKeyValidator func(string) error
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 )
@@ -85,6 +121,34 @@ func SenderTypeValidator(st SenderType) error {
 		return nil
 	default:
 		return fmt.Errorf("chatmessage: invalid enum value for sender_type field: %q", st)
+	}
+}
+
+// Kind defines the type for the "kind" enum field.
+type Kind string
+
+// KindText is the default value of the Kind enum.
+const DefaultKind = KindText
+
+// Kind values.
+const (
+	KindText            Kind = "text"
+	KindImage           Kind = "image"
+	KindSticker         Kind = "sticker"
+	KindBalanceTransfer Kind = "balance_transfer"
+)
+
+func (k Kind) String() string {
+	return string(k)
+}
+
+// KindValidator is a validator for the "kind" field enum values. It is called by the builders before save.
+func KindValidator(k Kind) error {
+	switch k {
+	case KindText, KindImage, KindSticker, KindBalanceTransfer:
+		return nil
+	default:
+		return fmt.Errorf("chatmessage: invalid enum value for kind field: %q", k)
 	}
 }
 
@@ -116,6 +180,21 @@ func ByContent(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldContent, opts...).ToFunc()
 }
 
+// ByKind orders the results by the kind field.
+func ByKind(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldKind, opts...).ToFunc()
+}
+
+// ByReplyToID orders the results by the reply_to_id field.
+func ByReplyToID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldReplyToID, opts...).ToFunc()
+}
+
+// ByIdempotencyKey orders the results by the idempotency_key field.
+func ByIdempotencyKey(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIdempotencyKey, opts...).ToFunc()
+}
+
 // ByCreatedAt orders the results by the created_at field.
 func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCreatedAt, opts...).ToFunc()
@@ -127,10 +206,52 @@ func ByConversationField(field string, opts ...sql.OrderTermOption) OrderOption 
 		sqlgraph.OrderByNeighborTerms(s, newConversationStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByAssetsCount orders the results by assets count.
+func ByAssetsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAssetsStep(), opts...)
+	}
+}
+
+// ByAssets orders the results by assets terms.
+func ByAssets(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAssetsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByMessageAssetsCount orders the results by message_assets count.
+func ByMessageAssetsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newMessageAssetsStep(), opts...)
+	}
+}
+
+// ByMessageAssets orders the results by message_assets terms.
+func ByMessageAssets(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newMessageAssetsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newConversationStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ConversationInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, ConversationTable, ConversationColumn),
+	)
+}
+func newAssetsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AssetsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2M, false, AssetsTable, AssetsPrimaryKey...),
+	)
+}
+func newMessageAssetsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(MessageAssetsInverseTable, MessageAssetsColumn),
+		sqlgraph.Edge(sqlgraph.O2M, true, MessageAssetsTable, MessageAssetsColumn),
 	)
 }

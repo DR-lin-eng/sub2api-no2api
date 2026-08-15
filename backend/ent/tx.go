@@ -42,10 +42,16 @@ type Tx struct {
 	ChannelMonitorHistory *ChannelMonitorHistoryClient
 	// ChannelMonitorRequestTemplate is the client for interacting with the ChannelMonitorRequestTemplate builders.
 	ChannelMonitorRequestTemplate *ChannelMonitorRequestTemplateClient
+	// ChatAsset is the client for interacting with the ChatAsset builders.
+	ChatAsset *ChatAssetClient
 	// ChatConversation is the client for interacting with the ChatConversation builders.
 	ChatConversation *ChatConversationClient
 	// ChatMessage is the client for interacting with the ChatMessage builders.
 	ChatMessage *ChatMessageClient
+	// ChatMessageAsset is the client for interacting with the ChatMessageAsset builders.
+	ChatMessageAsset *ChatMessageAssetClient
+	// ChatQuickReply is the client for interacting with the ChatQuickReply builders.
+	ChatQuickReply *ChatQuickReplyClient
 	// CompositeModelRoute is the client for interacting with the CompositeModelRoute builders.
 	CompositeModelRoute *CompositeModelRouteClient
 	// ErrorPassthroughRule is the client for interacting with the ErrorPassthroughRule builders.
@@ -243,8 +249,11 @@ func (tx *Tx) init() {
 	tx.ChannelMonitorDailyRollup = NewChannelMonitorDailyRollupClient(tx.config)
 	tx.ChannelMonitorHistory = NewChannelMonitorHistoryClient(tx.config)
 	tx.ChannelMonitorRequestTemplate = NewChannelMonitorRequestTemplateClient(tx.config)
+	tx.ChatAsset = NewChatAssetClient(tx.config)
 	tx.ChatConversation = NewChatConversationClient(tx.config)
 	tx.ChatMessage = NewChatMessageClient(tx.config)
+	tx.ChatMessageAsset = NewChatMessageAssetClient(tx.config)
+	tx.ChatQuickReply = NewChatQuickReplyClient(tx.config)
 	tx.CompositeModelRoute = NewCompositeModelRouteClient(tx.config)
 	tx.ErrorPassthroughRule = NewErrorPassthroughRuleClient(tx.config)
 	tx.Group = NewGroupClient(tx.config)

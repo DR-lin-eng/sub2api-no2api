@@ -205,6 +205,9 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyModelPlazaAutoPublicModels: "false",
 		SettingKeyModelPlazaDescription:      "",
 
+		// Media Studio feature (default disabled; opt-in)
+		SettingKeyMediaStudioEnabled: "false",
+
 		// Affiliate (邀请返利) feature (default disabled; opt-in)
 		SettingKeyAffiliateEnabled:              "false",
 		SettingKeyAffiliateAdminRechargeEnabled: strconv.FormatBool(AdminRechargeRebateEnabledDefault),

@@ -109,16 +109,23 @@ func truncateAuditExtraString(value string, limit int) string {
 
 // auditSensitiveReads 需要审计的敏感 GET 读取（method+FullPath → 动作名）。
 var auditSensitiveReads = map[string]string{
-	"GET /api/v1/admin/accounts/data":             "admin.accounts.export",
-	"GET /api/v1/admin/proxies/data":              "admin.proxies.export",
-	"GET /api/v1/admin/redeem-codes/export":       "admin.redeem_codes.export",
-	"GET /api/v1/admin/backups/:id/download-url":  "admin.backups.download",
-	"GET /api/v1/admin/settings/admin-api-key":    "admin.admin_api_key.read",
-	"GET /api/v1/admin/settings/admin-api-keys":   "admin.admin_api_keys.read",
-	"GET /api/v1/admin/users/:id/api-keys":        "admin.users.api_keys.read",
-	"GET /api/v1/admin/groups/:id/api-keys":       "admin.groups.api_keys.read",
-	"GET /api/v1/admin/backups/s3-config":         "admin.backups.s3_config.read",
-	"GET /api/v1/admin/data-management/s3/config": "admin.data_management.s3_config.read",
+	"GET /api/v1/admin/accounts/data":                   "admin.accounts.export",
+	"GET /api/v1/admin/proxies/data":                    "admin.proxies.export",
+	"GET /api/v1/admin/redeem-codes/export":             "admin.redeem_codes.export",
+	"GET /api/v1/admin/backups/:id/download-url":        "admin.backups.download",
+	"GET /api/v1/admin/settings/admin-api-key":          "admin.admin_api_key.read",
+	"GET /api/v1/admin/settings/admin-api-keys":         "admin.admin_api_keys.read",
+	"GET /api/v1/admin/users/:id/api-keys":              "admin.users.api_keys.read",
+	"GET /api/v1/admin/groups/:id/api-keys":             "admin.groups.api_keys.read",
+	"GET /api/v1/admin/backups/s3-config":               "admin.backups.s3_config.read",
+	"GET /api/v1/admin/data-management/s3/config":       "admin.data_management.s3_config.read",
+	"GET /api/v1/admin/chat/conversations":              "admin.chat.conversations.read",
+	"GET /api/v1/admin/chat/unread-count":               "admin.chat.unread_count.read",
+	"GET /api/v1/admin/chat/image-library":              "admin.chat.image_library.read",
+	"GET /api/v1/admin/chat/stickers":                   "admin.chat.stickers.read",
+	"GET /api/v1/admin/chat/assets/:id":                 "admin.chat.assets.read",
+	"GET /api/v1/admin/chat/conversations/:id/messages": "admin.chat.messages.read",
+	"GET /api/v1/admin/chat/quick-replies":              "admin.chat.quick_replies.read",
 }
 
 // auditActionOverrides 变更类请求的动作名精确映射（未命中时自动推导）。
@@ -151,19 +158,30 @@ var auditActionOverrides = map[string]string{
 	"POST /api/v1/admin/prompt-audit/events/delete-by-filter": "admin.prompt_audit.events.filter_delete",
 }
 
-// auditBodyOmittedRoutes 请求体几乎整体由凭证构成的路由（如整块粘贴 auth JSON 的导入接口）。
-// 这类 body 的凭证内嵌在普通字符串值里，键级脱敏无法覆盖，整体不入库。
+// auditBodyOmittedRoutes covers credential-bearing, private-content, and
+// binary-upload routes. These bodies either cannot be made safe by key-level
+// redaction or should not be duplicated into the audit store at all.
 var auditBodyOmittedRoutes = map[string]struct{}{
-	"POST /api/v1/auth/passkey/login/finish":                    {},
-	"POST /api/v1/user/passkeys/register/finish":                {},
-	"POST /api/v1/admin/accounts/import/codex-session":          {},
-	"PUT /api/v1/admin/accounts/:id/ollama-cloud-usage/session": {},
-	"PUT /api/v1/admin/prompt-audit/config":                     {},
-	"POST /api/v1/admin/prompt-audit/endpoints/probe":           {},
-	"DELETE /api/v1/admin/prompt-audit/events/:id":              {},
-	"POST /api/v1/admin/prompt-audit/events/batch-delete":       {},
-	"POST /api/v1/admin/prompt-audit/events/delete-preview":     {},
-	"POST /api/v1/admin/prompt-audit/events/delete-by-filter":   {},
+	"POST /api/v1/auth/passkey/login/finish":                      {},
+	"POST /api/v1/user/passkeys/register/finish":                  {},
+	"POST /api/v1/admin/accounts/import/codex-session":            {},
+	"PUT /api/v1/admin/accounts/:id/ollama-cloud-usage/session":   {},
+	"PUT /api/v1/admin/prompt-audit/config":                       {},
+	"POST /api/v1/admin/prompt-audit/endpoints/probe":             {},
+	"DELETE /api/v1/admin/prompt-audit/events/:id":                {},
+	"POST /api/v1/admin/prompt-audit/events/batch-delete":         {},
+	"POST /api/v1/admin/prompt-audit/events/delete-preview":       {},
+	"POST /api/v1/admin/prompt-audit/events/delete-by-filter":     {},
+	"POST /api/v1/chat/messages":                                  {},
+	"POST /api/v1/chat/assets":                                    {},
+	"POST /api/v1/admin/chat/conversations/:id/messages":          {},
+	"POST /api/v1/admin/chat/conversations/:id/assets":            {},
+	"POST /api/v1/admin/chat/conversations/:id/balance-transfers": {},
+	"POST /api/v1/admin/chat/image-library":                       {},
+	"POST /api/v1/admin/chat/stickers":                            {},
+	"POST /api/v1/admin/chat/quick-replies":                       {},
+	"PUT /api/v1/admin/chat/quick-replies/:id":                    {},
+	"POST /api/v1/admin/chat/quick-replies/import":                {},
 }
 
 // NewAuditLogMiddleware 创建审计中间件。
@@ -198,7 +216,7 @@ func NewAuditLogMiddleware(auditService *service.AuditLogService) AuditLogMiddle
 		// 避免大体积导入请求被完整复制进内存两次。
 		var bodyRedacted string
 		if _, omit := auditBodyOmittedRoutes[routeKey]; omit {
-			bodyRedacted = "<credential-bearing body omitted>"
+			bodyRedacted = "<sensitive body omitted>"
 		} else if c.Request.Body != nil && c.Request.Method != "GET" {
 			orig := c.Request.Body
 			raw, err := io.ReadAll(io.LimitReader(orig, service.AuditRequestBodyCaptureLimit+1))

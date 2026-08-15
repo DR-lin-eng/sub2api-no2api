@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -12,20 +13,24 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/chatasset"
 	"github.com/Wei-Shaw/sub2api/ent/chatconversation"
 	"github.com/Wei-Shaw/sub2api/ent/chatmessage"
+	"github.com/Wei-Shaw/sub2api/ent/chatmessageasset"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 )
 
 // ChatMessageQuery is the builder for querying ChatMessage entities.
 type ChatMessageQuery struct {
 	config
-	ctx              *QueryContext
-	order            []chatmessage.OrderOption
-	inters           []Interceptor
-	predicates       []predicate.ChatMessage
-	withConversation *ChatConversationQuery
-	modifiers        []func(*sql.Selector)
+	ctx               *QueryContext
+	order             []chatmessage.OrderOption
+	inters            []Interceptor
+	predicates        []predicate.ChatMessage
+	withConversation  *ChatConversationQuery
+	withAssets        *ChatAssetQuery
+	withMessageAssets *ChatMessageAssetQuery
+	modifiers         []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -77,6 +82,50 @@ func (_q *ChatMessageQuery) QueryConversation() *ChatConversationQuery {
 			sqlgraph.From(chatmessage.Table, chatmessage.FieldID, selector),
 			sqlgraph.To(chatconversation.Table, chatconversation.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, chatmessage.ConversationTable, chatmessage.ConversationColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAssets chains the current query on the "assets" edge.
+func (_q *ChatMessageQuery) QueryAssets() *ChatAssetQuery {
+	query := (&ChatAssetClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(chatmessage.Table, chatmessage.FieldID, selector),
+			sqlgraph.To(chatasset.Table, chatasset.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, chatmessage.AssetsTable, chatmessage.AssetsPrimaryKey...),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryMessageAssets chains the current query on the "message_assets" edge.
+func (_q *ChatMessageQuery) QueryMessageAssets() *ChatMessageAssetQuery {
+	query := (&ChatMessageAssetClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(chatmessage.Table, chatmessage.FieldID, selector),
+			sqlgraph.To(chatmessageasset.Table, chatmessageasset.MessageColumn),
+			sqlgraph.Edge(sqlgraph.O2M, true, chatmessage.MessageAssetsTable, chatmessage.MessageAssetsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -271,12 +320,14 @@ func (_q *ChatMessageQuery) Clone() *ChatMessageQuery {
 		return nil
 	}
 	return &ChatMessageQuery{
-		config:           _q.config,
-		ctx:              _q.ctx.Clone(),
-		order:            append([]chatmessage.OrderOption{}, _q.order...),
-		inters:           append([]Interceptor{}, _q.inters...),
-		predicates:       append([]predicate.ChatMessage{}, _q.predicates...),
-		withConversation: _q.withConversation.Clone(),
+		config:            _q.config,
+		ctx:               _q.ctx.Clone(),
+		order:             append([]chatmessage.OrderOption{}, _q.order...),
+		inters:            append([]Interceptor{}, _q.inters...),
+		predicates:        append([]predicate.ChatMessage{}, _q.predicates...),
+		withConversation:  _q.withConversation.Clone(),
+		withAssets:        _q.withAssets.Clone(),
+		withMessageAssets: _q.withMessageAssets.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -291,6 +342,28 @@ func (_q *ChatMessageQuery) WithConversation(opts ...func(*ChatConversationQuery
 		opt(query)
 	}
 	_q.withConversation = query
+	return _q
+}
+
+// WithAssets tells the query-builder to eager-load the nodes that are connected to
+// the "assets" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ChatMessageQuery) WithAssets(opts ...func(*ChatAssetQuery)) *ChatMessageQuery {
+	query := (&ChatAssetClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAssets = query
+	return _q
+}
+
+// WithMessageAssets tells the query-builder to eager-load the nodes that are connected to
+// the "message_assets" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ChatMessageQuery) WithMessageAssets(opts ...func(*ChatMessageAssetQuery)) *ChatMessageQuery {
+	query := (&ChatMessageAssetClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withMessageAssets = query
 	return _q
 }
 
@@ -372,8 +445,10 @@ func (_q *ChatMessageQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*
 	var (
 		nodes       = []*ChatMessage{}
 		_spec       = _q.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [3]bool{
 			_q.withConversation != nil,
+			_q.withAssets != nil,
+			_q.withMessageAssets != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -400,6 +475,20 @@ func (_q *ChatMessageQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*
 	if query := _q.withConversation; query != nil {
 		if err := _q.loadConversation(ctx, query, nodes, nil,
 			func(n *ChatMessage, e *ChatConversation) { n.Edges.Conversation = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withAssets; query != nil {
+		if err := _q.loadAssets(ctx, query, nodes,
+			func(n *ChatMessage) { n.Edges.Assets = []*ChatAsset{} },
+			func(n *ChatMessage, e *ChatAsset) { n.Edges.Assets = append(n.Edges.Assets, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withMessageAssets; query != nil {
+		if err := _q.loadMessageAssets(ctx, query, nodes,
+			func(n *ChatMessage) { n.Edges.MessageAssets = []*ChatMessageAsset{} },
+			func(n *ChatMessage, e *ChatMessageAsset) { n.Edges.MessageAssets = append(n.Edges.MessageAssets, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -432,6 +521,97 @@ func (_q *ChatMessageQuery) loadConversation(ctx context.Context, query *ChatCon
 		for i := range nodes {
 			assign(nodes[i], n)
 		}
+	}
+	return nil
+}
+func (_q *ChatMessageQuery) loadAssets(ctx context.Context, query *ChatAssetQuery, nodes []*ChatMessage, init func(*ChatMessage), assign func(*ChatMessage, *ChatAsset)) error {
+	edgeIDs := make([]driver.Value, len(nodes))
+	byID := make(map[int64]*ChatMessage)
+	nids := make(map[int64]map[*ChatMessage]struct{})
+	for i, node := range nodes {
+		edgeIDs[i] = node.ID
+		byID[node.ID] = node
+		if init != nil {
+			init(node)
+		}
+	}
+	query.Where(func(s *sql.Selector) {
+		joinT := sql.Table(chatmessage.AssetsTable)
+		s.Join(joinT).On(s.C(chatasset.FieldID), joinT.C(chatmessage.AssetsPrimaryKey[1]))
+		s.Where(sql.InValues(joinT.C(chatmessage.AssetsPrimaryKey[0]), edgeIDs...))
+		columns := s.SelectedColumns()
+		s.Select(joinT.C(chatmessage.AssetsPrimaryKey[0]))
+		s.AppendSelect(columns...)
+		s.SetDistinct(false)
+	})
+	if err := query.prepareQuery(ctx); err != nil {
+		return err
+	}
+	qr := QuerierFunc(func(ctx context.Context, q Query) (Value, error) {
+		return query.sqlAll(ctx, func(_ context.Context, spec *sqlgraph.QuerySpec) {
+			assign := spec.Assign
+			values := spec.ScanValues
+			spec.ScanValues = func(columns []string) ([]any, error) {
+				values, err := values(columns[1:])
+				if err != nil {
+					return nil, err
+				}
+				return append([]any{new(sql.NullInt64)}, values...), nil
+			}
+			spec.Assign = func(columns []string, values []any) error {
+				outValue := values[0].(*sql.NullInt64).Int64
+				inValue := values[1].(*sql.NullInt64).Int64
+				if nids[inValue] == nil {
+					nids[inValue] = map[*ChatMessage]struct{}{byID[outValue]: {}}
+					return assign(columns[1:], values[1:])
+				}
+				nids[inValue][byID[outValue]] = struct{}{}
+				return nil
+			}
+		})
+	})
+	neighbors, err := withInterceptors[[]*ChatAsset](ctx, query, qr, query.inters)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected "assets" node returned %v`, n.ID)
+		}
+		for kn := range nodes {
+			assign(kn, n)
+		}
+	}
+	return nil
+}
+func (_q *ChatMessageQuery) loadMessageAssets(ctx context.Context, query *ChatMessageAssetQuery, nodes []*ChatMessage, init func(*ChatMessage), assign func(*ChatMessage, *ChatMessageAsset)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*ChatMessage)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(chatmessageasset.FieldMessageID)
+	}
+	query.Where(predicate.ChatMessageAsset(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(chatmessage.MessageAssetsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.MessageID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "message_id" returned %v for node %v`, fk, n)
+		}
+		assign(node, n)
 	}
 	return nil
 }

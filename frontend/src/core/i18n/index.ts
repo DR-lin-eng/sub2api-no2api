@@ -3,7 +3,7 @@ import { createI18n } from 'vue-i18n'
 type LocaleCode = 'en' | 'zh'
 
 type LocaleMessages = Record<string, any>
-export type LocaleScope = 'base' | 'user' | 'batchImage' | 'supportChat' | 'admin'
+export type LocaleScope = 'base' | 'user' | 'batchImage' | 'mediaStudio' | 'supportChat' | 'admin'
 
 const LOCALE_KEY = 'sub2api_locale'
 const DEFAULT_LOCALE: LocaleCode = 'en'
@@ -25,6 +25,7 @@ const localeLoaders: Record<LocaleCode, Record<LocaleScope, () => Promise<Locale
       return { ...dashboard.default, ...misc.default }
     },
     batchImage: async () => (await import('./locales/en/batchImage')).default,
+    mediaStudio: async () => (await import('./locales/en/mediaStudio')).default,
     supportChat: async () => (await import('./locales/en/supportChat')).default,
     admin: async () => ({ admin: (await import('./locales/en/admin')).default }),
   },
@@ -44,6 +45,7 @@ const localeLoaders: Record<LocaleCode, Record<LocaleScope, () => Promise<Locale
       return { ...dashboard.default, ...misc.default }
     },
     batchImage: async () => (await import('./locales/zh/batchImage')).default,
+    mediaStudio: async () => (await import('./locales/zh/mediaStudio')).default,
     supportChat: async () => (await import('./locales/zh/supportChat')).default,
     admin: async () => ({ admin: (await import('./locales/zh/admin')).default }),
   },
@@ -53,6 +55,7 @@ const USER_ROUTE_PREFIXES = [
   '/dashboard',
   '/keys',
   '/batch-image',
+  '/media-studio',
   '/usage',
   '/redeem',
   '/affiliate',
@@ -92,6 +95,9 @@ export function getLocaleScopesForRoute(pathname: string): LocaleScope[] {
   }
   if (matchesRoutePrefix(path, '/batch-image')) {
     scopes.push('batchImage')
+  }
+  if (matchesRoutePrefix(path, '/media-studio')) {
+    scopes.push('mediaStudio')
   }
   if (matchesRoutePrefix(path, '/support')) {
     scopes.push('supportChat')

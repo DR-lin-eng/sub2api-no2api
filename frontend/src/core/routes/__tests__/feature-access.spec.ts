@@ -26,6 +26,7 @@ const appStore = vi.hoisted(() => ({
     payment_enabled?: boolean
     risk_control_enabled?: boolean
     support_chat_enabled?: boolean
+    media_studio_enabled?: boolean
     custom_menu_items?: []
   },
   fetchPublicSettings: vi.fn(),
@@ -195,6 +196,12 @@ describe('feature route guard', () => {
       { support_chat_enabled: false },
       '/dashboard',
     ],
+    [
+      'media studio',
+      { requiresMediaStudio: true },
+      { media_studio_enabled: false },
+      '/dashboard',
+    ],
   ])('redirects when loaded settings explicitly disable %s', async (_name, meta, settings, target) => {
     authStore.isAdmin = meta.requiresRiskControl === true
     appStore.cachedPublicSettings = settings
@@ -226,5 +233,19 @@ describe('feature route guard', () => {
     await navigation
 
     expect(next).toHaveBeenCalledWith()
+  })
+
+  it('fails closed for media studio unless settings explicitly enable it', async () => {
+    appStore.cachedPublicSettings = {}
+    appStore.publicSettingsLoaded = true
+
+    const blocked = runGuard({ requiresMediaStudio: true }, '/media-studio')
+    await blocked.navigation
+    expect(blocked.next).toHaveBeenCalledWith('/dashboard')
+
+    appStore.cachedPublicSettings = { media_studio_enabled: true }
+    const allowed = runGuard({ requiresMediaStudio: true }, '/media-studio')
+    await allowed.navigation
+    expect(allowed.next).toHaveBeenCalledWith()
   })
 })
