@@ -50,6 +50,7 @@
 <script setup lang="ts">
 import { computed, watch, onMounted, onUnmounted, ref, nextTick } from 'vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
+import { acquireBodyScrollLock } from '@/core/utils/bodyScrollLock'
 
 // 生成唯一ID以避免多个对话框时ID冲突
 let dialogIdCounter = 0
@@ -58,6 +59,7 @@ const dialogId = `modal-title-${++dialogIdCounter}`
 // 焦点管理
 const dialogRef = ref<HTMLElement | null>(null)
 let previousActiveElement: HTMLElement | null = null
+let releaseBodyScrollLock: (() => void) | null = null
 
 type DialogWidth = 'narrow' | 'normal' | 'wide' | 'extra-wide' | 'full'
 type InitialFocus = 'first' | 'dialog'
@@ -119,6 +121,15 @@ const handleEscape = (event: KeyboardEvent) => {
   }
 }
 
+const syncBodyScrollLock = (locked: boolean) => {
+  if (locked && !releaseBodyScrollLock) {
+    releaseBodyScrollLock = acquireBodyScrollLock()
+  } else if (!locked && releaseBodyScrollLock) {
+    releaseBodyScrollLock()
+    releaseBodyScrollLock = null
+  }
+}
+
 // Prevent body scroll when modal is open and manage focus
 watch(
   () => props.show,
@@ -126,8 +137,7 @@ watch(
     if (isOpen) {
       // 保存当前焦点元素
       previousActiveElement = document.activeElement as HTMLElement
-      // 使用CSS类而不是直接操作style,更易于管理多个对话框
-      document.body.classList.add('modal-open')
+      syncBodyScrollLock(true)
 
       // 等待DOM更新后设置焦点到对话框
       await nextTick()
@@ -143,7 +153,7 @@ watch(
         firstFocusable?.focus()
       }
     } else {
-      document.body.classList.remove('modal-open')
+      syncBodyScrollLock(false)
       // 恢复之前的焦点
       if (previousActiveElement && typeof previousActiveElement.focus === 'function') {
         previousActiveElement.focus()
@@ -160,7 +170,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleEscape)
-  // 确保组件卸载时移除滚动锁定
-  document.body.classList.remove('modal-open')
+  syncBodyScrollLock(false)
 })
 </script>

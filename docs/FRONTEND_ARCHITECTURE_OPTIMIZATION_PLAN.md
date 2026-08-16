@@ -1,6 +1,6 @@
 # 前端架构优化计划
 
-> 状态：阶段性完成。阶段 1 的渐进式架构门禁已于 2026-08-03 落地，阶段 2 的 `admin-accounts` 试点已于 2026-08-04 收口；阶段 3 已于 2026-08-09 启动，`admin-settings` 已完成三切片迁移。
+> 状态：阶段性完成。阶段 1 的渐进式架构门禁已于 2026-08-03 落地，阶段 2 的 `admin-accounts` 试点已于 2026-08-04 收口；阶段 3 已于 2026-08-09 启动，`admin-settings` 已完成三切片迁移；请求方法与 CDN 缓存边界专项待实施。
 >
 > 基线日期：2026-08-03。后续迁移批次开始前必须重新统计代码和依赖，源码与测试始终是最终事实来源。
 
@@ -23,6 +23,7 @@ main / core routes
 - `src/types/` 保存了不少实际只属于单一 feature 的请求、响应和业务类型。
 - 少数 feature 直接依赖其他 feature 的私有 presentation 或 datasource 实现。
 - 复杂页面的加载、取消、缓存、刷新、错误和写后刷新语义缺少统一的职责约定。
+- 浏览器请求出口尚未通过类型和静态门禁限制 HTTP 方法；如果后续代码把 UI 输入、配置或服务端数据透传为请求方法，可能使用非预期方法绕过 CDN 缓存并直接放大源站流量。
 
 历史上的大型页面已通过 page、widget、composable 和 datasource 拆分显著缩小，说明继续沿现有 feature owner 渐进治理比全量 Clean Architecture 重写更适合本项目。
 
@@ -34,6 +35,7 @@ main / core routes
 - 让 API DTO、查询、写操作和复杂领域规则具有明确 owner。
 - 限制跨 feature 私有依赖，形成可检查的依赖方向。
 - 保持请求生命周期、鉴权、缓存、分包和页面行为兼容。
+- 将前端业务请求收口到端点契约声明的方法，并与后端、CDN/WAF 的逐路由方法白名单形成纵深防护。
 - 让后续二次开发可以从 feature 入口快速定位协议、规则、状态和 UI。
 
 ### 2.2 非目标
@@ -144,6 +146,16 @@ features/<domain>/
     stores/
 ```
 
+### 4.5 请求方法白名单与 CDN 缓存边界
+
+- 前端业务请求只允许使用端点契约中静态声明的 `GET`、`POST`、`PUT`、`PATCH` 和 `DELETE`；浏览器自动发起的 CORS `OPTIONS` 预检不属于业务代码可选方法。
+- datasource 优先使用统一客户端的 `.get/.post/.put/.patch/.delete` 接口。SSE、流式上传下载、网关探测等必须直接使用 `fetch` 的例外，方法也必须是源码中的字面量，并登记路径、方法和不能复用统一客户端的原因。
+- 禁止将表单字段、URL 参数、LocalStorage、远端响应或其他运行时字符串写入 `method`；禁止业务代码使用通用 `request({ method })` 逃逸类型约束。
+- 禁止 `X-HTTP-Method-Override`、`X-Method-Override`、`X-HTTP-Method`、`_method` 等方法覆盖头或参数；禁止 `CONNECT`、`TRACE`、`TRACK`、`PURGE`、`BAN`、大小写变体和自定义 HTTP 动词。
+- CDN 只允许静态资源和明确公开资源的 `GET/HEAD` 参与缓存；认证 API、管理 API、写请求、SSE 和 WebSocket 必须沿用其明确的旁路或 `private/no-store` 策略，不能靠更换方法隐式控制是否命中缓存。
+- 前端白名单只防止产品代码误发请求，不是安全边界。后端路由必须拒绝不匹配的方法并返回 `405`，CDN/WAF 应在到达源站前按路径拒绝非白名单方法；CORS 只开放确有需要的方法和请求头。
+- 方法门禁不得改变现有端点契约。若后端确需新增方法，必须先更新路由、CDN/WAF 规则、前端 datasource 类型和负向测试，再允许调用。
+
 ## 5. 实施阶段
 
 ### 阶段 0：刷新基线和保护现场
@@ -169,6 +181,17 @@ features/<domain>/
 实现入口是 `frontend/eslint/architecture-boundaries.cjs`，存量逐条基线是 `frontend/eslint/architecture-debt-baseline.cjs`。基线以“文件 + import source + 次数”为粒度；旧引用减少但未同步删除基线时，lint 同样失败。
 
 完成条件：架构债务数量只能下降，不能被新代码继续扩大。
+
+### 阶段 1A：收口请求方法和 CDN 边界
+
+- [ ] 生成前端请求清单，记录路径、静态 HTTP 方法、调用 owner、是否携带凭据、是否允许 CDN 缓存以及直接 `fetch` 的必要性。
+- [ ] 为统一客户端和直接 `fetch` 例外建立 HTTP 方法字面量门禁，拒绝动态 `method`、通用 `request({ method })`、方法覆盖头/参数和未登记的原生请求出口。
+- [ ] 对静态资源、公开读取、认证/管理 API、SSE、WebSocket 和上传下载分别建立 CDN/WAF 方法矩阵；仅让明确的公开 `GET/HEAD` 进入缓存判定。
+- [ ] 后端按已注册路由返回 `405` 并带准确的 `Allow`，边缘层在源站前拒绝 `CONNECT/TRACE/TRACK/PURGE/BAN`、自定义方法、非规范大小写和未授权的 `OPTIONS`。
+- [ ] 增加负向验证：特殊方法、方法覆盖头/参数和动态方法均不能到达业务 handler；合法的 GET、写请求、SSE、WebSocket、上传下载及浏览器预检保持兼容。
+- [ ] 使用 CDN 请求日志或隔离代理验证命中/旁路行为，确认非白名单方法不会形成缓存穿透或源站放大路径。
+
+完成条件：前端运行时代码不存在动态 HTTP 方法和未登记请求出口，后端与边缘方法矩阵一致，特殊方法在业务 handler 之前被拒绝，现有合法请求路径无回归。
 
 ### 阶段 2：试点 `admin-accounts`
 
@@ -268,6 +291,7 @@ features/<domain>/
 架构迁移不得破坏以下行为：
 
 - 后端 URL、HTTP 方法、JSON 字段、SSE 和错误格式保持不变。
+- 请求方法门禁按当前路由契约生成，不以统一改写方法、方法覆盖或 GET/POST 互换破坏兼容性。
 - 可选字段、旧响应和滚动升级兼容语义保持不变。
 - access token 仅保存在内存，refresh credential 继续使用 HttpOnly cookie。
 - 页面 loading、empty、error、分页、筛选和选择状态保持不变。
@@ -305,6 +329,8 @@ make test-frontend
 
 最终批次还应使用生产 Docker 构建验证嵌入式前端，并在实际浏览器检查桌面和移动端关键路径：登录、账号管理、设置保存、用量查询、订阅与支付。
 
+请求方法专项还必须在后端和 CDN/WAF 等价测试环境执行正负矩阵：合法方法返回原有结果，非白名单方法和覆盖尝试在进入业务 handler 前被拒绝；分别核对 CDN 命中、旁路和源站请求计数。
+
 ## 8. 验收指标
 
 | 指标 | 目标 |
@@ -315,6 +341,8 @@ make test-frontend
 | Domain 对 Vue、Pinia、Router、Axios 的依赖 | 0 |
 | 超过 1500 有效行的运行时 TypeScript/Vue 模块 | 0 |
 | 新增无归属 barrel | 0 |
+| 动态 HTTP 方法、方法覆盖和未登记原生请求出口 | 0 |
+| 非白名单方法到达业务 handler | 0 |
 | 因架构迁移产生的后端协议变化 | 0 |
 | 新增前端运行时依赖 | 默认 0，专项评审后例外 |
 | lint、typecheck、相关测试和生产 build | 全部通过 |
