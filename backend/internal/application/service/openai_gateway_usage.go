@@ -441,6 +441,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	billingErr := func() error {
 		_, err := applyUsageBilling(ctx, requestID, usageLog, &postUsageBillingParams{
 			Cost:                  cost,
+			AccountStatsCost:      usageLog.AccountStatsCost,
 			User:                  user,
 			APIKey:                apiKey,
 			Account:               account,

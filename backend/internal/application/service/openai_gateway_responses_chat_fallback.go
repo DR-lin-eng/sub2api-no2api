@@ -31,6 +31,20 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 		writeOpenAIResponsesFallbackError(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
 		return nil, fmt.Errorf("parse responses request: %w", err)
 	}
+	compactRequest, hasCompatCompactionItem := inspectCompatCompactionInput(body)
+	compactClientStream := compactRequest && responsesReq.Stream
+	if hasCompatCompactionItem {
+		rewrittenBody, err := rewriteCompatCompactRequestBody(body)
+		if err != nil {
+			writeOpenAIResponsesFallbackError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+			return nil, fmt.Errorf("rewrite compact-compatible request: %w", err)
+		}
+		body = rewrittenBody
+		if err := json.Unmarshal(body, &responsesReq); err != nil {
+			writeOpenAIResponsesFallbackError(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse rewritten request body")
+			return nil, fmt.Errorf("parse rewritten responses request: %w", err)
+		}
+	}
 	originalModel := strings.TrimSpace(responsesReq.Model)
 	if originalModel == "" {
 		writeOpenAIResponsesFallbackError(c, http.StatusBadRequest, "invalid_request_error", "model is required")
@@ -111,10 +125,77 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 		return s.handleErrorResponse(ctx, resp, c, account, chatBody, billingModel)
 	}
 
+	if compactRequest {
+		return s.bufferCompatCompactAsResponses(c, resp, originalModel, compactClientStream, billingModel, upstreamModel, reasoningEffort, serviceTier, startTime)
+	}
 	if clientStream {
 		return s.streamChatCompletionsAsResponses(c, resp, originalModel, customTools, toolSearch, namespaceTools, billingModel, upstreamModel, reasoningEffort, serviceTier, startTime, account.IsCodexThinkingTagNormalizationEnabled())
 	}
 	return s.bufferChatCompletionsAsResponses(c, resp, originalModel, customTools, toolSearch, namespaceTools, billingModel, upstreamModel, reasoningEffort, serviceTier, startTime, account.IsCodexThinkingTagNormalizationEnabled())
+}
+
+func (s *OpenAIGatewayService) bufferCompatCompactAsResponses(
+	c *gin.Context,
+	resp *http.Response,
+	originalModel string,
+	clientWantsStream bool,
+	billingModel string,
+	upstreamModel string,
+	reasoningEffort *string,
+	serviceTier *string,
+	startTime time.Time,
+) (*OpenAIForwardResult, error) {
+	requestID := resp.Header.Get("x-request-id")
+	ccResp, usage, err := s.readCCUpstreamJSONResponse(c, resp, writeOpenAIResponsesFallbackError)
+	if err != nil {
+		return nil, err
+	}
+	if requestID == "" {
+		requestID = ccResp.ID
+	}
+
+	compactResp, err := buildCompatCompactResponse(ccResp, originalModel)
+	if err != nil {
+		writeOpenAIResponsesFallbackError(c, http.StatusBadGateway, "upstream_error", err.Error())
+		return nil, fmt.Errorf("build compact response: %w", err)
+	}
+	encoded, err := json.Marshal(compactResp)
+	if err != nil {
+		return nil, fmt.Errorf("encode compact response: %w", err)
+	}
+
+	if s.responseHeaderFilter != nil {
+		responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
+	}
+	if clientWantsStream {
+		payload, ok := buildOpenAICompactSSEPayload(encoded)
+		if !ok {
+			writeOpenAIResponsesFallbackError(c, http.StatusBadGateway, "upstream_error", "Failed to build compact stream payload")
+			return nil, fmt.Errorf("build compact SSE payload")
+		}
+		header := c.Writer.Header()
+		header.Set("Content-Type", "text/event-stream")
+		header.Set("Cache-Control", "no-cache")
+		header.Set("Connection", "keep-alive")
+		header.Set("X-Accel-Buffering", "no")
+		c.Writer.WriteHeader(http.StatusOK)
+		_, _ = c.Writer.Write(payload)
+		c.Writer.Flush()
+	} else {
+		c.Data(http.StatusOK, "application/json", encoded)
+	}
+
+	return &OpenAIForwardResult{
+		RequestID:       requestID,
+		Usage:           usage,
+		Model:           originalModel,
+		BillingModel:    billingModel,
+		UpstreamModel:   upstreamModel,
+		ReasoningEffort: reasoningEffort,
+		ServiceTier:     serviceTier,
+		Stream:          clientWantsStream,
+		Duration:        time.Since(startTime),
+	}, nil
 }
 
 func (s *OpenAIGatewayService) bufferChatCompletionsAsResponses(

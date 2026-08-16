@@ -5,6 +5,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -136,6 +137,110 @@ func TestForwardResponses_ForceChatCompletionsRoutesStreamingToChatCompletions(t
 	require.Equal(t, 3, result.Usage.OutputTokens)
 	require.True(t, result.Stream)
 	require.NotNil(t, result.FirstTokenMs)
+}
+
+func TestForwardResponses_ForceChatCompletionsCompactionRoundTrip(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	compactBody := []byte(`{
+		"model":"gpt-5.4",
+		"stream":true,
+		"tools":[{"type":"function","name":"exec","parameters":{"type":"object"}}],
+		"input":[
+			{"type":"message","role":"user","content":[{"type":"input_text","text":"remember this"}]},
+			{"type":"compaction_trigger"}
+		]
+	}`)
+	compactRecorder := httptest.NewRecorder()
+	compactContext, _ := gin.CreateTestContext(compactRecorder)
+	compactContext.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(compactBody))
+	compactContext.Request.Header.Set("Content-Type", "application/json")
+
+	compactUpstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}, "x-request-id": []string{"rid_compat_compact"}},
+		Body: io.NopCloser(strings.NewReader(
+			`{"id":"chatcmpl_compact","object":"chat.completion","created":123,"model":"gpt-5.4","choices":[{"index":0,"message":{"role":"assistant","content":"summary from upstream"},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":5,"total_tokens":25}}`,
+		)),
+	}}
+	compactService := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: compactUpstream}
+
+	compactResult, err := compactService.Forward(context.Background(), compactContext, forceChatResponsesFallbackAccount(), compactBody)
+	require.NoError(t, err)
+	require.NotNil(t, compactResult)
+	require.Equal(t, "http://upstream.example/v1/chat/completions", compactUpstream.lastReq.URL.String())
+	require.False(t, gjson.GetBytes(compactUpstream.lastBody, "stream").Bool())
+	require.Equal(t, "none", gjson.GetBytes(compactUpstream.lastBody, "tool_choice").String())
+	require.Equal(t, "remember this", gjson.GetBytes(compactUpstream.lastBody, "messages.0.content").String())
+	require.Equal(t, grokCompactSummaryPrompt, gjson.GetBytes(compactUpstream.lastBody, "messages.1.content").String())
+	require.Equal(t, "text/event-stream", compactRecorder.Header().Get("Content-Type"))
+	require.Equal(t, 1, strings.Count(compactRecorder.Body.String(), "event: response.output_item.done"))
+	require.Contains(t, compactRecorder.Body.String(), "event: response.completed")
+	require.True(t, compactResult.Stream)
+	require.Equal(t, 20, compactResult.Usage.InputTokens)
+	require.Equal(t, 5, compactResult.Usage.OutputTokens)
+
+	compactEvent := ""
+	for _, event := range strings.Split(compactRecorder.Body.String(), "\n\n") {
+		if strings.HasPrefix(event, "event: response.output_item.done\n") {
+			compactEvent = strings.TrimPrefix(strings.TrimPrefix(event, "event: response.output_item.done\n"), "data: ")
+			break
+		}
+	}
+	require.NotEmpty(t, compactEvent)
+	require.Equal(t, "compaction", gjson.Get(compactEvent, "item.type").String())
+	encryptedSummary := gjson.Get(compactEvent, "item.encrypted_content").String()
+	require.True(t, strings.HasPrefix(encryptedSummary, compatCompactEnvelopePrefix))
+	var compactItem map[string]any
+	require.NoError(t, json.Unmarshal([]byte(gjson.Get(compactEvent, "item").Raw), &compactItem))
+	require.NotEmpty(t, compactItem["id"])
+	require.Equal(t, "completed", compactItem["status"])
+
+	continuationBody, err := json.Marshal(map[string]any{
+		"model":  "gpt-5.4",
+		"stream": true,
+		"input": []any{
+			compactItem,
+			map[string]any{
+				"type":    "message",
+				"role":    "user",
+				"content": []any{map[string]any{"type": "input_text", "text": "continue"}},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	continuationRecorder := httptest.NewRecorder()
+	continuationContext, _ := gin.CreateTestContext(continuationRecorder)
+	continuationContext.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(continuationBody))
+	continuationContext.Request.Header.Set("Content-Type", "application/json")
+	continuationUpstreamBody := strings.Join([]string{
+		`data: {"id":"chatcmpl_continue","object":"chat.completion.chunk","model":"gpt-5.4","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}`,
+		"",
+		`data: {"id":"chatcmpl_continue","object":"chat.completion.chunk","model":"gpt-5.4","choices":[{"index":0,"delta":{"content":"continued"},"finish_reason":"stop"}]}`,
+		"",
+		`data: {"id":"chatcmpl_continue","object":"chat.completion.chunk","model":"gpt-5.4","choices":[],"usage":{"prompt_tokens":8,"completion_tokens":2,"total_tokens":10}}`,
+		"",
+		"data: [DONE]",
+		"",
+	}, "\n")
+	continuationUpstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+		Body:       io.NopCloser(strings.NewReader(continuationUpstreamBody)),
+	}}
+	continuationService := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: continuationUpstream}
+
+	continuationResult, err := continuationService.Forward(context.Background(), continuationContext, forceChatResponsesFallbackAccount(), continuationBody)
+	require.NoError(t, err)
+	require.NotNil(t, continuationResult)
+	require.True(t, gjson.GetBytes(continuationUpstream.lastBody, "stream").Bool())
+	require.True(t, gjson.GetBytes(continuationUpstream.lastBody, "stream_options.include_usage").Bool())
+	require.Contains(t, gjson.GetBytes(continuationUpstream.lastBody, "messages.0.content").String(), "<conversation_summary>\nsummary from upstream\n</conversation_summary>")
+	require.Equal(t, "continue", gjson.GetBytes(continuationUpstream.lastBody, "messages.1.content").String())
+	require.Contains(t, continuationRecorder.Body.String(), `"delta":"continued"`)
+	require.Contains(t, continuationRecorder.Body.String(), "event: response.completed")
+	require.True(t, continuationResult.Stream)
 }
 
 func TestForwardResponses_DeepSeekReasoningOnlyStreamProducesVisibleText(t *testing.T) {
