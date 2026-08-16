@@ -47,6 +47,9 @@ func (ChatConversation) Fields() []ent.Field {
 		field.Int("unread_by_admin").
 			Default(0).
 			Comment("客服未读消息数（用户发出待客服查看）"),
+		field.Bool("manually_unread_by_admin").
+			Default(false).
+			Comment("管理员手动标记的未读提醒，不改变真实未读消息数"),
 		field.Time("last_read_by_user_at").
 			Optional().
 			Nillable().
@@ -72,8 +75,8 @@ func (ChatConversation) Edges() []ent.Edge {
 func (ChatConversation) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("last_message_at"),
-		index.Fields("unread_by_admin").
+		index.Fields("unread_by_admin", "manually_unread_by_admin").
 			StorageKey("idx_chat_conversations_unread_by_admin_active").
-			Annotations(entsql.IndexWhere("unread_by_admin > 0")),
+			Annotations(entsql.IndexWhere("unread_by_admin > 0 OR manually_unread_by_admin")),
 	}
 }

@@ -6,17 +6,17 @@
     <div class="flex items-stretch gap-2">
       <input
         :id="inputId"
-        :value="captchaCode"
+        v-model="captchaCodeModel"
         type="text"
         required
         maxlength="8"
         autocomplete="off"
         autocapitalize="characters"
+        autocorrect="off"
         spellcheck="false"
         :disabled="disabled || loading"
         class="input min-w-0 flex-1 font-mono uppercase"
         :placeholder="t('auth.localCaptchaPlaceholder')"
-        @input="handleInput"
       />
       <button
         type="button"
@@ -49,12 +49,12 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getLocalCaptcha } from '@/features/auth/data/datasources/authDatasource'
 import Icon from '@/common/widgets/icons/Icon.vue'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   captchaId: string
   captchaCode: string
   disabled?: boolean
@@ -74,10 +74,15 @@ const imageData = ref('')
 const loading = ref(false)
 const errorMessage = ref('')
 
-function handleInput(event: Event): void {
-  const target = event.target as HTMLInputElement
-  emit('update:captchaCode', target.value.toUpperCase().replace(/\s+/g, ''))
-}
+// Native v-model deliberately owns the composition lifecycle here. In
+// particular, it does not write intermediate Pinyin text back through the
+// parent while a mobile IME is composing, which avoids duplicated letters.
+const captchaCodeModel = computed({
+  get: () => props.captchaCode,
+  set: (value: string) => {
+    emit('update:captchaCode', value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8))
+  },
+})
 
 async function reload(): Promise<void> {
   if (loading.value) return

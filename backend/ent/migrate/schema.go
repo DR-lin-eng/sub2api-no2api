@@ -883,6 +883,7 @@ var (
 		{Name: "last_message_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "unread_by_user", Type: field.TypeInt, Default: 0},
 		{Name: "unread_by_admin", Type: field.TypeInt, Default: 0},
+		{Name: "manually_unread_by_admin", Type: field.TypeBool, Default: false},
 		{Name: "last_read_by_user_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "last_read_by_admin_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "user_id", Type: field.TypeInt64, Unique: true},
@@ -895,7 +896,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "chat_conversations_users_chat_conversation",
-				Columns:    []*schema.Column{ChatConversationsColumns[8]},
+				Columns:    []*schema.Column{ChatConversationsColumns[9]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -909,9 +910,9 @@ var (
 			{
 				Name:    "idx_chat_conversations_unread_by_admin_active",
 				Unique:  false,
-				Columns: []*schema.Column{ChatConversationsColumns[5]},
+				Columns: []*schema.Column{ChatConversationsColumns[5], ChatConversationsColumns[6]},
 				Annotation: &entsql.IndexAnnotation{
-					Where: "unread_by_admin > 0",
+					Where: "unread_by_admin > 0 OR manually_unread_by_admin",
 				},
 			},
 		},
@@ -926,6 +927,8 @@ var (
 		{Name: "reply_to_id", Type: field.TypeInt64, Nullable: true},
 		{Name: "metadata", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "idempotency_key", Type: field.TypeString, Nullable: true, Size: 128},
+		{Name: "recalled_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "recalled_by", Type: field.TypeInt64, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "conversation_id", Type: field.TypeInt64},
 	}
@@ -937,7 +940,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "chat_messages_chat_conversations_messages",
-				Columns:    []*schema.Column{ChatMessagesColumns[9]},
+				Columns:    []*schema.Column{ChatMessagesColumns[11]},
 				RefColumns: []*schema.Column{ChatConversationsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -946,7 +949,7 @@ var (
 			{
 				Name:    "chatmessage_conversation_id_created_at_id",
 				Unique:  false,
-				Columns: []*schema.Column{ChatMessagesColumns[9], ChatMessagesColumns[8], ChatMessagesColumns[0]},
+				Columns: []*schema.Column{ChatMessagesColumns[11], ChatMessagesColumns[10], ChatMessagesColumns[0]},
 			},
 			{
 				Name:    "chatmessage_reply_to_id",

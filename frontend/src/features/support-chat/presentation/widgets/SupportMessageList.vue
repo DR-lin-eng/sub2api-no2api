@@ -23,7 +23,7 @@
             : 'border border-gray-200 bg-white text-gray-900 dark:border-dark-700 dark:bg-dark-800 dark:text-white'"
         >
           <div
-            v-if="message.reply_to_id"
+            v-if="!message.recalled_at && message.reply_to_id"
             class="mx-3 mt-3 rounded-xl border-l-2 px-3 py-2 text-xs opacity-80"
             :class="message.sender_type === ownSender ? 'border-white/70 bg-black/10' : 'border-primary-400 bg-gray-50 dark:bg-dark-900'"
           >
@@ -31,7 +31,11 @@
             <p class="mt-0.5 line-clamp-2 whitespace-pre-wrap break-words">{{ replyPreview(message.reply_to_id) }}</p>
           </div>
 
-          <div v-if="message.kind === 'balance_transfer'" class="min-w-64 p-4">
+          <p v-if="message.recalled_at" class="px-4 py-3 italic opacity-75">
+            {{ t('supportChat.recall.placeholder') }}
+          </p>
+
+          <div v-else-if="message.kind === 'balance_transfer'" class="min-w-64 p-4">
             <p class="text-xs font-medium opacity-75">{{ t('supportChat.transfer.receipt') }}</p>
             <p class="mt-1 text-2xl font-semibold">+{{ formatAmount(transferMetadata(message).amount) }}</p>
             <p class="mt-1 text-xs opacity-80">
@@ -78,11 +82,20 @@
           class="mt-1 flex items-center gap-3 text-[11px] text-gray-400 dark:text-dark-500"
           :class="message.sender_type === ownSender ? 'justify-end' : 'justify-start'"
         >
-          <span v-if="message.sender_type === ownSender">
+          <span v-if="message.sender_type === ownSender && !message.recalled_at">
             {{ isPeerRead(message) ? t('supportChat.read.read') : t('supportChat.read.sent') }}
           </span>
-          <button type="button" class="opacity-70 hover:opacity-100 hover:underline" @click="emit('reply', message)">
+          <button v-if="!message.recalled_at" type="button" class="opacity-70 hover:opacity-100 hover:underline" @click="emit('reply', message)">
             {{ t('supportChat.reply.action') }}
+          </button>
+          <button
+            v-if="isRecallable(message)"
+            type="button"
+            class="opacity-70 hover:text-red-500 hover:opacity-100 hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+            :disabled="recallingMessageId === message.id"
+            @click="emit('recall', message)"
+          >
+            {{ recallingMessageId === message.id ? t('common.submitting') : t('supportChat.recall.action') }}
           </button>
         </div>
       </div>
@@ -105,12 +118,17 @@ const props = withDefaults(defineProps<{
   ownSender: ChatSenderType
   assetScope: 'user' | 'admin'
   peerReadAt?: string | null
+  allowRecall?: boolean
+  recallingMessageId?: number | null
 }>(), {
   peerReadAt: null,
+  allowRecall: false,
+  recallingMessageId: null,
 })
 
 const emit = defineEmits<{
   reply: [message: ChatMessage]
+  recall: [message: ChatMessage]
 }>()
 
 const { t, locale } = useI18n()
@@ -142,10 +160,15 @@ function formatTime(value: string): string {
 function replyPreview(id: number): string {
   const message = messagesByID.value.get(id)
   if (!message) return t('supportChat.reply.notLoaded')
+  if (message.recalled_at) return t('supportChat.recall.placeholder')
   if (message.kind === 'image') return t('supportChat.assets.image')
   if (message.kind === 'sticker') return stickerEmoji(message)
   if (message.kind === 'balance_transfer') return t('supportChat.transfer.receipt')
   return message.content.slice(0, 180)
+}
+
+function isRecallable(message: ChatMessage): boolean {
+  return props.allowRecall && message.sender_type === 'admin' && !message.recalled_at && message.kind !== 'balance_transfer'
 }
 
 function stickerEmoji(message: ChatMessage): string {

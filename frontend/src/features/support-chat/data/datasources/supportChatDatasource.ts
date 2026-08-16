@@ -12,6 +12,7 @@ export interface ChatConversation {
   last_message_at: string | null
   unread_by_user: number
   unread_by_admin: number
+  manually_unread_by_admin: boolean
   last_read_by_user_at: string | null
   last_read_by_admin_at: string | null
   created_at: string
@@ -51,6 +52,7 @@ export interface ChatMessage {
   reply_to_id: number | null
   metadata: Record<string, unknown>
   assets: ChatAsset[]
+  recalled_at: string | null
   created_at: string
 }
 
@@ -71,7 +73,7 @@ export interface ChatReadState {
 }
 
 export interface ChatSocketEvent {
-  type: 'message' | 'read_state' | string
+  type: 'message' | 'message_recalled' | 'read_state' | string
   message?: ChatMessage
   read_state?: ChatReadState
 }
@@ -131,6 +133,10 @@ function nullableStringValue(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null
 }
 
+function booleanValue(value: unknown): boolean {
+  return value === true || value === 1 || value === 'true'
+}
+
 function normalizeMetadata(value: unknown): Record<string, unknown> {
   if (typeof value === 'string') {
     try {
@@ -150,6 +156,7 @@ export function normalizeChatConversation(value: unknown): ChatConversation {
     last_message_at: nullableStringValue(pick(raw, 'last_message_at', 'LastMessageAt')),
     unread_by_user: numberValue(pick(raw, 'unread_by_user', 'UnreadByUser')),
     unread_by_admin: numberValue(pick(raw, 'unread_by_admin', 'UnreadByAdmin')),
+    manually_unread_by_admin: booleanValue(pick(raw, 'manually_unread_by_admin', 'ManuallyUnreadByAdmin')),
     last_read_by_user_at: nullableStringValue(pick(raw, 'last_read_by_user_at', 'LastReadByUserAt')),
     last_read_by_admin_at: nullableStringValue(pick(raw, 'last_read_by_admin_at', 'LastReadByAdminAt')),
     created_at: stringValue(pick(raw, 'created_at', 'CreatedAt')),
@@ -189,6 +196,7 @@ export function normalizeChatMessage(value: unknown): ChatMessage {
     reply_to_id: positiveNumberOrNull(pick(raw, 'reply_to_id', 'ReplyToID')),
     metadata: normalizeMetadata(pick(raw, 'metadata', 'Metadata')),
     assets: Array.isArray(assets) ? assets.map(normalizeChatAsset).filter(asset => asset.id > 0) : [],
+    recalled_at: nullableStringValue(pick(raw, 'recalled_at', 'RecalledAt')),
     created_at: stringValue(pick(raw, 'created_at', 'CreatedAt')),
   }
 }
@@ -296,8 +304,19 @@ export async function sendAdminChatMessage(conversationID: number, input: ChatSe
   return normalizeChatMessage(data)
 }
 
+export async function recallAdminChatMessage(conversationID: number, messageID: number): Promise<ChatMessage> {
+  const { data } = await apiClient.post<unknown>(
+    `/admin/chat/conversations/${conversationID}/messages/${messageID}/recall`,
+  )
+  return normalizeChatMessage(data)
+}
+
 export async function markAdminChatRead(conversationID: number): Promise<void> {
   await apiClient.post(`/admin/chat/conversations/${conversationID}/read`)
+}
+
+export async function markAdminChatUnread(conversationID: number): Promise<void> {
+  await apiClient.post(`/admin/chat/conversations/${conversationID}/unread`)
 }
 
 function validateUpload(file: File): void {

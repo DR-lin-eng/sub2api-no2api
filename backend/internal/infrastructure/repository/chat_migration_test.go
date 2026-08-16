@@ -39,3 +39,24 @@ func TestExpandedSupportChatUsesOnlineIndexesForExistingMessageTable(t *testing.
 	require.NoError(t, err)
 	require.True(t, nonTx)
 }
+
+func TestSupportChatRecallAndManualUnreadMigrationsPreserveOnlineIndexing(t *testing.T) {
+	expand, err := migrations.FS.ReadFile("228_add_support_chat_recall_and_manual_unread.sql")
+	require.NoError(t, err)
+	expandSQL := string(expand)
+	require.Contains(t, expandSQL, "ADD COLUMN IF NOT EXISTS manually_unread_by_admin")
+	require.Contains(t, expandSQL, "ADD COLUMN IF NOT EXISTS recalled_at")
+	require.Contains(t, expandSQL, "chat_messages_recall_state_check")
+	require.Contains(t, expandSQL, "kind <> 'balance_transfer'")
+	require.NotContains(t, expandSQL, "CREATE INDEX CONCURRENTLY")
+
+	indexes, err := migrations.FS.ReadFile("229_support_chat_manual_unread_index_notx.sql")
+	require.NoError(t, err)
+	indexSQL := strings.TrimSpace(string(indexes))
+	require.Contains(t, indexSQL, "DROP INDEX CONCURRENTLY IF EXISTS idx_chat_conversations_unread_by_admin_active")
+	require.Contains(t, indexSQL, "ON chat_conversations (unread_by_admin, manually_unread_by_admin)")
+	require.Contains(t, indexSQL, "WHERE unread_by_admin > 0 OR manually_unread_by_admin")
+	nonTx, err := validateMigrationExecutionMode("229_support_chat_manual_unread_index_notx.sql", indexSQL)
+	require.NoError(t, err)
+	require.True(t, nonTx)
+}

@@ -38,4 +38,34 @@ describe('TotpLoginModal', () => {
     expect(wrapper.text()).not.toContain('Invalid code')
     expect(wrapper.find('.bg-red-50').exists()).toBe(false)
   })
+
+  it('waits for mobile IME composition to finish before sanitizing or advancing OTP cells', async () => {
+    const wrapper = mount(TotpLoginModal, {
+      attachTo: document.body,
+      props: {
+        tempToken: 'temp-token',
+      },
+    })
+    const cells = wrapper.findAll('input[pattern="[0-9]"]')
+    const first = cells[0]
+
+    await first.trigger('focus')
+    await first.trigger('compositionstart')
+    ;(first.element as HTMLInputElement).value = 'n'
+    await first.trigger('input')
+
+    expect((first.element as HTMLInputElement).value).toBe('n')
+    expect(document.activeElement).toBe(first.element)
+    expect(wrapper.emitted('verify')).toBeUndefined()
+
+    ;(first.element as HTMLInputElement).value = '1'
+    await first.trigger('compositionend')
+    await wrapper.vm.$nextTick()
+
+    expect((first.element as HTMLInputElement).value).toBe('1')
+    expect(document.activeElement).toBe(cells[1].element)
+    expect(wrapper.emitted('verify')).toBeUndefined()
+
+    wrapper.unmount()
+  })
 })

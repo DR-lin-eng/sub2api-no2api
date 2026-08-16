@@ -88,7 +88,9 @@
       :maxlength="maxLength"
       :placeholder="t('supportChat.inputPlaceholder')"
       :disabled="disabled || sending"
-      @keydown.enter.exact.prevent="submitText"
+      @compositionstart="isComposing = true"
+      @compositionend="isComposing = false"
+      @keydown="handleKeydown"
     />
 
     <div class="mt-2 flex flex-wrap items-center gap-2">
@@ -164,6 +166,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const draft = ref('')
+const isComposing = ref(false)
 const activePanel = ref<ComposerPanel | null>(null)
 const messageFileInput = ref<HTMLInputElement | null>(null)
 const catalogFileInput = ref<HTMLInputElement | null>(null)
@@ -189,11 +192,21 @@ function replyID(): number | null {
 }
 
 function submitText() {
+  if (isComposing.value) return
   const content = draft.value.trim()
   if (!content || props.disabled || props.sending) return
   emit('submit', { content, kind: 'text', reply_to_id: replyID() })
+}
+
+function handleKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Enter' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return
+  if (isComposing.value || event.isComposing || event.keyCode === 229) return
+  event.preventDefault()
+  submitText()
+}
+
+function clearDraft() {
   draft.value = ''
-  emit('cancelReply')
 }
 
 function sendEmoji(emoji: string) {
@@ -203,7 +216,6 @@ function sendEmoji(emoji: string) {
     sticker: { name: emoji, emoji },
     reply_to_id: replyID(),
   })
-  emit('cancelReply')
   activePanel.value = null
 }
 
@@ -214,7 +226,6 @@ function sendCatalogAsset(asset: ChatAsset) {
     asset_ids: [asset.id],
     reply_to_id: replyID(),
   })
-  emit('cancelReply')
   activePanel.value = null
 }
 
@@ -246,6 +257,8 @@ function submitTransfer() {
   transferNotes.value = ''
   activePanel.value = null
 }
+
+defineExpose({ clearDraft })
 </script>
 
 <style scoped>

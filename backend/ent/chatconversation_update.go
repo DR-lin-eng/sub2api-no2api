@@ -112,6 +112,20 @@ func (_u *ChatConversationUpdate) AddUnreadByAdmin(v int) *ChatConversationUpdat
 	return _u
 }
 
+// SetManuallyUnreadByAdmin sets the "manually_unread_by_admin" field.
+func (_u *ChatConversationUpdate) SetManuallyUnreadByAdmin(v bool) *ChatConversationUpdate {
+	_u.mutation.SetManuallyUnreadByAdmin(v)
+	return _u
+}
+
+// SetNillableManuallyUnreadByAdmin sets the "manually_unread_by_admin" field if the given value is not nil.
+func (_u *ChatConversationUpdate) SetNillableManuallyUnreadByAdmin(v *bool) *ChatConversationUpdate {
+	if v != nil {
+		_u.SetManuallyUnreadByAdmin(*v)
+	}
+	return _u
+}
+
 // SetLastReadByUserAt sets the "last_read_by_user_at" field.
 func (_u *ChatConversationUpdate) SetLastReadByUserAt(v time.Time) *ChatConversationUpdate {
 	_u.mutation.SetLastReadByUserAt(v)
@@ -280,6 +294,9 @@ func (_u *ChatConversationUpdate) sqlSave(ctx context.Context) (_node int, err e
 	}
 	if value, ok := _u.mutation.AddedUnreadByAdmin(); ok {
 		_spec.AddField(chatconversation.FieldUnreadByAdmin, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ManuallyUnreadByAdmin(); ok {
+		_spec.SetField(chatconversation.FieldManuallyUnreadByAdmin, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.LastReadByUserAt(); ok {
 		_spec.SetField(chatconversation.FieldLastReadByUserAt, field.TypeTime, value)
@@ -466,6 +483,20 @@ func (_u *ChatConversationUpdateOne) SetNillableUnreadByAdmin(v *int) *ChatConve
 // AddUnreadByAdmin adds value to the "unread_by_admin" field.
 func (_u *ChatConversationUpdateOne) AddUnreadByAdmin(v int) *ChatConversationUpdateOne {
 	_u.mutation.AddUnreadByAdmin(v)
+	return _u
+}
+
+// SetManuallyUnreadByAdmin sets the "manually_unread_by_admin" field.
+func (_u *ChatConversationUpdateOne) SetManuallyUnreadByAdmin(v bool) *ChatConversationUpdateOne {
+	_u.mutation.SetManuallyUnreadByAdmin(v)
+	return _u
+}
+
+// SetNillableManuallyUnreadByAdmin sets the "manually_unread_by_admin" field if the given value is not nil.
+func (_u *ChatConversationUpdateOne) SetNillableManuallyUnreadByAdmin(v *bool) *ChatConversationUpdateOne {
+	if v != nil {
+		_u.SetManuallyUnreadByAdmin(*v)
+	}
 	return _u
 }
 
@@ -667,6 +698,9 @@ func (_u *ChatConversationUpdateOne) sqlSave(ctx context.Context) (_node *ChatCo
 	}
 	if value, ok := _u.mutation.AddedUnreadByAdmin(); ok {
 		_spec.AddField(chatconversation.FieldUnreadByAdmin, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ManuallyUnreadByAdmin(); ok {
+		_spec.SetField(chatconversation.FieldManuallyUnreadByAdmin, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.LastReadByUserAt(); ok {
 		_spec.SetField(chatconversation.FieldLastReadByUserAt, field.TypeTime, value)

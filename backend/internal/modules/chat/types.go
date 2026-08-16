@@ -24,15 +24,16 @@ const (
 
 // Conversation is the single long-lived thread between a user and support.
 type Conversation struct {
-	ID                int64
-	UserID            int64
-	LastMessageAt     *time.Time
-	UnreadByUser      int
-	UnreadByAdmin     int
-	LastReadByUserAt  *time.Time
-	LastReadByAdminAt *time.Time
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	ID                    int64
+	UserID                int64
+	LastMessageAt         *time.Time
+	UnreadByUser          int
+	UnreadByAdmin         int
+	ManuallyUnreadByAdmin bool
+	LastReadByUserAt      *time.Time
+	LastReadByAdminAt     *time.Time
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 
 	// UserEmail/UserUsername are only populated by List (the admin inbox),
 	// which eager-loads the owning user so admins can identify conversations
@@ -64,6 +65,8 @@ type Message struct {
 	IdempotencyKey *string `json:"-"`
 	Assets         []Asset
 	AssetIDs       []int64 `json:"-"`
+	RecalledAt     *time.Time
+	RecalledBy     *int64 `json:"-"`
 	CreatedAt      time.Time
 }
 
@@ -110,6 +113,10 @@ var (
 		"CHAT_MESSAGE_IDEMPOTENCY_CONFLICT",
 		"idempotency key was already used for a different chat message",
 	)
+	ErrMessageRecallNotAllowed = infraerrors.Conflict(
+		"CHAT_MESSAGE_RECALL_NOT_ALLOWED",
+		"message cannot be recalled",
+	)
 	ErrAssetNotFound          = infraerrors.NotFound("CHAT_ASSET_NOT_FOUND", "chat asset not found")
 	ErrQuickReplyNotFound     = infraerrors.NotFound("CHAT_QUICK_REPLY_NOT_FOUND", "quick reply not found")
 	ErrQuickReplyLimitReached = infraerrors.BadRequest("CHAT_QUICK_REPLY_LIMIT_REACHED", "quick reply limit reached")
@@ -139,6 +146,9 @@ type ConversationRepository interface {
 	// MarkRead zeroes the unread counter and returns the persisted read time.
 	// changed is false when the same side has already read every message.
 	MarkRead(ctx context.Context, conversationID int64, sender SenderType) (readAt time.Time, changed bool, err error)
+	// MarkUnreadByAdmin persists a private admin reminder without changing the
+	// count of real unread user messages.
+	MarkUnreadByAdmin(ctx context.Context, conversationID int64) (changed bool, err error)
 }
 
 // MessageRepository persists chat messages.
@@ -149,6 +159,10 @@ type MessageRepository interface {
 	CreateAndTouch(ctx context.Context, m *Message, at time.Time, sender SenderType) error
 	List(ctx context.Context, conversationID int64, params pagination.PaginationParams) ([]Message, *pagination.PaginationResult, error)
 	GetByIdempotencyKey(ctx context.Context, sender SenderType, senderID int64, key string) (*Message, error)
+	// RecallByAdmin atomically marks an administrator message as recalled and
+	// removes it from the recipient's unread count when it was still unread.
+	// changed is false for an idempotent replay of an earlier recall.
+	RecallByAdmin(ctx context.Context, conversationID, messageID, recalledByID int64, at time.Time) (message *Message, changed bool, err error)
 }
 
 type AssetScope string

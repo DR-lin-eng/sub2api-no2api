@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -80,7 +81,7 @@ func (r *chatConversationRepository) List(
 	q := clientFromContext(ctx, r.client).ChatConversation.Query()
 
 	if filters.UnreadOnly {
-		q = q.Where(chatconversation.UnreadByAdminGT(0))
+		q = q.Where(chatConversationUnreadByAdminPredicate())
 	}
 	if search := strings.TrimSpace(filters.Search); search != "" {
 		q = q.Where(chatconversation.HasUserWith(
@@ -125,9 +126,16 @@ func (r *chatConversationRepository) List(
 
 func (r *chatConversationRepository) CountUnreadByAdmin(ctx context.Context) (int, error) {
 	count, err := clientFromContext(ctx, r.client).ChatConversation.Query().
-		Where(chatconversation.UnreadByAdminGT(0)).
+		Where(chatConversationUnreadByAdminPredicate()).
 		Count(ctx)
 	return count, err
+}
+
+func chatConversationUnreadByAdminPredicate() predicate.ChatConversation {
+	return chatconversation.Or(
+		chatconversation.UnreadByAdminGT(0),
+		chatconversation.ManuallyUnreadByAdminEQ(true),
+	)
 }
 
 func (r *chatConversationRepository) GetUnreadByUserID(ctx context.Context, userID int64) (int, error) {
@@ -164,9 +172,11 @@ func (r *chatConversationRepository) MarkRead(
 		builder = builder.
 			Where(chatconversation.Or(
 				chatconversation.UnreadByAdminGT(0),
+				chatconversation.ManuallyUnreadByAdminEQ(true),
 				chatconversation.LastReadByAdminAtIsNil(),
 			)).
 			SetUnreadByAdmin(0).
+			SetManuallyUnreadByAdmin(false).
 			SetLastReadByAdminAt(readAt)
 	}
 
@@ -177,20 +187,35 @@ func (r *chatConversationRepository) MarkRead(
 	return readAt, affected > 0, nil
 }
 
+func (r *chatConversationRepository) MarkUnreadByAdmin(ctx context.Context, conversationID int64) (bool, error) {
+	affected, err := clientFromContext(ctx, r.client).ChatConversation.Update().
+		Where(
+			chatconversation.IDEQ(conversationID),
+			chatconversation.ManuallyUnreadByAdminEQ(false),
+		).
+		SetManuallyUnreadByAdmin(true).
+		Save(ctx)
+	if err != nil {
+		return false, translatePersistenceError(err, chat.ErrConversationNotFound, nil)
+	}
+	return affected > 0, nil
+}
+
 func chatConversationEntityToDomain(m *dbent.ChatConversation) *chat.Conversation {
 	if m == nil {
 		return nil
 	}
 	return &chat.Conversation{
-		ID:                m.ID,
-		UserID:            m.UserID,
-		LastMessageAt:     m.LastMessageAt,
-		UnreadByUser:      m.UnreadByUser,
-		UnreadByAdmin:     m.UnreadByAdmin,
-		LastReadByUserAt:  m.LastReadByUserAt,
-		LastReadByAdminAt: m.LastReadByAdminAt,
-		CreatedAt:         m.CreatedAt,
-		UpdatedAt:         m.UpdatedAt,
+		ID:                    m.ID,
+		UserID:                m.UserID,
+		LastMessageAt:         m.LastMessageAt,
+		UnreadByUser:          m.UnreadByUser,
+		UnreadByAdmin:         m.UnreadByAdmin,
+		ManuallyUnreadByAdmin: m.ManuallyUnreadByAdmin,
+		LastReadByUserAt:      m.LastReadByUserAt,
+		LastReadByAdminAt:     m.LastReadByAdminAt,
+		CreatedAt:             m.CreatedAt,
+		UpdatedAt:             m.UpdatedAt,
 	}
 }
 
@@ -225,6 +250,109 @@ func (r *chatMessageRepository) CreateAndTouch(ctx context.Context, m *chat.Mess
 	return nil
 }
 
+// RecallByAdmin marks an administrator-authored message as recalled and, when
+// the user had not read it yet, decrements the real unread counter in the same
+// transaction. The original content remains in PostgreSQL for server-side
+// audit, but every returned delivery view is redacted.
+func (r *chatMessageRepository) RecallByAdmin(
+	ctx context.Context,
+	conversationID, messageID, recalledByID int64,
+	at time.Time,
+) (*chat.Message, bool, error) {
+	if tx := dbent.TxFromContext(ctx); tx != nil {
+		return r.recallByAdminWithClient(ctx, tx.Client(), conversationID, messageID, recalledByID, at)
+	}
+
+	tx, err := r.client.Tx(ctx)
+	if err != nil {
+		return nil, false, fmt.Errorf("begin chat recall transaction: %w", err)
+	}
+	txCtx := dbent.NewTxContext(ctx, tx)
+	message, changed, err := r.recallByAdminWithClient(
+		txCtx,
+		tx.Client(),
+		conversationID,
+		messageID,
+		recalledByID,
+		at,
+	)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, false, fmt.Errorf("commit chat recall transaction: %w", err)
+	}
+	return message, changed, nil
+}
+
+func (r *chatMessageRepository) recallByAdminWithClient(
+	ctx context.Context,
+	client *dbent.Client,
+	conversationID, messageID, recalledByID int64,
+	at time.Time,
+) (*chat.Message, bool, error) {
+	item, err := client.ChatMessage.Query().
+		Where(
+			chatmessage.IDEQ(messageID),
+			chatmessage.ConversationIDEQ(conversationID),
+		).
+		Only(ctx)
+	if err != nil {
+		return nil, false, translatePersistenceError(err, chat.ErrMessageNotFound, nil)
+	}
+	if item.SenderType != chatmessage.SenderTypeAdmin || item.Kind == chatmessage.KindBalanceTransfer {
+		return nil, false, chat.ErrMessageRecallNotAllowed
+	}
+	if item.RecalledAt != nil {
+		return chatMessageEntityToDomain(item, true), false, nil
+	}
+
+	at = at.UTC()
+	affected, err := client.ChatMessage.Update().
+		Where(
+			chatmessage.IDEQ(messageID),
+			chatmessage.ConversationIDEQ(conversationID),
+			chatmessage.RecalledAtIsNil(),
+		).
+		SetRecalledAt(at).
+		SetRecalledBy(recalledByID).
+		Save(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	if affected == 0 {
+		current, queryErr := client.ChatMessage.Query().
+			Where(
+				chatmessage.IDEQ(messageID),
+				chatmessage.ConversationIDEQ(conversationID),
+			).
+			Only(ctx)
+		if queryErr != nil {
+			return nil, false, translatePersistenceError(queryErr, chat.ErrMessageNotFound, nil)
+		}
+		return chatMessageEntityToDomain(current, true), false, nil
+	}
+
+	if _, err := client.ChatConversation.Update().
+		Where(
+			chatconversation.IDEQ(conversationID),
+			chatconversation.UnreadByUserGT(0),
+			chatconversation.Or(
+				chatconversation.LastReadByUserAtIsNil(),
+				chatconversation.LastReadByUserAtLT(item.CreatedAt),
+			),
+		).
+		AddUnreadByUser(-1).
+		Save(ctx); err != nil {
+		return nil, false, err
+	}
+
+	item.RecalledAt = &at
+	item.RecalledBy = &recalledByID
+	return chatMessageEntityToDomain(item, true), true, nil
+}
+
 func (r *chatMessageRepository) createAndTouchWithClient(
 	ctx context.Context,
 	client *dbent.Client,
@@ -234,7 +362,11 @@ func (r *chatMessageRepository) createAndTouchWithClient(
 ) error {
 	if m.ReplyToID != nil {
 		exists, err := client.ChatMessage.Query().
-			Where(chatmessage.IDEQ(*m.ReplyToID), chatmessage.ConversationIDEQ(m.ConversationID)).
+			Where(
+				chatmessage.IDEQ(*m.ReplyToID),
+				chatmessage.ConversationIDEQ(m.ConversationID),
+				chatmessage.RecalledAtIsNil(),
+			).
 			Exist(ctx)
 		if err != nil {
 			return err
@@ -377,7 +509,7 @@ func (r *chatMessageRepository) List(
 
 	out := make([]chat.Message, 0, len(items))
 	for i := range items {
-		out = append(out, *chatMessageEntityToDomain(items[i]))
+		out = append(out, *chatMessageEntityToDomain(items[i], true))
 	}
 	return out, paginationResultFromTotal(int64(total), params), nil
 }
@@ -402,7 +534,7 @@ func (r *chatMessageRepository) GetByIdempotencyKey(
 	if err := loadChatMessageAssets(ctx, client, []*dbent.ChatMessage{item}); err != nil {
 		return nil, err
 	}
-	return chatMessageEntityToDomain(item), nil
+	return chatMessageEntityToDomain(item, false), nil
 }
 
 func loadChatMessageAssets(ctx context.Context, client *dbent.Client, messages []*dbent.ChatMessage) error {
@@ -440,7 +572,7 @@ func loadChatMessageAssets(ctx context.Context, client *dbent.Client, messages [
 	return nil
 }
 
-func chatMessageEntityToDomain(item *dbent.ChatMessage) *chat.Message {
+func chatMessageEntityToDomain(item *dbent.ChatMessage, redactRecalled bool) *chat.Message {
 	if item == nil {
 		return nil
 	}
@@ -448,7 +580,7 @@ func chatMessageEntityToDomain(item *dbent.ChatMessage) *chat.Message {
 	for _, asset := range item.Edges.Assets {
 		assets = append(assets, *chatAssetEntityToDomain(asset, false))
 	}
-	return &chat.Message{
+	message := &chat.Message{
 		ID:             item.ID,
 		ConversationID: item.ConversationID,
 		SenderType:     chat.SenderType(item.SenderType),
@@ -459,6 +591,14 @@ func chatMessageEntityToDomain(item *dbent.ChatMessage) *chat.Message {
 		Metadata:       item.Metadata,
 		IdempotencyKey: item.IdempotencyKey,
 		Assets:         assets,
+		RecalledAt:     item.RecalledAt,
+		RecalledBy:     item.RecalledBy,
 		CreatedAt:      item.CreatedAt,
 	}
+	if redactRecalled && message.RecalledAt != nil {
+		message.Content = ""
+		message.Metadata = json.RawMessage(`{}`)
+		message.Assets = nil
+	}
+	return message
 }

@@ -19,6 +19,7 @@ import (
 // direct dependency on the transport layer.
 type Broadcaster interface {
 	BroadcastMessage(conversationID, recipientUserID int64, msg *Message, toAdmins bool)
+	BroadcastMessageRecalled(conversationID, recipientUserID int64, msg *Message)
 	BroadcastReadState(conversationID, recipientUserID int64, reader SenderType, readAt time.Time, toAdmins bool)
 }
 
@@ -27,6 +28,7 @@ type Broadcaster interface {
 type noopBroadcaster struct{}
 
 func (noopBroadcaster) BroadcastMessage(int64, int64, *Message, bool)                {}
+func (noopBroadcaster) BroadcastMessageRecalled(int64, int64, *Message)              {}
 func (noopBroadcaster) BroadcastReadState(int64, int64, SenderType, time.Time, bool) {}
 
 type Service struct {
@@ -160,6 +162,35 @@ func (s *Service) PostRichMessageFromAdmin(ctx context.Context, conversationID, 
 	return s.postMessage(ctx, conv, SenderTypeAdmin, adminID, input, false, true)
 }
 
+// RecallMessageByAdmin hides an administrator-authored message from every
+// delivery path while retaining the original row for server-side audit. A
+// balance-transfer receipt cannot be recalled because the financial action is
+// still effective and must remain visible to the user.
+func (s *Service) RecallMessageByAdmin(
+	ctx context.Context,
+	conversationID, messageID, adminID int64,
+) (*Message, error) {
+	conv, err := s.conversationRepo.GetByID(ctx, conversationID)
+	if err != nil {
+		return nil, err
+	}
+	message, changed, err := s.messageRepo.RecallByAdmin(
+		ctx,
+		conversationID,
+		messageID,
+		adminID,
+		time.Now().UTC(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	message = messageForDelivery(message)
+	if changed {
+		s.broadcaster.BroadcastMessageRecalled(conversationID, conv.UserID, message)
+	}
+	return message, nil
+}
+
 var idempotencyKeyPattern = regexp.MustCompile(`^[A-Za-z0-9._:-]{8,128}$`)
 
 func (s *Service) PostBalanceTransferFromAdmin(
@@ -237,7 +268,7 @@ func (s *Service) postMessageWithMetadata(
 			if !messageMatchesNormalizedInput(existing, conv.ID, sender, senderID, content, kind, input.ReplyToID, assetIDs, encodedMetadata) {
 				return nil, ErrMessageIdempotencyConflict
 			}
-			return existing, nil
+			return messageForDelivery(existing), nil
 		}
 		if !errors.Is(findErr, ErrMessageNotFound) {
 			return nil, findErr
@@ -263,7 +294,7 @@ func (s *Service) postMessageWithMetadata(
 				if !messageMatchesNormalizedInput(existing, conv.ID, sender, senderID, content, kind, input.ReplyToID, assetIDs, encodedMetadata) {
 					return nil, ErrMessageIdempotencyConflict
 				}
-				return existing, nil
+				return messageForDelivery(existing), nil
 			}
 		}
 		return nil, fmt.Errorf("create chat message and update conversation: %w", err)
@@ -276,6 +307,18 @@ func (s *Service) postMessageWithMetadata(
 	}
 
 	return msg, nil
+}
+
+func messageForDelivery(message *Message) *Message {
+	if message == nil || message.RecalledAt == nil {
+		return message
+	}
+	redacted := *message
+	redacted.Content = ""
+	redacted.Metadata = json.RawMessage(`{}`)
+	redacted.Assets = nil
+	redacted.AssetIDs = nil
+	return &redacted
 }
 
 func messageMatchesNormalizedInput(
@@ -448,4 +491,14 @@ func (s *Service) MarkReadByAdmin(ctx context.Context, conversationID int64) err
 		s.broadcaster.BroadcastReadState(conversationID, conv.UserID, SenderTypeAdmin, readAt, false)
 	}
 	return nil
+}
+
+// MarkUnreadByAdmin adds a private inbox reminder without undoing the read
+// receipt already sent to the user or fabricating an unread message count.
+func (s *Service) MarkUnreadByAdmin(ctx context.Context, conversationID int64) error {
+	if _, err := s.conversationRepo.GetByID(ctx, conversationID); err != nil {
+		return err
+	}
+	_, err := s.conversationRepo.MarkUnreadByAdmin(ctx, conversationID)
+	return err
 }

@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import apiClient from '@/core/networks/client'
 import {
   getChatAssetBlob,
+  markAdminChatUnread,
+  recallAdminChatMessage,
   sendAdminChatMessage,
   transferAdminChatBalance,
   uploadUserChatAsset,
@@ -48,6 +50,29 @@ describe('support chat frontend security contract', () => {
     expect(post.mock.calls[0][0]).toBe('/admin/chat/conversations/7/balance-transfers')
     expect(post.mock.calls[0][2]).toEqual({ headers: { 'Idempotency-Key': 'transfer-key-123' } })
     expect(result).toMatchObject({ user_id: 42, balance: 12.5, message: { kind: 'balance_transfer' } })
+  })
+
+  it('uses persistent admin endpoints for recall and manual unread reminders', async () => {
+    const post = vi.spyOn(apiClient, 'post')
+      .mockResolvedValueOnce({
+        data: {
+          ID: 9,
+          ConversationID: 7,
+          SenderType: 'admin',
+          SenderID: 3,
+          Content: '',
+          Kind: 'text',
+          RecalledAt: '2026-01-02T03:05:00Z',
+        },
+      })
+      .mockResolvedValueOnce({ data: { message: 'ok' } })
+
+    const recalled = await recallAdminChatMessage(7, 9)
+    await markAdminChatUnread(7)
+
+    expect(post).toHaveBeenNthCalledWith(1, '/admin/chat/conversations/7/messages/9/recall')
+    expect(post).toHaveBeenNthCalledWith(2, '/admin/chat/conversations/7/unread')
+    expect(recalled).toMatchObject({ id: 9, content: '', recalled_at: '2026-01-02T03:05:00Z' })
   })
 
   it('loads images through authenticated blobs and rejects unsafe response types', async () => {

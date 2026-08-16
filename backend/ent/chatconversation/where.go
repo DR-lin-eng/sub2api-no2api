@@ -85,6 +85,11 @@ func UnreadByAdmin(v int) predicate.ChatConversation {
 	return predicate.ChatConversation(sql.FieldEQ(FieldUnreadByAdmin, v))
 }
 
+// ManuallyUnreadByAdmin applies equality check predicate on the "manually_unread_by_admin" field. It's identical to ManuallyUnreadByAdminEQ.
+func ManuallyUnreadByAdmin(v bool) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldEQ(FieldManuallyUnreadByAdmin, v))
+}
+
 // LastReadByUserAt applies equality check predicate on the "last_read_by_user_at" field. It's identical to LastReadByUserAtEQ.
 func LastReadByUserAt(v time.Time) predicate.ChatConversation {
 	return predicate.ChatConversation(sql.FieldEQ(FieldLastReadByUserAt, v))
@@ -323,6 +328,16 @@ func UnreadByAdminLT(v int) predicate.ChatConversation {
 // UnreadByAdminLTE applies the LTE predicate on the "unread_by_admin" field.
 func UnreadByAdminLTE(v int) predicate.ChatConversation {
 	return predicate.ChatConversation(sql.FieldLTE(FieldUnreadByAdmin, v))
+}
+
+// ManuallyUnreadByAdminEQ applies the EQ predicate on the "manually_unread_by_admin" field.
+func ManuallyUnreadByAdminEQ(v bool) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldEQ(FieldManuallyUnreadByAdmin, v))
+}
+
+// ManuallyUnreadByAdminNEQ applies the NEQ predicate on the "manually_unread_by_admin" field.
+func ManuallyUnreadByAdminNEQ(v bool) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldNEQ(FieldManuallyUnreadByAdmin, v))
 }
 
 // LastReadByUserAtEQ applies the EQ predicate on the "last_read_by_user_at" field.

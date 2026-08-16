@@ -31,6 +31,10 @@ const (
 	FieldMetadata = "metadata"
 	// FieldIdempotencyKey holds the string denoting the idempotency_key field in the database.
 	FieldIdempotencyKey = "idempotency_key"
+	// FieldRecalledAt holds the string denoting the recalled_at field in the database.
+	FieldRecalledAt = "recalled_at"
+	// FieldRecalledBy holds the string denoting the recalled_by field in the database.
+	FieldRecalledBy = "recalled_by"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeConversation holds the string denoting the conversation edge name in mutations.
@@ -73,6 +77,8 @@ var Columns = []string{
 	FieldReplyToID,
 	FieldMetadata,
 	FieldIdempotencyKey,
+	FieldRecalledAt,
+	FieldRecalledBy,
 	FieldCreatedAt,
 }
 
@@ -193,6 +199,16 @@ func ByReplyToID(opts ...sql.OrderTermOption) OrderOption {
 // ByIdempotencyKey orders the results by the idempotency_key field.
 func ByIdempotencyKey(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldIdempotencyKey, opts...).ToFunc()
+}
+
+// ByRecalledAt orders the results by the recalled_at field.
+func ByRecalledAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRecalledAt, opts...).ToFunc()
+}
+
+// ByRecalledBy orders the results by the recalled_by field.
+func ByRecalledBy(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRecalledBy, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

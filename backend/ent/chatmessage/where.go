@@ -80,6 +80,16 @@ func IdempotencyKey(v string) predicate.ChatMessage {
 	return predicate.ChatMessage(sql.FieldEQ(FieldIdempotencyKey, v))
 }
 
+// RecalledAt applies equality check predicate on the "recalled_at" field. It's identical to RecalledAtEQ.
+func RecalledAt(v time.Time) predicate.ChatMessage {
+	return predicate.ChatMessage(sql.FieldEQ(FieldRecalledAt, v))
+}
+
+// RecalledBy applies equality check predicate on the "recalled_by" field. It's identical to RecalledByEQ.
+func RecalledBy(v int64) predicate.ChatMessage {
+	return predicate.ChatMessage(sql.FieldEQ(FieldRecalledBy, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.ChatMessage {
 	return predicate.ChatMessage(sql.FieldEQ(FieldCreatedAt, v))
@@ -383,6 +393,106 @@ func IdempotencyKeyEqualFold(v string) predicate.ChatMessage {
 // IdempotencyKeyContainsFold applies the ContainsFold predicate on the "idempotency_key" field.
 func IdempotencyKeyContainsFold(v string) predicate.ChatMessage {
 	return predicate.ChatMessage(sql.FieldContainsFold(FieldIdempotencyKey, v))
+}
+
+// RecalledAtEQ applies the EQ predicate on the "recalled_at" field.
+func RecalledAtEQ(v time.Time) predicate.ChatMessage {
+	return predicate.ChatMessage(sql.FieldEQ(FieldRecalledAt, v))
+}
+
+// RecalledAtNEQ applies the NEQ predicate on the "recalled_at" field.
+func RecalledAtNEQ(v time.Time) predicate.ChatMessage {
+	return predicate.ChatMessage(sql.FieldNEQ(FieldRecalledAt, v))
+}
+
+// RecalledAtIn applies the In predicate on the "recalled_at" field.
+func RecalledAtIn(vs ...time.Time) predicate.ChatMessage {
+	return predicate.ChatMessage(sql.FieldIn(FieldRecalledAt, vs...))
+}
+
+// RecalledAtNotIn applies the NotIn predicate on the "recalled_at" field.
+func RecalledAtNotIn(vs ...time.Time) predicate.ChatMessage {
+	return predicate.ChatMessage(sql.FieldNotIn(FieldRecalledAt, vs...))
+}
+
+// RecalledAtGT applies the GT predicate on the "recalled_at" field.
+func RecalledAtGT(v time.Time) predicate.ChatMessage {
+	return predicate.ChatMessage(sql.FieldGT(FieldRecalledAt, v))
+}
+
+// RecalledAtGTE applies the GTE predicate on the "recalled_at" field.
+func RecalledAtGTE(v time.Time) predicate.ChatMessage {
+	return predicate.ChatMessage(sql.FieldGTE(FieldRecalledAt, v))
+}
+
+// RecalledAtLT applies the LT predicate on the "recalled_at" field.
+func RecalledAtLT(v time.Time) predicate.ChatMessage {
+	return predicate.ChatMessage(sql.FieldLT(FieldRecalledAt, v))
+}
+
+// RecalledAtLTE applies the LTE predicate on the "recalled_at" field.
+func RecalledAtLTE(v time.Time) predicate.ChatMessage {
+	return predicate.ChatMessage(sql.FieldLTE(FieldRecalledAt, v))
+}
+
+// RecalledAtIsNil applies the IsNil predicate on the "recalled_at" field.
+func RecalledAtIsNil() predicate.ChatMessage {
+	return predicate.ChatMessage(sql.FieldIsNull(FieldRecalledAt))
+}
+
+// RecalledAtNotNil applies the NotNil predicate on the "recalled_at" field.
+func RecalledAtNotNil() predicate.ChatMessage {
+	return predicate.ChatMessage(sql.FieldNotNull(FieldRecalledAt))
+}
+
+// RecalledByEQ applies the EQ predicate on the "recalled_by" field.
+func RecalledByEQ(v int64) predicate.ChatMessage {
+	return predicate.ChatMessage(sql.FieldEQ(FieldRecalledBy, v))
+}
+
+// RecalledByNEQ applies the NEQ predicate on the "recalled_by" field.
+func RecalledByNEQ(v int64) predicate.ChatMessage {
+	return predicate.ChatMessage(sql.FieldNEQ(FieldRecalledBy, v))
+}
+
+// RecalledByIn applies the In predicate on the "recalled_by" field.
+func RecalledByIn(vs ...int64) predicate.ChatMessage {
+	return predicate.ChatMessage(sql.FieldIn(FieldRecalledBy, vs...))
+}
+
+// RecalledByNotIn applies the NotIn predicate on the "recalled_by" field.
+func RecalledByNotIn(vs ...int64) predicate.ChatMessage {
+	return predicate.ChatMessage(sql.FieldNotIn(FieldRecalledBy, vs...))
+}
+
+// RecalledByGT applies the GT predicate on the "recalled_by" field.
+func RecalledByGT(v int64) predicate.ChatMessage {
+	return predicate.ChatMessage(sql.FieldGT(FieldRecalledBy, v))
+}
+
+// RecalledByGTE applies the GTE predicate on the "recalled_by" field.
+func RecalledByGTE(v int64) predicate.ChatMessage {
+	return predicate.ChatMessage(sql.FieldGTE(FieldRecalledBy, v))
+}
+
+// RecalledByLT applies the LT predicate on the "recalled_by" field.
+func RecalledByLT(v int64) predicate.ChatMessage {
+	return predicate.ChatMessage(sql.FieldLT(FieldRecalledBy, v))
+}
+
+// RecalledByLTE applies the LTE predicate on the "recalled_by" field.
+func RecalledByLTE(v int64) predicate.ChatMessage {
+	return predicate.ChatMessage(sql.FieldLTE(FieldRecalledBy, v))
+}
+
+// RecalledByIsNil applies the IsNil predicate on the "recalled_by" field.
+func RecalledByIsNil() predicate.ChatMessage {
+	return predicate.ChatMessage(sql.FieldIsNull(FieldRecalledBy))
+}
+
+// RecalledByNotNil applies the NotNil predicate on the "recalled_by" field.
+func RecalledByNotNil() predicate.ChatMessage {
+	return predicate.ChatMessage(sql.FieldNotNull(FieldRecalledBy))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

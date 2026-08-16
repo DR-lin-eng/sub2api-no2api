@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -173,6 +174,53 @@ func (_u *ChatMessageUpdate) ClearIdempotencyKey() *ChatMessageUpdate {
 	return _u
 }
 
+// SetRecalledAt sets the "recalled_at" field.
+func (_u *ChatMessageUpdate) SetRecalledAt(v time.Time) *ChatMessageUpdate {
+	_u.mutation.SetRecalledAt(v)
+	return _u
+}
+
+// SetNillableRecalledAt sets the "recalled_at" field if the given value is not nil.
+func (_u *ChatMessageUpdate) SetNillableRecalledAt(v *time.Time) *ChatMessageUpdate {
+	if v != nil {
+		_u.SetRecalledAt(*v)
+	}
+	return _u
+}
+
+// ClearRecalledAt clears the value of the "recalled_at" field.
+func (_u *ChatMessageUpdate) ClearRecalledAt() *ChatMessageUpdate {
+	_u.mutation.ClearRecalledAt()
+	return _u
+}
+
+// SetRecalledBy sets the "recalled_by" field.
+func (_u *ChatMessageUpdate) SetRecalledBy(v int64) *ChatMessageUpdate {
+	_u.mutation.ResetRecalledBy()
+	_u.mutation.SetRecalledBy(v)
+	return _u
+}
+
+// SetNillableRecalledBy sets the "recalled_by" field if the given value is not nil.
+func (_u *ChatMessageUpdate) SetNillableRecalledBy(v *int64) *ChatMessageUpdate {
+	if v != nil {
+		_u.SetRecalledBy(*v)
+	}
+	return _u
+}
+
+// AddRecalledBy adds value to the "recalled_by" field.
+func (_u *ChatMessageUpdate) AddRecalledBy(v int64) *ChatMessageUpdate {
+	_u.mutation.AddRecalledBy(v)
+	return _u
+}
+
+// ClearRecalledBy clears the value of the "recalled_by" field.
+func (_u *ChatMessageUpdate) ClearRecalledBy() *ChatMessageUpdate {
+	_u.mutation.ClearRecalledBy()
+	return _u
+}
+
 // SetConversation sets the "conversation" edge to the ChatConversation entity.
 func (_u *ChatMessageUpdate) SetConversation(v *ChatConversation) *ChatMessageUpdate {
 	return _u.SetConversationID(v.ID)
@@ -332,6 +380,21 @@ func (_u *ChatMessageUpdate) sqlSave(ctx context.Context) (_node int, err error)
 	}
 	if _u.mutation.IdempotencyKeyCleared() {
 		_spec.ClearField(chatmessage.FieldIdempotencyKey, field.TypeString)
+	}
+	if value, ok := _u.mutation.RecalledAt(); ok {
+		_spec.SetField(chatmessage.FieldRecalledAt, field.TypeTime, value)
+	}
+	if _u.mutation.RecalledAtCleared() {
+		_spec.ClearField(chatmessage.FieldRecalledAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.RecalledBy(); ok {
+		_spec.SetField(chatmessage.FieldRecalledBy, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedRecalledBy(); ok {
+		_spec.AddField(chatmessage.FieldRecalledBy, field.TypeInt64, value)
+	}
+	if _u.mutation.RecalledByCleared() {
+		_spec.ClearField(chatmessage.FieldRecalledBy, field.TypeInt64)
 	}
 	if _u.mutation.ConversationCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -581,6 +644,53 @@ func (_u *ChatMessageUpdateOne) ClearIdempotencyKey() *ChatMessageUpdateOne {
 	return _u
 }
 
+// SetRecalledAt sets the "recalled_at" field.
+func (_u *ChatMessageUpdateOne) SetRecalledAt(v time.Time) *ChatMessageUpdateOne {
+	_u.mutation.SetRecalledAt(v)
+	return _u
+}
+
+// SetNillableRecalledAt sets the "recalled_at" field if the given value is not nil.
+func (_u *ChatMessageUpdateOne) SetNillableRecalledAt(v *time.Time) *ChatMessageUpdateOne {
+	if v != nil {
+		_u.SetRecalledAt(*v)
+	}
+	return _u
+}
+
+// ClearRecalledAt clears the value of the "recalled_at" field.
+func (_u *ChatMessageUpdateOne) ClearRecalledAt() *ChatMessageUpdateOne {
+	_u.mutation.ClearRecalledAt()
+	return _u
+}
+
+// SetRecalledBy sets the "recalled_by" field.
+func (_u *ChatMessageUpdateOne) SetRecalledBy(v int64) *ChatMessageUpdateOne {
+	_u.mutation.ResetRecalledBy()
+	_u.mutation.SetRecalledBy(v)
+	return _u
+}
+
+// SetNillableRecalledBy sets the "recalled_by" field if the given value is not nil.
+func (_u *ChatMessageUpdateOne) SetNillableRecalledBy(v *int64) *ChatMessageUpdateOne {
+	if v != nil {
+		_u.SetRecalledBy(*v)
+	}
+	return _u
+}
+
+// AddRecalledBy adds value to the "recalled_by" field.
+func (_u *ChatMessageUpdateOne) AddRecalledBy(v int64) *ChatMessageUpdateOne {
+	_u.mutation.AddRecalledBy(v)
+	return _u
+}
+
+// ClearRecalledBy clears the value of the "recalled_by" field.
+func (_u *ChatMessageUpdateOne) ClearRecalledBy() *ChatMessageUpdateOne {
+	_u.mutation.ClearRecalledBy()
+	return _u
+}
+
 // SetConversation sets the "conversation" edge to the ChatConversation entity.
 func (_u *ChatMessageUpdateOne) SetConversation(v *ChatConversation) *ChatMessageUpdateOne {
 	return _u.SetConversationID(v.ID)
@@ -770,6 +880,21 @@ func (_u *ChatMessageUpdateOne) sqlSave(ctx context.Context) (_node *ChatMessage
 	}
 	if _u.mutation.IdempotencyKeyCleared() {
 		_spec.ClearField(chatmessage.FieldIdempotencyKey, field.TypeString)
+	}
+	if value, ok := _u.mutation.RecalledAt(); ok {
+		_spec.SetField(chatmessage.FieldRecalledAt, field.TypeTime, value)
+	}
+	if _u.mutation.RecalledAtCleared() {
+		_spec.ClearField(chatmessage.FieldRecalledAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.RecalledBy(); ok {
+		_spec.SetField(chatmessage.FieldRecalledBy, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedRecalledBy(); ok {
+		_spec.AddField(chatmessage.FieldRecalledBy, field.TypeInt64, value)
+	}
+	if _u.mutation.RecalledByCleared() {
+		_spec.ClearField(chatmessage.FieldRecalledBy, field.TypeInt64)
 	}
 	if _u.mutation.ConversationCleared() {
 		edge := &sqlgraph.EdgeSpec{

@@ -17,6 +17,7 @@ type conversationRepoStub struct {
 	getByUserErr     error
 	getOrCreateCalls int
 	markReadChanged  bool
+	markUnreadCalls  int
 }
 
 func (r *conversationRepoStub) GetOrCreateByUserID(context.Context, int64) (*Conversation, error) {
@@ -51,11 +52,20 @@ func (r *conversationRepoStub) MarkRead(context.Context, int64, SenderType) (tim
 	return time.Now(), r.markReadChanged, nil
 }
 
+func (r *conversationRepoStub) MarkUnreadByAdmin(context.Context, int64) (bool, error) {
+	r.markUnreadCalls++
+	return true, nil
+}
+
 type messageRepoStub struct {
 	createAndTouchErr   error
 	createAndTouchCalls int
 	existing            *Message
 	getErr              error
+	recalled            *Message
+	recallChanged       bool
+	recallErr           error
+	recallCalls         int
 }
 
 func (r *messageRepoStub) CreateAndTouch(_ context.Context, m *Message, _ time.Time, _ SenderType) error {
@@ -82,13 +92,23 @@ func (r *messageRepoStub) GetByIdempotencyKey(context.Context, SenderType, int64
 	return nil, ErrMessageNotFound
 }
 
+func (r *messageRepoStub) RecallByAdmin(context.Context, int64, int64, int64, time.Time) (*Message, bool, error) {
+	r.recallCalls++
+	return r.recalled, r.recallChanged, r.recallErr
+}
+
 type broadcasterStub struct {
-	calls     int
-	readCalls int
+	calls       int
+	readCalls   int
+	recallCalls int
 }
 
 func (b *broadcasterStub) BroadcastMessage(int64, int64, *Message, bool) {
 	b.calls++
+}
+
+func (b *broadcasterStub) BroadcastMessageRecalled(int64, int64, *Message) {
+	b.recallCalls++
 }
 
 func (b *broadcasterStub) BroadcastReadState(int64, int64, SenderType, time.Time, bool) {
@@ -190,10 +210,12 @@ func TestPostMessageIdempotencyReplaysIdenticalPayloadWithoutBroadcast(t *testin
 
 func TestMessageJSONDoesNotExposeIdempotencyKey(t *testing.T) {
 	key := "private-idempotency-key"
-	encoded, err := json.Marshal(&Message{ID: 10, Content: "hello", IdempotencyKey: &key})
+	recalledBy := int64(99)
+	encoded, err := json.Marshal(&Message{ID: 10, Content: "hello", IdempotencyKey: &key, RecalledBy: &recalledBy})
 	require.NoError(t, err)
 	require.NotContains(t, string(encoded), key)
 	require.NotContains(t, string(encoded), "IdempotencyKey")
+	require.NotContains(t, string(encoded), "RecalledBy")
 }
 
 func TestRichMessageValidationRejectsInvalidAssetShapes(t *testing.T) {
@@ -227,4 +249,40 @@ func TestMarkReadBroadcastsOnlyWhenPersistenceChanges(t *testing.T) {
 	conversations.markReadChanged = true
 	require.NoError(t, service.MarkReadByUser(context.Background(), 42))
 	require.Equal(t, 1, broadcaster.readCalls)
+}
+
+func TestRecallMessageRedactsDeliveryAndBroadcastsOnlyForFirstRecall(t *testing.T) {
+	recalledAt := time.Now().UTC()
+	conversations := &conversationRepoStub{conversation: &Conversation{ID: 7, UserID: 42}}
+	messages := &messageRepoStub{
+		recalled: &Message{
+			ID: 10, ConversationID: 7, SenderType: SenderTypeAdmin, SenderID: 3,
+			Content: "mistaken secret", Kind: MessageKindText, Metadata: json.RawMessage(`{"private":true}`),
+			Assets: []Asset{{ID: 5}}, RecalledAt: &recalledAt,
+		},
+		recallChanged: true,
+	}
+	broadcaster := &broadcasterStub{}
+	service := NewService(conversations, messages)
+	service.SetBroadcaster(broadcaster)
+
+	message, err := service.RecallMessageByAdmin(context.Background(), 7, 10, 3)
+	require.NoError(t, err)
+	require.Empty(t, message.Content)
+	require.JSONEq(t, `{}`, string(message.Metadata))
+	require.Empty(t, message.Assets)
+	require.Equal(t, 1, broadcaster.recallCalls)
+
+	messages.recallChanged = false
+	_, err = service.RecallMessageByAdmin(context.Background(), 7, 10, 3)
+	require.NoError(t, err)
+	require.Equal(t, 1, broadcaster.recallCalls, "idempotent recall must not rebroadcast")
+}
+
+func TestMarkUnreadByAdminPersistsPrivateReminder(t *testing.T) {
+	conversations := &conversationRepoStub{conversation: &Conversation{ID: 7, UserID: 42}}
+	service := NewService(conversations, &messageRepoStub{})
+
+	require.NoError(t, service.MarkUnreadByAdmin(context.Background(), 7))
+	require.Equal(t, 1, conversations.markUnreadCalls)
 }

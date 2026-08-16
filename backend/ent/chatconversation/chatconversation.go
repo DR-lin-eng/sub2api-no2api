@@ -26,6 +26,8 @@ const (
 	FieldUnreadByUser = "unread_by_user"
 	// FieldUnreadByAdmin holds the string denoting the unread_by_admin field in the database.
 	FieldUnreadByAdmin = "unread_by_admin"
+	// FieldManuallyUnreadByAdmin holds the string denoting the manually_unread_by_admin field in the database.
+	FieldManuallyUnreadByAdmin = "manually_unread_by_admin"
 	// FieldLastReadByUserAt holds the string denoting the last_read_by_user_at field in the database.
 	FieldLastReadByUserAt = "last_read_by_user_at"
 	// FieldLastReadByAdminAt holds the string denoting the last_read_by_admin_at field in the database.
@@ -61,6 +63,7 @@ var Columns = []string{
 	FieldLastMessageAt,
 	FieldUnreadByUser,
 	FieldUnreadByAdmin,
+	FieldManuallyUnreadByAdmin,
 	FieldLastReadByUserAt,
 	FieldLastReadByAdminAt,
 }
@@ -86,6 +89,8 @@ var (
 	DefaultUnreadByUser int
 	// DefaultUnreadByAdmin holds the default value on creation for the "unread_by_admin" field.
 	DefaultUnreadByAdmin int
+	// DefaultManuallyUnreadByAdmin holds the default value on creation for the "manually_unread_by_admin" field.
+	DefaultManuallyUnreadByAdmin bool
 )
 
 // OrderOption defines the ordering options for the ChatConversation queries.
@@ -124,6 +129,11 @@ func ByUnreadByUser(opts ...sql.OrderTermOption) OrderOption {
 // ByUnreadByAdmin orders the results by the unread_by_admin field.
 func ByUnreadByAdmin(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUnreadByAdmin, opts...).ToFunc()
+}
+
+// ByManuallyUnreadByAdmin orders the results by the manually_unread_by_admin field.
+func ByManuallyUnreadByAdmin(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldManuallyUnreadByAdmin, opts...).ToFunc()
 }
 
 // ByLastReadByUserAt orders the results by the last_read_by_user_at field.

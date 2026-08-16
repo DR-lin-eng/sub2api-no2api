@@ -911,6 +911,10 @@ func init() {
 	chatconversationDescUnreadByAdmin := chatconversationFields[3].Descriptor()
 	// chatconversation.DefaultUnreadByAdmin holds the default value on creation for the unread_by_admin field.
 	chatconversation.DefaultUnreadByAdmin = chatconversationDescUnreadByAdmin.Default.(int)
+	// chatconversationDescManuallyUnreadByAdmin is the schema descriptor for manually_unread_by_admin field.
+	chatconversationDescManuallyUnreadByAdmin := chatconversationFields[4].Descriptor()
+	// chatconversation.DefaultManuallyUnreadByAdmin holds the default value on creation for the manually_unread_by_admin field.
+	chatconversation.DefaultManuallyUnreadByAdmin = chatconversationDescManuallyUnreadByAdmin.Default.(bool)
 	chatmessageFields := schema.ChatMessage{}.Fields()
 	_ = chatmessageFields
 	// chatmessageDescContent is the schema descriptor for content field.
@@ -936,7 +940,7 @@ func init() {
 	// chatmessage.IdempotencyKeyValidator is a validator for the "idempotency_key" field. It is called by the builders before save.
 	chatmessage.IdempotencyKeyValidator = chatmessageDescIdempotencyKey.Validators[0].(func(string) error)
 	// chatmessageDescCreatedAt is the schema descriptor for created_at field.
-	chatmessageDescCreatedAt := chatmessageFields[8].Descriptor()
+	chatmessageDescCreatedAt := chatmessageFields[10].Descriptor()
 	// chatmessage.DefaultCreatedAt holds the default value on creation for the created_at field.
 	chatmessage.DefaultCreatedAt = chatmessageDescCreatedAt.Default.(func() time.Time)
 	chatmessageassetFields := schema.ChatMessageAsset{}.Fields()

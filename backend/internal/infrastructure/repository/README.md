@@ -11,6 +11,7 @@
 | `scheduler*`, `concurrency*`, `session_limit*`, `rpm_cache*` | 调度与并发状态 |
 | `ops*`, `audit_log*`, `channel_monitor*` | 运维、审计和监控查询 |
 | `payment*`, `subscription*`, `promo_code*`, `redeem_code*` | 商业对象持久化 |
+| `chat*` | 在线客服会话、消息、素材和快捷回复持久化 |
 | `cluster*` | 逻辑节点、runner 历史、共享任务租约与版本发布状态 |
 | `*_oauth_*`, `http_upstream*`, `proxy*` | 外部凭据和网络访问实现 |
 | `wire.go` | repository provider 集合 |

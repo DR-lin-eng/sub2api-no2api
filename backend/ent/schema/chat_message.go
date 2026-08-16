@@ -47,6 +47,15 @@ func (ChatMessage) Fields() []ent.Field {
 			Optional().
 			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
 		field.String("idempotency_key").Optional().Nillable().MaxLen(128),
+		field.Time("recalled_at").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}).
+			Comment("管理员撤回消息的时间；原始内容仅保留用于服务端审计"),
+		field.Int64("recalled_by").
+			Optional().
+			Nillable().
+			Comment("执行撤回的管理员用户 ID"),
 		field.Time("created_at").
 			Immutable().
 			Default(time.Now).

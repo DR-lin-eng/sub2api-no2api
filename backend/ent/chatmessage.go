@@ -35,6 +35,10 @@ type ChatMessage struct {
 	Metadata json.RawMessage `json:"metadata,omitempty"`
 	// IdempotencyKey holds the value of the "idempotency_key" field.
 	IdempotencyKey *string `json:"idempotency_key,omitempty"`
+	// 管理员撤回消息的时间；原始内容仅保留用于服务端审计
+	RecalledAt *time.Time `json:"recalled_at,omitempty"`
+	// 执行撤回的管理员用户 ID
+	RecalledBy *int64 `json:"recalled_by,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -92,11 +96,11 @@ func (*ChatMessage) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case chatmessage.FieldMetadata:
 			values[i] = new([]byte)
-		case chatmessage.FieldID, chatmessage.FieldConversationID, chatmessage.FieldSenderID, chatmessage.FieldReplyToID:
+		case chatmessage.FieldID, chatmessage.FieldConversationID, chatmessage.FieldSenderID, chatmessage.FieldReplyToID, chatmessage.FieldRecalledBy:
 			values[i] = new(sql.NullInt64)
 		case chatmessage.FieldSenderType, chatmessage.FieldContent, chatmessage.FieldKind, chatmessage.FieldIdempotencyKey:
 			values[i] = new(sql.NullString)
-		case chatmessage.FieldCreatedAt:
+		case chatmessage.FieldRecalledAt, chatmessage.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -170,6 +174,20 @@ func (_m *ChatMessage) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.IdempotencyKey = new(string)
 				*_m.IdempotencyKey = value.String
+			}
+		case chatmessage.FieldRecalledAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field recalled_at", values[i])
+			} else if value.Valid {
+				_m.RecalledAt = new(time.Time)
+				*_m.RecalledAt = value.Time
+			}
+		case chatmessage.FieldRecalledBy:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field recalled_by", values[i])
+			} else if value.Valid {
+				_m.RecalledBy = new(int64)
+				*_m.RecalledBy = value.Int64
 			}
 		case chatmessage.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -254,6 +272,16 @@ func (_m *ChatMessage) String() string {
 	if v := _m.IdempotencyKey; v != nil {
 		builder.WriteString("idempotency_key=")
 		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.RecalledAt; v != nil {
+		builder.WriteString("recalled_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.RecalledBy; v != nil {
+		builder.WriteString("recalled_by=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")

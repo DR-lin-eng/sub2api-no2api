@@ -11,6 +11,7 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
+	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
 	"github.com/stretchr/testify/require"
 )
 
@@ -93,6 +94,114 @@ func TestChatAssetAndReplyAuthorizationBoundaries(t *testing.T) {
 		Content: "[image]", Kind: chat.MessageKindImage, Metadata: []byte(`{}`), AssetIDs: []int64{catalog.ID},
 	}, time.Now(), chat.SenderTypeAdmin)
 	require.ErrorIs(t, err, chat.ErrMessageAssetsInvalid, "hidden catalog entries must not be newly attached")
+}
+
+func TestChatRecallAndManualUnreadStateAreDurableAndAuthorizationAware(t *testing.T) {
+	baseCtx := context.Background()
+	tx := testEntTx(t)
+	ctx := dbent.NewTxContext(baseCtx, tx)
+	client := tx.Client()
+
+	user := createEntUser(t, ctx, client, uniqueSoftDeleteValue(t, "chat-recall-user")+"@example.test")
+	admin := createEntUser(t, ctx, client, uniqueSoftDeleteValue(t, "chat-recall-admin")+"@example.test")
+	conversationRepo := NewChatConversationRepository(client)
+	messageRepo := NewChatMessageRepository(client)
+	assetRepo := NewChatAssetRepository(client)
+	conversation, err := conversationRepo.GetOrCreateByUserID(ctx, user.ID)
+	require.NoError(t, err)
+
+	message := &chat.Message{
+		ConversationID: conversation.ID, SenderType: chat.SenderTypeAdmin, SenderID: admin.ID,
+		Content: "mistaken private reply", Kind: chat.MessageKindText, Metadata: []byte(`{"audit":true}`),
+	}
+	require.NoError(t, messageRepo.CreateAndTouch(ctx, message, time.Now().UTC(), chat.SenderTypeAdmin))
+	conversation, err = conversationRepo.GetByID(ctx, conversation.ID)
+	require.NoError(t, err)
+	require.Equal(t, 1, conversation.UnreadByUser)
+
+	recalled, changed, err := messageRepo.RecallByAdmin(
+		ctx,
+		conversation.ID,
+		message.ID,
+		admin.ID,
+		time.Now().UTC(),
+	)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.NotNil(t, recalled.RecalledAt)
+	require.Empty(t, recalled.Content)
+	require.JSONEq(t, `{}`, string(recalled.Metadata))
+	require.Empty(t, recalled.Assets)
+
+	conversation, err = conversationRepo.GetByID(ctx, conversation.ID)
+	require.NoError(t, err)
+	require.Zero(t, conversation.UnreadByUser, "recalling an unread admin message must remove its unread count")
+	persisted, err := client.ChatMessage.Get(ctx, message.ID)
+	require.NoError(t, err)
+	require.Equal(t, "mistaken private reply", persisted.Content, "the original is retained only for server-side audit")
+
+	recalled, changed, err = messageRepo.RecallByAdmin(ctx, conversation.ID, message.ID, admin.ID, time.Now().UTC())
+	require.NoError(t, err)
+	require.False(t, changed)
+	require.Empty(t, recalled.Content)
+
+	listed, _, err := messageRepo.List(ctx, conversation.ID, pagination.PaginationParams{Page: 1, PageSize: 20})
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	require.Empty(t, listed[0].Content, "delivery lists must never expose recalled content")
+	replyID := message.ID
+	err = messageRepo.CreateAndTouch(ctx, &chat.Message{
+		ConversationID: conversation.ID, SenderType: chat.SenderTypeAdmin, SenderID: admin.ID,
+		Content: "reply", Kind: chat.MessageKindText, Metadata: []byte(`{}`), ReplyToID: &replyID,
+	}, time.Now().UTC(), chat.SenderTypeAdmin)
+	require.ErrorIs(t, err, chat.ErrMessageReplyInvalid)
+
+	userMessage := &chat.Message{
+		ConversationID: conversation.ID, SenderType: chat.SenderTypeUser, SenderID: user.ID,
+		Content: "user message", Kind: chat.MessageKindText, Metadata: []byte(`{}`),
+	}
+	require.NoError(t, messageRepo.CreateAndTouch(ctx, userMessage, time.Now().UTC(), chat.SenderTypeUser))
+	_, _, err = messageRepo.RecallByAdmin(ctx, conversation.ID, userMessage.ID, admin.ID, time.Now().UTC())
+	require.ErrorIs(t, err, chat.ErrMessageRecallNotAllowed)
+
+	_, _, err = conversationRepo.MarkRead(ctx, conversation.ID, chat.SenderTypeAdmin)
+	require.NoError(t, err)
+	changed, err = conversationRepo.MarkUnreadByAdmin(ctx, conversation.ID)
+	require.NoError(t, err)
+	require.True(t, changed)
+	count, err := conversationRepo.CountUnreadByAdmin(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+	unread, _, err := conversationRepo.List(
+		ctx,
+		pagination.PaginationParams{Page: 1, PageSize: 20},
+		chat.ConversationListFilters{UnreadOnly: true},
+	)
+	require.NoError(t, err)
+	require.Len(t, unread, 1)
+	require.True(t, unread[0].ManuallyUnreadByAdmin)
+	_, _, err = conversationRepo.MarkRead(ctx, conversation.ID, chat.SenderTypeAdmin)
+	require.NoError(t, err)
+	count, err = conversationRepo.CountUnreadByAdmin(ctx)
+	require.NoError(t, err)
+	require.Zero(t, count)
+
+	asset := &chat.Asset{
+		Scope: chat.AssetScopeMessage, ConversationID: &conversation.ID, UploadedBy: &admin.ID,
+		Name: "recall.png", MIMEType: "image/png", Size: 3, Data: []byte("png"),
+	}
+	require.NoError(t, assetRepo.Create(ctx, asset))
+	imageMessage := &chat.Message{
+		ConversationID: conversation.ID, SenderType: chat.SenderTypeAdmin, SenderID: admin.ID,
+		Content: "[image]", Kind: chat.MessageKindImage, Metadata: []byte(`{}`), AssetIDs: []int64{asset.ID},
+	}
+	require.NoError(t, messageRepo.CreateAndTouch(ctx, imageMessage, time.Now().UTC(), chat.SenderTypeAdmin))
+	_, err = assetRepo.GetForUser(ctx, asset.ID, user.ID, conversation.ID)
+	require.NoError(t, err)
+	_, _, err = messageRepo.RecallByAdmin(ctx, conversation.ID, imageMessage.ID, admin.ID, time.Now().UTC())
+	require.NoError(t, err)
+	_, err = assetRepo.GetForUser(ctx, asset.ID, user.ID, conversation.ID)
+	require.ErrorIs(t, err, chat.ErrAssetNotFound, "recalled image payloads must no longer be downloadable by the user")
 }
 
 func TestChatQuickReplyOwnershipAndConcurrentLimit(t *testing.T) {

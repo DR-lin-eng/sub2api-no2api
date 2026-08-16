@@ -13,6 +13,7 @@ describe('support chat datasource normalization', () => {
       LastMessageAt: '2026-01-02T03:04:05Z',
       UnreadByUser: 1,
       UnreadByAdmin: 2,
+      ManuallyUnreadByAdmin: true,
       CreatedAt: '2026-01-01T00:00:00Z',
       UpdatedAt: '2026-01-02T00:00:00Z',
       UserEmail: 'user@example.test',
@@ -25,6 +26,7 @@ describe('support chat datasource normalization', () => {
       last_message_at: '2026-01-02T03:04:05Z',
       unread_by_user: 1,
       unread_by_admin: 2,
+      manually_unread_by_admin: true,
       user_email: 'user@example.test',
       user_username: 'tester',
     })
@@ -41,6 +43,7 @@ describe('support chat datasource normalization', () => {
       reply_to_id: null,
       metadata: {},
       assets: [],
+      recalled_at: null,
       created_at: '2026-01-02T03:04:05Z',
     })
 
@@ -54,6 +57,7 @@ describe('support chat datasource normalization', () => {
       reply_to_id: null,
       metadata: {},
       assets: [],
+      recalled_at: null,
       created_at: '2026-01-02T03:04:05Z',
     })
   })
@@ -69,6 +73,7 @@ describe('support chat datasource normalization', () => {
       ReplyToID: 10,
       Metadata: { caption: '<script>not rendered</script>' },
       Assets: [{ id: 5, scope: 'library', name: 'asset.png', mime_type: 'image/png', size: 42 }],
+      RecalledAt: '2026-01-02T03:05:00Z',
       CreatedAt: '2026-01-02T03:04:05Z',
     })
 
@@ -78,6 +83,7 @@ describe('support chat datasource normalization', () => {
       reply_to_id: 10,
       metadata: { caption: '<script>not rendered</script>' },
       assets: [{ id: 5, scope: 'library', mime_type: 'image/png' }],
+      recalled_at: '2026-01-02T03:05:00Z',
     })
 
     const event = parseChatSocketEvent(JSON.stringify({
@@ -110,6 +116,27 @@ describe('support chat datasource normalization', () => {
       conversation_id: 8,
       sender_type: 'user',
       content: 'need help',
+    })
+  })
+
+  it('parses recalled-message websocket events with a redacted payload', () => {
+    const event = parseChatSocketEvent(JSON.stringify({
+      Type: 'message_recalled',
+      Message: {
+        ID: 10,
+        ConversationID: 8,
+        SenderType: 'admin',
+        SenderID: 3,
+        Content: '',
+        Kind: 'text',
+        RecalledAt: '2026-01-02T03:05:00Z',
+        CreatedAt: '2026-01-02T03:04:05Z',
+      },
+    }))
+
+    expect(event).toMatchObject({
+      type: 'message_recalled',
+      message: { id: 10, content: '', recalled_at: '2026-01-02T03:05:00Z' },
     })
   })
 

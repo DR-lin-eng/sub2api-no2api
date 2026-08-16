@@ -62,10 +62,10 @@
             </div>
           </div>
           <span
-            v-if="conversation.unread_by_admin > 0"
+            v-if="conversation.unread_by_admin > 0 || conversation.manually_unread_by_admin"
             class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-900/40 dark:text-red-200"
           >
-            {{ conversation.unread_by_admin }}
+            {{ conversation.unread_by_admin > 0 ? conversation.unread_by_admin : t('supportChat.unread') }}
           </span>
         </div>
         <div class="mt-2 text-xs text-gray-500 dark:text-dark-400">

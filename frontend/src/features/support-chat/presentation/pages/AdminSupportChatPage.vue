@@ -49,6 +49,15 @@
               </p>
             </div>
             <div class="flex shrink-0 items-center gap-1 text-xs sm:gap-2">
+              <button
+                v-if="selectedConversationID"
+                type="button"
+                class="btn btn-secondary btn-sm px-2 sm:px-3"
+                :disabled="messagesLoading || markingUnread || selectedConversation?.manually_unread_by_admin"
+                @click="markSelectedUnread"
+              >
+                {{ selectedConversation?.manually_unread_by_admin ? t('supportChat.markedUnread') : t('supportChat.markUnread') }}
+              </button>
               <span class="inline-flex items-center gap-1 rounded-full px-2 py-1 font-medium sm:px-2.5" :class="socketConnected ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200' : 'bg-gray-100 text-gray-600 dark:bg-dark-800 dark:text-dark-300'">
                 <span class="h-2 w-2 rounded-full" :class="socketConnected ? 'bg-emerald-500' : 'bg-gray-400'"></span>
                 <span class="hidden sm:inline">{{ socketConnected ? t('supportChat.connected') : t('supportChat.offline') }}</span>
@@ -84,12 +93,16 @@
             :messages="messages"
             own-sender="admin"
             asset-scope="admin"
+            allow-recall
+            :recalling-message-id="recallingMessageID"
             :peer-read-at="selectedConversation?.last_read_by_user_at"
             @reply="replyingTo = $event"
+            @recall="requestRecall"
           />
         </div>
 
         <SupportMessageComposer
+          ref="composerRef"
           :sending="sending"
           :disabled="!selectedConversationID || messagesLoading"
           admin-mode
@@ -120,6 +133,15 @@
       :user="userProfile"
       @close="closeUserProfile"
     />
+    <ConfirmDialog
+      :show="Boolean(recallCandidate)"
+      :title="t('supportChat.recall.confirmTitle')"
+      :message="t('supportChat.recall.confirmMessage')"
+      :confirm-text="t('supportChat.recall.action')"
+      danger
+      @confirm="confirmRecall"
+      @cancel="recallCandidate = null"
+    />
   </AppLayout>
 </template>
 
@@ -127,6 +149,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
+import ConfirmDialog from '@/common/widgets/feedback/ConfirmDialog.vue'
 import { useAppStore } from '@/core/stores/appStore'
 import { getById as getAdminUserById } from '@/features/admin-users/data/datasources/adminUsersDatasource'
 import {
@@ -140,6 +163,8 @@ import {
   listAdminChatMessages,
   listAdminChatQuickReplies,
   markAdminChatRead,
+  markAdminChatUnread,
+  recallAdminChatMessage,
   reorderAdminChatQuickReplies,
   sendAdminChatMessage,
   transferAdminChatBalance,
@@ -170,6 +195,9 @@ const messages = ref<ChatMessage[]>([])
 const replyingTo = ref<ChatMessage | null>(null)
 const messagesLoading = ref(false)
 const sending = ref(false)
+const markingUnread = ref(false)
+const recallingMessageID = ref<number | null>(null)
+const recallCandidate = ref<ChatMessage | null>(null)
 const toolsBusy = ref(false)
 const quickReplies = ref<ChatQuickReply[]>([])
 const libraryAssets = ref<ChatAsset[]>([])
@@ -178,6 +206,7 @@ const search = ref('')
 const unreadOnly = ref(false)
 const socketConnected = ref(false)
 const messagePaneRef = ref<HTMLElement | null>(null)
+const composerRef = ref<InstanceType<typeof SupportMessageComposer> | null>(null)
 const userProfileDialogOpen = ref(false)
 const userProfileLoading = ref(false)
 const userProfile = ref<AdminUser | null>(null)
@@ -208,6 +237,11 @@ const socket = useSupportChatSocket({
       await scrollToBottom()
     }
   },
+  onMessageRecalled: (message) => {
+    if (selectedConversationID.value !== message.conversation_id) return
+    replaceMessage(message)
+    if (replyingTo.value?.id === message.id) replyingTo.value = null
+  },
   onReadState: (readState) => {
     const conversation = conversations.value.find(item => item.id === readState.conversation_id)
     if (!conversation) return
@@ -221,8 +255,18 @@ function appendMessage(message: ChatMessage) {
   messages.value.push(message)
 }
 
+function replaceMessage(message: ChatMessage) {
+  const index = messages.value.findIndex((item) => item.id === message.id)
+  if (index < 0) {
+    messages.value.push(message)
+    return
+  }
+  messages.value[index] = message
+  messages.value = [...messages.value]
+}
+
 function messageScrollSignature(): string {
-  return messages.value.map((message) => `${message.id}:${message.created_at}`).join('|')
+  return messages.value.map((message) => `${message.id}:${message.created_at}:${message.recalled_at || ''}`).join('|')
 }
 
 function displayUser(conversation: ChatConversation): string {
@@ -351,10 +395,29 @@ async function markSelectedRead(conversationID = selectedConversationID.value) {
   const existing = conversations.value.find((item) => item.id === conversationID)
   if (existing) {
     existing.unread_by_admin = 0
+    existing.manually_unread_by_admin = false
     existing.last_read_by_admin_at = new Date().toISOString()
   }
   await supportChatAdminStore.refreshUnreadIndicator(true)
   appStore.setSupportInboxUnread(supportChatAdminStore.hasUnread)
+}
+
+async function markSelectedUnread() {
+  const conversationID = selectedConversationID.value
+  if (!conversationID || markingUnread.value || selectedConversation.value?.manually_unread_by_admin) return
+  markingUnread.value = true
+  try {
+    await markAdminChatUnread(conversationID)
+    const existing = conversations.value.find((item) => item.id === conversationID)
+    if (existing) existing.manually_unread_by_admin = true
+    await supportChatAdminStore.refreshUnreadIndicator(true)
+    appStore.setSupportInboxUnread(supportChatAdminStore.hasUnread)
+    appStore.showSuccess(t('supportChat.markUnreadSuccess'))
+  } catch (error) {
+    appStore.showError(errorMessage(error, t('supportChat.markUnreadFailed')))
+  } finally {
+    markingUnread.value = false
+  }
 }
 
 async function handleSend(input: ChatSendMessageInput) {
@@ -366,6 +429,7 @@ async function handleSend(input: ChatSendMessageInput) {
     if (selectedConversationID.value === conversationID) appendMessage(message)
     upsertConversationActivity(message)
     if (selectedConversationID.value === conversationID) {
+      composerRef.value?.clearDraft()
       replyingTo.value = null
       await markSelectedRead(conversationID)
       await scrollToBottom()
@@ -393,6 +457,7 @@ async function handleUpload(value: { file: File; content: string; reply_to_id: n
     if (selectedConversationID.value === conversationID) appendMessage(message)
     upsertConversationActivity(message)
     if (selectedConversationID.value === conversationID) {
+      composerRef.value?.clearDraft()
       replyingTo.value = null
       await scrollToBottom()
     }
@@ -400,6 +465,30 @@ async function handleUpload(value: { file: File; content: string; reply_to_id: n
     appStore.showError(errorMessage(error, t('supportChat.assets.uploadFailed')))
   } finally {
     sending.value = false
+  }
+}
+
+function requestRecall(message: ChatMessage) {
+  if (message.sender_type !== 'admin' || message.recalled_at || message.kind === 'balance_transfer') return
+  recallCandidate.value = message
+}
+
+async function confirmRecall() {
+  const candidate = recallCandidate.value
+  if (!candidate || recallingMessageID.value) return
+  recallCandidate.value = null
+  recallingMessageID.value = candidate.id
+  try {
+    const recalled = await recallAdminChatMessage(candidate.conversation_id, candidate.id)
+    if (selectedConversationID.value === candidate.conversation_id) {
+      replaceMessage(recalled)
+      if (replyingTo.value?.id === candidate.id) replyingTo.value = null
+    }
+    appStore.showSuccess(t('supportChat.recall.success'))
+  } catch (error) {
+    appStore.showError(errorMessage(error, t('supportChat.recall.failed')))
+  } finally {
+    recallingMessageID.value = null
   }
 }
 

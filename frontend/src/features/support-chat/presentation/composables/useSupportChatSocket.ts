@@ -9,6 +9,7 @@ import {
 export interface SupportChatSocketOptions {
   scope: 'user' | 'admin'
   onMessage: (message: ChatMessage) => void
+  onMessageRecalled?: (message: ChatMessage) => void
   onReadState?: (readState: ChatReadState) => void
   onStatusChange?: (connected: boolean) => void
 }
@@ -69,6 +70,8 @@ export function useSupportChatSocket(options: SupportChatSocketOptions) {
       const parsed = parseChatSocketEvent(event.data)
       if (parsed?.type === 'message' && parsed.message) {
         options.onMessage(parsed.message)
+      } else if (parsed?.type === 'message_recalled' && parsed.message) {
+        options.onMessageRecalled?.(parsed.message)
       } else if (parsed?.type === 'read_state' && parsed.read_state) {
         options.onReadState?.(parsed.read_state)
       }

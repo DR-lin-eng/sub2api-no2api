@@ -97,6 +97,34 @@ func (_c *ChatMessageCreate) SetNillableIdempotencyKey(v *string) *ChatMessageCr
 	return _c
 }
 
+// SetRecalledAt sets the "recalled_at" field.
+func (_c *ChatMessageCreate) SetRecalledAt(v time.Time) *ChatMessageCreate {
+	_c.mutation.SetRecalledAt(v)
+	return _c
+}
+
+// SetNillableRecalledAt sets the "recalled_at" field if the given value is not nil.
+func (_c *ChatMessageCreate) SetNillableRecalledAt(v *time.Time) *ChatMessageCreate {
+	if v != nil {
+		_c.SetRecalledAt(*v)
+	}
+	return _c
+}
+
+// SetRecalledBy sets the "recalled_by" field.
+func (_c *ChatMessageCreate) SetRecalledBy(v int64) *ChatMessageCreate {
+	_c.mutation.SetRecalledBy(v)
+	return _c
+}
+
+// SetNillableRecalledBy sets the "recalled_by" field if the given value is not nil.
+func (_c *ChatMessageCreate) SetNillableRecalledBy(v *int64) *ChatMessageCreate {
+	if v != nil {
+		_c.SetRecalledBy(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *ChatMessageCreate) SetCreatedAt(v time.Time) *ChatMessageCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -273,6 +301,14 @@ func (_c *ChatMessageCreate) createSpec() (*ChatMessage, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.IdempotencyKey(); ok {
 		_spec.SetField(chatmessage.FieldIdempotencyKey, field.TypeString, value)
 		_node.IdempotencyKey = &value
+	}
+	if value, ok := _c.mutation.RecalledAt(); ok {
+		_spec.SetField(chatmessage.FieldRecalledAt, field.TypeTime, value)
+		_node.RecalledAt = &value
+	}
+	if value, ok := _c.mutation.RecalledBy(); ok {
+		_spec.SetField(chatmessage.FieldRecalledBy, field.TypeInt64, value)
+		_node.RecalledBy = &value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(chatmessage.FieldCreatedAt, field.TypeTime, value)
@@ -493,6 +529,48 @@ func (u *ChatMessageUpsert) ClearIdempotencyKey() *ChatMessageUpsert {
 	return u
 }
 
+// SetRecalledAt sets the "recalled_at" field.
+func (u *ChatMessageUpsert) SetRecalledAt(v time.Time) *ChatMessageUpsert {
+	u.Set(chatmessage.FieldRecalledAt, v)
+	return u
+}
+
+// UpdateRecalledAt sets the "recalled_at" field to the value that was provided on create.
+func (u *ChatMessageUpsert) UpdateRecalledAt() *ChatMessageUpsert {
+	u.SetExcluded(chatmessage.FieldRecalledAt)
+	return u
+}
+
+// ClearRecalledAt clears the value of the "recalled_at" field.
+func (u *ChatMessageUpsert) ClearRecalledAt() *ChatMessageUpsert {
+	u.SetNull(chatmessage.FieldRecalledAt)
+	return u
+}
+
+// SetRecalledBy sets the "recalled_by" field.
+func (u *ChatMessageUpsert) SetRecalledBy(v int64) *ChatMessageUpsert {
+	u.Set(chatmessage.FieldRecalledBy, v)
+	return u
+}
+
+// UpdateRecalledBy sets the "recalled_by" field to the value that was provided on create.
+func (u *ChatMessageUpsert) UpdateRecalledBy() *ChatMessageUpsert {
+	u.SetExcluded(chatmessage.FieldRecalledBy)
+	return u
+}
+
+// AddRecalledBy adds v to the "recalled_by" field.
+func (u *ChatMessageUpsert) AddRecalledBy(v int64) *ChatMessageUpsert {
+	u.Add(chatmessage.FieldRecalledBy, v)
+	return u
+}
+
+// ClearRecalledBy clears the value of the "recalled_by" field.
+func (u *ChatMessageUpsert) ClearRecalledBy() *ChatMessageUpsert {
+	u.SetNull(chatmessage.FieldRecalledBy)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -682,6 +760,55 @@ func (u *ChatMessageUpsertOne) UpdateIdempotencyKey() *ChatMessageUpsertOne {
 func (u *ChatMessageUpsertOne) ClearIdempotencyKey() *ChatMessageUpsertOne {
 	return u.Update(func(s *ChatMessageUpsert) {
 		s.ClearIdempotencyKey()
+	})
+}
+
+// SetRecalledAt sets the "recalled_at" field.
+func (u *ChatMessageUpsertOne) SetRecalledAt(v time.Time) *ChatMessageUpsertOne {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.SetRecalledAt(v)
+	})
+}
+
+// UpdateRecalledAt sets the "recalled_at" field to the value that was provided on create.
+func (u *ChatMessageUpsertOne) UpdateRecalledAt() *ChatMessageUpsertOne {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.UpdateRecalledAt()
+	})
+}
+
+// ClearRecalledAt clears the value of the "recalled_at" field.
+func (u *ChatMessageUpsertOne) ClearRecalledAt() *ChatMessageUpsertOne {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.ClearRecalledAt()
+	})
+}
+
+// SetRecalledBy sets the "recalled_by" field.
+func (u *ChatMessageUpsertOne) SetRecalledBy(v int64) *ChatMessageUpsertOne {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.SetRecalledBy(v)
+	})
+}
+
+// AddRecalledBy adds v to the "recalled_by" field.
+func (u *ChatMessageUpsertOne) AddRecalledBy(v int64) *ChatMessageUpsertOne {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.AddRecalledBy(v)
+	})
+}
+
+// UpdateRecalledBy sets the "recalled_by" field to the value that was provided on create.
+func (u *ChatMessageUpsertOne) UpdateRecalledBy() *ChatMessageUpsertOne {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.UpdateRecalledBy()
+	})
+}
+
+// ClearRecalledBy clears the value of the "recalled_by" field.
+func (u *ChatMessageUpsertOne) ClearRecalledBy() *ChatMessageUpsertOne {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.ClearRecalledBy()
 	})
 }
 
@@ -1040,6 +1167,55 @@ func (u *ChatMessageUpsertBulk) UpdateIdempotencyKey() *ChatMessageUpsertBulk {
 func (u *ChatMessageUpsertBulk) ClearIdempotencyKey() *ChatMessageUpsertBulk {
 	return u.Update(func(s *ChatMessageUpsert) {
 		s.ClearIdempotencyKey()
+	})
+}
+
+// SetRecalledAt sets the "recalled_at" field.
+func (u *ChatMessageUpsertBulk) SetRecalledAt(v time.Time) *ChatMessageUpsertBulk {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.SetRecalledAt(v)
+	})
+}
+
+// UpdateRecalledAt sets the "recalled_at" field to the value that was provided on create.
+func (u *ChatMessageUpsertBulk) UpdateRecalledAt() *ChatMessageUpsertBulk {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.UpdateRecalledAt()
+	})
+}
+
+// ClearRecalledAt clears the value of the "recalled_at" field.
+func (u *ChatMessageUpsertBulk) ClearRecalledAt() *ChatMessageUpsertBulk {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.ClearRecalledAt()
+	})
+}
+
+// SetRecalledBy sets the "recalled_by" field.
+func (u *ChatMessageUpsertBulk) SetRecalledBy(v int64) *ChatMessageUpsertBulk {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.SetRecalledBy(v)
+	})
+}
+
+// AddRecalledBy adds v to the "recalled_by" field.
+func (u *ChatMessageUpsertBulk) AddRecalledBy(v int64) *ChatMessageUpsertBulk {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.AddRecalledBy(v)
+	})
+}
+
+// UpdateRecalledBy sets the "recalled_by" field to the value that was provided on create.
+func (u *ChatMessageUpsertBulk) UpdateRecalledBy() *ChatMessageUpsertBulk {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.UpdateRecalledBy()
+	})
+}
+
+// ClearRecalledBy clears the value of the "recalled_by" field.
+func (u *ChatMessageUpsertBulk) ClearRecalledBy() *ChatMessageUpsertBulk {
+	return u.Update(func(s *ChatMessageUpsert) {
+		s.ClearRecalledBy()
 	})
 }
 

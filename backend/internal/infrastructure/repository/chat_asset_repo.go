@@ -88,6 +88,7 @@ func (r *chatAssetRepository) GetForUser(ctx context.Context, id, userID, conver
 					chatasset.UploadedByEQ(userID),
 				),
 				chatasset.HasMessagesWith(
+					chatmessage.RecalledAtIsNil(),
 					chatmessage.HasConversationWith(chatconversation.UserIDEQ(userID)),
 				),
 			),

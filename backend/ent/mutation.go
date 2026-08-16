@@ -20980,27 +20980,28 @@ func (m *ChatAssetMutation) ResetEdge(name string) error {
 // ChatConversationMutation represents an operation that mutates the ChatConversation nodes in the graph.
 type ChatConversationMutation struct {
 	config
-	op                    Op
-	typ                   string
-	id                    *int64
-	created_at            *time.Time
-	updated_at            *time.Time
-	last_message_at       *time.Time
-	unread_by_user        *int
-	addunread_by_user     *int
-	unread_by_admin       *int
-	addunread_by_admin    *int
-	last_read_by_user_at  *time.Time
-	last_read_by_admin_at *time.Time
-	clearedFields         map[string]struct{}
-	user                  *int64
-	cleareduser           bool
-	messages              map[int64]struct{}
-	removedmessages       map[int64]struct{}
-	clearedmessages       bool
-	done                  bool
-	oldValue              func(context.Context) (*ChatConversation, error)
-	predicates            []predicate.ChatConversation
+	op                       Op
+	typ                      string
+	id                       *int64
+	created_at               *time.Time
+	updated_at               *time.Time
+	last_message_at          *time.Time
+	unread_by_user           *int
+	addunread_by_user        *int
+	unread_by_admin          *int
+	addunread_by_admin       *int
+	manually_unread_by_admin *bool
+	last_read_by_user_at     *time.Time
+	last_read_by_admin_at    *time.Time
+	clearedFields            map[string]struct{}
+	user                     *int64
+	cleareduser              bool
+	messages                 map[int64]struct{}
+	removedmessages          map[int64]struct{}
+	clearedmessages          bool
+	done                     bool
+	oldValue                 func(context.Context) (*ChatConversation, error)
+	predicates               []predicate.ChatConversation
 }
 
 var _ ent.Mutation = (*ChatConversationMutation)(nil)
@@ -21370,6 +21371,42 @@ func (m *ChatConversationMutation) ResetUnreadByAdmin() {
 	m.addunread_by_admin = nil
 }
 
+// SetManuallyUnreadByAdmin sets the "manually_unread_by_admin" field.
+func (m *ChatConversationMutation) SetManuallyUnreadByAdmin(b bool) {
+	m.manually_unread_by_admin = &b
+}
+
+// ManuallyUnreadByAdmin returns the value of the "manually_unread_by_admin" field in the mutation.
+func (m *ChatConversationMutation) ManuallyUnreadByAdmin() (r bool, exists bool) {
+	v := m.manually_unread_by_admin
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldManuallyUnreadByAdmin returns the old "manually_unread_by_admin" field's value of the ChatConversation entity.
+// If the ChatConversation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ChatConversationMutation) OldManuallyUnreadByAdmin(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldManuallyUnreadByAdmin is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldManuallyUnreadByAdmin requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldManuallyUnreadByAdmin: %w", err)
+	}
+	return oldValue.ManuallyUnreadByAdmin, nil
+}
+
+// ResetManuallyUnreadByAdmin resets all changes to the "manually_unread_by_admin" field.
+func (m *ChatConversationMutation) ResetManuallyUnreadByAdmin() {
+	m.manually_unread_by_admin = nil
+}
+
 // SetLastReadByUserAt sets the "last_read_by_user_at" field.
 func (m *ChatConversationMutation) SetLastReadByUserAt(t time.Time) {
 	m.last_read_by_user_at = &t
@@ -21583,7 +21620,7 @@ func (m *ChatConversationMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ChatConversationMutation) Fields() []string {
-	fields := make([]string, 0, 8)
+	fields := make([]string, 0, 9)
 	if m.created_at != nil {
 		fields = append(fields, chatconversation.FieldCreatedAt)
 	}
@@ -21601,6 +21638,9 @@ func (m *ChatConversationMutation) Fields() []string {
 	}
 	if m.unread_by_admin != nil {
 		fields = append(fields, chatconversation.FieldUnreadByAdmin)
+	}
+	if m.manually_unread_by_admin != nil {
+		fields = append(fields, chatconversation.FieldManuallyUnreadByAdmin)
 	}
 	if m.last_read_by_user_at != nil {
 		fields = append(fields, chatconversation.FieldLastReadByUserAt)
@@ -21628,6 +21668,8 @@ func (m *ChatConversationMutation) Field(name string) (ent.Value, bool) {
 		return m.UnreadByUser()
 	case chatconversation.FieldUnreadByAdmin:
 		return m.UnreadByAdmin()
+	case chatconversation.FieldManuallyUnreadByAdmin:
+		return m.ManuallyUnreadByAdmin()
 	case chatconversation.FieldLastReadByUserAt:
 		return m.LastReadByUserAt()
 	case chatconversation.FieldLastReadByAdminAt:
@@ -21653,6 +21695,8 @@ func (m *ChatConversationMutation) OldField(ctx context.Context, name string) (e
 		return m.OldUnreadByUser(ctx)
 	case chatconversation.FieldUnreadByAdmin:
 		return m.OldUnreadByAdmin(ctx)
+	case chatconversation.FieldManuallyUnreadByAdmin:
+		return m.OldManuallyUnreadByAdmin(ctx)
 	case chatconversation.FieldLastReadByUserAt:
 		return m.OldLastReadByUserAt(ctx)
 	case chatconversation.FieldLastReadByAdminAt:
@@ -21707,6 +21751,13 @@ func (m *ChatConversationMutation) SetField(name string, value ent.Value) error 
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetUnreadByAdmin(v)
+		return nil
+	case chatconversation.FieldManuallyUnreadByAdmin:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetManuallyUnreadByAdmin(v)
 		return nil
 	case chatconversation.FieldLastReadByUserAt:
 		v, ok := value.(time.Time)
@@ -21837,6 +21888,9 @@ func (m *ChatConversationMutation) ResetField(name string) error {
 	case chatconversation.FieldUnreadByAdmin:
 		m.ResetUnreadByAdmin()
 		return nil
+	case chatconversation.FieldManuallyUnreadByAdmin:
+		m.ResetManuallyUnreadByAdmin()
+		return nil
 	case chatconversation.FieldLastReadByUserAt:
 		m.ResetLastReadByUserAt()
 		return nil
@@ -21965,6 +22019,9 @@ type ChatMessageMutation struct {
 	metadata            *json.RawMessage
 	appendmetadata      json.RawMessage
 	idempotency_key     *string
+	recalled_at         *time.Time
+	recalled_by         *int64
+	addrecalled_by      *int64
 	created_at          *time.Time
 	clearedFields       map[string]struct{}
 	conversation        *int64
@@ -22459,6 +22516,125 @@ func (m *ChatMessageMutation) ResetIdempotencyKey() {
 	delete(m.clearedFields, chatmessage.FieldIdempotencyKey)
 }
 
+// SetRecalledAt sets the "recalled_at" field.
+func (m *ChatMessageMutation) SetRecalledAt(t time.Time) {
+	m.recalled_at = &t
+}
+
+// RecalledAt returns the value of the "recalled_at" field in the mutation.
+func (m *ChatMessageMutation) RecalledAt() (r time.Time, exists bool) {
+	v := m.recalled_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRecalledAt returns the old "recalled_at" field's value of the ChatMessage entity.
+// If the ChatMessage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ChatMessageMutation) OldRecalledAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRecalledAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRecalledAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRecalledAt: %w", err)
+	}
+	return oldValue.RecalledAt, nil
+}
+
+// ClearRecalledAt clears the value of the "recalled_at" field.
+func (m *ChatMessageMutation) ClearRecalledAt() {
+	m.recalled_at = nil
+	m.clearedFields[chatmessage.FieldRecalledAt] = struct{}{}
+}
+
+// RecalledAtCleared returns if the "recalled_at" field was cleared in this mutation.
+func (m *ChatMessageMutation) RecalledAtCleared() bool {
+	_, ok := m.clearedFields[chatmessage.FieldRecalledAt]
+	return ok
+}
+
+// ResetRecalledAt resets all changes to the "recalled_at" field.
+func (m *ChatMessageMutation) ResetRecalledAt() {
+	m.recalled_at = nil
+	delete(m.clearedFields, chatmessage.FieldRecalledAt)
+}
+
+// SetRecalledBy sets the "recalled_by" field.
+func (m *ChatMessageMutation) SetRecalledBy(i int64) {
+	m.recalled_by = &i
+	m.addrecalled_by = nil
+}
+
+// RecalledBy returns the value of the "recalled_by" field in the mutation.
+func (m *ChatMessageMutation) RecalledBy() (r int64, exists bool) {
+	v := m.recalled_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRecalledBy returns the old "recalled_by" field's value of the ChatMessage entity.
+// If the ChatMessage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ChatMessageMutation) OldRecalledBy(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRecalledBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRecalledBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRecalledBy: %w", err)
+	}
+	return oldValue.RecalledBy, nil
+}
+
+// AddRecalledBy adds i to the "recalled_by" field.
+func (m *ChatMessageMutation) AddRecalledBy(i int64) {
+	if m.addrecalled_by != nil {
+		*m.addrecalled_by += i
+	} else {
+		m.addrecalled_by = &i
+	}
+}
+
+// AddedRecalledBy returns the value that was added to the "recalled_by" field in this mutation.
+func (m *ChatMessageMutation) AddedRecalledBy() (r int64, exists bool) {
+	v := m.addrecalled_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearRecalledBy clears the value of the "recalled_by" field.
+func (m *ChatMessageMutation) ClearRecalledBy() {
+	m.recalled_by = nil
+	m.addrecalled_by = nil
+	m.clearedFields[chatmessage.FieldRecalledBy] = struct{}{}
+}
+
+// RecalledByCleared returns if the "recalled_by" field was cleared in this mutation.
+func (m *ChatMessageMutation) RecalledByCleared() bool {
+	_, ok := m.clearedFields[chatmessage.FieldRecalledBy]
+	return ok
+}
+
+// ResetRecalledBy resets all changes to the "recalled_by" field.
+func (m *ChatMessageMutation) ResetRecalledBy() {
+	m.recalled_by = nil
+	m.addrecalled_by = nil
+	delete(m.clearedFields, chatmessage.FieldRecalledBy)
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *ChatMessageMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -22610,7 +22786,7 @@ func (m *ChatMessageMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ChatMessageMutation) Fields() []string {
-	fields := make([]string, 0, 9)
+	fields := make([]string, 0, 11)
 	if m.conversation != nil {
 		fields = append(fields, chatmessage.FieldConversationID)
 	}
@@ -22634,6 +22810,12 @@ func (m *ChatMessageMutation) Fields() []string {
 	}
 	if m.idempotency_key != nil {
 		fields = append(fields, chatmessage.FieldIdempotencyKey)
+	}
+	if m.recalled_at != nil {
+		fields = append(fields, chatmessage.FieldRecalledAt)
+	}
+	if m.recalled_by != nil {
+		fields = append(fields, chatmessage.FieldRecalledBy)
 	}
 	if m.created_at != nil {
 		fields = append(fields, chatmessage.FieldCreatedAt)
@@ -22662,6 +22844,10 @@ func (m *ChatMessageMutation) Field(name string) (ent.Value, bool) {
 		return m.Metadata()
 	case chatmessage.FieldIdempotencyKey:
 		return m.IdempotencyKey()
+	case chatmessage.FieldRecalledAt:
+		return m.RecalledAt()
+	case chatmessage.FieldRecalledBy:
+		return m.RecalledBy()
 	case chatmessage.FieldCreatedAt:
 		return m.CreatedAt()
 	}
@@ -22689,6 +22875,10 @@ func (m *ChatMessageMutation) OldField(ctx context.Context, name string) (ent.Va
 		return m.OldMetadata(ctx)
 	case chatmessage.FieldIdempotencyKey:
 		return m.OldIdempotencyKey(ctx)
+	case chatmessage.FieldRecalledAt:
+		return m.OldRecalledAt(ctx)
+	case chatmessage.FieldRecalledBy:
+		return m.OldRecalledBy(ctx)
 	case chatmessage.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	}
@@ -22756,6 +22946,20 @@ func (m *ChatMessageMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetIdempotencyKey(v)
 		return nil
+	case chatmessage.FieldRecalledAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRecalledAt(v)
+		return nil
+	case chatmessage.FieldRecalledBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRecalledBy(v)
+		return nil
 	case chatmessage.FieldCreatedAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -22777,6 +22981,9 @@ func (m *ChatMessageMutation) AddedFields() []string {
 	if m.addreply_to_id != nil {
 		fields = append(fields, chatmessage.FieldReplyToID)
 	}
+	if m.addrecalled_by != nil {
+		fields = append(fields, chatmessage.FieldRecalledBy)
+	}
 	return fields
 }
 
@@ -22789,6 +22996,8 @@ func (m *ChatMessageMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedSenderID()
 	case chatmessage.FieldReplyToID:
 		return m.AddedReplyToID()
+	case chatmessage.FieldRecalledBy:
+		return m.AddedRecalledBy()
 	}
 	return nil, false
 }
@@ -22812,6 +23021,13 @@ func (m *ChatMessageMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddReplyToID(v)
 		return nil
+	case chatmessage.FieldRecalledBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRecalledBy(v)
+		return nil
 	}
 	return fmt.Errorf("unknown ChatMessage numeric field %s", name)
 }
@@ -22828,6 +23044,12 @@ func (m *ChatMessageMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(chatmessage.FieldIdempotencyKey) {
 		fields = append(fields, chatmessage.FieldIdempotencyKey)
+	}
+	if m.FieldCleared(chatmessage.FieldRecalledAt) {
+		fields = append(fields, chatmessage.FieldRecalledAt)
+	}
+	if m.FieldCleared(chatmessage.FieldRecalledBy) {
+		fields = append(fields, chatmessage.FieldRecalledBy)
 	}
 	return fields
 }
@@ -22851,6 +23073,12 @@ func (m *ChatMessageMutation) ClearField(name string) error {
 		return nil
 	case chatmessage.FieldIdempotencyKey:
 		m.ClearIdempotencyKey()
+		return nil
+	case chatmessage.FieldRecalledAt:
+		m.ClearRecalledAt()
+		return nil
+	case chatmessage.FieldRecalledBy:
+		m.ClearRecalledBy()
 		return nil
 	}
 	return fmt.Errorf("unknown ChatMessage nullable field %s", name)
@@ -22883,6 +23111,12 @@ func (m *ChatMessageMutation) ResetField(name string) error {
 		return nil
 	case chatmessage.FieldIdempotencyKey:
 		m.ResetIdempotencyKey()
+		return nil
+	case chatmessage.FieldRecalledAt:
+		m.ResetRecalledAt()
+		return nil
+	case chatmessage.FieldRecalledBy:
+		m.ResetRecalledBy()
 		return nil
 	case chatmessage.FieldCreatedAt:
 		m.ResetCreatedAt()

@@ -40,6 +40,9 @@ func (r *transferConversationRepo) GetUnreadByUserID(context.Context, int64) (in
 func (r *transferConversationRepo) MarkRead(context.Context, int64, chat.SenderType) (time.Time, bool, error) {
 	return time.Time{}, false, nil
 }
+func (r *transferConversationRepo) MarkUnreadByAdmin(context.Context, int64) (bool, error) {
+	return false, nil
+}
 
 type transferMessageRepo struct {
 	created          *chat.Message
@@ -67,6 +70,9 @@ func (r *transferMessageRepo) GetByIdempotencyKey(_ context.Context, sender chat
 	}
 	return nil, chat.ErrMessageNotFound
 }
+func (r *transferMessageRepo) RecallByAdmin(context.Context, int64, int64, int64, time.Time) (*chat.Message, bool, error) {
+	return nil, false, chat.ErrMessageRecallNotAllowed
+}
 
 type transferAdminBalanceStub struct {
 	user  *User
@@ -83,7 +89,8 @@ func (s *transferAdminBalanceStub) UpdateUserBalance(ctx context.Context, _ int6
 
 type transferBroadcaster struct{ calls int }
 
-func (b *transferBroadcaster) BroadcastMessage(int64, int64, *chat.Message, bool) { b.calls++ }
+func (b *transferBroadcaster) BroadcastMessage(int64, int64, *chat.Message, bool)   { b.calls++ }
+func (b *transferBroadcaster) BroadcastMessageRecalled(int64, int64, *chat.Message) {}
 func (b *transferBroadcaster) BroadcastReadState(int64, int64, chat.SenderType, time.Time, bool) {
 }
 

@@ -100,6 +100,20 @@ func (_c *ChatConversationCreate) SetNillableUnreadByAdmin(v *int) *ChatConversa
 	return _c
 }
 
+// SetManuallyUnreadByAdmin sets the "manually_unread_by_admin" field.
+func (_c *ChatConversationCreate) SetManuallyUnreadByAdmin(v bool) *ChatConversationCreate {
+	_c.mutation.SetManuallyUnreadByAdmin(v)
+	return _c
+}
+
+// SetNillableManuallyUnreadByAdmin sets the "manually_unread_by_admin" field if the given value is not nil.
+func (_c *ChatConversationCreate) SetNillableManuallyUnreadByAdmin(v *bool) *ChatConversationCreate {
+	if v != nil {
+		_c.SetManuallyUnreadByAdmin(*v)
+	}
+	return _c
+}
+
 // SetLastReadByUserAt sets the "last_read_by_user_at" field.
 func (_c *ChatConversationCreate) SetLastReadByUserAt(v time.Time) *ChatConversationCreate {
 	_c.mutation.SetLastReadByUserAt(v)
@@ -199,6 +213,10 @@ func (_c *ChatConversationCreate) defaults() {
 		v := chatconversation.DefaultUnreadByAdmin
 		_c.mutation.SetUnreadByAdmin(v)
 	}
+	if _, ok := _c.mutation.ManuallyUnreadByAdmin(); !ok {
+		v := chatconversation.DefaultManuallyUnreadByAdmin
+		_c.mutation.SetManuallyUnreadByAdmin(v)
+	}
 }
 
 // check runs all checks and user-defined validators on the builder.
@@ -217,6 +235,9 @@ func (_c *ChatConversationCreate) check() error {
 	}
 	if _, ok := _c.mutation.UnreadByAdmin(); !ok {
 		return &ValidationError{Name: "unread_by_admin", err: errors.New(`ent: missing required field "ChatConversation.unread_by_admin"`)}
+	}
+	if _, ok := _c.mutation.ManuallyUnreadByAdmin(); !ok {
+		return &ValidationError{Name: "manually_unread_by_admin", err: errors.New(`ent: missing required field "ChatConversation.manually_unread_by_admin"`)}
 	}
 	if len(_c.mutation.UserIDs()) == 0 {
 		return &ValidationError{Name: "user", err: errors.New(`ent: missing required edge "ChatConversation.user"`)}
@@ -267,6 +288,10 @@ func (_c *ChatConversationCreate) createSpec() (*ChatConversation, *sqlgraph.Cre
 	if value, ok := _c.mutation.UnreadByAdmin(); ok {
 		_spec.SetField(chatconversation.FieldUnreadByAdmin, field.TypeInt, value)
 		_node.UnreadByAdmin = value
+	}
+	if value, ok := _c.mutation.ManuallyUnreadByAdmin(); ok {
+		_spec.SetField(chatconversation.FieldManuallyUnreadByAdmin, field.TypeBool, value)
+		_node.ManuallyUnreadByAdmin = value
 	}
 	if value, ok := _c.mutation.LastReadByUserAt(); ok {
 		_spec.SetField(chatconversation.FieldLastReadByUserAt, field.TypeTime, value)
@@ -439,6 +464,18 @@ func (u *ChatConversationUpsert) AddUnreadByAdmin(v int) *ChatConversationUpsert
 	return u
 }
 
+// SetManuallyUnreadByAdmin sets the "manually_unread_by_admin" field.
+func (u *ChatConversationUpsert) SetManuallyUnreadByAdmin(v bool) *ChatConversationUpsert {
+	u.Set(chatconversation.FieldManuallyUnreadByAdmin, v)
+	return u
+}
+
+// UpdateManuallyUnreadByAdmin sets the "manually_unread_by_admin" field to the value that was provided on create.
+func (u *ChatConversationUpsert) UpdateManuallyUnreadByAdmin() *ChatConversationUpsert {
+	u.SetExcluded(chatconversation.FieldManuallyUnreadByAdmin)
+	return u
+}
+
 // SetLastReadByUserAt sets the "last_read_by_user_at" field.
 func (u *ChatConversationUpsert) SetLastReadByUserAt(v time.Time) *ChatConversationUpsert {
 	u.Set(chatconversation.FieldLastReadByUserAt, v)
@@ -608,6 +645,20 @@ func (u *ChatConversationUpsertOne) AddUnreadByAdmin(v int) *ChatConversationUps
 func (u *ChatConversationUpsertOne) UpdateUnreadByAdmin() *ChatConversationUpsertOne {
 	return u.Update(func(s *ChatConversationUpsert) {
 		s.UpdateUnreadByAdmin()
+	})
+}
+
+// SetManuallyUnreadByAdmin sets the "manually_unread_by_admin" field.
+func (u *ChatConversationUpsertOne) SetManuallyUnreadByAdmin(v bool) *ChatConversationUpsertOne {
+	return u.Update(func(s *ChatConversationUpsert) {
+		s.SetManuallyUnreadByAdmin(v)
+	})
+}
+
+// UpdateManuallyUnreadByAdmin sets the "manually_unread_by_admin" field to the value that was provided on create.
+func (u *ChatConversationUpsertOne) UpdateManuallyUnreadByAdmin() *ChatConversationUpsertOne {
+	return u.Update(func(s *ChatConversationUpsert) {
+		s.UpdateManuallyUnreadByAdmin()
 	})
 }
 
@@ -952,6 +1003,20 @@ func (u *ChatConversationUpsertBulk) AddUnreadByAdmin(v int) *ChatConversationUp
 func (u *ChatConversationUpsertBulk) UpdateUnreadByAdmin() *ChatConversationUpsertBulk {
 	return u.Update(func(s *ChatConversationUpsert) {
 		s.UpdateUnreadByAdmin()
+	})
+}
+
+// SetManuallyUnreadByAdmin sets the "manually_unread_by_admin" field.
+func (u *ChatConversationUpsertBulk) SetManuallyUnreadByAdmin(v bool) *ChatConversationUpsertBulk {
+	return u.Update(func(s *ChatConversationUpsert) {
+		s.SetManuallyUnreadByAdmin(v)
+	})
+}
+
+// UpdateManuallyUnreadByAdmin sets the "manually_unread_by_admin" field to the value that was provided on create.
+func (u *ChatConversationUpsertBulk) UpdateManuallyUnreadByAdmin() *ChatConversationUpsertBulk {
+	return u.Update(func(s *ChatConversationUpsert) {
+		s.UpdateManuallyUnreadByAdmin()
 	})
 }
 

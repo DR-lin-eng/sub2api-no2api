@@ -47,6 +47,40 @@ describe('LocalCaptchaWidget', () => {
     expect(wrapper.emitted('update:captchaCode')?.at(-1)).toEqual(['A7K9P'])
   })
 
+  it('does not write intermediate mobile IME letters back into the controlled value', async () => {
+    const wrapper = mount(LocalCaptchaWidget, {
+      props: {
+        captchaId: '',
+        captchaCode: '',
+      },
+      global: {
+        stubs: {
+          Icon: true,
+        },
+      },
+    })
+
+    await flushPromises()
+    const input = wrapper.get('input')
+    const emittedBeforeComposition = wrapper.emitted('update:captchaCode')?.length ?? 0
+
+    await input.trigger('compositionstart')
+    ;(input.element as HTMLInputElement).value = 'n'
+    await input.trigger('input')
+    ;(input.element as HTMLInputElement).value = 'ni'
+    await input.trigger('input')
+
+    expect(wrapper.emitted('update:captchaCode')?.length ?? 0).toBe(emittedBeforeComposition)
+    expect((input.element as HTMLInputElement).value).toBe('ni')
+
+    // Committing a raw captcha letter emits it exactly once, after composition.
+    ;(input.element as HTMLInputElement).value = 'n'
+    await input.trigger('compositionend')
+    const updates = wrapper.emitted('update:captchaCode') ?? []
+    expect(updates).toHaveLength(emittedBeforeComposition + 1)
+    expect(updates.at(-1)).toEqual(['N'])
+  })
+
   it('clears the old challenge before refreshing', async () => {
     const wrapper = mount(LocalCaptchaWidget, {
       props: {

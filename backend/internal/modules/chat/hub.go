@@ -103,6 +103,18 @@ func (h *Hub) BroadcastMessage(_ int64, recipientUserID int64, msg *Message, toA
 	h.broadcast(payload, recipientUserID, toAdmins)
 }
 
+// BroadcastMessageRecalled updates both sides of the shared conversation. The
+// service passes a delivery-redacted message so the original payload never
+// enters a WebSocket frame after recall.
+func (h *Hub) BroadcastMessageRecalled(_ int64, recipientUserID int64, msg *Message) {
+	payload, err := json.Marshal(outboundEvent{Type: "message_recalled", Message: msg})
+	if err != nil {
+		return
+	}
+	h.broadcast(payload, recipientUserID, true)
+	h.broadcast(payload, recipientUserID, false)
+}
+
 func (h *Hub) BroadcastReadState(
 	conversationID, recipientUserID int64,
 	reader SenderType,

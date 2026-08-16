@@ -30,6 +30,8 @@ type ChatConversation struct {
 	UnreadByUser int `json:"unread_by_user,omitempty"`
 	// 客服未读消息数（用户发出待客服查看）
 	UnreadByAdmin int `json:"unread_by_admin,omitempty"`
+	// 管理员手动标记的未读提醒，不改变真实未读消息数
+	ManuallyUnreadByAdmin bool `json:"manually_unread_by_admin,omitempty"`
 	// LastReadByUserAt holds the value of the "last_read_by_user_at" field.
 	LastReadByUserAt *time.Time `json:"last_read_by_user_at,omitempty"`
 	// LastReadByAdminAt holds the value of the "last_read_by_admin_at" field.
@@ -76,6 +78,8 @@ func (*ChatConversation) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case chatconversation.FieldManuallyUnreadByAdmin:
+			values[i] = new(sql.NullBool)
 		case chatconversation.FieldID, chatconversation.FieldUserID, chatconversation.FieldUnreadByUser, chatconversation.FieldUnreadByAdmin:
 			values[i] = new(sql.NullInt64)
 		case chatconversation.FieldCreatedAt, chatconversation.FieldUpdatedAt, chatconversation.FieldLastMessageAt, chatconversation.FieldLastReadByUserAt, chatconversation.FieldLastReadByAdminAt:
@@ -137,6 +141,12 @@ func (_m *ChatConversation) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field unread_by_admin", values[i])
 			} else if value.Valid {
 				_m.UnreadByAdmin = int(value.Int64)
+			}
+		case chatconversation.FieldManuallyUnreadByAdmin:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field manually_unread_by_admin", values[i])
+			} else if value.Valid {
+				_m.ManuallyUnreadByAdmin = value.Bool
 			}
 		case chatconversation.FieldLastReadByUserAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -217,6 +227,9 @@ func (_m *ChatConversation) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("unread_by_admin=")
 	builder.WriteString(fmt.Sprintf("%v", _m.UnreadByAdmin))
+	builder.WriteString(", ")
+	builder.WriteString("manually_unread_by_admin=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ManuallyUnreadByAdmin))
 	builder.WriteString(", ")
 	if v := _m.LastReadByUserAt; v != nil {
 		builder.WriteString("last_read_by_user_at=")

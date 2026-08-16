@@ -41,6 +41,7 @@
       </div>
 
       <SupportMessageComposer
+        ref="composerRef"
         :sending="sending"
         :disabled="loading"
         :replying-to="replyingTo"
@@ -81,6 +82,7 @@ const messages = ref<ChatMessage[]>([])
 const conversation = ref<ChatConversation | null>(null)
 const replyingTo = ref<ChatMessage | null>(null)
 const messagePaneRef = ref<HTMLElement | null>(null)
+const composerRef = ref<InstanceType<typeof SupportMessageComposer> | null>(null)
 const socketConnected = ref(false)
 let fallbackPollTimer: ReturnType<typeof setInterval> | null = null
 const SUPPORT_CHAT_RESYNC_MS = 15000
@@ -104,6 +106,10 @@ const socket = useSupportChatSocket({
     }
     void scrollToBottom()
   },
+  onMessageRecalled: (message) => {
+    replaceMessage(message)
+    if (replyingTo.value?.id === message.id) replyingTo.value = null
+  },
   onReadState: (readState) => {
     if (readState.reader === 'admin' && conversation.value?.id === readState.conversation_id) {
       conversation.value.last_read_by_admin_at = readState.read_at
@@ -116,8 +122,18 @@ function appendMessage(message: ChatMessage) {
   messages.value.push(message)
 }
 
+function replaceMessage(message: ChatMessage) {
+  const index = messages.value.findIndex((item) => item.id === message.id)
+  if (index < 0) {
+    messages.value.push(message)
+    return
+  }
+  messages.value[index] = message
+  messages.value = [...messages.value]
+}
+
 function messageScrollSignature(): string {
-  return messages.value.map((message) => `${message.id}:${message.created_at}`).join('|')
+  return messages.value.map((message) => `${message.id}:${message.created_at}:${message.recalled_at || ''}`).join('|')
 }
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -175,6 +191,7 @@ async function handleSend(input: ChatSendMessageInput) {
   try {
     const message = await sendUserChatMessage(input)
     appendMessage(message)
+    composerRef.value?.clearDraft()
     replyingTo.value = null
     await scrollToBottom()
   } catch (error) {
@@ -196,6 +213,7 @@ async function handleUpload(value: { file: File; content: string; reply_to_id: n
       reply_to_id: value.reply_to_id,
     })
     appendMessage(message)
+    composerRef.value?.clearDraft()
     replyingTo.value = null
     await scrollToBottom()
   } catch (error) {

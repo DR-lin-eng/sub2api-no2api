@@ -48,6 +48,8 @@
               autocomplete="off"
               class="h-12 w-10 rounded-lg border border-gray-300 text-center text-lg font-semibold focus:border-primary-500 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
               :disabled="verifying"
+              @compositionstart="handleCompositionStart(index)"
+              @compositionend="handleCompositionEnd($event, index)"
               @input="handleCodeInput($event, index)"
               @keydown="handleKeydown($event, index)"
               @paste="handlePaste"
@@ -96,6 +98,7 @@ const verifying = ref(false)
 const code = ref<string[]>(['', '', '', '', '', ''])
 const inputRefs = ref<(HTMLInputElement | null)[]>([])
 const hiddenOtpInputRef = ref<HTMLInputElement | null>(null)
+const composingInputIndexes = new Set<number>()
 
 // Watch for code changes and auto-submit when 6 digits are entered
 watch(
@@ -122,6 +125,7 @@ defineExpose({
     if (hiddenOtpInputRef.value) {
       hiddenOtpInputRef.value.value = ''
     }
+    composingInputIndexes.clear()
     nextTick(() => {
       inputRefs.value[0]?.focus()
     })
@@ -132,9 +136,10 @@ const setInputRef = (el: any, index: number) => {
   inputRefs.value[index] = el as HTMLInputElement | null
 }
 
-const handleCodeInput = (event: Event, index: number) => {
+const commitCodeInput = (event: Event, index: number) => {
   const input = event.target as HTMLInputElement
-  const value = input.value.replace(/[^0-9]/g, '')
+  const value = input.value.replace(/[^0-9]/g, '').slice(0, 1)
+  input.value = value
   code.value[index] = value
 
   if (value && index < 5) {
@@ -142,6 +147,20 @@ const handleCodeInput = (event: Event, index: number) => {
       inputRefs.value[index + 1]?.focus()
     })
   }
+}
+
+const handleCodeInput = (event: Event, index: number) => {
+  if (composingInputIndexes.has(index) || (event as InputEvent).isComposing) return
+  commitCodeInput(event, index)
+}
+
+const handleCompositionStart = (index: number) => {
+  composingInputIndexes.add(index)
+}
+
+const handleCompositionEnd = (event: CompositionEvent, index: number) => {
+  composingInputIndexes.delete(index)
+  commitCodeInput(event, index)
 }
 
 // Handle autofill from password managers via the hidden autocomplete="one-time-code" input
@@ -165,6 +184,7 @@ const handleHiddenOtpInput = (event: Event) => {
 }
 
 const handleKeydown = (event: KeyboardEvent, index: number) => {
+  if (composingInputIndexes.has(index) || event.isComposing || event.keyCode === 229) return
   if (event.key === 'Backspace') {
     const input = event.target as HTMLInputElement
     // If current cell is empty and not the first, move to previous cell

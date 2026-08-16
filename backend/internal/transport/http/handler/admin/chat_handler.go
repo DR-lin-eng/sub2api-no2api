@@ -171,6 +171,36 @@ func (h *ChatHandler) SendMessage(c *gin.Context) {
 	response.Success(c, msg)
 }
 
+// RecallMessage hides an administrator-authored message from both delivery
+// APIs and realtime clients while retaining its server-side audit row.
+// POST /api/v1/admin/chat/conversations/:id/messages/:message_id/recall
+func (h *ChatHandler) RecallMessage(c *gin.Context) {
+	conversationID, ok := parsePositiveChatID(c, "id", "Invalid conversation ID")
+	if !ok {
+		return
+	}
+	messageID, ok := parsePositiveChatID(c, "message_id", "Invalid message ID")
+	if !ok {
+		return
+	}
+	adminID, ok := chatAdminID(c)
+	if !ok {
+		return
+	}
+
+	message, err := h.chatService.RecallMessageByAdmin(
+		c.Request.Context(),
+		conversationID,
+		messageID,
+		adminID,
+	)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, message)
+}
+
 type balanceTransferRequest struct {
 	Amount float64 `json:"amount" binding:"required,gt=0,lte=1000000000"`
 	Notes  string  `json:"notes"`
@@ -228,6 +258,23 @@ func (h *ChatHandler) MarkRead(c *gin.Context) {
 	}
 
 	if err := h.chatService.MarkReadByAdmin(c.Request.Context(), conversationID); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"message": "ok"})
+}
+
+// MarkUnread persists a private reminder in the shared admin inbox without
+// changing the real unread-message count or undoing the user's read receipt.
+// POST /api/v1/admin/chat/conversations/:id/unread
+func (h *ChatHandler) MarkUnread(c *gin.Context) {
+	conversationID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || conversationID <= 0 {
+		response.BadRequest(c, "Invalid conversation ID")
+		return
+	}
+
+	if err := h.chatService.MarkUnreadByAdmin(c.Request.Context(), conversationID); err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}

@@ -54,7 +54,9 @@ export const useSupportChatAdminStore = defineStore('supportChatAdmin', () => {
   }
 
   function syncFromConversations(conversations: ChatConversation[]): void {
-    unreadConversationCount.value = conversations.filter((conversation) => conversation.unread_by_admin > 0).length
+    unreadConversationCount.value = conversations.filter(
+      (conversation) => conversation.unread_by_admin > 0 || conversation.manually_unread_by_admin,
+    ).length
     lastUnreadFetchAt.value = Date.now()
   }
 
