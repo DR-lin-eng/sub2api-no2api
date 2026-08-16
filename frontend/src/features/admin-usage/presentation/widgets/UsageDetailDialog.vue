@@ -191,7 +191,7 @@ const requestDetails = computed(() => {
   const adminDetails = [
     usage.upstream_model ? { key: 'upstream_model', label: t('usage.upstreamModel'), value: usage.upstream_model } : null,
     usage.model_mapping_chain ? { key: 'model_mapping_chain', label: t('usage.detail.modelMappingChain'), value: usage.model_mapping_chain } : null,
-    usage.account ? { key: 'account', label: t('admin.usage.account'), value: `${usage.account.name} (#${usage.account.id})` } : null,
+    usage.account ? { key: 'account', label: t('usage.account'), value: `${usage.account.name} (#${usage.account.id})` } : null,
     usage.channel_id != null ? { key: 'channel_id', label: t('usage.detail.channelId'), value: `#${usage.channel_id}` } : null,
     usage.billing_tier ? { key: 'billing_tier', label: t('usage.detail.billingTier'), value: usage.billing_tier } : null,
   ].filter((item): item is NonNullable<typeof item> => item != null)
@@ -203,7 +203,7 @@ const requestDetails = computed(() => {
     { key: 'request_type', label: t('usage.type'), value: requestTypeLabel.value },
     { key: 'endpoint', label: t('usage.inboundEndpoint'), value: displayValue(usage.inbound_endpoint), mono: true },
     ...(usage.upstream_endpoint ? [{ key: 'upstream_endpoint', label: t('usage.upstreamEndpoint'), value: usage.upstream_endpoint, mono: true }] : []),
-    { key: 'group', label: t('admin.usage.group'), value: usage.group?.name || (usage.group_id ? `#${usage.group_id}` : '-') },
+    { key: 'group', label: t('usage.group'), value: usage.group?.name || (usage.group_id ? `#${usage.group_id}` : '-') },
     { key: 'billing_type', label: t('usage.detail.billingType'), value: usage.billing_type === 1 ? t('usage.detail.subscriptionBilling') : t('usage.detail.balanceBilling') },
     { key: 'service_tier', label: t('usage.serviceTier'), value: displayValue(usage.service_tier) },
     { key: 'reasoning_effort', label: t('usage.reasoningEffort'), value: formatReasoningEffort(usage.reasoning_effort) },
@@ -237,12 +237,12 @@ const usageDetails = computed(() => {
 
   const speed = calculateOutputTokensPerSecond(usage)
   return [
-    { key: 'input', label: t('admin.usage.inputTokens'), value: usage.input_tokens.toLocaleString() },
-    { key: 'output', label: t('admin.usage.outputTokens'), value: usage.output_tokens.toLocaleString() },
-    { key: 'cache_creation', label: t('admin.usage.cacheCreationTokens'), value: usage.cache_creation_tokens.toLocaleString() },
-    ...(usage.cache_creation_5m_tokens > 0 ? [{ key: 'cache_creation_5m', label: t('admin.usage.cacheCreation5mTokens'), value: usage.cache_creation_5m_tokens.toLocaleString() }] : []),
-    ...(usage.cache_creation_1h_tokens > 0 ? [{ key: 'cache_creation_1h', label: t('admin.usage.cacheCreation1hTokens'), value: usage.cache_creation_1h_tokens.toLocaleString() }] : []),
-    { key: 'cache_read', label: t('admin.usage.cacheReadTokens'), value: usage.cache_read_tokens.toLocaleString() },
+    { key: 'input', label: t('usage.inputTokens'), value: usage.input_tokens.toLocaleString() },
+    { key: 'output', label: t('usage.outputTokens'), value: usage.output_tokens.toLocaleString() },
+    { key: 'cache_creation', label: t('usage.cacheCreationTokens'), value: usage.cache_creation_tokens.toLocaleString() },
+    ...(usage.cache_creation_5m_tokens > 0 ? [{ key: 'cache_creation_5m', label: t('usage.cacheCreation5mTokens'), value: usage.cache_creation_5m_tokens.toLocaleString() }] : []),
+    ...(usage.cache_creation_1h_tokens > 0 ? [{ key: 'cache_creation_1h', label: t('usage.cacheCreation1hTokens'), value: usage.cache_creation_1h_tokens.toLocaleString() }] : []),
+    { key: 'cache_read', label: t('usage.cacheReadTokens'), value: usage.cache_read_tokens.toLocaleString() },
     { key: 'first_token', label: t('usage.firstToken'), value: formatDuration(usage.first_token_ms) },
     { key: 'duration', label: t('usage.duration'), value: formatDuration(usage.duration_ms) },
     { key: 'speed', label: t('usage.outputSpeed'), value: speed == null ? '-' : `${speed.toFixed(2)} ${t('usage.tokensPerSecondUnit')}` },

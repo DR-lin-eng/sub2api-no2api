@@ -1,7 +1,11 @@
 import { mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ProfileInfoCard from '@/features/profile/presentation/widgets/ProfileInfoCard.vue'
 import type { User } from '@/types'
+
+const { i18nLocale } = vi.hoisted(() => ({
+  i18nLocale: { value: 'en' }
+}))
 
 vi.mock('vue-router', () => ({
   useRoute: () => ({
@@ -27,6 +31,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
   return {
     ...actual,
     useI18n: () => ({
+      locale: i18nLocale,
       t: (key: string, params?: Record<string, string>) => {
         if (key === 'profile.accountBalance') return 'Account Balance'
         if (key === 'profile.concurrencyLimit') return 'Concurrency Limit'
@@ -70,6 +75,10 @@ function createUser(overrides: Partial<User> = {}): User {
 }
 
 describe('ProfileInfoCard', () => {
+  beforeEach(() => {
+    i18nLocale.value = 'en'
+  })
+
   it('renders basic account information inside the new overview shell', () => {
     const wrapper = mount(ProfileInfoCard, {
       props: {
@@ -193,5 +202,27 @@ describe('ProfileInfoCard', () => {
     expect(wrapper.get('[data-testid="profile-side-column"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="profile-basics-panel"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="profile-auth-bindings-panel"]').exists()).toBe(true)
+  })
+
+  it('formats the member-since month using the active interface locale', () => {
+    const mountCard = () => mount(ProfileInfoCard, {
+      props: {
+        user: createUser()
+      },
+      global: {
+        stubs: {
+          Icon: true
+        }
+      }
+    })
+
+    const englishCard = mountCard()
+    expect(englishCard.get('[data-testid="profile-overview-metric-member-since"]').text())
+      .toContain('Apr 2026')
+
+    i18nLocale.value = 'zh-CN'
+    const chineseCard = mountCard()
+    expect(chineseCard.get('[data-testid="profile-overview-metric-member-since"]').text())
+      .toContain('2026年4月')
   })
 })

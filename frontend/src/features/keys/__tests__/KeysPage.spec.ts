@@ -48,6 +48,26 @@ const messages: Record<string, string> = {
   'keys.created': 'Created',
   'keys.expiresAt': 'Expires',
   'keys.group': 'Group',
+  'keys.groupRouting': 'Routing Groups',
+  'keys.groupBindings.primary': 'Primary',
+  'keys.groupBindings.fallback': 'Fallback',
+  'keys.groupBindings.fallbackPosition': 'Fallback {position}',
+  'keys.groupBindings.singleGroup': 'No fallback groups configured',
+  'keys.groupBindings.notConfigured': 'No routing groups',
+  'keys.groupBindings.configure': 'Configure',
+  'keys.groupBindings.manage': 'Manage',
+  'keys.groupBindings.manageFor': 'Manage routing groups for {name}',
+  'keys.groupBindings.manageEmpty': 'No routing groups configured',
+  'keys.groupBindings.moreGroups': '+{count}',
+  'keys.groupBindings.rateCeilingShort': '≤{rate}x',
+  'keys.groupBindings.dialogTitle': 'Manage Routing Groups',
+  'keys.groupBindings.dialogDescription': 'Configure routing for {name}',
+  'keys.groupBindings.groupCount': '{count} groups',
+  'keys.groupBindings.currentPrimary': 'Current primary: {group}',
+  'keys.groupBindings.save': 'Save groups',
+  'keys.groupBindings.updatedSuccess': 'Routing groups updated',
+  'keys.groupBindings.updateFailed': 'Failed to update routing groups',
+  'keys.groupBindings.orderHint': 'Groups are tried in order.',
   'keys.id': 'ID',
   'keys.currentConcurrency': 'Current Concurrency',
   'keys.lastUsedAt': 'Last Used',
@@ -112,7 +132,13 @@ vi.mock('vue-i18n', async () => {
   return {
     ...actual,
     useI18n: () => ({
-      t: (key: string) => messages[key] ?? key,
+      t: (key: string, params: Record<string, string | number> = {}) => {
+        let message = messages[key] ?? key
+        for (const [name, value] of Object.entries(params)) {
+          message = message.replace(`{${name}}`, String(value))
+        }
+        return message
+      },
     }),
   }
 })
@@ -184,6 +210,9 @@ const DataTableStub = {
           <slot name="cell-id" :value="row.id" :row="row" />
         </div>
         <slot name="cell-name" :value="row.name" :row="row" />
+        <div data-test="group-routing">
+          <slot name="cell-group" :value="row.group" :row="row" />
+        </div>
         <div data-test="current-concurrency">
           <slot name="cell-current_concurrency" :value="row.current_concurrency" :row="row" />
         </div>
@@ -256,7 +285,10 @@ const mountView = async () => {
         Icon: IconStub,
         UseKeyModal: true,
         EndpointPopover: true,
-        GroupBadge: true,
+        GroupBadge: {
+          props: ['name', 'rateMultiplier'],
+          template: '<span>{{ name }} {{ rateMultiplier }}x</span>',
+        },
         GroupOptionItem: true,
         Teleport: true,
       },
@@ -339,6 +371,71 @@ describe('user KeysView column settings', () => {
     expect(visibleColumnKeys(wrapper)).not.toContain('last_used_at')
     expect(visibleColumnKeys(wrapper)).not.toContain('last_used_ip')
     expect(visibleColumnKeys(wrapper)).not.toContain('id')
+  })
+
+  it('shows ordered routing groups and saves the complete binding chain from the focused manager', async () => {
+    listKeys.mockResolvedValueOnce({
+      items: [{
+        ...createApiKey(),
+        group_id: 42,
+        group_bindings: [
+          { group_id: 42, max_rate_multiplier: null },
+          { group_id: 43, max_rate_multiplier: 1.5 },
+        ],
+      }],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1,
+    })
+    getAvailableGroups.mockResolvedValueOnce([
+      {
+        id: 42,
+        name: 'Primary OpenAI',
+        description: 'Primary route',
+        platform: 'openai',
+        rate_multiplier: 1,
+        subscription_type: 'standard',
+        peak_rate_enabled: false,
+        peak_start: '',
+        peak_end: '',
+        peak_rate_multiplier: 1,
+      },
+      {
+        id: 43,
+        name: 'Fallback OpenAI',
+        description: 'Fallback route',
+        platform: 'openai',
+        rate_multiplier: 1.2,
+        subscription_type: 'standard',
+        peak_rate_enabled: false,
+        peak_start: '',
+        peak_end: '',
+        peak_rate_multiplier: 1,
+      },
+    ])
+
+    const wrapper = await mountView()
+    const summary = wrapper.get('[data-test="key-groups-summary-1"]')
+    expect(summary.text()).toContain('Primary OpenAI')
+    expect(summary.text()).toContain('Fallback OpenAI')
+    expect(summary.text()).toContain('≤1.5x')
+
+    await summary.trigger('click')
+    await nextTick()
+    expect(wrapper.get('[data-test="key-group-bindings-dialog"]').text()).toContain('2 groups')
+
+    await wrapper.get('[data-test="key-group-bindings-save"]').trigger('click')
+    await flushPromises()
+
+    expect(updateKey).toHaveBeenCalledWith(1, {
+      group_id: 42,
+      group_bindings: [
+        { group_id: 42, max_rate_multiplier: null },
+        { group_id: 43, max_rate_multiplier: 1.5 },
+      ],
+    })
+    expect(showSuccess).toHaveBeenCalledWith('Routing groups updated')
   })
 
   it('shows a hidden column when toggled and persists the preference', async () => {

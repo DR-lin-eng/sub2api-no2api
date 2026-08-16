@@ -44,10 +44,10 @@
       <!-- Text Content -->
       <div class="mb-8">
         <h1 class="mb-3 text-2xl font-bold text-gray-900 dark:text-white">
-          {{ t('errors.pageNotFound') }}
+          {{ t('common.pageNotFound') }}
         </h1>
         <p class="text-gray-500 dark:text-dark-400">
-          The page you are looking for doesn't exist or has been moved.
+          {{ t('common.pageNotFoundDescription') }}
         </p>
       </div>
 
@@ -55,22 +55,22 @@
       <div class="flex flex-col justify-center gap-3 sm:flex-row">
         <button @click="goBack" class="btn btn-secondary">
           <Icon name="arrowLeft" size="md" class="mr-2" />
-          Go Back
+          {{ t('common.back') }}
         </button>
         <router-link to="/dashboard" class="btn btn-primary">
           <Icon name="home" size="md" class="mr-2" />
-          Go to Dashboard
+          {{ t('home.goToDashboard') }}
         </router-link>
       </div>
 
       <!-- Help Link -->
       <p class="mt-8 text-sm text-gray-400 dark:text-dark-500">
-        Need help?
+        {{ t('common.needHelp') }}
         <a
           href="#"
           class="text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
         >
-          Contact support
+          {{ t('common.contactSupport') }}
         </a>
       </p>
     </div>

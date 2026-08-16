@@ -689,7 +689,7 @@ export function useCreateAccountOAuthActions(context: CreateAccountOAuthActionsC
         extra
       })
 
-      notifications.showSuccess(t('admin.accounts.messages.accountCreated'))
+      notifications.showSuccess(t('admin.accounts.accountCreated'))
       onCreated()
       handleClose()
     } catch (error: any) {

@@ -207,7 +207,7 @@ const props = withDefaults(defineProps<{
   wechatMpEnabled: undefined,
 })
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 function normalizeBindingStatus(binding: boolean | UserAuthBindingStatus | undefined): boolean | null {
   if (typeof binding === 'boolean') {
@@ -256,7 +256,7 @@ const memberSinceLabel = computed(() => {
     return '-'
   }
 
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale.value, {
     year: 'numeric',
     month: 'short',
   }).format(date)

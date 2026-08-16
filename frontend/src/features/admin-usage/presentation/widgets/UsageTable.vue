@@ -32,13 +32,13 @@
               v-if="row.user?.email"
               class="font-medium text-primary-600 underline decoration-dashed underline-offset-2 transition-colors hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
               @click="$emit('userClick', row.user_id, row.user?.email)"
-              :title="t('admin.usage.clickToViewBalance')"
+              :title="t('usage.clickToViewBalance')"
             >
               {{ row.user.email }}
             </button>
             <span v-else class="font-medium text-gray-900 dark:text-white">-</span>
             <span v-if="row.user?.deleted_at" class="ml-1 inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-rose-100 text-rose-600 ring-1 ring-inset ring-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:ring-rose-500/30">
-              {{ t('admin.usage.userDeletedBadge') }}
+              {{ t('usage.userDeletedBadge') }}
             </span>
             <span class="ml-1 text-gray-500 dark:text-gray-400">#{{ row.user_id }}</span>
           </div>
@@ -308,11 +308,11 @@
           <div>
             <div class="text-xs font-semibold text-gray-300 mb-1">{{ t('usage.tokenDetails') }}</div>
             <div v-if="tokenTooltipData && tokenTooltipData.input_tokens > 0 && !hasImageInputTokens(tokenTooltipData)" class="flex items-center justify-between gap-4">
-              <span class="text-gray-400">{{ t('admin.usage.inputTokens') }}</span>
+              <span class="text-gray-400">{{ t('usage.inputTokens') }}</span>
               <span class="font-medium text-white">{{ tokenTooltipData.input_tokens.toLocaleString() }}</span>
             </div>
             <div v-if="tokenTooltipData && hasImageInputTokens(tokenTooltipData) && textInputTokens(tokenTooltipData) > 0" class="flex items-center justify-between gap-4">
-              <span class="text-gray-400">{{ t('admin.usage.inputTokens') }}</span>
+              <span class="text-gray-400">{{ t('usage.inputTokens') }}</span>
               <span class="font-medium text-white">{{ textInputTokens(tokenTooltipData).toLocaleString() }}</span>
             </div>
             <div v-if="tokenTooltipData && hasImageInputTokens(tokenTooltipData)" class="flex items-center justify-between gap-4">
@@ -320,11 +320,11 @@
               <span class="font-medium text-fuchsia-300">{{ tokenTooltipData.image_input_tokens.toLocaleString() }}</span>
             </div>
             <div v-if="tokenTooltipData && tokenTooltipData.output_tokens > 0 && !hasImageOutputTokens(tokenTooltipData)" class="flex items-center justify-between gap-4">
-              <span class="text-gray-400">{{ t('admin.usage.outputTokens') }}</span>
+              <span class="text-gray-400">{{ t('usage.outputTokens') }}</span>
               <span class="font-medium text-white">{{ tokenTooltipData.output_tokens.toLocaleString() }}</span>
             </div>
             <div v-if="tokenTooltipData && hasImageOutputTokens(tokenTooltipData) && textOutputTokens(tokenTooltipData) > 0" class="flex items-center justify-between gap-4">
-              <span class="text-gray-400">{{ t('admin.usage.outputTokens') }}</span>
+              <span class="text-gray-400">{{ t('usage.outputTokens') }}</span>
               <span class="font-medium text-white">{{ textOutputTokens(tokenTooltipData).toLocaleString() }}</span>
             </div>
             <div v-if="tokenTooltipData && hasImageOutputTokens(tokenTooltipData)" class="flex items-center justify-between gap-4">
@@ -336,14 +336,14 @@
               <template v-if="tokenTooltipData.cache_creation_5m_tokens > 0 || tokenTooltipData.cache_creation_1h_tokens > 0">
                 <div v-if="tokenTooltipData.cache_creation_5m_tokens > 0" class="flex items-center justify-between gap-4">
                   <span class="text-gray-400 flex items-center gap-1.5">
-                    {{ t('admin.usage.cacheCreation5mTokens') }}
+                    {{ t('usage.cacheCreation5mTokens') }}
                     <span class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-amber-500/20 text-amber-400 ring-1 ring-inset ring-amber-500/30">5m</span>
                   </span>
                   <span class="font-medium text-white">{{ tokenTooltipData.cache_creation_5m_tokens.toLocaleString() }}</span>
                 </div>
                 <div v-if="tokenTooltipData.cache_creation_1h_tokens > 0" class="flex items-center justify-between gap-4">
                   <span class="text-gray-400 flex items-center gap-1.5">
-                    {{ t('admin.usage.cacheCreation1hTokens') }}
+                    {{ t('usage.cacheCreation1hTokens') }}
                     <span class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-orange-500/20 text-orange-400 ring-1 ring-inset ring-orange-500/30">1h</span>
                   </span>
                   <span class="font-medium text-white">{{ tokenTooltipData.cache_creation_1h_tokens.toLocaleString() }}</span>
@@ -351,7 +351,7 @@
               </template>
               <!-- 无明细时，只显示聚合值 -->
               <div v-else class="flex items-center justify-between gap-4">
-                <span class="text-gray-400">{{ t('admin.usage.cacheCreationTokens') }}</span>
+                <span class="text-gray-400">{{ t('usage.cacheCreationTokens') }}</span>
                 <span class="font-medium text-white">{{ tokenTooltipData.cache_creation_tokens.toLocaleString() }}</span>
               </div>
             </div>
@@ -363,7 +363,7 @@
               <span class="font-medium text-rose-400">{{ tokenTooltipData.cache_creation_1h_tokens > 0 ? t('usage.cacheTtlOverridden1h') : t('usage.cacheTtlOverridden5m') }}</span>
             </div>
             <div v-if="tokenTooltipData && tokenTooltipData.cache_read_tokens > 0" class="flex items-center justify-between gap-4">
-              <span class="text-gray-400">{{ t('admin.usage.cacheReadTokens') }}</span>
+              <span class="text-gray-400">{{ t('usage.cacheReadTokens') }}</span>
               <span class="font-medium text-white">{{ tokenTooltipData.cache_read_tokens.toLocaleString() }}</span>
             </div>
           </div>
@@ -393,7 +393,7 @@
           <div class="mb-2 border-b border-gray-700 pb-1.5">
             <div class="text-xs font-semibold text-gray-300 mb-1">{{ t('usage.costDetails') }}</div>
             <div v-if="tooltipData && tooltipData.input_cost > 0" class="flex items-center justify-between gap-4">
-              <span class="text-gray-400">{{ t('admin.usage.inputCost') }}</span>
+              <span class="text-gray-400">{{ t('usage.inputCost') }}</span>
               <span class="font-medium text-white">${{ tooltipData.input_cost.toFixed(6) }}</span>
             </div>
             <div v-if="tooltipData && hasImageInputCost(tooltipData)" class="flex items-center justify-between gap-4">
@@ -401,7 +401,7 @@
               <span class="font-medium text-fuchsia-300">${{ tooltipData.image_input_cost.toFixed(6) }}</span>
             </div>
             <div v-if="tooltipData && tooltipData.output_cost > 0" class="flex items-center justify-between gap-4">
-              <span class="text-gray-400">{{ t('admin.usage.outputCost') }}</span>
+              <span class="text-gray-400">{{ t('usage.outputCost') }}</span>
               <span class="font-medium text-white">${{ tooltipData.output_cost.toFixed(6) }}</span>
             </div>
             <div v-if="tooltipData && hasImageOutputCost(tooltipData)" class="flex items-center justify-between gap-4">
@@ -466,11 +466,11 @@
               <span class="font-medium text-sky-300">${{ tooltipData?.total_cost?.toFixed(6) || '0.000000' }}</span>
             </div>
             <div v-if="tooltipData && tooltipData.cache_creation_cost > 0" class="flex items-center justify-between gap-4">
-              <span class="text-gray-400">{{ t('admin.usage.cacheCreationCost') }}</span>
+              <span class="text-gray-400">{{ t('usage.cacheCreationCost') }}</span>
               <span class="font-medium text-white">${{ tooltipData.cache_creation_cost.toFixed(6) }}</span>
             </div>
             <div v-if="tooltipData && tooltipData.cache_read_cost > 0" class="flex items-center justify-between gap-4">
-              <span class="text-gray-400">{{ t('admin.usage.cacheReadCost') }}</span>
+              <span class="text-gray-400">{{ t('usage.cacheReadCost') }}</span>
               <span class="font-medium text-white">${{ tooltipData.cache_read_cost.toFixed(6) }}</span>
             </div>
           </div>

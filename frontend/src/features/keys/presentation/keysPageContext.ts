@@ -1,4 +1,4 @@
-import type { ComponentPublicInstance, ComputedRef, Ref } from 'vue'
+import type { ComputedRef, Ref } from 'vue'
 import type { Column } from '@/common/types/uiTypes'
 import type { PublicSettings } from '@/types/common'
 import type {
@@ -57,12 +57,8 @@ export interface KeysTableContext {
   loading: Ref<boolean>
   copiedKeyId: Ref<number | null>
   copyToClipboard: (text: string, keyId: number) => void | Promise<void>
-  setGroupButtonRef: (
-    keyId: number,
-    element: Element | ComponentPublicInstance | null
-  ) => void
-  openGroupSelector: (key: ApiKey) => void
-  userGroupRates: Ref<Record<number, number>>
+  groupOptions: ComputedRef<GroupOption[]>
+  manageKeyGroups: (key: ApiKey) => void
   isUsageStatsLoading: (apiKeyId: number) => boolean
   hasUsageStatsError: (apiKeyId: number) => boolean
   pendingUsageAvailable: Ref<boolean>

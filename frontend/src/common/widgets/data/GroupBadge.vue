@@ -115,9 +115,9 @@ const labelText = computed(() => {
     // 如果有剩余天数，显示天数
     if (props.daysRemaining !== null && props.daysRemaining !== undefined) {
       if (props.daysRemaining <= 0) {
-        return t('admin.users.expired')
+        return t('groups.expired')
       }
-      return t('admin.users.daysRemaining', { days: props.daysRemaining })
+      return t('groups.daysRemaining', { days: props.daysRemaining })
     }
     // 否则显示"订阅"
     return t('groups.subscription')

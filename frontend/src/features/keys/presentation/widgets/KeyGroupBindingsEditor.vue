@@ -106,21 +106,36 @@ const togglePicker = () => {
         </button>
 
         <div class="min-w-0">
-          <GroupBadge
-            v-if="optionFor(binding.group_id)"
-            :name="optionFor(binding.group_id)!.label"
-            :platform="optionFor(binding.group_id)!.platform"
-            :subscription-type="optionFor(binding.group_id)!.subscriptionType"
-            :rate-multiplier="optionFor(binding.group_id)!.rate"
-            :user-rate-multiplier="optionFor(binding.group_id)!.userRate"
-            :peak-rate-enabled="optionFor(binding.group_id)!.peakRateEnabled"
-            :peak-start="optionFor(binding.group_id)!.peakStart"
-            :peak-end="optionFor(binding.group_id)!.peakEnd"
-            :peak-rate-multiplier="optionFor(binding.group_id)!.peakRateMultiplier"
-          />
-          <span v-else class="text-sm font-medium text-gray-900 dark:text-white">
-            #{{ binding.group_id }}
-          </span>
+          <div class="flex min-w-0 flex-wrap items-center gap-1.5">
+            <span
+              :class="[
+                'shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold',
+                index === 0
+                  ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
+                  : 'bg-gray-100 text-gray-500 dark:bg-dark-700 dark:text-gray-400'
+              ]"
+            >
+              {{ index === 0
+                ? t('keys.groupBindings.primary')
+                : t('keys.groupBindings.fallbackPosition', { position: index }) }}
+            </span>
+            <GroupBadge
+              v-if="optionFor(binding.group_id)"
+              class="max-w-full"
+              :name="optionFor(binding.group_id)!.label"
+              :platform="optionFor(binding.group_id)!.platform"
+              :subscription-type="optionFor(binding.group_id)!.subscriptionType"
+              :rate-multiplier="optionFor(binding.group_id)!.rate"
+              :user-rate-multiplier="optionFor(binding.group_id)!.userRate"
+              :peak-rate-enabled="optionFor(binding.group_id)!.peakRateEnabled"
+              :peak-start="optionFor(binding.group_id)!.peakStart"
+              :peak-end="optionFor(binding.group_id)!.peakEnd"
+              :peak-rate-multiplier="optionFor(binding.group_id)!.peakRateMultiplier"
+            />
+            <span v-else class="text-sm font-medium text-gray-900 dark:text-white">
+              #{{ binding.group_id }}
+            </span>
+          </div>
           <p
             v-if="optionFor(binding.group_id)?.description"
             class="mt-1 truncate text-xs text-gray-500 dark:text-gray-400"
@@ -227,6 +242,7 @@ const togglePicker = () => {
           >
             <div class="min-w-0 flex-1">
               <GroupBadge
+                class="max-w-full"
                 :name="option.label"
                 :platform="option.platform"
                 :subscription-type="option.subscriptionType"

@@ -72,6 +72,9 @@ describe('KeyGroupBindingsEditor', () => {
   it('reorders bindings with explicit controls and drag updates', async () => {
     const wrapper = mountEditor()
 
+    expect(wrapper.get('[data-test="key-group-binding-1"]').text()).toContain('keys.groupBindings.primary')
+    expect(wrapper.get('[data-test="key-group-binding-2"]').text()).toContain('keys.groupBindings.fallbackPosition')
+
     await wrapper.get('[data-test="key-group-move-down-1"]').trigger('click')
     expect(latestModel(wrapper).map(binding => binding.group_id)).toEqual([2, 1])
 

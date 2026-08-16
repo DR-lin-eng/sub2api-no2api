@@ -98,6 +98,16 @@
 
     <KeyEditorDialog :context="keyEditorDialogContext" />
 
+    <KeyGroupBindingsDialog
+      v-model="groupEditorBindings"
+      :show="showGroupEditor"
+      :api-key-name="groupEditorKey?.name || ''"
+      :group-options="groupOptions"
+      :saving="groupEditorSaving"
+      @close="closeGroupEditor"
+      @save="saveKeyGroups"
+    />
+
     <!-- Delete Confirmation Dialog -->
     <ConfirmDialog
       :show="showDeleteDialog"
@@ -191,79 +201,11 @@
       </template>
     </BaseDialog>
 
-    <!-- Group Selector Dropdown (Teleported to body to avoid overflow clipping) -->
-    <Teleport to="body">
-      <div
-        v-if="groupSelectorKeyId !== null && dropdownPosition"
-        ref="dropdownRef"
-        class="animate-in fade-in slide-in-from-top-2 fixed z-[100000020] w-max max-w-[calc(100vw-16px)] overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-black/5 duration-200 sm:min-w-[380px] dark:bg-dark-800 dark:ring-white/10"
-        style="pointer-events: auto !important;"
-        :style="{
-          top: dropdownPosition.top !== undefined ? dropdownPosition.top + 'px' : undefined,
-          bottom: dropdownPosition.bottom !== undefined ? dropdownPosition.bottom + 'px' : undefined,
-          left: dropdownPosition.left + 'px'
-        }"
-      >
-        <!-- Search box -->
-        <div class="border-b border-gray-100 p-2 dark:border-dark-700">
-          <div class="relative">
-            <svg class="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              v-model="groupSearchQuery"
-              type="text"
-              class="w-full rounded-lg border border-gray-200 bg-gray-50 py-1.5 pl-8 pr-3 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-primary-300 focus:ring-1 focus:ring-primary-300 dark:border-dark-600 dark:bg-dark-700 dark:text-white dark:placeholder-gray-500 dark:focus:border-primary-600 dark:focus:ring-primary-600"
-              :placeholder="t('keys.searchGroup')"
-              @click.stop
-            />
-          </div>
-        </div>
-        <!-- Group list -->
-        <div class="max-h-80 overflow-y-auto p-1.5">
-          <button
-            v-for="option in filteredGroupOptions"
-            :key="option.value ?? 'null'"
-            @click="changeGroup(selectedKeyForGroup!, option.value)"
-            :class="[
-              'flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors',
-              'border-b border-gray-100 last:border-0 dark:border-dark-700',
-              selectedKeyForGroup?.group_id === option.value ||
-              (!selectedKeyForGroup?.group_id && option.value === null)
-                ? 'bg-primary-50 dark:bg-primary-900/20'
-                : 'hover:bg-gray-100 dark:hover:bg-dark-700'
-            ]"
-            :title="option.description || undefined"
-          >
-            <GroupOptionItem
-              :name="option.label"
-              :platform="option.platform"
-              :subscription-type="option.subscriptionType"
-              :rate-multiplier="option.rate"
-              :user-rate-multiplier="option.userRate"
-              :peak-rate-enabled="option.peakRateEnabled"
-              :peak-start="option.peakStart"
-              :peak-end="option.peakEnd"
-              :peak-rate-multiplier="option.peakRateMultiplier"
-              :description="option.description"
-              :selected="
-                selectedKeyForGroup?.group_id === option.value ||
-                (!selectedKeyForGroup?.group_id && option.value === null)
-              "
-            />
-          </button>
-          <!-- Empty state when search has no results -->
-          <div v-if="filteredGroupOptions.length === 0" class="py-4 text-center text-sm text-gray-400 dark:text-gray-500">
-            {{ t('keys.noGroupFound') }}
-          </div>
-        </div>
-      </div>
-    </Teleport>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-	import { ref, reactive, computed, onMounted, onUnmounted, type ComponentPublicInstance } from 'vue'
+	import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 	import { useI18n } from 'vue-i18n'
 	import { useAppStore } from '@/core/stores/appStore'
 	import { useOnboardingStore } from '@/core/stores/onboardingStore'
@@ -282,8 +224,8 @@ import TablePageLayout from '@/common/widgets/layout/TablePageLayout.vue'
 	import Icon from '@/common/widgets/icons/Icon.vue'
 	import UseKeyModal from '@/features/keys/presentation/widgets/UseKeyDialog.vue'
 	import EndpointPopover from '@/features/keys/presentation/widgets/EndpointPopover.vue'
-	import GroupOptionItem from '@/common/widgets/data/GroupOptionItem.vue'
 import KeyEditorDialog from '@/features/keys/presentation/widgets/KeyEditorDialog.vue'
+import KeyGroupBindingsDialog from '@/features/keys/presentation/widgets/KeyGroupBindingsDialog.vue'
 import KeysTable from '@/features/keys/presentation/widgets/KeysTable.vue'
 	import type { ApiKey, ApiKeyGroupBinding, Group, PublicSettings, UpdateApiKeyRequest } from '@/types'
 import type { Column } from '@/common/types/uiTypes'
@@ -315,7 +257,7 @@ const allColumns = computed<Column[]>(() => [
   { key: 'name', label: t('common.name'), sortable: true },
   { key: 'id', label: t('keys.id'), sortable: true },
   { key: 'key', label: t('keys.apiKey'), sortable: false },
-  { key: 'group', label: t('keys.group'), sortable: false },
+  { key: 'group', label: t('keys.groupRouting'), sortable: false },
   { key: 'current_concurrency', label: t('keys.currentConcurrency'), sortable: true },
   { key: 'usage', label: t('keys.usage'), sortable: false },
   { key: 'rate_limit', label: t('keys.rateLimitColumn'), sortable: false },
@@ -457,12 +399,12 @@ const showColumnDropdown = ref(false)
 const pendingCcsRow = ref<ApiKey | null>(null)
 const selectedKey = ref<ApiKey | null>(null)
 const copiedKeyId = ref<number | null>(null)
-const groupSelectorKeyId = ref<number | null>(null)
+const showGroupEditor = ref(false)
+const groupEditorKey = ref<ApiKey | null>(null)
+const groupEditorBindings = ref<ApiKeyGroupBinding[]>([])
+const groupEditorSaving = ref(false)
 const publicSettings = ref<PublicSettings | null>(null)
-const dropdownRef = ref<HTMLElement | null>(null)
 const columnDropdownRef = ref<HTMLElement | null>(null)
-const dropdownPosition = ref<{ top?: number; bottom?: number; left: number } | null>(null)
-const groupButtonRefs = ref<Map<number, HTMLElement>>(new Map())
 let abortController: AbortController | null = null
 
 const ACTIVE_PENDING_REFRESH_MS = 5000
@@ -471,20 +413,6 @@ const FULL_USAGE_REFRESH_MS = 60000
 const PENDING_USAGE_EPSILON = 0.0000000001
 const USAGE_STATS_BATCH_SIZE = 5
 const USAGE_STATS_REQUEST_CONCURRENCY = 2
-
-// Get the currently selected key for group change
-const selectedKeyForGroup = computed(() => {
-  if (groupSelectorKeyId.value === null) return null
-  return apiKeys.value.find((k) => k.id === groupSelectorKeyId.value) || null
-})
-
-const setGroupButtonRef = (keyId: number, el: Element | ComponentPublicInstance | null) => {
-  if (el instanceof HTMLElement) {
-    groupButtonRefs.value.set(keyId, el)
-  } else {
-    groupButtonRefs.value.delete(keyId)
-  }
-}
 
 const formData = ref({
   name: '',
@@ -584,17 +512,6 @@ const groupOptions = computed(() =>
     platform: group.platform
   }))
 )
-
-// Group dropdown search
-const groupSearchQuery = ref('')
-const filteredGroupOptions = computed(() => {
-  const query = groupSearchQuery.value.trim().toLowerCase()
-  if (!query) return groupOptions.value
-  return groupOptions.value.filter((opt) => {
-    return opt.label.toLowerCase().includes(query) ||
-      (opt.description && opt.description.toLowerCase().includes(query))
-  })
-})
 
 const copyToClipboard = async (text: string, keyId: number) => {
   const success = await clipboardCopy(text, t('keys.copied'))
@@ -952,83 +869,61 @@ const toggleKeyStatus = async (key: ApiKey) => {
   }
 }
 
-const openGroupSelector = (key: ApiKey) => {
-  if (groupSelectorKeyId.value === key.id) {
-    groupSelectorKeyId.value = null
-    dropdownPosition.value = null
-  } else {
-    const buttonEl = groupButtonRefs.value.get(key.id)
-    if (buttonEl) {
-      const rect = buttonEl.getBoundingClientRect()
-      const dropdownEstHeight = 400 // estimated max dropdown height
-      const dropdownEstWidth = Math.min(380, window.innerWidth - 16)
-      const spaceBelow = window.innerHeight - rect.bottom
-      const spaceAbove = rect.top
-      // 夹取 left，避免窄屏下浮层超出视口右缘
-      const left = Math.max(8, Math.min(rect.left, window.innerWidth - dropdownEstWidth - 8))
+const bindingsForKey = (key: ApiKey): ApiKeyGroupBinding[] => key.group_bindings?.length
+  ? key.group_bindings.map(binding => ({ ...binding }))
+  : key.group_id
+    ? [{ group_id: key.group_id, max_rate_multiplier: null }]
+    : []
 
-      if (spaceBelow < dropdownEstHeight && spaceAbove > spaceBelow) {
-        // Not enough space below, pop upward
-        dropdownPosition.value = {
-          bottom: window.innerHeight - rect.top + 4,
-          left
-        }
-      } else {
-        // Default: pop downward
-        dropdownPosition.value = {
-          top: rect.bottom + 4,
-          left
-        }
-      }
-    }
-    groupSelectorKeyId.value = key.id
-    groupSearchQuery.value = ''
-  }
+const manageKeyGroups = (key: ApiKey) => {
+  groupEditorKey.value = key
+  groupEditorBindings.value = bindingsForKey(key)
+  showGroupEditor.value = true
 }
 
-const changeGroup = async (key: ApiKey, newGroupId: number | null) => {
-  groupSelectorKeyId.value = null
-  dropdownPosition.value = null
-  if (key.group_id === newGroupId) return
+const closeGroupEditor = () => {
+  if (groupEditorSaving.value) return
+  showGroupEditor.value = false
+  groupEditorKey.value = null
+  groupEditorBindings.value = []
+}
 
-  const selectedGroup = newGroupId === null
-    ? null
-    : groupOptions.value.find(option => option.value === newGroupId)
-  const existingBindings = key.group_bindings?.length
-    ? key.group_bindings
-    : key.group_id
-      ? [{ group_id: key.group_id, max_rate_multiplier: null }]
-      : []
-  const compatibleFallbacks = selectedGroup?.subscriptionType === 'standard'
-    ? existingBindings.filter((binding) => {
-        if (binding.group_id === newGroupId) return false
-        const option = groupOptions.value.find(candidate => candidate.value === binding.group_id)
-        return option?.platform === selectedGroup.platform && option.subscriptionType === 'standard'
-      })
-    : []
-  const groupBindings: ApiKeyGroupBinding[] = newGroupId === null
-    ? []
-    : [{ group_id: newGroupId, max_rate_multiplier: null }, ...compatibleFallbacks]
+const saveKeyGroups = async () => {
+  const key = groupEditorKey.value
+  if (!key || groupEditorSaving.value) return
 
+  const bindings = groupEditorBindings.value.map(binding => ({ ...binding }))
+  if (bindings.length === 0) {
+    appStore.showError(t('keys.groupRequired'))
+    return
+  }
+  if (bindings.some(binding => binding.max_rate_multiplier !== null && (
+    !Number.isFinite(binding.max_rate_multiplier) || binding.max_rate_multiplier <= 0
+  ))) {
+    appStore.showError(t('keys.groupBindings.invalidRateProtection'))
+    return
+  }
+
+  groupEditorSaving.value = true
   try {
     await keysAPI.update(key.id, {
-      group_id: newGroupId,
-      group_bindings: groupBindings
+      group_id: bindings[0]?.group_id ?? null,
+      group_bindings: bindings
     })
-    appStore.showSuccess(t('keys.groupChangedSuccess'))
-    loadApiKeys()
+    appStore.showSuccess(t('keys.groupBindings.updatedSuccess'))
+    showGroupEditor.value = false
+    groupEditorKey.value = null
+    groupEditorBindings.value = []
+    await loadApiKeys()
   } catch {
-    appStore.showError(t('keys.failedToChangeGroup'))
+    appStore.showError(t('keys.groupBindings.updateFailed'))
+  } finally {
+    groupEditorSaving.value = false
   }
 }
 
-const closeGroupSelector = (event: MouseEvent) => {
+const closeColumnDropdown = (event: MouseEvent) => {
   const target = event.target as HTMLElement
-  // Check if click is inside the dropdown or the trigger button
-  if (!target.closest('.group\\/dropdown') && !dropdownRef.value?.contains(target)) {
-    groupSelectorKeyId.value = null
-    dropdownPosition.value = null
-  }
   if (columnDropdownRef.value && !columnDropdownRef.value.contains(target)) {
     showColumnDropdown.value = false
   }
@@ -1350,9 +1245,8 @@ const keysTableContext: KeysTableContext = {
   loading,
   copiedKeyId,
   copyToClipboard,
-  setGroupButtonRef,
-  openGroupSelector,
-  userGroupRates,
+  groupOptions,
+  manageKeyGroups,
   isUsageStatsLoading,
   hasUsageStatsError,
   pendingUsageAvailable,
@@ -1393,13 +1287,13 @@ onMounted(() => {
   loadGroups()
   loadUserGroupRates()
   loadPublicSettings()
-  document.addEventListener('click', closeGroupSelector)
+  document.addEventListener('click', closeColumnDropdown)
   document.addEventListener('visibilitychange', handleUsageVisibilityChange)
   resetTimer = setInterval(() => { now.value = new Date() }, 60000)
 })
 
 onUnmounted(() => {
-  document.removeEventListener('click', closeGroupSelector)
+  document.removeEventListener('click', closeColumnDropdown)
   document.removeEventListener('visibilitychange', handleUsageVisibilityChange)
   stopUsageRefresh()
   abortController?.abort()

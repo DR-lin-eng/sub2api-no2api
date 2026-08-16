@@ -2,11 +2,11 @@
 import { useI18n } from 'vue-i18n'
 import DataTable from '@/common/widgets/data/DataTable.vue'
 import EmptyState from '@/common/widgets/feedback/EmptyState.vue'
-import GroupBadge from '@/common/widgets/data/GroupBadge.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import { formatDateTime } from '@/core/utils/format'
 import { maskApiKey } from '@/core/utils/maskApiKey'
 import type { KeysTableContext } from '../keysPageContext'
+import KeyGroupBindingsSummary from './KeyGroupBindingsSummary.vue'
 
 const props = defineProps<{
   context: KeysTableContext
@@ -22,22 +22,21 @@ const {
   copyToClipboard,
   editKey,
   formatResetTime,
+  groupOptions,
   handleSort,
   hasUsageStatsError,
   importToCcswitch,
   isUsageStatsLoading,
   loading,
-  openGroupSelector,
+  manageKeyGroups,
   openUseKeyModal,
   pendingUsage,
   pendingUsageAvailable,
   publicSettings,
   quotaUsedWithPending,
-  setGroupButtonRef,
   showCreateModal,
   toggleKeyStatus,
   usageCost,
-  userGroupRates
 } = props.context
 </script>
 
@@ -95,44 +94,11 @@ const {
           </template>
 
           <template #cell-group="{ row }">
-            <div class="group/dropdown relative">
-              <button
-                :ref="(el) => setGroupButtonRef(row.id, el)"
-                @click="openGroupSelector(row)"
-                class="-mx-2 -my-1 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-dark-700"
-                :title="t('keys.clickToChangeGroup')"
-              >
-                <GroupBadge
-                  v-if="row.group"
-                  :name="row.group.name"
-                  :platform="row.group.platform"
-                  :subscription-type="row.group.subscription_type"
-                  :rate-multiplier="row.group.rate_multiplier"
-                  :user-rate-multiplier="userGroupRates[row.group.id]"
-                  :peak-rate-enabled="row.group.peak_rate_enabled"
-                  :peak-start="row.group.peak_start"
-                  :peak-end="row.group.peak_end"
-                  :peak-rate-multiplier="row.group.peak_rate_multiplier"
-                />
-                <span v-else class="text-sm text-gray-400 dark:text-dark-500">{{
-                  t('keys.noGroup')
-                }}</span>
-                <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('keys.selectGroup') }}</span>
-                <svg
-                  class="h-3.5 w-3.5 text-gray-400 opacity-60 transition-opacity group-hover/dropdown:opacity-100"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  stroke-width="2"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9"
-                  />
-                </svg>
-              </button>
-            </div>
+            <KeyGroupBindingsSummary
+              :api-key="row"
+              :group-options="groupOptions"
+              @manage="manageKeyGroups(row)"
+            />
           </template>
 
           <template #cell-current_concurrency="{ value }">
