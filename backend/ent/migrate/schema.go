@@ -952,6 +952,14 @@ var (
 				Columns: []*schema.Column{ChatMessagesColumns[11], ChatMessagesColumns[10], ChatMessagesColumns[0]},
 			},
 			{
+				Name:    "idx_chat_messages_retention_created_id",
+				Unique:  false,
+				Columns: []*schema.Column{ChatMessagesColumns[10], ChatMessagesColumns[0]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "kind <> 'balance_transfer'",
+				},
+			},
+			{
 				Name:    "chatmessage_reply_to_id",
 				Unique:  false,
 				Columns: []*schema.Column{ChatMessagesColumns[5]},

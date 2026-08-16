@@ -351,6 +351,7 @@ export function createSettingsForm(localText: LocalText): SettingsForm {
     channel_monitor_public_share_require_auth: false,
     available_channels_enabled: false,
     support_chat_enabled: false,
+    support_chat_retention_days: 0,
     model_plaza_enabled: false,
     model_plaza_require_auth: false,
     model_plaza_auto_public_models: false,

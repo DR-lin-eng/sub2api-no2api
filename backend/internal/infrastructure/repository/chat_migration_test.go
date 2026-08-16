@@ -60,3 +60,15 @@ func TestSupportChatRecallAndManualUnreadMigrationsPreserveOnlineIndexing(t *tes
 	require.NoError(t, err)
 	require.True(t, nonTx)
 }
+
+func TestSupportChatRetentionIndexExcludesFinancialReceiptsAndIsOnline(t *testing.T) {
+	indexes, err := migrations.FS.ReadFile("230_support_chat_retention_index_notx.sql")
+	require.NoError(t, err)
+	indexSQL := strings.TrimSpace(string(indexes))
+	require.Contains(t, indexSQL, "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_chat_messages_retention_created_id")
+	require.Contains(t, indexSQL, "ON chat_messages (created_at, id)")
+	require.Contains(t, indexSQL, "WHERE kind <> 'balance_transfer'")
+	nonTx, err := validateMigrationExecutionMode("230_support_chat_retention_index_notx.sql", indexSQL)
+	require.NoError(t, err)
+	require.True(t, nonTx)
+}

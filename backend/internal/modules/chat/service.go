@@ -135,6 +135,38 @@ func (s *Service) ListMessagesForAdmin(
 	return s.messageRepo.List(ctx, conversationID, params)
 }
 
+// CleanupExpiredMessages permanently removes ordinary messages older than the
+// configured retention cutoff and then removes message-scoped image data that
+// is no longer referenced. Financial balance-transfer receipts are excluded by
+// the repository because they remain the durable idempotency and audit record
+// for the corresponding balance change.
+func (s *Service) CleanupExpiredMessages(
+	ctx context.Context,
+	before time.Time,
+	limit int,
+) (RetentionCleanupResult, error) {
+	result := RetentionCleanupResult{}
+	if s == nil || s.messageRepo == nil || before.IsZero() || limit <= 0 {
+		return result, nil
+	}
+
+	deleted, err := s.messageRepo.DeleteExpiredBefore(ctx, before.UTC(), limit)
+	if err != nil {
+		return result, fmt.Errorf("delete expired support chat messages: %w", err)
+	}
+	result.MessagesDeleted = deleted
+
+	if s.assetRepo == nil {
+		return result, nil
+	}
+	assetsDeleted, err := s.assetRepo.DeleteUnattachedBefore(ctx, before.UTC(), limit)
+	if err != nil {
+		return result, fmt.Errorf("delete expired support chat assets: %w", err)
+	}
+	result.AssetsDeleted = assetsDeleted
+	return result, nil
+}
+
 // PostMessageFromUser appends a message sent by the conversation's own user.
 func (s *Service) PostMessageFromUser(ctx context.Context, userID int64, content string) (*Message, error) {
 	return s.PostRichMessageFromUser(ctx, userID, SendMessageInput{Content: content, Kind: MessageKindText})

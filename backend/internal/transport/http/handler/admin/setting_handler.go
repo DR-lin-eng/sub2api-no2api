@@ -396,6 +396,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 
 		AvailableChannelsEnabled: settings.AvailableChannelsEnabled,
 		SupportChatEnabled:       settings.SupportChatEnabled,
+		SupportChatRetentionDays: settings.SupportChatRetentionDays,
 
 		ModelPlazaEnabled:          settings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth:      settings.ModelPlazaRequireAuth,

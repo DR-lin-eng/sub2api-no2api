@@ -78,6 +78,9 @@ func (ChatMessage) Edges() []ent.Edge {
 func (ChatMessage) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("conversation_id", "created_at", "id"),
+		index.Fields("created_at", "id").
+			StorageKey("idx_chat_messages_retention_created_id").
+			Annotations(entsql.IndexWhere("kind <> 'balance_transfer'")),
 		index.Fields("reply_to_id"),
 		index.Fields("sender_type", "sender_id", "idempotency_key").Unique(),
 	}

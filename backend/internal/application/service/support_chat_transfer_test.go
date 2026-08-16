@@ -73,6 +73,9 @@ func (r *transferMessageRepo) GetByIdempotencyKey(_ context.Context, sender chat
 func (r *transferMessageRepo) RecallByAdmin(context.Context, int64, int64, int64, time.Time) (*chat.Message, bool, error) {
 	return nil, false, chat.ErrMessageRecallNotAllowed
 }
+func (r *transferMessageRepo) DeleteExpiredBefore(context.Context, time.Time, int) (int, error) {
+	return 0, nil
+}
 
 type transferAdminBalanceStub struct {
 	user  *User

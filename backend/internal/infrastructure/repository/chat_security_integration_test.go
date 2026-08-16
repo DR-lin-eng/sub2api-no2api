@@ -10,6 +10,8 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/chatasset"
+	"github.com/Wei-Shaw/sub2api/ent/chatmessage"
 	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
 	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
 	"github.com/stretchr/testify/require"
@@ -202,6 +204,128 @@ func TestChatRecallAndManualUnreadStateAreDurableAndAuthorizationAware(t *testin
 	require.NoError(t, err)
 	_, err = assetRepo.GetForUser(ctx, asset.ID, user.ID, conversation.ID)
 	require.ErrorIs(t, err, chat.ErrAssetNotFound, "recalled image payloads must no longer be downloadable by the user")
+}
+
+func TestChatRetentionCleanupDeletesOrdinaryHistoryAndReconcilesConversationState(t *testing.T) {
+	baseCtx := context.Background()
+	tx := testEntTx(t)
+	ctx := dbent.NewTxContext(baseCtx, tx)
+	client := tx.Client()
+
+	user := createEntUser(t, ctx, client, uniqueSoftDeleteValue(t, "chat-retention-user")+"@example.test")
+	emptyUser := createEntUser(t, ctx, client, uniqueSoftDeleteValue(t, "chat-retention-empty")+"@example.test")
+	admin := createEntUser(t, ctx, client, uniqueSoftDeleteValue(t, "chat-retention-admin")+"@example.test")
+	conversationRepo := NewChatConversationRepository(client)
+	messageRepo := NewChatMessageRepository(client)
+	assetRepo := NewChatAssetRepository(client)
+	chatService := chat.NewService(conversationRepo, messageRepo)
+	chatService.SetAssetRepository(assetRepo)
+
+	conversation, err := conversationRepo.GetOrCreateByUserID(ctx, user.ID)
+	require.NoError(t, err)
+	emptyConversation, err := conversationRepo.GetOrCreateByUserID(ctx, emptyUser.ID)
+	require.NoError(t, err)
+
+	now := time.Date(2026, 8, 16, 12, 0, 0, 0, time.UTC)
+	cutoff := now.Add(-30 * 24 * time.Hour)
+	oldAt := now.Add(-40 * 24 * time.Hour)
+	readAt := now.Add(-20 * 24 * time.Hour)
+	freshAt := now.Add(-24 * time.Hour)
+	setMessageCreatedAt := func(messageID int64, createdAt time.Time) {
+		_, updateErr := client.ExecContext(ctx, "UPDATE chat_messages SET created_at = $1 WHERE id = $2", createdAt, messageID)
+		require.NoError(t, updateErr)
+	}
+
+	oldUserMessage := &chat.Message{
+		ConversationID: conversation.ID, SenderType: chat.SenderTypeUser, SenderID: user.ID,
+		Content: "expired user text", Kind: chat.MessageKindText, Metadata: []byte(`{}`),
+	}
+	require.NoError(t, messageRepo.CreateAndTouch(ctx, oldUserMessage, oldAt, chat.SenderTypeUser))
+	setMessageCreatedAt(oldUserMessage.ID, oldAt)
+
+	oldAsset := &chat.Asset{
+		Scope: chat.AssetScopeMessage, ConversationID: &conversation.ID, UploadedBy: &admin.ID,
+		Name: "expired.png", MIMEType: "image/png", Size: 3, Data: []byte("png"),
+	}
+	require.NoError(t, assetRepo.Create(ctx, oldAsset))
+	_, err = client.ExecContext(ctx, "UPDATE chat_assets SET created_at = $1 WHERE id = $2", oldAt, oldAsset.ID)
+	require.NoError(t, err)
+	oldImageMessage := &chat.Message{
+		ConversationID: conversation.ID, SenderType: chat.SenderTypeAdmin, SenderID: admin.ID,
+		Content: "[image]", Kind: chat.MessageKindImage, Metadata: []byte(`{}`), AssetIDs: []int64{oldAsset.ID},
+	}
+	require.NoError(t, messageRepo.CreateAndTouch(ctx, oldImageMessage, oldAt, chat.SenderTypeAdmin))
+	setMessageCreatedAt(oldImageMessage.ID, oldAt)
+
+	transferKey := "retention-transfer-key"
+	transferReceipt := &chat.Message{
+		ConversationID: conversation.ID, SenderType: chat.SenderTypeAdmin, SenderID: admin.ID,
+		Content: "Balance credited: 10", Kind: chat.MessageKindBalanceTransfer,
+		Metadata: []byte(`{"amount":10}`), IdempotencyKey: &transferKey,
+	}
+	require.NoError(t, messageRepo.CreateAndTouch(ctx, transferReceipt, oldAt, chat.SenderTypeAdmin))
+	setMessageCreatedAt(transferReceipt.ID, oldAt)
+
+	freshUserMessage := &chat.Message{
+		ConversationID: conversation.ID, SenderType: chat.SenderTypeUser, SenderID: user.ID,
+		Content: "recent question", Kind: chat.MessageKindText, Metadata: []byte(`{}`),
+	}
+	require.NoError(t, messageRepo.CreateAndTouch(ctx, freshUserMessage, freshAt, chat.SenderTypeUser))
+	setMessageCreatedAt(freshUserMessage.ID, freshAt)
+
+	_, err = client.ChatConversation.UpdateOneID(conversation.ID).
+		SetLastReadByAdminAt(readAt).
+		SetLastReadByUserAt(readAt).
+		SetUnreadByAdmin(99).
+		SetUnreadByUser(99).
+		SetManuallyUnreadByAdmin(true).
+		Save(ctx)
+	require.NoError(t, err)
+
+	onlyOldMessage := &chat.Message{
+		ConversationID: emptyConversation.ID, SenderType: chat.SenderTypeUser, SenderID: emptyUser.ID,
+		Content: "only expired message", Kind: chat.MessageKindText, Metadata: []byte(`{}`),
+	}
+	require.NoError(t, messageRepo.CreateAndTouch(ctx, onlyOldMessage, oldAt, chat.SenderTypeUser))
+	setMessageCreatedAt(onlyOldMessage.ID, oldAt)
+	_, err = client.ChatConversation.UpdateOneID(emptyConversation.ID).
+		SetUnreadByAdmin(5).
+		SetManuallyUnreadByAdmin(true).
+		Save(ctx)
+	require.NoError(t, err)
+
+	result, err := chatService.CleanupExpiredMessages(ctx, cutoff, 100)
+	require.NoError(t, err)
+	require.Equal(t, chat.RetentionCleanupResult{MessagesDeleted: 3, AssetsDeleted: 1}, result)
+
+	for _, deletedID := range []int64{oldUserMessage.ID, oldImageMessage.ID, onlyOldMessage.ID} {
+		exists, queryErr := client.ChatMessage.Query().Where(chatmessage.IDEQ(deletedID)).Exist(ctx)
+		require.NoError(t, queryErr)
+		require.False(t, exists)
+	}
+	for _, retainedID := range []int64{transferReceipt.ID, freshUserMessage.ID} {
+		exists, queryErr := client.ChatMessage.Query().Where(chatmessage.IDEQ(retainedID)).Exist(ctx)
+		require.NoError(t, queryErr)
+		require.True(t, exists)
+	}
+	assetExists, err := client.ChatAsset.Query().Where(chatasset.IDEQ(oldAsset.ID)).Exist(ctx)
+	require.NoError(t, err)
+	require.False(t, assetExists)
+
+	conversation, err = conversationRepo.GetByID(ctx, conversation.ID)
+	require.NoError(t, err)
+	require.NotNil(t, conversation.LastMessageAt)
+	require.WithinDuration(t, freshAt, *conversation.LastMessageAt, time.Second)
+	require.Equal(t, 1, conversation.UnreadByAdmin)
+	require.Zero(t, conversation.UnreadByUser)
+	require.True(t, conversation.ManuallyUnreadByAdmin)
+
+	emptyConversation, err = conversationRepo.GetByID(ctx, emptyConversation.ID)
+	require.NoError(t, err)
+	require.Nil(t, emptyConversation.LastMessageAt)
+	require.Zero(t, emptyConversation.UnreadByAdmin)
+	require.Zero(t, emptyConversation.UnreadByUser)
+	require.False(t, emptyConversation.ManuallyUnreadByAdmin)
 }
 
 func TestChatQuickReplyOwnershipAndConcurrentLimit(t *testing.T) {

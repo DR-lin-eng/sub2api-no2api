@@ -283,6 +283,7 @@ func buildSettingsUpdateResponsePayload(
 
 		AvailableChannelsEnabled: updatedSettings.AvailableChannelsEnabled,
 		SupportChatEnabled:       updatedSettings.SupportChatEnabled,
+		SupportChatRetentionDays: updatedSettings.SupportChatRetentionDays,
 
 		ModelPlazaEnabled:          updatedSettings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth:      updatedSettings.ModelPlazaRequireAuth,

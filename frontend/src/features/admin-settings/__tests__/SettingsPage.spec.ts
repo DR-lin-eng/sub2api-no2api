@@ -698,6 +698,7 @@ const baseSettingsResponse = {
   account_quota_notify_enabled: false,
   account_quota_notify_emails: [],
   support_chat_enabled: true,
+  support_chat_retention_days: 30,
   allow_user_view_usage_details: false,
   // 平台限额嵌套字段（新后端契约）
   default_platform_quotas: {
@@ -992,6 +993,21 @@ describe("admin SettingsView payment visible method controls", () => {
 
     const payload = updateSettings.mock.calls.at(-1)?.[0] as Record<string, unknown>;
     expect(payload.model_plaza_auto_public_models).toBe(true);
+  });
+
+  it("loads and saves support chat message retention days", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await openFeaturesTab(wrapper);
+
+    const input = wrapper.get("#support-chat-retention-days");
+    expect((input.element as HTMLInputElement).value).toBe("30");
+    await input.setValue("90");
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    const payload = updateSettings.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(payload.support_chat_retention_days).toBe(90);
   });
 
   it("loads and saves the compact home setting from the general tab", async () => {

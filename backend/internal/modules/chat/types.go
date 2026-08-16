@@ -163,6 +163,16 @@ type MessageRepository interface {
 	// removes it from the recipient's unread count when it was still unread.
 	// changed is false for an idempotent replay of an earlier recall.
 	RecallByAdmin(ctx context.Context, conversationID, messageID, recalledByID int64, at time.Time) (message *Message, changed bool, err error)
+	// DeleteExpiredBefore removes ordinary support messages in bounded batches
+	// and reconciles the affected conversation summaries. Balance-transfer
+	// receipts are deliberately retained as durable financial evidence.
+	DeleteExpiredBefore(ctx context.Context, before time.Time, limit int) (int, error)
+}
+
+// RetentionCleanupResult reports one bounded retention-cleanup batch.
+type RetentionCleanupResult struct {
+	MessagesDeleted int
+	AssetsDeleted   int
 }
 
 type AssetScope string

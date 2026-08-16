@@ -1,3 +1,5 @@
+import supportChatMessages from './settings.support-chat'
+
 export default {
     settings: {
       title: 'System Settings',
@@ -48,12 +50,7 @@ export default {
           enabled: 'Enable Available Channels',
           enabledHint: 'When off, the sidebar entry is hidden and the endpoint returns an empty list.',
         },
-        supportChat: {
-          title: 'Support Chat',
-          description: 'Control the user Support Chat entry and the admin Support Inbox entry. Disabled by default; enable it explicitly after reviewing the rollout.',
-          enabled: 'Enable Support Chat',
-          enabledHint: 'When off, both support sidebar entries are hidden and unread badge polling stops.',
-        },
+        supportChat: supportChatMessages,
         modelPlaza: {
           title: 'Model Plaza',
           description: 'A public page showcasing available models and pricing by group. Disabled by default.',

@@ -286,6 +286,107 @@ func (r *chatMessageRepository) RecallByAdmin(
 	return message, changed, nil
 }
 
+// DeleteExpiredBefore deletes a bounded batch and reconciles every affected
+// conversation in the same statement. The candidates CTE is explicitly
+// excluded from the summary aggregation because PostgreSQL data-modifying CTEs
+// share one MVCC snapshot. FOR UPDATE SKIP LOCKED keeps the operation safe if a
+// maintenance cycle overlaps during a rolling multi-instance deployment.
+func (r *chatMessageRepository) DeleteExpiredBefore(
+	ctx context.Context,
+	before time.Time,
+	limit int,
+) (int, error) {
+	if before.IsZero() || limit <= 0 {
+		return 0, nil
+	}
+	const query = `
+		WITH candidates AS MATERIALIZED (
+			SELECT id, conversation_id
+			FROM chat_messages
+			WHERE created_at < $1
+			  AND kind <> 'balance_transfer'
+			ORDER BY created_at, id
+			FOR UPDATE SKIP LOCKED
+			LIMIT $2
+		),
+		deleted AS (
+			DELETE FROM chat_messages AS message
+			USING candidates
+			WHERE message.id = candidates.id
+			RETURNING message.conversation_id
+		),
+		affected AS (
+			SELECT DISTINCT conversation_id FROM deleted
+		),
+		remaining AS (
+			SELECT
+				affected.conversation_id,
+				MAX(message.created_at) AS last_message_at,
+				COUNT(*) FILTER (
+					WHERE message.sender_type = 'user'
+					  AND message.recalled_at IS NULL
+					  AND (
+						conversation.last_read_by_admin_at IS NULL
+						OR message.created_at > conversation.last_read_by_admin_at
+					  )
+				)::INT AS unread_by_admin,
+				COUNT(*) FILTER (
+					WHERE message.sender_type = 'admin'
+					  AND message.recalled_at IS NULL
+					  AND (
+						conversation.last_read_by_user_at IS NULL
+						OR message.created_at > conversation.last_read_by_user_at
+					  )
+				)::INT AS unread_by_user
+			FROM affected
+			JOIN chat_conversations AS conversation
+			  ON conversation.id = affected.conversation_id
+			LEFT JOIN chat_messages AS message
+			  ON message.conversation_id = affected.conversation_id
+			 AND NOT EXISTS (
+				SELECT 1 FROM candidates WHERE candidates.id = message.id
+			 )
+			GROUP BY affected.conversation_id
+		),
+		reconciled AS (
+			UPDATE chat_conversations AS conversation
+			SET last_message_at = remaining.last_message_at,
+				unread_by_admin = remaining.unread_by_admin,
+				unread_by_user = remaining.unread_by_user,
+				manually_unread_by_admin = CASE
+					WHEN remaining.last_message_at IS NULL THEN FALSE
+					ELSE conversation.manually_unread_by_admin
+				END,
+				updated_at = NOW()
+			FROM remaining
+			WHERE conversation.id = remaining.conversation_id
+			RETURNING conversation.id
+		)
+		SELECT
+			(SELECT COUNT(*) FROM deleted),
+			(SELECT COUNT(*) FROM reconciled)
+	`
+	rows, err := clientFromContext(ctx, r.client).QueryContext(ctx, query, before.UTC(), limit)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = rows.Close() }()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return 0, err
+		}
+		return 0, nil
+	}
+	var deleted, reconciled int
+	if err := rows.Scan(&deleted, &reconciled); err != nil {
+		return 0, err
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	return deleted, nil
+}
+
 func (r *chatMessageRepository) recallByAdminWithClient(
 	ctx context.Context,
 	client *dbent.Client,

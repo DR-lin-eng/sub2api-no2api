@@ -714,6 +714,7 @@ export interface SystemSettings {
 
   // Support Chat feature switch
   support_chat_enabled: boolean;
+  support_chat_retention_days: number;
 
   // Model Plaza feature switches + description
   model_plaza_enabled: boolean;
@@ -1035,6 +1036,7 @@ export interface UpdateSettingsRequest {
 
   // Support Chat feature switch
   support_chat_enabled?: boolean;
+  support_chat_retention_days?: number;
 
   // Model Plaza feature switches + description
   model_plaza_enabled?: boolean;

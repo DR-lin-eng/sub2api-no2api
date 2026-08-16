@@ -1,3 +1,5 @@
+import supportChatMessages from './settings.support-chat'
+
 export default {
     settings: {
       title: '系统设置',
@@ -48,12 +50,7 @@ export default {
           enabled: '启用可用渠道',
           enabledHint: '关闭后用户端侧边栏入口隐藏，接口返回空数组。',
         },
-        supportChat: {
-          title: '在线客服',
-          description: '控制用户端在线客服入口和管理员客服收件箱入口。默认关闭，确认发布后再显式开启。',
-          enabled: '启用在线客服',
-          enabledHint: '关闭后隐藏用户端在线客服和管理员客服收件箱，并停止侧边栏未读红点轮询。',
-        },
+        supportChat: supportChatMessages,
         modelPlaza: {
           title: '模型广场',
           description: '以分组为单位向访客展示可用模型与价格的公开页面。默认关闭。',

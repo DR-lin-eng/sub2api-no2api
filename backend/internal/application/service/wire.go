@@ -7,6 +7,7 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
 	"github.com/Wei-Shaw/sub2api/internal/modules/payment"
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	"github.com/Wei-Shaw/sub2api/internal/shared/antigravity"
@@ -58,6 +59,24 @@ func ProvideBatchImageModelPricingResolver(resolver *ModelPricingResolver) *Batc
 func ProvideBatchImageCleanupService(repo BatchImageRepository, accountRepo AccountRepository, cfg *config.Config) *BatchImageCleanupService {
 	svc := NewBatchImageCleanupService(repo, accountRepo, cfg)
 	svc.Start()
+	return svc
+}
+
+// ProvideSupportChatRetentionService creates the retention worker even when
+// support chat is currently disabled so an existing retention policy keeps
+// applying. Worker-only nodes own periodic maintenance in distributed mode.
+func ProvideSupportChatRetentionService(
+	chatService *chat.Service,
+	settingService *SettingService,
+	lockCache LeaderLockCache,
+	db *sql.DB,
+	cfg *config.Config,
+) *SupportChatRetentionService {
+	svc := NewSupportChatRetentionService(chatService, settingService)
+	svc.SetLeaderLock(lockCache, db)
+	if cfg == nil || cfg.Deployment.WorkerEnabledResolved() {
+		svc.Start()
+	}
 	return svc
 }
 
@@ -945,6 +964,7 @@ var ProviderSet = wire.NewSet(
 	ProvideIdempotencyCoordinator,
 	ProvideSystemOperationLockService,
 	ProvideIdempotencyCleanupService,
+	ProvideSupportChatRetentionService,
 	ProvideScheduledTestService,
 	ProvideScheduledTestRunnerService,
 	NewGroupCapacityService,

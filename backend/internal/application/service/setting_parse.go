@@ -197,7 +197,8 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyAvailableChannelsEnabled: "false",
 
 		// Support chat feature (default disabled; explicit opt-in)
-		SettingKeySupportChatEnabled: "false",
+		SettingKeySupportChatEnabled:       "false",
+		SettingKeySupportChatRetentionDays: "0",
 
 		// Model plaza feature (default disabled; public access when enabled)
 		SettingKeyModelPlazaEnabled:          "false",

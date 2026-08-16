@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -13,6 +15,10 @@ const (
 	supportChatErrorTTL   = 5 * time.Second
 	supportChatDBTimeout  = 5 * time.Second
 	supportChatRefreshKey = "support_chat_enabled"
+
+	// Ten years keeps the setting bounded for duration arithmetic while still
+	// covering long compliance windows. Zero means retain indefinitely.
+	SupportChatRetentionDaysMax = 3650
 )
 
 type cachedSupportChatEnabled struct {
@@ -74,4 +80,49 @@ func (s *SettingService) IsSupportChatEnabled(ctx context.Context) bool {
 		return enabled
 	}
 	return false
+}
+
+func normalizeSupportChatRetentionDays(days int) int {
+	if days < 0 {
+		return 0
+	}
+	if days > SupportChatRetentionDaysMax {
+		return SupportChatRetentionDaysMax
+	}
+	return days
+}
+
+func parseSupportChatRetentionDays(raw string) int {
+	days, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil {
+		return 0
+	}
+	return normalizeSupportChatRetentionDays(days)
+}
+
+// GetSupportChatRetentionDays returns the strict persisted policy used by the
+// destructive cleanup worker. Missing settings preserve upgrade compatibility
+// (zero = retain forever); malformed or out-of-range values fail safely without
+// deleting anything.
+func (s *SettingService) GetSupportChatRetentionDays(ctx context.Context) (int, error) {
+	if s == nil || s.settingRepo == nil {
+		return 0, errors.New("support chat retention setting repository is unavailable")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	dbCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), supportChatDBTimeout)
+	defer cancel()
+	raw, err := s.settingRepo.GetValue(dbCtx, SettingKeySupportChatRetentionDays)
+	if errors.Is(err, ErrSettingNotFound) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	days, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || days < 0 || days > SupportChatRetentionDaysMax {
+		return 0, fmt.Errorf("invalid support chat retention days %q", raw)
+	}
+	return days, nil
 }

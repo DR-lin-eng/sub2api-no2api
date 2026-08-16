@@ -222,7 +222,8 @@ type SystemSettings struct {
 	AvailableChannelsEnabled bool `json:"available_channels_enabled"`
 
 	// Support Chat feature
-	SupportChatEnabled bool `json:"support_chat_enabled"`
+	SupportChatEnabled       bool `json:"support_chat_enabled"`
+	SupportChatRetentionDays int  `json:"support_chat_retention_days"`
 
 	// Model Plaza feature (public group/model pricing showcase)
 	ModelPlazaEnabled          bool   `json:"model_plaza_enabled"`

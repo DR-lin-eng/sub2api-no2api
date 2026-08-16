@@ -143,6 +143,28 @@
               </div>
               <Toggle v-model="form.support_chat_enabled" />
             </div>
+
+            <div class="border-t border-gray-100 pt-5 dark:border-dark-700">
+              <label for="support-chat-retention-days" class="input-label">
+                {{ t('admin.settings.features.supportChat.retentionDays') }}
+              </label>
+              <input
+                id="support-chat-retention-days"
+                v-model.number="form.support_chat_retention_days"
+                type="number"
+                min="0"
+                max="3650"
+                step="1"
+                class="input"
+                aria-describedby="support-chat-retention-hint"
+              />
+              <p id="support-chat-retention-hint" class="mt-1 text-xs text-gray-400">
+                {{ t('admin.settings.features.supportChat.retentionDaysHint') }}
+              </p>
+              <p class="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                {{ t('admin.settings.features.supportChat.retentionFinancialHint') }}
+              </p>
+            </div>
           </div>
         </div>
 

@@ -52,6 +52,9 @@ func (s *SettingService) applyFeatureSettings(result *SystemSettings, settings m
 
 	// Support chat feature (default: disabled; explicit true enables)
 	result.SupportChatEnabled = settings[SettingKeySupportChatEnabled] == "true"
+	result.SupportChatRetentionDays = parseSupportChatRetentionDays(
+		settings[SettingKeySupportChatRetentionDays],
+	)
 
 	// Model plaza feature (default: disabled and anonymously visible when enabled)
 	result.ModelPlazaEnabled = settings[SettingKeyModelPlazaEnabled] == "true"

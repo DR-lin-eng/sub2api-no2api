@@ -66,6 +66,9 @@ type messageRepoStub struct {
 	recallChanged       bool
 	recallErr           error
 	recallCalls         int
+	deletedExpired      int
+	deleteExpiredErr    error
+	deleteExpiredCalls  int
 }
 
 func (r *messageRepoStub) CreateAndTouch(_ context.Context, m *Message, _ time.Time, _ SenderType) error {
@@ -95,6 +98,33 @@ func (r *messageRepoStub) GetByIdempotencyKey(context.Context, SenderType, int64
 func (r *messageRepoStub) RecallByAdmin(context.Context, int64, int64, int64, time.Time) (*Message, bool, error) {
 	r.recallCalls++
 	return r.recalled, r.recallChanged, r.recallErr
+}
+
+func (r *messageRepoStub) DeleteExpiredBefore(context.Context, time.Time, int) (int, error) {
+	r.deleteExpiredCalls++
+	return r.deletedExpired, r.deleteExpiredErr
+}
+
+type assetRepoStub struct {
+	deletedExpired     int
+	deleteExpiredErr   error
+	deleteExpiredCalls int
+}
+
+func (r *assetRepoStub) Create(context.Context, *Asset) error { return nil }
+func (r *assetRepoStub) ListCatalog(context.Context, AssetScope, int) ([]Asset, error) {
+	return nil, nil
+}
+func (r *assetRepoStub) HideCatalog(context.Context, AssetScope, int64) error { return nil }
+func (r *assetRepoStub) GetForUser(context.Context, int64, int64, int64) (*Asset, error) {
+	return nil, ErrAssetNotFound
+}
+func (r *assetRepoStub) GetForAdmin(context.Context, int64, int64) (*Asset, error) {
+	return nil, ErrAssetNotFound
+}
+func (r *assetRepoStub) DeleteUnattachedBefore(context.Context, time.Time, int) (int, error) {
+	r.deleteExpiredCalls++
+	return r.deletedExpired, r.deleteExpiredErr
 }
 
 type broadcasterStub struct {
@@ -285,4 +315,17 @@ func TestMarkUnreadByAdminPersistsPrivateReminder(t *testing.T) {
 
 	require.NoError(t, service.MarkUnreadByAdmin(context.Background(), 7))
 	require.Equal(t, 1, conversations.markUnreadCalls)
+}
+
+func TestCleanupExpiredMessagesDeletesMessagesAndUnattachedAssets(t *testing.T) {
+	messages := &messageRepoStub{deletedExpired: 3}
+	assets := &assetRepoStub{deletedExpired: 2}
+	service := NewService(&conversationRepoStub{}, messages)
+	service.SetAssetRepository(assets)
+
+	result, err := service.CleanupExpiredMessages(context.Background(), time.Now().Add(-30*24*time.Hour), 500)
+	require.NoError(t, err)
+	require.Equal(t, RetentionCleanupResult{MessagesDeleted: 3, AssetsDeleted: 2}, result)
+	require.Equal(t, 1, messages.deleteExpiredCalls)
+	require.Equal(t, 1, assets.deleteExpiredCalls)
 }

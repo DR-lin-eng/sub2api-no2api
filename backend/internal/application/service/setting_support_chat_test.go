@@ -174,3 +174,41 @@ func TestUpdateSettingsCannotBeOverwrittenByStaleSupportChatRead(t *testing.T) {
 	require.NoError(t, <-updateDone)
 	require.True(t, svc.IsSupportChatEnabled(context.Background()))
 }
+
+func TestGetSupportChatRetentionDaysIsStrictAndUpgradeSafe(t *testing.T) {
+	t.Run("missing means retain forever", func(t *testing.T) {
+		svc := NewSettingService(newSupportChatSettingRepo(map[string]string{}), &config.Config{})
+		days, err := svc.GetSupportChatRetentionDays(context.Background())
+		require.NoError(t, err)
+		require.Zero(t, days)
+	})
+
+	t.Run("valid persisted value", func(t *testing.T) {
+		svc := NewSettingService(newSupportChatSettingRepo(map[string]string{
+			SettingKeySupportChatRetentionDays: "30",
+		}), &config.Config{})
+		days, err := svc.GetSupportChatRetentionDays(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, 30, days)
+	})
+
+	for _, raw := range []string{"invalid", "-1", "3651"} {
+		t.Run(raw, func(t *testing.T) {
+			svc := NewSettingService(newSupportChatSettingRepo(map[string]string{
+				SettingKeySupportChatRetentionDays: raw,
+			}), &config.Config{})
+			_, err := svc.GetSupportChatRetentionDays(context.Background())
+			require.Error(t, err, "a malformed destructive policy must fail without cleanup")
+		})
+	}
+}
+
+func TestUpdateSettingsNormalizesSupportChatRetentionDays(t *testing.T) {
+	repo := newSupportChatSettingRepo(map[string]string{})
+	svc := NewSettingService(repo, &config.Config{})
+	settings := &SystemSettings{SupportChatRetentionDays: SupportChatRetentionDaysMax + 100}
+
+	require.NoError(t, svc.UpdateSettings(context.Background(), settings))
+	require.Equal(t, SupportChatRetentionDaysMax, settings.SupportChatRetentionDays)
+	require.Equal(t, "3650", repo.values[SettingKeySupportChatRetentionDays])
+}
