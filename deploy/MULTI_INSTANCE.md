@@ -151,6 +151,85 @@ Load data is a latest-heartbeat snapshot rather than a historical time series.
 Nodes running an older binary remain visible and show no load metrics until
 they are upgraded; telemetry that falls behind continuing heartbeats is hidden.
 
+## Admin metrics quick reference / 管理页指标速查
+
+The following table explains the summary cards at the top of
+`/admin/multi-instance`. The Chinese names are the labels shown by the Chinese
+admin interface.
+
+| UI label | Meaning |
+| --- | --- |
+| 在线节点 | Online logical nodes divided by all visible logical nodes. The detail line separates stale and stopped nodes. |
+| 平均 CPU | Mean CPU usage of online nodes that reported a valid CPU sample. The detail line shows the highest node value and the number of reporting nodes. Container values are normalized to the cgroup CPU quota; non-container deployments use normalized process CPU. |
+| 平均内存 | Mean memory percentage of online nodes for which a usable memory limit is known. The detail line shows the highest node percentage and reporting-node count. |
+| 处理中请求 | Sum of `in_flight_requests` from online nodes that have a current load snapshot. It counts requests accepted by the node that have not returned from their Gin handler yet; it is not a request rate. |
+| 活跃任务 | Cluster-wide count of currently running leased background tasks, such as scheduled account tests, backups, and channel checks. It is separate from HTTP requests and from the usage-billing queue backlog. |
+| 异常节点 | Online nodes whose latest heartbeat reports PostgreSQL or Redis unhealthy. Stale and stopped nodes are reported separately rather than counted here. |
+
+Each node card uses the following fields:
+
+| UI label | Meaning |
+| --- | --- |
+| CPU | CPU used by this process/container relative to its available CPU capacity. |
+| 内存 | Current process/container memory usage. The byte value remains useful even when a percentage cannot be calculated. |
+| 处理中请求 | Requests currently owned by this node's accepted-request counter. Business APIs, admin/user APIs, gateway requests, and long-lived streams can all contribute. |
+| 活跃任务 | Running leased background tasks currently owned by this runner. |
+| Goroutine | Result of Go's `runtime.NumGoroutine()` for this process. It includes request handlers, connection-pool helpers, background loops, timers, and other runtime work; it is not the user count, request count, or operating-system thread count. |
+| 运行时间 | Time since this runner process started. It resets when the process restarts. |
+| PostgreSQL | Active connections divided by this node's configured pool maximum; the second line is the idle connection count. |
+| Redis | Active connections divided by this node's configured pool maximum; the second line is the idle connection count. |
+
+### Sampling and counting boundaries
+
+- These values are the latest heartbeat snapshot, not a live stream or a
+  historical chart. With the default configuration, a heartbeat is sent every
+  30 seconds, so short spikes may occur between snapshots.
+- `处理中请求` increments only after a multi-instance node accepts the request
+  through its readiness/drain gate and decrements when the handler finishes.
+  SSE, streaming responses, and WebSocket handlers may therefore keep it above
+  zero for the lifetime of the connection. `/health`, `/ready`, and
+  `/api/v1/admin/cluster` (including its sub-routes) are excluded so probes and
+  this page's polling do not prevent draining.
+- A displayed request count of `0` means no accepted handler was still running
+  at the latest sample. It does not mean that the node received no traffic
+  during the heartbeat interval. This counter is also used by rolling releases:
+  a draining node waits for it to reach zero before installation and restart.
+- Billing settlement, cleanup workers, timers, and other background work do not
+  increase `处理中请求`. Leased scheduled work is shown separately as
+  `活跃任务`; billing-queue backlog and throughput use their dedicated metrics.
+- CPU and memory averages include only online nodes that supplied that metric.
+  Check the reporting-node count and per-node cards before treating an average
+  as cluster-wide coverage.
+- A memory percentage of `-` together with a value such as `550.1 MB` means the
+  current usage was measured but no usable memory limit was available. It does
+  not mean memory usage is zero.
+- PostgreSQL and Redis pool maxima are per-node limits. Use the aggregate
+  formulas in [Capacity calculation](#capacity-calculation) when sizing shared
+  services.
+
+### Reading common situations
+
+- `处理中请求 0`: at the last heartbeat, that node had no accepted HTTP handler
+  waiting to finish. Background settlement or scheduled work may still be
+  running.
+- `Goroutine 289`: the Go process had 289 goroutines at that sample. There is no
+  universal failure threshold; compare the idle baseline and trend. A count
+  that grows across multiple heartbeats and does not fall after traffic drains
+  deserves investigation, while a stable count can be normal for a busy node.
+- `处理中请求` stays above zero across several heartbeats: first check for
+  legitimate long-lived SSE/WebSocket sessions, then inspect access/gateway
+  logs for a slow or stuck handler. This can delay a rolling release drain.
+- PostgreSQL or Redis `active / max` remains close to the maximum while latency
+  or pool waits rise: inspect the affected node and the aggregate cluster pool
+  size before increasing limits. A high Redis idle count alone is not pool
+  exhaustion.
+- Average CPU looks normal but the displayed peak is high: inspect the per-node
+  cards because the average can hide a hot replica or uneven load balancing.
+- Goroutines, in-flight requests, active tasks, and pool usage rising together
+  usually indicate real load. Goroutines rising alone and never returning to
+  baseline is a stronger signal of a blocked or leaked background path than a
+  single absolute value.
+
 Do not point replicas at different Redis databases. That would split the lock and
 OAuth state domains and restore duplicate execution and callback misses.
 

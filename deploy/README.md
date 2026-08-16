@@ -22,7 +22,7 @@ This directory contains files for deploying Sub2API on Linux servers and Apple-s
 | `.env.example` | Container environment variables template |
 | `DOCKER.md` | Docker Hub documentation |
 | `REDIS_TUNING.md` | Redis memory sizing and 50k+ RPM preset |
-| `MULTI_INSTANCE.md` | Multi-instance secrets, OAuth, workers, WebSocket, and capacity guidance |
+| `MULTI_INSTANCE.md` | Multi-instance secrets, workers, admin metrics reference, WebSocket, and capacity guidance |
 | `install.sh` | One-click binary installation script |
 | `install-datamanagementd.sh` | datamanagementd 一键安装脚本 |
 | `sub2api.service` | Systemd service unit file |
