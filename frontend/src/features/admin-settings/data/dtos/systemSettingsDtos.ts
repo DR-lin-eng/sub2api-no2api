@@ -725,6 +725,9 @@ export interface SystemSettings {
   // Media Studio feature switch
   media_studio_enabled: boolean;
 
+  // IPv6 egress management UI feature switch
+  ipv6_egress_ui_enabled: boolean;
+
   // Affiliate (邀请返利) feature switch
   affiliate_enabled: boolean;
 
@@ -1046,6 +1049,9 @@ export interface UpdateSettingsRequest {
 
   // Media Studio feature switch
   media_studio_enabled?: boolean;
+
+  // IPv6 egress management UI feature switch
+  ipv6_egress_ui_enabled?: boolean;
 
   // Affiliate (邀请返利) feature switch
   affiliate_enabled?: boolean;

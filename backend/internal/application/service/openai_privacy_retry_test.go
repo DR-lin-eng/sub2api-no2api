@@ -22,7 +22,7 @@ func TestAdminService_EnsureOpenAIPrivacy_RetriesNonSuccessModes(t *testing.T) {
 			privacyCalls := 0
 			svc := &adminServiceImpl{
 				accountRepo: &mockAccountRepoForGemini{},
-				privacyClientFactory: func(proxyURL string) (*req.Client, error) {
+				privacyClientFactory: func(_ context.Context, proxyURL string) (*req.Client, error) {
 					privacyCalls++
 					return nil, errors.New("factory failed")
 				},
@@ -64,7 +64,7 @@ func TestTokenRefreshService_ensureOpenAIPrivacy_RetriesNonSuccessModes(t *testi
 
 			service := NewTokenRefreshService(&tokenRefreshAccountRepo{}, nil, nil, nil, nil, nil, nil, cfg, nil)
 			privacyCalls := 0
-			service.SetPrivacyDeps(func(proxyURL string) (*req.Client, error) {
+			service.SetPrivacyDeps(func(_ context.Context, proxyURL string) (*req.Client, error) {
 				privacyCalls++
 				return nil, errors.New("factory failed")
 			}, nil)

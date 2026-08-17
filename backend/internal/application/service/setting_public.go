@@ -242,6 +242,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyModelPlazaEnabled,
 		SettingKeyModelPlazaRequireAuth,
 		SettingKeyMediaStudioEnabled,
+		SettingKeyIPv6EgressUIEnabled,
 		SettingKeyAffiliateEnabled,
 		SettingKeyRiskControlEnabled,
 		SettingKeyAllowUserViewErrorRequests,
@@ -376,7 +377,8 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		ModelPlazaEnabled:     settings[SettingKeyModelPlazaEnabled] == "true",
 		ModelPlazaRequireAuth: settings[SettingKeyModelPlazaRequireAuth] == "true",
 
-		MediaStudioEnabled: settings[SettingKeyMediaStudioEnabled] == "true",
+		MediaStudioEnabled:  settings[SettingKeyMediaStudioEnabled] == "true",
+		IPv6EgressUIEnabled: settings[SettingKeyIPv6EgressUIEnabled] == "true",
 
 		AffiliateEnabled: settings[SettingKeyAffiliateEnabled] == "true",
 
@@ -697,6 +699,7 @@ type PublicSettingsInjectionPayload struct {
 	ModelPlazaEnabled                    bool   `json:"model_plaza_enabled"`
 	ModelPlazaRequireAuth                bool   `json:"model_plaza_require_auth"`
 	MediaStudioEnabled                   bool   `json:"media_studio_enabled"`
+	IPv6EgressUIEnabled                  bool   `json:"ipv6_egress_ui_enabled"`
 	AffiliateEnabled                     bool   `json:"affiliate_enabled"`
 	RiskControlEnabled                   bool   `json:"risk_control_enabled"`
 	AllowUserViewErrorRequests           bool   `json:"allow_user_view_error_requests"`
@@ -784,6 +787,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		ModelPlazaEnabled:                    settings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth:                settings.ModelPlazaRequireAuth,
 		MediaStudioEnabled:                   settings.MediaStudioEnabled,
+		IPv6EgressUIEnabled:                  settings.IPv6EgressUIEnabled,
 		AffiliateEnabled:                     settings.AffiliateEnabled,
 		RiskControlEnabled:                   settings.RiskControlEnabled,
 		AllowUserViewErrorRequests:           settings.AllowUserViewErrorRequests,

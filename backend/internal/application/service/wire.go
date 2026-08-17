@@ -81,11 +81,12 @@ func ProvideSupportChatRetentionService(
 }
 
 // ProvideOAuthService creates the Claude OAuth service with Redis-backed flow state.
-func ProvideOAuthService(proxyRepo ProxyRepository, oauthClient ClaudeOAuthClient, redisClient *redis.Client) *OAuthService {
+func ProvideOAuthService(proxyRepo ProxyRepository, oauthClient ClaudeOAuthClient, redisClient *redis.Client, cfg *config.Config) *OAuthService {
 	return &OAuthService{
 		sessionStore: oauth.NewRedisSessionStore(redisClient),
 		proxyRepo:    proxyRepo,
 		oauthClient:  oauthClient,
+		cfg:          cfg,
 	}
 }
 
@@ -95,21 +96,24 @@ func ProvideOpenAIOAuthService(
 	oauthClient OpenAIOAuthClient,
 	privacyClientFactory PrivacyClientFactory,
 	redisClient *redis.Client,
+	cfg *config.Config,
 ) *OpenAIOAuthService {
 	svc := &OpenAIOAuthService{
 		sessionStore: openai.NewRedisSessionStore(redisClient),
 		proxyRepo:    proxyRepo,
 		oauthClient:  oauthClient,
+		cfg:          cfg,
 	}
 	svc.SetPrivacyClientFactory(privacyClientFactory)
 	return svc
 }
 
-func ProvideGrokOAuthService(proxyRepo ProxyRepository, oauthClient GrokOAuthClient, redisClient *redis.Client) *GrokOAuthService {
+func ProvideGrokOAuthService(proxyRepo ProxyRepository, oauthClient GrokOAuthClient, redisClient *redis.Client, cfg *config.Config) *GrokOAuthService {
 	return &GrokOAuthService{
 		sessionStore: xai.NewRedisSessionStore(redisClient),
 		proxyRepo:    proxyRepo,
 		oauthClient:  oauthClient,
+		cfg:          cfg,
 	}
 }
 
@@ -131,10 +135,11 @@ func ProvideGeminiOAuthService(
 	}
 }
 
-func ProvideAntigravityOAuthService(proxyRepo ProxyRepository, redisClient *redis.Client) *AntigravityOAuthService {
+func ProvideAntigravityOAuthService(proxyRepo ProxyRepository, redisClient *redis.Client, cfg *config.Config) *AntigravityOAuthService {
 	return &AntigravityOAuthService{
 		sessionStore: antigravity.NewRedisSessionStore(redisClient),
 		proxyRepo:    proxyRepo,
+		cfg:          cfg,
 	}
 }
 
@@ -175,8 +180,10 @@ func ProvideClaudeTokenProvider(
 	tokenCache GeminiTokenCache,
 	oauthService *OAuthService,
 	refreshAPI *OAuthRefreshAPI,
+	cfg *config.Config,
 ) *ClaudeTokenProvider {
 	p := NewClaudeTokenProvider(accountRepo, tokenCache, oauthService)
+	p.SetRuntimeConfig(cfg)
 	executor := NewClaudeTokenRefresher(oauthService)
 	p.SetRefreshAPI(refreshAPI, executor)
 	p.SetRefreshPolicy(ClaudeProviderRefreshPolicy())
@@ -206,8 +213,9 @@ func ProvideOpenAIQuotaService(
 	tokenProvider *OpenAITokenProvider,
 	privacyClientFactory PrivacyClientFactory,
 	openAIGatewayService *OpenAIGatewayService,
+	cfg *config.Config,
 ) *OpenAIQuotaService {
-	service := NewOpenAIQuotaService(accountRepo, proxyRepo, tokenProvider, privacyClientFactory)
+	service := NewOpenAIQuotaService(accountRepo, proxyRepo, tokenProvider, privacyClientFactory, cfg)
 	service.agentIdentityWS = openAIGatewayService
 	return service
 }
@@ -225,6 +233,7 @@ func ProvideAccountUsageService(
 	identityCache IdentityCache,
 	tlsFPProfileService *TLSFingerprintProfileService,
 	openAIGatewayService *OpenAIGatewayService,
+	cfg *config.Config,
 ) *AccountUsageService {
 	service := NewAccountUsageService(
 		accountRepo,
@@ -240,6 +249,7 @@ func ProvideAccountUsageService(
 		tlsFPProfileService,
 	)
 	service.agentIdentityWS = openAIGatewayService
+	service.cfg = cfg
 	return service
 }
 
@@ -286,8 +296,10 @@ func ProvideGeminiTokenProvider(
 	tokenCache GeminiTokenCache,
 	geminiOAuthService *GeminiOAuthService,
 	refreshAPI *OAuthRefreshAPI,
+	cfg *config.Config,
 ) *GeminiTokenProvider {
 	p := NewGeminiTokenProvider(accountRepo, tokenCache, geminiOAuthService)
+	p.SetRuntimeConfig(cfg)
 	executor := NewGeminiTokenRefresher(geminiOAuthService)
 	p.SetRefreshAPI(refreshAPI, executor)
 	p.SetRefreshPolicy(GeminiProviderRefreshPolicy())

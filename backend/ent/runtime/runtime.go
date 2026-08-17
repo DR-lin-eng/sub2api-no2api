@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/ent/account"
+	"github.com/Wei-Shaw/sub2api/ent/accountegressbinding"
 	"github.com/Wei-Shaw/sub2api/ent/accountgroup"
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
@@ -29,6 +30,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
+	"github.com/Wei-Shaw/sub2api/ent/ipv6egresspool"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance"
@@ -242,36 +244,85 @@ func init() {
 	accountDescExtra := accountFields[5].Descriptor()
 	// account.DefaultExtra holds the default value on creation for the extra field.
 	account.DefaultExtra = accountDescExtra.Default.(func() map[string]interface{})
+	// accountDescEgressMode is the schema descriptor for egress_mode field.
+	accountDescEgressMode := accountFields[8].Descriptor()
+	// account.DefaultEgressMode holds the default value on creation for the egress_mode field.
+	account.DefaultEgressMode = accountDescEgressMode.Default.(string)
+	// account.EgressModeValidator is a validator for the "egress_mode" field. It is called by the builders before save.
+	account.EgressModeValidator = accountDescEgressMode.Validators[0].(func(string) error)
 	// accountDescConcurrency is the schema descriptor for concurrency field.
-	accountDescConcurrency := accountFields[8].Descriptor()
+	accountDescConcurrency := accountFields[9].Descriptor()
 	// account.DefaultConcurrency holds the default value on creation for the concurrency field.
 	account.DefaultConcurrency = accountDescConcurrency.Default.(int)
 	// accountDescPriority is the schema descriptor for priority field.
-	accountDescPriority := accountFields[10].Descriptor()
+	accountDescPriority := accountFields[11].Descriptor()
 	// account.DefaultPriority holds the default value on creation for the priority field.
 	account.DefaultPriority = accountDescPriority.Default.(int)
 	// accountDescRateMultiplier is the schema descriptor for rate_multiplier field.
-	accountDescRateMultiplier := accountFields[11].Descriptor()
+	accountDescRateMultiplier := accountFields[12].Descriptor()
 	// account.DefaultRateMultiplier holds the default value on creation for the rate_multiplier field.
 	account.DefaultRateMultiplier = accountDescRateMultiplier.Default.(float64)
 	// accountDescStatus is the schema descriptor for status field.
-	accountDescStatus := accountFields[12].Descriptor()
+	accountDescStatus := accountFields[13].Descriptor()
 	// account.DefaultStatus holds the default value on creation for the status field.
 	account.DefaultStatus = accountDescStatus.Default.(string)
 	// account.StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	account.StatusValidator = accountDescStatus.Validators[0].(func(string) error)
 	// accountDescAutoPauseOnExpired is the schema descriptor for auto_pause_on_expired field.
-	accountDescAutoPauseOnExpired := accountFields[16].Descriptor()
+	accountDescAutoPauseOnExpired := accountFields[17].Descriptor()
 	// account.DefaultAutoPauseOnExpired holds the default value on creation for the auto_pause_on_expired field.
 	account.DefaultAutoPauseOnExpired = accountDescAutoPauseOnExpired.Default.(bool)
 	// accountDescSchedulable is the schema descriptor for schedulable field.
-	accountDescSchedulable := accountFields[17].Descriptor()
+	accountDescSchedulable := accountFields[18].Descriptor()
 	// account.DefaultSchedulable holds the default value on creation for the schedulable field.
 	account.DefaultSchedulable = accountDescSchedulable.Default.(bool)
 	// accountDescSessionWindowStatus is the schema descriptor for session_window_status field.
-	accountDescSessionWindowStatus := accountFields[25].Descriptor()
+	accountDescSessionWindowStatus := accountFields[26].Descriptor()
 	// account.SessionWindowStatusValidator is a validator for the "session_window_status" field. It is called by the builders before save.
 	account.SessionWindowStatusValidator = accountDescSessionWindowStatus.Validators[0].(func(string) error)
+	accountegressbindingMixin := schema.AccountEgressBinding{}.Mixin()
+	accountegressbindingMixinFields0 := accountegressbindingMixin[0].Fields()
+	_ = accountegressbindingMixinFields0
+	accountegressbindingFields := schema.AccountEgressBinding{}.Fields()
+	_ = accountegressbindingFields
+	// accountegressbindingDescCreatedAt is the schema descriptor for created_at field.
+	accountegressbindingDescCreatedAt := accountegressbindingMixinFields0[0].Descriptor()
+	// accountegressbinding.DefaultCreatedAt holds the default value on creation for the created_at field.
+	accountegressbinding.DefaultCreatedAt = accountegressbindingDescCreatedAt.Default.(func() time.Time)
+	// accountegressbindingDescUpdatedAt is the schema descriptor for updated_at field.
+	accountegressbindingDescUpdatedAt := accountegressbindingMixinFields0[1].Descriptor()
+	// accountegressbinding.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	accountegressbinding.DefaultUpdatedAt = accountegressbindingDescUpdatedAt.Default.(func() time.Time)
+	// accountegressbinding.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	accountegressbinding.UpdateDefaultUpdatedAt = accountegressbindingDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// accountegressbindingDescSourceIpv6 is the schema descriptor for source_ipv6 field.
+	accountegressbindingDescSourceIpv6 := accountegressbindingFields[2].Descriptor()
+	// accountegressbinding.SourceIpv6Validator is a validator for the "source_ipv6" field. It is called by the builders before save.
+	accountegressbinding.SourceIpv6Validator = func() func(string) error {
+		validators := accountegressbindingDescSourceIpv6.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(source_ipv6 string) error {
+			for _, fn := range fns {
+				if err := fn(source_ipv6); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// accountegressbindingDescStatus is the schema descriptor for status field.
+	accountegressbindingDescStatus := accountegressbindingFields[3].Descriptor()
+	// accountegressbinding.DefaultStatus holds the default value on creation for the status field.
+	accountegressbinding.DefaultStatus = accountegressbindingDescStatus.Default.(string)
+	// accountegressbinding.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	accountegressbinding.StatusValidator = accountegressbindingDescStatus.Validators[0].(func(string) error)
+	// accountegressbindingDescVersion is the schema descriptor for version field.
+	accountegressbindingDescVersion := accountegressbindingFields[4].Descriptor()
+	// accountegressbinding.DefaultVersion holds the default value on creation for the version field.
+	accountegressbinding.DefaultVersion = accountegressbindingDescVersion.Default.(int64)
 	accountgroupFields := schema.AccountGroup{}.Fields()
 	_ = accountgroupFields
 	// accountgroupDescPriority is the schema descriptor for priority field.
@@ -1339,6 +1390,75 @@ func init() {
 	groupDescProfitSafetyBuffer := groupFields[54].Descriptor()
 	// group.DefaultProfitSafetyBuffer holds the default value on creation for the profit_safety_buffer field.
 	group.DefaultProfitSafetyBuffer = groupDescProfitSafetyBuffer.Default.(float64)
+	ipv6egresspoolMixin := schema.IPv6EgressPool{}.Mixin()
+	ipv6egresspoolMixinFields0 := ipv6egresspoolMixin[0].Fields()
+	_ = ipv6egresspoolMixinFields0
+	ipv6egresspoolFields := schema.IPv6EgressPool{}.Fields()
+	_ = ipv6egresspoolFields
+	// ipv6egresspoolDescCreatedAt is the schema descriptor for created_at field.
+	ipv6egresspoolDescCreatedAt := ipv6egresspoolMixinFields0[0].Descriptor()
+	// ipv6egresspool.DefaultCreatedAt holds the default value on creation for the created_at field.
+	ipv6egresspool.DefaultCreatedAt = ipv6egresspoolDescCreatedAt.Default.(func() time.Time)
+	// ipv6egresspoolDescUpdatedAt is the schema descriptor for updated_at field.
+	ipv6egresspoolDescUpdatedAt := ipv6egresspoolMixinFields0[1].Descriptor()
+	// ipv6egresspool.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	ipv6egresspool.DefaultUpdatedAt = ipv6egresspoolDescUpdatedAt.Default.(func() time.Time)
+	// ipv6egresspool.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	ipv6egresspool.UpdateDefaultUpdatedAt = ipv6egresspoolDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// ipv6egresspoolDescName is the schema descriptor for name field.
+	ipv6egresspoolDescName := ipv6egresspoolFields[0].Descriptor()
+	// ipv6egresspool.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	ipv6egresspool.NameValidator = func() func(string) error {
+		validators := ipv6egresspoolDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// ipv6egresspoolDescCidr is the schema descriptor for cidr field.
+	ipv6egresspoolDescCidr := ipv6egresspoolFields[1].Descriptor()
+	// ipv6egresspool.CidrValidator is a validator for the "cidr" field. It is called by the builders before save.
+	ipv6egresspool.CidrValidator = func() func(string) error {
+		validators := ipv6egresspoolDescCidr.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(cidr string) error {
+			for _, fn := range fns {
+				if err := fn(cidr); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// ipv6egresspoolDescNodeID is the schema descriptor for node_id field.
+	ipv6egresspoolDescNodeID := ipv6egresspoolFields[2].Descriptor()
+	// ipv6egresspool.NodeIDValidator is a validator for the "node_id" field. It is called by the builders before save.
+	ipv6egresspool.NodeIDValidator = ipv6egresspoolDescNodeID.Validators[0].(func(string) error)
+	// ipv6egresspoolDescStatus is the schema descriptor for status field.
+	ipv6egresspoolDescStatus := ipv6egresspoolFields[3].Descriptor()
+	// ipv6egresspool.DefaultStatus holds the default value on creation for the status field.
+	ipv6egresspool.DefaultStatus = ipv6egresspoolDescStatus.Default.(string)
+	// ipv6egresspool.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	ipv6egresspool.StatusValidator = ipv6egresspoolDescStatus.Validators[0].(func(string) error)
+	// ipv6egresspoolDescIsDefault is the schema descriptor for is_default field.
+	ipv6egresspoolDescIsDefault := ipv6egresspoolFields[4].Descriptor()
+	// ipv6egresspool.DefaultIsDefault holds the default value on creation for the is_default field.
+	ipv6egresspool.DefaultIsDefault = ipv6egresspoolDescIsDefault.Default.(bool)
+	// ipv6egresspoolDescAllocationVersion is the schema descriptor for allocation_version field.
+	ipv6egresspoolDescAllocationVersion := ipv6egresspoolFields[5].Descriptor()
+	// ipv6egresspool.DefaultAllocationVersion holds the default value on creation for the allocation_version field.
+	ipv6egresspool.DefaultAllocationVersion = ipv6egresspoolDescAllocationVersion.Default.(int64)
 	idempotencyrecordMixin := schema.IdempotencyRecord{}.Mixin()
 	idempotencyrecordMixinFields0 := idempotencyrecordMixin[0].Fields()
 	_ = idempotencyrecordMixinFields0

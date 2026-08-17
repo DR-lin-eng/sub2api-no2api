@@ -124,6 +124,11 @@ export const FeatureFlags = {
     mode: 'opt-in',
     label: 'Media Studio',
   }),
+  ipv6Egress: defineFlag({
+    key: 'ipv6_egress_ui_enabled',
+    mode: 'opt-in',
+    label: 'IPv6 Egress Management',
+  }),
   payment: defineFlag({
     key: 'payment_enabled',
     mode: 'opt-out',

@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
 	"github.com/Wei-Shaw/sub2api/internal/shared/oauth"
 	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
@@ -45,6 +46,7 @@ type OAuthService struct {
 	sessionStore *oauth.SessionStore
 	proxyRepo    ProxyRepository
 	oauthClient  ClaudeOAuthClient
+	cfg          *config.Config
 }
 
 // NewOAuthService creates a new OAuth service
@@ -322,6 +324,7 @@ func (s *OAuthService) RefreshAccountToken(ctx context.Context, account *Account
 		}
 	}
 
+	ctx = withAccountEgressContext(ctx, account, proxyURL, s.cfg)
 	return s.RefreshToken(ctx, refreshToken, proxyURL)
 }
 

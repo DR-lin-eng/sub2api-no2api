@@ -7,11 +7,14 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	dbaccount "github.com/Wei-Shaw/sub2api/ent/account"
+	dbbinding "github.com/Wei-Shaw/sub2api/ent/accountegressbinding"
 	dbaccountgroup "github.com/Wei-Shaw/sub2api/ent/accountgroup"
 	dbgroup "github.com/Wei-Shaw/sub2api/ent/group"
 	dbpredicate "github.com/Wei-Shaw/sub2api/ent/predicate"
 	dbproxy "github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	moduleegress "github.com/Wei-Shaw/sub2api/internal/modules/egress"
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 
 	entsql "entgo.io/ent/dialect/sql"
 )
@@ -112,6 +115,10 @@ func (r *accountRepository) accountsToService(ctx context.Context, accounts []*d
 	if err != nil {
 		return nil, err
 	}
+	bindingsByAccount, err := r.loadEgressBindings(ctx, accountIDs)
+	if err != nil {
+		return nil, err
+	}
 
 	outAccounts := make([]service.Account, 0, len(accounts))
 	for _, acc := range accounts {
@@ -140,10 +147,36 @@ func (r *accountRepository) accountsToService(ctx context.Context, accounts []*d
 		if ags, ok := accountGroupsByAccount[acc.ID]; ok {
 			out.AccountGroups = ags
 		}
+		out.EgressBinding = bindingsByAccount[acc.ID]
 		outAccounts = append(outAccounts, *out)
 	}
 
 	return outAccounts, nil
+}
+
+func (r *accountRepository) loadEgressBindings(ctx context.Context, accountIDs []int64) (map[int64]*moduleegress.Binding, error) {
+	bindingsByAccount := make(map[int64]*moduleegress.Binding)
+	accountIDs = uniquePositiveInt64s(accountIDs)
+	if len(accountIDs) == 0 {
+		return bindingsByAccount, nil
+	}
+	for start := 0; start < len(accountIDs); start += postgresParameterBatchSize {
+		end := start + postgresParameterBatchSize
+		if end > len(accountIDs) {
+			end = len(accountIDs)
+		}
+		bindings, err := r.client.AccountEgressBinding.Query().
+			Where(dbbinding.AccountIDIn(accountIDs[start:end]...)).
+			WithPool().
+			All(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, binding := range bindings {
+			bindingsByAccount[binding.AccountID] = bindingEntityToModule(binding)
+		}
+	}
+	return bindingsByAccount, nil
 }
 
 func tempUnschedulablePredicate() dbpredicate.Account {
@@ -349,6 +382,7 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 		Extra:                   copyJSONMap(m.Extra),
 		ProxyID:                 m.ProxyID,
 		ProxyFallbackOriginID:   m.ProxyFallbackOriginID,
+		EgressMode:              platformegress.Mode(m.EgressMode),
 		Concurrency:             m.Concurrency,
 		Priority:                m.Priority,
 		RateMultiplier:          &rateMultiplier,
@@ -372,6 +406,13 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 		ParentAccountID:         m.ParentAccountID,
 		QuotaDimension:          string(m.QuotaDimension),
 	}
+}
+
+func normalizeAccountEgressMode(mode platformegress.Mode) string {
+	if mode == "" {
+		return string(platformegress.ModeInherit)
+	}
+	return string(mode)
 }
 
 func normalizeJSONMap(in map[string]any) map[string]any {

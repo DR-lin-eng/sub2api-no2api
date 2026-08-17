@@ -772,6 +772,7 @@ const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
 const flagAdminPayment = () => adminSettingsStore.paymentEnabled
 const flagBatchImageAccess = () => canUseBatchImage.value
 const flagMediaStudio = makeSidebarFlag(FeatureFlags.mediaStudio)
+const flagIPv6Egress = makeSidebarFlag(FeatureFlags.ipv6Egress)
 
 // buildSelfNavItems 构造用户自己的导航项（用户端主菜单和管理员的"我的账户"子菜单共享这组声明）。
 // withDashboard=true 时包含仪表盘（用户端），false 时不含（管理员的个人区已经有独立仪表盘入口）。
@@ -866,6 +867,7 @@ const adminNavItems = computed((): NavItem[] => {
     { path: '/admin/announcements', label: t('nav.announcements'), icon: BellIcon },
     { path: '/admin/support', label: t('nav.supportInbox'), icon: SupportChatIcon, featureFlag: flagSupportChat },
     { path: '/admin/proxies', label: t('nav.proxies'), icon: ServerIcon },
+    { path: '/admin/egress', label: t('nav.ipv6Egress'), icon: GlobeIcon, featureFlag: flagIPv6Egress },
     {
       path: '/admin/security-audit',
       label: t('nav.securityAudit'),

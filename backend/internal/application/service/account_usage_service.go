@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	httppool "github.com/Wei-Shaw/sub2api/internal/shared/httpclient"
 	openaipkg "github.com/Wei-Shaw/sub2api/internal/shared/openai"
 	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
@@ -442,6 +444,7 @@ type ClaudeUsageFetchOptions struct {
 	AccountID   int64                   // 账号 ID（用于连接池隔离）
 	TLSProfile  *tlsfingerprint.Profile // TLS 指纹 Profile（nil 表示不启用）
 	Fingerprint *Fingerprint            // 缓存的指纹信息（User-Agent 等）
+	EgressRoute platformegress.Route    // 已加载账号的完整出口路由
 }
 
 // ClaudeUsageFetcher fetches usage data from Anthropic OAuth API
@@ -466,6 +469,7 @@ type AccountUsageService struct {
 	tlsFPProfileService     *TLSFingerprintProfileService
 	agentIdentityTaskMu     sync.Mutex
 	agentIdentityWS         agentIdentityWSConnectionInvalidator
+	cfg                     *config.Config
 }
 
 // NewAccountUsageService 创建AccountUsageService实例
@@ -910,6 +914,11 @@ func (s *AccountUsageService) probeOpenAICodexSnapshot(ctx context.Context, acco
 
 	reqCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
+	proxyURL := ""
+	if account.ProxyID != nil && account.Proxy != nil {
+		proxyURL = account.Proxy.URL()
+	}
+	reqCtx = withAccountEgressContext(reqCtx, account, proxyURL, s.cfg)
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, chatgptCodexURL, bytes.NewReader(payloadBytes))
 	if err != nil {
 		return nil, fmt.Errorf("create openai probe request: %w", err)
@@ -917,7 +926,7 @@ func (s *AccountUsageService) probeOpenAICodexSnapshot(ctx context.Context, acco
 	req.Host = "chatgpt.com"
 	req.Header.Set("Content-Type", "application/json")
 	if account.IsOpenAIAgentIdentity() {
-		authHeaders, authErr := buildAgentIdentityAuthenticationHeaders(ctx, s.accountRepo, s.agentIdentityWS, &s.agentIdentityTaskMu, account)
+		authHeaders, authErr := buildAgentIdentityAuthenticationHeaders(reqCtx, s.accountRepo, s.agentIdentityWS, &s.agentIdentityTaskMu, account, s.cfg)
 		if authErr != nil {
 			if ctx.Err() == nil {
 				_ = setOpenAIAgentIdentityAccountError(ctx, s.accountRepo, s.agentIdentityWS, account, "Agent Identity authentication failed: "+authErr.Error())
@@ -947,11 +956,7 @@ func (s *AccountUsageService) probeOpenAICodexSnapshot(ctx context.Context, acco
 	enforceCodexIdentityHeadersWithUA(req.Header, account.GetOpenAIUserAgent())
 	setOpenAIChatGPTAccountHeaders(req.Header, account)
 
-	proxyURL := ""
-	if account.ProxyID != nil && account.Proxy != nil {
-		proxyURL = account.Proxy.URL()
-	}
-	client, err := httppool.GetClient(httppool.Options{
+	client, err := httppool.GetClientForContext(reqCtx, httppool.Options{
 		ProxyURL:              proxyURL,
 		Timeout:               15 * time.Second,
 		ResponseHeaderTimeout: 10 * time.Second,
@@ -1640,6 +1645,7 @@ func (s *AccountUsageService) fetchOAuthUsageRaw(ctx context.Context, account *A
 		ProxyURL:    proxyURL,
 		AccountID:   account.ID,
 		TLSProfile:  s.tlsFPProfileService.ResolveTLSProfile(account),
+		EgressRoute: account.EgressRoute(),
 	}
 
 	// 尝试获取缓存的 Fingerprint（包含 User-Agent 等信息）

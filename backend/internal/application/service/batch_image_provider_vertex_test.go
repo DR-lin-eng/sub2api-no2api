@@ -12,9 +12,21 @@ import (
 	"testing"
 	"time"
 
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 	"github.com/stretchr/testify/require"
 )
+
+func TestVertexBatchHTTPClientExplicitIPv6DisabledFailsClosed(t *testing.T) {
+	ctx := platformegress.WithContextRoute(
+		context.Background(),
+		platformegress.IPv6PoolRoute("2001:db8::10", 1, 1, false),
+		platformegress.Policy{},
+	)
+	client := NewVertexBatchHTTPClient("", nil)
+	_, err := client.GetBatchPredictionJob(ctx, "token", "projects/p/locations/global/batchPredictionJobs/1")
+	require.ErrorIs(t, err, platformegress.ErrIPv6Disabled)
+}
 
 func TestBatchImageProviderRegistry_ReturnsVertex(t *testing.T) {
 	registry := NewDefaultBatchImageProviderRegistry()

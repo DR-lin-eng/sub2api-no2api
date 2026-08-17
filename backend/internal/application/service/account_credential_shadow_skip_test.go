@@ -85,7 +85,7 @@ func TestEnsureOpenAIPrivacySkipsShadow(t *testing.T) {
 	}
 	privacyCalled := false
 	svc := &adminServiceImpl{
-		privacyClientFactory: func(proxyURL string) (*req.Client, error) {
+		privacyClientFactory: func(_ context.Context, proxyURL string) (*req.Client, error) {
 			privacyCalled = true
 			return nil, errors.New("should not reach factory for shadow account")
 		},

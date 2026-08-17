@@ -13,7 +13,9 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
+	moduleegress "github.com/Wei-Shaw/sub2api/internal/modules/egress"
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	"github.com/Wei-Shaw/sub2api/internal/shared/openai_compat"
 	"github.com/Wei-Shaw/sub2api/internal/shared/xai"
 )
@@ -29,6 +31,8 @@ type Account struct {
 	ProxyID                 *int64
 	ProxyFallbackOriginID   *int64
 	ProxyFallbackOriginName *string // 仅展示用
+	EgressMode              platformegress.Mode
+	EgressBinding           *moduleegress.Binding
 	Concurrency             int
 	Priority                int
 	// RateMultiplier 账号计费倍率（>=0，允许 0 表示该账号计费为 0）。
@@ -79,6 +83,44 @@ type Account struct {
 	headerOverrideCacheRawPtr         uintptr
 	headerOverrideCacheRawLen         int
 	headerOverrideCacheRawSig         uint64
+}
+
+// EgressRoute resolves the complete outbound route from the already-loaded
+// account. Existing proxy_id remains authoritative for compatibility.
+func (a *Account) EgressRoute() platformegress.Route {
+	if a == nil {
+		return platformegress.Route{}
+	}
+	if a.ProxyID != nil {
+		proxyURL := ""
+		if a.Proxy != nil {
+			proxyURL = a.Proxy.URL()
+		}
+		return platformegress.ExternalProxyRoute(proxyURL)
+	}
+	mode := a.EgressMode
+	if mode == "" {
+		mode = platformegress.ModeInherit
+	}
+	switch mode {
+	case platformegress.ModeDirect:
+		return platformegress.DirectRoute(false)
+	case platformegress.ModeExternalProxy:
+		return platformegress.ExternalProxyRoute("")
+	case platformegress.ModeIPv6Pool:
+		return a.EgressBinding.Route(false)
+	case platformegress.ModeInherit:
+		if a.EgressBinding != nil {
+			return a.EgressBinding.Route(true)
+		}
+		// An inherited account without a binding is direct only while the global
+		// IPv6 feature is disabled. Returning an incomplete inherited IPv6 route
+		// lets ApplyPolicy enforce that kill switch without silently leaking over
+		// IPv4 while reconciliation is still pending.
+		return platformegress.Route{Mode: platformegress.ModeIPv6Pool, Inherited: true}
+	default:
+		return platformegress.Route{Mode: mode}
+	}
 }
 
 type OpenAIEndpointCapability string

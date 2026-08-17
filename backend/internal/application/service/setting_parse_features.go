@@ -65,6 +65,9 @@ func (s *SettingService) applyFeatureSettings(result *SystemSettings, settings m
 	// Media Studio feature (default: disabled; strict true)
 	result.MediaStudioEnabled = settings[SettingKeyMediaStudioEnabled] == "true"
 
+	// IPv6 egress management UI (default: disabled; strict true)
+	result.IPv6EgressUIEnabled = settings[SettingKeyIPv6EgressUIEnabled] == "true"
+
 	// Affiliate (邀请返利) feature (default: disabled; strict true)
 	result.AffiliateEnabled = settings[SettingKeyAffiliateEnabled] == "true"
 

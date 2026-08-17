@@ -298,6 +298,7 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		}
 		sessionHash = ensureOpenAIPoolModeSessionHash(sessionHash, account)
 		setOpsSelectedAccount(c, account.ID, account.Platform)
+		c.Request = c.Request.WithContext(service.WithAccountEgressContext(c.Request.Context(), account, h.cfg))
 
 		accountReleaseFunc, acquireOutcome := h.acquireResponsesAccountSlot(c, apiKey.GroupID, sessionHash, selection, false, &streamStarted, reqLog)
 		if acquireOutcome == accountSlotAcquireReschedule {

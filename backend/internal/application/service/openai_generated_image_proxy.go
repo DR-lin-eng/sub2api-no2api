@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
 	"github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator"
 	"github.com/gin-gonic/gin"
@@ -40,6 +41,14 @@ var ErrGeneratedImageUnavailable = errors.New("generated image proxy is unavaila
 type GeneratedImageURLStore interface {
 	SetGeneratedImageURL(ctx context.Context, hash, rawURL string, ttl time.Duration) error
 	GetGeneratedImageURL(ctx context.Context, hash string) (string, bool, error)
+}
+
+// GeneratedImageRouteStore is an optional companion capability. Keeping route
+// metadata under a separate Redis key preserves rolling compatibility with
+// older nodes that still expect the URL value to be a plain string.
+type GeneratedImageRouteStore interface {
+	SetGeneratedImageRoute(ctx context.Context, hash string, route platformegress.Route, accountID int64, ttl time.Duration) error
+	GetGeneratedImageRoute(ctx context.Context, hash string) (platformegress.Route, int64, bool, error)
 }
 
 func (s *OpenAIGatewayService) generatedImageURLStore() GeneratedImageURLStore {
@@ -115,9 +124,11 @@ func (s *OpenAIGatewayService) rewriteOpenAIImagesResponseURLsStrict(c *gin.Cont
 		if err != nil {
 			return "", fmt.Errorf("validate generated image URL: %w", err)
 		}
-		hashBytes := sha256.Sum256([]byte(validated))
-		hash := hex.EncodeToString(hashBytes[:])
-		if err := store.SetGeneratedImageURL(ctx, hash, validated, generatedImageURLTTL); err != nil {
+		hash, err := generatedImageMappingHash(ctx, validated)
+		if err != nil {
+			return "", fmt.Errorf("resolve generated image egress route: %w", err)
+		}
+		if err := storeGeneratedImageURL(ctx, store, hash, validated); err != nil {
 			return "", fmt.Errorf("%w: cache generated image URL: %v", ErrGeneratedImageUnavailable, err)
 		}
 		return localBaseURL + "/generated/" + hash + generatedImageExtension(parsed.Path), nil
@@ -221,13 +232,50 @@ func (s *OpenAIGatewayService) mapGeneratedImageURL(
 	if err != nil {
 		return rawURL
 	}
-	hashBytes := sha256.Sum256([]byte(validated))
-	hash := hex.EncodeToString(hashBytes[:])
-	if err := store.SetGeneratedImageURL(ctx, hash, validated, generatedImageURLTTL); err != nil {
+	hash, err := generatedImageMappingHash(ctx, validated)
+	if err != nil {
+		logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Failed to resolve generated image egress route: %v", err)
+		return rawURL
+	}
+	if err := storeGeneratedImageURL(ctx, store, hash, validated); err != nil {
 		logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Failed to cache generated image URL: %v", err)
 		return rawURL
 	}
 	return localBaseURL + "/generated/" + hash + generatedImageExtension(parsed.Path)
+}
+
+func generatedImageMappingHash(ctx context.Context, rawURL string) (string, error) {
+	basis := rawURL
+	if contextRoute, ok := platformegress.FromContext(ctx); ok {
+		effective, err := platformegress.ApplyPolicy(contextRoute.Route, contextRoute.Policy)
+		if err != nil {
+			return "", err
+		}
+		if effective.Mode != platformegress.ModeDirect {
+			basis = fmt.Sprintf("%d\x00%s\x00%s", contextRoute.AccountID, effective.CacheKey(), rawURL)
+		}
+	}
+	hashBytes := sha256.Sum256([]byte(basis))
+	return hex.EncodeToString(hashBytes[:]), nil
+}
+
+func storeGeneratedImageURL(ctx context.Context, store GeneratedImageURLStore, hash, rawURL string) error {
+	if contextRoute, ok := platformegress.FromContext(ctx); ok {
+		effective, err := platformegress.ApplyPolicy(contextRoute.Route, contextRoute.Policy)
+		if err != nil {
+			return err
+		}
+		if effective.Mode != platformegress.ModeDirect {
+			routeStore, supported := store.(GeneratedImageRouteStore)
+			if !supported {
+				return fmt.Errorf("generated image mapping store does not preserve account egress routes")
+			}
+			if err := routeStore.SetGeneratedImageRoute(ctx, hash, effective, contextRoute.AccountID, generatedImageURLTTL); err != nil {
+				return err
+			}
+		}
+	}
+	return store.SetGeneratedImageURL(ctx, hash, rawURL, generatedImageURLTTL)
 }
 
 func (s *OpenAIGatewayService) validateGeneratedImageURL(rawURL string) (string, *url.URL, error) {
@@ -375,9 +423,11 @@ func (s *OpenAIGatewayService) rewriteOpenAIImagesResponseURLsStrictPayload(c *g
 		if err != nil {
 			return "", err
 		}
-		hashBytes := sha256.Sum256([]byte(validated))
-		hash := hex.EncodeToString(hashBytes[:])
-		if err := store.SetGeneratedImageURL(ctx, hash, validated, generatedImageURLTTL); err != nil {
+		hash, err := generatedImageMappingHash(ctx, validated)
+		if err != nil {
+			return "", err
+		}
+		if err := storeGeneratedImageURL(ctx, store, hash, validated); err != nil {
 			return "", fmt.Errorf("%w: %v", ErrGeneratedImageUnavailable, err)
 		}
 		return localBaseURL + "/generated/" + hash + generatedImageExtension(parsed.Path), nil
@@ -519,7 +569,7 @@ func (s *OpenAIGatewayService) downloadGeneratedImageBase64(ctx context.Context,
 		return "", err
 	}
 	req.Header.Set("Accept", "image/*,*/*;q=0.8")
-	resp, err := s.httpUpstream.Do(req, "", 0, 0)
+	resp, err := doGeneratedImageHTTPUpstream(s.httpUpstream, req)
 	if err != nil {
 		return "", err
 	}
@@ -563,6 +613,27 @@ func (s *OpenAIGatewayService) downloadGeneratedImageBase64(ctx context.Context,
 		return "", fmt.Errorf("generated image exceeds %d bytes", openAIImageMaxDownloadBytes)
 	}
 	return encoded.String(), nil
+}
+
+func doGeneratedImageHTTPUpstream(upstream HTTPUpstream, req *http.Request) (*http.Response, error) {
+	if upstream == nil {
+		return nil, ErrGeneratedImageUnavailable
+	}
+	contextRoute, ok := platformegress.FromContext(req.Context())
+	if !ok {
+		return upstream.Do(req, "", 0, 0)
+	}
+	if routed, supported := upstream.(RoutedHTTPUpstream); supported {
+		return routed.DoRoute(req, contextRoute.Route, contextRoute.AccountID, 0)
+	}
+	effectiveRoute, err := platformegress.ApplyPolicy(contextRoute.Route, contextRoute.Policy)
+	if err != nil {
+		return nil, err
+	}
+	if effectiveRoute.Mode == platformegress.ModeIPv6Pool {
+		return nil, fmt.Errorf("%w: HTTP upstream does not support IPv6 account routes", platformegress.ErrIPv6Unsupported)
+	}
+	return upstream.Do(req, effectiveRoute.ProxyURL, contextRoute.AccountID, 0)
 }
 
 func (s *OpenAIGatewayService) rewriteOpenAIImagesSSELineAsBase64(c *gin.Context, line []byte) ([]byte, error) {
@@ -668,11 +739,21 @@ func (s *OpenAIGatewayService) OpenGeneratedImage(
 	if !found {
 		return nil, ErrGeneratedImageNotFound
 	}
+	requestCtx := ctx
+	if routeStore, ok := store.(GeneratedImageRouteStore); ok {
+		route, accountID, routeFound, routeErr := routeStore.GetGeneratedImageRoute(ctx, hash)
+		if routeErr != nil {
+			return nil, fmt.Errorf("get generated image egress route: %w", routeErr)
+		}
+		if routeFound {
+			requestCtx = withEgressAccountRouteContext(ctx, route, accountID, s.cfg)
+		}
+	}
 	validated, _, err := s.validateGeneratedImageURL(rawURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid generated image mapping: %w", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, validated, nil)
+	req, err := http.NewRequestWithContext(requestCtx, http.MethodGet, validated, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -687,5 +768,5 @@ func (s *OpenAIGatewayService) OpenGeneratedImage(
 	if s == nil || s.httpUpstream == nil {
 		return nil, ErrGeneratedImageUnavailable
 	}
-	return s.httpUpstream.Do(req, "", 0, 0)
+	return doGeneratedImageHTTPUpstream(s.httpUpstream, req)
 }

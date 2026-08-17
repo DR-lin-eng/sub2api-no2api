@@ -6,6 +6,7 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 )
 
@@ -667,6 +668,7 @@ type adminServiceImpl struct {
 	runtimeStateCleaner     AccountRuntimeStateCleaner
 	compositeRouteRepo      CompositeModelRouteRepository
 	compositeResolver       *CompositeRouteResolver
+	cfg                     *config.Config
 }
 
 type adminRechargeAffiliateAccruer interface {
@@ -702,6 +704,7 @@ func NewAdminService(
 	runtimeStateCleaner AccountRuntimeStateCleaner,
 	compositeRouteRepo CompositeModelRouteRepository,
 	compositeResolver *CompositeRouteResolver,
+	cfg *config.Config,
 ) AdminService {
 	return &adminServiceImpl{
 		userRepo:                userRepo,
@@ -730,5 +733,6 @@ func NewAdminService(
 		runtimeStateCleaner:     runtimeStateCleaner,
 		compositeRouteRepo:      compositeRouteRepo,
 		compositeResolver:       compositeResolver,
+		cfg:                     cfg,
 	}
 }

@@ -80,6 +80,7 @@ infrastructure implements application ports
 | 用量结算队列 | Redis Stream + PostgreSQL 幂等落库 | 关键计费任务不能静默丢弃；Redis 故障时使用受限 fallback |
 | 前端运行设置 | 后端注入 + 管理 API | 浏览器状态不是权限或计费事实源 |
 | 逻辑节点、期望版本与滚动发布 | PostgreSQL + 节点本地 identity file | PostgreSQL 保存节点别名和发布任务；每个节点本地持久卷保存稳定 `node_id`，进程级 `runner_id` 只作为历史 |
+| 账号 IPv6 出口池与绑定 | PostgreSQL + 进程内健康状态 | PostgreSQL 保存稳定地址和版本；已选账号携带绑定进入请求，出口健康由各进程本地预检 |
 
 数据库变更必须同时考虑 Ent schema、迁移、repository、DTO/API 兼容和测试 fixture。只改 schema 或只写迁移都不完整。
 
@@ -127,6 +128,8 @@ feature presentation -> common + core services/stores/utils
 - 所有已获取的用户/账号/图片并发槽位必须在成功、错误和客户端取消路径释放。
 - 流式响应一旦写出状态或事件，错误必须使用对应协议格式，不能退回普通 JSON 状态码。
 - 调度失败处理必须维护失败账号集合和最大切换次数，避免在坏账号上无限重试。
+- 账号上游访问必须保留 `proxy_id` 优先级并携带完整出口路由；显式 IPv6 缺少绑定、AAAA 或路由时失败关闭，稳态请求不得为出口新增数据库查询。
+- HE 隧道只允许专用 sidecar 在共享容器网络命名空间持有 `NET_ADMIN/NET_RAW`；主应用不得获得网络管理 capability，sidecar 不得挂载 Docker socket 或进入 host network/PID。
 - 用量记录以 request ID/指纹保证幂等，结算成功后再更新相关缓存投影。
 - 生产前端必须通过统一构建路径嵌入，不能手改 `webassets/dist/`。
 
@@ -140,4 +143,4 @@ feature presentation -> common + core services/stores/utils
 4. 是多个领域都需要的无状态协议工具：放入 `internal/shared/<topic>`。
 5. 是存储或外部调用实现：在 infrastructure 实现 application 端口。
 
-更具体的文件定位见 [代码地图](CODE_MAP.md)，运行顺序见 [关键请求链路](REQUEST_LIFECYCLES.md)。
+更具体的文件定位见 [代码地图](CODE_MAP.md)，运行顺序见 [关键请求链路](REQUEST_LIFECYCLES.md)。账号 IPv6 源地址和 Linux 网络命名空间边界见 [账号级 IPv6 出口](IPV6_EGRESS.md)。

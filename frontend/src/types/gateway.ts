@@ -625,6 +625,21 @@ export interface OllamaCloudUsageSettings {
   debounce_minutes: number
 }
 
+export interface AccountEgressBinding {
+  id: number
+  account_id: number
+  account_name?: string
+  pool_id: number
+  pool_name?: string
+  pool_status?: 'active' | 'disabled'
+  source_ipv6: string
+  status: 'active' | 'disabled'
+  version: number
+  rotated_at?: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface Account {
   id: number
   name: string
@@ -652,6 +667,8 @@ export interface Account {
     }
   } & Record<string, unknown>)
   proxy_id: number | null
+  egress_mode?: 'inherit' | 'direct' | 'external_proxy' | 'ipv6_pool'
+  egress_binding?: AccountEgressBinding | null
   proxy_fallback_origin_id?: number | null
   proxy_fallback_origin_name?: string | null
   concurrency: number

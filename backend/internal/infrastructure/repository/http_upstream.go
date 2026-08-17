@@ -27,6 +27,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	"github.com/Wei-Shaw/sub2api/internal/shared/proxyurl"
 	"github.com/Wei-Shaw/sub2api/internal/shared/proxyutil"
 	"github.com/Wei-Shaw/sub2api/internal/shared/servertiming"
@@ -122,10 +123,13 @@ type upstreamClientEntry struct {
 	grokFallbackClient     *http.Client
 	grokFallbackClientOnce sync.Once
 	proxyKey               string // 代理标识（用于检测代理变更）
+	routeKey               string // 完整出口标识（含 IPv6 地址和绑定版本）
 	poolKey                string // 连接池配置标识（用于检测配置变更）
 	protocolMode           string // 协议模式（default/openai_h1/openai_h2/openai_h1_fallback）
 	lastUsed               int64  // 最后使用时间戳（纳秒），用于 LRU 淘汰
 	inFlight               int64  // 当前进行中的请求数，>0 时不可淘汰
+	accountID              int64  // 用于绑定轮换时淘汰同账号的旧出口连接
+	routeMode              platformegress.Mode
 }
 
 type openAIHTTP2FallbackState struct {
@@ -197,6 +201,14 @@ func NewHTTPUpstream(cfg *config.Config, settingService *service.SettingService)
 //   - 调用方必须关闭 resp.Body，否则会导致 inFlight 计数泄漏
 //   - inFlight > 0 的客户端不会被淘汰，确保活跃请求不被中断
 func (s *httpUpstreamService) Do(req *http.Request, proxyURL string, accountID int64, accountConcurrency int) (*http.Response, error) {
+	route := platformegress.DirectRoute(false)
+	if strings.TrimSpace(proxyURL) != "" {
+		route = platformegress.ExternalProxyRoute(proxyURL)
+	}
+	return s.DoRoute(req, route, accountID, accountConcurrency)
+}
+
+func (s *httpUpstreamService) DoRoute(req *http.Request, route platformegress.Route, accountID int64, accountConcurrency int) (*http.Response, error) {
 	applyGrokCLIProxyHeaders(req)
 	if err := s.validateRequestHost(req); err != nil {
 		return nil, err
@@ -207,7 +219,7 @@ func (s *httpUpstreamService) Do(req *http.Request, proxyURL string, accountID i
 	}
 
 	// 获取或创建对应的客户端，并标记请求占用
-	entry, err := s.acquireClientWithProfile(proxyURL, accountID, accountConcurrency, profile)
+	entry, err := s.acquireClientWithProfileRoute(route, accountID, accountConcurrency, profile)
 	if err != nil {
 		return nil, err
 	}
@@ -245,13 +257,21 @@ func (s *httpUpstreamService) Do(req *http.Request, proxyURL string, accountID i
 // profile 为 nil 时不启用 TLS 指纹，行为与 Do 方法相同。
 // profile 非 nil 时使用指定的 Profile 进行 TLS 指纹伪装。
 func (s *httpUpstreamService) DoWithTLS(req *http.Request, proxyURL string, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile) (*http.Response, error) {
+	route := platformegress.DirectRoute(false)
+	if strings.TrimSpace(proxyURL) != "" {
+		route = platformegress.ExternalProxyRoute(proxyURL)
+	}
+	return s.DoWithTLSRoute(req, route, accountID, accountConcurrency, profile)
+}
+
+func (s *httpUpstreamService) DoWithTLSRoute(req *http.Request, route platformegress.Route, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile) (*http.Response, error) {
 	if profile == nil {
-		return s.Do(req, proxyURL, accountID, accountConcurrency)
+		return s.DoRoute(req, route, accountID, accountConcurrency)
 	}
 	// Plain HTTP has no TLS handshake to fingerprint. Reuse the normal transport
 	// so a configured HTTP or SOCKS proxy is not bypassed.
 	if req != nil && req.URL != nil && strings.EqualFold(req.URL.Scheme, "http") {
-		return s.Do(req, proxyURL, accountID, accountConcurrency)
+		return s.DoRoute(req, route, accountID, accountConcurrency)
 	}
 	applyGrokCLIProxyHeaders(req)
 	upstreamProfile := service.HTTPUpstreamProfileDefault
@@ -263,9 +283,9 @@ func (s *httpUpstreamService) DoWithTLS(req *http.Request, proxyURL string, acco
 	if req != nil && req.URL != nil {
 		targetHost = req.URL.Host
 	}
-	proxyInfo := "direct"
-	if proxyURL != "" {
-		proxyInfo = proxyURLForLog(proxyURL)
+	proxyInfo := string(route.Mode)
+	if route.Mode == platformegress.ModeExternalProxy {
+		proxyInfo = proxyURLForLog(route.ProxyURL)
 	}
 	slog.Debug("tls_fingerprint_enabled", "account_id", accountID, "target", targetHost, "proxy", proxyInfo, "profile", profile.Name)
 
@@ -273,7 +293,7 @@ func (s *httpUpstreamService) DoWithTLS(req *http.Request, proxyURL string, acco
 		return nil, err
 	}
 
-	entry, err := s.acquireClientWithTLS(proxyURL, accountID, accountConcurrency, profile, upstreamProfile)
+	entry, err := s.acquireClientWithTLSRoute(route, accountID, accountConcurrency, profile, upstreamProfile)
 	if err != nil {
 		slog.Debug("tls_fingerprint_acquire_client_failed", "account_id", accountID)
 		return nil, err
@@ -500,23 +520,33 @@ func isSupportedGrokCLIVersion(version string) bool {
 		semver.Compare(canonical, minimum) >= 0
 }
 
-// acquireClientWithTLS 获取或创建带 TLS 指纹的客户端
-func (s *httpUpstreamService) acquireClientWithTLS(proxyURL string, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile, upstreamProfile service.HTTPUpstreamProfile) (*upstreamClientEntry, error) {
-	return s.getClientEntryWithTLS(proxyURL, accountID, accountConcurrency, profile, upstreamProfile, true, true)
+func (s *httpUpstreamService) acquireClientWithTLSRoute(route platformegress.Route, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile, upstreamProfile service.HTTPUpstreamProfile) (*upstreamClientEntry, error) {
+	return s.getClientEntryWithTLSRoute(route, accountID, accountConcurrency, profile, upstreamProfile, true, true)
 }
 
 // getClientEntryWithTLS 获取或创建带 TLS 指纹的客户端条目
 // TLS 指纹客户端使用独立的缓存键，与普通客户端隔离
 func (s *httpUpstreamService) getClientEntryWithTLS(proxyURL string, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile, upstreamProfile service.HTTPUpstreamProfile, markInFlight bool, enforceLimit bool) (*upstreamClientEntry, error) {
+	route := platformegress.DirectRoute(false)
+	if strings.TrimSpace(proxyURL) != "" {
+		route = platformegress.ExternalProxyRoute(proxyURL)
+	}
+	return s.getClientEntryWithTLSRoute(route, accountID, accountConcurrency, profile, upstreamProfile, markInFlight, enforceLimit)
+}
+
+func (s *httpUpstreamService) getClientEntryWithTLSRoute(route platformegress.Route, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile, upstreamProfile service.HTTPUpstreamProfile, markInFlight bool, enforceLimit bool) (*upstreamClientEntry, error) {
 	isolation := s.getIsolationMode()
-	proxyKey, parsedProxy, err := normalizeProxyURL(proxyURL)
+	effective, routeKey, proxyKey, parsedProxy, err := s.normalizeEgressRoute(route)
 	if err != nil {
 		return nil, err
+	}
+	if effective.Mode == platformegress.ModeIPv6Pool {
+		isolation = config.ConnectionPoolIsolationAccountProxy
 	}
 	settings := s.resolvePoolSettings(isolation, accountConcurrency)
 	settings = s.applyProfilePoolSettings(settings, upstreamProfile)
 	// TLS 指纹客户端使用独立的缓存键，加 "tls:" 前缀
-	cacheKey := "tls:" + buildCacheKey(isolation, proxyKey, accountID, upstreamProtocolModeDefault) + upstreamProfileCacheKeySuffix(upstreamProfile)
+	cacheKey := "tls:" + buildCacheKey(isolation, routeKey, accountID, upstreamProtocolModeDefault) + upstreamProfileCacheKeySuffix(upstreamProfile)
 	poolKey := buildPoolKey(settings, upstreamProtocolModeDefault) + ":tls"
 
 	now := time.Now()
@@ -524,7 +554,7 @@ func (s *httpUpstreamService) getClientEntryWithTLS(proxyURL string, accountID i
 
 	// 读锁快速路径
 	s.mu.RLock()
-	if entry, ok := s.clients[cacheKey]; ok && s.shouldReuseEntry(entry, isolation, proxyKey, poolKey) {
+	if entry, ok := s.clients[cacheKey]; ok && s.shouldReuseEntry(entry, isolation, routeKey, poolKey) {
 		atomic.StoreInt64(&entry.lastUsed, nowUnix)
 		if markInFlight {
 			atomic.AddInt64(&entry.inFlight, 1)
@@ -538,7 +568,7 @@ func (s *httpUpstreamService) getClientEntryWithTLS(proxyURL string, accountID i
 	// 写锁慢路径
 	s.mu.Lock()
 	if entry, ok := s.clients[cacheKey]; ok {
-		if s.shouldReuseEntry(entry, isolation, proxyKey, poolKey) {
+		if s.shouldReuseEntry(entry, isolation, routeKey, poolKey) {
 			atomic.StoreInt64(&entry.lastUsed, nowUnix)
 			if markInFlight {
 				atomic.AddInt64(&entry.inFlight, 1)
@@ -550,7 +580,7 @@ func (s *httpUpstreamService) getClientEntryWithTLS(proxyURL string, accountID i
 		slog.Debug("tls_fingerprint_evicting_stale_client",
 			"account_id", accountID,
 			"proxy", proxyURLForLog(proxyKey),
-			"proxy_changed", entry.proxyKey != proxyKey,
+			"route_changed", entry.routeKey != routeKey,
 			"pool_changed", entry.poolKey != poolKey)
 		s.removeClientLocked(cacheKey, entry)
 	}
@@ -567,8 +597,9 @@ func (s *httpUpstreamService) getClientEntryWithTLS(proxyURL string, accountID i
 	}
 
 	// 创建带 TLS 指纹的 Transport
+	s.evictStaleAccountRoutesLocked(accountID, effective)
 	slog.Debug("tls_fingerprint_creating_new_client", "account_id", accountID, "proxy", proxyURLForLog(proxyKey))
-	transport, err := buildUpstreamTransportWithTLSFingerprint(settings, parsedProxy, profile)
+	transport, err := buildUpstreamTransportWithTLSFingerprintForRoute(settings, parsedProxy, profile, effective, s.egressPolicy())
 	if err != nil {
 		s.mu.Unlock()
 		return nil, fmt.Errorf("build TLS fingerprint transport: %w", err)
@@ -580,9 +611,12 @@ func (s *httpUpstreamService) getClientEntryWithTLS(proxyURL string, accountID i
 	}
 
 	entry := &upstreamClientEntry{
-		client:   client,
-		proxyKey: proxyKey,
-		poolKey:  poolKey,
+		client:    client,
+		accountID: accountID,
+		proxyKey:  proxyKey,
+		routeKey:  routeKey,
+		routeMode: effective.Mode,
+		poolKey:   poolKey,
 	}
 	atomic.StoreInt64(&entry.lastUsed, nowUnix)
 	if markInFlight {
@@ -641,6 +675,10 @@ func (s *httpUpstreamService) acquireClientWithProfile(proxyURL string, accountI
 	return s.getClientEntry(proxyURL, accountID, accountConcurrency, profile, true, true)
 }
 
+func (s *httpUpstreamService) acquireClientWithProfileRoute(route platformegress.Route, accountID int64, accountConcurrency int, profile service.HTTPUpstreamProfile) (*upstreamClientEntry, error) {
+	return s.getClientEntryRoute(route, accountID, accountConcurrency, profile, true, true)
+}
+
 // getOrCreateClient 获取或创建客户端
 // 根据隔离策略和参数决定缓存键，处理代理变更和配置变更
 //
@@ -664,19 +702,29 @@ func (s *httpUpstreamService) getOrCreateClient(proxyURL string, accountID int64
 // markInFlight=true 时会标记进行中请求，用于请求路径防止被淘汰
 // enforceLimit=true 时会限制客户端数量，超限且无法淘汰时返回错误
 func (s *httpUpstreamService) getClientEntry(proxyURL string, accountID int64, accountConcurrency int, profile service.HTTPUpstreamProfile, markInFlight bool, enforceLimit bool) (*upstreamClientEntry, error) {
+	route := platformegress.DirectRoute(false)
+	if strings.TrimSpace(proxyURL) != "" {
+		route = platformegress.ExternalProxyRoute(proxyURL)
+	}
+	return s.getClientEntryRoute(route, accountID, accountConcurrency, profile, markInFlight, enforceLimit)
+}
+
+func (s *httpUpstreamService) getClientEntryRoute(route platformegress.Route, accountID int64, accountConcurrency int, profile service.HTTPUpstreamProfile, markInFlight bool, enforceLimit bool) (*upstreamClientEntry, error) {
 	// 获取隔离模式
 	isolation := s.getIsolationMode()
-	// 标准化代理 URL 并解析
-	proxyKey, parsedProxy, err := normalizeProxyURL(proxyURL)
+	effective, routeKey, proxyKey, parsedProxy, err := s.normalizeEgressRoute(route)
 	if err != nil {
 		return nil, err
+	}
+	if effective.Mode == platformegress.ModeIPv6Pool {
+		isolation = config.ConnectionPoolIsolationAccountProxy
 	}
 	// 根据请求 profile（例如 OpenAI）选择协议模式
 	protocolMode := s.resolveProtocolMode(profile, proxyKey, parsedProxy)
 	settings := s.resolvePoolSettings(isolation, accountConcurrency)
 	settings = s.applyProfilePoolSettings(settings, profile)
 	// 构建缓存键（根据隔离策略不同）
-	cacheKey := buildCacheKey(isolation, proxyKey, accountID, protocolMode) + upstreamProfileCacheKeySuffix(profile)
+	cacheKey := buildCacheKey(isolation, routeKey, accountID, protocolMode) + upstreamProfileCacheKeySuffix(profile)
 	// 构建连接池配置键（用于检测配置变更）
 	poolKey := buildPoolKey(settings, protocolMode)
 
@@ -685,7 +733,7 @@ func (s *httpUpstreamService) getClientEntry(proxyURL string, accountID int64, a
 
 	// 读锁快速路径：命中缓存直接返回，减少锁竞争
 	s.mu.RLock()
-	if entry, ok := s.clients[cacheKey]; ok && s.shouldReuseEntry(entry, isolation, proxyKey, poolKey) {
+	if entry, ok := s.clients[cacheKey]; ok && s.shouldReuseEntry(entry, isolation, routeKey, poolKey) {
 		atomic.StoreInt64(&entry.lastUsed, nowUnix)
 		if markInFlight {
 			atomic.AddInt64(&entry.inFlight, 1)
@@ -698,7 +746,7 @@ func (s *httpUpstreamService) getClientEntry(proxyURL string, accountID int64, a
 	// 写锁慢路径：创建或重建客户端
 	s.mu.Lock()
 	if entry, ok := s.clients[cacheKey]; ok {
-		if s.shouldReuseEntry(entry, isolation, proxyKey, poolKey) {
+		if s.shouldReuseEntry(entry, isolation, routeKey, poolKey) {
 			atomic.StoreInt64(&entry.lastUsed, nowUnix)
 			if markInFlight {
 				atomic.AddInt64(&entry.inFlight, 1)
@@ -721,7 +769,8 @@ func (s *httpUpstreamService) getClientEntry(proxyURL string, accountID int64, a
 	}
 
 	// 缓存未命中或需要重建，创建新客户端
-	transport, err := buildUpstreamTransport(settings, parsedProxy, protocolMode)
+	s.evictStaleAccountRoutesLocked(accountID, effective)
+	transport, err := buildUpstreamTransportForRoute(settings, parsedProxy, protocolMode, effective, s.egressPolicy())
 	if err != nil {
 		s.mu.Unlock()
 		return nil, fmt.Errorf("build transport: %w", err)
@@ -732,7 +781,10 @@ func (s *httpUpstreamService) getClientEntry(proxyURL string, accountID int64, a
 	}
 	entry := &upstreamClientEntry{
 		client:       client,
+		accountID:    accountID,
 		proxyKey:     proxyKey,
+		routeKey:     routeKey,
+		routeMode:    effective.Mode,
 		poolKey:      poolKey,
 		protocolMode: protocolMode,
 	}
@@ -751,17 +803,48 @@ func (s *httpUpstreamService) getClientEntry(proxyURL string, accountID int64, a
 
 // shouldReuseEntry 判断缓存条目是否可复用
 // 若代理或连接池配置发生变化，则需要重建客户端
-func (s *httpUpstreamService) shouldReuseEntry(entry *upstreamClientEntry, isolation, proxyKey, poolKey string) bool {
+func (s *httpUpstreamService) shouldReuseEntry(entry *upstreamClientEntry, isolation, routeKey, poolKey string) bool {
 	if entry == nil {
 		return false
 	}
-	if isolation == config.ConnectionPoolIsolationAccount && entry.proxyKey != proxyKey {
+	entryRouteKey := entry.routeKey
+	if entryRouteKey == "" {
+		entryRouteKey = entry.proxyKey
+	}
+	if (isolation == config.ConnectionPoolIsolationAccount || isolation == config.ConnectionPoolIsolationAccountProxy) && entryRouteKey != routeKey {
 		return false
 	}
 	if entry.poolKey != poolKey {
 		return false
 	}
 	return true
+}
+
+func (s *httpUpstreamService) egressPolicy() platformegress.Policy {
+	policy := platformegress.Policy{FreeBind: true}
+	if s != nil && s.cfg != nil {
+		policy.IPv6Enabled = s.cfg.IPv6Egress.Enabled
+		policy.FreeBind = s.cfg.IPv6Egress.FreeBind
+	}
+	return policy
+}
+
+func (s *httpUpstreamService) normalizeEgressRoute(route platformegress.Route) (platformegress.Route, string, string, *url.URL, error) {
+	effective, err := platformegress.ApplyPolicy(route, s.egressPolicy())
+	if err != nil {
+		return platformegress.Route{}, "", "", nil, err
+	}
+	switch effective.Mode {
+	case platformegress.ModeExternalProxy:
+		proxyKey, parsedProxy, err := normalizeProxyURL(effective.ProxyURL)
+		return effective, proxyKey, proxyKey, parsedProxy, err
+	case platformegress.ModeDirect:
+		return effective, directProxyKey, directProxyKey, nil, nil
+	case platformegress.ModeIPv6Pool:
+		return effective, effective.CacheKey(), directProxyKey, nil, nil
+	default:
+		return platformegress.Route{}, "", "", nil, fmt.Errorf("unsupported egress mode %q", effective.Mode)
+	}
 }
 
 // removeClientLocked 移除客户端（需持有锁）
@@ -776,6 +859,28 @@ func (s *httpUpstreamService) removeClientLocked(key string, entry *upstreamClie
 		// 关闭空闲连接，释放系统资源
 		// 注意：这不会中断活跃连接
 		entry.client.CloseIdleConnections()
+	}
+}
+
+// evictStaleAccountRoutesLocked closes idle connections created with an older
+// binding while allowing active HTTP/SSE responses to finish on their current
+// socket. The caller must hold s.mu for writing.
+func (s *httpUpstreamService) evictStaleAccountRoutesLocked(accountID int64, route platformegress.Route) {
+	routeKey := route.CacheKey()
+	if accountID <= 0 || strings.TrimSpace(routeKey) == "" {
+		return
+	}
+	for key, entry := range s.clients {
+		if entry == nil || entry.accountID != accountID || entry.routeKey == routeKey {
+			continue
+		}
+		// account_proxy intentionally keeps distinct traditional proxies cached.
+		// Cross-key eviction is only needed when entering, leaving, or rotating an
+		// account-bound IPv6 route.
+		if route.Mode != platformegress.ModeIPv6Pool && entry.routeMode != platformegress.ModeIPv6Pool {
+			continue
+		}
+		s.removeClientLocked(key, entry)
 	}
 }
 
@@ -1379,8 +1484,27 @@ func newUpstreamDialer() *net.Dialer {
 //   - IdleConnTimeout: 空闲连接超时（超时后关闭）
 //   - ResponseHeaderTimeout: 等待响应头超时（不影响流式传输）
 func buildUpstreamTransport(settings poolSettings, proxyURL *url.URL, protocolMode string) (*http.Transport, error) {
+	return buildUpstreamTransportWithDialer(settings, proxyURL, protocolMode, newUpstreamDialer().DialContext)
+}
+
+func buildUpstreamTransportForRoute(settings poolSettings, proxyURL *url.URL, protocolMode string, route platformegress.Route, policy platformegress.Policy) (*http.Transport, error) {
+	dialContext := newUpstreamDialer().DialContext
+	if route.Mode == platformegress.ModeIPv6Pool {
+		var err error
+		dialContext, err = platformegress.NewDialContext(route, policy, platformegress.DialerOptions{
+			Timeout:   defaultUpstreamDialTimeout,
+			KeepAlive: defaultUpstreamDialKeepAlive,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return buildUpstreamTransportWithDialer(settings, proxyURL, protocolMode, dialContext)
+}
+
+func buildUpstreamTransportWithDialer(settings poolSettings, proxyURL *url.URL, protocolMode string, dialContext func(context.Context, string, string) (net.Conn, error)) (*http.Transport, error) {
 	transport := &http.Transport{
-		DialContext:           newUpstreamDialer().DialContext,
+		DialContext:           dialContext,
 		TLSHandshakeTimeout:   defaultUpstreamTLSHandshakeTimeout,
 		MaxIdleConns:          settings.maxIdleConns,
 		MaxIdleConnsPerHost:   settings.maxIdleConnsPerHost,
@@ -1443,6 +1567,14 @@ func enableOpenAIHTTP2KeepAlive(transport *http.Transport) (*http2.Transport, er
 //   - http/https: HTTP 代理，使用 HTTPProxyDialer（CONNECT 隧道 + utls 握手）
 //   - socks5: SOCKS5 代理，使用 SOCKS5ProxyDialer（SOCKS5 隧道 + utls 握手）
 func buildUpstreamTransportWithTLSFingerprint(settings poolSettings, proxyURL *url.URL, profile *tlsfingerprint.Profile) (*http.Transport, error) {
+	route := platformegress.DirectRoute(false)
+	if proxyURL != nil {
+		route = platformegress.ExternalProxyRoute(proxyURL.String())
+	}
+	return buildUpstreamTransportWithTLSFingerprintForRoute(settings, proxyURL, profile, route, platformegress.Policy{IPv6Enabled: true, FreeBind: true})
+}
+
+func buildUpstreamTransportWithTLSFingerprintForRoute(settings poolSettings, proxyURL *url.URL, profile *tlsfingerprint.Profile, route platformegress.Route, policy platformegress.Policy) (*http.Transport, error) {
 	transport := &http.Transport{
 		MaxIdleConns:          settings.maxIdleConns,
 		MaxIdleConnsPerHost:   settings.maxIdleConnsPerHost,
@@ -1457,7 +1589,18 @@ func buildUpstreamTransportWithTLSFingerprint(settings poolSettings, proxyURL *u
 	if proxyURL == nil {
 		// 直连：使用 TLSFingerprintDialer
 		slog.Debug("tls_fingerprint_transport_direct")
-		dialer := tlsfingerprint.NewDialer(profile, nil)
+		var baseDialer func(context.Context, string, string) (net.Conn, error)
+		if route.Mode == platformegress.ModeIPv6Pool {
+			var err error
+			baseDialer, err = platformegress.NewDialContext(route, policy, platformegress.DialerOptions{
+				Timeout:   defaultUpstreamDialTimeout,
+				KeepAlive: defaultUpstreamDialKeepAlive,
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
+		dialer := tlsfingerprint.NewDialer(profile, baseDialer)
 		transport.DialTLSContext = dialer.DialTLSContext
 	} else {
 		scheme := strings.ToLower(proxyURL.Scheme)
@@ -1470,7 +1613,7 @@ func buildUpstreamTransportWithTLSFingerprint(settings poolSettings, proxyURL *u
 		case "https":
 			// The fingerprint dialer emits a plaintext CONNECT preface and cannot
 			// establish TLS to an HTTPS proxy. Keep proxy routing via net/http.
-			return buildUpstreamTransport(settings, proxyURL, upstreamProtocolModeDefault)
+			return buildUpstreamTransportForRoute(settings, proxyURL, upstreamProtocolModeDefault, route, policy)
 		case "http":
 			// HTTP/HTTPS 代理：使用 HTTPProxyDialer（CONNECT 隧道）
 			slog.Debug("tls_fingerprint_transport_http_connect", "proxy", proxyURL.Host)

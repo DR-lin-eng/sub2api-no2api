@@ -1,5 +1,6 @@
 import supportChatMessages from './settings.support-chat'
 import codexSimulationMessages from './settings.codex-simulation'
+import ipv6EgressMessages from './settings.ipv6-egress'
 
 export default {
     settings: {
@@ -70,6 +71,7 @@ export default {
           enabled: 'Enable Media Studio',
           enabledHint: 'When off, the user sidebar entry is hidden and direct visits to /media-studio return to the dashboard.',
         },
+        ipv6Egress: ipv6EgressMessages,
         riskControl: {
           title: 'Risk Control',
           description: 'Enable the content moderation menu and gateway audit entry point. Disabled by default.',

@@ -74,7 +74,7 @@ func (c *stubQuotaTokenCache) ReleaseRefreshLock(_ context.Context, _ string) er
 // newQuotaRedirectingFactory 返回 PrivacyClientFactory，将请求重定向到 httptest.Server。
 func newQuotaRedirectingFactory(srv *httptest.Server) PrivacyClientFactory {
 	targetURL, _ := url.Parse(srv.URL)
-	return func(_ string) (*req.Client, error) {
+	return func(_ context.Context, _ string) (*req.Client, error) {
 		c := req.C().WrapRoundTripFunc(func(rt req.RoundTripper) req.RoundTripFunc {
 			return func(r *req.Request) (*req.Response, error) {
 				r.URL.Scheme = targetURL.Scheme
@@ -333,11 +333,11 @@ func TestPrepareUpstreamCallShadowResolve(t *testing.T) {
 	tokenProvider := NewOpenAITokenProvider(repo, tokenCache, nil)
 
 	// privacyClientFactory 可以是任意合法工厂；prepareUpstreamCall 在返回前不调用它
-	svc := NewOpenAIQuotaService(repo, nil, tokenProvider, func(_ string) (*req.Client, error) {
+	svc := NewOpenAIQuotaService(repo, nil, tokenProvider, func(_ context.Context, _ string) (*req.Client, error) {
 		return req.C(), nil
 	})
 
-	_, chatGPTAccountID, _, _, err := svc.prepareUpstreamCall(ctx, 200)
+	_, chatGPTAccountID, _, _, err := svc.prepareUpstreamCall(ctx, 200, nil)
 	require.NoError(t, err, "shadow resolve should succeed; got error: %v", err)
 	require.Equal(t, "org-parent123", chatGPTAccountID,
 		"prepareUpstreamCall should use parent's chatgpt_account_id after shadow resolve")

@@ -68,13 +68,28 @@ func (s *claudeUsageService) FetchUsageWithOptions(ctx context.Context, opts *se
 
 	var resp *http.Response
 
+	if opts.EgressRoute.Mode != "" && s.httpUpstream != nil {
+		if routed, ok := s.httpUpstream.(service.RoutedHTTPUpstream); ok {
+			if opts.TLSProfile != nil {
+				resp, err = routed.DoWithTLSRoute(req, opts.EgressRoute, opts.AccountID, 0, opts.TLSProfile)
+			} else {
+				resp, err = routed.DoRoute(req, opts.EgressRoute, opts.AccountID, 0)
+			}
+			if err != nil {
+				return nil, fmt.Errorf("request with account egress failed: %w", err)
+			}
+		} else if opts.EgressRoute.Mode == "ipv6_pool" {
+			return nil, fmt.Errorf("HTTP upstream does not support IPv6 account egress")
+		}
+	}
+
 	// 如果有 TLS Profile 且有 HTTPUpstream，使用 DoWithTLS
-	if opts.TLSProfile != nil && s.httpUpstream != nil {
+	if resp == nil && opts.TLSProfile != nil && s.httpUpstream != nil {
 		resp, err = s.httpUpstream.DoWithTLS(req, opts.ProxyURL, opts.AccountID, 0, opts.TLSProfile)
 		if err != nil {
 			return nil, fmt.Errorf("request with TLS fingerprint failed: %w", err)
 		}
-	} else {
+	} else if resp == nil {
 		// 不启用 TLS 指纹，使用普通 HTTP 客户端
 		client, err := httpclient.GetClient(httpclient.Options{
 			ProxyURL:           opts.ProxyURL,

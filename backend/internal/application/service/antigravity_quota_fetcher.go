@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	"github.com/Wei-Shaw/sub2api/internal/shared/antigravity"
 )
 
@@ -28,11 +29,12 @@ const (
 // AntigravityQuotaFetcher 从 Antigravity API 获取额度
 type AntigravityQuotaFetcher struct {
 	proxyRepo ProxyRepository
+	cfg       *config.Config
 }
 
 // NewAntigravityQuotaFetcher 创建 AntigravityQuotaFetcher
-func NewAntigravityQuotaFetcher(proxyRepo ProxyRepository) *AntigravityQuotaFetcher {
-	return &AntigravityQuotaFetcher{proxyRepo: proxyRepo}
+func NewAntigravityQuotaFetcher(proxyRepo ProxyRepository, cfg *config.Config) *AntigravityQuotaFetcher {
+	return &AntigravityQuotaFetcher{proxyRepo: proxyRepo, cfg: cfg}
 }
 
 // CanFetch 检查是否可以获取此账户的额度
@@ -49,7 +51,8 @@ func (f *AntigravityQuotaFetcher) FetchQuota(ctx context.Context, account *Accou
 	accessToken := account.GetCredential("access_token")
 	projectID := account.GetCredential("project_id")
 
-	client, err := antigravity.NewClient(proxyURL)
+	ctx = withAccountEgressContext(ctx, account, proxyURL, f.cfg)
+	client, err := newAntigravityClient(ctx, proxyURL)
 	if err != nil {
 		return nil, fmt.Errorf("create antigravity client failed: %w", err)
 	}

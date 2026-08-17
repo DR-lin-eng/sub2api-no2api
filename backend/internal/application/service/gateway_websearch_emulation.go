@@ -158,7 +158,7 @@ func (s *GatewayService) handleWebSearchEmulation(
 	slog.Info("web search emulation: executing search",
 		"account_id", account.ID, "account_name", account.Name, "query", query)
 
-	resp, providerName, err := doWebSearch(ctx, account, query)
+	resp, providerName, err := doWebSearch(withAccountEgressContext(ctx, account, resolveAccountProxyURL(account), s.cfg), account, query)
 	if err != nil {
 		// Proxy unavailable → trigger account switch via UpstreamFailoverError
 		if errors.Is(err, websearch.ErrProxyUnavailable) {

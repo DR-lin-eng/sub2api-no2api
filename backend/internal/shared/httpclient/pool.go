@@ -16,6 +16,7 @@
 package httpclient
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -23,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	"github.com/Wei-Shaw/sub2api/internal/shared/proxyurl"
 	"github.com/Wei-Shaw/sub2api/internal/shared/proxyutil"
 	"github.com/Wei-Shaw/sub2api/internal/shared/servertiming"
@@ -55,6 +57,12 @@ type Options struct {
 	MaxIdleConns        int // 最大空闲连接总数（默认 100）
 	MaxIdleConnsPerHost int // 每主机最大空闲连接（默认 10）
 	MaxConnsPerHost     int // 每主机最大连接数（默认 0 无限制）
+
+	// EgressRoute and EgressPolicy are normally populated by GetClientForContext.
+	// They remain value fields so a route change creates a distinct bounded pool
+	// entry and cannot reuse a connection opened with another account address.
+	EgressRoute  platformegress.Route
+	EgressPolicy platformegress.Policy
 }
 
 type sharedClientEntry struct {
@@ -96,6 +104,19 @@ func GetClient(opts Options) (*http.Client, error) {
 	}
 
 	return sharedClients.store(key, client), nil
+}
+
+// GetClientForContext applies an account-scoped egress route carried by ctx.
+// An explicit proxy remains authoritative and is never replaced by a source
+// address route.
+func GetClientForContext(ctx context.Context, opts Options) (*http.Client, error) {
+	if strings.TrimSpace(opts.ProxyURL) == "" {
+		if routed, ok := platformegress.FromContext(ctx); ok {
+			opts.EgressRoute = routed.Route
+			opts.EgressPolicy = routed.Policy
+		}
+	}
+	return GetClient(opts)
 }
 
 func (p *sharedClientPool) get(key string) *http.Client {
@@ -214,10 +235,24 @@ func buildTransport(opts Options) (*http.Transport, error) {
 		maxIdleConnsPerHost = defaultMaxIdleConnsPerHost
 	}
 
+	dialContext := (&net.Dialer{Timeout: defaultDialTimeout}).DialContext
+	if strings.TrimSpace(opts.ProxyURL) == "" && opts.EgressRoute.Mode != "" {
+		effective, err := platformegress.ApplyPolicy(opts.EgressRoute, opts.EgressPolicy)
+		if err != nil {
+			return nil, err
+		}
+		if effective.Mode == platformegress.ModeIPv6Pool {
+			dialContext, err = platformegress.NewDialContext(effective, opts.EgressPolicy, platformegress.DialerOptions{
+				Timeout: defaultDialTimeout,
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	transport := &http.Transport{
-		DialContext: (&net.Dialer{
-			Timeout: defaultDialTimeout,
-		}).DialContext,
+		DialContext:           dialContext,
 		TLSHandshakeTimeout:   defaultTLSHandshakeTimeout,
 		MaxIdleConns:          maxIdleConns,
 		MaxIdleConnsPerHost:   maxIdleConnsPerHost,
@@ -247,7 +282,7 @@ func buildTransport(opts Options) (*http.Transport, error) {
 }
 
 func buildClientKey(opts Options) string {
-	return fmt.Sprintf("%s|%s|%s|%t|%t|%t|%d|%d|%d",
+	return fmt.Sprintf("%s|%s|%s|%t|%t|%t|%d|%d|%d|%s|%t|%t",
 		strings.TrimSpace(opts.ProxyURL),
 		opts.Timeout.String(),
 		opts.ResponseHeaderTimeout.String(),
@@ -257,6 +292,9 @@ func buildClientKey(opts Options) string {
 		opts.MaxIdleConns,
 		opts.MaxIdleConnsPerHost,
 		opts.MaxConnsPerHost,
+		opts.EgressRoute.CacheKey(),
+		opts.EgressPolicy.IPv6Enabled,
+		opts.EgressPolicy.FreeBind,
 	)
 }
 

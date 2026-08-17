@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	"github.com/Wei-Shaw/sub2api/internal/shared/proxyutil"
 	"github.com/redis/go-redis/v9"
 )
@@ -373,7 +374,7 @@ func (m *Manager) executeSearch(ctx context.Context, cfg ProviderConfig, req Sea
 	if req.ProxyURL != "" {
 		proxyURL = req.ProxyURL
 	}
-	client, err := m.getOrCreateHTTPClient(proxyURL)
+	client, err := m.getOrCreateHTTPClient(ctx, proxyURL)
 	if err != nil {
 		return nil, fmt.Errorf("websearch: %w", err)
 	}
@@ -383,22 +384,44 @@ func (m *Manager) executeSearch(ctx context.Context, cfg ProviderConfig, req Sea
 
 // --- HTTP client cache ---
 
-func (m *Manager) getOrCreateHTTPClient(proxyURL string) (*http.Client, error) {
-	m.clientMu.Lock()
-	defer m.clientMu.Unlock()
-
-	if c, ok := m.clientCache[proxyURL]; ok {
-		return c, nil
-	}
-	if len(m.clientCache) >= maxCachedClients {
-		m.clientCache = make(map[string]*http.Client)
-	}
-	c, err := newHTTPClient(proxyURL)
+func (m *Manager) getOrCreateHTTPClient(ctx context.Context, proxyURL string) (*http.Client, error) {
+	key, err := webSearchClientKey(ctx, proxyURL)
 	if err != nil {
 		return nil, err
 	}
-	m.clientCache[proxyURL] = c
+	m.clientMu.Lock()
+	defer m.clientMu.Unlock()
+
+	if c, ok := m.clientCache[key]; ok {
+		return c, nil
+	}
+	if len(m.clientCache) >= maxCachedClients {
+		for _, client := range m.clientCache {
+			client.CloseIdleConnections()
+		}
+		m.clientCache = make(map[string]*http.Client)
+	}
+	c, err := newHTTPClientForContext(ctx, proxyURL)
+	if err != nil {
+		return nil, err
+	}
+	m.clientCache[key] = c
 	return c, nil
+}
+
+func webSearchClientKey(ctx context.Context, proxyURL string) (string, error) {
+	if proxyURL = strings.TrimSpace(proxyURL); proxyURL != "" {
+		return "proxy|" + proxyURL, nil
+	}
+	routed, ok := platformegress.FromContext(ctx)
+	if !ok {
+		return "direct", nil
+	}
+	effective, err := platformegress.ApplyPolicy(routed.Route, routed.Policy)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("route|%s|%t|%t", effective.CacheKey(), routed.Policy.IPv6Enabled, routed.Policy.FreeBind), nil
 }
 
 // newHTTPClient creates an HTTP client with proper timeout settings.
@@ -406,9 +429,28 @@ func (m *Manager) getOrCreateHTTPClient(proxyURL string) (*http.Client, error) {
 // (HTTP/HTTPS/SOCKS5/SOCKS5H).
 // Returns error if proxyURL is invalid — never falls back to direct connection.
 func newHTTPClient(proxyURL string) (*http.Client, error) {
+	return newHTTPClientForContext(context.Background(), proxyURL)
+}
+
+func newHTTPClientForContext(ctx context.Context, proxyURL string) (*http.Client, error) {
+	dialContext := (&net.Dialer{Timeout: proxyDialTimeout}).DialContext
+	if strings.TrimSpace(proxyURL) == "" {
+		if routed, ok := platformegress.FromContext(ctx); ok {
+			effective, err := platformegress.ApplyPolicy(routed.Route, routed.Policy)
+			if err != nil {
+				return nil, err
+			}
+			if effective.Mode == platformegress.ModeIPv6Pool {
+				dialContext, err = platformegress.NewDialContext(effective, routed.Policy, platformegress.DialerOptions{Timeout: proxyDialTimeout})
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
 	transport := &http.Transport{
 		TLSClientConfig:       &tls.Config{MinVersion: tls.VersionTLS12},
-		DialContext:           (&net.Dialer{Timeout: proxyDialTimeout}).DialContext,
+		DialContext:           dialContext,
 		TLSHandshakeTimeout:   proxyTLSTimeout,
 		ResponseHeaderTimeout: searchDataTimeout,
 	}

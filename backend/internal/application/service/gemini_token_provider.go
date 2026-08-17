@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 )
 
 const (
@@ -23,6 +25,11 @@ type GeminiTokenProvider struct {
 	refreshAPI         *OAuthRefreshAPI
 	executor           OAuthRefreshExecutor
 	refreshPolicy      ProviderRefreshPolicy
+	runtimeCfg         *config.Config
+}
+
+func (p *GeminiTokenProvider) SetRuntimeConfig(cfg *config.Config) {
+	p.runtimeCfg = cfg
 }
 
 func NewGeminiTokenProvider(
@@ -56,6 +63,7 @@ func (p *GeminiTokenProvider) GetAccessToken(ctx context.Context, account *Accou
 	if account.Platform != PlatformGemini || (account.Type != AccountTypeOAuth && account.Type != AccountTypeServiceAccount) {
 		return "", errors.New("not a gemini oauth or service account")
 	}
+	ctx = withAccountEgressContext(ctx, account, resolveAccountProxyURL(account), p.runtimeCfg)
 	if account.Type == AccountTypeServiceAccount {
 		return p.getServiceAccountAccessToken(ctx, account)
 	}

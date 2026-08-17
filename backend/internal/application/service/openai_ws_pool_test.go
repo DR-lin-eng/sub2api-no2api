@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1820,6 +1821,20 @@ func TestOpenAIWSConnPool_Acquire_ErrorBranches(t *testing.T) {
 		WSURL:   "wss://example.com/v1/responses",
 	})
 	require.ErrorIs(t, err, errOpenAIWSConnQueueFull)
+}
+
+func TestOpenAIWSAcquireCompatibilitySeparatesIPv6BindingVersions(t *testing.T) {
+	first := openAIWSAcquireCompatibility(openAIWSAcquireRequest{
+		EgressRoute: platformegress.IPv6PoolRoute("2001:db8::10", 1, 1, false),
+	})
+	rotated := openAIWSAcquireCompatibility(openAIWSAcquireRequest{
+		EgressRoute: platformegress.IPv6PoolRoute("2001:db8::11", 1, 2, false),
+	})
+	direct := openAIWSAcquireCompatibility(openAIWSAcquireRequest{})
+
+	require.NotEqual(t, first, rotated)
+	require.NotEmpty(t, first.egressRouteKey)
+	require.Empty(t, direct.egressRouteKey)
 }
 
 type openAIWSFakeDialer struct{}

@@ -50,6 +50,7 @@ func ProvideAdminHandlers(
 	clusterHandler *admin.ClusterHandler,
 	ollamaCloudUsage *service.OllamaCloudUsageService,
 	chatHandler *admin.ChatHandler,
+	egressHandler *admin.EgressHandler,
 ) *AdminHandlers {
 	accountHandler.SetUpstreamBillingProbeService(upstreamBillingProbe)
 	accountHandler.SetOllamaCloudUsageService(ollamaCloudUsage)
@@ -90,6 +91,7 @@ func ProvideAdminHandlers(
 		AuditLog:               auditLogHandler,
 		Cluster:                clusterHandler,
 		Chat:                   chatHandler,
+		Egress:                 egressHandler,
 	}
 }
 
@@ -293,6 +295,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewComplianceHandler,
 	admin.NewAuditLogHandler,
 	admin.NewClusterHandler,
+	admin.NewEgressHandler,
 	ProvideAdminChatHandler,
 
 	// AdminHandlers and Handlers constructors

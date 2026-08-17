@@ -42,7 +42,7 @@ func (c *driveClient) GetStorageQuota(ctx context.Context, accessToken, proxyURL
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
 	// Get HTTP client with proxy support
-	client, err := httpclient.GetClient(httpclient.Options{
+	client, err := httpclient.GetClientForContext(ctx, httpclient.Options{
 		ProxyURL: proxyURL,
 		Timeout:  10 * time.Second,
 	})

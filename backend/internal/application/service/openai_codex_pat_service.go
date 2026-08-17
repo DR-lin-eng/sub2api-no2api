@@ -43,7 +43,7 @@ func (s *OpenAIOAuthService) ValidateCodexPersonalAccessToken(ctx context.Contex
 		return nil, infraerrors.New(http.StatusBadRequest, "OPENAI_CODEX_PAT_INVALID_PREFIX", "Codex personal access token must start with at-")
 	}
 
-	client, err := httpclient.GetClient(httpclient.Options{
+	client, err := httpclient.GetClientForContext(ctx, httpclient.Options{
 		ProxyURL:              proxyURL,
 		Timeout:               20 * time.Second,
 		ResponseHeaderTimeout: 15 * time.Second,

@@ -43,6 +43,7 @@ type AdminHandlers struct {
 	AuditLog               *admin.AuditLogHandler
 	Cluster                *admin.ClusterHandler
 	Chat                   *admin.ChatHandler
+	Egress                 *admin.EgressHandler
 }
 
 // Handlers contains all HTTP handlers

@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/account"
+	"github.com/Wei-Shaw/sub2api/ent/accountegressbinding"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
@@ -175,6 +176,20 @@ func (_u *AccountUpdate) AddProxyFallbackOriginID(v int64) *AccountUpdate {
 // ClearProxyFallbackOriginID clears the value of the "proxy_fallback_origin_id" field.
 func (_u *AccountUpdate) ClearProxyFallbackOriginID() *AccountUpdate {
 	_u.mutation.ClearProxyFallbackOriginID()
+	return _u
+}
+
+// SetEgressMode sets the "egress_mode" field.
+func (_u *AccountUpdate) SetEgressMode(v string) *AccountUpdate {
+	_u.mutation.SetEgressMode(v)
+	return _u
+}
+
+// SetNillableEgressMode sets the "egress_mode" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableEgressMode(v *string) *AccountUpdate {
+	if v != nil {
+		_u.SetEgressMode(*v)
+	}
 	return _u
 }
 
@@ -584,6 +599,25 @@ func (_u *AccountUpdate) SetProxy(v *Proxy) *AccountUpdate {
 	return _u.SetProxyID(v.ID)
 }
 
+// SetEgressBindingID sets the "egress_binding" edge to the AccountEgressBinding entity by ID.
+func (_u *AccountUpdate) SetEgressBindingID(id int64) *AccountUpdate {
+	_u.mutation.SetEgressBindingID(id)
+	return _u
+}
+
+// SetNillableEgressBindingID sets the "egress_binding" edge to the AccountEgressBinding entity by ID if the given value is not nil.
+func (_u *AccountUpdate) SetNillableEgressBindingID(id *int64) *AccountUpdate {
+	if id != nil {
+		_u = _u.SetEgressBindingID(*id)
+	}
+	return _u
+}
+
+// SetEgressBinding sets the "egress_binding" edge to the AccountEgressBinding entity.
+func (_u *AccountUpdate) SetEgressBinding(v *AccountEgressBinding) *AccountUpdate {
+	return _u.SetEgressBindingID(v.ID)
+}
+
 // SetParentID sets the "parent" edge to the Account entity by ID.
 func (_u *AccountUpdate) SetParentID(id int64) *AccountUpdate {
 	_u.mutation.SetParentID(id)
@@ -662,6 +696,12 @@ func (_u *AccountUpdate) RemoveGroups(v ...*Group) *AccountUpdate {
 // ClearProxy clears the "proxy" edge to the Proxy entity.
 func (_u *AccountUpdate) ClearProxy() *AccountUpdate {
 	_u.mutation.ClearProxy()
+	return _u
+}
+
+// ClearEgressBinding clears the "egress_binding" edge to the AccountEgressBinding entity.
+func (_u *AccountUpdate) ClearEgressBinding() *AccountUpdate {
+	_u.mutation.ClearEgressBinding()
 	return _u
 }
 
@@ -772,6 +812,11 @@ func (_u *AccountUpdate) check() error {
 			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "Account.type": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.EgressMode(); ok {
+		if err := account.EgressModeValidator(v); err != nil {
+			return &ValidationError{Name: "egress_mode", err: fmt.Errorf(`ent: validator failed for field "Account.egress_mode": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := account.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Account.status": %w`, err)}
@@ -840,6 +885,9 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.ProxyFallbackOriginIDCleared() {
 		_spec.ClearField(account.FieldProxyFallbackOriginID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.EgressMode(); ok {
+		_spec.SetField(account.FieldEgressMode, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Concurrency(); ok {
 		_spec.SetField(account.FieldConcurrency, field.TypeInt, value)
@@ -1025,6 +1073,35 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(proxy.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.EgressBindingCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   account.EgressBindingTable,
+			Columns: []string{account.EgressBindingColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(accountegressbinding.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.EgressBindingIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   account.EgressBindingTable,
+			Columns: []string{account.EgressBindingColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(accountegressbinding.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -1315,6 +1392,20 @@ func (_u *AccountUpdateOne) AddProxyFallbackOriginID(v int64) *AccountUpdateOne 
 // ClearProxyFallbackOriginID clears the value of the "proxy_fallback_origin_id" field.
 func (_u *AccountUpdateOne) ClearProxyFallbackOriginID() *AccountUpdateOne {
 	_u.mutation.ClearProxyFallbackOriginID()
+	return _u
+}
+
+// SetEgressMode sets the "egress_mode" field.
+func (_u *AccountUpdateOne) SetEgressMode(v string) *AccountUpdateOne {
+	_u.mutation.SetEgressMode(v)
+	return _u
+}
+
+// SetNillableEgressMode sets the "egress_mode" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableEgressMode(v *string) *AccountUpdateOne {
+	if v != nil {
+		_u.SetEgressMode(*v)
+	}
 	return _u
 }
 
@@ -1724,6 +1815,25 @@ func (_u *AccountUpdateOne) SetProxy(v *Proxy) *AccountUpdateOne {
 	return _u.SetProxyID(v.ID)
 }
 
+// SetEgressBindingID sets the "egress_binding" edge to the AccountEgressBinding entity by ID.
+func (_u *AccountUpdateOne) SetEgressBindingID(id int64) *AccountUpdateOne {
+	_u.mutation.SetEgressBindingID(id)
+	return _u
+}
+
+// SetNillableEgressBindingID sets the "egress_binding" edge to the AccountEgressBinding entity by ID if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableEgressBindingID(id *int64) *AccountUpdateOne {
+	if id != nil {
+		_u = _u.SetEgressBindingID(*id)
+	}
+	return _u
+}
+
+// SetEgressBinding sets the "egress_binding" edge to the AccountEgressBinding entity.
+func (_u *AccountUpdateOne) SetEgressBinding(v *AccountEgressBinding) *AccountUpdateOne {
+	return _u.SetEgressBindingID(v.ID)
+}
+
 // SetParentID sets the "parent" edge to the Account entity by ID.
 func (_u *AccountUpdateOne) SetParentID(id int64) *AccountUpdateOne {
 	_u.mutation.SetParentID(id)
@@ -1802,6 +1912,12 @@ func (_u *AccountUpdateOne) RemoveGroups(v ...*Group) *AccountUpdateOne {
 // ClearProxy clears the "proxy" edge to the Proxy entity.
 func (_u *AccountUpdateOne) ClearProxy() *AccountUpdateOne {
 	_u.mutation.ClearProxy()
+	return _u
+}
+
+// ClearEgressBinding clears the "egress_binding" edge to the AccountEgressBinding entity.
+func (_u *AccountUpdateOne) ClearEgressBinding() *AccountUpdateOne {
+	_u.mutation.ClearEgressBinding()
 	return _u
 }
 
@@ -1925,6 +2041,11 @@ func (_u *AccountUpdateOne) check() error {
 			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "Account.type": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.EgressMode(); ok {
+		if err := account.EgressModeValidator(v); err != nil {
+			return &ValidationError{Name: "egress_mode", err: fmt.Errorf(`ent: validator failed for field "Account.egress_mode": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := account.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Account.status": %w`, err)}
@@ -2010,6 +2131,9 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 	}
 	if _u.mutation.ProxyFallbackOriginIDCleared() {
 		_spec.ClearField(account.FieldProxyFallbackOriginID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.EgressMode(); ok {
+		_spec.SetField(account.FieldEgressMode, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Concurrency(); ok {
 		_spec.SetField(account.FieldConcurrency, field.TypeInt, value)
@@ -2195,6 +2319,35 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(proxy.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.EgressBindingCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   account.EgressBindingTable,
+			Columns: []string{account.EgressBindingColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(accountegressbinding.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.EgressBindingIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   account.EgressBindingTable,
+			Columns: []string{account.EgressBindingColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(accountegressbinding.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

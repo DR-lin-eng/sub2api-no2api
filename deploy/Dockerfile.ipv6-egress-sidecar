@@ -1,0 +1,12 @@
+FROM alpine:3.22
+
+RUN apk add --no-cache ca-certificates curl iproute2 iputils
+
+WORKDIR /opt/sub2api-ipv6-egress
+COPY deploy/ipv6-egress-env.sh ./ipv6-egress-env.sh
+COPY deploy/he-ipv6-tunnel.sh ./he-ipv6-tunnel.sh
+COPY deploy/ipv6-egress-sidecar.sh ./ipv6-egress-sidecar.sh
+RUN chmod 0755 ./he-ipv6-tunnel.sh ./ipv6-egress-sidecar.sh
+
+ENTRYPOINT ["/opt/sub2api-ipv6-egress/ipv6-egress-sidecar.sh"]
+CMD ["run"]

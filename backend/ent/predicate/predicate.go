@@ -12,6 +12,9 @@ type APIKey func(*sql.Selector)
 // Account is the predicate function for account builders.
 type Account func(*sql.Selector)
 
+// AccountEgressBinding is the predicate function for accountegressbinding builders.
+type AccountEgressBinding func(*sql.Selector)
+
 // AccountGroup is the predicate function for accountgroup builders.
 type AccountGroup func(*sql.Selector)
 
@@ -71,6 +74,9 @@ type ErrorPassthroughRule func(*sql.Selector)
 
 // Group is the predicate function for group builders.
 type Group func(*sql.Selector)
+
+// IPv6EgressPool is the predicate function for ipv6egresspool builders.
+type IPv6EgressPool func(*sql.Selector)
 
 // IdempotencyRecord is the predicate function for idempotencyrecord builders.
 type IdempotencyRecord func(*sql.Selector)

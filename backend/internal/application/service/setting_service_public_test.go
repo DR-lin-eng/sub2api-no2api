@@ -303,6 +303,28 @@ func TestSettingService_GetPublicSettings_SupportChatDefaultsToDisabledUnlessExp
 	require.True(t, explicitlyEnabled.SupportChatEnabled)
 }
 
+func TestSettingService_GetPublicSettings_IPv6EgressUIDefaultsOffAndIsInjectedWhenEnabled(t *testing.T) {
+	disabled, err := NewSettingService(
+		&settingPublicRepoStub{values: map[string]string{}},
+		&config.Config{},
+	).GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.False(t, disabled.IPv6EgressUIEnabled)
+
+	svc := NewSettingService(&settingPublicRepoStub{values: map[string]string{
+		SettingKeyIPv6EgressUIEnabled: "true",
+	}}, &config.Config{})
+	enabled, err := svc.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.True(t, enabled.IPv6EgressUIEnabled)
+
+	injected, err := svc.GetPublicSettingsForInjection(context.Background())
+	require.NoError(t, err)
+	payload, ok := injected.(*PublicSettingsInjectionPayload)
+	require.True(t, ok)
+	require.True(t, payload.IPv6EgressUIEnabled)
+}
+
 func TestSettingService_GetPublicSettings_ExposesTablePreferences(t *testing.T) {
 	repo := &settingPublicRepoStub{
 		values: map[string]string{

@@ -99,6 +99,7 @@ type Config struct {
 	Idempotency             IdempotencyConfig             `mapstructure:"idempotency"`
 	BatchImage              BatchImageConfig              `mapstructure:"batch_image"`
 	ImageStorage            ImageStorageConfig            `mapstructure:"image_storage"`
+	IPv6Egress              IPv6EgressConfig              `mapstructure:"ipv6_egress"`
 }
 
 // DeploymentConfig controls cluster identity and cluster-wide scheduled work.

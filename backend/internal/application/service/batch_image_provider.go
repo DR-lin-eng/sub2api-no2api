@@ -46,7 +46,7 @@ func NewDefaultBatchImageProviderRegistry() *BatchImageProviderRegistry {
 
 func NewBatchImageProviderRegistryFromConfig(cfg *config.Config) *BatchImageProviderRegistry {
 	return NewBatchImageProviderRegistry(
-		NewGeminiAPIBatchImageProvider(nil),
+		NewGeminiAPIBatchImageProviderFromConfig(cfg, nil),
 		NewVertexBatchImageProviderFromConfig(cfg, nil, nil, nil),
 	)
 }

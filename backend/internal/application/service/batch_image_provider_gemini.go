@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 	"github.com/Wei-Shaw/sub2api/internal/shared/geminicli"
 	"github.com/Wei-Shaw/sub2api/internal/shared/httpclient"
@@ -67,6 +68,7 @@ type GeminiBatchError struct {
 
 type GeminiAPIBatchImageProvider struct {
 	client GeminiBatchClient
+	cfg    *config.Config
 }
 
 func NewGeminiAPIBatchImageProvider(client GeminiBatchClient) *GeminiAPIBatchImageProvider {
@@ -74,6 +76,12 @@ func NewGeminiAPIBatchImageProvider(client GeminiBatchClient) *GeminiAPIBatchIma
 		client = NewGeminiBatchHTTPClient("", nil)
 	}
 	return &GeminiAPIBatchImageProvider{client: client}
+}
+
+func NewGeminiAPIBatchImageProviderFromConfig(cfg *config.Config, client GeminiBatchClient) *GeminiAPIBatchImageProvider {
+	provider := NewGeminiAPIBatchImageProvider(client)
+	provider.cfg = cfg
+	return provider
 }
 
 func (p *GeminiAPIBatchImageProvider) Name() string {
@@ -91,6 +99,7 @@ func (p *GeminiAPIBatchImageProvider) Submit(ctx context.Context, job *BatchImag
 	if account == nil || account.Platform != PlatformGemini || account.Type != AccountTypeAPIKey {
 		return nil, ErrBatchImageProviderUnsupportedAccount
 	}
+	ctx = withAccountEgressContext(ctx, account, resolveAccountProxyURL(account), p.cfg)
 	apiKey := batchImageProviderAPIKey(account)
 	if apiKey == "" {
 		return nil, ErrBatchImageProviderMissingAPIKey
@@ -139,6 +148,7 @@ func (p *GeminiAPIBatchImageProvider) Get(ctx context.Context, job *BatchImageJo
 	if account == nil || account.Platform != PlatformGemini || account.Type != AccountTypeAPIKey {
 		return nil, ErrBatchImageProviderUnsupportedAccount
 	}
+	ctx = withAccountEgressContext(ctx, account, resolveAccountProxyURL(account), p.cfg)
 	apiKey := batchImageProviderAPIKey(account)
 	if apiKey == "" {
 		return nil, ErrBatchImageProviderMissingAPIKey
@@ -177,6 +187,7 @@ func (p *GeminiAPIBatchImageProvider) Cancel(ctx context.Context, job *BatchImag
 	if account == nil || account.Platform != PlatformGemini || account.Type != AccountTypeAPIKey {
 		return ErrBatchImageProviderUnsupportedAccount
 	}
+	ctx = withAccountEgressContext(ctx, account, resolveAccountProxyURL(account), p.cfg)
 	apiKey := batchImageProviderAPIKey(account)
 	if apiKey == "" {
 		return ErrBatchImageProviderMissingAPIKey
@@ -192,6 +203,7 @@ func (p *GeminiAPIBatchImageProvider) OpenResult(ctx context.Context, job *Batch
 	if account == nil || account.Platform != PlatformGemini || account.Type != AccountTypeAPIKey {
 		return nil, "", ErrBatchImageProviderUnsupportedAccount
 	}
+	ctx = withAccountEgressContext(ctx, account, resolveAccountProxyURL(account), p.cfg)
 	apiKey := batchImageProviderAPIKey(account)
 	if apiKey == "" {
 		return nil, "", ErrBatchImageProviderMissingAPIKey
@@ -208,6 +220,7 @@ func (p *GeminiAPIBatchImageProvider) Cleanup(ctx context.Context, job *BatchIma
 	if account == nil || account.Platform != PlatformGemini || account.Type != AccountTypeAPIKey {
 		return ErrBatchImageProviderUnsupportedAccount
 	}
+	ctx = withAccountEgressContext(ctx, account, resolveAccountProxyURL(account), p.cfg)
 	apiKey := batchImageProviderAPIKey(account)
 	if apiKey == "" {
 		return ErrBatchImageProviderMissingAPIKey
@@ -451,8 +464,9 @@ func mapGeminiClientError(err error) error {
 }
 
 type GeminiBatchHTTPClient struct {
-	baseURL string
-	client  *http.Client
+	baseURL      string
+	client       *http.Client
+	contextAware bool
 }
 
 func NewGeminiBatchHTTPClient(baseURL string, client *http.Client) *GeminiBatchHTTPClient {
@@ -460,10 +474,11 @@ func NewGeminiBatchHTTPClient(baseURL string, client *http.Client) *GeminiBatchH
 	if baseURL == "" {
 		baseURL = geminicli.AIStudioBaseURL
 	}
-	if client == nil {
+	contextAware := client == nil
+	if contextAware {
 		client = batchImageDefaultHTTPClient()
 	}
-	return &GeminiBatchHTTPClient{baseURL: baseURL, client: client}
+	return &GeminiBatchHTTPClient{baseURL: baseURL, client: client, contextAware: contextAware}
 }
 
 // batchImageDefaultHTTPClient 返回带连接/握手/响应头超时的共享客户端。
@@ -477,6 +492,22 @@ func batchImageDefaultHTTPClient() *http.Client {
 		return http.DefaultClient
 	}
 	return client
+}
+
+func batchImageHTTPClientForContext(ctx context.Context) (*http.Client, error) {
+	return httpclient.GetClientForContext(ctx, httpclient.Options{
+		ResponseHeaderTimeout: 60 * time.Second,
+	})
+}
+
+func (c *GeminiBatchHTTPClient) clientForRequest(req *http.Request) (*http.Client, error) {
+	if c == nil || req == nil {
+		return nil, errors.New("gemini batch request client is not configured")
+	}
+	if !c.contextAware {
+		return c.client, nil
+	}
+	return batchImageHTTPClientForContext(req.Context())
 }
 
 func (c *GeminiBatchHTTPClient) UploadJSONL(ctx context.Context, apiKey string, displayName string, r io.Reader) (*GeminiUploadedFile, error) {
@@ -591,7 +622,11 @@ func (c *GeminiBatchHTTPClient) DownloadFile(ctx context.Context, apiKey string,
 		return nil, "", err
 	}
 	req.Header.Set("x-goog-api-key", apiKey)
-	resp, err := c.client.Do(req)
+	client, err := c.clientForRequest(req)
+	if err != nil {
+		return nil, "", err
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, "", err
 	}
@@ -627,7 +662,11 @@ func (c *GeminiBatchHTTPClient) doBatchJob(req *http.Request) (*GeminiBatchJob, 
 }
 
 func (c *GeminiBatchHTTPClient) doNoBody(req *http.Request) error {
-	resp, err := c.client.Do(req)
+	client, err := c.clientForRequest(req)
+	if err != nil {
+		return err
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -639,7 +678,11 @@ func (c *GeminiBatchHTTPClient) doNoBody(req *http.Request) error {
 }
 
 func (c *GeminiBatchHTTPClient) doJSON(req *http.Request, out any) error {
-	resp, err := c.client.Do(req)
+	client, err := c.clientForRequest(req)
+	if err != nil {
+		return err
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}

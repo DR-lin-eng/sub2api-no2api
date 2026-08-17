@@ -8,6 +8,7 @@ import audit from './audit'
 import promptAudit from './promptAudit'
 import cluster from './cluster'
 import ingressRisk from './ingressRisk'
+import egress from './egress'
 
 export default {
   ...overview,
@@ -20,4 +21,5 @@ export default {
   ...promptAudit,
   ...cluster,
   ...ingressRisk,
+  ...egress,
 }

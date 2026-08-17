@@ -120,6 +120,7 @@ type VertexBatchImageProvider struct {
 	client      VertexBatchClient
 	objectStore VertexBatchObjectStore
 	tokenCache  GeminiTokenCache
+	cfg         *config.Config
 }
 
 func NewVertexBatchImageProvider(opts VertexBatchImageProviderOptions, client VertexBatchClient, objectStore VertexBatchObjectStore, tokenCache GeminiTokenCache) *VertexBatchImageProvider {
@@ -139,7 +140,9 @@ func NewVertexBatchImageProvider(opts VertexBatchImageProviderOptions, client Ve
 }
 
 func NewVertexBatchImageProviderFromConfig(cfg *config.Config, client VertexBatchClient, objectStore VertexBatchObjectStore, tokenCache GeminiTokenCache) *VertexBatchImageProvider {
-	return NewVertexBatchImageProvider(NewVertexBatchImageProviderOptionsFromConfig(cfg), client, objectStore, tokenCache)
+	provider := NewVertexBatchImageProvider(NewVertexBatchImageProviderOptionsFromConfig(cfg), client, objectStore, tokenCache)
+	provider.cfg = cfg
+	return provider
 }
 
 func normalizeVertexBatchImageProviderOptions(opts VertexBatchImageProviderOptions) VertexBatchImageProviderOptions {
@@ -178,6 +181,7 @@ func (p *VertexBatchImageProvider) Submit(ctx context.Context, job *BatchImageJo
 	if err := p.validateAccount(account); err != nil {
 		return nil, err
 	}
+	ctx = withAccountEgressContext(ctx, account, resolveAccountProxyURL(account), p.cfg)
 	if strings.TrimSpace(p.opts.ManagedGCSBucket) == "" {
 		return nil, vertexProviderError("VERTEX_MANAGED_GCS_BUCKET_MISSING", "Vertex managed GCS bucket is not configured", nil)
 	}
@@ -245,6 +249,7 @@ func (p *VertexBatchImageProvider) Get(ctx context.Context, job *BatchImageJob, 
 	if err := p.validateAccount(account); err != nil {
 		return nil, err
 	}
+	ctx = withAccountEgressContext(ctx, account, resolveAccountProxyURL(account), p.cfg)
 	jobName := batchImageProviderJobName(job)
 	if jobName == "" {
 		return nil, ErrBatchImageProviderMissingJobName
@@ -276,6 +281,7 @@ func (p *VertexBatchImageProvider) Cancel(ctx context.Context, job *BatchImageJo
 	if err := p.validateAccount(account); err != nil {
 		return err
 	}
+	ctx = withAccountEgressContext(ctx, account, resolveAccountProxyURL(account), p.cfg)
 	jobName := batchImageProviderJobName(job)
 	if jobName == "" {
 		return ErrBatchImageProviderMissingJobName
@@ -291,6 +297,7 @@ func (p *VertexBatchImageProvider) OpenResult(ctx context.Context, job *BatchIma
 	if err := p.validateAccount(account); err != nil {
 		return nil, "", err
 	}
+	ctx = withAccountEgressContext(ctx, account, resolveAccountProxyURL(account), p.cfg)
 	outputRef := batchImageProviderOutputRef(job)
 	if outputRef == "" && job != nil && job.GCSOutputURI != nil {
 		outputRef = strings.TrimSpace(*job.GCSOutputURI)
@@ -322,6 +329,7 @@ func (p *VertexBatchImageProvider) Cleanup(ctx context.Context, job *BatchImageJ
 	if err := p.validateAccount(account); err != nil {
 		return err
 	}
+	ctx = withAccountEgressContext(ctx, account, resolveAccountProxyURL(account), p.cfg)
 	accessToken, err := p.accessToken(ctx, account)
 	if err != nil {
 		return mapVertexClientError(err)
@@ -730,15 +738,27 @@ func (r *vertexCombinedJSONLReadCloser) Close() error {
 }
 
 type VertexBatchHTTPClient struct {
-	baseURL string
-	client  *http.Client
+	baseURL      string
+	client       *http.Client
+	contextAware bool
 }
 
 func NewVertexBatchHTTPClient(baseURL string, client *http.Client) *VertexBatchHTTPClient {
-	if client == nil {
+	contextAware := client == nil
+	if contextAware {
 		client = batchImageDefaultHTTPClient()
 	}
-	return &VertexBatchHTTPClient{baseURL: strings.TrimRight(strings.TrimSpace(baseURL), "/"), client: client}
+	return &VertexBatchHTTPClient{baseURL: strings.TrimRight(strings.TrimSpace(baseURL), "/"), client: client, contextAware: contextAware}
+}
+
+func (c *VertexBatchHTTPClient) clientForContext(ctx context.Context) (*http.Client, error) {
+	if c == nil {
+		return nil, errors.New("vertex batch request client is not configured")
+	}
+	if !c.contextAware {
+		return c.client, nil
+	}
+	return batchImageHTTPClientForContext(ctx)
 }
 
 func (c *VertexBatchHTTPClient) CreateBatchPredictionJob(ctx context.Context, accessToken string, req VertexCreateBatchPredictionJobRequest) (*VertexBatchPredictionJob, error) {
@@ -756,7 +776,11 @@ func (c *VertexBatchHTTPClient) CreateBatchPredictionJob(ctx context.Context, ac
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+accessToken)
-	return doVertexJSON[VertexBatchPredictionJob](c.client, httpReq)
+	client, err := c.clientForContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return doVertexJSON[VertexBatchPredictionJob](client, httpReq)
 }
 
 func (c *VertexBatchHTTPClient) GetBatchPredictionJob(ctx context.Context, accessToken string, name string) (*VertexBatchPredictionJob, error) {
@@ -766,7 +790,11 @@ func (c *VertexBatchHTTPClient) GetBatchPredictionJob(ctx context.Context, acces
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
-	return doVertexJSON[VertexBatchPredictionJob](c.client, req)
+	client, err := c.clientForContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return doVertexJSON[VertexBatchPredictionJob](client, req)
 }
 
 func (c *VertexBatchHTTPClient) CancelBatchPredictionJob(ctx context.Context, accessToken string, name string) error {
@@ -776,7 +804,11 @@ func (c *VertexBatchHTTPClient) CancelBatchPredictionJob(ctx context.Context, ac
 		return err
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
-	return doVertexNoBody(c.client, req)
+	client, err := c.clientForContext(ctx)
+	if err != nil {
+		return err
+	}
+	return doVertexNoBody(client, req)
 }
 
 func (c *VertexBatchHTTPClient) vertexResourceURL(name string) string {
@@ -788,19 +820,31 @@ func (c *VertexBatchHTTPClient) vertexResourceURL(name string) string {
 }
 
 type VertexGCSObjectStore struct {
-	baseURL string
-	client  *http.Client
+	baseURL      string
+	client       *http.Client
+	contextAware bool
 }
 
 func NewVertexGCSObjectStore(baseURL string, client *http.Client) *VertexGCSObjectStore {
-	if client == nil {
+	contextAware := client == nil
+	if contextAware {
 		client = batchImageDefaultHTTPClient()
 	}
 	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if baseURL == "" {
 		baseURL = "https://storage.googleapis.com"
 	}
-	return &VertexGCSObjectStore{baseURL: baseURL, client: client}
+	return &VertexGCSObjectStore{baseURL: baseURL, client: client, contextAware: contextAware}
+}
+
+func (s *VertexGCSObjectStore) clientForContext(ctx context.Context) (*http.Client, error) {
+	if s == nil {
+		return nil, errors.New("vertex object store client is not configured")
+	}
+	if !s.contextAware {
+		return s.client, nil
+	}
+	return batchImageHTTPClientForContext(ctx)
 }
 
 func (s *VertexGCSObjectStore) UploadJSONL(ctx context.Context, accessToken string, uri string, r io.Reader) error {
@@ -815,7 +859,11 @@ func (s *VertexGCSObjectStore) UploadJSONL(ctx context.Context, accessToken stri
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Content-Type", "application/jsonl")
-	return doVertexNoBody(s.client, req)
+	client, err := s.clientForContext(ctx)
+	if err != nil {
+		return err
+	}
+	return doVertexNoBody(client, req)
 }
 
 func (s *VertexGCSObjectStore) ListJSONLObjects(ctx context.Context, accessToken string, prefixURI string) ([]string, error) {
@@ -845,7 +893,11 @@ func (s *VertexGCSObjectStore) listObjects(ctx context.Context, accessToken stri
 			} `json:"items"`
 			NextPageToken string `json:"nextPageToken"`
 		}
-		if err := doVertexDecodeJSON(s.client, req, &page); err != nil {
+		client, err := s.clientForContext(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if err := doVertexDecodeJSON(client, req, &page); err != nil {
 			return nil, err
 		}
 		for _, item := range page.Items {
@@ -871,7 +923,11 @@ func (s *VertexGCSObjectStore) OpenObject(ctx context.Context, accessToken strin
 		return nil, "", err
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
-	resp, err := s.client.Do(req)
+	client, err := s.clientForContext(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, "", err
 	}
@@ -897,7 +953,11 @@ func (s *VertexGCSObjectStore) DeleteObject(ctx context.Context, accessToken str
 		return err
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
-	return doVertexNoBody(s.client, req)
+	client, err := s.clientForContext(ctx)
+	if err != nil {
+		return err
+	}
+	return doVertexNoBody(client, req)
 }
 
 func (s *VertexGCSObjectStore) DeletePrefix(ctx context.Context, accessToken string, prefixURI string) error {

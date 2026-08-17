@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -18,6 +20,7 @@ const (
 	stickySessionPrefix          = "sticky_session:"
 	openAIWSSharedStateKeyPrefix = "openai:ws:state:"
 	generatedImageURLKeyPrefix   = "openai:generated_image:"
+	generatedImageRouteKeyPrefix = "openai:generated_image_route:"
 	liveCallPrefix               = "live:call:"
 )
 
@@ -97,6 +100,50 @@ func buildGeneratedImageURLKey(hash string) string {
 	return generatedImageURLKeyPrefix + hash
 }
 
+type generatedImageRouteValue struct {
+	Route     platformegress.Route `json:"route"`
+	AccountID int64                `json:"account_id"`
+}
+
+func (c *gatewayCache) SetGeneratedImageRoute(ctx context.Context, hash string, route platformegress.Route, accountID int64, ttl time.Duration) error {
+	key := buildGeneratedImageRouteKey(hash)
+	if key == "" {
+		return errors.New("generated image hash is required")
+	}
+	value, err := json.Marshal(generatedImageRouteValue{Route: route, AccountID: accountID})
+	if err != nil {
+		return err
+	}
+	return c.rdb.Set(ctx, key, value, ttl).Err()
+}
+
+func (c *gatewayCache) GetGeneratedImageRoute(ctx context.Context, hash string) (platformegress.Route, int64, bool, error) {
+	key := buildGeneratedImageRouteKey(hash)
+	if key == "" {
+		return platformegress.Route{}, 0, false, nil
+	}
+	value, err := c.rdb.Get(ctx, key).Bytes()
+	if errors.Is(err, redis.Nil) {
+		return platformegress.Route{}, 0, false, nil
+	}
+	if err != nil {
+		return platformegress.Route{}, 0, false, err
+	}
+	var stored generatedImageRouteValue
+	if err := json.Unmarshal(value, &stored); err != nil {
+		return platformegress.Route{}, 0, false, err
+	}
+	return stored.Route, stored.AccountID, true, nil
+}
+
+func buildGeneratedImageRouteKey(hash string) string {
+	hash = strings.ToLower(strings.TrimSpace(hash))
+	if hash == "" {
+		return ""
+	}
+	return generatedImageRouteKeyPrefix + hash
+}
+
 func (c *gatewayCache) SetOpenAIWSState(ctx context.Context, key, value string, ttl time.Duration) error {
 	key = buildOpenAIWSSharedStateKey(key)
 	if key == "" {
@@ -138,6 +185,7 @@ func buildOpenAIWSSharedStateKey(key string) string {
 
 var _ service.OpenAIWSSharedStateCache = (*gatewayCache)(nil)
 var _ service.GeneratedImageURLStore = (*gatewayCache)(nil)
+var _ service.GeneratedImageRouteStore = (*gatewayCache)(nil)
 
 // Compile-time assertion: gatewayCache must implement CyberSessionBlockStore.
 var _ service.CyberSessionBlockStore = (*gatewayCache)(nil)

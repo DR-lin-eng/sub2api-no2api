@@ -7,12 +7,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	"github.com/Wei-Shaw/sub2api/internal/shared/antigravity"
 )
 
 type AntigravityOAuthService struct {
 	sessionStore *antigravity.SessionStore
 	proxyRepo    ProxyRepository
+	cfg          *config.Config
 }
 
 func NewAntigravityOAuthService(proxyRepo ProxyRepository) *AntigravityOAuthService {
@@ -119,7 +121,7 @@ func (s *AntigravityOAuthService) ExchangeCode(ctx context.Context, input *Antig
 		}
 	}
 
-	client, err := antigravity.NewClient(proxyURL)
+	client, err := newAntigravityClient(ctx, proxyURL)
 	if err != nil {
 		return nil, fmt.Errorf("create antigravity client failed: %w", err)
 	}
@@ -186,7 +188,7 @@ func (s *AntigravityOAuthService) RefreshToken(ctx context.Context, refreshToken
 			time.Sleep(backoff)
 		}
 
-		client, err := antigravity.NewClient(proxyURL)
+		client, err := newAntigravityClient(ctx, proxyURL)
 		if err != nil {
 			return nil, fmt.Errorf("create antigravity client failed: %w", err)
 		}
@@ -235,7 +237,7 @@ func (s *AntigravityOAuthService) ValidateRefreshToken(ctx context.Context, refr
 	}
 
 	// 获取用户信息（email）
-	client, err := antigravity.NewClient(proxyURL)
+	client, err := newAntigravityClient(ctx, proxyURL)
 	if err != nil {
 		return nil, fmt.Errorf("create antigravity client failed: %w", err)
 	}
@@ -299,6 +301,7 @@ func (s *AntigravityOAuthService) RefreshAccountToken(ctx context.Context, accou
 			proxyURL = proxy.URL()
 		}
 	}
+	ctx = withAccountEgressContext(ctx, account, proxyURL, s.cfg)
 
 	tokenInfo, err := s.RefreshToken(ctx, refreshToken, proxyURL)
 	if err != nil {
@@ -354,7 +357,7 @@ func (s *AntigravityOAuthService) loadProjectIDWithRetry(ctx context.Context, ac
 			time.Sleep(backoff)
 		}
 
-		client, err := antigravity.NewClient(proxyURL)
+		client, err := newAntigravityClient(ctx, proxyURL)
 		if err != nil {
 			return nil, fmt.Errorf("create antigravity client failed: %w", err)
 		}
@@ -455,6 +458,7 @@ func (s *AntigravityOAuthService) FillProjectID(ctx context.Context, account *Ac
 			proxyURL = proxy.URL()
 		}
 	}
+	ctx = withAccountEgressContext(ctx, account, proxyURL, s.cfg)
 	result, err := s.loadProjectIDWithRetry(ctx, accessToken, proxyURL, 3)
 	if result != nil {
 		return result.ProjectID, err

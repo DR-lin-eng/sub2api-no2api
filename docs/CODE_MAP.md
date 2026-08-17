@@ -15,6 +15,7 @@
 | 修改 OpenAI/Codex/Responses | `handler/openai_gateway_responses.go` | `application/service/openai*` | responses/chat/WS 的流式与非流式测试 |
 | 修改 Gemini/Antigravity/Grok | `routes/gateway.go` | `application/service/gemini*`, `antigravity*`, `grok*` | 平台专项 service/handler 测试 |
 | 修改账号调度 | `application/service/gateway_scheduling.go`, `openai_account_scheduler.go` | `infrastructure/repository/scheduler*`, `concurrency*` | scheduler、并发、失败切换测试和 benchmark |
+| 修改账号 IPv6 出口 | `modules/egress/`, `platform/egress/` | `repository/egress_repo.go`, `http_upstream.go`, `features/admin-egress/`, `deploy/docker-compose.ipv6-egress*.yml`, `deploy/ipv6-egress-sidecar.sh` | route/dialer + repository integration + Docker IPv6/6in4 sidecar + 前端 feature 测试 |
 | 修改计费/余额 | `application/service/gateway_usage_billing.go`, `openai_gateway_usage.go` | `billing_service.go`, `infrastructure/repository/usage_billing*`, `billing_cache*` | billing unit + repository integration |
 | 修改分组用量汇总 | `application/service/group_usage_rollup.go` | `infrastructure/repository/group_usage_rollup_repo.go`, `usage_log_repo_group_rollup.go`, `features/admin-groups/` | rollup unit/integration + admin-groups feature tests |
 | 修改订阅配额 | `application/service/subscription*` | `repository/subscription*`, middleware | subscription + gateway billing 测试 |
@@ -43,6 +44,7 @@
 | `setting*`, `notification*`, `backup*` | 持久设置、通知和维护任务 |
 | `cluster*` | 逻辑节点身份、心跳与负载采样、共享任务租约、版本就绪与滚动发布 |
 | `batch_image*`, `image_task*` | 异步和批量图片任务 |
+| `account_egress*`, `http_upstream*` | 已选账号出口路由、HTTP/TLS/WS 客户端接入和连接池隔离 |
 
 同一前缀通常按 `request`, `scheduling`, `forward`, `response`, `usage`, `support` 等职责拆分。不要先打开该前缀所有文件；从公开入口函数追调用即可。
 
@@ -59,6 +61,7 @@
 | `payment*`, `subscription*`, `promo_code*`, `redeem_code*` | 商业对象 |
 | `cluster*` | PostgreSQL 节点清单、runner 历史、心跳负载快照、共享任务租约与发布状态机 |
 | `http_upstream*`, `proxy*`, `*_oauth_*` | 外部 HTTP、代理和凭据访问 |
+| `egress_repo*` | IPv6 池、账号绑定、重叠前缀约束和调度快照失效 |
 
 复杂 repository 按 `query`, `command`, `cache`, `batch`, `recovery` 拆分。事务边界应留在同一个公开 repository 方法内。
 

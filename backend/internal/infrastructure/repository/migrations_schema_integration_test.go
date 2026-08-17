@@ -74,7 +74,23 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	requireColumn(t, tx, "accounts", "rate_limit_reset_at", "timestamp with time zone", 0, true)
 	requireColumn(t, tx, "accounts", "overload_until", "timestamp with time zone", 0, true)
 	requireColumn(t, tx, "accounts", "session_window_status", "character varying", 20, true)
+	requireColumn(t, tx, "accounts", "egress_mode", "character varying", 20, false)
+	requireColumnDefaultContains(t, tx, "accounts", "egress_mode", "'inherit'")
+	requireConstraintDefinitionContains(t, tx, "accounts", "accounts_egress_mode_check", "inherit", "direct", "external_proxy", "ipv6_pool")
 	requireIndex(t, tx, "accounts", "idx_accounts_autopause_expiry_due")
+
+	// Account-scoped IPv6 egress: persisted pool, binding identity and delete behavior.
+	requireColumn(t, tx, "ipv6_egress_pools", "cidr", "character varying", 64, false)
+	requireColumn(t, tx, "ipv6_egress_pools", "is_default", "boolean", 0, false)
+	requireColumn(t, tx, "ipv6_egress_pools", "allocation_version", "bigint", 0, false)
+	requirePartialUniqueIndexDefinition(t, tx, "ipv6_egress_pools", "ipv6_egress_pools_one_default_idx", "is_default", "WHERE")
+	requireColumn(t, tx, "account_egress_bindings", "account_id", "bigint", 0, false)
+	requireColumn(t, tx, "account_egress_bindings", "pool_id", "bigint", 0, false)
+	requireColumn(t, tx, "account_egress_bindings", "source_ipv6", "character varying", 45, false)
+	requireColumn(t, tx, "account_egress_bindings", "version", "bigint", 0, false)
+	requireIndex(t, tx, "account_egress_bindings", "account_egress_bindings_pool_id_idx")
+	requireForeignKeyOnDelete(t, tx, "account_egress_bindings", "account_id", "accounts", "CASCADE")
+	requireForeignKeyOnDelete(t, tx, "account_egress_bindings", "pool_id", "ipv6_egress_pools", "RESTRICT")
 
 	// groups: OpenAI Live 默认关闭，管理员显式开启后才可访问。
 	requireColumn(t, tx, "groups", "allow_live", "boolean", 0, false)

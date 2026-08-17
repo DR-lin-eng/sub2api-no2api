@@ -708,6 +708,7 @@ const baseSettingsResponse = {
   account_quota_notify_emails: [],
   support_chat_enabled: true,
   support_chat_retention_days: 30,
+  ipv6_egress_ui_enabled: false,
   allow_user_view_usage_details: false,
   // 平台限额嵌套字段（新后端契约）
   default_platform_quotas: {
@@ -1021,6 +1022,26 @@ describe("admin SettingsView payment visible method controls", () => {
 
     const payload = updateSettings.mock.calls.at(-1)?.[0] as Record<string, unknown>;
     expect(payload.model_plaza_auto_public_models).toBe(true);
+  });
+
+  it("shows and saves the IPv6 egress management UI switch", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await openFeaturesTab(wrapper);
+
+    const card = wrapper
+      .findAll(".card")
+      .find((node) => node.text().includes("admin.settings.features.ipv6Egress.title"));
+    expect(card).toBeDefined();
+
+    const toggle = card!.get('input[type="checkbox"]');
+    expect((toggle.element as HTMLInputElement).checked).toBe(false);
+    await toggle.setValue(true);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    const payload = updateSettings.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(payload.ipv6_egress_ui_enabled).toBe(true);
   });
 
   it("loads and saves support chat message retention days", async () => {

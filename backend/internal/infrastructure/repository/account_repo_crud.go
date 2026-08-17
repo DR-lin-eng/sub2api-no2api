@@ -7,6 +7,7 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	dbaccount "github.com/Wei-Shaw/sub2api/ent/account"
+	dbbinding "github.com/Wei-Shaw/sub2api/ent/accountegressbinding"
 	dbaccountgroup "github.com/Wei-Shaw/sub2api/ent/accountgroup"
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
@@ -43,6 +44,9 @@ func createAccountRecord(ctx context.Context, client *dbent.Client, account *ser
 		SetErrorMessage(account.ErrorMessage).
 		SetSchedulable(account.Schedulable).
 		SetAutoPauseOnExpired(account.AutoPauseOnExpired)
+	if account.EgressMode != "" {
+		builder.SetEgressMode(string(account.EgressMode))
+	}
 
 	if account.RateMultiplier != nil {
 		builder.SetRateMultiplier(*account.RateMultiplier)
@@ -190,6 +194,7 @@ func (r *accountRepository) GetByIDs(ctx context.Context, ids []int64) ([]*servi
 		Query().
 		Where(dbaccount.IDIn(uniqueIDs...)).
 		WithProxy().
+		WithEgressBinding(func(q *dbent.AccountEgressBindingQuery) { q.WithPool() }).
 		All(ctx)
 	if err != nil {
 		return nil, err
@@ -220,6 +225,9 @@ func (r *accountRepository) GetByIDs(ctx context.Context, ids []int64) ([]*servi
 		// Prefer the preloaded proxy edge when available.
 		if entAcc.Edges.Proxy != nil {
 			out.Proxy = proxyEntityToService(entAcc.Edges.Proxy)
+		}
+		if entAcc.Edges.EgressBinding != nil {
+			out.EgressBinding = bindingEntityToModule(entAcc.Edges.EgressBinding)
 		}
 
 		if groups, ok := groupsByAccount[entAcc.ID]; ok {
@@ -430,7 +438,8 @@ func (r *accountRepository) updateLockedAccount(
 		SetStatus(account.Status).
 		SetErrorMessage(account.ErrorMessage).
 		SetSchedulable(schedulable).
-		SetAutoPauseOnExpired(account.AutoPauseOnExpired)
+		SetAutoPauseOnExpired(account.AutoPauseOnExpired).
+		SetEgressMode(normalizeAccountEgressMode(account.EgressMode))
 
 	if explicitRateMultiplier != nil {
 		builder.SetRateMultiplier(*explicitRateMultiplier)
@@ -770,6 +779,12 @@ func (r *accountRepository) Delete(ctx context.Context, id int64) error {
 	}
 
 	if _, err := txClient.AccountGroup.Delete().Where(dbaccountgroup.AccountIDEQ(id)).Exec(ctx); err != nil {
+		return err
+	}
+	// Account uses soft delete, so the binding's ON DELETE CASCADE never runs
+	// during the normal admin delete path. Release the persisted address in the
+	// same transaction before marking the account deleted.
+	if _, err := txClient.AccountEgressBinding.Delete().Where(dbbinding.AccountIDEQ(id)).Exec(ctx); err != nil {
 		return err
 	}
 	if _, err := txClient.ExecContext(ctx, "DELETE FROM scheduled_test_plans WHERE account_id = $1", id); err != nil {

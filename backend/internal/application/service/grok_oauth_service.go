@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 	"github.com/Wei-Shaw/sub2api/internal/shared/xai"
 )
@@ -18,6 +19,7 @@ type GrokOAuthService struct {
 	sessionStore *xai.SessionStore
 	proxyRepo    ProxyRepository
 	oauthClient  GrokOAuthClient
+	cfg          *config.Config
 }
 
 func NewGrokOAuthService(proxyRepo ProxyRepository, oauthClient GrokOAuthClient) *GrokOAuthService {
@@ -205,6 +207,7 @@ func (s *GrokOAuthService) RefreshAccountToken(ctx context.Context, account *Acc
 	if err != nil {
 		return nil, err
 	}
+	ctx = withAccountEgressContext(ctx, account, proxyURL, s.cfg)
 	refreshToken := account.GetCredential("refresh_token")
 	if strings.TrimSpace(refreshToken) == "" {
 		return nil, infraerrors.New(http.StatusBadRequest, "GROK_OAUTH_NO_REFRESH_TOKEN", "no refresh token available")

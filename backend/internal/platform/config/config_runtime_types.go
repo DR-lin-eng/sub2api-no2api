@@ -5,6 +5,20 @@ import (
 	"sync/atomic"
 )
 
+// IPv6EgressConfig controls account-scoped source IPv6 routing. AllocationSecret
+// must remain stable across restarts because it drives deterministic addresses.
+type IPv6EgressConfig struct {
+	Enabled                  bool   `mapstructure:"enabled"`
+	AllocationSecret         string `mapstructure:"allocation_secret"`
+	FreeBind                 bool   `mapstructure:"freebind"`
+	ReconcileIntervalSeconds int    `mapstructure:"reconcile_interval_seconds"`
+	ProbeURL                 string `mapstructure:"probe_url"`
+	ProbeTimeoutSeconds      int    `mapstructure:"probe_timeout_seconds"`
+	ControlEnabled           bool   `mapstructure:"control_enabled"`
+	ControlDir               string `mapstructure:"control_dir"`
+	ControlAgentStaleSeconds int    `mapstructure:"control_agent_stale_seconds"`
+}
+
 type TokenRefreshConfig struct {
 	// 是否启用自动刷新
 	Enabled bool `mapstructure:"enabled"`

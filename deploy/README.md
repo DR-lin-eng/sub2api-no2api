@@ -16,6 +16,13 @@ This directory contains files for deploying Sub2API on Linux servers and Apple-s
 |------|-------------|
 | `docker-compose.yml` | Docker Compose configuration (named volumes) |
 | `docker-compose.local.yml` | Docker Compose configuration (local directories, easy migration) |
+| `docker-compose.ipv6-egress.yml` | Linux override for account-scoped IPv6 egress |
+| `ipv6-egress-host.sh` | Host route and forwarding preflight for the IPv6 pool |
+| `docker-compose.ipv6-egress-he.yml` | Container-only Hurricane Electric 6in4 sidecar override |
+| `Dockerfile.ipv6-egress-sidecar` | Minimal image for the HE network sidecar |
+| `he-ipv6-tunnel.sh` | Idempotent 6in4 tunnel lifecycle used inside the sidecar |
+| `ipv6-egress-sidecar.sh` | Frontend control queue and container-network route agent |
+| `ipv6-egress-env.sh` | Non-evaluating allowlist parser for IPv6 control files |
 | `docker-deploy.sh` | **One-click Docker deployment script (recommended)** |
 | `apple-container.sh` | Native Apple `container` lifecycle script |
 | `APPLE_CONTAINER.md` | Apple `container` deployment and operations guide |
@@ -255,8 +262,135 @@ docker compose down -v
 | `GEMINI_OAUTH_CLIENT_SECRET` | No | *(builtin)* | Google OAuth client secret (Gemini OAuth). Leave empty to use the built-in Gemini CLI client. |
 | `GEMINI_OAUTH_SCOPES` | No | *(default)* | OAuth scopes (Gemini OAuth) |
 | `GEMINI_QUOTA_POLICY` | No | *(empty)* | JSON overrides for Gemini local quota simulation (Code Assist only). |
+| `IPV6_EGRESS_ALLOCATION_SECRET` | When enabled | *(empty)* | Stable 32+ character deterministic allocation secret. |
+| `IPV6_EGRESS_POOL_CIDR` | Host setup | *(empty)* | Provider-routed global prefix passed to `ipv6-egress-host.sh`. |
+| `IPV6_EGRESS_CONTAINER_IP` | No | `fd42:5355:4232::10` | Fixed Docker ULA next hop for the routed account pool. |
+| `IPV6_EGRESS_CONTAINER_NAME` | No | `sub2api` | Running application container whose network namespace receives the pool local route. |
+| `IPV6_EGRESS_CONTROL_AGENT_STALE_SECONDS` | No | `15` | Frontend sidecar heartbeat timeout. |
+| `IPV6_EGRESS_CONTROL_POLL_SECONDS` | No | `2` | Sidecar control-queue polling interval. |
+| `IPV6_EGRESS_CONTROL_VOLUME` | No | `sub2api-ipv6-egress-control` | Shared desired-state/status volume. |
+| `HE_TUNNEL_INTERFACE` | No | `he-sub2api` | SIT interface name inside the shared application network namespace. |
 
 See `.env.example` for all available options.
+
+### Account-scoped IPv6 egress (Linux only)
+
+This mode requires a prefix routed to the Docker host by the provider or by a
+Hurricane Electric Tunnel Broker tunnel. A single IPv6 address, an ordinary
+SLAAC address, or an IPv6 proxy endpoint is not sufficient. Use `standalone`
+deployment mode; multi-instance routing is intentionally rejected until
+node-owned prefixes and account affinity exist.
+
+Use exactly one network override:
+
+- `docker-compose.ipv6-egress.yml` for a provider prefix already routed to the host.
+- `docker-compose.ipv6-egress-he.yml` for a container-only HE 6in4 tunnel.
+
+#### Native routed prefix
+
+1. Set these values in `.env`:
+
+   ```dotenv
+   DEPLOYMENT_MODE=standalone
+   IPV6_EGRESS_ALLOCATION_SECRET=<output of openssl rand -hex 32>
+   IPV6_EGRESS_POOL_CIDR=<globally routed prefix, for example 2001:db8:100::/64>
+   ```
+
+2. Create the stack and its stable IPv6 Docker network:
+
+   ```bash
+   docker compose \
+     -f docker-compose.local.yml \
+     -f docker-compose.ipv6-egress.yml \
+     up -d
+   ```
+
+3. Route the provider prefix to the application's fixed ULA next hop and add
+   the pool as a local route in that container network namespace, then verify
+   forwarding and container capabilities. The host needs `iproute2`, `sysctl`,
+   `ping`, Docker, and `util-linux` (`nsenter`). Pass `.env` as the second
+   argument; the parser imports only host IPv6 keys and never evaluates the
+   file or loads application/database secrets:
+
+   ```bash
+   sudo ./ipv6-egress-host.sh apply .env
+   sudo ./ipv6-egress-host.sh check .env
+   ```
+
+4. Enable **System Settings -> Feature Switches -> IPv6 Egress Management**.
+   Then open **Admin -> IPv6 Egress**, create the same CIDR as a pool, verify an
+   account with **Probe exit**, and only then mark the pool as default. The
+   default action stays unavailable when the Linux runtime, allocation secret,
+   or feature switch is not ready.
+
+The Docker network ULA is only a next hop. Account source addresses are kept in
+PostgreSQL and bound per socket with `IPV6_FREEBIND`; the main application has
+no `NET_ADMIN`. The host script also installs `local <pool> dev lo` inside the
+application network namespace so response packets reach those free-bound
+sockets. The host must restore both routes after Docker recreates the container
+or bridge, or after a reboot. Persist `net.ipv6.conf.all.forwarding=1` through
+the host's normal sysctl management.
+
+#### Container-only Hurricane Electric sidecar
+
+Create a regular tunnel at [Hurricane Electric Tunnel Broker](https://tunnelbroker.net/),
+then start the application with the HE override:
+
+```bash
+docker compose \
+  -f docker-compose.local.yml \
+  -f docker-compose.ipv6-egress-he.yml \
+  up -d --build
+```
+
+Enable **System Settings -> Feature Switches -> IPv6 Egress Management**, then
+open **Admin -> IPv6 Egress -> HE Tunnel** to save and apply the tunnel. The
+main application remains unprivileged. A separate sidecar joins the
+application's network namespace and is the only container with `NET_ADMIN` and
+`NET_RAW`; it does not use host networking, the host PID namespace, the Docker
+socket, or host filesystem mounts.
+
+The feature switch only controls the administrator UI and direct route access.
+Turning it off does not disable runtime IPv6 egress, rotate bindings, or close
+active upstream connections.
+
+Copy the four distinct values from the HE tunnel detail page:
+
+| HE field | Frontend field | Purpose |
+| --- | --- | --- |
+| Server IPv4 Address | HE Server IPv4 | Remote 6in4 endpoint |
+| Client IPv6 Address | HE Client IPv6 /64 | Tunnel interface address |
+| Server IPv6 Address | HE Server IPv6 | IPv6 default-route gateway |
+| Routed /64 | HE Routed /64 or /48 | Account source-address pool |
+
+The frontend can also configure HE dynamic endpoint updates using the tunnel
+ID, account username, and tunnel **update key**. The key is stored only in the
+shared control volume and is never returned by the API.
+
+6in4 still requires the Docker host's public IPv4 path and upstream firewall to
+carry IP protocol 41. Ordinary TCP/UDP port forwarding and CGNAT cannot provide
+that transport. The sidecar uses the container IPv4 as its local endpoint and
+keeps protocol 41 traffic active through Docker NAT; if the host or provider
+drops protocol 41, the frontend check fails closed with the sidecar error.
+
+IPv6 mode is fail closed. Missing AAAA records, an unavailable prefix, a bind
+failure, or a route failure returns an upstream error and never falls back to
+the server IPv4. Existing `proxy_id` accounts continue using their external
+proxy. Disable `IPV6_EGRESS_ENABLED` (or remove this Compose override) to roll
+inherited accounts back to direct routing; explicit `ipv6_pool` accounts remain
+fail closed until their mode is changed.
+
+Run the local source-address integration check with:
+
+```bash
+./tests/ipv6-egress-docker.sh
+./tests/he-ipv6-tunnel-docker.sh
+./tests/ipv6-egress-sidecar-docker.sh
+```
+
+The sidecar test builds a real SIT tunnel between containers, keeps the main
+application container free of network capabilities, and verifies two
+free-bound account source addresses through the routed prefix.
 
 > **Note:** The `docker-deploy.sh` script automatically generates `JWT_SECRET`, `TOTP_ENCRYPTION_KEY`, and `POSTGRES_PASSWORD` for you.
 

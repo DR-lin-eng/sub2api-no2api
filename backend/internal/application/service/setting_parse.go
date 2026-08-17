@@ -209,6 +209,9 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		// Media Studio feature (default disabled; opt-in)
 		SettingKeyMediaStudioEnabled: "false",
 
+		// IPv6 egress management UI (default disabled; opt-in)
+		SettingKeyIPv6EgressUIEnabled: "false",
+
 		// Affiliate (邀请返利) feature (default disabled; opt-in)
 		SettingKeyAffiliateEnabled:              "false",
 		SettingKeyAffiliateAdminRechargeEnabled: strconv.FormatBool(AdminRechargeRebateEnabledDefault),

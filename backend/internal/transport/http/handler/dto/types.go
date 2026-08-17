@@ -7,6 +7,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
+	moduleegress "github.com/Wei-Shaw/sub2api/internal/modules/egress"
 )
 
 type User struct {
@@ -212,6 +213,8 @@ type Account struct {
 	ProxyID                 *int64                         `json:"proxy_id"`
 	ProxyFallbackOriginID   *int64                         `json:"proxy_fallback_origin_id"`
 	ProxyFallbackOriginName *string                        `json:"proxy_fallback_origin_name,omitempty"`
+	EgressMode              string                         `json:"egress_mode"`
+	EgressBinding           *moduleegress.Binding          `json:"egress_binding,omitempty"`
 	Concurrency             int                            `json:"concurrency"`
 	LoadFactor              *int                           `json:"load_factor,omitempty"`
 	Priority                int                            `json:"priority"`

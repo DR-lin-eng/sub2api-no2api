@@ -10,12 +10,24 @@ import (
 	"testing"
 	"time"
 
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	"github.com/stretchr/testify/require"
 )
 
 // pngBytes is a minimal payload whose signature makes http.DetectContentType
 // report image/png.
 var pngBytes = []byte("\x89PNG\r\n\x1a\nfake-png-payload")
+
+func TestImageResultUploaderExplicitIPv6DisabledFailsClosed(t *testing.T) {
+	ctx := platformegress.WithContextRoute(
+		context.Background(),
+		platformegress.IPv6PoolRoute("2001:db8::50", 5, 1, false),
+		platformegress.Policy{},
+	)
+	uploader := NewImageResultUploader(&fakeImageStorage{}, "images/", 0, nil)
+	_, err := uploader.Rewrite(ctx, "imgtask_egress", json.RawMessage(`{"data":[{"url":"https://example.invalid/image.png"}]}`))
+	require.ErrorIs(t, err, platformegress.ErrIPv6Disabled)
+}
 
 type savedImage struct {
 	key         string

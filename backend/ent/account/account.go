@@ -38,6 +38,8 @@ const (
 	FieldProxyID = "proxy_id"
 	// FieldProxyFallbackOriginID holds the string denoting the proxy_fallback_origin_id field in the database.
 	FieldProxyFallbackOriginID = "proxy_fallback_origin_id"
+	// FieldEgressMode holds the string denoting the egress_mode field in the database.
+	FieldEgressMode = "egress_mode"
 	// FieldConcurrency holds the string denoting the concurrency field in the database.
 	FieldConcurrency = "concurrency"
 	// FieldLoadFactor holds the string denoting the load_factor field in the database.
@@ -82,6 +84,8 @@ const (
 	EdgeGroups = "groups"
 	// EdgeProxy holds the string denoting the proxy edge name in mutations.
 	EdgeProxy = "proxy"
+	// EdgeEgressBinding holds the string denoting the egress_binding edge name in mutations.
+	EdgeEgressBinding = "egress_binding"
 	// EdgeParent holds the string denoting the parent edge name in mutations.
 	EdgeParent = "parent"
 	// EdgeChildren holds the string denoting the children edge name in mutations.
@@ -104,6 +108,13 @@ const (
 	ProxyInverseTable = "proxies"
 	// ProxyColumn is the table column denoting the proxy relation/edge.
 	ProxyColumn = "proxy_id"
+	// EgressBindingTable is the table that holds the egress_binding relation/edge.
+	EgressBindingTable = "account_egress_bindings"
+	// EgressBindingInverseTable is the table name for the AccountEgressBinding entity.
+	// It exists in this package in order to avoid circular dependency with the "accountegressbinding" package.
+	EgressBindingInverseTable = "account_egress_bindings"
+	// EgressBindingColumn is the table column denoting the egress_binding relation/edge.
+	EgressBindingColumn = "account_id"
 	// ParentTable is the table that holds the parent relation/edge.
 	ParentTable = "accounts"
 	// ParentColumn is the table column denoting the parent relation/edge.
@@ -142,6 +153,7 @@ var Columns = []string{
 	FieldExtra,
 	FieldProxyID,
 	FieldProxyFallbackOriginID,
+	FieldEgressMode,
 	FieldConcurrency,
 	FieldLoadFactor,
 	FieldPriority,
@@ -204,6 +216,10 @@ var (
 	DefaultCredentials func() map[string]interface{}
 	// DefaultExtra holds the default value on creation for the "extra" field.
 	DefaultExtra func() map[string]interface{}
+	// DefaultEgressMode holds the default value on creation for the "egress_mode" field.
+	DefaultEgressMode string
+	// EgressModeValidator is a validator for the "egress_mode" field. It is called by the builders before save.
+	EgressModeValidator func(string) error
 	// DefaultConcurrency holds the default value on creation for the "concurrency" field.
 	DefaultConcurrency int
 	// DefaultPriority holds the default value on creation for the "priority" field.
@@ -299,6 +315,11 @@ func ByProxyID(opts ...sql.OrderTermOption) OrderOption {
 // ByProxyFallbackOriginID orders the results by the proxy_fallback_origin_id field.
 func ByProxyFallbackOriginID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldProxyFallbackOriginID, opts...).ToFunc()
+}
+
+// ByEgressMode orders the results by the egress_mode field.
+func ByEgressMode(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEgressMode, opts...).ToFunc()
 }
 
 // ByConcurrency orders the results by the concurrency field.
@@ -422,6 +443,13 @@ func ByProxyField(field string, opts ...sql.OrderTermOption) OrderOption {
 	}
 }
 
+// ByEgressBindingField orders the results by egress_binding field.
+func ByEgressBindingField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newEgressBindingStep(), sql.OrderByField(field, opts...))
+	}
+}
+
 // ByParentField orders the results by parent field.
 func ByParentField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -482,6 +510,13 @@ func newProxyStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ProxyInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, false, ProxyTable, ProxyColumn),
+	)
+}
+func newEgressBindingStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(EgressBindingInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2O, false, EgressBindingTable, EgressBindingColumn),
 	)
 }
 func newParentStep() *sqlgraph.Step {

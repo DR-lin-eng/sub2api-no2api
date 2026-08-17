@@ -25,7 +25,7 @@ func NewGrokOAuthClient() service.GrokOAuthClient {
 }
 
 func (c *grokOAuthClient) ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI, proxyURL, clientID string) (*xai.TokenResponse, error) {
-	client, err := createGrokReqClient(proxyURL)
+	client, err := createGrokReqClientForContext(ctx, proxyURL)
 	if err != nil {
 		return nil, infraerrors.Newf(http.StatusBadGateway, "GROK_OAUTH_CLIENT_INIT_FAILED", "create HTTP client: %v", err)
 	}
@@ -59,7 +59,7 @@ func (c *grokOAuthClient) ExchangeCode(ctx context.Context, code, codeVerifier, 
 }
 
 func (c *grokOAuthClient) RefreshToken(ctx context.Context, refreshToken, proxyURL, clientID string) (*xai.TokenResponse, error) {
-	client, err := createGrokReqClient(proxyURL)
+	client, err := createGrokReqClientForContext(ctx, proxyURL)
 	if err != nil {
 		return nil, infraerrors.Newf(http.StatusBadGateway, "GROK_OAUTH_CLIENT_INIT_FAILED", "create HTTP client: %v", err)
 	}
@@ -91,7 +91,7 @@ func (c *grokOAuthClient) RefreshToken(ctx context.Context, refreshToken, proxyU
 }
 
 func (c *grokOAuthClient) ConvertSSOToBuild(ctx context.Context, ssoToken, proxyURL string) (*xai.TokenResponse, error) {
-	client, err := createGrokSSOHTTPClient(proxyURL)
+	client, err := createGrokSSOHTTPClientForContext(ctx, proxyURL)
 	if err != nil {
 		return nil, infraerrors.Newf(http.StatusBadGateway, "GROK_SSO_CLIENT_INIT_FAILED", "create HTTP client: %v", err)
 	}
@@ -105,15 +105,15 @@ func (c *grokOAuthClient) ConvertSSOToBuild(ctx context.Context, ssoToken, proxy
 	return tokenResp, nil
 }
 
-func createGrokReqClient(proxyURL string) (*req.Client, error) {
-	return getSharedReqClient(reqClientOptions{
+func createGrokReqClientForContext(ctx context.Context, proxyURL string) (*req.Client, error) {
+	return getSharedReqClientForContext(ctx, reqClientOptions{
 		ProxyURL: proxyURL,
 		Timeout:  60 * time.Second,
 	})
 }
 
-func createGrokSSOHTTPClient(proxyURL string) (*http.Client, error) {
-	client, err := sharedhttp.GetClient(sharedhttp.Options{
+func createGrokSSOHTTPClientForContext(ctx context.Context, proxyURL string) (*http.Client, error) {
+	client, err := sharedhttp.GetClientForContext(ctx, sharedhttp.Options{
 		ProxyURL:              proxyURL,
 		Timeout:               xai.SSOConversionTimeout,
 		ResponseHeaderTimeout: 30 * time.Second,

@@ -68,6 +68,12 @@ declare module 'vue-router' {
     requiresMediaStudio?: boolean
 
     /**
+     * Whether this route requires the IPv6 egress management UI to be enabled.
+     * @default false
+     */
+    requiresIPv6Egress?: boolean
+
+    /**
      * i18n key for the page title
      */
     titleKey?: string

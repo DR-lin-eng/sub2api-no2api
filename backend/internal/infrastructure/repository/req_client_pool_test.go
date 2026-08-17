@@ -11,6 +11,7 @@ import (
 	"time"
 	"unsafe"
 
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	"github.com/Wei-Shaw/sub2api/internal/shared/servertiming"
 	"github.com/imroc/req/v3"
 	"github.com/stretchr/testify/require"
@@ -116,6 +117,65 @@ func TestGetSharedReqClient_ImpersonateAndProxy(t *testing.T) {
 
 	require.NotNil(t, client)
 	require.Equal(t, "http://proxy.local:8080|4s|true|false", buildReqClientKey(opts))
+}
+
+func TestBuildReqClientKeySeparatesIPv6BindingVersions(t *testing.T) {
+	base := reqClientOptions{
+		Timeout:      time.Second,
+		EgressRoute:  platformegress.IPv6PoolRoute("2001:db8::10", 4, 1, false),
+		EgressPolicy: platformegress.Policy{IPv6Enabled: true, FreeBind: true},
+	}
+	rotated := base
+	rotated.EgressRoute = platformegress.IPv6PoolRoute("2001:db8::11", 4, 2, false)
+	require.NotEqual(t, buildReqClientKey(base), buildReqClientKey(rotated))
+}
+
+func TestGetSharedReqClientForContextExplicitProxyOverridesIPv6(t *testing.T) {
+	sharedReqClients = newSharedReqClientPool()
+	ctx := platformegress.WithContextRoute(
+		context.Background(),
+		platformegress.IPv6PoolRoute("2001:db8::10", 4, 1, false),
+		platformegress.Policy{IPv6Enabled: true, FreeBind: true},
+	)
+	client, err := getSharedReqClientForContext(ctx, reqClientOptions{
+		ProxyURL: "http://proxy.local:8080",
+		Timeout:  time.Second,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, client)
+}
+
+func TestGetSharedReqClientForContextExplicitIPv6DisabledFailsClosed(t *testing.T) {
+	sharedReqClients = newSharedReqClientPool()
+	ctx := platformegress.WithContextRoute(
+		context.Background(),
+		platformegress.IPv6PoolRoute("2001:db8::10", 4, 1, false),
+		platformegress.Policy{},
+	)
+	_, err := getSharedReqClientForContext(ctx, reqClientOptions{Timeout: time.Second})
+	require.ErrorIs(t, err, platformegress.ErrIPv6Disabled)
+}
+
+func TestGeminiCodeAssistClientExplicitIPv6DisabledFailsClosed(t *testing.T) {
+	ctx := platformegress.WithContextRoute(
+		context.Background(),
+		platformegress.IPv6PoolRoute("2001:db8::20", 2, 1, false),
+		platformegress.Policy{},
+	)
+	_, err := createGeminiCliReqClientForContext(ctx, "")
+	require.ErrorIs(t, err, platformegress.ErrIPv6Disabled)
+}
+
+func TestGetSharedReqClientForContextInheritedIPv6DisabledUsesDirect(t *testing.T) {
+	sharedReqClients = newSharedReqClientPool()
+	ctx := platformegress.WithContextRoute(
+		context.Background(),
+		platformegress.IPv6PoolRoute("2001:db8::10", 4, 1, true),
+		platformegress.Policy{},
+	)
+	client, err := getSharedReqClientForContext(ctx, reqClientOptions{Timeout: time.Second})
+	require.NoError(t, err)
+	require.NotNil(t, client)
 }
 
 func TestGetSharedReqClient_InvalidProxyURL(t *testing.T) {

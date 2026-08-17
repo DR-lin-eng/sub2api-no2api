@@ -11,9 +11,21 @@ import (
 	"strings"
 	"testing"
 
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 	"github.com/stretchr/testify/require"
 )
+
+func TestGeminiBatchHTTPClientExplicitIPv6DisabledFailsClosed(t *testing.T) {
+	ctx := platformegress.WithContextRoute(
+		context.Background(),
+		platformegress.IPv6PoolRoute("2001:db8::10", 1, 1, false),
+		platformegress.Policy{},
+	)
+	client := NewGeminiBatchHTTPClient("https://generativelanguage.googleapis.com", nil)
+	_, err := client.GetBatch(ctx, "test-key", "batches/test")
+	require.ErrorIs(t, err, platformegress.ErrIPv6Disabled)
+}
 
 func TestBatchImageProviderRegistry_ReturnsGeminiAPI(t *testing.T) {
 	registry := NewDefaultBatchImageProviderRegistry()

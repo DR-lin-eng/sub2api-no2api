@@ -268,6 +268,7 @@ func buildSystemSettingsUpdate(prepared *preparedSettingsUpdate) *service.System
 		ModelPlazaAutoPublicModels:                         boolValueOrDefault(req.ModelPlazaAutoPublicModels, previousSettings.ModelPlazaAutoPublicModels),
 		ModelPlazaDescription:                              stringSetting(req.ModelPlazaDescription, previousSettings.ModelPlazaDescription),
 		MediaStudioEnabled:                                 boolValueOrDefault(req.MediaStudioEnabled, previousSettings.MediaStudioEnabled),
+		IPv6EgressUIEnabled:                                boolValueOrDefault(req.IPv6EgressUIEnabled, previousSettings.IPv6EgressUIEnabled),
 		AffiliateEnabled:                                   boolValueOrDefault(req.AffiliateEnabled, previousSettings.AffiliateEnabled),
 		RiskControlEnabled:                                 boolValueOrDefault(req.RiskControlEnabled, previousSettings.RiskControlEnabled),
 		CyberSessionBlockEnabled:                           boolValueOrDefault(req.CyberSessionBlockEnabled, previousSettings.CyberSessionBlockEnabled),

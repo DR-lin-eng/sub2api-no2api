@@ -305,7 +305,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 		}
 
 		upstreamStart := time.Now()
-		resp, err = s.httpUpstream.Do(upstreamReq, proxyURL, account.ID, account.Concurrency)
+		resp, err = doAccountHTTPUpstream(s.httpUpstream, upstreamReq, proxyURL, account)
 		SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
 		if err != nil {
 			if ctxErr := ctx.Err(); ctxErr != nil {

@@ -1,5 +1,6 @@
 import supportChatMessages from './settings.support-chat'
 import codexSimulationMessages from './settings.codex-simulation'
+import ipv6EgressMessages from './settings.ipv6-egress'
 
 export default {
     settings: {
@@ -70,6 +71,7 @@ export default {
           enabled: '启用媒体工坊',
           enabledHint: '关闭后用户侧边栏隐藏媒体工坊入口，直接访问 /media-studio 会返回控制台。',
         },
+        ipv6Egress: ipv6EgressMessages,
         riskControl: {
           title: '风控中心',
           description: '启用内容审计菜单和全端点请求审核入口。默认关闭。',

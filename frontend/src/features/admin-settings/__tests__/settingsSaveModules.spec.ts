@@ -158,6 +158,7 @@ describe("settings save payload", () => {
     form.balance_low_notify_recharge_url = "";
     form.model_plaza_auto_public_models = true;
     form.media_studio_enabled = true;
+    form.ipv6_egress_ui_enabled = true;
     form.support_chat_retention_days = 45.9;
 
     const payload = buildSettingsSavePayload({
@@ -199,6 +200,7 @@ describe("settings save payload", () => {
     );
     expect(payload.model_plaza_auto_public_models).toBe(true);
     expect(payload.media_studio_enabled).toBe(true);
+    expect(payload.ipv6_egress_ui_enabled).toBe(true);
     expect(payload.support_chat_retention_days).toBe(45);
     expect(form.balance_low_notify_recharge_url).toBe(
       "https://admin.example.com",

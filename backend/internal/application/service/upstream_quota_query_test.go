@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	moduleegress "github.com/Wei-Shaw/sub2api/internal/modules/egress"
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
 	"github.com/stretchr/testify/require"
@@ -22,6 +24,8 @@ type upstreamQuotaHTTPStub struct {
 	requests []*http.Request
 	proxies  []string
 	profiles []*tlsfingerprint.Profile
+	routes   []platformegress.Route
+	accounts []int64
 	handler  func(*http.Request) (*http.Response, error)
 }
 
@@ -41,10 +45,28 @@ func (u *upstreamQuotaHTTPStub) DoWithTLS(req *http.Request, proxyURL string, _ 
 	return u.handler(req)
 }
 
+func (u *upstreamQuotaHTTPStub) DoRoute(req *http.Request, route platformegress.Route, accountID int64, accountConcurrency int) (*http.Response, error) {
+	return u.DoWithTLSRoute(req, route, accountID, accountConcurrency, nil)
+}
+
+func (u *upstreamQuotaHTTPStub) DoWithTLSRoute(req *http.Request, route platformegress.Route, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile) (*http.Response, error) {
+	u.mu.Lock()
+	u.routes = append(u.routes, route)
+	u.accounts = append(u.accounts, accountID)
+	u.mu.Unlock()
+	return u.DoWithTLS(req, route.ProxyURL, accountID, accountConcurrency, profile)
+}
+
 func (u *upstreamQuotaHTTPStub) snapshot() ([]*http.Request, []string, []*tlsfingerprint.Profile) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	return append([]*http.Request(nil), u.requests...), append([]string(nil), u.proxies...), append([]*tlsfingerprint.Profile(nil), u.profiles...)
+}
+
+func (u *upstreamQuotaHTTPStub) routeSnapshot() ([]platformegress.Route, []int64) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	return append([]platformegress.Route(nil), u.routes...), append([]int64(nil), u.accounts...)
 }
 
 func quotaHTTPResponse(status int, body string) *http.Response {
@@ -87,6 +109,35 @@ func validNewAPISubscriptionBody() string {
 
 func validNewAPIUsageBody() string {
 	return `{"object":"list","total_usage":1234}`
+}
+
+func TestUpstreamQuotaUsesAccountIPv6Route(t *testing.T) {
+	account := newUpstreamQuotaAccount(40)
+	account.EgressMode = platformegress.ModeIPv6Pool
+	account.EgressBinding = &moduleegress.Binding{
+		PoolID:     4,
+		SourceIPv6: "2001:db8::40",
+		Status:     moduleegress.BindingStatusActive,
+		PoolStatus: moduleegress.PoolStatusActive,
+		Version:    3,
+	}
+	upstream := &upstreamQuotaHTTPStub{handler: func(*http.Request) (*http.Response, error) {
+		return quotaHTTPResponse(http.StatusOK, validSub2APIQuotaBody()), nil
+	}}
+	client := &upstreamQuotaQueryClient{
+		upstream: upstream,
+		account:  account,
+		baseURL:  "https://upstream.example",
+		apiKey:   "sk-sensitive",
+	}
+
+	quota, err := client.query(context.Background())
+
+	require.NoError(t, err)
+	require.NotNil(t, quota)
+	routes, accountIDs := upstream.routeSnapshot()
+	require.Equal(t, []platformegress.Route{account.EgressRoute()}, routes)
+	require.Equal(t, []int64{account.ID}, accountIDs)
 }
 
 func TestUpstreamQuotaParsesAllSub2APIModes(t *testing.T) {

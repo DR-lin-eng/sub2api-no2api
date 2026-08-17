@@ -59,6 +59,9 @@ func RegisterAdminRoutes(
 		// 代理管理
 		registerProxyRoutes(admin, h, stepUpAuth)
 
+		// 账号级 IPv6 出口池
+		registerEgressRoutes(admin, h, stepUpAuth)
+
 		// 卡密管理
 		registerRedeemCodeRoutes(admin, h)
 
@@ -124,6 +127,25 @@ func RegisterAdminRoutes(
 
 		// 在线客服（管理端收件箱）
 		registerChatRoutes(admin, h, settingService)
+	}
+}
+
+func registerEgressRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAuth middleware.StepUpAuthMiddleware) {
+	egress := admin.Group("/egress")
+	{
+		egress.GET("/runtime", h.Admin.Egress.Runtime)
+		egress.GET("/he-tunnel", h.Admin.Egress.GetHETunnel)
+		egress.PUT("/he-tunnel", gin.HandlerFunc(stepUpAuth), h.Admin.Egress.SaveHETunnel)
+		egress.POST("/he-tunnel/:action", gin.HandlerFunc(stepUpAuth), h.Admin.Egress.HETunnelAction)
+		egress.GET("/ipv6-pools", h.Admin.Egress.ListPools)
+		egress.POST("/ipv6-pools", h.Admin.Egress.CreatePool)
+		egress.PUT("/ipv6-pools/:id", h.Admin.Egress.UpdatePool)
+		egress.DELETE("/ipv6-pools/:id", gin.HandlerFunc(stepUpAuth), h.Admin.Egress.DeletePool)
+		egress.GET("/bindings", h.Admin.Egress.ListBindings)
+		egress.PUT("/accounts/:id", h.Admin.Egress.SetAccountRoute)
+		egress.POST("/accounts/:id/rotate", gin.HandlerFunc(stepUpAuth), h.Admin.Egress.RotateBinding)
+		egress.POST("/accounts/:id/probe", h.Admin.Egress.ProbeAccount)
+		egress.POST("/reconcile-default", h.Admin.Egress.ReconcileDefault)
 	}
 }
 

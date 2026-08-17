@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -69,6 +70,7 @@ type openAIWSAcquireRequest struct {
 	// lastAcquire or delayed prewarm state.
 	HeadersFactory  func(context.Context, http.Header) (http.Header, error)
 	ProxyURL        string
+	EgressRoute     platformegress.Route
 	PreferredConnID string
 	// ForceNewConn: 强制本次获取新连接（避免复用导致连接内续链状态互相污染）。
 	ForceNewConn bool
@@ -79,6 +81,7 @@ type openAIWSAcquireRequest struct {
 type openAIWSHandshakeCompatibilityKey struct {
 	betaFeatures   string
 	fingerprintKey string
+	egressRouteKey string
 }
 
 type openAIWSConnLease struct {
@@ -641,7 +644,7 @@ func newOpenAIWSConnPoolWithModeRouterProvider(cfg *config.Config, modeRouterV2E
 	pool := &openAIWSConnPool{
 		cfg:                   cfg,
 		modeRouterV2EnabledFn: modeRouterV2Enabled,
-		clientDialer:          newDefaultOpenAIWSClientDialer(),
+		clientDialer:          newConfiguredOpenAIWSClientDialer(cfg),
 		workerStopCh:          make(chan struct{}),
 	}
 	pool.startBackgroundWorkers()
@@ -890,7 +893,7 @@ func (p *openAIWSConnPool) acquire(ctx context.Context, req openAIWSAcquireReque
 
 retryAcquire:
 	accountID := req.Account.ID
-	compatibility := normalizeOpenAIWSHandshakeCompatibility(req.Headers)
+	compatibility := openAIWSAcquireCompatibility(req)
 	routingAffinity := normalizeOpenAIWSRoutingAffinity(req.Headers)
 	effectiveMaxConns := p.effectiveMaxConnsByAccount(req.Account)
 	if effectiveMaxConns <= 0 {
@@ -1813,7 +1816,7 @@ func (p *openAIWSConnPool) dialConn(ctx context.Context, req openAIWSAcquireRequ
 			return nil, err
 		}
 	}
-	conn, status, handshakeHeaders, err := p.clientDialer.Dial(ctx, req.WSURL, headers, req.ProxyURL)
+	conn, status, handshakeHeaders, err := dialOpenAIWSRoute(p.clientDialer, ctx, req.WSURL, headers, openAIWSAcquireRoute(req))
 	if err != nil {
 		var handshakeErr *openAIWSHandshakeError
 		var responseBody []byte
@@ -1836,7 +1839,7 @@ func (p *openAIWSConnPool) dialConn(ctx context.Context, req openAIWSAcquireRequ
 	}
 	id := p.nextConnID(req.Account.ID)
 	pooledConn := newOpenAIWSConn(id, req.Account.ID, conn, handshakeHeaders)
-	pooledConn.handshakeCompatibility = normalizeOpenAIWSHandshakeCompatibility(req.Headers)
+	pooledConn.handshakeCompatibility = openAIWSAcquireCompatibility(req)
 	pooledConn.routingAffinity = normalizeOpenAIWSRoutingAffinity(req.Headers)
 	return pooledConn, nil
 }
@@ -2022,7 +2025,27 @@ func cloneOpenAIWSAcquireRequestPtr(req *openAIWSAcquireRequest) *openAIWSAcquir
 func sameOpenAIWSPrewarmTarget(a, b openAIWSAcquireRequest) bool {
 	return stringsTrim(a.WSURL) == stringsTrim(b.WSURL) &&
 		stringsTrim(a.ProxyURL) == stringsTrim(b.ProxyURL) &&
-		normalizeOpenAIWSHandshakeCompatibility(a.Headers) == normalizeOpenAIWSHandshakeCompatibility(b.Headers)
+		openAIWSAcquireRoute(a).CacheKey() == openAIWSAcquireRoute(b).CacheKey() &&
+		openAIWSAcquireCompatibility(a) == openAIWSAcquireCompatibility(b)
+}
+
+func openAIWSAcquireCompatibility(req openAIWSAcquireRequest) openAIWSHandshakeCompatibilityKey {
+	compatibility := normalizeOpenAIWSHandshakeCompatibility(req.Headers)
+	route := openAIWSAcquireRoute(req)
+	if route.Mode == platformegress.ModeIPv6Pool {
+		compatibility.egressRouteKey = route.CacheKey()
+	}
+	return compatibility
+}
+
+func openAIWSAcquireRoute(req openAIWSAcquireRequest) platformegress.Route {
+	if req.EgressRoute.Mode != "" {
+		return req.EgressRoute
+	}
+	if stringsTrim(req.ProxyURL) != "" {
+		return platformegress.ExternalProxyRoute(req.ProxyURL)
+	}
+	return platformegress.DirectRoute(false)
 }
 
 func normalizeOpenAIWSBetaFeatures(headers http.Header) string {

@@ -350,6 +350,9 @@ type UpdateSettingsRequest struct {
 	// Media Studio feature switch
 	MediaStudioEnabled *bool `json:"media_studio_enabled"`
 
+	// IPv6 egress management UI feature switch
+	IPv6EgressUIEnabled *bool `json:"ipv6_egress_ui_enabled"`
+
 	// Affiliate (邀请返利) feature switch
 	AffiliateEnabled *bool `json:"affiliate_enabled"`
 

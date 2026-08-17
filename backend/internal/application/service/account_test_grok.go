@@ -86,7 +86,7 @@ func (s *AccountTestService) testGrokAccountConnection(c *gin.Context, account *
 		proxyURL = account.Proxy.URL()
 	}
 
-	resp, err := s.httpUpstream.Do(req, proxyURL, account.ID, account.Concurrency)
+	resp, err := doAccountHTTPUpstream(s.httpUpstream, req, proxyURL, account)
 	if err != nil {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Grok Responses API request failed: %s", err.Error()))
 	}

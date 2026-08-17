@@ -240,6 +240,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		sessionHash = ensureOpenAIPoolModeSessionHash(sessionHash, account)
 		reqLog.Debug("openai.images.account_selected", zap.Int64("account_id", account.ID), zap.String("account_name", account.Name))
 		setOpsSelectedAccount(c, account.ID, account.Platform)
+		c.Request = c.Request.WithContext(service.WithAccountEgressContext(c.Request.Context(), account, h.cfg))
 
 		accountReleaseFunc, acquireOutcome := h.acquireResponsesAccountSlot(c, apiKey.GroupID, sessionHash, selection, parsed.Stream, &streamStarted, reqLog)
 		if acquireOutcome == accountSlotAcquireReschedule {

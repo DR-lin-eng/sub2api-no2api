@@ -42,6 +42,17 @@ sequenceDiagram
 5. 对应 `gateway*_forward*` / `openai*_forward*`：确认上游请求与响应转换。
 6. `gateway_usage_billing.go` 或 `openai_gateway_usage.go`：确认用量解析和计费提交。
 
+### 账号出口路由
+
+账号 repository 和调度快照一并加载 `egress_mode` 与 IPv6 绑定。选中账号后，
+`Account.EgressRoute` 先保留现有 `proxy_id`，再解析显式直连、IPv6 池或系统继承；
+普通 HTTP、TLS 指纹、WebSocket、刷新、探测、图片和共享上游客户端继续携带同一
+路由。请求热路径不为出口重查数据库。
+
+IPv6 模式只解析 AAAA 并从绑定源地址拨号。无 AAAA、缺少绑定或路由失败时不允许
+Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换后只关闭旧空闲连接。
+完整数据、管理和 Docker 路由边界见 [账号级 IPv6 出口](IPV6_EGRESS.md)。
+
 ### 关键不变量
 
 - API Key auth 完成后，handler 从 context 读取完整 auth subject，不自行重查一套不一致的身份。

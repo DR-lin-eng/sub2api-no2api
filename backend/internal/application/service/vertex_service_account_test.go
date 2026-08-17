@@ -13,10 +13,21 @@ import (
 	"testing"
 	"time"
 
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	"github.com/Wei-Shaw/sub2api/internal/shared/servertiming"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
+
+func TestVertexServiceAccountHTTPClientExplicitIPv6DisabledFailsClosed(t *testing.T) {
+	ctx := platformegress.WithContextRoute(
+		context.Background(),
+		platformegress.IPv6PoolRoute("2001:db8::10", 1, 1, false),
+		platformegress.Policy{},
+	)
+	_, err := newVertexServiceAccountHTTPClientForContext(ctx, "")
+	require.ErrorIs(t, err, platformegress.ErrIPv6Disabled)
+}
 
 func TestBuildVertexGeminiURL(t *testing.T) {
 	got, err := buildVertexGeminiURL("my-project", "us-central1", "gemini-3-pro", "streamGenerateContent", true)

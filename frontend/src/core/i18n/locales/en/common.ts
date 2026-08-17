@@ -183,6 +183,7 @@ export default {
     subscriptions: 'Subscriptions',
     accounts: 'Accounts',
     proxies: 'Proxies',
+    ipv6Egress: 'IPv6 Egress',
     redeemCodes: 'Redeem Codes',
     ops: 'Ops',
     multiInstance: 'Multi-instance',

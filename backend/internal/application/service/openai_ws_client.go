@@ -13,6 +13,8 @@ import (
 	"time"
 
 	openaiwsv2 "github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2"
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	coderws "github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 )
@@ -56,9 +58,23 @@ type openAIWSTransportMetricsDialer interface {
 	SnapshotTransportMetrics() OpenAIWSTransportMetricsSnapshot
 }
 
+type openAIWSRouteClientDialer interface {
+	DialRoute(ctx context.Context, wsURL string, headers http.Header, route platformegress.Route) (openAIWSClientConn, int, http.Header, error)
+}
+
 func newDefaultOpenAIWSClientDialer() openAIWSClientDialer {
+	return newConfiguredOpenAIWSClientDialer(nil)
+}
+
+func newConfiguredOpenAIWSClientDialer(cfg *config.Config) openAIWSClientDialer {
+	policy := platformegress.Policy{FreeBind: true}
+	if cfg != nil {
+		policy.IPv6Enabled = cfg.IPv6Egress.Enabled
+		policy.FreeBind = cfg.IPv6Egress.FreeBind
+	}
 	return &coderOpenAIWSClientDialer{
 		proxyClients: make(map[string]*openAIWSProxyClientEntry),
+		egressPolicy: policy,
 	}
 }
 
@@ -67,6 +83,7 @@ type coderOpenAIWSClientDialer struct {
 	proxyClients map[string]*openAIWSProxyClientEntry
 	proxyHits    atomic.Int64
 	proxyMisses  atomic.Int64
+	egressPolicy platformegress.Policy
 }
 
 // openAIWSHandshakeError keeps a bounded, non-logged HTTP error body so the
@@ -102,6 +119,19 @@ func (d *coderOpenAIWSClientDialer) Dial(
 	headers http.Header,
 	proxyURL string,
 ) (openAIWSClientConn, int, http.Header, error) {
+	route := platformegress.DirectRoute(false)
+	if strings.TrimSpace(proxyURL) != "" {
+		route = platformegress.ExternalProxyRoute(proxyURL)
+	}
+	return d.DialRoute(ctx, wsURL, headers, route)
+}
+
+func (d *coderOpenAIWSClientDialer) DialRoute(
+	ctx context.Context,
+	wsURL string,
+	headers http.Header,
+	route platformegress.Route,
+) (openAIWSClientConn, int, http.Header, error) {
 	targetURL := strings.TrimSpace(wsURL)
 	if targetURL == "" {
 		return nil, 0, nil, errors.New("ws url is empty")
@@ -111,8 +141,12 @@ func (d *coderOpenAIWSClientDialer) Dial(
 		HTTPHeader:      cloneHeader(headers),
 		CompressionMode: coderws.CompressionContextTakeover,
 	}
-	if proxy := strings.TrimSpace(proxyURL); proxy != "" {
-		proxyClient, err := d.proxyHTTPClient(proxy)
+	effective, err := platformegress.ApplyPolicy(route, d.egressPolicy)
+	if err != nil {
+		return nil, 0, nil, err
+	}
+	if effective.Mode != platformegress.ModeDirect {
+		proxyClient, err := d.routeHTTPClient(effective)
 		if err != nil {
 			return nil, 0, nil, err
 		}
@@ -144,38 +178,65 @@ func (d *coderOpenAIWSClientDialer) Dial(
 	return &coderOpenAIWSClientConn{conn: conn}, 0, respHeaders, nil
 }
 
+func dialOpenAIWSRoute(dialer openAIWSClientDialer, ctx context.Context, wsURL string, headers http.Header, route platformegress.Route) (openAIWSClientConn, int, http.Header, error) {
+	if routed, ok := dialer.(openAIWSRouteClientDialer); ok {
+		return routed.DialRoute(ctx, wsURL, headers, route)
+	}
+	return dialer.Dial(ctx, wsURL, headers, route.ProxyURL)
+}
+
 func (d *coderOpenAIWSClientDialer) proxyHTTPClient(proxy string) (*http.Client, error) {
+	return d.routeHTTPClient(platformegress.ExternalProxyRoute(proxy))
+}
+
+func (d *coderOpenAIWSClientDialer) routeHTTPClient(route platformegress.Route) (*http.Client, error) {
 	if d == nil {
 		return nil, errors.New("openai ws dialer is nil")
 	}
-	normalizedProxy := strings.TrimSpace(proxy)
-	if normalizedProxy == "" {
-		return nil, errors.New("proxy url is empty")
-	}
-	parsedProxyURL, err := url.Parse(normalizedProxy)
+	effective, err := platformegress.ApplyPolicy(route, d.egressPolicy)
 	if err != nil {
-		return nil, fmt.Errorf("invalid proxy url: %w", err)
+		return nil, err
+	}
+	cacheKey := effective.CacheKey()
+	var parsedProxyURL *url.URL
+	if effective.Mode == platformegress.ModeExternalProxy {
+		cacheKey = strings.TrimSpace(effective.ProxyURL)
+		parsedProxyURL, err = url.Parse(cacheKey)
+		if err != nil {
+			return nil, fmt.Errorf("invalid proxy url: %w", err)
+		}
 	}
 	now := time.Now().UnixNano()
 
 	d.proxyMu.Lock()
 	defer d.proxyMu.Unlock()
-	if entry, ok := d.proxyClients[normalizedProxy]; ok && entry != nil && entry.client != nil {
+	if entry, ok := d.proxyClients[cacheKey]; ok && entry != nil && entry.client != nil {
 		entry.lastUsedUnixNano = now
 		d.proxyHits.Add(1)
 		return entry.client, nil
 	}
 	d.cleanupProxyClientsLocked(now)
 	transport := &http.Transport{
-		Proxy:               http.ProxyURL(parsedProxyURL),
 		MaxIdleConns:        openAIWSProxyTransportMaxIdleConns,
 		MaxIdleConnsPerHost: openAIWSProxyTransportMaxIdleConnsPerHost,
 		IdleConnTimeout:     openAIWSProxyTransportIdleConnTimeout,
 		TLSHandshakeTimeout: 10 * time.Second,
 		ForceAttemptHTTP2:   true,
 	}
+	switch effective.Mode {
+	case platformegress.ModeExternalProxy:
+		transport.Proxy = http.ProxyURL(parsedProxyURL)
+	case platformegress.ModeIPv6Pool:
+		dialContext, dialErr := platformegress.NewDialContext(effective, d.egressPolicy, platformegress.DialerOptions{})
+		if dialErr != nil {
+			return nil, dialErr
+		}
+		transport.DialContext = dialContext
+	default:
+		return nil, fmt.Errorf("unsupported websocket egress mode %q", effective.Mode)
+	}
 	client := &http.Client{Transport: transport}
-	d.proxyClients[normalizedProxy] = &openAIWSProxyClientEntry{
+	d.proxyClients[cacheKey] = &openAIWSProxyClientEntry{
 		client:           client,
 		lastUsedUnixNano: now,
 	}

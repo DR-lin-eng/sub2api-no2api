@@ -22,6 +22,7 @@ func TestDiffSettings_PreservesDomainOrderAndSecretSemantics(t *testing.T) {
 		OpenAILowUpstreamRatePriorityEnabled: true,
 		BalanceLowNotifyEnabled:              true,
 		ChannelMonitorEnabled:                true,
+		IPv6EgressUIEnabled:                  true,
 		RiskControlEnabled:                   true,
 		DefaultPlatformQuotas: map[string]*service.DefaultPlatformQuotaSetting{
 			"anthropic": {DailyLimitUSD: &quota},
@@ -55,6 +56,7 @@ func TestDiffSettings_PreservesDomainOrderAndSecretSemantics(t *testing.T) {
 		"openai_low_upstream_rate_priority_enabled",
 		"balance_low_notify_enabled",
 		"channel_monitor_enabled",
+		"ipv6_egress_ui_enabled",
 		"risk_control_enabled",
 		service.SettingKeyDefaultPlatformQuotas,
 		"auth_source_default_email_balance",

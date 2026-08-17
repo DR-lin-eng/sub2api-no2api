@@ -16,9 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/proxyurl"
-	"github.com/Wei-Shaw/sub2api/internal/shared/proxyutil"
-	"github.com/Wei-Shaw/sub2api/internal/shared/servertiming"
+	"github.com/Wei-Shaw/sub2api/internal/shared/httpclient"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -194,25 +192,15 @@ func vertexServiceAccountProxyURL(account *Account) string {
 }
 
 func newVertexServiceAccountHTTPClient(proxyURL string) (*http.Client, error) {
-	proxyURL = strings.TrimSpace(proxyURL)
-	if proxyURL == "" {
-		return servertiming.InstrumentClient(&http.Client{Timeout: 15 * time.Second}), nil
-	}
+	return newVertexServiceAccountHTTPClientForContext(context.Background(), proxyURL)
 
-	_, parsedProxy, err := proxyurl.Parse(proxyURL)
-	if err != nil {
-		return nil, err
-	}
-	defaultTransport, ok := http.DefaultTransport.(*http.Transport)
-	if !ok {
-		return nil, fmt.Errorf("unexpected default transport type %T", http.DefaultTransport)
-	}
-	transport := defaultTransport.Clone()
-	transport.Proxy = nil
-	if err := proxyutil.ConfigureTransportProxy(transport, parsedProxy); err != nil {
-		return nil, err
-	}
-	return servertiming.InstrumentClient(&http.Client{Timeout: 15 * time.Second, Transport: transport}), nil
+}
+
+func newVertexServiceAccountHTTPClientForContext(ctx context.Context, proxyURL string) (*http.Client, error) {
+	return httpclient.GetClientForContext(ctx, httpclient.Options{
+		ProxyURL: strings.TrimSpace(proxyURL),
+		Timeout:  15 * time.Second,
+	})
 }
 
 func exchangeVertexServiceAccountToken(ctx context.Context, key *vertexServiceAccountKey, proxyURL string) (string, time.Duration, error) {
@@ -247,7 +235,7 @@ func exchangeVertexServiceAccountToken(ctx context.Context, key *vertexServiceAc
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	client, err := newVertexServiceAccountHTTPClient(proxyURL)
+	client, err := newVertexServiceAccountHTTPClientForContext(ctx, proxyURL)
 	if err != nil {
 		return "", 0, fmt.Errorf("configure service account token proxy: %w", err)
 	}

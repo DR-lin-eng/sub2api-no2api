@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/account"
+	"github.com/Wei-Shaw/sub2api/ent/accountegressbinding"
 	"github.com/Wei-Shaw/sub2api/ent/accountgroup"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
@@ -30,6 +31,7 @@ type AccountQuery struct {
 	predicates        []predicate.Account
 	withGroups        *GroupQuery
 	withProxy         *ProxyQuery
+	withEgressBinding *AccountEgressBindingQuery
 	withParent        *AccountQuery
 	withChildren      *AccountQuery
 	withUsageLogs     *UsageLogQuery
@@ -108,6 +110,28 @@ func (_q *AccountQuery) QueryProxy() *ProxyQuery {
 			sqlgraph.From(account.Table, account.FieldID, selector),
 			sqlgraph.To(proxy.Table, proxy.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, false, account.ProxyTable, account.ProxyColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryEgressBinding chains the current query on the "egress_binding" edge.
+func (_q *AccountQuery) QueryEgressBinding() *AccountEgressBindingQuery {
+	query := (&AccountEgressBindingClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, selector),
+			sqlgraph.To(accountegressbinding.Table, accountegressbinding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, account.EgressBindingTable, account.EgressBindingColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -397,6 +421,7 @@ func (_q *AccountQuery) Clone() *AccountQuery {
 		predicates:        append([]predicate.Account{}, _q.predicates...),
 		withGroups:        _q.withGroups.Clone(),
 		withProxy:         _q.withProxy.Clone(),
+		withEgressBinding: _q.withEgressBinding.Clone(),
 		withParent:        _q.withParent.Clone(),
 		withChildren:      _q.withChildren.Clone(),
 		withUsageLogs:     _q.withUsageLogs.Clone(),
@@ -426,6 +451,17 @@ func (_q *AccountQuery) WithProxy(opts ...func(*ProxyQuery)) *AccountQuery {
 		opt(query)
 	}
 	_q.withProxy = query
+	return _q
+}
+
+// WithEgressBinding tells the query-builder to eager-load the nodes that are connected to
+// the "egress_binding" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AccountQuery) WithEgressBinding(opts ...func(*AccountEgressBindingQuery)) *AccountQuery {
+	query := (&AccountEgressBindingClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withEgressBinding = query
 	return _q
 }
 
@@ -551,9 +587,10 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 	var (
 		nodes       = []*Account{}
 		_spec       = _q.querySpec()
-		loadedTypes = [6]bool{
+		loadedTypes = [7]bool{
 			_q.withGroups != nil,
 			_q.withProxy != nil,
+			_q.withEgressBinding != nil,
 			_q.withParent != nil,
 			_q.withChildren != nil,
 			_q.withUsageLogs != nil,
@@ -591,6 +628,12 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 	if query := _q.withProxy; query != nil {
 		if err := _q.loadProxy(ctx, query, nodes, nil,
 			func(n *Account, e *Proxy) { n.Edges.Proxy = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withEgressBinding; query != nil {
+		if err := _q.loadEgressBinding(ctx, query, nodes, nil,
+			func(n *Account, e *AccountEgressBinding) { n.Edges.EgressBinding = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -714,6 +757,33 @@ func (_q *AccountQuery) loadProxy(ctx context.Context, query *ProxyQuery, nodes 
 		for i := range nodes {
 			assign(nodes[i], n)
 		}
+	}
+	return nil
+}
+func (_q *AccountQuery) loadEgressBinding(ctx context.Context, query *AccountEgressBindingQuery, nodes []*Account, init func(*Account), assign func(*Account, *AccountEgressBinding)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*Account)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(accountegressbinding.FieldAccountID)
+	}
+	query.Where(predicate.AccountEgressBinding(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(account.EgressBindingColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.AccountID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "account_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

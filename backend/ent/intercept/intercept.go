@@ -9,6 +9,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/account"
+	"github.com/Wei-Shaw/sub2api/ent/accountegressbinding"
 	"github.com/Wei-Shaw/sub2api/ent/accountgroup"
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
@@ -32,6 +33,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
+	"github.com/Wei-Shaw/sub2api/ent/ipv6egresspool"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance"
@@ -164,6 +166,33 @@ func (f TraverseAccount) Traverse(ctx context.Context, q ent.Query) error {
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.AccountQuery", q)
+}
+
+// The AccountEgressBindingFunc type is an adapter to allow the use of ordinary function as a Querier.
+type AccountEgressBindingFunc func(context.Context, *ent.AccountEgressBindingQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f AccountEgressBindingFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.AccountEgressBindingQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.AccountEgressBindingQuery", q)
+}
+
+// The TraverseAccountEgressBinding type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseAccountEgressBinding func(context.Context, *ent.AccountEgressBindingQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseAccountEgressBinding) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseAccountEgressBinding) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.AccountEgressBindingQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.AccountEgressBindingQuery", q)
 }
 
 // The AccountGroupFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -704,6 +733,33 @@ func (f TraverseGroup) Traverse(ctx context.Context, q ent.Query) error {
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.GroupQuery", q)
+}
+
+// The IPv6EgressPoolFunc type is an adapter to allow the use of ordinary function as a Querier.
+type IPv6EgressPoolFunc func(context.Context, *ent.IPv6EgressPoolQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f IPv6EgressPoolFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.IPv6EgressPoolQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.IPv6EgressPoolQuery", q)
+}
+
+// The TraverseIPv6EgressPool type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseIPv6EgressPool func(context.Context, *ent.IPv6EgressPoolQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseIPv6EgressPool) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseIPv6EgressPool) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.IPv6EgressPoolQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.IPv6EgressPoolQuery", q)
 }
 
 // The IdempotencyRecordFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -1334,6 +1390,8 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.APIKeyQuery, predicate.APIKey, apikey.OrderOption]{typ: ent.TypeAPIKey, tq: q}, nil
 	case *ent.AccountQuery:
 		return &query[*ent.AccountQuery, predicate.Account, account.OrderOption]{typ: ent.TypeAccount, tq: q}, nil
+	case *ent.AccountEgressBindingQuery:
+		return &query[*ent.AccountEgressBindingQuery, predicate.AccountEgressBinding, accountegressbinding.OrderOption]{typ: ent.TypeAccountEgressBinding, tq: q}, nil
 	case *ent.AccountGroupQuery:
 		return &query[*ent.AccountGroupQuery, predicate.AccountGroup, accountgroup.OrderOption]{typ: ent.TypeAccountGroup, tq: q}, nil
 	case *ent.AnnouncementQuery:
@@ -1374,6 +1432,8 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.ErrorPassthroughRuleQuery, predicate.ErrorPassthroughRule, errorpassthroughrule.OrderOption]{typ: ent.TypeErrorPassthroughRule, tq: q}, nil
 	case *ent.GroupQuery:
 		return &query[*ent.GroupQuery, predicate.Group, group.OrderOption]{typ: ent.TypeGroup, tq: q}, nil
+	case *ent.IPv6EgressPoolQuery:
+		return &query[*ent.IPv6EgressPoolQuery, predicate.IPv6EgressPool, ipv6egresspool.OrderOption]{typ: ent.TypeIPv6EgressPool, tq: q}, nil
 	case *ent.IdempotencyRecordQuery:
 		return &query[*ent.IdempotencyRecordQuery, predicate.IdempotencyRecord, idempotencyrecord.OrderOption]{typ: ent.TypeIdempotencyRecord, tq: q}, nil
 	case *ent.IdentityAdoptionDecisionQuery:

@@ -16,6 +16,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/Wei-Shaw/sub2api/ent/account"
+	"github.com/Wei-Shaw/sub2api/ent/accountegressbinding"
 	"github.com/Wei-Shaw/sub2api/ent/accountgroup"
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
@@ -39,6 +40,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
+	"github.com/Wei-Shaw/sub2api/ent/ipv6egresspool"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance"
@@ -73,6 +75,8 @@ type Client struct {
 	APIKey *APIKeyClient
 	// Account is the client for interacting with the Account builders.
 	Account *AccountClient
+	// AccountEgressBinding is the client for interacting with the AccountEgressBinding builders.
+	AccountEgressBinding *AccountEgressBindingClient
 	// AccountGroup is the client for interacting with the AccountGroup builders.
 	AccountGroup *AccountGroupClient
 	// Announcement is the client for interacting with the Announcement builders.
@@ -113,6 +117,8 @@ type Client struct {
 	ErrorPassthroughRule *ErrorPassthroughRuleClient
 	// Group is the client for interacting with the Group builders.
 	Group *GroupClient
+	// IPv6EgressPool is the client for interacting with the IPv6EgressPool builders.
+	IPv6EgressPool *IPv6EgressPoolClient
 	// IdempotencyRecord is the client for interacting with the IdempotencyRecord builders.
 	IdempotencyRecord *IdempotencyRecordClient
 	// IdentityAdoptionDecision is the client for interacting with the IdentityAdoptionDecision builders.
@@ -172,6 +178,7 @@ func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
 	c.APIKey = NewAPIKeyClient(c.config)
 	c.Account = NewAccountClient(c.config)
+	c.AccountEgressBinding = NewAccountEgressBindingClient(c.config)
 	c.AccountGroup = NewAccountGroupClient(c.config)
 	c.Announcement = NewAnnouncementClient(c.config)
 	c.AnnouncementRead = NewAnnouncementReadClient(c.config)
@@ -192,6 +199,7 @@ func (c *Client) init() {
 	c.CompositeModelRoute = NewCompositeModelRouteClient(c.config)
 	c.ErrorPassthroughRule = NewErrorPassthroughRuleClient(c.config)
 	c.Group = NewGroupClient(c.config)
+	c.IPv6EgressPool = NewIPv6EgressPoolClient(c.config)
 	c.IdempotencyRecord = NewIdempotencyRecordClient(c.config)
 	c.IdentityAdoptionDecision = NewIdentityAdoptionDecisionClient(c.config)
 	c.PaymentAuditLog = NewPaymentAuditLogClient(c.config)
@@ -309,6 +317,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		config:                        cfg,
 		APIKey:                        NewAPIKeyClient(cfg),
 		Account:                       NewAccountClient(cfg),
+		AccountEgressBinding:          NewAccountEgressBindingClient(cfg),
 		AccountGroup:                  NewAccountGroupClient(cfg),
 		Announcement:                  NewAnnouncementClient(cfg),
 		AnnouncementRead:              NewAnnouncementReadClient(cfg),
@@ -329,6 +338,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		CompositeModelRoute:           NewCompositeModelRouteClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
 		Group:                         NewGroupClient(cfg),
+		IPv6EgressPool:                NewIPv6EgressPoolClient(cfg),
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
 		IdentityAdoptionDecision:      NewIdentityAdoptionDecisionClient(cfg),
 		PaymentAuditLog:               NewPaymentAuditLogClient(cfg),
@@ -373,6 +383,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		config:                        cfg,
 		APIKey:                        NewAPIKeyClient(cfg),
 		Account:                       NewAccountClient(cfg),
+		AccountEgressBinding:          NewAccountEgressBindingClient(cfg),
 		AccountGroup:                  NewAccountGroupClient(cfg),
 		Announcement:                  NewAnnouncementClient(cfg),
 		AnnouncementRead:              NewAnnouncementReadClient(cfg),
@@ -393,6 +404,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		CompositeModelRoute:           NewCompositeModelRouteClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
 		Group:                         NewGroupClient(cfg),
+		IPv6EgressPool:                NewIPv6EgressPoolClient(cfg),
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
 		IdentityAdoptionDecision:      NewIdentityAdoptionDecisionClient(cfg),
 		PaymentAuditLog:               NewPaymentAuditLogClient(cfg),
@@ -445,12 +457,13 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.APIKey, c.Account, c.AccountGroup, c.Announcement, c.AnnouncementRead,
-		c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent, c.BatchImageItem,
-		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
-		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate, c.ChatAsset,
-		c.ChatConversation, c.ChatMessage, c.ChatMessageAsset, c.ChatQuickReply,
-		c.CompositeModelRoute, c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
+		c.APIKey, c.Account, c.AccountEgressBinding, c.AccountGroup, c.Announcement,
+		c.AnnouncementRead, c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent,
+		c.BatchImageItem, c.BatchImageJob, c.ChannelMonitor,
+		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
+		c.ChannelMonitorRequestTemplate, c.ChatAsset, c.ChatConversation,
+		c.ChatMessage, c.ChatMessageAsset, c.ChatQuickReply, c.CompositeModelRoute,
+		c.ErrorPassthroughRule, c.Group, c.IPv6EgressPool, c.IdempotencyRecord,
 		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
 		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
 		c.Proxy, c.RedeemCode, c.RedeemCodeUsage, c.SecuritySecret, c.Setting,
@@ -466,12 +479,13 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.APIKey, c.Account, c.AccountGroup, c.Announcement, c.AnnouncementRead,
-		c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent, c.BatchImageItem,
-		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
-		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate, c.ChatAsset,
-		c.ChatConversation, c.ChatMessage, c.ChatMessageAsset, c.ChatQuickReply,
-		c.CompositeModelRoute, c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
+		c.APIKey, c.Account, c.AccountEgressBinding, c.AccountGroup, c.Announcement,
+		c.AnnouncementRead, c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent,
+		c.BatchImageItem, c.BatchImageJob, c.ChannelMonitor,
+		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
+		c.ChannelMonitorRequestTemplate, c.ChatAsset, c.ChatConversation,
+		c.ChatMessage, c.ChatMessageAsset, c.ChatQuickReply, c.CompositeModelRoute,
+		c.ErrorPassthroughRule, c.Group, c.IPv6EgressPool, c.IdempotencyRecord,
 		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
 		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
 		c.Proxy, c.RedeemCode, c.RedeemCodeUsage, c.SecuritySecret, c.Setting,
@@ -490,6 +504,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.APIKey.mutate(ctx, m)
 	case *AccountMutation:
 		return c.Account.mutate(ctx, m)
+	case *AccountEgressBindingMutation:
+		return c.AccountEgressBinding.mutate(ctx, m)
 	case *AccountGroupMutation:
 		return c.AccountGroup.mutate(ctx, m)
 	case *AnnouncementMutation:
@@ -530,6 +546,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ErrorPassthroughRule.mutate(ctx, m)
 	case *GroupMutation:
 		return c.Group.mutate(ctx, m)
+	case *IPv6EgressPoolMutation:
+		return c.IPv6EgressPool.mutate(ctx, m)
 	case *IdempotencyRecordMutation:
 		return c.IdempotencyRecord.mutate(ctx, m)
 	case *IdentityAdoptionDecisionMutation:
@@ -904,6 +922,22 @@ func (c *AccountClient) QueryProxy(_m *Account) *ProxyQuery {
 	return query
 }
 
+// QueryEgressBinding queries the egress_binding edge of a Account.
+func (c *AccountClient) QueryEgressBinding(_m *Account) *AccountEgressBindingQuery {
+	query := (&AccountEgressBindingClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(accountegressbinding.Table, accountegressbinding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, account.EgressBindingTable, account.EgressBindingColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryParent queries the parent edge of a Account.
 func (c *AccountClient) QueryParent(_m *Account) *AccountQuery {
 	query := (&AccountClient{config: c.config}).Query()
@@ -992,6 +1026,171 @@ func (c *AccountClient) mutate(ctx context.Context, m *AccountMutation) (Value, 
 		return (&AccountDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Account mutation op: %q", m.Op())
+	}
+}
+
+// AccountEgressBindingClient is a client for the AccountEgressBinding schema.
+type AccountEgressBindingClient struct {
+	config
+}
+
+// NewAccountEgressBindingClient returns a client for the AccountEgressBinding from the given config.
+func NewAccountEgressBindingClient(c config) *AccountEgressBindingClient {
+	return &AccountEgressBindingClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `accountegressbinding.Hooks(f(g(h())))`.
+func (c *AccountEgressBindingClient) Use(hooks ...Hook) {
+	c.hooks.AccountEgressBinding = append(c.hooks.AccountEgressBinding, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `accountegressbinding.Intercept(f(g(h())))`.
+func (c *AccountEgressBindingClient) Intercept(interceptors ...Interceptor) {
+	c.inters.AccountEgressBinding = append(c.inters.AccountEgressBinding, interceptors...)
+}
+
+// Create returns a builder for creating a AccountEgressBinding entity.
+func (c *AccountEgressBindingClient) Create() *AccountEgressBindingCreate {
+	mutation := newAccountEgressBindingMutation(c.config, OpCreate)
+	return &AccountEgressBindingCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of AccountEgressBinding entities.
+func (c *AccountEgressBindingClient) CreateBulk(builders ...*AccountEgressBindingCreate) *AccountEgressBindingCreateBulk {
+	return &AccountEgressBindingCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *AccountEgressBindingClient) MapCreateBulk(slice any, setFunc func(*AccountEgressBindingCreate, int)) *AccountEgressBindingCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &AccountEgressBindingCreateBulk{err: fmt.Errorf("calling to AccountEgressBindingClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*AccountEgressBindingCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &AccountEgressBindingCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for AccountEgressBinding.
+func (c *AccountEgressBindingClient) Update() *AccountEgressBindingUpdate {
+	mutation := newAccountEgressBindingMutation(c.config, OpUpdate)
+	return &AccountEgressBindingUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *AccountEgressBindingClient) UpdateOne(_m *AccountEgressBinding) *AccountEgressBindingUpdateOne {
+	mutation := newAccountEgressBindingMutation(c.config, OpUpdateOne, withAccountEgressBinding(_m))
+	return &AccountEgressBindingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *AccountEgressBindingClient) UpdateOneID(id int64) *AccountEgressBindingUpdateOne {
+	mutation := newAccountEgressBindingMutation(c.config, OpUpdateOne, withAccountEgressBindingID(id))
+	return &AccountEgressBindingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for AccountEgressBinding.
+func (c *AccountEgressBindingClient) Delete() *AccountEgressBindingDelete {
+	mutation := newAccountEgressBindingMutation(c.config, OpDelete)
+	return &AccountEgressBindingDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *AccountEgressBindingClient) DeleteOne(_m *AccountEgressBinding) *AccountEgressBindingDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *AccountEgressBindingClient) DeleteOneID(id int64) *AccountEgressBindingDeleteOne {
+	builder := c.Delete().Where(accountegressbinding.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &AccountEgressBindingDeleteOne{builder}
+}
+
+// Query returns a query builder for AccountEgressBinding.
+func (c *AccountEgressBindingClient) Query() *AccountEgressBindingQuery {
+	return &AccountEgressBindingQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAccountEgressBinding},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a AccountEgressBinding entity by its id.
+func (c *AccountEgressBindingClient) Get(ctx context.Context, id int64) (*AccountEgressBinding, error) {
+	return c.Query().Where(accountegressbinding.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *AccountEgressBindingClient) GetX(ctx context.Context, id int64) *AccountEgressBinding {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryAccount queries the account edge of a AccountEgressBinding.
+func (c *AccountEgressBindingClient) QueryAccount(_m *AccountEgressBinding) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(accountegressbinding.Table, accountegressbinding.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, accountegressbinding.AccountTable, accountegressbinding.AccountColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryPool queries the pool edge of a AccountEgressBinding.
+func (c *AccountEgressBindingClient) QueryPool(_m *AccountEgressBinding) *IPv6EgressPoolQuery {
+	query := (&IPv6EgressPoolClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(accountegressbinding.Table, accountegressbinding.FieldID, id),
+			sqlgraph.To(ipv6egresspool.Table, ipv6egresspool.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, accountegressbinding.PoolTable, accountegressbinding.PoolColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *AccountEgressBindingClient) Hooks() []Hook {
+	return c.hooks.AccountEgressBinding
+}
+
+// Interceptors returns the client interceptors.
+func (c *AccountEgressBindingClient) Interceptors() []Interceptor {
+	return c.inters.AccountEgressBinding
+}
+
+func (c *AccountEgressBindingClient) mutate(ctx context.Context, m *AccountEgressBindingMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&AccountEgressBindingCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&AccountEgressBindingUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&AccountEgressBindingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&AccountEgressBindingDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown AccountEgressBinding mutation op: %q", m.Op())
 	}
 }
 
@@ -4086,6 +4285,155 @@ func (c *GroupClient) mutate(ctx context.Context, m *GroupMutation) (Value, erro
 		return (&GroupDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Group mutation op: %q", m.Op())
+	}
+}
+
+// IPv6EgressPoolClient is a client for the IPv6EgressPool schema.
+type IPv6EgressPoolClient struct {
+	config
+}
+
+// NewIPv6EgressPoolClient returns a client for the IPv6EgressPool from the given config.
+func NewIPv6EgressPoolClient(c config) *IPv6EgressPoolClient {
+	return &IPv6EgressPoolClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `ipv6egresspool.Hooks(f(g(h())))`.
+func (c *IPv6EgressPoolClient) Use(hooks ...Hook) {
+	c.hooks.IPv6EgressPool = append(c.hooks.IPv6EgressPool, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `ipv6egresspool.Intercept(f(g(h())))`.
+func (c *IPv6EgressPoolClient) Intercept(interceptors ...Interceptor) {
+	c.inters.IPv6EgressPool = append(c.inters.IPv6EgressPool, interceptors...)
+}
+
+// Create returns a builder for creating a IPv6EgressPool entity.
+func (c *IPv6EgressPoolClient) Create() *IPv6EgressPoolCreate {
+	mutation := newIPv6EgressPoolMutation(c.config, OpCreate)
+	return &IPv6EgressPoolCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of IPv6EgressPool entities.
+func (c *IPv6EgressPoolClient) CreateBulk(builders ...*IPv6EgressPoolCreate) *IPv6EgressPoolCreateBulk {
+	return &IPv6EgressPoolCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *IPv6EgressPoolClient) MapCreateBulk(slice any, setFunc func(*IPv6EgressPoolCreate, int)) *IPv6EgressPoolCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &IPv6EgressPoolCreateBulk{err: fmt.Errorf("calling to IPv6EgressPoolClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*IPv6EgressPoolCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &IPv6EgressPoolCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for IPv6EgressPool.
+func (c *IPv6EgressPoolClient) Update() *IPv6EgressPoolUpdate {
+	mutation := newIPv6EgressPoolMutation(c.config, OpUpdate)
+	return &IPv6EgressPoolUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *IPv6EgressPoolClient) UpdateOne(_m *IPv6EgressPool) *IPv6EgressPoolUpdateOne {
+	mutation := newIPv6EgressPoolMutation(c.config, OpUpdateOne, withIPv6EgressPool(_m))
+	return &IPv6EgressPoolUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *IPv6EgressPoolClient) UpdateOneID(id int64) *IPv6EgressPoolUpdateOne {
+	mutation := newIPv6EgressPoolMutation(c.config, OpUpdateOne, withIPv6EgressPoolID(id))
+	return &IPv6EgressPoolUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for IPv6EgressPool.
+func (c *IPv6EgressPoolClient) Delete() *IPv6EgressPoolDelete {
+	mutation := newIPv6EgressPoolMutation(c.config, OpDelete)
+	return &IPv6EgressPoolDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *IPv6EgressPoolClient) DeleteOne(_m *IPv6EgressPool) *IPv6EgressPoolDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *IPv6EgressPoolClient) DeleteOneID(id int64) *IPv6EgressPoolDeleteOne {
+	builder := c.Delete().Where(ipv6egresspool.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &IPv6EgressPoolDeleteOne{builder}
+}
+
+// Query returns a query builder for IPv6EgressPool.
+func (c *IPv6EgressPoolClient) Query() *IPv6EgressPoolQuery {
+	return &IPv6EgressPoolQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeIPv6EgressPool},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a IPv6EgressPool entity by its id.
+func (c *IPv6EgressPoolClient) Get(ctx context.Context, id int64) (*IPv6EgressPool, error) {
+	return c.Query().Where(ipv6egresspool.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *IPv6EgressPoolClient) GetX(ctx context.Context, id int64) *IPv6EgressPool {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryBindings queries the bindings edge of a IPv6EgressPool.
+func (c *IPv6EgressPoolClient) QueryBindings(_m *IPv6EgressPool) *AccountEgressBindingQuery {
+	query := (&AccountEgressBindingClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ipv6egresspool.Table, ipv6egresspool.FieldID, id),
+			sqlgraph.To(accountegressbinding.Table, accountegressbinding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ipv6egresspool.BindingsTable, ipv6egresspool.BindingsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *IPv6EgressPoolClient) Hooks() []Hook {
+	return c.hooks.IPv6EgressPool
+}
+
+// Interceptors returns the client interceptors.
+func (c *IPv6EgressPoolClient) Interceptors() []Interceptor {
+	return c.inters.IPv6EgressPool
+}
+
+func (c *IPv6EgressPoolClient) mutate(ctx context.Context, m *IPv6EgressPoolMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&IPv6EgressPoolCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&IPv6EgressPoolUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&IPv6EgressPoolUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&IPv6EgressPoolDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown IPv6EgressPool mutation op: %q", m.Op())
 	}
 }
 
@@ -7848,30 +8196,32 @@ func (c *UserSubscriptionClient) mutate(ctx context.Context, m *UserSubscription
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
-		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
-		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
-		ChannelMonitorRequestTemplate, ChatAsset, ChatConversation, ChatMessage,
-		ChatMessageAsset, ChatQuickReply, CompositeModelRoute, ErrorPassthroughRule,
-		Group, IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog,
-		PaymentOrder, PaymentProviderInstance, PendingAuthSession, PromoCode,
-		PromoCodeUsage, Proxy, RedeemCode, RedeemCodeUsage, SecuritySecret, Setting,
-		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
-		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
-		UserPlatformQuota, UserSubscription []ent.Hook
+		APIKey, Account, AccountEgressBinding, AccountGroup, Announcement,
+		AnnouncementRead, AuthIdentity, AuthIdentityChannel, BatchImageEvent,
+		BatchImageItem, BatchImageJob, ChannelMonitor, ChannelMonitorDailyRollup,
+		ChannelMonitorHistory, ChannelMonitorRequestTemplate, ChatAsset,
+		ChatConversation, ChatMessage, ChatMessageAsset, ChatQuickReply,
+		CompositeModelRoute, ErrorPassthroughRule, Group, IPv6EgressPool,
+		IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
+		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
+		RedeemCode, RedeemCodeUsage, SecuritySecret, Setting, SubscriptionPlan,
+		TLSFingerprintProfile, UsageCleanupTask, UsageLog, User, UserAllowedGroup,
+		UserAttributeDefinition, UserAttributeValue, UserPlatformQuota,
+		UserSubscription []ent.Hook
 	}
 	inters struct {
-		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
-		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
-		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
-		ChannelMonitorRequestTemplate, ChatAsset, ChatConversation, ChatMessage,
-		ChatMessageAsset, ChatQuickReply, CompositeModelRoute, ErrorPassthroughRule,
-		Group, IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog,
-		PaymentOrder, PaymentProviderInstance, PendingAuthSession, PromoCode,
-		PromoCodeUsage, Proxy, RedeemCode, RedeemCodeUsage, SecuritySecret, Setting,
-		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
-		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
-		UserPlatformQuota, UserSubscription []ent.Interceptor
+		APIKey, Account, AccountEgressBinding, AccountGroup, Announcement,
+		AnnouncementRead, AuthIdentity, AuthIdentityChannel, BatchImageEvent,
+		BatchImageItem, BatchImageJob, ChannelMonitor, ChannelMonitorDailyRollup,
+		ChannelMonitorHistory, ChannelMonitorRequestTemplate, ChatAsset,
+		ChatConversation, ChatMessage, ChatMessageAsset, ChatQuickReply,
+		CompositeModelRoute, ErrorPassthroughRule, Group, IPv6EgressPool,
+		IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
+		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
+		RedeemCode, RedeemCodeUsage, SecuritySecret, Setting, SubscriptionPlan,
+		TLSFingerprintProfile, UsageCleanupTask, UsageLog, User, UserAllowedGroup,
+		UserAttributeDefinition, UserAttributeValue, UserPlatformQuota,
+		UserSubscription []ent.Interceptor
 	}
 )
 

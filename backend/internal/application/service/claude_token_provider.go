@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"strings"
 	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 )
 
 const (
@@ -25,6 +27,11 @@ type ClaudeTokenProvider struct {
 	refreshAPI    *OAuthRefreshAPI
 	executor      OAuthRefreshExecutor
 	refreshPolicy ProviderRefreshPolicy
+	runtimeCfg    *config.Config
+}
+
+func (p *ClaudeTokenProvider) SetRuntimeConfig(cfg *config.Config) {
+	p.runtimeCfg = cfg
 }
 
 func NewClaudeTokenProvider(
@@ -59,6 +66,7 @@ func (p *ClaudeTokenProvider) GetAccessToken(ctx context.Context, account *Accou
 	if account.Platform != PlatformAnthropic || (account.Type != AccountTypeOAuth && account.Type != AccountTypeServiceAccount) {
 		return "", errors.New("not an anthropic oauth or service account")
 	}
+	ctx = withAccountEgressContext(ctx, account, resolveAccountProxyURL(account), p.runtimeCfg)
 	if account.Type == AccountTypeServiceAccount {
 		return p.getServiceAccountAccessToken(ctx, account)
 	}

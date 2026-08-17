@@ -116,6 +116,7 @@ var (
 		{Name: "credentials", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "extra", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "proxy_fallback_origin_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "egress_mode", Type: field.TypeString, Size: 20, Default: "inherit"},
 		{Name: "concurrency", Type: field.TypeInt, Default: 3},
 		{Name: "load_factor", Type: field.TypeInt, Nullable: true},
 		{Name: "priority", Type: field.TypeInt, Default: 50},
@@ -146,13 +147,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "accounts_proxies_proxy",
-				Columns:    []*schema.Column{AccountsColumns[30]},
+				Columns:    []*schema.Column{AccountsColumns[31]},
 				RefColumns: []*schema.Column{ProxiesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "accounts_accounts_children",
-				Columns:    []*schema.Column{AccountsColumns[31]},
+				Columns:    []*schema.Column{AccountsColumns[32]},
 				RefColumns: []*schema.Column{AccountsColumns[0]},
 				OnDelete:   schema.Restrict,
 			},
@@ -171,52 +172,57 @@ var (
 			{
 				Name:    "account_status",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[15]},
+				Columns: []*schema.Column{AccountsColumns[16]},
 			},
 			{
 				Name:    "account_proxy_id",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[30]},
+				Columns: []*schema.Column{AccountsColumns[31]},
+			},
+			{
+				Name:    "account_egress_mode",
+				Unique:  false,
+				Columns: []*schema.Column{AccountsColumns[11]},
 			},
 			{
 				Name:    "account_priority",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[13]},
+				Columns: []*schema.Column{AccountsColumns[14]},
 			},
 			{
 				Name:    "account_last_used_at_id",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[17], AccountsColumns[0]},
+				Columns: []*schema.Column{AccountsColumns[18], AccountsColumns[0]},
 			},
 			{
 				Name:    "account_schedulable",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[20]},
+				Columns: []*schema.Column{AccountsColumns[21]},
 			},
 			{
 				Name:    "account_rate_limited_at",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[21]},
+				Columns: []*schema.Column{AccountsColumns[22]},
 			},
 			{
 				Name:    "account_rate_limit_reset_at",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[22]},
+				Columns: []*schema.Column{AccountsColumns[23]},
 			},
 			{
 				Name:    "account_overload_until",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[23]},
+				Columns: []*schema.Column{AccountsColumns[24]},
 			},
 			{
 				Name:    "account_platform_priority",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[6], AccountsColumns[13]},
+				Columns: []*schema.Column{AccountsColumns[6], AccountsColumns[14]},
 			},
 			{
 				Name:    "account_priority_status",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[13], AccountsColumns[15]},
+				Columns: []*schema.Column{AccountsColumns[14], AccountsColumns[16]},
 			},
 			{
 				Name:    "account_deleted_at",
@@ -226,7 +232,51 @@ var (
 			{
 				Name:    "account_parent_account_id",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[31]},
+				Columns: []*schema.Column{AccountsColumns[32]},
+			},
+		},
+	}
+	// AccountEgressBindingsColumns holds the columns for the "account_egress_bindings" table.
+	AccountEgressBindingsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "source_ipv6", Type: field.TypeString, Unique: true, Size: 45},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
+		{Name: "version", Type: field.TypeInt64, Default: 1},
+		{Name: "rotated_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "account_id", Type: field.TypeInt64, Unique: true},
+		{Name: "pool_id", Type: field.TypeInt64},
+	}
+	// AccountEgressBindingsTable holds the schema information for the "account_egress_bindings" table.
+	AccountEgressBindingsTable = &schema.Table{
+		Name:       "account_egress_bindings",
+		Columns:    AccountEgressBindingsColumns,
+		PrimaryKey: []*schema.Column{AccountEgressBindingsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "account_egress_bindings_accounts_egress_binding",
+				Columns:    []*schema.Column{AccountEgressBindingsColumns[7]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "account_egress_bindings_ipv6_egress_pools_bindings",
+				Columns:    []*schema.Column{AccountEgressBindingsColumns[8]},
+				RefColumns: []*schema.Column{Ipv6EgressPoolsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "accountegressbinding_pool_id",
+				Unique:  false,
+				Columns: []*schema.Column{AccountEgressBindingsColumns[8]},
+			},
+			{
+				Name:    "accountegressbinding_status",
+				Unique:  false,
+				Columns: []*schema.Column{AccountEgressBindingsColumns[4]},
 			},
 		},
 	}
@@ -1230,6 +1280,44 @@ var (
 				Columns: []*schema.Column{GroupsColumns[13]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "duplicate_operation_id IS NOT NULL AND deleted_at IS NULL",
+				},
+			},
+		},
+	}
+	// Ipv6EgressPoolsColumns holds the columns for the "ipv6_egress_pools" table.
+	Ipv6EgressPoolsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "name", Type: field.TypeString, Unique: true, Size: 100},
+		{Name: "cidr", Type: field.TypeString, Unique: true, Size: 64},
+		{Name: "node_id", Type: field.TypeString, Nullable: true, Size: 128},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
+		{Name: "is_default", Type: field.TypeBool, Default: false},
+		{Name: "allocation_version", Type: field.TypeInt64, Default: 1},
+	}
+	// Ipv6EgressPoolsTable holds the schema information for the "ipv6_egress_pools" table.
+	Ipv6EgressPoolsTable = &schema.Table{
+		Name:       "ipv6_egress_pools",
+		Columns:    Ipv6EgressPoolsColumns,
+		PrimaryKey: []*schema.Column{Ipv6EgressPoolsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "ipv6egresspool_status",
+				Unique:  false,
+				Columns: []*schema.Column{Ipv6EgressPoolsColumns[6]},
+			},
+			{
+				Name:    "ipv6egresspool_node_id",
+				Unique:  false,
+				Columns: []*schema.Column{Ipv6EgressPoolsColumns[5]},
+			},
+			{
+				Name:    "ipv6egresspool_is_default",
+				Unique:  true,
+				Columns: []*schema.Column{Ipv6EgressPoolsColumns[7]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "is_default = true",
 				},
 			},
 		},
@@ -2369,6 +2457,7 @@ var (
 	Tables = []*schema.Table{
 		APIKeysTable,
 		AccountsTable,
+		AccountEgressBindingsTable,
 		AccountGroupsTable,
 		AnnouncementsTable,
 		AnnouncementReadsTable,
@@ -2389,6 +2478,7 @@ var (
 		CompositeModelRoutesTable,
 		ErrorPassthroughRulesTable,
 		GroupsTable,
+		Ipv6EgressPoolsTable,
 		IdempotencyRecordsTable,
 		IdentityAdoptionDecisionsTable,
 		PaymentAuditLogsTable,
@@ -2425,6 +2515,11 @@ func init() {
 	AccountsTable.ForeignKeys[1].RefTable = AccountsTable
 	AccountsTable.Annotation = &entsql.Annotation{
 		Table: "accounts",
+	}
+	AccountEgressBindingsTable.ForeignKeys[0].RefTable = AccountsTable
+	AccountEgressBindingsTable.ForeignKeys[1].RefTable = Ipv6EgressPoolsTable
+	AccountEgressBindingsTable.Annotation = &entsql.Annotation{
+		Table: "account_egress_bindings",
 	}
 	AccountGroupsTable.ForeignKeys[0].RefTable = AccountsTable
 	AccountGroupsTable.ForeignKeys[1].RefTable = GroupsTable
@@ -2499,6 +2594,9 @@ func init() {
 	}
 	GroupsTable.Annotation = &entsql.Annotation{
 		Table: "groups",
+	}
+	Ipv6EgressPoolsTable.Annotation = &entsql.Annotation{
+		Table: "ipv6_egress_pools",
 	}
 	IdempotencyRecordsTable.Annotation = &entsql.Annotation{
 		Table: "idempotency_records",

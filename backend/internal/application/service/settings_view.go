@@ -234,6 +234,9 @@ type SystemSettings struct {
 	// Media Studio image, video, and batch generation workspace.
 	MediaStudioEnabled bool `json:"media_studio_enabled"`
 
+	// Administrator account-scoped IPv6 egress management surface.
+	IPv6EgressUIEnabled bool `json:"ipv6_egress_ui_enabled"`
+
 	// Claude Code version check
 	MinClaudeCodeVersion string
 	MaxClaudeCodeVersion string
@@ -430,6 +433,9 @@ type PublicSettings struct {
 
 	// Media Studio image, video, and batch generation workspace.
 	MediaStudioEnabled bool `json:"media_studio_enabled"`
+
+	// Administrator account-scoped IPv6 egress management surface.
+	IPv6EgressUIEnabled bool `json:"ipv6_egress_ui_enabled"`
 
 	// Affiliate (邀请返利) feature toggle
 	AffiliateEnabled bool `json:"affiliate_enabled"`

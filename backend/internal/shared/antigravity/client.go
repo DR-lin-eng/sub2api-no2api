@@ -260,6 +260,12 @@ const (
 )
 
 func NewClient(proxyURL string) (*Client, error) {
+	return NewClientWithDialContext(proxyURL, nil)
+}
+
+// NewClientWithDialContext constructs the same client with an optional
+// account-scoped direct dialer. Explicit proxies remain authoritative.
+func NewClientWithDialContext(proxyURL string, dialContext func(context.Context, string, string) (net.Conn, error)) (*Client, error) {
 	client := &http.Client{
 		Timeout: clientTimeout,
 	}
@@ -268,15 +274,19 @@ func NewClient(proxyURL string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	if parsed != nil {
+	if parsed != nil || dialContext != nil {
 		transport := &http.Transport{
 			DialContext: (&net.Dialer{
 				Timeout: proxyDialTimeout,
 			}).DialContext,
 			TLSHandshakeTimeout: proxyTLSHandshakeTimeout,
 		}
-		if err := proxyutil.ConfigureTransportProxy(transport, parsed); err != nil {
-			return nil, fmt.Errorf("configure proxy: %w", err)
+		if parsed != nil {
+			if err := proxyutil.ConfigureTransportProxy(transport, parsed); err != nil {
+				return nil, fmt.Errorf("configure proxy: %w", err)
+			}
+		} else {
+			transport.DialContext = dialContext
 		}
 		client.Transport = transport
 	}

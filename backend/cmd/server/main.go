@@ -162,6 +162,9 @@ func runMainServer() {
 			log.Printf("Prompt Audit started in degraded state: %v", err)
 		}
 	}
+	if app.Egress != nil {
+		app.Egress.Start()
+	}
 
 	// 启动服务器
 	go func() {

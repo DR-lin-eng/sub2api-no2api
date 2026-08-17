@@ -212,7 +212,7 @@ func TestTokenRefreshService_RefreshFailureDoesNotCallPrivacy(t *testing.T) {
 				accountRepo:   repo,
 				refreshPolicy: DefaultBackgroundRefreshPolicy(),
 				cfg:           &config.TokenRefreshConfig{MaxRetries: 1, RetryBackoffSeconds: 0},
-				privacyClientFactory: func(string) (*req.Client, error) {
+				privacyClientFactory: func(context.Context, string) (*req.Client, error) {
 					t.Fatalf("privacy client factory must not be called on refresh failure")
 					return nil, errors.New("unexpected privacy call")
 				},

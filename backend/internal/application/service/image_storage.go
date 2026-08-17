@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/shared/httpclient"
 )
 
 const defaultImageMaxDownloadBytes int64 = 32 << 20 // 32 MiB
@@ -33,13 +35,15 @@ type ImageStorage interface {
 type ImageResultUploader struct {
 	storage          ImageStorage
 	httpClient       *http.Client
+	contextAware     bool
 	prefix           string
 	maxDownloadBytes int64
 }
 
 // NewImageResultUploader 构造一个 uploader；storage 为 nil 时 Rewrite 直接透传。
 func NewImageResultUploader(storage ImageStorage, prefix string, maxDownloadBytes int64, httpClient *http.Client) *ImageResultUploader {
-	if httpClient == nil {
+	contextAware := httpClient == nil
+	if contextAware {
 		httpClient = defaultImageDownloadHTTPClient()
 	}
 	if maxDownloadBytes <= 0 {
@@ -48,6 +52,7 @@ func NewImageResultUploader(storage ImageStorage, prefix string, maxDownloadByte
 	return &ImageResultUploader{
 		storage:          storage,
 		httpClient:       httpClient,
+		contextAware:     contextAware,
 		prefix:           prefix,
 		maxDownloadBytes: maxDownloadBytes,
 	}
@@ -195,7 +200,14 @@ func (u *ImageResultUploader) download(ctx context.Context, rawURL string) ([]by
 	if err != nil {
 		return nil, "", fmt.Errorf("build download request: %w", err)
 	}
-	resp, err := u.httpClient.Do(req)
+	client := u.httpClient
+	if u.contextAware {
+		client, err = httpclient.GetClientForContext(ctx, httpclient.Options{Timeout: 60 * time.Second})
+		if err != nil {
+			return nil, "", fmt.Errorf("configure image download client: %w", err)
+		}
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, "", fmt.Errorf("download image: %w", err)
 	}

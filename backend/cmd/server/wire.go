@@ -14,6 +14,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/infrastructure/repository"
 	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
+	moduleegress "github.com/Wei-Shaw/sub2api/internal/modules/egress"
 	"github.com/Wei-Shaw/sub2api/internal/modules/payment"
 	"github.com/Wei-Shaw/sub2api/internal/modules/securityaudit"
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
@@ -29,6 +30,7 @@ import (
 type Application struct {
 	Server      *http.Server
 	PromptAudit *securityaudit.PromptService
+	Egress      *moduleegress.Service
 	Cleanup     func()
 }
 
@@ -43,6 +45,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 		securityaudit.ProviderSet,
 		payment.ProviderSet,
 		chat.ProviderSet,
+		moduleegress.ProviderSet,
 		middleware.ProviderSet,
 		handler.ProviderSet,
 
@@ -59,7 +62,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 		provideCleanup,
 
 		// Application struct
-		wire.Struct(new(Application), "Server", "PromptAudit", "Cleanup"),
+		wire.Struct(new(Application), "Server", "PromptAudit", "Egress", "Cleanup"),
 	)
 	return nil, nil
 }
@@ -131,6 +134,7 @@ func provideCleanup(
 	clusterRelease *service.ClusterReleaseService,
 	cluster *service.ClusterService,
 	clientIPResolver *clientip.Resolver,
+	egressService *moduleegress.Service,
 ) func() {
 	return func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -143,6 +147,12 @@ func provideCleanup(
 
 		// 应用层清理步骤可并行执行，基础设施资源（Redis/Ent）最后按顺序关闭。
 		parallelSteps := []cleanupStep{
+			{"IPv6EgressService", func() error {
+				if egressService != nil {
+					egressService.Stop()
+				}
+				return nil
+			}},
 			{"RequestPriorityAdmissionSettingsSync", func() error {
 				if settingService != nil {
 					settingService.StopRequestPriorityAdmissionSettingsSync()

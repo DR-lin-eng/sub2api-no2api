@@ -1757,6 +1757,7 @@ func (s *adminServiceImpl) EnsureOpenAIPrivacy(ctx context.Context, account *Acc
 		}
 	}
 
+	ctx = withAccountEgressContext(ctx, account, proxyURL, s.cfg)
 	mode := disableOpenAITraining(ctx, s.privacyClientFactory, token, proxyURL)
 	if mode == "" {
 		return ""
@@ -1791,6 +1792,7 @@ func (s *adminServiceImpl) ForceOpenAIPrivacy(ctx context.Context, account *Acco
 		}
 	}
 
+	ctx = withAccountEgressContext(ctx, account, proxyURL, s.cfg)
 	mode := disableOpenAITraining(ctx, s.privacyClientFactory, token, proxyURL)
 	if mode == "" {
 		return ""
@@ -1834,6 +1836,7 @@ func (s *adminServiceImpl) EnsureAntigravityPrivacy(ctx context.Context, account
 		}
 	}
 
+	ctx = withAccountEgressContext(ctx, account, proxyURL, s.cfg)
 	mode := setAntigravityPrivacy(ctx, token, projectID, proxyURL)
 	if mode == "" {
 		return ""
@@ -1867,6 +1870,7 @@ func (s *adminServiceImpl) ForceAntigravityPrivacy(ctx context.Context, account 
 		}
 	}
 
+	ctx = withAccountEgressContext(ctx, account, proxyURL, s.cfg)
 	mode := setAntigravityPrivacy(ctx, token, projectID, proxyURL)
 	if mode == "" {
 		return ""

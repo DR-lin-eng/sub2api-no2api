@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/account"
+	"github.com/Wei-Shaw/sub2api/ent/accountegressbinding"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
@@ -135,6 +136,20 @@ func (_c *AccountCreate) SetProxyFallbackOriginID(v int64) *AccountCreate {
 func (_c *AccountCreate) SetNillableProxyFallbackOriginID(v *int64) *AccountCreate {
 	if v != nil {
 		_c.SetProxyFallbackOriginID(*v)
+	}
+	return _c
+}
+
+// SetEgressMode sets the "egress_mode" field.
+func (_c *AccountCreate) SetEgressMode(v string) *AccountCreate {
+	_c.mutation.SetEgressMode(v)
+	return _c
+}
+
+// SetNillableEgressMode sets the "egress_mode" field if the given value is not nil.
+func (_c *AccountCreate) SetNillableEgressMode(v *string) *AccountCreate {
+	if v != nil {
+		_c.SetEgressMode(*v)
 	}
 	return _c
 }
@@ -439,6 +454,25 @@ func (_c *AccountCreate) SetProxy(v *Proxy) *AccountCreate {
 	return _c.SetProxyID(v.ID)
 }
 
+// SetEgressBindingID sets the "egress_binding" edge to the AccountEgressBinding entity by ID.
+func (_c *AccountCreate) SetEgressBindingID(id int64) *AccountCreate {
+	_c.mutation.SetEgressBindingID(id)
+	return _c
+}
+
+// SetNillableEgressBindingID sets the "egress_binding" edge to the AccountEgressBinding entity by ID if the given value is not nil.
+func (_c *AccountCreate) SetNillableEgressBindingID(id *int64) *AccountCreate {
+	if id != nil {
+		_c = _c.SetEgressBindingID(*id)
+	}
+	return _c
+}
+
+// SetEgressBinding sets the "egress_binding" edge to the AccountEgressBinding entity.
+func (_c *AccountCreate) SetEgressBinding(v *AccountEgressBinding) *AccountCreate {
+	return _c.SetEgressBindingID(v.ID)
+}
+
 // SetParentID sets the "parent" edge to the Account entity by ID.
 func (_c *AccountCreate) SetParentID(id int64) *AccountCreate {
 	_c.mutation.SetParentID(id)
@@ -553,6 +587,10 @@ func (_c *AccountCreate) defaults() error {
 		v := account.DefaultExtra()
 		_c.mutation.SetExtra(v)
 	}
+	if _, ok := _c.mutation.EgressMode(); !ok {
+		v := account.DefaultEgressMode
+		_c.mutation.SetEgressMode(v)
+	}
 	if _, ok := _c.mutation.Concurrency(); !ok {
 		v := account.DefaultConcurrency
 		_c.mutation.SetConcurrency(v)
@@ -621,6 +659,14 @@ func (_c *AccountCreate) check() error {
 	}
 	if _, ok := _c.mutation.Extra(); !ok {
 		return &ValidationError{Name: "extra", err: errors.New(`ent: missing required field "Account.extra"`)}
+	}
+	if _, ok := _c.mutation.EgressMode(); !ok {
+		return &ValidationError{Name: "egress_mode", err: errors.New(`ent: missing required field "Account.egress_mode"`)}
+	}
+	if v, ok := _c.mutation.EgressMode(); ok {
+		if err := account.EgressModeValidator(v); err != nil {
+			return &ValidationError{Name: "egress_mode", err: fmt.Errorf(`ent: validator failed for field "Account.egress_mode": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.Concurrency(); !ok {
 		return &ValidationError{Name: "concurrency", err: errors.New(`ent: missing required field "Account.concurrency"`)}
@@ -724,6 +770,10 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ProxyFallbackOriginID(); ok {
 		_spec.SetField(account.FieldProxyFallbackOriginID, field.TypeInt64, value)
 		_node.ProxyFallbackOriginID = &value
+	}
+	if value, ok := _c.mutation.EgressMode(); ok {
+		_spec.SetField(account.FieldEgressMode, field.TypeString, value)
+		_node.EgressMode = value
 	}
 	if value, ok := _c.mutation.Concurrency(); ok {
 		_spec.SetField(account.FieldConcurrency, field.TypeInt, value)
@@ -836,6 +886,22 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.ProxyID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.EgressBindingIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   account.EgressBindingTable,
+			Columns: []string{account.EgressBindingColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(accountegressbinding.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.ParentIDs(); len(nodes) > 0 {
@@ -1086,6 +1152,18 @@ func (u *AccountUpsert) AddProxyFallbackOriginID(v int64) *AccountUpsert {
 // ClearProxyFallbackOriginID clears the value of the "proxy_fallback_origin_id" field.
 func (u *AccountUpsert) ClearProxyFallbackOriginID() *AccountUpsert {
 	u.SetNull(account.FieldProxyFallbackOriginID)
+	return u
+}
+
+// SetEgressMode sets the "egress_mode" field.
+func (u *AccountUpsert) SetEgressMode(v string) *AccountUpsert {
+	u.Set(account.FieldEgressMode, v)
+	return u
+}
+
+// UpdateEgressMode sets the "egress_mode" field to the value that was provided on create.
+func (u *AccountUpsert) UpdateEgressMode() *AccountUpsert {
+	u.SetExcluded(account.FieldEgressMode)
 	return u
 }
 
@@ -1648,6 +1726,20 @@ func (u *AccountUpsertOne) UpdateProxyFallbackOriginID() *AccountUpsertOne {
 func (u *AccountUpsertOne) ClearProxyFallbackOriginID() *AccountUpsertOne {
 	return u.Update(func(s *AccountUpsert) {
 		s.ClearProxyFallbackOriginID()
+	})
+}
+
+// SetEgressMode sets the "egress_mode" field.
+func (u *AccountUpsertOne) SetEgressMode(v string) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetEgressMode(v)
+	})
+}
+
+// UpdateEgressMode sets the "egress_mode" field to the value that was provided on create.
+func (u *AccountUpsertOne) UpdateEgressMode() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateEgressMode()
 	})
 }
 
@@ -2433,6 +2525,20 @@ func (u *AccountUpsertBulk) UpdateProxyFallbackOriginID() *AccountUpsertBulk {
 func (u *AccountUpsertBulk) ClearProxyFallbackOriginID() *AccountUpsertBulk {
 	return u.Update(func(s *AccountUpsert) {
 		s.ClearProxyFallbackOriginID()
+	})
+}
+
+// SetEgressMode sets the "egress_mode" field.
+func (u *AccountUpsertBulk) SetEgressMode(v string) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetEgressMode(v)
+	})
+}
+
+// UpdateEgressMode sets the "egress_mode" field to the value that was provided on create.
+func (u *AccountUpsertBulk) UpdateEgressMode() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateEgressMode()
 	})
 }
 

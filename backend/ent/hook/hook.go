@@ -33,6 +33,18 @@ func (f AccountFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, err
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AccountMutation", m)
 }
 
+// The AccountEgressBindingFunc type is an adapter to allow the use of ordinary
+// function as AccountEgressBinding mutator.
+type AccountEgressBindingFunc func(context.Context, *ent.AccountEgressBindingMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AccountEgressBindingFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AccountEgressBindingMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AccountEgressBindingMutation", m)
+}
+
 // The AccountGroupFunc type is an adapter to allow the use of ordinary
 // function as AccountGroup mutator.
 type AccountGroupFunc func(context.Context, *ent.AccountGroupMutation) (ent.Value, error)
@@ -271,6 +283,18 @@ func (f GroupFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.GroupMutation", m)
+}
+
+// The IPv6EgressPoolFunc type is an adapter to allow the use of ordinary
+// function as IPv6EgressPool mutator.
+type IPv6EgressPoolFunc func(context.Context, *ent.IPv6EgressPoolMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f IPv6EgressPoolFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.IPv6EgressPoolMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.IPv6EgressPoolMutation", m)
 }
 
 // The IdempotencyRecordFunc type is an adapter to allow the use of ordinary

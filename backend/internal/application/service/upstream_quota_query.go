@@ -301,7 +301,7 @@ func (c *upstreamQuotaQueryClient) get(ctx context.Context, endpoint string, aut
 		req.Header.Del("Authorization")
 	}
 
-	resp, err := c.upstream.DoWithTLS(req, c.proxyURL, c.account.ID, c.account.Concurrency, c.tlsProfile)
+	resp, err := doAccountHTTPUpstreamWithTLS(c.upstream, req, c.proxyURL, c.account, c.tlsProfile)
 	if err != nil {
 		return nil, upstreamQuotaOperationError(ctx, err)
 	}

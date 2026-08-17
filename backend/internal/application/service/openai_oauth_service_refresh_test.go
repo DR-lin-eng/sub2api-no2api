@@ -36,7 +36,7 @@ func TestOpenAIOAuthService_RefreshAccountToken_NoRefreshTokenUsesExistingAccess
 	client := &openaiOAuthClientRefreshStub{}
 	svc := NewOpenAIOAuthService(nil, client)
 	var privacyClientCalls int32
-	svc.SetPrivacyClientFactory(func(proxyURL string) (*req.Client, error) {
+	svc.SetPrivacyClientFactory(func(_ context.Context, proxyURL string) (*req.Client, error) {
 		atomic.AddInt32(&privacyClientCalls, 1)
 		return nil, errors.New("stop before request")
 	})

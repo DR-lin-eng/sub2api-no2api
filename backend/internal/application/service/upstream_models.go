@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/antigravity"
 	"github.com/Wei-Shaw/sub2api/internal/shared/claude"
 	"github.com/Wei-Shaw/sub2api/internal/shared/geminicli"
 )
@@ -479,7 +478,9 @@ func (s *AccountTestService) fetchAntigravityOAuthUpstreamModels(ctx context.Con
 		return nil, newUpstreamModelSyncConfigError("No Antigravity access token is available", nil)
 	}
 
-	client, err := antigravity.NewClient(upstreamModelsProxyURL(account))
+	proxyURL := upstreamModelsProxyURL(account)
+	ctx = withAccountEgressContext(ctx, account, proxyURL, s.cfg)
+	client, err := newAntigravityClient(ctx, proxyURL)
 	if err != nil {
 		return nil, newUpstreamModelSyncConfigError("Failed to configure Antigravity client", err)
 	}
@@ -500,9 +501,9 @@ func (s *AccountTestService) fetchAntigravityOAuthUpstreamModels(ctx context.Con
 
 func (s *AccountTestService) doUpstreamModelsRequest(req *http.Request, proxyURL string, account *Account) (*http.Response, error) {
 	if s.tlsFPProfileService == nil {
-		return s.httpUpstream.DoWithTLS(req, proxyURL, account.ID, account.Concurrency, nil)
+		return doAccountHTTPUpstreamWithTLS(s.httpUpstream, req, proxyURL, account, nil)
 	}
-	return s.httpUpstream.DoWithTLS(req, proxyURL, account.ID, account.Concurrency, s.tlsFPProfileService.ResolveTLSProfile(account))
+	return doAccountHTTPUpstreamWithTLS(s.httpUpstream, req, proxyURL, account, s.tlsFPProfileService.ResolveTLSProfile(account))
 }
 
 func upstreamModelsProxyURL(account *Account) string {

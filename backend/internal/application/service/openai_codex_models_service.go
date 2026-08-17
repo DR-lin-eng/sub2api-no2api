@@ -149,6 +149,7 @@ type codexModelsManifestRequest struct {
 	accountID           int64
 	credentialAccountID int64
 	credentialAccount   *Account
+	account             *Account
 	accountConcurrency  int
 	useAPIKeyUpstream   bool
 }
@@ -322,6 +323,7 @@ func (s *OpenAIGatewayService) FetchCodexModelsManifest(ctx context.Context, acc
 		accountID:           account.ID,
 		credentialAccountID: credAccount.ID,
 		credentialAccount:   credAccount,
+		account:             account,
 		accountConcurrency:  account.Concurrency,
 		useAPIKeyUpstream:   useAPIKeyUpstream,
 	}
@@ -442,6 +444,7 @@ func (s *OpenAIGatewayService) refreshCachedAPIKeyCodexModelsManifest(cacheKey s
 func (s *OpenAIGatewayService) fetchCodexModelsManifestUpstream(ctx context.Context, request codexModelsManifestRequest, ifNoneMatch string) (*CodexModelsManifest, error) {
 	reqCtx, cancel := context.WithTimeout(ctx, codexModelsManifestRequestTimeout)
 	defer cancel()
+	reqCtx = withAccountEgressContext(reqCtx, request.account, request.proxyURL, s.cfg)
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, request.url, nil)
 	if err != nil {
 		return nil, infraerrors.Newf(http.StatusInternalServerError, "OPENAI_CODEX_MODELS_REQUEST_FAILED", "create codex models request: %v", err)
@@ -457,9 +460,9 @@ func (s *OpenAIGatewayService) fetchCodexModelsManifestUpstream(ctx context.Cont
 			return nil, infraerrors.New(http.StatusInternalServerError, "OPENAI_CODEX_MODELS_UPSTREAM_NOT_CONFIGURED", "Codex models upstream HTTP client is not configured")
 		}
 		req = req.WithContext(WithHTTPUpstreamProfile(req.Context(), HTTPUpstreamProfileOpenAI))
-		resp, err = s.httpUpstream.Do(req, request.proxyURL, request.accountID, request.accountConcurrency)
+		resp, err = doAccountHTTPUpstreamWithConcurrency(s.httpUpstream, req, request.proxyURL, request.account, request.accountConcurrency)
 	} else {
-		client, clientErr := httpclient.GetClient(httpclient.Options{
+		client, clientErr := httpclient.GetClientForContext(reqCtx, httpclient.Options{
 			ProxyURL:              request.proxyURL,
 			Timeout:               codexModelsManifestRequestTimeout,
 			ResponseHeaderTimeout: 10 * time.Second,
@@ -677,7 +680,11 @@ func validateCodexModelsManifestEnvelope(body []byte) error {
 
 func buildCodexModelsManifestCacheKey(request codexModelsManifestRequest) string {
 	hasher := sha256.New()
-	_, _ = fmt.Fprintf(hasher, "%d\n%d\n%s\n%s\n", request.accountID, request.credentialAccountID, request.proxyURL, request.url)
+	routeKey := ""
+	if request.account != nil {
+		routeKey = accountEgressRoute(request.account, request.proxyURL).CacheKey()
+	}
+	_, _ = fmt.Fprintf(hasher, "%d\n%d\n%s\n%s\n%s\n", request.accountID, request.credentialAccountID, request.proxyURL, routeKey, request.url)
 	headerNames := make([]string, 0, len(request.headers))
 	for name := range request.headers {
 		headerNames = append(headerNames, name)

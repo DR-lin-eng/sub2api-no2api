@@ -8,6 +8,9 @@ import (
 	"testing"
 	"time"
 
+	moduleegress "github.com/Wei-Shaw/sub2api/internal/modules/egress"
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	"github.com/Wei-Shaw/sub2api/internal/shared/oauth"
 	"github.com/Wei-Shaw/sub2api/internal/shared/pagination"
 )
@@ -523,6 +526,49 @@ func TestOAuthService_RefreshAccountToken_Success(t *testing.T) {
 	}
 	if tokenInfo.AccessToken != "refreshed-access" {
 		t.Fatalf("AccessToken 不匹配: got=%q", tokenInfo.AccessToken)
+	}
+}
+
+func TestOAuthService_RefreshAccountTokenCarriesIPv6Route(t *testing.T) {
+	t.Parallel()
+
+	client := &mockClaudeOAuthClient{
+		refreshTokenFunc: func(ctx context.Context, refreshToken, proxyURL string) (*oauth.TokenResponse, error) {
+			routed, ok := platformegress.FromContext(ctx)
+			if !ok {
+				t.Fatal("refresh context is missing account egress route")
+			}
+			if routed.Route.SourceIPv6 != "2001:db8::44" || routed.Route.PoolID != 3 || routed.Route.BindingVersion != 8 {
+				t.Fatalf("refresh route = %#v", routed.Route)
+			}
+			if !routed.Policy.IPv6Enabled || !routed.Policy.FreeBind {
+				t.Fatalf("refresh policy = %#v", routed.Policy)
+			}
+			if proxyURL != "" {
+				t.Fatalf("proxyURL = %q, want direct IPv6 route", proxyURL)
+			}
+			return &oauth.TokenResponse{AccessToken: "refreshed", ExpiresIn: 3600}, nil
+		},
+	}
+
+	svc := NewOAuthService(&mockProxyRepoForOAuth{}, client)
+	svc.cfg = &config.Config{IPv6Egress: config.IPv6EgressConfig{Enabled: true, FreeBind: true}}
+	defer svc.Stop()
+	account := &Account{
+		ID:         14,
+		EgressMode: platformegress.ModeIPv6Pool,
+		EgressBinding: &moduleegress.Binding{
+			PoolID:     3,
+			SourceIPv6: "2001:db8::44",
+			Status:     moduleegress.BindingStatusActive,
+			PoolStatus: moduleegress.PoolStatusActive,
+			Version:    8,
+		},
+		Credentials: map[string]any{"refresh_token": "rt"},
+	}
+
+	if _, err := svc.RefreshAccountToken(context.Background(), account); err != nil {
+		t.Fatalf("RefreshAccountToken() error = %v", err)
 	}
 }
 

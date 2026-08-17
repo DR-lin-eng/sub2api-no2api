@@ -1,12 +1,14 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	"github.com/Wei-Shaw/sub2api/internal/shared/proxyurl"
 	"github.com/Wei-Shaw/sub2api/internal/shared/servertiming"
 
@@ -15,10 +17,12 @@ import (
 
 // reqClientOptions 定义 req 客户端的构建参数
 type reqClientOptions struct {
-	ProxyURL    string        // 代理 URL（支持 http/https/socks5）
-	Timeout     time.Duration // 请求超时时间
-	Impersonate bool          // 是否模拟 Chrome 浏览器指纹
-	ForceHTTP2  bool          // 是否强制使用 HTTP/2
+	ProxyURL     string        // 代理 URL（支持 http/https/socks5）
+	Timeout      time.Duration // 请求超时时间
+	Impersonate  bool          // 是否模拟 Chrome 浏览器指纹
+	ForceHTTP2   bool          // 是否强制使用 HTTP/2
+	EgressRoute  platformegress.Route
+	EgressPolicy platformegress.Policy
 }
 
 const (
@@ -79,10 +83,55 @@ func getSharedReqClient(opts reqClientOptions) (*req.Client, error) {
 	}
 	if trimmed != "" {
 		client.SetProxyURL(trimmed)
+	} else if opts.EgressRoute.Mode != "" {
+		effective, err := platformegress.ApplyPolicy(opts.EgressRoute, opts.EgressPolicy)
+		if err != nil {
+			return nil, err
+		}
+		if effective.Mode == platformegress.ModeIPv6Pool {
+			dialContext, err := platformegress.NewDialContext(effective, opts.EgressPolicy, platformegress.DialerOptions{})
+			if err != nil {
+				return nil, err
+			}
+			client.SetDial(dialContext)
+		}
 	}
 	client = instrumentReqClient(client)
 
 	return sharedReqClients.store(key, client), nil
+}
+
+func getSharedReqClientForContext(ctx context.Context, opts reqClientOptions) (*req.Client, error) {
+	if strings.TrimSpace(opts.ProxyURL) == "" {
+		if routed, ok := platformegress.FromContext(ctx); ok {
+			opts.EgressRoute = routed.Route
+			opts.EgressPolicy = routed.Policy
+		}
+	}
+	return getSharedReqClient(opts)
+}
+
+func applyContextEgressToReqClient(ctx context.Context, client *req.Client, proxyURL string) error {
+	if client == nil || strings.TrimSpace(proxyURL) != "" {
+		return nil
+	}
+	routed, ok := platformegress.FromContext(ctx)
+	if !ok {
+		return nil
+	}
+	effective, err := platformegress.ApplyPolicy(routed.Route, routed.Policy)
+	if err != nil {
+		return err
+	}
+	if effective.Mode != platformegress.ModeIPv6Pool {
+		return nil
+	}
+	dialContext, err := platformegress.NewDialContext(effective, routed.Policy, platformegress.DialerOptions{})
+	if err != nil {
+		return err
+	}
+	client.SetDial(dialContext)
+	return nil
 }
 
 func (p *sharedReqClientPool) get(key string) *req.Client {
@@ -185,19 +234,28 @@ func instrumentReqClient(client *req.Client) *req.Client {
 }
 
 func buildReqClientKey(opts reqClientOptions) string {
-	return fmt.Sprintf("%s|%s|%t|%t",
+	base := fmt.Sprintf("%s|%s|%t|%t",
 		strings.TrimSpace(opts.ProxyURL),
 		opts.Timeout.String(),
 		opts.Impersonate,
 		opts.ForceHTTP2,
+	)
+	if opts.EgressRoute.Mode == "" && !opts.EgressPolicy.IPv6Enabled && !opts.EgressPolicy.FreeBind {
+		return base
+	}
+	return fmt.Sprintf("%s|%s|%t|%t",
+		base,
+		opts.EgressRoute.CacheKey(),
+		opts.EgressPolicy.IPv6Enabled,
+		opts.EgressPolicy.FreeBind,
 	)
 }
 
 // CreatePrivacyReqClient creates an HTTP client for OpenAI privacy settings API
 // This is exported for use by OpenAIPrivacyService
 // Uses Chrome TLS fingerprint impersonation to bypass Cloudflare checks
-func CreatePrivacyReqClient(proxyURL string) (*req.Client, error) {
-	return getSharedReqClient(reqClientOptions{
+func CreatePrivacyReqClient(ctx context.Context, proxyURL string) (*req.Client, error) {
+	return getSharedReqClientForContext(ctx, reqClientOptions{
 		ProxyURL:    proxyURL,
 		Timeout:     30 * time.Second,
 		Impersonate: true, // Enable Chrome TLS fingerprint impersonation

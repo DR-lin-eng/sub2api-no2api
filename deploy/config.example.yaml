@@ -38,6 +38,32 @@ deployment:
   rollout_verify_heartbeats: 2
 
 # =============================================================================
+# Account-scoped IPv6 Egress (Linux standalone only)
+# 账号级 IPv6 出口（仅支持 Linux 单机模式）
+# =============================================================================
+ipv6_egress:
+  # Requires a routed IPv6 prefix and deploy/docker-compose.ipv6-egress.yml.
+  # 需要运营商路由到宿主机的 IPv6 前缀及对应 Compose override。
+  enabled: false
+  # Stable secret used by deterministic account allocation. Generate once with:
+  # openssl rand -hex 32
+  # 确定性账号地址分配密钥；生成后必须跨重启保持不变。
+  allocation_secret: ""
+  # Linux per-socket IPV6_FREEBIND. The main container does not need NET_ADMIN.
+  # Linux 每 socket IPV6_FREEBIND；主应用容器不需要 NET_ADMIN。
+  freebind: true
+  reconcile_interval_seconds: 60
+  # HTTPS endpoint returning the observed IP as plain text or {"ip":"..."}.
+  # 返回纯文本 IP 或 {"ip":"..."} 的 HTTPS 回显端点。
+  probe_url: "https://api64.ipify.org"
+  probe_timeout_seconds: 10
+  # Enabled by docker-compose.ipv6-egress-he.yml. The application exchanges
+  # validated desired state and status with the container-only HE sidecar.
+  control_enabled: false
+  control_dir: "/app/data/ipv6-egress-control"
+  control_agent_stale_seconds: 15
+
+# =============================================================================
 # Server Configuration
 # 服务器配置
 # =============================================================================

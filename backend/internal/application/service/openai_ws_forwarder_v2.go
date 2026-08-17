@@ -217,6 +217,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		PreferredConnID:    preferredConnID,
 		ForceNewConn:       forceNewConn,
 		ForcePreferredConn: forcePreferredConn,
+		EgressRoute:        account.EgressRoute(),
 		ProxyURL: func() string {
 			if account.ProxyID != nil && account.Proxy != nil {
 				return account.Proxy.URL()

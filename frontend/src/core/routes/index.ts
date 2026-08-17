@@ -611,6 +611,19 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/egress',
+    name: 'AdminIPv6Egress',
+    component: () => import('@/features/admin-egress/presentation/pages/EgressPage.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      requiresIPv6Egress: true,
+      title: 'IPv6 Egress',
+      titleKey: 'admin.egress.title',
+      descriptionKey: 'admin.egress.description'
+    }
+  },
+  {
     path: '/admin/redeem',
     name: 'AdminRedeem',
     component: () => import('@/features/admin-redeem/presentation/pages/RedeemPage.vue'),
@@ -1001,7 +1014,7 @@ router.beforeEach(async (to, _from, next) => {
   // 公共设置可能尚未加载（App.vue 的 onMounted 异步拉取晚于首次导航，且纯静态部署
   // 无 __APP_CONFIG__ 注入）。此时 cachedPublicSettings 为空会把 payment/risk_control
   // 误判为“未启用”而错误拦截，故这里先确保设置加载完成。
-  if ((to.meta.requiresPayment || to.meta.requiresRiskControl || to.meta.requiresSupportChat || to.meta.requiresMediaStudio) && !appStore.publicSettingsLoaded) {
+  if ((to.meta.requiresPayment || to.meta.requiresRiskControl || to.meta.requiresSupportChat || to.meta.requiresMediaStudio || to.meta.requiresIPv6Egress) && !appStore.publicSettingsLoaded) {
     try {
       await appStore.fetchPublicSettings()
     } catch (error) {
@@ -1042,6 +1055,14 @@ router.beforeEach(async (to, _from, next) => {
     (!appStore.publicSettingsLoaded || appStore.cachedPublicSettings?.media_studio_enabled !== true)
   ) {
     next(authStore.isAdmin ? '/admin/settings' : '/dashboard')
+    return
+  }
+
+  if (
+    to.meta.requiresIPv6Egress &&
+    (!appStore.publicSettingsLoaded || appStore.cachedPublicSettings?.ipv6_egress_ui_enabled !== true)
+  ) {
+    next('/admin/settings')
     return
   }
 

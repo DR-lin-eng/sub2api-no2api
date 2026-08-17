@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/Wei-Shaw/sub2api/ent/account"
+	"github.com/Wei-Shaw/sub2api/ent/accountegressbinding"
 	"github.com/Wei-Shaw/sub2api/ent/accountgroup"
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
@@ -36,6 +37,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
+	"github.com/Wei-Shaw/sub2api/ent/ipv6egresspool"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance"
@@ -72,6 +74,7 @@ const (
 	// Node types.
 	TypeAPIKey                        = "APIKey"
 	TypeAccount                       = "Account"
+	TypeAccountEgressBinding          = "AccountEgressBinding"
 	TypeAccountGroup                  = "AccountGroup"
 	TypeAnnouncement                  = "Announcement"
 	TypeAnnouncementRead              = "AnnouncementRead"
@@ -92,6 +95,7 @@ const (
 	TypeCompositeModelRoute           = "CompositeModelRoute"
 	TypeErrorPassthroughRule          = "ErrorPassthroughRule"
 	TypeGroup                         = "Group"
+	TypeIPv6EgressPool                = "IPv6EgressPool"
 	TypeIdempotencyRecord             = "IdempotencyRecord"
 	TypeIdentityAdoptionDecision      = "IdentityAdoptionDecision"
 	TypePaymentAuditLog               = "PaymentAuditLog"
@@ -2485,6 +2489,7 @@ type AccountMutation struct {
 	extra                       *map[string]interface{}
 	proxy_fallback_origin_id    *int64
 	addproxy_fallback_origin_id *int64
+	egress_mode                 *string
 	concurrency                 *int
 	addconcurrency              *int
 	load_factor                 *int
@@ -2514,6 +2519,8 @@ type AccountMutation struct {
 	clearedgroups               bool
 	proxy                       *int64
 	clearedproxy                bool
+	egress_binding              *int64
+	clearedegress_binding       bool
 	parent                      *int64
 	clearedparent               bool
 	children                    map[int64]struct{}
@@ -3092,6 +3099,42 @@ func (m *AccountMutation) ResetProxyFallbackOriginID() {
 	m.proxy_fallback_origin_id = nil
 	m.addproxy_fallback_origin_id = nil
 	delete(m.clearedFields, account.FieldProxyFallbackOriginID)
+}
+
+// SetEgressMode sets the "egress_mode" field.
+func (m *AccountMutation) SetEgressMode(s string) {
+	m.egress_mode = &s
+}
+
+// EgressMode returns the value of the "egress_mode" field in the mutation.
+func (m *AccountMutation) EgressMode() (r string, exists bool) {
+	v := m.egress_mode
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEgressMode returns the old "egress_mode" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldEgressMode(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEgressMode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEgressMode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEgressMode: %w", err)
+	}
+	return oldValue.EgressMode, nil
+}
+
+// ResetEgressMode resets all changes to the "egress_mode" field.
+func (m *AccountMutation) ResetEgressMode() {
+	m.egress_mode = nil
 }
 
 // SetConcurrency sets the "concurrency" field.
@@ -4145,6 +4188,45 @@ func (m *AccountMutation) ResetProxy() {
 	m.clearedproxy = false
 }
 
+// SetEgressBindingID sets the "egress_binding" edge to the AccountEgressBinding entity by id.
+func (m *AccountMutation) SetEgressBindingID(id int64) {
+	m.egress_binding = &id
+}
+
+// ClearEgressBinding clears the "egress_binding" edge to the AccountEgressBinding entity.
+func (m *AccountMutation) ClearEgressBinding() {
+	m.clearedegress_binding = true
+}
+
+// EgressBindingCleared reports if the "egress_binding" edge to the AccountEgressBinding entity was cleared.
+func (m *AccountMutation) EgressBindingCleared() bool {
+	return m.clearedegress_binding
+}
+
+// EgressBindingID returns the "egress_binding" edge ID in the mutation.
+func (m *AccountMutation) EgressBindingID() (id int64, exists bool) {
+	if m.egress_binding != nil {
+		return *m.egress_binding, true
+	}
+	return
+}
+
+// EgressBindingIDs returns the "egress_binding" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// EgressBindingID instead. It exists only for internal usage by the builders.
+func (m *AccountMutation) EgressBindingIDs() (ids []int64) {
+	if id := m.egress_binding; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetEgressBinding resets all changes to the "egress_binding" edge.
+func (m *AccountMutation) ResetEgressBinding() {
+	m.egress_binding = nil
+	m.clearedegress_binding = false
+}
+
 // SetParentID sets the "parent" edge to the Account entity by id.
 func (m *AccountMutation) SetParentID(id int64) {
 	m.parent = &id
@@ -4327,7 +4409,7 @@ func (m *AccountMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AccountMutation) Fields() []string {
-	fields := make([]string, 0, 31)
+	fields := make([]string, 0, 32)
 	if m.created_at != nil {
 		fields = append(fields, account.FieldCreatedAt)
 	}
@@ -4360,6 +4442,9 @@ func (m *AccountMutation) Fields() []string {
 	}
 	if m.proxy_fallback_origin_id != nil {
 		fields = append(fields, account.FieldProxyFallbackOriginID)
+	}
+	if m.egress_mode != nil {
+		fields = append(fields, account.FieldEgressMode)
 	}
 	if m.concurrency != nil {
 		fields = append(fields, account.FieldConcurrency)
@@ -4451,6 +4536,8 @@ func (m *AccountMutation) Field(name string) (ent.Value, bool) {
 		return m.ProxyID()
 	case account.FieldProxyFallbackOriginID:
 		return m.ProxyFallbackOriginID()
+	case account.FieldEgressMode:
+		return m.EgressMode()
 	case account.FieldConcurrency:
 		return m.Concurrency()
 	case account.FieldLoadFactor:
@@ -4522,6 +4609,8 @@ func (m *AccountMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldProxyID(ctx)
 	case account.FieldProxyFallbackOriginID:
 		return m.OldProxyFallbackOriginID(ctx)
+	case account.FieldEgressMode:
+		return m.OldEgressMode(ctx)
 	case account.FieldConcurrency:
 		return m.OldConcurrency(ctx)
 	case account.FieldLoadFactor:
@@ -4647,6 +4736,13 @@ func (m *AccountMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetProxyFallbackOriginID(v)
+		return nil
+	case account.FieldEgressMode:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEgressMode(v)
 		return nil
 	case account.FieldConcurrency:
 		v, ok := value.(int)
@@ -5038,6 +5134,9 @@ func (m *AccountMutation) ResetField(name string) error {
 	case account.FieldProxyFallbackOriginID:
 		m.ResetProxyFallbackOriginID()
 		return nil
+	case account.FieldEgressMode:
+		m.ResetEgressMode()
+		return nil
 	case account.FieldConcurrency:
 		m.ResetConcurrency()
 		return nil
@@ -5104,12 +5203,15 @@ func (m *AccountMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AccountMutation) AddedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.groups != nil {
 		edges = append(edges, account.EdgeGroups)
 	}
 	if m.proxy != nil {
 		edges = append(edges, account.EdgeProxy)
+	}
+	if m.egress_binding != nil {
+		edges = append(edges, account.EdgeEgressBinding)
 	}
 	if m.parent != nil {
 		edges = append(edges, account.EdgeParent)
@@ -5137,6 +5239,10 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 		if id := m.proxy; id != nil {
 			return []ent.Value{*id}
 		}
+	case account.EdgeEgressBinding:
+		if id := m.egress_binding; id != nil {
+			return []ent.Value{*id}
+		}
 	case account.EdgeParent:
 		if id := m.parent; id != nil {
 			return []ent.Value{*id}
@@ -5159,7 +5265,7 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AccountMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.removedgroups != nil {
 		edges = append(edges, account.EdgeGroups)
 	}
@@ -5200,12 +5306,15 @@ func (m *AccountMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AccountMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.clearedgroups {
 		edges = append(edges, account.EdgeGroups)
 	}
 	if m.clearedproxy {
 		edges = append(edges, account.EdgeProxy)
+	}
+	if m.clearedegress_binding {
+		edges = append(edges, account.EdgeEgressBinding)
 	}
 	if m.clearedparent {
 		edges = append(edges, account.EdgeParent)
@@ -5227,6 +5336,8 @@ func (m *AccountMutation) EdgeCleared(name string) bool {
 		return m.clearedgroups
 	case account.EdgeProxy:
 		return m.clearedproxy
+	case account.EdgeEgressBinding:
+		return m.clearedegress_binding
 	case account.EdgeParent:
 		return m.clearedparent
 	case account.EdgeChildren:
@@ -5243,6 +5354,9 @@ func (m *AccountMutation) ClearEdge(name string) error {
 	switch name {
 	case account.EdgeProxy:
 		m.ClearProxy()
+		return nil
+	case account.EdgeEgressBinding:
+		m.ClearEgressBinding()
 		return nil
 	case account.EdgeParent:
 		m.ClearParent()
@@ -5261,6 +5375,9 @@ func (m *AccountMutation) ResetEdge(name string) error {
 	case account.EdgeProxy:
 		m.ResetProxy()
 		return nil
+	case account.EdgeEgressBinding:
+		m.ResetEgressBinding()
+		return nil
 	case account.EdgeParent:
 		m.ResetParent()
 		return nil
@@ -5272,6 +5389,868 @@ func (m *AccountMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown Account edge %s", name)
+}
+
+// AccountEgressBindingMutation represents an operation that mutates the AccountEgressBinding nodes in the graph.
+type AccountEgressBindingMutation struct {
+	config
+	op             Op
+	typ            string
+	id             *int64
+	created_at     *time.Time
+	updated_at     *time.Time
+	source_ipv6    *string
+	status         *string
+	version        *int64
+	addversion     *int64
+	rotated_at     *time.Time
+	clearedFields  map[string]struct{}
+	account        *int64
+	clearedaccount bool
+	pool           *int64
+	clearedpool    bool
+	done           bool
+	oldValue       func(context.Context) (*AccountEgressBinding, error)
+	predicates     []predicate.AccountEgressBinding
+}
+
+var _ ent.Mutation = (*AccountEgressBindingMutation)(nil)
+
+// accountegressbindingOption allows management of the mutation configuration using functional options.
+type accountegressbindingOption func(*AccountEgressBindingMutation)
+
+// newAccountEgressBindingMutation creates new mutation for the AccountEgressBinding entity.
+func newAccountEgressBindingMutation(c config, op Op, opts ...accountegressbindingOption) *AccountEgressBindingMutation {
+	m := &AccountEgressBindingMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeAccountEgressBinding,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withAccountEgressBindingID sets the ID field of the mutation.
+func withAccountEgressBindingID(id int64) accountegressbindingOption {
+	return func(m *AccountEgressBindingMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *AccountEgressBinding
+		)
+		m.oldValue = func(ctx context.Context) (*AccountEgressBinding, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().AccountEgressBinding.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withAccountEgressBinding sets the old AccountEgressBinding of the mutation.
+func withAccountEgressBinding(node *AccountEgressBinding) accountegressbindingOption {
+	return func(m *AccountEgressBindingMutation) {
+		m.oldValue = func(context.Context) (*AccountEgressBinding, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m AccountEgressBindingMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m AccountEgressBindingMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *AccountEgressBindingMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *AccountEgressBindingMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().AccountEgressBinding.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *AccountEgressBindingMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *AccountEgressBindingMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the AccountEgressBinding entity.
+// If the AccountEgressBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountEgressBindingMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *AccountEgressBindingMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *AccountEgressBindingMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *AccountEgressBindingMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the AccountEgressBinding entity.
+// If the AccountEgressBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountEgressBindingMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *AccountEgressBindingMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetAccountID sets the "account_id" field.
+func (m *AccountEgressBindingMutation) SetAccountID(i int64) {
+	m.account = &i
+}
+
+// AccountID returns the value of the "account_id" field in the mutation.
+func (m *AccountEgressBindingMutation) AccountID() (r int64, exists bool) {
+	v := m.account
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAccountID returns the old "account_id" field's value of the AccountEgressBinding entity.
+// If the AccountEgressBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountEgressBindingMutation) OldAccountID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAccountID: %w", err)
+	}
+	return oldValue.AccountID, nil
+}
+
+// ResetAccountID resets all changes to the "account_id" field.
+func (m *AccountEgressBindingMutation) ResetAccountID() {
+	m.account = nil
+}
+
+// SetPoolID sets the "pool_id" field.
+func (m *AccountEgressBindingMutation) SetPoolID(i int64) {
+	m.pool = &i
+}
+
+// PoolID returns the value of the "pool_id" field in the mutation.
+func (m *AccountEgressBindingMutation) PoolID() (r int64, exists bool) {
+	v := m.pool
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPoolID returns the old "pool_id" field's value of the AccountEgressBinding entity.
+// If the AccountEgressBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountEgressBindingMutation) OldPoolID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPoolID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPoolID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPoolID: %w", err)
+	}
+	return oldValue.PoolID, nil
+}
+
+// ResetPoolID resets all changes to the "pool_id" field.
+func (m *AccountEgressBindingMutation) ResetPoolID() {
+	m.pool = nil
+}
+
+// SetSourceIpv6 sets the "source_ipv6" field.
+func (m *AccountEgressBindingMutation) SetSourceIpv6(s string) {
+	m.source_ipv6 = &s
+}
+
+// SourceIpv6 returns the value of the "source_ipv6" field in the mutation.
+func (m *AccountEgressBindingMutation) SourceIpv6() (r string, exists bool) {
+	v := m.source_ipv6
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSourceIpv6 returns the old "source_ipv6" field's value of the AccountEgressBinding entity.
+// If the AccountEgressBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountEgressBindingMutation) OldSourceIpv6(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSourceIpv6 is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSourceIpv6 requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSourceIpv6: %w", err)
+	}
+	return oldValue.SourceIpv6, nil
+}
+
+// ResetSourceIpv6 resets all changes to the "source_ipv6" field.
+func (m *AccountEgressBindingMutation) ResetSourceIpv6() {
+	m.source_ipv6 = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *AccountEgressBindingMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *AccountEgressBindingMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the AccountEgressBinding entity.
+// If the AccountEgressBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountEgressBindingMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *AccountEgressBindingMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetVersion sets the "version" field.
+func (m *AccountEgressBindingMutation) SetVersion(i int64) {
+	m.version = &i
+	m.addversion = nil
+}
+
+// Version returns the value of the "version" field in the mutation.
+func (m *AccountEgressBindingMutation) Version() (r int64, exists bool) {
+	v := m.version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldVersion returns the old "version" field's value of the AccountEgressBinding entity.
+// If the AccountEgressBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountEgressBindingMutation) OldVersion(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldVersion: %w", err)
+	}
+	return oldValue.Version, nil
+}
+
+// AddVersion adds i to the "version" field.
+func (m *AccountEgressBindingMutation) AddVersion(i int64) {
+	if m.addversion != nil {
+		*m.addversion += i
+	} else {
+		m.addversion = &i
+	}
+}
+
+// AddedVersion returns the value that was added to the "version" field in this mutation.
+func (m *AccountEgressBindingMutation) AddedVersion() (r int64, exists bool) {
+	v := m.addversion
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetVersion resets all changes to the "version" field.
+func (m *AccountEgressBindingMutation) ResetVersion() {
+	m.version = nil
+	m.addversion = nil
+}
+
+// SetRotatedAt sets the "rotated_at" field.
+func (m *AccountEgressBindingMutation) SetRotatedAt(t time.Time) {
+	m.rotated_at = &t
+}
+
+// RotatedAt returns the value of the "rotated_at" field in the mutation.
+func (m *AccountEgressBindingMutation) RotatedAt() (r time.Time, exists bool) {
+	v := m.rotated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRotatedAt returns the old "rotated_at" field's value of the AccountEgressBinding entity.
+// If the AccountEgressBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountEgressBindingMutation) OldRotatedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRotatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRotatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRotatedAt: %w", err)
+	}
+	return oldValue.RotatedAt, nil
+}
+
+// ClearRotatedAt clears the value of the "rotated_at" field.
+func (m *AccountEgressBindingMutation) ClearRotatedAt() {
+	m.rotated_at = nil
+	m.clearedFields[accountegressbinding.FieldRotatedAt] = struct{}{}
+}
+
+// RotatedAtCleared returns if the "rotated_at" field was cleared in this mutation.
+func (m *AccountEgressBindingMutation) RotatedAtCleared() bool {
+	_, ok := m.clearedFields[accountegressbinding.FieldRotatedAt]
+	return ok
+}
+
+// ResetRotatedAt resets all changes to the "rotated_at" field.
+func (m *AccountEgressBindingMutation) ResetRotatedAt() {
+	m.rotated_at = nil
+	delete(m.clearedFields, accountegressbinding.FieldRotatedAt)
+}
+
+// ClearAccount clears the "account" edge to the Account entity.
+func (m *AccountEgressBindingMutation) ClearAccount() {
+	m.clearedaccount = true
+	m.clearedFields[accountegressbinding.FieldAccountID] = struct{}{}
+}
+
+// AccountCleared reports if the "account" edge to the Account entity was cleared.
+func (m *AccountEgressBindingMutation) AccountCleared() bool {
+	return m.clearedaccount
+}
+
+// AccountIDs returns the "account" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AccountID instead. It exists only for internal usage by the builders.
+func (m *AccountEgressBindingMutation) AccountIDs() (ids []int64) {
+	if id := m.account; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAccount resets all changes to the "account" edge.
+func (m *AccountEgressBindingMutation) ResetAccount() {
+	m.account = nil
+	m.clearedaccount = false
+}
+
+// ClearPool clears the "pool" edge to the IPv6EgressPool entity.
+func (m *AccountEgressBindingMutation) ClearPool() {
+	m.clearedpool = true
+	m.clearedFields[accountegressbinding.FieldPoolID] = struct{}{}
+}
+
+// PoolCleared reports if the "pool" edge to the IPv6EgressPool entity was cleared.
+func (m *AccountEgressBindingMutation) PoolCleared() bool {
+	return m.clearedpool
+}
+
+// PoolIDs returns the "pool" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// PoolID instead. It exists only for internal usage by the builders.
+func (m *AccountEgressBindingMutation) PoolIDs() (ids []int64) {
+	if id := m.pool; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetPool resets all changes to the "pool" edge.
+func (m *AccountEgressBindingMutation) ResetPool() {
+	m.pool = nil
+	m.clearedpool = false
+}
+
+// Where appends a list predicates to the AccountEgressBindingMutation builder.
+func (m *AccountEgressBindingMutation) Where(ps ...predicate.AccountEgressBinding) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the AccountEgressBindingMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *AccountEgressBindingMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.AccountEgressBinding, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *AccountEgressBindingMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *AccountEgressBindingMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (AccountEgressBinding).
+func (m *AccountEgressBindingMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *AccountEgressBindingMutation) Fields() []string {
+	fields := make([]string, 0, 8)
+	if m.created_at != nil {
+		fields = append(fields, accountegressbinding.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, accountegressbinding.FieldUpdatedAt)
+	}
+	if m.account != nil {
+		fields = append(fields, accountegressbinding.FieldAccountID)
+	}
+	if m.pool != nil {
+		fields = append(fields, accountegressbinding.FieldPoolID)
+	}
+	if m.source_ipv6 != nil {
+		fields = append(fields, accountegressbinding.FieldSourceIpv6)
+	}
+	if m.status != nil {
+		fields = append(fields, accountegressbinding.FieldStatus)
+	}
+	if m.version != nil {
+		fields = append(fields, accountegressbinding.FieldVersion)
+	}
+	if m.rotated_at != nil {
+		fields = append(fields, accountegressbinding.FieldRotatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *AccountEgressBindingMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case accountegressbinding.FieldCreatedAt:
+		return m.CreatedAt()
+	case accountegressbinding.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case accountegressbinding.FieldAccountID:
+		return m.AccountID()
+	case accountegressbinding.FieldPoolID:
+		return m.PoolID()
+	case accountegressbinding.FieldSourceIpv6:
+		return m.SourceIpv6()
+	case accountegressbinding.FieldStatus:
+		return m.Status()
+	case accountegressbinding.FieldVersion:
+		return m.Version()
+	case accountegressbinding.FieldRotatedAt:
+		return m.RotatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *AccountEgressBindingMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case accountegressbinding.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case accountegressbinding.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case accountegressbinding.FieldAccountID:
+		return m.OldAccountID(ctx)
+	case accountegressbinding.FieldPoolID:
+		return m.OldPoolID(ctx)
+	case accountegressbinding.FieldSourceIpv6:
+		return m.OldSourceIpv6(ctx)
+	case accountegressbinding.FieldStatus:
+		return m.OldStatus(ctx)
+	case accountegressbinding.FieldVersion:
+		return m.OldVersion(ctx)
+	case accountegressbinding.FieldRotatedAt:
+		return m.OldRotatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown AccountEgressBinding field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AccountEgressBindingMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case accountegressbinding.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case accountegressbinding.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case accountegressbinding.FieldAccountID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAccountID(v)
+		return nil
+	case accountegressbinding.FieldPoolID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPoolID(v)
+		return nil
+	case accountegressbinding.FieldSourceIpv6:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSourceIpv6(v)
+		return nil
+	case accountegressbinding.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case accountegressbinding.FieldVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetVersion(v)
+		return nil
+	case accountegressbinding.FieldRotatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRotatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown AccountEgressBinding field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *AccountEgressBindingMutation) AddedFields() []string {
+	var fields []string
+	if m.addversion != nil {
+		fields = append(fields, accountegressbinding.FieldVersion)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *AccountEgressBindingMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case accountegressbinding.FieldVersion:
+		return m.AddedVersion()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AccountEgressBindingMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case accountegressbinding.FieldVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddVersion(v)
+		return nil
+	}
+	return fmt.Errorf("unknown AccountEgressBinding numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *AccountEgressBindingMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(accountegressbinding.FieldRotatedAt) {
+		fields = append(fields, accountegressbinding.FieldRotatedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *AccountEgressBindingMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *AccountEgressBindingMutation) ClearField(name string) error {
+	switch name {
+	case accountegressbinding.FieldRotatedAt:
+		m.ClearRotatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown AccountEgressBinding nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *AccountEgressBindingMutation) ResetField(name string) error {
+	switch name {
+	case accountegressbinding.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case accountegressbinding.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case accountegressbinding.FieldAccountID:
+		m.ResetAccountID()
+		return nil
+	case accountegressbinding.FieldPoolID:
+		m.ResetPoolID()
+		return nil
+	case accountegressbinding.FieldSourceIpv6:
+		m.ResetSourceIpv6()
+		return nil
+	case accountegressbinding.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case accountegressbinding.FieldVersion:
+		m.ResetVersion()
+		return nil
+	case accountegressbinding.FieldRotatedAt:
+		m.ResetRotatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown AccountEgressBinding field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *AccountEgressBindingMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.account != nil {
+		edges = append(edges, accountegressbinding.EdgeAccount)
+	}
+	if m.pool != nil {
+		edges = append(edges, accountegressbinding.EdgePool)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *AccountEgressBindingMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case accountegressbinding.EdgeAccount:
+		if id := m.account; id != nil {
+			return []ent.Value{*id}
+		}
+	case accountegressbinding.EdgePool:
+		if id := m.pool; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *AccountEgressBindingMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *AccountEgressBindingMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *AccountEgressBindingMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedaccount {
+		edges = append(edges, accountegressbinding.EdgeAccount)
+	}
+	if m.clearedpool {
+		edges = append(edges, accountegressbinding.EdgePool)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *AccountEgressBindingMutation) EdgeCleared(name string) bool {
+	switch name {
+	case accountegressbinding.EdgeAccount:
+		return m.clearedaccount
+	case accountegressbinding.EdgePool:
+		return m.clearedpool
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *AccountEgressBindingMutation) ClearEdge(name string) error {
+	switch name {
+	case accountegressbinding.EdgeAccount:
+		m.ClearAccount()
+		return nil
+	case accountegressbinding.EdgePool:
+		m.ClearPool()
+		return nil
+	}
+	return fmt.Errorf("unknown AccountEgressBinding unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *AccountEgressBindingMutation) ResetEdge(name string) error {
+	switch name {
+	case accountegressbinding.EdgeAccount:
+		m.ResetAccount()
+		return nil
+	case accountegressbinding.EdgePool:
+		m.ResetPool()
+		return nil
+	}
+	return fmt.Errorf("unknown AccountEgressBinding edge %s", name)
 }
 
 // AccountGroupMutation represents an operation that mutates the AccountGroup nodes in the graph.
@@ -31772,6 +32751,861 @@ func (m *GroupMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown Group edge %s", name)
+}
+
+// IPv6EgressPoolMutation represents an operation that mutates the IPv6EgressPool nodes in the graph.
+type IPv6EgressPoolMutation struct {
+	config
+	op                    Op
+	typ                   string
+	id                    *int64
+	created_at            *time.Time
+	updated_at            *time.Time
+	name                  *string
+	cidr                  *string
+	node_id               *string
+	status                *string
+	is_default            *bool
+	allocation_version    *int64
+	addallocation_version *int64
+	clearedFields         map[string]struct{}
+	bindings              map[int64]struct{}
+	removedbindings       map[int64]struct{}
+	clearedbindings       bool
+	done                  bool
+	oldValue              func(context.Context) (*IPv6EgressPool, error)
+	predicates            []predicate.IPv6EgressPool
+}
+
+var _ ent.Mutation = (*IPv6EgressPoolMutation)(nil)
+
+// ipv6egresspoolOption allows management of the mutation configuration using functional options.
+type ipv6egresspoolOption func(*IPv6EgressPoolMutation)
+
+// newIPv6EgressPoolMutation creates new mutation for the IPv6EgressPool entity.
+func newIPv6EgressPoolMutation(c config, op Op, opts ...ipv6egresspoolOption) *IPv6EgressPoolMutation {
+	m := &IPv6EgressPoolMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeIPv6EgressPool,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withIPv6EgressPoolID sets the ID field of the mutation.
+func withIPv6EgressPoolID(id int64) ipv6egresspoolOption {
+	return func(m *IPv6EgressPoolMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *IPv6EgressPool
+		)
+		m.oldValue = func(ctx context.Context) (*IPv6EgressPool, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().IPv6EgressPool.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withIPv6EgressPool sets the old IPv6EgressPool of the mutation.
+func withIPv6EgressPool(node *IPv6EgressPool) ipv6egresspoolOption {
+	return func(m *IPv6EgressPoolMutation) {
+		m.oldValue = func(context.Context) (*IPv6EgressPool, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m IPv6EgressPoolMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m IPv6EgressPoolMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *IPv6EgressPoolMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *IPv6EgressPoolMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().IPv6EgressPool.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *IPv6EgressPoolMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *IPv6EgressPoolMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the IPv6EgressPool entity.
+// If the IPv6EgressPool object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IPv6EgressPoolMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *IPv6EgressPoolMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *IPv6EgressPoolMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *IPv6EgressPoolMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the IPv6EgressPool entity.
+// If the IPv6EgressPool object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IPv6EgressPoolMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *IPv6EgressPoolMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetName sets the "name" field.
+func (m *IPv6EgressPoolMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *IPv6EgressPoolMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the IPv6EgressPool entity.
+// If the IPv6EgressPool object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IPv6EgressPoolMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *IPv6EgressPoolMutation) ResetName() {
+	m.name = nil
+}
+
+// SetCidr sets the "cidr" field.
+func (m *IPv6EgressPoolMutation) SetCidr(s string) {
+	m.cidr = &s
+}
+
+// Cidr returns the value of the "cidr" field in the mutation.
+func (m *IPv6EgressPoolMutation) Cidr() (r string, exists bool) {
+	v := m.cidr
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCidr returns the old "cidr" field's value of the IPv6EgressPool entity.
+// If the IPv6EgressPool object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IPv6EgressPoolMutation) OldCidr(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCidr is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCidr requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCidr: %w", err)
+	}
+	return oldValue.Cidr, nil
+}
+
+// ResetCidr resets all changes to the "cidr" field.
+func (m *IPv6EgressPoolMutation) ResetCidr() {
+	m.cidr = nil
+}
+
+// SetNodeID sets the "node_id" field.
+func (m *IPv6EgressPoolMutation) SetNodeID(s string) {
+	m.node_id = &s
+}
+
+// NodeID returns the value of the "node_id" field in the mutation.
+func (m *IPv6EgressPoolMutation) NodeID() (r string, exists bool) {
+	v := m.node_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNodeID returns the old "node_id" field's value of the IPv6EgressPool entity.
+// If the IPv6EgressPool object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IPv6EgressPoolMutation) OldNodeID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNodeID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNodeID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNodeID: %w", err)
+	}
+	return oldValue.NodeID, nil
+}
+
+// ClearNodeID clears the value of the "node_id" field.
+func (m *IPv6EgressPoolMutation) ClearNodeID() {
+	m.node_id = nil
+	m.clearedFields[ipv6egresspool.FieldNodeID] = struct{}{}
+}
+
+// NodeIDCleared returns if the "node_id" field was cleared in this mutation.
+func (m *IPv6EgressPoolMutation) NodeIDCleared() bool {
+	_, ok := m.clearedFields[ipv6egresspool.FieldNodeID]
+	return ok
+}
+
+// ResetNodeID resets all changes to the "node_id" field.
+func (m *IPv6EgressPoolMutation) ResetNodeID() {
+	m.node_id = nil
+	delete(m.clearedFields, ipv6egresspool.FieldNodeID)
+}
+
+// SetStatus sets the "status" field.
+func (m *IPv6EgressPoolMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *IPv6EgressPoolMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the IPv6EgressPool entity.
+// If the IPv6EgressPool object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IPv6EgressPoolMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *IPv6EgressPoolMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetIsDefault sets the "is_default" field.
+func (m *IPv6EgressPoolMutation) SetIsDefault(b bool) {
+	m.is_default = &b
+}
+
+// IsDefault returns the value of the "is_default" field in the mutation.
+func (m *IPv6EgressPoolMutation) IsDefault() (r bool, exists bool) {
+	v := m.is_default
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIsDefault returns the old "is_default" field's value of the IPv6EgressPool entity.
+// If the IPv6EgressPool object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IPv6EgressPoolMutation) OldIsDefault(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIsDefault is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIsDefault requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIsDefault: %w", err)
+	}
+	return oldValue.IsDefault, nil
+}
+
+// ResetIsDefault resets all changes to the "is_default" field.
+func (m *IPv6EgressPoolMutation) ResetIsDefault() {
+	m.is_default = nil
+}
+
+// SetAllocationVersion sets the "allocation_version" field.
+func (m *IPv6EgressPoolMutation) SetAllocationVersion(i int64) {
+	m.allocation_version = &i
+	m.addallocation_version = nil
+}
+
+// AllocationVersion returns the value of the "allocation_version" field in the mutation.
+func (m *IPv6EgressPoolMutation) AllocationVersion() (r int64, exists bool) {
+	v := m.allocation_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAllocationVersion returns the old "allocation_version" field's value of the IPv6EgressPool entity.
+// If the IPv6EgressPool object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IPv6EgressPoolMutation) OldAllocationVersion(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAllocationVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAllocationVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAllocationVersion: %w", err)
+	}
+	return oldValue.AllocationVersion, nil
+}
+
+// AddAllocationVersion adds i to the "allocation_version" field.
+func (m *IPv6EgressPoolMutation) AddAllocationVersion(i int64) {
+	if m.addallocation_version != nil {
+		*m.addallocation_version += i
+	} else {
+		m.addallocation_version = &i
+	}
+}
+
+// AddedAllocationVersion returns the value that was added to the "allocation_version" field in this mutation.
+func (m *IPv6EgressPoolMutation) AddedAllocationVersion() (r int64, exists bool) {
+	v := m.addallocation_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAllocationVersion resets all changes to the "allocation_version" field.
+func (m *IPv6EgressPoolMutation) ResetAllocationVersion() {
+	m.allocation_version = nil
+	m.addallocation_version = nil
+}
+
+// AddBindingIDs adds the "bindings" edge to the AccountEgressBinding entity by ids.
+func (m *IPv6EgressPoolMutation) AddBindingIDs(ids ...int64) {
+	if m.bindings == nil {
+		m.bindings = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.bindings[ids[i]] = struct{}{}
+	}
+}
+
+// ClearBindings clears the "bindings" edge to the AccountEgressBinding entity.
+func (m *IPv6EgressPoolMutation) ClearBindings() {
+	m.clearedbindings = true
+}
+
+// BindingsCleared reports if the "bindings" edge to the AccountEgressBinding entity was cleared.
+func (m *IPv6EgressPoolMutation) BindingsCleared() bool {
+	return m.clearedbindings
+}
+
+// RemoveBindingIDs removes the "bindings" edge to the AccountEgressBinding entity by IDs.
+func (m *IPv6EgressPoolMutation) RemoveBindingIDs(ids ...int64) {
+	if m.removedbindings == nil {
+		m.removedbindings = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.bindings, ids[i])
+		m.removedbindings[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedBindings returns the removed IDs of the "bindings" edge to the AccountEgressBinding entity.
+func (m *IPv6EgressPoolMutation) RemovedBindingsIDs() (ids []int64) {
+	for id := range m.removedbindings {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// BindingsIDs returns the "bindings" edge IDs in the mutation.
+func (m *IPv6EgressPoolMutation) BindingsIDs() (ids []int64) {
+	for id := range m.bindings {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetBindings resets all changes to the "bindings" edge.
+func (m *IPv6EgressPoolMutation) ResetBindings() {
+	m.bindings = nil
+	m.clearedbindings = false
+	m.removedbindings = nil
+}
+
+// Where appends a list predicates to the IPv6EgressPoolMutation builder.
+func (m *IPv6EgressPoolMutation) Where(ps ...predicate.IPv6EgressPool) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the IPv6EgressPoolMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *IPv6EgressPoolMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.IPv6EgressPool, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *IPv6EgressPoolMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *IPv6EgressPoolMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (IPv6EgressPool).
+func (m *IPv6EgressPoolMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *IPv6EgressPoolMutation) Fields() []string {
+	fields := make([]string, 0, 8)
+	if m.created_at != nil {
+		fields = append(fields, ipv6egresspool.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, ipv6egresspool.FieldUpdatedAt)
+	}
+	if m.name != nil {
+		fields = append(fields, ipv6egresspool.FieldName)
+	}
+	if m.cidr != nil {
+		fields = append(fields, ipv6egresspool.FieldCidr)
+	}
+	if m.node_id != nil {
+		fields = append(fields, ipv6egresspool.FieldNodeID)
+	}
+	if m.status != nil {
+		fields = append(fields, ipv6egresspool.FieldStatus)
+	}
+	if m.is_default != nil {
+		fields = append(fields, ipv6egresspool.FieldIsDefault)
+	}
+	if m.allocation_version != nil {
+		fields = append(fields, ipv6egresspool.FieldAllocationVersion)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *IPv6EgressPoolMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case ipv6egresspool.FieldCreatedAt:
+		return m.CreatedAt()
+	case ipv6egresspool.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case ipv6egresspool.FieldName:
+		return m.Name()
+	case ipv6egresspool.FieldCidr:
+		return m.Cidr()
+	case ipv6egresspool.FieldNodeID:
+		return m.NodeID()
+	case ipv6egresspool.FieldStatus:
+		return m.Status()
+	case ipv6egresspool.FieldIsDefault:
+		return m.IsDefault()
+	case ipv6egresspool.FieldAllocationVersion:
+		return m.AllocationVersion()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *IPv6EgressPoolMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case ipv6egresspool.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case ipv6egresspool.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case ipv6egresspool.FieldName:
+		return m.OldName(ctx)
+	case ipv6egresspool.FieldCidr:
+		return m.OldCidr(ctx)
+	case ipv6egresspool.FieldNodeID:
+		return m.OldNodeID(ctx)
+	case ipv6egresspool.FieldStatus:
+		return m.OldStatus(ctx)
+	case ipv6egresspool.FieldIsDefault:
+		return m.OldIsDefault(ctx)
+	case ipv6egresspool.FieldAllocationVersion:
+		return m.OldAllocationVersion(ctx)
+	}
+	return nil, fmt.Errorf("unknown IPv6EgressPool field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *IPv6EgressPoolMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case ipv6egresspool.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case ipv6egresspool.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case ipv6egresspool.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case ipv6egresspool.FieldCidr:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCidr(v)
+		return nil
+	case ipv6egresspool.FieldNodeID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNodeID(v)
+		return nil
+	case ipv6egresspool.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case ipv6egresspool.FieldIsDefault:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIsDefault(v)
+		return nil
+	case ipv6egresspool.FieldAllocationVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAllocationVersion(v)
+		return nil
+	}
+	return fmt.Errorf("unknown IPv6EgressPool field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *IPv6EgressPoolMutation) AddedFields() []string {
+	var fields []string
+	if m.addallocation_version != nil {
+		fields = append(fields, ipv6egresspool.FieldAllocationVersion)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *IPv6EgressPoolMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case ipv6egresspool.FieldAllocationVersion:
+		return m.AddedAllocationVersion()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *IPv6EgressPoolMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case ipv6egresspool.FieldAllocationVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAllocationVersion(v)
+		return nil
+	}
+	return fmt.Errorf("unknown IPv6EgressPool numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *IPv6EgressPoolMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(ipv6egresspool.FieldNodeID) {
+		fields = append(fields, ipv6egresspool.FieldNodeID)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *IPv6EgressPoolMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *IPv6EgressPoolMutation) ClearField(name string) error {
+	switch name {
+	case ipv6egresspool.FieldNodeID:
+		m.ClearNodeID()
+		return nil
+	}
+	return fmt.Errorf("unknown IPv6EgressPool nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *IPv6EgressPoolMutation) ResetField(name string) error {
+	switch name {
+	case ipv6egresspool.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case ipv6egresspool.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case ipv6egresspool.FieldName:
+		m.ResetName()
+		return nil
+	case ipv6egresspool.FieldCidr:
+		m.ResetCidr()
+		return nil
+	case ipv6egresspool.FieldNodeID:
+		m.ResetNodeID()
+		return nil
+	case ipv6egresspool.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case ipv6egresspool.FieldIsDefault:
+		m.ResetIsDefault()
+		return nil
+	case ipv6egresspool.FieldAllocationVersion:
+		m.ResetAllocationVersion()
+		return nil
+	}
+	return fmt.Errorf("unknown IPv6EgressPool field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *IPv6EgressPoolMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.bindings != nil {
+		edges = append(edges, ipv6egresspool.EdgeBindings)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *IPv6EgressPoolMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case ipv6egresspool.EdgeBindings:
+		ids := make([]ent.Value, 0, len(m.bindings))
+		for id := range m.bindings {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *IPv6EgressPoolMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.removedbindings != nil {
+		edges = append(edges, ipv6egresspool.EdgeBindings)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *IPv6EgressPoolMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case ipv6egresspool.EdgeBindings:
+		ids := make([]ent.Value, 0, len(m.removedbindings))
+		for id := range m.removedbindings {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *IPv6EgressPoolMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedbindings {
+		edges = append(edges, ipv6egresspool.EdgeBindings)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *IPv6EgressPoolMutation) EdgeCleared(name string) bool {
+	switch name {
+	case ipv6egresspool.EdgeBindings:
+		return m.clearedbindings
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *IPv6EgressPoolMutation) ClearEdge(name string) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown IPv6EgressPool unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *IPv6EgressPoolMutation) ResetEdge(name string) error {
+	switch name {
+	case ipv6egresspool.EdgeBindings:
+		m.ResetBindings()
+		return nil
+	}
+	return fmt.Errorf("unknown IPv6EgressPool edge %s", name)
 }
 
 // IdempotencyRecordMutation represents an operation that mutates the IdempotencyRecord nodes in the graph.

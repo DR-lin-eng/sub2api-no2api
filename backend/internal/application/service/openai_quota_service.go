@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 	"github.com/imroc/req/v3"
 )
@@ -119,6 +121,7 @@ type OpenAIQuotaService struct {
 	privacyClientFactory PrivacyClientFactory
 	agentIdentityTaskMu  sync.Mutex
 	agentIdentityWS      agentIdentityWSConnectionInvalidator
+	cfg                  *config.Config
 }
 
 // NewOpenAIQuotaService constructs a quota service. token provider is required —
@@ -129,25 +132,32 @@ func NewOpenAIQuotaService(
 	proxyRepo ProxyRepository,
 	tokenProvider *OpenAITokenProvider,
 	privacyClientFactory PrivacyClientFactory,
+	configs ...*config.Config,
 ) *OpenAIQuotaService {
-	return &OpenAIQuotaService{
+	service := &OpenAIQuotaService{
 		accountRepo:          accountRepo,
 		proxyRepo:            proxyRepo,
 		tokenProvider:        tokenProvider,
 		privacyClientFactory: privacyClientFactory,
 	}
+	if len(configs) > 0 {
+		service.cfg = configs[0]
+	}
+	return service
 }
 
 // QueryUsage fetches the latest rate-limit/usage snapshot for the given OpenAI
 // OAuth account. Returns infraerrors so the handler layer can map them to
 // stable error codes / HTTP statuses.
 func (s *OpenAIQuotaService) QueryUsage(ctx context.Context, accountID int64) (*OpenAIQuotaUsage, error) {
-	accessToken, chatGPTAccountID, proxyURL, fedRAMP, err := s.prepareUpstreamCall(ctx, accountID)
+	var route platformegress.Route
+	accessToken, chatGPTAccountID, proxyURL, fedRAMP, err := s.prepareUpstreamCall(ctx, accountID, &route)
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := s.privacyClientFactory(proxyURL)
+	ctx = withEgressRouteContext(ctx, route, s.cfg)
+	client, err := s.privacyClientFactory(ctx, proxyURL)
 	if err != nil {
 		return nil, infraerrors.Newf(http.StatusBadGateway, "OPENAI_QUOTA_CLIENT_ERROR", "failed to build upstream client: %v", err)
 	}
@@ -260,7 +270,8 @@ func (s *OpenAIQuotaService) ResetCredit(ctx context.Context, accountID int64) (
 		}
 	}
 
-	accessToken, chatGPTAccountID, proxyURL, fedRAMP, err := s.prepareUpstreamCall(ctx, accountID)
+	var route platformegress.Route
+	accessToken, chatGPTAccountID, proxyURL, fedRAMP, err := s.prepareUpstreamCall(ctx, accountID, &route)
 	if err != nil {
 		return nil, err
 	}
@@ -270,7 +281,8 @@ func (s *OpenAIQuotaService) ResetCredit(ctx context.Context, accountID int64) (
 		return nil, infraerrors.Newf(http.StatusInternalServerError, "OPENAI_QUOTA_REDEEM_ID_FAILED", "failed to generate redeem id: %v", err)
 	}
 
-	client, err := s.privacyClientFactory(proxyURL)
+	ctx = withEgressRouteContext(ctx, route, s.cfg)
+	client, err := s.privacyClientFactory(ctx, proxyURL)
 	if err != nil {
 		return nil, infraerrors.Newf(http.StatusBadGateway, "OPENAI_QUOTA_CLIENT_ERROR", "failed to build upstream client: %v", err)
 	}
@@ -322,7 +334,7 @@ func (s *OpenAIQuotaService) ResetCredit(ctx context.Context, accountID int64) (
 // prepareUpstreamCall loads the account, validates it, obtains a fresh access
 // token via the shared TokenProvider, and resolves the chatgpt-account-id and
 // proxy URL. Centralized so QueryUsage / ResetCredit share validation.
-func (s *OpenAIQuotaService) prepareUpstreamCall(ctx context.Context, accountID int64) (accessToken, chatGPTAccountID, proxyURL string, fedRAMP bool, err error) {
+func (s *OpenAIQuotaService) prepareUpstreamCall(ctx context.Context, accountID int64, route *platformegress.Route) (accessToken, chatGPTAccountID, proxyURL string, fedRAMP bool, err error) {
 	if s == nil || s.accountRepo == nil || s.privacyClientFactory == nil {
 		return "", "", "", false, infraerrors.New(http.StatusInternalServerError, "OPENAI_QUOTA_NOT_CONFIGURED", "openai quota service is not configured")
 	}
@@ -390,6 +402,9 @@ func (s *OpenAIQuotaService) prepareUpstreamCall(ctx context.Context, accountID 
 			}
 		}
 	}
+	if route != nil {
+		*route = accountEgressRoute(account, proxyURL)
+	}
 
 	return accessToken, chatGPTAccountID, proxyURL, fedRAMP, nil
 }
@@ -411,7 +426,7 @@ func (s *OpenAIQuotaService) recoverAgentIdentityTask(ctx context.Context, accou
 	if !account.IsOpenAIAgentIdentity() {
 		return nil
 	}
-	err = ensureAgentIdentityTaskForAccount(ctx, s.accountRepo, s.agentIdentityWS, &s.agentIdentityTaskMu, account, expectedTaskID)
+	err = ensureAgentIdentityTaskForAccount(ctx, s.accountRepo, s.agentIdentityWS, &s.agentIdentityTaskMu, account, expectedTaskID, s.cfg)
 	if err != nil && ctx.Err() == nil {
 		_ = setOpenAIAgentIdentityAccountError(ctx, s.accountRepo, s.agentIdentityWS, account, "Agent Identity task recovery failed: "+err.Error())
 	}
@@ -457,7 +472,7 @@ func (s *OpenAIQuotaService) buildCodexQuotaHeaders(ctx context.Context, account
 	if !account.IsOpenAIAgentIdentity() {
 		return headers, "", nil
 	}
-	if err := ensureAgentIdentityTaskForAccount(ctx, s.accountRepo, s.agentIdentityWS, &s.agentIdentityTaskMu, account, ""); err != nil {
+	if err := ensureAgentIdentityTaskForAccount(ctx, s.accountRepo, s.agentIdentityWS, &s.agentIdentityTaskMu, account, "", s.cfg); err != nil {
 		if ctx.Err() == nil {
 			_ = setOpenAIAgentIdentityAccountError(ctx, s.accountRepo, s.agentIdentityWS, account, "Agent Identity authentication failed: "+err.Error())
 		}

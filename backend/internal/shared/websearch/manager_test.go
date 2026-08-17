@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	"github.com/stretchr/testify/require"
 )
 
@@ -312,6 +313,27 @@ func TestNewHTTPClient_ValidSOCKS5Proxy(t *testing.T) {
 	c, err := newHTTPClient("socks5://proxy.example.com:1080")
 	require.NoError(t, err)
 	require.NotNil(t, c)
+}
+
+func TestNewHTTPClientForContextExplicitIPv6DisabledFailsClosed(t *testing.T) {
+	ctx := platformegress.WithContextRoute(
+		context.Background(),
+		platformegress.IPv6PoolRoute("2001:db8::10", 1, 1, false),
+		platformegress.Policy{},
+	)
+	_, err := newHTTPClientForContext(ctx, "")
+	require.ErrorIs(t, err, platformegress.ErrIPv6Disabled)
+}
+
+func TestWebSearchClientKeySeparatesBindingVersions(t *testing.T) {
+	policy := platformegress.Policy{IPv6Enabled: true, FreeBind: true}
+	first := platformegress.WithContextRoute(context.Background(), platformegress.IPv6PoolRoute("2001:db8::10", 1, 1, false), policy)
+	second := platformegress.WithContextRoute(context.Background(), platformegress.IPv6PoolRoute("2001:db8::11", 1, 2, false), policy)
+	firstKey, err := webSearchClientKey(first, "")
+	require.NoError(t, err)
+	secondKey, err := webSearchClientKey(second, "")
+	require.NoError(t, err)
+	require.NotEqual(t, firstKey, secondKey)
 }
 
 // --- ResetUsage ---

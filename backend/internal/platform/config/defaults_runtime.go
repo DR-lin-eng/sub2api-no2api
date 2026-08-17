@@ -3,6 +3,15 @@ package config
 import "github.com/spf13/viper"
 
 func setRuntimeDefaults() {
+	viper.SetDefault("ipv6_egress.enabled", false)
+	viper.SetDefault("ipv6_egress.allocation_secret", "")
+	viper.SetDefault("ipv6_egress.freebind", true)
+	viper.SetDefault("ipv6_egress.reconcile_interval_seconds", 60)
+	viper.SetDefault("ipv6_egress.probe_url", "https://api64.ipify.org")
+	viper.SetDefault("ipv6_egress.probe_timeout_seconds", 10)
+	viper.SetDefault("ipv6_egress.control_enabled", false)
+	viper.SetDefault("ipv6_egress.control_dir", "/app/data/ipv6-egress-control")
+	viper.SetDefault("ipv6_egress.control_agent_stale_seconds", 15)
 	viper.SetDefault("run_mode", RunModeStandard)
 
 	// Deployment. API and frontend remain enabled on every node; this only

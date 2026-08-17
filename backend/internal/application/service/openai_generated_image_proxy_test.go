@@ -8,11 +8,14 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -20,8 +23,10 @@ import (
 )
 
 type generatedImageStoreStub struct {
-	urls map[string]string
-	ttls map[string]time.Duration
+	urls       map[string]string
+	ttls       map[string]time.Duration
+	routes     map[string]platformegress.Route
+	accountIDs map[string]int64
 }
 
 func (s *generatedImageStoreStub) GetSessionAccountID(context.Context, int64, string) (int64, error) {
@@ -57,9 +62,34 @@ func (s *generatedImageStoreStub) GetGeneratedImageURL(_ context.Context, hash s
 	return value, ok, nil
 }
 
+func (s *generatedImageStoreStub) SetGeneratedImageRoute(_ context.Context, hash string, route platformegress.Route, accountID int64, _ time.Duration) error {
+	if s.routes == nil {
+		s.routes = make(map[string]platformegress.Route)
+	}
+	if s.accountIDs == nil {
+		s.accountIDs = make(map[string]int64)
+	}
+	s.routes[hash] = route
+	s.accountIDs[hash] = accountID
+	return nil
+}
+
+func (s *generatedImageStoreStub) GetGeneratedImageRoute(_ context.Context, hash string) (platformegress.Route, int64, bool, error) {
+	route, ok := s.routes[hash]
+	return route, s.accountIDs[hash], ok, nil
+}
+
 type generatedImageHTTPUpstreamStub struct {
-	request *http.Request
-	resp    *http.Response
+	request   *http.Request
+	proxyURL  string
+	accountID int64
+	resp      *http.Response
+}
+
+type generatedImageRoutedUpstreamStub struct {
+	generatedImageHTTPUpstreamStub
+	route     platformegress.Route
+	accountID int64
 }
 
 type generatedImageConcurrentUpstreamStub struct {
@@ -104,13 +134,25 @@ func (s *generatedImageConcurrentUpstreamStub) snapshot() (current, max int) {
 	return s.current, s.max
 }
 
-func (s *generatedImageHTTPUpstreamStub) Do(req *http.Request, _ string, _ int64, _ int) (*http.Response, error) {
+func (s *generatedImageHTTPUpstreamStub) Do(req *http.Request, proxyURL string, accountID int64, _ int) (*http.Response, error) {
 	s.request = req
+	s.proxyURL = proxyURL
+	s.accountID = accountID
 	return s.resp, nil
 }
 
 func (s *generatedImageHTTPUpstreamStub) DoWithTLS(req *http.Request, proxyURL string, accountID int64, accountConcurrency int, _ *tlsfingerprint.Profile) (*http.Response, error) {
 	return s.Do(req, proxyURL, accountID, accountConcurrency)
+}
+
+func (s *generatedImageRoutedUpstreamStub) DoRoute(req *http.Request, route platformegress.Route, accountID int64, _ int) (*http.Response, error) {
+	s.route = route
+	s.accountID = accountID
+	return s.Do(req, route.ProxyURL, accountID, 0)
+}
+
+func (s *generatedImageRoutedUpstreamStub) DoWithTLSRoute(req *http.Request, route platformegress.Route, accountID int64, accountConcurrency int, _ *tlsfingerprint.Profile) (*http.Response, error) {
+	return s.DoRoute(req, route, accountID, accountConcurrency)
 }
 
 func TestOpenAIGeneratedImage_RewritesURLAndStoresThirtyMinuteMapping(t *testing.T) {
@@ -194,6 +236,59 @@ func TestOpenAIGeneratedImage_UnexpectedURLNeverLeaksWhenDownloadFails(t *testin
 
 	require.ErrorIs(t, err, ErrGeneratedImageUnavailable)
 	require.NotContains(t, rec.Body.String(), rawURL)
+}
+
+func TestOpenAIGeneratedImage_Base64DownloadUsesAccountIPv6Route(t *testing.T) {
+	route := platformegress.IPv6PoolRoute("2001:db8::44", 4, 7, false)
+	ctx := platformegress.WithContextAccountRoute(context.Background(), route, platformegress.Policy{IPv6Enabled: true}, 44)
+	upstream := &generatedImageRoutedUpstreamStub{generatedImageHTTPUpstreamStub: generatedImageHTTPUpstreamStub{resp: &http.Response{
+		StatusCode:    http.StatusOK,
+		Header:        http.Header{"Content-Type": []string{"image/png"}},
+		Body:          io.NopCloser(strings.NewReader("png-bytes")),
+		ContentLength: 9,
+	}}}
+	svc := &OpenAIGatewayService{httpUpstream: upstream}
+
+	encoded, err := svc.downloadGeneratedImageBase64(ctx, "https://cdn.vendor.example/generated/result.png")
+
+	require.NoError(t, err)
+	require.Equal(t, "cG5nLWJ5dGVz", encoded)
+	require.Equal(t, route, upstream.route)
+	require.Equal(t, int64(44), upstream.accountID)
+}
+
+func TestOpenAIGeneratedImage_Base64DownloadFailsClosedWithoutRoutedIPv6Support(t *testing.T) {
+	route := platformegress.IPv6PoolRoute("2001:db8::45", 4, 8, false)
+	ctx := platformegress.WithContextAccountRoute(context.Background(), route, platformegress.Policy{IPv6Enabled: true}, 45)
+	upstream := &generatedImageHTTPUpstreamStub{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"image/png"}},
+		Body:       io.NopCloser(strings.NewReader("must-not-be-used")),
+	}}
+	svc := &OpenAIGatewayService{httpUpstream: upstream}
+
+	_, err := svc.downloadGeneratedImageBase64(ctx, "https://cdn.vendor.example/generated/result.png")
+
+	require.ErrorIs(t, err, platformegress.ErrIPv6Unsupported)
+	require.Nil(t, upstream.request)
+}
+
+func TestOpenAIGeneratedImage_Base64DownloadPreservesExternalProxyContext(t *testing.T) {
+	route := platformegress.ExternalProxyRoute("http://proxy.example:8080")
+	ctx := platformegress.WithContextAccountRoute(context.Background(), route, platformegress.Policy{}, 46)
+	upstream := &generatedImageHTTPUpstreamStub{resp: &http.Response{
+		StatusCode:    http.StatusOK,
+		Header:        http.Header{"Content-Type": []string{"image/png"}},
+		Body:          io.NopCloser(strings.NewReader("png-bytes")),
+		ContentLength: 9,
+	}}
+	svc := &OpenAIGatewayService{httpUpstream: upstream}
+
+	_, err := svc.downloadGeneratedImageBase64(ctx, "https://cdn.vendor.example/generated/result.png")
+
+	require.NoError(t, err)
+	require.Equal(t, "http://proxy.example:8080", upstream.proxyURL)
+	require.Equal(t, int64(46), upstream.accountID)
 }
 
 func TestOpenAIGeneratedImage_BackfillConcurrencyIsProcessWide(t *testing.T) {
@@ -338,6 +433,54 @@ func TestOpenAIGeneratedImage_OpensMappedURLWithoutAuthorization(t *testing.T) {
 	require.Equal(t, rawURL, upstream.request.URL.String())
 	require.Empty(t, upstream.request.Header.Get("Authorization"))
 	require.Equal(t, "bytes=0-3", upstream.request.Header.Get("Range"))
+}
+
+func TestOpenAIGeneratedImage_OpensMappedURLWithRequestAccountRoute(t *testing.T) {
+	rawURL := "https://cdn.vendor.example/generated/result.png?signature=route"
+	sum := sha256.Sum256([]byte(rawURL))
+	hash := hex.EncodeToString(sum[:])
+	store := &generatedImageStoreStub{urls: map[string]string{hash: rawURL}}
+	upstream := &generatedImageRoutedUpstreamStub{generatedImageHTTPUpstreamStub: generatedImageHTTPUpstreamStub{resp: &http.Response{
+		StatusCode:    http.StatusOK,
+		Header:        http.Header{"Content-Type": []string{"image/png"}},
+		Body:          io.NopCloser(strings.NewReader("png-bytes")),
+		ContentLength: 9,
+	}}}
+	svc := &OpenAIGatewayService{cache: store, httpUpstream: upstream}
+	route := platformegress.IPv6PoolRoute("2001:db8::47", 4, 9, false)
+	ctx := platformegress.WithContextAccountRoute(context.Background(), route, platformegress.Policy{IPv6Enabled: true}, 47)
+
+	resp, err := svc.OpenGeneratedImage(ctx, hash+".png", nil)
+
+	require.NoError(t, err)
+	require.Same(t, upstream.resp, resp)
+	require.Equal(t, route, upstream.route)
+	require.Equal(t, int64(47), upstream.accountID)
+}
+
+func TestOpenAIGeneratedImage_PersistedMappingRestoresAccountRoute(t *testing.T) {
+	rawURL := "https://cdn.vendor.example/generated/result.png?signature=persisted-route"
+	store := &generatedImageStoreStub{}
+	upstream := &generatedImageRoutedUpstreamStub{generatedImageHTTPUpstreamStub: generatedImageHTTPUpstreamStub{resp: &http.Response{
+		StatusCode:    http.StatusOK,
+		Header:        http.Header{"Content-Type": []string{"image/png"}},
+		Body:          io.NopCloser(strings.NewReader("png-bytes")),
+		ContentLength: 9,
+	}}}
+	svc := &OpenAIGatewayService{cache: store, httpUpstream: upstream, cfg: &config.Config{IPv6Egress: config.IPv6EgressConfig{Enabled: true, FreeBind: true}}}
+	route := platformegress.IPv6PoolRoute("2001:db8::48", 4, 10, false)
+	mapCtx := platformegress.WithContextAccountRoute(context.Background(), route, platformegress.Policy{IPv6Enabled: true, FreeBind: true}, 48)
+
+	localURL := svc.mapGeneratedImageURL(mapCtx, store, "https://images.local.example", rawURL)
+	filename := path.Base(localURL)
+	resp, err := svc.OpenGeneratedImage(context.Background(), filename, nil)
+
+	require.NoError(t, err)
+	require.Same(t, upstream.resp, resp)
+	require.Equal(t, route, upstream.route)
+	require.Equal(t, int64(48), upstream.accountID)
+	directHash := sha256.Sum256([]byte(rawURL))
+	require.NotEqual(t, hex.EncodeToString(directHash[:]), strings.TrimSuffix(filename, path.Ext(filename)))
 }
 
 func TestOpenAIGeneratedImage_RejectsNonHashFilename(t *testing.T) {

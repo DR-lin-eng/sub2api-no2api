@@ -1,0 +1,46 @@
+# Container-only Hurricane Electric 6in4 override.
+# The sidecar joins the application's network namespace and is the only
+# container granted NET_ADMIN/NET_RAW. It never uses host networking, host PID,
+# the Docker socket, or host filesystem mounts.
+
+services:
+  sub2api:
+    environment:
+      - IPV6_EGRESS_ENABLED=true
+      - IPV6_EGRESS_ALLOCATION_SECRET=${IPV6_EGRESS_ALLOCATION_SECRET:?IPV6_EGRESS_ALLOCATION_SECRET is required}
+      - IPV6_EGRESS_FREEBIND=${IPV6_EGRESS_FREEBIND:-true}
+      - IPV6_EGRESS_RECONCILE_INTERVAL_SECONDS=${IPV6_EGRESS_RECONCILE_INTERVAL_SECONDS:-60}
+      - IPV6_EGRESS_PROBE_URL=${IPV6_EGRESS_PROBE_URL:-https://api64.ipify.org}
+      - IPV6_EGRESS_PROBE_TIMEOUT_SECONDS=${IPV6_EGRESS_PROBE_TIMEOUT_SECONDS:-10}
+      - IPV6_EGRESS_CONTROL_ENABLED=true
+      - IPV6_EGRESS_CONTROL_DIR=/app/data/ipv6-egress-control
+      - IPV6_EGRESS_CONTROL_AGENT_STALE_SECONDS=${IPV6_EGRESS_CONTROL_AGENT_STALE_SECONDS:-15}
+    volumes:
+      - ipv6-egress-control:/app/data/ipv6-egress-control
+
+  ipv6-egress-he:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.ipv6-egress-sidecar
+    image: sub2api-ipv6-egress-sidecar:local
+    container_name: ${IPV6_EGRESS_SIDECAR_NAME:-sub2api-ipv6-egress}
+    restart: unless-stopped
+    network_mode: service:sub2api
+    depends_on:
+      sub2api:
+        condition: service_started
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - IPV6_EGRESS_CONTROL_DIR=/control
+      - IPV6_EGRESS_CONTROL_POLL_SECONDS=${IPV6_EGRESS_CONTROL_POLL_SECONDS:-2}
+      - HE_TUNNEL_INTERFACE=${HE_TUNNEL_INTERFACE:-he-sub2api}
+    volumes:
+      - ipv6-egress-control:/control
+
+volumes:
+  ipv6-egress-control:
+    name: ${IPV6_EGRESS_CONTROL_VOLUME:-sub2api-ipv6-egress-control}

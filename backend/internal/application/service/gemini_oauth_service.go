@@ -759,6 +759,7 @@ func (s *GeminiOAuthService) RefreshAccountToken(ctx context.Context, account *A
 			proxyURL = proxy.URL()
 		}
 	}
+	ctx = withAccountEgressContext(ctx, account, proxyURL, s.cfg)
 
 	tokenInfo, err := s.RefreshToken(ctx, oauthType, refreshToken, proxyURL)
 	// Backward compatibility:
@@ -1045,7 +1046,7 @@ func fetchProjectIDFromResourceManager(ctx context.Context, accessToken, proxyUR
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("User-Agent", geminicli.GeminiCLIUserAgent)
 
-	client, err := httpclient.GetClient(httpclient.Options{
+	client, err := httpclient.GetClientForContext(ctx, httpclient.Options{
 		ProxyURL:           strings.TrimSpace(proxyURL),
 		Timeout:            30 * time.Second,
 		ValidateResolvedIP: true,

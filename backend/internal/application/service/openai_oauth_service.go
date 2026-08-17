@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
 )
@@ -18,6 +19,7 @@ type OpenAIOAuthService struct {
 	proxyRepo            ProxyRepository
 	oauthClient          OpenAIOAuthClient
 	privacyClientFactory PrivacyClientFactory // 用于调用 chatgpt.com/backend-api（ImpersonateChrome）
+	cfg                  *config.Config
 }
 
 // NewOpenAIOAuthService creates a new OpenAI OAuth service
@@ -349,6 +351,7 @@ func (s *OpenAIOAuthService) RefreshAccountToken(ctx context.Context, account *A
 			proxyURL = proxy.URL()
 		}
 	}
+	ctx = withAccountEgressContext(ctx, account, proxyURL, s.cfg)
 
 	accessToken := account.GetCredential("access_token")
 	if account.IsOpenAIPersonalAccessToken() {

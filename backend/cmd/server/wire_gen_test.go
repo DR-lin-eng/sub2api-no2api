@@ -111,6 +111,7 @@ func TestProvideCleanup_WithMinimalDependencies_NoPanic(t *testing.T) {
 		nil, // clusterRelease
 		nil, // cluster
 		nil, // clientIPResolver
+		nil, // egressService
 	)
 
 	require.NotPanics(t, func() {

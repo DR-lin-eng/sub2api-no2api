@@ -22,18 +22,18 @@ func NewClaudeOAuthClient() service.ClaudeOAuthClient {
 	return &claudeOAuthService{
 		baseURL:       "https://claude.ai",
 		tokenURL:      oauth.TokenURL,
-		clientFactory: createReqClient,
+		clientFactory: createReqClientForContext,
 	}
 }
 
 type claudeOAuthService struct {
 	baseURL       string
 	tokenURL      string
-	clientFactory func(proxyURL string) (*req.Client, error)
+	clientFactory func(ctx context.Context, proxyURL string) (*req.Client, error)
 }
 
 func (s *claudeOAuthService) GetOrganizationUUID(ctx context.Context, sessionKey, proxyURL string) (string, error) {
-	client, err := s.clientFactory(proxyURL)
+	client, err := s.clientFactory(ctx, proxyURL)
 	if err != nil {
 		return "", fmt.Errorf("create HTTP client: %w", err)
 	}
@@ -92,7 +92,7 @@ func (s *claudeOAuthService) GetOrganizationUUID(ctx context.Context, sessionKey
 }
 
 func (s *claudeOAuthService) GetAuthorizationCode(ctx context.Context, sessionKey, orgUUID, scope, codeChallenge, state, proxyURL string) (string, error) {
-	client, err := s.clientFactory(proxyURL)
+	client, err := s.clientFactory(ctx, proxyURL)
 	if err != nil {
 		return "", fmt.Errorf("create HTTP client: %w", err)
 	}
@@ -172,7 +172,7 @@ func (s *claudeOAuthService) GetAuthorizationCode(ctx context.Context, sessionKe
 }
 
 func (s *claudeOAuthService) ExchangeCodeForToken(ctx context.Context, code, codeVerifier, state, proxyURL string, isSetupToken bool) (*oauth.TokenResponse, error) {
-	client, err := s.clientFactory(proxyURL)
+	client, err := s.clientFactory(ctx, proxyURL)
 	if err != nil {
 		return nil, fmt.Errorf("create HTTP client: %w", err)
 	}
@@ -228,7 +228,7 @@ func (s *claudeOAuthService) ExchangeCodeForToken(ctx context.Context, code, cod
 }
 
 func (s *claudeOAuthService) RefreshToken(ctx context.Context, refreshToken, proxyURL string) (*oauth.TokenResponse, error) {
-	client, err := s.clientFactory(proxyURL)
+	client, err := s.clientFactory(ctx, proxyURL)
 	if err != nil {
 		return nil, fmt.Errorf("create HTTP client: %w", err)
 	}
@@ -261,7 +261,7 @@ func (s *claudeOAuthService) RefreshToken(ctx context.Context, refreshToken, pro
 	return &tokenResp, nil
 }
 
-func createReqClient(proxyURL string) (*req.Client, error) {
+func createReqClientForContext(ctx context.Context, proxyURL string) (*req.Client, error) {
 	// 禁用 CookieJar，确保每次授权都是干净的会话
 	client := req.C().
 		SetTimeout(60 * time.Second).
@@ -274,6 +274,9 @@ func createReqClient(proxyURL string) (*req.Client, error) {
 	}
 	if trimmed != "" {
 		client.SetProxyURL(trimmed)
+	}
+	if err := applyContextEgressToReqClient(ctx, client, trimmed); err != nil {
+		return nil, err
 	}
 
 	return instrumentReqClient(client), nil
