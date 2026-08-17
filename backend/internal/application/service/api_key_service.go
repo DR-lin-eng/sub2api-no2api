@@ -448,6 +448,7 @@ type APIKeyService struct {
 	authLookupRejected        atomic.Uint64
 	authLookupInFlight        atomic.Int64
 	invalidAuthAbuse          *invalidAuthAbuseLimiter
+	invalidAuthEdge           InvalidAuthEdgeBlocker
 	authInvalidationStart     sync.Once
 	authInvalidationStop      sync.Once
 	authInvalidationCancel    context.CancelFunc
@@ -534,6 +535,11 @@ func (s *APIKeyService) SetConcurrencyService(concurrencyService *ConcurrencySer
 
 func (s *APIKeyService) SetLastUsedScheduler(scheduler APIKeyLastUsedScheduler) {
 	s.lastUsedScheduler = scheduler
+}
+
+// SetInvalidAuthEdgeBlocker attaches the optional asynchronous edge integration.
+func (s *APIKeyService) SetInvalidAuthEdgeBlocker(blocker InvalidAuthEdgeBlocker) {
+	s.invalidAuthEdge = blocker
 }
 
 func (s *APIKeyService) compileAPIKeyIPRules(apiKey *APIKey) {

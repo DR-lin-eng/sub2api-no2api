@@ -16,7 +16,7 @@ sequenceDiagram
     participant Billing as Usage/Billing Pipeline
 
     Client->>Route: API Key request
-    Route->>Route: body limit, request ID, auth, ordered group eligibility
+    Route->>Route: body limit, request ID, invalid-auth guard, auth, ordered group eligibility
     Route->>Handler: protocol-specific handler
     Handler->>Handler: parse, validate, security checks
     Handler->>Scheduler: acquire user slot and select account
@@ -56,6 +56,7 @@ Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换
 ### 关键不变量
 
 - API Key auth 完成后，handler 从 context 读取完整 auth subject，不自行重查一套不一致的身份。
+- 缺失、畸形、废弃 query 或已确认无效的 API Key 才累计入口滥用次数；数据库、Redis 与鉴权过载故障不得消耗额度。达到阈值时先启用本地临时封禁，再以有界异步队列同步 Cloudflare，外部 API 不得阻塞请求路径。管理员可选择逐条 Zone IP Access Rule，或由 Redis 共享到期状态、LeaderLock 串行更新的多 WAF 规则分片；WAF 变更按间隔合并，无状态变化不访问 Cloudflare。Cloudflare 凭据只能从管理端写入加密持久设置，不从运行配置或环境变量读取。
 - API Key 的 `group_bindings` 按顺序保存候选，兼容字段 `group_id` 镜像首项。认证时跳过停用、失权或超过倍率保护上限的分组；账号选择只在当前候选返回“无可用账号”后尝试下一项。
 - 多分组当前只允许同平台的标准计费分组。调度命中后，请求内 API Key、会话释放、日志与用量结算都必须使用实际命中的分组，不能继续沿用首项。
 - 获取用户槽位后必须再次检查计费资格；排队期间余额、订阅或平台额度可能变化。

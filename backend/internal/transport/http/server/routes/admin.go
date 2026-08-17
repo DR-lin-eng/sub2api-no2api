@@ -318,6 +318,8 @@ func registerOpsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		// Bounded ingress-admission rejection aggregates.
 		ops.GET("/ingress-rejections", h.Admin.Ops.ListIngressRejects)
 		ops.GET("/ingress-rejections/health", h.Admin.Ops.GetIngressRejectHealth)
+		ops.GET("/ingress-rejections/cloudflare", h.Admin.Ops.GetCloudflareIngressSettings)
+		ops.PUT("/ingress-rejections/cloudflare", h.Admin.Ops.UpdateCloudflareIngressSettings)
 		ops.GET("/auth-cache-invalidation/health", h.Admin.Ops.GetAuthCacheInvalidationHealth)
 
 		// Upstream errors (independent upstream failures)

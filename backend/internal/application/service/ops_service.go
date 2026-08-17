@@ -64,6 +64,7 @@ type OpsService struct {
 	ingressRejectAggregator     *OpsIngressRejectAggregator
 	authCacheInvalidationWorker *AuthCacheInvalidationWorker
 	apiKeyService               *APIKeyService
+	cloudflareIngressSettings   *CloudflareIngressSettingService
 	usageBillingQueueAdmin      UsageBillingQueueAdmin
 
 	// cleanupReloader 由 wire 在 OpsCleanupService 构造完成后通过 SetCleanupReloader 注入。

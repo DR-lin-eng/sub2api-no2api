@@ -109,6 +109,405 @@
         </div>
       </section>
 
+      <section class="card overflow-hidden" data-test="cloudflare-edge">
+        <div class="flex flex-col justify-between gap-3 border-b border-gray-200 px-4 py-4 dark:border-dark-700 sm:flex-row sm:items-center sm:px-5">
+          <div class="flex min-w-0 items-start gap-3">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-orange-700 dark:bg-orange-900/35 dark:text-orange-300">
+              <Icon name="cloud" size="md" :stroke-width="2" />
+            </div>
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+                  {{ t('admin.ingressRisk.cloudflare.title') }}
+                </h3>
+                <span class="rounded-full px-2 py-0.5 text-xs font-semibold" :class="cloudflareBadgeClass">
+                  {{ t(`admin.ingressRisk.cloudflare.status.${cloudflareStatus}`) }}
+                </span>
+              </div>
+              <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-dark-400">
+                {{ t(`admin.ingressRisk.cloudflare.description.${cloudflareStatus}`) }}
+              </p>
+            </div>
+          </div>
+          <span class="text-xs text-gray-500 dark:text-dark-400">
+            {{ cloudflareLastSuccess }}
+          </span>
+        </div>
+
+        <div class="grid grid-cols-2 divide-x divide-y divide-gray-200 dark:divide-dark-700 sm:grid-cols-3 xl:grid-cols-6 xl:divide-y-0">
+          <div v-for="metric in cloudflareMetrics" :key="metric.key" class="min-w-0 px-4 py-4 sm:px-5">
+            <p class="text-xs font-medium text-gray-500 dark:text-dark-400">{{ metric.label }}</p>
+            <p class="mt-2 truncate text-lg font-semibold tabular-nums text-gray-900 dark:text-white" :title="metric.value">
+              {{ metric.value }}
+            </p>
+          </div>
+        </div>
+
+        <div
+          v-if="cloudflareMode === 'waf_custom_rules' && cloudflareWAFHealth"
+          class="border-t border-gray-200 bg-gray-50/70 dark:border-dark-700 dark:bg-dark-900/30"
+          data-test="cloudflare-waf-analytics"
+        >
+          <div class="flex flex-col justify-between gap-1 px-4 pt-4 sm:flex-row sm:items-end sm:px-5">
+            <div>
+              <h4 class="text-sm font-semibold text-gray-900 dark:text-white">
+                {{ t('admin.ingressRisk.cloudflare.waf.title') }}
+              </h4>
+              <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">
+                {{ t('admin.ingressRisk.cloudflare.waf.description') }}
+              </p>
+            </div>
+            <span v-if="cloudflareWAFHealth.last_synced_at" class="text-xs text-gray-500 dark:text-dark-400">
+              {{ t('admin.ingressRisk.cloudflare.waf.lastSynced', { time: formatDateTime(cloudflareWAFHealth.last_synced_at) }) }}
+            </span>
+          </div>
+          <div class="mt-3 grid grid-cols-2 divide-x divide-y divide-gray-200 border-t border-gray-200 dark:divide-dark-700 dark:border-dark-700 sm:grid-cols-3 xl:grid-cols-6 xl:divide-y-0">
+            <div v-for="metric in wafAnalyticsMetrics" :key="metric.key" class="min-w-0 px-4 py-3 sm:px-5">
+              <p class="text-xs font-medium text-gray-500 dark:text-dark-400">{{ metric.label }}</p>
+              <p class="mt-1.5 truncate text-base font-semibold tabular-nums text-gray-900 dark:text-white" :title="metric.value">
+                {{ metric.value }}
+              </p>
+            </div>
+          </div>
+          <div
+            v-if="cloudflareWAFHostnameStats.length > 1"
+            class="border-t border-gray-200 px-4 py-3 dark:border-dark-700 sm:px-5"
+            data-test="cloudflare-waf-hostname-stats"
+          >
+            <div class="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-x-4 border-b border-gray-200 pb-2 text-xs font-medium text-gray-500 dark:border-dark-700 dark:text-dark-400">
+              <span>{{ t('admin.ingressRisk.cloudflare.waf.hostname') }}</span>
+              <span class="text-right">{{ t('admin.ingressRisk.cloudflare.waf.requests') }}</span>
+              <span class="text-right">{{ t('admin.ingressRisk.cloudflare.waf.blocks') }}</span>
+            </div>
+            <div
+              v-for="item in cloudflareWAFHostnameStats"
+              :key="item.hostname"
+              class="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-x-4 border-b border-gray-100 py-2 text-sm last:border-b-0 dark:border-dark-800"
+            >
+              <span class="truncate font-mono text-gray-700 dark:text-dark-200" :title="item.hostname">{{ item.hostname }}</span>
+              <span class="min-w-20 text-right tabular-nums text-gray-900 dark:text-white">{{ formatNumber(item.requests_24h) }}</span>
+              <span class="min-w-20 text-right tabular-nums text-gray-900 dark:text-white">{{ formatNumber(item.blocked_requests_24h) }}</span>
+            </div>
+          </div>
+          <div
+            v-if="cloudflareWAFHealth.analytics_error"
+            class="border-t border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/25 dark:text-amber-300 sm:px-5"
+            role="status"
+          >
+            {{ cloudflareWAFHealth.analytics_error }}
+          </div>
+        </div>
+
+        <div
+          v-if="cloudflareHealth?.last_error"
+          class="border-t border-red-200 bg-red-50 px-4 py-3 font-mono text-xs text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300 sm:px-5"
+          role="alert"
+        >
+          {{ cloudflareHealth.last_error }}
+        </div>
+
+        <div class="border-t border-gray-200 px-4 py-4 dark:border-dark-700 sm:px-5" data-test="cloudflare-settings">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="min-w-0">
+              <h4 class="text-sm font-semibold text-gray-900 dark:text-white">
+                {{ t('admin.ingressRisk.cloudflare.settings.title') }}
+              </h4>
+              <p class="mt-1 truncate text-xs text-gray-500 dark:text-dark-400" :title="cloudflareSettingsSummary">
+                {{ cloudflareSettingsSummary }}
+              </p>
+            </div>
+            <div class="flex shrink-0 items-center gap-2">
+              <span class="text-sm font-medium text-gray-700 dark:text-dark-200">
+                {{ t('admin.ingressRisk.cloudflare.settings.enabled') }}
+              </span>
+              <Toggle
+                v-model="cloudflareForm.enabled"
+                :disabled="cloudflareSettingsLoading || cloudflareSettingsSaving || !cloudflareSettings"
+                data-test="cloudflare-enabled"
+                @update:model-value="cloudflareSettingsExpanded = true"
+              />
+              <button
+                type="button"
+                class="btn btn-secondary ml-1 h-9 px-3"
+                :aria-expanded="cloudflareSettingsExpanded"
+                data-test="toggle-cloudflare-settings"
+                @click="cloudflareSettingsExpanded = !cloudflareSettingsExpanded"
+              >
+                <Icon
+                  name="chevronDown"
+                  size="sm"
+                  class="transition-transform"
+                  :class="cloudflareSettingsExpanded && 'rotate-180'"
+                />
+                {{ t(cloudflareSettingsExpanded
+                  ? 'admin.ingressRisk.cloudflare.settings.hideSettings'
+                  : 'admin.ingressRisk.cloudflare.settings.showSettings') }}
+              </button>
+            </div>
+          </div>
+
+          <div v-if="cloudflareSettingsExpanded && cloudflareSettingsLoading" class="mt-4 flex items-center gap-2 text-sm text-gray-500 dark:text-dark-400">
+            <Icon name="refresh" size="sm" class="animate-spin" />
+            {{ t('admin.ingressRisk.cloudflare.settings.loading') }}
+          </div>
+
+          <template v-else-if="cloudflareSettingsExpanded && cloudflareSettings">
+            <div
+              v-if="cloudflareSettingsError || cloudflareSettingsSaved"
+              class="mt-4 rounded-md border px-3 py-2 text-sm"
+              :class="cloudflareSettingsError
+                ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300'
+                : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/25 dark:text-emerald-300'"
+              role="status"
+            >
+              {{ cloudflareSettingsError || cloudflareSettingsSaved }}
+            </div>
+
+            <div
+              v-if="cloudflareForm.enabled && authHealth && !authHealth.invalid_abuse.enabled"
+              class="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/25 dark:text-amber-300"
+              role="alert"
+            >
+              {{ t('admin.ingressRisk.cloudflare.settings.localLimiterRequired') }}
+            </div>
+
+            <fieldset class="mt-4" :disabled="cloudflareCredentialsLocked || cloudflareSettingsSaving">
+              <legend class="input-label">
+                {{ t('admin.ingressRisk.cloudflare.settings.mode') }}
+              </legend>
+              <div class="grid grid-cols-2 gap-2" role="radiogroup">
+                <label
+                  v-for="option in cloudflareModeOptions"
+                  :key="option.value"
+                  class="cursor-pointer rounded-md border px-3 py-2.5 text-center transition-colors"
+                  :class="cloudflareForm.mode === option.value
+                    ? 'border-primary-500 bg-primary-50 text-primary-800 dark:border-primary-500 dark:bg-primary-950/30 dark:text-primary-200'
+                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 dark:border-dark-700 dark:bg-dark-900 dark:text-dark-200 dark:hover:border-dark-600'"
+                >
+                  <input
+                    v-model="cloudflareForm.mode"
+                    type="radio"
+                    name="cloudflare-ingress-mode"
+                    :value="option.value"
+                    class="sr-only"
+                    :data-test="`cloudflare-mode-${option.value}`"
+                  />
+                  <span class="block text-sm font-semibold">{{ option.label }}</span>
+                </label>
+              </div>
+            </fieldset>
+
+            <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div>
+                <label class="input-label" for="cloudflare-zone-id">
+                  {{ t('admin.ingressRisk.cloudflare.settings.zoneId') }}
+                </label>
+                <input
+                  id="cloudflare-zone-id"
+                  v-model.trim="cloudflareForm.zone_id"
+                  type="text"
+                  maxlength="32"
+                  class="input font-mono"
+                  :disabled="cloudflareCredentialsLocked || cloudflareSettingsSaving"
+                  :placeholder="t('admin.ingressRisk.cloudflare.settings.zoneIdPlaceholder')"
+                  data-test="cloudflare-zone-id"
+                />
+              </div>
+
+              <div>
+                <div class="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                  <label class="text-sm font-medium text-gray-700 dark:text-dark-200" for="cloudflare-api-token">
+                    {{ t('admin.ingressRisk.cloudflare.settings.apiToken') }}
+                  </label>
+                  <span
+                    class="rounded-full px-2 py-0.5 text-xs font-semibold"
+                    :class="cloudflareSettings.api_token_configured
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/35 dark:text-emerald-300'
+                      : 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-dark-300'"
+                  >
+                    {{ t(`admin.ingressRisk.cloudflare.settings.${cloudflareSettings.api_token_configured ? 'tokenConfigured' : 'tokenMissing'}`) }}
+                  </span>
+                </div>
+                <input
+                  id="cloudflare-api-token"
+                  v-model="cloudflareForm.api_token"
+                  type="password"
+                  autocomplete="new-password"
+                  class="input font-mono"
+                  :disabled="cloudflareCredentialsLocked || cloudflareSettingsSaving"
+                  :placeholder="t('admin.ingressRisk.cloudflare.settings.apiTokenPlaceholder')"
+                  data-test="cloudflare-api-token"
+                />
+              </div>
+            </div>
+
+            <div
+              v-if="cloudflareForm.mode === 'waf_custom_rules'"
+              class="mt-4 grid grid-cols-1 gap-4 border-t border-gray-100 pt-4 dark:border-dark-700 lg:grid-cols-2"
+            >
+              <div>
+                <label class="input-label" for="cloudflare-waf-hostname">
+                  {{ t('admin.ingressRisk.cloudflare.settings.wafHostname') }}
+                </label>
+                <textarea
+                  id="cloudflare-waf-hostname"
+                  v-model="cloudflareForm.waf_hostnames_text"
+                  rows="3"
+                  class="input min-h-20 resize-y font-mono"
+                  :disabled="cloudflareCredentialsLocked || cloudflareSettingsSaving"
+                  :placeholder="t('admin.ingressRisk.cloudflare.settings.wafHostnamePlaceholder')"
+                  data-test="cloudflare-waf-hostname"
+                ></textarea>
+              </div>
+              <div>
+                <label class="input-label" for="cloudflare-waf-rule-ids">
+                  {{ t('admin.ingressRisk.cloudflare.settings.wafRuleIds') }}
+                </label>
+                <textarea
+                  id="cloudflare-waf-rule-ids"
+                  v-model="cloudflareForm.waf_rule_ids_text"
+                  rows="4"
+                  class="input min-h-24 resize-y font-mono"
+                  :disabled="cloudflareCredentialsLocked || cloudflareSettingsSaving"
+                  :placeholder="t('admin.ingressRisk.cloudflare.settings.wafRuleIdsPlaceholder')"
+                  data-test="cloudflare-waf-rule-ids"
+                ></textarea>
+              </div>
+            </div>
+
+            <p v-if="cloudflareCredentialsLocked" class="mt-2 text-xs leading-5 text-amber-700 dark:text-amber-300">
+              {{ t('admin.ingressRisk.cloudflare.settings.credentialsLocked') }}
+            </p>
+
+            <button
+              type="button"
+              class="mt-4 flex w-full items-center justify-between border-t border-gray-100 pt-3 text-sm font-medium text-gray-700 dark:border-dark-700 dark:text-dark-200"
+              :aria-expanded="cloudflareAdvancedExpanded"
+              data-test="toggle-cloudflare-advanced"
+              @click="cloudflareAdvancedExpanded = !cloudflareAdvancedExpanded"
+            >
+              <span>{{ t('admin.ingressRisk.cloudflare.settings.advanced') }}</span>
+              <Icon
+                name="chevronDown"
+                size="sm"
+                class="transition-transform"
+                :class="cloudflareAdvancedExpanded && 'rotate-180'"
+              />
+            </button>
+
+            <div v-if="cloudflareAdvancedExpanded" class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div>
+                <label class="input-label" for="cloudflare-timeout">
+                  {{ t('admin.ingressRisk.cloudflare.settings.requestTimeout') }}
+                </label>
+                <input
+                  id="cloudflare-timeout"
+                  v-model.number="cloudflareForm.request_timeout_seconds"
+                  type="number"
+                  min="1"
+                  max="30"
+                  class="input"
+                  :disabled="cloudflareSettingsSaving"
+                />
+              </div>
+              <div v-if="cloudflareForm.mode === 'waf_custom_rules'">
+                <label class="input-label" for="cloudflare-waf-sync-interval">
+                  {{ t('admin.ingressRisk.cloudflare.settings.wafSyncInterval') }}
+                </label>
+                <input
+                  id="cloudflare-waf-sync-interval"
+                  v-model.number="cloudflareForm.waf_sync_interval_seconds"
+                  type="number"
+                  min="5"
+                  max="300"
+                  class="input"
+                  :disabled="cloudflareSettingsSaving"
+                />
+              </div>
+              <div v-if="cloudflareForm.mode === 'waf_custom_rules'">
+                <label class="input-label" for="cloudflare-analytics-interval">
+                  {{ t('admin.ingressRisk.cloudflare.settings.analyticsInterval') }}
+                </label>
+                <input
+                  id="cloudflare-analytics-interval"
+                  v-model.number="cloudflareForm.analytics_interval_seconds"
+                  type="number"
+                  min="60"
+                  max="3600"
+                  class="input"
+                  :disabled="cloudflareSettingsSaving"
+                />
+              </div>
+              <div>
+                <label class="input-label" for="cloudflare-queue-capacity">
+                  {{ t('admin.ingressRisk.cloudflare.settings.queueCapacity') }}
+                </label>
+                <input
+                  id="cloudflare-queue-capacity"
+                  v-model.number="cloudflareForm.queue_capacity"
+                  type="number"
+                  min="16"
+                  max="100000"
+                  class="input"
+                  :disabled="cloudflareSettingsSaving"
+                />
+              </div>
+              <div>
+                <label class="input-label" for="cloudflare-rule-limit">
+                  {{ t(cloudflareForm.mode === 'waf_custom_rules'
+                    ? 'admin.ingressRisk.cloudflare.settings.maxActiveEntries'
+                    : 'admin.ingressRisk.cloudflare.settings.maxActiveRules') }}
+                </label>
+                <input
+                  id="cloudflare-rule-limit"
+                  v-model.number="cloudflareForm.max_active_rules"
+                  type="number"
+                  min="1"
+                  max="50000"
+                  class="input"
+                  :disabled="cloudflareSettingsSaving"
+                />
+              </div>
+              <div>
+                <label class="input-label" for="cloudflare-reconcile-interval">
+                  {{ t('admin.ingressRisk.cloudflare.settings.reconcileInterval') }}
+                </label>
+                <input
+                  id="cloudflare-reconcile-interval"
+                  v-model.number="cloudflareForm.reconcile_interval_seconds"
+                  type="number"
+                  min="30"
+                  max="3600"
+                  class="input"
+                  :disabled="cloudflareSettingsSaving"
+                />
+              </div>
+            </div>
+
+            <div class="mt-4 flex justify-end border-t border-gray-100 pt-4 dark:border-dark-700">
+              <button
+                type="button"
+                class="btn btn-primary"
+                :disabled="cloudflareSettingsSaving || Boolean(cloudflareForm.enabled && authHealth && !authHealth.invalid_abuse.enabled)"
+                data-test="save-cloudflare-settings"
+                @click="saveCloudflareSettings"
+              >
+                <Icon :name="cloudflareSettingsSaving ? 'refresh' : 'check'" size="sm" :class="cloudflareSettingsSaving && 'animate-spin'" />
+                {{ t(cloudflareSettingsSaving ? 'admin.ingressRisk.cloudflare.settings.saving' : 'admin.ingressRisk.cloudflare.settings.save') }}
+              </button>
+            </div>
+          </template>
+
+          <div
+            v-else-if="cloudflareSettingsError"
+            class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300"
+            role="alert"
+          >
+            {{ cloudflareSettingsError }}
+          </div>
+        </div>
+      </section>
+
       <section class="card overflow-hidden">
         <div class="border-b border-gray-200 px-4 py-4 dark:border-dark-700 sm:px-5">
           <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
@@ -293,11 +692,14 @@ import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import DataTable from '@/common/widgets/data/DataTable.vue'
 import Pagination from '@/common/widgets/data/Pagination.vue'
 import Select from '@/common/widgets/forms/Select.vue'
+import Toggle from '@/common/widgets/forms/Toggle.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import type { Column } from '@/common/types/uiTypes'
 import {
   ingressRiskAPI,
   type AuthCacheHealth,
+  type CloudflareIngressMode,
+  type CloudflareIngressSettings,
   type IngressCollectorHealth,
   type IngressRejection,
   type IngressRejectionQuery,
@@ -308,6 +710,7 @@ import { formatDateTime, formatNumber } from '@/core/utils/format'
 const { t } = useI18n()
 
 type HealthLevel = 'healthy' | 'warning' | 'critical' | 'unknown'
+type CloudflareStatus = 'disabled' | 'cleanup' | 'healthy' | 'warning' | 'stopped' | 'unknown'
 type DisplayIcon = 'key' | 'ban' | 'shield' | 'globe' | 'database' | 'server' | 'sync' | 'clock'
 
 const REASONS = [
@@ -343,8 +746,57 @@ const healthError = ref('')
 const collectorHealth = ref<IngressCollectorHealth | null>(null)
 const authHealth = ref<AuthCacheHealth | null>(null)
 const lastUpdated = ref<Date | null>(null)
+const cloudflareSettings = ref<CloudflareIngressSettings | null>(null)
+const cloudflareSettingsLoading = ref(false)
+const cloudflareSettingsSaving = ref(false)
+const cloudflareSettingsError = ref('')
+const cloudflareSettingsSaved = ref('')
+const cloudflareSettingsExpanded = ref(false)
+const cloudflareAdvancedExpanded = ref(false)
+const cloudflareForm = reactive({
+  enabled: false,
+  mode: 'zone_access_rules' as CloudflareIngressMode,
+  zone_id: '',
+  api_token: '',
+  waf_hostnames_text: '',
+  waf_rule_ids_text: '',
+  waf_sync_interval_seconds: 15,
+  analytics_interval_seconds: 300,
+  request_timeout_seconds: 5,
+  queue_capacity: 1024,
+  max_active_rules: 1000,
+  reconcile_interval_seconds: 300,
+})
 
 const refreshing = computed(() => recordsLoading.value || healthLoading.value)
+const cloudflareHealth = computed(() => authHealth.value?.invalid_abuse.cloudflare)
+const cloudflareWAFHealth = computed(() => cloudflareHealth.value?.waf)
+const cloudflareWAFHostnameStats = computed(() => cloudflareWAFHealth.value?.hostname_stats ?? [])
+const cloudflareMode = computed<CloudflareIngressMode>(() => cloudflareHealth.value?.mode
+  ?? cloudflareSettings.value?.mode
+  ?? 'zone_access_rules')
+const cloudflareCredentialsLocked = computed(() => Boolean(
+  cloudflareSettings.value?.enabled ||
+  (cloudflareHealth.value?.active_rules ?? 0) > 0 ||
+  (cloudflareHealth.value?.queue_depth ?? 0) > 0 ||
+  (cloudflareHealth.value?.waf?.synced_entries ?? 0) > 0 ||
+  (cloudflareHealth.value?.waf?.overflow_entries ?? 0) > 0,
+))
+const cloudflareSettingsSummary = computed(() => {
+  const settings = cloudflareSettings.value
+  if (!settings) return t('admin.ingressRisk.cloudflare.settings.loading')
+  if (settings.mode === 'waf_custom_rules') {
+    const hostCount = settings.waf_hostnames?.length || (settings.waf_hostname ? 1 : 0)
+    return t('admin.ingressRisk.cloudflare.settings.summaryWaf', {
+      hosts: formatNumber(hostCount),
+      rules: formatNumber(settings.waf_rule_ids?.length ?? 0),
+      interval: formatNumber(settings.waf_sync_interval_seconds ?? 15),
+    })
+  }
+  return t('admin.ingressRisk.cloudflare.settings.summaryAccess', {
+    limit: formatNumber(settings.max_active_rules),
+  })
+})
 const currentPageRequests = computed(() => records.value.reduce((sum, row) => sum + row.request_count, 0))
 const lastUpdatedLabel = computed(() => lastUpdated.value
   ? t('admin.ingressRisk.updatedAt', { time: formatDateTime(lastUpdated.value) })
@@ -366,6 +818,16 @@ const protocolOptions = computed(() => [
   { value: '', label: t('admin.ingressRisk.filters.all') },
   ...PROTOCOLS.map((value) => ({ value, label: protocolLabel(value) })),
 ])
+const cloudflareModeOptions = computed<Array<{ value: CloudflareIngressMode; label: string }>>(() => [
+  {
+    value: 'zone_access_rules',
+    label: t('admin.ingressRisk.cloudflare.settings.modes.zoneAccessRules'),
+  },
+  {
+    value: 'waf_custom_rules',
+    label: t('admin.ingressRisk.cloudflare.settings.modes.wafCustomRules'),
+  },
+])
 
 const columns = computed<Column[]>(() => [
   { key: 'bucket_start', label: t('admin.ingressRisk.table.bucket') },
@@ -381,11 +843,16 @@ const overallHealth = computed<HealthLevel>(() => {
   const collector = collectorHealth.value
   const auth = authHealth.value
   if (!collector || !auth) return 'unknown'
-  if (!collector.accepting || !auth.subscriber.connected || !auth.outbox.running) return 'critical'
+  const cloudflare = auth.invalid_abuse.cloudflare
+  if (!collector.accepting || !auth.subscriber.connected || !auth.outbox.running || (cloudflare?.enabled && !cloudflare.running)) return 'critical'
   if (
     collector.flush_failure_count > 0 || collector.dropped_count > 0 || collector.overflowed_count > 0 ||
     collector.pending_batches > 0 || auth.lookup.rejected > 0 || auth.outbox.failures > 0 ||
-    auth.outbox.pending > 0 || auth.invalid_abuse.overflowed > 0 || auth.invalid_abuse.global_blocked > 0
+    auth.outbox.pending > 0 || auth.invalid_abuse.overflowed > 0 || auth.invalid_abuse.global_blocked > 0 ||
+    (cloudflare?.enabled && (
+      cloudflare.queue_depth > 0 || cloudflare.dropped > 0 || Boolean(cloudflare.last_error) ||
+      (cloudflare.waf?.overflow_entries ?? 0) > 0 || Boolean(cloudflare.waf?.analytics_error)
+    ))
   ) return 'warning'
   return 'healthy'
 })
@@ -421,7 +888,7 @@ const healthSignals = computed(() => {
   ] as Array<{ key: string; label: string; value: string; level: HealthLevel }>
 })
 
-const healthLastError = computed(() => collectorHealth.value?.last_error || authHealth.value?.outbox.last_error || authHealth.value?.outbox.stats_error || '')
+const healthLastError = computed(() => collectorHealth.value?.last_error || authHealth.value?.outbox.last_error || authHealth.value?.outbox.stats_error || cloudflareHealth.value?.last_error || '')
 const healthIcon = computed(() => overallHealth.value === 'healthy' ? 'checkCircle' : overallHealth.value === 'unknown' ? 'clock' : 'exclamationTriangle')
 const healthBandClass = computed(() => ({
   healthy: 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/60 dark:bg-emerald-950/20',
@@ -441,6 +908,61 @@ const healthBadgeClass = computed(() => ({
   critical: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
   unknown: 'bg-gray-200 text-gray-600 dark:bg-dark-700 dark:text-dark-300',
 })[overallHealth.value])
+
+const cloudflareStatus = computed<CloudflareStatus>(() => {
+  const health = cloudflareHealth.value
+  if (!authHealth.value) return 'unknown'
+  if (!health?.enabled) return health?.running && health.active_rules > 0 ? 'cleanup' : 'disabled'
+  if (!health.running) return 'stopped'
+  if (
+    health.queue_depth > 0 || health.dropped > 0 || health.last_error ||
+    (health.waf?.overflow_entries ?? 0) > 0 || health.waf?.analytics_error
+  ) return 'warning'
+  return 'healthy'
+})
+const cloudflareBadgeClass = computed(() => ({
+  healthy: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+  warning: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+  cleanup: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+  stopped: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+  disabled: 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-dark-300',
+  unknown: 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-dark-300',
+})[cloudflareStatus.value])
+const cloudflareLastSuccess = computed(() => cloudflareHealth.value?.last_success_at
+  ? t('admin.ingressRisk.cloudflare.lastSuccess', { time: formatDateTime(cloudflareHealth.value.last_success_at) })
+  : t('admin.ingressRisk.cloudflare.noSuccess'))
+const cloudflareMetrics = computed(() => {
+  const health = cloudflareHealth.value
+  const value = (count?: number) => health ? formatNumber(count ?? 0) : '—'
+  return [
+    { key: 'active', label: t('admin.ingressRisk.cloudflare.metrics.active'), value: value(health?.active_rules) },
+    { key: 'queue', label: t('admin.ingressRisk.cloudflare.metrics.queue'), value: health ? `${formatNumber(health.queue_depth)} / ${formatNumber(health.queue_capacity)}` : '—' },
+    { key: 'enqueued', label: t('admin.ingressRisk.cloudflare.metrics.enqueued'), value: value(health?.enqueued) },
+    { key: 'applied', label: t('admin.ingressRisk.cloudflare.metrics.applied'), value: value(health?.applied) },
+    { key: 'released', label: t('admin.ingressRisk.cloudflare.metrics.released'), value: value(health?.released) },
+    { key: 'failures', label: t('admin.ingressRisk.cloudflare.metrics.failures'), value: health ? `${formatNumber(health.failures)} / ${formatNumber(health.dropped)}` : '—' },
+  ]
+})
+const wafAnalyticsMetrics = computed(() => {
+  const waf = cloudflareWAFHealth.value
+  if (!waf) return []
+  return [
+    {
+      key: 'hostname',
+      label: t('admin.ingressRisk.cloudflare.waf.hostname'),
+      value: (waf.hostnames?.length ? waf.hostnames : [waf.hostname].filter(Boolean)).join(', ') || '—',
+    },
+    { key: 'requests', label: t('admin.ingressRisk.cloudflare.waf.hostnameRequests24h'), value: formatNumber(waf.hostname_requests_24h) },
+    { key: 'blocked', label: t('admin.ingressRisk.cloudflare.waf.blockedRequests24h'), value: formatNumber(waf.blocked_requests_24h) },
+    { key: 'rules', label: t('admin.ingressRisk.cloudflare.waf.rulesAndEntries'), value: `${formatNumber(waf.rule_count)} / ${formatNumber(waf.synced_entries)}` },
+    { key: 'overflow', label: t('admin.ingressRisk.cloudflare.waf.overflow'), value: formatNumber(waf.overflow_entries) },
+    {
+      key: 'updated',
+      label: t('admin.ingressRisk.cloudflare.waf.analyticsUpdated'),
+      value: waf.analytics_updated_at ? formatDateTime(waf.analytics_updated_at) : '—',
+    },
+  ]
+})
 
 const metricCards = computed<Array<{ key: string; label: string; value: string; hint: string; icon: DisplayIcon; iconClass: string }>>(() => {
   const abuse = authHealth.value?.invalid_abuse
@@ -577,8 +1099,100 @@ async function loadHealth() {
   healthLoading.value = false
 }
 
+function applyCloudflareSettings(settings: CloudflareIngressSettings) {
+  cloudflareSettings.value = settings
+  cloudflareForm.enabled = settings.enabled
+  cloudflareForm.mode = settings.mode ?? 'zone_access_rules'
+  cloudflareForm.zone_id = settings.zone_id
+  cloudflareForm.api_token = ''
+  const hostnames = settings.waf_hostnames?.length
+    ? settings.waf_hostnames
+    : settings.waf_hostname ? [settings.waf_hostname] : []
+  cloudflareForm.waf_hostnames_text = hostnames.join('\n')
+  cloudflareForm.waf_rule_ids_text = (settings.waf_rule_ids ?? []).join('\n')
+  cloudflareForm.waf_sync_interval_seconds = settings.waf_sync_interval_seconds ?? 15
+  cloudflareForm.analytics_interval_seconds = settings.analytics_interval_seconds ?? 300
+  cloudflareForm.request_timeout_seconds = settings.request_timeout_seconds
+  cloudflareForm.queue_capacity = settings.queue_capacity
+  cloudflareForm.max_active_rules = settings.max_active_rules
+  cloudflareForm.reconcile_interval_seconds = settings.reconcile_interval_seconds
+  if (!settings.enabled || !settings.api_token_configured) {
+    cloudflareSettingsExpanded.value = true
+  }
+}
+
+async function loadCloudflareSettings() {
+  cloudflareSettingsLoading.value = true
+  cloudflareSettingsError.value = ''
+  cloudflareSettingsSaved.value = ''
+  try {
+    applyCloudflareSettings(await ingressRiskAPI.getCloudflareIngressSettings())
+  } catch (error) {
+    cloudflareSettingsError.value = errorMessage(error, t('admin.ingressRisk.cloudflare.settings.loadError'))
+    cloudflareSettingsExpanded.value = true
+  } finally {
+    cloudflareSettingsLoading.value = false
+  }
+}
+
+async function saveCloudflareSettings() {
+  if (!cloudflareSettings.value || cloudflareSettingsSaving.value) return
+  cloudflareSettingsError.value = ''
+  cloudflareSettingsSaved.value = ''
+  if (cloudflareForm.enabled && !cloudflareForm.zone_id.trim()) {
+    cloudflareSettingsError.value = t('admin.ingressRisk.cloudflare.settings.zoneRequired')
+    return
+  }
+  if (cloudflareForm.enabled && !cloudflareSettings.value.api_token_configured && !cloudflareForm.api_token.trim()) {
+    cloudflareSettingsError.value = t('admin.ingressRisk.cloudflare.settings.tokenRequired')
+    return
+  }
+  const wafRuleIDs = cloudflareForm.waf_rule_ids_text
+    .split(/[\s,]+/)
+    .map((value) => value.trim())
+    .filter(Boolean)
+  const wafHostnames = [...new Set(cloudflareForm.waf_hostnames_text
+    .split(/[\s,]+/)
+    .map((value) => value.trim().toLowerCase().replace(/\.$/, ''))
+    .filter(Boolean))].sort()
+  if (cloudflareForm.enabled && cloudflareForm.mode === 'waf_custom_rules' && wafHostnames.length === 0) {
+    cloudflareSettingsError.value = t('admin.ingressRisk.cloudflare.settings.wafHostnameRequired')
+    return
+  }
+  if (cloudflareForm.enabled && cloudflareForm.mode === 'waf_custom_rules' && wafRuleIDs.length === 0) {
+    cloudflareSettingsError.value = t('admin.ingressRisk.cloudflare.settings.wafRuleIdsRequired')
+    return
+  }
+
+  cloudflareSettingsSaving.value = true
+  try {
+    const updated = await ingressRiskAPI.updateCloudflareIngressSettings({
+      enabled: cloudflareForm.enabled,
+      mode: cloudflareForm.mode,
+      zone_id: cloudflareForm.zone_id.trim(),
+      api_token: cloudflareForm.api_token.trim(),
+      waf_hostname: wafHostnames[0] ?? '',
+      waf_hostnames: wafHostnames,
+      waf_rule_ids: wafRuleIDs,
+      waf_sync_interval_seconds: Number(cloudflareForm.waf_sync_interval_seconds),
+      analytics_interval_seconds: Number(cloudflareForm.analytics_interval_seconds),
+      request_timeout_seconds: Number(cloudflareForm.request_timeout_seconds),
+      queue_capacity: Number(cloudflareForm.queue_capacity),
+      max_active_rules: Number(cloudflareForm.max_active_rules),
+      reconcile_interval_seconds: Number(cloudflareForm.reconcile_interval_seconds),
+    })
+    applyCloudflareSettings(updated)
+    cloudflareSettingsSaved.value = t('admin.ingressRisk.cloudflare.settings.saved')
+    await loadHealth()
+  } catch (error) {
+    cloudflareSettingsError.value = errorMessage(error, t('admin.ingressRisk.cloudflare.settings.saveError'))
+  } finally {
+    cloudflareSettingsSaving.value = false
+  }
+}
+
 async function refreshAll() {
-  await Promise.all([loadRecords(), loadHealth()])
+  await Promise.all([loadRecords(), loadHealth(), loadCloudflareSettings()])
 }
 
 function search() {

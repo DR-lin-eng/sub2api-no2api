@@ -18,9 +18,73 @@ terminate healthy long generations and streams.
 - H2C defaults to 50 concurrent streams per connection, a 2 MiB connection
   upload window, and a 512 KiB stream upload window.
 - Invalid credential abuse is limited in process by trusted client IP (IPv6
-  `/64`): 120 failures per 60 seconds followed by a 60-second block. This is a
-  per-instance safety net; multi-instance enforcement still belongs at the
-  load balancer, CDN, or WAF.
+  `/64`): 120 failures per 60 seconds followed by a 60-second block. Optional
+  Cloudflare integration can mirror each temporary block to either Zone IP
+  Access Rules or sharded WAF Custom Rules before subsequent traffic reaches
+  the origin.
+
+## Cloudflare invalid-auth blocking
+
+Open **Admin -> Risk Control -> Ingress Protection** and configure the
+Cloudflare integration there. The Zone ID, enable switch, queue limits, and
+timeouts are persisted in the database. The API token is encrypted with the
+server's AES-GCM secret key and is never returned to the browser after save.
+There is no YAML or environment-variable credential path. Enabling the
+integration validates the selected Cloudflare resources before saving.
+
+The request path only places a block event on a bounded in-memory queue, so
+Cloudflare latency and errors do not delay the gateway request. IPv4 sources
+use an exact IP; IPv6 sources use the same `/64` grouping as the local limiter.
+Settings hot-apply on the instance that accepts the admin request; other
+replicas refresh the same persisted snapshot within 10 seconds.
+
+### Zone IP Access Rule mode
+
+This mode creates, extends, reconciles, and removes one Zone IP Access Rule per
+IP/CIDR. The token needs permission to read and edit Zone Firewall Services.
+Managed rules carry a `sub2api-invalid-auth` note and an expiry timestamp.
+Before removal, the worker reads the current remote expiry again so another
+replica's extension is not deleted early.
+
+Zone IP Access Rules affect the entire zone, not only the configured Sub2API
+hostname, and they consume the zone's IP Access Rule quota.
+
+### WAF Custom Rule mode
+
+Create one or more enabled `block` rules in the zone's **Custom Rules** phase,
+then paste their 32-character Rule IDs into the admin page. Sub2API takes full
+ownership of those rules' expressions; do not add unrelated conditions to the
+same rules. The token needs permission to read and edit the zone custom
+ruleset. Add Zone Analytics read permission to display the cached request
+statistics; a missing analytics permission does not stop expression syncing.
+
+Set one or more exact hostnames served by Sub2API. A single hostname uses
+`http.host eq "api.example.com"`; multiple hostnames use an inline set such as
+`http.host in {"api.example.com" "edge.example.com"}`. Entries are automatically
+split across the configured rules without exceeding Cloudflare's 4,096-byte
+expression limit. IP expiry state is stored in Redis, and the existing
+distributed leader lock ensures that only one replica patches the rules at a
+time. All configured hostnames must belong to the selected zone.
+
+New IPs are coalesced for the configurable WAF sync interval (15 seconds by
+default). An unchanged desired expression does not call Cloudflare; a full
+remote comparison still runs at the configured reconcile interval. Aggregate
+and per-hostname request totals plus managed-rule block events for the last 24
+hours are fetched in one grouped GraphQL request, cached in Redis, and refreshed
+every 300 seconds by default. Refreshing the admin page only reads this cache.
+
+Keep the default threshold conservative when users may share NAT egress
+addresses. The security client IP must also be trustworthy: restrict origin
+access to Cloudflare or a private proxy and configure `server.trusted_proxies`
+correctly. If clients can bypass Cloudflare and reach the origin directly, edge
+blocking does not reduce origin load.
+
+To disable the integration without leaving temporary rules behind, turn off
+**Enable edge blocking** in the Ingress Protection page. The worker enters
+cleanup-only mode and stops accepting new blocks. Mode, Zone ID, token,
+hostname, and WAF Rule ID replacement remain locked until the page reports zero
+queued work and zero active entries, preventing a binding change from orphaning
+temporary blocks.
 
 Do not add a single application-wide request semaphore: an SSE request may
 legitimately occupy it for many minutes. Apply connection and unauthenticated

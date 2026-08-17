@@ -10,6 +10,7 @@
 | `usage_log*`, `usage_billing*`, `billing_cache*` | 用量、计费队列和账务缓存 |
 | `scheduler*`, `concurrency*`, `session_limit*`, `rpm_cache*` | 调度与并发状态 |
 | `ops*`, `audit_log*`, `channel_monitor*` | 运维、审计和监控查询 |
+| `cloudflare_ingress*`, `cloudflare_waf*` | Cloudflare Access Rule/WAF 分片客户端、Redis 共享状态、异步同步、统计缓存与到期回收 |
 | `payment*`, `subscription*`, `promo_code*`, `redeem_code*` | 商业对象持久化 |
 | `chat*` | 在线客服会话、消息、素材、快捷回复及分批保留清理 |
 | `cluster*` | 逻辑节点、runner 历史、共享任务租约与版本发布状态 |

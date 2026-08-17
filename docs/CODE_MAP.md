@@ -24,6 +24,7 @@
 | 修改运行配置 | `platform/config/` | `deploy/config.example.yaml`, setting service/admin UI | config tests + 相关 service/前端测试 |
 | 修改多实例节点或集群发布 | `application/service/cluster*` | `repository/cluster*`, admin cluster handler, `features/admin-cluster/` | cluster service/repository + handler + 页面测试 |
 | 修改 Ops/审计 | `handler/admin/ops*`, `application/service/ops*` | `repository/ops*`, 前端 `features/admin-ops/`, `features/admin-audit/` | query/service + 前端 feature 测试 |
+| 修改入口风控或 Cloudflare 封禁联动 | `application/service/invalid_auth_abuse_limiter.go`, `cloudflare_ingress_settings.go`, `server/middleware/ingress_reject.go` | `repository/cloudflare_ingress*`, `repository/cloudflare_waf*`, admin ops handler, `features/admin-risk-control/` | limiter + 持久密文 + Access Rule/WAF mock + Redis 状态 + 入口页测试 |
 | 修改在线客服 | `internal/modules/chat/`, `handler/chat*`, `handler/admin/chat*` | `repository/chat*`, `application/service/support_chat*`, 前端 `features/support-chat/` 与 `features/admin-settings/` | chat service/repository + handler + 设置/前端 feature 测试 |
 | 修改前端页面 | `frontend/src/core/routes/index.ts`, `features/<domain>/presentation/pages/` | 同 feature 的 `widgets/`, `composables/`, `stores/`, `data/datasources/` 与 `core/i18n/` | 相邻 spec + typecheck |
 

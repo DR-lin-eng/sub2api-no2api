@@ -12,6 +12,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type invalidAuthEdgeBlockerStub struct {
+	keys      []string
+	expiresAt []time.Time
+	health    InvalidAuthEdgeHealth
+}
+
+func (s *invalidAuthEdgeBlockerStub) EnqueueBlock(clientKey string, expiresAt time.Time) bool {
+	s.keys = append(s.keys, clientKey)
+	s.expiresAt = append(s.expiresAt, expiresAt)
+	return true
+}
+
+func (s *invalidAuthEdgeBlockerStub) Health() InvalidAuthEdgeHealth { return s.health }
+func (s *invalidAuthEdgeBlockerStub) Stop()                         {}
+
 func newInvalidAuthLimiterForTest(threshold, capacity int) *invalidAuthAbuseLimiter {
 	cfg := &config.Config{APIKeyAuth: config.APIKeyAuthCacheConfig{
 		InvalidAbuse: config.InvalidAuthAbuseConfig{
@@ -40,6 +55,27 @@ func TestInvalidAuthAbuseLimiterBlocksAndExpires(t *testing.T) {
 	_, blocked = l.check("203.0.113.1")
 	require.False(t, blocked)
 	require.Zero(t, l.health().Tracked)
+}
+
+func TestInvalidAuthAbuseLimiterEnqueuesEdgeBlockOnlyOnTransition(t *testing.T) {
+	cfg := &config.Config{APIKeyAuth: config.APIKeyAuthCacheConfig{
+		InvalidAbuse: config.InvalidAuthAbuseConfig{
+			Enabled: true, Threshold: 3, WindowSeconds: 60, BlockSeconds: 10, Capacity: 16,
+		},
+	}}
+	service := NewAPIKeyService(nil, nil, nil, nil, nil, nil, cfg)
+	now := time.Date(2026, 8, 17, 0, 0, 0, 0, time.UTC)
+	service.invalidAuthAbuse.now = func() time.Time { return now }
+	edge := &invalidAuthEdgeBlockerStub{health: InvalidAuthEdgeHealth{Enabled: true, ActiveRules: 1}}
+	service.SetInvalidAuthEdgeBlocker(edge)
+
+	for range 4 {
+		service.RecordInvalidAuthFailure("203.0.113.40")
+	}
+	require.Equal(t, []string{"203.0.113.40"}, edge.keys)
+	require.Equal(t, now.Add(10*time.Second), edge.expiresAt[0])
+	require.True(t, service.InvalidAuthAbuseHealth().Cloudflare.Enabled)
+	require.Equal(t, 1, service.InvalidAuthAbuseHealth().Cloudflare.ActiveRules)
 }
 
 func TestInvalidAuthAbuseLimiterCapacityUsesBoundedOverflowProtection(t *testing.T) {

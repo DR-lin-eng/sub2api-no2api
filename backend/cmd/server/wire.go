@@ -91,6 +91,7 @@ func provideCleanup(
 	settingService *service.SettingService,
 	opsIngressReject *service.OpsIngressRejectAggregator,
 	apiKeyService *service.APIKeyService,
+	invalidAuthEdge service.InvalidAuthEdgeBlocker,
 	authCacheInvalidationWorker *service.AuthCacheInvalidationWorker,
 	schedulerSnapshot *service.SchedulerSnapshotService,
 	tokenRefresh *service.TokenRefreshService,
@@ -180,6 +181,12 @@ func provideCleanup(
 			{"AuthCacheInvalidationSubscriber", func() error {
 				if apiKeyService != nil {
 					apiKeyService.StopAuthCacheInvalidationSubscriber()
+				}
+				return nil
+			}},
+			{"CloudflareIngressBlocker", func() error {
+				if invalidAuthEdge != nil {
+					invalidAuthEdge.Stop()
 				}
 				return nil
 			}},

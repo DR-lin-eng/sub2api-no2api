@@ -146,6 +146,7 @@ var ProviderSet = wire.NewSet(
 	NewTLSFingerprintProfileCache,
 	NewContentModerationHashCache,
 	NewRequestPriorityAdmissionSettingsNotifier,
+	ProvideCloudflareIngressBlocker,
 
 	// Encryptors
 	NewAESEncryptor,

@@ -757,6 +757,7 @@ func ProvideOpsService(
 	antigravityGatewayService *AntigravityGatewayService,
 	systemLogSink *OpsSystemLogSink,
 	settingService *SettingService,
+	cloudflareIngressSettings *CloudflareIngressSettingService,
 	authCacheInvalidationWorker *AuthCacheInvalidationWorker,
 	apiKeyService *APIKeyService,
 ) *OpsService {
@@ -782,6 +783,7 @@ func ProvideOpsService(
 	}
 	svc.authCacheInvalidationWorker = authCacheInvalidationWorker
 	svc.apiKeyService = apiKeyService
+	svc.cloudflareIngressSettings = cloudflareIngressSettings
 	svc.StartRuntimeSettingsRefresh(context.Background())
 	return svc
 }
@@ -864,12 +866,14 @@ func ProvideAPIKeyService(
 	billingCacheService *BillingCacheService,
 	concurrencyService *ConcurrencyService,
 	deferredService *DeferredService,
+	invalidAuthEdge InvalidAuthEdgeBlocker,
 ) *APIKeyService {
 	svc := NewAPIKeyService(apiKeyRepo, userRepo, groupRepo, userSubRepo, userGroupRateRepo, cache, cfg)
 	svc.SetRateLimitCacheInvalidator(billingCacheService)
 	svc.SetPendingUsageReader(billingCacheService)
 	svc.SetConcurrencyService(concurrencyService)
 	svc.SetLastUsedScheduler(deferredService)
+	svc.SetInvalidAuthEdgeBlocker(invalidAuthEdge)
 	return svc
 }
 
@@ -934,6 +938,7 @@ var ProviderSet = wire.NewSet(
 	ProvideUpstreamBillingProbeService,
 	ProvideOllamaCloudUsageService,
 	ProvideSettingService,
+	NewCloudflareIngressSettingService,
 	NewDataManagementService,
 	ProvideBackupService,
 	ProvideOpsSystemLogSink,

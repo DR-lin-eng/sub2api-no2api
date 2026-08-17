@@ -49,15 +49,63 @@ type invalidAuthAbuseLimiter struct {
 }
 
 type InvalidAuthAbuseHealth struct {
-	Enabled       bool   `json:"enabled"`
-	Tracked       int64  `json:"tracked"`
-	Capacity      int64  `json:"capacity"`
-	Recorded      uint64 `json:"recorded"`
-	Blocks        uint64 `json:"blocks"`
-	Rejected      uint64 `json:"rejected"`
-	Expired       uint64 `json:"expired"`
-	Overflowed    uint64 `json:"overflowed"`
-	GlobalBlocked uint64 `json:"global_blocked"`
+	Enabled       bool                  `json:"enabled"`
+	Tracked       int64                 `json:"tracked"`
+	Capacity      int64                 `json:"capacity"`
+	Recorded      uint64                `json:"recorded"`
+	Blocks        uint64                `json:"blocks"`
+	Rejected      uint64                `json:"rejected"`
+	Expired       uint64                `json:"expired"`
+	Overflowed    uint64                `json:"overflowed"`
+	GlobalBlocked uint64                `json:"global_blocked"`
+	Cloudflare    InvalidAuthEdgeHealth `json:"cloudflare"`
+}
+
+// InvalidAuthEdgeHealth reports asynchronous edge-rule convergence without exposing credentials.
+type InvalidAuthEdgeHealth struct {
+	Enabled       bool                  `json:"enabled"`
+	Mode          string                `json:"mode,omitempty"`
+	Running       bool                  `json:"running"`
+	QueueDepth    int                   `json:"queue_depth"`
+	QueueCapacity int                   `json:"queue_capacity"`
+	ActiveRules   int                   `json:"active_rules"`
+	Enqueued      uint64                `json:"enqueued"`
+	Applied       uint64                `json:"applied"`
+	Released      uint64                `json:"released"`
+	Failures      uint64                `json:"failures"`
+	Dropped       uint64                `json:"dropped"`
+	LastError     string                `json:"last_error,omitempty"`
+	LastSuccessAt *time.Time            `json:"last_success_at,omitempty"`
+	WAF           *InvalidAuthWAFHealth `json:"waf,omitempty"`
+}
+
+// InvalidAuthWAFHealth reports the cached Cloudflare WAF shard and analytics state.
+type InvalidAuthWAFHealth struct {
+	Hostname             string                         `json:"hostname"`
+	Hostnames            []string                       `json:"hostnames"`
+	HostnameStats        []InvalidAuthWAFHostnameHealth `json:"hostname_stats"`
+	RuleCount            int                            `json:"rule_count"`
+	SyncedEntries        int                            `json:"synced_entries"`
+	OverflowEntries      int                            `json:"overflow_entries"`
+	HostnameRequests24h  uint64                         `json:"hostname_requests_24h"`
+	BlockedRequests24h   uint64                         `json:"blocked_requests_24h"`
+	LastSyncedAt         *time.Time                     `json:"last_synced_at,omitempty"`
+	AnalyticsUpdatedAt   *time.Time                     `json:"analytics_updated_at,omitempty"`
+	AnalyticsWindowStart *time.Time                     `json:"analytics_window_start,omitempty"`
+	AnalyticsError       string                         `json:"analytics_error,omitempty"`
+}
+
+type InvalidAuthWAFHostnameHealth struct {
+	Hostname           string `json:"hostname"`
+	Requests24h        uint64 `json:"requests_24h"`
+	BlockedRequests24h uint64 `json:"blocked_requests_24h"`
+}
+
+// InvalidAuthEdgeBlocker receives newly triggered local blocks without delaying the request path.
+type InvalidAuthEdgeBlocker interface {
+	EnqueueBlock(clientKey string, expiresAt time.Time) bool
+	Health() InvalidAuthEdgeHealth
+	Stop()
 }
 
 func newInvalidAuthAbuseLimiter(cfg *config.Config) *invalidAuthAbuseLimiter {
@@ -92,14 +140,24 @@ func (s *APIKeyService) RecordInvalidAuthFailure(clientKey string) {
 	if s == nil || s.invalidAuthAbuse == nil {
 		return
 	}
-	s.invalidAuthAbuse.record(clientKey)
+	expiresAt, newlyBlocked := s.invalidAuthAbuse.record(clientKey)
+	if newlyBlocked && s.invalidAuthEdge != nil {
+		s.invalidAuthEdge.EnqueueBlock(clientKey, expiresAt)
+	}
 }
 
 func (s *APIKeyService) InvalidAuthAbuseHealth() InvalidAuthAbuseHealth {
-	if s == nil || s.invalidAuthAbuse == nil {
+	if s == nil {
 		return InvalidAuthAbuseHealth{}
 	}
-	return s.invalidAuthAbuse.health()
+	health := InvalidAuthAbuseHealth{}
+	if s.invalidAuthAbuse != nil {
+		health = s.invalidAuthAbuse.health()
+	}
+	if s.invalidAuthEdge != nil {
+		health.Cloudflare = s.invalidAuthEdge.Health()
+	}
+	return health
 }
 
 func (l *invalidAuthAbuseLimiter) check(clientKey string) (time.Duration, bool) {
@@ -135,9 +193,9 @@ func (l *invalidAuthAbuseLimiter) check(clientKey string) (time.Duration, bool) 
 	return 0, false
 }
 
-func (l *invalidAuthAbuseLimiter) record(clientKey string) {
+func (l *invalidAuthAbuseLimiter) record(clientKey string) (time.Time, bool) {
 	if l == nil || clientKey == "" {
-		return
+		return time.Time{}, false
 	}
 	l.recorded.Add(1)
 	now := l.now()
@@ -155,14 +213,14 @@ func (l *invalidAuthAbuseLimiter) record(clientKey string) {
 		if !l.reserveEntry() {
 			shard.mu.Unlock()
 			l.recordOverflow(now)
-			return
+			return time.Time{}, false
 		}
 		entry = &invalidAuthAbuseEntry{windowStart: now}
 		shard.entries[clientKey] = entry
 	}
 	if entry.blockedUntil.After(now) {
 		shard.mu.Unlock()
-		return
+		return time.Time{}, false
 	}
 	if entry.windowStart.After(now) || !now.Before(entry.windowStart.Add(l.window)) {
 		entry.windowStart = now
@@ -174,8 +232,12 @@ func (l *invalidAuthAbuseLimiter) record(clientKey string) {
 		entry.blockedUntil = now.Add(l.block)
 		entry.windowStart = entry.blockedUntil
 		l.blocked.Add(1)
+		blockedUntil := entry.blockedUntil
+		shard.mu.Unlock()
+		return blockedUntil, true
 	}
 	shard.mu.Unlock()
+	return time.Time{}, false
 }
 
 func (l *invalidAuthAbuseLimiter) reserveEntry() bool {

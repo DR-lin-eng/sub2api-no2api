@@ -85,6 +85,79 @@ export interface InvalidAuthAbuseHealth {
   expired: number
   overflowed: number
   global_blocked: number
+  cloudflare?: CloudflareIngressHealth
+}
+
+export interface CloudflareIngressHealth {
+  enabled: boolean
+  mode?: CloudflareIngressMode
+  running: boolean
+  queue_depth: number
+  queue_capacity: number
+  active_rules: number
+  enqueued: number
+  applied: number
+  released: number
+  failures: number
+  dropped: number
+  last_error?: string
+  last_success_at?: string
+  waf?: CloudflareWAFHealth
+}
+
+export type CloudflareIngressMode = 'zone_access_rules' | 'waf_custom_rules'
+
+export interface CloudflareWAFHealth {
+  hostname: string
+  hostnames?: string[]
+  hostname_stats?: CloudflareWAFHostnameHealth[]
+  rule_count: number
+  synced_entries: number
+  overflow_entries: number
+  hostname_requests_24h: number
+  blocked_requests_24h: number
+  last_synced_at?: string
+  analytics_updated_at?: string
+  analytics_window_start?: string
+  analytics_error?: string
+}
+
+export interface CloudflareWAFHostnameHealth {
+  hostname: string
+  requests_24h: number
+  blocked_requests_24h: number
+}
+
+export interface CloudflareIngressSettings {
+  enabled: boolean
+  mode: CloudflareIngressMode
+  zone_id: string
+  api_token_configured: boolean
+  waf_hostname: string
+  waf_hostnames?: string[]
+  waf_rule_ids: string[]
+  waf_sync_interval_seconds: number
+  analytics_interval_seconds: number
+  request_timeout_seconds: number
+  queue_capacity: number
+  max_active_rules: number
+  reconcile_interval_seconds: number
+}
+
+export interface UpdateCloudflareIngressSettings {
+  enabled: boolean
+  mode: CloudflareIngressMode
+  zone_id: string
+  api_token: string
+  waf_hostname: string
+  waf_hostnames: string[]
+  waf_rule_ids: string[]
+  waf_sync_interval_seconds: number
+  analytics_interval_seconds: number
+  request_timeout_seconds: number
+  queue_capacity: number
+  max_active_rules: number
+  reconcile_interval_seconds: number
 }
 
 export interface AuthCacheHealth {
@@ -109,10 +182,24 @@ export async function getAuthCacheHealth(): Promise<AuthCacheHealth> {
   return data
 }
 
+export async function getCloudflareIngressSettings(): Promise<CloudflareIngressSettings> {
+  const { data } = await apiClient.get<CloudflareIngressSettings>('/admin/ops/ingress-rejections/cloudflare')
+  return data
+}
+
+export async function updateCloudflareIngressSettings(
+  payload: UpdateCloudflareIngressSettings,
+): Promise<CloudflareIngressSettings> {
+  const { data } = await apiClient.put<CloudflareIngressSettings>('/admin/ops/ingress-rejections/cloudflare', payload)
+  return data
+}
+
 export const ingressRiskAPI = {
   listIngressRejections,
   getIngressCollectorHealth,
   getAuthCacheHealth,
+  getCloudflareIngressSettings,
+  updateCloudflareIngressSettings,
 }
 
 export default ingressRiskAPI

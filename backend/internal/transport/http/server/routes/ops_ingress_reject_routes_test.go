@@ -27,9 +27,14 @@ func TestIngressRejectAdminRoutesRequireAdminAuthentication(t *testing.T) {
 	stepUp := servermiddleware.StepUpAuthMiddleware(func(c *gin.Context) { c.Next() })
 	RegisterAdminRoutes(router.Group("/api/v1"), handlers, adminAuth, auditLog, stepUp, nil, nil)
 
-	for _, path := range []string{
-		"/api/v1/admin/ops/ingress-rejections",
-		"/api/v1/admin/ops/ingress-rejections/health",
+	for _, route := range []struct {
+		method string
+		path   string
+	}{
+		{method: http.MethodGet, path: "/api/v1/admin/ops/ingress-rejections"},
+		{method: http.MethodGet, path: "/api/v1/admin/ops/ingress-rejections/health"},
+		{method: http.MethodGet, path: "/api/v1/admin/ops/ingress-rejections/cloudflare"},
+		{method: http.MethodPut, path: "/api/v1/admin/ops/ingress-rejections/cloudflare"},
 	} {
 		for _, tc := range []struct {
 			name       string
@@ -39,9 +44,9 @@ func TestIngressRejectAdminRoutesRequireAdminAuthentication(t *testing.T) {
 			{name: "unauthenticated", wantStatus: http.StatusUnauthorized},
 			{name: "non-admin", auth: "Bearer user-token", wantStatus: http.StatusForbidden},
 		} {
-			t.Run(path+"/"+tc.name, func(t *testing.T) {
+			t.Run(route.method+route.path+"/"+tc.name, func(t *testing.T) {
 				recorder := httptest.NewRecorder()
-				request := httptest.NewRequest(http.MethodGet, path, nil)
+				request := httptest.NewRequest(route.method, route.path, nil)
 				if tc.auth != "" {
 					request.Header.Set("Authorization", tc.auth)
 				}
