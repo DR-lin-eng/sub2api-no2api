@@ -315,7 +315,7 @@ describe('UseKeyModal', () => {
     expect(codeBlocks).toContain('$env:SUB2API_API_KEY="sk-grok-codex-test"')
   })
 
-  it('renders GPT-5.6 and goals feature in OpenAI Codex config', () => {
+  it('renders GPT-5.6 Sol and goals feature in OpenAI Codex config', () => {
     const wrapper = mount(UseKeyModal, {
       props: {
         show: true,
@@ -339,10 +339,12 @@ describe('UseKeyModal', () => {
     const configToml = codeBlocks.find((content) => content.includes('model_provider = "OpenAI"'))
 
     expect(configToml).toBeDefined()
-    expect(configToml).toContain('model = "gpt-5.6"')
-    expect(configToml).toContain('review_model = "gpt-5.6"')
+    expect(configToml).toContain('model = "gpt-5.6-sol"')
+    expect(configToml).toContain('review_model = "gpt-5.6-sol"')
+    expect(configToml).not.toMatch(/^model = "gpt-5\.6"$/m)
+    expect(configToml).not.toMatch(/^review_model = "gpt-5\.6"$/m)
     expect(configToml).not.toContain('model = "gpt-5.4"')
-    expect(configToml).not.toContain('model_context_window')
+    expect(configToml).toContain('model_context_window = 1000000')
     expect(configToml).not.toContain('model_auto_compact_token_limit')
     expect(configToml).toContain('requires_openai_auth = true')
     expect(configToml).not.toContain('x-openai-actor-authorization')
@@ -406,7 +408,7 @@ describe('UseKeyModal', () => {
     )
   })
 
-  it('renders GPT-5.6 and goals feature in OpenAI Codex WebSocket config', async () => {
+  it('renders GPT-5.6 Sol and goals feature in OpenAI Codex WebSocket config', async () => {
     const wrapper = mount(UseKeyModal, {
       props: {
         show: true,
@@ -438,10 +440,12 @@ describe('UseKeyModal', () => {
     const configToml = codeBlocks.find((content) => content.includes('supports_websockets = true'))
 
     expect(configToml).toBeDefined()
-    expect(configToml).toContain('model = "gpt-5.6"')
-    expect(configToml).toContain('review_model = "gpt-5.6"')
+    expect(configToml).toContain('model = "gpt-5.6-sol"')
+    expect(configToml).toContain('review_model = "gpt-5.6-sol"')
+    expect(configToml).not.toMatch(/^model = "gpt-5\.6"$/m)
+    expect(configToml).not.toMatch(/^review_model = "gpt-5\.6"$/m)
     expect(configToml).not.toContain('model = "gpt-5.4"')
-    expect(configToml).not.toContain('model_context_window')
+    expect(configToml).toContain('model_context_window = 1000000')
     expect(configToml).not.toContain('model_auto_compact_token_limit')
     expect(configToml).toContain('requires_openai_auth = true')
     expect(configToml).not.toContain('x-openai-actor-authorization')
