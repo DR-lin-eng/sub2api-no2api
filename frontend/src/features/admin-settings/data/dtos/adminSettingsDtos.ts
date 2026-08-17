@@ -126,6 +126,20 @@ export interface GlobalTempUnschedulableSettings {
   enabled: boolean;
 }
 
+export type CodexContinuationMode = "off" | "shadow" | "enforce";
+
+export interface CodexSimulationSettings {
+  full_simulation_enabled: boolean;
+  continuation_mode: CodexContinuationMode;
+  state_ttl_seconds: number;
+  identity_secret_configured: boolean;
+}
+
+export type UpdateCodexSimulationSettings = Omit<
+  CodexSimulationSettings,
+  "identity_secret_configured"
+>;
+
 export interface StreamTimeoutSettings {
   response_header_timeout_degradation_enabled: boolean;
   response_header_timeout_seconds: number;

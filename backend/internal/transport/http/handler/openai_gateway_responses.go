@@ -179,6 +179,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	// 解析渠道级模型映射
 	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
 	forwardBody := openAIModelMappedBody(body, channelMapping.Mapped, channelMapping.MappedModel, h.gatewayService.ReplaceModelInBody)
+	h.gatewayService.PrepareCodexSimulationRequest(c, apiKey.ID, apiKey.GroupID, forwardBody)
 	seedOpenAIForwardImageIntentHint(c, channelMapping.Mapped, imageIntent)
 	if channelMapping.Mapped {
 		c.Request = c.Request.WithContext(service.WithOpenAIForwardModel(
@@ -384,6 +385,21 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		// 不能因心跳字节变化而放弃 failover 换号（#3887）。
 		writerSizeBeforeForward := service.OpenAICompactKeepaliveAdjustedWrittenSize(c)
 		attemptBody := h.deriveOpenAIForwardAttemptBody(reqLog, forwardBody, account, &passthroughFailoverState)
+		if h.gatewayService.CodexSimulationRequestEnabled(c) {
+			attemptBody, err = h.gatewayService.PrepareCodexSimulationAttempt(c.Request.Context(), c, account, attemptBody)
+			if err != nil {
+				if accountReleaseFunc != nil {
+					accountReleaseFunc()
+				}
+				var terminalErr *service.CodexContinuationTerminalError
+				if errors.As(err, &terminalErr) {
+					h.handleStreamingAwareError(c, terminalErr.HTTPStatus, terminalErr.ErrorType, terminalErr.Message, streamStarted)
+					return
+				}
+				h.handleStreamingAwareError(c, http.StatusInternalServerError, "api_error", "Failed to prepare Codex request", streamStarted)
+				return
+			}
+		}
 		result, err := func() (*service.OpenAIForwardResult, error) {
 			defer func() {
 				if accountReleaseFunc != nil {
@@ -408,6 +424,11 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			service.SetOpsLatencyMs(c, service.OpsTimeToFirstTokenMsKey, int64(*result.FirstTokenMs))
 		}
 		if err != nil {
+			var terminalErr *service.CodexContinuationTerminalError
+			if errors.As(err, &terminalErr) {
+				h.handleStreamingAwareError(c, terminalErr.HTTPStatus, terminalErr.ErrorType, terminalErr.Message, streamStarted)
+				return
+			}
 			if result != nil && result.ImageCount > 0 {
 				reqLog.Warn("openai.forward_partial_error_with_image_result",
 					zap.Int64("account_id", account.ID),

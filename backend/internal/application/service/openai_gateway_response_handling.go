@@ -1162,16 +1162,15 @@ func (s *OpenAIGatewayService) bindHTTPResponseAccount(ctx context.Context, c *g
 		return
 	}
 	responseID = strings.TrimSpace(responseID)
-	if responseID == "" {
-		return
+	if responseID != "" {
+		store := s.getOpenAIWSStateStore()
+		if store != nil {
+			groupID := getOpenAIGroupIDFromContext(c)
+			ttl := s.openAIWSResponseStickyTTL()
+			logOpenAIWSBindResponseAccountWarn(groupID, account.ID, responseID, store.BindResponseAccount(ctx, groupID, responseID, account.ID, ttl))
+		}
 	}
-	store := s.getOpenAIWSStateStore()
-	if store == nil {
-		return
-	}
-	groupID := getOpenAIGroupIDFromContext(c)
-	ttl := s.openAIWSResponseStickyTTL()
-	logOpenAIWSBindResponseAccountWarn(groupID, account.ID, responseID, store.BindResponseAccount(ctx, groupID, responseID, account.ID, ttl))
+	s.completeCodexSimulationSuccess(ctx, c, account, responseID, "")
 }
 
 func openAIUsageFromGJSON(value gjson.Result) (OpenAIUsage, bool) {

@@ -1,4 +1,5 @@
 import supportChatMessages from './settings.support-chat'
+import codexSimulationMessages from './settings.codex-simulation'
 
 export default {
     settings: {
@@ -1130,6 +1131,7 @@ export default {
         saved: 'Global temporary scheduling pause settings saved',
         saveFailed: 'Failed to save global temporary scheduling pause settings'
       },
+      codexSimulation: codexSimulationMessages,
       streamTimeout: {
         title: 'Stream Timeout Handling',
         description: 'Configure how long LLM streams wait for upstream response headers and how timed-out accounts are handled',

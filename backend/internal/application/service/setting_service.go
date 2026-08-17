@@ -119,6 +119,12 @@ type SettingService struct {
 	openAIWSModeRouterV2Loaded  atomic.Int64
 	openAIWSModeRouterV2SF      singleflight.Group
 
+	codexSimulationSettings         atomic.Pointer[CodexSimulationSettings]
+	codexSimulationSettingsRevision atomic.Uint64
+	codexSimulationSettingsMu       sync.Mutex
+	codexSimulationSettingsLoadMu   sync.Mutex
+	codexSimulationSettingsSyncOnce sync.Once
+
 	streamResponseHeaderTimeoutDegradationEnabled atomic.Bool
 	streamResponseHeaderTimeoutSeconds            atomic.Int64
 	streamResponseHeaderTimeoutLoaded             atomic.Int64
@@ -274,6 +280,8 @@ func NewSettingService(settingRepo SettingRepository, cfg *config.Config) *Setti
 	svc.streamResponseHeaderTimeoutSeconds.Store(DefaultStreamResponseHeaderTimeoutSeconds)
 	svc.thinkingDisplayModeCache.Store(ThinkingDisplayModeDisplayOnly)
 	svc.requestPriorityAdmissionSettings.Store(defaultRequestPriorityAdmissionSettings())
+	codexSimulationSettings := svc.defaultCodexSimulationSettings()
+	svc.codexSimulationSettings.Store(&codexSimulationSettings)
 	if cfg != nil {
 		svc.openAIWSModeRouterV2Enabled.Store(cfg.Gateway.OpenAIWS.ModeRouterV2Enabled)
 	}

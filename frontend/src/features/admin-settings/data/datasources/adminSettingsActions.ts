@@ -3,6 +3,7 @@ import {
   normalizePanelRateLimitSettings,
   type AdminApiKey,
   type BetaPolicySettings,
+  type CodexSimulationSettings,
   type CreateAdminApiKeyRequest,
   type EmailTemplateDetail,
   type EmailTemplatePreviewResponse,
@@ -16,6 +17,7 @@ import {
   type StreamTimeoutSettings,
   type TestSmtpRequest,
   type UpdateEmailTemplateRequest,
+  type UpdateCodexSimulationSettings,
   type UpdateAdminApiKeyRequest,
   type WebSearchEmulationConfig,
   type WebSearchTestResult,
@@ -176,6 +178,23 @@ export async function updateGlobalTempUnschedulableSettings(
   const { data } = await apiClient.put<GlobalTempUnschedulableSettings>(
     "/admin/settings/temp-unschedulable",
     settings,
+  );
+  return data;
+}
+
+export async function updateCodexSimulationSettings(
+  settings: UpdateCodexSimulationSettings,
+): Promise<CodexSimulationSettings> {
+  const { data } = await apiClient.put<CodexSimulationSettings>(
+    "/admin/settings/codex-simulation",
+    settings,
+  );
+  return data;
+}
+
+export async function forceDisableCodexSimulationSettings(): Promise<CodexSimulationSettings> {
+  const { data } = await apiClient.post<CodexSimulationSettings>(
+    "/admin/settings/codex-simulation/restore-original",
   );
   return data;
 }

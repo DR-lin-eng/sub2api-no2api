@@ -389,7 +389,71 @@ export function useSettingsPage() {
 
 
   const { adminApiKeyExists, adminApiKeyForm, adminApiKeyLoading, adminApiKeyMasked, adminApiKeyMinExpiry, adminApiKeyOperating, adminApiKeyPanelLoading, adminApiKeyPanelOperating, adminApiKeyPanelSecret, adminApiKeyScopeOptions, cancelEditScopedAdminApiKey, copyNewKey, copyScopedAdminApiKey, createAdminApiKey, createScopedAdminApiKey, deleteAdminApiKey, editScopedAdminApiKey, editingAdminApiKeyId, formatAdminApiKeyDate, loadAdminApiKey, loadScopedAdminApiKeys, newAdminApiKey, regenerateAdminApiKey, revokeScopedAdminApiKey, rotateScopedAdminApiKey, scopedAdminApiKeys } = useSettingsAdminApiKeys(copyToClipboard)
-  const { addOpenAIFastPolicyModelPattern, addOpenAIFastPolicyRule, addQuickPattern, applyBetaPreset, betaPolicyActionOptions, betaPolicyForm, betaPolicyLoading, betaPolicySaving, betaPolicyScopeOptions, betaPresets, commonModelPatterns, getBetaDisplayName, globalTempUnschedulableForm, globalTempUnschedulableLoading, globalTempUnschedulableSaving, loadBetaPolicySettings, loadGlobalTempUnschedulableSettings, loadOllamaCloudUsageSettings, loadOverloadCooldownSettings, loadRateLimit429CooldownSettings, loadRectifierSettings, loadStreamTimeoutSettings, loadUpstreamBillingProbeSettings, ollamaCloudUsageForm, ollamaCloudUsageLoading, ollamaCloudUsageSaving, openaiFastPolicyActionOptions, openaiFastPolicyForm, openaiFastPolicyLoaded, openaiFastPolicyScopeOptions, openaiFastPolicyTierOptions, overloadCooldownForm, overloadCooldownLoading, overloadCooldownSaving, rateLimit429CooldownForm, rateLimit429CooldownLoading, rateLimit429CooldownSaving, rectifierForm, rectifierLoading, rectifierSaving, removeOpenAIFastPolicyModelPattern, removeOpenAIFastPolicyRule, saveBetaPolicySettings, saveGlobalTempUnschedulableSettings, saveOllamaCloudUsageSettings, saveOverloadCooldownSettings, saveRateLimit429CooldownSettings, saveRectifierSettings, saveStreamTimeoutSettings, saveUpstreamBillingProbeSettings, streamTimeoutForm, streamTimeoutLoading, streamTimeoutSaving, upstreamBillingProbeForm, upstreamBillingProbeLoading, upstreamBillingProbeSaving } = useSettingsGatewayPolicies()
+  const {
+    addOpenAIFastPolicyModelPattern,
+    addOpenAIFastPolicyRule,
+    addQuickPattern,
+    applyBetaPreset,
+    betaPolicyActionOptions,
+    betaPolicyForm,
+    betaPolicyLoading,
+    betaPolicySaving,
+    betaPolicyScopeOptions,
+    betaPresets,
+    codexSimulationForm,
+    codexSimulationLoadFailed,
+    codexSimulationLoading,
+    codexSimulationSaving,
+    commonModelPatterns,
+    getBetaDisplayName,
+    globalTempUnschedulableForm,
+    globalTempUnschedulableLoading,
+    globalTempUnschedulableSaving,
+    loadBetaPolicySettings,
+    loadCodexSimulationSettings,
+    loadGlobalTempUnschedulableSettings,
+    loadOllamaCloudUsageSettings,
+    loadOverloadCooldownSettings,
+    loadRateLimit429CooldownSettings,
+    loadRectifierSettings,
+    loadStreamTimeoutSettings,
+    loadUpstreamBillingProbeSettings,
+    ollamaCloudUsageForm,
+    ollamaCloudUsageLoading,
+    ollamaCloudUsageSaving,
+    openaiFastPolicyActionOptions,
+    openaiFastPolicyForm,
+    openaiFastPolicyLoaded,
+    openaiFastPolicyScopeOptions,
+    openaiFastPolicyTierOptions,
+    overloadCooldownForm,
+    overloadCooldownLoading,
+    overloadCooldownSaving,
+    rateLimit429CooldownForm,
+    rateLimit429CooldownLoading,
+    rateLimit429CooldownSaving,
+    rectifierForm,
+    rectifierLoading,
+    rectifierSaving,
+    removeOpenAIFastPolicyModelPattern,
+    removeOpenAIFastPolicyRule,
+    restoreOriginalCodexBehavior,
+    saveBetaPolicySettings,
+    saveCodexSimulationSettings,
+    saveGlobalTempUnschedulableSettings,
+    saveOllamaCloudUsageSettings,
+    saveOverloadCooldownSettings,
+    saveRateLimit429CooldownSettings,
+    saveRectifierSettings,
+    saveStreamTimeoutSettings,
+    saveUpstreamBillingProbeSettings,
+    streamTimeoutForm,
+    streamTimeoutLoading,
+    streamTimeoutSaving,
+    upstreamBillingProbeForm,
+    upstreamBillingProbeLoading,
+    upstreamBillingProbeSaving,
+  } = useSettingsGatewayPolicies()
   const { addWebSearchProvider, apiKeyVisible, copyApiKey, expandedProviders, formatSubscribedAt, loadWebSearchConfig, openTestDialog, parseSubscribedAt, quotaPercentage, removeWebSearchProvider, resetWebSearchUsage, saveWebSearchConfig, testWebSearchProvider, toggleProviderExpand, webSearchConfig, webSearchProxies, wsTestDialogOpen, wsTestLoading, wsTestQuery, wsTestResult } = useSettingsWebSearch()
   const { allPaymentTypes, cancelRateLimitModeOptions, cancelRateLimitUnitOptions, confirmDeleteProvider, editingProvider, enabledProviderKeyOptions, handleDeleteProvider, handleReorderProviders, handleSaveProvider, handleToggleField, handleToggleType, hasAnyPaymentTypeEnabled, isPaymentTypeEnabled, loadBalanceOptions, loadProviders, openCreateProvider, openEditProvider, providerDialogRef, providerKeyOptions, providerSaving, providers, providersLoading, showDeleteProviderDialog, showProviderDialog, togglePaymentType } = useSettingsPaymentProviders(form, saveSettings)
   const { affiliateBatchModal, affiliateConfirmDialog, affiliateModal, affiliateModalCanSubmit, affiliateState, askResetAffiliateUser, cancelAffiliateConfirm, changeAffiliatePage, clearSelectedAffiliateUser, closeAffiliateModal, handleAffiliateConfirm, onAffiliateSearchInput, onAffiliateUserSearchInput, openAffiliateBatchModal, openAffiliateModal, selectAffiliateUser, submitAffiliateBatchModal, submitAffiliateModal, toggleAffiliateSelect, toggleAffiliateSelectAll } = useSettingsAffiliate(form)
@@ -782,6 +846,7 @@ export function useSettingsPage() {
     loadOverloadCooldownSettings();
     loadRateLimit429CooldownSettings();
     loadGlobalTempUnschedulableSettings();
+    loadCodexSimulationSettings();
     loadStreamTimeoutSettings();
     loadRectifierSettings();
     loadBetaPolicySettings();
@@ -852,6 +917,10 @@ export function useSettingsPage() {
     codexBlacklistRows,
     codexFingerprintNoRequired,
     codexFingerprintRows,
+    codexSimulationForm,
+    codexSimulationLoadFailed,
+    codexSimulationLoading,
+    codexSimulationSaving,
     codexWhitelistRows,
     commitRegistrationEmailSuffixWhitelistDraft,
     commonModelPatterns,
@@ -960,9 +1029,11 @@ export function useSettingsPage() {
     removeWebSearchProvider,
     resetClaudeOAuthSystemPromptBlocks,
     resetWebSearchUsage,
+    restoreOriginalCodexBehavior,
     revokeScopedAdminApiKey,
     rotateScopedAdminApiKey,
     saveBetaPolicySettings,
+    saveCodexSimulationSettings,
     saveGlobalTempUnschedulableSettings,
     saveOllamaCloudUsageSettings,
     saveOverloadCooldownSettings,

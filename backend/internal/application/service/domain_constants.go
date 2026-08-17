@@ -565,6 +565,10 @@ const (
 	// SettingKeyOpenAIWSModeRouterV2Enabled controls the OpenAI WS account-mode router.
 	// When absent, runtime behavior falls back to gateway.openai_ws.mode_router_v2_enabled.
 	SettingKeyOpenAIWSModeRouterV2Enabled = "openai_ws_mode_router_v2_enabled"
+	// SettingKeyCodexSimulationSettings stores the admin-managed Codex OAuth
+	// simulation switches, state TTL, and server-generated identity secret.
+	// When absent, runtime behavior falls back to gateway.codex_simulation.
+	SettingKeyCodexSimulationSettings = "codex_simulation_settings"
 	// SettingKeyOpenAIVisibleOutputTTFTEnabled controls whether OpenAI TTFT is
 	// measured from the first client-usable value (true) or the legacy semantic
 	// output event classifier (false). Missing values default to true.

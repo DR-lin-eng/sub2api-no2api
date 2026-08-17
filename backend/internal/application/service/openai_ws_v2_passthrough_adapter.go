@@ -802,6 +802,20 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 		return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, blocked.Message, blocked)
 	}
 	firstClientMessage = updatedFirst
+	if account.IsOpenAIOAuth() && s.ensureCodexSimulationRequest(c, firstClientMessage) != nil {
+		preparedFirstMessage, prepareErr := s.prepareCodexSimulationAttemptForTurn(ctx, c, account, firstClientMessage, 1)
+		if prepareErr != nil {
+			var terminalErr *CodexContinuationTerminalError
+			if errors.As(prepareErr, &terminalErr) {
+				return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, terminalErr.Message, terminalErr)
+			}
+			return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid Codex continuation request", prepareErr)
+		}
+		firstClientMessage = preparedFirstMessage
+		if attempt, ok := codexSimulationAttemptFromGin(c); ok && attempt.fingerprint != nil {
+			fingerprintIDs = attempt.fingerprint
+		}
+	}
 	if fingerprinted, changed, fingerprintErr := applyCodexFingerprintClientMetadataToBody(firstClientMessage, fingerprintIDs); fingerprintErr != nil {
 		return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", fingerprintErr)
 	} else if changed {
@@ -870,6 +884,9 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	)
 	if buildHdrErr != nil {
 		return fmt.Errorf("build ws headers: %w", buildHdrErr)
+	}
+	if s.CodexSimulationRequestEnabled(c) {
+		headers.Del(CodexProjectIDHeader)
 	}
 	applyCodexFingerprintWSHeaders(headers, fingerprintIDs)
 	// The compatibility key is only for the managed connection pool. This
@@ -1125,7 +1142,21 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			}
 			out, blocked, policyErr := s.applyOpenAIFastPolicyToWSResponseCreate(ctx, account, model, payload)
 			if policyErr == nil && blocked == nil && isResponseCreate {
+				if s.CodexSimulationRequestEnabled(c) {
+					prepared, prepareErr := s.prepareCodexSimulationAttemptForTurn(ctx, c, account, out, turnNo)
+					if prepareErr != nil {
+						var terminalErr *CodexContinuationTerminalError
+						if errors.As(prepareErr, &terminalErr) {
+							return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, terminalErr.Message, terminalErr)
+						}
+						return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid Codex continuation request", prepareErr)
+					}
+					out = prepared
+				}
 				turnFingerprintIDs := nextCodexFingerprintTurn(fingerprintIDs)
+				if attempt, ok := codexSimulationAttemptFromGin(c); ok && attempt.fingerprint != nil {
+					turnFingerprintIDs = attempt.fingerprint
+				}
 				fingerprinted, changed, fingerprintErr := applyCodexFingerprintClientMetadataToBody(out, turnFingerprintIDs)
 				if fingerprintErr != nil {
 					return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", fingerprintErr)

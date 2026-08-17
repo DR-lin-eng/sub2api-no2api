@@ -31,6 +31,24 @@ const (
 	codexFingerprintIDsContextKey = "codex_fingerprint_ids"
 )
 
+var codexReservedIdentityHeaders = []string{
+	"conversation_id",
+	"originator",
+	"session-id",
+	"session_id",
+	"thread-id",
+	"user-agent",
+	"version",
+	"x-client-request-id",
+	"x-codex-installation-id",
+	"x-codex-parent-thread-id",
+	"x-codex-turn-metadata",
+	"x-codex-turn-state",
+	"x-codex-window-id",
+	"x-openai-subagent",
+	CodexProjectIDHeader,
+}
+
 // stageCodexFingerprintIDs always overwrites the attempt value, including nil.
 // Account failover can move from an opted-in OAuth account to an account with
 // convergence disabled; leaving the previous plan in the context would leak
@@ -131,12 +149,18 @@ func accountIDString(accountID int64) string {
 
 type codexFingerprintIDs struct {
 	mode            codexFingerprintMode
+	fullSimulation  bool
+	rootKey         string
+	principalKey    string
 	installationID  string
 	sessionID       string
 	threadID        string
 	turnID          string
 	windowID        string
+	promptCacheKey  string
+	generation      uint64
 	turnStartedAtMS int64
+	profile         codexSimulationProfile
 }
 
 func resolveCodexFingerprintIDs(account *Account, clientSessionID string, mode codexFingerprintMode) *codexFingerprintIDs {
@@ -189,6 +213,11 @@ func resolveCodexFingerprintIDsFromRequest(account *Account, headers http.Header
 }
 
 func resolveCodexFingerprintIDsFromGinContext(account *Account, c *gin.Context) *codexFingerprintIDs {
+	if attempt, ok := codexSimulationAttemptFromGin(c); ok && attempt.fingerprint != nil {
+		if account != nil && attempt.principal.key != "" {
+			return attempt.fingerprint
+		}
+	}
 	var headers http.Header
 	if c != nil && c.Request != nil {
 		headers = c.Request.Header
@@ -210,6 +239,13 @@ func applyCodexFingerprintHeaders(headers http.Header, ids *codexFingerprintIDs)
 	if headers == nil || ids == nil || ids.installationID == "" {
 		return
 	}
+	turnMetadata := headers.Get("x-codex-turn-metadata")
+	if ids.fullSimulation {
+		stripCodexReservedIdentityHeaders(headers)
+		if strings.TrimSpace(turnMetadata) != "" {
+			headers.Set("x-codex-turn-metadata", turnMetadata)
+		}
+	}
 
 	headers.Set("x-codex-installation-id", ids.installationID)
 	if ids.mode == codexFingerprintDevice {
@@ -218,13 +254,19 @@ func applyCodexFingerprintHeaders(headers http.Header, ids *codexFingerprintIDs)
 	}
 
 	headers.Set("x-codex-window-id", ids.windowID)
-	// x-client-request-id remains unique per request; using the stable thread ID
-	// here would collapse upstream request tracing and idempotency signals.
-	headers.Set("x-client-request-id", ids.turnID)
+	if ids.fullSimulation {
+		// Pinned Codex source uses the thread ID for x-client-request-id.
+		headers.Set("x-client-request-id", ids.threadID)
+	} else {
+		headers.Set("x-client-request-id", ids.turnID)
+	}
 	headers.Set("session-id", ids.sessionID)
-	headers.Set("session_id", ids.sessionID)
 	headers.Set("thread-id", ids.threadID)
+	if !ids.fullSimulation {
+		headers.Set("session_id", ids.sessionID)
+	}
 	rewriteCodexTurnMetadataHeader(headers, ids)
+	applyCodexSimulationProfileHeaders(headers, ids)
 }
 
 func (s *OpenAIGatewayService) codexIdentityOverrideUA(account *Account) string {
@@ -241,6 +283,13 @@ func applyCodexFingerprintWSHeaders(headers http.Header, ids *codexFingerprintID
 	if headers == nil || ids == nil || ids.installationID == "" {
 		return
 	}
+	turnMetadata := headers.Get("x-codex-turn-metadata")
+	if ids.fullSimulation {
+		stripCodexReservedIdentityHeaders(headers)
+		if strings.TrimSpace(turnMetadata) != "" {
+			headers.Set("x-codex-turn-metadata", turnMetadata)
+		}
+	}
 	headers.Set("x-codex-installation-id", ids.installationID)
 	headers.Set(codexFingerprintWSKeyHeader, codexFingerprintWSCompatibilityKey(ids))
 	rewriteCodexTurnMetadataHeader(headers, ids)
@@ -249,8 +298,23 @@ func applyCodexFingerprintWSHeaders(headers http.Header, ids *codexFingerprintID
 	}
 	headers.Set("x-codex-window-id", ids.windowID)
 	headers.Set("session-id", ids.sessionID)
-	headers.Set("session_id", ids.sessionID)
 	headers.Set("thread-id", ids.threadID)
+	if ids.fullSimulation {
+		headers.Set("x-client-request-id", ids.threadID)
+	} else {
+		headers.Set("session_id", ids.sessionID)
+	}
+	applyCodexSimulationProfileHeaders(headers, ids)
+}
+
+// applyCodexFullSimulationWSHeaders is used only by the new reconnect-header
+// refresh path. Legacy device/session convergence must retain its pre-A/B
+// behavior when the simulation switches are off.
+func applyCodexFullSimulationWSHeaders(headers http.Header, ids *codexFingerprintIDs) {
+	if ids == nil || !ids.fullSimulation {
+		return
+	}
+	applyCodexFingerprintWSHeaders(headers, ids)
 }
 
 func codexFingerprintWSCompatibilityKey(ids *codexFingerprintIDs) string {
@@ -274,12 +338,14 @@ func rewriteCodexTurnMetadataHeader(headers http.Header, ids *codexFingerprintID
 
 func rewriteCodexTurnMetadataValue(raw string, ids *codexFingerprintIDs) string {
 	raw = strings.TrimSpace(raw)
-	if raw == "" || ids == nil {
+	if ids == nil || (raw == "" && !ids.fullSimulation) {
 		return raw
 	}
 	metadata := make(map[string]any)
-	if err := json.Unmarshal([]byte(raw), &metadata); err != nil {
-		return raw
+	if raw != "" {
+		if err := json.Unmarshal([]byte(raw), &metadata); err != nil && !ids.fullSimulation {
+			return raw
+		}
 	}
 	applyCodexTurnMetadataFields(metadata, ids)
 	rebuilt, err := json.Marshal(metadata)
@@ -310,6 +376,9 @@ func applyCodexFingerprintClientMetadata(reqBody map[string]any, ids *codexFinge
 	}
 
 	metadata, ok := mutableCodexClientMetadata(reqBody["client_metadata"])
+	if !ok && ids.fullSimulation {
+		metadata, ok = make(map[string]any), true
+	}
 	if !ok {
 		return false
 	}
@@ -317,6 +386,9 @@ func applyCodexFingerprintClientMetadata(reqBody map[string]any, ids *codexFinge
 		return false
 	}
 	reqBody["client_metadata"] = metadata
+	if ids.fullSimulation {
+		reqBody["prompt_cache_key"] = ids.promptCacheKey
+	}
 	return true
 }
 
@@ -349,10 +421,15 @@ func applyCodexFingerprintClientMetadataToBody(body []byte, ids *codexFingerprin
 	metadata := make(map[string]any)
 	if metadataResult.Exists() && strings.TrimSpace(metadataResult.Raw) != "null" {
 		if metadataResult.Type != gjson.JSON || !metadataResult.IsObject() {
-			return body, false, nil
-		}
-		if err := json.Unmarshal([]byte(metadataResult.Raw), &metadata); err != nil {
-			return body, false, fmt.Errorf("decode codex client_metadata: %w", err)
+			if !ids.fullSimulation {
+				return body, false, nil
+			}
+			metadata = make(map[string]any)
+		} else if err := json.Unmarshal([]byte(metadataResult.Raw), &metadata); err != nil {
+			if !ids.fullSimulation {
+				return body, false, fmt.Errorf("decode codex client_metadata: %w", err)
+			}
+			metadata = make(map[string]any)
 		}
 	}
 
@@ -366,6 +443,12 @@ func applyCodexFingerprintClientMetadataToBody(body []byte, ids *codexFingerprin
 	rewritten, err := sjson.SetRawBytes(body, "client_metadata", rebuiltMetadata)
 	if err != nil {
 		return body, false, fmt.Errorf("rewrite codex client_metadata: %w", err)
+	}
+	if ids.fullSimulation {
+		rewritten, err = sjson.SetBytes(rewritten, "prompt_cache_key", ids.promptCacheKey)
+		if err != nil {
+			return body, false, fmt.Errorf("rewrite codex prompt_cache_key: %w", err)
+		}
 	}
 	return rewritten, true, nil
 }
@@ -389,17 +472,37 @@ func mutableCodexClientMetadata(value any) (map[string]any, bool) {
 
 func rewriteEmbeddedCodexTurnMetadata(clientMetadata map[string]any, ids *codexFingerprintIDs) {
 	raw, ok := clientMetadata["x-codex-turn-metadata"].(string)
-	if !ok || strings.TrimSpace(raw) == "" {
+	if (!ok || strings.TrimSpace(raw) == "") && !ids.fullSimulation {
 		return
 	}
 
 	metadata := make(map[string]any)
-	if err := json.Unmarshal([]byte(raw), &metadata); err != nil {
-		return
+	if strings.TrimSpace(raw) != "" {
+		if err := json.Unmarshal([]byte(raw), &metadata); err != nil && !ids.fullSimulation {
+			return
+		}
 	}
 	applyCodexTurnMetadataFields(metadata, ids)
 	rebuilt, err := json.Marshal(metadata)
 	if err == nil {
 		clientMetadata["x-codex-turn-metadata"] = string(rebuilt)
 	}
+}
+
+func stripCodexReservedIdentityHeaders(headers http.Header) {
+	if headers == nil {
+		return
+	}
+	for _, header := range codexReservedIdentityHeaders {
+		headers.Del(header)
+	}
+}
+
+func applyCodexSimulationProfileHeaders(headers http.Header, ids *codexFingerprintIDs) {
+	if headers == nil || ids == nil || !ids.fullSimulation {
+		return
+	}
+	headers.Set("user-agent", ids.profile.userAgent)
+	headers.Set("originator", ids.profile.originator)
+	headers.Set("version", ids.profile.version)
 }

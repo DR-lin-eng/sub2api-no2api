@@ -802,6 +802,10 @@ func ProvideSettingService(settingRepo SettingRepository, groupRepo GroupReposit
 	if err := svc.LoadOpenAIWSModeRouterV2Setting(context.Background()); err != nil {
 		logger.LegacyPrintf("service.setting", "Warning: load OpenAI WS mode router v2 setting failed: %v", err)
 	}
+	if err := svc.LoadCodexSimulationSettings(context.Background()); err != nil {
+		logger.LegacyPrintf("service.setting", "Warning: load Codex simulation settings failed: %v", err)
+	}
+	svc.StartCodexSimulationSettingsSync(context.Background())
 	if err := svc.LoadRequestPriorityAdmissionSettings(context.Background()); err != nil {
 		logger.LegacyPrintf("service.setting", "Warning: load request priority admission settings failed: %v", err)
 	}

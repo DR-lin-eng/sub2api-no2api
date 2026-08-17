@@ -447,6 +447,7 @@ type OpenAIGatewayService struct {
 
 	openaiWSPoolOnce               sync.Once
 	openaiWSStateStoreOnce         sync.Once
+	codexSimulationStateStoreOnce  sync.Once
 	openaiSchedulerOnce            sync.Once
 	openaiProxyStreamCircuitOnce   sync.Once
 	openaiWSPassthroughDialerOnce  sync.Once
@@ -457,6 +458,7 @@ type OpenAIGatewayService struct {
 	agentIdentityTaskMu            sync.Mutex
 	openaiWSPool                   *openAIWSConnPool
 	openaiWSStateStore             OpenAIWSStateStore
+	codexSimulationStateStore      *codexSimulationStateStore
 	openaiScheduler                OpenAIAccountScheduler
 	openaiWSPassthroughDialer      openAIWSClientDialer
 	openaiAccountStats             *openAIAccountRuntimeStats
@@ -486,6 +488,8 @@ type OpenAIGatewayService struct {
 	// API-key/session pair so failover cannot echo a known cross-account value.
 	openaiCodexTurnStateOrigins sync.Map
 	openaiCodexTurnStateWrites  atomic.Uint64
+	codexPrincipalUpstreamTotal atomic.Uint64
+	codexPrincipalLocalTotal    atomic.Uint64
 }
 
 // NewOpenAIGatewayService creates a new OpenAIGatewayService

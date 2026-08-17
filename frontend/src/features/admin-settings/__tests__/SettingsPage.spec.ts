@@ -16,6 +16,9 @@ const {
   updateRateLimit429CooldownSettings,
   getGlobalTempUnschedulableSettings,
   updateGlobalTempUnschedulableSettings,
+  getCodexSimulationSettings,
+  forceDisableCodexSimulationSettings,
+  updateCodexSimulationSettings,
   getEmailTemplates,
   getEmailTemplate,
   updateEmailTemplate,
@@ -52,6 +55,9 @@ const {
   updateRateLimit429CooldownSettings: vi.fn(),
   getGlobalTempUnschedulableSettings: vi.fn(),
   updateGlobalTempUnschedulableSettings: vi.fn(),
+  getCodexSimulationSettings: vi.fn(),
+  forceDisableCodexSimulationSettings: vi.fn(),
+  updateCodexSimulationSettings: vi.fn(),
   getEmailTemplates: vi.fn(),
   getEmailTemplate: vi.fn(),
   updateEmailTemplate: vi.fn(),
@@ -142,6 +148,7 @@ vi.mock(
       getEmailTemplates,
       getEmailTemplate,
       getGlobalTempUnschedulableSettings,
+      getCodexSimulationSettings,
       getOverloadCooldownSettings,
       getPanelRateLimitSettings,
       getRateLimit429CooldownSettings,
@@ -176,6 +183,8 @@ vi.mock(
       testWebSearchEmulation: vi.fn(),
       updateAdminApiKey: vi.fn(),
       updateBetaPolicySettings: vi.fn(),
+      forceDisableCodexSimulationSettings,
+      updateCodexSimulationSettings,
       updateGlobalTempUnschedulableSettings,
       updateOverloadCooldownSettings: vi.fn(),
       updatePanelRateLimitSettings,
@@ -815,6 +824,9 @@ describe("admin SettingsView payment visible method controls", () => {
     updateRateLimit429CooldownSettings.mockReset();
     getGlobalTempUnschedulableSettings.mockReset();
     updateGlobalTempUnschedulableSettings.mockReset();
+    getCodexSimulationSettings.mockReset();
+    forceDisableCodexSimulationSettings.mockReset();
+    updateCodexSimulationSettings.mockReset();
     getEmailTemplates.mockReset();
     getEmailTemplate.mockReset();
     updateEmailTemplate.mockReset();
@@ -872,6 +884,22 @@ describe("admin SettingsView payment visible method controls", () => {
     updateGlobalTempUnschedulableSettings.mockImplementation(
       async (payload) => payload,
     );
+    getCodexSimulationSettings.mockResolvedValue({
+      full_simulation_enabled: false,
+      continuation_mode: "off",
+      state_ttl_seconds: 604800,
+      identity_secret_configured: false,
+    });
+    updateCodexSimulationSettings.mockImplementation(async (payload) => ({
+      ...payload,
+      identity_secret_configured: true,
+    }));
+    forceDisableCodexSimulationSettings.mockResolvedValue({
+      full_simulation_enabled: false,
+      continuation_mode: "off",
+      state_ttl_seconds: 604800,
+      identity_secret_configured: true,
+    });
     getEmailTemplates.mockResolvedValue({ events: [], locales: [] });
     getPanelRateLimitSettings.mockResolvedValue({
       enabled: true,
@@ -1242,6 +1270,123 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(updateGlobalTempUnschedulableSettings).toHaveBeenCalledWith({
       enabled: true,
     });
+  });
+
+  it("saves Codex A/B controls and restores original behavior", async () => {
+    getCodexSimulationSettings.mockResolvedValueOnce({
+      full_simulation_enabled: true,
+      continuation_mode: "enforce",
+      state_ttl_seconds: 604800,
+      identity_secret_configured: true,
+    });
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+
+    const card = wrapper
+      .findAll(".card")
+      .find((node) => node.text().includes("admin.settings.codexSimulation.title"));
+    expect(card).toBeDefined();
+    expect(card!.get('[data-testid="codex-simulation-secret-status"]').text()).toContain(
+      "admin.settings.codexSimulation.secretConfigured",
+    );
+
+    await card!
+      .get('[data-testid="codex-simulation-full-toggle"]')
+      .setValue(false);
+    await card!
+      .get('[data-testid="codex-simulation-continuation-mode"]')
+      .setValue("shadow");
+    await card!.get('[data-testid="codex-simulation-state-ttl"]').setValue("3600");
+    await card!.get('[data-testid="codex-simulation-save"]').trigger("click");
+    await flushPromises();
+
+    expect(updateCodexSimulationSettings).toHaveBeenLastCalledWith({
+      full_simulation_enabled: false,
+      continuation_mode: "shadow",
+      state_ttl_seconds: 3600,
+    });
+
+    await card!.get('[data-testid="codex-simulation-state-ttl"]').setValue("0");
+    await card!.get('[data-testid="codex-simulation-restore"]').trigger("click");
+    await flushPromises();
+
+    expect(forceDisableCodexSimulationSettings).toHaveBeenCalledOnce();
+    expect(
+      card!.get('[data-testid="codex-simulation-effective-state"]').text(),
+    ).toContain("admin.settings.codexSimulation.originalBehaviorActive");
+  });
+
+  it("rolls back Codex controls when restoring original behavior fails", async () => {
+    getCodexSimulationSettings.mockResolvedValueOnce({
+      full_simulation_enabled: true,
+      continuation_mode: "enforce",
+      state_ttl_seconds: 604800,
+      identity_secret_configured: true,
+    });
+    forceDisableCodexSimulationSettings.mockRejectedValueOnce(
+      new Error("restore failed"),
+    );
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+
+    const card = wrapper
+      .findAll(".card")
+      .find((node) => node.text().includes("admin.settings.codexSimulation.title"));
+    expect(card).toBeDefined();
+
+    await card!.get('[data-testid="codex-simulation-restore"]').trigger("click");
+    await flushPromises();
+
+    expect(forceDisableCodexSimulationSettings).toHaveBeenCalledOnce();
+    expect(
+      (card!.get('[data-testid="codex-simulation-full-toggle"]')
+        .element as HTMLInputElement).checked,
+    ).toBe(true);
+    expect(
+      (card!.get('[data-testid="codex-simulation-continuation-mode"]')
+        .element as HTMLSelectElement).value,
+    ).toBe("enforce");
+    expect(
+      card!.get('[data-testid="codex-simulation-effective-state"]').text(),
+    ).toContain("admin.settings.codexSimulation.experimentalEnabled");
+    expect(showError).toHaveBeenCalled();
+  });
+
+  it("keeps force restore available when Codex settings cannot be loaded", async () => {
+    getCodexSimulationSettings.mockRejectedValueOnce(new Error("invalid row"));
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+
+    const card = wrapper
+      .findAll(".card")
+      .find((node) => node.text().includes("admin.settings.codexSimulation.title"));
+    expect(card).toBeDefined();
+    expect(card!.get('[data-testid="codex-simulation-load-failed"]').text()).toContain(
+      "admin.settings.codexSimulation.loadFailedHint",
+    );
+    expect(
+      card!.get('[data-testid="codex-simulation-effective-state"]').text(),
+    ).toContain("admin.settings.codexSimulation.stateUnknown");
+    expect(
+      card!.get('[data-testid="codex-simulation-save"]').attributes("disabled"),
+    ).toBeDefined();
+    expect(
+      card!.get('[data-testid="codex-simulation-restore"]').attributes("disabled"),
+    ).toBeUndefined();
+
+    await card!.get('[data-testid="codex-simulation-restore"]').trigger("click");
+    await flushPromises();
+
+    expect(forceDisableCodexSimulationSettings).toHaveBeenCalledOnce();
+    expect(card!.find('[data-testid="codex-simulation-load-failed"]').exists()).toBe(
+      false,
+    );
+    expect(
+      card!.get('[data-testid="codex-simulation-effective-state"]').text(),
+    ).toContain("admin.settings.codexSimulation.originalBehaviorActive");
   });
 
   it("disables LLM header timeout degradation independently", async () => {
@@ -1864,6 +2009,9 @@ describe("admin SettingsView wechat connect controls", () => {
     updateRateLimit429CooldownSettings.mockReset();
     getGlobalTempUnschedulableSettings.mockReset();
     updateGlobalTempUnschedulableSettings.mockReset();
+    getCodexSimulationSettings.mockReset();
+    forceDisableCodexSimulationSettings.mockReset();
+    updateCodexSimulationSettings.mockReset();
     getStreamTimeoutSettings.mockReset();
     updateStreamTimeoutSettings.mockReset();
     getRectifierSettings.mockReset();
@@ -1913,6 +2061,22 @@ describe("admin SettingsView wechat connect controls", () => {
     updateGlobalTempUnschedulableSettings.mockImplementation(
       async (payload) => payload,
     );
+    getCodexSimulationSettings.mockResolvedValue({
+      full_simulation_enabled: false,
+      continuation_mode: "off",
+      state_ttl_seconds: 604800,
+      identity_secret_configured: false,
+    });
+    updateCodexSimulationSettings.mockImplementation(async (payload) => ({
+      ...payload,
+      identity_secret_configured: true,
+    }));
+    forceDisableCodexSimulationSettings.mockResolvedValue({
+      full_simulation_enabled: false,
+      continuation_mode: "off",
+      state_ttl_seconds: 604800,
+      identity_secret_configured: true,
+    });
     getStreamTimeoutSettings.mockResolvedValue({
       response_header_timeout_degradation_enabled: true,
       response_header_timeout_seconds: 20,
@@ -2120,6 +2284,9 @@ describe("admin SettingsView platform quota matrix", () => {
     updateRateLimit429CooldownSettings.mockReset();
     getGlobalTempUnschedulableSettings.mockReset();
     updateGlobalTempUnschedulableSettings.mockReset();
+    getCodexSimulationSettings.mockReset();
+    forceDisableCodexSimulationSettings.mockReset();
+    updateCodexSimulationSettings.mockReset();
     getStreamTimeoutSettings.mockReset();
     updateStreamTimeoutSettings.mockReset();
     getRectifierSettings.mockReset();
@@ -2149,6 +2316,22 @@ describe("admin SettingsView platform quota matrix", () => {
     updateRateLimit429CooldownSettings.mockResolvedValue({});
     getGlobalTempUnschedulableSettings.mockResolvedValue({ enabled: true });
     updateGlobalTempUnschedulableSettings.mockResolvedValue({ enabled: true });
+    getCodexSimulationSettings.mockResolvedValue({
+      full_simulation_enabled: false,
+      continuation_mode: "off",
+      state_ttl_seconds: 604800,
+      identity_secret_configured: false,
+    });
+    updateCodexSimulationSettings.mockImplementation(async (payload) => ({
+      ...payload,
+      identity_secret_configured: true,
+    }));
+    forceDisableCodexSimulationSettings.mockResolvedValue({
+      full_simulation_enabled: false,
+      continuation_mode: "off",
+      state_ttl_seconds: 604800,
+      identity_secret_configured: true,
+    });
     getStreamTimeoutSettings.mockResolvedValue({});
     updateStreamTimeoutSettings.mockResolvedValue({});
     getRectifierSettings.mockResolvedValue({});

@@ -52,7 +52,8 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 	responseHeaderSnapshot := cloneOpenAIUncommittedResponseHeaders(c)
 	agentTaskRecoveryTried := false
 	var fingerprintIDs *codexFingerprintIDs
-	if account != nil && account.Type == AccountTypeOAuth && !isOpenAIResponsesCompactPath(c) {
+	if account != nil && account.Type == AccountTypeOAuth &&
+		(!isOpenAIResponsesCompactPath(c) || s.codexFullSimulationEnabledForAccount(c, account)) {
 		fingerprintIDs = resolveCodexFingerprintIDsFromGinContext(account, c)
 	}
 	// Reset the request-scoped plan even when this attempt uses an API-key or
@@ -173,7 +174,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 		if normalized {
 			body = normalizedBody
 		}
-		if !isOpenAIResponsesCompactPath(c) {
+		if !isOpenAIResponsesCompactPath(c) || (fingerprintIDs != nil && fingerprintIDs.fullSimulation) {
 			fingerprintedBody, fingerprinted, fingerprintErr := applyCodexFingerprintClientMetadataToBody(body, fingerprintIDs)
 			if fingerprintErr != nil {
 				return nil, fingerprintErr
@@ -503,6 +504,9 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 			}
 		}
 	}
+	if account.IsOpenAIOAuth() && s.CodexSimulationRequestEnabled(c) {
+		req.Header.Del(CodexProjectIDHeader)
+	}
 	// Failover can reuse the downstream turn-state with a different account.
 	// Strip only values whose provenance is known to be cross-account.
 	s.guardOpenAICodexTurnStateEcho(c, account, req.Header)
@@ -579,7 +583,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 		req.Header.Set("user-agent", codexCLIUserAgent)
 	}
 	if account.Type == AccountTypeOAuth {
-		if !isOpenAIResponsesCompactPath(c) {
+		if !isOpenAIResponsesCompactPath(c) || (fingerprintIDs != nil && fingerprintIDs.fullSimulation) {
 			applyStagedCodexFingerprintHeaders(c, account, req.Header)
 		}
 		enforceCodexIdentityHeadersWithUA(req.Header, s.codexIdentityOverrideUA(account))
@@ -593,6 +597,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 	account.ApplyHeaderOverrides(req.Header)
 	applyOpenAICodexBetaFeatures(c, account, req.Header)
 	applyOpenAICodexRoutingHintFromBody(ctx, account, "http_passthrough", req.Header, body, "not_applicable")
+	applyCodexSimulationProfileHeaders(req.Header, fingerprintIDs)
 
 	return req, nil
 }

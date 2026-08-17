@@ -19,6 +19,7 @@ import settingsAPI, {
 import {
   getAdminApiKey,
   getBetaPolicySettings,
+  getCodexSimulationSettings,
   getEmailTemplate,
   getEmailTemplates,
   getGlobalTempUnschedulableSettings,
@@ -34,6 +35,7 @@ import {
 import {
   createAdminApiKey,
   deleteAdminApiKey,
+  forceDisableCodexSimulationSettings,
   previewEmailTemplate,
   regenerateAdminApiKey,
   resetWebSearchUsage,
@@ -45,6 +47,7 @@ import {
   testWebSearchEmulation,
   updateAdminApiKey,
   updateBetaPolicySettings,
+  updateCodexSimulationSettings,
   updateEmailTemplate,
   updateGlobalTempUnschedulableSettings,
   updateOverloadCooldownSettings,
@@ -311,6 +314,49 @@ describe("admin settings query and action owners", () => {
       "/admin/settings/beta-policy",
       "/admin/settings/web-search-emulation",
     ]);
+  });
+
+  it("uses the dedicated Codex simulation runtime settings contract", async () => {
+    const response = {
+      full_simulation_enabled: true,
+      continuation_mode: "shadow" as const,
+      state_ttl_seconds: 604800,
+      identity_secret_configured: true,
+    };
+    const payload = {
+      full_simulation_enabled: false,
+      continuation_mode: "off" as const,
+      state_ttl_seconds: 604800,
+    };
+    get.mockResolvedValueOnce({ data: response });
+    put.mockResolvedValueOnce({ data: { ...response, ...payload } });
+    post.mockResolvedValueOnce({
+      data: {
+        ...response,
+        full_simulation_enabled: false,
+        continuation_mode: "off",
+      },
+    });
+
+    await expect(getCodexSimulationSettings()).resolves.toEqual(response);
+    await expect(updateCodexSimulationSettings(payload)).resolves.toEqual({
+      ...response,
+      ...payload,
+    });
+    await expect(forceDisableCodexSimulationSettings()).resolves.toEqual({
+      ...response,
+      full_simulation_enabled: false,
+      continuation_mode: "off",
+    });
+
+    expect(get).toHaveBeenCalledWith("/admin/settings/codex-simulation");
+    expect(put).toHaveBeenCalledWith(
+      "/admin/settings/codex-simulation",
+      payload,
+    );
+    expect(post).toHaveBeenCalledWith(
+      "/admin/settings/codex-simulation/restore-original",
+    );
   });
 
   it("preserves admin API key payloads and identifier encoding", async () => {

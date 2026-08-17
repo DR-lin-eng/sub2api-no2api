@@ -53,6 +53,36 @@ sequenceDiagram
 - SSE/WS 一旦开始写出，后续错误使用流协议事件；未开始写出时才可返回普通 HTTP JSON 错误。
 - 客户端取消应停止上游读取和后台转发，不能继续占用账号或累计无主缓存。
 
+### Codex OAuth A/B 模拟
+
+管理员面板的“网关服务 -> Codex OAuth A/B 模拟”通过
+`GET/PUT /api/v1/admin/settings/codex-simulation` 管理数据库运行时设置；紧急回滚使用无请求体的
+`POST /api/v1/admin/settings/codex-simulation/restore-original`。该入口不依赖当前表单 TTL，也不要求旧数据库
+记录可以被解析，会直接写入 A=false、B=off。数据库记录存在时明确覆盖
+`gateway.codex_simulation`；记录缺失时才使用 YAML/环境变量作为兼容默认值。当前节点保存后立即生效，
+其他节点最多在 5 秒后台刷新周期后生效；OAuth 请求只读内存快照，不承担数据库刷新。首次启用 A 或 B 时
+服务端自动生成并保存身份密钥，接口只返回
+密钥是否已配置。A/B 默认关闭，并且不改变账号调度、计费或通用 failover。A 的
+`full_simulation_enabled` 只作用于 `codex_fingerprint_mode=full` 的 OpenAI OAuth 账号；B 的
+`continuation_mode=off|shadow|enforce` 独立于账号指纹模式。
+
+每个 HTTP 请求在开始时固定一份运行时设置快照，普通设置变更只影响后续请求。下游 WS 也保持单会话快照，
+但紧急恢复原版后，已启用 A/B 的现有 WS 会在下一轮请求时关闭并要求客户端重连，避免继续使用模拟身份。
+Responses
+handler 在账号选择前从 model-mapped canonical body 创建一次不可变 request root。root
+将 API Key/group 命名空间、入口专用 `X-Sub2API-Codex-Project-ID` 和对话信号组成的完整元组做
+HMAC；项目头在所有 HTTP/WS 上游构造器中删除。每个账号 attempt 再按
+`root × upstream principal` 派生 body、Header、prompt cache 和 WS 使用的同一身份计划。主体优先取
+`chatgpt_account_id`；缺失时退回本地账号 ID 命名空间。多个本地记录指向相同
+`chatgpt_account_id` 时有意视为同一上游主体。
+
+B 在 application 层将 body 分成 full/incremental，并读取 Redis string state（失败时使用有界本地
+fallback）判断 root/response owner。shadow 只读取、分类和记录假设；enforce 允许 full body 经结构化
+清理后迁移，但拒绝跨主体 incremental。相同主体的 WS incremental 必须取得原连接；连接繁忙沿用连接
+池等待，主体或连接不匹配返回独立终态错误，handler 直接写出协议兼容错误，不进入账号 failover。
+成功 turn 才写 owner/response；成功 Compact 才推进 generation。更完整的差异与故障语义见
+[Codex OAuth 模拟的有意差异](codex/intentional-divergences.md)。
+
 ## 浏览器管理请求
 
 浏览器 API 主要位于 `/api/v1/...`。前端不直接拼接鉴权、刷新或统一错误逻辑。
