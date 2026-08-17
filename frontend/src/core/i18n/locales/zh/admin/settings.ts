@@ -1,4 +1,5 @@
 import supportChatMessages from './settings.support-chat'
+import codexSimulationMessages from './settings.codex-simulation'
 
 export default {
     settings: {
@@ -1124,6 +1125,7 @@ export default {
         saved: '全局临时不可调度设置保存成功',
         saveFailed: '保存全局临时不可调度设置失败'
       },
+      codexSimulation: codexSimulationMessages,
       streamTimeout: {
         title: '流超时处理',
         description: '配置 LLM 流式请求等待上游响应头的时间，以及超时后的账户处理策略',

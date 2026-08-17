@@ -119,6 +119,34 @@ func validateGatewayTransport(c *Config) error {
 	return nil
 }
 
+func validateGatewayCodexSimulation(c *Config) error {
+	mode := strings.ToLower(strings.TrimSpace(c.Gateway.CodexSimulation.ContinuationMode))
+	if mode == "" {
+		mode = "off"
+	}
+	switch mode {
+	case "off", "shadow", "enforce":
+	default:
+		return fmt.Errorf("gateway.codex_simulation.continuation_mode must be one of off|shadow|enforce")
+	}
+	c.Gateway.CodexSimulation.ContinuationMode = mode
+
+	if c.Gateway.CodexSimulation.StateTTLSeconds <= 0 {
+		return fmt.Errorf("gateway.codex_simulation.state_ttl_seconds must be positive")
+	}
+	if c.Gateway.CodexSimulation.FullSimulationEnabled || mode != "off" {
+		secret := strings.TrimSpace(c.Gateway.CodexSimulation.IdentitySecret)
+		if secret == "" {
+			return fmt.Errorf("gateway.codex_simulation.identity_secret is required when Codex simulation or continuation is enabled")
+		}
+		if len([]byte(secret)) < 32 {
+			return fmt.Errorf("gateway.codex_simulation.identity_secret must be at least 32 bytes")
+		}
+		c.Gateway.CodexSimulation.IdentitySecret = secret
+	}
+	return nil
+}
+
 func validateGatewayOpenAIWebSocket(c *Config) error {
 	// 兼容旧键 sticky_previous_response_ttl_seconds
 	if c.Gateway.OpenAIWS.StickyResponseIDTTLSeconds <= 0 && c.Gateway.OpenAIWS.StickyPreviousResponseTTLSeconds > 0 {

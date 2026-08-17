@@ -50,6 +50,9 @@ type GatewayConfig struct {
 	// OpenAICompactModel: /responses/compact 上游使用的模型。
 	// compact 端点支持模型滞后于普通 /responses 时，可用该配置降级规避上游错误。
 	OpenAICompactModel string `mapstructure:"openai_compact_model"`
+	// CodexSimulation controls the opt-in request identity and continuation
+	// safeguards used by OpenAI OAuth accounts.
+	CodexSimulation GatewayCodexSimulationConfig `mapstructure:"codex_simulation"`
 	// OpenAIWS: OpenAI Responses WebSocket 配置（默认开启，可按需回滚到 HTTP）
 	OpenAIWS GatewayOpenAIWSConfig `mapstructure:"openai_ws"`
 	// Live: ChatGPT Frameless Live 会话配置。
@@ -138,6 +141,17 @@ type GatewayConfig struct {
 	// UserMessageQueue: 用户消息串行队列配置
 	// 对 role:"user" 的真实用户消息实施账号级串行化 + RPM 自适应延迟
 	UserMessageQueue UserMessageQueueConfig `mapstructure:"user_message_queue"`
+}
+
+// GatewayCodexSimulationConfig controls the second-generation Codex request
+// identity plan and cross-principal continuation policy. Both features are
+// disabled by default so upgrades preserve existing account behavior.
+type GatewayCodexSimulationConfig struct {
+	FullSimulationEnabled bool   `mapstructure:"full_simulation_enabled"`
+	IdentitySecret        string `mapstructure:"identity_secret"`
+	// ContinuationMode accepts off, shadow, or enforce.
+	ContinuationMode string `mapstructure:"continuation_mode"`
+	StateTTLSeconds  int    `mapstructure:"state_ttl_seconds"`
 }
 
 type GatewayLiveConfig struct {

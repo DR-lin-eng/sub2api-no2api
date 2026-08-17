@@ -151,6 +151,16 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		}
 		switch ingressMode {
 		case OpenAIWSIngressModePassthrough:
+			if account.IsOpenAIOAuth() && s.codexContinuationModeForRequest(ctx, c) == codexContinuationEnforce {
+				// Enforced continuation needs the managed pool's stable conn_id so
+				// an incremental turn can wait for and reacquire the exact socket.
+				ingressMode = OpenAIWSIngressModeCtxPool
+				logOpenAIWSModeInfo(
+					"ingress_ws_passthrough_promoted account_id=%d target_mode=ctx_pool reason=codex_continuation_enforce",
+					account.ID,
+				)
+				break
+			}
 			if wsDecision.Transport != OpenAIUpstreamTransportResponsesWebsocketV2 {
 				return fmt.Errorf("websocket ingress requires ws_v2 transport, got=%s", wsDecision.Transport)
 			}
@@ -225,6 +235,13 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	}
 	ingressSessionOriginalModel := ""
 	fingerprintIDs := resolveCodexFingerprintIDsFromGinContext(account, c)
+	wrapCodexContinuationIngressError := func(err error) error {
+		var terminalErr *CodexContinuationTerminalError
+		if errors.As(err, &terminalErr) {
+			return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, terminalErr.Message, terminalErr)
+		}
+		return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid Codex continuation request", err)
+	}
 
 	applyPayloadMutation := func(current []byte, path string, value any) ([]byte, error) {
 		next, err := sjson.SetBytes(current, path, value)
@@ -471,8 +488,17 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			)
 		}
 		normalized = policyApplied
+		if account.IsOpenAIOAuth() && s.ensureCodexSimulationRequest(c, normalized) != nil {
+			prepared, prepareErr := s.prepareCodexSimulationAttemptForTurn(ctx, c, account, normalized, turn)
+			if prepareErr != nil {
+				return openAIWSClientPayload{}, wrapCodexContinuationIngressError(prepareErr)
+			}
+			normalized = prepared
+		}
 		turnFingerprintIDs := fingerprintIDs
-		if turn > 1 {
+		if attempt, ok := codexSimulationAttemptFromGin(c); ok && attempt.fingerprint != nil {
+			turnFingerprintIDs = attempt.fingerprint
+		} else if turn > 1 {
 			turnFingerprintIDs = nextCodexFingerprintTurn(fingerprintIDs)
 		}
 		fingerprinted, changed, fingerprintErr := applyCodexFingerprintClientMetadataToBody(normalized, turnFingerprintIDs)
@@ -481,6 +507,11 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		}
 		if changed {
 			normalized = fingerprinted
+		}
+		if _, simulationActive := codexSimulationAttemptFromGin(c); simulationActive {
+			finalContinuationValues := gjson.GetManyBytes(normalized, "prompt_cache_key", "previous_response_id")
+			promptCacheKey = strings.TrimSpace(finalContinuationValues[0].String())
+			previousResponseID = strings.TrimSpace(finalContinuationValues[1].String())
 		}
 		ingressSessionOriginalModel = originalModel
 
@@ -534,6 +565,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	if err != nil {
 		return err
 	}
+	fingerprintIDs = firstPayload.fingerprintIDs
 
 	turnState := strings.TrimSpace(c.GetHeader(openAIWSTurnStateHeader))
 	stateStore := s.getOpenAIWSStateStore()
@@ -542,7 +574,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	sessionHash := ""
 	preferredConnID := ""
 	storeDisabled := false
-	refreshIngressRouteState := func(payload openAIWSClientPayload) {
+	refreshIngressRouteState := func(payload openAIWSClientPayload) error {
 		sessionHash = s.GenerateSessionHash(c, payload.rawForHash)
 		if turnState == "" && stateStore != nil && sessionHash != "" {
 			savedTurnState, ok, stateErr := stateStore.GetSessionTurnState(ctx, groupID, sessionHash)
@@ -565,10 +597,29 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				preferredConnID = connID
 			}
 		}
+		if codexContinuationRequiresExactConnection(c) {
+			preferredConnID = s.codexContinuationPreferredConnection(c, stateStore, payload.previousResponseID)
+			if preferredConnID == "" {
+				return wrapCodexContinuationIngressError(newCodexContinuationTerminalError(
+					"Codex incremental continuation requires its original upstream WebSocket connection",
+					nil,
+				))
+			}
+		}
+		return nil
 	}
-	refreshIngressRouteState(firstPayload)
+	if routeErr := refreshIngressRouteState(firstPayload); routeErr != nil {
+		return routeErr
+	}
 
-	if forceHTTPBridge || s.shouldBridgeOpenAIWSHTTP(account, firstPayload.payloadBytes, firstPayload.previousResponseID) {
+	shouldHTTPBridge := forceHTTPBridge || s.shouldBridgeOpenAIWSHTTP(account, firstPayload.payloadBytes, firstPayload.previousResponseID)
+	if shouldHTTPBridge && codexContinuationRequiresExactConnection(c) {
+		return wrapCodexContinuationIngressError(newCodexContinuationTerminalError(
+			"Codex incremental continuation cannot leave its original upstream WebSocket connection",
+			nil,
+		))
+	}
+	if shouldHTTPBridge {
 		logOpenAIWSModeInfo(
 			"ingress_ws_http_bridge_start account_id=%d account_type=%s payload_bytes=%d threshold_bytes=%d has_session_hash=%v store_disabled=%v",
 			account.ID,
@@ -675,6 +726,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			if result == nil {
 				return errors.New("websocket http bridge turn result is nil")
 			}
+			if result.SucceededForScheduling() {
+				s.completeCodexSimulationSuccess(ctx, c, account, strings.TrimSpace(result.RequestID), "")
+			}
 			bridgeReplayInput = cloneOpenAIWSRawMessages(turnReplayInput)
 			bridgeReplayInputExists = turnReplayInputExists
 			if result.wsReplayInputExists {
@@ -731,6 +785,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	)
 	if buildHdrErr != nil {
 		return fmt.Errorf("build ws headers: %w", buildHdrErr)
+	}
+	if s.CodexSimulationRequestEnabled(c) {
+		wsHeaders.Del(CodexProjectIDHeader)
 	}
 	applyCodexFingerprintWSHeaders(wsHeaders, fingerprintIDs)
 	baseAcquireReq := openAIWSAcquireRequest{
@@ -1073,11 +1130,15 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				errCodeRaw, errTypeRaw, errMsgRaw := parseOpenAIWSErrorEventFields(upstreamMessage)
 				s.persistOpenAIWSRateLimitSignal(ctx, account, lease.HandshakeHeaders(), upstreamMessage, errCodeRaw, errTypeRaw, errMsgRaw)
 				fallbackReason, _ := classifyOpenAIWSErrorEventFromRaw(errCodeRaw, errTypeRaw, errMsgRaw)
+				if fallbackReason == "invalid_encrypted_content" {
+					s.markCodexContinuationExternalOnInvalidEncryptedContent(ctx, c)
+				}
 				errCode, errType, errMessage := summarizeOpenAIWSErrorEventFieldsFromRaw(errCodeRaw, errTypeRaw, errMsgRaw)
 				recoverablePrevNotFound := fallbackReason == openAIWSIngressStagePreviousResponseNotFound &&
 					turnPreviousResponseID != "" &&
 					!turnHasFunctionCallOutput &&
 					s.openAIWSIngressPreviousResponseRecoveryEnabled() &&
+					!codexContinuationRecoveryForbidden(c) &&
 					!wroteDownstream
 				if recoverablePrevNotFound {
 					// 可恢复场景使用非 error 关键字日志，避免被 LegacyPrintf 误判为 ERROR 级别。
@@ -1354,6 +1415,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		preferredConnID = ""
 	}
 	recoverIngressPrevResponseNotFound := func(relayErr error, turn int, connID string) bool {
+		if codexContinuationRecoveryForbidden(c) {
+			return false
+		}
 		if !isOpenAIWSIngressPreviousResponseNotFound(relayErr) {
 			return false
 		}
@@ -1421,6 +1485,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		return true
 	}
 	retryIngressTurn := func(relayErr error, turn int, connID string) bool {
+		if codexContinuationRecoveryForbidden(c) {
+			return false
+		}
 		if !isOpenAIWSIngressTurnRetryable(relayErr) || turnRetry >= 1 {
 			return false
 		}
@@ -1610,11 +1677,11 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				}
 			}
 		}
-		forcePreferredConn := isStrictAffinityTurn(currentPayload)
+		forcePreferredConn := isStrictAffinityTurn(currentPayload) || codexContinuationRequiresExactConnection(c)
 		if sessionLease == nil {
 			acquiredLease, acquireErr := acquireTurnLease(turn, preferredConnID, forcePreferredConn)
 			if acquireErr != nil {
-				if turn == 1 && isOpenAIWSUpgradeRequiredDialError(acquireErr) {
+				if turn == 1 && !codexContinuationRecoveryForbidden(c) && isOpenAIWSUpgradeRequiredDialError(acquireErr) {
 					s.markOpenAIWSFallbackCooling(account.ID, "upgrade_required")
 					c.Set("openai_ws_force_http_bridge_fallback", true)
 					logOpenAIWSModeInfo(
@@ -1631,6 +1698,12 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 						firstClientMessage,
 						skipFirstOpenAIWSBeforeTurnHook(hooks),
 					)
+				}
+				if forcePreferredConn && codexContinuationRequiresExactConnection(c) {
+					return wrapCodexContinuationIngressError(newCodexContinuationTerminalError(
+						"Codex incremental continuation could not reacquire its original upstream WebSocket connection",
+						acquireErr,
+					))
 				}
 				return fmt.Errorf("acquire upstream websocket: %w", acquireErr)
 			}
@@ -1658,6 +1731,13 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 					truncateOpenAIWSLogValue(pingErr.Error(), openAIWSLogValueMaxLen),
 				)
 				if forcePreferredConn {
+					if codexContinuationRecoveryForbidden(c) {
+						resetSessionLease(true)
+						return wrapCodexContinuationIngressError(newCodexContinuationTerminalError(
+							"Codex incremental continuation lost its original upstream WebSocket connection",
+							pingErr,
+						))
+					}
 					// 携带 function_call_output 的请求不能丢弃 previous_response_id：
 					// 上游 API 需要 response chain 来匹配 tool_result 与之前的 tool_use，
 					// 除非 replay input 已经包含与每个 tool_result 匹配的 tool_use 上下文。
@@ -1781,6 +1861,13 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			if retryIngressTurn(relayErr, turn, connID) {
 				continue
 			}
+			if codexContinuationRecoveryForbidden(c) {
+				sessionLease.MarkBroken()
+				return wrapCodexContinuationIngressError(newCodexContinuationTerminalError(
+					"Codex incremental continuation lost its original upstream WebSocket connection",
+					relayErr,
+				))
+			}
 			finalErr := relayErr
 			if unwrapped := errors.Unwrap(relayErr); unwrapped != nil {
 				finalErr = unwrapped
@@ -1802,6 +1889,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			return errors.New("websocket turn result is nil")
 		}
 		responseID := strings.TrimSpace(result.RequestID)
+		if result.SucceededForScheduling() {
+			s.completeCodexSimulationSuccess(ctx, c, account, responseID, connID)
+		}
 		lastTurnResponseID = responseID
 		lastTurnPayload = cloneOpenAIWSPayloadBytes(currentPayload)
 		lastTurnReplayInput = cloneOpenAIWSRawMessages(currentTurnReplayInput)
@@ -1876,6 +1966,10 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			if updHdrErr != nil {
 				logOpenAIWSModeInfo("ingress_ws_update_headers_failed account_id=%d err=%v", account.ID, updHdrErr)
 			} else {
+				if s.CodexSimulationRequestEnabled(c) {
+					updatedHeaders.Del(CodexProjectIDHeader)
+				}
+				applyCodexFullSimulationWSHeaders(updatedHeaders, nextPayload.fingerprintIDs)
 				baseAcquireReq.Headers = updatedHeaders
 			}
 		}
@@ -1898,7 +1992,22 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				storeDisabled,
 			)
 		}
-		if stateStore != nil && nextPayload.previousResponseID != "" {
+		if codexContinuationRequiresExactConnection(c) {
+			exactConnID := s.codexContinuationPreferredConnection(c, stateStore, nextPayload.previousResponseID)
+			if exactConnID == "" {
+				return wrapCodexContinuationIngressError(newCodexContinuationTerminalError(
+					"Codex incremental continuation requires its original upstream WebSocket connection",
+					nil,
+				))
+			}
+			if sessionConnID != "" && exactConnID != sessionConnID {
+				return wrapCodexContinuationIngressError(newCodexContinuationTerminalError(
+					"Codex incremental continuation is bound to a different upstream WebSocket connection",
+					nil,
+				))
+			}
+			preferredConnID = exactConnID
+		} else if stateStore != nil && nextPayload.previousResponseID != "" {
 			if stickyConnID, ok := stateStore.GetResponseConn(nextPayload.previousResponseID); ok {
 				if sessionConnID != "" && stickyConnID != "" && stickyConnID != sessionConnID {
 					logOpenAIWSModeInfo(

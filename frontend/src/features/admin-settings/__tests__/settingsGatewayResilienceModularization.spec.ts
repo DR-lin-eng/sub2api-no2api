@@ -21,6 +21,12 @@ const normalizedTemplateHash = (source: string) =>
 
 const cards = [
   {
+    marker: 'Codex OAuth A/B Simulation Settings',
+    component: 'SettingsCodexSimulationCard',
+    file: 'SettingsCodexSimulationCard.vue',
+    templateHash: '1d4e87cd0b532b43654adcb15a19c61f711dfc3190b06c4e812d3557ad80baa6',
+  },
+  {
     marker: 'Global Temporary Unschedulable Settings',
     component: 'SettingsGlobalTempUnschedulableCard',
     file: 'SettingsGlobalTempUnschedulableCard.vue',

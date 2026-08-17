@@ -621,6 +621,10 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		// 全局临时不可调度开关
 		adminSettings.GET("/temp-unschedulable", h.Admin.Setting.GetGlobalTempUnschedulableSettings)
 		adminSettings.PUT("/temp-unschedulable", h.Admin.Setting.UpdateGlobalTempUnschedulableSettings)
+		// Codex OAuth A/B simulation runtime controls
+		adminSettings.GET("/codex-simulation", h.Admin.Setting.GetCodexSimulationSettings)
+		adminSettings.PUT("/codex-simulation", h.Admin.Setting.UpdateCodexSimulationSettings)
+		adminSettings.POST("/codex-simulation/restore-original", h.Admin.Setting.RestoreOriginalCodexBehavior)
 		// 面板 API 限流配置
 		adminSettings.GET("/panel-rate-limit", h.Admin.Setting.GetPanelRateLimitSettings)
 		adminSettings.PUT("/panel-rate-limit", h.Admin.Setting.UpdatePanelRateLimitSettings)

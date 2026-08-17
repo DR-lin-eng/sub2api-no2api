@@ -133,8 +133,18 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			preferredConnID = connID
 		}
 	}
+	forcePreferredConn := codexContinuationRequiresExactConnection(c)
+	if forcePreferredConn {
+		preferredConnID = s.codexContinuationPreferredConnection(c, stateStore, previousResponseID)
+		if preferredConnID == "" {
+			return nil, newCodexContinuationTerminalError(
+				"Codex incremental continuation requires its original upstream WebSocket connection",
+				nil,
+			)
+		}
+	}
 	storeDisabled := s.isOpenAIWSStoreDisabledInRequest(reqBody, account)
-	if stateStore != nil && storeDisabled && previousResponseID == "" && sessionHash != "" {
+	if !forcePreferredConn && stateStore != nil && storeDisabled && previousResponseID == "" && sessionHash != "" {
 		if connID, ok := stateStore.GetSessionConn(groupID, sessionHash); ok {
 			preferredConnID = connID
 		}
@@ -157,6 +167,9 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	)
 	if buildHdrErr != nil {
 		return nil, fmt.Errorf("build ws headers: %w", buildHdrErr)
+	}
+	if s.CodexSimulationRequestEnabled(c) {
+		wsHeaders.Del(CodexProjectIDHeader)
 	}
 	applyCodexFingerprintWSHeaders(wsHeaders, fingerprintIDs)
 	logOpenAIWSModeDebug(
@@ -201,8 +214,9 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		HeadersFactory: func(factoryCtx context.Context, headers http.Header) (http.Header, error) {
 			return s.refreshOpenAIAgentIdentityHeaders(factoryCtx, account, headers)
 		},
-		PreferredConnID: preferredConnID,
-		ForceNewConn:    forceNewConn,
+		PreferredConnID:    preferredConnID,
+		ForceNewConn:       forceNewConn,
+		ForcePreferredConn: forcePreferredConn,
 		ProxyURL: func() string {
 			if account.ProxyID != nil && account.Proxy != nil {
 				return account.Proxy.URL()
@@ -211,6 +225,15 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		}(),
 	})
 	if err != nil {
+		if forcePreferredConn {
+			if ctx != nil && ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			return nil, newCodexContinuationTerminalError(
+				"Codex incremental continuation could not reacquire its original upstream WebSocket connection",
+				err,
+			)
+		}
 		var agentDialErr *openAIWSDialError
 		if s.isAgentIdentityAccount(ctx, account) && errors.As(err, &agentDialErr) && isAgentIdentityTaskInvalidWSDialError(agentDialErr) && agentTaskRecoveryTried != nil && !*agentTaskRecoveryTried {
 			*agentTaskRecoveryTried = true
@@ -826,7 +849,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		clientDisconnected,
 	)
 
-	return &OpenAIForwardResult{
+	result := &OpenAIForwardResult{
 		RequestID:                     responseID,
 		Usage:                         *usage,
 		Model:                         originalModel,
@@ -843,7 +866,11 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		ResponseHeaders:               lease.HandshakeHeaders(),
 		Duration:                      time.Since(startTime),
 		FirstTokenMs:                  firstTokenMs,
-	}, nil
+	}
+	if result.SucceededForScheduling() {
+		s.completeCodexSimulationSuccess(ctx, c, account, responseID, lease.ConnID())
+	}
+	return result, nil
 }
 
 // ProxyResponsesWebSocketFromClient 处理客户端入站 WebSocket（OpenAI Responses WS Mode）并转发到上游。

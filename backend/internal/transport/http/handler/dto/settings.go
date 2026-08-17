@@ -486,6 +486,19 @@ type GlobalTempUnschedulableSettings struct {
 	Enabled bool `json:"enabled"`
 }
 
+type CodexSimulationSettings struct {
+	FullSimulationEnabled    bool   `json:"full_simulation_enabled"`
+	ContinuationMode         string `json:"continuation_mode"`
+	StateTTLSeconds          int    `json:"state_ttl_seconds"`
+	IdentitySecretConfigured bool   `json:"identity_secret_configured"`
+}
+
+type UpdateCodexSimulationSettingsRequest struct {
+	FullSimulationEnabled *bool   `json:"full_simulation_enabled"`
+	ContinuationMode      *string `json:"continuation_mode"`
+	StateTTLSeconds       *int    `json:"state_ttl_seconds"`
+}
+
 // PanelRateLimitSettings 面板 API 限流配置 DTO
 type PanelRateLimitSettings struct {
 	Enabled     bool `json:"enabled"`

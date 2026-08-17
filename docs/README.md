@@ -29,6 +29,7 @@
 | 文档 | 内容 |
 | --- | --- |
 | [组合分组](COMPOSITE_GROUPS.md) | Composite group 的平台解析和使用约束 |
+| [Codex OAuth 模拟的有意差异](codex/intentional-divergences.md) | 固定 Codex 源码 revision、纯 Go A/B 身份与 continuation 边界、暂缓的传输层差异 |
 | [CPA 多号池动态负载](CPA_POOL_DYNAMIC_LOAD_BALANCING_CN.md) | CPA 凭据容量、动态分流和运维检查 |
 | [调度候选索引优化](SCHEDULER_CANDIDATE_INDEX_OPTIMIZATION_CN.md) | 实验调度引擎、索引一致性和回退行为 |
 | [支付系统（中文）](PAYMENT_CN.md) / [English](PAYMENT.md) | 支付服务商、订单、回调和配置 |

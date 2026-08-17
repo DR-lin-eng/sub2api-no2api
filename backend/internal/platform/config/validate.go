@@ -64,6 +64,9 @@ func (c *Config) Validate() error {
 	if err := validateGatewayTransport(c); err != nil {
 		return err
 	}
+	if err := validateGatewayCodexSimulation(c); err != nil {
+		return err
+	}
 	if err := validateGatewayOpenAIWebSocket(c); err != nil {
 		return err
 	}

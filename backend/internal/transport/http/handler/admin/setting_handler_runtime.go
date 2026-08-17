@@ -192,6 +192,80 @@ func (h *SettingHandler) UpdateGlobalTempUnschedulableSettings(c *gin.Context) {
 	response.Success(c, dto.GlobalTempUnschedulableSettings{Enabled: req.Enabled})
 }
 
+// GetCodexSimulationSettings returns the admin-managed A/B switches without
+// exposing the persisted identity secret.
+// GET /api/v1/admin/settings/codex-simulation
+func (h *SettingHandler) GetCodexSimulationSettings(c *gin.Context) {
+	settings, err := h.settingService.GetCodexSimulationSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, codexSimulationSettingsDTO(settings))
+}
+
+// UpdateCodexSimulationSettings persists an explicit DB override. The service
+// preserves or generates the hidden identity secret as needed.
+// PUT /api/v1/admin/settings/codex-simulation
+func (h *SettingHandler) UpdateCodexSimulationSettings(c *gin.Context) {
+	var req dto.UpdateCodexSimulationSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if req.FullSimulationEnabled == nil || req.ContinuationMode == nil || req.StateTTLSeconds == nil {
+		response.BadRequest(c, "full_simulation_enabled, continuation_mode, and state_ttl_seconds are required")
+		return
+	}
+
+	mode := strings.ToLower(strings.TrimSpace(*req.ContinuationMode))
+	switch mode {
+	case "off", "shadow", "enforce":
+	default:
+		response.BadRequest(c, "continuation_mode must be one of off|shadow|enforce")
+		return
+	}
+	if *req.StateTTLSeconds <= 0 {
+		response.BadRequest(c, "state_ttl_seconds must be positive")
+		return
+	}
+
+	settings, err := h.settingService.SetCodexSimulationSettings(c.Request.Context(), &service.CodexSimulationSettings{
+		FullSimulationEnabled: *req.FullSimulationEnabled,
+		ContinuationMode:      mode,
+		StateTTLSeconds:       *req.StateTTLSeconds,
+	})
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, codexSimulationSettingsDTO(settings))
+}
+
+// RestoreOriginalCodexBehavior is the fail-safe control-plane action. It does
+// not consume form values and can overwrite a malformed persisted document.
+// POST /api/v1/admin/settings/codex-simulation/restore-original
+func (h *SettingHandler) RestoreOriginalCodexBehavior(c *gin.Context) {
+	settings, err := h.settingService.ForceDisableCodexSimulationSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, codexSimulationSettingsDTO(settings))
+}
+
+func codexSimulationSettingsDTO(settings *service.CodexSimulationSettings) dto.CodexSimulationSettings {
+	if settings == nil {
+		return dto.CodexSimulationSettings{}
+	}
+	return dto.CodexSimulationSettings{
+		FullSimulationEnabled:    settings.FullSimulationEnabled,
+		ContinuationMode:         settings.ContinuationMode,
+		StateTTLSeconds:          settings.StateTTLSeconds,
+		IdentitySecretConfigured: settings.IdentitySecretConfigured(),
+	}
+}
+
 // GetStreamTimeoutSettings 获取流超时处理配置
 // GET /api/v1/admin/settings/stream-timeout
 func (h *SettingHandler) GetStreamTimeoutSettings(c *gin.Context) {

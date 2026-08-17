@@ -1,5 +1,8 @@
 <template>
   <div class="space-y-6">
+    <!-- Codex OAuth A/B Simulation Settings -->
+    <SettingsCodexSimulationCard />
+
     <!-- Global Temporary Unschedulable Settings -->
     <SettingsGlobalTempUnschedulableCard />
 
@@ -24,6 +27,7 @@
 </template>
 
 <script setup lang="ts">
+import SettingsCodexSimulationCard from './gateway-resilience/SettingsCodexSimulationCard.vue'
 import SettingsGlobalTempUnschedulableCard from './gateway-resilience/SettingsGlobalTempUnschedulableCard.vue'
 import SettingsOverloadCooldownCard from './gateway-resilience/SettingsOverloadCooldownCard.vue'
 import SettingsRateLimit429CooldownCard from './gateway-resilience/SettingsRateLimit429CooldownCard.vue'

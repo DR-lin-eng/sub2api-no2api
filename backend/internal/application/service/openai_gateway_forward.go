@@ -439,7 +439,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		if !isCompactRequest && applyCodexClientMetadata(decoded, account) {
 			markDecodedModified()
 		}
-		if !isCompactRequest {
+		if !isCompactRequest || s.codexFullSimulationEnabledForAccount(c, account) {
 			fingerprintIDs = resolveCodexFingerprintIDsFromGinContext(account, c)
 			if applyCodexFingerprintClientMetadata(decoded, fingerprintIDs) {
 				markDecodedModified()
@@ -450,6 +450,9 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		}
 		if codexResult.PromptCacheKey != "" {
 			promptCacheKey = codexResult.PromptCacheKey
+		}
+		if fingerprintIDs != nil && fingerprintIDs.fullSimulation {
+			promptCacheKey = fingerprintIDs.promptCacheKey
 		}
 	}
 	if !SupportsVerbosity(upstreamModel) && gjson.GetBytes(body, "text.verbosity").Exists() {
@@ -500,7 +503,14 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			}
 		}
 	}
-	if wsDecision.Transport != OpenAIUpstreamTransportResponsesWebsocketV2 && gjson.GetBytes(body, "previous_response_id").Exists() {
+	if codexContinuationRequiresExactConnection(c) && wsDecision.Transport != OpenAIUpstreamTransportResponsesWebsocketV2 {
+		return nil, newCodexContinuationTerminalError(
+			"Codex incremental continuation requires its original upstream WebSocket connection",
+			nil,
+		)
+	}
+	if wsDecision.Transport != OpenAIUpstreamTransportResponsesWebsocketV2 &&
+		gjson.GetBytes(body, "previous_response_id").Exists() && !codexContinuationRecoveryForbidden(c) {
 		markPatchDelete("previous_response_id")
 	}
 	if openAIRequestBodyMayContainEmptyBase64InputImage(body) {
@@ -613,6 +623,9 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		wsPrevResponseRecoveryTried := false
 		wsInvalidEncryptedContentRecoveryTried := false
 		recoverPrevResponseNotFound := func(attempt int) bool {
+			if codexContinuationRecoveryForbidden(c) {
+				return false
+			}
 			if wsPrevResponseRecoveryTried {
 				return false
 			}
@@ -645,6 +658,9 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			return true
 		}
 		recoverInvalidEncryptedContent := func(attempt int) bool {
+			if codexContinuationRecoveryForbidden(c) {
+				return false
+			}
 			if wsInvalidEncryptedContentRecoveryTried {
 				return false
 			}
@@ -703,12 +719,25 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			if c != nil && c.Writer != nil && c.Writer.Written() {
 				break
 			}
+			var continuationTerminal *CodexContinuationTerminalError
+			if errors.As(wsErr, &continuationTerminal) {
+				return nil, continuationTerminal
+			}
 			var taskRecoveredErr *agentIdentityTaskRecoveredError
 			if errors.As(wsErr, &taskRecoveredErr) {
 				continue
 			}
 
 			reason, retryable := classifyOpenAIWSReconnectReason(wsErr)
+			if reason == "invalid_encrypted_content" {
+				s.markCodexContinuationExternalOnInvalidEncryptedContent(ctx, c)
+			}
+			if codexContinuationRecoveryForbidden(c) {
+				return nil, newCodexContinuationTerminalError(
+					"Codex incremental continuation lost its required upstream connection",
+					wsErr,
+				)
+			}
 			if reason != "" {
 				wsLastFailureReason = reason
 			}
@@ -810,7 +839,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			return wsResult, nil
 		}
 		canReplayThroughHTTP := c == nil || c.Writer == nil || !c.Writer.Written()
-		if canReplayThroughHTTP && (shouldFallbackOpenAIWSToHTTP(wsErr) ||
+		if canReplayThroughHTTP && !codexContinuationRecoveryForbidden(c) && (shouldFallbackOpenAIWSToHTTP(wsErr) ||
 			shouldFallbackCodexPrewarmWSForbiddenToHTTP(account, wsErr)) {
 			// The WS handshake/error event happened before any semantic output was
 			// written. Reuse the original request body through the normal HTTP
@@ -922,7 +951,10 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			}
 			respBody = s.redactAgentIdentitySensitiveBody(ctx, account, respBody)
 			resp.Body = io.NopCloser(bytes.NewReader(respBody))
-			if !httpInvalidEncryptedContentRetryTried && resp.StatusCode == http.StatusBadRequest && upstreamCode == "invalid_encrypted_content" {
+			if resp.StatusCode == http.StatusBadRequest && upstreamCode == "invalid_encrypted_content" {
+				s.markCodexContinuationExternalOnInvalidEncryptedContent(ctx, c)
+			}
+			if !codexContinuationRecoveryForbidden(c) && !httpInvalidEncryptedContentRetryTried && resp.StatusCode == http.StatusBadRequest && upstreamCode == "invalid_encrypted_content" {
 				decoded, decodeErr := ensureReqBody()
 				if decodeErr != nil {
 					return nil, decodeErr
@@ -1050,144 +1082,4 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		}
 		return forwardResult, nil
 	}
-}
-
-func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Context, account *Account, body []byte, token string, isStream bool, promptCacheKey string, isCodexCLI bool) (*http.Request, error) {
-	return s.buildUpstreamRequestWithFingerprint(ctx, c, account, body, token, isStream, promptCacheKey, isCodexCLI, nil)
-}
-
-func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.Context, c *gin.Context, account *Account, body []byte, token string, isStream bool, promptCacheKey string, isCodexCLI bool, fingerprintIDs *codexFingerprintIDs) (*http.Request, error) {
-	// A Gin context can be reused across account failover attempts. The caller's
-	// explicit plan is the source of truth for this attempt, including nil when
-	// the selected account has convergence disabled.
-	stageCodexFingerprintIDs(c, fingerprintIDs)
-	// Determine target URL based on account type
-	var targetURL string
-	switch account.Type {
-	case AccountTypeOAuth:
-		// OAuth accounts use ChatGPT internal API
-		targetURL = chatgptCodexURL
-	case AccountTypeAPIKey:
-		// API Key accounts use Platform API or custom base URL
-		baseURL := account.GetOpenAIBaseURL()
-		if baseURL == "" {
-			targetURL = openaiPlatformAPIURL
-		} else {
-			validatedURL, err := s.validateUpstreamBaseURL(baseURL)
-			if err != nil {
-				return nil, err
-			}
-			targetURL = buildOpenAIResponsesURL(validatedURL)
-		}
-	default:
-		targetURL = openaiPlatformAPIURL
-	}
-	targetURL = appendOpenAIResponsesRequestPathSuffix(targetURL, openAIResponsesRequestPathSuffix(c))
-
-	req, err := newOpenAIHTTPUpstreamRequest(ctx, http.MethodPost, targetURL, account, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(WithHTTPUpstreamProfile(req.Context(), openAIHTTPUpstreamProfile(ctx, account, isStream)))
-
-	// Build authentication for this request. Agent Identity signs a fresh
-	// assertion here; OAuth/PAT/API-key keep their existing Bearer behavior.
-	authHeaders, err := s.buildOpenAIAuthenticationHeaders(ctx, account, token)
-	if err != nil {
-		return nil, fmt.Errorf("build openai authentication headers: %w", err)
-	}
-	for key, values := range authHeaders {
-		for _, value := range values {
-			req.Header.Add(key, value)
-		}
-	}
-
-	// Set headers specific to OAuth accounts (ChatGPT internal API)
-	if account.Type == AccountTypeOAuth {
-		// Required: set Host for ChatGPT API (must use req.Host, not Header.Set)
-		req.Host = "chatgpt.com"
-		if err := resolveAndSetOpenAIChatGPTAccountHeaders(ctx, s.accountRepo, req.Header, account); err != nil {
-			return nil, fmt.Errorf("resolve chatgpt account headers: %w", err)
-		}
-	}
-
-	// Whitelist passthrough headers
-	for key, values := range c.Request.Header {
-		lowerKey := strings.ToLower(key)
-		if openaiAllowedHeaders[lowerKey] {
-			for _, v := range values {
-				req.Header.Add(key, v)
-			}
-		}
-	}
-	// A turn-state minted by another account is incompatible with this
-	// attempt's outbound identity. Unknown and same-account values pass through.
-	s.guardOpenAICodexTurnStateEcho(c, account, req.Header)
-	if account.Type == AccountTypeOAuth {
-		compatMessagesBridge := isOpenAICompatMessagesBridgeContext(c) || isOpenAICompatMessagesBridgeBody(body)
-		// 清除客户端透传的 session 头，后续用隔离后的值重新设置，防止跨用户会话碰撞。
-		clientConversationID := strings.TrimSpace(req.Header.Get("conversation_id"))
-		req.Header.Del("conversation_id")
-		req.Header.Del("session_id")
-
-		if compatMessagesBridge {
-			req.Header.Del("OpenAI-Beta")
-			req.Header.Del("originator")
-		} else {
-			req.Header.Set("originator", resolveOpenAIUpstreamOriginator(c, isCodexCLI))
-		}
-		apiKeyID := getAPIKeyIDFromContext(c)
-		if isOpenAIResponsesCompactPath(c) {
-			req.Header.Set("accept", "application/json")
-			if req.Header.Get("version") == "" {
-				req.Header.Set("version", codexCLIVersion)
-			}
-			compactSession := resolveOpenAICompactSessionID(c)
-			req.Header.Set("session_id", isolateOpenAISessionID(apiKeyID, compactSession))
-		} else {
-			req.Header.Set("accept", "text/event-stream")
-		}
-		if promptCacheKey != "" {
-			isolated := isolateOpenAISessionID(apiKeyID, promptCacheKey)
-			req.Header.Set("session_id", isolated)
-			if !compatMessagesBridge || clientConversationID != "" {
-				req.Header.Set("conversation_id", isolated)
-			}
-		}
-	} else if isOpenAIResponsesCompactPath(c) {
-		// compact 上游是 unary JSON 协议：API-key 账号也显式声明 Accept，
-		// 避免 OpenAI 兼容网关按 SSE 返回（#3777 期望行为 4）。
-		req.Header.Set("accept", "application/json")
-	}
-
-	// Apply custom User-Agent if configured
-	customUA := account.GetOpenAIUserAgent()
-	if customUA != "" {
-		req.Header.Set("user-agent", customUA)
-	}
-
-	// 若开启 ForceCodexCLI，则强制将上游 User-Agent 伪装为 Codex CLI。
-	// 用于网关未透传/改写 User-Agent 时，仍能命中 Codex 侧识别逻辑。
-	if s.cfg != nil && s.cfg.Gateway.ForceCodexCLI {
-		req.Header.Set("user-agent", codexCLIUserAgent)
-	}
-	applyStagedCodexFingerprintHeaders(c, account, req.Header)
-
-	// OAuth requests leave through one canonical identity. Account-level UA
-	// overrides keep their fingerprint but their version is rebuilt.
-	if account.Type == AccountTypeOAuth {
-		enforceCodexIdentityHeadersWithUA(req.Header, s.codexIdentityOverrideUA(account))
-	}
-
-	// Ensure required headers exist
-	if req.Header.Get("content-type") == "" {
-		req.Header.Set("content-type", "application/json")
-	}
-
-	// 账号级请求头覆写（仅 openai api_key 账号启用时生效；OAuth 路径 no-op）
-	account.ApplyHeaderOverrides(req.Header)
-	applyOpenAICodexBetaFeatures(c, account, req.Header)
-	applyOpenAICodexRoutingHintFromBody(ctx, account, "http", req.Header, body, "not_applicable")
-
-	return req, nil
 }

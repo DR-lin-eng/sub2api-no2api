@@ -2,11 +2,13 @@ import { computed, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { accountsAPI } from '@/features/admin-accounts/data/datasources/adminAccountsDatasource'
 import {
+  type CodexSimulationSettings,
   type OpenAIFastPolicyRule,
   type ThinkingDisplayMode,
 } from '@/features/admin-settings/data/dtos/adminSettingsDtos'
 import {
   getBetaPolicySettings,
+  getCodexSimulationSettings,
   getGlobalTempUnschedulableSettings,
   getOverloadCooldownSettings,
   getRateLimit429CooldownSettings,
@@ -14,7 +16,9 @@ import {
   getStreamTimeoutSettings,
 } from '@/features/admin-settings/data/datasources/adminSettingsQueries'
 import {
+  forceDisableCodexSimulationSettings,
   updateBetaPolicySettings,
+  updateCodexSimulationSettings,
   updateGlobalTempUnschedulableSettings,
   updateOverloadCooldownSettings,
   updateRateLimit429CooldownSettings,
@@ -65,6 +69,19 @@ export function useSettingsGatewayPolicies() {
   const globalTempUnschedulableSaving = ref(false);
   const globalTempUnschedulableForm = reactive({
     enabled: true,
+  });
+
+  const codexSimulationLoading = ref(true);
+  const codexSimulationLoadFailed = ref(false);
+  const codexSimulationSaving = ref(false);
+  const codexSimulationForm = reactive<CodexSimulationSettings>({
+    full_simulation_enabled: false,
+    continuation_mode: "off",
+    state_ttl_seconds: 604800,
+    identity_secret_configured: false,
+  });
+  const lastCodexSimulationSettings = ref<CodexSimulationSettings>({
+    ...codexSimulationForm,
   });
 
   // Stream Timeout 状态
@@ -285,6 +302,83 @@ export function useSettingsGatewayPolicies() {
       );
     } finally {
       globalTempUnschedulableSaving.value = false;
+    }
+  }
+
+  function applyCodexSimulationSettings(settings: CodexSimulationSettings) {
+    Object.assign(codexSimulationForm, settings);
+    lastCodexSimulationSettings.value = { ...settings };
+    codexSimulationLoadFailed.value = false;
+  }
+
+  async function loadCodexSimulationSettings() {
+    codexSimulationLoading.value = true;
+    codexSimulationLoadFailed.value = false;
+    try {
+      applyCodexSimulationSettings(await getCodexSimulationSettings());
+    } catch (error: unknown) {
+      codexSimulationLoadFailed.value = true;
+      appStore.showError(
+        extractApiErrorMessage(
+          error,
+          t("admin.settings.codexSimulation.loadFailed"),
+        ),
+      );
+    } finally {
+      codexSimulationLoading.value = false;
+    }
+  }
+
+  async function persistCodexSimulationSettings(
+    payload: Pick<
+      CodexSimulationSettings,
+      "full_simulation_enabled" | "continuation_mode" | "state_ttl_seconds"
+    >,
+    successKey: string,
+    failureKey: string,
+  ) {
+    const rollback = { ...lastCodexSimulationSettings.value };
+    codexSimulationSaving.value = true;
+    try {
+      const updated = await updateCodexSimulationSettings(payload);
+      applyCodexSimulationSettings(updated);
+      appStore.showSuccess(t(successKey));
+    } catch (error: unknown) {
+      Object.assign(codexSimulationForm, rollback);
+      appStore.showError(extractApiErrorMessage(error, t(failureKey)));
+    } finally {
+      codexSimulationSaving.value = false;
+    }
+  }
+
+  async function saveCodexSimulationSettings() {
+    await persistCodexSimulationSettings(
+      {
+        full_simulation_enabled: codexSimulationForm.full_simulation_enabled,
+        continuation_mode: codexSimulationForm.continuation_mode,
+        state_ttl_seconds: codexSimulationForm.state_ttl_seconds,
+      },
+      "admin.settings.codexSimulation.saved",
+      "admin.settings.codexSimulation.saveFailed",
+    );
+  }
+
+  async function restoreOriginalCodexBehavior() {
+    const rollback = { ...lastCodexSimulationSettings.value };
+    codexSimulationSaving.value = true;
+    try {
+      applyCodexSimulationSettings(await forceDisableCodexSimulationSettings());
+      appStore.showSuccess(t("admin.settings.codexSimulation.restored"));
+    } catch (error: unknown) {
+      Object.assign(codexSimulationForm, rollback);
+      appStore.showError(
+        extractApiErrorMessage(
+          error,
+          t("admin.settings.codexSimulation.restoreFailed"),
+        ),
+      );
+    } finally {
+      codexSimulationSaving.value = false;
     }
   }
 
@@ -570,11 +664,16 @@ export function useSettingsGatewayPolicies() {
     betaPolicyScopeOptions,
     betaPresets,
     commonModelPatterns,
+    codexSimulationForm,
+    codexSimulationLoadFailed,
+    codexSimulationLoading,
+    codexSimulationSaving,
     getBetaDisplayName,
     globalTempUnschedulableForm,
     globalTempUnschedulableLoading,
     globalTempUnschedulableSaving,
     loadBetaPolicySettings,
+    loadCodexSimulationSettings,
     loadGlobalTempUnschedulableSettings,
     loadOllamaCloudUsageSettings,
     loadOverloadCooldownSettings,
@@ -601,7 +700,9 @@ export function useSettingsGatewayPolicies() {
     rectifierSaving,
     removeOpenAIFastPolicyModelPattern,
     removeOpenAIFastPolicyRule,
+    restoreOriginalCodexBehavior,
     saveBetaPolicySettings,
+    saveCodexSimulationSettings,
     saveGlobalTempUnschedulableSettings,
     saveOllamaCloudUsageSettings,
     saveOverloadCooldownSettings,
