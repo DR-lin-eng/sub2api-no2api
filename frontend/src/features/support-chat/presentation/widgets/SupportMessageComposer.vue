@@ -1,5 +1,13 @@
 <template>
-  <form class="border-t border-gray-200 bg-white p-3 dark:border-dark-700 dark:bg-dark-900 sm:p-4" @submit.prevent="submitText">
+  <form
+    class="border-t border-gray-200 bg-white p-3 dark:border-dark-700 dark:bg-dark-900 sm:p-4"
+    :class="{ 'composer-drop-active': isDropActive }"
+    @submit.prevent="submitText"
+    @dragenter.prevent="handleDragEnter"
+    @dragover.prevent="handleDragOver"
+    @dragleave.prevent="handleDragLeave"
+    @drop.prevent="handleDrop"
+  >
     <div v-if="replyingTo" class="mb-2 flex items-start gap-2 rounded-xl bg-gray-50 px-3 py-2 text-xs dark:bg-dark-800">
       <div class="min-w-0 flex-1">
         <p class="font-medium text-gray-700 dark:text-dark-200">{{ t('supportChat.reply.replying') }} #{{ replyingTo.id }}</p>
@@ -91,6 +99,7 @@
       @compositionstart="isComposing = true"
       @compositionend="isComposing = false"
       @keydown="handleKeydown"
+      @paste="handlePaste"
     />
 
     <div class="mt-2 flex flex-wrap items-center gap-2">
@@ -170,6 +179,8 @@ const isComposing = ref(false)
 const activePanel = ref<ComposerPanel | null>(null)
 const messageFileInput = ref<HTMLInputElement | null>(null)
 const catalogFileInput = ref<HTMLInputElement | null>(null)
+const dragDepth = ref(0)
+const isDropActive = ref(false)
 const catalogScope = ref<'library' | 'sticker'>('library')
 const catalogCollection = ref('')
 const transferAmount = ref<number | null>(null)
@@ -234,12 +245,17 @@ function useQuickReply(content: string) {
   activePanel.value = null
 }
 
+function emitImageUpload(file: File | null) {
+  if (!file || props.disabled || props.sending) return
+  emit('upload', { file, content: draft.value.trim(), reply_to_id: replyID() })
+}
+
 function handleMessageFile(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   input.value = ''
   if (!file) return
-  emit('upload', { file, content: draft.value.trim(), reply_to_id: replyID() })
+  emitImageUpload(file)
 }
 
 function handleCatalogFile(event: Event) {
@@ -258,6 +274,56 @@ function submitTransfer() {
   activePanel.value = null
 }
 
+function hasFilePayload(dataTransfer: DataTransfer | null | undefined): boolean {
+  if (!dataTransfer) return false
+  return dataTransfer.files.length > 0 || Array.from(dataTransfer.types || []).includes('Files')
+}
+
+function firstDroppedFile(files: FileList | null | undefined): File | null {
+  if (!files?.length) return null
+  return Array.from(files).find(file => {
+    const type = file.type.toLowerCase()
+    return type.startsWith('image/') || type === '' || type === 'application/octet-stream'
+  }) || null
+}
+
+function handleDragEnter(event: DragEvent) {
+  if (!hasFilePayload(event.dataTransfer)) return
+  dragDepth.value += 1
+  isDropActive.value = true
+}
+
+function handleDragOver(event: DragEvent) {
+  const dataTransfer = event.dataTransfer
+  if (!dataTransfer || !hasFilePayload(dataTransfer)) return
+  dataTransfer.dropEffect = 'copy'
+  isDropActive.value = true
+}
+
+function handleDragLeave(event: DragEvent) {
+  if (!hasFilePayload(event.dataTransfer)) return
+  dragDepth.value = Math.max(0, dragDepth.value - 1)
+  if (dragDepth.value === 0) isDropActive.value = false
+}
+
+function handleDrop(event: DragEvent) {
+  dragDepth.value = 0
+  isDropActive.value = false
+  emitImageUpload(firstDroppedFile(event.dataTransfer?.files))
+}
+
+function handlePaste(event: ClipboardEvent) {
+  const clipboard = event.clipboardData
+  if (!clipboard) return
+  const file = firstDroppedFile(clipboard.files) || Array.from(clipboard.items || [])
+    .filter(item => item.kind === 'file')
+    .map(item => item.getAsFile())
+    .find((candidate): candidate is File => Boolean(candidate)) || null
+  if (!file) return
+  event.preventDefault()
+  emitImageUpload(file)
+}
+
 defineExpose({ clearDraft })
 </script>
 
@@ -268,5 +334,9 @@ defineExpose({ clearDraft })
 
 .composer-tool-active {
   @apply border-primary-300 bg-primary-50 text-primary-700 dark:border-primary-700 dark:bg-primary-900/20 dark:text-primary-200;
+}
+
+.composer-drop-active {
+  @apply border-primary-400 bg-primary-50/40 dark:border-primary-600 dark:bg-primary-900/10;
 }
 </style>

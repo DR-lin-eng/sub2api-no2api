@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"image/png"
 	"net/http"
 	"net/http/httptest"
@@ -30,6 +31,21 @@ func TestNormalizeImageReencodesAndStripsTrailingPayload(t *testing.T) {
 	_, format, err := image.Decode(bytes.NewReader(got))
 	require.NoError(t, err)
 	require.Equal(t, "png", format)
+}
+
+func TestNormalizeImageAcceptsJPEG(t *testing.T) {
+	input := image.NewRGBA(image.Rect(0, 0, 2, 2))
+	input.Set(0, 0, color.RGBA{R: 255, G: 128, A: 255})
+	var encoded bytes.Buffer
+	require.NoError(t, jpeg.Encode(&encoded, input, &jpeg.Options{Quality: 95}))
+
+	got, mimeType, name, ok := normalizeImage(encoded.Bytes())
+	require.True(t, ok)
+	require.Equal(t, "image/jpeg", mimeType)
+	require.Equal(t, "image.jpg", name)
+	_, format, err := image.Decode(bytes.NewReader(got))
+	require.NoError(t, err)
+	require.Equal(t, "jpeg", format)
 }
 
 func TestNormalizeImageRejectsActiveAndOversizedFormats(t *testing.T) {
