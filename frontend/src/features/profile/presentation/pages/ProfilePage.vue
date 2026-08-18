@@ -6,6 +6,7 @@
     >
       <ProfileInfoCard
         :user="user"
+        :is-admin="authStore.isAdmin"
         :linuxdo-enabled="linuxdoOAuthEnabled"
         :dingtalk-enabled="dingtalkOAuthEnabled"
         :oidc-enabled="oidcOAuthEnabled"
@@ -58,10 +59,10 @@ import ProfileBalanceNotifyCard from '@/features/profile/presentation/widgets/Pr
 import ProfileInfoCard from '@/features/profile/presentation/widgets/ProfileInfoCard.vue'
 import ProfilePasswordForm from '@/features/profile/presentation/widgets/ProfilePasswordForm.vue'
 import ProfileTotpCard from '@/features/profile/presentation/widgets/ProfileTotpCard.vue'
-import ProfilePasskeyCard from '@/features/passkeys/presentation/widgets/ProfilePasskeyCard.vue'
-import { isWeChatWebOAuthEnabled } from '@/features/auth/data/datasources/authDatasource'
+import ProfilePasskeyCard from '@/features/passkeys/profilePasskeyCard'
+import { isWeChatWebOAuthEnabled } from '@/features/auth/data/datasources/authOAuthActions'
 import { useAppStore } from '@/core/stores/appStore'
-import { useAuthStore } from '@/features/auth/presentation/stores/authStore'
+import { useAuthStore } from '@/features/auth'
 
 const { t } = useI18n()
 const appStore = useAppStore()

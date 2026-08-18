@@ -246,7 +246,7 @@
             </div>
           </div>
           <div class="text-right text-xs text-gray-500 dark:text-gray-400">
-            <p>{{ heControl?.agent.action ? t(`admin.egress.he.actions.${heControl.agent.action}`) : '-' }}</p>
+            <p>{{ heControl?.agent.action ? egressHEActionLabel(t, heControl.agent.action) : '-' }}</p>
             <p v-if="heControl?.agent.updated_at" class="mt-0.5">{{ formatHEUpdatedAt(heControl.agent.updated_at) }}</p>
           </div>
         </div>
@@ -463,6 +463,14 @@ import egressAPI, {
   type IPv6EgressPoolStatus,
   type IPv6EgressRuntime,
 } from '@/features/admin-egress/data/datasources/adminEgressDatasource'
+import {
+  egressHEActionLabel,
+  egressHEErrorMessage,
+  egressHEStateLabel,
+  egressHESuccessMessage,
+  egressModeLabel,
+  egressPoolStatusLabel,
+} from '@/features/admin-egress/presentation/egressLocale'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -561,7 +569,7 @@ const hePoolExists = computed(() => {
 const heAgentStatusLabel = computed(() => {
   if (!heControl.value?.available) return t('admin.egress.he.states.unavailable')
   if (!heControl.value.agent.online) return t('admin.egress.he.states.offline')
-  return t(`admin.egress.he.states.${heControl.value.agent.state}`)
+  return egressHEStateLabel(t, heControl.value.agent.state)
 })
 const heAgentBadgeClass = computed(() => {
   if (!heControl.value?.available || !heControl.value.agent.online) return 'bg-gray-400'
@@ -579,12 +587,12 @@ function configuredLabel(value?: boolean): string {
 }
 
 function poolStatusLabel(status: IPv6EgressPoolStatus): string {
-  return t(`admin.egress.status.${status}`)
+  return egressPoolStatusLabel(t, status)
 }
 
 function effectiveModeLabel(account: Account): string {
   if (account.proxy_id) return t('admin.egress.modes.proxyOverride')
-  return t(`admin.egress.modes.${account.egress_mode || 'inherit'}`)
+  return egressModeLabel(t, account.egress_mode || 'inherit')
 }
 
 function modeBadgeClass(account: Account): string {
@@ -905,9 +913,9 @@ async function runHEAction(action: 'apply' | 'check' | 'remove'): Promise<void> 
       return egressAPI.runHETunnelAction(action)
     })
     applyHESnapshot(snapshot, false)
-    appStore.showSuccess(t(`admin.egress.he.success.${action}`))
+    appStore.showSuccess(egressHESuccessMessage(t, action))
   } catch (error) {
-    if (!isStepUpCancelled(error)) appStore.showError(extractApiErrorMessage(error, t(`admin.egress.he.errors.${action}`)))
+    if (!isStepUpCancelled(error)) appStore.showError(extractApiErrorMessage(error, egressHEErrorMessage(t, action)))
   } finally {
     heAction.value = ''
   }

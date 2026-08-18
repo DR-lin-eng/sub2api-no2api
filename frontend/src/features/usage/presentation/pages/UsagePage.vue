@@ -1,7 +1,7 @@
 <template>
   <AppLayout>
     <div class="space-y-6">
-      <UsageStatsCards :stats="usageStats" :show-account-cost="false" :strike-standard-cost="true" />
+      <UsageStatsCards audience="user" :stats="usageStats" :show-account-cost="false" :strike-standard-cost="true" />
 
       <div class="space-y-4">
         <div class="card p-4">
@@ -172,6 +172,7 @@
 
       <template v-if="activeTab === 'usage'">
         <UsageTable
+          audience="user"
           :data="usageLogs"
           :loading="loading"
           :columns="visibleColumns"
@@ -221,8 +222,8 @@ import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import Pagination from '@/common/widgets/data/Pagination.vue'
 import Select, { type SelectOption } from '@/common/widgets/forms/Select.vue'
 import DateRangePicker from '@/common/widgets/forms/DateRangePicker.vue'
-import UsageStatsCards from '@/features/admin-usage/presentation/widgets/UsageStatsCards.vue'
-import UsageTable from '@/features/admin-usage/presentation/widgets/UsageTable.vue'
+import UsageStatsCards from '@/features/admin-usage/usageStatsCards'
+import UsageTable from '@/features/admin-usage/usageTable'
 import ModelDistributionChart from '@/common/widgets/charts/ModelDistributionChart.vue'
 import GroupDistributionChart from '@/common/widgets/charts/GroupDistributionChart.vue'
 import EndpointDistributionChart from '@/common/widgets/charts/EndpointDistributionChart.vue'
@@ -249,6 +250,7 @@ import type {
 } from '@/types'
 import type { Column } from '@/common/types/uiTypes'
 import { COMMON_ERROR_STATUS_CODES } from '@/core/utils/errorBadges'
+import { usageErrorCategoryLabel } from '@/core/utils/usageLocale'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -306,7 +308,7 @@ const errorCategoryCodes = ['auth', 'rate_limit', 'quota', 'invalid_request', 's
 
 const errorCategoryOptions = computed<SelectOption[]>(() => [
   { value: '', label: t('usage.errors.allCategories') },
-  ...errorCategoryCodes.map((c) => ({ value: c, label: t('usage.errors.categories.' + c) })),
+  ...errorCategoryCodes.map((c) => ({ value: c, label: usageErrorCategoryLabel(t, c) })),
 ])
 
 // 状态码候选用固定常用列表(与管理端 UsageFilters 共用常量),不受当前页数据限制:

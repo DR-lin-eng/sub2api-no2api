@@ -12,7 +12,7 @@ import type {
   CreateOrderRequest,
   CreateOrderResult,
   PaymentOrder
-} from '@/types/payment'
+} from '@/features/billing/paymentContracts'
 import type { BasePaginationResponse } from '@/types'
 
 export interface PublicOrderVerifyResult {

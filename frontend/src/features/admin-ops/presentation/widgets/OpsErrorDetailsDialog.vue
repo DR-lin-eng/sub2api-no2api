@@ -4,7 +4,11 @@ import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import Select from '@/common/widgets/forms/Select.vue'
 import OpsErrorLogTable from './OpsErrorLogTable.vue'
-import { opsAPI, type OpsErrorLog } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import {
+  listRequestErrors,
+  listUpstreamErrors
+} from '@/features/admin-ops/data/datasources/opsErrorQueries'
+import type { OpsErrorListQueryParams, OpsErrorLog } from '@/features/admin-ops/data/dtos/opsErrorDtos'
 import { formatCompactNumber, formatExactNumber } from '../opsFormatter'
 import { buildOpsErrorTimeParams } from '../opsErrorParams'
 
@@ -104,7 +108,7 @@ async function fetchErrorLogs() {
 
   loading.value = true
   try {
-    const params: Record<string, any> = {
+    const params: OpsErrorListQueryParams = {
       page: page.value,
       page_size: pageSize.value,
       view: viewMode.value,
@@ -129,8 +133,8 @@ async function fetchErrorLogs() {
 
 
     const res = props.errorType === 'upstream'
-      ? await opsAPI.listUpstreamErrors(params)
-      : await opsAPI.listRequestErrors(params)
+      ? await listUpstreamErrors(params)
+      : await listRequestErrors(params)
     rows.value = res.items || []
     total.value = res.total || 0
   } catch (err) {

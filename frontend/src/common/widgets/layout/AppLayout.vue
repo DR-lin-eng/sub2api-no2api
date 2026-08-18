@@ -26,7 +26,7 @@
 import '@/core/themes/onboarding.css'
 import { computed, onMounted } from 'vue'
 import { useAppStore } from '@/stores'
-import { useAuthStore } from '@/features/auth/presentation/stores/authStore'
+import { useAuthStore } from '@/features/auth'
 import { useAdminComplianceStore } from '@/features/admin-settings/presentation/stores/adminComplianceStore'
 import { useOnboardingTour } from '@/core/services/useOnboardingTour'
 import { useOnboardingStore } from '@/core/stores/onboardingStore'
@@ -37,7 +37,7 @@ const appStore = useAppStore()
 const authStore = useAuthStore()
 const adminComplianceStore = useAdminComplianceStore()
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
-const isAdmin = computed(() => authStore.user?.role === 'admin')
+const isAdmin = computed(() => authStore.isAdmin)
 const onboardingAutoStartReady = computed(() => {
   return !isAdmin.value || (
     adminComplianceStore.initialized && !adminComplianceStore.shouldShow

@@ -1,6 +1,6 @@
 # 前端架构优化计划
 
-> 状态：阶段性完成。阶段 1 的渐进式架构门禁已于 2026-08-03 落地，阶段 2 的 `admin-accounts` 试点已于 2026-08-04 收口；阶段 3 已于 2026-08-09 启动，`admin-settings` 已完成三切片迁移；请求方法与 CDN 缓存边界专项待实施。
+> 状态：阶段性完成。阶段 1 的渐进式架构门禁已于 2026-08-03 落地，阶段 2 的 `admin-accounts` 试点已于 2026-08-04 收口，阶段 3 的复杂管理域已全部完成；阶段 4 已完成 `auth` 与 `profile`，下一项为 `billing` 与 `subscriptions` 用户域迁移；请求方法与 CDN 缓存边界专项待实施。
 >
 > 基线日期：2026-08-03。后续迁移批次开始前必须重新统计代码和依赖，源码与测试始终是最终事实来源。
 
@@ -237,11 +237,11 @@ features/<domain>/
 ### 阶段 3：迁移复杂管理域
 
 - [x] `admin-settings` 按设置子域拆 DTO、加载 Query 和保存 Action。
-- [ ] `admin-ops` 按 snapshot、日志、错误详情和指标拆只读查询。
-- [ ] `admin-users` 迁移用户管理专属 DTO 和旧 admin barrel 调用。
-- [ ] `admin-groups` 迁移分组、组合路由和倍率协议 owner。
-- [ ] `admin-usage` 消除对 `admin-users`、`admin-ops` 私有 presentation 的直接依赖。
-- [ ] `admin-orders` 与 `billing` 提取稳定的 payment 共享契约和格式化能力。
+- [x] `admin-ops` 按 snapshot、日志、错误详情、指标、告警、设置和 WebSocket 拆分明确 owner。
+- [x] `admin-users` 迁移用户管理专属 DTO 和旧 admin barrel 调用。
+- [x] `admin-groups` 迁移分组、组合路由和倍率协议 owner。
+- [x] `admin-usage` 消除对 `admin-users`、`admin-ops` 私有 presentation 的直接依赖。
+- [x] `admin-orders` 与 `billing` 提取稳定的 payment 共享契约和格式化能力。
 
 已完成 `admin-settings` 第一切片：邮件模板与面板限流 DTO 迁入 `data/dtos/adminSettingsDtos.ts`，读取进入 `adminSettingsQueries.ts`，写入与预览进入 `adminSettingsActions.ts`；旧 `adminSettingsDatasource.ts` 和 `settingsAPI` 保留同名兼容导出及相同函数身份。邮件模板的路径分段编码、payload、预览和恢复时序，以及面板限流的旧响应归一化保持不变。
 
@@ -263,15 +263,49 @@ features/<domain>/
 
 第二切片后，7 个兼容 `opsAPI` 方法继续保持相同函数身份，`adminOpsDatasource.ts` 从 922 行降至 764 行。错误列表与详情、告警、设置和 WebSocket 订阅仍待后续切片，因此 `admin-ops` 阶段项继续保持未完成。
 
+已完成 `admin-ops` 第三切片：统一错误与 request/upstream 拆分错误的列表、详情、关联上游详情协议迁入 `opsErrorDtos.ts`，七个只读请求进入 `opsErrorQueries.ts`，三个 resolved 操作进入 `opsErrorActions.ts`。错误列表和详情组件直接依赖新 owner；`admin-usage` 继续读取 legacy unified endpoint，但改为直接依赖公开 Error Query/DTO owner。
+
+第三切片后，10 个兼容 `opsAPI` 方法继续保持相同函数身份，`view=errors|excluded|all`、分页与筛选参数、request/upstream 路径、关联查询的 `include_detail=1` 和 resolved payload 保持不变。`adminOpsDatasource.ts` 从 764 行降至 620 行；告警、设置和 WebSocket 订阅仍待后续切片，因此 `admin-ops` 阶段项继续保持未完成。
+
+已完成 `admin-ops` 第四切片：告警规则/事件协议与请求进入 `opsAlertDtos.ts`、`opsAlertQueries.ts` 和 `opsAlertActions.ts`；通知、运行时、高级设置、统一快照和指标阈值进入 `opsSettingsDtos.ts`、`opsSettingsQueries.ts` 和 `opsSettingsActions.ts`；QPS WebSocket 的子协议鉴权、状态、陈旧检测和重连生命周期进入 `opsRealtimeSubscription.ts`。
+
+告警、设置与仪表盘消费者已直接依赖新 owner，设置快照失败后的四请求 fallback、并行保存顺序、告警筛选与 cursor、事件状态/静默 payload、WebSocket token subprotocol、致命关闭码、陈旧检测、指数退避与离线恢复保持不变。有限 `maxReconnectAttempts` 修正了已上报第 N 次重连却在建连前被拦截的 off-by-one；默认无限重连路径不变。18 个兼容 `opsAPI` 方法继续保持相同函数身份；`adminOpsDatasource.ts` 从 620 行降至 151 行的纯兼容 facade。
+
+同一切片为 `admin-settings` Store 增加稳定公开出口，`admin-ops` 的分组读取直接依赖 `admin-groups` datasource；该 feature 的 `@/api`、`@/api/admin`、`@/stores`、私有跨 feature presentation 和自身兼容 facade 运行时引用归零，仓库 legacy barrel 基线从 83 条降至 78 条。因此 `admin-ops` 阶段项完成。
+
+已完成 `admin-users` 迁移：身份绑定、批量限制、余额历史和平台额度协议进入 `data/dtos/adminUserDtos.ts`，`@/types` 与旧管理员 API barrel 只保留兼容转发；`adminUsersDatasource.ts` 继续提供同名函数与 `usersAPI`，请求路径、参数和 payload 不变。
+
+用户列表与 11 个请求型 widget 已直接依赖用户、属性、分组、仪表盘用量和 API Key 的明确 datasource owner，`admin-users` presentation 中 `@/api/admin` 与 `adminAPI` 引用归零，仓库 legacy barrel 基线从 78 条降至 66 条。AbortController、300ms 搜索防抖、50ms 二级数据延迟、按可见列批量加载、localStorage 偏好、step-up 包装和写后刷新顺序保持不变；结构测试锁定 DTO owner、明确依赖和旧 barrel 零引用，因此 `admin-users` 阶段项完成。
+
+已完成 `admin-groups` 迁移：共享 `Group`、平台、订阅和定价协议进入 `src/types/group.ts`，管理员分组、创建/更新、组合路由、用户倍率/RPM、列表和汇总协议进入 `data/dtos/adminGroupDtos.ts`；读取与写入分别进入 `adminGroupQueries.ts` 和 `adminGroupActions.ts`。`src/types/gateway.ts` 与 74 行旧 datasource 仅保留兼容重导出和同函数身份 facade。
+
+分组页面、编辑器与三个请求型弹窗已直接依赖 Query/Action owner，倍率和 RPM 弹窗的用户搜索直接依赖 `admin-users` datasource；300ms 防抖、列表 AbortSignal、服务端时区汇总、复制幂等键、组合路由请求时序和写后刷新保持不变。全仓库 feature 运行时的 `adminAPI.groups` 与 `adminGroupsDatasource` 引用归零，仅顶层管理员兼容 barrel 保留 facade；legacy barrel 基线从 66 条降至 62 条，因此 `admin-groups` 阶段项完成。
+
+已完成 `admin-usage` 迁移：用量列表、统计、搜索、导出和清理任务直接依赖 `adminUsageDatasource.ts` 的命名函数；用户详情、账号搜索、模型统计与聚合快照分别依赖 `admin-users`、`admin-accounts` 和 `admin-dashboard` 的 datasource owner。页面与筛选器不再经过 `@/api/admin` 或 `adminAPI`，清理弹窗也不再依赖同域 `adminUsageAPI` 对象，兼容对象继续保持原函数身份。
+
+余额历史弹窗通过 `admin-users/userBalanceHistoryDialog.ts` 暴露，错误表格与详情通过 `admin-ops/errorLogTable.ts`、`errorDetailDialog.ts` 暴露；三个文件只导出对应组件，不建立通用 UI barrel。`admin-usage` 对其他 feature 私有 `presentation/` 的三条直接依赖及其架构基线已删除，legacy barrel 基线从 62 条降至 60 条。列表 AbortSignal、精确导出分页、300ms 用户/API Key/账号搜索防抖、用户搜索防陈旧、路由用户回填、模型与快照请求序列、筛选/分页和清理轮询时序保持不变，因此 `admin-usage` 阶段项完成。
+
+已完成 `admin-orders` 与 `billing` 支付共享契约收口：`paymentContracts.ts` 接管原 `src/types/payment.ts` 的支付、订单、套餐、Provider、checkout 和多币种仪表盘协议，旧路径只保留 type-only 兼容转发；`paymentDisplay.ts` 接管币种归一化/格式化、订单状态样式、可退款判定、日期展示和套餐有效期文案，旧 presentation formatter 只保留同函数身份转发。支付方式别名归一化进入 `paymentMethods.ts`，管理端设置和用户支付编排共享同一规则 owner。
+
+管理员支付专属配置、订单筛选与退款协议进入 `adminPaymentDtos.ts`；读取和写入分别进入 `adminPaymentQueries.ts` 与 `adminPaymentActions.ts`。管理页面和设置消费者不再依赖 `adminPaymentAPI`，兼容 facade 保持全部函数身份和 Axios 返回形态。订单状态、订单表格、Provider 弹窗/列表及订阅卡片/Store 通过逐组件公开入口复用，不建立通用 UI barrel；所有 feature 对 `billing/presentation/` 的跨域引用以及 `billing` 对 auth/subscriptions 私有 presentation 的引用归零。跨 feature 私有 presentation 基线从 44 个文件/70 条降至 32 个文件/46 条，legacy barrel 基线保持 60 条，因此阶段 3 完成。
+
+协议回归锁定全部 `/admin/payment/*` 路径、查询参数、payload 和 facade 函数身份；架构回归锁定 payment owner、管理端 presentation 零 facade、跨域私有 UI 零引用。共享订单状态组件使用真实 runtime message 覆盖 `/orders` 与 `/admin/orders` 的用户/管理员权限及中英文组合，并与全路由词表依赖闭包检查一同纳入关键测试集。
+
 完成条件：管理端复杂域不再依赖统一 `adminAPI` 对象，跨域依赖具有明确公开 owner。
 
 ### 阶段 4：迁移用户域
 
-- [ ] 迁移 `auth` 与 `profile`，保持内存 access token 和 HttpOnly refresh cookie 不变量。
+- [x] 迁移 `auth` 与 `profile`，保持内存 access token 和 HttpOnly refresh cookie 不变量。
 - [ ] 迁移 `billing` 与 `subscriptions`，保持支付 SDK 延迟加载和回调恢复行为。
 - [ ] 迁移 `keys` 与 `usage`，保持筛选、分页、统计和路由查询语义。
 - [ ] 迁移 `channels-user`、`model-plaza` 和 channel monitor 类型依赖。
 - [ ] 对剩余简单 feature 仅执行 owner 收口，不机械添加 Domain/Mapper。
+
+已完成 `auth` 与 `profile` 用户域收口：认证 DTO、会话/Token、只读查询、验证码/密码恢复和 OAuth 编排分别进入 `authDtos.ts`、`authSessionActions.ts`、`authQueries.ts`、`authVerificationActions.ts` 与 `authOAuthActions.ts`；762 行旧 datasource 收缩为 87 行纯兼容 facade。Auth Store 和所有页面直接依赖明确 owner，兼容 `authAPI` 保持原函数身份；Profile 与 TOTP 页面直接依赖 `profileDatasource.ts`、`totpDatasource.ts` 的命名函数，`userAPI`/`totpAPI` 仅供顶层兼容 API 转发。
+
+全仓 feature 通过 `@/features/auth` 读取 Auth Store，通过 `auth/totpStepUpDialog.ts` 与 `passkeys/profilePasskeyCard.ts` 复用窄组件契约；对 `auth/presentation/` 和 Passkey 私有组件的跨域引用归零。`auth/profile` 的 `@/api`、`@/stores` 与 facade 对象引用归零，并一并迁移 `keys`、`billing`、`admin-audit` 中只为 auth/profile 所需的旧 API 导入。legacy barrel 基线从 60 条降至 35 条，跨 feature 私有 presentation 基线从 32 个文件/46 条降至 15 个文件/25 条。
+
+会话不变量由源码与回归共同锁定：access token 仅进入 `tokenStore` 内存，持久 refresh credential 继续通过 HttpOnly cookie 与 `refreshBrowserSession()` 恢复；同标签页请求合并、跨标签页刷新轮换串行、初始路由等待恢复、真实 401 清理与瞬时 `/auth/me` 失败保留会话均保持不变。协议回归锁定 auth/public-settings、验证码、邀请码、密码恢复、2FA、注销与会话吊销路径及 facade 身份；真实 runtime message 矩阵覆盖 Profile 用户路由与管理端 step-up 的中英文词表 scope。
 
 完成条件：用户域不再通过顶层兼容 barrel 访问 API 或 Store。
 
@@ -329,6 +363,8 @@ make test-frontend
 
 最终批次还应使用生产 Docker 构建验证嵌入式前端，并在实际浏览器检查桌面和移动端关键路径：登录、账号管理、设置保存、用量查询、订阅与支付。
 
+共享组件的词表验证必须同时覆盖中文/英文与用户/管理员路由 scope。全路由静态依赖扫描应确认每个 `t()` key 在对应权限实际加载的词表中存在；发生过原始 key 泄漏的组件还要做 runtime message 渲染断言，并纳入 `make test-frontend` 的 CI 关键集。
+
 请求方法专项还必须在后端和 CDN/WAF 等价测试环境执行正负矩阵：合法方法返回原有结果，非白名单方法和覆盖尝试在进入业务 handler 前被拒绝；分别核对 CDN 命中、旁路和源站请求计数。
 
 ## 8. 验收指标
@@ -343,6 +379,7 @@ make test-frontend
 | 新增无归属 barrel | 0 |
 | 动态 HTTP 方法、方法覆盖和未登记原生请求出口 | 0 |
 | 非白名单方法到达业务 handler | 0 |
+| 用户/管理员路由中原样显示的 locale key | 0 |
 | 因架构迁移产生的后端协议变化 | 0 |
 | 新增前端运行时依赖 | 默认 0，专项评审后例外 |
 | lint、typecheck、相关测试和生产 build | 全部通过 |
@@ -443,4 +480,66 @@ make test-frontend
 - 宿主机全局 lint、typecheck、全量测试（272 个测试文件/1765 项）和 production build 全部通过；`make test-frontend` 的 6 个关键测试文件/115 项测试通过。
 - 正式多阶段运行时镜像 `sub2api-frontend-arch-runtime:20260809-ops-logs` 构建成功（`linux/arm64`，40,398,364 bytes，manifest `sha256:3dcaae87fa3d423938067703f80f2fbf5f6e3311275cbc003f20c61774593c54`）；容器内 `sub2api --version` 正常返回 `Sub2API 0.1.178`。沿用仅移除 Dockerfile frontend 声明的临时等价 Dockerfile 和本地基础镜像，仓库 Dockerfile 未修改。
 
-下一步迁移 `admin-ops` 的错误列表、详情和 resolved 操作，保持 legacy unified 与 request/upstream split 端点、`view=errors|excluded|all`、分页筛选、`include_detail` 以及 `admin-usage` 跨 feature 读取行为不变。
+2026-08-17 `admin-ops` 错误列表/详情第三切片与跨权限词表守卫记录：
+
+- `opsErrorDtos.ts` 接管 unified 与 request/upstream split 错误协议，`opsErrorQueries.ts` 接管七个只读端点，`opsErrorActions.ts` 接管三个 resolved 操作；错误组件和 `admin-usage` 已直接依赖新 owner。
+- 10 个兼容 `opsAPI` 方法保持原函数身份；`view=errors|excluded|all`、分页筛选、`include_detail=1` 和 resolved payload 保持不变，`adminOpsDatasource.ts` 从 764 行降至 620 行。
+- `routeLocaleCoverage.spec.ts` 已纳入关键集，按每条路由实际加载的 scope 检查中英文静态词表依赖；`GroupOptionItem.spec.ts` 使用真实 runtime message 覆盖用户/管理员与中英文四种组合，验证普通用户不加载管理员词表且任何组合都不显示原始 locale key。
+- 定向 `admin-ops` 与受影响的 `admin-usage` 验证通过，共 18 个测试文件、87 项测试；宿主机 lint、typecheck、`make test-frontend`（8 个测试文件/126 项）和 `make check-docs` 通过。
+- Docker 隔离验证镜像 `sub2api-frontend-ops-errors-i18n-test:20260817` 内的全局 lint、typecheck、全量测试（292 个测试文件/1882 项）和 production build 全部通过（`linux/arm64`，manifest `sha256:bf65d0b0007aa7a2e872117caebda912a782e63c3ffda09817d08bc1a7d79eec`）。
+- 仓库原始 `Dockerfile` 构建的正式多阶段运行时镜像 `sub2api-frontend-arch-runtime:20260817-ops-errors-i18n` 验证通过（`linux/arm64`，41,377,481 bytes，manifest `sha256:c611fa09e7de73531872c588f747eaf3a731e073788516501bde48b394cba0f3`）；容器经正式 entrypoint 执行 `sub2api --version` 正常返回 `Sub2API 0.1.182`。
+
+2026-08-17 `admin-ops` 告警/设置/WebSocket 第四切片记录：
+
+- 告警、设置和 WebSocket 分别迁入明确 DTO、Query、Action 与 subscription owner；18 个兼容 `opsAPI` 方法保持原函数身份，`adminOpsDatasource.ts` 从 620 行降至 151 行的纯兼容 facade。
+- `admin-settings` Store 增加 feature 级稳定公开出口，告警规则的分组查询直接依赖 `admin-groups` datasource；`admin-ops` presentation 中兼容 facade、旧 API/Store barrel 和私有跨 feature presentation 引用全部归零，仓库 legacy barrel 基线从 83 条降至 78 条。
+- HTTP 回归锁定告警/设置全部路径、查询参数和 payload；WebSocket 回归覆盖 token subprotocol、消息、致命关闭、陈旧检测、指数退避与离线恢复，并修正有限重连上限的 off-by-one。
+- `admin-ops` feature 回归共 19 个测试文件、84 项测试；宿主机全局 lint、typecheck 和全量测试（294 个测试文件/1891 项）通过，`make check-docs` 通过。
+- Docker 隔离验证镜像 `sub2api-frontend-admin-ops-complete-test:20260817` 内的冻结安装、全局 lint、typecheck、全量测试（294 个测试文件/1891 项）和 production build 全部通过（`linux/arm64`，148,583,964 bytes，manifest `sha256:27ecc653078a330133aae20f80281957f23bd5493df2e62d354af62cdf6c23f5`）。
+- 仓库原始 `Dockerfile` 构建的正式多阶段运行时镜像 `sub2api-frontend-arch-runtime:20260817-admin-ops-complete` 验证通过（`linux/arm64`，42,076,276 bytes，manifest `sha256:ab17945f6dfd1b477c0fe8fadfa1ab41b4f5995098f72dbbee213467104f5bea`）；容器经正式 entrypoint 执行 `sub2api --version` 正常返回 `Sub2API 0.1.182`。
+
+2026-08-17 `admin-users` DTO 与旧 admin barrel 收口记录：
+
+- `adminUserDtos.ts` 接管身份绑定、批量限制、余额历史和平台额度协议；旧 datasource、`@/types` 与管理员 API barrel 保持兼容转发，新增契约回归覆盖列表 AbortSignal/属性筛选、余额历史、平台额度 batch/update/reset payload 和 facade 函数身份。
+- 用户列表和 11 个请求型 widget 已直接依赖 5 个明确 datasource owner，`admin-users` presentation 中 `@/api/admin` 与 `adminAPI` 引用归零；精确 legacy barrel 基线从 78 条降至 66 条。定向回归共 8 个测试文件、43 项测试，同时覆盖用户/管理员与中英文四种共享组件词表组合。
+- 宿主机全局 lint、typecheck、全量测试（294 个测试文件/1897 项）、production build、`make test-frontend`（8 个测试文件/126 项）和 `make check-docs` 全部通过。
+- Docker 隔离验证镜像 `sub2api-frontend-admin-users-complete-test:20260817` 内的冻结安装、全局 lint、typecheck、全量测试（294 个测试文件/1897 项）和 production build 全部通过（`linux/arm64`，146,506,835 bytes，manifest `sha256:eb2a9defd0d60b6892ce08fde7876c3997314337959de2a1e3cc37a372d74561`）。
+- 仓库原始 `Dockerfile` 构建的正式多阶段运行时镜像 `sub2api-frontend-arch-runtime:20260817-admin-users-complete` 验证通过（`linux/arm64`，41,378,843 bytes，manifest `sha256:d665258fb06b9a89d57ac3c8ed626b1afade836c5e8f0701b6ee9916c79050c5`）；容器经正式 entrypoint 执行 `sub2api --version` 正常返回 `Sub2API 0.1.182`。
+
+2026-08-17 `admin-groups` 协议 owner 与跨权限词表收口记录：
+
+- 分组共享类型和管理员专属 DTO 已分别进入 `src/types/group.ts` 与 `adminGroupDtos.ts`，读取和写入进入 `adminGroupQueries.ts`、`adminGroupActions.ts`；74 行兼容 facade 保持函数身份，feature 运行时旧分组出口归零，legacy barrel 基线从 66 条降至 62 条。
+- 契约回归锁定分组、组合路由、倍率、RPM 与汇总路径、payload 和字段映射，并覆盖 AbortSignal、300ms 搜索防抖、服务端时区、复制幂等键、异步防陈旧及写后刷新顺序；`admin-groups` 共 19 个测试文件/81 项测试通过。
+- `GroupOptionItem` 改用所有消费路由均加载的 `groups.rateLabel`；runtime message 矩阵覆盖 `/keys`、`/admin/users`、`/admin/subscriptions`、`/admin/redeem`、`/admin/settings` 的用户/管理员权限和中英文组合。全路由依赖闭包扫描会按真实 locale scope 拒绝缺失 key，相关 3 个测试文件/24 项测试及 `make test-frontend` 的 8 个文件/132 项测试通过。
+- Docker 隔离验证镜像 `sub2api-frontend-admin-groups-complete-test:20260817` 内的冻结安装、全局 lint、typecheck、全量测试（296 个测试文件/1911 项）和 production build 全部通过（`linux/arm64`，148,035,598 bytes，manifest `sha256:ae522297c60219ba7af1810d5800f7fdaeca5b83b65fcf26a90628f0699290ba`）。
+- 仓库原始 `Dockerfile` 构建的正式多阶段运行时镜像 `sub2api-frontend-arch-runtime:20260817-admin-groups-complete` 验证通过（`linux/arm64`，41,379,249 bytes，manifest `sha256:0093098df17b13784e8c5df2b8b7be9ab974e8d48b2a426d3c580d3295256c60`）；容器经正式 entrypoint 执行 `sub2api --version` 正常返回 `Sub2API 0.1.182`。
+
+2026-08-17 `admin-usage` 协议 owner 与跨 feature presentation 收口记录：
+
+- 用量列表、统计、用户/API Key 搜索与清理任务已进入明确 datasource/Query/Action owner；列表 AbortSignal、导出精确分页、300ms 搜索防抖、异步防陈旧和路由用户回填行为保持不变，兼容 `adminUsageAPI` 保持原函数身份。
+- `admin-usage` presentation 中 `@/api/admin`、`adminAPI`、`adminUsageAPI` 与跨 feature 私有 `presentation/` 引用全部归零；余额历史与错误列表/详情改由三个窄公开组件入口复用。legacy barrel 基线从 62 条降至 60 条，跨 feature 私有 presentation 基线为 44 个文件/70 条引用。
+- 定向 owner/组件验证共 4 个测试文件/24 项测试，`admin-usage` feature 回归共 8 个测试文件/51 项测试，权限词表与架构组合共 6 个测试文件/43 项测试；宿主机全局 lint、typecheck、全量测试（298 个测试文件/1919 项）、production build、`make test-frontend`（8 个测试文件/132 项）和 `make check-docs` 全部通过。
+- Docker 隔离验证镜像 `sub2api-frontend-admin-usage-complete-test:20260817` 内的冻结安装、全局 lint、typecheck、全量测试（298 个测试文件/1919 项）和 production build 全部通过（`linux/arm64`，148,039,272 bytes，manifest `sha256:9a44ebec9c3c9c035a2415ffa892c7b6f7be6ca371d6a9c042d98a3dbcf53bd2`）。
+- 仓库原始 `Dockerfile` 构建的正式多阶段运行时镜像 `sub2api-frontend-arch-runtime:20260817-admin-usage-complete` 验证通过（`linux/arm64`，41,381,812 bytes，manifest `sha256:cf663f523969b074e1d718fe4fb604362064323137db1d577770c41f825af161`）；容器经正式 entrypoint 执行 `sub2api --version` 正常返回 `Sub2API 0.1.182`。
+
+2026-08-17 `admin-orders` / `billing` 支付共享契约与跨权限词表收口记录：
+
+- `paymentContracts.ts` 接管共享支付协议，`paymentDisplay.ts` 接管币种、订单状态、退款、日期和套餐有效期规则，`paymentMethods.ts` 接管支付方式别名归一化；旧 `@/types/payment` 与 presentation formatter 保留 type/function-compatible 转发。
+- 管理支付 DTO、读取和写入分别进入 `adminPaymentDtos.ts`、`adminPaymentQueries.ts` 和 `adminPaymentActions.ts`；页面与设置域不再依赖 `adminPaymentAPI`，兼容 facade 的全部函数身份、URL、查询参数、payload 和 Axios 返回形态保持不变。
+- 订单状态/表格、Provider 弹窗/列表、订阅卡片/Store 使用逐组件公开入口；feature 运行时对 `billing/presentation/` 的跨域引用及 billing 对 auth/subscriptions 私有 presentation 的引用归零。跨 feature 私有 presentation 基线从 44 个文件/70 条降至 32 个文件/46 条，legacy barrel 基线保持 60 条。
+- 共享订单状态组件的真实 runtime message 矩阵覆盖 `/orders`、`/admin/orders` 的用户/管理员与中英文组合，并与全路由词表依赖闭包一同进入关键集。Docker 首轮全量测试发现两个全仓扫描在并发负载下逼近/超过旧 10s/30s 超时，已统一改为 60s；扫描范围、断言和失败条件不变，最终容器内分别约 10s/18s 通过。
+- 受影响的 `admin-orders`、`billing`、`subscriptions`、`admin-settings` 与 `affiliate` 回归共 42 个测试文件/275 项测试；宿主机全局 lint、typecheck、全量测试（301 个测试文件/1932 项）、production build、`make test-frontend`（9 个测试文件/136 项）和 `make check-docs` 全部通过。
+- Docker 隔离验证镜像 `sub2api-frontend-admin-orders-billing-test:20260817` 内的冻结安装、全局 lint、typecheck、全量测试（301 个测试文件/1932 项）和 production build 全部通过（`linux/arm64`，148,043,301 bytes，manifest `sha256:398fb7ffb8ea395910b7c03c72e0874fd0b644f944f5fade86749709e3e1cc10`）。
+- 仓库原始 `Dockerfile` 构建的正式多阶段运行时镜像 `sub2api-frontend-arch-runtime:20260817-admin-orders-billing-complete` 验证通过（`linux/arm64`，41,377,434 bytes，manifest `sha256:529b34d0141b52ff9661339f67bfbc140326eb06e9a69bf28b3617ea49601ebf`）；容器经正式 entrypoint 执行 `sub2api --version` 正常返回 `Sub2API 0.1.182`。
+
+2026-08-17 `auth` / `profile` owner、会话不变量与跨权限词表收口记录：
+
+- Auth DTO、会话/Token、查询、验证和 OAuth 分别进入 `authDtos.ts`、`authSessionActions.ts`、`authQueries.ts`、`authVerificationActions.ts` 与 `authOAuthActions.ts`；旧 `authDatasource.ts` 从 762 行收缩为 87 行纯兼容 facade，`authAPI` 保持全部函数身份。
+- Auth Store、认证页面与 Profile/TOTP 组件直接依赖明确 owner；全仓 feature 通过 `@/features/auth`、`auth/totpStepUpDialog.ts` 与 `passkeys/profilePasskeyCard.ts` 使用稳定入口，对 auth/passkey 私有 presentation 的跨域引用归零。`auth/profile` 的旧 API/Store 与 facade 对象引用归零，并同步迁移只为这些 owner 所需的 keys、billing、admin-audit 旧 API 导入。
+- access token 与 legacy OAuth refresh 响应只进入 `tokenStore` 内存，长期 refresh credential 继续由 HttpOnly cookie 和 `refreshBrowserSession()` 恢复；同标签页合并、Web Locks/storage lease 跨标签页串行、初始路由等待、真实 401 清理和瞬时 `/auth/me` 失败保留已恢复会话均由回归覆盖。
+- 协议回归锁定 `/auth/me`、公开设置、验证码、邀请码、密码恢复、2FA、注销、会话吊销和 facade 身份；架构回归锁定零旧入口/零私有依赖。真实 runtime message 矩阵覆盖 `/profile` 用户权限与 `/admin/accounts` step-up 的中英文组合，并与全路由词表闭包一同进入关键集。
+- legacy barrel 基线从 60 条降至 35 条，跨 feature 私有 presentation 基线从 32 个文件/46 条降至 15 个文件/25 条。`auth/profile`、session refresh 与 route guard 定向回归共 33 个测试文件/260 项测试；宿主机全局 lint、typecheck、全量测试（304 个测试文件/1945 项）、production build、`make test-frontend`（10 个测试文件/140 项）和 `make check-docs` 全部通过。
+- Docker 隔离验证镜像 `sub2api-frontend-auth-profile-complete-test:20260817` 内的冻结安装、全局 lint、typecheck、全量测试（304 个测试文件/1945 项）和 production build 全部通过（`linux/arm64`，148,049,079 bytes，manifest `sha256:d00959d041962ee8a2dcd19092e2f702fcb47f4bd982f34bb448a648e2ede1c7`）。
+- 仓库原始 `Dockerfile` 构建的正式多阶段运行时镜像 `sub2api-frontend-arch-runtime:20260817-auth-profile-complete` 验证通过（`linux/arm64`，41,380,071 bytes，manifest `sha256:185f37988d75856928b7b2d33433eb22b017e8f098cc979f21540e8bcc79df34`）；容器经正式 entrypoint 执行 `sub2api --version` 正常返回 `Sub2API 0.1.182`。
+
+下一步迁移 `billing` 与 `subscriptions` 用户域，保持支付 SDK 延迟加载与回调恢复行为。

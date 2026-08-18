@@ -35,6 +35,10 @@ vi.mock('@/api/admin', () => ({
   },
 }))
 
+vi.mock('@/features/admin-groups/data/datasources/adminGroupQueries', () => ({
+  getAll: listGroups,
+}))
+
 vi.mock('@/features/keys/data/datasources/keysDatasource', () => ({
   keysAPI: { list: vi.fn() },
 }))

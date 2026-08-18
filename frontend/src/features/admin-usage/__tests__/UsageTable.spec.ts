@@ -83,11 +83,13 @@ vi.mock('vue-i18n', async () => {
 })
 
 const DataTableStub = {
-  props: ['data'],
+  props: ['columns', 'data'],
   template: `
     <div>
       <div v-for="row in data" :key="row.request_id">
+        <slot name="cell-account" :row="row" />
         <slot name="cell-model" :row="row" :value="row.model" />
+        <slot name="cell-endpoint" :row="row" />
         <slot name="cell-billing_mode" :row="row" />
         <slot name="cell-tokens" :row="row" />
         <slot name="cell-cost" :row="row" />
@@ -126,6 +128,79 @@ const baseImageRow = {
   image_size_source: null,
   image_size_breakdown: null,
 }
+
+describe('UsageTable audience boundary', () => {
+  const privilegedRow = {
+    ...baseImageRow,
+    request_id: 'req-audience-boundary',
+    model: 'visible-request-model',
+    upstream_model: 'private-upstream-model',
+    model_mapping_chain: 'visible-request-model→private-mapped-model',
+    upstream_response_model: 'private-response-model',
+    upstream_model_mismatch: true,
+    inbound_endpoint: '/v1/visible-inbound',
+    upstream_endpoint: '/private/upstream-endpoint',
+    account: { id: 9981, name: 'private-account-name' },
+    account_rate_multiplier: 1.75,
+    account_stats_cost: 0.7,
+  }
+  const columns = [
+    { key: 'account', label: 'Account' },
+    { key: 'model', label: 'Model' },
+    { key: 'endpoint', label: 'Endpoint' },
+    { key: 'cost', label: 'Cost' },
+  ]
+
+  const mountAudienceTable = (audience: 'user' | 'admin') => mount(UsageTable, {
+    props: {
+      audience,
+      data: [privilegedRow],
+      columns,
+    },
+    global: {
+      stubs: {
+        DataTable: DataTableStub,
+        EmptyState: true,
+        Icon: true,
+        Teleport: true,
+        UsageDetailModal: true,
+      },
+    },
+  })
+
+  it('ignores admin-only row fields and columns for user audiences', async () => {
+    const wrapper = mountAudienceTable('user')
+
+    expect(wrapper.getComponent(DataTableStub).props('columns')).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ key: 'account' })]),
+    )
+    expect(wrapper.text()).toContain('visible-request-model')
+    expect(wrapper.text()).toContain('/v1/visible-inbound')
+    expect(wrapper.text()).not.toContain('private-upstream-model')
+    expect(wrapper.text()).not.toContain('private-mapped-model')
+    expect(wrapper.text()).not.toContain('private-response-model')
+    expect(wrapper.text()).not.toContain('/private/upstream-endpoint')
+    expect(wrapper.text()).not.toContain('private-account-name')
+
+    const tooltipTriggers = wrapper.findAll('.group.relative')
+    await tooltipTriggers[tooltipTriggers.length - 1].trigger('mouseenter')
+    await nextTick()
+    expect(wrapper.text()).not.toContain('Account rate')
+    expect(wrapper.text()).not.toContain('Account billed')
+  })
+
+  it('keeps admin diagnostics visible for admin audiences', () => {
+    const wrapper = mountAudienceTable('admin')
+
+    expect(wrapper.getComponent(DataTableStub).props('columns')).toEqual(
+      expect.arrayContaining([expect.objectContaining({ key: 'account' })]),
+    )
+    expect(wrapper.text()).toContain('private-mapped-model')
+    expect(wrapper.text()).toContain('private-response-model')
+    expect(wrapper.text()).toContain('/private/upstream-endpoint')
+    expect(wrapper.text()).toContain('private-account-name')
+  })
+})
 
 describe('admin UsageTable request ID column', () => {
   beforeEach(() => {

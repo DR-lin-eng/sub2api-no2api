@@ -5,7 +5,7 @@
       <div class="flex flex-wrap items-center gap-3 rounded-lg bg-gray-50 px-4 py-2.5 text-sm dark:bg-dark-700">
         <span class="inline-flex items-center gap-1.5" :class="platformColorClass">
           <PlatformIcon :platform="group.platform" size="sm" />
-          {{ t('admin.groups.platforms.' + group.platform) }}
+          {{ groupPlatformLabel(t, group.platform) }}
         </span>
         <span class="text-gray-400">|</span>
         <span class="font-medium text-gray-900 dark:text-white">{{ group.name }}</span>
@@ -209,13 +209,22 @@
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
-import { adminAPI } from '@/api/admin'
-import type { GroupRPMOverrideEntry } from '@/features/admin-groups/data/datasources/adminGroupsDatasource'
-import type { AdminGroup, AdminUser } from '@/types'
+import {
+  batchSetGroupRPMOverrides,
+  clearGroupRPMOverrides,
+} from '@/features/admin-groups/data/datasources/adminGroupActions'
+import { getGroupRPMOverrides } from '@/features/admin-groups/data/datasources/adminGroupQueries'
+import type {
+  AdminGroup,
+  GroupRPMOverrideEntry,
+} from '@/features/admin-groups/data/dtos/adminGroupDtos'
+import { list as listAdminUsers } from '@/features/admin-users/data/datasources/adminUsersDatasource'
+import type { AdminUser } from '@/types'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import Pagination from '@/common/widgets/data/Pagination.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import PlatformIcon from '@/common/widgets/icons/PlatformIcon.vue'
+import { groupPlatformLabel } from '@/features/admin-groups/presentation/groupsLocale'
 
 interface LocalEntry extends GroupRPMOverrideEntry {}
 
@@ -274,7 +283,7 @@ const loadEntries = async () => {
   if (!props.group) return
   loading.value = true
   try {
-    serverEntries.value = await adminAPI.groups.getGroupRPMOverrides(props.group.id)
+    serverEntries.value = await getGroupRPMOverrides(props.group.id)
     localEntries.value = cloneEntries(serverEntries.value)
     adjustPage()
   } catch (error) {
@@ -316,7 +325,7 @@ const handleSearchUsers = () => {
   }
   searchTimeout = setTimeout(async () => {
     try {
-      const res = await adminAPI.users.list(1, 10, { search: searchQuery.value.trim() })
+      const res = await listAdminUsers(1, 10, { search: searchQuery.value.trim() })
       searchResults.value = res.items
       showDropdown.value = true
     } catch {
@@ -372,7 +381,7 @@ const clearAllLocal = async () => {
   if (!props.group || clearing.value) return
   clearing.value = true
   try {
-    await adminAPI.groups.clearGroupRPMOverrides(props.group.id)
+    await clearGroupRPMOverrides(props.group.id)
     localEntries.value = []
     serverEntries.value = []
     appStore.showSuccess(t('admin.groups.rpmSaved'))
@@ -397,7 +406,7 @@ const handleSave = async () => {
       user_id: e.user_id,
       rpm_override: e.rpm_override
     }))
-    await adminAPI.groups.batchSetGroupRPMOverrides(props.group.id, entries)
+    await batchSetGroupRPMOverrides(props.group.id, entries)
     appStore.showSuccess(t('admin.groups.rpmSaved'))
     emit('success')
     emit('close')

@@ -4,12 +4,15 @@
     <!-- iframe mode -->
     <iframe
       v-if="isHomeContentUrl"
-      :src="homeContent.trim()"
+      data-testid="custom-home-frame"
+      :src="homeContentUrl"
+      :title="t('home.customContentFrameTitle')"
       class="h-screen w-full border-0"
       allowfullscreen
+      referrerpolicy="no-referrer"
+      sandbox="allow-forms allow-scripts allow-popups"
     ></iframe>
-    <!-- HTML mode - SECURITY: homeContent is admin-only setting, XSS risk is acceptable -->
-    <div v-else v-html="homeContent"></div>
+    <div v-else data-testid="sanitized-home-content" v-html="sanitizedHomeContent"></div>
   </div>
 
   <!-- Compact Home Page -->
@@ -488,12 +491,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAuthStore } from '@/features/auth/presentation/stores/authStore'
+import { useAuthStore } from '@/features/auth'
 import { useAppStore } from '@/core/stores/appStore'
 import LocaleSwitcher from '@/common/widgets/data/LocaleSwitcher.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/core/services/featureFlags'
 import { sanitizeUrl } from '@/core/utils/url'
+import { resolveHomeContentUrl, sanitizeHomeContentHtml } from '@/core/utils/homeContent'
 
 const { t } = useI18n()
 
@@ -506,15 +510,13 @@ const siteLogo = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.site_
 const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || 'AI API Gateway Platform')
 const docUrl = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.doc_url || appStore.docUrl || ''))
 const homeContent = computed(() => appStore.cachedPublicSettings?.home_content || '')
+const homeContentUrl = computed(() => resolveHomeContentUrl(homeContent.value))
+const sanitizedHomeContent = computed(() => sanitizeHomeContentHtml(homeContent.value))
 const hasHomeContent = computed(() => homeContent.value.trim().length > 0)
 const compactHomeEnabled = computed(() => appStore.cachedPublicSettings?.compact_home_enabled === true)
 const modelPlazaEnabled = computed(() => isFeatureFlagEnabled(FeatureFlags.modelPlaza))
 
-// Check if homeContent is a URL (for iframe display)
-const isHomeContentUrl = computed(() => {
-  const content = homeContent.value.trim()
-  return content.startsWith('http://') || content.startsWith('https://')
-})
+const isHomeContentUrl = computed(() => homeContentUrl.value !== '')
 
 // Theme
 const isDark = ref(document.documentElement.classList.contains('dark'))

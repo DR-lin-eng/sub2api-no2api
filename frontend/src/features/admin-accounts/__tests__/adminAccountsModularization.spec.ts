@@ -140,7 +140,7 @@ describe('admin accounts modularization', () => {
     expect(pageSource).toContain("from '@/features/admin-accounts/data/datasources/adminAccountQueries'")
     expect(pageSource).toContain("from '@/features/admin-accounts/data/datasources/adminAccountActions'")
     expect(pageSource).toContain("from '@/features/admin-proxies/data/datasources/adminProxiesDatasource'")
-    expect(pageSource).toContain("from '@/features/admin-groups/data/datasources/adminGroupsDatasource'")
+    expect(pageSource).toContain("from '@/features/admin-groups/data/datasources/adminGroupQueries'")
   })
 
   it('routes bulk edit actions through the account action owner', () => {

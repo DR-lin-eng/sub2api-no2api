@@ -19,7 +19,6 @@ export interface UsageLog {
   service_tier?: string | null
   reasoning_effort?: string | null
   inbound_endpoint?: string | null
-  upstream_endpoint?: string | null
 
   group_id: number | null
   subscription_id: number | null
@@ -88,6 +87,7 @@ export interface UsageLogAccountSummary {
 }
 
 export interface AdminUsageLog extends UsageLog {
+  upstream_endpoint?: string | null
   upstream_model?: string | null
   upstream_response_model?: string | null
   upstream_model_mismatch?: boolean | null

@@ -25,36 +25,17 @@ const {
   showError: vi.fn()
 }))
 
-vi.mock('@/api/admin', () => ({
-  adminAPI: {
-    groups: {
-      list: listGroups,
-      duplicate: duplicateGroup,
-      getModelsListCandidates,
-      getUsageSummary,
-      getCapacitySummary,
-      getLiveCapability,
-      getAll: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-      updateSortOrder: vi.fn()
-    },
-    accounts: {
-      list: vi.fn(),
-      getById: vi.fn()
-    }
-  }
-}))
-
-vi.mock('@/features/admin-groups/data/datasources/adminGroupsDatasource', () => ({
+vi.mock('@/features/admin-groups/data/datasources/adminGroupQueries', () => ({
   list: listGroups,
-  duplicate: duplicateGroup,
   getModelsListCandidates,
   getUsageSummary,
   getCapacitySummary,
   getLiveCapability,
   getAll: vi.fn(),
+}))
+
+vi.mock('@/features/admin-groups/data/datasources/adminGroupActions', () => ({
+  duplicate: duplicateGroup,
   create: vi.fn(),
   update: vi.fn(),
   deleteGroup: vi.fn(),

@@ -10,19 +10,18 @@ const { getPlans, getConfig, getGroups } = vi.hoisted(() => ({
   getGroups: vi.fn(),
 }))
 
-vi.mock('@/features/admin-orders/data/datasources/adminPaymentDatasource', () => ({
-  adminPaymentAPI: {
-    getPlans,
-    getConfig,
-  },
+vi.mock('@/features/admin-orders/data/datasources/adminPaymentQueries', () => ({
+  getPlans,
+  getConfig,
 }))
 
-vi.mock('@/api/admin', () => ({
-  default: {
-    groups: {
-      getAll: getGroups,
-    },
-  },
+vi.mock('@/features/admin-orders/data/datasources/adminPaymentActions', () => ({
+  deletePlan: vi.fn(),
+  updatePlan: vi.fn(),
+}))
+
+vi.mock('@/features/admin-groups/data/datasources/adminGroupQueries', () => ({
+  getAll: getGroups,
 }))
 
 vi.mock('vue-i18n', async (importOriginal) => {

@@ -24,8 +24,11 @@
                 <h2 class="truncate text-2xl font-semibold text-gray-900 dark:text-white">
                   {{ displayName }}
                 </h2>
-                <span :class="['badge', user?.role === 'admin' ? 'badge-primary' : 'badge-gray']">
-                  {{ user?.role === 'admin' ? t('profile.administrator') : t('profile.user') }}
+                <span
+                  data-testid="profile-role-badge"
+                  :class="['badge', isAdmin ? 'badge-primary' : 'badge-gray']"
+                >
+                  {{ isAdmin ? t('profile.administrator') : t('profile.user') }}
                 </span>
                 <span
                   :class="['badge', user?.status === 'active' ? 'badge-success' : 'badge-danger']"
@@ -190,6 +193,7 @@ import type { User, UserAuthBindingStatus, UserAuthProvider, UserProfileSourceCo
 
 const props = withDefaults(defineProps<{
   user: User | null
+  isAdmin?: boolean
   linuxdoEnabled?: boolean
   dingtalkEnabled?: boolean
   oidcEnabled?: boolean
@@ -198,6 +202,7 @@ const props = withDefaults(defineProps<{
   wechatOpenEnabled?: boolean
   wechatMpEnabled?: boolean
 }>(), {
+  isAdmin: false,
   linuxdoEnabled: false,
   dingtalkEnabled: false,
   oidcEnabled: false,

@@ -105,9 +105,12 @@
             {{ t('customPage.openInNewTab') }}
           </a>
           <iframe
+            ref="embeddedFrame"
             :src="embeddedUrl"
             class="custom-embed-frame"
             allowfullscreen
+            referrerpolicy="no-referrer"
+            @load="sendEmbeddedAuthContext"
           ></iframe>
         </div>
       </div>
@@ -119,15 +122,19 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores'
-import { useAuthStore } from '@/features/auth/presentation/stores/authStore'
-import { useAdminSettingsStore } from '@/features/admin-settings/presentation/stores/adminSettingsStore'
+import { useAppStore } from '@/core/stores/appStore'
+import { useAuthStore } from '@/features/auth'
+import { useAdminSettingsStore } from '@/features/admin-settings/adminSettingsStore'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import { buildApiUrl } from '@/core/networks/client'
-import { buildEmbeddedUrl, detectTheme } from '@/core/utils/embedded-url'
+import {
+  buildEmbeddedUrl,
+  detectTheme,
+  postEmbeddedAuthContext,
+} from '@/core/utils/embedded-url'
+import { sanitizeCustomPageHtml } from '@/features/channels-user/presentation/customPageHtml'
 import { marked } from 'marked'
-import DOMPurify from 'dompurify'
 
 interface TocItem {
   id: string
@@ -145,10 +152,12 @@ const loading = ref(false)
 const pageTheme = ref<'light' | 'dark'>('light')
 const renderedHtml = ref('')
 const markdownContainer = ref<HTMLElement | null>(null)
+const embeddedFrame = ref<HTMLIFrameElement | null>(null)
 const tocItems = ref<TocItem[]>([])
 const tocVisible = ref(typeof window !== 'undefined' ? window.innerWidth > 768 : true)
 const activeHeadingId = ref('')
 let themeObserver: MutationObserver | null = null
+let markdownRenderRequestSeq = 0
 
 const menuItemId = computed(() => route.params.id as string)
 
@@ -178,7 +187,6 @@ const embeddedUrl = computed(() => {
   return buildEmbeddedUrl(
     menuItem.value.url,
     authStore.user?.id,
-    authStore.token,
     pageTheme.value,
     locale.value,
   )
@@ -189,6 +197,18 @@ const isValidUrl = computed(() => {
   const url = embeddedUrl.value
   return url.startsWith('http://') || url.startsWith('https://')
 })
+
+function sendEmbeddedAuthContext() {
+  if (menuItem.value?.forward_access_token !== true) return
+  postEmbeddedAuthContext(
+    embeddedFrame.value?.contentWindow ?? null,
+    embeddedUrl.value,
+    {
+      userId: authStore.user?.id,
+      authToken: authStore.token,
+    },
+  )
+}
 
 function generateHeadingId(text: string, index: number): string {
   const base = text
@@ -222,6 +242,7 @@ function buildPageImageUrl(slug: string, src: string): string {
 }
 
 async function fetchAndRenderMarkdown(slug: string) {
+  const requestSeq = ++markdownRenderRequestSeq
   loading.value = true
   tocItems.value = []
   activeHeadingId.value = ''
@@ -229,11 +250,13 @@ async function fetchAndRenderMarkdown(slug: string) {
     const resp = await fetch(buildApiUrl(`/pages/${encodeURIComponent(slug)}`), {
       headers: authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {},
     })
+    if (requestSeq !== markdownRenderRequestSeq) return
     if (!resp.ok) {
       renderedHtml.value = `<p class="text-red-500">${t('common.pageNotFound')}</p>`
       return
     }
     let raw = await resp.text()
+    if (requestSeq !== markdownRenderRequestSeq) return
 
     raw = raw.replace(
       /!\[([^\]]*)\]\(([^)]+)\)/g,
@@ -241,10 +264,7 @@ async function fetchAndRenderMarkdown(slug: string) {
     )
 
     const html = marked.parse(raw) as string
-    const sanitized = DOMPurify.sanitize(html, {
-      ADD_TAGS: ['iframe'],
-      ADD_ATTR: ['allowfullscreen', 'frameborder', 'src'],
-    })
+    const sanitized = sanitizeCustomPageHtml(html, t('customPage.embeddedFrameTitle'))
 
     // Inject IDs into headings and build TOC
     const toc: TocItem[] = []
@@ -263,12 +283,16 @@ async function fetchAndRenderMarkdown(slug: string) {
     renderedHtml.value = withIds
     tocItems.value = toc
   } catch {
-    renderedHtml.value = '<p class="text-red-500">Failed to load page</p>'
+    if (requestSeq === markdownRenderRequestSeq) {
+      renderedHtml.value = '<p class="text-red-500">Failed to load page</p>'
+    }
   } finally {
-    loading.value = false
-    await nextTick()
-    await nextTick()
-    injectCopyButtons()
+    if (requestSeq === markdownRenderRequestSeq) {
+      loading.value = false
+      await nextTick()
+      await nextTick()
+      injectCopyButtons()
+    }
   }
 }
 
@@ -334,14 +358,22 @@ function injectCopyButtons() {
   })
 }
 
-watch(markdownSlug, (slug) => {
+watch([markdownSlug, locale], ([slug]) => {
   if (slug) {
     fetchAndRenderMarkdown(slug)
   } else {
+    markdownRenderRequestSeq += 1
     renderedHtml.value = ''
     tocItems.value = []
   }
 }, { immediate: true })
+
+watch(
+  [() => menuItem.value?.forward_access_token, () => authStore.token],
+  () => {
+    void nextTick(sendEmbeddedAuthContext)
+  },
+)
 
 onMounted(async () => {
   pageTheme.value = detectTheme()

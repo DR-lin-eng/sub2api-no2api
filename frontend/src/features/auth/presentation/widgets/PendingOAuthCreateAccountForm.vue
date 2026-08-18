@@ -106,8 +106,9 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import HumanVerificationWidget from '@/features/auth/presentation/widgets/HumanVerificationWidget.vue'
 import LocalCaptchaWidget from '@/features/auth/presentation/widgets/LocalCaptchaWidget.vue'
-import { getPublicSettings, sendPendingOAuthVerifyCode } from '@/features/auth/data/datasources/authDatasource'
-import { useAppStore } from '@/stores'
+import { getPublicSettings } from '@/features/auth/data/datasources/authQueries'
+import { sendPendingOAuthVerifyCode } from '@/features/auth/data/datasources/authOAuthActions'
+import { useAppStore } from '@/core/stores/appStore'
 import {
   resolveHumanVerification,
   type AliyunCaptchaRegion,

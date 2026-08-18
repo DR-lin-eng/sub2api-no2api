@@ -45,10 +45,13 @@ vi.mock('vue-i18n', () => ({
   }),
 }))
 
-vi.mock('@/stores', () => ({
+vi.mock('@/features/auth', () => ({
   useAuthStore: () => ({
     setToken: (...args: any[]) => setTokenMock(...args),
   }),
+}))
+
+vi.mock('@/core/stores/appStore', () => ({
   useAppStore: () => ({
     showError: (...args: any[]) => showErrorMock(...args),
     showSuccess: (...args: any[]) => showSuccessMock(...args),
@@ -61,8 +64,8 @@ vi.mock('@/core/networks/client', () => ({
   },
 }))
 
-vi.mock('@/features/auth/data/datasources/authDatasource', async () => {
-  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authDatasource')>('@/features/auth/data/datasources/authDatasource')
+vi.mock('@/features/auth/data/datasources/authOAuthActions', async () => {
+  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authOAuthActions')>('@/features/auth/data/datasources/authOAuthActions')
   return {
     ...actual,
     exchangePendingOAuthCompletion: (...args: any[]) => exchangePendingOAuthCompletionMock(...args),

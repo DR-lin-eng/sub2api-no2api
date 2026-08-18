@@ -33,29 +33,30 @@ const messages: Record<string, string> = {
 
 const RFC3339_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/
 
-vi.mock('@/api/admin', () => ({
-  adminAPI: {
-    usage: {
-      list,
-      getStats,
-    },
-    dashboard: {
-      getSnapshotV2,
-      getModelStats,
-    },
-    users: {
-      getById,
-    },
-  },
-}))
-
 vi.mock('@/features/admin-usage/data/datasources/adminUsageDatasource', () => ({
-  adminUsageAPI: {
-    list: vi.fn(),
-  },
+  cancelCleanupTask: vi.fn(),
+  createCleanupTask: vi.fn(),
+  getStats,
+  list,
+  listCleanupTasks: vi.fn(),
+  searchApiKeys: vi.fn(),
+  searchUsers: vi.fn(),
 }))
 
-vi.mock('@/features/admin-ops/data/datasources/adminOpsDatasource', () => ({
+vi.mock('@/features/admin-dashboard/data/datasources/adminDashboardDatasource', () => ({
+  getModelStats,
+  getSnapshotV2,
+}))
+
+vi.mock('@/features/admin-users/data/datasources/adminUsersDatasource', () => ({
+  getById,
+}))
+
+vi.mock('@/features/admin-users/userBalanceHistoryDialog', () => ({
+  default: { name: 'UserBalanceHistoryModal', template: '<div />' },
+}))
+
+vi.mock('@/features/admin-ops/data/datasources/opsErrorQueries', () => ({
   listErrorLogs,
 }))
 
@@ -107,7 +108,7 @@ const UsageFiltersStub = defineComponent({
   template: '<div><span data-test="user-filter-label">{{ userKeyword }}</span><slot name="after-reset" /></div>',
 })
 const UsageTableStub = {
-  props: ['columns'],
+  props: ['audience', 'columns'],
   emits: ['userClick'],
   template: '<div data-test="usage-table"><button class="user-click" @click="$emit(\'userClick\', 2)">user</button></div>',
 }
@@ -184,6 +185,7 @@ describe('admin UsageView request ID column visibility', () => {
     await wrapper.vm.$nextTick()
 
     const usageTable = wrapper.findComponent(UsageTableStub)
+    expect(usageTable.props('audience')).toBe('admin')
     expect(usageTable.props('columns')).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ key: 'request_id' })]),
     )

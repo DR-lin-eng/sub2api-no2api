@@ -25,7 +25,7 @@
                   ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300'
                   : 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300'"
               >
-                {{ t(`monitorCommon.modes.${row.monitor_mode || 'active'}`) }}
+                {{ modeLabel(row.monitor_mode || 'active') }}
               </span>
               <HelpTooltip v-if="row.api_key_decrypt_failed" :content="t('admin.channelMonitor.apiKeyDecryptFailed')">
                 <Icon name="exclamationTriangle" size="sm" class="text-red-500" />
@@ -158,6 +158,7 @@ const appStore = useAppStore()
 const {
   providerLabel,
   providerBadgeClass,
+  modeLabel,
   latencyUnit,
   formatLatency,
   formatAvailability,

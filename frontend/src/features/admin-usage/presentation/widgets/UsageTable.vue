@@ -18,7 +18,7 @@
     </div>
     <div class="overflow-auto">
       <DataTable
-        :columns="columns"
+        :columns="effectiveColumns"
         :data="data"
         :loading="loading"
         :server-side-sort="serverSideSort"
@@ -49,12 +49,12 @@
         </template>
 
         <template #cell-account="{ row }">
-          <span class="text-sm text-gray-900 dark:text-white">{{ row.account?.name || '-' }}</span>
+          <span v-if="isAdminAudience" class="text-sm text-gray-900 dark:text-white">{{ row.account?.name || '-' }}</span>
         </template>
 
         <template #cell-model="{ row }">
           <div class="space-y-0.5 text-xs">
-            <div v-if="row.model_mapping_chain && row.model_mapping_chain.includes('→')" class="space-y-0.5">
+            <div v-if="isAdminAudience && row.model_mapping_chain && row.model_mapping_chain.includes('→')" class="space-y-0.5">
               <div v-for="(step, i) in row.model_mapping_chain.split('→')" :key="i"
                    class="break-all"
                    :class="i === 0 ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'"
@@ -62,7 +62,7 @@
                 <span v-if="i > 0" class="mr-0.5">↳</span>{{ step }}
               </div>
             </div>
-            <div v-else-if="row.upstream_model && row.upstream_model !== row.model" class="space-y-0.5">
+            <div v-else-if="isAdminAudience && row.upstream_model && row.upstream_model !== row.model" class="space-y-0.5">
               <div class="break-all font-medium text-gray-900 dark:text-white">
                 {{ row.model }}
               </div>
@@ -72,7 +72,7 @@
             </div>
             <span v-else class="font-medium text-gray-900 dark:text-white">{{ row.model }}</span>
             <div
-              v-if="row.upstream_model_mismatch === true && row.upstream_response_model"
+              v-if="isAdminAudience && row.upstream_model_mismatch === true && row.upstream_response_model"
               class="break-all pl-3 text-[11px]"
               :class="isLikelyModelVariant(row) ? 'text-amber-600 dark:text-amber-400' : 'text-orange-600 dark:text-orange-400'"
               :title="modelAuditTitle(row)"
@@ -518,6 +518,7 @@
     v-if="detailVisible"
     :show="detailVisible"
     :usage="detailUsage"
+    :audience="audience"
     @close="closeUsageDetail"
   />
 </template>
@@ -581,6 +582,7 @@ import type { Column } from '@/common/types/uiTypes'
 
 interface Props {
   data: AdminUsageLog[]
+  audience?: 'user' | 'admin'
   loading?: boolean
   columns: Column[]
   serverSideSort?: boolean
@@ -593,6 +595,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  audience: 'admin',
   loading: false,
   serverSideSort: false,
   defaultSortKey: '',
@@ -609,11 +612,16 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const { copyToClipboard } = useClipboard()
 const copiedRequestId = ref<string | null>(null)
-const showAccountBilling = props.showAccountBilling
-const showUpstreamEndpoint = props.showUpstreamEndpoint
+const audience = computed(() => props.audience)
+const isAdminAudience = computed(() => audience.value === 'admin')
+const showAccountBilling = computed(() => isAdminAudience.value && props.showAccountBilling)
+const showUpstreamEndpoint = computed(() => isAdminAudience.value && props.showUpstreamEndpoint)
 const ipGeoBatchLoading = ref(false)
 
-const showIpGeoToolbar = computed(() => props.columns.some((col) => col.key === 'ip_address'))
+const effectiveColumns = computed(() => isAdminAudience.value
+  ? props.columns
+  : props.columns.filter((column) => column.key !== 'account'))
+const showIpGeoToolbar = computed(() => effectiveColumns.value.some((col) => col.key === 'ip_address'))
 
 const sentUpstreamModel = (row: AdminUsageLog): string => row.upstream_model?.trim() || row.model?.trim() || ''
 

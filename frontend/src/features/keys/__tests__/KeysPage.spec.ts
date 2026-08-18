@@ -86,7 +86,7 @@ const messages: Record<string, string> = {
   'keys.usageLoadFailed': 'Usage unavailable',
 }
 
-vi.mock('@/api', () => ({
+vi.mock('@/features/keys/data/datasources/keysDatasource', () => ({
   keysAPI: {
     list: listKeys,
     create: vi.fn(),
@@ -94,13 +94,20 @@ vi.mock('@/api', () => ({
     delete: vi.fn(),
     toggleStatus: vi.fn(),
   },
-  authAPI: {
-    getPublicSettings,
-  },
+}))
+
+vi.mock('@/features/auth/data/datasources/authQueries', () => ({
+  getPublicSettings,
+}))
+
+vi.mock('@/features/usage/data/datasources/usageDatasource', () => ({
   usageAPI: {
     getDashboardApiKeysUsage,
     getDashboardApiKeysPendingUsage,
   },
+}))
+
+vi.mock('@/features/groups-user/data/datasources/groupsUserDatasource', () => ({
   userGroupsAPI: {
     getAvailable: getAvailableGroups,
     getUserGroupRates,

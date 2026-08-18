@@ -331,8 +331,11 @@
                 <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
                   {{ t("admin.settings.site.homeContentHint") }}
                 </p>
-                <!-- iframe CSP Warning -->
                 <p class="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                  {{ t("admin.settings.site.homeContentSecurityHint") }}
+                </p>
+                <!-- iframe CSP Warning -->
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   {{ t("admin.settings.site.homeContentIframeWarning") }}
                 </p>
 			  </div>
@@ -513,6 +516,23 @@
                       :placeholder="
                         t('admin.settings.customMenu.urlPlaceholder')
                       "
+                    />
+                  </div>
+
+                  <div class="sm:col-span-2 flex items-center justify-between gap-4 rounded border border-amber-200 bg-amber-50 px-3 py-2.5 dark:border-amber-500/30 dark:bg-amber-500/10">
+                    <div class="min-w-0">
+                      <label class="block text-sm font-medium text-amber-800 dark:text-amber-300">
+                        {{ t("admin.settings.customMenu.forwardAccessToken") }}
+                      </label>
+                      <p class="mt-0.5 text-xs leading-5 text-amber-700 dark:text-amber-400">
+                        {{ t("admin.settings.customMenu.forwardAccessTokenHint") }}
+                      </p>
+                    </div>
+                    <Toggle
+                      :model-value="item.forward_access_token === true"
+                      :aria-label="t('admin.settings.customMenu.forwardAccessToken')"
+                      class="shrink-0"
+                      @update:model-value="(value: boolean) => (item.forward_access_token = value)"
                     />
                   </div>
 

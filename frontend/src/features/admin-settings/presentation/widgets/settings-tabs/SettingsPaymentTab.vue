@@ -554,7 +554,7 @@
 
 <script setup lang="ts">
 import ImageUpload from '@/common/widgets/data/ImageUpload.vue'
-import PaymentProviderList from '@/features/billing/presentation/widgets/PaymentProviderList.vue'
+import PaymentProviderList from '@/features/billing/paymentProviderList'
 import Select from '@/common/widgets/forms/Select.vue'
 import Toggle from '@/common/widgets/forms/Toggle.vue'
 import { useSettingsPageContext } from '@/features/admin-settings/presentation/composables/settingsPageContext'

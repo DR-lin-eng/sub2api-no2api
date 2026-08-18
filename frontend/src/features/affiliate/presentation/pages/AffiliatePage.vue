@@ -144,10 +144,13 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
-import userAPI from '@/features/profile/data/datasources/profileDatasource'
+import {
+  getAffiliateDetail,
+  transferAffiliateQuota,
+} from '@/features/profile/data/datasources/profileDatasource'
 import type { UserAffiliateDetail } from '@/types'
 import { useAppStore } from '@/core/stores/appStore'
-import { useAuthStore } from '@/features/auth/presentation/stores/authStore'
+import { useAuthStore } from '@/features/auth'
 import { useClipboard } from '@/common/composables/useClipboard'
 import { formatCurrency, formatDateTime } from '@/core/utils/format'
 import { extractApiErrorMessage } from '@/core/utils/apiError'
@@ -184,7 +187,7 @@ async function loadAffiliateDetail(silent = false): Promise<void> {
     loading.value = true
   }
   try {
-    detail.value = await userAPI.getAffiliateDetail()
+    detail.value = await getAffiliateDetail()
   } catch (error) {
     appStore.showError(extractApiErrorMessage(error, t('affiliate.loadFailed')))
   } finally {
@@ -208,7 +211,7 @@ async function transferQuota(): Promise<void> {
   if (!detail.value || detail.value.aff_quota <= 0 || transferring.value) return
   transferring.value = true
   try {
-    const resp = await userAPI.transferAffiliateQuota()
+    const resp = await transferAffiliateQuota()
     appStore.showSuccess(t('affiliate.transfer.success', { amount: formatCurrency(resp.transferred_quota) }))
     await Promise.all([
       loadAffiliateDetail(true),

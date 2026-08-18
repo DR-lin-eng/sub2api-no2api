@@ -12,7 +12,7 @@ vi.mock('vue-i18n', () => ({
   }),
 }))
 
-vi.mock('@/features/auth/data/datasources/authDatasource', () => ({
+vi.mock('@/features/auth/data/datasources/authQueries', () => ({
   getLocalCaptcha: (...args: unknown[]) => getLocalCaptchaMock(...args),
 }))
 

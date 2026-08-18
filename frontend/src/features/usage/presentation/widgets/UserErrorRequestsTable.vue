@@ -45,7 +45,7 @@
         </template>
 
         <template #cell-category="{ row }">
-          <span class="text-sm text-gray-900 dark:text-white">{{ t('usage.errors.categories.' + row.category) }}</span>
+          <span class="text-sm text-gray-900 dark:text-white">{{ usageErrorCategoryLabel(t, row.category) }}</span>
         </template>
 
         <template #cell-message="{ row }">
@@ -139,6 +139,7 @@ import {
 } from '@/core/utils/errorBadges'
 import type { UserErrorRequest } from '@/types'
 import type { Column } from '@/common/types/uiTypes'
+import { usageErrorCategoryLabel } from '@/core/utils/usageLocale'
 
 const props = defineProps<{
   rows: UserErrorRequest[]

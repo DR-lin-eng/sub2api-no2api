@@ -4,17 +4,21 @@ import { flushPromises, mount } from '@vue/test-utils'
 import type { AdminUser } from '@/types'
 import UserEditModal from '@/features/admin-users/presentation/widgets/UserEditDialog.vue'
 
-const { update, showError, showSuccess } = vi.hoisted(() => ({
+const { update, updateUserAttributeValues, showError, showSuccess } = vi.hoisted(() => ({
   update: vi.fn(),
+  updateUserAttributeValues: vi.fn(),
   showError: vi.fn(),
   showSuccess: vi.fn()
 }))
 
-vi.mock('@/api/admin', () => ({
-  adminAPI: {
-    users: { update },
-    userAttributes: { updateUserAttributeValues: vi.fn() }
-  }
+vi.mock('@/features/admin-users/data/datasources/adminUsersDatasource', () => ({
+  update,
+  default: { update }
+}))
+
+vi.mock('@/features/admin-users/data/datasources/userAttributesDatasource', () => ({
+  updateUserAttributeValues,
+  default: { updateUserAttributeValues }
 }))
 
 vi.mock('@/core/stores/appStore', () => ({

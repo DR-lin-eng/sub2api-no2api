@@ -344,10 +344,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAuthStore } from '@/features/auth/presentation/stores/authStore'
+import { useAuthStore } from '@/features/auth'
 import { useAppStore } from '@/core/stores/appStore'
-import { useSubscriptionStore } from '@/features/subscriptions/presentation/stores/subscriptionsStore'
-import { redeemAPI, authAPI, type RedeemHistoryItem } from '@/api'
+import { useSubscriptionStore } from '@/features/subscriptions/subscriptionStore'
+import { getPublicSettings } from '@/features/auth/data/datasources/authQueries'
+import {
+  redeemAPI,
+  type RedeemHistoryItem,
+} from '@/features/billing/data/datasources/redeemDatasource'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import { formatDateTime } from '@/core/utils/format'
@@ -479,7 +483,7 @@ const handleRedeem = async () => {
 onMounted(async () => {
   fetchHistory()
   try {
-    const settings = await authAPI.getPublicSettings()
+    const settings = await getPublicSettings()
     contactInfo.value = settings.contact_info || ''
   } catch (error) {
     console.error('Failed to load contact info:', error)

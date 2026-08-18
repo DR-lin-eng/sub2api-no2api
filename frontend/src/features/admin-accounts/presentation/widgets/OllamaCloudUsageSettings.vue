@@ -49,7 +49,7 @@
           <span class="break-words text-gray-900 dark:text-white">{{ formatDate(snapshot.fetched_at || snapshot.last_attempt_at) }}</span>
         </div>
         <p v-if="snapshot.last_error" class="mt-2 break-words border-t border-gray-100 pt-2 text-xs text-amber-700 dark:border-dark-700 dark:text-amber-300">
-          {{ t(`admin.accounts.ollamaCloud.errors.${snapshot.last_error}`, snapshot.last_error) }}
+          {{ ollamaCloudUsageErrorLabel(t, snapshot.last_error) }}
         </p>
       </div>
 
@@ -151,6 +151,10 @@ import type { Account, OllamaCloudUsageState, OllamaCloudUsageWindow } from '@/t
 import ConfirmDialog from '@/common/widgets/feedback/ConfirmDialog.vue'
 import Toggle from '@/common/widgets/forms/Toggle.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
+import {
+  ollamaCloudUsageErrorLabel,
+  ollamaCloudUsageStatusLabel,
+} from '@/features/admin-accounts/presentation/accountLocale'
 
 const props = defineProps<{ account: Account }>()
 const emit = defineEmits<{ updated: [state: OllamaCloudUsageState] }>()
@@ -165,9 +169,7 @@ const showDeleteConfirm = ref(false)
 const snapshot = computed(() => state.value?.snapshot)
 const statusLabel = computed(() => {
   if (!snapshot.value) return t('admin.accounts.ollamaCloud.notRefreshed')
-  if (snapshot.value.status === 'unauthorized') return t('admin.accounts.ollamaCloud.unauthorized')
-  if (snapshot.value.status === 'failed') return t('admin.accounts.ollamaCloud.failed')
-  return t('admin.accounts.ollamaCloud.ok')
+  return ollamaCloudUsageStatusLabel(t, snapshot.value.status)
 })
 const modelSummary = computed(() => snapshot.value?.data?.models?.map(model => {
   const window = model.window === 'five_hour'

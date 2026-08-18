@@ -17,6 +17,9 @@ type CustomMenuItem struct {
 	PageSlug   string `json:"page_slug,omitempty"`
 	Visibility string `json:"visibility"` // "user" or "admin"
 	SortOrder  int    `json:"sort_order"`
+	// ForwardAccessToken explicitly delegates the current browser access token
+	// to the embedded page via postMessage. It is disabled by default.
+	ForwardAccessToken bool `json:"forward_access_token,omitempty"`
 }
 
 // CustomEndpoint represents an admin-configured API endpoint for quick copy.

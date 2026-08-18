@@ -2,6 +2,7 @@
 
 系统设置 feature 负责设置读取、编辑、敏感保存与后台配置对话框。
 
+- `adminSettingsStore.ts`: 跨 feature 读取运维开关时使用的稳定 Store 公开出口；实现仍归属本 feature。
 - `data/dtos/adminSettingsDtos.ts`: 独立设置子域的请求/响应 DTO 与面板限流兼容归一化。
 - `data/dtos/systemSettingsDtos.ts`: 主设置协议与注册、平台限额、支付、微信兼容归一化规则。
 - `data/datasources/adminSettingsQueries.ts`: 已迁移设置子域的只读请求 owner。

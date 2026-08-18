@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { OpsErrorDetail } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import type { OpsErrorDetail } from '@/features/admin-ops/data/dtos/opsErrorDtos'
 import { resolvePrimaryResponseBody, resolveUpstreamPayload } from '../presentation/errorDetailResponseResolver'
 
 function makeDetail(overrides: Partial<OpsErrorDetail>): OpsErrorDetail {

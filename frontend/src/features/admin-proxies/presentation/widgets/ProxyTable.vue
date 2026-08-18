@@ -5,6 +5,7 @@ import EmptyState from '@/common/widgets/feedback/EmptyState.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import { formatDateTime } from '@/core/utils/format'
 import type { ProxyTableContext } from '../proxyPageContext'
+import { proxyStatusLabel } from '../proxyLocale'
 
 const props = defineProps<{
   context: ProxyTableContext
@@ -217,7 +218,7 @@ const {
           value === 'active' ? 'badge-success' : value === 'expired' ? 'badge-danger' : 'badge-danger'
         ]"
       >
-        {{ t('admin.accounts.status.' + value) }}
+        {{ proxyStatusLabel(t, value) }}
       </span>
     </template>
 

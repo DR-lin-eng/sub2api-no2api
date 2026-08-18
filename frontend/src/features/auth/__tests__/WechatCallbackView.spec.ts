@@ -12,7 +12,6 @@ const {
   completeWeChatOAuthRegistrationMock,
   login2FAMock,
   apiClientPostMock,
-  sendVerifyCodeMock,
   sendPendingOAuthVerifyCodeMock,
   getPublicSettingsMock,
   prepareOAuthBindAccessTokenCookieMock,
@@ -32,7 +31,6 @@ const {
   completeWeChatOAuthRegistrationMock: vi.fn(),
   login2FAMock: vi.fn(),
   apiClientPostMock: vi.fn(),
-  sendVerifyCodeMock: vi.fn(),
   sendPendingOAuthVerifyCodeMock: vi.fn(),
   getPublicSettingsMock: vi.fn(),
   prepareOAuthBindAccessTokenCookieMock: vi.fn(),
@@ -120,12 +118,15 @@ vi.mock('vue-i18n', () => ({
   }),
 }))
 
-vi.mock('@/stores', () => ({
+vi.mock('@/features/auth', () => ({
   useAuthStore: () => ({
     setToken: setTokenMock,
     setPendingAuthSession: setPendingAuthSessionMock,
     clearPendingAuthSession: clearPendingAuthSessionMock,
   }),
+}))
+
+vi.mock('@/core/stores/appStore', () => ({
   useAppStore: () => ({
     ...appStoreState,
     showSuccess: showSuccessMock,
@@ -140,17 +141,30 @@ vi.mock('@/core/networks/client', () => ({
   },
 }))
 
-vi.mock('@/features/auth/data/datasources/authDatasource', async () => {
-  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authDatasource')>('@/features/auth/data/datasources/authDatasource')
+vi.mock('@/features/auth/data/datasources/authOAuthActions', async () => {
+  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authOAuthActions')>('@/features/auth/data/datasources/authOAuthActions')
   return {
     ...actual,
     exchangePendingOAuthCompletion: (...args: any[]) => exchangePendingOAuthCompletionMock(...args),
     completeWeChatOAuthRegistration: (...args: any[]) => completeWeChatOAuthRegistrationMock(...args),
-    login2FA: (...args: any[]) => login2FAMock(...args),
-    sendVerifyCode: (...args: any[]) => sendVerifyCodeMock(...args),
     sendPendingOAuthVerifyCode: (...args: any[]) => sendPendingOAuthVerifyCodeMock(...args),
-    getPublicSettings: (...args: any[]) => getPublicSettingsMock(...args),
     prepareOAuthBindAccessTokenCookie: (...args: any[]) => prepareOAuthBindAccessTokenCookieMock(...args),
+  }
+})
+
+vi.mock('@/features/auth/data/datasources/authQueries', async () => {
+  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authQueries')>('@/features/auth/data/datasources/authQueries')
+  return {
+    ...actual,
+    getPublicSettings: (...args: any[]) => getPublicSettingsMock(...args),
+  }
+})
+
+vi.mock('@/features/auth/data/datasources/authSessionActions', async () => {
+  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authSessionActions')>('@/features/auth/data/datasources/authSessionActions')
+  return {
+    ...actual,
+    login2FA: (...args: any[]) => login2FAMock(...args),
     getAuthToken: (...args: any[]) => getAuthTokenMock(...args),
   }
 })
@@ -161,7 +175,6 @@ describe('WechatCallbackView', () => {
     completeWeChatOAuthRegistrationMock.mockReset()
     login2FAMock.mockReset()
     apiClientPostMock.mockReset()
-    sendVerifyCodeMock.mockReset()
     sendPendingOAuthVerifyCodeMock.mockReset()
     getPublicSettingsMock.mockReset()
     replaceMock.mockReset()

@@ -45,33 +45,16 @@ const messages: Record<string, string> = {
   'admin.groups.columns.actions': 'Actions',
 }
 
-vi.mock('@/api/admin', () => ({
-  adminAPI: {
-    groups: {
-      list: listGroups,
-      getAll: getAllGroups,
-      getModelsListCandidates,
-      getUsageSummary,
-      getCapacitySummary,
-      getLiveCapability,
-      create: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-      updateSortOrder: vi.fn(),
-    },
-    accounts: {
-      list: listAccounts,
-    },
-  },
-}))
-
-vi.mock('@/features/admin-groups/data/datasources/adminGroupsDatasource', () => ({
+vi.mock('@/features/admin-groups/data/datasources/adminGroupQueries', () => ({
   list: listGroups,
   getAll: getAllGroups,
   getModelsListCandidates,
   getUsageSummary,
   getCapacitySummary,
   getLiveCapability,
+}))
+
+vi.mock('@/features/admin-groups/data/datasources/adminGroupActions', () => ({
   create: vi.fn(),
   update: vi.fn(),
   deleteGroup: vi.fn(),

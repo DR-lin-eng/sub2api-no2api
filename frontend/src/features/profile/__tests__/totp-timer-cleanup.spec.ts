@@ -26,14 +26,12 @@ vi.mock('@/core/stores/appStore', () => ({
   })
 }))
 
-vi.mock('@/api', () => ({
-  totpAPI: {
-    getVerificationMethod: mocks.getVerificationMethod,
-    sendVerifyCode: mocks.sendVerifyCode,
-    initiateSetup: mocks.initiateSetup,
-    enable: mocks.enable,
-    disable: mocks.disable
-  }
+vi.mock('@/features/profile/data/datasources/totpDatasource', () => ({
+  getVerificationMethod: mocks.getVerificationMethod,
+  sendVerifyCode: mocks.sendVerifyCode,
+  initiateSetup: mocks.initiateSetup,
+  enable: mocks.enable,
+  disable: mocks.disable
 }))
 
 const flushPromises = async () => {

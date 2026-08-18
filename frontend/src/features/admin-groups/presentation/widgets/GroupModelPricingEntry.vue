@@ -4,7 +4,7 @@ import { useI18n } from "vue-i18n";
 import Select from "@/common/widgets/forms/Select.vue";
 import Icon from "@/common/widgets/icons/Icon.vue";
 import type { BillingMode } from "@/core/constants/channel";
-import type { GroupPlatform } from "@/types";
+import type { GroupPlatform } from "@/types/group";
 import type { GroupPricingFormEntry } from "../groupsModelPricing";
 import GroupModelTagInput from "./GroupModelTagInput.vue";
 

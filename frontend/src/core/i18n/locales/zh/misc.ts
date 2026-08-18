@@ -83,6 +83,7 @@ export default {
     notConfiguredTitle: '页面链接未配置',
     notConfiguredDesc: '该自定义页面的 URL 未正确配置。',
     tableOfContents: '目录',
+    embeddedFrameTitle: '嵌入的自定义页面内容',
     copyCode: '复制',
     copiedCode: '已复制',
     copyCodeFailed: '失败'
@@ -122,7 +123,8 @@ export default {
     status: {
       active: '有效',
       expired: '已过期',
-      revoked: '已撤销'
+      revoked: '已撤销',
+      suspended: '已暂停'
     },
     usage: '用量',
     expires: '到期时间',

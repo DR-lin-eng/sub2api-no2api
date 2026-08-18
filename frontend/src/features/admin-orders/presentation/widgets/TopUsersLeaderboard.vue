@@ -39,7 +39,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import type { TopUserPaymentStats } from '@/types/payment'
+import type { TopUserPaymentStats } from '@/features/billing/paymentContracts'
 
 const { t } = useI18n()
 

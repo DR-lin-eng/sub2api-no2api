@@ -35,7 +35,7 @@
           </div>
         </template>
         <template #cell-validity_days="{ value, row }">
-          <span class="text-sm">{{ value }} {{ t('payment.admin.' + (row.validity_unit || 'days')) }}</span>
+          <span class="text-sm">{{ value }} {{ paymentPlanValidityUnitLabel(t, row.validity_unit || 'days') }}</span>
         </template>
         <template #cell-for_sale="{ value, row }">
           <button
@@ -78,11 +78,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
-import { adminPaymentAPI } from '@/features/admin-orders/data/datasources/adminPaymentDatasource'
-import type { AdminPaymentConfig } from '@/features/admin-orders/data/datasources/adminPaymentDatasource'
+import { deletePlan, updatePlan } from '@/features/admin-orders/data/datasources/adminPaymentActions'
+import { getConfig, getPlans } from '@/features/admin-orders/data/datasources/adminPaymentQueries'
+import type { AdminPaymentConfig } from '@/features/admin-orders/data/dtos/adminPaymentDtos'
 import { extractI18nErrorMessage } from '@/core/utils/apiError'
-import adminAPI from '@/api/admin'
-import type { SubscriptionPlan } from '@/types/payment'
+import { getAll as getAllAdminGroups } from '@/features/admin-groups/data/datasources/adminGroupQueries'
+import type { SubscriptionPlan } from '@/features/billing/paymentContracts'
 import type { AdminGroup } from '@/types'
 import type { Column } from '@/common/types/uiTypes'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
@@ -91,7 +92,8 @@ import ConfirmDialog from '@/common/widgets/feedback/ConfirmDialog.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import GroupBadge from '@/common/widgets/data/GroupBadge.vue'
 import PlanEditDialog from '../widgets/PlanEditDialog.vue'
-import { currencySymbol } from '@/features/billing/presentation/currencyFormatter'
+import { currencySymbol } from '@/features/billing/paymentDisplay'
+import { paymentPlanValidityUnitLabel } from '@/features/billing/paymentLocale'
 import { platformTextClass } from '@/core/utils/platformColors'
 
 const { t } = useI18n()
@@ -108,13 +110,13 @@ const paymentConfig = ref<AdminPaymentConfig | null>(null)
 
 async function loadGroups() {
   try {
-    groups.value = await adminAPI.groups.getAll()
+    groups.value = await getAllAdminGroups()
   } catch { /* ignore */ }
 }
 
 async function loadPaymentConfig() {
   try {
-    const res = await adminPaymentAPI.getConfig()
+    const res = await getConfig()
     paymentConfig.value = res.data
   } catch { /* preview only */ }
 }
@@ -156,7 +158,7 @@ const planColumns = computed((): Column[] => [
 async function loadPlans() {
   plansLoading.value = true
   try {
-    const res = await adminPaymentAPI.getPlans()
+    const res = await getPlans()
     // Backend returns features as newline-separated string; parse to array
     plans.value = (res.data || []).map((p: Omit<SubscriptionPlan, 'features'> & { features: string | string[] }) => ({
       ...p,
@@ -178,7 +180,7 @@ function openPlanEdit(plan: SubscriptionPlan | null) {
 /** Quick toggle for_sale from the list */
 async function toggleForSale(plan: SubscriptionPlan) {
   try {
-    await adminPaymentAPI.updatePlan(plan.id, { for_sale: !plan.for_sale })
+    await updatePlan(plan.id, { for_sale: !plan.for_sale })
     plan.for_sale = !plan.for_sale
   } catch (err: unknown) {
     appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
@@ -188,7 +190,7 @@ async function toggleForSale(plan: SubscriptionPlan) {
 function confirmDeletePlan(plan: SubscriptionPlan) { deletingPlanId.value = plan.id; showDeletePlanDialog.value = true }
 async function handleDeletePlan() {
   if (!deletingPlanId.value) return
-  try { await adminPaymentAPI.deletePlan(deletingPlanId.value); appStore.showSuccess(t('common.deleted')); showDeletePlanDialog.value = false; loadPlans() }
+  try { await deletePlan(deletingPlanId.value); appStore.showSuccess(t('common.deleted')); showDeletePlanDialog.value = false; loadPlans() }
   catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
 }
 

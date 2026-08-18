@@ -16,9 +16,10 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key })
 }))
 
-vi.mock('@/features/auth/presentation/stores/authStore', () => ({
+vi.mock('@/features/auth', () => ({
   useAuthStore: () => ({
     user: { id: 1, role: 'admin' },
+    isAdmin: true,
     isSimpleMode: false
   })
 }))

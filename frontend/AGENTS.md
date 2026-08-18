@@ -27,6 +27,7 @@ main / core routes
 - 应用级 Router、HTTP/session、i18n、主题、全局 Store、服务、常量和工具进入 `src/core/`。
 - 只有真正跨 feature 的协议类型和全局声明保留在 `src/types/`。
 - 用户可见文案进入 `src/core/i18n/locales/`，同步所有受支持语言。
+- 新增 `v-html` 或非空 `innerHTML` 前必须先建立专用清洗 owner，并同步更新动态 HTML 安全门禁；不得直接渲染 API、设置、URL、storage 或消息返回的原始 HTML。
 
 `src/api/index.ts`、`src/api/admin/index.ts` 和 `src/stores/index.ts` 是旧导入的过渡兼容 barrel。新代码直接导入 owner 路径；除维持既有导入兼容外，不要把新功能继续注册到这些 barrel，也不要为旧目录再创建平行实现。旧导入全部迁移并通过回归验证前不得移除兼容导出。
 

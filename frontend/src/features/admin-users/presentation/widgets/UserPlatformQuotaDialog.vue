@@ -118,8 +118,17 @@
 import { ref, reactive, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
-import { adminAPI } from '@/api/admin'
-import type { AdminUser, PlatformQuotaItem, PlatformQuotaPlatform, PlatformQuotaWindow } from '@/types'
+import {
+  getPlatformQuotas,
+  resetPlatformQuotaWindow,
+  updatePlatformQuotas,
+} from '@/features/admin-users/data/datasources/adminUsersDatasource'
+import type { AdminUser } from '@/types'
+import type {
+  PlatformQuotaItem,
+  PlatformQuotaPlatform,
+  PlatformQuotaWindow,
+} from '@/features/admin-users/data/dtos/adminUserDtos'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 
 const props = defineProps<{ show: boolean; user: AdminUser | null }>()
@@ -188,7 +197,7 @@ async function load() {
   if (!props.user) return
   loading.value = true
   try {
-    const data = await adminAPI.users.getPlatformQuotas(props.user.id)
+    const data = await getPlatformQuotas(props.user.id)
     quotas.value = normalize(data.platform_quotas || [])
   } catch {
     appStore.showError(t('admin.users.platformQuota.loadFailed'))
@@ -242,7 +251,7 @@ async function onSave() {
       weekly_limit_usd: normalizeLimit(r.weekly_limit_usd),
       monthly_limit_usd: normalizeLimit(r.monthly_limit_usd),
     }))
-    await adminAPI.users.updatePlatformQuotas(props.user.id, payload)
+    await updatePlatformQuotas(props.user.id, payload)
     appStore.showSuccess(t('admin.users.platformQuota.updateSuccess'))
     emit('success')
     emit('close')
@@ -271,7 +280,7 @@ async function onReset(platform: PlatformQuotaPlatform, quotaWindow: PlatformQuo
   const key = `${platform}.${quotaWindow}`
   resetting[key] = true
   try {
-    const data = await adminAPI.users.resetPlatformQuotaWindow(props.user.id, platform, quotaWindow)
+    const data = await resetPlatformQuotaWindow(props.user.id, platform, quotaWindow)
     quotas.value = normalize(data.platform_quotas || [])
     appStore.showSuccess(t('admin.users.platformQuota.reset.success', { platform, window: windowLabel }))
   } catch (e: any) {

@@ -24,7 +24,7 @@
             {{ providerLabel(item.provider) }}
           </span>
           <span class="inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-dark-700 dark:text-gray-300">
-            {{ t(`monitorCommon.modes.${item.monitor_mode || 'active'}`) }}
+            {{ modeLabel(item.monitor_mode || 'active') }}
           </span>
           <span class="font-mono text-xs truncate text-gray-500 dark:text-gray-400">
             {{ item.primary_model }}
@@ -109,6 +109,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const {
   statusLabel,
+  modeLabel,
   statusBadgeClass,
   providerLabel,
   providerBadgeClass,

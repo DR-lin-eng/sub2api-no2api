@@ -102,7 +102,7 @@
 
           <template #cell-role="{ value }">
             <span :class="['badge', value === 'admin' ? 'badge-purple' : 'badge-gray']">
-              {{ t('admin.users.roles.' + value) }}
+              {{ adminUserRoleLabel(t, value) }}
             </span>
           </template>
 
@@ -562,10 +562,26 @@ import { formatDateTime } from '@/core/utils/format'
 import Icon from '@/common/widgets/icons/Icon.vue'
 
 const { t } = useI18n()
-import { adminAPI } from '@/api/admin'
 import type { AdminUser, AdminGroup, RequestSchedulingTier, UserAttributeDefinition } from '@/types'
-import type { BatchUserUsageStats } from '@/features/admin-dashboard/data/datasources/adminDashboardDatasource'
-import type { PlatformQuotaItem } from '@/features/admin-users/data/datasources/adminUsersDatasource'
+import {
+  getBatchUsersUsage,
+  type BatchUserUsageStats,
+} from '@/features/admin-dashboard/data/datasources/adminDashboardDatasource'
+import {
+  getAll as getAllAdminGroups,
+  getAllIncludingInactive as getAllAdminGroupsIncludingInactive,
+} from '@/features/admin-groups/data/datasources/adminGroupQueries'
+import {
+  deleteUser,
+  getBatchPlatformQuotas,
+  list as listAdminUsers,
+  toggleStatus,
+} from '@/features/admin-users/data/datasources/adminUsersDatasource'
+import {
+  getBatchUserAttributes,
+  listEnabledDefinitions,
+} from '@/features/admin-users/data/datasources/userAttributesDatasource'
+import type { PlatformQuotaItem } from '@/features/admin-users/data/dtos/adminUserDtos'
 import type { Column } from '@/common/types/uiTypes'
 import type { SelectOption } from '@/common/widgets/forms/Select.vue'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
@@ -591,6 +607,7 @@ import UserAllowedGroupsModal from '@/features/admin-users/presentation/widgets/
 import UserBalanceModal from '@/features/admin-users/presentation/widgets/UserBalanceDialog.vue'
 import UserBalanceHistoryModal from '@/features/admin-users/presentation/widgets/UserBalanceHistoryDialog.vue'
 import GroupReplaceModal from '@/features/admin-users/presentation/widgets/GroupReplaceDialog.vue'
+import { adminUserRoleLabel } from '@/features/admin-users/presentation/adminUserLocale'
 
 const appStore = useAppStore()
 
@@ -843,7 +860,7 @@ const allGroups = ref<AdminGroup[]>([])
 const loadAllGroups = async () => {
   if (allGroups.value.length > 0) return
   try {
-    allGroups.value = await adminAPI.groups.getAll()
+    allGroups.value = await getAllAdminGroups()
   } catch (e) {
     console.error('Failed to load groups:', e)
   }
@@ -855,7 +872,7 @@ const allGroupsForApiKeyFilter = ref<AdminGroup[]>([])
 const loadAllGroupsForApiKeyFilter = async () => {
   if (allGroupsForApiKeyFilter.value.length > 0) return
   try {
-    allGroupsForApiKeyFilter.value = await adminAPI.groups.getAllIncludingInactive()
+    allGroupsForApiKeyFilter.value = await getAllAdminGroupsIncludingInactive()
   } catch (e) {
     console.error('Failed to load groups for API key filter:', e)
   }
@@ -1129,7 +1146,7 @@ const loadUsersSecondaryData = async (
     tasks.push(
       (async () => {
         try {
-          const usageResponse = await adminAPI.dashboard.getBatchUsersUsage(userIds)
+          const usageResponse = await getBatchUsersUsage(userIds)
           if (signal?.aborted) return
           if (typeof expectedSeq === 'number' && expectedSeq !== secondaryDataSeq) return
           usageStats.value = usageResponse.stats
@@ -1145,7 +1162,7 @@ const loadUsersSecondaryData = async (
     tasks.push(
       (async () => {
         try {
-          const attrResponse = await adminAPI.userAttributes.getBatchUserAttributes(userIds)
+          const attrResponse = await getBatchUserAttributes(userIds)
           if (signal?.aborted) return
           if (typeof expectedSeq === 'number' && expectedSeq !== secondaryDataSeq) return
           userAttributeValues.value = attrResponse.attributes
@@ -1161,7 +1178,7 @@ const loadUsersSecondaryData = async (
     tasks.push(
       (async () => {
         try {
-          const response = await adminAPI.users.getBatchPlatformQuotas(userIds)
+          const response = await getBatchPlatformQuotas(userIds)
           if (signal?.aborted) return
           if (typeof expectedSeq === 'number' && expectedSeq !== secondaryDataSeq) return
           platformQuotaStats.value = {
@@ -1301,7 +1318,7 @@ const getDaysRemaining = (expiresAt: string): number => {
 
 const loadAttributeDefinitions = async () => {
   try {
-    attributeDefinitions.value = await adminAPI.userAttributes.listEnabledDefinitions()
+    attributeDefinitions.value = await listEnabledDefinitions()
   } catch (e) {
     console.error('Failed to load attribute definitions:', e)
   }
@@ -1329,7 +1346,7 @@ const loadUsers = async () => {
       }
     }
 
-    const response = await adminAPI.users.list(
+    const response = await listAdminUsers(
       pagination.page,
       pagination.page_size,
       {
@@ -1473,7 +1490,7 @@ const closeEditModal = () => {
 const handleToggleStatus = async (user: AdminUser) => {
   const newStatus = user.status === 'active' ? 'disabled' : 'active'
   try {
-    await adminAPI.users.toggleStatus(user.id, newStatus)
+    await toggleStatus(user.id, newStatus)
     appStore.showSuccess(
       newStatus === 'active' ? t('admin.users.userEnabled') : t('admin.users.userDisabled')
     )
@@ -1525,7 +1542,7 @@ const handleDelete = (user: AdminUser) => {
 const confirmDelete = async () => {
   if (!deletingUser.value) return
   try {
-    await adminAPI.users.delete(deletingUser.value.id)
+    await deleteUser(deletingUser.value.id)
     appStore.showSuccess(t('common.success'))
     showDeleteDialog.value = false
     deletingUser.value = null

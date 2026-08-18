@@ -213,7 +213,10 @@
 import { getPersistedPageSize } from '@/common/composables/usePersistedPageSize'
 
 const { t } = useI18n()
-import { keysAPI, authAPI, usageAPI, userGroupsAPI } from '@/api'
+import { getPublicSettings } from '@/features/auth/data/datasources/authQueries'
+import { userGroupsAPI } from '@/features/groups-user/data/datasources/groupsUserDatasource'
+import { keysAPI } from '@/features/keys/data/datasources/keysDatasource'
+import { usageAPI } from '@/features/usage/data/datasources/usageDatasource'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import TablePageLayout from '@/common/widgets/layout/TablePageLayout.vue'
 	import Pagination from '@/common/widgets/data/Pagination.vue'
@@ -789,7 +792,7 @@ const loadUserGroupRates = async () => {
 
 const loadPublicSettings = async () => {
   try {
-    publicSettings.value = await authAPI.getPublicSettings()
+    publicSettings.value = await getPublicSettings()
   } catch (error) {
     console.error('Failed to load public settings:', error)
   }

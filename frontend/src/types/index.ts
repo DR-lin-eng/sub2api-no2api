@@ -17,7 +17,7 @@ export type {
   PlatformQuotaPlatform,
   PlatformQuotaWindow,
   PlatformQuotasResponse,
-} from '@/features/admin-users/data/datasources/adminUsersDatasource'
+} from '@/features/admin-users/data/dtos/adminUserDtos'
 
 export type {
   CheckMixedChannelRequest,

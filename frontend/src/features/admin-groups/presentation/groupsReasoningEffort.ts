@@ -1,4 +1,4 @@
-import type { GroupPlatform, ReasoningEffortMapping } from "@/types";
+import type { GroupPlatform, ReasoningEffortMapping } from "@/types/group";
 
 const openAIReasoningEffortValues = [
   "minimal",

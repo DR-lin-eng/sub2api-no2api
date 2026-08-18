@@ -167,7 +167,7 @@
             :class="activeTab === section.platform ? 'channel-tab-active' : 'channel-tab-inactive'"
           >
             <PlatformIcon :platform="section.platform" size="xs" :class="platformTextClass(section.platform)" />
-            <span :class="platformTextClass(section.platform)">{{ t('admin.groups.platforms.' + section.platform, section.platform) }}</span>
+            <span :class="platformTextClass(section.platform)">{{ groupPlatformLabel(t, section.platform) }}</span>
           </button>
         </div>
 
@@ -247,7 +247,7 @@
                     @change="togglePlatform(p)"
                   />
                   <PlatformIcon :platform="p" size="xs" :class="platformTextClass(p)" />
-                  <span :class="platformTextClass(p)">{{ t('admin.groups.platforms.' + p, p) }}</span>
+                  <span :class="platformTextClass(p)">{{ groupPlatformLabel(t, p) }}</span>
                 </label>
               </div>
             </div>
@@ -631,6 +631,8 @@ import { useAppStore } from '@/core/stores/appStore'
 import { extractApiErrorMessage } from '@/core/utils/apiError'
 import type { BillingModelSource } from '@/core/constants/channel'
 import { adminAPI } from '@/api/admin'
+import { getAll as getAllAdminGroups } from '@/features/admin-groups/data/datasources/adminGroupQueries'
+import { groupPlatformLabel } from '@/features/admin-groups/groupsLocale'
 import type { Channel, CreateChannelRequest, UpdateChannelRequest, AccountStatsPricingRule } from '@/features/admin-channels/data/datasources/adminChannelsDatasource'
 import type { PricingFormEntry } from '@/features/admin-channels/presentation/adminChannelSignals'
 import { findModelConflict, validateIntervals } from '@/features/admin-channels/presentation/adminChannelSignals'
@@ -1084,7 +1086,7 @@ async function loadChannels() {
 async function loadGroups() {
   groupsLoading.value = true
   try {
-    allGroups.value = await adminAPI.groups.getAll()
+    allGroups.value = await getAllAdminGroups()
   } catch (error) {
     console.error('Error loading groups:', error)
   } finally {
@@ -1212,14 +1214,14 @@ async function handleSubmit() {
   // Check for pricing entries with empty models (would be silently skipped)
   for (const section of form.platforms.filter(s => s.enabled)) {
     if (section.group_ids.length === 0) {
-      const platformLabel = t('admin.groups.platforms.' + section.platform, section.platform)
+      const platformLabel = groupPlatformLabel(t, section.platform)
       appStore.showError(t('admin.channels.noGroupsSelected', { platform: platformLabel }))
       activeTab.value = section.platform
       return
     }
     for (const entry of section.model_pricing) {
       if (entry.models.length === 0) {
-        const platformLabel = t('admin.groups.platforms.' + section.platform, section.platform)
+        const platformLabel = groupPlatformLabel(t, section.platform)
         appStore.showError(t('admin.channels.emptyModelsInPricing', { platform: platformLabel }))
         activeTab.value = section.platform
         return
@@ -1277,7 +1279,7 @@ async function handleSubmit() {
       if (!entry.intervals || entry.intervals.length === 0) continue
       const intervalErr = validateIntervals(entry.intervals, entry.billing_mode, t)
       if (intervalErr) {
-        const platformLabel = t('admin.groups.platforms.' + section.platform, section.platform)
+        const platformLabel = groupPlatformLabel(t, section.platform)
         const modelLabel = entry.models.join(', ') || t('admin.channels.form.unnamed')
         appStore.showError(`${platformLabel} - ${modelLabel}: ${intervalErr}`)
         activeTab.value = section.platform

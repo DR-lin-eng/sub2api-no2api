@@ -195,10 +195,16 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, toRef, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { adminAPI } from '@/api/admin'
+import { list as listAdminAccounts } from '@/features/admin-accounts/data/datasources/adminAccountQueries'
+import { list as listAdminGroups } from '@/features/admin-groups/data/datasources/adminGroupQueries'
+import {
+  searchApiKeys,
+  searchUsers,
+} from '@/features/admin-usage/data/datasources/adminUsageDatasource'
 import Select, { type SelectOption } from '@/common/widgets/forms/Select.vue'
 import { COMMON_ERROR_STATUS_CODES } from '@/core/utils/errorBadges'
 import type { SimpleApiKey, SimpleUser } from '@/features/admin-usage/data/datasources/adminUsageDatasource'
+import { usageErrorCategoryLabel } from '@/core/utils/usageLocale'
 
 type ModelValue = Record<string, any>
 
@@ -296,7 +302,7 @@ const errorCategoryCodes = ['auth', 'rate_limit', 'quota', 'invalid_request', 's
 
 const errorCategoryOptions = computed<SelectOption[]>(() => [
   { value: null, label: t('usage.errors.allCategories') },
-  ...errorCategoryCodes.map((c) => ({ value: c, label: t('usage.errors.categories.' + c) })),
+  ...errorCategoryCodes.map((c) => ({ value: c, label: usageErrorCategoryLabel(t, c) })),
 ])
 
 const statusCodeOptions = computed<SelectOption[]>(() => [
@@ -340,7 +346,7 @@ const debounceUserSearch = () => {
   userSearchTimeout = setTimeout(async () => {
     userSearchTimeout = null
     try {
-      const results = await adminAPI.usage.searchUsers(query)
+      const results = await searchUsers(query)
       if (sequence === userSearchSequence) {
         userResults.value = results.sort((a, b) => Number(a.deleted) - Number(b.deleted))
       }
@@ -356,7 +362,7 @@ const debounceApiKeySearch = () => {
   if (apiKeySearchTimeout) clearTimeout(apiKeySearchTimeout)
   apiKeySearchTimeout = setTimeout(async () => {
     try {
-      apiKeyResults.value = await adminAPI.usage.searchApiKeys(
+      apiKeyResults.value = await searchApiKeys(
         filters.value.user_id,
         apiKeyKeyword.value || ''
       )
@@ -375,7 +381,7 @@ const selectUser = async (u: SimpleUser) => {
 
   // Auto-load API keys for this user
   try {
-    apiKeyResults.value = await adminAPI.usage.searchApiKeys(u.id, '')
+    apiKeyResults.value = await searchApiKeys(u.id, '')
   } catch {
     apiKeyResults.value = []
   }
@@ -420,7 +426,7 @@ const debounceAccountSearch = () => {
       return
     }
     try {
-      const res = await adminAPI.accounts.list(1, 20, { search: accountKeyword.value })
+      const res = await listAdminAccounts(1, 20, { search: accountKeyword.value })
       accountResults.value = res.items.map((a) => ({ id: a.id, name: a.name }))
     } catch {
       accountResults.value = []
@@ -514,7 +520,7 @@ watch(
 onMounted(async () => {
   document.addEventListener('click', onDocumentClick)
   try {
-    const gs = await adminAPI.groups.list(1, 1000)
+    const gs = await listAdminGroups(1, 1000)
     groupOptions.value.push(...gs.items.map((g: any) => ({ value: g.id, label: g.name })))
   } catch {
     // Ignore filter option loading errors (page still usable)

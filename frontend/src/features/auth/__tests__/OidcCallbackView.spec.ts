@@ -19,7 +19,6 @@ const completeOIDCOAuthRegistration = vi.fn()
 const getPublicSettings = vi.fn()
 const login2FA = vi.fn()
 const apiClientPost = vi.fn()
-const sendVerifyCode = vi.fn()
 const sendPendingOAuthVerifyCode = vi.fn()
 
 vi.mock('vue-router', () => ({
@@ -49,12 +48,15 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
-vi.mock('@/stores', () => ({
+vi.mock('@/features/auth', () => ({
   useAuthStore: () => ({
     setToken,
     setPendingAuthSession,
     clearPendingAuthSession
   }),
+}))
+
+vi.mock('@/core/stores/appStore', () => ({
   useAppStore: () => ({
     showSuccess,
     showError
@@ -67,16 +69,29 @@ vi.mock('@/core/networks/client', () => ({
   }
 }))
 
-vi.mock('@/features/auth/data/datasources/authDatasource', async () => {
-  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authDatasource')>('@/features/auth/data/datasources/authDatasource')
+vi.mock('@/features/auth/data/datasources/authOAuthActions', async () => {
+  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authOAuthActions')>('@/features/auth/data/datasources/authOAuthActions')
   return {
     ...actual,
     exchangePendingOAuthCompletion: (...args: any[]) => exchangePendingOAuthCompletion(...args),
     completeOIDCOAuthRegistration: (...args: any[]) => completeOIDCOAuthRegistration(...args),
-    getPublicSettings: (...args: any[]) => getPublicSettings(...args),
-    login2FA: (...args: any[]) => login2FA(...args),
-    sendVerifyCode: (...args: any[]) => sendVerifyCode(...args),
     sendPendingOAuthVerifyCode: (...args: any[]) => sendPendingOAuthVerifyCode(...args)
+  }
+})
+
+vi.mock('@/features/auth/data/datasources/authQueries', async () => {
+  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authQueries')>('@/features/auth/data/datasources/authQueries')
+  return {
+    ...actual,
+    getPublicSettings: (...args: any[]) => getPublicSettings(...args),
+  }
+})
+
+vi.mock('@/features/auth/data/datasources/authSessionActions', async () => {
+  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authSessionActions')>('@/features/auth/data/datasources/authSessionActions')
+  return {
+    ...actual,
+    login2FA: (...args: any[]) => login2FA(...args),
   }
 })
 
@@ -93,7 +108,6 @@ describe('OidcCallbackView', () => {
     getPublicSettings.mockReset()
     login2FA.mockReset()
     apiClientPost.mockReset()
-    sendVerifyCode.mockReset()
     sendPendingOAuthVerifyCode.mockReset()
     getPublicSettings.mockResolvedValue({
       oidc_oauth_provider_name: 'ExampleID',

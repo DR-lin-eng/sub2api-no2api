@@ -41,7 +41,7 @@
         <!-- Category -->
         <div>
           <span class="font-medium text-gray-500 dark:text-dark-400">{{ t('usage.errors.category') }}</span>
-          <p class="mt-0.5 text-gray-900 dark:text-dark-100">{{ t('usage.errors.categories.' + detail.category) }}</p>
+          <p class="mt-0.5 text-gray-900 dark:text-dark-100">{{ usageErrorCategoryLabel(t, detail.category) }}</p>
         </div>
         <!-- Platform -->
         <div>
@@ -77,6 +77,7 @@ import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import { getMyErrorDetail } from '@/features/usage/data/datasources/usageDatasource'
 import { formatDateTime } from '@/core/utils/format'
 import type { UserErrorRequestDetail } from '@/types'
+import { usageErrorCategoryLabel } from '@/core/utils/usageLocale'
 
 const props = defineProps<{
   show: boolean

@@ -109,8 +109,8 @@ import {
 import { usePaymentStore } from '@/features/billing/presentation/stores/paymentStore'
 import { paymentAPI } from '@/features/billing/data/datasources/paymentDatasource'
 import type { PublicOrderVerifyResult } from '@/features/billing/data/datasources/paymentDatasource'
-import type { OrderStatus, PaymentOrder } from '@/types/payment'
-import { formatPaymentAmount, normalizePaymentCurrency } from '@/features/billing/presentation/currencyFormatter'
+import type { OrderStatus, PaymentOrder } from '@/features/billing/paymentContracts'
+import { formatPaymentAmount, normalizePaymentCurrency } from '@/features/billing/paymentDisplay'
 import { normalizePaymentMethodForDisplay, paymentMethodI18nKey } from '../paymentUxSignals'
 
 const i18n = useI18n()

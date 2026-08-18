@@ -24,7 +24,7 @@ vi.mock('@/features/admin-ops/data/datasources/opsLogActions', () => ({
   resetRuntimeLogConfig: (...args: any[]) => mockResetRuntimeLogConfig(...args),
 }))
 
-vi.mock('@/stores', () => ({
+vi.mock('@/core/stores/appStore', () => ({
   useAppStore: () => ({
     showError: vi.fn(),
     showSuccess: vi.fn(),

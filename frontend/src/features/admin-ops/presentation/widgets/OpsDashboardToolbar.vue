@@ -3,7 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Select from '@/common/widgets/forms/Select.vue'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
-import { groupsAPI } from '@/features/admin-groups/data/datasources/adminGroupsDatasource'
+import { getAll as getAllGroups } from '@/features/admin-groups/data/datasources/adminGroupQueries'
 
 interface Props {
   platform: string
@@ -104,7 +104,7 @@ watch(
 
 onMounted(async () => {
   try {
-    const list = await groupsAPI.getAll()
+    const list = await getAllGroups()
     groups.value = list.map((g) => ({ id: g.id, name: g.name, platform: g.platform }))
   } catch (e) {
     console.error('[OpsDashboardHeader] Failed to load groups', e)

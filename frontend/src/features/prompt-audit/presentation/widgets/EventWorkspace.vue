@@ -108,7 +108,12 @@ import { computed, defineComponent, h, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Pagination from '@/common/widgets/data/Pagination.vue'
 import type { PromptAuditEvent, PromptEventFilters } from '../../domain/models/promptAuditTypes'
-import { cloneData, emptyEventFilters, SCANNER_CATALOG } from '../../domain/promptAuditViewModel'
+import { cloneData, emptyEventFilters } from '../../domain/promptAuditViewModel'
+import {
+  promptAuditCategoryLabel,
+  promptAuditDecisionLabel,
+  promptAuditRiskLevelLabel,
+} from '../promptAuditLocale'
 
 const props = defineProps<{
   events: PromptAuditEvent[]; total: number; page: number; pageSize: number
@@ -186,21 +191,18 @@ function formatDate(value: string): string {
 function decisionClass(decision: string): string {
   if (decision === 'critical') return 'bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300'
   if (decision === 'flag') return 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
-  return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+  if (decision === 'pass') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+  return 'bg-gray-100 text-gray-700 dark:bg-dark-700 dark:text-dark-200'
 }
-const DECISIONS = new Set(['pass', 'flag', 'critical'])
-const RISK_LEVELS = new Set(['low', 'medium', 'high', 'critical'])
 
 function translateDecision(decision: string): string {
-  return DECISIONS.has(decision) ? t(`admin.promptAudit.decisions.${decision}`) : decision
+  return promptAuditDecisionLabel(t, decision)
 }
 function translateRiskLevel(riskLevel: string): string {
-  return RISK_LEVELS.has(riskLevel) ? t(`admin.promptAudit.riskLevels.${riskLevel}`) : riskLevel
+  return promptAuditRiskLevelLabel(t, riskLevel)
 }
 function translateCategory(category: string): string {
-  return SCANNER_CATALOG.some((scanner) => scanner.id === category)
-    ? t(`admin.promptAudit.scanners.${category}`)
-    : category
+  return promptAuditCategoryLabel(t, category)
 }
 function formatDecisionRisk(decision: string, riskLevel: string): string {
   return `${translateDecision(decision)} · ${translateRiskLevel(riskLevel)}`

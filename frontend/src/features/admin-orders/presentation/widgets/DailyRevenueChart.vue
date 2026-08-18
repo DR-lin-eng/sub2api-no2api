@@ -33,7 +33,7 @@ import {
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
 import LoadingSpinner from '@/common/widgets/feedback/LoadingSpinner.vue'
-import type { CurrencyAwareDailyPaymentStats } from '@/types/payment'
+import type { CurrencyAwareDailyPaymentStats } from '@/features/billing/paymentContracts'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
 

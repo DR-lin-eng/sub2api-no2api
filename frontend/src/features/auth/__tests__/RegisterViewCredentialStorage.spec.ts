@@ -37,8 +37,11 @@ vi.mock('vue-i18n', () => ({
   }),
 }))
 
-vi.mock('@/stores', () => ({
+vi.mock('@/features/auth', () => ({
   useAuthStore: () => ({ register: registerMock }),
+}))
+
+vi.mock('@/core/stores/appStore', () => ({
   useAppStore: () => ({
     showError: showErrorMock,
     showSuccess: vi.fn(),
@@ -46,11 +49,18 @@ vi.mock('@/stores', () => ({
   }),
 }))
 
-vi.mock('@/features/auth/data/datasources/authDatasource', async () => {
-  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authDatasource')>('@/features/auth/data/datasources/authDatasource')
+vi.mock('@/features/auth/data/datasources/authQueries', async () => {
+  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authQueries')>('@/features/auth/data/datasources/authQueries')
   return {
     ...actual,
     getPublicSettings: (...args: any[]) => getPublicSettingsMock(...args),
+  }
+})
+
+vi.mock('@/features/auth/data/datasources/authSessionActions', async () => {
+  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authSessionActions')>('@/features/auth/data/datasources/authSessionActions')
+  return {
+    ...actual,
     prefetchCredentialKey: (...args: any[]) => prefetchCredentialKeyMock(...args),
     clearCredentialKeyPrefetch: (...args: any[]) => clearCredentialKeyPrefetchMock(...args),
   }

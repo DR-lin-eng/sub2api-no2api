@@ -15,7 +15,7 @@ const {
   }
 }))
 
-vi.mock('@/features/auth/presentation/stores/authStore', () => ({
+vi.mock('@/features/auth', () => ({
   useAuthStore: () => authState
 }))
 

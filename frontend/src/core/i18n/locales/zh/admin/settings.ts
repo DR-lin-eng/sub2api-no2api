@@ -640,11 +640,13 @@ export default {
         logoReadError: '读取图片文件失败',
         homeContent: '首页内容',
         homeContentPlaceholder:
-          '在此输入首页内容，支持 Markdown & HTML 代码。如果输入的是一个链接，则会使用该链接作为 iframe 的 src 属性。',
+          '输入经过清洗的展示型 HTML，或输入用于交互页面的 http(s) 绝对 URL。',
         homeContentHint:
-          '自定义首页内容，支持 Markdown/HTML。如果输入的是链接（以 http:// 或 https:// 开头），则会使用该链接作为 iframe 的 src 属性，这允许你设置任意网页作为首页。设置后首页的状态信息将不再显示。',
+          '自定义内容会替换内置首页。HTML 模式适合标题、文字、图片、链接和布局标记。',
+        homeContentSecurityHint:
+          'HTML 模式会移除脚本、事件处理器、表单、样式块和嵌入对象。交互式内容请使用完全可信的 URL。',
 		homeContentIframeWarning:
-		  '⚠️ iframe 模式提示：部分网站设置了 X-Frame-Options 或 CSP 安全策略，禁止被嵌入到 iframe 中。如果页面显示空白或报错，请确认目标网站允许被嵌入，或考虑使用 HTML 模式自行构建页面内容。',
+		  'iframe 模式在无同源权限的沙箱中运行且不发送 referrer。部分网站还会通过 X-Frame-Options 或 CSP 禁止嵌入。',
 		compactHome: '简洁首页',
 		compactHomeHint: '未设置自定义首页内容时，展示简洁的站点信息页面。',
         hideCcsImportButton: '隐藏 CCS 导入按钮',
@@ -677,6 +679,9 @@ export default {
         namePlaceholder: '如：帮助中心',
         url: '页面 URL',
         urlPlaceholder: 'https://example.com/page',
+        forwardAccessToken: '转发用户访问令牌',
+        forwardAccessTokenHint:
+          '默认关闭。开启后会通过限定目标来源的浏览器消息，把当前用户会话委托给嵌入页面。仅对完全可信的页面开启。',
         iconSvg: 'SVG 图标',
         iconSvgPlaceholder: '<svg>...</svg>',
         iconPreview: '图标预览',

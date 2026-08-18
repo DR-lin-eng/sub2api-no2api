@@ -1,4 +1,4 @@
-import type { OpsErrorDetail } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import type { OpsErrorDetail } from '@/features/admin-ops/data/dtos/opsErrorDtos'
 
 const GENERIC_UPSTREAM_MESSAGES = new Set([
   'upstream request failed',

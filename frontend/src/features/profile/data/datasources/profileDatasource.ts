@@ -7,8 +7,8 @@ import { apiClient } from '@/core/networks/client'
 import {
   resolveWeChatOAuthStartStrict,
   prepareOAuthBindAccessTokenCookie,
-  type WeChatOAuthPublicSettings,
-} from '@/features/auth/data/datasources/authDatasource'
+} from '@/features/auth/data/datasources/authOAuthActions'
+import type { WeChatOAuthPublicSettings } from '@/features/auth/data/dtos/authDtos'
 import type {
   User,
   ChangePasswordRequest,

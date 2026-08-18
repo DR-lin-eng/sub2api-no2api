@@ -350,18 +350,23 @@ import LocalCaptchaWidget from '@/features/auth/presentation/widgets/LocalCaptch
 import AffiliateInvitationCodeField from '@/features/auth/presentation/widgets/AffiliateInvitationCodeField.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import HumanVerificationWidget from '@/features/auth/presentation/widgets/HumanVerificationWidget.vue'
-import { useAuthStore, useAppStore } from '@/stores'
+import { useAppStore } from '@/core/stores/appStore'
+import { useAuthStore } from '@/features/auth'
 import {
   buildOAuthLoginStartURL,
-  getPublicSettings,
   isWeChatWebOAuthEnabled,
-  validatePromoCode,
-  validateInvitationCode,
+  startOAuthLogin,
+} from '@/features/auth/data/datasources/authOAuthActions'
+import { getPublicSettings } from '@/features/auth/data/datasources/authQueries'
+import {
   clearCredentialKeyPrefetch,
   prefetchCredentialKey,
-  startOAuthLogin,
-  type OAuthLoginStart
-} from '@/features/auth/data/datasources/authDatasource'
+} from '@/features/auth/data/datasources/authSessionActions'
+import {
+  validateInvitationCode,
+  validatePromoCode,
+} from '@/features/auth/data/datasources/authVerificationActions'
+import type { OAuthLoginStart } from '@/features/auth/data/dtos/authDtos'
 import { buildAuthErrorMessage } from '@/core/utils/authError'
 import { extractI18nErrorMessage } from '@/core/utils/apiError'
 import {

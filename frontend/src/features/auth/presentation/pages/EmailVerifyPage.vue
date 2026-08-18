@@ -173,18 +173,21 @@ import { AuthLayout } from '@/common/widgets/layout'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import HumanVerificationWidget from '@/features/auth/presentation/widgets/HumanVerificationWidget.vue'
 import LocalCaptchaWidget from '@/features/auth/presentation/widgets/LocalCaptchaWidget.vue'
-import { useAuthStore, useAppStore } from '@/stores'
+import { useAppStore } from '@/core/stores/appStore'
+import { useAuthStore } from '@/features/auth'
 import {
   persistOAuthTokenContext,
-  getPublicSettings,
   isOAuthLoginCompletion,
+  sendPendingOAuthVerifyCode,
+} from '@/features/auth/data/datasources/authOAuthActions'
+import { getPublicSettings } from '@/features/auth/data/datasources/authQueries'
+import {
   clearCredentialKeyPrefetch,
   createCredentialEnvelope,
   prefetchCredentialKey,
-  type PendingOAuthSendVerifyCodeResponse,
-  sendPendingOAuthVerifyCode,
-  sendVerifyCode,
-} from '@/features/auth/data/datasources/authDatasource'
+} from '@/features/auth/data/datasources/authSessionActions'
+import { sendVerifyCode } from '@/features/auth/data/datasources/authVerificationActions'
+import type { PendingOAuthSendVerifyCodeResponse } from '@/features/auth/data/dtos/authDtos'
 import { apiClient } from '@/core/networks/client'
 import { buildAuthErrorMessage } from '@/core/utils/authError'
 import { extractI18nErrorMessage } from '@/core/utils/apiError'

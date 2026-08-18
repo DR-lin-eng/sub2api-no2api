@@ -1,26 +1,38 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { get, post } = vi.hoisted(() => ({
+const { get, post, put, deleteRequest } = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
+  put: vi.fn(),
+  deleteRequest: vi.fn(),
 }))
 
 vi.mock('@/core/networks/client', () => ({
   apiClient: {
     get,
     post,
+    put,
+    delete: deleteRequest,
   },
 }))
 
-import {
+import usersAPI, {
   batchUpdateLimits,
-  list,
   bindUserAuthIdentity,
-  type AdminBindAuthIdentityRequest,
-  type AdminBoundAuthIdentity,
-  type BatchUpdateUserLimitsRequest,
-  type BatchUpdateUserLimitsResponse,
+  deleteUser,
+  getBatchPlatformQuotas,
+  getUserBalanceHistory,
+  list,
+  resetPlatformQuotaWindow,
+  updatePlatformQuotas,
 } from '@/features/admin-users/data/datasources/adminUsersDatasource'
+import type {
+  AdminBindAuthIdentityRequest,
+  AdminBoundAuthIdentity,
+  BatchUpdateUserLimitsRequest,
+  BatchUpdateUserLimitsResponse,
+  PlatformQuotaUpdateItem,
+} from '@/features/admin-users/data/dtos/adminUserDtos'
 
 type Assert<T extends true> = T
 type IsExact<T, U> = (
@@ -89,6 +101,8 @@ describe('admin users api auth identity binding', () => {
   beforeEach(() => {
     get.mockReset()
     post.mockReset()
+    put.mockReset()
+    deleteRequest.mockReset()
   })
 
   it('posts the backend-compatible auth identity bind payload and returns the backend response shape', async () => {
@@ -173,5 +187,90 @@ describe('admin users api auth identity binding', () => {
     await batchUpdateLimits(request)
 
     expect(post).toHaveBeenCalledWith('/admin/users/batch-limits', request)
+  })
+
+  it('keeps list filters, attribute query keys, and cancellation signal intact', async () => {
+    const controller = new AbortController()
+    get.mockResolvedValue({ data: { items: [], total: 0, page: 2, page_size: 50 } })
+
+    await list(
+      2,
+      50,
+      {
+        status: 'active',
+        role: 'user',
+        search: 'member',
+        attributes: { 3: 'gold', 4: '' },
+        include_subscriptions: true,
+      },
+      { signal: controller.signal },
+    )
+
+    expect(get).toHaveBeenCalledWith('/admin/users', {
+      params: expect.objectContaining({
+        page: 2,
+        page_size: 50,
+        status: 'active',
+        role: 'user',
+        search: 'member',
+        include_subscriptions: true,
+        'attr[3]': 'gold',
+      }),
+      signal: controller.signal,
+    })
+    expect(get.mock.calls[0][1].params).not.toHaveProperty('attr[4]')
+  })
+
+  it('preserves balance history pagination and type filtering', async () => {
+    const response = {
+      items: [],
+      total: 0,
+      page: 3,
+      page_size: 15,
+      total_recharged: 12.5,
+    }
+    get.mockResolvedValue({ data: response })
+
+    await expect(getUserBalanceHistory(9, 3, 15, 'admin_balance')).resolves.toEqual(response)
+    expect(get).toHaveBeenCalledWith('/admin/users/9/balance-history', {
+      params: { page: 3, page_size: 15, type: 'admin_balance' },
+    })
+  })
+
+  it('preserves platform quota batch, update, and reset payloads', async () => {
+    const batchResponse = { platform_quotas: { 9: [] } }
+    const quotaResponse = { platform_quotas: [] }
+    const quotas: PlatformQuotaUpdateItem[] = [{
+      platform: 'openai',
+      daily_limit_usd: 5,
+      weekly_limit_usd: null,
+      monthly_limit_usd: 50,
+    }]
+    post.mockResolvedValueOnce({ data: batchResponse }).mockResolvedValueOnce({ data: quotaResponse })
+    put.mockResolvedValue({ data: quotaResponse })
+
+    await expect(getBatchPlatformQuotas([9, 11])).resolves.toEqual(batchResponse)
+    expect(post).toHaveBeenNthCalledWith(1, '/admin/users/platform-quotas/batch', {
+      user_ids: [9, 11],
+    })
+
+    await expect(updatePlatformQuotas(9, quotas)).resolves.toEqual(quotaResponse)
+    expect(put).toHaveBeenCalledWith('/admin/users/9/platform-quotas', { quotas })
+
+    await expect(resetPlatformQuotaWindow(9, 'openai', 'weekly')).resolves.toEqual(quotaResponse)
+    expect(post).toHaveBeenNthCalledWith(2, '/admin/users/9/platform-quotas/reset', {
+      platform: 'openai',
+      window: 'weekly',
+    })
+  })
+
+  it('keeps the compatibility facade wired to the named owner functions', async () => {
+    deleteRequest.mockResolvedValue({ data: { message: 'deleted' } })
+
+    expect(usersAPI.list).toBe(list)
+    expect(usersAPI.batchUpdateLimits).toBe(batchUpdateLimits)
+    expect(usersAPI.delete).toBe(deleteUser)
+    await expect(usersAPI.delete(9)).resolves.toEqual({ message: 'deleted' })
+    expect(deleteRequest).toHaveBeenCalledWith('/admin/users/9')
   })
 })

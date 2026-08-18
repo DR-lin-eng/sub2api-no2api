@@ -6,10 +6,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed, readonly } from 'vue'
 import {
-  authAPI,
   isTotp2FARequired,
-  type LoginResponse
-} from '@/features/auth/data/datasources/authDatasource'
+  login as requestLogin,
+  login2FA as requestLogin2FA,
+  logout as requestLogout,
+  refreshToken,
+  register as requestRegister,
+} from '@/features/auth/data/datasources/authSessionActions'
+import { getCurrentUser } from '@/features/auth/data/datasources/authQueries'
 import {
   clearTokenMemory,
   getTokenExpiresAtMemory,
@@ -25,7 +29,7 @@ import type {
   AuthResponse,
   ActionCaptchaRequestProof
 } from '@/types'
-import type { RefreshTokenResponse } from '@/features/auth/data/datasources/authDatasource'
+import type { LoginResponse, RefreshTokenResponse } from '@/features/auth/data/dtos/authDtos'
 import { passkeyAPI } from '@/features/passkeys/data/datasources/passkeyDatasource'
 
 const clearAuthToken = clearTokenMemory
@@ -99,6 +103,7 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const token = ref<string | null>(null)
   const tokenExpiresAt = ref<number | null>(null) // 过期时间戳（毫秒）
+  const roleVerified = ref(false)
   const runMode = ref<'standard' | 'simple'>('standard')
   const pendingAuthSession = ref<PendingAuthSessionSummary | null>(null)
   let refreshIntervalId: ReturnType<typeof setInterval> | null = null
@@ -112,9 +117,10 @@ export const useAuthStore = defineStore('auth', () => {
   })
 
   const isAdmin = computed(() => {
-    return user.value?.role === 'admin'
+    return roleVerified.value && user.value?.role === 'admin'
   })
 
+  const isRoleVerified = computed(() => roleVerified.value)
   const isSimpleMode = computed(() => runMode.value === 'simple')
   const hasPendingAuthSession = computed(() => pendingAuthSession.value !== null)
 
@@ -134,6 +140,9 @@ export const useAuthStore = defineStore('auth', () => {
 
     authCheckPromise = (async () => {
       pendingAuthSession.value = getPersistedPendingAuthSession()
+      // Cached profile data is display-only until /auth/me confirms the role
+      // for the access token restored in this tab.
+      roleVerified.value = false
       const savedUser = localStorage.getItem(AUTH_USER_KEY)
       if (savedUser) {
         try {
@@ -145,7 +154,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       let response: RefreshTokenResponse
       try {
-        response = await authAPI.refreshToken()
+        response = await refreshToken()
       } catch {
         clearAuth({ preservePendingAuthSession: true })
         return
@@ -234,7 +243,7 @@ export const useAuthStore = defineStore('auth', () => {
    */
   async function performTokenRefresh(): Promise<void> {
     try {
-      const response = await authAPI.refreshToken()
+      const response = await refreshToken()
 
       // Update state
       token.value = response.access_token
@@ -269,7 +278,7 @@ export const useAuthStore = defineStore('auth', () => {
    */
   async function login(credentials: LoginRequest): Promise<LoginResponse> {
     try {
-      const response = await authAPI.login(credentials)
+      const response = await requestLogin(credentials)
 
       // If 2FA is required, return the response without setting auth state
       if (isTotp2FARequired(response)) {
@@ -296,7 +305,7 @@ export const useAuthStore = defineStore('auth', () => {
    */
   async function login2FA(tempToken: string, totpCode: string): Promise<User> {
     try {
-      const response = await authAPI.login2FA({ temp_token: tempToken, totp_code: totpCode })
+      const response = await requestLogin2FA({ temp_token: tempToken, totp_code: totpCode })
       setAuthFromResponse(response)
       return user.value!
     } catch (error) {
@@ -336,6 +345,7 @@ export const useAuthStore = defineStore('auth', () => {
     if ('user' in response) {
       const { run_mode: _run_mode, ...userData } = response.user
       user.value = userData
+      roleVerified.value = true
       localStorage.setItem(AUTH_USER_KEY, JSON.stringify(userData))
     }
 
@@ -361,7 +371,7 @@ export const useAuthStore = defineStore('auth', () => {
    */
   async function register(userData: RegisterRequest | EncryptedRegisterRequest): Promise<User> {
     try {
-      const response = await authAPI.register(userData)
+      const response = await requestRegister(userData)
 
       // Use the common helper to set auth state
       setAuthFromResponse(response)
@@ -381,11 +391,12 @@ export const useAuthStore = defineStore('auth', () => {
    */
   async function setToken(newToken: string): Promise<User> {
     // Clear any previous state first (avoid mixing sessions)
-    // Note: Don't clear localStorage here as OAuth callback may have set refresh_token
+    // Keep the pending OAuth summary until the authenticated user refresh succeeds.
     stopAutoRefresh()
     stopTokenRefresh()
     token.value = null
     user.value = null
+    roleVerified.value = false
 
     setAuthToken(newToken)
     token.value = newToken
@@ -432,7 +443,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function logout(): Promise<void> {
     try {
       // Call API logout (revokes refresh token on server)
-      await authAPI.logout()
+      await requestLogout()
     } catch (err) {
       // 服务端吊销失败（网络/5xx/超时）不应阻止本地登出，否则用户点了退出仍处于登录态。
       console.warn('Logout API call failed, clearing local session anyway', err)
@@ -454,12 +465,13 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     try {
-      const response = await authAPI.getCurrentUser()
+      const response = await getCurrentUser()
       if (response.data.run_mode) {
         runMode.value = response.data.run_mode
       }
       const { run_mode: _run_mode, ...userData } = response.data
       user.value = userData
+      roleVerified.value = true
 
       // Update localStorage
       localStorage.setItem(AUTH_USER_KEY, JSON.stringify(userData))
@@ -487,6 +499,7 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = null
     tokenExpiresAt.value = null
     user.value = null
+    roleVerified.value = false
     clearAuthToken()
     localStorage.removeItem(AUTH_USER_KEY)
 
@@ -511,6 +524,7 @@ export const useAuthStore = defineStore('auth', () => {
     // Computed
     isAuthenticated,
     isAdmin,
+    isRoleVerified,
     isSimpleMode,
     hasPendingAuthSession,
 

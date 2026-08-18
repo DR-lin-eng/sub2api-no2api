@@ -371,14 +371,10 @@
             <span
               :class="[
                 'badge',
-                value === 'active'
-                  ? 'badge-success'
-                  : value === 'expired'
-                    ? 'badge-warning'
-                    : 'badge-danger'
+                subscriptionStatusBadgeClass(value)
               ]"
             >
-              {{ t(`admin.subscriptions.status.${value}`) }}
+              {{ adminSubscriptionStatusLabel(t, value) }}
             </span>
           </template>
 
@@ -766,6 +762,7 @@ import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
 import { adminAPI } from '@/api/admin'
+import { getAll as getAllAdminGroups } from '@/features/admin-groups/data/datasources/adminGroupQueries'
 import type { UserSubscription, Group, GroupPlatform, SubscriptionType } from '@/types'
 import type { SimpleUser } from '@/features/admin-usage/data/datasources/adminUsageDatasource'
 import type { Column } from '@/common/types/uiTypes'
@@ -783,6 +780,11 @@ import GroupBadge from '@/common/widgets/data/GroupBadge.vue'
 import GroupOptionItem from '@/common/widgets/data/GroupOptionItem.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import {
+  adminSubscriptionStatusLabel,
+  adminSubscriptionStatusOptions,
+} from '@/features/admin-subscriptions/subscriptionStatus'
+import { normalizeSubscriptionStatus } from '@/features/subscriptions/subscriptionStatus'
+import {
   getRemainingDurationParts,
   getRemainingExpiryDuration,
   isOneTimeDailyQuota,
@@ -791,6 +793,20 @@ import {
 
 const { t } = useI18n()
 const appStore = useAppStore()
+
+function subscriptionStatusBadgeClass(status: unknown): string {
+  switch (normalizeSubscriptionStatus(status)) {
+    case 'active':
+      return 'badge-success'
+    case 'suspended':
+    case 'expired':
+      return 'badge-warning'
+    case 'revoked':
+      return 'badge-danger'
+    default:
+      return 'badge-gray'
+  }
+}
 
 interface GroupOption {
   value: number
@@ -920,9 +936,7 @@ const columnDropdownRef = ref<HTMLElement | null>(null)
 // Filter options
 const statusOptions = computed(() => [
   { value: '', label: t('admin.subscriptions.allStatus') },
-  { value: 'active', label: t('admin.subscriptions.status.active') },
-  { value: 'expired', label: t('admin.subscriptions.status.expired') },
-  { value: 'revoked', label: t('admin.subscriptions.status.revoked') }
+  ...adminSubscriptionStatusOptions(t),
 ])
 
 const subscriptions = ref<UserSubscription[]>([])
@@ -1066,7 +1080,7 @@ const loadSubscriptions = async () => {
 
 const loadGroups = async () => {
   try {
-    groups.value = await adminAPI.groups.getAll()
+    groups.value = await getAllAdminGroups()
   } catch (error) {
     console.error('Error loading groups:', error)
   }

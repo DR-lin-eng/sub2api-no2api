@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { flushPromises, mount } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 
 import type { AdminUser } from '@/types'
 import UsersView from '@/features/admin-users/presentation/pages/UsersPage.vue'
 
+enableAutoUnmount(afterEach)
+
 const {
   listUsers,
   getAllGroups,
+  getAllGroupsIncludingInactive,
   getBatchUsersUsage,
   getBatchPlatformQuotas,
   listEnabledDefinitions,
@@ -14,31 +17,41 @@ const {
 } = vi.hoisted(() => ({
   listUsers: vi.fn(),
   getAllGroups: vi.fn(),
+  getAllGroupsIncludingInactive: vi.fn(),
   getBatchUsersUsage: vi.fn(),
   getBatchPlatformQuotas: vi.fn(),
   listEnabledDefinitions: vi.fn(),
   getBatchUserAttributes: vi.fn()
 }))
 
-vi.mock('@/api/admin', () => ({
-  adminAPI: {
-    users: {
-      list: listUsers,
-      getBatchPlatformQuotas,
-      toggleStatus: vi.fn(),
-      delete: vi.fn()
-    },
-    groups: {
-      getAll: getAllGroups
-    },
-    dashboard: {
-      getBatchUsersUsage
-    },
-    userAttributes: {
-      listEnabledDefinitions,
-      getBatchUserAttributes
-    }
+vi.mock('@/features/admin-users/data/datasources/adminUsersDatasource', () => ({
+  list: listUsers,
+  getBatchPlatformQuotas,
+  toggleStatus: vi.fn(),
+  deleteUser: vi.fn(),
+  default: { list: listUsers, getBatchPlatformQuotas }
+}))
+
+vi.mock('@/features/admin-groups/data/datasources/adminGroupQueries', async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import('@/features/admin-groups/data/datasources/adminGroupQueries')
+  >()
+  return {
+    ...actual,
+    getAll: getAllGroups,
+    getAllIncludingInactive: getAllGroupsIncludingInactive,
   }
+})
+
+vi.mock('@/features/admin-dashboard/data/datasources/adminDashboardDatasource', () => ({
+  getBatchUsersUsage,
+  default: { getBatchUsersUsage }
+}))
+
+vi.mock('@/features/admin-users/data/datasources/userAttributesDatasource', () => ({
+  listEnabledDefinitions,
+  getBatchUserAttributes,
+  default: { listEnabledDefinitions, getBatchUserAttributes }
 }))
 
 vi.mock('@/core/stores/appStore', () => ({
@@ -129,6 +142,7 @@ describe('admin UsersView', () => {
 
     listUsers.mockReset()
     getAllGroups.mockReset()
+    getAllGroupsIncludingInactive.mockReset()
     getBatchUsersUsage.mockReset()
     getBatchPlatformQuotas.mockReset()
     listEnabledDefinitions.mockReset()
@@ -142,6 +156,7 @@ describe('admin UsersView', () => {
       pages: 1
     })
     getAllGroups.mockResolvedValue([])
+    getAllGroupsIncludingInactive.mockResolvedValue([])
     getBatchUsersUsage.mockResolvedValue({ stats: {} })
     getBatchPlatformQuotas.mockResolvedValue({ platform_quotas: {} })
     listEnabledDefinitions.mockResolvedValue([])

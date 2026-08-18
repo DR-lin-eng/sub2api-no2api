@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, shallowMount } from '@vue/test-utils'
 import PaymentView from '../presentation/pages/PaymentPage.vue'
 import { PAYMENT_RECOVERY_STORAGE_KEY } from '@/features/billing/presentation/paymentFlowResolver'
-import { formatPaymentAmount } from '@/features/billing/presentation/currencyFormatter'
-import type { CheckoutInfoResponse, MethodLimit, SubscriptionPlan } from '@/types/payment'
+import { formatPaymentAmount } from '@/features/billing/paymentDisplay'
+import type { CheckoutInfoResponse, MethodLimit, SubscriptionPlan } from '@/features/billing/paymentContracts'
 
 const routeState = vi.hoisted(() => ({
   path: '/purchase',
@@ -45,7 +45,7 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
-vi.mock('@/features/auth/presentation/stores/authStore', () => ({
+vi.mock('@/features/auth', () => ({
   useAuthStore: () => ({
     user: {
       username: 'demo-user',
@@ -61,7 +61,7 @@ vi.mock('@/features/billing/presentation/stores/paymentStore', () => ({
   }),
 }))
 
-vi.mock('@/features/subscriptions/presentation/stores/subscriptionsStore', () => ({
+vi.mock('@/features/subscriptions/subscriptionStore', () => ({
   useSubscriptionStore: () => ({
     activeSubscriptions: [],
     fetchActiveSubscriptions,

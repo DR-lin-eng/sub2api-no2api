@@ -148,7 +148,7 @@
               ]"
             >
               <PlatformIcon :platform="value" size="xs" />
-              {{ t("admin.groups.platforms." + value) }}
+              {{ groupPlatformLabel(t, value) }}
             </span>
           </template>
 
@@ -359,7 +359,7 @@
                 value === 'active' ? 'badge-success' : 'badge-danger',
               ]"
             >
-              {{ t("admin.accounts.status." + value) }}
+              {{ groupStatusLabel(t, value) }}
             </span>
           </template>
 
@@ -502,6 +502,7 @@ import { useGroupsListController } from "../composables/useGroupsListController"
 import CreateGroupDialog from "../widgets/CreateGroupDialog.vue";
 import EditGroupDialog from "../widgets/EditGroupDialog.vue";
 import GroupPageDialogs from "../widgets/GroupPageDialogs.vue";
+import { groupPlatformLabel, groupStatusLabel } from "../groupsLocale";
 
 const { t } = useI18n();
 const listController = useGroupsListController();

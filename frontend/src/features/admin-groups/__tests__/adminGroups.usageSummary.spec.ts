@@ -6,7 +6,7 @@ vi.mock("@/core/networks/client", () => ({
   apiClient: { get },
 }));
 
-import { getUsageSummary } from "@/features/admin-groups/data/datasources/adminGroupsDatasource";
+import { getUsageSummary } from "@/features/admin-groups/data/datasources/adminGroupQueries";
 
 describe("admin group usage summary datasource", () => {
   beforeEach(() => {

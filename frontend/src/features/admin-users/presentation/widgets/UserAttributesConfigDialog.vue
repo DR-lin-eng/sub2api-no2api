@@ -61,7 +61,7 @@
               </span>
             </div>
             <div class="mt-0.5 flex items-center gap-2 text-xs text-gray-500 dark:text-dark-400">
-              <span class="badge badge-gray">{{ t(`admin.users.attributes.types.${attr.type}`) }}</span>
+              <span class="badge badge-gray">{{ userAttributeTypeLabel(t, attr.type) }}</span>
               <span v-if="attr.description" class="truncate">{{ attr.description }}</span>
             </div>
           </div>
@@ -136,7 +136,7 @@
         <label class="input-label">{{ t('admin.users.attributes.type') }}</label>
         <Select
           v-model="form.type"
-          :options="attributeTypes.map(type => ({ value: type, label: t(`admin.users.attributes.types.${type}`) }))"
+          :options="attributeTypes.map(type => ({ value: type, label: userAttributeTypeLabel(t, type) }))"
         />
       </div>
 
@@ -240,13 +240,19 @@
 import { ref, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
-import { adminAPI } from '@/api/admin'
+import {
+  createDefinition,
+  deleteDefinition,
+  listDefinitions,
+  updateDefinition,
+} from '@/features/admin-users/data/datasources/userAttributesDatasource'
 import type { UserAttributeDefinition, UserAttributeType, UserAttributeOption } from '@/types'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import ConfirmDialog from '@/common/widgets/feedback/ConfirmDialog.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import Select from '@/common/widgets/forms/Select.vue'
 import { createStableObjectKeyResolver } from '@/core/utils/stableObjectKey'
+import { userAttributeTypeLabel } from '@/features/admin-users/presentation/userAttributeLocale'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -287,7 +293,7 @@ const form = reactive({
 const loadAttributes = async () => {
   loading.value = true
   try {
-    attributes.value = await adminAPI.userAttributes.listDefinitions()
+    attributes.value = await listDefinitions()
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.users.attributes.failedToLoad'))
   } finally {
@@ -361,10 +367,10 @@ const handleSave = async () => {
     }
 
     if (editingAttribute.value) {
-      await adminAPI.userAttributes.updateDefinition(editingAttribute.value.id, data)
+      await updateDefinition(editingAttribute.value.id, data)
       appStore.showSuccess(t('admin.users.attributes.updated'))
     } else {
-      await adminAPI.userAttributes.createDefinition(data)
+      await createDefinition(data)
       appStore.showSuccess(t('admin.users.attributes.created'))
     }
 
@@ -389,7 +395,7 @@ const handleDelete = async () => {
   if (!deletingAttribute.value) return
 
   try {
-    await adminAPI.userAttributes.deleteDefinition(deletingAttribute.value.id)
+    await deleteDefinition(deletingAttribute.value.id)
     appStore.showSuccess(t('admin.users.attributes.deleted'))
     showDeleteDialog.value = false
     deletingAttribute.value = null

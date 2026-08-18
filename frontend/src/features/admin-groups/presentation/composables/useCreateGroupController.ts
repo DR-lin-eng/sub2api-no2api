@@ -3,8 +3,8 @@ import { useI18n } from "vue-i18n";
 import { useAppStore } from "@/core/stores/appStore";
 import { useOnboardingStore } from "@/core/stores/onboardingStore";
 import { createStableObjectKeyResolver } from "@/core/utils/stableObjectKey";
-import * as groupsAPI from "@/features/admin-groups/data/datasources/adminGroupsDatasource";
-import type { AdminGroup } from "@/types";
+import { create } from "@/features/admin-groups/data/datasources/adminGroupActions";
+import type { AdminGroup } from "@/features/admin-groups/data/dtos/adminGroupDtos";
 import {
   messagesDispatchFormStateToConfig,
   resetMessagesDispatchFormState,
@@ -16,6 +16,7 @@ import {
   moveModelsListItem,
 } from "../groupsModelsListResolver";
 import { normalizeSupportedModelScopesForPlatform } from "../groupsSupportedModelScopesResolver";
+import { groupPlatformLabel } from "../groupsLocale";
 import {
   isProfitControlPlatform,
   profitPercentToDecimal,
@@ -130,9 +131,7 @@ export function useCreateGroupController({
       )
       .map((group) => ({
         value: group.id,
-        label: `${group.name} - ${t(
-          `admin.groups.platforms.${group.platform}`,
-        )} (${t("admin.groups.accountsCount", {
+        label: `${group.name} - ${groupPlatformLabel(t, group.platform)} (${t("admin.groups.accountsCount", {
           count: group.account_count || 0,
         })})`,
       })),
@@ -370,7 +369,7 @@ export function useCreateGroupController({
       requestData.peak_rate_multiplier = normalizeRateMultiplier(
         createForm.peak_rate_multiplier,
       );
-      await groupsAPI.create(requestData);
+      await create(requestData);
       appStore.showSuccess(t("admin.groups.groupCreated"));
       closeCreateModal();
       loadGroups();

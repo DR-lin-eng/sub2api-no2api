@@ -167,6 +167,10 @@ import type {
   ClusterRolloutStatus,
   ClusterRolloutTargetStatus,
 } from '@/features/admin-cluster/data/datasources/adminClusterDatasource'
+import {
+  clusterRolloutStatusLabel,
+  clusterRolloutTargetStatusLabel,
+} from '@/features/admin-cluster/presentation/clusterLocale'
 
 const props = defineProps<{
   overview?: ClusterReleaseOverview
@@ -202,11 +206,11 @@ function versionDotClass(version: string): string {
 }
 
 function rolloutStatusLabel(status: ClusterRolloutStatus): string {
-  return t(`admin.cluster.release.rolloutStatus.${status}`)
+  return clusterRolloutStatusLabel(t, status)
 }
 
 function targetStatusLabel(status: ClusterRolloutTargetStatus): string {
-  return t(`admin.cluster.release.targetStatus.${status}`)
+  return clusterRolloutTargetStatusLabel(t, status)
 }
 
 function rolloutStatusClass(status: ClusterRolloutStatus): string {

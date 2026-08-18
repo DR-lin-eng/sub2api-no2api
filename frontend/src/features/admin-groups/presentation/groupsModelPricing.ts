@@ -3,8 +3,8 @@ import type {
   ChannelModelPricing,
   GroupPlatform,
   PricingInterval,
-} from "@/types";
-import type { ModelDefaultPricing } from "../data/datasources/adminGroupsDatasource";
+} from "@/types/group";
+import type { ModelDefaultPricing } from "../data/dtos/adminGroupDtos";
 
 export interface GroupPricingIntervalFormEntry {
   min_tokens: number;

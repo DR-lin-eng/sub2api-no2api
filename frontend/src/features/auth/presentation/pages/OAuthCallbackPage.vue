@@ -162,15 +162,16 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useClipboard } from '@/common/composables/useClipboard'
-import { useAppStore, useAuthStore } from '@/stores'
+import { useAppStore } from '@/core/stores/appStore'
+import { useAuthStore } from '@/features/auth'
 import { apiClient } from '@/core/networks/client'
 import { buildApiUrl } from '@/core/networks/url'
 import {
   exchangePendingOAuthCompletion,
-  login2FA,
   persistOAuthTokenContext,
-  type OAuthTokenResponse
-} from '@/features/auth/data/datasources/authDatasource'
+} from '@/features/auth/data/datasources/authOAuthActions'
+import { login2FA } from '@/features/auth/data/datasources/authSessionActions'
+import type { OAuthTokenResponse } from '@/features/auth/data/dtos/authDtos'
 import {
   clearAllAffiliateReferralCodes,
   loadOAuthAffiliateCode,

@@ -102,7 +102,7 @@
 
         <template #cell-category="{ row }">
           <span class="text-sm text-gray-900 dark:text-white">
-            {{ t('usage.errors.categories.' + mapErrorCategory(row.phase, row.type)) }}
+            {{ usageErrorCategoryLabel(t, mapErrorCategory(row.phase, row.type)) }}
           </span>
         </template>
 
@@ -186,11 +186,12 @@ import EmptyState from '@/common/widgets/feedback/EmptyState.vue'
 import Pagination from '@/common/widgets/data/Pagination.vue'
 import IpGeoCell from '@/common/widgets/data/IpGeoCell.vue'
 import IpGeoBatchToolbar from '@/common/widgets/data/IpGeoBatchToolbar.vue'
-import type { OpsErrorLog } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import type { OpsErrorLog } from '@/features/admin-ops/data/dtos/opsErrorDtos'
 import type { Column } from '@/common/types/uiTypes'
 import { getSeverityClass, formatDateTime } from '../opsFormatter'
 import { mapErrorCategory } from '@/core/utils/errorCategory'
 import { mapErrorSortKey, statusCodeBadgeClass } from '@/core/utils/errorBadges'
+import { usageErrorCategoryLabel } from '@/core/utils/usageLocale'
 
 const { t } = useI18n()
 

@@ -32,10 +32,15 @@ const {
 }));
 
 vi.mock(
-  "@/features/admin-groups/data/datasources/adminGroupsDatasource",
+  "@/features/admin-groups/data/datasources/adminGroupActions",
   () => ({
     create: createGroup,
     update: updateGroup,
+  }),
+);
+vi.mock(
+  "@/features/admin-groups/data/datasources/adminGroupQueries",
+  () => ({
     getModelsListCandidates,
     getModelDefaultPricing,
     getLiveCapability,

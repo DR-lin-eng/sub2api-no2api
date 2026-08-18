@@ -22,11 +22,9 @@ vi.mock('@/core/stores/appStore', () => ({
   }),
 }))
 
-vi.mock('@/features/admin-orders/data/datasources/adminPaymentDatasource', () => ({
-  adminPaymentAPI: {
-    createPlan: vi.fn(),
-    updatePlan: vi.fn(),
-  },
+vi.mock('@/features/admin-orders/data/datasources/adminPaymentActions', () => ({
+  createPlan: vi.fn(),
+  updatePlan: vi.fn(),
 }))
 
 const BaseDialogStub = defineComponent({

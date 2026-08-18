@@ -98,9 +98,11 @@ import Icon from '@/common/widgets/icons/Icon.vue'
 
 const props = withDefaults(defineProps<{
   stats: (AdminUsageStatsResponse | UsageStatsResponse) | null
+  audience?: 'user' | 'admin'
   showAccountCost?: boolean
   strikeStandardCost?: boolean
 }>(), {
+  audience: 'admin',
   showAccountCost: true,
   strikeStandardCost: false,
 })
@@ -111,7 +113,7 @@ const totalAccountCost = computed(() => {
   const stats = props.stats as (AdminUsageStatsResponse & { total_account_cost?: number }) | null
   return stats?.total_account_cost ?? null
 })
-const showAccountCost = computed(() => props.showAccountCost)
+const showAccountCost = computed(() => props.audience === 'admin' && props.showAccountCost)
 const strikeStandardCost = computed(() => props.strikeStandardCost)
 
 const formatDuration = (ms: number) =>

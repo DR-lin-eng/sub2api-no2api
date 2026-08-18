@@ -131,6 +131,7 @@ import clusterAPI, {
   type ClusterTaskRun,
   type ClusterTaskStatus,
 } from '@/features/admin-cluster/data/datasources/adminClusterDatasource'
+import { clusterTaskStatusLabel } from '@/features/admin-cluster/presentation/clusterLocale'
 import { formatDateTime, formatRelativeTime } from '@/core/utils/format'
 import { extractApiErrorMessage } from '@/core/utils/apiError'
 
@@ -166,7 +167,7 @@ function workerModeLabel(mode: string): string {
 }
 
 function taskStatusLabel(value: ClusterTaskStatus): string {
-  return t(`admin.cluster.status.${value}`)
+  return clusterTaskStatusLabel(t, value)
 }
 
 function taskStatusClass(value: ClusterTaskStatus): string {

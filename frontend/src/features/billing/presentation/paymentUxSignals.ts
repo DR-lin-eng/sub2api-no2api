@@ -1,4 +1,4 @@
-import { normalizeVisibleMethod } from '@/features/billing/presentation/paymentFlowResolver'
+import { normalizeVisibleMethod } from '@/features/billing/paymentMethods'
 import { extractApiErrorCode } from '@/core/utils/apiError'
 
 const DISPLAY_METHOD_ALIASES: Record<string, string> = {

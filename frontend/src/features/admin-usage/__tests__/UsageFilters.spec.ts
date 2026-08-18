@@ -51,23 +51,28 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
-// Mock the admin API module — we control searchUsers return value per test
+// Mock each owning datasource so these tests cannot pass through the legacy admin barrel.
 const mockSearchUsers = vi.fn()
 const mockSearchApiKeys = vi.fn().mockResolvedValue([])
 const mockGroupsList = vi.fn().mockResolvedValue({ items: [] })
 const mockGetModelStats = vi.fn().mockResolvedValue({ models: [] })
 const mockAccountsList = vi.fn().mockResolvedValue({ items: [] })
 
-vi.mock('@/api/admin', () => ({
-  adminAPI: {
-    usage: {
-      searchUsers: (...args: any[]) => mockSearchUsers(...args),
-      searchApiKeys: (...args: any[]) => mockSearchApiKeys(...args),
-    },
-    groups: { list: (...args: any[]) => mockGroupsList(...args) },
-    dashboard: { getModelStats: (...args: any[]) => mockGetModelStats(...args) },
-    accounts: { list: (...args: any[]) => mockAccountsList(...args) },
-  },
+vi.mock('@/features/admin-usage/data/datasources/adminUsageDatasource', () => ({
+  searchApiKeys: (...args: any[]) => mockSearchApiKeys(...args),
+  searchUsers: (...args: any[]) => mockSearchUsers(...args),
+}))
+
+vi.mock('@/features/admin-groups/data/datasources/adminGroupQueries', () => ({
+  list: (...args: any[]) => mockGroupsList(...args),
+}))
+
+vi.mock('@/features/admin-dashboard/data/datasources/adminDashboardDatasource', () => ({
+  getModelStats: (...args: any[]) => mockGetModelStats(...args),
+}))
+
+vi.mock('@/features/admin-accounts/data/datasources/adminAccountQueries', () => ({
+  list: (...args: any[]) => mockAccountsList(...args),
 }))
 
 // Default props helper

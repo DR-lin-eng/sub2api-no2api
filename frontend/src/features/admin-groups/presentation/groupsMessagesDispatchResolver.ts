@@ -1,4 +1,4 @@
-import type { OpenAIMessagesDispatchModelConfig } from "@/types";
+import type { OpenAIMessagesDispatchModelConfig } from "@/types/group";
 
 export interface MessagesDispatchMappingRow {
   claude_model: string;

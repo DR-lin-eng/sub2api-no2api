@@ -200,8 +200,13 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
-import { useAppStore } from '@/stores'
-import { opsAPI, type OpsErrorDetail } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import { useAppStore } from '@/core/stores/appStore'
+import {
+  getRequestErrorDetail,
+  getUpstreamErrorDetail,
+  listRequestErrorUpstreamErrors
+} from '@/features/admin-ops/data/datasources/opsErrorQueries'
+import type { OpsErrorDetail } from '@/features/admin-ops/data/dtos/opsErrorDtos'
 import { formatDateTime } from '@/core/utils/format'
 import { resolvePrimaryResponseBody, resolveUpstreamPayload } from '../errorDetailResponseResolver'
 
@@ -297,7 +302,7 @@ function toggleUpstreamDetail(id: number) {
 async function fetchCorrelatedUpstreamErrors(requestErrorId: number) {
   correlatedUpstreamLoading.value = true
   try {
-    const res = await opsAPI.listRequestErrorUpstreamErrors(
+    const res = await listRequestErrorUpstreamErrors(
       requestErrorId,
       { page: 1, page_size: 100, view: 'all' },
       { include_detail: true }
@@ -328,7 +333,7 @@ async function fetchDetail(id: number) {
   loading.value = true
   try {
     const kind = props.errorType || (detail.value?.phase === 'upstream' ? 'upstream' : 'request')
-    const d = kind === 'upstream' ? await opsAPI.getUpstreamErrorDetail(id) : await opsAPI.getRequestErrorDetail(id)
+    const d = kind === 'upstream' ? await getUpstreamErrorDetail(id) : await getRequestErrorDetail(id)
     detail.value = d
   } catch (err: any) {
     detail.value = null

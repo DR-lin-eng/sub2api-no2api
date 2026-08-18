@@ -1,7 +1,7 @@
 <template>
   <AppLayout>
     <div class="space-y-6">
-      <UsageStatsCards :stats="usageStats" />
+      <UsageStatsCards audience="admin" :stats="usageStats" />
       <!-- Charts Section -->
       <div class="space-y-4">
         <div class="card p-4">
@@ -122,6 +122,7 @@
 
         <div v-show="activeTab === 'usage'" class="overflow-hidden rounded-b-2xl">
           <UsageTable
+            audience="admin"
             flat
             :data="usageLogs"
             :loading="loading"
@@ -186,7 +187,13 @@ import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { saveAs } from 'file-saver'
 import { useRoute } from 'vue-router'
-import { useAppStore } from '@/core/stores/appStore'; import { adminAPI } from '@/api/admin'; import { adminUsageAPI } from '@/features/admin-usage/data/datasources/adminUsageDatasource'
+import { useAppStore } from '@/core/stores/appStore'
+import { getModelStats, getSnapshotV2 } from '@/features/admin-dashboard/data/datasources/adminDashboardDatasource'
+import {
+  getStats as getUsageStats,
+  list as listUsage,
+} from '@/features/admin-usage/data/datasources/adminUsageDatasource'
+import { getById as getAdminUserById } from '@/features/admin-users/data/datasources/adminUsersDatasource'
 import { getPersistedPageSize } from '@/common/composables/usePersistedPageSize'
 import {
   useRouteUserFilterLabel,
@@ -201,15 +208,16 @@ import UsageStatsCards from '@/features/admin-usage/presentation/widgets/UsageSt
 import UsageTable from '@/features/admin-usage/presentation/widgets/UsageTable.vue'; import UsageExportProgress from '@/features/admin-usage/presentation/widgets/UsageExportProgress.vue'
 import UserTokenRanking from '@/features/admin-usage/presentation/widgets/UserTokenRanking.vue'
 import UsageCleanupDialog from '@/features/admin-usage/presentation/widgets/UsageCleanupDialog.vue'
-import UserBalanceHistoryModal from '@/features/admin-users/presentation/widgets/UserBalanceHistoryDialog.vue'
-import OpsErrorLogTable from '@/features/admin-ops/presentation/widgets/OpsErrorLogTable.vue'
-import OpsErrorDetailModal from '@/features/admin-ops/presentation/widgets/OpsErrorDetailDialog.vue'
-import { listErrorLogs } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
-import type { OpsErrorLog } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import UserBalanceHistoryModal from '@/features/admin-users/userBalanceHistoryDialog'
+import OpsErrorDetailModal from '@/features/admin-ops/errorDetailDialog'
+import OpsErrorLogTable from '@/features/admin-ops/errorLogTable'
+import { listErrorLogs } from '@/features/admin-ops/data/datasources/opsErrorQueries'
+import type { OpsErrorLog } from '@/features/admin-ops/data/dtos/opsErrorDtos'
 import ModelDistributionChart from '@/common/widgets/charts/ModelDistributionChart.vue'; import GroupDistributionChart from '@/common/widgets/charts/GroupDistributionChart.vue'; import TokenUsageTrend from '@/common/widgets/charts/TokenUsageTrend.vue'
 import EndpointDistributionChart from '@/common/widgets/charts/EndpointDistributionChart.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
-import type { AdminUsageLog, TrendDataPoint, ModelStat, GroupStat, EndpointStat, AdminUser } from '@/types'; import type { AdminUsageStatsResponse, AdminUsageQueryParams } from '@/features/admin-usage/data/datasources/adminUsageDatasource'
+import type { AdminUsageLog, TrendDataPoint, ModelStat, GroupStat, EndpointStat, AdminUser } from '@/types'
+import type { AdminUsageStatsResponse, AdminUsageQueryParams } from '@/features/admin-usage/data/datasources/adminUsageDatasource'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -260,7 +268,7 @@ const modelNameOptions = computed(() =>
 
 const handleUserClick = async (userId: number) => {
   try {
-    const user = await adminAPI.users.getById(userId, true)
+    const user = await getAdminUserById(userId, true)
     balanceHistoryUser.value = user
     showBalanceHistoryModal.value = true
   } catch {
@@ -292,7 +300,7 @@ const usageFiltersRef = ref<UsageUserFilterLabelTarget | null>(null)
 const { loadRouteUserFilterLabel } = useRouteUserFilterLabel({
   getUserId: () => filters.value.user_id,
   filterRef: usageFiltersRef,
-  loadUser: (userId) => adminAPI.users.getById(userId, true),
+  loadUser: (userId) => getAdminUserById(userId, true),
 })
 const pagination = reactive({ page: 1, page_size: getPersistedPageSize(), total: 0 })
 const sortState = reactive({
@@ -366,7 +374,7 @@ const buildUsageListParams = (
 const loadLogs = async () => {
   abortController?.abort(); const c = new AbortController(); abortController = c; loading.value = true
   try {
-    const res = await adminAPI.usage.list(
+    const res = await listUsage(
       buildUsageListParams(pagination.page, pagination.page_size, false),
       { signal: c.signal }
     )
@@ -379,7 +387,7 @@ const loadStats = async (force = false) => {
   try {
     const requestType = filters.value.request_type
     const legacyStream = requestType ? requestTypeToLegacyStream(requestType) : filters.value.stream
-    const s = await adminAPI.usage.getStats({
+    const s = await getUsageStats({
       ...filters.value,
       stream: legacyStream === null ? undefined : legacyStream,
       ...(force ? { nocache: 1 } : {}),
@@ -431,7 +439,7 @@ const loadModelStats = async (source: ModelDistributionSource, force = false) =>
       upstream_model_mismatch: filters.value.upstream_model_mismatch,
     }
 
-    const response = await adminAPI.dashboard.getModelStats({ ...baseParams, model_source: source })
+    const response = await getModelStats({ ...baseParams, model_source: source })
 
     if (seq !== modelStatsReqSeq) return
 
@@ -466,7 +474,7 @@ const loadChartData = async () => {
   try {
     const requestType = filters.value.request_type
     const legacyStream = requestType ? requestTypeToLegacyStream(requestType) : filters.value.stream
-    const snapshot = await adminAPI.dashboard.getSnapshotV2({
+    const snapshot = await getSnapshotV2({
       start_date: filters.value.start_date || startDate.value,
       end_date: filters.value.end_date || endDate.value,
       granularity: granularity.value,
@@ -566,7 +574,7 @@ const exportToExcel = async () => {
     ]
     const ws = XLSX.utils.aoa_to_sheet([headers])
     while (true) {
-      const res = await adminUsageAPI.list(
+      const res = await listUsage(
         buildUsageListParams(p, 100, true),
         { signal: c.signal }
       )

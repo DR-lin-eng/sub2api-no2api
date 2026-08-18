@@ -108,7 +108,7 @@ const simpleStub = { template: '<div><slot /></div>' }
 const chartStub = { template: '<div />' }
 const usageTableStub = {
   name: 'UsageTable',
-  props: ['columns'],
+  props: ['audience', 'columns'],
   template: '<div data-testid="usage-table" />',
 }
 
@@ -209,7 +209,7 @@ describe('user UsageView', () => {
   })
 
   it('loads logs, stats, model stats, and snapshot on first render', async () => {
-    mountUsageView()
+    const wrapper = mountUsageView()
     await flushPromises()
 
     expect(query).toHaveBeenCalled()
@@ -222,6 +222,7 @@ describe('user UsageView', () => {
     }))
     expect(list).toHaveBeenCalledWith(1, 100)
     expect(getAvailable).toHaveBeenCalled()
+    expect(wrapper.getComponent({ name: 'UsageTable' }).props('audience')).toBe('user')
   })
 
   it('hides usage details by default and exposes the action only when enabled globally', async () => {

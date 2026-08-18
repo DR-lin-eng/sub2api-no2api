@@ -2,7 +2,8 @@
 import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
-import { opsAPI } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import { updateEmailNotificationConfig } from '@/features/admin-ops/data/datasources/opsSettingsActions'
+import { getEmailNotificationConfig } from '@/features/admin-ops/data/datasources/opsSettingsQueries'
 import type { EmailNotificationConfig, AlertSeverity } from '../opsTypeSignals'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import Select from '@/common/widgets/forms/Select.vue'
@@ -31,7 +32,7 @@ const severityOptions: Array<{ value: AlertSeverity | ''; label: string }> = [
 async function loadConfig() {
   loading.value = true
   try {
-    const data = await opsAPI.getEmailNotificationConfig()
+    const data = await getEmailNotificationConfig()
     config.value = data
   } catch (err: any) {
     console.error('[OpsEmailNotificationCard] Failed to load config', err)
@@ -49,7 +50,7 @@ async function saveConfig() {
   }
   saving.value = true
   try {
-    config.value = await opsAPI.updateEmailNotificationConfig(draft.value)
+    config.value = await updateEmailNotificationConfig(draft.value)
     showEditor.value = false
     appStore.showSuccess(t('admin.ops.email.saveSuccess'))
   } catch (err: any) {

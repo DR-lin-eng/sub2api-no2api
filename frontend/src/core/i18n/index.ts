@@ -191,7 +191,7 @@ export async function setLocale(locale: string): Promise<void> {
   const { resolveRouteDocumentTitle } = await import('@/core/routes/title')
   const { default: router } = await import('@/core/routes')
   const { useAppStore } = await import('@/core/stores/appStore')
-  const { useAuthStore } = await import('@/features/auth/presentation/stores/authStore')
+  const { useAuthStore } = await import('@/features/auth')
   const { useAdminSettingsStore } = await import('@/features/admin-settings/presentation/stores/adminSettingsStore')
   const route = router.currentRoute.value
   const appStore = useAppStore()

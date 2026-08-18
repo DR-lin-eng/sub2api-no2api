@@ -2,8 +2,8 @@ import { computed, reactive, ref, watch, type Ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useAppStore } from "@/core/stores/appStore";
 import { createStableObjectKeyResolver } from "@/core/utils/stableObjectKey";
-import * as groupsAPI from "@/features/admin-groups/data/datasources/adminGroupsDatasource";
-import type { AdminGroup } from "@/types";
+import { update } from "@/features/admin-groups/data/datasources/adminGroupActions";
+import type { AdminGroup } from "@/features/admin-groups/data/dtos/adminGroupDtos";
 import {
   messagesDispatchConfigToFormState,
   messagesDispatchFormStateToConfig,
@@ -16,6 +16,7 @@ import {
   moveModelsListItem,
 } from "../groupsModelsListResolver";
 import { normalizeSupportedModelScopesForPlatform } from "../groupsSupportedModelScopesResolver";
+import { groupPlatformLabel } from "../groupsLocale";
 import {
   isProfitControlPlatform,
   profitDecimalToPercent,
@@ -139,9 +140,7 @@ export function useEditGroupController({
       )
       .map((group) => ({
         value: group.id,
-        label: `${group.name} - ${t(
-          `admin.groups.platforms.${group.platform}`,
-        )} (${t("admin.groups.accountsCount", {
+        label: `${group.name} - ${groupPlatformLabel(t, group.platform)} (${t("admin.groups.accountsCount", {
           count: group.account_count || 0,
         })})`,
       })),
@@ -441,7 +440,7 @@ export function useEditGroupController({
       payload.peak_rate_multiplier = normalizeRateMultiplier(
         editForm.peak_rate_multiplier,
       );
-      await groupsAPI.update(editingGroup.value.id, payload);
+      await update(editingGroup.value.id, payload);
       appStore.showSuccess(t("admin.groups.groupUpdated"));
       closeEditModal();
       loadGroups();

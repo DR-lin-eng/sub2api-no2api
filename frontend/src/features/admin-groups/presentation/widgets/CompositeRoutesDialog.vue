@@ -277,13 +277,21 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { adminAPI } from '@/api/admin'
 import { useAppStore } from '@/core/stores/appStore'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import Select from '@/common/widgets/forms/Select.vue'
 import PlatformIcon from '@/common/widgets/icons/PlatformIcon.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import { extractApiErrorMessage } from '@/core/utils/apiError'
+import {
+  createCompositeRoute,
+  deleteCompositeRoute,
+  updateCompositeRoute,
+} from '@/features/admin-groups/data/datasources/adminGroupActions'
+import {
+  listCompositeRoutes,
+  previewCompositeRoute,
+} from '@/features/admin-groups/data/datasources/adminGroupQueries'
 import type {
   AdminGroup,
   CompositeModelRoute,
@@ -291,8 +299,14 @@ import type {
   CompositeRouteDecision,
   CompositeRouteEndpoint,
   CompositeRouteMatchType,
-  GroupPlatform,
-} from '@/types'
+} from '@/features/admin-groups/data/dtos/adminGroupDtos'
+import type { GroupPlatform } from '@/types/group'
+import {
+  compositeRouteEndpointLabel,
+  compositeRouteMatchLabel,
+  compositeRouteSourceLabel,
+  groupPlatformLabel,
+} from '@/features/admin-groups/presentation/groupsLocale'
 
 type ConcreteGroupPlatform = Exclude<GroupPlatform, 'composite'>
 
@@ -404,21 +418,19 @@ function isCurrentModal(generation: number, groupId: number): boolean {
 }
 
 function matchLabel(matchType: CompositeRouteMatchType): string {
-  return matchOptions.value.find((option) => option.value === matchType)?.label || matchType
+  return compositeRouteMatchLabel(t, matchType)
 }
 
 function endpointLabel(endpoint: CompositeRouteEndpoint): string {
-  return endpointOptions.value.find((option) => option.value === endpoint)?.label || endpoint
+  return compositeRouteEndpointLabel(t, endpoint)
 }
 
 function formatPlatform(platform: string): string {
-  return platform ? t(`admin.groups.platforms.${platform}`) : '—'
+  return platform ? groupPlatformLabel(t, platform) : '—'
 }
 
 function sourceLabel(source: string): string {
-  if (source === 'route') return t('admin.groups.compositeRoutes.sources.route')
-  if (source === 'detector') return t('admin.groups.compositeRoutes.sources.detector')
-  return source || '—'
+  return source ? compositeRouteSourceLabel(t, source) : '—'
 }
 
 function displayedUpstreamModel(route: CompositeModelRoute): string {
@@ -448,7 +460,7 @@ async function loadRoutes(): Promise<void> {
   const sequence = ++loadSequence
   routesLoading.value = true
   try {
-    const result = await adminAPI.groups.listCompositeRoutes(groupId)
+    const result = await listCompositeRoutes(groupId)
     if (sequence !== loadSequence || !props.show || props.group?.id !== groupId) return
     routes.value = [...result].sort((left, right) =>
       left.priority !== right.priority ? left.priority - right.priority : left.id - right.id,
@@ -490,9 +502,9 @@ async function saveRoute(): Promise<void> {
   try {
     const payload = routePayload()
     if (editingRouteId) {
-      await adminAPI.groups.updateCompositeRoute(groupId, editingRouteId, payload)
+      await updateCompositeRoute(groupId, editingRouteId, payload)
     } else {
-      await adminAPI.groups.createCompositeRoute(groupId, payload)
+      await createCompositeRoute(groupId, payload)
     }
     if (!isCurrentModal(generation, groupId)) return
     appStore.showSuccess(
@@ -519,7 +531,7 @@ async function deleteRoute(route: CompositeModelRoute): Promise<void> {
   if (!groupId || !window.confirm(t('admin.groups.compositeRoutes.deleteConfirm'))) return
   const generation = modalGeneration
   try {
-    await adminAPI.groups.deleteCompositeRoute(groupId, route.id)
+    await deleteCompositeRoute(groupId, route.id)
     if (!isCurrentModal(generation, groupId)) return
     if (editingId.value === route.id) resetRouteForm()
     appStore.showSuccess(t('admin.groups.compositeRoutes.routeDeleted'))
@@ -539,7 +551,7 @@ async function previewRoute(): Promise<void> {
   const sequence = ++previewSequence
   previewLoading.value = true
   try {
-    const decision = await adminAPI.groups.previewCompositeRoute(groupId, {
+    const decision = await previewCompositeRoute(groupId, {
       model,
       endpoint: previewEndpoint.value,
     })

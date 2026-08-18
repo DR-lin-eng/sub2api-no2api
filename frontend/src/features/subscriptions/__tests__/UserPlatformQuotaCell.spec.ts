@@ -11,7 +11,7 @@ vi.mock('vue-i18n', async () => {
 })
 
 import UserPlatformQuotaCell from '../presentation/widgets/UserPlatformQuotaCell.vue'
-import type { PlatformQuotaItem } from '@/features/admin-users/data/datasources/adminUsersDatasource'
+import type { PlatformQuotaItem } from '@/features/admin-users/data/dtos/adminUserDtos'
 
 function item(over: Partial<PlatformQuotaItem> & { platform: PlatformQuotaItem['platform'] }): PlatformQuotaItem {
   return {

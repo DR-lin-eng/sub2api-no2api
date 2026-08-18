@@ -75,7 +75,7 @@ vi.mock('vue-i18n', () => ({
   }),
 }))
 
-vi.mock('@/stores', () => ({
+vi.mock('@/features/auth', () => ({
   useAuthStore: () => ({
     pendingAuthSession: authStoreState.pendingAuthSession,
     register: (...args: any[]) => registerMock(...args),
@@ -83,20 +83,44 @@ vi.mock('@/stores', () => ({
     setPendingAuthSession: (...args: any[]) => setPendingAuthSessionMock(...args),
     clearPendingAuthSession: (...args: any[]) => clearPendingAuthSessionMock(...args),
   }),
+}))
+
+vi.mock('@/core/stores/appStore', () => ({
   useAppStore: () => ({
     showSuccess: (...args: any[]) => showSuccessMock(...args),
     showError: (...args: any[]) => showErrorMock(...args),
   }),
 }))
 
-vi.mock('@/features/auth/data/datasources/authDatasource', async () => {
-  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authDatasource')>('@/features/auth/data/datasources/authDatasource')
+vi.mock('@/features/auth/data/datasources/authQueries', async () => {
+  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authQueries')>('@/features/auth/data/datasources/authQueries')
   return {
     ...actual,
     getPublicSettings: (...args: any[]) => getPublicSettingsMock(...args),
+  }
+})
+
+vi.mock('@/features/auth/data/datasources/authVerificationActions', async () => {
+  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authVerificationActions')>('@/features/auth/data/datasources/authVerificationActions')
+  return {
+    ...actual,
     sendVerifyCode: (...args: any[]) => sendVerifyCodeMock(...args),
+  }
+})
+
+vi.mock('@/features/auth/data/datasources/authOAuthActions', async () => {
+  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authOAuthActions')>('@/features/auth/data/datasources/authOAuthActions')
+  return {
+    ...actual,
     sendPendingOAuthVerifyCode: (...args: any[]) => sendPendingOAuthVerifyCodeMock(...args),
     persistOAuthTokenContext: (...args: any[]) => persistOAuthTokenContextMock(...args),
+  }
+})
+
+vi.mock('@/features/auth/data/datasources/authSessionActions', async () => {
+  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authSessionActions')>('@/features/auth/data/datasources/authSessionActions')
+  return {
+    ...actual,
     createCredentialEnvelope: (...args: any[]) => createCredentialEnvelopeMock(...args),
     clearCredentialKeyPrefetch: (...args: any[]) => clearCredentialKeyPrefetchMock(...args),
     prefetchCredentialKey: (...args: any[]) => prefetchCredentialKeyMock(...args),

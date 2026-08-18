@@ -85,6 +85,7 @@ export default {
     notConfiguredTitle: 'Page URL not configured',
     notConfiguredDesc: 'The URL for this custom page has not been properly configured.',
     tableOfContents: 'Contents',
+    embeddedFrameTitle: 'Embedded custom page content',
     copyCode: 'Copy',
     copiedCode: 'Copied',
     copyCodeFailed: 'Failed'
@@ -125,7 +126,8 @@ export default {
     status: {
       active: 'Active',
       expired: 'Expired',
-      revoked: 'Revoked'
+      revoked: 'Revoked',
+      suspended: 'Suspended'
     },
     usage: 'Usage',
     expires: 'Expires',

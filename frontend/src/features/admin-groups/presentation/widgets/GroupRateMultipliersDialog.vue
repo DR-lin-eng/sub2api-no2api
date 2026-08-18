@@ -5,7 +5,7 @@
       <div class="flex flex-wrap items-center gap-3 rounded-lg bg-gray-50 px-4 py-2.5 text-sm dark:bg-dark-700">
         <span class="inline-flex items-center gap-1.5" :class="platformColorClass">
           <PlatformIcon :platform="group.platform" size="sm" />
-          {{ t('admin.groups.platforms.' + group.platform) }}
+          {{ groupPlatformLabel(t, group.platform) }}
         </span>
         <span class="text-gray-400">|</span>
         <span class="font-medium text-gray-900 dark:text-white">{{ group.name }}</span>
@@ -242,13 +242,19 @@
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
-import { adminAPI } from '@/api/admin'
-import type { GroupRateMultiplierEntry } from '@/features/admin-groups/data/datasources/adminGroupsDatasource'
-import type { AdminGroup, AdminUser } from '@/types'
+import { batchSetGroupRateMultipliers } from '@/features/admin-groups/data/datasources/adminGroupActions'
+import { getGroupRateMultipliers } from '@/features/admin-groups/data/datasources/adminGroupQueries'
+import type {
+  AdminGroup,
+  GroupRateMultiplierEntry,
+} from '@/features/admin-groups/data/dtos/adminGroupDtos'
+import { list as listAdminUsers } from '@/features/admin-users/data/datasources/adminUsersDatasource'
+import type { AdminUser } from '@/types'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import Pagination from '@/common/widgets/data/Pagination.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import PlatformIcon from '@/common/widgets/icons/PlatformIcon.vue'
+import { groupPlatformLabel } from '@/features/admin-groups/presentation/groupsLocale'
 
 interface LocalEntry extends GroupRateMultiplierEntry {}
 
@@ -321,7 +327,7 @@ const loadEntries = async () => {
   if (!props.group) return
   loading.value = true
   try {
-    const raw = await adminAPI.groups.getGroupRateMultipliers(props.group.id)
+    const raw = await getGroupRateMultipliers(props.group.id)
     // 仅显示已设置 rate_multiplier 的条目；rpm_override 在另一个弹窗管理，保留不动
     serverEntries.value = raw.filter(e => e.rate_multiplier != null)
     localEntries.value = cloneEntries(serverEntries.value)
@@ -368,7 +374,7 @@ const handleSearchUsers = () => {
   }
   searchTimeout = setTimeout(async () => {
     try {
-      const res = await adminAPI.users.list(1, 10, { search: searchQuery.value.trim() })
+      const res = await listAdminUsers(1, 10, { search: searchQuery.value.trim() })
       searchResults.value = res.items
       showDropdown.value = true
     } catch {
@@ -462,7 +468,7 @@ const handleSave = async () => {
         user_id: e.user_id,
         rate_multiplier: e.rate_multiplier as number
       }))
-    await adminAPI.groups.batchSetGroupRateMultipliers(props.group.id, entries)
+    await batchSetGroupRateMultipliers(props.group.id, entries)
     appStore.showSuccess(t('admin.groups.rateSaved'))
     emit('success')
     emit('close')

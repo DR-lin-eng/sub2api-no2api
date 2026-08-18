@@ -82,4 +82,38 @@ describe('UsageStatsCards', () => {
     expect(tooltip.classes()).toContain('sm:left-1/2')
     expect(tooltip.classes()).toContain('sm:-translate-x-1/2')
   })
+
+  it('ignores injected account cost for user audiences', () => {
+    const wrapper = mount(UsageStatsCards, {
+      props: {
+        audience: 'user',
+        stats,
+        showAccountCost: true,
+      },
+      global: {
+        stubs: {
+          Icon: true,
+        },
+      },
+    })
+
+    expect(wrapper.find('.text-orange-500').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Standard $0.0010')
+  })
+
+  it('keeps account cost visible for admin audiences', () => {
+    const wrapper = mount(UsageStatsCards, {
+      props: {
+        audience: 'admin',
+        stats,
+      },
+      global: {
+        stubs: {
+          Icon: true,
+        },
+      },
+    })
+
+    expect(wrapper.get('.text-orange-500').text()).toBe('Cost $0.0010')
+  })
 })

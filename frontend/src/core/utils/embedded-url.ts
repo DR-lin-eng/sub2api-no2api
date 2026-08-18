@@ -1,33 +1,38 @@
 /**
  * Shared URL builder for iframe-embedded pages.
- * Used by PurchaseSubscriptionView and CustomPageView to build consistent URLs
- * with user_id, token, theme, lang, ui_mode, src_host, and src parameters.
+ * Authentication is deliberately excluded from URLs. Opt-in token forwarding
+ * uses postEmbeddedAuthContext after the iframe has loaded.
  */
 
 const EMBEDDED_USER_ID_QUERY_KEY = 'user_id'
-const EMBEDDED_AUTH_TOKEN_QUERY_KEY = 'token'
 const EMBEDDED_THEME_QUERY_KEY = 'theme'
 const EMBEDDED_LANG_QUERY_KEY = 'lang'
 const EMBEDDED_UI_MODE_QUERY_KEY = 'ui_mode'
 const EMBEDDED_UI_MODE_VALUE = 'embedded'
 const EMBEDDED_SRC_HOST_QUERY_KEY = 'src_host'
 const EMBEDDED_SRC_QUERY_KEY = 'src_url'
+const SENSITIVE_EMBEDDED_QUERY_KEYS = ['token', 'access_token', 'auth_token'] as const
+
+export const EMBEDDED_AUTH_MESSAGE_TYPE = 'sub2api:embedded-auth'
+
+export interface EmbeddedAuthContext {
+  userId?: number
+  authToken?: string | null
+}
 
 export function buildEmbeddedUrl(
   baseUrl: string,
   userId?: number,
-  authToken?: string | null,
   theme: 'light' | 'dark' = 'light',
   lang?: string,
 ): string {
   if (!baseUrl) return baseUrl
   try {
     const url = new URL(baseUrl)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return ''
+    SENSITIVE_EMBEDDED_QUERY_KEYS.forEach((key) => url.searchParams.delete(key))
     if (userId) {
       url.searchParams.set(EMBEDDED_USER_ID_QUERY_KEY, String(userId))
-    }
-    if (authToken) {
-      url.searchParams.set(EMBEDDED_AUTH_TOKEN_QUERY_KEY, authToken)
     }
     url.searchParams.set(EMBEDDED_THEME_QUERY_KEY, theme)
     if (lang) {
@@ -37,11 +42,36 @@ export function buildEmbeddedUrl(
     // Source tracking: let the embedded page know where it's being loaded from
     if (typeof window !== 'undefined') {
       url.searchParams.set(EMBEDDED_SRC_HOST_QUERY_KEY, window.location.origin)
-      url.searchParams.set(EMBEDDED_SRC_QUERY_KEY, window.location.href)
+      url.searchParams.set(
+        EMBEDDED_SRC_QUERY_KEY,
+        `${window.location.origin}${window.location.pathname}`,
+      )
     }
     return url.toString()
   } catch {
-    return baseUrl
+    return ''
+  }
+}
+
+export function postEmbeddedAuthContext(
+  targetWindow: Pick<Window, 'postMessage'> | null,
+  targetUrl: string,
+  context: EmbeddedAuthContext,
+): boolean {
+  if (!targetWindow || !context.authToken) return false
+
+  try {
+    const url = new URL(targetUrl)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return false
+    targetWindow.postMessage({
+      type: EMBEDDED_AUTH_MESSAGE_TYPE,
+      version: 1,
+      token: context.authToken,
+      ...(context.userId ? { user_id: context.userId } : {}),
+    }, url.origin)
+    return true
+  } catch {
+    return false
   }
 }
 

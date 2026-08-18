@@ -1,4 +1,4 @@
-import type { AdminGroup } from '@/types'
+import type { AdminGroup } from '@/features/admin-groups/data/dtos/adminGroupDtos'
 
 export interface ApiKeyGroupFilterOption {
   value: number | null

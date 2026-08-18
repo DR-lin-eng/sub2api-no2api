@@ -219,6 +219,7 @@ export interface CustomMenuItem {
   page_slug?: string
   visibility: 'user' | 'admin'
   sort_order: number
+  forward_access_token?: boolean
 }
 
 export interface CustomEndpoint {

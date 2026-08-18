@@ -109,7 +109,9 @@
 import { ref, computed, watch, onMounted, onUnmounted, type ComponentPublicInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
-import { adminAPI } from '@/api/admin'
+import { getAll as getAllAdminGroups } from '@/features/admin-groups/data/datasources/adminGroupQueries'
+import { updateApiKeyGroup } from '@/features/admin-usage/data/datasources/apiKeysDatasource'
+import { getUserApiKeys } from '@/features/admin-users/data/datasources/adminUsersDatasource'
 import { formatDateTime } from '@/core/utils/format'
 import type { AdminUser, AdminGroup, ApiKey } from '@/types'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
@@ -158,7 +160,7 @@ const load = async () => {
   loading.value = true
   groupButtonRefs.value.clear()
   try {
-    const res = await adminAPI.users.getUserApiKeys(props.user.id)
+    const res = await getUserApiKeys(props.user.id)
     apiKeys.value = res.items || []
   } catch (error) {
     console.error('Failed to load API keys:', error)
@@ -169,7 +171,7 @@ const load = async () => {
 
 const loadGroups = async () => {
   try {
-    const groups = await adminAPI.groups.getAll()
+    const groups = await getAllAdminGroups()
     allGroups.value = groups
   } catch (error) {
     console.error('Failed to load groups:', error)
@@ -208,7 +210,7 @@ const changeGroup = async (key: ApiKey, newGroupId: number | null) => {
 
   updatingKeyIds.value.add(key.id)
   try {
-    const result = await adminAPI.apiKeys.updateApiKeyGroup(key.id, newGroupId)
+    const result = await updateApiKeyGroup(key.id, newGroupId)
     // Update local data
     const idx = apiKeys.value.findIndex((k) => k.id === key.id)
     if (idx !== -1) {

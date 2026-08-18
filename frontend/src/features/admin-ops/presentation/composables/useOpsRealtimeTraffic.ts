@@ -1,7 +1,7 @@
 import { computed, ref, watch, type Ref } from 'vue'
 import { getRealtimeTrafficSummary } from '@/features/admin-ops/data/datasources/opsMetricsQueries'
 import type { OpsRealtimeTrafficSummary } from '@/features/admin-ops/data/dtos/opsMetricsDtos'
-import { useAdminSettingsStore } from '@/features/admin-settings/presentation/stores/adminSettingsStore'
+import { useAdminSettingsStore } from '@/features/admin-settings/adminSettingsStore'
 
 export type OpsRealtimeWindow = '1min' | '5min' | '30min' | '1h'
 

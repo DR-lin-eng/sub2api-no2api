@@ -14,7 +14,7 @@
         <div>
           <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.orders.status') }}</p>
           <span :class="['badge', statusBadgeClass(order.status)]">
-            {{ t('payment.status.' + order.status.toLowerCase(), order.status) }}
+            {{ paymentOrderStatusLabel(t, order.status) }}
           </span>
         </div>
         <div>
@@ -42,7 +42,7 @@
         <div>
           <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.orderType') }}</p>
           <p class="text-sm text-gray-700 dark:text-gray-300">
-            {{ t('payment.admin.' + order.order_type + 'Order', order.order_type) }}
+            {{ paymentOrderTypeLabel(t, order.order_type) }}
           </p>
         </div>
         <div>
@@ -117,9 +117,14 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
-import type { PaymentOrder } from '@/types/payment'
-import { statusBadgeClass, canRefund as canRefundStatus, formatOrderDateTime } from '@/features/billing/presentation/orderUtilsFormatter'
-import { currencySymbol } from '@/features/billing/presentation/currencyFormatter'
+import type { PaymentOrder } from '@/features/billing/paymentContracts'
+import { paymentOrderStatusLabel, paymentOrderTypeLabel } from '@/features/billing/paymentLocale'
+import {
+  canRefund as canRefundStatus,
+  currencySymbol,
+  formatOrderDateTime,
+  statusBadgeClass,
+} from '@/features/billing/paymentDisplay'
 
 const { t } = useI18n()
 

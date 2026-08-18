@@ -46,6 +46,18 @@ vi.mock('@/stores', () => ({
   }),
 }))
 
+vi.mock('@/core/stores/appStore', () => ({
+  useAppStore: () => ({
+    showError: vi.fn(),
+    showSuccess: vi.fn(),
+    showWarning: vi.fn(),
+  }),
+}))
+
+vi.mock('@/features/auth/totpStepUpDialog', () => ({
+  default: { name: 'TotpStepUpDialog', template: '<div />' },
+}))
+
 vi.mock('@/common/composables/useStepUp', () => ({
   useStepUp: () => ({ run: (fn: () => unknown) => fn() }),
   isStepUpBlocked: () => false,

@@ -74,9 +74,9 @@
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
-import { adminPaymentAPI } from '@/features/admin-orders/data/datasources/adminPaymentDatasource'
+import { getDashboard } from '@/features/admin-orders/data/datasources/adminPaymentQueries'
 import { extractI18nErrorMessage } from '@/core/utils/apiError'
-import type { CurrencyAmounts, CurrencyAwareDashboardStats, TopUserPaymentStats } from '@/types/payment'
+import type { CurrencyAmounts, CurrencyAwareDashboardStats, TopUserPaymentStats } from '@/features/billing/paymentContracts'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import LoadingSpinner from '@/common/widgets/feedback/LoadingSpinner.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
@@ -130,7 +130,7 @@ async function loadDashboard() {
   const requestedDays = days.value
   loading.value = true
   try {
-    const res = await adminPaymentAPI.getDashboard(requestedDays)
+    const res = await getDashboard(requestedDays)
     if (sequence !== dashboardRequestSequence) return
     stats.value = normalizePaymentDashboardStats(res.data)
   } catch (err: unknown) {

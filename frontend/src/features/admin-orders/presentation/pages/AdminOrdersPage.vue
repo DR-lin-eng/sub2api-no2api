@@ -119,19 +119,24 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
-import { adminPaymentAPI } from '@/features/admin-orders/data/datasources/adminPaymentDatasource'
+import {
+  cancelOrder,
+  queryRefund,
+  refundOrder,
+  retryRecharge,
+} from '@/features/admin-orders/data/datasources/adminPaymentActions'
+import { getOrder, getOrders } from '@/features/admin-orders/data/datasources/adminPaymentQueries'
 import { extractI18nErrorMessage } from '@/core/utils/apiError'
-import { formatOrderDateTime } from '@/features/billing/presentation/orderUtilsFormatter'
-import type { PaymentOrder } from '@/types/payment'
+import { currencySymbol, formatOrderDateTime } from '@/features/billing/paymentDisplay'
+import type { PaymentOrder } from '@/features/billing/paymentContracts'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import Pagination from '@/common/widgets/data/Pagination.vue'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import Select from '@/common/widgets/forms/Select.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import AdminRefundDialog from '@/features/admin-orders/presentation/widgets/AdminRefundDialog.vue'
-import OrderStatusBadge from '@/features/billing/presentation/widgets/OrderStatusBadge.vue'
-import OrderTable from '@/features/billing/presentation/widgets/OrderTable.vue'
-import { currencySymbol } from '@/features/billing/presentation/currencyFormatter'
+import OrderStatusBadge from '@/features/billing/orderStatusBadge'
+import OrderTable from '@/features/billing/orderTable'
 
 interface AuditLog {
   id: number
@@ -172,7 +177,7 @@ function debounceLoadOrders() {
 async function loadOrders() {
   ordersLoading.value = true
   try {
-    const res = await adminPaymentAPI.getOrders({
+    const res = await getOrders({
       page: orderPagination.page, page_size: orderPagination.page_size,
       keyword: orderSearch.value || undefined, status: orderFilters.status || undefined,
       payment_type: orderFilters.payment_type || undefined, order_type: orderFilters.order_type || undefined,
@@ -220,7 +225,7 @@ async function showOrderDetail(order: PaymentOrder) {
   orderAuditLogs.value = []
   showDetailDialog.value = true
   try {
-    const res = await adminPaymentAPI.getOrder(order.id)
+    const res = await getOrder(order.id)
     const data = res.data as unknown as Record<string, unknown>
     if (data.order) selectedOrder.value = data.order as PaymentOrder
     orderAuditLogs.value = ((data.auditLogs || data.audit_logs || []) as unknown) as AuditLog[]
@@ -228,12 +233,12 @@ async function showOrderDetail(order: PaymentOrder) {
 }
 
 async function handleCancelOrder(order: PaymentOrder) {
-  try { await adminPaymentAPI.cancelOrder(order.id); appStore.showSuccess(t('payment.admin.orderCancelled')); loadOrders() }
+  try { await cancelOrder(order.id); appStore.showSuccess(t('payment.admin.orderCancelled')); loadOrders() }
   catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
 }
 
 async function handleRetryOrder(order: PaymentOrder) {
-  try { await adminPaymentAPI.retryRecharge(order.id); appStore.showSuccess(t('payment.admin.retrySuccess')); loadOrders() }
+  try { await retryRecharge(order.id); appStore.showSuccess(t('payment.admin.retrySuccess')); loadOrders() }
   catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
 }
 
@@ -258,7 +263,7 @@ async function handleRefund(data: { amount: number; reason: string; deduct_balan
   if (!selectedOrder.value) return
   refundSubmitting.value = true
   try {
-    const res = await adminPaymentAPI.refundOrder(selectedOrder.value.id, { amount: data.amount, reason: data.reason, deduct_balance: data.deduct_balance, force: data.force })
+    const res = await refundOrder(selectedOrder.value.id, { amount: data.amount, reason: data.reason, deduct_balance: data.deduct_balance, force: data.force })
     if (res.data.success) {
       appStore.showSuccess(t('payment.admin.refundSuccess'))
       closeRefundDialog()
@@ -284,7 +289,7 @@ async function handleRefund(data: { amount: number; reason: string; deduct_balan
 async function handleQueryRefund(order: PaymentOrder) {
   refundQueryingIds.value = new Set(refundQueryingIds.value).add(order.id)
   try {
-    const res = await adminPaymentAPI.queryRefund(order.id)
+    const res = await queryRefund(order.id)
     if (res.data.success) {
       appStore.showSuccess(t('payment.admin.refundSuccess'))
     } else if (isRefundPendingWarning(res.data.warning)) {

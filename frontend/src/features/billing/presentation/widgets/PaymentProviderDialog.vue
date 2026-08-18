@@ -312,7 +312,7 @@ import HelpTooltip from '@/common/widgets/feedback/HelpTooltip.vue'
 import Select from '@/common/widgets/forms/Select.vue'
 import type { SelectOption } from '@/common/widgets/forms/Select.vue'
 import ToggleSwitch from './ToggleSwitch.vue'
-import type { ProviderInstance } from '@/types/payment'
+import type { ProviderInstance } from '@/features/billing/paymentContracts'
 import type { EasyPayCustomMethod, TypeOption } from '../providerConfigSignals'
 import {
   PROVIDER_CONFIG_FIELDS,

@@ -211,10 +211,12 @@ vi.mock(
 );
 
 vi.mock(
-  "@/features/admin-groups/data/datasources/adminGroupsDatasource",
-  () => {
-    const groupsAPI = { getAll: getGroups };
-    return { getAll: getGroups, groupsAPI, default: groupsAPI };
+  "@/features/admin-groups/data/datasources/adminGroupQueries",
+  async (importOriginal) => {
+    const actual = await importOriginal<
+      typeof import("@/features/admin-groups/data/datasources/adminGroupQueries")
+    >();
+    return { ...actual, getAll: getGroups };
   },
 );
 
@@ -227,14 +229,24 @@ vi.mock(
 );
 
 vi.mock(
-  "@/features/admin-orders/data/datasources/adminPaymentDatasource",
-  () => ({
-    default: {
-      getProviders,
-      updateProvider,
-      createProvider,
-      deleteProvider,
-    },
+  "@/features/admin-orders/data/datasources/adminPaymentQueries",
+  async (importOriginal) => ({
+    ...(await importOriginal<
+      typeof import("@/features/admin-orders/data/datasources/adminPaymentQueries")
+    >()),
+    getProviders,
+  }),
+);
+
+vi.mock(
+  "@/features/admin-orders/data/datasources/adminPaymentActions",
+  async (importOriginal) => ({
+    ...(await importOriginal<
+      typeof import("@/features/admin-orders/data/datasources/adminPaymentActions")
+    >()),
+    updateProvider,
+    createProvider,
+    deleteProvider,
   }),
 );
 
