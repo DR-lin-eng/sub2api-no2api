@@ -73,6 +73,7 @@ type AccountTestService struct {
 	cfg                       *config.Config
 	tlsFPProfileService       *TLSFingerprintProfileService
 	openAIModelsManifest      openAIModelsManifestFetcher
+	customModelCapabilities   CustomModelCapabilityResolver
 	agentIdentityTaskMu       sync.Mutex
 	agentIdentityWS           agentIdentityWSConnectionInvalidator
 }
@@ -534,8 +535,17 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 		return s.testOpenAICompactConnection(c, account, testModelID)
 	}
 
-	// Route to image generation test if an image model is selected
-	if isOpenAIImageModel(testModelID) {
+	isImageModel := isOpenAIImageModel(testModelID)
+	if !isImageModel && s.customModelCapabilities != nil {
+		configured, err := s.customModelCapabilities.HasCapability(ctx, testModelID, "image")
+		if err != nil {
+			return s.sendErrorAndEnd(c, fmt.Sprintf("Failed to resolve custom model capabilities: %s", err.Error()))
+		}
+		isImageModel = configured
+	}
+
+	// Route to image generation test if a built-in or configured image model is selected.
+	if isImageModel {
 		imagePrompt := strings.TrimSpace(prompt)
 		if imagePrompt == "" {
 			imagePrompt = defaultOpenAIImageTestPrompt
@@ -1646,10 +1656,10 @@ func (s *AccountTestService) testOpenAIImageAPIKey(c *gin.Context, ctx context.C
 	s.sendEvent(c, TestEvent{Type: "test_start", Model: modelID})
 
 	payload := map[string]any{
-		"model":           modelID,
-		"prompt":          prompt,
-		"n":               1,
-		"response_format": "b64_json",
+		"model":  modelID,
+		"prompt": prompt,
+		"size":   "1024x1024",
+		"n":      1,
 	}
 	payloadBytes, _ := json.Marshal(payload)
 
@@ -1688,6 +1698,7 @@ func (s *AccountTestService) testOpenAIImageAPIKey(c *gin.Context, ctx context.C
 	var result struct {
 		Data []struct {
 			B64JSON       string `json:"b64_json"`
+			URL           string `json:"url"`
 			RevisedPrompt string `json:"revised_prompt"`
 		} `json:"data"`
 	}
@@ -1708,6 +1719,12 @@ func (s *AccountTestService) testOpenAIImageAPIKey(c *gin.Context, ctx context.C
 				Type:     "image",
 				ImageURL: "data:image/png;base64," + item.B64JSON,
 				MimeType: "image/png",
+			})
+		} else if item.URL != "" {
+			s.sendEvent(c, TestEvent{
+				Type:     "image",
+				ImageURL: item.URL,
+				MimeType: "image/*",
 			})
 		}
 	}

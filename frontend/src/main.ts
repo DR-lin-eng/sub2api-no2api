@@ -7,6 +7,7 @@ import { useAppStore } from '@/core/stores/appStore'
 import { updateFavicon } from '@/core/services/branding'
 import { isIOSDevice } from '@/core/utils/device'
 import { installSafeStorageGuards, safeLocalStorage } from '@/core/utils/safeStorage'
+import { initializeModelCapabilitiesOnStartup } from '@/features/custom-model-config/utils/initialization'
 import '@/core/themes/style.css'
 
 function initIOSViewportZoomFix() {
@@ -56,6 +57,9 @@ async function bootstrap() {
   updateFavicon(appStore.siteLogo)
 
   await initI18n()
+
+  // Load custom model capabilities (non-blocking, uses fallback on failure)
+  initializeModelCapabilitiesOnStartup()
 
   app.use(router)
   app.use(i18n)

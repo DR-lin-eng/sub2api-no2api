@@ -60,6 +60,9 @@ func appendNotificationAndRiskSettingChanges(changed []string, before, after *se
 	if before.MediaStudioEnabled != after.MediaStudioEnabled {
 		changed = append(changed, "media_studio_enabled")
 	}
+	if before.CustomModelConfigEnabled != after.CustomModelConfigEnabled {
+		changed = append(changed, "custom_model_config_enabled")
+	}
 	if before.IPv6EgressUIEnabled != after.IPv6EgressUIEnabled {
 		changed = append(changed, "ipv6_egress_ui_enabled")
 	}

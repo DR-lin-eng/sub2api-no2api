@@ -29,6 +29,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/chatmessageasset"
 	"github.com/Wei-Shaw/sub2api/ent/chatquickreply"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
+	"github.com/Wei-Shaw/sub2api/ent/custommodelconfig"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -679,6 +680,33 @@ func (f TraverseCompositeModelRoute) Traverse(ctx context.Context, q ent.Query) 
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.CompositeModelRouteQuery", q)
+}
+
+// The CustomModelConfigFunc type is an adapter to allow the use of ordinary function as a Querier.
+type CustomModelConfigFunc func(context.Context, *ent.CustomModelConfigQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f CustomModelConfigFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.CustomModelConfigQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.CustomModelConfigQuery", q)
+}
+
+// The TraverseCustomModelConfig type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseCustomModelConfig func(context.Context, *ent.CustomModelConfigQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseCustomModelConfig) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseCustomModelConfig) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.CustomModelConfigQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.CustomModelConfigQuery", q)
 }
 
 // The ErrorPassthroughRuleFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -1428,6 +1456,8 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.ChatQuickReplyQuery, predicate.ChatQuickReply, chatquickreply.OrderOption]{typ: ent.TypeChatQuickReply, tq: q}, nil
 	case *ent.CompositeModelRouteQuery:
 		return &query[*ent.CompositeModelRouteQuery, predicate.CompositeModelRoute, compositemodelroute.OrderOption]{typ: ent.TypeCompositeModelRoute, tq: q}, nil
+	case *ent.CustomModelConfigQuery:
+		return &query[*ent.CustomModelConfigQuery, predicate.CustomModelConfig, custommodelconfig.OrderOption]{typ: ent.TypeCustomModelConfig, tq: q}, nil
 	case *ent.ErrorPassthroughRuleQuery:
 		return &query[*ent.ErrorPassthroughRuleQuery, predicate.ErrorPassthroughRule, errorpassthroughrule.OrderOption]{typ: ent.TypeErrorPassthroughRule, tq: q}, nil
 	case *ent.GroupQuery:

@@ -183,6 +183,7 @@ export default {
     subscriptions: '订阅管理',
     accounts: '账号管理',
     accountInspection: '账号巡检',
+    customModelConfig: '自定义模型配置',
     proxies: 'IP管理',
     ipv6Egress: 'IPv6 出口',
     redeemCodes: '兑换码',
@@ -249,10 +250,6 @@ export default {
     passwordRequired: '请输入密码',
     passwordMinLength: '密码至少需要 6 个字符',
     loginFailed: '登录失败，请检查您的凭据后重试。',
-    settingsLoadFailed: '登录配置加载失败，请检查网络、关闭干扰扩展或在独立页面重试。',
-    embeddedLoginTitle: '请在独立页面登录',
-    embeddedLoginDescription: '当前页面运行在受限的嵌入环境中，浏览器无法安全保存登录会话。',
-    openTopLevelLogin: '打开独立登录页',
     accountLinked: '账号绑定成功',
     twoFactor: {
       title: '双因素认证',

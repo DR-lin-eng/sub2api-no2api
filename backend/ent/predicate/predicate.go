@@ -69,6 +69,9 @@ type ChatQuickReply func(*sql.Selector)
 // CompositeModelRoute is the predicate function for compositemodelroute builders.
 type CompositeModelRoute func(*sql.Selector)
 
+// CustomModelConfig is the predicate function for custommodelconfig builders.
+type CustomModelConfig func(*sql.Selector)
+
 // ErrorPassthroughRule is the predicate function for errorpassthroughrule builders.
 type ErrorPassthroughRule func(*sql.Selector)
 

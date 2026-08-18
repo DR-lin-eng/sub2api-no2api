@@ -1139,6 +1139,27 @@ var (
 			},
 		},
 	}
+	// CustomModelConfigsColumns holds the columns for the "custom_model_configs" table.
+	CustomModelConfigsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "model_name", Type: field.TypeString, Size: 255},
+		{Name: "capabilities", Type: field.TypeJSON},
+	}
+	// CustomModelConfigsTable holds the schema information for the "custom_model_configs" table.
+	CustomModelConfigsTable = &schema.Table{
+		Name:       "custom_model_configs",
+		Columns:    CustomModelConfigsColumns,
+		PrimaryKey: []*schema.Column{CustomModelConfigsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "custommodelconfig_model_name",
+				Unique:  true,
+				Columns: []*schema.Column{CustomModelConfigsColumns[3]},
+			},
+		},
+	}
 	// ErrorPassthroughRulesColumns holds the columns for the "error_passthrough_rules" table.
 	ErrorPassthroughRulesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -2476,6 +2497,7 @@ var (
 		ChatMessageAssetsTable,
 		ChatQuickRepliesTable,
 		CompositeModelRoutesTable,
+		CustomModelConfigsTable,
 		ErrorPassthroughRulesTable,
 		GroupsTable,
 		Ipv6EgressPoolsTable,
@@ -2588,6 +2610,9 @@ func init() {
 	CompositeModelRoutesTable.ForeignKeys[0].RefTable = GroupsTable
 	CompositeModelRoutesTable.Annotation = &entsql.Annotation{
 		Table: "composite_model_routes",
+	}
+	CustomModelConfigsTable.Annotation = &entsql.Annotation{
+		Table: "custom_model_configs",
 	}
 	ErrorPassthroughRulesTable.Annotation = &entsql.Annotation{
 		Table: "error_passthrough_rules",

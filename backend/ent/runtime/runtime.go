@@ -26,6 +26,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/chatmessageasset"
 	"github.com/Wei-Shaw/sub2api/ent/chatquickreply"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
+	"github.com/Wei-Shaw/sub2api/ent/custommodelconfig"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -1124,6 +1125,39 @@ func init() {
 	compositemodelrouteDescEnabled := compositemodelrouteFields[7].Descriptor()
 	// compositemodelroute.DefaultEnabled holds the default value on creation for the enabled field.
 	compositemodelroute.DefaultEnabled = compositemodelrouteDescEnabled.Default.(bool)
+	custommodelconfigMixin := schema.CustomModelConfig{}.Mixin()
+	custommodelconfigMixinFields0 := custommodelconfigMixin[0].Fields()
+	_ = custommodelconfigMixinFields0
+	custommodelconfigFields := schema.CustomModelConfig{}.Fields()
+	_ = custommodelconfigFields
+	// custommodelconfigDescCreatedAt is the schema descriptor for created_at field.
+	custommodelconfigDescCreatedAt := custommodelconfigMixinFields0[0].Descriptor()
+	// custommodelconfig.DefaultCreatedAt holds the default value on creation for the created_at field.
+	custommodelconfig.DefaultCreatedAt = custommodelconfigDescCreatedAt.Default.(func() time.Time)
+	// custommodelconfigDescUpdatedAt is the schema descriptor for updated_at field.
+	custommodelconfigDescUpdatedAt := custommodelconfigMixinFields0[1].Descriptor()
+	// custommodelconfig.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	custommodelconfig.DefaultUpdatedAt = custommodelconfigDescUpdatedAt.Default.(func() time.Time)
+	// custommodelconfig.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	custommodelconfig.UpdateDefaultUpdatedAt = custommodelconfigDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// custommodelconfigDescModelName is the schema descriptor for model_name field.
+	custommodelconfigDescModelName := custommodelconfigFields[0].Descriptor()
+	// custommodelconfig.ModelNameValidator is a validator for the "model_name" field. It is called by the builders before save.
+	custommodelconfig.ModelNameValidator = func() func(string) error {
+		validators := custommodelconfigDescModelName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(model_name string) error {
+			for _, fn := range fns {
+				if err := fn(model_name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
 	errorpassthroughruleMixin := schema.ErrorPassthroughRule{}.Mixin()
 	errorpassthroughruleMixinFields0 := errorpassthroughruleMixin[0].Fields()
 	_ = errorpassthroughruleMixinFields0

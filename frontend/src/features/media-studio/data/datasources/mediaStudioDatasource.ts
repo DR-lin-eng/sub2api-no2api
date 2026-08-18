@@ -321,16 +321,12 @@ export async function getVideoGenerationContent(apiKey: string, taskId: string):
   return blob
 }
 
-export function isMediaStudioImageModel(model: string): boolean {
-  const normalized = model.trim().toLowerCase()
-  return normalized.startsWith('gpt-image-') || (
-    normalized.startsWith('grok-imagine') && !normalized.startsWith('grok-imagine-video')
-  )
-}
-
-export function isMediaStudioVideoModel(model: string): boolean {
-  return model.trim().toLowerCase().startsWith('grok-imagine-video')
-}
+// Re-export from modelCapabilityService
+export {
+  isMediaStudioImageModel,
+  isMediaStudioVideoModel,
+  isMediaStudioAudioModel,
+} from "@/features/custom-model-config/domain/services/modelCapabilityService";
 
 export function mediaStudioErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.trim()) return error.message

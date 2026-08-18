@@ -65,6 +65,9 @@ func (s *SettingService) applyFeatureSettings(result *SystemSettings, settings m
 	// Media Studio feature (default: disabled; strict true)
 	result.MediaStudioEnabled = settings[SettingKeyMediaStudioEnabled] == "true"
 
+	// Custom model configuration feature (default: disabled; strict true)
+	result.CustomModelConfigEnabled = settings[SettingKeyCustomModelConfigEnabled] == "true"
+
 	// IPv6 egress is an administrator-controlled runtime switch. Databases
 	// created before this setting existed have no row, so retain the legacy
 	// deployment value until the administrator saves an explicit choice.

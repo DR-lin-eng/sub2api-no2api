@@ -215,6 +215,9 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		// Media Studio feature (default disabled; opt-in)
 		SettingKeyMediaStudioEnabled: "false",
 
+		// Custom model configuration feature (default disabled; opt-in)
+		SettingKeyCustomModelConfigEnabled: "false",
+
 		// IPv6 egress master switch (defaults to the legacy deployment value)
 		SettingKeyIPv6EgressUIEnabled: ipv6EgressDefault,
 

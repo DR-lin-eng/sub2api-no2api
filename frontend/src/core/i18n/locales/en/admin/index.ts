@@ -9,6 +9,7 @@ import promptAudit from './promptAudit'
 import cluster from './cluster'
 import ingressRisk from './ingressRisk'
 import egress from './egress'
+import customModelConfig from './customModelConfig'
 import accountInspection from './accountInspection'
 
 export default {
@@ -24,4 +25,5 @@ export default {
   ...ingressRisk,
   ...egress,
   ...accountInspection,
+  customModelConfig,
 }
