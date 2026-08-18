@@ -61,6 +61,11 @@ func (s *GeminiMessagesCompatService) skippedErrorPolicyFailoverError(
 	respBody []byte,
 	upstreamRequestID string,
 ) *UpstreamFailoverError {
+	// Keep the established pool helper as the single implementation for pool
+	// accounts while extending skipped-policy failover to custom-code accounts.
+	if account != nil && account.IsPoolMode() {
+		return s.poolModeSkippedFailoverError(c, account, statusCode, respBody, upstreamRequestID)
+	}
 	if account == nil || !s.shouldFailoverGeminiUpstreamError(statusCode) {
 		return nil
 	}

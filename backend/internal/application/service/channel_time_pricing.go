@@ -65,7 +65,10 @@ func (config *ChannelTimePricing) MultiplierAt(at time.Time) float64 {
 func compileChannelTimePricing(config *ChannelTimePricing) *compiledChannelTimePricing {
 	key := channelTimePricingKey(config)
 	if cached, ok := channelTimePricingCompiled.Load(key); ok {
-		return cached.(*compiledChannelTimePricing)
+		if compiled, valid := cached.(*compiledChannelTimePricing); valid && compiled != nil {
+			return compiled
+		}
+		channelTimePricingCompiled.Delete(key)
 	}
 	compiled := &compiledChannelTimePricing{}
 	compiled.location, compiled.err = loadChannelTimePricingLocation(config.Timezone)
@@ -73,7 +76,11 @@ func compileChannelTimePricing(config *ChannelTimePricing) *compiledChannelTimeP
 		compiled.periods, compiled.err = parseChannelTimePeriods(config.Periods)
 	}
 	actual, _ := channelTimePricingCompiled.LoadOrStore(key, compiled)
-	return actual.(*compiledChannelTimePricing)
+	if stored, valid := actual.(*compiledChannelTimePricing); valid && stored != nil {
+		return stored
+	}
+	channelTimePricingCompiled.Store(key, compiled)
+	return compiled
 }
 
 func channelTimePricingKey(config *ChannelTimePricing) string {
@@ -81,14 +88,14 @@ func channelTimePricingKey(config *ChannelTimePricing) string {
 		return ""
 	}
 	var b strings.Builder
-	b.WriteString(strings.TrimSpace(config.Timezone))
+	_, _ = b.WriteString(strings.TrimSpace(config.Timezone))
 	for _, period := range config.Periods {
-		b.WriteByte('|')
-		b.WriteString(period.StartTime)
-		b.WriteByte(',')
-		b.WriteString(period.EndTime)
-		b.WriteByte(',')
-		b.WriteString(strconv.FormatFloat(period.Multiplier, 'g', -1, 64))
+		_ = b.WriteByte('|')
+		_, _ = b.WriteString(period.StartTime)
+		_ = b.WriteByte(',')
+		_, _ = b.WriteString(period.EndTime)
+		_ = b.WriteByte(',')
+		_, _ = b.WriteString(strconv.FormatFloat(period.Multiplier, 'g', -1, 64))
 	}
 	return b.String()
 }
@@ -109,7 +116,11 @@ func loadChannelTimePricingLocation(name string) (*time.Location, error) {
 		return nil, err
 	}
 	actual, _ := channelTimePricingLocations.LoadOrStore(name, location)
-	return actual.(*time.Location), nil
+	if stored, valid := actual.(*time.Location); valid && stored != nil {
+		return stored, nil
+	}
+	channelTimePricingLocations.Store(name, location)
+	return location, nil
 }
 
 func parseChannelTime(value string, end bool) (int, error) {

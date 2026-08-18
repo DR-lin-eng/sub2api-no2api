@@ -20,8 +20,7 @@ func uniqueTestValue(t *testing.T, prefix string) string {
 
 func TestUserRepository_RemoveGroupFromAllowedGroups_RemovesAllOccurrences(t *testing.T) {
 	ctx := context.Background()
-	tx := testEntTx(t)
-	entClient := tx.Client()
+	entClient := testEntClient(t)
 
 	targetGroup, err := entClient.Group.Create().
 		SetName(uniqueTestValue(t, "target-group")).
@@ -34,7 +33,7 @@ func TestUserRepository_RemoveGroupFromAllowedGroups_RemovesAllOccurrences(t *te
 		Save(ctx)
 	require.NoError(t, err)
 
-	repo := newUserRepositoryWithSQL(entClient, tx)
+	repo := newUserRepositoryWithSQL(entClient, integrationDB)
 
 	u1 := &service.User{
 		Email:         uniqueTestValue(t, "u1") + "@example.com",
@@ -65,6 +64,10 @@ func TestUserRepository_RemoveGroupFromAllowedGroups_RemovesAllOccurrences(t *te
 		AllowedGroups: []int64{otherGroup.ID},
 	}
 	require.NoError(t, repo.Create(ctx, u3))
+	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM users WHERE id IN ($1, $2, $3)", u1.ID, u2.ID, u3.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM groups WHERE id IN ($1, $2)", targetGroup.ID, otherGroup.ID)
+	})
 
 	affected, err := repo.RemoveGroupFromAllowedGroups(ctx, targetGroup.ID)
 	require.NoError(t, err)
@@ -82,8 +85,7 @@ func TestUserRepository_RemoveGroupFromAllowedGroups_RemovesAllOccurrences(t *te
 
 func TestGroupRepository_DeleteCascade_PreservesApiKeyGroupID(t *testing.T) {
 	ctx := context.Background()
-	tx := testEntTx(t)
-	entClient := tx.Client()
+	entClient := testEntClient(t)
 
 	targetGroup, err := entClient.Group.Create().
 		SetName(uniqueTestValue(t, "delete-cascade-target")).
@@ -96,9 +98,9 @@ func TestGroupRepository_DeleteCascade_PreservesApiKeyGroupID(t *testing.T) {
 		Save(ctx)
 	require.NoError(t, err)
 
-	userRepo := newUserRepositoryWithSQL(entClient, tx)
-	groupRepo := newGroupRepositoryWithSQL(entClient, tx)
-	apiKeyRepo := newAPIKeyRepositoryWithSQL(entClient, tx)
+	userRepo := newUserRepositoryWithSQL(entClient, integrationDB)
+	groupRepo := newGroupRepositoryWithSQL(entClient, integrationDB)
+	apiKeyRepo := newAPIKeyRepositoryWithSQL(entClient, integrationDB)
 
 	u := &service.User{
 		Email:         uniqueTestValue(t, "cascade-user") + "@example.com",
@@ -118,6 +120,12 @@ func TestGroupRepository_DeleteCascade_PreservesApiKeyGroupID(t *testing.T) {
 		Status:  service.StatusActive,
 	}
 	require.NoError(t, apiKeyRepo.Create(ctx, key))
+	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM scheduler_outbox WHERE group_id = $1", targetGroup.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM api_keys WHERE id = $1", key.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM users WHERE id = $1", u.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM groups WHERE id IN ($1, $2)", targetGroup.ID, otherGroup.ID)
+	})
 
 	_, err = groupRepo.DeleteCascade(ctx, targetGroup.ID)
 	require.NoError(t, err)
