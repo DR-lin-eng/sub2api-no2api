@@ -165,22 +165,6 @@ func (s *ClusterReleaseService) pollInterval() time.Duration {
 	return time.Duration(seconds) * time.Second
 }
 
-func (s *ClusterReleaseService) drainGrace() time.Duration {
-	seconds := 10
-	if s != nil && s.cfg != nil && s.cfg.Deployment.RolloutDrainGraceSeconds >= 0 {
-		seconds = s.cfg.Deployment.RolloutDrainGraceSeconds
-	}
-	return time.Duration(seconds) * time.Second
-}
-
-func (s *ClusterReleaseService) drainTimeout() time.Duration {
-	seconds := 900
-	if s != nil && s.cfg != nil && s.cfg.Deployment.RolloutDrainTimeoutSeconds > 0 {
-		seconds = s.cfg.Deployment.RolloutDrainTimeoutSeconds
-	}
-	return time.Duration(seconds) * time.Second
-}
-
 func (s *ClusterReleaseService) requiredHeartbeats() int {
 	required := 2
 	if s != nil && s.cfg != nil && s.cfg.Deployment.RolloutVerifyHeartbeats > 0 {
@@ -232,8 +216,8 @@ func (s *ClusterReleaseService) GetOverview(ctx context.Context) (*ClusterReleas
 	}
 	sort.Slice(versions, func(i, j int) bool { return versions[i].Version < versions[j].Version })
 	consistent := len(versions) <= 1
-	if consistent && state.DesiredVersion != "" && len(versions) == 1 {
-		consistent = versions[0].Version == normalizeClusterReleaseVersion(state.DesiredVersion)
+	if consistent && state.LockedVersion != "" && len(versions) == 1 {
+		consistent = versions[0].Version == normalizeClusterReleaseVersion(state.LockedVersion)
 	}
 	return &ClusterReleaseOverview{
 		State:          *state,
@@ -409,6 +393,20 @@ func (s *ClusterReleaseService) CancelRollout(ctx context.Context, rolloutID str
 	return s.refreshReadiness(ctx)
 }
 
+// ConfirmRollout locks the verified candidate version as the cluster version.
+// A rollout intentionally remains active until this explicit acknowledgement so
+// old and new binaries can coexist during the operator's short verification
+// window.
+func (s *ClusterReleaseService) ConfirmRollout(ctx context.Context, rolloutID string) error {
+	if !s.isMultiInstance() {
+		return ErrClusterRolloutRequiresMultiInstance
+	}
+	if err := s.repo.ConfirmRollout(ctx, rolloutID); err != nil {
+		return err
+	}
+	return s.refreshReadiness(ctx)
+}
+
 func (s *ClusterReleaseService) RetryTarget(ctx context.Context, rolloutID, nodeID string) error {
 	if err := s.repo.RetryTarget(ctx, rolloutID, nodeID); err != nil {
 		return err
@@ -506,7 +504,7 @@ func (s *ClusterReleaseService) processOnce(ctx context.Context) error {
 	if rollout.Status != ClusterRolloutStatusRunning || target.Status != ClusterRolloutTargetPending {
 		return nil
 	}
-	leaseUntil := time.Now().UTC().Add(s.drainTimeout() + time.Minute)
+	leaseUntil := time.Now().UTC().Add(clusterRolloutInstallTimeout + clusterRolloutRestartTimeout + time.Minute)
 	claimed, err := s.repo.ClaimTarget(ctx, rollout.ID, target.NodeID, s.runnerID(), leaseUntil)
 	if err != nil || !claimed {
 		return err
@@ -543,20 +541,15 @@ func (s *ClusterReleaseService) observeUpdatedNode(ctx context.Context, rollout 
 		return err
 	}
 	if completed {
-		logger.LegacyPrintf("service.cluster_release", "[ClusterRelease] rollout completed rollout=%s target=%s", rollout.ID, target.TargetVersion)
+		logger.LegacyPrintf("service.cluster_release", "[ClusterRelease] rollout targets verified; awaiting confirmation rollout=%s target=%s", rollout.ID, target.TargetVersion)
 	}
 	return s.refreshReadiness(ctx)
 }
 
 func (s *ClusterReleaseService) executeBinaryTarget(rolloutID, nodeID, nodeName, targetVersion string) error {
-	s.draining.Store(true)
-	s.storeReadiness(ClusterReadiness{
-		Ready:          false,
-		Reason:         "rollout_draining",
-		RolloutID:      rolloutID,
-		TargetStatus:   ClusterRolloutTargetDraining,
-		DesiredVersion: normalizeClusterReleaseVersion(targetVersion),
-	})
+	// The node remains available while the candidate is downloaded. The
+	// readiness gate accepts both source and target versions during an active
+	// rollout, so a load balancer can keep serving old and new nodes in parallel.
 	fail := func(reason string, err error) error {
 		message := reason
 		if err != nil {
@@ -568,27 +561,6 @@ func (s *ClusterReleaseService) executeBinaryTarget(rolloutID, nodeID, nodeName,
 		s.draining.Store(false)
 		_ = s.refreshReadiness(ctx)
 		return errors.New(message)
-	}
-
-	if grace := s.drainGrace(); grace > 0 {
-		timer := time.NewTimer(grace)
-		select {
-		case <-s.ctx.Done():
-			timer.Stop()
-			return fail("rollout stopped while draining", s.ctx.Err())
-		case <-timer.C:
-		}
-	}
-	deadline := time.Now().Add(s.drainTimeout())
-	for s.inFlight.Load() > 0 {
-		if time.Now().After(deadline) {
-			return fail("timed out waiting for in-flight requests", nil)
-		}
-		select {
-		case <-s.ctx.Done():
-			return fail("rollout stopped while draining", s.ctx.Err())
-		case <-time.After(250 * time.Millisecond):
-		}
 	}
 
 	installLease := time.Now().UTC().Add(clusterRolloutInstallTimeout + time.Minute)
@@ -652,7 +624,14 @@ func (s *ClusterReleaseService) refreshReadiness(ctx context.Context) error {
 	}
 	readiness.DesiredVersion = normalizeClusterReleaseVersion(state.DesiredVersion)
 	if state.ActiveRolloutID == "" {
-		readiness.Ready = readiness.DesiredVersion == "" || readiness.CurrentVersion == readiness.DesiredVersion
+		lockedVersion := normalizeClusterReleaseVersion(state.LockedVersion)
+		// A pre-lock binary may have completed a rollout by changing only
+		// desired_version. Treat that legacy terminal state as locked to the new
+		// version while the repository reconciles it on the next startup.
+		if lockedVersion != "" && readiness.DesiredVersion != "" && lockedVersion != readiness.DesiredVersion {
+			lockedVersion = readiness.DesiredVersion
+		}
+		readiness.Ready = lockedVersion == "" || readiness.CurrentVersion == lockedVersion
 		if !readiness.Ready {
 			readiness.Reason = "version_mismatch"
 		}
@@ -677,9 +656,19 @@ func (s *ClusterReleaseService) refreshReadiness(ctx context.Context) error {
 	targetVersion := normalizeClusterReleaseVersion(target.TargetVersion)
 	switch target.Status {
 	case ClusterRolloutTargetPending:
-		readiness.Ready = readiness.CurrentVersion == sourceVersion
+		readiness.Ready = readiness.CurrentVersion == sourceVersion || readiness.CurrentVersion == targetVersion
 		if !readiness.Ready {
 			readiness.Reason = "awaiting_target_verification"
+		}
+	case ClusterRolloutTargetDraining,
+		ClusterRolloutTargetInstalling,
+		ClusterRolloutTargetRestarting,
+		ClusterRolloutTargetVerifying:
+		// These statuses are retained for compatibility with in-flight/older
+		// rollouts. New rollouts no longer create a draining phase.
+		readiness.Ready = readiness.CurrentVersion == sourceVersion || readiness.CurrentVersion == targetVersion
+		if !readiness.Ready {
+			readiness.Reason = "rollout_version_mismatch"
 		}
 	case ClusterRolloutTargetSucceeded:
 		readiness.Ready = readiness.CurrentVersion == targetVersion

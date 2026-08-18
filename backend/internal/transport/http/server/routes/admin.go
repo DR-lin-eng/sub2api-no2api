@@ -214,6 +214,7 @@ func registerClusterRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAu
 		cluster.POST("/rollouts/:id/pause", h.Admin.Cluster.PauseRollout)
 		cluster.POST("/rollouts/:id/resume", h.Admin.Cluster.ResumeRollout)
 		cluster.POST("/rollouts/:id/cancel", gin.HandlerFunc(stepUpAuth), h.Admin.Cluster.CancelRollout)
+		cluster.POST("/rollouts/:id/confirm", gin.HandlerFunc(stepUpAuth), h.Admin.Cluster.ConfirmRollout)
 		cluster.POST("/rollouts/:id/targets/:node_id/retry", h.Admin.Cluster.RetryTarget)
 	}
 }

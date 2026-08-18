@@ -1670,7 +1670,9 @@ func TestExtractSystemMessagesFromInput(t *testing.T) {
 		require.Equal(t, []any{
 			map[string]any{"type": "input_image", "image_url": "https://example.com/image.png"},
 		}, image["content"])
-		require.Equal(t, "user", input[1].(map[string]any)["role"])
+		user, ok := input[1].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, "user", user["role"])
 	})
 }
 

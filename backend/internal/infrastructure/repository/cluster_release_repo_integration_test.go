@@ -22,10 +22,10 @@ func TestClusterReleaseRepository_RollsNodesInOrderAndConvergesDesiredVersion(t 
 	nodeB := "release-b-" + suffix
 	now := time.Now().UTC().Truncate(time.Microsecond)
 
-	_, err := integrationDB.ExecContext(ctx, `UPDATE cluster_release_state SET active_rollout_id = NULL WHERE singleton = TRUE`)
+	_, err := integrationDB.ExecContext(ctx, `UPDATE cluster_release_state SET desired_version = '1.0.0', locked_version = '1.0.0', active_rollout_id = NULL WHERE singleton = TRUE`)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		_, _ = integrationDB.ExecContext(context.Background(), `UPDATE cluster_release_state SET active_rollout_id = NULL WHERE singleton = TRUE`)
+		_, _ = integrationDB.ExecContext(context.Background(), `UPDATE cluster_release_state SET desired_version = '1.0.0', locked_version = '1.0.0', active_rollout_id = NULL WHERE singleton = TRUE`)
 		_, _ = integrationDB.ExecContext(context.Background(), `DELETE FROM cluster_release_rollouts WHERE id = $1`, rolloutID)
 		_, _ = integrationDB.ExecContext(context.Background(), `DELETE FROM cluster_instances WHERE node_id IN ($1,$2)`, nodeA, nodeB)
 		_, _ = integrationDB.ExecContext(context.Background(), `DELETE FROM cluster_nodes WHERE node_id IN ($1,$2)`, nodeA, nodeB)
@@ -127,8 +127,18 @@ func TestClusterReleaseRepository_RollsNodesInOrderAndConvergesDesiredVersion(t 
 	state, err := releaseRepo.GetState(ctx)
 	require.NoError(t, err)
 	require.Equal(t, "1.1.0", state.DesiredVersion)
-	require.Empty(t, state.ActiveRolloutID)
+	require.Empty(t, state.LockedVersion)
+	require.Equal(t, rolloutID, state.ActiveRolloutID)
 	rollout, err := releaseRepo.GetRollout(ctx, rolloutID)
+	require.NoError(t, err)
+	require.Equal(t, service.ClusterRolloutStatusAwaitingConfirmation, rollout.Status)
+
+	require.NoError(t, releaseRepo.ConfirmRollout(ctx, rolloutID))
+	state, err = releaseRepo.GetState(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "1.1.0", state.LockedVersion)
+	require.Empty(t, state.ActiveRolloutID)
+	rollout, err = releaseRepo.GetRollout(ctx, rolloutID)
 	require.NoError(t, err)
 	require.Equal(t, service.ClusterRolloutStatusCompleted, rollout.Status)
 }

@@ -17,6 +17,8 @@ deployment:
   stale_after_seconds: 90
   task_lease_seconds: 60
   rollout_poll_seconds: 5
+  # Retained for configuration compatibility; rollouts no longer wait for a
+  # pre-restart drain.
   rollout_drain_grace_seconds: 10
   rollout_drain_timeout_seconds: 900
   rollout_verify_heartbeats: 2
@@ -60,23 +62,30 @@ same rollout. The request does not depend on the load balancer routing it to a
 specific target node.
 
 A rollout resolves `latest` to one exact stable version before creating its
-targets. Only one plan can be active, and targets advance in a fixed order with
+targets. The candidate version is persisted before the first node downloads a
+binary. Only one plan can be active, and targets advance in a fixed order with
 `max_unavailable=1`:
 
 ```text
-pending -> draining -> installing -> restarting -> verifying -> succeeded
+pending -> installing -> restarting -> verifying -> succeeded
+                                             -> awaiting_confirmation -> completed
 ```
 
 A failure pauses the plan. Retry the failed target to continue, or cancel only
-when no target is actively draining, installing, restarting, or verifying.
-Multi-instance mode rejects the legacy local update, rollback, and restart
-endpoints with `MULTI_INSTANCE_ROLLOUT_REQUIRED`.
+when no target is actively installing, restarting, or verifying. Once every
+target has verified the candidate, the plan waits in
+`awaiting_confirmation`; the administrator must explicitly confirm it before
+the version becomes locked. Multi-instance mode rejects the legacy local
+update, rollback, and restart endpoints with `MULTI_INSTANCE_ROLLOUT_REQUIRED`.
 
-Each selected node drains requests, installs the exact signed release, exits,
-and verifies the restarted runner through heartbeats. This binary rollout mode
-is fixed and has no environment or configuration switch. Docker deployments
-must keep `/app` writable and use a restart policy such as `unless-stopped`; the
-supplied images and Compose files already do both.
+Each selected node downloads the exact signed release and exits like the
+standalone updater. There is no pre-restart grace period or in-flight request
+wait. During an active plan the readiness gate accepts both the source and
+candidate versions, so old and new nodes may coexist briefly; the external
+load balancer should continue routing to healthy replicas and tolerate the
+normal restart interruption of the selected node. Docker deployments must keep
+`/app` writable and use a restart policy such as `unless-stopped`; the supplied
+images and Compose files already do both.
 
 The rollout changes the running container's writable layer, not its image
 reference. Recreating that container from an older image can therefore restore
@@ -84,9 +93,10 @@ an older binary and make `/ready` return `503`. Before recreating a node, ensure
 the selected image is at least the cluster's desired version.
 
 `/health` remains a liveness probe. `/ready` is the load-balancer and Compose
-readiness probe; it returns `503` while a node is draining, awaiting version
-verification, or running a version different from the cluster's desired
-version. Keep non-ready nodes out of request traffic.
+readiness probe. During an active rollout it accepts the source/candidate pair;
+after manual confirmation it enforces the locked version and returns `503` for
+any other version. Keep nodes with dependency failures or an unverified
+version out of request traffic.
 
 Run the disposable two-node Docker scenario from the repository root:
 
@@ -94,11 +104,22 @@ Run the disposable two-node Docker scenario from the repository root:
 sh deploy/tests/cluster-rollout-docker-test.sh
 ```
 
+When validating an unreleased state-machine change, replace nodes with the
+locally built target image instead of downloading the latest published binary:
+
+```sh
+CLUSTER_TEST_IMAGE_REPLACEMENT=1 sh deploy/tests/cluster-rollout-docker-test.sh
+```
+
+`CLUSTER_TEST_NO_CACHE=1` forces clean image builds, and
+`CLUSTER_TEST_GOPROXY` overrides the Go module proxy for that test only.
+
 The scenario builds distinct source and target application images, starts two
 replicas with separate persistent identity volumes and shared PostgreSQL/Redis,
 renames and recreates a node, creates a rollout through the other replica,
-rolls both nodes in order, and verifies version convergence and `/ready`
-rejection after an old image is reintroduced. Resources are removed on exit.
+rolls both nodes in order, confirms the verified candidate, and verifies
+version convergence plus `/ready` rejection after an old image is reintroduced.
+Resources are removed on exit.
 
 ## Installation and secrets
 
@@ -185,15 +206,15 @@ Each node card uses the following fields:
   historical chart. With the default configuration, a heartbeat is sent every
   30 seconds, so short spikes may occur between snapshots.
 - `处理中请求` increments only after a multi-instance node accepts the request
-  through its readiness/drain gate and decrements when the handler finishes.
+  through its readiness gate and decrements when the handler finishes.
   SSE, streaming responses, and WebSocket handlers may therefore keep it above
   zero for the lifetime of the connection. `/health`, `/ready`, and
   `/api/v1/admin/cluster` (including its sub-routes) are excluded so probes and
-  this page's polling do not prevent draining.
+  this page's polling do not affect rollout state.
 - A displayed request count of `0` means no accepted handler was still running
   at the latest sample. It does not mean that the node received no traffic
-  during the heartbeat interval. This counter is also used by rolling releases:
-  a draining node waits for it to reach zero before installation and restart.
+  during the heartbeat interval. The counter is telemetry only; rollouts no
+  longer wait for it to reach zero before installation.
 - Billing settlement, cleanup workers, timers, and other background work do not
   increase `处理中请求`. Leased scheduled work is shown separately as
   `活跃任务`; billing-queue backlog and throughput use their dedicated metrics.

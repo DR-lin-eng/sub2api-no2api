@@ -49,6 +49,7 @@
         @pause="handlePauseRollout"
         @resume="handleResumeRollout"
         @cancel="handleCancelRollout"
+        @confirm="handleConfirmRollout"
         @retry="handleRetryTarget"
       />
 
@@ -246,6 +247,11 @@ function handleResumeRollout(rolloutId: string): void {
 function handleCancelRollout(rolloutId: string): void {
   if (!window.confirm(t('admin.cluster.release.confirmCancel'))) return
   void runRolloutAction(() => clusterAPI.cancelRollout(rolloutId))
+}
+
+function handleConfirmRollout(rolloutId: string): void {
+  if (!window.confirm(t('admin.cluster.release.confirmLock'))) return
+  void runRolloutAction(() => clusterAPI.confirmRollout(rolloutId))
 }
 
 function handleRetryTarget(rolloutId: string, nodeId: string): void {

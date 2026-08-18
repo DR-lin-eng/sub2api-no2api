@@ -2,7 +2,7 @@ import { apiClient } from '@/core/networks/client'
 
 export type ClusterInstanceStatus = 'online' | 'stale' | 'stopped'
 export type ClusterTaskStatus = 'running' | 'succeeded' | 'failed' | 'lost'
-export type ClusterRolloutStatus = 'running' | 'paused' | 'completed' | 'cancelled'
+export type ClusterRolloutStatus = 'running' | 'paused' | 'awaiting_confirmation' | 'completed' | 'cancelled'
 export type ClusterRolloutTargetStatus =
   | 'pending'
   | 'draining'
@@ -79,6 +79,7 @@ export interface ClusterInstance {
 
 export interface ClusterReleaseState {
   desired_version: string
+  locked_version?: string
   active_rollout_id?: string
   generation: number
   updated_at: string
@@ -202,6 +203,14 @@ export async function cancelRollout(id: string): Promise<ClusterRollout> {
   return data
 }
 
+export async function confirmRollout(id: string): Promise<ClusterRollout> {
+  const { data } = await apiClient.post<ClusterRollout>(
+    `/admin/cluster/rollouts/${encodeURIComponent(id)}/confirm`,
+    { confirm: true }
+  )
+  return data
+}
+
 export async function retryRolloutTarget(id: string, nodeId: string): Promise<ClusterRollout> {
   const { data } = await apiClient.post<ClusterRollout>(
     `/admin/cluster/rollouts/${encodeURIComponent(id)}/targets/${encodeURIComponent(nodeId)}/retry`
@@ -217,6 +226,7 @@ export const clusterAPI = {
   pauseRollout,
   resumeRollout,
   cancelRollout,
+  confirmRollout,
   retryRolloutTarget,
 }
 

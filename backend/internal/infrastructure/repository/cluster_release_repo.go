@@ -20,18 +20,41 @@ func NewClusterReleaseRepository(db *sql.DB) service.ClusterReleaseRepository {
 
 func (r *clusterReleaseRepository) EnsureState(ctx context.Context, initialVersion string) error {
 	_, err := r.db.ExecContext(ctx, `
-		INSERT INTO cluster_release_state (singleton, desired_version)
-		VALUES (TRUE, $1)
-		ON CONFLICT (singleton) DO UPDATE SET
-			desired_version = CASE
-				WHEN cluster_release_state.desired_version = '' THEN EXCLUDED.desired_version
-				ELSE cluster_release_state.desired_version
-			END,
-			updated_at = CASE
-				WHEN cluster_release_state.desired_version = '' THEN NOW()
-				ELSE cluster_release_state.updated_at
-			END
+		INSERT INTO cluster_release_state (singleton, desired_version, locked_version)
+		VALUES (TRUE, $1, $1)
+		ON CONFLICT (singleton) DO NOTHING
 	`, initialVersion)
+	if err != nil {
+		return err
+	}
+	// Migration 205 creates the singleton row with empty defaults before the
+	// first process starts. Initialize that one pristine row, while preserving
+	// an intentionally unlocked state left by a cancelled rollout (generation
+	// is incremented whenever a rollout changes the state).
+	_, err = r.db.ExecContext(ctx, `
+		UPDATE cluster_release_state
+		SET desired_version = $1, locked_version = $1, updated_at = NOW()
+		WHERE singleton = TRUE
+		  AND generation = 0
+		  AND active_rollout_id IS NULL
+		  AND desired_version = ''
+		  AND locked_version = ''
+	`, initialVersion)
+	if err != nil {
+		return err
+	}
+	// Older binaries completed a rollout by changing desired_version while
+	// leaving no separate lock marker. Reconcile that legacy terminal state so
+	// a mixed-version restart does not remain blocked by the old lock value.
+	_, err = r.db.ExecContext(ctx, `
+		UPDATE cluster_release_state
+		SET locked_version = desired_version, updated_at = NOW()
+		WHERE singleton = TRUE
+		  AND active_rollout_id IS NULL
+		  AND desired_version <> ''
+		  AND locked_version <> ''
+		  AND locked_version <> desired_version
+	`)
 	return err
 }
 
@@ -39,10 +62,10 @@ func (r *clusterReleaseRepository) GetState(ctx context.Context) (*service.Clust
 	state := &service.ClusterReleaseState{}
 	var active sql.NullString
 	err := r.db.QueryRowContext(ctx, `
-		SELECT desired_version, active_rollout_id, generation, updated_at
+		SELECT desired_version, locked_version, active_rollout_id, generation, updated_at
 		FROM cluster_release_state
 		WHERE singleton = TRUE
-	`).Scan(&state.DesiredVersion, &active, &state.Generation, &state.UpdatedAt)
+	`).Scan(&state.DesiredVersion, &state.LockedVersion, &active, &state.Generation, &state.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -105,11 +128,13 @@ func (r *clusterReleaseRepository) CreateRollout(ctx context.Context, rollout se
 
 	_, err = tx.ExecContext(ctx, `
 		UPDATE cluster_release_state
-		SET active_rollout_id = $1,
+		SET desired_version = $2,
+			locked_version = '',
+			active_rollout_id = $1,
 			generation = generation + 1,
 			updated_at = NOW()
 		WHERE singleton = TRUE
-	`, rollout.ID)
+	`, rollout.ID, rollout.TargetVersion)
 	if err != nil {
 		return err
 	}
@@ -399,9 +424,9 @@ func (r *clusterReleaseRepository) ClaimTarget(ctx context.Context, rolloutID, n
 					AND previous.ordinal < target.ordinal
 					AND previous.status <> $10
 			)
-	`, rolloutID, nodeID, runnerID, service.ClusterRolloutTargetDraining, leaseUntil,
+	`, rolloutID, nodeID, runnerID, service.ClusterRolloutTargetInstalling, leaseUntil,
 		service.ClusterRolloutTargetPending,
-		service.ClusterRolloutTargetInstalling, service.ClusterRolloutTargetRestarting,
+		service.ClusterRolloutTargetDraining, service.ClusterRolloutTargetRestarting,
 		service.ClusterRolloutTargetVerifying, service.ClusterRolloutTargetSucceeded)
 	if err != nil {
 		return false, err
@@ -472,20 +497,32 @@ func (r *clusterReleaseRepository) ObserveTargetHeartbeat(
 	}
 	defer func() { _ = tx.Rollback() }()
 
+	var rolloutStatus string
+	err = tx.QueryRowContext(ctx, `
+		SELECT status
+		FROM cluster_release_rollouts
+		WHERE id = $1
+		FOR UPDATE
+	`, rolloutID).Scan(&rolloutStatus)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, false, service.ErrClusterRolloutNotFound
+	}
+	if err != nil {
+		return nil, false, err
+	}
+
 	var targetVersion string
 	var ordinal int
 	var status string
-	var rolloutStatus string
 	var lastVerified sql.NullTime
 	var count int
 	err = tx.QueryRowContext(ctx, `
 		SELECT target.target_version, target.ordinal, target.status,
-			target.last_verified_heartbeat, target.verification_count, rollout.status
+			target.last_verified_heartbeat, target.verification_count
 		FROM cluster_release_targets AS target
-		JOIN cluster_release_rollouts AS rollout ON rollout.id = target.rollout_id
 		WHERE target.rollout_id = $1 AND target.node_id = $2
 		FOR UPDATE
-	`, rolloutID, nodeID).Scan(&targetVersion, &ordinal, &status, &lastVerified, &count, &rolloutStatus)
+	`, rolloutID, nodeID).Scan(&targetVersion, &ordinal, &status, &lastVerified, &count)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, false, service.ErrClusterRolloutTargetNotFound
 	}
@@ -573,14 +610,12 @@ func (r *clusterReleaseRepository) ObserveTargetHeartbeat(
 				UPDATE cluster_release_rollouts
 				SET status = $2, completed_at = NOW(), error_message = '', updated_at = NOW()
 				WHERE id = $1
-			`, rolloutID, service.ClusterRolloutStatusCompleted); err != nil {
+			`, rolloutID, service.ClusterRolloutStatusAwaitingConfirmation); err != nil {
 				return nil, false, err
 			}
 			if _, err := tx.ExecContext(ctx, `
 				UPDATE cluster_release_state
 				SET desired_version = $2,
-					active_rollout_id = NULL,
-					generation = generation + 1,
 					updated_at = NOW()
 				WHERE singleton = TRUE AND active_rollout_id = $1
 			`, rolloutID, targetVersion); err != nil {
@@ -696,13 +731,13 @@ func (r *clusterReleaseRepository) CancelRollout(ctx context.Context, rolloutID 
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
-	var rolloutStatus string
+	var rolloutStatus, sourceVersion string
 	err = tx.QueryRowContext(ctx, `
-		SELECT status
+		SELECT status, source_version
 		FROM cluster_release_rollouts
 		WHERE id = $1
 		FOR UPDATE
-	`, rolloutID).Scan(&rolloutStatus)
+	`, rolloutID).Scan(&rolloutStatus, &sourceVersion)
 	if errors.Is(err, sql.ErrNoRows) {
 		return service.ErrClusterRolloutNotFound
 	}
@@ -743,9 +778,13 @@ func (r *clusterReleaseRepository) CancelRollout(ctx context.Context, rolloutID 
 	}
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE cluster_release_state
-		SET active_rollout_id = NULL, generation = generation + 1, updated_at = NOW()
+		SET desired_version = $2,
+			locked_version = '',
+			active_rollout_id = NULL,
+			generation = generation + 1,
+			updated_at = NOW()
 		WHERE singleton = TRUE AND active_rollout_id = $1
-	`, rolloutID); err != nil {
+	`, rolloutID, sourceVersion); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -787,6 +826,98 @@ func (r *clusterReleaseRepository) RetryTarget(ctx context.Context, rolloutID, n
 		WHERE id = $1 AND status = $3
 	`, rolloutID, service.ClusterRolloutStatusRunning, service.ClusterRolloutStatusPaused)
 	if err := clusterRolloutMutationResult(result, err); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (r *clusterReleaseRepository) ConfirmRollout(ctx context.Context, rolloutID string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var targetVersion, rolloutStatus string
+	err = tx.QueryRowContext(ctx, `
+		SELECT target_version, status
+		FROM cluster_release_rollouts
+		WHERE id = $1
+		FOR UPDATE
+	`, rolloutID).Scan(&targetVersion, &rolloutStatus)
+	if errors.Is(err, sql.ErrNoRows) {
+		return service.ErrClusterRolloutNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if rolloutStatus != service.ClusterRolloutStatusAwaitingConfirmation &&
+		rolloutStatus != service.ClusterRolloutStatusCompleted {
+		return service.ErrClusterRolloutInvalidState
+	}
+
+	rows, err := tx.QueryContext(ctx, `
+		SELECT status
+		FROM cluster_release_targets
+		WHERE rollout_id = $1
+		FOR UPDATE
+	`, rolloutID)
+	if err != nil {
+		return err
+	}
+	targetCount := 0
+	incomplete := 0
+	for rows.Next() {
+		var status string
+		if err := rows.Scan(&status); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		targetCount++
+		if status != service.ClusterRolloutTargetSucceeded {
+			incomplete++
+		}
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if targetCount == 0 || incomplete > 0 {
+		return service.ErrClusterRolloutNotReadyToConfirm
+	}
+
+	var activeRolloutID sql.NullString
+	if err := tx.QueryRowContext(ctx, `
+		SELECT active_rollout_id
+		FROM cluster_release_state
+		WHERE singleton = TRUE
+		FOR UPDATE
+	`).Scan(&activeRolloutID); err != nil {
+		return err
+	}
+	if !activeRolloutID.Valid || activeRolloutID.String != rolloutID {
+		return service.ErrClusterRolloutInvalidState
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE cluster_release_rollouts
+		SET status = $2, completed_at = COALESCE(completed_at, NOW()),
+			error_message = '', updated_at = NOW()
+		WHERE id = $1
+	`, rolloutID, service.ClusterRolloutStatusCompleted); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE cluster_release_state
+		SET desired_version = $2,
+			locked_version = $2,
+			active_rollout_id = NULL,
+			generation = generation + 1,
+			updated_at = NOW()
+		WHERE singleton = TRUE AND active_rollout_id = $1
+	`, rolloutID, targetVersion); err != nil {
 		return err
 	}
 	return tx.Commit()

@@ -9,6 +9,7 @@ const clusterAPI = vi.hoisted(() => ({
   pauseRollout: vi.fn(),
   resumeRollout: vi.fn(),
   cancelRollout: vi.fn(),
+  confirmRollout: vi.fn(),
   retryRolloutTarget: vi.fn(),
 }))
 
@@ -97,6 +98,7 @@ function statusFixture() {
     release: {
       state: {
         desired_version: '1.2.3',
+        locked_version: '1.2.3',
         generation: 1,
         updated_at: '2026-07-15T00:01:00Z',
       },
@@ -291,5 +293,56 @@ describe('MultiInstanceView', () => {
 
     expect(window.confirm).toHaveBeenCalled()
     expect(clusterAPI.createRollout).toHaveBeenCalledWith('1.2.4')
+  })
+
+  it('lets the operator lock a fully verified rollout', async () => {
+    const fixture = statusFixture() as any
+    fixture.release.state.active_rollout_id = 'rollout-1'
+    fixture.release.state.locked_version = ''
+    fixture.release.active_rollout = {
+      id: 'rollout-1',
+      source_version: '1.2.2',
+      target_version: '1.2.3',
+      status: 'awaiting_confirmation',
+      strategy: 'rolling',
+      max_unavailable: 1,
+      created_by: 1,
+      started_at: '2026-07-15T00:00:00Z',
+      created_at: '2026-07-15T00:00:00Z',
+      updated_at: '2026-07-15T00:01:00Z',
+      targets: [{
+        rollout_id: 'rollout-1',
+        node_id: 'node-a',
+        node_name: 'api-a',
+        ordinal: 0,
+        source_version: '1.2.2',
+        target_version: '1.2.3',
+        status: 'succeeded',
+        attempt: 1,
+        verification_count: 2,
+        created_at: '2026-07-15T00:00:00Z',
+        updated_at: '2026-07-15T00:01:00Z',
+      }],
+    }
+    clusterAPI.getStatus.mockResolvedValue(fixture)
+    clusterAPI.confirmRollout.mockResolvedValue({})
+
+    const wrapper = mount(MultiInstanceView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          Icon: { template: '<span />' },
+          Toggle: { props: ['modelValue'], template: '<button type="button" />' },
+        },
+      },
+    })
+    await flushPromises()
+
+    const confirmButton = wrapper.findAll('button').find((button) => button.text().includes('admin.cluster.release.confirm'))
+    expect(confirmButton).toBeDefined()
+    await confirmButton!.trigger('click')
+    await flushPromises()
+
+    expect(clusterAPI.confirmRollout).toHaveBeenCalledWith('rollout-1')
   })
 })

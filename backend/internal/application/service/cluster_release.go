@@ -8,10 +8,13 @@ import (
 )
 
 const (
-	ClusterRolloutStatusRunning   = "running"
-	ClusterRolloutStatusPaused    = "paused"
-	ClusterRolloutStatusCompleted = "completed"
-	ClusterRolloutStatusCancelled = "cancelled"
+	ClusterRolloutStatusRunning = "running"
+	ClusterRolloutStatusPaused  = "paused"
+	// AwaitingConfirmation means every target has verified the candidate
+	// version, but the administrator has not locked it as the cluster version.
+	ClusterRolloutStatusAwaitingConfirmation = "awaiting_confirmation"
+	ClusterRolloutStatusCompleted            = "completed"
+	ClusterRolloutStatusCancelled            = "cancelled"
 
 	ClusterRolloutTargetPending    = "pending"
 	ClusterRolloutTargetDraining   = "draining"
@@ -34,11 +37,16 @@ var (
 	ErrClusterRolloutInvalidState          = infraerrors.Conflict("CLUSTER_ROLLOUT_INVALID_STATE", "cluster rollout is not in a valid state for this operation")
 	ErrClusterRolloutTargetNotFound        = infraerrors.NotFound("CLUSTER_ROLLOUT_TARGET_NOT_FOUND", "cluster rollout target not found")
 	ErrClusterRolloutActiveTarget          = infraerrors.Conflict("CLUSTER_ROLLOUT_TARGET_ACTIVE", "a rollout target is still active")
+	ErrClusterRolloutNotReadyToConfirm     = infraerrors.Conflict("CLUSTER_ROLLOUT_NOT_READY_TO_CONFIRM", "all rollout targets must be verified before confirmation")
 	ErrClusterRolloutRequiresMultiInstance = infraerrors.Conflict("MULTI_INSTANCE_ROLLOUT_REQUIRED", "use the cluster rollout workflow in multi-instance mode")
 )
 
 type ClusterReleaseState struct {
-	DesiredVersion  string    `json:"desired_version"`
+	DesiredVersion string `json:"desired_version"`
+	// LockedVersion is the version enforced by the readiness gate. It is empty
+	// while a rollout is in progress or the cluster has been deliberately left
+	// unlocked after a cancellation.
+	LockedVersion   string    `json:"locked_version,omitempty"`
 	ActiveRolloutID string    `json:"active_rollout_id,omitempty"`
 	Generation      int64     `json:"generation"`
 	UpdatedAt       time.Time `json:"updated_at"`
@@ -130,4 +138,5 @@ type ClusterReleaseRepository interface {
 	ResumeRollout(ctx context.Context, rolloutID string) error
 	CancelRollout(ctx context.Context, rolloutID string) error
 	RetryTarget(ctx context.Context, rolloutID, nodeID string) error
+	ConfirmRollout(ctx context.Context, rolloutID string) error
 }

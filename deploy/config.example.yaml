@@ -33,6 +33,8 @@ deployment:
   stale_after_seconds: 90
   task_lease_seconds: 60
   rollout_poll_seconds: 5
+  # Deprecated compatibility fields; binary rollouts no longer wait for a
+  # pre-restart drain or in-flight request timeout.
   rollout_drain_grace_seconds: 10
   rollout_drain_timeout_seconds: 900
   rollout_verify_heartbeats: 2

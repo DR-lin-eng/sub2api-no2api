@@ -104,6 +104,17 @@ func (h *ClusterHandler) CancelRollout(c *gin.Context) {
 	h.mutateRollout(c, h.releaseService.CancelRollout)
 }
 
+func (h *ClusterHandler) ConfirmRollout(c *gin.Context) {
+	var req struct {
+		Confirm bool `json:"confirm"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || !req.Confirm {
+		response.Error(c, http.StatusBadRequest, "confirmation required")
+		return
+	}
+	h.mutateRollout(c, h.releaseService.ConfirmRollout)
+}
+
 func (h *ClusterHandler) RetryTarget(c *gin.Context) {
 	if err := h.releaseService.RetryTarget(c.Request.Context(), c.Param("id"), c.Param("node_id")); err != nil {
 		response.ErrorFrom(c, err)

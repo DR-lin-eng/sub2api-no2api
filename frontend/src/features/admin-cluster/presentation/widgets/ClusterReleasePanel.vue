@@ -19,6 +19,11 @@
         <span class="font-mono font-semibold text-gray-800 dark:text-gray-200">
           {{ overview?.state.desired_version ? `v${overview.state.desired_version}` : '-' }}
         </span>
+        <span class="text-gray-500 dark:text-gray-400">
+          {{ overview?.state.locked_version
+            ? t('admin.cluster.release.locked', { version: `v${overview.state.locked_version}` })
+            : t('admin.cluster.release.unlocked') }}
+        </span>
         <span class="text-gray-300 dark:text-dark-600">/</span>
         <span>{{ driverLabel }}</span>
       </div>
@@ -75,6 +80,17 @@
               {{ t('admin.cluster.release.resume') }}
             </button>
             <button
+              v-if="activeRollout.status === 'awaiting_confirmation'"
+              type="button"
+              class="inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-3 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              :disabled="busy"
+              @click="$emit('confirm', activeRollout.id)"
+            >
+              <Icon name="check" size="xs" />
+              {{ t('admin.cluster.release.confirm') }}
+            </button>
+            <button
+              v-if="activeRollout.status === 'running' || activeRollout.status === 'paused'"
               type="button"
               class="h-8 rounded-md border border-red-200 px-3 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-900/60 dark:text-red-400 dark:hover:bg-red-950/30"
               :disabled="busy || hasActiveTarget"
@@ -183,6 +199,7 @@ defineEmits<{
   pause: [rolloutId: string]
   resume: [rolloutId: string]
   cancel: [rolloutId: string]
+  confirm: [rolloutId: string]
   retry: [rolloutId: string, nodeId: string]
 }>()
 
@@ -215,6 +232,7 @@ function targetStatusLabel(status: ClusterRolloutTargetStatus): string {
 
 function rolloutStatusClass(status: ClusterRolloutStatus): string {
   if (status === 'completed') return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+  if (status === 'awaiting_confirmation') return 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
   if (status === 'paused') return 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
   if (status === 'cancelled') return 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300'
   return 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300'

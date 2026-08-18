@@ -15,6 +15,11 @@ source_image="$test_id:source"
 target_image="$test_id:target"
 source_version=${CLUSTER_TEST_SOURCE_VERSION:-0.0.0-cluster-test}
 target_version=${CLUSTER_TEST_TARGET_VERSION:-$($repo_root/backend/scripts/resolve-version.sh)}
+image_replacement=${CLUSTER_TEST_IMAGE_REPLACEMENT:-0}
+initial_rollout_poll_seconds=1
+if [ "$image_replacement" = "1" ]; then
+  initial_rollout_poll_seconds=30
+fi
 admin_key=admin-cluster-rollout-test-key
 admin_key_hash=2879e03aa0b2c375f81a39e9b1ca2428160c07f310f0c0567f38fc9fc1ae3417
 postgres_password=cluster-rollout-postgres-password
@@ -113,6 +118,7 @@ run_app() {
   volume_name=$2
   image_name=$3
   configured_name=$4
+  rollout_poll_seconds=${5:-1}
   docker run --detach \
     --name "$container_name" \
     --restart unless-stopped \
@@ -130,7 +136,7 @@ run_app() {
     --env DEPLOYMENT_HEARTBEAT_INTERVAL_SECONDS=2 \
     --env DEPLOYMENT_STALE_AFTER_SECONDS=6 \
     --env DEPLOYMENT_TASK_LEASE_SECONDS=15 \
-    --env DEPLOYMENT_ROLLOUT_POLL_SECONDS=1 \
+    --env "DEPLOYMENT_ROLLOUT_POLL_SECONDS=$rollout_poll_seconds" \
     --env DEPLOYMENT_ROLLOUT_DRAIN_GRACE_SECONDS=0 \
     --env DEPLOYMENT_ROLLOUT_DRAIN_TIMEOUT_SECONDS=30 \
     --env DEPLOYMENT_ROLLOUT_VERIFY_HEARTBEATS=3 \
@@ -261,8 +267,18 @@ wait_rollout_target_status() (
 
 cd "$repo_root"
 printf 'building Docker images for source=%s target=%s\n' "$source_version" "$target_version"
-docker build --file Dockerfile --build-arg "VERSION=$source_version" --tag "$source_image" .
-docker build --file Dockerfile --build-arg "VERSION=$target_version" --tag "$target_image" .
+build_image() {
+  version=$1
+  tag=$2
+  goproxy=${CLUSTER_TEST_GOPROXY:-https://goproxy.cn,direct}
+  if [ "${CLUSTER_TEST_NO_CACHE:-0}" = "1" ]; then
+    docker build --no-cache --file Dockerfile --build-arg "VERSION=$version" --build-arg "GOPROXY=$goproxy" --tag "$tag" .
+  else
+    docker build --file Dockerfile --build-arg "VERSION=$version" --build-arg "GOPROXY=$goproxy" --tag "$tag" .
+  fi
+}
+build_image "$source_version" "$source_image"
+build_image "$target_version" "$target_image"
 
 docker network create "$network_name" >/dev/null
 docker volume create "$postgres_volume" >/dev/null
@@ -286,10 +302,10 @@ docker run --detach \
 wait_container_command "$postgres_name" pg_isready -U sub2api -d sub2api
 wait_container_command "$redis_name" redis-cli ping
 
-run_app "$app_a_name" "$app_a_volume" "$source_image" alpha
+run_app "$app_a_name" "$app_a_volume" "$source_image" alpha "$initial_rollout_poll_seconds"
 app_a_url=$(container_url "$app_a_name")
 wait_http_status "$app_a_url/ready" 200 "$app_a_name"
-run_app "$app_b_name" "$app_b_volume" "$source_image" alpha
+run_app "$app_b_name" "$app_b_volume" "$source_image" alpha "$initial_rollout_poll_seconds"
 app_b_url=$(container_url "$app_b_name")
 wait_http_status "$app_b_url/ready" 200 "$app_b_name"
 
@@ -317,7 +333,7 @@ fi
 
 api_call PUT "$app_a_url" "/api/v1/admin/cluster/nodes/$node_b_id" '{"name":"bravo-renamed"}' >/dev/null
 docker rm -f "$app_b_name" >/dev/null
-run_app "$app_b_name" "$app_b_volume" "$source_image" alpha
+run_app "$app_b_name" "$app_b_volume" "$source_image" alpha "$initial_rollout_poll_seconds"
 app_b_url=$(container_url "$app_b_name")
 wait_http_status "$app_b_url/ready" 200 "$app_b_name"
 
@@ -336,24 +352,52 @@ assert_json "$rollout" ".data.targets | length == 2" "rollout created through no
 assert_json "$rollout" ".data.targets | all(.target_version == \"$target_version\")" "every target must use one exact version"
 assert_json "$rollout" ".data.targets[0].node_id == \"$node_a_id\"" "alpha must be the first serial target"
 
-wait_rollout_target_status "$app_b_name" "$rollout_id" "$node_a_id" succeeded
+status_after_create=$(api_get_internal "$app_b_name" /api/v1/admin/cluster/status)
+assert_json "$status_after_create" ".data.release.state.desired_version == \"$target_version\"" "candidate version must be announced before the first restart"
+assert_json "$status_after_create" ".data.release.state.locked_version == \"\" or .data.release.state.locked_version == null" "candidate version must remain unlocked during rollout"
 wait_internal_http_status "$app_a_name" /ready 200
 
-rollout_after_a=$(api_get_internal "$app_a_name" "/api/v1/admin/cluster/rollouts/$rollout_id")
-assert_json "$rollout_after_a" ".data.targets[] | select(.node_id == \"$node_a_id\") | .status == \"succeeded\"" "the first target must verify before the second replacement"
+if [ "$image_replacement" = "1" ]; then
+  api_call POST "$app_b_url" "/api/v1/admin/cluster/rollouts/$rollout_id/pause" >/dev/null
+  docker rm -f "$app_a_name" "$app_b_name" >/dev/null
 
-wait_rollout_target_status "$app_a_name" "$rollout_id" "$node_b_id" succeeded
-wait_internal_http_status "$app_b_name" /ready 200
+  run_app "$app_a_name" "$app_a_volume" "$target_image" alpha 1
+  app_a_url=$(container_url "$app_a_name")
+  wait_http_status "$app_a_url/ready" 200 "$app_a_name"
+  api_call POST "$app_a_url" "/api/v1/admin/cluster/rollouts/$rollout_id/resume" >/dev/null
+  wait_rollout_target_status "$app_a_name" "$rollout_id" "$node_a_id" succeeded
+
+  run_app "$app_b_name" "$app_b_volume" "$target_image" alpha 1
+  app_b_url=$(container_url "$app_b_name")
+  wait_http_status "$app_b_url/ready" 200 "$app_b_name"
+  wait_rollout_target_status "$app_a_name" "$rollout_id" "$node_b_id" succeeded
+else
+  wait_rollout_target_status "$app_b_name" "$rollout_id" "$node_a_id" succeeded
+  wait_internal_http_status "$app_a_name" /ready 200
+
+  rollout_after_a=$(api_get_internal "$app_a_name" "/api/v1/admin/cluster/rollouts/$rollout_id")
+  assert_json "$rollout_after_a" ".data.targets[] | select(.node_id == \"$node_a_id\") | .status == \"succeeded\"" "the first target must verify before the second replacement"
+
+  wait_rollout_target_status "$app_a_name" "$rollout_id" "$node_b_id" succeeded
+  wait_internal_http_status "$app_b_name" /ready 200
+fi
 
 final_status=$(api_get_internal "$app_a_name" /api/v1/admin/cluster/status)
 assert_json "$final_status" ".data.instances | length == 2" "completed rollout must still expose two logical nodes"
-assert_json "$final_status" ".data.release.consistent == true" "cluster versions must converge"
+assert_json "$final_status" ".data.release.active_rollout.status == \"awaiting_confirmation\"" "verified rollout must wait for operator confirmation"
+assert_json "$final_status" ".data.release.state.active_rollout_id == \"$rollout_id\"" "active rollout must remain visible until confirmation"
+assert_json "$final_status" ".data.release.consistent == true" "cluster versions must converge before confirmation"
 assert_json "$final_status" ".data.release.state.desired_version == \"$target_version\"" "desired version must advance after verification"
 assert_json "$final_status" ".data.release.version_counts == [{\"version\":\"$target_version\",\"nodes\":2}]" "both nodes must report the target version"
 assert_json "$final_status" ".data.instances[] | select(.node_id == \"$node_b_id\") | .node_name == \"bravo-renamed\"" "node alias must survive the rollout"
 
+api_call POST "$app_a_url" "/api/v1/admin/cluster/rollouts/$rollout_id/confirm" '{"confirm":true}' >/dev/null
+confirmed_status=$(api_get_internal "$app_a_name" /api/v1/admin/cluster/status)
+assert_json "$confirmed_status" ".data.release.state.active_rollout_id == null or .data.release.state.active_rollout_id == \"\"" "manual confirmation must clear the active rollout"
+assert_json "$confirmed_status" ".data.release.state.locked_version == \"$target_version\"" "manual confirmation must lock the target version"
+
 docker rm -f "$app_a_name" >/dev/null
-run_app "$app_a_name" "$app_a_volume" "$source_image" alpha
+run_app "$app_a_name" "$app_a_volume" "$source_image" alpha 1
 wait_internal_http_status "$app_a_name" /health 200
 wait_internal_http_status "$app_a_name" /ready 503
 
@@ -362,7 +406,7 @@ assert_json "$status_with_old_node" ".data.instances | length == 2" "a non-ready
 assert_json "$status_with_old_node" ".data.instances[] | select(.node_id == \"$node_a_id\") | .version == \"$source_version\"" "inventory must expose the regressed version"
 
 docker rm -f "$app_a_name" >/dev/null
-run_app "$app_a_name" "$app_a_volume" "$target_image" alpha
+run_app "$app_a_name" "$app_a_volume" "$target_image" alpha 1
 wait_internal_http_status "$app_a_name" /ready 200
 
 printf 'cluster rollout Docker test passed: nodes=2 target=%s rollout=%s\n' "$target_version" "$rollout_id"
