@@ -71,6 +71,13 @@ export default {
           enabled: '启用媒体工坊',
           enabledHint: '关闭后用户侧边栏隐藏媒体工坊入口，直接访问 /media-studio 会返回控制台。',
         },
+        customModelConfig: {
+          title: '自定义模型配置',
+          description: '配置模型能力覆盖规则，用于多模态路由判断。',
+          configureLink: '打开自定义模型配置',
+          enabled: '启用自定义模型配置',
+          enabledHint: '关闭后页面仍可供管理员访问，但模型能力查询会回退到内置规则。',
+        },
         ipv6Egress: ipv6EgressMessages,
         riskControl: {
           title: '风控中心',

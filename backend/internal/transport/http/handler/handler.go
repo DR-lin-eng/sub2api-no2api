@@ -45,6 +45,7 @@ type AdminHandlers struct {
 	Cluster                *admin.ClusterHandler
 	Chat                   *admin.ChatHandler
 	Egress                 *admin.EgressHandler
+	CustomModelConfig      *admin.CustomModelConfigHandler
 }
 
 // Handlers contains all HTTP handlers

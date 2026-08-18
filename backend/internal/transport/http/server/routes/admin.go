@@ -130,6 +130,9 @@ func RegisterAdminRoutes(
 
 		// 在线客服（管理端收件箱）
 		registerChatRoutes(admin, h, settingService)
+
+		// 自定义模型配置
+		registerCustomModelConfigRoutes(admin, h)
 	}
 }
 
@@ -888,5 +891,17 @@ func registerAffiliateRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 			users.PUT("/:user_id", h.Admin.Affiliate.UpdateUserSettings)
 			users.DELETE("/:user_id", h.Admin.Affiliate.ClearUserSettings)
 		}
+	}
+}
+
+// registerCustomModelConfigRoutes 注册自定义模型配置路由
+func registerCustomModelConfigRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	configs := admin.Group("/custom-model-configs")
+	{
+		configs.GET("", h.Admin.CustomModelConfig.List)
+		configs.POST("", h.Admin.CustomModelConfig.Create)
+		configs.GET("/:id", h.Admin.CustomModelConfig.Get)
+		configs.PUT("/:id", h.Admin.CustomModelConfig.Update)
+		configs.DELETE("/:id", h.Admin.CustomModelConfig.Delete)
 	}
 }

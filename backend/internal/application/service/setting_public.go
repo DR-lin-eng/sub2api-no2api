@@ -382,8 +382,9 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		ModelPlazaEnabled:     settings[SettingKeyModelPlazaEnabled] == "true",
 		ModelPlazaRequireAuth: settings[SettingKeyModelPlazaRequireAuth] == "true",
 
-		MediaStudioEnabled:  settings[SettingKeyMediaStudioEnabled] == "true",
-		IPv6EgressUIEnabled: ipv6EgressEnabled == "true",
+		MediaStudioEnabled:       settings[SettingKeyMediaStudioEnabled] == "true",
+		CustomModelConfigEnabled: settings[SettingKeyCustomModelConfigEnabled] == "true",
+		IPv6EgressUIEnabled:      ipv6EgressEnabled == "true",
 
 		AffiliateEnabled: settings[SettingKeyAffiliateEnabled] == "true",
 

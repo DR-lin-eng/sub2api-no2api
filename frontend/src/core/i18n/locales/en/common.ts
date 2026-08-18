@@ -183,6 +183,7 @@ export default {
     subscriptions: 'Subscriptions',
     accounts: 'Accounts',
     accountInspection: 'Account Inspection',
+    customModelConfig: 'Custom Model Config',
     proxies: 'Proxies',
     ipv6Egress: 'IPv6 Egress',
     redeemCodes: 'Redeem Codes',
@@ -249,10 +250,6 @@ export default {
     passwordRequired: 'Password is required',
     passwordMinLength: 'Password must be at least 6 characters',
     loginFailed: 'Login failed. Please check your credentials and try again.',
-    settingsLoadFailed: 'Unable to load the login configuration. Check your connection, disable interfering extensions, or retry in a standalone page.',
-    embeddedLoginTitle: 'Open the standalone sign-in page',
-    embeddedLoginDescription: 'This page is running in a restricted embedded context, so the browser cannot safely keep the login session here.',
-    openTopLevelLogin: 'Open standalone sign-in',
     accountLinked: 'Account linked successfully',
     twoFactor: {
       title: 'Two-Factor Authentication',

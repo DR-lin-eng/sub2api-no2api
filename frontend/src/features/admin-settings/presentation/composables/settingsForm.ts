@@ -361,5 +361,6 @@ export function createSettingsForm(localText: LocalText): SettingsForm {
     affiliate_enabled: false,
     allow_user_view_error_requests: false,
     allow_user_view_usage_details: false,
+    custom_model_config_enabled: false,
   };
 }

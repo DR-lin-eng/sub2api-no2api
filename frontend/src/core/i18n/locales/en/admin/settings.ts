@@ -71,6 +71,13 @@ export default {
           enabled: 'Enable Media Studio',
           enabledHint: 'When off, the user sidebar entry is hidden and direct visits to /media-studio return to the dashboard.',
         },
+        customModelConfig: {
+          title: 'Custom Model Config',
+          description: 'Configure model capability overrides for multimodal routing.',
+          configureLink: 'Open custom model config',
+          enabled: 'Enable custom model config',
+          enabledHint: 'When off, the page stays available to admins but model capability lookups fall back to built-in rules.',
+        },
         ipv6Egress: ipv6EgressMessages,
         riskControl: {
           title: 'Risk Control',

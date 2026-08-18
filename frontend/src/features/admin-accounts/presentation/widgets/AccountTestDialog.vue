@@ -252,6 +252,7 @@ import { useClipboard } from '@/common/composables/useClipboard'
 import { buildApiUrl } from '@/core/networks/client'
 import { getAccessToken } from '@/core/networks/tokenStore'
 import { getAvailableModels } from '@/features/admin-accounts/data/datasources/adminAccountQueries'
+import { isMediaStudioImageModel } from '@/features/custom-model-config/domain/services/modelCapabilityService'
 import type { Account } from '@/types'
 import type { ClaudeModel } from '@/features/admin-accounts/data/dtos/adminAccountDtos'
 
@@ -308,15 +309,22 @@ const previewImageUrl = ref('')
 const prioritizedGeminiModels = ['gemini-3.1-flash-image', 'gemini-2.5-flash-image', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-2.0-flash']
 const supportsGeminiImageTest = computed(() => {
   const modelID = selectedModelId.value.toLowerCase()
-  if (!modelID.startsWith('gemini-') || !modelID.includes('-image')) return false
+  const isGeminiAccount =
+    props.account?.platform === 'gemini' ||
+    (props.account?.platform === 'antigravity' && props.account?.type === 'apikey')
+  if (!isGeminiAccount) return false
 
-  return props.account?.platform === 'gemini' || (props.account?.platform === 'antigravity' && props.account?.type === 'apikey')
+  return (
+    (modelID.startsWith('gemini-') && modelID.includes('-image')) ||
+    isMediaStudioImageModel(selectedModelId.value)
+  )
 })
 
 const supportsOpenAIImageTest = computed(() => {
-  const modelID = selectedModelId.value.toLowerCase()
-  if (!modelID.startsWith('gpt-image-')) return false
-  return props.account?.platform === 'openai'
+  return (
+    props.account?.platform === 'openai' &&
+    isMediaStudioImageModel(selectedModelId.value)
+  )
 })
 
 const supportsImageTest = computed(() => supportsGeminiImageTest.value || supportsOpenAIImageTest.value)

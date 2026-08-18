@@ -419,6 +419,7 @@ function buildNotificationAndFeatureSettingsPayload({
     model_plaza_auto_public_models: form.model_plaza_auto_public_models,
     model_plaza_description: form.model_plaza_description,
     media_studio_enabled: form.media_studio_enabled,
+    custom_model_config_enabled: form.custom_model_config_enabled,
     ipv6_egress_ui_enabled: form.ipv6_egress_ui_enabled,
     affiliate_enabled: form.affiliate_enabled,
     allow_user_view_error_requests: form.allow_user_view_error_requests,

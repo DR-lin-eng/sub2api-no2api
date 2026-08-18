@@ -33,6 +33,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/chatmessageasset"
 	"github.com/Wei-Shaw/sub2api/ent/chatquickreply"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
+	"github.com/Wei-Shaw/sub2api/ent/custommodelconfig"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -140,6 +141,7 @@ func checkColumn(t, c string) error {
 			chatmessageasset.Table:              chatmessageasset.ValidColumn,
 			chatquickreply.Table:                chatquickreply.ValidColumn,
 			compositemodelroute.Table:           compositemodelroute.ValidColumn,
+			custommodelconfig.Table:             custommodelconfig.ValidColumn,
 			errorpassthroughrule.Table:          errorpassthroughrule.ValidColumn,
 			group.Table:                         group.ValidColumn,
 			ipv6egresspool.Table:                ipv6egresspool.ValidColumn,
