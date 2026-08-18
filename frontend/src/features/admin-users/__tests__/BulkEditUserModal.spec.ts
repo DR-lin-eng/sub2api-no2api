@@ -9,12 +9,8 @@ const { batchUpdateLimits, showSuccess, showError } = vi.hoisted(() => ({
   showError: vi.fn()
 }))
 
-vi.mock('@/api/admin', () => ({
-  adminAPI: {
-    users: {
-      batchUpdateLimits
-    }
-  }
+vi.mock('@/features/admin-users/data/datasources/adminUsersDatasource', () => ({
+  batchUpdateLimits
 }))
 
 vi.mock('@/core/stores/appStore', () => ({

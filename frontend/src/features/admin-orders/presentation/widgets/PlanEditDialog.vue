@@ -94,11 +94,11 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
-import { adminPaymentAPI } from '@/features/admin-orders/data/datasources/adminPaymentDatasource'
-import type { AdminPaymentConfig } from '@/features/admin-orders/data/datasources/adminPaymentDatasource'
+import { createPlan, updatePlan } from '@/features/admin-orders/data/datasources/adminPaymentActions'
+import type { AdminPaymentConfig } from '@/features/admin-orders/data/dtos/adminPaymentDtos'
 import { extractApiErrorMessage } from '@/core/utils/apiError'
-import { formatPaymentAmount } from '@/features/billing/presentation/currencyFormatter'
-import type { SubscriptionPlan } from '@/types/payment'
+import { formatPaymentAmount } from '@/features/billing/paymentDisplay'
+import type { SubscriptionPlan } from '@/features/billing/paymentContracts'
 import type { AdminGroup } from '@/types'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import Select from '@/common/widgets/forms/Select.vue'
@@ -217,8 +217,8 @@ async function handleSavePlan() {
   saving.value = true
   try {
     const data = buildPlanPayload()
-    if (props.plan) { await adminPaymentAPI.updatePlan(props.plan.id, data) }
-    else { await adminPaymentAPI.createPlan(data) }
+    if (props.plan) { await updatePlan(props.plan.id, data) }
+    else { await createPlan(data) }
     appStore.showSuccess(t('common.saved'))
     emit('close')
     emit('saved')

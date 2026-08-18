@@ -66,14 +66,14 @@ describe("groups editor modularization", () => {
     expect(createControllerSource).toContain(
       "profit_min_margin: profitControlEnabled",
     );
-    expect(createControllerSource).toContain("await groupsAPI.create(requestData)");
+    expect(createControllerSource).toContain("await create(requestData)");
     expect(editControllerSource).toContain("submit: handleUpdateGroup");
     expect(editControllerSource).toContain("...formData");
     expect(editControllerSource).toContain(
       "profit_min_margin: profitControlEnabled",
     );
     expect(editControllerSource).toContain(
-      "await groupsAPI.update(editingGroup.value.id, payload)",
+      "await update(editingGroup.value.id, payload)",
     );
     expect(pageSource).toContain("useCreateGroupController");
     expect(pageSource).toContain("useEditGroupController");

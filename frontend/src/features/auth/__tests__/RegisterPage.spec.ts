@@ -40,8 +40,11 @@ vi.mock('vue-i18n', () => ({
   })
 }))
 
-vi.mock('@/stores', () => ({
+vi.mock('@/features/auth', () => ({
   useAuthStore: () => ({ register: vi.fn() }),
+}))
+
+vi.mock('@/core/stores/appStore', () => ({
   useAppStore: () => ({
     showError: vi.fn(),
     showSuccess: vi.fn(),
@@ -49,8 +52,8 @@ vi.mock('@/stores', () => ({
   })
 }))
 
-vi.mock('@/features/auth/data/datasources/authDatasource', async () => {
-  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authDatasource')>('@/features/auth/data/datasources/authDatasource')
+vi.mock('@/features/auth/data/datasources/authQueries', async () => {
+  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authQueries')>('@/features/auth/data/datasources/authQueries')
   return {
     ...actual,
     getPublicSettings: (...args: unknown[]) => getPublicSettingsMock(...args)

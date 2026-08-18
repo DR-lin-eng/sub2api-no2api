@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { normalizePaymentDashboardStats } from '../presentation/widgets/dashboardStats'
-import type { DashboardStats } from '@/types/payment'
+import type { DashboardStats } from '@/features/billing/paymentContracts'
 
 function legacyStats(): DashboardStats {
   return {

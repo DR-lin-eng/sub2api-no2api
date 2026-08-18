@@ -114,7 +114,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import type { GroupPlatform } from "@/types";
+import type { GroupPlatform } from "@/types/group";
 import Icon from "@/common/widgets/icons/Icon.vue";
 import Select from "@/common/widgets/forms/Select.vue";
 import {

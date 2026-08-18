@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useAuthStore } from '@/features/auth/presentation/stores/authStore'
 
-// Mock authAPI
+// Mock explicit auth owners used by the store.
 const mockLogin = vi.fn()
 const mockLogin2FA = vi.fn()
 const mockLogout = vi.fn()
@@ -10,16 +10,17 @@ const mockGetCurrentUser = vi.fn()
 const mockRegister = vi.fn()
 const mockRefreshToken = vi.fn()
 
-vi.mock('@/features/auth/data/datasources/authDatasource', () => ({
-  authAPI: {
-    login: (...args: any[]) => mockLogin(...args),
-    login2FA: (...args: any[]) => mockLogin2FA(...args),
-    logout: (...args: any[]) => mockLogout(...args),
-    getCurrentUser: (...args: any[]) => mockGetCurrentUser(...args),
-    register: (...args: any[]) => mockRegister(...args),
-    refreshToken: (...args: any[]) => mockRefreshToken(...args),
-  },
+vi.mock('@/features/auth/data/datasources/authSessionActions', () => ({
+  login: (...args: any[]) => mockLogin(...args),
+  login2FA: (...args: any[]) => mockLogin2FA(...args),
+  logout: (...args: any[]) => mockLogout(...args),
+  register: (...args: any[]) => mockRegister(...args),
+  refreshToken: (...args: any[]) => mockRefreshToken(...args),
   isTotp2FARequired: (response: any) => response?.requires_2fa === true,
+}))
+
+vi.mock('@/features/auth/data/datasources/authQueries', () => ({
+  getCurrentUser: (...args: any[]) => mockGetCurrentUser(...args),
 }))
 
 const fakeUser = {
@@ -82,6 +83,7 @@ describe('useAuthStore', () => {
       expect(store.token).toBe('test-token-123')
       expect(store.user).toEqual(fakeUser)
       expect(store.isAuthenticated).toBe(true)
+      expect(store.isRoleVerified).toBe(true)
       expect(localStorage.getItem('auth_token')).toBeNull()
       expect(localStorage.getItem('auth_user')).toBe(JSON.stringify(fakeUser))
     })
@@ -194,6 +196,7 @@ describe('useAuthStore', () => {
       expect(store.token).toBe('test-token-123')
       expect(store.user).toEqual(fakeUser)
       expect(store.isAuthenticated).toBe(true)
+      expect(store.isRoleVerified).toBe(true)
     })
 
     it('localStorage 无数据时保持未认证状态', async () => {
@@ -238,6 +241,23 @@ describe('useAuthStore', () => {
       expect(store.token).toBe(fakeRefreshResponse.access_token)
       expect(store.user).toEqual(fakeUser)
       expect(store.isAuthenticated).toBe(true)
+      expect(store.isRoleVerified).toBe(false)
+      expect(store.isAdmin).toBe(false)
+    })
+
+    it('does not trust a cached admin role when profile refresh fails transiently', async () => {
+      localStorage.setItem('auth_user', JSON.stringify(fakeAdminUser))
+      mockRefreshToken.mockResolvedValue(fakeRefreshResponse)
+      mockGetCurrentUser.mockRejectedValue({ status: 0, message: 'network error' })
+
+      const store = useAuthStore()
+      await store.checkAuth()
+
+      expect(store.token).toBe(fakeRefreshResponse.access_token)
+      expect(store.user).toEqual(fakeAdminUser)
+      expect(store.isAuthenticated).toBe(true)
+      expect(store.isRoleVerified).toBe(false)
+      expect(store.isAdmin).toBe(false)
     })
 
     it('恢复持久化 pending auth session', () => {
@@ -352,6 +372,7 @@ describe('useAuthStore', () => {
 
       await store.login({ email: 'admin@example.com', password: '123456' })
 
+      expect(store.isRoleVerified).toBe(true)
       expect(store.isAdmin).toBe(true)
     })
 

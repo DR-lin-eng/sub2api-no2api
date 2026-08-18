@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import Icon from "@/common/widgets/icons/Icon.vue";
-import type { GroupPlatform } from "@/types";
+import type { GroupPlatform } from "@/types/group";
 import { groupPricingTagClass } from "../groupsModelPricing";
 
 const props = defineProps<{

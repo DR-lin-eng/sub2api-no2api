@@ -1,4 +1,4 @@
-import type { GroupPlatform } from "@/types";
+import type { GroupPlatform } from "@/types/group";
 
 export type ModelsListCandidatesMode = "create" | "edit";
 

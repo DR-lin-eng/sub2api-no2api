@@ -144,8 +144,9 @@ import { AuthLayout } from '@/common/widgets/layout'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import HumanVerificationWidget from '@/features/auth/presentation/widgets/HumanVerificationWidget.vue'
 import LocalCaptchaWidget from '@/features/auth/presentation/widgets/LocalCaptchaWidget.vue'
-import { useAppStore } from '@/stores'
-import { getPublicSettings, forgotPassword } from '@/features/auth/data/datasources/authDatasource'
+import { useAppStore } from '@/core/stores/appStore'
+import { getPublicSettings } from '@/features/auth/data/datasources/authQueries'
+import { forgotPassword } from '@/features/auth/data/datasources/authVerificationActions'
 import {
   resolveHumanVerification,
   type AliyunCaptchaRegion,

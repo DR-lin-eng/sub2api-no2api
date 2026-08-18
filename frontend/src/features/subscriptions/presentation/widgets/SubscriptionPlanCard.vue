@@ -107,12 +107,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { SubscriptionPlan } from '@/types/payment'
+import type { SubscriptionPlan } from '@/features/billing/paymentContracts'
 import type { UserSubscription } from '@/types'
 import { useAppStore } from '@/core/stores/appStore'
 import { hasPeakRate as groupHasPeakRate, formatPeakRateWindow, serverTimezoneLabel } from '@/core/utils/peak-rate'
-import { planValiditySuffix } from '@/features/billing/presentation/utils/validity'
-import { currencySymbol } from '@/features/billing/presentation/currencyFormatter'
+import { currencySymbol, planValiditySuffix } from '@/features/billing/paymentDisplay'
 import {
   platformAccentBarClass,
   platformBadgeLightClass,

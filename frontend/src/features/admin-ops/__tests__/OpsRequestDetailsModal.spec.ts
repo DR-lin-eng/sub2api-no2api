@@ -9,7 +9,7 @@ vi.mock('@/features/admin-ops/data/datasources/opsLogQueries', () => ({
   listRequestDetails: (...args: any[]) => mockListRequestDetails(...args)
 }))
 
-vi.mock('@/stores', () => ({
+vi.mock('@/core/stores/appStore', () => ({
   useAppStore: () => ({
     showError: vi.fn(),
     showWarning: vi.fn()

@@ -262,6 +262,7 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
 import { getPersistedPageSize } from '@/common/composables/usePersistedPageSize'
 import { adminAPI } from '@/api/admin'
+import { getAll as getAllAdminGroups } from '@/features/admin-groups/data/datasources/adminGroupQueries'
 import { formatDateTime, formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/core/utils/format'
 import type { AdminGroup, Announcement, AnnouncementTargeting } from '@/types'
 import type { Column } from '@/common/types/uiTypes'
@@ -441,7 +442,7 @@ const subscriptionGroups = ref<AdminGroup[]>([])
 
 async function loadSubscriptionGroups() {
   try {
-    const all = await adminAPI.groups.getAll()
+    const all = await getAllAdminGroups()
     subscriptionGroups.value = (all || []).filter((g) => g.subscription_type === 'subscription')
   } catch (error: any) {
     console.error('Error loading groups:', error)

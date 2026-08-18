@@ -13,7 +13,7 @@ vi.mock('vue-router', () => ({
   })
 }))
 
-vi.mock('@/features/auth/presentation/stores/authStore', () => ({
+vi.mock('@/features/auth', () => ({
   useAuthStore: () => ({
     user: null
   })
@@ -96,6 +96,21 @@ describe('ProfileInfoCard', () => {
     expect(wrapper.text()).toContain('User')
     expect(wrapper.get('[data-testid="profile-basics-panel"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="profile-auth-bindings-panel"]').exists()).toBe(true)
+  })
+
+  it('renders the administrator badge only from a verified permission signal', () => {
+    const cachedAdmin = createUser({ role: 'admin' })
+    const unverified = mount(ProfileInfoCard, {
+      props: { user: cachedAdmin, isAdmin: false },
+      global: { stubs: { Icon: true } }
+    })
+    const verified = mount(ProfileInfoCard, {
+      props: { user: cachedAdmin, isAdmin: true },
+      global: { stubs: { Icon: true } }
+    })
+
+    expect(unverified.get('[data-testid="profile-role-badge"]').text()).toBe('User')
+    expect(verified.get('[data-testid="profile-role-badge"]').text()).toBe('Administrator')
   })
 
   it('renders third-party source hints from profile sources', () => {

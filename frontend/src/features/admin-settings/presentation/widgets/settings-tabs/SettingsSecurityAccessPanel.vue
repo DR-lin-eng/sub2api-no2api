@@ -362,7 +362,7 @@
         <div>
           <dt class="text-gray-500 dark:text-gray-400">{{ t("admin.settings.apiKeyAcl.activeMode") }}</dt>
           <dd class="mt-1 font-medium text-gray-900 dark:text-white">
-            {{ t(`admin.settings.apiKeyAcl.modes.${form.client_ip_resolution_status.mode || form.client_ip_resolution_mode}`) }}
+            {{ clientIPResolutionModeLabel(t, form.client_ip_resolution_status.mode || form.client_ip_resolution_mode) }}
           </dd>
         </div>
         <div>
@@ -380,7 +380,7 @@
         <div>
           <dt class="text-gray-500 dark:text-gray-400">{{ t("admin.settings.apiKeyAcl.cloudflareSource") }}</dt>
           <dd class="mt-1 font-medium text-gray-900 dark:text-white">
-            {{ t(`admin.settings.apiKeyAcl.sources.${form.client_ip_resolution_status.cloudflare_ranges_source || 'embedded'}`) }}
+            {{ clientIPRangesSourceLabel(t, form.client_ip_resolution_status.cloudflare_ranges_source || 'embedded') }}
           </dd>
         </div>
       </dl>
@@ -751,6 +751,10 @@ import Select from '@/common/widgets/forms/Select.vue'
 import Toggle from '@/common/widgets/forms/Toggle.vue'
 import { useSettingsPageContext } from '@/features/admin-settings/presentation/composables/settingsPageContext'
 import type { ClientIPResolutionMode } from '@/features/admin-settings/data/dtos/systemSettingsDtos'
+import {
+  clientIPRangesSourceLabel,
+  clientIPResolutionModeLabel,
+} from '@/features/admin-settings/presentation/clientIpResolutionLocale'
 
 const { aliyunCaptchaRegionOptions, clientIPLastRefreshText, clientIPResolutionModeOptions, clientIPTrustedProxiesText, commitRegistrationEmailSuffixWhitelistDraft, form, handleRegistrationEmailSuffixWhitelistDraftInput, handleRegistrationEmailSuffixWhitelistDraftKeydown, handleRegistrationEmailSuffixWhitelistPaste, humanVerificationProviders, panelRateLimitSettingsMounted, registrationEmailSuffixWhitelistDraft, registrationEmailSuffixWhitelistTags, removeRegistrationEmailSuffixWhitelistTag, setHumanVerificationProvider, t, tencentCaptchaRegionOptions } = useSettingsPageContext()
 </script>

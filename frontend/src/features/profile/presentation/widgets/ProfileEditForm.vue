@@ -41,9 +41,9 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAuthStore } from '@/features/auth/presentation/stores/authStore'
+import { useAuthStore } from '@/features/auth'
 import { useAppStore } from '@/core/stores/appStore'
-import { userAPI } from '@/api'
+import { updateProfile } from '@/features/profile/data/datasources/profileDatasource'
 
 const props = withDefaults(defineProps<{
   initialUsername: string
@@ -71,7 +71,7 @@ const handleUpdateProfile = async () => {
 
   loading.value = true
   try {
-    const updatedUser = await userAPI.updateProfile({
+    const updatedUser = await updateProfile({
       username: username.value
     })
     authStore.user = updatedUser

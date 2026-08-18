@@ -33,8 +33,8 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
   resolveWeChatOAuthStart,
-  type OAuthLoginStart
-} from '@/features/auth/data/datasources/authDatasource'
+} from '@/features/auth/data/datasources/authOAuthActions'
+import type { OAuthLoginStart } from '@/features/auth/data/dtos/authDtos'
 import { useAppStore } from '@/core/stores/appStore'
 import { resolveAffiliateReferralCode, storeOAuthAffiliateCode } from '@/core/utils/oauthAffiliate'
 

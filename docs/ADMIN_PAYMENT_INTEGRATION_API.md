@@ -11,7 +11,7 @@
 - 支付成功后充值
 - 用户查询
 - 人工余额修正
-- 前端购买页参数透传
+- 自定义 iframe 上下文与显式令牌委托
 
 ### 基础地址
 - 生产：`https://<your-domain>`
@@ -101,18 +101,32 @@ curl -X POST "${BASE}/api/v1/admin/users/123/balance" \
   }'
 ```
 
-### 4) 购买页 / 自定义页面 URL Query 透传（iframe / 新窗口一致）
-当 Sub2API 打开 `purchase_subscription_url` 或用户侧自定义页面 iframe URL 时，会统一追加：
+### 4) 自定义页面嵌入上下文
+当 Sub2API 打开用户侧自定义页面 iframe URL 时，会追加以下非敏感上下文：
 - `user_id`
-- `token`
 - `theme`（`light` / `dark`）
 - `lang`（例如 `zh` / `en`，用于向嵌入页传递当前界面语言）
 - `ui_mode`（固定 `embedded`）
+- `src_host`（Sub2API 来源 origin）
+- `src_url`（只包含 origin + pathname，不包含 query/hash）
 
 示例：
 ```text
-https://pay.example.com/pay?user_id=123&token=<jwt>&theme=light&lang=zh&ui_mode=embedded
+https://help.example.com/page?user_id=123&theme=light&lang=zh&ui_mode=embedded
 ```
+
+访问令牌不会写入 iframe URL、新窗口 URL、referrer 或 `src_url`。如果管理员对单个自定义菜单显式开启“转发用户访问令牌”，令牌仅在 iframe 加载完成后通过限定 `targetOrigin` 的 `postMessage` 发送：
+
+```json
+{
+  "type": "sub2api:embedded-auth",
+  "version": 1,
+  "token": "<access-token>",
+  "user_id": 123
+}
+```
+
+嵌入页必须把 Sub2API 部署 origin 配置为固定 allowlist，并严格校验 `event.origin`、消息类型和版本。该开关等同于把当前用户会话委托给嵌入页，只能对完全可信且不会记录、持久化或继续转发令牌的页面启用。新窗口始终不会接收令牌。
 
 ### 5) 失败处理建议
 - 支付成功与充值成功分状态落库
@@ -133,7 +147,7 @@ This document describes the minimal Sub2API Admin API surface for external payme
 - Recharge after payment success
 - User lookup
 - Manual balance correction
-- Purchase page query parameter forwarding
+- Custom iframe context and explicit token delegation
 
 ### Base URL
 - Production: `https://<your-domain>`
@@ -223,18 +237,32 @@ curl -X POST "${BASE}/api/v1/admin/users/123/balance" \
   }'
 ```
 
-### 4) Purchase / Custom Page URL query forwarding (iframe and new tab)
-When Sub2API opens `purchase_subscription_url` or a user-facing custom page iframe URL, it appends:
+### 4) Custom page embed context
+When Sub2API opens a user-facing custom page iframe URL, it appends the following non-sensitive context:
 - `user_id`
-- `token`
 - `theme` (`light` / `dark`)
 - `lang` (for example `zh` / `en`, used to pass the current UI language to the embedded page)
 - `ui_mode` (fixed: `embedded`)
+- `src_host` (the Sub2API origin)
+- `src_url` (origin + pathname only; query and hash are excluded)
 
 Example:
 ```text
-https://pay.example.com/pay?user_id=123&token=<jwt>&theme=light&lang=zh&ui_mode=embedded
+https://help.example.com/page?user_id=123&theme=light&lang=en&ui_mode=embedded
 ```
+
+Access tokens are never placed in iframe URLs, new-window URLs, referrers, or `src_url`. If an administrator explicitly enables "Forward user access token" for an individual custom menu item, the token is sent only after the iframe loads through a `postMessage` call locked to the exact target origin:
+
+```json
+{
+  "type": "sub2api:embedded-auth",
+  "version": 1,
+  "token": "<access-token>",
+  "user_id": 123
+}
+```
+
+The embedded page must configure the Sub2API deployment origin as a fixed allowlist and strictly validate `event.origin`, message type, and version. Enabling this option delegates the current user session to the embedded page, so it must only be used for fully trusted pages that do not log, persist, or forward the token. New windows never receive the token.
 
 ### 5) Failure handling recommendations
 - Persist payment success and recharge success as separate states

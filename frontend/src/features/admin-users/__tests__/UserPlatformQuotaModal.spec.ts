@@ -8,14 +8,10 @@ const apiMocks = vi.hoisted(() => ({
   resetPlatformQuotaWindow: vi.fn(),
 }))
 
-vi.mock('@/api/admin', () => ({
-  adminAPI: {
-    users: {
-      getPlatformQuotas: apiMocks.getPlatformQuotas,
-      updatePlatformQuotas: apiMocks.updatePlatformQuotas,
-      resetPlatformQuotaWindow: apiMocks.resetPlatformQuotaWindow,
-    },
-  },
+vi.mock('@/features/admin-users/data/datasources/adminUsersDatasource', () => ({
+  getPlatformQuotas: apiMocks.getPlatformQuotas,
+  updatePlatformQuotas: apiMocks.updatePlatformQuotas,
+  resetPlatformQuotaWindow: apiMocks.resetPlatformQuotaWindow,
 }))
 
 vi.mock('@/core/stores/appStore', () => ({

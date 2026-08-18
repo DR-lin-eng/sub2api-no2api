@@ -5,7 +5,7 @@ import {
   type AuthSourceType,
   type DefaultSubscriptionSetting,
 } from "@/features/admin-settings/data/dtos/systemSettingsDtos";
-import { getAll as getAllAdminGroups } from "@/features/admin-groups/data/datasources/adminGroupsDatasource";
+import { getAll as getAllAdminGroups } from "@/features/admin-groups/data/datasources/adminGroupQueries";
 import {
   isRegistrationEmailSuffixDomainValid,
   normalizeRegistrationEmailSuffixDomain,

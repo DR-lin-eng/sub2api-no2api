@@ -124,7 +124,7 @@
                     : 'badge-primary'
               ]"
             >
-              {{ t('admin.redeem.types.' + value) }}
+              {{ redeemTypeLabel(t, value) }}
             </span>
           </template>
 
@@ -152,7 +152,7 @@
                     : 'badge-danger'
               ]"
             >
-              {{ t('admin.redeem.status.' + value) }}
+              {{ redeemStatusLabel(t, value) }}
             </span>
           </template>
 
@@ -674,6 +674,7 @@ import { useClipboard } from '@/common/composables/useClipboard'
 import { useTableSelection } from '@/common/composables/useTableSelection'
 import { getPersistedPageSize } from '@/common/composables/usePersistedPageSize'
 import { adminAPI } from '@/api/admin'
+import { getAll as getAllAdminGroups } from '@/features/admin-groups/data/datasources/adminGroupQueries'
 import { formatDateTime } from '@/core/utils/format'
 import type {
   RedeemCode,
@@ -693,6 +694,7 @@ import Select from '@/common/widgets/forms/Select.vue'
 import GroupBadge from '@/common/widgets/data/GroupBadge.vue'
 import GroupOptionItem from '@/common/widgets/data/GroupOptionItem.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
+import { redeemStatusLabel, redeemTypeLabel } from '@/features/admin-redeem/presentation/redeemLocale'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -1248,7 +1250,7 @@ const handleBatchUpdate = async () => {
 // 加载订阅类型分组
 const loadSubscriptionGroups = async () => {
   try {
-    const groups = await adminAPI.groups.getAll()
+    const groups = await getAllAdminGroups()
     subscriptionGroups.value = groups
   } catch (error) {
     console.error('Error loading subscription groups:', error)

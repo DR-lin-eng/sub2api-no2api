@@ -121,11 +121,11 @@
                   {{ t('admin.ingressRisk.cloudflare.title') }}
                 </h3>
                 <span class="rounded-full px-2 py-0.5 text-xs font-semibold" :class="cloudflareBadgeClass">
-                  {{ t(`admin.ingressRisk.cloudflare.status.${cloudflareStatus}`) }}
+                  {{ cloudflareStatusLabel(t, cloudflareStatus) }}
                 </span>
               </div>
               <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-dark-400">
-                {{ t(`admin.ingressRisk.cloudflare.description.${cloudflareStatus}`) }}
+                {{ cloudflareStatusDescription(t, cloudflareStatus) }}
               </p>
             </div>
           </div>
@@ -325,7 +325,7 @@
                       ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/35 dark:text-emerald-300'
                       : 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-dark-300'"
                   >
-                    {{ t(`admin.ingressRisk.cloudflare.settings.${cloudflareSettings.api_token_configured ? 'tokenConfigured' : 'tokenMissing'}`) }}
+                    {{ cloudflareTokenStatusLabel(t, cloudflareSettings.api_token_configured) }}
                   </span>
                 </div>
                 <input
@@ -706,6 +706,14 @@ import {
   type IngressRiskTimeRange,
 } from '@/features/admin-risk-control/data/datasources/ingressRiskDatasource'
 import { formatDateTime, formatNumber } from '@/core/utils/format'
+import {
+  cloudflareStatusDescription,
+  cloudflareStatusLabel,
+  cloudflareTokenStatusLabel,
+  ingressRiskProtocolLabel,
+  ingressRiskReasonLabel,
+  ingressRiskRouteLabel,
+} from '@/features/admin-risk-control/presentation/ingressRiskLocale'
 
 const { t } = useI18n()
 
@@ -1019,15 +1027,15 @@ function signalDotClass(level: HealthLevel) {
 }
 
 function reasonLabel(reason: string) {
-  return t(`admin.ingressRisk.reasons.${reason}`)
+  return ingressRiskReasonLabel(t, reason)
 }
 
 function routeLabel(route: string) {
-  return t(`admin.ingressRisk.routes.${route}`)
+  return ingressRiskRouteLabel(t, route)
 }
 
 function protocolLabel(protocol: string) {
-  return t(`admin.ingressRisk.protocols.${protocol}`)
+  return ingressRiskProtocolLabel(t, protocol)
 }
 
 function reasonBadgeClass(reason: string) {

@@ -215,9 +215,7 @@
                     class="rounded px-2 py-0.5 text-xs"
                     :class="statusClass(record.status)"
                   >
-                    {{ record.status === 'running' && record.progress
-                      ? t(`admin.backup.progress.${record.progress}`)
-                      : t(`admin.backup.status.${record.status}`) }}
+                    {{ backupRecordStatusLabel(t, record.status, record.progress) }}
                   </span>
                 </td>
                 <td class="py-3 pr-4 text-xs">{{ record.file_name }}</td>
@@ -405,6 +403,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api'
 import { useAppStore } from '@/stores'
+import { backupRecordStatusLabel } from '@/features/admin-backup/backupStatus'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import type {
   BackupS3Config,
@@ -414,7 +413,7 @@ import type {
   ImageStorageConfig,
 } from '@/features/admin-backup/data/datasources/adminBackupDatasource'
 import { useStepUp, isStepUpBlocked, isStepUpCancelled, stepUpBlockReason } from '@/common/composables/useStepUp'
-import TotpStepUpDialog from '@/features/auth/presentation/widgets/TotpStepUpDialog.vue'
+import TotpStepUpDialog from '@/features/auth/totpStepUpDialog'
 
 const { t } = useI18n()
 const appStore = useAppStore()

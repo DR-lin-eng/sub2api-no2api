@@ -47,6 +47,10 @@ vi.mock('@/api/admin', () => ({
   },
 }))
 
+vi.mock('@/features/admin-groups/data/datasources/adminGroupQueries', () => ({
+  getAll: getGroups,
+}))
+
 vi.mock('@/core/stores/appStore', () => ({
   useAppStore: () => ({
     showError,

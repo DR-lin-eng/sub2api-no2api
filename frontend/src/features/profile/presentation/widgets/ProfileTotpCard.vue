@@ -103,7 +103,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { totpAPI } from '@/api'
+import { getStatus } from '@/features/profile/data/datasources/totpDatasource'
 import type { TotpStatus } from '@/types'
 import TotpSetupModal from './TotpSetupDialog.vue'
 import TotpDisableDialog from './TotpDisableDialog.vue'
@@ -118,7 +118,7 @@ const showDisableDialog = ref(false)
 const loadStatus = async () => {
   loading.value = true
   try {
-    status.value = await totpAPI.getStatus()
+    status.value = await getStatus()
   } catch (error) {
     console.error('Failed to load TOTP status:', error)
   } finally {

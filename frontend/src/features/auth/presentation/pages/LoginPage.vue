@@ -250,14 +250,16 @@ import { useAuthStore } from '@/features/auth/presentation/stores/authStore'
 import { useAppStore } from '@/core/stores/appStore'
 import {
   buildOAuthLoginStartURL,
-  clearCredentialKeyPrefetch,
-  getPublicSettings,
-  isTotp2FARequired,
   isWeChatWebOAuthEnabled,
-  prefetchCredentialKey,
   startOAuthLogin,
-  type OAuthLoginStart
-} from '@/features/auth/data/datasources/authDatasource'
+} from '@/features/auth/data/datasources/authOAuthActions'
+import { getPublicSettings } from '@/features/auth/data/datasources/authQueries'
+import {
+  clearCredentialKeyPrefetch,
+  isTotp2FARequired,
+  prefetchCredentialKey,
+} from '@/features/auth/data/datasources/authSessionActions'
+import type { OAuthLoginStart } from '@/features/auth/data/dtos/authDtos'
 import type {
   ActionCaptchaRequestProof,
   LoginAgreementDocument,

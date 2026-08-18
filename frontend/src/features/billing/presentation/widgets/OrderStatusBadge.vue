@@ -10,7 +10,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { OrderStatus } from '@/types/payment'
+import type { OrderStatus } from '@/features/billing/paymentContracts'
+import { paymentOrderStatusLabel } from '@/features/billing/paymentLocale'
 
 const props = defineProps<{
   status: OrderStatus
@@ -35,8 +36,7 @@ const statusMap: Record<OrderStatus, { key: string; class: string }> = {
 }
 
 const statusLabel = computed(() => {
-  const entry = statusMap[props.status]
-  return entry ? t(entry.key) : props.status
+  return paymentOrderStatusLabel(t, props.status)
 })
 
 const statusClass = computed(() => {

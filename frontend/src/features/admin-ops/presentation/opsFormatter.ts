@@ -5,7 +5,7 @@
  * 同时避免引入额外 UI 依赖。
  */
 
-import type { OpsSeverity } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import type { OpsSeverity } from '@/features/admin-ops/data/dtos/opsErrorDtos'
 import { formatBytes } from '@/core/utils/format'
 
 const COMPACT_NUMBER_UNITS = ['', 'K', 'M', 'B', 'T', 'P', 'E', 'Z', 'Y'] as const

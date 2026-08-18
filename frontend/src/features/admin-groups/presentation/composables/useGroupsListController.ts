@@ -4,8 +4,19 @@ import type { Column } from "@/common/types/uiTypes";
 import { getPersistedPageSize } from "@/common/composables/usePersistedPageSize";
 import { extractApiErrorMessage } from "@/core/utils/apiError";
 import { useAppStore } from "@/core/stores/appStore";
-import * as groupsAPI from "@/features/admin-groups/data/datasources/adminGroupsDatasource";
-import type { AdminGroup, GroupPlatform } from "@/types";
+import {
+  deleteGroup,
+  duplicate,
+  updateSortOrder,
+} from "@/features/admin-groups/data/datasources/adminGroupActions";
+import {
+  getAll,
+  getCapacitySummary,
+  getUsageSummary,
+  list,
+} from "@/features/admin-groups/data/datasources/adminGroupQueries";
+import type { AdminGroup } from "@/features/admin-groups/data/dtos/adminGroupDtos";
+import type { GroupPlatform } from "@/types/group";
 
 const ALWAYS_VISIBLE_COLUMNS = new Set(["name", "actions"]);
 const DEFAULT_HIDDEN_COLUMNS = ["id"];
@@ -208,7 +219,7 @@ export function useGroupsListController() {
     }
     usageLoading.value = true;
     try {
-      const data = await groupsAPI.getUsageSummary();
+      const data = await getUsageSummary();
       const map = new Map<number, GroupUsageSummary>();
       for (const item of data) {
         map.set(item.group_id, {
@@ -227,7 +238,7 @@ export function useGroupsListController() {
   const loadCapacitySummary = async () => {
     if (!hasVisibleCapacityColumn.value) return;
     try {
-      const data = await groupsAPI.getCapacitySummary();
+      const data = await getCapacitySummary();
       const map = new Map<number, GroupCapacitySummary>();
       for (const item of data) {
         map.set(item.group_id, {
@@ -251,7 +262,7 @@ export function useGroupsListController() {
     const { signal } = currentController;
     loading.value = true;
     try {
-      const response = await groupsAPI.list(
+      const response = await list(
         pagination.page,
         pagination.page_size,
         {
@@ -384,9 +395,9 @@ export function useGroupsListController() {
     if (duplicatingGroupIds.has(group.id)) return;
     duplicatingGroupIds.add(group.id);
     try {
-      const duplicate = await groupsAPI.duplicate(group.id);
+      const duplicatedGroup = await duplicate(group.id);
       appStore.showSuccess(
-        t("admin.groups.duplicateSuccess", { name: duplicate.name }),
+        t("admin.groups.duplicateSuccess", { name: duplicatedGroup.name }),
       );
       await loadGroups();
     } catch (error: unknown) {
@@ -412,7 +423,7 @@ export function useGroupsListController() {
   const confirmDelete = async () => {
     if (!deletingGroup.value) return;
     try {
-      await groupsAPI.deleteGroup(deletingGroup.value.id);
+      await deleteGroup(deletingGroup.value.id);
       appStore.showSuccess(t("admin.groups.groupDeleted"));
       showDeleteDialog.value = false;
       deletingGroup.value = null;
@@ -428,7 +439,7 @@ export function useGroupsListController() {
   };
   const openSortModal = async () => {
     try {
-      const allGroups = await groupsAPI.getAll();
+      const allGroups = await getAll();
       sortableGroups.value = [...allGroups].sort(
         (left, right) => left.sort_order - right.sort_order,
       );
@@ -449,7 +460,7 @@ export function useGroupsListController() {
         id: group.id,
         sort_order: index * 10,
       }));
-      await groupsAPI.updateSortOrder(updates);
+      await updateSortOrder(updates);
       appStore.showSuccess(t("admin.groups.sortOrderUpdated"));
       closeSortModal();
       void loadGroups();

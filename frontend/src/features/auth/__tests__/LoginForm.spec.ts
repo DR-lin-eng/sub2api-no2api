@@ -13,17 +13,17 @@ const mockLogin = vi.fn()
 const mockLogin2FA = vi.fn()
 const mockPush = vi.fn()
 
-vi.mock('@/features/auth/data/datasources/authDatasource', () => ({
-  authAPI: {
-    login: (...args: any[]) => mockLogin(...args),
-    login2FA: (...args: any[]) => mockLogin2FA(...args),
-    logout: vi.fn(),
-    getCurrentUser: vi.fn().mockResolvedValue({ data: {} }),
-    register: vi.fn(),
-    refreshToken: vi.fn(),
-  },
+vi.mock('@/features/auth/data/datasources/authSessionActions', () => ({
+  login: (...args: any[]) => mockLogin(...args),
+  login2FA: (...args: any[]) => mockLogin2FA(...args),
+  logout: vi.fn(),
+  register: vi.fn(),
+  refreshToken: vi.fn(),
   isTotp2FARequired: (response: any) => response?.requires_2fa === true,
-  getPublicSettings: vi.fn().mockResolvedValue({}),
+}))
+
+vi.mock('@/features/auth/data/datasources/authQueries', () => ({
+  getCurrentUser: vi.fn().mockResolvedValue({ data: {} }),
 }))
 
 vi.mock('@/features/admin-settings/data/datasources/systemDatasource', () => ({

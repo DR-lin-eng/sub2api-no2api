@@ -157,16 +157,21 @@ import {
   buildUsageBillingCalculation,
   type UsageBillingCostLine,
 } from '@/core/utils/usageBillingCalculation'
+import { usageBillingCostLineLabel } from '@/core/utils/usageLocale'
 import type { AdminUsageLog } from '@/types'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   show: boolean
   usage: AdminUsageLog | null
-}>()
+  audience?: 'user' | 'admin'
+}>(), {
+  audience: 'admin',
+})
 
 const emit = defineEmits<{ close: [] }>()
 const { t } = useI18n()
 const { copyToClipboard } = useClipboard()
+const isAdminAudience = computed(() => props.audience === 'admin')
 
 const calculation = computed(() => props.usage ? buildUsageBillingCalculation(props.usage) : null)
 
@@ -188,13 +193,15 @@ const requestTypeLabel = computed(() => {
 const requestDetails = computed(() => {
   const usage = props.usage
   if (!usage) return []
-  const adminDetails = [
-    usage.upstream_model ? { key: 'upstream_model', label: t('usage.upstreamModel'), value: usage.upstream_model } : null,
-    usage.model_mapping_chain ? { key: 'model_mapping_chain', label: t('usage.detail.modelMappingChain'), value: usage.model_mapping_chain } : null,
-    usage.account ? { key: 'account', label: t('usage.account'), value: `${usage.account.name} (#${usage.account.id})` } : null,
-    usage.channel_id != null ? { key: 'channel_id', label: t('usage.detail.channelId'), value: `#${usage.channel_id}` } : null,
-    usage.billing_tier ? { key: 'billing_tier', label: t('usage.detail.billingTier'), value: usage.billing_tier } : null,
-  ].filter((item): item is NonNullable<typeof item> => item != null)
+  const adminDetails = isAdminAudience.value
+    ? [
+        usage.upstream_model ? { key: 'upstream_model', label: t('usage.upstreamModel'), value: usage.upstream_model } : null,
+        usage.model_mapping_chain ? { key: 'model_mapping_chain', label: t('usage.detail.modelMappingChain'), value: usage.model_mapping_chain } : null,
+        usage.account ? { key: 'account', label: t('usage.account'), value: `${usage.account.name} (#${usage.account.id})` } : null,
+        usage.channel_id != null ? { key: 'channel_id', label: t('usage.detail.channelId'), value: `#${usage.channel_id}` } : null,
+        usage.billing_tier ? { key: 'billing_tier', label: t('usage.detail.billingTier'), value: usage.billing_tier } : null,
+      ].filter((item): item is NonNullable<typeof item> => item != null)
+    : []
 
   return [
     { key: 'request_id', label: t('usage.detail.requestId'), value: usage.request_id, copyValue: usage.request_id, mono: true },
@@ -202,7 +209,7 @@ const requestDetails = computed(() => {
     { key: 'model', label: t('usage.model'), value: usage.model },
     { key: 'request_type', label: t('usage.type'), value: requestTypeLabel.value },
     { key: 'endpoint', label: t('usage.inboundEndpoint'), value: displayValue(usage.inbound_endpoint), mono: true },
-    ...(usage.upstream_endpoint ? [{ key: 'upstream_endpoint', label: t('usage.upstreamEndpoint'), value: usage.upstream_endpoint, mono: true }] : []),
+    ...(isAdminAudience.value && usage.upstream_endpoint ? [{ key: 'upstream_endpoint', label: t('usage.upstreamEndpoint'), value: usage.upstream_endpoint, mono: true }] : []),
     { key: 'group', label: t('usage.group'), value: usage.group?.name || (usage.group_id ? `#${usage.group_id}` : '-') },
     { key: 'billing_type', label: t('usage.detail.billingType'), value: usage.billing_type === 1 ? t('usage.detail.subscriptionBilling') : t('usage.detail.balanceBilling') },
     { key: 'service_tier', label: t('usage.serviceTier'), value: displayValue(usage.service_tier) },
@@ -264,7 +271,7 @@ const formatDuration = (milliseconds: number | null | undefined): string => {
   return `${(milliseconds / 1000).toFixed(2)}s`
 }
 
-const costLineLabel = (key: UsageBillingCostLine['key']): string => t(`usage.detail.costLines.${key}`)
+const costLineLabel = (key: UsageBillingCostLine['key']): string => usageBillingCostLineLabel(t, key)
 
 const quantityUnitLabel = (line: UsageBillingCostLine): string => {
   if (line.quantityUnit === 'tokens') return t('usage.detail.tokensUnit')

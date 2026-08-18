@@ -2,7 +2,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
-import { opsAPI } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import { updateAlertRuntimeSettings } from '@/features/admin-ops/data/datasources/opsSettingsActions'
+import { getAlertRuntimeSettings } from '@/features/admin-ops/data/datasources/opsSettingsQueries'
 import type { OpsAlertRuntimeSettings } from '../opsTypeSignals'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 
@@ -131,7 +132,7 @@ const alertValidation = computed(() => {
 async function loadSettings() {
   loading.value = true
   try {
-    alertSettings.value = await opsAPI.getAlertRuntimeSettings()
+    alertSettings.value = await getAlertRuntimeSettings()
   } catch (err: any) {
     console.error('[OpsRuntimeSettingsCard] Failed to load runtime settings', err)
     appStore.showError(err?.response?.data?.detail || t('admin.ops.runtime.loadFailed'))
@@ -220,7 +221,7 @@ async function saveAlertSettings() {
 
   saving.value = true
   try {
-    alertSettings.value = await opsAPI.updateAlertRuntimeSettings(draftAlert.value)
+    alertSettings.value = await updateAlertRuntimeSettings(draftAlert.value)
     showAlertEditor.value = false
     appStore.showSuccess(t('admin.ops.runtime.saveSuccess'))
   } catch (err: any) {

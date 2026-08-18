@@ -123,7 +123,11 @@ import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import ConfirmDialog from '@/common/widgets/feedback/ConfirmDialog.vue'
 import Pagination from '@/common/widgets/data/Pagination.vue'
 import UsageFilters from '@/features/admin-usage/presentation/widgets/UsageFilters.vue'
-import { adminUsageAPI } from '@/features/admin-usage/data/datasources/adminUsageDatasource'
+import {
+  cancelCleanupTask,
+  createCleanupTask,
+  listCleanupTasks,
+} from '@/features/admin-usage/data/datasources/adminUsageDatasource'
 import type { AdminUsageQueryParams, UsageCleanupTask, CreateUsageCleanupTaskRequest } from '@/features/admin-usage/data/datasources/adminUsageDatasource'
 import { requestTypeToLegacyStream } from '@/core/utils/usageRequestType'
 
@@ -239,7 +243,7 @@ const loadTasks = async () => {
   if (!props.show) return
   tasksLoading.value = true
   try {
-    const res = await adminUsageAPI.listCleanupTasks({
+    const res = await listCleanupTasks({
       page: tasksPage.value,
       page_size: tasksPageSize.value
     })
@@ -336,7 +340,7 @@ const submitCleanup = async () => {
   submitting.value = true
   confirmVisible.value = false
   try {
-    await adminUsageAPI.createCleanupTask(payload)
+    await createCleanupTask(payload)
     appStore.showSuccess(t('admin.usage.cleanup.submitSuccess'))
     loadTasks()
   } catch (error) {
@@ -356,7 +360,7 @@ const cancelTask = async () => {
   canceling.value = true
   cancelConfirmVisible.value = false
   try {
-    await adminUsageAPI.cancelCleanupTask(task.id)
+    await cancelCleanupTask(task.id)
     appStore.showSuccess(t('admin.usage.cleanup.cancelSuccess'))
     loadTasks()
   } catch (error) {

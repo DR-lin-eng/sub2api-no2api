@@ -101,13 +101,6 @@ func (s *codexSimulationStateStore) setWithTTL(ctx context.Context, key, value s
 	return s.shared.SetOpenAIWSState(cacheCtx, key, value, ttl)
 }
 
-func (s *codexSimulationStateStore) generation(ctx context.Context, key string) (uint64, error) {
-	if s == nil {
-		return 0, nil
-	}
-	return s.generationWithTTL(ctx, key, s.ttl)
-}
-
 func (s *codexSimulationStateStore) generationWithTTL(ctx context.Context, key string, ttl time.Duration) (uint64, error) {
 	value, found, err := s.getWithTTL(ctx, key, ttl)
 	if !found {
@@ -120,22 +113,8 @@ func (s *codexSimulationStateStore) generationWithTTL(ctx context.Context, key s
 	return generation, err
 }
 
-func (s *codexSimulationStateStore) setGeneration(ctx context.Context, key string, generation uint64) error {
-	if s == nil {
-		return nil
-	}
-	return s.setGenerationWithTTL(ctx, key, generation, s.ttl)
-}
-
 func (s *codexSimulationStateStore) setGenerationWithTTL(ctx context.Context, key string, generation uint64, ttl time.Duration) error {
 	return s.setWithTTL(ctx, key, strconv.FormatUint(generation, 10), ttl)
-}
-
-func (s *codexSimulationStateStore) setLocal(key, value string) {
-	if s == nil {
-		return
-	}
-	s.setLocalWithTTL(key, value, s.ttl)
 }
 
 func (s *codexSimulationStateStore) setLocalWithTTL(key, value string, ttl time.Duration) {

@@ -75,6 +75,11 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { PromptAuditRuntime } from '../../domain/models/promptAuditTypes'
+import {
+  promptAuditDependencyStatusLabel,
+  promptAuditModeLabel,
+  promptAuditProcessStatusLabel,
+} from '../promptAuditLocale'
 
 const props = defineProps<{ runtime: PromptAuditRuntime | null; loading: boolean; error: string }>()
 defineEmits<{ (event: 'refresh'): void }>()
@@ -84,12 +89,18 @@ const statusItems = computed(() => {
   const runtime = props.runtime
   if (!runtime) return []
   return [
-    { label: t('admin.promptAudit.runtime.process'), value: t(`admin.promptAudit.status.${runtime.process_status}`), dot: statusDot(runtime.process_status) },
-    { label: t('admin.promptAudit.runtime.mode'), value: t(`admin.promptAudit.mode.${runtime.effective_mode}`) },
+    { label: t('admin.promptAudit.runtime.process'), value: promptAuditProcessStatusLabel(t, runtime.process_status), dot: statusDot(runtime.process_status) },
+    { label: t('admin.promptAudit.runtime.mode'), value: promptAuditModeLabel(t, runtime.effective_mode) },
     { label: t('admin.promptAudit.runtime.version'), value: `${runtime.active_config_version} / ${runtime.expected_config_version}` },
     { label: t('admin.promptAudit.runtime.workers'), value: `${runtime.worker_active} / ${runtime.worker_total}` },
     { label: t('admin.promptAudit.runtime.queue'), value: `${runtime.queue.active} / ${runtime.queue_capacity}` },
-    { label: t('admin.promptAudit.runtime.dependencies'), value: `DB ${runtime.database_status} · Redis ${runtime.redis_status}` },
+    {
+      label: t('admin.promptAudit.runtime.dependencies'),
+      value: t('admin.promptAudit.runtime.dependenciesValue', {
+        database: promptAuditDependencyStatusLabel(t, runtime.database_status),
+        redis: promptAuditDependencyStatusLabel(t, runtime.redis_status),
+      }),
+    },
   ]
 })
 

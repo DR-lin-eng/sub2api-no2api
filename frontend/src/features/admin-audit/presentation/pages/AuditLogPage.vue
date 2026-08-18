@@ -355,7 +355,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI, type AuditLog } from '@/api/admin'
-import { totpAPI } from '@/api'
+import { getStatus as getTotpStatus } from '@/features/profile/data/datasources/totpDatasource'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import TablePageLayout from '@/common/widgets/layout/TablePageLayout.vue'
 import DataTable from '@/common/widgets/data/DataTable.vue'
@@ -616,7 +616,7 @@ async function openClearDialog() {
   if (checkingTotpStatus.value) return
   checkingTotpStatus.value = true
   try {
-    const status = await totpAPI.getStatus()
+    const status = await getTotpStatus()
     if (!status.enabled) {
       appStore.showError(t('stepUp.notEnabled'))
       return

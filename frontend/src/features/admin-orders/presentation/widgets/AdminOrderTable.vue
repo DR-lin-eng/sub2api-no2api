@@ -71,13 +71,13 @@
 
       <template #cell-status="{ value }">
         <span :class="['badge', statusBadgeClass(value)]">
-          {{ t('payment.status.' + value.toLowerCase(), value) }}
+          {{ paymentOrderStatusLabel(t, value) }}
         </span>
       </template>
 
       <template #cell-order_type="{ value }">
         <span class="text-sm text-gray-700 dark:text-gray-300">
-          {{ t('payment.admin.' + value + 'Order', value) }}
+          {{ paymentOrderTypeLabel(t, value) }}
         </span>
       </template>
 
@@ -136,14 +136,19 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { PaymentOrder } from '@/types/payment'
+import type { PaymentOrder } from '@/features/billing/paymentContracts'
 import type { Column } from '@/common/types/uiTypes'
 import DataTable from '@/common/widgets/data/DataTable.vue'
 import Pagination from '@/common/widgets/data/Pagination.vue'
 import Select from '@/common/widgets/forms/Select.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
-import { statusBadgeClass, canRefund, formatOrderDateTime } from '@/features/billing/presentation/orderUtilsFormatter'
-import { currencySymbol } from '@/features/billing/presentation/currencyFormatter'
+import { paymentOrderStatusLabel, paymentOrderTypeLabel } from '@/features/billing/paymentLocale'
+import {
+  canRefund,
+  currencySymbol,
+  formatOrderDateTime,
+  statusBadgeClass,
+} from '@/features/billing/paymentDisplay'
 
 const { t } = useI18n()
 

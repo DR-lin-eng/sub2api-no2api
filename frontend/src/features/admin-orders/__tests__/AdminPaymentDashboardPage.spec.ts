@@ -2,17 +2,16 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import AdminPaymentDashboardView from '../presentation/pages/AdminPaymentDashboardPage.vue'
-import type { DashboardStats } from '@/types/payment'
+import type { DashboardStats } from '@/features/billing/paymentContracts'
 
 const { getDashboard, showError } = vi.hoisted(() => ({
   getDashboard: vi.fn(),
   showError: vi.fn(),
 }))
 
-vi.mock('@/features/admin-orders/data/datasources/adminPaymentDatasource', () => {
-  const adminPaymentAPI = { getDashboard }
-  return { adminPaymentAPI, default: adminPaymentAPI }
-})
+vi.mock('@/features/admin-orders/data/datasources/adminPaymentQueries', () => ({
+  getDashboard,
+}))
 
 vi.mock('@/core/stores/appStore', () => ({
   useAppStore: () => ({ showError }),

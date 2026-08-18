@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
 import ConfirmDialog from "@/common/widgets/feedback/ConfirmDialog.vue";
-import type { AdminGroup } from "@/types";
+import type { AdminGroup } from "@/features/admin-groups/data/dtos/adminGroupDtos";
 import CompositeRoutesDialog from "./CompositeRoutesDialog.vue";
 import GroupRateMultipliersDialog from "./GroupRateMultipliersDialog.vue";
 import GroupRPMOverridesDialog from "./GroupRPMOverridesDialog.vue";

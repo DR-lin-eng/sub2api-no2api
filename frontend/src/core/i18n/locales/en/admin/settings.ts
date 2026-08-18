@@ -647,9 +647,10 @@ export default {
         logoTypeError: 'Please select an image file',
         logoReadError: 'Failed to read the image file',
         homeContent: 'Home Page Content',
-        homeContentPlaceholder: 'Enter custom content for the home page. Supports Markdown & HTML. If a URL is entered, it will be displayed as an iframe.',
-        homeContentHint: 'Customize the home page content. Supports Markdown/HTML. If you enter a URL (starting with http:// or https://), it will be used as an iframe src to embed an external page. When set, the default status information will no longer be displayed.',
-		homeContentIframeWarning: '⚠️ iframe mode note: Some websites have X-Frame-Options or CSP security policies that prevent embedding in iframes. If the page appears blank or shows an error, please verify the target website allows embedding, or consider using HTML mode to build your own content.',
+        homeContentPlaceholder: 'Enter sanitized display HTML, or an absolute http(s) URL for an interactive page.',
+        homeContentHint: 'Custom content replaces the built-in home page. HTML mode is intended for headings, text, images, links, and layout markup.',
+        homeContentSecurityHint: 'Scripts, event handlers, forms, style blocks, and embedded objects are removed from HTML mode. Use a fully trusted URL for interactive content.',
+		homeContentIframeWarning: 'Iframe mode is sandboxed without same-origin access and sends no referrer. Some sites also block embedding through X-Frame-Options or CSP.',
 		compactHome: 'Compact Home Page',
 		compactHomeHint: 'Show a restrained site identity page when no custom home page content is set.',
         hideCcsImportButton: 'Hide CCS Import Button',
@@ -682,6 +683,9 @@ export default {
         namePlaceholder: 'e.g. Help Center',
         url: 'Page URL',
         urlPlaceholder: 'https://example.com/page',
+        forwardAccessToken: 'Forward user access token',
+        forwardAccessTokenHint:
+          'Disabled by default. Enabling this delegates the current user session to the embedded page through an origin-locked browser message. Enable only for a fully trusted page.',
         iconSvg: 'SVG Icon',
         iconSvgPlaceholder: '<svg>...</svg>',
         iconPreview: 'Icon Preview',
@@ -1380,7 +1384,6 @@ export default {
       failedToTestSmtp: 'SMTP connection test failed',
       failedToSendTestEmail: 'Failed to send test email'
     },
-
     // Error Passthrough Rules
     errorPassthrough: {
       title: 'Error Passthrough Rules',
@@ -1396,7 +1399,6 @@ export default {
       code: 'Code',
       body: 'Body',
       skipMonitoring: 'Skip Monitoring',
-
       // Columns
       columns: {
         priority: 'Priority',
@@ -1407,7 +1409,6 @@ export default {
         status: 'Status',
         actions: 'Actions'
       },
-
       // Match Mode
       matchMode: {
         any: 'Code OR Keyword',
@@ -1415,7 +1416,6 @@ export default {
         anyHint: 'Status code matches any error code, OR message contains any keyword',
         allHint: 'Status code matches any error code, AND message contains any keyword'
       },
-
       // Form
       form: {
         name: 'Rule Name',
@@ -1490,16 +1490,11 @@ export default {
         descriptionPlaceholder: 'Optional description for this profile',
         enableGrease: 'Enable GREASE',
         enableGreaseHint: 'Insert GREASE values in TLS ClientHello extensions',
-        cipherSuites: 'Cipher Suites',
-        cipherSuitesHint: 'Comma-separated hex values, e.g. 0x1301, 0x1302, 0xc02c',
-        curves: 'Elliptic Curves',
-        curvesHint: 'Comma-separated curve IDs',
-        pointFormats: 'Point Formats',
-        signatureAlgorithms: 'Signature Algorithms',
-        alpnProtocols: 'ALPN Protocols',
-        alpnProtocolsHint: 'Comma-separated, e.g. h2, http/1.1',
-        supportedVersions: 'Supported TLS Versions',
-        keyShareGroups: 'Key Share Groups',
+        cipherSuites: 'Cipher Suites', cipherSuitesHint: 'Comma-separated hex values, e.g. 0x1301, 0x1302, 0xc02c',
+        curves: 'Elliptic Curves', curvesHint: 'Comma-separated curve IDs',
+        pointFormats: 'Point Formats', signatureAlgorithms: 'Signature Algorithms',
+        alpnProtocols: 'ALPN Protocols', alpnProtocolsHint: 'Comma-separated, e.g. h2, http/1.1',
+        supportedVersions: 'Supported TLS Versions', keyShareGroups: 'Key Share Groups',
         pskModes: 'PSK Modes',
         extensions: 'Extensions'
       },

@@ -34,6 +34,10 @@ import {
   type BatchImageGenerationSnapshot,
 } from '@/features/batch-image/presentation/composables/batchImageAsyncLifecycle'
 import { useBatchImagePromptPopover } from '@/features/batch-image/presentation/composables/useBatchImagePromptPopover'
+import {
+  batchImageItemStatusLabel,
+  batchImageJobStatusLabel,
+} from '@/features/batch-image/presentation/batchImageLocale'
 import type { ApiKey } from '@/types'
 import type { Column } from '@/common/types/uiTypes'
 
@@ -1348,19 +1352,7 @@ export function useBatchImageGuideController() {
       if (jobOrStatus.success_count > 0) return t('batchImage.status.partialSuccess')
       return t('batchImage.status.allFailed')
     }
-    const statusKeys: Record<string, string> = {
-      queued: 'queued',
-      running: 'running',
-      indexing: 'processingResults',
-      processing_results: 'processingResults',
-      settling: 'settling',
-      completed: 'completed',
-      failed: 'failed',
-      cancelled: 'cancelled',
-      output_deleted: 'outputDeleted',
-    }
-    const key = statusKeys[status]
-    return key ? t(`batchImage.status.${key}`) : status
+    return batchImageJobStatusLabel(t, status)
   }
 
   function statusBadgeClass(jobOrStatus: BatchImageStatus | Pick<BatchImageJob, 'status' | 'success_count' | 'fail_count'>) {
@@ -1376,15 +1368,7 @@ export function useBatchImageGuideController() {
   }
 
   function itemStatusLabel(status: string) {
-    const statusKeys: Record<string, string> = {
-      pending: 'pending',
-      succeeded: 'succeeded',
-      success: 'succeeded',
-      failed: 'failed',
-      cancelled: 'cancelled',
-    }
-    const key = statusKeys[status]
-    return key ? t(`batchImage.itemStatus.${key}`) : status
+    return batchImageItemStatusLabel(t, status)
   }
 
   function itemDisplayStatusLabel(item: BatchImageDetailItem) {

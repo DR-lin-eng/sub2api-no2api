@@ -259,15 +259,15 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { useAuthStore } from '@/features/auth/presentation/stores/authStore'
+import { useAuthStore } from '@/features/auth'
 import { usePaymentStore } from '@/features/billing/presentation/stores/paymentStore'
-import { useSubscriptionStore } from '@/features/subscriptions/presentation/stores/subscriptionsStore'
+import { useSubscriptionStore } from '@/features/subscriptions/subscriptionStore'
 import { useAppStore } from '@/stores'
 import { paymentAPI } from '@/features/billing/data/datasources/paymentDatasource'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/core/utils/apiError'
 import { isMobileDevice } from '@/core/utils/device'
 import { hasPeakRate, formatPeakRateWindow, serverTimezoneLabel, type PeakRateFields } from '@/core/utils/peak-rate'
-import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType } from '@/types/payment'
+import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType } from '@/features/billing/paymentContracts'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import AmountInput from '@/features/billing/presentation/widgets/AmountInput.vue'
 import PaymentMethodSelector from '@/features/billing/presentation/widgets/PaymentMethodSelector.vue'
@@ -284,11 +284,15 @@ import {
   writePaymentRecoverySnapshot,
 } from '@/features/billing/presentation/paymentFlowResolver'
 import { platformAccentBarClass, platformBadgeLightClass, platformBadgeClass, platformTextClass, platformLabel } from '@/core/utils/platformColors'
-import SubscriptionPlanCard from '@/features/subscriptions/presentation/widgets/SubscriptionPlanCard.vue'
+import SubscriptionPlanCard from '@/features/subscriptions/subscriptionPlanCard'
 import PaymentStatusPanel from '@/features/billing/presentation/widgets/PaymentStatusPanel.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
-import { DEFAULT_PAYMENT_CURRENCY, formatPaymentAmount, normalizePaymentCurrency } from '@/features/billing/presentation/currencyFormatter'
-import { planValiditySuffix as validitySuffixOf } from '@/features/billing/presentation/utils/validity'
+import {
+  DEFAULT_PAYMENT_CURRENCY,
+  formatPaymentAmount,
+  normalizePaymentCurrency,
+  planValiditySuffix as validitySuffixOf,
+} from '@/features/billing/paymentDisplay'
 import type { PaymentMethodOption } from '@/features/billing/presentation/widgets/PaymentMethodSelector.vue'
 import { buildPaymentErrorToastMessage, describePaymentScenarioError } from '../paymentUxSignals'
 import { hasWechatResumeQuery, parseWechatResumeRoute, stripWechatResumeQuery } from '../paymentWechatResumeResolver'

@@ -4,7 +4,8 @@ import { useI18n } from "vue-i18n";
 import { VueDraggable } from "vue-draggable-plus";
 import BaseDialog from "@/common/widgets/feedback/BaseDialog.vue";
 import Icon from "@/common/widgets/icons/Icon.vue";
-import type { AdminGroup } from "@/types";
+import type { AdminGroup } from "@/features/admin-groups/data/dtos/adminGroupDtos";
+import { groupPlatformLabel } from "@/features/admin-groups/presentation/groupsLocale";
 
 const props = defineProps<{
   show: boolean;
@@ -67,7 +68,7 @@ const groups = computed({
                         : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
               ]"
             >
-              {{ t("admin.groups.platforms." + group.platform) }}
+              {{ groupPlatformLabel(t, group.platform) }}
             </span>
           </div>
         </div>

@@ -6,8 +6,15 @@ import { useAppStore } from '@/core/stores/appStore'
 import Select from '@/common/widgets/forms/Select.vue'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
-import { opsAPI, type AlertEventsQuery } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
-import type { AlertEvent } from '../opsTypeSignals'
+import {
+  createAlertSilence,
+  updateAlertEventStatus
+} from '@/features/admin-ops/data/datasources/opsAlertActions'
+import {
+  getAlertEvent,
+  listAlertEvents
+} from '@/features/admin-ops/data/datasources/opsAlertQueries'
+import type { AlertEvent, AlertEventsQuery } from '@/features/admin-ops/data/dtos/opsAlertDtos'
 import { formatCompactNumber, formatDateTime, formatExactNumber } from '../opsFormatter'
 
 const { t } = useI18n()
@@ -94,7 +101,7 @@ function buildQuery(overrides: Partial<AlertEventsQuery> = {}): AlertEventsQuery
 async function loadFirstPage() {
   loading.value = true
   try {
-    const data = await opsAPI.listAlertEvents(buildQuery())
+    const data = await listAlertEvents(buildQuery())
     events.value = data
     hasMore.value = data.length === PAGE_SIZE
   } catch (err: any) {
@@ -115,7 +122,7 @@ async function loadMore() {
 
   loadingMore.value = true
   try {
-    const data = await opsAPI.listAlertEvents(
+    const data = await listAlertEvents(
       buildQuery({ before_fired_at: last.fired_at || last.created_at, before_id: last.id })
     )
     if (!data.length) {
@@ -205,7 +212,7 @@ async function openDetail(row: AlertEvent) {
   historyLoading.value = true
 
   try {
-    const detail = await opsAPI.getAlertEvent(row.id)
+    const detail = await getAlertEvent(row.id)
     selected.value = detail
   } catch (err: any) {
     console.error('[OpsAlertEventsCard] Failed to load alert detail', err)
@@ -231,7 +238,7 @@ async function loadHistory() {
     const groupIdRaw = ev.dimensions?.group_id
     const groupId = typeof groupIdRaw === 'number' ? groupIdRaw : undefined
 
-    const items = await opsAPI.listAlertEvents({
+    const items = await listAlertEvents({
       limit: 20,
       time_range: historyRange.value,
       platform: platform || undefined,
@@ -276,7 +283,7 @@ async function silenceAlert() {
     const groupId = typeof groupIdRaw === 'number' ? groupIdRaw : null
     const region = getDimensionString(ev, 'region') || null
 
-    await opsAPI.createAlertSilence({
+    await createAlertSilence({
       rule_id: ev.rule_id,
       platform: platform || '',
       group_id: groupId ?? undefined,
@@ -299,11 +306,11 @@ async function manualResolve() {
   if (detailActionLoading.value) return
   detailActionLoading.value = true
   try {
-    await opsAPI.updateAlertEventStatus(selected.value.id, 'manual_resolved')
+    await updateAlertEventStatus(selected.value.id, 'manual_resolved')
     appStore.showSuccess(t('admin.ops.alertEvents.detail.manualResolvedSuccess'))
 
     // Refresh detail + first page to reflect new status
-    const detail = await opsAPI.getAlertEvent(selected.value.id)
+    const detail = await getAlertEvent(selected.value.id)
     selected.value = detail
     await loadFirstPage()
     await loadHistory()

@@ -17,13 +17,11 @@ const {
   }
 }))
 
-vi.mock('@/api', () => ({
-  userAPI: {
-    updateProfile: updateProfileMock
-  }
+vi.mock('@/features/profile/data/datasources/profileDatasource', () => ({
+  updateProfile: updateProfileMock
 }))
 
-vi.mock('@/features/auth/presentation/stores/authStore', () => ({
+vi.mock('@/features/auth', () => ({
   useAuthStore: () => authStoreState
 }))
 

@@ -7,6 +7,7 @@ import { formatDateTime } from '@/core/utils/format'
 import { maskApiKey } from '@/core/utils/maskApiKey'
 import type { KeysTableContext } from '../keysPageContext'
 import KeyGroupBindingsSummary from './KeyGroupBindingsSummary.vue'
+import { apiKeyStatusLabel } from '../keyLocale'
 
 const props = defineProps<{
   context: KeysTableContext
@@ -287,7 +288,7 @@ const {
               value === 'expired' ? 'badge-danger' :
               'badge-gray'
             ]">
-              {{ t('keys.status.' + value) }}
+              {{ apiKeyStatusLabel(t, value) }}
             </span>
           </template>
 

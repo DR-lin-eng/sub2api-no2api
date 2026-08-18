@@ -1,4 +1,4 @@
-import type { GroupPlatform, SubscriptionType } from "@/types";
+import type { GroupPlatform, SubscriptionType } from "@/types/group";
 import { createDefaultMessagesDispatchFormState } from "../groupsMessagesDispatchResolver";
 import type { MessagesDispatchMappingRow } from "../groupsMessagesDispatchResolver";
 import type { ModelsListState } from "../groupsModelsListResolver";

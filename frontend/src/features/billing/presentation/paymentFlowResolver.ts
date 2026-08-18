@@ -5,20 +5,14 @@ import type {
   OrderType,
   WechatJSAPIPayload,
   WechatOAuthInfo,
-} from '@/types/payment'
+} from '@/features/billing/paymentContracts'
+import { normalizeVisibleMethod } from '../paymentMethods'
+
+export { normalizeVisibleMethod } from '../paymentMethods'
+export type { VisiblePaymentMethod } from '../paymentMethods'
 
 export const PAYMENT_RECOVERY_STORAGE_KEY = 'payment.recovery.current'
 
-const VISIBLE_METHOD_ALIASES = {
-  alipay: 'alipay',
-  alipay_direct: 'alipay',
-  wxpay: 'wxpay',
-  wxpay_direct: 'wxpay',
-  stripe: 'stripe',
-  airwallex: 'airwallex',
-} as const
-
-export type VisiblePaymentMethod = 'alipay' | 'wxpay' | 'stripe' | 'airwallex'
 export type StripeVisibleMethod = 'alipay' | 'wechat_pay'
 export type PaymentLaunchKind =
   | 'qr_waiting'
@@ -95,11 +89,6 @@ type CreateOrderFlowResult = CreateOrderResult & {
 }
 
 type StorageWriter = Pick<Storage, 'removeItem' | 'setItem'>
-
-export function normalizeVisibleMethod(method: string): VisiblePaymentMethod | '' {
-  const normalized = VISIBLE_METHOD_ALIASES[method.trim() as keyof typeof VISIBLE_METHOD_ALIASES]
-  return normalized ?? ''
-}
 
 export function getVisibleMethods(methods: Record<string, MethodLimit>): Record<string, MethodLimit> {
   const visible: Record<string, MethodLimit> = {}

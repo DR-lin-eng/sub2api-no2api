@@ -59,16 +59,9 @@
             </div>
             <div class="flex items-center gap-2">
               <span
-                :class="[
-                  'rounded-full px-2 py-0.5 text-xs font-medium',
-                  subscription.status === 'active'
-                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                    : subscription.status === 'expired'
-                      ? 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-400'
-                      : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-                ]"
+                :class="['rounded-full px-2 py-0.5 text-xs font-medium', subscriptionStatusClass(subscription.status)]"
               >
-                {{ t(`userSubscriptions.status.${subscription.status}`) }}
+                {{ userSubscriptionStatusLabel(t, subscription.status) }}
               </span>
               <button
                 v-if="subscription.status === 'active'"
@@ -265,6 +258,10 @@ import {
   isOneTimeDailyQuota,
   type RemainingDurationParts
 } from '@/core/utils/subscriptionQuota'
+import {
+  normalizeSubscriptionStatus,
+  userSubscriptionStatusLabel,
+} from '@/features/subscriptions/subscriptionStatus'
 
 function platformAccentDotClass(p: string): string {
   switch (p) {
@@ -282,6 +279,21 @@ const appStore = useAppStore()
 
 const subscriptions = ref<UserSubscription[]>([])
 const loading = ref(true)
+
+function subscriptionStatusClass(status: unknown): string {
+  switch (normalizeSubscriptionStatus(status)) {
+    case 'active':
+      return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+    case 'suspended':
+      return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+    case 'expired':
+      return 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-400'
+    case 'revoked':
+      return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+    default:
+      return 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-400'
+  }
+}
 
 function subscriptionHasPeakRate(subscription: UserSubscription): boolean {
   return hasPeakRate(subscription.group)

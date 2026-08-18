@@ -116,8 +116,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { adminAPI } from '@/api/admin'
-import type { BatchUpdateUserLimitsRequest } from '@/features/admin-users/data/datasources/adminUsersDatasource'
+import { batchUpdateLimits } from '@/features/admin-users/data/datasources/adminUsersDatasource'
+import type { BatchUpdateUserLimitsRequest } from '@/features/admin-users/data/dtos/adminUserDtos'
 import { useAppStore } from '@/core/stores/appStore'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import Toggle from '@/common/widgets/forms/Toggle.vue'
@@ -233,7 +233,7 @@ const handleSubmit = async () => {
 
   submitting.value = true
   try {
-    const result = await adminAPI.users.batchUpdateLimits(request)
+    const result = await batchUpdateLimits(request)
     appStore.showSuccess(
       t('admin.users.bulkLimits.success', { count: result.affected })
     )

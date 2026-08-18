@@ -2,7 +2,19 @@
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
-import { opsAPI } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import {
+  updateAdvancedSettings,
+  updateAlertRuntimeSettings,
+  updateEmailNotificationConfig,
+  updateMetricThresholds
+} from '@/features/admin-ops/data/datasources/opsSettingsActions'
+import {
+  getAdvancedSettings,
+  getAlertRuntimeSettings,
+  getEmailNotificationConfig,
+  getMetricThresholds,
+  getSettingsSnapshot
+} from '@/features/admin-ops/data/datasources/opsSettingsQueries'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import Select from '@/common/widgets/forms/Select.vue'
 import Toggle from '@/common/widgets/forms/Toggle.vue'
@@ -41,12 +53,12 @@ const metricThresholds = ref<OpsMetricThresholds>({
 async function loadAllSettings() {
   loading.value = true
   try {
-    const settings = await opsAPI.getSettingsSnapshot().catch(async () => {
+    const settings = await getSettingsSnapshot().catch(async () => {
       const [runtime, email, advanced, metricThresholds] = await Promise.all([
-        opsAPI.getAlertRuntimeSettings(),
-        opsAPI.getEmailNotificationConfig(),
-        opsAPI.getAdvancedSettings(),
-        opsAPI.getMetricThresholds()
+        getAlertRuntimeSettings(),
+        getEmailNotificationConfig(),
+        getAdvancedSettings(),
+        getMetricThresholds()
       ])
       return { runtime, email, advanced, metric_thresholds: metricThresholds }
     })
@@ -234,10 +246,10 @@ async function saveAllSettings() {
       }
     }
     await Promise.all([
-      runtimeSettings.value ? opsAPI.updateAlertRuntimeSettings(runtimeSettings.value) : Promise.resolve(),
-      emailConfig.value ? opsAPI.updateEmailNotificationConfig(emailConfig.value) : Promise.resolve(),
-      advancedSettings.value ? opsAPI.updateAdvancedSettings(advancedSettings.value) : Promise.resolve(),
-      opsAPI.updateMetricThresholds(metricThresholds.value)
+      runtimeSettings.value ? updateAlertRuntimeSettings(runtimeSettings.value) : Promise.resolve(),
+      emailConfig.value ? updateEmailNotificationConfig(emailConfig.value) : Promise.resolve(),
+      advancedSettings.value ? updateAdvancedSettings(advancedSettings.value) : Promise.resolve(),
+      updateMetricThresholds(metricThresholds.value)
     ])
     appStore.showSuccess(t('admin.ops.settings.saveSuccess'))
     emit('saved')

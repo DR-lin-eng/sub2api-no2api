@@ -1,5 +1,9 @@
 import { apiClient } from '@/core/networks/client'
 
+export type BackupRecordStatus = 'pending' | 'running' | 'completed' | 'failed'
+export type BackupRecordProgress = 'pending' | 'dumping' | 'uploading'
+export type BackupRestoreStatus = 'running' | 'completed' | 'failed'
+
 export interface BackupS3Config {
   endpoint: string
   region: string
@@ -19,7 +23,7 @@ export interface BackupScheduleConfig {
 
 export interface BackupRecord {
   id: string
-  status: 'pending' | 'running' | 'completed' | 'failed'
+  status: BackupRecordStatus
   backup_type: string
   file_name: string
   s3_key: string
@@ -30,8 +34,8 @@ export interface BackupRecord {
   started_at: string
   finished_at?: string
   expires_at?: string
-  progress?: string
-  restore_status?: string
+  progress?: BackupRecordProgress
+  restore_status?: BackupRestoreStatus
   restore_error?: string
   restored_at?: string
 }

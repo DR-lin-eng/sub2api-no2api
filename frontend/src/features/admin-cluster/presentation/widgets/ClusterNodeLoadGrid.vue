@@ -246,6 +246,7 @@ import type {
   ClusterInstanceLoad,
   ClusterInstanceStatus,
 } from '@/features/admin-cluster/data/datasources/adminClusterDatasource'
+import { clusterInstanceStatusLabel } from '@/features/admin-cluster/presentation/clusterLocale'
 import { formatBytes, formatDateTime, formatRelativeTime } from '@/core/utils/format'
 
 type SortMode = 'load' | 'cpu' | 'memory' | 'requests' | 'name'
@@ -327,7 +328,7 @@ function requestRename(nodeId: string): void {
 }
 
 function statusLabel(value: ClusterInstanceStatus): string {
-  return t(`admin.cluster.status.${value}`)
+  return clusterInstanceStatusLabel(t, value)
 }
 
 function instanceDotClass(value: ClusterInstanceStatus): string {

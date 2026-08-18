@@ -11,6 +11,7 @@
 | 修改 API Key 鉴权 | `server/middleware/api_key_auth.go` | `application/service/api_key*`, `infrastructure/repository/api_key*` | middleware + gateway route 测试 |
 | 修改 API Key 多分组路由 | `application/service/api_key_group_routing.go` | `gateway_scheduling.go`, `openai_account_scheduler.go`, `repository/api_key_repo.go`, `features/keys/` | service fallback + repository integration + 前端 feature 测试 |
 | 修改 JWT/管理员鉴权 | `server/middleware/jwt_auth.go`, `admin_auth.go` | `handler/auth*`, `application/service/auth*` | auth/middleware 测试 |
+| 修改前端登录/会话 | `frontend/src/features/auth/data/datasources/authSessionActions.ts`, `authOAuthActions.ts` | `presentation/stores/authStore.ts`, `core/networks/sessionRefresh.ts`, `core/routes/index.ts` | auth/profile + sessionRefresh + route guard 测试 |
 | 修改 Claude/Anthropic 网关 | `routes/gateway.go`, `handler/gateway_handler_messages.go` | `application/service/gateway*` | gateway handler + service 测试 |
 | 修改 OpenAI/Codex/Responses | `handler/openai_gateway_responses.go` | `application/service/openai*` | responses/chat/WS 的流式与非流式测试 |
 | 修改 Gemini/Antigravity/Grok | `routes/gateway.go` | `application/service/gemini*`, `antigravity*`, `grok*` | 平台专项 service/handler 测试 |
@@ -19,7 +20,7 @@
 | 修改计费/余额 | `application/service/gateway_usage_billing.go`, `openai_gateway_usage.go` | `billing_service.go`, `infrastructure/repository/usage_billing*`, `billing_cache*` | billing unit + repository integration |
 | 修改分组用量汇总 | `application/service/group_usage_rollup.go` | `infrastructure/repository/group_usage_rollup_repo.go`, `usage_log_repo_group_rollup.go`, `features/admin-groups/` | rollup unit/integration + admin-groups feature tests |
 | 修改订阅配额 | `application/service/subscription*` | `repository/subscription*`, middleware | subscription + gateway billing 测试 |
-| 修改支付 | `internal/modules/payment/` | `routes/payment.go`, payment handlers/repositories | provider、webhook、订单状态测试 |
+| 修改支付 | `internal/modules/payment/`, `frontend/src/features/billing/paymentContracts.ts` | `routes/payment.go`, payment handlers/repositories；前端 `features/billing/`, `features/admin-orders/` | provider、webhook、订单状态 + 前端 billing/admin-orders 测试 |
 | 修改数据库表 | `backend/ent/schema/` | `backend/migrations/`, repository, DTO | generate + migration/integration tests |
 | 修改运行配置 | `platform/config/` | `deploy/config.example.yaml`, setting service/admin UI | config tests + 相关 service/前端测试 |
 | 修改多实例节点或集群发布 | `application/service/cluster*` | `repository/cluster*`, admin cluster handler, `features/admin-cluster/` | cluster service/repository + handler + 页面测试 |

@@ -31,7 +31,7 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import GitHubMark from './GitHubMark.vue'
 import GoogleMark from './GoogleMark.vue'
-import type { OAuthLoginStart } from '@/features/auth/data/datasources/authDatasource'
+import type { OAuthLoginStart } from '@/features/auth/data/dtos/authDtos'
 import { resolveAffiliateReferralCode, storeOAuthAffiliateCode } from '@/core/utils/oauthAffiliate'
 
 type EmailOAuthProvider = 'github' | 'google'

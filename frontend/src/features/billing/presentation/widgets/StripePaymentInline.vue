@@ -71,7 +71,7 @@ import { extractI18nErrorMessage } from '@/core/utils/apiError'
 import { paymentAPI } from '@/features/billing/data/datasources/paymentDatasource'
 import { useAppStore } from '@/stores'
 import { getPaymentPopupFeatures } from '@/features/billing/presentation/providerConfigSignals'
-import { currencySymbol } from '@/features/billing/presentation/currencyFormatter'
+import { currencySymbol } from '@/features/billing/paymentDisplay'
 import type { Stripe, StripeElements } from '@stripe/stripe-js'
 import Icon from '@/common/widgets/icons/Icon.vue'
 

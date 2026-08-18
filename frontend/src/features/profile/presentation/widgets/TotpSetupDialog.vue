@@ -172,7 +172,12 @@
 import { ref, onMounted, onUnmounted, nextTick, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
-import { totpAPI } from '@/api'
+import {
+  enable,
+  getVerificationMethod,
+  initiateSetup,
+  sendVerifyCode,
+} from '@/features/profile/data/datasources/totpDatasource'
 import type { TotpSetupResponse } from '@/types'
 import QRCode from 'qrcode'
 
@@ -331,7 +336,7 @@ const copySecret = async () => {
 const loadVerificationMethod = async () => {
   methodLoading.value = true
   try {
-    const method = await totpAPI.getVerificationMethod()
+    const method = await getVerificationMethod()
     verificationMethod.value = method.method
   } catch (err: any) {
     appStore.showError(err.response?.data?.message || t('common.error'))
@@ -344,7 +349,7 @@ const loadVerificationMethod = async () => {
 const handleSendCode = async () => {
   sendingCode.value = true
   try {
-    await totpAPI.sendVerifyCode()
+    await sendVerifyCode()
     appStore.showSuccess(t('profile.totp.codeSent'))
     // Start cooldown
     codeCooldown.value = 60
@@ -376,7 +381,7 @@ const handleVerifyAndSetup = async () => {
       ? { email_code: verifyForm.value.emailCode }
       : { password: verifyForm.value.password }
 
-    setupData.value = await totpAPI.initiateSetup(request)
+    setupData.value = await initiateSetup(request)
     step.value = 1
   } catch (err: any) {
     appStore.showError(err.response?.data?.message || t('profile.totp.setupFailed'))
@@ -392,7 +397,7 @@ const handleVerify = async () => {
   verifying.value = true
 
   try {
-    await totpAPI.enable({
+    await enable({
       totp_code: totpCode,
       setup_token: setupData.value.setup_token
     })

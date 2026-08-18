@@ -104,7 +104,7 @@
                   </span>
                 </div>
                 <div class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                  {{ t('admin.errorPassthrough.matchMode.' + rule.match_mode) }}
+                  {{ errorPassthroughMatchModeLabel(t, rule.match_mode) }}
                 </div>
               </td>
               <td class="px-3 py-2">
@@ -437,6 +437,7 @@ import errorPassthroughAPI, { type ErrorPassthroughRule } from '@/features/admin
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import ConfirmDialog from '@/common/widgets/feedback/ConfirmDialog.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
+import { errorPassthroughMatchModeLabel } from '@/features/admin-settings/presentation/errorPassthroughLocale'
 
 const props = defineProps<{
   show: boolean

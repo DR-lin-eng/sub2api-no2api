@@ -6,10 +6,15 @@ import { useAppStore } from '@/core/stores/appStore'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import ConfirmDialog from '@/common/widgets/feedback/ConfirmDialog.vue'
 import Select, { type SelectOption } from '@/common/widgets/forms/Select.vue'
-import { adminAPI } from '@/api'
-import { opsAPI } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import {
+  createAlertRule,
+  deleteAlertRule,
+  updateAlertRule
+} from '@/features/admin-ops/data/datasources/opsAlertActions'
+import { listAlertRules } from '@/features/admin-ops/data/datasources/opsAlertQueries'
+import { getAll as getAllGroups } from '@/features/admin-groups/data/datasources/adminGroupQueries'
 import type { AlertRule, MetricType, Operator } from '../opsTypeSignals'
-import type { OpsSeverity } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+import type { OpsSeverity } from '@/features/admin-ops/data/dtos/opsErrorDtos'
 import { formatCompactNumber, formatDateTime, formatExactNumber } from '../opsFormatter'
 
 const { t } = useI18n()
@@ -24,7 +29,7 @@ const rules = ref<AlertRule[]>([])
 async function load() {
   loading.value = true
   try {
-    rules.value = await opsAPI.listAlertRules()
+    rules.value = await listAlertRules()
   } catch (err: any) {
     console.error('[OpsAlertRulesCard] Failed to load rules', err)
     appStore.showError(err?.response?.data?.detail || t('admin.ops.alertRules.loadFailed'))
@@ -77,7 +82,7 @@ const groupOptionsBase = ref<SelectOption[]>([])
 
 async function loadGroups() {
   try {
-    const list = await adminAPI.groups.getAll()
+    const list = await getAllGroups()
     groupOptionsBase.value = list.map((g) => ({ value: g.id, label: g.name }))
   } catch (err) {
     console.error('[OpsAlertRulesCard] Failed to load groups', err)
@@ -345,9 +350,9 @@ async function save() {
   saving.value = true
   try {
     if (editingId.value) {
-      await opsAPI.updateAlertRule(editingId.value, draft.value)
+      await updateAlertRule(editingId.value, draft.value)
     } else {
-      await opsAPI.createAlertRule(draft.value)
+      await createAlertRule(draft.value)
     }
     showEditor.value = false
     draft.value = null
@@ -373,7 +378,7 @@ function requestDelete(rule: AlertRule) {
 async function confirmDelete() {
   if (!pendingDelete.value?.id) return
   try {
-    await opsAPI.deleteAlertRule(pendingDelete.value.id)
+    await deleteAlertRule(pendingDelete.value.id)
     showDeleteConfirm.value = false
     pendingDelete.value = null
     await load()

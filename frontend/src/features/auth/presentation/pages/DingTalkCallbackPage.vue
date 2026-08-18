@@ -243,17 +243,20 @@ import PendingOAuthCreateAccountForm, {
   type PendingOAuthCreateAccountPayload
 } from '@/features/auth/presentation/widgets/PendingOAuthCreateAccountForm.vue'
 import { apiClient } from '@/core/networks/client'
-import { useAuthStore, useAppStore } from '@/stores'
+import { useAppStore } from '@/core/stores/appStore'
+import { useAuthStore } from '@/features/auth'
 import {
   exchangePendingOAuthCompletion,
   getOAuthCompletionKind,
   isOAuthLoginCompletion,
-  login2FA,
   persistOAuthTokenContext,
-  type OAuthAdoptionDecision,
-  type OAuthTokenResponse,
-  type PendingOAuthExchangeResponse
-} from '@/features/auth/data/datasources/authDatasource'
+} from '@/features/auth/data/datasources/authOAuthActions'
+import { login2FA } from '@/features/auth/data/datasources/authSessionActions'
+import type {
+  OAuthAdoptionDecision,
+  OAuthTokenResponse,
+  PendingOAuthExchangeResponse,
+} from '@/features/auth/data/dtos/authDtos'
 import {
   clearAllAffiliateReferralCodes,
   loadOAuthAffiliateCode,

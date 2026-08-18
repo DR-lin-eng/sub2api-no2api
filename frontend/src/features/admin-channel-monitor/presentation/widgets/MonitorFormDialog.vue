@@ -255,6 +255,7 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
 import { extractApiErrorMessage } from '@/core/utils/apiError'
 import { adminAPI } from '@/api/admin'
+import { getAll as getAllAdminGroups } from '@/features/admin-groups/data/datasources/adminGroupQueries'
 import { keysAPI } from '@/features/keys/data/datasources/keysDatasource'
 import { userGroupsAPI } from '@/features/groups-user/data/datasources/groupsUserDatasource'
 import type {
@@ -421,7 +422,7 @@ async function loadChannels() {
 async function loadGroups() {
   if (groupsCache.value.length > 0) return
   try {
-    groupsCache.value = await adminAPI.groups.getAll()
+    groupsCache.value = await getAllAdminGroups()
   } catch (err: unknown) {
     appStore.showError(extractApiErrorMessage(err, t('admin.channelMonitor.form.groupLoadError')))
   }

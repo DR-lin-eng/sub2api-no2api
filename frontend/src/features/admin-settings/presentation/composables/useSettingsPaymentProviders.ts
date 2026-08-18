@@ -1,11 +1,16 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import adminPaymentAPI from '@/features/admin-orders/data/datasources/adminPaymentDatasource'
-import type { ProviderInstance } from '@/types/payment'
-import type PaymentProviderDialog from '@/features/billing/presentation/widgets/PaymentProviderDialog.vue'
+import {
+  createProvider,
+  deleteProvider,
+  updateProvider,
+} from '@/features/admin-orders/data/datasources/adminPaymentActions'
+import { getProviders } from '@/features/admin-orders/data/datasources/adminPaymentQueries'
+import type { ProviderInstance } from '@/features/billing/paymentContracts'
+import type PaymentProviderDialog from '@/features/billing/paymentProviderDialog'
 import { extractI18nErrorMessage } from '@/core/utils/apiError'
 import { useAppStore } from '@/core/stores/appStore'
-import { normalizeVisibleMethod } from '@/features/billing/presentation/paymentFlowResolver'
+import { normalizeVisibleMethod } from '@/features/billing/paymentMethods'
 
 interface PaymentSettingsForm {
   payment_enabled_types: string[]
@@ -53,7 +58,7 @@ export function useSettingsPaymentProviders(
     );
     for (const p of matching) {
       try {
-        await adminPaymentAPI.updateProvider(p.id, { enabled: false });
+        await updateProvider(p.id, { enabled: false });
         p.enabled = false;
       } catch (err: unknown) {
         slog("disable provider failed", p.id, err);
@@ -212,7 +217,7 @@ export function useSettingsPaymentProviders(
   async function loadProviders() {
     providersLoading.value = true;
     try {
-      const res = await adminPaymentAPI.getProviders();
+      const res = await getProviders();
       // Normalize supported_types: backend returns null when the list is empty
       // (Go nil slice → JSON null). Without this, ProviderCard's isSelected()
       // throws TypeError on null.includes(), causing the card to vanish.
@@ -262,9 +267,9 @@ export function useSettingsPaymentProviders(
       }
 
       if (editingProvider.value) {
-        await adminPaymentAPI.updateProvider(editingProvider.value.id, payload);
+        await updateProvider(editingProvider.value.id, payload);
       } else {
-        await adminPaymentAPI.createProvider(payload);
+        await createProvider(payload);
       }
       showProviderDialog.value = false;
       // Reload full list (API returns decrypted/formatted data with correct sort order)
@@ -307,7 +312,7 @@ export function useSettingsPaymentProviders(
       payload.allow_user_refund = false;
     }
     try {
-      await adminPaymentAPI.updateProvider(provider.id, payload);
+      await updateProvider(provider.id, payload);
       await loadProviders();
     } catch (err: unknown) {
       appStore.showError(extractI18nErrorMessage(err, t, "payment.errors", t("common.error")));
@@ -333,7 +338,7 @@ export function useSettingsPaymentProviders(
       return;
     }
     try {
-      await adminPaymentAPI.updateProvider(provider.id, {
+      await updateProvider(provider.id, {
         supported_types: updated,
       } as any);
       await loadProviders();
@@ -353,7 +358,7 @@ export function useSettingsPaymentProviders(
     try {
       await Promise.all(
         updates.map((u) =>
-          adminPaymentAPI.updateProvider(u.id, {
+          updateProvider(u.id, {
             sort_order: u.sort_order,
           } as Partial<ProviderInstance>),
         ),
@@ -368,7 +373,7 @@ export function useSettingsPaymentProviders(
   async function handleDeleteProvider() {
     if (!deletingProviderId.value) return;
     try {
-      await adminPaymentAPI.deleteProvider(deletingProviderId.value);
+      await deleteProvider(deletingProviderId.value);
       appStore.showSuccess(t("common.deleted"));
       showDeleteProviderDialog.value = false;
       loadProviders();

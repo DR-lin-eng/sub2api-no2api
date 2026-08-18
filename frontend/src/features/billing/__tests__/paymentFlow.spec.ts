@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { CreateOrderResult, MethodLimit } from '@/types/payment'
+import type { CreateOrderResult, MethodLimit } from '@/features/billing/paymentContracts'
 import {
   buildCreateOrderPayload,
   decidePaymentLaunch,

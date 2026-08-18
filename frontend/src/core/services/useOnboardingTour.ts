@@ -8,7 +8,7 @@ import {
 } from 'vue'
 import { driver, type Driver, type DriveStep } from 'driver.js'
 import 'driver.js/dist/driver.css'
-import { useAuthStore as useUserStore } from '@/features/auth/presentation/stores/authStore'
+import { useAuthStore as useUserStore } from '@/features/auth'
 import { useOnboardingStore } from '@/core/stores/onboardingStore'
 import { useI18n } from 'vue-i18n'
 import { getAdminSteps, getUserSteps } from '@/core/services/guide/steps'
@@ -69,7 +69,7 @@ export function useOnboardingTour(options: OnboardingOptions) {
   const getStorageKey = () => {
     const baseKey = options.storageKey ?? 'onboarding_tour'
     const userId = userStore.user?.id ?? 'guest'
-    const role = userStore.user?.role ?? 'user'
+    const role = userStore.isAdmin ? 'admin' : 'user'
     return `${baseKey}_${userId}_${role}_${storageVersion}`
   }
 
@@ -102,7 +102,7 @@ export function useOnboardingTour(options: OnboardingOptions) {
 
   const startTour = async (startIndex = 0) => {
     // 动态获取当前用户角色和步骤
-    const isAdmin = userStore.user?.role === 'admin'
+    const isAdmin = userStore.isAdmin
     const isSimpleMode = userStore.isSimpleMode
     const steps = isAdmin ? getAdminSteps(t, isSimpleMode) : getUserSteps(t)
 
@@ -546,7 +546,7 @@ export function useOnboardingTour(options: OnboardingOptions) {
     }
 
     // 只在管理员+标准模式下自动启动
-    const isAdmin = userStore.user?.role === 'admin'
+    const isAdmin = userStore.isAdmin
     if (!isAdmin) {
       return
     }

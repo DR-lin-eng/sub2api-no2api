@@ -9,7 +9,7 @@ vi.mock('@/core/networks/client', () => ({
 import {
   buildOAuthLoginStartURL,
   startOAuthLogin
-} from '@/features/auth/data/datasources/authDatasource'
+} from '@/features/auth/data/datasources/authOAuthActions'
 
 describe('oauth login start datasource', () => {
   beforeEach(() => {

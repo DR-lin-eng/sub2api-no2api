@@ -9,10 +9,8 @@ const { copyToClipboard, getAffiliateDetail } = vi.hoisted(() => ({
 }))
 
 vi.mock('@/features/profile/data/datasources/profileDatasource', () => ({
-  default: {
-    getAffiliateDetail,
-    transferAffiliateQuota: vi.fn(),
-  },
+  getAffiliateDetail,
+  transferAffiliateQuota: vi.fn(),
 }))
 
 vi.mock('@/core/stores/appStore', () => ({
@@ -22,7 +20,7 @@ vi.mock('@/core/stores/appStore', () => ({
   }),
 }))
 
-vi.mock('@/features/auth/presentation/stores/authStore', () => ({
+vi.mock('@/features/auth', () => ({
   useAuthStore: () => ({
     refreshUser: vi.fn(),
   }),

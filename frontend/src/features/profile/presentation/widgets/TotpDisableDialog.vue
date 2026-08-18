@@ -86,7 +86,11 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
-import { totpAPI } from '@/api'
+import {
+  disable,
+  getVerificationMethod,
+  sendVerifyCode,
+} from '@/features/profile/data/datasources/totpDatasource'
 
 const emit = defineEmits<{
   close: []
@@ -117,7 +121,7 @@ const canSubmit = computed(() => {
 const loadVerificationMethod = async () => {
   methodLoading.value = true
   try {
-    const method = await totpAPI.getVerificationMethod()
+    const method = await getVerificationMethod()
     verificationMethod.value = method.method
   } catch (err: any) {
     appStore.showError(err.response?.data?.message || t('common.error'))
@@ -130,7 +134,7 @@ const loadVerificationMethod = async () => {
 const handleSendCode = async () => {
   sendingCode.value = true
   try {
-    await totpAPI.sendVerifyCode()
+    await sendVerifyCode()
     appStore.showSuccess(t('profile.totp.codeSent'))
     // Start cooldown
     codeCooldown.value = 60
@@ -164,7 +168,7 @@ const handleDisable = async () => {
       ? { email_code: form.value.emailCode }
       : { password: form.value.password }
 
-    await totpAPI.disable(request)
+    await disable(request)
     appStore.showSuccess(t('profile.totp.disableSuccess'))
     emit('success')
   } catch (err: any) {

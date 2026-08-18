@@ -174,7 +174,8 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { adminAPI, type BalanceHistoryItem } from '@/api/admin'
+import { getUserBalanceHistory } from '@/features/admin-users/data/datasources/adminUsersDatasource'
+import type { BalanceHistoryItem } from '@/features/admin-users/data/dtos/adminUserDtos'
 import { formatDateTime } from '@/core/utils/format'
 import type { AdminUser } from '@/types'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
@@ -219,7 +220,7 @@ const loadHistory = async (page: number) => {
   loading.value = true
   currentPage.value = page
   try {
-    const res = await adminAPI.users.getUserBalanceHistory(
+    const res = await getUserBalanceHistory(
       props.user.id,
       page,
       pageSize,

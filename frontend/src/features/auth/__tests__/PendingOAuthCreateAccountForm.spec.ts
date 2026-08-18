@@ -3,7 +3,6 @@ import { flushPromises, mount } from '@vue/test-utils'
 
 import PendingOAuthCreateAccountForm from '../presentation/widgets/PendingOAuthCreateAccountForm.vue'
 
-const sendVerifyCode = vi.fn()
 const sendPendingOAuthVerifyCode = vi.fn()
 const getPublicSettings = vi.fn()
 const showError = vi.fn()
@@ -19,17 +18,23 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
-vi.mock('@/features/auth/data/datasources/authDatasource', async () => {
-  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authDatasource')>('@/features/auth/data/datasources/authDatasource')
+vi.mock('@/features/auth/data/datasources/authOAuthActions', async () => {
+  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authOAuthActions')>('@/features/auth/data/datasources/authOAuthActions')
   return {
     ...actual,
-    sendVerifyCode: (...args: any[]) => sendVerifyCode(...args),
     sendPendingOAuthVerifyCode: (...args: any[]) => sendPendingOAuthVerifyCode(...args),
+  }
+})
+
+vi.mock('@/features/auth/data/datasources/authQueries', async () => {
+  const actual = await vi.importActual<typeof import('@/features/auth/data/datasources/authQueries')>('@/features/auth/data/datasources/authQueries')
+  return {
+    ...actual,
     getPublicSettings: (...args: any[]) => getPublicSettings(...args)
   }
 })
 
-vi.mock('@/stores', () => ({
+vi.mock('@/core/stores/appStore', () => ({
   useAppStore: () => ({
     showError
   })
@@ -37,7 +42,6 @@ vi.mock('@/stores', () => ({
 
 describe('PendingOAuthCreateAccountForm', () => {
   beforeEach(() => {
-    sendVerifyCode.mockReset()
     sendPendingOAuthVerifyCode.mockReset()
     getPublicSettings.mockReset()
     showError.mockReset()

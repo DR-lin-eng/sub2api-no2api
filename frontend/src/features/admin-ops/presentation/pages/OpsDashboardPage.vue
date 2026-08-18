@@ -194,7 +194,7 @@ import {
 import type {
   OpsAdvancedSettings,
   OpsMetricThresholds
-} from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+} from '@/features/admin-ops/data/dtos/opsSettingsDtos'
 import {
   getDashboardOverview,
   getDashboardSnapshotV2,
@@ -205,8 +205,13 @@ import {
   getSwitchTrend,
   getThroughputTrend
 } from '@/features/admin-ops/data/datasources/opsDashboardQueries'
-import { opsAPI } from '@/features/admin-ops/data/datasources/adminOpsDatasource'
-import { useAdminSettingsStore, useAppStore } from '@/stores'
+import {
+  getAdvancedSettings,
+  getMetricThresholds,
+  getSettingsSnapshot
+} from '@/features/admin-ops/data/datasources/opsSettingsQueries'
+import { useAppStore } from '@/core/stores/appStore'
+import { useAdminSettingsStore } from '@/features/admin-settings/adminSettingsStore'
 import OpsDashboardHeader from '../widgets/OpsDashboardHeader.vue'
 import OpsDashboardSkeleton from '../widgets/OpsDashboardSkeleton.vue'
 import OpsConcurrencyCard from '../widgets/OpsConcurrencyCard.vue'
@@ -541,7 +546,7 @@ function resetDashboardAdvancedSettings() {
 
 async function loadDashboardAdvancedSettings() {
   try {
-    const settings = await opsAPI.getAdvancedSettings()
+    const settings = await getAdvancedSettings()
     applyDashboardAdvancedSettings(settings)
   } catch (err) {
     console.error('[OpsDashboard] Failed to load dashboard advanced settings', err)
@@ -551,7 +556,7 @@ async function loadDashboardAdvancedSettings() {
 
 async function loadDashboardSettingsSnapshot() {
   try {
-    const settings = await opsAPI.getSettingsSnapshot()
+    const settings = await getSettingsSnapshot()
     applyDashboardAdvancedSettings(settings.advanced)
     metricThresholds.value = settings.metric_thresholds || null
   } catch (err) {
@@ -977,7 +982,7 @@ onMounted(async () => {
 
 async function loadThresholds() {
   try {
-    const thresholds = await opsAPI.getMetricThresholds()
+    const thresholds = await getMetricThresholds()
     metricThresholds.value = thresholds || null
   } catch (err) {
     console.warn('[OpsDashboard] Failed to load thresholds', err)

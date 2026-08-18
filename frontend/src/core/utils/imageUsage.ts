@@ -44,7 +44,12 @@ export const hasImageInputCost = (row: ImageInputCostRow | null | undefined): bo
 
 // --- Image size / billing helpers ---
 
-const knownImageSizeSources = new Set(['output', 'input', 'default', 'legacy'])
+const imageSizeSourceKeys = {
+  output: 'usage.imageSizeSourceOutput',
+  input: 'usage.imageSizeSourceInput',
+  default: 'usage.imageSizeSourceDefault',
+  legacy: 'usage.imageSizeSourceLegacy',
+} as const
 const knownImageBillingSizes = new Set(['1K', '2K', '4K', 'mixed'])
 
 type ImageUsageRow = Pick<
@@ -77,8 +82,8 @@ export const formatImageOutputSize = (row: ImageUsageRow | null | undefined, t: 
 
 export const formatImageSizeSource = (row: ImageUsageRow | null | undefined, t: Translate): string => {
   const source = trimmed(row?.image_size_source).toLowerCase()
-  if (knownImageSizeSources.has(source)) {
-    return t(`usage.imageSizeSource${source.charAt(0).toUpperCase()}${source.slice(1)}`)
+  if (Object.prototype.hasOwnProperty.call(imageSizeSourceKeys, source)) {
+    return t(imageSizeSourceKeys[source as keyof typeof imageSizeSourceKeys])
   }
   if (trimmed(row?.image_size)) {
     return t('usage.imageSizeSourceLegacy')

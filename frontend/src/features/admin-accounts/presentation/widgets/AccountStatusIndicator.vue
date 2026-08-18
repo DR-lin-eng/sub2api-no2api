@@ -160,6 +160,7 @@ import { useI18n } from 'vue-i18n'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import type { Account } from '@/types'
 import { formatCountdown, formatDateTime, formatDateTimeToMinute, formatCountdownWithSuffix, formatTime } from '@/core/utils/format'
+import { accountStatusLabel } from '@/features/admin-accounts/presentation/accountLocale'
 
 const { t } = useI18n()
 
@@ -331,7 +332,7 @@ const statusText = computed(() => {
     return t('admin.accounts.status.tempUnschedulable')
   }
   if (props.account.status !== 'active') {
-    return t(`admin.accounts.status.${props.account.status}`)
+    return accountStatusLabel(t, props.account.status)
   }
   if (isQuotaExceeded.value) {
     return t('admin.accounts.status.quotaExceeded')
@@ -339,7 +340,7 @@ const statusText = computed(() => {
   if (!props.account.schedulable) {
     return t('admin.accounts.status.paused')
   }
-  return t(`admin.accounts.status.${props.account.status}`)
+  return accountStatusLabel(t, props.account.status)
 })
 
 const handleTempUnschedClick = () => {

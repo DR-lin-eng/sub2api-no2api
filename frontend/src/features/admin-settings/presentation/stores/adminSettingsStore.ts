@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { getSettings } from '@/features/admin-settings/data/datasources/adminSettingsQueries'
-import { adminPaymentAPI } from '@/features/admin-orders/data/datasources/adminPaymentDatasource'
+import { getConfig as getAdminPaymentConfig } from '@/features/admin-orders/data/datasources/adminPaymentQueries'
 import type { CustomMenuItem } from '@/types'
 
 export const useAdminSettingsStore = defineStore('adminSettings', () => {
@@ -60,7 +60,7 @@ export const useAdminSettingsStore = defineStore('adminSettings', () => {
     try {
       const [settings, paymentConfigResp] = await Promise.all([
         getSettings(),
-        adminPaymentAPI.getConfig()
+        getAdminPaymentConfig()
       ])
       opsMonitoringEnabled.value = settings.ops_monitoring_enabled ?? true
       writeCachedBool('ops_monitoring_enabled_cached', opsMonitoringEnabled.value)

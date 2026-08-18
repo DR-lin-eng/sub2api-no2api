@@ -19,7 +19,7 @@ describe('oauth adoption auth api', () => {
   })
 
   it('posts adoption decisions when exchanging pending oauth completion', async () => {
-    const { exchangePendingOAuthCompletion } = await import('@/features/auth/data/datasources/authDatasource')
+    const { exchangePendingOAuthCompletion } = await import('@/features/auth/data/datasources/authOAuthActions')
 
     await exchangePendingOAuthCompletion({
       adoptDisplayName: false,
@@ -33,7 +33,7 @@ describe('oauth adoption auth api', () => {
   })
 
   it('posts bind-login decisions when finalizing pending oauth bind flow', async () => {
-    const { completePendingOAuthBindLogin } = await import('@/features/auth/data/datasources/authDatasource')
+    const { completePendingOAuthBindLogin } = await import('@/features/auth/data/datasources/authOAuthActions')
 
     await completePendingOAuthBindLogin({
       adoptDisplayName: true,
@@ -47,7 +47,7 @@ describe('oauth adoption auth api', () => {
   })
 
   it('posts linuxdo invitation completion with adoption decisions', async () => {
-    const { completeLinuxDoOAuthRegistration } = await import('@/features/auth/data/datasources/authDatasource')
+    const { completeLinuxDoOAuthRegistration } = await import('@/features/auth/data/datasources/authOAuthActions')
 
     await completeLinuxDoOAuthRegistration('invite-code', {
       adoptDisplayName: true,
@@ -62,7 +62,7 @@ describe('oauth adoption auth api', () => {
   })
 
   it('posts linuxdo create-account completion with adoption decisions', async () => {
-    const { createPendingLinuxDoOAuthAccount } = await import('@/features/auth/data/datasources/authDatasource')
+    const { createPendingLinuxDoOAuthAccount } = await import('@/features/auth/data/datasources/authOAuthActions')
 
     await createPendingLinuxDoOAuthAccount('invite-code', {
       adoptDisplayName: false,
@@ -77,7 +77,7 @@ describe('oauth adoption auth api', () => {
   })
 
   it('posts affiliate code when completing linuxdo oauth registration', async () => {
-    const { completeLinuxDoOAuthRegistration } = await import('@/features/auth/data/datasources/authDatasource')
+    const { completeLinuxDoOAuthRegistration } = await import('@/features/auth/data/datasources/authOAuthActions')
 
     await completeLinuxDoOAuthRegistration(
       'invite-code',
@@ -97,7 +97,7 @@ describe('oauth adoption auth api', () => {
   })
 
   it('posts oidc invitation completion with adoption decisions', async () => {
-    const { completeOIDCOAuthRegistration } = await import('@/features/auth/data/datasources/authDatasource')
+    const { completeOIDCOAuthRegistration } = await import('@/features/auth/data/datasources/authOAuthActions')
 
     await completeOIDCOAuthRegistration('invite-code', {
       adoptDisplayName: false,
@@ -112,7 +112,7 @@ describe('oauth adoption auth api', () => {
   })
 
   it('posts oidc create-account completion with adoption decisions', async () => {
-    const { createPendingOIDCOAuthAccount } = await import('@/features/auth/data/datasources/authDatasource')
+    const { createPendingOIDCOAuthAccount } = await import('@/features/auth/data/datasources/authOAuthActions')
 
     await createPendingOIDCOAuthAccount('invite-code', {
       adoptDisplayName: true,
@@ -127,7 +127,7 @@ describe('oauth adoption auth api', () => {
   })
 
   it('posts wechat invitation completion with adoption decisions', async () => {
-    const { completeWeChatOAuthRegistration } = await import('@/features/auth/data/datasources/authDatasource')
+    const { completeWeChatOAuthRegistration } = await import('@/features/auth/data/datasources/authOAuthActions')
 
     await completeWeChatOAuthRegistration('invite-code', {
       adoptDisplayName: true,
@@ -142,7 +142,7 @@ describe('oauth adoption auth api', () => {
   })
 
   it('posts wechat create-account completion with adoption decisions', async () => {
-    const { createPendingWeChatOAuthAccount } = await import('@/features/auth/data/datasources/authDatasource')
+    const { createPendingWeChatOAuthAccount } = await import('@/features/auth/data/datasources/authOAuthActions')
 
     await createPendingWeChatOAuthAccount('invite-code', {
       adoptDisplayName: false,
@@ -157,7 +157,7 @@ describe('oauth adoption auth api', () => {
   })
 
   it('posts affiliate code when creating pending wechat oauth account', async () => {
-    const { createPendingWeChatOAuthAccount } = await import('@/features/auth/data/datasources/authDatasource')
+    const { createPendingWeChatOAuthAccount } = await import('@/features/auth/data/datasources/authOAuthActions')
 
     await createPendingWeChatOAuthAccount(
       'invite-code',
@@ -177,7 +177,7 @@ describe('oauth adoption auth api', () => {
   })
 
   it('classifies oauth completion results as login or bind', async () => {
-    const { getOAuthCompletionKind } = await import('@/features/auth/data/datasources/authDatasource')
+    const { getOAuthCompletionKind } = await import('@/features/auth/data/datasources/authOAuthActions')
 
     expect(getOAuthCompletionKind({ access_token: 'access-token' })).toBe('login')
     expect(getOAuthCompletionKind({ redirect: '/profile' })).toBe('bind')
@@ -188,7 +188,7 @@ describe('oauth adoption auth api', () => {
       getPendingOAuthBindLoginKind,
       hasPendingOAuthSuggestedProfile,
       isPendingOAuthCreateAccountRequired
-    } = await import('@/features/auth/data/datasources/authDatasource')
+    } = await import('@/features/auth/data/datasources/authOAuthActions')
 
     expect(getPendingOAuthBindLoginKind({ access_token: 'access-token' })).toBe('login')
     expect(getPendingOAuthBindLoginKind({ redirect: '/profile' })).toBe('bind')
@@ -217,7 +217,7 @@ describe('oauth adoption auth api', () => {
 
   it('requests an HttpOnly oauth bind cookie before redirect binding', async () => {
     setAccessToken('access-token-value')
-    const { prepareOAuthBindAccessTokenCookie } = await import('@/features/auth/data/datasources/authDatasource')
+    const { prepareOAuthBindAccessTokenCookie } = await import('@/features/auth/data/datasources/authOAuthActions')
 
     await prepareOAuthBindAccessTokenCookie()
 

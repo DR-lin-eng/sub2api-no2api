@@ -2,8 +2,12 @@ import { computed, ref, type Ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useKeyedDebouncedSearch } from "@/common/composables/useKeyedDebouncedSearch";
 import * as accountsAPI from "@/features/admin-accounts/data/datasources/adminAccountsDatasource";
-import * as groupsAPI from "@/features/admin-groups/data/datasources/adminGroupsDatasource";
-import type { GroupPlatform } from "@/types";
+import {
+  getLiveCapability,
+  getModelDefaultPricing,
+  getModelsListCandidates,
+} from "@/features/admin-groups/data/datasources/adminGroupQueries";
+import type { GroupPlatform } from "@/types/group";
 import { createModelsListCandidatesTracker } from "../groupsModelsListCandidatesResolver";
 import { setModelsListCandidates, type ModelsListState } from "../groupsModelsListResolver";
 import type {
@@ -32,7 +36,7 @@ export function useGroupEditorRuntime() {
     },
   ]);
   const loadModelDefaultPricing = (model: string) =>
-    groupsAPI.getModelDefaultPricing(model);
+    getModelDefaultPricing(model);
 
   const modelsListCandidatesTracker = createModelsListCandidatesTracker();
   const loadModelsListCandidates = async (
@@ -46,7 +50,7 @@ export function useGroupEditorRuntime() {
     const requestID = modelsListCandidatesTracker.next(request);
     loading.value = true;
     try {
-      const models = await groupsAPI.getModelsListCandidates(groupID, platform);
+      const models = await getModelsListCandidates(groupID, platform);
       if (!modelsListCandidatesTracker.isCurrent(requestID, request)) return;
       setModelsListCandidates(state, models);
     } catch (error) {
@@ -170,8 +174,7 @@ export function useGroupEditorRuntime() {
   const loadLiveCapability = async () => {
     if (liveCapability.value) return liveCapability.value;
     if (!liveCapabilityRequest) {
-      liveCapabilityRequest = groupsAPI
-        .getLiveCapability()
+      liveCapabilityRequest = getLiveCapability()
         .catch(() => ({ supported: false }))
         .finally(() => {
           liveCapabilityRequest = null;

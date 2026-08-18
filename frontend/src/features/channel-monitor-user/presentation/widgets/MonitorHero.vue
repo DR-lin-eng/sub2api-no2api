@@ -71,6 +71,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import AutoRefreshButton from '@/common/widgets/data/AutoRefreshButton.vue'
+import { channelMonitorOverallLabel } from '@/features/channel-monitor-user/presentation/channelMonitorLocale'
 export type MonitorWindow = '7d' | '15d' | '30d'
 export type OverallStatus = 'operational' | 'degraded'
 
@@ -104,7 +105,7 @@ const windowOptions = computed<{ value: MonitorWindow; label: string }[]>(() => 
   { value: '30d', label: t('channelStatus.windowTab.30d') },
 ])
 
-const overallLabel = computed(() => t(`channelStatus.overall.${props.overallStatus}`))
+const overallLabel = computed(() => channelMonitorOverallLabel(t, props.overallStatus))
 
 const overallChipClass = computed(() => {
   switch (props.overallStatus) {

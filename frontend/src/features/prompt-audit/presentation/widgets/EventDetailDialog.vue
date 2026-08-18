@@ -81,6 +81,13 @@ import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import type { PromptAuditEvent, PromptIssueSummary } from '../../domain/models/promptAuditTypes'
 import { SCANNER_CATALOG } from '../../domain/promptAuditViewModel'
+import {
+  promptAuditActionLabel,
+  promptAuditCategoryDescription,
+  promptAuditCategoryLabel,
+  promptAuditDecisionLabel,
+  promptAuditRiskLevelLabel,
+} from '../promptAuditLocale'
 
 const props = defineProps<{ show: boolean; event: PromptAuditEvent | null; loading: boolean }>()
 defineEmits<{ (event: 'close'): void }>()
@@ -89,23 +96,15 @@ const tabs = ['summary', 'risks', 'technical'] as const
 const activeTab = ref<(typeof tabs)[number]>('summary')
 watch(() => props.event?.id, () => { activeTab.value = 'summary' })
 
-const DECISIONS = new Set(['pass', 'flag', 'critical'])
-const ACTIONS = new Set(['Allow', 'Warn', 'Block'])
-const RISK_LEVELS = new Set(['low', 'medium', 'high', 'critical'])
-
 function displayPrompt(event: PromptAuditEvent): string {
   return event.snapshot.full_prompt || event.snapshot.redacted_preview || '—'
 }
 
 function formatDecisionAction(decision: string, action: string): string {
-  const decisionLabel = DECISIONS.has(decision) ? t(`admin.promptAudit.decisions.${decision}`) : decision
-  const actionLabel = ACTIONS.has(action) ? t(`admin.promptAudit.actions.${action}`) : action
-  return `${decisionLabel} · ${actionLabel}`
+  return `${promptAuditDecisionLabel(t, decision)} · ${promptAuditActionLabel(t, action)}`
 }
 function translateCategory(category: string): string {
-  return SCANNER_CATALOG.some((scanner) => scanner.id === category)
-    ? t(`admin.promptAudit.scanners.${category}`)
-    : category
+  return promptAuditCategoryLabel(t, category)
 }
 function formatCategories(categories: string[]): string {
   if (!categories.length) return '—'
@@ -113,24 +112,26 @@ function formatCategories(categories: string[]): string {
 }
 function translateEvidence(value: string): string {
   const byId = SCANNER_CATALOG.find((scanner) => scanner.id === value)
-  if (byId) return t(`admin.promptAudit.scanners.${byId.id}`)
+  if (byId) return promptAuditCategoryLabel(t, byId.id)
   const byLabel = SCANNER_CATALOG.find((scanner) => scanner.label === value)
-  if (byLabel) return t(`admin.promptAudit.scanners.${byLabel.id}`)
+  if (byLabel) return promptAuditCategoryLabel(t, byLabel.id)
   return value
 }
 function formatGuardReturn(event: PromptAuditEvent): string {
-  const evidence: Record<string, string> = {}
-  for (const [key, value] of Object.entries(event.scanner_evidence || {})) {
-    evidence[key] = translateEvidence(value)
-  }
   return JSON.stringify({
-    decision: DECISIONS.has(event.decision) ? t(`admin.promptAudit.decisions.${event.decision}`) : event.decision,
-    risk_level: RISK_LEVELS.has(event.risk_level) ? t(`admin.promptAudit.riskLevels.${event.risk_level}`) : event.risk_level,
-    action: ACTIONS.has(event.action) ? t(`admin.promptAudit.actions.${event.action}`) : event.action,
+    decision: promptAuditDecisionLabel(t, event.decision),
+    risk_level: promptAuditRiskLevelLabel(t, event.risk_level),
+    action: promptAuditActionLabel(t, event.action),
     categories: event.categories.map(translateCategory),
     matched_scanners: event.matched_scanners.map(translateCategory),
-    scanner_scores: event.scanner_scores,
-    scanner_evidence: evidence,
+    scanner_scores: Object.entries(event.scanner_scores || {}).map(([category, score]) => ({
+      category: translateCategory(category),
+      score,
+    })),
+    scanner_evidence: Object.entries(event.scanner_evidence || {}).map(([category, evidence]) => ({
+      category: translateCategory(category),
+      evidence: translateEvidence(evidence),
+    })),
     scanner_backend: event.scanner_backend,
     scanner_version: event.scanner_version,
     guard_endpoint_id: event.guard_endpoint_id,
@@ -142,15 +143,12 @@ function issueTitle(issue: PromptIssueSummary): string {
   return translateCategory(issue.category || issue.scanner_id) || issue.title
 }
 function issueDescription(issue: PromptIssueSummary): string {
-  const category = issue.category || issue.scanner_id
-  const key = `admin.promptAudit.scannerDescriptions.${category}`
-  const label = t(key)
-  return label === key ? issue.description : label
+  return promptAuditCategoryDescription(t, issue.category || issue.scanner_id)
 }
 function issueSeverity(issue: PromptIssueSummary): string {
-  return RISK_LEVELS.has(issue.severity) ? t(`admin.promptAudit.riskLevels.${issue.severity}`) : issue.severity_label || issue.severity
+  return promptAuditRiskLevelLabel(t, issue.severity)
 }
 function issueAction(issue: PromptIssueSummary): string {
-  return ACTIONS.has(issue.action) ? t(`admin.promptAudit.actions.${issue.action}`) : issue.action_label || issue.action
+  return promptAuditActionLabel(t, issue.action)
 }
 </script>

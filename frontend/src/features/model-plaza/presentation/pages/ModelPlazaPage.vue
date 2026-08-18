@@ -24,7 +24,7 @@ import {
   type ModelPlazaResponse,
 } from '../../data/datasources/modelPlazaDatasource'
 import { useAppStore } from '@/core/stores/appStore'
-import { useAuthStore } from '@/features/auth/presentation/stores/authStore'
+import { useAuthStore } from '@/features/auth'
 
 const route = useRoute()
 const appStore = useAppStore()

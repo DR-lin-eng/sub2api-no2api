@@ -199,8 +199,8 @@ import { useRoute } from 'vue-router'
 import {
   hasExplicitWeChatOAuthCapabilities,
   resolveWeChatOAuthStartStrict,
-  type WeChatOAuthPublicSettings,
-} from '@/features/auth/data/datasources/authDatasource'
+} from '@/features/auth/data/datasources/authOAuthActions'
+import type { WeChatOAuthPublicSettings } from '@/features/auth/data/dtos/authDtos'
 import {
   bindEmailIdentity,
   sendEmailBindingCode,
@@ -208,7 +208,8 @@ import {
   unbindAuthIdentity,
 } from '@/features/profile/data/datasources/profileDatasource'
 import Icon from '@/common/widgets/icons/Icon.vue'
-import { useAppStore, useAuthStore } from '@/stores'
+import { useAppStore } from '@/core/stores/appStore'
+import { useAuthStore } from '@/features/auth'
 import type { User, UserAuthBindingStatus, UserAuthProvider } from '@/types'
 
 type BindableProvider = Exclude<UserAuthProvider, 'email'>

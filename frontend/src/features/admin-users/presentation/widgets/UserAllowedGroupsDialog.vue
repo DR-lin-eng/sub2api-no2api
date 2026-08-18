@@ -182,7 +182,8 @@
 import { ref, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
-import { adminAPI } from '@/api/admin'
+import { list as listAdminGroups } from '@/features/admin-groups/data/datasources/adminGroupQueries'
+import { update as updateAdminUser } from '@/features/admin-users/data/datasources/adminUsersDatasource'
 import type { AdminUser, Group, GroupPlatform } from '@/types'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import PlatformIcon from '@/common/widgets/icons/PlatformIcon.vue'
@@ -227,7 +228,7 @@ watch(
 const load = async () => {
   loading.value = true
   try {
-    const res = await adminAPI.groups.list(1, 1000)
+    const res = await listAdminGroups(1, 1000)
     // 只显示标准类型且活跃的分组
     groups.value = res.items.filter((g) => g.subscription_type === 'standard' && g.status === 'active')
 
@@ -299,7 +300,7 @@ const handleSave = async () => {
       }
     }
 
-    await adminAPI.users.update(props.user.id, {
+    await updateAdminUser(props.user.id, {
       allowed_groups: allowedGroups,
       group_rates: Object.keys(groupRates).length > 0 ? groupRates : undefined,
     })

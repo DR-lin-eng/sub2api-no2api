@@ -81,9 +81,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { userAPI } from '@/api'
+import { updateProfile } from '@/features/profile/data/datasources/profileDatasource'
 import { useAppStore } from '@/core/stores/appStore'
-import { useAuthStore } from '@/features/auth/presentation/stores/authStore'
+import { useAuthStore } from '@/features/auth'
 import type { User } from '@/types'
 import { extractApiErrorMessage } from '@/core/utils/apiError'
 
@@ -235,7 +235,7 @@ async function handleAvatarSave() {
 
   avatarSaving.value = true
   try {
-    const updated = await userAPI.updateProfile({ avatar_url: normalized })
+    const updated = await updateProfile({ avatar_url: normalized })
     authStore.user = updated
     avatarDraft.value = updated.avatar_url?.trim() || ''
     appStore.showSuccess(t('profile.avatar.saveSuccess'))
@@ -257,7 +257,7 @@ async function handleAvatarDelete() {
 
   avatarSaving.value = true
   try {
-    const updated = await userAPI.updateProfile({ avatar_url: '' })
+    const updated = await updateProfile({ avatar_url: '' })
     authStore.user = updated
     avatarDraft.value = ''
     appStore.showSuccess(t('profile.avatar.deleteSuccess'))

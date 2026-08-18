@@ -51,7 +51,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { getLocalCaptcha } from '@/features/auth/data/datasources/authDatasource'
+import { getLocalCaptcha } from '@/features/auth/data/datasources/authQueries'
 import Icon from '@/common/widgets/icons/Icon.vue'
 
 const props = withDefaults(defineProps<{

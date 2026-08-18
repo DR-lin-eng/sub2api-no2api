@@ -11,16 +11,15 @@ const { listRoutes, createRoute, updateRoute, deleteRoute, showError, showSucces
   showSuccess: vi.fn(),
 }))
 
-vi.mock('@/api/admin', () => ({
-  adminAPI: {
-    groups: {
-      listCompositeRoutes: listRoutes,
-      createCompositeRoute: createRoute,
-      updateCompositeRoute: updateRoute,
-      deleteCompositeRoute: deleteRoute,
-      previewCompositeRoute: vi.fn(),
-    },
-  },
+vi.mock('@/features/admin-groups/data/datasources/adminGroupQueries', () => ({
+  listCompositeRoutes: listRoutes,
+  previewCompositeRoute: vi.fn(),
+}))
+
+vi.mock('@/features/admin-groups/data/datasources/adminGroupActions', () => ({
+  createCompositeRoute: createRoute,
+  updateCompositeRoute: updateRoute,
+  deleteCompositeRoute: deleteRoute,
 }))
 
 vi.mock('@/core/stores/appStore', () => ({

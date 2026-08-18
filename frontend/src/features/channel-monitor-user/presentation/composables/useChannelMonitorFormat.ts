@@ -13,7 +13,12 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
-import type { MonitorStatus, Provider } from '@/features/admin-channel-monitor/data/datasources/adminChannelMonitorDatasource'
+import type { MonitorMode, MonitorStatus, Provider } from '@/features/admin-channel-monitor/data/datasources/adminChannelMonitorDatasource'
+import {
+  channelMonitorModeLabel,
+  channelMonitorProviderLabel,
+  channelMonitorStatusLabel,
+} from '@/features/channel-monitor-user/presentation/channelMonitorLocale'
 import {
   PROVIDER_OPENAI,
   PROVIDER_ANTHROPIC,
@@ -46,9 +51,12 @@ export function useChannelMonitorFormat() {
     appStore.cachedPublicSettings?.channel_monitor_latency_unit === 's' ? 's' : 'ms'
   )
 
-  function statusLabel(s: MonitorStatus | ''): string {
-    if (!s) return t('monitorCommon.status.unknown')
-    return t(`monitorCommon.status.${s}`)
+  function statusLabel(s: MonitorStatus | string | ''): string {
+    return channelMonitorStatusLabel(t, s)
+  }
+
+  function modeLabel(mode: MonitorMode | string | null | undefined): string {
+    return channelMonitorModeLabel(t, mode)
   }
 
   function statusBadgeClass(s: MonitorStatus | ''): string {
@@ -67,15 +75,7 @@ export function useChannelMonitorFormat() {
   }
 
   function providerLabel(p: Provider | string): string {
-    if (
-      p === PROVIDER_OPENAI ||
-      p === PROVIDER_ANTHROPIC ||
-      p === PROVIDER_GEMINI ||
-      p === PROVIDER_GROK
-    ) {
-      return t(`monitorCommon.providers.${p}`)
-    }
-    return p || '-'
+    return channelMonitorProviderLabel(t, p)
   }
 
   function providerBadgeClass(p: Provider | string): string {
@@ -168,6 +168,7 @@ export function useChannelMonitorFormat() {
 
   return {
     statusLabel,
+    modeLabel,
     statusBadgeClass,
     providerLabel,
     providerBadgeClass,

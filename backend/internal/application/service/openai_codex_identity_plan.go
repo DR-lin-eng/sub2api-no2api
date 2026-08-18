@@ -104,10 +104,6 @@ func (s *OpenAIGatewayService) codexSimulationIdentitySecret() string {
 	return strings.TrimSpace(s.codexSimulationSettingsSnapshot(context.Background(), nil).IdentitySecret)
 }
 
-func (s *OpenAIGatewayService) codexSimulationConfigured() bool {
-	return s.codexSimulationSettingsSnapshot(context.Background(), nil).configured()
-}
-
 func (s *OpenAIGatewayService) codexFullSimulationEnabledForAccount(c *gin.Context, account *Account) bool {
 	settings := s.codexSimulationSettingsSnapshot(context.Background(), c)
 	return settings.FullSimulationEnabled && settings.configured() && account != nil && account.IsOpenAIOAuth() &&
@@ -346,10 +342,6 @@ func (s *OpenAIGatewayService) resolveCodexSimulationPrincipalWithSecret(account
 		s.codexPrincipalLocalTotal.Add(1)
 	}
 	return principal
-}
-
-func (s *OpenAIGatewayService) codexSimulationPrincipalForAccount(account *Account) codexSimulationPrincipal {
-	return s.codexSimulationPrincipalForAccountWithSecret(account, s.codexSimulationIdentitySecret())
 }
 
 func (s *OpenAIGatewayService) codexSimulationPrincipalForAccountWithSecret(account *Account, secret string) codexSimulationPrincipal {

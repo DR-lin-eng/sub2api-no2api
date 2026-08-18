@@ -73,7 +73,7 @@ vi.mock('@/features/admin-accounts/data/datasources/adminAccountActions', async 
 }))
 
 vi.mock('@/features/admin-proxies/data/datasources/adminProxiesDatasource', () => ({ getAll: getAllProxies }))
-vi.mock('@/features/admin-groups/data/datasources/adminGroupsDatasource', () => ({ getAll: getAllGroups }))
+vi.mock('@/features/admin-groups/data/datasources/adminGroupQueries', () => ({ getAll: getAllGroups }))
 
 vi.mock('@/core/stores/appStore', () => ({
   useAppStore: () => ({ showToast, hideToast, showError, showSuccess })

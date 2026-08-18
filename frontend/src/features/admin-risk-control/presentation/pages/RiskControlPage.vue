@@ -774,6 +774,7 @@ import {
   riskThresholdsFromConfig,
 } from '@/features/admin-risk-control/presentation/composables/riskControlFormResolvers'
 import { adminAPI } from '@/api/admin'
+import { getAll as getAllAdminGroups } from '@/features/admin-groups/data/datasources/adminGroupQueries'
 import type {
   ContentModerationAPIKeyStatus,
   ContentModerationConfig,
@@ -1146,7 +1147,7 @@ async function loadAll() {
   try {
     const [config, groupItems, runtimeStatus, proxyItems] = await Promise.all([
       adminAPI.riskControl.getConfig(),
-      adminAPI.groups.getAll(),
+      getAllAdminGroups(),
       adminAPI.riskControl.getStatus(),
       adminAPI.proxies.getAll().catch(() => [] as Proxy[]),
     ])

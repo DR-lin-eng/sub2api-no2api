@@ -6,7 +6,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { paymentAPI } from '@/features/billing/data/datasources/paymentDatasource'
-import type { PaymentConfig, PaymentOrder, SubscriptionPlan, CreateOrderRequest } from '@/types/payment'
+import type { PaymentConfig, PaymentOrder, SubscriptionPlan, CreateOrderRequest } from '@/features/billing/paymentContracts'
 
 export const usePaymentStore = defineStore('payment', () => {
   // ==================== State ====================

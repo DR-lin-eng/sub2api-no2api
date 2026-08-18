@@ -3,7 +3,7 @@ import type {
   CurrencyAwareDashboardStats,
   DashboardStats,
   TopUserPaymentStats,
-} from '@/types/payment'
+} from '@/features/billing/paymentContracts'
 
 const LEGACY_PAYMENT_CURRENCY = 'CNY'
 

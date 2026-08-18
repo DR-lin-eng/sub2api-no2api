@@ -8,10 +8,8 @@ const { changePasswordMock, showSuccessMock, showErrorMock } = vi.hoisted(() => 
   showErrorMock: vi.fn()
 }))
 
-vi.mock('@/api', () => ({
-  userAPI: {
-    changePassword: changePasswordMock
-  }
+vi.mock('@/features/profile/data/datasources/profileDatasource', () => ({
+  changePassword: changePasswordMock
 }))
 
 vi.mock('@/core/stores/appStore', () => ({

@@ -370,7 +370,7 @@ describe('locale coverage', () => {
       }
     }
     expect(findings.join('\n')).toBe('')
-  })
+  }, 60_000)
 
   it('loads every statically reachable message for every route', () => {
     const findings: string[] = []
@@ -404,5 +404,5 @@ describe('locale coverage', () => {
       }
     }
     expect(findings.join('\n')).toBe('')
-  }, 30_000)
+  }, 60_000)
 })

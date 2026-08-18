@@ -116,7 +116,7 @@ export default adminAPI
 
 // Re-export types used by components
 export type { AuditLog, AuditLogQuery, AuditLogListResponse } from '@/features/admin-audit/data/datasources/adminAuditDatasource'
-export type { BalanceHistoryItem } from '@/features/admin-users/data/datasources/adminUsersDatasource'
+export type { BalanceHistoryItem } from '@/features/admin-users/data/dtos/adminUserDtos'
 export type { ErrorPassthroughRule, CreateRuleRequest, UpdateRuleRequest } from '@/features/admin-settings/data/datasources/errorPassthroughDatasource'
 export type { BackupAgentHealth, DataManagementConfig } from '@/features/admin-backup/data/datasources/dataManagementDatasource'
 export type { TLSFingerprintProfile, CreateProfileRequest, UpdateProfileRequest } from '@/features/admin-settings/data/datasources/tlsFingerprintProfileDatasource'

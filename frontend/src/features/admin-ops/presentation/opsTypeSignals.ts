@@ -13,14 +13,16 @@ export interface OpsRequestDetailsPreset {
   ttft_only?: boolean
 }
 
-// Re-export ops alert/settings types so view components can import from a single place.
 export type {
   AlertRule,
   AlertEvent,
   AlertSeverity,
   ThresholdMode,
   MetricType,
-  Operator,
+  Operator
+} from '@/features/admin-ops/data/dtos/opsAlertDtos'
+
+export type {
   EmailNotificationConfig,
   OpsDistributedLockSettings,
   OpsAlertRuntimeSettings,
@@ -28,7 +30,7 @@ export type {
   OpsAdvancedSettings,
   OpsDataRetentionSettings,
   OpsAggregationSettings
-} from '@/features/admin-ops/data/datasources/adminOpsDatasource'
+} from '@/features/admin-ops/data/dtos/opsSettingsDtos'
 
 export type {
   OpsRuntimeLogConfig,

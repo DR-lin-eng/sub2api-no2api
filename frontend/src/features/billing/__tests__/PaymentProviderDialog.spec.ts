@@ -3,7 +3,7 @@ import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import PaymentProviderDialog from '@/features/billing/presentation/widgets/PaymentProviderDialog.vue'
 import { STRIPE_SDK_API_VERSION } from '@/features/billing/presentation/providerConfigSignals'
-import type { ProviderInstance } from '@/types/payment'
+import type { ProviderInstance } from '@/features/billing/paymentContracts'
 
 const showError = vi.hoisted(() => vi.fn())
 

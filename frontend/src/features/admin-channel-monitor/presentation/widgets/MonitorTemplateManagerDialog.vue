@@ -244,6 +244,7 @@ import Icon from '@/common/widgets/icons/Icon.vue'
 import MonitorAdvancedRequestConfig from '@/features/admin-channel-monitor/presentation/widgets/MonitorAdvancedRequestConfig.vue'
 import MonitorTemplateApplyPickerDialog from '@/features/admin-channel-monitor/presentation/widgets/MonitorTemplateApplyPickerDialog.vue'
 import { useChannelMonitorFormat } from '@/features/channel-monitor-user/presentation/composables/useChannelMonitorFormat'
+import { channelMonitorBodyModeLabel } from '@/features/channel-monitor-user/channelMonitorLocale'
 import {
   PROVIDER_ANTHROPIC,
   PROVIDER_OPENAI,
@@ -479,7 +480,7 @@ function modeBadgeClass(mode: BodyOverrideMode): string {
 }
 
 function modeLabel(mode: BodyOverrideMode): string {
-  return t(`admin.channelMonitor.advanced.bodyMode${mode.charAt(0).toUpperCase()}${mode.slice(1)}`)
+  return channelMonitorBodyModeLabel(t, mode)
 }
 
 const apiModeOptions = computed<{ value: APIMode; label: string; hint: string }[]>(() => [

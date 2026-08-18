@@ -80,12 +80,13 @@
 
 <script setup lang="ts">
 import { reactive, ref, watch } from 'vue'
-import { useI18n } from 'vue-i18n'; import { adminAPI } from '@/api/admin'
+import { useI18n } from 'vue-i18n'
+import { create as createAdminUser } from '@/features/admin-users/data/datasources/adminUsersDatasource'
 import { useAppStore } from '@/core/stores/appStore'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import { useStepUp, isStepUpBlocked, isStepUpCancelled, stepUpBlockReason } from '@/common/composables/useStepUp'
-import TotpStepUpDialog from '@/features/auth/presentation/widgets/TotpStepUpDialog.vue'
+import TotpStepUpDialog from '@/features/auth/totpStepUpDialog'
 import type { RequestSchedulingTier } from '@/types'
 
 const props = defineProps<{ show: boolean }>()
@@ -108,7 +109,7 @@ const submit = async () => {
       payload.balance = Number(balance)
     }
     // 创建管理员属敏感操作：后端返回 STEP_UP_REQUIRED 时弹 TOTP 验证并重试
-    await stepUp.run(() => adminAPI.users.create(payload))
+    await stepUp.run(() => createAdminUser(payload))
     appStore.showSuccess(t('admin.users.userCreated'))
     emit('success'); emit('close')
   } catch (e: any) {

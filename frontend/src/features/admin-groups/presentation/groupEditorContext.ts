@@ -1,9 +1,6 @@
 import type { ComputedRef, Ref } from "vue";
-import type {
-  AdminGroup,
-  GroupPlatform,
-  SubscriptionType,
-} from "@/types";
+import type { AdminGroup } from "@/features/admin-groups/data/dtos/adminGroupDtos";
+import type { GroupPlatform, SubscriptionType } from "@/types/group";
 import type { ModelsListState } from "./groupsModelsListResolver";
 import type { MessagesDispatchMappingRow } from "./groupsMessagesDispatchResolver";
 import type { ReasoningEffortMappingRow } from "./groupsReasoningEffort";

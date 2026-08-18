@@ -69,7 +69,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import Icon from '@/common/widgets/icons/Icon.vue'
-import type { CurrencyAmounts, CurrencyAwareDashboardStats } from '@/types/payment'
+import type { CurrencyAmounts, CurrencyAwareDashboardStats } from '@/features/billing/paymentContracts'
 
 const { t } = useI18n()
 

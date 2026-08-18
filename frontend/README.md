@@ -47,9 +47,15 @@ pnpm run build
 ## 首屏与按需加载
 
 - i18n 启动时只加载 `base` 文案；Router 在进入页面前按路由加载 `user`、`batchImage`、`supportChat` 或 `admin` scope。新增路由或把文案移入独立语言文件时，同步更新 `src/core/i18n/index.ts` 的路由映射和 scope 测试。
+- 跨用户端和管理端复用的组件必须使用所有消费路由都能加载的词表 owner。`routeLocaleCoverage.spec.ts` 会按每条路由的实际 scope 扫描静态组件依赖，关键共享组件还应使用真实 runtime message 在中英文和用户/管理员权限组合下验证，禁止把 `admin.*` 等未加载 key 原样渲染到界面。
 - 公告、管理员合规等非必现的全局对话框使用 `defineAsyncComponent` 并只在状态需要时挂载。不要把低频弹窗或它们的重依赖静态导入应用壳层。
 - `vite.config.ts` 将 Markdown、二维码、表格虚拟化、引导、支付和导出等低频依赖拆为独立 chunk。新增重依赖后检查生产 `index.html` 的 `modulepreload`，避免它重新进入匿名用户首屏。
 - `index.html` 中的 `#app-logo-preload` 是登录页 Logo 的高优先级预加载入口。修改其结构时同步检查 Vite 开发态 branding 注入和后端 `internal/transport/webassets` 的生产 HTML 注入，确保自定义 Logo 使用同一 URL。
+- 公共首页的 `home_content` HTML 必须经过展示型 allowlist 清洗；脚本、事件属性、表单和嵌入对象不得进入同源 DOM。URL 模式只接受绝对 HTTP(S)，并在无同源权限、无 referrer 的 sandbox iframe 中运行。
+- 运行时 `v-html` 和直接 `innerHTML` 受 `src/__tests__/dynamicHtmlSecurity.spec.ts` 精确清单约束。新增动态 HTML sink 必须先建立明确 sanitizer/常量 owner，不得通过扩大基线绕过。
+- 自定义 Markdown 中的 iframe 必须经过 URL 协议校验，并强制无同源权限 sandbox、`no-referrer`、懒加载和本地化标题；非法、`srcdoc` 或事件处理器 iframe 必须被删除。
+- 后端状态、模式和类型枚举不得直接拼接翻译 key。共享或可扩展枚举必须通过显式 resolver 映射，并对未来值回退到本地化“未知”，相邻测试需覆盖中英文与异常值。
+- 动态翻译 key 受 `src/__tests__/dynamicLocaleMapping.spec.ts` 精确清单约束；新增插值或字符串拼接前必须确认值来自本地闭合集合，API/持久化枚举必须先进入显式 resolver。所有 `/admin` 路由同时受 `adminRouteAccess.spec.ts` 的管理员 meta 门禁约束。
 
 ## 模块分层
 
@@ -70,6 +76,8 @@ feature presentation -> common widgets/composables + core services/stores/utils
 - `core` 保存应用级运行能力和组合入口。统一认证头、401 刷新、URL 处理和错误拦截集中在 `core/networks`。
 - Store 只保存跨页面共享、需要缓存或具备明确启动/停止生命周期的状态；领域 Store 跟随所属 feature。
 - 跨 feature 协作应导入明确的 owner 文件，避免新增无归属的顶层聚合模块。
+- 认证状态通过 `features/auth/index.ts` 的稳定入口复用，敏感操作弹窗通过 `features/auth/totpStepUpDialog.ts` 单独公开；其他 feature 不得直接导入 `features/auth/presentation/`。access token 仅驻留内存，持久 refresh 凭据继续由后端 HttpOnly cookie 管理。
+- 支付协议和展示规则分别由 `features/billing/paymentContracts.ts` 与 `paymentDisplay.ts` 持有；订单/Provider 组件通过同目录的逐组件公开入口复用。其他 feature 不得直接导入 `features/billing/presentation/`。
 - `src/api/index.ts`、`src/api/admin/index.ts` 和 `src/stores/index.ts` 仅用于平滑迁移旧调用。新代码直接导入 `@/features/...` 或 `@/core/...`，不向兼容 barrel 添加新的业务边界；在旧导入全部迁移并通过回归验证前不要移除这些 barrel。
 
 复杂页面采用稳定的三段式边界：page 负责路由级加载、保存和对话框编排；feature-private widget 负责表单、表格和 tab/panel；composable/resolver 负责可测试的交互状态与纯转换。源码组织拆分使用静态 import，使子模块继续归入原路由 chunk；只有现有路由懒加载和明确的按需重依赖可以使用动态 import。
@@ -135,6 +143,8 @@ pnpm run typecheck
 ```
 
 涉及路由、认证、API client、共享 store 或构建分包时，至少运行相关 spec、lint 和 typecheck。支付、图片、表格等交互页面还应验证 loading、empty、error 和权限受限状态。
+
+`make test-frontend` 的关键测试集包含全路由词表 scope 检查与共享分组组件的跨权限渲染检查；修改共享组件文案、locale scope 或路由权限时必须保持两项通过。
 
 ## 维护规则
 
