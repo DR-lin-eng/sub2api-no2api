@@ -133,9 +133,14 @@ func TestApplyCodexPrewarmContinuationPayloadKeepsImageMessagesAsUser(t *testing
 	rewritten := applyCodexPrewarmContinuationPayload(payload, "resp_prewarm")
 
 	require.Equal(t, 1, rewritten)
-	require.Equal(t, "developer", input[0].(map[string]any)["role"])
-	require.Equal(t, "user", input[1].(map[string]any)["role"])
-	require.Equal(t, "user", input[2].(map[string]any)["role"])
+	requireInputMap := func(index int) map[string]any {
+		item, ok := input[index].(map[string]any)
+		require.True(t, ok, "input[%d] must remain an object", index)
+		return item
+	}
+	require.Equal(t, "developer", requireInputMap(0)["role"])
+	require.Equal(t, "user", requireInputMap(1)["role"])
+	require.Equal(t, "user", requireInputMap(2)["role"])
 	require.Equal(t, "resp_prewarm", payload["previous_response_id"])
 	require.NotContains(t, payload, "generate")
 }
