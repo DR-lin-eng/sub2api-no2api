@@ -60,4 +60,42 @@ describe('SupportMessageComposer', () => {
 
     expect(wrapper.emitted('submit')).toBeUndefined()
   })
+
+  it('imports images from the clipboard and drag-and-drop without blocking text paste', async () => {
+    const wrapper = mount(SupportMessageComposer)
+    const textarea = wrapper.get('textarea')
+    const file = new File(['jpeg'], 'pasted.jpg', { type: 'image/jpeg' })
+
+    const textPaste = new Event('paste', { bubbles: true, cancelable: true }) as ClipboardEvent
+    Object.defineProperty(textPaste, 'clipboardData', {
+      value: { files: [], items: [] },
+    })
+    textarea.element.dispatchEvent(textPaste)
+    expect(textPaste.defaultPrevented).toBe(false)
+
+    const imagePaste = new Event('paste', { bubbles: true, cancelable: true }) as ClipboardEvent
+    Object.defineProperty(imagePaste, 'clipboardData', {
+      value: {
+        files: [file],
+        items: [{ kind: 'file', type: 'image/jpeg', getAsFile: () => file }],
+      },
+    })
+    textarea.element.dispatchEvent(imagePaste)
+    await nextTick()
+
+    expect(imagePaste.defaultPrevented).toBe(true)
+    expect(wrapper.emitted('upload')).toEqual([[
+      { file, content: '', reply_to_id: null },
+    ]])
+
+    const drop = new Event('drop', { bubbles: true, cancelable: true }) as DragEvent
+    Object.defineProperty(drop, 'dataTransfer', {
+      value: { files: [file], types: ['Files'] },
+    })
+    wrapper.get('form').element.dispatchEvent(drop)
+    await nextTick()
+
+    expect(drop.defaultPrevented).toBe(true)
+    expect(wrapper.emitted('upload')).toHaveLength(2)
+  })
 })

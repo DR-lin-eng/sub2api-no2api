@@ -99,4 +99,22 @@ describe('support chat frontend security contract', () => {
     await expect(uploadUserChatAsset(new File(['<svg/>'], 'payload.svg', { type: 'image/svg+xml' })))
       .rejects.toThrow(/Only PNG/)
   })
+
+  it('normalizes non-standard JPEG MIME and sniffs generic clipboard image files', async () => {
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({
+      data: { id: 4, scope: 'message', name: 'image.jpg', mime_type: 'image/jpeg', size: 3 },
+    })
+
+    await uploadUserChatAsset(new File(['jpeg'], 'photo.jpg', { type: 'image/jpg' }))
+    const jpegForm = post.mock.calls[0]?.[1] as FormData
+    expect((jpegForm.get('file') as File).type).toBe('image/jpeg')
+    expect((jpegForm.get('file') as File).name).toBe('image.jpg')
+
+    await uploadUserChatAsset(new File([
+      new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    ], 'clipboard-image', { type: 'application/octet-stream' }))
+    const sniffedForm = post.mock.calls[1]?.[1] as FormData
+    expect((sniffedForm.get('file') as File).type).toBe('image/png')
+    expect((sniffedForm.get('file') as File).name).toBe('image.png')
+  })
 })
