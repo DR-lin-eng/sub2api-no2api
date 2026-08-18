@@ -191,6 +191,7 @@ import type { PendingOAuthSendVerifyCodeResponse } from '@/features/auth/data/dt
 import { apiClient } from '@/core/networks/client'
 import { buildAuthErrorMessage } from '@/core/utils/authError'
 import { extractI18nErrorMessage } from '@/core/utils/apiError'
+import { safeSessionStorage } from '@/core/utils/safeStorage'
 import {
   formatRegistrationEmailSuffixWhitelistForMessage,
   isRegistrationEmailSuffixAllowed,
@@ -338,7 +339,7 @@ onMounted(async () => {
   const activePendingSession = authStore.pendingAuthSession as PendingAuthSessionSummary | null
 
   // Load registration data from sessionStorage
-  const registerDataStr = sessionStorage.getItem('register_data')
+  const registerDataStr = safeSessionStorage.getItem('register_data')
   if (registerDataStr) {
     try {
       const registerData = JSON.parse(registerDataStr)
@@ -375,7 +376,7 @@ onMounted(async () => {
   }
 
   if (!hasRegisterData.value) {
-    sessionStorage.removeItem('register_data')
+    safeSessionStorage.removeItem('register_data')
     clearPendingRegistrationCredentials()
     await router.push('/register')
     return
@@ -565,7 +566,7 @@ async function sendCode(): Promise<void> {
       ? getPendingOAuthSendCodeSessionResponse(response as PendingOAuthSendVerifyCodeResponse)
       : null
     if (pendingSendCodeSession) {
-      sessionStorage.removeItem('register_data')
+      safeSessionStorage.removeItem('register_data')
       clearPendingRegistrationCredentials()
       persistPendingOAuthSession(
         pendingSendCodeSession.provider || pendingProvider.value,
@@ -618,7 +619,7 @@ async function sendCode(): Promise<void> {
 }
 
 function clearStoredHumanVerificationProof(): void {
-  const registerDataStr = sessionStorage.getItem('register_data')
+  const registerDataStr = safeSessionStorage.getItem('register_data')
   if (!registerDataStr) return
 
   try {
@@ -629,7 +630,7 @@ function clearStoredHumanVerificationProof(): void {
     delete registerData.tencent_captcha_randstr
     delete registerData.captcha_id
     delete registerData.captcha_code
-    sessionStorage.setItem('register_data', JSON.stringify(registerData))
+    safeSessionStorage.setItem('register_data', JSON.stringify(registerData))
   } catch {
     // Invalid registration state is handled by the existing onMounted parser.
   }
@@ -717,7 +718,7 @@ async function handleVerify(): Promise<void> {
         payload
       )
       if (isPendingOAuthSessionResponse(data)) {
-        sessionStorage.removeItem('register_data')
+        safeSessionStorage.removeItem('register_data')
         clearPendingRegistrationCredentials()
         persistPendingOAuthSession(data.provider || pendingProvider.value, data.redirect)
         await router.push(resolvePendingOAuthCallbackRoute(data.provider || pendingProvider.value))
@@ -745,7 +746,7 @@ async function handleVerify(): Promise<void> {
     }
 
     // Clear session data
-    sessionStorage.removeItem('register_data')
+    safeSessionStorage.removeItem('register_data')
     clearPendingRegistrationCredentials()
     clearAllAffiliateReferralCodes()
 
@@ -768,7 +769,7 @@ async function handleVerify(): Promise<void> {
 
 function handleBack(): void {
   // Clear session data
-  sessionStorage.removeItem('register_data')
+  safeSessionStorage.removeItem('register_data')
   clearPendingRegistrationCredentials()
   clearCredentialKeyPrefetch()
 

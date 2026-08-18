@@ -267,6 +267,7 @@ import type {
 } from '@/types'
 import { extractI18nErrorMessage } from '@/core/utils/apiError'
 import { clearAllAffiliateReferralCodes } from '@/core/utils/oauthAffiliate'
+import { safeLocalStorage, safeSessionStorage } from '@/core/utils/safeStorage'
 import {
   resolveHumanVerification,
   type AliyunCaptchaRegion,
@@ -412,9 +413,9 @@ onMounted(async () => {
   clearCredentialKeyPrefetch()
   void prefetchCredentialKey()
 
-  const expiredFlag = sessionStorage.getItem('auth_expired')
+  const expiredFlag = safeSessionStorage.getItem('auth_expired')
   if (expiredFlag) {
-    sessionStorage.removeItem('auth_expired')
+    safeSessionStorage.removeItem('auth_expired')
     const message = t('auth.reloginRequired')
     errorMessage.value = message
     appStore.showWarning(message)
@@ -483,7 +484,7 @@ function hasAcceptedLoginAgreement(revision: string): boolean {
     return false
   }
   try {
-    const raw = localStorage.getItem(LOGIN_AGREEMENT_STORAGE_KEY)
+    const raw = safeLocalStorage.getItem(LOGIN_AGREEMENT_STORAGE_KEY)
     if (!raw) {
       return false
     }
@@ -496,7 +497,7 @@ function hasAcceptedLoginAgreement(revision: string): boolean {
 
 function acceptLoginAgreement(): void {
   if (loginAgreementRevision.value) {
-    localStorage.setItem(
+    safeLocalStorage.setItem(
       LOGIN_AGREEMENT_STORAGE_KEY,
       JSON.stringify({
         revision: loginAgreementRevision.value,
@@ -509,7 +510,7 @@ function acceptLoginAgreement(): void {
 }
 
 function rejectLoginAgreement(): void {
-  localStorage.removeItem(LOGIN_AGREEMENT_STORAGE_KEY)
+  safeLocalStorage.removeItem(LOGIN_AGREEMENT_STORAGE_KEY)
   agreementAccepted.value = false
   showAgreementModal.value = false
   appStore.showWarning(t('legal.loginAgreementPrompt.loginRejectedWarning'))

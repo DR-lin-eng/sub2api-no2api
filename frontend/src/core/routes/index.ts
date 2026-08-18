@@ -14,6 +14,7 @@ import { getSetupStatus } from '@/features/setup/data/datasources/setupDatasourc
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveRouteDocumentTitle } from './title'
 import { loadRouteLocaleMessages } from '@/core/i18n'
+import { safeSessionStorage } from '@/core/utils/safeStorage'
 
 /**
  * Route definitions with lazy loading
@@ -1144,12 +1145,12 @@ router.onError((error) => {
   if (isChunkLoadError) {
     // Avoid infinite reload loop by checking sessionStorage
     const reloadKey = 'chunk_reload_attempted'
-    const lastReload = sessionStorage.getItem(reloadKey)
+    const lastReload = safeSessionStorage.getItem(reloadKey)
     const now = Date.now()
 
     // Allow reload if never attempted or more than 10 seconds ago
     if (!lastReload || now - parseInt(lastReload) > 10000) {
-      sessionStorage.setItem(reloadKey, now.toString())
+      safeSessionStorage.setItem(reloadKey, now.toString())
       console.warn('Chunk load error detected, reloading page to fetch latest version...')
       window.location.reload()
     } else {

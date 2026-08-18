@@ -1,4 +1,5 @@
 import { ref, onBeforeUnmount, type Ref } from 'vue'
+import { safeLocalStorage } from '@/core/utils/safeStorage'
 
 export interface UseAutoRefreshOptions {
   storageKey: string
@@ -27,7 +28,7 @@ export function useAutoRefresh(options: UseAutoRefreshOptions) {
 
   function loadFromStorage() {
     try {
-      const saved = localStorage.getItem(storageKey)
+      const saved = safeLocalStorage.getItem(storageKey)
       if (!saved) return
       const parsed = JSON.parse(saved) as { enabled?: boolean; interval_seconds?: number }
       enabled.value = parsed.enabled === true
@@ -38,7 +39,7 @@ export function useAutoRefresh(options: UseAutoRefreshOptions) {
 
   function saveToStorage() {
     try {
-      localStorage.setItem(storageKey, JSON.stringify({
+      safeLocalStorage.setItem(storageKey, JSON.stringify({
         enabled: enabled.value,
         interval_seconds: intervalSeconds.value,
       }))

@@ -1,4 +1,5 @@
 import { getConfiguredTableDefaultPageSize, normalizeTablePageSize } from '@/core/utils/tablePreferences'
+import { safeLocalStorage } from '@/core/utils/safeStorage'
 
 const STORAGE_KEY = 'table-page-size'
 
@@ -9,7 +10,7 @@ export function getPersistedPageSize(fallback = getConfiguredTableDefaultPageSiz
 
   if (typeof window !== 'undefined') {
     try {
-      const stored = window.localStorage.getItem(STORAGE_KEY)
+      const stored = safeLocalStorage.getItem(STORAGE_KEY)
       if (stored !== null) {
         const parsed = Number(stored)
         if (Number.isFinite(parsed)) {
@@ -26,7 +27,7 @@ export function getPersistedPageSize(fallback = getConfiguredTableDefaultPageSiz
 export function setPersistedPageSize(size: number): void {
   if (typeof window === 'undefined') return
   try {
-    window.localStorage.setItem(STORAGE_KEY, String(size))
+    safeLocalStorage.setItem(STORAGE_KEY, String(size))
   } catch (error) {
     console.warn('Failed to persist page size:', error)
   }

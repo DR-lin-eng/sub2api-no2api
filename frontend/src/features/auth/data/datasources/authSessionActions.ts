@@ -10,6 +10,7 @@ import {
   setTokenExpiresAtMemory,
 } from '@/core/networks/tokenStore'
 import { refreshBrowserSession } from '@/core/networks/sessionRefresh'
+import { safeLocalStorage } from '@/core/utils/safeStorage'
 import type {
   AuthResponse,
   EncryptedRegisterRequest,
@@ -56,7 +57,7 @@ export function getTokenExpiresAt(): number | null {
 
 export function clearAuthToken(): void {
   clearTokenMemory()
-  localStorage.removeItem('auth_user')
+  safeLocalStorage.removeItem('auth_user')
 }
 
 export async function login(credentials: LoginRequest): Promise<LoginResponse> {
@@ -71,7 +72,7 @@ export async function login(credentials: LoginRequest): Promise<LoginResponse> {
     setAuthToken(data.access_token)
     if (data.refresh_token) setRefreshToken(data.refresh_token)
     if (data.expires_in) setTokenExpiresAt(data.expires_in)
-    localStorage.setItem('auth_user', JSON.stringify(data.user))
+    safeLocalStorage.setItem('auth_user', JSON.stringify(data.user))
   }
   return data
 }
@@ -81,7 +82,7 @@ export async function login2FA(request: TotpLogin2FARequest): Promise<AuthRespon
   setAuthToken(data.access_token)
   if (data.refresh_token) setRefreshToken(data.refresh_token)
   if (data.expires_in) setTokenExpiresAt(data.expires_in)
-  localStorage.setItem('auth_user', JSON.stringify(data.user))
+  safeLocalStorage.setItem('auth_user', JSON.stringify(data.user))
   return data
 }
 
@@ -102,7 +103,7 @@ export async function register(
   setAuthToken(data.access_token)
   if (data.refresh_token) setRefreshToken(data.refresh_token)
   if (data.expires_in) setTokenExpiresAt(data.expires_in)
-  localStorage.setItem('auth_user', JSON.stringify(data.user))
+  safeLocalStorage.setItem('auth_user', JSON.stringify(data.user))
   return data
 }
 

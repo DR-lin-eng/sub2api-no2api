@@ -1,3 +1,5 @@
+import { safeLocalStorage, safeSessionStorage } from '@/core/utils/safeStorage'
+
 const OAUTH_AFFILIATE_CODE_KEY = 'oauth_aff_code'
 const AFFILIATE_REFERRAL_CODE_KEY = 'affiliate_referral_code'
 const AFFILIATE_REFERRAL_TTL_MS = 30 * 24 * 60 * 60 * 1000
@@ -35,7 +37,7 @@ export function storeAffiliateReferralCode(value?: unknown, now = Date.now()): v
       code,
       expiresAt: now + AFFILIATE_REFERRAL_TTL_MS
     }
-    window.localStorage.setItem(AFFILIATE_REFERRAL_CODE_KEY, JSON.stringify(payload))
+    safeLocalStorage.setItem(AFFILIATE_REFERRAL_CODE_KEY, JSON.stringify(payload))
   } catch {
     // 忽略浏览器存储异常。
   }
@@ -46,7 +48,7 @@ export function loadAffiliateReferralCode(now = Date.now()): string {
     return ''
   }
   try {
-    const raw = window.localStorage.getItem(AFFILIATE_REFERRAL_CODE_KEY)
+    const raw = safeLocalStorage.getItem(AFFILIATE_REFERRAL_CODE_KEY)
     if (!raw) {
       return ''
     }
@@ -69,7 +71,7 @@ export function clearAffiliateReferralCode(): void {
     return
   }
   try {
-    window.localStorage.removeItem(AFFILIATE_REFERRAL_CODE_KEY)
+    safeLocalStorage.removeItem(AFFILIATE_REFERRAL_CODE_KEY)
   } catch {
     // 忽略浏览器存储异常。
   }
@@ -91,9 +93,9 @@ export function storeOAuthAffiliateCode(value?: unknown): void {
   const code = normalizeOAuthAffiliateCode(value)
   try {
     if (code) {
-      window.sessionStorage.setItem(OAUTH_AFFILIATE_CODE_KEY, code)
+      safeSessionStorage.setItem(OAUTH_AFFILIATE_CODE_KEY, code)
     } else {
-      window.sessionStorage.removeItem(OAUTH_AFFILIATE_CODE_KEY)
+      safeSessionStorage.removeItem(OAUTH_AFFILIATE_CODE_KEY)
     }
   } catch {
     // 忽略浏览器存储异常。
@@ -105,7 +107,7 @@ export function loadOAuthAffiliateCode(): string {
     return ''
   }
   try {
-    return normalizeOAuthAffiliateCode(window.sessionStorage.getItem(OAUTH_AFFILIATE_CODE_KEY))
+    return normalizeOAuthAffiliateCode(safeSessionStorage.getItem(OAUTH_AFFILIATE_CODE_KEY))
   } catch {
     return ''
   }
@@ -116,7 +118,7 @@ export function clearOAuthAffiliateCode(): void {
     return
   }
   try {
-    window.sessionStorage.removeItem(OAUTH_AFFILIATE_CODE_KEY)
+    safeSessionStorage.removeItem(OAUTH_AFFILIATE_CODE_KEY)
   } catch {
     // 忽略浏览器存储异常。
   }

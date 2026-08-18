@@ -21,6 +21,7 @@ import {
   setRefreshTokenMemory,
   setTokenExpiresAtMemory,
 } from '@/core/networks/tokenStore'
+import { safeLocalStorage } from '@/core/utils/safeStorage'
 import type {
   User,
   LoginRequest,
@@ -62,7 +63,7 @@ function normalizePendingAuthTokenField(value: unknown): PendingAuthTokenField {
 }
 
 function getPersistedPendingAuthSession(): PendingAuthSessionSummary | null {
-  const raw = localStorage.getItem(PENDING_AUTH_SESSION_KEY)
+  const raw = safeLocalStorage.getItem(PENDING_AUTH_SESSION_KEY)
   if (!raw) {
     return null
   }
@@ -71,7 +72,7 @@ function getPersistedPendingAuthSession(): PendingAuthSessionSummary | null {
     const parsed = JSON.parse(raw) as Partial<PendingAuthSessionSummary> | null
     const provider = typeof parsed?.provider === 'string' ? parsed.provider.trim() : ''
     if (!provider) {
-      localStorage.removeItem(PENDING_AUTH_SESSION_KEY)
+      safeLocalStorage.removeItem(PENDING_AUTH_SESSION_KEY)
       return null
     }
     return {
@@ -84,17 +85,17 @@ function getPersistedPendingAuthSession(): PendingAuthSessionSummary | null {
       suggested_avatar_url: typeof parsed?.suggested_avatar_url === 'string' ? parsed.suggested_avatar_url : undefined
     }
   } catch {
-    localStorage.removeItem(PENDING_AUTH_SESSION_KEY)
+    safeLocalStorage.removeItem(PENDING_AUTH_SESSION_KEY)
     return null
   }
 }
 
 function persistPendingAuthSession(session: PendingAuthSessionSummary): void {
-  localStorage.setItem(PENDING_AUTH_SESSION_KEY, JSON.stringify(session))
+  safeLocalStorage.setItem(PENDING_AUTH_SESSION_KEY, JSON.stringify(session))
 }
 
 function clearPendingAuthSessionStorage(): void {
-  localStorage.removeItem(PENDING_AUTH_SESSION_KEY)
+  safeLocalStorage.removeItem(PENDING_AUTH_SESSION_KEY)
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -143,12 +144,12 @@ export const useAuthStore = defineStore('auth', () => {
       // Cached profile data is display-only until /auth/me confirms the role
       // for the access token restored in this tab.
       roleVerified.value = false
-      const savedUser = localStorage.getItem(AUTH_USER_KEY)
+      const savedUser = safeLocalStorage.getItem(AUTH_USER_KEY)
       if (savedUser) {
         try {
           user.value = JSON.parse(savedUser)
         } catch {
-          localStorage.removeItem(AUTH_USER_KEY)
+          safeLocalStorage.removeItem(AUTH_USER_KEY)
         }
       }
 
@@ -346,7 +347,7 @@ export const useAuthStore = defineStore('auth', () => {
       const { run_mode: _run_mode, ...userData } = response.user
       user.value = userData
       roleVerified.value = true
-      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(userData))
+      safeLocalStorage.setItem(AUTH_USER_KEY, JSON.stringify(userData))
     }
 
     // Persist to localStorage
@@ -474,7 +475,7 @@ export const useAuthStore = defineStore('auth', () => {
       roleVerified.value = true
 
       // Update localStorage
-      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(userData))
+      safeLocalStorage.setItem(AUTH_USER_KEY, JSON.stringify(userData))
 
       return userData
     } catch (error) {
@@ -501,7 +502,7 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     roleVerified.value = false
     clearAuthToken()
-    localStorage.removeItem(AUTH_USER_KEY)
+    safeLocalStorage.removeItem(AUTH_USER_KEY)
 
     if (options?.preservePendingAuthSession) {
       pendingAuthSession.value = getPersistedPendingAuthSession()

@@ -498,6 +498,7 @@ import Icon from '@/common/widgets/icons/Icon.vue'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/core/services/featureFlags'
 import { sanitizeUrl } from '@/core/utils/url'
 import { resolveHomeContentUrl, sanitizeHomeContentHtml } from '@/core/utils/homeContent'
+import { safeLocalStorage } from '@/core/utils/safeStorage'
 
 const { t } = useI18n()
 
@@ -541,12 +542,12 @@ const currentYear = computed(() => new Date().getFullYear())
 function toggleTheme() {
   isDark.value = !isDark.value
   document.documentElement.classList.toggle('dark', isDark.value)
-  localStorage.setItem('theme', isDark.value ? 'dark' : 'light')
+  safeLocalStorage.setItem('theme', isDark.value ? 'dark' : 'light')
 }
 
 // Initialize theme
 function initTheme() {
-  const savedTheme = localStorage.getItem('theme')
+  const savedTheme = safeLocalStorage.getItem('theme')
   if (
     savedTheme === 'dark' ||
     (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)

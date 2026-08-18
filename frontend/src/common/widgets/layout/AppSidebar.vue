@@ -216,6 +216,7 @@ import VersionBadge from '@/common/widgets/data/VersionBadge.vue'
 import { sanitizeSvg } from '@/core/utils/sanitize'
 import { sanitizeUrl } from '@/core/utils/url'
 import { FeatureFlags, makeSidebarFlag } from '@/core/services/featureFlags'
+import { safeLocalStorage } from '@/core/utils/safeStorage'
 import { useBatchImageAccess } from '@/features/batch-image/presentation/composables/useBatchImageAccess'
 
 interface NavItem {
@@ -938,7 +939,7 @@ function toggleSidebar() {
 function toggleTheme() {
   isDark.value = !isDark.value
   document.documentElement.classList.toggle('dark', isDark.value)
-  localStorage.setItem('theme', isDark.value ? 'dark' : 'light')
+  safeLocalStorage.setItem('theme', isDark.value ? 'dark' : 'light')
 }
 
 function closeMobile() {
@@ -1017,7 +1018,7 @@ function handleGroupClick(item: NavItem) {
 }
 
 // Initialize theme
-const savedTheme = localStorage.getItem('theme')
+const savedTheme = safeLocalStorage.getItem('theme')
 if (
   savedTheme === 'dark' ||
   (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)

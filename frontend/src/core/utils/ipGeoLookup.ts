@@ -1,4 +1,5 @@
 import { reactive } from 'vue'
+import { safeLocalStorage } from '@/core/utils/safeStorage'
 
 export type IpGeoStatus = 'idle' | 'loading' | 'success' | 'error' | 'private'
 
@@ -71,7 +72,7 @@ export function isPrivateIp(ip: string): boolean {
 
 function loadFromStorage(): void {
   try {
-    const raw = localStorage.getItem(CACHE_STORAGE_KEY)
+    const raw = safeLocalStorage.getItem(CACHE_STORAGE_KEY)
     if (!raw) return
     const parsed = JSON.parse(raw) as Record<string, StoredEntry>
     const now = Date.now()
@@ -93,7 +94,7 @@ function persistToStorage(): void {
         toStore[ip] = { label: entry.label, detail: entry.detail, fetchedAt: entry.fetchedAt }
       }
     }
-    localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(toStore))
+    safeLocalStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(toStore))
   } catch {
     // 存储写入失败（如隐私模式禁用 localStorage）不影响功能
   }

@@ -5,6 +5,7 @@ import {
   setAccessToken,
   setTokenExpiresAtMemory,
 } from './tokenStore'
+import { safeLocalStorage } from '@/core/utils/safeStorage'
 
 export interface SessionRefreshResult {
   access_token: string
@@ -51,17 +52,13 @@ function waitForLease(delayMs: number): Promise<void> {
 }
 
 async function requestWithStorageLease(): Promise<SessionRefreshResult> {
-  if (typeof localStorage === 'undefined') {
-    return requestSessionRefresh()
-  }
-
   const owner = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random()}`
   const deadline = Date.now() + AUTH_REFRESH_LEASE_MS * 2
 
   try {
-    localStorage.getItem(AUTH_REFRESH_LEASE_KEY)
+    safeLocalStorage.getItem(AUTH_REFRESH_LEASE_KEY)
   } catch {
     // Storage can be disabled by browser policy; fall back to the request.
     return requestSessionRefresh()
@@ -71,7 +68,7 @@ async function requestWithStorageLease(): Promise<SessionRefreshResult> {
     const now = Date.now()
     let current: { owner?: string; expires_at?: number } | null = null
     try {
-      current = JSON.parse(localStorage.getItem(AUTH_REFRESH_LEASE_KEY) || 'null')
+      current = JSON.parse(safeLocalStorage.getItem(AUTH_REFRESH_LEASE_KEY) || 'null')
     } catch {
       current = null
     }
@@ -79,11 +76,11 @@ async function requestWithStorageLease(): Promise<SessionRefreshResult> {
     if (!current?.owner || !current.expires_at || current.expires_at <= now) {
       let acquired = false
       try {
-        localStorage.setItem(AUTH_REFRESH_LEASE_KEY, JSON.stringify({
+        safeLocalStorage.setItem(AUTH_REFRESH_LEASE_KEY, JSON.stringify({
           owner,
           expires_at: now + AUTH_REFRESH_LEASE_MS,
         }))
-        const confirmed = JSON.parse(localStorage.getItem(AUTH_REFRESH_LEASE_KEY) || 'null') as { owner?: string } | null
+        const confirmed = JSON.parse(safeLocalStorage.getItem(AUTH_REFRESH_LEASE_KEY) || 'null') as { owner?: string } | null
         acquired = confirmed?.owner === owner
       } catch {
         return requestSessionRefresh()
@@ -93,9 +90,9 @@ async function requestWithStorageLease(): Promise<SessionRefreshResult> {
           return await requestSessionRefresh()
         } finally {
           try {
-            const latest = JSON.parse(localStorage.getItem(AUTH_REFRESH_LEASE_KEY) || 'null') as { owner?: string } | null
+            const latest = JSON.parse(safeLocalStorage.getItem(AUTH_REFRESH_LEASE_KEY) || 'null') as { owner?: string } | null
             if (latest?.owner === owner) {
-              localStorage.removeItem(AUTH_REFRESH_LEASE_KEY)
+              safeLocalStorage.removeItem(AUTH_REFRESH_LEASE_KEY)
             }
           } catch {
             // The lease expires automatically if storage becomes unavailable.

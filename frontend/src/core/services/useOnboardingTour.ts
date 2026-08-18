@@ -12,6 +12,7 @@ import { useAuthStore as useUserStore } from '@/features/auth'
 import { useOnboardingStore } from '@/core/stores/onboardingStore'
 import { useI18n } from 'vue-i18n'
 import { getAdminSteps, getUserSteps } from '@/core/services/guide/steps'
+import { safeLocalStorage } from '@/core/utils/safeStorage'
 
 export interface OnboardingOptions {
   storageKey?: string
@@ -74,15 +75,15 @@ export function useOnboardingTour(options: OnboardingOptions) {
   }
 
   const hasSeen = () => {
-    return localStorage.getItem(getStorageKey()) === 'true'
+    return safeLocalStorage.getItem(getStorageKey()) === 'true'
   }
 
   const markAsSeen = () => {
-    localStorage.setItem(getStorageKey(), 'true')
+    safeLocalStorage.setItem(getStorageKey(), 'true')
   }
 
   const clearSeen = () => {
-    localStorage.removeItem(getStorageKey())
+    safeLocalStorage.removeItem(getStorageKey())
   }
 
   /**

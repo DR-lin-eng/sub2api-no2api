@@ -18,6 +18,7 @@ import {
   clearTokenMemory
 } from './tokenStore'
 import { refreshBrowserSession } from './sessionRefresh'
+import { safeLocalStorage, safeSessionStorage } from '@/core/utils/safeStorage'
 export { buildApiUrl, buildGatewayUrl } from './url'
 
 // ==================== Axios Instance Configuration ====================
@@ -148,7 +149,7 @@ apiClient.interceptors.response.use(
       // from ops pages to avoid broken UI states.
       if (status === 404 && apiData.message === 'Ops monitoring is disabled') {
         try {
-          localStorage.setItem('ops_monitoring_enabled_cached', 'false')
+          safeLocalStorage.setItem('ops_monitoring_enabled_cached', 'false')
         } catch {
           // ignore localStorage failures
         }
@@ -248,8 +249,8 @@ apiClient.interceptors.response.use(
 
             // Clear tokens and redirect to login
             clearTokenMemory()
-            localStorage.removeItem('auth_user')
-            sessionStorage.setItem('auth_expired', '1')
+            safeLocalStorage.removeItem('auth_user')
+            safeSessionStorage.setItem('auth_expired', '1')
 
             if (!window.location.pathname.includes('/login')) {
               window.location.href = '/login'
@@ -275,9 +276,9 @@ apiClient.interceptors.response.use(
               : !!authHeader
 
         clearTokenMemory()
-        localStorage.removeItem('auth_user')
+        safeLocalStorage.removeItem('auth_user')
         if ((hasToken || sentAuth) && !isAuthEndpoint) {
-          sessionStorage.setItem('auth_expired', '1')
+          safeSessionStorage.setItem('auth_expired', '1')
         }
         // Only redirect if not already on login page
         if (!window.location.pathname.includes('/login')) {

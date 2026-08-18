@@ -379,6 +379,7 @@ import {
   loadAffiliateReferralCode,
   resolveAffiliateReferralCode
 } from '@/core/utils/oauthAffiliate'
+import { safeLocalStorage, safeSessionStorage } from '@/core/utils/safeStorage'
 import {
   resolveHumanVerification,
   type AliyunCaptchaRegion,
@@ -654,7 +655,7 @@ function hasAcceptedLoginAgreement(revision: string): boolean {
     return false
   }
   try {
-    const raw = localStorage.getItem(LOGIN_AGREEMENT_STORAGE_KEY)
+    const raw = safeLocalStorage.getItem(LOGIN_AGREEMENT_STORAGE_KEY)
     if (!raw) {
       return false
     }
@@ -667,7 +668,7 @@ function hasAcceptedLoginAgreement(revision: string): boolean {
 
 function acceptLoginAgreement(): void {
   if (loginAgreementRevision.value) {
-    localStorage.setItem(
+    safeLocalStorage.setItem(
       LOGIN_AGREEMENT_STORAGE_KEY,
       JSON.stringify({
         revision: loginAgreementRevision.value,
@@ -680,7 +681,7 @@ function acceptLoginAgreement(): void {
 }
 
 function rejectLoginAgreement(): void {
-  localStorage.removeItem(LOGIN_AGREEMENT_STORAGE_KEY)
+  safeLocalStorage.removeItem(LOGIN_AGREEMENT_STORAGE_KEY)
   agreementAccepted.value = false
   showAgreementModal.value = false
   appStore.showWarning(t('legal.loginAgreementPrompt.registerRejectedWarning'))
@@ -1001,7 +1002,7 @@ async function handleRegister(): Promise<void> {
       setPendingRegistrationCredentials(formData.email, formData.password)
       clearCredentialKeyPrefetch()
       // Only non-secret registration metadata crosses the verification route.
-      sessionStorage.setItem(
+      safeSessionStorage.setItem(
         'register_data',
         JSON.stringify({
           email: formData.email,
@@ -1041,7 +1042,7 @@ async function handleRegister(): Promise<void> {
     await router.push('/dashboard')
   } catch (error: unknown) {
     clearPendingRegistrationCredentials()
-    sessionStorage.removeItem('register_data')
+    safeSessionStorage.removeItem('register_data')
     void prefetchCredentialKey()
     if (localCaptchaRequired.value) {
       await localCaptchaRef.value?.reset()

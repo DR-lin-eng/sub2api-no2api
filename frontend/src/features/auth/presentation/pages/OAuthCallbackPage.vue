@@ -166,6 +166,7 @@ import { useAppStore } from '@/core/stores/appStore'
 import { useAuthStore } from '@/features/auth'
 import { apiClient } from '@/core/networks/client'
 import { buildApiUrl } from '@/core/networks/url'
+import { safeSessionStorage } from '@/core/utils/safeStorage'
 import {
   exchangePendingOAuthCompletion,
   persistOAuthTokenContext,
@@ -272,7 +273,7 @@ function sanitizeRedirectPath(path: string | null | undefined): string {
 
 function readPendingEmailOAuthProvider(): 'github' | 'google' | null {
   if (typeof window === 'undefined') return null
-  const provider = window.sessionStorage.getItem(EMAIL_OAUTH_PENDING_PROVIDER_KEY)
+  const provider = safeSessionStorage.getItem(EMAIL_OAUTH_PENDING_PROVIDER_KEY)
   if (provider === 'github' || provider === 'google') return provider
   return null
 }
@@ -297,7 +298,7 @@ async function finalizeTokenResponse(tokenResponse: OAuthTokenResponse, redirect
   persistOAuthTokenContext(tokenResponse)
   await authStore.setToken(tokenResponse.access_token)
   if (typeof window !== 'undefined') {
-    window.sessionStorage.removeItem(EMAIL_OAUTH_PENDING_PROVIDER_KEY)
+    safeSessionStorage.removeItem(EMAIL_OAUTH_PENDING_PROVIDER_KEY)
   }
   clearAllAffiliateReferralCodes()
   appStore.showSuccess(t('auth.loginSuccess'))

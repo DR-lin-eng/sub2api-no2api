@@ -266,6 +266,7 @@
 import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useVirtualizer, observeElementRect as observeElementRectDefault } from '@tanstack/vue-virtual'
 import { useI18n } from 'vue-i18n'
+import { safeLocalStorage } from '@/core/utils/safeStorage'
 import type { Column } from '@/common/types/uiTypes'
 import Icon from '@/common/widgets/icons/Icon.vue'
 
@@ -519,7 +520,7 @@ const normalizeSortOrder = (candidate: any): 'asc' | 'desc' => {
 const readPersistedSortState = (): PersistedSortState | null => {
   if (!props.sortStorageKey) return null
   try {
-    const raw = localStorage.getItem(props.sortStorageKey)
+    const raw = safeLocalStorage.getItem(props.sortStorageKey)
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<PersistedSortState>
     const key = normalizeSortKey(typeof parsed.key === 'string' ? parsed.key : '')
@@ -534,7 +535,7 @@ const readPersistedSortState = (): PersistedSortState | null => {
 const writePersistedSortState = (state: PersistedSortState) => {
   if (!props.sortStorageKey) return
   try {
-    localStorage.setItem(props.sortStorageKey, JSON.stringify(state))
+    safeLocalStorage.setItem(props.sortStorageKey, JSON.stringify(state))
   } catch (e) {
     console.error('[DataTable] Failed to persist sort state:', e)
   }

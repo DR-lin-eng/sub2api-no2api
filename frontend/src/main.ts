@@ -6,6 +6,7 @@ import i18n, { initI18n } from '@/core/i18n'
 import { useAppStore } from '@/core/stores/appStore'
 import { updateFavicon } from '@/core/services/branding'
 import { isIOSDevice } from '@/core/utils/device'
+import { installSafeStorageGuards, safeLocalStorage } from '@/core/utils/safeStorage'
 import '@/core/themes/style.css'
 
 function initIOSViewportZoomFix() {
@@ -23,7 +24,7 @@ function initIOSViewportZoomFix() {
 }
 
 function initThemeClass() {
-  const savedTheme = localStorage.getItem('theme')
+  const savedTheme = safeLocalStorage.getItem('theme')
   const shouldUseDark =
     savedTheme === 'dark' ||
     (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)
@@ -31,6 +32,10 @@ function initThemeClass() {
 }
 
 async function bootstrap() {
+  // Cloudflare challenge/opaque documents may deny Web Storage synchronously.
+  // Install the process-wide fallback before mounting any route component.
+  installSafeStorageGuards()
+
   // Apply theme class globally before app mount to keep all routes consistent.
   initThemeClass()
   initIOSViewportZoomFix()

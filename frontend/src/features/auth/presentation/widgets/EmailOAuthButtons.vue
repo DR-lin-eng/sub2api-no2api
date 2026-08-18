@@ -33,6 +33,7 @@ import GitHubMark from './GitHubMark.vue'
 import GoogleMark from './GoogleMark.vue'
 import type { OAuthLoginStart } from '@/features/auth/data/dtos/authDtos'
 import { resolveAffiliateReferralCode, storeOAuthAffiliateCode } from '@/core/utils/oauthAffiliate'
+import { safeSessionStorage } from '@/core/utils/safeStorage'
 
 type EmailOAuthProvider = 'github' | 'google'
 const EMAIL_OAUTH_PENDING_PROVIDER_KEY = 'email_oauth_pending_provider'
@@ -78,7 +79,7 @@ function startLogin(provider: EmailOAuthProvider): void {
   const redirectTo = (route.query.redirect as string) || '/dashboard'
   const affiliateCode = resolveAffiliateReferralCode(props.affCode, route.query.aff, route.query.aff_code)
   storeOAuthAffiliateCode(affiliateCode)
-  window.sessionStorage.setItem(EMAIL_OAUTH_PENDING_PROVIDER_KEY, provider)
+  safeSessionStorage.setItem(EMAIL_OAUTH_PENDING_PROVIDER_KEY, provider)
   const params: Record<string, string> = { redirect: redirectTo }
   if (affiliateCode) {
     params.aff_code = affiliateCode
