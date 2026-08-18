@@ -338,7 +338,7 @@ func TestForwardAsChatCompletions_OAuthJsonObjectKeepsSystemMessageInInput(t *te
 	require.Equal(t, 2, strings.Count(string(upstreamBody), systemPrompt))
 }
 
-func TestForwardAsChatCompletions_OAuthKeepsMixedSystemContentInInput(t *testing.T) {
+func TestForwardAsChatCompletions_OAuthSplitsMixedSystemContent(t *testing.T) {
 	const systemPrompt = "Inspect this reference image."
 	body := []byte(`{"model":"gpt-5.4","messages":[{"role":"system","content":[{"type":"text","text":"` + systemPrompt + `"},{"type":"image_url","image_url":{"url":"https://example.com/reference.png"}}]},{"role":"user","content":"hello"}],"stream":false}`)
 
@@ -346,10 +346,12 @@ func TestForwardAsChatCompletions_OAuthKeepsMixedSystemContentInInput(t *testing
 
 	require.Equal(t, systemPrompt, gjson.GetBytes(upstreamBody, "instructions").String())
 	require.Equal(t, int64(2), gjson.GetBytes(upstreamBody, "input.#").Int())
-	require.Equal(t, "developer", gjson.GetBytes(upstreamBody, "input.0.role").String())
-	require.Equal(t, int64(2), gjson.GetBytes(upstreamBody, "input.0.content.#").Int())
-	require.Equal(t, "input_image", gjson.GetBytes(upstreamBody, "input.0.content.1.type").String())
-	require.Equal(t, "https://example.com/reference.png", gjson.GetBytes(upstreamBody, "input.0.content.1.image_url").String())
+	require.Equal(t, "user", gjson.GetBytes(upstreamBody, "input.0.role").String())
+	require.Equal(t, int64(1), gjson.GetBytes(upstreamBody, "input.0.content.#").Int())
+	require.Equal(t, "input_image", gjson.GetBytes(upstreamBody, "input.0.content.0.type").String())
+	require.Equal(t, "https://example.com/reference.png", gjson.GetBytes(upstreamBody, "input.0.content.0.image_url").String())
+	require.Equal(t, "user", gjson.GetBytes(upstreamBody, "input.1.role").String())
+	require.Equal(t, "hello", gjson.GetBytes(upstreamBody, "input.1.content").String())
 }
 
 func TestForwardAsChatCompletions_ClientDisconnectDrainsUpstreamUsage(t *testing.T) {

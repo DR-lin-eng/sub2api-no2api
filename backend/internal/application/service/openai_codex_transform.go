@@ -1143,11 +1143,14 @@ func extractTextFromContent(content any) string {
 	}
 }
 
-// extractSystemMessagesFromInput scans input for role=="system" and mirrors
-// their text into reqBody["instructions"]. By default it maps those items to
-// developer so Responses JSON mode can still see JSON instructions in input.
+// extractSystemMessagesFromInput scans system/developer input messages and
+// mirrors system text into reqBody["instructions"]. By default it maps system
+// items to developer so Responses JSON mode can still see JSON instructions
+// in input.
 // When omitPromoted is true, text-only items are removed after their content is
-// losslessly promoted; mixed or malformed content is retained as developer.
+// losslessly promoted. Image parts are always moved to a separate user
+// message because the ChatGPT Codex endpoint only accepts input_text in
+// system/developer message content.
 func extractSystemMessagesFromInput(reqBody map[string]any, omitPromoted bool) bool {
 	input, ok := reqBody["input"].([]any)
 	if !ok || len(input) == 0 {
@@ -1159,7 +1162,61 @@ func extractSystemMessagesFromInput(reqBody map[string]any, omitPromoted bool) b
 	modified := false
 	for _, item := range input {
 		m, ok := item.(map[string]any)
-		if !ok || m["role"] != "system" {
+		if !ok {
+			filteredInput = append(filteredInput, item)
+			continue
+		}
+		role, _ := m["role"].(string)
+		role = strings.TrimSpace(role)
+		if role != "system" && role != "developer" {
+			filteredInput = append(filteredInput, item)
+			continue
+		}
+
+		instructionContent, imageContent, hasInstruction, hasImage := splitCodexInstructionContent(m["content"])
+		if hasImage {
+			// A system/developer message containing an input_image is rejected by
+			// ChatGPT's internal Codex endpoint. Keep its text in a developer
+			// message (or promote it to instructions), and put all image parts in
+			// a separate user message. This also handles direct /v1/responses
+			// requests whose input already contains role="developer".
+			keepInstruction := hasInstruction
+			if role == "system" {
+				if text := extractTextFromContent(instructionContent); text != "" {
+					systemTexts = append(systemTexts, text)
+				}
+				if omitPromoted {
+					if _, lossless := extractLosslessTextFromContent(instructionContent); lossless {
+						keepInstruction = false
+					}
+				}
+			}
+
+			if keepInstruction {
+				instructionRole := role
+				if instructionRole == "system" {
+					instructionRole = "developer"
+				}
+				instructionItem := cloneCodexInputItemWithContent(m, instructionRole, instructionContent)
+				filteredInput = append(filteredInput, instructionItem)
+			}
+
+			imageItem := cloneCodexInputItemWithContent(m, "user", imageContent)
+			// A split message must not duplicate a caller-supplied item ID. Keep
+			// the ID on the text/developer side when one exists; the normal
+			// Codex input filter may strip it later according to continuation
+			// policy.
+			if keepInstruction {
+				delete(imageItem, "id")
+			}
+			filteredInput = append(filteredInput, imageItem)
+			modified = true
+			continue
+		}
+
+		// Only system messages are promoted. Existing developer messages remain
+		// in their original form unless they needed image splitting above.
+		if role != "system" {
 			filteredInput = append(filteredInput, item)
 			continue
 		}
@@ -1181,7 +1238,7 @@ func extractSystemMessagesFromInput(reqBody map[string]any, omitPromoted bool) b
 		filteredInput = append(filteredInput, item)
 		modified = true
 	}
-	if omitPromoted && len(filteredInput) != len(input) {
+	if modified {
 		reqBody["input"] = filteredInput
 	}
 
@@ -1196,6 +1253,70 @@ func extractSystemMessagesFromInput(reqBody map[string]any, omitPromoted bool) b
 		reqBody["instructions"] = extracted
 	}
 	return true
+}
+
+// splitCodexInstructionContent separates image parts from content that can
+// remain in a system/developer message. It deliberately preserves unknown
+// non-image parts on the instruction side instead of silently dropping them.
+func splitCodexInstructionContent(content any) (instructionContent any, imageContent any, hasInstruction, hasImage bool) {
+	switch value := content.(type) {
+	case []any:
+		instructionParts := make([]any, 0, len(value))
+		imageParts := make([]any, 0)
+		for _, rawPart := range value {
+			part, ok := rawPart.(map[string]any)
+			if ok && isCodexInputImagePart(part) {
+				imageParts = append(imageParts, rawPart)
+				hasImage = true
+				continue
+			}
+			instructionParts = append(instructionParts, rawPart)
+			hasInstruction = true
+		}
+		if len(instructionParts) > 0 {
+			instructionContent = instructionParts
+		}
+		if len(imageParts) > 0 {
+			imageContent = imageParts
+		}
+		return instructionContent, imageContent, hasInstruction, hasImage
+	case map[string]any:
+		if isCodexInputImagePart(value) {
+			return nil, []any{value}, false, true
+		}
+		return content, nil, true, false
+	case nil:
+		return nil, nil, false, false
+	default:
+		// Strings (including an empty string) and other scalar content are
+		// preserved exactly as instruction content.
+		return content, nil, true, false
+	}
+}
+
+func isCodexInputImagePart(part map[string]any) bool {
+	typeName := strings.TrimSpace(firstNonEmptyString(part["type"]))
+	switch typeName {
+	case "input_image", "image_url":
+		return true
+	case "":
+		// Be tolerant of Responses-compatible clients that omit the type while
+		// still supplying the canonical image_url field.
+		_, hasImageURL := part["image_url"]
+		return hasImageURL
+	default:
+		return false
+	}
+}
+
+func cloneCodexInputItemWithContent(item map[string]any, role string, content any) map[string]any {
+	clone := make(map[string]any, len(item)+1)
+	for key, value := range item {
+		clone[key] = value
+	}
+	clone["role"] = role
+	clone["content"] = content
+	return clone
 }
 
 // extractLosslessTextFromContent returns text only when the entire content can

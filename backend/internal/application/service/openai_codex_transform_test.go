@@ -1643,7 +1643,7 @@ func TestExtractSystemMessagesFromInput(t *testing.T) {
 		require.Equal(t, "user", user["role"])
 	})
 
-	t.Run("omit keeps mixed system content as developer", func(t *testing.T) {
+	t.Run("omit promotes mixed system text and moves image to user", func(t *testing.T) {
 		reqBody := map[string]any{
 			"input": []any{
 				map[string]any{
@@ -1664,10 +1664,13 @@ func TestExtractSystemMessagesFromInput(t *testing.T) {
 		input, ok := reqBody["input"].([]any)
 		require.True(t, ok)
 		require.Len(t, input, 2)
-		developer, ok := input[0].(map[string]any)
+		image, ok := input[0].(map[string]any)
 		require.True(t, ok)
-		require.Equal(t, "developer", developer["role"])
-		require.Len(t, developer["content"], 2)
+		require.Equal(t, "user", image["role"])
+		require.Equal(t, []any{
+			map[string]any{"type": "input_image", "image_url": "https://example.com/image.png"},
+		}, image["content"])
+		require.Equal(t, "user", input[1].(map[string]any)["role"])
 	})
 }
 
