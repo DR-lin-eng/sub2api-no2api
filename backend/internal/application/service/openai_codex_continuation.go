@@ -95,14 +95,6 @@ func newCodexContinuationTerminalError(message string, cause error) *CodexContin
 	}
 }
 
-func (s *OpenAIGatewayService) codexContinuationMode() codexContinuationMode {
-	settings := s.codexSimulationSettingsSnapshot(context.Background(), nil)
-	if !settings.configured() {
-		return codexContinuationOff
-	}
-	return settings.continuationMode()
-}
-
 func (s *OpenAIGatewayService) codexContinuationModeForRequest(ctx context.Context, c *gin.Context) codexContinuationMode {
 	settings := s.codexSimulationSettingsSnapshot(ctx, c)
 	if !settings.configured() {
