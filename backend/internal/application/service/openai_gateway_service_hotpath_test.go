@@ -146,6 +146,61 @@ func TestOpenAIGatewayService_Forward_HTTPPatchPathKeepsLargeInputRaw(t *testing
 	require.Equal(t, "9007199254740993", gjson.GetBytes(upstream.lastBody, "input.0.content.0.nonce").Raw)
 }
 
+func TestOpenAIGatewayService_Forward_OAuthSplitsInstructionImages(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	upstream := &httpUpstreamRecorder{
+		resp: &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+			Body: io.NopCloser(strings.NewReader(
+				"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_image_split\",\"object\":\"response\",\"model\":\"gpt-5.4\",\"status\":\"completed\",\"output\":[{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"ok\"}]}],\"usage\":{\"input_tokens\":2,\"output_tokens\":1,\"total_tokens\":3}}}\n\ndata: [DONE]\n\n",
+			)),
+		},
+	}
+	cfg := &config.Config{}
+	cfg.Security.URLAllowlist.Enabled = false
+	svc := &OpenAIGatewayService{cfg: cfg, httpUpstream: upstream}
+	account := &Account{
+		ID:          42,
+		Name:        "openai-oauth",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"access_token":       "oauth-token",
+			"chatgpt_account_id": "chatgpt-account",
+		},
+	}
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
+	SetOpenAIClientTransport(c, OpenAIClientTransportHTTP)
+
+	body := []byte(`{"model":"gpt-5.4","stream":false,"input":[{"type":"message","role":"system","content":[{"type":"input_text","text":"Inspect the reference."},{"type":"input_image","image_url":"https://example.com/reference.png"}]},{"type":"message","role":"developer","content":[{"type":"input_text","text":"Use concise output."},{"type":"input_image","image_url":"https://example.com/policy.png"}]},{"type":"message","role":"user","content":[{"type":"input_text","text":"hello"}]}]}`)
+	result, err := svc.Forward(context.Background(), c, account, body)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	forwarded := upstream.lastBody
+	instructions := gjson.GetBytes(forwarded, "instructions").String()
+	require.Contains(t, instructions, "Inspect the reference.")
+	require.Contains(t, instructions, defaultCodexSynthInstructions("gpt-5.4"))
+	require.NotContains(t, instructions, "Use concise output.")
+	require.Equal(t, int64(5), gjson.GetBytes(forwarded, "input.#").Int())
+	require.Equal(t, "developer", gjson.GetBytes(forwarded, "input.0.role").String())
+	require.Equal(t, "Inspect the reference.", gjson.GetBytes(forwarded, "input.0.content.0.text").String())
+	require.Equal(t, "user", gjson.GetBytes(forwarded, "input.1.role").String())
+	require.Equal(t, "input_image", gjson.GetBytes(forwarded, "input.1.content.0.type").String())
+	require.Equal(t, "https://example.com/reference.png", gjson.GetBytes(forwarded, "input.1.content.0.image_url").String())
+	require.Equal(t, "developer", gjson.GetBytes(forwarded, "input.2.role").String())
+	require.Equal(t, "Use concise output.", gjson.GetBytes(forwarded, "input.2.content.0.text").String())
+	require.Equal(t, "user", gjson.GetBytes(forwarded, "input.3.role").String())
+	require.Equal(t, "https://example.com/policy.png", gjson.GetBytes(forwarded, "input.3.content.0.image_url").String())
+	require.Equal(t, "user", gjson.GetBytes(forwarded, "input.4.role").String())
+}
+
 func TestOpenAIGatewayService_Forward_APIKeySanitizesInputIDs(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	overlongCallID := "srvtoolu_" + strings.Repeat("x", 69)

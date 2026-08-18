@@ -296,8 +296,10 @@ func hasCodexPrewarmBusinessContinuation(reqBody map[string]any) bool {
 
 // applyCodexPrewarmContinuationPayload turns the business request into a
 // continuation from the empty prewarm response. Native agent history keeps its
-// structure; only user message roles become developer roles. Top-level
-// instructions stay in place so both WS writes retain the same stable fields.
+// structure; text-only user message roles become developer roles, while image
+// messages remain user because ChatGPT Codex rejects input_image under
+// developer. Top-level instructions stay in place so both WS writes retain the
+// same stable fields.
 func applyCodexPrewarmContinuationPayload(payload map[string]any, previousResponseID string) int {
 	if len(payload) == 0 || strings.TrimSpace(previousResponseID) == "" {
 		return 0
@@ -370,6 +372,9 @@ func rewriteCodexPrewarmContinuationMessageRole(item map[string]any) bool {
 	itemType, _ := item["type"].(string)
 	itemType = strings.TrimSpace(itemType)
 	if itemType != "" && itemType != "message" {
+		return false
+	}
+	if hasOpenAIInputImageValue(item["content"]) {
 		return false
 	}
 	item["role"] = "developer"

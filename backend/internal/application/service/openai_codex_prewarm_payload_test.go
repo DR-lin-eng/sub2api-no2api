@@ -109,6 +109,37 @@ func TestApplyCodexPrewarmContinuationPayloadPreservesStructuredHistory(t *testi
 	require.Equal(t, largeOutput, requireInputMap(8)["result"])
 }
 
+func TestApplyCodexPrewarmContinuationPayloadKeepsImageMessagesAsUser(t *testing.T) {
+	input := []any{
+		map[string]any{"type": "message", "role": "user", "content": "text only"},
+		map[string]any{
+			"type": "message",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "input_image", "image_url": "https://example.com/image.png"},
+			},
+		},
+		map[string]any{
+			"type": "message",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "input_text", "text": "inspect"},
+				map[string]any{"type": "input_image", "image_url": "data:image/png;base64,AA=="},
+			},
+		},
+	}
+	payload := map[string]any{"input": input, "generate": false}
+
+	rewritten := applyCodexPrewarmContinuationPayload(payload, "resp_prewarm")
+
+	require.Equal(t, 1, rewritten)
+	require.Equal(t, "developer", input[0].(map[string]any)["role"])
+	require.Equal(t, "user", input[1].(map[string]any)["role"])
+	require.Equal(t, "user", input[2].(map[string]any)["role"])
+	require.Equal(t, "resp_prewarm", payload["previous_response_id"])
+	require.NotContains(t, payload, "generate")
+}
+
 func TestHasCodexPrewarmBusinessContinuation(t *testing.T) {
 	selfContained := map[string]any{"input": []any{
 		map[string]any{"type": "function_call", "call_id": "fc_1"},
@@ -177,18 +208,26 @@ func TestOpenAIGatewayServiceForwardWSv2CodexPrewarmContinuationStream(t *testin
 		Extra:       map[string]any{CodexPrewarmContinuationExtraKey: true},
 	}
 
-	result, err := svc.Forward(context.Background(), c, account, []byte(`{"model":"gpt-5.5","stream":true,"instructions":"keep","input":[{"type":"message","role":"user","content":"first"},{"type":"message","role":"assistant","content":"answer"},{"type":"message","role":"user","content":"last"}]}`))
+	result, err := svc.Forward(context.Background(), c, account, []byte(`{"model":"gpt-5.5","stream":true,"instructions":"keep","input":[{"type":"message","role":"developer","content":[{"type":"input_text","text":"skill policy"},{"type":"input_image","image_url":"https://example.com/reference.png"}]},{"type":"message","role":"assistant","content":"answer"},{"type":"message","role":"user","content":"last"}]}`))
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, "resp_stream_business", result.RequestID)
 	require.True(t, result.OpenAIWSMode)
 	require.Len(t, captureConn.writes, 2)
+	prewarm := requestToJSONString(captureConn.writes[0])
 	business := requestToJSONString(captureConn.writes[1])
+	require.True(t, gjson.Get(prewarm, "generate").Exists())
+	require.False(t, gjson.Get(prewarm, "generate").Bool())
+	require.Empty(t, gjson.Get(prewarm, "input").Array())
 	require.Equal(t, "resp_stream_prewarm", gjson.Get(business, "previous_response_id").String())
 	require.Equal(t, "none", gjson.Get(business, "reasoning.effort").String())
 	require.Equal(t, "developer", gjson.Get(business, "input.0.role").String())
-	require.Equal(t, "assistant", gjson.Get(business, "input.1.role").String())
-	require.Equal(t, "developer", gjson.Get(business, "input.2.role").String())
+	require.Equal(t, "skill policy", gjson.Get(business, "input.0.content.0.text").String())
+	require.Equal(t, "user", gjson.Get(business, "input.1.role").String())
+	require.Equal(t, "input_image", gjson.Get(business, "input.1.content.0.type").String())
+	require.Equal(t, "https://example.com/reference.png", gjson.Get(business, "input.1.content.0.image_url").String())
+	require.Equal(t, "assistant", gjson.Get(business, "input.2.role").String())
+	require.Equal(t, "developer", gjson.Get(business, "input.3.role").String())
 	require.Contains(t, rec.Header().Get("Content-Type"), "text/event-stream")
 	require.Contains(t, rec.Body.String(), "response.completed")
 }
