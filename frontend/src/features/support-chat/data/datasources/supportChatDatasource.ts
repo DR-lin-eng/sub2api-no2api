@@ -106,6 +106,10 @@ const ADMIN_CHAT_WS_PROTOCOL = 'sub2api-admin-chat'
 const MAX_CHAT_ASSET_BYTES = 5 * 1024 * 1024
 const ALLOWED_UPLOAD_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
 const ALLOWED_ASSET_TYPES = new Set(['image/png', 'image/jpeg'])
+const UPLOAD_TYPE_ALIASES = new Map([
+  ['image/jpg', 'image/jpeg'],
+  ['image/pjpeg', 'image/jpeg'],
+])
 
 function recordValue(value: unknown): RawRecord {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as RawRecord : {}
@@ -319,27 +323,81 @@ export async function markAdminChatUnread(conversationID: number): Promise<void>
   await apiClient.post(`/admin/chat/conversations/${conversationID}/unread`)
 }
 
-function validateUpload(file: File): void {
-  if (!file || file.size <= 0 || file.size > MAX_CHAT_ASSET_BYTES || !ALLOWED_UPLOAD_TYPES.has(file.type.toLowerCase())) {
-    throw new Error('Only PNG, JPEG, GIF, or WebP images up to 5 MiB are allowed')
-  }
+function normalizeUploadType(value: string): string {
+  const type = value.split(';', 1)[0].trim().toLowerCase()
+  return UPLOAD_TYPE_ALIASES.get(type) || type
 }
 
-function uploadForm(file: File, collectionField?: string, collection?: string): FormData {
-  validateUpload(file)
+function canonicalUploadFilename(mimeType: string): string {
+  return `image.${mimeType === 'image/jpeg' ? 'jpg' : mimeType.slice('image/'.length)}`
+}
+
+function sniffImageType(bytes: Uint8Array): string | null {
+  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 &&
+      bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a) {
+    return 'image/png'
+  }
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg'
+  if (bytes.length >= 6 && bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 &&
+      ((bytes[3] === 0x38 && bytes[4] === 0x37 && bytes[5] === 0x61) ||
+       (bytes[3] === 0x38 && bytes[4] === 0x39 && bytes[5] === 0x61))) {
+    return 'image/gif'
+  }
+  if (bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+      bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) {
+    return 'image/webp'
+  }
+  return null
+}
+
+async function readUploadPrefix(file: File): Promise<Uint8Array> {
+  const slice = file.slice(0, 512)
+  if (typeof slice.arrayBuffer === 'function') return new Uint8Array(await slice.arrayBuffer())
+  return await new Promise<Uint8Array>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer))
+    reader.onerror = () => reject(reader.error || new Error('Unable to inspect image file'))
+    reader.readAsArrayBuffer(slice)
+  })
+}
+
+async function prepareUploadFile(file: File): Promise<File> {
+  if (!file || file.size <= 0 || file.size > MAX_CHAT_ASSET_BYTES) {
+    throw new Error('Only PNG, JPEG, GIF, or WebP images up to 5 MiB are allowed')
+  }
+
+  const rawType = normalizeUploadType(file.type)
+  const genericType = rawType === '' || rawType === 'application/octet-stream'
+  if (!genericType && !ALLOWED_UPLOAD_TYPES.has(rawType)) {
+    throw new Error('Only PNG, JPEG, GIF, or WebP images up to 5 MiB are allowed')
+  }
+
+  const mimeType = genericType
+    ? sniffImageType(await readUploadPrefix(file))
+    : rawType
+  if (!mimeType || !ALLOWED_UPLOAD_TYPES.has(mimeType)) {
+    throw new Error('Only PNG, JPEG, GIF, or WebP images up to 5 MiB are allowed')
+  }
+
+  if (file.type.toLowerCase() === mimeType && file.name) return file
+  return new File([file], canonicalUploadFilename(mimeType), { type: mimeType, lastModified: file.lastModified })
+}
+
+async function uploadForm(file: File, collectionField?: string, collection?: string): Promise<FormData> {
+  const uploadFile = await prepareUploadFile(file)
   const form = new FormData()
-  form.append('file', file, 'image')
+  form.append('file', uploadFile, canonicalUploadFilename(normalizeUploadType(uploadFile.type)))
   if (collectionField && collection?.trim()) form.append(collectionField, collection.trim().slice(0, 100))
   return form
 }
 
 export async function uploadUserChatAsset(file: File): Promise<ChatAsset> {
-  const { data } = await apiClient.post<unknown>('/chat/assets', uploadForm(file))
+  const { data } = await apiClient.post<unknown>('/chat/assets', await uploadForm(file))
   return normalizeChatAsset(data)
 }
 
 export async function uploadAdminChatAsset(conversationID: number, file: File): Promise<ChatAsset> {
-  const { data } = await apiClient.post<unknown>(`/admin/chat/conversations/${conversationID}/assets`, uploadForm(file))
+  const { data } = await apiClient.post<unknown>(`/admin/chat/conversations/${conversationID}/assets`, await uploadForm(file))
   return normalizeChatAsset(data)
 }
 
@@ -356,7 +414,7 @@ export async function createAdminChatCatalogAsset(
 ): Promise<ChatAsset> {
   const path = scope === 'library' ? '/admin/chat/image-library' : '/admin/chat/stickers'
   const field = scope === 'library' ? 'category' : 'group'
-  const { data } = await apiClient.post<unknown>(path, uploadForm(file, field, collection))
+  const { data } = await apiClient.post<unknown>(path, await uploadForm(file, field, collection))
   return normalizeChatAsset(data)
 }
 
