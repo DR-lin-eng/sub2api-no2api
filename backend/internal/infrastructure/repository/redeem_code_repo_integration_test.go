@@ -438,6 +438,17 @@ func (s *RedeemCodeRepoSuite) TestUse_AlreadyUsed() {
 	s.Require().ErrorIs(err, service.ErrRedeemCodeUsed)
 }
 
+func (s *RedeemCodeRepoSuite) TestUse_ExpiredCodeIsRejectedUnderRowLock() {
+	user := s.createUser(uniqueTestValue(s.T(), "expired-use") + "@example.com")
+	expiredAt := time.Now().Add(-time.Minute)
+	code := &service.RedeemCode{
+		Code: "EXPIRED-USE", Type: service.RedeemTypeInvitation, Value: 0,
+		Status: service.StatusUnused, ExpiresAt: &expiredAt,
+	}
+	s.Require().NoError(s.repo.Create(s.ctx, code))
+	s.Require().ErrorIs(s.repo.Use(s.ctx, code.ID, user.ID), service.ErrRedeemCodeExpired)
+}
+
 func (s *RedeemCodeRepoSuite) TestUse_MultiUseTotalAndPerUserLimits() {
 	user1 := s.createUser(uniqueTestValue(s.T(), "multi-1") + "@example.com")
 	user2 := s.createUser(uniqueTestValue(s.T(), "multi-2") + "@example.com")

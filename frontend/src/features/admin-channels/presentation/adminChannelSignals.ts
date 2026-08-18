@@ -25,6 +25,10 @@ export interface PricingFormEntry {
   image_output_price: number | string | null
   per_request_price: number | string | null
   intervals: IntervalFormEntry[]
+  time_pricing?: {
+    timezone: string
+    periods: Array<{ start_time: string; end_time: string; multiplier: number | string }>
+  } | null
 }
 
 // 价格转换：后端存 per-token，前端显示 per-MTok ($/1M tokens)

@@ -87,7 +87,7 @@
             </label>
             <Select
               :modelValue="entry.billing_mode"
-              @update:modelValue="emit('update', { ...entry, billing_mode: $event as BillingMode, intervals: [] })"
+              @update:modelValue="emit('update', { ...entry, billing_mode: $event as BillingMode, intervals: [], time_pricing: { ...timePricingValue, periods: [] } })"
               :options="billingModeOptions"
               class="mt-1"
             />
@@ -156,6 +156,12 @@
               />
             </div>
           </div>
+
+          <TimePricingSection
+            v-if="props.enableTimePricing"
+            :model-value="timePricingValue"
+            @update:model-value="emit('update', { ...entry, time_pricing: $event })"
+          />
         </div>
 
         <!-- Per-request mode -->
@@ -238,6 +244,7 @@ import Select from '@/common/widgets/forms/Select.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import IntervalRow from './IntervalRow.vue'
 import ModelTagInput from './ModelTagInput.vue'
+import TimePricingSection from './TimePricingSection.vue'
 import type { PricingFormEntry, IntervalFormEntry } from '../adminChannelSignals'
 import { perTokenToMTok, getPlatformTagClass } from '../adminChannelSignals'
 import type { BillingMode } from '@/features/admin-channels/data/datasources/adminChannelsDatasource'
@@ -245,10 +252,11 @@ import channelsAPI from '@/features/admin-channels/data/datasources/adminChannel
 
 const { t } = useI18n()
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   entry: PricingFormEntry
   platform?: string
-}>()
+  enableTimePricing?: boolean
+}>(), { enableTimePricing: false })
 
 const emit = defineEmits<{
   update: [entry: PricingFormEntry]
@@ -268,6 +276,8 @@ const billingModeLabel = computed(() => {
   const opt = billingModeOptions.value.find(o => o.value === props.entry.billing_mode)
   return opt ? opt.label : props.entry.billing_mode
 })
+
+const timePricingValue = computed(() => props.entry.time_pricing || { timezone: 'Asia/Shanghai', periods: [] })
 
 function emitField(field: keyof PricingFormEntry, value: string) {
   emit('update', { ...props.entry, [field]: value === '' ? null : value })

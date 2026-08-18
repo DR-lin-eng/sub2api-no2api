@@ -742,6 +742,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	if pricingAt.IsZero() {
 		pricingAt = timezone.Now()
 	}
+	input.PricingAt = pricingAt
 	multiplier, imageMultiplier := computePeakAwareMultipliers(apiKey, multiplier, pricingAt)
 
 	// 确定计费模型
@@ -772,7 +773,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	}
 
 	// 计算费用
-	cost := s.calculateRecordUsageCostWithPricing(ctx, result, apiKey, billingModel, multiplier, imageMultiplier, opts, resolvedBillingPricing)
+	cost := s.calculateRecordUsageCostWithPricing(ctx, result, apiKey, billingModel, multiplier, imageMultiplier, pricingAt, opts, resolvedBillingPricing)
 	cost = s.applyResponseModelBilling(
 		ctx, input, result, apiKey, account, billingModel, resolvedBillingPricing, cost, multiplier, imageMultiplier, opts,
 	)
@@ -859,7 +860,7 @@ func (s *GatewayService) calculateRecordUsageCost(
 	opts *recordUsageOpts,
 ) *CostBreakdown {
 	resolved := s.resolveBillingPricing(ctx, apiKey, billingModel)
-	return s.calculateRecordUsageCostWithPricing(ctx, result, apiKey, billingModel, multiplier, imageMultiplier, opts, resolved)
+	return s.calculateRecordUsageCostWithPricing(ctx, result, apiKey, billingModel, multiplier, imageMultiplier, time.Time{}, opts, resolved)
 }
 
 func (s *GatewayService) calculateRecordUsageCostWithPricing(
@@ -869,19 +870,20 @@ func (s *GatewayService) calculateRecordUsageCostWithPricing(
 	billingModel string,
 	multiplier float64,
 	imageMultiplier float64,
+	pricingAt time.Time,
 	opts *recordUsageOpts,
 	resolved *ResolvedPricing,
 ) *CostBreakdown {
 	// 图片生成：渠道定价为 token 计费时走 token 路径，否则走图片计费
 	if result.ImageCount > 0 {
 		if resolved != nil && isExplicitAdminPricing(resolved) && resolved.Mode == BillingModeToken {
-			return s.calculateTokenCostWithPricing(ctx, result, apiKey, billingModel, multiplier, opts, resolved)
+			return s.calculateTokenCostWithPricing(ctx, result, apiKey, billingModel, multiplier, pricingAt, opts, resolved)
 		}
-		return s.calculateImageCostWithPricing(ctx, result, apiKey, billingModel, imageMultiplier, resolved)
+		return s.calculateImageCostWithPricing(ctx, result, apiKey, billingModel, imageMultiplier, pricingAt, resolved)
 	}
 
 	// Token 计费
-	return s.calculateTokenCostWithPricing(ctx, result, apiKey, billingModel, multiplier, opts, resolved)
+	return s.calculateTokenCostWithPricing(ctx, result, apiKey, billingModel, multiplier, pricingAt, opts, resolved)
 }
 
 // selectBillableModelPricing returns the model and its already-resolved pricing.
@@ -981,6 +983,7 @@ func (s *GatewayService) calculateImageCostWithPricing(
 	apiKey *APIKey,
 	billingModel string,
 	multiplier float64,
+	pricingAt time.Time,
 	resolved *ResolvedPricing,
 ) *CostBreakdown {
 	sizeTier := NormalizeImageBillingTierOrDefault(result.ImageSize)
@@ -1004,6 +1007,7 @@ func (s *GatewayService) calculateImageCostWithPricing(
 			RequestCount:   result.ImageCount,
 			SizeTier:       sizeTier,
 			RateMultiplier: multiplier,
+			PricingAt:      pricingAt,
 			Resolver:       s.resolver,
 			Resolved:       resolved,
 		})
@@ -1023,6 +1027,7 @@ func (s *GatewayService) calculateTokenCostWithPricing(
 	apiKey *APIKey,
 	billingModel string,
 	multiplier float64,
+	pricingAt time.Time,
 	opts *recordUsageOpts,
 	resolved *ResolvedPricing,
 ) *CostBreakdown {
@@ -1060,6 +1065,7 @@ func (s *GatewayService) calculateTokenCostWithPricing(
 			Tokens:         tokens,
 			RequestCount:   1,
 			RateMultiplier: multiplier,
+			PricingAt:      pricingAt,
 			Resolver:       s.resolver,
 			Resolved:       resolved,
 		})

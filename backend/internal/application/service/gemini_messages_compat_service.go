@@ -866,10 +866,14 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 				if upstreamReqID == "" {
 					upstreamReqID = resp.Header.Get("x-goog-request-id")
 				}
-				if failoverErr := s.poolModeSkippedFailoverError(c, account, resp.StatusCode, respBody, upstreamReqID); failoverErr != nil {
+				if failoverErr := s.skippedErrorPolicyFailoverError(c, account, resp.StatusCode, respBody, upstreamReqID); failoverErr != nil {
 					return nil, failoverErr
 				}
-				return nil, s.writeGeminiMappedError(c, account, http.StatusInternalServerError, upstreamReqID, respBody)
+				if account.IsCustomErrorCodesEnabled() {
+					_ = s.recordGeminiCustomCodeSkippedError(c, account, resp.StatusCode, upstreamReqID, respBody)
+					return nil, s.writeClaudeError(c, http.StatusInternalServerError, "api_error", geminiCustomCodeSkippedClientMessage)
+				}
+				return nil, s.writeGeminiMappedError(c, account, resp.StatusCode, upstreamReqID, respBody)
 			case ErrorPolicyMatched, ErrorPolicyTempUnscheduled:
 				if policy == ErrorPolicyMatched {
 					s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
@@ -1379,8 +1383,12 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 			policy := s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, respBody, mappedModel)
 			switch policy {
 			case ErrorPolicySkipped:
-				if failoverErr := s.poolModeSkippedFailoverError(c, account, resp.StatusCode, respBody, requestID); failoverErr != nil {
+				if failoverErr := s.skippedErrorPolicyFailoverError(c, account, resp.StatusCode, respBody, requestID); failoverErr != nil {
 					return nil, failoverErr
+				}
+				if account.IsCustomErrorCodesEnabled() {
+					_ = s.recordGeminiCustomCodeSkippedError(c, account, resp.StatusCode, requestID, respBody)
+					return nil, s.writeGoogleError(c, http.StatusInternalServerError, geminiCustomCodeSkippedClientMessage)
 				}
 				respBody = unwrapIfNeeded(isOAuth, respBody)
 				contentType := resp.Header.Get("Content-Type")
@@ -1388,7 +1396,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 					contentType = "application/json"
 				}
 				MarkResponseCommitted(c)
-				c.Data(http.StatusInternalServerError, contentType, respBody)
+				c.Data(resp.StatusCode, contentType, respBody)
 				return nil, fmt.Errorf("gemini upstream error: %d (skipped by error policy)", resp.StatusCode)
 			case ErrorPolicyMatched, ErrorPolicyTempUnscheduled:
 				if policy == ErrorPolicyMatched {

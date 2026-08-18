@@ -8,7 +8,7 @@ import type { ChannelStatus, BillingModelSource } from '@/core/constants/channel
 import type { ChannelModelPricing } from '@/types'
 
 export type { BillingMode } from '@/core/constants/channel'
-export type { ChannelModelPricing, PricingInterval } from '@/types'
+export type { ChannelModelPricing, ChannelTimePricing, ChannelTimePricingPeriod, PricingInterval } from '@/types'
 
 export interface AccountStatsPricingRule {
   id?: number

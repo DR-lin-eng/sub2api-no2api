@@ -48,6 +48,29 @@ func TestUpstreamModelMismatchThreeStateAndCaseInsensitiveComparison(t *testing.
 	require.True(t, *mismatched)
 }
 
+func TestUpstreamModelMismatchTreatsGrokBuildIDsAsAliases(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		sent string
+		got  string
+	}{
+		{name: "grok 4.5", sent: "grok-4.5-latest", got: "GROK-4.5-BUILD"},
+		{name: "grok 4.6", sent: "grok-4.6", got: "grok-4.6-build"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			mismatch := upstreamModelMismatch(tt.sent, tt.got)
+			require.NotNil(t, mismatch)
+			require.False(t, *mismatch)
+		})
+	}
+}
+
+func TestUpstreamModelMismatchDoesNotCollapseUnrelatedBuildIDs(t *testing.T) {
+	mismatch := upstreamModelMismatch("gpt-5.5", "gpt-5.5-build")
+	require.NotNil(t, mismatch)
+	require.True(t, *mismatch)
+}
+
 func TestUpstreamResponseModelObserverBoundsUntrustedModelName(t *testing.T) {
 	observer := &upstreamResponseModelObserver{}
 	observer.Observe("  "+strings.Repeat("模", upstreamResponseModelMaxLength+1)+"  ", false)

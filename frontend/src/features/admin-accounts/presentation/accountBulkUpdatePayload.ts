@@ -2,7 +2,7 @@ import { buildHeaderOverridesObject, HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY, HEA
 import { buildModelMappingObject } from './composables/useModelWhitelist'
 import type { CodexFingerprintMode, ModelMapping } from './accountFormPolicy'
 import { isOpenAIWSModeEnabled, type OpenAIWSMode } from '@/core/utils/openaiWsMode'
-import type { OpenAICompactMode } from '@/types'
+import type { OpenAICompactMode, OpenAIEndpointCapability, OpenAIResponsesMode } from '@/types'
 
 export interface BulkAccountUpdatePayloadState {
   enableProxy: boolean
@@ -26,6 +26,12 @@ export interface BulkAccountUpdatePayloadState {
   enableOpenAIFlattenNamespaces: boolean
   openaiFlattenNamespacesEligible: boolean
   openaiFlattenNamespacesEnabled: boolean
+  enableOpenAILongContextBilling: boolean
+  openAILongContextBillingEnabled: boolean
+  enableOpenAIEndpointCapabilities: boolean
+  openAIEndpointCapabilities: OpenAIEndpointCapability[]
+  enableOpenAIResponsesMode: boolean
+  openAIResponsesMode: OpenAIResponsesMode
   enableModelRestriction: boolean
   isOpenAIModelRestrictionDisabled: boolean
   modelRestrictionMode: 'whitelist' | 'mapping'
@@ -112,6 +118,20 @@ export function buildBulkAccountUpdatePayload(
 
   if (state.enableOpenAIFlattenNamespaces && state.openaiFlattenNamespacesEligible) {
     ensureExtra().openai_responses_flatten_namespaces = state.openaiFlattenNamespacesEnabled
+  }
+
+  if (state.enableOpenAILongContextBilling) {
+    ensureExtra().openai_long_context_billing_enabled = state.openAILongContextBillingEnabled
+  }
+  if (state.enableOpenAIEndpointCapabilities) {
+    credentials.openai_capabilities = state.openAIEndpointCapabilities.filter(
+      capability => capability === 'chat_completions' || capability === 'embeddings'
+    )
+    credentialsChanged = true
+  }
+  if (state.enableOpenAIResponsesMode) {
+    const extra = ensureExtra()
+    extra.openai_responses_mode = state.openAIResponsesMode === 'auto' ? null : state.openAIResponsesMode
   }
 
   if (state.enableModelRestriction && !state.isOpenAIModelRestrictionDisabled) {

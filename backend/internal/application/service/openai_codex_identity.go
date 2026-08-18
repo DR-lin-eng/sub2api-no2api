@@ -65,6 +65,35 @@ func SetCodexCanonicalUserAgentResolver(resolver func() string) {
 	codexCanonicalUAResolver.Store(&codexCanonicalUserAgentResolverHolder{resolve: resolver})
 }
 
+// CodexCanonicalUserAgent returns the current canonical Codex client identity
+// without reading persistent settings on the request path.
+func CodexCanonicalUserAgent() string {
+	return resolveCodexOutboundIdentity("").userAgent
+}
+
+// CodexCanonicalAuthIdentity returns the paired identity used by auth.openai.com
+// token exchange, refresh, and whoami requests. The credential surface does not
+// send the inference-only version header.
+func CodexCanonicalAuthIdentity() (userAgent, originator string) {
+	identity := resolveCodexOutboundIdentity("")
+	return identity.userAgent, identity.originator
+}
+
+// ApplyCodexCanonicalAuthIdentity applies the credential-surface identity pair.
+func ApplyCodexCanonicalAuthIdentity(h http.Header) {
+	if h == nil {
+		return
+	}
+	userAgent, originator := CodexCanonicalAuthIdentity()
+	h.Set("user-agent", userAgent)
+	h.Set("originator", originator)
+}
+
+// CodexCanonicalClientVersion returns the version paired with the canonical UA.
+func CodexCanonicalClientVersion() string {
+	return resolveCodexOutboundIdentity("").version
+}
+
 func codexCanonicalUserAgent() string {
 	if holder := codexCanonicalUAResolver.Load(); holder != nil && holder.resolve != nil {
 		if ua := strings.TrimSpace(holder.resolve()); ua != "" {
@@ -160,6 +189,6 @@ func pairCodexIdentityHeaders(h http.Header) {
 	h.Set("user-agent", pairedUA)
 	h.Set("originator", originator)
 	if v := strings.TrimSpace(h.Get("version")); v != "" && CompareVersions(v, codexUpstreamMinVersion) < 0 {
-		h.Set("version", codexCLIVersion)
+		h.Set("version", resolveCodexOutboundIdentity("").version)
 	}
 }

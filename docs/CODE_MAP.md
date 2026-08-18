@@ -17,7 +17,7 @@
 | 修改 Gemini/Antigravity/Grok | `routes/gateway.go` | `application/service/gemini*`, `antigravity*`, `grok*` | 平台专项 service/handler 测试 |
 | 修改账号调度 | `application/service/gateway_scheduling.go`, `openai_account_scheduler.go` | `infrastructure/repository/scheduler*`, `concurrency*` | scheduler、并发、失败切换测试和 benchmark |
 | 修改账号 IPv6 出口 | `modules/egress/`, `platform/egress/` | `repository/egress_repo.go`, `http_upstream.go`, `features/admin-egress/`, `deploy/docker-compose.ipv6-egress*.yml`, `deploy/ipv6-egress-sidecar.sh` | route/dialer + repository integration + Docker IPv6/6in4 sidecar + 前端 feature 测试 |
-| 修改计费/余额 | `application/service/gateway_usage_billing.go`, `openai_gateway_usage.go` | `billing_service.go`, `infrastructure/repository/usage_billing*`, `billing_cache*` | billing unit + repository integration |
+| 修改计费/余额 | `application/service/gateway_usage_billing.go`, `openai_gateway_usage.go`, `billing_service.go` | `infrastructure/repository/usage_billing*`, `billing_cache*`, `channel_repo_pricing.go` | billing unit + repository integration; channel time pricing is validated/cached in `channel_time_pricing.go` |
 | 修改分组用量汇总 | `application/service/group_usage_rollup.go` | `infrastructure/repository/group_usage_rollup_repo.go`, `usage_log_repo_group_rollup.go`, `features/admin-groups/` | rollup unit/integration + admin-groups feature tests |
 | 修改订阅配额 | `application/service/subscription*` | `repository/subscription*`, middleware | subscription + gateway billing 测试 |
 | 修改支付 | `internal/modules/payment/`, `frontend/src/features/billing/paymentContracts.ts` | `routes/payment.go`, payment handlers/repositories；前端 `features/billing/`, `features/admin-orders/` | provider、webhook、订单状态 + 前端 billing/admin-orders 测试 |

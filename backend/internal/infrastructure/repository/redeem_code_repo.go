@@ -400,6 +400,9 @@ func (r *redeemCodeRepository) Use(ctx context.Context, id, userID int64) error 
 	if code.Status != service.StatusUnused || (code.MaxUses > 0 && code.UsedCount >= code.MaxUses) {
 		return service.ErrRedeemCodeUsed
 	}
+	if code.ExpiresAt != nil && !code.ExpiresAt.After(time.Now()) {
+		return service.ErrRedeemCodeExpired
+	}
 	if code.MaxUsesPerUser > 0 {
 		usedCount, err := client.RedeemCodeUsage.Query().Where(
 			redeemcodeusage.RedeemCodeIDEQ(id),

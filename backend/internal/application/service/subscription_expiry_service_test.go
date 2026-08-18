@@ -1,8 +1,10 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log"
 	"testing"
 	"time"
 
@@ -181,4 +183,29 @@ func TestSubscriptionExpiryService_ExpiryReminderSettingReadErrorFailsClosed(t *
 	svc.SetSettingRepository(&subscriptionExpirySettingRepoStub{err: errors.New("db down")})
 
 	require.False(t, svc.expiryReminderEnabled(context.Background()))
+}
+
+func TestSubscriptionExpiryService_MissingSMTPSkipsReminderScanAndWarnsOnce(t *testing.T) {
+	repo := &subscriptionExpiryRepoStub{}
+	settings := &subscriptionExpirySettingRepoStub{values: map[string]string{}}
+	emailService := NewEmailService(settings, nil)
+	svc := NewSubscriptionExpiryService(repo, time.Minute)
+	svc.SetSettingRepository(settings)
+	svc.SetNotificationEmailService(NewNotificationEmailService(settings, emailService))
+
+	var logs bytes.Buffer
+	previousWriter := log.Writer()
+	previousFlags := log.Flags()
+	log.SetOutput(&logs)
+	log.SetFlags(0)
+	t.Cleanup(func() {
+		log.SetOutput(previousWriter)
+		log.SetFlags(previousFlags)
+	})
+
+	svc.sendExpiryReminders(context.Background())
+	svc.sendExpiryReminders(context.Background())
+
+	require.Zero(t, repo.listCalls)
+	require.Equal(t, 1, bytes.Count(logs.Bytes(), []byte("SMTP is not configured")))
 }

@@ -57,6 +57,27 @@
           </button>
         </div>
 
+        <div
+          class="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400"
+          :data-testid="`openai-fast-policy-summary-${ruleIndex}`"
+        >
+          <span class="font-medium text-gray-700 dark:text-gray-300">
+            {{ t('admin.settings.openaiFastPolicy.modelWhitelist') }}
+          </span>
+          <span aria-hidden="true">→</span>
+          <span class="inline-flex items-center rounded bg-primary-50 px-2 py-0.5 font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
+            {{ actionSummary(rule.action) }}
+          </span>
+          <template v-if="hasTargetModels(rule)">
+            <span aria-hidden="true">·</span>
+            <span class="font-medium text-gray-700 dark:text-gray-300">{{ t('admin.settings.openaiFastPolicy.fallbackAction') }}</span>
+            <span aria-hidden="true">→</span>
+            <span class="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 font-medium text-gray-700 dark:bg-dark-600 dark:text-gray-300">
+              {{ actionSummary(rule.fallback_action || 'pass') }}
+            </span>
+          </template>
+        </div>
+
         <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
           <!-- Service Tier -->
           <div>
@@ -156,7 +177,7 @@
           </p>
         </div>
 
-        <!-- Model Whitelist -->
+        <!-- Target Models -->
         <div class="mt-3">
           <label
             class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
@@ -227,11 +248,9 @@
           </button>
         </div>
 
-        <!-- Fallback Action (only when model_whitelist is non-empty) -->
+        <!-- Other Models Action (only when target models are non-empty) -->
         <div
-          v-if="
-            rule.model_whitelist && rule.model_whitelist.length > 0
-          "
+          v-if="hasTargetModels(rule)"
           class="mt-3"
         >
           <label
@@ -316,4 +335,12 @@ const {
   removeOpenAIFastPolicyRule,
   t,
 } = useSettingsPageContext()
+
+function hasTargetModels(rule: { model_whitelist?: string[] }) {
+  return Boolean(rule.model_whitelist?.some((pattern) => pattern.trim() !== ''))
+}
+
+function actionSummary(action: string) {
+  return openaiFastPolicyActionOptions.value.find(option => option.value === action)?.label || action
+}
 </script>

@@ -1251,13 +1251,13 @@ export default {
         errorMessage: 'Error message',
         errorMessagePlaceholder: 'Custom error message when blocked',
         errorMessageHint: 'Leave empty for the default message.',
-        modelWhitelist: 'Model whitelist',
-        modelWhitelistHint: 'Leave empty to apply to all models. Supports exact match and wildcard prefix (e.g., gpt-5.5*).',
-        modelPatternPlaceholder: 'e.g., gpt-5.5 or gpt-5.5*',
-        addModelPattern: 'Add model pattern',
-        fallbackAction: 'Fallback action',
-        fallbackActionHint: 'Action for models not matching the whitelist.',
-        fallbackErrorMessagePlaceholder: 'Custom error message when non-whitelisted models are blocked'
+        modelWhitelist: 'Target models',
+        modelWhitelistHint: 'Models in this list use Action; models outside it use Other models action. Leave empty to apply Action to all models. Supports exact matches and wildcard prefixes (e.g., gpt-5.6*).',
+        modelPatternPlaceholder: 'e.g., gpt-5.6-sol or gpt-5.6*',
+        addModelPattern: 'Add target model',
+        fallbackAction: 'Other models action',
+        fallbackActionHint: 'Applies only to models outside the target list.',
+        fallbackErrorMessagePlaceholder: 'Custom error message when other models are blocked'
       },
       wechatConnect: {
         title: 'WeChat Connect',

@@ -33,6 +33,11 @@ type RateLimitService struct {
 	usageCacheMu          sync.RWMutex
 	usageCache            map[int64]*geminiUsageCacheEntry
 	usageCacheLastCleanup time.Time
+
+	// OpenAI Team linked-error fan-out is rare, so keep a small process-local
+	// deduplication window instead of adding a hot-path cache dependency.
+	openaiTeamLinkedMu     sync.Mutex
+	openaiTeamLinkedRecent map[string]time.Time
 }
 
 type AccountRuntimeBlocker interface {
@@ -204,6 +209,7 @@ func (s *RateLimitService) CheckErrorPolicy(ctx context.Context, account *Accoun
 // 返回是否应该停止该账号的调度
 func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Account, statusCode int, headers http.Header, responseBody []byte, requestedModel ...string) (shouldDisable bool) {
 	ctx = withTempUnschedulableModel(ctx, requestedModel)
+	s.maybeHandleOpenAITeamLinkedError(ctx, account, statusCode, responseBody)
 	if s.handleUpstreamInsufficientBalance(ctx, account, statusCode, responseBody) {
 		return true
 	}

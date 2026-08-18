@@ -484,17 +484,13 @@ func (s *OpsService) RecordErrorBatch(ctx context.Context, entries []*OpsInsertE
 	}
 
 	if _, err := s.opsRepo.BatchInsertErrorLogs(ctx, prepared); err != nil {
-		log.Printf("[Ops] RecordErrorBatch failed, fallback to single inserts: %v", err)
-		var firstErr error
-		for _, entry := range prepared {
-			if _, insertErr := s.opsRepo.InsertErrorLog(ctx, entry); insertErr != nil {
-				log.Printf("[Ops] RecordErrorBatch fallback insert failed: %v", insertErr)
-				if firstErr == nil {
-					firstErr = insertErr
-				}
-			}
-		}
-		return firstErr
+		// A failed batch usually indicates a database outage. Retrying every item
+		// individually turns one bounded failure into an unbounded write burst and
+		// competes with the gateway for the same database. Ops logging is best
+		// effort, so return the batch error and let the bounded worker retry policy
+		// decide whether to retain or drop the batch.
+		log.Printf("[Ops] RecordErrorBatch failed: %v", err)
+		return err
 	}
 	return nil
 }

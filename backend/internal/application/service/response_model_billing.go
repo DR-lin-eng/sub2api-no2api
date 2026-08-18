@@ -79,7 +79,7 @@ func (s *GatewayService) applyResponseModelBilling(
 		return baselineCost
 	}
 	responseCost := s.calculateRecordUsageCostWithPricing(
-		ctx, result, apiKey, responseModel, multiplier, imageMultiplier, opts, responsePricing,
+		ctx, result, apiKey, responseModel, multiplier, imageMultiplier, input.PricingAt, opts, responsePricing,
 	)
 	if !responseModelBillingAdoptable(
 		baselineCost,

@@ -66,6 +66,18 @@ function pricingFormEntryToAPI(
         ? Number(entry.per_request_price)
         : null,
     intervals: formIntervalsToAPI(entry.intervals || []),
+    ...(entry.time_pricing && entry.time_pricing.periods.length > 0
+      ? {
+          time_pricing: {
+            timezone: entry.time_pricing.timezone,
+            periods: entry.time_pricing.periods.map(period => ({
+              start_time: period.start_time,
+              end_time: period.end_time,
+              multiplier: Number(period.multiplier)
+            }))
+          }
+        }
+      : {}),
   }
 }
 
@@ -84,6 +96,12 @@ function pricingAPIEntryToForm(
     image_output_price: perTokenToMTok(entry.image_output_price),
     per_request_price: entry.per_request_price,
     intervals: apiIntervalsToForm(entry.intervals || []),
+    time_pricing: entry.time_pricing
+      ? {
+          timezone: entry.time_pricing.timezone,
+          periods: (entry.time_pricing.periods || []).map(period => ({ ...period }))
+        }
+      : null,
   }
 }
 

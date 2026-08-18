@@ -645,6 +645,14 @@ func validatePricingEntries(pricing []ChannelModelPricing) error {
 	if err := validatePricingIntervals(pricing); err != nil {
 		return err
 	}
+	for _, entry := range pricing {
+		if err := ValidateChannelTimePricing(entry.TimePricing); err != nil {
+			return infraerrors.BadRequest(
+				"INVALID_CHANNEL_TIME_PRICING",
+				fmt.Sprintf("invalid time pricing for platform '%s' models %v: %v", entry.Platform, entry.Models, err),
+			)
+		}
+	}
 	return validatePricingBillingMode(pricing)
 }
 

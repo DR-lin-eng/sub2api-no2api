@@ -156,6 +156,13 @@ func TransformClaudeToGeminiWithOptions(claudeReq *ClaudeRequest, projectID, map
 				Mode: "VALIDATED",
 			},
 		}
+		// Gemini rejects a request that mixes a server-side tool (for example
+		// googleSearch) with function declarations unless this explicit opt-in is
+		// present. Keep the field absent for single-tool requests for compatibility.
+		if hasMixedToolInvocations(tools) {
+			enabled := true
+			innerRequest.ToolConfig.IncludeServerSideToolInvocations = &enabled
+		}
 	}
 
 	if systemInstruction != nil {
@@ -184,6 +191,19 @@ func TransformClaudeToGeminiWithOptions(claudeReq *ClaudeRequest, projectID, map
 	}
 
 	return json.Marshal(v1Req)
+}
+
+func hasMixedToolInvocations(declarations []GeminiToolDeclaration) bool {
+	hasFunctions, hasServerTool := false, false
+	for _, declaration := range declarations {
+		if len(declaration.FunctionDeclarations) > 0 {
+			hasFunctions = true
+		}
+		if declaration.GoogleSearch != nil {
+			hasServerTool = true
+		}
+	}
+	return hasFunctions && hasServerTool
 }
 
 // antigravityIdentity Antigravity identity 提示词

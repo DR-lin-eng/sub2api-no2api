@@ -59,24 +59,22 @@ func (r *userRepository) create(ctx context.Context, userIn *service.User, guard
 
 	// 统一使用 ent 的事务：保证用户与允许分组的更新原子化，
 	// 并避免基于 *sql.Tx 手动构造 ent client 导致的 ExecQuerier 断言错误。
-	tx, err := r.client.Tx(ctx)
-	if err != nil && !errors.Is(err, dbent.ErrTxStarted) {
-		return err
-	}
-
-	var txClient *dbent.Client
+	//
+	// Client.Tx 不会因为 context 携带事务而返回 ErrTxStarted；它只检查
+	// client 自身的 driver。因此必须先读取 TxFromContext，否则注册流程
+	// 的外层事务会被静默绕过，用户写入会先行提交而无法随邀请码占用一起回滚。
+	var ownedTx *dbent.Tx
+	txClient := clientFromContext(ctx, r.client)
 	txCtx := ctx
-	if err == nil {
-		defer func() { _ = tx.Rollback() }()
-		txClient = tx.Client()
-		txCtx = dbent.NewTxContext(ctx, tx)
-	} else {
-		// 已处于外部事务中（ErrTxStarted），复用当前事务 client 并由调用方负责提交/回滚。
-		if existingTx := dbent.TxFromContext(ctx); existingTx != nil {
-			txClient = existingTx.Client()
-		} else {
-			txClient = r.client
+	if dbent.TxFromContext(ctx) == nil {
+		tx, err := r.client.Tx(ctx)
+		if err != nil {
+			return err
 		}
+		ownedTx = tx
+		defer func() { _ = ownedTx.Rollback() }()
+		txClient = ownedTx.Client()
+		txCtx = dbent.NewTxContext(ctx, ownedTx)
 	}
 
 	lockKeys := []string{normalizedEmailUniquenessLockKey(userIn.Email)}
@@ -135,8 +133,8 @@ func (r *userRepository) create(ctx context.Context, userIn *service.User, guard
 		return err
 	}
 
-	if tx != nil {
-		if err := tx.Commit(); err != nil {
+	if ownedTx != nil {
+		if err := ownedTx.Commit(); err != nil {
 			return err
 		}
 	}

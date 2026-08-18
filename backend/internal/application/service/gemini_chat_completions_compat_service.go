@@ -862,7 +862,11 @@ func (s *GeminiMessagesCompatService) writeGeminiChatCompletionsMappedError(
 			errType = "invalid_request_error"
 		}
 		if errMsg == "Upstream request failed" {
-			errMsg = "Invalid request"
+			if upstreamMsg != "" {
+				errMsg = upstreamMsg
+			} else {
+				errMsg = "Invalid request"
+			}
 		}
 	case http.StatusNotFound:
 		statusCode = http.StatusNotFound

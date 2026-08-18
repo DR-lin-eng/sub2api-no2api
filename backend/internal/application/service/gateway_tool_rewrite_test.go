@@ -149,6 +149,20 @@ func TestApplyToolsLastCacheBreakpoint_PassesThroughClientTTL(t *testing.T) {
 	require.Equal(t, "1h", gjson.GetBytes(out, "tools.0.cache_control.ttl").String())
 }
 
+func TestApplyToolsLastCacheBreakpoint_SkipsDeferredTools(t *testing.T) {
+	body := []byte(`{"tools":[{"name":"deferred","defer_loading":true,"cache_control":{"type":"ephemeral","ttl":"1h"}},{"name":"normal","input_schema":{}}]}`)
+	out := applyToolsLastCacheBreakpoint(body)
+	require.False(t, gjson.GetBytes(out, "tools.0.cache_control").Exists())
+	require.Equal(t, "5m", gjson.GetBytes(out, "tools.1.cache_control.ttl").String())
+}
+
+func TestApplyToolsLastCacheBreakpoint_SkipsNestedDeferredTools(t *testing.T) {
+	body := []byte(`{"tools":[{"name":"deferred","custom":{"defer_loading":true},"cache_control":{"type":"ephemeral"}},{"name":"normal"}]}`)
+	out := applyToolsLastCacheBreakpoint(body)
+	require.False(t, gjson.GetBytes(out, "tools.0.cache_control").Exists())
+	require.Equal(t, "5m", gjson.GetBytes(out, "tools.1.cache_control.ttl").String())
+}
+
 func TestStripMessageCacheControl(t *testing.T) {
 	body := []byte(`{"messages":[{"role":"user","content":[{"type":"text","text":"hi","cache_control":{"type":"ephemeral"}}]}]}`)
 	out := stripMessageCacheControl(body)

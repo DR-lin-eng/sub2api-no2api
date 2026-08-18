@@ -34,6 +34,7 @@
 | [调度候选索引优化](SCHEDULER_CANDIDATE_INDEX_OPTIMIZATION_CN.md) | 实验调度引擎、索引一致性和回退行为 |
 | [账号级 IPv6 出口](IPV6_EGRESS.md) | 稳定账号源地址、失败关闭、HE 6in4 和 Linux/Docker 路由边界 |
 | [支付系统（中文）](PAYMENT_CN.md) / [English](PAYMENT.md) | 支付服务商、订单、回调和配置 |
+| [上游同步审查记录（2026-08-18）](UPSTREAM_SYNC_20260818.md) | 冻结上游 SHA、语义移植、复用和迁移冲突决策 |
 
 ## 长期优化计划
 

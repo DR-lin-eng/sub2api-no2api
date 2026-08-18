@@ -270,6 +270,10 @@ func (s *AntigravityGatewayService) buildAntigravityCompatGeminiBody(
 		if err != nil {
 			return nil, err
 		}
+		body, err = enableMixedGeminiToolInvocations(body)
+		if err != nil {
+			return nil, err
+		}
 		body = ensureGeminiFunctionCallThoughtSignatures(body)
 		body, err = injectIdentityPatchToGeminiRequest(body)
 		if err != nil {
@@ -284,6 +288,41 @@ func (s *AntigravityGatewayService) buildAntigravityCompatGeminiBody(
 	options := s.getClaudeTransformOptions(ctx)
 	options.EnableIdentityPatch = true
 	return antigravity.TransformClaudeToGeminiWithOptions(claudeRequest, projectID, mappedModel, options)
+}
+
+// enableMixedGeminiToolInvocations adds the upstream-required opt-in only when
+// a request contains both function declarations and a server-side tool. It is
+// intentionally a JSON-level patch so the raw Gemini route and the typed
+// Antigravity transformer share the same wire contract.
+func enableMixedGeminiToolInvocations(body []byte) ([]byte, error) {
+	var request map[string]any
+	if err := json.Unmarshal(body, &request); err != nil {
+		return nil, err
+	}
+	tools, _ := request["tools"].([]any)
+	hasFunctions, hasServerTool := false, false
+	for _, raw := range tools {
+		tool, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		if declarations, ok := tool["functionDeclarations"].([]any); ok && len(declarations) > 0 {
+			hasFunctions = true
+		}
+		if _, ok := tool["googleSearch"]; ok {
+			hasServerTool = true
+		}
+	}
+	if !hasFunctions || !hasServerTool {
+		return body, nil
+	}
+	toolConfig, _ := request["toolConfig"].(map[string]any)
+	if toolConfig == nil {
+		toolConfig = make(map[string]any)
+		request["toolConfig"] = toolConfig
+	}
+	toolConfig["includeServerSideToolInvocations"] = true
+	return json.Marshal(request)
 }
 
 func antigravityCompatProxyURL(account *Account) string {

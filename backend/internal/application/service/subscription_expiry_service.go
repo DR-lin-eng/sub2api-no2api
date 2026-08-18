@@ -15,6 +15,7 @@ import (
 )
 
 const (
+	subscriptionExpiryReminderSMTPWarningInterval = time.Minute
 	// subscriptionExpiryReminderLeaderLockKey gates the per-cycle reminder scan so
 	// that only one instance walks all active subscriptions and sends reminder
 	// emails, avoiding redundant full scans and duplicate emails.
@@ -37,6 +38,9 @@ type SubscriptionExpiryService struct {
 	lockCache  LeaderLockCache
 	db         *sql.DB
 	instanceID string
+
+	smtpWarningMu   sync.Mutex
+	lastSMTPWarning time.Time
 }
 
 func NewSubscriptionExpiryService(userSubRepo UserSubscriptionRepository, interval time.Duration) *SubscriptionExpiryService {
@@ -121,6 +125,9 @@ func (s *SubscriptionExpiryService) sendExpiryReminders(ctx context.Context) {
 	if !s.expiryReminderEnabled(ctx) {
 		return
 	}
+	if !s.smtpConfigured(ctx) {
+		return
+	}
 
 	// Multi-instance guard: only the leader walks every active subscription and
 	// sends reminders, avoiding N× full scans and duplicate reminder emails.
@@ -142,6 +149,34 @@ func (s *SubscriptionExpiryService) sendExpiryReminders(ctx context.Context) {
 			return
 		}
 	}
+}
+
+// smtpConfigured avoids a full subscription scan when the reminder service is
+// enabled but SMTP has not been configured. This runs once per reminder cycle,
+// while the warning is rate limited so a bad configuration cannot flood logs.
+func (s *SubscriptionExpiryService) smtpConfigured(ctx context.Context) bool {
+	if s == nil || s.notificationEmailService == nil || s.notificationEmailService.emailService == nil {
+		// A nil EmailService is only used by lightweight leader-election tests and
+		// legacy single-instance wiring. Keep the existing scan semantics there;
+		// production wiring always injects EmailService and takes the fast path.
+		return s != nil && s.notificationEmailService != nil && s.notificationEmailService.emailService == nil
+	}
+	_, err := s.notificationEmailService.emailService.GetSMTPConfig(ctx)
+	if err == nil {
+		return true
+	}
+	if errors.Is(err, ErrEmailNotConfigured) {
+		s.smtpWarningMu.Lock()
+		defer s.smtpWarningMu.Unlock()
+		now := time.Now()
+		if s.lastSMTPWarning.IsZero() || now.Sub(s.lastSMTPWarning) >= subscriptionExpiryReminderSMTPWarningInterval {
+			log.Printf("[SubscriptionExpiry] SMTP is not configured; skipping expiry reminders")
+			s.lastSMTPWarning = now
+		}
+		return false
+	}
+	log.Printf("[SubscriptionExpiry] Read SMTP configuration failed; skipping expiry reminders: %v", err)
+	return false
 }
 
 func (s *SubscriptionExpiryService) expiryReminderEnabled(ctx context.Context) bool {

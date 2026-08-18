@@ -174,6 +174,7 @@ handler success/usage
 ### 关键不变量
 
 - `CalculateCostUnified` 是 token、按次和图片等计费模式的统一成本入口。
+- 渠道 token 定价的可选 `time_pricing` 使用请求固定的 `PricingAt` 计算；时区/时段配置编译后缓存，缺失或脏配置安全回退到 1x，不改变旧数据的升级口径。
 - request ID 与请求指纹用于幂等；同一 ID 的不同请求不能被静默视为重复。
 - PostgreSQL 结算事务内完成幂等占位以及余额、订阅、API Key/账号额度等账务效果。
 - usage log 是相邻的独立写入，不与结算事务共享原子性；排障时不能仅凭日志是否存在判断扣费是否成功。
