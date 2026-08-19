@@ -20,7 +20,7 @@ import (
 func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, account *Account, body []byte) (*OpenAIForwardResult, error) {
 	ctx = s.WithOpenAIStreamRuntimeSettings(ctx)
 	if c != nil && c.Request != nil {
-		settings := ctx.Value(openAIStreamRuntimeSettingsContextKey{}).(OpenAIStreamRuntimeSettings)
+		settings := s.openAIStreamRuntimeSettings(ctx)
 		requestCtx := context.WithValue(c.Request.Context(), openAIStreamRuntimeSettingsContextKey{}, settings)
 		c.Request = c.Request.WithContext(requestCtx)
 	}
