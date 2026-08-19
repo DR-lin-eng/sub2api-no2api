@@ -433,7 +433,7 @@ type PublicSettings struct {
 	OIDCOAuthProviderName            string                   `json:"oidc_oauth_provider_name"`
 	GitHubOAuthEnabled               bool                     `json:"github_oauth_enabled"`
 	GoogleOAuthEnabled               bool                     `json:"google_oauth_enabled"`
-	SoraClientEnabled                bool                     `json:"sora_client_enabled"`
+	SoraClientEnabled                bool                     `json:"sora_client_enabled"` // Deprecated: retained as false for rolling API compatibility.
 	BackendModeEnabled               bool                     `json:"backend_mode_enabled"`
 	PaymentEnabled                   bool                     `json:"payment_enabled"`
 	Version                          string                   `json:"version"`
