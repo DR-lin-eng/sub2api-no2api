@@ -15,9 +15,31 @@
           required
         />
         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          {{ t('admin.customModelConfig.modal.modelNameHint') }}
+          {{
+            form.prefix_match
+              ? t('admin.customModelConfig.modal.modelNamePrefixHint')
+              : t('admin.customModelConfig.modal.modelNameHint')
+          }}
         </p>
       </div>
+
+      <label
+        class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-3 dark:border-dark-600"
+      >
+        <input
+          v-model="form.prefix_match"
+          type="checkbox"
+          class="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-dark-700"
+        />
+        <span>
+          <span class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            {{ t('admin.customModelConfig.modal.prefixMatch') }}
+          </span>
+          <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">
+            {{ t('admin.customModelConfig.modal.prefixMatchHint') }}
+          </span>
+        </span>
+      </label>
 
       <div>
         <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -83,6 +105,7 @@ const availableCapabilities: ModelCapability[] = ['image', 'video', 'audio'];
 const submitting = ref(false);
 const form = ref({
   model_name: '',
+  prefix_match: false,
   capabilities: [] as ModelCapability[],
 });
 
@@ -101,6 +124,7 @@ watch(
     if (config) {
       form.value = {
         model_name: config.model_name,
+        prefix_match: config.prefix_match,
         capabilities: [...config.capabilities],
       };
     } else {
@@ -113,6 +137,7 @@ watch(
 function resetForm() {
   form.value = {
     model_name: '',
+    prefix_match: false,
     capabilities: [],
   };
 }
@@ -132,11 +157,13 @@ async function handleSubmit() {
   try {
     if (isEdit.value && props.config) {
       await customModelConfigDatasource.update(props.config.id, {
+        prefix_match: form.value.prefix_match,
         capabilities: form.value.capabilities,
       });
     } else {
       await customModelConfigDatasource.create({
         model_name: form.value.model_name.trim(),
+        prefix_match: form.value.prefix_match,
         capabilities: form.value.capabilities,
       });
     }

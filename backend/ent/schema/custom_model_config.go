@@ -33,6 +33,9 @@ func (CustomModelConfig) Fields() []ent.Field {
 			MaxLen(255).
 			NotEmpty().
 			Comment("模型名称"),
+		field.Bool("prefix_match").
+			Default(false).
+			Comment("是否按模型名前缀匹配"),
 		field.JSON("capabilities", []string{}).
 			Comment("模型能力列表，如 [\"image\", \"video\", \"audio\"]"),
 	}

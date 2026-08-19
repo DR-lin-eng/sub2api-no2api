@@ -56,8 +56,16 @@
           default-sort-key="created_at"
           default-sort-order="desc"
         >
-          <template #cell-model_name="{ value }">
-            <span class="font-mono text-sm font-medium text-gray-900 dark:text-white">{{ value }}</span>
+          <template #cell-model_name="{ value, row }">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="font-mono text-sm font-medium text-gray-900 dark:text-white">{{ value }}</span>
+              <span
+                v-if="row.prefix_match"
+                class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+              >
+                {{ t('admin.customModelConfig.table.prefixMatch') }}
+              </span>
+            </div>
           </template>
 
           <template #cell-capabilities="{ value }">

@@ -56,6 +56,20 @@ func (_c *CustomModelConfigCreate) SetModelName(v string) *CustomModelConfigCrea
 	return _c
 }
 
+// SetPrefixMatch sets the "prefix_match" field.
+func (_c *CustomModelConfigCreate) SetPrefixMatch(v bool) *CustomModelConfigCreate {
+	_c.mutation.SetPrefixMatch(v)
+	return _c
+}
+
+// SetNillablePrefixMatch sets the "prefix_match" field if the given value is not nil.
+func (_c *CustomModelConfigCreate) SetNillablePrefixMatch(v *bool) *CustomModelConfigCreate {
+	if v != nil {
+		_c.SetPrefixMatch(*v)
+	}
+	return _c
+}
+
 // SetCapabilities sets the "capabilities" field.
 func (_c *CustomModelConfigCreate) SetCapabilities(v []string) *CustomModelConfigCreate {
 	_c.mutation.SetCapabilities(v)
@@ -105,6 +119,10 @@ func (_c *CustomModelConfigCreate) defaults() {
 		v := custommodelconfig.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := _c.mutation.PrefixMatch(); !ok {
+		v := custommodelconfig.DefaultPrefixMatch
+		_c.mutation.SetPrefixMatch(v)
+	}
 }
 
 // check runs all checks and user-defined validators on the builder.
@@ -122,6 +140,9 @@ func (_c *CustomModelConfigCreate) check() error {
 		if err := custommodelconfig.ModelNameValidator(v); err != nil {
 			return &ValidationError{Name: "model_name", err: fmt.Errorf(`ent: validator failed for field "CustomModelConfig.model_name": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.PrefixMatch(); !ok {
+		return &ValidationError{Name: "prefix_match", err: errors.New(`ent: missing required field "CustomModelConfig.prefix_match"`)}
 	}
 	if _, ok := _c.mutation.Capabilities(); !ok {
 		return &ValidationError{Name: "capabilities", err: errors.New(`ent: missing required field "CustomModelConfig.capabilities"`)}
@@ -164,6 +185,10 @@ func (_c *CustomModelConfigCreate) createSpec() (*CustomModelConfig, *sqlgraph.C
 	if value, ok := _c.mutation.ModelName(); ok {
 		_spec.SetField(custommodelconfig.FieldModelName, field.TypeString, value)
 		_node.ModelName = value
+	}
+	if value, ok := _c.mutation.PrefixMatch(); ok {
+		_spec.SetField(custommodelconfig.FieldPrefixMatch, field.TypeBool, value)
+		_node.PrefixMatch = value
 	}
 	if value, ok := _c.mutation.Capabilities(); ok {
 		_spec.SetField(custommodelconfig.FieldCapabilities, field.TypeJSON, value)
@@ -242,6 +267,18 @@ func (u *CustomModelConfigUpsert) SetModelName(v string) *CustomModelConfigUpser
 // UpdateModelName sets the "model_name" field to the value that was provided on create.
 func (u *CustomModelConfigUpsert) UpdateModelName() *CustomModelConfigUpsert {
 	u.SetExcluded(custommodelconfig.FieldModelName)
+	return u
+}
+
+// SetPrefixMatch sets the "prefix_match" field.
+func (u *CustomModelConfigUpsert) SetPrefixMatch(v bool) *CustomModelConfigUpsert {
+	u.Set(custommodelconfig.FieldPrefixMatch, v)
+	return u
+}
+
+// UpdatePrefixMatch sets the "prefix_match" field to the value that was provided on create.
+func (u *CustomModelConfigUpsert) UpdatePrefixMatch() *CustomModelConfigUpsert {
+	u.SetExcluded(custommodelconfig.FieldPrefixMatch)
 	return u
 }
 
@@ -327,6 +364,20 @@ func (u *CustomModelConfigUpsertOne) SetModelName(v string) *CustomModelConfigUp
 func (u *CustomModelConfigUpsertOne) UpdateModelName() *CustomModelConfigUpsertOne {
 	return u.Update(func(s *CustomModelConfigUpsert) {
 		s.UpdateModelName()
+	})
+}
+
+// SetPrefixMatch sets the "prefix_match" field.
+func (u *CustomModelConfigUpsertOne) SetPrefixMatch(v bool) *CustomModelConfigUpsertOne {
+	return u.Update(func(s *CustomModelConfigUpsert) {
+		s.SetPrefixMatch(v)
+	})
+}
+
+// UpdatePrefixMatch sets the "prefix_match" field to the value that was provided on create.
+func (u *CustomModelConfigUpsertOne) UpdatePrefixMatch() *CustomModelConfigUpsertOne {
+	return u.Update(func(s *CustomModelConfigUpsert) {
+		s.UpdatePrefixMatch()
 	})
 }
 
@@ -580,6 +631,20 @@ func (u *CustomModelConfigUpsertBulk) SetModelName(v string) *CustomModelConfigU
 func (u *CustomModelConfigUpsertBulk) UpdateModelName() *CustomModelConfigUpsertBulk {
 	return u.Update(func(s *CustomModelConfigUpsert) {
 		s.UpdateModelName()
+	})
+}
+
+// SetPrefixMatch sets the "prefix_match" field.
+func (u *CustomModelConfigUpsertBulk) SetPrefixMatch(v bool) *CustomModelConfigUpsertBulk {
+	return u.Update(func(s *CustomModelConfigUpsert) {
+		s.SetPrefixMatch(v)
+	})
+}
+
+// UpdatePrefixMatch sets the "prefix_match" field to the value that was provided on create.
+func (u *CustomModelConfigUpsertBulk) UpdatePrefixMatch() *CustomModelConfigUpsertBulk {
+	return u.Update(func(s *CustomModelConfigUpsert) {
+		s.UpdatePrefixMatch()
 	})
 }
 

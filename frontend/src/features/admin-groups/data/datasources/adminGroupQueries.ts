@@ -80,6 +80,17 @@ export async function getModelsListCandidates(
   return data.models || []
 }
 
+export async function getMediaStudioModels(
+  id: number,
+  platform?: GroupPlatform,
+): Promise<string[]> {
+  const { data } = await apiClient.get<{ models: string[] }>(
+    `/admin/groups/${id}/media-studio-models`,
+    { params: platform ? { platform } : undefined },
+  )
+  return data.models || []
+}
+
 export async function getStats(id: number): Promise<GroupStats> {
   const { data } = await apiClient.get<GroupStats>(`/admin/groups/${id}/stats`)
   return data

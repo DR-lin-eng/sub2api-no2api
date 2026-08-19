@@ -26383,6 +26383,7 @@ type CustomModelConfigMutation struct {
 	created_at         *time.Time
 	updated_at         *time.Time
 	model_name         *string
+	prefix_match       *bool
 	capabilities       *[]string
 	appendcapabilities []string
 	clearedFields      map[string]struct{}
@@ -26597,6 +26598,42 @@ func (m *CustomModelConfigMutation) ResetModelName() {
 	m.model_name = nil
 }
 
+// SetPrefixMatch sets the "prefix_match" field.
+func (m *CustomModelConfigMutation) SetPrefixMatch(b bool) {
+	m.prefix_match = &b
+}
+
+// PrefixMatch returns the value of the "prefix_match" field in the mutation.
+func (m *CustomModelConfigMutation) PrefixMatch() (r bool, exists bool) {
+	v := m.prefix_match
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPrefixMatch returns the old "prefix_match" field's value of the CustomModelConfig entity.
+// If the CustomModelConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CustomModelConfigMutation) OldPrefixMatch(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPrefixMatch is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPrefixMatch requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPrefixMatch: %w", err)
+	}
+	return oldValue.PrefixMatch, nil
+}
+
+// ResetPrefixMatch resets all changes to the "prefix_match" field.
+func (m *CustomModelConfigMutation) ResetPrefixMatch() {
+	m.prefix_match = nil
+}
+
 // SetCapabilities sets the "capabilities" field.
 func (m *CustomModelConfigMutation) SetCapabilities(s []string) {
 	m.capabilities = &s
@@ -26682,7 +26719,7 @@ func (m *CustomModelConfigMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *CustomModelConfigMutation) Fields() []string {
-	fields := make([]string, 0, 4)
+	fields := make([]string, 0, 5)
 	if m.created_at != nil {
 		fields = append(fields, custommodelconfig.FieldCreatedAt)
 	}
@@ -26691,6 +26728,9 @@ func (m *CustomModelConfigMutation) Fields() []string {
 	}
 	if m.model_name != nil {
 		fields = append(fields, custommodelconfig.FieldModelName)
+	}
+	if m.prefix_match != nil {
+		fields = append(fields, custommodelconfig.FieldPrefixMatch)
 	}
 	if m.capabilities != nil {
 		fields = append(fields, custommodelconfig.FieldCapabilities)
@@ -26709,6 +26749,8 @@ func (m *CustomModelConfigMutation) Field(name string) (ent.Value, bool) {
 		return m.UpdatedAt()
 	case custommodelconfig.FieldModelName:
 		return m.ModelName()
+	case custommodelconfig.FieldPrefixMatch:
+		return m.PrefixMatch()
 	case custommodelconfig.FieldCapabilities:
 		return m.Capabilities()
 	}
@@ -26726,6 +26768,8 @@ func (m *CustomModelConfigMutation) OldField(ctx context.Context, name string) (
 		return m.OldUpdatedAt(ctx)
 	case custommodelconfig.FieldModelName:
 		return m.OldModelName(ctx)
+	case custommodelconfig.FieldPrefixMatch:
+		return m.OldPrefixMatch(ctx)
 	case custommodelconfig.FieldCapabilities:
 		return m.OldCapabilities(ctx)
 	}
@@ -26757,6 +26801,13 @@ func (m *CustomModelConfigMutation) SetField(name string, value ent.Value) error
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetModelName(v)
+		return nil
+	case custommodelconfig.FieldPrefixMatch:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPrefixMatch(v)
 		return nil
 	case custommodelconfig.FieldCapabilities:
 		v, ok := value.([]string)
@@ -26822,6 +26873,9 @@ func (m *CustomModelConfigMutation) ResetField(name string) error {
 		return nil
 	case custommodelconfig.FieldModelName:
 		m.ResetModelName()
+		return nil
+	case custommodelconfig.FieldPrefixMatch:
+		m.ResetPrefixMatch()
 		return nil
 	case custommodelconfig.FieldCapabilities:
 		m.ResetCapabilities()

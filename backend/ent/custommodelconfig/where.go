@@ -69,6 +69,11 @@ func ModelName(v string) predicate.CustomModelConfig {
 	return predicate.CustomModelConfig(sql.FieldEQ(FieldModelName, v))
 }
 
+// PrefixMatch applies equality check predicate on the "prefix_match" field. It's identical to PrefixMatchEQ.
+func PrefixMatch(v bool) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldEQ(FieldPrefixMatch, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.CustomModelConfig {
 	return predicate.CustomModelConfig(sql.FieldEQ(FieldCreatedAt, v))
@@ -212,6 +217,16 @@ func ModelNameEqualFold(v string) predicate.CustomModelConfig {
 // ModelNameContainsFold applies the ContainsFold predicate on the "model_name" field.
 func ModelNameContainsFold(v string) predicate.CustomModelConfig {
 	return predicate.CustomModelConfig(sql.FieldContainsFold(FieldModelName, v))
+}
+
+// PrefixMatchEQ applies the EQ predicate on the "prefix_match" field.
+func PrefixMatchEQ(v bool) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldEQ(FieldPrefixMatch, v))
+}
+
+// PrefixMatchNEQ applies the NEQ predicate on the "prefix_match" field.
+func PrefixMatchNEQ(v bool) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldNEQ(FieldPrefixMatch, v))
 }
 
 // And groups predicates with the AND operator between them.

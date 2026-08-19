@@ -2,6 +2,7 @@ package admin
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/custommodelconfig"
@@ -49,14 +50,15 @@ func (h *CustomModelConfigHandler) Create(c *gin.Context) {
 	}
 
 	// Validate model name is not empty
-	if req.ModelName == "" {
+	modelName := strings.TrimSpace(req.ModelName)
+	if modelName == "" {
 		response.BadRequest(c, "model_name is required")
 		return
 	}
 
 	// Check if model already exists
 	exists, err := h.client.CustomModelConfig.Query().
-		Where(custommodelconfig.ModelNameEQ(req.ModelName)).
+		Where(custommodelconfig.ModelNameEqualFold(modelName)).
 		Exist(c.Request.Context())
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -73,7 +75,8 @@ func (h *CustomModelConfigHandler) Create(c *gin.Context) {
 	}
 
 	config, err := h.client.CustomModelConfig.Create().
-		SetModelName(req.ModelName).
+		SetModelName(modelName).
+		SetPrefixMatch(req.PrefixMatch).
 		SetCapabilities(capabilities).
 		Save(c.Request.Context())
 	if err != nil {
@@ -104,9 +107,13 @@ func (h *CustomModelConfigHandler) Update(c *gin.Context) {
 		capabilities = []string{}
 	}
 
-	config, err := h.client.CustomModelConfig.UpdateOneID(id).
-		SetCapabilities(capabilities).
-		Save(c.Request.Context())
+	update := h.client.CustomModelConfig.UpdateOneID(id).
+		SetCapabilities(capabilities)
+	if req.PrefixMatch != nil {
+		update.SetPrefixMatch(*req.PrefixMatch)
+	}
+
+	config, err := update.Save(c.Request.Context())
 	if err != nil {
 		if ent.IsNotFound(err) {
 			response.NotFound(c, "Config not found")

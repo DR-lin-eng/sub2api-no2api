@@ -49,6 +49,20 @@ func (_u *CustomModelConfigUpdate) SetNillableModelName(v *string) *CustomModelC
 	return _u
 }
 
+// SetPrefixMatch sets the "prefix_match" field.
+func (_u *CustomModelConfigUpdate) SetPrefixMatch(v bool) *CustomModelConfigUpdate {
+	_u.mutation.SetPrefixMatch(v)
+	return _u
+}
+
+// SetNillablePrefixMatch sets the "prefix_match" field if the given value is not nil.
+func (_u *CustomModelConfigUpdate) SetNillablePrefixMatch(v *bool) *CustomModelConfigUpdate {
+	if v != nil {
+		_u.SetPrefixMatch(*v)
+	}
+	return _u
+}
+
 // SetCapabilities sets the "capabilities" field.
 func (_u *CustomModelConfigUpdate) SetCapabilities(v []string) *CustomModelConfigUpdate {
 	_u.mutation.SetCapabilities(v)
@@ -130,6 +144,9 @@ func (_u *CustomModelConfigUpdate) sqlSave(ctx context.Context) (_node int, err 
 	if value, ok := _u.mutation.ModelName(); ok {
 		_spec.SetField(custommodelconfig.FieldModelName, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.PrefixMatch(); ok {
+		_spec.SetField(custommodelconfig.FieldPrefixMatch, field.TypeBool, value)
+	}
 	if value, ok := _u.mutation.Capabilities(); ok {
 		_spec.SetField(custommodelconfig.FieldCapabilities, field.TypeJSON, value)
 	}
@@ -174,6 +191,20 @@ func (_u *CustomModelConfigUpdateOne) SetModelName(v string) *CustomModelConfigU
 func (_u *CustomModelConfigUpdateOne) SetNillableModelName(v *string) *CustomModelConfigUpdateOne {
 	if v != nil {
 		_u.SetModelName(*v)
+	}
+	return _u
+}
+
+// SetPrefixMatch sets the "prefix_match" field.
+func (_u *CustomModelConfigUpdateOne) SetPrefixMatch(v bool) *CustomModelConfigUpdateOne {
+	_u.mutation.SetPrefixMatch(v)
+	return _u
+}
+
+// SetNillablePrefixMatch sets the "prefix_match" field if the given value is not nil.
+func (_u *CustomModelConfigUpdateOne) SetNillablePrefixMatch(v *bool) *CustomModelConfigUpdateOne {
+	if v != nil {
+		_u.SetPrefixMatch(*v)
 	}
 	return _u
 }
@@ -288,6 +319,9 @@ func (_u *CustomModelConfigUpdateOne) sqlSave(ctx context.Context) (_node *Custo
 	}
 	if value, ok := _u.mutation.ModelName(); ok {
 		_spec.SetField(custommodelconfig.FieldModelName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.PrefixMatch(); ok {
+		_spec.SetField(custommodelconfig.FieldPrefixMatch, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.Capabilities(); ok {
 		_spec.SetField(custommodelconfig.FieldCapabilities, field.TypeJSON, value)

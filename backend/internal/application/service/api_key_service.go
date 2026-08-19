@@ -36,6 +36,7 @@ var (
 	ErrInvalidIPPattern              = infraerrors.BadRequest("INVALID_IP_PATTERN", "invalid IP or CIDR pattern")
 	ErrAPIKeyGroupNotBound           = infraerrors.NotFound("API_KEY_GROUP_NOT_BOUND", "api key is not bound to a group")
 	ErrAPIKeyGroupBindingsInvalid    = infraerrors.BadRequest("API_KEY_GROUP_BINDINGS_INVALID", "api key group bindings are invalid")
+	ErrAPIKeyReservedName            = infraerrors.BadRequest("API_KEY_RESERVED_NAME", "api key name is reserved for Media Studio")
 	// ErrAPIKeyExpired        = infraerrors.Forbidden("API_KEY_EXPIRED", "api key has expired")
 	ErrAPIKeyExpired = infraerrors.Forbidden("API_KEY_EXPIRED", "api key 已过期")
 	// ErrAPIKeyQuotaExhausted = infraerrors.TooManyRequests("API_KEY_QUOTA_EXHAUSTED", "api key quota exhausted")
@@ -635,8 +636,20 @@ func (s *APIKeyService) canUserBindGroup(ctx context.Context, user *User, group 
 
 // Create 创建API Key
 func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIKeyRequest) (*APIKey, error) {
+	return s.create(ctx, userID, req, false)
+}
+
+// CreateMediaStudioAPIKey creates the managed key used by Media Studio.
+func (s *APIKeyService) CreateMediaStudioAPIKey(ctx context.Context, userID int64, req CreateAPIKeyRequest) (*APIKey, error) {
+	return s.create(ctx, userID, req, true)
+}
+
+func (s *APIKeyService) create(ctx context.Context, userID int64, req CreateAPIKeyRequest, allowReservedName bool) (*APIKey, error) {
 	if err := validateCreateAPIKeyRequest(req); err != nil {
 		return nil, err
+	}
+	if !allowReservedName && strings.EqualFold(strings.TrimSpace(req.Name), MediaStudioAPIKeyName) {
+		return nil, ErrAPIKeyReservedName
 	}
 	// 验证用户存在
 	user, err := s.userRepo.GetByID(ctx, userID)
@@ -953,6 +966,15 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 	// 验证所有权
 	if apiKey.UserID != userID {
 		return nil, ErrInsufficientPerms
+	}
+	if req.Name != nil {
+		if strings.EqualFold(strings.TrimSpace(*req.Name), MediaStudioAPIKeyName) {
+			return nil, ErrAPIKeyReservedName
+		}
+		if isMediaStudioAPIKeyName(apiKey.Name) &&
+			!strings.EqualFold(strings.TrimSpace(*req.Name), MediaStudioAPIKeyName) {
+			return nil, ErrAPIKeyReservedName
+		}
 	}
 
 	// 验证 IP 白名单格式

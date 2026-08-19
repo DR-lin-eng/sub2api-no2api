@@ -24,6 +24,8 @@ type CustomModelConfig struct {
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
 	// 模型名称
 	ModelName string `json:"model_name,omitempty"`
+	// 是否按模型名前缀匹配
+	PrefixMatch bool `json:"prefix_match,omitempty"`
 	// 模型能力列表，如 ["image", "video", "audio"]
 	Capabilities []string `json:"capabilities,omitempty"`
 	selectValues sql.SelectValues
@@ -36,6 +38,8 @@ func (*CustomModelConfig) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case custommodelconfig.FieldCapabilities:
 			values[i] = new([]byte)
+		case custommodelconfig.FieldPrefixMatch:
+			values[i] = new(sql.NullBool)
 		case custommodelconfig.FieldID:
 			values[i] = new(sql.NullInt64)
 		case custommodelconfig.FieldModelName:
@@ -80,6 +84,12 @@ func (_m *CustomModelConfig) assignValues(columns []string, values []any) error 
 				return fmt.Errorf("unexpected type %T for field model_name", values[i])
 			} else if value.Valid {
 				_m.ModelName = value.String
+			}
+		case custommodelconfig.FieldPrefixMatch:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field prefix_match", values[i])
+			} else if value.Valid {
+				_m.PrefixMatch = value.Bool
 			}
 		case custommodelconfig.FieldCapabilities:
 			if value, ok := values[i].(*[]byte); !ok {
@@ -133,6 +143,9 @@ func (_m *CustomModelConfig) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("model_name=")
 	builder.WriteString(_m.ModelName)
+	builder.WriteString(", ")
+	builder.WriteString("prefix_match=")
+	builder.WriteString(fmt.Sprintf("%v", _m.PrefixMatch))
 	builder.WriteString(", ")
 	builder.WriteString("capabilities=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Capabilities))

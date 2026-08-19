@@ -11,10 +11,6 @@ export default {
         title: '视频生成',
         short: '首帧、运动描述、时长和比例'
       },
-      batch: {
-        title: '批量创作',
-        short: '批量 Prompt、变量和队列'
-      },
       disabled: '不可用'
     },
     composer: {
@@ -22,33 +18,44 @@ export default {
       placeholder: '描述你想生成的图片，按 Ctrl/⌘ + Enter 开始生成。',
       videoPlaceholder: '描述画面、镜头运动和氛围，按 Ctrl/⌘ + Enter 开始生成视频。',
       model: '模型',
-      selectKey: '选择 Key',
-      loadingKeys: '加载 Key…',
+      customWidth: '自定义宽度',
+      customHeight: '自定义高度',
+      aspectRatio: '比例',
+      customAspectRatio: {
+        option: '自定义比例',
+        title: '添加自定义比例',
+        width: '横向比例',
+        height: '纵向比例',
+        hint: '比例值需为正整数，长边与短边的比例不能超过 3:1。',
+        invalid: '请输入符合比例约束的数值。',
+        add: '添加'
+      },
+      selectGroup: '选择媒体分组',
+      loadingGroups: '加载媒体分组…',
       loadingModels: '加载模型…',
-      noKeys: '没有可用的启用状态 API Key。',
-      manualModelHint: '未从当前 Key 读取到当前类型的模型，可以手动输入模型名。',
+      noGroups: '管理员暂未配置可用的媒体分组。',
+      manualModelHint: '未从当前分组读取到当前类型的模型，可以手动输入模型名。',
       reload: '重试',
-      shortHint: '图片和视频都通过所选 API Key 提交；生成结果只保留在当前页面内存中。',
-      batchHint: '批量创作复用项目现有的完整任务队列、费用预估和下载流程。',
+      shortHint: '选择管理员开放的媒体分组后即可生成；生成结果会保存在当前浏览器中。',
       unit: '张',
       countValue: '{count} 张',
       durationValue: '{count} 秒',
-      send: '开始生成'
+      send: '开始生成',
+      imageEdit: {
+        attachHint: '拖拽或粘贴参考图片，最多 9 张',
+        remove: '移除图片'
+      }
     },
     session: {
-      localHint: '会话仅保留在当前页面内存中',
+      localHint: '会话和图片结果保存在当前浏览器中',
       clear: '清空',
       you: '你',
       studio: '媒体工坊',
       failed: '生成失败',
       retry: '重试',
+      enlargeImage: '放大图片',
       noImageResult: '任务已完成，但没有返回可预览图片。',
       noVideoResult: '任务已完成，但没有返回可预览视频。'
     },
-    batch: {
-      title: '进入批量图片工作区',
-      description: '使用已经过验证的 Gemini 批量任务流程，可提交多条 Prompt、跟踪任务、预览结果并下载压缩包。可用 Key 和分组权限会在工作区内再次校验。',
-      open: '打开批量工作区'
-    }
   }
 }

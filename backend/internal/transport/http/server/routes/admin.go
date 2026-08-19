@@ -133,6 +133,17 @@ func RegisterAdminRoutes(
 
 		// 自定义模型配置
 		registerCustomModelConfigRoutes(admin, h)
+
+		// 媒体工坊分组配置
+		registerMediaStudioAdminRoutes(admin, h)
+	}
+}
+
+func registerMediaStudioAdminRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	mediaStudio := admin.Group("/media-studio")
+	{
+		mediaStudio.GET("/group-routes", h.MediaStudio.GetAdminGroupRoutes)
+		mediaStudio.PUT("/group-routes", h.MediaStudio.UpdateAdminGroupRoutes)
 	}
 }
 
@@ -415,6 +426,7 @@ func registerGroupRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		groups.GET("/live-capability", h.Admin.Group.GetLiveCapability)
 		groups.PUT("/sort-order", h.Admin.Group.UpdateSortOrder)
 		groups.GET("/:id/models-list-candidates", h.Admin.Group.GetModelsListCandidates)
+		groups.GET("/:id/media-studio-models", h.Admin.Group.GetMediaStudioModels)
 		groups.GET("/:id/composite-routes", h.Admin.Group.ListCompositeRoutes)
 		groups.POST("/:id/composite-routes", h.Admin.Group.CreateCompositeRoute)
 		groups.POST("/:id/composite-routes/preview", h.Admin.Group.PreviewCompositeRoute)
