@@ -148,7 +148,34 @@ func (s *OpenAIGatewayService) performOpenAIWSGeneratePrewarm(
 	prewarmEventCount := 0
 	prewarmTerminalCount := 0
 	for {
-		message, readErr := lease.ReadMessageWithContextTimeout(ctx, s.openAIWSReadTimeout())
+		readCtx := ctx
+		var cancelRead context.CancelFunc
+		var firstOutputDeadline time.Time
+		if firstOutputGuard != nil && firstOutputGuard.timeout > 0 {
+			firstOutputDeadline = firstOutputGuard.startedAt.Add(firstOutputGuard.timeout)
+			remaining := time.Until(firstOutputDeadline)
+			if remaining <= 0 {
+				lease.MarkBroken()
+				return s.newOpenAIFirstOutputTimeoutError(
+					ctx, firstOutputGuard.c, account, firstOutputGuard.startedAt,
+					firstOutputGuard.originalModel, firstOutputGuard.reasoningEffort,
+					firstOutputGuard.timeout, "websocket_prewarm", lease.HandshakeHeaders(),
+				)
+			}
+			readCtx, cancelRead = context.WithTimeout(ctx, remaining)
+		}
+		message, readErr := lease.ReadMessageWithContextTimeout(readCtx, s.openAIWSReadTimeout())
+		if cancelRead != nil {
+			cancelRead()
+		}
+		if readErr != nil && !firstOutputDeadline.IsZero() && ctx.Err() == nil && !time.Now().Before(firstOutputDeadline) {
+			lease.MarkBroken()
+			return s.newOpenAIFirstOutputTimeoutError(
+				ctx, firstOutputGuard.c, account, firstOutputGuard.startedAt,
+				firstOutputGuard.originalModel, firstOutputGuard.reasoningEffort,
+				firstOutputGuard.timeout, "websocket_prewarm", lease.HandshakeHeaders(),
+			)
+		}
 		if readErr != nil {
 			lease.MarkBroken()
 			closeStatus, closeReason := summarizeOpenAIWSReadCloseError(readErr)
