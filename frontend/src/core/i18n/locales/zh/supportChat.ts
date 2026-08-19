@@ -18,6 +18,7 @@ export default {
     unknownUser: '未知用户',
     noEmail: '无邮箱',
     noMessagesYet: '暂无消息',
+    loadOlder: '加载更早消息',
     selectConversationTitle: '选择一个会话',
     selectConversationDescription: '从左侧选择用户会话后即可查看历史并回复。',
     emptyTitle: '开始联系在线客服',

@@ -18,6 +18,7 @@ export default {
     unknownUser: 'Unknown user',
     noEmail: 'No email',
     noMessagesYet: 'No messages yet',
+    loadOlder: 'Load older messages',
     selectConversationTitle: 'Select a conversation',
     selectConversationDescription: 'Choose a user conversation on the left to view history and reply.',
     emptyTitle: 'Start a support chat',

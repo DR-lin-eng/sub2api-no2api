@@ -62,7 +62,7 @@
                 <span class="h-2 w-2 rounded-full" :class="socketConnected ? 'bg-emerald-500' : 'bg-gray-400'"></span>
                 <span class="hidden sm:inline">{{ socketConnected ? t('supportChat.connected') : t('supportChat.offline') }}</span>
               </span>
-              <button type="button" class="btn btn-secondary btn-sm px-2 sm:px-3" :disabled="messagesLoading || !selectedConversationID" @click="reloadSelectedMessages">
+              <button type="button" class="btn btn-secondary btn-sm px-2 sm:px-3" :disabled="messagesLoading || olderMessagesLoading || !selectedConversationID" @click="reloadSelectedMessages">
                 <span class="hidden sm:inline">{{ t('common.refresh') }}</span>
                 <svg class="h-4 w-4 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M7.977 14.652H2.985m0 0v.001m0-.001l3.181-3.183a8.25 8.25 0 0113.803 3.7" />
@@ -71,7 +71,21 @@
             </div>
           </header>
 
-        <div ref="messagePaneRef" class="min-h-0 flex-1 overflow-y-auto bg-gray-50 p-3 dark:bg-dark-950/60 sm:p-5">
+        <div
+          ref="messagePaneRef"
+          class="min-h-0 flex-1 overflow-y-auto bg-gray-50 p-3 dark:bg-dark-950/60 sm:p-5"
+          @scroll="handleMessagePaneScroll"
+        >
+          <div v-if="selectedConversationID && hasOlderMessages" class="sticky top-0 z-10 mb-3 flex justify-center">
+            <button
+              type="button"
+              class="btn btn-secondary btn-sm shadow-sm"
+              :disabled="messagesLoading || olderMessagesLoading"
+              @click="loadOlderMessages"
+            >
+              {{ olderMessagesLoading ? t('common.loading') : t('supportChat.loadOlder') }}
+            </button>
+          </div>
           <div v-if="!selectedConversationID" class="flex h-full flex-col items-center justify-center text-center text-gray-500 dark:text-dark-400">
             <div class="mb-3 rounded-2xl bg-primary-50 p-4 text-primary-600 dark:bg-primary-900/20 dark:text-primary-300">
               <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -177,6 +191,12 @@ import {
   type ChatSendMessageInput,
 } from '@/features/support-chat/data/datasources/supportChatDatasource'
 import { useSupportChatSocket } from '@/features/support-chat/presentation/composables/useSupportChatSocket'
+import {
+  chatMessagePageCount,
+  loadChatMessagePages,
+  mergeChatMessages,
+  SUPPORT_CHAT_MESSAGE_PAGE_SIZE,
+} from '@/features/support-chat/presentation/composables/supportChatHistory'
 import { useSupportChatAdminStore } from '@/features/support-chat/presentation/stores/supportChatAdminStore'
 import AdminConversationList from '@/features/support-chat/presentation/widgets/AdminConversationList.vue'
 import SupportMessageComposer from '@/features/support-chat/presentation/widgets/SupportMessageComposer.vue'
@@ -194,6 +214,7 @@ const selectedConversationID = ref<number | null>(null)
 const messages = ref<ChatMessage[]>([])
 const replyingTo = ref<ChatMessage | null>(null)
 const messagesLoading = ref(false)
+const olderMessagesLoading = ref(false)
 const sending = ref(false)
 const markingUnread = ref(false)
 const recallingMessageID = ref<number | null>(null)
@@ -210,6 +231,10 @@ const composerRef = ref<InstanceType<typeof SupportMessageComposer> | null>(null
 const userProfileDialogOpen = ref(false)
 const userProfileLoading = ref(false)
 const userProfile = ref<AdminUser | null>(null)
+const selectedConversationSnapshot = ref<ChatConversation | null>(null)
+const messagePage = ref(1)
+const messagePages = ref(1)
+const stickMessagesToBottom = ref(true)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 let fallbackPollTimer: ReturnType<typeof setInterval> | null = null
 let messageLoadSequence = 0
@@ -221,8 +246,11 @@ const LEGACY_QUICK_REPLY_MIGRATED_KEY = 'support_chat_quick_replies_migrated_v2'
 
 const selectedConversation = computed(() => {
   if (!selectedConversationID.value) return null
-  return conversations.value.find((item) => item.id === selectedConversationID.value) ?? null
+  return conversations.value.find((item) => item.id === selectedConversationID.value)
+    ?? selectedConversationSnapshot.value
 })
+
+const hasOlderMessages = computed(() => messagePage.value < messagePages.value)
 
 const socket = useSupportChatSocket({
   scope: 'admin',
@@ -234,7 +262,7 @@ const socket = useSupportChatSocket({
     if (selectedConversationID.value === message.conversation_id) {
       appendMessage(message)
       if (message.sender_type === 'user') await markSelectedRead()
-      await scrollToBottom()
+      if (stickMessagesToBottom.value) await scrollToBottom()
     }
   },
   onMessageRecalled: (message) => {
@@ -244,6 +272,9 @@ const socket = useSupportChatSocket({
   },
   onReadState: (readState) => {
     const conversation = conversations.value.find(item => item.id === readState.conversation_id)
+      ?? (selectedConversationSnapshot.value?.id === readState.conversation_id
+        ? selectedConversationSnapshot.value
+        : null)
     if (!conversation) return
     if (readState.reader === 'user') conversation.last_read_by_user_at = readState.read_at
     else conversation.last_read_by_admin_at = readState.read_at
@@ -252,6 +283,7 @@ const socket = useSupportChatSocket({
 
 function appendMessage(message: ChatMessage) {
   if (messages.value.some((item) => item.id === message.id)) return
+  stickMessagesToBottom.value = isMessagePaneNearBottom()
   messages.value.push(message)
 }
 
@@ -263,6 +295,12 @@ function replaceMessage(message: ChatMessage) {
   }
   messages.value[index] = message
   messages.value = [...messages.value]
+}
+
+function isMessagePaneNearBottom(): boolean {
+  const pane = messagePaneRef.value
+  if (!pane) return true
+  return pane.scrollHeight - pane.scrollTop - pane.clientHeight < 80
 }
 
 function messageScrollSignature(): string {
@@ -285,6 +323,10 @@ function errorMessage(error: unknown, fallback: string): string {
 function upsertConversationActivity(message: ChatMessage) {
   const existing = conversations.value.find((item) => item.id === message.conversation_id)
   if (!existing) {
+    if (selectedConversationSnapshot.value?.id === message.conversation_id) {
+      selectedConversationSnapshot.value.last_message_at = message.created_at
+      if (message.sender_type === 'user') selectedConversationSnapshot.value.unread_by_admin += 1
+    }
     void loadConversations()
     return
   }
@@ -293,6 +335,9 @@ function upsertConversationActivity(message: ChatMessage) {
     existing.unread_by_admin += 1
     appStore.setSupportInboxUnread(true)
     supportChatAdminStore.markHasUnread()
+  }
+  if (selectedConversationSnapshot.value?.id === message.conversation_id) {
+    selectedConversationSnapshot.value = existing
   }
   conversations.value = [...conversations.value].sort((a, b) => {
     const at = Date.parse(a.last_message_at || a.updated_at) || 0
@@ -326,9 +371,11 @@ async function loadConversations() {
     } else {
       void supportChatAdminStore.refreshUnreadIndicator(true)
     }
-    if (selectedConversationID.value && !conversations.value.some((item) => item.id === selectedConversationID.value)) {
-      selectedConversationID.value = null
-      messages.value = []
+    const selected = selectedConversationID.value
+      ? conversations.value.find((item) => item.id === selectedConversationID.value)
+      : null
+    if (selected) {
+      selectedConversationSnapshot.value = selected
     }
   } catch (error) {
     appStore.showError(errorMessage(error, t('supportChat.loadFailed')))
@@ -340,8 +387,12 @@ async function loadConversations() {
 async function selectConversation(conversationID: number) {
   if (selectedConversationID.value === conversationID) return
   selectedConversationID.value = conversationID
+  selectedConversationSnapshot.value = conversations.value.find((item) => item.id === conversationID) ?? null
   replyingTo.value = null
   messages.value = []
+  messagePage.value = 1
+  messagePages.value = 1
+  stickMessagesToBottom.value = true
   await reloadSelectedMessages()
   await markSelectedRead()
 }
@@ -349,7 +400,10 @@ async function selectConversation(conversationID: number) {
 function backToConversationList() {
   messageLoadSequence += 1
   selectedConversationID.value = null
+  selectedConversationSnapshot.value = null
   messages.value = []
+  messagePage.value = 1
+  messagePages.value = 1
   replyingTo.value = null
 }
 
@@ -376,12 +430,23 @@ async function reloadSelectedMessages() {
   if (!selectedConversationID.value) return
   const conversationID = selectedConversationID.value
   const sequence = ++messageLoadSequence
+  const requestedPage = Math.max(1, messagePage.value)
+  const shouldStickToBottom = stickMessagesToBottom.value
   messagesLoading.value = true
   try {
-    const page = await listAdminChatMessages(conversationID, { page: 1, page_size: 100 })
+    const history = await loadChatMessagePages(
+      (page) => listAdminChatMessages(conversationID, {
+        page,
+        page_size: SUPPORT_CHAT_MESSAGE_PAGE_SIZE,
+      }),
+      requestedPage,
+    )
     if (sequence !== messageLoadSequence || selectedConversationID.value !== conversationID) return
-    messages.value = page.items
-    await scrollToBottom()
+    messages.value = history.items
+    messagePage.value = history.page
+    messagePages.value = history.pages
+    stickMessagesToBottom.value = shouldStickToBottom
+    if (shouldStickToBottom) await scrollToBottom()
   } catch (error) {
     appStore.showError(errorMessage(error, t('supportChat.loadFailed')))
   } finally {
@@ -389,14 +454,60 @@ async function reloadSelectedMessages() {
   }
 }
 
+async function loadOlderMessages() {
+  const conversationID = selectedConversationID.value
+  if (!conversationID || olderMessagesLoading.value || messagesLoading.value || !hasOlderMessages.value) return
+
+  const sequence = messageLoadSequence
+  const nextPage = messagePage.value + 1
+  const pane = messagePaneRef.value
+  const previousHeight = pane?.scrollHeight ?? 0
+  const previousTop = pane?.scrollTop ?? 0
+  olderMessagesLoading.value = true
+  stickMessagesToBottom.value = false
+  try {
+    const page = await listAdminChatMessages(conversationID, {
+      page: nextPage,
+      page_size: SUPPORT_CHAT_MESSAGE_PAGE_SIZE,
+    })
+    if (sequence !== messageLoadSequence || selectedConversationID.value !== conversationID) return
+    if (page.items.length === 0) {
+      messagePages.value = messagePage.value
+      return
+    }
+    messages.value = mergeChatMessages(messages.value, page.items)
+    messagePage.value = Math.max(messagePage.value, nextPage)
+    messagePages.value = Math.max(messagePage.value, chatMessagePageCount(page))
+    await nextTick()
+    if (pane) pane.scrollTop = previousTop + (pane.scrollHeight - previousHeight)
+  } catch (error) {
+    appStore.showError(errorMessage(error, t('supportChat.loadFailed')))
+  } finally {
+    olderMessagesLoading.value = false
+  }
+}
+
+function handleMessagePaneScroll(event: Event) {
+  const pane = event.target as HTMLElement | null
+  if (!pane) return
+  stickMessagesToBottom.value = pane.scrollHeight - pane.scrollTop - pane.clientHeight < 80
+  if (pane.scrollTop <= 80) void loadOlderMessages()
+}
+
 async function markSelectedRead(conversationID = selectedConversationID.value) {
   if (!conversationID) return
   await markAdminChatRead(conversationID)
   const existing = conversations.value.find((item) => item.id === conversationID)
-  if (existing) {
-    existing.unread_by_admin = 0
-    existing.manually_unread_by_admin = false
-    existing.last_read_by_admin_at = new Date().toISOString()
+  const target = existing ?? (selectedConversationSnapshot.value?.id === conversationID
+    ? selectedConversationSnapshot.value
+    : null)
+  if (target) {
+    target.unread_by_admin = 0
+    target.manually_unread_by_admin = false
+    target.last_read_by_admin_at = new Date().toISOString()
+    if (selectedConversationSnapshot.value?.id === conversationID) {
+      selectedConversationSnapshot.value = target
+    }
   }
   await supportChatAdminStore.refreshUnreadIndicator(true)
   appStore.setSupportInboxUnread(supportChatAdminStore.hasUnread)
@@ -409,7 +520,10 @@ async function markSelectedUnread() {
   try {
     await markAdminChatUnread(conversationID)
     const existing = conversations.value.find((item) => item.id === conversationID)
-    if (existing) existing.manually_unread_by_admin = true
+    const target = existing ?? (selectedConversationSnapshot.value?.id === conversationID
+      ? selectedConversationSnapshot.value
+      : null)
+    if (target) target.manually_unread_by_admin = true
     await supportChatAdminStore.refreshUnreadIndicator(true)
     appStore.setSupportInboxUnread(supportChatAdminStore.hasUnread)
     appStore.showSuccess(t('supportChat.markUnreadSuccess'))
@@ -432,7 +546,7 @@ async function handleSend(input: ChatSendMessageInput) {
       composerRef.value?.clearDraft()
       replyingTo.value = null
       await markSelectedRead(conversationID)
-      await scrollToBottom()
+      if (stickMessagesToBottom.value) await scrollToBottom()
     }
     void supportChatAdminStore.refreshUnreadIndicator(true)
   } catch (error) {
@@ -459,7 +573,7 @@ async function handleUpload(value: { file: File; content: string; reply_to_id: n
     if (selectedConversationID.value === conversationID) {
       composerRef.value?.clearDraft()
       replyingTo.value = null
-      await scrollToBottom()
+      if (stickMessagesToBottom.value) await scrollToBottom()
     }
   } catch (error) {
     appStore.showError(errorMessage(error, t('supportChat.assets.uploadFailed')))
@@ -500,7 +614,7 @@ async function handleTransfer(value: { amount: number; notes: string }) {
     const result = await transferAdminChatBalance(conversationID, value.amount, value.notes)
     if (selectedConversationID.value === conversationID) appendMessage(result.message)
     upsertConversationActivity(result.message)
-    if (selectedConversationID.value === conversationID) await scrollToBottom()
+    if (selectedConversationID.value === conversationID && stickMessagesToBottom.value) await scrollToBottom()
     appStore.showSuccess(t('supportChat.transfer.success'))
   } catch (error) {
     appStore.showError(errorMessage(error, t('supportChat.transfer.failed')))
@@ -626,7 +740,7 @@ watch([search, unreadOnly], () => {
 })
 
 watch(messageScrollSignature, () => {
-  void scrollToBottom()
+  if (stickMessagesToBottom.value) void scrollToBottom()
 }, { flush: 'post' })
 
 onMounted(async () => {
