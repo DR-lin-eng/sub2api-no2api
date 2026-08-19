@@ -97,7 +97,8 @@ func TestOpenAIResponsesTTFTStartsAtCompletedImage(t *testing.T) {
 }
 
 func TestOpenAINativeProgressDisarmsTimeoutWithoutStartingTTFT(t *testing.T) {
-	result := runSyntheticVisibleTTFTStream(t, false, 1200*time.Millisecond, 1,
+	result := runSyntheticTTFTStream(t, false, true, 1200*time.Millisecond, 1,
+		`{"type":"response.output_item.added","item":{"type":"reasoning","summary":[],"encrypted_content":"ciphertext"}}`,
 		`{"type":"response.output_text.delta","delta":"test output"}`)
 	require.NotNil(t, result.firstTokenMs)
 	require.GreaterOrEqual(t, *result.firstTokenMs, 1100)

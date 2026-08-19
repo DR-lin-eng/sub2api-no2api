@@ -939,6 +939,19 @@ type openaiNonStreamingResultPassthrough struct {
 	imageOutputSizes []string
 }
 
+const openAIStreamKeepaliveBytesKey = "openai_stream_keepalive_bytes"
+
+func recordOpenAIStreamKeepaliveBytes(c *gin.Context, written int) {
+	if c == nil || written <= 0 {
+		return
+	}
+	current := 0
+	if value, ok := c.Get(openAIStreamKeepaliveBytesKey); ok {
+		current, _ = value.(int)
+	}
+	c.Set(openAIStreamKeepaliveBytesKey, current+written)
+}
+
 func openAIStreamClientOutputStarted(c *gin.Context, localStarted bool) bool {
 	if localStarted {
 		return true
@@ -1247,9 +1260,34 @@ func isOpenAIUpstreamCapacityShedEvent(payload []byte) bool {
 	switch openAIStreamFailedEventErrorCode(payload) {
 	case "server_is_overloaded", "slow_down":
 		return true
-	default:
-		return false
 	}
+	for _, path := range []string{"response.error.message", "error.message", "message"} {
+		if isOpenAICapacityShedMessage(gjson.GetBytes(payload, path).String()) {
+			return true
+		}
+	}
+	return false
+}
+
+func logOpenAICapacityFailoverSuppressed(
+	ctx context.Context,
+	account *Account,
+	path string,
+	upstreamRequestID string,
+	eventType string,
+) {
+	fields := []zap.Field{
+		zap.String("path", path),
+		zap.String("event_type", strings.TrimSpace(eventType)),
+		zap.String("upstream_request_id", strings.TrimSpace(upstreamRequestID)),
+	}
+	if account != nil {
+		fields = append(fields,
+			zap.Int64("account_id", account.ID),
+			zap.String("platform", account.Platform),
+		)
+	}
+	logger.FromContext(ctx).Warn("gateway.failover_suppressed_after_semantic_output", fields...)
 }
 
 const openAICapacityShedRetryableClientCode = "server_error"
@@ -1264,9 +1302,12 @@ func sanitizeOpenAICapacityShedErrorCodeForClient(payload []byte) ([]byte, bool)
 	updated := payload
 	changed := false
 	for _, path := range []string{"response.error.code", "error.code"} {
-		switch strings.ToLower(strings.TrimSpace(gjson.GetBytes(updated, path).String())) {
-		case "server_is_overloaded", "slow_down":
-		default:
+		parent := strings.TrimSuffix(path, ".code")
+		if !gjson.GetBytes(updated, parent).Exists() {
+			continue
+		}
+		code := strings.ToLower(strings.TrimSpace(gjson.GetBytes(updated, path).String()))
+		if code != "" && code != "server_is_overloaded" && code != "slow_down" {
 			continue
 		}
 		next, err := sjson.SetBytes(updated, path, openAICapacityShedRetryableClientCode)
@@ -1299,7 +1340,7 @@ func openAIStreamFailedEventSemanticStatus(payload []byte, message string) int {
 		return http.StatusUnauthorized
 	case strings.Contains(combined, "permission") || strings.Contains(combined, "forbidden") || strings.Contains(combined, "access denied"):
 		return http.StatusForbidden
-	case code == "server_is_overloaded" || code == "slow_down":
+	case isOpenAIUpstreamCapacityShedEvent(payload):
 		return http.StatusServiceUnavailable
 	default:
 		return http.StatusBadGateway
@@ -1705,13 +1746,31 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 	sawTerminalEvent := false
 	sawFailedEvent := false
 	responsesSemanticOutputSeen := false
+	capacityFailoverSuppressedLogged := false
 	failedMessage := ""
 	clientOutputStarted := false
 	sawOutputProgressEvent := false
 	upstreamRequestID := strings.TrimSpace(resp.Header.Get("x-request-id"))
 	// pendingLines 在首个可见输出前保留前导事件，确保无输出失败仍可安全 failover。
+	preservePreOutputForFailover := account != nil && account.Platform == PlatformOpenAI
+	var preOutputStage *openAIFirstOutputStage
+	if preservePreOutputForFailover {
+		stage := newDefaultOpenAIFirstOutputStage()
+		preOutputStage = stage
+		defer func() {
+			if err := stage.Close(); err != nil {
+				logger.LegacyPrintf("service.openai_gateway", "OpenAI passthrough first-output staging cleanup failed: account=%d error=%v", account.ID, err)
+			}
+		}()
+	}
 	pendingLines := make([]string, 0, 16)
 	pendingBytes := 0
+	pendingOutputBytes := func() int64 {
+		if preOutputStage != nil {
+			return preOutputStage.Buffered()
+		}
+		return int64(pendingBytes)
+	}
 	turnStateNoted := false
 	noteTurnStateCommitted := func() {
 		if turnStateNoted || extractOpenAICodexTurnState(resp.Header) == "" {
@@ -1731,6 +1790,19 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 	}
 	defer flushPendingOutput()
 	writePendingLines := func() bool {
+		if preOutputStage != nil {
+			if preOutputStage.Buffered() == 0 {
+				return true
+			}
+			if err := preOutputStage.CommitTo(w); err != nil {
+				clientDisconnected = true
+				logger.LegacyPrintf("service.openai_gateway", "[OpenAI passthrough] Client disconnected during staged output commit: account=%d error=%v", account.ID, err)
+				return false
+			}
+			preOutputStage = nil
+			noteTurnStateCommitted()
+			return true
+		}
 		for _, pending := range pendingLines {
 			if _, err := fmt.Fprintln(w, pending); err != nil {
 				clientDisconnected = true
@@ -1744,7 +1816,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 		return true
 	}
 	commitPendingOutputProgress := func() {
-		if clientDisconnected || clientOutputStarted || !sawOutputProgressEvent || len(pendingLines) == 0 {
+		if clientDisconnected || clientOutputStarted || !sawOutputProgressEvent || pendingOutputBytes() == 0 {
 			return
 		}
 		if writePendingLines() {
@@ -1854,6 +1926,10 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 					}
 				} else if openAIStreamFailureIsExplicitlyRetryable(dataBytes, failedMessage) {
 					s.recordOpenAIStreamUpstreamError(c, account, true, upstreamRequestID, "http_error", dataBytes, failedMessage)
+					if !capacityFailoverSuppressedLogged && isOpenAIUpstreamCapacityShedEvent(dataBytes) {
+						logOpenAICapacityFailoverSuppressed(ctx, account, "passthrough_sse", upstreamRequestID, eventType)
+						capacityFailoverSuppressedLogged = true
+					}
 					accountID := int64(0)
 					if account != nil {
 						accountID = account.ID
@@ -1919,6 +1995,32 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 
 		if !clientDisconnected {
 			if !clientOutputStarted && !lineNeedsFlush {
+				if preOutputStage != nil {
+					incomingBytes := int64(len(line) + 1)
+					if incomingBytes > preOutputStage.limit-preOutputStage.Buffered() {
+						failoverErr := s.newOpenAIStreamFailoverError(
+							c, account, true, upstreamRequestID, nil,
+							"OpenAI passthrough first-output staging limit exceeded",
+							resp.Header,
+						)
+						failoverErr.SafeToFailoverAfterWrite = true
+						return resultWithUsage(), failoverErr
+					}
+					_, writeErr := preOutputStage.WriteString(line)
+					if writeErr == nil {
+						_, writeErr = preOutputStage.WriteString("\n")
+					}
+					if writeErr != nil {
+						failoverErr := s.newOpenAIStreamFailoverError(
+							c, account, true, upstreamRequestID, nil,
+							"OpenAI passthrough first-output staging failed",
+							resp.Header,
+						)
+						failoverErr.SafeToFailoverAfterWrite = true
+						return resultWithUsage(), failoverErr
+					}
+					continue
+				}
 				pendingLines = append(pendingLines, line)
 				pendingBytes += len(line) + 1
 				if pendingBytes >= openAIPassthroughPreOutputBufferLimit {
@@ -1929,7 +2031,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 				}
 				continue
 			}
-			if !clientOutputStarted && len(pendingLines) > 0 {
+			if !clientOutputStarted && pendingOutputBytes() > 0 {
 				if !writePendingLines() {
 					continue
 				}

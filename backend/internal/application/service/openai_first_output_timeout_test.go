@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -20,6 +21,37 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
+
+func BenchmarkOpenAIFirstOutputStagingSmallPreamble(b *testing.B) {
+	preamble := []byte("data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_bench\"}}\n\n")
+	b.Run("bounded_stage", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			stage := newDefaultOpenAIFirstOutputStage()
+			if _, err := stage.Write(preamble); err != nil {
+				b.Fatal(err)
+			}
+			if err := stage.CommitTo(io.Discard); err != nil {
+				b.Fatal(err)
+			}
+			if err := stage.Close(); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+	b.Run("legacy_buffer", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			writer := bufio.NewWriterSize(io.Discard, 4*1024)
+			if _, err := writer.Write(preamble); err != nil {
+				b.Fatal(err)
+			}
+			if err := writer.Flush(); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+}
 
 type blockingOpenAIResponseHeaderUpstream struct {
 	canceled chan struct{}
@@ -149,6 +181,39 @@ func TestOpenAINativeFirstOutputTimeoutIgnoresPreambleAndCleansReader(t *testing
 	case <-writerDone:
 	case <-time.After(time.Second):
 		t.Fatal("stream reader/writer goroutine did not exit after first-output timeout")
+	}
+}
+
+func TestOpenAINativeEmptyReasoningMetadataDoesNotDisarmFirstOutputTimeout(t *testing.T) {
+	svc := &OpenAIGatewayService{cfg: &config.Config{Gateway: config.GatewayConfig{
+		OpenAIFirstOutputTimeoutSeconds: 1,
+		MaxLineSize:                     defaultMaxLineSize,
+	}}}
+	reader, writer := io.Pipe()
+	writerDone := make(chan struct{})
+	go func() {
+		defer close(writerDone)
+		defer func() { _ = writer.Close() }()
+		_, _ = io.WriteString(writer, "data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_test\"}}\n\n")
+		_, _ = io.WriteString(writer, "data: {\"type\":\"response.output_item.added\",\"item\":{\"id\":\"item_test\",\"type\":\"reasoning\",\"summary\":[]}}\n\n")
+		time.Sleep(1200 * time.Millisecond)
+	}()
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	resp := &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: reader}
+	account := &Account{ID: 1, Name: "account_test", Platform: PlatformOpenAI}
+
+	_, err := svc.handleStreamingResponse(context.Background(), resp, c, account, time.Now(), "test-model", "test-model")
+	var failoverErr *UpstreamFailoverError
+	require.ErrorAs(t, err, &failoverErr)
+	require.True(t, failoverErr.SafeToFailoverAfterWrite)
+	require.Empty(t, recorder.Body.String())
+	select {
+	case <-writerDone:
+	case <-time.After(time.Second):
+		t.Fatal("synthetic upstream writer did not exit")
 	}
 }
 
@@ -563,8 +628,8 @@ func TestOpenAINativeFirstOutputTimeoutDisabledPreservesKeepaliveFlush(t *testin
 
 	require.Error(t, err)
 	require.Contains(t, rec.Body.String(), ":\n\n")
-	require.Contains(t, rec.Body.String(), "response.created")
-	require.Contains(t, rec.Body.String(), "response.in_progress")
+	require.NotContains(t, rec.Body.String(), "response.created")
+	require.NotContains(t, rec.Body.String(), "response.in_progress")
 }
 
 func TestOpenAINativeFirstOutputFailoverKeepsAttemptHeadersPrivateAfterKeepaliveCommit(t *testing.T) {

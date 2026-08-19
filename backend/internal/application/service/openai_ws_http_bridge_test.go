@@ -234,7 +234,7 @@ func TestProxyOpenAIWSHTTPBridgeTurnRequiresTerminalEvent(t *testing.T) {
 			name: "created_then_done_is_truncated_not_success",
 			body: "data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_truncated\"}}\n\n" +
 				"data: [DONE]\n\n",
-			wantWrites: 1,
+			wantFailover: true,
 		},
 	}
 	for _, tt := range tests {

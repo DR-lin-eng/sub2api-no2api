@@ -28,6 +28,26 @@ func TestOpenAI429FastPath_MarksOAuthAccountCoolingDown(t *testing.T) {
 	require.False(t, svc.isOpenAIAccountRuntimeBlocked(apiKeyAccount))
 }
 
+func TestOpenAICapacityShedFastPathKeepsAccountHealthy(t *testing.T) {
+	repo := &rateLimitAccountRepoStub{}
+	rateLimitService := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+	svc := &OpenAIGatewayService{rateLimitService: rateLimitService}
+	rateLimitService.SetAccountRuntimeBlocker(svc)
+	account := &Account{ID: 46, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+	body := []byte(`{"error":{"message":"Our servers are currently overloaded. Please try again later."}}`)
+
+	shouldDisable := svc.handleOpenAIAccountUpstreamError(
+		context.Background(), account, http.StatusBadGateway, http.Header{}, body, "gpt-5.4",
+	)
+
+	require.False(t, shouldDisable)
+	require.Zero(t, repo.setErrorCalls)
+	require.Zero(t, repo.tempCalls)
+	require.Zero(t, repo.rateLimitedCalls)
+	require.Zero(t, repo.modelRateLimitCalls)
+	require.False(t, svc.isOpenAIAccountRuntimeBlocked(account))
+}
+
 func TestOpenAI429FastPath_OpenCodeGoUsageLimitUsesMessageResetDuration(t *testing.T) {
 	repo := &rateLimitAccountRepoStub{}
 	rateLimitService := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)

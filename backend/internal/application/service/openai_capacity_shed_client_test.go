@@ -31,6 +31,12 @@ func TestSanitizeOpenAICapacityShedErrorCodeForClient(t *testing.T) {
 			wantChanged: false,
 			wantCode:    `"code":"rate_limit_exceeded"`,
 		},
+		{
+			name:        "message-only capacity adds retryable code",
+			payload:     `{"type":"response.failed","response":{"error":{"message":"Our servers are currently overloaded. Please try again later."}}}`,
+			wantChanged: true,
+			wantCode:    `"code":"server_error"`,
+		},
 	}
 
 	for _, tt := range tests {

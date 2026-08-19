@@ -107,7 +107,7 @@ func (r stubOpenAIAccountRepo) ListSchedulableUngroupedByPlatform(ctx context.Co
 	return r.ListSchedulableByPlatform(ctx, platform)
 }
 
-func TestFailoverOpenAIUpstreamHTTPErrorAppliesTempUnschedulablePolicyBeforeCommit(t *testing.T) {
+func TestFailoverOpenAIUpstreamCapacityShedDoesNotApplyTempUnschedulablePolicy(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	repo := &tempUnschedulableOpenAIAccountRepo{}
 	svc := &OpenAIGatewayService{
@@ -136,8 +136,10 @@ func TestFailoverOpenAIUpstreamHTTPErrorAppliesTempUnschedulablePolicyBeforeComm
 	)
 
 	require.NotNil(t, got)
-	require.Equal(t, account.ID, repo.modelRateLimitAccountID)
-	require.Equal(t, "gpt-5.4", repo.modelRateLimitKey)
+	require.Equal(t, GatewayFailureScopeRequest, got.Scope)
+	require.True(t, got.RetryableOnSameAccount)
+	require.Zero(t, repo.modelRateLimitAccountID)
+	require.Empty(t, repo.modelRateLimitKey)
 	require.False(t, IsResponseCommitted(c))
 }
 
@@ -2480,7 +2482,7 @@ func TestOpenAIStreamingPassthroughResponseFailedBeforeOutputReturnsFailover(t *
 	require.Empty(t, rec.Body.String())
 }
 
-func TestOpenAIStreamingPassthroughBoundsPreOutputBuffer(t *testing.T) {
+func TestOpenAIStreamingPassthroughStagesBeyondLegacyBufferForFailover(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := &OpenAIGatewayService{cfg: &config.Config{Gateway: config.GatewayConfig{MaxLineSize: defaultMaxLineSize}}}
 	rec := httptest.NewRecorder()
@@ -2502,8 +2504,9 @@ func TestOpenAIStreamingPassthroughBoundsPreOutputBuffer(t *testing.T) {
 	_, err := svc.handleStreamingResponsePassthrough(c.Request.Context(), resp, c, &Account{ID: 1, Platform: PlatformOpenAI}, time.Now(), "", "")
 	require.Error(t, err)
 	var failoverErr *UpstreamFailoverError
-	require.False(t, errors.As(err, &failoverErr), "buffer cap commits the response instead of retaining unbounded data for failover")
-	require.GreaterOrEqual(t, rec.Body.Len(), openAIPassthroughPreOutputBufferLimit)
+	require.ErrorAs(t, err, &failoverErr)
+	require.False(t, c.Writer.Written())
+	require.Empty(t, rec.Body.String())
 }
 
 func TestOpenAIStreamingPassthroughContextWindowResponseFailedBeforeOutputAppliesPassthroughRule(t *testing.T) {
