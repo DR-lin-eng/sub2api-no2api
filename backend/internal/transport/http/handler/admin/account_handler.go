@@ -796,7 +796,12 @@ func (h *AccountHandler) List(c *gin.Context) {
 
 	h.enrichShadowParents(c.Request.Context(), result)
 
-	etag := buildAccountsListETagWithOAuthQuota(result, total, page, pageSize, platform, accountType, status, search, oauthQuotaFilter, lite)
+	etag := ""
+	if oauthQuotaFilter == "" {
+		etag = buildAccountsListETag(result, total, page, pageSize, platform, accountType, status, search, lite)
+	} else {
+		etag = buildAccountsListETagWithOAuthQuota(result, total, page, pageSize, platform, accountType, status, search, oauthQuotaFilter, lite)
+	}
 	if etag != "" {
 		c.Header("ETag", etag)
 		c.Header("Vary", "If-None-Match")
