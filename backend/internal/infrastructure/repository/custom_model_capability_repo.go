@@ -37,17 +37,43 @@ func (r *CustomModelCapabilityRepository) HasCapability(
 	config, err := r.client.CustomModelConfig.Query().
 		Where(custommodelconfig.ModelNameEqualFold(strings.TrimSpace(modelName))).
 		Only(ctx)
-	if ent.IsNotFound(err) {
-		return false, nil
+	if err == nil {
+		return hasCapability(config.Capabilities, capability), nil
 	}
-	if err != nil {
+	if !ent.IsNotFound(err) {
 		return false, fmt.Errorf("query custom model capabilities: %w", err)
 	}
 
-	for _, configured := range config.Capabilities {
-		if strings.EqualFold(strings.TrimSpace(configured), strings.TrimSpace(capability)) {
-			return true, nil
+	normalizedModelName := strings.ToLower(strings.TrimSpace(modelName))
+	prefixConfigs, err := r.client.CustomModelConfig.Query().
+		Where(custommodelconfig.PrefixMatchEQ(true)).
+		All(ctx)
+	if err != nil {
+		return false, fmt.Errorf("query custom model prefix capabilities: %w", err)
+	}
+
+	var best *ent.CustomModelConfig
+	for _, candidate := range prefixConfigs {
+		prefix := strings.ToLower(strings.TrimSpace(candidate.ModelName))
+		if prefix == "" || !strings.HasPrefix(normalizedModelName, prefix) {
+			continue
+		}
+		if best == nil || len(prefix) > len(strings.TrimSpace(best.ModelName)) {
+			best = candidate
 		}
 	}
-	return false, nil
+	if best == nil {
+		return false, nil
+	}
+	return hasCapability(best.Capabilities, capability), nil
+}
+
+func hasCapability(capabilities []string, capability string) bool {
+	normalizedCapability := strings.TrimSpace(capability)
+	for _, configured := range capabilities {
+		if strings.EqualFold(strings.TrimSpace(configured), normalizedCapability) {
+			return true
+		}
+	}
+	return false
 }

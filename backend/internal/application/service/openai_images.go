@@ -217,7 +217,7 @@ func (s *OpenAIGatewayService) ParseOpenAIImagesRequest(c *gin.Context, body []b
 	}
 
 	applyOpenAIImagesDefaults(req)
-	if err := validateOpenAIImagesModel(req.Model); err != nil {
+	if err := s.validateOpenAIImagesModel(c.Request.Context(), req.Model); err != nil {
 		return nil, err
 	}
 	if err := validateOpenAIImagesResponseFormat(req.ResponseFormat); err != nil {
@@ -487,6 +487,21 @@ func validateOpenAIImagesModel(model string) error {
 	return fmt.Errorf("images endpoint requires an image model, got %q", model)
 }
 
+func (s *OpenAIGatewayService) validateOpenAIImagesModel(ctx context.Context, model string) error {
+	if err := validateOpenAIImagesModel(model); err == nil {
+		return nil
+	}
+	if s != nil && s.customModelCapabilities != nil {
+		configured, err := s.customModelCapabilities.HasCapability(ctx, model, "image")
+		if err != nil {
+			return fmt.Errorf("failed to resolve custom model capabilities: %w", err)
+		}
+		if configured {
+			return nil
+		}
+	}
+	return validateOpenAIImagesModel(model)
+}
 func validateOpenAIImagesResponseFormat(responseFormat string) error {
 	switch strings.ToLower(strings.TrimSpace(responseFormat)) {
 	case "", "b64_json", "url":
@@ -599,11 +614,11 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	if mapped := strings.TrimSpace(channelMappedModel); mapped != "" {
 		requestModel = mapped
 	}
-	if err := validateOpenAIImagesModel(requestModel); err != nil {
+	if err := s.validateOpenAIImagesModel(ctx, requestModel); err != nil {
 		return nil, err
 	}
 	upstreamModel := account.GetMappedModel(requestModel)
-	if err := validateOpenAIImagesModel(upstreamModel); err != nil {
+	if err := s.validateOpenAIImagesModel(ctx, upstreamModel); err != nil {
 		return nil, err
 	}
 	logger.LegacyPrintf(

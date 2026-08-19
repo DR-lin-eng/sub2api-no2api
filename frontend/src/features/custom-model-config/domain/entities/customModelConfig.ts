@@ -5,6 +5,7 @@ export type ModelCapability = "image" | "video" | "audio";
 export interface CustomModelConfig {
   id: number;
   model_name: string;
+  prefix_match: boolean;
   capabilities: ModelCapability[];
   created_at: string;
   updated_at: string;

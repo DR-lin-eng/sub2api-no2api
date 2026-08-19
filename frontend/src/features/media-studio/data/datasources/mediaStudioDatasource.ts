@@ -1,4 +1,23 @@
-import { buildGatewayUrl } from '@/core/networks/client'
+import { apiClient, buildGatewayUrl } from '@/core/networks/client'
+
+export type MediaStudioMediaType = 'image' | 'video' | 'audio'
+
+export interface MediaStudioGroupOption {
+  group_id: number
+  group_name: string
+  platform: string
+  models?: string[]
+}
+
+export interface MediaStudioConfig {
+  groups: MediaStudioGroupOption[]
+}
+
+export interface MediaStudioSession {
+  api_key: string
+  group_id: number
+  media_type: MediaStudioMediaType
+}
 
 export interface MediaStudioModel {
   id: string
@@ -7,6 +26,14 @@ export interface MediaStudioModel {
   displayName?: string
   owned_by?: string
   ownedBy?: string
+  supported_parameters?: string[]
+  supportedParameters?: string[]
+  supported_sizes?: string[]
+  supportedSizes?: string[]
+  supported_qualities?: string[]
+  supportedQualities?: string[]
+  supports_quality?: boolean
+  supportsQuality?: boolean
   [key: string]: unknown
 }
 
@@ -22,6 +49,22 @@ export interface MediaStudioImageSubmitRequest {
   size?: string
   quality?: string
   response_format?: 'b64_json' | 'url'
+}
+
+export async function getMediaStudioConfig(): Promise<MediaStudioConfig> {
+  const { data } = await apiClient.get<MediaStudioConfig>('/media-studio/config')
+  return data
+}
+
+export async function createMediaStudioSession(
+  mediaType: MediaStudioMediaType,
+  groupId: number,
+): Promise<MediaStudioSession> {
+  const { data } = await apiClient.post<MediaStudioSession>('/media-studio/session', {
+    media_type: mediaType,
+    group_id: groupId,
+  })
+  return data
 }
 
 export interface MediaStudioGeneratedImage {
@@ -154,9 +197,19 @@ export function normalizeMediaStudioVideoTask(value: unknown, fallbackID = ''): 
   }
 }
 
-export async function listMediaStudioModels(apiKey: string): Promise<MediaStudioModelsResponse> {
+export async function listMediaStudioModels(
+  _apiKey: string,
+  mediaType?: MediaStudioMediaType,
+  groupId?: number,
+): Promise<MediaStudioModelsResponse> {
+  if (mediaType && groupId) {
+    const { data } = await apiClient.get<MediaStudioModelsResponse>('/media-studio/models', {
+      params: { media_type: mediaType, group_id: groupId },
+    })
+    return data
+  }
   const response = await fetch(buildGatewayUrl('/v1/models'), {
-    headers: authHeaders(apiKey),
+    headers: authHeaders(_apiKey),
   })
   if (!response.ok) throw await parseMediaStudioError(response)
   return response.json()
@@ -197,6 +250,46 @@ export async function submitImageGeneration(
   const createdAt = typeof result.created === 'number' ? result.created : Math.floor(Date.now() / 1000)
   const imageURL = result.data?.find(item => typeof item.url === 'string' && item.url.trim())?.url || ''
   const id = `imgsync_${idempotencyKey.replace(/[^a-zA-Z0-9_]/g, '').slice(-32) || Date.now()}`
+  return {
+    id,
+    task_id: id,
+    object: 'image.generation.task',
+    status: 'completed',
+    http_status: response.status,
+    image_url: imageURL,
+    result,
+    created_at: createdAt,
+    completed_at: Math.floor(Date.now() / 1000),
+    expires_at: Math.floor(Date.now() / 1000) + 86400,
+  }
+}
+
+export async function submitImageEdit(
+  apiKey: string,
+  files: File[],
+  payload: Omit<MediaStudioImageSubmitRequest, 'response_format'>,
+  idempotencyKey: string,
+): Promise<MediaStudioImageTask> {
+  const form = new FormData()
+  form.append('model', payload.model)
+  form.append('prompt', payload.prompt)
+  if (payload.n !== undefined) form.append('n', String(payload.n))
+  if (payload.size) form.append('size', payload.size)
+  if (payload.quality) form.append('quality', payload.quality)
+  for (const file of files) form.append('image', file, file.name)
+
+  const response = await fetch(buildGatewayUrl('/v1/images/edits'), {
+    method: 'POST',
+    headers: authHeaders(apiKey, {
+      'Idempotency-Key': idempotencyKey,
+    }),
+    body: form,
+  })
+  if (!response.ok) throw await parseMediaStudioError(response)
+  const result = await response.json() as MediaStudioImageResult
+  const createdAt = typeof result.created === 'number' ? result.created : Math.floor(Date.now() / 1000)
+  const imageURL = result.data?.find(item => typeof item.url === 'string' && item.url.trim())?.url || ''
+  const id = `imgedit_${idempotencyKey.replace(/[^a-zA-Z0-9_]/g, '').slice(-32) || Date.now()}`
   return {
     id,
     task_id: id,

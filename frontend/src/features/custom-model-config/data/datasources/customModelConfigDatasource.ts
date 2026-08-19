@@ -17,6 +17,7 @@ function toEntity(dto: CustomModelConfigDto): CustomModelConfig {
   return {
     id: dto.id,
     model_name: dto.model_name,
+    prefix_match: dto.prefix_match ?? false,
     capabilities: dto.capabilities,
     created_at: dto.created_at,
     updated_at: dto.updated_at,

@@ -4,6 +4,7 @@ export default {
 
   table: {
     modelName: '模型名称',
+    prefixMatch: '前缀匹配',
     capabilities: '能力',
     actions: '操作',
     empty: '暂无配置',
@@ -31,6 +32,9 @@ export default {
     modelName: '模型名称',
     modelNamePlaceholder: '例如：flux-pro, midjourney-v6',
     modelNameHint: '输入完整的模型名称，需与API返回的模型名称完全匹配',
+    modelNamePrefixHint: '输入模型名前缀，例如 agnes-，将匹配所有以该前缀开头的模型',
+    prefixMatch: '按模型名前缀匹配',
+    prefixMatchHint: '启用后，输入内容会作为前缀匹配多个模型；关闭时仅匹配完整模型名称',
     capabilities: '模型能力',
     capabilitiesHint: '勾选该模型支持的全部能力',
     saveFailed: '保存失败，请重试'

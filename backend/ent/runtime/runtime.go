@@ -1158,6 +1158,10 @@ func init() {
 			return nil
 		}
 	}()
+	// custommodelconfigDescPrefixMatch is the schema descriptor for prefix_match field.
+	custommodelconfigDescPrefixMatch := custommodelconfigFields[1].Descriptor()
+	// custommodelconfig.DefaultPrefixMatch holds the default value on creation for the prefix_match field.
+	custommodelconfig.DefaultPrefixMatch = custommodelconfigDescPrefixMatch.Default.(bool)
 	errorpassthroughruleMixin := schema.ErrorPassthroughRule{}.Mixin()
 	errorpassthroughruleMixinFields0 := errorpassthroughruleMixin[0].Fields()
 	_ = errorpassthroughruleMixinFields0

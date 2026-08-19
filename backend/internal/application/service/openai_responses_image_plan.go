@@ -422,7 +422,7 @@ func (s *OpenAIGatewayService) buildOpenAIResponsesImageAPIBridgePlanRequest(
 	if n <= 0 {
 		return nil, fmt.Errorf("image count must be positive")
 	}
-	if err := validateOpenAIImagesModel(upstreamModel); err != nil {
+	if err := s.validateOpenAIImagesModel(ctx, upstreamModel); err != nil {
 		return nil, err
 	}
 	if err := s.PrepareOpenAIResponsesImagePlan(ctx, c, plan); err != nil {

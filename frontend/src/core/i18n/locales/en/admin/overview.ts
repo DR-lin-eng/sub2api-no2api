@@ -1010,6 +1010,24 @@ export default {
         finalPricePreview: 'Final per-second price preview',
         notConfigured: 'Not configured'
       },
+      mediaStudioRouting: {
+        action: 'Media Studio Groups',
+        title: 'Media Studio Group Routing',
+        description: 'Configure provider groups by model. Image, video, and audio availability comes from model capabilities.',
+        groupTitle: 'Available groups',
+        groupHint: 'Choose provider groups users can use, then select the models allowed in each group.',
+        modelsHint: 'Allowed models',
+        noGroups: 'No eligible groups found.',
+        selectedCount: '{count} groups selected',
+        loadingModels: 'Loading models…',
+        noModels: 'No configurable models found in this group.',
+        modelRequired: 'Each selected group must have at least one model selected.',
+        moveUp: 'Move up',
+        moveDown: 'Move down',
+        loadFailed: 'Failed to load media studio groups',
+        saveFailed: 'Failed to save media studio groups',
+        tag: 'Media Studio'
+      },
       modelPricing: {
         title: 'Per-model group pricing',
         description: 'Overrides channel and built-in prices for matching models. Long-context tiers come from official presets; token cards only set the base rate. Use per-request tiers for media and audio variants.',

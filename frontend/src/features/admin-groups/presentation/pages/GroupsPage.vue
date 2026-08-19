@@ -106,6 +106,14 @@
               <Icon name="plus" size="md" class="mr-2" />
               {{ t("admin.groups.createGroup") }}
             </button>
+            <button
+              @click="showMediaStudioRouting = true"
+              class="btn btn-secondary"
+              :title="t('admin.groups.mediaStudioRouting.action')"
+            >
+              <Icon name="grid" size="md" class="mr-2" />
+              <span class="hidden md:inline">{{ t('admin.groups.mediaStudioRouting.action') }}</span>
+            </button>
           </div>
         </div>
       </template>
@@ -120,10 +128,18 @@
           default-sort-order="asc"
           @sort="handleSort"
         >
-          <template #cell-name="{ value }">
-            <span class="font-medium text-gray-900 dark:text-white">{{
-              value
-            }}</span>
+          <template #cell-name="{ value, row }">
+            <div class="flex flex-wrap items-center gap-1.5">
+              <span class="font-medium text-gray-900 dark:text-white">{{
+                value
+              }}</span>
+              <span
+                v-if="isMediaStudioGroup(row.id)"
+                class="inline-flex items-center rounded-md bg-primary-100 px-1.5 py-0.5 text-[11px] font-medium text-primary-700 dark:bg-primary-500/15 dark:text-primary-300"
+              >
+                {{ t("admin.groups.mediaStudioRouting.tag") }}
+              </span>
+            </div>
           </template>
 
           <template #cell-id="{ value }">
@@ -480,11 +496,16 @@
       @close-rpm-overrides="showRPMOverridesModal = false"
       @reload="loadGroups"
     />
+    <MediaStudioGroupRoutingDialog
+      :visible="showMediaStudioRouting"
+      @close="showMediaStudioRouting = false"
+      @saved="handleMediaStudioRoutesSaved"
+    />
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from "vue";
+import { onMounted, onUnmounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import AppLayout from "@/common/widgets/layout/AppLayout.vue";
 import TablePageLayout from "@/common/widgets/layout/TablePageLayout.vue";
@@ -502,9 +523,15 @@ import { useGroupsListController } from "../composables/useGroupsListController"
 import CreateGroupDialog from "../widgets/CreateGroupDialog.vue";
 import EditGroupDialog from "../widgets/EditGroupDialog.vue";
 import GroupPageDialogs from "../widgets/GroupPageDialogs.vue";
+import MediaStudioGroupRoutingDialog from "../widgets/MediaStudioGroupRoutingDialog.vue";
+import {
+  getMediaStudioGroupRoutes,
+} from "../../data/datasources/mediaStudioGroupRouteDatasource";
 import { groupPlatformLabel, groupStatusLabel } from "../groupsLocale";
 
 const { t } = useI18n();
+const showMediaStudioRouting = ref(false);
+const mediaStudioGroupIds = ref<Set<number>>(new Set());
 const listController = useGroupsListController();
 const editorRuntime = useGroupEditorRuntime();
 const createController = useCreateGroupController({
@@ -591,8 +618,28 @@ const handleClickOutside = (event: MouseEvent) => {
   listController.handleDocumentClick(event);
 };
 
+async function loadMediaStudioGroupIds(): Promise<void> {
+  try {
+    const routes = await getMediaStudioGroupRoutes();
+    mediaStudioGroupIds.value = new Set(
+      routes.filter(route => route.enabled).map(route => route.group_id),
+    );
+  } catch {
+    mediaStudioGroupIds.value = new Set();
+  }
+}
+
+function isMediaStudioGroup(groupId: number): boolean {
+  return mediaStudioGroupIds.value.has(groupId);
+}
+
+function handleMediaStudioRoutesSaved(): void {
+  void loadMediaStudioGroupIds();
+}
+
 onMounted(() => {
   loadGroups();
+  void loadMediaStudioGroupIds();
   void editorRuntime.loadLiveCapability();
   void loadCreateModelsListCandidates();
   document.addEventListener("click", handleClickOutside);

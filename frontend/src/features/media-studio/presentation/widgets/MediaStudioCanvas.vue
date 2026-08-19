@@ -43,7 +43,8 @@
             <div class="mb-3 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
               <span class="meta-pill">{{ message.model || model }}</span>
               <template v-if="message.mode === 'image'">
-                <span class="meta-pill">{{ sizeLabel(message.size || size) }}</span>
+                <span class="meta-pill">{{ message.imageResolution || imageResolution }}</span>
+                <span class="meta-pill">{{ message.imageAspectRatio || imageAspectRatio }}</span>
                 <span class="meta-pill">{{ t('mediaStudio.composer.countValue', { count: message.count || 1 }) }}</span>
               </template>
               <template v-else>
@@ -67,16 +68,21 @@
             </div>
 
             <div v-else-if="message.status === 'completed' && message.mode === 'image' && message.images?.length" class="grid gap-3 sm:grid-cols-2">
-              <a
+              <button
                 v-for="image in message.images"
                 :key="image.id"
-                :href="image.url || image.src"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="group overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-800"
+                type="button"
+                class="group cursor-zoom-in overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 text-left dark:border-dark-700 dark:bg-dark-800"
+                :aria-label="t('mediaStudio.session.enlargeImage')"
+                @click="openImagePreview(image)"
               >
-                <img :src="image.src" :alt="image.revisedPrompt || message.prompt" referrerpolicy="no-referrer" class="aspect-square w-full object-cover transition duration-200 group-hover:scale-[1.02]" />
-              </a>
+                <img
+                  :src="image.src"
+                  :alt="image.revisedPrompt || message.prompt"
+                  referrerpolicy="no-referrer"
+                  class="aspect-square w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                />
+              </button>
             </div>
 
             <div v-else-if="message.status === 'completed' && message.mode === 'video' && message.video" class="overflow-hidden rounded-2xl border border-gray-200 bg-black dark:border-dark-700">
@@ -126,6 +132,7 @@
         <div class="relative mx-auto max-w-4xl">
           <div
             v-if="typeMenuOpen"
+            ref="typeMenuRef"
             class="absolute bottom-16 left-3 z-20 w-56 rounded-2xl border border-gray-200 bg-white p-1.5 shadow-xl shadow-gray-900/10 dark:border-dark-700 dark:bg-dark-900"
           >
             <button
@@ -146,16 +153,7 @@
           </div>
 
           <div class="rounded-[1.65rem] border border-gray-200 bg-white/92 p-3 shadow-[0_16px_48px_rgba(15,23,42,0.07)] backdrop-blur dark:border-dark-700 dark:bg-dark-900/90 dark:shadow-black/20">
-            <div v-if="selectedModeId === 'batch'" class="rounded-[1.1rem] bg-gray-50 px-4 py-5 dark:bg-dark-800/70">
-              <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('mediaStudio.batch.title') }}</h3>
-              <p class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-300">{{ t('mediaStudio.batch.description') }}</p>
-              <button type="button" class="btn btn-primary mt-4" @click="emit('openBatch')">
-                {{ t('mediaStudio.batch.open') }}
-              </button>
-            </div>
-
             <textarea
-              v-else
               :value="prompt"
               rows="3"
               class="min-h-24 w-full resize-none rounded-[1.1rem] border-0 bg-transparent px-2 py-2 text-base leading-7 text-gray-900 outline-none placeholder:text-gray-400 dark:text-white dark:placeholder:text-gray-500"
@@ -165,13 +163,20 @@
               @keydown.ctrl.enter.prevent="emit('submit')"
             />
 
-            <div v-if="apiKeyLoadError || modelLoadError || submitError" class="mb-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
-              {{ submitError || apiKeyLoadError || modelLoadError }}
+            <MediaStudioImageAttachments
+              v-if="selectedModeId === 'image'"
+              :attachments="imageAttachments"
+              @update="emit('update:imageAttachments', $event)"
+            />
+
+            <div v-if="groupLoadError || modelLoadError || submitError" class="mb-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+              {{ submitError || groupLoadError || modelLoadError }}
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
               <button
                 type="button"
+                ref="typeMenuTriggerRef"
                 class="composer-chip bg-gray-100 text-gray-900 dark:bg-dark-800 dark:text-white"
                 :aria-expanded="typeMenuOpen"
                 @click="typeMenuOpen = !typeMenuOpen"
@@ -181,46 +186,77 @@
                 <Icon :name="typeMenuOpen ? 'chevronUp' : 'chevronDown'" size="xs" class="text-gray-400" />
               </button>
 
-              <label v-if="selectedModeId !== 'batch'" class="composer-select">
-                <Icon name="key" size="sm" />
+              <label class="composer-select">
+                <Icon name="grid" size="sm" />
                 <select
-                  :value="selectedApiKeyId"
-                  class="select-inner min-w-[150px]"
-                  :disabled="loadingKeys"
-                  @change="emit('update:selectedApiKeyId', Number(($event.target as HTMLSelectElement).value))"
+                  :value="selectedGroupId"
+                  class="select-inner min-w-[170px]"
+                  :disabled="loadingGroups"
+                  @change="emit('update:selectedGroupId', Number(($event.target as HTMLSelectElement).value))"
                 >
-                  <option :value="0">{{ loadingKeys ? t('mediaStudio.composer.loadingKeys') : t('mediaStudio.composer.selectKey') }}</option>
-                  <option v-for="key in apiKeys" :key="key.id" :value="key.id">
-                    {{ key.name }}
+                  <option :value="0">{{ loadingGroups ? t('mediaStudio.composer.loadingGroups') : t('mediaStudio.composer.selectGroup') }}</option>
+                  <option v-for="group in groupOptions" :key="group.group_id" :value="group.group_id">
+                    {{ group.group_name }} · {{ group.platform }}
                   </option>
                 </select>
               </label>
 
-              <label v-if="selectedModeId !== 'batch'" class="composer-select">
+              <label class="composer-select">
                 <Icon name="cube" size="sm" />
-                <input
+                <select
+                  v-if="modelSelectionLocked"
                   :value="model"
-                  list="media-studio-models"
-                  class="select-inner w-36"
-                  :placeholder="loadingModels ? t('mediaStudio.composer.loadingModels') : t('mediaStudio.composer.model')"
-                  @input="emit('update:model', ($event.target as HTMLInputElement).value)"
-                />
-                <datalist id="media-studio-models">
-                  <option v-for="option in modelOptions" :key="option" :value="option" />
-                </datalist>
+                  class="select-inner w-44"
+                  :disabled="loadingModels || modelOptions.length === 0"
+                  @change="emit('update:model', ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="">{{ loadingModels ? t('mediaStudio.composer.loadingModels') : t('mediaStudio.composer.model') }}</option>
+                  <option v-for="option in modelOptions" :key="option" :value="option">{{ option }}</option>
+                </select>
+                <template v-else>
+                  <input
+                    :value="model"
+                    list="media-studio-models"
+                    class="select-inner w-36"
+                    :placeholder="loadingModels ? t('mediaStudio.composer.loadingModels') : t('mediaStudio.composer.model')"
+                    @input="emit('update:model', ($event.target as HTMLInputElement).value)"
+                  />
+                  <datalist id="media-studio-models">
+                    <option v-for="option in modelOptions" :key="option" :value="option" />
+                  </datalist>
+                </template>
               </label>
 
               <label v-if="selectedModeId === 'image'" class="composer-select">
                 <Icon name="grid" size="sm" />
-                <select :value="size" class="select-inner w-28" @change="emit('update:size', ($event.target as HTMLSelectElement).value)">
-                  <option v-for="option in sizeOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                <select
+                  :value="imageResolution"
+                  class="select-inner w-20"
+                  @change="handleImageResolutionSelect"
+                >
+                  <option v-for="option in imageResolutionOptions" :key="option" :value="option">{{ option }}</option>
                 </select>
               </label>
 
               <label v-if="selectedModeId === 'image'" class="composer-select">
+                <Icon name="arrowsUpDown" size="sm" />
+                <select
+                  :value="imageAspectRatio"
+                  class="select-inner w-20"
+                  @change="handleAspectRatioSelect"
+                >
+                  <option v-for="option in imageAspectRatioOptions" :key="option" :value="option">{{ option }}</option>
+                  <option v-for="option in customImageAspectRatios" :key="`custom:${option}`" :value="`custom:${option}`">
+                    {{ option }}
+                  </option>
+                  <option value="__custom__">{{ t('mediaStudio.composer.customAspectRatio.option') }}</option>
+                </select>
+              </label>
+
+              <label v-if="selectedModeId === 'image' && imageQualityOptions.length > 0" class="composer-select">
                 <Icon name="sparkles" size="sm" />
                 <select :value="quality" class="select-inner w-24" @change="emit('update:quality', ($event.target as HTMLSelectElement).value)">
-                  <option v-for="option in qualityOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                  <option v-for="option in imageQualityOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
                 </select>
               </label>
 
@@ -246,7 +282,6 @@
               </label>
 
               <button
-                v-if="selectedModeId !== 'batch'"
                 type="button"
                 class="ml-auto flex h-10 w-10 items-center justify-center rounded-full transition"
                 :class="canSubmit ? 'bg-gray-950 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-200' : 'bg-gray-200 text-gray-400 dark:bg-dark-700 dark:text-gray-500'"
@@ -258,12 +293,12 @@
               </button>
             </div>
 
-            <div v-if="selectedModeId !== 'batch' && !loadingKeys && apiKeys.length === 0" class="mt-2 flex items-center gap-2 px-1 text-xs text-gray-500 dark:text-gray-400">
+            <div v-if="!loadingGroups && groupOptions.length === 0" class="mt-2 flex items-center gap-2 px-1 text-xs text-gray-500 dark:text-gray-400">
               <Icon name="infoCircle" size="xs" />
-              <span>{{ t('mediaStudio.composer.noKeys') }}</span>
-              <button type="button" class="font-medium underline underline-offset-4" @click="emit('reloadKeys')">{{ t('mediaStudio.composer.reload') }}</button>
+              <span>{{ groupLoadError || t('mediaStudio.composer.noGroups') }}</span>
+              <button type="button" class="font-medium underline underline-offset-4" @click="emit('reloadGroups')">{{ t('mediaStudio.composer.reload') }}</button>
             </div>
-            <div v-else-if="selectedModeId !== 'batch' && modelOptions.length === 0 && !loadingModels" class="mt-2 flex items-center gap-2 px-1 text-xs text-gray-500 dark:text-gray-400">
+            <div v-else-if="modelOptions.length === 0 && !loadingModels" class="mt-2 flex items-center gap-2 px-1 text-xs text-gray-500 dark:text-gray-400">
               <Icon name="infoCircle" size="xs" />
               <span>{{ t('mediaStudio.composer.manualModelHint') }}</span>
               <button type="button" class="font-medium underline underline-offset-4" @click="emit('reloadModels')">{{ t('mediaStudio.composer.reload') }}</button>
@@ -271,38 +306,93 @@
           </div>
 
           <p v-if="!hasMessages" class="mx-auto mt-4 max-w-2xl text-center text-xs leading-5 text-gray-400 dark:text-gray-500">
-            {{ selectedModeId === 'batch' ? t('mediaStudio.composer.batchHint') : t('mediaStudio.composer.shortHint') }}
+            {{ t('mediaStudio.composer.shortHint') }}
           </p>
         </div>
       </div>
     </div>
+
+    <Teleport to="body">
+      <MediaStudioCustomResolutionDialog
+        :visible="customAspectRatioDialogOpen"
+        @close="customAspectRatioDialogOpen = false"
+        @save="handleCustomResolutionSave"
+      />
+
+      <div
+        v-if="selectedImage"
+        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm sm:p-8"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="t('mediaStudio.session.enlargeImage')"
+        @click.self="closeImagePreview"
+      >
+        <button
+          type="button"
+          class="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/70"
+          :aria-label="t('common.close')"
+          @click="closeImagePreview"
+        >
+          <Icon name="x" size="md" />
+        </button>
+        <figure class="flex max-h-full max-w-full flex-col items-center gap-3" @click.stop>
+          <img
+            :src="selectedImage.url || selectedImage.src"
+            :alt="selectedImage.revisedPrompt || t('mediaStudio.session.enlargeImage')"
+            referrerpolicy="no-referrer"
+            class="max-h-[calc(100vh-5rem)] max-w-[calc(100vw-2rem)] rounded-xl object-contain shadow-2xl sm:max-h-[calc(100vh-7rem)] sm:max-w-[calc(100vw-4rem)]"
+          />
+          <figcaption
+            v-if="selectedImage.revisedPrompt"
+            class="max-w-3xl text-center text-xs leading-5 text-white/80"
+          >
+            {{ selectedImage.revisedPrompt }}
+          </figcaption>
+        </figure>
+      </div>
+    </Teleport>
   </section>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/common/widgets/icons/Icon.vue'
-import type { ApiKey } from '@/types'
+import MediaStudioImageAttachments from '@/features/media-studio/presentation/widgets/MediaStudioImageAttachments.vue'
+import MediaStudioCustomResolutionDialog from '@/features/media-studio/presentation/widgets/MediaStudioCustomResolutionDialog.vue'
 import type { MediaStudioVideoResolution } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
+import type { MediaStudioGroupOption } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
+import type { MediaStudioParameterOption } from '@/features/media-studio/presentation/composables/useMediaStudioController'
+import type { MediaStudioImageAttachment } from '@/features/media-studio/presentation/composables/useMediaStudioAttachments'
 import type { MediaStudioMode, MediaStudioModeId } from '@/features/media-studio/presentation/composables/useMediaStudioPreview'
-import type { MediaStudioConversation, MediaStudioMessage } from '@/features/media-studio/presentation/composables/useMediaStudioController'
+import type {
+  MediaStudioConversation,
+  MediaStudioGeneratedImagePreview,
+  MediaStudioImageAspectRatio,
+  MediaStudioImageResolution,
+  MediaStudioMessage,
+} from '@/features/media-studio/presentation/composables/useMediaStudioController'
 
 const props = defineProps<{
   modes: MediaStudioMode[]
   selectedMode: MediaStudioMode
   selectedModeId: MediaStudioModeId
   prompt: string
-  selectedApiKeyId: number
+  selectedGroupId: number
   model: string
-  size: string
+  modelSelectionLocked: boolean
+  imageResolution: MediaStudioImageResolution
+  imageAspectRatio: MediaStudioImageAspectRatio
+  customImageAspectRatios: string[]
   quality: string
   count: number
   resolution: MediaStudioVideoResolution
   duration: number
-  apiKeys: ApiKey[]
-  loadingKeys: boolean
-  apiKeyLoadError: string
+  imageQualityOptions: MediaStudioParameterOption[]
+  groupOptions: MediaStudioGroupOption[]
+  loadingGroups: boolean
+  groupLoadError: string
+  imageAttachments: MediaStudioImageAttachment[]
   modelOptions: string[]
   loadingModels: boolean
   modelLoadError: string
@@ -315,40 +405,34 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:prompt': [value: string]
-  'update:selectedApiKeyId': [value: number]
+  'update:selectedGroupId': [value: number]
   'update:model': [value: string]
-  'update:size': [value: string]
+  'update:imageResolution': [value: MediaStudioImageResolution]
+  'update:imageAspectRatio': [value: MediaStudioImageAspectRatio]
+  addCustomImageAspectRatio: [value: string]
   'update:quality': [value: string]
   'update:count': [value: number]
   'update:resolution': [value: MediaStudioVideoResolution]
   'update:duration': [value: number]
   selectMode: [id: MediaStudioModeId]
-  reloadKeys: []
+  reloadGroups: []
+  'update:imageAttachments': [value: MediaStudioImageAttachment[]]
   reloadModels: []
   submit: []
   retry: [message: MediaStudioMessage]
   clear: []
-  openBatch: []
 }>()
 
 const { t, locale } = useI18n()
 const typeMenuOpen = ref(false)
-
-const sizeOptions = [
-  { value: '1024x1024', label: '1:1' },
-  { value: '1536x1024', label: '3:2' },
-  { value: '1024x1536', label: '2:3' },
-  { value: '2048x2048', label: '2K' },
-]
-
-const qualityOptions = [
-  { value: 'auto', label: 'Auto' },
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Med' },
-  { value: 'high', label: 'High' },
-]
+const typeMenuRef = ref<HTMLElement | null>(null)
+const typeMenuTriggerRef = ref<HTMLButtonElement | null>(null)
+const selectedImage = ref<MediaStudioGeneratedImagePreview | null>(null)
+const customAspectRatioDialogOpen = ref(false)
 
 const countOptions = [1, 2, 3, 4]
+const imageResolutionOptions: MediaStudioImageResolution[] = ['1K', '2K', '4K']
+const imageAspectRatioOptions: MediaStudioImageAspectRatio[] = ['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16']
 const resolutionOptions: MediaStudioVideoResolution[] = ['480p', '720p', '1080p']
 const durationOptions = Array.from({ length: 15 }, (_, index) => index + 1)
 
@@ -365,8 +449,35 @@ function modeButtonClass(mode: MediaStudioMode) {
   return 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-dark-800'
 }
 
-function sizeLabel(value: string): string {
-  return sizeOptions.find(option => option.value === value)?.label || value
+function openImagePreview(image: MediaStudioGeneratedImagePreview) {
+  selectedImage.value = image
+}
+
+function closeImagePreview() {
+  selectedImage.value = null
+}
+
+function handleImageResolutionSelect(event: Event) {
+  const value = (event.target as HTMLSelectElement).value
+  emit('update:imageResolution', value as MediaStudioImageResolution)
+}
+
+function handleAspectRatioSelect(event: Event) {
+  const value = (event.target as HTMLSelectElement).value
+  if (value === '__custom__') {
+    customAspectRatioDialogOpen.value = true
+    return
+  }
+  if (value.startsWith('custom:')) {
+    emit('update:imageAspectRatio', value as MediaStudioImageAspectRatio)
+    return
+  }
+  emit('update:imageAspectRatio', value as MediaStudioImageAspectRatio)
+}
+
+function handleCustomResolutionSave(value: string) {
+  emit('addCustomImageAspectRatio', value)
+  customAspectRatioDialogOpen.value = false
 }
 
 function formatTime(value: number): string {
@@ -379,6 +490,29 @@ function formatTime(value: number): string {
     return ''
   }
 }
+
+function closeTypeMenuOnOutsidePointer(event: PointerEvent) {
+  const target = event.target
+  if (!(target instanceof Node)) return
+  if (typeMenuRef.value?.contains(target) || typeMenuTriggerRef.value?.contains(target)) return
+  typeMenuOpen.value = false
+}
+
+function closeTypeMenuOnEscape(event: KeyboardEvent) {
+  if (event.key !== 'Escape') return
+  typeMenuOpen.value = false
+  closeImagePreview()
+}
+
+onMounted(() => {
+  document.addEventListener('pointerdown', closeTypeMenuOnOutsidePointer)
+  document.addEventListener('keydown', closeTypeMenuOnEscape)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('pointerdown', closeTypeMenuOnOutsidePointer)
+  document.removeEventListener('keydown', closeTypeMenuOnEscape)
+})
 </script>
 
 <style scoped>
@@ -392,6 +526,11 @@ function formatTime(value: number): string {
 
 .select-inner {
   @apply border-0 bg-transparent text-sm font-medium text-gray-700 outline-none placeholder:text-gray-400 dark:text-gray-200 dark:placeholder:text-gray-500;
+  color-scheme: light dark;
+}
+
+.select-inner option {
+  @apply bg-white text-gray-800 dark:bg-dark-900 dark:text-gray-100;
 }
 
 .meta-pill {

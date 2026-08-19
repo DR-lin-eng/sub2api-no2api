@@ -1007,6 +1007,24 @@ export default {
         finalPricePreview: '最终每秒价格预览',
         notConfigured: '未配置'
       },
+      mediaStudioRouting: {
+        action: '媒体工坊分组',
+        title: '媒体工坊分组配置',
+        description: '按模型配置媒体工坊可用的厂商分组，图片、视频和音频能力由模型能力决定。',
+        groupTitle: '可用分组',
+        groupHint: '选择用户可用的厂商分组，并在每个分组中勾选允许使用的模型。',
+        modelsHint: '允许的模型',
+        noGroups: '没有符合条件的分组。',
+        selectedCount: '已选 {count} 个分组',
+        loadingModels: '加载模型中…',
+        noModels: '该分组没有可配置模型。',
+        modelRequired: '已选分组必须至少勾选一个模型。',
+        moveUp: '上移',
+        moveDown: '下移',
+        loadFailed: '加载媒体工坊分组失败',
+        saveFailed: '保存媒体工坊分组失败',
+        tag: '媒体工坊'
+      },
       modelPricing: {
         title: '分组逐模型定价',
         description: '匹配模型后覆盖渠道和内置价格。长上下文阶梯沿用官方或渠道价卡，Token 价卡只设置基础档；媒体和音频变体可使用按次层级。',

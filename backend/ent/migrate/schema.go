@@ -1145,6 +1145,7 @@ var (
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "model_name", Type: field.TypeString, Size: 255},
+		{Name: "prefix_match", Type: field.TypeBool, Default: false},
 		{Name: "capabilities", Type: field.TypeJSON},
 	}
 	// CustomModelConfigsTable holds the schema information for the "custom_model_configs" table.

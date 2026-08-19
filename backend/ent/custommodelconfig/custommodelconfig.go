@@ -19,6 +19,8 @@ const (
 	FieldUpdatedAt = "updated_at"
 	// FieldModelName holds the string denoting the model_name field in the database.
 	FieldModelName = "model_name"
+	// FieldPrefixMatch holds the string denoting the prefix_match field in the database.
+	FieldPrefixMatch = "prefix_match"
 	// FieldCapabilities holds the string denoting the capabilities field in the database.
 	FieldCapabilities = "capabilities"
 	// Table holds the table name of the custommodelconfig in the database.
@@ -31,6 +33,7 @@ var Columns = []string{
 	FieldCreatedAt,
 	FieldUpdatedAt,
 	FieldModelName,
+	FieldPrefixMatch,
 	FieldCapabilities,
 }
 
@@ -53,6 +56,8 @@ var (
 	UpdateDefaultUpdatedAt func() time.Time
 	// ModelNameValidator is a validator for the "model_name" field. It is called by the builders before save.
 	ModelNameValidator func(string) error
+	// DefaultPrefixMatch holds the default value on creation for the "prefix_match" field.
+	DefaultPrefixMatch bool
 )
 
 // OrderOption defines the ordering options for the CustomModelConfig queries.
@@ -76,4 +81,9 @@ func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByModelName orders the results by the model_name field.
 func ByModelName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldModelName, opts...).ToFunc()
+}
+
+// ByPrefixMatch orders the results by the prefix_match field.
+func ByPrefixMatch(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPrefixMatch, opts...).ToFunc()
 }
