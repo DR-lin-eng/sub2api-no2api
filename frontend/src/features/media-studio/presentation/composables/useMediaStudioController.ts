@@ -23,6 +23,7 @@ import {
 } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
 import {
   clearMediaStudioImages,
+  deleteMediaStudioImages,
   loadMediaStudioImage,
   mediaStudioImageStorageKey,
   storeMediaStudioImage,
@@ -79,6 +80,14 @@ export interface MediaStudioGeneratedImagePreview {
   cacheKey?: string
 }
 
+export interface MediaStudioInputImagePreview {
+  id: string
+  src: string
+  name: string
+  mimeType: string
+  cacheKey?: string
+}
+
 export interface MediaStudioGeneratedVideoPreview {
   src: string
   mimeType: string
@@ -99,6 +108,7 @@ export interface MediaStudioMessage {
   count?: number
   resolution?: MediaStudioVideoResolution
   duration?: number
+  inputImages?: MediaStudioInputImagePreview[]
   images?: MediaStudioGeneratedImagePreview[]
   video?: MediaStudioGeneratedVideoPreview
   error?: string
@@ -250,6 +260,27 @@ function restorePersistedConversation(value: unknown): MediaStudioConversation |
         completedAt: typeof candidate.completedAt === 'number' ? candidate.completedAt : undefined,
       }
 
+      if (candidate.mode === 'image' && Array.isArray(candidate.inputImages)) {
+        restored.inputImages = candidate.inputImages
+          .slice(0, 9)
+          .flatMap((image) => {
+            if (!image || typeof image !== 'object') return []
+            const item = image as Partial<MediaStudioInputImagePreview>
+            const source = persistedImageSource(item.src)
+            const cacheKey = typeof item.cacheKey === 'string' && item.cacheKey.length <= 512
+              ? item.cacheKey
+              : ''
+            if (!source && !cacheKey) return []
+            return [{
+              id: typeof item.id === 'string' ? item.id : makeId('media_input_image'),
+              src: source,
+              name: typeof item.name === 'string' ? item.name : 'reference-image',
+              mimeType: typeof item.mimeType === 'string' ? item.mimeType : 'image/*',
+              cacheKey: cacheKey || undefined,
+            }]
+          })
+      }
+
       if (candidate.mode === 'image' && Array.isArray(candidate.images)) {
         restored.images = candidate.images
           .slice(0, 9)
@@ -360,6 +391,14 @@ function conversationForPersistence(value: MediaStudioConversation): MediaStudio
     ...normalized,
     messages: normalized.messages.map((message) => ({
       ...message,
+      inputImages: message.inputImages?.flatMap((image): MediaStudioInputImagePreview[] => {
+        const remoteURL = safeRemoteImageURL(image.src)
+        if (remoteURL) {
+          return [{ ...image, src: remoteURL }]
+        }
+        if (!image.cacheKey) return []
+        return [{ ...image, src: '' }]
+      }),
       images: message.images?.flatMap((image): MediaStudioGeneratedImagePreview[] => {
         const remoteURL = safeRemoteImageURL(image.url) || safeRemoteImageURL(image.src)
         if (remoteURL) {
@@ -395,6 +434,27 @@ async function cacheGeneratedImages(
     const stored = await storeMediaStudioImage(cacheKey, source)
     return stored ? { ...image, cacheKey } : image
   }))
+}
+
+function readImageFileAsDataURL(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '')
+    reader.onerror = () => resolve('')
+    reader.readAsDataURL(file)
+  })
+}
+
+async function imagePreviewToFile(image: MediaStudioGeneratedImagePreview): Promise<File> {
+  const source = safeRemoteImageURL(image.url) || persistedImageSource(image.src)
+  if (!source) throw new Error('image preview is unavailable')
+
+  const response = await fetch(source)
+  if (!response.ok) throw new Error(`failed to load image preview: ${response.status}`)
+  const blob = await response.blob()
+  const mimeType = blob.type.startsWith('image/') ? blob.type : 'image/png'
+  const extension = mimeType.split('/')[1] || 'png'
+  return new File([blob], `media-studio-edit.${extension}`, { type: mimeType })
 }
 
 function normalizeCount(value: number): number {
@@ -604,6 +664,22 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     imageAttachments.value = attachments
   }
 
+  async function editGeneratedImage(image: MediaStudioGeneratedImagePreview) {
+    if (selectedModeId.value !== 'image') selectMode('image')
+    submitError.value = ''
+    try {
+      const file = await imagePreviewToFile(image)
+      const previousCount = imageAttachments.value.length
+      const result = addMediaStudioImageAttachments(imageAttachments.value, [file])
+      updateImageAttachments(result.attachments)
+      if (result.attachments.length === previousCount) {
+        throw new Error('reference image could not be added')
+      }
+    } catch (error) {
+      submitError.value = mediaStudioErrorMessage(error, 'failed to prepare image edit')
+    }
+  }
+
   function addCustomImageAspectRatio(value: string) {
     const normalized = normalizeCustomImageAspectRatio(value)
     if (!normalized) return
@@ -641,9 +717,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   async function hydratePersistedImages() {
     let changed = false
     const messages = await Promise.all(conversation.value.messages.map(async (message) => {
-      if (!message.images?.length) return message
-
-      const images = (await Promise.all(message.images.map(async (image) => {
+      const images = (await Promise.all((message.images || []).map(async (image) => {
         if (image.cacheKey) {
           const source = await loadMediaStudioImage(image.cacheKey)
           if (!persistedImageSource(source)) {
@@ -664,9 +738,34 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
         return image
       }))).filter((image): image is MediaStudioGeneratedImagePreview => Boolean(image))
 
-      return images.length === message.images.length && images.every((image, index) => image === message.images?.[index])
+      const inputImages = (await Promise.all((message.inputImages || []).map(async (image) => {
+        if (image.cacheKey) {
+          const source = await loadMediaStudioImage(image.cacheKey)
+          if (!persistedImageSource(source)) {
+            changed = true
+            return null
+          }
+          if (source !== image.src) changed = true
+          return { ...image, src: source }
+        }
+
+        const source = persistedImageSource(image.src)
+        if (!source.startsWith('data:image/')) return image
+        const cacheKey = mediaStudioImageStorageKey(message.id, `input-${image.id}`)
+        if (await storeMediaStudioImage(cacheKey, source)) {
+          changed = true
+          return { ...image, cacheKey }
+        }
+        return image
+      }))).filter((image): image is MediaStudioInputImagePreview => Boolean(image))
+
+      const imagesChanged = images.length !== (message.images || []).length ||
+        images.some((image, index) => image !== message.images?.[index])
+      const inputImagesChanged = inputImages.length !== (message.inputImages || []).length ||
+        inputImages.some((image, index) => image !== message.inputImages?.[index])
+      return !imagesChanged && !inputImagesChanged
         ? message
-        : { ...message, images }
+        : { ...message, images, inputImages }
     }))
 
     if (!disposed && changed) {
@@ -767,6 +866,29 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     return true
   }
 
+  async function cacheInputImages(assistantMessageID: string, attachments: MediaStudioImageAttachment[]) {
+    const assistantIndex = conversation.value.messages.findIndex(message => message.id === assistantMessageID)
+    const userIndex = assistantIndex > 0 ? assistantIndex - 1 : -1
+    const userMessage = userIndex >= 0 ? conversation.value.messages[userIndex] : undefined
+    if (!userMessage || userMessage.role !== 'user' || !userMessage.inputImages?.length) return
+
+    const cached = await Promise.all(userMessage.inputImages.map(async (image) => {
+      const attachment = attachments.find(item => item.id === image.id)
+      if (!attachment) return image
+      const source = await readImageFileAsDataURL(attachment.file)
+      if (!source) return image
+      const cacheKey = mediaStudioImageStorageKey(userMessage.id, image.id)
+      return await storeMediaStudioImage(cacheKey, source) ? { ...image, cacheKey } : image
+    }))
+
+    if (disposed) return
+    const messages = [...conversation.value.messages]
+    const currentUser = messages[userIndex]
+    if (!currentUser || currentUser.id !== userMessage.id) return
+    messages[userIndex] = { ...currentUser, inputImages: cached }
+    conversation.value = { ...conversation.value, messages, updatedAt: now() }
+  }
+
   function setPolling(taskId: string, active: boolean) {
     if (active && !pollingTaskIds.value.includes(taskId)) pollingTaskIds.value = [...pollingTaskIds.value, taskId]
     if (!active) pollingTaskIds.value = pollingTaskIds.value.filter(id => id !== taskId)
@@ -831,8 +953,24 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     }
   }
 
-  function appendPromptMessages(text: string, mode: 'image' | 'video'): MediaStudioMessage {
-    const userMessage: MediaStudioMessage = { id: makeId('media_user'), role: 'user', mode, prompt: text, createdAt: now() }
+  function appendPromptMessages(
+    text: string,
+    mode: 'image' | 'video',
+    inputAttachments: MediaStudioImageAttachment[] = [],
+  ): MediaStudioMessage {
+    const userMessage: MediaStudioMessage = {
+      id: makeId('media_user'),
+      role: 'user',
+      mode,
+      prompt: text,
+      inputImages: inputAttachments.map(attachment => ({
+        id: attachment.id,
+        src: attachment.previewUrl,
+        name: attachment.name,
+        mimeType: attachment.mimeType,
+      })),
+      createdAt: now(),
+    }
     const assistantMessage: MediaStudioMessage = {
       id: makeId('media_assistant'),
       role: 'assistant',
@@ -863,10 +1001,11 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     submitError.value = ''
     if (!mediaStudioApiKey.value || !selectedGroup.value || !text || (mode !== 'image' && mode !== 'video')) return
 
-    const assistantMessage = appendPromptMessages(text, mode)
     const submittedAttachments = mode === 'image' ? [...imageAttachments.value] : []
+    const assistantMessage = appendPromptMessages(text, mode, submittedAttachments)
     if (submittedAttachments.length > 0) {
       imageInputFiles.set(assistantMessage.id, submittedAttachments.map(attachment => attachment.file))
+      void cacheInputImages(assistantMessage.id, submittedAttachments)
     }
     prompt.value = ''
     imageAttachments.value = []
@@ -896,7 +1035,6 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
             : data.submitImage(mediaStudioApiKey.value, requestPayload, makeId('media_idem'))
         )
 
-        revokeMediaStudioImageAttachments(submittedAttachments)
         patchAssistantMessage(assistantMessage.id, {
           status: 'processing',
           images: [],
@@ -994,12 +1132,46 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     videoObjectURLs.clear()
   }
 
+  function revokeInputImageURLs(messages: MediaStudioMessage[]) {
+    for (const message of messages) {
+      for (const image of message.inputImages || []) {
+        if (image.src.startsWith('blob:')) URL.revokeObjectURL(image.src)
+      }
+    }
+  }
+
   function clearConversation() {
     revokeAllVideoURLs()
+    revokeInputImageURLs(conversation.value.messages)
     imageInputFiles.clear()
     void clearMediaStudioImages()
     conversation.value = { id: makeId('media_conversation'), messages: [], updatedAt: now() }
     persist()
+  }
+
+  async function deleteMessages(messageIDs: string[]) {
+    const ids = new Set(messageIDs.filter(Boolean))
+    if (ids.size === 0) return
+
+    const imageKeys: string[] = []
+    for (const message of conversation.value.messages) {
+      if (!ids.has(message.id)) continue
+      if (message.video?.src && videoObjectURLs.has(message.video.src)) {
+        URL.revokeObjectURL(message.video.src)
+        videoObjectURLs.delete(message.video.src)
+      }
+      imageKeys.push(...(message.images || []).flatMap(image => image.cacheKey ? [image.cacheKey] : []))
+      imageKeys.push(...(message.inputImages || []).flatMap(image => image.cacheKey ? [image.cacheKey] : []))
+      revokeInputImageURLs([message])
+      imageInputFiles.delete(message.id)
+    }
+
+    conversation.value = {
+      ...conversation.value,
+      messages: conversation.value.messages.filter(message => !ids.has(message.id)),
+      updatedAt: now(),
+    }
+    await deleteMediaStudioImages(imageKeys)
   }
 
   watch(selectedGroupId, () => {
@@ -1012,6 +1184,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     onBeforeUnmount(() => {
       disposed = true
       revokeAllVideoURLs()
+      revokeInputImageURLs(conversation.value.messages)
     })
   }
 
@@ -1054,7 +1227,9 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     selectMode,
     submitPrompt,
     retryMessage,
+    editGeneratedImage,
     clearConversation,
+    deleteMessages,
   }
 }
 

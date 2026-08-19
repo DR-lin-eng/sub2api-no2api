@@ -43,17 +43,26 @@ export default {
       send: 'Start generation',
       imageEdit: {
         attachHint: 'Drop or paste reference images, up to 9',
+        attachCount: '{count}/{limit} images attached',
         remove: 'Remove image'
       }
     },
     session: {
       localHint: 'Session and image results are saved in this browser',
       clear: 'Clear',
+      select: 'Select',
+      selectAll: 'Select all',
+      deselectAll: 'Deselect all',
+      deleteSelected: 'Delete selected',
+      cancelSelect: 'Cancel selection',
+      selectMessage: 'Select message',
+      selectedCount: '{count} selected',
       you: 'You',
       studio: 'Media Studio',
       failed: 'Generation failed',
       retry: 'Retry',
       enlargeImage: 'Enlarge image',
+      editImage: 'Edit this image',
       noImageResult: 'Task completed, but no preview image was returned.',
       noVideoResult: 'Task completed, but no preview video was returned.'
     },

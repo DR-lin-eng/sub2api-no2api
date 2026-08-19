@@ -35,8 +35,10 @@
         @add-custom-image-aspect-ratio="addCustomImageAspectRatio"
         @reload-models="loadModels"
         @submit="submitPrompt"
-        @retry="retryMessage"
-        @clear="clearConversation"
+         @retry="retryMessage"
+         @clear="clearConversation"
+         @delete="deleteMessages"
+         @edit-image="editGeneratedImage"
       />
     </div>
   </AppLayout>
@@ -84,6 +86,8 @@ const {
   submitPrompt,
   retryMessage,
   clearConversation,
+  deleteMessages,
+  editGeneratedImage,
 } = useMediaStudioController()
 
 onMounted(() => {
