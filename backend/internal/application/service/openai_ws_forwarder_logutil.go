@@ -65,16 +65,33 @@ func resolveOpenAIWSSessionHeaders(c *gin.Context, promptCacheKey string) openAI
 		ConversationSource: "none",
 	}
 	if c != nil && c.Request != nil {
-		if sessionID := strings.TrimSpace(c.Request.Header.Get("session_id")); sessionID != "" {
+		if sessionID := strings.TrimSpace(c.Request.Header.Get("session-id")); sessionID != "" {
+			resolution.SessionID = sessionID
+			resolution.SessionSource = "header_session_id"
+		} else if sessionID := strings.TrimSpace(c.Request.Header.Get("session_id")); sessionID != "" {
 			resolution.SessionID = sessionID
 			resolution.SessionSource = "header_session_id"
 		}
-		if conversationID := strings.TrimSpace(c.Request.Header.Get("conversation_id")); conversationID != "" {
+		if threadID := strings.TrimSpace(c.Request.Header.Get("thread-id")); threadID != "" {
+			resolution.ConversationID = threadID
+			resolution.ConversationSource = "header_thread_id"
+			if resolution.SessionID == "" {
+				resolution.SessionID = threadID
+				resolution.SessionSource = "header_thread_id"
+			}
+		} else if conversationID := strings.TrimSpace(c.Request.Header.Get("conversation_id")); conversationID != "" {
 			resolution.ConversationID = conversationID
 			resolution.ConversationSource = "header_conversation_id"
 			if resolution.SessionID == "" {
 				resolution.SessionID = conversationID
 				resolution.SessionSource = "header_conversation_id"
+			}
+		} else if requestID := strings.TrimSpace(c.Request.Header.Get("x-client-request-id")); requestID != "" {
+			resolution.ConversationID = requestID
+			resolution.ConversationSource = "header_client_request_id"
+			if resolution.SessionID == "" {
+				resolution.SessionID = requestID
+				resolution.SessionSource = "header_client_request_id"
 			}
 		}
 	}
@@ -206,6 +223,9 @@ func parseOpenAIWSErrorEventFields(message []byte) (code string, errType string,
 		return "", "", ""
 	}
 	values := gjson.GetManyBytes(message, "error.code", "error.type", "error.message")
+	if strings.TrimSpace(values[0].String()) == "" && strings.TrimSpace(values[1].String()) == "" && strings.TrimSpace(values[2].String()) == "" {
+		values = gjson.GetManyBytes(message, "response.error.code", "response.error.type", "response.error.message")
+	}
 	return strings.TrimSpace(values[0].String()), strings.TrimSpace(values[1].String()), strings.TrimSpace(values[2].String())
 }
 

@@ -128,6 +128,8 @@ func TestRunUpstreamToClient_ErrorAndDropPaths(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			0,
+			nil,
 			nil,
 			nil,
 			drop,
@@ -160,6 +162,8 @@ func TestRunUpstreamToClient_ErrorAndDropPaths(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			nil,
+			0,
 			nil,
 			nil,
 			nil,
@@ -197,6 +201,8 @@ func TestRunUpstreamToClient_ErrorAndDropPaths(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			0,
+			nil,
 			nil,
 			nil,
 			drop,
@@ -211,6 +217,56 @@ func TestRunUpstreamToClient_ErrorAndDropPaths(t *testing.T) {
 		require.True(t, sig.graceful)
 		require.Equal(t, int64(1), dropped.Load())
 	})
+}
+
+func TestRunUpstreamToClientBuffersPreambleBeforeRejectedError(t *testing.T) {
+	upstream := newPassthroughTestFrameConn([]passthroughTestFrame{
+		{msgType: coderws.MessageText, payload: []byte(`{"type":"response.created","response":{"id":"resp-buffered"}}`)},
+		{msgType: coderws.MessageText, payload: []byte(`{"type":"error","error":{"code":"server_is_overloaded"}}`)},
+	}, true)
+	writes := make([][]byte, 0, 2)
+	rejected := errors.New("overload failover")
+	exitCh := make(chan relayExitSignal, 1)
+	drop := &atomic.Bool{}
+
+	runUpstreamToClient(
+		context.Background(),
+		upstream,
+		func(_ coderws.MessageType, payload []byte) error {
+			writes = append(writes, append([]byte(nil), payload...))
+			return nil
+		},
+		time.Now(),
+		time.Now,
+		&relayState{},
+		nil,
+		nil,
+		func(_ coderws.MessageType, payload []byte, _ bool) error {
+			if strings.TrimSpace(gjson.GetBytes(payload, "type").String()) == "error" {
+				return rejected
+			}
+			return nil
+		},
+		func(_ coderws.MessageType, payload []byte) bool {
+			return strings.TrimSpace(gjson.GetBytes(payload, "type").String()) == "response.created"
+		},
+		1024,
+		nil,
+		nil,
+		nil,
+		drop,
+		nil,
+		nil,
+		func() {},
+		nil,
+		exitCh,
+	)
+
+	sig := <-exitCh
+	require.Equal(t, "upstream_message", sig.stage)
+	require.ErrorIs(t, sig.err, rejected)
+	require.False(t, sig.wroteDownstream)
+	require.Empty(t, writes, "buffered response.created must not leak before overload failover")
 }
 
 func TestRunIdleWatchdog_NoTimeoutWhenDisabled(t *testing.T) {

@@ -15,6 +15,27 @@
 `session_id == thread_id == prompt_cache_key`、`x-client-request-id == thread_id`。下游提供的 Codex
 保留身份头先被删除，再从同一 attempt plan 重建。
 
+## 默认 OAuth 出站身份
+
+即使 full simulation 关闭，普通 Codex OAuth 请求也不能直接复用下游会话标识。HTTP 与 WebSocket
+从 `session-id` / `session_id`、`thread-id`、`client_metadata` 和 `prompt_cache_key` 中选择稳定信号，
+再按 API Key 与所选上游账号命名空间派生 `session-id`、`thread-id`，并固定
+`x-client-request-id == thread-id`。普通 HTTP body 可安全重建时，`client_metadata` 的 session/thread
+投影同步改写；账号指纹计划仍是最终覆盖者。旧的 `session_id` / `conversation_id` 只作为网关内部
+兼容投影保留，不得把下游原值直接带到另一个上游账号。
+
+出站身份策略开启时，命中已知容量降载桶的 `codex-tui` 会在最终身份解析边界改写为
+`codex_cli_rs`；版本、OS、架构和终端指纹保留，User-Agent 首段与 `originator` 始终配对。
+将 `gateway.disable_codex_identity_enforcement` 设为 `true` 后，该归一化也随之关闭，保留完整回滚语义。
+
+上游 WebSocket 可能以 `type:error` 或 `response.failed` 返回 `server_is_overloaded`、`slow_down`
+或仅包含过载消息。网关只在首个语义输出前把它转换为携带原始事件体和握手响应头的 503
+`UpstreamFailoverError`；语义输出已经提交后绝不重放。OAuth ingress 和 passthrough 对
+`response.created` / `response.in_progress` 使用有界前导缓存，避免非语义元数据过早破坏换号安全性。
+WS 握手返回 401/403 且尚未产生语义输出时，会先静默切换到 HTTP Responses/HTTP bridge；
+拨号器的 `expected handshake response ... 401` 只进入运维日志。只有 HTTP 也失败时才进入正常账号
+failover，service 层不会先写 JSON，因此不会再和外层 `response.failed` 终止事件拼接。
+
 ## 网关必须存在的差异
 
 官方客户端在一个本地 installation 内直接拥有会话；Sub2API 则让多个下游调用方共享上游账号池。

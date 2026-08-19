@@ -174,14 +174,16 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				hooks,
 				wsDecision,
 			)
-			if !isOpenAIWSUpgradeRequiredDialError(passthroughErr) {
+			fallbackReason, canFallback := classifyOpenAIWSDialHTTPFallback(passthroughErr)
+			if !canFallback {
 				return passthroughErr
 			}
-			s.markOpenAIWSFallbackCooling(account.ID, "upgrade_required")
+			s.markOpenAIWSFallbackCooling(account.ID, fallbackReason)
 			c.Set("openai_ws_force_http_bridge_fallback", true)
 			logOpenAIWSModeInfo(
-				"ingress_ws_fallback_http_bridge account_id=%d mode=passthrough reason=upgrade_required",
+				"ingress_ws_fallback_http_bridge account_id=%d mode=passthrough reason=%s",
 				account.ID,
+				normalizeOpenAIWSLogValue(fallbackReason),
 			)
 			return s.ProxyResponsesWebSocketFromClient(ctx, c, clientConn, account, token, firstClientMessage, hooks)
 		case OpenAIWSIngressModeHTTPBridge:
@@ -789,6 +791,8 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	if s.CodexSimulationRequestEnabled(c) {
 		wsHeaders.Del(CodexProjectIDHeader)
 	}
+	stageCodexOutboundSessionBody(c, firstPayload.payloadRaw)
+	applyCodexOutboundSessionHeaders(c, account, firstPayload.payloadRaw, firstPayload.promptCacheKey, wsHeaders, fingerprintIDs)
 	applyCodexFingerprintWSHeaders(wsHeaders, fingerprintIDs)
 	baseAcquireReq := openAIWSAcquireRequest{
 		Account: account,
@@ -1001,6 +1005,12 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		rateLimitsPreambleOpen := bufferRateLimitsPreamble
 		rateLimitsPreamble := make([][]byte, 0, 2)
 		rateLimitsPreambleBytes := 0
+		// Codex OAuth ingress must keep non-semantic response.created/in_progress
+		// frames private until the attempt is known to be replay-safe. API-key
+		// ingress retains its historical immediate-delivery timing.
+		bufferSemanticPreamble := account.IsOpenAIOAuth()
+		semanticPreamble := make([][]byte, 0, 4)
+		semanticPreambleBytes := 0
 		writeDownstreamMessage := func(message []byte) error {
 			if clientDisconnected {
 				return nil
@@ -1067,6 +1077,45 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			rateLimitsPreamble = rateLimitsPreamble[:0]
 			rateLimitsPreambleBytes = 0
 		}
+		flushSemanticPreamble := func(reason string) error {
+			if len(semanticPreamble) == 0 {
+				return nil
+			}
+			for _, buffered := range semanticPreamble {
+				if err := writeDownstreamMessage(buffered); err != nil {
+					return err
+				}
+			}
+			if debugEnabled {
+				logOpenAIWSModeDebug(
+					"ingress_ws_semantic_preamble_flush account_id=%d turn=%d conn_id=%s reason=%s frames=%d bytes=%d",
+					account.ID,
+					turn,
+					truncateOpenAIWSLogValue(lease.ConnID(), openAIWSIDValueMaxLen),
+					truncateOpenAIWSLogValue(reason, openAIWSLogValueMaxLen),
+					len(semanticPreamble),
+					semanticPreambleBytes,
+				)
+			}
+			semanticPreamble = semanticPreamble[:0]
+			semanticPreambleBytes = 0
+			return nil
+		}
+		discardSemanticPreamble := func(reason string) {
+			if debugEnabled && len(semanticPreamble) > 0 {
+				logOpenAIWSModeDebug(
+					"ingress_ws_semantic_preamble_discard account_id=%d turn=%d conn_id=%s reason=%s frames=%d bytes=%d",
+					account.ID,
+					turn,
+					truncateOpenAIWSLogValue(lease.ConnID(), openAIWSIDValueMaxLen),
+					truncateOpenAIWSLogValue(reason, openAIWSLogValueMaxLen),
+					len(semanticPreamble),
+					semanticPreambleBytes,
+				)
+			}
+			semanticPreamble = semanticPreamble[:0]
+			semanticPreambleBytes = 0
+		}
 		mappedModel := ""
 		var mappedModelBytes []byte
 		if originalModel != "" {
@@ -1124,6 +1173,23 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 					)
 				}
 				continue
+			}
+			isTerminalEvent := isOpenAIWSTerminalEvent(eventType)
+			if bufferSemanticPreamble && !wroteDownstream && eventType != "error" && !isTerminalEvent &&
+				!openAIStreamDataStartsClientOutput(string(upstreamMessage), eventType) {
+				if semanticPreambleBytes+len(upstreamMessage) <= openAIStreamPreOutputBufferLimit {
+					buffered := append([]byte(nil), upstreamMessage...)
+					if needModelReplace && len(mappedModelBytes) > 0 && openAIWSEventMayContainModel(eventType) && bytes.Contains(buffered, mappedModelBytes) {
+						buffered = replaceOpenAIWSMessageModel(buffered, mappedModel, originalModel)
+					}
+					semanticPreamble = append(semanticPreamble, buffered)
+					semanticPreambleBytes += len(buffered)
+					replayCollector.AddEvent(eventType, buffered)
+					continue
+				}
+				if err := flushSemanticPreamble("buffer_limit"); err != nil {
+					return nil, err
+				}
 			}
 			if eventType == "error" {
 				canonicalModel := canonicalOpenAIAccountSchedulingModel(account, originalModel)
@@ -1191,6 +1257,14 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 						false,
 					)
 				}
+				if !wroteDownstream && (isOpenAIWSOverloadError(errCodeRaw, errTypeRaw, errMsgRaw) || isOpenAIWSOverloadPayload(upstreamMessage)) {
+					discardRateLimitsPreamble("503_overload_error")
+					discardSemanticPreamble("503_overload_error")
+					lease.MarkBroken()
+					return nil, newOpenAIWSOverloadFailoverError(
+						lease.HandshakeHeaders(), upstreamMessage, errMsgRaw,
+					)
+				}
 				if !wroteDownstream && isOpenAIWSRateLimitError(errCodeRaw, errTypeRaw, errMsgRaw) {
 					discardRateLimitsPreamble("429_error")
 					lease.MarkBroken()
@@ -1201,6 +1275,18 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 					}
 				}
 			}
+			if eventType == "response.failed" && !wroteDownstream && isOpenAIWSOverloadPayload(upstreamMessage) {
+				canonicalModel := canonicalOpenAIAccountSchedulingModel(account, originalModel)
+				s.handleOpenAIWSTerminalTransientFailure(ctx, account, canonicalModel, lease.HandshakeHeaders(), upstreamMessage)
+				discardRateLimitsPreamble("503_overload_response_failed")
+				discardSemanticPreamble("503_overload_response_failed")
+				lease.MarkBroken()
+				return nil, newOpenAIWSOverloadFailoverError(
+					lease.HandshakeHeaders(), upstreamMessage,
+					strings.TrimSpace(gjson.GetBytes(upstreamMessage, "response.error.message").String()),
+				)
+			}
+
 			if eventType == "response.failed" && account.BypassesLocalOpenAI429SchedulingBlocks() &&
 				!wroteDownstream && openAIWSPayloadStatusCode(upstreamMessage) == http.StatusTooManyRequests {
 				canonicalModel := canonicalOpenAIAccountSchedulingModel(account, originalModel)
@@ -1216,13 +1302,15 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			if err := flushRateLimitsPreamble(eventType); err != nil {
 				return nil, err
 			}
+			if err := flushSemanticPreamble(eventType); err != nil {
+				return nil, err
+			}
 			rateLimitsPreambleOpen = false
 			isTokenEvent := isOpenAIWSTokenEvent(eventType)
 			isTTFTEvent := isOpenAIWSTTFTEvent(eventType, visibleOutputTTFT)
 			if isTokenEvent {
 				tokenEventCount++
 			}
-			isTerminalEvent := isOpenAIWSTerminalEvent(eventType)
 			if isTerminalEvent {
 				terminalEventCount++
 			}
@@ -1682,13 +1770,15 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		if sessionLease == nil {
 			acquiredLease, acquireErr := acquireTurnLease(turn, preferredConnID, forcePreferredConn)
 			if acquireErr != nil {
-				if turn == 1 && !codexContinuationRecoveryForbidden(c) && isOpenAIWSUpgradeRequiredDialError(acquireErr) {
-					s.markOpenAIWSFallbackCooling(account.ID, "upgrade_required")
+				fallbackReason, canFallback := classifyOpenAIWSDialHTTPFallback(acquireErr)
+				if turn == 1 && !codexContinuationRecoveryForbidden(c) && canFallback {
+					s.markOpenAIWSFallbackCooling(account.ID, fallbackReason)
 					c.Set("openai_ws_force_http_bridge_fallback", true)
 					logOpenAIWSModeInfo(
-						"ingress_ws_fallback_http_bridge account_id=%d mode=%s reason=upgrade_required",
+						"ingress_ws_fallback_http_bridge account_id=%d mode=%s reason=%s",
 						account.ID,
 						normalizeOpenAIWSLogValue(ingressMode),
+						normalizeOpenAIWSLogValue(fallbackReason),
 					)
 					return s.ProxyResponsesWebSocketFromClient(
 						ctx,
@@ -1970,6 +2060,8 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				if s.CodexSimulationRequestEnabled(c) {
 					updatedHeaders.Del(CodexProjectIDHeader)
 				}
+				stageCodexOutboundSessionBody(c, nextPayload.payloadRaw)
+				applyCodexOutboundSessionHeaders(c, account, nextPayload.payloadRaw, nextPayload.promptCacheKey, updatedHeaders, nextPayload.fingerprintIDs)
 				applyCodexFullSimulationWSHeaders(updatedHeaders, nextPayload.fingerprintIDs)
 				baseAcquireReq.Headers = updatedHeaders
 			}

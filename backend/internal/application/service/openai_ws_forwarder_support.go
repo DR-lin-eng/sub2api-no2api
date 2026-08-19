@@ -25,6 +25,14 @@ func (s *OpenAIGatewayService) shouldPerformOpenAIWSGeneratePrewarm(account *Acc
 
 const codexPrewarmContinuationReasoningHeader = "X-CPA-Reasoning"
 
+type openAIWSPrewarmFirstOutputGuard struct {
+	c               *gin.Context
+	startedAt       time.Time
+	timeout         time.Duration
+	originalModel   string
+	reasoningEffort string
+}
+
 func applyCodexPrewarmContinuationReasoningOverride(c *gin.Context, account *Account, reqBody map[string]any) (bool, error) {
 	if c == nil || account == nil || !account.IsCodexPrewarmContinuationEnabled() ||
 		!strings.EqualFold(strings.TrimSpace(c.GetHeader(codexPrewarmContinuationReasoningHeader)), "none") {
@@ -62,6 +70,7 @@ func (s *OpenAIGatewayService) performOpenAIWSGeneratePrewarm(
 	account *Account,
 	stateStore OpenAIWSStateStore,
 	groupID int64,
+	firstOutputGuard *openAIWSPrewarmFirstOutputGuard,
 ) error {
 	if s == nil {
 		return nil
@@ -139,7 +148,34 @@ func (s *OpenAIGatewayService) performOpenAIWSGeneratePrewarm(
 	prewarmEventCount := 0
 	prewarmTerminalCount := 0
 	for {
-		message, readErr := lease.ReadMessageWithContextTimeout(ctx, s.openAIWSReadTimeout())
+		readCtx := ctx
+		var cancelRead context.CancelFunc
+		var firstOutputDeadline time.Time
+		if firstOutputGuard != nil && firstOutputGuard.timeout > 0 {
+			firstOutputDeadline = firstOutputGuard.startedAt.Add(firstOutputGuard.timeout)
+			remaining := time.Until(firstOutputDeadline)
+			if remaining <= 0 {
+				lease.MarkBroken()
+				return s.newOpenAIFirstOutputTimeoutError(
+					ctx, firstOutputGuard.c, account, firstOutputGuard.startedAt,
+					firstOutputGuard.originalModel, firstOutputGuard.reasoningEffort,
+					firstOutputGuard.timeout, "websocket_prewarm", lease.HandshakeHeaders(),
+				)
+			}
+			readCtx, cancelRead = context.WithTimeout(ctx, remaining)
+		}
+		message, readErr := lease.ReadMessageWithContextTimeout(readCtx, s.openAIWSReadTimeout())
+		if cancelRead != nil {
+			cancelRead()
+		}
+		if readErr != nil && !firstOutputDeadline.IsZero() && ctx.Err() == nil && !time.Now().Before(firstOutputDeadline) {
+			lease.MarkBroken()
+			return s.newOpenAIFirstOutputTimeoutError(
+				ctx, firstOutputGuard.c, account, firstOutputGuard.startedAt,
+				firstOutputGuard.originalModel, firstOutputGuard.reasoningEffort,
+				firstOutputGuard.timeout, "websocket_prewarm", lease.HandshakeHeaders(),
+			)
+		}
 		if readErr != nil {
 			lease.MarkBroken()
 			closeStatus, closeReason := summarizeOpenAIWSReadCloseError(readErr)
@@ -794,6 +830,81 @@ func isOpenAIWSRateLimitError(codeRaw, errTypeRaw, msgRaw string) bool {
 	return false
 }
 
+// isOpenAIWSOverloadError is deliberately narrower than the generic 5xx
+// classifier.  Codex emits this condition as either a typed error event or a
+// response.failed envelope, and some compatible upstreams omit the error code
+// while retaining the canonical message.  Only this explicit capacity signal
+// is safe to replay before semantic output.
+func isOpenAIWSOverloadError(codeRaw, errTypeRaw, msgRaw string) bool {
+	code := strings.ToLower(strings.TrimSpace(codeRaw))
+	errType := strings.ToLower(strings.TrimSpace(errTypeRaw))
+	msg := strings.ToLower(strings.TrimSpace(msgRaw))
+	switch code {
+	case "server_is_overloaded", "slow_down":
+		return true
+	}
+	if isOpenAICapacityShedMessage(msg) {
+		return true
+	}
+	if strings.Contains(errType, "service_unavailable") ||
+		strings.Contains(errType, "overload") ||
+		strings.Contains(errType, "slow_down") {
+		return true
+	}
+	return false
+}
+
+// isOpenAIWSOverloadPayload handles both WS event shapes.  A 503-only
+// response.failed envelope is included because a few upstream gateways omit
+// the semantic code and message entirely.
+func isOpenAIWSOverloadPayload(payload []byte) bool {
+	if len(payload) == 0 {
+		return false
+	}
+	if isOpenAIUpstreamCapacityShedEvent(payload) {
+		return true
+	}
+	if openAIWSPayloadStatusCode(payload) == http.StatusServiceUnavailable {
+		return true
+	}
+	code := strings.TrimSpace(gjson.GetBytes(payload, "error.code").String())
+	if code == "" {
+		code = strings.TrimSpace(gjson.GetBytes(payload, "response.error.code").String())
+	}
+	errType := strings.TrimSpace(gjson.GetBytes(payload, "error.type").String())
+	if errType == "" {
+		errType = strings.TrimSpace(gjson.GetBytes(payload, "response.error.type").String())
+	}
+	msg := strings.TrimSpace(gjson.GetBytes(payload, "error.message").String())
+	if msg == "" {
+		msg = strings.TrimSpace(gjson.GetBytes(payload, "response.error.message").String())
+	}
+	return isOpenAIWSOverloadError(code, errType, msg)
+}
+
+// newOpenAIWSOverloadFailoverError keeps the original event body and
+// handshake headers.  The HTTP handler can therefore run its normal bounded
+// account loop and, when exhausted, return the upstream's useful diagnostics
+// instead of a synthetic generic 502.
+func newOpenAIWSOverloadFailoverError(headers http.Header, payload []byte, message string) *UpstreamFailoverError {
+	status := openAIWSPayloadStatusCode(payload)
+	if status < http.StatusInternalServerError || status > 599 {
+		status = http.StatusServiceUnavailable
+	}
+	err := newOpenAIUpstreamFailoverError(
+		status,
+		headers,
+		append([]byte(nil), payload...),
+		message,
+		false,
+	)
+	// A status-only envelope is still request-scoped capacity shedding even
+	// though the generic constructor cannot identify it from the body alone.
+	err.Scope = GatewayFailureScopeRequest
+	err.RetryableOnSameAccount = true
+	return err
+}
+
 func isOpenAIWSRateLimitsPreamble(eventType string) bool {
 	eventType = strings.ToLower(strings.TrimSpace(eventType))
 	return eventType == "rate_limits" ||
@@ -828,6 +939,9 @@ func classifyOpenAIWSErrorEventFromRaw(codeRaw, errTypeRaw, msgRaw string) (stri
 		return "invalid_encrypted_content", true
 	case "previous_response_not_found":
 		return "previous_response_not_found", true
+	}
+	if isOpenAIWSOverloadError(codeRaw, errTypeRaw, msgRaw) {
+		return "upstream_overloaded", true
 	}
 	if isOpenAIWSRateLimitError(codeRaw, errTypeRaw, msgRaw) {
 		return "upstream_rate_limited", false
@@ -882,6 +996,8 @@ func openAIWSErrorHTTPStatusFromRaw(codeRaw, errTypeRaw string) int {
 	case strings.Contains(errType, "permission"),
 		strings.Contains(code, "forbidden"):
 		return http.StatusForbidden
+	case isOpenAIWSOverloadError(codeRaw, errTypeRaw, ""):
+		return http.StatusServiceUnavailable
 	case isOpenAIWSRateLimitError(codeRaw, errTypeRaw, ""):
 		return http.StatusTooManyRequests
 	default:
@@ -892,6 +1008,9 @@ func openAIWSErrorHTTPStatusFromRaw(codeRaw, errTypeRaw string) int {
 func openAIWSErrorHTTPStatus(message []byte) int {
 	if len(message) == 0 {
 		return http.StatusBadGateway
+	}
+	if isOpenAIWSOverloadPayload(message) {
+		return http.StatusServiceUnavailable
 	}
 	codeRaw, errTypeRaw, _ := parseOpenAIWSErrorEventFields(message)
 	return openAIWSErrorHTTPStatusFromRaw(codeRaw, errTypeRaw)

@@ -630,7 +630,14 @@ func (h *OpenAIGatewayHandler) errorResponse(c *gin.Context, status int, errType
 
 // openAICompactKeepaliveInterval 复用流式 keepalive 配置作为 compact 下游
 // 心跳间隔；0 表示禁用（与流式路径语义一致）。
-func (h *OpenAIGatewayHandler) openAICompactKeepaliveInterval() time.Duration {
+func (h *OpenAIGatewayHandler) openAICompactKeepaliveInterval(c *gin.Context) time.Duration {
+	if h != nil && h.gatewayService != nil {
+		var ctx context.Context
+		if c != nil && c.Request != nil {
+			ctx = c.Request.Context()
+		}
+		return h.gatewayService.OpenAIStreamKeepaliveInterval(ctx)
+	}
 	if h.cfg == nil || h.cfg.Gateway.StreamKeepaliveInterval <= 0 {
 		return 0
 	}

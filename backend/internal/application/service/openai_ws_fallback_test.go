@@ -110,6 +110,46 @@ func TestClassifyOpenAIWSErrorEvent(t *testing.T) {
 	require.True(t, recoverable)
 }
 
+func TestClassifyOpenAIWSOverloadEventsAsPreOutputRecoverable(t *testing.T) {
+	tests := []struct {
+		name    string
+		code    string
+		errType string
+		message string
+	}{
+		{name: "coded", code: "server_is_overloaded", errType: "service_unavailable_error", message: "overloaded"},
+		{name: "slow_down", code: "slow_down", errType: "service_unavailable_error", message: "slow down"},
+		{name: "message_only", errType: "service_unavailable_error", message: "Our servers are currently overloaded. Please try again later."},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reason, recoverable := classifyOpenAIWSErrorEventFromRaw(tt.code, tt.errType, tt.message)
+			require.Equal(t, "upstream_overloaded", reason)
+			require.True(t, recoverable)
+		})
+	}
+}
+
+func TestNewOpenAIWSOverloadFailoverPreservesUpstreamEnvelope(t *testing.T) {
+	body := []byte(`{"type":"response.failed","response":{"error":{"code":"server_is_overloaded","message":"Our servers are currently overloaded. Please try again later."}}}`)
+	headers := http.Header{"X-Request-Id": []string{"rid-overload"}, "Retry-After": []string{"2"}}
+	err := newOpenAIWSOverloadFailoverError(headers, body, "Our servers are currently overloaded. Please try again later.")
+
+	require.Equal(t, http.StatusServiceUnavailable, err.StatusCode)
+	require.Equal(t, GatewayFailureScopeRequest, err.Scope)
+	require.True(t, err.RetryableOnSameAccount)
+	require.Equal(t, body, err.ResponseBody)
+	require.Equal(t, "rid-overload", err.ResponseHeaders.Get("X-Request-Id"))
+	require.Equal(t, "2", err.ResponseHeaders.Get("Retry-After"))
+}
+
+func TestIsOpenAIWSOverloadPayloadSupportsBothEnvelopeShapes(t *testing.T) {
+	require.True(t, isOpenAIWSOverloadPayload([]byte(`{"type":"error","error":{"message":"Our servers are currently overloaded. Please try again later."}}`)))
+	require.True(t, isOpenAIWSOverloadPayload([]byte(`{"type":"response.failed","response":{"error":{"code":"slow_down"}}}`)))
+	require.True(t, isOpenAIWSOverloadPayload([]byte(`{"type":"response.failed","response":{"error":{"status_code":503}}}`)))
+	require.False(t, isOpenAIWSOverloadPayload([]byte(`{"type":"response.failed","response":{"error":{"code":"invalid_request"}}}`)))
+}
+
 func TestClassifyOpenAIWSReconnectReason(t *testing.T) {
 	reason, retryable := classifyOpenAIWSReconnectReason(wrapOpenAIWSFallback("policy_violation", errors.New("policy")))
 	require.Equal(t, "policy_violation", reason)
@@ -125,6 +165,7 @@ func TestOpenAIWSErrorHTTPStatus(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, openAIWSErrorHTTPStatus([]byte(`{"type":"error","error":{"type":"authentication_error","code":"invalid_api_key","message":"auth failed"}}`)))
 	require.Equal(t, http.StatusForbidden, openAIWSErrorHTTPStatus([]byte(`{"type":"error","error":{"type":"permission_error","code":"forbidden","message":"forbidden"}}`)))
 	require.Equal(t, http.StatusTooManyRequests, openAIWSErrorHTTPStatus([]byte(`{"type":"error","error":{"type":"rate_limit_error","code":"rate_limit_exceeded","message":"rate limited"}}`)))
+	require.Equal(t, http.StatusServiceUnavailable, openAIWSErrorHTTPStatus([]byte(`{"type":"error","error":{"message":"Our servers are currently overloaded. Please try again later."}}`)))
 	require.Equal(t, http.StatusBadGateway, openAIWSErrorHTTPStatus([]byte(`{"type":"error","error":{"type":"server_error","code":"server_error","message":"server"}}`)))
 }
 
@@ -150,7 +191,7 @@ func TestResolveOpenAIWSFallbackErrorResponse(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, http.StatusForbidden, statusCode)
 		require.Equal(t, "upstream_error", errType)
-		require.Equal(t, "forbidden", clientMessage)
+		require.Equal(t, openAIWSAuthenticationFailureClientMessage, clientMessage)
 		require.Equal(t, "forbidden", upstreamMessage)
 	})
 

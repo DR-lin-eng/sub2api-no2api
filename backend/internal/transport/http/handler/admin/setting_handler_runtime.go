@@ -276,13 +276,16 @@ func (h *SettingHandler) GetStreamTimeoutSettings(c *gin.Context) {
 	}
 
 	response.Success(c, dto.StreamTimeoutSettings{
-		ResponseHeaderTimeoutDegradationEnabled: settings.ResponseHeaderTimeoutDegradationEnabled,
-		ResponseHeaderTimeoutSeconds:            settings.ResponseHeaderTimeoutSeconds,
-		Enabled:                                 settings.Enabled,
-		Action:                                  settings.Action,
-		TempUnschedMinutes:                      settings.TempUnschedMinutes,
-		ThresholdCount:                          settings.ThresholdCount,
-		ThresholdWindowMinutes:                  settings.ThresholdWindowMinutes,
+		ResponseHeaderTimeoutDegradationEnabled:   settings.ResponseHeaderTimeoutDegradationEnabled,
+		ResponseHeaderTimeoutSeconds:              settings.ResponseHeaderTimeoutSeconds,
+		Enabled:                                   settings.Enabled,
+		Action:                                    settings.Action,
+		TempUnschedMinutes:                        settings.TempUnschedMinutes,
+		ThresholdCount:                            settings.ThresholdCount,
+		ThresholdWindowMinutes:                    settings.ThresholdWindowMinutes,
+		OpenAIFirstOutputTimeoutSeconds:           settings.OpenAIFirstOutputTimeoutSeconds,
+		OpenAIHighEffortFirstOutputTimeoutSeconds: settings.OpenAIHighEffortFirstOutputTimeoutSeconds,
+		StreamKeepaliveIntervalSeconds:            settings.StreamKeepaliveIntervalSeconds,
 	})
 }
 
@@ -451,13 +454,16 @@ func (h *SettingHandler) UpdateBetaPolicySettings(c *gin.Context) {
 
 // UpdateStreamTimeoutSettingsRequest 更新流超时配置请求
 type UpdateStreamTimeoutSettingsRequest struct {
-	ResponseHeaderTimeoutDegradationEnabled *bool  `json:"response_header_timeout_degradation_enabled"`
-	ResponseHeaderTimeoutSeconds            int    `json:"response_header_timeout_seconds"`
-	Enabled                                 bool   `json:"enabled"`
-	Action                                  string `json:"action"`
-	TempUnschedMinutes                      int    `json:"temp_unsched_minutes"`
-	ThresholdCount                          int    `json:"threshold_count"`
-	ThresholdWindowMinutes                  int    `json:"threshold_window_minutes"`
+	ResponseHeaderTimeoutDegradationEnabled   *bool  `json:"response_header_timeout_degradation_enabled"`
+	ResponseHeaderTimeoutSeconds              int    `json:"response_header_timeout_seconds"`
+	Enabled                                   bool   `json:"enabled"`
+	Action                                    string `json:"action"`
+	TempUnschedMinutes                        int    `json:"temp_unsched_minutes"`
+	ThresholdCount                            int    `json:"threshold_count"`
+	ThresholdWindowMinutes                    int    `json:"threshold_window_minutes"`
+	OpenAIFirstOutputTimeoutSeconds           *int   `json:"openai_first_output_timeout_seconds"`
+	OpenAIHighEffortFirstOutputTimeoutSeconds *int   `json:"openai_high_effort_first_output_timeout_seconds"`
+	StreamKeepaliveIntervalSeconds            *int   `json:"stream_keepalive_interval_seconds"`
 }
 
 // UpdateStreamTimeoutSettings 更新流超时处理配置
@@ -469,26 +475,41 @@ func (h *SettingHandler) UpdateStreamTimeoutSettings(c *gin.Context) {
 		return
 	}
 
+	current, err := h.settingService.GetStreamTimeoutSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 	var degradationEnabled bool
 	if req.ResponseHeaderTimeoutDegradationEnabled != nil {
 		degradationEnabled = *req.ResponseHeaderTimeoutDegradationEnabled
 	} else {
-		current, err := h.settingService.GetStreamTimeoutSettings(c.Request.Context())
-		if err != nil {
-			response.ErrorFrom(c, err)
-			return
-		}
 		degradationEnabled = current.ResponseHeaderTimeoutDegradationEnabled
+	}
+	firstOutputTimeout := current.OpenAIFirstOutputTimeoutSeconds
+	if req.OpenAIFirstOutputTimeoutSeconds != nil {
+		firstOutputTimeout = *req.OpenAIFirstOutputTimeoutSeconds
+	}
+	highEffortTimeout := current.OpenAIHighEffortFirstOutputTimeoutSeconds
+	if req.OpenAIHighEffortFirstOutputTimeoutSeconds != nil {
+		highEffortTimeout = *req.OpenAIHighEffortFirstOutputTimeoutSeconds
+	}
+	keepaliveInterval := current.StreamKeepaliveIntervalSeconds
+	if req.StreamKeepaliveIntervalSeconds != nil {
+		keepaliveInterval = *req.StreamKeepaliveIntervalSeconds
 	}
 
 	settings := &service.StreamTimeoutSettings{
-		ResponseHeaderTimeoutDegradationEnabled: degradationEnabled,
-		ResponseHeaderTimeoutSeconds:            req.ResponseHeaderTimeoutSeconds,
-		Enabled:                                 req.Enabled,
-		Action:                                  req.Action,
-		TempUnschedMinutes:                      req.TempUnschedMinutes,
-		ThresholdCount:                          req.ThresholdCount,
-		ThresholdWindowMinutes:                  req.ThresholdWindowMinutes,
+		ResponseHeaderTimeoutDegradationEnabled:   degradationEnabled,
+		ResponseHeaderTimeoutSeconds:              req.ResponseHeaderTimeoutSeconds,
+		Enabled:                                   req.Enabled,
+		Action:                                    req.Action,
+		TempUnschedMinutes:                        req.TempUnschedMinutes,
+		ThresholdCount:                            req.ThresholdCount,
+		ThresholdWindowMinutes:                    req.ThresholdWindowMinutes,
+		OpenAIFirstOutputTimeoutSeconds:           firstOutputTimeout,
+		OpenAIHighEffortFirstOutputTimeoutSeconds: highEffortTimeout,
+		StreamKeepaliveIntervalSeconds:            keepaliveInterval,
 	}
 
 	if err := h.settingService.SetStreamTimeoutSettings(c.Request.Context(), settings); err != nil {
@@ -504,13 +525,16 @@ func (h *SettingHandler) UpdateStreamTimeoutSettings(c *gin.Context) {
 	}
 
 	response.Success(c, dto.StreamTimeoutSettings{
-		ResponseHeaderTimeoutDegradationEnabled: updatedSettings.ResponseHeaderTimeoutDegradationEnabled,
-		ResponseHeaderTimeoutSeconds:            updatedSettings.ResponseHeaderTimeoutSeconds,
-		Enabled:                                 updatedSettings.Enabled,
-		Action:                                  updatedSettings.Action,
-		TempUnschedMinutes:                      updatedSettings.TempUnschedMinutes,
-		ThresholdCount:                          updatedSettings.ThresholdCount,
-		ThresholdWindowMinutes:                  updatedSettings.ThresholdWindowMinutes,
+		ResponseHeaderTimeoutDegradationEnabled:   updatedSettings.ResponseHeaderTimeoutDegradationEnabled,
+		ResponseHeaderTimeoutSeconds:              updatedSettings.ResponseHeaderTimeoutSeconds,
+		Enabled:                                   updatedSettings.Enabled,
+		Action:                                    updatedSettings.Action,
+		TempUnschedMinutes:                        updatedSettings.TempUnschedMinutes,
+		ThresholdCount:                            updatedSettings.ThresholdCount,
+		ThresholdWindowMinutes:                    updatedSettings.ThresholdWindowMinutes,
+		OpenAIFirstOutputTimeoutSeconds:           updatedSettings.OpenAIFirstOutputTimeoutSeconds,
+		OpenAIHighEffortFirstOutputTimeoutSeconds: updatedSettings.OpenAIHighEffortFirstOutputTimeoutSeconds,
+		StreamKeepaliveIntervalSeconds:            updatedSettings.StreamKeepaliveIntervalSeconds,
 	})
 }
 

@@ -125,7 +125,17 @@ func resolveCodexOutboundIdentity(candidateUA string) codexOutboundIdentity {
 	if rebuilt := openai.SetCodexUserAgentVersion(pairedUA, version); rebuilt != "" {
 		pairedUA = rebuilt
 	}
-	return codexOutboundIdentity{userAgent: pairedUA, originator: originator, version: version}
+	identity := codexOutboundIdentity{userAgent: pairedUA, originator: originator, version: version}
+	// The upstream scheduler currently puts codex-tui in a load-shed bucket.
+	// Normalize only while the canonical identity policy is enabled; the
+	// existing disable switch must continue to provide a genuine rollback path.
+	if codexIdentityEnforcement.Load() {
+		identity.originator, identity.userAgent, _ = openai.NormalizeCodexClientIdentityToCLI(
+			identity.originator,
+			identity.userAgent,
+		)
+	}
+	return identity
 }
 
 func codexClientVersionFromUA(ua string) string {

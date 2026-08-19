@@ -1371,11 +1371,64 @@ func TestOpenAIGatewayService_PrewarmReadHonorsParentContext(t *testing.T) {
 		account,
 		nil,
 		0,
+		nil,
 	)
 	elapsed := time.Since(start)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "prewarm_read_event")
 	require.Less(t, elapsed, 180*time.Millisecond, "预热读取应受父 context 取消控制，不应阻塞到 read_timeout")
+}
+
+func TestOpenAIGatewayService_PrewarmHonorsFirstSemanticOutputDeadline(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.Gateway.OpenAIWS.PrewarmGenerateEnabled = true
+	cfg.Gateway.OpenAIWS.ReadTimeoutSeconds = 5
+	cfg.Gateway.OpenAIWS.WriteTimeoutSeconds = 3
+
+	svc := &OpenAIGatewayService{
+		cfg:           cfg,
+		toolCorrector: NewCodexToolCorrector(),
+	}
+	account := &Account{
+		ID: 602, Name: "openai-prewarm-first-output-timeout", Platform: PlatformOpenAI,
+		Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true,
+	}
+	conn := newOpenAIWSConn("prewarm_first_output_conn", account.ID, &openAIWSBlockingConn{
+		readDelay: 2 * time.Second,
+	}, nil)
+	lease := &openAIWSConnLease{accountID: account.ID, conn: conn}
+	payload := map[string]any{"type": "response.create", "model": "gpt-5.1"}
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
+	startedAt := time.Now().Add(-900 * time.Millisecond)
+
+	started := time.Now()
+	err := svc.performOpenAIWSGeneratePrewarm(
+		context.Background(),
+		lease,
+		OpenAIWSProtocolDecision{Transport: OpenAIUpstreamTransportResponsesWebsocketV2},
+		payload,
+		"",
+		map[string]any{"model": "gpt-5.1"},
+		account,
+		nil,
+		0,
+		&openAIWSPrewarmFirstOutputGuard{
+			c:             c,
+			startedAt:     startedAt,
+			timeout:       time.Second,
+			originalModel: "gpt-5.1",
+		},
+	)
+
+	var failoverErr *UpstreamFailoverError
+	require.ErrorAs(t, err, &failoverErr)
+	require.Equal(t, http.StatusGatewayTimeout, failoverErr.StatusCode)
+	require.Contains(t, string(failoverErr.ResponseBody), "first_output_timeout")
+	require.True(t, failoverErr.SafeToFailoverAfterWrite)
+	require.Less(t, time.Since(started), 500*time.Millisecond)
+	require.Empty(t, rec.Body.String())
 }
 
 func TestOpenAIGatewayService_Forward_WSv2_TurnMetadataInPayloadOnConnReuse(t *testing.T) {
@@ -1743,6 +1796,73 @@ func TestOpenAIGatewayService_Forward_WSv2ReadTimeoutAppliesPerRead(t *testing.T
 	require.NotNil(t, result)
 	require.Equal(t, "resp_timeout_ok", result.RequestID)
 	require.Nil(t, upstream.lastReq, "每次 Read 都应独立应用超时；总时长超过 read_timeout 不应误回退 HTTP")
+}
+
+func TestOpenAIGatewayService_Forward_WSv2FirstSemanticOutputTimeoutDoesNotLeakPreamble(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
+	c.Request.Header.Set("User-Agent", "codex_cli_rs/0.98.0")
+
+	cfg := &config.Config{}
+	cfg.Security.URLAllowlist.Enabled = false
+	cfg.Security.URLAllowlist.AllowInsecureHTTP = true
+	cfg.Gateway.OpenAIFirstOutputTimeoutSeconds = 1
+	cfg.Gateway.OpenAIWS.Enabled = true
+	cfg.Gateway.OpenAIWS.OAuthEnabled = true
+	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
+	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 1
+	cfg.Gateway.OpenAIWS.MinIdlePerAccount = 0
+	cfg.Gateway.OpenAIWS.MaxIdlePerAccount = 1
+	cfg.Gateway.OpenAIWS.QueueLimitPerConn = 8
+	cfg.Gateway.OpenAIWS.DialTimeoutSeconds = 3
+	cfg.Gateway.OpenAIWS.ReadTimeoutSeconds = 5
+	cfg.Gateway.OpenAIWS.WriteTimeoutSeconds = 3
+
+	captureConn := &openAIWSCaptureConn{
+		readDelays: []time.Duration{0, 2 * time.Second},
+		events: [][]byte{
+			[]byte(`{"type":"response.created","response":{"id":"resp_stalled_ws","model":"gpt-5.1"}}`),
+			[]byte(`{"type":"response.output_text.delta","response_id":"resp_stalled_ws","delta":"late"}`),
+		},
+	}
+	captureDialer := &openAIWSCaptureDialer{conn: captureConn}
+	pool := newOpenAIWSConnPool(cfg)
+	pool.setClientDialerForTest(captureDialer)
+
+	svc := &OpenAIGatewayService{
+		cfg:              cfg,
+		httpUpstream:     &httpUpstreamRecorder{},
+		cache:            &stubGatewayCache{},
+		openaiWSResolver: NewOpenAIWSProtocolResolver(cfg),
+		toolCorrector:    NewCodexToolCorrector(),
+		openaiWSPool:     pool,
+	}
+	account := &Account{
+		ID: 82, Name: "openai-first-output-timeout", Platform: PlatformOpenAI,
+		Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1,
+		Credentials: map[string]any{"api_key": "sk-test"},
+		Extra:       map[string]any{"responses_websockets_v2_enabled": true},
+	}
+
+	started := time.Now()
+	result, err := svc.Forward(
+		context.Background(), c, account,
+		[]byte(`{"model":"gpt-5.1","stream":true,"input":[{"type":"input_text","text":"hello"}]}`),
+	)
+
+	require.Nil(t, result)
+	var failoverErr *UpstreamFailoverError
+	require.ErrorAs(t, err, &failoverErr)
+	require.Equal(t, http.StatusGatewayTimeout, failoverErr.StatusCode)
+	require.Contains(t, string(failoverErr.ResponseBody), "first_output_timeout")
+	require.True(t, failoverErr.SafeToFailoverAfterWrite)
+	require.Less(t, time.Since(started), 1500*time.Millisecond)
+	require.Empty(t, rec.Body.String(), "response.created must remain attempt-local before semantic output")
+	require.Equal(t, 1, captureDialer.DialCount(), "first-output timeout must switch accounts instead of reconnecting the same one")
 }
 
 type openAIWSCaptureDialer struct {

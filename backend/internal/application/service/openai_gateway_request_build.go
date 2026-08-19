@@ -41,7 +41,18 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	}
 	targetURL = appendOpenAIResponsesRequestPathSuffix(targetURL, openAIResponsesRequestPathSuffix(c))
 
-	req, err := newOpenAIHTTPUpstreamRequest(ctx, http.MethodPost, targetURL, account, body)
+	outboundBody := body
+	var codexSessionIDs *codexOutboundSessionIDs
+	if account.IsOpenAIOAuth() && (fingerprintIDs == nil || fingerprintIDs.mode == codexFingerprintOff) {
+		codexSessionIDs = resolveCodexOutboundSessionIDs(c, account, body, promptCacheKey)
+		var rewriteErr error
+		outboundBody, rewriteErr = rewriteCodexOutboundSessionMetadata(body, codexSessionIDs)
+		if rewriteErr != nil {
+			return nil, rewriteErr
+		}
+	}
+
+	req, err := newOpenAIHTTPUpstreamRequest(ctx, http.MethodPost, targetURL, account, outboundBody)
 	if err != nil {
 		return nil, err
 	}
@@ -116,6 +127,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 				req.Header.Set("conversation_id", isolated)
 			}
 		}
+		applyResolvedCodexOutboundSessionHeaders(c, account, req.Header, fingerprintIDs, codexSessionIDs)
 	} else if isOpenAIResponsesCompactPath(c) {
 		// compact 上游是 unary JSON 协议：API-key 账号也显式声明 Accept，
 		// 避免 OpenAI 兼容网关按 SSE 返回（#3777 期望行为 4）。
@@ -149,7 +161,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	// 账号级请求头覆写（仅 openai api_key 账号启用时生效；OAuth 路径 no-op）
 	account.ApplyHeaderOverrides(req.Header)
 	applyOpenAICodexBetaFeatures(c, account, req.Header)
-	applyOpenAICodexRoutingHintFromBody(ctx, account, "http", req.Header, body, "not_applicable")
+	applyOpenAICodexRoutingHintFromBody(ctx, account, "http", req.Header, outboundBody, "not_applicable")
 	applyCodexSimulationProfileHeaders(req.Header, fingerprintIDs)
 
 	return req, nil

@@ -1,10 +1,13 @@
 package service
 
 import (
+	"context"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
@@ -153,6 +156,74 @@ func TestEnforceCodexIdentityHeadersFollowsCanonicalResolver(t *testing.T) {
 	require.Equal(t, "codex_cli_rs", h.Get("originator"))
 	require.Equal(t, "codex_cli_rs/0.200.1"+codexCLIUserAgentSuffix, h.Get("user-agent"))
 	require.Equal(t, "0.200.1", h.Get("version"))
+}
+
+func TestResolveCodexOutboundIdentityNormalizesConfiguredTUIWithoutDroppingFingerprint(t *testing.T) {
+	SetCodexIdentityEnforcementEnabled(true)
+	t.Cleanup(func() { SetCodexIdentityEnforcementEnabled(true) })
+
+	configured := "codex-tui/0.146.0 (Mac OS X 14.0; arm64) iTerm (codex-tui; 0.146.0)"
+	identity := resolveCodexOutboundIdentity(configured)
+
+	require.Equal(t, "codex_cli_rs", identity.originator)
+	require.Equal(t, "codex_cli_rs/0.146.0 (Mac OS X 14.0; arm64) iTerm", identity.userAgent)
+	require.Equal(t, "0.146.0", identity.version)
+}
+
+func TestResolveCodexOutboundIdentityNormalizesCanonicalTUI(t *testing.T) {
+	SetCodexIdentityEnforcementEnabled(true)
+	SetCodexCanonicalUserAgentResolver(func() string {
+		return "codex-tui/0.147.1 (Mac OS X 14.1; arm64) iTerm (codex-tui; 0.147.1)"
+	})
+	t.Cleanup(func() {
+		SetCodexCanonicalUserAgentResolver(nil)
+		SetCodexIdentityEnforcementEnabled(true)
+	})
+
+	identity := resolveCodexOutboundIdentity("")
+	require.Equal(t, "codex_cli_rs", identity.originator)
+	require.Equal(t, "codex_cli_rs/0.147.1 (Mac OS X 14.1; arm64) iTerm", identity.userAgent)
+	require.Equal(t, "0.147.1", identity.version)
+}
+
+func TestResolveCodexOutboundIdentityRollbackPreservesTUI(t *testing.T) {
+	SetCodexIdentityEnforcementEnabled(false)
+	t.Cleanup(func() { SetCodexIdentityEnforcementEnabled(true) })
+
+	configured := "codex-tui/0.146.0 (Mac OS X 14.0; arm64) iTerm (codex-tui; 0.146.0)"
+	identity := resolveCodexOutboundIdentity(configured)
+
+	require.Equal(t, "codex-tui", identity.originator)
+	require.Equal(t, configured, identity.userAgent)
+}
+
+func TestBuildUpstreamRequestNormalizesConfiguredTUIAccountIdentity(t *testing.T) {
+	SetCodexIdentityEnforcementEnabled(true)
+	t.Cleanup(func() { SetCodexIdentityEnforcementEnabled(true) })
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	c.Request.Header.Set("originator", "codex-tui")
+	account := &Account{
+		ID:       44,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"access_token":       "token",
+			"chatgpt_account_id": "account",
+			"user_agent":         "codex-tui/0.146.0 (Mac OS X 14.0; arm64) iTerm (codex-tui; 0.146.0)",
+		},
+	}
+
+	req, err := (&OpenAIGatewayService{}).buildUpstreamRequest(
+		context.Background(), c, account,
+		[]byte(`{"model":"gpt-5.5","stream":true,"input":[]}`),
+		"token", true, "", true,
+	)
+	require.NoError(t, err)
+	require.Equal(t, "codex_cli_rs", req.Header.Get("originator"))
+	require.Equal(t, "codex_cli_rs/0.146.0 (Mac OS X 14.0; arm64) iTerm", req.Header.Get("user-agent"))
 }
 
 func TestNormalizeCodexClientVersion(t *testing.T) {

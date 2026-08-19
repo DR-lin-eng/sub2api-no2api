@@ -23,6 +23,70 @@
       </div>
 
       <template v-else>
+        <div class="space-y-4 border-b border-gray-100 pb-5 dark:border-dark-700">
+          <div>
+            <h3 class="font-medium text-gray-900 dark:text-white">
+              {{ t("admin.settings.streamTimeout.openAIStartupTitle") }}
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {{ t("admin.settings.streamTimeout.openAIStartupDescription") }}
+            </p>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-3">
+            <div>
+              <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {{ t("admin.settings.streamTimeout.firstOutputTimeout") }}
+              </label>
+              <input
+                v-model.number="streamTimeoutForm.openai_first_output_timeout_seconds"
+                type="number"
+                min="0"
+                max="600"
+                data-testid="openai-first-output-timeout"
+                class="input w-full"
+              />
+              <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.streamTimeout.firstOutputTimeoutHint") }}
+              </p>
+            </div>
+
+            <div>
+              <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {{ t("admin.settings.streamTimeout.highEffortFirstOutputTimeout") }}
+              </label>
+              <input
+                v-model.number="streamTimeoutForm.openai_high_effort_first_output_timeout_seconds"
+                type="number"
+                min="0"
+                max="1800"
+                data-testid="openai-high-effort-first-output-timeout"
+                class="input w-full"
+              />
+              <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.streamTimeout.highEffortFirstOutputTimeoutHint") }}
+              </p>
+            </div>
+
+            <div>
+              <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {{ t("admin.settings.streamTimeout.keepaliveInterval") }}
+              </label>
+              <input
+                v-model.number="streamTimeoutForm.stream_keepalive_interval_seconds"
+                type="number"
+                min="0"
+                max="30"
+                data-testid="openai-stream-keepalive-interval"
+                class="input w-full"
+              />
+              <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.streamTimeout.keepaliveIntervalHint") }}
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div class="flex items-center justify-between">
           <div>
             <label class="font-medium text-gray-900 dark:text-white">{{

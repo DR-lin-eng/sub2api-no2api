@@ -18,6 +18,12 @@ import (
 
 // Forward forwards request to OpenAI API
 func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, account *Account, body []byte) (*OpenAIForwardResult, error) {
+	ctx = s.WithOpenAIStreamRuntimeSettings(ctx)
+	if c != nil && c.Request != nil {
+		settings := s.openAIStreamRuntimeSettings(ctx)
+		requestCtx := context.WithValue(c.Request.Context(), openAIStreamRuntimeSettingsContextKey{}, settings)
+		c.Request = c.Request.WithContext(requestCtx)
+	}
 	beginUpstreamResponseModelObservation(c)
 	clearGrokResponsesClientToolMapping(c)
 	clearOpenAIResponsesNamespaceNames(c)
@@ -716,6 +722,10 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			if wsErr == nil {
 				break
 			}
+			var wsFailoverErr *UpstreamFailoverError
+			if errors.As(wsErr, &wsFailoverErr) && wsFailoverErr.SafeToFailoverAfterWrite {
+				return nil, wsFailoverErr
+			}
 			if c != nil && c.Writer != nil && c.Writer.Written() {
 				break
 			}
@@ -838,7 +848,9 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			}
 			return wsResult, nil
 		}
-		canReplayThroughHTTP := c == nil || c.Writer == nil || !c.Writer.Written()
+		// Keepalive comments may already have committed HTTP 200, but they are not
+		// semantic output and must not prevent a replay-safe WS-to-HTTP fallback.
+		canReplayThroughHTTP := !openAIStreamClientOutputStarted(c, false)
 		if canReplayThroughHTTP && !codexContinuationRecoveryForbidden(c) && (shouldFallbackOpenAIWSToHTTP(wsErr) ||
 			shouldFallbackCodexPrewarmWSForbiddenToHTTP(account, wsErr)) {
 			// The WS handshake/error event happened before any semantic output was
@@ -856,6 +868,9 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 				s.openAIWSFallbackCooldown(),
 			)
 		} else {
+			if authFailover := s.newOpenAIWSDialAuthFailover(ctx, account, upstreamModel, wsErr); authFailover != nil {
+				return nil, authFailover
+			}
 			s.writeOpenAIWSFallbackErrorResponse(c, account, wsErr)
 			return nil, wsErr
 		}
@@ -870,7 +885,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 	firstOutputTimeout := time.Duration(0)
 	if reqStream && account.Platform == PlatformOpenAI {
-		firstOutputTimeout = s.openAIFirstOutputTimeout(reasoningEffortValue)
+		firstOutputTimeout = s.openAIFirstOutputTimeoutWithContext(ctx, reasoningEffortValue)
 	}
 
 	httpInvalidEncryptedContentRetryTried := false

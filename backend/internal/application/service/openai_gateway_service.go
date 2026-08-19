@@ -67,9 +67,12 @@ var openaiAllowedHeaders = map[string]bool{
 	"accept-language":         true,
 	"content-type":            true,
 	"conversation_id":         true,
+	"session-id":              true,
 	"user-agent":              true,
 	"originator":              true,
 	"session_id":              true,
+	"thread-id":               true,
+	"x-client-request-id":     true,
 	"x-codex-beta-features":   true,
 	"x-codex-installation-id": true,
 	"x-codex-turn-state":      true,
@@ -85,10 +88,13 @@ var openaiPassthroughAllowedHeaders = map[string]bool{
 	"accept-language":         true,
 	"content-type":            true,
 	"conversation_id":         true,
+	"session-id":              true,
 	"openai-beta":             true,
 	"user-agent":              true,
 	"originator":              true,
 	"session_id":              true,
+	"thread-id":               true,
+	"x-client-request-id":     true,
 	"x-codex-beta-features":   true,
 	"x-codex-installation-id": true,
 	"x-codex-turn-state":      true,
@@ -822,6 +828,7 @@ func resolveOpenAIWSFallbackErrorResponse(err error) (statusCode int, errType st
 		}
 	}
 
+	safeClientMessage := ""
 	switch reason {
 	case "invalid_encrypted_content":
 		if statusCode == 0 {
@@ -851,6 +858,7 @@ func resolveOpenAIWSFallbackErrorResponse(err error) (statusCode int, errType st
 		if statusCode == 0 {
 			statusCode = http.StatusUnauthorized
 		}
+		safeClientMessage = openAIWSAuthenticationFailureClientMessage
 	case "upstream_rate_limited":
 		if statusCode == 0 {
 			statusCode = http.StatusTooManyRequests
@@ -887,6 +895,9 @@ func resolveOpenAIWSFallbackErrorResponse(err error) (statusCode int, errType st
 		}
 	}
 	clientMessage = upstreamMessage
+	if safeClientMessage != "" {
+		clientMessage = safeClientMessage
+	}
 	return statusCode, errType, clientMessage, upstreamMessage, true
 }
 
@@ -903,6 +914,9 @@ func shouldFallbackOpenAIWSToHTTP(err error) bool {
 		return false
 	}
 	reason := strings.TrimPrefix(strings.TrimSpace(fallbackErr.Reason), "prewarm_")
+	if reason == "auth_failed" {
+		return openAIWSDialAuthStatus(err) != 0
+	}
 	if reason != "upgrade_required" && reason != "ws_unsupported" {
 		return false
 	}
@@ -915,10 +929,20 @@ func shouldFallbackOpenAIWSToHTTP(err error) bool {
 	return true
 }
 
+func classifyOpenAIWSDialHTTPFallback(err error) (string, bool) {
+	if isOpenAIWSUpgradeRequiredDialError(err) {
+		return "upgrade_required", true
+	}
+	if status := openAIWSDialAuthStatus(err); status != 0 {
+		return "auth_failed", true
+	}
+	return "", false
+}
+
 // A Codex prewarm account explicitly bridges HTTP ingress to upstream WSv2.
 // Some otherwise valid OAuth accounts or their proxies reject that upgrade
-// with 403 while the HTTP Responses endpoint remains available. Only degrade
-// this opt-in bridge; ordinary WS authentication failures stay visible.
+// with 403 while the HTTP Responses endpoint remains available. Keep this
+// compatibility predicate for callers that specifically distinguish prewarm.
 func shouldFallbackCodexPrewarmWSForbiddenToHTTP(account *Account, err error) bool {
 	if account == nil || !account.IsCodexPrewarmContinuationEnabled() || err == nil {
 		return false

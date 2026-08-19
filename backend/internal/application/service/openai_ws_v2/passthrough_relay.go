@@ -72,6 +72,12 @@ type RelayOptions struct {
 	OnUsageParseFailure             func(eventType string, usageRaw string)
 	OnTurnComplete                  func(turn RelayTurnResult)
 	BeforeWriteClient               func(msgType coderws.MessageType, payload []byte, wroteDownstream bool) error
+	// BufferBeforeFirstSemanticOutput keeps replay-safe preamble frames local to
+	// the attempt. Returning true buffers the frame until the first frame for
+	// which this callback returns false. This allows a following overload error
+	// to reject the attempt without having committed response.created metadata.
+	BufferBeforeFirstSemanticOutput func(msgType coderws.MessageType, payload []byte) bool
+	PreOutputBufferLimit            int
 	BeforeClientWrite               func(msgType coderws.MessageType, payload []byte)
 	AfterClientWrite                func(msgType coderws.MessageType, payload []byte, writeErr error)
 	BeforeRelayCancel               func(exit RelayExit)
@@ -256,6 +262,8 @@ func Relay(
 		options.OnUsageParseFailure,
 		options.OnTurnComplete,
 		options.BeforeWriteClient,
+		options.BufferBeforeFirstSemanticOutput,
+		options.PreOutputBufferLimit,
 		options.BeforeClientWrite,
 		options.AfterClientWrite,
 		func(msgType coderws.MessageType, payload []byte) {
@@ -469,6 +477,8 @@ func runUpstreamToClient(
 	onUsageParseFailure func(eventType string, usageRaw string),
 	onTurnComplete func(turn RelayTurnResult),
 	beforeWriteClient func(msgType coderws.MessageType, payload []byte, wroteDownstream bool) error,
+	bufferBeforeFirstSemanticOutput func(msgType coderws.MessageType, payload []byte) bool,
+	preOutputBufferLimit int,
 	beforeClientWrite func(msgType coderws.MessageType, payload []byte),
 	afterClientWrite func(msgType coderws.MessageType, payload []byte, writeErr error),
 	afterWriteClient func(msgType coderws.MessageType, payload []byte),
@@ -480,6 +490,46 @@ func runUpstreamToClient(
 	exitCh chan<- relayExitSignal,
 ) {
 	wroteDownstream := false
+	type bufferedFrame struct {
+		msgType coderws.MessageType
+		payload []byte
+	}
+	preOutputFrames := make([]bufferedFrame, 0, 4)
+	preOutputBytes := 0
+	if preOutputBufferLimit <= 0 {
+		preOutputBufferLimit = 256 << 10
+	}
+	writeOne := func(msgType coderws.MessageType, payload []byte) error {
+		if beforeClientWrite != nil {
+			beforeClientWrite(msgType, payload)
+		}
+		writeErr := writeClient(msgType, payload)
+		if afterClientWrite != nil {
+			afterClientWrite(msgType, payload, writeErr)
+		}
+		if writeErr != nil {
+			return writeErr
+		}
+		wroteDownstream = true
+		if afterWriteClient != nil {
+			afterWriteClient(msgType, payload)
+		}
+		if forwardedFrames != nil {
+			forwardedFrames.Add(1)
+		}
+		markActivity()
+		return nil
+	}
+	flushPreOutput := func() error {
+		for _, frame := range preOutputFrames {
+			if err := writeOne(frame.msgType, frame.payload); err != nil {
+				return err
+			}
+		}
+		preOutputFrames = preOutputFrames[:0]
+		preOutputBytes = 0
+		return nil
+	}
 	for {
 		msgType, payload, err := upstreamConn.ReadFrame(ctx)
 		if err != nil {
@@ -547,13 +597,36 @@ func runUpstreamToClient(
 			markActivity()
 			continue
 		}
-		if beforeClientWrite != nil {
-			beforeClientWrite(msgType, payload)
+		if !wroteDownstream && bufferBeforeFirstSemanticOutput != nil &&
+			bufferBeforeFirstSemanticOutput(msgType, payload) &&
+			preOutputBytes+len(payload) <= preOutputBufferLimit {
+			preOutputFrames = append(preOutputFrames, bufferedFrame{
+				msgType: msgType,
+				payload: append([]byte(nil), payload...),
+			})
+			preOutputBytes += len(payload)
+			// Start the client reader after the first upstream frame even though
+			// the frame remains attempt-local. This preserves prompt cancellation
+			// while keeping response.created replay-safe.
+			if afterWriteClient != nil {
+				afterWriteClient(msgType, payload)
+			}
+			markActivity()
+			continue
 		}
-		writeErr := writeClient(msgType, payload)
-		if afterClientWrite != nil {
-			afterClientWrite(msgType, payload, writeErr)
+		if err := flushPreOutput(); err != nil {
+			emitRelayTrace(onTrace, RelayTraceEvent{
+				Stage:           "write_client_failed",
+				Direction:       "upstream_to_client",
+				MessageType:     relayMessageTypeString(msgType),
+				PayloadBytes:    len(payload),
+				WroteDownstream: wroteDownstream,
+				Error:           err.Error(),
+			})
+			exitCh <- relayExitSignal{stage: "write_client", err: err, wroteDownstream: wroteDownstream}
+			return
 		}
+		writeErr := writeOne(msgType, payload)
 		if writeErr != nil {
 			emitRelayTrace(onTrace, RelayTraceEvent{
 				Stage:           "write_client_failed",
@@ -566,14 +639,6 @@ func runUpstreamToClient(
 			exitCh <- relayExitSignal{stage: "write_client", err: writeErr, wroteDownstream: wroteDownstream}
 			return
 		}
-		wroteDownstream = true
-		if afterWriteClient != nil {
-			afterWriteClient(msgType, payload)
-		}
-		if forwardedFrames != nil {
-			forwardedFrames.Add(1)
-		}
-		markActivity()
 	}
 }
 

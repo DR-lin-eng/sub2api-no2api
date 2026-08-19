@@ -246,6 +246,9 @@ func TestStreamTimeoutSettingsDefaultUpgradeValidationAndImmediateRefresh(t *tes
 	require.NoError(t, err)
 	require.True(t, legacy.ResponseHeaderTimeoutDegradationEnabled, "legacy settings must enable the new feature by default")
 	require.Equal(t, DefaultStreamResponseHeaderTimeoutSeconds, legacy.ResponseHeaderTimeoutSeconds)
+	require.Equal(t, DefaultOpenAIFirstOutputTimeoutSeconds, legacy.OpenAIFirstOutputTimeoutSeconds)
+	require.Equal(t, DefaultOpenAIHighEffortFirstOutputSeconds, legacy.OpenAIHighEffortFirstOutputTimeoutSeconds)
+	require.Equal(t, DefaultStreamKeepaliveIntervalSeconds, legacy.StreamKeepaliveIntervalSeconds)
 	require.True(t, svc.IsStreamResponseHeaderTimeoutDegradationEnabled())
 
 	invalid := *legacy
@@ -258,8 +261,19 @@ func TestStreamTimeoutSettingsDefaultUpgradeValidationAndImmediateRefresh(t *tes
 	require.Equal(t, 37, svc.GetStreamResponseHeaderTimeoutSeconds())
 
 	updated.ResponseHeaderTimeoutDegradationEnabled = false
+	updated.OpenAIFirstOutputTimeoutSeconds = 60
+	updated.OpenAIHighEffortFirstOutputTimeoutSeconds = 240
+	updated.StreamKeepaliveIntervalSeconds = 5
 	require.NoError(t, svc.SetStreamTimeoutSettings(context.Background(), &updated))
 	require.False(t, svc.IsStreamResponseHeaderTimeoutDegradationEnabled())
+	runtime := svc.OpenAIStreamRuntimeSettings(context.Background())
+	require.Equal(t, 60, runtime.FirstOutputTimeoutSeconds)
+	require.Equal(t, 240, runtime.HighEffortFirstOutputSeconds)
+	require.Equal(t, 5, runtime.KeepaliveIntervalSeconds)
+
+	invalid = updated
+	invalid.OpenAIFirstOutputTimeoutSeconds = 29
+	require.Error(t, svc.SetStreamTimeoutSettings(context.Background(), &invalid))
 }
 
 func TestOpenAIStreamDegradationSwitchClearsRuntimeState(t *testing.T) {

@@ -1014,17 +1014,17 @@ func (s *SettingService) GetStreamTimeoutSettings(ctx context.Context) (*StreamT
 	value, err := s.settingRepo.GetValue(ctx, SettingKeyStreamTimeoutSettings)
 	if err != nil {
 		if errors.Is(err, ErrSettingNotFound) {
-			return DefaultStreamTimeoutSettings(), nil
+			return s.defaultStreamTimeoutSettings(), nil
 		}
 		return nil, fmt.Errorf("get stream timeout settings: %w", err)
 	}
 	if value == "" {
-		return DefaultStreamTimeoutSettings(), nil
+		return s.defaultStreamTimeoutSettings(), nil
 	}
 
-	settings := *DefaultStreamTimeoutSettings()
+	settings := *s.defaultStreamTimeoutSettings()
 	if err := json.Unmarshal([]byte(value), &settings); err != nil {
-		return DefaultStreamTimeoutSettings(), nil
+		return s.defaultStreamTimeoutSettings(), nil
 	}
 
 	// 验证并修正配置值
@@ -1050,6 +1050,20 @@ func (s *SettingService) GetStreamTimeoutSettings(ctx context.Context) (*StreamT
 	if settings.ThresholdWindowMinutes > 60 {
 		settings.ThresholdWindowMinutes = 60
 	}
+	if settings.OpenAIFirstOutputTimeoutSeconds < 0 ||
+		settings.OpenAIFirstOutputTimeoutSeconds > MaxOpenAIFirstOutputTimeoutSeconds ||
+		(settings.OpenAIFirstOutputTimeoutSeconds > 0 && settings.OpenAIFirstOutputTimeoutSeconds < MinOpenAIFirstOutputTimeoutSeconds) {
+		settings.OpenAIFirstOutputTimeoutSeconds = DefaultOpenAIFirstOutputTimeoutSeconds
+	}
+	if settings.OpenAIHighEffortFirstOutputTimeoutSeconds < 0 ||
+		settings.OpenAIHighEffortFirstOutputTimeoutSeconds > MaxOpenAIHighEffortFirstOutputSeconds ||
+		(settings.OpenAIHighEffortFirstOutputTimeoutSeconds > 0 && settings.OpenAIHighEffortFirstOutputTimeoutSeconds < MinOpenAIFirstOutputTimeoutSeconds) {
+		settings.OpenAIHighEffortFirstOutputTimeoutSeconds = DefaultOpenAIHighEffortFirstOutputSeconds
+	}
+	if settings.StreamKeepaliveIntervalSeconds < 0 ||
+		(settings.StreamKeepaliveIntervalSeconds > 0 && (settings.StreamKeepaliveIntervalSeconds < MinStreamKeepaliveIntervalSeconds || settings.StreamKeepaliveIntervalSeconds > MaxStreamKeepaliveIntervalSeconds)) {
+		settings.StreamKeepaliveIntervalSeconds = DefaultStreamKeepaliveIntervalSeconds
+	}
 
 	// 验证 action
 	switch settings.Action {
@@ -1060,6 +1074,41 @@ func (s *SettingService) GetStreamTimeoutSettings(ctx context.Context) (*StreamT
 	}
 
 	return &settings, nil
+}
+
+func (s *SettingService) defaultStreamTimeoutSettings() *StreamTimeoutSettings {
+	settings := DefaultStreamTimeoutSettings()
+	if s == nil || s.cfg == nil {
+		return settings
+	}
+	settings.OpenAIFirstOutputTimeoutSeconds = s.cfg.Gateway.OpenAIFirstOutputTimeoutSeconds
+	settings.OpenAIHighEffortFirstOutputTimeoutSeconds = s.cfg.Gateway.OpenAIHighEffortFirstOutputTimeoutSeconds
+	settings.StreamKeepaliveIntervalSeconds = s.cfg.Gateway.StreamKeepaliveInterval
+	return settings
+}
+
+// OpenAIStreamRuntimeSettings returns one coherent, cached snapshot for a
+// request. Persisted admin values take precedence over process configuration.
+func (s *SettingService) OpenAIStreamRuntimeSettings(ctx context.Context) OpenAIStreamRuntimeSettings {
+	if s == nil {
+		return OpenAIStreamRuntimeSettings{
+			FirstOutputTimeoutSeconds:    DefaultOpenAIFirstOutputTimeoutSeconds,
+			HighEffortFirstOutputSeconds: DefaultOpenAIHighEffortFirstOutputSeconds,
+			KeepaliveIntervalSeconds:     DefaultStreamKeepaliveIntervalSeconds,
+		}
+	}
+	if s.settingRepo != nil {
+		s.refreshStreamResponseHeaderTimeoutCache()
+	}
+	if cached := s.openAIStreamRuntimeSettings.Load(); cached != nil {
+		return *cached
+	}
+	defaults := s.defaultStreamTimeoutSettings()
+	return OpenAIStreamRuntimeSettings{
+		FirstOutputTimeoutSeconds:    defaults.OpenAIFirstOutputTimeoutSeconds,
+		HighEffortFirstOutputSeconds: defaults.OpenAIHighEffortFirstOutputTimeoutSeconds,
+		KeepaliveIntervalSeconds:     defaults.StreamKeepaliveIntervalSeconds,
+	}
 }
 
 // refreshStreamResponseHeaderTimeoutCache 刷新 LLM 流响应头超时的运行时配置。
@@ -1112,7 +1161,7 @@ func (s *SettingService) GetStreamResponseHeaderTimeoutSeconds() int {
 
 func (s *SettingService) cacheStreamResponseHeaderTimeout(settings *StreamTimeoutSettings) {
 	if settings == nil {
-		settings = DefaultStreamTimeoutSettings()
+		settings = s.defaultStreamTimeoutSettings()
 	}
 	seconds := settings.ResponseHeaderTimeoutSeconds
 	if seconds < MinStreamResponseHeaderTimeoutSeconds || seconds > MaxStreamResponseHeaderTimeoutSeconds {
@@ -1120,7 +1169,19 @@ func (s *SettingService) cacheStreamResponseHeaderTimeout(settings *StreamTimeou
 	}
 	s.streamResponseHeaderTimeoutDegradationEnabled.Store(settings.ResponseHeaderTimeoutDegradationEnabled)
 	s.streamResponseHeaderTimeoutSeconds.Store(int64(seconds))
+	s.cacheStreamTimeoutRuntime(settings)
 	s.streamResponseHeaderTimeoutLoaded.Store(time.Now().UnixNano())
+}
+
+func (s *SettingService) cacheStreamTimeoutRuntime(settings *StreamTimeoutSettings) {
+	if s == nil || settings == nil {
+		return
+	}
+	s.openAIStreamRuntimeSettings.Store(&OpenAIStreamRuntimeSettings{
+		FirstOutputTimeoutSeconds:    settings.OpenAIFirstOutputTimeoutSeconds,
+		HighEffortFirstOutputSeconds: settings.OpenAIHighEffortFirstOutputTimeoutSeconds,
+		KeepaliveIntervalSeconds:     settings.StreamKeepaliveIntervalSeconds,
+	})
 }
 
 // IsUngroupedKeySchedulingAllowed 查询是否允许未分组 Key 调度
@@ -1421,6 +1482,20 @@ func (s *SettingService) SetStreamTimeoutSettings(ctx context.Context, settings 
 	}
 	if settings.ThresholdWindowMinutes < 1 || settings.ThresholdWindowMinutes > 60 {
 		return fmt.Errorf("threshold_window_minutes must be between 1-60")
+	}
+	if settings.OpenAIFirstOutputTimeoutSeconds < 0 ||
+		settings.OpenAIFirstOutputTimeoutSeconds > MaxOpenAIFirstOutputTimeoutSeconds ||
+		(settings.OpenAIFirstOutputTimeoutSeconds > 0 && settings.OpenAIFirstOutputTimeoutSeconds < MinOpenAIFirstOutputTimeoutSeconds) {
+		return fmt.Errorf("openai_first_output_timeout_seconds must be 0 or between %d-%d", MinOpenAIFirstOutputTimeoutSeconds, MaxOpenAIFirstOutputTimeoutSeconds)
+	}
+	if settings.OpenAIHighEffortFirstOutputTimeoutSeconds < 0 ||
+		settings.OpenAIHighEffortFirstOutputTimeoutSeconds > MaxOpenAIHighEffortFirstOutputSeconds ||
+		(settings.OpenAIHighEffortFirstOutputTimeoutSeconds > 0 && settings.OpenAIHighEffortFirstOutputTimeoutSeconds < MinOpenAIFirstOutputTimeoutSeconds) {
+		return fmt.Errorf("openai_high_effort_first_output_timeout_seconds must be 0 or between %d-%d", MinOpenAIFirstOutputTimeoutSeconds, MaxOpenAIHighEffortFirstOutputSeconds)
+	}
+	if settings.StreamKeepaliveIntervalSeconds < 0 ||
+		(settings.StreamKeepaliveIntervalSeconds > 0 && (settings.StreamKeepaliveIntervalSeconds < MinStreamKeepaliveIntervalSeconds || settings.StreamKeepaliveIntervalSeconds > MaxStreamKeepaliveIntervalSeconds)) {
+		return fmt.Errorf("stream_keepalive_interval_seconds must be 0 or between %d-%d", MinStreamKeepaliveIntervalSeconds, MaxStreamKeepaliveIntervalSeconds)
 	}
 
 	switch settings.Action {

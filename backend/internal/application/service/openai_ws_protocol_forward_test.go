@@ -576,7 +576,8 @@ func TestOpenAIGatewayService_Forward_CodexPrewarmWSDial403FallbackHTTP(t *testi
 	require.NotNil(t, result)
 	require.False(t, result.OpenAIWSMode)
 	require.Equal(t, int32(1), rejectDialer.dialCount.Load())
-	require.Equal(t, "request-prewarm-403", rejectDialer.RequestHeaders().Get("X-Client-Request-ID"))
+	require.NotEmpty(t, rejectDialer.RequestHeaders().Get("X-Client-Request-ID"))
+	require.NotEqual(t, "request-prewarm-403", rejectDialer.RequestHeaders().Get("X-Client-Request-ID"), "Codex session headers must be isolated before an OAuth WS handshake")
 	require.NotNil(t, upstream.lastReq)
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Equal(t, "resp_http_after_ws_403", gjson.GetBytes(rec.Body.Bytes(), "id").String())
@@ -657,6 +658,14 @@ func TestShouldFallbackOpenAIWSToHTTP(t *testing.T) {
 		Err:        errors.New("426 upgrade required"),
 	})))
 	require.True(t, shouldFallbackOpenAIWSToHTTP(wrapOpenAIWSFallback("ws_unsupported", errors.New("unsupported"))))
+	require.True(t, shouldFallbackOpenAIWSToHTTP(wrapOpenAIWSFallback("auth_failed", &openAIWSDialError{
+		StatusCode: http.StatusUnauthorized,
+		Err:        errors.New("unauthorized"),
+	})))
+	require.True(t, shouldFallbackOpenAIWSToHTTP(wrapOpenAIWSFallback("auth_failed", &openAIWSDialError{
+		StatusCode: http.StatusForbidden,
+		Err:        errors.New("forbidden"),
+	})))
 	require.False(t, shouldFallbackOpenAIWSToHTTP(wrapOpenAIWSFallback("auth_failed", errors.New("unauthorized"))))
 }
 

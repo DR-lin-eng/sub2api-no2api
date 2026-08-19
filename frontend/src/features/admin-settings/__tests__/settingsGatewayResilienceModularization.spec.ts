@@ -48,7 +48,7 @@ const cards = [
     marker: 'Stream Timeout Settings',
     component: 'SettingsStreamTimeoutCard',
     file: 'SettingsStreamTimeoutCard.vue',
-    templateHash: 'c6a9a9f9fa9f93502ea6c7096f8365917396a81e0b49562c3a0866c4a11cd821',
+    templateHash: 'e4de6fc997711a2170ea9b8a14fb1e4f69cb5118abddb6ecdd6dab1f7717441e',
   },
   {
     marker: 'Request Rectifier Settings',
@@ -66,7 +66,7 @@ const cards = [
     marker: 'OpenAI Fast/Flex Policy Settings',
     component: 'SettingsOpenAIFastPolicyCard',
     file: 'SettingsOpenAIFastPolicyCard.vue',
-    templateHash: '0ad4abb07f7e0b599d87a40d5839e2d5c7f4bc05cc26f3cd5b010f8ff2980bd3',
+    templateHash: '4b3de515335da6164d6ebd6859604ea3d70d715cfc5e6811ed53183c07af6544',
   },
 ] as const
 

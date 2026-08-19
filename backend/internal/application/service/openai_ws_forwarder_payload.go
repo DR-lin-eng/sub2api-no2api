@@ -121,6 +121,13 @@ func (s *OpenAIGatewayService) buildOpenAIWSHeaders(
 			headers.Set("conversation_id", sessionResolution.ConversationID)
 		}
 	}
+	// Official Codex clients send hyphenated session/thread headers on every
+	// Responses HTTP/WS request.  Generate them from an isolated request-local
+	// projection; the later fingerprint stage remains authoritative when it is
+	// enabled for this account.
+	if account == nil || account.GetCodexFingerprintMode() == codexFingerprintOff {
+		applyCodexOutboundSessionHeaders(c, account, nil, promptCacheKey, headers, nil)
+	}
 	if state := strings.TrimSpace(turnState); state != "" {
 		headers.Set(openAIWSTurnStateHeader, state)
 	}

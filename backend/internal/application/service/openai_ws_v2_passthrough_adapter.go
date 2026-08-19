@@ -616,12 +616,13 @@ func openAIWSPassthroughStartsSemanticOutput(payload []byte) bool {
 	switch eventType {
 	case "response.completed", "response.done", "response.failed", "response.incomplete", "response.cancelled", "response.canceled":
 		return true
-	case "", "response.created", "response.in_progress", "response.output_item.added", "response.output_item.done":
+	case "", "response.created", "response.in_progress":
 		return false
 	}
-	return strings.Contains(eventType, ".delta") ||
-		strings.HasPrefix(eventType, "response.output_text") ||
-		strings.HasPrefix(eventType, "response.output")
+	// Structure events can themselves contain a complete tool/text item. Use
+	// the shared Responses semantic-output classifier instead of treating every
+	// output_item frame as a harmless preamble.
+	return openAIStreamDataStartsClientOutput(string(payload), eventType)
 }
 
 func openAIWSPassthroughIsTerminalOutput(payload []byte) bool {
@@ -888,6 +889,8 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	if s.CodexSimulationRequestEnabled(c) {
 		headers.Del(CodexProjectIDHeader)
 	}
+	stageCodexOutboundSessionBody(c, firstClientMessage)
+	applyCodexOutboundSessionHeaders(c, account, firstClientMessage, promptCacheKey, headers, fingerprintIDs)
 	applyCodexFingerprintWSHeaders(headers, fingerprintIDs)
 	// The compatibility key is only for the managed connection pool. This
 	// passthrough path dials upstream directly and must never expose it.
@@ -969,7 +972,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			if current := usageMeta.reasoningEffort.Load(); current != nil {
 				reasoningEffort = *current
 			}
-			timeout := s.openAIFirstOutputTimeout(reasoningEffort)
+			timeout := s.openAIFirstOutputTimeoutWithContext(ctx, reasoningEffort)
 			if timeout <= 0 {
 				timeout = s.openAIWSPassthroughIdleTimeout()
 			}
@@ -1325,6 +1328,19 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 				if eventType == "error" {
 					s.handleOpenAIWSErrorEventTransientFailure(ctx, account, capturedSessionModel, handshakeHeaders, payload)
 				}
+				if account.Platform == PlatformOpenAI && !wroteDownstream && isOpenAIWSOverloadPayload(payload) {
+					message := strings.TrimSpace(gjson.GetBytes(payload, "response.error.message").String())
+					if message == "" {
+						message = strings.TrimSpace(gjson.GetBytes(payload, "error.message").String())
+					}
+					logOpenAIWSV2Passthrough(
+						"relay_overload_failover account_id=%d event_type=%s err_message=%s",
+						account.ID,
+						truncateOpenAIWSLogValue(eventType, openAIWSLogValueMaxLen),
+						truncateOpenAIWSLogValue(message, openAIWSLogValueMaxLen),
+					)
+					return newOpenAIWSOverloadFailoverError(handshakeHeaders, payload, message)
+				}
 				if wroteDownstream || eventType != "error" {
 					return nil
 				}
@@ -1346,6 +1362,26 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 					ResponseHeaders: cloneHeader(handshakeHeaders),
 				}
 			},
+			BufferBeforeFirstSemanticOutput: func(msgType coderws.MessageType, payload []byte) bool {
+				// The internal ChatGPT/Codex OAuth lane is the path whose
+				// 200+preamble+overload envelope must remain replayable. Keep
+				// legacy API-key passthrough timing unchanged.
+				if account == nil || !account.IsOpenAIOAuth() {
+					return false
+				}
+				if msgType != coderws.MessageText {
+					return false
+				}
+				eventType := strings.TrimSpace(gjson.GetBytes(payload, "type").String())
+				if eventType == "error" || isOpenAIWSTerminalEvent(eventType) {
+					return false
+				}
+				if isOpenAIWSRateLimitsPreamble(eventType) {
+					return true
+				}
+				return !openAIWSPassthroughStartsSemanticOutput(payload)
+			},
+			PreOutputBufferLimit: openAIStreamPreOutputBufferLimit,
 			OnTrace: func(event openaiwsv2.RelayTraceEvent) {
 				logOpenAIWSV2Passthrough(
 					"relay_trace account_id=%d stage=%s direction=%s msg_type=%s bytes=%d graceful=%v wrote_downstream=%v err=%s",

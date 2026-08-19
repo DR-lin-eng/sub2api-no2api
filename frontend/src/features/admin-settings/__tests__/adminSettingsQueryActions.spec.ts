@@ -277,6 +277,9 @@ describe("admin settings query and action owners", () => {
         temp_unsched_minutes: 5,
         threshold_count: 3,
         threshold_window_minutes: 10,
+        openai_first_output_timeout_seconds: 90,
+        openai_high_effort_first_output_timeout_seconds: 180,
+        stream_keepalive_interval_seconds: 10,
       },
       {
         enabled: true,
@@ -506,6 +509,9 @@ describe("admin settings query and action owners", () => {
           temp_unsched_minutes: 5,
           threshold_count: 3,
           threshold_window_minutes: 10,
+          openai_first_output_timeout_seconds: 90,
+          openai_high_effort_first_output_timeout_seconds: 180,
+          stream_keepalive_interval_seconds: 10,
         },
       ],
       [

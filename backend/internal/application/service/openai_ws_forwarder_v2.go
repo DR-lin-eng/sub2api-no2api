@@ -63,6 +63,16 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	)
 
 	payload := s.buildOpenAIWSCreatePayload(reqBody, account)
+	reasoningEffort := ""
+	if effort := extractOpenAIReasoningEffort(reqBody, mappedModel, originalModel); effort != nil {
+		reasoningEffort = strings.TrimSpace(*effort)
+	}
+	firstOutputTimeout := time.Duration(0)
+	if account.Platform == PlatformOpenAI {
+		firstOutputTimeout = s.openAIFirstOutputTimeoutWithContext(ctx, reasoningEffort)
+	}
+	firstOutputDeadline := startTime.Add(firstOutputTimeout)
+	firstOutputComplete := false
 	payloadStrategy, removedKeys := applyOpenAIWSRetryPayloadStrategy(payload, attempt)
 	previousResponseID := openAIWSPayloadString(payload, "previous_response_id")
 	previousResponseIDKind := ClassifyOpenAIPreviousResponseIDKind(previousResponseID)
@@ -152,6 +162,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	storeDisabledConnMode := s.openAIWSStoreDisabledConnMode()
 	forceNewConnByPolicy := shouldForceNewConnOnStoreDisabled(storeDisabledConnMode, lastFailureReason)
 	forceNewConn := forceNewConnByPolicy && storeDisabled && previousResponseID == "" && sessionHash != "" && preferredConnID == ""
+	stageCodexOutboundSessionBody(c, payloadAsJSONBytes(payload))
 	wsHeaders, sessionResolution, buildHdrErr := s.buildOpenAIWSHeaders(
 		ctx,
 		c,
@@ -171,6 +182,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	if s.CodexSimulationRequestEnabled(c) {
 		wsHeaders.Del(CodexProjectIDHeader)
 	}
+	applyCodexOutboundSessionHeaders(c, account, payloadAsJSONBytes(payload), promptCacheKey, wsHeaders, fingerprintIDs)
 	applyCodexFingerprintWSHeaders(wsHeaders, fingerprintIDs)
 	logOpenAIWSModeDebug(
 		"acquire_start account_id=%d account_type=%s transport=%s preferred_conn_id=%s has_previous_response_id=%v session_hash=%s has_turn_state=%v turn_state_len=%d has_turn_metadata=%v turn_metadata_len=%d store_disabled=%v store_disabled_conn_mode=%s retry_last_reason=%s force_new_conn=%v header_user_agent=%s header_openai_beta=%s header_originator=%s header_accept_language=%s header_session_id=%s header_conversation_id=%s session_id_source=%s conversation_id_source=%s has_prompt_cache_key=%v has_chatgpt_account_id=%v has_authorization=%v has_session_id=%v has_conversation_id=%v proxy_enabled=%v",
@@ -352,6 +364,13 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		account,
 		stateStore,
 		groupID,
+		&openAIWSPrewarmFirstOutputGuard{
+			c:               c,
+			startedAt:       startTime,
+			timeout:         firstOutputTimeout,
+			originalModel:   originalModel,
+			reasoningEffort: reasoningEffort,
+		},
 	); err != nil {
 		return nil, err
 	}
@@ -495,7 +514,29 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			message = pendingJSONDocuments[0]
 			pendingJSONDocuments = pendingJSONDocuments[1:]
 		} else {
-			message, readErr = lease.ReadMessageWithContextTimeout(ctx, readTimeout)
+			readCtx := ctx
+			var cancelRead context.CancelFunc
+			if firstOutputTimeout > 0 && !firstOutputComplete {
+				remaining := time.Until(firstOutputDeadline)
+				if remaining <= 0 {
+					readErr = context.DeadlineExceeded
+				} else {
+					readCtx, cancelRead = context.WithTimeout(ctx, remaining)
+				}
+			}
+			if readErr == nil {
+				message, readErr = lease.ReadMessageWithContextTimeout(readCtx, readTimeout)
+			}
+			if cancelRead != nil {
+				cancelRead()
+			}
+			if readErr != nil && firstOutputTimeout > 0 && !firstOutputComplete && ctx.Err() == nil && !time.Now().Before(firstOutputDeadline) {
+				lease.MarkBroken()
+				return nil, s.newOpenAIFirstOutputTimeoutError(
+					ctx, c, account, startTime, originalModel, reasoningEffort,
+					firstOutputTimeout, "websocket_semantic_output", lease.HandshakeHeaders(),
+				)
+			}
 			if readErr == nil {
 				if documents, repaired := splitOpenAIConcatenatedJSONDocuments(message); repaired {
 					logOpenAIWSModeInfo(
@@ -588,6 +629,9 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		isTerminalEvent := isOpenAIWSTerminalEvent(eventType)
 		if isTerminalEvent {
 			terminalEventCount++
+		}
+		if !firstOutputComplete && (isTerminalEvent || openAIStreamDataStartsClientOutput(string(message), eventType)) {
+			firstOutputComplete = true
 		}
 		if firstTokenMs == nil && isTTFTEvent {
 			ms := int(time.Since(startTime).Milliseconds())
@@ -684,6 +728,11 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			}
 			// error 事件后连接不再可复用，避免回池后污染下一请求。
 			lease.MarkBroken()
+			if !wroteDownstream && (isOpenAIWSOverloadError(errCodeRaw, errTypeRaw, errMsgRaw) || isOpenAIWSOverloadPayload(message)) {
+				return nil, newOpenAIWSOverloadFailoverError(
+					lease.HandshakeHeaders(), message, errMsg,
+				)
+			}
 			if account.BypassesLocalOpenAI429SchedulingBlocks() && !wroteDownstream &&
 				isOpenAIWSRateLimitError(errCodeRaw, errTypeRaw, errMsgRaw) {
 				return nil, &UpstreamFailoverError{
@@ -696,6 +745,9 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 				return nil, wrapOpenAIWSFallback(fallbackReason, errors.New(errMsg))
 			}
 			statusCode := openAIWSErrorHTTPStatusFromRaw(errCodeRaw, errTypeRaw)
+			if isOpenAIWSOverloadError(errCodeRaw, errTypeRaw, errMsgRaw) {
+				statusCode = http.StatusServiceUnavailable
+			}
 			setOpsUpstreamError(c, statusCode, errMsg, "")
 			if reqStream && !clientDisconnected {
 				flushBufferedStreamEvents("error_event", false)
@@ -710,6 +762,15 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 				})
 			}
 			return nil, fmt.Errorf("openai ws error event: %s", errMsg)
+		}
+
+		if eventType == "response.failed" && !wroteDownstream && isOpenAIWSOverloadPayload(message) {
+			s.handleOpenAIWSTerminalTransientFailure(ctx, account, mappedModel, lease.HandshakeHeaders(), message)
+			lease.MarkBroken()
+			return nil, newOpenAIWSOverloadFailoverError(
+				lease.HandshakeHeaders(), message,
+				strings.TrimSpace(gjson.GetBytes(message, "response.error.message").String()),
+			)
 		}
 
 		if eventType == "response.failed" && account.BypassesLocalOpenAI429SchedulingBlocks() &&
@@ -763,6 +824,9 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 					)
 				}
 				if bufferedStreamEventBytes-bufferedRateLimitsEventBytes >= openAIStreamPreOutputBufferLimit {
+					// The preamble is about to become client-visible. It is no longer
+					// safe to replay this attempt on another account.
+					firstOutputComplete = true
 					flushBufferedStreamEvents("buffer_limit", true)
 				}
 			} else {
