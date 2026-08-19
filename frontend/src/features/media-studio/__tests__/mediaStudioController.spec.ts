@@ -63,6 +63,141 @@ describe('media studio controller', () => {
     })
   })
 
+  it('submits reference images through the image edits endpoint', async () => {
+    const submitImage = vi.fn().mockResolvedValue({
+      id: 'generation-1', task_id: 'generation-1', object: 'image.generation.task', status: 'completed',
+      result: { data: [{ url: 'https://cdn.example/generated.png' }] }, created_at: 1, expires_at: 2,
+    })
+    const submitImageEdit = vi.fn().mockResolvedValue({
+      id: 'edit-1', task_id: 'edit-1', object: 'image.generation.task', status: 'completed',
+      result: { data: [{ url: 'https://cdn.example/edited.png' }] }, created_at: 1, expires_at: 2,
+    })
+    const controller = useMediaStudioController({
+      storage: localStorage,
+      getConfig: vi.fn().mockResolvedValue(config),
+      createSession: vi.fn().mockResolvedValue(session()),
+      listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: 'gpt-image-2' }] }),
+      submitImage,
+      submitImageEdit,
+    })
+
+    await controller.loadMediaGroups()
+    controller.updateImageAttachments([{
+      id: 'reference-1',
+      file: new File(['reference'], 'reference.png', { type: 'image/png' }),
+      name: 'reference.png',
+      mimeType: 'image/png',
+      size: 9,
+      previewUrl: 'blob:reference-1',
+    }])
+    controller.prompt.value = 'edit the reference image'
+    await controller.submitPrompt()
+
+    expect(submitImageEdit).toHaveBeenCalledWith(
+      'sk-demo',
+      [expect.any(File)],
+      expect.objectContaining({
+        model: 'gpt-image-2',
+        prompt: 'edit the reference image',
+        n: 1,
+      }),
+      expect.stringMatching(/^media_idem_/),
+    )
+    expect(submitImage).not.toHaveBeenCalled()
+  })
+
+  it('retries a failed image edit with its original reference image', async () => {
+    const submitImage = vi.fn()
+    const submitImageEdit = vi.fn()
+      .mockRejectedValueOnce(new Error('temporary edit failure'))
+      .mockResolvedValueOnce({
+        id: 'edit-retry-1', task_id: 'edit-retry-1', object: 'image.generation.task', status: 'completed',
+        result: { data: [{ url: 'https://cdn.example/retry.png' }] }, created_at: 1, expires_at: 2,
+      })
+    const controller = useMediaStudioController({
+      storage: localStorage,
+      getConfig: vi.fn().mockResolvedValue(config),
+      createSession: vi.fn().mockResolvedValue(session()),
+      listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: 'gpt-image-2' }] }),
+      submitImage,
+      submitImageEdit,
+    })
+
+    await controller.loadMediaGroups()
+    const file = new File(['reference'], 'reference.png', { type: 'image/png' })
+    controller.updateImageAttachments([{
+      id: 'reference-1',
+      file,
+      name: 'reference.png',
+      mimeType: 'image/png',
+      size: 9,
+      previewUrl: 'blob:reference-1',
+    }])
+    controller.prompt.value = 'retry this edit'
+    await controller.submitPrompt()
+
+    const failedMessage = controller.conversation.value.messages.at(-1)
+    expect(failedMessage).toMatchObject({ mode: 'image', status: 'failed' })
+
+    await controller.retryMessage(failedMessage!)
+
+    expect(submitImageEdit).toHaveBeenCalledTimes(2)
+    expect(submitImageEdit.mock.calls[1][1]).toEqual([file])
+    expect(submitImage).not.toHaveBeenCalled()
+    expect(controller.conversation.value.messages.at(-1)).toMatchObject({
+      mode: 'image', status: 'completed', images: [{ src: 'https://cdn.example/retry.png' }],
+    })
+  })
+
+  it('renders each requested image as its independent task completes', async () => {
+    let releaseSecond: ((value: unknown) => void) | undefined
+    let releaseThird: ((value: unknown) => void) | undefined
+    const second = new Promise(resolve => { releaseSecond = resolve })
+    const third = new Promise(resolve => { releaseThird = resolve })
+    const submitImage = vi.fn()
+      .mockResolvedValueOnce({
+        id: 'image-1', task_id: 'image-1', object: 'image.generation.task', status: 'completed',
+        result: { data: [{ url: 'https://cdn.example/image-1.png' }] }, created_at: 1, expires_at: 2,
+      })
+      .mockReturnValueOnce(second)
+      .mockReturnValueOnce(third)
+    const controller = useMediaStudioController({
+      storage: localStorage,
+      getConfig: vi.fn().mockResolvedValue(config),
+      createSession: vi.fn().mockResolvedValue(session()),
+      listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: 'gpt-image-2' }] }),
+      submitImage,
+    })
+
+    await controller.loadMediaGroups()
+    controller.count.value = 3
+    controller.prompt.value = 'three independent images'
+    const submission = controller.submitPrompt()
+    await settle()
+
+    expect(submitImage).toHaveBeenCalledTimes(3)
+    expect(submitImage.mock.calls.every(call => call[1].n === 1)).toBe(true)
+    expect(controller.conversation.value.messages.at(-1)?.images).toHaveLength(1)
+    expect(controller.conversation.value.messages.at(-1)?.status).toBe('processing')
+
+    releaseSecond?.({
+      id: 'image-2', task_id: 'image-2', object: 'image.generation.task', status: 'completed',
+      result: { data: [{ url: 'https://cdn.example/image-2.png' }] }, created_at: 1, expires_at: 2,
+    })
+    releaseThird?.({
+      id: 'image-3', task_id: 'image-3', object: 'image.generation.task', status: 'completed',
+      result: { data: [{ url: 'https://cdn.example/image-3.png' }] }, created_at: 1, expires_at: 2,
+    })
+    await submission
+
+    expect(controller.conversation.value.messages.at(-1)?.images).toHaveLength(3)
+    expect(controller.conversation.value.messages.at(-1)?.status).toBe('completed')
+
+    await nextTick()
+    const restoredController = useMediaStudioController({ storage: localStorage })
+    expect(restoredController.conversation.value.messages.at(-1)?.images).toHaveLength(3)
+  })
+
   it('runs video submit, polling, authenticated content loading, and URL cleanup', async () => {
     const createObjectURL = vi.fn().mockReturnValue('blob:video-preview')
     const revokeObjectURL = vi.fn()
@@ -152,12 +287,21 @@ describe('media studio controller', () => {
   it('calculates image size from resolution and aspect ratio and persists custom sizes', async () => {
     const controller = useMediaStudioController({ storage: localStorage })
 
+    controller.imageResolution.value = '1K'
+    controller.imageAspectRatio.value = '9:16'
+    await nextTick()
+    expect(controller.size.value).toBe('576x1024')
+
     controller.imageResolution.value = '2K'
     controller.imageAspectRatio.value = '16:9'
+    await nextTick()
+    expect(controller.size.value).toBe('2048x1152')
+
     controller.addCustomImageAspectRatio('5:4')
     await nextTick()
 
     expect(controller.imageAspectRatio.value).toBe('custom:5:4')
+    expect(controller.size.value).toBe('2048x1632')
     expect(controller.customImageAspectRatios.value).toContain('5:4')
     expect(localStorage.getItem('sub2api.mediaStudio.v2')).toContain('"customImageAspectRatios":["5:4"]')
   })

@@ -24,24 +24,56 @@ func (r *CustomModelCapabilityRepository) HasCapability(
 	modelName string,
 	capability string,
 ) (bool, error) {
+	config, enabled, err := r.resolveConfig(ctx, modelName)
+	if err != nil || !enabled || config == nil {
+		return false, err
+	}
+	return hasCapability(config.Capabilities, capability), nil
+}
+
+func (r *CustomModelCapabilityRepository) ResolveRequestAdapter(
+	ctx context.Context,
+	modelName string,
+) (map[string]any, bool, error) {
+	config, enabled, err := r.resolveConfig(ctx, modelName)
+	if err != nil || !enabled || config == nil || config.TemplateID == nil {
+		return nil, false, err
+	}
+	template, err := r.client.CustomModelRequestTemplate.Get(ctx, *config.TemplateID)
+	if ent.IsNotFound(err) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, fmt.Errorf("query custom model request template: %w", err)
+	}
+	if len(template.RequestAdapter) == 0 {
+		return nil, false, nil
+	}
+	return template.RequestAdapter, true, nil
+}
+
+func (r *CustomModelCapabilityRepository) resolveConfig(
+	ctx context.Context,
+	modelName string,
+) (*ent.CustomModelConfig, bool, error) {
 	enabled, err := r.client.Setting.Query().
 		Where(setting.KeyEQ(service.SettingKeyCustomModelConfigEnabled)).
 		Only(ctx)
 	if ent.IsNotFound(err) || (err == nil && !strings.EqualFold(enabled.Value, "true")) {
-		return false, nil
+		return nil, false, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("query custom model config feature switch: %w", err)
+		return nil, false, fmt.Errorf("query custom model config feature switch: %w", err)
 	}
 
 	config, err := r.client.CustomModelConfig.Query().
 		Where(custommodelconfig.ModelNameEqualFold(strings.TrimSpace(modelName))).
 		Only(ctx)
 	if err == nil {
-		return hasCapability(config.Capabilities, capability), nil
+		return config, true, nil
 	}
 	if !ent.IsNotFound(err) {
-		return false, fmt.Errorf("query custom model capabilities: %w", err)
+		return nil, false, fmt.Errorf("query custom model config: %w", err)
 	}
 
 	normalizedModelName := strings.ToLower(strings.TrimSpace(modelName))
@@ -49,7 +81,7 @@ func (r *CustomModelCapabilityRepository) HasCapability(
 		Where(custommodelconfig.PrefixMatchEQ(true)).
 		All(ctx)
 	if err != nil {
-		return false, fmt.Errorf("query custom model prefix capabilities: %w", err)
+		return nil, false, fmt.Errorf("query custom model prefix config: %w", err)
 	}
 
 	var best *ent.CustomModelConfig
@@ -63,9 +95,9 @@ func (r *CustomModelCapabilityRepository) HasCapability(
 		}
 	}
 	if best == nil {
-		return false, nil
+		return nil, true, nil
 	}
-	return hasCapability(best.Capabilities, capability), nil
+	return best, true, nil
 }
 
 func hasCapability(capabilities []string, capability string) bool {

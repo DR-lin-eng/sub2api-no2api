@@ -632,6 +632,30 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	if err != nil {
 		return nil, err
 	}
+	forwardEndpoint := parsed.Endpoint
+	var adapterHeaders map[string]string
+	if s.customModelCapabilities != nil {
+		requestAdapter, configured, resolveErr := s.customModelCapabilities.ResolveRequestAdapter(ctx, upstreamModel)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		if configured {
+			adapted, adaptErr := applyOpenAIImagesRequestAdapter(
+				forwardBody,
+				forwardContentType,
+				parsed,
+				upstreamModel,
+				requestAdapter,
+			)
+			if adaptErr != nil {
+				return nil, adaptErr
+			}
+			forwardBody = adapted.Body
+			forwardContentType = adapted.ContentType
+			forwardEndpoint = adapted.Endpoint
+			adapterHeaders = adapted.Headers
+		}
+	}
 	// Image generation may already incur upstream cost before the client disconnects.
 	// Keep draining the bounded upstream request so the generated result can still be billed.
 	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
@@ -641,7 +665,16 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	if err != nil {
 		return nil, err
 	}
-	upstreamReq, err := s.buildOpenAIImagesRequest(upstreamCtx, c, account, forwardBody, forwardContentType, token, parsed.Endpoint)
+	upstreamReq, err := s.buildOpenAIImagesRequest(
+		upstreamCtx,
+		c,
+		account,
+		forwardBody,
+		forwardContentType,
+		token,
+		forwardEndpoint,
+		adapterHeaders,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -770,8 +803,18 @@ func (s *OpenAIGatewayService) buildOpenAIImagesRequest(
 	contentType string,
 	token string,
 	endpoint string,
+	adapterHeaders map[string]string,
 ) (*http.Request, error) {
-	return s.buildOpenAIImagesRequestReader(ctx, c, account, bytes.NewReader(body), contentType, token, endpoint)
+	return s.buildOpenAIImagesRequestReader(
+		ctx,
+		c,
+		account,
+		bytes.NewReader(body),
+		contentType,
+		token,
+		endpoint,
+		adapterHeaders,
+	)
 }
 
 func (s *OpenAIGatewayService) buildOpenAIImagesRequestReader(
@@ -782,6 +825,7 @@ func (s *OpenAIGatewayService) buildOpenAIImagesRequestReader(
 	contentType string,
 	token string,
 	endpoint string,
+	adapterHeaders map[string]string,
 ) (*http.Request, error) {
 	targetURL := openAIImagesGenerationsURL
 	if endpoint == openAIImagesEditsEndpoint {
@@ -827,6 +871,9 @@ func (s *OpenAIGatewayService) buildOpenAIImagesRequestReader(
 	}
 	if strings.TrimSpace(contentType) != "" {
 		req.Header.Set("Content-Type", contentType)
+	}
+	for name, value := range adapterHeaders {
+		req.Header.Set(resolveWireCasing(name), value)
 	}
 	// 账号级请求头覆写（仅 openai api_key 账号启用时生效；OAuth 路径 no-op）
 	account.ApplyHeaderOverrides(req.Header)

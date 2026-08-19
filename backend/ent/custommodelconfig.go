@@ -28,6 +28,8 @@ type CustomModelConfig struct {
 	PrefixMatch bool `json:"prefix_match,omitempty"`
 	// 模型能力列表，如 ["image", "video", "audio"]
 	Capabilities []string `json:"capabilities,omitempty"`
+	// 可复用的请求适配模板 ID
+	TemplateID   *int64 `json:"template_id,omitempty"`
 	selectValues sql.SelectValues
 }
 
@@ -40,7 +42,7 @@ func (*CustomModelConfig) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case custommodelconfig.FieldPrefixMatch:
 			values[i] = new(sql.NullBool)
-		case custommodelconfig.FieldID:
+		case custommodelconfig.FieldID, custommodelconfig.FieldTemplateID:
 			values[i] = new(sql.NullInt64)
 		case custommodelconfig.FieldModelName:
 			values[i] = new(sql.NullString)
@@ -99,6 +101,13 @@ func (_m *CustomModelConfig) assignValues(columns []string, values []any) error 
 					return fmt.Errorf("unmarshal field capabilities: %w", err)
 				}
 			}
+		case custommodelconfig.FieldTemplateID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field template_id", values[i])
+			} else if value.Valid {
+				_m.TemplateID = new(int64)
+				*_m.TemplateID = value.Int64
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -149,6 +158,11 @@ func (_m *CustomModelConfig) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("capabilities=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Capabilities))
+	builder.WriteString(", ")
+	if v := _m.TemplateID; v != nil {
+		builder.WriteString("template_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

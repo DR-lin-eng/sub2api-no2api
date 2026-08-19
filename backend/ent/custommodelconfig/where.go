@@ -74,6 +74,11 @@ func PrefixMatch(v bool) predicate.CustomModelConfig {
 	return predicate.CustomModelConfig(sql.FieldEQ(FieldPrefixMatch, v))
 }
 
+// TemplateID applies equality check predicate on the "template_id" field. It's identical to TemplateIDEQ.
+func TemplateID(v int64) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldEQ(FieldTemplateID, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.CustomModelConfig {
 	return predicate.CustomModelConfig(sql.FieldEQ(FieldCreatedAt, v))
@@ -227,6 +232,56 @@ func PrefixMatchEQ(v bool) predicate.CustomModelConfig {
 // PrefixMatchNEQ applies the NEQ predicate on the "prefix_match" field.
 func PrefixMatchNEQ(v bool) predicate.CustomModelConfig {
 	return predicate.CustomModelConfig(sql.FieldNEQ(FieldPrefixMatch, v))
+}
+
+// TemplateIDEQ applies the EQ predicate on the "template_id" field.
+func TemplateIDEQ(v int64) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldEQ(FieldTemplateID, v))
+}
+
+// TemplateIDNEQ applies the NEQ predicate on the "template_id" field.
+func TemplateIDNEQ(v int64) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldNEQ(FieldTemplateID, v))
+}
+
+// TemplateIDIn applies the In predicate on the "template_id" field.
+func TemplateIDIn(vs ...int64) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldIn(FieldTemplateID, vs...))
+}
+
+// TemplateIDNotIn applies the NotIn predicate on the "template_id" field.
+func TemplateIDNotIn(vs ...int64) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldNotIn(FieldTemplateID, vs...))
+}
+
+// TemplateIDGT applies the GT predicate on the "template_id" field.
+func TemplateIDGT(v int64) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldGT(FieldTemplateID, v))
+}
+
+// TemplateIDGTE applies the GTE predicate on the "template_id" field.
+func TemplateIDGTE(v int64) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldGTE(FieldTemplateID, v))
+}
+
+// TemplateIDLT applies the LT predicate on the "template_id" field.
+func TemplateIDLT(v int64) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldLT(FieldTemplateID, v))
+}
+
+// TemplateIDLTE applies the LTE predicate on the "template_id" field.
+func TemplateIDLTE(v int64) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldLTE(FieldTemplateID, v))
+}
+
+// TemplateIDIsNil applies the IsNil predicate on the "template_id" field.
+func TemplateIDIsNil() predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldIsNull(FieldTemplateID))
+}
+
+// TemplateIDNotNil applies the NotNil predicate on the "template_id" field.
+func TemplateIDNotNil() predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldNotNull(FieldTemplateID))
 }
 
 // And groups predicates with the AND operator between them.

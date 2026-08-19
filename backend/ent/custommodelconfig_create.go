@@ -76,6 +76,20 @@ func (_c *CustomModelConfigCreate) SetCapabilities(v []string) *CustomModelConfi
 	return _c
 }
 
+// SetTemplateID sets the "template_id" field.
+func (_c *CustomModelConfigCreate) SetTemplateID(v int64) *CustomModelConfigCreate {
+	_c.mutation.SetTemplateID(v)
+	return _c
+}
+
+// SetNillableTemplateID sets the "template_id" field if the given value is not nil.
+func (_c *CustomModelConfigCreate) SetNillableTemplateID(v *int64) *CustomModelConfigCreate {
+	if v != nil {
+		_c.SetTemplateID(*v)
+	}
+	return _c
+}
+
 // Mutation returns the CustomModelConfigMutation object of the builder.
 func (_c *CustomModelConfigCreate) Mutation() *CustomModelConfigMutation {
 	return _c.mutation
@@ -194,6 +208,10 @@ func (_c *CustomModelConfigCreate) createSpec() (*CustomModelConfig, *sqlgraph.C
 		_spec.SetField(custommodelconfig.FieldCapabilities, field.TypeJSON, value)
 		_node.Capabilities = value
 	}
+	if value, ok := _c.mutation.TemplateID(); ok {
+		_spec.SetField(custommodelconfig.FieldTemplateID, field.TypeInt64, value)
+		_node.TemplateID = &value
+	}
 	return _node, _spec
 }
 
@@ -291,6 +309,30 @@ func (u *CustomModelConfigUpsert) SetCapabilities(v []string) *CustomModelConfig
 // UpdateCapabilities sets the "capabilities" field to the value that was provided on create.
 func (u *CustomModelConfigUpsert) UpdateCapabilities() *CustomModelConfigUpsert {
 	u.SetExcluded(custommodelconfig.FieldCapabilities)
+	return u
+}
+
+// SetTemplateID sets the "template_id" field.
+func (u *CustomModelConfigUpsert) SetTemplateID(v int64) *CustomModelConfigUpsert {
+	u.Set(custommodelconfig.FieldTemplateID, v)
+	return u
+}
+
+// UpdateTemplateID sets the "template_id" field to the value that was provided on create.
+func (u *CustomModelConfigUpsert) UpdateTemplateID() *CustomModelConfigUpsert {
+	u.SetExcluded(custommodelconfig.FieldTemplateID)
+	return u
+}
+
+// AddTemplateID adds v to the "template_id" field.
+func (u *CustomModelConfigUpsert) AddTemplateID(v int64) *CustomModelConfigUpsert {
+	u.Add(custommodelconfig.FieldTemplateID, v)
+	return u
+}
+
+// ClearTemplateID clears the value of the "template_id" field.
+func (u *CustomModelConfigUpsert) ClearTemplateID() *CustomModelConfigUpsert {
+	u.SetNull(custommodelconfig.FieldTemplateID)
 	return u
 }
 
@@ -392,6 +434,34 @@ func (u *CustomModelConfigUpsertOne) SetCapabilities(v []string) *CustomModelCon
 func (u *CustomModelConfigUpsertOne) UpdateCapabilities() *CustomModelConfigUpsertOne {
 	return u.Update(func(s *CustomModelConfigUpsert) {
 		s.UpdateCapabilities()
+	})
+}
+
+// SetTemplateID sets the "template_id" field.
+func (u *CustomModelConfigUpsertOne) SetTemplateID(v int64) *CustomModelConfigUpsertOne {
+	return u.Update(func(s *CustomModelConfigUpsert) {
+		s.SetTemplateID(v)
+	})
+}
+
+// AddTemplateID adds v to the "template_id" field.
+func (u *CustomModelConfigUpsertOne) AddTemplateID(v int64) *CustomModelConfigUpsertOne {
+	return u.Update(func(s *CustomModelConfigUpsert) {
+		s.AddTemplateID(v)
+	})
+}
+
+// UpdateTemplateID sets the "template_id" field to the value that was provided on create.
+func (u *CustomModelConfigUpsertOne) UpdateTemplateID() *CustomModelConfigUpsertOne {
+	return u.Update(func(s *CustomModelConfigUpsert) {
+		s.UpdateTemplateID()
+	})
+}
+
+// ClearTemplateID clears the value of the "template_id" field.
+func (u *CustomModelConfigUpsertOne) ClearTemplateID() *CustomModelConfigUpsertOne {
+	return u.Update(func(s *CustomModelConfigUpsert) {
+		s.ClearTemplateID()
 	})
 }
 
@@ -659,6 +729,34 @@ func (u *CustomModelConfigUpsertBulk) SetCapabilities(v []string) *CustomModelCo
 func (u *CustomModelConfigUpsertBulk) UpdateCapabilities() *CustomModelConfigUpsertBulk {
 	return u.Update(func(s *CustomModelConfigUpsert) {
 		s.UpdateCapabilities()
+	})
+}
+
+// SetTemplateID sets the "template_id" field.
+func (u *CustomModelConfigUpsertBulk) SetTemplateID(v int64) *CustomModelConfigUpsertBulk {
+	return u.Update(func(s *CustomModelConfigUpsert) {
+		s.SetTemplateID(v)
+	})
+}
+
+// AddTemplateID adds v to the "template_id" field.
+func (u *CustomModelConfigUpsertBulk) AddTemplateID(v int64) *CustomModelConfigUpsertBulk {
+	return u.Update(func(s *CustomModelConfigUpsert) {
+		s.AddTemplateID(v)
+	})
+}
+
+// UpdateTemplateID sets the "template_id" field to the value that was provided on create.
+func (u *CustomModelConfigUpsertBulk) UpdateTemplateID() *CustomModelConfigUpsertBulk {
+	return u.Update(func(s *CustomModelConfigUpsert) {
+		s.UpdateTemplateID()
+	})
+}
+
+// ClearTemplateID clears the value of the "template_id" field.
+func (u *CustomModelConfigUpsertBulk) ClearTemplateID() *CustomModelConfigUpsertBulk {
+	return u.Update(func(s *CustomModelConfigUpsert) {
+		s.ClearTemplateID()
 	})
 }
 

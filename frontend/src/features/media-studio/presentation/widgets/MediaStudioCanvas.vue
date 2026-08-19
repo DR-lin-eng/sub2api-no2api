@@ -55,7 +55,33 @@
             </div>
 
             <div
-              v-if="message.status === 'processing' || message.status === 'queued'"
+              v-if="message.mode === 'image' && (message.status === 'processing' || message.status === 'queued')"
+              class="grid gap-3 sm:grid-cols-2"
+            >
+              <button
+                v-for="image in message.images || []"
+                :key="image.id"
+                type="button"
+                class="group cursor-zoom-in overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 text-left dark:border-dark-700 dark:bg-dark-800"
+                :aria-label="t('mediaStudio.session.enlargeImage')"
+                @click="openImagePreview(image)"
+              >
+                <img
+                  :src="image.src"
+                  :alt="image.revisedPrompt || message.prompt"
+                  referrerpolicy="no-referrer"
+                  class="aspect-square w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                />
+              </button>
+              <div
+                v-for="index in Math.max((message.count || 1) - (message.images?.length || 0), 0)"
+                :key="`pending-${index}`"
+                class="animate-pulse rounded-2xl border border-gray-200 bg-gray-100 aspect-square dark:border-dark-700 dark:bg-dark-800"
+              ></div>
+            </div>
+
+            <div
+              v-else-if="message.status === 'processing' || message.status === 'queued'"
               class="grid gap-3"
               :class="message.mode === 'image' ? 'sm:grid-cols-2' : ''"
             >
@@ -166,7 +192,7 @@
             <MediaStudioImageAttachments
               v-if="selectedModeId === 'image'"
               :attachments="imageAttachments"
-              @update="emit('update:imageAttachments', $event)"
+              @update="emit('update:image-attachments', $event)"
             />
 
             <div v-if="groupLoadError || modelLoadError || submitError" class="mb-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
@@ -416,7 +442,7 @@ const emit = defineEmits<{
   'update:duration': [value: number]
   selectMode: [id: MediaStudioModeId]
   reloadGroups: []
-  'update:imageAttachments': [value: MediaStudioImageAttachment[]]
+  'update:image-attachments': [value: MediaStudioImageAttachment[]]
   reloadModels: []
   submit: []
   retry: [message: MediaStudioMessage]

@@ -909,6 +909,10 @@ func registerAffiliateRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 func registerCustomModelConfigRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	configs := admin.Group("/custom-model-configs")
 	{
+		configs.GET("/templates", h.Admin.CustomModelConfig.ListTemplates)
+		configs.POST("/templates", h.Admin.CustomModelConfig.CreateTemplate)
+		configs.PUT("/templates/:templateId", h.Admin.CustomModelConfig.UpdateTemplate)
+		configs.DELETE("/templates/:templateId", h.Admin.CustomModelConfig.DeleteTemplate)
 		configs.GET("", h.Admin.CustomModelConfig.List)
 		configs.POST("", h.Admin.CustomModelConfig.Create)
 		configs.GET("/:id", h.Admin.CustomModelConfig.Get)
