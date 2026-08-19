@@ -43,17 +43,26 @@ export default {
       send: '开始生成',
       imageEdit: {
         attachHint: '拖拽或粘贴参考图片，最多 9 张',
+        attachCount: '已添加 {count}/{limit} 张',
         remove: '移除图片'
       }
     },
     session: {
       localHint: '会话和图片结果保存在当前浏览器中',
       clear: '清空',
+      select: '选择',
+      selectAll: '全选',
+      deselectAll: '取消全选',
+      deleteSelected: '删除所选',
+      cancelSelect: '取消选择',
+      selectMessage: '选择消息',
+      selectedCount: '已选择 {count} 条',
       you: '你',
       studio: '媒体工坊',
       failed: '生成失败',
       retry: '重试',
       enlargeImage: '放大图片',
+      editImage: '基于此图继续修改',
       noImageResult: '任务已完成，但没有返回可预览图片。',
       noVideoResult: '任务已完成，但没有返回可预览视频。'
     },

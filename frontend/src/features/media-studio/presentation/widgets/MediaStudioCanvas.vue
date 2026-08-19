@@ -1,15 +1,26 @@
 <template>
-  <section class="flex min-h-[calc(100vh-7rem)] flex-col bg-transparent">
+  <section
+    class="relative flex min-h-[calc(100vh-7rem)] flex-col bg-transparent"
+    @dragenter.prevent="handlePageDragEnter"
+    @dragover.prevent="handlePageDragOver"
+    @dragleave.prevent="handlePageDragLeave"
+    @drop.prevent="handlePageDrop"
+  >
+    <div
+      v-if="draggingPage"
+      class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center border-2 border-dashed border-primary-400 bg-primary-500/10 p-6 backdrop-blur-[1px]"
+    >
+      <div class="rounded-2xl border border-primary-300 bg-white/95 px-5 py-4 text-sm font-medium text-primary-700 shadow-xl dark:border-primary-500/40 dark:bg-dark-900/95 dark:text-primary-200">
+        <Icon name="upload" size="sm" class="mr-2 inline-block" />
+        {{ t('mediaStudio.composer.imageEdit.attachHint') }}
+      </div>
+    </div>
     <div v-if="hasMessages" class="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-1 pb-4">
       <div>
         <h1 class="text-lg font-semibold tracking-tight text-gray-950 dark:text-white">{{ t('mediaStudio.title') }}</h1>
         <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ t('mediaStudio.session.localHint') }}</p>
       </div>
-      <button
-        type="button"
-        class="inline-flex h-9 items-center gap-2 rounded-xl border border-gray-200 bg-white/85 px-3 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-white dark:border-dark-700 dark:bg-dark-900/80 dark:text-gray-200 dark:hover:bg-dark-800"
-        @click="emit('clear')"
-      >
+      <button type="button" class="session-action" @click="emit('clear')">
         <Icon name="trash" size="sm" />
         {{ t('mediaStudio.session.clear') }}
       </button>
@@ -22,15 +33,29 @@
       <article
         v-for="message in conversation.messages"
         :key="message.id"
-        class="flex"
+        class="group flex"
         :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
       >
         <div
-          class="max-w-[min(760px,92%)] rounded-[1.35rem] border px-4 py-3 shadow-sm"
+          class="relative max-w-[min(760px,92%)] rounded-[1.35rem] border px-4 py-3 shadow-sm"
           :class="message.role === 'user'
-            ? 'border-gray-900 bg-gray-950 text-white dark:border-gray-700 dark:bg-white dark:text-gray-950'
+            ? 'border-gray-300 bg-gray-100 text-gray-900 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-100'
             : 'border-gray-200 bg-white/88 text-gray-900 dark:border-dark-700 dark:bg-dark-900/86 dark:text-gray-100'"
         >
+          <button
+            type="button"
+            class="message-select-button"
+            :class="[
+              message.role === 'user' ? '-left-2' : '-right-2',
+              selectedMessageIDs.includes(message.id) ? 'message-select-button-active' : '',
+            ]"
+            :aria-label="t('mediaStudio.session.selectMessage')"
+            :aria-pressed="selectedMessageIDs.includes(message.id)"
+            @click="selectMessage(message.id)"
+          >
+            <Icon v-if="selectedMessageIDs.includes(message.id)" name="check" size="xs" />
+            <span v-else class="h-1.5 w-1.5 rounded-full bg-current opacity-40"></span>
+          </button>
           <div class="flex items-center justify-between gap-4">
             <span class="text-xs font-medium opacity-70">
               {{ message.role === 'user' ? t('mediaStudio.session.you') : t('mediaStudio.session.studio') }}
@@ -38,6 +63,16 @@
             <span class="text-[11px] opacity-50">{{ formatTime(message.createdAt) }}</span>
           </div>
           <p class="mt-2 whitespace-pre-wrap text-sm leading-6">{{ message.prompt }}</p>
+          <div v-if="message.role === 'user' && message.inputImages?.length" class="mt-3 flex flex-wrap gap-2">
+            <img
+              v-for="image in message.inputImages"
+              :key="image.id"
+              :src="image.src"
+              :alt="image.name"
+              class="h-16 w-16 rounded-xl border border-black/10 object-cover dark:border-white/15"
+              loading="lazy"
+            />
+          </div>
 
           <div v-if="message.role === 'assistant'" class="mt-3">
             <div class="mb-3 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
@@ -94,21 +129,33 @@
             </div>
 
             <div v-else-if="message.status === 'completed' && message.mode === 'image' && message.images?.length" class="grid gap-3 sm:grid-cols-2">
-              <button
+              <div
                 v-for="image in message.images"
                 :key="image.id"
-                type="button"
-                class="group cursor-zoom-in overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 text-left dark:border-dark-700 dark:bg-dark-800"
-                :aria-label="t('mediaStudio.session.enlargeImage')"
-                @click="openImagePreview(image)"
+                class="image-preview-card group relative overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-800"
               >
-                <img
-                  :src="image.src"
-                  :alt="image.revisedPrompt || message.prompt"
-                  referrerpolicy="no-referrer"
-                  class="aspect-square w-full object-cover transition duration-200 group-hover:scale-[1.02]"
-                />
-              </button>
+                <button
+                  type="button"
+                  class="block w-full cursor-zoom-in text-left"
+                  :aria-label="t('mediaStudio.session.enlargeImage')"
+                  @click="openImagePreview(image)"
+                >
+                  <img
+                    :src="image.src"
+                    :alt="image.revisedPrompt || message.prompt"
+                    referrerpolicy="no-referrer"
+                    class="aspect-square w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                  />
+                </button>
+                <button
+                  type="button"
+                  class="image-edit-action"
+                  :aria-label="t('mediaStudio.session.editImage')"
+                  @click.stop="startImageEdit(image)"
+                >
+                  <Icon name="edit" size="sm" />
+                </button>
+              </div>
             </div>
 
             <div v-else-if="message.status === 'completed' && message.mode === 'video' && message.video" class="overflow-hidden rounded-2xl border border-gray-200 bg-black dark:border-dark-700">
@@ -155,6 +202,30 @@
           {{ t('mediaStudio.composer.greeting') }}
         </h2>
 
+        <div v-if="hasMessages" class="mx-auto mb-2 flex max-w-4xl items-center justify-end gap-2">
+          <template v-if="selectionMode">
+            <span class="mr-auto text-xs text-gray-500 dark:text-gray-400">
+              {{ t('mediaStudio.session.selectedCount', { count: selectedMessageIDs.length }) }}
+            </span>
+            <button type="button" class="session-action" @click="toggleSelectAll">
+              <Icon name="check" size="sm" />
+              {{ allMessagesSelected ? t('mediaStudio.session.deselectAll') : t('mediaStudio.session.selectAll') }}
+            </button>
+            <button
+              type="button"
+              class="session-action text-red-600 dark:text-red-300"
+              :disabled="selectedMessageIDs.length === 0"
+              @click="deleteSelected"
+            >
+              <Icon name="trash" size="sm" />
+              {{ t('mediaStudio.session.deleteSelected') }}
+            </button>
+            <button type="button" class="icon-action" :aria-label="t('mediaStudio.session.cancelSelect')" @click="exitSelectionMode">
+              <Icon name="x" size="sm" />
+            </button>
+          </template>
+        </div>
+
         <div class="relative mx-auto max-w-4xl">
           <div
             v-if="typeMenuOpen"
@@ -180,6 +251,7 @@
 
           <div class="rounded-[1.65rem] border border-gray-200 bg-white/92 p-3 shadow-[0_16px_48px_rgba(15,23,42,0.07)] backdrop-blur dark:border-dark-700 dark:bg-dark-900/90 dark:shadow-black/20">
             <textarea
+              ref="promptInputRef"
               :value="prompt"
               rows="3"
               class="min-h-24 w-full resize-none rounded-[1.1rem] border-0 bg-transparent px-2 py-2 text-base leading-7 text-gray-900 outline-none placeholder:text-gray-400 dark:text-white dark:placeholder:text-gray-500"
@@ -189,17 +261,55 @@
               @keydown.ctrl.enter.prevent="emit('submit')"
             />
 
-            <MediaStudioImageAttachments
-              v-if="selectedModeId === 'image'"
-              :attachments="imageAttachments"
-              @update="emit('update:image-attachments', $event)"
-            />
+            <div v-if="imageAttachments.length > 0" class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">
+              <div
+                v-for="attachment in imageAttachments"
+                :key="attachment.id"
+                class="group relative aspect-square overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-800"
+              >
+                <img :src="attachment.previewUrl" :alt="attachment.name" class="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  class="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100"
+                  :title="t('mediaStudio.composer.imageEdit.remove')"
+                  @click="removeAttachment(attachment.id)"
+                >
+                  <Icon name="x" size="xs" />
+                </button>
+              </div>
+            </div>
+            <p v-if="attachmentError" class="mt-2 text-xs text-red-600 dark:text-red-300">{{ attachmentError }}</p>
 
             <div v-if="groupLoadError || modelLoadError || submitError" class="mb-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
               {{ submitError || groupLoadError || modelLoadError }}
             </div>
 
-            <div class="flex flex-wrap items-center gap-2">
+            <div class="flex flex-wrap items-start gap-2">
+              <input
+                ref="fileInput"
+                type="file"
+                accept="image/*"
+                multiple
+                class="hidden"
+                @change="handleFileInput"
+              />
+
+              <div v-if="selectedModeId === 'image'" class="relative">
+                <button
+                  type="button"
+                  class="icon-action"
+                  :aria-label="t('mediaStudio.composer.imageEdit.attachHint')"
+                  :title="t('mediaStudio.composer.imageEdit.attachHint')"
+                  @click="fileInput?.click()"
+                >
+                  <Icon name="upload" size="sm" />
+                </button>
+
+                <span class="absolute -right-2 -top-2 inline-flex min-w-5 items-center justify-center rounded-full border border-primary-200 bg-white px-1.5 py-0.5 text-[10px] font-medium leading-none text-primary-700 shadow dark:border-primary-400/40 dark:bg-dark-900 dark:text-primary-300">
+                  {{ imageAttachments.length }}/{{ MEDIA_STUDIO_MAX_IMAGE_ATTACHMENTS }}
+                </span>
+              </div>
+
               <button
                 type="button"
                 ref="typeMenuTriggerRef"
@@ -381,15 +491,18 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/common/widgets/icons/Icon.vue'
-import MediaStudioImageAttachments from '@/features/media-studio/presentation/widgets/MediaStudioImageAttachments.vue'
 import MediaStudioCustomResolutionDialog from '@/features/media-studio/presentation/widgets/MediaStudioCustomResolutionDialog.vue'
 import type { MediaStudioVideoResolution } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
 import type { MediaStudioGroupOption } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
 import type { MediaStudioParameterOption } from '@/features/media-studio/presentation/composables/useMediaStudioController'
-import type { MediaStudioImageAttachment } from '@/features/media-studio/presentation/composables/useMediaStudioAttachments'
+import {
+  addMediaStudioImageAttachments,
+  MEDIA_STUDIO_MAX_IMAGE_ATTACHMENTS,
+  type MediaStudioImageAttachment,
+} from '@/features/media-studio/presentation/composables/useMediaStudioAttachments'
 import type { MediaStudioMode, MediaStudioModeId } from '@/features/media-studio/presentation/composables/useMediaStudioPreview'
 import type {
   MediaStudioConversation,
@@ -447,6 +560,8 @@ const emit = defineEmits<{
   submit: []
   retry: [message: MediaStudioMessage]
   clear: []
+  delete: [messageIDs: string[]]
+  editImage: [image: MediaStudioGeneratedImagePreview]
 }>()
 
 const { t, locale } = useI18n()
@@ -454,7 +569,19 @@ const typeMenuOpen = ref(false)
 const typeMenuRef = ref<HTMLElement | null>(null)
 const typeMenuTriggerRef = ref<HTMLButtonElement | null>(null)
 const selectedImage = ref<MediaStudioGeneratedImagePreview | null>(null)
+const promptInputRef = ref<HTMLTextAreaElement | null>(null)
+const fileInput = ref<HTMLInputElement | null>(null)
+const draggingPage = ref(false)
+const attachmentError = ref('')
+let dragDepth = 0
 const customAspectRatioDialogOpen = ref(false)
+const selectionMode = ref(false)
+const selectedMessageIDs = ref<string[]>([])
+
+const allMessagesSelected = computed(() => (
+  props.conversation.messages.length > 0 &&
+  props.conversation.messages.every(message => selectedMessageIDs.value.includes(message.id))
+))
 
 const countOptions = [1, 2, 3, 4]
 const imageResolutionOptions: MediaStudioImageResolution[] = ['1K', '2K', '4K']
@@ -481,6 +608,94 @@ function openImagePreview(image: MediaStudioGeneratedImagePreview) {
 
 function closeImagePreview() {
   selectedImage.value = null
+}
+
+function startImageEdit(image: MediaStudioGeneratedImagePreview) {
+  emit('editImage', image)
+  void nextTick(() => promptInputRef.value?.focus())
+}
+
+function addFiles(files: File[]) {
+  if (props.selectedModeId !== 'image' || files.length === 0) return
+  const result = addMediaStudioImageAttachments(props.imageAttachments, files)
+  attachmentError.value = result.rejected[0] || ''
+  emit('update:image-attachments', result.attachments)
+}
+
+function handleFileInput(event: Event) {
+  const input = event.target as HTMLInputElement
+  addFiles(Array.from(input.files || []))
+  input.value = ''
+}
+
+function removeAttachment(id: string) {
+  emit('update:image-attachments', props.imageAttachments.filter(attachment => attachment.id !== id))
+}
+
+function hasDraggedFiles(event: DragEvent): boolean {
+  return Array.from(event.dataTransfer?.types || []).includes('Files')
+}
+
+function handlePageDragEnter(event: DragEvent) {
+  if (props.selectedModeId !== 'image' || !hasDraggedFiles(event)) return
+  dragDepth += 1
+  draggingPage.value = true
+}
+
+function handlePageDragOver(event: DragEvent) {
+  if (props.selectedModeId === 'image' && hasDraggedFiles(event)) draggingPage.value = true
+}
+
+function handlePageDragLeave(event: DragEvent) {
+  if (props.selectedModeId !== 'image' || !hasDraggedFiles(event)) return
+  dragDepth = Math.max(0, dragDepth - 1)
+  if (dragDepth === 0) draggingPage.value = false
+}
+
+function handlePageDrop(event: DragEvent) {
+  if (props.selectedModeId !== 'image') return
+  dragDepth = 0
+  draggingPage.value = false
+  addFiles(Array.from(event.dataTransfer?.files || []))
+}
+
+function handlePaste(event: ClipboardEvent) {
+  if (props.selectedModeId !== 'image') return
+  const files = Array.from(event.clipboardData?.items || [])
+    .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+    .map(item => item.getAsFile())
+    .filter((file): file is File => Boolean(file))
+  if (files.length === 0) return
+  event.preventDefault()
+  addFiles(files)
+}
+
+function toggleMessageSelection(messageID: string) {
+  selectedMessageIDs.value = selectedMessageIDs.value.includes(messageID)
+    ? selectedMessageIDs.value.filter(id => id !== messageID)
+    : [...selectedMessageIDs.value, messageID]
+}
+
+function selectMessage(messageID: string) {
+  selectionMode.value = true
+  toggleMessageSelection(messageID)
+}
+
+function toggleSelectAll() {
+  selectedMessageIDs.value = allMessagesSelected.value
+    ? []
+    : props.conversation.messages.map(message => message.id)
+}
+
+function exitSelectionMode() {
+  selectionMode.value = false
+  selectedMessageIDs.value = []
+}
+
+function deleteSelected() {
+  if (selectedMessageIDs.value.length === 0) return
+  emit('delete', [...selectedMessageIDs.value])
+  exitSelectionMode()
 }
 
 function handleImageResolutionSelect(event: Event) {
@@ -533,17 +748,49 @@ function closeTypeMenuOnEscape(event: KeyboardEvent) {
 onMounted(() => {
   document.addEventListener('pointerdown', closeTypeMenuOnOutsidePointer)
   document.addEventListener('keydown', closeTypeMenuOnEscape)
+  document.addEventListener('paste', handlePaste)
 })
 
 onUnmounted(() => {
   document.removeEventListener('pointerdown', closeTypeMenuOnOutsidePointer)
   document.removeEventListener('keydown', closeTypeMenuOnEscape)
+  document.removeEventListener('paste', handlePaste)
 })
 </script>
 
 <style scoped>
 .composer-chip {
   @apply inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-200 dark:hover:bg-dark-800;
+}
+
+.session-action {
+  @apply inline-flex h-9 items-center gap-2 rounded-xl border border-gray-200 bg-white/85 px-3 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900/80 dark:text-gray-200 dark:hover:bg-dark-800;
+}
+
+.icon-action {
+  @apply inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white/85 text-gray-700 shadow-sm transition hover:bg-white dark:border-dark-700 dark:bg-dark-900/80 dark:text-gray-200 dark:hover:bg-dark-800;
+}
+
+.image-edit-action {
+  @apply absolute bottom-2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/60 bg-black/65 text-white opacity-0 shadow-lg transition hover:bg-black/80 focus-visible:opacity-100 dark:border-white/20;
+}
+
+.image-preview-card:hover .image-edit-action,
+.image-preview-card:focus-within .image-edit-action {
+  opacity: 1;
+}
+
+.message-select-button {
+  @apply absolute -top-2 inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-200 bg-white/90 text-gray-500 opacity-0 shadow-sm transition hover:border-gray-400 hover:text-gray-900 focus-visible:opacity-100 dark:border-dark-700 dark:bg-dark-900/90 dark:text-gray-400 dark:hover:border-dark-500 dark:hover:text-white;
+}
+
+.group:hover .message-select-button,
+.group:focus-within .message-select-button {
+  opacity: 1;
+}
+
+.message-select-button-active {
+  @apply border-primary-500 bg-primary-50 text-primary-600 opacity-100 dark:border-primary-400 dark:bg-primary-500/15 dark:text-primary-300;
 }
 
 .composer-select {

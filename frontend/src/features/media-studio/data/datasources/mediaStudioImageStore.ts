@@ -81,3 +81,29 @@ export async function clearMediaStudioImages(): Promise<void> {
     }
   })
 }
+
+export async function deleteMediaStudioImages(keys: string[]): Promise<void> {
+  const normalizedKeys = [...new Set(keys.filter(Boolean))]
+  if (normalizedKeys.length === 0) return
+
+  const database = await openDatabase()
+  if (!database) return
+
+  await new Promise<void>((resolve) => {
+    const transaction = database.transaction(STORE_NAME, 'readwrite')
+    const store = transaction.objectStore(STORE_NAME)
+    normalizedKeys.forEach(key => store.delete(key))
+    transaction.oncomplete = () => {
+      database.close()
+      resolve()
+    }
+    transaction.onerror = () => {
+      database.close()
+      resolve()
+    }
+    transaction.onabort = () => {
+      database.close()
+      resolve()
+    }
+  })
+}
