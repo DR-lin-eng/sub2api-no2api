@@ -23,6 +23,8 @@ const (
 	FieldPrefixMatch = "prefix_match"
 	// FieldCapabilities holds the string denoting the capabilities field in the database.
 	FieldCapabilities = "capabilities"
+	// FieldTemplateID holds the string denoting the template_id field in the database.
+	FieldTemplateID = "template_id"
 	// Table holds the table name of the custommodelconfig in the database.
 	Table = "custom_model_configs"
 )
@@ -35,6 +37,7 @@ var Columns = []string{
 	FieldModelName,
 	FieldPrefixMatch,
 	FieldCapabilities,
+	FieldTemplateID,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -86,4 +89,9 @@ func ByModelName(opts ...sql.OrderTermOption) OrderOption {
 // ByPrefixMatch orders the results by the prefix_match field.
 func ByPrefixMatch(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldPrefixMatch, opts...).ToFunc()
+}
+
+// ByTemplateID orders the results by the template_id field.
+func ByTemplateID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTemplateID, opts...).ToFunc()
 }

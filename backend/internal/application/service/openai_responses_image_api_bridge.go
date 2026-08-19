@@ -692,6 +692,7 @@ func (s *OpenAIGatewayService) ForwardOpenAIResponsesImagePlan(
 	}
 	upstreamReq, err := s.buildOpenAIImagesRequestReader(
 		upstreamCtx, c, account, bridge.BodyReader, bridge.ContentType, token, bridge.Parsed.Endpoint,
+		nil,
 	)
 	if err != nil {
 		return nil, err

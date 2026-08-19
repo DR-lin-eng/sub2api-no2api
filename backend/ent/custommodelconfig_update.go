@@ -75,6 +75,33 @@ func (_u *CustomModelConfigUpdate) AppendCapabilities(v []string) *CustomModelCo
 	return _u
 }
 
+// SetTemplateID sets the "template_id" field.
+func (_u *CustomModelConfigUpdate) SetTemplateID(v int64) *CustomModelConfigUpdate {
+	_u.mutation.ResetTemplateID()
+	_u.mutation.SetTemplateID(v)
+	return _u
+}
+
+// SetNillableTemplateID sets the "template_id" field if the given value is not nil.
+func (_u *CustomModelConfigUpdate) SetNillableTemplateID(v *int64) *CustomModelConfigUpdate {
+	if v != nil {
+		_u.SetTemplateID(*v)
+	}
+	return _u
+}
+
+// AddTemplateID adds value to the "template_id" field.
+func (_u *CustomModelConfigUpdate) AddTemplateID(v int64) *CustomModelConfigUpdate {
+	_u.mutation.AddTemplateID(v)
+	return _u
+}
+
+// ClearTemplateID clears the value of the "template_id" field.
+func (_u *CustomModelConfigUpdate) ClearTemplateID() *CustomModelConfigUpdate {
+	_u.mutation.ClearTemplateID()
+	return _u
+}
+
 // Mutation returns the CustomModelConfigMutation object of the builder.
 func (_u *CustomModelConfigUpdate) Mutation() *CustomModelConfigMutation {
 	return _u.mutation
@@ -155,6 +182,15 @@ func (_u *CustomModelConfigUpdate) sqlSave(ctx context.Context) (_node int, err 
 			sqljson.Append(u, custommodelconfig.FieldCapabilities, value)
 		})
 	}
+	if value, ok := _u.mutation.TemplateID(); ok {
+		_spec.SetField(custommodelconfig.FieldTemplateID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedTemplateID(); ok {
+		_spec.AddField(custommodelconfig.FieldTemplateID, field.TypeInt64, value)
+	}
+	if _u.mutation.TemplateIDCleared() {
+		_spec.ClearField(custommodelconfig.FieldTemplateID, field.TypeInt64)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{custommodelconfig.Label}
@@ -218,6 +254,33 @@ func (_u *CustomModelConfigUpdateOne) SetCapabilities(v []string) *CustomModelCo
 // AppendCapabilities appends value to the "capabilities" field.
 func (_u *CustomModelConfigUpdateOne) AppendCapabilities(v []string) *CustomModelConfigUpdateOne {
 	_u.mutation.AppendCapabilities(v)
+	return _u
+}
+
+// SetTemplateID sets the "template_id" field.
+func (_u *CustomModelConfigUpdateOne) SetTemplateID(v int64) *CustomModelConfigUpdateOne {
+	_u.mutation.ResetTemplateID()
+	_u.mutation.SetTemplateID(v)
+	return _u
+}
+
+// SetNillableTemplateID sets the "template_id" field if the given value is not nil.
+func (_u *CustomModelConfigUpdateOne) SetNillableTemplateID(v *int64) *CustomModelConfigUpdateOne {
+	if v != nil {
+		_u.SetTemplateID(*v)
+	}
+	return _u
+}
+
+// AddTemplateID adds value to the "template_id" field.
+func (_u *CustomModelConfigUpdateOne) AddTemplateID(v int64) *CustomModelConfigUpdateOne {
+	_u.mutation.AddTemplateID(v)
+	return _u
+}
+
+// ClearTemplateID clears the value of the "template_id" field.
+func (_u *CustomModelConfigUpdateOne) ClearTemplateID() *CustomModelConfigUpdateOne {
+	_u.mutation.ClearTemplateID()
 	return _u
 }
 
@@ -330,6 +393,15 @@ func (_u *CustomModelConfigUpdateOne) sqlSave(ctx context.Context) (_node *Custo
 		_spec.AddModifier(func(u *sql.UpdateBuilder) {
 			sqljson.Append(u, custommodelconfig.FieldCapabilities, value)
 		})
+	}
+	if value, ok := _u.mutation.TemplateID(); ok {
+		_spec.SetField(custommodelconfig.FieldTemplateID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedTemplateID(); ok {
+		_spec.AddField(custommodelconfig.FieldTemplateID, field.TypeInt64, value)
+	}
+	if _u.mutation.TemplateIDCleared() {
+		_spec.ClearField(custommodelconfig.FieldTemplateID, field.TypeInt64)
 	}
 	_node = &CustomModelConfig{config: _u.config}
 	_spec.Assign = _node.assignValues

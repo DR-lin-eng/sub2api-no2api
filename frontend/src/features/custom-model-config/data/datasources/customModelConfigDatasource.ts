@@ -5,8 +5,11 @@ import type {
   CustomModelConfigDto,
   CreateCustomModelConfigRequest,
   UpdateCustomModelConfigRequest,
+  CustomModelRequestTemplateDto,
+  CreateCustomModelRequestTemplateRequest,
+  UpdateCustomModelRequestTemplateRequest,
 } from "../dtos/customModelConfigDtos";
-import type { CustomModelConfig } from "../../domain/entities/customModelConfig";
+import type { CustomModelConfig, CustomModelRequestTemplate } from "../../domain/entities/customModelConfig";
 
 const BASE_URL = "/admin/custom-model-configs";
 
@@ -19,6 +22,8 @@ function toEntity(dto: CustomModelConfigDto): CustomModelConfig {
     model_name: dto.model_name,
     prefix_match: dto.prefix_match ?? false,
     capabilities: dto.capabilities,
+    template_id: dto.template_id ?? null,
+    template_name: dto.template_name ?? '',
     created_at: dto.created_at,
     updated_at: dto.updated_at,
   };
@@ -62,5 +67,34 @@ export const customModelConfigDatasource = {
    */
   async delete(id: number): Promise<void> {
     await apiClient.delete(`${BASE_URL}/${id}`);
+  },
+
+  async getTemplates(): Promise<CustomModelRequestTemplate[]> {
+    const response = await apiClient.get<CustomModelRequestTemplateDto[]>(`${BASE_URL}/templates`);
+    return response.data.map((item) => ({
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      request_adapter: item.request_adapter ?? {},
+      created_at: item.created_at,
+      updated_at: item.updated_at,
+    }));
+  },
+
+  async createTemplate(request: CreateCustomModelRequestTemplateRequest): Promise<CustomModelRequestTemplate> {
+    const response = await apiClient.post<CustomModelRequestTemplateDto>(`${BASE_URL}/templates`, request);
+    return response.data as CustomModelRequestTemplate;
+  },
+
+  async updateTemplate(
+    id: number,
+    request: UpdateCustomModelRequestTemplateRequest
+  ): Promise<CustomModelRequestTemplate> {
+    const response = await apiClient.put<CustomModelRequestTemplateDto>(`${BASE_URL}/templates/${id}`, request);
+    return response.data as CustomModelRequestTemplate;
+  },
+
+  async deleteTemplate(id: number): Promise<void> {
+    await apiClient.delete(`${BASE_URL}/templates/${id}`);
   },
 };

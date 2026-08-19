@@ -18,7 +18,6 @@
       @dragover.prevent="dragging = true"
       @dragleave.prevent="dragging = false"
       @drop.prevent="handleDrop"
-      @paste="handlePaste"
     >
       <Icon name="upload" size="sm" />
       <span>{{ t('mediaStudio.composer.imageEdit.attachHint') }}</span>
@@ -50,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import {
@@ -101,6 +100,10 @@ function handlePaste(event: ClipboardEvent): void {
   }
 }
 
+onMounted(() => {
+  document.addEventListener('paste', handlePaste)
+})
+
 function removeAttachment(id: string): void {
   const removed = props.attachments.find((attachment) => attachment.id === id)
   if (removed) URL.revokeObjectURL(removed.previewUrl)
@@ -108,6 +111,7 @@ function removeAttachment(id: string): void {
 }
 
 onBeforeUnmount(() => {
+  document.removeEventListener('paste', handlePaste)
   revokeMediaStudioImageAttachments(props.attachments)
 })
 </script>

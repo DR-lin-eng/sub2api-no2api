@@ -39,6 +39,10 @@
             >
               <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
             </button>
+            <button @click="templateManagerVisible = true" class="btn btn-secondary">
+              <Icon name="cog" size="md" class="mr-2" />
+              {{ t('admin.customModelConfig.template.manage') }}
+            </button>
             <button @click="openCreateDialog" class="btn btn-primary">
               <Icon name="plus" size="md" class="mr-2" />
               {{ t('admin.customModelConfig.actions.create') }}
@@ -81,6 +85,13 @@
             </div>
           </template>
 
+          <template #cell-template_name="{ value }">
+            <span v-if="value" class="text-sm text-gray-700 dark:text-gray-300">{{ value }}</span>
+            <span v-else class="text-sm text-gray-400 dark:text-gray-500">
+              {{ t('admin.customModelConfig.table.noTemplate') }}
+            </span>
+          </template>
+
           <template #cell-actions="{ row }">
             <div class="flex items-center gap-2">
               <button
@@ -108,8 +119,16 @@
       v-if="dialogVisible"
       :visible="dialogVisible"
       :config="editingConfig"
+      :templates="templates"
       @close="closeDialog"
       @saved="handleSaved"
+    />
+    <CustomModelRequestTemplateManager
+      v-if="templateManagerVisible"
+      :visible="templateManagerVisible"
+      :templates="templates"
+      @close="templateManagerVisible = false"
+      @changed="loadTemplates"
     />
   </AppLayout>
 </template>
@@ -122,9 +141,14 @@ import TablePageLayout from '@/common/widgets/layout/TablePageLayout.vue';
 import DataTable from '@/common/widgets/data/DataTable.vue';
 import Icon from '@/common/widgets/icons/Icon.vue';
 import CustomModelConfigDialog from '../widgets/CustomModelConfigDialog.vue';
+import CustomModelRequestTemplateManager from '../widgets/CustomModelRequestTemplateManager.vue';
 import { customModelConfigDatasource } from '../../data/datasources/customModelConfigDatasource';
 import { initializeModelCapabilities } from '../../domain/services/modelCapabilityService';
-import type { CustomModelConfig, ModelCapability } from '../../domain/entities/customModelConfig';
+import type {
+  CustomModelConfig,
+  CustomModelRequestTemplate,
+  ModelCapability,
+} from '../../domain/entities/customModelConfig';
 
 const { t } = useI18n();
 
@@ -133,10 +157,13 @@ const configs = ref<CustomModelConfig[]>([]);
 const searchQuery = ref('');
 const dialogVisible = ref(false);
 const editingConfig = ref<CustomModelConfig | null>(null);
+const templates = ref<CustomModelRequestTemplate[]>([]);
+const templateManagerVisible = ref(false);
 
 const columns = computed(() => [
   { key: 'model_name', label: t('admin.customModelConfig.table.modelName'), sortable: true },
   { key: 'capabilities', label: t('admin.customModelConfig.table.capabilities'), sortable: false },
+  { key: 'template_name', label: t('admin.customModelConfig.table.requestTemplate'), sortable: false },
   { key: 'actions', label: t('admin.customModelConfig.table.actions'), sortable: false, width: '100px' },
 ]);
 
@@ -165,6 +192,14 @@ async function loadConfigs() {
     console.error('Failed to load custom model configs:', error);
   } finally {
     loading.value = false;
+  }
+}
+
+async function loadTemplates() {
+  try {
+    templates.value = await customModelConfigDatasource.getTemplates();
+  } catch (error) {
+    console.error('Failed to load request templates:', error);
   }
 }
 
@@ -208,5 +243,6 @@ async function handleDelete(config: CustomModelConfig) {
 
 onMounted(() => {
   loadConfigs();
+  loadTemplates();
 });
 </script>

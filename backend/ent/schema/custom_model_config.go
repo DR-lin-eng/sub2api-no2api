@@ -38,6 +38,10 @@ func (CustomModelConfig) Fields() []ent.Field {
 			Comment("是否按模型名前缀匹配"),
 		field.JSON("capabilities", []string{}).
 			Comment("模型能力列表，如 [\"image\", \"video\", \"audio\"]"),
+		field.Int64("template_id").
+			Optional().
+			Nillable().
+			Comment("可复用的请求适配模板 ID"),
 	}
 }
 

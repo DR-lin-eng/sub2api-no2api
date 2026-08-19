@@ -66,6 +66,21 @@
         </p>
       </div>
 
+      <div>
+        <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+          {{ t('admin.customModelConfig.modal.requestTemplate') }}
+        </label>
+        <select v-model="form.template_id" class="input w-full">
+          <option :value="null">{{ t('admin.customModelConfig.modal.noTemplate') }}</option>
+          <option v-for="template in templates" :key="template.id" :value="template.id">
+            {{ template.name }}
+          </option>
+        </select>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          {{ t('admin.customModelConfig.modal.requestTemplateHint') }}
+        </p>
+      </div>
+
       <div class="flex justify-end gap-3 pt-4">
         <button type="button" @click="handleClose" class="btn btn-secondary">
           {{ t('common.cancel') }}
@@ -85,13 +100,18 @@ import { useI18n } from 'vue-i18n';
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue';
 import Icon from '@/common/widgets/icons/Icon.vue';
 import { customModelConfigDatasource } from '../../data/datasources/customModelConfigDatasource';
-import type { CustomModelConfig, ModelCapability } from '../../domain/entities/customModelConfig';
+import type {
+  CustomModelConfig,
+  CustomModelRequestTemplate,
+  ModelCapability,
+} from '../../domain/entities/customModelConfig';
 
 const { t } = useI18n();
 
 interface Props {
   visible: boolean;
   config?: CustomModelConfig | null;
+  templates: CustomModelRequestTemplate[];
 }
 
 const props = defineProps<Props>();
@@ -107,6 +127,7 @@ const form = ref({
   model_name: '',
   prefix_match: false,
   capabilities: [] as ModelCapability[],
+  template_id: null as number | null,
 });
 
 const isEdit = computed(() => !!props.config);
@@ -126,6 +147,7 @@ watch(
         model_name: config.model_name,
         prefix_match: config.prefix_match,
         capabilities: [...config.capabilities],
+        template_id: config.template_id ?? null,
       };
     } else {
       resetForm();
@@ -139,6 +161,7 @@ function resetForm() {
     model_name: '',
     prefix_match: false,
     capabilities: [],
+    template_id: null,
   };
 }
 
@@ -159,12 +182,14 @@ async function handleSubmit() {
       await customModelConfigDatasource.update(props.config.id, {
         prefix_match: form.value.prefix_match,
         capabilities: form.value.capabilities,
+        template_id: form.value.template_id,
       });
     } else {
       await customModelConfigDatasource.create({
         model_name: form.value.model_name.trim(),
         prefix_match: form.value.prefix_match,
         capabilities: form.value.capabilities,
+        template_id: form.value.template_id,
       });
     }
     emit('saved');

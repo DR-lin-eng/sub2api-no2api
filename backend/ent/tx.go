@@ -58,6 +58,8 @@ type Tx struct {
 	CompositeModelRoute *CompositeModelRouteClient
 	// CustomModelConfig is the client for interacting with the CustomModelConfig builders.
 	CustomModelConfig *CustomModelConfigClient
+	// CustomModelRequestTemplate is the client for interacting with the CustomModelRequestTemplate builders.
+	CustomModelRequestTemplate *CustomModelRequestTemplateClient
 	// ErrorPassthroughRule is the client for interacting with the ErrorPassthroughRule builders.
 	ErrorPassthroughRule *ErrorPassthroughRuleClient
 	// Group is the client for interacting with the Group builders.
@@ -263,6 +265,7 @@ func (tx *Tx) init() {
 	tx.ChatQuickReply = NewChatQuickReplyClient(tx.config)
 	tx.CompositeModelRoute = NewCompositeModelRouteClient(tx.config)
 	tx.CustomModelConfig = NewCustomModelConfigClient(tx.config)
+	tx.CustomModelRequestTemplate = NewCustomModelRequestTemplateClient(tx.config)
 	tx.ErrorPassthroughRule = NewErrorPassthroughRuleClient(tx.config)
 	tx.Group = NewGroupClient(tx.config)
 	tx.IPv6EgressPool = NewIPv6EgressPoolClient(tx.config)
