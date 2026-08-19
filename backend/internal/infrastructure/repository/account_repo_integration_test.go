@@ -620,6 +620,80 @@ func (s *AccountRepoSuite) TestListWithFilters() {
 	}
 }
 
+func (s *AccountRepoSuite) TestListWithOAuthQuotaFilterPaginatesBeforeHydration() {
+	tx := testEntTx(s.T())
+	client := tx.Client()
+	repo := newAccountRepositoryWithSQL(client, tx, nil)
+	ctx := context.Background()
+
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "openai-exhausted", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{"codex_5h_used_percent": 100.0},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "anthropic-exhausted", Platform: service.PlatformAnthropic, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{"session_window_utilization": 1.0},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "oauth-available", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{"codex_7d_used_percent": 99.9},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "apikey-exhausted", Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
+		Extra: map[string]any{"codex_5h_used_percent": 100.0},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "oauth-malformed", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{"codex_5h_used_percent": "100"},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "openai-reset", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{
+			"codex_5h_used_percent": 100.0,
+			"codex_5h_reset_at":     time.Now().UTC().Add(-time.Minute).Format(time.RFC3339),
+		},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "openai-malformed-reset", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{
+			"codex_7d_used_percent": 100.0,
+			"codex_7d_reset_at":     "not-a-timestamp",
+		},
+	})
+	resetWindowEnd := time.Now().UTC().Add(-time.Minute)
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "anthropic-reset", Platform: service.PlatformAnthropic, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{"session_window_utilization": 1.0}, SessionWindowEnd: &resetWindowEnd,
+	})
+
+	accounts, page, err := repo.ListWithOAuthQuotaFilter(
+		ctx,
+		pagination.PaginationParams{Page: 1, PageSize: 1, SortBy: "name", SortOrder: "asc"},
+		"", "", "", "", 0, "", service.AccountOAuthQuotaFilterExhausted,
+	)
+	require.NoError(s.T(), err)
+	require.Equal(s.T(), int64(3), page.Total)
+	require.Len(s.T(), accounts, 1)
+	require.Equal(s.T(), "anthropic-exhausted", accounts[0].Name)
+
+	accounts, page, err = repo.ListWithOAuthQuotaFilter(
+		ctx,
+		pagination.PaginationParams{Page: 2, PageSize: 1, SortBy: "name", SortOrder: "asc"},
+		"", "", "", "", 0, "", service.AccountOAuthQuotaFilterExhausted,
+	)
+	require.NoError(s.T(), err)
+	require.Equal(s.T(), int64(3), page.Total)
+	require.Len(s.T(), accounts, 1)
+	require.Equal(s.T(), "openai-exhausted", accounts[0].Name)
+
+	_, _, err = repo.ListWithOAuthQuotaFilter(
+		ctx,
+		pagination.PaginationParams{Page: 1, PageSize: 10},
+		"", "", "", "", 0, "", "invalid",
+	)
+	require.Error(s.T(), err)
+}
+
 // --- ListByGroup / ListActive / ListByPlatform ---
 
 func (s *AccountRepoSuite) TestListByGroup() {

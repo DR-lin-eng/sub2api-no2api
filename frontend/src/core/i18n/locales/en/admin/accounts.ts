@@ -94,7 +94,7 @@ export default {
       notesHint: 'Notes are optional',
       allPlatforms: 'All Platforms',
       allTypes: 'All Types',
-      allStatus: 'All Status',
+      allStatus: 'All Status', allOAuthQuota: 'All OAuth Quota', oauthQuotaExhausted: 'OAuth quota exhausted',
       allGroups: 'All Groups',
       ungroupedGroup: 'Ungrouped',
       oauthType: 'OAuth',

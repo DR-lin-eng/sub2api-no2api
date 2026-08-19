@@ -43,6 +43,7 @@ describe('admin account queries', () => {
 
     await expect(list(2, 50, {
       platform: 'openai',
+      oauth_quota: 'exhausted',
       include_scheduler_score: 'true',
       sort_by: 'name',
       sort_order: 'asc'
@@ -53,6 +54,7 @@ describe('admin account queries', () => {
         page: 2,
         page_size: 50,
         platform: 'openai',
+        oauth_quota: 'exhausted',
         include_scheduler_score: 'true',
         sort_by: 'name',
         sort_order: 'asc'

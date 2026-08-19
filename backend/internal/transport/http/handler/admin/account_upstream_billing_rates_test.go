@@ -52,12 +52,13 @@ func TestAccountHandlerGetUpstreamBillingRatesReturnsCompactPayloadAndETag(t *te
 	router := setupUpstreamBillingRatesRouter(snapshotService)
 
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/admin/accounts/upstream-billing-rates?page=1&page_size=20&platform=openai&type=apikey&sort_by=upstream_billing_rate&sort_order=desc", nil)
+	request := httptest.NewRequest(http.MethodGet, "/admin/accounts/upstream-billing-rates?page=1&page_size=20&platform=openai&type=apikey&oauth_quota=exhausted&sort_by=upstream_billing_rate&sort_order=desc", nil)
 	router.ServeHTTP(recorder, request)
 
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Equal(t, service.PlatformOpenAI, snapshotService.filters.Platform)
 	require.Equal(t, service.AccountTypeAPIKey, snapshotService.filters.AccountType)
+	require.Equal(t, service.AccountOAuthQuotaFilterExhausted, snapshotService.filters.OAuthQuotaFilter)
 	etag := recorder.Header().Get("ETag")
 	require.NotEmpty(t, etag)
 	var envelope struct {

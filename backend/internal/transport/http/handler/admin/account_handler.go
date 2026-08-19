@@ -224,7 +224,32 @@ type AccountSchedulerGroupScore struct {
 const (
 	accountListGroupUngroupedQueryValue = "ungrouped"
 	accountHourlyUsageQueryTimeout      = 1500 * time.Millisecond
+	accountOAuthQuotaFilterQueryKey     = "oauth_quota"
 )
+
+// parseAccountOAuthQuotaFilter accepts the canonical query key and one
+// descriptive alias for callers that already use *_status naming. Keeping the
+// wire value constrained prevents accidental broad scans for unsupported
+// values.
+func parseAccountOAuthQuotaFilter(c *gin.Context) (string, error) {
+	values := make([]string, 0, 2)
+	for _, key := range []string{accountOAuthQuotaFilterQueryKey, "oauth_quota_status"} {
+		if value := strings.TrimSpace(c.Query(key)); value != "" {
+			values = append(values, value)
+		}
+	}
+	if len(values) == 2 && values[0] != values[1] {
+		return "", infraerrors.BadRequest("INVALID_OAUTH_QUOTA_FILTER", "conflicting OAuth quota filters")
+	}
+	filter := ""
+	if len(values) > 0 {
+		filter = values[0]
+	}
+	if filter != "" && filter != service.AccountOAuthQuotaFilterExhausted {
+		return "", infraerrors.BadRequest("INVALID_OAUTH_QUOTA_FILTER", "invalid OAuth quota filter")
+	}
+	return filter, nil
+}
 
 func (h *AccountHandler) accountResponseFromService(account *service.Account) *dto.Account {
 	out := dto.AccountFromService(account)
@@ -515,8 +540,32 @@ func (h *AccountHandler) listAccountSchedulerScoreFilterPool(
 	platform, accountType, status, search string,
 	groupID int64,
 	privacyMode string,
+	oauthQuotaFilters ...string,
 ) []service.Account {
+	oauthQuotaFilter := ""
+	if len(oauthQuotaFilters) > 0 {
+		oauthQuotaFilter = oauthQuotaFilters[0]
+	}
 	if h.adminService == nil || (platform != "" && platform != service.PlatformOpenAI) {
+		return nil
+	}
+	if oauthQuotaFilter != "" {
+		if filtered, ok := h.adminService.(service.AdminAccountOAuthQuotaSchedulerFilterService); ok {
+			schedulerPlatform := platform
+			if schedulerPlatform == "" {
+				schedulerPlatform = service.PlatformOpenAI
+			}
+			accounts, err := filtered.ListAccountsForSchedulerScoreFilterWithOAuthQuota(
+				ctx, schedulerPlatform, accountType, status, search, groupID, privacyMode, oauthQuotaFilter,
+			)
+			if err != nil {
+				slog.Warn("openai_scheduler_filter_score_pool_failed", "error", err)
+				return nil
+			}
+			return accounts
+		}
+		// Do not calculate scores from an unfiltered pool: the displayed rows
+		// and score denominator would otherwise describe different populations.
 		return nil
 	}
 	// 池只用于 OpenAI 分数计算（非 OpenAI 账号会在打分时被丢弃），
@@ -538,6 +587,11 @@ func (h *AccountHandler) List(c *gin.Context) {
 	status := c.Query("status")
 	search := c.Query("search")
 	privacyMode := strings.TrimSpace(c.Query("privacy_mode"))
+	oauthQuotaFilter, filterErr := parseAccountOAuthQuotaFilter(c)
+	if filterErr != nil {
+		response.ErrorFrom(c, filterErr)
+		return
+	}
 	sortBy := c.DefaultQuery("sort_by", "name")
 	sortOrder := c.DefaultQuery("sort_order", "asc")
 	// 标准化和验证 search 参数
@@ -569,7 +623,22 @@ func (h *AccountHandler) List(c *gin.Context) {
 		}
 	}
 
-	accounts, total, err := h.adminService.ListAccounts(c.Request.Context(), page, pageSize, platform, accountType, status, search, groupID, privacyMode, sortBy, sortOrder)
+	var accounts []service.Account
+	var total int64
+	var err error
+	if oauthQuotaFilter != "" {
+		filteredService, ok := h.adminService.(service.AdminAccountOAuthQuotaListService)
+		if !ok {
+			response.Error(c, http.StatusServiceUnavailable, "account service does not support OAuth quota filtering")
+			return
+		}
+		accounts, total, err = filteredService.ListAccountsWithOAuthQuotaFilter(
+			c.Request.Context(), page, pageSize, platform, accountType, status, search,
+			groupID, privacyMode, sortBy, sortOrder, oauthQuotaFilter,
+		)
+	} else {
+		accounts, total, err = h.adminService.ListAccounts(c.Request.Context(), page, pageSize, platform, accountType, status, search, groupID, privacyMode, sortBy, sortOrder)
+	}
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -624,7 +693,7 @@ func (h *AccountHandler) List(c *gin.Context) {
 		}
 	}
 	if includeSchedulerScore && pageHasOpenAIAccounts {
-		schedulerFilterPool := h.listAccountSchedulerScoreFilterPool(c.Request.Context(), platform, accountType, status, search, groupID, privacyMode)
+		schedulerFilterPool := h.listAccountSchedulerScoreFilterPool(c.Request.Context(), platform, accountType, status, search, groupID, privacyMode, oauthQuotaFilter)
 		schedulerScores, schedulerGroupScores = h.buildOpenAIAccountSchedulerScores(c.Request.Context(), accounts, schedulerFilterPool)
 	}
 
@@ -727,7 +796,7 @@ func (h *AccountHandler) List(c *gin.Context) {
 
 	h.enrichShadowParents(c.Request.Context(), result)
 
-	etag := buildAccountsListETag(result, total, page, pageSize, platform, accountType, status, search, lite)
+	etag := buildAccountsListETagWithOAuthQuota(result, total, page, pageSize, platform, accountType, status, search, oauthQuotaFilter, lite)
 	if etag != "" {
 		c.Header("ETag", etag)
 		c.Header("Vary", "If-None-Match")
@@ -740,11 +809,24 @@ func (h *AccountHandler) List(c *gin.Context) {
 	response.Paginated(c, result, total, page, pageSize)
 }
 
+// buildAccountsListETag keeps the pre-filter helper signature for callers that
+// only need the ordinary account-list ETag.
 func buildAccountsListETag(
 	items []AccountWithConcurrency,
 	total int64,
 	page, pageSize int,
 	platform, accountType, status, search string,
+	lite bool,
+) string {
+	return buildAccountsListETagWithOAuthQuota(items, total, page, pageSize, platform, accountType, status, search, "", lite)
+}
+
+func buildAccountsListETagWithOAuthQuota(
+	items []AccountWithConcurrency,
+	total int64,
+	page, pageSize int,
+	platform, accountType, status, search string,
+	oauthQuotaFilter string,
 	lite bool,
 ) string {
 	payload := struct {
@@ -755,6 +837,7 @@ func buildAccountsListETag(
 		AccountType string                   `json:"type"`
 		Status      string                   `json:"status"`
 		Search      string                   `json:"search"`
+		OAuthQuota  string                   `json:"oauth_quota,omitempty"`
 		Lite        bool                     `json:"lite"`
 		Items       []AccountWithConcurrency `json:"items"`
 	}{
@@ -765,6 +848,7 @@ func buildAccountsListETag(
 		AccountType: accountType,
 		Status:      status,
 		Search:      search,
+		OAuthQuota:  oauthQuotaFilter,
 		Lite:        lite,
 		Items:       items,
 	}

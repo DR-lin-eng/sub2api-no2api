@@ -6,6 +6,7 @@
 
 - 基础地址：`https://<your-domain>`
 - Admin API 前缀：`/api/v1/admin`
+- 账号列表 `GET /api/v1/admin/accounts` 支持 `oauth_quota=exhausted` 筛选。该筛选在数据库分页前检查已持久化的 OAuth 用量快照；任一已知窗口达到 100% 且尚未过重置时间的账号会被返回，缺少快照的账号不会被推断为耗尽。
 - JSON 请求头：`Content-Type: application/json`
 - 机器调用认证头：`x-api-key: <admin-api-key>`
 - 管理员页面调用：`Authorization: Bearer <admin-jwt>`

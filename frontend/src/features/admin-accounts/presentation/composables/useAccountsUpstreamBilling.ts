@@ -190,6 +190,7 @@ export function useAccountsUpstreamBilling(options: AccountsUpstreamBillingOptio
       platform: typeof rawParams.platform === 'string' ? rawParams.platform : '',
       type: typeof rawParams.type === 'string' ? rawParams.type : '',
       status: typeof rawParams.status === 'string' ? rawParams.status : '',
+      oauth_quota: typeof rawParams.oauth_quota === 'string' ? rawParams.oauth_quota : '',
       group: typeof rawParams.group === 'string' ? rawParams.group : '',
       search: typeof rawParams.search === 'string' ? rawParams.search : '',
       privacy_mode: typeof rawParams.privacy_mode === 'string' ? rawParams.privacy_mode : '',

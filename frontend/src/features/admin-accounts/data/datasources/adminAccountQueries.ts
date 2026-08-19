@@ -16,6 +16,7 @@ export interface AccountListFilters {
   platform?: string
   type?: string
   status?: string
+  oauth_quota?: string
   group?: string
   search?: string
   privacy_mode?: string
@@ -85,7 +86,7 @@ export async function listWithEtag(
 
 export type AccountUpstreamBillingRateFilters = Pick<
   AccountListFilters,
-  'platform' | 'type' | 'status' | 'group' | 'search' | 'privacy_mode' | 'sort_by' | 'sort_order'
+  'platform' | 'type' | 'status' | 'oauth_quota' | 'group' | 'search' | 'privacy_mode' | 'sort_by' | 'sort_order'
 >
 
 export interface AccountUpstreamBillingRatesWithEtagResult {

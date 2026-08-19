@@ -49,6 +49,12 @@ func (h *AccountHandler) GetUpstreamBillingRates(c *gin.Context) {
 		Platform: c.Query("platform"), AccountType: c.Query("type"), Status: c.Query("status"),
 		Search: search, PrivacyMode: strings.TrimSpace(c.Query("privacy_mode")),
 	}
+	oauthQuotaFilter, filterErr := parseAccountOAuthQuotaFilter(c)
+	if filterErr != nil {
+		response.ErrorFrom(c, filterErr)
+		return
+	}
+	filters.OAuthQuotaFilter = oauthQuotaFilter
 	if groupQuery := c.Query("group"); groupQuery != "" {
 		if groupQuery == accountListGroupUngroupedQueryValue {
 			filters.GroupID = service.AccountListGroupUngrouped

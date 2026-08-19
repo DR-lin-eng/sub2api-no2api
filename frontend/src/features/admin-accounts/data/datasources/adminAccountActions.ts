@@ -56,6 +56,7 @@ export interface AccountExportOptions {
     platform?: string
     type?: string
     status?: string
+    oauth_quota?: string
     group?: string
     privacy_mode?: string
     search?: string
@@ -311,10 +312,11 @@ export async function exportData(options?: AccountExportOptions): Promise<AdminD
   if (options?.ids && options.ids.length > 0) {
     params.ids = options.ids.join(',')
   } else if (options?.filters) {
-    const { platform, type, status, group, privacy_mode, search, sort_by, sort_order } = options.filters
+    const { platform, type, status, oauth_quota, group, privacy_mode, search, sort_by, sort_order } = options.filters
     if (platform) params.platform = platform
     if (type) params.type = type
     if (status) params.status = status
+    if (oauth_quota) params.oauth_quota = oauth_quota
     if (group) params.group = group
     if (privacy_mode) params.privacy_mode = privacy_mode
     if (search) params.search = search

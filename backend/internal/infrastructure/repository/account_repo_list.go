@@ -91,6 +91,81 @@ func (r *accountRepository) accountListFilteredQuery(platform, accountType, stat
 	return q
 }
 
+// oauthQuotaExhaustedPredicate matches persisted OAuth quota observations.
+// OpenAI/Codex stores percentages in the 0..100 range, while Anthropic's
+// passive windows store utilization as a 0..1 ratio. jsonb_path_exists keeps
+// malformed or string-valued custom extra fields from causing a numeric cast
+// error and naturally treats missing observations as unknown (not exhausted).
+func oauthQuotaExhaustedPredicate() dbpredicate.Account {
+	return dbpredicate.Account(func(s *entsql.Selector) {
+		extra := s.C(dbaccount.FieldExtra)
+		branches := []string{
+			jsonQuotaWindowPredicate(extra, "codex_5h_used_percent", 100, jsonFutureTimestampPredicate(extra, "codex_5h_reset_at")),
+			jsonQuotaWindowPredicate(extra, "codex_7d_used_percent", 100, jsonFutureTimestampPredicate(extra, "codex_7d_reset_at")),
+			jsonQuotaWindowPredicate(extra, "codex_primary_used_percent", 100, jsonFutureTimestampPredicate(extra, "codex_primary_reset_at")),
+			jsonQuotaWindowPredicate(extra, "codex_secondary_used_percent", 100, jsonFutureTimestampPredicate(extra, "codex_secondary_reset_at")),
+			jsonQuotaWindowPredicate(extra, "session_window_utilization", 1, "("+s.C(dbaccount.FieldSessionWindowEnd)+" IS NULL OR "+s.C(dbaccount.FieldSessionWindowEnd)+" > NOW())"),
+			jsonQuotaWindowPredicate(extra, "passive_usage_7d_utilization", 1, jsonFutureUnixPredicate(extra, "passive_usage_7d_reset")),
+			jsonQuotaWindowPredicate(extra, "passive_usage_7d_oi_utilization", 1, jsonFutureUnixPredicate(extra, "passive_usage_7d_oi_reset")),
+			jsonQuotaWindowPredicate(extra, "grok_billing_snapshot.usage_percent", 100, grokBillingWindowActivePredicate(extra)),
+			jsonQuotaWindowPredicate(extra, "grok_billing_snapshot.used_percent", 100, grokBillingWindowActivePredicate(extra)),
+		}
+		s.Where(entsql.ExprP("(" + strings.Join(branches, " OR ") + ")"))
+	})
+}
+
+func jsonPathExists(extra, path string) string {
+	return "jsonb_path_exists(" + extra + ", '" + path + "')"
+}
+
+func jsonQuotaWindowPredicate(extra, key string, threshold float64, activePredicate string) string {
+	thresholdText := strconv.FormatFloat(threshold, 'f', -1, 64)
+	return "(" + jsonPathExists(extra, "$."+key+" ? (@ >= "+thresholdText+")") + " AND " + activePredicate + ")"
+}
+
+func grokBillingWindowActivePredicate(extra string) string {
+	return "(" +
+		jsonFutureTimestampPredicatePath(extra, "grok_billing_snapshot,period_end") +
+		" AND " +
+		jsonFutureTimestampPredicatePath(extra, "grok_billing_snapshot,billing_period_end") +
+		")"
+}
+
+// jsonFutureTimestampPredicate treats an absent or malformed reset timestamp
+// as unknown (and therefore keeps the observed exhaustion match), while a
+// valid timestamp in the past means the window has already reset.
+func jsonFutureTimestampPredicate(extra, key string) string {
+	return jsonFutureTimestampPredicatePath(extra, key)
+}
+
+func jsonFutureTimestampPredicatePath(extra, path string) string {
+	jsonValue := extra + " #> '{" + path + "}'"
+	textValue := extra + " #>> '{" + path + "}'"
+	return "(CASE WHEN jsonb_typeof(" + jsonValue + ") = 'string' AND " + textValue + " ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T' THEN (" + textValue + ")::timestamptz > NOW() ELSE TRUE END)"
+}
+
+func jsonFutureUnixPredicate(extra, key string) string {
+	jsonValue := extra + " #> '{" + key + "}'"
+	textValue := extra + " #>> '{" + key + "}'"
+	return "(CASE WHEN jsonb_typeof(" + jsonValue + ") = 'number' AND " + textValue + " ~ '^[0-9]+(\\.[0-9]+)?$' THEN (" + textValue + ")::numeric > EXTRACT(EPOCH FROM NOW()) ELSE TRUE END)"
+}
+
+func applyOAuthQuotaFilter(q *dbent.AccountQuery, filter string) (*dbent.AccountQuery, error) {
+	switch filter {
+	case "":
+		return q, nil
+	case service.AccountOAuthQuotaFilterExhausted:
+		// The filter is specifically for OAuth accounts. Combining it with an
+		// explicit non-OAuth type in the UI correctly yields an empty result.
+		return q.Where(
+			dbaccount.TypeEQ(service.AccountTypeOAuth),
+			oauthQuotaExhaustedPredicate(),
+		), nil
+	default:
+		return nil, errors.New("invalid OAuth quota filter")
+	}
+}
+
 func (r *accountRepository) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string) ([]service.Account, *pagination.PaginationResult, error) {
 	q := r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode)
 	// Clone before Count so interceptor-appended predicates (SoftDeleteMixin's
@@ -121,6 +196,39 @@ func (r *accountRepository) ListWithFilters(ctx context.Context, params paginati
 	return outAccounts, paginationResultFromTotal(int64(total), params), nil
 }
 
+func (r *accountRepository) ListWithOAuthQuotaFilter(
+	ctx context.Context,
+	params pagination.PaginationParams,
+	platform, accountType, status, search string,
+	groupID int64,
+	privacyMode, oauthQuotaFilter string,
+) ([]service.Account, *pagination.PaginationResult, error) {
+	q, err := applyOAuthQuotaFilter(
+		r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode),
+		oauthQuotaFilter,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	total, err := q.Clone().Count(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	accountsQuery := q.Offset(params.Offset()).Limit(params.Limit())
+	for _, order := range accountListOrder(params) {
+		accountsQuery = accountsQuery.Order(order)
+	}
+	accounts, err := accountsQuery.All(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	outAccounts, err := r.accountsToService(ctx, accounts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return outAccounts, paginationResultFromTotal(int64(total), params), nil
+}
+
 // ListUpstreamBillingRateProjections keeps the periodic admin refresh off the
 // full account hydration path. Only ID and extra are selected; credentials,
 // proxy relations, groups, runtime counters, and usage data are not loaded.
@@ -137,6 +245,10 @@ func (r *accountRepository) ListUpstreamBillingRateProjections(
 		filters.GroupID,
 		filters.PrivacyMode,
 	)
+	q, err := applyOAuthQuotaFilter(q, filters.OAuthQuotaFilter)
+	if err != nil {
+		return nil, 0, err
+	}
 	total, err := q.Clone().Count(ctx)
 	if err != nil {
 		return nil, 0, err
@@ -158,6 +270,26 @@ func (r *accountRepository) ListUpstreamBillingRateProjections(
 
 func (r *accountRepository) ListAllWithFilters(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]service.Account, error) {
 	accounts, err := r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode).All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return r.accountsToService(ctx, accounts)
+}
+
+func (r *accountRepository) ListAllWithOAuthQuotaFilter(
+	ctx context.Context,
+	platform, accountType, status, search string,
+	groupID int64,
+	privacyMode, oauthQuotaFilter string,
+) ([]service.Account, error) {
+	q, err := applyOAuthQuotaFilter(
+		r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode),
+		oauthQuotaFilter,
+	)
+	if err != nil {
+		return nil, err
+	}
+	accounts, err := q.All(ctx)
 	if err != nil {
 		return nil, err
 	}

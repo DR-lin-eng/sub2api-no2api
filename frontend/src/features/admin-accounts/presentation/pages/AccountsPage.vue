@@ -103,6 +103,7 @@ type AccountBulkEditTarget =
         platform?: string
         type?: string
         status?: string
+        oauth_quota?: string
         group?: string
         search?: string
         privacy_mode?: string
@@ -328,6 +329,7 @@ const {
     platform: '',
     type: '',
     status: '',
+    oauth_quota: '',
     privacy_mode: '',
     group: '',
     search: '',
@@ -591,6 +593,7 @@ const refreshAccountsIncrementally = async () => {
         platform?: string
         type?: string
         status?: string
+        oauth_quota?: string
         privacy_mode?: string
         group?: string
         search?: string
@@ -970,6 +973,7 @@ const buildBulkEditFilterSnapshot = () => {
     platform: typeof rawParams.platform === 'string' ? rawParams.platform : '',
     type: typeof rawParams.type === 'string' ? rawParams.type : '',
     status: typeof rawParams.status === 'string' ? rawParams.status : '',
+    oauth_quota: typeof rawParams.oauth_quota === 'string' ? rawParams.oauth_quota : '',
     group: typeof rawParams.group === 'string' ? rawParams.group : '',
     search: typeof rawParams.search === 'string' ? rawParams.search : '',
     privacy_mode: typeof rawParams.privacy_mode === 'string' ? rawParams.privacy_mode : '',
@@ -1055,16 +1059,64 @@ const buildAccountQueryFilters = () => ({
   platform: params.platform || '',
   type: params.type || '',
   status: params.status || '',
+  oauth_quota: params.oauth_quota || '',
   group: params.group || '',
   privacy_mode: params.privacy_mode || '',
   search: params.search || '',
   sort_by: sortState.sort_by,
   sort_order: sortState.sort_order
 })
+const readQuotaNumber = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+const quotaResetIsActive = (value: unknown, unixSeconds = false): boolean => {
+  if (value == null || value === '') return true
+  if (unixSeconds) {
+    const seconds = readQuotaNumber(value)
+    return seconds == null || seconds > Date.now() / 1000
+  }
+  if (typeof value !== 'string' && !(value instanceof Date)) return true
+  const timestamp = new Date(value).getTime()
+  return Number.isNaN(timestamp) || timestamp > Date.now()
+}
+const accountHasExhaustedOAuthQuota = (account: Account): boolean => {
+  if (account.type !== 'oauth' || !account.extra) return false
+  const percentWindows = [
+    ['codex_5h_used_percent', 'codex_5h_reset_at'],
+    ['codex_7d_used_percent', 'codex_7d_reset_at'],
+    ['codex_primary_used_percent', 'codex_primary_reset_at'],
+    ['codex_secondary_used_percent', 'codex_secondary_reset_at']
+  ]
+  if (percentWindows.some(([usageKey, resetKey]) =>
+    (readQuotaNumber(account.extra?.[usageKey]) ?? -1) >= 100 && quotaResetIsActive(account.extra?.[resetKey])
+  )) return true
+  const ratioWindows = [
+    ['session_window_utilization', 'session_window_end'],
+    ['passive_usage_7d_utilization', 'passive_usage_7d_reset'],
+    ['passive_usage_7d_oi_utilization', 'passive_usage_7d_oi_reset']
+  ]
+  if (ratioWindows.some(([usageKey, resetKey]) => {
+    const resetValue = resetKey === 'session_window_end' ? account.session_window_end : account.extra?.[resetKey]
+    return (readQuotaNumber(account.extra?.[usageKey]) ?? -1) >= 1 && quotaResetIsActive(resetValue, resetKey !== 'session_window_end')
+  })) return true
+  const billing = account.extra.grok_billing_snapshot
+  if (billing && typeof billing === 'object' && !Array.isArray(billing)) {
+    const snapshot = billing as Record<string, unknown>
+    const billingWindowActive = quotaResetIsActive(snapshot.period_end) && quotaResetIsActive(snapshot.billing_period_end)
+    return billingWindowActive && ['usage_percent', 'used_percent'].some(key => (readQuotaNumber(snapshot[key]) ?? -1) >= 100)
+  }
+  return false
+}
 const accountMatchesCurrentFilters = (account: Account) => {
   const filters = buildAccountQueryFilters()
   if (filters.platform && account.platform !== filters.platform) return false
   if (filters.type && account.type !== filters.type) return false
+  if (filters.oauth_quota === 'exhausted' && !accountHasExhaustedOAuthQuota(account)) return false
   if (filters.status) {
     const now = Date.now()
     const rateLimitResetAt = account.rate_limit_reset_at ? new Date(account.rate_limit_reset_at).getTime() : Number.NaN

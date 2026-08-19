@@ -13,7 +13,7 @@
 - `presentation/widgets/edit/`: 编辑表单的领域字段。
 - `presentation/composables/`: 有界的表单策略、OAuth 与提交编排。
 
-账号列表页保留路由、请求和弹窗编排，表格 DOM 由 `AccountsTableView.vue` 静态承载。列表列偏好、展示映射、今日统计和上游额度分别由同域 composable 管理；表格只消费 `accountTableViewContext.ts` 的 typed context，不直接请求 API 或创建 watcher、timer。
+账号列表页保留路由、请求和弹窗编排，表格 DOM 由 `AccountsTableView.vue` 静态承载。列表列偏好、展示映射、今日统计和上游额度分别由同域 composable 管理；表格只消费 `accountTableViewContext.ts` 的 typed context，不直接请求 API 或创建 watcher、timer。`oauth_quota=exhausted` 在服务端分页前筛选已持久化的 OAuth 用量快照（任一已知窗口达到 100%）；缺少快照的账号保持未知，不会被误判为耗尽。
 
 请求生命周期由 presentation 明确持有：账号页负责列表 AbortController、ETag、筛选和写后刷新；今日统计 composable 用请求序号忽略过期响应；上游计费 composable 负责费率 ETag、轮询暂停条件、探测后的列表刷新和额度缓存失效。重复账号 Action 在请求成功前将幂等键同时保存在内存与 `sessionStorage`，失败重试和页面重载继续复用同一个键。
 

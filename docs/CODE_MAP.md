@@ -16,6 +16,7 @@
 | 修改 OpenAI/Codex/Responses | `handler/openai_gateway_responses.go` | `application/service/openai*` | responses/chat/WS 的流式与非流式测试 |
 | 修改 Gemini/Antigravity/Grok | `routes/gateway.go` | `application/service/gemini*`, `antigravity*`, `grok*` | 平台专项 service/handler 测试 |
 | 修改账号调度 | `application/service/gateway_scheduling.go`, `openai_account_scheduler.go` | `infrastructure/repository/scheduler*`, `concurrency*` | scheduler、并发、失败切换测试和 benchmark |
+| 修改管理端账号筛选/额度快照 | `transport/http/handler/admin/account_handler.go`, `infrastructure/repository/account_repo_list.go` | `application/service/admin_account.go`, `frontend/src/features/admin-accounts/` | handler/repository 分页筛选测试 + admin-accounts Vitest + Docker |
 | 修改账号 IPv6 出口 | `modules/egress/`, `platform/egress/` | `repository/egress_repo.go`, `http_upstream.go`, `features/admin-egress/`, `deploy/docker-compose.ipv6-egress*.yml`, `deploy/ipv6-egress-sidecar.sh` | route/dialer + repository integration + Docker IPv6/6in4 sidecar + 前端 feature 测试 |
 | 修改计费/余额 | `application/service/gateway_usage_billing.go`, `openai_gateway_usage.go`, `billing_service.go` | `infrastructure/repository/usage_billing*`, `billing_cache*`, `channel_repo_pricing.go` | billing unit + repository integration; channel time pricing is validated/cached in `channel_time_pricing.go` |
 | 修改分组用量汇总 | `application/service/group_usage_rollup.go` | `infrastructure/repository/group_usage_rollup_repo.go`, `usage_log_repo_group_rollup.go`, `features/admin-groups/` | rollup unit/integration + admin-groups feature tests |

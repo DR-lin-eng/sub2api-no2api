@@ -96,6 +96,61 @@ func TestAccountHandlerListIncludesCreatedAt(t *testing.T) {
 	require.Equal(t, 0, offset)
 }
 
+func TestAccountHandlerListOAuthQuotaFilterUsesPersistedOAuthSnapshots(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	adminSvc := newStubAdminService()
+	now := time.Now().UTC()
+	adminSvc.accounts = []service.Account{
+		{
+			ID: 101, Name: "openai-exhausted", Platform: service.PlatformOpenAI,
+			Type: service.AccountTypeOAuth, Status: service.StatusActive,
+			Extra: map[string]any{"codex_5h_used_percent": 100.0}, CreatedAt: now, UpdatedAt: now,
+		},
+		{
+			ID: 102, Name: "openai-available", Platform: service.PlatformOpenAI,
+			Type: service.AccountTypeOAuth, Status: service.StatusActive,
+			Extra: map[string]any{"codex_5h_used_percent": 42.0}, CreatedAt: now, UpdatedAt: now,
+		},
+		{
+			ID: 103, Name: "anthropic-exhausted", Platform: service.PlatformAnthropic,
+			Type: service.AccountTypeOAuth, Status: service.StatusActive,
+			Extra: map[string]any{"session_window_utilization": 1.0}, CreatedAt: now, UpdatedAt: now,
+		},
+		{
+			ID: 104, Name: "apikey-with-value", Platform: service.PlatformOpenAI,
+			Type: service.AccountTypeAPIKey, Status: service.StatusActive,
+			Extra: map[string]any{"codex_5h_used_percent": 100.0}, CreatedAt: now, UpdatedAt: now,
+		},
+	}
+	handler := NewAccountHandler(adminSvc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	router := gin.New()
+	router.GET("/api/v1/admin/accounts", handler.List)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/accounts?page=1&page_size=1&oauth_quota=exhausted", nil)
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, service.AccountOAuthQuotaFilterExhausted, adminSvc.lastListAccounts.oauthQuota)
+	var payload struct {
+		Data struct {
+			Items []struct {
+				ID int64 `json:"id"`
+			} `json:"items"`
+			Total int64 `json:"total"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &payload))
+	require.Equal(t, int64(2), payload.Data.Total)
+	require.Len(t, payload.Data.Items, 1)
+	require.Equal(t, int64(101), payload.Data.Items[0].ID)
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/admin/accounts?oauth_quota=unknown", nil)
+	router.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
 func TestAccountHandlerListBatchesIndependentWindowCosts(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	adminSvc := newStubAdminService()

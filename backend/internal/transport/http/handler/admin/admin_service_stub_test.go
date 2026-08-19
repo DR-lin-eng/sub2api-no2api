@@ -50,6 +50,7 @@ type stubAdminService struct {
 		search      string
 		groupID     int64
 		privacyMode string
+		oauthQuota  string
 		sortBy      string
 		sortOrder   string
 		calls       int
@@ -445,12 +446,68 @@ func (s *stubAdminService) ListAccounts(ctx context.Context, page, pageSize int,
 	return accounts[start:end], int64(total), nil
 }
 
+func (s *stubAdminService) ListAccountsWithOAuthQuotaFilter(_ context.Context, page, pageSize int, platform, accountType, status, search string, groupID int64, privacyMode, sortBy, sortOrder, oauthQuotaFilter string) ([]service.Account, int64, error) {
+	s.lastListAccounts.oauthQuota = oauthQuotaFilter
+	s.lastListAccounts.calls++
+	filtered := make([]service.Account, 0, len(s.accounts))
+	for _, account := range s.accounts {
+		if account.Type != service.AccountTypeOAuth {
+			continue
+		}
+		if value, ok := account.Extra["codex_5h_used_percent"].(float64); ok && value >= 100 {
+			filtered = append(filtered, account)
+			continue
+		}
+		if value, ok := account.Extra["session_window_utilization"].(float64); ok && value >= 1 {
+			filtered = append(filtered, account)
+		}
+	}
+	if oauthQuotaFilter == "" {
+		filtered = append([]service.Account(nil), s.accounts...)
+	}
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = len(filtered)
+	}
+	start := (page - 1) * pageSize
+	if start >= len(filtered) {
+		return []service.Account{}, int64(len(filtered)), nil
+	}
+	end := start + pageSize
+	if end > len(filtered) {
+		end = len(filtered)
+	}
+	return filtered[start:end], int64(len(filtered)), nil
+}
+
 func (s *stubAdminService) ListAccountsForSchedulerScoreFilter(_ context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]service.Account, error) {
 	s.schedulerScoreFilterCalls++
 	if s.accountSchedulerScoreFilterAccounts != nil {
 		return s.accountSchedulerScoreFilterAccounts, nil
 	}
 	return s.accounts, nil
+}
+
+func (s *stubAdminService) ListAccountsForSchedulerScoreFilterWithOAuthQuota(_ context.Context, platform, accountType, status, search string, groupID int64, privacyMode, oauthQuotaFilter string) ([]service.Account, error) {
+	if oauthQuotaFilter == "" {
+		return s.ListAccountsForSchedulerScoreFilter(context.Background(), platform, accountType, status, search, groupID, privacyMode)
+	}
+	accounts := s.accountSchedulerScoreFilterAccounts
+	if accounts == nil {
+		accounts = s.accounts
+	}
+	filtered := make([]service.Account, 0, len(accounts))
+	for _, account := range accounts {
+		if account.Type != service.AccountTypeOAuth {
+			continue
+		}
+		if value, ok := account.Extra["codex_5h_used_percent"].(float64); ok && value >= 100 {
+			filtered = append(filtered, account)
+		}
+	}
+	return filtered, nil
 }
 
 func (s *stubAdminService) ListOpenAISchedulableAccountsForSchedulerScore(_ context.Context, groupID *int64) ([]service.Account, error) {

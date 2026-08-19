@@ -29,11 +29,67 @@ func (s *adminServiceImpl) ListAccounts(ctx context.Context, page, pageSize int,
 	return accounts, result.Total, nil
 }
 
+// ListAccountsWithOAuthQuotaFilter is the opt-in paginated variant used by
+// the admin account list. The repository extension keeps the JSONB predicate
+// below pagination; falling back to a hydrated in-memory scan would make the
+// reported total and page boundaries incorrect on large installations.
+func (s *adminServiceImpl) ListAccountsWithOAuthQuotaFilter(
+	ctx context.Context,
+	page, pageSize int,
+	platform, accountType, status, search string,
+	groupID int64,
+	privacyMode, sortBy, sortOrder, oauthQuotaFilter string,
+) ([]Account, int64, error) {
+	if oauthQuotaFilter == "" {
+		return s.ListAccounts(ctx, page, pageSize, platform, accountType, status, search, groupID, privacyMode, sortBy, sortOrder)
+	}
+	repo, ok := s.accountRepo.(interface {
+		ListWithOAuthQuotaFilter(
+			context.Context,
+			pagination.PaginationParams,
+			string, string, string, string,
+			int64, string, string,
+		) ([]Account, *pagination.PaginationResult, error)
+	})
+	if !ok {
+		return nil, 0, errors.New("account repository does not support OAuth quota filtering")
+	}
+	params := pagination.PaginationParams{Page: page, PageSize: pageSize, SortBy: sortBy, SortOrder: sortOrder}
+	accounts, result, err := repo.ListWithOAuthQuotaFilter(
+		ctx, params, platform, accountType, status, search, groupID, privacyMode, oauthQuotaFilter,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+	return accounts, result.Total, nil
+}
+
 func (s *adminServiceImpl) ListAccountsForSchedulerScoreFilter(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, error) {
 	if s == nil || s.accountRepo == nil {
 		return nil, nil
 	}
 	return s.accountRepo.ListAllWithFilters(ctx, platform, accountType, status, search, groupID, privacyMode)
+}
+
+func (s *adminServiceImpl) ListAccountsForSchedulerScoreFilterWithOAuthQuota(
+	ctx context.Context,
+	platform, accountType, status, search string,
+	groupID int64,
+	privacyMode, oauthQuotaFilter string,
+) ([]Account, error) {
+	if oauthQuotaFilter == "" {
+		return s.ListAccountsForSchedulerScoreFilter(ctx, platform, accountType, status, search, groupID, privacyMode)
+	}
+	if s == nil || s.accountRepo == nil {
+		return nil, nil
+	}
+	repo, ok := s.accountRepo.(interface {
+		ListAllWithOAuthQuotaFilter(context.Context, string, string, string, string, int64, string, string) ([]Account, error)
+	})
+	if !ok {
+		return nil, errors.New("account repository does not support OAuth quota filtering")
+	}
+	return repo.ListAllWithOAuthQuotaFilter(ctx, platform, accountType, status, search, groupID, privacyMode, oauthQuotaFilter)
 }
 
 func (s *adminServiceImpl) ListOpenAISchedulableAccountsForSchedulerScore(ctx context.Context, groupID *int64) ([]Account, error) {

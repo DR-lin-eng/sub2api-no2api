@@ -18,6 +18,37 @@ var (
 const AccountListGroupUngrouped int64 = -1
 const AccountPrivacyModeUnsetFilter = "__unset__"
 
+// AccountOAuthQuotaFilterExhausted selects OAuth accounts whose persisted
+// quota snapshot shows at least one known window at 100% usage.  The snapshot
+// is intentionally used here instead of issuing an upstream request for every
+// row in an admin list.
+const AccountOAuthQuotaFilterExhausted = "exhausted"
+
+// AdminAccountOAuthQuotaListService is an optional extension of AdminService
+// for the paginated account-list OAuth quota filter. Keeping it separate from
+// AdminService preserves compatibility with existing service test doubles and
+// integrations that do not need this filter.
+type AdminAccountOAuthQuotaListService interface {
+	ListAccountsWithOAuthQuotaFilter(
+		ctx context.Context,
+		page, pageSize int,
+		platform, accountType, status, search string,
+		groupID int64,
+		privacyMode, sortBy, sortOrder, oauthQuotaFilter string,
+	) ([]Account, int64, error)
+}
+
+// AdminAccountOAuthQuotaSchedulerFilterService is the unpaged counterpart
+// used when the optional scheduler-score column is shown on the account page.
+type AdminAccountOAuthQuotaSchedulerFilterService interface {
+	ListAccountsForSchedulerScoreFilterWithOAuthQuota(
+		ctx context.Context,
+		platform, accountType, status, search string,
+		groupID int64,
+		privacyMode, oauthQuotaFilter string,
+	) ([]Account, error)
+}
+
 // OAuthRefreshPageOptions describes one bounded, cursor-stable scan of OAuth
 // accounts. Candidate platforms are supplied by TokenRefreshService's refresher
 // registry so repository eligibility cannot drift from registered providers.
