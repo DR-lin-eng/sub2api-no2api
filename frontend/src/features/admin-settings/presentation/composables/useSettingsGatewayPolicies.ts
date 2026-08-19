@@ -95,6 +95,9 @@ export function useSettingsGatewayPolicies() {
     temp_unsched_minutes: 5,
     threshold_count: 3,
     threshold_window_minutes: 10,
+    openai_first_output_timeout_seconds: 90,
+    openai_high_effort_first_output_timeout_seconds: 180,
+    stream_keepalive_interval_seconds: 10,
   });
 
   // Rectifier 状态
@@ -408,6 +411,12 @@ export function useSettingsGatewayPolicies() {
         temp_unsched_minutes: streamTimeoutForm.temp_unsched_minutes,
         threshold_count: streamTimeoutForm.threshold_count,
         threshold_window_minutes: streamTimeoutForm.threshold_window_minutes,
+        openai_first_output_timeout_seconds:
+          streamTimeoutForm.openai_first_output_timeout_seconds,
+        openai_high_effort_first_output_timeout_seconds:
+          streamTimeoutForm.openai_high_effort_first_output_timeout_seconds,
+        stream_keepalive_interval_seconds:
+          streamTimeoutForm.stream_keepalive_interval_seconds,
       });
       Object.assign(streamTimeoutForm, updated);
       appStore.showSuccess(t("admin.settings.streamTimeout.saved"));

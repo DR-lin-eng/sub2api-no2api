@@ -531,13 +531,35 @@ type StreamTimeoutSettings struct {
 	ThresholdCount int `json:"threshold_count"`
 	// ThresholdWindowMinutes 阈值窗口时间（分钟）
 	ThresholdWindowMinutes int `json:"threshold_window_minutes"`
+	// OpenAIFirstOutputTimeoutSeconds OpenAI Responses 首个语义输出截止时间（秒），0 表示关闭。
+	OpenAIFirstOutputTimeoutSeconds int `json:"openai_first_output_timeout_seconds"`
+	// OpenAIHighEffortFirstOutputTimeoutSeconds high/xhigh/max 推理的首个语义输出截止时间（秒），0 表示沿用标准值。
+	OpenAIHighEffortFirstOutputTimeoutSeconds int `json:"openai_high_effort_first_output_timeout_seconds"`
+	// StreamKeepaliveIntervalSeconds 下游 SSE 注释心跳间隔（秒），0 表示关闭。
+	StreamKeepaliveIntervalSeconds int `json:"stream_keepalive_interval_seconds"`
 }
 
 const (
 	DefaultStreamResponseHeaderTimeoutSeconds = 20
 	MinStreamResponseHeaderTimeoutSeconds     = 1
 	MaxStreamResponseHeaderTimeoutSeconds     = 300
+	DefaultOpenAIFirstOutputTimeoutSeconds    = 90
+	MinOpenAIFirstOutputTimeoutSeconds        = 30
+	MaxOpenAIFirstOutputTimeoutSeconds        = 600
+	DefaultOpenAIHighEffortFirstOutputSeconds = 180
+	MaxOpenAIHighEffortFirstOutputSeconds     = 1800
+	DefaultStreamKeepaliveIntervalSeconds     = 10
+	MinStreamKeepaliveIntervalSeconds         = 5
+	MaxStreamKeepaliveIntervalSeconds         = 30
 )
+
+// OpenAIStreamRuntimeSettings is the request-hot-path snapshot of the
+// administrator-controlled OpenAI stream startup policy.
+type OpenAIStreamRuntimeSettings struct {
+	FirstOutputTimeoutSeconds    int
+	HighEffortFirstOutputSeconds int
+	KeepaliveIntervalSeconds     int
+}
 
 // StreamTimeoutAction 流超时处理方式常量
 const (
@@ -549,13 +571,16 @@ const (
 // DefaultStreamTimeoutSettings 返回默认的流超时配置
 func DefaultStreamTimeoutSettings() *StreamTimeoutSettings {
 	return &StreamTimeoutSettings{
-		ResponseHeaderTimeoutDegradationEnabled: true,
-		ResponseHeaderTimeoutSeconds:            DefaultStreamResponseHeaderTimeoutSeconds,
-		Enabled:                                 false,
-		Action:                                  StreamTimeoutActionTempUnsched,
-		TempUnschedMinutes:                      5,
-		ThresholdCount:                          3,
-		ThresholdWindowMinutes:                  10,
+		ResponseHeaderTimeoutDegradationEnabled:   true,
+		ResponseHeaderTimeoutSeconds:              DefaultStreamResponseHeaderTimeoutSeconds,
+		Enabled:                                   false,
+		Action:                                    StreamTimeoutActionTempUnsched,
+		TempUnschedMinutes:                        5,
+		ThresholdCount:                            3,
+		ThresholdWindowMinutes:                    10,
+		OpenAIFirstOutputTimeoutSeconds:           DefaultOpenAIFirstOutputTimeoutSeconds,
+		OpenAIHighEffortFirstOutputTimeoutSeconds: DefaultOpenAIHighEffortFirstOutputSeconds,
+		StreamKeepaliveIntervalSeconds:            DefaultStreamKeepaliveIntervalSeconds,
 	}
 }
 

@@ -129,6 +129,7 @@ type SettingService struct {
 	streamResponseHeaderTimeoutSeconds            atomic.Int64
 	streamResponseHeaderTimeoutLoaded             atomic.Int64
 	streamResponseHeaderTimeoutSF                 singleflight.Group
+	openAIStreamRuntimeSettings                   atomic.Pointer[OpenAIStreamRuntimeSettings]
 
 	thinkingDisplayModeCache    atomic.Value // string
 	thinkingDisplayModeLoaded   atomic.Int64
@@ -278,6 +279,8 @@ func NewSettingService(settingRepo SettingRepository, cfg *config.Config) *Setti
 	svc.globalTempUnschedulableEnabled.Store(true)
 	svc.streamResponseHeaderTimeoutDegradationEnabled.Store(true)
 	svc.streamResponseHeaderTimeoutSeconds.Store(DefaultStreamResponseHeaderTimeoutSeconds)
+	defaultStreamSettings := svc.defaultStreamTimeoutSettings()
+	svc.cacheStreamTimeoutRuntime(defaultStreamSettings)
 	svc.thinkingDisplayModeCache.Store(ThinkingDisplayModeDisplayOnly)
 	svc.requestPriorityAdmissionSettings.Store(defaultRequestPriorityAdmissionSettings())
 	codexSimulationSettings := svc.defaultCodexSimulationSettings()

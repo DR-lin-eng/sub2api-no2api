@@ -148,6 +148,9 @@ export interface StreamTimeoutSettings {
   temp_unsched_minutes: number;
   threshold_count: number;
   threshold_window_minutes: number;
+  openai_first_output_timeout_seconds?: number;
+  openai_high_effort_first_output_timeout_seconds?: number;
+  stream_keepalive_interval_seconds?: number;
 }
 
 /**

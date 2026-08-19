@@ -238,15 +238,18 @@ gateway:
   # Timeout for waiting upstream response headers (seconds)
   # 等待上游响应头超时时间（秒）
   response_header_timeout: 600
-  # Native OpenAI HTTP Responses first semantic output timeout (seconds, 0=disabled)
-  # Includes response-header wait; does not apply to passthrough or WebSocket transports.
+  # OpenAI Responses first semantic output timeout (seconds, 0=disabled)
+  # Covers native HTTP, HTTP passthrough, and WSv2 upstream attempts, including response-header wait.
   # A timed-out request may already have incurred upstream usage; account failover can therefore duplicate upstream billing.
   # 超时请求可能已产生上游用量；切换账号重试可能导致上游重复计费。
-  # Pre-output attempt staging is capped at 8 MiB; overflow fails over without exposing partial SSE data.
-  # 首次输出前的单次尝试暂存上限为 8 MiB；溢出时切号且不暴露不完整 SSE 数据。
-  openai_first_output_timeout_seconds: 0
+  # Native HTTP stages up to 8 MiB before exposing an attempt; passthrough/WS
+  # paths also keep their pre-output frames private until replay is unsafe.
+  # 原生 HTTP 在首次输出前最多暂存 8 MiB；透传和 WS 路径也会在可重放时保持前导帧私有。
+  # HTTP SSE comments keep the downstream connection alive while attempts switch.
+  # HTTP SSE 注释心跳会在账号尝试切换期间维持同一条下游连接。
+  openai_first_output_timeout_seconds: 90
   # Optional high/xhigh/max override (seconds, 0=use the standard timeout)
-  openai_high_effort_first_output_timeout_seconds: 0
+  openai_high_effort_first_output_timeout_seconds: 180
   # Max request body size in bytes (default: 256MB)
   # 请求体最大字节数（默认 256MB）
   max_body_size: 268435456

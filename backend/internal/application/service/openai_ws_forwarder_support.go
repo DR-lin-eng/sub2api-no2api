@@ -25,6 +25,14 @@ func (s *OpenAIGatewayService) shouldPerformOpenAIWSGeneratePrewarm(account *Acc
 
 const codexPrewarmContinuationReasoningHeader = "X-CPA-Reasoning"
 
+type openAIWSPrewarmFirstOutputGuard struct {
+	c               *gin.Context
+	startedAt       time.Time
+	timeout         time.Duration
+	originalModel   string
+	reasoningEffort string
+}
+
 func applyCodexPrewarmContinuationReasoningOverride(c *gin.Context, account *Account, reqBody map[string]any) (bool, error) {
 	if c == nil || account == nil || !account.IsCodexPrewarmContinuationEnabled() ||
 		!strings.EqualFold(strings.TrimSpace(c.GetHeader(codexPrewarmContinuationReasoningHeader)), "none") {
@@ -62,6 +70,7 @@ func (s *OpenAIGatewayService) performOpenAIWSGeneratePrewarm(
 	account *Account,
 	stateStore OpenAIWSStateStore,
 	groupID int64,
+	firstOutputGuard *openAIWSPrewarmFirstOutputGuard,
 ) error {
 	if s == nil {
 		return nil

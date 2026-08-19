@@ -9,7 +9,8 @@ type GatewayConfig struct {
 	// 等待上游响应头的超时时间（秒），0表示无超时
 	// 注意：这不影响流式数据传输，只控制等待响应头的时间
 	ResponseHeaderTimeout int `mapstructure:"response_header_timeout"`
-	// OpenAIFirstOutputTimeoutSeconds: native HTTP Responses 首个语义输出超时（秒），0表示禁用。
+	// OpenAIFirstOutputTimeoutSeconds: OpenAI Responses 首个语义输出超时（秒），0表示禁用。
+	// 适用于 native HTTP、HTTP passthrough 和 WebSocket passthrough。
 	OpenAIFirstOutputTimeoutSeconds int `mapstructure:"openai_first_output_timeout_seconds"`
 	// OpenAIHighEffortFirstOutputTimeoutSeconds: high/xhigh/max 推理的首个语义输出超时（秒）。
 	// 0 表示回退到 OpenAIFirstOutputTimeoutSeconds。

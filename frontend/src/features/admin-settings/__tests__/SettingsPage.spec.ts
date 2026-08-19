@@ -930,6 +930,9 @@ describe("admin SettingsView payment visible method controls", () => {
       temp_unsched_minutes: 5,
       threshold_count: 3,
       threshold_window_minutes: 10,
+      openai_first_output_timeout_seconds: 90,
+      openai_high_effort_first_output_timeout_seconds: 180,
+      stream_keepalive_interval_seconds: 10,
     });
     updateStreamTimeoutSettings.mockImplementation(async (payload) => payload);
     getRectifierSettings.mockResolvedValue({
@@ -1432,6 +1435,10 @@ describe("admin SettingsView payment visible method controls", () => {
       .find((node) => node.text().includes("admin.settings.streamTimeout.title"));
     expect(card).toBeDefined();
 
+    expect((card!.get('[data-testid="openai-first-output-timeout"]').element as HTMLInputElement).value).toBe("90");
+    expect((card!.get('[data-testid="openai-high-effort-first-output-timeout"]').element as HTMLInputElement).value).toBe("180");
+    expect((card!.get('[data-testid="openai-stream-keepalive-interval"]').element as HTMLInputElement).value).toBe("10");
+
     const featureToggle = card!.findAll('input[type="checkbox"]')[0];
     expect((featureToggle!.element as HTMLInputElement).checked).toBe(true);
     expect(card!.find('input[type="number"][max="300"]').exists()).toBe(true);
@@ -1449,6 +1456,9 @@ describe("admin SettingsView payment visible method controls", () => {
       expect.objectContaining({
         response_header_timeout_degradation_enabled: false,
         response_header_timeout_seconds: 20,
+        openai_first_output_timeout_seconds: 90,
+        openai_high_effort_first_output_timeout_seconds: 180,
+        stream_keepalive_interval_seconds: 10,
       }),
     );
   });
@@ -2118,6 +2128,9 @@ describe("admin SettingsView wechat connect controls", () => {
       temp_unsched_minutes: 5,
       threshold_count: 3,
       threshold_window_minutes: 10,
+      openai_first_output_timeout_seconds: 90,
+      openai_high_effort_first_output_timeout_seconds: 180,
+      stream_keepalive_interval_seconds: 10,
     });
     updateStreamTimeoutSettings.mockImplementation(async (payload) => payload);
     getRectifierSettings.mockResolvedValue({

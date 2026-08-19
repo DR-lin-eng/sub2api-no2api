@@ -32,6 +32,42 @@ var (
 	errOpenAIFirstOutputScannerLimit = errors.New("openai pre-output scanner token limit exceeded")
 )
 
+type openAIStreamRuntimeSettingsContextKey struct{}
+
+func (s *OpenAIGatewayService) openAIStreamRuntimeSettings(ctx context.Context) OpenAIStreamRuntimeSettings {
+	if ctx != nil {
+		if settings, ok := ctx.Value(openAIStreamRuntimeSettingsContextKey{}).(OpenAIStreamRuntimeSettings); ok {
+			return settings
+		}
+	}
+	if s != nil && s.settingService != nil {
+		return s.settingService.OpenAIStreamRuntimeSettings(ctx)
+	}
+	settings := OpenAIStreamRuntimeSettings{
+		FirstOutputTimeoutSeconds:    DefaultOpenAIFirstOutputTimeoutSeconds,
+		HighEffortFirstOutputSeconds: DefaultOpenAIHighEffortFirstOutputSeconds,
+		KeepaliveIntervalSeconds:     DefaultStreamKeepaliveIntervalSeconds,
+	}
+	if s != nil && s.cfg != nil {
+		settings.FirstOutputTimeoutSeconds = s.cfg.Gateway.OpenAIFirstOutputTimeoutSeconds
+		settings.HighEffortFirstOutputSeconds = s.cfg.Gateway.OpenAIHighEffortFirstOutputTimeoutSeconds
+		settings.KeepaliveIntervalSeconds = s.cfg.Gateway.StreamKeepaliveInterval
+	}
+	return settings
+}
+
+// WithOpenAIStreamRuntimeSettings freezes one admin-controlled stream policy
+// for a request so an in-flight account switch cannot observe mixed values.
+func (s *OpenAIGatewayService) WithOpenAIStreamRuntimeSettings(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, ok := ctx.Value(openAIStreamRuntimeSettingsContextKey{}).(OpenAIStreamRuntimeSettings); ok {
+		return ctx
+	}
+	return context.WithValue(ctx, openAIStreamRuntimeSettingsContextKey{}, s.openAIStreamRuntimeSettings(ctx))
+}
+
 type openAIFirstOutputStage struct {
 	limit      int64
 	size       int64
@@ -230,17 +266,36 @@ func (s *openAIFirstOutputStage) Close() error {
 }
 
 func (s *OpenAIGatewayService) openAIFirstOutputTimeout(reasoningEffort string) time.Duration {
-	if s == nil || s.cfg == nil || s.cfg.Gateway.OpenAIFirstOutputTimeoutSeconds <= 0 {
+	return s.openAIFirstOutputTimeoutWithContext(context.Background(), reasoningEffort)
+}
+
+func (s *OpenAIGatewayService) openAIFirstOutputTimeoutWithContext(ctx context.Context, reasoningEffort string) time.Duration {
+	settings := s.openAIStreamRuntimeSettings(ctx)
+	if settings.FirstOutputTimeoutSeconds <= 0 {
 		return 0
 	}
-	seconds := s.cfg.Gateway.OpenAIFirstOutputTimeoutSeconds
+	seconds := settings.FirstOutputTimeoutSeconds
 	switch strings.ToLower(strings.TrimSpace(reasoningEffort)) {
 	case "high", "xhigh", "max":
-		if override := s.cfg.Gateway.OpenAIHighEffortFirstOutputTimeoutSeconds; override > 0 {
+		if override := settings.HighEffortFirstOutputSeconds; override > 0 {
 			seconds = override
 		}
 	}
 	return time.Duration(seconds) * time.Second
+}
+
+func (s *OpenAIGatewayService) openAIStreamKeepaliveIntervalWithContext(ctx context.Context) time.Duration {
+	seconds := s.openAIStreamRuntimeSettings(ctx).KeepaliveIntervalSeconds
+	if seconds <= 0 {
+		return 0
+	}
+	return time.Duration(seconds) * time.Second
+}
+
+// OpenAIStreamKeepaliveInterval exposes the runtime value to the HTTP handler
+// used by the compact pre-response keepalive path.
+func (s *OpenAIGatewayService) OpenAIStreamKeepaliveInterval(ctx context.Context) time.Duration {
+	return s.openAIStreamKeepaliveIntervalWithContext(ctx)
 }
 
 func (s *OpenAIGatewayService) newOpenAIFirstOutputTimeoutError(

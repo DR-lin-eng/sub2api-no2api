@@ -18,6 +18,12 @@ import (
 
 // Forward forwards request to OpenAI API
 func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, account *Account, body []byte) (*OpenAIForwardResult, error) {
+	ctx = s.WithOpenAIStreamRuntimeSettings(ctx)
+	if c != nil && c.Request != nil {
+		settings := ctx.Value(openAIStreamRuntimeSettingsContextKey{}).(OpenAIStreamRuntimeSettings)
+		requestCtx := context.WithValue(c.Request.Context(), openAIStreamRuntimeSettingsContextKey{}, settings)
+		c.Request = c.Request.WithContext(requestCtx)
+	}
 	beginUpstreamResponseModelObservation(c)
 	clearGrokResponsesClientToolMapping(c)
 	clearOpenAIResponsesNamespaceNames(c)
@@ -716,6 +722,10 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			if wsErr == nil {
 				break
 			}
+			var wsFailoverErr *UpstreamFailoverError
+			if errors.As(wsErr, &wsFailoverErr) && wsFailoverErr.SafeToFailoverAfterWrite {
+				return nil, wsFailoverErr
+			}
 			if c != nil && c.Writer != nil && c.Writer.Written() {
 				break
 			}
@@ -870,7 +880,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 	firstOutputTimeout := time.Duration(0)
 	if reqStream && account.Platform == PlatformOpenAI {
-		firstOutputTimeout = s.openAIFirstOutputTimeout(reasoningEffortValue)
+		firstOutputTimeout = s.openAIFirstOutputTimeoutWithContext(ctx, reasoningEffortValue)
 	}
 
 	httpInvalidEncryptedContentRetryTried := false

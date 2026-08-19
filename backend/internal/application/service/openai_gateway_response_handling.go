@@ -53,7 +53,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 	}
 	firstOutputTimeout := time.Duration(0)
 	if account != nil && account.Platform == PlatformOpenAI {
-		firstOutputTimeout = s.openAIFirstOutputTimeout(reasoningEffort)
+		firstOutputTimeout = s.openAIFirstOutputTimeoutWithContext(ctx, reasoningEffort)
 	}
 	guardFirstOutput := firstOutputTimeout > 0
 	stageFirstOutput := account != nil && account.Platform == PlatformOpenAI
@@ -179,9 +179,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 	}
 
 	keepaliveInterval := time.Duration(0)
-	if s.cfg != nil && s.cfg.Gateway.StreamKeepaliveInterval > 0 {
-		keepaliveInterval = time.Duration(s.cfg.Gateway.StreamKeepaliveInterval) * time.Second
-	}
+	keepaliveInterval = s.openAIStreamKeepaliveIntervalWithContext(ctx)
 	// 下游 keepalive 仅用于防止代理空闲断开
 	var keepaliveTicker *time.Ticker
 	if keepaliveInterval > 0 {
