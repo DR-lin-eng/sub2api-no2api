@@ -284,7 +284,7 @@
               {{ submitError || groupLoadError || modelLoadError }}
             </div>
 
-            <div class="flex flex-wrap items-start gap-2">
+            <div class="flex flex-wrap items-center gap-2">
               <input
                 ref="fileInput"
                 type="file"
@@ -322,100 +322,17 @@
                 <Icon :name="typeMenuOpen ? 'chevronUp' : 'chevronDown'" size="xs" class="text-gray-400" />
               </button>
 
-              <label class="composer-select">
-                <Icon name="grid" size="sm" />
-                <select
-                  :value="selectedGroupId"
-                  class="select-inner min-w-[170px]"
-                  :disabled="loadingGroups"
-                  @change="emit('update:selectedGroupId', Number(($event.target as HTMLSelectElement).value))"
-                >
-                  <option :value="0">{{ loadingGroups ? t('mediaStudio.composer.loadingGroups') : t('mediaStudio.composer.selectGroup') }}</option>
-                  <option v-for="group in groupOptions" :key="group.group_id" :value="group.group_id">
-                    {{ group.group_name }} · {{ group.platform }}
-                  </option>
-                </select>
-              </label>
-
-              <label class="composer-select">
-                <Icon name="cube" size="sm" />
-                <select
-                  v-if="modelSelectionLocked"
-                  :value="model"
-                  class="select-inner w-44"
-                  :disabled="loadingModels || modelOptions.length === 0"
-                  @change="emit('update:model', ($event.target as HTMLSelectElement).value)"
-                >
-                  <option value="">{{ loadingModels ? t('mediaStudio.composer.loadingModels') : t('mediaStudio.composer.model') }}</option>
-                  <option v-for="option in modelOptions" :key="option" :value="option">{{ option }}</option>
-                </select>
-                <template v-else>
-                  <input
-                    :value="model"
-                    list="media-studio-models"
-                    class="select-inner w-36"
-                    :placeholder="loadingModels ? t('mediaStudio.composer.loadingModels') : t('mediaStudio.composer.model')"
-                    @input="emit('update:model', ($event.target as HTMLInputElement).value)"
-                  />
-                  <datalist id="media-studio-models">
-                    <option v-for="option in modelOptions" :key="option" :value="option" />
-                  </datalist>
-                </template>
-              </label>
-
-              <label v-if="selectedModeId === 'image'" class="composer-select">
-                <Icon name="grid" size="sm" />
-                <select
-                  :value="imageResolution"
-                  class="select-inner w-20"
-                  @change="handleImageResolutionSelect"
-                >
-                  <option v-for="option in imageResolutionOptions" :key="option" :value="option">{{ option }}</option>
-                </select>
-              </label>
-
-              <label v-if="selectedModeId === 'image'" class="composer-select">
-                <Icon name="arrowsUpDown" size="sm" />
-                <select
-                  :value="imageAspectRatio"
-                  class="select-inner w-20"
-                  @change="handleAspectRatioSelect"
-                >
-                  <option v-for="option in imageAspectRatioOptions" :key="option" :value="option">{{ option }}</option>
-                  <option v-for="option in customImageAspectRatios" :key="`custom:${option}`" :value="`custom:${option}`">
-                    {{ option }}
-                  </option>
-                  <option value="__custom__">{{ t('mediaStudio.composer.customAspectRatio.option') }}</option>
-                </select>
-              </label>
-
-              <label v-if="selectedModeId === 'image' && imageQualityOptions.length > 0" class="composer-select">
-                <Icon name="sparkles" size="sm" />
-                <select :value="quality" class="select-inner w-24" @change="emit('update:quality', ($event.target as HTMLSelectElement).value)">
-                  <option v-for="option in imageQualityOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-                </select>
-              </label>
-
-              <label v-if="selectedModeId === 'image'" class="composer-select">
-                <Icon name="copy" size="sm" />
-                <select :value="count" class="select-inner w-20" @change="emit('update:count', Number(($event.target as HTMLSelectElement).value))">
-                  <option v-for="option in countOptions" :key="option" :value="option">{{ option }}</option>
-                </select>
-              </label>
-
-              <label v-if="selectedModeId === 'video'" class="composer-select">
-                <Icon name="play" size="sm" />
-                <select :value="resolution" class="select-inner w-24" @change="emit('update:resolution', ($event.target as HTMLSelectElement).value as MediaStudioVideoResolution)">
-                  <option v-for="option in resolutionOptions" :key="option" :value="option">{{ option }}</option>
-                </select>
-              </label>
-
-              <label v-if="selectedModeId === 'video'" class="composer-select">
-                <Icon name="clock" size="sm" />
-                <select :value="duration" class="select-inner w-20" @change="emit('update:duration', Number(($event.target as HTMLSelectElement).value))">
-                  <option v-for="option in durationOptions" :key="option" :value="option">{{ option }}s</option>
-                </select>
-              </label>
+              <button
+                type="button"
+                ref="settingsMenuTriggerRef"
+                class="composer-chip bg-gray-100 text-gray-900 dark:bg-dark-800 dark:text-white"
+                :aria-expanded="settingsMenuOpen"
+                @click="toggleSettingsMenu"
+              >
+                <Icon name="cog" size="sm" />
+                <span>{{ t('mediaStudio.composer.advancedSettings') }}</span>
+                <Icon :name="settingsMenuOpen ? 'chevronUp' : 'chevronDown'" size="xs" class="text-gray-400" />
+              </button>
 
               <button
                 type="button"
@@ -427,6 +344,140 @@
               >
                 <Icon :name="submitting ? 'refresh' : 'arrowUp'" size="sm" :class="submitting ? 'animate-spin' : ''" />
               </button>
+            </div>
+
+            <div
+              v-if="settingsMenuOpen"
+              ref="settingsMenuRef"
+              class="absolute bottom-16 left-0 z-20 w-[min(92vw,40rem)] rounded-2xl border border-gray-200 bg-white p-4 shadow-xl shadow-gray-900/10 dark:border-dark-700 dark:bg-dark-900"
+            >
+              <div class="grid gap-4 md:grid-cols-2">
+                <section class="space-y-2">
+                  <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    {{ t('mediaStudio.composer.resourceSettings') }}
+                  </p>
+                  <label class="composer-select w-full">
+                    <Icon name="grid" size="sm" />
+                    <select
+                      :value="selectedGroupId"
+                      class="select-inner min-w-0 flex-1"
+                      :disabled="loadingGroups"
+                      @change="emit('update:selectedGroupId', Number(($event.target as HTMLSelectElement).value))"
+                    >
+                      <option :value="0">{{ loadingGroups ? t('mediaStudio.composer.loadingGroups') : t('mediaStudio.composer.selectGroup') }}</option>
+                      <option v-for="group in groupOptions" :key="group.group_id" :value="group.group_id">
+                        {{ group.group_name }} · {{ group.platform }}
+                      </option>
+                    </select>
+                  </label>
+
+                  <label class="composer-select w-full">
+                    <Icon name="cube" size="sm" />
+                    <select
+                      v-if="modelSelectionLocked"
+                      :value="model"
+                      class="select-inner min-w-0 flex-1"
+                      :disabled="loadingModels || modelOptions.length === 0"
+                      @change="emit('update:model', ($event.target as HTMLSelectElement).value)"
+                    >
+                      <option value="">{{ loadingModels ? t('mediaStudio.composer.loadingModels') : t('mediaStudio.composer.model') }}</option>
+                      <option v-for="option in modelOptions" :key="option" :value="option">{{ option }}</option>
+                    </select>
+                    <template v-else>
+                      <input
+                        :value="model"
+                        list="media-studio-models"
+                        class="select-inner min-w-0 flex-1"
+                        :placeholder="loadingModels ? t('mediaStudio.composer.loadingModels') : t('mediaStudio.composer.model')"
+                        @input="emit('update:model', ($event.target as HTMLInputElement).value)"
+                      />
+                      <datalist id="media-studio-models">
+                        <option v-for="option in modelOptions" :key="option" :value="option" />
+                      </datalist>
+                    </template>
+                  </label>
+                </section>
+
+                <section class="space-y-2">
+                  <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    {{ selectedModeId === 'image' ? t('mediaStudio.composer.imageSettings') : t('mediaStudio.composer.videoSettings') }}
+                  </p>
+
+                  <div v-if="selectedModeId === 'image'" class="grid gap-2 sm:grid-cols-2">
+                    <label class="composer-select w-full">
+                      <Icon name="grid" size="sm" />
+                      <select
+                        :value="imageResolution"
+                        class="select-inner min-w-0 flex-1"
+                        @change="handleImageResolutionSelect"
+                      >
+                        <option v-for="option in imageResolutionOptions" :key="option" :value="option">{{ option }}</option>
+                      </select>
+                    </label>
+
+                    <label class="composer-select w-full">
+                      <Icon name="arrowsUpDown" size="sm" />
+                      <select
+                        :value="imageAspectRatio"
+                        class="select-inner min-w-0 flex-1"
+                        @change="handleAspectRatioSelect"
+                      >
+                        <option v-for="option in imageAspectRatioOptions" :key="option" :value="option">{{ option }}</option>
+                        <option v-for="option in customImageAspectRatios" :key="`custom:${option}`" :value="`custom:${option}`">
+                          {{ option }}
+                        </option>
+                        <option value="__custom__">{{ t('mediaStudio.composer.customAspectRatio.option') }}</option>
+                      </select>
+                    </label>
+
+                    <label v-if="imageQualityOptions.length > 0" class="composer-select w-full">
+                      <Icon name="sparkles" size="sm" />
+                      <select
+                        :value="quality"
+                        class="select-inner min-w-0 flex-1"
+                        @change="emit('update:quality', ($event.target as HTMLSelectElement).value)"
+                      >
+                        <option v-for="option in imageQualityOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                      </select>
+                    </label>
+
+                    <label class="composer-select w-full">
+                      <Icon name="copy" size="sm" />
+                      <select
+                        :value="count"
+                        class="select-inner min-w-0 flex-1"
+                        @change="emit('update:count', Number(($event.target as HTMLSelectElement).value))"
+                      >
+                        <option v-for="option in countOptions" :key="option" :value="option">{{ option }}</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <div v-else class="grid gap-2 sm:grid-cols-2">
+                    <label class="composer-select w-full">
+                      <Icon name="play" size="sm" />
+                      <select
+                        :value="resolution"
+                        class="select-inner min-w-0 flex-1"
+                        @change="emit('update:resolution', ($event.target as HTMLSelectElement).value as MediaStudioVideoResolution)"
+                      >
+                        <option v-for="option in resolutionOptions" :key="option" :value="option">{{ option }}</option>
+                      </select>
+                    </label>
+
+                    <label class="composer-select w-full">
+                      <Icon name="clock" size="sm" />
+                      <select
+                        :value="duration"
+                        class="select-inner min-w-0 flex-1"
+                        @change="emit('update:duration', Number(($event.target as HTMLSelectElement).value))"
+                      >
+                        <option v-for="option in durationOptions" :key="option" :value="option">{{ option }}s</option>
+                      </select>
+                    </label>
+                  </div>
+                </section>
+              </div>
             </div>
 
             <div v-if="!loadingGroups && groupOptions.length === 0" class="mt-2 flex items-center gap-2 px-1 text-xs text-gray-500 dark:text-gray-400">
@@ -568,6 +619,9 @@ const { t, locale } = useI18n()
 const typeMenuOpen = ref(false)
 const typeMenuRef = ref<HTMLElement | null>(null)
 const typeMenuTriggerRef = ref<HTMLButtonElement | null>(null)
+const settingsMenuOpen = ref(false)
+const settingsMenuRef = ref<HTMLElement | null>(null)
+const settingsMenuTriggerRef = ref<HTMLButtonElement | null>(null)
 const selectedImage = ref<MediaStudioGeneratedImagePreview | null>(null)
 const promptInputRef = ref<HTMLTextAreaElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -594,12 +648,18 @@ function selectMode(id: MediaStudioModeId) {
   if (!mode?.available) return
   emit('selectMode', id)
   typeMenuOpen.value = false
+  settingsMenuOpen.value = false
 }
 
 function modeButtonClass(mode: MediaStudioMode) {
   if (!mode.available) return 'cursor-not-allowed text-gray-400 dark:text-gray-600'
   if (mode.id === props.selectedModeId) return 'bg-gray-100 text-gray-950 dark:bg-dark-800 dark:text-white'
   return 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-dark-800'
+}
+
+function toggleSettingsMenu() {
+  settingsMenuOpen.value = !settingsMenuOpen.value
+  if (settingsMenuOpen.value) typeMenuOpen.value = false
 }
 
 function openImagePreview(image: MediaStudioGeneratedImagePreview) {
@@ -732,28 +792,35 @@ function formatTime(value: number): string {
   }
 }
 
-function closeTypeMenuOnOutsidePointer(event: PointerEvent) {
+function closeMenusOnOutsidePointer(event: PointerEvent) {
   const target = event.target
   if (!(target instanceof Node)) return
-  if (typeMenuRef.value?.contains(target) || typeMenuTriggerRef.value?.contains(target)) return
+  if (
+    typeMenuRef.value?.contains(target)
+    || typeMenuTriggerRef.value?.contains(target)
+    || settingsMenuRef.value?.contains(target)
+    || settingsMenuTriggerRef.value?.contains(target)
+  ) return
   typeMenuOpen.value = false
+  settingsMenuOpen.value = false
 }
 
-function closeTypeMenuOnEscape(event: KeyboardEvent) {
+function closeMenusOnEscape(event: KeyboardEvent) {
   if (event.key !== 'Escape') return
   typeMenuOpen.value = false
+  settingsMenuOpen.value = false
   closeImagePreview()
 }
 
 onMounted(() => {
-  document.addEventListener('pointerdown', closeTypeMenuOnOutsidePointer)
-  document.addEventListener('keydown', closeTypeMenuOnEscape)
+  document.addEventListener('pointerdown', closeMenusOnOutsidePointer)
+  document.addEventListener('keydown', closeMenusOnEscape)
   document.addEventListener('paste', handlePaste)
 })
 
 onUnmounted(() => {
-  document.removeEventListener('pointerdown', closeTypeMenuOnOutsidePointer)
-  document.removeEventListener('keydown', closeTypeMenuOnEscape)
+  document.removeEventListener('pointerdown', closeMenusOnOutsidePointer)
+  document.removeEventListener('keydown', closeMenusOnEscape)
   document.removeEventListener('paste', handlePaste)
 })
 </script>
