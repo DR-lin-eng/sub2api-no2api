@@ -16,10 +16,14 @@ type AccountStats struct {
 // AccountHourlyUsageStats summarizes one account over a recent rolling window.
 // SuccessRate is a ratio in [0, 1], matching the Ops dashboard SLA convention.
 type AccountHourlyUsageStats struct {
-	TotalRequests      int64    `json:"total_requests"`
-	SuccessfulRequests int64    `json:"successful_requests"`
-	SuccessRate        float64  `json:"success_rate"`
-	AvgFirstTokenMs    *float64 `json:"avg_first_token_ms"`
-	Error4xx           int64    `json:"error_4xx"`
-	Error5xx           int64    `json:"error_5xx"`
+	TotalRequests       int64    `json:"total_requests"`
+	SuccessfulRequests  int64    `json:"successful_requests"`
+	SuccessRate         float64  `json:"success_rate"`
+	AvgFirstTokenMs     *float64 `json:"avg_first_token_ms"`
+	InputTokens         int64    `json:"input_tokens"`
+	CacheCreationTokens int64    `json:"cache_creation_tokens"`
+	CacheReadTokens     int64    `json:"cache_read_tokens"`
+	CacheHitRate        *float64 `json:"cache_hit_rate,omitempty"`
+	Error4xx            int64    `json:"error_4xx"`
+	Error5xx            int64    `json:"error_5xx"`
 }

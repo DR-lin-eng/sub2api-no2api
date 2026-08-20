@@ -17,8 +17,8 @@ func TestGetAccountHourlyUsageStatsBatchUsesOneQuery(t *testing.T) {
 	t.Cleanup(func() { _ = db.Close() })
 
 	rows := sqlmock.NewRows([]string{
-		"account_id", "successful_requests", "avg_first_token_ms", "error_total", "error_4xx", "error_5xx",
-	}).AddRow(int64(11), int64(8), 250.5, int64(2), int64(1), int64(1))
+		"account_id", "successful_requests", "input_tokens", "cache_creation_tokens", "cache_read_tokens", "avg_first_token_ms", "error_total", "error_4xx", "error_5xx",
+	}).AddRow(int64(11), int64(8), int64(1000), int64(200), int64(800), 250.5, int64(2), int64(1), int64(1))
 	mock.ExpectQuery(`WITH requested AS`).
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(rows)
@@ -38,6 +38,10 @@ func TestGetAccountHourlyUsageStatsBatchUsesOneQuery(t *testing.T) {
 	require.InDelta(t, 0.8, stats[11].SuccessRate, 1e-9)
 	require.NotNil(t, stats[11].AvgFirstTokenMs)
 	require.InDelta(t, 250.5, *stats[11].AvgFirstTokenMs, 1e-9)
+	require.Equal(t, int64(1000), stats[11].InputTokens)
+	require.Equal(t, int64(200), stats[11].CacheCreationTokens)
+	require.Equal(t, int64(800), stats[11].CacheReadTokens)
+	require.InDelta(t, 0.4, *stats[11].CacheHitRate, 1e-9)
 	require.Equal(t, int64(1), stats[11].Error4xx)
 	require.Equal(t, int64(1), stats[11].Error5xx)
 	require.NotNil(t, stats[22])

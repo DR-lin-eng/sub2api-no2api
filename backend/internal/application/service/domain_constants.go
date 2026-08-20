@@ -461,6 +461,10 @@ const (
 	// for probing remote Sub2API API-key billing metadata.
 	SettingKeyUpstreamBillingProbeSettings = "upstream_billing_probe_settings"
 
+	// Account inspection settings and latest persisted run snapshot.
+	SettingKeyAccountInspectionSettings = "account_inspection_settings"
+	SettingKeyAccountInspectionState    = "account_inspection_state"
+
 	// SettingKeyOllamaCloudUsageSettings stores the opt-in global runner switch and interval.
 	SettingKeyOllamaCloudUsageSettings = "ollama_cloud_usage_settings"
 

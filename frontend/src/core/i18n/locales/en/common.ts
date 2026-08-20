@@ -182,6 +182,7 @@ export default {
     modelPlaza: 'Model Plaza',
     subscriptions: 'Subscriptions',
     accounts: 'Accounts',
+    accountInspection: 'Account Inspection',
     proxies: 'Proxies',
     ipv6Egress: 'IPv6 Egress',
     redeemCodes: 'Redeem Codes',

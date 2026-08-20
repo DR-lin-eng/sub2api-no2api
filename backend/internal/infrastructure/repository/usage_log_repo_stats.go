@@ -402,6 +402,9 @@ func (r *usageLogRepository) GetAccountHourlyUsageStatsBatch(ctx context.Context
 			SELECT
 				ul.account_id,
 				COUNT(*) AS successful_requests,
+				COALESCE(SUM(ul.input_tokens), 0) AS input_tokens,
+				COALESCE(SUM(ul.cache_creation_tokens), 0) AS cache_creation_tokens,
+				COALESCE(SUM(ul.cache_read_tokens), 0) AS cache_read_tokens,
 				AVG(ul.first_token_ms) FILTER (
 					WHERE ul.first_token_ms IS NOT NULL
 						AND COALESCE(ul.image_count, 0) = 0
@@ -428,6 +431,9 @@ func (r *usageLogRepository) GetAccountHourlyUsageStatsBatch(ctx context.Context
 		SELECT
 			requested.account_id,
 			COALESCE(successful.successful_requests, 0) AS successful_requests,
+			COALESCE(successful.input_tokens, 0) AS input_tokens,
+			COALESCE(successful.cache_creation_tokens, 0) AS cache_creation_tokens,
+			COALESCE(successful.cache_read_tokens, 0) AS cache_read_tokens,
 			successful.avg_first_token_ms,
 			COALESCE(errors.error_total, 0) AS error_total,
 			COALESCE(errors.error_4xx, 0) AS error_4xx,
@@ -447,6 +453,9 @@ func (r *usageLogRepository) GetAccountHourlyUsageStatsBatch(ctx context.Context
 		var (
 			accountID       int64
 			successfulCount int64
+			inputTokens     int64
+			cacheCreation   int64
+			cacheRead       int64
 			avgFirstToken   sql.NullFloat64
 			errorTotal      int64
 			stats           usagestats.AccountHourlyUsageStats
@@ -454,6 +463,9 @@ func (r *usageLogRepository) GetAccountHourlyUsageStatsBatch(ctx context.Context
 		if err := rows.Scan(
 			&accountID,
 			&successfulCount,
+			&inputTokens,
+			&cacheCreation,
+			&cacheRead,
 			&avgFirstToken,
 			&errorTotal,
 			&stats.Error4xx,
@@ -462,6 +474,14 @@ func (r *usageLogRepository) GetAccountHourlyUsageStatsBatch(ctx context.Context
 			return nil, err
 		}
 		stats.SuccessfulRequests = successfulCount
+		stats.InputTokens = inputTokens
+		stats.CacheCreationTokens = cacheCreation
+		stats.CacheReadTokens = cacheRead
+		cachePromptTokens := inputTokens + cacheCreation + cacheRead
+		if cachePromptTokens > 0 {
+			hitRate := float64(cacheRead) / float64(cachePromptTokens)
+			stats.CacheHitRate = &hitRate
+		}
 		stats.TotalRequests = successfulCount + errorTotal
 		if stats.TotalRequests > 0 {
 			stats.SuccessRate = float64(successfulCount) / float64(stats.TotalRequests)

@@ -132,6 +132,36 @@ curl -sS "${BASE}/api/v1/admin/ops/concurrency" \
   -H "x-api-key: ${ADMIN_API_KEY}"
 ```
 
+## 按 OAuth 健康指标关闭调度
+
+仓库附带的 `tools/disable_oauth_accounts.py` 会扫描 `type=oauth` 账号，并按最近一小时的账号统计判断：
+
+- `avg_first_token_ms > 30000`；
+- `success_rate < 0.60`（至少有 `--min-requests` 条请求，默认 1）；
+- 账号返回的 OAuth 快照中，某个配额窗口达到 100% 且其重置时间仍有效。
+
+脚本默认只预览；缺失 `hourly_usage` 时会中止并返回非零状态，不会把未知数据当成坏账号。它只将目标账号的 `schedulable` 设为 `false`，不会自动重新启用账号，也不会把 Admin API Key 写入文件或命令行参数。
+
+```bash
+export SUB2API_ADMIN_API_KEY='<admin-api-key>'
+
+# 预览全部 OAuth 平台账号
+python3 tools/disable_oauth_accounts.py --base-url "https://<your-domain>"
+
+# 确认后执行；也可以加 --platform openai 只处理 OpenAI OAuth
+python3 tools/disable_oauth_accounts.py --base-url "https://<your-domain>" --platform openai --apply
+```
+
+执行需要同时具备 `admin.accounts.read` 和 `admin.accounts.write`；旧版只读 Admin API Key 会被拒绝。脚本在本地按返回的快照和重置时间判定额度，不依赖远端筛选结果，也不需要读取或导出 OAuth 凭据。
+
+管理面“账号巡检”使用同一套规则，接口如下：
+
+- `GET /api/v1/admin/account-inspection`：读取设置、最近一次运行摘要和分页结果；支持 `status`、`type`、`search`、`page`、`page_size`。
+- `PUT /api/v1/admin/account-inspection/settings`：保存自动开关、检查间隔和阈值。
+- `POST /api/v1/admin/account-inspection/run`：按当前设置手动执行一次巡检。
+
+自动 runner 默认关闭，需要管理员在页面开启；手动执行不依赖自动开关。`auto_disable` 开启时，异常且当前仍可调度的账号会通过现有调度快照同步路径批量停调。
+
 ## Key 管理接口
 
 ### 查询列表

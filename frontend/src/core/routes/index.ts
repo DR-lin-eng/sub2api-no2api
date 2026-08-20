@@ -584,6 +584,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/account-inspection',
+    name: 'AdminAccountInspection',
+    component: () => import('@/features/admin-account-inspection/presentation/pages/AccountInspectionPage.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Account Inspection',
+      titleKey: 'admin.accountInspection.title',
+      descriptionKey: 'admin.accountInspection.description'
+    }
+  },
+  {
     path: '/admin/announcements',
     name: 'AdminAnnouncements',
     component: () => import('@/features/announcements/presentation/pages/AnnouncementsPage.vue'),

@@ -182,6 +182,7 @@ export default {
     modelPlaza: '模型广场',
     subscriptions: '订阅管理',
     accounts: '账号管理',
+    accountInspection: '账号巡检',
     proxies: 'IP管理',
     ipv6Egress: 'IPv6 出口',
     redeemCodes: '兑换码',
