@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -168,17 +169,34 @@ type AccountInspectionAccountResult struct {
 	RemainingQuota          *float64  `json:"remaining_quota,omitempty"`
 	RemainingQuotaDimension string    `json:"remaining_quota_dimension,omitempty"`
 	QuotaUnlimited          bool      `json:"quota_unlimited,omitempty"`
+	QuotaUsedPercent        *float64  `json:"quota_used_percent,omitempty"`
+	QuotaUsageDimension     string    `json:"quota_usage_dimension,omitempty"`
 	ObservedAt              time.Time `json:"observed_at"`
 }
 
+type AccountInspectionQuotaBucket struct {
+	Key        string   `json:"key"`
+	MinPercent float64  `json:"min_percent"`
+	MaxPercent *float64 `json:"max_percent,omitempty"`
+	Count      int      `json:"count"`
+}
+
+type AccountInspectionQuotaDistribution struct {
+	AverageUsedPercent *float64                       `json:"average_used_percent,omitempty"`
+	MeasuredAccounts   int                            `json:"measured_accounts"`
+	UnknownAccounts    int                            `json:"unknown_accounts"`
+	Buckets            []AccountInspectionQuotaBucket `json:"buckets"`
+}
+
 type AccountInspectionSummary struct {
-	Inspected       int `json:"inspected"`
-	Healthy         int `json:"healthy"`
-	Flagged         int `json:"flagged"`
-	Disabled        int `json:"disabled"`
-	AlreadyDisabled int `json:"already_disabled"`
-	OAuthAccounts   int `json:"oauth_accounts"`
-	APIKeyAccounts  int `json:"api_key_accounts"`
+	Inspected              int                                `json:"inspected"`
+	Healthy                int                                `json:"healthy"`
+	Flagged                int                                `json:"flagged"`
+	Disabled               int                                `json:"disabled"`
+	AlreadyDisabled        int                                `json:"already_disabled"`
+	OAuthAccounts          int                                `json:"oauth_accounts"`
+	APIKeyAccounts         int                                `json:"api_key_accounts"`
+	QuotaUsageDistribution AccountInspectionQuotaDistribution `json:"quota_usage_distribution"`
 }
 
 type AccountInspectionRunState struct {
@@ -461,7 +479,10 @@ func (s *AccountInspectionService) execute(ctx context.Context, trigger string) 
 		return nil, err
 	}
 	now := time.Now().UTC()
-	state := &AccountInspectionRunState{RunID: uuid.NewString(), Status: AccountInspectionStatusRunning, Trigger: trigger, StartedAt: &now}
+	state := &AccountInspectionRunState{
+		RunID: uuid.NewString(), Status: AccountInspectionStatusRunning, Trigger: trigger, StartedAt: &now,
+		Summary: AccountInspectionSummary{QuotaUsageDistribution: newAccountInspectionQuotaDistribution()},
+	}
 	if err := s.saveState(ctx, state); err != nil {
 		return nil, err
 	}
@@ -490,6 +511,7 @@ func (s *AccountInspectionService) execute(ctx context.Context, trigger string) 
 		result := evaluateAccountInspection(&eligible[i], stats[eligible[i].ID], settings, now)
 		results = append(results, result)
 	}
+	quotaDistribution := summarizeAccountInspectionQuotaDistribution(results)
 	sort.SliceStable(results, func(i, j int) bool {
 		leftFlagged, rightFlagged := len(results[i].Reasons) > 0, len(results[j].Reasons) > 0
 		if leftFlagged != rightFlagged {
@@ -548,6 +570,7 @@ func (s *AccountInspectionService) execute(ctx context.Context, trigger string) 
 	state.Results = results
 	state.Summary = summarizeInspectionResults(results)
 	state.Summary.Inspected = len(eligible)
+	state.Summary.QuotaUsageDistribution = quotaDistribution
 	completed := time.Now().UTC()
 	state.Status = AccountInspectionStatusSucceeded
 	state.CompletedAt = &completed
@@ -572,7 +595,11 @@ func (s *AccountInspectionService) failState(ctx context.Context, state *Account
 }
 
 func (s *AccountInspectionService) loadState(ctx context.Context) (*AccountInspectionRunState, error) {
-	state := &AccountInspectionRunState{Status: AccountInspectionStatusIdle, Results: []AccountInspectionAccountResult{}}
+	state := &AccountInspectionRunState{
+		Status:  AccountInspectionStatusIdle,
+		Summary: AccountInspectionSummary{QuotaUsageDistribution: newAccountInspectionQuotaDistribution()},
+		Results: []AccountInspectionAccountResult{},
+	}
 	if s == nil || s.settingRepo == nil {
 		return state, nil
 	}
@@ -591,6 +618,9 @@ func (s *AccountInspectionService) loadState(ctx context.Context) (*AccountInspe
 	}
 	if state.Results == nil {
 		state.Results = []AccountInspectionAccountResult{}
+	}
+	if state.Summary.QuotaUsageDistribution.Buckets == nil {
+		state.Summary.QuotaUsageDistribution = newAccountInspectionQuotaDistribution()
 	}
 	return state, nil
 }
@@ -620,6 +650,10 @@ func evaluateAccountInspection(account *Account, stats *usagestats.AccountHourly
 		Schedulable: account.Schedulable,
 		Action:      AccountInspectionActionNone,
 		ObservedAt:  now,
+	}
+	if usedPercent, dimension := accountInspectionQuotaUsage(account, now); usedPercent != nil {
+		result.QuotaUsedPercent = usedPercent
+		result.QuotaUsageDimension = dimension
 	}
 	if account.IsAPIKeyOrBedrock() {
 		multiplier := account.BillingRateMultiplier()
@@ -703,6 +737,187 @@ func summarizeInspectionResults(results []AccountInspectionAccountResult) Accoun
 	return summary
 }
 
+func summarizeAccountInspectionQuotaDistribution(results []AccountInspectionAccountResult) AccountInspectionQuotaDistribution {
+	distribution := newAccountInspectionQuotaDistribution()
+	var total float64
+	for _, result := range results {
+		if result.QuotaUsedPercent == nil || !isFiniteInspectionQuotaValue(*result.QuotaUsedPercent) {
+			distribution.UnknownAccounts++
+			continue
+		}
+		used := *result.QuotaUsedPercent
+		if used < 0 {
+			used = 0
+		}
+		distribution.MeasuredAccounts++
+		total += used
+		switch {
+		case used < 20:
+			distribution.Buckets[0].Count++
+		case used < 40:
+			distribution.Buckets[1].Count++
+		case used < 70:
+			distribution.Buckets[2].Count++
+		case used < 90:
+			distribution.Buckets[3].Count++
+		case used <= 100:
+			distribution.Buckets[4].Count++
+		default:
+			distribution.Buckets[5].Count++
+		}
+	}
+	if distribution.MeasuredAccounts > 0 {
+		average := total / float64(distribution.MeasuredAccounts)
+		distribution.AverageUsedPercent = &average
+	}
+	return distribution
+}
+
+func newAccountInspectionQuotaDistribution() AccountInspectionQuotaDistribution {
+	max20 := 20.0
+	max40 := 40.0
+	max70 := 70.0
+	max90 := 90.0
+	max100 := 100.0
+	return AccountInspectionQuotaDistribution{Buckets: []AccountInspectionQuotaBucket{
+		{Key: "0_20", MinPercent: 0, MaxPercent: &max20},
+		{Key: "20_40", MinPercent: 20, MaxPercent: &max40},
+		{Key: "40_70", MinPercent: 40, MaxPercent: &max70},
+		{Key: "70_90", MinPercent: 70, MaxPercent: &max90},
+		{Key: "90_100", MinPercent: 90, MaxPercent: &max100},
+		{Key: "over_100", MinPercent: 100},
+	}}
+}
+
+func accountInspectionQuotaUsage(account *Account, now time.Time) (*float64, string) {
+	if account == nil {
+		return nil, ""
+	}
+	if account.Type == AccountTypeOAuth {
+		return accountInspectionOAuthQuotaUsage(account, now)
+	}
+	if account.IsAPIKeyOrBedrock() {
+		return accountInspectionAPIKeyQuotaUsage(account)
+	}
+	return nil, ""
+}
+
+func accountInspectionAPIKeyQuotaUsage(account *Account) (*float64, string) {
+	windows := []accountInspectionQuotaWindow{}
+	if limit := account.GetQuotaLimit(); limit > 0 {
+		windows = append(windows, newAccountInspectionQuotaUsage("total", account.GetQuotaUsed(), limit))
+	}
+	if limit := account.GetQuotaDailyLimit(); limit > 0 && !account.IsDailyQuotaPeriodExpired() {
+		windows = append(windows, newAccountInspectionQuotaUsage("daily", account.GetQuotaDailyUsed(), limit))
+	}
+	if limit := account.GetQuotaWeeklyLimit(); limit > 0 && !account.IsWeeklyQuotaPeriodExpired() {
+		windows = append(windows, newAccountInspectionQuotaUsage("weekly", account.GetQuotaWeeklyUsed(), limit))
+	}
+	return highestInspectionQuotaUsage(windows)
+}
+
+type accountInspectionQuotaWindow struct {
+	dimension string
+	percent   float64
+}
+
+func newAccountInspectionQuotaUsage(dimension string, used, limit float64) accountInspectionQuotaWindow {
+	if !isFiniteInspectionQuotaValue(used) || !isFiniteInspectionQuotaValue(limit) || limit <= 0 {
+		return accountInspectionQuotaWindow{dimension: dimension, percent: math.NaN()}
+	}
+	percent := used / limit * 100
+	if percent < 0 {
+		percent = 0
+	}
+	return accountInspectionQuotaWindow{dimension: dimension, percent: percent}
+}
+
+func highestInspectionQuotaUsage(windows []accountInspectionQuotaWindow) (*float64, string) {
+	var highest *float64
+	dimension := ""
+	for _, window := range windows {
+		if !isFiniteInspectionQuotaValue(window.percent) {
+			continue
+		}
+		if highest == nil || window.percent > *highest {
+			value := window.percent
+			highest = &value
+			dimension = window.dimension
+		}
+	}
+	return highest, dimension
+}
+
+func accountInspectionOAuthQuotaUsage(account *Account, now time.Time) (*float64, string) {
+	return highestInspectionQuotaUsage(accountInspectionOAuthQuotaWindows(account, now))
+}
+
+func accountInspectionOAuthQuotaWindows(account *Account, now time.Time) []accountInspectionQuotaWindow {
+	if account == nil || account.Extra == nil {
+		return nil
+	}
+	extra := account.Extra
+	windows := make([]accountInspectionQuotaWindow, 0, 8)
+	percentWindows := []struct{ usage, reset, name string }{
+		{"codex_5h_used_percent", "codex_5h_reset_at", "5h"},
+		{"codex_7d_used_percent", "codex_7d_reset_at", "7d"},
+		{"codex_primary_used_percent", "codex_primary_reset_at", "primary"},
+		{"codex_secondary_used_percent", "codex_secondary_reset_at", "secondary"},
+	}
+	for _, window := range percentWindows {
+		usage, ok := resolveAccountExtraNumber(extra, window.usage)
+		if !ok || !inspectionResetActive(extra[window.reset], false, now) {
+			continue
+		}
+		if usage < 0 {
+			usage = 0
+		}
+		windows = append(windows, accountInspectionQuotaWindow{dimension: window.name, percent: usage})
+	}
+	ratioWindows := []struct {
+		usage, reset, name string
+		unix               bool
+	}{
+		{"session_window_utilization", "", "session", false},
+		{"passive_usage_7d_utilization", "passive_usage_7d_reset", "passive_7d", true},
+		{"passive_usage_7d_oi_utilization", "passive_usage_7d_oi_reset", "passive_7d_oi", true},
+	}
+	for _, window := range ratioWindows {
+		usage, ok := resolveAccountExtraNumber(extra, window.usage)
+		if !ok {
+			continue
+		}
+		reset := any(nil)
+		if window.reset == "" {
+			if account.SessionWindowEnd != nil {
+				reset = account.SessionWindowEnd.Format(time.RFC3339Nano)
+			}
+		} else {
+			reset = extra[window.reset]
+		}
+		if !inspectionResetActive(reset, window.unix, now) {
+			continue
+		}
+		if usage < 0 {
+			usage = 0
+		}
+		windows = append(windows, accountInspectionQuotaWindow{dimension: window.name, percent: usage * 100})
+	}
+	if billing, ok := extra["grok_billing_snapshot"].(map[string]any); ok &&
+		inspectionResetActive(billing["period_end"], false, now) &&
+		inspectionResetActive(billing["billing_period_end"], false, now) {
+		for _, key := range []string{"usage_percent", "used_percent"} {
+			if usage, ok := resolveAccountExtraNumber(billing, key); ok {
+				if usage < 0 {
+					usage = 0
+				}
+				windows = append(windows, accountInspectionQuotaWindow{dimension: "grok", percent: usage})
+			}
+		}
+	}
+	return windows
+}
+
 func accountInspectionRemainingQuota(account *Account) (remaining *float64, dimension string, unlimited bool) {
 	type quotaWindow struct {
 		name  string
@@ -737,54 +952,16 @@ func accountInspectionRemainingQuota(account *Account) (remaining *float64, dime
 }
 
 func accountInspectionOAuthQuotaReason(account *Account, now time.Time) string {
-	if account == nil || account.Extra == nil {
-		return ""
-	}
-	extra := account.Extra
-	percentWindows := []struct{ usage, reset, name string }{
-		{"codex_5h_used_percent", "codex_5h_reset_at", "5h"},
-		{"codex_7d_used_percent", "codex_7d_reset_at", "7d"},
-		{"codex_primary_used_percent", "codex_primary_reset_at", "primary"},
-		{"codex_secondary_used_percent", "codex_secondary_reset_at", "secondary"},
-	}
-	for _, window := range percentWindows {
-		if usage, ok := resolveAccountExtraNumber(extra, window.usage); ok && usage >= 100 && inspectionResetActive(extra[window.reset], false, now) {
-			return window.name
-		}
-	}
-	ratioWindows := []struct {
-		usage, reset, name string
-		unix               bool
-	}{
-		{"session_window_utilization", "", "session", false},
-		{"passive_usage_7d_utilization", "passive_usage_7d_reset", "passive_7d", true},
-		{"passive_usage_7d_oi_utilization", "passive_usage_7d_oi_reset", "passive_7d_oi", true},
-	}
-	for _, window := range ratioWindows {
-		if usage, ok := resolveAccountExtraNumber(extra, window.usage); ok && usage >= 1 {
-			reset := any(nil)
-			if window.reset == "" {
-				if account.SessionWindowEnd != nil {
-					reset = account.SessionWindowEnd.Format(time.RFC3339Nano)
-				}
-			} else {
-				reset = extra[window.reset]
-			}
-			if inspectionResetActive(reset, window.unix, now) {
-				return window.name
-			}
-		}
-	}
-	if billing, ok := extra["grok_billing_snapshot"].(map[string]any); ok {
-		if inspectionResetActive(billing["period_end"], false, now) && inspectionResetActive(billing["billing_period_end"], false, now) {
-			for _, key := range []string{"usage_percent", "used_percent"} {
-				if usage, ok := resolveAccountExtraNumber(billing, key); ok && usage >= 100 {
-					return "grok"
-				}
-			}
+	for _, window := range accountInspectionOAuthQuotaWindows(account, now) {
+		if isFiniteInspectionQuotaValue(window.percent) && window.percent >= 100 {
+			return window.dimension
 		}
 	}
 	return ""
+}
+
+func isFiniteInspectionQuotaValue(value float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0)
 }
 
 func inspectionResetActive(value any, unixSeconds bool, now time.Time) bool {

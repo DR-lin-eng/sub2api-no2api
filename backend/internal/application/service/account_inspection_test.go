@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"math"
 	"testing"
 	"time"
 
@@ -172,11 +173,105 @@ func TestAccountInspectionRemainingQuotaIgnoresExpiredWindows(t *testing.T) {
 	require.True(t, unlimited)
 }
 
+func TestAccountInspectionAPIKeyQuotaUsageUsesHighestActiveWindow(t *testing.T) {
+	now := time.Now().UTC()
+	account := &Account{Extra: map[string]any{
+		"quota_limit":        100.0,
+		"quota_used":         25.0,
+		"quota_daily_limit":  10.0,
+		"quota_daily_used":   7.0,
+		"quota_daily_start":  now.Add(-time.Hour).Format(time.RFC3339),
+		"quota_weekly_limit": 20.0,
+		"quota_weekly_used":  18.0,
+		"quota_weekly_start": now.Add(-8 * 24 * time.Hour).Format(time.RFC3339),
+	}}
+
+	usedPercent, dimension := accountInspectionAPIKeyQuotaUsage(account)
+	require.NotNil(t, usedPercent)
+	require.InDelta(t, 70.0, *usedPercent, 1e-9)
+	require.Equal(t, "daily", dimension)
+}
+
+func TestAccountInspectionAPIKeyQuotaUsageRetainsOverage(t *testing.T) {
+	account := &Account{Extra: map[string]any{
+		"quota_limit": 10.0,
+		"quota_used":  12.5,
+	}}
+
+	usedPercent, dimension := accountInspectionAPIKeyQuotaUsage(account)
+	require.NotNil(t, usedPercent)
+	require.InDelta(t, 125.0, *usedPercent, 1e-9)
+	require.Equal(t, "total", dimension)
+}
+
+func TestAccountInspectionOAuthQuotaUsageUsesHighestActiveWindow(t *testing.T) {
+	now := time.Now().UTC()
+	account := &Account{Extra: map[string]any{
+		"codex_5h_used_percent":        95.0,
+		"codex_5h_reset_at":            now.Add(-time.Minute).Format(time.RFC3339),
+		"codex_7d_used_percent":        65.0,
+		"codex_7d_reset_at":            now.Add(time.Hour).Format(time.RFC3339),
+		"passive_usage_7d_utilization": 0.8,
+		"passive_usage_7d_reset":       now.Add(2 * time.Hour).Unix(),
+	}}
+
+	usedPercent, dimension := accountInspectionOAuthQuotaUsage(account, now)
+	require.NotNil(t, usedPercent)
+	require.InDelta(t, 80.0, *usedPercent, 1e-9)
+	require.Equal(t, "passive_7d", dimension)
+}
+
+func TestAccountInspectionQuotaDistributionBucketsAndAverage(t *testing.T) {
+	values := []float64{0, 19.9, 20, 39.9, 40, 69.9, 70, 89.9, 90, 99.9, 100, 125}
+	results := make([]AccountInspectionAccountResult, 0, len(values)+2)
+	for _, value := range values {
+		usedPercent := value
+		results = append(results, AccountInspectionAccountResult{QuotaUsedPercent: &usedPercent})
+	}
+	nan := math.NaN()
+	infinity := math.Inf(1)
+	results = append(results,
+		AccountInspectionAccountResult{},
+		AccountInspectionAccountResult{},
+		AccountInspectionAccountResult{QuotaUsedPercent: &nan},
+		AccountInspectionAccountResult{QuotaUsedPercent: &infinity},
+	)
+
+	distribution := summarizeAccountInspectionQuotaDistribution(results)
+	require.Equal(t, len(values), distribution.MeasuredAccounts)
+	require.Equal(t, 4, distribution.UnknownAccounts)
+	require.NotNil(t, distribution.AverageUsedPercent)
+	require.InDelta(t, 764.5/float64(len(values)), *distribution.AverageUsedPercent, 1e-9)
+	require.Equal(t, []string{"0_20", "20_40", "40_70", "70_90", "90_100", "over_100"}, []string{
+		distribution.Buckets[0].Key,
+		distribution.Buckets[1].Key,
+		distribution.Buckets[2].Key,
+		distribution.Buckets[3].Key,
+		distribution.Buckets[4].Key,
+		distribution.Buckets[5].Key,
+	})
+	require.Equal(t, []int{2, 2, 2, 2, 3, 1}, []int{
+		distribution.Buckets[0].Count,
+		distribution.Buckets[1].Count,
+		distribution.Buckets[2].Count,
+		distribution.Buckets[3].Count,
+		distribution.Buckets[4].Count,
+		distribution.Buckets[5].Count,
+	})
+}
+
 func TestAccountInspectionRunPersistsSnapshotAndDisablesFlaggedAccounts(t *testing.T) {
 	settingsRepo := &inspectionSettingRepoStub{values: map[string]string{}}
+	now := time.Now().UTC()
 	accountRepo := &inspectionAccountRepoStub{accounts: []Account{
-		{ID: 1, Name: "slow", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true},
-		{ID: 2, Name: "healthy", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true},
+		{ID: 1, Name: "slow", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Extra: map[string]any{
+			"codex_5h_used_percent": 20.0,
+			"codex_5h_reset_at":     now.Add(time.Hour).Format(time.RFC3339),
+		}},
+		{ID: 2, Name: "healthy", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Extra: map[string]any{
+			"codex_7d_used_percent": 80.0,
+			"codex_7d_reset_at":     now.Add(time.Hour).Format(time.RFC3339),
+		}},
 	}}
 	avg := 30_001.0
 	usageRepo := &inspectionUsageRepoStub{stats: map[int64]*usagestats.AccountHourlyUsageStats{
@@ -194,9 +289,13 @@ func TestAccountInspectionRunPersistsSnapshotAndDisablesFlaggedAccounts(t *testi
 	require.Equal(t, []int64{1}, accountRepo.updated)
 	require.Equal(t, 1, state.Summary.Disabled)
 	require.Equal(t, 1, state.Summary.Healthy)
+	require.Equal(t, 2, state.Summary.QuotaUsageDistribution.MeasuredAccounts)
+	require.Equal(t, 0, state.Summary.QuotaUsageDistribution.UnknownAccounts)
+	require.InDelta(t, 50.0, *state.Summary.QuotaUsageDistribution.AverageUsedPercent, 1e-9)
 
 	overview, err := svc.GetOverview(context.Background(), AccountInspectionListFilter{Page: 1, PageSize: 10, Status: "flagged"})
 	require.NoError(t, err)
 	require.Len(t, overview.Results.Items, 1)
 	require.Equal(t, int64(1), overview.Results.Items[0].AccountID)
+	require.Equal(t, state.Summary.QuotaUsageDistribution, overview.Run.Summary.QuotaUsageDistribution)
 }

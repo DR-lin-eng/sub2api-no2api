@@ -21,6 +21,21 @@ export interface AccountInspectionSummary {
   already_disabled: number
   oauth_accounts: number
   api_key_accounts: number
+  quota_usage_distribution?: AccountInspectionQuotaDistribution
+}
+
+export interface AccountInspectionQuotaBucket {
+  key: '0_20' | '20_40' | '40_70' | '70_90' | '90_100' | 'over_100' | string
+  min_percent: number
+  max_percent?: number | null
+  count: number
+}
+
+export interface AccountInspectionQuotaDistribution {
+  average_used_percent?: number | null
+  measured_accounts: number
+  unknown_accounts: number
+  buckets: AccountInspectionQuotaBucket[]
 }
 
 export interface AccountInspectionRun {
@@ -57,6 +72,8 @@ export interface AccountInspectionResult {
   remaining_quota?: number | null
   remaining_quota_dimension?: string
   quota_unlimited?: boolean
+  quota_used_percent?: number | null
+  quota_usage_dimension?: string
   observed_at: string
 }
 
