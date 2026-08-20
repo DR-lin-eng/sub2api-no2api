@@ -1004,7 +1004,7 @@ func TestOpenAIGatewayService_Forward_WSv2BoundsPreTokenEventBuffer(t *testing.T
 	require.Nil(t, upstream.lastReq)
 }
 
-func TestOpenAIGatewayService_Forward_WSv2RetryFiveTimesThenFallbackHTTP(t *testing.T) {
+func TestOpenAIGatewayService_Forward_WSv2RetryFiveTimesThenAccountFailover(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	var wsAttempts atomic.Int32
@@ -1082,6 +1082,12 @@ func TestOpenAIGatewayService_Forward_WSv2RetryFiveTimesThenFallbackHTTP(t *test
 	result, err := svc.Forward(context.Background(), c, account, body)
 	require.Error(t, err)
 	require.Nil(t, result)
+	var failoverErr *UpstreamFailoverError
+	require.ErrorAs(t, err, &failoverErr)
+	require.Equal(t, http.StatusBadGateway, failoverErr.StatusCode)
+	require.False(t, failoverErr.RetryableOnSameAccount)
+	require.False(t, failoverErr.SafeToFailoverAfterWrite, "no downstream bytes were committed")
+	require.Contains(t, string(failoverErr.ResponseBody), "OpenAI stream disconnected before completion")
 	require.Nil(t, upstream.lastReq, "WS 重连耗尽后不应再回退 HTTP")
 	require.Equal(t, int32(openAIWSReconnectRetryLimit+1), wsAttempts.Load())
 }

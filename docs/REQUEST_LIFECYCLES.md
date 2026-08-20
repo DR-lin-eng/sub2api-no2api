@@ -53,6 +53,8 @@ OpenAI Responses 请求在首个语义事件前使用
 原生 HTTP、HTTP 透传、WSv2 正式请求及其预热；显式设为
 `0` 可关闭这项语义首输出保护；各 transport 仍有自己的响应/读超时约束，
 但会重新暴露客户端长时间无真实输出后断流的风险。
+WSv2 在首语义输出前耗尽内部重连预算时，会把读取/连接类失败转换为统一的
+账号 failover 信号；不会落到通用 `Upstream request failed`，也不会重放已经提交的语义事件。
 
 透传请求的传输重试使用请求级总 attempt budget，账号切换不会重置预算；显式
 `store:true`、图片生成、`previous_response_id` 或工具输出请求不做无法证明幂等的重放。

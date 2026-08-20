@@ -852,6 +852,15 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		// Keepalive comments may already have committed HTTP 200, but they are not
 		// semantic output and must not prevent a replay-safe WS-to-HTTP fallback.
 		canReplayThroughHTTP := !openAIStreamClientOutputStarted(c, false)
+		if canReplayThroughHTTP {
+			// The WS reconnect budget is exhausted for transport/read failures.
+			// Surface the common failover type so the HTTP handler can switch
+			// accounts; otherwise an internal openAIWSFallbackError falls through
+			// to the generic "Upstream request failed" response.
+			if _, retryable := classifyOpenAIWSReconnectReason(wsErr); retryable {
+				return nil, s.newOpenAIWSReconnectFailoverError(c, account, wsErr)
+			}
+		}
 		if canReplayThroughHTTP && !codexContinuationRecoveryForbidden(c) && (shouldFallbackOpenAIWSToHTTP(wsErr) ||
 			shouldFallbackCodexPrewarmWSForbiddenToHTTP(account, wsErr)) {
 			// The WS handshake/error event happened before any semantic output was

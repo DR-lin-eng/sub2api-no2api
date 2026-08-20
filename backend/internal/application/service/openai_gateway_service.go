@@ -803,6 +803,46 @@ func classifyOpenAIWSReconnectReason(err error) (string, bool) {
 	}
 }
 
+// newOpenAIWSReconnectFailoverError converts a replay-safe WS failure into the
+// common account-failover contract. WS reconnects are bounded inside Forward;
+// once that budget is exhausted, returning the internal fallback wrapper would
+// leave the HTTP handler with no account-switch signal and it would emit the
+// generic "Upstream request failed" response instead.
+func (s *OpenAIGatewayService) newOpenAIWSReconnectFailoverError(
+	c *gin.Context,
+	account *Account,
+	wsErr error,
+) *UpstreamFailoverError {
+	cause := ""
+	var fallbackErr *openAIWSFallbackError
+	if errors.As(wsErr, &fallbackErr) && fallbackErr != nil {
+		if fallbackErr.Err != nil {
+			cause = sanitizeStreamError(fallbackErr.Err)
+		}
+		if cause == "" {
+			cause = strings.TrimSpace(fallbackErr.Reason)
+		}
+	}
+	if cause == "" && wsErr != nil {
+		cause = sanitizeStreamError(wsErr)
+	}
+	message := "OpenAI stream disconnected before completion"
+	if cause != "" {
+		message += ": " + cause
+	}
+	failoverErr := s.newOpenAIStreamFailoverError(
+		c, account, false, "", nil, message,
+	)
+	// The WS loop already consumed its same-account reconnect budget. Let the
+	// outer handler select a different account instead of replaying this one.
+	failoverErr.RetryableOnSameAccount = false
+	// A WS preamble/keepalive may have committed non-semantic bytes. Such bytes
+	// are safe to replace with the next account's stream, but the handler's
+	// one-switch guard only applies when a write actually happened.
+	failoverErr.SafeToFailoverAfterWrite = c != nil && c.Writer != nil && c.Writer.Written()
+	return failoverErr
+}
+
 func resolveOpenAIWSFallbackErrorResponse(err error) (statusCode int, errType string, clientMessage string, upstreamMessage string, ok bool) {
 	if err == nil {
 		return 0, "", "", "", false
