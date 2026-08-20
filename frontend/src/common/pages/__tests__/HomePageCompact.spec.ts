@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 
 import HomePage from '../HomePage.vue'
@@ -58,6 +58,8 @@ function compactDestination(wrapper: ReturnType<typeof mountHome>) {
 }
 
 describe('HomePage compact mode', () => {
+  const originalLocation = window.location
+
   beforeEach(() => {
     authStore.isAuthenticated = false
     authStore.isAdmin = false
@@ -65,6 +67,15 @@ describe('HomePage compact mode', () => {
     appStore.fetchPublicSettings.mockClear()
     localStorage.clear()
     vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: false } as MediaQueryList)
+  })
+
+  afterEach(() => {
+    Object.defineProperty(window, 'location', {
+      value: originalLocation,
+      writable: true,
+      configurable: true,
+    })
+    vi.restoreAllMocks()
   })
 
   it('keeps custom HTML and URL content ahead of compact mode', () => {
@@ -84,6 +95,24 @@ describe('HomePage compact mode', () => {
     expect(frame.attributes('title')).toBe('home.customContentFrameTitle')
     expect(frame.attributes('referrerpolicy')).toBe('no-referrer')
     expect(frame.attributes('sandbox')).toBe('allow-forms allow-scripts allow-popups')
+  })
+
+  it('enables storage and popup escape only for a trusted HTTPS sibling app', () => {
+    Object.defineProperty(window, 'location', {
+      value: {
+        origin: 'https://gptcodex.top',
+        href: 'https://gptcodex.top/home',
+        pathname: '/home',
+      },
+      writable: true,
+      configurable: true,
+    })
+
+    const wrapper = mountHome({ home_content: 'https://fuck.gptcodex.top/' })
+    const frame = wrapper.get('[data-testid="custom-home-frame"]')
+    expect(frame.attributes('sandbox')).toBe(
+      'allow-forms allow-scripts allow-popups allow-same-origin allow-popups-to-escape-sandbox',
+    )
   })
 
   it('sanitizes executable custom HTML before rendering the public home page', () => {

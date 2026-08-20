@@ -10,7 +10,7 @@
       class="h-screen w-full border-0"
       allowfullscreen
       referrerpolicy="no-referrer"
-      sandbox="allow-forms allow-scripts allow-popups"
+      :sandbox="homeContentIframeSandbox"
     ></iframe>
     <div v-else data-testid="sanitized-home-content" v-html="sanitizedHomeContent"></div>
   </div>
@@ -497,7 +497,11 @@ import LocaleSwitcher from '@/common/widgets/data/LocaleSwitcher.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/core/services/featureFlags'
 import { sanitizeUrl } from '@/core/utils/url'
-import { resolveHomeContentUrl, sanitizeHomeContentHtml } from '@/core/utils/homeContent'
+import {
+  resolveHomeContentIframeSandbox,
+  resolveHomeContentUrl,
+  sanitizeHomeContentHtml,
+} from '@/core/utils/homeContent'
 import { safeLocalStorage } from '@/core/utils/safeStorage'
 
 const { t } = useI18n()
@@ -518,6 +522,9 @@ const compactHomeEnabled = computed(() => appStore.cachedPublicSettings?.compact
 const modelPlazaEnabled = computed(() => isFeatureFlagEnabled(FeatureFlags.modelPlaza))
 
 const isHomeContentUrl = computed(() => homeContentUrl.value !== '')
+const homeContentIframeSandbox = computed(() =>
+  resolveHomeContentIframeSandbox(homeContentUrl.value),
+)
 
 // Theme
 const isDark = ref(document.documentElement.classList.contains('dark'))

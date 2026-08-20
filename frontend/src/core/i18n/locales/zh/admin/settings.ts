@@ -646,7 +646,7 @@ export default {
         homeContentSecurityHint:
           'HTML 模式会移除脚本、事件处理器、表单、样式块和嵌入对象。交互式内容请使用完全可信的 URL。',
 		homeContentIframeWarning:
-		  'iframe 模式在无同源权限的沙箱中运行且不发送 referrer。部分网站还会通过 X-Frame-Options 或 CSP 禁止嵌入。',
+		  'iframe 模式默认在沙箱中运行且不发送 referrer；当前站点的 HTTPS 子域名会保留自身 origin，适合可信交互页面。其他网站仍可能通过 X-Frame-Options 或 CSP 禁止嵌入。',
 		compactHome: '简洁首页',
 		compactHomeHint: '未设置自定义首页内容时，展示简洁的站点信息页面。',
         hideCcsImportButton: '隐藏 CCS 导入按钮',

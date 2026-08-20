@@ -13,6 +13,7 @@ import { useAdminSettingsStore } from '@/features/admin-settings/presentation/st
 import { getSetupStatus } from '@/features/setup/data/datasources/setupDatasource'
 import { useSupportUnreadPolling } from '@/features/support-chat/presentation/composables/useSupportUnreadPolling'
 import { updateFavicon } from '@/core/services/branding'
+import { isOpaqueDocument } from '@/core/utils/embedded-url'
 
 const AnnouncementPopup = defineAsyncComponent(
   () => import('@/common/widgets/data/AnnouncementPopup.vue'),
@@ -135,6 +136,8 @@ onBeforeUnmount(() => {
 
 onMounted(async () => {
   window.addEventListener('admin-compliance-required', onAdminComplianceRequired)
+
+  if (isOpaqueDocument()) return
 
   // Check if setup is needed
   try {

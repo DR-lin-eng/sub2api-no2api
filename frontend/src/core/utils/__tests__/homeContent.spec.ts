@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { resolveHomeContentUrl, sanitizeHomeContentHtml } from '../homeContent'
+import {
+  HOME_CONTENT_IFRAME_SANDBOX,
+  TRUSTED_HOME_CONTENT_IFRAME_SANDBOX,
+  resolveHomeContentIframeSandbox,
+  resolveHomeContentUrl,
+  sanitizeHomeContentHtml,
+} from '../homeContent'
 
 describe('home content security', () => {
   it('keeps display markup while removing executable and interactive HTML', () => {
@@ -32,5 +38,18 @@ describe('home content security', () => {
     expect(resolveHomeContentUrl('javascript:alert(1)')).toBe('')
     expect(resolveHomeContentUrl('data:text/html,hello')).toBe('')
     expect(resolveHomeContentUrl('//example.com/home')).toBe('')
+  })
+
+  it('keeps external URLs strict but permits trusted HTTPS sibling subdomains', () => {
+    expect(resolveHomeContentIframeSandbox('https://example.com/home', 'https://gptcodex.top'))
+      .toBe(HOME_CONTENT_IFRAME_SANDBOX)
+    expect(resolveHomeContentIframeSandbox('https://gptcodex.top/home', 'https://gptcodex.top'))
+      .toBe(HOME_CONTENT_IFRAME_SANDBOX)
+    expect(resolveHomeContentIframeSandbox('https://gptcodex.top.evil.example/home', 'https://gptcodex.top'))
+      .toBe(HOME_CONTENT_IFRAME_SANDBOX)
+    expect(resolveHomeContentIframeSandbox('http://child.gptcodex.top/home', 'https://gptcodex.top'))
+      .toBe(HOME_CONTENT_IFRAME_SANDBOX)
+    expect(resolveHomeContentIframeSandbox('https://child.gptcodex.top/home', 'https://gptcodex.top'))
+      .toBe(TRUSTED_HOME_CONTENT_IFRAME_SANDBOX)
   })
 })

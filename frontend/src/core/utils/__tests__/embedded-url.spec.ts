@@ -3,6 +3,7 @@ import {
   EMBEDDED_AUTH_MESSAGE_TYPE,
   buildEmbeddedUrl,
   detectTheme,
+  isOpaqueDocument,
   postEmbeddedAuthContext,
 } from '../embedded-url'
 
@@ -98,5 +99,15 @@ describe('embedded-url', () => {
   it('detects dark mode from document root class', () => {
     document.documentElement.classList.add('dark')
     expect(detectTheme()).toBe('dark')
+  })
+
+  it('detects sandboxed documents with an opaque origin', () => {
+    expect(isOpaqueDocument()).toBe(false)
+    Object.defineProperty(window, 'location', {
+      value: { origin: 'null' },
+      writable: true,
+      configurable: true,
+    })
+    expect(isOpaqueDocument()).toBe(true)
   })
 })

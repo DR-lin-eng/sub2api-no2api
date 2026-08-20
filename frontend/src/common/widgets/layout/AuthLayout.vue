@@ -59,6 +59,7 @@
 import { computed, onMounted } from 'vue'
 import { useAppStore } from '@/core/stores/appStore'
 import { sanitizeUrl } from '@/core/utils/url'
+import { isOpaqueDocument } from '@/core/utils/embedded-url'
 
 const appStore = useAppStore()
 
@@ -69,6 +70,7 @@ const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle
 const currentYear = computed(() => new Date().getFullYear())
 
 onMounted(() => {
+  if (isOpaqueDocument()) return
   appStore.fetchPublicSettings()
 })
 </script>

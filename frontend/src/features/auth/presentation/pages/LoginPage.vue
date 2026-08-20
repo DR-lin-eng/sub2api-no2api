@@ -1,6 +1,29 @@
 <template>
   <AuthLayout>
-    <div class="space-y-6">
+    <div v-if="opaqueDocument" role="alert" class="space-y-4 text-center">
+      <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+        <Icon name="externalLink" size="lg" />
+      </div>
+      <div>
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
+          {{ t('auth.embeddedLoginTitle') }}
+        </h2>
+        <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
+          {{ t('auth.embeddedLoginDescription') }}
+        </p>
+      </div>
+      <a
+        :href="topLevelLoginUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="btn btn-primary inline-flex w-full items-center justify-center gap-2"
+      >
+        <Icon name="externalLink" size="md" />
+        {{ t('auth.openTopLevelLogin') }}
+      </a>
+    </div>
+
+    <div v-else class="space-y-6">
       <!-- Title -->
       <div class="text-center">
         <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
@@ -10,6 +33,24 @@
           {{ t('auth.signInToAccount') }}
         </p>
       </div>
+
+      <div
+        v-if="settingsLoadFailed"
+        role="alert"
+        class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200"
+      >
+        <p>{{ t('auth.settingsLoadFailed') }}</p>
+        <button
+          type="button"
+          class="mt-2 inline-flex items-center gap-2 font-medium text-amber-900 underline underline-offset-2 hover:text-amber-700 dark:text-amber-100 dark:hover:text-amber-50"
+          :disabled="settingsLoading"
+          @click="loadPublicSettings(true)"
+        >
+          <Icon name="refresh" size="sm" :class="{ 'animate-spin': settingsLoading }" />
+          {{ t('common.retry') }}
+        </button>
+      </div>
+
       <!-- Login Form -->
       <form @submit.prevent="handleLogin" class="space-y-5">
         <!-- Email Input -->
@@ -207,7 +248,7 @@
     </div>
 
     <!-- Footer -->
-    <template v-if="!backendModeEnabled" #footer>
+    <template v-if="!backendModeEnabled && !opaqueDocument" #footer>
       <p class="text-gray-500 dark:text-dark-400">
         {{ t('auth.dontHaveAccount') }}
         <router-link
@@ -253,7 +294,6 @@ import {
   isWeChatWebOAuthEnabled,
   startOAuthLogin,
 } from '@/features/auth/data/datasources/authOAuthActions'
-import { getPublicSettings } from '@/features/auth/data/datasources/authQueries'
 import {
   clearCredentialKeyPrefetch,
   isTotp2FARequired,
@@ -268,6 +308,7 @@ import type {
 import { extractI18nErrorMessage } from '@/core/utils/apiError'
 import { clearAllAffiliateReferralCodes } from '@/core/utils/oauthAffiliate'
 import { safeLocalStorage, safeSessionStorage } from '@/core/utils/safeStorage'
+import { isOpaqueDocument } from '@/core/utils/embedded-url'
 import {
   resolveHumanVerification,
   type AliyunCaptchaRegion,
@@ -291,6 +332,21 @@ const passkeyLoading = ref<boolean>(false)
 const errorMessage = ref<string>('')
 const showPassword = ref<boolean>(false)
 const publicSettingsLoaded = ref<boolean>(false)
+const settingsLoading = ref<boolean>(false)
+const settingsLoadFailed = ref<boolean>(false)
+const opaqueDocument = computed(() => isOpaqueDocument())
+const topLevelLoginUrl = computed(() => {
+  if (typeof window === 'undefined') return '/login'
+  try {
+    const url = new URL(window.location.href)
+    for (const key of ['ui_mode', 'src_host', 'src_url', 'user_id', 'theme', 'lang']) {
+      url.searchParams.delete(key)
+    }
+    return url.toString()
+  } catch {
+    return '/login'
+  }
+})
 
 // Public settings
 const turnstileEnabled = ref<boolean>(false)
@@ -354,7 +410,12 @@ const agreementGateActive = computed(
 )
 
 const authActionDisabled = computed(
-  () => isLoading.value || passkeyLoading.value || !publicSettingsLoaded.value || agreementGateActive.value
+  () =>
+    isLoading.value ||
+    passkeyLoading.value ||
+    settingsLoading.value ||
+    !publicSettingsLoaded.value ||
+    agreementGateActive.value
 )
 
 const showPasskeyLogin = computed(
@@ -409,20 +470,19 @@ watch(validationToastMessage, (value, previousValue) => {
 
 // ==================== Lifecycle ====================
 
-onMounted(async () => {
-  clearCredentialKeyPrefetch()
-  void prefetchCredentialKey()
-
-  const expiredFlag = safeSessionStorage.getItem('auth_expired')
-  if (expiredFlag) {
-    safeSessionStorage.removeItem('auth_expired')
-    const message = t('auth.reloginRequired')
-    errorMessage.value = message
-    appStore.showWarning(message)
-  }
+async function loadPublicSettings(force = false): Promise<void> {
+  settingsLoading.value = true
+  settingsLoadFailed.value = false
 
   try {
-    const settings = await getPublicSettings()
+    const loadedSettings = await appStore.fetchPublicSettings(force)
+    // A forced refresh may fail while an earlier injected/cache snapshot is
+    // still usable. Keep that snapshot instead of blanking the login form.
+    const settings = loadedSettings || appStore.cachedPublicSettings
+    if (!settings) {
+      throw new Error('Public settings are unavailable')
+    }
+
     const verification = resolveHumanVerification(settings)
     turnstileEnabled.value = verification.external
     turnstileSiteKey.value = verification.siteKey
@@ -441,17 +501,33 @@ onMounted(async () => {
     oidcOAuthProviderName.value = settings.oidc_oauth_provider_name || 'OIDC'
     githubOAuthEnabled.value = settings.github_oauth_enabled
     googleOAuthEnabled.value = settings.google_oauth_enabled
-    backendModeEnabled.value = settings.backend_mode_enabled
     passwordResetEnabled.value = settings.password_reset_enabled
     passkeyEnabled.value = settings.passkey_enabled === true
     applyLoginAgreementSettings(settings)
-  } catch (error) {
-    console.error('Failed to load public settings:', error)
-    loginAgreementEnabled.value = false
-    agreementAccepted.value = true
-  } finally {
     publicSettingsLoaded.value = true
+  } catch (error) {
+    settingsLoadFailed.value = true
+    console.error('Failed to load public settings:', error)
+  } finally {
+    settingsLoading.value = false
   }
+}
+
+onMounted(async () => {
+  if (opaqueDocument.value) return
+
+  clearCredentialKeyPrefetch()
+  void prefetchCredentialKey()
+
+  const expiredFlag = safeSessionStorage.getItem('auth_expired')
+  if (expiredFlag) {
+    safeSessionStorage.removeItem('auth_expired')
+    const message = t('auth.reloginRequired')
+    errorMessage.value = message
+    appStore.showWarning(message)
+  }
+
+  await loadPublicSettings()
 })
 
 // ==================== Login Agreement ====================

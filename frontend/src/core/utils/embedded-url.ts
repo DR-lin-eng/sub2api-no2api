@@ -15,6 +15,16 @@ const SENSITIVE_EMBEDDED_QUERY_KEYS = ['token', 'access_token', 'auth_token'] as
 
 export const EMBEDDED_AUTH_MESSAGE_TYPE = 'sub2api:embedded-auth'
 
+/** Sandboxed iframes expose an opaque `null` origin and cannot complete auth. */
+export function isOpaqueDocument(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.location.origin === 'null'
+  } catch {
+    return true
+  }
+}
+
 export interface EmbeddedAuthContext {
   userId?: number
   authToken?: string | null

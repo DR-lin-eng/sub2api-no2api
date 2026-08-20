@@ -13,6 +13,7 @@ import { useRoutePrefetch } from '@/common/composables/useRoutePrefetch'
 import { getSetupStatus } from '@/features/setup/data/datasources/setupDatasource'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveRouteDocumentTitle } from './title'
+import { isOpaqueDocument } from '@/core/utils/embedded-url'
 import { loadRouteLocaleMessages } from '@/core/i18n'
 import { safeSessionStorage } from '@/core/utils/safeStorage'
 
@@ -875,7 +876,9 @@ router.beforeEach(async (to, _from, next) => {
   // Restore the in-memory access token from the HttpOnly refresh cookie before
   // evaluating route permissions. Without awaiting this, reloads race the guard.
   if (!authInitialized) {
-    await authStore.checkAuth()
+    if (!isOpaqueDocument()) {
+      await authStore.checkAuth()
+    }
     authInitialized = true
   }
 

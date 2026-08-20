@@ -650,7 +650,7 @@ export default {
         homeContentPlaceholder: 'Enter sanitized display HTML, or an absolute http(s) URL for an interactive page.',
         homeContentHint: 'Custom content replaces the built-in home page. HTML mode is intended for headings, text, images, links, and layout markup.',
         homeContentSecurityHint: 'Scripts, event handlers, forms, style blocks, and embedded objects are removed from HTML mode. Use a fully trusted URL for interactive content.',
-		homeContentIframeWarning: 'Iframe mode is sandboxed without same-origin access and sends no referrer. Some sites also block embedding through X-Frame-Options or CSP.',
+		homeContentIframeWarning: 'Iframe mode is sandboxed by default and sends no referrer. HTTPS subdomains of this site retain their own origin for trusted interactive pages; other sites may still block embedding through X-Frame-Options or CSP.',
 		compactHome: 'Compact Home Page',
 		compactHomeHint: 'Show a restrained site identity page when no custom home page content is set.',
         hideCcsImportButton: 'Hide CCS Import Button',
