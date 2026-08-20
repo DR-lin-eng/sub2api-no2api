@@ -119,6 +119,8 @@
         </div>
       </section>
 
+      <QuotaUsageDistributionChart :distribution="summary.quota_usage_distribution" :loading="loading" />
+
       <section aria-labelledby="inspection-results-title" class="space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -200,6 +202,7 @@ import { extractApiErrorMessage } from '@/core/utils/apiError'
 import { formatDateTime } from '@/core/utils/format'
 import { getOverview, runInspection, updateSettings } from '../../data/datasources/accountInspectionDatasource'
 import type { AccountInspectionOverview, AccountInspectionResult, AccountInspectionSettings } from '../../data/dtos/accountInspectionDtos'
+import QuotaUsageDistributionChart from '../widgets/QuotaUsageDistributionChart.vue'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -246,7 +249,21 @@ const runStatusClass = computed(() => {
   if (status === 'succeeded') return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
   return 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300'
 })
-const summary = computed(() => run.value?.summary ?? { inspected: 0, healthy: 0, flagged: 0, disabled: 0, already_disabled: 0, oauth_accounts: 0, api_key_accounts: 0 })
+const summary = computed(() => run.value?.summary ?? {
+  inspected: 0,
+  healthy: 0,
+  flagged: 0,
+  disabled: 0,
+  already_disabled: 0,
+  oauth_accounts: 0,
+  api_key_accounts: 0,
+  quota_usage_distribution: {
+    average_used_percent: null,
+    measured_accounts: 0,
+    unknown_accounts: 0,
+    buckets: [],
+  },
+})
 const summaryItems = computed(() => [
   { key: 'inspected', label: t('admin.accountInspection.summary.inspected'), value: summary.value.inspected },
   { key: 'flagged', label: t('admin.accountInspection.summary.flagged'), value: summary.value.flagged },
