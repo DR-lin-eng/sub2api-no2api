@@ -10,6 +10,28 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
 )
 
+type httpUpstreamTLSProfileContextKey struct{}
+
+// WithHTTPUpstreamTLSProfile attaches the already-resolved account profile to
+// a request. The transport boundary consumes it without reloading account or
+// database state on the hot path.
+func WithHTTPUpstreamTLSProfile(ctx context.Context, profile *tlsfingerprint.Profile) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return context.WithValue(ctx, httpUpstreamTLSProfileContextKey{}, profile)
+}
+
+// HTTPUpstreamTLSProfileFromContext returns the profile attached to a request,
+// if any.
+func HTTPUpstreamTLSProfileFromContext(ctx context.Context) *tlsfingerprint.Profile {
+	if ctx == nil {
+		return nil
+	}
+	profile, _ := ctx.Value(httpUpstreamTLSProfileContextKey{}).(*tlsfingerprint.Profile)
+	return profile
+}
+
 func withAccountEgressContext(ctx context.Context, account *Account, proxyURL string, cfg *config.Config) context.Context {
 	accountID := int64(0)
 	if account != nil {
@@ -76,6 +98,11 @@ func accountEgressRoute(account *Account, proxyURL string) platformegress.Route 
 }
 
 func doAccountHTTPUpstream(upstream HTTPUpstream, req *http.Request, proxyURL string, account *Account) (*http.Response, error) {
+	if req != nil {
+		if profile := HTTPUpstreamTLSProfileFromContext(req.Context()); profile != nil {
+			return doAccountHTTPUpstreamWithTLS(upstream, req, proxyURL, account, profile)
+		}
+	}
 	concurrency := 0
 	if account != nil {
 		concurrency = account.Concurrency

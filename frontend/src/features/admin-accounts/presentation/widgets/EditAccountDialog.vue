@@ -1314,7 +1314,17 @@ function loadQuotaControlSettings(account: Account) {
   customBaseUrlEnabled.value = false
   customBaseUrl.value = ''
 
-  // Remaining quota control settings only apply to Anthropic accounts
+  const tlsFingerprintEligible =
+    (account.platform === 'anthropic' && (account.type === 'oauth' || account.type === 'setup-token')) ||
+    (account.platform === 'openai' && account.type === 'oauth')
+
+  // TLS fingerprint settings are also available for OpenAI OAuth/Codex accounts.
+  if (tlsFingerprintEligible) {
+    tlsFingerprintEnabled.value = account.enable_tls_fingerprint === true
+    tlsFingerprintProfileId.value = account.tls_fingerprint_profile_id ?? null
+  }
+
+  // Remaining quota controls apply only to Anthropic OAuth/SetupToken accounts.
   if (account.platform !== 'anthropic') {
     return
   }
@@ -1347,12 +1357,6 @@ function loadQuotaControlSettings(account: Account) {
 
   // UMQ mode（独立于 RPM 加载，防止编辑无 RPM 账号时丢失已有配置）
   userMsgQueueMode.value = account.user_msg_queue_mode ?? ''
-
-  // Load TLS fingerprint setting
-  if (account.enable_tls_fingerprint === true) {
-    tlsFingerprintEnabled.value = true
-  }
-  tlsFingerprintProfileId.value = account.tls_fingerprint_profile_id ?? null
 
   // Load session ID masking setting
   if (account.session_id_masking_enabled === true) {

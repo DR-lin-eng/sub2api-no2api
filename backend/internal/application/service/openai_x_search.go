@@ -73,7 +73,7 @@ func (s *OpenAIGatewayService) ForwardGrokXSearch(
 		proxyURL = account.Proxy.URL()
 	}
 	startedAt := time.Now()
-	resp, err := doAccountHTTPUpstream(s.httpUpstream, upstreamReq, proxyURL, account)
+	resp, err := s.doAccountHTTPUpstream(upstreamReq, proxyURL, account)
 	SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(startedAt).Milliseconds())
 	if err != nil {
 		return nil, s.handleOpenAIUpstreamTransportError(modelCtx, c, account, err, false)

@@ -5,12 +5,14 @@ package tlsfingerprint
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	utls "github.com/refraction-networking/utls"
@@ -228,6 +230,17 @@ func (d *HTTPProxyDialer) DialTLSContext(ctx context.Context, network, addr stri
 	if err := conn.SetDeadline(connectDeadline); err != nil {
 		_ = conn.Close()
 		return nil, fmt.Errorf("set proxy CONNECT deadline: %w", err)
+	}
+	if strings.EqualFold(d.proxyURL.Scheme, "https") {
+		proxyTLS := tls.Client(conn, &tls.Config{
+			MinVersion: tls.VersionTLS12,
+			ServerName: d.proxyURL.Hostname(),
+		})
+		if err := proxyTLS.HandshakeContext(ctx); err != nil {
+			_ = conn.Close()
+			return nil, fmt.Errorf("TLS handshake with proxy: %w", err)
+		}
+		conn = proxyTLS
 	}
 
 	// Step 2: Send CONNECT request to establish tunnel

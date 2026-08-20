@@ -174,17 +174,13 @@ func TestHTTPUpstreamDoWithTLSPlainHTTPUsesConfiguredSOCKSProxy(t *testing.T) {
 	require.Equal(t, int64(1), upstreamCalls.Load())
 }
 
-func TestTLSFingerprintHTTPSProxyFallsBackWithoutBypassingProxy(t *testing.T) {
+func TestTLSFingerprintHTTPSProxyPreservesProxyAndFingerprintDialer(t *testing.T) {
 	proxyURL, err := url.Parse("https://user:pass@proxy.example:8443")
 	require.NoError(t, err)
 	transport, err := buildUpstreamTransportWithTLSFingerprint(poolSettings{}, proxyURL, &tlsfingerprint.Profile{Name: "test"})
 	require.NoError(t, err)
-	require.NotNil(t, transport.Proxy)
-	require.Nil(t, transport.DialTLSContext)
-	req := &http.Request{URL: &url.URL{Scheme: "https", Host: "upstream.example"}}
-	resolved, err := transport.Proxy(req)
-	require.NoError(t, err)
-	require.Equal(t, "https://user:pass@proxy.example:8443", resolved.String())
+	require.Nil(t, transport.Proxy)
+	require.NotNil(t, transport.DialTLSContext)
 }
 
 func startTestSOCKS5Proxy(t *testing.T) (string, *atomic.Int64) {
@@ -837,6 +833,30 @@ func (s *HTTPUpstreamSuite) TestOpenAIProfileTLSFingerprintDoesNotInheritGeneric
 	transport, ok := entry.client.Transport.(*http.Transport)
 	require.True(s.T(), ok, "expected *http.Transport")
 	require.Equal(s.T(), time.Duration(0), transport.ResponseHeaderTimeout, "OpenAI TLS path should not inherit generic header timeout")
+}
+
+func (s *HTTPUpstreamSuite) TestTLSFingerprintPoolIsScopedToAccountAndProfile() {
+	s.cfg.Gateway = config.GatewayConfig{
+		ConnectionPoolIsolation: config.ConnectionPoolIsolationProxy,
+	}
+	svc := s.newService()
+	profileA := &tlsfingerprint.Profile{Name: "profile-a", CipherSuites: []uint16{0x1301}}
+	profileB := &tlsfingerprint.Profile{Name: "profile-b", CipherSuites: []uint16{0x1302}}
+
+	first, err := svc.getClientEntryWithTLS("", 101, 1, profileA, service.HTTPUpstreamProfileDefault, false, false)
+	require.NoError(s.T(), err)
+	sameAccount, err := svc.getClientEntryWithTLS("", 101, 1, profileA, service.HTTPUpstreamProfileDefault, false, false)
+	require.NoError(s.T(), err)
+	otherAccount, err := svc.getClientEntryWithTLS("", 202, 1, profileA, service.HTTPUpstreamProfileDefault, false, false)
+	require.NoError(s.T(), err)
+	otherProfile, err := svc.getClientEntryWithTLS("", 101, 1, profileB, service.HTTPUpstreamProfileDefault, false, false)
+	require.NoError(s.T(), err)
+
+	require.Same(s.T(), first, sameAccount)
+	require.NotSame(s.T(), first, otherAccount)
+	require.NotSame(s.T(), first, otherProfile)
+	require.NotEmpty(s.T(), first.tlsProfileKey)
+	require.Len(s.T(), svc.clients, 3)
 }
 
 func (s *HTTPUpstreamSuite) TestOpenAIProfileHTTP2DisabledUsesHTTP1Transport() {

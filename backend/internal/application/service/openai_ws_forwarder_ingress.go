@@ -795,9 +795,10 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	applyCodexOutboundSessionHeaders(c, account, firstPayload.payloadRaw, firstPayload.promptCacheKey, wsHeaders, fingerprintIDs)
 	applyCodexFingerprintWSHeaders(wsHeaders, fingerprintIDs)
 	baseAcquireReq := openAIWSAcquireRequest{
-		Account: account,
-		WSURL:   wsURL,
-		Headers: wsHeaders,
+		Account:    account,
+		WSURL:      wsURL,
+		Headers:    wsHeaders,
+		TLSProfile: s.resolveTLSProfile(account),
 		HeadersFactory: func(factoryCtx context.Context, headers http.Header) (http.Header, error) {
 			return s.refreshOpenAIAgentIdentityHeaders(factoryCtx, account, headers)
 		},
