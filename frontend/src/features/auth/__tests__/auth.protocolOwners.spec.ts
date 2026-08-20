@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { get, post, refreshBrowserSession } = vi.hoisted(() => ({
   get: vi.fn(),
@@ -70,6 +70,10 @@ describe('auth protocol owners', () => {
     localStorage.clear()
   })
 
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('keeps auth and public-settings query paths and response shapes unchanged', async () => {
     const currentUser = { id: 7, email: 'user@example.com' }
     const settings = { registration_enabled: true }
@@ -84,8 +88,34 @@ describe('auth protocol owners', () => {
     await expect(getLocalCaptcha()).resolves.toEqual(captcha)
 
     expect(get).toHaveBeenNthCalledWith(1, '/auth/me')
-    expect(get).toHaveBeenNthCalledWith(2, '/settings/public')
+    expect(get).toHaveBeenNthCalledWith(2, '/settings/public', {
+      withCredentials: false,
+      timeout: 10_000,
+    })
     expect(get).toHaveBeenNthCalledWith(3, '/auth/captcha')
+  })
+
+  it('falls back to a credential-free fetch when the XHR transport has no response', async () => {
+    const settings = { registration_enabled: true, version: '0.1.186' }
+    get.mockRejectedValueOnce({ status: 0, message: 'Network error' })
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ code: 0, data: settings }),
+    } as Response)
+
+    await expect(getPublicSettings()).resolves.toEqual(settings)
+    expect(get).toHaveBeenCalledWith('/settings/public', {
+      withCredentials: false,
+      timeout: 10_000,
+    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/settings/public',
+      expect.objectContaining({
+        credentials: 'omit',
+        cache: 'no-store',
+      }),
+    )
   })
 
   it('keeps verification, invitation, and password recovery payloads unchanged', async () => {

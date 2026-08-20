@@ -9,6 +9,16 @@
 - 纯 API：API Key 网关、Webhook、机器到机器回调。
 - 适合强人机验证：匿名高风险入口，优先 Turnstile / 验证码 / 登录态限流。
 
+登录页的公开设置与凭据提交要保持分层：嵌入式前端会优先使用 HTML 注入的
+`window.__APP_CONFIG__`，`/api/v1/settings/public` 是公开读取接口，浏览器请求不应携带认证
+Cookie；若浏览器扩展拦截 XHR，前端只允许一次有界、无缓存的无凭据 GET 兜底。上述兼容处理不适用于
+`/api/v1/auth/credential-key` 或 `POST /api/v1/auth/login`，后两者仍必须保留浏览器 Cookie、加密
+`credential_envelope` 和现有 CAPTCHA/限流约束。
+
+首页 URL iframe 默认使用严格 sandbox。只有当前站点的 HTTPS 子域名会获得自身 origin 与弹窗逃逸能力，
+用于兼容需要 `localStorage` 或新窗口登录的可信 sibling app；同源主站和不相关外站仍保持无同源权限。
+如果页面已经处于 opaque `null` origin，前端不会尝试鉴权请求，而是要求在顶层登录页完成登录。
+
 ## 一定是浏览器访问
 
 | 路径 | 说明 | CF建议 |
