@@ -245,6 +245,168 @@ func TestCodexPrewarm429FailureLowersWeightWithoutRemovingCandidate(t *testing.T
 	require.Positive(t, errorRate)
 }
 
+func TestOpenAIGatewayService_SelectAccountWithScheduler_PreviousResponseHealthEscape(t *testing.T) {
+	resetOpenAIAdvancedSchedulerSettingCacheForTest()
+
+	ctx := context.Background()
+	groupID := int64(10105)
+	accounts := []Account{
+		{
+			ID:          21501,
+			Platform:    PlatformOpenAI,
+			Type:        AccountTypeOAuth,
+			Status:      StatusActive,
+			Schedulable: true,
+			Concurrency: 1,
+			Priority:    0,
+			GroupIDs:    []int64{groupID},
+			Extra: map[string]any{
+				"openai_oauth_responses_websockets_v2_enabled": true,
+				CodexPrewarmContinuationExtraKey:               true,
+			},
+		},
+		{
+			ID:          21502,
+			Platform:    PlatformOpenAI,
+			Type:        AccountTypeAPIKey,
+			Status:      StatusActive,
+			Schedulable: true,
+			Concurrency: 1,
+			Priority:    1,
+			GroupIDs:    []int64{groupID},
+			Extra: map[string]any{
+				"openai_apikey_responses_websockets_v2_enabled": true,
+			},
+		},
+	}
+
+	cache := &schedulerTestGatewayCache{
+		sessionBindings: map[string]int64{"openai:previous_response_health_escape": accounts[0].ID},
+	}
+	store := NewOpenAIWSStateStore(cache)
+	cfg := newSchedulerTestOpenAIWSV2Config()
+	cfg.Gateway.OpenAIScheduler.StickyEscapeEnabled = true
+	cfg.Gateway.OpenAIScheduler.StickyEscapeTTFTMs = 15000
+	cfg.Gateway.OpenAIScheduler.StickyEscapeErrorRate = 0.5
+	releasedIDs := make([]int64, 0, 2)
+	svc := &OpenAIGatewayService{
+		accountRepo:        schedulerTestOpenAIAccountRepo{accounts: accounts},
+		cache:              cache,
+		cfg:                cfg,
+		rateLimitService:   newOpenAIAdvancedSchedulerRateLimitService("true"),
+		concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{releasedIDs: &releasedIDs}),
+		openaiAccountStats: newOpenAIAccountRuntimeStats(),
+		openaiWSStateStore: store,
+	}
+
+	// The prewarm opt-in deliberately bypasses the local 429 hard block. Its
+	// scheduler EWMA must still be able to release a movable response chain.
+	svc.BlockAccountScheduling(&accounts[0], time.Now().Add(time.Minute), "429")
+	require.False(t, svc.isOpenAIAccountRuntimeBlocked(&accounts[0]))
+	for range 5 {
+		svc.openaiAccountStats.report(accounts[0].ID, false, nil)
+	}
+	require.NoError(t, store.BindResponseAccount(ctx, groupID, "resp_prev_prewarm_escape", accounts[0].ID, time.Hour))
+
+	selection, decision, err := svc.SelectAccountWithSchedulerForCapability(
+		ctx,
+		&groupID,
+		"resp_prev_prewarm_escape",
+		"previous_response_health_escape",
+		"gpt-5.1",
+		nil,
+		OpenAIUpstreamTransportAny,
+		OpenAIEndpointCapabilityChatCompletions,
+		false,
+		true,
+		true,
+		PlatformOpenAI,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	require.NotNil(t, selection.Account)
+	require.Equal(t, int64(21502), selection.Account.ID)
+	require.Equal(t, openAIAccountScheduleLayerLoadBalance, decision.Layer)
+	require.False(t, decision.StickyPreviousHit)
+	require.Contains(t, releasedIDs, int64(21501), "the acquired unhealthy previous-response slot must be released")
+	require.Equal(t, int64(21501), cache.sessionBindings["openai:previous_response_health_escape"], "health escape must preserve the session binding")
+	if selection.ReleaseFunc != nil {
+		selection.ReleaseFunc()
+	}
+}
+
+func TestOpenAIGatewayService_SelectAccountWithScheduler_PreviousResponseUnmovableKeepsUnhealthyBinding(t *testing.T) {
+	resetOpenAIAdvancedSchedulerSettingCacheForTest()
+
+	ctx := context.Background()
+	groupID := int64(10106)
+	accounts := []Account{
+		{
+			ID:          21511,
+			Platform:    PlatformOpenAI,
+			Type:        AccountTypeAPIKey,
+			Status:      StatusActive,
+			Schedulable: true,
+			Concurrency: 1,
+			GroupIDs:    []int64{groupID},
+			Extra:       map[string]any{"openai_apikey_responses_websockets_v2_enabled": true},
+		},
+		{
+			ID:          21512,
+			Platform:    PlatformOpenAI,
+			Type:        AccountTypeAPIKey,
+			Status:      StatusActive,
+			Schedulable: true,
+			Concurrency: 1,
+			GroupIDs:    []int64{groupID},
+			Extra:       map[string]any{"openai_apikey_responses_websockets_v2_enabled": true},
+		},
+	}
+	cache := &schedulerTestGatewayCache{}
+	store := NewOpenAIWSStateStore(cache)
+	cfg := newSchedulerTestOpenAIWSV2Config()
+	cfg.Gateway.OpenAIScheduler.StickyEscapeEnabled = true
+	cfg.Gateway.OpenAIScheduler.StickyEscapeTTFTMs = 15000
+	cfg.Gateway.OpenAIScheduler.StickyEscapeErrorRate = 0.5
+	svc := &OpenAIGatewayService{
+		accountRepo:        schedulerTestOpenAIAccountRepo{accounts: accounts},
+		cache:              cache,
+		cfg:                cfg,
+		rateLimitService:   newOpenAIAdvancedSchedulerRateLimitService("true"),
+		concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{}),
+		openaiAccountStats: newOpenAIAccountRuntimeStats(),
+		openaiWSStateStore: store,
+	}
+	for range 5 {
+		svc.openaiAccountStats.report(accounts[0].ID, false, nil)
+	}
+	require.NoError(t, store.BindResponseAccount(ctx, groupID, "resp_prev_unmovable", accounts[0].ID, time.Hour))
+
+	selection, decision, err := svc.SelectAccountWithSchedulerForCapability(
+		ctx,
+		&groupID,
+		"resp_prev_unmovable",
+		"",
+		"gpt-5.1",
+		nil,
+		OpenAIUpstreamTransportAny,
+		OpenAIEndpointCapabilityChatCompletions,
+		false,
+		false,
+		true,
+		PlatformOpenAI,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	require.NotNil(t, selection.Account)
+	require.Equal(t, int64(21511), selection.Account.ID)
+	require.Equal(t, openAIAccountScheduleLayerPreviousResponse, decision.Layer)
+	require.True(t, decision.StickyPreviousHit)
+	if selection.ReleaseFunc != nil {
+		selection.ReleaseFunc()
+	}
+}
+
 type openAIAdvancedSchedulerSettingRepoStub struct {
 	values map[string]string
 }

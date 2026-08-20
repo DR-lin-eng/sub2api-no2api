@@ -484,14 +484,38 @@ func (s *defaultOpenAIAccountScheduler) Select(
 			}
 		}
 		if selection != nil && selection.Account != nil {
-			decision.Layer = openAIAccountScheduleLayerPreviousResponse
-			decision.StickyPreviousHit = true
-			decision.SelectedAccountID = selection.Account.ID
-			decision.SelectedAccountType = selection.Account.Type
-			if req.SessionHash != "" && !req.PreserveStickyBinding {
-				_ = s.service.bindOpenAIStickySessionDuringSelection(ctx, req.GroupID, req.SessionHash, selection.Account.ID)
+			escaped := false
+			if req.PreviousResponseCanMove {
+				escapeCfg := s.service.openAIStickyEscapeConfig()
+				if reason, errorRate, ttft, shouldEscape := s.shouldEscapeStickyAccount(selection.Account.ID, escapeCfg); shouldEscape {
+					if selection.ReleaseFunc != nil {
+						selection.ReleaseFunc()
+					}
+					slog.Info("sticky_escape_triggered",
+						"account_id", selection.Account.ID,
+						"reason", "previous_response_"+reason,
+						"error_rate", errorRate,
+						"ttft", ttft,
+					)
+					req.PreserveStickyBinding = true
+					req.ExcludedIDs = cloneExcludedAccountIDs(req.ExcludedIDs)
+					if req.ExcludedIDs == nil {
+						req.ExcludedIDs = make(map[int64]struct{}, 1)
+					}
+					req.ExcludedIDs[selection.Account.ID] = struct{}{}
+					escaped = true
+				}
 			}
-			return selection, decision, nil
+			if !escaped {
+				decision.Layer = openAIAccountScheduleLayerPreviousResponse
+				decision.StickyPreviousHit = true
+				decision.SelectedAccountID = selection.Account.ID
+				decision.SelectedAccountType = selection.Account.Type
+				if req.SessionHash != "" && !req.PreserveStickyBinding {
+					_ = s.service.bindOpenAIStickySessionDuringSelection(ctx, req.GroupID, req.SessionHash, selection.Account.ID)
+				}
+				return selection, decision, nil
+			}
 		}
 	}
 
