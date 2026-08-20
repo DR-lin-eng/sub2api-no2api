@@ -39,6 +39,7 @@ function dynamicLocaleCalls(): Map<string, number> {
 }
 
 const auditedDynamicCalls: Record<string, number> = {
+  'features/admin-account-inspection/presentation/widgets/QuotaUsageDistributionChart.vue :: `admin.accountInspection.quotaUsage.buckets.${bucket.key}`': 1,
   'features/admin-accounts/presentation/accountEditUpdatePayload.ts :: `admin.accounts.headerOverride.${headerError}`': 2,
   'features/admin-accounts/presentation/widgets/BulkEditAccountDialog.vue :: `admin.accounts.headerOverride.${headerError}`': 1,
   'features/admin-accounts/presentation/widgets/CreateAccountDialog.vue :: `admin.accounts.headerOverride.${headerError}`': 2,
