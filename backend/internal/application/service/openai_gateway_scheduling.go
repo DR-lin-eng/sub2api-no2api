@@ -30,6 +30,7 @@ const (
 var explicitOpenAIHeaderSessionNames = []string{
 	"session_id",
 	"conversation_id",
+	claudeCodeSessionHeader,
 	openCodeSessionAffinityHeader,
 	openCodeSessionIDHeader,
 	openCodeNativeSessionHeader,
@@ -109,11 +110,13 @@ func (s *OpenAIGatewayService) GenerateExplicitSessionHash(c *gin.Context, body 
 // Priority:
 //  1. Header: session_id
 //  2. Header: conversation_id
-//  3. Header: x-session-affinity / x-session-id / x-opencode-session (OpenCode)
-//  4. Header: x-conversation-id (CodeBuddy)
-//  5. Header: x-grok-conv-id (Grok groups only)
-//  6. Body:   prompt_cache_key
-//  7. Body:   content-based fallback (model + system + tools + first user message)
+//  3. Header: X-Claude-Code-Session-Id
+//  4. Header: x-session-affinity / x-session-id / x-opencode-session (OpenCode)
+//  5. Header: x-conversation-id (CodeBuddy)
+//  6. Header: x-grok-conv-id (Grok groups only)
+//  7. Body:   prompt_cache_key
+//  8. Body:   Claude metadata session identity
+//  9. Body:   content-based fallback (model + system + tools + first user message)
 func (s *OpenAIGatewayService) GenerateSessionHash(c *gin.Context, body []byte) string {
 	return s.generateSessionHash(c, nil, body, false)
 }
@@ -133,8 +136,15 @@ func (s *OpenAIGatewayService) generateSessionHash(c *gin.Context, groupID *int6
 	sessionID := explicitOpenAIRequestSessionID(c, body)
 	contentDerived := false
 	if sessionID == "" && len(body) > 0 {
-		sessionID = deriveOpenAIContentSessionSeed(body)
-		contentDerived = sessionID != ""
+		// Claude Code's metadata identity is a real conversation signal. It must
+		// win over the content-derived fallback, whose stable-prefix assumptions
+		// are not guaranteed for Claude Code's evolving instructions/tool state.
+		if metadataSeed := deriveClaudeCodeMetadataSessionSeed(body); metadataSeed != "" {
+			sessionID = metadataSeed
+		} else {
+			sessionID = deriveOpenAIContentSessionSeed(body)
+			contentDerived = sessionID != ""
+		}
 	}
 	if sessionID == "" {
 		return ""
@@ -750,7 +760,7 @@ func (s *OpenAIGatewayService) selectAccountForModelWithExclusionsAndStreamHealt
 
 	// 4. 设置粘性会话绑定
 	// Set sticky session binding
-	if sessionHash != "" {
+	if sessionHash != "" && !openAIStickyFailoverPreservationEnabled(ctx) {
 		_ = s.setStickySessionAccountID(ctx, groupID, sessionHash, selected.ID, openaiStickySessionTTL)
 	}
 
@@ -1128,6 +1138,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 	}
 
 	cfg := s.schedulingConfig()
+	preserveStickyBinding := openAIStickyFailoverPreservationEnabled(ctx)
 	preferLowUpstreamRate := useUpstreamTokenCost && s.isOpenAILowUpstreamRatePriorityEnabled(ctx)
 	needsUpstreamCheck := s.needsUpstreamChannelRestrictionCheck(ctx, groupID)
 	var stickyAccountID int64
@@ -1140,7 +1151,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 	if !contentSessionConcurrent && sessionHash != "" {
 		selection, handled, invalidated, stickyErr := s.selectLegacyStickyAccountBeforePoolScan(
 			ctx, groupID, platform, sessionHash, requestedModel, excludedIDs, requireCompact,
-			requiredCapability, "", OpenAIUpstreamTransportAny, stickyAccountID, needsUpstreamCheck, cfg, contentSessionOverflow, false,
+			requiredCapability, "", OpenAIUpstreamTransportAny, stickyAccountID, needsUpstreamCheck, cfg, contentSessionOverflow || preserveStickyBinding, false,
 		)
 		if stickyErr != nil {
 			return nil, stickyErr
@@ -1447,7 +1458,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 				if selectErr != nil {
 					return nil, true, selectErr
 				}
-				if sessionHash != "" && !contentSessionConcurrent {
+				if sessionHash != "" && !contentSessionConcurrent && !preserveStickyBinding {
 					_ = s.setStickySessionAccountID(ctx, groupID, sessionHash, fresh.ID, openaiStickySessionTTL)
 				}
 				return selection, true, nil
@@ -1494,7 +1505,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 				if selectErr != nil {
 					return nil, selectErr
 				}
-				if sessionHash != "" && !contentSessionConcurrent {
+				if sessionHash != "" && !contentSessionConcurrent && !preserveStickyBinding {
 					_ = s.setStickySessionAccountID(ctx, groupID, sessionHash, fresh.ID, openaiStickySessionTTL)
 				}
 				return selection, nil

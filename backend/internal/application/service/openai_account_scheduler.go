@@ -488,7 +488,7 @@ func (s *defaultOpenAIAccountScheduler) Select(
 			decision.StickyPreviousHit = true
 			decision.SelectedAccountID = selection.Account.ID
 			decision.SelectedAccountType = selection.Account.Type
-			if req.SessionHash != "" {
+			if req.SessionHash != "" && !req.PreserveStickyBinding {
 				_ = s.service.bindOpenAIStickySessionDuringSelection(ctx, req.GroupID, req.SessionHash, selection.Account.ID)
 			}
 			return selection, decision, nil
@@ -2593,6 +2593,7 @@ func (s *OpenAIGatewayService) selectAccountWithSchedulerOnce(
 	contentSessionConcurrent := openAIContentSessionRequestConcurrent(ctx)
 	contentSessionOverflow := openAIContentSessionRequestOverflow(ctx)
 	contentSessionBurst := contentSessionConcurrent || contentSessionOverflow
+	preserveStickyBinding := contentSessionBurst || openAIStickyFailoverPreservationEnabled(ctx)
 	decision := OpenAIAccountScheduleDecision{}
 	scheduler := s.getOpenAIAccountScheduler(ctx)
 	if scheduler == nil {
@@ -2694,7 +2695,7 @@ func (s *OpenAIGatewayService) selectAccountWithSchedulerOnce(
 		StickyPreviousAccountID:  stickyPreviousAccountID,
 		StickyWeighted:           stickyWeighted,
 		SubscriptionPriority:     subscriptionPriority,
-		PreserveStickyBinding:    contentSessionBurst,
+		PreserveStickyBinding:    preserveStickyBinding,
 		ContentSessionConcurrent: contentSessionBurst,
 		PreviousResponseID:       previousResponseID,
 		PreviousResponseCanMove:  previousResponseCanMove,

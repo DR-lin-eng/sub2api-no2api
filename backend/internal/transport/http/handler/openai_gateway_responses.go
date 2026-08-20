@@ -484,6 +484,9 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 							continue
 						}
 					}
+					if failoverErr.Scope == service.GatewayFailureScopeRequest && sessionHash != "" {
+						c.Request = c.Request.WithContext(h.gatewayService.PreserveOpenAIStickyBindingForFailover(c.Request.Context(), apiKey.GroupID, sessionHash, account.ID))
+					}
 					h.gatewayService.RecordOpenAIAccountSwitch()
 					addFailedAccountID(&failedAccountIDs, account.ID)
 					lastFailoverErr = failoverErr

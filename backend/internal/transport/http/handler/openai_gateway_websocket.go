@@ -336,6 +336,9 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		if ctx.Err() != nil {
 			return false
 		}
+		if failoverErr.Scope == service.GatewayFailureScopeRequest && sessionHash != "" {
+			ctx = h.gatewayService.PreserveOpenAIStickyBindingForFailover(ctx, apiKey.GroupID, sessionHash, account.ID)
+		}
 		h.gatewayService.RecordOpenAIAccountSwitch()
 		addFailedAccountID(&failedAccountIDs, account.ID)
 		lastFailoverErr = failoverErr

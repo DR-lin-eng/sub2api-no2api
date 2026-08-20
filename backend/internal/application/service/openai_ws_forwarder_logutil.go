@@ -71,6 +71,9 @@ func resolveOpenAIWSSessionHeaders(c *gin.Context, promptCacheKey string) openAI
 		} else if sessionID := strings.TrimSpace(c.Request.Header.Get("session_id")); sessionID != "" {
 			resolution.SessionID = sessionID
 			resolution.SessionSource = "header_session_id"
+		} else if sessionID := strings.TrimSpace(c.Request.Header.Get(claudeCodeSessionHeader)); sessionID != "" {
+			resolution.SessionID = sessionID
+			resolution.SessionSource = "header_claude_code_session_id"
 		}
 		if threadID := strings.TrimSpace(c.Request.Header.Get("thread-id")); threadID != "" {
 			resolution.ConversationID = threadID

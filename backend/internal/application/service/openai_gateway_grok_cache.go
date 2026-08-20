@@ -15,7 +15,6 @@ import (
 
 const (
 	grokConversationIDHeader         = "X-Grok-Conv-Id"
-	claudeCodeSessionHeader          = "X-Claude-Code-Session-Id"
 	grokClientToolCacheOptInHeader   = "X-Sub2API-Grok-Client-Tool-Cache"
 	grokFreeCacheNativeToolsJSON     = `[{"type":"web_search"},{"type":"x_search"}]`
 	grokFreeCacheDisabledToolChoice  = "none"

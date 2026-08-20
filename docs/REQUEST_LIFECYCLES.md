@@ -42,6 +42,18 @@ sequenceDiagram
 5. 对应 `gateway*_forward*` / `openai*_forward*`：确认上游请求与响应转换。
 6. `gateway_usage_billing.go` 或 `openai_gateway_usage.go`：确认用量解析和计费提交。
 
+### Claude Code -> OpenAI 会话信号
+
+OpenAI 兼容入口的会话键按以下顺序解析：显式 `session_id`/
+`conversation_id` 及 `X-Claude-Code-Session-Id`，请求体
+`prompt_cache_key`，再到 Claude Code 的 `metadata.user_id` /
+`metadata.session_id` 身份信号。Claude Code 元数据优先于内容派生 fallback；因此同一会话在
+系统提示、工具或消息尾部变化时仍保持账号粘性。对 OpenAI OAuth 的原生
+`/v1/responses` 请求，如果客户端只提供 Claude 元数据，网关会生成一个稳定、独立
+命名空间的 `prompt_cache_key`，不向任意 API-key 兼容网关强行注入未知字段。若某次
+请求因上游容量/传输等 request-scoped 错误临时切换账号，当前请求可以由备用账号完成，
+但后续轮次仍保留原粘性账号绑定；只有账号级不可用状态才清理该绑定。
+
 OpenAI Responses 请求在首个语义事件前使用
 `gateway.openai_first_output_timeout_seconds`（默认 90 秒；
 `high/xhigh/max` 可由 `gateway.openai_high_effort_first_output_timeout_seconds`

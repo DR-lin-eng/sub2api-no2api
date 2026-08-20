@@ -25,6 +25,46 @@ type openAISessionHashMetadata struct {
 	contentRequestOverflow   bool
 }
 
+type openAIStickyFailoverPreservationContextKey struct{}
+
+var openAIStickyFailoverPreservationKey openAIStickyFailoverPreservationContextKey
+
+// WithOpenAIStickyFailoverPreservation marks a request whose current attempt
+// failed with a request-scoped upstream condition (for example capacity shed).
+// The next account may serve this attempt, but the original sticky owner should
+// remain the binding for later turns once it becomes schedulable again.
+func WithOpenAIStickyFailoverPreservation(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return context.WithValue(ctx, openAIStickyFailoverPreservationKey, true)
+}
+
+// PreserveOpenAIStickyBindingForFailover returns a context marker only when a
+// sticky owner already exists and is the account that just failed. A first
+// request with no binding must still bind the account that serves its fallback.
+func (s *OpenAIGatewayService) PreserveOpenAIStickyBindingForFailover(ctx context.Context, groupID *int64, sessionHash string, failedAccountID int64) context.Context {
+	if s == nil || s.cache == nil || strings.TrimSpace(sessionHash) == "" {
+		return ctx
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	accountID, err := s.getStickySessionAccountID(ctx, groupID, sessionHash)
+	if err != nil || accountID <= 0 || (failedAccountID > 0 && accountID != failedAccountID) {
+		return ctx
+	}
+	return WithOpenAIStickyFailoverPreservation(ctx)
+}
+
+func openAIStickyFailoverPreservationEnabled(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	enabled, _ := ctx.Value(openAIStickyFailoverPreservationKey).(bool)
+	return enabled
+}
+
 var (
 	openAIStickyLegacyReadFallbackTotal atomic.Int64
 	openAIStickyLegacyReadFallbackHit   atomic.Int64

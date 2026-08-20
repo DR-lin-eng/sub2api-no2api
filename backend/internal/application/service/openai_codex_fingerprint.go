@@ -198,6 +198,9 @@ func extractClientSessionID(headers http.Header) string {
 	if value := strings.TrimSpace(headers.Get("session-id")); value != "" {
 		return value
 	}
+	if value := strings.TrimSpace(headers.Get(claudeCodeSessionHeader)); value != "" {
+		return value
+	}
 	return strings.TrimSpace(headers.Get("session_id"))
 }
 

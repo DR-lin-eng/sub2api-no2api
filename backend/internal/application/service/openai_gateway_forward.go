@@ -14,6 +14,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 // Forward forwards request to OpenAI API
@@ -125,6 +126,26 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	requestView := newOpenAIRequestView(body)
 	reqModel, reqStream, promptCacheKey := requestView.Model, requestView.Stream, requestView.PromptCacheKey
 	originalModel := reqModel
+	// Claude Code-compatible clients can carry a stable metadata session while
+	// omitting the Responses prompt_cache_key. For OAuth accounts, materialize
+	// one namespaced key before the identity/turn-state snapshot is staged. This
+	// keeps account selection, Codex session headers, and upstream cache routing
+	// on the same conversation signal without forcing keys on arbitrary API-key
+	// gateways.
+	cacheKeyModel := account.GetMappedModel(reqModel)
+	if cacheKeyModel == "" {
+		cacheKeyModel = reqModel
+	}
+	if promptCacheKey == "" && account.IsOpenAIOAuth() && !compactPath && shouldAutoInjectPromptCacheKeyForCompat(cacheKeyModel) {
+		if derivedKey := deriveClaudeCodeOpenAIPromptCacheKey(body); derivedKey != "" {
+			if updatedBody, setErr := sjson.SetBytes(body, "prompt_cache_key", derivedKey); setErr == nil {
+				body = updatedBody
+				originalBody = updatedBody
+				requestView = newOpenAIRequestView(updatedBody)
+				promptCacheKey = derivedKey
+			}
+		}
+	}
 	stageOpenAICompatTurnStateKey(c, account, body)
 	if !compactPath {
 		if imageModel, forced := account.forcedOpenAIResponsesImageModel(reqModel); forced {

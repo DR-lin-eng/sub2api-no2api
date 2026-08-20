@@ -32,12 +32,13 @@ const (
 type codexConversationSignalSource string
 
 const (
-	codexConversationThreadHeader  codexConversationSignalSource = "thread_header"
-	codexConversationSessionHeader codexConversationSignalSource = "session_header"
-	codexConversationLegacyHeader  codexConversationSignalSource = "legacy_header"
-	codexConversationPromptCache   codexConversationSignalSource = "prompt_cache_key"
-	codexConversationContent       codexConversationSignalSource = "content"
-	codexConversationRequestLocal  codexConversationSignalSource = "request_local"
+	codexConversationThreadHeader   codexConversationSignalSource = "thread_header"
+	codexConversationSessionHeader  codexConversationSignalSource = "session_header"
+	codexConversationLegacyHeader   codexConversationSignalSource = "legacy_header"
+	codexConversationPromptCache    codexConversationSignalSource = "prompt_cache_key"
+	codexConversationContent        codexConversationSignalSource = "content"
+	codexConversationClaudeMetadata codexConversationSignalSource = "claude_metadata"
+	codexConversationRequestLocal   codexConversationSignalSource = "request_local"
 )
 
 type codexSimulationRootPlan struct {
@@ -218,6 +219,7 @@ func resolveCodexConversationSignal(c *gin.Context, canonicalBody []byte) (strin
 		for _, header := range []string{
 			"session_id",
 			"conversation_id",
+			claudeCodeSessionHeader,
 			openCodeSessionAffinityHeader,
 			openCodeSessionIDHeader,
 			openCodeNativeSessionHeader,
@@ -230,6 +232,9 @@ func resolveCodexConversationSignal(c *gin.Context, canonicalBody []byte) (strin
 	}
 	if value := strings.TrimSpace(gjson.GetBytes(canonicalBody, "prompt_cache_key").String()); value != "" {
 		return value, codexConversationPromptCache
+	}
+	if value := deriveClaudeCodeMetadataSessionSeed(canonicalBody); value != "" {
+		return value, codexConversationClaudeMetadata
 	}
 	if value := deriveOpenAIContentSessionSeed(canonicalBody); value != "" {
 		return value, codexConversationContent

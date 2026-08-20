@@ -39,7 +39,7 @@ func resolveCodexOutboundSessionIDs(
 		return nil
 	}
 
-	sessionRaw := codexInboundHeaderValue(c, "session-id", "session_id", "x-session-id", "conversation_id")
+	sessionRaw := codexInboundHeaderValue(c, "session-id", "session_id", claudeCodeSessionHeader, "x-session-id", "conversation_id")
 	threadRaw := codexInboundHeaderValue(c, "thread-id", "thread_id")
 	clientRequestRaw := codexInboundHeaderValue(c, "x-client-request-id")
 
