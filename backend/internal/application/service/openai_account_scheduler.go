@@ -2111,7 +2111,7 @@ func (s *defaultOpenAIAccountScheduler) isAccountRequestCompatibleReason(ctx con
 	}) {
 		return false, "shadow_parent_unhealthy"
 	}
-	if req.RequestedModel != "" && !account.IsModelSupported(req.RequestedModel) {
+	if req.RequestedModel != "" && !account.IsModelSupportedForRequest(req.RequestedModel, openAIRequestModelForSupport(ctx, req.RequestedModel)) {
 		return false, "model_not_supported"
 	}
 	if req.GroupID != nil && s != nil && s.service != nil &&
@@ -2549,6 +2549,7 @@ func (s *OpenAIGatewayService) selectAccountWithSchedulerInGroup(
 	previousResponseCanMove bool,
 	useUpstreamTokenCost bool,
 ) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
+	ctx = s.withOpenAIRoutingModelContext(ctx, groupID, requestedModel, requireCompact)
 	if requiredImageCapability == "" {
 		ctx = s.withOpenAIProfitControlGate(ctx, groupID)
 	}

@@ -932,15 +932,22 @@ func resolveRequestedModelInSliceMapping(mapping map[string][]string, requestedM
 	return matchWildcardSliceMappingResult(mapping, requestedModel)
 }
 
-// IsModelSupported 检查模型是否在 model_mapping 中（支持通配符）
-// 如果未配置 mapping，返回 true（允许所有模型）。
+// IsModelSupported 检查模型是否在 model_mapping 中（支持通配符）。
+// 对 OpenAI OAuth 的空映射，未知模型按 Codex 能力拒绝；渠道级别的别名
+// 应通过 IsModelSupportedForRequest 传入映射后的上游模型。
 //
-// 例外：OpenAI OAuth 账号（Codex 上游）的空映射会排除明确属于其他厂商
-// 家族的模型（deepseek-*/glm-* 等）——转发阶段 normalizeOpenAIModelForUpstream
-// 会把未知模型原样透传，Codex 上游对这类模型必然返回不可重试的 400，导致
-// 请求卡死在该账号上、无法 failover 到真正支持该模型的 API Key 账号（#3662）。
-// 未知/自定义别名仍保持允许（兼容渠道级映射），见 isOpenAIOAuthServableModel。
+// OpenAI OAuth 账号（Codex 上游）的空映射只允许已知 Codex/Claude 模型；
+// 渠道级别的未知别名会在调度前替换为实际模型后再检查。这样可避免把
+// 未知模型原样发到 Codex，导致不可重试的 400 并错误消耗 OAuth 账号。
 func (a *Account) IsModelSupported(requestedModel string) bool {
+	return a.IsModelSupportedForRequest(requestedModel, "")
+}
+
+// IsModelSupportedForRequest checks account model support while allowing the
+// scheduler to provide the model that will actually be sent upstream. This is
+// needed for channel aliases: the client-facing alias may be unknown to Codex,
+// while the channel has already mapped it to a supported model.
+func (a *Account) IsModelSupportedForRequest(requestedModel, routedModel string) bool {
 	// 透传模式仅替换认证、模型语义完全交由上游决定，因此放行所有模型。
 	// 该短路必须在 model_mapping 判定之前：账号从"白名单模式"切换到透传后，
 	// credentials 里常残留旧的非空 model_mapping，若不在此放行，透传账号会被
@@ -951,15 +958,41 @@ func (a *Account) IsModelSupported(requestedModel string) bool {
 	mapping := a.GetModelMapping()
 	if len(mapping) == 0 {
 		if a.IsOpenAIOAuth() {
-			return isOpenAIOAuthServableModel(requestedModel)
+			return isOpenAIOAuthServableModel(firstNonEmptyModel(routedModel, requestedModel))
 		}
 		return true // 无映射 = 允许所有
 	}
-	if mappingSupportsRequestedModel(mapping, requestedModel) {
-		return true
+	models := []string{requestedModel}
+	if a.IsOpenAIOAuth() && strings.TrimSpace(routedModel) != "" && strings.TrimSpace(routedModel) != strings.TrimSpace(requestedModel) {
+		// Channel mapping is applied before account mapping during Forward, so
+		// once present it is the authoritative Codex capability input. API-key
+		// compatibility channels retain their historical alias-first behavior.
+		models = []string{routedModel}
+	} else if strings.TrimSpace(routedModel) != "" && strings.TrimSpace(routedModel) != strings.TrimSpace(requestedModel) {
+		models = append(models, routedModel)
 	}
-	normalized := normalizeRequestedModelForLookup(a.Platform, requestedModel)
-	return normalized != requestedModel && mappingSupportsRequestedModel(mapping, normalized)
+	for _, candidate := range models {
+		if strings.TrimSpace(candidate) == "" {
+			continue
+		}
+		if mappingSupportsRequestedModel(mapping, candidate) {
+			return true
+		}
+		normalized := normalizeRequestedModelForLookup(a.Platform, candidate)
+		if normalized != candidate && mappingSupportsRequestedModel(mapping, normalized) {
+			return true
+		}
+	}
+	return false
+}
+
+func firstNonEmptyModel(models ...string) string {
+	for _, model := range models {
+		if trimmed := strings.TrimSpace(model); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 // GetMappedModel 获取映射后的模型名（支持通配符，最长优先匹配）

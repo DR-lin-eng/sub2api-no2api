@@ -240,6 +240,7 @@ func (s *OpenAIGatewayService) SelectAccountForModel(ctx context.Context, groupI
 // SelectAccountForModelWithExclusions selects an account supporting the requested model while excluding specified accounts.
 // SelectAccountForModelWithExclusions 选择支持指定模型的账号，同时排除指定的账号。
 func (s *OpenAIGatewayService) SelectAccountForModelWithExclusions(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*Account, error) {
+	ctx = s.withOpenAIRoutingModelContext(ctx, groupID, requestedModel, false)
 	return s.selectAccountForModelWithExclusions(s.withOpenAIQuotaAutoPauseContext(ctx), groupID, PlatformOpenAI, sessionHash, requestedModel, excludedIDs, false, 0, "", false)
 }
 
@@ -343,7 +344,7 @@ func isOpenAICompatibleAccountEligibleForRequest(ctx context.Context, account *A
 			return false
 		}
 	}
-	if requestedModel != "" && !account.IsModelSupported(requestedModel) {
+	if requestedModel != "" && !account.IsModelSupportedForRequest(requestedModel, openAIRequestModelForSupport(ctx, requestedModel)) {
 		return false
 	}
 	if account.IsGrok() && requiredCapability == OpenAIEndpointCapabilityGrokMediaGeneration {
@@ -653,6 +654,24 @@ func (s *OpenAIGatewayService) withOpenAIQuotaAutoPauseContext(ctx context.Conte
 	return withOpenAIQuotaAutoPauseSettings(ctx, s.settingService.GetOpenAIQuotaAutoPauseSettings(ctx))
 }
 
+// withOpenAIRoutingModelContext resolves a group channel alias before account
+// selection. The client-facing model remains the scheduler's requested model;
+// the context carries only the model that will be sent upstream so empty-map
+// OAuth accounts do not absorb genuinely unknown direct requests.
+func (s *OpenAIGatewayService) withOpenAIRoutingModelContext(ctx context.Context, groupID *int64, requestedModel string, requireCompact bool) context.Context {
+	if s == nil || groupID == nil || s.channelService == nil || strings.TrimSpace(requestedModel) == "" {
+		return ctx
+	}
+	if existing, ok := openAIForwardModelFromContext(ctx); ok && strings.TrimSpace(existing.model) != "" {
+		return ctx
+	}
+	mapping := s.channelService.ResolveChannelMapping(ctx, *groupID, requestedModel)
+	if !mapping.Mapped || strings.TrimSpace(mapping.MappedModel) == "" || strings.TrimSpace(mapping.MappedModel) == strings.TrimSpace(requestedModel) {
+		return ctx
+	}
+	return WithOpenAIForwardModel(ctx, mapping.MappedModel, requireCompact)
+}
+
 // prioritizeOpenAICompactAccounts re-orders a slice so that accounts with known
 // compact support are tried first, followed by unknown, then explicitly unsupported.
 // The relative order within each tier is preserved.
@@ -723,6 +742,7 @@ func (s *OpenAIGatewayService) selectAccountForModelWithExclusions(ctx context.C
 }
 
 func (s *OpenAIGatewayService) selectAccountForModelWithExclusionsAndStreamHealth(ctx context.Context, groupID *int64, platform string, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, requireCompact bool, stickyAccountID int64, requiredCapability OpenAIEndpointCapability, preferLowUpstreamRate bool) (*Account, bool, error) {
+	ctx = s.withOpenAIRoutingModelContext(ctx, groupID, requestedModel, requireCompact)
 	ctx = withSchedulerCandidateExclusions(ctx, excludedIDs)
 	platform = normalizeOpenAICompatiblePlatform(platform)
 	ctx = s.withOpenAISchedulerCandidateFilter(ctx, groupID, platform, requestedModel, requireCompact, requiredCapability)
@@ -1128,6 +1148,7 @@ func (s *OpenAIGatewayService) selectOpenAIContentSessionBurstCandidates(
 }
 
 func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Context, groupID *int64, platform string, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, requireCompact bool, requiredCapability OpenAIEndpointCapability, useUpstreamTokenCost bool, contentSessionConcurrent bool) (*AccountSelectionResult, error) {
+	ctx = s.withOpenAIRoutingModelContext(ctx, groupID, requestedModel, requireCompact)
 	ctx = withSchedulerCandidateExclusions(ctx, excludedIDs)
 	platform = normalizeOpenAICompatiblePlatform(platform)
 	if s.checkChannelPricingRestriction(ctx, groupID, requestedModel) {
@@ -1596,6 +1617,7 @@ func (s *OpenAIGatewayService) listSchedulableAccounts(ctx context.Context, grou
 }
 
 func (s *OpenAIGatewayService) withOpenAISchedulerCandidateFilter(ctx context.Context, groupID *int64, platform, requestedModel string, requireCompact bool, requiredCapability OpenAIEndpointCapability) context.Context {
+	ctx = s.withOpenAIRoutingModelContext(ctx, groupID, requestedModel, requireCompact)
 	requestCtx := ctx
 	parentLookup := s.parentAccountLookup(requestCtx)
 	needsUpstreamCheck := groupID != nil && s.needsUpstreamChannelRestrictionCheck(requestCtx, groupID)

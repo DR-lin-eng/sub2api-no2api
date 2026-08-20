@@ -27,10 +27,11 @@ var openAIPassthroughTransportRetryBackoffs = [...]time.Duration{
 	1 * time.Second,
 }
 
-const (
-	openAITransportRetryCandidateContextKey = "openai_transport_retry_candidate"
-	openAITransportTimeoutPendingContextKey = "openai_transport_timeout_pending"
-)
+type openAITransportContextKey string
+
+const openAITransportRetryCandidateContextKey openAITransportContextKey = "openai_transport_retry_candidate"
+
+const openAITransportTimeoutPendingContextKey = "openai_transport_timeout_pending"
 
 func withOpenAITransportRetryCandidate(ctx context.Context) context.Context {
 	if ctx == nil {
@@ -221,7 +222,7 @@ func (s *OpenAIGatewayService) handleOpenAIUpstreamTransportError(ctx context.Co
 				zap.Time("next_probe_at", snapshot.NextProbeAt),
 			)
 		}
-	} else if isOpenAITransportTimeout(err) && !(passthrough && isOpenAITransportRetryCandidate(ctx)) {
+	} else if isOpenAITransportTimeout(err) && (!passthrough || !isOpenAITransportRetryCandidate(ctx)) {
 		// Dial/TLS/caller-context timeouts keep their existing short runtime
 		// cooldown. Passthrough retries defer this block until the request-wide
 		// replay budget is exhausted, so a successful same-account retry does not

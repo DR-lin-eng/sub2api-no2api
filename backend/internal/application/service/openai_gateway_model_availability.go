@@ -34,6 +34,8 @@ func (s *OpenAIGatewayService) DiagnoseModelAvailabilityForPlatform(
 	if s.accountRepo == nil {
 		return ModelAvailabilityDiagnosis{HasAccountsInPool: true, HasModelSupport: true}
 	}
+	ctx = s.withOpenAIRoutingModelContext(ctx, groupID, requestedModel, false)
+	routedModel := openAIRequestModelForSupport(ctx, requestedModel)
 
 	platform = normalizeOpenAICompatiblePlatform(platform)
 	queryGroupID := groupID
@@ -60,11 +62,9 @@ func (s *OpenAIGatewayService) DiagnoseModelAvailabilityForPlatform(
 	now := time.Now()
 	for i := range accounts {
 		diag.HasAccountsInPool = true
-		// Mirrors the per-candidate filter used during account selection
-		// (openai_account_scheduler.isAccountRequestCompatible): empty
-		// model_mapping accepts everything; otherwise the explicit / wildcard
-		// mapping must match.
-		if accounts[i].IsModelSupported(requestedModel) {
+		// Mirrors the per-candidate filter used during account selection,
+		// including the routed channel model used for empty-map OAuth accounts.
+		if accounts[i].IsModelSupportedForRequest(requestedModel, routedModel) {
 			diag.HasModelSupport = true
 			matchingModelAccounts++
 			if accounts[i].RateLimitResetAt != nil && now.Before(*accounts[i].RateLimitResetAt) {
