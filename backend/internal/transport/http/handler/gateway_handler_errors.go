@@ -20,6 +20,20 @@ func (h *GatewayHandler) handleConcurrencyError(c *gin.Context, err error, slotT
 func (h *GatewayHandler) handleFailoverExhausted(c *gin.Context, failoverErr *service.UpstreamFailoverError, platform string, streamStarted bool) {
 	statusCode := failoverErr.StatusCode
 	responseBody := failoverErr.ResponseBody
+	if service.IsOpenAIGenericUpstreamFailureBody(responseBody) && !failoverErr.PreserveUpstreamResponse {
+		// The shared OpenAI transport/failover envelope is an internal retry
+		// sentinel. Do not let a compatible gateway route apply a passthrough
+		// rule to it after all safe account attempts have been exhausted.
+		service.SetOpsUpstreamError(c, statusCode, service.OpenAIGenericUpstreamFailureClientMessage, "")
+		h.handleStreamingAwareError(
+			c,
+			http.StatusBadGateway,
+			"upstream_error",
+			service.OpenAIGenericUpstreamFailureClientMessage,
+			streamStarted,
+		)
+		return
+	}
 	if service.IsOpenAISilentRefusalErrorBody(responseBody) {
 		service.SetOpsUpstreamError(c, statusCode, service.OpenAISilentRefusalClientMessage(), "")
 		h.handleStreamingAwareError(c, http.StatusBadGateway, "upstream_error", service.OpenAISilentRefusalClientMessage(), streamStarted)

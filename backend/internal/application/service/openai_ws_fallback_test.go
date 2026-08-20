@@ -110,6 +110,16 @@ func TestClassifyOpenAIWSErrorEvent(t *testing.T) {
 	require.True(t, recoverable)
 }
 
+func TestClassifyOpenAIWSGenericUpstreamFailureAsRecoverable(t *testing.T) {
+	reason, recoverable := classifyOpenAIWSErrorEventFromRaw(
+		"",
+		"upstream_error",
+		"Upstream request failed",
+	)
+	require.Equal(t, "upstream_error_event", reason)
+	require.True(t, recoverable)
+}
+
 func TestClassifyOpenAIWSOverloadEventsAsPreOutputRecoverable(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -170,6 +180,17 @@ func TestOpenAIWSErrorHTTPStatus(t *testing.T) {
 }
 
 func TestResolveOpenAIWSFallbackErrorResponse(t *testing.T) {
+	t.Run("generic_upstream_error_event_is_sanitized", func(t *testing.T) {
+		statusCode, errType, clientMessage, upstreamMessage, ok := resolveOpenAIWSFallbackErrorResponse(
+			wrapOpenAIWSFallback("upstream_error_event", errors.New("Upstream request failed")),
+		)
+		require.True(t, ok)
+		require.Equal(t, http.StatusBadGateway, statusCode)
+		require.Equal(t, "upstream_error", errType)
+		require.Equal(t, OpenAIGenericUpstreamFailureClientMessage, clientMessage)
+		require.Equal(t, "Upstream request failed", upstreamMessage)
+	})
+
 	t.Run("previous_response_not_found", func(t *testing.T) {
 		statusCode, errType, clientMessage, upstreamMessage, ok := resolveOpenAIWSFallbackErrorResponse(
 			wrapOpenAIWSFallback("previous_response_not_found", errors.New("previous response not found")),

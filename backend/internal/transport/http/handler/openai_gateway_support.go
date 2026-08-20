@@ -265,6 +265,20 @@ func (h *OpenAIGatewayHandler) handleFailoverExhausted(c *gin.Context, failoverE
 	}
 	statusCode := failoverErr.StatusCode
 	responseBody := failoverErr.ResponseBody
+	if service.IsOpenAIGenericUpstreamFailureBody(responseBody) && !failoverErr.PreserveUpstreamResponse {
+		// This body is an internal retry sentinel (also used by transport and
+		// attempt-budget failures). Never let the final exhausted response expose
+		// it as if it were a useful upstream diagnostic.
+		service.SetOpsUpstreamError(c, statusCode, service.OpenAIGenericUpstreamFailureClientMessage, "")
+		h.handleStreamingAwareError(
+			c,
+			http.StatusBadGateway,
+			"upstream_error",
+			service.OpenAIGenericUpstreamFailureClientMessage,
+			streamStarted,
+		)
+		return
+	}
 	if service.StopOpenAICompactSSEKeepaliveCommitted(c) {
 		streamStarted = true
 	}

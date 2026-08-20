@@ -243,6 +243,12 @@ func (s *OpenAIGatewayService) shouldFailoverOpenAIUpstreamResponse(statusCode i
 		// with a request-scoped 400 instead of retrying this prompt on other accounts.
 		return true
 	}
+	// A bare generic upstream envelope is not a deterministic client error. It
+	// is also the sentinel used for transport failures, so keep it behind the
+	// account failover loop instead of exposing it as a 400/502 response.
+	if isOpenAIGenericUpstreamFailure(upstreamMsg, upstreamBody) {
+		return true
+	}
 	if isOpenAIContextWindowError(upstreamMsg, upstreamBody) {
 		return false
 	}
@@ -396,6 +402,18 @@ func (s *OpenAIGatewayService) handleErrorResponse(
 			upstreamMsg,
 			false,
 		)
+	}
+	if isOpenAIGenericUpstreamFailure(upstreamMsg, body) {
+		// Generic upstream envelopes are retryable infrastructure signals, even
+		// when a provider labels them HTTP 400. Keep them out of the deterministic
+		// client-error writer below.
+		reqModel := ""
+		if len(requestedModel) > 0 {
+			reqModel = requestedModel[0]
+		}
+		if failoverErr := s.failoverOpenAIUpstreamHTTPError(ctx, c, account, resp, body, upstreamMsg, reqModel); failoverErr != nil {
+			return nil, failoverErr
+		}
 	}
 	if s.autoDisableOnUpstreamInsufficientBalance(ctx, account, resp.StatusCode, body) {
 		return nil, newOpenAIUpstreamFailoverError(
@@ -645,6 +663,26 @@ func (s *OpenAIGatewayService) handleCompatErrorResponse(
 	upstreamMsg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(body)))
 	if isOpenAIInvalidPromptPolicyError(upstreamMsg, body) {
 		return nil, newOpenAIUpstreamFailoverError(resp.StatusCode, resp.Header, body, upstreamMsg, false)
+	}
+	if isOpenAIGenericUpstreamFailure(upstreamMsg, body) {
+		// This helper is normally reached only after the caller's failover
+		// predicate returned false. Keep the invariant local as well so direct
+		// callers cannot accidentally commit the internal sentinel.
+		requestedModelValue := ""
+		if len(requestedModel) > 0 {
+			requestedModelValue = requestedModel[0]
+		}
+		if failoverErr := s.failoverOpenAIUpstreamHTTPError(
+			requestCtx,
+			c,
+			account,
+			resp,
+			body,
+			upstreamMsg,
+			requestedModelValue,
+		); failoverErr != nil {
+			return nil, failoverErr
+		}
 	}
 	if s.autoDisableOnUpstreamInsufficientBalance(requestCtx, account, resp.StatusCode, body) {
 		return nil, newOpenAIUpstreamFailoverError(

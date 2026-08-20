@@ -780,6 +780,12 @@ func shouldFailoverOpenAIPassthroughResponse(account *Account, statusCode int, r
 	if cyberHit, _, _ := detectOpenAICyberPolicy(responseBody); cyberHit {
 		return false
 	}
+	// Providers sometimes return the gateway's generic envelope with HTTP 400.
+	// It carries no request-specific remediation and must stay inside the
+	// bounded account failover loop instead of being committed as a client 400.
+	if IsOpenAIGenericUpstreamFailureBody(responseBody) {
+		return true
+	}
 	if isOpenAIRequestBodyTooLargeError(statusCode, "", responseBody) {
 		return true
 	}
@@ -896,6 +902,7 @@ func (s *OpenAIGatewayService) handleFailoverErrorResponsePassthrough(
 	responseBody []byte,
 ) error {
 	body := s.redactAgentIdentitySensitiveBody(ctx, account, responseBody)
+	genericUpstreamFailure := IsOpenAIGenericUpstreamFailureBody(body)
 	cyberHit, cyberCode, cyberMsg := detectOpenAICyberPolicy(body)
 	if cyberHit {
 		MarkOpsCyberPolicy(c, CyberPolicyMark{
@@ -950,7 +957,10 @@ func (s *OpenAIGatewayService) handleFailoverErrorResponsePassthrough(
 	writeOpenAIPassthroughErrorHeaders(clientHeaders, resp.Header)
 	failoverErr.ResponseBody = marshalOpenAIPassthroughErrorEnvelope(clientMessage)
 	failoverErr.ResponseHeaders = clientHeaders
-	failoverErr.PreserveUpstreamResponse = true
+	// The generic envelope is an internal retry sentinel, not useful upstream
+	// diagnostics. Keep the body for classification/ops, but force the handler
+	// to use its local terminal message after all accounts are exhausted.
+	failoverErr.PreserveUpstreamResponse = !genericUpstreamFailure
 	return failoverErr
 }
 
@@ -1009,6 +1019,16 @@ func (s *OpenAIGatewayService) handleErrorResponsePassthrough(
 		Detail:               upstreamDetail,
 		UpstreamResponseBody: upstreamDetail,
 	})
+	if IsOpenAIGenericUpstreamFailureBody(body) {
+		writeOpenAIPassthroughErrorEnvelope(
+			c,
+			http.StatusBadGateway,
+			resp.Header,
+			OpenAIGenericUpstreamFailureClientMessage,
+		)
+		return fmt.Errorf("upstream error: %d (generic failure sanitized)", resp.StatusCode)
+	}
+
 	// context-window 超限是确定性请求失败（shouldFailoverOpenAIPassthroughResponse
 	// 已保证不切号），其文案对客户端可操作（如触发自动压缩）；在净化信封内保留
 	// 脱敏后的上游消息，而不是抹成通用文案。
@@ -1659,6 +1679,9 @@ func openAIStreamFailedEventShouldFailover(payload []byte, message string) bool 
 }
 
 func openAIStreamFailureIsExplicitlyRetryable(payload []byte, message string) bool {
+	if IsOpenAIGenericUpstreamFailureBody(payload) {
+		return true
+	}
 	if openAIStreamFailureStatus(payload, message) == http.StatusTooManyRequests {
 		return true
 	}

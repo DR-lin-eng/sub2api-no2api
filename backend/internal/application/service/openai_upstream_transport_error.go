@@ -68,10 +68,10 @@ func openAITransportTimeoutPending(c *gin.Context) bool {
 	return pending
 }
 
-// openAITransportFailoverBody is the OpenAI-format error body attached to the
-// failover error for a transport-level failure. Kept identical to the legacy
-// inline 502 body so the client-visible payload is unchanged if failover is
-// ultimately exhausted.
+// openAITransportFailoverBody is the internal OpenAI-format envelope attached
+// to a transport-level failover error. It is retained for classification and
+// ops diagnostics; the HTTP/WS handlers replace it with a local terminal
+// message if all safe account attempts are exhausted.
 var openAITransportFailoverBody = []byte(`{"error":{"type":"upstream_error","message":"Upstream request failed"}}`)
 
 // openAITransportErrorClass describes how to react to a transport-level upstream
