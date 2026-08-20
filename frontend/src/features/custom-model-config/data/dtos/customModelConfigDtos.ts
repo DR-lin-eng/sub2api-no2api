@@ -1,6 +1,6 @@
 /** 自定义模型配置 DTOs */
 
-import type { ModelCapability } from "../../domain/entities/customModelConfig";
+import type { ModelCapability, VideoApiType } from "../../domain/entities/customModelConfig";
 
 export interface CustomModelConfigDto {
   id: number;
@@ -9,6 +9,7 @@ export interface CustomModelConfigDto {
   capabilities: ModelCapability[];
   template_id?: number | null;
   template_name?: string;
+  video_api_type?: VideoApiType | null;
   created_at: string;
   updated_at: string;
 }
@@ -18,6 +19,7 @@ export interface CreateCustomModelConfigRequest {
   prefix_match: boolean;
   capabilities: ModelCapability[];
   template_id: number | null;
+  video_api_type?: VideoApiType | null;
 }
 
 export interface UpdateCustomModelConfigRequest {
@@ -25,6 +27,7 @@ export interface UpdateCustomModelConfigRequest {
   prefix_match?: boolean;
   capabilities?: ModelCapability[];
   template_id?: number | null;
+  video_api_type?: VideoApiType | null;
 }
 
 export interface CustomModelRequestTemplateDto {

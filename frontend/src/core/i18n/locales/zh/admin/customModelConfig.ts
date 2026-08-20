@@ -99,6 +99,13 @@ export default {
     requestTemplate: '请求模板',
     noTemplate: '不使用请求模板',
     requestTemplateHint: '多个模型可以引用同一个模板，模板修改后统一生效。',
+    videoApiType: {
+      label: '视频 API 类型',
+      autoDetect: '自动检测',
+      grok: 'Grok Video',
+      agnes: 'Agnes Video'
+    },
+    videoApiTypeHint: '选择该视频模型使用的 API 接口类型',
     saveFailed: '保存失败，请重试'
   },
 

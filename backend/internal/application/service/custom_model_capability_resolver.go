@@ -6,5 +6,6 @@ import "context"
 // capabilities without coupling application services to persistence details.
 type CustomModelCapabilityResolver interface {
 	HasCapability(ctx context.Context, modelName, capability string) (bool, error)
+	ResolveVideoAPIType(ctx context.Context, modelName string) (string, bool, error)
 	ResolveRequestAdapter(ctx context.Context, modelName string) (map[string]any, bool, error)
 }

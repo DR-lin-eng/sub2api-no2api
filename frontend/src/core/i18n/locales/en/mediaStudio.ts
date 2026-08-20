@@ -34,7 +34,7 @@ export default {
       loadingGroups: 'Loading media groups…',
       loadingModels: 'Loading models…',
       noGroups: 'No media groups have been configured by the administrator.',
-      manualModelHint: 'No model for this creation type was returned by the current group; you can enter a model name manually.',
+      manualModelHint: 'The current group did not return any models for this creation type.',
       reload: 'Retry',
       shortHint: 'Choose an administrator-configured media group to generate. Results are saved in this browser.',
       advancedSettings: 'More',

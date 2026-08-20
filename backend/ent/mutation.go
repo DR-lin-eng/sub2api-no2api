@@ -26388,6 +26388,7 @@ type CustomModelConfigMutation struct {
 	prefix_match       *bool
 	capabilities       *[]string
 	appendcapabilities []string
+	video_api_type     *string
 	template_id        *int64
 	addtemplate_id     *int64
 	clearedFields      map[string]struct{}
@@ -26689,6 +26690,55 @@ func (m *CustomModelConfigMutation) ResetCapabilities() {
 	m.appendcapabilities = nil
 }
 
+// SetVideoAPIType sets the "video_api_type" field.
+func (m *CustomModelConfigMutation) SetVideoAPIType(s string) {
+	m.video_api_type = &s
+}
+
+// VideoAPIType returns the value of the "video_api_type" field in the mutation.
+func (m *CustomModelConfigMutation) VideoAPIType() (r string, exists bool) {
+	v := m.video_api_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldVideoAPIType returns the old "video_api_type" field's value of the CustomModelConfig entity.
+// If the CustomModelConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CustomModelConfigMutation) OldVideoAPIType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldVideoAPIType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldVideoAPIType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldVideoAPIType: %w", err)
+	}
+	return oldValue.VideoAPIType, nil
+}
+
+// ClearVideoAPIType clears the value of the "video_api_type" field.
+func (m *CustomModelConfigMutation) ClearVideoAPIType() {
+	m.video_api_type = nil
+	m.clearedFields[custommodelconfig.FieldVideoAPIType] = struct{}{}
+}
+
+// VideoAPITypeCleared returns if the "video_api_type" field was cleared in this mutation.
+func (m *CustomModelConfigMutation) VideoAPITypeCleared() bool {
+	_, ok := m.clearedFields[custommodelconfig.FieldVideoAPIType]
+	return ok
+}
+
+// ResetVideoAPIType resets all changes to the "video_api_type" field.
+func (m *CustomModelConfigMutation) ResetVideoAPIType() {
+	m.video_api_type = nil
+	delete(m.clearedFields, custommodelconfig.FieldVideoAPIType)
+}
+
 // SetTemplateID sets the "template_id" field.
 func (m *CustomModelConfigMutation) SetTemplateID(i int64) {
 	m.template_id = &i
@@ -26793,7 +26843,7 @@ func (m *CustomModelConfigMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *CustomModelConfigMutation) Fields() []string {
-	fields := make([]string, 0, 6)
+	fields := make([]string, 0, 7)
 	if m.created_at != nil {
 		fields = append(fields, custommodelconfig.FieldCreatedAt)
 	}
@@ -26808,6 +26858,9 @@ func (m *CustomModelConfigMutation) Fields() []string {
 	}
 	if m.capabilities != nil {
 		fields = append(fields, custommodelconfig.FieldCapabilities)
+	}
+	if m.video_api_type != nil {
+		fields = append(fields, custommodelconfig.FieldVideoAPIType)
 	}
 	if m.template_id != nil {
 		fields = append(fields, custommodelconfig.FieldTemplateID)
@@ -26830,6 +26883,8 @@ func (m *CustomModelConfigMutation) Field(name string) (ent.Value, bool) {
 		return m.PrefixMatch()
 	case custommodelconfig.FieldCapabilities:
 		return m.Capabilities()
+	case custommodelconfig.FieldVideoAPIType:
+		return m.VideoAPIType()
 	case custommodelconfig.FieldTemplateID:
 		return m.TemplateID()
 	}
@@ -26851,6 +26906,8 @@ func (m *CustomModelConfigMutation) OldField(ctx context.Context, name string) (
 		return m.OldPrefixMatch(ctx)
 	case custommodelconfig.FieldCapabilities:
 		return m.OldCapabilities(ctx)
+	case custommodelconfig.FieldVideoAPIType:
+		return m.OldVideoAPIType(ctx)
 	case custommodelconfig.FieldTemplateID:
 		return m.OldTemplateID(ctx)
 	}
@@ -26896,6 +26953,13 @@ func (m *CustomModelConfigMutation) SetField(name string, value ent.Value) error
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetCapabilities(v)
+		return nil
+	case custommodelconfig.FieldVideoAPIType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetVideoAPIType(v)
 		return nil
 	case custommodelconfig.FieldTemplateID:
 		v, ok := value.(int64)
@@ -26949,6 +27013,9 @@ func (m *CustomModelConfigMutation) AddField(name string, value ent.Value) error
 // mutation.
 func (m *CustomModelConfigMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(custommodelconfig.FieldVideoAPIType) {
+		fields = append(fields, custommodelconfig.FieldVideoAPIType)
+	}
 	if m.FieldCleared(custommodelconfig.FieldTemplateID) {
 		fields = append(fields, custommodelconfig.FieldTemplateID)
 	}
@@ -26966,6 +27033,9 @@ func (m *CustomModelConfigMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *CustomModelConfigMutation) ClearField(name string) error {
 	switch name {
+	case custommodelconfig.FieldVideoAPIType:
+		m.ClearVideoAPIType()
+		return nil
 	case custommodelconfig.FieldTemplateID:
 		m.ClearTemplateID()
 		return nil
@@ -26991,6 +27061,9 @@ func (m *CustomModelConfigMutation) ResetField(name string) error {
 		return nil
 	case custommodelconfig.FieldCapabilities:
 		m.ResetCapabilities()
+		return nil
+	case custommodelconfig.FieldVideoAPIType:
+		m.ResetVideoAPIType()
 		return nil
 	case custommodelconfig.FieldTemplateID:
 		m.ResetTemplateID()

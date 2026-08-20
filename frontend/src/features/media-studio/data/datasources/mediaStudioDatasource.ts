@@ -174,6 +174,21 @@ function normalizeVideoRequestID(value: unknown): string {
   return id
 }
 
+function extractVideoTaskID(raw: Record<string, unknown>): string {
+  const data = recordValue(raw.data)
+  const result = recordValue(raw.result)
+  const video = recordValue(raw.video)
+
+  // 支持多个可能的位置
+  const taskID = raw.request_id ?? raw.requestId ?? raw.id ??
+    data.request_id ?? data.id ??
+    video.request_id ?? video.id ??
+    result.request_id ?? result.id ??
+    raw.task_id ?? data.task_id ?? video.task_id
+
+  return normalizeVideoRequestID(taskID ?? '')
+}
+
 function normalizeVideoStatus(value: unknown): MediaStudioVideoTaskStatus {
   const status = firstString(value).toLowerCase()
   if (['completed', 'complete', 'succeeded', 'success', 'done'].includes(status)) return 'completed'
@@ -181,18 +196,34 @@ function normalizeVideoStatus(value: unknown): MediaStudioVideoTaskStatus {
   return 'processing'
 }
 
+function extractVideoError(raw: Record<string, unknown>): string | undefined {
+  const error = recordValue(raw.error)
+  const data = recordValue(raw.data)
+  const result = recordValue(raw.result)
+
+  // 检查多个可能的错误位置
+  const errorMessage = firstString(
+    error.message,
+    raw.message,
+    raw.error_message,
+    data.error,
+    result.error
+  )
+
+  return errorMessage || undefined
+}
+
 export function normalizeMediaStudioVideoTask(value: unknown, fallbackID = ''): MediaStudioVideoTask {
   const raw = recordValue(value)
   const data = recordValue(raw.data)
   const result = recordValue(raw.result)
-  const error = recordValue(raw.error)
-  const id = normalizeVideoRequestID(
-    raw.request_id ?? raw.requestId ?? raw.id ?? data.request_id ?? data.id ?? result.request_id ?? result.id ?? fallbackID,
-  )
+
+  const id = extractVideoTaskID(raw) || fallbackID
+
   return {
     id,
     status: normalizeVideoStatus(raw.status ?? data.status ?? result.status),
-    error: firstString(error.message, raw.message, data.error, result.error) || undefined,
+    error: extractVideoError(raw),
     raw,
   }
 }

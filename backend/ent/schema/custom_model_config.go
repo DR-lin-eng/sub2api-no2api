@@ -38,6 +38,10 @@ func (CustomModelConfig) Fields() []ent.Field {
 			Comment("是否按模型名前缀匹配"),
 		field.JSON("capabilities", []string{}).
 			Comment("模型能力列表，如 [\"image\", \"video\", \"audio\"]"),
+		field.String("video_api_type").
+			Optional().
+			Default("").
+			Comment("视频 API 类型，如 \"grok\", \"agnes\"，仅当 capabilities 包含 video 时有效"),
 		field.Int64("template_id").
 			Optional().
 			Nillable().

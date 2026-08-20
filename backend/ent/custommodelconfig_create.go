@@ -76,6 +76,20 @@ func (_c *CustomModelConfigCreate) SetCapabilities(v []string) *CustomModelConfi
 	return _c
 }
 
+// SetVideoAPIType sets the "video_api_type" field.
+func (_c *CustomModelConfigCreate) SetVideoAPIType(v string) *CustomModelConfigCreate {
+	_c.mutation.SetVideoAPIType(v)
+	return _c
+}
+
+// SetNillableVideoAPIType sets the "video_api_type" field if the given value is not nil.
+func (_c *CustomModelConfigCreate) SetNillableVideoAPIType(v *string) *CustomModelConfigCreate {
+	if v != nil {
+		_c.SetVideoAPIType(*v)
+	}
+	return _c
+}
+
 // SetTemplateID sets the "template_id" field.
 func (_c *CustomModelConfigCreate) SetTemplateID(v int64) *CustomModelConfigCreate {
 	_c.mutation.SetTemplateID(v)
@@ -136,6 +150,10 @@ func (_c *CustomModelConfigCreate) defaults() {
 	if _, ok := _c.mutation.PrefixMatch(); !ok {
 		v := custommodelconfig.DefaultPrefixMatch
 		_c.mutation.SetPrefixMatch(v)
+	}
+	if _, ok := _c.mutation.VideoAPIType(); !ok {
+		v := custommodelconfig.DefaultVideoAPIType
+		_c.mutation.SetVideoAPIType(v)
 	}
 }
 
@@ -207,6 +225,10 @@ func (_c *CustomModelConfigCreate) createSpec() (*CustomModelConfig, *sqlgraph.C
 	if value, ok := _c.mutation.Capabilities(); ok {
 		_spec.SetField(custommodelconfig.FieldCapabilities, field.TypeJSON, value)
 		_node.Capabilities = value
+	}
+	if value, ok := _c.mutation.VideoAPIType(); ok {
+		_spec.SetField(custommodelconfig.FieldVideoAPIType, field.TypeString, value)
+		_node.VideoAPIType = value
 	}
 	if value, ok := _c.mutation.TemplateID(); ok {
 		_spec.SetField(custommodelconfig.FieldTemplateID, field.TypeInt64, value)
@@ -309,6 +331,24 @@ func (u *CustomModelConfigUpsert) SetCapabilities(v []string) *CustomModelConfig
 // UpdateCapabilities sets the "capabilities" field to the value that was provided on create.
 func (u *CustomModelConfigUpsert) UpdateCapabilities() *CustomModelConfigUpsert {
 	u.SetExcluded(custommodelconfig.FieldCapabilities)
+	return u
+}
+
+// SetVideoAPIType sets the "video_api_type" field.
+func (u *CustomModelConfigUpsert) SetVideoAPIType(v string) *CustomModelConfigUpsert {
+	u.Set(custommodelconfig.FieldVideoAPIType, v)
+	return u
+}
+
+// UpdateVideoAPIType sets the "video_api_type" field to the value that was provided on create.
+func (u *CustomModelConfigUpsert) UpdateVideoAPIType() *CustomModelConfigUpsert {
+	u.SetExcluded(custommodelconfig.FieldVideoAPIType)
+	return u
+}
+
+// ClearVideoAPIType clears the value of the "video_api_type" field.
+func (u *CustomModelConfigUpsert) ClearVideoAPIType() *CustomModelConfigUpsert {
+	u.SetNull(custommodelconfig.FieldVideoAPIType)
 	return u
 }
 
@@ -434,6 +474,27 @@ func (u *CustomModelConfigUpsertOne) SetCapabilities(v []string) *CustomModelCon
 func (u *CustomModelConfigUpsertOne) UpdateCapabilities() *CustomModelConfigUpsertOne {
 	return u.Update(func(s *CustomModelConfigUpsert) {
 		s.UpdateCapabilities()
+	})
+}
+
+// SetVideoAPIType sets the "video_api_type" field.
+func (u *CustomModelConfigUpsertOne) SetVideoAPIType(v string) *CustomModelConfigUpsertOne {
+	return u.Update(func(s *CustomModelConfigUpsert) {
+		s.SetVideoAPIType(v)
+	})
+}
+
+// UpdateVideoAPIType sets the "video_api_type" field to the value that was provided on create.
+func (u *CustomModelConfigUpsertOne) UpdateVideoAPIType() *CustomModelConfigUpsertOne {
+	return u.Update(func(s *CustomModelConfigUpsert) {
+		s.UpdateVideoAPIType()
+	})
+}
+
+// ClearVideoAPIType clears the value of the "video_api_type" field.
+func (u *CustomModelConfigUpsertOne) ClearVideoAPIType() *CustomModelConfigUpsertOne {
+	return u.Update(func(s *CustomModelConfigUpsert) {
+		s.ClearVideoAPIType()
 	})
 }
 
@@ -729,6 +790,27 @@ func (u *CustomModelConfigUpsertBulk) SetCapabilities(v []string) *CustomModelCo
 func (u *CustomModelConfigUpsertBulk) UpdateCapabilities() *CustomModelConfigUpsertBulk {
 	return u.Update(func(s *CustomModelConfigUpsert) {
 		s.UpdateCapabilities()
+	})
+}
+
+// SetVideoAPIType sets the "video_api_type" field.
+func (u *CustomModelConfigUpsertBulk) SetVideoAPIType(v string) *CustomModelConfigUpsertBulk {
+	return u.Update(func(s *CustomModelConfigUpsert) {
+		s.SetVideoAPIType(v)
+	})
+}
+
+// UpdateVideoAPIType sets the "video_api_type" field to the value that was provided on create.
+func (u *CustomModelConfigUpsertBulk) UpdateVideoAPIType() *CustomModelConfigUpsertBulk {
+	return u.Update(func(s *CustomModelConfigUpsert) {
+		s.UpdateVideoAPIType()
+	})
+}
+
+// ClearVideoAPIType clears the value of the "video_api_type" field.
+func (u *CustomModelConfigUpsertBulk) ClearVideoAPIType() *CustomModelConfigUpsertBulk {
+	return u.Update(func(s *CustomModelConfigUpsert) {
+		s.ClearVideoAPIType()
 	})
 }
 

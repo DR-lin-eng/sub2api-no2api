@@ -594,6 +594,16 @@ func NewOpenAIGatewayService(
 	return svc
 }
 
+// ResolveCustomModelVideoAPIType resolves model-level video protocol routing.
+// Accounts remain ordinary OpenAI-compatible accounts; this value only selects
+// the endpoint adapter used for the current model.
+func (s *OpenAIGatewayService) ResolveCustomModelVideoAPIType(ctx context.Context, model string) (string, bool, error) {
+	if s == nil || s.customModelCapabilities == nil {
+		return "", false, nil
+	}
+	return s.customModelCapabilities.ResolveVideoAPIType(ctx, model)
+}
+
 // ResolveChannelMapping 解析渠道级模型映射（代理到 ChannelService）
 func (s *OpenAIGatewayService) ResolveChannelMapping(ctx context.Context, groupID int64, model string) ChannelMappingResult {
 	if s.channelService == nil {

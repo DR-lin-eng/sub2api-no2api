@@ -28,6 +28,8 @@ type CustomModelConfig struct {
 	PrefixMatch bool `json:"prefix_match,omitempty"`
 	// 模型能力列表，如 ["image", "video", "audio"]
 	Capabilities []string `json:"capabilities,omitempty"`
+	// 视频 API 类型，如 "grok", "agnes"，仅当 capabilities 包含 video 时有效
+	VideoAPIType string `json:"video_api_type,omitempty"`
 	// 可复用的请求适配模板 ID
 	TemplateID   *int64 `json:"template_id,omitempty"`
 	selectValues sql.SelectValues
@@ -44,7 +46,7 @@ func (*CustomModelConfig) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case custommodelconfig.FieldID, custommodelconfig.FieldTemplateID:
 			values[i] = new(sql.NullInt64)
-		case custommodelconfig.FieldModelName:
+		case custommodelconfig.FieldModelName, custommodelconfig.FieldVideoAPIType:
 			values[i] = new(sql.NullString)
 		case custommodelconfig.FieldCreatedAt, custommodelconfig.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -100,6 +102,12 @@ func (_m *CustomModelConfig) assignValues(columns []string, values []any) error 
 				if err := json.Unmarshal(*value, &_m.Capabilities); err != nil {
 					return fmt.Errorf("unmarshal field capabilities: %w", err)
 				}
+			}
+		case custommodelconfig.FieldVideoAPIType:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field video_api_type", values[i])
+			} else if value.Valid {
+				_m.VideoAPIType = value.String
 			}
 		case custommodelconfig.FieldTemplateID:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -158,6 +166,9 @@ func (_m *CustomModelConfig) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("capabilities=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Capabilities))
+	builder.WriteString(", ")
+	builder.WriteString("video_api_type=")
+	builder.WriteString(_m.VideoAPIType)
 	builder.WriteString(", ")
 	if v := _m.TemplateID; v != nil {
 		builder.WriteString("template_id=")

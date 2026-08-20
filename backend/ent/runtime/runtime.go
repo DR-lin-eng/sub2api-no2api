@@ -1163,6 +1163,10 @@ func init() {
 	custommodelconfigDescPrefixMatch := custommodelconfigFields[1].Descriptor()
 	// custommodelconfig.DefaultPrefixMatch holds the default value on creation for the prefix_match field.
 	custommodelconfig.DefaultPrefixMatch = custommodelconfigDescPrefixMatch.Default.(bool)
+	// custommodelconfigDescVideoAPIType is the schema descriptor for video_api_type field.
+	custommodelconfigDescVideoAPIType := custommodelconfigFields[3].Descriptor()
+	// custommodelconfig.DefaultVideoAPIType holds the default value on creation for the video_api_type field.
+	custommodelconfig.DefaultVideoAPIType = custommodelconfigDescVideoAPIType.Default.(string)
 	custommodelrequesttemplateMixin := schema.CustomModelRequestTemplate{}.Mixin()
 	custommodelrequesttemplateMixinFields0 := custommodelrequesttemplateMixin[0].Fields()
 	_ = custommodelrequesttemplateMixinFields0

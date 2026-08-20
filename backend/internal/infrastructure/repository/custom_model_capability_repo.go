@@ -31,6 +31,24 @@ func (r *CustomModelCapabilityRepository) HasCapability(
 	return hasCapability(config.Capabilities, capability), nil
 }
 
+func (r *CustomModelCapabilityRepository) ResolveVideoAPIType(
+	ctx context.Context,
+	modelName string,
+) (string, bool, error) {
+	config, enabled, err := r.resolveConfig(ctx, modelName)
+	if err != nil || !enabled || config == nil {
+		return "", false, err
+	}
+	if !hasCapability(config.Capabilities, "video") {
+		return "", false, nil
+	}
+	videoAPIType := strings.ToLower(strings.TrimSpace(config.VideoAPIType))
+	if videoAPIType == "" {
+		return "", false, nil
+	}
+	return videoAPIType, true, nil
+}
+
 func (r *CustomModelCapabilityRepository) ResolveRequestAdapter(
 	ctx context.Context,
 	modelName string,

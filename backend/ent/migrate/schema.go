@@ -1147,6 +1147,7 @@ var (
 		{Name: "model_name", Type: field.TypeString, Size: 255},
 		{Name: "prefix_match", Type: field.TypeBool, Default: false},
 		{Name: "capabilities", Type: field.TypeJSON},
+		{Name: "video_api_type", Type: field.TypeString, Nullable: true, Default: ""},
 		{Name: "template_id", Type: field.TypeInt64, Nullable: true},
 	}
 	// CustomModelConfigsTable holds the schema information for the "custom_model_configs" table.

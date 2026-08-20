@@ -1,6 +1,7 @@
 /** 自定义模型配置实体 */
 
 export type ModelCapability = "image" | "video" | "audio";
+export type VideoApiType = "grok" | "agnes";
 
 export interface CustomModelRequestTemplate {
   id: number;
@@ -16,6 +17,7 @@ export interface CustomModelConfig {
   model_name: string;
   prefix_match: boolean;
   capabilities: ModelCapability[];
+  video_api_type?: VideoApiType | null;
   template_id?: number | null;
   template_name?: string;
   created_at: string;

@@ -81,6 +81,20 @@
         </p>
       </div>
 
+      <div v-if="form.capabilities.includes('video')">
+        <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+          {{ t('admin.customModelConfig.modal.videoApiType.label') }}
+        </label>
+        <select v-model="form.video_api_type" class="input w-full">
+          <option :value="null">{{ t('admin.customModelConfig.modal.videoApiType.autoDetect') }}</option>
+          <option value="grok">{{ t('admin.customModelConfig.modal.videoApiType.grok') }}</option>
+          <option value="agnes">{{ t('admin.customModelConfig.modal.videoApiType.agnes') }}</option>
+        </select>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          {{ t('admin.customModelConfig.modal.videoApiTypeHint') }}
+        </p>
+      </div>
+
       <div class="flex justify-end gap-3 pt-4">
         <button type="button" @click="handleClose" class="btn btn-secondary">
           {{ t('common.cancel') }}
@@ -104,6 +118,7 @@ import type {
   CustomModelConfig,
   CustomModelRequestTemplate,
   ModelCapability,
+  VideoApiType,
 } from '../../domain/entities/customModelConfig';
 
 const { t } = useI18n();
@@ -127,6 +142,7 @@ const form = ref({
   model_name: '',
   prefix_match: false,
   capabilities: [] as ModelCapability[],
+  video_api_type: null as VideoApiType | null,
   template_id: null as number | null,
 });
 
@@ -147,6 +163,7 @@ watch(
         model_name: config.model_name,
         prefix_match: config.prefix_match,
         capabilities: [...config.capabilities],
+        video_api_type: config.video_api_type ?? null,
         template_id: config.template_id ?? null,
       };
     } else {
@@ -161,6 +178,7 @@ function resetForm() {
     model_name: '',
     prefix_match: false,
     capabilities: [],
+    video_api_type: null,
     template_id: null,
   };
 }
@@ -182,6 +200,7 @@ async function handleSubmit() {
       await customModelConfigDatasource.update(props.config.id, {
         prefix_match: form.value.prefix_match,
         capabilities: form.value.capabilities,
+        video_api_type: form.value.video_api_type,
         template_id: form.value.template_id,
       });
     } else {
@@ -189,6 +208,7 @@ async function handleSubmit() {
         model_name: form.value.model_name.trim(),
         prefix_match: form.value.prefix_match,
         capabilities: form.value.capabilities,
+        video_api_type: form.value.video_api_type,
         template_id: form.value.template_id,
       });
     }

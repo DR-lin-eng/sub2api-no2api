@@ -96,10 +96,48 @@ func RegisterGatewayRoutes(
 		}
 	}
 	videoGenerationHandler := func(c *gin.Context) {
-		if platform := getGroupPlatform(c); platform == service.PlatformGrok || platform == service.PlatformComposite {
+		// 先读取请求体以提取模型名
+		bodyBytes, err := pkghttputil.ReadRequestBodyWithPrealloc(c.Request)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": gin.H{"type": "invalid_request_error", "message": "Failed to read request body"},
+			})
+			return
+		}
+		if len(bodyBytes) > 0 {
+			// 恢复请求体供后续 handler 使用
+			c.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
+			// 尝试解析模型名
+			modelName := gjson.GetBytes(bodyBytes, "model").String()
+			if modelName != "" {
+				videoAPIType, configured, resolveErr := h.OpenAIGateway.ResolveCustomModelVideoAPIType(c.Request.Context(), modelName)
+				if resolveErr != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{
+						"error": gin.H{"type": "api_error", "message": "Failed to resolve video model configuration"},
+					})
+					return
+				}
+				if configured {
+					switch videoAPIType {
+					case "grok":
+						h.OpenAIGateway.GrokVideoGeneration(c)
+						return
+					case "agnes":
+						h.OpenAIGateway.AgnesVideoGeneration(c)
+						return
+					}
+				}
+			}
+		}
+
+		// 回退到平台检查（兼容未配置 CustomModelConfig 的情况）
+		platform := getGroupPlatform(c)
+		if platform == service.PlatformGrok || platform == service.PlatformComposite {
 			h.OpenAIGateway.GrokVideoGeneration(c)
 			return
 		}
+
 		service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 		c.JSON(http.StatusNotFound, gin.H{
 			"error": gin.H{
@@ -109,10 +147,15 @@ func RegisterGatewayRoutes(
 		})
 	}
 	videoStatusHandler := func(c *gin.Context) {
+		if h.OpenAIGateway.HasAgnesVideoTaskBinding(c, c.Param("request_id")) {
+			h.OpenAIGateway.AgnesVideoStatus(c)
+			return
+		}
 		// Video status requests do not carry a model, so composite groups cannot
 		// be resolved by compositeTargetPlatformMiddleware. Route them through
-		// the Grok handler and let scheduler/account selection enforce capacity.
-		if getGroupPlatform(c) == service.PlatformGrok || getGroupPlatform(c) == service.PlatformComposite {
+		// the platform-specific handler and let scheduler/account selection enforce capacity.
+		platform := getGroupPlatform(c)
+		if platform == service.PlatformGrok || platform == service.PlatformComposite {
 			h.OpenAIGateway.GrokVideoStatus(c)
 			return
 		}
@@ -125,10 +168,15 @@ func RegisterGatewayRoutes(
 		})
 	}
 	videoContentHandler := func(c *gin.Context) {
+		if h.OpenAIGateway.HasAgnesVideoTaskBinding(c, c.Param("request_id")) {
+			h.OpenAIGateway.AgnesVideoContent(c)
+			return
+		}
 		// Video content requests do not carry a model, so composite groups cannot
 		// be resolved by compositeTargetPlatformMiddleware. Route them through
-		// the Grok handler just like video status lookups.
-		if getGroupPlatform(c) == service.PlatformGrok || getGroupPlatform(c) == service.PlatformComposite {
+		// the platform-specific handler just like video status lookups.
+		platform := getGroupPlatform(c)
+		if platform == service.PlatformGrok || platform == service.PlatformComposite {
 			h.OpenAIGateway.GrokVideoContent(c)
 			return
 		}
