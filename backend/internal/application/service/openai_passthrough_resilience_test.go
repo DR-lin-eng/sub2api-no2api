@@ -127,7 +127,7 @@ func TestOpenAIPassthroughKeepaliveDeliversAndRestoresTurnState(t *testing.T) {
 
 	reader, writer := io.Pipe()
 	go func() {
-		defer writer.Close()
+		defer func() { _ = writer.Close() }()
 		time.Sleep(1100 * time.Millisecond)
 		_, _ = io.WriteString(writer, "data: {\"type\":\"response.output_text.delta\",\"delta\":\"ok\"}\n\n")
 		_, _ = io.WriteString(writer, "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_turn_state\",\"usage\":{\"input_tokens\":1,\"output_tokens\":1}}}\n\n")

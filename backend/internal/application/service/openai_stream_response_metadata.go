@@ -46,8 +46,7 @@ func declareOpenAIStreamResponseMetadataTrailers(c *gin.Context) {
 	if c == nil || c.Writer == nil {
 		return
 	}
-	var declared func(http.Header)
-	declared = func(header http.Header) {
+	declared := func(header http.Header) {
 		if header == nil {
 			return
 		}
