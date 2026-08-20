@@ -298,6 +298,24 @@ func (s *OpenAIGatewayService) ClearAccountSchedulingBlock(accountID int64) {
 	s.openaiAccountRuntimeBlockGeneration.Store(accountID, s.openaiAccountRuntimeBlockSequence.Add(1))
 }
 
+// ClearAccountSchedulingBlockIfReason removes only the transient block created
+// for the supplied reason. A recovered transport attempt must not erase an
+// unrelated OAuth, rate-limit, or administrator-enforced block.
+func (s *OpenAIGatewayService) ClearAccountSchedulingBlockIfReason(accountID int64, reason string) {
+	if s == nil || accountID <= 0 || strings.TrimSpace(reason) == "" {
+		return
+	}
+	mu := s.openAIAccountRuntimeBlockLock(accountID)
+	mu.Lock()
+	defer mu.Unlock()
+	value, ok := s.openaiAccountRuntimeBlockReason.Load(accountID)
+	currentReason, _ := value.(string)
+	if !ok || strings.TrimSpace(currentReason) != strings.TrimSpace(reason) {
+		return
+	}
+	s.clearOpenAIAccountRuntimeBlockLocked(accountID)
+}
+
 func (s *OpenAIGatewayService) DeleteAccountRuntimeState(accountID int64) {
 	if s == nil || accountID <= 0 {
 		return

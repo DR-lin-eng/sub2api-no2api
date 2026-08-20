@@ -36,6 +36,13 @@ WS 握手返回 401/403 且尚未产生语义输出时，会先静默切换到 H
 拨号器的 `expected handshake response ... 401` 只进入运维日志。只有 HTTP 也失败时才进入正常账号
 failover，service 层不会先写 JSON，因此不会再和外层 `response.failed` 终止事件拼接。
 
+透传路径的恢复重试使用请求级总 attempt budget，不会在每次切换账号后重新获得完整的同账号重试次数。
+带显式 `store:true`、图片生成意图、`previous_response_id` 或工具输出的请求不做无法证明幂等的传输重放。
+首语义输出前的 SSE keepalive 可以先提交 200；此时账号响应元数据通过预声明的 HTTP trailer 发送，
+`x-codex-turn-state` 同时写入按账号隔离的本地/共享会话状态，后续 OAuth 请求可自动回带。流设置缓存
+采用 stale-while-revalidate，设置库不可用不会阻塞转发；传输超时的账号 runtime block 延迟到重试预算
+耗尽，恢复成功会只清理同一 `transport_timeout` 原因的封禁。
+
 ## 网关必须存在的差异
 
 官方客户端在一个本地 installation 内直接拥有会话；Sub2API 则让多个下游调用方共享上游账号池。

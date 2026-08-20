@@ -897,10 +897,11 @@ func TestOpenAINativeFirstOutputFailoverKeepsAttemptHeadersPrivateAfterKeepalive
 	require.NotNil(t, result)
 	require.Contains(t, rec.Body.String(), "resp_second")
 	wireHeaders := rec.Result().Header
-	require.Empty(t, wireHeaders.Values("X-Request-Id"))
-	require.Empty(t, wireHeaders.Values("X-Ratelimit-Remaining-Requests"))
-	require.Empty(t, rec.Header().Values("X-Request-Id"))
-	require.Empty(t, rec.Header().Values("X-Ratelimit-Remaining-Requests"))
+	require.Empty(t, wireHeaders.Values("X-Request-Id"), "attempt headers must not overwrite committed response headers")
+	require.Empty(t, wireHeaders.Values("X-Ratelimit-Remaining-Requests"), "attempt headers must not overwrite committed response headers")
+	trailer := rec.Result().Trailer
+	require.Equal(t, "request-second", trailer.Get("X-Request-Id"))
+	require.Equal(t, "99", trailer.Get("X-Ratelimit-Remaining-Requests"))
 	select {
 	case <-firstWriterDone:
 	case <-time.After(time.Second):

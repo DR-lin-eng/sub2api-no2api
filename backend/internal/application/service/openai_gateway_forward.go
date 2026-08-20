@@ -125,6 +125,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	requestView := newOpenAIRequestView(body)
 	reqModel, reqStream, promptCacheKey := requestView.Model, requestView.Stream, requestView.PromptCacheKey
 	originalModel := reqModel
+	stageOpenAICompatTurnStateKey(c, account, body)
 	if !compactPath {
 		if imageModel, forced := account.forcedOpenAIResponsesImageModel(reqModel); forced {
 			logger.LegacyPrintf(
@@ -1048,6 +1049,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			responseID = strings.TrimSpace(streamResult.responseID)
 			imageCount = streamResult.imageCount
 			imageOutputSizes = streamResult.imageOutputSizes
+			s.bindStagedOpenAICodexTurnState(c, account, resp.Header)
 		} else {
 			nonStreamResult, err := s.handleNonStreamingResponse(ctx, resp, c, account, originalModel, upstreamModel)
 			if err != nil {
@@ -1057,6 +1059,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			responseID = strings.TrimSpace(nonStreamResult.responseID)
 			imageCount = nonStreamResult.imageCount
 			imageOutputSizes = nonStreamResult.imageOutputSizes
+			s.bindStagedOpenAICodexTurnState(c, account, resp.Header)
 		}
 		s.bindHTTPResponseAccount(ctx, c, account, responseID)
 

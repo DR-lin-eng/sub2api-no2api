@@ -1120,7 +1120,15 @@ func (s *SettingService) refreshStreamResponseHeaderTimeoutCache() {
 
 	now := time.Now()
 	loadedAt := s.streamResponseHeaderTimeoutLoaded.Load()
-	if loadedAt == 0 || now.Sub(time.Unix(0, loadedAt)) >= streamResponseHeaderTimeoutRefreshInterval {
+	if loadedAt != 0 && now.Sub(time.Unix(0, loadedAt)) < streamResponseHeaderTimeoutRefreshInterval {
+		return
+	}
+	if !s.streamResponseHeaderTimeoutRefreshInFlight.CompareAndSwap(false, true) {
+		return
+	}
+	revision := s.streamResponseHeaderTimeoutRevision.Load()
+	go func() {
+		defer s.streamResponseHeaderTimeoutRefreshInFlight.Store(false)
 		_, _, _ = s.streamResponseHeaderTimeoutSF.Do("refresh", func() (any, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), streamResponseHeaderTimeoutDBTimeout)
 			defer cancel()
@@ -1130,10 +1138,14 @@ func (s *SettingService) refreshStreamResponseHeaderTimeoutCache() {
 				s.streamResponseHeaderTimeoutLoaded.Store(time.Now().UnixNano())
 				return nil, err
 			}
-			s.cacheStreamResponseHeaderTimeout(settings)
+			// An administrator update that completed while this read was in flight
+			// is newer than this snapshot. Do not overwrite that immediate cache.
+			if s.streamResponseHeaderTimeoutRevision.Load() == revision {
+				s.cacheStreamResponseHeaderTimeout(settings)
+			}
 			return nil, nil
 		})
-	}
+	}()
 }
 
 // IsStreamResponseHeaderTimeoutDegradationEnabled 返回是否启用 LLM 流响应头超时降级。
@@ -1514,6 +1526,7 @@ func (s *SettingService) SetStreamTimeoutSettings(ctx context.Context, settings 
 		return err
 	}
 	s.streamResponseHeaderTimeoutSF.Forget("refresh")
+	s.streamResponseHeaderTimeoutRevision.Add(1)
 	s.cacheStreamResponseHeaderTimeout(settings)
 	return nil
 }

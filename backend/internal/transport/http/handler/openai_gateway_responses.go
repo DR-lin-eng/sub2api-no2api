@@ -257,6 +257,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	requireCompact := compactionRoute.legacyCompact
 
 	maxAccountSwitches := h.maxAccountSwitches
+	service.ConfigureOpenAIPassthroughAttemptBudget(c, maxAccountSwitches)
 	switchCount := 0
 	firstOutputTimeoutSwitchCount := 0
 	var failedAccountIDs map[int64]struct{}

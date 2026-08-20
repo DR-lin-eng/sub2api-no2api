@@ -46,6 +46,7 @@ func StartOpenAICompactSSEKeepalive(c *gin.Context, interval time.Duration) func
 	if c == nil || c.Writer == nil || interval <= 0 || !openAICompactClientWantsStream(c) {
 		return func() {}
 	}
+	declareOpenAIStreamResponseMetadataTrailers(c)
 	originalWriter := c.Writer
 	k := &openAICompactSSEKeepalive{
 		writer: originalWriter,

@@ -27,6 +27,47 @@ var openAIPassthroughTransportRetryBackoffs = [...]time.Duration{
 	1 * time.Second,
 }
 
+const (
+	openAITransportRetryCandidateContextKey = "openai_transport_retry_candidate"
+	openAITransportTimeoutPendingContextKey = "openai_transport_timeout_pending"
+)
+
+func withOpenAITransportRetryCandidate(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return context.WithValue(ctx, openAITransportRetryCandidateContextKey, true)
+}
+
+func isOpenAITransportRetryCandidate(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	value, _ := ctx.Value(openAITransportRetryCandidateContextKey).(bool)
+	return value
+}
+
+func markOpenAITransportTimeoutPending(c *gin.Context) {
+	if c != nil {
+		c.Set(openAITransportTimeoutPendingContextKey, true)
+	}
+}
+
+func resetOpenAITransportRetryState(c *gin.Context) {
+	if c != nil {
+		c.Set(openAITransportTimeoutPendingContextKey, false)
+	}
+}
+
+func openAITransportTimeoutPending(c *gin.Context) bool {
+	if c == nil {
+		return false
+	}
+	value, _ := c.Get(openAITransportTimeoutPendingContextKey)
+	pending, _ := value.(bool)
+	return pending
+}
+
 // openAITransportFailoverBody is the OpenAI-format error body attached to the
 // failover error for a transport-level failure. Kept identical to the legacy
 // inline 502 body so the client-visible payload is unchanged if failover is
@@ -140,6 +181,9 @@ func waitOpenAITransportRetry(ctx context.Context, delay time.Duration) error {
 // passthrough tags the Ops error event for the OpenAI passthrough forward path.
 func (s *OpenAIGatewayService) handleOpenAIUpstreamTransportError(ctx context.Context, c *gin.Context, account *Account, err error, passthrough bool) error {
 	safeErr := sanitizeUpstreamErrorMessage(err.Error())
+	if passthrough && isOpenAITransportRetryCandidate(ctx) && isOpenAITransportTimeout(err) && !IsOpenAIStreamResponseHeaderTimeout(err) {
+		markOpenAITransportTimeoutPending(c)
+	}
 	setOpsUpstreamError(c, 0, safeErr, "")
 	appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
 		Platform:           account.Platform,
@@ -177,9 +221,11 @@ func (s *OpenAIGatewayService) handleOpenAIUpstreamTransportError(ctx context.Co
 				zap.Time("next_probe_at", snapshot.NextProbeAt),
 			)
 		}
-	} else if isOpenAITransportTimeout(err) {
+	} else if isOpenAITransportTimeout(err) && !(passthrough && isOpenAITransportRetryCandidate(ctx)) {
 		// Dial/TLS/caller-context timeouts keep their existing short runtime
-		// cooldown. Only the typed stream response-header timeout is soft-degraded.
+		// cooldown. Passthrough retries defer this block until the request-wide
+		// replay budget is exhausted, so a successful same-account retry does not
+		// evict a recovered account.
 		s.BlockAccountScheduling(account, time.Now().Add(openAITransportTimeoutRuntimeCooldown), "transport_timeout")
 	}
 

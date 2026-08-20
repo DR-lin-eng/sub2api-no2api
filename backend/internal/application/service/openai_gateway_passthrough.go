@@ -50,6 +50,15 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 	startTime time.Time,
 ) (*OpenAIForwardResult, error) {
 	responseHeaderSnapshot := cloneOpenAIUncommittedResponseHeaders(c)
+	budget := openAIPassthroughBudgetForContext(c)
+	replaySafe := openAIPassthroughRequestReplaySafe(
+		c,
+		reqModel,
+		body,
+		canonicalImageIntentBody,
+		attemptImageIntentInvalidated,
+	)
+	resetOpenAITransportRetryState(c)
 	agentTaskRecoveryTried := false
 	var fingerprintIDs *codexFingerprintIDs
 	if account != nil && account.Type == AccountTypeOAuth &&
@@ -78,8 +87,15 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 			startTime,
 			&agentTaskRecoveryTried,
 			fingerprintIDs,
+			budget,
+			replaySafe,
 		)
+		err = normalizeOpenAIPassthroughRetrySafety(err, replaySafe)
 		if err == nil {
+			if replaySafe && openAITransportTimeoutPending(c) {
+				s.ClearAccountSchedulingBlockIfReason(account.ID, "transport_timeout")
+			}
+			resetOpenAITransportRetryState(c)
 			return result, nil
 		}
 		restoreOpenAIUncommittedResponseHeaders(c, responseHeaderSnapshot)
@@ -100,6 +116,10 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 			// The service has exhausted the same-account retry budget. The handler
 			// must switch accounts immediately instead of applying its pool retry.
 			failoverErr.RetryableOnSameAccount = false
+			if replaySafe && openAITransportTimeoutPending(c) {
+				s.BlockAccountScheduling(account, time.Now().Add(openAITransportTimeoutRuntimeCooldown), "transport_timeout")
+			}
+			resetOpenAITransportRetryState(c)
 			return result, err
 		}
 
@@ -131,6 +151,8 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 	startTime time.Time,
 	agentTaskRecoveryTried *bool,
 	fingerprintIDs *codexFingerprintIDs,
+	budget *openAIPassthroughRetryBudget,
+	replaySafe bool,
 ) (*OpenAIForwardResult, error) {
 	upstreamPassthroughModel := ""
 	if isOpenAIResponsesCompactPath(c) {
@@ -145,6 +167,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 			attemptImageIntentInvalidated = true
 		}
 	}
+	promptCacheKey := openAIPassthroughTurnStateKey(c, account, body)
 
 	if account != nil && account.Type == AccountTypeOAuth {
 		if rejectReason := detectOpenAIPassthroughInstructionsRejectReason(reqModel, body); rejectReason != "" {
@@ -322,6 +345,30 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 			}
 			return nil, buildErr
 		}
+		attempt, maxAttempts, reserved := budget.reserve()
+		if !reserved {
+			used, limit := budget.snapshot()
+			if used == 0 {
+				used = attempt
+			}
+			if limit == 0 {
+				limit = maxAttempts
+			}
+			if headerGuard != nil {
+				headerGuard.close()
+			}
+			if replaySafe && openAITransportTimeoutPending(c) {
+				s.BlockAccountScheduling(account, time.Now().Add(openAITransportTimeoutRuntimeCooldown), "transport_timeout")
+				resetOpenAITransportRetryState(c)
+			}
+			logger.FromContext(ctx).With(
+				zap.String("component", "service.openai_gateway"),
+				zap.Int64("account_id", account.ID),
+				zap.Int("attempts_used", used),
+				zap.Int("attempt_budget", limit),
+			).Warn("openai.passthrough_attempt_budget_exhausted")
+			return nil, newOpenAIPassthroughAttemptBudgetError()
+		}
 
 		upstreamStart := time.Now()
 		resp, err = doAccountHTTPUpstream(s.httpUpstream, upstreamReq, proxyURL, account)
@@ -349,7 +396,12 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 			// Transport-level failure (proxy/DNS/TCP/TLS — no HTTP response). Convert to
 			// a failover so the handler switches to a healthy account, and temporarily
 			// unschedule the account on durable faults (e.g. rejected proxy credentials).
-			failoverErr := s.handleOpenAIUpstreamTransportError(ctx, c, account, err, true)
+			transportCtx := ctx
+			if replaySafe && isOpenAITransportTimeout(err) && !IsOpenAIStreamResponseHeaderTimeout(err) {
+				markOpenAITransportTimeoutPending(c)
+				transportCtx = withOpenAITransportRetryCandidate(ctx)
+			}
+			failoverErr := s.handleOpenAIUpstreamTransportError(transportCtx, c, account, err, true)
 			if typed, ok := failoverErr.(*UpstreamFailoverError); ok && !classifyOpenAITransportError(err).Persistent {
 				markOpenAIPassthroughTransportRetry(typed)
 			}
@@ -390,6 +442,10 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 	}
 	defer func() { _ = resp.Body.Close() }()
 	serviceTier := extractOpenAIServiceTierFromBody(body)
+	responseCtx := ctx
+	if replaySafe {
+		responseCtx = withOpenAITransportRetryCandidate(ctx)
+	}
 
 	var usage *OpenAIUsage
 	var firstTokenMs *int
@@ -398,7 +454,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 	var imageOutputSizes []string
 	if reqStream {
 		result, err := s.handleStreamingResponsePassthrough(
-			ctx, resp, c, account, startTime, reqModel, upstreamPassthroughModel, reasoningEffortValue,
+			responseCtx, resp, c, account, startTime, reqModel, upstreamPassthroughModel, reasoningEffortValue,
 		)
 		if err != nil {
 			return nil, err
@@ -409,7 +465,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 		imageCount = result.imageCount
 		imageOutputSizes = result.imageOutputSizes
 	} else {
-		result, err := s.handleNonStreamingResponsePassthrough(ctx, resp, c, account, reqModel, upstreamPassthroughModel)
+		result, err := s.handleNonStreamingResponsePassthrough(responseCtx, resp, c, account, reqModel, upstreamPassthroughModel)
 		if err != nil {
 			return nil, err
 		}
@@ -417,6 +473,12 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 		responseID = strings.TrimSpace(result.responseID)
 		imageCount = result.imageCount
 		imageOutputSizes = result.imageOutputSizes
+	}
+	if account.IsOpenAIOAuth() {
+		if turnState := extractOpenAICodexTurnState(resp.Header); turnState != "" {
+			s.bindOpenAICompatSessionTurnState(ctx, c, account, promptCacheKey, turnState)
+			s.bindOpenAIHTTPSharedTurnState(ctx, c, account, body, turnState)
+		}
 	}
 	s.bindHTTPResponseAccount(ctx, c, account, responseID)
 
@@ -497,6 +559,18 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthrough(
 	return s.buildUpstreamRequestOpenAIPassthroughWithFingerprint(ctx, c, account, body, token, nil)
 }
 
+func openAIPassthroughTurnStateKey(c *gin.Context, account *Account, body []byte) string {
+	key := strings.TrimSpace(gjson.GetBytes(body, "prompt_cache_key").String())
+	if key != "" || account == nil || !account.IsOpenAIOAuth() {
+		return key
+	}
+	ids := resolveCodexOutboundSessionIDs(c, account, body, "")
+	if ids == nil {
+		return ""
+	}
+	return strings.TrimSpace(ids.sessionID)
+}
+
 func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerprint(
 	ctx context.Context,
 	c *gin.Context,
@@ -524,7 +598,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 	}
 	targetURL = appendOpenAIResponsesRequestPathSuffix(targetURL, openAIResponsesRequestPathSuffix(c))
 
-	promptCacheKey := strings.TrimSpace(gjson.GetBytes(body, "prompt_cache_key").String())
+	promptCacheKey := openAIPassthroughTurnStateKey(c, account, body)
 	outboundBody := body
 	var codexSessionIDs *codexOutboundSessionIDs
 	if account.IsOpenAIOAuth() && (fingerprintIDs == nil || fingerprintIDs.mode == codexFingerprintOff) {
@@ -558,6 +632,19 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 	}
 	if account.IsOpenAIOAuth() && s.CodexSimulationRequestEnabled(c) {
 		req.Header.Del(CodexProjectIDHeader)
+	}
+	// A pre-semantic keepalive may commit downstream HTTP headers before this
+	// response's turn state is available to the client. Keep the opaque state
+	// server-side as a per-account/session binding and restore it on the next
+	// OAuth request instead of relying on a late HTTP header mutation.
+	if account.IsOpenAIOAuth() && strings.TrimSpace(req.Header.Get(openAICodexTurnStateHeader)) == "" {
+		savedTurnState := s.getOpenAICompatSessionTurnState(ctx, c, account, promptCacheKey)
+		if savedTurnState == "" {
+			savedTurnState = s.getOpenAIHTTPSharedTurnState(ctx, c, account, body)
+		}
+		if savedTurnState != "" {
+			req.Header.Set(openAICodexTurnStateHeader, savedTurnState)
+		}
 	}
 	// Failover can reuse the downstream turn-state with a different account.
 	// Strip only values whose provenance is known to be cross-account.
@@ -1777,6 +1864,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 	if preservePreOutputForFailover {
 		attemptResponseHeaders = make(http.Header)
 		writeOpenAIPassthroughResponseHeaders(attemptResponseHeaders, resp.Header, s.responseHeaderFilter)
+		declareOpenAIStreamResponseMetadataTrailers(c)
 	} else {
 		writeOpenAIPassthroughResponseHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 	}
@@ -1880,7 +1968,11 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 	}
 	turnStateNoted := false
 	applyAttemptResponseHeaders := func() {
-		if !preservePreOutputForFailover || len(attemptResponseHeaders) == 0 || c.Writer.Written() {
+		if !preservePreOutputForFailover || len(attemptResponseHeaders) == 0 {
+			return
+		}
+		if c.Writer.Written() {
+			setOpenAIStreamResponseMetadataTrailers(c, attemptResponseHeaders)
 			return
 		}
 		for key, values := range attemptResponseHeaders {
@@ -2274,6 +2366,9 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 			if classifyOpenAITransportError(err).Persistent {
 				return resultWithUsage(), s.handleOpenAIUpstreamTransportError(ctx, c, account, err, true)
 			}
+			if isOpenAITransportTimeout(err) && isOpenAITransportRetryCandidate(ctx) && !IsOpenAIStreamResponseHeaderTimeout(err) {
+				markOpenAITransportTimeoutPending(c)
+			}
 			msg := "OpenAI stream disconnected before completion"
 			if errText := strings.TrimSpace(err.Error()); errText != "" {
 				msg += ": " + errText
@@ -2316,6 +2411,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 	}
 	if (sawDone || sawTerminalEvent) && !sawFailedEvent {
 		s.clearOpenAIProxyStreamDisconnect(account, startTime)
+		s.bindStagedOpenAICodexTurnState(c, account, resp.Header)
 	}
 
 	return resultWithUsage(), nil
@@ -2329,6 +2425,9 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 	originalModel string,
 	mappedModel string,
 ) (*openaiNonStreamingResultPassthrough, error) {
+	if openAIStreamResponseMetadataTrailersActive(c) {
+		declareOpenAIStreamResponseMetadataTrailers(c)
+	}
 	body, err := ReadUpstreamResponseBody(resp.Body, s.cfg, c, openAITooLargeError)
 	if err != nil {
 		if errors.Is(err, ErrUpstreamResponseBodyTooLarge) {
@@ -2380,8 +2479,14 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 		usage = s.parseSSEUsageFromBody(string(body))
 	}
 
-	writeOpenAIPassthroughResponseHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
-	s.relayOpenAICodexTurnState(c, account, resp.Header)
+	stagedHeaders := stageOpenAIPassthroughResponseHeaders(resp.Header, s.responseHeaderFilter)
+	if c.Writer.Written() {
+		setOpenAIStreamResponseMetadataTrailers(c, stagedHeaders)
+		s.noteStagedOpenAICodexTurnStateCommitted(c, account, stagedHeaders)
+	} else {
+		applyOpenAIPassthroughResponseHeaders(c, stagedHeaders)
+		s.relayOpenAICodexTurnState(c, account, resp.Header)
+	}
 
 	contentType := resp.Header.Get("Content-Type")
 	if contentType == "" {
@@ -2414,6 +2519,9 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSONWithAccount(
 	mappedModel string,
 	account *Account,
 ) (*openaiNonStreamingResultPassthrough, error) {
+	if openAIStreamResponseMetadataTrailersActive(c) {
+		declareOpenAIStreamResponseMetadataTrailers(c)
+	}
 	bodyText := string(body)
 	if failurePayload, failure := extractOpenAISSEFailureEvent(bodyText); failure {
 		failedMessage := extractOpenAISSEErrorMessage(failurePayload)
@@ -2472,8 +2580,14 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSONWithAccount(
 		body = []byte(bodyText)
 	}
 
-	writeOpenAIPassthroughResponseHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
-	s.relayOpenAICodexTurnState(c, account, resp.Header)
+	stagedHeaders := stageOpenAIPassthroughResponseHeaders(resp.Header, s.responseHeaderFilter)
+	if c.Writer.Written() {
+		setOpenAIStreamResponseMetadataTrailers(c, stagedHeaders)
+		s.noteStagedOpenAICodexTurnStateCommitted(c, account, stagedHeaders)
+	} else {
+		applyOpenAIPassthroughResponseHeaders(c, stagedHeaders)
+		s.relayOpenAICodexTurnState(c, account, resp.Header)
+	}
 
 	contentType := "application/json; charset=utf-8"
 	if !ok {
@@ -2493,6 +2607,24 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSONWithAccount(
 		imageCount:       countOpenAIImageOutputsFromSSEBody(bodyText),
 		imageOutputSizes: collectOpenAIImageOutputSizesFromSSEBody(bodyText),
 	}, nil
+}
+
+func stageOpenAIPassthroughResponseHeaders(src http.Header, filter *responseheaders.CompiledHeaderFilter) http.Header {
+	staged := make(http.Header)
+	writeOpenAIPassthroughResponseHeaders(staged, src, filter)
+	return staged
+}
+
+func applyOpenAIPassthroughResponseHeaders(c *gin.Context, staged http.Header) {
+	if c == nil || c.Writer == nil || staged == nil {
+		return
+	}
+	for key, values := range staged {
+		c.Writer.Header().Del(key)
+		for _, value := range values {
+			c.Writer.Header().Add(key, value)
+		}
+	}
 }
 
 func writeOpenAIPassthroughResponseHeaders(dst http.Header, src http.Header, filter *responseheaders.CompiledHeaderFilter) {

@@ -64,6 +64,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 		} else if requestID := strings.TrimSpace(resp.Header.Get("x-request-id")); requestID != "" {
 			attemptResponseHeaders = http.Header{"X-Request-Id": []string{requestID}}
 		}
+		declareOpenAIStreamResponseMetadataTrailers(c)
 	} else if s.responseHeaderFilter != nil {
 		responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 	}
@@ -85,7 +86,12 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 		c.Header("x-request-id", v)
 	}
 	applyAttemptResponseHeaders := func() {
-		if !stageFirstOutput || len(attemptResponseHeaders) == 0 || c.Writer.Written() {
+		if !stageFirstOutput || len(attemptResponseHeaders) == 0 {
+			return
+		}
+		if c.Writer.Written() {
+			setOpenAIStreamResponseMetadataTrailers(c, attemptResponseHeaders)
+			s.noteStagedOpenAICodexTurnStateCommitted(c, account, attemptResponseHeaders)
 			return
 		}
 		for key, values := range attemptResponseHeaders {
@@ -826,8 +832,8 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 				continue
 			}
 			if stageFirstOutput {
-				// Bypass attempt-local buffered frames. The stable SSE headers may be
-				// committed here, but account headers remain private until semantic output.
+				// Bypass attempt-local buffered frames. Stable SSE headers may already be
+				// committed here; account metadata is delivered later as declared trailers.
 				n, err := w.Write([]byte(":\n\n"))
 				recordOpenAIStreamKeepaliveBytes(c, n)
 				if err != nil {

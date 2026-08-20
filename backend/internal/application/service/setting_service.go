@@ -128,6 +128,8 @@ type SettingService struct {
 	streamResponseHeaderTimeoutDegradationEnabled atomic.Bool
 	streamResponseHeaderTimeoutSeconds            atomic.Int64
 	streamResponseHeaderTimeoutLoaded             atomic.Int64
+	streamResponseHeaderTimeoutRefreshInFlight    atomic.Bool
+	streamResponseHeaderTimeoutRevision           atomic.Uint64
 	streamResponseHeaderTimeoutSF                 singleflight.Group
 	openAIStreamRuntimeSettings                   atomic.Pointer[OpenAIStreamRuntimeSettings]
 
