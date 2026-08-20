@@ -68,6 +68,11 @@ keepalive 已提交 200 后，安全响应元数据走预声明的 HTTP trailer�
 普通 HTTP、TLS 指纹、WebSocket、刷新、探测、图片和共享上游客户端继续携带同一
 路由。请求热路径不为出口重查数据库。
 
+IPv6 总开关保存在数据库运行设置 `ipv6_egress_enabled`，由管理端
+`PUT /admin/egress/runtime` 即时更新；首次配置使用
+`POST /admin/egress/auto-configure` 在当前网络命名空间探测公网前缀并创建默认池，
+不再要求 YAML 开关或手工分配密钥。
+
 IPv6 模式只解析 AAAA 并从绑定源地址拨号。无 AAAA、缺少绑定或路由失败时不允许
 Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换后只关闭旧空闲连接。
 完整数据、管理和 Docker 路由边界见 [账号级 IPv6 出口](IPV6_EGRESS.md)。

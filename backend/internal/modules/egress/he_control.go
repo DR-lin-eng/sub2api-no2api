@@ -175,7 +175,7 @@ func (s *HETunnelControlService) Request(ctx context.Context, action string) (*H
 }
 
 func (s *HETunnelControlService) available() bool {
-	return s != nil && s.store != nil && s.cfg != nil && s.cfg.IPv6Egress.Enabled && s.cfg.IPv6Egress.ControlEnabled
+	return s != nil && s.store != nil && s.cfg != nil && s.cfg.IPv6Egress.ControlEnabled
 }
 
 func defaultHETunnelConfig() HETunnelConfig {

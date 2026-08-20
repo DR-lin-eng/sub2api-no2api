@@ -92,6 +92,7 @@ func (r Route) Validate() error {
 // direct when the feature is disabled, while explicitly selected IPv6 routes
 // fail closed so an administrator cannot unknowingly leak them over IPv4.
 func ApplyPolicy(route Route, policy Policy) (Route, error) {
+	policy.IPv6Enabled = runtimeEnabled(policy.IPv6Enabled)
 	if route.Mode == ModeIPv6Pool && !policy.IPv6Enabled {
 		if route.Inherited {
 			return DirectRoute(true), nil

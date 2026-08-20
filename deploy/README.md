@@ -262,7 +262,8 @@ docker compose down -v
 | `GEMINI_OAUTH_CLIENT_SECRET` | No | *(builtin)* | Google OAuth client secret (Gemini OAuth). Leave empty to use the built-in Gemini CLI client. |
 | `GEMINI_OAUTH_SCOPES` | No | *(default)* | OAuth scopes (Gemini OAuth) |
 | `GEMINI_QUOTA_POLICY` | No | *(empty)* | JSON overrides for Gemini local quota simulation (Code Assist only). |
-| `IPV6_EGRESS_ALLOCATION_SECRET` | When enabled | *(empty)* | Stable 32+ character deterministic allocation secret. |
+| `IPV6_EGRESS_ALLOCATION_SECRET` | No | *(auto-generated)* | Optional legacy bootstrap secret; the admin page generates and persists one when empty. |
+| `IPV6_EGRESS_ENABLED` | No | `false` | Optional legacy bootstrap switch; use the IPv6 Egress admin page for the live switch. |
 | `IPV6_EGRESS_POOL_CIDR` | Host setup | *(empty)* | Provider-routed global prefix passed to `ipv6-egress-host.sh`. |
 | `IPV6_EGRESS_CONTAINER_IP` | No | `fd42:5355:4232::10` | Fixed Docker ULA next hop for the routed account pool. |
 | `IPV6_EGRESS_CONTAINER_NAME` | No | `sub2api` | Running application container whose network namespace receives the pool local route. |
@@ -288,12 +289,11 @@ Use exactly one network override:
 
 #### Native routed prefix
 
-1. Set these values in `.env`:
+1. Ensure the host/provider has routed IPv6 and create the stack. No IPv6 switch,
+   secret, or pool CIDR is required in `.env`:
 
    ```dotenv
    DEPLOYMENT_MODE=standalone
-   IPV6_EGRESS_ALLOCATION_SECRET=<output of openssl rand -hex 32>
-   IPV6_EGRESS_POOL_CIDR=<globally routed prefix, for example 2001:db8:100::/64>
    ```
 
 2. Create the stack and its stable IPv6 Docker network:
@@ -317,11 +317,10 @@ Use exactly one network override:
    sudo ./ipv6-egress-host.sh check .env
    ```
 
-4. Enable **System Settings -> Feature Switches -> IPv6 Egress Management**.
-   Then open **Admin -> IPv6 Egress**, create the same CIDR as a pool, verify an
-   account with **Probe exit**, and only then mark the pool as default. The
-   default action stays unavailable when the Linux runtime, allocation secret,
-   or feature switch is not ready.
+4. Open **Admin -> IPv6 Egress**, turn on the runtime switch, and click
+   **Auto-detect and configure**. The page probes the prefix visible inside the
+   application container and creates the default pool for you. Manual pool
+   creation remains available for operators with multiple routed prefixes.
 
 The Docker network ULA is only a next hop. Account source addresses are kept in
 PostgreSQL and bound per socket with `IPV6_FREEBIND`; the main application has
@@ -343,16 +342,18 @@ docker compose \
   up -d --build
 ```
 
-Enable **System Settings -> Feature Switches -> IPv6 Egress Management**, then
-open **Admin -> IPv6 Egress -> HE Tunnel** to save and apply the tunnel. The
+Open **Admin -> IPv6 Egress -> HE Tunnel** to save and apply the tunnel, then
+turn on the runtime switch and use **Auto-detect and configure**. The
 main application remains unprivileged. A separate sidecar joins the
 application's network namespace and is the only container with `NET_ADMIN` and
 `NET_RAW`; it does not use host networking, the host PID namespace, the Docker
 socket, or host filesystem mounts.
 
-The feature switch only controls the administrator UI and direct route access.
-Turning it off does not disable runtime IPv6 egress, rotate bindings, or close
-active upstream connections.
+Open **Admin -> IPv6 Egress**, turn on the runtime switch, and click **Auto-detect
+and configure**. The application inspects its own network namespace, verifies
+the detected source through the IPv6 probe, creates a default pool, and stores
+the deterministic allocation secret in PostgreSQL. If the container only has a
+ULA or the host route is missing, the page reports that directly.
 
 Copy the four distinct values from the HE tunnel detail page:
 
@@ -376,9 +377,10 @@ drops protocol 41, the frontend check fails closed with the sidecar error.
 IPv6 mode is fail closed. Missing AAAA records, an unavailable prefix, a bind
 failure, or a route failure returns an upstream error and never falls back to
 the server IPv4. Existing `proxy_id` accounts continue using their external
-proxy. Disable `IPV6_EGRESS_ENABLED` (or remove this Compose override) to roll
-inherited accounts back to direct routing; explicit `ipv6_pool` accounts remain
-fail closed until their mode is changed.
+proxy. Turn off the runtime switch on the IPv6 Egress page to roll inherited
+accounts back to direct routing; explicit `ipv6_pool` accounts remain fail
+closed until their mode is changed. `IPV6_EGRESS_ENABLED` remains a legacy
+bootstrap override only.
 
 Run the local source-address integration check with:
 

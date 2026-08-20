@@ -1,5 +1,14 @@
 package egress
 
-import "github.com/google/wire"
+import (
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	"github.com/google/wire"
+)
 
-var ProviderSet = wire.NewSet(NewService, NewHETunnelControlService)
+func ProvideService(store Store, settings RuntimeSettings, cfg *config.Config) *Service {
+	service := NewService(store, cfg)
+	service.SetRuntimeSettings(settings)
+	return service
+}
+
+var ProviderSet = wire.NewSet(ProvideService, NewHETunnelControlService)

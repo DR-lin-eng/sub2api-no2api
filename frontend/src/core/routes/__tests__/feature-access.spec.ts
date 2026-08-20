@@ -203,12 +203,6 @@ describe('feature route guard', () => {
       { media_studio_enabled: false },
       '/dashboard',
     ],
-    [
-      'IPv6 egress management',
-      { requiresIPv6Egress: true },
-      { ipv6_egress_ui_enabled: false },
-      '/admin/settings',
-    ],
   ])('redirects when loaded settings explicitly disable %s', async (_name, meta, settings, target) => {
     authStore.isAdmin = meta.requiresRiskControl === true || meta.requiresIPv6Egress === true
     appStore.cachedPublicSettings = settings
@@ -256,18 +250,13 @@ describe('feature route guard', () => {
     expect(allowed.next).toHaveBeenCalledWith()
   })
 
-  it('fails closed for IPv6 egress management unless explicitly enabled', async () => {
+  it('keeps IPv6 egress management reachable so the page can own its runtime switch', async () => {
     authStore.isAdmin = true
     appStore.cachedPublicSettings = {}
     appStore.publicSettingsLoaded = true
 
-    const blocked = runGuard({ requiresAdmin: true, requiresIPv6Egress: true }, '/admin/egress')
-    await blocked.navigation
-    expect(blocked.next).toHaveBeenCalledWith('/admin/settings')
-
-    appStore.cachedPublicSettings = { ipv6_egress_ui_enabled: true }
-    const allowed = runGuard({ requiresAdmin: true, requiresIPv6Egress: true }, '/admin/egress')
-    await allowed.navigation
-    expect(allowed.next).toHaveBeenCalledWith()
+    const navigation = runGuard({ requiresAdmin: true, requiresIPv6Egress: true }, '/admin/egress')
+    await navigation.navigation
+    expect(navigation.next).toHaveBeenCalledWith()
   })
 })

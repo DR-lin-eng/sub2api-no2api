@@ -15,8 +15,13 @@
 - 部署节点是 Linux，且 `deployment.mode=standalone`。
 - 运营商原生路由前缀，或 HE Tunnel Broker 通过 6in4 路由的前缀；单个
   SLAAC 地址仍不满足要求。
-- `ipv6_egress.allocation_secret` 至少 32 个字符并跨重启保持不变。
 - Docker 部署同时使用 `deploy/docker-compose.ipv6-egress.yml` 和宿主机路由脚本。
+
+不再要求在 YAML 中填写开关或分配密钥。管理员打开 **IPv6 出口** 页面后，点击
+“自动检测并配置”；服务会在自己的网络命名空间读取公网 IPv6 网卡地址，推导一个
+保守的 `/64`，用 IPv6 回显探测验证，然后创建并选为默认地址池。确定性分配密钥由
+服务随机生成并保存到设置数据库，跨容器重启保持不变。没有公网 IPv6、只有 ULA
+或 Docker 路由未准备好时，操作会失败关闭并显示具体原因。
 
 代码接受 `/120` 或更大的地址空间，生产环境推荐使用 `/64`，或从 `/56`
 中为节点划分独立子前缀。多个应用实例、共享前缀和跨节点账号亲和不在当前
@@ -87,16 +92,21 @@ Vertex 和 Antigravity 客户端。新增账号级上游客户端时，必须接
 观察到的地址与绑定地址完全一致。池健康状态是进程内运行状态，重启后先显示
 “未探测”，随后由默认池预检或管理员手动探测刷新；禁用池会清除旧健康状态。
 
-管理员先在 **系统设置 -> 功能开关** 启用“IPv6 出口管理”，侧边栏才会显示
-`/admin/egress` 入口。该开关仅控制前端页面显示和路由访问，不会更改
-`IPV6_EGRESS_ENABLED`、账号绑定或已建立的上游连接。
+管理员直接从侧边栏进入 `/admin/egress`。页面顶部的“启用 IPv6 出口”是数据库
+运行时开关，立即作用于后续请求：继承默认路由在关闭时回到直连，显式 IPv6 路由
+继续失败关闭。旧的 `ipv6_egress_ui_enabled` 设置只保留迁移兼容，不再隐藏入口。
 
 管理端 `/admin/egress` 显示：
 
 - Linux/free-bind/密钥/探测配置就绪状态。
+- 当前运行时开关、自动检测到的前缀和自动配置按钮。
 - 池 CIDR、可用容量、分配数、默认状态和最后一次路由健康结果。
 - 账号实际出口、绑定地址、池和绑定版本。
 - 分配补齐、账号探测、策略切换和有 step-up 保护的地址轮换。
+
+页面使用三个简化控制端点：`GET /api/v1/admin/egress/runtime` 读取状态，
+`PUT /api/v1/admin/egress/runtime` 持久化运行时开关，
+`POST /api/v1/admin/egress/auto-configure` 执行一次探测、建池和默认池选择。
 
 所有管理端变更经过统一审计中间件。错误日志和 API 错误保留无 AAAA、绑定、
 路由和探测失败类型；不得把完整 IPv6 或账号 ID 作为低基数指标标签。
@@ -114,7 +124,9 @@ Vertex 和 Antigravity 客户端。新增账号级上游客户端时，必须接
 重建或宿主机重启后必须重新执行脚本，`check` 模式会同时校验宿主机路由、容器
 local 路由、IPv6 forwarding、外部 IPv6 路由和应用容器 capabilities。
 
-具体命令和环境变量见 [部署索引](../deploy/README.md)。
+具体命令和环境变量见 [部署索引](../deploy/README.md)。`IPV6_EGRESS_ENABLED` 和
+`IPV6_EGRESS_ALLOCATION_SECRET` 仍可作为旧部署的启动兼容值，但 Compose 不再要求
+它们；日常开关和密钥由管理页/数据库负责。
 
 ### 无原生 IPv6 的 HE 6in4 接入
 
@@ -123,8 +135,8 @@ HE 模式使用独立的 `docker-compose.ipv6-egress-he.yml`。`sub2api` 主容�
 空间，只有 sidecar 获得容器内 `NET_ADMIN` 和 `NET_RAW`。它不使用 host network、
 host PID、Docker socket 或宿主机文件系统挂载。
 
-启用前端功能开关后，管理员在 **IPv6 出口 -> HE 隧道** 保存参数并提交
-`apply/check/remove`。后端把
+管理员在 **IPv6 出口 -> HE 隧道** 保存参数并提交
+`apply/check/remove`，再打开页面顶部的运行时开关。后端把
 严格校验后的期望配置与动作写入共享控制卷，sidecar 在同一网络命名空间创建
 SIT/6in4、IPv6 默认路由和 `local <Routed prefix> dev lo`，再回写在线状态和结果。
 update key 不通过 GET API 返回。
@@ -140,7 +152,7 @@ sidecar 管理的 SIT 接口与 local pool 路由。
 
 ## 回滚与验证
 
-移除 Compose override 或关闭 `IPV6_EGRESS_ENABLED` 后，继承模式账号恢复普通直连；
+移除 Compose override 或关闭 IPv6 出口页面的运行时开关后，继承模式账号恢复普通直连；
 显式 IPv6 账号继续失败关闭，直到管理员切换其模式。绑定数据保留，恢复功能时可
 继续使用，不需要删除池。
 

@@ -1,6 +1,7 @@
 export default {
   title: 'IPv6 Egress Management',
-  description: 'Controls the administrator page for account-scoped IPv6 egress. This affects only UI visibility and does not enable or stop runtime routing.',
-  enabled: 'Show IPv6 Egress Management',
-  enabledHint: 'When off, the admin sidebar entry is hidden and direct visits to /admin/egress return to System Settings.',
+  description: 'IPv6 egress is now configured directly from the IPv6 Egress page.',
+  enabled: 'IPv6 Egress configuration',
+  enabledHint: 'Use the page switch to enable routing, then let the server detect and verify the routed prefix automatically.',
+  configureLink: 'Open IPv6 Egress',
 }

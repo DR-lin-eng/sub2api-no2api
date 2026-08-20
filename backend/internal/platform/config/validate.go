@@ -13,9 +13,6 @@ func (c *Config) Validate() error {
 		if runtime.GOOS != "linux" {
 			return fmt.Errorf("ipv6_egress.enabled is only supported on Linux")
 		}
-		if len(strings.TrimSpace(c.IPv6Egress.AllocationSecret)) < 32 {
-			return fmt.Errorf("ipv6_egress.allocation_secret must contain at least 32 characters when enabled")
-		}
 		if c.Deployment.IsMultiInstance() {
 			return fmt.Errorf("ipv6_egress.enabled currently requires deployment.mode=standalone")
 		}

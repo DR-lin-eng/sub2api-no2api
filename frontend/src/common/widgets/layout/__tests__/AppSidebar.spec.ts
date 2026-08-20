@@ -71,10 +71,10 @@ describe('AppSidebar simple mode filtering', () => {
   })
 })
 
-describe('AppSidebar IPv6 egress feature switch', () => {
-  it('filters the admin entry through the public feature-flag registry', () => {
-    expect(componentSource).toContain('const flagIPv6Egress = makeSidebarFlag(FeatureFlags.ipv6Egress)')
+describe('AppSidebar IPv6 egress entry', () => {
+  it('keeps the configuration entry available so it can own the runtime switch', () => {
     expect(componentSource).toContain("path: '/admin/egress'")
-    expect(componentSource).toContain('featureFlag: flagIPv6Egress')
+    const entry = componentSource.slice(componentSource.indexOf("path: '/admin/egress'"), componentSource.indexOf("path: '/admin/security-audit'"))
+    expect(entry).not.toContain('featureFlag:')
   })
 })

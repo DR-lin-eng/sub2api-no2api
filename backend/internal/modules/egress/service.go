@@ -2,12 +2,17 @@ package egress
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
@@ -15,16 +20,23 @@ import (
 )
 
 type Service struct {
-	store     Store
-	allocator *Allocator
-	cfg       *config.Config
-	probe     func(context.Context, platformegress.Route, platformegress.Policy, string, time.Duration) (*platformegress.ProbeResult, error)
+	store       Store
+	allocator   *Allocator
+	cfg         *config.Config
+	settings    RuntimeSettings
+	probe       func(context.Context, platformegress.Route, platformegress.Policy, string, time.Duration) (*platformegress.ProbeResult, error)
+	detect      func() (*platformegress.DetectedIPv6Network, error)
+	probeSource func(context.Context, string, platformegress.Policy, string, time.Duration) (*platformegress.ProbeResult, error)
 
 	workerMu     sync.Mutex
 	workerCancel context.CancelFunc
 	workerDone   chan struct{}
 	healthMu     sync.RWMutex
 	poolHealth   map[int64]poolHealth
+	runtimeMu    sync.Mutex
+	autoMu       sync.Mutex
+	enabled      atomic.Bool
+	stateLoaded  atomic.Bool
 }
 
 type poolHealth struct {
@@ -38,13 +50,47 @@ func NewService(store Store, cfg *config.Config) *Service {
 	if cfg != nil {
 		secret = cfg.IPv6Egress.AllocationSecret
 	}
-	return &Service{
-		store:      store,
-		allocator:  NewAllocator(secret),
-		cfg:        cfg,
-		probe:      platformegress.Probe,
-		poolHealth: make(map[int64]poolHealth),
+	svc := &Service{
+		store:       store,
+		allocator:   NewAllocator(secret),
+		cfg:         cfg,
+		probe:       platformegress.Probe,
+		detect:      platformegress.DetectIPv6Network,
+		probeSource: platformegress.ProbeSource,
+		poolHealth:  make(map[int64]poolHealth),
 	}
+	svc.enabled.Store(cfg != nil && cfg.IPv6Egress.Enabled)
+	return svc
+}
+
+// SetRuntimeSettings attaches the persisted control-plane settings store. It
+// is kept as a setter so small unit-test services can continue using the
+// original NewService constructor without a database dependency.
+func (s *Service) SetRuntimeSettings(settings RuntimeSettings) {
+	if s == nil {
+		return
+	}
+	s.runtimeMu.Lock()
+	s.settings = settings
+	s.stateLoaded.Store(false)
+	s.runtimeMu.Unlock()
+}
+
+func (s *Service) IsEnabled() bool {
+	if s == nil {
+		return false
+	}
+	return s.enabled.Load()
+}
+
+func (s *Service) SecretConfigured() bool {
+	if s == nil {
+		return false
+	}
+	if s.allocator != nil && s.allocator.SecretConfigured() {
+		return true
+	}
+	return s.cfg != nil && len(strings.TrimSpace(s.cfg.IPv6Egress.AllocationSecret)) >= 32
 }
 
 const defaultReconcileBatchSize = 1000
@@ -53,7 +99,24 @@ const defaultReconcileBatchSize = 1000
 // periodically fills bindings for inherited accounts. Missing bindings fail
 // closed on request paths, so this worker never needs a hot-path lookup.
 func (s *Service) Start() {
-	if s == nil || s.cfg == nil || !s.cfg.IPv6Egress.Enabled {
+	if s == nil || s.cfg == nil {
+		return
+	}
+	s.loadRuntimeState(context.Background())
+	if !s.IsEnabled() {
+		return
+	}
+	if err := s.ensureAllocationSecret(context.Background()); err != nil {
+		slog.Warn("IPv6 egress allocation secret is unavailable", "error", err)
+		s.enabled.Store(false)
+		platformegress.SetRuntimeEnabled(false)
+		return
+	}
+	s.startWorker()
+}
+
+func (s *Service) startWorker() {
+	if s == nil || s.cfg == nil || !s.IsEnabled() {
 		return
 	}
 	s.workerMu.Lock()
@@ -66,6 +129,77 @@ func (s *Service) Start() {
 	s.workerCancel = cancel
 	s.workerDone = done
 	go s.runReconciler(ctx, done)
+}
+
+func (s *Service) loadRuntimeState(ctx context.Context) {
+	if s == nil || s.stateLoaded.Load() {
+		return
+	}
+	s.runtimeMu.Lock()
+	defer s.runtimeMu.Unlock()
+	if s.stateLoaded.Load() {
+		return
+	}
+	enabled := s.cfg != nil && s.cfg.IPv6Egress.Enabled
+	if s.settings != nil {
+		if raw, err := s.settings.GetValue(ctx, RuntimeSettingKey); err == nil {
+			if parsed, parseErr := strconv.ParseBool(strings.TrimSpace(raw)); parseErr == nil {
+				enabled = parsed
+			}
+		} else if s.cfg != nil && s.cfg.IPv6Egress.Enabled {
+			// Keep an explicitly enabled legacy YAML deployment running until
+			// an administrator chooses the new database switch.
+			enabled = true
+		}
+	}
+	if enabled && s.settings != nil && (runtime.GOOS != "linux" || (s.cfg != nil && s.cfg.Deployment.IsMultiInstance())) {
+		enabled = false
+	}
+	s.enabled.Store(enabled)
+	s.stateLoaded.Store(true)
+	platformegress.SetRuntimeEnabled(enabled)
+}
+
+// SetEnabled persists and applies the administrator switch immediately. It
+// deliberately does not create a pool; AutoConfigure performs the network
+// probe and pool creation as one explicit action.
+func (s *Service) SetEnabled(ctx context.Context, enabled bool) error {
+	if s == nil || s.cfg == nil {
+		return fmt.Errorf("%w: configuration is unavailable", ErrRuntimeUnavailable)
+	}
+	s.runtimeMu.Lock()
+	err := func() error {
+		if enabled {
+			if runtime.GOOS != "linux" {
+				return fmt.Errorf("%w: Linux is required", ErrRuntimeUnavailable)
+			}
+			if s.cfg.Deployment.IsMultiInstance() {
+				return fmt.Errorf("%w: standalone deployment is required", ErrRuntimeUnavailable)
+			}
+			if err := s.ensureAllocationSecretLocked(ctx); err != nil {
+				return err
+			}
+		}
+		if s.settings != nil {
+			if err := s.settings.Set(ctx, RuntimeSettingKey, strconv.FormatBool(enabled)); err != nil {
+				return fmt.Errorf("persist IPv6 egress switch: %w", err)
+			}
+		}
+		s.enabled.Store(enabled)
+		s.stateLoaded.Store(true)
+		platformegress.SetRuntimeEnabled(enabled)
+		return nil
+	}()
+	s.runtimeMu.Unlock()
+	if err != nil {
+		return err
+	}
+	if enabled {
+		s.startWorker()
+	} else {
+		s.Stop()
+	}
+	return nil
 }
 
 func (s *Service) Stop() {
@@ -178,15 +312,56 @@ func (s *Service) UpdatePool(ctx context.Context, id int64, input UpdatePoolInpu
 }
 
 func (s *Service) RuntimeReady() error {
-	if s == nil || s.cfg == nil || !s.cfg.IPv6Egress.Enabled {
+	if s == nil || s.cfg == nil || !s.IsEnabled() {
 		return fmt.Errorf("%w: feature is disabled", ErrRuntimeUnavailable)
 	}
 	if runtime.GOOS != "linux" {
 		return fmt.Errorf("%w: Linux is required", ErrRuntimeUnavailable)
 	}
-	if len(strings.TrimSpace(s.cfg.IPv6Egress.AllocationSecret)) < 32 {
+	if s.cfg.Deployment.IsMultiInstance() {
+		return fmt.Errorf("%w: standalone deployment is required", ErrRuntimeUnavailable)
+	}
+	if !s.SecretConfigured() {
 		return fmt.Errorf("%w: allocation secret is not configured", ErrRuntimeUnavailable)
 	}
+	return nil
+}
+
+func (s *Service) ensureAllocationSecret(ctx context.Context) error {
+	s.runtimeMu.Lock()
+	defer s.runtimeMu.Unlock()
+	return s.ensureAllocationSecretLocked(ctx)
+}
+
+func (s *Service) ensureAllocationSecretLocked(ctx context.Context) error {
+	if s == nil || s.allocator == nil {
+		return ErrAllocationDisabled
+	}
+	if s.allocator.SecretConfigured() {
+		return nil
+	}
+	if s.cfg != nil {
+		if configured := strings.TrimSpace(s.cfg.IPv6Egress.AllocationSecret); len(configured) >= 32 {
+			s.allocator.SetSecret(configured)
+			return nil
+		}
+	}
+	if s.settings == nil {
+		return ErrAllocationDisabled
+	}
+	if raw, err := s.settings.GetValue(ctx, allocationSecretSettingKey); err == nil && len(strings.TrimSpace(raw)) >= 32 {
+		s.allocator.SetSecret(strings.TrimSpace(raw))
+		return nil
+	}
+	var bytes [32]byte
+	if _, err := rand.Read(bytes[:]); err != nil {
+		return fmt.Errorf("generate IPv6 allocation secret: %w", err)
+	}
+	secret := hex.EncodeToString(bytes[:])
+	if err := s.settings.Set(ctx, allocationSecretSettingKey, secret); err != nil {
+		return fmt.Errorf("persist IPv6 allocation secret: %w", err)
+	}
+	s.allocator.SetSecret(secret)
 	return nil
 }
 
@@ -220,7 +395,7 @@ func (s *Service) ListBindings(ctx context.Context, offset, limit int, search st
 }
 
 func (s *Service) ProbeAccount(ctx context.Context, accountID int64) (*platformegress.ProbeResult, error) {
-	if s == nil || s.cfg == nil || !s.cfg.IPv6Egress.Enabled {
+	if s == nil || s.cfg == nil || !s.IsEnabled() {
 		return nil, platformegress.ErrIPv6Disabled
 	}
 	binding, err := s.store.GetBinding(ctx, accountID)
@@ -241,6 +416,135 @@ func (s *Service) ProbeAccount(ctx context.Context, accountID int64) (*platforme
 	}, s.cfg.IPv6Egress.ProbeURL, timeout)
 	s.recordPoolHealth(binding.PoolID, probeErr)
 	return result, probeErr
+}
+
+// AutoConfigure detects the public IPv6 network visible from the application
+// namespace, verifies the current source address through the configured IPv6
+// probe, and creates or reuses a healthy default /64 pool. It is intentionally
+// idempotent so pressing the button again does not create duplicate pools.
+func (s *Service) AutoConfigure(ctx context.Context) (*AutoConfigureResult, error) {
+	if s == nil || s.cfg == nil {
+		return nil, fmt.Errorf("%w: configuration is unavailable", ErrAutoConfigure)
+	}
+	s.autoMu.Lock()
+	defer s.autoMu.Unlock()
+	wasEnabled := s.IsEnabled()
+	if !wasEnabled {
+		if err := s.SetEnabled(ctx, true); err != nil {
+			return nil, fmt.Errorf("%w: enable runtime: %v", ErrAutoConfigure, err)
+		}
+		// Configure the pool before the periodic worker starts probing an old
+		// or missing default. The worker is started again after the pool is
+		// healthy and selected below.
+		s.Stop()
+	} else if s.settings != nil {
+		s.runtimeMu.Lock()
+		err := s.settings.Set(ctx, RuntimeSettingKey, "true")
+		s.runtimeMu.Unlock()
+		if err != nil {
+			return nil, fmt.Errorf("%w: persist runtime switch: %v", ErrAutoConfigure, err)
+		}
+	}
+	rollback := func() {
+		if !wasEnabled {
+			if err := s.SetEnabled(context.Background(), false); err != nil {
+				slog.Warn("failed to roll back IPv6 egress auto-configuration", "error", err)
+			}
+		}
+	}
+	detect := s.detect
+	if detect == nil {
+		detect = platformegress.DetectIPv6Network
+	}
+	detected, err := detect()
+	if err != nil {
+		rollback()
+		return nil, fmt.Errorf("%w: %v", ErrAutoConfigure, err)
+	}
+	if err := s.ensureAllocationSecret(ctx); err != nil {
+		rollback()
+		return nil, fmt.Errorf("%w: %v", ErrAutoConfigure, err)
+	}
+	timeout := time.Duration(s.cfg.IPv6Egress.ProbeTimeoutSeconds) * time.Second
+	if timeout <= 0 {
+		timeout = 10 * time.Second
+	}
+	target := strings.TrimSpace(s.cfg.IPv6Egress.ProbeURL)
+	if target == "" {
+		target = "https://api64.ipify.org"
+	}
+	parsedTarget, err := url.Parse(target)
+	if err != nil || !strings.EqualFold(parsedTarget.Scheme, "https") || strings.TrimSpace(parsedTarget.Hostname()) == "" {
+		rollback()
+		return nil, fmt.Errorf("%w: probe URL must be an absolute HTTPS URL", ErrAutoConfigure)
+	}
+	probeSource := s.probeSource
+	if probeSource == nil {
+		probeSource = platformegress.ProbeSource
+	}
+	probe, err := probeSource(ctx, detected.Address.String(), platformegress.Policy{
+		IPv6Enabled: true,
+		FreeBind:    s.cfg.IPv6Egress.FreeBind,
+	}, target, timeout)
+	if err != nil {
+		rollback()
+		return nil, fmt.Errorf("%w: IPv6 source probe: %v", ErrAutoConfigure, err)
+	}
+
+	prefix := detected.Prefix.String()
+	pools, err := s.store.ListPools(ctx)
+	if err != nil {
+		rollback()
+		return nil, fmt.Errorf("%w: list pools: %v", ErrAutoConfigure, err)
+	}
+	var pool *Pool
+	created := false
+	for i := range pools {
+		if strings.TrimSpace(pools[i].CIDR) == prefix {
+			pool = &pools[i]
+			break
+		}
+	}
+	if pool == nil {
+		pool, err = s.store.CreatePool(ctx, CreatePoolInput{
+			Name:      "auto-" + strings.TrimSpace(detected.Interface),
+			CIDR:      prefix,
+			NodeID:    nil,
+			IsDefault: false,
+		})
+		if err != nil {
+			rollback()
+			return nil, fmt.Errorf("%w: create detected pool: %v", ErrAutoConfigure, err)
+		}
+		created = true
+	}
+	if pool.Status == PoolStatusDisabled {
+		active := PoolStatusActive
+		pool, err = s.store.UpdatePool(ctx, pool.ID, UpdatePoolInput{Status: &active})
+		if err != nil {
+			rollback()
+			return nil, fmt.Errorf("%w: activate detected pool: %v", ErrAutoConfigure, err)
+		}
+	}
+	s.recordPoolHealth(pool.ID, nil)
+	if !pool.IsDefault {
+		makeDefault := true
+		pool, err = s.UpdatePool(ctx, pool.ID, UpdatePoolInput{IsDefault: &makeDefault})
+		if err != nil {
+			rollback()
+			return nil, fmt.Errorf("%w: select detected pool: %v", ErrAutoConfigure, err)
+		}
+	}
+	if !wasEnabled {
+		s.startWorker()
+	}
+	return &AutoConfigureResult{
+		Enabled:  s.IsEnabled(),
+		Created:  created,
+		Detected: *detected,
+		Pool:     s.decoratePool(pool),
+		Probe:    probe,
+	}, nil
 }
 
 func (s *Service) preflightDefault(ctx context.Context) error {

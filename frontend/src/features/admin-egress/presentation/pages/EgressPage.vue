@@ -15,9 +15,33 @@
               <p class="truncate text-xs text-gray-500 dark:text-gray-400">
                 {{ runtime?.platform || '-' }} · {{ runtime?.freebind ? t('admin.egress.runtime.freebind') : t('admin.egress.runtime.assignedOnly') }}
               </p>
+              <p v-if="runtime?.detected_prefix" class="mt-1 truncate text-xs text-emerald-600 dark:text-emerald-400">
+                {{ t('admin.egress.runtime.detected', { prefix: runtime.detected_prefix }) }}
+              </p>
             </div>
           </div>
-          <dl class="grid grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-4">
+          <div class="flex flex-wrap items-center justify-end gap-3">
+            <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <span>{{ t('admin.egress.runtime.switch') }}</span>
+              <Toggle
+                :model-value="runtime?.enabled === true"
+                :disabled="togglingRuntime || !runtime?.supported"
+                data-testid="ipv6-runtime-toggle"
+                @update:model-value="toggleRuntime"
+              />
+            </label>
+            <button
+              type="button"
+              class="btn btn-primary"
+              :disabled="autoConfiguring || !runtime?.supported"
+              @click="autoConfigure"
+            >
+              <Icon v-if="autoConfiguring" name="refresh" size="sm" class="mr-2 animate-spin" />
+              <Icon v-else name="sparkles" size="sm" class="mr-2" />
+              {{ t('admin.egress.actions.autoConfigure') }}
+            </button>
+          </div>
+          <dl class="grid w-full basis-full flex-shrink-0 grid-cols-2 gap-x-6 gap-y-2 border-t border-gray-100 pt-3 text-xs dark:border-dark-700 sm:grid-cols-4">
             <div>
               <dt class="text-gray-500 dark:text-gray-400">{{ t('admin.egress.runtime.failClosed') }}</dt>
               <dd class="mt-0.5 font-medium text-gray-900 dark:text-white">{{ yesNo(runtime?.fail_closed) }}</dd>
@@ -484,6 +508,8 @@ const accounts = ref<Account[]>([])
 const loading = ref(false)
 const errorMessage = ref('')
 const reconciling = ref(false)
+const togglingRuntime = ref(false)
+const autoConfiguring = ref(false)
 const searchQuery = ref('')
 const selectedAccountIDs = ref(new Set<number>())
 const accountBusy = ref(new Set<number>())
@@ -636,6 +662,34 @@ async function loadRuntimeAndPools(): Promise<void> {
   const [runtimeResult, poolResult] = await Promise.all([egressAPI.getRuntime(), egressAPI.listPools()])
   runtime.value = runtimeResult
   pools.value = poolResult
+}
+
+async function toggleRuntime(enabled: boolean): Promise<void> {
+  if (togglingRuntime.value || !runtime.value) return
+  togglingRuntime.value = true
+  try {
+    runtime.value = await egressAPI.updateRuntime(enabled)
+    appStore.showSuccess(t(enabled ? 'admin.egress.success.enabled' : 'admin.egress.success.disabled'))
+  } catch (error) {
+    appStore.showError(extractApiErrorMessage(error, t('admin.egress.errors.toggleRuntime')))
+  } finally {
+    togglingRuntime.value = false
+  }
+}
+
+async function autoConfigure(): Promise<void> {
+  if (autoConfiguring.value) return
+  autoConfiguring.value = true
+  try {
+    const result = await egressAPI.autoConfigure()
+    runtime.value = await egressAPI.getRuntime()
+    pools.value = await egressAPI.listPools()
+    appStore.showSuccess(t('admin.egress.success.autoConfigured', { prefix: result.pool.cidr }))
+  } catch (error) {
+    appStore.showError(extractApiErrorMessage(error, t('admin.egress.errors.autoConfigure')))
+  } finally {
+    autoConfiguring.value = false
+  }
 }
 
 async function loadAccounts(): Promise<void> {

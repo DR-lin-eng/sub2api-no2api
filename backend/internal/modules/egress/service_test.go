@@ -3,6 +3,7 @@ package egress
 import (
 	"context"
 	"errors"
+	"net/netip"
 	"runtime"
 	"sync"
 	"testing"
@@ -23,6 +24,25 @@ type serviceTestStore struct {
 	inheritedErr error
 }
 
+type runtimeSettingsStub struct {
+	values map[string]string
+}
+
+func (s *runtimeSettingsStub) GetValue(_ context.Context, key string) (string, error) {
+	if value, ok := s.values[key]; ok {
+		return value, nil
+	}
+	return "", errors.New("setting not found")
+}
+
+func (s *runtimeSettingsStub) Set(_ context.Context, key, value string) error {
+	if s.values == nil {
+		s.values = make(map[string]string)
+	}
+	s.values[key] = value
+	return nil
+}
+
 func newServiceTestStore(pool Pool, accountIDs ...int64) *serviceTestStore {
 	return &serviceTestStore{
 		defaultPool:  &pool,
@@ -34,8 +54,27 @@ func newServiceTestStore(pool Pool, accountIDs ...int64) *serviceTestStore {
 	}
 }
 
-func (s *serviceTestStore) CreatePool(context.Context, CreatePoolInput) (*Pool, error) {
-	return nil, errors.New("not implemented")
+func (s *serviceTestStore) CreatePool(_ context.Context, input CreatePoolInput) (*Pool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var id int64 = 1
+	for existingID := range s.pools {
+		if existingID >= id {
+			id = existingID + 1
+		}
+	}
+	capacity, err := PoolCapacity(input.CIDR)
+	if err != nil {
+		return nil, err
+	}
+	pool := Pool{ID: id, Name: input.Name, CIDR: input.CIDR, Status: PoolStatusActive, IsDefault: input.IsDefault, AllocationVersion: 1, Capacity: capacity, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	s.pools[id] = pool
+	if input.IsDefault {
+		copy := pool
+		s.defaultPool = &copy
+	}
+	copy := pool
+	return &copy, nil
 }
 
 func (s *serviceTestStore) UpdatePool(_ context.Context, id int64, input UpdatePoolInput) (*Pool, error) {
@@ -383,5 +422,61 @@ func TestServicePreflightsAfterReconciliationError(t *testing.T) {
 	case <-probed:
 	case <-time.After(time.Second):
 		t.Fatal("reconciliation error prevented the independent route preflight")
+	}
+}
+
+func TestServiceAutoConfigurePersistsSwitchSecretAndDefaultPool(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("IPv6 auto-configuration is Linux-only")
+	}
+	platformegress.ClearRuntimeEnabledOverride()
+	t.Cleanup(platformegress.ClearRuntimeEnabledOverride)
+	initial := Pool{ID: 9, Name: "existing", CIDR: "2001:db8:90::/64", Status: PoolStatusDisabled, AllocationVersion: 1}
+	store := newServiceTestStore(initial)
+	settings := &runtimeSettingsStub{values: map[string]string{}}
+	svc := NewService(store, &config.Config{
+		Deployment: config.DeploymentConfig{Mode: config.DeploymentModeStandalone, WorkerEnabled: config.WorkerModeDisabled},
+		IPv6Egress: config.IPv6EgressConfig{ProbeURL: "https://probe.example", FreeBind: true},
+	})
+	svc.SetRuntimeSettings(settings)
+	svc.detect = func() (*platformegress.DetectedIPv6Network, error) {
+		return &platformegress.DetectedIPv6Network{
+			Address:   netip.MustParseAddr("2001:4860:abcd:1::42"),
+			Prefix:    netip.MustParsePrefix("2001:4860:abcd:1::/64"),
+			Interface: "eth0",
+		}, nil
+	}
+	svc.probeSource = func(context.Context, string, platformegress.Policy, string, time.Duration) (*platformegress.ProbeResult, error) {
+		return &platformegress.ProbeResult{ObservedIP: "2001:4860:abcd:1::42"}, nil
+	}
+	result, err := svc.AutoConfigure(context.Background())
+	if err != nil {
+		t.Fatalf("AutoConfigure() error = %v", err)
+	}
+	if result == nil || result.Pool == nil || !result.Pool.IsDefault || result.Pool.CIDR != "2001:4860:abcd:1::/64" {
+		t.Fatalf("unexpected auto-configure result: %#v", result)
+	}
+	if !svc.IsEnabled() || settings.values[RuntimeSettingKey] != "true" || len(settings.values[allocationSecretSettingKey]) != 64 {
+		t.Fatalf("runtime settings were not persisted: enabled=%v values=%v", svc.IsEnabled(), settings.values)
+	}
+	svc.Stop()
+}
+
+func TestServiceAutoConfigureRollsBackWhenNoGlobalAddress(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("IPv6 auto-configuration is Linux-only")
+	}
+	platformegress.ClearRuntimeEnabledOverride()
+	t.Cleanup(platformegress.ClearRuntimeEnabledOverride)
+	store := newServiceTestStore(Pool{ID: 10, Name: "existing", CIDR: "2001:db8:100::/64", Status: PoolStatusActive, AllocationVersion: 1})
+	settings := &runtimeSettingsStub{values: map[string]string{}}
+	svc := NewService(store, &config.Config{Deployment: config.DeploymentConfig{Mode: config.DeploymentModeStandalone}, IPv6Egress: config.IPv6EgressConfig{}})
+	svc.SetRuntimeSettings(settings)
+	svc.detect = func() (*platformegress.DetectedIPv6Network, error) { return nil, platformegress.ErrIPv6AutoDetect }
+	if _, err := svc.AutoConfigure(context.Background()); !errors.Is(err, ErrAutoConfigure) {
+		t.Fatalf("AutoConfigure() error = %v", err)
+	}
+	if svc.IsEnabled() || settings.values[RuntimeSettingKey] != "false" {
+		t.Fatalf("auto-configure did not roll back switch: enabled=%v values=%v", svc.IsEnabled(), settings.values)
 	}
 }

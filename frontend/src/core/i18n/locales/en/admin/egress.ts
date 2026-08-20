@@ -18,10 +18,13 @@ export default {
       secret: 'Allocation secret',
       probe: 'Exit probe',
       reconcile: 'Reconcile interval',
+      switch: 'Use IPv6 egress',
+      detected: 'Detected prefix: {prefix}',
       configured: 'Configured',
       notConfigured: 'Not configured',
     },
     actions: {
+      autoConfigure: 'Auto-detect and configure',
       reconcile: 'Reconcile bindings',
       setSelected: 'Set selected ({count})',
       createPool: 'Create pool',
@@ -148,6 +151,9 @@ export default {
       },
     },
     success: {
+      enabled: 'IPv6 egress enabled',
+      disabled: 'IPv6 egress disabled',
+      autoConfigured: 'IPv6 prefix {prefix} detected and configured',
       poolCreated: 'IPv6 pool created',
       poolUpdated: 'IPv6 pool updated',
       poolDeleted: 'IPv6 pool deleted',
@@ -165,6 +171,8 @@ export default {
       probe: 'IPv6 exit probe failed',
       rotate: 'Failed to rotate IPv6 binding',
       reconcile: 'Failed to reconcile account bindings',
+      toggleRuntime: 'Failed to change the IPv6 egress switch',
+      autoConfigure: 'Could not detect a usable IPv6 prefix',
     },
   },
 }

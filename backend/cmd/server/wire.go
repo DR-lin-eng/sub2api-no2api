@@ -57,6 +57,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 
 		// BuildInfo provider
 		provideServiceBuildInfo,
+		provideEgressRuntimeSettings,
 
 		// Cleanup function provider
 		provideCleanup,
@@ -76,6 +77,12 @@ func provideServiceBuildInfo(buildInfo handler.BuildInfo) service.BuildInfo {
 		Version:   buildInfo.Version,
 		BuildType: buildInfo.BuildType,
 	}
+}
+
+// provideEgressRuntimeSettings adapts the application setting port to the
+// small runtime-settings interface owned by the IPv6 egress module.
+func provideEgressRuntimeSettings(repo service.SettingRepository) moduleegress.RuntimeSettings {
+	return repo
 }
 
 func provideCleanup(

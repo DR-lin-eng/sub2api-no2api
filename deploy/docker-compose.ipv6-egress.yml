@@ -10,8 +10,11 @@
 services:
   sub2api:
     environment:
-      - IPV6_EGRESS_ENABLED=true
-      - IPV6_EGRESS_ALLOCATION_SECRET=${IPV6_EGRESS_ALLOCATION_SECRET:?IPV6_EGRESS_ALLOCATION_SECRET is required}
+      # IPv6 is enabled from Admin -> IPv6 Egress. These legacy variables are
+      # optional compatibility overrides; no secret or enable switch is
+      # required in the deployment environment anymore.
+      - IPV6_EGRESS_ENABLED=${IPV6_EGRESS_ENABLED:-false}
+      - IPV6_EGRESS_ALLOCATION_SECRET=${IPV6_EGRESS_ALLOCATION_SECRET:-}
       - IPV6_EGRESS_FREEBIND=${IPV6_EGRESS_FREEBIND:-true}
       - IPV6_EGRESS_RECONCILE_INTERVAL_SECONDS=${IPV6_EGRESS_RECONCILE_INTERVAL_SECONDS:-60}
       - IPV6_EGRESS_PROBE_URL=${IPV6_EGRESS_PROBE_URL:-https://api64.ipify.org}

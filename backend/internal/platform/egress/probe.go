@@ -29,6 +29,22 @@ func Probe(ctx context.Context, route Route, policy Policy, target string, timeo
 	if effective.Mode != ModeIPv6Pool {
 		return nil, fmt.Errorf("%w: probe requires an IPv6 pool route", ErrInvalidRoute)
 	}
+	return probeEffectiveRoute(ctx, effective, policy, target, timeout)
+}
+
+// ProbeSource verifies a source IPv6 before a persistent account binding
+// exists. It is used by the one-click setup flow and keeps the same strict
+// IPv6-only behavior as account probes.
+func ProbeSource(ctx context.Context, sourceIPv6 string, policy Policy, target string, timeout time.Duration) (*ProbeResult, error) {
+	route := IPv6PoolRoute(sourceIPv6, 1, 1, false)
+	effective, err := ApplyPolicy(route, policy)
+	if err != nil {
+		return nil, err
+	}
+	return probeEffectiveRoute(ctx, effective, policy, target, timeout)
+}
+
+func probeEffectiveRoute(ctx context.Context, effective Route, policy Policy, target string, timeout time.Duration) (*ProbeResult, error) {
 	dialContext, err := NewDialContext(effective, policy, DialerOptions{Timeout: timeout})
 	if err != nil {
 		return nil, err

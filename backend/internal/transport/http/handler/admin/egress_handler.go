@@ -3,6 +3,7 @@ package admin
 import (
 	"errors"
 	"net/http"
+	"net/url"
 	"runtime"
 	"strconv"
 	"strings"
@@ -21,6 +22,10 @@ type EgressHandler struct {
 	cfg       *config.Config
 }
 
+type updateEgressRuntimeInput struct {
+	Enabled bool `json:"enabled"`
+}
+
 func NewEgressHandler(service *moduleegress.Service, heControl *moduleegress.HETunnelControlService, cfg *config.Config) *EgressHandler {
 	return &EgressHandler{service: service, heControl: heControl, cfg: cfg}
 }
@@ -30,11 +35,25 @@ func (h *EgressHandler) Runtime(c *gin.Context) {
 	freeBind := true
 	secretConfigured := false
 	if h.cfg != nil {
-		enabled = h.cfg.IPv6Egress.Enabled
 		freeBind = h.cfg.IPv6Egress.FreeBind
-		secretConfigured = len(strings.TrimSpace(h.cfg.IPv6Egress.AllocationSecret)) >= 32
+	}
+	if h.service != nil {
+		enabled = h.service.IsEnabled()
+		secretConfigured = h.service.SecretConfigured()
 	}
 	ready := h.service != nil && h.service.RuntimeReady() == nil
+	detectedPrefix := ""
+	if runtime.GOOS == "linux" {
+		if detected, err := platformegress.DetectIPv6Network(); err == nil && detected != nil {
+			detectedPrefix = detected.Prefix.String()
+		}
+	}
+	// An empty legacy probe URL uses the built-in api64.ipify.org default.
+	probeConfigured := true
+	if h.cfg != nil && strings.TrimSpace(h.cfg.IPv6Egress.ProbeURL) != "" {
+		probeURL, err := url.Parse(strings.TrimSpace(h.cfg.IPv6Egress.ProbeURL))
+		probeConfigured = err == nil && strings.EqualFold(probeURL.Scheme, "https") && strings.TrimSpace(probeURL.Hostname()) != ""
+	}
 	response.Success(c, gin.H{
 		"enabled":           enabled,
 		"supported":         runtime.GOOS == "linux",
@@ -49,9 +68,40 @@ func (h *EgressHandler) Runtime(c *gin.Context) {
 			}
 			return h.cfg.IPv6Egress.ReconcileIntervalSeconds
 		}(),
-		"probe_configured": h.cfg != nil && strings.TrimSpace(h.cfg.IPv6Egress.ProbeURL) != "",
+		"probe_configured": probeConfigured,
 		"control_enabled":  h.cfg != nil && h.cfg.IPv6Egress.ControlEnabled,
+		"detected_prefix":  detectedPrefix,
 	})
+}
+
+func (h *EgressHandler) UpdateRuntime(c *gin.Context) {
+	var input updateEgressRuntimeInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if h.service == nil {
+		response.Error(c, http.StatusServiceUnavailable, "IPv6 egress service is unavailable")
+		return
+	}
+	if err := h.service.SetEnabled(c.Request.Context(), input.Enabled); err != nil {
+		h.writeError(c, err)
+		return
+	}
+	h.Runtime(c)
+}
+
+func (h *EgressHandler) AutoConfigure(c *gin.Context) {
+	if h.service == nil {
+		response.Error(c, http.StatusServiceUnavailable, "IPv6 egress service is unavailable")
+		return
+	}
+	result, err := h.service.AutoConfigure(c.Request.Context())
+	if err != nil {
+		h.writeError(c, err)
+		return
+	}
+	response.Success(c, result)
 }
 
 func (h *EgressHandler) GetHETunnel(c *gin.Context) {
@@ -220,6 +270,7 @@ func (h *EgressHandler) writeError(c *gin.Context, err error) {
 	case errors.Is(err, moduleegress.ErrPoolInUse), errors.Is(err, moduleegress.ErrPoolOverlap), errors.Is(err, moduleegress.ErrBindingChanged), errors.Is(err, moduleegress.ErrAddressConflict):
 		response.Error(c, http.StatusConflict, err.Error())
 	case errors.Is(err, moduleegress.ErrPoolDisabled), errors.Is(err, moduleegress.ErrPoolUnhealthy), errors.Is(err, moduleegress.ErrAllocationDisabled), errors.Is(err, moduleegress.ErrRuntimeUnavailable),
+		errors.Is(err, moduleegress.ErrAutoConfigure), errors.Is(err, platformegress.ErrIPv6AutoDetect),
 		errors.Is(err, platformegress.ErrIPv6Disabled), errors.Is(err, platformegress.ErrIPv6Unsupported),
 		errors.Is(err, platformegress.ErrIPv6Destination), errors.Is(err, platformegress.ErrIPv6SourceRequired):
 		response.Error(c, http.StatusUnprocessableEntity, err.Error())

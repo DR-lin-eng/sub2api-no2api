@@ -8,6 +8,18 @@ import (
 	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 )
 
+// RuntimeSettingKey is intentionally owned by this module so the runtime
+// switch does not depend on the application settings package. The value is a
+// regular persisted setting and is never exposed as a secret.
+const RuntimeSettingKey = "ipv6_egress_enabled"
+
+const allocationSecretSettingKey = "ipv6_egress_allocation_secret"
+
+type RuntimeSettings interface {
+	GetValue(ctx context.Context, key string) (string, error)
+	Set(ctx context.Context, key, value string) error
+}
+
 const (
 	PoolStatusActive   = "active"
 	PoolStatusDisabled = "disabled"
@@ -27,6 +39,7 @@ var (
 	ErrAllocationDisabled = errors.New("IPv6 egress allocation secret is not configured")
 	ErrPoolInUse          = errors.New("IPv6 egress pool still has account bindings")
 	ErrRuntimeUnavailable = errors.New("IPv6 egress runtime is not ready")
+	ErrAutoConfigure      = errors.New("IPv6 egress automatic configuration failed")
 )
 
 type Pool struct {
@@ -90,6 +103,14 @@ type SetAccountRouteInput struct {
 type BindingPage struct {
 	Items []Binding `json:"items"`
 	Total int64     `json:"total"`
+}
+
+type AutoConfigureResult struct {
+	Enabled  bool                               `json:"enabled"`
+	Created  bool                               `json:"created"`
+	Detected platformegress.DetectedIPv6Network `json:"detected"`
+	Pool     *Pool                              `json:"pool"`
+	Probe    *platformegress.ProbeResult        `json:"probe"`
 }
 
 type Store interface {

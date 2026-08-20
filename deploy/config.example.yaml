@@ -44,13 +44,10 @@ deployment:
 # 账号级 IPv6 出口（仅支持 Linux 单机模式）
 # =============================================================================
 ipv6_egress:
-  # Requires a routed IPv6 prefix and deploy/docker-compose.ipv6-egress.yml.
-  # 需要运营商路由到宿主机的 IPv6 前缀及对应 Compose override。
-  enabled: false
-  # Stable secret used by deterministic account allocation. Generate once with:
-  # openssl rand -hex 32
-  # 确定性账号地址分配密钥；生成后必须跨重启保持不变。
-  allocation_secret: ""
+  # The runtime switch and pool prefix are managed from Admin -> IPv6 Egress.
+  # 运行开关和 IPv6 段在“管理后台 -> IPv6 出口”中管理。
+  # Older deployments may still provide IPV6_EGRESS_ENABLED and
+  # IPV6_EGRESS_ALLOCATION_SECRET as environment/YAML compatibility values.
   # Linux per-socket IPV6_FREEBIND. The main container does not need NET_ADMIN.
   # Linux 每 socket IPV6_FREEBIND；主应用容器不需要 NET_ADMIN。
   freebind: true

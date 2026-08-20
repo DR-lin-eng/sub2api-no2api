@@ -131,18 +131,17 @@
               {{ t('admin.settings.features.ipv6Egress.description') }}
             </p>
           </div>
-          <div class="space-y-5 p-6">
-            <div class="flex items-center justify-between gap-6">
-              <div>
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {{ t('admin.settings.features.ipv6Egress.enabled') }}
-                </label>
-                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                  {{ t('admin.settings.features.ipv6Egress.enabledHint') }}
-                </p>
-              </div>
-              <Toggle v-model="form.ipv6_egress_ui_enabled" />
-            </div>
+          <div class="space-y-3 p-6">
+            <p class="text-sm text-gray-600 dark:text-gray-300">
+              {{ t('admin.settings.features.ipv6Egress.enabledHint') }}
+            </p>
+            <RouterLink
+              to="/admin/egress"
+              class="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
+            >
+              {{ t('admin.settings.features.ipv6Egress.configureLink') }}
+              <span aria-hidden="true">→</span>
+            </RouterLink>
           </div>
         </div>
 

@@ -15,6 +15,13 @@ export interface IPv6EgressRuntime {
   reconcile_interval_seconds: number
   probe_configured: boolean
   control_enabled: boolean
+  detected_prefix?: string
+}
+
+export interface IPv6EgressDetectedNetwork {
+  address: string
+  prefix: string
+  interface: string
 }
 
 export interface HETunnelConfig {
@@ -108,8 +115,26 @@ export interface IPv6EgressProbeResult {
   probe_target: string
 }
 
+export interface IPv6EgressAutoConfigureResult {
+  enabled: boolean
+  created: boolean
+  detected: IPv6EgressDetectedNetwork
+  pool: IPv6EgressPool
+  probe: IPv6EgressProbeResult
+}
+
 export async function getRuntime(): Promise<IPv6EgressRuntime> {
   const { data } = await apiClient.get<IPv6EgressRuntime>('/admin/egress/runtime')
+  return data
+}
+
+export async function updateRuntime(enabled: boolean): Promise<IPv6EgressRuntime> {
+  const { data } = await apiClient.put<IPv6EgressRuntime>('/admin/egress/runtime', { enabled })
+  return data
+}
+
+export async function autoConfigure(): Promise<IPv6EgressAutoConfigureResult> {
+  const { data } = await apiClient.post<IPv6EgressAutoConfigureResult>('/admin/egress/auto-configure')
   return data
 }
 
@@ -193,6 +218,8 @@ export async function runHETunnelAction(action: 'apply' | 'check' | 'remove'): P
 
 export const egressAPI = {
   getRuntime,
+  updateRuntime,
+  autoConfigure,
   listPools,
   createPool,
   updatePool,

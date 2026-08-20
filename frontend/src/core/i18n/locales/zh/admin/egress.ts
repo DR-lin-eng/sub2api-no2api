@@ -18,10 +18,13 @@ export default {
       secret: '分配密钥',
       probe: '出口探测',
       reconcile: '补齐周期',
+      switch: '启用 IPv6 出口',
+      detected: '已检测到前缀：{prefix}',
       configured: '已配置',
       notConfigured: '未配置',
     },
     actions: {
+      autoConfigure: '自动检测并配置',
       reconcile: '补齐绑定',
       setSelected: '设置所选账号（{count}）',
       createPool: '新建地址池',
@@ -148,6 +151,9 @@ export default {
       },
     },
     success: {
+      enabled: 'IPv6 出口已启用',
+      disabled: 'IPv6 出口已停用',
+      autoConfigured: '已检测并配置 IPv6 前缀 {prefix}',
       poolCreated: 'IPv6 地址池已创建',
       poolUpdated: 'IPv6 地址池已更新',
       poolDeleted: 'IPv6 地址池已删除',
@@ -165,6 +171,8 @@ export default {
       probe: 'IPv6 出口探测失败',
       rotate: '轮换 IPv6 绑定失败',
       reconcile: '补齐账号绑定失败',
+      toggleRuntime: '修改 IPv6 出口开关失败',
+      autoConfigure: '没有检测到可用的 IPv6 段',
     },
   },
 }

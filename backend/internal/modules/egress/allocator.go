@@ -8,16 +8,37 @@ import (
 	"math/big"
 	"net/netip"
 	"strings"
+	"sync"
 )
 
 const maxAllocationAttempts = 64
 
 type Allocator struct {
+	mu     sync.RWMutex
 	secret []byte
 }
 
 func NewAllocator(secret string) *Allocator {
 	return &Allocator{secret: []byte(strings.TrimSpace(secret))}
+}
+
+func (a *Allocator) SetSecret(secret string) {
+	if a == nil {
+		return
+	}
+	a.mu.Lock()
+	a.secret = []byte(strings.TrimSpace(secret))
+	a.mu.Unlock()
+}
+
+func (a *Allocator) SecretConfigured() bool {
+	if a == nil {
+		return false
+	}
+	a.mu.RLock()
+	configured := len(a.secret) >= 32
+	a.mu.RUnlock()
+	return configured
 }
 
 func ValidatePoolCIDR(raw string) (netip.Prefix, error) {
@@ -45,7 +66,13 @@ func PoolCapacity(raw string) (string, error) {
 }
 
 func (a *Allocator) Address(pool Pool, accountID, bindingVersion int64, attempt int) (string, error) {
-	if a == nil || len(a.secret) == 0 {
+	if a == nil {
+		return "", ErrAllocationDisabled
+	}
+	a.mu.RLock()
+	secret := append([]byte(nil), a.secret...)
+	a.mu.RUnlock()
+	if len(secret) == 0 {
 		return "", ErrAllocationDisabled
 	}
 	if accountID <= 0 || pool.ID <= 0 || pool.AllocationVersion <= 0 || bindingVersion <= 0 || attempt < 0 {
@@ -56,7 +83,7 @@ func (a *Allocator) Address(pool Pool, accountID, bindingVersion int64, attempt 
 		return "", err
 	}
 
-	mac := hmac.New(sha256.New, a.secret)
+	mac := hmac.New(sha256.New, secret)
 	var input [40]byte
 	binary.BigEndian.PutUint64(input[0:8], uint64(pool.ID))
 	binary.BigEndian.PutUint64(input[8:16], uint64(pool.AllocationVersion))

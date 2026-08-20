@@ -4,6 +4,8 @@ import EgressPage from '@/features/admin-egress/presentation/pages/EgressPage.vu
 
 const egressAPI = vi.hoisted(() => ({
   getRuntime: vi.fn(),
+  updateRuntime: vi.fn(),
+  autoConfigure: vi.fn(),
   listPools: vi.fn(),
   createPool: vi.fn(),
   updatePool: vi.fn(),
@@ -124,7 +126,11 @@ function mountPage() {
         AppLayout: { template: '<div><slot /></div>' },
         Icon: { template: '<span />' },
         Select: { props: ['modelValue', 'options'], template: '<div class="select-stub" />' },
-        Toggle: { props: ['modelValue', 'disabled'], template: '<button type="button" class="toggle-stub" :disabled="disabled" />' },
+        Toggle: {
+          props: ['modelValue', 'disabled'],
+          emits: ['update:modelValue'],
+          template: '<button type="button" class="toggle-stub" :disabled="disabled" @click="$emit(\'update:modelValue\', !modelValue)" />',
+        },
         Pagination: { template: '<div />' },
         BaseDialog: {
           props: ['show', 'title'],
@@ -144,6 +150,14 @@ describe('EgressPage', () => {
     appStore.showSuccess.mockReset()
     appStore.showError.mockReset()
     egressAPI.getRuntime.mockResolvedValue(runtime)
+    egressAPI.updateRuntime.mockImplementation(async (enabled: boolean) => ({ ...runtime, enabled, ready: enabled, secret_configured: enabled }))
+    egressAPI.autoConfigure.mockResolvedValue({
+      enabled: true,
+      created: true,
+      detected: { address: '2001:db8:10::42', prefix: '2001:db8:10::/64', interface: 'eth0' },
+      pool,
+      probe: { source_ipv6: '2001:db8:10::42', observed_ip: '2001:db8:10::42', latency_ms: 10, probe_target: 'echo.test' },
+    })
     egressAPI.listPools.mockResolvedValue([pool])
     egressAPI.probeAccount.mockResolvedValue({
       source_ipv6: '2001:db8:10::17',
@@ -172,6 +186,22 @@ describe('EgressPage', () => {
     expect(wrapper.text()).toContain('2001:db8:10::/64')
     expect(wrapper.text()).toContain('18446744073709551615')
     expect(wrapper.text()).toContain('admin.egress.health.healthy')
+  })
+
+  it('owns the runtime switch and one-click setup actions on the egress page', async () => {
+    const wrapper = mountPage()
+    await flushPromises()
+
+    const runtimeToggle = wrapper.get('[data-testid="ipv6-runtime-toggle"]')
+    await runtimeToggle.trigger('click')
+    await flushPromises()
+    expect(egressAPI.updateRuntime).toHaveBeenCalledWith(expect.any(Boolean))
+
+    const autoButton = wrapper.findAll('button').find((button) => button.text() === 'admin.egress.actions.autoConfigure')
+    expect(autoButton).toBeTruthy()
+    await autoButton!.trigger('click')
+    await flushPromises()
+    expect(egressAPI.autoConfigure).toHaveBeenCalledTimes(1)
   })
 
   it('loads account bindings on demand and probes through the selected account route', async () => {
@@ -207,7 +237,7 @@ describe('EgressPage', () => {
     expect(editButton.exists()).toBe(true)
     await editButton.trigger('click')
 
-    const toggle = wrapper.find('.toggle-stub')
+    const toggle = wrapper.find('.dialog-stub .toggle-stub')
     expect(toggle.exists()).toBe(true)
     expect(toggle.attributes('disabled')).toBeDefined()
   })

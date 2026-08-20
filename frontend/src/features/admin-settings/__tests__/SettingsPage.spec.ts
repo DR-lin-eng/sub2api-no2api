@@ -1039,7 +1039,7 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(payload.model_plaza_auto_public_models).toBe(true);
   });
 
-  it("shows and saves the IPv6 egress management UI switch", async () => {
+  it("links IPv6 egress configuration to its dedicated page", async () => {
     const wrapper = mountView();
     await flushPromises();
     await openFeaturesTab(wrapper);
@@ -1049,14 +1049,8 @@ describe("admin SettingsView payment visible method controls", () => {
       .find((node) => node.text().includes("admin.settings.features.ipv6Egress.title"));
     expect(card).toBeDefined();
 
-    const toggle = card!.get('input[type="checkbox"]');
-    expect((toggle.element as HTMLInputElement).checked).toBe(false);
-    await toggle.setValue(true);
-    await wrapper.find("form").trigger("submit.prevent");
-    await flushPromises();
-
-    const payload = updateSettings.mock.calls.at(-1)?.[0] as Record<string, unknown>;
-    expect(payload.ipv6_egress_ui_enabled).toBe(true);
+    expect(card!.find('router-link-stub').exists()).toBe(true);
+    expect(card!.find('router-link-stub').attributes('to')).toBe('/admin/egress');
   });
 
   it("loads and saves support chat message retention days", async () => {
