@@ -199,6 +199,8 @@ func adminAPIKeyRequiredScope(method, path string) string {
 		return service.AdminAPIKeyScopeUsersRead[:len(service.AdminAPIKeyScopeUsersRead)-len(".read")] + verb
 	case strings.HasPrefix(path, "/api/v1/admin/accounts"):
 		return service.AdminAPIKeyScopeAccountsRead[:len(service.AdminAPIKeyScopeAccountsRead)-len(".read")] + verb
+	case strings.HasPrefix(path, "/api/v1/admin/account-inspection"):
+		return service.AdminAPIKeyScopeAccountsRead[:len(service.AdminAPIKeyScopeAccountsRead)-len(".read")] + verb
 	case strings.HasPrefix(path, "/api/v1/admin/settings"):
 		return service.AdminAPIKeyScopeSettingsRead[:len(service.AdminAPIKeyScopeSettingsRead)-len(".read")] + verb
 	case strings.HasPrefix(path, "/api/v1/admin/backups"):

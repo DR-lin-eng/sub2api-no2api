@@ -669,6 +669,24 @@ func ProvideScheduledTestRunnerService(
 	return svc
 }
 
+// ProvideAccountInspectionService creates and starts the account inspection runner.
+// Manual runs remain available even when worker scheduling is disabled.
+func ProvideAccountInspectionService(
+	accountRepo AccountRepository,
+	usageService *AccountUsageService,
+	settingRepo SettingRepository,
+	lockCache LeaderLockCache,
+	db *sql.DB,
+	cfg *config.Config,
+) *AccountInspectionService {
+	svc := NewAccountInspectionService(accountRepo, usageService, settingRepo)
+	svc.SetLeaderLock(lockCache, db)
+	if cfg != nil && cfg.Deployment.WorkerEnabledResolved() {
+		svc.Start()
+	}
+	return svc
+}
+
 // ProvideOpsScheduledReportService creates and starts OpsScheduledReportService.
 func ProvideOpsScheduledReportService(
 	opsService *OpsService,
@@ -1043,6 +1061,7 @@ var ProviderSet = wire.NewSet(
 	ProvideSupportChatRetentionService,
 	ProvideScheduledTestService,
 	ProvideScheduledTestRunnerService,
+	ProvideAccountInspectionService,
 	NewGroupCapacityService,
 	NewChannelService,
 	wire.Bind(new(ChannelCacheInvalidator), new(*ChannelService)),

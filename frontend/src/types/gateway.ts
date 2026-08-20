@@ -282,6 +282,10 @@ export interface AccountHourlyUsageStats {
   successful_requests: number
   success_rate: number
   avg_first_token_ms: number | null
+  input_tokens?: number
+  cache_creation_tokens?: number
+  cache_read_tokens?: number
+  cache_hit_rate?: number | null
   error_4xx: number
   error_5xx: number
 }
