@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/shared/openai_compat"
 )
@@ -14,8 +15,9 @@ type openAIForwardModel struct {
 }
 
 // WithOpenAIForwardModel records the channel-mapped model that Forward sees.
-// The scheduler uses it only for upstream channel restriction checks; normal
-// account capability and model matching continue to use the requested model.
+// The scheduler uses it for both upstream channel restrictions and account
+// capability checks. The original client model remains the billing/sticky
+// identity; this context only describes the model sent upstream.
 func WithOpenAIForwardModel(ctx context.Context, model string, useCompactModelMapping bool) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
@@ -32,6 +34,15 @@ func openAIForwardModelFromContext(ctx context.Context) (openAIForwardModel, boo
 	}
 	model, ok := ctx.Value(openAIForwardModelContextKey{}).(openAIForwardModel)
 	return model, ok
+}
+
+func openAIRequestModelForSupport(ctx context.Context, requestedModel string) string {
+	if forwardModel, ok := openAIForwardModelFromContext(ctx); ok {
+		if model := strings.TrimSpace(forwardModel.model); model != "" {
+			return model
+		}
+	}
+	return strings.TrimSpace(requestedModel)
 }
 
 func shouldForwardOpenAIResponsesViaRawChatCompletions(account *Account) bool {

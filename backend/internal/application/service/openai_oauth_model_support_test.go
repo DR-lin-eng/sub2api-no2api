@@ -3,6 +3,7 @@
 package service
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -31,8 +32,7 @@ func TestIsModelSupported_OpenAIOAuthEmptyMapping_ServableModels(t *testing.T) {
 		"gpt-image-1",       // 图像生成模型
 		"claude-sonnet-4-6", // /v1/messages 调度默认映射兜底
 		"claude-3-opus-20240229",
-		"gpt-4o",          // 保守 fail-open：非黑名单模型保持允许
-		"my-custom-alias", // 自定义别名可能由渠道级映射在转发前改写，保持允许
+		"gpt-5.5",
 	}
 	for _, model := range servable {
 		require.True(t, account.IsModelSupported(model), "expected %q to be servable by empty-mapping OpenAI OAuth account", model)
@@ -59,6 +59,8 @@ func TestIsModelSupported_OpenAIOAuthEmptyMapping_RejectsForeignModels(t *testin
 		"minimax-m2.5",
 		"llama-3.3-70b",
 		"provider/deepseek-v4", // vendor/model 形式取最后一段判定
+		"gpt-4o",               // 非 Codex 模型不能直接发到 OAuth
+		"my-custom-alias",      // 未经渠道映射的自定义别名不能直接发到 OAuth
 	}
 	for _, model := range foreign {
 		require.False(t, account.IsModelSupported(model), "expected %q to be rejected by empty-mapping OpenAI OAuth account", model)
@@ -102,6 +104,26 @@ func TestIsModelSupported_OpenAIOAuthPassthroughIgnoresLeftoverMapping(t *testin
 	require.True(t, account.IsModelSupported("deepseek-v4"), "透传应放行任意模型")
 }
 
+func TestIsModelSupportedForRequest_OpenAIOAuthChannelMappedAlias(t *testing.T) {
+	account := newOpenAIOAuthAccountForModelTest()
+	ctx := WithOpenAIForwardModel(context.Background(), "gpt-5.4", false)
+	routedModel := openAIRequestModelForSupport(ctx, "my-custom-alias")
+
+	require.Equal(t, "gpt-5.4", routedModel)
+	require.True(t, account.IsModelSupportedForRequest("my-custom-alias", routedModel))
+	require.False(t, account.IsModelSupportedForRequest("my-custom-alias", ""))
+}
+
+func TestIsModelSupportedForRequest_UsesRoutedModelForExplicitMapping(t *testing.T) {
+	account := newOpenAIOAuthAccountForModelTest()
+	account.Credentials = map[string]any{
+		"model_mapping": map[string]any{"gpt-5.4": "gpt-5.4"},
+	}
+
+	require.True(t, account.IsModelSupportedForRequest("channel-alias", "gpt-5.4"))
+	require.False(t, account.IsModelSupportedForRequest("channel-alias", "gpt-5.5"))
+}
+
 func TestIsModelSupported_OpenAIAPIKeyEmptyMappingAllowsAll(t *testing.T) {
 	account := &Account{
 		ID:       2,
@@ -124,12 +146,12 @@ func TestIsOpenAIOAuthServableModel(t *testing.T) {
 	require.True(t, isOpenAIOAuthServableModel("gpt-5.4-high"))
 	require.True(t, isOpenAIOAuthServableModel("  gpt-5.3-codex  "))
 	require.True(t, isOpenAIOAuthServableModel("claude-3-5-haiku-20241022"))
-	require.True(t, isOpenAIOAuthServableModel("DeepThink-x"))  // 非黑名单前缀，保持允许
+	require.False(t, isOpenAIOAuthServableModel("DeepThink-x")) // 未知模型不能直达 Codex
 	require.False(t, isOpenAIOAuthServableModel("DeepSeek-V4")) // 大小写不敏感
 	require.False(t, isOpenAIOAuthServableModel("qwen3-235b-thinking"))
-	require.True(t, isOpenAIOAuthServableModel("deepseekcoder")) // 无连字符 → 非黑名单前缀，保持允许
+	require.False(t, isOpenAIOAuthServableModel("deepseekcoder")) // 未知拼写同样不能直达 Codex
 	require.False(t, isOpenAIOAuthServableModel("k3"))
 	require.False(t, isOpenAIOAuthServableModel("k3-256k"))
 	require.False(t, isOpenAIOAuthServableModel("provider/k3"))
-	require.True(t, isOpenAIOAuthServableModel("my-k3-alias")) // 非精确 bare ID，自定义别名 fail-open
+	require.False(t, isOpenAIOAuthServableModel("my-k3-alias")) // 未经渠道映射的自定义别名拒绝
 }

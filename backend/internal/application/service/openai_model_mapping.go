@@ -24,11 +24,6 @@ func resolveOpenAIForwardModel(account *Account, requestedModel, messagesDispatc
 // openAIOAuthForeignModelPrefixes 列出明确属于其他厂商家族的模型名前缀。
 // Codex 上游不可能服务这些模型：转发阶段 normalizeOpenAIModelForUpstream
 // 对未知模型原样透传，上游必然返回不可重试的 400。
-//
-// 采用保守黑名单而非 Codex 模型白名单：未知/自定义别名保持「允许」，
-// 以兼容渠道级模型映射等「账号选定之后才改写模型名」的部署方式
-// （调度过滤看到的是改写前的原始模型名）。前缀分类的先例见
-// ResolveThinkingProtocol（thinking_protocol.go）。
 var openAIOAuthForeignModelPrefixes = []string{
 	"deepseek-",
 	"glm-",
@@ -59,12 +54,9 @@ var openAIOAuthForeignModelPrefixes = []string{
 }
 
 // isOpenAIOAuthServableModel 判断「空 model_mapping 的 OpenAI OAuth 账号」能否
-// 服务请求模型。空映射默认仍是「允许」，仅排除明确属于其他厂商家族的模型
-// （deepseek-*/glm-*、以及 Kimi Code 官方 bare ID k3 / k3-256k 等）——这类
-// 请求原样透传必然被 Codex 上游以不可重试的 400 拒绝，且不触发 failover，
-// 应在调度阶段就跳过该账号，把请求让给显式声明支持该模型的账号（#3662）。
-// bare k3 仅精确匹配（取 last segment 后），不使用宽泛 k3- 前缀，以免误伤
-// 自定义别名；显式 model_mapping 命中路径不经过本函数，语义不变。
+// 服务请求模型。只有 Codex 已知模型和 Claude Messages 的可归一化家族才放行；
+// 真正未知的模型应在调度阶段交给 API Key/显式映射账号，避免先把原始别名发到
+// Codex 后才得到不可重试的 400。渠道别名在调度前会以映射后的模型调用本函数。
 func isOpenAIOAuthServableModel(requestedModel string) bool {
 	model := strings.ToLower(lastOpenAIModelSegment(requestedModel))
 	if model == "" {
@@ -79,7 +71,11 @@ func isOpenAIOAuthServableModel(requestedModel string) bool {
 			return false
 		}
 	}
-	return true
+	if claudeMessagesDispatchFamily(model) != "" {
+		return true
+	}
+	_, known := normalizeKnownCodexModel(model)
+	return known
 }
 
 // resolveOpenAICompactForwardModel determines the compact-only upstream model
