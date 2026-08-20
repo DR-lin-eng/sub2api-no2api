@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
+	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
 	"github.com/stretchr/testify/require"
 )
 
@@ -109,6 +111,71 @@ func TestCoderOpenAIWSClientDialer_ProxyTransportTLSHandshakeTimeout(t *testing.
 	require.True(t, ok)
 	require.NotNil(t, transport)
 	require.Equal(t, 10*time.Second, transport.TLSHandshakeTimeout)
+}
+
+func TestCoderOpenAIWSClientDialer_ProfileClientsStayIsolated(t *testing.T) {
+	dialer := newDefaultOpenAIWSClientDialer()
+	impl, ok := dialer.(*coderOpenAIWSClientDialer)
+	require.True(t, ok)
+
+	profileA := &tlsfingerprint.Profile{Name: "profile-a", CipherSuites: []uint16{0x1301}}
+	profileB := &tlsfingerprint.Profile{Name: "profile-b", CipherSuites: []uint16{0x1302}}
+	clientA, err := impl.routeHTTPClientWithProfile(platformegress.DirectRoute(false), profileA)
+	require.NoError(t, err)
+	sameA, err := impl.routeHTTPClientWithProfile(platformegress.DirectRoute(false), profileA)
+	require.NoError(t, err)
+	clientB, err := impl.routeHTTPClientWithProfile(platformegress.DirectRoute(false), profileB)
+	require.NoError(t, err)
+
+	require.Same(t, clientA, sameA)
+	require.NotSame(t, clientA, clientB)
+	transport, ok := clientA.Transport.(*http.Transport)
+	require.True(t, ok)
+	require.NotNil(t, transport.DialTLSContext)
+}
+
+func TestCoderOpenAIWSClientDialer_ProfileHTTPProxyUsesFingerprintDialer(t *testing.T) {
+	dialer := newDefaultOpenAIWSClientDialer()
+	impl, ok := dialer.(*coderOpenAIWSClientDialer)
+	require.True(t, ok)
+
+	client, err := impl.routeHTTPClientWithProfile(
+		platformegress.ExternalProxyRoute("http://127.0.0.1:18080"),
+		&tlsfingerprint.Profile{Name: "profile"},
+	)
+	require.NoError(t, err)
+	transport, ok := client.Transport.(*http.Transport)
+	require.True(t, ok)
+	require.NotNil(t, transport.DialTLSContext)
+	require.Nil(t, transport.Proxy, "custom CONNECT dialer owns the HTTP proxy tunnel")
+}
+
+func TestCoderOpenAIWSClientDialer_ProfileHTTPSProxyUsesFingerprintDialer(t *testing.T) {
+	dialer := newDefaultOpenAIWSClientDialer()
+	impl, ok := dialer.(*coderOpenAIWSClientDialer)
+	require.True(t, ok)
+
+	client, err := impl.routeHTTPClientWithProfile(
+		platformegress.ExternalProxyRoute("https://127.0.0.1:18443"),
+		&tlsfingerprint.Profile{Name: "profile"},
+	)
+	require.NoError(t, err)
+	transport, ok := client.Transport.(*http.Transport)
+	require.True(t, ok)
+	require.NotNil(t, transport.DialTLSContext)
+	require.Nil(t, transport.Proxy)
+}
+
+func TestOpenAIWSAcquireCompatibilityIncludesTLSProfile(t *testing.T) {
+	first := openAIWSAcquireCompatibility(openAIWSAcquireRequest{
+		TLSProfile: &tlsfingerprint.Profile{Name: "profile-a", CipherSuites: []uint16{0x1301}},
+	})
+	second := openAIWSAcquireCompatibility(openAIWSAcquireRequest{
+		TLSProfile: &tlsfingerprint.Profile{Name: "profile-b", CipherSuites: []uint16{0x1302}},
+	})
+
+	require.NotEmpty(t, first.tlsProfileKey)
+	require.NotEqual(t, first.tlsProfileKey, second.tlsProfileKey)
 }
 
 func TestCoderOpenAIWSClientConn_DoesNotSupportIdlePingWithoutReader(t *testing.T) {

@@ -915,7 +915,14 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			return fmt.Errorf("refresh ws authentication headers: %w", err)
 		}
 		dialCtx, cancelDial := context.WithTimeout(ctx, s.openAIWSDialTimeout())
-		upstreamConn, statusCode, handshakeHeaders, err = dialOpenAIWSRoute(dialer, dialCtx, wsURL, headers, accountEgressRoute(account, proxyURL))
+		upstreamConn, statusCode, handshakeHeaders, err = dialOpenAIWSRouteWithProfile(
+			dialer,
+			dialCtx,
+			wsURL,
+			headers,
+			accountEgressRoute(account, proxyURL),
+			s.resolveTLSProfile(account),
+		)
 		cancelDial()
 		if err == nil {
 			break

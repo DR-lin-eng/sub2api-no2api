@@ -126,6 +126,7 @@ type upstreamClientEntry struct {
 	routeKey               string // 完整出口标识（含 IPv6 地址和绑定版本）
 	poolKey                string // 连接池配置标识（用于检测配置变更）
 	protocolMode           string // 协议模式（default/openai_h1/openai_h2/openai_h1_fallback）
+	tlsProfileKey          string // TLS 指纹 Profile 身份（仅 TLS 客户端使用）
 	lastUsed               int64  // 最后使用时间戳（纳秒），用于 LRU 淘汰
 	inFlight               int64  // 当前进行中的请求数，>0 时不可淘汰
 	accountID              int64  // 用于绑定轮换时淘汰同账号的旧出口连接
@@ -535,7 +536,9 @@ func (s *httpUpstreamService) getClientEntryWithTLS(proxyURL string, accountID i
 }
 
 func (s *httpUpstreamService) getClientEntryWithTLSRoute(route platformegress.Route, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile, upstreamProfile service.HTTPUpstreamProfile, markInFlight bool, enforceLimit bool) (*upstreamClientEntry, error) {
-	isolation := s.getIsolationMode()
+	// A TLS profile is part of the upstream identity. Never allow the global
+	// proxy-level pool mode to share a fingerprint transport across accounts.
+	isolation := config.ConnectionPoolIsolationAccountProxy
 	effective, routeKey, proxyKey, parsedProxy, err := s.normalizeEgressRoute(route)
 	if err != nil {
 		return nil, err
@@ -545,8 +548,11 @@ func (s *httpUpstreamService) getClientEntryWithTLSRoute(route platformegress.Ro
 	}
 	settings := s.resolvePoolSettings(isolation, accountConcurrency)
 	settings = s.applyProfilePoolSettings(settings, upstreamProfile)
-	// TLS 指纹客户端使用独立的缓存键，加 "tls:" 前缀
-	cacheKey := "tls:" + buildCacheKey(isolation, routeKey, accountID, upstreamProtocolModeDefault) + upstreamProfileCacheKeySuffix(upstreamProfile)
+	// TLS 指纹客户端使用独立的缓存键，加 "tls:" 前缀；Profile key 变化时
+	// 必须建立新连接，避免旧 ClientHello 继续服务同一账号。
+	profileKey := tlsfingerprint.FingerprintKey(profile)
+	cacheKey := "tls:" + buildCacheKey(isolation, routeKey, accountID, upstreamProtocolModeDefault) +
+		upstreamProfileCacheKeySuffix(upstreamProfile) + "|fingerprint:" + profileKey
 	poolKey := buildPoolKey(settings, upstreamProtocolModeDefault) + ":tls"
 
 	now := time.Now()
@@ -611,12 +617,13 @@ func (s *httpUpstreamService) getClientEntryWithTLSRoute(route platformegress.Ro
 	}
 
 	entry := &upstreamClientEntry{
-		client:    client,
-		accountID: accountID,
-		proxyKey:  proxyKey,
-		routeKey:  routeKey,
-		routeMode: effective.Mode,
-		poolKey:   poolKey,
+		client:        client,
+		accountID:     accountID,
+		proxyKey:      proxyKey,
+		routeKey:      routeKey,
+		routeMode:     effective.Mode,
+		poolKey:       poolKey,
+		tlsProfileKey: profileKey,
 	}
 	atomic.StoreInt64(&entry.lastUsed, nowUnix)
 	if markInFlight {
@@ -1581,8 +1588,14 @@ func buildUpstreamTransportWithTLSFingerprintForRoute(settings poolSettings, pro
 		MaxConnsPerHost:       settings.maxConnsPerHost,
 		IdleConnTimeout:       settings.idleConnTimeout,
 		ResponseHeaderTimeout: settings.responseHeaderTimeout,
-		// 禁用默认的 TLS，我们使用自定义的 DialTLSContext
-		ForceAttemptHTTP2: false,
+		// 禁用默认的 TLS，我们使用自定义的 DialTLSContext。Codex's
+		// rustls profile explicitly offers h2, so retain HTTP/2 when present.
+		ForceAttemptHTTP2: profileOffersHTTP2(profile),
+	}
+	if transport.ForceAttemptHTTP2 {
+		if _, err := enableOpenAIHTTP2KeepAlive(transport); err != nil {
+			return nil, err
+		}
 	}
 
 	// 根据代理类型选择合适的 TLS 指纹 Dialer
@@ -1611,9 +1624,11 @@ func buildUpstreamTransportWithTLSFingerprintForRoute(settings poolSettings, pro
 			socks5Dialer := tlsfingerprint.NewSOCKS5ProxyDialer(profile, proxyURL)
 			transport.DialTLSContext = socks5Dialer.DialTLSContext
 		case "https":
-			// The fingerprint dialer emits a plaintext CONNECT preface and cannot
-			// establish TLS to an HTTPS proxy. Keep proxy routing via net/http.
-			return buildUpstreamTransportForRoute(settings, proxyURL, upstreamProtocolModeDefault, route, policy)
+			// The dialer establishes the proxy's TLS layer with the platform
+			// verifier, then uses uTLS inside the CONNECT tunnel for the target.
+			slog.Debug("tls_fingerprint_transport_https_proxy_connect", "proxy", proxyURL.Host)
+			httpDialer := tlsfingerprint.NewHTTPProxyDialer(profile, proxyURL)
+			transport.DialTLSContext = httpDialer.DialTLSContext
 		case "http":
 			// HTTP/HTTPS 代理：使用 HTTPProxyDialer（CONNECT 隧道）
 			slog.Debug("tls_fingerprint_transport_http_connect", "proxy", proxyURL.Host)
@@ -1629,6 +1644,18 @@ func buildUpstreamTransportWithTLSFingerprintForRoute(settings poolSettings, pro
 	}
 
 	return transport, nil
+}
+
+func profileOffersHTTP2(profile *tlsfingerprint.Profile) bool {
+	if profile == nil {
+		return false
+	}
+	for _, protocol := range profile.ALPNProtocols {
+		if strings.EqualFold(strings.TrimSpace(protocol), "h2") {
+			return true
+		}
+	}
+	return false
 }
 
 // trackedBody 带跟踪功能的响应体包装器

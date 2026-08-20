@@ -862,9 +862,9 @@ export default {
         },
         tlsFingerprint: {
           label: 'TLS Fingerprint Simulation',
-          hint: 'Simulate Node.js/Claude Code client TLS fingerprint',
+          hint: 'Keep one stable TLS profile per Anthropic or OpenAI OAuth account',
           defaultProfile: 'Built-in Default',
-          randomProfile: 'Random'
+          randomProfile: 'Stable account assignment'
         },
         sessionIdMasking: {
           label: 'Session ID Masking',

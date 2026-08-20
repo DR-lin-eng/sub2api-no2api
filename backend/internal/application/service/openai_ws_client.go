@@ -15,6 +15,7 @@ import (
 	openaiwsv2 "github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2"
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
+	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
 	coderws "github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 )
@@ -60,6 +61,14 @@ type openAIWSTransportMetricsDialer interface {
 
 type openAIWSRouteClientDialer interface {
 	DialRoute(ctx context.Context, wsURL string, headers http.Header, route platformegress.Route) (openAIWSClientConn, int, http.Header, error)
+}
+
+type openAIWSProfileClientDialer interface {
+	DialWithProfile(ctx context.Context, wsURL string, headers http.Header, proxyURL string, profile *tlsfingerprint.Profile) (openAIWSClientConn, int, http.Header, error)
+}
+
+type openAIWSProfileRouteClientDialer interface {
+	DialRouteWithProfile(ctx context.Context, wsURL string, headers http.Header, route platformegress.Route, profile *tlsfingerprint.Profile) (openAIWSClientConn, int, http.Header, error)
 }
 
 func newDefaultOpenAIWSClientDialer() openAIWSClientDialer {
@@ -123,7 +132,7 @@ func (d *coderOpenAIWSClientDialer) Dial(
 	if strings.TrimSpace(proxyURL) != "" {
 		route = platformegress.ExternalProxyRoute(proxyURL)
 	}
-	return d.DialRoute(ctx, wsURL, headers, route)
+	return d.DialRouteWithProfile(ctx, wsURL, headers, route, nil)
 }
 
 func (d *coderOpenAIWSClientDialer) DialRoute(
@@ -131,6 +140,30 @@ func (d *coderOpenAIWSClientDialer) DialRoute(
 	wsURL string,
 	headers http.Header,
 	route platformegress.Route,
+) (openAIWSClientConn, int, http.Header, error) {
+	return d.DialRouteWithProfile(ctx, wsURL, headers, route, nil)
+}
+
+func (d *coderOpenAIWSClientDialer) DialWithProfile(
+	ctx context.Context,
+	wsURL string,
+	headers http.Header,
+	proxyURL string,
+	profile *tlsfingerprint.Profile,
+) (openAIWSClientConn, int, http.Header, error) {
+	route := platformegress.DirectRoute(false)
+	if strings.TrimSpace(proxyURL) != "" {
+		route = platformegress.ExternalProxyRoute(proxyURL)
+	}
+	return d.DialRouteWithProfile(ctx, wsURL, headers, route, profile)
+}
+
+func (d *coderOpenAIWSClientDialer) DialRouteWithProfile(
+	ctx context.Context,
+	wsURL string,
+	headers http.Header,
+	route platformegress.Route,
+	profile *tlsfingerprint.Profile,
 ) (openAIWSClientConn, int, http.Header, error) {
 	targetURL := strings.TrimSpace(wsURL)
 	if targetURL == "" {
@@ -145,8 +178,8 @@ func (d *coderOpenAIWSClientDialer) DialRoute(
 	if err != nil {
 		return nil, 0, nil, err
 	}
-	if effective.Mode != platformegress.ModeDirect {
-		proxyClient, err := d.routeHTTPClient(effective)
+	if effective.Mode != platformegress.ModeDirect || profile != nil {
+		proxyClient, err := d.routeHTTPClientWithProfile(effective, profile)
 		if err != nil {
 			return nil, 0, nil, err
 		}
@@ -185,11 +218,32 @@ func dialOpenAIWSRoute(dialer openAIWSClientDialer, ctx context.Context, wsURL s
 	return dialer.Dial(ctx, wsURL, headers, route.ProxyURL)
 }
 
+func dialOpenAIWSRouteWithProfile(
+	dialer openAIWSClientDialer,
+	ctx context.Context,
+	wsURL string,
+	headers http.Header,
+	route platformegress.Route,
+	profile *tlsfingerprint.Profile,
+) (openAIWSClientConn, int, http.Header, error) {
+	if routed, ok := dialer.(openAIWSProfileRouteClientDialer); ok {
+		return routed.DialRouteWithProfile(ctx, wsURL, headers, route, profile)
+	}
+	if profiled, ok := dialer.(openAIWSProfileClientDialer); ok {
+		return profiled.DialWithProfile(ctx, wsURL, headers, route.ProxyURL, profile)
+	}
+	return dialOpenAIWSRoute(dialer, ctx, wsURL, headers, route)
+}
+
 func (d *coderOpenAIWSClientDialer) proxyHTTPClient(proxy string) (*http.Client, error) {
 	return d.routeHTTPClient(platformegress.ExternalProxyRoute(proxy))
 }
 
 func (d *coderOpenAIWSClientDialer) routeHTTPClient(route platformegress.Route) (*http.Client, error) {
+	return d.routeHTTPClientWithProfile(route, nil)
+}
+
+func (d *coderOpenAIWSClientDialer) routeHTTPClientWithProfile(route platformegress.Route, profile *tlsfingerprint.Profile) (*http.Client, error) {
 	if d == nil {
 		return nil, errors.New("openai ws dialer is nil")
 	}
@@ -206,6 +260,12 @@ func (d *coderOpenAIWSClientDialer) routeHTTPClient(route platformegress.Route) 
 			return nil, fmt.Errorf("invalid proxy url: %w", err)
 		}
 	}
+	if profile != nil {
+		profile = profile.ForWebSocket()
+	}
+	if profileKey := tlsfingerprint.FingerprintKey(profile); profileKey != "" {
+		cacheKey += "|tls:" + profileKey
+	}
 	now := time.Now().UnixNano()
 
 	d.proxyMu.Lock()
@@ -221,17 +281,41 @@ func (d *coderOpenAIWSClientDialer) routeHTTPClient(route platformegress.Route) 
 		MaxIdleConnsPerHost: openAIWSProxyTransportMaxIdleConnsPerHost,
 		IdleConnTimeout:     openAIWSProxyTransportIdleConnTimeout,
 		TLSHandshakeTimeout: 10 * time.Second,
-		ForceAttemptHTTP2:   true,
+		ForceAttemptHTTP2:   profile == nil,
 	}
 	switch effective.Mode {
 	case platformegress.ModeExternalProxy:
-		transport.Proxy = http.ProxyURL(parsedProxyURL)
+		if profile == nil {
+			transport.Proxy = http.ProxyURL(parsedProxyURL)
+			break
+		}
+		switch strings.ToLower(parsedProxyURL.Scheme) {
+		case "http":
+			dialer := tlsfingerprint.NewHTTPProxyDialer(profile, parsedProxyURL)
+			transport.DialTLSContext = dialer.DialTLSContext
+		case "socks5", "socks5h":
+			dialer := tlsfingerprint.NewSOCKS5ProxyDialer(profile, parsedProxyURL)
+			transport.DialTLSContext = dialer.DialTLSContext
+		case "https":
+			dialer := tlsfingerprint.NewHTTPProxyDialer(profile, parsedProxyURL)
+			transport.DialTLSContext = dialer.DialTLSContext
+		default:
+			transport.Proxy = http.ProxyURL(parsedProxyURL)
+		}
 	case platformegress.ModeIPv6Pool:
 		dialContext, dialErr := platformegress.NewDialContext(effective, d.egressPolicy, platformegress.DialerOptions{})
 		if dialErr != nil {
 			return nil, dialErr
 		}
-		transport.DialContext = dialContext
+		if profile == nil {
+			transport.DialContext = dialContext
+		} else {
+			transport.DialTLSContext = tlsfingerprint.NewDialer(profile, dialContext).DialTLSContext
+		}
+	case platformegress.ModeDirect:
+		if profile != nil {
+			transport.DialTLSContext = tlsfingerprint.NewDialer(profile, nil).DialTLSContext
+		}
 	default:
 		return nil, fmt.Errorf("unsupported websocket egress mode %q", effective.Mode)
 	}

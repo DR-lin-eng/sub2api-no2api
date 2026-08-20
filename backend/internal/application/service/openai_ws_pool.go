@@ -15,6 +15,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
+	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -62,9 +63,10 @@ func (e *openAIWSDialError) Unwrap() error {
 }
 
 type openAIWSAcquireRequest struct {
-	Account *Account
-	WSURL   string
-	Headers http.Header
+	Account    *Account
+	WSURL      string
+	Headers    http.Header
+	TLSProfile *tlsfingerprint.Profile
 	// HeadersFactory is evaluated inside dialConn. It exists so credentials
 	// whose authorization is per-dial (Agent Identity) are never cached in
 	// lastAcquire or delayed prewarm state.
@@ -81,6 +83,7 @@ type openAIWSAcquireRequest struct {
 type openAIWSHandshakeCompatibilityKey struct {
 	betaFeatures   string
 	fingerprintKey string
+	tlsProfileKey  string
 	egressRouteKey string
 }
 
@@ -1816,7 +1819,14 @@ func (p *openAIWSConnPool) dialConn(ctx context.Context, req openAIWSAcquireRequ
 			return nil, err
 		}
 	}
-	conn, status, handshakeHeaders, err := dialOpenAIWSRoute(p.clientDialer, ctx, req.WSURL, headers, openAIWSAcquireRoute(req))
+	conn, status, handshakeHeaders, err := dialOpenAIWSRouteWithProfile(
+		p.clientDialer,
+		ctx,
+		req.WSURL,
+		headers,
+		openAIWSAcquireRoute(req),
+		req.TLSProfile,
+	)
 	if err != nil {
 		var handshakeErr *openAIWSHandshakeError
 		var responseBody []byte
@@ -2031,6 +2041,7 @@ func sameOpenAIWSPrewarmTarget(a, b openAIWSAcquireRequest) bool {
 
 func openAIWSAcquireCompatibility(req openAIWSAcquireRequest) openAIWSHandshakeCompatibilityKey {
 	compatibility := normalizeOpenAIWSHandshakeCompatibility(req.Headers)
+	compatibility.tlsProfileKey = tlsfingerprint.FingerprintKey(req.TLSProfile)
 	route := openAIWSAcquireRoute(req)
 	if route.Mode == platformegress.ModeIPv6Pool {
 		compatibility.egressRouteKey = route.CacheKey()

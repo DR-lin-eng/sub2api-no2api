@@ -732,16 +732,18 @@ sudo systemctl status redis
 
 ## TLS Fingerprint Configuration
 
-Sub2API supports TLS fingerprint simulation to make requests appear as if they come from the official Claude CLI (Node.js client).
+Sub2API supports opt-in, account-scoped TLS fingerprint simulation for Claude Code and OpenAI/Codex OAuth upstreams.
 
 > **💡 Tip:** Visit **[tls.sub2api.org](https://tls.sub2api.org/)** to get TLS fingerprint information for different devices and browsers.
 
 ### Default Behavior
 
-- Built-in `claude_cli_v2` profile simulates Node.js 20.x + OpenSSL 3.x
+- Built-in Claude profile simulates the Node.js/Claude Code transport
+- Built-in OpenAI profile follows the Codex Rustls aws-lc-rs provider parameters
 - JA3 Hash: `1a28e69016765d92e3b381168d68922c`
 - JA4: `t13d5911h1_a33745022dd6_1f22a2ca17c4`
-- Profile selection: `accountID % profileCount`
+- Profile selection is stable per account ID (rendezvous hashing); repeated requests and
+  WebSocket reconnects for one account reuse the same profile. An explicit profile binding wins.
 
 ### Configuration
 
@@ -775,7 +777,7 @@ gateway:
 | `name` | string | Display name (required) |
 | `cipher_suites` | []uint16 | Cipher suites in decimal. Empty = default |
 | `curves` | []uint16 | Elliptic curves in decimal. Empty = default |
-| `point_formats` | []uint8 | EC point formats. Empty = default |
+| `point_formats` | []uint16 | EC point formats. Empty = default |
 
 ### Common Values Reference
 
@@ -784,3 +786,8 @@ gateway:
 **Cipher Suites (TLS 1.2):** `49195`, `49196`, `49199`, `49200` (ECDHE variants)
 
 **Curves:** `29` (X25519), `23` (P-256), `24` (P-384), `25` (P-521)
+
+OpenAI/Codex's built-in profile offers `h2` and `http/1.1` ALPN. WebSocket upgrades use an
+HTTP/1.1-only copy of that profile. Rustls randomizes ClientHello extension order per handshake,
+so this feature guarantees stable provider parameters and account isolation, not a byte-identical
+cross-platform JA3 hash.

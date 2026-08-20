@@ -100,3 +100,21 @@ func TestAccountFromServiceShallow_NilCredentialsOmitsStatus(t *testing.T) {
 	require.Nil(t, got.Credentials)
 	require.Nil(t, got.CredentialsStatus)
 }
+
+func TestAccountFromServiceShallow_ExposesOpenAIAccountTLSProfile(t *testing.T) {
+	src := &service.Account{
+		ID:       77,
+		Platform: service.PlatformOpenAI,
+		Type:     service.AccountTypeOAuth,
+		Extra: map[string]any{
+			"enable_tls_fingerprint":     true,
+			"tls_fingerprint_profile_id": -1,
+		},
+	}
+
+	got := AccountFromServiceShallow(src)
+	require.NotNil(t, got.EnableTLSFingerprint)
+	require.True(t, *got.EnableTLSFingerprint)
+	require.NotNil(t, got.TLSFingerprintProfileID)
+	require.Equal(t, int64(-1), *got.TLSFingerprintProfileID)
+}

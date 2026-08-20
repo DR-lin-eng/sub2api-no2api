@@ -487,6 +487,7 @@ type OpenAIGatewayService struct {
 	openaiWSRetryMetrics                openAIWSRetryMetrics
 	responseHeaderFilter                *responseheaders.CompiledHeaderFilter
 	codexSnapshotThrottle               *accountWriteThrottle
+	tlsFPProfileService                 *TLSFingerprintProfileService
 	codexModelsManifestCache            codexModelsManifestCache
 	openaiCompatSessionResponses        boundedOpenAICompatSessionCache
 	openaiCompatAnthropicDigestSessions boundedOpenAICompatSessionCache

@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
-	"math/rand/v2"
+	"encoding/binary"
+	"hash/fnv"
+	"sort"
 	"sync"
 	"time"
 
@@ -145,8 +147,9 @@ func (s *TLSFingerprintProfileService) GetProfileByID(id int64) *tlsfingerprint.
 	return nil
 }
 
-// getRandomProfile 从本地缓存中随机选择一个 Profile
-func (s *TLSFingerprintProfileService) getRandomProfile() *tlsfingerprint.Profile {
+// getStableProfile 根据账号 ID 从当前 Profile 集合中稳定选择一个 Profile。
+// 使用 rendezvous hashing，新增其他 Profile 不会让所有账号整体换指纹。
+func (s *TLSFingerprintProfileService) getStableProfile(accountID int64) *tlsfingerprint.Profile {
 	s.localMu.RLock()
 	defer s.localMu.RUnlock()
 
@@ -154,18 +157,32 @@ func (s *TLSFingerprintProfileService) getRandomProfile() *tlsfingerprint.Profil
 		return nil
 	}
 
-	// 收集所有 profile
-	profiles := make([]*model.TLSFingerprintProfile, 0, len(s.localCache))
-	for _, p := range s.localCache {
+	ids := make([]int64, 0, len(s.localCache))
+	for id, p := range s.localCache {
 		if p != nil {
-			profiles = append(profiles, p)
+			ids = append(ids, id)
 		}
 	}
-	if len(profiles) == 0 {
+	if len(ids) == 0 {
 		return nil
 	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 
-	return profiles[rand.IntN(len(profiles))].ToTLSProfile()
+	selectedID := ids[0]
+	selectedScore := uint64(0)
+	for _, id := range ids {
+		var encoded [16]byte
+		binary.LittleEndian.PutUint64(encoded[:8], uint64(accountID))
+		binary.LittleEndian.PutUint64(encoded[8:], uint64(id))
+		hasher := fnv.New64a()
+		_, _ = hasher.Write(encoded[:])
+		score := hasher.Sum64()
+		if score > selectedScore || (score == selectedScore && id < selectedID) {
+			selectedID = id
+			selectedScore = score
+		}
+	}
+	return s.localCache[selectedID].ToTLSProfile()
 }
 
 // ResolveTLSProfile 根据 Account 的配置解析出运行时 TLS Profile
@@ -173,7 +190,9 @@ func (s *TLSFingerprintProfileService) getRandomProfile() *tlsfingerprint.Profil
 // 逻辑：
 //  1. 未启用 TLS 指纹 → 返回 nil（不伪装）
 //  2. 启用 + 绑定了 profile_id → 从缓存查找对应 profile
-//  3. 启用 + 未绑定或找不到 → 返回空 Profile（使用代码内置默认值）
+//  3. OpenAI OAuth 未绑定 → 使用源码对应的 Codex Rustls profile
+//  4. 启用 + 随机模式或绑定失效 → 按账号 ID 稳定选择一个 profile
+//  5. 没有任何数据库 profile → 使用代码内置默认值
 func (s *TLSFingerprintProfileService) ResolveTLSProfile(account *Account) *tlsfingerprint.Profile {
 	if account == nil || !account.IsTLSFingerprintEnabled() {
 		return nil
@@ -184,14 +203,25 @@ func (s *TLSFingerprintProfileService) ResolveTLSProfile(account *Account) *tlsf
 			return p
 		}
 	}
-	if id == -1 {
-		// 随机选择一个 profile
-		if p := s.getRandomProfile(); p != nil {
-			return p
-		}
+	// OpenAI/Codex uses the source-derived Rustls profile by default. Database
+	// profiles are opt-in via an explicit ID or the stable-assignment sentinel.
+	if account.IsOpenAIOAuth() && id == 0 {
+		return tlsfingerprint.BuiltInCodexRustlsProfile()
 	}
-	// TLS 启用但无绑定 profile → 空 Profile → dialer 使用内置默认值
+	if p := s.getStableProfile(account.ID); p != nil {
+		return p
+	}
+	// TLS 启用但没有可配置 profile 时，按上游平台选择内置传输参数。
+	if account.IsOpenAIOAuth() {
+		return tlsfingerprint.BuiltInCodexRustlsProfile()
+	}
 	return &tlsfingerprint.Profile{Name: "Built-in Default (Node.js 24.x)"}
+}
+
+// ResolveTLSProfileKey returns the stable identity used by transport pools for
+// this account's resolved profile.
+func (s *TLSFingerprintProfileService) ResolveTLSProfileKey(account *Account) string {
+	return tlsfingerprint.FingerprintKey(s.ResolveTLSProfile(account))
 }
 
 // --- 缓存管理 ---

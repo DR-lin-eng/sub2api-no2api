@@ -88,13 +88,15 @@ owner、response 和 generation 使用现有 Redis string-state 接口，TTL 默
 Profile 从 `identity_secret + principal` 确定性派生，但只在部署宿主的平台族内选择源码真实的终端组合。
 这样未来引入原生传输 sidecar 时不会出现 UA 声称 macOS、传输层却固定呈现 Linux 的长期矛盾。
 
-当前 A/B 是纯 Go 请求语义实现，明确不模拟以下内容：
+当前 A/B 是纯 Go 请求语义实现，明确不模拟以下内容；这与独立的、按账号启用的 TLS
+Profile 传输层开关是两个边界：
 
-- TLS ClientHello、HTTP/2 SETTINGS、Header 顺序和连接层时序；
+- A/B 本身不改写 TLS ClientHello、HTTP/2 SETTINGS、Header 顺序和连接层时序；
 - Codex Rust 网络栈的字节级传输特征；
 - attestation、residency 或本项目无法真实证明的客户端能力。
 
-这些属于暂缓的 phase C。启用 A/B 不应被描述为完成了传输层等价。
+这些属于 A/B 的暂缓 phase C。启用 A/B 不应被描述为完成了传输层等价；启用账号 TLS
+Profile 后也只能保证 Rustls provider 参数和连接隔离，不能保证跨平台 byte-for-byte JA3。
 
 ## 开关与轮换
 

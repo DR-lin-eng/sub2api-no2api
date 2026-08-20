@@ -262,7 +262,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 	}
 
 	turnStart := time.Now()
-	resp, err := doAccountHTTPUpstream(s.httpUpstream, upstreamReq, proxyURL, account)
+	resp, err := s.doAccountHTTPUpstream(upstreamReq, proxyURL, account)
 	if err != nil {
 		if turn == 1 {
 			return nil, s.handleOpenAIUpstreamTransportError(modelCtx, c, account, err, true)

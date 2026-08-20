@@ -66,7 +66,8 @@ keepalive 已提交 200 后，安全响应元数据走预声明的 HTTP trailer�
 账号 repository 和调度快照一并加载 `egress_mode` 与 IPv6 绑定。选中账号后，
 `Account.EgressRoute` 先保留现有 `proxy_id`，再解析显式直连、IPv6 池或系统继承；
 普通 HTTP、TLS 指纹、WebSocket、刷新、探测、图片和共享上游客户端继续携带同一
-路由。请求热路径不为出口重查数据库。
+路由；启用账号 TLS Profile 时还携带同一稳定 Profile key。请求热路径不为出口或
+Profile 重查数据库。
 
 IPv6 模式只解析 AAAA 并从绑定源地址拨号。无 AAAA、缺少绑定或路由失败时不允许
 Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换后只关闭旧空闲连接。
