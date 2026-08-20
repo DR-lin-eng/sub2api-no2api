@@ -75,6 +75,26 @@ func (_u *CustomModelConfigUpdate) AppendCapabilities(v []string) *CustomModelCo
 	return _u
 }
 
+// SetVideoAPIType sets the "video_api_type" field.
+func (_u *CustomModelConfigUpdate) SetVideoAPIType(v string) *CustomModelConfigUpdate {
+	_u.mutation.SetVideoAPIType(v)
+	return _u
+}
+
+// SetNillableVideoAPIType sets the "video_api_type" field if the given value is not nil.
+func (_u *CustomModelConfigUpdate) SetNillableVideoAPIType(v *string) *CustomModelConfigUpdate {
+	if v != nil {
+		_u.SetVideoAPIType(*v)
+	}
+	return _u
+}
+
+// ClearVideoAPIType clears the value of the "video_api_type" field.
+func (_u *CustomModelConfigUpdate) ClearVideoAPIType() *CustomModelConfigUpdate {
+	_u.mutation.ClearVideoAPIType()
+	return _u
+}
+
 // SetTemplateID sets the "template_id" field.
 func (_u *CustomModelConfigUpdate) SetTemplateID(v int64) *CustomModelConfigUpdate {
 	_u.mutation.ResetTemplateID()
@@ -182,6 +202,12 @@ func (_u *CustomModelConfigUpdate) sqlSave(ctx context.Context) (_node int, err 
 			sqljson.Append(u, custommodelconfig.FieldCapabilities, value)
 		})
 	}
+	if value, ok := _u.mutation.VideoAPIType(); ok {
+		_spec.SetField(custommodelconfig.FieldVideoAPIType, field.TypeString, value)
+	}
+	if _u.mutation.VideoAPITypeCleared() {
+		_spec.ClearField(custommodelconfig.FieldVideoAPIType, field.TypeString)
+	}
 	if value, ok := _u.mutation.TemplateID(); ok {
 		_spec.SetField(custommodelconfig.FieldTemplateID, field.TypeInt64, value)
 	}
@@ -254,6 +280,26 @@ func (_u *CustomModelConfigUpdateOne) SetCapabilities(v []string) *CustomModelCo
 // AppendCapabilities appends value to the "capabilities" field.
 func (_u *CustomModelConfigUpdateOne) AppendCapabilities(v []string) *CustomModelConfigUpdateOne {
 	_u.mutation.AppendCapabilities(v)
+	return _u
+}
+
+// SetVideoAPIType sets the "video_api_type" field.
+func (_u *CustomModelConfigUpdateOne) SetVideoAPIType(v string) *CustomModelConfigUpdateOne {
+	_u.mutation.SetVideoAPIType(v)
+	return _u
+}
+
+// SetNillableVideoAPIType sets the "video_api_type" field if the given value is not nil.
+func (_u *CustomModelConfigUpdateOne) SetNillableVideoAPIType(v *string) *CustomModelConfigUpdateOne {
+	if v != nil {
+		_u.SetVideoAPIType(*v)
+	}
+	return _u
+}
+
+// ClearVideoAPIType clears the value of the "video_api_type" field.
+func (_u *CustomModelConfigUpdateOne) ClearVideoAPIType() *CustomModelConfigUpdateOne {
+	_u.mutation.ClearVideoAPIType()
 	return _u
 }
 
@@ -393,6 +439,12 @@ func (_u *CustomModelConfigUpdateOne) sqlSave(ctx context.Context) (_node *Custo
 		_spec.AddModifier(func(u *sql.UpdateBuilder) {
 			sqljson.Append(u, custommodelconfig.FieldCapabilities, value)
 		})
+	}
+	if value, ok := _u.mutation.VideoAPIType(); ok {
+		_spec.SetField(custommodelconfig.FieldVideoAPIType, field.TypeString, value)
+	}
+	if _u.mutation.VideoAPITypeCleared() {
+		_spec.ClearField(custommodelconfig.FieldVideoAPIType, field.TypeString)
 	}
 	if value, ok := _u.mutation.TemplateID(); ok {
 		_spec.SetField(custommodelconfig.FieldTemplateID, field.TypeInt64, value)

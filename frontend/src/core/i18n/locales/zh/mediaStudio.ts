@@ -34,7 +34,7 @@ export default {
       loadingGroups: '加载媒体分组…',
       loadingModels: '加载模型…',
       noGroups: '管理员暂未配置可用的媒体分组。',
-      manualModelHint: '未从当前分组读取到当前类型的模型，可以手动输入模型名。',
+      manualModelHint: '当前分组未返回当前类型的模型。',
       reload: '重试',
       shortHint: '选择管理员开放的媒体分组后即可生成；生成结果会保存在当前浏览器中。',
       advancedSettings: '更多',

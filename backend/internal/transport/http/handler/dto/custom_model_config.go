@@ -14,6 +14,7 @@ type CustomModelConfig struct {
 	Capabilities []string  `json:"capabilities"`
 	TemplateID   *int64    `json:"template_id,omitempty"`
 	TemplateName string    `json:"template_name,omitempty"`
+	VideoAPIType string    `json:"video_api_type,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -32,12 +33,14 @@ type CreateCustomModelConfigRequest struct {
 	PrefixMatch  bool     `json:"prefix_match"`
 	Capabilities []string `json:"capabilities"`
 	TemplateID   *int64   `json:"template_id"`
+	VideoAPIType string   `json:"video_api_type"`
 }
 
 type UpdateCustomModelConfigRequest struct {
 	PrefixMatch  *bool           `json:"prefix_match"`
 	Capabilities []string        `json:"capabilities"`
 	TemplateID   json.RawMessage `json:"template_id"`
+	VideoAPIType string          `json:"video_api_type"`
 }
 
 func CustomModelConfigFromEnt(e *ent.CustomModelConfig, templateName string) *CustomModelConfig {
@@ -51,6 +54,7 @@ func CustomModelConfigFromEnt(e *ent.CustomModelConfig, templateName string) *Cu
 		Capabilities: e.Capabilities,
 		TemplateID:   e.TemplateID,
 		TemplateName: templateName,
+		VideoAPIType: e.VideoAPIType,
 		CreatedAt:    e.CreatedAt,
 		UpdatedAt:    e.UpdatedAt,
 	}

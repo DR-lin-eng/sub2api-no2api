@@ -23,6 +23,8 @@ const (
 	FieldPrefixMatch = "prefix_match"
 	// FieldCapabilities holds the string denoting the capabilities field in the database.
 	FieldCapabilities = "capabilities"
+	// FieldVideoAPIType holds the string denoting the video_api_type field in the database.
+	FieldVideoAPIType = "video_api_type"
 	// FieldTemplateID holds the string denoting the template_id field in the database.
 	FieldTemplateID = "template_id"
 	// Table holds the table name of the custommodelconfig in the database.
@@ -37,6 +39,7 @@ var Columns = []string{
 	FieldModelName,
 	FieldPrefixMatch,
 	FieldCapabilities,
+	FieldVideoAPIType,
 	FieldTemplateID,
 }
 
@@ -61,6 +64,8 @@ var (
 	ModelNameValidator func(string) error
 	// DefaultPrefixMatch holds the default value on creation for the "prefix_match" field.
 	DefaultPrefixMatch bool
+	// DefaultVideoAPIType holds the default value on creation for the "video_api_type" field.
+	DefaultVideoAPIType string
 )
 
 // OrderOption defines the ordering options for the CustomModelConfig queries.
@@ -89,6 +94,11 @@ func ByModelName(opts ...sql.OrderTermOption) OrderOption {
 // ByPrefixMatch orders the results by the prefix_match field.
 func ByPrefixMatch(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldPrefixMatch, opts...).ToFunc()
+}
+
+// ByVideoAPIType orders the results by the video_api_type field.
+func ByVideoAPIType(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldVideoAPIType, opts...).ToFunc()
 }
 
 // ByTemplateID orders the results by the template_id field.

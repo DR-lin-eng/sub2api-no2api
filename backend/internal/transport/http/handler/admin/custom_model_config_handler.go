@@ -109,6 +109,9 @@ func (h *CustomModelConfigHandler) Create(c *gin.Context) {
 	if req.TemplateID != nil {
 		create.SetTemplateID(*req.TemplateID)
 	}
+	if req.VideoAPIType != "" {
+		create.SetVideoAPIType(req.VideoAPIType)
+	}
 	config, err := create.Save(c.Request.Context())
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -162,6 +165,10 @@ func (h *CustomModelConfigHandler) Update(c *gin.Context) {
 			}
 			update.SetTemplateID(templateID)
 		}
+	}
+
+	if req.VideoAPIType != "" {
+		update.SetVideoAPIType(req.VideoAPIType)
 	}
 
 	config, err := update.Save(c.Request.Context())

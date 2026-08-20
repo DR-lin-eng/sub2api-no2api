@@ -99,6 +99,13 @@ export default {
     requestTemplate: 'Request Template',
     noTemplate: 'Do not use a request template',
     requestTemplateHint: 'Multiple models can share one template, and template changes apply centrally.',
+    videoApiType: {
+      label: 'Video API Type',
+      autoDetect: 'Auto Detect',
+      grok: 'Grok Video',
+      agnes: 'Agnes Video'
+    },
+    videoApiTypeHint: 'Select the API interface type for this video model',
     saveFailed: 'Failed to save, please try again'
   },
 

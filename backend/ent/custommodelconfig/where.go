@@ -74,6 +74,11 @@ func PrefixMatch(v bool) predicate.CustomModelConfig {
 	return predicate.CustomModelConfig(sql.FieldEQ(FieldPrefixMatch, v))
 }
 
+// VideoAPIType applies equality check predicate on the "video_api_type" field. It's identical to VideoAPITypeEQ.
+func VideoAPIType(v string) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldEQ(FieldVideoAPIType, v))
+}
+
 // TemplateID applies equality check predicate on the "template_id" field. It's identical to TemplateIDEQ.
 func TemplateID(v int64) predicate.CustomModelConfig {
 	return predicate.CustomModelConfig(sql.FieldEQ(FieldTemplateID, v))
@@ -232,6 +237,81 @@ func PrefixMatchEQ(v bool) predicate.CustomModelConfig {
 // PrefixMatchNEQ applies the NEQ predicate on the "prefix_match" field.
 func PrefixMatchNEQ(v bool) predicate.CustomModelConfig {
 	return predicate.CustomModelConfig(sql.FieldNEQ(FieldPrefixMatch, v))
+}
+
+// VideoAPITypeEQ applies the EQ predicate on the "video_api_type" field.
+func VideoAPITypeEQ(v string) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldEQ(FieldVideoAPIType, v))
+}
+
+// VideoAPITypeNEQ applies the NEQ predicate on the "video_api_type" field.
+func VideoAPITypeNEQ(v string) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldNEQ(FieldVideoAPIType, v))
+}
+
+// VideoAPITypeIn applies the In predicate on the "video_api_type" field.
+func VideoAPITypeIn(vs ...string) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldIn(FieldVideoAPIType, vs...))
+}
+
+// VideoAPITypeNotIn applies the NotIn predicate on the "video_api_type" field.
+func VideoAPITypeNotIn(vs ...string) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldNotIn(FieldVideoAPIType, vs...))
+}
+
+// VideoAPITypeGT applies the GT predicate on the "video_api_type" field.
+func VideoAPITypeGT(v string) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldGT(FieldVideoAPIType, v))
+}
+
+// VideoAPITypeGTE applies the GTE predicate on the "video_api_type" field.
+func VideoAPITypeGTE(v string) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldGTE(FieldVideoAPIType, v))
+}
+
+// VideoAPITypeLT applies the LT predicate on the "video_api_type" field.
+func VideoAPITypeLT(v string) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldLT(FieldVideoAPIType, v))
+}
+
+// VideoAPITypeLTE applies the LTE predicate on the "video_api_type" field.
+func VideoAPITypeLTE(v string) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldLTE(FieldVideoAPIType, v))
+}
+
+// VideoAPITypeContains applies the Contains predicate on the "video_api_type" field.
+func VideoAPITypeContains(v string) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldContains(FieldVideoAPIType, v))
+}
+
+// VideoAPITypeHasPrefix applies the HasPrefix predicate on the "video_api_type" field.
+func VideoAPITypeHasPrefix(v string) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldHasPrefix(FieldVideoAPIType, v))
+}
+
+// VideoAPITypeHasSuffix applies the HasSuffix predicate on the "video_api_type" field.
+func VideoAPITypeHasSuffix(v string) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldHasSuffix(FieldVideoAPIType, v))
+}
+
+// VideoAPITypeIsNil applies the IsNil predicate on the "video_api_type" field.
+func VideoAPITypeIsNil() predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldIsNull(FieldVideoAPIType))
+}
+
+// VideoAPITypeNotNil applies the NotNil predicate on the "video_api_type" field.
+func VideoAPITypeNotNil() predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldNotNull(FieldVideoAPIType))
+}
+
+// VideoAPITypeEqualFold applies the EqualFold predicate on the "video_api_type" field.
+func VideoAPITypeEqualFold(v string) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldEqualFold(FieldVideoAPIType, v))
+}
+
+// VideoAPITypeContainsFold applies the ContainsFold predicate on the "video_api_type" field.
+func VideoAPITypeContainsFold(v string) predicate.CustomModelConfig {
+	return predicate.CustomModelConfig(sql.FieldContainsFold(FieldVideoAPIType, v))
 }
 
 // TemplateIDEQ applies the EQ predicate on the "template_id" field.
