@@ -219,6 +219,42 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_DBRuntimeRecheck
 	require.Zero(t, boundAccountID)
 }
 
+func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_RuntimeBlockWithoutSchedulerSnapshot(t *testing.T) {
+	ctx := context.Background()
+	groupID := int64(26)
+	account := Account{
+		ID:          14,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		Extra: map[string]any{
+			"openai_apikey_responses_websockets_v2_enabled": true,
+		},
+	}
+	cache := &stubGatewayCache{}
+	store := NewOpenAIWSStateStore(cache)
+	cfg := newOpenAIWSV2TestConfig()
+	svc := &OpenAIGatewayService{
+		accountRepo:        stubOpenAIAccountRepo{accounts: []Account{account}},
+		cache:              cache,
+		cfg:                cfg,
+		concurrencyService: NewConcurrencyService(stubConcurrencyCache{}),
+		openaiWSStateStore: store,
+	}
+
+	require.NoError(t, store.BindResponseAccount(ctx, groupID, "resp_prev_runtime_block", account.ID, time.Hour))
+	svc.BlockAccountScheduling(&account, time.Now().Add(time.Minute), "auth_failed")
+
+	selection, err := svc.SelectAccountByPreviousResponseID(ctx, &groupID, "resp_prev_runtime_block", "gpt-5.1", nil, false)
+	require.NoError(t, err)
+	require.Nil(t, selection, "a local runtime block must gate previous_response_id even without a scheduler snapshot")
+	boundAccountID, getErr := store.GetResponseAccount(ctx, groupID, "resp_prev_runtime_block")
+	require.NoError(t, getErr)
+	require.Zero(t, boundAccountID)
+}
+
 func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_Excluded(t *testing.T) {
 	ctx := context.Background()
 	groupID := int64(23)
