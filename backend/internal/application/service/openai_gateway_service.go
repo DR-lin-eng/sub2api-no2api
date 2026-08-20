@@ -807,8 +807,8 @@ func classifyOpenAIWSReconnectReason(err error) (string, bool) {
 // newOpenAIWSReconnectFailoverError converts a replay-safe WS failure into the
 // common account-failover contract. WS reconnects are bounded inside Forward;
 // once that budget is exhausted, returning the internal fallback wrapper would
-// leave the HTTP handler with no account-switch signal and it would emit the
-// generic "Upstream request failed" response instead.
+// leave the HTTP handler with no account-switch signal and it could terminate
+// the request without the normal local error sanitization.
 func (s *OpenAIGatewayService) newOpenAIWSReconnectFailoverError(
 	c *gin.Context,
 	account *Account,
@@ -904,6 +904,11 @@ func resolveOpenAIWSFallbackErrorResponse(err error) (statusCode int, errType st
 		if statusCode == 0 {
 			statusCode = http.StatusTooManyRequests
 		}
+	case "upstream_error_event":
+		if statusCode == 0 {
+			statusCode = http.StatusBadGateway
+		}
+		safeClientMessage = OpenAIGenericUpstreamFailureClientMessage
 	default:
 		if statusCode == 0 {
 			return 0, "", "", "", false
@@ -923,6 +928,8 @@ func resolveOpenAIWSFallbackErrorResponse(err error) (statusCode int, errType st
 			upstreamMessage = "upstream authentication failed"
 		case "upstream_rate_limited":
 			upstreamMessage = "upstream rate limit exceeded, please retry later"
+		case "upstream_error_event":
+			upstreamMessage = OpenAIGenericUpstreamFailureClientMessage
 		default:
 			upstreamMessage = "Upstream request failed"
 		}

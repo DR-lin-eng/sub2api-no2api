@@ -765,6 +765,18 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			return nil, fmt.Errorf("openai ws error event: %s", errMsg)
 		}
 
+		if eventType == "response.failed" && !wroteDownstream && IsOpenAIGenericUpstreamFailureBody(message) {
+			s.handleOpenAIWSTerminalTransientFailure(ctx, account, mappedModel, lease.HandshakeHeaders(), message)
+			lease.MarkBroken()
+			return nil, newOpenAIUpstreamFailoverError(
+				http.StatusBadGateway,
+				lease.HandshakeHeaders(),
+				append([]byte(nil), message...),
+				openAIGenericUpstreamFailureMessage,
+				false,
+			)
+		}
+
 		if eventType == "response.failed" && !wroteDownstream && isOpenAIWSOverloadPayload(message) {
 			s.handleOpenAIWSTerminalTransientFailure(ctx, account, mappedModel, lease.HandshakeHeaders(), message)
 			lease.MarkBroken()

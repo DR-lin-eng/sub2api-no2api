@@ -8,6 +8,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 )
 
 func TestOpenAIGatewayHandleFailoverExhausted_PassthroughPreservesFinalUpstreamResponse(t *testing.T) {
@@ -102,5 +103,25 @@ func TestOpenAIGatewayHandleFailoverExhausted_DefaultBehaviorRemainsMapped(t *te
 
 	require.Equal(t, http.StatusBadGateway, rec.Code)
 	require.NotContains(t, rec.Body.String(), "private upstream detail")
+	require.Empty(t, rec.Header().Get("X-Request-Id"))
+}
+
+func TestOpenAIGatewayHandleFailoverExhausted_GenericSentinelIsSanitized(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	h := &OpenAIGatewayHandler{}
+	failoverErr := &service.UpstreamFailoverError{
+		StatusCode:               http.StatusBadRequest,
+		ResponseBody:             []byte(`{"error":{"type":"upstream_error","message":"Upstream request failed"}}`),
+		ResponseHeaders:          http.Header{"X-Request-Id": []string{"must-not-leak"}},
+		PreserveUpstreamResponse: false,
+	}
+
+	h.handleFailoverExhausted(c, failoverErr, false)
+
+	require.Equal(t, http.StatusBadGateway, rec.Code)
+	require.Equal(t, service.OpenAIGenericUpstreamFailureClientMessage, gjson.Get(rec.Body.String(), "error.message").String())
+	require.NotContains(t, rec.Body.String(), "Upstream request failed")
 	require.Empty(t, rec.Header().Get("X-Request-Id"))
 }

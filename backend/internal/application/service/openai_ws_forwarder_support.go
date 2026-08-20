@@ -966,6 +966,16 @@ func classifyOpenAIWSErrorEventFromRaw(codeRaw, errTypeRaw, msgRaw string) (stri
 		(strings.Contains(msg, "previous response") && strings.Contains(msg, "not found")) {
 		return "previous_response_not_found", true
 	}
+	if strings.EqualFold(strings.TrimSpace(msgRaw), openAIGenericUpstreamFailureMessage) &&
+		(errType == "" ||
+			errType == "upstream_error" ||
+			errType == "server_error" ||
+			errType == "api_error" ||
+			code == "upstream_error") {
+		// Compatible WS upstreams may emit the same generic envelope used by the
+		// HTTP transport sentinel. It is replay-safe before downstream output.
+		return "upstream_error_event", true
+	}
 	if strings.Contains(errType, "server_error") || strings.Contains(code, "server_error") {
 		return "upstream_error_event", true
 	}
