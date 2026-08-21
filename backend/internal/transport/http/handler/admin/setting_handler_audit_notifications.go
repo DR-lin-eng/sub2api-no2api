@@ -42,6 +42,9 @@ func appendNotificationAndRiskSettingChanges(changed []string, before, after *se
 	if before.SupportChatEnabled != after.SupportChatEnabled {
 		changed = append(changed, "support_chat_enabled")
 	}
+	if before.SupportChatRetentionEnabled != after.SupportChatRetentionEnabled {
+		changed = append(changed, "support_chat_retention_enabled")
+	}
 	if before.SupportChatRetentionDays != after.SupportChatRetentionDays {
 		changed = append(changed, "support_chat_retention_days")
 	}

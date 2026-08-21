@@ -719,6 +719,7 @@ const baseSettingsResponse = {
   account_quota_notify_enabled: false,
   account_quota_notify_emails: [],
   support_chat_enabled: true,
+  support_chat_retention_enabled: true,
   support_chat_retention_days: 30,
   ipv6_egress_ui_enabled: false,
   allow_user_view_usage_details: false,

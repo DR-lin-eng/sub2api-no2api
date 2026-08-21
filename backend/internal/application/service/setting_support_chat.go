@@ -100,10 +100,9 @@ func parseSupportChatRetentionDays(raw string) int {
 	return normalizeSupportChatRetentionDays(days)
 }
 
-// GetSupportChatRetentionDays returns the strict persisted policy used by the
-// destructive cleanup worker. Missing settings preserve upgrade compatibility
-// (zero = retain forever); malformed or out-of-range values fail safely without
-// deleting anything.
+// GetSupportChatRetentionDays returns the effective policy used by the
+// destructive cleanup worker. Cleanup requires an explicit enabled switch;
+// missing settings preserve upgrade compatibility by retaining everything.
 func (s *SettingService) GetSupportChatRetentionDays(ctx context.Context) (int, error) {
 	if s == nil || s.settingRepo == nil {
 		return 0, errors.New("support chat retention setting repository is unavailable")
@@ -113,6 +112,22 @@ func (s *SettingService) GetSupportChatRetentionDays(ctx context.Context) (int, 
 	}
 	dbCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), supportChatDBTimeout)
 	defer cancel()
+	enabledRaw, err := s.settingRepo.GetValue(dbCtx, SettingKeySupportChatRetentionEnabled)
+	if errors.Is(err, ErrSettingNotFound) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	switch strings.ToLower(strings.TrimSpace(enabledRaw)) {
+	case "false":
+		return 0, nil
+	case "true":
+		// Continue and validate the destructive retention period.
+	default:
+		return 0, fmt.Errorf("invalid support chat retention enabled value %q", enabledRaw)
+	}
+
 	raw, err := s.settingRepo.GetValue(dbCtx, SettingKeySupportChatRetentionDays)
 	if errors.Is(err, ErrSettingNotFound) {
 		return 0, nil

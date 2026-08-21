@@ -37,7 +37,7 @@
         {{ t('supportChat.noConversations') }}
       </div>
       <div
-        v-for="conversation in conversations"
+        v-for="conversation in orderedConversations"
         :key="conversation.id"
         role="button"
         tabindex="0"
@@ -65,7 +65,7 @@
             v-if="conversation.unread_by_admin > 0 || conversation.manually_unread_by_admin"
             class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-900/40 dark:text-red-200"
           >
-            {{ conversation.unread_by_admin > 0 ? conversation.unread_by_admin : t('supportChat.unread') }}
+            {{ conversation.unread_by_admin > 0 ? conversation.unread_by_admin : '!' }}
           </span>
         </div>
         <div class="mt-2 text-xs text-gray-500 dark:text-dark-400">
@@ -81,10 +81,11 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ChatConversation } from '@/features/support-chat/data/datasources/supportChatDatasource'
 
-defineProps<{
+const props = defineProps<{
   conversations: ChatConversation[]
   selectedId: number | null
   loading: boolean
@@ -102,6 +103,16 @@ defineEmits<{
 }>()
 
 const { t, locale } = useI18n()
+
+const orderedConversations = computed(() => [...props.conversations].sort((a, b) => {
+  const unreadOrder = Number(b.unread_by_admin > 0 || b.manually_unread_by_admin) - Number(a.unread_by_admin > 0 || a.manually_unread_by_admin)
+  if (unreadOrder !== 0) return unreadOrder
+
+  const at = Date.parse(a.last_message_at || a.updated_at) || 0
+  const bt = Date.parse(b.last_message_at || b.updated_at) || 0
+  if (at !== bt) return bt - at
+  return b.id - a.id
+}))
 
 function displayUser(conversation: ChatConversation): string {
   return conversation.user_username || conversation.user_email || t('supportChat.unknownUser')

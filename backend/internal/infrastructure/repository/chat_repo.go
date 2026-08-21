@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -84,12 +85,24 @@ func (r *chatConversationRepository) List(
 		q = q.Where(chatConversationUnreadByAdminPredicate())
 	}
 	if search := strings.TrimSpace(filters.Search); search != "" {
-		q = q.Where(chatconversation.HasUserWith(
-			user.Or(
+		searchPredicates := []predicate.ChatConversation{
+			chatconversation.HasUserWith(user.Or(
 				user.EmailContainsFold(search),
 				user.UsernameContainsFold(search),
+			)),
+			chatconversation.HasMessagesWith(
+				chatmessage.RecalledAtIsNil(),
+				chatmessage.ContentContainsFold(search),
 			),
-		))
+		}
+		if id, err := strconv.ParseInt(search, 10, 64); err == nil && id > 0 {
+			searchPredicates = append(
+				searchPredicates,
+				chatconversation.IDEQ(id),
+				chatconversation.UserIDEQ(id),
+			)
+		}
+		q = q.Where(chatconversation.Or(searchPredicates...))
 	}
 
 	total, err := q.Count(ctx)

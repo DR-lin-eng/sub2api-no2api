@@ -8,6 +8,8 @@ import (
 	"image/png"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
@@ -113,4 +115,52 @@ func TestImageDecodeConcurrencyIsBounded(t *testing.T) {
 	_, acquired = acquireImageDecodeSlot()
 	require.True(t, acquired)
 	<-imageDecodeSlots
+}
+
+func TestIsLegacyAssetNameAcceptsOnlyFlatImageNames(t *testing.T) {
+	require.True(t, IsLegacyAssetName("muxue_coin.png"))
+	require.True(t, IsLegacyAssetName("1700000000-a_B-9.webp"))
+	require.False(t, IsLegacyAssetName("123"))
+	require.False(t, IsLegacyAssetName("../image.png"))
+	require.False(t, IsLegacyAssetName("folder/image.png"))
+	require.False(t, IsLegacyAssetName("library.json"))
+}
+
+func TestWriteLegacyAssetServesOnlyValidatedImageFiles(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	require.NoError(t, os.MkdirAll(legacyAssetDir, 0o755))
+	name := "legacy-handler-test.png"
+	path := filepath.Join(legacyAssetDir, name)
+	t.Cleanup(func() { _ = os.Remove(path) })
+
+	input := image.NewRGBA(image.Rect(0, 0, 2, 2))
+	var encoded bytes.Buffer
+	require.NoError(t, png.Encode(&encoded, input))
+	require.NoError(t, os.WriteFile(path, encoded.Bytes(), 0o600))
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/asset", nil)
+	WriteLegacyAsset(ctx, name)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, "image/png", recorder.Header().Get("Content-Type"))
+	require.Equal(t, "private, no-store", recorder.Header().Get("Cache-Control"))
+	require.Equal(t, encoded.Bytes(), recorder.Body.Bytes())
+}
+
+func TestWriteLegacyAssetRejectsNonImageContent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	require.NoError(t, os.MkdirAll(legacyAssetDir, 0o755))
+	name := "legacy-handler-test.jpg"
+	path := filepath.Join(legacyAssetDir, name)
+	t.Cleanup(func() { _ = os.Remove(path) })
+	require.NoError(t, os.WriteFile(path, []byte("not an image"), 0o600))
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/asset", nil)
+	WriteLegacyAsset(ctx, name)
+
+	require.Equal(t, http.StatusNotFound, recorder.Code)
 }

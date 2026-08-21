@@ -170,7 +170,7 @@ const (
 	chatWSPingInterval   = 30 * time.Second
 	chatWSMaxReadBytes   = 1024
 	chatWSSendBufferSize = 16
-	chatWSMaxAuthAge     = 5 * time.Minute
+	chatWSMaxAuthAge     = 0
 )
 
 // WS handles the realtime push connection for the caller's own conversation.
@@ -200,14 +200,11 @@ func (h *ChatHandler) WS(c *gin.Context) {
 	send := make(chan []byte, chatWSSendBufferSize)
 	handle := h.hub.RegisterUser(subject.UserID, send)
 	defer h.hub.UnregisterUser(subject.UserID, handle)
-	authExpiresAt, _ := middleware2.GetJWTExpiresAtFromContext(c)
-
 	wsutil.PumpWebSocket(conn, send, wsutil.PumpConfig{
-		WriteTimeout:  chatWSWriteTimeout,
-		PongWait:      chatWSPongWait,
-		PingInterval:  chatWSPingInterval,
-		MaxReadBytes:  chatWSMaxReadBytes,
-		AuthExpiresAt: authExpiresAt,
-		MaxAuthAge:    chatWSMaxAuthAge,
+		WriteTimeout: chatWSWriteTimeout,
+		PongWait:     chatWSPongWait,
+		PingInterval: chatWSPingInterval,
+		MaxReadBytes: chatWSMaxReadBytes,
+		MaxAuthAge:   chatWSMaxAuthAge,
 	})
 }

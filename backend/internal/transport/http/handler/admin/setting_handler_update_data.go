@@ -338,8 +338,9 @@ type UpdateSettingsRequest struct {
 	AvailableChannelsEnabled *bool `json:"available_channels_enabled"`
 
 	// Support Chat feature switch
-	SupportChatEnabled       *bool `json:"support_chat_enabled"`
-	SupportChatRetentionDays *int  `json:"support_chat_retention_days"`
+	SupportChatEnabled          *bool `json:"support_chat_enabled"`
+	SupportChatRetentionEnabled *bool `json:"support_chat_retention_enabled"`
+	SupportChatRetentionDays    *int  `json:"support_chat_retention_days"`
 
 	// Model Plaza feature switch and public-page description
 	ModelPlazaEnabled          *bool   `json:"model_plaza_enabled"`

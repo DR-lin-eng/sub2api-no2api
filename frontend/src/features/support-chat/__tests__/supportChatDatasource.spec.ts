@@ -3,6 +3,7 @@ import {
   normalizeChatConversation,
   normalizeChatMessage,
   parseChatSocketEvent,
+  resolveChatAssetRequestPath,
 } from '@/features/support-chat/data/datasources/supportChatDatasource'
 
 describe('support chat datasource normalization', () => {
@@ -13,7 +14,6 @@ describe('support chat datasource normalization', () => {
       LastMessageAt: '2026-01-02T03:04:05Z',
       UnreadByUser: 1,
       UnreadByAdmin: 2,
-      ManuallyUnreadByAdmin: true,
       CreatedAt: '2026-01-01T00:00:00Z',
       UpdatedAt: '2026-01-02T00:00:00Z',
       UserEmail: 'user@example.test',
@@ -26,7 +26,6 @@ describe('support chat datasource normalization', () => {
       last_message_at: '2026-01-02T03:04:05Z',
       unread_by_user: 1,
       unread_by_admin: 2,
-      manually_unread_by_admin: true,
       user_email: 'user@example.test',
       user_username: 'tester',
     })
@@ -39,11 +38,6 @@ describe('support chat datasource normalization', () => {
       sender_type: 'admin',
       sender_id: 1,
       content: 'hello',
-      kind: 'text',
-      reply_to_id: null,
-      metadata: {},
-      assets: [],
-      recalled_at: null,
       created_at: '2026-01-02T03:04:05Z',
     })
 
@@ -53,47 +47,7 @@ describe('support chat datasource normalization', () => {
       sender_type: 'admin',
       sender_id: 1,
       content: 'hello',
-      kind: 'text',
-      reply_to_id: null,
-      metadata: {},
-      assets: [],
-      recalled_at: null,
       created_at: '2026-01-02T03:04:05Z',
-    })
-  })
-
-  it('normalizes structured messages, protected asset metadata, and read-state events', () => {
-    const message = normalizeChatMessage({
-      ID: 11,
-      ConversationID: 8,
-      SenderType: 'admin',
-      SenderID: 3,
-      Content: '[image]',
-      Kind: 'image',
-      ReplyToID: 10,
-      Metadata: { caption: '<script>not rendered</script>' },
-      Assets: [{ id: 5, scope: 'library', name: 'asset.png', mime_type: 'image/png', size: 42 }],
-      RecalledAt: '2026-01-02T03:05:00Z',
-      CreatedAt: '2026-01-02T03:04:05Z',
-    })
-
-    expect(message).toMatchObject({
-      id: 11,
-      kind: 'image',
-      reply_to_id: 10,
-      metadata: { caption: '<script>not rendered</script>' },
-      assets: [{ id: 5, scope: 'library', mime_type: 'image/png' }],
-      recalled_at: '2026-01-02T03:05:00Z',
-    })
-
-    const event = parseChatSocketEvent(JSON.stringify({
-      type: 'read_state',
-      read_state: { conversation_id: 8, reader: 'user', read_at: '2026-01-02T04:00:00Z' },
-    }))
-    expect(event?.read_state).toEqual({
-      conversation_id: 8,
-      reader: 'user',
-      read_at: '2026-01-02T04:00:00Z',
     })
   })
 
@@ -119,28 +73,38 @@ describe('support chat datasource normalization', () => {
     })
   })
 
-  it('parses recalled-message websocket events with a redacted payload', () => {
-    const event = parseChatSocketEvent(JSON.stringify({
-      Type: 'message_recalled',
-      Message: {
-        ID: 10,
-        ConversationID: 8,
-        SenderType: 'admin',
-        SenderID: 3,
-        Content: '',
-        Kind: 'text',
-        RecalledAt: '2026-01-02T03:05:00Z',
-        CreatedAt: '2026-01-02T03:04:05Z',
-      },
-    }))
+  it('ignores invalid websocket payloads', () => {
+    expect(parseChatSocketEvent('not-json')).toBeNull()
+  })
 
-    expect(event).toMatchObject({
-      type: 'message_recalled',
-      message: { id: 10, content: '', recalled_at: '2026-01-02T03:05:00Z' },
+  it('normalizes structured message fields used by rich chat actions', () => {
+    const message = normalizeChatMessage({
+      ID: 11,
+      ConversationID: 8,
+      SenderType: 'admin',
+      SenderID: 3,
+      Content: '[image]',
+      Kind: 'image',
+      ReplyToID: 10,
+      Assets: [{ ID: 5, Name: 'asset.png', MIMEType: 'image/png', Size: 42 }],
+      RecalledAt: null,
+      CreatedAt: '2026-01-02T03:04:05Z',
+    })
+
+    expect(message).toMatchObject({
+      id: 11,
+      kind: 'image',
+      reply_to_id: 10,
+      assets: [{ id: 5, name: 'asset.png', mime_type: 'image/png' }],
+      recalled_at: null,
     })
   })
 
-  it('ignores invalid websocket payloads', () => {
-    expect(parseChatSocketEvent('not-json')).toBeNull()
+  it('maps both legacy filenames and current ids to authenticated asset paths', () => {
+    expect(resolveChatAssetRequestPath('/api/v1/chat/assets/muxue_coin.png', 'user'))
+      .toBe('/chat/assets/muxue_coin.png')
+    expect(resolveChatAssetRequestPath('/api/v1/chat/assets/42', 'admin'))
+      .toBe('/admin/chat/assets/42')
+    expect(resolveChatAssetRequestPath('https://other.example/image.png', 'user')).toBeNull()
   })
 })

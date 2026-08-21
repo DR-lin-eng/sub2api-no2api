@@ -203,17 +203,17 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': {
           target: backendUrl,
-          changeOrigin: true,
+          changeOrigin: false,
           ws: true
         },
         '/v1': {
           target: backendUrl,
-          changeOrigin: true,
+          changeOrigin: false,
           ws: true
         },
         '/setup': {
           target: backendUrl,
-          changeOrigin: true,
+          changeOrigin: false,
           ws: true
         }
       }

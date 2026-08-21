@@ -10,7 +10,11 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
 	"github.com/Wei-Shaw/sub2api/internal/shared/response"
@@ -23,10 +27,12 @@ const (
 	maxImageDimension          = 4096
 	maxImagePixels             = 16_000_000
 	maxConcurrentImageDecodes  = 2
+	legacyAssetDir             = "data/support-chat-assets"
 )
 
 var errNormalizedImageTooLarge = errors.New("normalized image is too large")
 var imageDecodeSlots = make(chan struct{}, maxConcurrentImageDecodes)
+var safeLegacyAssetName = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 
 func ParseUpload(c *gin.Context) (chat.AssetUpload, bool) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, chat.MaxAssetBytes+multipartOverheadAllowance)
@@ -95,6 +101,77 @@ func ParseID(c *gin.Context) (int64, bool) {
 		return 0, false
 	}
 	return id, true
+}
+
+// IsLegacyAssetName identifies the filename URLs emitted by the pre-database
+// support-chat uploader. Numeric references remain owned by the current asset
+// repository and its conversation-level authorization checks.
+func IsLegacyAssetName(value string) bool {
+	if value == "" || !safeLegacyAssetName.MatchString(value) || filepath.Base(value) != value {
+		return false
+	}
+	switch strings.ToLower(filepath.Ext(value)) {
+	case ".png", ".jpg", ".jpeg", ".gif", ".webp":
+		return true
+	default:
+		return false
+	}
+}
+
+// WriteLegacyAsset serves files created by the PR #7 filesystem uploader.
+// The caller is responsible for applying user/admin authentication first.
+func WriteLegacyAsset(c *gin.Context, name string) {
+	if !IsLegacyAssetName(name) {
+		response.NotFound(c, "Chat asset not found")
+		return
+	}
+
+	path := filepath.Join(legacyAssetDir, name)
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > chat.MaxAssetBytes {
+		response.NotFound(c, "Chat asset not found")
+		return
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		response.NotFound(c, "Chat asset not found")
+		return
+	}
+	defer func() { _ = file.Close() }()
+
+	header := make([]byte, 512)
+	n, err := io.ReadFull(file, header)
+	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
+		response.NotFound(c, "Chat asset not found")
+		return
+	}
+	mimeType := http.DetectContentType(header[:n])
+	if !legacyMIMETypeAllowed(mimeType) {
+		response.NotFound(c, "Chat asset not found")
+		return
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		response.NotFound(c, "Chat asset not found")
+		return
+	}
+
+	c.Header("Cache-Control", "private, no-store")
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("Cross-Origin-Resource-Policy", "same-origin")
+	c.Header("Content-Security-Policy", "default-src 'none'; sandbox")
+	c.Header("X-Frame-Options", "DENY")
+	c.Header("Content-Disposition", mime.FormatMediaType("inline", map[string]string{"filename": name}))
+	c.DataFromReader(http.StatusOK, info.Size(), mimeType, file, nil)
+}
+
+func legacyMIMETypeAllowed(value string) bool {
+	switch value {
+	case "image/png", "image/jpeg", "image/gif", "image/webp":
+		return true
+	default:
+		return false
+	}
 }
 
 func WriteAsset(c *gin.Context, asset *chat.Asset) {

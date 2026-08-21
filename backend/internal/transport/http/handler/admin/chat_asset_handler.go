@@ -39,6 +39,10 @@ func (h *ChatHandler) GetAsset(c *gin.Context) {
 		response.Unauthorized(c, "User not found in context")
 		return
 	}
+	if name := c.Param("id"); supportchatasset.IsLegacyAssetName(name) {
+		supportchatasset.WriteLegacyAsset(c, name)
+		return
+	}
 	id, ok := supportchatasset.ParseID(c)
 	if !ok {
 		return
