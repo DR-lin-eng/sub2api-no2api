@@ -207,7 +207,7 @@ func allowOpenAICompatibleMessagesDispatch(c *gin.Context, apiKey *service.APIKe
 	// targets continue to honor the composite group's explicit opt-in.
 	if apiKey.Group.Platform == service.PlatformComposite {
 		if c != nil && c.Request != nil {
-			if target, ok := service.ResolvedTargetPlatformFromContext(c.Request.Context()); ok && target == service.PlatformGrok {
+			if target, ok := service.ResolvedTargetPlatformFromContext(c.Request.Context()); ok && (target == service.PlatformGrok || isCNProviderPlatform(target)) {
 				return true
 			}
 		}
