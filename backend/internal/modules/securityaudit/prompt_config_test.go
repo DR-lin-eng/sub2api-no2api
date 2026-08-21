@@ -92,6 +92,30 @@ func TestConfigRuntimeLoadErrorIsStableBoundedAndSecretFree(t *testing.T) {
 	require.LessOrEqual(t, len([]rune(message)), 160)
 }
 
+func TestShouldLogConfigLoadedOnlyForMeaningfulReloads(t *testing.T) {
+	storage := DefaultStorageConfig()
+	active := ActiveConfig{RiskControlEnabled: false}
+	require.True(t, shouldLogConfigLoaded(nil, storage, active))
+
+	previous := &activeConfigSnapshot{storage: cloneStorageConfig(storage), active: active}
+	require.False(t, shouldLogConfigLoaded(previous, storage, active))
+
+	changedVersion := storage
+	changedVersion.ConfigVersion++
+	require.True(t, shouldLogConfigLoaded(previous, changedVersion, active))
+
+	changedGate := active
+	changedGate.RiskControlEnabled = true
+	require.True(t, shouldLogConfigLoaded(previous, storage, changedGate))
+}
+
+func TestClearLoadErrorReportsRecovery(t *testing.T) {
+	manager := &ConfigManager{clock: fixedClock{}}
+	manager.recordLoadError(errors.New("temporary"))
+	require.True(t, manager.clearLoadError())
+	require.False(t, manager.clearLoadError())
+}
+
 func TestConfigManagerPublicRequiresSuccessfullyLoadedSnapshot(t *testing.T) {
 	t.Run("absent persisted setting is legitimate default", func(t *testing.T) {
 		manager := NewConfigManager(nil, staticSettingRepository{values: map[string]string{

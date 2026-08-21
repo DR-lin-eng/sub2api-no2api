@@ -8,6 +8,7 @@ import {
   messagesDispatchConfigToFormState,
   messagesDispatchFormStateToConfig,
   resetMessagesDispatchFormState,
+  supportsMessagesDispatchPlatform,
   type MessagesDispatchMappingRow,
 } from "../groupsMessagesDispatchResolver";
 import {
@@ -399,7 +400,7 @@ export function useEditGroupController({
           editForm.supported_model_scopes,
         ),
         messages_dispatch_model_config:
-          editForm.platform === "openai"
+          supportsMessagesDispatchPlatform(editForm.platform)
             ? messagesDispatchFormStateToConfig(editForm)
             : undefined,
         reasoning_effort_mappings: reasoningEffortMappingsToAPI(
@@ -471,8 +472,10 @@ export function useEditGroupController({
       if (!["anthropic", "antigravity"].includes(newValue)) {
         editForm.fallback_group_id_on_invalid_request = null;
       }
-      if (newValue !== "openai") {
+      if (!supportsMessagesDispatchPlatform(newValue)) {
         resetMessagesDispatchFormState(editForm);
+      }
+      if (newValue !== "openai") {
         editForm.allow_live = false;
         editForm.default_mapped_model = "";
       }
