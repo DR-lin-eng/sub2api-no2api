@@ -1,6 +1,6 @@
 # 上游同步审查记录（2026-08-21）
 
-本次审查以本项目远端 `origin/main` 的 `b9f7a552174a9280148281dc4ceb42ff18549654` 为发布基线，将上游 `Wei-Shaw/sub2api` 的 `main` 冻结在 `2bc139ab527b4a687546d145dc7bb9063cf14510`。上一次记录的上游边界是 `82f7dd14f717bef480879f73cba288791b9b9663`，新增区间包含 63 个提交和 21 个已合并 PR。
+本次审查以本项目远端 `origin/main` 的 `b9f7a552174a9280148281dc4ceb42ff18549654` 为发布基线，将上游 `Wei-Shaw/sub2api` 的 `main` 冻结在 `4033387fd49b15b676d2e5c9fd3833f156050f57`。先前已审查边界是 `2bc139ab527b4a687546d145dc7bb9063cf14510`，本次增量包含合并 PR #5925（Grok compatibility）及其 28 个主题提交；更早的同步区间见 `82f7dd14f717bef480879f73cba288791b9b9663`。
 
 ## 选择性同步
 
@@ -16,6 +16,7 @@
 - #5868/#5881：tool-search 输出统一为字符串 `function_call_output`，完成的发现工具提升到有效函数目录并做同名 schema 冲突拒绝；请求体上限和原有 SSE 转换边界保持不变。
 - #5729：Responses→Chat bridge 在链式工具调用中回放本轮 `reasoning_content`，不增加外部 I/O。
 - #5876：本地 `model_not_found` 标记为模型配置业务限制，并清理同一请求中陈旧的账号/上游错误标记，避免错误计入 SLA。
+- #5925（兼容性子集）：将 OpenAI 图片 `size` 在现有 `grok_media` owner 内转换为 xAI `resolution`/`aspect_ratio`，保留原始 `size` 作为本地计费输入；显式 xAI 几何字段优先，multipart 与 JSON 共用同一转换。
 
 ## 不重复或暂缓
 
@@ -24,11 +25,12 @@
 - #5842 的 adaptive CN API protocol 会改变新建账号默认协议并引入多端点连接测试，属于存量配置行为变化，暂不在没有完整 CN 路由 owner 的情况下合入。
 - #5851 的可配置 Fast/Flex 和长上下文倍率涉及存量账单变化及新的 schema 字段。本项目已有 `ApplyServiceTierMultiplier` 设计，已覆盖渠道标准价与 tier 倍率；不重复引入上游 migration 228 或把分组长上下文门控从 AND 改为 OR。
 - 纯测试/样式或不同前端 owner 的 #5837、#5838、#5839、#5875 未复制旧 `src/components` 路径。
+- #5925 的其余目录/默认模型与存量价格迁移、独立 reasoning token 计费、Realtime 预握手、Grok 429 冷却/同号重试、compaction 分类和连接池配置没有直接合并：这些改动依赖上游旧的 `internal/handler`/`internal/service` owner，且会改变现有默认模型、账单或账号状态。当前项目已有等价的加密内容重试、内容策略拒绝、流式 idle、有界 WS 重放和模型级容量边界；重复移植会造成双重重试或滚动升级行为漂移。
 
 ## 性能与升级影响
 
-新增热路径逻辑均有边界：`responses/input_tokens` 对自定义 relay 避免一次必失败网络请求；WS 跨账号重试历史有项目级项数/字节上限；tool-search promotion 只在请求声明 `tool_search` 时解析 JSON；代理探测目标数量有上限。没有新增数据库迁移、后台定时任务或无界队列。旧 API JSON/SSE/WS 形状保持兼容，旧配置在空 `proxy_probe.urls` 时行为不变。
+新增热路径逻辑均有边界：`responses/input_tokens` 对自定义 relay 避免一次必失败网络请求；WS 跨账号重试历史有项目级项数/字节上限；tool-search promotion 只在请求声明 `tool_search` 时解析 JSON；代理探测目标数量有上限；Grok 图片几何转换只做一次有界 JSON 解析和固定候选比例扫描，没有外部 I/O。没有新增数据库迁移、后台定时任务或无界队列。旧 API JSON/SSE/WS 形状保持兼容，旧配置在空 `proxy_probe.urls` 时行为不变；#5925 被暂缓的默认模型、账单和冷却策略不会在滚动升级中突然改变。
 
 ## 验证与发布入口
 
-代码与测试是最终事实来源。提交前执行根目录文档检查、后端 Docker 测试、前端 typecheck/Vitest、生产镜像启动检查。发布后以推送提交的精确 SHA 分别核对 `CI`、`Security Scan` 和 `Docker Image`，不得用本地 Docker 成功代替远端 Actions 证据。
+代码与测试是最终事实来源。提交前执行根目录文档检查、后端 Docker 测试、前端 typecheck/Vitest、生产镜像启动检查。发布后以推送提交的精确 SHA 分别核对 `CI`、`Security Scan` 和 `Docker Image`，不得用本地 Docker 成功代替远端 Actions 证据；上游审查边界固定为 `4033387fd49b15b676d2e5c9fd3833f156050f57`。
