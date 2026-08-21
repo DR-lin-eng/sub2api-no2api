@@ -837,6 +837,31 @@ func TestOpenAIGatewayMessagesDispatchGateAllowsGrokGroups(t *testing.T) {
 		require.Equal(t, http.StatusServiceUnavailable, rec.Code)
 		require.NotContains(t, rec.Body.String(), "This group does not allow /v1/messages dispatch")
 	})
+
+	t.Run("composite_cn_target_without_dispatch_flag_reaches_gateway_dependencies", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(rec)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"deepseek-v4-pro","messages":[{"role":"user","content":"hi"}]}`))
+		groupID := int64(4104)
+		c.Set(string(middleware.ContextKeyAPIKey), &service.APIKey{
+			ID:      5104,
+			GroupID: &groupID,
+			User:    &service.User{ID: 6104},
+			Group: &service.Group{
+				ID:                    groupID,
+				Platform:              service.PlatformComposite,
+				AllowMessagesDispatch: false,
+			},
+		})
+		c.Request = c.Request.WithContext(service.WithResolvedTargetPlatform(c.Request.Context(), "deepseek"))
+		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 6104, Concurrency: 1})
+
+		h := &OpenAIGatewayHandler{}
+		h.Messages(c)
+
+		require.Equal(t, http.StatusServiceUnavailable, rec.Code)
+		require.NotContains(t, rec.Body.String(), "This group does not allow /v1/messages dispatch")
+	})
 }
 
 func TestOpenAIModelMappedBody(t *testing.T) {
