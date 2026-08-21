@@ -506,6 +506,22 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 		require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityEmbeddings))
 	})
 
+	t.Run("空能力容器按未配置处理，保留 OAuth 文本调度", func(t *testing.T) {
+		for _, raw := range []any{
+			[]any{},
+			[]string{},
+			map[string]any{},
+			map[string]bool{},
+		} {
+			account := &Account{
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeOAuth,
+				Credentials: map[string]any{"openai_capabilities": raw},
+			}
+			require.Truef(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions), "raw=%T", raw)
+		}
+	})
+
 	t.Run("alpha search 允许 OpenAI OAuth/PAT 与 APIKey 账号，拒绝 Grok", func(t *testing.T) {
 		// OAuth/PAT 走 chatgpt.com Codex 端点，APIKey 走 {base_url}/v1/alpha/search，
 		// 两类都能承接独立搜索（APIKey 被排除曾导致纯 APIKey 分组搜索失效的回归）。

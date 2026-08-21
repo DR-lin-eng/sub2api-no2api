@@ -8,6 +8,7 @@ import type { AdminGroup } from "@/features/admin-groups/data/dtos/adminGroupDto
 import {
   messagesDispatchFormStateToConfig,
   resetMessagesDispatchFormState,
+  supportsMessagesDispatchPlatform,
   type MessagesDispatchMappingRow,
 } from "../groupsMessagesDispatchResolver";
 import {
@@ -328,7 +329,7 @@ export function useCreateGroupController({
           createForm.supported_model_scopes,
         ),
         messages_dispatch_model_config:
-          createForm.platform === "openai"
+          supportsMessagesDispatchPlatform(createForm.platform)
             ? messagesDispatchFormStateToConfig(createForm)
             : undefined,
         reasoning_effort_mappings: reasoningEffortMappingsToAPI(
@@ -406,8 +407,10 @@ export function useCreateGroupController({
       if (!["anthropic", "antigravity"].includes(newValue)) {
         createForm.fallback_group_id_on_invalid_request = null;
       }
-      if (newValue !== "openai") {
+      if (!supportsMessagesDispatchPlatform(newValue)) {
         resetMessagesDispatchFormState(createForm);
+      }
+      if (newValue !== "openai") {
         createForm.allow_live = false;
       }
       if (!["openai", "composite"].includes(newValue)) {
