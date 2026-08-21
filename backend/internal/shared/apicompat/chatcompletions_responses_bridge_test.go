@@ -147,6 +147,35 @@ func TestResponsesToChatCompletionsRequest_ParallelToolCalls(t *testing.T) {
 	assert.Contains(t, string(payload), `"parallel_tool_calls":false`)
 }
 
+func TestResponsesToChatCompletionsRequest_ChainedToolCallsReplayTurnReasoning(t *testing.T) {
+	req := &ResponsesRequest{
+		Model: "deepseek-reasoner",
+		Input: json.RawMessage(`[
+			{"type":"reasoning","id":"r1","summary":[{"type":"summary_text","text":"turn thinking"}]},
+			{"type":"function_call","call_id":"call_a","name":"exec","arguments":"{}"},
+			{"type":"function_call_output","call_id":"call_a","output":"ok"},
+			{"type":"function_call","call_id":"call_b","name":"exec","arguments":"{}"},
+			{"type":"function_call_output","call_id":"call_b","output":"ok"},
+			{"type":"message","role":"user","content":[{"type":"input_text","text":"next"}]},
+			{"type":"reasoning","id":"r2","summary":[{"type":"summary_text","text":"second turn"}]},
+			{"type":"function_call","call_id":"call_c","name":"exec","arguments":"{}"},
+			{"type":"function_call_output","call_id":"call_c","output":"ok"}
+		]`),
+	}
+
+	out, err := ResponsesToChatCompletionsRequest(req)
+	require.NoError(t, err)
+	byCall := make(map[string]ChatMessage)
+	for _, message := range out.Messages {
+		for _, call := range message.ToolCalls {
+			byCall[call.ID] = message
+		}
+	}
+	require.Equal(t, "turn thinking", byCall["call_a"].ReasoningContent)
+	require.Equal(t, "turn thinking", byCall["call_b"].ReasoningContent)
+	require.Equal(t, "second turn", byCall["call_c"].ReasoningContent)
+}
+
 func TestResponsesInputToChatMessages_MovesToolOutputImagesToUserMessage(t *testing.T) {
 	input := json.RawMessage(`[
 		{"type":"function_call","call_id":"call_1","name":"inspect","arguments":"{}"},

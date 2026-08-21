@@ -89,6 +89,51 @@ func TestHandleChatStreamingResponse_ClassifiesHTTP2ReadError(t *testing.T) {
 	require.NotContains(t, message, "INTERNAL_ERROR")
 }
 
+func TestHandleChatBufferedStreamingResponse_ReadErrorReturnsFailover(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}, "X-Request-Id": []string{"buffered-rid"}},
+		Body:       errReadCloser{err: errors.New("stream error: stream ID 7; INTERNAL_ERROR; received from peer")},
+	}
+
+	result, err := (&OpenAIGatewayService{}).handleChatBufferedStreamingResponse(
+		resp, c, &Account{ID: 40, Name: "openai-oauth", Platform: PlatformOpenAI},
+		"gpt-5.6-sol", "gpt-5.6-sol", "gpt-5.6-sol", time.Now(),
+	)
+
+	require.Nil(t, result)
+	var failoverErr *UpstreamFailoverError
+	require.ErrorAs(t, err, &failoverErr)
+	require.Equal(t, http.StatusBadGateway, failoverErr.StatusCode)
+	require.Equal(t, "buffered-rid", failoverErr.ResponseHeaders.Get("x-request-id"))
+	require.Equal(t, OpenAIUpstreamHTTP2StreamErrorCode, gjson.GetBytes(failoverErr.ResponseBody, "error.code").String())
+	require.False(t, c.Writer.Written())
+}
+
+func TestHandleChatBufferedStreamingResponse_ClientCancellationDoesNotFailover(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	requestCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil).WithContext(requestCtx)
+	resp := &http.Response{StatusCode: http.StatusOK, Body: errReadCloser{err: io.ErrUnexpectedEOF}, Header: http.Header{}}
+
+	result, err := (&OpenAIGatewayService{}).handleChatBufferedStreamingResponse(
+		resp, c, &Account{ID: 41, Platform: PlatformOpenAI},
+		"gpt-5.6-sol", "gpt-5.6-sol", "gpt-5.6-sol", time.Now(),
+	)
+
+	require.Nil(t, result)
+	var failoverErr *UpstreamFailoverError
+	require.NotErrorAs(t, err, &failoverErr)
+	require.ErrorIs(t, err, io.ErrUnexpectedEOF)
+}
+
 func TestNormalizeResponsesRequestServiceTier(t *testing.T) {
 	t.Parallel()
 

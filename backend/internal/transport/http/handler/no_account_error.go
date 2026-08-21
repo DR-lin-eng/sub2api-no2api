@@ -114,7 +114,34 @@ func classifyNoAccountErrorFromGin(
 	if c != nil && c.Request != nil {
 		ctx = c.Request.Context()
 	}
-	return classifyNoAccountError(ctx, diag, apiKey, routingModel, displayModel, platform)
+	classification := classifyNoAccountError(ctx, diag, apiKey, routingModel, displayModel, platform)
+	if classification.ModelNotFound {
+		service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalModelConfiguration)
+		clearLocalModelConfigurationUpstreamContext(c)
+	}
+	return classification
+}
+
+// A local model_not_found decision must not inherit an account/endpoint/error
+// marker left by an earlier scheduling attempt in the same request context.
+func clearLocalModelConfigurationUpstreamContext(c *gin.Context) {
+	if c == nil {
+		return
+	}
+	if c.Keys == nil {
+		return
+	}
+	for _, key := range []string{
+		opsAccountIDKey,
+		opsUpstreamModelKey,
+		ctxKeyActualUpstreamEndpoint,
+		service.OpsUpstreamStatusCodeKey,
+		service.OpsUpstreamErrorMessageKey,
+		service.OpsUpstreamErrorDetailKey,
+		service.OpsUpstreamErrorsKey,
+	} {
+		delete(c.Keys, key)
+	}
 }
 
 func classifyOpenAICompatibleNoAccountErrorFromGin(

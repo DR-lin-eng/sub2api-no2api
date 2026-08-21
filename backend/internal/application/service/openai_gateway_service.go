@@ -283,6 +283,10 @@ type OpenAIForwardResult struct {
 
 	wsReplayInput       []json.RawMessage
 	wsReplayInputExists bool
+	// wsAccountFailoverReplayInput contains the full bridge history needed to
+	// retry a later turn on a replacement account without replaying the turn
+	// that already succeeded on the old account.
+	wsAccountFailoverReplayInput []json.RawMessage
 }
 
 // SucceededForScheduling reports whether this result is an upstream success

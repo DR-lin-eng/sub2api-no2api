@@ -166,6 +166,19 @@ func (s *ProxyProbeServiceSuite) TestParseIPify_NoIP() {
 	require.ErrorContains(s.T(), err, "no IP found")
 }
 
+func (s *ProxyProbeServiceSuite) TestParseChatGPTTrace_Success() {
+	info, latencyMs, err := s.prober.parseChatGPTTrace([]byte("ip=203.0.113.5\nloc=US\n"), 320)
+	require.NoError(s.T(), err)
+	require.Equal(s.T(), int64(320), latencyMs)
+	require.Equal(s.T(), "203.0.113.5", info.IP)
+	require.Equal(s.T(), "US", info.CountryCode)
+}
+
+func (s *ProxyProbeServiceSuite) TestParseChatGPTTrace_NoIP() {
+	_, _, err := s.prober.parseChatGPTTrace([]byte("loc=US\n"), 100)
+	require.ErrorContains(s.T(), err, "no ip= found")
+}
+
 func TestProxyProbeServiceSuite(t *testing.T) {
 	suite.Run(t, new(ProxyProbeServiceSuite))
 }

@@ -20,6 +20,7 @@ func NewProxyExitInfoProber(cfg *config.Config) service.ProxyExitInfoProber {
 	allowPrivate := false
 	validateResolvedIP := true
 	maxResponseBytes := defaultProxyProbeResponseMaxBytes
+	var configuredProbeURLs []configuredProbeTarget
 	if cfg != nil {
 		insecure = cfg.Security.ProxyProbe.InsecureSkipVerify
 		allowPrivate = cfg.Security.URLAllowlist.AllowPrivateHosts
@@ -27,15 +28,22 @@ func NewProxyExitInfoProber(cfg *config.Config) service.ProxyExitInfoProber {
 		if cfg.Gateway.ProxyProbeResponseReadMaxBytes > 0 {
 			maxResponseBytes = cfg.Gateway.ProxyProbeResponseReadMaxBytes
 		}
+		if len(cfg.Security.ProxyProbe.URLs) > 0 {
+			configuredProbeURLs = make([]configuredProbeTarget, 0, len(cfg.Security.ProxyProbe.URLs))
+			for _, target := range cfg.Security.ProxyProbe.URLs {
+				configuredProbeURLs = append(configuredProbeURLs, configuredProbeTarget{url: target.URL, parser: target.Parser})
+			}
+		}
 	}
 	if insecure {
 		log.Printf("[ProxyProbe] Warning: insecure_skip_verify is not allowed and will cause probe failure.")
 	}
 	return &proxyProbeService{
-		insecureSkipVerify: insecure,
-		allowPrivateHosts:  allowPrivate,
-		validateResolvedIP: validateResolvedIP,
-		maxResponseBytes:   maxResponseBytes,
+		insecureSkipVerify:  insecure,
+		allowPrivateHosts:   allowPrivate,
+		validateResolvedIP:  validateResolvedIP,
+		maxResponseBytes:    maxResponseBytes,
+		configuredProbeURLs: configuredProbeURLs,
 	}
 }
 
@@ -54,11 +62,17 @@ var probeURLs = []struct {
 	{"http://api64.ipify.org?format=json", "ipify"},
 }
 
+type configuredProbeTarget struct {
+	url    string
+	parser string
+}
+
 type proxyProbeService struct {
-	insecureSkipVerify bool
-	allowPrivateHosts  bool
-	validateResolvedIP bool
-	maxResponseBytes   int64
+	insecureSkipVerify  bool
+	allowPrivateHosts   bool
+	validateResolvedIP  bool
+	maxResponseBytes    int64
+	configuredProbeURLs []configuredProbeTarget
 }
 
 func (s *proxyProbeService) ProbeProxy(ctx context.Context, proxyURL string) (*service.ProxyExitInfo, int64, error) {
@@ -74,7 +88,20 @@ func (s *proxyProbeService) ProbeProxy(ctx context.Context, proxyURL string) (*s
 	}
 
 	var lastErr error
-	for _, probe := range probeURLs {
+	targets := probeURLs
+	if len(s.configuredProbeURLs) > 0 {
+		targets = make([]struct {
+			url    string
+			parser string
+		}, 0, len(s.configuredProbeURLs))
+		for _, target := range s.configuredProbeURLs {
+			targets = append(targets, struct {
+				url    string
+				parser string
+			}{url: target.url, parser: target.parser})
+		}
+	}
+	for _, probe := range targets {
 		exitInfo, latencyMs, err := s.probeWithURL(ctx, client, probe.url, probe.parser)
 		if err == nil {
 			return exitInfo, latencyMs, nil
@@ -121,9 +148,31 @@ func (s *proxyProbeService) probeWithURL(ctx context.Context, client *http.Clien
 		return s.parseIPAPI(body, latencyMs)
 	case "ipify":
 		return s.parseIPify(body, latencyMs)
+	case "chatgpt-trace":
+		return s.parseChatGPTTrace(body, latencyMs)
 	default:
 		return nil, latencyMs, fmt.Errorf("unknown parser: %s", parser)
 	}
+}
+
+func (s *proxyProbeService) parseChatGPTTrace(body []byte, latencyMs int64) (*service.ProxyExitInfo, int64, error) {
+	var ip, loc string
+	for _, line := range strings.Split(string(body), "\n") {
+		key, value, found := strings.Cut(strings.TrimSpace(line), "=")
+		if !found {
+			continue
+		}
+		switch key {
+		case "ip":
+			ip = strings.TrimSpace(value)
+		case "loc":
+			loc = strings.TrimSpace(value)
+		}
+	}
+	if ip == "" {
+		return nil, latencyMs, fmt.Errorf("chatgpt-trace: no ip= found in response")
+	}
+	return &service.ProxyExitInfo{IP: ip, CountryCode: loc}, latencyMs, nil
 }
 
 func (s *proxyProbeService) parseIPAPI(body []byte, latencyMs int64) (*service.ProxyExitInfo, int64, error) {

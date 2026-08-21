@@ -87,6 +87,27 @@ func TestPatchGrokResponsesBodySanitizesComposerReasoningParameters(t *testing.T
 	}
 }
 
+func TestPatchGrokResponsesBodyNormalizesXHighByModel(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name  string
+		model string
+		want  string
+	}{
+		{name: "grok 4.5 degrades xhigh", model: "grok-4.5", want: "high"},
+		{name: "grok 4.6 keeps xhigh", model: "grok-4.6", want: "xhigh"},
+		{name: "provider prefix keeps xhigh", model: "xai/grok-4.6-latest", want: "xhigh"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			body := []byte(`{"model":"grok","input":"hello","reasoning":{"effort":"x-high"}}`)
+			patched, err := patchGrokResponsesBody(body, tc.model)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, gjson.GetBytes(patched, "reasoning.effort").String())
+		})
+	}
+}
+
 func TestExtractGrokResponsesReasoningEffortSupportsOpenAICompatibleField(t *testing.T) {
 	t.Parallel()
 

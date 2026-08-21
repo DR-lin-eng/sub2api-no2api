@@ -154,6 +154,14 @@ type ProxyFallbackConfig struct {
 
 type ProxyProbeConfig struct {
 	InsecureSkipVerify bool `mapstructure:"insecure_skip_verify"` // 已禁用：禁止跳过 TLS 证书验证
+	// URLs is an ordered, bounded list of custom probe endpoints. An empty list
+	// keeps the built-in ip-api/ipify fallback.
+	URLs []ProbeURLConfig `mapstructure:"urls"`
+}
+
+type ProbeURLConfig struct {
+	URL    string `mapstructure:"url"`
+	Parser string `mapstructure:"parser"` // ip-api, ipify, or chatgpt-trace
 }
 
 type BillingConfig struct {

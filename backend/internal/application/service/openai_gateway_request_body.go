@@ -529,6 +529,10 @@ func IsForwardableOpenAIResponsesRequestPath(c *gin.Context) bool {
 	return ok
 }
 
+func IsOpenAIResponsesInputTokensRequestPath(c *gin.Context) bool {
+	return openAIResponsesRequestPathSuffix(c) == "/input_tokens"
+}
+
 func rawOpenAIResponsesRequestPathSuffix(c *gin.Context) string {
 	if c == nil || c.Request == nil || c.Request.URL == nil {
 		return ""

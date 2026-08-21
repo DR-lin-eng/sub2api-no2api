@@ -61,7 +61,7 @@ func TestOpenAIResponsesRequestPathSuffixRejectsNonConformingSubpaths(t *testing
 	}
 
 	for path, want := range map[string]string{
-		"/v1/responses": "", "/v1/responses/compact": "/compact",
+		"/v1/responses": "", "/v1/responses/input_tokens": "/input_tokens", "/v1/responses/compact": "/compact",
 		"/responses/compact/": "/compact", "/backend-api/codex/responses/compact": "/compact",
 	} {
 		c, _ := gin.CreateTestContext(httptest.NewRecorder())
@@ -69,6 +69,9 @@ func TestOpenAIResponsesRequestPathSuffixRejectsNonConformingSubpaths(t *testing
 		require.True(t, IsForwardableOpenAIResponsesRequestPath(c), "path=%s", path)
 		require.Equal(t, want, openAIResponsesRequestPathSuffix(c), "path=%s", path)
 	}
+	inputTokens := newResponsesSuffixTestContext(t, "/v1/responses/input_tokens")
+	require.True(t, IsOpenAIResponsesInputTokensRequestPath(inputTokens))
+	require.False(t, IsOpenAIResponsesInputTokensRequestPath(newResponsesSuffixTestContext(t, "/v1/responses")))
 }
 
 func TestIsOpenAIResponsesCompactPathUsesLegacyEndpointShape(t *testing.T) {

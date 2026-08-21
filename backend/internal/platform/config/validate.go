@@ -8,6 +8,42 @@ import (
 	"strings"
 )
 
+const maxProxyProbeTargets = 8
+
+func normalizeProxyProbeURLs(targets []ProbeURLConfig) ([]ProbeURLConfig, error) {
+	if len(targets) == 0 {
+		return nil, nil
+	}
+	if len(targets) > maxProxyProbeTargets {
+		return nil, fmt.Errorf("at most %d probe targets are allowed", maxProxyProbeTargets)
+	}
+	normalized := make([]ProbeURLConfig, 0, len(targets))
+	for i, target := range targets {
+		rawURL := strings.TrimSpace(target.URL)
+		parser := strings.ToLower(strings.TrimSpace(target.Parser))
+		if rawURL == "" {
+			return nil, fmt.Errorf("entry %d: url is required", i)
+		}
+		if parser == "" {
+			return nil, fmt.Errorf("entry %d: parser is required", i)
+		}
+		switch parser {
+		case "ip-api", "ipify", "chatgpt-trace":
+		default:
+			return nil, fmt.Errorf("entry %d: unsupported parser %q", i, target.Parser)
+		}
+		parsed, err := url.Parse(rawURL)
+		if err != nil || strings.TrimSpace(parsed.Hostname()) == "" {
+			return nil, fmt.Errorf("entry %d: invalid url %q", i, target.URL)
+		}
+		if !strings.EqualFold(parsed.Scheme, "http") && !strings.EqualFold(parsed.Scheme, "https") {
+			return nil, fmt.Errorf("entry %d: url scheme must be http or https", i)
+		}
+		normalized = append(normalized, ProbeURLConfig{URL: rawURL, Parser: parser})
+	}
+	return normalized, nil
+}
+
 func (c *Config) Validate() error {
 	if c.IPv6Egress.Enabled {
 		if runtime.GOOS != "linux" {
@@ -68,6 +104,11 @@ func (c *Config) Validate() error {
 	if err := validateSecurity(c); err != nil {
 		return err
 	}
+	proxyProbeURLs, err := normalizeProxyProbeURLs(c.Security.ProxyProbe.URLs)
+	if err != nil {
+		return fmt.Errorf("security.proxy_probe.urls: %w", err)
+	}
+	c.Security.ProxyProbe.URLs = proxyProbeURLs
 	if err := validateWebAuthn(c); err != nil {
 		return err
 	}

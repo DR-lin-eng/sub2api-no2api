@@ -237,13 +237,18 @@ func responsesInputToChatMessages(instructions string, inputRaw json.RawMessage)
 // corresponding Chat messages.
 func buildChatMessagesFromItems(messages []ChatMessage, rawItems []json.RawMessage) ([]ChatMessage, toolOutputMediaByCallID, error) {
 	// pendingReasoning holds the reasoning text from a reasoning item until the
-	// assistant message it belongs to is emitted. DeepSeek's thinking mode
-	// requires the reasoning_content that produced a tool call to be passed back
-	// on that assistant message; dropping it yields a 400. It only survives
-	// across an assistant message (so a following tool call in the same turn
-	// still receives it); any other role ends the thinking span.
+	// assistant message it belongs to is emitted. lastTurnReasoning keeps the
+	// latest reasoning across tool outputs: DeepSeek emits reasoning once per
+	// turn, but a chained second tool call still needs the same reasoning_content.
 	var pendingReasoning string
+	var lastTurnReasoning string
 	mediaByCallID := make(toolOutputMediaByCallID)
+	reasoningForAssistant := func() string {
+		if pendingReasoning != "" {
+			return pendingReasoning
+		}
+		return lastTurnReasoning
+	}
 
 	for _, raw := range rawItems {
 		raw = bytesTrimSpace(raw)
@@ -258,6 +263,7 @@ func buildChatMessagesFromItems(messages []ChatMessage, rawItems []json.RawMessa
 				content, _ := json.Marshal(text)
 				messages = append(messages, ChatMessage{Role: "user", Content: content})
 				pendingReasoning = ""
+				lastTurnReasoning = ""
 				continue
 			}
 			return nil, nil, fmt.Errorf("parse responses input item: %w", err)
@@ -269,6 +275,7 @@ func buildChatMessagesFromItems(messages []ChatMessage, rawItems []json.RawMessa
 		case "reasoning":
 			if txt := extractResponsesReasoningText(item); txt != "" {
 				pendingReasoning = txt
+				lastTurnReasoning = txt
 			}
 			continue
 		case "function_call":
@@ -290,7 +297,7 @@ func buildChatMessagesFromItems(messages []ChatMessage, rawItems []json.RawMessa
 					Arguments: arguments,
 				},
 			}
-			messages = appendAssistantToolCall(messages, toolCall, pendingReasoning)
+			messages = appendAssistantToolCall(messages, toolCall, reasoningForAssistant())
 			pendingReasoning = ""
 			continue
 		case "tool_search_call":
@@ -311,7 +318,7 @@ func buildChatMessagesFromItems(messages []ChatMessage, rawItems []json.RawMessa
 					Arguments: arguments,
 				},
 			}
-			messages = appendAssistantToolCall(messages, toolCall, pendingReasoning)
+			messages = appendAssistantToolCall(messages, toolCall, reasoningForAssistant())
 			pendingReasoning = ""
 			continue
 		case "custom_tool_call":
@@ -327,7 +334,7 @@ func buildChatMessagesFromItems(messages []ChatMessage, rawItems []json.RawMessa
 					Arguments: string(arguments),
 				},
 			}
-			messages = appendAssistantToolCall(messages, toolCall, pendingReasoning)
+			messages = appendAssistantToolCall(messages, toolCall, reasoningForAssistant())
 			pendingReasoning = ""
 			continue
 		case "function_call_output", "custom_tool_call_output", "tool_search_output":
@@ -358,6 +365,7 @@ func buildChatMessagesFromItems(messages []ChatMessage, rawItems []json.RawMessa
 			content, _ := json.Marshal(rawString(item["text"]))
 			messages = append(messages, ChatMessage{Role: "user", Content: content})
 			pendingReasoning = ""
+			lastTurnReasoning = ""
 			continue
 		case "input_image":
 			content, err := chatContentFromSingleResponsesPart(itemType, item)
@@ -366,6 +374,7 @@ func buildChatMessagesFromItems(messages []ChatMessage, rawItems []json.RawMessa
 			}
 			messages = append(messages, ChatMessage{Role: "user", Content: content})
 			pendingReasoning = ""
+			lastTurnReasoning = ""
 			continue
 		}
 
@@ -390,11 +399,15 @@ func buildChatMessagesFromItems(messages []ChatMessage, rawItems []json.RawMessa
 		if err != nil {
 			return nil, nil, err
 		}
-		messages = append(messages, ChatMessage{Role: role, Content: chatContent})
-		// Reasoning only survives across an assistant text message.
-		if role != "assistant" {
+		message := ChatMessage{Role: role, Content: chatContent}
+		if role == "assistant" {
+			message.ReasoningContent = reasoningForAssistant()
 			pendingReasoning = ""
+		} else {
+			pendingReasoning = ""
+			lastTurnReasoning = ""
 		}
+		messages = append(messages, message)
 	}
 
 	return messages, mediaByCallID, nil

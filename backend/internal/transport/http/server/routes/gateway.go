@@ -158,6 +158,10 @@ func RegisterGatewayRoutes(
 	}
 	guardResponsesSubpath := func(next gin.HandlerFunc) gin.HandlerFunc {
 		return func(c *gin.Context) {
+			if service.IsOpenAIResponsesInputTokensRequestPath(c) && isOpenAIResponsesCompatibleGatewayPlatform(c) {
+				h.OpenAIGateway.ResponsesInputTokens(c)
+				return
+			}
 			if !service.IsForwardableOpenAIResponsesRequestPath(c) {
 				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalPolicyDenied)
 				c.AbortWithStatusJSON(http.StatusNotFound, gin.H{

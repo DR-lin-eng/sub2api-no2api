@@ -841,6 +841,44 @@ func TestBuildOpenAIWSReplayInputSequence(t *testing.T) {
 	})
 }
 
+func TestBuildOpenAIWSCurrentTurnRetryPayload(t *testing.T) {
+	t.Parallel()
+
+	fullInput := []json.RawMessage{
+		json.RawMessage(`{"type":"input_text","text":"first"}`),
+		json.RawMessage(`{"type":"function_call","call_id":"call_1","name":"inspect","arguments":"{}"}`),
+		json.RawMessage(`{"type":"function_call_output","call_id":"call_1","output":"second"}`),
+	}
+	payload, safe, err := buildOpenAIWSCurrentTurnRetryPayload(
+		[]byte(`{"type":"response.create","model":"mapped","previous_response_id":"resp_old"}`),
+		fullInput, true, "gpt-5.6-sol",
+	)
+	require.NoError(t, err)
+	require.True(t, safe)
+	require.False(t, gjson.GetBytes(payload, "previous_response_id").Exists())
+	require.Equal(t, "gpt-5.6-sol", gjson.GetBytes(payload, "model").String())
+	require.Len(t, gjson.GetBytes(payload, "input").Array(), 3)
+
+	unsafe, safe, err := buildOpenAIWSCurrentTurnRetryPayload(
+		[]byte(`{"type":"response.create"}`),
+		[]json.RawMessage{json.RawMessage(`{"type":"function_call_output","call_id":"orphan","output":"x"}`)},
+		true, "gpt-5.6-sol",
+	)
+	require.NoError(t, err)
+	require.False(t, safe)
+	require.Nil(t, unsafe)
+}
+
+func TestOpenAIWSCurrentTurnRetryPayloadClonesPayload(t *testing.T) {
+	wrapped := newOpenAIWSCurrentTurnFailoverError(errors.New("429"), []byte(`{"input":"retry"}`))
+	payload, ok := OpenAIWSCurrentTurnRetryPayload(wrapped)
+	require.True(t, ok)
+	payload[0] = 'x'
+	var retryErr *openAIWSCurrentTurnFailoverError
+	require.ErrorAs(t, wrapped, &retryErr)
+	require.Equal(t, byte('{'), retryErr.retryPayload[0])
+}
+
 func TestOpenAIWSRawPayloadHasToolCallOutput(t *testing.T) {
 	t.Parallel()
 

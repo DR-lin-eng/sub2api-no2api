@@ -696,6 +696,24 @@ func TestClassifyOpsRoutingCapacityMarkerExcludesMaskedSelectionFailureFromSLA(t
 	require.Equal(t, "gateway", errorSource)
 }
 
+func TestClassifyOpsLocalModelConfigurationOverridesStaleUpstreamMarkers(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalModelConfiguration)
+	c.Set(service.OpsUpstreamStatusCodeKey, http.StatusUnauthorized)
+	c.Set(service.OpsUpstreamErrorsKey, []*service.OpsUpstreamErrorEvent{{
+		Stage:              string(service.GatewayFailureStageAccountAuth),
+		UpstreamStatusCode: http.StatusUnauthorized,
+	}})
+
+	phase, limited, owner, source := classifyOpsErrorLog(c, "model_not_found", "unsupported configured model", "", http.StatusNotFound)
+
+	require.Equal(t, "routing", phase)
+	require.True(t, limited)
+	require.Equal(t, "platform", owner)
+	require.Equal(t, "gateway", source)
+}
+
 func TestClassifyOpsAuthClientErrorsExcludedFromSLA(t *testing.T) {
 	tests := []struct {
 		name    string

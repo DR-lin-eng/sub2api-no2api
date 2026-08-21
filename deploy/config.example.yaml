@@ -223,6 +223,9 @@ security:
     # Allow skipping TLS verification for proxy probe (debug only)
     # 允许代理探测时跳过 TLS 证书验证（仅用于调试）
     insecure_skip_verify: false
+    # Optional ordered probe targets. Empty keeps the built-in ip-api/ipify fallback.
+    # parser: ip-api, ipify, or chatgpt-trace
+    urls: []
   proxy_fallback:
     # Allow auxiliary services (update check, pricing data) to fallback to direct
     # connection when proxy initialization fails. Does NOT affect AI gateway connections.

@@ -95,6 +95,13 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	if normalizedBody, normalized := NormalizeGLMOpenAIReasoningEffort(upstreamBody, upstreamModel); normalized {
 		upstreamBody = normalizedBody
 	}
+	if account.Platform == PlatformGrok {
+		normalizedGrokBody, normalizeErr := normalizeGrokReasoningEffortFields(upstreamBody, upstreamModel)
+		if normalizeErr != nil {
+			return nil, fmt.Errorf("normalize Grok reasoning effort: %w", normalizeErr)
+		}
+		upstreamBody = normalizedGrokBody
+	}
 
 	// 4. Apply OpenAI fast policy on the CC body
 	updatedBody, policyErr := s.applyOpenAIFastPolicyToBody(ctx, account, upstreamModel, upstreamBody)
@@ -107,6 +114,13 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 		return nil, policyErr
 	}
 	upstreamBody = updatedBody
+	if account.Platform == PlatformGrok {
+		normalizedGrokBody, normalizeErr := stripRedundantGrokChatViewImageTool(upstreamBody)
+		if normalizeErr != nil {
+			return nil, fmt.Errorf("strip redundant Grok Chat view_image tool: %w", normalizeErr)
+		}
+		upstreamBody = normalizedGrokBody
+	}
 
 	// Grok Composer does not accept image_url parts directly, but Grok Build
 	// can describe the images first. Bridge only this exact failure mode.

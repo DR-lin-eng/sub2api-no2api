@@ -62,6 +62,75 @@ func TestAdaptResponsesClientTools_LowersDeclarationsHistoryChoiceAndNamespaces(
 	require.Equal(t, "team__send", namespaceCall["name"])
 }
 
+func TestAdaptResponsesClientTools_LowersDiscoveredToolSearchOutput(t *testing.T) {
+	req := map[string]any{
+		"tools": []any{map[string]any{"type": "tool_search"}},
+		"input": []any{
+			map[string]any{
+				"type": "tool_search_output", "call_id": "search", "status": "completed",
+				"tools": []any{map[string]any{"type": "namespace", "name": "codex_app"}},
+			},
+		},
+	}
+	_, changed, err := AdaptResponsesClientTools(req)
+	require.NoError(t, err)
+	require.True(t, changed)
+	input := requireResponsesClientToolValue[[]any](t, req["input"])
+	item := requireResponsesClientToolValue[map[string]any](t, input[0])
+	require.Equal(t, "function_call_output", item["type"])
+	output := requireResponsesClientToolValue[string](t, item["output"])
+	require.JSONEq(t, `[{"type":"namespace","name":"codex_app"}]`, output)
+	require.NotContains(t, item, "tools")
+	require.NotContains(t, item, "status")
+	require.NotContains(t, item, "execution")
+}
+
+func TestAdaptResponsesClientTools_ToolSearchOutputPreservesLegacyOutput(t *testing.T) {
+	req := map[string]any{
+		"tools": []any{map[string]any{"type": "tool_search"}},
+		"input": []any{map[string]any{
+			"type": "tool_search_output", "call_id": "search", "output": map[string]any{"ok": true},
+			"tools": []any{map[string]any{"type": "function", "name": "ignored"}},
+		}},
+	}
+	_, _, err := AdaptResponsesClientTools(req)
+	require.NoError(t, err)
+	input := requireResponsesClientToolValue[[]any](t, req["input"])
+	item := requireResponsesClientToolValue[map[string]any](t, input[0])
+	require.Equal(t, `{"ok":true}`, item["output"])
+	require.NotContains(t, item, "tools")
+}
+
+func TestAdaptResponsesClientTools_PromotesCompletedDiscoveries(t *testing.T) {
+	req := map[string]any{
+		"tools": []any{
+			map[string]any{"type": "function", "name": "static"},
+			map[string]any{"type": "tool_search"},
+		},
+		"input": []any{map[string]any{
+			"type": "tool_search_output", "call_id": "search", "status": "completed",
+			"tools": []any{
+				map[string]any{"type": "function", "name": "inspect", "parameters": map[string]any{"type": "object"}},
+				map[string]any{"type": "namespace", "name": "agent", "tools": []any{map[string]any{"type": "function", "name": "spawn"}}},
+			},
+		}},
+	}
+
+	mapping, changed, err := AdaptResponsesClientTools(req)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.True(t, mapping.ToolSearch)
+	tools := requireResponsesClientToolValue[[]any](t, req["tools"])
+	var names []string
+	for _, raw := range tools {
+		if tool, ok := raw.(map[string]any); ok {
+			names = append(names, stringValue(tool["name"]))
+		}
+	}
+	require.Contains(t, names, "inspect")
+	require.Contains(t, names, "agent__spawn")
+}
+
 func requireResponsesClientToolValue[T any](t *testing.T, value any) T {
 	t.Helper()
 	typed, ok := value.(T)

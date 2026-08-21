@@ -32,6 +32,13 @@ func AdaptResponsesClientTools(req map[string]any) (ResponsesClientToolMapping, 
 	if !ok || len(tools) == 0 {
 		return ResponsesClientToolMapping{}, false, nil
 	}
+	discovered, err := promoteResponsesToolSearchDiscoveries(req)
+	if err != nil {
+		return ResponsesClientToolMapping{}, false, err
+	}
+	if discovered {
+		tools, _ = req["tools"].([]any)
+	}
 
 	adapter := ResponsesClientToolMapping{CustomTools: make(map[string]bool)}
 	functionNames := make(map[string]bool)
@@ -78,7 +85,7 @@ func AdaptResponsesClientTools(req map[string]any) (ResponsesClientToolMapping, 
 
 	tools, _ = req["tools"].([]any)
 	lowered := make([]any, 0, len(tools))
-	changed := flattened
+	changed := discovered || flattened
 	seenSearch := false
 	for _, raw := range tools {
 		tool, ok := raw.(map[string]any)
@@ -177,7 +184,7 @@ func rewriteClientToolHistory(value any, adapter *ResponsesClientToolMapping) bo
 			case "tool_search_output":
 				if adapter.ToolSearch {
 					typed["type"] = "function_call_output"
-					normalizeClientToolOutput(typed)
+					normalizeToolSearchOutput(typed)
 					changed = true
 				}
 			}
@@ -208,6 +215,45 @@ func normalizeClientToolOutput(item map[string]any) {
 		return
 	}
 	item["output"] = string(encoded)
+}
+
+// normalizeToolSearchOutput handles both legacy output strings and newer
+// discovery responses that carry definitions in a top-level tools field.
+// Function-only upstreams require function_call_output.output to be a string;
+// private discovery metadata must not be forwarded as sibling fields.
+func normalizeToolSearchOutput(item map[string]any) {
+	if output, hasOutput := item["output"]; hasOutput {
+		switch typed := output.(type) {
+		case string:
+			item["output"] = typed
+		case nil:
+			item["output"] = ""
+		default:
+			encoded, err := json.Marshal(typed)
+			if err != nil {
+				return
+			}
+			item["output"] = string(encoded)
+		}
+		dropToolSearchOutputPrivateFields(item)
+		return
+	}
+	tools, hasTools := item["tools"]
+	if !hasTools {
+		return
+	}
+	encoded, err := json.Marshal(tools)
+	if err != nil {
+		return
+	}
+	item["output"] = string(encoded)
+	dropToolSearchOutputPrivateFields(item)
+}
+
+func dropToolSearchOutputPrivateFields(item map[string]any) {
+	delete(item, "tools")
+	delete(item, "status")
+	delete(item, "execution")
 }
 
 func rewriteClientToolChoice(req map[string]any, adapter *ResponsesClientToolMapping) bool {

@@ -473,6 +473,10 @@ func patchGrokResponsesBodyBase(body []byte, upstreamModel string) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
+	out, err = normalizeGrokReasoningEffortFields(out, upstreamModel)
+	if err != nil {
+		return nil, err
+	}
 	for _, unsupportedField := range []string{"prompt_cache_retention", "safety_identifier"} {
 		if gjson.GetBytes(out, unsupportedField).Exists() {
 			out, err = sjson.DeleteBytes(out, unsupportedField)
@@ -500,6 +504,10 @@ func patchGrokResponsesBodyBase(body []byte, upstreamModel string) ([]byte, erro
 		return nil, err
 	}
 	out, err = sanitizeGrokResponsesInput(out)
+	if err != nil {
+		return nil, err
+	}
+	out, err = stripRedundantGrokViewImageTool(out)
 	if err != nil {
 		return nil, err
 	}
@@ -544,6 +552,64 @@ func grokModelRejectsReasoningEffort(model string) bool {
 	default:
 		return false
 	}
+}
+
+// normalizeGrokReasoningEffortFields keeps the request shape compatible with
+// the model-specific Grok reasoning contract. Grok 4.6 accepts xhigh; older
+// models only accept the high tier, so xhigh must degrade instead of causing a
+// provider schema error.
+func normalizeGrokReasoningEffortFields(body []byte, model string) ([]byte, error) {
+	out := body
+	for _, field := range []string{"reasoning.effort", "reasoning_effort", "reasoningEffort"} {
+		value := gjson.GetBytes(out, field)
+		if !value.Exists() {
+			continue
+		}
+		normalized, keep := normalizeGrokReasoningEffortValue(value.String(), model)
+		if !keep {
+			var err error
+			out, err = sjson.DeleteBytes(out, field)
+			if err != nil {
+				return nil, fmt.Errorf("remove invalid Grok reasoning effort: %w", err)
+			}
+			continue
+		}
+		var err error
+		out, err = sjson.SetBytes(out, field, normalized)
+		if err != nil {
+			return nil, fmt.Errorf("normalize Grok reasoning effort: %w", err)
+		}
+	}
+	return out, nil
+}
+
+func normalizeGrokReasoningEffortValue(raw, model string) (string, bool) {
+	value := strings.NewReplacer("-", "", "_", "", " ", "").Replace(strings.ToLower(strings.TrimSpace(raw)))
+	switch value {
+	case "none":
+		return "", false
+	case "low", "medium", "high":
+		return value, true
+	case "minimal":
+		return "low", true
+	case "xhigh", "extrahigh":
+		if grokSupportsXHighReasoningEffort(model) {
+			return "xhigh", true
+		}
+		return "high", true
+	case "max", "ultra":
+		return "high", true
+	default:
+		return "", false
+	}
+}
+
+func grokSupportsXHighReasoningEffort(model string) bool {
+	model = strings.ToLower(strings.TrimSpace(model))
+	if slash := strings.LastIndex(model, "/"); slash >= 0 {
+		model = strings.TrimSpace(model[slash+1:])
+	}
+	return model == "grok-4.6" || model == "grok-4.6-latest"
 }
 
 var grokResponsesUnsupportedRecursiveFields = map[string]struct{}{

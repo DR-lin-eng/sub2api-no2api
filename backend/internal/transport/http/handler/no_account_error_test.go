@@ -114,6 +114,28 @@ func TestClassifyNoAccountError_ModelNotSupported_Returns404(t *testing.T) {
 	require.Equal(t, service.PlatformOpenAI, fd.calls[0].Platform)
 	require.NotNil(t, fd.calls[0].GroupID)
 	require.Equal(t, int64(42), *fd.calls[0].GroupID)
+	require.True(t, service.HasOpsClientBusinessLimited(c))
+	require.Equal(t, service.OpsClientBusinessLimitedReasonLocalModelConfiguration, service.OpsClientBusinessLimitedReason(c))
+}
+
+func TestClassifyNoAccountError_ModelNotFoundClearsStaleUpstreamMarkers(t *testing.T) {
+	c := newTestGinContextWithRequest()
+	c.Set(opsAccountIDKey, int64(99))
+	c.Set(opsUpstreamModelKey, "stale-model")
+	c.Set(service.OpsUpstreamStatusCodeKey, http.StatusUnauthorized)
+	c.Set(service.OpsUpstreamErrorsKey, []*service.OpsUpstreamErrorEvent{{UpstreamStatusCode: http.StatusUnauthorized}})
+	fd := &fakeDiagnoser{resp: service.ModelAvailabilityDiagnosis{HasAccountsInPool: true, HasModelSupport: false}}
+	apiKey := &service.APIKey{GroupID: ptrInt64(7)}
+
+	classification := classifyNoAccountErrorFromGin(c, fd, apiKey, "gpt-missing", "gpt-missing", service.PlatformOpenAI)
+
+	require.True(t, classification.ModelNotFound)
+	require.Equal(t, service.OpsClientBusinessLimitedReasonLocalModelConfiguration, service.OpsClientBusinessLimitedReason(c))
+	_, accountSet := c.Get(opsAccountIDKey)
+	require.False(t, accountSet)
+	_, modelSet := c.Get(opsUpstreamModelKey)
+	require.False(t, modelSet)
+	require.False(t, hasOpsUpstreamErrorContext(c))
 }
 
 func TestClassifyOpenAICompatibleNoAccountError_GrokUsesGrokPlatform(t *testing.T) {
