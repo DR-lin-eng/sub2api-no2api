@@ -13,8 +13,9 @@
   后续动态 system 消息，保持会话亲和并减少热路径字符串拼接。
 - #6016：Prompt Guard 配置刷新只在首次加载、版本/风险开关变化或错误恢复时记录
   `config_loaded`，不再把固定周期刷新变成日志心跳。
-- #6048：Composite 分组保留 Messages 调度配置；目标为 Grok 时自动放行并使用
-  Grok 映射，目标为 OpenAI 时继续要求分组显式开关。管理端表单同步支持 Composite。
+- #6048：Composite 分组保留 Messages 调度配置；目标为 Grok 或已支持的 CN provider
+  时自动放行并使用 provider 原生映射，目标为 OpenAI 时继续要求分组显式开关。管理端
+  表单同步支持 Composite。
 - #5654：Composite 的视频生成创建请求与已有状态/内容查询一致，交给 Grok handler。
 - #5612/#5625：付费 Antigravity 账号才走官方 daily 端点，并将 daily 域名更新为
   `daily-cloudcode-pa.googleapis.com`；免费账号和旧配置仍走生产端点，显式环境变量优先。
