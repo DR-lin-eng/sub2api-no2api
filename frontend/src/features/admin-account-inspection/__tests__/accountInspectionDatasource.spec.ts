@@ -26,6 +26,28 @@ describe('account inspection datasource', () => {
     expect(get).toHaveBeenCalledWith('/admin/account-inspection', { params: query })
   })
 
+  it('normalizes omitted or null reasons for healthy results', async () => {
+    get.mockResolvedValueOnce({
+      data: {
+        results: {
+          items: [
+            { account_id: 1, reasons: undefined },
+            { account_id: 2, reasons: null },
+            { account_id: 3, reasons: ['success_rate_below_threshold', 42] },
+          ],
+        },
+      },
+    })
+
+    const overview = await getOverview()
+
+    expect(overview.results.items.map((item) => item.reasons)).toEqual([
+      [],
+      [],
+      ['success_rate_below_threshold'],
+    ])
+  })
+
   it('persists settings and triggers a run', async () => {
     const settings = { enabled: true, interval_minutes: 60 } as any
     put.mockResolvedValueOnce({ data: settings })

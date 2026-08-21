@@ -157,7 +157,7 @@ type AccountInspectionAccountResult struct {
 	Status                  string    `json:"status"`
 	Schedulable             bool      `json:"schedulable"`
 	Action                  string    `json:"action"`
-	Reasons                 []string  `json:"reasons,omitempty"`
+	Reasons                 []string  `json:"reasons"`
 	TotalRequests           int64     `json:"total_requests"`
 	SuccessfulRequests      int64     `json:"successful_requests"`
 	SuccessRate             *float64  `json:"success_rate,omitempty"`
@@ -622,6 +622,11 @@ func (s *AccountInspectionService) loadState(ctx context.Context) (*AccountInspe
 	if state.Summary.QuotaUsageDistribution.Buckets == nil {
 		state.Summary.QuotaUsageDistribution = newAccountInspectionQuotaDistribution()
 	}
+	for i := range state.Results {
+		if state.Results[i].Reasons == nil {
+			state.Results[i].Reasons = []string{}
+		}
+	}
 	return state, nil
 }
 
@@ -649,6 +654,7 @@ func evaluateAccountInspection(account *Account, stats *usagestats.AccountHourly
 		Status:      "healthy",
 		Schedulable: account.Schedulable,
 		Action:      AccountInspectionActionNone,
+		Reasons:     make([]string, 0),
 		ObservedAt:  now,
 	}
 	if usedPercent, dimension := accountInspectionQuotaUsage(account, now); usedPercent != nil {

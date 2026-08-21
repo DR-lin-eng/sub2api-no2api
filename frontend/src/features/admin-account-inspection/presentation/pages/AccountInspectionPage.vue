@@ -177,7 +177,7 @@
                 <td class="px-4 py-3 tabular-nums text-gray-700 dark:text-gray-200">{{ row.type === 'oauth' ? '-' : formatPercent(row.cache_hit_rate) }}</td>
                 <td class="px-4 py-3 tabular-nums text-gray-700 dark:text-gray-200">{{ row.rate_multiplier == null ? '-' : row.rate_multiplier.toFixed(2) }}</td>
                 <td class="px-4 py-3 tabular-nums text-gray-700 dark:text-gray-200">{{ formatRemaining(row) }}</td>
-                <td class="px-4 py-3"><div v-if="row.reasons.length" class="flex flex-wrap gap-1"><span v-for="reason in row.reasons" :key="reason" class="rounded bg-red-50 px-1.5 py-0.5 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">{{ reasonLabel(reason) }}</span></div><span v-else class="text-gray-400">-</span></td>
+                <td class="px-4 py-3"><div v-if="row.reasons?.length" class="flex flex-wrap gap-1"><span v-for="reason in row.reasons ?? []" :key="reason" class="rounded bg-red-50 px-1.5 py-0.5 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">{{ reasonLabel(reason) }}</span></div><span v-else class="text-gray-400">-</span></td>
                 <td class="px-4 py-3 text-xs" :class="actionClass(row.action)">{{ actionLabel(row.action) }}</td>
               </tr>
               <tr v-if="!loading && results.length === 0"><td colspan="9" class="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">{{ t('admin.accountInspection.results.noResults') }}</td></tr>
@@ -234,7 +234,7 @@ const lookbackOptions = [60, 120, 360, 720, 1440]
 let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 const run = computed(() => overview.value?.run)
-const results = computed(() => overview.value?.results.items ?? [])
+const results = computed(() => overview.value?.results?.items ?? [])
 const runStatusLabel = computed(() => {
   const status = run.value?.status
   if (status === 'running') return t('admin.accountInspection.status.running')
@@ -380,13 +380,13 @@ function typeLabel(type: string): string {
 
 function stateLabel(row: AccountInspectionResult): string {
   if (row.status === 'unknown') return t('admin.accountInspection.results.unknown')
-  if (!row.reasons.length) return t('admin.accountInspection.results.healthy')
+  if (!row.reasons?.length) return t('admin.accountInspection.results.healthy')
   return t('admin.accountInspection.results.flagged')
 }
 
 function stateClass(row: AccountInspectionResult): string {
   if (row.status === 'unknown') return 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300'
-  if (row.reasons.length) return 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+  if (row.reasons?.length) return 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
   return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
 }
 

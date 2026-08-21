@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"math"
 	"testing"
@@ -157,6 +158,35 @@ func TestEvaluateAccountInspectionAPIKeyMetrics(t *testing.T) {
 		"rate_multiplier_over_threshold",
 		"remaining_quota_below_threshold",
 	}, result.Reasons)
+}
+
+func TestAccountInspectionHealthyResultsSerializeEmptyReasonsArray(t *testing.T) {
+	now := time.Now().UTC()
+	stats := &usagestats.AccountHourlyUsageStats{TotalRequests: 2, SuccessfulRequests: 2, SuccessRate: 1}
+	account := &Account{ID: 9, Name: "healthy", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
+
+	result := evaluateAccountInspection(account, stats, DefaultAccountInspectionSettings(), now)
+	require.NotNil(t, result.Reasons)
+	require.Empty(t, result.Reasons)
+
+	payload, err := json.Marshal(result)
+	require.NoError(t, err)
+	var decoded map[string]any
+	require.NoError(t, json.Unmarshal(payload, &decoded))
+	require.Equal(t, []any{}, decoded["reasons"])
+}
+
+func TestAccountInspectionLoadStateNormalizesMissingReasons(t *testing.T) {
+	settingsRepo := &inspectionSettingRepoStub{values: map[string]string{
+		SettingKeyAccountInspectionState: `{"status":"succeeded","results":[{"account_id":9,"name":"healthy"}]}`,
+	}}
+	svc := NewAccountInspectionService(nil, nil, settingsRepo)
+
+	state, err := svc.loadState(context.Background())
+	require.NoError(t, err)
+	require.Len(t, state.Results, 1)
+	require.NotNil(t, state.Results[0].Reasons)
+	require.Empty(t, state.Results[0].Reasons)
 }
 
 func TestAccountInspectionRemainingQuotaIgnoresExpiredWindows(t *testing.T) {
