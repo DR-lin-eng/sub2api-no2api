@@ -48,7 +48,14 @@ func (h *AccountInspectionHandler) UpdateAccountInspectionSettings(c *gin.Contex
 		response.ErrorFrom(c, service.ErrAccountInspectionUnavailable)
 		return
 	}
-	var req service.AccountInspectionSettings
+	// Seed from the saved policy so lightweight/older clients can update one
+	// field without resetting thresholds or the protection list they do not
+	// know about yet.
+	req, err := h.inspectionService.GetSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return

@@ -7,6 +7,6 @@
 - `presentation/widgets/QuotaUsageDistributionChart.vue`: 完整巡检快照的额度使用率分布。
 - `presentation/pages/AccountInspectionPage.vue`: 设置、摘要、筛选和结果表编排。
 
-巡检默认不启用自动 runner；手动执行遵循当前保存的自动停调开关。API Key 的缓存命中率与倍率阈值为 0 时只展示，不作为异常条件。
+巡检默认不启用自动 runner；手动执行遵循当前保存的自动停调开关。OAuth 与 API Key/Bedrock 的延迟、成功率、最少请求数和停调开关分别配置；API Key 的缓存命中率与倍率阈值为 0 时只展示，不作为异常条件。`protected_account_ids` 中的账号仍会被记录为异常，但不会被本功能自动停调。
 
 额度分布由后端在结果分页或截断前汇总。每个账号取仍有效额度窗口中的最高使用率；`90-100%` 包含恰好 100%，`>100%` 仅统计已超过额度上限的账号，平均值不截断超额部分。无法取得有效额度上限或利用率的账号单独计入未知数量。

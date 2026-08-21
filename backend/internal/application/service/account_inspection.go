@@ -29,6 +29,7 @@ const (
 	AccountInspectionActionReported        = "reported"
 	AccountInspectionActionDisabled        = "disabled"
 	AccountInspectionActionAlreadyDisabled = "already_disabled"
+	AccountInspectionActionProtected       = "protected"
 	AccountInspectionActionError           = "error"
 
 	AccountInspectionTypeOAuth   = "oauth"
@@ -45,6 +46,7 @@ const (
 	accountInspectionDefaultSuccessRate     = 0.60
 	accountInspectionDefaultMinRequests     = 1
 	accountInspectionMaxStoredResults       = 5000
+	accountInspectionMaxProtectedAccountIDs = 10_000
 	accountInspectionRunTimeout             = 5 * time.Minute
 	accountInspectionLeaderLockKey          = "account-inspection:run:leader"
 	accountInspectionLeaderLockTTL          = 6 * time.Minute
@@ -61,37 +63,149 @@ var (
 )
 
 // AccountInspectionSettings controls both the periodic runner and the manual run.
-// A zero API-key cache/multiplier threshold means "display only".
+// The unqualified threshold fields are retained for rolling upgrades. New
+// callers should use the OAuth/API-key-specific fields so one account type
+// cannot change the policy for the other.
 type AccountInspectionSettings struct {
-	Enabled                 bool    `json:"enabled"`
-	IntervalMinutes         int     `json:"interval_minutes"`
-	AutoDisable             bool    `json:"auto_disable"`
-	LookbackMinutes         int     `json:"lookback_minutes"`
-	MinRequests             int     `json:"min_requests"`
-	TTFTThresholdMs         int     `json:"ttft_threshold_ms"`
-	SuccessRateThreshold    float64 `json:"success_rate_threshold"`
-	OAuthQuotaCheckEnabled  bool    `json:"oauth_quota_check_enabled"`
-	APIKeyQuotaCheckEnabled bool    `json:"api_key_quota_check_enabled"`
-	APIKeyMinCacheHitRate   float64 `json:"api_key_min_cache_hit_rate"`
-	APIKeyMaxRateMultiplier float64 `json:"api_key_max_rate_multiplier"`
-	APIKeyMinRemainingQuota float64 `json:"api_key_min_remaining_quota"`
+	Enabled                    bool    `json:"enabled"`
+	IntervalMinutes            int     `json:"interval_minutes"`
+	AutoDisable                bool    `json:"auto_disable"`
+	LookbackMinutes            int     `json:"lookback_minutes"`
+	MinRequests                int     `json:"min_requests"`
+	TTFTThresholdMs            int     `json:"ttft_threshold_ms"`
+	SuccessRateThreshold       float64 `json:"success_rate_threshold"`
+	OAuthAutoDisable           bool    `json:"oauth_auto_disable"`
+	APIKeyAutoDisable          bool    `json:"api_key_auto_disable"`
+	OAuthMinRequests           int     `json:"oauth_min_requests"`
+	APIKeyMinRequests          int     `json:"api_key_min_requests"`
+	OAuthTTFTThresholdMs       int     `json:"oauth_ttft_threshold_ms"`
+	APIKeyTTFTThresholdMs      int     `json:"api_key_ttft_threshold_ms"`
+	OAuthSuccessRateThreshold  float64 `json:"oauth_success_rate_threshold"`
+	APIKeySuccessRateThreshold float64 `json:"api_key_success_rate_threshold"`
+	OAuthQuotaCheckEnabled     bool    `json:"oauth_quota_check_enabled"`
+	APIKeyQuotaCheckEnabled    bool    `json:"api_key_quota_check_enabled"`
+	APIKeyMinCacheHitRate      float64 `json:"api_key_min_cache_hit_rate"`
+	APIKeyMaxRateMultiplier    float64 `json:"api_key_max_rate_multiplier"`
+	APIKeyMinRemainingQuota    float64 `json:"api_key_min_remaining_quota"`
+	ProtectedAccountIDs        []int64 `json:"protected_account_ids"`
+
+	// presentFields lets normalize distinguish an omitted new field from an
+	// explicitly supplied zero/false value while reading old JSON settings.
+	presentFields map[string]bool `json:"-"`
 }
 
 func DefaultAccountInspectionSettings() AccountInspectionSettings {
 	return AccountInspectionSettings{
-		Enabled:                 false,
-		IntervalMinutes:         accountInspectionDefaultIntervalMinutes,
-		AutoDisable:             true,
-		LookbackMinutes:         accountInspectionDefaultLookbackMinutes,
-		MinRequests:             accountInspectionDefaultMinRequests,
-		TTFTThresholdMs:         accountInspectionDefaultTTFTMs,
-		SuccessRateThreshold:    accountInspectionDefaultSuccessRate,
-		OAuthQuotaCheckEnabled:  true,
-		APIKeyQuotaCheckEnabled: true,
+		Enabled:                    false,
+		IntervalMinutes:            accountInspectionDefaultIntervalMinutes,
+		AutoDisable:                true,
+		LookbackMinutes:            accountInspectionDefaultLookbackMinutes,
+		MinRequests:                accountInspectionDefaultMinRequests,
+		TTFTThresholdMs:            accountInspectionDefaultTTFTMs,
+		SuccessRateThreshold:       accountInspectionDefaultSuccessRate,
+		OAuthAutoDisable:           true,
+		APIKeyAutoDisable:          true,
+		OAuthMinRequests:           accountInspectionDefaultMinRequests,
+		APIKeyMinRequests:          accountInspectionDefaultMinRequests,
+		OAuthTTFTThresholdMs:       accountInspectionDefaultTTFTMs,
+		APIKeyTTFTThresholdMs:      accountInspectionDefaultTTFTMs,
+		OAuthSuccessRateThreshold:  accountInspectionDefaultSuccessRate,
+		APIKeySuccessRateThreshold: accountInspectionDefaultSuccessRate,
+		OAuthQuotaCheckEnabled:     true,
+		APIKeyQuotaCheckEnabled:    true,
+		ProtectedAccountIDs:        []int64{},
 	}
 }
 
+// UnmarshalJSON records which keys were supplied so legacy shared settings can
+// be copied to the new per-type fields without making an explicit false/zero
+// value impossible to configure.
+func (s *AccountInspectionSettings) UnmarshalJSON(data []byte) error {
+	type accountInspectionSettingsAlias AccountInspectionSettings
+	decoded := accountInspectionSettingsAlias(*s)
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	*s = AccountInspectionSettings(decoded)
+	s.presentFields = make(map[string]bool, len(raw))
+	for key := range raw {
+		s.presentFields[key] = true
+	}
+	return nil
+}
+
 func (s *AccountInspectionSettings) normalize() {
+	if s == nil {
+		return
+	}
+	defaults := DefaultAccountInspectionSettings()
+	// Settings persisted before the per-type split only have the shared keys.
+	// Keep their behavior exactly by copying those values into both policies.
+	if s.presentFields != nil {
+		if s.presentFields["auto_disable"] {
+			if !s.presentFields["oauth_auto_disable"] {
+				s.OAuthAutoDisable = s.AutoDisable
+			}
+			if !s.presentFields["api_key_auto_disable"] {
+				s.APIKeyAutoDisable = s.AutoDisable
+			}
+		}
+		if s.presentFields["min_requests"] {
+			if !s.presentFields["oauth_min_requests"] {
+				s.OAuthMinRequests = s.MinRequests
+			}
+			if !s.presentFields["api_key_min_requests"] {
+				s.APIKeyMinRequests = s.MinRequests
+			}
+		}
+		if s.presentFields["ttft_threshold_ms"] {
+			if !s.presentFields["oauth_ttft_threshold_ms"] {
+				s.OAuthTTFTThresholdMs = s.TTFTThresholdMs
+			}
+			if !s.presentFields["api_key_ttft_threshold_ms"] {
+				s.APIKeyTTFTThresholdMs = s.TTFTThresholdMs
+			}
+		}
+		if s.presentFields["success_rate_threshold"] {
+			if !s.presentFields["oauth_success_rate_threshold"] {
+				s.OAuthSuccessRateThreshold = s.SuccessRateThreshold
+			}
+			if !s.presentFields["api_key_success_rate_threshold"] {
+				s.APIKeySuccessRateThreshold = s.SuccessRateThreshold
+			}
+		}
+	} else {
+		// Programmatically constructed legacy settings (used by older callers)
+		// have no presence map. A completely empty type policy is the shape an
+		// older caller produces, so inherit the shared values before clamping.
+		if s.OAuthMinRequests == 0 && s.APIKeyMinRequests == 0 &&
+			s.OAuthTTFTThresholdMs == 0 && s.APIKeyTTFTThresholdMs == 0 &&
+			s.OAuthSuccessRateThreshold == 0 && s.APIKeySuccessRateThreshold == 0 &&
+			!s.OAuthAutoDisable && !s.APIKeyAutoDisable {
+			s.OAuthAutoDisable, s.APIKeyAutoDisable = s.AutoDisable, s.AutoDisable
+			s.OAuthMinRequests, s.APIKeyMinRequests = s.MinRequests, s.MinRequests
+			s.OAuthTTFTThresholdMs, s.APIKeyTTFTThresholdMs = s.TTFTThresholdMs, s.TTFTThresholdMs
+			s.OAuthSuccessRateThreshold, s.APIKeySuccessRateThreshold = s.SuccessRateThreshold, s.SuccessRateThreshold
+		}
+		// Otherwise only infer individual legacy overrides when the new fields
+		// are still at their defaults.
+		if s.AutoDisable != defaults.AutoDisable && s.OAuthAutoDisable == defaults.OAuthAutoDisable && s.APIKeyAutoDisable == defaults.APIKeyAutoDisable {
+			s.OAuthAutoDisable, s.APIKeyAutoDisable = s.AutoDisable, s.AutoDisable
+		}
+		if s.MinRequests != defaults.MinRequests && s.OAuthMinRequests == defaults.OAuthMinRequests && s.APIKeyMinRequests == defaults.APIKeyMinRequests {
+			s.OAuthMinRequests, s.APIKeyMinRequests = s.MinRequests, s.MinRequests
+		}
+		if s.TTFTThresholdMs != defaults.TTFTThresholdMs && s.OAuthTTFTThresholdMs == defaults.OAuthTTFTThresholdMs && s.APIKeyTTFTThresholdMs == defaults.APIKeyTTFTThresholdMs {
+			s.OAuthTTFTThresholdMs, s.APIKeyTTFTThresholdMs = s.TTFTThresholdMs, s.TTFTThresholdMs
+		}
+		if s.SuccessRateThreshold != defaults.SuccessRateThreshold && s.OAuthSuccessRateThreshold == defaults.OAuthSuccessRateThreshold && s.APIKeySuccessRateThreshold == defaults.APIKeySuccessRateThreshold {
+			s.OAuthSuccessRateThreshold, s.APIKeySuccessRateThreshold = s.SuccessRateThreshold, s.SuccessRateThreshold
+		}
+	}
 	if s.IntervalMinutes < accountInspectionMinIntervalMinutes {
 		s.IntervalMinutes = accountInspectionMinIntervalMinutes
 	}
@@ -128,6 +242,35 @@ func (s *AccountInspectionSettings) normalize() {
 	if s.APIKeyMinRemainingQuota < 0 {
 		s.APIKeyMinRemainingQuota = 0
 	}
+	if s.OAuthMinRequests < 1 {
+		s.OAuthMinRequests = 1
+	}
+	if s.APIKeyMinRequests < 1 {
+		s.APIKeyMinRequests = 1
+	}
+	if s.OAuthTTFTThresholdMs < 0 {
+		s.OAuthTTFTThresholdMs = 0
+	}
+	if s.APIKeyTTFTThresholdMs < 0 {
+		s.APIKeyTTFTThresholdMs = 0
+	}
+	if s.OAuthSuccessRateThreshold < 0 {
+		s.OAuthSuccessRateThreshold = 0
+	}
+	if s.OAuthSuccessRateThreshold > 1 {
+		s.OAuthSuccessRateThreshold = 1
+	}
+	if s.APIKeySuccessRateThreshold < 0 {
+		s.APIKeySuccessRateThreshold = 0
+	}
+	if s.APIKeySuccessRateThreshold > 1 {
+		s.APIKeySuccessRateThreshold = 1
+	}
+	if s.ProtectedAccountIDs == nil {
+		s.ProtectedAccountIDs = []int64{}
+	} else {
+		s.ProtectedAccountIDs = normalizeProtectedAccountIDs(s.ProtectedAccountIDs)
+	}
 }
 
 func (s AccountInspectionSettings) validate() error {
@@ -140,13 +283,71 @@ func (s AccountInspectionSettings) validate() error {
 	if s.MinRequests < 1 {
 		return infraerrors.BadRequest("INVALID_ACCOUNT_INSPECTION_MIN_REQUESTS", "min_requests must be at least 1")
 	}
+	if s.OAuthMinRequests < 1 || s.APIKeyMinRequests < 1 {
+		return infraerrors.BadRequest("INVALID_ACCOUNT_INSPECTION_TYPE_MIN_REQUESTS", "OAuth and API key min_requests must be at least 1")
+	}
 	if s.TTFTThresholdMs < 0 || s.SuccessRateThreshold < 0 || s.SuccessRateThreshold > 1 {
 		return infraerrors.BadRequest("INVALID_ACCOUNT_INSPECTION_THRESHOLDS", "TTFT and success-rate thresholds are invalid")
+	}
+	if s.OAuthTTFTThresholdMs < 0 || s.APIKeyTTFTThresholdMs < 0 ||
+		s.OAuthSuccessRateThreshold < 0 || s.OAuthSuccessRateThreshold > 1 ||
+		s.APIKeySuccessRateThreshold < 0 || s.APIKeySuccessRateThreshold > 1 {
+		return infraerrors.BadRequest("INVALID_ACCOUNT_INSPECTION_TYPE_THRESHOLDS", "OAuth and API key inspection thresholds are invalid")
 	}
 	if s.APIKeyMinCacheHitRate < 0 || s.APIKeyMinCacheHitRate > 1 || s.APIKeyMaxRateMultiplier < 0 || s.APIKeyMinRemainingQuota < 0 {
 		return infraerrors.BadRequest("INVALID_ACCOUNT_INSPECTION_API_KEY_THRESHOLDS", "API key inspection thresholds are invalid")
 	}
+	if len(s.ProtectedAccountIDs) > accountInspectionMaxProtectedAccountIDs {
+		return infraerrors.BadRequest("INVALID_ACCOUNT_INSPECTION_PROTECTED_ACCOUNTS", fmt.Sprintf("protected_account_ids cannot contain more than %d accounts", accountInspectionMaxProtectedAccountIDs))
+	}
+	for _, id := range s.ProtectedAccountIDs {
+		if id <= 0 {
+			return infraerrors.BadRequest("INVALID_ACCOUNT_INSPECTION_PROTECTED_ACCOUNTS", "protected_account_ids must contain positive account IDs")
+		}
+	}
 	return nil
+}
+
+func normalizeProtectedAccountIDs(ids []int64) []int64 {
+	if len(ids) == 0 {
+		return []int64{}
+	}
+	out := append([]int64(nil), ids...)
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	write := 0
+	for _, id := range out {
+		if write == 0 || out[write-1] != id {
+			out[write] = id
+			write++
+		}
+	}
+	return out[:write]
+}
+
+func (s AccountInspectionSettings) autoDisableForType(accountType string) bool {
+	if !s.AutoDisable {
+		return false
+	}
+	if accountType == AccountInspectionTypeOAuth {
+		return s.OAuthAutoDisable
+	}
+	return s.APIKeyAutoDisable
+}
+
+func (s AccountInspectionSettings) protectsAccount(accountID int64) bool {
+	// normalize keeps this list sorted, so lookups stay logarithmic for large
+	// protection lists during a full inspection.
+	index := sort.Search(len(s.ProtectedAccountIDs), func(index int) bool {
+		return s.ProtectedAccountIDs[index] >= accountID
+	})
+	return index < len(s.ProtectedAccountIDs) && s.ProtectedAccountIDs[index] == accountID
+}
+
+func (s AccountInspectionSettings) thresholdsForType(accountType string) (minRequests int, ttftThresholdMs int, successRateThreshold float64) {
+	if accountType == AccountInspectionTypeOAuth {
+		return s.OAuthMinRequests, s.OAuthTTFTThresholdMs, s.OAuthSuccessRateThreshold
+	}
+	return s.APIKeyMinRequests, s.APIKeyTTFTThresholdMs, s.APIKeySuccessRateThreshold
 }
 
 type AccountInspectionAccountResult struct {
@@ -194,6 +395,7 @@ type AccountInspectionSummary struct {
 	Flagged                int                                `json:"flagged"`
 	Disabled               int                                `json:"disabled"`
 	AlreadyDisabled        int                                `json:"already_disabled"`
+	Protected              int                                `json:"protected"`
 	OAuthAccounts          int                                `json:"oauth_accounts"`
 	APIKeyAccounts         int                                `json:"api_key_accounts"`
 	QuotaUsageDistribution AccountInspectionQuotaDistribution `json:"quota_usage_distribution"`
@@ -380,6 +582,15 @@ func (s *AccountInspectionService) UpdateSettings(ctx context.Context, settings 
 		return AccountInspectionSettings{}, infraerrors.BadRequest("INVALID_ACCOUNT_INSPECTION_SETTINGS", "settings cannot be nil")
 	}
 	normalized := *settings
+	// Older clients know nothing about the protection list. Preserve an
+	// existing list when such a client updates only the legacy policy fields;
+	// the current UI sends the field explicitly (including an empty list) when
+	// the administrator intends to clear it.
+	if normalized.presentFields != nil && !normalized.presentFields["protected_account_ids"] {
+		if existing, err := s.GetSettings(ctx); err == nil {
+			normalized.ProtectedAccountIDs = append([]int64(nil), existing.ProtectedAccountIDs...)
+		}
+	}
 	normalized.normalize()
 	if err := normalized.validate(); err != nil {
 		return AccountInspectionSettings{}, err
@@ -525,7 +736,14 @@ func (s *AccountInspectionService) execute(ctx context.Context, trigger string) 
 	}
 	flaggedIDs := make([]int64, 0)
 	for i := range results {
-		if len(results[i].Reasons) > 0 && settings.AutoDisable && results[i].Schedulable {
+		if len(results[i].Reasons) == 0 || !results[i].Schedulable || !settings.autoDisableForType(results[i].Type) {
+			continue
+		}
+		if settings.protectsAccount(results[i].AccountID) {
+			results[i].Action = AccountInspectionActionProtected
+			continue
+		}
+		if len(results[i].Reasons) > 0 {
 			flaggedIDs = append(flaggedIDs, results[i].AccountID)
 		}
 	}
@@ -685,11 +903,12 @@ func evaluateAccountInspection(account *Account, stats *usagestats.AccountHourly
 		rate := stats.SuccessRate
 		result.SuccessRate = &rate
 	}
-	if stats.TotalRequests >= int64(settings.MinRequests) {
-		if stats.AvgFirstTokenMs != nil && *stats.AvgFirstTokenMs > float64(settings.TTFTThresholdMs) {
+	minRequests, ttftThresholdMs, successRateThreshold := settings.thresholdsForType(result.Type)
+	if stats.TotalRequests >= int64(minRequests) {
+		if stats.AvgFirstTokenMs != nil && *stats.AvgFirstTokenMs > float64(ttftThresholdMs) {
 			result.Reasons = append(result.Reasons, "first_token_over_threshold")
 		}
-		if stats.SuccessRate < settings.SuccessRateThreshold {
+		if stats.SuccessRate < successRateThreshold {
 			result.Reasons = append(result.Reasons, "success_rate_below_threshold")
 		}
 	}
@@ -713,6 +932,8 @@ func evaluateAccountInspection(account *Account, stats *usagestats.AccountHourly
 		result.Status = "flagged"
 		if !account.Schedulable {
 			result.Action = AccountInspectionActionAlreadyDisabled
+		} else if settings.autoDisableForType(result.Type) && settings.protectsAccount(result.AccountID) {
+			result.Action = AccountInspectionActionProtected
 		} else {
 			result.Action = AccountInspectionActionReported
 		}
@@ -738,6 +959,8 @@ func summarizeInspectionResults(results []AccountInspectionAccountResult) Accoun
 			summary.Disabled++
 		case AccountInspectionActionAlreadyDisabled:
 			summary.AlreadyDisabled++
+		case AccountInspectionActionProtected:
+			summary.Protected++
 		}
 	}
 	return summary

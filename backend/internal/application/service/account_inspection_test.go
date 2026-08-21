@@ -104,6 +104,108 @@ func TestAccountInspectionDefaultsMatchScriptThresholds(t *testing.T) {
 	require.InDelta(t, 0.60, settings.SuccessRateThreshold, 1e-9)
 	require.Equal(t, 1, settings.MinRequests)
 	require.True(t, settings.OAuthQuotaCheckEnabled)
+	require.True(t, settings.OAuthAutoDisable)
+	require.True(t, settings.APIKeyAutoDisable)
+	require.Equal(t, settings.TTFTThresholdMs, settings.OAuthTTFTThresholdMs)
+	require.Equal(t, settings.TTFTThresholdMs, settings.APIKeyTTFTThresholdMs)
+	require.Empty(t, settings.ProtectedAccountIDs)
+}
+
+func TestAccountInspectionLegacySettingsPopulatePerTypePolicies(t *testing.T) {
+	settingsRepo := &inspectionSettingRepoStub{values: map[string]string{
+		SettingKeyAccountInspectionSettings: `{"enabled":true,"auto_disable":false,"min_requests":4,"ttft_threshold_ms":1200,"success_rate_threshold":0.8}`,
+	}}
+	svc := NewAccountInspectionService(nil, nil, settingsRepo)
+
+	settings, err := svc.GetSettings(context.Background())
+	require.NoError(t, err)
+	require.False(t, settings.AutoDisable)
+	require.False(t, settings.OAuthAutoDisable)
+	require.False(t, settings.APIKeyAutoDisable)
+	require.Equal(t, 4, settings.OAuthMinRequests)
+	require.Equal(t, 4, settings.APIKeyMinRequests)
+	require.Equal(t, 1200, settings.OAuthTTFTThresholdMs)
+	require.Equal(t, 1200, settings.APIKeyTTFTThresholdMs)
+	require.InDelta(t, 0.8, settings.OAuthSuccessRateThreshold, 1e-9)
+	require.InDelta(t, 0.8, settings.APIKeySuccessRateThreshold, 1e-9)
+}
+
+func TestAccountInspectionLegacyUpdatePreservesProtectionList(t *testing.T) {
+	settingsRepo := &inspectionSettingRepoStub{values: map[string]string{}}
+	svc := NewAccountInspectionService(nil, nil, settingsRepo)
+	initial := DefaultAccountInspectionSettings()
+	initial.ProtectedAccountIDs = []int64{11, 12}
+	_, err := svc.UpdateSettings(context.Background(), &initial)
+	require.NoError(t, err)
+
+	legacy := DefaultAccountInspectionSettings()
+	legacy.presentFields = map[string]bool{"auto_disable": true, "min_requests": true, "ttft_threshold_ms": true, "success_rate_threshold": true}
+	_, err = svc.UpdateSettings(context.Background(), &legacy)
+	require.NoError(t, err)
+	updated, err := svc.GetSettings(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []int64{11, 12}, updated.ProtectedAccountIDs)
+}
+
+func TestAccountInspectionProgrammaticLegacySettingsPopulateTypePolicies(t *testing.T) {
+	settings := AccountInspectionSettings{
+		AutoDisable:          true,
+		MinRequests:          3,
+		TTFTThresholdMs:      900,
+		SuccessRateThreshold: 0.75,
+	}
+	settings.normalize()
+	require.True(t, settings.OAuthAutoDisable)
+	require.True(t, settings.APIKeyAutoDisable)
+	require.Equal(t, 3, settings.OAuthMinRequests)
+	require.Equal(t, 3, settings.APIKeyMinRequests)
+	require.Equal(t, 900, settings.OAuthTTFTThresholdMs)
+	require.Equal(t, 900, settings.APIKeyTTFTThresholdMs)
+	require.InDelta(t, 0.75, settings.OAuthSuccessRateThreshold, 1e-9)
+	require.InDelta(t, 0.75, settings.APIKeySuccessRateThreshold, 1e-9)
+}
+
+func TestAccountInspectionExplicitTypeValuesOverrideLegacyFields(t *testing.T) {
+	settingsRepo := &inspectionSettingRepoStub{values: map[string]string{
+		SettingKeyAccountInspectionSettings: `{"auto_disable":true,"oauth_auto_disable":false,"api_key_auto_disable":true,"min_requests":1,"oauth_min_requests":3,"api_key_min_requests":1,"ttft_threshold_ms":30000,"oauth_ttft_threshold_ms":500,"api_key_ttft_threshold_ms":30000,"success_rate_threshold":0.6,"oauth_success_rate_threshold":0.9,"api_key_success_rate_threshold":0.6}`,
+	}}
+	svc := NewAccountInspectionService(nil, nil, settingsRepo)
+	settings, err := svc.GetSettings(context.Background())
+	require.NoError(t, err)
+	require.False(t, settings.OAuthAutoDisable)
+	require.True(t, settings.APIKeyAutoDisable)
+	require.Equal(t, 3, settings.OAuthMinRequests)
+	require.Equal(t, 1, settings.APIKeyMinRequests)
+	require.Equal(t, 500, settings.OAuthTTFTThresholdMs)
+	require.Equal(t, 30_000, settings.APIKeyTTFTThresholdMs)
+	require.InDelta(t, 0.9, settings.OAuthSuccessRateThreshold, 1e-9)
+	require.InDelta(t, 0.6, settings.APIKeySuccessRateThreshold, 1e-9)
+}
+
+func TestAccountInspectionRejectsInvalidProtectedAccountIDs(t *testing.T) {
+	settingsRepo := &inspectionSettingRepoStub{values: map[string]string{}}
+	svc := NewAccountInspectionService(nil, nil, settingsRepo)
+	settings := DefaultAccountInspectionSettings()
+	settings.ProtectedAccountIDs = []int64{0}
+	_, err := svc.UpdateSettings(context.Background(), &settings)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "protected_account_ids")
+}
+
+func TestEvaluateAccountInspectionUsesIndependentTypeThresholds(t *testing.T) {
+	now := time.Now().UTC()
+	avg := 2_000.0
+	stats := &usagestats.AccountHourlyUsageStats{TotalRequests: 2, SuccessfulRequests: 1, SuccessRate: 0.5, AvgFirstTokenMs: &avg}
+	settings := DefaultAccountInspectionSettings()
+	settings.OAuthTTFTThresholdMs = 1_000
+	settings.OAuthSuccessRateThreshold = 0.9
+	settings.APIKeyTTFTThresholdMs = 3_000
+	settings.APIKeySuccessRateThreshold = 0.4
+
+	oauth := evaluateAccountInspection(&Account{ID: 21, Name: "oauth", Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}, stats, settings, now)
+	apiKey := evaluateAccountInspection(&Account{ID: 22, Name: "key", Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true}, stats, settings, now)
+	require.ElementsMatch(t, []string{"first_token_over_threshold", "success_rate_below_threshold"}, oauth.Reasons)
+	require.Empty(t, apiKey.Reasons)
 }
 
 func TestEvaluateAccountInspectionOAuthThresholdsAndQuota(t *testing.T) {
@@ -328,4 +430,62 @@ func TestAccountInspectionRunPersistsSnapshotAndDisablesFlaggedAccounts(t *testi
 	require.Len(t, overview.Results.Items, 1)
 	require.Equal(t, int64(1), overview.Results.Items[0].AccountID)
 	require.Equal(t, state.Summary.QuotaUsageDistribution, overview.Run.Summary.QuotaUsageDistribution)
+}
+
+func TestAccountInspectionRunProtectsConfiguredAccounts(t *testing.T) {
+	settingsRepo := &inspectionSettingRepoStub{values: map[string]string{}}
+	accountRepo := &inspectionAccountRepoStub{accounts: []Account{
+		{ID: 31, Name: "protected", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true},
+		{ID: 32, Name: "ordinary", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true},
+	}}
+	avg := 30_001.0
+	usageRepo := &inspectionUsageRepoStub{stats: map[int64]*usagestats.AccountHourlyUsageStats{
+		31: {TotalRequests: 2, SuccessfulRequests: 2, SuccessRate: 1, AvgFirstTokenMs: &avg},
+		32: {TotalRequests: 2, SuccessfulRequests: 2, SuccessRate: 1, AvgFirstTokenMs: &avg},
+	}}
+	usageService := NewAccountUsageService(nil, usageRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	svc := NewAccountInspectionService(accountRepo, usageService, settingsRepo)
+	settings := DefaultAccountInspectionSettings()
+	settings.ProtectedAccountIDs = []int64{31, 31}
+	_, err := svc.UpdateSettings(context.Background(), &settings)
+	require.NoError(t, err)
+	state, err := svc.RunNow(context.Background(), "manual")
+	require.NoError(t, err)
+	require.Equal(t, []int64{32}, accountRepo.updated)
+	require.Equal(t, 1, state.Summary.Disabled)
+	require.Equal(t, 1, state.Summary.Protected)
+	byID := make(map[int64]AccountInspectionAccountResult, len(state.Results))
+	for _, result := range state.Results {
+		byID[result.AccountID] = result
+	}
+	require.Equal(t, AccountInspectionActionProtected, byID[31].Action)
+	require.Equal(t, AccountInspectionActionDisabled, byID[32].Action)
+}
+
+func TestAccountInspectionRunSeparatesAutoDisableByType(t *testing.T) {
+	settingsRepo := &inspectionSettingRepoStub{values: map[string]string{}}
+	accountRepo := &inspectionAccountRepoStub{accounts: []Account{
+		{ID: 41, Name: "oauth", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true},
+		{ID: 42, Name: "key", Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true},
+	}}
+	avg := 30_001.0
+	usageRepo := &inspectionUsageRepoStub{stats: map[int64]*usagestats.AccountHourlyUsageStats{
+		41: {TotalRequests: 2, SuccessfulRequests: 2, SuccessRate: 1, AvgFirstTokenMs: &avg},
+		42: {TotalRequests: 2, SuccessfulRequests: 2, SuccessRate: 1, AvgFirstTokenMs: &avg},
+	}}
+	usageService := NewAccountUsageService(nil, usageRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	svc := NewAccountInspectionService(accountRepo, usageService, settingsRepo)
+	settings := DefaultAccountInspectionSettings()
+	settings.APIKeyAutoDisable = false
+	_, err := svc.UpdateSettings(context.Background(), &settings)
+	require.NoError(t, err)
+	state, err := svc.RunNow(context.Background(), "manual")
+	require.NoError(t, err)
+	require.Equal(t, []int64{41}, accountRepo.updated)
+	byID := make(map[int64]AccountInspectionAccountResult, len(state.Results))
+	for _, result := range state.Results {
+		byID[result.AccountID] = result
+	}
+	require.Equal(t, AccountInspectionActionDisabled, byID[41].Action)
+	require.Equal(t, AccountInspectionActionReported, byID[42].Action)
 }

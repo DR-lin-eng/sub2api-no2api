@@ -1,16 +1,27 @@
 export interface AccountInspectionSettings {
   enabled: boolean
   interval_minutes: number
+  // Legacy global fields remain in the response for rolling upgrades. New UI
+  // writes the per-type values below.
   auto_disable: boolean
   lookback_minutes: number
   min_requests: number
   ttft_threshold_ms: number
   success_rate_threshold: number
+  oauth_auto_disable: boolean
+  api_key_auto_disable: boolean
+  oauth_min_requests: number
+  api_key_min_requests: number
+  oauth_ttft_threshold_ms: number
+  api_key_ttft_threshold_ms: number
+  oauth_success_rate_threshold: number
+  api_key_success_rate_threshold: number
   oauth_quota_check_enabled: boolean
   api_key_quota_check_enabled: boolean
   api_key_min_cache_hit_rate: number
   api_key_max_rate_multiplier: number
   api_key_min_remaining_quota: number
+  protected_account_ids: number[]
 }
 
 export interface AccountInspectionSummary {
@@ -19,6 +30,7 @@ export interface AccountInspectionSummary {
   flagged: number
   disabled: number
   already_disabled: number
+  protected?: number
   oauth_accounts: number
   api_key_accounts: number
   quota_usage_distribution?: AccountInspectionQuotaDistribution
@@ -50,7 +62,7 @@ export interface AccountInspectionRun {
   results_truncated?: boolean
 }
 
-export type AccountInspectionAction = 'none' | 'reported' | 'disabled' | 'already_disabled' | 'error' | string
+export type AccountInspectionAction = 'none' | 'reported' | 'disabled' | 'already_disabled' | 'protected' | 'error' | string
 
 export interface AccountInspectionResult {
   account_id: number

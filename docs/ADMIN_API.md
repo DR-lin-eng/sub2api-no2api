@@ -157,10 +157,10 @@ python3 tools/disable_oauth_accounts.py --base-url "https://<your-domain>" --pla
 管理面“账号巡检”使用同一套规则，接口如下：
 
 - `GET /api/v1/admin/account-inspection`：读取设置、最近一次运行摘要和分页结果；支持 `status`、`type`、`search`、`page`、`page_size`。
-- `PUT /api/v1/admin/account-inspection/settings`：保存自动开关、检查间隔和阈值。
+- `PUT /api/v1/admin/account-inspection/settings`：保存自动开关、检查间隔和阈值。`oauth_*` 与 `api_key_*` 字段分别控制两类账号的首 Token、成功率、最少请求数和自动停调；`protected_account_ids` 可列出不允许本功能自动停调的账号 ID。旧版 `auto_disable`、`min_requests`、`ttft_threshold_ms`、`success_rate_threshold` 字段仍作为兼容回退。
 - `POST /api/v1/admin/account-inspection/run`：按当前设置手动执行一次巡检。
 
-自动 runner 默认关闭，需要管理员在页面开启；手动执行不依赖自动开关。`auto_disable` 开启时，异常且当前仍可调度的账号会通过现有调度快照同步路径批量停调。
+自动 runner 默认关闭，需要管理员在页面开启；手动执行不依赖自动开关。全局 `auto_disable` 和对应类型的 `oauth_auto_disable` / `api_key_auto_disable` 都开启时，异常且当前仍可调度、且不在 `protected_account_ids` 中的账号会通过现有调度快照同步路径批量停调。受保护账号仍会出现在异常结果中，但不会被本功能改为不可调度。
 
 ## Key 管理接口
 

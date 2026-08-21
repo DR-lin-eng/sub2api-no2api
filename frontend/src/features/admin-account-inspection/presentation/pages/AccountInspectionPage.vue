@@ -77,42 +77,88 @@
               <option v-for="option in lookbackOptions" :key="option" :value="option">{{ t('admin.accountInspection.settings.minutes', { value: option }) }}</option>
             </select>
           </label>
-          <label class="field-group">
-            <span class="field-label">{{ t('admin.accountInspection.settings.ttft') }}</span>
-            <input v-model.number="settings.ttft_threshold_ms" class="input" type="number" min="0" step="100" />
-          </label>
-          <label class="field-group">
-            <span class="field-label">{{ t('admin.accountInspection.settings.successRate') }}</span>
-            <input :value="percentValue(settings.success_rate_threshold)" class="input" type="number" min="0" max="100" step="1" @input="setPercent('success_rate_threshold', $event)" />
-          </label>
-          <label class="field-group">
-            <span class="field-label">{{ t('admin.accountInspection.settings.minRequests') }}</span>
-            <input v-model.number="settings.min_requests" class="input" type="number" min="1" step="1" />
-          </label>
-          <label class="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-2.5 dark:bg-dark-800/70">
-            <span class="text-sm text-gray-700 dark:text-gray-200">{{ t('admin.accountInspection.settings.oauthQuota') }}</span>
-            <Toggle :model-value="settings.oauth_quota_check_enabled" @update:model-value="settings.oauth_quota_check_enabled = $event" />
-          </label>
-          <label class="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-2.5 dark:bg-dark-800/70">
-            <span class="text-sm text-gray-700 dark:text-gray-200">{{ t('admin.accountInspection.settings.apiKeyQuota') }}</span>
-            <Toggle :model-value="settings.api_key_quota_check_enabled" @update:model-value="settings.api_key_quota_check_enabled = $event" />
-          </label>
-          <label class="field-group">
-            <span class="field-label">{{ t('admin.accountInspection.settings.cacheMinimum') }}</span>
-            <input :value="percentValue(settings.api_key_min_cache_hit_rate)" class="input" type="number" min="0" max="100" step="1" @input="setPercent('api_key_min_cache_hit_rate', $event)" />
-          </label>
-          <label class="field-group">
-            <span class="field-label">{{ t('admin.accountInspection.settings.multiplierMaximum') }}</span>
-            <input v-model.number="settings.api_key_max_rate_multiplier" class="input" type="number" min="0" step="0.05" />
-          </label>
-          <label class="field-group">
-            <span class="field-label">{{ t('admin.accountInspection.settings.remainingMinimum') }}</span>
-            <input v-model.number="settings.api_key_min_remaining_quota" class="input" type="number" min="0" step="0.01" />
-          </label>
         </div>
+
+        <div class="mt-5 grid gap-5 lg:grid-cols-2">
+          <section class="space-y-3 rounded-md border border-gray-200 p-4 dark:border-dark-700" aria-labelledby="oauth-inspection-policy">
+            <div>
+              <h3 id="oauth-inspection-policy" class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('admin.accountInspection.settings.oauthTitle') }}</h3>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accountInspection.settings.oauthCaption') }}</p>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-2">
+              <label class="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-2.5 dark:bg-dark-800/70 sm:col-span-2">
+                <span class="text-sm text-gray-700 dark:text-gray-200">{{ t('admin.accountInspection.settings.typeAutoDisable') }}</span>
+                <Toggle :model-value="settings.oauth_auto_disable" @update:model-value="settings.oauth_auto_disable = $event" />
+              </label>
+              <label class="field-group">
+                <span class="field-label">{{ t('admin.accountInspection.settings.ttft') }}</span>
+                <input v-model.number="settings.oauth_ttft_threshold_ms" class="input" type="number" min="0" step="100" />
+              </label>
+              <label class="field-group">
+                <span class="field-label">{{ t('admin.accountInspection.settings.successRate') }}</span>
+                <input :value="percentValue(settings.oauth_success_rate_threshold)" class="input" type="number" min="0" max="100" step="1" @input="setPercent('oauth_success_rate_threshold', $event)" />
+              </label>
+              <label class="field-group">
+                <span class="field-label">{{ t('admin.accountInspection.settings.minRequests') }}</span>
+                <input v-model.number="settings.oauth_min_requests" class="input" type="number" min="1" step="1" />
+              </label>
+              <label class="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-2.5 dark:bg-dark-800/70">
+                <span class="text-sm text-gray-700 dark:text-gray-200">{{ t('admin.accountInspection.settings.oauthQuota') }}</span>
+                <Toggle :model-value="settings.oauth_quota_check_enabled" @update:model-value="settings.oauth_quota_check_enabled = $event" />
+              </label>
+            </div>
+          </section>
+
+          <section class="space-y-3 rounded-md border border-gray-200 p-4 dark:border-dark-700" aria-labelledby="api-key-inspection-policy">
+            <div>
+              <h3 id="api-key-inspection-policy" class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('admin.accountInspection.settings.apiKeyTitle') }}</h3>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accountInspection.settings.apiKeyCaption') }}</p>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-2">
+              <label class="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-2.5 dark:bg-dark-800/70 sm:col-span-2">
+                <span class="text-sm text-gray-700 dark:text-gray-200">{{ t('admin.accountInspection.settings.typeAutoDisable') }}</span>
+                <Toggle :model-value="settings.api_key_auto_disable" @update:model-value="settings.api_key_auto_disable = $event" />
+              </label>
+              <label class="field-group">
+                <span class="field-label">{{ t('admin.accountInspection.settings.ttft') }}</span>
+                <input v-model.number="settings.api_key_ttft_threshold_ms" class="input" type="number" min="0" step="100" />
+              </label>
+              <label class="field-group">
+                <span class="field-label">{{ t('admin.accountInspection.settings.successRate') }}</span>
+                <input :value="percentValue(settings.api_key_success_rate_threshold)" class="input" type="number" min="0" max="100" step="1" @input="setPercent('api_key_success_rate_threshold', $event)" />
+              </label>
+              <label class="field-group">
+                <span class="field-label">{{ t('admin.accountInspection.settings.minRequests') }}</span>
+                <input v-model.number="settings.api_key_min_requests" class="input" type="number" min="1" step="1" />
+              </label>
+              <label class="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-2.5 dark:bg-dark-800/70">
+                <span class="text-sm text-gray-700 dark:text-gray-200">{{ t('admin.accountInspection.settings.apiKeyQuota') }}</span>
+                <Toggle :model-value="settings.api_key_quota_check_enabled" @update:model-value="settings.api_key_quota_check_enabled = $event" />
+              </label>
+              <label class="field-group">
+                <span class="field-label">{{ t('admin.accountInspection.settings.cacheMinimum') }}</span>
+                <input :value="percentValue(settings.api_key_min_cache_hit_rate)" class="input" type="number" min="0" max="100" step="1" @input="setPercent('api_key_min_cache_hit_rate', $event)" />
+              </label>
+              <label class="field-group">
+                <span class="field-label">{{ t('admin.accountInspection.settings.multiplierMaximum') }}</span>
+                <input v-model.number="settings.api_key_max_rate_multiplier" class="input" type="number" min="0" step="0.05" />
+              </label>
+              <label class="field-group sm:col-span-2">
+                <span class="field-label">{{ t('admin.accountInspection.settings.remainingMinimum') }}</span>
+                <input v-model.number="settings.api_key_min_remaining_quota" class="input" type="number" min="0" step="0.01" />
+              </label>
+            </div>
+          </section>
+        </div>
+
+        <label class="field-group mt-5">
+          <span class="field-label">{{ t('admin.accountInspection.settings.protectedAccounts') }}</span>
+          <input v-model="protectedAccountIDsText" class="input" type="text" :placeholder="t('admin.accountInspection.settings.protectedAccountsPlaceholder')" />
+          <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accountInspection.settings.protectedAccountsHint') }}</span>
+        </label>
       </section>
 
-      <section aria-label="Inspection summary" class="grid grid-cols-2 overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800 sm:grid-cols-3 xl:grid-cols-6">
+      <section aria-label="Inspection summary" class="grid grid-cols-2 overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800 sm:grid-cols-3 xl:grid-cols-7">
         <div v-for="item in summaryItems" :key="item.key" class="border-b border-r border-gray-200 px-4 py-3 last:border-r-0 dark:border-dark-700 xl:border-b-0">
           <dt class="text-xs text-gray-500 dark:text-gray-400">{{ item.label }}</dt>
           <dd class="mt-1 text-lg font-semibold tabular-nums text-gray-900 dark:text-white">{{ item.value }}</dd>
@@ -200,7 +246,7 @@ import Pagination from '@/common/widgets/data/Pagination.vue'
 import { useAppStore } from '@/core/stores/appStore'
 import { extractApiErrorMessage } from '@/core/utils/apiError'
 import { formatDateTime } from '@/core/utils/format'
-import { getOverview, runInspection, updateSettings } from '../../data/datasources/accountInspectionDatasource'
+import { getOverview, normalizeAccountInspectionSettings, runInspection, updateSettings } from '../../data/datasources/accountInspectionDatasource'
 import type { AccountInspectionOverview, AccountInspectionResult, AccountInspectionSettings } from '../../data/dtos/accountInspectionDtos'
 import QuotaUsageDistributionChart from '../widgets/QuotaUsageDistributionChart.vue'
 
@@ -213,6 +259,7 @@ const errorMessage = ref('')
 const search = ref('')
 const statusFilter = ref('all')
 const typeFilter = ref('all')
+const protectedAccountIDsText = ref('')
 const overview = ref<AccountInspectionOverview | null>(null)
 const settings = reactive<AccountInspectionSettings>({
   enabled: false,
@@ -222,11 +269,20 @@ const settings = reactive<AccountInspectionSettings>({
   min_requests: 1,
   ttft_threshold_ms: 30000,
   success_rate_threshold: 0.6,
+  oauth_auto_disable: true,
+  api_key_auto_disable: true,
+  oauth_min_requests: 1,
+  api_key_min_requests: 1,
+  oauth_ttft_threshold_ms: 30000,
+  api_key_ttft_threshold_ms: 30000,
+  oauth_success_rate_threshold: 0.6,
+  api_key_success_rate_threshold: 0.6,
   oauth_quota_check_enabled: true,
   api_key_quota_check_enabled: true,
   api_key_min_cache_hit_rate: 0,
   api_key_max_rate_multiplier: 0,
   api_key_min_remaining_quota: 0,
+  protected_account_ids: [],
 })
 const pagination = reactive({ page: 1, page_size: 50, total: 0 })
 const intervalOptions = [5, 15, 30, 60, 120, 360, 720, 1440]
@@ -255,6 +311,7 @@ const summary = computed(() => run.value?.summary ?? {
   flagged: 0,
   disabled: 0,
   already_disabled: 0,
+  protected: 0,
   oauth_accounts: 0,
   api_key_accounts: 0,
   quota_usage_distribution: {
@@ -268,6 +325,7 @@ const summaryItems = computed(() => [
   { key: 'inspected', label: t('admin.accountInspection.summary.inspected'), value: summary.value.inspected },
   { key: 'flagged', label: t('admin.accountInspection.summary.flagged'), value: summary.value.flagged },
   { key: 'disabled', label: t('admin.accountInspection.summary.disabled'), value: summary.value.disabled },
+  { key: 'protected', label: t('admin.accountInspection.summary.protected'), value: summary.value.protected ?? 0 },
   { key: 'healthy', label: t('admin.accountInspection.summary.healthy'), value: summary.value.healthy },
   { key: 'oauth', label: t('admin.accountInspection.summary.oauth'), value: summary.value.oauth_accounts },
   { key: 'apikey', label: t('admin.accountInspection.summary.apiKey'), value: summary.value.api_key_accounts },
@@ -286,7 +344,8 @@ async function loadOverview(): Promise<void> {
   try {
     const data = await getOverview({ page: pagination.page, page_size: pagination.page_size, status: statusFilter.value, type: typeFilter.value, search: search.value.trim() })
     overview.value = data
-    Object.assign(settings, data.settings)
+    Object.assign(settings, normalizeAccountInspectionSettings(data.settings))
+    protectedAccountIDsText.value = settings.protected_account_ids.join(', ')
     pagination.total = data.results.total
     running.value = data.run.status === 'running'
   } catch (error) {
@@ -306,8 +365,12 @@ async function saveSettings(): Promise<void> {
   saving.value = true
   errorMessage.value = ''
   try {
+    const protectedIDs = parseProtectedAccountIDs(protectedAccountIDsText.value)
+    if (protectedIDs == null) return
+    settings.protected_account_ids = protectedIDs
     const saved = await updateSettings({ ...settings })
-    Object.assign(settings, saved)
+    Object.assign(settings, normalizeAccountInspectionSettings(saved))
+    protectedAccountIDsText.value = settings.protected_account_ids.join(', ')
     appStore.showSuccess(t('admin.accountInspection.saved'))
   } catch (error) {
     errorMessage.value = extractApiErrorMessage(error, t('admin.accountInspection.saveFailed'))
@@ -318,13 +381,14 @@ async function saveSettings(): Promise<void> {
 
 async function runNow(): Promise<void> {
   if (running.value) return
-  if (settings.auto_disable && !window.confirm(t('admin.accountInspection.confirmAutoDisable'))) return
+  if (settings.auto_disable && (settings.oauth_auto_disable || settings.api_key_auto_disable) && !window.confirm(t('admin.accountInspection.confirmAutoDisable'))) return
   running.value = true
   errorMessage.value = ''
   try {
     const data = await runInspection()
     overview.value = data
-    Object.assign(settings, data.settings)
+    Object.assign(settings, normalizeAccountInspectionSettings(data.settings))
+    protectedAccountIDsText.value = settings.protected_account_ids.join(', ')
     pagination.total = data.results.total
     appStore.showSuccess(t('admin.accountInspection.runCompleted', { count: data.run.summary.flagged }))
   } catch (error) {
@@ -350,9 +414,22 @@ function percentValue(value: number): number {
   return Math.round(value * 1000) / 10
 }
 
-function setPercent(key: 'success_rate_threshold' | 'api_key_min_cache_hit_rate', event: Event): void {
+function setPercent(key: 'success_rate_threshold' | 'oauth_success_rate_threshold' | 'api_key_success_rate_threshold' | 'api_key_min_cache_hit_rate', event: Event): void {
   const value = Number((event.target as HTMLInputElement).value)
   settings[key] = Number.isFinite(value) ? Math.max(0, Math.min(100, value)) / 100 : 0
+}
+
+function parseProtectedAccountIDs(value: string): number[] | null {
+  const tokens = value.split(/[\s,，]+/).map((token) => token.trim()).filter(Boolean)
+  const IDs = new Set<number>()
+  for (const token of tokens) {
+    if (!/^\d+$/.test(token) || Number(token) <= 0 || !Number.isSafeInteger(Number(token))) {
+      errorMessage.value = t('admin.accountInspection.settings.protectedAccountsInvalid')
+      return null
+    }
+    IDs.add(Number(token))
+  }
+  return [...IDs].sort((left, right) => left - right)
 }
 
 function formatPercent(value?: number | null): string {
@@ -393,6 +470,7 @@ function stateClass(row: AccountInspectionResult): string {
 function actionLabel(action: string): string {
   if (action === 'disabled') return t('admin.accountInspection.results.actionDisabled')
   if (action === 'already_disabled') return t('admin.accountInspection.results.actionAlreadyDisabled')
+  if (action === 'protected') return t('admin.accountInspection.results.actionProtected')
   if (action === 'reported') return t('admin.accountInspection.results.actionReported')
   if (action === 'error') return t('admin.accountInspection.results.actionError')
   return '-'
@@ -401,7 +479,7 @@ function actionLabel(action: string): string {
 function actionClass(action: string): string {
   if (action === 'disabled') return 'text-emerald-600 dark:text-emerald-400'
   if (action === 'error') return 'text-red-600 dark:text-red-400'
-  if (action === 'reported' || action === 'already_disabled') return 'text-amber-600 dark:text-amber-400'
+  if (action === 'reported' || action === 'already_disabled' || action === 'protected') return 'text-amber-600 dark:text-amber-400'
   return 'text-gray-400'
 }
 
