@@ -87,6 +87,73 @@ func TestStream_ReasoningOnlySynthesizesVisibleText(t *testing.T) {
 	require.True(t, sawMessageDone, "reasoning-only stream must close synthesized message item")
 }
 
+func TestStream_InvalidToolArgumentsAreRejectedBeforeFinalize(t *testing.T) {
+	idx := 0
+	state := NewChatCompletionsToResponsesStreamState("deepseek-v4-flash")
+	chunk := &ChatCompletionsChunk{
+		Choices: []ChatChunkChoice{
+			{
+				Index: 0,
+				Delta: ChatDelta{ToolCalls: []ChatToolCall{
+					{
+						Index: &idx,
+						ID:    "call_bad",
+						Type:  "function",
+						Function: ChatFunctionCall{
+							Name:      "exec_command",
+							Arguments: `{"cmd": "ssh root@HOST`,
+						},
+					},
+				}},
+			},
+		},
+	}
+	ChatCompletionsChunkToResponsesEvents(chunk, state)
+
+	require.ErrorContains(t, state.ValidateToolCallArguments(), "invalid JSON")
+}
+
+func TestStream_ValidToolCallAtOutputLimitRemainsIncomplete(t *testing.T) {
+	idx := 0
+	state := NewChatCompletionsToResponsesStreamState("deepseek-v4-flash")
+	chunk := &ChatCompletionsChunk{
+		Choices: []ChatChunkChoice{
+			{
+				Index: 0,
+				Delta: ChatDelta{ToolCalls: []ChatToolCall{
+					{
+						Index: &idx,
+						ID:    "call_at_limit",
+						Type:  "function",
+						Function: ChatFunctionCall{
+							Name:      "exec_command",
+							Arguments: `{}`,
+						},
+					},
+				}},
+			},
+		},
+	}
+	ChatCompletionsChunkToResponsesEvents(chunk, state)
+	state.FinishReason = "length"
+
+	require.NoError(t, state.ValidateToolCallArguments())
+	events := FinalizeChatCompletionsResponsesStream(state)
+	var sawArgsDone, sawIncomplete bool
+	for _, event := range events {
+		switch event.Type {
+		case "response.function_call_arguments.done":
+			sawArgsDone = true
+			require.Equal(t, `{}`, event.Arguments)
+		case "response.completed":
+			require.NotNil(t, event.Response)
+			sawIncomplete = event.Response.Status == "incomplete"
+		}
+	}
+	require.True(t, sawArgsDone)
+	require.True(t, sawIncomplete)
+}
+
 func TestStream_ReasoningOnlyBlankDoesNotSynthesizeVisibleText(t *testing.T) {
 	events := collectStreamEvents(t, []string{
 		`{"choices":[{"index":0,"delta":{"reasoning_content":"   "}}]}`,

@@ -390,6 +390,26 @@ func TestChatCompletionsToResponses_ImageURL(t *testing.T) {
 	assert.Equal(t, "data:image/png;base64,abc123", parts[1].ImageURL)
 }
 
+func TestChatCompletionsToResponses_FilePart(t *testing.T) {
+	content := `[{"type":"text","text":"Summarize this"},{"type":"file","file":{"filename":"report.pdf","file_data":"data:application/pdf;base64,ZmFrZQ=="}}]`
+	req := &ChatCompletionsRequest{
+		Model:    "gpt-4o",
+		Messages: []ChatMessage{{Role: "user", Content: json.RawMessage(content)}},
+	}
+
+	resp, err := ChatCompletionsToResponses(req)
+	require.NoError(t, err)
+	var items []ResponsesInputItem
+	require.NoError(t, json.Unmarshal(resp.Input, &items))
+	require.Len(t, items, 1)
+	var parts []ResponsesContentPart
+	require.NoError(t, json.Unmarshal(items[0].Content, &parts))
+	require.Len(t, parts, 2)
+	assert.Equal(t, "input_file", parts[1].Type)
+	assert.Equal(t, "report.pdf", parts[1].Filename)
+	assert.Equal(t, "data:application/pdf;base64,ZmFrZQ==", parts[1].FileData)
+}
+
 func TestChatCompletionsToResponses_EmptyBase64ImageURLSkipped(t *testing.T) {
 	content := `[{"type":"text","text":"Describe this"},{"type":"image_url","image_url":{"url":"data:image/png;base64,"}}]`
 	req := &ChatCompletionsRequest{

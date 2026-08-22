@@ -243,6 +243,8 @@ func buildChatMessagesFromItems(messages []ChatMessage, rawItems []json.RawMessa
 	var pendingReasoning string
 	var lastTurnReasoning string
 	mediaByCallID := make(toolOutputMediaByCallID)
+	invalidFunctionCallIDs := make(map[string]struct{})
+	invalidEmptyFunctionCallOutputs := 0
 	reasoningForAssistant := func() string {
 		if pendingReasoning != "" {
 			return pendingReasoning
@@ -283,6 +285,19 @@ func buildChatMessagesFromItems(messages []ChatMessage, rawItems []json.RawMessa
 			if strings.TrimSpace(arguments) == "" {
 				arguments = "{}"
 			}
+			callID := rawString(item["call_id"])
+			if !json.Valid([]byte(arguments)) {
+				// A truncated function_call can survive in Codex history after an
+				// interrupted upstream stream. Do not forward it to a Chat provider,
+				// which rejects the whole request; skip its matching output as well.
+				if callID != "" {
+					invalidFunctionCallIDs[callID] = struct{}{}
+				} else {
+					invalidEmptyFunctionCallOutputs++
+				}
+				pendingReasoning = ""
+				continue
+			}
 			name := rawString(item["name"])
 			// namespace 子工具的历史调用带 namespace 字段，需与请求方向的摊平
 			// 命名（namespaceChildrenToChatTools）保持一致。
@@ -290,7 +305,7 @@ func buildChatMessagesFromItems(messages []ChatMessage, rawItems []json.RawMessa
 				name = flattenNamespaceToolName(ns, name)
 			}
 			toolCall := ChatToolCall{
-				ID:   rawString(item["call_id"]),
+				ID:   callID,
 				Type: "function",
 				Function: ChatFunctionCall{
 					Name:      name,
@@ -340,6 +355,15 @@ func buildChatMessagesFromItems(messages []ChatMessage, rawItems []json.RawMessa
 		case "function_call_output", "custom_tool_call_output", "tool_search_output":
 			outputRaw := bytesTrimSpace(item["output"])
 			callID := rawString(item["call_id"])
+			if callID == "" && invalidEmptyFunctionCallOutputs > 0 {
+				invalidEmptyFunctionCallOutputs--
+				pendingReasoning = ""
+				continue
+			}
+			if _, skipped := invalidFunctionCallIDs[callID]; skipped {
+				pendingReasoning = ""
+				continue
+			}
 			delete(mediaByCallID, callID)
 
 			outputText, media, rewritten := extractToolOutputMedia(outputRaw)
@@ -1159,6 +1183,11 @@ func chatMessageToResponsesOutput(message ChatMessage, customTools map[string]bo
 			})
 			continue
 		}
+		// Ordinary Responses function_call arguments must be valid JSON. A
+		// truncated non-streaming Chat response must not poison the next turn.
+		if !json.Valid([]byte(arguments)) {
+			continue
+		}
 		if ns, ok := namespaceTools[toolCall.Function.Name]; ok {
 			outputs = append(outputs, ResponsesOutput{
 				Type:      "function_call",
@@ -1368,6 +1397,26 @@ func (state *ChatCompletionsToResponsesStreamState) allocOutputIndex() int {
 	idx := state.nextOutputIndex
 	state.nextOutputIndex++
 	return idx
+}
+
+// ValidateToolCallArguments checks accumulated function-call arguments before
+// the stream is finalized. Custom/freeform and tool-search calls intentionally
+// keep their protocol-specific argument semantics.
+func (state *ChatCompletionsToResponsesStreamState) ValidateToolCallArguments() error {
+	if state == nil {
+		return nil
+	}
+	for idx, toolCall := range state.ToolCalls {
+		if toolCall == nil || state.toolIsCustom[idx] || state.toolIsToolSearch[idx] {
+			continue
+		}
+		arguments := strings.TrimSpace(toolCall.Function.Arguments)
+		if arguments == "" || json.Valid([]byte(arguments)) {
+			continue
+		}
+		return fmt.Errorf("tool call %q (%s) arguments are invalid JSON", toolCall.ID, toolCall.Function.Name)
+	}
+	return nil
 }
 
 // ChatCompletionsChunkToResponsesEvents converts one Chat Completions stream

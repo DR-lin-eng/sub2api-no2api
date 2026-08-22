@@ -570,6 +570,58 @@ func openAIWSRawItemsHasFunctionCallOutput(items []json.RawMessage) bool {
 	return false
 }
 
+// sanitizeOpenAIWSHistoricalReplayToolCalls removes historical tool-call
+// context items that have no matching output in either the historical or
+// current turn. Replaying such orphan calls through the HTTP bridge can make
+// an upstream reject an otherwise valid continuation. Replay input is already
+// bounded by the WebSocket ingress limits; the explicit cap below preserves
+// the existing 512-item/2 MiB failover safety boundary without truncating a
+// larger conversation.
+func sanitizeOpenAIWSHistoricalReplayToolCalls(
+	previousItems []json.RawMessage,
+	currentItems []json.RawMessage,
+) []json.RawMessage {
+	if len(previousItems) == 0 {
+		return cloneOpenAIWSRawMessages(previousItems)
+	}
+	if len(previousItems) > openAIWSAccountFailoverReplayMaxItems {
+		return cloneOpenAIWSRawMessages(previousItems)
+	}
+	totalBytes := 0
+	for _, item := range previousItems {
+		totalBytes += len(item)
+		if totalBytes > openAIWSAccountFailoverReplayMaxBytes {
+			return cloneOpenAIWSRawMessages(previousItems)
+		}
+	}
+
+	outputCallIDs := make(map[string]struct{})
+	collectOutputCallIDs := func(items []json.RawMessage) {
+		for _, item := range items {
+			if !isCodexToolCallOutputItemType(gjson.GetBytes(item, "type").String()) {
+				continue
+			}
+			if callID := strings.TrimSpace(gjson.GetBytes(item, "call_id").String()); callID != "" {
+				outputCallIDs[callID] = struct{}{}
+			}
+		}
+	}
+	collectOutputCallIDs(previousItems)
+	collectOutputCallIDs(currentItems)
+
+	sanitized := make([]json.RawMessage, 0, len(previousItems))
+	for _, item := range previousItems {
+		if isCodexToolCallContextItemType(gjson.GetBytes(item, "type").String()) {
+			callID := strings.TrimSpace(gjson.GetBytes(item, "call_id").String())
+			if _, paired := outputCallIDs[callID]; !paired {
+				continue
+			}
+		}
+		sanitized = append(sanitized, append(json.RawMessage(nil), item...))
+	}
+	return sanitized
+}
+
 func openAIWSRawItemsHaveToolCallContextForOutputs(items []json.RawMessage) bool {
 	if len(items) == 0 {
 		return false
@@ -640,6 +692,7 @@ func buildOpenAIWSReplayInputSequence(
 	if !previousFullInputExists {
 		return cloneOpenAIWSRawMessages(currentItems), currentExists, nil
 	}
+	previousFullInput = sanitizeOpenAIWSHistoricalReplayToolCalls(previousFullInput, currentItems)
 	if !currentExists || len(currentItems) == 0 {
 		return cloneOpenAIWSRawMessages(previousFullInput), true, nil
 	}

@@ -47,3 +47,26 @@
 代码与测试是最终事实来源。提交前运行后端聚焦测试、前端 typecheck/Vitest、文档检查和
 Docker 构建/启动回归；发布后分别按推送提交的精确 SHA 核对 `CI`、`Security Scan` 和
 `Docker Image`，不能用本地 Docker 结果替代 Actions 证据。
+
+## 本轮增量复核（origin `1532bae4` / upstream `d45135d8`）
+
+在上述记录之后，上游又合入 #6068（Codex guardian parent affinity）。该 PR 引入新的
+调度层、隐私门控和 parent sticky 绑定，涉及 700 余行旧 `internal/service` 代码，
+会改变账号选择、缓存绑定和多实例行为；当前模块化项目没有等价 owner，本轮只完成
+只读性能/升级审查，暂不移植。
+
+本轮选择性接入了仍未被当前主线吸收、且能落在现有 owner 的窄修复：
+
+- #5846：Responses→Chat 历史和流式桥在终态拒绝畸形 JSON 工具参数，并跳过对应孤儿
+  输出，避免截断的调用污染后续请求。
+- #5487：Chat `file` 内容块转换为 Responses `input_file`，保留文件名、`file_data`
+  和 `file_id`。
+- #5864：HTTP bridge 重放前清除没有匹配输出的历史工具调用；沿用现有 512 项/2 MiB
+  有界回放限制。
+- #5685：Anthropic 兼容 Chat/Responses 池模式错误在账号未被停用时允许有限同账号重试。
+- #6065：OAuth 图片生成无图但返回普通文字时标记图片能力不可用，写入已有模型级
+  冷却并切换账号；明确安全/审核文字仍返回 400，并发送 `OpenAI-Beta` 响应实验头。
+
+这些改动没有数据库迁移、后台任务或无界队列；工具参数校验和文字分类都在已有协议
+边界执行，普通请求不增加外部 I/O。上游 #6067 Ollama、#5912 DeepSeek、CN/Composite
+默认路由和账单相关改动仍暂缓，避免重复重构或改变滚动升级口径。

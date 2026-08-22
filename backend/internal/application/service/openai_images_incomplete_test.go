@@ -7,8 +7,10 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/require"
 )
 
 // response.incomplete（生成超时/截断）应被识别为可重试的 502 上游错误，触发 failover。
@@ -159,6 +161,49 @@ func TestImagesOAuthNonStreaming_ContentRefusalReturns400NoRetry(t *testing.T) {
 	if !strings.Contains(imgErr.Message, "安全系统") && !strings.Contains(imgErr.Message, "违规") {
 		t.Fatalf("refusal message should carry model's reason, got %q", imgErr.Message)
 	}
+}
+
+func TestImagesOAuthNonStreaming_TextFallbackReturnsCapabilityError(t *testing.T) {
+	upstreamSSE := "event: response.output_text.delta\n" +
+		"data: {\"type\":\"response.output_text.delta\",\"delta\":\"Here's a polished image prompt for your request.\"}\n\n" +
+		"event: response.completed\n" +
+		"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"r\",\"status\":\"completed\",\"output\":[{\"type\":\"message\",\"content\":[{\"type\":\"output_text\",\"text\":\"Here's a polished image prompt for your request.\"}]}]}}\n\n"
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	resp := &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(upstreamSSE))}
+
+	svc := &OpenAIGatewayService{}
+	_, _, _, err := svc.handleOpenAIImagesOAuthNonStreamingResponse(resp, c, "b64_json", "gpt-image-2")
+
+	var imgErr *OpenAIImagesUpstreamError
+	require.ErrorAs(t, err, &imgErr)
+	require.Equal(t, http.StatusBadGateway, imgErr.StatusCode)
+	require.Equal(t, "image_generation_unavailable", imgErr.Code)
+}
+
+func TestImagesOAuthStreaming_SplitSafetyRefusalReturns400(t *testing.T) {
+	upstreamSSE := "event: response.output_text.delta\n" +
+		"data: {\"type\":\"response.output_text.delta\",\"delta\":\"安全系\"}\n\n" +
+		"event: response.output_text.delta\n" +
+		"data: {\"type\":\"response.output_text.delta\",\"delta\":\"统拒绝生成\"}\n\n" +
+		"event: response.completed\n" +
+		"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"r\",\"status\":\"completed\",\"output\":[]}}\n\n"
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	resp := &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(upstreamSSE))}
+
+	svc := &OpenAIGatewayService{}
+	_, _, _, _, err := svc.handleOpenAIImagesOAuthStreamingResponse(resp, c, time.Now(), "b64_json", "image_generation", "gpt-image-2")
+
+	var imgErr *OpenAIImagesUpstreamError
+	require.ErrorAs(t, err, &imgErr)
+	require.Equal(t, http.StatusBadRequest, imgErr.StatusCode)
+	require.Equal(t, "content_policy_violation", imgErr.Code)
+	require.Contains(t, rec.Body.String(), "event: error")
 }
 
 // extractOpenAIImagesModelRefusal：真空响应（无文字）返回空串。

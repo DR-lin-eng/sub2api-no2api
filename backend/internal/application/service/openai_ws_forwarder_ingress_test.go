@@ -839,6 +839,38 @@ func TestBuildOpenAIWSReplayInputSequence(t *testing.T) {
 		require.Equal(t, "hello", gjson.GetBytes(items[0], "text").String())
 		require.Equal(t, "world", gjson.GetBytes(items[1], "text").String())
 	})
+
+	t.Run("drops_orphan_historical_tool_context", func(t *testing.T) {
+		previous := []json.RawMessage{
+			json.RawMessage(`{"type":"function_call","call_id":"call_orphan","name":"inspect","arguments":"{}"}`),
+			json.RawMessage(`{"type":"input_text","text":"before"}`),
+		}
+		items, exists, err := buildOpenAIWSReplayInputSequence(
+			previous,
+			true,
+			[]byte(`{"previous_response_id":"resp_1","input":[{"type":"input_text","text":"after"}]}`),
+			true,
+		)
+		require.NoError(t, err)
+		require.True(t, exists)
+		require.Len(t, items, 2)
+		require.Equal(t, "input_text", gjson.GetBytes(items[0], "type").String())
+		require.Equal(t, "before", gjson.GetBytes(items[0], "text").String())
+		require.Equal(t, "after", gjson.GetBytes(items[1], "text").String())
+	})
+}
+
+func TestSanitizeOpenAIWSHistoricalReplayToolCallsKeepsPairedContext(t *testing.T) {
+	previous := []json.RawMessage{
+		json.RawMessage(`{"type":"function_call","call_id":"call_keep","name":"inspect","arguments":"{}"}`),
+		json.RawMessage(`{"type":"function_call","call_id":"call_drop","name":"inspect","arguments":"{}"}`),
+	}
+	current := []json.RawMessage{
+		json.RawMessage(`{"type":"function_call_output","call_id":"call_keep","output":"ok"}`),
+	}
+	got := sanitizeOpenAIWSHistoricalReplayToolCalls(previous, current)
+	require.Len(t, got, 1)
+	require.Equal(t, "call_keep", gjson.GetBytes(got[0], "call_id").String())
 }
 
 func TestBuildOpenAIWSCurrentTurnRetryPayload(t *testing.T) {
