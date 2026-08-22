@@ -5,9 +5,19 @@ import {
   messagesDispatchConfigToFormState,
   messagesDispatchFormStateToConfig,
   resetMessagesDispatchFormState,
+  supportsMessagesDispatchPlatform,
 } from "../presentation/groupsMessagesDispatchResolver";
 
 describe("groupsMessagesDispatch", () => {
+  it.each([
+    ["openai", true],
+    ["composite", true],
+    ["grok", false],
+    ["anthropic", false],
+  ])("supports Messages dispatch on %s: %s", (platform, expected) => {
+    expect(supportsMessagesDispatchPlatform(platform)).toBe(expected);
+  });
+
   it("returns the expected default form state", () => {
     expect(createDefaultMessagesDispatchFormState()).toEqual({
       allow_messages_dispatch: false,

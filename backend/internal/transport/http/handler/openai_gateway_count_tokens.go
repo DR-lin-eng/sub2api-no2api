@@ -256,7 +256,7 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 		return
 	}
 	routingModel := service.NormalizeOpenAICompatRequestedModel(reqModel)
-	preferredMappedModel := resolveOpenAIMessagesDispatchMappedModel(apiKey, reqModel)
+	preferredMappedModel := resolveOpenAIMessagesDispatchMappedModelForContext(c, apiKey, reqModel)
 	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", parsedReq.Stream))
 
 	setOpsRequestContext(c, reqModel, false)

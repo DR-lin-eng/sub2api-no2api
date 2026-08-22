@@ -96,7 +96,7 @@ func RegisterGatewayRoutes(
 		}
 	}
 	videoGenerationHandler := func(c *gin.Context) {
-		if getGroupPlatform(c) == service.PlatformGrok {
+		if platform := getGroupPlatform(c); platform == service.PlatformGrok || platform == service.PlatformComposite {
 			h.OpenAIGateway.GrokVideoGeneration(c)
 			return
 		}

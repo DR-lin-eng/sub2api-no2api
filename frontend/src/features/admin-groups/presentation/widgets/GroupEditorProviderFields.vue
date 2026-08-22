@@ -3,6 +3,7 @@ import { useI18n } from "vue-i18n";
 import Select from "@/common/widgets/forms/Select.vue";
 import Icon from "@/common/widgets/icons/Icon.vue";
 import type { GroupEditorDialogContext } from "../groupEditorContext";
+import { supportsMessagesDispatchPlatform } from "../groupsMessagesDispatchResolver";
 
 const { context } = defineProps<{ context: GroupEditorDialogContext }>();
 const { t } = useI18n();
@@ -162,9 +163,9 @@ const {
       </p>
     </div>
 
-    <!-- OpenAI Messages 调度配置（仅 openai 平台） -->
+    <!-- OpenAI Messages 调度配置（OpenAI 与 Composite 平台） -->
     <div
-      v-if="form.platform === 'openai'"
+      v-if="supportsMessagesDispatchPlatform(form.platform)"
       class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4"
     >
       <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">

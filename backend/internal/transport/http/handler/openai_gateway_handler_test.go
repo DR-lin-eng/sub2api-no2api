@@ -740,6 +740,26 @@ func TestResolveOpenAIMessagesDispatchMappedModel(t *testing.T) {
 	})
 }
 
+func TestResolveOpenAIMessagesDispatchMappedModelForCompositeTarget(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	groupID := int64(1)
+	apiKey := &service.APIKey{GroupID: &groupID, Group: &service.Group{
+		ID: groupID, Platform: service.PlatformComposite, AllowMessagesDispatch: true,
+		MessagesDispatchModelConfig: service.OpenAIMessagesDispatchModelConfig{SonnetMappedModel: "gpt-5.2"},
+	}}
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+	c.Request = c.Request.WithContext(service.WithResolvedTargetPlatform(c.Request.Context(), service.PlatformGrok))
+	require.Equal(t, "grok-4.5", resolveOpenAIMessagesDispatchMappedModelForContext(c, apiKey, "claude-sonnet-4-5"))
+
+	c.Request = c.Request.WithContext(service.WithResolvedTargetPlatform(c.Request.Context(), "deepseek"))
+	require.Empty(t, resolveOpenAIMessagesDispatchMappedModelForContext(c, apiKey, "claude-sonnet-4-5"))
+
+	c.Request = c.Request.WithContext(service.WithResolvedTargetPlatform(c.Request.Context(), service.PlatformOpenAI))
+	require.Equal(t, "gpt-5.2", resolveOpenAIMessagesDispatchMappedModelForContext(c, apiKey, "claude-sonnet-4-5"))
+}
+
 func TestOpenAIGatewayMessagesDispatchGateAllowsGrokGroups(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -790,6 +810,56 @@ func TestOpenAIGatewayMessagesDispatchGateAllowsGrokGroups(t *testing.T) {
 
 		require.Equal(t, http.StatusServiceUnavailable, rec.Code)
 		require.Equal(t, "api_error", gjson.GetBytes(rec.Body.Bytes(), "error.type").String())
+		require.NotContains(t, rec.Body.String(), "This group does not allow /v1/messages dispatch")
+	})
+
+	t.Run("composite_grok_target_without_dispatch_flag_reaches_gateway_dependencies", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(rec)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"grok-4.3","messages":[{"role":"user","content":"hi"}]}`))
+		groupID := int64(4103)
+		c.Set(string(middleware.ContextKeyAPIKey), &service.APIKey{
+			ID:      5103,
+			GroupID: &groupID,
+			User:    &service.User{ID: 6103},
+			Group: &service.Group{
+				ID:                    groupID,
+				Platform:              service.PlatformComposite,
+				AllowMessagesDispatch: false,
+			},
+		})
+		c.Request = c.Request.WithContext(service.WithResolvedTargetPlatform(c.Request.Context(), service.PlatformGrok))
+		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 6103, Concurrency: 1})
+
+		h := &OpenAIGatewayHandler{}
+		h.Messages(c)
+
+		require.Equal(t, http.StatusServiceUnavailable, rec.Code)
+		require.NotContains(t, rec.Body.String(), "This group does not allow /v1/messages dispatch")
+	})
+
+	t.Run("composite_cn_target_without_dispatch_flag_reaches_gateway_dependencies", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(rec)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"deepseek-v4-pro","messages":[{"role":"user","content":"hi"}]}`))
+		groupID := int64(4104)
+		c.Set(string(middleware.ContextKeyAPIKey), &service.APIKey{
+			ID:      5104,
+			GroupID: &groupID,
+			User:    &service.User{ID: 6104},
+			Group: &service.Group{
+				ID:                    groupID,
+				Platform:              service.PlatformComposite,
+				AllowMessagesDispatch: false,
+			},
+		})
+		c.Request = c.Request.WithContext(service.WithResolvedTargetPlatform(c.Request.Context(), "deepseek"))
+		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 6104, Concurrency: 1})
+
+		h := &OpenAIGatewayHandler{}
+		h.Messages(c)
+
+		require.Equal(t, http.StatusServiceUnavailable, rec.Code)
 		require.NotContains(t, rec.Body.String(), "This group does not allow /v1/messages dispatch")
 	})
 }

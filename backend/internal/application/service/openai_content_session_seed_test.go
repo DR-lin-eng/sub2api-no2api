@@ -44,6 +44,20 @@ func TestDeriveOpenAIContentSessionSeed_ChatCompletions_StableAcrossTurns(t *tes
 	require.NotEmpty(t, s1)
 }
 
+func TestDeriveOpenAIContentSessionSeed_IgnoresDynamicSystemMessagesAfterFirstUser(t *testing.T) {
+	base := []byte(`{"model":"gpt-5.4","messages":[{"role":"system","content":"stable"},{"role":"user","content":"hello"}]}`)
+	withDynamicContext := []byte(`{"model":"gpt-5.4","messages":[{"role":"system","content":"stable"},{"role":"user","content":"hello"},{"role":"assistant","content":"hi"},{"role":"system","content":"request timestamp: 123"}]}`)
+
+	require.Equal(t, deriveOpenAIContentSessionSeed(base), deriveOpenAIContentSessionSeed(withDynamicContext))
+}
+
+func TestDeriveOpenAIContentSessionSeed_LeadingSystemPrefixStillMatters(t *testing.T) {
+	base := []byte(`{"model":"gpt-5.4","messages":[{"role":"system","content":"stable"},{"role":"user","content":"hello"}]}`)
+	different := []byte(`{"model":"gpt-5.4","messages":[{"role":"system","content":"changed"},{"role":"user","content":"hello"}]}`)
+
+	require.NotEqual(t, deriveOpenAIContentSessionSeed(base), deriveOpenAIContentSessionSeed(different))
+}
+
 func TestDeriveOpenAIContentSessionSeed_ChatCompletions_DifferentFirstUserDiffers(t *testing.T) {
 	req1 := []byte(`{"model":"gpt-5.4","messages":[{"role":"user","content":"Question A"}]}`)
 	req2 := []byte(`{"model":"gpt-5.4","messages":[{"role":"user","content":"Question B"}]}`)

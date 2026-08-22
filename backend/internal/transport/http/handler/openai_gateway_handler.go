@@ -53,6 +53,36 @@ func resolveOpenAIMessagesDispatchMappedModel(apiKey *service.APIKey, requestedM
 	return strings.TrimSpace(apiKey.Group.ResolveMessagesDispatchModel(requestedModel))
 }
 
+func resolveOpenAIMessagesDispatchMappedModelForContext(c *gin.Context, apiKey *service.APIKey, requestedModel string) string {
+	if apiKey == nil || apiKey.Group == nil || apiKey.Group.Platform != service.PlatformComposite || c == nil || c.Request == nil {
+		return resolveOpenAIMessagesDispatchMappedModel(apiKey, requestedModel)
+	}
+	target, ok := service.ResolvedTargetPlatformFromContext(c.Request.Context())
+	if !ok {
+		return resolveOpenAIMessagesDispatchMappedModel(apiKey, requestedModel)
+	}
+	// Composite target routing owns the provider-specific model identity. Do not
+	// feed OpenAI defaults into Grok/CN scheduling, which would select the wrong
+	// account pool and add avoidable candidate scans.
+	switch {
+	case target == service.PlatformGrok:
+		return (&service.Group{Platform: service.PlatformGrok}).ResolveMessagesDispatchModel(requestedModel)
+	case isCNProviderPlatform(target):
+		return ""
+	default:
+		return resolveOpenAIMessagesDispatchMappedModel(apiKey, requestedModel)
+	}
+}
+
+func isCNProviderPlatform(platform string) bool {
+	switch strings.ToLower(strings.TrimSpace(platform)) {
+	case "kimi", "zhipu", "deepseek":
+		return true
+	default:
+		return false
+	}
+}
+
 type openAIModelBodyReplaceFunc func([]byte, string) []byte
 
 func openAIModelMappedBody(body []byte, mapped bool, mappedModel string, replace openAIModelBodyReplaceFunc) []byte {
@@ -165,12 +195,22 @@ func openAICompatibleRequestPlatform(ctx context.Context, apiKey *service.APIKey
 	return service.PlatformOpenAI
 }
 
-func allowOpenAICompatibleMessagesDispatch(apiKey *service.APIKey) bool {
+func allowOpenAICompatibleMessagesDispatch(c *gin.Context, apiKey *service.APIKey) bool {
 	if apiKey == nil || apiKey.Group == nil {
 		return true
 	}
 	if apiKey.Group.Platform == service.PlatformGrok {
 		return true
+	}
+	// Composite routes resolve the target platform before the handler runs.
+	// Grok Messages dispatch is an inherent capability of that target; OpenAI
+	// targets continue to honor the composite group's explicit opt-in.
+	if apiKey.Group.Platform == service.PlatformComposite {
+		if c != nil && c.Request != nil {
+			if target, ok := service.ResolvedTargetPlatformFromContext(c.Request.Context()); ok && (target == service.PlatformGrok || isCNProviderPlatform(target)) {
+				return true
+			}
+		}
 	}
 	return apiKey.Group.AllowMessagesDispatch
 }
