@@ -37,6 +37,7 @@ This directory contains files for deploying Sub2API on Linux servers and Apple-s
 | `DATAMANAGEMENTD_CN.md` | datamanagementd 部署与联动说明（中文） |
 | `config.example.yaml` | Example configuration file |
 | `EDGE_SECURITY.md` | Reverse proxy, CDN/WAF, trusted proxy, and ingress hardening guide |
+| `../docs/FRONTEND_CORS_DEPLOYMENT_CN.md` | 二开前端同源部署、精确 CORS、iframe/sandbox 与发布验收指南 |
 
 ---
 

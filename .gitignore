@@ -152,6 +152,7 @@ docs/*
 !docs/SCHEDULER_CANDIDATE_INDEX_OPTIMIZATION_CN.md
 !docs/CPA_POOL_DYNAMIC_LOAD_BALANCING_CN.md
 !docs/CLOUDFLARE_EDGE_RULES.md
+!docs/FRONTEND_CORS_DEPLOYMENT_CN.md
 !docs/codex/
 !docs/codex/intentional-divergences.md
 !docs/legal/

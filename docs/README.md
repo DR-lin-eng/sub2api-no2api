@@ -55,6 +55,7 @@
 | [多实例部署](../deploy/MULTI_INSTANCE.md) | 多实例拓扑、共享依赖与管理页指标速查 |
 | [Redis 调优](../deploy/REDIS_TUNING.md) | 小机器默认值和高吞吐调优 |
 | [边缘安全](../deploy/EDGE_SECURITY.md) | 反向代理与入口防护 |
+| [二开前端同源与 CORS 部署指南](FRONTEND_CORS_DEPLOYMENT_CN.md) | 避免前端静态资源、API、WebSocket 和登录链路出现大面积跨域错误 |
 | [Apple container](../deploy/APPLE_CONTAINER.md) | macOS container 部署 |
 
 生产配置字段以 `deploy/config.example.yaml` 为准，Compose 环境变量以 `deploy/.env.example` 为准。
