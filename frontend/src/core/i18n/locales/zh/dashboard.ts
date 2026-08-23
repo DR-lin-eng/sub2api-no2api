@@ -202,14 +202,16 @@ export default {
       openai: {
         description: '将以下配置文件添加到 Codex CLI 配置目录中。',
         authModeTitle: 'Codex 认证模式',
-        authModeDescription: '兼容模式保留旧版 Codex 配置；API Key Mode 用于授权客户端图片执行器。',
+        authModeDescription: '兼容模式保留旧版 Codex 的 auth.json 配置；API Key Mode 使用当前 Codex 推荐的 provider env_key 认证。',
         authModeLegacy: '兼容模式',
         authModeApiKey: 'API Key Mode',
         authModeApiKeyRestartNotice: '保存此配置后，必须完全退出并重启 Codex Desktop 或 CLI，然后新建 task，让客户端重新构建工具注册表。',
-        configTomlHint: '请确保以下内容位于 config.toml 文件的开头部分',
+        configTomlHint: '请替换旧的 OpenAI provider 配置，并删除已废弃的 disable_response_storage、network_access、windows_wsl_setup_acknowledged；根级配置需位于所有 TOML 表之前。API Key Mode 还需要运行环境变量代码块。',
         note: '请确保配置目录存在。macOS/Linux 用户可运行 mkdir -p ~/.codex 创建目录。',
         noteWindows:
-          '按 Win+R，输入 %userprofile%\\.codex 打开配置目录。如目录不存在，请先手动创建。'
+          '按 Win+R，输入 %userprofile%\\.codex 打开配置目录。如目录不存在，请先手动创建。',
+        apiKeyNote: '请在启动 Codex 前运行 Terminal 代码块，或将 OPENAI_API_KEY 持久化到 shell 配置中，供 provider env_key 读取。',
+        apiKeyNoteWindows: '请在启动 Codex 前运行 PowerShell 代码块，或将 OPENAI_API_KEY 持久化到 PowerShell 配置中，供 provider env_key 读取。'
       },
       cliTabs: {
         claudeCode: 'Claude Code',

@@ -202,13 +202,15 @@ export default {
       openai: {
         description: 'Add the following configuration files to your Codex CLI config directory.',
         authModeTitle: 'Codex authentication mode',
-        authModeDescription: 'Compatibility mode keeps the existing setup for older Codex clients. API Key Mode authorizes the client-side image executor.',
+        authModeDescription: 'Compatibility mode keeps the auth.json setup for older Codex clients. API Key Mode uses Codex\'s current provider env_key authentication.',
         authModeLegacy: 'Compatibility mode',
         authModeApiKey: 'API Key Mode',
         authModeApiKeyRestartNotice: 'After saving this configuration, completely quit and restart Codex Desktop or CLI, then create a new task so the client can rebuild its tool registry.',
-        configTomlHint: 'Make sure the following content is at the beginning of the config.toml file',
+        configTomlHint: 'Replace the old OpenAI provider block and remove deprecated disable_response_storage, network_access, and windows_wsl_setup_acknowledged lines. Keep root settings before any TOML table; API Key Mode also requires running the environment-variable snippet.',
         note: 'Make sure the config directory exists. macOS/Linux users can run mkdir -p ~/.codex to create it.',
         noteWindows: 'Press Win+R and enter %userprofile%\\.codex to open the config directory. Create it manually if it does not exist.',
+        apiKeyNote: 'Run the Terminal snippet before starting Codex, or add OPENAI_API_KEY to your shell profile so the provider env_key can read it.',
+        apiKeyNoteWindows: 'Run the PowerShell snippet before starting Codex, or persist OPENAI_API_KEY in your PowerShell profile so the provider env_key can read it.',
       },
       cliTabs: {
         claudeCode: 'Claude Code',

@@ -243,6 +243,8 @@ const activeTab = ref<string>('unix')
 const activeClientTab = ref<string>('claude')
 type CodexAuthMode = 'legacy' | 'api-key'
 const codexAuthMode = ref<CodexAuthMode>('legacy')
+const codexProviderId = 'sub2api_openai'
+const codexApiKeyEnv = 'OPENAI_API_KEY'
 
 // Reset tabs when platform changes
 const defaultClientTab = computed(() => {
@@ -437,6 +439,14 @@ const platformNote = computed(() => {
     case 'openai':
       if (activeClientTab.value === 'claude') {
         return t('keys.useKeyModal.note')
+      }
+      if (
+        codexAuthMode.value === 'api-key' &&
+        (activeClientTab.value === 'codex' || activeClientTab.value === 'codex-ws')
+      ) {
+        return activeTab.value === 'windows'
+          ? t('keys.useKeyModal.openai.apiKeyNoteWindows')
+          : t('keys.useKeyModal.openai.apiKeyNote')
       }
       return activeTab.value === 'windows'
         ? t('keys.useKeyModal.openai.noteWindows')
@@ -726,50 +736,69 @@ function generateOpenAIFiles(baseUrl: string, apiKey: string): FileConfig[] {
   const isWindows = activeTab.value === 'windows'
   const configDir = isWindows ? '%userprofile%\\.codex' : '~/.codex'
 
-  // config.toml content
-  const configContent = `model_provider = "OpenAI"
-model = "gpt-5.6-sol"
-review_model = "gpt-5.6-sol"
-model_reasoning_effort = "xhigh"
-model_context_window = 1000000
-disable_response_storage = true
-network_access = "enabled"
-windows_wsl_setup_acknowledged = true
-
-[model_providers.OpenAI]
-name = "OpenAI"
-base_url = "${baseUrl}"
-wire_api = "responses"
-${generateCodexProviderAuthConfig()}
-
-[features]
-goals = true`
-
-  // auth.json content
-  const authContent = `{
-  "OPENAI_API_KEY": "${apiKey}"
-}`
-
-  return [
+  const files: FileConfig[] = [
     {
       path: `${configDir}/config.toml`,
-      content: configContent,
+      content: generateOpenAIConfigContent(baseUrl),
       hint: t('keys.useKeyModal.openai.configTomlHint')
-    },
-    {
-      path: `${configDir}/auth.json`,
-      content: authContent
     }
   ]
+
+  if (codexAuthMode.value === 'api-key') {
+    files.push(generateCodexEnvironmentFile(apiKey))
+    return files
+  }
+
+  files.push({
+    path: `${configDir}/auth.json`,
+    content: `{
+  "OPENAI_API_KEY": "${apiKey}"
+}`
+  })
+  return files
 }
 
 function generateCodexProviderAuthConfig(): string {
   if (codexAuthMode.value === 'api-key') {
-    return `requires_openai_auth = false
+    // Codex recommends env_key for provider API keys; keep the secret out of
+    // config.toml instead of falling back to experimental_bearer_token.
+    return `env_key = "${codexApiKeyEnv}"
+requires_openai_auth = false
 http_headers = { "x-openai-actor-authorization" = "local-image-extension" }`
   }
 
   return 'requires_openai_auth = true'
+}
+
+function generateCodexEnvironmentFile(apiKey: string): FileConfig {
+  const isWindows = activeTab.value === 'windows'
+  return {
+    path: isWindows ? 'PowerShell' : 'Terminal',
+    content: isWindows
+      ? `$env:${codexApiKeyEnv}="${apiKey}"`
+      : `export ${codexApiKeyEnv}="${apiKey}"`
+  }
+}
+
+function generateOpenAIConfigContent(baseUrl: string, supportsWebSockets = false): string {
+  const websocketConfig = supportsWebSockets ? '\nsupports_websockets = true' : ''
+
+  // Keep the provider name as OpenAI for Codex's OpenAI-specific capabilities,
+  // while using a custom id so it does not collide with the built-in `openai` id.
+  return `model_provider = "${codexProviderId}"
+model = "gpt-5.6-sol"
+review_model = "gpt-5.6-sol"
+model_reasoning_effort = "xhigh"
+model_context_window = 1000000
+
+[model_providers.${codexProviderId}]
+name = "OpenAI"
+base_url = "${baseUrl}"
+wire_api = "responses"${websocketConfig}
+${generateCodexProviderAuthConfig()}
+
+[features]
+goals = true`
 }
 
 function generateGrokFiles(baseUrl: string, apiKey: string): FileConfig[] {
@@ -811,10 +840,7 @@ name = "Sub2API Grok"
 base_url = "${baseUrl}"
 env_key = "SUB2API_API_KEY"
 wire_api = "responses"
-supports_websockets = true
-
-[features]
-responses_websockets_v2 = true`
+supports_websockets = true`
   const environmentContent = isWindows
     ? `$env:SUB2API_API_KEY="${apiKey}"`
     : `export SUB2API_API_KEY="${apiKey}"`
@@ -836,43 +862,26 @@ function generateOpenAIWsFiles(baseUrl: string, apiKey: string): FileConfig[] {
   const isWindows = activeTab.value === 'windows'
   const configDir = isWindows ? '%userprofile%\\.codex' : '~/.codex'
 
-  // config.toml content with WebSocket v2
-  const configContent = `model_provider = "OpenAI"
-model = "gpt-5.6-sol"
-review_model = "gpt-5.6-sol"
-model_reasoning_effort = "xhigh"
-model_context_window = 1000000
-disable_response_storage = true
-network_access = "enabled"
-windows_wsl_setup_acknowledged = true
-
-[model_providers.OpenAI]
-name = "OpenAI"
-base_url = "${baseUrl}"
-wire_api = "responses"
-supports_websockets = true
-${generateCodexProviderAuthConfig()}
-
-[features]
-responses_websockets_v2 = true
-goals = true`
-
-  // auth.json content
-  const authContent = `{
-  "OPENAI_API_KEY": "${apiKey}"
-}`
-
-  return [
+  const files: FileConfig[] = [
     {
       path: `${configDir}/config.toml`,
-      content: configContent,
+      content: generateOpenAIConfigContent(baseUrl, true),
       hint: t('keys.useKeyModal.openai.configTomlHint')
-    },
-    {
-      path: `${configDir}/auth.json`,
-      content: authContent
     }
   ]
+
+  if (codexAuthMode.value === 'api-key') {
+    files.push(generateCodexEnvironmentFile(apiKey))
+    return files
+  }
+
+  files.push({
+    path: `${configDir}/auth.json`,
+    content: `{
+  "OPENAI_API_KEY": "${apiKey}"
+}`
+  })
+  return files
 }
 
 const copyContent = async (content: string, index: number) => {
