@@ -45,14 +45,17 @@ func normalizeProxyProbeURLs(targets []ProbeURLConfig) ([]ProbeURLConfig, error)
 }
 
 func (c *Config) Validate() error {
-	if c.IPv6Egress.Enabled {
+	ipv6Configured := c.IPv6Egress.Enabled || c.IPv6Egress.ControlEnabled || strings.TrimSpace(c.IPv6Egress.AllocationSecret) != ""
+	if ipv6Configured {
 		if runtime.GOOS != "linux" {
-			return fmt.Errorf("ipv6_egress.enabled is only supported on Linux")
+			if c.IPv6Egress.Enabled {
+				return fmt.Errorf("ipv6_egress.enabled is only supported on Linux")
+			}
 		}
-		if len(strings.TrimSpace(c.IPv6Egress.AllocationSecret)) < 32 {
+		if c.IPv6Egress.Enabled && len(strings.TrimSpace(c.IPv6Egress.AllocationSecret)) < 32 {
 			return fmt.Errorf("ipv6_egress.allocation_secret must contain at least 32 characters when enabled")
 		}
-		if c.Deployment.IsMultiInstance() {
+		if c.IPv6Egress.Enabled && c.Deployment.IsMultiInstance() {
 			return fmt.Errorf("ipv6_egress.enabled currently requires deployment.mode=standalone")
 		}
 		if c.IPv6Egress.ReconcileIntervalSeconds < 5 || c.IPv6Egress.ReconcileIntervalSeconds > 3600 {

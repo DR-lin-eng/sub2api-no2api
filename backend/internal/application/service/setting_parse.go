@@ -43,6 +43,12 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// 初始化默认设置。IPv6 的旧配置开关只作为首次启动的迁移默认值；
+	// 后续实际开关由管理员设置持久化控制。
+	ipv6EgressDefault := "false"
+	if s != nil && s.cfg != nil && s.cfg.IPv6Egress.Enabled {
+		ipv6EgressDefault = "true"
+	}
 	// 初始化默认设置
 	defaults := map[string]string{
 		SettingKeyRegistrationEnabled:                       "true",
@@ -209,8 +215,8 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		// Media Studio feature (default disabled; opt-in)
 		SettingKeyMediaStudioEnabled: "false",
 
-		// IPv6 egress management UI (default disabled; opt-in)
-		SettingKeyIPv6EgressUIEnabled: "false",
+		// IPv6 egress master switch (defaults to the legacy deployment value)
+		SettingKeyIPv6EgressUIEnabled: ipv6EgressDefault,
 
 		// Affiliate (邀请返利) feature (default disabled; opt-in)
 		SettingKeyAffiliateEnabled:              "false",

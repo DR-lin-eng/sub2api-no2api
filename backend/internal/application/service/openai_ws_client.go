@@ -78,12 +78,13 @@ func newDefaultOpenAIWSClientDialer() openAIWSClientDialer {
 func newConfiguredOpenAIWSClientDialer(cfg *config.Config) openAIWSClientDialer {
 	policy := platformegress.Policy{FreeBind: true}
 	if cfg != nil {
-		policy.IPv6Enabled = cfg.IPv6Egress.Enabled
+		policy.IPv6Enabled = cfg.IPv6Egress.IsEnabled()
 		policy.FreeBind = cfg.IPv6Egress.FreeBind
 	}
 	return &coderOpenAIWSClientDialer{
 		proxyClients: make(map[string]*openAIWSProxyClientEntry),
 		egressPolicy: policy,
+		cfg:          cfg,
 	}
 }
 
@@ -93,6 +94,20 @@ type coderOpenAIWSClientDialer struct {
 	proxyHits    atomic.Int64
 	proxyMisses  atomic.Int64
 	egressPolicy platformegress.Policy
+	cfg          *config.Config
+}
+
+func (d *coderOpenAIWSClientDialer) currentEgressPolicy() platformegress.Policy {
+	if d == nil || d.cfg == nil {
+		if d == nil {
+			return platformegress.Policy{}
+		}
+		return d.egressPolicy
+	}
+	policy := d.egressPolicy
+	policy.IPv6Enabled = d.cfg.IPv6Egress.IsEnabled()
+	policy.FreeBind = d.cfg.IPv6Egress.FreeBind
+	return policy
 }
 
 // openAIWSHandshakeError keeps a bounded, non-logged HTTP error body so the
@@ -174,7 +189,8 @@ func (d *coderOpenAIWSClientDialer) DialRouteWithProfile(
 		HTTPHeader:      cloneHeader(headers),
 		CompressionMode: coderws.CompressionContextTakeover,
 	}
-	effective, err := platformegress.ApplyPolicy(route, d.egressPolicy)
+	policy := d.currentEgressPolicy()
+	effective, err := platformegress.ApplyPolicy(route, policy)
 	if err != nil {
 		return nil, 0, nil, err
 	}
@@ -247,7 +263,8 @@ func (d *coderOpenAIWSClientDialer) routeHTTPClientWithProfile(route platformegr
 	if d == nil {
 		return nil, errors.New("openai ws dialer is nil")
 	}
-	effective, err := platformegress.ApplyPolicy(route, d.egressPolicy)
+	policy := d.currentEgressPolicy()
+	effective, err := platformegress.ApplyPolicy(route, policy)
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +320,7 @@ func (d *coderOpenAIWSClientDialer) routeHTTPClientWithProfile(route platformegr
 			transport.Proxy = http.ProxyURL(parsedProxyURL)
 		}
 	case platformegress.ModeIPv6Pool:
-		dialContext, dialErr := platformegress.NewDialContext(effective, d.egressPolicy, platformegress.DialerOptions{})
+		dialContext, dialErr := platformegress.NewDialContext(effective, policy, platformegress.DialerOptions{})
 		if dialErr != nil {
 			return nil, dialErr
 		}

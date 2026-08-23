@@ -129,7 +129,7 @@ feature presentation -> common + core services/stores/utils
 - 流式响应一旦写出状态或事件，错误必须使用对应协议格式，不能退回普通 JSON 状态码。
 - 调度失败处理必须维护失败账号集合和最大切换次数，避免在坏账号上无限重试。
 - 账号上游访问必须保留 `proxy_id` 优先级并携带完整出口路由；显式 IPv6 缺少绑定、AAAA 或路由时失败关闭，稳态请求不得为出口新增数据库查询。
-- HE 隧道只允许专用 sidecar 在共享容器网络命名空间持有 `NET_ADMIN/NET_RAW`；主应用不得获得网络管理 capability，sidecar 不得挂载 Docker socket 或进入 host network/PID。
+- IPv6 运行开关由管理员持久设置控制（旧 `ipv6_egress_ui_enabled` 键兼容保留），不以 Compose 开关作为运行时事实；HE 隧道只允许专用 sidecar 在共享容器网络命名空间持有 `NET_ADMIN/NET_RAW`，主应用不得获得网络管理 capability，sidecar 不得挂载 Docker socket 或进入 host network/PID。
 - 用量记录以 request ID/指纹保证幂等，结算成功后再更新相关缓存投影。
 - 生产前端必须通过统一构建路径嵌入，不能手改 `webassets/dist/`。
 

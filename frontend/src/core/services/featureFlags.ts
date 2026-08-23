@@ -127,7 +127,7 @@ export const FeatureFlags = {
   ipv6Egress: defineFlag({
     key: 'ipv6_egress_ui_enabled',
     mode: 'opt-in',
-    label: 'IPv6 Egress Management',
+    label: 'IPv6 Egress',
   }),
   payment: defineFlag({
     key: 'payment_enabled',

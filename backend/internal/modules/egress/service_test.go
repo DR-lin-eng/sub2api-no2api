@@ -203,7 +203,7 @@ func (s *serviceTestStore) ListInheritedAccountIDsWithoutBinding(_ context.Conte
 func TestServiceReconcileDefaultPersistsStableBindings(t *testing.T) {
 	pool := Pool{ID: 2, Name: "default", CIDR: "2001:db8:10::/64", Status: PoolStatusActive, IsDefault: true, AllocationVersion: 1}
 	store := newServiceTestStore(pool, 11, 12)
-	svc := NewService(store, &config.Config{IPv6Egress: config.IPv6EgressConfig{AllocationSecret: "0123456789abcdef0123456789abcdef"}})
+	svc := NewService(store, &config.Config{IPv6Egress: config.IPv6EgressConfig{Enabled: true, AllocationSecret: "0123456789abcdef0123456789abcdef"}})
 
 	completed, err := svc.ReconcileDefault(context.Background(), 100)
 	if err != nil || completed != 2 {
@@ -219,6 +219,15 @@ func TestServiceReconcileDefaultPersistsStableBindings(t *testing.T) {
 	}
 	if store.bindings[11].SourceIPv6 != first.SourceIPv6 || store.bindings[11].Version != first.Version {
 		t.Fatalf("binding changed across reconciliation: before=%#v after=%#v", first, store.bindings[11])
+	}
+}
+
+func TestServiceReconcileDefaultRequiresRuntimeSwitch(t *testing.T) {
+	pool := Pool{ID: 20, Name: "default", CIDR: "2001:db8:200::/64", Status: PoolStatusActive, IsDefault: true, AllocationVersion: 1}
+	store := newServiceTestStore(pool, 201)
+	svc := NewService(store, &config.Config{IPv6Egress: config.IPv6EgressConfig{AllocationSecret: "0123456789abcdef0123456789abcdef"}})
+	if _, err := svc.ReconcileDefault(context.Background(), 10); !errors.Is(err, ErrRuntimeUnavailable) {
+		t.Fatalf("ReconcileDefault() error = %v, want %v", err, ErrRuntimeUnavailable)
 	}
 }
 

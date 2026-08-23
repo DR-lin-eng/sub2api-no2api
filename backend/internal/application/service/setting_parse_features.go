@@ -65,8 +65,18 @@ func (s *SettingService) applyFeatureSettings(result *SystemSettings, settings m
 	// Media Studio feature (default: disabled; strict true)
 	result.MediaStudioEnabled = settings[SettingKeyMediaStudioEnabled] == "true"
 
-	// IPv6 egress management UI (default: disabled; strict true)
-	result.IPv6EgressUIEnabled = settings[SettingKeyIPv6EgressUIEnabled] == "true"
+	// IPv6 egress is an administrator-controlled runtime switch. Databases
+	// created before this setting existed have no row, so retain the legacy
+	// deployment value until the administrator saves an explicit choice.
+	ipv6EgressRaw, configured := settings[SettingKeyIPv6EgressUIEnabled]
+	if configured {
+		result.IPv6EgressUIEnabled = ipv6EgressRaw == "true"
+	} else if s != nil && s.cfg != nil {
+		result.IPv6EgressUIEnabled = s.cfg.IPv6Egress.IsEnabled()
+	}
+	if s != nil {
+		s.syncIPv6EgressRuntime(result.IPv6EgressUIEnabled, false)
+	}
 
 	// Affiliate (邀请返利) feature (default: disabled; strict true)
 	result.AffiliateEnabled = settings[SettingKeyAffiliateEnabled] == "true"

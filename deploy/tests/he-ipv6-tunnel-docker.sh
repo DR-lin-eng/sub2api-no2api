@@ -44,6 +44,8 @@ docker run -d --name "$server_name" \
   golang:1.26.6-alpine sleep 300 >/dev/null
 docker run -d --name "$client_name" \
   --network "$network_name" --ip "$client_ipv4" \
+  -v sub2api-ipv6-go-mod:/go/pkg/mod \
+  -v sub2api-ipv6-go-build:/root/.cache/go-build \
   --cap-add NET_ADMIN \
   -v "$repo_dir:/workspace:ro" \
   -v "$config_file:/he.env:ro" \
@@ -82,6 +84,9 @@ docker exec "$client_name" /workspace/deploy/he-ipv6-tunnel.sh apply /he.env
 docker exec "$client_name" /workspace/deploy/he-ipv6-tunnel.sh apply /he.env
 docker exec "$client_name" /workspace/deploy/he-ipv6-tunnel.sh check /he.env
 docker exec "$client_name" ping -6 -I "$interface" -c 1 -W 3 "$server_ipv6" >/dev/null
+docker exec \
+  -e IPV6_EGRESS_EXPECTED_TUNNEL_PREFIX="${server_ipv6%::*}::/64" \
+  "$client_name" sh -eu -c 'cd /workspace/backend && go test -tags integration ./internal/platform/egress -run "^TestDockerMarksTunnelPrefixNonUsable$" -count=1 -v'
 
 docker exec "$client_name" /workspace/deploy/he-ipv6-tunnel.sh remove /he.env
 if docker exec "$client_name" ip link show "$interface" >/dev/null 2>&1; then

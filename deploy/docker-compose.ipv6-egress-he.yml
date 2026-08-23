@@ -6,7 +6,8 @@
 services:
   sub2api:
     environment:
-      - IPV6_EGRESS_ENABLED=true
+      # The runtime switch is persisted from Admin -> System Settings -> IPv6
+      # Egress; it is intentionally not controlled by this Compose override.
       - IPV6_EGRESS_ALLOCATION_SECRET=${IPV6_EGRESS_ALLOCATION_SECRET:?IPV6_EGRESS_ALLOCATION_SECRET is required}
       - IPV6_EGRESS_FREEBIND=${IPV6_EGRESS_FREEBIND:-true}
       - IPV6_EGRESS_RECONCILE_INTERVAL_SECONDS=${IPV6_EGRESS_RECONCILE_INTERVAL_SECONDS:-60}

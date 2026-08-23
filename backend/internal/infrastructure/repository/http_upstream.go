@@ -830,7 +830,7 @@ func (s *httpUpstreamService) shouldReuseEntry(entry *upstreamClientEntry, isola
 func (s *httpUpstreamService) egressPolicy() platformegress.Policy {
 	policy := platformegress.Policy{FreeBind: true}
 	if s != nil && s.cfg != nil {
-		policy.IPv6Enabled = s.cfg.IPv6Egress.Enabled
+		policy.IPv6Enabled = s.cfg.IPv6Egress.IsEnabled()
 		policy.FreeBind = s.cfg.IPv6Egress.FreeBind
 	}
 	return policy

@@ -6,10 +6,22 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
 	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
 	"github.com/stretchr/testify/require"
 )
+
+func TestCoderOpenAIWSClientDialerReadsIPv6SwitchAtDialTime(t *testing.T) {
+	cfg := &config.Config{IPv6Egress: config.IPv6EgressConfig{Enabled: true, FreeBind: true}}
+	dialer, ok := newConfiguredOpenAIWSClientDialer(cfg).(*coderOpenAIWSClientDialer)
+	require.True(t, ok)
+	route := platformegress.IPv6PoolRoute("2001:db8::10", 1, 1, false)
+	require.True(t, dialer.currentEgressPolicy().IPv6Enabled)
+	cfg.IPv6Egress.SetRuntimeEnabled(false)
+	_, err := platformegress.ApplyPolicy(route, dialer.currentEgressPolicy())
+	require.ErrorIs(t, err, platformegress.ErrIPv6Disabled)
+}
 
 func TestCoderOpenAIWSClientDialer_ProxyHTTPClientReuse(t *testing.T) {
 	dialer := newDefaultOpenAIWSClientDialer()

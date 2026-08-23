@@ -1,12 +1,14 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"runtime"
 	"strconv"
 	"strings"
 
+	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	moduleegress "github.com/Wei-Shaw/sub2api/internal/modules/egress"
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
@@ -21,8 +23,19 @@ type EgressHandler struct {
 	cfg       *config.Config
 }
 
-func NewEgressHandler(service *moduleegress.Service, heControl *moduleegress.HETunnelControlService, cfg *config.Config) *EgressHandler {
-	return &EgressHandler{service: service, heControl: heControl, cfg: cfg}
+func NewEgressHandler(egressService *moduleegress.Service, heControl *moduleegress.HETunnelControlService, cfg *config.Config, settingServices ...*service.SettingService) *EgressHandler {
+	h := &EgressHandler{service: egressService, heControl: heControl, cfg: cfg}
+	if len(settingServices) > 0 && settingServices[0] != nil {
+		settingServices[0].SetIPv6EgressRuntimeSink(func(enabled bool) {
+			if egressService != nil {
+				egressService.SetRuntimeEnabled(enabled)
+			}
+			if !enabled && heControl != nil {
+				heControl.DisableRuntime(context.Background())
+			}
+		})
+	}
+	return h
 }
 
 func (h *EgressHandler) Runtime(c *gin.Context) {
@@ -30,7 +43,7 @@ func (h *EgressHandler) Runtime(c *gin.Context) {
 	freeBind := true
 	secretConfigured := false
 	if h.cfg != nil {
-		enabled = h.cfg.IPv6Egress.Enabled
+		enabled = h.cfg.IPv6Egress.IsEnabled()
 		freeBind = h.cfg.IPv6Egress.FreeBind
 		secretConfigured = len(strings.TrimSpace(h.cfg.IPv6Egress.AllocationSecret)) >= 32
 	}
@@ -51,6 +64,26 @@ func (h *EgressHandler) Runtime(c *gin.Context) {
 		}(),
 		"probe_configured": h.cfg != nil && strings.TrimSpace(h.cfg.IPv6Egress.ProbeURL) != "",
 		"control_enabled":  h.cfg != nil && h.cfg.IPv6Egress.ControlEnabled,
+	})
+}
+
+func (h *EgressHandler) DiscoverPrefixes(c *gin.Context) {
+	if h.service == nil {
+		response.Error(c, http.StatusServiceUnavailable, "IPv6 egress service is unavailable")
+		return
+	}
+	candidates, err := h.service.DiscoverPrefixes()
+	if err != nil {
+		h.writeError(c, err)
+		return
+	}
+	suggested := ""
+	if prefix, suggestErr := h.service.SuggestPoolCIDR(); suggestErr == nil {
+		suggested = prefix
+	}
+	response.Success(c, gin.H{
+		"items":               candidates,
+		"suggested_pool_cidr": suggested,
 	})
 }
 

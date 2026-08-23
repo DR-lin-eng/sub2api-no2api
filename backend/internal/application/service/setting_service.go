@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -143,6 +145,14 @@ type SettingService struct {
 	requestPriorityAdmissionSettingsSink func(RequestPriorityAdmissionSettings)
 	requestPriorityAdmissionSyncMu       sync.Mutex
 	requestPriorityAdmissionSync         *requestPriorityAdmissionSyncState
+
+	// ipv6EgressRuntimeSink lets the egress module converge sidecar state when
+	// the administrator toggles the persisted master switch. It is optional so
+	// lightweight service tests and setup-mode callers remain independent.
+	ipv6EgressRuntimeSinkMu sync.RWMutex
+	ipv6EgressRuntimeSink   func(bool)
+	ipv6EgressRuntimeSet    atomic.Bool
+	ipv6EgressRuntimeLast   atomic.Bool
 }
 
 // DefaultPlatformQuotaSetting 单 platform 三档限额（nil = 沿用上层；0 = 显式禁用；>0 = 上限）
@@ -310,6 +320,70 @@ func (s *SettingService) SetSchedulerEngineSwitcher(switcher SchedulerEngineSwit
 
 func (s *SettingService) SetClientIPResolver(resolver *ip.Resolver) {
 	s.clientIPResolver = resolver
+}
+
+// SetIPv6EgressRuntimeSink registers the side-effect hook used to stop HE
+// tunnel resources when the persisted administrator switch is disabled.
+func (s *SettingService) SetIPv6EgressRuntimeSink(sink func(bool)) {
+	if s == nil {
+		return
+	}
+	s.ipv6EgressRuntimeSinkMu.Lock()
+	s.ipv6EgressRuntimeSink = sink
+	s.ipv6EgressRuntimeSinkMu.Unlock()
+	if sink != nil && s.cfg != nil {
+		// Apply the current snapshot immediately. This also cleans up a stale
+		// HE tunnel after a restart where the persisted switch is already off.
+		enabled := s.cfg.IPv6Egress.IsEnabled()
+		s.ipv6EgressRuntimeLast.Store(enabled)
+		s.ipv6EgressRuntimeSet.Store(true)
+		sink(enabled)
+	}
+}
+
+func (s *SettingService) syncIPv6EgressRuntime(enabled, notify bool) {
+	if s == nil {
+		return
+	}
+	if s.cfg != nil {
+		s.cfg.IPv6Egress.SetRuntimeEnabled(enabled)
+	}
+	first := !s.ipv6EgressRuntimeSet.Swap(true)
+	previous := s.ipv6EgressRuntimeLast.Swap(enabled)
+	if !notify || (!first && previous == enabled) {
+		return
+	}
+	s.notifyIPv6EgressRuntime(enabled)
+}
+
+func (s *SettingService) notifyIPv6EgressRuntime(enabled bool) {
+	if s == nil {
+		return
+	}
+	s.ipv6EgressRuntimeSinkMu.RLock()
+	sink := s.ipv6EgressRuntimeSink
+	s.ipv6EgressRuntimeSinkMu.RUnlock()
+	if sink != nil {
+		sink(enabled)
+	}
+}
+
+// LoadIPv6EgressRuntime loads only the persisted master switch. It is used by
+// bootstrap wiring before background workers and the HE sidecar sink start.
+// A missing row intentionally falls back to the legacy deployment value.
+func (s *SettingService) LoadIPv6EgressRuntime(ctx context.Context) error {
+	if s == nil || s.cfg == nil || s.settingRepo == nil {
+		return nil
+	}
+	raw, err := s.settingRepo.GetValue(ctx, SettingKeyIPv6EgressUIEnabled)
+	if err != nil {
+		if errors.Is(err, ErrSettingNotFound) {
+			return nil
+		}
+		return err
+	}
+	s.syncIPv6EgressRuntime(strings.EqualFold(strings.TrimSpace(raw), "true"), false)
+	return nil
 }
 
 // GetAllSettings 获取所有系统设置

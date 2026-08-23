@@ -11,6 +11,13 @@ implementation is infrastructure-owned; only the dedicated container sidecar
 has network-management capabilities, and secret update keys are never returned
 through the management API.
 
+The persisted administrator IPv6 switch is the live runtime authority. The
+service keeps the legacy deployment flag only as a startup fallback, wakes its
+reconciler immediately when the setting changes, and asks the HE control store
+to remove the tunnel when the switch is disabled. Prefix discovery is read-only
+and observes the current network namespace; it never creates a pool or route by
+itself.
+
 Account gateway requests must carry the binding already loaded with the account.
 They must not query this module from the steady-state request path.
 

@@ -318,9 +318,12 @@ Use exactly one network override:
    sudo ./ipv6-egress-host.sh check .env
    ```
 
-4. Enable **System Settings -> Feature Switches -> IPv6 Egress Management**.
-   Then open **Admin -> IPv6 Egress**, create the same CIDR as a pool, verify an
-   account with **Probe exit**, and only then mark the pool as default. The
+4. Enable **System Settings -> Feature Switches -> IPv6 Egress**. This is the
+   persisted runtime switch; Compose only supplies the allocation secret and
+   sidecar capability.
+   Then open **Admin -> IPv6 Egress**. Use **Detect routed prefix** to prefill a
+   locally observed routed CIDR (review it before saving), verify an account with
+   **Probe exit**, and only then mark the pool as default. The
    default action stays unavailable when the Linux runtime, allocation secret,
    or feature switch is not ready.
 
@@ -344,16 +347,16 @@ docker compose \
   up -d --build
 ```
 
-Enable **System Settings -> Feature Switches -> IPv6 Egress Management**, then
+Enable **System Settings -> Feature Switches -> IPv6 Egress**, then
 open **Admin -> IPv6 Egress -> HE Tunnel** to save and apply the tunnel. The
 main application remains unprivileged. A separate sidecar joins the
 application's network namespace and is the only container with `NET_ADMIN` and
 `NET_RAW`; it does not use host networking, the host PID namespace, the Docker
 socket, or host filesystem mounts.
 
-The feature switch only controls the administrator UI and direct route access.
-Turning it off does not disable runtime IPv6 egress, rotate bindings, or close
-active upstream connections.
+The feature switch controls account routing and the HE sidecar as one runtime
+switch. Turning it off makes explicit IPv6 routes fail closed, returns inherited
+accounts to direct routing, and queues sidecar tunnel removal.
 
 Copy the four distinct values from the HE tunnel detail page:
 
@@ -363,6 +366,10 @@ Copy the four distinct values from the HE tunnel detail page:
 | Client IPv6 Address | HE Client IPv6 /64 | Tunnel interface address |
 | Server IPv6 Address | HE Server IPv6 | IPv6 default-route gateway |
 | Routed /64 | HE Routed /64 or /48 | Account source-address pool |
+
+The detect button deliberately excludes the Tunnel `/64`; use the separate
+Routed `/64` shown by HE (or a locally installed route for that prefix) for the
+account pool.
 
 The frontend can also configure HE dynamic endpoint updates using the tunnel
 ID, account username, and tunnel **update key**. The key is stored only in the
@@ -377,9 +384,9 @@ drops protocol 41, the frontend check fails closed with the sidecar error.
 IPv6 mode is fail closed. Missing AAAA records, an unavailable prefix, a bind
 failure, or a route failure returns an upstream error and never falls back to
 the server IPv4. Existing `proxy_id` accounts continue using their external
-proxy. Disable `IPV6_EGRESS_ENABLED` (or remove this Compose override) to roll
-inherited accounts back to direct routing; explicit `ipv6_pool` accounts remain
-fail closed until their mode is changed.
+proxy. Disable the administrator IPv6 switch (or remove this Compose override)
+to roll inherited accounts back to direct routing; explicit `ipv6_pool` accounts
+remain fail closed until their mode is changed.
 
 Run the local source-address integration check with:
 

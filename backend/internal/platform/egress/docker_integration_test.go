@@ -31,6 +31,46 @@ func TestDockerIPv6SourceIsolation(t *testing.T) {
 	}
 }
 
+func TestDockerDiscoversNamespaceIPv6Prefix(t *testing.T) {
+	expected := os.Getenv("IPV6_EGRESS_EXPECTED_PREFIX")
+	if expected == "" {
+		t.Skip("Docker IPv6 prefix discovery environment is not configured")
+	}
+	candidates, err := DiscoverPrefixes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, candidate := range candidates {
+		if candidate.Prefix == expected {
+			if candidate.Interface == "" || candidate.Address == "" {
+				t.Fatalf("discovery candidate is missing interface/address: %#v", candidate)
+			}
+			return
+		}
+	}
+	t.Fatalf("discovery candidates = %#v, want %s", candidates, expected)
+}
+
+func TestDockerMarksTunnelPrefixNonUsable(t *testing.T) {
+	expected := os.Getenv("IPV6_EGRESS_EXPECTED_TUNNEL_PREFIX")
+	if expected == "" {
+		t.Skip("Docker HE tunnel prefix discovery environment is not configured")
+	}
+	candidates, err := DiscoverPrefixes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, candidate := range candidates {
+		if candidate.Prefix == expected {
+			if !candidate.Tunnel || candidate.Usable {
+				t.Fatalf("tunnel candidate = %#v, want tunnel=true and usable=false", candidate)
+			}
+			return
+		}
+	}
+	t.Fatalf("discovery candidates = %#v, want tunnel prefix %s", candidates, expected)
+}
+
 func dockerProbeSource(t *testing.T, target string, route Route) netip.Addr {
 	t.Helper()
 	dialContext, err := NewDialContext(route, Policy{IPv6Enabled: true, FreeBind: true}, DialerOptions{

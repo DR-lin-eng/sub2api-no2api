@@ -25,6 +25,7 @@ export default {
       reconcile: 'Reconcile bindings',
       setSelected: 'Set selected ({count})',
       createPool: 'Create pool',
+      detectPrefix: 'Detect routed prefix',
       setRoute: 'Set route',
       probe: 'Probe exit',
       rotate: 'Rotate address',
@@ -53,6 +54,7 @@ export default {
         node: 'Node ID',
         status: 'Status',
         default: 'System default pool',
+        detectedName: 'Detected IPv6 {prefix}',
       },
     },
     accounts: {
@@ -109,6 +111,7 @@ export default {
         clientIPv6: 'HE Client IPv6 /64',
         serverIPv6: 'HE Server IPv6',
         routedPool: 'HE Routed /64 or /48',
+        detectPool: 'Detect routed pool',
         mtu: 'MTU',
         routeMetric: 'Route metric',
         probeIPv6: 'IPv6 probe address',
@@ -165,6 +168,8 @@ export default {
       probe: 'IPv6 exit probe failed',
       rotate: 'Failed to rotate IPv6 binding',
       reconcile: 'Failed to reconcile account bindings',
+      detectPrefix: 'Failed to detect a routed IPv6 prefix',
+      noDetectedPrefix: 'No locally routed global IPv6 prefix was found',
     },
   },
 }

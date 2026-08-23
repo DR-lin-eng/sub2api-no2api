@@ -246,6 +246,10 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 	if settings == nil {
 		return
 	}
+	// The IPv6 switch is persisted with the regular administrator settings but
+	// consumed by hot gateway paths through the process-local config snapshot.
+	// Keep that snapshot in sync immediately after a successful write.
+	s.syncIPv6EgressRuntime(settings.IPv6EgressUIEnabled, true)
 
 	// 先使 inflight singleflight 失效，再刷新缓存，缩小旧值覆盖新值的竞态窗口
 	versionBoundsSF.Forget("version_bounds")

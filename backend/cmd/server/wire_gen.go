@@ -304,7 +304,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	egressService := egress.NewService(store, configConfig)
 	heTunnelControlStore := repository.NewHETunnelControlStore(configConfig)
 	heTunnelControlService := egress.NewHETunnelControlService(heTunnelControlStore, configConfig)
-	egressHandler := admin.NewEgressHandler(egressService, heTunnelControlService, configConfig)
+	egressHandler := handler.ProvideEgressHandler(egressService, heTunnelControlService, configConfig, settingService)
 	adminHandlers := handler.ProvideAdminHandlers(dashboardHandler, adminUserHandler, groupHandler, accountHandler, accountInspectionHandler, adminAnnouncementHandler, dataManagementHandler, backupHandler, oAuthHandler, openAIOAuthHandler, geminiOAuthHandler, antigravityOAuthHandler, grokOAuthHandler, proxyHandler, adminRedeemHandler, promoHandler, settingHandler, opsHandler, systemHandler, adminSubscriptionHandler, adminUsageHandler, userAttributeHandler, errorPassthroughHandler, tlsFingerprintProfileHandler, adminAPIKeyHandler, scheduledTestHandler, channelHandler, channelMonitorHandler, channelMonitorRequestTemplateHandler, contentModerationHandler, promptAdminHandler, paymentHandler, affiliateHandler, complianceHandler, auditLogHandler, upstreamBillingProbeService, clusterHandler, ollamaCloudUsageService, chatHandler, egressHandler)
 	usageRecordWorkerPool := service.NewUsageRecordWorkerPool(configConfig)
 	userMsgQueueCache := repository.NewUserMsgQueueCache(redisClient)

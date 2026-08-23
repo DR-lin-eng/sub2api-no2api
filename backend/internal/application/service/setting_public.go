@@ -253,6 +253,11 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 	if err != nil {
 		return nil, fmt.Errorf("get public settings: %w", err)
 	}
+	ipv6EgressEnabled, configured := settings[SettingKeyIPv6EgressUIEnabled]
+	if !configured && s.cfg != nil {
+		ipv6EgressEnabled = strconv.FormatBool(s.cfg.IPv6Egress.IsEnabled())
+	}
+	s.syncIPv6EgressRuntime(ipv6EgressEnabled == "true", false)
 
 	linuxDoEnabled := false
 	if raw, ok := settings[SettingKeyLinuxDoConnectEnabled]; ok {
@@ -378,7 +383,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		ModelPlazaRequireAuth: settings[SettingKeyModelPlazaRequireAuth] == "true",
 
 		MediaStudioEnabled:  settings[SettingKeyMediaStudioEnabled] == "true",
-		IPv6EgressUIEnabled: settings[SettingKeyIPv6EgressUIEnabled] == "true",
+		IPv6EgressUIEnabled: ipv6EgressEnabled == "true",
 
 		AffiliateEnabled: settings[SettingKeyAffiliateEnabled] == "true",
 

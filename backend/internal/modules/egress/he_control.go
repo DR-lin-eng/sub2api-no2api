@@ -154,6 +154,9 @@ func (s *HETunnelControlService) Request(ctx context.Context, action string) (*H
 	action = strings.TrimSpace(action)
 	switch action {
 	case HETunnelActionApply, HETunnelActionCheck:
+		if !s.runtimeEnabled() {
+			return nil, ErrRuntimeUnavailable
+		}
 		current, err := s.store.Load(ctx)
 		if err != nil {
 			return nil, err
@@ -175,7 +178,32 @@ func (s *HETunnelControlService) Request(ctx context.Context, action string) (*H
 }
 
 func (s *HETunnelControlService) available() bool {
-	return s != nil && s.store != nil && s.cfg != nil && s.cfg.IPv6Egress.Enabled && s.cfg.IPv6Egress.ControlEnabled
+	return s != nil && s.store != nil && s.cfg != nil && s.cfg.IPv6Egress.ControlEnabled
+}
+
+func (s *HETunnelControlService) runtimeEnabled() bool {
+	return s != nil && s.cfg != nil && s.cfg.IPv6Egress.IsEnabled()
+}
+
+// DisableRuntime makes the sidecar converge to an absent tunnel when the
+// administrator turns the IPv6 master switch off. Removal is best effort: the
+// persisted switch remains authoritative and the sidecar can retry on its next
+// heartbeat if the control volume is temporarily unavailable.
+func (s *HETunnelControlService) DisableRuntime(ctx context.Context) {
+	if !s.available() {
+		return
+	}
+	current, err := s.store.Load(ctx)
+	if err != nil || current == nil {
+		return
+	}
+	if current.Config.Enabled {
+		current.Config.Enabled = false
+		if err := s.store.SaveConfig(ctx, current.Config); err != nil {
+			return
+		}
+	}
+	_, _ = s.store.Request(ctx, HETunnelActionRemove)
 }
 
 func defaultHETunnelConfig() HETunnelConfig {

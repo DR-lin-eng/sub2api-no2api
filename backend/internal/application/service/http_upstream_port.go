@@ -56,7 +56,7 @@ func withEgressAccountRouteContext(ctx context.Context, route platformegress.Rou
 	}
 	policy := platformegress.Policy{FreeBind: true}
 	if cfg != nil {
-		policy.IPv6Enabled = cfg.IPv6Egress.Enabled
+		policy.IPv6Enabled = cfg.IPv6Egress.IsEnabled()
 		policy.FreeBind = cfg.IPv6Egress.FreeBind
 	}
 	return platformegress.WithContextAccountRoute(ctx, route, policy, accountID)

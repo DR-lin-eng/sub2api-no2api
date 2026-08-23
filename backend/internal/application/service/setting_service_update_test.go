@@ -97,6 +97,25 @@ func TestSettingService_UpdateSettings_PersistsIPv6EgressUIEnabled(t *testing.T)
 	require.Equal(t, "true", repo.updates[SettingKeyIPv6EgressUIEnabled])
 }
 
+func TestSettingService_UpdateSettingsAppliesIPv6RuntimeSwitch(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	cfg := &config.Config{IPv6Egress: config.IPv6EgressConfig{Enabled: true}}
+	svc := NewSettingService(repo, cfg)
+	var sinkValue bool
+	var sinkCalls int
+	svc.SetIPv6EgressRuntimeSink(func(enabled bool) {
+		sinkValue = enabled
+		sinkCalls++
+	})
+	sinkCalls = 0
+	if err := svc.UpdateSettings(context.Background(), &SystemSettings{IPv6EgressUIEnabled: false}); err != nil {
+		t.Fatal(err)
+	}
+	require.False(t, cfg.IPv6Egress.IsEnabled())
+	require.False(t, sinkValue)
+	require.Equal(t, 1, sinkCalls)
+}
+
 func (s *settingGetAllRepoStub) Get(ctx context.Context, key string) (*Setting, error) {
 	panic("unexpected Get call")
 }

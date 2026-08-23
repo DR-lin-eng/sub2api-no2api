@@ -44,8 +44,9 @@ deployment:
 # 账号级 IPv6 出口（仅支持 Linux 单机模式）
 # =============================================================================
 ipv6_egress:
-  # Requires a routed IPv6 prefix and deploy/docker-compose.ipv6-egress.yml.
-  # 需要运营商路由到宿主机的 IPv6 前缀及对应 Compose override。
+  # Legacy bootstrap default only. The administrator IPv6 Egress switch is the
+  # persisted runtime authority after startup.
+  # 仅用于兼容启动默认值；运行时以管理员界面的 IPv6 出口开关为准。
   enabled: false
   # Stable secret used by deterministic account allocation. Generate once with:
   # openssl rand -hex 32

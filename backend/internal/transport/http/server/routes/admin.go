@@ -137,6 +137,7 @@ func registerEgressRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAut
 	egress := admin.Group("/egress")
 	{
 		egress.GET("/runtime", h.Admin.Egress.Runtime)
+		egress.GET("/prefixes", h.Admin.Egress.DiscoverPrefixes)
 		egress.GET("/he-tunnel", h.Admin.Egress.GetHETunnel)
 		egress.PUT("/he-tunnel", gin.HandlerFunc(stepUpAuth), h.Admin.Egress.SaveHETunnel)
 		egress.POST("/he-tunnel/:action", gin.HandlerFunc(stepUpAuth), h.Admin.Egress.HETunnelAction)

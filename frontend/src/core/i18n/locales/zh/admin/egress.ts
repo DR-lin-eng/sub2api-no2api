@@ -25,6 +25,7 @@ export default {
       reconcile: '补齐绑定',
       setSelected: '设置所选账号（{count}）',
       createPool: '新建地址池',
+      detectPrefix: '探测可用前缀',
       setRoute: '设置出口',
       probe: '探测出口',
       rotate: '轮换地址',
@@ -53,6 +54,7 @@ export default {
         node: '节点 ID',
         status: '状态',
         default: '系统默认地址池',
+        detectedName: '探测到的 IPv6 {prefix}',
       },
     },
     accounts: {
@@ -109,6 +111,7 @@ export default {
         clientIPv6: 'HE Client IPv6 /64',
         serverIPv6: 'HE Server IPv6',
         routedPool: 'HE Routed /64 或 /48',
+        detectPool: '探测 Routed 地址池',
         mtu: 'MTU',
         routeMetric: '路由优先级',
         probeIPv6: 'IPv6 探测地址',
@@ -165,6 +168,8 @@ export default {
       probe: 'IPv6 出口探测失败',
       rotate: '轮换 IPv6 绑定失败',
       reconcile: '补齐账号绑定失败',
+      detectPrefix: '探测 IPv6 路由前缀失败',
+      noDetectedPrefix: '当前网络命名空间没有可用的全局 IPv6 前缀',
     },
   },
 }

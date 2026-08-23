@@ -1,8 +1,12 @@
 package handler
 
 import (
+	"context"
+	"log"
+
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
+	moduleegress "github.com/Wei-Shaw/sub2api/internal/modules/egress"
 	"github.com/Wei-Shaw/sub2api/internal/modules/securityaudit"
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin"
@@ -95,6 +99,24 @@ func ProvideAdminHandlers(
 		Chat:                   chatHandler,
 		Egress:                 egressHandler,
 	}
+}
+
+// ProvideEgressHandler wires the persisted settings service into the egress
+// handler so disabling the master switch can cleanly remove HE sidecar state.
+func ProvideEgressHandler(
+	egressService *moduleegress.Service,
+	heControl *moduleegress.HETunnelControlService,
+	cfg *config.Config,
+	settingService *service.SettingService,
+) *admin.EgressHandler {
+	if settingService != nil {
+		if err := settingService.LoadIPv6EgressRuntime(context.Background()); err != nil {
+			// Keep the legacy config value on a transient read failure; the
+			// normal settings endpoint will retry and report the error path.
+			log.Printf("Warning: IPv6 egress runtime setting unavailable: %v", err)
+		}
+	}
+	return admin.NewEgressHandler(egressService, heControl, cfg, settingService)
 }
 
 func ProvideGatewayHandler(
@@ -298,7 +320,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewComplianceHandler,
 	admin.NewAuditLogHandler,
 	admin.NewClusterHandler,
-	admin.NewEgressHandler,
+	ProvideEgressHandler,
 	ProvideAdminChatHandler,
 
 	// AdminHandlers and Handlers constructors

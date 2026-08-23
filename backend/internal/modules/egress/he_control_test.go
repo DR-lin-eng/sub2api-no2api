@@ -100,3 +100,28 @@ func TestHETunnelControlUnavailableDoesNotTouchStore(t *testing.T) {
 	_, err = service.Save(t.Context(), validHEControlInput())
 	require.ErrorIs(t, err, ErrHETunnelControlUnavailable)
 }
+
+func TestHETunnelDisableRuntimePersistsRemovalRequest(t *testing.T) {
+	store := &heControlStoreStub{snapshot: HETunnelControlSnapshot{Config: validHEControlConfig()}}
+	service := NewHETunnelControlService(store, enabledHEControlConfig())
+	service.DisableRuntime(t.Context())
+	require.False(t, store.saved.Enabled)
+	require.False(t, store.snapshot.Config.Enabled)
+	require.Equal(t, HETunnelActionRemove, store.action)
+}
+
+func validHEControlConfig() HETunnelConfig {
+	input := validHEControlInput()
+	return HETunnelConfig{
+		Enabled:             input.Enabled,
+		ServerIPv4:          input.ServerIPv4,
+		ClientIPv6:          input.ClientIPv6,
+		ServerIPv6:          input.ServerIPv6,
+		PoolCIDR:            input.PoolCIDR,
+		MTU:                 input.MTU,
+		RouteMetric:         input.RouteMetric,
+		ProbeIPv6:           input.ProbeIPv6,
+		ProbeTimeoutSeconds: input.ProbeTimeoutSeconds,
+		AllowPrivateIPv4:    input.AllowPrivateIPv4,
+	}
+}

@@ -5,6 +5,7 @@ import EgressPage from '@/features/admin-egress/presentation/pages/EgressPage.vu
 const egressAPI = vi.hoisted(() => ({
   getRuntime: vi.fn(),
   listPools: vi.fn(),
+  discoverPrefixes: vi.fn(),
   createPool: vi.fn(),
   updatePool: vi.fn(),
   deletePool: vi.fn(),
@@ -145,6 +146,10 @@ describe('EgressPage', () => {
     appStore.showError.mockReset()
     egressAPI.getRuntime.mockResolvedValue(runtime)
     egressAPI.listPools.mockResolvedValue([pool])
+    egressAPI.discoverPrefixes.mockResolvedValue({
+      items: [{ prefix: '2001:db8:20::/64', interface: 'eth0', address: '2001:db8:20::2', global: true, tunnel: false, usable: true }],
+      suggested_pool_cidr: '2001:db8:20::/64',
+    })
     egressAPI.probeAccount.mockResolvedValue({
       source_ipv6: '2001:db8:10::17',
       observed_ip: '2001:db8:10::17',
@@ -210,6 +215,20 @@ describe('EgressPage', () => {
     const toggle = wrapper.find('.toggle-stub')
     expect(toggle.exists()).toBe(true)
     expect(toggle.attributes('disabled')).toBeDefined()
+  })
+
+  it('prefills a pool from the locally discovered routed prefix', async () => {
+    const wrapper = mountPage()
+    await flushPromises()
+
+    const detectButton = wrapper.findAll('button').find((button) => button.text() === 'admin.egress.actions.detectPrefix')
+    expect(detectButton).toBeTruthy()
+    await detectButton!.trigger('click')
+    await flushPromises()
+
+    expect(egressAPI.discoverPrefixes).toHaveBeenCalledTimes(1)
+    expect((wrapper.get('#egress-pool-cidr').element as HTMLInputElement).value).toBe('2001:db8:20::/64')
+    expect((wrapper.get('#egress-pool-name').element as HTMLInputElement).value).toContain('2001:db8:20::/64')
   })
 
   it('loads, saves, and queues the HE tunnel from its dedicated tab', async () => {

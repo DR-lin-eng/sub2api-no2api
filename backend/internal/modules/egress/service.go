@@ -23,6 +23,7 @@ type Service struct {
 	workerMu     sync.Mutex
 	workerCancel context.CancelFunc
 	workerDone   chan struct{}
+	wake         chan struct{}
 	healthMu     sync.RWMutex
 	poolHealth   map[int64]poolHealth
 }
@@ -44,6 +45,7 @@ func NewService(store Store, cfg *config.Config) *Service {
 		cfg:        cfg,
 		probe:      platformegress.Probe,
 		poolHealth: make(map[int64]poolHealth),
+		wake:       make(chan struct{}, 1),
 	}
 }
 
@@ -53,7 +55,7 @@ const defaultReconcileBatchSize = 1000
 // periodically fills bindings for inherited accounts. Missing bindings fail
 // closed on request paths, so this worker never needs a hot-path lookup.
 func (s *Service) Start() {
-	if s == nil || s.cfg == nil || !s.cfg.IPv6Egress.Enabled {
+	if s == nil || s.cfg == nil {
 		return
 	}
 	s.workerMu.Lock()
@@ -87,6 +89,20 @@ func (s *Service) Stop() {
 	}
 }
 
+// SetRuntimeEnabled updates the live switch and wakes the reconciler so an
+// administrator enable takes effect immediately instead of waiting for the
+// periodic interval.
+func (s *Service) SetRuntimeEnabled(enabled bool) {
+	if s == nil || s.cfg == nil {
+		return
+	}
+	s.cfg.IPv6Egress.SetRuntimeEnabled(enabled)
+	select {
+	case s.wake <- struct{}{}:
+	default:
+	}
+}
+
 func (s *Service) runReconciler(ctx context.Context, done chan struct{}) {
 	defer close(done)
 	interval := 60 * time.Second
@@ -94,6 +110,9 @@ func (s *Service) runReconciler(ctx context.Context, done chan struct{}) {
 		interval = time.Duration(seconds) * time.Second
 	}
 	reconcile := func() {
+		if !s.cfg.IPv6Egress.IsEnabled() {
+			return
+		}
 		if s.cfg.Deployment.WorkerEnabledResolved() {
 			allocated, err := s.reconcileAllDefault(ctx, defaultReconcileBatchSize)
 			if err != nil && !errors.Is(err, ErrPoolNotFound) && !errors.Is(err, context.Canceled) {
@@ -114,6 +133,8 @@ func (s *Service) runReconciler(ctx context.Context, done chan struct{}) {
 		select {
 		case <-ctx.Done():
 			return
+		case <-s.wake:
+			reconcile()
 		case <-ticker.C:
 			reconcile()
 		}
@@ -178,11 +199,14 @@ func (s *Service) UpdatePool(ctx context.Context, id int64, input UpdatePoolInpu
 }
 
 func (s *Service) RuntimeReady() error {
-	if s == nil || s.cfg == nil || !s.cfg.IPv6Egress.Enabled {
+	if s == nil || s.cfg == nil || !s.cfg.IPv6Egress.IsEnabled() {
 		return fmt.Errorf("%w: feature is disabled", ErrRuntimeUnavailable)
 	}
 	if runtime.GOOS != "linux" {
 		return fmt.Errorf("%w: Linux is required", ErrRuntimeUnavailable)
+	}
+	if s.cfg.Deployment.IsMultiInstance() {
+		return fmt.Errorf("%w: standalone deployment is required", ErrRuntimeUnavailable)
 	}
 	if len(strings.TrimSpace(s.cfg.IPv6Egress.AllocationSecret)) < 32 {
 		return fmt.Errorf("%w: allocation secret is not configured", ErrRuntimeUnavailable)
@@ -219,8 +243,23 @@ func (s *Service) ListBindings(ctx context.Context, offset, limit int, search st
 	return s.store.ListBindings(ctx, offset, limit, strings.TrimSpace(search))
 }
 
+// DiscoverPrefixes reports IPv6 prefixes visible in the current network
+// namespace. It is intentionally read-only; pool creation still goes through
+// CreatePool and its overlap/capacity checks.
+func (s *Service) DiscoverPrefixes() ([]platformegress.PrefixCandidate, error) {
+	return platformegress.DiscoverPrefixes()
+}
+
+func (s *Service) SuggestPoolCIDR() (string, error) {
+	prefix, _, err := platformegress.DiscoverPoolPrefix()
+	if err != nil {
+		return "", err
+	}
+	return prefix.String(), nil
+}
+
 func (s *Service) ProbeAccount(ctx context.Context, accountID int64) (*platformegress.ProbeResult, error) {
-	if s == nil || s.cfg == nil || !s.cfg.IPv6Egress.Enabled {
+	if s == nil || s.cfg == nil || !s.cfg.IPv6Egress.IsEnabled() {
 		return nil, platformegress.ErrIPv6Disabled
 	}
 	binding, err := s.store.GetBinding(ctx, accountID)
@@ -323,6 +362,18 @@ func (s *Service) SetAccountRoute(ctx context.Context, accountID int64, input Se
 		}
 		return nil, nil
 	case platformegress.ModeInherit:
+		if s == nil {
+			return nil, ErrRuntimeUnavailable
+		}
+		if s.cfg == nil || !s.cfg.IPv6Egress.IsEnabled() {
+			if modeErr := s.store.SetAccountMode(ctx, accountID, input.Mode); modeErr != nil {
+				return nil, modeErr
+			}
+			if deleteErr := s.store.DeleteBinding(ctx, accountID); deleteErr != nil && !errors.Is(deleteErr, ErrBindingNotFound) {
+				return nil, deleteErr
+			}
+			return nil, nil
+		}
 		pool, err := s.store.GetDefaultPool(ctx)
 		if err != nil {
 			if !errors.Is(err, ErrPoolNotFound) {
@@ -372,6 +423,9 @@ func (s *Service) SetAccountRoute(ctx context.Context, accountID int64, input Se
 }
 
 func (s *Service) RotateBinding(ctx context.Context, accountID int64) (*Binding, error) {
+	if s == nil || s.cfg == nil || !s.cfg.IPv6Egress.IsEnabled() {
+		return nil, fmt.Errorf("%w: feature is disabled", ErrRuntimeUnavailable)
+	}
 	current, err := s.store.GetBinding(ctx, accountID)
 	if err != nil {
 		return nil, err
@@ -384,6 +438,9 @@ func (s *Service) RotateBinding(ctx context.Context, accountID int64) (*Binding,
 }
 
 func (s *Service) ReconcileDefault(ctx context.Context, limit int) (int, error) {
+	if s == nil || s.cfg == nil || !s.cfg.IPv6Egress.IsEnabled() {
+		return 0, fmt.Errorf("%w: feature is disabled", ErrRuntimeUnavailable)
+	}
 	pool, err := s.store.GetDefaultPool(ctx)
 	if err != nil {
 		return 0, err

@@ -452,9 +452,9 @@ const (
 	// It is opt-in so rolling upgrades do not expose a new generation workspace unexpectedly.
 	SettingKeyMediaStudioEnabled = "media_studio_enabled"
 
-	// SettingKeyIPv6EgressUIEnabled controls only the administrator IPv6 egress
-	// management surface. Runtime egress routing remains governed by deployment
-	// configuration so hiding the page cannot interrupt active account traffic.
+	// SettingKeyIPv6EgressUIEnabled is retained for API/database compatibility.
+	// It is now the administrator-controlled IPv6 egress master switch: it gates
+	// the management surface, account routing, and HE tunnel actions together.
 	SettingKeyIPv6EgressUIEnabled = "ipv6_egress_ui_enabled"
 
 	// SettingKeyUpstreamBillingProbeSettings stores the global enable switch and interval

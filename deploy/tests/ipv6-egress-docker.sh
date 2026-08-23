@@ -75,5 +75,6 @@ docker exec \
   -e IPV6_EGRESS_ECHO_URL="http://[$echo_ip]:8080" \
   -e IPV6_EGRESS_SOURCE_A="$source_a" \
   -e IPV6_EGRESS_SOURCE_B="$source_b" \
+  -e IPV6_EGRESS_EXPECTED_PREFIX="$subnet" \
   "$client_name" /usr/local/go/bin/go test -tags integration ./internal/platform/egress \
-  -run '^TestDockerIPv6SourceIsolation$' -count=1 -v
+  -run '^TestDocker(IPv6SourceIsolation|DiscoversNamespaceIPv6Prefix)$' -count=1 -v

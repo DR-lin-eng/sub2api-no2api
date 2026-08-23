@@ -76,7 +76,11 @@
             <Icon name="cog" size="md" class="mr-2" />
             {{ t('admin.egress.actions.setSelected', { count: selectedAccountIDs.size }) }}
           </button>
-          <button v-else-if="activeTab === 'pools'" type="button" class="btn btn-primary" @click="openCreatePoolDialog">
+          <button v-else-if="activeTab === 'pools'" type="button" class="btn btn-secondary" :disabled="detectingPrefix" @click="openCreatePoolWithDetectedPrefix">
+            <Icon name="search" size="sm" class="mr-2" :class="{ 'animate-pulse': detectingPrefix }" />
+            {{ t('admin.egress.actions.detectPrefix') }}
+          </button>
+          <button v-if="activeTab === 'pools'" type="button" class="btn btn-primary" @click="openCreatePoolDialog">
             <Icon name="plus" size="md" class="mr-2" />
             {{ t('admin.egress.actions.createPool') }}
           </button>
@@ -283,7 +287,13 @@
               </div>
               <div class="md:col-span-2">
                 <label class="form-label" for="he-pool-cidr">{{ t('admin.egress.he.fields.routedPool') }}</label>
-                <input id="he-pool-cidr" v-model="heForm.pool_cidr" class="input font-mono" placeholder="2001:470:2::/64" :disabled="!heControl?.available" />
+                <div class="flex gap-2">
+                  <input id="he-pool-cidr" v-model="heForm.pool_cidr" class="input min-w-0 flex-1 font-mono" placeholder="2001:470:2::/64" :disabled="!heControl?.available" />
+                  <button type="button" class="btn btn-secondary shrink-0" :disabled="!heControl?.available || detectingPrefix || heBusy" @click="detectHEPoolPrefix">
+                    <Icon name="search" size="sm" :class="{ 'animate-pulse': detectingPrefix }" />
+                    <span class="sr-only">{{ t('admin.egress.he.fields.detectPool') }}</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -483,6 +493,7 @@ const pools = ref<IPv6EgressPool[]>([])
 const accounts = ref<Account[]>([])
 const loading = ref(false)
 const errorMessage = ref('')
+const detectingPrefix = ref(false)
 const reconciling = ref(false)
 const searchQuery = ref('')
 const selectedAccountIDs = ref(new Set<number>())
@@ -707,6 +718,37 @@ function openCreatePoolDialog(): void {
   editingPool.value = null
   Object.assign(poolForm, { name: '', cidr: '', node_id: '', status: 'active', is_default: false })
   showPoolDialog.value = true
+}
+
+async function detectSuggestedPrefix(): Promise<string | null> {
+  if (detectingPrefix.value) return null
+  detectingPrefix.value = true
+  try {
+    const result = await egressAPI.discoverPrefixes()
+    if (!result.suggested_pool_cidr) {
+      appStore.showError(t('admin.egress.errors.noDetectedPrefix'))
+      return null
+    }
+    return result.suggested_pool_cidr
+  } catch (error) {
+    appStore.showError(extractApiErrorMessage(error, t('admin.egress.errors.detectPrefix')))
+    return null
+  } finally {
+    detectingPrefix.value = false
+  }
+}
+
+async function openCreatePoolWithDetectedPrefix(): Promise<void> {
+  const prefix = await detectSuggestedPrefix()
+  if (!prefix) return
+  openCreatePoolDialog()
+  poolForm.cidr = prefix
+  poolForm.name = t('admin.egress.pools.fields.detectedName', { prefix })
+}
+
+async function detectHEPoolPrefix(): Promise<void> {
+  const prefix = await detectSuggestedPrefix()
+  if (prefix) heForm.pool_cidr = prefix
 }
 
 function poolHealthLabel(pool: IPv6EgressPool): string {

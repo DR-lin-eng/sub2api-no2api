@@ -108,6 +108,21 @@ export interface IPv6EgressProbeResult {
   probe_target: string
 }
 
+export interface IPv6PrefixCandidate {
+  prefix: string
+  interface: string
+  address: string
+  global: boolean
+  tunnel: boolean
+  usable: boolean
+  reason?: string
+}
+
+export interface IPv6PrefixDiscoveryResult {
+  items: IPv6PrefixCandidate[]
+  suggested_pool_cidr: string
+}
+
 export async function getRuntime(): Promise<IPv6EgressRuntime> {
   const { data } = await apiClient.get<IPv6EgressRuntime>('/admin/egress/runtime')
   return data
@@ -115,6 +130,11 @@ export async function getRuntime(): Promise<IPv6EgressRuntime> {
 
 export async function listPools(): Promise<IPv6EgressPool[]> {
   const { data } = await apiClient.get<IPv6EgressPool[]>('/admin/egress/ipv6-pools')
+  return data
+}
+
+export async function discoverPrefixes(): Promise<IPv6PrefixDiscoveryResult> {
+  const { data } = await apiClient.get<IPv6PrefixDiscoveryResult>('/admin/egress/prefixes')
   return data
 }
 
@@ -194,6 +214,7 @@ export async function runHETunnelAction(action: 'apply' | 'check' | 'remove'): P
 export const egressAPI = {
   getRuntime,
   listPools,
+  discoverPrefixes,
   createPool,
   updatePool,
   deletePool,

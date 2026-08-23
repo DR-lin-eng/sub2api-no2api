@@ -5,8 +5,9 @@ import (
 	"sync/atomic"
 )
 
-// IPv6EgressConfig controls account-scoped source IPv6 routing. AllocationSecret
-// must remain stable across restarts because it drives deterministic addresses.
+// IPv6EgressConfig holds deployment prerequisites for account-scoped source
+// IPv6 routing. The live enable/disable decision is persisted by the
+// administrator settings service; Enabled is retained as a bootstrap default.
 type IPv6EgressConfig struct {
 	Enabled                  bool   `mapstructure:"enabled"`
 	AllocationSecret         string `mapstructure:"allocation_secret"`
@@ -17,6 +18,35 @@ type IPv6EgressConfig struct {
 	ControlEnabled           bool   `mapstructure:"control_enabled"`
 	ControlDir               string `mapstructure:"control_dir"`
 	ControlAgentStaleSeconds int    `mapstructure:"control_agent_stale_seconds"`
+
+	// runtimeEnabled/runtimeEnabledSet are deliberately separate from Enabled.
+	// Enabled is retained as a deployment-era bootstrap default for rolling
+	// upgrades; the administrator setting is the authoritative live switch.
+	runtimeEnabled    atomic.Bool
+	runtimeEnabledSet atomic.Bool
+}
+
+// IsEnabled reports the effective administrator-controlled switch. Before the
+// persisted setting has been read it falls back to the legacy config value so
+// existing deployments keep their previous behavior during startup.
+func (c *IPv6EgressConfig) IsEnabled() bool {
+	if c == nil {
+		return false
+	}
+	if c.runtimeEnabledSet.Load() {
+		return c.runtimeEnabled.Load()
+	}
+	return c.Enabled
+}
+
+// SetRuntimeEnabled updates the live switch without rewriting deployment
+// configuration. It is called by the persisted administrator-settings path.
+func (c *IPv6EgressConfig) SetRuntimeEnabled(enabled bool) {
+	if c == nil {
+		return
+	}
+	c.runtimeEnabled.Store(enabled)
+	c.runtimeEnabledSet.Store(true)
 }
 
 type TokenRefreshConfig struct {
