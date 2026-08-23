@@ -16,6 +16,14 @@ func setMaintenanceDefaults() {
 	viper.SetDefault("token_refresh.attempt_timeout_seconds", 15)
 	viper.SetDefault("token_refresh.cycle_timeout_seconds", 240)
 
+	// OAuth live model capability snapshots. Keep the interval long enough to
+	// avoid turning upstream model-list endpoints into a hot path while still
+	// converging after model catalog changes.
+	viper.SetDefault("oauth_model_sync.enabled", true)
+	viper.SetDefault("oauth_model_sync.interval_minutes", 60)
+	viper.SetDefault("oauth_model_sync.account_timeout_seconds", 20)
+	viper.SetDefault("oauth_model_sync.max_concurrent", 2)
+
 	// Gemini OAuth - configure via environment variables or config file
 	// GEMINI_OAUTH_CLIENT_ID and GEMINI_OAUTH_CLIENT_SECRET
 	// Default: uses Gemini CLI public credentials (set via environment)

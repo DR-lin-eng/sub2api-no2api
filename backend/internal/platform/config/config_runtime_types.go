@@ -74,6 +74,17 @@ type TokenRefreshConfig struct {
 	CycleTimeoutSeconds int `mapstructure:"cycle_timeout_seconds"`
 }
 
+// OAuthModelSyncConfig controls the background refresh of live model
+// capabilities for OAuth accounts that do not have an explicit model mapping.
+// The snapshot is used for routing only; it never overwrites the
+// administrator's credentials.model_mapping.
+type OAuthModelSyncConfig struct {
+	Enabled               bool `mapstructure:"enabled"`
+	IntervalMinutes       int  `mapstructure:"interval_minutes"`
+	AccountTimeoutSeconds int  `mapstructure:"account_timeout_seconds"`
+	MaxConcurrent         int  `mapstructure:"max_concurrent"`
+}
+
 type PricingConfig struct {
 	// 价格数据远程URL（默认使用LiteLLM镜像）
 	RemoteURL string `mapstructure:"remote_url"`

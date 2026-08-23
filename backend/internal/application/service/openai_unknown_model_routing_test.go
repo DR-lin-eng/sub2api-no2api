@@ -37,6 +37,41 @@ func TestOpenAIUnknownModelRoutingSkipsEmptyMappingOAuth(t *testing.T) {
 	}
 }
 
+func TestOpenAIModelRoutingUsesSyncedOAuthCapabilitySnapshot(t *testing.T) {
+	for _, advanced := range []bool{false, true} {
+		t.Run(schedulerModeName(advanced), func(t *testing.T) {
+			resetOpenAIAdvancedSchedulerSettingCacheForTest()
+			groupID := int64(990105)
+			oauth := Account{
+				ID: 910051, Platform: PlatformOpenAI, Type: AccountTypeOAuth,
+				Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0,
+				Extra: map[string]any{OAuthSupportedModelsExtraKey: []any{"gpt-5.5"}},
+			}
+			apiKey := Account{
+				ID: 910052, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+				Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 10,
+			}
+			svc := newUnknownModelRoutingService([]Account{oauth, apiKey}, advanced)
+
+			selection, _, err := svc.SelectAccountWithScheduler(
+				context.Background(), &groupID, "", "", "gpt-5.4", nil,
+				OpenAIUpstreamTransportAny, false,
+			)
+			require.NoError(t, err)
+			require.NotNil(t, selection)
+			require.Equal(t, apiKey.ID, selection.Account.ID)
+
+			selection, _, err = svc.SelectAccountWithScheduler(
+				context.Background(), &groupID, "", "", "gpt-5.5", nil,
+				OpenAIUpstreamTransportAny, false,
+			)
+			require.NoError(t, err)
+			require.NotNil(t, selection)
+			require.Equal(t, oauth.ID, selection.Account.ID)
+		})
+	}
+}
+
 func TestOpenAIUnknownModelRoutingUsesChannelMappedModelForOAuth(t *testing.T) {
 	for _, advanced := range []bool{false, true} {
 		t.Run(schedulerModeName(advanced), func(t *testing.T) {

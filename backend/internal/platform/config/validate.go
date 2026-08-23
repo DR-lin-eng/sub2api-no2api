@@ -98,6 +98,9 @@ func (c *Config) Validate() error {
 	if err := validateGeminiOAuth(c); err != nil {
 		return err
 	}
+	if err := validateOAuthModelSync(c); err != nil {
+		return err
+	}
 	if err := validateServerFrontendURL(c); err != nil {
 		return err
 	}

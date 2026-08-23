@@ -1654,6 +1654,10 @@ func filterSchedulerExtra(extra map[string]any) map[string]any {
 		service.UpstreamBillingProbeExtraKey,
 		service.GrokMediaEligibleExtraKey,
 		"grok_billing_snapshot",
+		service.OAuthSupportedModelsExtraKey,
+		service.OAuthSupportedModelsSyncedAtExtraKey,
+		service.OpenAIOAuthSupportedModelsExtraKey,
+		service.OpenAIOAuthSupportedModelsSyncedAtExtraKey,
 	}
 	filtered := make(map[string]any)
 	for _, key := range keys {

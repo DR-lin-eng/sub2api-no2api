@@ -543,6 +543,64 @@ func TestGetAvailableModels_UsesShortCacheAndSupportsInvalidation(t *testing.T) 
 	require.Equal(t, int64(2), store)
 }
 
+func TestGetAvailableModels_UsesOAuthCapabilitySnapshotWithoutMapping(t *testing.T) {
+	groupID := int64(90)
+	repo := &modelsListAccountRepoStub{
+		byGroup: map[int64][]Account{groupID: {
+			{
+				ID:       901,
+				Platform: PlatformOpenAI,
+				Type:     AccountTypeOAuth,
+				Extra: map[string]any{
+					OAuthSupportedModelsExtraKey: []any{"gpt-5.5", "gpt-5.6"},
+				},
+			},
+		}},
+	}
+	svc := &GatewayService{
+		accountRepo:        repo,
+		modelsListCache:    gocache.New(time.Minute, time.Minute),
+		modelsListCacheTTL: time.Minute,
+	}
+
+	require.Equal(t, []string{"gpt-5.5", "gpt-5.6"}, svc.GetAvailableModels(context.Background(), &groupID, PlatformOpenAI))
+}
+
+func TestGetAvailableModelsKeepsExplicitMappingWhileOAuthSnapshotIsPending(t *testing.T) {
+	groupID := int64(91)
+	repo := &modelsListAccountRepoStub{
+		byGroup: map[int64][]Account{groupID: {
+			{ID: 911, Platform: PlatformOpenAI, Type: AccountTypeOAuth},
+			{ID: 912, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{
+				"model_mapping": map[string]any{"gpt-5.5": "gpt-5.5"},
+			}},
+		}},
+	}
+	svc := &GatewayService{
+		accountRepo:        repo,
+		modelsListCache:    gocache.New(time.Minute, time.Minute),
+		modelsListCacheTTL: time.Minute,
+	}
+	require.Equal(t, []string{"gpt-5.5"}, svc.GetAvailableModels(context.Background(), &groupID, PlatformOpenAI))
+}
+
+func TestGetAvailableModelsUsesGenericOAuthCapabilitySnapshot(t *testing.T) {
+	groupID := int64(92)
+	repo := &modelsListAccountRepoStub{
+		byGroup: map[int64][]Account{groupID: {
+			{ID: 921, Platform: PlatformAnthropic, Type: AccountTypeOAuth, Extra: map[string]any{
+				OAuthSupportedModelsExtraKey: []any{"claude-sonnet-4-6"},
+			}},
+		}},
+	}
+	svc := &GatewayService{
+		accountRepo:        repo,
+		modelsListCache:    gocache.New(time.Minute, time.Minute),
+		modelsListCacheTTL: time.Minute,
+	}
+	require.Equal(t, []string{"claude-sonnet-4-6"}, svc.GetAvailableModels(context.Background(), &groupID, PlatformAnthropic))
+}
+
 func TestGetAvailableModels_ErrorAndGlobalListBranches(t *testing.T) {
 	resetGatewayHotpathStatsForTest()
 

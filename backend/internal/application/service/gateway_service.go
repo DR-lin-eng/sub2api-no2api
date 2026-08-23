@@ -1247,20 +1247,38 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
 
 	// Collect unique models from all accounts
 	modelSet := make(map[string]struct{})
-	hasAnyMapping := false
+	hasExplicitMapping := false
+	hasSnapshot := false
+	hasUnobservedOAuth := false
 
 	for _, acc := range accounts {
+		if acc.IsOAuth() && !acc.HasExplicitModelMapping() {
+			if supportedModels, ok := acc.OAuthSupportedModels(); ok {
+				hasSnapshot = true
+				for _, model := range supportedModels {
+					modelSet[model] = struct{}{}
+				}
+				continue
+			}
+			hasUnobservedOAuth = true
+		}
 		mapping := acc.GetModelMapping()
 		if len(mapping) > 0 {
-			hasAnyMapping = true
+			hasExplicitMapping = true
 			for model := range mapping {
 				modelSet[model] = struct{}{}
 			}
+			continue
 		}
 	}
 
-	// If no account has model_mapping, return nil (use default)
-	if !hasAnyMapping {
+	// If no account has a mapping/snapshot, return nil (use the historical
+	// default catalog). When a snapshot exists alongside an unobserved OAuth
+	// account, only trust it if every unrestricted OAuth account was observed;
+	// an explicit administrator mapping remains authoritative and is safe to
+	// expose even while another unrestricted account is waiting for its first
+	// probe.
+	if !hasExplicitMapping && (!hasSnapshot || hasUnobservedOAuth) {
 		if s.modelsListCache != nil {
 			s.modelsListCache.Set(cacheKey, []string(nil), s.modelsListCacheTTL)
 			modelsListCacheStoreTotal.Add(1)

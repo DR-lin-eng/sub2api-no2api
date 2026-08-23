@@ -115,3 +115,28 @@ func TestUpdateAccount_EmptyCredentialsSkipsUpdate(t *testing.T) {
 	require.Equal(t, "rt-existing", repo.account.Credentials["refresh_token"], "空 credentials 不应触碰已有 token")
 	require.Equal(t, "renamed", repo.account.Name)
 }
+
+func TestUpdateAccount_PreservesOAuthModelCapabilitySnapshotWhenExtraIsReplaced(t *testing.T) {
+	accountID := int64(205)
+	repo := &updateAccountCredsRepoStub{
+		account: &Account{
+			ID:       accountID,
+			Platform: PlatformOpenAI,
+			Type:     AccountTypeOAuth,
+			Status:   StatusActive,
+			Extra: map[string]any{
+				OAuthSupportedModelsExtraKey:         []any{"gpt-5.5"},
+				OAuthSupportedModelsSyncedAtExtraKey: "2026-08-24T00:00:00Z",
+			},
+		},
+	}
+	svc := &adminServiceImpl{accountRepo: repo}
+
+	updated, err := svc.UpdateAccount(context.Background(), accountID, &UpdateAccountInput{
+		Extra: map[string]any{"window_cost_limit": 10.0},
+	})
+	require.NoError(t, err)
+	require.Equal(t, []any{"gpt-5.5"}, updated.Extra[OAuthSupportedModelsExtraKey])
+	require.Equal(t, "2026-08-24T00:00:00Z", updated.Extra[OAuthSupportedModelsSyncedAtExtraKey])
+	require.Equal(t, 10.0, updated.Extra["window_cost_limit"])
+}
