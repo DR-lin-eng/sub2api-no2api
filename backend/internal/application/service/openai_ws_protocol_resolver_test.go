@@ -7,6 +7,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func cloneOpenAIWSResolverConfig(base *config.Config) *config.Config {
+	cfg := &config.Config{}
+	cfg.Gateway.OpenAIWS = base.Gateway.OpenAIWS
+	return cfg
+}
+
 func TestOpenAIWSProtocolResolver_Resolve(t *testing.T) {
 	baseCfg := &config.Config{}
 	baseCfg.Gateway.OpenAIWS.Enabled = true
@@ -30,11 +36,11 @@ func TestOpenAIWSProtocolResolver_Resolve(t *testing.T) {
 	})
 
 	t.Run("v2关闭时回退v1", func(t *testing.T) {
-		cfg := *baseCfg
+		cfg := cloneOpenAIWSResolverConfig(baseCfg)
 		cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = false
 		cfg.Gateway.OpenAIWS.ResponsesWebsockets = true
 
-		decision := NewOpenAIWSProtocolResolver(&cfg).Resolve(openAIOAuthEnabled)
+		decision := NewOpenAIWSProtocolResolver(cfg).Resolve(openAIOAuthEnabled)
 		require.Equal(t, OpenAIUpstreamTransportResponsesWebsocket, decision.Transport)
 		require.Equal(t, "ws_v1_enabled", decision.Reason)
 	})
@@ -63,9 +69,9 @@ func TestOpenAIWSProtocolResolver_Resolve(t *testing.T) {
 	})
 
 	t.Run("全局关闭保持HTTP", func(t *testing.T) {
-		cfg := *baseCfg
+		cfg := cloneOpenAIWSResolverConfig(baseCfg)
 		cfg.Gateway.OpenAIWS.Enabled = false
-		decision := NewOpenAIWSProtocolResolver(&cfg).Resolve(openAIOAuthEnabled)
+		decision := NewOpenAIWSProtocolResolver(cfg).Resolve(openAIOAuthEnabled)
 		require.Equal(t, OpenAIUpstreamTransportHTTPSSE, decision.Transport)
 		require.Equal(t, "global_disabled", decision.Reason)
 	})
@@ -91,26 +97,26 @@ func TestOpenAIWSProtocolResolver_Resolve(t *testing.T) {
 	})
 
 	t.Run("Codex预热续发仍要求全局WSv2能力", func(t *testing.T) {
-		cfg := *baseCfg
+		cfg := cloneOpenAIWSResolverConfig(baseCfg)
 		cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = false
 		cfg.Gateway.OpenAIWS.ResponsesWebsockets = true
 		account := *openAIOAuthEnabled
 		account.Extra = map[string]any{
 			CodexPrewarmContinuationExtraKey: true,
 		}
-		decision := NewOpenAIWSProtocolResolver(&cfg).Resolve(&account)
+		decision := NewOpenAIWSProtocolResolver(cfg).Resolve(&account)
 		require.Equal(t, OpenAIUpstreamTransportHTTPSSE, decision.Transport)
 		require.Equal(t, "codex_prewarm_ws_v2_disabled", decision.Reason)
 	})
 
 	t.Run("Codex预热续发仍服从全局WS关闭", func(t *testing.T) {
-		cfg := *baseCfg
+		cfg := cloneOpenAIWSResolverConfig(baseCfg)
 		cfg.Gateway.OpenAIWS.Enabled = false
 		account := *openAIOAuthEnabled
 		account.Extra = map[string]any{
 			CodexPrewarmContinuationExtraKey: true,
 		}
-		decision := NewOpenAIWSProtocolResolver(&cfg).Resolve(&account)
+		decision := NewOpenAIWSProtocolResolver(cfg).Resolve(&account)
 		require.Equal(t, OpenAIUpstreamTransportHTTPSSE, decision.Transport)
 		require.Equal(t, "global_disabled", decision.Reason)
 	})
@@ -136,15 +142,15 @@ func TestOpenAIWSProtocolResolver_Resolve(t *testing.T) {
 	})
 
 	t.Run("按账号类型开关控制", func(t *testing.T) {
-		cfg := *baseCfg
+		cfg := cloneOpenAIWSResolverConfig(baseCfg)
 		cfg.Gateway.OpenAIWS.OAuthEnabled = false
-		decision := NewOpenAIWSProtocolResolver(&cfg).Resolve(openAIOAuthEnabled)
+		decision := NewOpenAIWSProtocolResolver(cfg).Resolve(openAIOAuthEnabled)
 		require.Equal(t, OpenAIUpstreamTransportHTTPSSE, decision.Transport)
 		require.Equal(t, "oauth_disabled", decision.Reason)
 	})
 
 	t.Run("API Key 账号关闭开关时回退HTTP", func(t *testing.T) {
-		cfg := *baseCfg
+		cfg := cloneOpenAIWSResolverConfig(baseCfg)
 		cfg.Gateway.OpenAIWS.APIKeyEnabled = false
 		account := &Account{
 			Platform: PlatformOpenAI,
@@ -153,7 +159,7 @@ func TestOpenAIWSProtocolResolver_Resolve(t *testing.T) {
 				"openai_apikey_responses_websockets_v2_enabled": true,
 			},
 		}
-		decision := NewOpenAIWSProtocolResolver(&cfg).Resolve(account)
+		decision := NewOpenAIWSProtocolResolver(cfg).Resolve(account)
 		require.Equal(t, OpenAIUpstreamTransportHTTPSSE, decision.Transport)
 		require.Equal(t, "apikey_disabled", decision.Reason)
 	})

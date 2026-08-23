@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -17,6 +18,10 @@ type openAIQuotaService interface {
 	QueryUsage(ctx context.Context, accountID int64) (*service.OpenAIQuotaUsage, error)
 	CacheResetCreditsSnapshot(ctx context.Context, accountID int64, credits *service.OpenAIRateLimitResetCredits) error
 	ResetCredit(ctx context.Context, accountID int64) (*service.OpenAIQuotaResetResult, error)
+}
+
+type openAIQuotaServerUsageQuerier interface {
+	QueryUsageWithServerUsage(ctx context.Context, accountID int64) (*service.OpenAIQuotaUsage, error)
 }
 
 type openAIAccountStateRecoverer interface {
@@ -44,12 +49,42 @@ type openAIQuotaRefreshResponse struct {
 	CachePersisted bool `json:"cache_persisted"`
 }
 
+// OpenAIQuotaUsage implements json.Unmarshaler for the upstream protocol.
+// Because the quota refresh response embeds that type, encoding/json would
+// otherwise promote its UnmarshalJSON method and silently drop the sibling
+// cache_persisted field when clients/tests decode the response envelope.
+func (r *openAIQuotaRefreshResponse) UnmarshalJSON(data []byte) error {
+	if r == nil {
+		return nil
+	}
+	var usage service.OpenAIQuotaUsage
+	if err := json.Unmarshal(data, &usage); err != nil {
+		return err
+	}
+	var meta struct {
+		CachePersisted bool `json:"cache_persisted"`
+	}
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return err
+	}
+	r.OpenAIQuotaUsage = usage
+	r.CachePersisted = meta.CachePersisted
+	return nil
+}
+
 func openAIQuotaResetPostProcessContext(ctx context.Context) (context.Context, context.CancelFunc) {
 	base := context.Background()
 	if ctx != nil {
 		base = context.WithoutCancel(ctx)
 	}
 	return context.WithTimeout(base, openAIQuotaResetPostProcessTimeout)
+}
+
+func (h *OpenAIOAuthHandler) queryOpenAIQuotaUsage(ctx context.Context, accountID int64) (*service.OpenAIQuotaUsage, error) {
+	if detailed, ok := h.quotaService.(openAIQuotaServerUsageQuerier); ok {
+		return detailed.QueryUsageWithServerUsage(ctx, accountID)
+	}
+	return h.quotaService.QueryUsage(ctx, accountID)
 }
 
 // QueryQuota queries the rate-limit / quota usage without mutating account state.
@@ -63,7 +98,7 @@ func (h *OpenAIOAuthHandler) QueryQuota(c *gin.Context) {
 		response.BadRequest(c, "openai quota service is not enabled")
 		return
 	}
-	usage, err := h.quotaService.QueryUsage(c.Request.Context(), accountID)
+	usage, err := h.queryOpenAIQuotaUsage(c.Request.Context(), accountID)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -83,7 +118,7 @@ func (h *OpenAIOAuthHandler) RefreshQuota(c *gin.Context) {
 		return
 	}
 
-	usage, err := h.quotaService.QueryUsage(c.Request.Context(), accountID)
+	usage, err := h.queryOpenAIQuotaUsage(c.Request.Context(), accountID)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -144,6 +179,8 @@ func (h *OpenAIOAuthHandler) ResetQuota(c *gin.Context) {
 	}
 	resetResponse.AccountStateRecovered = true
 
+	// Reset post-processing only needs fresh quota/reset-credit state; avoid an
+	// additional profile counter request on this latency-sensitive path.
 	usage, usageErr := h.quotaService.QueryUsage(postCtx, accountID)
 	if usageErr != nil || usage == nil {
 		slog.Warn("openai_quota_reset_cache_refresh_failed", "account_id", accountID, "error", usageErr)

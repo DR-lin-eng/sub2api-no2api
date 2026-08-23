@@ -26,7 +26,10 @@ var ErrSparkShadowResetNotSupported = infraerrors.New(http.StatusConflict, "SPAR
 
 // Endpoints used by the OpenAI/ChatGPT/Codex quota query and reset feature.
 const (
-	chatGPTUsageURL             = "https://chatgpt.com/backend-api/wham/usage"
+	chatGPTUsageURL = "https://chatgpt.com/backend-api/wham/usage"
+	// Codex App Server's account/usage/read is backed by this WHAM profile
+	// resource for ChatGPT auth; it returns the same summary/daily buckets.
+	chatGPTTokenUsageProfileURL = "https://chatgpt.com/backend-api/wham/profiles/me"
 	chatGPTRateLimitCreditsURL  = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits"
 	chatGPTRateLimitResetURL    = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits/consume"
 	openaiQuotaUpstreamTimeout  = 20 * time.Second
@@ -50,6 +53,8 @@ type OpenAIRateLimitWindow struct {
 
 // OpenAIRateLimit is a rate-limit envelope (primary + optional secondary window).
 type OpenAIRateLimit struct {
+	LimitID         string                 `json:"limit_id,omitempty"`
+	LimitName       string                 `json:"limit_name,omitempty"`
 	Allowed         bool                   `json:"allowed"`
 	LimitReached    bool                   `json:"limit_reached"`
 	PrimaryWindow   *OpenAIRateLimitWindow `json:"primary_window,omitempty"`
@@ -62,6 +67,70 @@ type OpenAIAdditionalRateLimit struct {
 	MeteredFeature string           `json:"metered_feature"`
 	RateLimit      *OpenAIRateLimit `json:"rate_limit,omitempty"`
 }
+
+// OpenAIAppServerRateLimitWindow is the normalized representation of an
+// App Server ChatGPT rate-limit window.  The upstream protocol uses camelCase
+// names (usedPercent/windowDurationMins/resetsAt), while the admin API uses
+// the repository's snake_case JSON convention.  openai_quota_rate_limits.go
+// accepts both spellings at the protocol boundary.
+type OpenAIAppServerRateLimitWindow struct {
+	UsedPercent        float64 `json:"used_percent"`
+	WindowDurationMins int64   `json:"window_duration_mins"`
+	ResetsAt           int64   `json:"resets_at"`
+}
+
+// OpenAIAppServerRateLimitBucket is one entry in ChatGPT's
+// rateLimitsByLimitId map.  The official shape carries primary/secondary
+// windows; the direct fields are retained for compatibility with early
+// implementations that flattened a bucket to one window.
+type OpenAIAppServerRateLimitBucket struct {
+	LimitID              string                          `json:"limit_id"`
+	LimitName            string                          `json:"limit_name,omitempty"`
+	UsedPercent          float64                         `json:"used_percent,omitempty"`
+	WindowDurationMins   int64                           `json:"window_duration_mins,omitempty"`
+	ResetsAt             int64                           `json:"resets_at,omitempty"`
+	Primary              *OpenAIAppServerRateLimitWindow `json:"primary,omitempty"`
+	Secondary            *OpenAIAppServerRateLimitWindow `json:"secondary,omitempty"`
+	RateLimitReachedType string                          `json:"rate_limit_reached_type,omitempty"`
+	// RawFields/RawValue keep forward-compatible bucket data visible when a
+	// newer server changes the window shape before this version can normalize
+	// it. They are display fallbacks, not scheduling inputs.
+	RawFields map[string]any `json:"raw_fields,omitempty"`
+	RawValue  any            `json:"raw_value,omitempty"`
+}
+
+// OpenAITokenUsageSummary is the server-reported ChatGPT token activity
+// summary returned by the profile/usage endpoint.
+type OpenAITokenUsageSummary struct {
+	LifetimeTokens            *int64 `json:"lifetime_tokens,omitempty"`
+	PeakDailyTokens           *int64 `json:"peak_daily_tokens,omitempty"`
+	LongestRunningTurnSeconds *int64 `json:"longest_running_turn_seconds,omitempty"`
+	CurrentStreakDays         *int64 `json:"current_streak_days,omitempty"`
+	LongestStreakDays         *int64 `json:"longest_streak_days,omitempty"`
+}
+
+// OpenAITokenUsageDailyBucket is one server-reported daily token bucket.
+type OpenAITokenUsageDailyBucket struct {
+	StartDate string `json:"start_date"`
+	Tokens    int64  `json:"tokens"`
+}
+
+// OpenAIServerTokenUsage contains the optional server-side counters. It is
+// deliberately separate from local usage-log WindowStats so the UI can show
+// both sources without conflating their scopes.
+type OpenAIServerTokenUsage struct {
+	Summary                        OpenAITokenUsageSummary       `json:"summary"`
+	DailyUsageBuckets              []OpenAITokenUsageDailyBucket `json:"daily_usage_buckets,omitempty"`
+	CurrentResetCycleTokens        *int64                        `json:"current_reset_cycle_tokens,omitempty"`
+	CurrentResetCycleWindowMinutes int64                         `json:"current_reset_cycle_window_minutes,omitempty"`
+	CurrentResetCycleLimitID       string                        `json:"current_reset_cycle_limit_id,omitempty"`
+	CurrentResetCycleApproximate   bool                          `json:"current_reset_cycle_approximate,omitempty"`
+}
+
+// Short aliases keep the protocol terminology convenient for callers while
+// retaining the explicit AppServer prefix in the canonical type name.
+type OpenAIRateLimitBucket = OpenAIAppServerRateLimitBucket
+type OpenAIRateLimitBucketWindow = OpenAIAppServerRateLimitWindow
 
 // OpenAIRateLimitResetCreditDetail is the sanitized metadata surfaced for one
 // available reset credit. Do not add upstream ids or tokens here.
@@ -76,18 +145,23 @@ type OpenAIRateLimitResetCredits struct {
 	Credits        []OpenAIRateLimitResetCreditDetail `json:"credits,omitempty"`
 }
 
-// OpenAIQuotaUsage is the typed projection of /wham/usage we expose to the UI.
-// Fields not relevant to the quota card are intentionally omitted to keep the
-// surface narrow; full upstream payload preservation is unnecessary.
+// OpenAIQuotaUsage is the typed projection of the ChatGPT quota and token
+// activity queries exposed to the UI. Local usage-log counters stay on the
+// admin usage endpoint; ServerTokenUsage is the optional upstream view.
 type OpenAIQuotaUsage struct {
-	UserID                string                       `json:"user_id,omitempty"`
-	AccountID             string                       `json:"account_id,omitempty"`
-	Email                 string                       `json:"email,omitempty"`
-	PlanType              string                       `json:"plan_type,omitempty"`
-	RateLimit             *OpenAIRateLimit             `json:"rate_limit,omitempty"`
-	AdditionalRateLimits  []OpenAIAdditionalRateLimit  `json:"additional_rate_limits,omitempty"`
-	RateLimitResetCredits *OpenAIRateLimitResetCredits `json:"rate_limit_reset_credits,omitempty"`
-	FetchedAt             int64                        `json:"fetched_at"`
+	UserID               string                      `json:"user_id,omitempty"`
+	AccountID            string                      `json:"account_id,omitempty"`
+	Email                string                      `json:"email,omitempty"`
+	PlanType             string                      `json:"plan_type,omitempty"`
+	RateLimit            *OpenAIRateLimit            `json:"rate_limit,omitempty"`
+	AdditionalRateLimits []OpenAIAdditionalRateLimit `json:"additional_rate_limits,omitempty"`
+	// RateLimitsByLimitID is the multi-bucket App Server view.  Keep the
+	// legacy RateLimit field above: older ChatGPT responses still return only a
+	// single bucket and existing callers rely on it.
+	RateLimitsByLimitID   map[string]OpenAIAppServerRateLimitBucket `json:"rate_limits_by_limit_id,omitempty"`
+	RateLimitResetCredits *OpenAIRateLimitResetCredits              `json:"rate_limit_reset_credits,omitempty"`
+	ServerTokenUsage      *OpenAIServerTokenUsage                   `json:"server_token_usage,omitempty"`
+	FetchedAt             int64                                     `json:"fetched_at"`
 }
 
 // OpenAIQuotaResetCredit captures the redeemed credit metadata returned by the
@@ -150,6 +224,18 @@ func NewOpenAIQuotaService(
 // OAuth account. Returns infraerrors so the handler layer can map them to
 // stable error codes / HTTP statuses.
 func (s *OpenAIQuotaService) QueryUsage(ctx context.Context, accountID int64) (*OpenAIQuotaUsage, error) {
+	return s.queryUsage(ctx, accountID, false)
+}
+
+// QueryUsageWithServerUsage performs the same quota query and additionally
+// reads the server-side ChatGPT token activity summary. It is kept separate
+// from QueryUsage so background Spark/shadow refreshes do not incur an extra
+// profile request unless an administrator explicitly queries the quota card.
+func (s *OpenAIQuotaService) QueryUsageWithServerUsage(ctx context.Context, accountID int64) (*OpenAIQuotaUsage, error) {
+	return s.queryUsage(ctx, accountID, true)
+}
+
+func (s *OpenAIQuotaService) queryUsage(ctx context.Context, accountID int64, includeServerUsage bool) (*OpenAIQuotaUsage, error) {
 	var route platformegress.Route
 	accessToken, chatGPTAccountID, proxyURL, fedRAMP, err := s.prepareUpstreamCall(ctx, accountID, &route)
 	if err != nil {
@@ -213,7 +299,72 @@ func (s *OpenAIQuotaService) QueryUsage(ctx context.Context, accountID int64) (*
 			payload.RateLimitResetCredits.AvailableCount = details.AvailableCreditCount
 		}
 	}
+	if includeServerUsage {
+		serverUsage, usageErr := s.queryServerTokenUsage(
+			callCtx, client, accessToken, chatGPTAccountID, fedRAMP, accountID,
+		)
+		if usageErr != nil {
+			// Server token activity is an additive display surface. A temporary
+			// profile failure must not hide otherwise valid rate-limit buckets.
+			slog.Warn("openai_server_token_usage_query_failed", "account_id", accountID, "error", usageErr)
+		} else if hasOpenAIServerTokenUsage(serverUsage) {
+			enrichServerTokenUsageResetCycle(serverUsage, &payload, time.Now().UTC())
+			payload.ServerTokenUsage = serverUsage
+		}
+	}
 	return &payload, nil
+}
+
+func hasOpenAIServerTokenUsage(usage *OpenAIServerTokenUsage) bool {
+	if usage == nil {
+		return false
+	}
+	summary := usage.Summary
+	return summary.LifetimeTokens != nil ||
+		summary.PeakDailyTokens != nil ||
+		summary.LongestRunningTurnSeconds != nil ||
+		summary.CurrentStreakDays != nil ||
+		summary.LongestStreakDays != nil ||
+		len(usage.DailyUsageBuckets) > 0
+}
+
+func (s *OpenAIQuotaService) queryServerTokenUsage(
+	ctx context.Context,
+	client *req.Client,
+	accessToken, chatGPTAccountID string,
+	fedRAMP bool,
+	accountID int64,
+) (*OpenAIServerTokenUsage, error) {
+	if client == nil {
+		return nil, fmt.Errorf("upstream client is unavailable")
+	}
+	agentIdentity := s.isAgentIdentityAccount(ctx, accountID)
+	var payload OpenAIServerTokenUsage
+	for recovered := false; ; {
+		headers, expectedTaskID, headerErr := s.buildCodexQuotaHeaders(ctx, accountID, accessToken, chatGPTAccountID, fedRAMP)
+		if headerErr != nil {
+			return nil, fmt.Errorf("build authentication: %w", headerErr)
+		}
+		resp, err := client.R().
+			SetContext(ctx).
+			SetHeaders(headers).
+			SetSuccessResult(&payload).
+			Get(chatGPTTokenUsageProfileURL)
+		if err != nil {
+			return nil, fmt.Errorf("request failed: %w", err)
+		}
+		if resp.IsSuccessState() {
+			return &payload, nil
+		}
+		if agentIdentity && !recovered && isAgentIdentityTaskInvalidHTTPResponse(resp.StatusCode, []byte(resp.String())) {
+			recovered = true
+			if err := s.recoverAgentIdentityTask(ctx, accountID, expectedTaskID); err != nil {
+				return nil, fmt.Errorf("agent identity recovery failed: %w", err)
+			}
+			continue
+		}
+		return nil, fmt.Errorf("upstream returned %d", resp.StatusCode)
+	}
 }
 
 func (s *OpenAIQuotaService) queryResetCreditDetails(ctx context.Context, client *req.Client, accessToken, chatGPTAccountID string, fedRAMP bool, accountID int64) *openAIRateLimitResetCreditDetails {
@@ -559,6 +710,15 @@ func buildCodexSparkWindowExtraUpdates(usage *OpenAIQuotaUsage, now time.Time) m
 		if a.MeteredFeature == "codex_bengalfox" {
 			spark = a.RateLimit
 			break
+		}
+	}
+	// Newer ChatGPT/App Server payloads may move the Spark bucket into the
+	// multi-bucket view instead of additional_rate_limits. Keep the explicit
+	// metered id narrow: selecting an arbitrary unknown bucket would assign a
+	// model-specific quota to the wrong shadow account.
+	if spark == nil {
+		if bucket, ok := usage.RateLimitsByLimitID["codex_bengalfox"]; ok {
+			spark = appServerRateLimitBucketToLegacy(&bucket)
 		}
 	}
 	if spark == nil {

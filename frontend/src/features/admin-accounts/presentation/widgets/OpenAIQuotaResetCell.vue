@@ -6,10 +6,10 @@
       via the #pre-actions slot so the user sees a single row of related
       buttons rather than two near-duplicate "查询" rows.
 
-      The 5h / 7d window bars are deliberately NOT rendered here — the local
-      active-sampling display (UsageProgressBar in AccountUsageCell) already
-      owns that real estate. This cell is purely about the rate-limit reset
-      credit: query its count, consume one if needed.
+      The legacy 5h / 7d bars remain owned by AccountUsageCell's local
+      active-sampling display. Official App Server buckets are rendered below
+      once this explicit quota query returns them, alongside the reset-credit
+      controls.
     -->
     <div class="flex flex-wrap items-center gap-1.5">
       <slot name="pre-actions" />
@@ -61,6 +61,97 @@
         </svg>
         {{ t('admin.accounts.openaiQuotaReset.reset') }}
       </button>
+    </div>
+
+    <!--
+      ChatGPT App Server can return more than one metered bucket (for example
+      codex and codex_other).  Keep these official windows next to the query
+      controls so the values are visible even when local response-header
+      sampling has not observed a window yet.
+    -->
+    <div
+      v-if="rateLimitWindows.length > 0"
+      data-testid="openai-rate-limit-buckets"
+      class="space-y-1"
+    >
+      <div class="text-[9px] font-medium text-gray-500 dark:text-gray-400">
+        {{ t('admin.accounts.upstreamBilling.quotaModeRateLimits') }}
+      </div>
+      <div
+        v-for="window in rateLimitWindows"
+        :key="window.key"
+        class="flex items-center gap-1"
+        :title="`${window.label} · ${formatRateLimitResetTitle(window.resetsAt)}`"
+        :data-testid="`openai-rate-limit-${window.key}`"
+      >
+        <div v-if="window.rawDetails" class="min-w-0 flex-1 whitespace-normal rounded bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-600 dark:bg-dark-800 dark:text-gray-300">
+          <span class="font-medium">{{ window.label }}:</span>
+          <span class="ml-1 break-words font-mono">{{ window.rawDetails }}</span>
+        </div>
+        <template v-else>
+          <UsageProgressBar
+            :label="window.label"
+            :utilization="window.usedPercent"
+            :resets-at="window.resetsAt"
+            :window-stats="window.windowStats"
+            :show-now-when-idle="true"
+            :color="window.color"
+          />
+          <span class="shrink-0 text-[9px] tabular-nums text-gray-400 dark:text-gray-500">
+            {{ formatWindowDurationDetails(window.windowDurationMins) }}
+          </span>
+        </template>
+      </div>
+    </div>
+
+    <div
+      v-if="localStatsRows.length > 0"
+      data-testid="openai-local-window-stats"
+      class="space-y-0.5 whitespace-normal text-[9px] text-gray-500 dark:text-gray-400"
+    >
+      <div class="font-medium">{{ t('admin.accounts.usageWindow.localSource') }}</div>
+      <div v-for="row in localStatsRows" :key="row.label" class="flex flex-wrap items-center gap-1.5 tabular-nums">
+        <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">{{ row.label }}</span>
+        <span>{{ formatLocalRequests(row.stats) }} req</span>
+        <span>{{ formatLocalTokens(row.stats) }}</span>
+        <span :title="t('usage.accountBilled')">A ${{ formatLocalCost(row.stats.cost) }}</span>
+        <span v-if="row.stats.user_cost != null" :title="t('usage.userBilled')">U ${{ formatLocalCost(row.stats.user_cost) }}</span>
+      </div>
+    </div>
+
+    <div
+      v-if="serverTokenUsage"
+      data-testid="openai-server-token-usage"
+      class="w-full max-w-[390px] space-y-1 whitespace-normal rounded border border-blue-100 bg-blue-50/60 px-1.5 py-1 text-[10px] text-gray-600 dark:border-blue-900/50 dark:bg-blue-950/20 dark:text-gray-300"
+    >
+      <div class="font-medium text-blue-700 dark:text-blue-300">
+        {{ t('admin.accounts.openaiQuotaReset.serverUsage') }}
+      </div>
+      <div class="flex max-w-full flex-col gap-y-0.5 break-all tabular-nums">
+        <span v-if="serverTokenUsage.current_reset_cycle_tokens != null">
+          {{ t('admin.accounts.openaiQuotaReset.serverUsageFields.currentResetCycleTokens') }}<template v-if="serverTokenUsage.current_reset_cycle_window_minutes"> ({{ formatWindowDuration(serverTokenUsage.current_reset_cycle_window_minutes) }})</template>: {{ formatServerCount(serverTokenUsage.current_reset_cycle_tokens) }}<template v-if="serverTokenUsage.current_reset_cycle_approximate"> ({{ t('admin.accounts.openaiQuotaReset.serverUsageFields.approximate') }})</template>
+        </span>
+        <span v-if="serverTokenUsage.summary.lifetime_tokens != null">
+          {{ t('admin.accounts.openaiQuotaReset.serverUsageFields.lifetimeTokens') }}: {{ formatServerCount(serverTokenUsage.summary.lifetime_tokens) }}
+        </span>
+        <span v-if="serverTokenUsage.summary.peak_daily_tokens != null">
+          {{ t('admin.accounts.openaiQuotaReset.serverUsageFields.peakDailyTokens') }}: {{ formatServerCount(serverTokenUsage.summary.peak_daily_tokens) }}
+        </span>
+        <span v-if="serverTokenUsage.summary.longest_running_turn_seconds != null">
+          {{ t('admin.accounts.openaiQuotaReset.serverUsageFields.longestRunningTurnSec') }}: {{ serverTokenUsage.summary.longest_running_turn_seconds }}s
+        </span>
+        <span v-if="serverTokenUsage.summary.current_streak_days != null">
+          {{ t('admin.accounts.openaiQuotaReset.serverUsageFields.currentStreakDays') }}: {{ serverTokenUsage.summary.current_streak_days }}d
+        </span>
+        <span v-if="serverTokenUsage.summary.longest_streak_days != null">
+          {{ t('admin.accounts.openaiQuotaReset.serverUsageFields.longestStreakDays') }}: {{ serverTokenUsage.summary.longest_streak_days }}d
+        </span>
+      </div>
+      <div v-if="serverTokenUsage.daily_usage_buckets?.length" class="flex max-w-full flex-col gap-y-0.5 break-all text-gray-500 dark:text-gray-400">
+        <span v-for="bucket in serverTokenUsage.daily_usage_buckets" :key="bucket.start_date">
+          {{ t('admin.accounts.openaiQuotaReset.serverUsageFields.dailyBucket') }} {{ bucket.start_date }}: {{ formatServerCount(bucket.tokens) }}
+        </span>
+      </div>
     </div>
 
     <div v-if="primaryResetCreditExpiry" class="space-y-1">
@@ -140,21 +231,29 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { Account } from '@/types'
+import type { Account, WindowStats } from '@/types'
 import {
   refreshOpenAIQuota,
   resetOpenAIQuota,
+  type OpenAIAppServerRateLimitBucket,
   type OpenAIQuotaUsage,
   type OpenAIQuotaResetResult
 } from '@/features/admin-accounts/data/datasources/adminAccountsDatasource'
 import ConfirmDialog from '@/common/widgets/feedback/ConfirmDialog.vue'
+import { formatCompactNumber } from '@/core/utils/format'
+import UsageProgressBar from './UsageProgressBar.vue'
 
 const props = defineProps<{
   account: Account
+  localWindowStats?: {
+    five_hour?: WindowStats | null
+    seven_day?: WindowStats | null
+  } | null
 }>()
 
 const emit = defineEmits<{
   'account-updated': [account: Account]
+  'quota-updated': [usage: OpenAIQuotaUsage]
 }>()
 
 const { t } = useI18n()
@@ -223,6 +322,249 @@ const resetCreditExpirations = computed(() =>
 const primaryResetCreditExpiry = computed(() => resetCreditExpirations.value[0] ?? '')
 const hiddenResetCreditCount = computed(() => Math.max(resetCreditExpirations.value.length - 1, 0))
 const canReset = computed(() => availableResetCount.value > 0 && !isShadow.value)
+
+type RateLimitColor = 'indigo' | 'emerald' | 'purple' | 'amber'
+
+interface RateLimitDisplayWindow {
+  key: string
+  label: string
+  usedPercent: number
+  windowDurationMins: number
+  resetsAt: string | null
+  color: RateLimitColor
+  windowStats?: WindowStats | null
+  rawDetails?: string
+}
+
+const finiteNumber = (value: unknown): number | null => {
+  const number = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
+const unixSecondsToISO = (value: unknown): string | null => {
+  const number = finiteNumber(value)
+  if (number == null || number <= 0) return null
+  // App Server documents Unix seconds; accepting milliseconds costs nothing
+  // and makes the display tolerant of a few proxy implementations.
+  const milliseconds = number > 1e12 ? number : number * 1000
+  const date = new Date(milliseconds)
+  return Number.isNaN(date.getTime()) ? null : date.toISOString()
+}
+
+const formatWindowDuration = (minutes: number): string => {
+  if (minutes >= 10080 && minutes % 10080 === 0) return `${minutes / 1440}d`
+  if (minutes >= 1440 && minutes % 1440 === 0) return `${minutes / 1440}d`
+  if (minutes >= 60 && minutes % 60 === 0) return `${minutes / 60}h`
+  return `${minutes}m`
+}
+
+const formatWindowDurationDetails = (minutes: number): string => {
+  const label = formatWindowDuration(minutes)
+  const raw = `${minutes}m`
+  return label === raw ? label : `${label} (${raw})`
+}
+
+const formatServerCount = (value: number): string => formatCompactNumber(value)
+
+const formatLocalRequests = (stats: WindowStats): string => formatCompactNumber(stats.requests, { allowBillions: false })
+const formatLocalTokens = (stats: WindowStats): string => formatCompactNumber(stats.tokens)
+const formatLocalCost = (value: number): string => value.toFixed(2)
+
+const localStatsForWindow = (windowDurationMins: number): WindowStats | null => {
+  // Local usage-log windows are specifically 5h/7d. Do not attach a 5h
+  // counter to a future short bucket such as the documented 15m window.
+  if (windowDurationMins >= 240 && windowDurationMins <= 360) {
+    return props.localWindowStats?.five_hour ?? null
+  }
+  if (windowDurationMins >= 10080) {
+    return props.localWindowStats?.seven_day ?? null
+  }
+  return null
+}
+
+const formatRawValue = (value: unknown): string => {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (value == null) return 'null'
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
+}
+
+const formatRawBucketDetails = (key: string, bucket: OpenAIAppServerRateLimitBucket): string => {
+  if (bucket.raw_value !== undefined) return formatRawValue(bucket.raw_value)
+  const fields = bucket.raw_fields ?? Object.fromEntries(
+    Object.entries(bucket).filter(([field]) => !field.startsWith('raw_'))
+  )
+  if (fields && Object.keys(fields).length > 0) {
+    return Object.entries(fields)
+      .map(([field, value]) => `${field}: ${formatRawValue(value)}`)
+      .join(', ')
+  }
+  return `${key}: unparsed bucket`
+}
+
+const serverTokenUsage = computed(() => data.value?.server_token_usage ?? null)
+
+const rateLimitWindows = computed<RateLimitDisplayWindow[]>(() => {
+  const buckets = data.value?.rate_limits_by_limit_id ?? data.value?.rateLimitsByLimitId
+
+  const colors: RateLimitColor[] = ['indigo', 'emerald', 'purple', 'amber']
+  const entries = buckets && typeof buckets === 'object' && !Array.isArray(buckets)
+    ? Object.entries(buckets)
+      .filter(([, bucket]) => bucket != null)
+      .sort(([left], [right]) => left.localeCompare(right))
+    : []
+
+  const windows: RateLimitDisplayWindow[] = []
+  entries.forEach(([key, rawBucket], bucketIndex) => {
+    const windowsBeforeBucket = windows.length
+    const bucket = rawBucket && typeof rawBucket === 'object'
+      ? rawBucket as OpenAIAppServerRateLimitBucket
+      : { limit_id: key, raw_value: rawBucket } as OpenAIAppServerRateLimitBucket
+    const limitID = String(bucket.limit_id ?? bucket.limitId ?? key).trim() || key
+    const limitName = String(bucket.limit_name ?? bucket.limitName ?? limitID).trim() || limitID
+    const bucketWindows: Array<{
+      kind: 'primary' | 'secondary'
+      usedPercent: unknown
+      windowDurationMins: unknown
+      resetsAt: unknown
+    }> = []
+
+    if (bucket.primary && typeof bucket.primary === 'object') {
+      bucketWindows.push({
+        kind: 'primary',
+        usedPercent: bucket.primary.used_percent ?? bucket.primary.usedPercent,
+        windowDurationMins: bucket.primary.window_duration_mins ?? bucket.primary.windowDurationMins,
+        resetsAt: bucket.primary.resets_at ?? bucket.primary.resetsAt
+      })
+    }
+    if (bucket.secondary && typeof bucket.secondary === 'object') {
+      bucketWindows.push({
+        kind: 'secondary',
+        usedPercent: bucket.secondary.used_percent ?? bucket.secondary.usedPercent,
+        windowDurationMins: bucket.secondary.window_duration_mins ?? bucket.secondary.windowDurationMins,
+        resetsAt: bucket.secondary.resets_at ?? bucket.secondary.resetsAt
+      })
+    }
+    // Some early ChatGPT responses flattened one window directly on the
+    // bucket. Only use it when no nested window is present.
+    if (bucketWindows.length === 0 && (
+      bucket.used_percent != null ||
+      bucket.usedPercent != null ||
+      bucket.window_duration_mins != null ||
+      bucket.windowDurationMins != null ||
+      bucket.resets_at != null ||
+      bucket.resetsAt != null
+    )) {
+      bucketWindows.push({
+        kind: 'primary',
+        usedPercent: bucket.used_percent ?? bucket.usedPercent,
+        windowDurationMins: bucket.window_duration_mins ?? bucket.windowDurationMins,
+        resetsAt: bucket.resets_at ?? bucket.resetsAt
+      })
+    }
+
+    bucketWindows.forEach((window, windowIndex) => {
+      const usedPercent = finiteNumber(window.usedPercent)
+      const rawWindowDurationMins = finiteNumber(window.windowDurationMins)
+      const windowDurationMins = rawWindowDurationMins == null
+        ? 0
+        : Math.max(0, Math.round(rawWindowDurationMins))
+      if (usedPercent == null || windowDurationMins <= 0) return
+      windows.push({
+        key: `${key}-${window.kind}-${windowIndex}`,
+        label: `${limitName} ${formatWindowDuration(windowDurationMins)}`,
+        usedPercent,
+        windowDurationMins,
+        resetsAt: unixSecondsToISO(window.resetsAt),
+        color: colors[(bucketIndex + windowIndex) % colors.length],
+        windowStats: localStatsForWindow(windowDurationMins)
+      })
+    })
+
+    if (windows.length === windowsBeforeBucket) {
+      windows.push({
+        key: `${key}-raw`,
+        label: limitName,
+        usedPercent: 0,
+        windowDurationMins: 0,
+        resetsAt: null,
+        color: colors[bucketIndex % colors.length],
+        rawDetails: formatRawBucketDetails(key, bucket)
+      })
+    }
+  })
+
+  // Legacy /wham/usage responses expose only `rate_limit.primary_window` and
+  // `secondary_window`. Use them only when the keyed view did not yield a
+  // usable window, avoiding a duplicate mirror of the codex bucket.
+  if (windows.length === 0) {
+    const legacy = data.value?.rate_limit ?? data.value?.rateLimit
+    if (legacy) {
+      const legacyWindows = [
+        { kind: 'primary', window: legacy.primary_window ?? legacy.primary },
+        { kind: 'secondary', window: legacy.secondary_window ?? legacy.secondary }
+      ] as const
+      const legacyLabel = String(
+        legacy.limit_name ?? legacy.limitName ?? legacy.limit_id ?? legacy.limitId ?? 'codex'
+      ).trim() || 'codex'
+      legacyWindows.forEach(({ kind, window }, index) => {
+        if (!window) return
+        const usedPercent = finiteNumber(window.used_percent ?? window.usedPercent)
+        const durationMinutes = window.window_duration_mins ?? window.windowDurationMins
+        const rawDuration = finiteNumber(
+          window.limit_window_seconds ?? (durationMinutes != null ? durationMinutes * 60 : null)
+        )
+        const windowDurationMins = rawDuration == null ? 0 : Math.max(0, Math.round(rawDuration / 60))
+        if (usedPercent == null || windowDurationMins <= 0) return
+        windows.push({
+          key: `legacy-${kind}-${index}`,
+          label: `${legacyLabel} ${formatWindowDuration(windowDurationMins)}`,
+          usedPercent,
+          windowDurationMins,
+          resetsAt: unixSecondsToISO(window.reset_at ?? window.resets_at ?? window.resetsAt),
+          color: colors[index % colors.length],
+          windowStats: localStatsForWindow(windowDurationMins)
+        })
+      })
+    }
+  }
+  return windows
+})
+
+const localStatsRows = computed(() => {
+  if (!data.value || rateLimitWindows.value.length === 0) return []
+  const candidates = [
+    { label: '5h', stats: props.localWindowStats?.five_hour ?? null },
+    { label: '7d', stats: props.localWindowStats?.seven_day ?? null }
+  ]
+  const consumed = new Set(
+    rateLimitWindows.value
+      .map((window) => window.windowStats)
+      .filter((stats): stats is WindowStats => stats != null)
+  )
+  return candidates.filter((row): row is { label: string; stats: WindowStats } =>
+    row.stats != null && !consumed.has(row.stats)
+  )
+})
+
+const formatRateLimitResetTitle = (resetsAt: string | null): string => {
+  if (!resetsAt) return t('admin.accounts.openaiQuotaReset.expiresAt', { time: '-' })
+  const date = new Date(resetsAt)
+  if (Number.isNaN(date.getTime())) return resetsAt
+  return t('admin.accounts.openaiQuotaReset.expiresAtFull', {
+    time: new Intl.DateTimeFormat(undefined, {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date)
+  })
+}
 
 const resetCreditDetailsTitle = computed(() =>
   resetCreditExpirations.value
@@ -319,6 +661,7 @@ const handleQuery = async () => {
   try {
     const result = await refreshOpenAIQuota(props.account.id)
     data.value = result
+    emit('quota-updated', result)
     if (result.cache_persisted) {
       cachedData.value = result
     } else {
@@ -357,9 +700,11 @@ const confirmReset = async () => {
     if (result.cache_refreshed && result.quota) {
       data.value = result.quota
       cachedData.value = result.quota
+      emit('quota-updated', result.quota)
     } else {
       data.value = null
       cachedData.value = null
+      emit('quota-updated', { fetched_at: 0 })
     }
     if (result.account) emit('account-updated', result.account)
 

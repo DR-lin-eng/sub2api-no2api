@@ -292,13 +292,24 @@ export interface OpenAIRateLimitWindow {
   limit_window_seconds: number
   reset_after_seconds: number
   reset_at: number
+  resets_at?: number
+  usedPercent?: number
+  window_duration_mins?: number
+  windowDurationMins?: number
+  resetsAt?: number
 }
 
 export interface OpenAIRateLimit {
+  limit_id?: string
+  limit_name?: string | null
+  limitId?: string
+  limitName?: string | null
   allowed: boolean
   limit_reached: boolean
   primary_window?: OpenAIRateLimitWindow | null
   secondary_window?: OpenAIRateLimitWindow | null
+  primary?: OpenAIAppServerRateLimitWindow | null
+  secondary?: OpenAIAppServerRateLimitWindow | null
 }
 
 export interface OpenAIAdditionalRateLimit {
@@ -306,6 +317,49 @@ export interface OpenAIAdditionalRateLimit {
   metered_feature: string
   rate_limit?: OpenAIRateLimit | null
 }
+
+/**
+ * A ChatGPT App Server rate-limit window. The backend normalizes the
+ * protocol's camelCase fields to the frontend's snake_case API convention.
+ */
+export interface OpenAIAppServerRateLimitWindow {
+  used_percent?: number
+  limit_window_seconds?: number
+  reset_after_seconds?: number
+  reset_at?: number
+  resets_at?: number
+  window_duration_mins?: number
+  // Raw App Server aliases are accepted for rolling upgrades and direct
+  // protocol fixtures; the backend normally returns the snake_case fields.
+  usedPercent?: number
+  windowDurationMins?: number
+  resetsAt?: number
+}
+
+/** One bucket from `rateLimitsByLimitId` (for example codex/codex_other). */
+export interface OpenAIAppServerRateLimitBucket {
+  limit_id?: string
+  limit_name?: string | null
+  limitId?: string
+  limitName?: string | null
+  /** Flattened fields are accepted for early servers that omit primary. */
+  used_percent?: number
+  window_duration_mins?: number
+  resets_at?: number
+  usedPercent?: number
+  windowDurationMins?: number
+  resetsAt?: number
+  primary?: OpenAIAppServerRateLimitWindow | null
+  secondary?: OpenAIAppServerRateLimitWindow | null
+  rate_limit_reached_type?: string | null
+  rateLimitReachedType?: string | null
+  raw_fields?: Record<string, unknown>
+  raw_value?: unknown
+}
+
+// Short aliases for callers that use the protocol terminology directly.
+export type OpenAIRateLimitBucket = OpenAIAppServerRateLimitBucket
+export type OpenAIRateLimitBucketWindow = OpenAIAppServerRateLimitWindow
 
 export interface OpenAIRateLimitResetCreditDetail {
   expires_at?: string
@@ -316,14 +370,41 @@ export interface OpenAIRateLimitResetCredits {
   credits?: OpenAIRateLimitResetCreditDetail[]
 }
 
+export interface OpenAITokenUsageSummary {
+  lifetime_tokens?: number | null
+  peak_daily_tokens?: number | null
+  longest_running_turn_seconds?: number | null
+  current_streak_days?: number | null
+  longest_streak_days?: number | null
+}
+
+export interface OpenAITokenUsageDailyBucket {
+  start_date: string
+  tokens: number
+}
+
+/** Server-side ChatGPT token activity, separate from local usage-log counts. */
+export interface OpenAIServerTokenUsage {
+  summary: OpenAITokenUsageSummary
+  daily_usage_buckets?: OpenAITokenUsageDailyBucket[] | null
+  current_reset_cycle_tokens?: number | null
+  current_reset_cycle_window_minutes?: number
+  current_reset_cycle_limit_id?: string
+  current_reset_cycle_approximate?: boolean
+}
+
 export interface OpenAIQuotaUsage {
   user_id?: string
   account_id?: string
   email?: string
   plan_type?: string
   rate_limit?: OpenAIRateLimit | null
+  rateLimit?: OpenAIRateLimit | null
   additional_rate_limits?: OpenAIAdditionalRateLimit[]
+  rate_limits_by_limit_id?: Record<string, OpenAIAppServerRateLimitBucket | unknown>
+  rateLimitsByLimitId?: Record<string, OpenAIAppServerRateLimitBucket | unknown>
   rate_limit_reset_credits?: OpenAIRateLimitResetCredits | null
+  server_token_usage?: OpenAIServerTokenUsage | null
   fetched_at: number
 }
 

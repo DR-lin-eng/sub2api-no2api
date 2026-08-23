@@ -189,4 +189,268 @@ describe('OpenAIQuotaResetCell — 外审 F6:影子禁用重置', () => {
     expect(wrapper.text()).toContain('admin.accounts.openaiQuotaReset.refreshCachePersistFailed')
     wrapper.unmount()
   })
+
+  it('查询后展示 App Server 返回的多个 rate-limit 桶', async () => {
+    vi.mocked(refreshOpenAIQuota).mockResolvedValue({
+      rate_limits_by_limit_id: {
+        codex: {
+          limit_id: 'codex',
+          limit_name: null,
+          primary: {
+            used_percent: 25,
+            window_duration_mins: 15,
+            resets_at: 1730947200,
+          },
+        },
+        codex_other: {
+          limit_id: 'codex_other',
+          limit_name: 'codex_other',
+          primary: {
+            used_percent: 42,
+            window_duration_mins: 60,
+            resets_at: 1730950800,
+          },
+        },
+      },
+      rate_limit_reset_credits: { available_count: 0, credits: [] },
+      fetched_at: 1770000000,
+      cache_persisted: true,
+    })
+
+    const wrapper = mount(OpenAIQuotaResetCell, {
+      props: { account: makeAccount({}) },
+      global: {
+        stubs: {
+          UsageProgressBar: {
+            props: ['label', 'utilization', 'resetsAt', 'color'],
+            template: '<div class="rate-limit-bar">{{ label }}|{{ utilization }}|{{ resetsAt }}</div>',
+          },
+        },
+      },
+    })
+
+    await wrapper.findAll('button')[0].trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="openai-rate-limit-buckets"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('codex 15m|25|2024-11-07T02:40:00.000Z')
+    expect(wrapper.text()).toContain('codex_other 1h|42|2024-11-07T03:40:00.000Z')
+    expect(wrapper.text()).toContain('15m')
+    expect(wrapper.text()).toContain('1h')
+    wrapper.unmount()
+  })
+
+  it('保留窗口本地计数并展示查询得到的服务端 Token 计数', async () => {
+    vi.mocked(refreshOpenAIQuota).mockResolvedValue({
+      rate_limits_by_limit_id: {
+        codex: {
+          limit_id: 'codex',
+          primary: {
+            used_percent: 25,
+            window_duration_mins: 300,
+            resets_at: 1730947200,
+          },
+        },
+      },
+      server_token_usage: {
+        summary: {
+          lifetime_tokens: 1234,
+          peak_daily_tokens: 456,
+          longest_running_turn_seconds: 12,
+          current_streak_days: 3,
+          longest_streak_days: 7,
+        },
+        current_reset_cycle_tokens: 777,
+        current_reset_cycle_window_minutes: 10080,
+        current_reset_cycle_limit_id: 'codex',
+        current_reset_cycle_approximate: false,
+        daily_usage_buckets: [{ start_date: '2026-08-23', tokens: 321 }],
+      },
+      fetched_at: 1770000000,
+      cache_persisted: true,
+    })
+
+    const wrapper = mount(OpenAIQuotaResetCell, {
+      props: {
+        account: makeAccount({}),
+        localWindowStats: {
+          five_hour: {
+            requests: 9,
+            tokens: 900,
+            cost: 0.09,
+            standard_cost: 0.09,
+            user_cost: 0.04,
+          },
+        },
+      },
+      global: {
+        stubs: {
+          UsageProgressBar: {
+            props: ['label', 'utilization', 'resetsAt', 'windowStats', 'color'],
+            template: '<div class="rate-limit-bar">{{ label }}|{{ utilization }}|{{ windowStats?.requests }}|{{ windowStats?.tokens }}|{{ windowStats?.cost }}|{{ windowStats?.user_cost }}</div>',
+          },
+        },
+      },
+    })
+
+    await wrapper.findAll('button')[0].trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('codex 5h|25|9|900|0.09|0.04')
+    expect(wrapper.find('[data-testid="openai-server-token-usage"]').text()).toContain('admin.accounts.openaiQuotaReset.serverUsageFields.lifetimeTokens: 1.2K')
+    expect(wrapper.find('[data-testid="openai-server-token-usage"]').text()).toContain('admin.accounts.openaiQuotaReset.serverUsageFields.currentResetCycleTokens (7d): 777')
+    expect(wrapper.text()).toContain('admin.accounts.openaiQuotaReset.serverUsageFields.dailyBucket 2026-08-23: 321')
+    wrapper.unmount()
+  })
+
+  it('未知桶保留英文原字段和值而不静默丢弃', async () => {
+    vi.mocked(refreshOpenAIQuota).mockResolvedValue({
+      rate_limits_by_limit_id: {
+        'gpt-aaa': {
+          limit_id: 'gpt-aaa',
+          raw_value: 100,
+        },
+        future: {
+          limitId: 'future',
+          raw_fields: {
+            windowDurationMins: 100,
+            newField: 'keep-me',
+          },
+        },
+      },
+      fetched_at: 1770000000,
+      cache_persisted: true,
+    })
+
+    const wrapper = mount(OpenAIQuotaResetCell, { props: { account: makeAccount({}) } })
+    await wrapper.findAll('button')[0].trigger('click')
+    await flushPromises()
+
+    const buckets = wrapper.find('[data-testid="openai-rate-limit-buckets"]')
+    expect(buckets.text()).toContain('gpt-aaa')
+    expect(buckets.text()).toContain('100')
+    expect(buckets.text()).toContain('windowDurationMins: 100')
+    expect(buckets.text()).toContain('newField: keep-me')
+    wrapper.unmount()
+  })
+
+  it('直接收到标量未知桶时也按原始英文键值显示', async () => {
+    vi.mocked(refreshOpenAIQuota).mockResolvedValue({
+      rateLimitsByLimitId: { 'gpt-aaa': 100 },
+      fetched_at: 1770000000,
+      cache_persisted: true,
+    })
+    const wrapper = mount(OpenAIQuotaResetCell, { props: { account: makeAccount({}) } })
+    await wrapper.findAll('button')[0].trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="openai-rate-limit-buckets"]').text()).toContain('gpt-aaa:100')
+    wrapper.unmount()
+  })
+
+  it('兼容直接传入的 camelCase App Server 字段', async () => {
+    vi.mocked(refreshOpenAIQuota).mockResolvedValue({
+      rateLimitsByLimitId: {
+        codex_other: {
+          limitId: 'codex_other',
+          limitName: 'Other',
+          primary: {
+            usedPercent: 11,
+            windowDurationMins: 30,
+            resetsAt: 1730950800,
+          },
+        },
+      },
+      fetched_at: 1770000000,
+      cache_persisted: true,
+    })
+
+    const wrapper = mount(OpenAIQuotaResetCell, {
+      props: { account: makeAccount({}) },
+      global: {
+        stubs: {
+          UsageProgressBar: {
+            props: ['label', 'utilization', 'resetsAt', 'color'],
+            template: '<div class="rate-limit-bar">{{ label }}|{{ utilization }}</div>',
+          },
+        },
+      },
+    })
+
+    await wrapper.findAll('button')[0].trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Other 30m|11')
+    expect(wrapper.text()).toContain('30m')
+    wrapper.unmount()
+  })
+
+  it('没有多桶时回退显示旧的单桶窗口', async () => {
+    vi.mocked(refreshOpenAIQuota).mockResolvedValue({
+      rate_limit: {
+        allowed: true,
+        limit_reached: false,
+        primary_window: {
+          used_percent: 63,
+          limit_window_seconds: 18000,
+          reset_after_seconds: 1200,
+          reset_at: 1730947200,
+        },
+      },
+      fetched_at: 1770000000,
+      cache_persisted: true,
+    })
+
+    const wrapper = mount(OpenAIQuotaResetCell, {
+      props: { account: makeAccount({}) },
+      global: {
+        stubs: {
+          UsageProgressBar: {
+            props: ['label', 'utilization', 'resetsAt', 'color'],
+            template: '<div class="rate-limit-bar">{{ label }}|{{ utilization }}</div>',
+          },
+        },
+      },
+    })
+
+    await wrapper.findAll('button')[0].trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('codex 5h|63')
+    wrapper.unmount()
+  })
+
+  it('按 windowDurationMins 标注仅返回的周窗口', async () => {
+    vi.mocked(refreshOpenAIQuota).mockResolvedValue({
+      rate_limits_by_limit_id: {
+        codex: {
+          limit_id: 'codex',
+          primary: {
+            used_percent: 33,
+            window_duration_mins: 10080,
+            resets_at: 1730950800,
+          },
+        },
+      },
+      fetched_at: 1770000000,
+      cache_persisted: true,
+    })
+
+    const wrapper = mount(OpenAIQuotaResetCell, {
+      props: { account: makeAccount({}) },
+      global: {
+        stubs: {
+          UsageProgressBar: {
+            props: ['label', 'utilization', 'resetsAt', 'color'],
+            template: '<div class="rate-limit-bar">{{ label }}|{{ utilization }}</div>',
+          },
+        },
+      },
+    })
+
+    await wrapper.findAll('button')[0].trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('codex 7d|33')
+    wrapper.unmount()
+  })
 })

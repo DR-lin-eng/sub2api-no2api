@@ -1468,10 +1468,9 @@ export default {
         subscriptionExpired: 'Subscription expired'
       },
       openaiQuotaReset: {
-        count: 'Credits',
-        reset: 'Reset',
-        countTooltipLoad: 'Click to load the available reset-credit count',
-        countTooltipRefresh: 'Click to refresh the available reset-credit count',
+        count: 'Credits', reset: 'Reset', serverUsage: 'Server token usage', serverUsageFields: { lifetimeTokens: 'Lifetime tokens', peakDailyTokens: 'Peak daily tokens', longestRunningTurnSec: 'Longest running turn', currentStreakDays: 'Current streak', longestStreakDays: 'Longest streak', dailyBucket: 'Daily tokens', currentResetCycleTokens: 'Current reset-cycle tokens', approximate: 'approx.' },
+        countTooltipLoad: 'Click to load server token usage and the available reset-credit count',
+        countTooltipRefresh: 'Click to refresh server token usage and the available reset-credit count',
         resetTooltipReady: 'Consume 1 reset credit to immediately restore the window',
         resetTooltipNeedQuery: 'Click Credits first to load the available count',
         resetTooltipNoCredits: 'No reset credits available',
