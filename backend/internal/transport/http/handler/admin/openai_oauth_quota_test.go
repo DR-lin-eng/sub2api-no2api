@@ -39,6 +39,10 @@ func (s *openAIQuotaWorkflowStub) QueryUsage(ctx context.Context, _ int64) (*ser
 	return s.queryResult, s.queryErr
 }
 
+func (s *openAIQuotaWorkflowStub) QueryUsageWithServerUsage(ctx context.Context, accountID int64) (*service.OpenAIQuotaUsage, error) {
+	return s.QueryUsage(ctx, accountID)
+}
+
 func (s *openAIQuotaWorkflowStub) CacheResetCreditsSnapshot(ctx context.Context, _ int64, _ *service.OpenAIRateLimitResetCredits) error {
 	s.cacheCalls++
 	s.cacheCtxErr = ctx.Err()
@@ -224,6 +228,19 @@ func TestOpenAIResetQuotaPostProcessingSurvivesClientCancellation(t *testing.T) 
 func TestOpenAIRefreshQuotaPersistsSnapshotWithoutHidingReadFailures(t *testing.T) {
 	t.Run("persisted", func(t *testing.T) {
 		quota := successfulOpenAIQuotaWorkflowStub()
+		quota.queryResult.RateLimitsByLimitID = map[string]service.OpenAIAppServerRateLimitBucket{
+			"codex_other": {
+				LimitID: "codex_other",
+				Primary: &service.OpenAIAppServerRateLimitWindow{
+					UsedPercent:        42,
+					WindowDurationMins: 60,
+					ResetsAt:           1730950800,
+				},
+			},
+		}
+		quota.queryResult.ServerTokenUsage = &service.OpenAIServerTokenUsage{
+			Summary: service.OpenAITokenUsageSummary{LifetimeTokens: ptrInt64(1234)},
+		}
 		handler := &OpenAIOAuthHandler{quotaService: quota}
 
 		status, envelope := performOpenAIQuotaRefreshRequest(t, handler)
@@ -231,6 +248,8 @@ func TestOpenAIRefreshQuotaPersistsSnapshotWithoutHidingReadFailures(t *testing.
 		require.Equal(t, http.StatusOK, status)
 		require.True(t, envelope.Data.CachePersisted)
 		require.Equal(t, int64(123), envelope.Data.FetchedAt)
+		require.Equal(t, float64(42), envelope.Data.RateLimitsByLimitID["codex_other"].Primary.UsedPercent)
+		require.Equal(t, int64(1234), *envelope.Data.ServerTokenUsage.Summary.LifetimeTokens)
 	})
 
 	t.Run("persist failure is partial success", func(t *testing.T) {

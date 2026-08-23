@@ -118,33 +118,40 @@
       </div>
     </template>
 
-    <!-- OpenAI OAuth accounts: single source from /usage API -->
+    <!-- OpenAI OAuth accounts: local window stats plus explicit upstream buckets -->
     <template v-else-if="account.platform === 'openai' && account.type === 'oauth'">
       <div v-if="hasOpenAIUsageFallback" class="space-y-1">
-        <UsageProgressBar
-          v-if="usageInfo?.five_hour"
-          label="5h"
-          :utilization="usageInfo.five_hour.utilization"
-          :resets-at="usageInfo.five_hour.resets_at"
-          :window-stats="usageInfo.five_hour.window_stats"
-          :show-now-when-idle="true"
-          color="indigo"
-        />
-        <UsageProgressBar
-          v-if="usageInfo?.seven_day"
-          label="7d"
-          :utilization="usageInfo.seven_day.utilization"
-          :resets-at="usageInfo.seven_day.resets_at"
-          :window-stats="usageInfo.seven_day.window_stats"
-          :show-now-when-idle="true"
-          color="emerald"
-        />
+        <template v-if="!openAIQuotaHasWindowData">
+          <UsageProgressBar
+            v-if="usageInfo?.five_hour"
+            label="5h"
+            :utilization="usageInfo.five_hour.utilization"
+            :resets-at="usageInfo.five_hour.resets_at"
+            :window-stats="usageInfo.five_hour.window_stats"
+            :show-now-when-idle="true"
+            color="indigo"
+          />
+          <UsageProgressBar
+            v-if="usageInfo?.seven_day"
+            label="7d"
+            :utilization="usageInfo.seven_day.utilization"
+            :resets-at="usageInfo.seven_day.resets_at"
+            :window-stats="usageInfo.seven_day.window_stats"
+            :show-now-when-idle="true"
+            color="emerald"
+          />
+        </template>
         <!--
           Upstream codex /wham/usage quota query + reset. The local active-sampling
           refresh button is rendered via the pre-actions slot so the user sees a
           single row of related buttons instead of two stacked rows.
         -->
-        <OpenAIQuotaResetCell :account="account" @account-updated="handleQuotaResetAccountUpdated">
+        <OpenAIQuotaResetCell
+          :account="account"
+          :local-window-stats="openAILocalWindowStats"
+          @account-updated="handleQuotaResetAccountUpdated"
+          @quota-updated="handleQuotaUsageUpdated"
+        >
           <template #pre-actions>
             <button
               type="button"
@@ -188,8 +195,10 @@
         <!-- Always allow on-demand upstream quota query, even before local data exists. -->
         <OpenAIQuotaResetCell
           :account="account"
+          :local-window-stats="openAILocalWindowStats"
           class="mt-1"
           @account-updated="handleQuotaResetAccountUpdated"
+          @quota-updated="handleQuotaUsageUpdated"
         />
       </div>
     </template>
@@ -584,6 +593,7 @@ import type {
 import { buildOpenAIUsageRefreshKey } from '@/core/utils/accountUsageRefresh'
 import { enqueueUsageRequest } from '@/core/utils/usageLoadQueue'
 import { formatCompactNumber, formatRelativeTime } from '@/core/utils/format'
+import { useOpenAIQuotaDisplayState } from '@/features/admin-accounts/presentation/composables/useOpenAIQuotaDisplayState'
 import UsageProgressBar from './UsageProgressBar.vue'
 import AccountQuotaInfo from './AccountQuotaInfo.vue'
 import OpenAIQuotaResetCell from './OpenAIQuotaResetCell.vue'
@@ -684,6 +694,13 @@ const hasOpenAIUsageFallback = computed(() => {
   if (props.account.platform !== 'openai' || props.account.type !== 'oauth') return false
   return !!usageInfo.value?.five_hour || !!usageInfo.value?.seven_day
 })
+
+const {
+  localWindowStats: openAILocalWindowStats,
+  hasUpstreamWindowData: openAIQuotaHasWindowData,
+  updateQuotaUsage: handleQuotaUsageUpdated,
+  clearQuotaUsage: clearOpenAIQuotaUsage
+} = useOpenAIQuotaDisplayState(usageInfo)
 
 const openAIUsageRefreshKey = computed(() => buildOpenAIUsageRefreshKey(props.account))
 
@@ -1424,6 +1441,7 @@ watch(openAIUsageRefreshKey, (nextKey, prevKey) => {
   }
 
   _usageCache.delete(props.account.id)
+  clearOpenAIQuotaUsage()
   requestAutoLoad()
 })
 
@@ -1435,6 +1453,9 @@ watch(
 
     const source = isAnthropicOAuthOrSetupToken.value ? 'passive' : undefined
     _usageCache.delete(props.account.id)
+    if (props.account.platform === 'openai' && props.account.type === 'oauth') {
+      clearOpenAIQuotaUsage()
+    }
     loadUsage({ source, bypassCache: true }).catch((e) => {
       console.error('Failed to refresh usage after manual refresh:', e)
     })

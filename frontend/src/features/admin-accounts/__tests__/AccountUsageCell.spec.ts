@@ -553,6 +553,38 @@ describe('AccountUsageCell', () => {
     expect(getUsage).toHaveBeenCalledTimes(1)
   })
 
+  it('quota 查询返回桶后以桶窗口替换固定 5h/7d 窗口', async () => {
+    getUsage.mockResolvedValue({
+      five_hour: { utilization: 18, resets_at: '2099-03-07T12:00:00Z', window_stats: { requests: 9, tokens: 900, cost: 0.09, standard_cost: 0.09, user_cost: 0.04 } },
+      seven_day: { utilization: 36, resets_at: '2099-03-13T12:00:00Z', window_stats: { requests: 9, tokens: 900, cost: 0.09, standard_cost: 0.09, user_cost: 0.04 } }
+    })
+    const wrapper = mount(AccountUsageCell, {
+      props: { account: makeAccount({ id: 2005, platform: 'openai', type: 'oauth', extra: {} }) },
+      global: {
+        stubs: {
+          UsageProgressBar: {
+            props: ['label', 'utilization'],
+            template: '<div class="usage-bar">{{ label }}|{{ utilization }}</div>'
+          },
+          AccountQuotaInfo: true,
+          OpenAIQuotaResetCell: {
+            props: ['account', 'localWindowStats'],
+            template: '<button data-test="quota-query" @click="$emit(\'quota-updated\', { rate_limits_by_limit_id: { codex: { limit_id: \'codex\', primary: { used_percent: 25, window_duration_mins: 15, resets_at: 1730947200 } } }, fetched_at: 1 })" />'
+          }
+        }
+      }
+    })
+    await flushPromises()
+    expect(wrapper.text()).toContain('5h|18')
+    expect(wrapper.text()).toContain('7d|36')
+
+    await wrapper.get('[data-test="quota-query"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('5h|18')
+    expect(wrapper.text()).not.toContain('7d|36')
+    wrapper.unmount()
+  })
+
   it('OpenAI OAuth 已限额时显示 /usage API 返回的限额数据', async () => {
 	getUsage.mockResolvedValue({
 	  five_hour: {
