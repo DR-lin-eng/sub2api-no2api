@@ -155,3 +155,30 @@ func TestIsOpenAIOAuthServableModel(t *testing.T) {
 	require.False(t, isOpenAIOAuthServableModel("provider/k3"))
 	require.False(t, isOpenAIOAuthServableModel("my-k3-alias")) // 未经渠道映射的自定义别名拒绝
 }
+
+func TestIsModelSupported_OpenAIOAuthUsesLiveCapabilitySnapshot(t *testing.T) {
+	account := newOpenAIOAuthAccountForModelTest()
+	account.Extra = map[string]any{
+		OpenAIOAuthSupportedModelsExtraKey: []any{"gpt-5.5", "gpt-image-2"},
+	}
+
+	// A model known to the static catalog but absent from the latest upstream
+	// manifest is rejected, while a manifest model and its reasoning suffix are
+	// accepted. Explicit mappings remain a separate opt-in path.
+	require.True(t, account.IsModelSupported("gpt-5.5"))
+	require.True(t, account.IsModelSupported("gpt-5.5-high"))
+	require.True(t, account.IsModelSupported("gpt-image-2"))
+	require.False(t, account.IsModelSupported("gpt-5.4"))
+}
+
+func TestOpenAIOAuthSupportedModelsIgnoresMalformedSnapshot(t *testing.T) {
+	account := newOpenAIOAuthAccountForModelTest()
+	account.Extra = map[string]any{OpenAIOAuthSupportedModelsExtraKey: []any{"", 42, " gpt-5.5 "}}
+	models, ok := account.OpenAIOAuthSupportedModels()
+	require.True(t, ok)
+	require.Equal(t, []string{"gpt-5.5"}, models)
+
+	account.Extra[OpenAIOAuthSupportedModelsExtraKey] = []any{""}
+	_, ok = account.OpenAIOAuthSupportedModels()
+	require.False(t, ok)
+}

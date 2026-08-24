@@ -372,6 +372,23 @@ func (s *AccountService) Update(ctx context.Context, id int64, req UpdateAccount
 		delete(extra, OllamaCloudUsageSessionExtraKey)
 		delete(extra, OllamaCloudUsageAutoRefreshExtraKey)
 		delete(extra, OllamaCloudUsageSnapshotExtraKey)
+		// OAuth model capability snapshots are maintained by the background
+		// synchronizer, not by the account form. Preserve the latest known-good
+		// values when an older frontend submits a full Extra replacement that
+		// does not include these server-managed keys.
+		for _, key := range []string{
+			OAuthSupportedModelsExtraKey,
+			OAuthSupportedModelsSyncedAtExtraKey,
+			OpenAIOAuthSupportedModelsExtraKey,
+			OpenAIOAuthSupportedModelsSyncedAtExtraKey,
+		} {
+			if _, submitted := extra[key]; submitted {
+				continue
+			}
+			if value, exists := account.Extra[key]; exists && value != nil {
+				extra[key] = value
+			}
+		}
 		account.Extra = extra
 	}
 

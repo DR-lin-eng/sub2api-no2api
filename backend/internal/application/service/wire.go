@@ -279,6 +279,26 @@ func ProvideAccountTestService(
 	return service
 }
 
+// ProvideOAuthModelSyncService creates the live OAuth model capability
+// refresher. Scheduled workers are enabled only on nodes that opt into worker
+// execution; the manual RunOnce method remains available in tests/tools.
+func ProvideOAuthModelSyncService(
+	accountRepo AccountRepository,
+	accountTestService *AccountTestService,
+	lockCache LeaderLockCache,
+	db *sql.DB,
+	cfg *config.Config,
+	gatewayService *GatewayService,
+) *OAuthModelSyncService {
+	svc := NewOAuthModelSyncServiceFromConfig(accountRepo, accountTestService, cfg)
+	svc.SetLeaderLock(lockCache, db)
+	svc.SetModelsCacheInvalidator(gatewayService)
+	if cfg != nil && cfg.Deployment.WorkerEnabledResolved() && cfg.OAuthModelSync.Enabled {
+		svc.Start()
+	}
+	return svc
+}
+
 func ProvideGrokQuotaService(
 	accountRepo AccountRepository,
 	proxyRepo ProxyRepository,
@@ -1008,6 +1028,7 @@ var ProviderSet = wire.NewSet(
 	ProvideRateLimitService,
 	ProvideAccountUsageService,
 	ProvideAccountTestService,
+	ProvideOAuthModelSyncService,
 	ProvideUpstreamBillingProbeService,
 	ProvideOllamaCloudUsageService,
 	ProvideSettingService,

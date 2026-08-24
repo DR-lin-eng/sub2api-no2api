@@ -677,6 +677,22 @@ token_refresh:
   # 单个后台刷新周期的总超时时间（秒，最大 3600）
   cycle_timeout_seconds: 240
 
+# OAuth model capability synchronization
+# OAuth 账号上游模型能力同步
+oauth_model_sync:
+  # Enable the background capability refresh on worker nodes
+  # 是否在 worker 节点启用后台能力刷新
+  enabled: true
+  # Refresh interval (minutes)
+  # 刷新间隔（分钟）
+  interval_minutes: 60
+  # Timeout for one account's upstream manifest request (seconds)
+  # 单个账号上游 manifest 请求超时（秒）
+  account_timeout_seconds: 20
+  # Maximum concurrent account manifest requests per worker
+  # 每个 worker 同时探测的账号数上限
+  max_concurrent: 2
+
 # =============================================================================
 # API Key Auth Cache Configuration
 # API Key 认证缓存配置

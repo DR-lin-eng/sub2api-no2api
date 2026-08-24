@@ -139,6 +139,26 @@ const CodexPrewarmContinuationExtraKey = "codex_prewarm_continuation_enabled"
 // opt-in because malformed or provider-specific tags must remain visible.
 const CodexThinkingTagNormalizationExtraKey = "codex_thinking_tag_normalization_enabled"
 
+// OAuthSupportedModelsExtraKey stores the last successful, upstream observed
+// model capability snapshot for an OAuth account. It is deliberately kept in
+// accounts.extra instead of credentials.model_mapping: an automatically
+// observed snapshot must not turn into a user-visible explicit whitelist or
+// overwrite an administrator's mapping.
+const OAuthSupportedModelsExtraKey = "oauth_supported_models"
+
+// OpenAIOAuthSupportedModelsExtraKey is retained as a compatibility alias for
+// snapshots written by an earlier worker implementation.
+const OpenAIOAuthSupportedModelsExtraKey = "openai_oauth_supported_models"
+
+// OAuthSupportedModelsSyncedAtExtraKey records when the capability snapshot
+// was obtained. The timestamp is informational; a failed refresh keeps the
+// previous known-good snapshot so routing fails closed.
+const OAuthSupportedModelsSyncedAtExtraKey = "oauth_supported_models_synced_at"
+
+// OpenAIOAuthSupportedModelsSyncedAtExtraKey is the legacy OpenAI-specific
+// timestamp key accepted while rolling upgrades are in progress.
+const OpenAIOAuthSupportedModelsSyncedAtExtraKey = "openai_oauth_supported_models_synced_at"
+
 // AutoDisableOnUpstreamInsufficientBalanceExtraKey controls whether an account
 // is made unschedulable after the upstream reports a durable balance shortage.
 // Missing and non-boolean values intentionally default to false.
@@ -936,9 +956,10 @@ func resolveRequestedModelInSliceMapping(mapping map[string][]string, requestedM
 // 对 OpenAI OAuth 的空映射，未知模型按 Codex 能力拒绝；渠道级别的别名
 // 应通过 IsModelSupportedForRequest 传入映射后的上游模型。
 //
-// OpenAI OAuth 账号（Codex 上游）的空映射只允许已知 Codex/Claude 模型；
-// 渠道级别的未知别名会在调度前替换为实际模型后再检查。这样可避免把
-// 未知模型原样发到 Codex，导致不可重试的 400 并错误消耗 OAuth 账号。
+// OpenAI OAuth 账号（Codex 上游）的空映射优先使用后台同步的实时能力
+// 快照；首次同步或同步失败时回退到已知 Codex/Claude 模型。渠道级别的
+// 未知别名会在调度前替换为实际模型后再检查。这样可避免把已下线或未知
+// 模型原样发到 Codex，导致不可重试的 400 并错误消耗 OAuth 账号。
 func (a *Account) IsModelSupported(requestedModel string) bool {
 	return a.IsModelSupportedForRequest(requestedModel, "")
 }
@@ -954,6 +975,16 @@ func (a *Account) IsModelSupportedForRequest(requestedModel, routedModel string)
 	// model_mapping 白名单错误排除出候选集，导致 no available accounts / 404（issue #4936）。
 	if a.IsOpenAIPassthroughEnabled() {
 		return true
+	}
+	// OAuth accounts with no administrator-provided mapping may have a
+	// periodically refreshed upstream capability snapshot. Check it before
+	// synthesized platform defaults (Antigravity/Grok) so a removed upstream
+	// model is not admitted merely because the built-in compatibility catalog
+	// still contains it.
+	if a.IsOAuth() && !a.HasExplicitModelMapping() {
+		if supportedModels, ok := a.OAuthSupportedModels(); ok {
+			return isOAuthSyncedModel(a, requestedModel, routedModel, supportedModels)
+		}
 	}
 	mapping := a.GetModelMapping()
 	if len(mapping) == 0 {

@@ -16,6 +16,7 @@
 | `payment*`, `batch_image*` | 支付应用编排与批量图片任务 |
 | `ops*`, `audit*`, `content_moderation*` | 运维、审计和内容策略 |
 | `setting*`, `notification*`, `backup*` | 配置、通知和维护用例 |
+| `oauth_model_sync_service.go` | OpenAI OAuth 实时模型能力快照与定时同步 |
 | `cluster*` | 稳定节点身份、心跳清单、任务租约、就绪门禁与串行版本发布 |
 | `wire.go` | application provider 集合 |
 
