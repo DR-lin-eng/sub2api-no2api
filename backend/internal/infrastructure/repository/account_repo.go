@@ -40,6 +40,7 @@ var schedulerNeutralExtraKeyPrefixes = []string{
 	"codex_5h_",
 	"codex_7d_",
 	"codex_reset_credit_",
+	"codex_rate_limit_",
 	"passive_usage_",
 	"upstream_billing_probe",
 	"ollama_cloud_usage",

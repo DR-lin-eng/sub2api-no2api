@@ -76,3 +76,49 @@ func TestCacheResetCreditsSnapshot(t *testing.T) {
 		require.ErrorIs(t, err, repoErr)
 	})
 }
+
+func TestCacheRateLimitSnapshot(t *testing.T) {
+	t.Run("persists only the rate-limit fields", func(t *testing.T) {
+		repo := &openAIQuotaCacheRepo{}
+		svc := &OpenAIQuotaService{accountRepo: repo}
+		usage := &OpenAIQuotaUsage{
+			FetchedAt: 123,
+			RateLimitsByLimitID: map[string]OpenAIAppServerRateLimitBucket{
+				"codex": {
+					LimitID: "codex",
+					Primary: &OpenAIAppServerRateLimitWindow{UsedPercent: 77, WindowDurationMins: 10080, ResetsAt: 1730947200},
+				},
+			},
+			ServerTokenUsage: &OpenAIServerTokenUsage{Summary: OpenAITokenUsageSummary{LifetimeTokens: int64Ptr(999)}},
+		}
+
+		require.NoError(t, svc.CacheRateLimitSnapshot(context.Background(), 42, usage))
+		got, ok := repo.updates[42][openAIQuotaRateLimitSnapshotKey].(*OpenAIRateLimitSnapshot)
+		require.True(t, ok)
+		require.Equal(t, int64(123), got.FetchedAt)
+		require.Equal(t, float64(77), got.RateLimitsByLimitID["codex"].Primary.UsedPercent)
+	})
+
+	t.Run("clears an old snapshot when no bucket is returned", func(t *testing.T) {
+		repo := &openAIQuotaCacheRepo{}
+		svc := &OpenAIQuotaService{accountRepo: repo}
+
+		require.NoError(t, svc.CacheRateLimitSnapshot(context.Background(), 42, &OpenAIQuotaUsage{}))
+		value, exists := repo.updates[42][openAIQuotaRateLimitSnapshotKey]
+		require.True(t, exists)
+		require.Nil(t, value)
+	})
+
+	t.Run("wraps repository errors", func(t *testing.T) {
+		repoErr := errors.New("database unavailable")
+		repo := &openAIQuotaCacheRepo{err: repoErr}
+		svc := &OpenAIQuotaService{accountRepo: repo}
+
+		err := svc.CacheRateLimitSnapshot(context.Background(), 42, &OpenAIQuotaUsage{
+			RateLimitsByLimitID: map[string]OpenAIAppServerRateLimitBucket{
+				"codex": {LimitID: "codex"},
+			},
+		})
+		require.ErrorIs(t, err, repoErr)
+	})
+}

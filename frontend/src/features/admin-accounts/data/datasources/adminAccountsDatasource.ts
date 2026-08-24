@@ -434,6 +434,7 @@ export interface OpenAIQuotaResetResult {
 
 export interface OpenAIQuotaRefreshResult extends OpenAIQuotaUsage {
   cache_persisted: boolean
+  rate_limit_snapshot_persisted?: boolean
 }
 
 /**

@@ -192,6 +192,7 @@ var duplicateAccountDiscardedExtraKeys = map[string]struct{}{
 	"codex_secondary_window_minutes":         {},
 	"codex_primary_over_secondary_percent":   {},
 	"codex_usage_updated_at":                 {},
+	"codex_rate_limit_snapshot":              {},
 	"codex_5h_used_percent":                  {},
 	"codex_5h_reset_after_seconds":           {},
 	"codex_5h_window_minutes":                {},

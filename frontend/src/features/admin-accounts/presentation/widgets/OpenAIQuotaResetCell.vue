@@ -326,7 +326,38 @@ const readCachedResetCredits = (account: Account): OpenAIQuotaUsage | null => {
 const cachedQuotaSnapshot = (account: Account): OpenAIQuotaUsage | null =>
   openAIQuotaSnapshotCache.get(account.id) ?? null
 
-const initialQuotaData = cachedQuotaSnapshot(props.account) ?? readCachedResetCredits(props.account)
+const readPersistedQuotaSnapshot = (account: Account): OpenAIQuotaUsage | null => {
+  const raw = account.extra?.codex_rate_limit_snapshot
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+
+  const snapshot = raw as Record<string, unknown>
+  const rateLimits = snapshot.rate_limits_by_limit_id ?? snapshot.rateLimitsByLimitId
+  const rateLimit = snapshot.rate_limit ?? snapshot.rateLimit
+  const hasBuckets = rateLimits && typeof rateLimits === 'object' && !Array.isArray(rateLimits) && Object.keys(rateLimits).length > 0
+  const hasLegacyBucket = rateLimit && typeof rateLimit === 'object' && !Array.isArray(rateLimit)
+  if (!hasBuckets && !hasLegacyBucket) return null
+
+  const fetchedAt = Number(snapshot.fetched_at ?? snapshot.fetchedAt ?? 0)
+  return {
+    fetched_at: Number.isFinite(fetchedAt) ? fetchedAt : 0,
+    rate_limits_by_limit_id: hasBuckets
+      ? rateLimits as OpenAIQuotaUsage['rate_limits_by_limit_id']
+      : undefined,
+    rate_limit: hasLegacyBucket ? rateLimit as OpenAIQuotaUsage['rate_limit'] : undefined
+  }
+}
+
+const quotaDataForAccount = (account: Account): OpenAIQuotaUsage | null => {
+  const snapshot = cachedQuotaSnapshot(account) ?? readPersistedQuotaSnapshot(account)
+  const credits = readCachedResetCredits(account)
+  if (!snapshot) return credits
+  return {
+    ...snapshot,
+    rate_limit_reset_credits: credits?.rate_limit_reset_credits
+  }
+}
+
+const initialQuotaData = quotaDataForAccount(props.account)
 cachedData.value = initialQuotaData
 data.value = initialQuotaData
 
@@ -790,8 +821,7 @@ watch(
   () => [props.account.id, props.account.extra?.codex_reset_credit_snapshot] as const,
   () => {
     // Account row may be reused across paginated lists; reset local state.
-    const snapshot = cachedQuotaSnapshot(props.account)
-    const fallback = snapshot ?? readCachedResetCredits(props.account)
+    const fallback = quotaDataForAccount(props.account)
     cachedData.value = fallback
     data.value = fallback
     error.value = null

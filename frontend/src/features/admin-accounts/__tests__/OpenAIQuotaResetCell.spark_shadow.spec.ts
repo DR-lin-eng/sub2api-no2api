@@ -288,6 +288,42 @@ describe('OpenAIQuotaResetCell — 外审 F6:影子禁用重置', () => {
     wrapper.unmount()
   })
 
+  it('账号列表携带持久化桶快照时首屏直接显示百分比', () => {
+    const wrapper = mount(OpenAIQuotaResetCell, {
+      props: {
+        account: makeAccount({
+          id: 1900,
+          extra: {
+            codex_rate_limit_snapshot: {
+              fetched_at: 1770000000,
+              rate_limits_by_limit_id: {
+                codex: {
+                  limit_id: 'codex',
+                  primary: {
+                    used_percent: 88,
+                    window_duration_mins: 10080,
+                    resets_at: 1730947200,
+                  },
+                },
+              },
+            },
+          },
+        }),
+      },
+      global: {
+        stubs: {
+          UsageProgressBar: {
+            props: ['label', 'utilization'],
+            template: '<div class="rate-limit-bar">{{ label }}|{{ utilization }}</div>',
+          },
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('7d|88')
+    wrapper.unmount()
+  })
+
   it('主查询也会刷新父组件提供的本地计数', async () => {
     const queryLocalUsage = vi.fn().mockResolvedValue(undefined)
     vi.mocked(refreshOpenAIQuota).mockResolvedValue({
