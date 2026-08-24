@@ -50,6 +50,18 @@ func (s *OpenAIGatewayService) forwardAnthropicViaRawChatCompletions(
 	}
 	applyOpenAICompatModelNormalization(&anthropicReq)
 	clientStream := anthropicReq.Stream
+	contextControlStats := applyOpenAIAnthropicContextControls(&anthropicReq)
+	if contextControlStats.seen() {
+		logger.L().Debug("openai messages chat fallback: applied Anthropic context controls locally",
+			zap.Int64("account_id", account.ID),
+			zap.String("context_controls", contextControlDescription(contextControlStats)),
+		)
+	}
+	if account != nil && account.Platform == PlatformOpenAI && isClaudeCodeCompactAnthropicRequest(&anthropicReq) {
+		return s.forwardAnthropicCompactViaRawChatCompletions(
+			ctx, c, account, &anthropicReq, originalModel, defaultMappedModel, clientStream, startTime,
+		)
+	}
 
 	// 2. Anthropic → Chat Completions (direct, no Responses intermediary)
 	chatReq, err := apicompat.AnthropicToChatCompletionsRequest(&anthropicReq)

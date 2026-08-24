@@ -881,21 +881,19 @@ func removeThinkingDependentContextStrategies(body []byte) []byte {
 // claude package 的该常量含义。
 const anthropicBetaContextManagementToken = "context-management-2025-06-27"
 
+// anthropicBetaContextHintToken gates Claude Code's newer context_hint body
+// extension.  Keep it local because the OpenAI bridge consumes the extension
+// before conversion, while native Anthropic paths use the header/body pair.
+const anthropicBetaContextHintToken = "context-hint-2026-04-09"
+
 // sanitizeAnthropicBodyForBetaTokens 是对 Anthropic 直连路径上 body↔beta header
 // **能力维度**对称约束的统一实现，与 Bedrock 路径的
 // `sanitizeBedrockFieldsForBetaTokens` 对称。
 //
-// 问题场景：
-//   - context_management 是 Claude Code CLI 2.1.87+ 默认携带的 beta 字段
-//     （含 clear_thinking_20251015 等清理策略）
-//   - 其被 Anthropic 上游接受的前提是 anthropic-beta header 含
-//     `context-management-2025-06-27`
-//   - 若两侧不一致上游 Pydantic schema 拒收：
-//     "context_management: Extra inputs are not permitted"
-//
-// 本函数按最终发送的 anthropic-beta header 决定是否保留 body 中的
-// context_management 字段：缺 beta token → strip。这将限制完全建立在
-// "能力维度" 上，与 model 名 / token type / mimicry 子路径无关。
+// 问题场景：context_management/context_hint 都是 beta-gated body fields；
+// 若 body 与最终 anthropic-beta header 不成对出现，Anthropic 上游会以
+// "Extra inputs are not permitted" 拒收。按最终 header 做能力维度净化，
+// 与 model 名、token type、mimicry 子路径解耦。
 //
 // 调用约束：必须在 CCH 签名之前调用，否则签名 hash 与最终 body
 // 不一致，上游会以 third-party 拒收。
@@ -906,23 +904,24 @@ func sanitizeAnthropicBodyForBetaTokens(body []byte, anthropicBetaHeader string)
 	if len(body) == 0 {
 		return body, false
 	}
-	if !gjson.GetBytes(body, "context_management").Exists() {
-		return body, false
+	changed := false
+	deleteField := func(path, token string) {
+		if !gjson.GetBytes(body, path).Exists() || anthropicBetaTokensContains(anthropicBetaHeader, token) {
+			return
+		}
+		updated, err := sjson.DeleteBytes(body, path)
+		if err != nil {
+			logger.LegacyPrintf("service.gateway",
+				"[CtxMgmtSanitize] delete %s failed: %v (body len=%d). body and final anthropic-beta header may be out of sync.",
+				path, err, len(body))
+			return
+		}
+		body = updated
+		changed = true
 	}
-	if anthropicBetaTokensContains(anthropicBetaHeader, anthropicBetaContextManagementToken) {
-		return body, false
-	}
-	if b, err := sjson.DeleteBytes(body, "context_management"); err == nil {
-		return b, true
-	} else {
-		// 不应发生：gjson 刚验证过字段存在 + body 是合法 JSON。如果 sjson 仍报错，
-		// 调用方会拿到 (body, false)，但此前 computeFinalAnthropicBeta 已按“strip 后”
-		// 计算了 finalBeta——两侧会不一致。记录 warning 最小限度提醒运维。
-		logger.LegacyPrintf("service.gateway",
-			"[CtxMgmtSanitize] sjson.DeleteBytes failed unexpectedly: %v (body len=%d). "+
-				"body and final anthropic-beta header may be out of sync.", err, len(body))
-	}
-	return body, false
+	deleteField("context_management", anthropicBetaContextManagementToken)
+	deleteField("context_hint", anthropicBetaContextHintToken)
+	return body, changed
 }
 
 // anthropicBetaTokensContains 检测逗号分隔的 anthropic-beta header 是否含指定 token。
