@@ -190,7 +190,7 @@ func (s *OpenAIGatewayService) runAnthropicCompactChatRequest(
 	if err != nil {
 		return nil, OpenAIUsage{}, "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	requestID := resp.Header.Get("x-request-id")
 	if resp.StatusCode >= 400 {
 		respBody, upstreamMsg := s.readOpenAIUpstreamError(resp)
