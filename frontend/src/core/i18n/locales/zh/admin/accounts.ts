@@ -478,8 +478,8 @@ export default {
       },
       openaiQuotaReset: {
         count: '次数', reset: '重置', localStats: '本地计数', serverUsage: '服务端 Token 用量', serverUsageFields: { lifetimeTokens: '累计 Token', peakDailyTokens: '单日峰值 Token', longestRunningTurnSec: '最长运行轮次', currentStreakDays: '当前连续天数', longestStreakDays: '最长连续天数', dailyBucket: '每日 Token', currentResetCycleTokens: '本次重置周期 Token', approximate: '估算' },
-        countTooltipLoad: '点击刷新服务端额度、Token 用量和重置次数',
-        countTooltipRefresh: '点击刷新服务端额度、Token 用量和重置次数',
+        countTooltipLoad: '服务端数据由「查询」按钮加载',
+        countTooltipRefresh: '服务端数据由「查询」按钮刷新',
         resetTooltipReady: '消耗 1 次重置次数以立即恢复当前窗口',
         resetTooltipNeedQuery: '先点击「查询」加载服务端数据',
         resetTooltipNoCredits: '没有可用的重置次数',

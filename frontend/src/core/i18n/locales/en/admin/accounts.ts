@@ -1470,8 +1470,8 @@ export default {
       },
       openaiQuotaReset: {
         count: 'Credits', reset: 'Reset', localStats: 'Local counters', serverUsage: 'Server token usage', serverUsageFields: { lifetimeTokens: 'Lifetime tokens', peakDailyTokens: 'Peak daily tokens', longestRunningTurnSec: 'Longest running turn', currentStreakDays: 'Current streak', longestStreakDays: 'Longest streak', dailyBucket: 'Daily tokens', currentResetCycleTokens: 'Current reset-cycle tokens', approximate: 'approx.' },
-        countTooltipLoad: 'Refresh upstream quota, token usage, and reset credits',
-        countTooltipRefresh: 'Refresh upstream quota, token usage, and reset credits',
+        countTooltipLoad: 'Server data is loaded by the Query button',
+        countTooltipRefresh: 'Server data is refreshed by the Query button',
         resetTooltipReady: 'Consume 1 reset credit to immediately restore the window',
         resetTooltipNeedQuery: 'Click Query first to load the server data',
         resetTooltipNoCredits: 'No reset credits available',

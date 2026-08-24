@@ -1,10 +1,8 @@
 <template>
   <div v-if="visible" class="space-y-1">
     <!--
-      Unified action row. Parents that already render their own "local query"
-      affordance (e.g. AccountUsageCell's active-sampling refresh) pass it in
-      via the #pre-actions slot so the user sees a single row of related
-      buttons rather than two near-duplicate "查询" rows.
+      Unified action row. The parent supplies the primary 查询 action through
+      #pre-actions; standalone uses render the same action here.
 
       Local request/token/cost counters remain separate from rate-limit bars.
       Official App Server buckets are rendered below only after the explicit
@@ -14,8 +12,9 @@
       <slot name="pre-actions" />
 
       <button
+        v-if="!hasPreActions"
         type="button"
-        data-testid="openai-secondary-quota-query"
+        data-testid="openai-primary-query"
         class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-blue-600 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-900/30"
         :disabled="loading || resetting"
         :title="countButtonTitle"
@@ -35,11 +34,21 @@
             d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
           />
         </svg>
-        {{ t('admin.accounts.openaiQuotaReset.count') }}<span v-if="data"> {{ availableResetCount }}</span>
+        {{ t('admin.accounts.usageWindow.activeQuery') }}
       </button>
+
+      <span
+        data-testid="openai-reset-credit-count"
+        class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:text-blue-400"
+        :title="countButtonTitle"
+        aria-live="polite"
+      >
+        {{ t('admin.accounts.openaiQuotaReset.count') }}<span v-if="data"> {{ availableResetCount }}</span>
+      </span>
 
       <button
         type="button"
+        data-testid="openai-reset-button"
         class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-orange-600 transition-colors hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-orange-400 dark:hover:bg-orange-900/30"
         :disabled="resetting || loading || !canReset"
         :title="resetButtonTitle"
@@ -229,7 +238,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, useSlots } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Account, WindowStats } from '@/types'
 import {
@@ -259,6 +268,8 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const slots = useSlots()
+const hasPreActions = computed(() => Boolean(slots['pre-actions']))
 
 // Visible only for OpenAI OAuth accounts.
 const visible = computed(() => props.account.platform === 'openai' && props.account.type === 'oauth')
