@@ -109,21 +109,23 @@ Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换
   不受此规则影响。
 - 客户端取消应停止上游读取和后台转发，不能继续占用账号或累计无主缓存。
 
-### Codex OAuth A/B 模拟
+### Codex OAuth A/B/C 模拟
 
 管理员面板的“网关服务 -> Codex OAuth A/B 模拟”通过
 `GET/PUT /api/v1/admin/settings/codex-simulation` 管理数据库运行时设置；紧急回滚使用无请求体的
 `POST /api/v1/admin/settings/codex-simulation/restore-original`。该入口不依赖当前表单 TTL，也不要求旧数据库
-记录可以被解析，会直接写入 A=false、B=off。数据库记录存在时明确覆盖
+记录可以被解析，会直接写入 A=false、B=off、C=false。数据库记录存在时明确覆盖
 `gateway.codex_simulation`；记录缺失时才使用 YAML/环境变量作为兼容默认值。当前节点保存后立即生效，
 其他节点最多在 5 秒后台刷新周期后生效；OAuth 请求只读内存快照，不承担数据库刷新。首次启用 A 或 B 时
 服务端自动生成并保存身份密钥，接口只返回
-密钥是否已配置。A/B 默认关闭，并且不改变账号调度、计费或通用 failover。A 的
+密钥是否已配置。A/B/C 默认关闭，并且不改变账号调度、计费或通用 failover。A 的
 `full_simulation_enabled` 只作用于 `codex_fingerprint_mode=full` 的 OpenAI OAuth 账号；B 的
-`continuation_mode=off|shadow|enforce` 独立于账号指纹模式。
+`continuation_mode=off|shadow|enforce` 独立于账号指纹模式。C 的
+`c_level_simulation_enabled` 独立控制新增的账号级 HTTP/TLS、虚拟客户端连接池、Cloudflare 基础设施 Cookie
+和 Remote Control 协议投影；C 关闭时这些新增传输投影回退到原有路径。
 
 每个 HTTP 请求在开始时固定一份运行时设置快照，普通设置变更只影响后续请求。下游 WS 也保持单会话快照，
-但紧急恢复原版后，已启用 A/B 的现有 WS 会在下一轮请求时关闭并要求客户端重连，避免继续使用模拟身份。
+但紧急恢复原版后，已启用 A/B/C 的现有 WS 会在下一轮请求时关闭并要求客户端重连，避免继续使用模拟身份。
 Responses
 handler 在账号选择前从 model-mapped canonical body 创建一次不可变 request root。root
 将 API Key/group 命名空间、入口专用 `X-Sub2API-Codex-Project-ID` 和对话信号组成的完整元组做

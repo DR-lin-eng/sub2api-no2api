@@ -114,6 +114,29 @@ func (s *GatewayCacheSuite) TestOpenAIWSSharedState() {
 	require.False(s.T(), found)
 }
 
+func (s *GatewayCacheSuite) TestOpenAIWSGenerationAdvanceIsAtomicAndIdempotent() {
+	shared, ok := s.cache.(service.OpenAIWSAtomicGenerationCache)
+	require.True(s.T(), ok)
+	key := "generation:test:atomic"
+	ttl := time.Minute
+
+	value, err := shared.AdvanceOpenAIWSGeneration(s.ctx, key, 0, 1, ttl)
+	require.NoError(s.T(), err)
+	require.Equal(s.T(), uint64(1), value)
+
+	value, err = shared.AdvanceOpenAIWSGeneration(s.ctx, key, 0, 1, ttl)
+	require.NoError(s.T(), err)
+	require.Equal(s.T(), uint64(1), value, "replaying one Compact completion must not advance twice")
+
+	value, err = shared.AdvanceOpenAIWSGeneration(s.ctx, key, 1, 2, ttl)
+	require.NoError(s.T(), err)
+	require.Equal(s.T(), uint64(2), value)
+
+	value, err = shared.AdvanceOpenAIWSGeneration(s.ctx, key, 0, 1, ttl)
+	require.NoError(s.T(), err)
+	require.Equal(s.T(), uint64(2), value, "stale completion must not move generation backwards")
+}
+
 func (s *GatewayCacheSuite) TestGetSessionAccountID_CorruptedValue() {
 	sessionID := "corrupted"
 	groupID := int64(1)

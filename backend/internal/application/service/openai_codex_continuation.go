@@ -566,9 +566,10 @@ func (s *OpenAIGatewayService) completeCodexSimulationSuccess(
 	}
 	if attempt.fingerprint != nil && attempt.fingerprint.fullSimulation &&
 		(isOpenAIResponsesCompactPath(c) || isOpenAINativeCompactionV2(c)) {
-		generation := attempt.fingerprint.generation + 1
+		expectedGeneration := attempt.fingerprint.generation
+		nextGeneration := expectedGeneration + 1
 		key := codexSimulationGenerationStateKey(attempt.request.root.rootKey, attempt.principal.key)
-		if err := store.setGenerationWithTTL(ctx, key, generation, attempt.request.settings.stateTTL()); err != nil {
+		if err := store.advanceGenerationWithTTL(ctx, key, expectedGeneration, nextGeneration, attempt.request.settings.stateTTL()); err != nil {
 			// A lost acknowledgement can drift window metadata but must not turn a
 			// successful upstream response into a client-visible failure.
 			slog.WarnContext(ctx, "failed to persist Codex window generation", "error", err)

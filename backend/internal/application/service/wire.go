@@ -212,10 +212,16 @@ func ProvideOpenAIQuotaService(
 	proxyRepo ProxyRepository,
 	tokenProvider *OpenAITokenProvider,
 	privacyClientFactory PrivacyClientFactory,
+	httpUpstream HTTPUpstream,
+	tlsFPProfileService *TLSFingerprintProfileService,
 	openAIGatewayService *OpenAIGatewayService,
 	cfg *config.Config,
 ) *OpenAIQuotaService {
 	service := NewOpenAIQuotaService(accountRepo, proxyRepo, tokenProvider, privacyClientFactory, cfg)
+	service.SetHTTPUpstream(httpUpstream, tlsFPProfileService)
+	if openAIGatewayService != nil {
+		service.SetCodexSimulationSettingService(openAIGatewayService.settingService)
+	}
 	service.agentIdentityWS = openAIGatewayService
 	return service
 }
@@ -232,6 +238,7 @@ func ProvideAccountUsageService(
 	cache *UsageCache,
 	identityCache IdentityCache,
 	tlsFPProfileService *TLSFingerprintProfileService,
+	httpUpstream HTTPUpstream,
 	openAIGatewayService *OpenAIGatewayService,
 	cfg *config.Config,
 ) *AccountUsageService {
@@ -248,6 +255,10 @@ func ProvideAccountUsageService(
 		identityCache,
 		tlsFPProfileService,
 	)
+	service.SetHTTPUpstream(httpUpstream)
+	if openAIGatewayService != nil {
+		service.SetCodexSimulationSettingService(openAIGatewayService.settingService)
+	}
 	service.agentIdentityWS = openAIGatewayService
 	service.cfg = cfg
 	return service
@@ -967,6 +978,9 @@ func ProvideOpenAIGatewayService(
 		userPlatformQuotaRepo,
 	)
 	svc.SetTLSFingerprintProfileService(tlsFPProfileService)
+	if tlsFPProfileService != nil {
+		tlsFPProfileService.SetCodexSimulationSettingService(settingService)
+	}
 	return svc
 }
 

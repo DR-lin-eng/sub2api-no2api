@@ -12,8 +12,12 @@
 - `core/src/client.rs` 在调用方未提供时将 `prompt_cache_key` 设为 `session_id`。
 
 本项目因此在 full simulation 出站时只生成横线形式的 session/thread 头，并使
-`session_id == thread_id == prompt_cache_key`、`x-client-request-id == thread_id`。下游提供的 Codex
-保留身份头先被删除，再从同一 attempt plan 重建。
+`session_id == thread_id == prompt_cache_key`、`x-client-request-id == thread_id`。window projection
+采用 `thread_id:window_number` 形状。下游提供的 Codex 保留身份头先被删除，再从同一 attempt plan
+重建。full simulation 的 direct `x-codex-installation-id` 只在 Compact projection 保留，普通
+Responses/WS 通过 `client_metadata` 投影；`client_metadata` 顶层只保留源码兼容投影；调用方自定义键会转入
+`x-codex-turn-metadata` 的有界扁平 extra 字段，并按源码规则限制键和值长度。
+parent/fork/turn/root 关联 ID 会按虚拟 principal 重新派生，合法的 subagent 分类和对应兼容头会保留。
 
 ## 默认 OAuth 出站身份
 
@@ -81,15 +85,35 @@ attempt 从它单独派生；需要重建 JSON 时使用结构化解析与确定
 owner、response 和 generation 使用现有 Redis string-state 接口，TTL 默认 7 天；Redis 错误时回退到
 有界进程内缓存。成功 turn 刷新 owner，只有成功 Compact 才写入下一 generation。Compact 成功后的
 状态写入不是上游响应事务的一部分：进程在响应成功与状态确认之间崩溃时，允许 window metadata 漂移，
-但不能把已成功请求改写为客户端错误。并发 Compact 在现有 string-state 接口下不提供跨实例原子计数。
+但不能把已成功请求改写为客户端错误。长连接还绑定 settings epoch；secret、continuation mode 或 TTL
+变化后，下一次 incremental turn 要求重连，避免一条 WS 跨越两个虚拟客户端状态。并发 Compact 在现有
+string-state 接口下不提供跨实例原子计数。
 
 ## 平台与传输层
 
 Profile 从 `identity_secret + principal` 确定性派生，但只在部署宿主的平台族内选择源码真实的终端组合。
-这样未来引入原生传输 sidecar 时不会出现 UA 声称 macOS、传输层却固定呈现 Linux 的长期矛盾。
+OpenAI OAuth 的稳定数据库 profile 分配也优先使用 `chatgpt_account_id`，避免同一虚拟 principal
+在本地账号 failover 后切换 TLS 外观；Spark shadow 只保存不含凭据的
+`codex_virtual_client_key` 来继承该 namespace。这样未来引入原生传输 sidecar 时不会出现 UA 声称
+macOS、传输层却固定呈现 Linux 的长期矛盾。
+
+当多个 OAuth 记录共享同一非本地虚拟 principal、出口路由和 TLS profile 时，账号级 upstream pool 也使用
+该 principal 的不可逆短 key；缺少 upstream principal 的 `local:` 账号仍保持本地账号隔离。
 
 当前 A/B 是纯 Go 请求语义实现，明确不模拟以下内容；这与独立的、按账号启用的 TLS
-Profile 传输层开关是两个边界：
+Profile 传输层开关是两个边界。OpenAI/Codex 的 models、usage、quota 辅助请求现在也复用账号级
+HTTP/TLS upstream；未接入该端口的测试桩仍保留旧客户端 fallback：
+
+ChatGPT HTTPS 请求还共享只允许 Cloudflare 基础设施 cookie 的进程级 jar；jar 仍按 host/domain/path
+执行 CookieJar 匹配，账号、session、auth cookie 会被拒绝，不会因为多个虚拟客户端共用 jar 而互相泄露。
+
+Remote Control 的 URL、enroll/refresh/pair 请求、protocol-v3 WebSocket header 和 envelope 合同已收敛到
+`internal/shared/remotecontrol`，LifecycleManager 已覆盖 enrollment refresh、pairing、状态、清理和 WS dial，
+账号适配器会把 token 以密文写入 Account.Extra；调用方可以把它绑定到账号级 HTTP/TLS transport。网关请求路径
+本身仍不自动启动后台 Remote Control socket，真实 enrollment/heartbeat 需要外部控制器调用该 manager。
+
+full simulation 会清理下游直接注入的 `x-oai-attestation`、residency 和 host-device-kind 头，避免把调用方
+的运行时证明带到另一个 OAuth principal；真实平台证明仍只由现有 Live/Agent Identity 专用路径提供。
 
 - A/B 本身不改写 TLS ClientHello、HTTP/2 SETTINGS、Header 顺序和连接层时序；
 - Codex Rust 网络栈的字节级传输特征；
@@ -98,13 +122,16 @@ Profile 传输层开关是两个边界：
 这些属于 A/B 的暂缓 phase C。启用 A/B 不应被描述为完成了传输层等价；启用账号 TLS
 Profile 后也只能保证 Rustls provider 参数和连接隔离，不能保证跨平台 byte-for-byte JA3。
 
+`CaptureWireProfile` / `WireProfileFingerprint` 只提供确定性的 ClientHello-input golden 摘要；真实 socket
+字节 capture、HTTP/2 SETTINGS/HPACK 和连接时序仍需独立的 capture harness。
+
 ## 开关与轮换
 
-推荐在管理员面板“网关服务 -> Codex OAuth A/B 模拟”中配置。面板保存到数据库设置
+推荐在管理员面板“网关服务 -> Codex OAuth A/B/C 模拟”中配置。面板保存到数据库设置
 `codex_simulation_settings`，当前节点立即发布，其他节点通过后台任务最多在 5 秒内刷新；OAuth 请求路径
 只读取内存快照，不查询数据库。数据库记录存在时会覆盖旧
 YAML。点击“强制恢复原版行为”会调用无请求体的 `POST .../codex-simulation/restore-original`，即使旧记录
-损坏或页面 TTL 输入无效，也会显式保存 `full_simulation_enabled=false` 与 `continuation_mode=off`，因此
+损坏或页面 TTL 输入无效，也会显式保存 `full_simulation_enabled=false`、`c_level_simulation_enabled=false` 与 `continuation_mode=off`，因此
 不受旧文件中启用值影响。已有模拟 WS 会在下一轮关闭并通过重连进入原版路径。首次启用时后端自动生成
 共享身份密钥，管理 API
 只公开 `identity_secret_configured`，不会返回密钥内容。
@@ -115,12 +142,13 @@ YAML。点击“强制恢复原版行为”会调用无请求体的 `POST .../co
 gateway:
   codex_simulation:
     full_simulation_enabled: false
+    c_level_simulation_enabled: false
     identity_secret: ""
     continuation_mode: off # off|shadow|enforce
     state_ttl_seconds: 604800
 ```
 
-A 和 B 默认关闭。A 还要求账号自身 `codex_fingerprint_mode=full`；B 与该账号开关独立。手工使用 YAML
+A、B 和 C 默认关闭。A 还要求账号自身 `codex_fingerprint_mode=full`；B 与 C 与该账号开关独立。手工使用 YAML
 启用 A 或 B 时，`identity_secret` 至少 32 字节且所有实例必须一致。面板生成的数据库密钥由共享
 PostgreSQL 设置提供给所有实例。轮换 secret 会有意改变全部 root/principal 派生值，并使现有 owner、
 response、generation 状态无法命中；应把它视为一次全量会话重置。

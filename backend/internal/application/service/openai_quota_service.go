@@ -193,9 +193,27 @@ type OpenAIQuotaService struct {
 	proxyRepo            ProxyRepository
 	tokenProvider        *OpenAITokenProvider
 	privacyClientFactory PrivacyClientFactory
+	httpUpstream         HTTPUpstream
+	tlsFPProfileService  *TLSFingerprintProfileService
+	settingService       *SettingService
 	agentIdentityTaskMu  sync.Mutex
 	agentIdentityWS      agentIdentityWSConnectionInvalidator
 	cfg                  *config.Config
+}
+
+// SetHTTPUpstream attaches the account-scoped Codex transport used by the C
+// level. The legacy constructor remains compatible with focused tests.
+func (s *OpenAIQuotaService) SetHTTPUpstream(upstream HTTPUpstream, tlsProfileService *TLSFingerprintProfileService) {
+	if s != nil {
+		s.httpUpstream = upstream
+		s.tlsFPProfileService = tlsProfileService
+	}
+}
+
+func (s *OpenAIQuotaService) SetCodexSimulationSettingService(settingService *SettingService) {
+	if s != nil {
+		s.settingService = settingService
+	}
 }
 
 // NewOpenAIQuotaService constructs a quota service. token provider is required —
@@ -224,6 +242,9 @@ func NewOpenAIQuotaService(
 // OAuth account. Returns infraerrors so the handler layer can map them to
 // stable error codes / HTTP statuses.
 func (s *OpenAIQuotaService) QueryUsage(ctx context.Context, accountID int64) (*OpenAIQuotaUsage, error) {
+	if s != nil && cLevelTransportSimulationEnabled(s.settingService) && s.httpUpstream != nil {
+		return s.queryUsageWithAccountTransport(ctx, accountID)
+	}
 	return s.queryUsage(ctx, accountID, false)
 }
 
@@ -419,6 +440,9 @@ func (s *OpenAIQuotaService) ResetCredit(ctx context.Context, accountID int64) (
 		if acc.IsShadow() {
 			return nil, ErrSparkShadowResetNotSupported
 		}
+	}
+	if s != nil && cLevelTransportSimulationEnabled(s.settingService) && s.httpUpstream != nil {
+		return s.resetCreditWithAccountTransport(ctx, accountID)
 	}
 
 	var route platformegress.Route

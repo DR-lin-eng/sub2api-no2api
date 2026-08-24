@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 )
 
 func TestAccountGetCodexFingerprintModeDefaultsOff(t *testing.T) {
@@ -175,6 +177,52 @@ func TestOpenAIBuildUpstreamRequestFingerprintIsAttemptLocal(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "client-installation", disabledRequest.Header.Get("X-Codex-Installation-ID"))
 	require.NotEqual(t, enabledIDs.sessionID, disabledRequest.Header.Get("Session-Id"))
+}
+
+func TestCodexFullSimulationProjectsCustomMetadataIntoBoundedExtra(t *testing.T) {
+	ids := &codexFingerprintIDs{
+		mode:           codexFingerprintFull,
+		fullSimulation: true,
+		installationID: "installation",
+		sessionID:      "session",
+		threadID:       "thread",
+		turnID:         "turn",
+		windowID:       "thread:0",
+	}
+	body := []byte(`{"model":"gpt-5.5","client_metadata":{"valid_key":"value","bad/key":"drop","too_large":"` + strings.Repeat("x", codexExtraMetadataMaxValueBytes+1) + `"}}`)
+	rewritten, changed, err := applyCodexFingerprintClientMetadataToBody(body, ids)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.False(t, gjson.GetBytes(rewritten, "client_metadata.valid_key").Exists())
+	require.False(t, gjson.GetBytes(rewritten, "client_metadata.bad/key").Exists())
+	turnMetadata := decodeFingerprintMetadata(t, gjson.GetBytes(rewritten, "client_metadata.x-codex-turn-metadata").String())
+	require.Equal(t, "value", turnMetadata["valid_key"])
+	require.NotContains(t, turnMetadata, "bad/key")
+	require.NotContains(t, turnMetadata, "too_large")
+}
+
+func TestCodexFullSimulationRewritesParentAndSubagentCompatibilityFields(t *testing.T) {
+	ids := &codexFingerprintIDs{
+		mode:           codexFingerprintFull,
+		fullSimulation: true,
+		identitySecret: "identity-secret-for-parent-test",
+		principalKey:   "principal-key",
+		installationID: "installation",
+		sessionID:      "session",
+		threadID:       "thread",
+		turnID:         "turn",
+		windowID:       "thread:0",
+	}
+	headers := http.Header{
+		"X-Codex-Parent-Thread-Id": {"forged-parent"},
+		"X-Openai-Subagent":        {"forged-subagent"},
+		"X-Codex-Turn-Metadata":    {`{"parent_thread_id":"forged-parent","subagent_kind":"review"}`},
+	}
+	applyCodexFingerprintHeaders(headers, ids)
+	rewritten := decodeFingerprintMetadata(t, headers.Get("x-codex-turn-metadata"))
+	require.NotEqual(t, "forged-parent", rewritten["parent_thread_id"])
+	require.Equal(t, rewritten["parent_thread_id"], headers.Get("x-codex-parent-thread-id"))
+	require.Equal(t, "review", headers.Get("x-openai-subagent"))
 }
 
 func TestOpenAIPassthroughFingerprintBodyAndHeadersStayConsistent(t *testing.T) {

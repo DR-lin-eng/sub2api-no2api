@@ -130,6 +130,7 @@ export type CodexContinuationMode = "off" | "shadow" | "enforce";
 
 export interface CodexSimulationSettings {
   full_simulation_enabled: boolean;
+  c_level_simulation_enabled?: boolean;
   continuation_mode: CodexContinuationMode;
   state_ttl_seconds: number;
   identity_secret_configured: boolean;

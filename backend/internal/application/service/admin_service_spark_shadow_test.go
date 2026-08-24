@@ -151,6 +151,7 @@ func TestCreateShadow(t *testing.T) {
 	require.Nil(t, shadow.Credentials["refresh_token"], "影子不得持有 auth token")
 	require.Nil(t, shadow.Credentials["access_token"], "影子不得持有 auth token")
 	require.Equal(t, parent.ProxyID, shadow.ProxyID)
+	require.Equal(t, parent.CodexVirtualClientKey(), shadow.Extra[CodexVirtualClientKeyExtraKey])
 
 	// Test 2: 一母一影 — 再作成は拒否
 	_, err = svc.CreateShadow(ctx, parent.ID, ShadowOptions{Name: "dup"})

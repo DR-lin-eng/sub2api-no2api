@@ -37,6 +37,15 @@ func TestCompressOpenAIOAuthCodexRequestBodyScope(t *testing.T) {
 	require.NotEqual(t, body, encoded)
 	require.Equal(t, body, decodeZstdBody(t, encoded))
 
+	encoded, compressed, err = compressOpenAIOAuthCodexRequestBody(
+		&Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Extra: map[string]any{
+			CodexRequestCompressionExtraKey: false,
+		}}, body,
+	)
+	require.NoError(t, err)
+	require.False(t, compressed, "virtual Codex client compression override should be authoritative")
+	require.Equal(t, body, encoded)
+
 	empty, compressed, err := compressOpenAIOAuthCodexRequestBody(
 		&Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}, nil,
 	)

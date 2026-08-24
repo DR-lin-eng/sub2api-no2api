@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
+	"sort"
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
@@ -16,6 +17,12 @@ import (
 )
 
 type codexFingerprintMode string
+
+const (
+	codexRequestKindTurn       = "turn"
+	codexRequestKindPrewarm    = "prewarm"
+	codexRequestKindCompaction = "compaction"
+)
 
 const (
 	codexFingerprintOff     codexFingerprintMode = "off"
@@ -45,9 +52,74 @@ var codexReservedIdentityHeaders = []string{
 	"x-codex-turn-metadata",
 	"x-codex-turn-state",
 	"x-codex-window-id",
+	"x-codex-host-device-kind",
+	"x-openai-internal-codex-residency",
+	"x-oai-attestation",
 	"x-openai-subagent",
 	CodexProjectIDHeader,
 }
+
+// codexOfficialClientMetadataKeys is the flat projection emitted by the
+// Rust client. Full simulation keeps these keys at the top level and moves
+// caller-defined metadata into bounded flattened turn-metadata extra keys,
+// matching the source client's separation between compatibility projections
+// and turn metadata.
+var codexOfficialClientMetadataKeys = map[string]struct{}{
+	"x-codex-installation-id":  {},
+	"session_id":               {},
+	"thread_id":                {},
+	"turn_id":                  {},
+	"x-codex-window-id":        {},
+	"x-codex-turn-metadata":    {},
+	"x-codex-turn-state":       {},
+	"x-openai-subagent":        {},
+	"x-codex-parent-thread-id": {},
+	"parent_turn_id":           {},
+	"root_turn_id":             {},
+	"ws_request_header_x_openai_internal_codex_responses_lite": {},
+	"ws_request_header_traceparent":                            {},
+	"ws_request_header_tracestate":                             {},
+}
+
+var codexOfficialTurnMetadataKeys = map[string]struct{}{
+	"installation_id":                {},
+	"session_id":                     {},
+	"thread_id":                      {},
+	"agent_name":                     {},
+	"turn_id":                        {},
+	"window_id":                      {},
+	"request_kind":                   {},
+	"compaction":                     {},
+	"forked_from_thread_id":          {},
+	"parent_thread_id":               {},
+	"parent_turn_id":                 {},
+	"root_turn_id":                   {},
+	"subagent_kind":                  {},
+	"thread_source":                  {},
+	"sandbox":                        {},
+	"sandbox_mode":                   {},
+	"auto_review_enabled":            {},
+	"node_repl_auto_review_required": {},
+	"node_repl_disabled":             {},
+	"workspaces":                     {},
+	"tool_namespaces_info":           {},
+	"turn_started_at_unix_ms":        {},
+}
+
+var codexForbiddenTurnMetadataKeys = map[string]struct{}{
+	"x-codex-installation-id":  {},
+	"x-codex-window-id":        {},
+	"x-codex-turn-metadata":    {},
+	"x-codex-parent-thread-id": {},
+	"x-openai-subagent":        {},
+	"code_mode_tool_names":     {},
+}
+
+const (
+	codexExtraMetadataMaxEntries    = 16
+	codexExtraMetadataMaxKeyBytes   = 64
+	codexExtraMetadataMaxValueBytes = 128
+)
 
 // stageCodexFingerprintIDs always overwrites the attempt value, including nil.
 // Account failover can move from an opted-in OAuth account to an account with
@@ -134,33 +206,26 @@ func codexFingerprintAccountSeed(account *Account) string {
 	if account == nil {
 		return ""
 	}
-	if upstreamAccountID := strings.TrimSpace(account.GetCredential("chatgpt_account_id")); upstreamAccountID != "" {
-		return "chatgpt:" + upstreamAccountID
-	}
-	if deviceID := strings.TrimSpace(account.GetOpenAIDeviceID()); deviceID != "" {
-		return "device:" + deviceID
-	}
-	return "local:" + accountIDString(account.ID)
-}
-
-func accountIDString(accountID int64) string {
-	return strconv.FormatInt(accountID, 10)
+	return account.CodexVirtualClientKey()
 }
 
 type codexFingerprintIDs struct {
-	mode            codexFingerprintMode
-	fullSimulation  bool
-	rootKey         string
-	principalKey    string
-	installationID  string
-	sessionID       string
-	threadID        string
-	turnID          string
-	windowID        string
-	promptCacheKey  string
-	generation      uint64
-	turnStartedAtMS int64
-	profile         codexSimulationProfile
+	mode                     codexFingerprintMode
+	fullSimulation           bool
+	rootKey                  string
+	principalKey             string
+	installationID           string
+	sessionID                string
+	threadID                 string
+	turnID                   string
+	windowID                 string
+	promptCacheKey           string
+	generation               uint64
+	turnStartedAtMS          int64
+	profile                  codexSimulationProfile
+	requestKind              string
+	identitySecret           string
+	directInstallationHeader bool
 }
 
 func resolveCodexFingerprintIDs(account *Account, clientSessionID string, mode codexFingerprintMode) *codexFingerprintIDs {
@@ -250,9 +315,16 @@ func applyCodexFingerprintHeaders(headers http.Header, ids *codexFingerprintIDs)
 		}
 	}
 
-	headers.Set("x-codex-installation-id", ids.installationID)
+	if !ids.fullSimulation || ids.directInstallationHeader {
+		headers.Set("x-codex-installation-id", ids.installationID)
+	} else {
+		headers.Del("x-codex-installation-id")
+	}
 	if ids.mode == codexFingerprintDevice {
 		rewriteCodexTurnMetadataHeader(headers, ids)
+		if ids.fullSimulation {
+			restoreCodexTurnCompatibilityHeaders(headers)
+		}
 		return
 	}
 
@@ -269,6 +341,9 @@ func applyCodexFingerprintHeaders(headers http.Header, ids *codexFingerprintIDs)
 		headers.Set("session_id", ids.sessionID)
 	}
 	rewriteCodexTurnMetadataHeader(headers, ids)
+	if ids.fullSimulation {
+		restoreCodexTurnCompatibilityHeaders(headers)
+	}
 	applyCodexSimulationProfileHeaders(headers, ids)
 }
 
@@ -293,9 +368,16 @@ func applyCodexFingerprintWSHeaders(headers http.Header, ids *codexFingerprintID
 			headers.Set("x-codex-turn-metadata", turnMetadata)
 		}
 	}
-	headers.Set("x-codex-installation-id", ids.installationID)
+	if !ids.fullSimulation || ids.directInstallationHeader {
+		headers.Set("x-codex-installation-id", ids.installationID)
+	} else {
+		headers.Del("x-codex-installation-id")
+	}
 	headers.Set(codexFingerprintWSKeyHeader, codexFingerprintWSCompatibilityKey(ids))
 	rewriteCodexTurnMetadataHeader(headers, ids)
+	if ids.fullSimulation {
+		restoreCodexTurnCompatibilityHeaders(headers)
+	}
 	if ids.mode == codexFingerprintDevice {
 		return
 	}
@@ -308,6 +390,22 @@ func applyCodexFingerprintWSHeaders(headers http.Header, ids *codexFingerprintID
 		headers.Set("session_id", ids.sessionID)
 	}
 	applyCodexSimulationProfileHeaders(headers, ids)
+}
+
+func restoreCodexTurnCompatibilityHeaders(headers http.Header) {
+	if headers == nil {
+		return
+	}
+	var metadata map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(headers.Get("x-codex-turn-metadata"))), &metadata); err != nil {
+		return
+	}
+	if parent, ok := metadata["parent_thread_id"].(string); ok && strings.TrimSpace(parent) != "" {
+		headers.Set("x-codex-parent-thread-id", parent)
+	}
+	if subagent, ok := metadata["subagent_kind"].(string); ok && validCodexSubagentValue(subagent) {
+		headers.Set("x-openai-subagent", subagent)
+	}
 }
 
 // applyCodexFullSimulationWSHeaders is used only by the new reconnect-header
@@ -350,6 +448,9 @@ func rewriteCodexTurnMetadataValue(raw string, ids *codexFingerprintIDs) string 
 			return raw
 		}
 	}
+	if ids.fullSimulation {
+		projectCodexFullSimulationTurnMetadata(metadata)
+	}
 	applyCodexTurnMetadataFields(metadata, ids)
 	rebuilt, err := json.Marshal(metadata)
 	if err != nil {
@@ -363,6 +464,9 @@ func applyCodexTurnMetadataFields(metadata map[string]any, ids *codexFingerprint
 		return
 	}
 	metadata["installation_id"] = ids.installationID
+	if ids.requestKind != "" {
+		metadata["request_kind"] = ids.requestKind
+	}
 	if ids.mode == codexFingerprintDevice {
 		return
 	}
@@ -371,6 +475,32 @@ func applyCodexTurnMetadataFields(metadata map[string]any, ids *codexFingerprint
 	metadata["turn_id"] = ids.turnID
 	metadata["window_id"] = ids.windowID
 	metadata["turn_started_at_unix_ms"] = ids.turnStartedAtMS
+	if ids.fullSimulation {
+		for _, key := range []string{"forked_from_thread_id", "parent_thread_id", "parent_turn_id", "root_turn_id"} {
+			if raw, ok := metadata[key].(string); ok && strings.TrimSpace(raw) != "" {
+				metadata[key] = rewriteCodexSimulationMetadataID(ids, key, raw)
+			}
+		}
+		if subagent, ok := metadata["subagent_kind"].(string); ok && !validCodexSubagentValue(subagent) {
+			delete(metadata, "subagent_kind")
+		}
+	}
+}
+
+func rewriteCodexSimulationMetadataID(ids *codexFingerprintIDs, domain, raw string) string {
+	if ids == nil || !ids.fullSimulation || strings.TrimSpace(ids.identitySecret) == "" {
+		return raw
+	}
+	return codexSimulationUUID(ids.identitySecret, "metadata:"+domain, ids.principalKey, strings.TrimSpace(raw))
+}
+
+func validCodexSubagentValue(value string) bool {
+	switch strings.TrimSpace(value) {
+	case "review", "compact", "memory_consolidation", "collab_spawn":
+		return true
+	default:
+		return strings.TrimSpace(value) != "" && validCodexExtraMetadataKey(value)
+	}
 }
 
 func applyCodexFingerprintClientMetadata(reqBody map[string]any, ids *codexFingerprintIDs) bool {
@@ -402,7 +532,18 @@ func applyCodexFingerprintClientMetadataMap(metadata map[string]any, ids *codexF
 	if metadata == nil || ids == nil || ids.installationID == "" {
 		return false
 	}
+	if ids.fullSimulation {
+		projectCodexFullSimulationMetadata(metadata)
+	}
 	metadata["x-codex-installation-id"] = ids.installationID
+	if ids.fullSimulation {
+		if parent, ok := metadata["x-codex-parent-thread-id"].(string); ok && strings.TrimSpace(parent) != "" {
+			metadata["x-codex-parent-thread-id"] = rewriteCodexSimulationMetadataID(ids, "parent_thread_id", parent)
+		}
+		if subagent, ok := metadata["x-openai-subagent"].(string); ok && !validCodexSubagentValue(subagent) {
+			delete(metadata, "x-openai-subagent")
+		}
+	}
 	if ids.mode != codexFingerprintDevice {
 		metadata["session_id"] = ids.sessionID
 		metadata["thread_id"] = ids.threadID
@@ -411,6 +552,136 @@ func applyCodexFingerprintClientMetadataMap(metadata map[string]any, ids *codexF
 	}
 	rewriteEmbeddedCodexTurnMetadata(metadata, ids)
 	return true
+}
+
+// projectCodexFullSimulationMetadata keeps the official flat metadata surface
+// stable while preserving non-identity caller metadata as source-compatible
+// flattened turn-metadata extra keys. Values are stringified and bounded so an
+// arbitrary downstream map cannot create a new unbounded wire fingerprint.
+func projectCodexFullSimulationMetadata(metadata map[string]any) {
+	if len(metadata) == 0 {
+		return
+	}
+	extra := make(map[string]string)
+	for _, key := range sortedCodexMetadataKeys(metadata) {
+		value := metadata[key]
+		if _, official := codexOfficialClientMetadataKeys[key]; official {
+			continue
+		}
+		if len(extra) >= codexExtraMetadataMaxEntries || !validCodexExtraMetadataKey(key) {
+			delete(metadata, key)
+			continue
+		}
+		encoded, err := codexMetadataExtraString(value)
+		if err != nil || len(encoded) > codexExtraMetadataMaxValueBytes {
+			delete(metadata, key)
+			continue
+		}
+		extra[key] = encoded
+		delete(metadata, key)
+	}
+	if len(extra) == 0 {
+		normalizeCodexOfficialClientMetadataTypes(metadata)
+		return
+	}
+
+	turnMetadata := make(map[string]any)
+	if raw, ok := metadata["x-codex-turn-metadata"].(string); ok && strings.TrimSpace(raw) != "" {
+		_ = json.Unmarshal([]byte(raw), &turnMetadata)
+	}
+	for key, value := range extra {
+		turnMetadata[key] = value
+	}
+	projectCodexFullSimulationTurnMetadata(turnMetadata)
+	if encoded, err := json.Marshal(turnMetadata); err == nil {
+		metadata["x-codex-turn-metadata"] = string(encoded)
+	}
+	normalizeCodexOfficialClientMetadataTypes(metadata)
+}
+
+func normalizeCodexOfficialClientMetadataTypes(metadata map[string]any) {
+	for key := range codexOfficialClientMetadataKeys {
+		value, exists := metadata[key]
+		if !exists {
+			continue
+		}
+		if _, ok := value.(string); ok {
+			continue
+		}
+		encoded, err := codexMetadataExtraString(value)
+		if err != nil || len(encoded) > codexExtraMetadataMaxValueBytes {
+			delete(metadata, key)
+			continue
+		}
+		metadata[key] = encoded
+	}
+}
+
+func projectCodexFullSimulationTurnMetadata(metadata map[string]any) {
+	if metadata == nil {
+		return
+	}
+	count := 0
+	for _, key := range sortedCodexMetadataKeys(metadata) {
+		value := metadata[key]
+		if _, official := codexOfficialTurnMetadataKeys[key]; official {
+			continue
+		}
+		if _, forbidden := codexForbiddenTurnMetadataKeys[key]; forbidden {
+			delete(metadata, key)
+			continue
+		}
+		if count >= codexExtraMetadataMaxEntries || !validCodexExtraMetadataKey(key) {
+			delete(metadata, key)
+			continue
+		}
+		encoded, err := codexMetadataExtraString(value)
+		if err != nil || len(encoded) > codexExtraMetadataMaxValueBytes {
+			delete(metadata, key)
+			continue
+		}
+		metadata[key] = encoded
+		count++
+	}
+}
+
+func sortedCodexMetadataKeys(metadata map[string]any) []string {
+	keys := make([]string, 0, len(metadata))
+	for key := range metadata {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func validCodexExtraMetadataKey(key string) bool {
+	if len(key) == 0 || len(key) > codexExtraMetadataMaxKeyBytes {
+		return false
+	}
+	for index, char := range []byte(key) {
+		if index == 0 {
+			if (char < 'a' || char > 'z') && (char < 'A' || char > 'Z') {
+				return false
+			}
+			continue
+		}
+		if (char < 'a' || char > 'z') && (char < 'A' || char > 'Z') &&
+			(char < '0' || char > '9') && char != '_' && char != '.' && char != '-' {
+			return false
+		}
+	}
+	return true
+}
+
+func codexMetadataExtraString(value any) (string, error) {
+	if text, ok := value.(string); ok {
+		return text, nil
+	}
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return "", err
+	}
+	return string(encoded), nil
 }
 
 // applyCodexFingerprintClientMetadataToBody rewrites only client_metadata and
@@ -485,6 +756,9 @@ func rewriteEmbeddedCodexTurnMetadata(clientMetadata map[string]any, ids *codexF
 			return
 		}
 	}
+	if ids.fullSimulation {
+		projectCodexFullSimulationTurnMetadata(metadata)
+	}
 	applyCodexTurnMetadataFields(metadata, ids)
 	rebuilt, err := json.Marshal(metadata)
 	if err == nil {
@@ -499,6 +773,7 @@ func stripCodexReservedIdentityHeaders(headers http.Header) {
 	for _, header := range codexReservedIdentityHeaders {
 		headers.Del(header)
 	}
+	codexsimulation.StripUntrustedPlatformSignals(headers)
 }
 
 func applyCodexSimulationProfileHeaders(headers http.Header, ids *codexFingerprintIDs) {

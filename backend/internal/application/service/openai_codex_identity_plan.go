@@ -58,6 +58,7 @@ type codexSimulationTurnPlan struct {
 // while a long-lived downstream WebSocket receives a new turn plan per frame.
 type codexSimulationRequestState struct {
 	settings CodexSimulationSettings
+	epoch    string
 	root     codexSimulationRootPlan
 
 	mu    sync.Mutex
@@ -152,10 +153,6 @@ func (s *OpenAIGatewayService) CodexSimulationRequestEnabled(c *gin.Context) boo
 	return ok && request.settings.configured()
 }
 
-func (s *OpenAIGatewayService) codexSimulationRuntimeEnabled(ctx context.Context) bool {
-	return s.codexSimulationSettingsSnapshot(ctx, nil).configured()
-}
-
 // PrepareCodexSimulationRequest creates the immutable root before account
 // selection. The canonical body is hashed but never retained or mutated here.
 func (s *OpenAIGatewayService) PrepareCodexSimulationRequest(
@@ -197,6 +194,7 @@ func (s *OpenAIGatewayService) PrepareCodexSimulationRequest(
 	)
 	state := &codexSimulationRequestState{
 		settings: settings,
+		epoch:    codexSimulationSettingsEpoch(settings),
 		root: codexSimulationRootPlan{
 			rootKey:            hex.EncodeToString(rootDigest[:]),
 			conversationSource: source,
@@ -206,6 +204,22 @@ func (s *OpenAIGatewayService) PrepareCodexSimulationRequest(
 		turns: make(map[int]codexSimulationTurnPlan, 1),
 	}
 	c.Set(codexSimulationRequestStateContextKey, state)
+}
+
+// codexSimulationSettingsEpoch binds a long-lived request/WS to the exact
+// identity policy snapshot that created it. Rotating the secret, changing the
+// continuation mode, or changing the state TTL therefore requires a reconnect
+// instead of allowing a connection to straddle two virtual clients.
+func codexSimulationSettingsEpoch(settings CodexSimulationSettings) string {
+	digest := sha256.Sum256([]byte(fmt.Sprintf(
+		"enabled=%t\x00c_level=%t\x00mode=%s\x00ttl=%d\x00secret=%s",
+		settings.FullSimulationEnabled,
+		settings.CLevelSimulationEnabled,
+		settings.continuationMode(),
+		settings.StateTTLSeconds,
+		settings.IdentitySecret,
+	)))
+	return hex.EncodeToString(digest[:])
 }
 
 func resolveCodexConversationSignal(c *gin.Context, canonicalBody []byte) (string, codexConversationSignalSource) {
@@ -302,11 +316,14 @@ func (s *OpenAIGatewayService) prepareCodexSimulationAttemptForTurn(
 	if requestState == nil {
 		return body, nil
 	}
-	if turn > 1 && !s.codexSimulationRuntimeEnabled(ctx) {
-		return body, newCodexContinuationTerminalError(
-			"Codex simulation was disabled; reconnect to continue on the original OAuth path",
-			nil,
-		)
+	if turn > 1 {
+		currentSettings := s.codexSimulationSettingsSnapshot(ctx, nil)
+		if !currentSettings.configured() || codexSimulationSettingsEpoch(currentSettings) != requestState.epoch {
+			return body, newCodexContinuationTerminalError(
+				"Codex simulation settings changed; reconnect to continue with the current virtual client",
+				nil,
+			)
+		}
 	}
 	principal := s.resolveCodexSimulationPrincipalWithSecret(account, requestState.settings.IdentitySecret)
 	if principal.key == "" {
@@ -321,6 +338,10 @@ func (s *OpenAIGatewayService) prepareCodexSimulationAttemptForTurn(
 	if requestState.settings.FullSimulationEnabled && requestState.settings.configured() &&
 		account.GetCodexFingerprintMode() == codexFingerprintFull {
 		ids = s.resolveCodexFullSimulationIDs(ctx, requestState, principal, turn)
+		if ids != nil {
+			ids.requestKind = codexRequestKindForContext(c, body)
+			ids.directInstallationHeader = ids.requestKind == codexRequestKindCompaction
+		}
 	}
 	attempt := &codexSimulationAttempt{
 		request:      requestState,
@@ -332,6 +353,16 @@ func (s *OpenAIGatewayService) prepareCodexSimulationAttemptForTurn(
 	c.Set(codexSimulationAttemptContextKey, attempt)
 	stageCodexFingerprintIDs(c, ids)
 	return attemptBody, nil
+}
+
+func codexRequestKindForContext(c *gin.Context, body []byte) string {
+	if isOpenAIResponsesCompactPath(c) || isOpenAINativeCompactionV2(c) {
+		return codexRequestKindCompaction
+	}
+	if strings.EqualFold(strings.TrimSpace(gjson.GetBytes(body, "generate").String()), "false") {
+		return codexRequestKindPrewarm
+	}
+	return codexRequestKindTurn
 }
 
 func (s *OpenAIGatewayService) resolveCodexSimulationPrincipal(account *Account) codexSimulationPrincipal {
@@ -353,15 +384,10 @@ func (s *OpenAIGatewayService) codexSimulationPrincipalForAccountWithSecret(acco
 	if account == nil {
 		return codexSimulationPrincipal{}
 	}
-	raw := ""
-	source := ""
-	if upstreamID := strings.TrimSpace(account.GetCredential("chatgpt_account_id")); upstreamID != "" {
-		raw = "chatgpt:" + upstreamID
+	raw := account.CodexVirtualClientKey()
+	source := "local_account_id"
+	if strings.HasPrefix(raw, "chatgpt:") {
 		source = "chatgpt_account_id"
-	} else {
-		// Never collapse missing upstream principals into one shared empty value.
-		raw = "local:" + accountIDString(account.ID)
-		source = "local_account_id"
 	}
 	digest := codexSimulationHMAC(secret, "principal:v1", raw)
 	return codexSimulationPrincipal{key: hex.EncodeToString(digest[:]), source: source}
@@ -402,6 +428,7 @@ func (s *OpenAIGatewayService) resolveCodexFullSimulationIDs(
 	}
 	sessionID := codexSimulationUUID(secret, "session:v2", request.root.rootKey, principal.key)
 	profile := resolveCodexSimulationProfile(secret, principal.key)
+	windowID := sessionID + ":" + strconv.FormatUint(generation, 10)
 	return &codexFingerprintIDs{
 		mode:            codexFingerprintFull,
 		fullSimulation:  true,
@@ -411,11 +438,12 @@ func (s *OpenAIGatewayService) resolveCodexFullSimulationIDs(
 		sessionID:       sessionID,
 		threadID:        sessionID,
 		turnID:          codexSimulationUUID(secret, "turn:v2", request.root.rootKey, principal.key, turnPlan.seed),
-		windowID:        codexSimulationUUID(secret, "window:v2", request.root.rootKey, principal.key, strconv.FormatUint(generation, 10)),
+		windowID:        windowID,
 		promptCacheKey:  sessionID,
 		generation:      generation,
 		turnStartedAtMS: turnPlan.startedAtMS,
 		profile:         profile,
+		identitySecret:  secret,
 	}
 }
 

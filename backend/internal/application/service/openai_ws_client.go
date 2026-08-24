@@ -15,6 +15,8 @@ import (
 	openaiwsv2 "github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2"
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
+	"github.com/Wei-Shaw/sub2api/internal/shared/chatgptcookies"
+	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
 	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
 	coderws "github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
@@ -194,7 +196,10 @@ func (d *coderOpenAIWSClientDialer) DialRouteWithProfile(
 	if err != nil {
 		return nil, 0, nil, err
 	}
-	if effective.Mode != platformegress.ModeDirect || profile != nil {
+	// C-level transport simulation opts direct/profile-less handshakes into the
+	// routed client so the Cloudflare-only jar and protocol policy match HTTP.
+	// With the switch off, preserve the legacy coder/websocket default client.
+	if codexsimulation.CLevelEnabled() || effective.Mode != platformegress.ModeDirect || profile != nil {
 		proxyClient, err := d.routeHTTPClientWithProfile(effective, profile)
 		if err != nil {
 			return nil, 0, nil, err
@@ -337,6 +342,9 @@ func (d *coderOpenAIWSClientDialer) routeHTTPClientWithProfile(route platformegr
 		return nil, fmt.Errorf("unsupported websocket egress mode %q", effective.Mode)
 	}
 	client := &http.Client{Transport: transport}
+	if codexsimulation.CLevelEnabled() {
+		client.Jar = chatgptcookies.NewJar()
+	}
 	d.proxyClients[cacheKey] = &openAIWSProxyClientEntry{
 		client:           client,
 		lastUsedUnixNano: now,

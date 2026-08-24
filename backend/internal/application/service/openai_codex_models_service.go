@@ -470,6 +470,23 @@ func (s *OpenAIGatewayService) fetchCodexModelsManifestUpstream(ctx context.Cont
 		}
 		req = req.WithContext(WithHTTPUpstreamProfile(req.Context(), HTTPUpstreamProfileOpenAI))
 		resp, err = doAccountHTTPUpstreamWithConcurrency(s.httpUpstream, req, request.proxyURL, request.account, request.accountConcurrency)
+	} else if cLevelTransportSimulationEnabled(s.settingService) && s.httpUpstream != nil && request.account != nil {
+		// OAuth Codex manifest requests are part of the same virtual client as
+		// Responses/WS traffic.  Keep them on the account-scoped upstream so the
+		// resolved TLS profile, HTTP protocol policy, egress route and connection
+		// pool are identical to the main request path.  The legacy shared client
+		// remains a test/bootstrapping fallback when the production port is not
+		// wired yet.
+		tlsProfile := s.resolveTLSProfile(request.account)
+		req = req.WithContext(WithHTTPUpstreamProfile(req.Context(), HTTPUpstreamProfileOpenAI))
+		req = req.WithContext(WithHTTPUpstreamTLSProfile(req.Context(), tlsProfile))
+		resp, err = doAccountHTTPUpstreamWithTLS(
+			s.httpUpstream,
+			req,
+			request.proxyURL,
+			request.account,
+			tlsProfile,
+		)
 	} else {
 		client, clientErr := httpclient.GetClientForContext(reqCtx, httpclient.Options{
 			ProxyURL:              request.proxyURL,

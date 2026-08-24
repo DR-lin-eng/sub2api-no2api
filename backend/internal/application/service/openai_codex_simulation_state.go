@@ -2,12 +2,21 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 )
+
+// OpenAIWSAtomicGenerationCache is an optional Redis capability used for
+// idempotent Compact window advancement. Keeping it separate from
+// OpenAIWSSharedStateCache preserves compatibility with lightweight test and
+// fallback caches that only implement get/set/delete.
+type OpenAIWSAtomicGenerationCache interface {
+	AdvanceOpenAIWSGeneration(ctx context.Context, key string, expected, next uint64, ttl time.Duration) (uint64, error)
+}
 
 const (
 	codexSimulationStatePrefix      = "codex:simulation:v1:"
@@ -113,8 +122,67 @@ func (s *codexSimulationStateStore) generationWithTTL(ctx context.Context, key s
 	return generation, err
 }
 
-func (s *codexSimulationStateStore) setGenerationWithTTL(ctx context.Context, key string, generation uint64, ttl time.Duration) error {
-	return s.setWithTTL(ctx, key, strconv.FormatUint(generation, 10), ttl)
+// advanceGenerationWithTTL performs an idempotent compare-and-advance. When
+// Redis exposes the optional atomic operation, concurrent replicas converge on
+// one generation value; local state remains the bounded fallback when Redis is
+// unavailable.
+func (s *codexSimulationStateStore) advanceGenerationWithTTL(ctx context.Context, key string, expected, next uint64, ttl time.Duration) error {
+	if s == nil || strings.TrimSpace(key) == "" || next <= expected {
+		return nil
+	}
+	ttl = normalizeCodexSimulationStateTTL(ttl)
+	s.maybeCleanup()
+	if atomicCache, ok := s.shared.(OpenAIWSAtomicGenerationCache); ok {
+		cacheCtx, cancel := withOpenAIWSStateStoreRedisTimeout(ctx)
+		actual, err := atomicCache.AdvanceOpenAIWSGeneration(cacheCtx, key, expected, next, ttl)
+		cancel()
+		if err == nil {
+			if actual < next {
+				return fmt.Errorf("generation compare-and-advance rejected: expected=%d next=%d actual=%d", expected, next, actual)
+			}
+			s.setLocalWithTTL(key, strconv.FormatUint(actual, 10), ttl)
+			return nil
+		}
+		// Preserve the existing best-effort behavior: update the local copy and
+		// return the shared error so callers can surface an operational signal.
+		s.advanceLocalGeneration(key, expected, next, ttl)
+		return err
+	}
+
+	if !s.advanceLocalGeneration(key, expected, next, ttl) {
+		return fmt.Errorf("generation compare-and-advance rejected: expected=%d next=%d", expected, next)
+	}
+	return nil
+}
+
+func (s *codexSimulationStateStore) advanceLocalGeneration(key string, expected, next uint64, ttl time.Duration) bool {
+	if s == nil {
+		return false
+	}
+	ttl = normalizeCodexSimulationStateTTL(ttl)
+	now := time.Now()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ensureBindingCapacity(s.entries, key, codexSimulationStateMaxEntries)
+	current := uint64(0)
+	if binding, ok := s.entries[key]; ok && now.Before(binding.expiresAt) {
+		parsed, err := strconv.ParseUint(strings.TrimSpace(binding.value), 10, 64)
+		if err != nil {
+			return false
+		}
+		current = parsed
+	}
+	if current >= next {
+		return true
+	}
+	if current != expected {
+		return false
+	}
+	s.entries[key] = codexSimulationStateBinding{
+		value:     strconv.FormatUint(next, 10),
+		expiresAt: now.Add(ttl),
+	}
+	return true
 }
 
 func (s *codexSimulationStateStore) setLocalWithTTL(key, value string, ttl time.Duration) {

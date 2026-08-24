@@ -17,3 +17,20 @@ func TestAccountSparkShadowHelpers(t *testing.T) {
 	require.True(t, shadow.IsCredentialShadow())
 	require.Equal(t, QuotaDimensionSpark, shadow.QuotaDimensionOrDefault())
 }
+
+func TestCodexVirtualClientKeyPrefersPrincipalAndShadowNamespace(t *testing.T) {
+	parent := &Account{
+		ID:       100,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"chatgpt_account_id": "acct-shared",
+		},
+	}
+	require.Equal(t, "chatgpt:acct-shared", parent.CodexVirtualClientKey())
+	pid := parent.ID
+	shadow := &Account{ID: 200, ParentAccountID: &pid, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+	require.Equal(t, "parent:100", shadow.CodexVirtualClientKey())
+	shadow.Extra = map[string]any{CodexVirtualClientKeyExtraKey: parent.CodexVirtualClientKey()}
+	require.Equal(t, parent.CodexVirtualClientKey(), shadow.CodexVirtualClientKey())
+}

@@ -192,7 +192,7 @@ func (h *SettingHandler) UpdateGlobalTempUnschedulableSettings(c *gin.Context) {
 	response.Success(c, dto.GlobalTempUnschedulableSettings{Enabled: req.Enabled})
 }
 
-// GetCodexSimulationSettings returns the admin-managed A/B switches without
+// GetCodexSimulationSettings returns the admin-managed A/B/C switches without
 // exposing the persisted identity secret.
 // GET /api/v1/admin/settings/codex-simulation
 func (h *SettingHandler) GetCodexSimulationSettings(c *gin.Context) {
@@ -230,10 +230,20 @@ func (h *SettingHandler) UpdateCodexSimulationSettings(c *gin.Context) {
 		return
 	}
 
+	current, err := h.settingService.GetCodexSimulationSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	cLevelEnabled := current.CLevelSimulationEnabled
+	if req.CLevelSimulationEnabled != nil {
+		cLevelEnabled = *req.CLevelSimulationEnabled
+	}
 	settings, err := h.settingService.SetCodexSimulationSettings(c.Request.Context(), &service.CodexSimulationSettings{
-		FullSimulationEnabled: *req.FullSimulationEnabled,
-		ContinuationMode:      mode,
-		StateTTLSeconds:       *req.StateTTLSeconds,
+		FullSimulationEnabled:   *req.FullSimulationEnabled,
+		CLevelSimulationEnabled: cLevelEnabled,
+		ContinuationMode:        mode,
+		StateTTLSeconds:         *req.StateTTLSeconds,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -260,6 +270,7 @@ func codexSimulationSettingsDTO(settings *service.CodexSimulationSettings) dto.C
 	}
 	return dto.CodexSimulationSettings{
 		FullSimulationEnabled:    settings.FullSimulationEnabled,
+		CLevelSimulationEnabled:  settings.CLevelSimulationEnabled,
 		ContinuationMode:         settings.ContinuationMode,
 		StateTTLSeconds:          settings.StateTTLSeconds,
 		IdentitySecretConfigured: settings.IdentitySecretConfigured(),

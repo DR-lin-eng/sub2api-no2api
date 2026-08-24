@@ -3,11 +3,13 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
 	"github.com/stretchr/testify/require"
 )
 
@@ -111,6 +113,23 @@ func TestCodexSimulationSettingsFallBackToYAMLWhenDBRowIsMissing(t *testing.T) {
 	require.Equal(t, "shadow", settings.ContinuationMode)
 	require.Equal(t, 3600, settings.StateTTLSeconds)
 	require.Equal(t, codexSimulationTestSecret, settings.IdentitySecret)
+}
+
+func TestCLevelSimulationGateFollowsAdminSettings(t *testing.T) {
+	codexsimulation.SetCLevelEnabled(false)
+	t.Cleanup(func() { codexsimulation.SetCLevelEnabled(false) })
+	cfg := &config.Config{}
+	cfg.Gateway.CodexSimulation.CLevelSimulationEnabled = true
+	svc := NewSettingService(newCodexSimulationSettingRepo(), cfg)
+	require.True(t, codexsimulation.CLevelEnabled())
+
+	_, err := svc.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{
+		CLevelSimulationEnabled: false,
+		ContinuationMode:        "off",
+		StateTTLSeconds:         60,
+	})
+	require.NoError(t, err)
+	require.False(t, codexsimulation.CLevelEnabled())
 }
 
 func TestCodexSimulationSettingsPersistedOffOverridesYAMLOn(t *testing.T) {
@@ -321,4 +340,42 @@ func TestCodexSimulationRequestKeepsStartingSnapshotAndDBOffRestoresNoOp(t *test
 	require.Equal(t, body, unchanged)
 	_, ok = codexSimulationAttemptFromGin(newRequest)
 	require.False(t, ok)
+}
+
+func TestCodexSimulationRejectsExistingContinuationAfterSecretRotation(t *testing.T) {
+	repo := newCodexSimulationSettingRepo()
+	settingsService := NewSettingService(repo, &config.Config{})
+	ctx := context.Background()
+	_, err := settingsService.SetCodexSimulationSettings(ctx, &CodexSimulationSettings{
+		FullSimulationEnabled: true,
+		ContinuationMode:      "enforce",
+		StateTTLSeconds:       120,
+		IdentitySecret:        strings.Repeat("a", 32),
+	})
+	require.NoError(t, err)
+
+	gateway := &OpenAIGatewayService{
+		cfg:                &config.Config{},
+		settingService:     settingsService,
+		openaiWSStateStore: NewOpenAIWSStateStore(nil),
+	}
+	account := openAIFingerprintAccount(72, map[string]any{codexFingerprintModeExtraKey: "full"})
+	account.Credentials = map[string]any{"chatgpt_account_id": "epoch-principal"}
+	body := []byte(`{"model":"gpt-5.4","input":"hello"}`)
+	c := newCodexSimulationTestContext("/v1/responses")
+	gateway.PrepareCodexSimulationRequest(c, 1, nil, body)
+	_, err = gateway.prepareCodexSimulationAttemptForTurn(ctx, c, account, body, 1)
+	require.NoError(t, err)
+
+	_, err = settingsService.SetCodexSimulationSettings(ctx, &CodexSimulationSettings{
+		FullSimulationEnabled: true,
+		ContinuationMode:      "enforce",
+		StateTTLSeconds:       120,
+		IdentitySecret:        strings.Repeat("b", 32),
+	})
+	require.NoError(t, err)
+	_, err = gateway.prepareCodexSimulationAttemptForTurn(ctx, c, account, body, 2)
+	var terminalErr *CodexContinuationTerminalError
+	require.ErrorAs(t, err, &terminalErr)
+	require.Contains(t, terminalErr.Message, "settings changed")
 }

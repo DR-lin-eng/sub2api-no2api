@@ -148,8 +148,12 @@ type GatewayConfig struct {
 // identity plan and cross-principal continuation policy. Both features are
 // disabled by default so upgrades preserve existing account behavior.
 type GatewayCodexSimulationConfig struct {
-	FullSimulationEnabled bool   `mapstructure:"full_simulation_enabled"`
-	IdentitySecret        string `mapstructure:"identity_secret"`
+	FullSimulationEnabled bool `mapstructure:"full_simulation_enabled"`
+	// CLevelSimulationEnabled gates the transport/profile convergence added by
+	// the C-level simulation. It is independent from A identity and B
+	// continuation switches so administrators can roll back transport changes.
+	CLevelSimulationEnabled bool   `mapstructure:"c_level_simulation_enabled"`
+	IdentitySecret          string `mapstructure:"identity_secret"`
 	// ContinuationMode accepts off, shadow, or enforce.
 	ContinuationMode string `mapstructure:"continuation_mode"`
 	StateTTLSeconds  int    `mapstructure:"state_ttl_seconds"`

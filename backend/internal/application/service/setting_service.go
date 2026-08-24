@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 	"github.com/Wei-Shaw/sub2api/internal/shared/ip"
 	"golang.org/x/sync/singleflight"
@@ -297,6 +298,7 @@ func NewSettingService(settingRepo SettingRepository, cfg *config.Config) *Setti
 	svc.requestPriorityAdmissionSettings.Store(defaultRequestPriorityAdmissionSettings())
 	codexSimulationSettings := svc.defaultCodexSimulationSettings()
 	svc.codexSimulationSettings.Store(&codexSimulationSettings)
+	codexsimulation.SetCLevelEnabled(codexSimulationSettings.CLevelSimulationEnabled)
 	if cfg != nil {
 		svc.openAIWSModeRouterV2Enabled.Store(cfg.Gateway.OpenAIWS.ModeRouterV2Enabled)
 	}

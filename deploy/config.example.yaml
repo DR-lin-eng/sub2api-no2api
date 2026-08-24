@@ -329,12 +329,14 @@ gateway:
   # Use this to avoid compact failures when newer models are not yet supported by the compact endpoint.
   # 当 compact 端点暂未支持更新模型时，可通过这里降级规避失败。
   openai_compact_model: "gpt-5.4"
-  # Codex OAuth 客户端模拟 A/B 的兼容默认值（默认全部关闭）。推荐在管理员面板配置；
+  # Codex OAuth 客户端模拟 A/B/C 的兼容默认值（默认全部关闭）。推荐在管理员面板配置；
   # 面板保存的数据库记录会覆盖此处。仅 OpenAI OAuth 账号参与；A 还要求账号
   # codex_fingerprint_mode=full，B 与账号指纹模式相互独立。
   codex_simulation:
     # A：使用 request root × upstream principal 统一重建 Codex 身份、metadata 与 cache key。
     full_simulation_enabled: false
+    # C：账号级 HTTP/TLS、虚拟客户端连接池和基础设施 Cookie/协议投影。
+    c_level_simulation_enabled: false
     # A 或 B 启用时必填，至少 32 字节；所有实例必须一致。
     # 轮换会使 root、principal、owner 与 Compact generation 短状态整体失效。
     identity_secret: ""

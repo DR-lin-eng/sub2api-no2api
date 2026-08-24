@@ -133,6 +133,12 @@ const openAILongContextBillingEnabledKey = "openai_long_context_billing_enabled"
 // continuation request is still forwarded upstream.
 const CodexPrewarmContinuationExtraKey = "codex_prewarm_continuation_enabled"
 
+// CodexVirtualClientKeyExtraKey stores the stable virtual-client namespace
+// used by A/B identity and TLS profile assignment. It is intentionally not a
+// credential: a shadow account may carry the parent's principal namespace here
+// without receiving the parent's access/refresh token.
+const CodexVirtualClientKeyExtraKey = "codex_virtual_client_key"
+
 // CodexThinkingTagNormalizationExtraKey enables conversion of a complete
 // leading <thinking>...</thinking> block returned as ordinary Chat
 // Completions content into a Responses reasoning item. It is deliberately
@@ -1701,6 +1707,29 @@ func (a *Account) GetChatGPTAccountID() string {
 		return ""
 	}
 	return a.GetCredential("chatgpt_account_id")
+}
+
+// CodexVirtualClientKey returns the stable namespace shared by all wire-level
+// Codex identity and transport decisions. Explicitly persisted shadow keys win,
+// then the upstream ChatGPT account id, then a parent-account namespace, and
+// finally the local account id when no upstream principal exists.
+func (a *Account) CodexVirtualClientKey() string {
+	if a == nil {
+		return ""
+	}
+	if value := strings.TrimSpace(a.GetExtraString(CodexVirtualClientKeyExtraKey)); value != "" {
+		return value
+	}
+	if value := strings.TrimSpace(a.GetCredential("chatgpt_account_id")); value != "" {
+		return "chatgpt:" + value
+	}
+	if value := strings.TrimSpace(a.GetOpenAIDeviceID()); value != "" {
+		return "device:" + value
+	}
+	if a.ParentAccountID != nil {
+		return "parent:" + strconv.FormatInt(*a.ParentAccountID, 10)
+	}
+	return "local:" + strconv.FormatInt(a.ID, 10)
 }
 
 func (a *Account) IsChatGPTAccountFedRAMP() bool {

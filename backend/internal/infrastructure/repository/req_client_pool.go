@@ -9,6 +9,8 @@ import (
 	"time"
 
 	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
+	"github.com/Wei-Shaw/sub2api/internal/shared/chatgptcookies"
+	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
 	"github.com/Wei-Shaw/sub2api/internal/shared/proxyurl"
 	"github.com/Wei-Shaw/sub2api/internal/shared/servertiming"
 
@@ -71,6 +73,9 @@ func getSharedReqClient(opts reqClientOptions) (*req.Client, error) {
 	}
 
 	client := req.C().SetTimeout(opts.Timeout)
+	if codexsimulation.CLevelEnabled() {
+		client.SetCookieJar(chatgptcookies.NewJar())
+	}
 	if opts.ForceHTTP2 {
 		client = client.EnableForceHTTP2()
 	}

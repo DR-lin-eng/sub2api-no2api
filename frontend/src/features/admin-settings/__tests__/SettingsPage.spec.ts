@@ -1311,6 +1311,7 @@ describe("admin SettingsView payment visible method controls", () => {
   it("saves Codex A/B controls and restores original behavior", async () => {
     getCodexSimulationSettings.mockResolvedValueOnce({
       full_simulation_enabled: true,
+      c_level_simulation_enabled: true,
       continuation_mode: "enforce",
       state_ttl_seconds: 604800,
       identity_secret_configured: true,
@@ -1331,6 +1332,9 @@ describe("admin SettingsView payment visible method controls", () => {
       .get('[data-testid="codex-simulation-full-toggle"]')
       .setValue(false);
     await card!
+      .get('[data-testid="codex-simulation-c-level-toggle"]')
+      .setValue(false);
+    await card!
       .get('[data-testid="codex-simulation-continuation-mode"]')
       .setValue("shadow");
     await card!.get('[data-testid="codex-simulation-state-ttl"]').setValue("3600");
@@ -1339,6 +1343,7 @@ describe("admin SettingsView payment visible method controls", () => {
 
     expect(updateCodexSimulationSettings).toHaveBeenLastCalledWith({
       full_simulation_enabled: false,
+      c_level_simulation_enabled: false,
       continuation_mode: "shadow",
       state_ttl_seconds: 3600,
     });

@@ -25,6 +25,8 @@ import (
 	"time"
 
 	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
+	"github.com/Wei-Shaw/sub2api/internal/shared/chatgptcookies"
+	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
 	"github.com/Wei-Shaw/sub2api/internal/shared/proxyurl"
 	"github.com/Wei-Shaw/sub2api/internal/shared/proxyutil"
 	"github.com/Wei-Shaw/sub2api/internal/shared/servertiming"
@@ -218,10 +220,14 @@ func buildClient(opts Options) (*http.Client, error) {
 		rt = newValidatedTransport(transport)
 	}
 	rt = servertiming.WrapRoundTripper(rt)
-	return &http.Client{
+	client := &http.Client{
 		Transport: rt,
 		Timeout:   opts.Timeout,
-	}, nil
+	}
+	if codexsimulation.CLevelEnabled() {
+		client.Jar = chatgptcookies.NewJar()
+	}
+	return client, nil
 }
 
 func buildTransport(opts Options) (*http.Transport, error) {
