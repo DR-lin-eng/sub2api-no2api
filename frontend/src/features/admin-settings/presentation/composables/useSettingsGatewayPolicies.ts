@@ -76,6 +76,7 @@ export function useSettingsGatewayPolicies() {
   const codexSimulationSaving = ref(false);
   const codexSimulationForm = reactive<CodexSimulationSettings>({
     full_simulation_enabled: false,
+    c_level_simulation_enabled: false,
     continuation_mode: "off",
     state_ttl_seconds: 604800,
     identity_secret_configured: false,
@@ -335,7 +336,10 @@ export function useSettingsGatewayPolicies() {
   async function persistCodexSimulationSettings(
     payload: Pick<
       CodexSimulationSettings,
-      "full_simulation_enabled" | "continuation_mode" | "state_ttl_seconds"
+      | "full_simulation_enabled"
+      | "c_level_simulation_enabled"
+      | "continuation_mode"
+      | "state_ttl_seconds"
     >,
     successKey: string,
     failureKey: string,
@@ -358,6 +362,7 @@ export function useSettingsGatewayPolicies() {
     await persistCodexSimulationSettings(
       {
         full_simulation_enabled: codexSimulationForm.full_simulation_enabled,
+        c_level_simulation_enabled: Boolean(codexSimulationForm.c_level_simulation_enabled),
         continuation_mode: codexSimulationForm.continuation_mode,
         state_ttl_seconds: codexSimulationForm.state_ttl_seconds,
       },

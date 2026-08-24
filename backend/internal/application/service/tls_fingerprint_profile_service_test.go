@@ -65,3 +65,43 @@ func TestResolveTLSProfileUsesCodexRustlsDefaultsForOpenAI(t *testing.T) {
 	require.Equal(t, []uint16{0x1302, 0x1301, 0x1303}, profile.CipherSuites[:3])
 	require.Equal(t, []uint16{0x0503, 0x0403, 0x0603}, profile.SignatureAlgorithms[:3])
 }
+
+func TestResolveTLSProfileUsesVirtualPrincipalForOpenAIStableAssignment(t *testing.T) {
+	service := &TLSFingerprintProfileService{localCache: make(map[int64]*model.TLSFingerprintProfile)}
+	service.setLocalCache([]*model.TLSFingerprintProfile{
+		{ID: 11, Name: "profile-a"},
+		{ID: 22, Name: "profile-b"},
+		{ID: 33, Name: "profile-c"},
+	})
+	accountA := &Account{
+		ID:       101,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"chatgpt_account_id": "shared-principal",
+		},
+		Extra: map[string]any{
+			"enable_tls_fingerprint":     true,
+			"tls_fingerprint_profile_id": int64(-1),
+		},
+	}
+	accountB := &Account{
+		ID:       202,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"chatgpt_account_id": "shared-principal",
+		},
+		Extra: map[string]any{
+			"enable_tls_fingerprint":     true,
+			"tls_fingerprint_profile_id": int64(-1),
+		},
+	}
+
+	first := service.ResolveTLSProfile(accountA)
+	second := service.ResolveTLSProfile(accountB)
+	require.NotNil(t, first)
+	require.NotNil(t, second)
+	require.Equal(t, first.Name, second.Name)
+	require.Equal(t, service.ResolveTLSProfileKey(accountA), service.ResolveTLSProfileKey(accountB))
+}

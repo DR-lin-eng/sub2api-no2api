@@ -6,7 +6,9 @@ import (
 	"compress/flate"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,6 +30,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
+	"github.com/Wei-Shaw/sub2api/internal/shared/chatgptcookies"
+	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
 	"github.com/Wei-Shaw/sub2api/internal/shared/proxyurl"
 	"github.com/Wei-Shaw/sub2api/internal/shared/proxyutil"
 	"github.com/Wei-Shaw/sub2api/internal/shared/servertiming"
@@ -116,6 +120,13 @@ type openAIHTTP2Settings struct {
 	fallbackTTL               time.Duration
 }
 
+func chatgptCookieJar() http.CookieJar {
+	if !codexsimulation.CLevelEnabled() {
+		return nil
+	}
+	return chatgptcookies.NewJar()
+}
+
 // upstreamClientEntry 上游客户端缓存条目
 // 记录客户端实例及其元数据，用于连接池管理和淘汰策略
 type upstreamClientEntry struct {
@@ -130,6 +141,7 @@ type upstreamClientEntry struct {
 	lastUsed               int64  // 最后使用时间戳（纳秒），用于 LRU 淘汰
 	inFlight               int64  // 当前进行中的请求数，>0 时不可淘汰
 	accountID              int64  // 用于绑定轮换时淘汰同账号的旧出口连接
+	virtualClientKey       string // 非本地 OAuth principal 的共享池 namespace
 	routeMode              platformegress.Mode
 }
 
@@ -210,6 +222,14 @@ func (s *httpUpstreamService) Do(req *http.Request, proxyURL string, accountID i
 }
 
 func (s *httpUpstreamService) DoRoute(req *http.Request, route platformegress.Route, accountID int64, accountConcurrency int) (*http.Response, error) {
+	return s.doRouteWithVirtualClientKey(req, route, accountID, accountConcurrency, "")
+}
+
+func (s *httpUpstreamService) DoRouteWithVirtualClientKey(req *http.Request, route platformegress.Route, accountID int64, accountConcurrency int, virtualClientKey string) (*http.Response, error) {
+	return s.doRouteWithVirtualClientKey(req, route, accountID, accountConcurrency, virtualClientKey)
+}
+
+func (s *httpUpstreamService) doRouteWithVirtualClientKey(req *http.Request, route platformegress.Route, accountID int64, accountConcurrency int, virtualClientKey string) (*http.Response, error) {
 	applyGrokCLIProxyHeaders(req)
 	if err := s.validateRequestHost(req); err != nil {
 		return nil, err
@@ -220,7 +240,7 @@ func (s *httpUpstreamService) DoRoute(req *http.Request, route platformegress.Ro
 	}
 
 	// 获取或创建对应的客户端，并标记请求占用
-	entry, err := s.acquireClientWithProfileRoute(route, accountID, accountConcurrency, profile)
+	entry, err := s.getClientEntryRouteWithVirtualClientKey(route, accountID, accountConcurrency, profile, true, true, virtualClientKey)
 	if err != nil {
 		return nil, err
 	}
@@ -266,13 +286,21 @@ func (s *httpUpstreamService) DoWithTLS(req *http.Request, proxyURL string, acco
 }
 
 func (s *httpUpstreamService) DoWithTLSRoute(req *http.Request, route platformegress.Route, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile) (*http.Response, error) {
+	return s.doWithTLSRouteAndVirtualClientKey(req, route, accountID, accountConcurrency, profile, "")
+}
+
+func (s *httpUpstreamService) DoWithTLSRouteAndVirtualClientKey(req *http.Request, route platformegress.Route, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile, virtualClientKey string) (*http.Response, error) {
+	return s.doWithTLSRouteAndVirtualClientKey(req, route, accountID, accountConcurrency, profile, virtualClientKey)
+}
+
+func (s *httpUpstreamService) doWithTLSRouteAndVirtualClientKey(req *http.Request, route platformegress.Route, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile, virtualClientKey string) (*http.Response, error) {
 	if profile == nil {
-		return s.DoRoute(req, route, accountID, accountConcurrency)
+		return s.doRouteWithVirtualClientKey(req, route, accountID, accountConcurrency, virtualClientKey)
 	}
 	// Plain HTTP has no TLS handshake to fingerprint. Reuse the normal transport
 	// so a configured HTTP or SOCKS proxy is not bypassed.
 	if req != nil && req.URL != nil && strings.EqualFold(req.URL.Scheme, "http") {
-		return s.DoRoute(req, route, accountID, accountConcurrency)
+		return s.doRouteWithVirtualClientKey(req, route, accountID, accountConcurrency, virtualClientKey)
 	}
 	applyGrokCLIProxyHeaders(req)
 	upstreamProfile := service.HTTPUpstreamProfileDefault
@@ -294,7 +322,7 @@ func (s *httpUpstreamService) DoWithTLSRoute(req *http.Request, route platformeg
 		return nil, err
 	}
 
-	entry, err := s.acquireClientWithTLSRoute(route, accountID, accountConcurrency, profile, upstreamProfile)
+	entry, err := s.getClientEntryWithTLSRouteAndVirtualClientKey(route, accountID, accountConcurrency, profile, upstreamProfile, true, true, virtualClientKey)
 	if err != nil {
 		slog.Debug("tls_fingerprint_acquire_client_failed", "account_id", accountID)
 		return nil, err
@@ -521,10 +549,6 @@ func isSupportedGrokCLIVersion(version string) bool {
 		semver.Compare(canonical, minimum) >= 0
 }
 
-func (s *httpUpstreamService) acquireClientWithTLSRoute(route platformegress.Route, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile, upstreamProfile service.HTTPUpstreamProfile) (*upstreamClientEntry, error) {
-	return s.getClientEntryWithTLSRoute(route, accountID, accountConcurrency, profile, upstreamProfile, true, true)
-}
-
 // getClientEntryWithTLS 获取或创建带 TLS 指纹的客户端条目
 // TLS 指纹客户端使用独立的缓存键，与普通客户端隔离
 func (s *httpUpstreamService) getClientEntryWithTLS(proxyURL string, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile, upstreamProfile service.HTTPUpstreamProfile, markInFlight bool, enforceLimit bool) (*upstreamClientEntry, error) {
@@ -536,6 +560,10 @@ func (s *httpUpstreamService) getClientEntryWithTLS(proxyURL string, accountID i
 }
 
 func (s *httpUpstreamService) getClientEntryWithTLSRoute(route platformegress.Route, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile, upstreamProfile service.HTTPUpstreamProfile, markInFlight bool, enforceLimit bool) (*upstreamClientEntry, error) {
+	return s.getClientEntryWithTLSRouteAndVirtualClientKey(route, accountID, accountConcurrency, profile, upstreamProfile, markInFlight, enforceLimit, "")
+}
+
+func (s *httpUpstreamService) getClientEntryWithTLSRouteAndVirtualClientKey(route platformegress.Route, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile, upstreamProfile service.HTTPUpstreamProfile, markInFlight bool, enforceLimit bool, virtualClientKey string) (*upstreamClientEntry, error) {
 	// A TLS profile is part of the upstream identity. Never allow the global
 	// proxy-level pool mode to share a fingerprint transport across accounts.
 	isolation := config.ConnectionPoolIsolationAccountProxy
@@ -551,7 +579,7 @@ func (s *httpUpstreamService) getClientEntryWithTLSRoute(route platformegress.Ro
 	// TLS 指纹客户端使用独立的缓存键，加 "tls:" 前缀；Profile key 变化时
 	// 必须建立新连接，避免旧 ClientHello 继续服务同一账号。
 	profileKey := tlsfingerprint.FingerprintKey(profile)
-	cacheKey := "tls:" + buildCacheKey(isolation, routeKey, accountID, upstreamProtocolModeDefault) +
+	cacheKey := "tls:" + buildCacheKeyWithVirtualClientKey(isolation, routeKey, accountID, upstreamProtocolModeDefault, virtualClientKey) +
 		upstreamProfileCacheKeySuffix(upstreamProfile) + "|fingerprint:" + profileKey
 	poolKey := buildPoolKey(settings, upstreamProtocolModeDefault) + ":tls"
 
@@ -603,7 +631,7 @@ func (s *httpUpstreamService) getClientEntryWithTLSRoute(route platformegress.Ro
 	}
 
 	// 创建带 TLS 指纹的 Transport
-	s.evictStaleAccountRoutesLocked(accountID, effective)
+	s.evictStaleAccountRoutesLocked(accountID, virtualClientKey, effective)
 	slog.Debug("tls_fingerprint_creating_new_client", "account_id", accountID, "proxy", proxyURLForLog(proxyKey))
 	transport, err := buildUpstreamTransportWithTLSFingerprintForRoute(settings, parsedProxy, profile, effective, s.egressPolicy())
 	if err != nil {
@@ -611,19 +639,20 @@ func (s *httpUpstreamService) getClientEntryWithTLSRoute(route platformegress.Ro
 		return nil, fmt.Errorf("build TLS fingerprint transport: %w", err)
 	}
 
-	client := &http.Client{Transport: transport}
+	client := &http.Client{Transport: transport, Jar: chatgptCookieJar()}
 	if s.shouldValidateResolvedIP() {
 		client.CheckRedirect = s.redirectChecker
 	}
 
 	entry := &upstreamClientEntry{
-		client:        client,
-		accountID:     accountID,
-		proxyKey:      proxyKey,
-		routeKey:      routeKey,
-		routeMode:     effective.Mode,
-		poolKey:       poolKey,
-		tlsProfileKey: profileKey,
+		client:           client,
+		accountID:        accountID,
+		virtualClientKey: virtualClientKey,
+		proxyKey:         proxyKey,
+		routeKey:         routeKey,
+		routeMode:        effective.Mode,
+		poolKey:          poolKey,
+		tlsProfileKey:    profileKey,
 	}
 	atomic.StoreInt64(&entry.lastUsed, nowUnix)
 	if markInFlight {
@@ -682,10 +711,6 @@ func (s *httpUpstreamService) acquireClientWithProfile(proxyURL string, accountI
 	return s.getClientEntry(proxyURL, accountID, accountConcurrency, profile, true, true)
 }
 
-func (s *httpUpstreamService) acquireClientWithProfileRoute(route platformegress.Route, accountID int64, accountConcurrency int, profile service.HTTPUpstreamProfile) (*upstreamClientEntry, error) {
-	return s.getClientEntryRoute(route, accountID, accountConcurrency, profile, true, true)
-}
-
 // getOrCreateClient 获取或创建客户端
 // 根据隔离策略和参数决定缓存键，处理代理变更和配置变更
 //
@@ -717,6 +742,10 @@ func (s *httpUpstreamService) getClientEntry(proxyURL string, accountID int64, a
 }
 
 func (s *httpUpstreamService) getClientEntryRoute(route platformegress.Route, accountID int64, accountConcurrency int, profile service.HTTPUpstreamProfile, markInFlight bool, enforceLimit bool) (*upstreamClientEntry, error) {
+	return s.getClientEntryRouteWithVirtualClientKey(route, accountID, accountConcurrency, profile, markInFlight, enforceLimit, "")
+}
+
+func (s *httpUpstreamService) getClientEntryRouteWithVirtualClientKey(route platformegress.Route, accountID int64, accountConcurrency int, profile service.HTTPUpstreamProfile, markInFlight bool, enforceLimit bool, virtualClientKey string) (*upstreamClientEntry, error) {
 	// 获取隔离模式
 	isolation := s.getIsolationMode()
 	effective, routeKey, proxyKey, parsedProxy, err := s.normalizeEgressRoute(route)
@@ -731,7 +760,7 @@ func (s *httpUpstreamService) getClientEntryRoute(route platformegress.Route, ac
 	settings := s.resolvePoolSettings(isolation, accountConcurrency)
 	settings = s.applyProfilePoolSettings(settings, profile)
 	// 构建缓存键（根据隔离策略不同）
-	cacheKey := buildCacheKey(isolation, routeKey, accountID, protocolMode) + upstreamProfileCacheKeySuffix(profile)
+	cacheKey := buildCacheKeyWithVirtualClientKey(isolation, routeKey, accountID, protocolMode, virtualClientKey) + upstreamProfileCacheKeySuffix(profile)
 	// 构建连接池配置键（用于检测配置变更）
 	poolKey := buildPoolKey(settings, protocolMode)
 
@@ -776,24 +805,25 @@ func (s *httpUpstreamService) getClientEntryRoute(route platformegress.Route, ac
 	}
 
 	// 缓存未命中或需要重建，创建新客户端
-	s.evictStaleAccountRoutesLocked(accountID, effective)
+	s.evictStaleAccountRoutesLocked(accountID, virtualClientKey, effective)
 	transport, err := buildUpstreamTransportForRoute(settings, parsedProxy, protocolMode, effective, s.egressPolicy())
 	if err != nil {
 		s.mu.Unlock()
 		return nil, fmt.Errorf("build transport: %w", err)
 	}
-	client := &http.Client{Transport: transport}
+	client := &http.Client{Transport: transport, Jar: chatgptCookieJar()}
 	if s.shouldValidateResolvedIP() {
 		client.CheckRedirect = s.redirectChecker
 	}
 	entry := &upstreamClientEntry{
-		client:       client,
-		accountID:    accountID,
-		proxyKey:     proxyKey,
-		routeKey:     routeKey,
-		routeMode:    effective.Mode,
-		poolKey:      poolKey,
-		protocolMode: protocolMode,
+		client:           client,
+		accountID:        accountID,
+		virtualClientKey: virtualClientKey,
+		proxyKey:         proxyKey,
+		routeKey:         routeKey,
+		routeMode:        effective.Mode,
+		poolKey:          poolKey,
+		protocolMode:     protocolMode,
 	}
 	atomic.StoreInt64(&entry.lastUsed, nowUnix)
 	if markInFlight {
@@ -872,13 +902,21 @@ func (s *httpUpstreamService) removeClientLocked(key string, entry *upstreamClie
 // evictStaleAccountRoutesLocked closes idle connections created with an older
 // binding while allowing active HTTP/SSE responses to finish on their current
 // socket. The caller must hold s.mu for writing.
-func (s *httpUpstreamService) evictStaleAccountRoutesLocked(accountID int64, route platformegress.Route) {
+func (s *httpUpstreamService) evictStaleAccountRoutesLocked(accountID int64, virtualClientKey string, route platformegress.Route) {
 	routeKey := route.CacheKey()
-	if accountID <= 0 || strings.TrimSpace(routeKey) == "" {
+	virtualClientKey = strings.TrimSpace(virtualClientKey)
+	if (accountID <= 0 && virtualClientKey == "") || strings.TrimSpace(routeKey) == "" {
 		return
 	}
 	for key, entry := range s.clients {
-		if entry == nil || entry.accountID != accountID || entry.routeKey == routeKey {
+		if entry == nil || entry.routeKey == routeKey {
+			continue
+		}
+		if virtualClientKey != "" {
+			if entry.virtualClientKey != virtualClientKey {
+				continue
+			}
+		} else if entry.accountID != accountID {
 			continue
 		}
 		// account_proxy intentionally keeps distinct traditional proxies cached.
@@ -1082,12 +1120,25 @@ func buildPoolKey(settings poolSettings, protocolMode string) string {
 //   - account 模式: "account:{accountID}"
 //   - account_proxy 模式: "account:{accountID}|proxy:{proxyKey}"
 func buildCacheKey(isolation, proxyKey string, accountID int64, protocolMode string) string {
+	return buildCacheKeyWithVirtualClientKey(isolation, proxyKey, accountID, protocolMode, "")
+}
+
+func buildCacheKeyWithVirtualClientKey(isolation, proxyKey string, accountID int64, protocolMode, virtualClientKey string) string {
 	var base string
+	virtualClientKey = strings.TrimSpace(virtualClientKey)
 	switch isolation {
 	case config.ConnectionPoolIsolationAccount:
-		base = fmt.Sprintf("account:%d", accountID)
+		if virtualClientKey != "" {
+			base = "virtual:" + shortStableKey(virtualClientKey)
+		} else {
+			base = fmt.Sprintf("account:%d", accountID)
+		}
 	case config.ConnectionPoolIsolationAccountProxy:
-		base = fmt.Sprintf("account:%d|proxy:%s", accountID, proxyKey)
+		if virtualClientKey != "" {
+			base = fmt.Sprintf("virtual:%s|proxy:%s", shortStableKey(virtualClientKey), proxyKey)
+		} else {
+			base = fmt.Sprintf("account:%d|proxy:%s", accountID, proxyKey)
+		}
 	default:
 		base = fmt.Sprintf("proxy:%s", proxyKey)
 	}
@@ -1095,6 +1146,11 @@ func buildCacheKey(isolation, proxyKey string, accountID int64, protocolMode str
 		base += "|proto:" + protocolMode
 	}
 	return base
+}
+
+func shortStableKey(value string) string {
+	digest := sha256.Sum256([]byte(value))
+	return hex.EncodeToString(digest[:16])
 }
 
 func upstreamProfileCacheKeySuffix(profile service.HTTPUpstreamProfile) string {

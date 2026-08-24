@@ -467,9 +467,34 @@ type AccountUsageService struct {
 	cache                   *UsageCache
 	identityCache           IdentityCache
 	tlsFPProfileService     *TLSFingerprintProfileService
+	httpUpstream            HTTPUpstream
+	settingService          *SettingService
 	agentIdentityTaskMu     sync.Mutex
 	agentIdentityWS         agentIdentityWSConnectionInvalidator
 	cfg                     *config.Config
+}
+
+// SetHTTPUpstream attaches the production account-scoped upstream transport.
+// The constructor keeps the legacy signature used by focused tests; Wire sets
+// this port in production so OpenAI/Codex usage probes share the same TLS,
+// HTTP protocol and egress policy as inference traffic.
+func (s *AccountUsageService) SetHTTPUpstream(upstream HTTPUpstream) {
+	if s != nil {
+		s.httpUpstream = upstream
+	}
+}
+
+func (s *AccountUsageService) SetCodexSimulationSettingService(settingService *SettingService) {
+	if s != nil {
+		s.settingService = settingService
+	}
+}
+
+func (s *AccountUsageService) resolveOpenAITLSProfile(account *Account) *tlsfingerprint.Profile {
+	if s == nil || s.tlsFPProfileService == nil {
+		return nil
+	}
+	return s.tlsFPProfileService.ResolveTLSProfile(account)
 }
 
 // NewAccountUsageService 创建AccountUsageService实例
@@ -957,15 +982,25 @@ func (s *AccountUsageService) probeOpenAICodexSnapshot(ctx context.Context, acco
 	enforceCodexIdentityHeadersWithUA(req.Header, account.GetOpenAIUserAgent())
 	setOpenAIChatGPTAccountHeaders(req.Header, account)
 
-	client, err := httppool.GetClientForContext(reqCtx, httppool.Options{
-		ProxyURL:              proxyURL,
-		Timeout:               15 * time.Second,
-		ResponseHeaderTimeout: 10 * time.Second,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("build openai probe client: %w", err)
+	var resp *http.Response
+	if cLevelTransportSimulationEnabled(s.settingService) && s.httpUpstream != nil {
+		// Usage probes are Codex backend traffic, not generic browser traffic.
+		// Reuse the same account-scoped TLS/HTTP2/egress transport as inference.
+		req = req.WithContext(WithHTTPUpstreamProfile(req.Context(), HTTPUpstreamProfileOpenAI))
+		tlsProfile := s.resolveOpenAITLSProfile(account)
+		req = req.WithContext(WithHTTPUpstreamTLSProfile(req.Context(), tlsProfile))
+		resp, err = doAccountHTTPUpstreamWithTLS(s.httpUpstream, req, proxyURL, account, tlsProfile)
+	} else {
+		client, clientErr := httppool.GetClientForContext(reqCtx, httppool.Options{
+			ProxyURL:              proxyURL,
+			Timeout:               15 * time.Second,
+			ResponseHeaderTimeout: 10 * time.Second,
+		})
+		if clientErr != nil {
+			return nil, fmt.Errorf("build openai probe client: %w", clientErr)
+		}
+		resp, err = client.Do(req)
 	}
-	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("openai codex probe request failed: %w", err)
 	}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
+	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
 	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
 	"github.com/stretchr/testify/require"
 )
@@ -176,6 +177,17 @@ func TestCoderOpenAIWSClientDialer_ProfileHTTPSProxyUsesFingerprintDialer(t *tes
 	require.True(t, ok)
 	require.NotNil(t, transport.DialTLSContext)
 	require.Nil(t, transport.Proxy)
+}
+
+func TestCoderOpenAIWSClientDialer_DirectClientCarriesCookieJar(t *testing.T) {
+	codexsimulation.SetCLevelEnabled(true)
+	t.Cleanup(func() { codexsimulation.SetCLevelEnabled(false) })
+	dialer := newDefaultOpenAIWSClientDialer()
+	impl, ok := dialer.(*coderOpenAIWSClientDialer)
+	require.True(t, ok)
+	client, err := impl.routeHTTPClientWithProfile(platformegress.DirectRoute(false), nil)
+	require.NoError(t, err)
+	require.NotNil(t, client.Jar, "direct WS handshakes must use the shared Cloudflare-only cookie jar")
 }
 
 func TestOpenAIWSAcquireCompatibilityIncludesTLSProfile(t *testing.T) {

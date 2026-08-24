@@ -80,6 +80,26 @@
           </fieldset>
         </div>
 
+        <div class="flex items-center justify-between gap-4 border-t border-gray-100 pt-5 dark:border-dark-700">
+          <div>
+            <label class="font-medium text-gray-900 dark:text-white">
+              {{ t("admin.settings.codexSimulation.cLevelSimulation") }}
+            </label>
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+              {{ t("admin.settings.codexSimulation.cLevelSimulationHint") }}
+            </p>
+          </div>
+          <fieldset
+            class="m-0 min-w-0 border-0 p-0"
+            :disabled="codexSimulationLoadFailed || codexSimulationSaving"
+          >
+            <Toggle
+              v-model="cLevelSimulationEnabled"
+              data-testid="codex-simulation-c-level-toggle"
+            />
+          </fieldset>
+        </div>
+
         <div class="grid gap-5 border-t border-gray-100 pt-5 dark:border-dark-700 md:grid-cols-2">
           <div>
             <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -131,6 +151,7 @@
             codexSimulationLoadFailed
               ? 'text-amber-700 dark:text-amber-300'
               : codexSimulationForm.full_simulation_enabled ||
+                  codexSimulationForm.c_level_simulation_enabled ||
                   codexSimulationForm.continuation_mode !== 'off'
               ? 'text-amber-700 dark:text-amber-300'
               : 'text-green-700 dark:text-green-300'
@@ -141,6 +162,7 @@
             codexSimulationLoadFailed
               ? t("admin.settings.codexSimulation.stateUnknown")
               : codexSimulationForm.full_simulation_enabled ||
+                  codexSimulationForm.c_level_simulation_enabled ||
                   codexSimulationForm.continuation_mode !== "off"
               ? t("admin.settings.codexSimulation.experimentalEnabled")
               : t("admin.settings.codexSimulation.originalBehaviorActive")
@@ -181,6 +203,7 @@
 import Toggle from '@/common/widgets/forms/Toggle.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import { useSettingsPageContext } from '@/features/admin-settings/presentation/composables/settingsPageContext'
+import { computed } from 'vue'
 
 const {
   codexSimulationForm,
@@ -191,4 +214,11 @@ const {
   saveCodexSimulationSettings,
   t,
 } = useSettingsPageContext()
+
+const cLevelSimulationEnabled = computed({
+  get: () => Boolean(codexSimulationForm.c_level_simulation_enabled),
+  set: (value: boolean) => {
+    codexSimulationForm.c_level_simulation_enabled = value
+  },
+})
 </script>

@@ -5,10 +5,12 @@ import (
 	"encoding/binary"
 	"hash/fnv"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/domain/model"
+	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
 	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
 )
@@ -33,12 +35,21 @@ type TLSFingerprintProfileCache interface {
 
 // TLSFingerprintProfileService TLS 指纹模板管理服务
 type TLSFingerprintProfileService struct {
-	repo  TLSFingerprintProfileRepository
-	cache TLSFingerprintProfileCache
+	repo           TLSFingerprintProfileRepository
+	cache          TLSFingerprintProfileCache
+	settingService *SettingService
 
 	// 本地 ID→Profile 映射缓存，用于 DoWithTLS 热路径快速查找
 	localCache map[int64]*model.TLSFingerprintProfile
 	localMu    sync.RWMutex
+}
+
+// SetCodexSimulationSettingService attaches the administrator-controlled
+// transport gate without changing the legacy constructor used by tests.
+func (s *TLSFingerprintProfileService) SetCodexSimulationSettingService(settingService *SettingService) {
+	if s != nil {
+		s.settingService = settingService
+	}
 }
 
 // NewTLSFingerprintProfileService 创建 TLS 指纹模板服务
@@ -147,9 +158,11 @@ func (s *TLSFingerprintProfileService) GetProfileByID(id int64) *tlsfingerprint.
 	return nil
 }
 
-// getStableProfile 根据账号 ID 从当前 Profile 集合中稳定选择一个 Profile。
-// 使用 rendezvous hashing，新增其他 Profile 不会让所有账号整体换指纹。
-func (s *TLSFingerprintProfileService) getStableProfile(accountID int64) *tlsfingerprint.Profile {
+// getStableProfileForKey uses a virtual-client key rather than a local account
+// row when one is available. This prevents two local records that share one
+// Codex principal from silently presenting different TLS profiles after
+// failover.
+func (s *TLSFingerprintProfileService) getStableProfileForKey(stableKey string) *tlsfingerprint.Profile {
 	s.localMu.RLock()
 	defer s.localMu.RUnlock()
 
@@ -172,7 +185,7 @@ func (s *TLSFingerprintProfileService) getStableProfile(accountID int64) *tlsfin
 	selectedScore := uint64(0)
 	for _, id := range ids {
 		var encoded [16]byte
-		binary.LittleEndian.PutUint64(encoded[:8], uint64(accountID))
+		binary.LittleEndian.PutUint64(encoded[:8], fnvHash64(stableKey))
 		binary.LittleEndian.PutUint64(encoded[8:], uint64(id))
 		hasher := fnv.New64a()
 		_, _ = hasher.Write(encoded[:])
@@ -185,13 +198,19 @@ func (s *TLSFingerprintProfileService) getStableProfile(accountID int64) *tlsfin
 	return s.localCache[selectedID].ToTLSProfile()
 }
 
+func fnvHash64(value string) uint64 {
+	hasher := fnv.New64a()
+	_, _ = hasher.Write([]byte(value))
+	return hasher.Sum64()
+}
+
 // ResolveTLSProfile 根据 Account 的配置解析出运行时 TLS Profile
 //
 // 逻辑：
 //  1. 未启用 TLS 指纹 → 返回 nil（不伪装）
 //  2. 启用 + 绑定了 profile_id → 从缓存查找对应 profile
 //  3. OpenAI OAuth 未绑定 → 使用源码对应的 Codex Rustls profile
-//  4. 启用 + 随机模式或绑定失效 → 按账号 ID 稳定选择一个 profile
+//  4. 启用 + 随机模式或绑定失效 → 按虚拟客户端 key 稳定选择一个 profile
 //  5. 没有任何数据库 profile → 使用代码内置默认值
 func (s *TLSFingerprintProfileService) ResolveTLSProfile(account *Account) *tlsfingerprint.Profile {
 	if account == nil || !account.IsTLSFingerprintEnabled() {
@@ -208,7 +227,14 @@ func (s *TLSFingerprintProfileService) ResolveTLSProfile(account *Account) *tlsf
 	if account.IsOpenAIOAuth() && id == 0 {
 		return tlsfingerprint.BuiltInCodexRustlsProfile()
 	}
-	if p := s.getStableProfile(account.ID); p != nil {
+	stableKey := ""
+	if s.settingService != nil && codexsimulation.CLevelEnabled() {
+		stableKey = account.CodexVirtualClientKey()
+	}
+	if stableKey == "" {
+		stableKey = strconv.FormatInt(account.ID, 10)
+	}
+	if p := s.getStableProfileForKey(stableKey); p != nil {
 		return p
 	}
 	// TLS 启用但没有可配置 profile 时，按上游平台选择内置传输参数。

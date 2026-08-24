@@ -24,6 +24,32 @@ const (
 	liveCallPrefix               = "live:call:"
 )
 
+var openAIWSGenerationAdvanceScript = redis.NewScript(`
+local current = redis.call("GET", KEYS[1])
+local expected = tonumber(ARGV[1])
+local next = tonumber(ARGV[2])
+local ttl = tonumber(ARGV[3])
+if not expected or not next or not ttl then
+  return -1
+end
+if not current then
+  current = 0
+else
+  current = tonumber(current)
+  if not current then
+    return -1
+  end
+end
+if current >= next then
+  return current
+end
+if current ~= expected then
+  return current
+end
+redis.call("SET", KEYS[1], ARGV[2], "EX", ttl)
+return next
+`)
+
 type gatewayCache struct {
 	rdb *redis.Client
 }
@@ -175,6 +201,35 @@ func (c *gatewayCache) DeleteOpenAIWSState(ctx context.Context, key string) erro
 	return c.rdb.Del(ctx, key).Err()
 }
 
+// AdvanceOpenAIWSGeneration atomically advances a Codex Compact generation
+// when the stored value still matches expected. Repeated completion callbacks
+// therefore converge on one value instead of incrementing twice.
+func (c *gatewayCache) AdvanceOpenAIWSGeneration(ctx context.Context, key string, expected, next uint64, ttl time.Duration) (uint64, error) {
+	key = buildOpenAIWSSharedStateKey(key)
+	if key == "" || next <= expected {
+		return expected, nil
+	}
+	ttlSeconds := int64(ttl / time.Second)
+	if ttlSeconds <= 0 {
+		ttlSeconds = 1
+	}
+	value, err := openAIWSGenerationAdvanceScript.Run(
+		ctx,
+		c.rdb,
+		[]string{key},
+		strconv.FormatUint(expected, 10),
+		strconv.FormatUint(next, 10),
+		strconv.FormatInt(ttlSeconds, 10),
+	).Int64()
+	if err != nil {
+		return 0, err
+	}
+	if value < 0 {
+		return 0, fmt.Errorf("invalid Codex generation state for %q", key)
+	}
+	return uint64(value), nil
+}
+
 func buildOpenAIWSSharedStateKey(key string) string {
 	key = strings.TrimSpace(key)
 	if key == "" {
@@ -184,6 +239,7 @@ func buildOpenAIWSSharedStateKey(key string) string {
 }
 
 var _ service.OpenAIWSSharedStateCache = (*gatewayCache)(nil)
+var _ service.OpenAIWSAtomicGenerationCache = (*gatewayCache)(nil)
 var _ service.GeneratedImageURLStore = (*gatewayCache)(nil)
 var _ service.GeneratedImageRouteStore = (*gatewayCache)(nil)
 

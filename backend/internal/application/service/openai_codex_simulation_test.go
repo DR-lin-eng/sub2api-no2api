@@ -133,6 +133,7 @@ func TestCodexSimulationPrincipalAndTurnMapping(t *testing.T) {
 
 	require.Equal(t, firstIDs.sessionID, firstIDs.threadID)
 	require.Equal(t, firstIDs.sessionID, firstIDs.promptCacheKey)
+	require.Equal(t, firstIDs.sessionID+":0", firstIDs.windowID)
 	require.Contains(t, firstIDs.profile.userAgent, runtimeProfileOSFragment())
 }
 
@@ -191,7 +192,7 @@ func TestCodexFullSimulationRebuildsReservedIdentityConsistently(t *testing.T) {
 		"Openai-Beta":                {"responses=experimental"},
 	}
 	applyCodexFingerprintHeaders(headers, ids)
-	require.Equal(t, ids.installationID, headers.Get("x-codex-installation-id"))
+	require.Empty(t, headers.Get("x-codex-installation-id"), "ordinary Responses should use client_metadata projection")
 	require.Equal(t, ids.sessionID, headers.Get("session-id"))
 	require.Equal(t, ids.threadID, headers.Get("thread-id"))
 	require.Equal(t, ids.threadID, headers.Get("x-client-request-id"))
@@ -209,6 +210,9 @@ func TestCodexFullSimulationRebuildsReservedIdentityConsistently(t *testing.T) {
 	require.Equal(t, ids.sessionID, gjson.GetBytes(rewritten, "client_metadata.session_id").String())
 	require.Equal(t, ids.threadID, gjson.GetBytes(rewritten, "client_metadata.thread_id").String())
 	require.Equal(t, ids.turnID, gjson.GetBytes(rewritten, "client_metadata.turn_id").String())
+	require.False(t, gjson.GetBytes(rewritten, "client_metadata.preserved").Exists())
+	turnMetadata := decodeFingerprintMetadata(t, gjson.GetBytes(rewritten, "client_metadata.x-codex-turn-metadata").String())
+	require.Equal(t, "true", turnMetadata["preserved"])
 
 	request, err := svc.buildUpstreamRequestWithFingerprint(context.Background(), c, account, rewritten, "token", false, "", true, ids)
 	require.NoError(t, err)
@@ -245,6 +249,36 @@ func TestCodexCompactGenerationAdvancesOnlyAfterSuccess(t *testing.T) {
 	_, afterSuccess := prepare()
 	require.Equal(t, uint64(1), afterSuccess.generation, "success completion must be idempotent for one attempt")
 	require.NotEqual(t, beforeFailure.windowID, afterSuccess.windowID)
+}
+
+func TestCodexFullSimulationTurnMetadataCarriesRequestKind(t *testing.T) {
+	svc := newCodexSimulationTestService(true, codexContinuationOff)
+	account := openAIFingerprintAccount(42, map[string]any{codexFingerprintModeExtraKey: "full"})
+	account.Credentials = map[string]any{"chatgpt_account_id": "request-kind-principal"}
+	for _, test := range []struct {
+		path string
+		body string
+		want string
+	}{
+		{path: "/v1/responses", body: `{"model":"gpt-5.4","input":"hello"}`, want: codexRequestKindTurn},
+		{path: "/v1/responses/compact", body: `{"model":"gpt-5.4","input":"compact"}`, want: codexRequestKindCompaction},
+		{path: "/v1/responses", body: `{"model":"gpt-5.4","generate":false}`, want: codexRequestKindPrewarm},
+	} {
+		t.Run(test.want, func(t *testing.T) {
+			c := newCodexSimulationTestContext(test.path)
+			body := []byte(test.body)
+			svc.PrepareCodexSimulationRequest(c, 1, nil, body)
+			_, err := svc.PrepareCodexSimulationAttempt(context.Background(), c, account, body)
+			require.NoError(t, err)
+			attempt, ok := codexSimulationAttemptFromGin(c)
+			require.True(t, ok)
+			rewritten, changed, err := applyCodexFingerprintClientMetadataToBody(body, attempt.fingerprint)
+			require.NoError(t, err)
+			require.True(t, changed)
+			metadata := decodeFingerprintMetadata(t, gjson.GetBytes(rewritten, "client_metadata.x-codex-turn-metadata").String())
+			require.Equal(t, test.want, metadata["request_kind"])
+		})
+	}
 }
 
 func TestCodexSimulationDisabledUsesHardNoopRequestGate(t *testing.T) {

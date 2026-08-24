@@ -112,16 +112,38 @@ type OpenAIQuotaResetResult struct {
 }
 
 // OpenAIQuotaService queries and consumes ChatGPT/Codex rate-limit reset credits
-// for OpenAI OAuth accounts. It reuses the privacy client factory so all calls
-// flow through the impersonated HTTP client (Cloudflare-friendly TLS fingerprint).
+// for OpenAI OAuth accounts. Production wiring routes these calls through the
+// account-scoped HTTPUpstream/TLS profile; the privacy client factory remains a
+// compatibility fallback for focused callers and older test fixtures.
 type OpenAIQuotaService struct {
 	accountRepo          AccountRepository
 	proxyRepo            ProxyRepository
 	tokenProvider        *OpenAITokenProvider
 	privacyClientFactory PrivacyClientFactory
+	httpUpstream         HTTPUpstream
+	tlsFPProfileService  *TLSFingerprintProfileService
+	settingService       *SettingService
 	agentIdentityTaskMu  sync.Mutex
 	agentIdentityWS      agentIdentityWSConnectionInvalidator
 	cfg                  *config.Config
+}
+
+// SetHTTPUpstream attaches the account-scoped Codex transport used by the
+// production gateway. Existing tests keep using PrivacyClientFactory; the
+// setter lets Wire route quota traffic through the same TLS/HTTP2/egress pool
+// without changing the legacy constructor signature.
+func (s *OpenAIQuotaService) SetHTTPUpstream(upstream HTTPUpstream, tlsProfileService *TLSFingerprintProfileService) {
+	if s == nil {
+		return
+	}
+	s.httpUpstream = upstream
+	s.tlsFPProfileService = tlsProfileService
+}
+
+func (s *OpenAIQuotaService) SetCodexSimulationSettingService(settingService *SettingService) {
+	if s != nil {
+		s.settingService = settingService
+	}
 }
 
 // NewOpenAIQuotaService constructs a quota service. token provider is required —
@@ -150,6 +172,9 @@ func NewOpenAIQuotaService(
 // OAuth account. Returns infraerrors so the handler layer can map them to
 // stable error codes / HTTP statuses.
 func (s *OpenAIQuotaService) QueryUsage(ctx context.Context, accountID int64) (*OpenAIQuotaUsage, error) {
+	if s != nil && cLevelTransportSimulationEnabled(s.settingService) && s.httpUpstream != nil {
+		return s.queryUsageWithAccountTransport(ctx, accountID)
+	}
 	var route platformegress.Route
 	accessToken, chatGPTAccountID, proxyURL, fedRAMP, err := s.prepareUpstreamCall(ctx, accountID, &route)
 	if err != nil {
@@ -269,6 +294,9 @@ func (s *OpenAIQuotaService) ResetCredit(ctx context.Context, accountID int64) (
 			return nil, ErrSparkShadowResetNotSupported
 		}
 	}
+	if s != nil && cLevelTransportSimulationEnabled(s.settingService) && s.httpUpstream != nil {
+		return s.resetCreditWithAccountTransport(ctx, accountID)
+	}
 
 	var route platformegress.Route
 	accessToken, chatGPTAccountID, proxyURL, fedRAMP, err := s.prepareUpstreamCall(ctx, accountID, &route)
@@ -335,7 +363,7 @@ func (s *OpenAIQuotaService) ResetCredit(ctx context.Context, accountID int64) (
 // token via the shared TokenProvider, and resolves the chatgpt-account-id and
 // proxy URL. Centralized so QueryUsage / ResetCredit share validation.
 func (s *OpenAIQuotaService) prepareUpstreamCall(ctx context.Context, accountID int64, route *platformegress.Route) (accessToken, chatGPTAccountID, proxyURL string, fedRAMP bool, err error) {
-	if s == nil || s.accountRepo == nil || s.privacyClientFactory == nil {
+	if s == nil || s.accountRepo == nil || (s.privacyClientFactory == nil && s.httpUpstream == nil) {
 		return "", "", "", false, infraerrors.New(http.StatusInternalServerError, "OPENAI_QUOTA_NOT_CONFIGURED", "openai quota service is not configured")
 	}
 

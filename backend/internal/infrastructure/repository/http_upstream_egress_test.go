@@ -15,7 +15,7 @@ func (s *HTTPUpstreamSuite) TestIPv6RouteRotationEvictsOnlyStaleAccountRoutes() 
 	svc.clients["old"] = &upstreamClientEntry{client: &http.Client{}, accountID: 7, routeKey: oldRoute.CacheKey(), routeMode: oldRoute.Mode}
 	svc.clients["other"] = &upstreamClientEntry{client: &http.Client{}, accountID: 8, routeKey: otherAccountRoute.CacheKey(), routeMode: otherAccountRoute.Mode}
 
-	svc.evictStaleAccountRoutesLocked(7, newRoute)
+	svc.evictStaleAccountRoutesLocked(7, "", newRoute)
 
 	require.NotContains(s.T(), svc.clients, "old")
 	require.Contains(s.T(), svc.clients, "other")
@@ -27,7 +27,7 @@ func (s *HTTPUpstreamSuite) TestTraditionalAccountProxyRoutesRemainCached() {
 	second := platformegress.ExternalProxyRoute("http://proxy-b:8080")
 	svc.clients["first"] = &upstreamClientEntry{client: &http.Client{}, accountID: 9, routeKey: first.CacheKey(), routeMode: first.Mode}
 
-	svc.evictStaleAccountRoutesLocked(9, second)
+	svc.evictStaleAccountRoutesLocked(9, "", second)
 
 	require.Contains(s.T(), svc.clients, "first")
 }
@@ -37,7 +37,7 @@ func (s *HTTPUpstreamSuite) TestLeavingIPv6RouteEvictsItsIdlePool() {
 	oldRoute := platformegress.IPv6PoolRoute("2001:db8::10", 1, 3, false)
 	svc.clients["old"] = &upstreamClientEntry{client: &http.Client{}, accountID: 10, routeKey: oldRoute.CacheKey(), routeMode: oldRoute.Mode}
 
-	svc.evictStaleAccountRoutesLocked(10, platformegress.ExternalProxyRoute("http://proxy.local:8080"))
+	svc.evictStaleAccountRoutesLocked(10, "", platformegress.ExternalProxyRoute("http://proxy.local:8080"))
 
 	require.NotContains(s.T(), svc.clients, "old")
 }

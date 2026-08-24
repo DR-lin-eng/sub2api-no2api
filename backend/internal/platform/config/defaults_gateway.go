@@ -24,6 +24,7 @@ func setGatewayDefaults() {
 	viper.SetDefault("gateway.openai_passthrough_allow_timeout_headers", false)
 	viper.SetDefault("gateway.openai_compact_model", "gpt-5.4")
 	viper.SetDefault("gateway.codex_simulation.full_simulation_enabled", false)
+	viper.SetDefault("gateway.codex_simulation.c_level_simulation_enabled", false)
 	viper.SetDefault("gateway.codex_simulation.identity_secret", "")
 	viper.SetDefault("gateway.codex_simulation.continuation_mode", "off")
 	viper.SetDefault("gateway.codex_simulation.state_ttl_seconds", 7*24*60*60)

@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
+	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
 	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
 )
 
@@ -87,6 +89,27 @@ type RoutedHTTPUpstream interface {
 	DoWithTLSRoute(req *http.Request, route platformegress.Route, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile) (*http.Response, error)
 }
 
+// VirtualClientRoutedHTTPUpstream is an optional extension used by OpenAI
+// OAuth accounts that intentionally share one virtual principal. It lets the
+// production pool reuse a socket only when route, TLS profile and virtual
+// client namespace all match; legacy test doubles continue using the older
+// interfaces unchanged.
+type VirtualClientRoutedHTTPUpstream interface {
+	DoRouteWithVirtualClientKey(req *http.Request, route platformegress.Route, accountID int64, accountConcurrency int, virtualClientKey string) (*http.Response, error)
+	DoWithTLSRouteAndVirtualClientKey(req *http.Request, route platformegress.Route, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile, virtualClientKey string) (*http.Response, error)
+}
+
+func openAIVirtualClientKey(account *Account) string {
+	if !codexsimulation.CLevelEnabled() || account == nil || !account.IsOpenAIOAuth() {
+		return ""
+	}
+	key := strings.TrimSpace(account.CodexVirtualClientKey())
+	if key == "" || strings.HasPrefix(key, "local:") {
+		return ""
+	}
+	return key
+}
+
 func accountEgressRoute(account *Account, proxyURL string) platformegress.Route {
 	if proxyURL != "" {
 		return platformegress.ExternalProxyRoute(proxyURL)
@@ -117,6 +140,11 @@ func doAccountHTTPUpstreamWithConcurrency(upstream HTTPUpstream, req *http.Reque
 		accountID = account.ID
 	}
 	if routed, ok := upstream.(RoutedHTTPUpstream); ok {
+		if virtual, virtualOK := upstream.(VirtualClientRoutedHTTPUpstream); virtualOK {
+			if key := openAIVirtualClientKey(account); key != "" {
+				return virtual.DoRouteWithVirtualClientKey(req, route, accountID, accountConcurrency, key)
+			}
+		}
 		return routed.DoRoute(req, route, accountID, accountConcurrency)
 	}
 	legacyProxyURL, err := legacyHTTPUpstreamProxyURL(route)
@@ -133,6 +161,11 @@ func doAccountHTTPUpstreamWithTLS(upstream HTTPUpstream, req *http.Request, prox
 		accountID, accountConcurrency = account.ID, account.Concurrency
 	}
 	if routed, ok := upstream.(RoutedHTTPUpstream); ok {
+		if virtual, virtualOK := upstream.(VirtualClientRoutedHTTPUpstream); virtualOK {
+			if key := openAIVirtualClientKey(account); key != "" {
+				return virtual.DoWithTLSRouteAndVirtualClientKey(req, route, accountID, accountConcurrency, profile, key)
+			}
+		}
 		return routed.DoWithTLSRoute(req, route, accountID, accountConcurrency, profile)
 	}
 	legacyProxyURL, err := legacyHTTPUpstreamProxyURL(route)

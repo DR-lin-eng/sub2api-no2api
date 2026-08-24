@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
 )
 
@@ -23,10 +24,11 @@ const (
 // request. IdentitySecret is persisted but must never be returned by an HTTP
 // handler; transport DTOs expose only IdentitySecretConfigured.
 type CodexSimulationSettings struct {
-	FullSimulationEnabled bool   `json:"full_simulation_enabled"`
-	ContinuationMode      string `json:"continuation_mode"`
-	StateTTLSeconds       int    `json:"state_ttl_seconds"`
-	IdentitySecret        string `json:"identity_secret"`
+	FullSimulationEnabled   bool   `json:"full_simulation_enabled"`
+	CLevelSimulationEnabled bool   `json:"c_level_simulation_enabled"`
+	ContinuationMode        string `json:"continuation_mode"`
+	StateTTLSeconds         int    `json:"state_ttl_seconds"`
+	IdentitySecret          string `json:"identity_secret"`
 }
 
 func (s CodexSimulationSettings) IdentitySecretConfigured() bool {
@@ -59,6 +61,14 @@ func (s CodexSimulationSettings) stateTTL() time.Duration {
 	return time.Duration(s.StateTTLSeconds) * time.Second
 }
 
+// cLevelTransportSimulationEnabled is intentionally permissive for isolated
+// unit fixtures that do not construct a SettingService. Production wiring
+// always supplies the setting service, so the administrator gate is
+// authoritative there.
+func cLevelTransportSimulationEnabled(settingService *SettingService) bool {
+	return settingService == nil || codexsimulation.CLevelEnabled()
+}
+
 func (s *SettingService) defaultCodexSimulationSettings() CodexSimulationSettings {
 	settings := CodexSimulationSettings{
 		ContinuationMode: codexContinuationOff.String(),
@@ -70,6 +80,7 @@ func (s *SettingService) defaultCodexSimulationSettings() CodexSimulationSetting
 
 	cfg := s.cfg.Gateway.CodexSimulation
 	settings.FullSimulationEnabled = cfg.FullSimulationEnabled
+	settings.CLevelSimulationEnabled = cfg.CLevelSimulationEnabled
 	settings.IdentitySecret = strings.TrimSpace(cfg.IdentitySecret)
 	settings.ContinuationMode = normalizeCodexContinuationMode(cfg.ContinuationMode)
 	if cfg.StateTTLSeconds > 0 {
@@ -165,6 +176,7 @@ func (s *SettingService) LoadCodexSimulationSettings(ctx context.Context) error 
 		return nil
 	}
 	s.codexSimulationSettings.Store(&settings)
+	codexsimulation.SetCLevelEnabled(settings.CLevelSimulationEnabled)
 	return nil
 }
 
@@ -310,6 +322,7 @@ func (s *SettingService) ForceDisableCodexSimulationSettings(ctx context.Context
 		settings.StateTTLSeconds = codexSimulationDefaultStateTTLSeconds
 	}
 	settings.FullSimulationEnabled = false
+	settings.CLevelSimulationEnabled = false
 	settings.ContinuationMode = string(codexContinuationOff)
 
 	validated, err := validateCodexSimulationSettings(settings)
@@ -333,6 +346,7 @@ func (s *SettingService) persistCodexSimulationSettings(ctx context.Context, set
 	}
 	s.codexSimulationSettingsRevision.Add(1)
 	s.codexSimulationSettings.Store(&settings)
+	codexsimulation.SetCLevelEnabled(settings.CLevelSimulationEnabled)
 	return &settings, nil
 }
 

@@ -14,6 +14,11 @@ import (
 const (
 	openAIOAuthCodexZstdLevel          = 3
 	openAIOAuthCodexZstdMaxConcurrency = 4
+	// CodexRequestCompressionExtraKey is an account-level override used by the
+	// virtual Codex client plan. Missing values retain the historical enabled
+	// default for OAuth accounts; explicit false is useful when matching a
+	// release/profile that does not negotiate request compression.
+	CodexRequestCompressionExtraKey = "codex_request_compression_enabled"
 )
 
 var openAIOAuthCodexBodyEncoder struct {
@@ -47,7 +52,7 @@ func newOpenAIHTTPUpstreamRequest(
 // ChatGPT Codex backend. API-key requests may target arbitrary compatible
 // upstreams, so their wire body must remain unchanged.
 func compressOpenAIOAuthCodexRequestBody(account *Account, body []byte) ([]byte, bool, error) {
-	if account == nil || account.Type != AccountTypeOAuth || len(body) == 0 {
+	if account == nil || account.Type != AccountTypeOAuth || len(body) == 0 || !isCodexRequestCompressionEnabled(account) {
 		return body, false, nil
 	}
 
@@ -67,4 +72,16 @@ func compressOpenAIOAuthCodexRequestBody(account *Account, body []byte) ([]byte,
 	// encoder avoids constructing a GOMAXPROCS-sized pool per request; the cap
 	// also bounds retained encoder memory on high-core hosts.
 	return openAIOAuthCodexBodyEncoder.encoder.EncodeAll(body, nil), true, nil
+}
+
+func isCodexRequestCompressionEnabled(account *Account) bool {
+	if account == nil || !account.IsOpenAIOAuth() {
+		return false
+	}
+	if account.Extra != nil {
+		if value, ok := account.Extra[CodexRequestCompressionExtraKey].(bool); ok {
+			return value
+		}
+	}
+	return true
 }
