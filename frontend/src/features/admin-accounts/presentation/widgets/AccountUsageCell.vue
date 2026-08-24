@@ -614,6 +614,7 @@ const suppressOpenAIUsageRefreshUntil = ref(0)
 const rootRef = ref<HTMLElement | null>(null)
 type OpenAIQuotaResetCellHandle = {
   query: () => Promise<void>
+  clear?: () => void
 }
 const openAIQuotaResetRef = ref<OpenAIQuotaResetCellHandle | null>(null)
 const isDesktopViewport = ref(
@@ -1425,6 +1426,7 @@ watch(openAIUsageRefreshKey, (nextKey, prevKey) => {
 
   _usageCache.delete(props.account.id)
   clearOpenAIQuotaUsage()
+  openAIQuotaResetRef.value?.clear?.()
   requestAutoLoad()
 })
 
@@ -1438,6 +1440,7 @@ watch(
     _usageCache.delete(props.account.id)
     if (props.account.platform === 'openai' && props.account.type === 'oauth') {
       clearOpenAIQuotaUsage()
+      openAIQuotaResetRef.value?.clear?.()
     }
     loadUsage({ source, bypassCache: true }).catch((e) => {
       console.error('Failed to refresh usage after manual refresh:', e)

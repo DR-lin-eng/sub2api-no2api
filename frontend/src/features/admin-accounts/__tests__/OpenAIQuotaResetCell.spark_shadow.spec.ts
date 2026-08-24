@@ -240,6 +240,54 @@ describe('OpenAIQuotaResetCell — 外审 F6:影子禁用重置', () => {
     wrapper.unmount()
   })
 
+  it('账号行自动刷新替换 extra 后仍保留已查询的桶百分比', async () => {
+    vi.mocked(refreshOpenAIQuota).mockResolvedValue({
+      rate_limits_by_limit_id: {
+        codex: {
+          limit_id: 'codex',
+          primary: {
+            used_percent: 100,
+            window_duration_mins: 10080,
+            resets_at: 1730947200,
+          },
+        },
+      },
+      fetched_at: 1770000000,
+      cache_persisted: true,
+    })
+
+    const wrapper = mount(OpenAIQuotaResetCell, {
+      props: { account: makeAccount({}) },
+      global: {
+        stubs: {
+          UsageProgressBar: {
+            props: ['label', 'utilization'],
+            template: '<div class="rate-limit-bar">{{ label }}|{{ utilization }}</div>',
+          },
+        },
+      },
+    })
+
+    await wrapper.find('[data-testid="openai-primary-query"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('7d|100')
+
+    await wrapper.setProps({
+      account: makeAccount({
+        extra: {
+          codex_reset_credit_snapshot: {
+            available_count: 0,
+            credits: [],
+          },
+        },
+      }),
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('7d|100')
+    wrapper.unmount()
+  })
+
   it('主查询也会刷新父组件提供的本地计数', async () => {
     const queryLocalUsage = vi.fn().mockResolvedValue(undefined)
     vi.mocked(refreshOpenAIQuota).mockResolvedValue({
