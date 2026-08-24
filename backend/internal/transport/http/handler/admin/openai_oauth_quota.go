@@ -24,6 +24,10 @@ type openAIQuotaServerUsageQuerier interface {
 	QueryUsageWithServerUsage(ctx context.Context, accountID int64) (*service.OpenAIQuotaUsage, error)
 }
 
+type openAIQuotaRateLimitSnapshotCacher interface {
+	CacheRateLimitSnapshot(ctx context.Context, accountID int64, usage *service.OpenAIQuotaUsage) error
+}
+
 type openAIAccountStateRecoverer interface {
 	RecoverAccountState(ctx context.Context, accountID int64, options service.AccountRecoveryOptions) (*service.SuccessfulTestRecoveryResult, error)
 }
@@ -46,13 +50,14 @@ type openAIQuotaResetResponse struct {
 
 type openAIQuotaRefreshResponse struct {
 	service.OpenAIQuotaUsage
-	CachePersisted bool `json:"cache_persisted"`
+	CachePersisted             bool `json:"cache_persisted"`
+	RateLimitSnapshotPersisted bool `json:"rate_limit_snapshot_persisted"`
 }
 
 // OpenAIQuotaUsage implements json.Unmarshaler for the upstream protocol.
 // Because the quota refresh response embeds that type, encoding/json would
 // otherwise promote its UnmarshalJSON method and silently drop the sibling
-// cache_persisted field when clients/tests decode the response envelope.
+// persistence flags when clients/tests decode the response envelope.
 func (r *openAIQuotaRefreshResponse) UnmarshalJSON(data []byte) error {
 	if r == nil {
 		return nil
@@ -62,13 +67,15 @@ func (r *openAIQuotaRefreshResponse) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	var meta struct {
-		CachePersisted bool `json:"cache_persisted"`
+		CachePersisted             bool `json:"cache_persisted"`
+		RateLimitSnapshotPersisted bool `json:"rate_limit_snapshot_persisted"`
 	}
 	if err := json.Unmarshal(data, &meta); err != nil {
 		return err
 	}
 	r.OpenAIQuotaUsage = usage
 	r.CachePersisted = meta.CachePersisted
+	r.RateLimitSnapshotPersisted = meta.RateLimitSnapshotPersisted
 	return nil
 }
 
@@ -131,10 +138,16 @@ func (h *OpenAIOAuthHandler) RefreshQuota(c *gin.Context) {
 	result := openAIQuotaRefreshResponse{OpenAIQuotaUsage: *usage}
 	if err := h.quotaService.CacheResetCreditsSnapshot(c.Request.Context(), accountID, usage.RateLimitResetCredits); err != nil {
 		slog.Warn("openai_quota_reset_credit_cache_persist_failed", "account_id", accountID, "error", err)
-		response.Success(c, result)
-		return
+	} else {
+		result.CachePersisted = true
 	}
-	result.CachePersisted = true
+	if cacher, ok := h.quotaService.(openAIQuotaRateLimitSnapshotCacher); ok {
+		if err := cacher.CacheRateLimitSnapshot(c.Request.Context(), accountID, usage); err != nil {
+			slog.Warn("openai_quota_rate_limit_snapshot_persist_failed", "account_id", accountID, "error", err)
+		} else {
+			result.RateLimitSnapshotPersisted = true
+		}
+	}
 	response.Success(c, result)
 }
 
@@ -185,12 +198,26 @@ func (h *OpenAIOAuthHandler) ResetQuota(c *gin.Context) {
 	if usageErr != nil || usage == nil {
 		slog.Warn("openai_quota_reset_cache_refresh_failed", "account_id", accountID, "error", usageErr)
 		resetResponse.WarningCode = openAIQuotaResetWarningCacheRefreshFailed
-	} else if err := h.quotaService.CacheResetCreditsSnapshot(postCtx, accountID, usage.RateLimitResetCredits); err != nil {
-		slog.Warn("openai_quota_reset_cache_refresh_failed", "account_id", accountID, "error", err)
-		resetResponse.WarningCode = openAIQuotaResetWarningCacheRefreshFailed
 	} else {
-		resetResponse.Quota = usage
-		resetResponse.CacheRefreshed = true
+		creditsErr := h.quotaService.CacheResetCreditsSnapshot(postCtx, accountID, usage.RateLimitResetCredits)
+		var snapshotErr error
+		if cacher, ok := h.quotaService.(openAIQuotaRateLimitSnapshotCacher); ok {
+			snapshotErr = cacher.CacheRateLimitSnapshot(postCtx, accountID, usage)
+		}
+		if creditsErr != nil {
+			slog.Warn("openai_quota_reset_cache_refresh_failed", "account_id", accountID, "error", creditsErr)
+		}
+		if snapshotErr != nil {
+			slog.Warn("openai_quota_rate_limit_snapshot_persist_failed", "account_id", accountID, "error", snapshotErr)
+		}
+		if creditsErr != nil {
+			resetResponse.WarningCode = openAIQuotaResetWarningCacheRefreshFailed
+		} else if snapshotErr != nil {
+			resetResponse.WarningCode = openAIQuotaResetWarningCacheRefreshFailed
+		} else {
+			resetResponse.Quota = usage
+			resetResponse.CacheRefreshed = true
+		}
 	}
 
 	account, err := h.adminService.GetAccount(postCtx, accountID)

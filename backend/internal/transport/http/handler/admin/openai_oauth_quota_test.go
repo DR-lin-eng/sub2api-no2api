@@ -16,16 +16,19 @@ import (
 )
 
 type openAIQuotaWorkflowStub struct {
-	resetResult *service.OpenAIQuotaResetResult
-	resetErr    error
-	queryResult *service.OpenAIQuotaUsage
-	queryErr    error
-	cacheErr    error
-	resetCalls  int
-	queryCalls  int
-	cacheCalls  int
-	queryCtxErr error
-	cacheCtxErr error
+	resetResult    *service.OpenAIQuotaResetResult
+	resetErr       error
+	queryResult    *service.OpenAIQuotaUsage
+	queryErr       error
+	cacheErr       error
+	snapshotErr    error
+	resetCalls     int
+	queryCalls     int
+	cacheCalls     int
+	snapshotCalls  int
+	queryCtxErr    error
+	cacheCtxErr    error
+	snapshotCtxErr error
 }
 
 func (s *openAIQuotaWorkflowStub) ResetCredit(context.Context, int64) (*service.OpenAIQuotaResetResult, error) {
@@ -47,6 +50,12 @@ func (s *openAIQuotaWorkflowStub) CacheResetCreditsSnapshot(ctx context.Context,
 	s.cacheCalls++
 	s.cacheCtxErr = ctx.Err()
 	return s.cacheErr
+}
+
+func (s *openAIQuotaWorkflowStub) CacheRateLimitSnapshot(ctx context.Context, _ int64, _ *service.OpenAIQuotaUsage) error {
+	s.snapshotCalls++
+	s.snapshotCtxErr = ctx.Err()
+	return s.snapshotErr
 }
 
 type openAIAccountStateRecovererStub struct {
@@ -247,6 +256,7 @@ func TestOpenAIRefreshQuotaPersistsSnapshotWithoutHidingReadFailures(t *testing.
 
 		require.Equal(t, http.StatusOK, status)
 		require.True(t, envelope.Data.CachePersisted)
+		require.True(t, envelope.Data.RateLimitSnapshotPersisted)
 		require.Equal(t, int64(123), envelope.Data.FetchedAt)
 		require.Equal(t, float64(42), envelope.Data.RateLimitsByLimitID["codex_other"].Primary.UsedPercent)
 		require.Equal(t, int64(1234), *envelope.Data.ServerTokenUsage.Summary.LifetimeTokens)
@@ -262,6 +272,7 @@ func TestOpenAIRefreshQuotaPersistsSnapshotWithoutHidingReadFailures(t *testing.
 
 		require.Equal(t, http.StatusOK, status)
 		require.False(t, envelope.Data.CachePersisted)
+		require.True(t, envelope.Data.RateLimitSnapshotPersisted)
 		require.Equal(t, int64(456), envelope.Data.FetchedAt)
 	})
 
