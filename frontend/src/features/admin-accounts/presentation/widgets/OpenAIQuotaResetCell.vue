@@ -252,6 +252,11 @@ import ConfirmDialog from '@/common/widgets/feedback/ConfirmDialog.vue'
 import { formatCompactNumber } from '@/core/utils/format'
 import UsageProgressBar from './UsageProgressBar.vue'
 
+// Account rows are replaced by the admin auto-refresh list. Keep the last
+// explicit App Server result outside the row component so a reactive row
+// replacement does not erase the queried percentage within a few seconds.
+const openAIQuotaSnapshotCache = new Map<number, OpenAIQuotaUsage>()
+
 const props = defineProps<{
   account: Account
   localWindowStats?: {
@@ -318,8 +323,12 @@ const readCachedResetCredits = (account: Account): OpenAIQuotaUsage | null => {
   }
 }
 
-cachedData.value = readCachedResetCredits(props.account)
-data.value = cachedData.value
+const cachedQuotaSnapshot = (account: Account): OpenAIQuotaUsage | null =>
+  openAIQuotaSnapshotCache.get(account.id) ?? null
+
+const initialQuotaData = cachedQuotaSnapshot(props.account) ?? readCachedResetCredits(props.account)
+cachedData.value = initialQuotaData
+data.value = initialQuotaData
 
 // 影子账号的额度查询会 resolve 到母账号,但影子本身不支持重置(后端返回 409);
 // 重置必须在母账号上进行。前端据此禁用影子的重置入口(外审 F6)。
@@ -699,6 +708,7 @@ const handleQuery = async () => {
     const localPromise = props.queryLocalUsage?.() ?? Promise.resolve()
     const result = await quotaPromise
     await localPromise
+    openAIQuotaSnapshotCache.set(props.account.id, result)
     data.value = result
     emit('quota-updated', result)
     if (result.cache_persisted) {
@@ -713,7 +723,14 @@ const handleQuery = async () => {
   }
 }
 
-defineExpose({ query: handleQuery })
+const clearQuotaSnapshot = () => {
+  openAIQuotaSnapshotCache.delete(props.account.id)
+  const fallback = readCachedResetCredits(props.account)
+  cachedData.value = fallback
+  data.value = fallback
+}
+
+defineExpose({ query: handleQuery, clear: clearQuotaSnapshot })
 
 const openResetConfirm = () => {
   if (resetting.value || loading.value) return
@@ -739,10 +756,12 @@ const confirmReset = async () => {
     const result: OpenAIQuotaResetResult = await resetOpenAIQuota(props.account.id)
     showResetCreditDetails.value = false
     if (result.cache_refreshed && result.quota) {
+      openAIQuotaSnapshotCache.set(props.account.id, result.quota)
       data.value = result.quota
       cachedData.value = result.quota
       emit('quota-updated', result.quota)
     } else {
+      openAIQuotaSnapshotCache.delete(props.account.id)
       data.value = null
       cachedData.value = null
       emit('quota-updated', { fetched_at: 0 })
@@ -771,8 +790,10 @@ watch(
   () => [props.account.id, props.account.extra?.codex_reset_credit_snapshot] as const,
   () => {
     // Account row may be reused across paginated lists; reset local state.
-    cachedData.value = readCachedResetCredits(props.account)
-    data.value = cachedData.value
+    const snapshot = cachedQuotaSnapshot(props.account)
+    const fallback = snapshot ?? readCachedResetCredits(props.account)
+    cachedData.value = fallback
+    data.value = fallback
     error.value = null
     resetMessage.value = null
     resetWarning.value = null
