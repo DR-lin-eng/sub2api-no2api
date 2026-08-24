@@ -818,7 +818,11 @@ const confirmReset = async () => {
 }
 
 watch(
-  () => [props.account.id, props.account.extra?.codex_reset_credit_snapshot] as const,
+  () => [
+    props.account.id,
+    props.account.extra?.codex_reset_credit_snapshot,
+    props.account.extra?.codex_rate_limit_snapshot
+  ] as const,
   () => {
     // Account row may be reused across paginated lists; reset local state.
     const fallback = quotaDataForAccount(props.account)
