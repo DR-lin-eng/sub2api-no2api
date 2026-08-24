@@ -17,5 +17,6 @@ overrides:
   picomatch@<2.3.2: 2.3.2
   picomatch@>=4.0.0 <4.0.4: 4.0.5
   postcss@<8.5.18: 8.5.23
+  dompurify@<3.4.14: '>=3.4.14'
   rollup: 4.59.0
   ws@>=8.0.0 <8.21.0: 8.21.1

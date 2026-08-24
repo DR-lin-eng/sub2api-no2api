@@ -23,7 +23,7 @@
     "axios": "^1.18.0",
     "cap-widget": "0.1.50",
     "chart.js": "^4.4.1",
-    "dompurify": "^3.4.13",
+    "dompurify": "^3.4.14",
     "driver.js": "^1.4.0",
     "file-saver": "^2.0.5",
     "marked": "^17.0.1",

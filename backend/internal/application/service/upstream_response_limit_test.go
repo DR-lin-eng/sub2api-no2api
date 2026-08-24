@@ -23,6 +23,18 @@ func TestResolveUpstreamResponseReadLimit(t *testing.T) {
 	})
 }
 
+func TestResolveModelsListReadLimit(t *testing.T) {
+	t.Run("use default when config missing", func(t *testing.T) {
+		require.Equal(t, config.DefaultModelsListReadMaxBytes, resolveModelsListReadLimit(nil))
+	})
+
+	t.Run("use configured value", func(t *testing.T) {
+		cfg := &config.Config{}
+		cfg.Gateway.ModelsListReadMaxBytes = 4096
+		require.Equal(t, int64(4096), resolveModelsListReadLimit(cfg))
+	})
+}
+
 func TestReadUpstreamResponseBodyLimited(t *testing.T) {
 	t.Run("within limit", func(t *testing.T) {
 		body, err := readUpstreamResponseBodyLimited(bytes.NewReader([]byte("ok")), 2)

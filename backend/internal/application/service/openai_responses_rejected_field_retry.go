@@ -16,7 +16,8 @@ const maxOpenAIResponsesRejectedFieldRetries = 6
 
 var (
 	openAIResponsesRejectedNamespaceParamPattern = regexp.MustCompile(`(?i)^input\[(\d+)\]\.namespace$`)
-	openAIResponsesRejectedMessageParamPattern   = regexp.MustCompile(`(?i)(?:unknown|unsupported)[ _-]+parameter\s*(?::|=|is)?\s*["']?(max_output_tokens|input\[\d+\]\.namespace)(?:["']|\b)`)
+	openAIResponsesRejectedStatusParamPattern    = regexp.MustCompile(`(?i)^input\[(\d+)\]\.status$`)
+	openAIResponsesRejectedMessageParamPattern   = regexp.MustCompile(`(?i)(?:unknown|unsupported)[ _-]+parameter\s*(?::|=|is)?\s*["']?(max_output_tokens|input\[\d+\]\.(?:namespace|status))(?:["']|\b)`)
 )
 
 type openAIResponsesRejectedFieldRetryState struct {
@@ -73,6 +74,9 @@ func normalizeOpenAIResponsesRejectedFieldRetryBody(statusCode int, body, respon
 	if index, ok := openAIResponsesRejectedNamespaceIndex(param); ok {
 		return removeOpenAIResponsesRejectedNamespaceAtIndex(body, index)
 	}
+	if index, ok := openAIResponsesRejectedStatusIndex(param); ok {
+		return removeOpenAIResponsesRejectedStatusAtIndex(body, index)
+	}
 	if param == "max_output_tokens" && gjson.GetBytes(body, "max_output_tokens").Exists() {
 		retryBody, err := sjson.DeleteBytes(body, "max_output_tokens")
 		if err != nil {
@@ -81,6 +85,56 @@ func normalizeOpenAIResponsesRejectedFieldRetryBody(statusCode int, body, respon
 		return retryBody, "max_output_tokens parameter rejection", true, nil
 	}
 	return nil, "", false, nil
+}
+
+func openAIResponsesRejectedStatusIndex(param string) (int, bool) {
+	match := openAIResponsesRejectedStatusParamPattern.FindStringSubmatch(strings.TrimSpace(param))
+	if len(match) != 2 {
+		return 0, false
+	}
+	index, err := strconv.Atoi(match[1])
+	return index, err == nil && index >= 0
+}
+
+// removeOpenAIResponsesRejectedStatusAtIndex clears the rejected status from
+// every input item of the same type. The provider reports one offending index,
+// but replayed turns commonly contain many siblings; clearing one per retry
+// would exhaust the bounded retry budget and add avoidable upstream round trips.
+func removeOpenAIResponsesRejectedStatusAtIndex(body []byte, index int) ([]byte, string, bool, error) {
+	itemPath := fmt.Sprintf("input.%d", index)
+	rejected := gjson.GetBytes(body, itemPath)
+	if !rejected.IsObject() || !gjson.GetBytes(body, itemPath+".status").Exists() {
+		return nil, "", false, nil
+	}
+
+	rejectedType := strings.TrimSpace(rejected.Get("type").String())
+	retryBody := body
+	cleared := 0
+	if rejectedType != "" {
+		for itemIndex, item := range gjson.GetBytes(body, "input").Array() {
+			if !item.IsObject() || strings.TrimSpace(item.Get("type").String()) != rejectedType {
+				continue
+			}
+			statusPath := fmt.Sprintf("input.%d.status", itemIndex)
+			if !gjson.GetBytes(retryBody, statusPath).Exists() {
+				continue
+			}
+			next, err := sjson.DeleteBytes(retryBody, statusPath)
+			if err != nil {
+				return nil, "", false, fmt.Errorf("delete rejected status at input[%d]: %w", itemIndex, err)
+			}
+			retryBody = next
+			cleared++
+		}
+	}
+	if cleared == 0 {
+		next, err := sjson.DeleteBytes(retryBody, itemPath+".status")
+		if err != nil {
+			return nil, "", false, fmt.Errorf("delete rejected status at input[%d]: %w", index, err)
+		}
+		retryBody = next
+	}
+	return retryBody, "indexed status parameter rejection", true, nil
 }
 
 func isExplicitOpenAIResponsesFieldRejection(code, message string) bool {

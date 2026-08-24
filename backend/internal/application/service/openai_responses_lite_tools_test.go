@@ -147,8 +147,28 @@ func TestNormalizeOpenAIResponsesLiteTools_KeepsSupportedTopLevelTools(t *testin
 	changed, err := normalizeOpenAIResponsesLiteTools(reqBody)
 
 	require.NoError(t, err)
-	require.False(t, changed)
+	require.True(t, changed)
 	require.Len(t, reqBody["tools"], 4)
+	require.Equal(t, false, reqBody["parallel_tool_calls"])
+}
+
+func TestNormalizeOpenAIResponsesLiteTools_ForcesParallelToolCallsFalse(t *testing.T) {
+	for _, body := range []map[string]any{
+		{"tools": []any{map[string]any{"type": "function", "name": "shell"}}, "parallel_tool_calls": true},
+		{"input": []any{map[string]any{"type": "additional_tools", "tools": []any{map[string]any{"type": "function", "name": "shell"}}}}, "parallel_tool_calls": true},
+	} {
+		changed, err := normalizeOpenAIResponsesLiteTools(body)
+		require.NoError(t, err)
+		require.True(t, changed)
+		require.Equal(t, false, body["parallel_tool_calls"])
+	}
+}
+
+func TestNormalizeOpenAIResponsesLiteToolsRejectsNonBooleanParallelFlag(t *testing.T) {
+	body := map[string]any{"parallel_tool_calls": "false", "tools": []any{map[string]any{"type": "function", "name": "shell"}}}
+	changed, err := normalizeOpenAIResponsesLiteTools(body)
+	require.ErrorContains(t, err, "parallel_tool_calls to be a boolean")
+	require.False(t, changed)
 }
 
 func TestNormalizeOpenAIResponsesLiteTools_EnsuresReasoningContext(t *testing.T) {

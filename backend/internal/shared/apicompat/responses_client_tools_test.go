@@ -243,3 +243,13 @@ func TestResponsesClientToolStreamRestorer_RawEventsPreserveUnknownFieldsAndOutp
 	require.Len(t, done, 2)
 	require.Equal(t, "pwd", done[1].Input)
 }
+
+func TestAdaptResponsesClientToolsStripsOrphanDeferredFlags(t *testing.T) {
+	req := map[string]any{"tools": []any{
+		map[string]any{"type": "function", "name": "shell", "defer_loading": true},
+	}}
+	_, changed, err := AdaptResponsesClientTools(req)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.NotContains(t, req["tools"].([]any)[0].(map[string]any), "defer_loading")
+}

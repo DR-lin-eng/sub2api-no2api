@@ -630,21 +630,9 @@ func (c *OpsMetricsCollector) collectSystemStats(ctx context.Context) (*opsColle
 
 	sampleAt := time.Now().UTC()
 
-	// Prefer cgroup (container) metrics when available.
+	// CPU: prefer cgroup (container) metrics when available.
 	if cpuPct := c.tryCgroupCPUPercent(sampleAt); cpuPct != nil {
 		out.cpuUsagePercent = cpuPct
-	}
-
-	cgroupUsed, cgroupTotal, cgroupOK := readCgroupMemoryBytes()
-	if cgroupOK {
-		usedMB := int64(cgroupUsed / bytesPerMB)
-		out.memoryUsedMB = &usedMB
-		if cgroupTotal > 0 {
-			totalMB := int64(cgroupTotal / bytesPerMB)
-			out.memoryTotalMB = &totalMB
-			pct := roundTo1DP(float64(cgroupUsed) / float64(cgroupTotal) * 100)
-			out.memoryUsagePercent = &pct
-		}
 	}
 
 	// Fallback to host metrics if cgroup metrics are unavailable (or incomplete).
@@ -655,33 +643,48 @@ func (c *OpsMetricsCollector) collectSystemStats(ctx context.Context) (*opsColle
 		}
 	}
 
-	// If total memory isn't available from cgroup (e.g. memory.max = "max"), fill total from host.
-	if out.memoryUsedMB == nil || out.memoryTotalMB == nil || out.memoryUsagePercent == nil {
+	// Memory must come from one self-consistent source. When cgroup v2 exposes
+	// memory.current but memory.max is "max", mixing container used with host
+	// total understates usage and makes Docker telemetry misleading.
+	cgroupUsed, cgroupTotal, cgroupOK := readCgroupMemoryBytes()
+	var host *mem.VirtualMemoryStat
+	if !cgroupOK || cgroupTotal == 0 {
 		if vm, err := mem.VirtualMemoryWithContext(ctx); err == nil && vm != nil {
-			if out.memoryUsedMB == nil {
-				usedMB := int64(vm.Used / bytesPerMB)
-				out.memoryUsedMB = &usedMB
-			}
-			if out.memoryTotalMB == nil {
-				totalMB := int64(vm.Total / bytesPerMB)
-				out.memoryTotalMB = &totalMB
-			}
-			if out.memoryUsagePercent == nil {
-				if out.memoryUsedMB != nil && out.memoryTotalMB != nil && *out.memoryTotalMB > 0 {
-					pct := roundTo1DP(float64(*out.memoryUsedMB) / float64(*out.memoryTotalMB) * 100)
-					out.memoryUsagePercent = &pct
-				} else {
-					pct := roundTo1DP(vm.UsedPercent)
-					out.memoryUsagePercent = &pct
-				}
-			}
+			host = vm
 		}
 	}
+	out.memoryUsedMB, out.memoryTotalMB, out.memoryUsagePercent = resolveMemoryStats(cgroupUsed, cgroupTotal, cgroupOK, host)
 
 	out.networkReceiveBytesPerSecond, out.networkTransmitBytesPerSecond, out.networkInterfaces =
 		c.collectDefaultRouteNetworkRates(ctx, sampleAt)
 
 	return out, nil
+}
+
+// resolveMemoryStats chooses either container or host metrics as a complete
+// tuple, never a mixed numerator/denominator pair.
+func resolveMemoryStats(cgroupUsed, cgroupTotal uint64, cgroupOK bool, host *mem.VirtualMemoryStat) (usedMB *int64, totalMB *int64, usagePercent *float64) {
+	if cgroupOK && cgroupTotal > 0 {
+		u := int64(cgroupUsed / bytesPerMB)
+		t := int64(cgroupTotal / bytesPerMB)
+		p := roundTo1DP(float64(cgroupUsed) / float64(cgroupTotal) * 100)
+		return &u, &t, &p
+	}
+	if host == nil {
+		return nil, nil, nil
+	}
+	u := int64(host.Used / bytesPerMB)
+	usedMB = &u
+	if host.Total > 0 {
+		t := int64(host.Total / bytesPerMB)
+		totalMB = &t
+		p := roundTo1DP(float64(host.Used) / float64(host.Total) * 100)
+		usagePercent = &p
+	} else {
+		p := roundTo1DP(host.UsedPercent)
+		usagePercent = &p
+	}
+	return usedMB, totalMB, usagePercent
 }
 
 func (c *OpsMetricsCollector) tryCgroupCPUPercent(now time.Time) *float64 {

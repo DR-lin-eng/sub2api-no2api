@@ -504,6 +504,21 @@ func TestLoadDefaultOpenAIWSConfig(t *testing.T) {
 	}
 }
 
+func TestLoadDefaultModelsListReadMaxBytes(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Equal(t, DefaultModelsListReadMaxBytes, cfg.Gateway.ModelsListReadMaxBytes)
+}
+
+func TestLoadModelsListReadMaxBytesFromEnv(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("GATEWAY_MODELS_LIST_READ_MAX_BYTES", "4096")
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Equal(t, int64(4096), cfg.Gateway.ModelsListReadMaxBytes)
+}
+
 func TestLoadOpenAIWSClientFirstMessageTimeoutFromEnv(t *testing.T) {
 	resetViperWithJWTSecret(t)
 	t.Setenv("GATEWAY_OPENAI_WS_CLIENT_FIRST_MESSAGE_TIMEOUT_SECONDS", "120")
@@ -2021,6 +2036,11 @@ func TestValidateConfigErrors(t *testing.T) {
 			name:    "gateway user group rate cache ttl",
 			mutate:  func(c *Config) { c.Gateway.UserGroupRateCacheTTLSeconds = 0 },
 			wantErr: "gateway.user_group_rate_cache_ttl_seconds",
+		},
+		{
+			name:    "gateway models list response limit",
+			mutate:  func(c *Config) { c.Gateway.ModelsListReadMaxBytes = 0 },
+			wantErr: "gateway.models_list_read_max_bytes",
 		},
 		{
 			name:    "gateway models list cache ttl range",

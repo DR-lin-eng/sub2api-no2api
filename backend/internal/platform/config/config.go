@@ -60,6 +60,12 @@ const (
 // 可通过 gateway.upstream_response_read_max_bytes 配置项覆盖。
 const DefaultUpstreamResponseReadMaxBytes int64 = 128 * 1024 * 1024
 
+// DefaultModelsListReadMaxBytes bounds model-catalog responses before parsing.
+// A catalog is control-plane input, not a streaming payload; keeping its limit
+// separate prevents a provider from turning a model-sync probe into an
+// unbounded allocation while allowing operators to raise the cap deliberately.
+const DefaultModelsListReadMaxBytes int64 = 8 * 1024 * 1024
+
 type Config struct {
 	Deployment              DeploymentConfig              `mapstructure:"deployment"`
 	Server                  ServerConfig                  `mapstructure:"server"`

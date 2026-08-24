@@ -18,7 +18,7 @@ const (
 	// CLIClientVersion is the single pinned Grok CLI version used by gateway,
 	// OAuth proxy, and billing requests.
 	// Keep in sync with https://x.ai/cli/stable.
-	CLIClientVersion = "0.2.114"
+	CLIClientVersion = "0.2.120"
 	CLIUserAgent     = "grok-pager/" + CLIClientVersion + " grok-shell/" + CLIClientVersion + " (macos; aarch64)"
 
 	BillingWeeklyPath  = "/billing?format=credits"
