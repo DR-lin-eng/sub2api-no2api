@@ -21,8 +21,8 @@ import (
 // 背景
 // ============================================================================
 //
-// Anthropic 上游对 body.context_management 字段实施 Pydantic schema 校验：
-// 当且仅当 anthropic-beta header 含 context-management-2025-06-27 时接受。
+// Anthropic 上游对 body.context_management/context_hint 字段实施 schema 校验：
+// 各字段只有在 anthropic-beta 含对应 token 时才接受。
 // 否则报：
 //   "context_management: Extra inputs are not permitted"
 //
@@ -101,6 +101,18 @@ func TestSanitizeAnthropicBodyForBetaTokens_FieldStrippedWhenBetaEmpty(t *testin
 	out, changed := sanitizeAnthropicBodyForBetaTokens(body, "")
 	require.True(t, changed)
 	require.False(t, gjson.GetBytes(out, "context_management").Exists())
+}
+
+func TestSanitizeAnthropicBodyForBetaTokens_ContextHintRequiresMatchingBeta(t *testing.T) {
+	body := []byte(`{"context_hint":{"enabled":true,"target_tokens_saved":100},"messages":[]}`)
+	out, changed := sanitizeAnthropicBodyForBetaTokens(body, "oauth-2025-04-20")
+	require.True(t, changed)
+	require.False(t, gjson.GetBytes(out, "context_hint").Exists())
+
+	body = []byte(`{"context_hint":{"enabled":true,"target_tokens_saved":100},"messages":[]}`)
+	out, changed = sanitizeAnthropicBodyForBetaTokens(body, "oauth-2025-04-20,context-hint-2026-04-09")
+	require.False(t, changed)
+	require.True(t, gjson.GetBytes(out, "context_hint").Exists())
 }
 
 func TestSanitizeAnthropicBodyForBetaTokens_EmptyBody(t *testing.T) {

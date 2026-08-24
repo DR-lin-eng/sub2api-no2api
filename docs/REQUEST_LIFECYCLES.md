@@ -75,6 +75,21 @@ keepalive 已提交 200 后，安全响应元数据走预声明的 HTTP trailer�
 设置库慢或不可用不会阻塞转发；可重试 transport timeout 只有在预算耗尽后才建立账号 runtime block，
 成功恢复时仅清理同一原因的 block。
 
+### Claude Messages 的上下文控制与 Compact
+
+`/v1/messages` 与 `/v1/responses` 是两条独立的兼容链路。OpenAI 目标的
+`/v1/messages` 会先解析 Anthropic 请求，再转成 Responses；只支持 Chat Completions
+的账号走直接 Messages→Chat 转换。Anthropic 原生出口保留
+`context_management`/`anthropic-beta`，而 OpenAI 兼容出口在下游没有等价字段时，
+会在转换前消费 Claude Code 的 `context_hint`、工具结果清理和 thinking 清理策略，
+避免这些控制字段静默丢失。
+
+Claude Code 的 compact user turn 在 Responses 兼容出口和 Chat-only 出口都单独处理：
+过长 transcript 先分块摘要，再合并为一个 Anthropic assistant 文本响应；流式客户端
+仍收到标准 `message_start`/`content_block_*`/`message_stop` 事件。Responses 的
+`compaction_trigger`/`compaction` item 仍属于另一条 `/v1/responses` 远程 Compact
+协议，不能用普通 Messages 响应替代。
+
 ### 账号出口路由
 
 账号 repository 和调度快照一并加载 `egress_mode` 与 IPv6 绑定。选中账号后，

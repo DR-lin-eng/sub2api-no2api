@@ -74,6 +74,13 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	applyOpenAICompatModelNormalization(&anthropicReq)
 	normalizedModel := anthropicReq.Model
 	clientStream := anthropicReq.Stream // client's original stream preference
+	contextControlStats := applyOpenAIAnthropicContextControls(&anthropicReq)
+	if contextControlStats.seen() {
+		logger.L().Debug("openai messages: applied Anthropic context controls locally",
+			zap.Int64("account_id", account.ID),
+			zap.String("context_controls", contextControlDescription(contextControlStats)),
+		)
+	}
 
 	// 2. Model mapping
 	billingModel := resolveOpenAIForwardModel(account, normalizedModel, defaultMappedModel)
@@ -532,8 +539,12 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	// Upstream is always streaming; choose response format based on client preference.
 	var result *OpenAIForwardResult
 	var handleErr error
-	if anthropicCompactRequest && anthropicCompactModelMapped {
-		result, handleErr = s.handleAnthropicCompactMappedStreamingResponse(ctx, c, account, resp, originalModel, billingModel, upstreamModel, anthropicCompactFallbackUpstreamModels, startTime, &anthropicReq, token, clientStream)
+	if anthropicCompactRequest {
+		// A Claude Code compact turn is a protocol operation even when no
+		// compact-only model mapping is configured.  Buffer it so a context
+		// rejection can enter the chunk/merge fallback instead of surfacing a
+		// raw GPT context error back to Claude Code.
+		result, handleErr = s.handleAnthropicCompactStreamingResponse(ctx, c, account, resp, originalModel, billingModel, upstreamModel, anthropicCompactFallbackUpstreamModels, startTime, &anthropicReq, token, clientStream)
 	} else if clientStream {
 		result, handleErr = s.handleAnthropicStreamingResponse(resp, c, account, originalModel, billingModel, upstreamModel, startTime, estimatedInputTokens)
 	} else {
@@ -603,11 +614,11 @@ func (s *OpenAIGatewayService) handleAnthropicErrorResponse(
 	return s.handleCompatErrorResponse(resp, c, account, writeAnthropicError, requestedModel...)
 }
 
-// handleAnthropicCompactMappedStreamingResponse keeps compact reroutes
-// buffered until we know whether the fast compact model can handle the full
-// transcript. If it cannot, it summarizes transcript chunks and merges those
-// summaries into the compact response Claude Code expects.
-func (s *OpenAIGatewayService) handleAnthropicCompactMappedStreamingResponse(
+// handleAnthropicCompactStreamingResponse keeps compact turns buffered until
+// the upstream response proves that the transcript was accepted. Context
+// overflow or compact-model rejection then falls into chunk/merge summarization
+// so Claude Code receives a usable compact response instead of a raw GPT error.
+func (s *OpenAIGatewayService) handleAnthropicCompactStreamingResponse(
 	ctx context.Context,
 	c *gin.Context,
 	account *Account,

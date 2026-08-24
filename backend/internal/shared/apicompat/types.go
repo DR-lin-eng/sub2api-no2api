@@ -26,6 +26,15 @@ type AnthropicRequest struct {
 	StopSeqs    []string           `json:"stop_sequences,omitempty"`
 	Thinking    *AnthropicThinking `json:"thinking,omitempty"`
 	ToolChoice  json.RawMessage    `json:"tool_choice,omitempty"`
+	// ContextManagement carries Anthropic's server-side context editing
+	// strategies (for example clear_thinking_20251015).  Compatibility
+	// bridges may consume this locally when the downstream protocol has no
+	// equivalent, while native Anthropic forwarding preserves it verbatim.
+	ContextManagement json.RawMessage `json:"context_management,omitempty"`
+	// ContextHint is the newer Claude Code context-hint extension.  Keep the
+	// raw object at the protocol boundary so an OpenAI/Chat bridge can apply a
+	// local equivalent instead of silently dropping the client's hint.
+	ContextHint json.RawMessage `json:"context_hint,omitempty"`
 	// Metadata 会被原样透传给上游。OAuth/Claude-Code 路径依赖 metadata.user_id
 	// 参与上游的"是否为官方 Claude Code 请求"判定；如果经由本结构体重新序列化
 	// 时丢弃该字段，网关侧后续的 metadata 重写(ensureClaudeOAuthMetadataUserID/
