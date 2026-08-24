@@ -764,6 +764,7 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 			OAuthSupportedModelsSyncedAtExtraKey,
 			OpenAIOAuthSupportedModelsExtraKey,
 			OpenAIOAuthSupportedModelsSyncedAtExtraKey,
+			CodexVirtualClientKeyExtraKey,
 		} {
 			if v, ok := account.Extra[key]; ok {
 				normalizedExtra[key] = v
@@ -1592,6 +1593,12 @@ func (s *adminServiceImpl) CreateShadow(ctx context.Context, parentID int64, opt
 	if priority <= 0 {
 		priority = parent.Priority
 	}
+	shadowExtra := map[string]any{
+		openAILongContextBillingEnabledKey: parent.IsOpenAILongContextBillingEnabled(),
+	}
+	if virtualKey := parent.CodexVirtualClientKey(); virtualKey != "" {
+		shadowExtra[CodexVirtualClientKeyExtraKey] = virtualKey
+	}
 	shadow := &Account{
 		Name:            name,
 		Platform:        PlatformOpenAI,
@@ -1604,9 +1611,7 @@ func (s *adminServiceImpl) CreateShadow(ctx context.Context, parentID int64, opt
 		Priority:        priority,
 		Concurrency:     concurrency,
 		Schedulable:     true,
-		Extra: map[string]any{
-			openAILongContextBillingEnabledKey: parent.IsOpenAILongContextBillingEnabled(),
-		},
+		Extra:           shadowExtra,
 	}
 
 	// 5. 持久化（Create 填充 shadow.ID）。并发竞态:预查(步骤2)放行后另一请求抢先建成,本次会撞
