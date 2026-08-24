@@ -1426,7 +1426,9 @@ watch(openAIUsageRefreshKey, (nextKey, prevKey) => {
 
   _usageCache.delete(props.account.id)
   clearOpenAIQuotaUsage()
-  openAIQuotaResetRef.value?.clear?.()
+  // Keep the explicit quota snapshot cache: this watcher also observes
+  // background account metadata updates, and clearing it would make the
+  // queried percentage disappear on the next auto-refresh tick.
   requestAutoLoad()
 })
 
