@@ -6,16 +6,16 @@
       via the #pre-actions slot so the user sees a single row of related
       buttons rather than two near-duplicate "查询" rows.
 
-      The legacy 5h / 7d bars remain owned by AccountUsageCell's local
-      active-sampling display. Official App Server buckets are rendered below
-      once this explicit quota query returns them, alongside the reset-credit
-      controls.
+      Local request/token/cost counters remain separate from rate-limit bars.
+      Official App Server buckets are rendered below only after the explicit
+      quota query returns them, alongside the reset-credit controls.
     -->
     <div class="flex flex-wrap items-center gap-1.5">
       <slot name="pre-actions" />
 
       <button
         type="button"
+        data-testid="openai-secondary-quota-query"
         class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-blue-600 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-900/30"
         :disabled="loading || resetting"
         :title="countButtonTitle"
@@ -97,7 +97,7 @@
             :show-now-when-idle="true"
             :color="window.color"
           />
-          <span class="shrink-0 text-[9px] tabular-nums text-gray-400 dark:text-gray-500">
+          <span v-if="window.showDurationDetails !== false" class="shrink-0 text-[9px] tabular-nums text-gray-400 dark:text-gray-500">
             {{ formatWindowDurationDetails(window.windowDurationMins) }}
           </span>
         </template>
@@ -109,7 +109,7 @@
       data-testid="openai-local-window-stats"
       class="space-y-0.5 whitespace-normal text-[9px] text-gray-500 dark:text-gray-400"
     >
-      <div class="font-medium">{{ t('admin.accounts.usageWindow.localSource') }}</div>
+      <div class="font-medium">{{ t('admin.accounts.openaiQuotaReset.localStats') }}</div>
       <div v-for="row in localStatsRows" :key="row.label" class="flex flex-wrap items-center gap-1.5 tabular-nums">
         <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">{{ row.label }}</span>
         <span>{{ formatLocalRequests(row.stats) }} req</span>
@@ -249,6 +249,8 @@ const props = defineProps<{
     five_hour?: WindowStats | null
     seven_day?: WindowStats | null
   } | null
+  /** Refresh local request/token/cost counters with the upstream snapshot. */
+  queryLocalUsage?: () => Promise<void>
 }>()
 
 const emit = defineEmits<{
@@ -333,6 +335,7 @@ interface RateLimitDisplayWindow {
   resetsAt: string | null
   color: RateLimitColor
   windowStats?: WindowStats | null
+  showDurationDetails?: boolean
   rawDetails?: string
 }
 
@@ -359,9 +362,23 @@ const formatWindowDuration = (minutes: number): string => {
 }
 
 const formatWindowDurationDetails = (minutes: number): string => {
-  const label = formatWindowDuration(minutes)
-  const raw = `${minutes}m`
-  return label === raw ? label : `${label} (${raw})`
+  return formatWindowDuration(minutes)
+}
+
+const formatRateLimitWindowLabel = (
+  limitID: string,
+  limitName: string,
+  windowDurationMins: number
+): string => {
+  // The documented `codex` bucket is the normal 5h/7d account window.
+  // Map this known field directly to the human window label instead of
+  // rendering the redundant "codex 7d" form.
+  const normalizedID = limitID.trim().toLowerCase()
+  const normalizedName = limitName.trim().toLowerCase()
+  if (normalizedID === 'codex' || normalizedName === 'codex') {
+    return formatWindowDuration(windowDurationMins)
+  }
+  return `${limitName} ${formatWindowDuration(windowDurationMins)}`
 }
 
 const formatServerCount = (value: number): string => formatCompactNumber(value)
@@ -426,6 +443,7 @@ const rateLimitWindows = computed<RateLimitDisplayWindow[]>(() => {
       : { limit_id: key, raw_value: rawBucket } as OpenAIAppServerRateLimitBucket
     const limitID = String(bucket.limit_id ?? bucket.limitId ?? key).trim() || key
     const limitName = String(bucket.limit_name ?? bucket.limitName ?? limitID).trim() || limitID
+    const isKnownCodexBucket = limitID.toLowerCase() === 'codex' || limitName.toLowerCase() === 'codex'
     const bucketWindows: Array<{
       kind: 'primary' | 'secondary'
       usedPercent: unknown
@@ -476,12 +494,13 @@ const rateLimitWindows = computed<RateLimitDisplayWindow[]>(() => {
       if (usedPercent == null || windowDurationMins <= 0) return
       windows.push({
         key: `${key}-${window.kind}-${windowIndex}`,
-        label: `${limitName} ${formatWindowDuration(windowDurationMins)}`,
+        label: formatRateLimitWindowLabel(limitID, limitName, windowDurationMins),
         usedPercent,
         windowDurationMins,
         resetsAt: unixSecondsToISO(window.resetsAt),
         color: colors[(bucketIndex + windowIndex) % colors.length],
-        windowStats: localStatsForWindow(windowDurationMins)
+        windowStats: localStatsForWindow(windowDurationMins),
+        showDurationDetails: !isKnownCodexBucket
       })
     })
 
@@ -522,12 +541,17 @@ const rateLimitWindows = computed<RateLimitDisplayWindow[]>(() => {
         if (usedPercent == null || windowDurationMins <= 0) return
         windows.push({
           key: `legacy-${kind}-${index}`,
-          label: `${legacyLabel} ${formatWindowDuration(windowDurationMins)}`,
+          label: formatRateLimitWindowLabel(
+            String(legacy.limit_id ?? legacy.limitId ?? 'codex'),
+            legacyLabel,
+            windowDurationMins
+          ),
           usedPercent,
           windowDurationMins,
           resetsAt: unixSecondsToISO(window.reset_at ?? window.resets_at ?? window.resetsAt),
           color: colors[index % colors.length],
-          windowStats: localStatsForWindow(windowDurationMins)
+          windowStats: localStatsForWindow(windowDurationMins),
+          showDurationDetails: false
         })
       })
     }
@@ -536,7 +560,6 @@ const rateLimitWindows = computed<RateLimitDisplayWindow[]>(() => {
 })
 
 const localStatsRows = computed(() => {
-  if (!data.value || rateLimitWindows.value.length === 0) return []
   const candidates = [
     { label: '5h', stats: props.localWindowStats?.five_hour ?? null },
     { label: '7d', stats: props.localWindowStats?.seven_day ?? null }
@@ -659,7 +682,12 @@ const handleQuery = async () => {
   resetWarning.value = null
   showResetCreditDetails.value = false
   try {
-    const result = await refreshOpenAIQuota(props.account.id)
+    // Start both reads together. The primary 查询 action therefore refreshes
+    // local counters and the authoritative App Server snapshot as one gesture.
+    const quotaPromise = refreshOpenAIQuota(props.account.id)
+    const localPromise = props.queryLocalUsage?.() ?? Promise.resolve()
+    const result = await quotaPromise
+    await localPromise
     data.value = result
     emit('quota-updated', result)
     if (result.cache_persisted) {
@@ -673,6 +701,8 @@ const handleQuery = async () => {
     loading.value = false
   }
 }
+
+defineExpose({ query: handleQuery })
 
 const openResetConfirm = () => {
   if (resetting.value || loading.value) return

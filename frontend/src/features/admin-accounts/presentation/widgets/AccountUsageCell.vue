@@ -118,46 +118,43 @@
       </div>
     </template>
 
-    <!-- OpenAI OAuth accounts: local window stats plus explicit upstream buckets -->
+    <!-- OpenAI OAuth accounts: only authoritative App Server buckets are rate-limit bars. -->
     <template v-else-if="account.platform === 'openai' && account.type === 'oauth'">
-      <div v-if="hasOpenAIUsageFallback" class="space-y-1">
-        <template v-if="!openAIQuotaHasWindowData">
-          <UsageProgressBar
-            v-if="usageInfo?.five_hour"
-            label="5h"
-            :utilization="usageInfo.five_hour.utilization"
-            :resets-at="usageInfo.five_hour.resets_at"
-            :window-stats="usageInfo.five_hour.window_stats"
-            :show-now-when-idle="true"
-            color="indigo"
-          />
-          <UsageProgressBar
-            v-if="usageInfo?.seven_day"
-            label="7d"
-            :utilization="usageInfo.seven_day.utilization"
-            :resets-at="usageInfo.seven_day.resets_at"
-            :window-stats="usageInfo.seven_day.window_stats"
-            :show-now-when-idle="true"
-            color="emerald"
-          />
-        </template>
+      <div v-if="loading && !usageInfo" class="space-y-1.5">
+        <div class="flex items-center gap-1">
+          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
+          <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"></div>
+          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
+        </div>
+        <div class="flex items-center gap-1">
+          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
+          <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"></div>
+          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
+        </div>
+      </div>
+      <div v-else>
         <!--
-          Upstream codex /wham/usage quota query + reset. The local active-sampling
-          refresh button is rendered via the pre-actions slot so the user sees a
-          single row of related buttons instead of two stacked rows.
+          The primary 查询 action refreshes both the local counters and the
+          upstream App Server snapshot.  Do not render passive 5h/7d bars here:
+          a bar is authoritative only after its bucket is returned by the query.
         -->
         <OpenAIQuotaResetCell
+          ref="openAIQuotaResetRef"
           :account="account"
           :local-window-stats="openAILocalWindowStats"
+          :query-local-usage="loadActiveUsage"
+          class="mt-1"
           @account-updated="handleQuotaResetAccountUpdated"
           @quota-updated="handleQuotaUsageUpdated"
         >
           <template #pre-actions>
             <button
               type="button"
+              data-testid="openai-primary-query"
               class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
               :disabled="activeQueryLoading"
-              @click="loadActiveUsage"
+              :title="t('admin.accounts.usageWindow.activeQueryOpenAI')"
+              @click="handleOpenAIQuotaQuery"
             >
               <svg
                 class="h-2.5 w-2.5"
@@ -177,29 +174,6 @@
             </button>
           </template>
         </OpenAIQuotaResetCell>
-      </div>
-      <div v-else-if="loading" class="space-y-1.5">
-        <div class="flex items-center gap-1">
-          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
-          <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"></div>
-          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
-        </div>
-        <div class="flex items-center gap-1">
-          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
-          <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"></div>
-          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
-        </div>
-      </div>
-      <div v-else>
-        <div class="text-xs text-gray-400">-</div>
-        <!-- Always allow on-demand upstream quota query, even before local data exists. -->
-        <OpenAIQuotaResetCell
-          :account="account"
-          :local-window-stats="openAILocalWindowStats"
-          class="mt-1"
-          @account-updated="handleQuotaResetAccountUpdated"
-          @quota-updated="handleQuotaUsageUpdated"
-        />
       </div>
     </template>
 
@@ -638,6 +612,10 @@ const error = ref<string | null>(null)
 const usageInfo = ref<AccountUsageInfo | null>(null)
 const suppressOpenAIUsageRefreshUntil = ref(0)
 const rootRef = ref<HTMLElement | null>(null)
+type OpenAIQuotaResetCellHandle = {
+  query: () => Promise<void>
+}
+const openAIQuotaResetRef = ref<OpenAIQuotaResetCellHandle | null>(null)
 const isDesktopViewport = ref(
   typeof window === 'undefined' ? true : window.matchMedia(desktopViewportQuery).matches
 )
@@ -690,14 +668,8 @@ const geminiUsageAvailable = computed(() => {
   )
 })
 
-const hasOpenAIUsageFallback = computed(() => {
-  if (props.account.platform !== 'openai' || props.account.type !== 'oauth') return false
-  return !!usageInfo.value?.five_hour || !!usageInfo.value?.seven_day
-})
-
 const {
   localWindowStats: openAILocalWindowStats,
-  hasUpstreamWindowData: openAIQuotaHasWindowData,
   updateQuotaUsage: handleQuotaUsageUpdated,
   clearQuotaUsage: clearOpenAIQuotaUsage
 } = useOpenAIQuotaDisplayState(usageInfo)
@@ -1336,6 +1308,17 @@ const loadActiveUsage = async () => {
   } finally {
     activeQueryLoading.value = false
   }
+}
+
+const handleOpenAIQuotaQuery = async () => {
+  if (openAIQuotaResetRef.value) {
+    await openAIQuotaResetRef.value.query()
+    return
+  }
+  // Keep the action usable while the child is being mounted or during a
+  // narrow responsive transition. The child will perform the upstream query
+  // as soon as it is available.
+  await loadActiveUsage()
 }
 
 const handleGrokProbed = (result: GrokQuotaProbeResult) => {

@@ -1,10 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { defineComponent, h } from 'vue'
 import AccountUsageCell from '@/features/admin-accounts/presentation/widgets/AccountUsageCell.vue'
 import type { Account } from '@/types'
 
-const { getUsage } = vi.hoisted(() => ({
-  getUsage: vi.fn()
+const { getUsage, primaryQuotaQuery } = vi.hoisted(() => ({
+  getUsage: vi.fn(),
+  primaryQuotaQuery: vi.fn()
 }))
 
 vi.mock('@/features/admin-accounts/data/datasources/adminAccountQueries', async (importOriginal) => ({
@@ -54,6 +56,7 @@ function makeAccount(overrides: Partial<Account>): Account {
 describe('AccountUsageCell', () => {
   beforeEach(() => {
     getUsage.mockReset()
+    primaryQuotaQuery.mockReset()
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       value: vi.fn().mockImplementation(() => ({
@@ -245,8 +248,65 @@ describe('AccountUsageCell', () => {
     await flushPromises()
 
     expect(getUsage).toHaveBeenCalledWith(2000)
-    expect(wrapper.text()).toContain('5h|15|300')
-    expect(wrapper.text()).toContain('7d|77|300')
+    expect(wrapper.findAll('.usage-bar')).toHaveLength(0)
+    expect(wrapper.text()).toContain('admin.accounts.openaiQuotaReset.localStats')
+    expect(wrapper.text()).toContain('5h')
+    expect(wrapper.text()).toContain('7d')
+  })
+
+  it('OpenAI 主查询按钮会同时刷新本地用量和服务端额度', async () => {
+    getUsage.mockResolvedValue({
+      five_hour: {
+        utilization: 0,
+        resets_at: null,
+        remaining_seconds: 0,
+        window_stats: {
+          requests: 2,
+          tokens: 200,
+          cost: 0.02,
+          standard_cost: 0.02,
+          user_cost: 0.01
+        }
+      },
+      seven_day: null
+    })
+
+    const wrapper = mount(AccountUsageCell, {
+      props: {
+        account: makeAccount({ id: 2006, platform: 'openai', type: 'oauth', extra: {} })
+      },
+      global: {
+        stubs: {
+          UsageProgressBar: true,
+          AccountQuotaInfo: true,
+          OpenAIQuotaResetCell: defineComponent({
+            props: {
+              account: { type: Object, required: true },
+              localWindowStats: { type: Object, default: null },
+              queryLocalUsage: { type: Function, default: undefined }
+            },
+            setup(props, { slots, expose }) {
+              expose({
+                query: async () => {
+                  primaryQuotaQuery()
+                  await props.queryLocalUsage?.()
+                }
+              })
+              return () => h('div', slots['pre-actions']?.())
+            }
+          })
+        }
+      }
+    })
+
+    await flushPromises()
+    expect(getUsage).toHaveBeenCalledWith(2006)
+
+    await wrapper.get('[data-testid="openai-primary-query"]').trigger('click')
+    await flushPromises()
+
+    expect(primaryQuotaQuery).toHaveBeenCalledTimes(1)
+    expect(getUsage).toHaveBeenCalledWith(2006, 'active', true)
   })
 
   it('OpenAI OAuth 有 codex 快照时仍然使用 /usage API 数据渲染', async () => {
@@ -306,9 +366,8 @@ describe('AccountUsageCell', () => {
     await flushPromises()
 
     expect(getUsage).toHaveBeenCalledWith(2001)
-    // 单一数据源：始终使用 /usage API 返回值，忽略 codex 快照
-    expect(wrapper.text()).toContain('5h|18|900')
-    expect(wrapper.text()).toContain('7d|36|900')
+    expect(wrapper.findAll('.usage-bar')).toHaveLength(0)
+    expect(wrapper.text()).toContain('admin.accounts.openaiQuotaReset.localStats')
   })
 
   it('OpenAI OAuth 有现成快照时，手动刷新信号会触发 usage 重拉', async () => {
@@ -377,8 +436,8 @@ describe('AccountUsageCell', () => {
     // 手动刷新再拉一次
     expect(getUsage).toHaveBeenCalledTimes(2)
     expect(getUsage).toHaveBeenCalledWith(2010)
-    // 单一数据源：始终使用 /usage API 值
-    expect(wrapper.text()).toContain('5h|18|900')
+    expect(wrapper.findAll('.usage-bar')).toHaveLength(0)
+    expect(wrapper.text()).toContain('admin.accounts.openaiQuotaReset.localStats')
   })
 
   it('OpenAI OAuth 在无 codex 快照时会回退显示 usage 接口窗口', async () => {
@@ -432,8 +491,8 @@ describe('AccountUsageCell', () => {
 	await flushPromises()
 
 	expect(getUsage).toHaveBeenCalledWith(2002)
-	expect(wrapper.text()).toContain('5h|0|27700')
-	expect(wrapper.text()).toContain('7d|0|27700')
+	expect(wrapper.findAll('.usage-bar')).toHaveLength(0)
+	expect(wrapper.text()).toContain('admin.accounts.openaiQuotaReset.localStats')
   })
 
   it('OpenAI OAuth 在行数据刷新但仍无 codex 快照时会重新拉取 usage', async () => {
@@ -491,7 +550,7 @@ describe('AccountUsageCell', () => {
 	})
 
 	await flushPromises()
-	expect(wrapper.text()).toContain('5h|0|100')
+	expect(wrapper.findAll('.usage-bar')).toHaveLength(0)
 	expect(getUsage).toHaveBeenCalledTimes(1)
 
 	await wrapper.setProps({
@@ -506,7 +565,7 @@ describe('AccountUsageCell', () => {
 
 	await flushPromises()
 	expect(getUsage).toHaveBeenCalledTimes(2)
-	expect(wrapper.text()).toContain('5h|0|200')
+	expect(wrapper.findAll('.usage-bar')).toHaveLength(0)
   })
 
   it('OpenAI 重置响应更新账号行时不会额外拉取 usage', async () => {
@@ -575,13 +634,11 @@ describe('AccountUsageCell', () => {
       }
     })
     await flushPromises()
-    expect(wrapper.text()).toContain('5h|18')
-    expect(wrapper.text()).toContain('7d|36')
+    expect(wrapper.findAll('.usage-bar')).toHaveLength(0)
 
     await wrapper.get('[data-test="quota-query"]').trigger('click')
     await flushPromises()
-    expect(wrapper.text()).not.toContain('5h|18')
-    expect(wrapper.text()).not.toContain('7d|36')
+    expect(wrapper.findAll('.usage-bar')).toHaveLength(0)
     wrapper.unmount()
   })
 
@@ -640,8 +697,8 @@ describe('AccountUsageCell', () => {
 	await flushPromises()
 
   expect(getUsage).toHaveBeenCalledWith(2004)
-  expect(wrapper.text()).toContain('5h|100|106540000')
-  expect(wrapper.text()).toContain('7d|100|106540000')
+  expect(wrapper.findAll('.usage-bar')).toHaveLength(0)
+  expect(wrapper.text()).toContain('admin.accounts.openaiQuotaReset.localStats')
   })
 
   it('Key 账号会展示 today stats 徽章并带 A/U 提示', async () => {
