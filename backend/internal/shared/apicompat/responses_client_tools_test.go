@@ -251,5 +251,10 @@ func TestAdaptResponsesClientToolsStripsOrphanDeferredFlags(t *testing.T) {
 	_, changed, err := AdaptResponsesClientTools(req)
 	require.NoError(t, err)
 	require.True(t, changed)
-	require.NotContains(t, req["tools"].([]any)[0].(map[string]any), "defer_loading")
+	tools, ok := req["tools"].([]any)
+	require.True(t, ok)
+	tool, ok := tools[0].(map[string]any)
+	require.True(t, ok)
+	_, hasDeferredFlag := tool["defer_loading"]
+	require.False(t, hasDeferredFlag)
 }
