@@ -54,7 +54,7 @@ function makeAccount(overrides: Partial<Account>): Account {
 
 // 第二个按钮(橙色)是 reset 按钮::disabled="resetting||loading||!canReset" :title="resetButtonTitle"
 const resetButton = (wrapper: ReturnType<typeof mount>) =>
-  wrapper.findAll('button')[1]
+  wrapper.get('[data-testid="openai-reset-button"]')
 
 beforeEach(() => {
   vi.mocked(refreshOpenAIQuota).mockReset()
@@ -160,7 +160,7 @@ describe('OpenAIQuotaResetCell — 外审 F6:影子禁用重置', () => {
     const wrapper = mount(OpenAIQuotaResetCell, { props: { account } })
 
     try {
-      expect(wrapper.findAll('button')[0].text()).toContain('1')
+      expect(wrapper.get('[data-testid="openai-reset-credit-count"]').text()).toContain('1')
       expect(resetButton(wrapper).attributes('disabled')).toBeUndefined()
       expect(wrapper.text()).toContain('admin.accounts.openaiQuotaReset.expiresAt:')
     } finally {
@@ -185,7 +185,7 @@ describe('OpenAIQuotaResetCell — 外审 F6:影子禁用重置', () => {
     await wrapper.findAll('button')[0].trigger('click')
     await flushPromises()
 
-    expect(wrapper.findAll('button')[0].text()).toContain('1')
+    expect(wrapper.get('[data-testid="openai-reset-credit-count"]').text()).toContain('1')
     expect(wrapper.text()).toContain('admin.accounts.openaiQuotaReset.refreshCachePersistFailed')
     wrapper.unmount()
   })
@@ -261,10 +261,24 @@ describe('OpenAIQuotaResetCell — 外审 F6:影子禁用重置', () => {
       props: { account: makeAccount({}), queryLocalUsage },
     })
 
-    await wrapper.find('[data-testid="openai-secondary-quota-query"]').trigger('click')
+    await wrapper.find('[data-testid="openai-primary-query"]').trigger('click')
     await flushPromises()
 
     expect(queryLocalUsage).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('父组件提供查询按钮时，次数只作为只读徽章显示', () => {
+    const wrapper = mount(OpenAIQuotaResetCell, {
+      props: { account: makeAccount({}) },
+      slots: {
+        'pre-actions': '<button data-testid="parent-query">查询</button>',
+      },
+    })
+
+    expect(wrapper.find('[data-testid="parent-query"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="openai-reset-credit-count"]').element.tagName).toBe('SPAN')
+    expect(wrapper.find('[data-testid="openai-secondary-quota-query"]').exists()).toBe(false)
     wrapper.unmount()
   })
 
