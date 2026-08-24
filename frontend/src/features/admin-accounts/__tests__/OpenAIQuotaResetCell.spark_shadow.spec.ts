@@ -233,10 +233,38 @@ describe('OpenAIQuotaResetCell — 外审 F6:影子禁用重置', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="openai-rate-limit-buckets"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('codex 15m|25|2024-11-07T02:40:00.000Z')
+    expect(wrapper.text()).toContain('15m|25|2024-11-07T02:40:00.000Z')
     expect(wrapper.text()).toContain('codex_other 1h|42|2024-11-07T03:40:00.000Z')
     expect(wrapper.text()).toContain('15m')
     expect(wrapper.text()).toContain('1h')
+    wrapper.unmount()
+  })
+
+  it('主查询也会刷新父组件提供的本地计数', async () => {
+    const queryLocalUsage = vi.fn().mockResolvedValue(undefined)
+    vi.mocked(refreshOpenAIQuota).mockResolvedValue({
+      rate_limits_by_limit_id: {
+        codex: {
+          limit_id: 'codex',
+          primary: {
+            used_percent: 25,
+            window_duration_mins: 10080,
+            resets_at: 1730947200,
+          },
+        },
+      },
+      fetched_at: 1770000000,
+      cache_persisted: true,
+    })
+
+    const wrapper = mount(OpenAIQuotaResetCell, {
+      props: { account: makeAccount({}), queryLocalUsage },
+    })
+
+    await wrapper.find('[data-testid="openai-secondary-quota-query"]').trigger('click')
+    await flushPromises()
+
+    expect(queryLocalUsage).toHaveBeenCalledTimes(1)
     wrapper.unmount()
   })
 
@@ -296,7 +324,7 @@ describe('OpenAIQuotaResetCell — 外审 F6:影子禁用重置', () => {
     await wrapper.findAll('button')[0].trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('codex 5h|25|9|900|0.09|0.04')
+    expect(wrapper.text()).toContain('5h|25|9|900|0.09|0.04')
     expect(wrapper.find('[data-testid="openai-server-token-usage"]').text()).toContain('admin.accounts.openaiQuotaReset.serverUsageFields.lifetimeTokens: 1.2K')
     expect(wrapper.find('[data-testid="openai-server-token-usage"]').text()).toContain('admin.accounts.openaiQuotaReset.serverUsageFields.currentResetCycleTokens (7d): 777')
     expect(wrapper.text()).toContain('admin.accounts.openaiQuotaReset.serverUsageFields.dailyBucket 2026-08-23: 321')
@@ -415,7 +443,7 @@ describe('OpenAIQuotaResetCell — 外审 F6:影子禁用重置', () => {
     await wrapper.findAll('button')[0].trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('codex 5h|63')
+    expect(wrapper.text()).toContain('5h|63')
     wrapper.unmount()
   })
 
@@ -450,7 +478,8 @@ describe('OpenAIQuotaResetCell — 外审 F6:影子禁用重置', () => {
     await wrapper.findAll('button')[0].trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('codex 7d|33')
+    expect(wrapper.text()).toContain('7d|33')
+    expect(wrapper.text()).not.toContain('10080m')
     wrapper.unmount()
   })
 })

@@ -468,6 +468,7 @@ export default {
         grokLastHeadersSeen: '响应头 {time}',
         passiveSampled: '被动采样',
         activeQuery: '查询',
+        activeQueryOpenAI: '查询上游额度和本地用量',
         localSource: '本地',
         keySource: '密钥',
         subscriptionSource: '订阅',
@@ -476,11 +477,11 @@ export default {
         subscriptionExpired: '订阅已到期'
       },
       openaiQuotaReset: {
-        count: '次数', reset: '重置', serverUsage: '服务端 Token 用量', serverUsageFields: { lifetimeTokens: '累计 Token', peakDailyTokens: '单日峰值 Token', longestRunningTurnSec: '最长运行轮次', currentStreakDays: '当前连续天数', longestStreakDays: '最长连续天数', dailyBucket: '每日 Token', currentResetCycleTokens: '本次重置周期 Token', approximate: '估算' },
-        countTooltipLoad: '点击查询服务端 Token 用量和剩余重置次数',
-        countTooltipRefresh: '点击刷新服务端 Token 用量和剩余重置次数',
+        count: '次数', reset: '重置', localStats: '本地计数', serverUsage: '服务端 Token 用量', serverUsageFields: { lifetimeTokens: '累计 Token', peakDailyTokens: '单日峰值 Token', longestRunningTurnSec: '最长运行轮次', currentStreakDays: '当前连续天数', longestStreakDays: '最长连续天数', dailyBucket: '每日 Token', currentResetCycleTokens: '本次重置周期 Token', approximate: '估算' },
+        countTooltipLoad: '点击刷新服务端额度、Token 用量和重置次数',
+        countTooltipRefresh: '点击刷新服务端额度、Token 用量和重置次数',
         resetTooltipReady: '消耗 1 次重置次数以立即恢复当前窗口',
-        resetTooltipNeedQuery: '先点击「次数」加载剩余重置次数',
+        resetTooltipNeedQuery: '先点击「查询」加载服务端数据',
         resetTooltipNoCredits: '没有可用的重置次数',
         resetTooltipShadow: 'Spark 影子账号不能重置次数;请在母账号上重置',
         expiresAt: '到期 {time}',

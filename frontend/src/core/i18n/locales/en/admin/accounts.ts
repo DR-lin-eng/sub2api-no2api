@@ -1460,6 +1460,7 @@ export default {
         grokLastHeadersSeen: 'Headers {time}',
         passiveSampled: 'Passive',
         activeQuery: 'Query',
+        activeQueryOpenAI: 'Query upstream quota and local usage',
         localSource: 'Local',
         keySource: 'Key',
         subscriptionSource: 'Subscription',
@@ -1468,11 +1469,11 @@ export default {
         subscriptionExpired: 'Subscription expired'
       },
       openaiQuotaReset: {
-        count: 'Credits', reset: 'Reset', serverUsage: 'Server token usage', serverUsageFields: { lifetimeTokens: 'Lifetime tokens', peakDailyTokens: 'Peak daily tokens', longestRunningTurnSec: 'Longest running turn', currentStreakDays: 'Current streak', longestStreakDays: 'Longest streak', dailyBucket: 'Daily tokens', currentResetCycleTokens: 'Current reset-cycle tokens', approximate: 'approx.' },
-        countTooltipLoad: 'Click to load server token usage and the available reset-credit count',
-        countTooltipRefresh: 'Click to refresh server token usage and the available reset-credit count',
+        count: 'Credits', reset: 'Reset', localStats: 'Local counters', serverUsage: 'Server token usage', serverUsageFields: { lifetimeTokens: 'Lifetime tokens', peakDailyTokens: 'Peak daily tokens', longestRunningTurnSec: 'Longest running turn', currentStreakDays: 'Current streak', longestStreakDays: 'Longest streak', dailyBucket: 'Daily tokens', currentResetCycleTokens: 'Current reset-cycle tokens', approximate: 'approx.' },
+        countTooltipLoad: 'Refresh upstream quota, token usage, and reset credits',
+        countTooltipRefresh: 'Refresh upstream quota, token usage, and reset credits',
         resetTooltipReady: 'Consume 1 reset credit to immediately restore the window',
-        resetTooltipNeedQuery: 'Click Credits first to load the available count',
+        resetTooltipNeedQuery: 'Click Query first to load the server data',
         resetTooltipNoCredits: 'No reset credits available',
         resetTooltipShadow: 'Spark shadow accounts cannot reset credits; reset on the parent account',
         expiresAt: 'Expires {time}',
