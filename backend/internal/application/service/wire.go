@@ -228,6 +228,7 @@ func ProvideOpenAIGatewayService(
 	settingService *SettingService,
 	userPlatformQuotaRepo UserPlatformQuotaRepository,
 	customModelCapabilities CustomModelCapabilityResolver,
+	tlsFPProfileService *TLSFingerprintProfileService,
 ) *OpenAIGatewayService {
 	svc := NewOpenAIGatewayService(
 		accountRepo,
@@ -254,6 +255,10 @@ func ProvideOpenAIGatewayService(
 		userPlatformQuotaRepo,
 	)
 	svc.customModelCapabilities = customModelCapabilities
+	svc.SetTLSFingerprintProfileService(tlsFPProfileService)
+	if tlsFPProfileService != nil {
+		tlsFPProfileService.SetCodexSimulationSettingService(settingService)
+	}
 	return svc
 }
 
@@ -980,64 +985,6 @@ func ProvideAPIKeyService(
 	svc.SetConcurrencyService(concurrencyService)
 	svc.SetLastUsedScheduler(deferredService)
 	svc.SetInvalidAuthEdgeBlocker(invalidAuthEdge)
-	return svc
-}
-
-// ProvideOpenAIGatewayService binds the shared account TLS profile resolver
-// without expanding the constructor used by focused service tests.
-func ProvideOpenAIGatewayService(
-	accountRepo AccountRepository,
-	usageLogRepo UsageLogRepository,
-	usageBillingRepo UsageBillingRepository,
-	userRepo UserRepository,
-	userSubRepo UserSubscriptionRepository,
-	userGroupRateRepo UserGroupRateRepository,
-	cache GatewayCache,
-	cfg *config.Config,
-	schedulerSnapshot *SchedulerSnapshotService,
-	concurrencyService *ConcurrencyService,
-	billingService *BillingService,
-	rateLimitService *RateLimitService,
-	billingCacheService *BillingCacheService,
-	httpUpstream HTTPUpstream,
-	deferredService *DeferredService,
-	openAITokenProvider *OpenAITokenProvider,
-	grokTokenProvider *GrokTokenProvider,
-	resolver *ModelPricingResolver,
-	channelService *ChannelService,
-	balanceNotifyService *BalanceNotifyService,
-	settingService *SettingService,
-	userPlatformQuotaRepo UserPlatformQuotaRepository,
-	tlsFPProfileService *TLSFingerprintProfileService,
-) *OpenAIGatewayService {
-	svc := NewOpenAIGatewayService(
-		accountRepo,
-		usageLogRepo,
-		usageBillingRepo,
-		userRepo,
-		userSubRepo,
-		userGroupRateRepo,
-		cache,
-		cfg,
-		schedulerSnapshot,
-		concurrencyService,
-		billingService,
-		rateLimitService,
-		billingCacheService,
-		httpUpstream,
-		deferredService,
-		openAITokenProvider,
-		grokTokenProvider,
-		resolver,
-		channelService,
-		balanceNotifyService,
-		settingService,
-		userPlatformQuotaRepo,
-	)
-	svc.SetTLSFingerprintProfileService(tlsFPProfileService)
-	if tlsFPProfileService != nil {
-		tlsFPProfileService.SetCodexSimulationSettingService(settingService)
-	}
 	return svc
 }
 
