@@ -2,7 +2,7 @@ export default {
   title: '在线客服',
   description: '控制用户端在线客服入口和管理员客服收件箱入口。默认关闭，确认发布后再显式开启。',
   enabled: '启用在线客服',
-  enabledHint: '关闭后隐藏用户端在线客服和管理员客服收件箱，并停止侧边栏未读红点轮询。',
+  enabledHint: '关闭后隐藏用户端在线客服和管理员客服收件箱，并停止侧边栏未读红点更新。',
   retentionEnabled: '启用消息自动清理',
   retentionEnabledHint: '默认关闭。只有开启此开关且保留天数大于 0 时，后台才会永久删除过期消息。',
   retentionDays: '消息记录保留天数',
