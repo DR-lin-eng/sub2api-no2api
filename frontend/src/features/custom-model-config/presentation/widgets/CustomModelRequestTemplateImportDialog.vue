@@ -79,6 +79,7 @@ import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import { customModelConfigDatasource } from '../../data/datasources/customModelConfigDatasource'
+import { REQUEST_TEMPLATE_IMPORT_PLACEHOLDER } from '../requestTemplateLiterals'
 
 defineProps<{ visible: boolean }>()
 const emit = defineEmits<{ close: []; saved: [] }>()
@@ -93,9 +94,7 @@ const parsedTemplate = ref<{
   request_adapter: Record<string, unknown>
 } | null>(null)
 
-const importPlaceholder = computed(() =>
-  t('admin.customModelConfig.template.importPlaceholder')
-)
+const importPlaceholder = REQUEST_TEMPLATE_IMPORT_PLACEHOLDER
 const formattedAdapter = computed(() =>
   parsedTemplate.value ? JSON.stringify(parsedTemplate.value.request_adapter, null, 2) : ''
 )

@@ -144,7 +144,7 @@
             {{ t('admin.customModelConfig.template.variablesTitle') }}
           </div>
           <code class="block whitespace-pre-wrap font-mono text-gray-600 dark:text-gray-400">{{
-            t('admin.customModelConfig.template.variables')
+            REQUEST_TEMPLATE_VARIABLES
           }}</code>
         </div>
       </div>
@@ -164,6 +164,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { REQUEST_TEMPLATE_VARIABLES } from '../requestTemplateLiterals'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
