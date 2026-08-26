@@ -129,7 +129,7 @@ const openAILongContextBillingEnabledKey = "openai_long_context_billing_enabled"
 
 const (
 	// TLSFingerprintEnabledExtraKey controls account-level TLS simulation.
-	TLSFingerprintEnabledExtraKey   = "enable_tls_fingerprint"
+	TLSFingerprintEnabledExtraKey = "enable_tls_fingerprint"
 	// TLSFingerprintProfileIDExtraKey selects an administrator-authored profile;
 	// -1 denotes stable account assignment and 0/absent uses the built-in variant.
 	TLSFingerprintProfileIDExtraKey = "tls_fingerprint_profile_id"
