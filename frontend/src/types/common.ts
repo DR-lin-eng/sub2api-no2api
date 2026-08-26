@@ -220,6 +220,7 @@ export interface CustomMenuItem {
   visibility: 'user' | 'admin'
   sort_order: number
   forward_access_token?: boolean
+  forward_access_token_in_url?: boolean
 }
 
 export interface CustomEndpoint {

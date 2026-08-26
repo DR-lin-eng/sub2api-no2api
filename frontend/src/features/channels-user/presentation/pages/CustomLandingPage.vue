@@ -142,6 +142,9 @@ interface TocItem {
   level: number
 }
 
+const EMBEDDED_AUTH_READY_MESSAGE_TYPE = 'sub2api:embedded-auth-ready'
+const EMBEDDED_AUTH_RETRY_DELAYS_MS = [100, 500, 1500, 3000]
+
 const { t, locale } = useI18n()
 const route = useRoute()
 const appStore = useAppStore()
@@ -158,6 +161,8 @@ const tocVisible = ref(typeof window !== 'undefined' ? window.innerWidth > 768 :
 const activeHeadingId = ref('')
 let themeObserver: MutationObserver | null = null
 let markdownRenderRequestSeq = 0
+let embeddedAuthDispatchSeq = 0
+let embeddedAuthRetryTimers: ReturnType<typeof setTimeout>[] = []
 
 const menuItemId = computed(() => route.params.id as string)
 
@@ -189,6 +194,10 @@ const embeddedUrl = computed(() => {
     authStore.user?.id,
     pageTheme.value,
     locale.value,
+    {
+      authToken: authStore.token,
+      forwardAccessTokenInUrl: menuItem.value.forward_access_token_in_url === true,
+    },
   )
 })
 
@@ -198,16 +207,62 @@ const isValidUrl = computed(() => {
   return url.startsWith('http://') || url.startsWith('https://')
 })
 
+function clearEmbeddedAuthRetryTimers() {
+  embeddedAuthRetryTimers.forEach((timer) => clearTimeout(timer))
+  embeddedAuthRetryTimers = []
+}
+
+function embeddedTargetOrigin(url: string): string {
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.origin : ''
+  } catch {
+    return ''
+  }
+}
+
 function sendEmbeddedAuthContext() {
+  clearEmbeddedAuthRetryTimers()
+  const dispatchSeq = ++embeddedAuthDispatchSeq
   if (menuItem.value?.forward_access_token !== true) return
-  postEmbeddedAuthContext(
-    embeddedFrame.value?.contentWindow ?? null,
-    embeddedUrl.value,
-    {
+
+  const targetWindow = embeddedFrame.value?.contentWindow ?? null
+  const targetUrl = embeddedUrl.value
+  const authToken = authStore.token
+  if (!targetWindow || !authToken) return
+
+  const send = () => {
+    if (dispatchSeq !== embeddedAuthDispatchSeq) return
+    postEmbeddedAuthContext(targetWindow, targetUrl, {
       userId: authStore.user?.id,
-      authToken: authStore.token,
-    },
+      authToken,
+    })
+  }
+
+  // A load event can happen before an embedded SPA finishes registering its
+  // message listener. Retry briefly, while keeping the token out of the URL.
+  send()
+  embeddedAuthRetryTimers = EMBEDDED_AUTH_RETRY_DELAYS_MS.map((delay) =>
+    setTimeout(send, delay),
   )
+}
+
+function onEmbeddedAuthReady(event: MessageEvent) {
+  const frame = embeddedFrame.value
+  if (!frame || event.source !== frame.contentWindow) return
+
+  const targetOrigin = embeddedTargetOrigin(embeddedUrl.value)
+  if (!targetOrigin || event.origin !== targetOrigin) return
+
+  const data = event.data as { type?: unknown; version?: unknown } | null
+  if (
+    data?.type !== EMBEDDED_AUTH_READY_MESSAGE_TYPE ||
+    data.version !== 1
+  ) {
+    return
+  }
+
+  sendEmbeddedAuthContext()
 }
 
 function generateHeadingId(text: string, index: number): string {
@@ -369,13 +424,18 @@ watch([markdownSlug, locale], ([slug]) => {
 }, { immediate: true })
 
 watch(
-  [() => menuItem.value?.forward_access_token, () => authStore.token],
+  [
+    () => menuItem.value?.forward_access_token,
+    () => menuItem.value?.forward_access_token_in_url,
+    () => authStore.token,
+  ],
   () => {
     void nextTick(sendEmbeddedAuthContext)
   },
 )
 
 onMounted(async () => {
+  window.addEventListener('message', onEmbeddedAuthReady)
   pageTheme.value = detectTheme()
 
   if (typeof document !== 'undefined') {
@@ -398,6 +458,9 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('message', onEmbeddedAuthReady)
+  clearEmbeddedAuthRetryTimers()
+  embeddedAuthDispatchSeq += 1
   if (themeObserver) {
     themeObserver.disconnect()
     themeObserver = null

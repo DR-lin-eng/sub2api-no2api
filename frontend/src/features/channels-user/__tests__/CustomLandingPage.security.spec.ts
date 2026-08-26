@@ -19,15 +19,21 @@ const baselineSource = readFileSync(
 )
 
 describe('CustomLandingPage security boundary', () => {
-  it('keeps access tokens out of iframe and new-window URLs', () => {
+  it('keeps access tokens out of URLs unless the explicit URL option is enabled', () => {
     const builderStart = pageSource.indexOf('const embeddedUrl = computed')
     const builderEnd = pageSource.indexOf('const isValidUrl = computed')
     const builderSource = pageSource.slice(builderStart, builderEnd)
 
-    expect(builderSource).not.toContain('authStore.token')
+    expect(builderSource).toContain('authToken: authStore.token')
+    expect(builderSource).toContain('forwardAccessTokenInUrl: menuItem.value.forward_access_token_in_url === true')
     expect(pageSource).toContain('postEmbeddedAuthContext')
     expect(pageSource).toContain('forward_access_token !== true')
+    expect(pageSource).toContain('forward_access_token_in_url === true')
     expect(pageSource).toContain('referrerpolicy="no-referrer"')
+    expect(pageSource).toContain('EMBEDDED_AUTH_RETRY_DELAYS_MS')
+    expect(pageSource).toContain('sub2api:embedded-auth-ready')
+    expect(pageSource).toContain("event.source !== frame.contentWindow")
+    expect(pageSource).toContain("event.origin !== targetOrigin")
   })
 
   it('re-renders Markdown for locale changes and rejects stale responses', () => {
@@ -52,7 +58,11 @@ describe('CustomLandingPage security boundary', () => {
       ":aria-label=\"t('admin.settings.customMenu.forwardAccessToken')\"",
     )
     expect(settingsSource).toContain('item.forward_access_token = value')
+    expect(settingsSource).toContain('item.forward_access_token_in_url === true')
+    expect(settingsSource).toContain('item.forward_access_token_in_url = value')
     expect(settingsSource).toContain('admin.settings.customMenu.forwardAccessToken')
     expect(settingsSource).toContain('admin.settings.customMenu.forwardAccessTokenHint')
+    expect(settingsSource).toContain('admin.settings.customMenu.forwardAccessTokenInUrl')
+    expect(settingsSource).toContain('admin.settings.customMenu.forwardAccessTokenInUrlHint')
   })
 })

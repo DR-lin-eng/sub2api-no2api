@@ -64,6 +64,30 @@ describe('embedded-url', () => {
     expect(url.searchParams.has('lang')).toBe(false)
   })
 
+  it('includes the access token in the URL only when explicitly enabled', () => {
+    const enabled = new URL(
+      buildEmbeddedUrl(
+        'https://pay.example.com/checkout?token=legacy',
+        42,
+        'light',
+        'zh-CN',
+        { authToken: 'jwt-token', forwardAccessTokenInUrl: true },
+      ),
+    )
+    expect(enabled.searchParams.get('token')).toBe('jwt-token')
+
+    const disabled = new URL(
+      buildEmbeddedUrl(
+        'https://pay.example.com/checkout?token=legacy',
+        42,
+        'light',
+        'zh-CN',
+        { authToken: 'jwt-token', forwardAccessTokenInUrl: false },
+      ),
+    )
+    expect(disabled.searchParams.has('token')).toBe(false)
+  })
+
   it('fails closed for invalid or active-scheme URLs', () => {
     expect(buildEmbeddedUrl('not a url', 1)).toBe('')
     expect(buildEmbeddedUrl('javascript:alert(1)', 1)).toBe('')

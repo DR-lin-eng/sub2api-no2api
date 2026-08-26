@@ -536,6 +536,23 @@
                     />
                   </div>
 
+                  <div class="sm:col-span-2 flex items-center justify-between gap-4 rounded border border-red-200 bg-red-50 px-3 py-2.5 dark:border-red-500/30 dark:bg-red-500/10">
+                    <div class="min-w-0">
+                      <label class="block text-sm font-medium text-red-800 dark:text-red-300">
+                        {{ t("admin.settings.customMenu.forwardAccessTokenInUrl") }}
+                      </label>
+                      <p class="mt-0.5 text-xs leading-5 text-red-700 dark:text-red-400">
+                        {{ t("admin.settings.customMenu.forwardAccessTokenInUrlHint") }}
+                      </p>
+                    </div>
+                    <Toggle
+                      :model-value="item.forward_access_token_in_url === true"
+                      :aria-label="t('admin.settings.customMenu.forwardAccessTokenInUrl')"
+                      class="shrink-0"
+                      @update:model-value="(value: boolean) => (item.forward_access_token_in_url = value)"
+                    />
+                  </div>
+
                   <!-- SVG Icon (full width) -->
                   <div class="sm:col-span-2">
                     <label

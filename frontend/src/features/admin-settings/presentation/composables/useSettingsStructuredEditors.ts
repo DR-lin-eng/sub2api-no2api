@@ -39,6 +39,7 @@ export function useSettingsStructuredEditors(form: SettingsForm) {
       visibility: "user",
       sort_order: form.custom_menu_items.length,
       forward_access_token: false,
+      forward_access_token_in_url: false,
     });
   }
 

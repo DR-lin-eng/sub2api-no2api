@@ -30,17 +30,26 @@ export interface EmbeddedAuthContext {
   authToken?: string | null
 }
 
+export interface EmbeddedUrlOptions {
+  authToken?: string | null
+  forwardAccessTokenInUrl?: boolean
+}
+
 export function buildEmbeddedUrl(
   baseUrl: string,
   userId?: number,
   theme: 'light' | 'dark' = 'light',
   lang?: string,
+  options?: EmbeddedUrlOptions,
 ): string {
   if (!baseUrl) return baseUrl
   try {
     const url = new URL(baseUrl)
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return ''
     SENSITIVE_EMBEDDED_QUERY_KEYS.forEach((key) => url.searchParams.delete(key))
+    if (options?.forwardAccessTokenInUrl && options.authToken) {
+      url.searchParams.set('token', options.authToken)
+    }
     if (userId) {
       url.searchParams.set(EMBEDDED_USER_ID_QUERY_KEY, String(userId))
     }

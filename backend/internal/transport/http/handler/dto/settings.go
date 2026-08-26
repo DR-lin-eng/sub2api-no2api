@@ -20,6 +20,9 @@ type CustomMenuItem struct {
 	// ForwardAccessToken explicitly delegates the current browser access token
 	// to the embedded page via postMessage. It is disabled by default.
 	ForwardAccessToken bool `json:"forward_access_token,omitempty"`
+	// ForwardAccessTokenInURL explicitly includes the current access token in
+	// the embedded page URL. It is disabled by default.
+	ForwardAccessTokenInURL bool `json:"forward_access_token_in_url,omitempty"`
 }
 
 // CustomEndpoint represents an admin-configured API endpoint for quick copy.

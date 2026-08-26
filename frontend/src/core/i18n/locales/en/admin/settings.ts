@@ -687,6 +687,9 @@ export default {
         forwardAccessToken: 'Forward user access token',
         forwardAccessTokenHint:
           'Disabled by default. Enabling this delegates the current user session to the embedded page through an origin-locked browser message. Enable only for a fully trusted page.',
+        forwardAccessTokenInUrl: 'Forward user access token in URL',
+        forwardAccessTokenInUrlHint:
+          'Disabled by default. Enabling this places the token in the token parameter of iframe and new-window URLs, where it may appear in history, logs, and referrers. Enable only for a fully trusted page that requires legacy URL authentication.',
         iconSvg: 'SVG Icon',
         iconSvgPlaceholder: '<svg>...</svg>',
         iconPreview: 'Icon Preview',

@@ -115,7 +115,7 @@ curl -X POST "${BASE}/api/v1/admin/users/123/balance" \
 https://help.example.com/page?user_id=123&theme=light&lang=zh&ui_mode=embedded
 ```
 
-访问令牌不会写入 iframe URL、新窗口 URL、referrer 或 `src_url`。如果管理员对单个自定义菜单显式开启“转发用户访问令牌”，令牌仅在 iframe 加载完成后通过限定 `targetOrigin` 的 `postMessage` 发送：
+默认情况下，访问令牌不会写入 iframe URL、新窗口 URL、referrer 或 `src_url`。如果管理员对单个自定义菜单显式开启“转发用户访问令牌”，令牌仅在 iframe 加载完成后通过限定 `targetOrigin` 的 `postMessage` 发送。为兼容嵌入页异步初始化，宿主会在短时间内重试发送；嵌入页完成监听后也可以向父窗口发送 ready 消息，触发立即重发。另有独立的“通过 URL 转发用户访问令牌”开关，开启后会把令牌写入 URL 的 `token` 参数，以兼容旧版嵌入页。
 
 ```json
 {
@@ -126,7 +126,16 @@ https://help.example.com/page?user_id=123&theme=light&lang=zh&ui_mode=embedded
 }
 ```
 
-嵌入页必须把 Sub2API 部署 origin 配置为固定 allowlist，并严格校验 `event.origin`、消息类型和版本。该开关等同于把当前用户会话委托给嵌入页，只能对完全可信且不会记录、持久化或继续转发令牌的页面启用。新窗口始终不会接收令牌。
+ready 消息格式：
+
+```json
+{
+  "type": "sub2api:embedded-auth-ready",
+  "version": 1
+}
+```
+
+ready 消息必须通过 `window.parent.postMessage` 发送，并把父页面 origin 作为 `targetOrigin`。嵌入页必须把 Sub2API 部署 origin 配置为固定 allowlist，并严格校验 `event.origin`、`event.source`、消息类型和版本。消息开关等同于把当前用户会话委托给嵌入页，URL 开关会把令牌暴露在 URL 中，两者都只能对完全可信的页面启用。新窗口仅在开启 URL 开关时接收令牌。
 
 ### 5) 失败处理建议
 - 支付成功与充值成功分状态落库
@@ -251,7 +260,7 @@ Example:
 https://help.example.com/page?user_id=123&theme=light&lang=en&ui_mode=embedded
 ```
 
-Access tokens are never placed in iframe URLs, new-window URLs, referrers, or `src_url`. If an administrator explicitly enables "Forward user access token" for an individual custom menu item, the token is sent only after the iframe loads through a `postMessage` call locked to the exact target origin:
+By default, access tokens are never placed in iframe URLs, new-window URLs, referrers, or `src_url`. If an administrator explicitly enables "Forward user access token" for an individual custom menu item, the token is sent only after the iframe loads through a `postMessage` call locked to the exact target origin. To support embedded SPAs that register their listener asynchronously, the host retries briefly; the embedded page may also send a ready message to trigger an immediate resend. A separate "Forward user access token in URL" switch is available for legacy embedded pages that require the token query parameter:
 
 ```json
 {
@@ -262,7 +271,16 @@ Access tokens are never placed in iframe URLs, new-window URLs, referrers, or `s
 }
 ```
 
-The embedded page must configure the Sub2API deployment origin as a fixed allowlist and strictly validate `event.origin`, message type, and version. Enabling this option delegates the current user session to the embedded page, so it must only be used for fully trusted pages that do not log, persist, or forward the token. New windows never receive the token.
+Ready message:
+
+```json
+{
+  "type": "sub2api:embedded-auth-ready",
+  "version": 1
+}
+```
+
+The ready message must be sent with `window.parent.postMessage` and the parent origin as `targetOrigin`. The embedded page must configure the Sub2API deployment origin as a fixed allowlist and strictly validate `event.origin`, `event.source`, message type, and version. Enabling the message option delegates the current user session to the embedded page, while enabling the URL option places the token in the `token` query parameter. Both options should only be enabled for fully trusted pages. New windows receive the token only when the URL option is enabled.
 
 ### 5) Failure handling recommendations
 - Persist payment success and recharge success as separate states
