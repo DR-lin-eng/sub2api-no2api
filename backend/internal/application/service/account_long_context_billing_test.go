@@ -187,6 +187,25 @@ func TestAdminServiceUpdateAccountAllowsExplicitCodexImportOptIn(t *testing.T) {
 	require.Equal(t, true, account.Extra[openAILongContextBillingEnabledKey])
 }
 
+func TestAdminServiceUpdateAccountPreservesTLSFingerprintSettings(t *testing.T) {
+	repo := &longContextBillingRepoStub{account: &Account{
+		ID:       1,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+		Extra:    map[string]any{TLSFingerprintEnabledExtraKey: false},
+	}}
+	svc := &adminServiceImpl{accountRepo: repo}
+
+	updated, err := svc.UpdateAccount(context.Background(), 1, &UpdateAccountInput{Extra: map[string]any{
+		TLSFingerprintEnabledExtraKey:   true,
+		TLSFingerprintProfileIDExtraKey: int64(-1),
+	}})
+
+	require.NoError(t, err)
+	require.True(t, updated.IsTLSFingerprintEnabled())
+	require.Equal(t, int64(-1), updated.GetTLSFingerprintProfileID())
+}
+
 func TestAdminServiceUpdateAccountAllowsExplicitOptInOutsideCodexImport(t *testing.T) {
 	repo := &longContextBillingRepoStub{account: &Account{
 		ID:       1,

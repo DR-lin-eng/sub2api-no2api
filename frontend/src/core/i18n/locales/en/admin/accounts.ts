@@ -862,8 +862,8 @@ export default {
         },
         tlsFingerprint: {
           label: 'TLS Fingerprint Simulation',
-          hint: 'Keep one stable TLS profile per Anthropic or OpenAI OAuth account',
-          defaultProfile: 'Built-in Default',
+          hint: 'Keep a stable TLS fingerprint per account; OpenAI OAuth defaults to an account-specific variant',
+          defaultProfile: 'Built-in Default (account variant)',
           randomProfile: 'Stable account assignment'
         },
         sessionIdMasking: {

@@ -1008,7 +1008,7 @@ const openaiPassthroughEnabled = ref(false)
 const openaiFlattenNamespacesEnabled = ref(false)
 const openAILongContextBillingEnabled = ref(false)
 const tlsFingerprintEnabled = ref(false)
-const tlsFingerprintProfileId = ref<number | null>(null)
+const tlsFingerprintProfileId = ref<number | null>(-1)
 const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings'])
 const openAIResponsesMode = ref<OpenAIResponsesMode>('auto')
 const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
@@ -1547,7 +1547,7 @@ watch(
       openaiFlattenNamespacesEnabled.value = false
       openAILongContextBillingEnabled.value = false
       tlsFingerprintEnabled.value = false
-      tlsFingerprintProfileId.value = null
+      tlsFingerprintProfileId.value = -1
       openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
       openAIResponsesMode.value = 'auto'
       modelRestrictionMode.value = 'whitelist'

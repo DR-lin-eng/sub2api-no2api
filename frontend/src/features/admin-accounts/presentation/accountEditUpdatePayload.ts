@@ -875,6 +875,19 @@ function applyOpenAIExtra(
     extra.openai_long_context_billing_enabled =
       context.openAILongContextBillingEnabled.value
   }
+  if (account.type === 'oauth') {
+    if (context.tlsFingerprintEnabled.value) {
+      extra.enable_tls_fingerprint = true
+      if (context.tlsFingerprintProfileId.value != null) {
+        extra.tls_fingerprint_profile_id = context.tlsFingerprintProfileId.value
+      } else {
+        delete extra.tls_fingerprint_profile_id
+      }
+    } else {
+      delete extra.enable_tls_fingerprint
+      delete extra.tls_fingerprint_profile_id
+    }
+  }
   if (context.openAICompactMode.value === 'auto') {
     delete extra.openai_compact_mode
   } else {

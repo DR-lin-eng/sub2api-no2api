@@ -1294,6 +1294,7 @@ function loadTempUnschedRules(credentials?: Record<string, unknown>) {
 
 // Load quota control settings from account (Anthropic OAuth/SetupToken only)
 function loadQuotaControlSettings(account: Account) {
+  const extra = account.extra as Record<string, unknown> | undefined
   // Reset all quota control state first
   windowCostEnabled.value = false
   windowCostLimit.value = null
@@ -1320,8 +1321,10 @@ function loadQuotaControlSettings(account: Account) {
 
   // TLS fingerprint settings are also available for OpenAI OAuth/Codex accounts.
   if (tlsFingerprintEligible) {
-    tlsFingerprintEnabled.value = account.enable_tls_fingerprint === true
-    tlsFingerprintProfileId.value = account.tls_fingerprint_profile_id ?? null
+    const storedEnabled = account.enable_tls_fingerprint === true
+    tlsFingerprintEnabled.value = storedEnabled || extra?.enable_tls_fingerprint === true
+    const storedProfileID = account.tls_fingerprint_profile_id ?? extra?.tls_fingerprint_profile_id
+    tlsFingerprintProfileId.value = normalizeTLSFingerprintProfileID(storedProfileID)
   }
 
   // Remaining quota controls apply only to Anthropic OAuth/SetupToken accounts.
@@ -1396,6 +1399,13 @@ function toPositiveNumber(value: unknown) {
     return null
   }
   return Math.trunc(num)
+}
+
+function normalizeTLSFingerprintProfileID(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null
+  const parsed = typeof value === 'number' ? value : Number(value)
+  if (!Number.isInteger(parsed) || (parsed !== -1 && parsed <= 0)) return null
+  return parsed
 }
 
 const {

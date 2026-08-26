@@ -129,7 +129,8 @@ export function buildBulkAccountUpdatePayload(
   if (state.enableTLSFingerprint) {
     const extra = ensureExtra()
     extra.enable_tls_fingerprint = state.tlsFingerprintEnabled
-    // A null profile explicitly returns the account to the built-in profile.
+    // Bulk enabling defaults to the stable account-assignment sentinel so a
+    // large batch does not collapse onto one shared ClientHello profile.
     extra.tls_fingerprint_profile_id = state.tlsFingerprintEnabled
       ? state.tlsFingerprintProfileId
       : null

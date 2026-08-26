@@ -1819,6 +1819,41 @@ func (s *AccountRepoSuite) TestBulkUpdate_MergeExtra() {
 	s.Require().Equal("new_val", got.Extra["new_key"])
 }
 
+func (s *AccountRepoSuite) TestBulkUpdate_TLSFingerprintPersistsAndReadsBack() {
+	a1 := mustCreateAccount(s.T(), s.client, &service.Account{
+		Name:     "bulk-tls-1",
+		Platform: service.PlatformOpenAI,
+		Type:     service.AccountTypeOAuth,
+		Extra:    map[string]any{"existing": "one"},
+	})
+	a2 := mustCreateAccount(s.T(), s.client, &service.Account{
+		Name:     "bulk-tls-2",
+		Platform: service.PlatformOpenAI,
+		Type:     service.AccountTypeOAuth,
+		Extra:    map[string]any{"existing": "two"},
+	})
+
+	affected, err := s.repo.BulkUpdate(s.ctx, []int64{a1.ID, a2.ID}, service.AccountBulkUpdate{
+		Extra: map[string]any{
+			"enable_tls_fingerprint":     true,
+			"tls_fingerprint_profile_id": int64(-1),
+		},
+	})
+	s.Require().NoError(err)
+	s.Require().Equal(int64(2), affected)
+
+	got1, err := s.repo.GetByID(s.ctx, a1.ID)
+	s.Require().NoError(err)
+	got2, err := s.repo.GetByID(s.ctx, a2.ID)
+	s.Require().NoError(err)
+	s.Require().Equal(true, got1.Extra["enable_tls_fingerprint"])
+	s.Require().Equal(int64(-1), got1.GetTLSFingerprintProfileID())
+	s.Require().Equal(true, got2.Extra["enable_tls_fingerprint"])
+	s.Require().Equal(int64(-1), got2.GetTLSFingerprintProfileID())
+	s.Require().Equal("one", got1.Extra["existing"])
+	s.Require().Equal("two", got2.Extra["existing"])
+}
+
 func (s *AccountRepoSuite) TestBulkUpdate_EmptyIDs() {
 	affected, err := s.repo.BulkUpdate(s.ctx, []int64{}, service.AccountBulkUpdate{})
 	s.Require().NoError(err)

@@ -251,7 +251,7 @@ describe('BulkEditAccountModal', () => {
     })
   })
 
-  it('OpenAI OAuth 批量编辑可开启 TLS 指纹模拟并使用默认 profile', async () => {
+  it('OpenAI OAuth 批量编辑可开启 TLS 指纹模拟并按账号稳定分配 profile', async () => {
     const wrapper = mountModal({
       selectedPlatforms: ['openai'],
       selectedTypes: ['oauth']
@@ -265,7 +265,7 @@ describe('BulkEditAccountModal', () => {
     expect(bulkUpdate).toHaveBeenCalledWith([1, 2], {
       extra: {
         enable_tls_fingerprint: true,
-        tls_fingerprint_profile_id: null
+        tls_fingerprint_profile_id: -1
       }
     })
   })

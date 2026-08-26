@@ -39,10 +39,10 @@
         aria-labelledby="bulk-edit-openai-tls-fingerprint-label"
         @focus="loadProfiles"
       >
-        <option :value="null">{{ t('admin.accounts.quotaControl.tlsFingerprint.defaultProfile') }}</option>
-        <option v-if="profiles.length > 0" :value="-1">
+        <option :value="-1">
           {{ t('admin.accounts.quotaControl.tlsFingerprint.randomProfile') }}
         </option>
+        <option :value="null">{{ t('admin.accounts.quotaControl.tlsFingerprint.defaultProfile') }}</option>
         <option v-for="profile in profiles" :key="profile.id" :value="profile.id">
           {{ profile.name }}
         </option>

@@ -1,6 +1,7 @@
 package tlsfingerprint
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -21,4 +22,27 @@ func TestWireProfileFingerprintChangesWhenWireInputChanges(t *testing.T) {
 	profile.ALPNProtocols = []string{"http/1.1"}
 	second := WireProfileFingerprint(profile)
 	require.NotEqual(t, first, second)
+}
+
+func TestVariantForKeyIsStableAndAccountScoped(t *testing.T) {
+	base := BuiltInCodexRustlsProfile()
+	first := VariantForKey(base, "account-101")
+	second := VariantForKey(base, "account-202")
+	repeat := VariantForKey(base, "account-101")
+
+	require.NotEqual(t, WireProfileFingerprint(base), WireProfileFingerprint(first))
+	require.NotEqual(t, WireProfileFingerprint(first), WireProfileFingerprint(second))
+	require.Equal(t, WireProfileFingerprint(first), WireProfileFingerprint(repeat))
+	require.ElementsMatch(t, base.Extensions, first.Extensions)
+	require.NotEqual(t, base.Extensions, first.Extensions)
+	require.Equal(t, BuiltInCodexRustlsProfile(), base)
+}
+
+func TestVariantForKeyKeepsTLS12CertificateFamilies(t *testing.T) {
+	for id := 1; id <= 4096; id++ {
+		variant := VariantForKey(BuiltInCodexRustlsProfile(), strconv.Itoa(id))
+		ecdsa, rsa := tls12CertificateFamilyCounts(variant.CipherSuites)
+		require.Positive(t, ecdsa, "account %d lost all ECDSA TLS 1.2 ciphers", id)
+		require.Positive(t, rsa, "account %d lost all RSA TLS 1.2 ciphers", id)
+	}
 }

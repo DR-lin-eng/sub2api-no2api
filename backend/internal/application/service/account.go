@@ -127,6 +127,14 @@ type OpenAIEndpointCapability string
 
 const openAILongContextBillingEnabledKey = "openai_long_context_billing_enabled"
 
+const (
+	// TLSFingerprintEnabledExtraKey controls account-level TLS simulation.
+	TLSFingerprintEnabledExtraKey   = "enable_tls_fingerprint"
+	// TLSFingerprintProfileIDExtraKey selects an administrator-authored profile;
+	// -1 denotes stable account assignment and 0/absent uses the built-in variant.
+	TLSFingerprintProfileIDExtraKey = "tls_fingerprint_profile_id"
+)
+
 // CodexPrewarmContinuationExtraKey enables the account-level Codex WSv2
 // empty-prewarm + developer-role continuation flow. It also opts the account
 // out of this service's local Codex 5h/7d usage-window auto-pause gate so the
@@ -2332,7 +2340,7 @@ func (a *Account) IsTLSFingerprintEnabled() bool {
 	if a.Extra == nil {
 		return false
 	}
-	if v, ok := a.Extra["enable_tls_fingerprint"]; ok {
+	if v, ok := a.Extra[TLSFingerprintEnabledExtraKey]; ok {
 		if enabled, ok := v.(bool); ok {
 			return enabled
 		}
@@ -2346,7 +2354,7 @@ func (a *Account) GetTLSFingerprintProfileID() int64 {
 	if a.Extra == nil {
 		return 0
 	}
-	v, ok := a.Extra["tls_fingerprint_profile_id"]
+	v, ok := a.Extra[TLSFingerprintProfileIDExtraKey]
 	if !ok {
 		return 0
 	}

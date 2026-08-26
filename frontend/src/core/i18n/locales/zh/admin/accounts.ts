@@ -926,8 +926,8 @@ export default {
         },
         tlsFingerprint: {
           label: 'TLS 指纹模拟',
-          hint: '为 Anthropic 或 OpenAI OAuth 账号固定一个稳定的 TLS 指纹',
-          defaultProfile: '内置默认',
+          hint: '为账号固定稳定的 TLS 指纹；OpenAI OAuth 默认使用账号独立变体',
+          defaultProfile: '内置默认（账号独立变体）',
           randomProfile: '按账号稳定分配'
         },
         sessionIdMasking: {
