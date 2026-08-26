@@ -74,6 +74,25 @@ func TestAdminServiceBulkUpdateAccountsPreservesLoadFactorClearIntent(t *testing
 	require.Zero(t, *repo.bulkUpdate.LoadFactor)
 }
 
+func TestAdminServiceBulkUpdateAccountsCarriesTLSFingerprintExtra(t *testing.T) {
+	repo := &accountRepoStubForBulkUpdate{}
+	svc := &adminServiceImpl{accountRepo: repo}
+
+	result, err := svc.BulkUpdateAccounts(context.Background(), &BulkUpdateAccountsInput{
+		AccountIDs: []int64{11, 12, 13},
+		Extra: map[string]any{
+			"enable_tls_fingerprint":     true,
+			"tls_fingerprint_profile_id": int64(7),
+		},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 3, result.Success)
+	require.Equal(t, []int64{11, 12, 13}, repo.bulkUpdateIDs)
+	require.Equal(t, true, repo.bulkUpdate.Extra["enable_tls_fingerprint"])
+	require.Equal(t, int64(7), repo.bulkUpdate.Extra["tls_fingerprint_profile_id"])
+}
+
 func TestNormalizeBulkCPACredentialsPreservesPasswordAndFollowsBaseURL(t *testing.T) {
 	account := &Account{
 		Type: AccountTypeAPIKey,

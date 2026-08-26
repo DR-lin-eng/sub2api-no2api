@@ -77,6 +77,13 @@
         <Select v-model="openAIResponsesMode" :disabled="!enableOpenAIResponsesMode" :options="openAIResponsesModeOptions" />
       </div>
 
+      <BulkEditTLSFingerprintOption
+        v-if="allOpenAIOAuthOnly"
+        v-model:enable-update="enableTLSFingerprint"
+        v-model:enabled="tlsFingerprintEnabled"
+        v-model:profile-id="tlsFingerprintProfileId"
+      />
+
       <!-- Proxy -->
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div class="mb-3 flex items-center justify-between">
@@ -820,6 +827,7 @@ import BulkEditRoutingPolicyFields from './BulkEditRoutingPolicyFields.vue'
 import BulkEditCPAFields from './BulkEditCPAFields.vue'
 import BulkEditCodexOptions from './BulkEditCodexOptions.vue'
 import BulkEditCodexThinkingTagOption from './BulkEditCodexThinkingTagOption.vue'
+import BulkEditTLSFingerprintOption from './BulkEditTLSFingerprintOption.vue'
 
 interface Props {
   show: boolean
@@ -959,6 +967,7 @@ const enableGroups = ref(false)
 const enableOpenAIPassthrough = ref(false)
 const enableOpenAIFlattenNamespaces = ref(false)
 const enableOpenAILongContextBilling = ref(false)
+const enableTLSFingerprint = ref(false)
 const enableOpenAIEndpointCapabilities = ref(false)
 const enableOpenAIResponsesMode = ref(false)
 const enableOpenAIWSMode = ref(false)
@@ -998,6 +1007,8 @@ const groupIds = ref<number[]>([])
 const openaiPassthroughEnabled = ref(false)
 const openaiFlattenNamespacesEnabled = ref(false)
 const openAILongContextBillingEnabled = ref(false)
+const tlsFingerprintEnabled = ref(false)
+const tlsFingerprintProfileId = ref<number | null>(null)
 const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings'])
 const openAIResponsesMode = ref<OpenAIResponsesMode>('auto')
 const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
@@ -1074,6 +1085,7 @@ const openAIEndpointCapabilityOptions = computed(() => [
   { value: 'chat_completions' as OpenAIEndpointCapability, label: t('admin.accounts.openai.capabilityChatCompletions') },
   { value: 'embeddings' as OpenAIEndpointCapability, label: t('admin.accounts.openai.capabilityEmbeddings') }
 ])
+
 function toggleOpenAIEndpointCapability(capability: OpenAIEndpointCapability) {
   if (openAIEndpointCapabilities.value.includes(capability)) {
     if (openAIEndpointCapabilities.value.length <= 1) return
@@ -1239,6 +1251,9 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
     openaiFlattenNamespacesEnabled: openaiFlattenNamespacesEnabled.value,
     enableOpenAILongContextBilling: enableOpenAILongContextBilling.value,
     openAILongContextBillingEnabled: openAILongContextBillingEnabled.value,
+    enableTLSFingerprint: enableTLSFingerprint.value,
+    tlsFingerprintEnabled: tlsFingerprintEnabled.value,
+    tlsFingerprintProfileId: tlsFingerprintProfileId.value,
     enableOpenAIEndpointCapabilities: enableOpenAIEndpointCapabilities.value,
     openAIEndpointCapabilities: openAIEndpointCapabilities.value,
     enableOpenAIResponsesMode: enableOpenAIResponsesMode.value,
@@ -1342,6 +1357,7 @@ const handleSubmit = async () => {
     enableOpenAIPassthrough.value ||
     enableOpenAIFlattenNamespaces.value ||
     enableOpenAILongContextBilling.value ||
+    enableTLSFingerprint.value ||
     enableOpenAIEndpointCapabilities.value ||
     enableOpenAIResponsesMode.value ||
     enableModelRestriction.value ||
@@ -1509,6 +1525,7 @@ watch(
       enableOpenAIPassthrough.value = false
       enableOpenAIFlattenNamespaces.value = false
       enableOpenAILongContextBilling.value = false
+      enableTLSFingerprint.value = false
       enableOpenAIEndpointCapabilities.value = false
       enableOpenAIResponsesMode.value = false
       enableOpenAIWSMode.value = false
@@ -1529,6 +1546,8 @@ watch(
       openaiPassthroughEnabled.value = false
       openaiFlattenNamespacesEnabled.value = false
       openAILongContextBillingEnabled.value = false
+      tlsFingerprintEnabled.value = false
+      tlsFingerprintProfileId.value = null
       openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
       openAIResponsesMode.value = 'auto'
       modelRestrictionMode.value = 'whitelist'
