@@ -3,6 +3,8 @@ package apicompat
 import (
 	"encoding/json"
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -154,16 +156,55 @@ func sanitizeAnthropicToolUseInput(name string, raw string) json.RawMessage {
 		return json.RawMessage(raw)
 	}
 
-	if pages, ok := input["pages"]; !ok || string(pages) != `""` {
+	changed := false
+	if pages, ok := input["pages"]; ok && string(pages) == `""` {
+		delete(input, "pages")
+		changed = true
+	}
+
+	// Claude Code treats offset as a line number. Some GPT-5.5/5.6 Responses
+	// streams have emitted a model-hallucinated, multi-quadrillion offset (for
+	// example 5180581636390513). The gateway has no file length to derive a
+	// replacement, so omit only values that are plainly outside a practical
+	// line-number range; Read then uses its documented default offset.
+	if claudeReadOffsetIsAbsurd(input["offset"]) {
+		delete(input, "offset")
+		changed = true
+	}
+	if !changed {
 		return json.RawMessage(raw)
 	}
 
-	delete(input, "pages")
 	sanitized, err := json.Marshal(input)
 	if err != nil {
 		return json.RawMessage(raw)
 	}
 	return sanitized
+}
+
+// A trillion lines is beyond any practical local file while leaving ordinary
+// generated repositories far below the compatibility guard.
+const maxPracticalClaudeReadOffset uint64 = 1_000_000_000_000
+
+func claudeReadOffsetIsAbsurd(raw json.RawMessage) bool {
+	value := strings.TrimSpace(string(raw))
+	if value == "" {
+		return false
+	}
+	if strings.HasPrefix(value, "-") {
+		return false
+	}
+	if strings.ContainsAny(value, ".eE") {
+		parsed, err := strconv.ParseFloat(value, 64)
+		return err != nil || math.IsInf(parsed, 0) || parsed > float64(maxPracticalClaudeReadOffset)
+	}
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	parsed, err := strconv.ParseUint(value, 10, 64)
+	return err != nil || parsed > maxPracticalClaudeReadOffset
 }
 
 // ---------------------------------------------------------------------------
