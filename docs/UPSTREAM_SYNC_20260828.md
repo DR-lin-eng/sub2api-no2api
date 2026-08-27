@@ -51,11 +51,18 @@ cd frontend && pnpm run typecheck
 cd frontend && pnpm run lint:check
 cd frontend && pnpm exec vitest run src/features/billing/__tests__/PaymentResultPage.spec.ts src/features/billing/__tests__/paymentLocaleScopes.spec.ts
 docker buildx build --load -t sub2api-upstream-sync-20260828:local .
-docker run ... golang:1.26.6-alpine go test -tags=unit ...
+docker run --rm -v /private/tmp/sub2api-sync-20260828/backend:/workspace -w /workspace golang:1.26.6-alpine sh -c 'apk add --no-cache git && GOCACHE=/tmp/go-build GOPROXY=https://goproxy.cn,direct go test -tags=unit ./internal/application/service ./internal/infrastructure/repository ./internal/shared/apicompat ./internal/transport/http/handler'
+cd backend && TESTCONTAINERS_RYUK_DISABLED=true GOCACHE=/private/tmp/go-cache-sync-20260828 go test -tags=integration ./internal/infrastructure/repository -run 'TestUserRepoSuite/TestUpdateEmailWithAliasGuardRejectsAliasCollision' -count=1 -v
 ```
 
-Docker 运行栈使用 PostgreSQL 18、Redis 8 和本轮镜像，`/ready` 返回 `{"ready":true}`，`/health` 返回 `{"status":"ok"}`。Docker unit 包含 service、repository、apicompat 和 HTTP handler，均通过。
+Docker 运行栈使用 PostgreSQL 18、Redis 8 和本轮镜像，`/ready` 返回 `{"ready":true}`，`/health` 返回 `{"status":"ok"}`。Docker unit 包含 service、repository、apicompat 和 HTTP handler，均通过；PostgreSQL/Redis Testcontainers 的邮箱 alias 事务测试也通过。
 
 ## 差异关闭
 
-选择性移植提交完成后，以 `ours` tracking merge 记录 `upstream/main` `efb46db0`，保留本项目模块化树并使后续 `HEAD..upstream/main` 只显示真正新增提交。暂缓项、已处理项和上游版本倒退均在本记录中保留决策，避免未来重复检查。
+选择性移植提交 `46b04aa6e37fc55174c04ebbcc4a52d187bf1234` 完成后，以 `ours` tracking merge `be7f583e362624dc33fe0402530d7500a1a6c8c7` 记录 `upstream/main` `efb46db0`，再以 `56d09a95f0906dcc888a774173443c2d64ad3e08` 补齐 PostgreSQL alias 集成回归；后续 `HEAD..upstream/main=0`，暂缓项、已处理项和上游版本倒退均在本记录中保留决策，避免未来重复检查。
+
+## 发布证据
+
+- `git ls-remote origin refs/heads/main`：`56d09a95f0906dcc888a774173443c2d64ad3e08`（exit 0）。
+- `CI` run `33110189211`：success；`Security Scan` run `33110189238`：success；`Docker Image` run `33110189216`：success。
+- GHCR tags `main`, `latest`, `sha-56d09a9` 共用 manifest digest `sha256:a82dcdfa4b86a1fa8bd72dd8f32a90bf1071ea28b2d2b5919e0e93d1944d6a2e`。
