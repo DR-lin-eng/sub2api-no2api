@@ -541,11 +541,20 @@ func (s *AccountUsageService) GetUsage(ctx context.Context, accountID int64, for
 		return nil, fmt.Errorf("get account failed: %w", err)
 	}
 
+	return s.getUsageForAccount(ctx, account, forceProbe)
+}
+
+func (s *AccountUsageService) getUsageForAccount(ctx context.Context, account *Account, forceProbe bool) (*UsageInfo, error) {
+	if account == nil {
+		return nil, fmt.Errorf("account is required")
+	}
+	accountID := account.ID
+
 	// Dedicated UI load-test accounts must remain fully interactive without ever
 	// contacting Anthropic with synthetic credentials. Reuse the same persisted
 	// passive snapshot that the account table loads on mount.
 	if account.IsSyntheticUITest() && account.IsAnthropicOAuthOrSetupToken() {
-		return s.GetPassiveUsage(ctx, accountID)
+		return s.getPassiveUsageForAccount(ctx, account)
 	}
 
 	if account.Platform == PlatformOpenAI && account.Type == AccountTypeOAuth {
@@ -682,16 +691,28 @@ func (s *AccountUsageService) GetUsage(ctx context.Context, accountID int64, for
 	return nil, fmt.Errorf("account type %s does not support usage query", account.Type)
 }
 
-// GetPassiveUsage 从 Account.Extra 中的被动采样数据构建 UsageInfo，不调用外部 API。
-// 仅适用于 Anthropic OAuth / SetupToken 账号。
+// GetPassiveUsage 从持久化快照构建 UsageInfo，不调用外部 API。
+// OpenAI OAuth 使用按 window_minutes 归一化的 Codex 响应头快照；
+// Anthropic OAuth / SetupToken 使用原有 passive_usage 快照。
 func (s *AccountUsageService) GetPassiveUsage(ctx context.Context, accountID int64) (*UsageInfo, error) {
 	account, err := s.accountRepo.GetByID(ctx, accountID)
 	if err != nil {
 		return nil, fmt.Errorf("get account failed: %w", err)
 	}
 
+	if account.IsOpenAIOAuth() {
+		return s.getOpenAIPassiveUsage(ctx, account), nil
+	}
+	return s.getPassiveUsageForAccount(ctx, account)
+}
+
+func (s *AccountUsageService) getPassiveUsageForAccount(ctx context.Context, account *Account) (*UsageInfo, error) {
+	if account == nil {
+		return nil, fmt.Errorf("account is required")
+	}
+
 	if !account.IsAnthropicOAuthOrSetupToken() {
-		return nil, fmt.Errorf("passive usage only supported for Anthropic OAuth/SetupToken accounts")
+		return nil, fmt.Errorf("passive usage only supported for OpenAI OAuth or Anthropic OAuth/SetupToken accounts")
 	}
 
 	// 复用 estimateSetupTokenUsage 构建 5h 窗口（OAuth 和 SetupToken 逻辑一致）
@@ -843,7 +864,35 @@ func (s *AccountUsageService) getOpenAIUsage(ctx context.Context, account *Accou
 	if s.usageLogRepo == nil {
 		return usage, nil
 	}
+	s.addOpenAILocalWindowStats(ctx, account, usage, now)
+	return usage, nil
+}
 
+func (s *AccountUsageService) getOpenAIPassiveUsage(ctx context.Context, account *Account) *UsageInfo {
+	now := time.Now()
+	updatedAt := now
+	if account != nil && account.Extra != nil {
+		if raw, ok := account.Extra["codex_usage_updated_at"]; ok {
+			if parsed, err := parseTime(fmt.Sprint(raw)); err == nil {
+				updatedAt = parsed
+			}
+		}
+	}
+	usage := &UsageInfo{Source: "passive", UpdatedAt: &updatedAt}
+	if account == nil {
+		return usage
+	}
+	applyExtraToUsage(usage, account.Extra, now)
+	if s.usageLogRepo != nil {
+		s.addOpenAILocalWindowStats(ctx, account, usage, now)
+	}
+	return usage
+}
+
+func (s *AccountUsageService) addOpenAILocalWindowStats(ctx context.Context, account *Account, usage *UsageInfo, now time.Time) {
+	if account == nil || usage == nil || s.usageLogRepo == nil {
+		return
+	}
 	if stats, err := s.usageLogRepo.GetAccountWindowStats(ctx, account.ID, codexWindowStatsStart(usage.FiveHour, 5*time.Hour, now)); err == nil {
 		if usage.FiveHour == nil {
 			usage.FiveHour = &UsageProgress{Utilization: 0}
@@ -857,8 +906,6 @@ func (s *AccountUsageService) getOpenAIUsage(ctx context.Context, account *Accou
 		}
 		usage.SevenDay.WindowStats = windowStatsFromAccountStats(stats)
 	}
-
-	return usage, nil
 }
 
 func shouldRefreshOpenAICodexSnapshot(account *Account, usage *UsageInfo, now time.Time) bool {

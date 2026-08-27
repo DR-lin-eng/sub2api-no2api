@@ -118,31 +118,15 @@
       </div>
     </template>
 
-    <!-- OpenAI OAuth accounts: only authoritative App Server buckets are rate-limit bars. -->
+    <!-- OpenAI OAuth accounts: explicit App Server buckets, with normalized passive headers as fallback. -->
     <template v-else-if="account.platform === 'openai' && account.type === 'oauth'">
-      <div v-if="loading && !usageInfo" class="space-y-1.5">
-        <div class="flex items-center gap-1">
-          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
-          <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"></div>
-          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
-        </div>
-        <div class="flex items-center gap-1">
-          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
-          <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"></div>
-          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
-        </div>
-      </div>
-      <div v-else>
-        <!--
-          The primary 查询 action refreshes both the local counters and the
-          upstream App Server snapshot.  Do not render passive 5h/7d bars here:
-          a bar is authoritative only after its bucket is returned by the query.
-        -->
+      <div>
         <OpenAIQuotaResetCell
           ref="openAIQuotaResetRef"
           :account="account"
           :local-window-stats="openAILocalWindowStats"
           :query-local-usage="loadActiveUsage"
+          :external-quota-result="bulkOpenaiQuotaResult"
           class="mt-1"
           @account-updated="handleQuotaResetAccountUpdated"
           @quota-updated="handleQuotaUsageUpdated"
@@ -568,6 +552,7 @@ import { buildOpenAIUsageRefreshKey } from '@/core/utils/accountUsageRefresh'
 import { enqueueUsageRequest } from '@/core/utils/usageLoadQueue'
 import { formatCompactNumber, formatRelativeTime } from '@/core/utils/format'
 import { useOpenAIQuotaDisplayState } from '@/features/admin-accounts/presentation/composables/useOpenAIQuotaDisplayState'
+import type { OpenAIQuotaRefreshResult } from '@/features/admin-accounts/data/dtos/openAIQuotaDtos'
 import UsageProgressBar from './UsageProgressBar.vue'
 import AccountQuotaInfo from './AccountQuotaInfo.vue'
 import OpenAIQuotaResetCell from './OpenAIQuotaResetCell.vue'
@@ -585,6 +570,7 @@ const props = withDefaults(
     todayStats?: WindowStats | null
     todayStatsLoading?: boolean
     manualRefreshToken?: number
+    bulkOpenaiQuotaResult?: OpenAIQuotaRefreshResult | null
     upstreamQuotaResult?: UpstreamQuotaQueryResult | null
     now?: number
   }>(),
@@ -592,6 +578,7 @@ const props = withDefaults(
     todayStats: null,
     todayStatsLoading: false,
     manualRefreshToken: 0,
+    bulkOpenaiQuotaResult: null,
     upstreamQuotaResult: null
   }
 )
@@ -1215,6 +1202,11 @@ const isAnthropicOAuthOrSetupToken = computed(() => {
   return props.account.platform === 'anthropic' && (props.account.type === 'oauth' || props.account.type === 'setup-token')
 })
 
+const shouldLoadPassiveUsage = computed(() =>
+  isAnthropicOAuthOrSetupToken.value ||
+  (props.account.platform === 'openai' && props.account.type === 'oauth')
+)
+
 const loadUsage = async (options?: { source?: 'passive' | 'active'; bypassCache?: boolean }) => {
   if (!shouldFetchUsage.value) return
 
@@ -1412,7 +1404,7 @@ onMounted(() => {
   }
 
   if (!shouldAutoLoadUsageOnMount.value) return
-  const source = isAnthropicOAuthOrSetupToken.value ? 'passive' : undefined
+  const source = shouldLoadPassiveUsage.value ? 'passive' : undefined
   requestAutoLoad(source)
 })
 
@@ -1429,7 +1421,7 @@ watch(openAIUsageRefreshKey, (nextKey, prevKey) => {
   // Keep the explicit quota snapshot cache: this watcher also observes
   // background account metadata updates, and clearing it would make the
   // queried percentage disappear on the next auto-refresh tick.
-  requestAutoLoad()
+  requestAutoLoad('passive')
 })
 
 watch(
@@ -1438,7 +1430,7 @@ watch(
     if (nextToken === prevToken) return
     if (!shouldFetchUsage.value) return
 
-    const source = isAnthropicOAuthOrSetupToken.value ? 'passive' : undefined
+    const source = shouldLoadPassiveUsage.value ? 'passive' : undefined
     _usageCache.delete(props.account.id)
     if (props.account.platform === 'openai' && props.account.type === 'oauth') {
       clearOpenAIQuotaUsage()

@@ -1,5 +1,6 @@
 import cpaMessages from './accounts.cpa'
 import codexMessages from './accounts.codex'
+import bulkActionsMessages from './accounts.bulk-actions'
 
 export default {
     accounts: {
@@ -445,26 +446,7 @@ export default {
       bulkSchedulableDisabled: 'Successfully disabled scheduling for {count} account(s)',
       bulkSchedulablePartial: 'Scheduling updated partially: {success} succeeded, {failed} failed',
       bulkSchedulableResultUnknown: 'Bulk scheduling result incomplete. Please retry or refresh.',
-      bulkActions: {
-        selected: '{count} account(s) selected',
-        selectedAll: 'All {count} matching account(s) selected',
-        selectCurrentPage: 'Select this page',
-        selectAllResults: 'Select all {count} results',
-        selectingAll: 'Selecting all...',
-        selectAllFailed: 'Failed to select all matching accounts',
-        clear: 'Clear selection',
-        edit: 'Bulk Edit',
-        delete: 'Bulk Delete',
-        enableScheduling: 'Enable Scheduling',
-        disableScheduling: 'Disable Scheduling',
-        resetStatus: 'Reset Status',
-        refreshToken: 'Refresh Token',
-        queryUpstreamQuota: 'Get Balances',
-        probeUpstreamBilling: 'Probe Upstream Rate',
-        resetStatusSuccess: 'Successfully reset {count} account(s) status',
-        refreshTokenSuccess: 'Successfully refreshed {count} account(s) token',
-        partialSuccess: 'Partially completed: {success} succeeded, {failed} failed'
-      },
+      bulkActions: bulkActionsMessages,
       bulkEdit: {
         title: 'Bulk Edit Accounts',
         selectionInfo:

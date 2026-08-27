@@ -247,9 +247,11 @@ describe('AccountUsageCell', () => {
 
     await flushPromises()
 
-    expect(getUsage).toHaveBeenCalledWith(2000)
-    expect(wrapper.findAll('.usage-bar')).toHaveLength(0)
-    expect(wrapper.text()).toContain('admin.accounts.openaiQuotaReset.localStats')
+    expect(getUsage).toHaveBeenCalledWith(2000, 'passive')
+    expect(wrapper.findAll('.usage-bar')).toHaveLength(2)
+    expect(wrapper.text()).toContain('5h|0|300')
+    expect(wrapper.text()).toContain('7d|0|300')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.passiveSampled')
     expect(wrapper.text()).toContain('5h')
     expect(wrapper.text()).toContain('7d')
   })
@@ -300,7 +302,7 @@ describe('AccountUsageCell', () => {
     })
 
     await flushPromises()
-    expect(getUsage).toHaveBeenCalledWith(2006)
+    expect(getUsage).toHaveBeenCalledWith(2006, 'passive')
 
     await wrapper.get('[data-testid="openai-primary-query"]').trigger('click')
     await flushPromises()
@@ -365,9 +367,10 @@ describe('AccountUsageCell', () => {
 
     await flushPromises()
 
-    expect(getUsage).toHaveBeenCalledWith(2001)
-    expect(wrapper.findAll('.usage-bar')).toHaveLength(0)
-    expect(wrapper.text()).toContain('admin.accounts.openaiQuotaReset.localStats')
+    expect(getUsage).toHaveBeenCalledWith(2001, 'passive')
+    expect(wrapper.findAll('.usage-bar')).toHaveLength(2)
+    expect(wrapper.text()).toContain('5h|12|900')
+    expect(wrapper.text()).toContain('7d|34|900')
   })
 
   it('OpenAI OAuth 有现成快照时，手动刷新信号会触发 usage 重拉', async () => {
@@ -435,9 +438,10 @@ describe('AccountUsageCell', () => {
 
     // 手动刷新再拉一次
     expect(getUsage).toHaveBeenCalledTimes(2)
-    expect(getUsage).toHaveBeenCalledWith(2010)
-    expect(wrapper.findAll('.usage-bar')).toHaveLength(0)
-    expect(wrapper.text()).toContain('admin.accounts.openaiQuotaReset.localStats')
+    expect(getUsage).toHaveBeenCalledWith(2010, 'passive')
+    expect(wrapper.findAll('.usage-bar')).toHaveLength(2)
+    expect(wrapper.text()).toContain('5h|12|900')
+    expect(wrapper.text()).toContain('7d|34|900')
   })
 
   it('OpenAI OAuth 在无 codex 快照时会回退显示 usage 接口窗口', async () => {
@@ -490,7 +494,7 @@ describe('AccountUsageCell', () => {
 
 	await flushPromises()
 
-	expect(getUsage).toHaveBeenCalledWith(2002)
+	expect(getUsage).toHaveBeenCalledWith(2002, 'passive')
 	expect(wrapper.findAll('.usage-bar')).toHaveLength(0)
 	expect(wrapper.text()).toContain('admin.accounts.openaiQuotaReset.localStats')
   })
@@ -696,9 +700,10 @@ describe('AccountUsageCell', () => {
 
 	await flushPromises()
 
-  expect(getUsage).toHaveBeenCalledWith(2004)
-  expect(wrapper.findAll('.usage-bar')).toHaveLength(0)
-  expect(wrapper.text()).toContain('admin.accounts.openaiQuotaReset.localStats')
+  expect(getUsage).toHaveBeenCalledWith(2004, 'passive')
+  expect(wrapper.findAll('.usage-bar')).toHaveLength(2)
+  expect(wrapper.text()).toContain('5h|0|106540000')
+  expect(wrapper.text()).toContain('7d|0|106540000')
   })
 
   it('Key 账号会展示 today stats 徽章并带 A/U 提示', async () => {
