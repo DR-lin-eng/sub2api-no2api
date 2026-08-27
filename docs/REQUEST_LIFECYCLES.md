@@ -90,6 +90,12 @@ Claude Code 的 compact user turn 在 Responses 兼容出口和 Chat-only 出口
 `compaction_trigger`/`compaction` item 仍属于另一条 `/v1/responses` 远程 Compact
 协议，不能用普通 Messages 响应替代。
 
+Responses → Anthropic 的 Claude Code `Read` 工具参数在完整 JSON 可解析后做窄范围兼容清洗：
+`pages: ""` 和明显超出实际文件行号范围的异常超大 `offset` 会被省略，普通 offset、合法
+`pages` 值以及其他工具参数保持原样。这样可以避免 GPT-5.5/5.6 偶发生成的污染参数进入
+Claude Code 下一轮上下文并触发重复 Read；网关没有文件长度信息，因此不会猜测或改写为另一个
+具体行号。历史 assistant `tool_use` 回放也使用同一清洗规则。
+
 ### 账号出口路由
 
 账号 repository 和调度快照一并加载 `egress_mode` 与 IPv6 绑定。选中账号后，

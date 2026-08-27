@@ -370,6 +370,26 @@ func TestResponsesToAnthropic_ReadToolDropsEmptyPages(t *testing.T) {
 	assert.JSONEq(t, `{"file_path":"/tmp/demo.py","limit":2000,"offset":0}`, string(anth.Content[0].Input))
 }
 
+func TestResponsesToAnthropic_ReadToolDropsAbsurdOffset(t *testing.T) {
+	resp := &ResponsesResponse{
+		ID:     "resp_read_absurd_offset",
+		Model:  "gpt-5.5",
+		Status: "completed",
+		Output: []ResponsesOutput{
+			{
+				Type:      "function_call",
+				CallID:    "call_read",
+				Name:      "Read",
+				Arguments: `{"file_path":"/tmp/demo.ts","limit":60,"offset":5180581636390513,"pages":""}`,
+			},
+		},
+	}
+
+	respOut := ResponsesToAnthropic(resp, "claude-opus-4-6")
+	require.Len(t, respOut.Content, 1)
+	assert.JSONEq(t, `{"file_path":"/tmp/demo.ts","limit":60}`, string(respOut.Content[0].Input))
+}
+
 func TestResponsesToAnthropic_PreservesEmptyStringsForOtherTools(t *testing.T) {
 	resp := &ResponsesResponse{
 		ID:     "resp_other",
@@ -388,6 +408,23 @@ func TestResponsesToAnthropic_PreservesEmptyStringsForOtherTools(t *testing.T) {
 	anth := ResponsesToAnthropic(resp, "claude-opus-4-6")
 	require.Len(t, anth.Content, 1)
 	assert.JSONEq(t, `{"query":""}`, string(anth.Content[0].Input))
+}
+
+func TestAnthropicToResponses_CleansAbsurdReadOffsetFromHistory(t *testing.T) {
+	req := &AnthropicRequest{
+		Model: "gpt-5.5",
+		Messages: []AnthropicMessage{
+			{Role: "assistant", Content: json.RawMessage(`[{"type":"tool_use","id":"call_read","name":"Read","input":{"file_path":"/tmp/demo.ts","offset":5180581636390513}}]`)},
+		},
+	}
+
+	resp, err := AnthropicToResponses(req)
+	require.NoError(t, err)
+	var items []ResponsesInputItem
+	require.NoError(t, json.Unmarshal(resp.Input, &items))
+	require.Len(t, items, 1)
+	assert.Equal(t, "function_call", items[0].Type)
+	assert.JSONEq(t, `{"file_path":"/tmp/demo.ts"}`, items[0].Arguments)
 }
 
 func TestResponsesToAnthropic_Reasoning(t *testing.T) {
