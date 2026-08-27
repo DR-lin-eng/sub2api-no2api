@@ -234,7 +234,7 @@ func normalizeLoweredFunctionItemID(item map[string]any) {
 		return
 	}
 	id := strings.TrimSpace(stringValue(item["id"]))
-	if id == "" || strings.HasPrefix(id, "fc_") {
+	if id == "" || strings.HasPrefix(id, "fc") {
 		return
 	}
 	if recovered := retypedResponsesToolCallItemID(id, "function_call"); recovered != id {
