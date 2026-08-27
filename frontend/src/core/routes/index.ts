@@ -217,6 +217,19 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/activity-center',
+    name: 'ActivityCenter',
+    component: () => import('@/features/activity-center/presentation/pages/ActivityCenterPage.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Activity Center',
+      titleKey: 'activityCenter.title',
+      descriptionKey: 'activityCenter.description',
+      requiresActivityCenter: true
+    }
+  },
+  {
     path: '/keys',
     name: 'Keys',
     component: () => import('@/features/keys/presentation/pages/KeysPage.vue'),
@@ -1054,7 +1067,7 @@ router.beforeEach(async (to, _from, next) => {
   // 公共设置可能尚未加载（App.vue 的 onMounted 异步拉取晚于首次导航，且纯静态部署
   // 无 __APP_CONFIG__ 注入）。此时 cachedPublicSettings 为空会把 payment/risk_control
   // 误判为“未启用”而错误拦截，故这里先确保设置加载完成。
-  if ((to.meta.requiresPayment || to.meta.requiresRiskControl || to.meta.requiresSupportChat || to.meta.requiresMediaStudio || to.meta.requiresIPv6Egress) && !appStore.publicSettingsLoaded) {
+  if ((to.meta.requiresPayment || to.meta.requiresRiskControl || to.meta.requiresSupportChat || to.meta.requiresMediaStudio || to.meta.requiresActivityCenter || to.meta.requiresIPv6Egress) && !appStore.publicSettingsLoaded) {
     try {
       await appStore.fetchPublicSettings()
     } catch (error) {
@@ -1093,6 +1106,14 @@ router.beforeEach(async (to, _from, next) => {
   if (
     to.meta.requiresMediaStudio &&
     (!appStore.publicSettingsLoaded || appStore.cachedPublicSettings?.media_studio_enabled !== true)
+  ) {
+    next(authStore.isAdmin ? '/admin/settings' : '/dashboard')
+    return
+  }
+
+  if (
+    to.meta.requiresActivityCenter &&
+    (!appStore.publicSettingsLoaded || appStore.cachedPublicSettings?.activity_center_enabled !== true)
   ) {
     next(authStore.isAdmin ? '/admin/settings' : '/dashboard')
     return

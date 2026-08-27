@@ -403,6 +403,7 @@ export const useAppStore = defineStore('app', () => {
         model_plaza_enabled: false,
         model_plaza_require_auth: false,
         media_studio_enabled: false,
+        activity_center_enabled: false,
         ipv6_egress_ui_enabled: false,
         risk_control_enabled: false,
         service_quota_enabled: false,

@@ -66,6 +66,9 @@ func (s *SettingService) applyFeatureSettings(result *SystemSettings, settings m
 	// Media Studio feature (default: disabled; strict true)
 	result.MediaStudioEnabled = settings[SettingKeyMediaStudioEnabled] == "true"
 
+	// Activity Center feature (default: disabled; strict true)
+	result.ActivityCenterEnabled = settings[SettingKeyActivityCenterEnabled] == "true"
+
 	// Custom model configuration feature (default: disabled; strict true)
 	result.CustomModelConfigEnabled = settings[SettingKeyCustomModelConfigEnabled] == "true"
 

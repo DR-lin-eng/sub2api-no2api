@@ -19,11 +19,12 @@ const localeLoaders: Record<LocaleCode, Record<LocaleScope, () => Promise<Locale
       return { ...landing.default, ...common.default }
     },
     user: async () => {
-      const [dashboard, misc] = await Promise.all([
+      const [dashboard, activityCenter, misc] = await Promise.all([
         import('./locales/en/dashboard'),
+        import('./locales/en/activityCenter'),
         import('./locales/en/misc'),
       ])
-      return { ...dashboard.default, ...misc.default }
+      return { ...dashboard.default, ...activityCenter.default, ...misc.default }
     },
     batchImage: async () => (await import('./locales/en/batchImage')).default,
     mediaStudio: async () => (await import('./locales/en/mediaStudio')).default,
@@ -39,11 +40,12 @@ const localeLoaders: Record<LocaleCode, Record<LocaleScope, () => Promise<Locale
       return { ...landing.default, ...common.default }
     },
     user: async () => {
-      const [dashboard, misc] = await Promise.all([
+      const [dashboard, activityCenter, misc] = await Promise.all([
         import('./locales/zh/dashboard'),
+        import('./locales/zh/activityCenter'),
         import('./locales/zh/misc'),
       ])
-      return { ...dashboard.default, ...misc.default }
+      return { ...dashboard.default, ...activityCenter.default, ...misc.default }
     },
     batchImage: async () => (await import('./locales/zh/batchImage')).default,
     mediaStudio: async () => (await import('./locales/zh/mediaStudio')).default,
@@ -53,6 +55,7 @@ const localeLoaders: Record<LocaleCode, Record<LocaleScope, () => Promise<Locale
 }
 
 const USER_ROUTE_PREFIXES = [
+  '/activity-center',
   '/dashboard',
   '/keys',
   '/batch-image',

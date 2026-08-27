@@ -358,6 +358,7 @@ export function createSettingsForm(localText: LocalText): SettingsForm {
     model_plaza_auto_public_models: false,
     model_plaza_description: "",
     media_studio_enabled: false,
+    activity_center_enabled: false,
     ipv6_egress_ui_enabled: false,
     affiliate_enabled: false,
     allow_user_view_error_requests: false,

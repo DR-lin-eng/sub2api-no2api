@@ -53,6 +53,12 @@ export default {
           enabledHint: 'When off, the sidebar entry is hidden and the endpoint returns an empty list.',
         },
         supportChat: supportChatMessages,
+        activityCenter: {
+          title: 'Activity Center',
+          description: 'Controls the user-facing activity hub for campaigns, tasks, rewards, and operation timelines. Disabled by default.',
+          enabled: 'Enable Activity Center',
+          enabledHint: 'When off, the user sidebar entry is hidden and direct visits to /activity-center return to the dashboard.',
+        },
         modelPlaza: {
           title: 'Model Plaza',
           description: 'A public page showcasing available models and pricing by group. Disabled by default.',

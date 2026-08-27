@@ -400,6 +400,26 @@ const GiftIcon = {
     )
 }
 
+const CalendarIcon = {
+  render: () =>
+    h(
+      'svg',
+      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' },
+      [
+        h('path', {
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          d: 'M6.75 3v2.25M17.25 3v2.25M3 8.25h18M5.25 6.75h13.5A2.25 2.25 0 0121 9v9.75A2.25 2.25 0 0118.75 21H5.25A2.25 2.25 0 013 18.75V9a2.25 2.25 0 012.25-2.25z'
+        }),
+        h('path', {
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          d: 'M8.25 12.75h.008v.008H8.25v-.008zm4.5 0h.008v.008H12.75v-.008zm4.5 0h.008v.008h-.008v-.008zM8.25 16.5h.008v.008H8.25V16.5zm4.5 0h.008v.008H12.75V16.5z'
+        })
+      ]
+    )
+}
+
 const UserIcon = {
   render: () =>
     h(
@@ -773,12 +793,13 @@ const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
 const flagAdminPayment = () => adminSettingsStore.paymentEnabled
 const flagBatchImageAccess = () => canUseBatchImage.value
 const flagMediaStudio = makeSidebarFlag(FeatureFlags.mediaStudio)
+const flagActivityCenter = makeSidebarFlag(FeatureFlags.activityCenter)
 const flagIPv6Egress = makeSidebarFlag(FeatureFlags.ipv6Egress)
 
 // buildSelfNavItems 构造用户自己的导航项（用户端主菜单和管理员的"我的账户"子菜单共享这组声明）。
 // withDashboard=true 时包含仪表盘（用户端），false 时不含（管理员的个人区已经有独立仪表盘入口）。
 //
-// 条目顺序：密钥 → 用量 → 可用渠道 → 渠道状态 → 订阅/支付 → 兑换/资料。
+// 条目顺序：活动中心 → 密钥 → 用量 → 可用渠道 → 渠道状态 → 订阅/支付 → 兑换/资料。
 // 可用渠道紧挨渠道状态之上，让用户"先看自己能用什么、再看对应状态"。
 function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   const items: NavItem[] = []
@@ -786,6 +807,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
     items.push({ path: '/dashboard', label: t('nav.dashboard'), icon: DashboardIcon })
   }
   items.push(
+    { path: '/activity-center', label: t('nav.activityCenter'), icon: CalendarIcon, featureFlag: flagActivityCenter },
     { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
     { path: '/batch-image', label: t('nav.batchImage'), icon: BatchImageIcon, hideInSimpleMode: true, featureFlag: flagBatchImageAccess },
     { path: '/media-studio', label: t('nav.mediaStudio'), icon: MediaStudioIcon, hideInSimpleMode: true, featureFlag: flagMediaStudio },

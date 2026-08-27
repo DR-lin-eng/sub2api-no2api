@@ -84,6 +84,7 @@ export default {
     saving: '保存中...',
     selectedCount: '（已选 {count} 个）',
     refresh: '刷新',
+    lastUpdated: '最后更新',
     autoRefresh: {
       title: '自动刷新',
       enable: '启用自动刷新',
@@ -163,6 +164,7 @@ export default {
   // Navigation
   nav: {
     dashboard: '仪表盘',
+    activityCenter: '活动中心',
     announcements: '公告',
     apiKeys: 'API 密钥',
     batchImage: '批量生图',

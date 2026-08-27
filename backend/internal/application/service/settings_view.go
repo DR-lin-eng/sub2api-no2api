@@ -235,6 +235,9 @@ type SystemSettings struct {
 	// Media Studio image, video, and batch generation workspace.
 	MediaStudioEnabled bool `json:"media_studio_enabled"`
 
+	// Activity Center campaign workspace.
+	ActivityCenterEnabled bool `json:"activity_center_enabled"`
+
 	// Custom model configuration feature toggle
 	CustomModelConfigEnabled bool `json:"custom_model_config_enabled"`
 
@@ -437,6 +440,9 @@ type PublicSettings struct {
 
 	// Media Studio image, video, and batch generation workspace.
 	MediaStudioEnabled bool `json:"media_studio_enabled"`
+
+	// Activity Center campaign workspace.
+	ActivityCenterEnabled bool `json:"activity_center_enabled"`
 
 	// Custom model configuration feature toggle
 	CustomModelConfigEnabled bool `json:"custom_model_config_enabled"`

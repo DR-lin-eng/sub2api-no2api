@@ -124,6 +124,11 @@ export const FeatureFlags = {
     mode: 'opt-in',
     label: 'Media Studio',
   }),
+  activityCenter: defineFlag({
+    key: 'activity_center_enabled',
+    mode: 'opt-in',
+    label: 'Activity Center',
+  }),
   ipv6Egress: defineFlag({
     key: 'ipv6_egress_ui_enabled',
     mode: 'opt-in',

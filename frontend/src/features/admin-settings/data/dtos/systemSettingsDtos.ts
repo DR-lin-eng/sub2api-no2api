@@ -726,6 +726,9 @@ export interface SystemSettings {
   // Media Studio feature switch
   media_studio_enabled: boolean;
 
+  // Activity Center feature switch
+  activity_center_enabled: boolean;
+
   // Custom Model Config feature switch
   custom_model_config_enabled: boolean;
 
@@ -1054,6 +1057,9 @@ export interface UpdateSettingsRequest {
 
   // Media Studio feature switch
   media_studio_enabled?: boolean;
+
+  // Activity Center feature switch
+  activity_center_enabled?: boolean;
 
   // Custom Model Config feature switch
   custom_model_config_enabled?: boolean;

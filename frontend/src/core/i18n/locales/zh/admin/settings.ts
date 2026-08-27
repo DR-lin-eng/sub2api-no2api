@@ -53,6 +53,12 @@ export default {
           enabledHint: '关闭后用户端侧边栏入口隐藏，接口返回空数组。',
         },
         supportChat: supportChatMessages,
+        activityCenter: {
+          title: '活动中心',
+          description: '控制用户侧活动中心入口，用于承载公告活动、任务、奖励和运营时间线。默认关闭。',
+          enabled: '启用活动中心',
+          enabledHint: '关闭后用户侧边栏隐藏活动中心入口，直接访问 /activity-center 会返回仪表盘。',
+        },
         modelPlaza: {
           title: '模型广场',
           description: '以分组为单位向访客展示可用模型与价格的公开页面。默认关闭。',

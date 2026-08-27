@@ -325,6 +325,28 @@ func TestSettingService_GetPublicSettings_IPv6EgressUIDefaultsOffAndIsInjectedWh
 	require.True(t, payload.IPv6EgressUIEnabled)
 }
 
+func TestSettingService_GetPublicSettings_ActivityCenterDefaultsOffAndIsInjectedWhenEnabled(t *testing.T) {
+	disabled, err := NewSettingService(
+		&settingPublicRepoStub{values: map[string]string{}},
+		&config.Config{},
+	).GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.False(t, disabled.ActivityCenterEnabled)
+
+	svc := NewSettingService(&settingPublicRepoStub{values: map[string]string{
+		SettingKeyActivityCenterEnabled: "true",
+	}}, &config.Config{})
+	enabled, err := svc.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.True(t, enabled.ActivityCenterEnabled)
+
+	injected, err := svc.GetPublicSettingsForInjection(context.Background())
+	require.NoError(t, err)
+	payload, ok := injected.(*PublicSettingsInjectionPayload)
+	require.True(t, ok)
+	require.True(t, payload.ActivityCenterEnabled)
+}
+
 func TestSettingService_GetPublicSettings_ExposesTablePreferences(t *testing.T) {
 	repo := &settingPublicRepoStub{
 		values: map[string]string{

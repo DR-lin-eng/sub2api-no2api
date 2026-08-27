@@ -27,6 +27,7 @@ const appStore = vi.hoisted(() => ({
     risk_control_enabled?: boolean
     support_chat_enabled?: boolean
     media_studio_enabled?: boolean
+    activity_center_enabled?: boolean
     ipv6_egress_ui_enabled?: boolean
     custom_menu_items?: []
   },
@@ -204,6 +205,12 @@ describe('feature route guard', () => {
       '/dashboard',
     ],
     [
+      'activity center',
+      { requiresActivityCenter: true },
+      { activity_center_enabled: false },
+      '/dashboard',
+    ],
+    [
       'IPv6 egress management',
       { requiresIPv6Egress: true },
       { ipv6_egress_ui_enabled: false },
@@ -252,6 +259,20 @@ describe('feature route guard', () => {
 
     appStore.cachedPublicSettings = { media_studio_enabled: true }
     const allowed = runGuard({ requiresMediaStudio: true }, '/media-studio')
+    await allowed.navigation
+    expect(allowed.next).toHaveBeenCalledWith()
+  })
+
+  it('fails closed for activity center unless settings explicitly enable it', async () => {
+    appStore.cachedPublicSettings = {}
+    appStore.publicSettingsLoaded = true
+
+    const blocked = runGuard({ requiresActivityCenter: true }, '/activity-center')
+    await blocked.navigation
+    expect(blocked.next).toHaveBeenCalledWith('/dashboard')
+
+    appStore.cachedPublicSettings = { activity_center_enabled: true }
+    const allowed = runGuard({ requiresActivityCenter: true }, '/activity-center')
     await allowed.navigation
     expect(allowed.next).toHaveBeenCalledWith()
   })
