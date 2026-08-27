@@ -10,6 +10,7 @@ const pollOrderStatus = vi.hoisted(() => vi.fn())
 const verifyOrder = vi.hoisted(() => vi.fn())
 const verifyOrderPublic = vi.hoisted(() => vi.fn())
 const resolveOrderPublicByResumeToken = vi.hoisted(() => vi.fn())
+const refreshUserMock = vi.hoisted(() => vi.fn())
 
 vi.mock('vue-router', async () => {
   const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
@@ -33,6 +34,12 @@ vi.mock('vue-i18n', async () => {
 vi.mock('@/features/billing/presentation/stores/paymentStore', () => ({
   usePaymentStore: () => ({
     pollOrderStatus,
+  }),
+}))
+
+vi.mock('@/features/auth', () => ({
+  useAuthStore: () => ({
+    refreshUser: refreshUserMock,
   }),
 }))
 
@@ -91,6 +98,7 @@ describe('PaymentResultView', () => {
     verifyOrder.mockReset()
     verifyOrderPublic.mockReset()
     resolveOrderPublicByResumeToken.mockReset()
+    refreshUserMock.mockReset().mockResolvedValue(undefined)
     window.localStorage.clear()
   })
 
@@ -194,6 +202,40 @@ describe('PaymentResultView', () => {
     expect(wrapper.text()).toContain('103.00')
     expect(wrapper.text()).toContain('100.00')
     expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).toBeNull()
+  })
+
+  it('refreshes the authenticated balance only after a completed balance order', async () => {
+    routeState.query = { resume_token: 'resume-completed' }
+    resolveOrderPublicByResumeToken.mockResolvedValue({
+      data: orderFactory('COMPLETED'),
+    })
+
+    mount(PaymentResultView, {
+      global: {
+        stubs: { OrderStatusBadge: true },
+      },
+    })
+
+    await flushPromises()
+
+    expect(refreshUserMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not refresh the balance for paid or subscription orders', async () => {
+    routeState.query = { resume_token: 'resume-paid' }
+    resolveOrderPublicByResumeToken.mockResolvedValue({
+      data: { ...orderFactory('PAID'), order_type: 'subscription' },
+    })
+
+    mount(PaymentResultView, {
+      global: {
+        stubs: { OrderStatusBadge: true },
+      },
+    })
+
+    await flushPromises()
+
+    expect(refreshUserMock).not.toHaveBeenCalled()
   })
 
   it('refreshes a pending resume-token result until the order becomes paid', async () => {

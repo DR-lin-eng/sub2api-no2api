@@ -239,6 +239,11 @@ func TestAntigravityCompatPreservesChatTokenLimit(t *testing.T) {
 			body: `{"model":"gemini-3.1-pro-high","messages":[{"role":"user","content":"ok"}],"max_tokens":8,"max_completion_tokens":13}`,
 			want: 13,
 		},
+		{
+			name: "oversized max_completion_tokens is clamped",
+			body: `{"model":"gemini-3.1-pro-high","messages":[{"role":"user","content":"ok"}],"max_completion_tokens":65536}`,
+			want: antigravityCompatMaxTokens,
+		},
 	}
 
 	for _, tt := range tests {

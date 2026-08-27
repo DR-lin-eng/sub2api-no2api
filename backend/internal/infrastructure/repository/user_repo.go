@@ -1166,12 +1166,17 @@ func (r *userRepository) ExistsByEmailAlias(ctx context.Context, email string) (
 }
 
 func existsByEmailAliasWithClient(ctx context.Context, client *dbent.Client, email string) (bool, error) {
+	_, exists, err := emailAliasOwnerIDWithClient(ctx, client, email, 0)
+	return exists, err
+}
+
+func emailAliasOwnerIDWithClient(ctx context.Context, client *dbent.Client, email string, currentUserID int64) (int64, bool, error) {
 	if client == nil {
-		return false, nil
+		return 0, false, nil
 	}
 	probes := service.EmailAliasDedupProbes(email)
 	if len(probes) == 0 {
-		return false, nil
+		return 0, false, nil
 	}
 
 	preds := make([]predicate.User, 0, 2*len(probes))
@@ -1185,26 +1190,86 @@ func existsByEmailAliasWithClient(ctx context.Context, client *dbent.Client, ema
 	candidates, err := client.User.Query().
 		Where(dbuser.Or(preds...)).
 		Limit(emailAliasCandidateLimit).
-		Select(dbuser.FieldEmail).
-		Strings(ctx)
+		Select(dbuser.FieldID, dbuser.FieldEmail).
+		All(ctx)
 	if err != nil {
-		return false, err
+		return 0, false, err
 	}
 
 	// 探针会有过度匹配（点号只在 Gmail 家族无意义），最终判定必须回到完整归一化规则。
+	// 返回“其他用户”优先于当前用户，避免历史重复数据让调用方误判为仅当前用户占用。
 	identity := service.NormalizeEmailForAliasDedup(email)
+	var selfID int64
+	selfExists := false
 	for _, candidate := range candidates {
-		if service.NormalizeEmailForAliasDedup(candidate) == identity {
-			return true, nil
+		if service.NormalizeEmailForAliasDedup(candidate.Email) != identity {
+			continue
+		}
+		if candidate.ID != 0 && candidate.ID != currentUserID {
+			return candidate.ID, true, nil
+		}
+		if candidate.ID == currentUserID {
+			selfID = candidate.ID
+			selfExists = true
 		}
 	}
 	// A full page means an exact alias could have been displaced by the
 	// dot-stripped over-match set. Registration checks are intentionally
 	// fail-closed; never turn the fixed memory/query bound into a bypass.
 	if len(candidates) == emailAliasCandidateLimit {
-		return true, nil
+		return 0, true, nil
 	}
-	return false, nil
+	return selfID, selfExists, nil
+}
+
+// UpdateEmailWithAliasGuard atomically checks and updates a user's email within
+// the caller's transaction. Advisory locks serialize exact-address and
+// inbox-alias variants across instances; the repository-scoped lock is the
+// fallback used by tests and non-Postgres drivers.
+func (r *userRepository) UpdateEmailWithAliasGuard(
+	ctx context.Context,
+	userID int64,
+	email string,
+	passwordHash string,
+) error {
+	if userID <= 0 {
+		return service.ErrUserNotFound
+	}
+	if strings.TrimSpace(email) == "" || passwordHash == "" {
+		return fmt.Errorf("email identity update requires email and password hash")
+	}
+	tx := dbent.TxFromContext(ctx)
+	if tx == nil {
+		return fmt.Errorf("email identity update requires a transaction")
+	}
+	client := tx.Client()
+	releaseEmailLock, err := lockRepositoryScopedKeys(
+		ctx,
+		client,
+		txAwareSQLExecutor(ctx, r.sql, r.client),
+		normalizedEmailUniquenessLockKey(email),
+		emailAliasUniquenessLockKey(email),
+	)
+	if err != nil {
+		return err
+	}
+	defer releaseEmailLock()
+
+	ownerID, exists, err := emailAliasOwnerIDWithClient(ctx, client, email, userID)
+	if err != nil {
+		return err
+	}
+	if exists && ownerID != userID {
+		return service.ErrEmailExists
+	}
+
+	if _, err := client.User.UpdateOneID(userID).
+		SetEmail(email).
+		SetPasswordHash(passwordHash).
+		Save(ctx); err != nil {
+		return translatePersistenceError(err, service.ErrUserNotFound, service.ErrEmailExists)
+	}
+	return nil
 }
 
 // dotStrippedEmailExpr 渲染下面的表达式：去掉存量邮箱的大小写、首尾空白（与

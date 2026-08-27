@@ -107,6 +107,7 @@ import {
   readPaymentRecoverySnapshot,
 } from '@/features/billing/presentation/paymentFlowResolver'
 import { usePaymentStore } from '@/features/billing/presentation/stores/paymentStore'
+import { useAuthStore } from '@/features/auth'
 import { paymentAPI } from '@/features/billing/data/datasources/paymentDatasource'
 import type { PublicOrderVerifyResult } from '@/features/billing/data/datasources/paymentDatasource'
 import type { OrderStatus, PaymentOrder } from '@/features/billing/paymentContracts'
@@ -118,6 +119,7 @@ const { t } = i18n
 const route = useRoute()
 const router = useRouter()
 const paymentStore = usePaymentStore()
+const authStore = useAuthStore()
 
 type ResolvedOrder = PaymentOrder | PublicOrderVerifyResult
 
@@ -139,6 +141,7 @@ const STATUS_REFRESH_INTERVAL_MS = 2000
 const STATUS_REFRESH_MAX_ATTEMPTS = 15
 
 let statusRefreshTimer: ReturnType<typeof setTimeout> | null = null
+let userBalanceRefreshStarted = false
 const refreshAttempts = ref(0)
 
 /** 充值金额 = pay_amount / (1 + fee_rate/100)，fee_rate=0 时等于 pay_amount */
@@ -197,6 +200,21 @@ function setResolvedOrder(nextOrder: ResolvedOrder | null): void {
   if (nextOrder && 'currency' in nextOrder && nextOrder.currency) {
     currency.value = normalizePaymentCurrency(nextOrder.currency)
   }
+  refreshUserBalanceForSuccessfulOrder(nextOrder)
+}
+
+function refreshUserBalanceForSuccessfulOrder(nextOrder: ResolvedOrder | null): void {
+  if (!nextOrder || userBalanceRefreshStarted || normalizeOrderStatus(nextOrder.status) !== 'COMPLETED') {
+    return
+  }
+  if ('order_type' in nextOrder && nextOrder.order_type !== 'balance') {
+    return
+  }
+
+  userBalanceRefreshStarted = true
+  void authStore.refreshUser().catch(() => {
+    // The order result remains authoritative if the best-effort profile refresh fails.
+  })
 }
 
 function hasOrderId(nextOrder: ResolvedOrder | null): nextOrder is PaymentOrder {
