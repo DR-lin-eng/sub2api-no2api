@@ -18,6 +18,7 @@ import type {
   UpdateAccountRequest
 } from '../dtos/adminAccountDtos'
 import type { CRSConnectionParams } from './adminAccountQueries'
+import type { OpenAIQuotaRefreshResult } from '../dtos/openAIQuotaDtos'
 
 export interface CPACapacityStatus {
   total_credentials: number
@@ -48,6 +49,12 @@ export interface BulkUpdateResult {
   success_ids?: number[]
   failed_ids?: number[]
   results: Array<{ account_id: number; success: boolean; error?: string }>
+}
+
+export interface OpenAIQuotaRefreshBatchResult {
+  results: Record<string, OpenAIQuotaRefreshResult>
+  errors: Record<string, string>
+  skipped_account_ids: number[]
 }
 
 export interface AccountExportOptions {
@@ -383,6 +390,15 @@ export async function probeUpstreamBillingBatch(accountIds: number[]): Promise<U
 
 export async function queryUpstreamQuota(id: number): Promise<UpstreamQuotaQueryResult> {
   const { data } = await apiClient.post<UpstreamQuotaQueryResult>(`/admin/accounts/${id}/upstream-quota/query`)
+  return data
+}
+
+export async function refreshOpenAIQuotaBatch(accountIds: number[]): Promise<OpenAIQuotaRefreshBatchResult> {
+  const { data } = await apiClient.post<OpenAIQuotaRefreshBatchResult>(
+    '/admin/openai/accounts/quota/refresh/batch',
+    { account_ids: accountIds },
+    { timeout: 180000 }
+  )
   return data
 }
 

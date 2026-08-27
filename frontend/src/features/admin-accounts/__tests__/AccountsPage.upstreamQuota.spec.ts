@@ -14,6 +14,7 @@ const {
   getAllGroups,
   getAccountById,
   queryUpstreamQuota,
+  refreshOpenAIQuotaBatch,
   showToast,
   hideToast,
   showError,
@@ -29,6 +30,7 @@ const {
   getAllGroups: vi.fn(),
   getAccountById: vi.fn(),
   queryUpstreamQuota: vi.fn(),
+  refreshOpenAIQuotaBatch: vi.fn(),
   showToast: vi.fn(),
   hideToast: vi.fn(),
   showError: vi.fn(),
@@ -69,7 +71,8 @@ vi.mock('@/features/admin-accounts/data/datasources/adminAccountActions', async 
   ...(await importOriginal<typeof import('@/features/admin-accounts/data/datasources/adminAccountActions')>()),
   probeUpstreamBilling: vi.fn(),
   probeUpstreamBillingBatch: vi.fn().mockResolvedValue([]),
-  queryUpstreamQuota
+  queryUpstreamQuota,
+  refreshOpenAIQuotaBatch
 }))
 
 vi.mock('@/features/admin-proxies/data/datasources/adminProxiesDatasource', () => ({ getAll: getAllProxies }))
@@ -121,24 +124,31 @@ const UpstreamBillingRateCellStub = {
 }
 
 const AccountUsageCellStub = {
-  props: ['account', 'upstreamQuotaResult'],
+  props: ['account', 'upstreamQuotaResult', 'bulkOpenaiQuotaResult'],
   template: `
     <div data-test="usage-cell" :data-account-id="account.id">
-      {{ upstreamQuotaResult?.quota?.subscription?.windows?.length ?? 0 }}
+      <span data-test="api-key-quota">{{ upstreamQuotaResult?.quota?.subscription?.windows?.length ?? 0 }}</span>
+      <span data-test="openai-quota">{{ bulkOpenaiQuotaResult?.fetched_at ?? '' }}</span>
     </div>
   `
 }
 
 const AccountBulkActionsBarStub = {
-  props: ['selectedIds', 'queryingUpstreamQuota'],
-  emits: ['query-upstream-quota'],
+  props: ['selectedIds', 'queryingUpstreamQuota', 'queryingOpenaiQuota'],
+  emits: ['query-upstream-quota', 'query-openai-quota'],
   template: `
-    <button
-      v-if="selectedIds.length"
-      data-test="bulk-query-quota"
-      :data-loading="String(queryingUpstreamQuota)"
-      @click="$emit('query-upstream-quota')"
-    >query balances</button>
+    <div v-if="selectedIds.length">
+      <button
+        data-test="bulk-query-quota"
+        :data-loading="String(queryingUpstreamQuota)"
+        @click="$emit('query-upstream-quota')"
+      >query balances</button>
+      <button
+        data-test="bulk-query-openai-quota"
+        :data-loading="String(queryingOpenaiQuota)"
+        @click="$emit('query-openai-quota')"
+      >query OpenAI quotas</button>
+    </div>
   `
 }
 
@@ -232,6 +242,7 @@ describe('admin AccountsView upstream quota state', () => {
       getAllGroups,
       getAccountById,
       queryUpstreamQuota,
+      refreshOpenAIQuotaBatch,
       showToast,
       hideToast,
       showError,
@@ -320,5 +331,46 @@ describe('admin AccountsView upstream quota state', () => {
     expect(restored.get('[data-test="quota-cell"][data-account-id="7"] [data-test="quota-result"]').text()).toBe('')
     expect(localStorage.getItem(cacheKey(7))).toBeNull()
     restored.unmount()
+  })
+
+  it('actively refreshes selected OpenAI OAuth quotas and patches visible rows', async () => {
+    listAccounts.mockResolvedValueOnce({
+      items: [
+        { ...account(7), type: 'oauth' },
+        account(11)
+      ],
+      total: 2,
+      page: 1,
+      page_size: 20,
+      pages: 1
+    })
+    refreshOpenAIQuotaBatch.mockResolvedValueOnce({
+      results: {
+        '7': {
+          fetched_at: 700,
+          cache_persisted: true,
+          rate_limit_snapshot_persisted: true,
+          rate_limits_by_limit_id: {
+            codex: { limit_id: 'codex' }
+          }
+        }
+      },
+      errors: {},
+      skipped_account_ids: [11]
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    const setupState = wrapper.vm.$.setupState as unknown as { setSelectedIds: (ids: number[]) => void }
+    setupState.setSelectedIds([7, 11])
+    await wrapper.vm.$nextTick()
+    await wrapper.get('[data-test="bulk-query-openai-quota"]').trigger('click')
+    await flushPromises()
+
+    expect(refreshOpenAIQuotaBatch).toHaveBeenCalledWith([7, 11])
+    expect(wrapper.get('[data-test="usage-cell"][data-account-id="7"] [data-test="openai-quota"]').text()).toBe('700')
+    expect(wrapper.get('[data-test="usage-cell"][data-account-id="11"] [data-test="openai-quota"]').text()).toBe('')
+    expect(showError).toHaveBeenCalledWith('admin.accounts.bulkActions.openAIQuotaBatchPartial')
+    wrapper.unmount()
   })
 })

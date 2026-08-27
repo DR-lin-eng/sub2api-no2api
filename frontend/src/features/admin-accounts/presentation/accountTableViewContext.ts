@@ -9,6 +9,7 @@ import type {
   UpstreamQuotaQueryResult,
   WindowStats
 } from '@/types'
+import type { OpenAIQuotaRefreshResult } from '@/features/admin-accounts/data/dtos/openAIQuotaDtos'
 
 type UpstreamFeedback = 'success' | 'error'
 
@@ -66,10 +67,12 @@ export interface AccountTableViewContext {
   selectingAllResults: Ref<boolean>
   allResultsSelected: ComputedRef<boolean>
   bulkQueryingUpstreamQuota: Ref<boolean>
+  bulkQueryingOpenAIQuota: Ref<boolean>
   handleBulkDelete: () => Promise<void>
   handleBulkResetStatus: () => Promise<void>
   handleBulkRefreshToken: () => Promise<void>
   handleBulkQueryUpstreamQuota: () => Promise<void>
+  handleBulkQueryOpenAIQuota: () => Promise<void>
   handleBulkProbeUpstreamBilling: () => Promise<void>
   openBulkEditSelected: () => void
   openBulkEditFiltered: () => Promise<void>
@@ -106,6 +109,7 @@ export interface AccountTableViewContext {
   todayStatsLoading: Ref<boolean>
   todayStatsError: Ref<string | null>
   usageManualRefreshToken: Ref<number>
+  bulkOpenAIQuotaResults: Map<number, OpenAIQuotaRefreshResult>
   upstreamQuotaResults: Map<number, UpstreamQuotaQueryResult>
   upstreamBillingNow: Ref<number>
   upstreamBillingProbeGloballyEnabled: Ref<boolean | undefined>

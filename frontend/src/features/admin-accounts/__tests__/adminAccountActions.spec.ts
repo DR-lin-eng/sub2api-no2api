@@ -24,6 +24,7 @@ import {
   exportData,
   importCodexSession,
   importData,
+  refreshOpenAIQuotaBatch,
   syncFromCrs,
   syncUpstreamModels,
   syncUpstreamModelsPreview,
@@ -79,6 +80,22 @@ describe('admin account actions', () => {
         sort_order: 'asc',
         include_proxies: 'false'
       }
+    })
+  })
+
+  it('keeps the OpenAI quota batch endpoint bounded by the long action timeout', async () => {
+    const result = {
+      results: { '7': { fetched_at: 123, cache_persisted: true } },
+      errors: {},
+      skipped_account_ids: [11]
+    }
+    post.mockResolvedValueOnce({ data: result })
+
+    await expect(refreshOpenAIQuotaBatch([7, 11])).resolves.toEqual(result)
+    expect(post).toHaveBeenCalledWith('/admin/openai/accounts/quota/refresh/batch', {
+      account_ids: [7, 11]
+    }, {
+      timeout: 180000
     })
   })
 

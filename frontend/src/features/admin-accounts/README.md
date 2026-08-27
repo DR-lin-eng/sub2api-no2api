@@ -2,9 +2,9 @@
 
 管理账号 feature 负责账号列表、创建/编辑、批量更新、授权和用量展示。
 
-- `data/dtos/adminAccountDtos.ts`: 账号创建/更新、混合渠道预检、Codex 导入、模型和临时不可调度状态等账号专属协议类型；`src/types` 仅保留兼容转发。
+- `data/dtos/adminAccountDtos.ts`, `openAIQuotaDtos.ts`: 账号创建/更新、混合渠道预检、Codex 导入、OpenAI quota、模型和临时不可调度状态等账号专属协议类型；`src/types` 仅保留兼容转发。
 - `data/datasources/adminAccountQueries.ts`: 列表、ETag、详情、摘要、统计、用量、临时不可调度状态、Ollama Cloud 状态、模型、Antigravity 默认映射和上游计费设置/快照查询。
-- `data/datasources/adminAccountActions.ts`: 账号创建/更新、OAuth 凭据应用/错误清理、Codex session/PAT 导入、上游模型同步、CPA 测试、页面批量操作、导出、账号状态维护、重复账号、上游计费探测、额度查询和 Ollama Cloud 配置动作。
+- `data/datasources/adminAccountActions.ts`: 账号创建/更新、OAuth 凭据应用/错误清理、Codex session/PAT 导入、上游模型同步、CPA 测试、页面批量操作、导出、账号状态维护、重复账号、上游计费探测、OpenAI OAuth 主动批量额度查询和 Ollama Cloud 配置动作。
 - `data/datasources/adminAccountOAuthActions.ts`: 通用账号与 OpenAI OAuth 授权 URL、code exchange、cookie 授权和 refresh token 动作；旧 `accountsAPI` 继续兼容转发。
 - `data/datasources/adminAccountsDatasource.ts`: 旧 `accountsAPI` 兼容聚合与尚未迁移的账号操作。
 - `data/datasources/scheduledTestsDatasource.ts`: 账号定时测试计划、启停、删除和结果查询。
