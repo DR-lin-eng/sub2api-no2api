@@ -457,6 +457,60 @@ export default {
       deleteConfirm: '确定要删除该公告吗？此操作无法撤销。'
     },
 
+    activityCenter: {
+      title: '活动中心',
+      description: '管理用户端展示的活动、抽奖、奖励和外链',
+      createCampaign: '创建活动',
+      editCampaign: '编辑活动',
+      deleteCampaign: '删除活动',
+      searchCampaigns: '搜索活动...',
+      noCampaigns: '暂无活动，请先创建一条。',
+      noSubtitle: '暂无副标题',
+      never: '永不',
+      filters: {
+        allTypes: '全部类型',
+        allStatus: '全部状态'
+      },
+      status: {
+        draft: '草稿',
+        active: '启用',
+        scheduled: '已排期',
+        live: '进行中',
+        archived: '已归档'
+      },
+      types: {
+        lottery: '抽奖',
+        redeem: '兑换',
+        external_link: '外链',
+        custom: '自定义'
+      },
+      columns: {
+        title: '标题',
+        type: '类型',
+        status: '状态',
+        timeRange: '排期',
+        sortOrder: '排序',
+        createdAt: '创建时间',
+        actions: '操作'
+      },
+      form: {
+        title: '标题',
+        subtitle: '副标题',
+        bannerUrl: '横幅地址',
+        type: '类型',
+        status: '状态',
+        startsAt: '开始时间',
+        endsAt: '结束时间',
+        refId: '关联标识',
+        sortOrder: '排序',
+        content: '正文'
+      },
+      deleteConfirm: '确认删除此活动？此操作不可撤销。',
+      failedToLoad: '活动加载失败',
+      failedToSave: '活动保存失败',
+      failedToDelete: '活动删除失败'
+    },
+
     // Promo Codes
     promo: {
       title: '优惠码管理',

@@ -126,6 +126,16 @@ func RegisterUserRoutes(
 			announcements.POST("/:id/read", h.Announcement.MarkRead)
 		}
 
+		// 活动中心（用户可见）
+		activityCenter := authenticated.Group("/activity-center", middleware.ActivityCenterFeatureGuard(settingService))
+		{
+			campaigns := activityCenter.Group("/campaigns")
+			{
+				campaigns.GET("", h.ActivityCenter.ListCampaigns)
+				campaigns.GET("/:id", h.ActivityCenter.GetCampaign)
+			}
+		}
+
 		// 卡密兑换
 		redeem := authenticated.Group("/redeem")
 		{

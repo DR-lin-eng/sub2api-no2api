@@ -460,6 +460,60 @@ export default {
       deleteConfirm: 'Are you sure you want to delete this announcement? This action cannot be undone.'
     },
 
+    activityCenter: {
+      title: 'Activity Center',
+      description: 'Manage campaigns, lottery entries, rewards, and external links shown to users',
+      createCampaign: 'Create Campaign',
+      editCampaign: 'Edit Campaign',
+      deleteCampaign: 'Delete Campaign',
+      searchCampaigns: 'Search campaigns...',
+      noCampaigns: 'No campaigns yet. Create one to start.',
+      noSubtitle: 'No subtitle',
+      never: 'Never',
+      filters: {
+        allTypes: 'All types',
+        allStatus: 'All status'
+      },
+      status: {
+        draft: 'Draft',
+        active: 'Active',
+        scheduled: 'Scheduled',
+        live: 'Live',
+        archived: 'Archived'
+      },
+      types: {
+        lottery: 'Lottery',
+        redeem: 'Redeem',
+        external_link: 'External link',
+        custom: 'Custom'
+      },
+      columns: {
+        title: 'Title',
+        type: 'Type',
+        status: 'Status',
+        timeRange: 'Schedule',
+        sortOrder: 'Sort',
+        createdAt: 'Created At',
+        actions: 'Actions'
+      },
+      form: {
+        title: 'Title',
+        subtitle: 'Subtitle',
+        bannerUrl: 'Banner URL',
+        type: 'Type',
+        status: 'Status',
+        startsAt: 'Starts At',
+        endsAt: 'Ends At',
+        refId: 'Reference ID',
+        sortOrder: 'Sort Order',
+        content: 'Content'
+      },
+      deleteConfirm: 'Are you sure you want to delete this campaign? This action cannot be undone.',
+      failedToLoad: 'Failed to load campaigns',
+      failedToSave: 'Failed to save campaign',
+      failedToDelete: 'Failed to delete campaign'
+    },
+
     // Promo Codes
     promo: {
       title: 'Promo Code Management',

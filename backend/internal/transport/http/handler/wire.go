@@ -5,6 +5,8 @@ import (
 	"log"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	"github.com/Wei-Shaw/sub2api/internal/infrastructure/repository"
+	"github.com/Wei-Shaw/sub2api/internal/modules/activitycenter"
 	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
 	moduleegress "github.com/Wei-Shaw/sub2api/internal/modules/egress"
 	"github.com/Wei-Shaw/sub2api/internal/modules/securityaudit"
@@ -67,6 +69,7 @@ func ProvideAdminHandlers(
 		Account:                accountHandler,
 		AccountInspection:      accountInspectionHandler,
 		Announcement:           announcementHandler,
+		ActivityCenter:         provideActivityCenterAdminHandler(),
 		DataManagement:         dataManagementHandler,
 		Backup:                 backupHandler,
 		OAuth:                  oauthHandler,
@@ -177,6 +180,22 @@ func ProvideBatchImageHandler(
 	return h
 }
 
+func provideActivityCenterUserHandler() *ActivityCenterHandler {
+	db := repository.ActivityCenterDB()
+	if db == nil {
+		return NewActivityCenterHandler(nil)
+	}
+	return NewActivityCenterHandler(activitycenter.NewService(repository.NewActivityCenterRepository(db)))
+}
+
+func provideActivityCenterAdminHandler() *admin.ActivityCenterHandler {
+	db := repository.ActivityCenterDB()
+	if db == nil {
+		return admin.NewActivityCenterHandler(nil)
+	}
+	return admin.NewActivityCenterHandler(activitycenter.NewService(repository.NewActivityCenterRepository(db)))
+}
+
 // ProvideSystemHandler creates admin.SystemHandler with UpdateService
 func ProvideSystemHandler(updateService *service.UpdateService, lockService *service.SystemOperationLockService, cfg *config.Config) *admin.SystemHandler {
 	handler := admin.NewSystemHandler(updateService, lockService)
@@ -246,6 +265,7 @@ func ProvideHandlers(
 		Redeem:           redeemHandler,
 		Subscription:     subscriptionHandler,
 		Announcement:     announcementHandler,
+		ActivityCenter:   provideActivityCenterUserHandler(),
 		ChannelMonitor:   channelMonitorUserHandler,
 		Admin:            adminHandlers,
 		Gateway:          gatewayHandler,

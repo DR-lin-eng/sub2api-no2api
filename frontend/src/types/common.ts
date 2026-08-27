@@ -438,6 +438,54 @@ export interface AnnouncementUserReadStatus {
   read_at?: string
 }
 
+// ==================== Activity Center Types ====================
+
+export type ActivityCampaignType = 'lottery' | 'redeem' | 'external_link' | 'custom'
+export type ActivityCampaignStatus = 'draft' | 'active' | 'archived'
+
+export interface ActivityCampaign {
+  id: number
+  title: string
+  subtitle: string
+  banner_url: string
+  type: ActivityCampaignType
+  ref_id: string
+  status: ActivityCampaignStatus
+  starts_at?: string
+  ends_at?: string
+  sort_order: number
+  content: string
+  created_by?: number
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateActivityCampaignRequest {
+  title: string
+  subtitle?: string
+  banner_url?: string
+  type?: ActivityCampaignType
+  ref_id?: string
+  status?: ActivityCampaignStatus
+  starts_at?: number
+  ends_at?: number
+  sort_order?: number
+  content?: string
+}
+
+export interface UpdateActivityCampaignRequest {
+  title?: string
+  subtitle?: string
+  banner_url?: string
+  type?: ActivityCampaignType
+  ref_id?: string
+  status?: ActivityCampaignStatus
+  starts_at?: number
+  ends_at?: number
+  sort_order?: number
+  content?: string
+}
+
 // ==================== Proxy Node Types ====================
 
 export interface ProxyNode {

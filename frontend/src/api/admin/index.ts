@@ -36,6 +36,7 @@ import adminComplianceAPI from '@/features/admin-settings/data/datasources/compl
 import auditAPI from '@/features/admin-audit/data/datasources/adminAuditDatasource'
 import clusterAPI from '@/features/admin-cluster/data/datasources/adminClusterDatasource'
 import ingressRiskAPI from '@/features/admin-risk-control/data/datasources/ingressRiskDatasource'
+import activityCenterAPI from '@/features/activity-center/data/datasources/adminActivityCenterDatasource'
 
 /**
  * Unified admin API object for convenient access
@@ -73,7 +74,8 @@ export const adminAPI = {
   compliance: adminComplianceAPI,
   audit: auditAPI,
   cluster: clusterAPI,
-  ingressRisk: ingressRiskAPI
+  ingressRisk: ingressRiskAPI,
+  activityCenter: activityCenterAPI
 }
 
 export {
@@ -109,7 +111,8 @@ export {
   adminComplianceAPI,
   auditAPI,
   clusterAPI,
-  ingressRiskAPI
+  ingressRiskAPI,
+  activityCenterAPI
 }
 
 export default adminAPI
@@ -129,3 +132,8 @@ export type {
   IngressRejectionQuery,
   IngressRiskTimeRange,
 } from '@/features/admin-risk-control/data/datasources/ingressRiskDatasource'
+export type {
+  ActivityCampaign,
+  CreateActivityCampaignRequest,
+  UpdateActivityCampaignRequest,
+} from '@/types'

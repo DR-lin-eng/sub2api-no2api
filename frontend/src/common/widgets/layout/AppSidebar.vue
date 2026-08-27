@@ -400,26 +400,6 @@ const GiftIcon = {
     )
 }
 
-const CalendarIcon = {
-  render: () =>
-    h(
-      'svg',
-      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' },
-      [
-        h('path', {
-          'stroke-linecap': 'round',
-          'stroke-linejoin': 'round',
-          d: 'M6.75 3v2.25M17.25 3v2.25M3 8.25h18M5.25 6.75h13.5A2.25 2.25 0 0121 9v9.75A2.25 2.25 0 0118.75 21H5.25A2.25 2.25 0 013 18.75V9a2.25 2.25 0 012.25-2.25z'
-        }),
-        h('path', {
-          'stroke-linecap': 'round',
-          'stroke-linejoin': 'round',
-          d: 'M8.25 12.75h.008v.008H8.25v-.008zm4.5 0h.008v.008H12.75v-.008zm4.5 0h.008v.008h-.008v-.008zM8.25 16.5h.008v.008H8.25V16.5zm4.5 0h.008v.008H12.75V16.5z'
-        })
-      ]
-    )
-}
-
 const UserIcon = {
   render: () =>
     h(
@@ -807,7 +787,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
     items.push({ path: '/dashboard', label: t('nav.dashboard'), icon: DashboardIcon })
   }
   items.push(
-    { path: '/activity-center', label: t('nav.activityCenter'), icon: CalendarIcon, featureFlag: flagActivityCenter },
+    { path: '/activity-center', label: t('nav.activityCenter'), icon: GiftIcon, featureFlag: flagActivityCenter },
     { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
     { path: '/batch-image', label: t('nav.batchImage'), icon: BatchImageIcon, hideInSimpleMode: true, featureFlag: flagBatchImageAccess },
     { path: '/media-studio', label: t('nav.mediaStudio'), icon: MediaStudioIcon, hideInSimpleMode: true, featureFlag: flagMediaStudio },
@@ -889,6 +869,7 @@ const adminNavItems = computed((): NavItem[] => {
     { path: '/admin/accounts', label: t('nav.accounts'), icon: GlobeIcon },
     { path: '/admin/account-inspection', label: t('nav.accountInspection'), icon: SignalIcon },
     { path: '/admin/announcements', label: t('nav.announcements'), icon: BellIcon },
+    { path: '/admin/activity-center/campaigns', label: t('nav.activityCenterAdmin'), icon: GiftIcon },
     { path: '/admin/support', label: t('nav.supportInbox'), icon: SupportChatIcon, featureFlag: flagSupportChat },
     { path: '/admin/proxies', label: t('nav.proxies'), icon: ServerIcon },
     { path: '/admin/egress', label: t('nav.ipv6Egress'), icon: GlobeIcon, featureFlag: flagIPv6Egress },

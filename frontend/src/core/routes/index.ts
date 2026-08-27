@@ -633,6 +633,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/activity-center/campaigns',
+    name: 'AdminActivityCenterCampaigns',
+    component: () => import('@/features/activity-center/presentation/pages/AdminActivityCenterPage.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Activity Center',
+      titleKey: 'admin.activityCenter.title',
+      descriptionKey: 'admin.activityCenter.description'
+    }
+  },
+  {
     path: '/admin/support',
     name: 'AdminSupportChat',
     component: () => import('@/features/support-chat/presentation/pages/AdminSupportChatPage.vue'),

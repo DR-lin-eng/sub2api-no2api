@@ -21,6 +21,7 @@ func TestRegisterUserRoutes_SubscriptionProgressRoutes(t *testing.T) {
 		Redeem:           &handler.RedeemHandler{},
 		Subscription:     &handler.SubscriptionHandler{},
 		Announcement:     &handler.AnnouncementHandler{},
+		ActivityCenter:   &handler.ActivityCenterHandler{},
 		ChannelMonitor:   &handler.ChannelMonitorUserHandler{},
 		Totp:             &handler.TotpHandler{},
 		AvailableChannel: &handler.AvailableChannelHandler{},
@@ -37,4 +38,6 @@ func TestRegisterUserRoutes_SubscriptionProgressRoutes(t *testing.T) {
 
 	require.Contains(t, paths, "/api/v1/subscriptions/progress")
 	require.Contains(t, paths, "/api/v1/subscriptions/:id/progress")
+	require.Contains(t, paths, "/api/v1/activity-center/campaigns")
+	require.Contains(t, paths, "/api/v1/activity-center/campaigns/:id")
 }

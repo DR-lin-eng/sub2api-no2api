@@ -165,6 +165,7 @@ export default {
   nav: {
     dashboard: 'Dashboard',
     activityCenter: 'Activity Center',
+    activityCenterAdmin: 'Activity Center',
     announcements: 'Announcements',
     apiKeys: 'API Keys',
     batchImage: 'Batch Images',
@@ -228,6 +229,7 @@ export default {
     signInToAccount: 'Sign in to your account to continue',
     signIn: 'Sign In',
     signingIn: 'Signing in...',
+    settingsLoadFailed: 'Failed to load settings. Please refresh and try again.',
     passkeySignIn: 'Sign in with a passkey',
     passkeySigningIn: 'Waiting for passkey...',
     passkeyCancelled: 'Passkey sign-in was cancelled.',

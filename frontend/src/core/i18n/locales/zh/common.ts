@@ -165,6 +165,7 @@ export default {
   nav: {
     dashboard: '仪表盘',
     activityCenter: '活动中心',
+    activityCenterAdmin: '活动中心管理',
     announcements: '公告',
     apiKeys: 'API 密钥',
     batchImage: '批量生图',
@@ -228,6 +229,7 @@ export default {
     signInToAccount: '登录您的账户以继续',
     signIn: '登录',
     signingIn: '登录中...',
+    settingsLoadFailed: '设置加载失败，请刷新后重试。',
     passkeySignIn: '使用 Passkey 登录',
     passkeySigningIn: '正在等待 Passkey...',
     passkeyCancelled: '已取消 Passkey 登录。',
