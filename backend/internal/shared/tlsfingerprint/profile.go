@@ -37,16 +37,24 @@ func BuiltInCodexRustlsProfile() *Profile {
 	}
 }
 
-// ForWebSocket returns a copy with HTTP/1.1-only ALPN, which is required by
-// the WebSocket upgrade path even when the corresponding HTTP profile offers
-// HTTP/2 to reqwest/net/http callers.
-func (p *Profile) ForWebSocket() *Profile {
+// ForHTTP1 returns a deep copy that advertises only HTTP/1.1. The standard
+// net/http transport cannot hand a uTLS connection to its HTTP/2 adapter
+// because that adapter requires a concrete *tls.Conn; advertising h2 here
+// would therefore make the peer send HTTP/2 frames to an HTTP/1.1 writer.
+func (p *Profile) ForHTTP1() *Profile {
 	if p == nil {
 		return nil
 	}
-	copyProfile := *p
+	copyProfile := cloneProfile(p)
 	copyProfile.ALPNProtocols = []string{"http/1.1"}
-	return &copyProfile
+	return copyProfile
+}
+
+// ForWebSocket returns a copy with HTTP/1.1-only ALPN, which is required by
+// the WebSocket upgrade path even when the corresponding HTTP profile offers
+// HTTP/2.
+func (p *Profile) ForWebSocket() *Profile {
+	return p.ForHTTP1()
 }
 
 // FingerprintKey returns a stable, non-sensitive identity for the effective

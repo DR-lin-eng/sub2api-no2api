@@ -797,7 +797,8 @@ gateway:
 
 **Curves:** `29` (X25519), `23` (P-256), `24` (P-384), `25` (P-521)
 
-OpenAI/Codex's built-in profile offers `h2` and `http/1.1` ALPN. WebSocket upgrades use an
-HTTP/1.1-only copy of that profile. Rustls randomizes ClientHello extension order per handshake,
-so this feature guarantees stable provider parameters and account isolation, not a byte-identical
-cross-platform JA3 hash.
+OpenAI/Codex's built-in profile describes `h2` and `http/1.1` ALPN. The HTTP upstream uTLS
+adapter uses an HTTP/1.1-only copy because Go's standard HTTP/2 adapter requires a concrete
+`*tls.Conn`, while uTLS returns `*utls.UConn`; WebSocket upgrades use the same HTTP/1.1 copy.
+Rustls randomizes ClientHello extension order per handshake, so this feature guarantees stable
+provider parameters and account isolation, not a byte-identical cross-platform JA3 hash.

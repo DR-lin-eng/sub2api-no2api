@@ -24,6 +24,16 @@ func TestWireProfileFingerprintChangesWhenWireInputChanges(t *testing.T) {
 	require.NotEqual(t, first, second)
 }
 
+func TestForHTTP1PinsALPNWithoutMutatingProfile(t *testing.T) {
+	base := BuiltInCodexRustlsProfile()
+	http1 := base.ForHTTP1()
+
+	require.Equal(t, []string{"http/1.1"}, http1.ALPNProtocols)
+	require.Equal(t, []string{"h2", "http/1.1"}, base.ALPNProtocols)
+	http1.CipherSuites[0]++
+	require.NotEqual(t, http1.CipherSuites[0], base.CipherSuites[0])
+}
+
 func TestVariantForKeyIsStableAndAccountScoped(t *testing.T) {
 	base := BuiltInCodexRustlsProfile()
 	first := VariantForKey(base, "account-101")
