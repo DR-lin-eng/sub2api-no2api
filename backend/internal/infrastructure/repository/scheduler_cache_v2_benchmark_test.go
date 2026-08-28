@@ -13,6 +13,7 @@ import (
 
 // The read-only production fixture's largest group contains 3,131 accounts.
 const schedulerBenchmarkLargeGroupSize = 3131
+const schedulerBenchmarkVeryLargeGroupSize = 5000
 
 var schedulerBenchmarkExtraSink map[string]any
 
@@ -73,6 +74,45 @@ func BenchmarkSchedulerCacheLargeGroupRead(b *testing.B) {
 		for range b.N {
 			result, hit, err := cache.GetSnapshot(ctx, bucket)
 			if err != nil || !hit || len(result) != schedulerBenchmarkLargeGroupSize {
+				b.Fatalf("legacy read: count=%d hit=%v err=%v", len(result), hit, err)
+			}
+		}
+	})
+
+	b.Run("v2_top_64", func(b *testing.B) {
+		b.ReportAllocs()
+		for range b.N {
+			page, hit, err := cache.GetCandidatePage(ctx, bucket, 0, service.DefaultSchedulerCandidateFetchLimit)
+			if err != nil || !hit || len(page.Accounts) != service.DefaultSchedulerCandidateFetchLimit {
+				b.Fatalf("v2 read: count=%d hit=%v err=%v", len(page.Accounts), hit, err)
+			}
+		}
+	})
+}
+
+func BenchmarkSchedulerCacheVeryLargeGroupRead(b *testing.B) {
+	ctx := context.Background()
+	cache, cleanup := newSchedulerBenchmarkCache(b)
+	defer cleanup()
+	bucket := service.SchedulerBucket{GroupID: 5000, Platform: service.PlatformOpenAI, Mode: service.SchedulerModeSingle}
+	accounts := schedulerBenchmarkAccounts(schedulerBenchmarkVeryLargeGroupSize)
+	token, err := cache.CaptureBucketWriteToken(ctx, bucket)
+	if err != nil {
+		b.Fatal(err)
+	}
+	if err := cache.SetSnapshot(ctx, bucket, token, accounts); err != nil {
+		b.Fatal(err)
+	}
+	if err := cache.SetCandidateIndex(ctx, bucket, token, accounts); err != nil {
+		b.Fatal(err)
+	}
+	b.ReportMetric(schedulerBenchmarkVeryLargeGroupSize, "group_accounts")
+
+	b.Run("legacy_full_snapshot", func(b *testing.B) {
+		b.ReportAllocs()
+		for range b.N {
+			result, hit, err := cache.GetSnapshot(ctx, bucket)
+			if err != nil || !hit || len(result) != schedulerBenchmarkVeryLargeGroupSize {
 				b.Fatalf("legacy read: count=%d hit=%v err=%v", len(result), hit, err)
 			}
 		}

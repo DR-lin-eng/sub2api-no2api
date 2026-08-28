@@ -117,6 +117,10 @@ Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换
 - 获取用户槽位后必须再次检查计费资格；排队期间余额、订阅或平台额度可能变化。
 - 账号槽位、用户槽位和图片槽位在所有返回与取消路径释放。
 - failover 必须记录失败账号并受最大切换次数约束。
+- 网关韧性设置可选择开启 OpenAI OAuth 连续失败熔断：只累计账号级 429 与 502，
+  成功请求清零 Redis 共享计数；达到管理员阈值后原子写入 `schedulable=false` 和暂停原因，
+  并通过 scheduler outbox 从该账号绑定的所有分组移除。OpenAI API Key 账号不参与该计数。
+  管理员单个或批量重新启用调度时会清除暂停原因与失败计数。
 - OAuth 空 `model_mapping` 账号先按 `accounts.extra.oauth_supported_models` 实时能力快照
   过滤（OpenAI 使用 Codex 模型归一化）；没有成功快照时才回退平台既有模型规则。显式映射
   和自动透传优先级更高，快照同步失败不得清空上一次成功结果。
@@ -308,6 +312,7 @@ frontend/src
 | API Key 401/403 | API Key auth context、分组要求、billing eligibility |
 | 一直选中同一账号 | session hash、粘性缓存、候选过滤和失败账号集合 |
 | 503/429 后反复调度坏账号 | 错误分类、临时不可调度状态、scheduler exclusion |
+| OpenAI OAuth 连续 429/502 耗尽换号预算 | 网关韧性中的 OAuth 熔断阈值、账号 `scheduling_disabled_reason`、Redis `openai_failure_count:account:*` |
 | 流式响应头或错误格式异常 | handler 写出时机、SSE headers、stream-started 分支 |
 | 前端有余额但网关拒绝 | 展示余额、pending/frozen 状态、billing cache 与准入一起检查 |
 | 前端登录循环 | `core/networks/client.ts` 刷新合并、session refresh API、`features/auth` store、`core/routes` guard |

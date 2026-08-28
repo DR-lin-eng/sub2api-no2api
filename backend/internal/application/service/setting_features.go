@@ -883,6 +883,9 @@ func (s *SettingService) GetRateLimit429CooldownSettings(ctx context.Context) (*
 	if settings.CooldownSeconds > 7200 {
 		settings.CooldownSeconds = 7200
 	}
+	if settings.AutoDisableThreshold < 1 || settings.AutoDisableThreshold > 100 {
+		settings.AutoDisableThreshold = DefaultRateLimit429CooldownSettings().AutoDisableThreshold
+	}
 
 	return &settings, nil
 }
@@ -898,6 +901,12 @@ func (s *SettingService) SetRateLimit429CooldownSettings(ctx context.Context, se
 			return fmt.Errorf("cooldown_seconds must be between 1-7200")
 		}
 		settings.CooldownSeconds = 5
+	}
+	if settings.AutoDisableThreshold < 1 || settings.AutoDisableThreshold > 100 {
+		if settings.AutoDisableEnabled {
+			return fmt.Errorf("auto_disable_threshold must be between 1-100")
+		}
+		settings.AutoDisableThreshold = DefaultRateLimit429CooldownSettings().AutoDisableThreshold
 	}
 
 	data, err := json.Marshal(settings)

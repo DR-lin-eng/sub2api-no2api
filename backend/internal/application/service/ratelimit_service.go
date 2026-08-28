@@ -11,33 +11,38 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
 	"github.com/tidwall/gjson"
+	"golang.org/x/sync/singleflight"
 )
 
 // RateLimitService 处理限流和过载状态管理
 type RateLimitService struct {
-	accountRepo           AccountRepository
-	usageRepo             UsageLogRepository
-	cfg                   *config.Config
-	geminiQuotaService    *GeminiQuotaService
-	tempUnschedCache      TempUnschedCache
-	timeoutCounterCache   TimeoutCounterCache
-	openAI403CounterCache OpenAI403CounterCache
-	settingService        *SettingService
-	tokenCacheInvalidator TokenCacheInvalidator
-	runtimeBlocker        AccountRuntimeBlocker
-	usageCacheMu          sync.RWMutex
-	usageCache            map[int64]*geminiUsageCacheEntry
-	usageCacheLastCleanup time.Time
+	accountRepo               AccountRepository
+	usageRepo                 UsageLogRepository
+	cfg                       *config.Config
+	geminiQuotaService        *GeminiQuotaService
+	tempUnschedCache          TempUnschedCache
+	timeoutCounterCache       TimeoutCounterCache
+	openAI403CounterCache     OpenAI403CounterCache
+	openAIFailureCounterCache OpenAIFailureCounterCache
+	settingService            *SettingService
+	tokenCacheInvalidator     TokenCacheInvalidator
+	runtimeBlocker            AccountRuntimeBlocker
+	usageCacheMu              sync.RWMutex
+	usageCache                map[int64]*geminiUsageCacheEntry
+	usageCacheLastCleanup     time.Time
 
 	// OpenAI Team linked-error fan-out is rare, so keep a small process-local
 	// deduplication window instead of adding a hot-path cache dependency.
-	openaiTeamLinkedMu     sync.Mutex
-	openaiTeamLinkedRecent map[string]time.Time
+	openaiTeamLinkedMu       sync.Mutex
+	openaiTeamLinkedRecent   map[string]time.Time
+	openAIFailurePolicyCache atomic.Value // *cachedOpenAIFailurePolicySettings
+	openAIFailurePolicySF    singleflight.Group
 }
 
 type AccountRuntimeBlocker interface {
@@ -118,9 +123,134 @@ func (s *RateLimitService) SetOpenAI403CounterCache(cache OpenAI403CounterCache)
 	s.openAI403CounterCache = cache
 }
 
+// SetOpenAIFailureCounterCache installs the cross-instance 429/502 counter.
+func (s *RateLimitService) SetOpenAIFailureCounterCache(cache OpenAIFailureCounterCache) {
+	if s == nil {
+		return
+	}
+	s.openAIFailureCounterCache = cache
+}
+
 // SetSettingService 设置系统设置服务（可选依赖）
 func (s *RateLimitService) SetSettingService(settingService *SettingService) {
 	s.settingService = settingService
+}
+
+const openAIFailurePolicyCacheTTL = 5 * time.Second
+
+type cachedOpenAIFailurePolicySettings struct {
+	settings  RateLimit429CooldownSettings
+	expiresAt int64
+}
+
+func (s *RateLimitService) openAIFailurePolicySettings(ctx context.Context) RateLimit429CooldownSettings {
+	defaults := DefaultRateLimit429CooldownSettings()
+	if defaults == nil {
+		return RateLimit429CooldownSettings{}
+	}
+	if s == nil {
+		return *defaults
+	}
+	now := time.Now().UnixNano()
+	if cached, ok := s.openAIFailurePolicyCache.Load().(*cachedOpenAIFailurePolicySettings); ok &&
+		cached != nil && now < cached.expiresAt {
+		return cached.settings
+	}
+	value, _, _ := s.openAIFailurePolicySF.Do("openai_failure_policy", func() (any, error) {
+		checkNow := time.Now().UnixNano()
+		if cached, ok := s.openAIFailurePolicyCache.Load().(*cachedOpenAIFailurePolicySettings); ok &&
+			cached != nil && checkNow < cached.expiresAt {
+			return cached.settings, nil
+		}
+		settings := *defaults
+		if s.settingService != nil {
+			if loaded, err := s.settingService.GetRateLimit429CooldownSettings(ctx); err == nil && loaded != nil {
+				settings = *loaded
+			}
+		}
+		s.openAIFailurePolicyCache.Store(&cachedOpenAIFailurePolicySettings{
+			settings:  settings,
+			expiresAt: time.Now().Add(openAIFailurePolicyCacheTTL).UnixNano(),
+		})
+		return settings, nil
+	})
+	if settings, ok := value.(RateLimit429CooldownSettings); ok {
+		return settings
+	}
+	return *defaults
+}
+
+// maybeAutoDisableOpenAIAccountOnFailure counts only account-scoped OpenAI OAuth
+// 429 and 502 responses. The counter is shared by Redis so multiple gateway
+// instances cannot independently miss the configured threshold.
+func (s *RateLimitService) maybeAutoDisableOpenAIAccountOnFailure(
+	ctx context.Context,
+	account *Account,
+	statusCode int,
+	responseBody []byte,
+) bool {
+	if s == nil || account == nil || !account.Schedulable || !account.IsOpenAIOAuth() ||
+		(statusCode != http.StatusTooManyRequests && statusCode != http.StatusBadGateway) {
+		return false
+	}
+	settings := s.openAIFailurePolicySettings(ctx)
+	if !settings.AutoDisableEnabled || settings.AutoDisableThreshold <= 0 ||
+		s.openAIFailureCounterCache == nil || s.accountRepo == nil {
+		return false
+	}
+	countCtx, cancel := openAIAccountStateContext(ctx)
+	defer cancel()
+	count, err := s.openAIFailureCounterCache.IncrementOpenAIFailureCount(countCtx, account.ID)
+	if err != nil {
+		slog.Warn("openai_failure_counter_increment_failed", "account_id", account.ID, "status_code", statusCode, "error", err)
+		return false
+	}
+	if count < int64(settings.AutoDisableThreshold) {
+		return false
+	}
+	reason := fmt.Sprintf(
+		"Automatically paused after %d consecutive OpenAI OAuth upstream 429/502 failures (last status %d). Re-enable scheduling manually after checking the account quota and upstream health.",
+		settings.AutoDisableThreshold,
+		statusCode,
+	)
+	if err := setAccountSchedulableWithReason(countCtx, s.accountRepo, account.ID, false, reason); err != nil {
+		slog.Warn("openai_failure_auto_disable_failed", "account_id", account.ID, "status_code", statusCode, "count", count, "error", err)
+		return false
+	}
+	// Make the current request and any local snapshot stop using this record
+	// immediately; the repository outbox propagates the durable change to peers.
+	account.Schedulable = false
+	if account.Extra == nil {
+		account.Extra = make(map[string]any, 1)
+	}
+	account.Extra[AccountSchedulingDisabledReasonExtraKey] = reason
+	s.notifyAccountSchedulingBlocked(account, time.Time{}, "openai_failure_auto_disabled")
+	slog.Warn("openai_account_auto_disabled_after_consecutive_failures",
+		"account_id", account.ID,
+		"status_code", statusCode,
+		"count", count,
+		"threshold", settings.AutoDisableThreshold,
+		"response_bytes", len(responseBody),
+	)
+	return true
+}
+
+func (s *RateLimitService) resetOpenAIFailureCounter(ctx context.Context, accountID int64) {
+	if s == nil || s.openAIFailureCounterCache == nil || accountID <= 0 {
+		return
+	}
+	resetCtx, cancel := openAIAccountStateContext(ctx)
+	defer cancel()
+	if err := s.openAIFailureCounterCache.ResetOpenAIFailureCount(resetCtx, accountID); err != nil {
+		slog.Warn("openai_failure_counter_reset_failed", "account_id", accountID, "error", err)
+	}
+}
+
+func (s *RateLimitService) resetOpenAIFailureCounterAfterSuccess(ctx context.Context, accountID int64) {
+	if s == nil || !s.openAIFailurePolicySettings(ctx).AutoDisableEnabled {
+		return
+	}
+	s.resetOpenAIFailureCounter(ctx, accountID)
 }
 
 // SetTokenCacheInvalidator 设置 token 缓存清理器（可选依赖）
@@ -875,6 +1005,7 @@ func (s *RateLimitService) DeleteAccountRuntimeState(accountID int64) {
 	s.usageCacheMu.Lock()
 	delete(s.usageCache, accountID)
 	s.usageCacheMu.Unlock()
+	s.resetOpenAIFailureCounter(context.Background(), accountID)
 }
 
 // GeminiCooldown returns the fallback cooldown duration for Gemini 429s based on tier.

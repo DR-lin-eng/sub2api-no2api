@@ -1021,12 +1021,16 @@ export default {
         saveFailed: 'Failed to save overload cooldown settings'
       },
       rateLimit429Cooldown: {
-        title: '429 Default Cooldown',
-        description: 'Configure the default account cooldown when upstream returns 429 without an explicit reset time',
+        title: '429 Cooldown and OAuth Circuit Breaker',
+        description: 'Configure fallback 429 cooldowns and optional OpenAI OAuth account shutdown after repeated 429/502 failures',
         enabled: 'Enable 429 Default Cooldown',
         enabledHint: 'Pause account scheduling when a 429 has no reset time, then auto-recover after cooldown',
         cooldownSeconds: 'Cooldown Duration (seconds)',
         cooldownSecondsHint: 'Default cooldown duration (1-7200 seconds); explicit upstream reset times still take precedence',
+        autoDisable: 'Disable OAuth Account After Consecutive 429/502 Failures',
+        autoDisableHint: 'Persistently remove an OpenAI OAuth account from every pool after the threshold; API-key accounts are excluded.',
+        autoDisableThreshold: 'Consecutive Failure Threshold',
+        autoDisableThresholdHint: 'Counts OAuth account-scoped 429 and 502 responses; successful requests reset the counter (1-100).',
         saved: '429 default cooldown settings saved',
         saveFailed: 'Failed to save 429 default cooldown settings'
       },

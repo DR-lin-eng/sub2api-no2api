@@ -162,6 +162,34 @@ python3 tools/disable_oauth_accounts.py --base-url "https://<your-domain>" --pla
 
 自动 runner 默认关闭，需要管理员在页面开启；手动执行不依赖自动开关。`auto_disable` 开启时，异常且当前仍可调度的账号会通过现有调度快照同步路径批量停调。
 
+## OpenAI OAuth 连续 429/502 熔断
+
+“网关服务 -> 网关韧性 -> 429 回避与 OAuth 熔断”复用以下接口：
+
+- `GET /api/v1/admin/settings/rate-limit-429-cooldown`
+- `PUT /api/v1/admin/settings/rate-limit-429-cooldown`
+
+请求中的 `auto_disable_enabled` 默认 `false`，`auto_disable_threshold` 允许 `1-100`。
+开启后只统计 OpenAI OAuth 账号的账号级 429 与 502；API Key 对接账号、请求级上游过载、
+参数错误和客户端取消不计入。成功请求会清零连续计数。达到阈值后，服务将账号的
+`schedulable` 持久设为 `false`，账号列表通过 `scheduling_disabled_reason` 显示触发阈值和
+最后状态码。该账号若绑定多个分组，会从所有相关调度候选中移除。
+
+```bash
+curl -X PUT "${BASE}/api/v1/admin/settings/rate-limit-429-cooldown" \
+  -H "x-api-key: ${ADMIN_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "enabled": true,
+    "cooldown_seconds": 5,
+    "auto_disable_enabled": true,
+    "auto_disable_threshold": 3
+  }'
+```
+
+该操作需要 `admin.settings.write`。自动关闭不会自动恢复；管理员在账号管理中单个或批量
+重新启用调度时，暂停原因和 Redis 连续失败计数会同时清除。
+
 ## Key 管理接口
 
 ### 查询列表

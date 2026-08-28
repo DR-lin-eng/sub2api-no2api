@@ -1794,10 +1794,28 @@ func (s *OpenAIGatewayService) newOpenAIStreamFailoverError(
 		ResponseHeaders:        headers,
 		RetryableOnSameAccount: openAIStreamFailedEventRetryableOnSameAccount(account, payload, message),
 	}
-	if isOpenAIUpstreamCapacityShedEvent(payload) {
+	requestScopedCapacity := isOpenAIUpstreamCapacityShedEvent(payload)
+	if requestScopedCapacity {
 		failoverErr.Scope = GatewayFailureScopeRequest
+	} else if statusCode == http.StatusBadGateway && shouldCountOpenAIStreamBadGatewayFailure(payload, message) &&
+		s != nil && s.rateLimitService != nil && account != nil {
+		failureCtx := context.Background()
+		if c != nil && c.Request != nil {
+			failureCtx = c.Request.Context()
+		}
+		s.rateLimitService.maybeAutoDisableOpenAIAccountOnFailure(failureCtx, account, statusCode, payload)
 	}
 	return failoverErr
+}
+
+func shouldCountOpenAIStreamBadGatewayFailure(payload []byte, message string) bool {
+	if IsOpenAIGenericUpstreamFailureBody(payload) {
+		return true
+	}
+	lower := strings.ToLower(strings.TrimSpace(message))
+	return strings.Contains(lower, "stream disconnected before completion") ||
+		strings.Contains(lower, "stream ended before a terminal event") ||
+		strings.Contains(lower, "upstream connection error")
 }
 
 func (s *OpenAIGatewayService) newOpenAIStreamClientError(

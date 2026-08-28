@@ -178,6 +178,11 @@ const OpenAIOAuthSupportedModelsSyncedAtExtraKey = "openai_oauth_supported_model
 // Missing and non-boolean values intentionally default to false.
 const AutoDisableOnUpstreamInsufficientBalanceExtraKey = "auto_disable_on_upstream_insufficient_balance"
 
+// AccountSchedulingDisabledReasonExtraKey stores a human-readable reason for
+// an administrator or gateway policy disabling scheduling. It lives in Extra
+// so older database schemas and scheduler snapshots remain compatible.
+const AccountSchedulingDisabledReasonExtraKey = "account_scheduling_disabled_reason"
+
 const (
 	OpenAIEndpointCapabilityChatCompletions OpenAIEndpointCapability = "chat_completions"
 	OpenAIEndpointCapabilityEmbeddings      OpenAIEndpointCapability = "embeddings"
@@ -240,6 +245,17 @@ func (a *Account) AutoDisableOnUpstreamInsufficientBalanceEnabled() bool {
 	}
 	enabled, ok := a.Extra[AutoDisableOnUpstreamInsufficientBalanceExtraKey].(bool)
 	return ok && enabled
+}
+
+func (a *Account) SchedulingDisabledReason() string {
+	if a == nil || a.Extra == nil {
+		return ""
+	}
+	value, ok := a.Extra[AccountSchedulingDisabledReasonExtraKey].(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(value)
 }
 
 // IsSyntheticUITest reports whether the account belongs to an isolated UI load-test

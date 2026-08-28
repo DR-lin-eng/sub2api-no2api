@@ -267,7 +267,12 @@ describe("admin settings query and action owners", () => {
       { items: [] },
       { exists: true, masked_key: "sk-admin...1234" },
       { enabled: true, cooldown_minutes: 10 },
-      { enabled: true, cooldown_seconds: 5 },
+      {
+        enabled: true,
+        cooldown_seconds: 5,
+        auto_disable_enabled: false,
+        auto_disable_threshold: 3,
+      },
       { enabled: true },
       {
         response_header_timeout_degradation_enabled: true,
@@ -491,7 +496,12 @@ describe("admin settings query and action owners", () => {
       [
         updateRateLimit429CooldownSettings,
         "/admin/settings/rate-limit-429-cooldown",
-        { enabled: true, cooldown_seconds: 5 },
+        {
+          enabled: true,
+          cooldown_seconds: 5,
+          auto_disable_enabled: false,
+          auto_disable_threshold: 3,
+        },
       ],
       [
         updateGlobalTempUnschedulableSettings,

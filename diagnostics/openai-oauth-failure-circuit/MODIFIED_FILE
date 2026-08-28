@@ -1,0 +1,6 @@
+{
+  "enabled": true,
+  "cooldown_seconds": 5,
+  "auto_disable_enabled": true,
+  "auto_disable_threshold": 4
+}

@@ -118,3 +118,19 @@ func TestAccountFromServiceShallow_ExposesOpenAIAccountTLSProfile(t *testing.T) 
 	require.NotNil(t, got.TLSFingerprintProfileID)
 	require.Equal(t, int64(-1), *got.TLSFingerprintProfileID)
 }
+
+func TestAccountFromServiceShallow_ExposesSchedulingDisabledReason(t *testing.T) {
+	src := &service.Account{
+		ID:          88,
+		Platform:    service.PlatformOpenAI,
+		Status:      service.StatusActive,
+		Schedulable: false,
+		Extra: map[string]any{
+			service.AccountSchedulingDisabledReasonExtraKey: "Automatically paused after consecutive upstream failures",
+		},
+	}
+
+	got := AccountFromServiceShallow(src)
+	require.Equal(t, "Automatically paused after consecutive upstream failures", got.SchedulingDisabledReason)
+	require.NotContains(t, got.Extra, service.AccountSchedulingDisabledReasonExtraKey)
+}

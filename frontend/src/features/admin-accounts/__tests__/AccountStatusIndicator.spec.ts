@@ -51,6 +51,28 @@ function makeAccount(overrides: Partial<Account>): Account {
 }
 
 describe('AccountStatusIndicator', () => {
+  it('shows the persistent reason for an automatically paused account', () => {
+    const reason = 'Automatically paused after 3 consecutive OpenAI OAuth upstream 429/502 failures'
+    const wrapper = mount(AccountStatusIndicator, {
+      props: {
+        account: makeAccount({
+          platform: 'openai',
+          schedulable: false,
+          scheduling_disabled_reason: reason,
+        })
+      },
+      global: {
+        stubs: {
+          Icon: true
+        }
+      }
+    })
+
+    expect(wrapper.text()).toContain('admin.accounts.status.paused')
+    expect(wrapper.text()).toContain(reason)
+    expect(wrapper.find('.badge-gray').attributes('title')).toBe(reason)
+  })
+
   it('Claude 5 模型限流时显示 Opus 和 Sonnet 的短别名', () => {
     const wrapper = mount(AccountStatusIndicator, {
       props: {

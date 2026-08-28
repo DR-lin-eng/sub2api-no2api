@@ -1,0 +1,10 @@
+--- MODIFIED_FILE.baseline
++++ MODIFIED_FILE
+@@ -1,4 +1,6 @@
+ {
+   "enabled": true,
+-  "cooldown_seconds": 5
++  "cooldown_seconds": 5,
++  "auto_disable_enabled": true,
++  "auto_disable_threshold": 4
+ }

@@ -120,6 +120,8 @@ export interface OverloadCooldownSettings {
 export interface RateLimit429CooldownSettings {
   enabled: boolean;
   cooldown_seconds: number;
+  auto_disable_enabled: boolean;
+  auto_disable_threshold: number;
 }
 
 export interface GlobalTempUnschedulableSettings {
