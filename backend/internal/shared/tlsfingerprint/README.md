@@ -11,6 +11,10 @@ OpenAI/Codex 的内置基础 Profile 取 Rustls aws-lc-rs 的
 默认 cipher suites、key-exchange groups 和 `h2`/`http/1.1` ALPN，不能宣称固定 JA3，因为
 官方 Rustls 会随机化 ClientHello 扩展顺序。
 
+通过 `HTTPUpstream` 的 uTLS 拨号器发送请求时，连接会使用该 Profile 的 TLS 参数并将
+ALPN 收窄为 `http/1.1`。标准库 `net/http` 的 HTTP/2 适配器要求具体的 `*tls.Conn`，
+而 uTLS 返回 `*utls.UConn`；保留 `h2` 会让服务端发送 HTTP/2 帧给 HTTP/1.1 编解码器。
+
 `CaptureWireProfile` / `WireProfileFingerprint` 提供确定性的 profile-input golden fixture，覆盖
 cipher suites、曲线、ALPN、supported versions、key share、PSK modes 和扩展列表；它是回归捕获摘要，
 不等同于真实 ClientHello 字节或 JA3。
