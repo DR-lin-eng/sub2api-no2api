@@ -440,8 +440,66 @@ export interface AnnouncementUserReadStatus {
 
 // ==================== Activity Center Types ====================
 
-export type ActivityCampaignType = 'lottery' | 'redeem' | 'external_link' | 'custom'
+export type ActivityCampaignType = 'lottery' | 'redeem' | 'custom'
 export type ActivityCampaignStatus = 'draft' | 'active' | 'archived'
+export type ActivityPrizeType = 'card' | 'balance' | 'concurrency' | 'subscription' | 'none'
+
+export interface ActivityLotteryPrize {
+  id: string
+  label: string
+  prize_type: ActivityPrizeType
+  value_amount: string
+  reward_group_id: number | null
+  value: string
+  discount_rate: string
+  weight: number
+  is_fallback: boolean
+  color: string
+  sort_order: number
+  available_count: number | null
+  codes: string[]
+}
+
+export interface ActivityLotteryPool {
+  id: string
+  tier: string
+  name: string
+  description: string
+  required_group_ids: number[]
+  enabled: boolean
+  daily_limit: number
+  sort_order: number
+  prizes: ActivityLotteryPrize[]
+}
+
+export interface ActivityLotteryConfig {
+  pools: ActivityLotteryPool[]
+}
+
+export interface ActivityRedeemConfig {
+  code_mode: 'manual' | 'generated'
+  placeholder: string
+  success_message: string
+}
+
+export interface ActivityCustomConfig {
+  action_label: string
+  action_hint: string
+}
+
+export interface ActivityCampaignConfig {
+  lottery?: ActivityLotteryConfig
+  redeem?: ActivityRedeemConfig
+  custom?: ActivityCustomConfig
+}
+
+export interface ActivityPrizeStockStat {
+  pool_id: string
+  prize_id: string
+  issued_count: number
+  available_count?: number | null
+  remaining_count?: number | null
+}
 
 export interface ActivityCampaign {
   id: number
@@ -451,6 +509,7 @@ export interface ActivityCampaign {
   banner_html: string
   type: ActivityCampaignType
   ref_id: string
+  config_json: string
   status: ActivityCampaignStatus
   starts_at?: string
   ends_at?: string
@@ -459,19 +518,41 @@ export interface ActivityCampaign {
   created_by?: number
   created_at: string
   updated_at: string
+  prize_stock_stats?: ActivityPrizeStockStat[]
 }
 
 export interface UserActivityCampaign {
   id: number
   title: string
   subtitle: string
-  banner_url: string
   banner_html: string
   type: ActivityCampaignType
-  ref_id: string
+  config_json: string
   starts_at?: string
   ends_at?: string
   content: string
+}
+
+export interface ActivityParticipationRecord {
+  id: number
+  campaign_id: number
+  campaign_title: string
+  campaign_type: ActivityCampaignType
+  user_id: number
+  user_email: string
+  user_name: string
+  pool_id: string
+  pool_name: string
+  prize_id: string
+  prize_label: string
+  prize_type: ActivityPrizeType | ''
+  prize_color: string
+  result_status: 'recorded' | 'won' | 'none'
+  reward_status: 'none' | 'pending' | 'granted' | 'failed'
+  reward_value?: string
+  reward_code?: string
+  reward_payload_json?: string
+  created_at: string
 }
 
 export interface CreateActivityCampaignRequest {
@@ -481,6 +562,7 @@ export interface CreateActivityCampaignRequest {
   banner_html?: string
   type?: ActivityCampaignType
   ref_id?: string
+  config_json?: string
   status?: ActivityCampaignStatus
   starts_at?: number
   ends_at?: number
@@ -495,6 +577,7 @@ export interface UpdateActivityCampaignRequest {
   banner_html?: string
   type?: ActivityCampaignType
   ref_id?: string
+  config_json?: string
   status?: ActivityCampaignStatus
   starts_at?: number
   ends_at?: number

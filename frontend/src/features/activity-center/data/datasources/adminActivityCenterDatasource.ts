@@ -1,6 +1,7 @@
 import { apiClient } from '@/core/networks/client'
 import type {
   ActivityCampaign,
+  ActivityParticipationRecord,
   CreateActivityCampaignRequest,
   UpdateActivityCampaignRequest,
   PaginatedResponse,
@@ -47,12 +48,31 @@ export async function remove(id: number): Promise<{ message: string }> {
   return data
 }
 
+export async function listRecords(
+  page: number = 1,
+  pageSize: number = 20,
+  filters?: {
+    campaign_id?: number
+    user_id?: number
+    type?: string
+    search?: string
+    sort_by?: string
+    sort_order?: 'asc' | 'desc'
+  }
+): Promise<PaginatedResponse<ActivityParticipationRecord>> {
+  const { data } = await apiClient.get<PaginatedResponse<ActivityParticipationRecord>>('/admin/activity-center/records', {
+    params: { page, page_size: pageSize, ...filters }
+  })
+  return data
+}
+
 const activityCenterAPI = {
   list,
   getById,
   create,
   update,
-  delete: remove
+  delete: remove,
+  listRecords
 }
 
 export default activityCenterAPI

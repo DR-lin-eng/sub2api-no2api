@@ -5,7 +5,6 @@ import (
 	"log"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	"github.com/Wei-Shaw/sub2api/internal/infrastructure/repository"
 	"github.com/Wei-Shaw/sub2api/internal/modules/activitycenter"
 	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
 	moduleegress "github.com/Wei-Shaw/sub2api/internal/modules/egress"
@@ -24,6 +23,7 @@ func ProvideAdminHandlers(
 	accountHandler *admin.AccountHandler,
 	accountInspectionHandler *admin.AccountInspectionHandler,
 	announcementHandler *admin.AnnouncementHandler,
+	activityCenterHandler *admin.ActivityCenterHandler,
 	dataManagementHandler *admin.DataManagementHandler,
 	backupHandler *admin.BackupHandler,
 	oauthHandler *admin.OAuthHandler,
@@ -69,7 +69,7 @@ func ProvideAdminHandlers(
 		Account:                accountHandler,
 		AccountInspection:      accountInspectionHandler,
 		Announcement:           announcementHandler,
-		ActivityCenter:         provideActivityCenterAdminHandler(),
+		ActivityCenter:         activityCenterHandler,
 		DataManagement:         dataManagementHandler,
 		Backup:                 backupHandler,
 		OAuth:                  oauthHandler,
@@ -180,20 +180,12 @@ func ProvideBatchImageHandler(
 	return h
 }
 
-func provideActivityCenterUserHandler() *ActivityCenterHandler {
-	db := repository.ActivityCenterDB()
-	if db == nil {
-		return NewActivityCenterHandler(nil)
-	}
-	return NewActivityCenterHandler(activitycenter.NewService(repository.NewActivityCenterRepository(db)))
+func ProvideActivityCenterUserHandler(svc *activitycenter.Service) *ActivityCenterHandler {
+	return NewActivityCenterHandler(svc)
 }
 
-func provideActivityCenterAdminHandler() *admin.ActivityCenterHandler {
-	db := repository.ActivityCenterDB()
-	if db == nil {
-		return admin.NewActivityCenterHandler(nil)
-	}
-	return admin.NewActivityCenterHandler(activitycenter.NewService(repository.NewActivityCenterRepository(db)))
+func ProvideActivityCenterAdminHandler(svc *activitycenter.Service) *admin.ActivityCenterHandler {
+	return admin.NewActivityCenterHandler(svc)
 }
 
 // ProvideSystemHandler creates admin.SystemHandler with UpdateService
@@ -239,6 +231,7 @@ func ProvideHandlers(
 	redeemHandler *RedeemHandler,
 	subscriptionHandler *SubscriptionHandler,
 	announcementHandler *AnnouncementHandler,
+	activityCenterHandler *ActivityCenterHandler,
 	channelMonitorUserHandler *ChannelMonitorUserHandler,
 	adminHandlers *AdminHandlers,
 	gatewayHandler *GatewayHandler,
@@ -265,7 +258,7 @@ func ProvideHandlers(
 		Redeem:           redeemHandler,
 		Subscription:     subscriptionHandler,
 		Announcement:     announcementHandler,
-		ActivityCenter:   provideActivityCenterUserHandler(),
+		ActivityCenter:   activityCenterHandler,
 		ChannelMonitor:   channelMonitorUserHandler,
 		Admin:            adminHandlers,
 		Gateway:          gatewayHandler,
@@ -294,6 +287,7 @@ var ProviderSet = wire.NewSet(
 	NewRedeemHandler,
 	NewSubscriptionHandler,
 	NewAnnouncementHandler,
+	ProvideActivityCenterUserHandler,
 	NewChannelMonitorUserHandler,
 	ProvideGatewayHandler,
 	ProvideOpenAIGatewayHandler,
@@ -316,6 +310,7 @@ var ProviderSet = wire.NewSet(
 	admin.ProvideAccountHandler,
 	admin.NewAccountInspectionHandler,
 	admin.NewAnnouncementHandler,
+	ProvideActivityCenterAdminHandler,
 	admin.NewDataManagementHandler,
 	admin.NewBackupHandler,
 	admin.NewOAuthHandler,

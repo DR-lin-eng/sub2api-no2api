@@ -24,7 +24,6 @@
                   <option value="all">{{ t('activityCenter.filters.allTypes') }}</option>
                   <option value="lottery">{{ t('activityCenter.types.lottery') }}</option>
                   <option value="redeem">{{ t('activityCenter.types.redeem') }}</option>
-                  <option value="external_link">{{ t('activityCenter.types.external_link') }}</option>
                   <option value="custom">{{ t('activityCenter.types.custom') }}</option>
                 </select>
               </div>
@@ -47,10 +46,11 @@
           </div>
 
           <div v-else-if="filteredCampaigns.length > 0" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            <article
+            <RouterLink
               v-for="campaign in filteredCampaigns"
               :key="campaign.id"
-              class="h-full rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-dark-700 dark:bg-dark-900/90"
+              :to="`/activity-center/${campaign.id}`"
+              class="block h-full rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-dark-700 dark:bg-dark-900/90"
             >
               <div class="aspect-[16/9] overflow-hidden rounded-xl bg-gray-100 dark:bg-dark-800">
                 <div
@@ -66,10 +66,10 @@
               <div class="mt-4 flex items-start justify-between gap-3">
                 <div class="min-w-0">
                   <h2 class="truncate text-lg font-semibold text-gray-900 dark:text-white">
-                    {{ campaign.title }}
+                    {{ activityText(campaign.title, t) }}
                   </h2>
                   <p class="mt-1 line-clamp-2 text-sm leading-6 text-gray-500 dark:text-dark-400">
-                    {{ campaign.subtitle || t('activityCenter.noSubtitle') }}
+                    {{ activityText(campaign.subtitle, t) || t('activityCenter.noSubtitle') }}
                   </p>
                 </div>
                 <span class="inline-flex shrink-0 items-center rounded-full bg-primary-50 px-2.5 py-1 text-xs font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-200">
@@ -81,8 +81,16 @@
                 <span v-if="campaign.starts_at || campaign.ends_at" class="rounded-full bg-gray-100 px-2.5 py-1 dark:bg-dark-800">
                   {{ activityTimeRange(campaign) }}
                 </span>
+                <span class="rounded-full bg-gray-100 px-2.5 py-1 dark:bg-dark-800">
+                  {{ campaignSummary(campaign) }}
+                </span>
               </div>
-            </article>
+
+              <div class="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 text-sm dark:border-dark-800">
+                <span class="text-gray-500 dark:text-dark-400">{{ t('activityCenter.card.open') }}</span>
+                <Icon name="arrowRight" size="sm" class="text-primary-500" />
+              </div>
+            </RouterLink>
           </div>
 
           <div v-else class="rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-10 text-center dark:border-dark-700 dark:bg-dark-900/80">
@@ -108,12 +116,14 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import DOMPurify from 'dompurify'
 import { useAppStore } from '@/core/stores/appStore'
+import { extractI18nErrorMessage } from '@/core/utils/apiError'
 import { formatDateTime } from '@/core/utils/format'
 import activityCenterAPI from '@/features/activity-center/data/datasources/activityCenterDatasource'
-import type { UserActivityCampaign } from '@/types'
+import type { ActivityCampaignConfig, UserActivityCampaign } from '@/types'
 
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
+import { activityText } from '@/features/activity-center/presentation/activityCenterText'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -147,6 +157,25 @@ function sanitizeBannerHtml(html: string) {
   return DOMPurify.sanitize(html)
 }
 
+function parseCampaignConfig(item: UserActivityCampaign): ActivityCampaignConfig {
+  if (!item.config_json) return {}
+  try {
+    return JSON.parse(item.config_json) as ActivityCampaignConfig
+  } catch {
+    return {}
+  }
+}
+
+function campaignSummary(item: UserActivityCampaign) {
+  if (item.type === 'lottery') {
+    const pools = parseCampaignConfig(item).lottery?.pools || []
+    const prizeCount = pools.reduce((sum, pool) => sum + (pool.prizes?.length || 0), 0)
+    return t('activityCenter.card.lotterySummary', { pools: pools.length, prizes: prizeCount })
+  }
+  if (item.type === 'redeem') return t('activityCenter.card.redeemSummary')
+  return t('activityCenter.card.customSummary')
+}
+
 function formatTime(raw?: string) {
   return raw ? formatDateTime(raw) : t('activityCenter.noTime')
 }
@@ -162,7 +191,7 @@ async function loadCampaigns() {
     campaigns.value = await activityCenterAPI.list()
   } catch (error: any) {
     console.error('Failed to load activity campaigns', error)
-    appStore.showError(error?.message || t('activityCenter.failedToLoad'))
+    appStore.showError(extractI18nErrorMessage(error, t, 'activityCenter.errors', t('activityCenter.failedToLoad')))
   } finally {
     loading.value = false
   }

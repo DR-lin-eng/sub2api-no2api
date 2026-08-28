@@ -225,9 +225,7 @@ func ProvideSQLDB(client *ent.Client) (*sql.DB, error) {
 		return nil, errors.New("ent driver does not expose *sql.DB")
 	}
 	// 返回驱动持有的 sql.DB 实例
-	db := drv.DB()
-	RegisterActivityCenterDB(db)
-	return db, nil
+	return drv.DB(), nil
 }
 
 // ProvideRedis 为依赖注入提供 Redis 客户端。

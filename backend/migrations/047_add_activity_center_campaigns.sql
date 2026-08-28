@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS act_campaigns (
     banner_html TEXT NOT NULL DEFAULT '',
     type VARCHAR(32) NOT NULL DEFAULT 'custom',
     ref_id VARCHAR(200) NOT NULL DEFAULT '',
+    config_json TEXT NOT NULL DEFAULT '{}',
     status VARCHAR(20) NOT NULL DEFAULT 'draft',
     starts_at TIMESTAMPTZ DEFAULT NULL,
     ends_at TIMESTAMPTZ DEFAULT NULL,
@@ -15,7 +16,7 @@ CREATE TABLE IF NOT EXISTS act_campaigns (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ DEFAULT NULL,
-    CONSTRAINT chk_act_campaigns_type CHECK (type IN ('lottery', 'redeem', 'external_link', 'custom')),
+    CONSTRAINT chk_act_campaigns_type CHECK (type IN ('lottery', 'redeem', 'custom')),
     CONSTRAINT chk_act_campaigns_status CHECK (status IN ('draft', 'active', 'archived')),
     CONSTRAINT chk_act_campaigns_sort_order CHECK (sort_order >= 0 AND sort_order <= 10000),
     CONSTRAINT chk_act_campaigns_time_range CHECK (starts_at IS NULL OR ends_at IS NULL OR starts_at < ends_at)
@@ -39,6 +40,7 @@ CREATE INDEX IF NOT EXISTS idx_act_campaigns_created_at
 
 COMMENT ON TABLE act_campaigns IS '活动中心活动配置';
 COMMENT ON COLUMN act_campaigns.banner_html IS '活动横幅 HTML，存在时优先于 banner_url 展示';
-COMMENT ON COLUMN act_campaigns.type IS '活动类型: lottery, redeem, external_link, custom';
-COMMENT ON COLUMN act_campaigns.ref_id IS '关联资源标识，例如外链 URL、抽奖配置 ID 或后续兑换配置 ID';
+COMMENT ON COLUMN act_campaigns.type IS '活动类型: lottery, redeem, custom';
+COMMENT ON COLUMN act_campaigns.ref_id IS '关联项目内配置标识，可选';
+COMMENT ON COLUMN act_campaigns.config_json IS '活动类型专属配置 JSON，例如抽奖奖池、奖品与库存码';
 COMMENT ON COLUMN act_campaigns.status IS '状态: draft, active, archived';

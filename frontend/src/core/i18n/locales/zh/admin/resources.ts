@@ -458,8 +458,13 @@ export default {
     },
 
     activityCenter: {
+      editorSections: {
+        basic: '基本信息',
+        lottery: '奖池配置',
+        detail: '活动详情'
+      },
       title: '活动中心',
-      description: '管理用户端展示的活动、抽奖、奖励和外链',
+      description: '管理用户端展示的活动、抽奖和奖励',
       createCampaign: '创建活动',
       editCampaign: '编辑活动',
       deleteCampaign: '删除活动',
@@ -481,7 +486,6 @@ export default {
       types: {
         lottery: '抽奖',
         redeem: '兑换',
-        external_link: '外链',
         custom: '自定义'
       },
       columns: {
@@ -503,12 +507,112 @@ export default {
         status: '状态',
         startsAt: '开始时间',
         endsAt: '结束时间',
-        refId: '关联标识',
         sortOrder: '排序',
-        content: '正文'
+        content: '活动详情'
+      },
+      config: {
+        lottery: '抽奖配置',
+        redeem: '兑换配置',
+        custom: '自定义配置',
+        addPool: '添加奖池',
+        pool: '奖池',
+        poolTier: '奖池等级',
+        poolName: '奖池名称',
+        poolDescription: '奖池说明',
+        enabled: '启用',
+        disabled: '停用',
+        allUsers: '全员可参与',
+        prizeCount: '{count} 个奖品',
+        groupCount: '{count} 个分组',
+        dailyLimitSummary: '每日 {count} 次',
+        dailyLimit: '每日限制',
+        requiredGroups: '可参与分组',
+        prizes: '奖品',
+        noPrizes: '暂无奖品，点击添加奖品开始配置',
+        addPrize: '添加奖品',
+        prize: '奖品',
+        prizeLabel: '奖品名称',
+        prizeType: '奖品类型',
+        weight: '权重',
+        weightPreview: '权重预览',
+        valueAmount: '数值',
+        rewardGroupId: '奖励分组',
+        subscriptionGroup: '订阅分组',
+        selectSubscriptionGroup: '选择订阅分组',
+        discountRate: '折扣',
+        color: '颜色',
+        prizeValue: '奖励内容',
+        availableCount: '库存数量',
+        stockUsage: '已发 {issued}，剩余 {remaining}',
+        stockUnlimited: '无限制',
+        cardStockUsage: '已录入 {count} 条卡密',
+        cardStockEmpty: '库存由卡密行数决定',
+        addCardCode: '添加卡密',
+        isFallback: '兜底奖品',
+        codes: '卡密库存（一行一个）',
+        cardCodeManager: '卡密管理',
+        cardCodeManagerHint: '支持批量粘贴，每行一个卡密；保存活动时统一提交。',
+        cardCodeManagerFooter: '空行会在保存时自动忽略。',
+        cardCodePlaceholder: '请粘贴卡密，每行一个',
+        batchImport: '批量导入',
+        batchAppend: '追加到现有卡密',
+        batchReplace: '替换现有卡密',
+        importNow: '立即导入',
+        previousPage: '上一页',
+        nextPage: '下一页',
+        codeMode: '兑换方式',
+        placeholder: '输入框提示',
+        successMessage: '成功提示',
+        actionLabel: '按钮文案',
+        actionHint: '操作说明',
+        defaultPool: '普通奖池',
+        defaultPrize: '谢谢参与',
+        defaultRedeemPlaceholder: '请输入兑换码',
+        defaultRedeemSuccess: '兑换成功'
+      },
+      prizeTypes: {
+        none: '谢谢参与',
+        card: '卡密',
+        balance: '余额',
+        concurrency: '并发',
+        subscription: '订阅'
+      },
+      legacy: {
+        defaultPool: '普通奖池',
+        defaultPrize: '谢谢参与',
+        balance: '余额',
+        card: '卡密'
+      },
+      redeemModes: {
+        manual: '手动输入',
+        generated: '系统发放'
+      },
+      records: {
+        title: '活动记录',
+        description: '查看所有用户的活动参与和抽奖结果',
+        searchPlaceholder: '搜索用户、活动或奖品...',
+        empty: '暂无活动记录',
+        failedToLoad: '活动记录加载失败',
+        noPrize: '无奖品',
+        columns: {
+          user: '用户',
+          campaign: '活动',
+          pool: '奖池',
+          prize: '奖品',
+          rewardStatus: '奖励状态',
+          createdAt: '参与时间'
+        },
+        rewardStatus: {
+          none: '无奖励',
+          pending: '待发放',
+          granted: '已发放',
+          failed: '发放失败'
+        }
       },
       deleteConfirm: '确认删除此活动？此操作不可撤销。',
+      endTimeBeforeNow: '结束时间不能早于当前时间',
       failedToLoad: '活动加载失败',
+      failedToLoadGroups: '分组加载失败',
       failedToSave: '活动保存失败',
       failedToDelete: '活动删除失败'
     },

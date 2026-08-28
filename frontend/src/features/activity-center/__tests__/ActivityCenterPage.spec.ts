@@ -1,5 +1,5 @@
 import { createPinia } from 'pinia'
-import { flushPromises, mount } from '@vue/test-utils'
+import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 import ActivityCenterPage from '../presentation/pages/ActivityCenterPage.vue'
@@ -33,8 +33,42 @@ describe('ActivityCenterPage', () => {
         title: 'Spring Bonus',
         subtitle: 'Weekly active rewards',
         banner_url: '',
+        banner_html: '',
         type: 'lottery',
         ref_id: 'announce-1',
+        config_json: JSON.stringify({
+          lottery: {
+            pools: [
+              {
+                id: 'pool-1',
+                tier: 'basic',
+                name: 'Basic pool',
+                description: '',
+                required_group_ids: [],
+                enabled: true,
+                daily_limit: 1,
+                sort_order: 0,
+                prizes: [
+                  {
+                    id: 'prize-1',
+                    label: 'Thanks',
+                    prize_type: 'none',
+                    value_amount: '',
+                    reward_group_id: null,
+                    value: '',
+                    discount_rate: '',
+                    weight: 100,
+                    is_fallback: true,
+                    color: '#8b5cf6',
+                    sort_order: 0,
+                    available_count: null,
+                    codes: [],
+                  },
+                ],
+              },
+            ],
+          },
+        }),
         status: 'active',
         starts_at: '2026-08-01T00:00:00Z',
         ends_at: '2026-09-01T00:00:00Z',
@@ -45,11 +79,13 @@ describe('ActivityCenterPage', () => {
       },
       {
         id: 2,
-        title: 'External Link',
-        subtitle: 'Visit partner site',
+        title: 'Redeem Bonus',
+        subtitle: 'Use project reward config',
         banner_url: '',
-        type: 'external_link',
-        ref_id: 'https://example.com',
+        banner_html: '',
+        type: 'redeem',
+        ref_id: 'redeem-1',
+        config_json: '{}',
         status: 'draft',
         starts_at: '',
         ends_at: '',
@@ -67,6 +103,7 @@ describe('ActivityCenterPage', () => {
       stubs: {
         AppLayout: { template: '<main><slot /></main>' },
         Icon: { template: '<i />' },
+        RouterLink: RouterLinkStub,
       },
     },
   })
@@ -77,18 +114,19 @@ describe('ActivityCenterPage', () => {
 
     expect(listMock).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('Spring Bonus')
-    expect(wrapper.text()).toContain('External Link')
+    expect(wrapper.text()).toContain('Redeem Bonus')
     expect(wrapper.text()).not.toContain('Campaign content one')
+    expect(wrapper.findComponent(RouterLinkStub).props('to')).toBe('/activity-center/1')
   })
 
-  it('filters campaigns and updates the detail panel', async () => {
+  it('filters campaigns without exposing activity details in the list', async () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    await wrapper.get('select').setValue('external_link')
+    await wrapper.get('select').setValue('redeem')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('External Link')
+    expect(wrapper.text()).toContain('Redeem Bonus')
     expect(wrapper.text()).not.toContain('Spring Bonus')
 
     expect(wrapper.text()).not.toContain('Campaign content two')

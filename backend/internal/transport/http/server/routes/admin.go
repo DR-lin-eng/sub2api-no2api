@@ -542,6 +542,7 @@ func registerAnnouncementRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 func registerActivityCenterRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	activityCenter := admin.Group("/activity-center")
 	{
+		activityCenter.GET("/records", h.Admin.ActivityCenter.ListRecords)
 		campaigns := activityCenter.Group("/campaigns")
 		{
 			campaigns.GET("", h.Admin.ActivityCenter.ListCampaigns)

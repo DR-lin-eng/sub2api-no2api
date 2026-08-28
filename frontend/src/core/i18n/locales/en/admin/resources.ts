@@ -461,8 +461,13 @@ export default {
     },
 
     activityCenter: {
+      editorSections: {
+        basic: 'Basic information',
+        lottery: 'Prize pool',
+        detail: 'Activity details'
+      },
       title: 'Activity Center',
-      description: 'Manage campaigns, lottery entries, rewards, and external links shown to users',
+      description: 'Manage campaigns, lottery entries, and rewards shown to users',
       createCampaign: 'Create Campaign',
       editCampaign: 'Edit Campaign',
       deleteCampaign: 'Delete Campaign',
@@ -484,7 +489,6 @@ export default {
       types: {
         lottery: 'Lottery',
         redeem: 'Redeem',
-        external_link: 'External link',
         custom: 'Custom'
       },
       columns: {
@@ -506,12 +510,112 @@ export default {
         status: 'Status',
         startsAt: 'Starts At',
         endsAt: 'Ends At',
-        refId: 'Reference ID',
         sortOrder: 'Sort Order',
-        content: 'Content'
+        content: 'Activity details'
+      },
+      config: {
+        lottery: 'Lottery config',
+        redeem: 'Redeem config',
+        custom: 'Custom config',
+        addPool: 'Add pool',
+        pool: 'Pool',
+        poolTier: 'Pool tier',
+        poolName: 'Pool name',
+        poolDescription: 'Pool description',
+        enabled: 'Enabled',
+        disabled: 'Disabled',
+        allUsers: 'All users',
+        prizeCount: '{count} prizes',
+        groupCount: '{count} groups',
+        dailyLimitSummary: '{count}/day',
+        dailyLimit: 'Daily limit',
+        requiredGroups: 'Allowed groups',
+        prizes: 'Prizes',
+        noPrizes: 'No prizes yet. Add a prize to start.',
+        addPrize: 'Add prize',
+        prize: 'Prize',
+        prizeLabel: 'Prize name',
+        prizeType: 'Prize type',
+        weight: 'Weight',
+        weightPreview: 'Weight preview',
+        valueAmount: 'Value',
+        rewardGroupId: 'Reward group',
+        subscriptionGroup: 'Subscription group',
+        selectSubscriptionGroup: 'Select subscription group',
+        discountRate: 'Discount',
+        color: 'Color',
+        prizeValue: 'Reward content',
+        availableCount: 'Stock',
+        stockUsage: 'Issued {issued}, remaining {remaining}',
+        stockUnlimited: 'Unlimited',
+        cardStockUsage: '{count} card codes entered',
+        cardStockEmpty: 'Stock is derived from card codes',
+        addCardCode: 'Add card code',
+        isFallback: 'Fallback prize',
+        codes: 'Card inventory, one per line',
+        cardCodeManager: 'Card code manager',
+        cardCodeManagerHint: 'Paste codes in bulk, one code per line. They will be submitted with the campaign.',
+        cardCodeManagerFooter: 'Blank lines are ignored when saving.',
+        cardCodePlaceholder: 'Paste card codes, one per line',
+        batchImport: 'Bulk import',
+        batchAppend: 'Append to existing codes',
+        batchReplace: 'Replace existing codes',
+        importNow: 'Import now',
+        previousPage: 'Previous',
+        nextPage: 'Next',
+        codeMode: 'Redeem mode',
+        placeholder: 'Input placeholder',
+        successMessage: 'Success message',
+        actionLabel: 'Action label',
+        actionHint: 'Action hint',
+        defaultPool: 'Basic pool',
+        defaultPrize: 'Thanks for joining',
+        defaultRedeemPlaceholder: 'Enter redeem code',
+        defaultRedeemSuccess: 'Redeemed successfully'
+      },
+      prizeTypes: {
+        none: 'No prize',
+        card: 'Card code',
+        balance: 'Balance',
+        concurrency: 'Concurrency',
+        subscription: 'Subscription'
+      },
+      legacy: {
+        defaultPool: 'Basic pool',
+        defaultPrize: 'Thanks for joining',
+        balance: 'Balance',
+        card: 'Card code'
+      },
+      redeemModes: {
+        manual: 'Manual input',
+        generated: 'System issued'
+      },
+      records: {
+        title: 'Activity records',
+        description: 'View all user activity participation and lottery results',
+        searchPlaceholder: 'Search users, campaigns, or prizes...',
+        empty: 'No activity records yet',
+        failedToLoad: 'Failed to load activity records',
+        noPrize: 'No prize',
+        columns: {
+          user: 'User',
+          campaign: 'Campaign',
+          pool: 'Pool',
+          prize: 'Prize',
+          rewardStatus: 'Reward status',
+          createdAt: 'Joined at'
+        },
+        rewardStatus: {
+          none: 'No reward',
+          pending: 'Pending',
+          granted: 'Granted',
+          failed: 'Failed'
+        }
       },
       deleteConfirm: 'Are you sure you want to delete this campaign? This action cannot be undone.',
+      endTimeBeforeNow: 'End time cannot be earlier than the current time',
       failedToLoad: 'Failed to load campaigns',
+      failedToLoadGroups: 'Failed to load groups',
       failedToSave: 'Failed to save campaign',
       failedToDelete: 'Failed to delete campaign'
     },

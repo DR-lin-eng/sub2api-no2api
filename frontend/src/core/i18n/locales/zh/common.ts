@@ -165,6 +165,7 @@ export default {
   nav: {
     dashboard: '仪表盘',
     activityCenter: '活动中心',
+    activityRecords: '活动记录',
     activityCenterAdmin: '活动中心管理',
     announcements: '公告',
     apiKeys: 'API 密钥',

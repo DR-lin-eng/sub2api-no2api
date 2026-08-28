@@ -230,6 +230,28 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/activity-center/:id',
+    name: 'ActivityCenterDetail',
+    component: () => import('@/features/activity-center/presentation/pages/ActivityCenterDetailPage.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Activity Detail',
+      titleKey: 'activityCenter.detail.title',
+      requiresActivityCenter: true
+    }
+  },
+  {
+    path: '/activity-center/records',
+    name: 'ActivityCenterRecords',
+    component: () => import('@/features/activity-center/presentation/pages/ActivityRecordsPage.vue'),
+    meta: {
+      requiresAuth: true,
+      title: 'Activity Records',
+      titleKey: 'activityCenter.records.title'
+    }
+  },
+  {
     path: '/keys',
     name: 'Keys',
     component: () => import('@/features/keys/presentation/pages/KeysPage.vue'),
@@ -643,6 +665,24 @@ const routes: RouteRecordRaw[] = [
       titleKey: 'admin.activityCenter.title',
       descriptionKey: 'admin.activityCenter.description'
     }
+  },
+  {
+    path: '/admin/activity-center/campaigns/new',
+    name: 'AdminActivityCenterCampaignCreate',
+    component: () => import('@/features/activity-center/presentation/pages/AdminActivityCenterPage.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Create Activity' }
+  },
+  {
+    path: '/admin/activity-center/records',
+    name: 'AdminActivityCenterRecords',
+    component: () => import('@/features/activity-center/presentation/pages/AdminActivityRecordsPage.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true, title: 'Activity Records', titleKey: 'admin.activityCenter.records.title' }
+  },
+  {
+    path: '/admin/activity-center/campaigns/:id/edit',
+    name: 'AdminActivityCenterCampaignEdit',
+    component: () => import('@/features/activity-center/presentation/pages/AdminActivityCenterPage.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Edit Activity' }
   },
   {
     path: '/admin/support',

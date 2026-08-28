@@ -129,10 +129,12 @@ func RegisterUserRoutes(
 		// 活动中心（用户可见）
 		activityCenter := authenticated.Group("/activity-center", middleware.ActivityCenterFeatureGuard(settingService))
 		{
+			activityCenter.GET("/records", h.ActivityCenter.ListMyRecords)
 			campaigns := activityCenter.Group("/campaigns")
 			{
 				campaigns.GET("", h.ActivityCenter.ListCampaigns)
 				campaigns.GET("/:id", h.ActivityCenter.GetCampaign)
+				campaigns.POST("/:id/participate", h.ActivityCenter.Participate)
 			}
 		}
 

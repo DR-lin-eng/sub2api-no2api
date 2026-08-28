@@ -788,6 +788,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   }
   items.push(
     { path: '/activity-center', label: t('nav.activityCenter'), icon: GiftIcon, featureFlag: flagActivityCenter },
+    { path: '/activity-center/records', label: t('nav.activityRecords'), icon: OrderIcon, featureFlag: flagActivityCenter },
     { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
     { path: '/batch-image', label: t('nav.batchImage'), icon: BatchImageIcon, hideInSimpleMode: true, featureFlag: flagBatchImageAccess },
     { path: '/media-studio', label: t('nav.mediaStudio'), icon: MediaStudioIcon, hideInSimpleMode: true, featureFlag: flagMediaStudio },
@@ -870,6 +871,7 @@ const adminNavItems = computed((): NavItem[] => {
     { path: '/admin/account-inspection', label: t('nav.accountInspection'), icon: SignalIcon },
     { path: '/admin/announcements', label: t('nav.announcements'), icon: BellIcon },
     { path: '/admin/activity-center/campaigns', label: t('nav.activityCenterAdmin'), icon: GiftIcon },
+    { path: '/admin/activity-center/records', label: t('nav.activityRecords'), icon: OrderIcon },
     { path: '/admin/support', label: t('nav.supportInbox'), icon: SupportChatIcon, featureFlag: flagSupportChat },
     { path: '/admin/proxies', label: t('nav.proxies'), icon: ServerIcon },
     { path: '/admin/egress', label: t('nav.ipv6Egress'), icon: GlobeIcon, featureFlag: flagIPv6Egress },

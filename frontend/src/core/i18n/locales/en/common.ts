@@ -165,6 +165,7 @@ export default {
   nav: {
     dashboard: 'Dashboard',
     activityCenter: 'Activity Center',
+    activityRecords: 'Activity records',
     activityCenterAdmin: 'Activity Center',
     announcements: 'Announcements',
     apiKeys: 'API Keys',
