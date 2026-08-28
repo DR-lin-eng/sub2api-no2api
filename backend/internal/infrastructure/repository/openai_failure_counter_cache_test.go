@@ -18,7 +18,7 @@ func TestOpenAIFailureCounterCacheIsAtomicAndResettable(t *testing.T) {
 	defer mini.Close()
 
 	client := redis.NewClient(&redis.Options{Addr: mini.Addr()})
-	defer client.Close()
+	t.Cleanup(func() { require.NoError(t, client.Close()) })
 	counter, ok := NewOpenAIFailureCounterCache(client).(*openAIFailureCounterCache)
 	require.True(t, ok)
 
