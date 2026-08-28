@@ -1,41 +1,17 @@
 export default {
   activityCenter: {
     title: 'Activity Center',
-    description: 'Browse active campaigns, inspect their details, and keep the user-facing hub ready for real data.',
-    heroBadge: 'Campaign hub',
+    description: 'Browse activities, lotteries, and rewards currently open to you.',
     refresh: 'Refresh view',
     noBanner: 'No banner',
     noSubtitle: 'No subtitle',
     noContent: 'No content',
     noReference: 'No reference',
     noTime: 'Not set',
-    sortOrder: 'Sort #{value}',
-    metrics: {
-      live: 'Live activities',
-      scheduled: 'Scheduled',
-      drafts: 'Drafts',
-      lottery: 'Lottery',
-    },
     filters: {
       searchPlaceholder: 'Search activities...',
       typeLabel: 'Type',
-      statusLabel: 'Status',
       allTypes: 'All types',
-      allStatus: 'All status',
-    },
-    tabs: {
-      all: 'All',
-      live: 'Live',
-      upcoming: 'Upcoming',
-    },
-    status: {
-      live: 'Live',
-      upcoming: 'Upcoming',
-      scheduled: 'Scheduled',
-      ended: 'Ended',
-      draft: 'Draft',
-      active: 'Active',
-      archived: 'Archived',
     },
     types: {
       lottery: 'Lottery',
@@ -43,22 +19,12 @@ export default {
       external_link: 'External link',
       custom: 'Custom',
     },
-    selected: {
-      title: 'Selected activity',
-    },
     fields: {
       startsAt: 'Starts at',
       endsAt: 'Ends at',
-      content: 'Content',
-      refId: 'Reference',
-      sortOrder: 'Sort order',
-    },
-    rules: {
-      title: 'Participation rules',
-      one: 'Campaigns are read from the backend and stay hidden until they are active.',
-      two: 'Only the current time window is shown to users.',
-      three: 'Administrators can manage drafts, schedules, and references from the admin console.',
-      four: 'This first phase is list/detail only; interactions come later.',
+      startsAtValue: 'Starts {value}',
+      endsAtValue: 'Ends {value}',
+      content: 'Activity details',
     },
     empty: {
       title: 'No activities matched',

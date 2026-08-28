@@ -448,6 +448,7 @@ export interface ActivityCampaign {
   title: string
   subtitle: string
   banner_url: string
+  banner_html: string
   type: ActivityCampaignType
   ref_id: string
   status: ActivityCampaignStatus
@@ -460,10 +461,24 @@ export interface ActivityCampaign {
   updated_at: string
 }
 
+export interface UserActivityCampaign {
+  id: number
+  title: string
+  subtitle: string
+  banner_url: string
+  banner_html: string
+  type: ActivityCampaignType
+  ref_id: string
+  starts_at?: string
+  ends_at?: string
+  content: string
+}
+
 export interface CreateActivityCampaignRequest {
   title: string
   subtitle?: string
   banner_url?: string
+  banner_html?: string
   type?: ActivityCampaignType
   ref_id?: string
   status?: ActivityCampaignStatus
@@ -477,6 +492,7 @@ export interface UpdateActivityCampaignRequest {
   title?: string
   subtitle?: string
   banner_url?: string
+  banner_html?: string
   type?: ActivityCampaignType
   ref_id?: string
   status?: ActivityCampaignStatus

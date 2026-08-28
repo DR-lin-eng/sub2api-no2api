@@ -496,7 +496,9 @@ export default {
       form: {
         title: '标题',
         subtitle: '副标题',
-        bannerUrl: '横幅地址',
+        bannerHtml: '横幅 HTML',
+        bannerHtmlPlaceholder: '<div class="...">活动横幅内容</div>',
+        bannerHtmlHint: '用户端活动卡片会展示这段 HTML 横幅。',
         type: '类型',
         status: '状态',
         startsAt: '开始时间',

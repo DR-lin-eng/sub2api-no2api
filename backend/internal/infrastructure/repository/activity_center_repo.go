@@ -36,14 +36,15 @@ func (r *activityCenterRepository) Create(ctx context.Context, campaign *activit
 
 	row := r.db.QueryRowContext(ctx, `
 INSERT INTO act_campaigns (
-	title, subtitle, banner_url, type, ref_id, status, starts_at, ends_at,
+	title, subtitle, banner_url, banner_html, type, ref_id, status, starts_at, ends_at,
 	sort_order, content, created_by
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING id, created_at, updated_at
 `,
 		campaign.Title,
 		campaign.Subtitle,
 		campaign.BannerURL,
+		campaign.BannerHTML,
 		campaign.Type,
 		campaign.RefID,
 		campaign.Status,
@@ -83,13 +84,14 @@ UPDATE act_campaigns
 SET title = $2,
     subtitle = $3,
     banner_url = $4,
-    type = $5,
-    ref_id = $6,
-    status = $7,
-    starts_at = $8,
-    ends_at = $9,
-    sort_order = $10,
-    content = $11,
+    banner_html = $5,
+    type = $6,
+    ref_id = $7,
+    status = $8,
+    starts_at = $9,
+    ends_at = $10,
+    sort_order = $11,
+    content = $12,
     updated_at = NOW()
 WHERE id = $1 AND deleted_at IS NULL
 RETURNING updated_at
@@ -98,6 +100,7 @@ RETURNING updated_at
 		campaign.Title,
 		campaign.Subtitle,
 		campaign.BannerURL,
+		campaign.BannerHTML,
 		campaign.Type,
 		campaign.RefID,
 		campaign.Status,
@@ -147,7 +150,7 @@ func (r *activityCenterRepository) List(
 	orderBy := activityCampaignOrderBy(params)
 	args = append(args, params.Limit(), params.Offset())
 	rows, err := r.db.QueryContext(ctx, `
-SELECT id, title, subtitle, banner_url, type, ref_id, status, starts_at, ends_at,
+SELECT id, title, subtitle, banner_url, banner_html, type, ref_id, status, starts_at, ends_at,
        sort_order, content, created_by, created_at, updated_at
 FROM act_campaigns
 `+where+orderBy+`
@@ -167,7 +170,7 @@ LIMIT $`+fmt.Sprint(len(args)-1)+` OFFSET $`+fmt.Sprint(len(args))+`
 
 func (r *activityCenterRepository) ListVisible(ctx context.Context, now time.Time) ([]activitycenter.Campaign, error) {
 	rows, err := r.db.QueryContext(ctx, `
-SELECT id, title, subtitle, banner_url, type, ref_id, status, starts_at, ends_at,
+SELECT id, title, subtitle, banner_url, banner_html, type, ref_id, status, starts_at, ends_at,
        sort_order, content, created_by, created_at, updated_at
 FROM act_campaigns
 WHERE deleted_at IS NULL
@@ -186,7 +189,7 @@ LIMIT 200
 
 func (r *activityCenterRepository) getOne(ctx context.Context, where string, args ...any) (*activitycenter.Campaign, error) {
 	row := r.db.QueryRowContext(ctx, `
-SELECT id, title, subtitle, banner_url, type, ref_id, status, starts_at, ends_at,
+SELECT id, title, subtitle, banner_url, banner_html, type, ref_id, status, starts_at, ends_at,
        sort_order, content, created_by, created_at, updated_at
 FROM act_campaigns
 `+where+`
@@ -269,6 +272,7 @@ func scanActivityCampaign(scanner activityCampaignScanner) (*activitycenter.Camp
 		&item.Title,
 		&item.Subtitle,
 		&item.BannerURL,
+		&item.BannerHTML,
 		&item.Type,
 		&item.RefID,
 		&item.Status,

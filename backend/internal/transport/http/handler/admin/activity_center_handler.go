@@ -23,29 +23,31 @@ func NewActivityCenterHandler(service *activitycenter.Service) *ActivityCenterHa
 }
 
 type CreateActivityCampaignRequest struct {
-	Title     string `json:"title" binding:"required"`
-	Subtitle  string `json:"subtitle"`
-	BannerURL string `json:"banner_url"`
-	Type      string `json:"type" binding:"omitempty,oneof=lottery redeem external_link custom"`
-	RefID     string `json:"ref_id"`
-	Status    string `json:"status" binding:"omitempty,oneof=draft active archived"`
-	StartsAt  *int64 `json:"starts_at"`
-	EndsAt    *int64 `json:"ends_at"`
-	SortOrder int    `json:"sort_order"`
-	Content   string `json:"content"`
+	Title      string `json:"title" binding:"required"`
+	Subtitle   string `json:"subtitle"`
+	BannerURL  string `json:"banner_url"`
+	BannerHTML string `json:"banner_html"`
+	Type       string `json:"type" binding:"omitempty,oneof=lottery redeem external_link custom"`
+	RefID      string `json:"ref_id"`
+	Status     string `json:"status" binding:"omitempty,oneof=draft active archived"`
+	StartsAt   *int64 `json:"starts_at"`
+	EndsAt     *int64 `json:"ends_at"`
+	SortOrder  int    `json:"sort_order"`
+	Content    string `json:"content"`
 }
 
 type UpdateActivityCampaignRequest struct {
-	Title     *string `json:"title"`
-	Subtitle  *string `json:"subtitle"`
-	BannerURL *string `json:"banner_url"`
-	Type      *string `json:"type" binding:"omitempty,oneof=lottery redeem external_link custom"`
-	RefID     *string `json:"ref_id"`
-	Status    *string `json:"status" binding:"omitempty,oneof=draft active archived"`
-	StartsAt  *int64  `json:"starts_at"`
-	EndsAt    *int64  `json:"ends_at"`
-	SortOrder *int    `json:"sort_order"`
-	Content   *string `json:"content"`
+	Title      *string `json:"title"`
+	Subtitle   *string `json:"subtitle"`
+	BannerURL  *string `json:"banner_url"`
+	BannerHTML *string `json:"banner_html"`
+	Type       *string `json:"type" binding:"omitempty,oneof=lottery redeem external_link custom"`
+	RefID      *string `json:"ref_id"`
+	Status     *string `json:"status" binding:"omitempty,oneof=draft active archived"`
+	StartsAt   *int64  `json:"starts_at"`
+	EndsAt     *int64  `json:"ends_at"`
+	SortOrder  *int    `json:"sort_order"`
+	Content    *string `json:"content"`
 }
 
 func (h *ActivityCenterHandler) ListCampaigns(c *gin.Context) {
@@ -114,15 +116,16 @@ func (h *ActivityCenterHandler) CreateCampaign(c *gin.Context) {
 	}
 
 	input := &activitycenter.CreateInput{
-		Title:     req.Title,
-		Subtitle:  req.Subtitle,
-		BannerURL: req.BannerURL,
-		Type:      req.Type,
-		RefID:     req.RefID,
-		Status:    req.Status,
-		SortOrder: req.SortOrder,
-		Content:   req.Content,
-		ActorID:   &subject.UserID,
+		Title:      req.Title,
+		Subtitle:   req.Subtitle,
+		BannerURL:  req.BannerURL,
+		BannerHTML: req.BannerHTML,
+		Type:       req.Type,
+		RefID:      req.RefID,
+		Status:     req.Status,
+		SortOrder:  req.SortOrder,
+		Content:    req.Content,
+		ActorID:    &subject.UserID,
 	}
 	if req.StartsAt != nil && *req.StartsAt > 0 {
 		t := time.Unix(*req.StartsAt, 0)
@@ -158,14 +161,15 @@ func (h *ActivityCenterHandler) UpdateCampaign(c *gin.Context) {
 	}
 
 	input := &activitycenter.UpdateInput{
-		Title:     req.Title,
-		Subtitle:  req.Subtitle,
-		BannerURL: req.BannerURL,
-		Type:      req.Type,
-		RefID:     req.RefID,
-		Status:    req.Status,
-		SortOrder: req.SortOrder,
-		Content:   req.Content,
+		Title:      req.Title,
+		Subtitle:   req.Subtitle,
+		BannerURL:  req.BannerURL,
+		BannerHTML: req.BannerHTML,
+		Type:       req.Type,
+		RefID:      req.RefID,
+		Status:     req.Status,
+		SortOrder:  req.SortOrder,
+		Content:    req.Content,
 	}
 	if req.StartsAt != nil {
 		if *req.StartsAt == 0 {

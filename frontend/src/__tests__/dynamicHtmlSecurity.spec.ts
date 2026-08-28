@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const srcDir = resolve(currentDir, '..')
+const normalizeSourcePath = (path: string) => path.replace(/\\/g, '/')
 
 function collectRuntimeSources(directory: string): Array<{ path: string; source: string }> {
   const sources: Array<{ path: string; source: string }> = []
@@ -17,7 +18,7 @@ function collectRuntimeSources(directory: string): Array<{ path: string; source:
     }
     if (!new Set(['.ts', '.vue']).has(extname(entry.name))) continue
     sources.push({
-      path: relative(srcDir, absolutePath),
+      path: normalizeSourcePath(relative(srcDir, absolutePath)),
       source: readFileSync(absolutePath, 'utf8'),
     })
   }
@@ -37,10 +38,13 @@ const expectedVHtmlSinks = [
   'common/widgets/layout/AppSidebar.vue:sanitizeSvg(item.iconSvg)',
   'common/widgets/layout/AppSidebar.vue:sanitizeSvg(item.iconSvg)',
   'features/admin-settings/presentation/widgets/AdminComplianceDialog.vue:renderedDocument',
+  'features/activity-center/presentation/pages/ActivityCenterPage.vue:sanitizeBannerHtml(campaign.banner_html)',
   'features/channels-user/presentation/pages/CustomLandingPage.vue:renderedHtml',
   'features/keys/presentation/pages/KeyUsagePage.vue:row.iconSvg',
   'features/keys/presentation/widgets/UseKeyDialog.vue:file.highlighted',
   'features/model-plaza/presentation/widgets/ModelPlazaContent.vue:descriptionHtml',
+  'features/support-chat/presentation/widgets/SupportMessageComposer.vue:customReplyPreview',
+  'features/support-chat/presentation/widgets/SupportMessageList.vue:message.parsed.html',
 ].sort()
 
 const requiredSafetySignals: Record<string, string> = {
@@ -51,10 +55,14 @@ const requiredSafetySignals: Record<string, string> = {
   'common/widgets/data/ImageUpload.vue': 'sanitizeSvg',
   'common/widgets/layout/AppSidebar.vue': 'sanitizeSvg',
   'features/admin-settings/presentation/widgets/AdminComplianceDialog.vue': 'DOMPurify.sanitize',
+  'features/activity-center/presentation/pages/ActivityCenterPage.vue': 'DOMPurify.sanitize',
   'features/channels-user/presentation/pages/CustomLandingPage.vue': 'sanitizeCustomPageHtml',
   'features/keys/presentation/pages/KeyUsagePage.vue': 'iconSvg: ICON_',
   'features/keys/presentation/widgets/UseKeyDialog.vue': 'const escapeHtml',
   'features/model-plaza/presentation/widgets/ModelPlazaContent.vue': 'DOMPurify.sanitize',
+  'features/support-chat/presentation/widgets/SupportMessageComposer.vue': 'sanitizeChatHtml',
+  'features/support-chat/presentation/widgets/SupportMessageList.vue': 'parseSupportMessageContent',
+  'features/support-chat/presentation/utils/supportChatMessageContent.ts': 'sanitizeChatHtml',
 }
 
 describe('dynamic HTML security boundary', () => {

@@ -1,13 +1,13 @@
 import { apiClient } from '@/core/networks/client'
-import type { ActivityCampaign } from '@/types'
+import type { UserActivityCampaign } from '@/types'
 
-export async function list(): Promise<ActivityCampaign[]> {
-  const { data } = await apiClient.get<ActivityCampaign[]>('/activity-center/campaigns')
+export async function list(): Promise<UserActivityCampaign[]> {
+  const { data } = await apiClient.get<UserActivityCampaign[]>('/activity-center/campaigns')
   return data
 }
 
-export async function getById(id: number): Promise<ActivityCampaign> {
-  const { data } = await apiClient.get<ActivityCampaign>(`/activity-center/campaigns/${id}`)
+export async function getById(id: number): Promise<UserActivityCampaign> {
+  const { data } = await apiClient.get<UserActivityCampaign>(`/activity-center/campaigns/${id}`)
   return data
 }
 

@@ -37,20 +37,21 @@ var (
 )
 
 type Campaign struct {
-	ID        int64
-	Title     string
-	Subtitle  string
-	BannerURL string
-	Type      string
-	RefID     string
-	Status    string
-	StartsAt  *time.Time
-	EndsAt    *time.Time
-	SortOrder int
-	Content   string
-	CreatedBy *int64
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID         int64
+	Title      string
+	Subtitle   string
+	BannerURL  string
+	BannerHTML string
+	Type       string
+	RefID      string
+	Status     string
+	StartsAt   *time.Time
+	EndsAt     *time.Time
+	SortOrder  int
+	Content    string
+	CreatedBy  *int64
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 func (c *Campaign) IsVisibleAt(now time.Time) bool {
@@ -94,30 +95,32 @@ func NewService(repo Repository) *Service {
 }
 
 type CreateInput struct {
-	Title     string
-	Subtitle  string
-	BannerURL string
-	Type      string
-	RefID     string
-	Status    string
-	StartsAt  *time.Time
-	EndsAt    *time.Time
-	SortOrder int
-	Content   string
-	ActorID   *int64
+	Title      string
+	Subtitle   string
+	BannerURL  string
+	BannerHTML string
+	Type       string
+	RefID      string
+	Status     string
+	StartsAt   *time.Time
+	EndsAt     *time.Time
+	SortOrder  int
+	Content    string
+	ActorID    *int64
 }
 
 type UpdateInput struct {
-	Title     *string
-	Subtitle  *string
-	BannerURL *string
-	Type      *string
-	RefID     *string
-	Status    *string
-	StartsAt  **time.Time
-	EndsAt    **time.Time
-	SortOrder *int
-	Content   *string
+	Title      *string
+	Subtitle   *string
+	BannerURL  *string
+	BannerHTML *string
+	Type       *string
+	RefID      *string
+	Status     *string
+	StartsAt   **time.Time
+	EndsAt     **time.Time
+	SortOrder  *int
+	Content    *string
 }
 
 func (s *Service) Create(ctx context.Context, input *CreateInput) (*Campaign, error) {
@@ -126,16 +129,17 @@ func (s *Service) Create(ctx context.Context, input *CreateInput) (*Campaign, er
 	}
 
 	campaign := &Campaign{
-		Title:     input.Title,
-		Subtitle:  input.Subtitle,
-		BannerURL: input.BannerURL,
-		Type:      input.Type,
-		RefID:     input.RefID,
-		Status:    input.Status,
-		StartsAt:  input.StartsAt,
-		EndsAt:    input.EndsAt,
-		SortOrder: input.SortOrder,
-		Content:   input.Content,
+		Title:      input.Title,
+		Subtitle:   input.Subtitle,
+		BannerURL:  input.BannerURL,
+		BannerHTML: input.BannerHTML,
+		Type:       input.Type,
+		RefID:      input.RefID,
+		Status:     input.Status,
+		StartsAt:   input.StartsAt,
+		EndsAt:     input.EndsAt,
+		SortOrder:  input.SortOrder,
+		Content:    input.Content,
 	}
 	if input.ActorID != nil && *input.ActorID > 0 {
 		campaign.CreatedBy = input.ActorID
@@ -167,6 +171,9 @@ func (s *Service) Update(ctx context.Context, id int64, input *UpdateInput) (*Ca
 	}
 	if input.BannerURL != nil {
 		campaign.BannerURL = *input.BannerURL
+	}
+	if input.BannerHTML != nil {
+		campaign.BannerHTML = *input.BannerHTML
 	}
 	if input.Type != nil {
 		campaign.Type = *input.Type
@@ -237,6 +244,7 @@ func normalizeCampaign(c *Campaign) error {
 	c.Title = strings.TrimSpace(c.Title)
 	c.Subtitle = strings.TrimSpace(c.Subtitle)
 	c.BannerURL = strings.TrimSpace(c.BannerURL)
+	c.BannerHTML = strings.TrimSpace(c.BannerHTML)
 	c.Type = strings.TrimSpace(c.Type)
 	c.RefID = strings.TrimSpace(c.RefID)
 	c.Status = strings.TrimSpace(c.Status)
@@ -249,6 +257,9 @@ func normalizeCampaign(c *Campaign) error {
 		return ErrCampaignSubtitleInvalid
 	}
 	if len(c.BannerURL) > 500 {
+		return ErrCampaignBannerInvalid
+	}
+	if len(c.BannerHTML) > 20000 {
 		return ErrCampaignBannerInvalid
 	}
 	if len(c.RefID) > 200 {

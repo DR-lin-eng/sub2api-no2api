@@ -78,7 +78,7 @@ describe('ActivityCenterPage', () => {
     expect(listMock).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('Spring Bonus')
     expect(wrapper.text()).toContain('External Link')
-    expect(wrapper.text()).toContain('activityCenter.rules.title')
+    expect(wrapper.text()).not.toContain('Campaign content one')
   })
 
   it('filters campaigns and updates the detail panel', async () => {
@@ -91,12 +91,6 @@ describe('ActivityCenterPage', () => {
     expect(wrapper.text()).toContain('External Link')
     expect(wrapper.text()).not.toContain('Spring Bonus')
 
-    const campaignButton = wrapper.findAll('button').find((button) => button.text().includes('External Link'))
-    expect(campaignButton).toBeTruthy()
-    await campaignButton!.trigger('click')
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('activityCenter.selected.title')
-    expect(wrapper.text()).toContain('Campaign content two')
+    expect(wrapper.text()).not.toContain('Campaign content two')
   })
 })

@@ -29,9 +29,9 @@ func (h *ActivityCenterHandler) ListCampaigns(c *gin.Context) {
 		return
 	}
 
-	out := make([]dto.ActivityCampaign, 0, len(items))
+	out := make([]dto.UserActivityCampaign, 0, len(items))
 	for i := range items {
-		out = append(out, *dto.ActivityCampaignFromService(&items[i]))
+		out = append(out, *dto.UserActivityCampaignFromService(&items[i]))
 	}
 	response.Success(c, out)
 }
@@ -52,5 +52,5 @@ func (h *ActivityCenterHandler) GetCampaign(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, dto.ActivityCampaignFromService(item))
+	response.Success(c, dto.UserActivityCampaignFromService(item))
 }

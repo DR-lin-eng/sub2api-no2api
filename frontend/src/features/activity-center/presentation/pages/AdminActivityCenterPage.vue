@@ -113,8 +113,9 @@
           <input v-model="form.subtitle" class="input" />
         </div>
         <div>
-          <label class="input-label">{{ t('admin.activityCenter.form.bannerUrl') }}</label>
-          <input v-model="form.banner_url" class="input" placeholder="https://" />
+          <label class="input-label">{{ t('admin.activityCenter.form.bannerHtml') }}</label>
+          <textarea v-model="form.banner_html" rows="4" class="input" :placeholder="t('admin.activityCenter.form.bannerHtmlPlaceholder')"></textarea>
+          <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t('admin.activityCenter.form.bannerHtmlHint') }}</p>
         </div>
         <div class="grid gap-4 md:grid-cols-2">
           <div>
@@ -225,7 +226,7 @@ const sortState = reactive({
 const form = reactive({
   title: '',
   subtitle: '',
-  banner_url: '',
+  banner_html: '',
   type: 'custom' as ActivityCampaign['type'],
   ref_id: '',
   status: 'draft' as ActivityCampaign['status'],
@@ -266,7 +267,7 @@ const formStatusOptions = computed(() => statusOptions.value.filter((item) => it
 function resetForm() {
   form.title = ''
   form.subtitle = ''
-  form.banner_url = ''
+  form.banner_html = ''
   form.type = 'custom'
   form.ref_id = ''
   form.status = 'draft'
@@ -279,7 +280,7 @@ function resetForm() {
 function fillForm(item: ActivityCampaign) {
   form.title = item.title
   form.subtitle = item.subtitle
-  form.banner_url = item.banner_url
+  form.banner_html = item.banner_html || ''
   form.type = item.type
   form.ref_id = item.ref_id
   form.status = item.status
@@ -402,7 +403,8 @@ async function handleSave() {
     const payload = {
       title: form.title,
       subtitle: form.subtitle,
-      banner_url: form.banner_url,
+      banner_url: '',
+      banner_html: form.banner_html,
       type: form.type,
       ref_id: form.ref_id,
       status: form.status,

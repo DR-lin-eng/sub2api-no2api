@@ -133,7 +133,5 @@ function normalizeStickerEmoji(name: string, emoji: string): string {
 }
 
 function decodeHtmlEntity(value: string): string {
-  const textarea = document.createElement('textarea')
-  textarea.innerHTML = value
-  return textarea.value
+  return new DOMParser().parseFromString(value, 'text/html').documentElement.textContent || ''
 }

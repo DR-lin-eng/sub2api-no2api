@@ -1,41 +1,17 @@
 export default {
   activityCenter: {
     title: '活动中心',
-    description: '查看正在启用的活动，检查详情，并把活动中心接到真实数据上。',
-    heroBadge: '活动总览',
+    description: '查看当前可参与的活动、抽奖和奖励内容。',
     refresh: '刷新视图',
     noBanner: '暂无横幅',
     noSubtitle: '暂无副标题',
     noContent: '暂无内容',
     noReference: '暂无关联',
     noTime: '未设置',
-    sortOrder: '排序 #{value}',
-    metrics: {
-      live: '进行中活动',
-      scheduled: '已排期',
-      drafts: '草稿',
-      lottery: '抽奖',
-    },
     filters: {
       searchPlaceholder: '搜索活动...',
       typeLabel: '类型',
-      statusLabel: '状态',
       allTypes: '全部类型',
-      allStatus: '全部状态',
-    },
-    tabs: {
-      all: '全部',
-      live: '进行中',
-      upcoming: '待开启',
-    },
-    status: {
-      live: '进行中',
-      upcoming: '待开启',
-      scheduled: '已排期',
-      ended: '已结束',
-      draft: '草稿',
-      active: '启用',
-      archived: '已归档',
     },
     types: {
       lottery: '抽奖',
@@ -43,22 +19,12 @@ export default {
       external_link: '外链',
       custom: '自定义',
     },
-    selected: {
-      title: '活动详情',
-    },
     fields: {
       startsAt: '开始时间',
       endsAt: '结束时间',
-      content: '正文',
-      refId: '关联标识',
-      sortOrder: '排序',
-    },
-    rules: {
-      title: '使用规则',
-      one: '活动数据来自后端，只有处于启用且在时间窗口内的内容才会显示。',
-      two: '到达时间窗口外的内容不会对用户展示。',
-      three: '管理员可以在后台维护草稿、排期和关联信息。',
-      four: '当前一期只做列表和详情，交互动作后续再补。',
+      startsAtValue: '{value} 开始',
+      endsAtValue: '{value} 截止',
+      content: '活动详情',
     },
     empty: {
       title: '没有匹配的活动',

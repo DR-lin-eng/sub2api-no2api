@@ -499,7 +499,9 @@ export default {
       form: {
         title: 'Title',
         subtitle: 'Subtitle',
-        bannerUrl: 'Banner URL',
+        bannerHtml: 'Banner HTML',
+        bannerHtmlPlaceholder: '<div class="...">Campaign banner content</div>',
+        bannerHtmlHint: 'The user activity card renders this HTML banner.',
         type: 'Type',
         status: 'Status',
         startsAt: 'Starts At',
