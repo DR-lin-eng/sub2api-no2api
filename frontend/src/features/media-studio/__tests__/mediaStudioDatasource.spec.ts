@@ -1,13 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  getVideoGenerationContent,
-  getVideoGenerationTask,
-  isMediaStudioImageModel,
-  isMediaStudioVideoModel,
-  normalizeMediaStudioVideoTask,
+	getVideoGenerationContent,
+	getVideoGenerationTask,
+	normalizeMediaStudioVideoTask,
   submitImageGeneration,
   submitVideoGeneration,
 } from '@/features/media-studio/data/datasources/mediaStudioDatasource'
+import {
+	isMediaStudioImageModel,
+	isMediaStudioVideoModel,
+} from '@/features/custom-model-config/domain/services/modelCapabilityService'
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(body), {

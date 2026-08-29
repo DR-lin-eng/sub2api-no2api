@@ -24,7 +24,7 @@ const cards = [
     marker: 'Codex OAuth A/B Simulation Settings',
     component: 'SettingsCodexSimulationCard',
     file: 'SettingsCodexSimulationCard.vue',
-    templateHash: '1d4e87cd0b532b43654adcb15a19c61f711dfc3190b06c4e812d3557ad80baa6',
+		templateHash: '0928b5c0cb00f36c97b69ce5b1f1be4b7defaad8311efd9ed966e677fbb5d1b4',
   },
   {
     marker: 'Global Temporary Unschedulable Settings',
@@ -42,7 +42,7 @@ const cards = [
     marker: 'Rate Limit Cooldown (429) Settings',
     component: 'SettingsRateLimit429CooldownCard',
     file: 'SettingsRateLimit429CooldownCard.vue',
-    templateHash: '03e7f2146afd6b38ad12f5bd7b1f077d5124bde4f72f3361f893c0859eb651dc',
+		templateHash: 'f67ee648a29bf97f05eec63478c731950b7981b3058475ca107b5d2923ebf3eb',
   },
   {
     marker: 'Stream Timeout Settings',

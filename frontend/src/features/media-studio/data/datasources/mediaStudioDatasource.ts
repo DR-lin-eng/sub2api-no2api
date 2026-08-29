@@ -1,4 +1,23 @@
-import { buildGatewayUrl } from '@/core/networks/client'
+import { apiClient, buildGatewayUrl } from '@/core/networks/client'
+
+export type MediaStudioMediaType = 'image' | 'video' | 'audio'
+
+export interface MediaStudioGroupOption {
+  group_id: number
+  group_name: string
+  platform: string
+  models?: string[]
+}
+
+export interface MediaStudioConfig {
+  groups: MediaStudioGroupOption[]
+}
+
+export interface MediaStudioSession {
+  api_key: string
+  group_id: number
+  media_type: MediaStudioMediaType
+}
 
 export interface MediaStudioModel {
   id: string
@@ -7,6 +26,14 @@ export interface MediaStudioModel {
   displayName?: string
   owned_by?: string
   ownedBy?: string
+  supported_parameters?: string[]
+  supportedParameters?: string[]
+  supported_sizes?: string[]
+  supportedSizes?: string[]
+  supported_qualities?: string[]
+  supportedQualities?: string[]
+  supports_quality?: boolean
+  supportsQuality?: boolean
   [key: string]: unknown
 }
 
@@ -22,6 +49,22 @@ export interface MediaStudioImageSubmitRequest {
   size?: string
   quality?: string
   response_format?: 'b64_json' | 'url'
+}
+
+export async function getMediaStudioConfig(): Promise<MediaStudioConfig> {
+  const { data } = await apiClient.get<MediaStudioConfig>('/media-studio/config')
+  return data
+}
+
+export async function createMediaStudioSession(
+  mediaType: MediaStudioMediaType,
+  groupId: number,
+): Promise<MediaStudioSession> {
+  const { data } = await apiClient.post<MediaStudioSession>('/media-studio/session', {
+    media_type: mediaType,
+    group_id: groupId,
+  })
+  return data
 }
 
 export interface MediaStudioGeneratedImage {
@@ -131,6 +174,21 @@ function normalizeVideoRequestID(value: unknown): string {
   return id
 }
 
+function extractVideoTaskID(raw: Record<string, unknown>): string {
+  const data = recordValue(raw.data)
+  const result = recordValue(raw.result)
+  const video = recordValue(raw.video)
+
+  // 支持多个可能的位置
+  const taskID = raw.request_id ?? raw.requestId ?? raw.id ??
+    data.request_id ?? data.id ??
+    video.request_id ?? video.id ??
+    result.request_id ?? result.id ??
+    raw.task_id ?? data.task_id ?? video.task_id
+
+  return normalizeVideoRequestID(taskID ?? '')
+}
+
 function normalizeVideoStatus(value: unknown): MediaStudioVideoTaskStatus {
   const status = firstString(value).toLowerCase()
   if (['completed', 'complete', 'succeeded', 'success', 'done'].includes(status)) return 'completed'
@@ -138,25 +196,51 @@ function normalizeVideoStatus(value: unknown): MediaStudioVideoTaskStatus {
   return 'processing'
 }
 
+function extractVideoError(raw: Record<string, unknown>): string | undefined {
+  const error = recordValue(raw.error)
+  const data = recordValue(raw.data)
+  const result = recordValue(raw.result)
+
+  // 检查多个可能的错误位置
+  const errorMessage = firstString(
+    error.message,
+    raw.message,
+    raw.error_message,
+    data.error,
+    result.error
+  )
+
+  return errorMessage || undefined
+}
+
 export function normalizeMediaStudioVideoTask(value: unknown, fallbackID = ''): MediaStudioVideoTask {
   const raw = recordValue(value)
   const data = recordValue(raw.data)
   const result = recordValue(raw.result)
-  const error = recordValue(raw.error)
-  const id = normalizeVideoRequestID(
-    raw.request_id ?? raw.requestId ?? raw.id ?? data.request_id ?? data.id ?? result.request_id ?? result.id ?? fallbackID,
-  )
+
+  const id = extractVideoTaskID(raw) || fallbackID
+
   return {
     id,
     status: normalizeVideoStatus(raw.status ?? data.status ?? result.status),
-    error: firstString(error.message, raw.message, data.error, result.error) || undefined,
+    error: extractVideoError(raw),
     raw,
   }
 }
 
-export async function listMediaStudioModels(apiKey: string): Promise<MediaStudioModelsResponse> {
+export async function listMediaStudioModels(
+  _apiKey: string,
+  mediaType?: MediaStudioMediaType,
+  groupId?: number,
+): Promise<MediaStudioModelsResponse> {
+  if (mediaType && groupId) {
+    const { data } = await apiClient.get<MediaStudioModelsResponse>('/media-studio/models', {
+      params: { media_type: mediaType, group_id: groupId },
+    })
+    return data
+  }
   const response = await fetch(buildGatewayUrl('/v1/models'), {
-    headers: authHeaders(apiKey),
+    headers: authHeaders(_apiKey),
   })
   if (!response.ok) throw await parseMediaStudioError(response)
   return response.json()
@@ -197,6 +281,46 @@ export async function submitImageGeneration(
   const createdAt = typeof result.created === 'number' ? result.created : Math.floor(Date.now() / 1000)
   const imageURL = result.data?.find(item => typeof item.url === 'string' && item.url.trim())?.url || ''
   const id = `imgsync_${idempotencyKey.replace(/[^a-zA-Z0-9_]/g, '').slice(-32) || Date.now()}`
+  return {
+    id,
+    task_id: id,
+    object: 'image.generation.task',
+    status: 'completed',
+    http_status: response.status,
+    image_url: imageURL,
+    result,
+    created_at: createdAt,
+    completed_at: Math.floor(Date.now() / 1000),
+    expires_at: Math.floor(Date.now() / 1000) + 86400,
+  }
+}
+
+export async function submitImageEdit(
+  apiKey: string,
+  files: File[],
+  payload: Omit<MediaStudioImageSubmitRequest, 'response_format'>,
+  idempotencyKey: string,
+): Promise<MediaStudioImageTask> {
+  const form = new FormData()
+  form.append('model', payload.model)
+  form.append('prompt', payload.prompt)
+  if (payload.n !== undefined) form.append('n', String(payload.n))
+  if (payload.size) form.append('size', payload.size)
+  if (payload.quality) form.append('quality', payload.quality)
+  for (const file of files) form.append('image', file, file.name)
+
+  const response = await fetch(buildGatewayUrl('/v1/images/edits'), {
+    method: 'POST',
+    headers: authHeaders(apiKey, {
+      'Idempotency-Key': idempotencyKey,
+    }),
+    body: form,
+  })
+  if (!response.ok) throw await parseMediaStudioError(response)
+  const result = await response.json() as MediaStudioImageResult
+  const createdAt = typeof result.created === 'number' ? result.created : Math.floor(Date.now() / 1000)
+  const imageURL = result.data?.find(item => typeof item.url === 'string' && item.url.trim())?.url || ''
+  const id = `imgedit_${idempotencyKey.replace(/[^a-zA-Z0-9_]/g, '').slice(-32) || Date.now()}`
   return {
     id,
     task_id: id,
@@ -319,17 +443,6 @@ export async function getVideoGenerationContent(apiKey: string, taskId: string):
     throw new Error('generated video returned an unsafe content type')
   }
   return blob
-}
-
-export function isMediaStudioImageModel(model: string): boolean {
-  const normalized = model.trim().toLowerCase()
-  return normalized.startsWith('gpt-image-') || (
-    normalized.startsWith('grok-imagine') && !normalized.startsWith('grok-imagine-video')
-  )
-}
-
-export function isMediaStudioVideoModel(model: string): boolean {
-  return model.trim().toLowerCase().startsWith('grok-imagine-video')
 }
 
 export function mediaStudioErrorMessage(error: unknown, fallback: string): string {

@@ -45,6 +45,7 @@ type AdminHandlers struct {
 	Cluster                *admin.ClusterHandler
 	Chat                   *admin.ChatHandler
 	Egress                 *admin.EgressHandler
+	CustomModelConfig      *admin.CustomModelConfigHandler
 }
 
 // Handlers contains all HTTP handlers
@@ -70,6 +71,7 @@ type Handlers struct {
 	AsyncImage       *AsyncImageHandler
 	BatchImage       *BatchImageHandler
 	Chat             *ChatHandler
+	MediaStudio      *MediaStudioHandler
 }
 
 // BuildInfo contains build-time information

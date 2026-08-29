@@ -88,6 +88,14 @@ func RegisterUserRoutes(
 			groups.GET("/rates", h.APIKey.GetUserGroupRates)
 		}
 
+		// 媒体工坊
+		mediaStudio := authenticated.Group("/media-studio")
+		{
+			mediaStudio.GET("/config", h.MediaStudio.GetConfig)
+			mediaStudio.GET("/models", h.MediaStudio.ListModels)
+			mediaStudio.POST("/session", h.MediaStudio.CreateSession)
+		}
+
 		// 用户可用渠道（非管理员接口）
 		channels := authenticated.Group("/channels")
 		{

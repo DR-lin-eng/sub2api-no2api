@@ -36,6 +36,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/chatmessageasset"
 	"github.com/Wei-Shaw/sub2api/ent/chatquickreply"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
+	"github.com/Wei-Shaw/sub2api/ent/custommodelconfig"
+	"github.com/Wei-Shaw/sub2api/ent/custommodelrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -113,6 +115,10 @@ type Client struct {
 	ChatQuickReply *ChatQuickReplyClient
 	// CompositeModelRoute is the client for interacting with the CompositeModelRoute builders.
 	CompositeModelRoute *CompositeModelRouteClient
+	// CustomModelConfig is the client for interacting with the CustomModelConfig builders.
+	CustomModelConfig *CustomModelConfigClient
+	// CustomModelRequestTemplate is the client for interacting with the CustomModelRequestTemplate builders.
+	CustomModelRequestTemplate *CustomModelRequestTemplateClient
 	// ErrorPassthroughRule is the client for interacting with the ErrorPassthroughRule builders.
 	ErrorPassthroughRule *ErrorPassthroughRuleClient
 	// Group is the client for interacting with the Group builders.
@@ -197,6 +203,8 @@ func (c *Client) init() {
 	c.ChatMessageAsset = NewChatMessageAssetClient(c.config)
 	c.ChatQuickReply = NewChatQuickReplyClient(c.config)
 	c.CompositeModelRoute = NewCompositeModelRouteClient(c.config)
+	c.CustomModelConfig = NewCustomModelConfigClient(c.config)
+	c.CustomModelRequestTemplate = NewCustomModelRequestTemplateClient(c.config)
 	c.ErrorPassthroughRule = NewErrorPassthroughRuleClient(c.config)
 	c.Group = NewGroupClient(c.config)
 	c.IPv6EgressPool = NewIPv6EgressPoolClient(c.config)
@@ -336,6 +344,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ChatMessageAsset:              NewChatMessageAssetClient(cfg),
 		ChatQuickReply:                NewChatQuickReplyClient(cfg),
 		CompositeModelRoute:           NewCompositeModelRouteClient(cfg),
+		CustomModelConfig:             NewCustomModelConfigClient(cfg),
+		CustomModelRequestTemplate:    NewCustomModelRequestTemplateClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
 		Group:                         NewGroupClient(cfg),
 		IPv6EgressPool:                NewIPv6EgressPoolClient(cfg),
@@ -402,6 +412,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ChatMessageAsset:              NewChatMessageAssetClient(cfg),
 		ChatQuickReply:                NewChatQuickReplyClient(cfg),
 		CompositeModelRoute:           NewCompositeModelRouteClient(cfg),
+		CustomModelConfig:             NewCustomModelConfigClient(cfg),
+		CustomModelRequestTemplate:    NewCustomModelRequestTemplateClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
 		Group:                         NewGroupClient(cfg),
 		IPv6EgressPool:                NewIPv6EgressPoolClient(cfg),
@@ -463,12 +475,13 @@ func (c *Client) Use(hooks ...Hook) {
 		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
 		c.ChannelMonitorRequestTemplate, c.ChatAsset, c.ChatConversation,
 		c.ChatMessage, c.ChatMessageAsset, c.ChatQuickReply, c.CompositeModelRoute,
-		c.ErrorPassthroughRule, c.Group, c.IPv6EgressPool, c.IdempotencyRecord,
-		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
-		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
-		c.Proxy, c.RedeemCode, c.RedeemCodeUsage, c.SecuritySecret, c.Setting,
-		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
-		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
+		c.CustomModelConfig, c.CustomModelRequestTemplate, c.ErrorPassthroughRule,
+		c.Group, c.IPv6EgressPool, c.IdempotencyRecord, c.IdentityAdoptionDecision,
+		c.PaymentAuditLog, c.PaymentOrder, c.PaymentProviderInstance,
+		c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage, c.Proxy, c.RedeemCode,
+		c.RedeemCodeUsage, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
+		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
+		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
 		c.UserPlatformQuota, c.UserSubscription,
 	} {
 		n.Use(hooks...)
@@ -485,12 +498,13 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
 		c.ChannelMonitorRequestTemplate, c.ChatAsset, c.ChatConversation,
 		c.ChatMessage, c.ChatMessageAsset, c.ChatQuickReply, c.CompositeModelRoute,
-		c.ErrorPassthroughRule, c.Group, c.IPv6EgressPool, c.IdempotencyRecord,
-		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
-		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
-		c.Proxy, c.RedeemCode, c.RedeemCodeUsage, c.SecuritySecret, c.Setting,
-		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
-		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
+		c.CustomModelConfig, c.CustomModelRequestTemplate, c.ErrorPassthroughRule,
+		c.Group, c.IPv6EgressPool, c.IdempotencyRecord, c.IdentityAdoptionDecision,
+		c.PaymentAuditLog, c.PaymentOrder, c.PaymentProviderInstance,
+		c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage, c.Proxy, c.RedeemCode,
+		c.RedeemCodeUsage, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
+		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
+		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
 		c.UserPlatformQuota, c.UserSubscription,
 	} {
 		n.Intercept(interceptors...)
@@ -542,6 +556,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ChatQuickReply.mutate(ctx, m)
 	case *CompositeModelRouteMutation:
 		return c.CompositeModelRoute.mutate(ctx, m)
+	case *CustomModelConfigMutation:
+		return c.CustomModelConfig.mutate(ctx, m)
+	case *CustomModelRequestTemplateMutation:
+		return c.CustomModelRequestTemplate.mutate(ctx, m)
 	case *ErrorPassthroughRuleMutation:
 		return c.ErrorPassthroughRule.mutate(ctx, m)
 	case *GroupMutation:
@@ -3889,6 +3907,272 @@ func (c *CompositeModelRouteClient) mutate(ctx context.Context, m *CompositeMode
 		return (&CompositeModelRouteDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown CompositeModelRoute mutation op: %q", m.Op())
+	}
+}
+
+// CustomModelConfigClient is a client for the CustomModelConfig schema.
+type CustomModelConfigClient struct {
+	config
+}
+
+// NewCustomModelConfigClient returns a client for the CustomModelConfig from the given config.
+func NewCustomModelConfigClient(c config) *CustomModelConfigClient {
+	return &CustomModelConfigClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `custommodelconfig.Hooks(f(g(h())))`.
+func (c *CustomModelConfigClient) Use(hooks ...Hook) {
+	c.hooks.CustomModelConfig = append(c.hooks.CustomModelConfig, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `custommodelconfig.Intercept(f(g(h())))`.
+func (c *CustomModelConfigClient) Intercept(interceptors ...Interceptor) {
+	c.inters.CustomModelConfig = append(c.inters.CustomModelConfig, interceptors...)
+}
+
+// Create returns a builder for creating a CustomModelConfig entity.
+func (c *CustomModelConfigClient) Create() *CustomModelConfigCreate {
+	mutation := newCustomModelConfigMutation(c.config, OpCreate)
+	return &CustomModelConfigCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of CustomModelConfig entities.
+func (c *CustomModelConfigClient) CreateBulk(builders ...*CustomModelConfigCreate) *CustomModelConfigCreateBulk {
+	return &CustomModelConfigCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *CustomModelConfigClient) MapCreateBulk(slice any, setFunc func(*CustomModelConfigCreate, int)) *CustomModelConfigCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &CustomModelConfigCreateBulk{err: fmt.Errorf("calling to CustomModelConfigClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*CustomModelConfigCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &CustomModelConfigCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for CustomModelConfig.
+func (c *CustomModelConfigClient) Update() *CustomModelConfigUpdate {
+	mutation := newCustomModelConfigMutation(c.config, OpUpdate)
+	return &CustomModelConfigUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *CustomModelConfigClient) UpdateOne(_m *CustomModelConfig) *CustomModelConfigUpdateOne {
+	mutation := newCustomModelConfigMutation(c.config, OpUpdateOne, withCustomModelConfig(_m))
+	return &CustomModelConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *CustomModelConfigClient) UpdateOneID(id int64) *CustomModelConfigUpdateOne {
+	mutation := newCustomModelConfigMutation(c.config, OpUpdateOne, withCustomModelConfigID(id))
+	return &CustomModelConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for CustomModelConfig.
+func (c *CustomModelConfigClient) Delete() *CustomModelConfigDelete {
+	mutation := newCustomModelConfigMutation(c.config, OpDelete)
+	return &CustomModelConfigDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *CustomModelConfigClient) DeleteOne(_m *CustomModelConfig) *CustomModelConfigDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *CustomModelConfigClient) DeleteOneID(id int64) *CustomModelConfigDeleteOne {
+	builder := c.Delete().Where(custommodelconfig.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &CustomModelConfigDeleteOne{builder}
+}
+
+// Query returns a query builder for CustomModelConfig.
+func (c *CustomModelConfigClient) Query() *CustomModelConfigQuery {
+	return &CustomModelConfigQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeCustomModelConfig},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a CustomModelConfig entity by its id.
+func (c *CustomModelConfigClient) Get(ctx context.Context, id int64) (*CustomModelConfig, error) {
+	return c.Query().Where(custommodelconfig.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *CustomModelConfigClient) GetX(ctx context.Context, id int64) *CustomModelConfig {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *CustomModelConfigClient) Hooks() []Hook {
+	return c.hooks.CustomModelConfig
+}
+
+// Interceptors returns the client interceptors.
+func (c *CustomModelConfigClient) Interceptors() []Interceptor {
+	return c.inters.CustomModelConfig
+}
+
+func (c *CustomModelConfigClient) mutate(ctx context.Context, m *CustomModelConfigMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&CustomModelConfigCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&CustomModelConfigUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&CustomModelConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&CustomModelConfigDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown CustomModelConfig mutation op: %q", m.Op())
+	}
+}
+
+// CustomModelRequestTemplateClient is a client for the CustomModelRequestTemplate schema.
+type CustomModelRequestTemplateClient struct {
+	config
+}
+
+// NewCustomModelRequestTemplateClient returns a client for the CustomModelRequestTemplate from the given config.
+func NewCustomModelRequestTemplateClient(c config) *CustomModelRequestTemplateClient {
+	return &CustomModelRequestTemplateClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `custommodelrequesttemplate.Hooks(f(g(h())))`.
+func (c *CustomModelRequestTemplateClient) Use(hooks ...Hook) {
+	c.hooks.CustomModelRequestTemplate = append(c.hooks.CustomModelRequestTemplate, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `custommodelrequesttemplate.Intercept(f(g(h())))`.
+func (c *CustomModelRequestTemplateClient) Intercept(interceptors ...Interceptor) {
+	c.inters.CustomModelRequestTemplate = append(c.inters.CustomModelRequestTemplate, interceptors...)
+}
+
+// Create returns a builder for creating a CustomModelRequestTemplate entity.
+func (c *CustomModelRequestTemplateClient) Create() *CustomModelRequestTemplateCreate {
+	mutation := newCustomModelRequestTemplateMutation(c.config, OpCreate)
+	return &CustomModelRequestTemplateCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of CustomModelRequestTemplate entities.
+func (c *CustomModelRequestTemplateClient) CreateBulk(builders ...*CustomModelRequestTemplateCreate) *CustomModelRequestTemplateCreateBulk {
+	return &CustomModelRequestTemplateCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *CustomModelRequestTemplateClient) MapCreateBulk(slice any, setFunc func(*CustomModelRequestTemplateCreate, int)) *CustomModelRequestTemplateCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &CustomModelRequestTemplateCreateBulk{err: fmt.Errorf("calling to CustomModelRequestTemplateClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*CustomModelRequestTemplateCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &CustomModelRequestTemplateCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for CustomModelRequestTemplate.
+func (c *CustomModelRequestTemplateClient) Update() *CustomModelRequestTemplateUpdate {
+	mutation := newCustomModelRequestTemplateMutation(c.config, OpUpdate)
+	return &CustomModelRequestTemplateUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *CustomModelRequestTemplateClient) UpdateOne(_m *CustomModelRequestTemplate) *CustomModelRequestTemplateUpdateOne {
+	mutation := newCustomModelRequestTemplateMutation(c.config, OpUpdateOne, withCustomModelRequestTemplate(_m))
+	return &CustomModelRequestTemplateUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *CustomModelRequestTemplateClient) UpdateOneID(id int64) *CustomModelRequestTemplateUpdateOne {
+	mutation := newCustomModelRequestTemplateMutation(c.config, OpUpdateOne, withCustomModelRequestTemplateID(id))
+	return &CustomModelRequestTemplateUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for CustomModelRequestTemplate.
+func (c *CustomModelRequestTemplateClient) Delete() *CustomModelRequestTemplateDelete {
+	mutation := newCustomModelRequestTemplateMutation(c.config, OpDelete)
+	return &CustomModelRequestTemplateDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *CustomModelRequestTemplateClient) DeleteOne(_m *CustomModelRequestTemplate) *CustomModelRequestTemplateDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *CustomModelRequestTemplateClient) DeleteOneID(id int64) *CustomModelRequestTemplateDeleteOne {
+	builder := c.Delete().Where(custommodelrequesttemplate.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &CustomModelRequestTemplateDeleteOne{builder}
+}
+
+// Query returns a query builder for CustomModelRequestTemplate.
+func (c *CustomModelRequestTemplateClient) Query() *CustomModelRequestTemplateQuery {
+	return &CustomModelRequestTemplateQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeCustomModelRequestTemplate},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a CustomModelRequestTemplate entity by its id.
+func (c *CustomModelRequestTemplateClient) Get(ctx context.Context, id int64) (*CustomModelRequestTemplate, error) {
+	return c.Query().Where(custommodelrequesttemplate.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *CustomModelRequestTemplateClient) GetX(ctx context.Context, id int64) *CustomModelRequestTemplate {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *CustomModelRequestTemplateClient) Hooks() []Hook {
+	return c.hooks.CustomModelRequestTemplate
+}
+
+// Interceptors returns the client interceptors.
+func (c *CustomModelRequestTemplateClient) Interceptors() []Interceptor {
+	return c.inters.CustomModelRequestTemplate
+}
+
+func (c *CustomModelRequestTemplateClient) mutate(ctx context.Context, m *CustomModelRequestTemplateMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&CustomModelRequestTemplateCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&CustomModelRequestTemplateUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&CustomModelRequestTemplateUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&CustomModelRequestTemplateDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown CustomModelRequestTemplate mutation op: %q", m.Op())
 	}
 }
 
@@ -8201,8 +8485,9 @@ type (
 		BatchImageItem, BatchImageJob, ChannelMonitor, ChannelMonitorDailyRollup,
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, ChatAsset,
 		ChatConversation, ChatMessage, ChatMessageAsset, ChatQuickReply,
-		CompositeModelRoute, ErrorPassthroughRule, Group, IPv6EgressPool,
-		IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
+		CompositeModelRoute, CustomModelConfig, CustomModelRequestTemplate,
+		ErrorPassthroughRule, Group, IPv6EgressPool, IdempotencyRecord,
+		IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
 		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
 		RedeemCode, RedeemCodeUsage, SecuritySecret, Setting, SubscriptionPlan,
 		TLSFingerprintProfile, UsageCleanupTask, UsageLog, User, UserAllowedGroup,
@@ -8215,8 +8500,9 @@ type (
 		BatchImageItem, BatchImageJob, ChannelMonitor, ChannelMonitorDailyRollup,
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, ChatAsset,
 		ChatConversation, ChatMessage, ChatMessageAsset, ChatQuickReply,
-		CompositeModelRoute, ErrorPassthroughRule, Group, IPv6EgressPool,
-		IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
+		CompositeModelRoute, CustomModelConfig, CustomModelRequestTemplate,
+		ErrorPassthroughRule, Group, IPv6EgressPool, IdempotencyRecord,
+		IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
 		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
 		RedeemCode, RedeemCodeUsage, SecuritySecret, Setting, SubscriptionPlan,
 		TLSFingerprintProfile, UsageCleanupTask, UsageLog, User, UserAllowedGroup,

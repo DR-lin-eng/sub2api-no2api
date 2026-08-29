@@ -350,6 +350,9 @@ type UpdateSettingsRequest struct {
 	// Media Studio feature switch
 	MediaStudioEnabled *bool `json:"media_studio_enabled"`
 
+	// Custom model configuration feature switch
+	CustomModelConfigEnabled *bool `json:"custom_model_config_enabled"`
+
 	// IPv6 egress management UI feature switch
 	IPv6EgressUIEnabled *bool `json:"ipv6_egress_ui_enabled"`
 

@@ -79,6 +79,7 @@ import { useAccountTablePresentation } from '@/features/admin-accounts/presentat
 import { useAccountColumnPreferences } from '@/features/admin-accounts/presentation/composables/useAccountColumnPreferences'
 import { useAccountTodayStats } from '@/features/admin-accounts/presentation/composables/useAccountTodayStats'
 import type { AccountTableViewContext } from '@/features/admin-accounts/presentation/accountTableViewContext'
+import { buildAccountQueryFiltersFromState, mergeRuntimeFields } from '@/features/admin-accounts/presentation/accountListTransforms'
 import type { Account, AccountPlatform, AccountType, Proxy as AccountProxy, AdminGroup } from '@/types'
 import type { ClaudeModel } from '@/features/admin-accounts/data/dtos/adminAccountDtos'
 
@@ -1057,24 +1058,7 @@ const handleDataImported = () => {
   showImportData.value = false
   reload()
 }
-const buildAccountQueryFilters = () => ({
-  platform: params.platform || '',
-  type: params.type || '',
-  status: params.status || '',
-  oauth_quota: params.oauth_quota || '',
-  group: params.group || '',
-  privacy_mode: params.privacy_mode || '',
-  search: params.search || '',
-  sort_by: sortState.sort_by,
-  sort_order: sortState.sort_order
-})
-const mergeRuntimeFields = (oldAccount: Account, updatedAccount: Account): Account => ({
-  ...updatedAccount,
-  current_concurrency: updatedAccount.current_concurrency ?? oldAccount.current_concurrency,
-  current_window_cost: updatedAccount.current_window_cost ?? oldAccount.current_window_cost,
-  active_sessions: updatedAccount.active_sessions ?? oldAccount.active_sessions,
-  cpa_capacity: updatedAccount.cpa_capacity ?? oldAccount.cpa_capacity
-})
+const buildAccountQueryFilters = () => buildAccountQueryFiltersFromState(toRaw(params), sortState)
 
 const syncPaginationAfterLocalRemoval = () => {
   const nextTotal = Math.max(0, pagination.total - 1)

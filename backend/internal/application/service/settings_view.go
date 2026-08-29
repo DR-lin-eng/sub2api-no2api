@@ -234,6 +234,9 @@ type SystemSettings struct {
 	// Media Studio image, video, and batch generation workspace.
 	MediaStudioEnabled bool `json:"media_studio_enabled"`
 
+	// Custom model configuration feature toggle
+	CustomModelConfigEnabled bool `json:"custom_model_config_enabled"`
+
 	// Administrator account-scoped IPv6 egress management surface.
 	IPv6EgressUIEnabled bool `json:"ipv6_egress_ui_enabled"`
 
@@ -433,6 +436,9 @@ type PublicSettings struct {
 
 	// Media Studio image, video, and batch generation workspace.
 	MediaStudioEnabled bool `json:"media_studio_enabled"`
+
+	// Custom model configuration feature toggle
+	CustomModelConfigEnabled bool `json:"custom_model_config_enabled"`
 
 	// Administrator account-scoped IPv6 egress management surface.
 	IPv6EgressUIEnabled bool `json:"ipv6_egress_ui_enabled"`

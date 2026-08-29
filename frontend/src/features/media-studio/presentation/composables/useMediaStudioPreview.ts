@@ -1,15 +1,14 @@
-export type MediaStudioModeId = 'image' | 'video' | 'batch'
+export type MediaStudioModeId = 'image' | 'video'
 
 export interface MediaStudioMode {
   id: MediaStudioModeId
-  iconName: 'grid' | 'play' | 'copy'
+  iconName: 'grid' | 'play'
   available: boolean
 }
 
 const mediaStudioModes: MediaStudioMode[] = [
   { id: 'image', iconName: 'grid', available: true },
   { id: 'video', iconName: 'play', available: true },
-  { id: 'batch', iconName: 'copy', available: true },
 ]
 
 export function useMediaStudioPreview() {

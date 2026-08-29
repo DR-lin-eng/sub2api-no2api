@@ -56,6 +56,7 @@ func ProvideAdminHandlers(
 	ollamaCloudUsage *service.OllamaCloudUsageService,
 	chatHandler *admin.ChatHandler,
 	egressHandler *admin.EgressHandler,
+	customModelConfigHandler *admin.CustomModelConfigHandler,
 ) *AdminHandlers {
 	accountHandler.SetUpstreamBillingProbeService(upstreamBillingProbe)
 	accountHandler.SetOllamaCloudUsageService(ollamaCloudUsage)
@@ -98,6 +99,7 @@ func ProvideAdminHandlers(
 		Cluster:                clusterHandler,
 		Chat:                   chatHandler,
 		Egress:                 egressHandler,
+		CustomModelConfig:      customModelConfigHandler,
 	}
 }
 
@@ -232,6 +234,7 @@ func ProvideHandlers(
 	asyncImageHandler *AsyncImageHandler,
 	batchImageHandler *BatchImageHandler,
 	chatHandler *ChatHandler,
+	mediaStudioHandler *MediaStudioHandler,
 	_ *service.IdempotencyCoordinator,
 	_ *service.IdempotencyCleanupService,
 ) *Handlers {
@@ -257,6 +260,7 @@ func ProvideHandlers(
 		AsyncImage:       asyncImageHandler,
 		BatchImage:       batchImageHandler,
 		Chat:             chatHandler,
+		MediaStudio:      mediaStudioHandler,
 	}
 }
 
@@ -283,6 +287,7 @@ var ProviderSet = wire.NewSet(
 	NewAsyncImageHandler,
 	ProvideBatchImageHandler,
 	NewChatHandler,
+	NewMediaStudioHandler,
 
 	// Admin handlers
 	admin.NewDashboardHandler,
@@ -322,6 +327,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewClusterHandler,
 	ProvideEgressHandler,
 	ProvideAdminChatHandler,
+	admin.NewCustomModelConfigHandler,
 
 	// AdminHandlers and Handlers constructors
 	ProvideAdminHandlers,

@@ -26,6 +26,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/chatmessageasset"
 	"github.com/Wei-Shaw/sub2api/ent/chatquickreply"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
+	"github.com/Wei-Shaw/sub2api/ent/custommodelconfig"
+	"github.com/Wei-Shaw/sub2api/ent/custommodelrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -1124,6 +1126,86 @@ func init() {
 	compositemodelrouteDescEnabled := compositemodelrouteFields[7].Descriptor()
 	// compositemodelroute.DefaultEnabled holds the default value on creation for the enabled field.
 	compositemodelroute.DefaultEnabled = compositemodelrouteDescEnabled.Default.(bool)
+	custommodelconfigMixin := schema.CustomModelConfig{}.Mixin()
+	custommodelconfigMixinFields0 := custommodelconfigMixin[0].Fields()
+	_ = custommodelconfigMixinFields0
+	custommodelconfigFields := schema.CustomModelConfig{}.Fields()
+	_ = custommodelconfigFields
+	// custommodelconfigDescCreatedAt is the schema descriptor for created_at field.
+	custommodelconfigDescCreatedAt := custommodelconfigMixinFields0[0].Descriptor()
+	// custommodelconfig.DefaultCreatedAt holds the default value on creation for the created_at field.
+	custommodelconfig.DefaultCreatedAt = custommodelconfigDescCreatedAt.Default.(func() time.Time)
+	// custommodelconfigDescUpdatedAt is the schema descriptor for updated_at field.
+	custommodelconfigDescUpdatedAt := custommodelconfigMixinFields0[1].Descriptor()
+	// custommodelconfig.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	custommodelconfig.DefaultUpdatedAt = custommodelconfigDescUpdatedAt.Default.(func() time.Time)
+	// custommodelconfig.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	custommodelconfig.UpdateDefaultUpdatedAt = custommodelconfigDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// custommodelconfigDescModelName is the schema descriptor for model_name field.
+	custommodelconfigDescModelName := custommodelconfigFields[0].Descriptor()
+	// custommodelconfig.ModelNameValidator is a validator for the "model_name" field. It is called by the builders before save.
+	custommodelconfig.ModelNameValidator = func() func(string) error {
+		validators := custommodelconfigDescModelName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(model_name string) error {
+			for _, fn := range fns {
+				if err := fn(model_name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// custommodelconfigDescPrefixMatch is the schema descriptor for prefix_match field.
+	custommodelconfigDescPrefixMatch := custommodelconfigFields[1].Descriptor()
+	// custommodelconfig.DefaultPrefixMatch holds the default value on creation for the prefix_match field.
+	custommodelconfig.DefaultPrefixMatch = custommodelconfigDescPrefixMatch.Default.(bool)
+	// custommodelconfigDescVideoAPIType is the schema descriptor for video_api_type field.
+	custommodelconfigDescVideoAPIType := custommodelconfigFields[3].Descriptor()
+	// custommodelconfig.DefaultVideoAPIType holds the default value on creation for the video_api_type field.
+	custommodelconfig.DefaultVideoAPIType = custommodelconfigDescVideoAPIType.Default.(string)
+	custommodelrequesttemplateMixin := schema.CustomModelRequestTemplate{}.Mixin()
+	custommodelrequesttemplateMixinFields0 := custommodelrequesttemplateMixin[0].Fields()
+	_ = custommodelrequesttemplateMixinFields0
+	custommodelrequesttemplateFields := schema.CustomModelRequestTemplate{}.Fields()
+	_ = custommodelrequesttemplateFields
+	// custommodelrequesttemplateDescCreatedAt is the schema descriptor for created_at field.
+	custommodelrequesttemplateDescCreatedAt := custommodelrequesttemplateMixinFields0[0].Descriptor()
+	// custommodelrequesttemplate.DefaultCreatedAt holds the default value on creation for the created_at field.
+	custommodelrequesttemplate.DefaultCreatedAt = custommodelrequesttemplateDescCreatedAt.Default.(func() time.Time)
+	// custommodelrequesttemplateDescUpdatedAt is the schema descriptor for updated_at field.
+	custommodelrequesttemplateDescUpdatedAt := custommodelrequesttemplateMixinFields0[1].Descriptor()
+	// custommodelrequesttemplate.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	custommodelrequesttemplate.DefaultUpdatedAt = custommodelrequesttemplateDescUpdatedAt.Default.(func() time.Time)
+	// custommodelrequesttemplate.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	custommodelrequesttemplate.UpdateDefaultUpdatedAt = custommodelrequesttemplateDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// custommodelrequesttemplateDescName is the schema descriptor for name field.
+	custommodelrequesttemplateDescName := custommodelrequesttemplateFields[0].Descriptor()
+	// custommodelrequesttemplate.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	custommodelrequesttemplate.NameValidator = func() func(string) error {
+		validators := custommodelrequesttemplateDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// custommodelrequesttemplateDescDescription is the schema descriptor for description field.
+	custommodelrequesttemplateDescDescription := custommodelrequesttemplateFields[1].Descriptor()
+	// custommodelrequesttemplate.DefaultDescription holds the default value on creation for the description field.
+	custommodelrequesttemplate.DefaultDescription = custommodelrequesttemplateDescDescription.Default.(string)
+	// custommodelrequesttemplate.DescriptionValidator is a validator for the "description" field. It is called by the builders before save.
+	custommodelrequesttemplate.DescriptionValidator = custommodelrequesttemplateDescDescription.Validators[0].(func(string) error)
 	errorpassthroughruleMixin := schema.ErrorPassthroughRule{}.Mixin()
 	errorpassthroughruleMixinFields0 := errorpassthroughruleMixin[0].Fields()
 	_ = errorpassthroughruleMixinFields0

@@ -97,6 +97,7 @@ func writeFeatureSystemSettingUpdates(updates map[string]string, settings *Syste
 	updates[SettingKeyModelPlazaAutoPublicModels] = strconv.FormatBool(settings.ModelPlazaAutoPublicModels)
 	updates[SettingKeyModelPlazaDescription] = settings.ModelPlazaDescription
 	updates[SettingKeyMediaStudioEnabled] = strconv.FormatBool(settings.MediaStudioEnabled)
+	updates[SettingKeyCustomModelConfigEnabled] = strconv.FormatBool(settings.CustomModelConfigEnabled)
 	updates[SettingKeyIPv6EgressUIEnabled] = strconv.FormatBool(settings.IPv6EgressUIEnabled)
 	updates[SettingKeyAffiliateEnabled] = strconv.FormatBool(settings.AffiliateEnabled)
 	updates[SettingKeyRiskControlEnabled] = strconv.FormatBool(settings.RiskControlEnabled)

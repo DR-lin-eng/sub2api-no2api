@@ -130,6 +130,20 @@ func RegisterAdminRoutes(
 
 		// 在线客服（管理端收件箱）
 		registerChatRoutes(admin, h, settingService)
+
+		// 自定义模型配置
+		registerCustomModelConfigRoutes(admin, h)
+
+		// 媒体工坊分组配置
+		registerMediaStudioAdminRoutes(admin, h)
+	}
+}
+
+func registerMediaStudioAdminRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	mediaStudio := admin.Group("/media-studio")
+	{
+		mediaStudio.GET("/group-routes", h.MediaStudio.GetAdminGroupRoutes)
+		mediaStudio.PUT("/group-routes", h.MediaStudio.UpdateAdminGroupRoutes)
 	}
 }
 
@@ -412,6 +426,7 @@ func registerGroupRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		groups.GET("/live-capability", h.Admin.Group.GetLiveCapability)
 		groups.PUT("/sort-order", h.Admin.Group.UpdateSortOrder)
 		groups.GET("/:id/models-list-candidates", h.Admin.Group.GetModelsListCandidates)
+		groups.GET("/:id/media-studio-models", h.Admin.Group.GetMediaStudioModels)
 		groups.GET("/:id/composite-routes", h.Admin.Group.ListCompositeRoutes)
 		groups.POST("/:id/composite-routes", h.Admin.Group.CreateCompositeRoute)
 		groups.POST("/:id/composite-routes/preview", h.Admin.Group.PreviewCompositeRoute)
@@ -888,5 +903,21 @@ func registerAffiliateRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 			users.PUT("/:user_id", h.Admin.Affiliate.UpdateUserSettings)
 			users.DELETE("/:user_id", h.Admin.Affiliate.ClearUserSettings)
 		}
+	}
+}
+
+// registerCustomModelConfigRoutes 注册自定义模型配置路由
+func registerCustomModelConfigRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	configs := admin.Group("/custom-model-configs")
+	{
+		configs.GET("/templates", h.Admin.CustomModelConfig.ListTemplates)
+		configs.POST("/templates", h.Admin.CustomModelConfig.CreateTemplate)
+		configs.PUT("/templates/:templateId", h.Admin.CustomModelConfig.UpdateTemplate)
+		configs.DELETE("/templates/:templateId", h.Admin.CustomModelConfig.DeleteTemplate)
+		configs.GET("", h.Admin.CustomModelConfig.List)
+		configs.POST("", h.Admin.CustomModelConfig.Create)
+		configs.GET("/:id", h.Admin.CustomModelConfig.Get)
+		configs.PUT("/:id", h.Admin.CustomModelConfig.Update)
+		configs.DELETE("/:id", h.Admin.CustomModelConfig.Delete)
 	}
 }

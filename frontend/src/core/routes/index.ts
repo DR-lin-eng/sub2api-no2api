@@ -550,6 +550,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/custom-model-config',
+    name: 'AdminCustomModelConfig',
+    component: () => import('@/features/custom-model-config/presentation/pages/CustomModelConfigPage.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Custom Model Config',
+      titleKey: 'admin.customModelConfig.title',
+      descriptionKey: 'admin.customModelConfig.description'
+    }
+  },
+  {
     path: '/monitor',
     name: 'ChannelStatus',
     component: () => import('@/features/channels-user/presentation/pages/ChannelStatusPage.vue'),

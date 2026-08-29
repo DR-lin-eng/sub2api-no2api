@@ -36,6 +36,32 @@ func GroupAllowsImageGeneration(group *Group) bool {
 	return group == nil || group.AllowImageGeneration
 }
 
+// GroupAllowsMediaStudioGeneration applies media-studio's model-scoped route
+// policy without requiring the legacy group-wide image flag. Ordinary API
+// keys continue to use GroupAllowsImageGeneration unchanged.
+func GroupAllowsMediaStudioGeneration(apiKey *APIKey, mediaType string) bool {
+	if apiKey == nil {
+		return false
+	}
+	if GroupAllowsImageGeneration(apiKey.Group) {
+		return true
+	}
+	mediaType = normalizeMediaStudioMediaType(mediaType)
+	if mediaType == "" {
+		return false
+	}
+	groupID := int64(0)
+	if apiKey.GroupID != nil {
+		groupID = *apiKey.GroupID
+	} else if apiKey.Group != nil {
+		groupID = apiKey.Group.ID
+	}
+	if groupID <= 0 {
+		return false
+	}
+	return IsMediaStudioAPIKey(apiKey, groupID)
+}
+
 // GroupForcesOpenAIImageTool reports whether Responses requests in this group
 // must be served by the independent Images API bridge.
 func GroupForcesOpenAIImageTool(group *Group) bool {

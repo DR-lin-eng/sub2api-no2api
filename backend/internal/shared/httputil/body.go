@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"compress/zlib"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,26 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 )
+
+type bufferedRequestBodyContextKey struct{}
+
+// WithBufferedRequestBody attaches an immutable body already read by routing
+// middleware so the selected protocol handler does not allocate and read it a
+// second time.
+func WithBufferedRequestBody(req *http.Request, body []byte) *http.Request {
+	if req == nil {
+		return nil
+	}
+	return req.WithContext(context.WithValue(req.Context(), bufferedRequestBodyContextKey{}, body))
+}
+
+func BufferedRequestBody(req *http.Request) ([]byte, bool) {
+	if req == nil {
+		return nil, false
+	}
+	body, ok := req.Context().Value(bufferedRequestBodyContextKey{}).([]byte)
+	return body, ok
+}
 
 const (
 	requestBodyReadInitCap    = 512

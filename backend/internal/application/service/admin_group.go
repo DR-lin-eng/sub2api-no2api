@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -98,6 +99,74 @@ func (s *adminServiceImpl) GetGroupModelsListCandidates(ctx context.Context, id 
 		}
 	}
 	return candidates, nil
+}
+
+func (s *adminServiceImpl) GetGroupMediaStudioModels(ctx context.Context, id int64, platform string) ([]string, error) {
+	group, err := s.groupRepo.GetByIDLite(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	platform = strings.TrimSpace(platform)
+	if platform == "" {
+		platform = group.Platform
+	}
+
+	if group.ModelsListConfig.Enabled {
+		return normalizeMediaStudioCandidateModels(group.ModelsListConfig.Models), nil
+	}
+	if s.accountRepo == nil {
+		return []string{}, nil
+	}
+
+	accounts, err := s.accountRepo.ListSchedulableByGroupID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]struct{})
+	models := make([]string, 0)
+	for _, account := range accounts {
+		if platform == PlatformComposite {
+			if !isConcreteRequestPlatform(account.Platform) {
+				continue
+			}
+		} else if account.Platform != platform {
+			continue
+		}
+		for model := range account.GetModelMapping() {
+			model = strings.TrimSpace(model)
+			if model == "" {
+				continue
+			}
+			key := strings.ToLower(model)
+			if _, exists := seen[key]; exists {
+				continue
+			}
+			seen[key] = struct{}{}
+			models = append(models, model)
+		}
+	}
+	sort.SliceStable(models, func(i, j int) bool {
+		return strings.ToLower(models[i]) < strings.ToLower(models[j])
+	})
+	return models, nil
+}
+
+func normalizeMediaStudioCandidateModels(models []string) []string {
+	normalized := make([]string, 0, len(models))
+	seen := make(map[string]struct{}, len(models))
+	for _, model := range models {
+		model = strings.TrimSpace(model)
+		if model == "" {
+			continue
+		}
+		key := strings.ToLower(model)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		normalized = append(normalized, model)
+	}
+	return normalized
 }
 
 func (s *adminServiceImpl) ListCompositeRoutes(ctx context.Context, groupID int64) ([]CompositeModelRoute, error) {

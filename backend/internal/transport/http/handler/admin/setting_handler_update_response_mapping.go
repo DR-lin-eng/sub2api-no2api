@@ -290,8 +290,9 @@ func buildSettingsUpdateResponsePayload(
 		ModelPlazaAutoPublicModels: updatedSettings.ModelPlazaAutoPublicModels,
 		ModelPlazaDescription:      updatedSettings.ModelPlazaDescription,
 
-		MediaStudioEnabled:  updatedSettings.MediaStudioEnabled,
-		IPv6EgressUIEnabled: updatedSettings.IPv6EgressUIEnabled,
+		MediaStudioEnabled:       updatedSettings.MediaStudioEnabled,
+		CustomModelConfigEnabled: updatedSettings.CustomModelConfigEnabled,
+		IPv6EgressUIEnabled:      updatedSettings.IPv6EgressUIEnabled,
 
 		AffiliateEnabled: updatedSettings.AffiliateEnabled,
 

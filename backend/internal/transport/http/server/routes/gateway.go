@@ -96,10 +96,57 @@ func RegisterGatewayRoutes(
 		}
 	}
 	videoGenerationHandler := func(c *gin.Context) {
-		if platform := getGroupPlatform(c); platform == service.PlatformGrok || platform == service.PlatformComposite {
+		bodyBytes, buffered := pkghttputil.BufferedRequestBody(c.Request)
+		if !buffered {
+			var err error
+			bodyBytes, err = pkghttputil.ReadRequestBodyWithPrealloc(c.Request)
+			if err != nil {
+				status := http.StatusBadRequest
+				message := "Failed to read request body"
+				var maxErr *http.MaxBytesError
+				if errors.As(err, &maxErr) {
+					status = http.StatusRequestEntityTooLarge
+					message = "Request body is too large"
+				}
+				c.JSON(status, gin.H{
+					"error": gin.H{"type": "invalid_request_error", "message": message},
+				})
+				return
+			}
+		}
+		if len(bodyBytes) > 0 {
+			resetRequestBody(c, bodyBytes)
+
+			// 尝试解析模型名
+			modelName := gjson.GetBytes(bodyBytes, "model").String()
+			if modelName != "" {
+				videoAPIType, configured, resolveErr := h.OpenAIGateway.ResolveCustomModelVideoAPIType(c.Request.Context(), modelName)
+				if resolveErr != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{
+						"error": gin.H{"type": "api_error", "message": "Failed to resolve video model configuration"},
+					})
+					return
+				}
+				if configured {
+					switch videoAPIType {
+					case "grok":
+						h.OpenAIGateway.GrokVideoGeneration(c)
+						return
+					case "agnes":
+						h.OpenAIGateway.AgnesVideoGeneration(c)
+						return
+					}
+				}
+			}
+		}
+
+		// 回退到平台检查（兼容未配置 CustomModelConfig 的情况）
+		platform := getGroupPlatform(c)
+		if platform == service.PlatformGrok || platform == service.PlatformComposite {
 			h.OpenAIGateway.GrokVideoGeneration(c)
 			return
 		}
+
 		service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 		c.JSON(http.StatusNotFound, gin.H{
 			"error": gin.H{
@@ -109,10 +156,15 @@ func RegisterGatewayRoutes(
 		})
 	}
 	videoStatusHandler := func(c *gin.Context) {
+		if h.OpenAIGateway.HasAgnesVideoTaskBinding(c, c.Param("request_id")) {
+			h.OpenAIGateway.AgnesVideoStatus(c)
+			return
+		}
 		// Video status requests do not carry a model, so composite groups cannot
 		// be resolved by compositeTargetPlatformMiddleware. Route them through
-		// the Grok handler and let scheduler/account selection enforce capacity.
-		if getGroupPlatform(c) == service.PlatformGrok || getGroupPlatform(c) == service.PlatformComposite {
+		// the platform-specific handler and let scheduler/account selection enforce capacity.
+		platform := getGroupPlatform(c)
+		if platform == service.PlatformGrok || platform == service.PlatformComposite {
 			h.OpenAIGateway.GrokVideoStatus(c)
 			return
 		}
@@ -125,10 +177,15 @@ func RegisterGatewayRoutes(
 		})
 	}
 	videoContentHandler := func(c *gin.Context) {
+		if h.OpenAIGateway.HasAgnesVideoTaskBinding(c, c.Param("request_id")) {
+			h.OpenAIGateway.AgnesVideoContent(c)
+			return
+		}
 		// Video content requests do not carry a model, so composite groups cannot
 		// be resolved by compositeTargetPlatformMiddleware. Route them through
-		// the Grok handler just like video status lookups.
-		if getGroupPlatform(c) == service.PlatformGrok || getGroupPlatform(c) == service.PlatformComposite {
+		// the platform-specific handler just like video status lookups.
+		platform := getGroupPlatform(c)
+		if platform == service.PlatformGrok || platform == service.PlatformComposite {
 			h.OpenAIGateway.GrokVideoContent(c)
 			return
 		}
@@ -525,6 +582,7 @@ func compositeGeminiModelFromParams(c *gin.Context) string {
 }
 
 func resetRequestBody(c *gin.Context, body []byte) {
+	c.Request = pkghttputil.WithBufferedRequestBody(c.Request, body)
 	c.Request.Body = io.NopCloser(bytes.NewReader(body))
 	c.Request.ContentLength = int64(len(body))
 	c.Request.Header.Set("Content-Length", strconv.Itoa(len(body)))

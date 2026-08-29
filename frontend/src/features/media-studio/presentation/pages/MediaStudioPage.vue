@@ -3,19 +3,24 @@
     <div class="media-studio-page bg-transparent">
       <MediaStudioCanvas
         v-model:prompt="prompt"
-        v-model:selected-api-key-id="selectedApiKeyId"
+        v-model:selected-group-id="selectedGroupId"
         v-model:model="model"
-        v-model:size="size"
+        :model-selection-locked="modelSelectionLocked"
+        v-model:image-resolution="imageResolution"
+        v-model:image-aspect-ratio="imageAspectRatio"
+        :custom-image-aspect-ratios="customImageAspectRatios"
         v-model:quality="quality"
         v-model:count="count"
         v-model:resolution="resolution"
         v-model:duration="duration"
+        :image-quality-options="imageQualityOptions"
         :modes="modes"
         :selected-mode="selectedMode"
         :selected-mode-id="selectedModeId"
-        :api-keys="apiKeys"
-        :loading-keys="loadingKeys"
-        :api-key-load-error="apiKeyLoadError"
+        :group-options="groupOptions"
+        :loading-groups="loadingGroups"
+        :group-load-error="groupLoadError"
+        :image-attachments="imageAttachments"
         :model-options="modelOptions"
         :loading-models="loadingModels"
         :model-load-error="modelLoadError"
@@ -25,12 +30,15 @@
         :submitting="submitting"
         :submit-error="submitError"
         @select-mode="selectMode"
-        @reload-keys="loadApiKeys"
+        @reload-groups="loadMediaGroups"
+        @update:image-attachments="updateImageAttachments"
+        @add-custom-image-aspect-ratio="addCustomImageAspectRatio"
         @reload-models="loadModels"
         @submit="submitPrompt"
-        @retry="retryMessage"
-        @clear="clearConversation"
-        @open-batch="openBatchWorkspace"
+         @retry="retryMessage"
+         @clear="clearConversation"
+         @delete="deleteMessages"
+         @edit-image="editGeneratedImage"
       />
     </div>
   </AppLayout>
@@ -38,7 +46,6 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import MediaStudioCanvas from '@/features/media-studio/presentation/widgets/MediaStudioCanvas.vue'
 import { useMediaStudioController } from '@/features/media-studio/presentation/composables/useMediaStudioController'
@@ -48,16 +55,23 @@ const {
   selectedMode,
   selectedModeId,
   prompt,
-  selectedApiKeyId,
+  selectedGroupId,
   model,
-  size,
+  modelSelectionLocked,
+  imageResolution,
+  imageAspectRatio,
+  customImageAspectRatios,
+  addCustomImageAspectRatio,
   quality,
   count,
   resolution,
   duration,
-  apiKeys,
-  loadingKeys,
-  apiKeyLoadError,
+  imageQualityOptions,
+  groupOptions,
+  loadingGroups,
+  groupLoadError,
+  imageAttachments,
+  updateImageAttachments,
   modelOptions,
   loadingModels,
   modelLoadError,
@@ -66,22 +80,18 @@ const {
   conversation,
   hasMessages,
   canSubmit,
-  loadApiKeys,
+  loadMediaGroups,
   loadModels,
   selectMode,
   submitPrompt,
   retryMessage,
   clearConversation,
+  deleteMessages,
+  editGeneratedImage,
 } = useMediaStudioController()
 
-const router = useRouter()
-
-function openBatchWorkspace() {
-  void router.push({ name: 'BatchImageGuide' })
-}
-
 onMounted(() => {
-  void loadApiKeys()
+  void loadMediaGroups()
 })
 </script>
 

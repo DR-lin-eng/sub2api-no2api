@@ -36,6 +36,7 @@ var (
 	ErrInvalidIPPattern              = infraerrors.BadRequest("INVALID_IP_PATTERN", "invalid IP or CIDR pattern")
 	ErrAPIKeyGroupNotBound           = infraerrors.NotFound("API_KEY_GROUP_NOT_BOUND", "api key is not bound to a group")
 	ErrAPIKeyGroupBindingsInvalid    = infraerrors.BadRequest("API_KEY_GROUP_BINDINGS_INVALID", "api key group bindings are invalid")
+	ErrAPIKeyReservedName            = infraerrors.BadRequest("API_KEY_RESERVED_NAME", "api key name is reserved for Media Studio")
 	// ErrAPIKeyExpired        = infraerrors.Forbidden("API_KEY_EXPIRED", "api key has expired")
 	ErrAPIKeyExpired = infraerrors.Forbidden("API_KEY_EXPIRED", "api key 已过期")
 	// ErrAPIKeyQuotaExhausted = infraerrors.TooManyRequests("API_KEY_QUOTA_EXHAUSTED", "api key quota exhausted")
@@ -635,7 +636,19 @@ func (s *APIKeyService) canUserBindGroup(ctx context.Context, user *User, group 
 
 // Create 创建API Key
 func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIKeyRequest) (*APIKey, error) {
+	return s.create(ctx, userID, req, false)
+}
+
+// CreateMediaStudioAPIKey creates the managed key used by Media Studio.
+func (s *APIKeyService) CreateMediaStudioAPIKey(ctx context.Context, userID int64, req CreateAPIKeyRequest) (*APIKey, error) {
+	return s.create(ctx, userID, req, true)
+}
+
+func (s *APIKeyService) create(ctx context.Context, userID int64, req CreateAPIKeyRequest, allowReservedName bool) (*APIKey, error) {
 	if err := validateCreateAPIKeyRequest(req); err != nil {
+		return nil, err
+	}
+	if err := validateMediaStudioAPIKeyMutation("", &req.Name, allowReservedName); err != nil {
 		return nil, err
 	}
 	// 验证用户存在
@@ -954,6 +967,9 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 	if apiKey.UserID != userID {
 		return nil, ErrInsufficientPerms
 	}
+	if err := validateMediaStudioAPIKeyMutation(apiKey.Name, req.Name, false); err != nil {
+		return nil, err
+	}
 
 	// 验证 IP 白名单格式
 	if req.IPWhitelist != nil && len(*req.IPWhitelist) > 0 {
@@ -1099,6 +1115,16 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 	}
 
 	return apiKey, nil
+}
+
+func validateMediaStudioAPIKeyMutation(existingName string, requestedName *string, allowReservedName bool) error {
+	if isMediaStudioAPIKeyName(existingName) {
+		return ErrAPIKeyReservedName
+	}
+	if !allowReservedName && requestedName != nil && isMediaStudioAPIKeyName(*requestedName) {
+		return ErrAPIKeyReservedName
+	}
+	return nil
 }
 
 // Delete 删除API Key

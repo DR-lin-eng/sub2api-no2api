@@ -261,6 +261,30 @@ func (f CompositeModelRouteFunc) Mutate(ctx context.Context, m ent.Mutation) (en
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CompositeModelRouteMutation", m)
 }
 
+// The CustomModelConfigFunc type is an adapter to allow the use of ordinary
+// function as CustomModelConfig mutator.
+type CustomModelConfigFunc func(context.Context, *ent.CustomModelConfigMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f CustomModelConfigFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.CustomModelConfigMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CustomModelConfigMutation", m)
+}
+
+// The CustomModelRequestTemplateFunc type is an adapter to allow the use of ordinary
+// function as CustomModelRequestTemplate mutator.
+type CustomModelRequestTemplateFunc func(context.Context, *ent.CustomModelRequestTemplateMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f CustomModelRequestTemplateFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.CustomModelRequestTemplateMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CustomModelRequestTemplateMutation", m)
+}
+
 // The ErrorPassthroughRuleFunc type is an adapter to allow the use of ordinary
 // function as ErrorPassthroughRule mutator.
 type ErrorPassthroughRuleFunc func(context.Context, *ent.ErrorPassthroughRuleMutation) (ent.Value, error)

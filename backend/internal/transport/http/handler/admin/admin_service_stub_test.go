@@ -312,6 +312,10 @@ func (s *stubAdminService) GetGroupModelsListCandidates(ctx context.Context, id 
 	return []string{"claude-sonnet-4-6"}, nil
 }
 
+func (s *stubAdminService) GetGroupMediaStudioModels(ctx context.Context, id int64, platform string) ([]string, error) {
+	return s.GetGroupModelsListCandidates(ctx, id, platform)
+}
+
 func (s *stubAdminService) ListCompositeRoutes(ctx context.Context, groupID int64) ([]service.CompositeModelRoute, error) {
 	return []service.CompositeModelRoute{
 		{

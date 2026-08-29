@@ -105,7 +105,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		zap.String("img_size", imageDiagnosticLogValue(parsed.Size)),
 	)
 
-	if !service.GroupAllowsImageGeneration(apiKey.Group) {
+	if !service.GroupAllowsMediaStudioGeneration(apiKey, "image") {
 		h.errorResponse(c, http.StatusForbidden, "permission_error", service.ImageGenerationPermissionMessage())
 		return
 	}

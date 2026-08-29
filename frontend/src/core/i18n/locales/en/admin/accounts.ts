@@ -1380,6 +1380,7 @@ export default {
       imagePromptDefault: 'Generate a cute orange cat astronaut sticker on a clean pastel background.',
       imageTestHint: 'When an image model is selected, this test sends a real image-generation request and previews the returned image below.',
       imageTestMode: 'Mode: Image generation test',
+      videoTestUnsupported: 'Video models are not supported in the account connection test dialog.',
       imagePreview: 'Generated images:',
       imageReceived: 'Received test image #{count}',
       // Stats Modal

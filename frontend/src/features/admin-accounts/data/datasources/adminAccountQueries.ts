@@ -11,6 +11,7 @@ import type {
   WindowStats
 } from '@/types'
 import type { ClaudeModel, TempUnschedulableStatus } from '../dtos/adminAccountDtos'
+import { loadRuntimeModelCapabilities } from '@/features/custom-model-config/modelCapabilityCache'
 
 export interface AccountListFilters {
   platform?: string
@@ -189,8 +190,12 @@ export async function getBatchTodayStats(accountIds: number[]): Promise<BatchTod
 }
 
 export async function getAvailableModels(id: number): Promise<ClaudeModel[]> {
-  const { data } = await apiClient.get<ClaudeModel[]>(`/admin/accounts/${id}/models`)
-  return data
+	const [response] = await Promise.all([
+		apiClient.get<ClaudeModel[]>(`/admin/accounts/${id}/models`),
+		loadRuntimeModelCapabilities().catch(() => undefined),
+	])
+	const { data } = response
+	return data
 }
 
 export async function getUpstreamBillingProbeSettings(): Promise<UpstreamBillingProbeSettings> {

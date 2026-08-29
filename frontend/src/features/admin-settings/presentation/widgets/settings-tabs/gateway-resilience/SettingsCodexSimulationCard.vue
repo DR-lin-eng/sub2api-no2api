@@ -93,8 +93,9 @@
             class="m-0 min-w-0 border-0 p-0"
             :disabled="codexSimulationLoadFailed || codexSimulationSaving"
           >
-            <Toggle
-              v-model="cLevelSimulationEnabled"
+			<Toggle
+				:model-value="codexSimulationForm.c_level_simulation_enabled === true"
+				@update:model-value="codexSimulationForm.c_level_simulation_enabled = $event"
               data-testid="codex-simulation-c-level-toggle"
             />
           </fieldset>
@@ -203,7 +204,6 @@
 import Toggle from '@/common/widgets/forms/Toggle.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import { useSettingsPageContext } from '@/features/admin-settings/presentation/composables/settingsPageContext'
-import { computed } from 'vue'
 
 const {
   codexSimulationForm,
@@ -214,11 +214,4 @@ const {
   saveCodexSimulationSettings,
   t,
 } = useSettingsPageContext()
-
-const cLevelSimulationEnabled = computed({
-  get: () => Boolean(codexSimulationForm.c_level_simulation_enabled),
-  set: (value: boolean) => {
-    codexSimulationForm.c_level_simulation_enabled = value
-  },
-})
 </script>

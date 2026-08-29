@@ -11,10 +11,6 @@ export default {
         title: 'Video Generation',
         short: 'First frame, motion, duration, and aspect'
       },
-      batch: {
-        title: 'Batch Creation',
-        short: 'Prompt batches, variables, and queue'
-      },
       disabled: 'Unavailable'
     },
     composer: {
@@ -22,33 +18,57 @@ export default {
       placeholder: 'Describe the image you want to generate, press Ctrl/⌘ + Enter to start.',
       videoPlaceholder: 'Describe the scene, camera motion, and mood, then press Ctrl/⌘ + Enter to generate a video.',
       model: 'Model',
-      selectKey: 'Select Key',
-      loadingKeys: 'Loading keys…',
+      customWidth: 'Custom width',
+      customHeight: 'Custom height',
+      aspectRatio: 'Ratio',
+      customAspectRatio: {
+        option: 'Custom ratio',
+        title: 'Add custom aspect ratio',
+        width: 'Horizontal ratio',
+        height: 'Vertical ratio',
+        hint: 'Use positive integers. The long side cannot be more than 3 times the short side.',
+        invalid: 'Enter a valid aspect ratio.',
+        add: 'Add'
+      },
+      selectGroup: 'Select media group',
+      loadingGroups: 'Loading media groups…',
       loadingModels: 'Loading models…',
-      noKeys: 'No enabled API keys available.',
-      manualModelHint: 'No model for this creation type was returned by the current key; you can enter a model name manually.',
+      noGroups: 'No media groups have been configured by the administrator.',
+      manualModelHint: 'The current group did not return any models for this creation type.',
       reload: 'Retry',
-      shortHint: 'Images and videos use the selected API key. Generated results remain in this page\'s memory only.',
-      batchHint: 'Batch creation reuses the existing job queue, cost estimate, preview, and download workflow.',
+      shortHint: 'Choose an administrator-configured media group to generate. Results are saved in this browser.',
+      advancedSettings: 'More',
+      resourceSettings: 'Basic settings',
+      imageSettings: 'Image options',
+      videoSettings: 'Video options',
       unit: 'image',
       countValue: '{count} images',
       durationValue: '{count} seconds',
-      send: 'Start generation'
+      send: 'Start generation',
+      imageEdit: {
+        attachHint: 'Drop or paste reference images, up to 9',
+        attachCount: '{count}/{limit} images attached',
+        remove: 'Remove image'
+      }
     },
     session: {
-      localHint: 'Session stays only in this page memory',
+      localHint: 'Session and image results are saved in this browser',
       clear: 'Clear',
+      select: 'Select',
+      selectAll: 'Select all',
+      deselectAll: 'Deselect all',
+      deleteSelected: 'Delete selected',
+      cancelSelect: 'Cancel selection',
+      selectMessage: 'Select message',
+      selectedCount: '{count} selected',
       you: 'You',
       studio: 'Media Studio',
       failed: 'Generation failed',
       retry: 'Retry',
+      enlargeImage: 'Enlarge image',
+      editImage: 'Edit this image',
       noImageResult: 'Task completed, but no preview image was returned.',
       noVideoResult: 'Task completed, but no preview video was returned.'
     },
-    batch: {
-      title: 'Open the batch image workspace',
-      description: 'Use the existing verified Gemini batch flow to submit prompts, track jobs, preview results, and download archives. API-key and group capability checks run again in that workspace.',
-      open: 'Open batch workspace'
-    }
   }
 }

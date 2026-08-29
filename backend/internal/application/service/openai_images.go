@@ -217,7 +217,7 @@ func (s *OpenAIGatewayService) ParseOpenAIImagesRequest(c *gin.Context, body []b
 	}
 
 	applyOpenAIImagesDefaults(req)
-	if err := validateOpenAIImagesModel(req.Model); err != nil {
+	if err := s.validateOpenAIImagesModel(c.Request.Context(), req.Model); err != nil {
 		return nil, err
 	}
 	if err := validateOpenAIImagesResponseFormat(req.ResponseFormat); err != nil {
@@ -487,6 +487,78 @@ func validateOpenAIImagesModel(model string) error {
 	return fmt.Errorf("images endpoint requires an image model, got %q", model)
 }
 
+func (s *OpenAIGatewayService) validateOpenAIImagesModel(ctx context.Context, model string) error {
+	if err := validateOpenAIImagesModel(model); err == nil {
+		return nil
+	}
+	configured, err := s.hasCustomModelCapability(ctx, model, "image")
+	if err != nil {
+		return fmt.Errorf("failed to resolve custom model capabilities: %w", err)
+	}
+	if configured {
+		return nil
+	}
+	return validateOpenAIImagesModel(model)
+}
+
+func (s *OpenAIGatewayService) validateOpenAIImagesMappedModel(
+	ctx context.Context,
+	upstreamModel string,
+	configuredModels ...string,
+) error {
+	if err := validateOpenAIImagesModel(upstreamModel); err == nil {
+		return nil
+	}
+	for _, model := range append(configuredModels, upstreamModel) {
+		configured, err := s.hasCustomModelCapability(ctx, model, "image")
+		if err != nil {
+			return fmt.Errorf("failed to resolve custom model capabilities: %w", err)
+		}
+		if configured {
+			return nil
+		}
+	}
+	return validateOpenAIImagesModel(upstreamModel)
+}
+
+func (s *OpenAIGatewayService) hasCustomModelCapability(
+	ctx context.Context,
+	model string,
+	capability string,
+) (bool, error) {
+	if s == nil || s.customModelCapabilities == nil {
+		return false, nil
+	}
+	return s.customModelCapabilities.HasCapability(ctx, model, capability)
+}
+
+func (s *OpenAIGatewayService) resolveCustomModelRequestAdapter(
+	ctx context.Context,
+	models ...string,
+) (map[string]any, bool, error) {
+	if s == nil || s.customModelCapabilities == nil {
+		return nil, false, nil
+	}
+	seen := make(map[string]struct{}, len(models))
+	for _, model := range models {
+		key := strings.ToLower(strings.TrimSpace(model))
+		if key == "" {
+			continue
+		}
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		adapter, configured, err := s.customModelCapabilities.ResolveRequestAdapter(ctx, model)
+		if err != nil {
+			return nil, false, err
+		}
+		if configured {
+			return adapter, true, nil
+		}
+	}
+	return nil, false, nil
+}
 func validateOpenAIImagesResponseFormat(responseFormat string) error {
 	switch strings.ToLower(strings.TrimSpace(responseFormat)) {
 	case "", "b64_json", "url":
@@ -595,15 +667,16 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	channelMappedModel string,
 ) (*OpenAIForwardResult, error) {
 	startTime := time.Now()
-	requestModel := strings.TrimSpace(parsed.Model)
+	clientModel := strings.TrimSpace(parsed.Model)
+	requestModel := clientModel
 	if mapped := strings.TrimSpace(channelMappedModel); mapped != "" {
 		requestModel = mapped
 	}
-	if err := validateOpenAIImagesModel(requestModel); err != nil {
+	if err := s.validateOpenAIImagesModel(ctx, clientModel); err != nil {
 		return nil, err
 	}
 	upstreamModel := account.GetMappedModel(requestModel)
-	if err := validateOpenAIImagesModel(upstreamModel); err != nil {
+	if err := s.validateOpenAIImagesMappedModel(ctx, upstreamModel, clientModel, requestModel); err != nil {
 		return nil, err
 	}
 	logger.LegacyPrintf(
@@ -618,6 +691,32 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	if err != nil {
 		return nil, err
 	}
+	forwardEndpoint := parsed.Endpoint
+	var adapterHeaders map[string]string
+	if s.customModelCapabilities != nil {
+		requestAdapter, configured, resolveErr := s.resolveCustomModelRequestAdapter(
+			ctx, clientModel, requestModel, upstreamModel,
+		)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		if configured {
+			adapted, adaptErr := applyOpenAIImagesRequestAdapter(
+				forwardBody,
+				forwardContentType,
+				parsed,
+				upstreamModel,
+				requestAdapter,
+			)
+			if adaptErr != nil {
+				return nil, adaptErr
+			}
+			forwardBody = adapted.Body
+			forwardContentType = adapted.ContentType
+			forwardEndpoint = adapted.Endpoint
+			adapterHeaders = adapted.Headers
+		}
+	}
 	// Image generation may already incur upstream cost before the client disconnects.
 	// Keep draining the bounded upstream request so the generated result can still be billed.
 	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
@@ -627,7 +726,16 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	if err != nil {
 		return nil, err
 	}
-	upstreamReq, err := s.buildOpenAIImagesRequest(upstreamCtx, c, account, forwardBody, forwardContentType, token, parsed.Endpoint)
+	upstreamReq, err := s.buildOpenAIImagesRequest(
+		upstreamCtx,
+		c,
+		account,
+		forwardBody,
+		forwardContentType,
+		token,
+		forwardEndpoint,
+		adapterHeaders,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -756,8 +864,18 @@ func (s *OpenAIGatewayService) buildOpenAIImagesRequest(
 	contentType string,
 	token string,
 	endpoint string,
+	adapterHeaders map[string]string,
 ) (*http.Request, error) {
-	return s.buildOpenAIImagesRequestReader(ctx, c, account, bytes.NewReader(body), contentType, token, endpoint)
+	return s.buildOpenAIImagesRequestReader(
+		ctx,
+		c,
+		account,
+		bytes.NewReader(body),
+		contentType,
+		token,
+		endpoint,
+		adapterHeaders,
+	)
 }
 
 func (s *OpenAIGatewayService) buildOpenAIImagesRequestReader(
@@ -768,6 +886,7 @@ func (s *OpenAIGatewayService) buildOpenAIImagesRequestReader(
 	contentType string,
 	token string,
 	endpoint string,
+	adapterHeaders map[string]string,
 ) (*http.Request, error) {
 	targetURL := openAIImagesGenerationsURL
 	if endpoint == openAIImagesEditsEndpoint {
@@ -813,6 +932,9 @@ func (s *OpenAIGatewayService) buildOpenAIImagesRequestReader(
 	}
 	if strings.TrimSpace(contentType) != "" {
 		req.Header.Set("Content-Type", contentType)
+	}
+	for name, value := range adapterHeaders {
+		req.Header.Set(resolveWireCasing(name), value)
 	}
 	// 账号级请求头覆写（仅 openai api_key 账号启用时生效；OAuth 路径 no-op）
 	account.ApplyHeaderOverrides(req.Header)

@@ -55,7 +55,7 @@
         />
       </div>
 
-      <div v-if="isOpenAIAccount && !supportsImageTest" class="space-y-1.5">
+      <div v-if="isOpenAIAccount && !supportsImageTest && !supportsVideoTest" class="space-y-1.5">
         <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
           {{ t('admin.accounts.openai.testMode') }}
         </label>
@@ -66,7 +66,7 @@
         />
       </div>
 
-      <div v-if="supportsImageTest || showTextPrompt" class="space-y-1.5">
+      <div v-if="!supportsVideoTest && (supportsImageTest || showTextPrompt)" class="space-y-1.5">
         <TextArea
           v-model="testPrompt"
           :label="supportsImageTest ? t('admin.accounts.imagePromptLabel') : t('admin.accounts.customPromptLabel')"
@@ -75,6 +75,14 @@
           :disabled="status === 'connecting'"
           rows="3"
         />
+      </div>
+
+      <div
+        v-if="supportsVideoTest"
+        class="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
+      >
+        <Icon name="infoCircle" size="sm" :stroke-width="2" />
+        <span>{{ t('admin.accounts.videoTestUnsupported') }}</span>
       </div>
 
       <!-- Terminal Output -->
@@ -204,6 +212,7 @@
           {{ t('common.close') }}
         </button>
         <button
+          v-if="!supportsVideoTest"
           @click="startTest"
           :disabled="status === 'connecting' || !selectedModelId"
           :class="[
@@ -253,6 +262,10 @@ import { buildApiUrl } from '@/core/networks/client'
 import { ADMIN_UI_REQUEST_HEADER } from '@/core/networks/adminUIRequest'
 import { getAccessToken } from '@/core/networks/tokenStore'
 import { getAvailableModels } from '@/features/admin-accounts/data/datasources/adminAccountQueries'
+import {
+  isMediaStudioImageModel,
+  isMediaStudioVideoModel
+} from '@/features/custom-model-config/domain/services/modelCapabilityService'
 import type { Account } from '@/types'
 import type { ClaudeModel } from '@/features/admin-accounts/data/dtos/adminAccountDtos'
 
@@ -309,18 +322,26 @@ const openAITestModeOptions = computed(() => {
 const prioritizedGeminiModels = ['gemini-3.1-flash-image', 'gemini-2.5-flash-image', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-2.0-flash']
 const supportsGeminiImageTest = computed(() => {
   const modelID = selectedModelId.value.toLowerCase()
-  if (!modelID.startsWith('gemini-') || !modelID.includes('-image')) return false
+  const isGeminiAccount =
+    props.account?.platform === 'gemini' ||
+    (props.account?.platform === 'antigravity' && props.account?.type === 'apikey')
+  if (!isGeminiAccount) return false
 
-  return props.account?.platform === 'gemini' || (props.account?.platform === 'antigravity' && props.account?.type === 'apikey')
+  return (
+    (modelID.startsWith('gemini-') && modelID.includes('-image')) ||
+    isMediaStudioImageModel(selectedModelId.value)
+  )
 })
 
 const supportsOpenAIImageTest = computed(() => {
-  const modelID = selectedModelId.value.toLowerCase()
-  if (!modelID.startsWith('gpt-image-')) return false
-  return props.account?.platform === 'openai'
+  return (
+    props.account?.platform === 'openai' &&
+    isMediaStudioImageModel(selectedModelId.value)
+  )
 })
 
 const supportsImageTest = computed(() => supportsGeminiImageTest.value || supportsOpenAIImageTest.value)
+const supportsVideoTest = computed(() => isMediaStudioVideoModel(selectedModelId.value))
 const showTextPrompt = computed(() => isOpenAIAccount.value && testMode.value !== 'compact')
 const effectiveTestPrompt = computed(() => testPrompt.value.trim() || 'hi')
 
@@ -420,7 +441,7 @@ const scrollToBottom = async () => {
 }
 
 const startTest = async () => {
-  if (!props.account || !selectedModelId.value) return
+  if (supportsVideoTest.value || !props.account || !selectedModelId.value) return
 
   resetState()
   status.value = 'connecting'

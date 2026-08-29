@@ -403,8 +403,9 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		ModelPlazaAutoPublicModels: settings.ModelPlazaAutoPublicModels,
 		ModelPlazaDescription:      settings.ModelPlazaDescription,
 
-		MediaStudioEnabled:  settings.MediaStudioEnabled,
-		IPv6EgressUIEnabled: settings.IPv6EgressUIEnabled,
+		MediaStudioEnabled:       settings.MediaStudioEnabled,
+		CustomModelConfigEnabled: settings.CustomModelConfigEnabled,
+		IPv6EgressUIEnabled:      settings.IPv6EgressUIEnabled,
 
 		AffiliateEnabled: settings.AffiliateEnabled,
 

@@ -1139,6 +1139,52 @@ var (
 			},
 		},
 	}
+	// CustomModelConfigsColumns holds the columns for the "custom_model_configs" table.
+	CustomModelConfigsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "model_name", Type: field.TypeString, Size: 255},
+		{Name: "prefix_match", Type: field.TypeBool, Default: false},
+		{Name: "capabilities", Type: field.TypeJSON},
+		{Name: "video_api_type", Type: field.TypeString, Nullable: true, Default: ""},
+		{Name: "template_id", Type: field.TypeInt64, Nullable: true},
+	}
+	// CustomModelConfigsTable holds the schema information for the "custom_model_configs" table.
+	CustomModelConfigsTable = &schema.Table{
+		Name:       "custom_model_configs",
+		Columns:    CustomModelConfigsColumns,
+		PrimaryKey: []*schema.Column{CustomModelConfigsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "custommodelconfig_model_name",
+				Unique:  true,
+				Columns: []*schema.Column{CustomModelConfigsColumns[3]},
+			},
+		},
+	}
+	// CustomModelRequestTemplatesColumns holds the columns for the "custom_model_request_templates" table.
+	CustomModelRequestTemplatesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "name", Type: field.TypeString, Size: 100},
+		{Name: "description", Type: field.TypeString, Nullable: true, Size: 500, Default: ""},
+		{Name: "request_adapter", Type: field.TypeJSON},
+	}
+	// CustomModelRequestTemplatesTable holds the schema information for the "custom_model_request_templates" table.
+	CustomModelRequestTemplatesTable = &schema.Table{
+		Name:       "custom_model_request_templates",
+		Columns:    CustomModelRequestTemplatesColumns,
+		PrimaryKey: []*schema.Column{CustomModelRequestTemplatesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "custommodelrequesttemplate_name",
+				Unique:  true,
+				Columns: []*schema.Column{CustomModelRequestTemplatesColumns[3]},
+			},
+		},
+	}
 	// ErrorPassthroughRulesColumns holds the columns for the "error_passthrough_rules" table.
 	ErrorPassthroughRulesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -2476,6 +2522,8 @@ var (
 		ChatMessageAssetsTable,
 		ChatQuickRepliesTable,
 		CompositeModelRoutesTable,
+		CustomModelConfigsTable,
+		CustomModelRequestTemplatesTable,
 		ErrorPassthroughRulesTable,
 		GroupsTable,
 		Ipv6EgressPoolsTable,
@@ -2588,6 +2636,12 @@ func init() {
 	CompositeModelRoutesTable.ForeignKeys[0].RefTable = GroupsTable
 	CompositeModelRoutesTable.Annotation = &entsql.Annotation{
 		Table: "composite_model_routes",
+	}
+	CustomModelConfigsTable.Annotation = &entsql.Annotation{
+		Table: "custom_model_configs",
+	}
+	CustomModelRequestTemplatesTable.Annotation = &entsql.Annotation{
+		Table: "custom_model_request_templates",
 	}
 	ErrorPassthroughRulesTable.Annotation = &entsql.Annotation{
 		Table: "error_passthrough_rules",

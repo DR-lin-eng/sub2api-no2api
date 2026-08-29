@@ -382,8 +382,9 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		ModelPlazaEnabled:     settings[SettingKeyModelPlazaEnabled] == "true",
 		ModelPlazaRequireAuth: settings[SettingKeyModelPlazaRequireAuth] == "true",
 
-		MediaStudioEnabled:  settings[SettingKeyMediaStudioEnabled] == "true",
-		IPv6EgressUIEnabled: ipv6EgressEnabled == "true",
+		MediaStudioEnabled:       settings[SettingKeyMediaStudioEnabled] == "true",
+		CustomModelConfigEnabled: settings[SettingKeyCustomModelConfigEnabled] == "true",
+		IPv6EgressUIEnabled:      ipv6EgressEnabled == "true",
 
 		AffiliateEnabled: settings[SettingKeyAffiliateEnabled] == "true",
 
@@ -704,6 +705,7 @@ type PublicSettingsInjectionPayload struct {
 	ModelPlazaEnabled                    bool   `json:"model_plaza_enabled"`
 	ModelPlazaRequireAuth                bool   `json:"model_plaza_require_auth"`
 	MediaStudioEnabled                   bool   `json:"media_studio_enabled"`
+	CustomModelConfigEnabled             bool   `json:"custom_model_config_enabled"`
 	IPv6EgressUIEnabled                  bool   `json:"ipv6_egress_ui_enabled"`
 	AffiliateEnabled                     bool   `json:"affiliate_enabled"`
 	RiskControlEnabled                   bool   `json:"risk_control_enabled"`
@@ -792,6 +794,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		ModelPlazaEnabled:                    settings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth:                settings.ModelPlazaRequireAuth,
 		MediaStudioEnabled:                   settings.MediaStudioEnabled,
+		CustomModelConfigEnabled:             settings.CustomModelConfigEnabled,
 		IPv6EgressUIEnabled:                  settings.IPv6EgressUIEnabled,
 		AffiliateEnabled:                     settings.AffiliateEnabled,
 		RiskControlEnabled:                   settings.RiskControlEnabled,
