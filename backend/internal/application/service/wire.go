@@ -1015,6 +1015,8 @@ var ProviderSet = wire.NewSet(
 	NewSupportChatTransferService,
 	NewGatewayService,
 	ProvideOpenAIGatewayService,
+	NewCustomModelConfigService,
+	wire.Bind(new(CustomModelCapabilityResolver), new(*CustomModelConfigService)),
 	ProvideImageStorageSettingService,
 	ProvideImageTaskService,
 	ProvideBatchImageModelPricingResolver,

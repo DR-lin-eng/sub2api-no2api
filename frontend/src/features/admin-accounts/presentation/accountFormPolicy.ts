@@ -1,6 +1,54 @@
+import type { OpenAIEndpointCapability } from '@/types'
+
 export interface ModelMapping {
   from: string
   to: string
+}
+
+export function isOpenAIPersonalAccessTokenCredentials(credentials?: Record<string, unknown>): boolean {
+  const authMode = String(credentials?.auth_mode ?? credentials?.openai_auth_mode ?? '')
+    .trim()
+    .toLowerCase()
+  return authMode === 'personalaccesstoken' || authMode === 'personal_access_token'
+}
+
+export function readCodexWebSearchEnabled(credentials?: Record<string, unknown>): boolean {
+  const raw = credentials?.openai_capabilities
+  if (Array.isArray(raw)) return raw.includes('alpha_search')
+  if (raw !== null && typeof raw === 'object') {
+    return (raw as Record<string, unknown>).alpha_search === true
+  }
+  return true
+}
+
+export function normalizeOpenAIEndpointCapabilities(
+  values: OpenAIEndpointCapability[],
+): OpenAIEndpointCapability[] {
+  const allowed: OpenAIEndpointCapability[] = ['chat_completions', 'embeddings']
+  const selected = allowed.filter((value) => values.includes(value))
+  return selected.length > 0 ? selected : allowed
+}
+
+export function readOpenAIEndpointCapabilities(
+  credentials?: Record<string, unknown>,
+): OpenAIEndpointCapability[] {
+  const raw = credentials?.openai_capabilities
+  if (Array.isArray(raw)) {
+    return normalizeOpenAIEndpointCapabilities(
+      raw.filter((value): value is OpenAIEndpointCapability =>
+        value === 'chat_completions' || value === 'embeddings',
+      ),
+    )
+  }
+  if (raw !== null && typeof raw === 'object') {
+    const capabilityMap = raw as Record<string, unknown>
+    return normalizeOpenAIEndpointCapabilities(
+      ['chat_completions', 'embeddings'].filter(
+        (value): value is OpenAIEndpointCapability => capabilityMap[value] === true,
+      ),
+    )
+  }
+  return ['chat_completions', 'embeddings']
 }
 
 export type CodexFingerprintMode = 'off' | 'device' | 'session' | 'full'

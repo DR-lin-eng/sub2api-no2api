@@ -648,8 +648,8 @@ func (s *APIKeyService) create(ctx context.Context, userID int64, req CreateAPIK
 	if err := validateCreateAPIKeyRequest(req); err != nil {
 		return nil, err
 	}
-	if !allowReservedName && strings.EqualFold(strings.TrimSpace(req.Name), MediaStudioAPIKeyName) {
-		return nil, ErrAPIKeyReservedName
+	if err := validateMediaStudioAPIKeyMutation("", &req.Name, allowReservedName); err != nil {
+		return nil, err
 	}
 	// 验证用户存在
 	user, err := s.userRepo.GetByID(ctx, userID)
@@ -967,14 +967,8 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 	if apiKey.UserID != userID {
 		return nil, ErrInsufficientPerms
 	}
-	if req.Name != nil {
-		if strings.EqualFold(strings.TrimSpace(*req.Name), MediaStudioAPIKeyName) {
-			return nil, ErrAPIKeyReservedName
-		}
-		if isMediaStudioAPIKeyName(apiKey.Name) &&
-			!strings.EqualFold(strings.TrimSpace(*req.Name), MediaStudioAPIKeyName) {
-			return nil, ErrAPIKeyReservedName
-		}
+	if err := validateMediaStudioAPIKeyMutation(apiKey.Name, req.Name, false); err != nil {
+		return nil, err
 	}
 
 	// 验证 IP 白名单格式
@@ -1121,6 +1115,16 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 	}
 
 	return apiKey, nil
+}
+
+func validateMediaStudioAPIKeyMutation(existingName string, requestedName *string, allowReservedName bool) error {
+	if isMediaStudioAPIKeyName(existingName) {
+		return ErrAPIKeyReservedName
+	}
+	if !allowReservedName && requestedName != nil && isMediaStudioAPIKeyName(*requestedName) {
+		return ErrAPIKeyReservedName
+	}
+	return nil
 }
 
 // Delete 删除API Key

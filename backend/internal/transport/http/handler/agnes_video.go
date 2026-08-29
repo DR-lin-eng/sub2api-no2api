@@ -86,7 +86,10 @@ func (h *OpenAIGatewayHandler) handleAgnesVideo(c *gin.Context, endpoint service
 	var err error
 	var contentType string
 	if endpoint == service.AgnesVideoEndpointGenerations {
-		body, err = pkghttputil.ReadRequestBodyWithPrealloc(c.Request)
+		body, ok = pkghttputil.BufferedRequestBody(c.Request)
+		if !ok {
+			body, err = pkghttputil.ReadRequestBodyWithPrealloc(c.Request)
+		}
 		if err != nil {
 			if maxErr, ok := extractMaxBytesError(err); ok {
 				h.errorResponse(c, http.StatusRequestEntityTooLarge, "invalid_request_error", buildBodyTooLargeMessage(maxErr.Limit))

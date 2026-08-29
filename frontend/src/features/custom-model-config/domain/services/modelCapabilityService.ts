@@ -1,103 +1,67 @@
-/** 模型能力判断服务 */
+import type {
+  CustomModelConfig,
+  ModelCapability,
+} from '@/features/custom-model-config/domain/entities/customModelConfig'
 
-import type { ModelCapability, CustomModelConfig } from "@/features/custom-model-config/domain/entities/customModelConfig";
+interface CompiledModelCapabilities {
+  exact: Map<string, ReadonlySet<ModelCapability>>
+  prefixes: Array<{
+    modelName: string
+    capabilities: ReadonlySet<ModelCapability>
+  }>
+}
 
-/**
- * 模型能力缓存
- */
-let modelCapabilitiesCache: CustomModelConfig[] | null = null;
+let compiledCapabilities: CompiledModelCapabilities | null = null
 
-/**
- * 初始化模型能力缓存
- */
 export function initializeModelCapabilities(configs: CustomModelConfig[]): void {
-  modelCapabilitiesCache = configs.map((config) => ({
-    ...config,
-    model_name: config.model_name.trim(),
-    capabilities: [...config.capabilities],
-  }));
+  const exact = new Map<string, ReadonlySet<ModelCapability>>()
+  const prefixes: CompiledModelCapabilities['prefixes'] = []
+  for (const config of configs) {
+    const modelName = config.model_name.trim().toLowerCase()
+    if (!modelName) continue
+    const capabilities = new Set(config.capabilities)
+    if (config.prefix_match) {
+      prefixes.push({ modelName, capabilities })
+    } else {
+      exact.set(modelName, capabilities)
+    }
+  }
+  prefixes.sort((left, right) => right.modelName.length - left.modelName.length)
+  compiledCapabilities = { exact, prefixes }
 }
 
-/**
- * 清空模型能力缓存
- */
 export function clearModelCapabilities(): void {
-  modelCapabilitiesCache = null;
+  compiledCapabilities = null
 }
 
-function resolveConfiguredCapabilities(model: string): Set<ModelCapability> | null {
-  if (!modelCapabilitiesCache) {
-    return null;
+function resolveConfiguredCapabilities(model: string): ReadonlySet<ModelCapability> | null {
+  if (!compiledCapabilities) return null
+  const normalized = model.trim().toLowerCase()
+  const exact = compiledCapabilities.exact.get(normalized)
+  if (exact) return exact
+  for (const entry of compiledCapabilities.prefixes) {
+    if (normalized.startsWith(entry.modelName)) return entry.capabilities
   }
-
-  const normalized = model.trim().toLowerCase();
-  const exact = modelCapabilitiesCache.find(
-    (config) => !config.prefix_match && config.model_name.toLowerCase() === normalized
-  );
-  if (exact) {
-    return new Set(exact.capabilities);
-  }
-
-  let bestPrefix: CustomModelConfig | null = null;
-  for (const config of modelCapabilitiesCache) {
-    const prefix = config.model_name.toLowerCase();
-    if (!config.prefix_match || !prefix || !normalized.startsWith(prefix)) {
-      continue;
-    }
-    if (!bestPrefix || prefix.length > bestPrefix.model_name.length) {
-      bestPrefix = config;
-    }
-  }
-
-  return bestPrefix ? new Set(bestPrefix.capabilities) : null;
+  return null
 }
 
-/**
- * 判断模型是否支持 Image 能力
- */
 export function isMediaStudioImageModel(model: string): boolean {
-  const normalized = model.trim().toLowerCase();
-
-  // 优先从自定义配置中查找
-  const configuredCapabilities = resolveConfiguredCapabilities(normalized);
-  if (configuredCapabilities) {
-    return configuredCapabilities.has("image");
-  }
-
-  // Fallback 到硬编码规则
+  const normalized = model.trim().toLowerCase()
+  const configuredCapabilities = resolveConfiguredCapabilities(normalized)
+  if (configuredCapabilities) return configuredCapabilities.has('image')
   return normalized.startsWith('gpt-image-') || (
     normalized.startsWith('grok-imagine') && !normalized.startsWith('grok-imagine-video')
-  );
+  )
 }
 
-/**
- * 判断模型是否支持 Video 能力
- */
 export function isMediaStudioVideoModel(model: string): boolean {
-  const normalized = model.trim().toLowerCase();
-
-  // 优先从自定义配置中查找
-  const configuredCapabilities = resolveConfiguredCapabilities(normalized);
-  if (configuredCapabilities) {
-    return configuredCapabilities.has("video");
-  }
-
-  // Fallback 到硬编码规则
-  return normalized.startsWith('grok-imagine-video');
+  const normalized = model.trim().toLowerCase()
+  const configuredCapabilities = resolveConfiguredCapabilities(normalized)
+  if (configuredCapabilities) return configuredCapabilities.has('video')
+  return normalized.startsWith('grok-imagine-video')
 }
 
-/**
- * 判断模型是否支持 Audio 能力
- */
 export function isMediaStudioAudioModel(model: string): boolean {
-  const normalized = model.trim().toLowerCase();
-
-  // 优先从自定义配置中查找
-  const configuredCapabilities = resolveConfiguredCapabilities(normalized);
-  if (configuredCapabilities) {
-    return configuredCapabilities.has("audio");
-  }
-
-  // 暂无硬编码规则
-  return false;
+  const configuredCapabilities = resolveConfiguredCapabilities(model)
+  return configuredCapabilities?.has('audio') ?? false
 }

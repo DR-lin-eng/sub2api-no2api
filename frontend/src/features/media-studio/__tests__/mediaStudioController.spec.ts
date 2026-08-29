@@ -175,8 +175,9 @@ describe('media studio controller', () => {
     const submission = controller.submitPrompt()
     await settle()
 
-    expect(submitImage).toHaveBeenCalledTimes(3)
-    expect(submitImage.mock.calls.every(call => call[1].n === 1)).toBe(true)
+		expect(submitImage).toHaveBeenCalledTimes(3)
+		expect(submitImage.mock.calls[0][1].n).toBe(3)
+		expect(submitImage.mock.calls.slice(1).every(call => call[1].n === 1)).toBe(true)
     expect(controller.conversation.value.messages.at(-1)?.images).toHaveLength(1)
     expect(controller.conversation.value.messages.at(-1)?.status).toBe('processing')
 
@@ -202,10 +203,11 @@ describe('media studio controller', () => {
     const createObjectURL = vi.fn().mockReturnValue('blob:video-preview')
     const revokeObjectURL = vi.fn()
     const getVideoContent = vi.fn().mockResolvedValue(new Blob(['video'], { type: 'video/mp4' }))
+    const createSession = vi.fn().mockResolvedValue(session())
     const controller = useMediaStudioController({
       storage: localStorage,
       getConfig: vi.fn().mockResolvedValue(config),
-      createSession: vi.fn().mockResolvedValue(session()),
+      createSession,
       listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: 'grok-imagine-video' }] }),
       submitVideo: vi.fn().mockResolvedValue({ id: 'video-1', status: 'processing', raw: {} }),
       getVideoTask: vi.fn().mockResolvedValue({ id: 'video-1', status: 'completed', raw: {} }),
@@ -225,6 +227,7 @@ describe('media studio controller', () => {
     await settle()
 
     expect(controller.modelOptions.value).toEqual(['grok-imagine-video'])
+    expect(createSession).toHaveBeenCalledTimes(1)
     expect(getVideoContent).toHaveBeenCalledWith('sk-demo', 'video-1')
     expect(controller.conversation.value.messages.at(-1)).toMatchObject({
       mode: 'video', status: 'completed', resolution: '1080p', duration: 15,

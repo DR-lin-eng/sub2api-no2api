@@ -38,6 +38,113 @@ type openAIImagesAdaptedRequest struct {
 	Headers     map[string]string
 }
 
+const maxCustomModelRequestAdapterBytes = 64 << 10
+
+func validateCustomModelRequestAdapter(rawAdapter map[string]any) error {
+	if len(rawAdapter) == 0 {
+		return nil
+	}
+	encoded, err := json.Marshal(rawAdapter)
+	if err != nil {
+		return fmt.Errorf("%w: request adapter is not valid JSON", ErrCustomModelConfigInvalid)
+	}
+	if len(encoded) > maxCustomModelRequestAdapterBytes {
+		return fmt.Errorf("%w: request adapter exceeds %d bytes", ErrCustomModelConfigInvalid, maxCustomModelRequestAdapterBytes)
+	}
+	var adapter customModelRequestAdapterDefinition
+	if err := json.Unmarshal(encoded, &adapter); err != nil {
+		return fmt.Errorf("%w: decode request adapter", ErrCustomModelConfigInvalid)
+	}
+	if adapter.Version != 0 && adapter.Version != 1 {
+		return fmt.Errorf("%w: unsupported request adapter version %d", ErrCustomModelConfigInvalid, adapter.Version)
+	}
+	for field, path := range map[string]string{
+		"match endpoint": adapter.Match.Endpoint,
+		"upstream path":  adapter.Upstream.Path,
+	} {
+		path = strings.TrimSpace(path)
+		if path == "" {
+			continue
+		}
+		if !strings.HasPrefix(path, "/") || strings.Contains(path, "://") || strings.ContainsAny(path, "\r\n") {
+			return fmt.Errorf("%w: %s must be an absolute URL path", ErrCustomModelConfigInvalid, field)
+		}
+		if err := validateCustomModelTemplateString(path); err != nil {
+			return err
+		}
+	}
+	contentType := strings.ToLower(strings.TrimSpace(adapter.Upstream.ContentType))
+	switch contentType {
+	case "", "preserve", "application/json", "multipart/form-data":
+	default:
+		return fmt.Errorf("%w: unsupported content type %q", ErrCustomModelConfigInvalid, contentType)
+	}
+	bodyMode := strings.ToLower(strings.TrimSpace(adapter.Body.Mode))
+	switch bodyMode {
+	case "", "off", "merge", "replace":
+	default:
+		return fmt.Errorf("%w: unsupported body mode %q", ErrCustomModelConfigInvalid, bodyMode)
+	}
+	if contentType == "multipart/form-data" && bodyMode != "" && bodyMode != "off" {
+		return fmt.Errorf("%w: multipart request bodies only support off mode", ErrCustomModelConfigInvalid)
+	}
+	for name, rawValue := range adapter.Headers.Set {
+		value, ok := rawValue.(string)
+		if !ok {
+			return fmt.Errorf("%w: header %q must be a string", ErrCustomModelConfigInvalid, name)
+		}
+		if _, _, err := normalizeHeaderOverrideEntry(name, value); err != nil {
+			return fmt.Errorf("%w: %v", ErrCustomModelConfigInvalid, err)
+		}
+		if err := validateCustomModelTemplateString(value); err != nil {
+			return err
+		}
+	}
+	return validateCustomModelTemplateValue(adapter.Body.Value)
+}
+
+func validateCustomModelTemplateValue(value any) error {
+	switch typed := value.(type) {
+	case string:
+		return validateCustomModelTemplateString(typed)
+	case map[string]any:
+		for _, item := range typed {
+			if err := validateCustomModelTemplateValue(item); err != nil {
+				return err
+			}
+		}
+	case []any:
+		for _, item := range typed {
+			if err := validateCustomModelTemplateValue(item); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func validateCustomModelTemplateString(value string) error {
+	remaining := value
+	for {
+		start := strings.Index(remaining, "{{")
+		if start < 0 {
+			if strings.Contains(remaining, "}}") {
+				return fmt.Errorf("%w: unmatched template delimiter", ErrCustomModelConfigInvalid)
+			}
+			return nil
+		}
+		endOffset := strings.Index(remaining[start+2:], "}}")
+		if endOffset < 0 {
+			return fmt.Errorf("%w: unterminated template variable", ErrCustomModelConfigInvalid)
+		}
+		path := strings.TrimSpace(remaining[start+2 : start+2+endOffset])
+		if !strings.HasPrefix(path, "request.") || len(path) <= len("request.") || strings.ContainsAny(path, "{} \t\r\n") {
+			return fmt.Errorf("%w: invalid template variable %q", ErrCustomModelConfigInvalid, path)
+		}
+		remaining = remaining[start+2+endOffset+2:]
+	}
+}
+
 func applyOpenAIImagesRequestAdapter(
 	body []byte,
 	contentType string,
@@ -47,6 +154,9 @@ func applyOpenAIImagesRequestAdapter(
 ) (*openAIImagesAdaptedRequest, error) {
 	if parsed == nil {
 		return nil, fmt.Errorf("parsed images request is required")
+	}
+	if err := validateCustomModelRequestAdapter(rawAdapter); err != nil {
+		return nil, err
 	}
 	encoded, err := json.Marshal(rawAdapter)
 	if err != nil {
@@ -294,7 +404,7 @@ func lookupCustomModelRequestVariable(path string, variables map[string]any) (an
 		return nil, false
 	}
 	parts := strings.Split(strings.TrimPrefix(path, "request."), ".")
-	var current any = variables["request"]
+	current := variables["request"]
 	for _, part := range parts {
 		switch typed := current.(type) {
 		case map[string]any:
@@ -376,7 +486,7 @@ func openAIImagesMultipartToJSON(body []byte, boundary string) (map[string]any, 
 		}
 		if strings.TrimSpace(part.FileName()) != "" {
 			contentType := strings.TrimSpace(part.Header.Get("Content-Type"))
-			if contentType == "" {
+			if contentType == "" || strings.EqualFold(contentType, "application/octet-stream") {
 				contentType = http.DetectContentType(data)
 			}
 			fieldName := name

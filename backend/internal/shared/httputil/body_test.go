@@ -37,6 +37,23 @@ func TestReadRequestBodyWithPrealloc_PassesThroughIdentity(t *testing.T) {
 	}
 }
 
+func TestBufferedRequestBodySharesRoutingBuffer(t *testing.T) {
+	req := newRequestWithBody(t, []byte(samplePayload), "")
+	body := []byte(samplePayload)
+	req = WithBufferedRequestBody(req, body)
+
+	got, ok := BufferedRequestBody(req)
+	if !ok {
+		t.Fatal("expected buffered request body")
+	}
+	if string(got) != samplePayload {
+		t.Fatalf("body mismatch: got %q", got)
+	}
+	if _, ok := BufferedRequestBody(nil); ok {
+		t.Fatal("nil request must not contain a buffered body")
+	}
+}
+
 func TestReadRequestBodyWithPrealloc_DecodesZstd(t *testing.T) {
 	enc, _ := zstd.NewWriter(nil)
 	compressed := enc.EncodeAll([]byte(samplePayload), nil)

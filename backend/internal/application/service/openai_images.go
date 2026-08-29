@@ -491,8 +491,26 @@ func (s *OpenAIGatewayService) validateOpenAIImagesModel(ctx context.Context, mo
 	if err := validateOpenAIImagesModel(model); err == nil {
 		return nil
 	}
-	if s != nil && s.customModelCapabilities != nil {
-		configured, err := s.customModelCapabilities.HasCapability(ctx, model, "image")
+	configured, err := s.hasCustomModelCapability(ctx, model, "image")
+	if err != nil {
+		return fmt.Errorf("failed to resolve custom model capabilities: %w", err)
+	}
+	if configured {
+		return nil
+	}
+	return validateOpenAIImagesModel(model)
+}
+
+func (s *OpenAIGatewayService) validateOpenAIImagesMappedModel(
+	ctx context.Context,
+	upstreamModel string,
+	configuredModels ...string,
+) error {
+	if err := validateOpenAIImagesModel(upstreamModel); err == nil {
+		return nil
+	}
+	for _, model := range append(configuredModels, upstreamModel) {
+		configured, err := s.hasCustomModelCapability(ctx, model, "image")
 		if err != nil {
 			return fmt.Errorf("failed to resolve custom model capabilities: %w", err)
 		}
@@ -500,7 +518,46 @@ func (s *OpenAIGatewayService) validateOpenAIImagesModel(ctx context.Context, mo
 			return nil
 		}
 	}
-	return validateOpenAIImagesModel(model)
+	return validateOpenAIImagesModel(upstreamModel)
+}
+
+func (s *OpenAIGatewayService) hasCustomModelCapability(
+	ctx context.Context,
+	model string,
+	capability string,
+) (bool, error) {
+	if s == nil || s.customModelCapabilities == nil {
+		return false, nil
+	}
+	return s.customModelCapabilities.HasCapability(ctx, model, capability)
+}
+
+func (s *OpenAIGatewayService) resolveCustomModelRequestAdapter(
+	ctx context.Context,
+	models ...string,
+) (map[string]any, bool, error) {
+	if s == nil || s.customModelCapabilities == nil {
+		return nil, false, nil
+	}
+	seen := make(map[string]struct{}, len(models))
+	for _, model := range models {
+		key := strings.ToLower(strings.TrimSpace(model))
+		if key == "" {
+			continue
+		}
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		adapter, configured, err := s.customModelCapabilities.ResolveRequestAdapter(ctx, model)
+		if err != nil {
+			return nil, false, err
+		}
+		if configured {
+			return adapter, true, nil
+		}
+	}
+	return nil, false, nil
 }
 func validateOpenAIImagesResponseFormat(responseFormat string) error {
 	switch strings.ToLower(strings.TrimSpace(responseFormat)) {
@@ -610,15 +667,16 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	channelMappedModel string,
 ) (*OpenAIForwardResult, error) {
 	startTime := time.Now()
-	requestModel := strings.TrimSpace(parsed.Model)
+	clientModel := strings.TrimSpace(parsed.Model)
+	requestModel := clientModel
 	if mapped := strings.TrimSpace(channelMappedModel); mapped != "" {
 		requestModel = mapped
 	}
-	if err := s.validateOpenAIImagesModel(ctx, requestModel); err != nil {
+	if err := s.validateOpenAIImagesModel(ctx, clientModel); err != nil {
 		return nil, err
 	}
 	upstreamModel := account.GetMappedModel(requestModel)
-	if err := s.validateOpenAIImagesModel(ctx, upstreamModel); err != nil {
+	if err := s.validateOpenAIImagesMappedModel(ctx, upstreamModel, clientModel, requestModel); err != nil {
 		return nil, err
 	}
 	logger.LegacyPrintf(
@@ -636,7 +694,9 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	forwardEndpoint := parsed.Endpoint
 	var adapterHeaders map[string]string
 	if s.customModelCapabilities != nil {
-		requestAdapter, configured, resolveErr := s.customModelCapabilities.ResolveRequestAdapter(ctx, upstreamModel)
+		requestAdapter, configured, resolveErr := s.resolveCustomModelRequestAdapter(
+			ctx, clientModel, requestModel, upstreamModel,
+		)
 		if resolveErr != nil {
 			return nil, resolveErr
 		}

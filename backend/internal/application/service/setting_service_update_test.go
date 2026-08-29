@@ -87,6 +87,16 @@ func TestSettingService_UpdateSettings_PersistsMediaStudioEnabled(t *testing.T) 
 	require.Equal(t, "true", repo.updates[SettingKeyMediaStudioEnabled])
 }
 
+func TestSettingService_UpdateSettings_PersistsCustomModelConfigEnabled(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	err := NewSettingService(repo, &config.Config{}).UpdateSettings(
+		context.Background(),
+		&SystemSettings{CustomModelConfigEnabled: true},
+	)
+	require.NoError(t, err)
+	require.Equal(t, "true", repo.updates[SettingKeyCustomModelConfigEnabled])
+}
+
 func TestSettingService_UpdateSettings_PersistsIPv6EgressUIEnabled(t *testing.T) {
 	repo := &settingUpdateRepoStub{}
 	err := NewSettingService(repo, &config.Config{}).UpdateSettings(

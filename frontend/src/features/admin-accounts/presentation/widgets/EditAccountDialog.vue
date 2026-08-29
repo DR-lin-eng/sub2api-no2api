@@ -138,9 +138,13 @@ import {
   createTempUnschedRule,
   formatPoolModeRetryStatusCodes,
   getCodexFingerprintModeOptions,
+  isOpenAIPersonalAccessTokenCredentials,
   moveTempUnschedRule as moveTempUnschedRuleInPlace,
   normalizeCodexFingerprintMode,
+  normalizeOpenAIEndpointCapabilities,
   normalizePoolModeRetryCount,
+  readCodexWebSearchEnabled,
+  readOpenAIEndpointCapabilities,
   removeModelMapping as removeModelMappingAt,
   type CodexFingerprintMode,
   type ModelMapping,
@@ -491,29 +495,11 @@ const openAITextGenerationCapabilityEnabled = computed(() =>
   openAIEndpointCapabilities.value.includes('chat_completions')
 )
 
-const isOpenAIPersonalAccessTokenCredentials = (credentials?: Record<string, unknown>) => {
-  const authMode = String(credentials?.auth_mode ?? credentials?.openai_auth_mode ?? '')
-    .trim()
-    .toLowerCase()
-  return authMode === 'personalaccesstoken' || authMode === 'personal_access_token'
-}
-
 const isOpenAIPersonalAccessTokenAccount = computed(() =>
   props.account?.platform === 'openai' &&
   props.account?.type === 'oauth' &&
   isOpenAIPersonalAccessTokenCredentials(props.account.credentials as Record<string, unknown> | undefined)
 )
-
-const readCodexWebSearchEnabled = (credentials?: Record<string, unknown>) => {
-  const raw = credentials?.openai_capabilities
-  if (Array.isArray(raw)) {
-    return raw.includes('alpha_search')
-  }
-  if (raw !== null && typeof raw === 'object') {
-    return (raw as Record<string, unknown>).alpha_search === true
-  }
-  return true
-}
 
 const applyCodexWebSearchCapability = (credentials: Record<string, unknown>) => {
   if (codexWebSearchEnabled.value) {
@@ -521,32 +507,6 @@ const applyCodexWebSearchCapability = (credentials: Record<string, unknown>) => 
     return
   }
   credentials.openai_capabilities = ['chat_completions']
-}
-
-const normalizeOpenAIEndpointCapabilities = (values: OpenAIEndpointCapability[]) => {
-  const allowed: OpenAIEndpointCapability[] = ['chat_completions', 'embeddings']
-  const selected = allowed.filter((value) => values.includes(value))
-  return selected.length > 0 ? selected : allowed
-}
-
-const readOpenAIEndpointCapabilities = (credentials?: Record<string, unknown>): OpenAIEndpointCapability[] => {
-  const raw = credentials?.openai_capabilities
-  if (Array.isArray(raw)) {
-    return normalizeOpenAIEndpointCapabilities(
-      raw.filter((value): value is OpenAIEndpointCapability =>
-        value === 'chat_completions' || value === 'embeddings'
-      )
-    )
-  }
-  if (raw !== null && typeof raw === 'object') {
-    const capabilityMap = raw as Record<string, unknown>
-    return normalizeOpenAIEndpointCapabilities(
-      openAIEndpointCapabilityOptions.value
-        .map((option) => option.value)
-        .filter((value) => capabilityMap[value] === true)
-    )
-  }
-  return ['chat_completions', 'embeddings']
 }
 
 const toggleOpenAIEndpointCapability = (capability: OpenAIEndpointCapability, event?: Event) => {

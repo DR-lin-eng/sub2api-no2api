@@ -15,6 +15,11 @@ function attachmentID(file: File): string {
   return `${file.name}:${file.size}:${file.lastModified}:${file.type}`
 }
 
+function attachmentPreviewURL(file: File): string {
+  const createObjectURL = globalThis.URL?.createObjectURL
+  return typeof createObjectURL === 'function' ? createObjectURL.call(globalThis.URL, file) : ''
+}
+
 export function addMediaStudioImageAttachments(
   current: MediaStudioImageAttachment[],
   files: File[],
@@ -50,7 +55,7 @@ export function addMediaStudioImageAttachments(
       name: file.name || 'pasted-image',
       mimeType: file.type,
       size: file.size,
-      previewUrl: URL.createObjectURL(file),
+      previewUrl: attachmentPreviewURL(file),
     })
   }
 
@@ -58,5 +63,11 @@ export function addMediaStudioImageAttachments(
 }
 
 export function revokeMediaStudioImageAttachments(attachments: MediaStudioImageAttachment[]): void {
-  for (const attachment of attachments) URL.revokeObjectURL(attachment.previewUrl)
+  const revokeObjectURL = globalThis.URL?.revokeObjectURL
+  if (typeof revokeObjectURL !== 'function') return
+  for (const attachment of attachments) {
+    if (attachment.previewUrl.startsWith('blob:')) {
+      revokeObjectURL.call(globalThis.URL, attachment.previewUrl)
+    }
+  }
 }

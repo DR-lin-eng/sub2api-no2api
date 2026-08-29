@@ -390,13 +390,11 @@ const readPassiveQuotaSnapshot = (account: Account): OpenAIQuotaUsage | null => 
     window_duration_mins: fiveHourMinutes,
     resets_at: fiveHourReset
   }
-  const sampledAt = typeof extra.codex_usage_updated_at === 'string'
-    ? quotaResetUnixSeconds(extra.codex_usage_updated_at) ?? 0
-    : 0
-
   return {
     source: 'passive',
-    fetched_at: sampledAt,
+    fetched_at: typeof extra.codex_usage_updated_at === 'string'
+      ? quotaResetUnixSeconds(extra.codex_usage_updated_at) ?? 0
+      : 0,
     rate_limits_by_limit_id: {
       codex: {
         limit_id: 'codex',

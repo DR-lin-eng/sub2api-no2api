@@ -39,6 +39,13 @@ export const customModelConfigDatasource = {
     return response.data.map(toEntity);
   },
 
+  async getRuntimeCapabilities(): Promise<CustomModelConfig[]> {
+    const response = await apiClient.get<CustomModelConfigDto[]>(BASE_URL, {
+      params: { runtime: 1 },
+    });
+    return response.data.map(toEntity);
+  },
+
   /**
    * 获取单个自定义模型配置
    */

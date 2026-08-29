@@ -584,8 +584,12 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     getConfig: options.getConfig ?? getMediaStudioConfig,
     createSession: options.createSession ?? createMediaStudioSession,
   }
-  const createObjectURL = options.createObjectURL ?? ((blob: Blob) => URL.createObjectURL(blob))
-  const revokeObjectURL = options.revokeObjectURL ?? ((url: string) => URL.revokeObjectURL(url))
+	const createObjectURL = options.createObjectURL ?? ((blob: Blob) => (
+		typeof URL.createObjectURL === 'function' ? URL.createObjectURL(blob) : ''
+	))
+	const revokeObjectURL = options.revokeObjectURL ?? ((url: string) => {
+		if (url && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(url)
+	})
   const pollDelayMs = options.pollDelayMs ?? DEFAULT_POLL_DELAY_MS
   const maxPollCount = options.maxPollCount ?? MAX_POLL_COUNT
 
@@ -636,6 +640,10 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   const imageInputFiles = new Map<string, File[]>()
   let disposed = false
   let modelRequestSequence = 0
+  let groupLoadRequest: Promise<void> | null = null
+  let sessionRequest: Promise<void> | null = null
+  let sessionRequestGroupID = 0
+  let activeSessionGroupID = 0
 
   const modes = computed(() => previewModes.map((mode) => (
     mode.id === 'video'
@@ -665,7 +673,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
   }
 
   async function editGeneratedImage(image: MediaStudioGeneratedImagePreview) {
-    if (selectedModeId.value !== 'image') selectMode('image')
+    if (selectedModeId.value !== 'image') await selectMode('image')
     submitError.value = ''
     try {
       const file = await imagePreviewToFile(image)
@@ -780,19 +788,28 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     if (selectedModeId.value === 'video') videoModel.value = value
   })
   async function loadMediaGroups() {
-    loadingGroups.value = true
-    groupLoadError.value = ''
-    try {
-      groupConfig.value = await data.getConfig()
-      const options = groupConfig.value.groups
-      if (!options.some(group => group.group_id === selectedGroupId.value)) {
-        selectedGroupId.value = options[0]?.group_id || 0
+    if (groupLoadRequest) return groupLoadRequest
+    const request = (async () => {
+      loadingGroups.value = true
+      groupLoadError.value = ''
+      try {
+        groupConfig.value = await data.getConfig()
+        const options = groupConfig.value.groups
+        if (!options.some(group => group.group_id === selectedGroupId.value)) {
+          selectedGroupId.value = options[0]?.group_id || 0
+        }
+        await establishMediaStudioSession()
+      } catch (error) {
+        groupLoadError.value = mediaStudioErrorMessage(error, 'Failed to load media studio groups')
+      } finally {
+        loadingGroups.value = false
       }
-      await establishMediaStudioSession()
-    } catch (error) {
-      groupLoadError.value = mediaStudioErrorMessage(error, 'Failed to load media studio groups')
+    })()
+    groupLoadRequest = request
+    try {
+      await request
     } finally {
-      loadingGroups.value = false
+      if (groupLoadRequest === request) groupLoadRequest = null
     }
   }
 
@@ -801,11 +818,35 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     const group = selectedGroup.value
     if (!group || (mediaType !== 'image' && mediaType !== 'video')) {
       mediaStudioApiKey.value = ''
+      activeSessionGroupID = 0
       return
     }
-    const session = await data.createSession(mediaType, group.group_id)
-    mediaStudioApiKey.value = session.api_key
-    await loadModels()
+    if (mediaStudioApiKey.value && activeSessionGroupID === group.group_id) {
+      await loadModels()
+      return
+    }
+    if (sessionRequest && sessionRequestGroupID === group.group_id) {
+      await sessionRequest
+      return
+    }
+    const groupID = group.group_id
+    const request = (async () => {
+      const session = await data.createSession(mediaType, groupID)
+      if (selectedGroupId.value !== groupID || disposed) return
+      mediaStudioApiKey.value = session.api_key
+      activeSessionGroupID = groupID
+      await loadModels()
+    })()
+    sessionRequest = request
+    sessionRequestGroupID = groupID
+    try {
+      await request
+    } finally {
+      if (sessionRequest === request) {
+        sessionRequest = null
+        sessionRequestGroupID = 0
+      }
+    }
   }
 
   async function loadModels() {
@@ -843,7 +884,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     }
   }
 
-  function selectMode(id: MediaStudioModeId) {
+  async function selectMode(id: MediaStudioModeId) {
     const nextMode = modes.value.find(mode => mode.id === id) ?? modes.value[0]
     if (!nextMode.available || id === selectedModeId.value) return
     if (selectedModeId.value === 'image') imageModel.value = model.value
@@ -853,8 +894,11 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     submitError.value = ''
     modelLoadError.value = ''
     modelOptions.value = []
-    mediaStudioApiKey.value = ''
-    void loadMediaGroups()
+    if (groupConfig.value.groups.length > 0) {
+      await establishMediaStudioSession()
+    } else {
+      await loadMediaGroups()
+    }
   }
 
   function patchAssistantMessage(messageId: string, patch: Partial<MediaStudioMessage>): boolean {
@@ -872,14 +916,21 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     const userMessage = userIndex >= 0 ? conversation.value.messages[userIndex] : undefined
     if (!userMessage || userMessage.role !== 'user' || !userMessage.inputImages?.length) return
 
-    const cached = await Promise.all(userMessage.inputImages.map(async (image) => {
+    const cached: MediaStudioInputImagePreview[] = []
+    for (const image of userMessage.inputImages) {
       const attachment = attachments.find(item => item.id === image.id)
-      if (!attachment) return image
+      if (!attachment) {
+        cached.push(image)
+        continue
+      }
       const source = await readImageFileAsDataURL(attachment.file)
-      if (!source) return image
+      if (!source) {
+        cached.push(image)
+        continue
+      }
       const cacheKey = mediaStudioImageStorageKey(userMessage.id, image.id)
-      return await storeMediaStudioImage(cacheKey, source) ? { ...image, cacheKey } : image
-    }))
+      cached.push(await storeMediaStudioImage(cacheKey, source) ? { ...image, cacheKey } : image)
+    }
 
     if (disposed) return
     const messages = [...conversation.value.messages]
@@ -1040,46 +1091,60 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
           images: [],
         })
 
-        let settledCount = 0
-        let firstTaskID = ''
-        let lastError = ''
-        const submitSingleImage = async () => {
-          try {
-            let task = await submitImageTask({ ...payload, n: 1 })
-            const taskID = task.task_id || task.id
-            if (!firstTaskID) {
-              firstTaskID = taskID
-              patchAssistantMessage(assistantMessage.id, { taskId: taskID })
+		let firstTaskID = ''
+		let lastError = ''
+		const submitAndResolveImages = async (requestPayload: MediaStudioImageSubmitRequest) => {
+		  try {
+			let task = await submitImageTask(requestPayload)
+			const taskID = task.task_id || task.id
+			if (!firstTaskID) {
+			  firstTaskID = taskID
+			  patchAssistantMessage(assistantMessage.id, { taskId: taskID })
             }
             if (task.status !== 'completed' && task.status !== 'failed') {
               task = await pollImageTask(mediaStudioApiKey.value, taskID)
-            }
-            if (task.status === 'completed') {
-              const current = conversation.value.messages.find(message => message.id === assistantMessage.id)?.images ?? []
-              const generated = await cacheGeneratedImages(assistantMessage.id, extractImages(task))
-              patchAssistantMessage(assistantMessage.id, {
-                images: mergeGeneratedImages(current, generated),
-              })
-            } else {
-              lastError = imageTaskErrorMessage(task)
-            }
-          } catch (error) {
-            lastError = mediaStudioErrorMessage(error, 'image generation failed')
-          } finally {
-            settledCount += 1
-            const currentImages = conversation.value.messages.find(message => message.id === assistantMessage.id)?.images ?? []
-            if (settledCount === requestedCount) {
-              patchAssistantMessage(assistantMessage.id, {
-                status: currentImages.length > 0 ? 'completed' : 'failed',
-                error: currentImages.length > 0 ? '' : lastError,
-                completedAt: now(),
-              })
-            } else {
-              patchAssistantMessage(assistantMessage.id, { status: 'processing' })
-            }
-          }
-        }
-        await Promise.all(Array.from({ length: requestedCount }, () => submitSingleImage()))
+			}
+			if (task.status === 'completed') {
+			  return await cacheGeneratedImages(assistantMessage.id, extractImages(task))
+			} else {
+			  lastError = imageTaskErrorMessage(task)
+			}
+		  } catch (error) {
+			lastError = mediaStudioErrorMessage(error, 'image generation failed')
+		  }
+		  return []
+		}
+		const initialImages = await submitAndResolveImages(payload)
+		if (initialImages.length > 0) {
+		  patchAssistantMessage(assistantMessage.id, {
+			images: initialImages.slice(0, requestedCount),
+		  })
+		}
+		const currentCount = conversation.value.messages.find(
+		  message => message.id === assistantMessage.id,
+		)?.images?.length ?? 0
+		const missingCount = Math.max(0, requestedCount - currentCount)
+		if (missingCount > 0 && initialImages.length > 0) {
+		  await Promise.all(Array.from({ length: missingCount }, async () => {
+			const generated = await submitAndResolveImages({ ...payload, n: 1 })
+			if (generated.length === 0) return
+			const current = conversation.value.messages.find(
+			  message => message.id === assistantMessage.id,
+			)?.images ?? []
+			patchAssistantMessage(assistantMessage.id, {
+			  images: mergeGeneratedImages(current, generated).slice(0, requestedCount),
+			  status: 'processing',
+			})
+		  }))
+		}
+		const completedImages = conversation.value.messages.find(
+		  message => message.id === assistantMessage.id,
+		)?.images ?? []
+		patchAssistantMessage(assistantMessage.id, {
+		  status: completedImages.length > 0 ? 'completed' : 'failed',
+		  error: completedImages.length > 0 ? '' : lastError,
+		  completedAt: now(),
+		})
       } else {
         const task = await data.submitVideo(mediaStudioApiKey.value, {
           model: assistantMessage.model || DEFAULT_VIDEO_MODEL,
@@ -1108,9 +1173,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
 
   async function retryMessage(message: MediaStudioMessage) {
     if (!message.prompt.trim()) return
-    const modeChanged = selectedModeId.value !== message.mode
-    selectMode(message.mode)
-    if (modeChanged) await loadMediaGroups()
+    await selectMode(message.mode)
     model.value = message.model || (message.mode === 'video' ? DEFAULT_VIDEO_MODEL : DEFAULT_IMAGE_MODEL)
     if (message.mode === 'image') {
       imageResolution.value = normalizeImageResolution(message.imageResolution)
@@ -1132,10 +1195,10 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     videoObjectURLs.clear()
   }
 
-  function revokeInputImageURLs(messages: MediaStudioMessage[]) {
+	function revokeInputImageURLs(messages: MediaStudioMessage[]) {
     for (const message of messages) {
       for (const image of message.inputImages || []) {
-        if (image.src.startsWith('blob:')) URL.revokeObjectURL(image.src)
+			if (image.src.startsWith('blob:')) revokeObjectURL(image.src)
       }
     }
   }
@@ -1157,7 +1220,7 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
     for (const message of conversation.value.messages) {
       if (!ids.has(message.id)) continue
       if (message.video?.src && videoObjectURLs.has(message.video.src)) {
-        URL.revokeObjectURL(message.video.src)
+			revokeObjectURL(message.video.src)
         videoObjectURLs.delete(message.video.src)
       }
       imageKeys.push(...(message.images || []).flatMap(image => image.cacheKey ? [image.cacheKey] : []))

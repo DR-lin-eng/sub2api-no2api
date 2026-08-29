@@ -2,12 +2,90 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"mime/multipart"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+type customImageModelResolverStub struct {
+	capabilities map[string]bool
+	adapters     map[string]map[string]any
+}
+
+func (s customImageModelResolverStub) HasCapability(_ context.Context, model, capability string) (bool, error) {
+	return capability == "image" && s.capabilities[model], nil
+}
+
+func (s customImageModelResolverStub) ResolveVideoAPIType(context.Context, string) (string, bool, error) {
+	return "", false, nil
+}
+
+func (s customImageModelResolverStub) ResolveRequestAdapter(
+	_ context.Context,
+	model string,
+) (map[string]any, bool, error) {
+	adapter, ok := s.adapters[model]
+	return adapter, ok, nil
+}
+
+func TestCustomImageModelMappingUsesClientConfigAndAdapter(t *testing.T) {
+	clientAdapter := map[string]any{"version": 1, "body": map[string]any{"mode": "off"}}
+	svc := &OpenAIGatewayService{customModelCapabilities: customImageModelResolverStub{
+		capabilities: map[string]bool{"public-image": true},
+		adapters:     map[string]map[string]any{"public-image": clientAdapter},
+	}}
+
+	require.NoError(t, svc.validateOpenAIImagesMappedModel(
+		context.Background(), "vendor-model-v2", "public-image", "channel-image",
+	))
+	adapter, configured, err := svc.resolveCustomModelRequestAdapter(
+		context.Background(), "public-image", "channel-image", "vendor-model-v2",
+	)
+	require.NoError(t, err)
+	require.True(t, configured)
+	require.Equal(t, clientAdapter, adapter)
+}
+
+func TestValidateCustomModelRequestAdapterRejectsUnsafeAndMalformedRules(t *testing.T) {
+	valid := map[string]any{
+		"version": 1,
+		"upstream": map[string]any{
+			"path":         "/v1/images/generations",
+			"content_type": "application/json",
+		},
+		"headers": map[string]any{
+			"set": map[string]any{"x-provider-mode": "{{request.model}}"},
+		},
+		"body": map[string]any{
+			"mode":  "merge",
+			"value": map[string]any{"image": "{{request.input_images}}"},
+		},
+	}
+	require.NoError(t, validateCustomModelRequestAdapter(valid))
+
+	for name, adapter := range map[string]map[string]any{
+		"absolute URL": {
+			"upstream": map[string]any{"path": "https://internal.example/upload"},
+		},
+		"authorization header": {
+			"headers": map[string]any{"set": map[string]any{"Authorization": "secret"}},
+		},
+		"malformed variable": {
+			"body": map[string]any{"mode": "merge", "value": map[string]any{"prompt": "{{token}}"}},
+		},
+		"unsupported mode": {
+			"body": map[string]any{"mode": "append"},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := validateCustomModelRequestAdapter(adapter)
+			require.ErrorIs(t, err, ErrCustomModelConfigInvalid)
+		})
+	}
+}
 
 func TestApplyOpenAIImagesRequestAdapterMergesJSONAndRewritesEndpoint(t *testing.T) {
 	parsed := &OpenAIImagesRequest{Endpoint: openAIImagesEditsEndpoint}

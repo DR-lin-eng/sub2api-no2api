@@ -325,18 +325,21 @@ describe('OpenAIQuotaResetCell — 外审 F6:影子禁用重置', () => {
   })
 
   it('没有主动快照时按规范化窗口显示被动额度并标明来源', () => {
+    const sampledAt = new Date().toISOString()
+    const fiveHourReset = new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString()
+    const sevenDayReset = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
     const wrapper = mount(OpenAIQuotaResetCell, {
       props: {
         account: makeAccount({
           id: 1901,
           extra: {
-            codex_usage_updated_at: '2026-08-27T00:00:00Z',
+            codex_usage_updated_at: sampledAt,
             codex_5h_used_percent: 21,
             codex_5h_window_minutes: 300,
-            codex_5h_reset_at: '2026-08-27T05:00:00Z',
+            codex_5h_reset_at: fiveHourReset,
             codex_7d_used_percent: 54,
             codex_7d_window_minutes: 10080,
-            codex_7d_reset_at: '2026-09-03T00:00:00Z'
+            codex_7d_reset_at: sevenDayReset
           }
         })
       },
