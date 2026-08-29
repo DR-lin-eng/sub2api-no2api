@@ -39,8 +39,8 @@ interface MediaStudioVideoTask {
 ### 任务 ID 提取优先级
 ```typescript
 // Grok: 8 个可能位置
-request_id → requestId → id → data.request_id → data.id → 
-video.request_id → video.id → result.request_id → result.id → 
+request_id → requestId → id → data.request_id → data.id →
+video.request_id → video.id → result.request_id → result.id →
 task_id → data.task_id → video.task_id
 
 // Agnes: 固定位置
@@ -98,13 +98,13 @@ console.log('封面URL:', agnesRaw.cover_url)       // Agnes 特有
 function pollVideoTask(apiKey: string, taskId: string) {
   const interval = setInterval(async () => {
     const task = await getAgnesVideoTask(apiKey, taskId)
-    
+
     if (task.status === 'completed') {
       clearInterval(interval)
       const agnesRaw = task.raw as AgnesVideoQueryResponse
       showVideo(agnesRaw.video_url)
     }
-    
+
     if (task.status === 'failed') {
       clearInterval(interval)
       showError(task.error)
