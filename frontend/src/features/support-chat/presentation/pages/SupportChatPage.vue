@@ -69,7 +69,7 @@ import {
   listUserChatMessages,
   markUserChatRead,
   sendUserChatMessage,
-  uploadUserChatAsset,
+  uploadUserChatAssets,
   type ChatConversation,
   type ChatMessage,
   type ChatSendMessageInput,
@@ -277,7 +277,7 @@ async function handleUpload(value: { files: File[]; content: string; reply_to_id
   if (sending.value) return
   sending.value = true
   try {
-    const assets = await Promise.all(value.files.map(file => uploadUserChatAsset(file)))
+    const assets = await uploadUserChatAssets(value.files)
     const message = await sendUserChatMessage({
       content: value.content || '[image]',
       kind: 'image',

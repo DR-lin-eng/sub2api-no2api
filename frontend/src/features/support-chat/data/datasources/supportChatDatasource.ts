@@ -104,6 +104,7 @@ type RawRecord = Record<string, unknown>
 const USER_CHAT_WS_PROTOCOL = 'sub2api-chat'
 const ADMIN_CHAT_WS_PROTOCOL = 'sub2api-admin-chat'
 const MAX_CHAT_ASSET_BYTES = 5 * 1024 * 1024
+const MAX_CONCURRENT_CHAT_ASSET_UPLOADS = 2
 const ALLOWED_UPLOAD_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
 const ALLOWED_ASSET_TYPES = new Set(['image/png', 'image/jpeg'])
 const UPLOAD_TYPE_ALIASES = new Map([
@@ -409,6 +410,43 @@ export async function uploadAdminChatAsset(conversationID: number, file: File): 
     multipartRequestConfig,
   )
   return normalizeChatAsset(data)
+}
+
+async function uploadChatAssetsBounded(
+  files: File[],
+  upload: (file: File) => Promise<ChatAsset>,
+): Promise<ChatAsset[]> {
+  if (files.length === 0) return []
+
+  const results = new Array<ChatAsset>(files.length)
+  let nextIndex = 0
+  let failed = false
+  let firstError: unknown
+  const worker = async () => {
+    while (!failed) {
+      const index = nextIndex++
+      if (index >= files.length) return
+      try {
+        results[index] = await upload(files[index])
+      } catch (error) {
+        failed = true
+        firstError = error
+      }
+    }
+  }
+
+  const workerCount = Math.min(MAX_CONCURRENT_CHAT_ASSET_UPLOADS, files.length)
+  await Promise.all(Array.from({ length: workerCount }, worker))
+  if (failed) throw firstError
+  return results
+}
+
+export function uploadUserChatAssets(files: File[]): Promise<ChatAsset[]> {
+  return uploadChatAssetsBounded(files, uploadUserChatAsset)
+}
+
+export function uploadAdminChatAssets(conversationID: number, files: File[]): Promise<ChatAsset[]> {
+  return uploadChatAssetsBounded(files, file => uploadAdminChatAsset(conversationID, file))
 }
 
 export async function listAdminChatCatalog(scope: 'library' | 'sticker', limit = 100): Promise<ChatAsset[]> {
