@@ -94,7 +94,7 @@ type SendMessageInput struct {
 type ConversationListFilters struct {
 	// UnreadOnly restricts results to conversations with unread admin messages.
 	UnreadOnly bool
-	// Search matches against the user's email/username.
+	// Search matches user identity, conversation/user ID, or visible message text.
 	Search string
 }
 

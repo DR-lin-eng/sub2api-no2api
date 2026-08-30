@@ -4,6 +4,7 @@
       v-for="message in orderedMessages"
       :key="message.id"
       class="flex"
+      :data-support-message-id="message.id"
       :class="message.sender_type === ownSender ? 'justify-end' : 'justify-start'"
     >
       <div class="group max-w-[88%] sm:max-w-[72%]">
@@ -22,14 +23,16 @@
             ? 'bg-primary-600 text-white dark:bg-primary-500'
             : 'border border-gray-200 bg-white text-gray-900 dark:border-dark-700 dark:bg-dark-800 dark:text-white'"
         >
-          <div
+          <button
             v-if="!message.recalled_at && message.reply_to_id"
-            class="mx-3 mt-3 rounded-xl border-l-2 px-3 py-2 text-xs opacity-80"
+            type="button"
+            class="mx-3 mt-3 block w-[calc(100%_-_1.5rem)] rounded-xl border-l-2 px-3 py-2 text-left text-xs opacity-80"
             :class="message.sender_type === ownSender ? 'border-white/70 bg-black/10' : 'border-primary-400 bg-gray-50 dark:bg-dark-900'"
+            @click="scrollToMessage(message.reply_to_id)"
           >
             <span class="font-medium">{{ t('supportChat.reply.quote') }} #{{ message.reply_to_id }}</span>
             <p class="mt-0.5 line-clamp-2 whitespace-pre-wrap break-words">{{ replyPreview(message.reply_to_id) }}</p>
-          </div>
+          </button>
 
           <p v-if="message.recalled_at" class="px-4 py-3 italic opacity-75">
             {{ t('supportChat.recall.placeholder') }}
@@ -55,6 +58,7 @@
                 :scope="assetScope"
                 :alt="message.content"
                 container-class="min-h-40 rounded-xl"
+                previewable
               />
             </div>
             <p v-if="message.content && message.content !== '[image]'" class="whitespace-pre-wrap break-words px-2 pb-1 pt-2">
@@ -69,6 +73,7 @@
               :scope="assetScope"
               :alt="message.content"
               container-class="h-36 w-36 rounded-xl bg-transparent"
+              previewable
             />
             <span v-else class="block px-3 py-2 text-5xl leading-none" role="img" :aria-label="stickerName(message)">
               {{ stickerEmoji(message) }}
@@ -200,4 +205,24 @@ function isPeerRead(message: ChatMessage): boolean {
   const createdAt = Date.parse(message.created_at)
   return Number.isFinite(readAt) && Number.isFinite(createdAt) && createdAt <= readAt
 }
+
+function scrollToMessage(messageID: number) {
+  const element = document.querySelector<HTMLElement>(`[data-support-message-id="${messageID}"]`)
+  if (!element) return
+  element.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+  element.classList.remove('support-message-highlight')
+  requestAnimationFrame(() => element.classList.add('support-message-highlight'))
+  window.setTimeout(() => element.classList.remove('support-message-highlight'), 2000)
+}
 </script>
+
+<style scoped>
+.support-message-highlight {
+  animation: support-message-highlight 2s ease-out;
+}
+
+@keyframes support-message-highlight {
+  0%, 30% { background-color: rgb(59 130 246 / 0.18); }
+  100% { background-color: transparent; }
+}
+</style>

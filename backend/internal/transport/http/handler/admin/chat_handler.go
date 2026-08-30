@@ -75,7 +75,7 @@ func limitChatSearch(search string) string {
 }
 
 // ListConversations returns the admin inbox, paginated and optionally
-// filtered to unread-by-admin conversations or a user email/username search.
+// filtered to unread-by-admin conversations or identity/message/ID search.
 // GET /api/v1/admin/chat/conversations
 func (h *ChatHandler) ListConversations(c *gin.Context) {
 	page, pageSize := response.ParsePaginationWithMax(c, 100)

@@ -391,13 +391,23 @@ async function uploadForm(file: File, collectionField?: string, collection?: str
   return form
 }
 
+const multipartRequestConfig = {
+  // Remove the JSON default so XMLHttpRequest supplies multipart/form-data
+  // together with the generated boundary.
+  headers: { 'Content-Type': undefined },
+}
+
 export async function uploadUserChatAsset(file: File): Promise<ChatAsset> {
-  const { data } = await apiClient.post<unknown>('/chat/assets', await uploadForm(file))
+  const { data } = await apiClient.post<unknown>('/chat/assets', await uploadForm(file), multipartRequestConfig)
   return normalizeChatAsset(data)
 }
 
 export async function uploadAdminChatAsset(conversationID: number, file: File): Promise<ChatAsset> {
-  const { data } = await apiClient.post<unknown>(`/admin/chat/conversations/${conversationID}/assets`, await uploadForm(file))
+  const { data } = await apiClient.post<unknown>(
+    `/admin/chat/conversations/${conversationID}/assets`,
+    await uploadForm(file),
+    multipartRequestConfig,
+  )
   return normalizeChatAsset(data)
 }
 
@@ -414,7 +424,7 @@ export async function createAdminChatCatalogAsset(
 ): Promise<ChatAsset> {
   const path = scope === 'library' ? '/admin/chat/image-library' : '/admin/chat/stickers'
   const field = scope === 'library' ? 'category' : 'group'
-  const { data } = await apiClient.post<unknown>(path, await uploadForm(file, field, collection))
+  const { data } = await apiClient.post<unknown>(path, await uploadForm(file, field, collection), multipartRequestConfig)
   return normalizeChatAsset(data)
 }
 

@@ -25,9 +25,17 @@ describe('CustomLandingPage security boundary', () => {
     const builderSource = pageSource.slice(builderStart, builderEnd)
 
     expect(builderSource).not.toContain('authStore.token')
+    expect(pageSource).not.toContain('authToken: authStore.token')
     expect(pageSource).toContain('postEmbeddedAuthContext')
+    expect(pageSource).toContain('issueEmbeddedCapability')
+    expect(pageSource).toContain('capabilityToken: activeEmbeddedCapability.token')
     expect(pageSource).toContain('forward_access_token !== true')
     expect(pageSource).toContain('referrerpolicy="no-referrer"')
+    expect(pageSource).toContain('EMBEDDED_AUTH_RETRY_DELAYS_MS')
+    expect(pageSource).toContain('if (embeddedAuthIssuing) return')
+    expect(pageSource).toContain('sub2api:embedded-auth-ready')
+    expect(pageSource).toContain('event.source !== frame.contentWindow')
+    expect(pageSource).toContain('event.origin !== targetOrigin')
   })
 
   it('re-renders Markdown for locale changes and rejects stale responses', () => {

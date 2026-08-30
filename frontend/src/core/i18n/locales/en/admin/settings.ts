@@ -684,9 +684,9 @@ export default {
         namePlaceholder: 'e.g. Help Center',
         url: 'Page URL',
         urlPlaceholder: 'https://example.com/page',
-        forwardAccessToken: 'Forward user access token',
+        forwardAccessToken: 'Provide embedded permission proof',
         forwardAccessTokenHint:
-          'Disabled by default. Enabling this delegates the current user session to the embedded page through an origin-locked browser message. Enable only for a fully trusted page.',
+          'Disabled by default. Sends a 90-second, menu-scoped permission capability through an origin-locked browser message. Login credentials are never sent and the capability cannot sign in to Sub2API. Remote pages must use HTTPS.',
         iconSvg: 'SVG Icon',
         iconSvgPlaceholder: '<svg>...</svg>',
         iconPreview: 'Icon Preview',

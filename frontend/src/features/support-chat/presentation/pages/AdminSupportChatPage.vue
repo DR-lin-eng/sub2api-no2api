@@ -122,6 +122,7 @@
           admin-mode
           :tools-busy="toolsBusy"
           :replying-to="replyingTo"
+          :draft-key="selectedConversationID ? `admin:${selectedConversationID}` : 'admin:none'"
           :quick-replies="quickReplies"
           :library-assets="libraryAssets"
           :sticker-assets="stickerAssets"
@@ -556,16 +557,16 @@ async function handleSend(input: ChatSendMessageInput) {
   }
 }
 
-async function handleUpload(value: { file: File; content: string; reply_to_id: number | null }) {
+async function handleUpload(value: { files: File[]; content: string; reply_to_id: number | null }) {
   if (!selectedConversationID.value || sending.value) return
   const conversationID = selectedConversationID.value
   sending.value = true
   try {
-    const asset = await uploadAdminChatAsset(conversationID, value.file)
+    const assets = await Promise.all(value.files.map(file => uploadAdminChatAsset(conversationID, file)))
     const message = await sendAdminChatMessage(conversationID, {
       content: value.content || '[image]',
       kind: 'image',
-      asset_ids: [asset.id],
+      asset_ids: assets.map(asset => asset.id),
       reply_to_id: value.reply_to_id,
     })
     if (selectedConversationID.value === conversationID) appendMessage(message)

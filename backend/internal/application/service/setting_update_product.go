@@ -90,6 +90,7 @@ func writeFeatureSystemSettingUpdates(updates map[string]string, settings *Syste
 	updates[SettingKeyChannelMonitorPublicShareRequireAuth] = strconv.FormatBool(settings.ChannelMonitorPublicShareRequireAuth)
 	updates[SettingKeyAvailableChannelsEnabled] = strconv.FormatBool(settings.AvailableChannelsEnabled)
 	updates[SettingKeySupportChatEnabled] = strconv.FormatBool(settings.SupportChatEnabled)
+	updates[SettingKeySupportChatRetentionEnabled] = strconv.FormatBool(settings.SupportChatRetentionEnabled)
 	settings.SupportChatRetentionDays = normalizeSupportChatRetentionDays(settings.SupportChatRetentionDays)
 	updates[SettingKeySupportChatRetentionDays] = strconv.Itoa(settings.SupportChatRetentionDays)
 	updates[SettingKeyModelPlazaEnabled] = strconv.FormatBool(settings.ModelPlazaEnabled)

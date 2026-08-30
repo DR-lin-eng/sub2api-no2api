@@ -6,7 +6,7 @@ export default {
     adminDescription: '查看用户消息并作为客服回复。',
     inbox: '会话列表',
     inboxHint: '所有管理员共享同一个客服收件箱',
-    searchUser: '搜索用户邮箱或用户名',
+    searchUser: '搜索邮箱、用户名、会话 ID、用户 ID 或消息内容',
     unreadOnly: '只看未读',
     unread: '未读',
     markUnread: '标为未读',
@@ -56,6 +56,7 @@ export default {
     assets: {
       upload: '上传图片',
       uploadFailed: '图片上传或发送失败',
+      removePending: '移除待发送图片',
       retry: '图片加载失败，点击重试',
       image: '[图片]',
       sticker: '表情',
@@ -78,6 +79,8 @@ export default {
     },
     quickReplies: {
       short: '快捷回复',
+      oneClick: '一键发送快捷回复',
+      oneClickHint: '开启后点击快捷回复会立即发送；关闭时仅填入输入框。',
       add: '新增快捷回复',
       import: '导入',
       importHint: '每行一条，使用 Tab 分隔标题和内容；最多导入 50 条。内容按纯文本处理。',

@@ -76,12 +76,14 @@ describe('embedded-url', () => {
     expect(postEmbeddedAuthContext(
       { postMessage } as unknown as Pick<Window, 'postMessage'>,
       'https://trusted.example.com/embed?theme=dark',
-      { userId: 42, authToken: 'access-token' },
+      { userId: 42, capabilityToken: 'permission-proof', expiresAt: '2026-08-30T12:01:30Z' },
     )).toBe(true)
     expect(postMessage).toHaveBeenCalledWith({
       type: EMBEDDED_AUTH_MESSAGE_TYPE,
-      version: 1,
-      token: 'access-token',
+      version: 2,
+      credential_type: 'embedded_capability',
+      token: 'permission-proof',
+      expires_at: '2026-08-30T12:01:30Z',
       user_id: 42,
     }, 'https://trusted.example.com')
   })
@@ -90,9 +92,9 @@ describe('embedded-url', () => {
     const postMessage = vi.fn()
     const target = { postMessage } as unknown as Pick<Window, 'postMessage'>
 
-    expect(postEmbeddedAuthContext(null, 'https://trusted.example.com', { authToken: 'token' })).toBe(false)
-    expect(postEmbeddedAuthContext(target, 'https://trusted.example.com', { authToken: '' })).toBe(false)
-    expect(postEmbeddedAuthContext(target, 'javascript:alert(1)', { authToken: 'token' })).toBe(false)
+    expect(postEmbeddedAuthContext(null, 'https://trusted.example.com', { capabilityToken: 'token' })).toBe(false)
+    expect(postEmbeddedAuthContext(target, 'https://trusted.example.com', { capabilityToken: '' })).toBe(false)
+    expect(postEmbeddedAuthContext(target, 'javascript:alert(1)', { capabilityToken: 'token' })).toBe(false)
     expect(postMessage).not.toHaveBeenCalled()
   })
 

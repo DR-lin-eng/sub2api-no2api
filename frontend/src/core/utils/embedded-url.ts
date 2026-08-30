@@ -1,7 +1,7 @@
 /**
  * Shared URL builder for iframe-embedded pages.
- * Authentication is deliberately excluded from URLs. Opt-in token forwarding
- * uses postEmbeddedAuthContext after the iframe has loaded.
+ * Authentication is deliberately excluded from URLs. Opt-in permission proof
+ * forwarding uses postEmbeddedAuthContext after the iframe has loaded.
  */
 
 const EMBEDDED_USER_ID_QUERY_KEY = 'user_id'
@@ -27,7 +27,8 @@ export function isOpaqueDocument(): boolean {
 
 export interface EmbeddedAuthContext {
   userId?: number
-  authToken?: string | null
+  capabilityToken?: string | null
+  expiresAt?: string | null
 }
 
 export function buildEmbeddedUrl(
@@ -68,15 +69,17 @@ export function postEmbeddedAuthContext(
   targetUrl: string,
   context: EmbeddedAuthContext,
 ): boolean {
-  if (!targetWindow || !context.authToken) return false
+  if (!targetWindow || !context.capabilityToken) return false
 
   try {
     const url = new URL(targetUrl)
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return false
     targetWindow.postMessage({
       type: EMBEDDED_AUTH_MESSAGE_TYPE,
-      version: 1,
-      token: context.authToken,
+      version: 2,
+      credential_type: 'embedded_capability',
+      token: context.capabilityToken,
+      ...(context.expiresAt ? { expires_at: context.expiresAt } : {}),
       ...(context.userId ? { user_id: context.userId } : {}),
     }, url.origin)
     return true

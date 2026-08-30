@@ -133,6 +133,10 @@ import {
   detectTheme,
   postEmbeddedAuthContext,
 } from '@/core/utils/embedded-url'
+import {
+  issueEmbeddedCapability,
+  type EmbeddedCapabilityIssue,
+} from '@/features/channels-user/data/datasources/embeddedCapabilityDatasource'
 import { sanitizeCustomPageHtml } from '@/features/channels-user/presentation/customPageHtml'
 import { marked } from 'marked'
 
@@ -141,6 +145,9 @@ interface TocItem {
   text: string
   level: number
 }
+
+const EMBEDDED_AUTH_READY_MESSAGE_TYPE = 'sub2api:embedded-auth-ready'
+const EMBEDDED_AUTH_RETRY_DELAYS_MS = [100, 500, 1500, 3000]
 
 const { t, locale } = useI18n()
 const route = useRoute()
@@ -158,6 +165,10 @@ const tocVisible = ref(typeof window !== 'undefined' ? window.innerWidth > 768 :
 const activeHeadingId = ref('')
 let themeObserver: MutationObserver | null = null
 let markdownRenderRequestSeq = 0
+let embeddedAuthDispatchSeq = 0
+let embeddedAuthRetryTimers: ReturnType<typeof setTimeout>[] = []
+let activeEmbeddedCapability: EmbeddedCapabilityIssue | null = null
+let embeddedAuthIssuing = false
 
 const menuItemId = computed(() => route.params.id as string)
 
@@ -198,16 +209,80 @@ const isValidUrl = computed(() => {
   return url.startsWith('http://') || url.startsWith('https://')
 })
 
-function sendEmbeddedAuthContext() {
-  if (menuItem.value?.forward_access_token !== true) return
-  postEmbeddedAuthContext(
+function clearEmbeddedAuthDispatch() {
+  embeddedAuthDispatchSeq += 1
+  for (const timer of embeddedAuthRetryTimers) clearTimeout(timer)
+  embeddedAuthRetryTimers = []
+  activeEmbeddedCapability = null
+  embeddedAuthIssuing = false
+}
+
+function embeddedTargetOrigin(): string {
+  try {
+    return new URL(embeddedUrl.value).origin
+  } catch {
+    return ''
+  }
+}
+
+function postActiveEmbeddedCapability(): boolean {
+  if (!activeEmbeddedCapability) return false
+  return postEmbeddedAuthContext(
     embeddedFrame.value?.contentWindow ?? null,
     embeddedUrl.value,
     {
       userId: authStore.user?.id,
-      authToken: authStore.token,
+      capabilityToken: activeEmbeddedCapability.token,
+      expiresAt: activeEmbeddedCapability.expires_at,
     },
   )
+}
+
+async function sendEmbeddedAuthContext() {
+  if (menuItem.value?.forward_access_token !== true) return
+  const frame = embeddedFrame.value
+  const targetOrigin = embeddedTargetOrigin()
+  const menuId = menuItem.value?.id || ''
+  if (!frame?.contentWindow || !targetOrigin || !menuId) return
+
+  const expiresAt = Date.parse(activeEmbeddedCapability?.expires_at || '')
+  if (Number.isFinite(expiresAt) && expiresAt > Date.now() + 5000) {
+    postActiveEmbeddedCapability()
+    return
+  }
+  if (embeddedAuthIssuing) return
+
+  const dispatchSeq = embeddedAuthDispatchSeq
+  embeddedAuthIssuing = true
+  try {
+    const capability = await issueEmbeddedCapability(menuId, targetOrigin)
+    if (dispatchSeq !== embeddedAuthDispatchSeq || frame !== embeddedFrame.value) return
+    activeEmbeddedCapability = capability
+    postActiveEmbeddedCapability()
+    for (const timer of embeddedAuthRetryTimers) clearTimeout(timer)
+    embeddedAuthRetryTimers = EMBEDDED_AUTH_RETRY_DELAYS_MS.map(delay => setTimeout(() => {
+      if (dispatchSeq === embeddedAuthDispatchSeq) postActiveEmbeddedCapability()
+    }, delay))
+  } catch {
+    if (dispatchSeq === embeddedAuthDispatchSeq) activeEmbeddedCapability = null
+  } finally {
+    if (dispatchSeq === embeddedAuthDispatchSeq) embeddedAuthIssuing = false
+  }
+}
+
+function handleEmbeddedAuthReady(event: MessageEvent) {
+  const frame = embeddedFrame.value
+  const targetOrigin = embeddedTargetOrigin()
+  if (!frame?.contentWindow || event.source !== frame.contentWindow || event.origin !== targetOrigin) return
+  if (!event.data || typeof event.data !== 'object') return
+  const message = event.data as { type?: unknown; version?: unknown }
+  if (message.type !== EMBEDDED_AUTH_READY_MESSAGE_TYPE || (message.version !== 1 && message.version !== 2)) return
+  const expiresAt = Date.parse(activeEmbeddedCapability?.expires_at || '')
+  if (Number.isFinite(expiresAt) && expiresAt > Date.now() + 5000) {
+    postActiveEmbeddedCapability()
+  } else {
+    void sendEmbeddedAuthContext()
+  }
 }
 
 function generateHeadingId(text: string, index: number): string {
@@ -369,14 +444,16 @@ watch([markdownSlug, locale], ([slug]) => {
 }, { immediate: true })
 
 watch(
-  [() => menuItem.value?.forward_access_token, () => authStore.token],
+  [() => menuItem.value?.id, () => menuItem.value?.url, () => menuItem.value?.forward_access_token, () => authStore.user?.id],
   () => {
+    clearEmbeddedAuthDispatch()
     void nextTick(sendEmbeddedAuthContext)
   },
 )
 
 onMounted(async () => {
   pageTheme.value = detectTheme()
+  window.addEventListener('message', handleEmbeddedAuthReady)
 
   if (typeof document !== 'undefined') {
     themeObserver = new MutationObserver(() => {
@@ -398,6 +475,8 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  clearEmbeddedAuthDispatch()
+  window.removeEventListener('message', handleEmbeddedAuthReady)
   if (themeObserver) {
     themeObserver.disconnect()
     themeObserver = null

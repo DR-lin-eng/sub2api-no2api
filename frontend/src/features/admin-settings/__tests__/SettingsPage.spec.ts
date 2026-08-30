@@ -719,6 +719,7 @@ const baseSettingsResponse = {
   account_quota_notify_enabled: false,
   account_quota_notify_emails: [],
   support_chat_enabled: true,
+  support_chat_retention_enabled: true,
   support_chat_retention_days: 30,
   ipv6_egress_ui_enabled: false,
   allow_user_view_usage_details: false,
@@ -1069,11 +1070,13 @@ describe("admin SettingsView payment visible method controls", () => {
 
     const input = wrapper.get("#support-chat-retention-days");
     expect((input.element as HTMLInputElement).value).toBe("30");
+    expect((input.element as HTMLInputElement).disabled).toBe(false);
     await input.setValue("90");
     await wrapper.find("form").trigger("submit.prevent");
     await flushPromises();
 
     const payload = updateSettings.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(payload.support_chat_retention_enabled).toBe(true);
     expect(payload.support_chat_retention_days).toBe(90);
   });
 

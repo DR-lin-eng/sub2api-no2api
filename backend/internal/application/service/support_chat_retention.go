@@ -200,8 +200,20 @@ func (s *SupportChatRetentionService) RunOnce(
 	}
 	defer release()
 
-	cutoff := now.UTC().Add(-time.Duration(days) * 24 * time.Hour)
 	for batch := 0; batch < s.maxBatches; batch++ {
+		if batch > 0 {
+			days, err = s.policy.GetSupportChatRetentionDays(ctx)
+			if err != nil {
+				return result, fmt.Errorf("reload support chat retention policy: %w", err)
+			}
+			if days == 0 {
+				break
+			}
+			if days < 0 || days > SupportChatRetentionDaysMax {
+				return result, fmt.Errorf("support chat retention days out of range: %d", days)
+			}
+		}
+		cutoff := now.UTC().Add(-time.Duration(days) * 24 * time.Hour)
 		batchResult, err := s.cleaner.CleanupExpiredMessages(ctx, cutoff, s.batchSize)
 		result.MessagesDeleted += batchResult.MessagesDeleted
 		result.AssetsDeleted += batchResult.AssetsDeleted

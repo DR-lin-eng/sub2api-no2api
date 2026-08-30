@@ -376,13 +376,6 @@ function extractImages(task: MediaStudioImageTask): MediaStudioGeneratedImagePre
   return images
 }
 
-function mergeGeneratedImages(
-  current: MediaStudioGeneratedImagePreview[],
-  incoming: MediaStudioGeneratedImagePreview[],
-): MediaStudioGeneratedImagePreview[] {
-  return [...current, ...incoming]
-}
-
 function conversationForPersistence(value: MediaStudioConversation): MediaStudioConversation | null {
   const normalized = restorePersistedConversation(value)
   if (!normalized) return null
@@ -1091,60 +1084,60 @@ export function useMediaStudioController(options: MediaStudioControllerOptions =
           images: [],
         })
 
-		let firstTaskID = ''
-		let lastError = ''
-		const submitAndResolveImages = async (requestPayload: MediaStudioImageSubmitRequest) => {
-		  try {
-			let task = await submitImageTask(requestPayload)
-			const taskID = task.task_id || task.id
-			if (!firstTaskID) {
-			  firstTaskID = taskID
-			  patchAssistantMessage(assistantMessage.id, { taskId: taskID })
-            }
+        interface ImageRequestResult {
+          taskID: string
+          images: MediaStudioGeneratedImagePreview[]
+          error: string
+        }
+
+        const requestResults: Array<ImageRequestResult | undefined> = Array(requestedCount)
+        const submitAndResolveImage = async (): Promise<ImageRequestResult> => {
+          try {
+            let task = await submitImageTask({ ...payload, n: 1 })
+            const taskID = task.task_id || task.id
             if (task.status !== 'completed' && task.status !== 'failed') {
               task = await pollImageTask(mediaStudioApiKey.value, taskID)
-			}
-			if (task.status === 'completed') {
-			  return await cacheGeneratedImages(assistantMessage.id, extractImages(task))
-			} else {
-			  lastError = imageTaskErrorMessage(task)
-			}
-		  } catch (error) {
-			lastError = mediaStudioErrorMessage(error, 'image generation failed')
-		  }
-		  return []
-		}
-		const initialImages = await submitAndResolveImages(payload)
-		if (initialImages.length > 0) {
-		  patchAssistantMessage(assistantMessage.id, {
-			images: initialImages.slice(0, requestedCount),
-		  })
-		}
-		const currentCount = conversation.value.messages.find(
-		  message => message.id === assistantMessage.id,
-		)?.images?.length ?? 0
-		const missingCount = Math.max(0, requestedCount - currentCount)
-		if (missingCount > 0 && initialImages.length > 0) {
-		  await Promise.all(Array.from({ length: missingCount }, async () => {
-			const generated = await submitAndResolveImages({ ...payload, n: 1 })
-			if (generated.length === 0) return
-			const current = conversation.value.messages.find(
-			  message => message.id === assistantMessage.id,
-			)?.images ?? []
-			patchAssistantMessage(assistantMessage.id, {
-			  images: mergeGeneratedImages(current, generated).slice(0, requestedCount),
-			  status: 'processing',
-			})
-		  }))
-		}
-		const completedImages = conversation.value.messages.find(
-		  message => message.id === assistantMessage.id,
-		)?.images ?? []
-		patchAssistantMessage(assistantMessage.id, {
-		  status: completedImages.length > 0 ? 'completed' : 'failed',
-		  error: completedImages.length > 0 ? '' : lastError,
-		  completedAt: now(),
-		})
+            }
+            if (task.status === 'completed') {
+              return {
+                taskID,
+                images: await cacheGeneratedImages(assistantMessage.id, extractImages(task)),
+                error: '',
+              }
+            }
+            return { taskID, images: [], error: imageTaskErrorMessage(task) }
+          } catch (error) {
+            return {
+              taskID: '',
+              images: [],
+              error: mediaStudioErrorMessage(error, 'image generation failed'),
+            }
+          }
+        }
+
+        await Promise.all(Array.from({ length: requestedCount }, async (_, index) => {
+          requestResults[index] = await submitAndResolveImage()
+          const completed = requestResults
+            .flatMap(result => result?.images ?? [])
+            .slice(0, requestedCount)
+          patchAssistantMessage(assistantMessage.id, {
+            taskId: requestResults.find(result => result?.taskID)?.taskID,
+            images: completed,
+            status: 'processing',
+          })
+        }))
+        const completedImages = conversation.value.messages.find(
+          message => message.id === assistantMessage.id,
+        )?.images ?? []
+        const errors = requestResults
+          .map(result => result?.error ?? '')
+          .filter(Boolean)
+        const lastError = errors[errors.length - 1] ?? ''
+        patchAssistantMessage(assistantMessage.id, {
+          status: completedImages.length > 0 ? 'completed' : 'failed',
+          error: completedImages.length > 0 ? '' : lastError,
+          completedAt: now(),
+        })
       } else {
         const task = await data.submitVideo(mediaStudioApiKey.value, {
           model: assistantMessage.model || DEFAULT_VIDEO_MODEL,

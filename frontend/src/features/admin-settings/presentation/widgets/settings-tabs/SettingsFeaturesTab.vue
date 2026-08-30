@@ -201,7 +201,19 @@
               <Toggle v-model="form.support_chat_enabled" />
             </div>
 
-            <div class="border-t border-gray-100 pt-5 dark:border-dark-700">
+            <div class="flex items-center justify-between gap-6 border-t border-gray-100 pt-5 dark:border-dark-700">
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('admin.settings.features.supportChat.retentionEnabled') }}
+                </label>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.features.supportChat.retentionEnabledHint') }}
+                </p>
+              </div>
+              <Toggle v-model="form.support_chat_retention_enabled" />
+            </div>
+
+            <div :class="{ 'opacity-50': !form.support_chat_retention_enabled }">
               <label for="support-chat-retention-days" class="input-label">
                 {{ t('admin.settings.features.supportChat.retentionDays') }}
               </label>
@@ -213,6 +225,7 @@
                 max="3650"
                 step="1"
                 class="input"
+                :disabled="!form.support_chat_retention_enabled"
                 aria-describedby="support-chat-retention-hint"
               />
               <p id="support-chat-retention-hint" class="mt-1 text-xs text-gray-400">

@@ -410,6 +410,7 @@ function buildNotificationAndFeatureSettingsPayload({
       form.channel_monitor_public_share_require_auth,
     available_channels_enabled: form.available_channels_enabled,
     support_chat_enabled: form.support_chat_enabled,
+    support_chat_retention_enabled: form.support_chat_retention_enabled,
     support_chat_retention_days: Math.min(
       3650,
       Math.max(0, Math.trunc(Number(form.support_chat_retention_days) || 0)),

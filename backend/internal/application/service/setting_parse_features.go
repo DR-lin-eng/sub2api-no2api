@@ -52,6 +52,7 @@ func (s *SettingService) applyFeatureSettings(result *SystemSettings, settings m
 
 	// Support chat feature (default: disabled; explicit true enables)
 	result.SupportChatEnabled = settings[SettingKeySupportChatEnabled] == "true"
+	result.SupportChatRetentionEnabled = settings[SettingKeySupportChatRetentionEnabled] == "true"
 	result.SupportChatRetentionDays = parseSupportChatRetentionDays(
 		settings[SettingKeySupportChatRetentionDays],
 	)
