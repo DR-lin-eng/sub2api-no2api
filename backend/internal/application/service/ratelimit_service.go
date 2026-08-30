@@ -30,6 +30,7 @@ type RateLimitService struct {
 	timeoutCounterCache       TimeoutCounterCache
 	openAI403CounterCache     OpenAI403CounterCache
 	openAIFailureCounterCache OpenAIFailureCounterCache
+	openAIQuotaLimitChecker   OpenAIQuotaLimitChecker
 	settingService            *SettingService
 	tokenCacheInvalidator     TokenCacheInvalidator
 	runtimeBlocker            AccountRuntimeBlocker
@@ -43,6 +44,7 @@ type RateLimitService struct {
 	openaiTeamLinkedRecent   map[string]time.Time
 	openAIFailurePolicyCache atomic.Value // *cachedOpenAIFailurePolicySettings
 	openAIFailurePolicySF    singleflight.Group
+	openAIQuotaCheckSF       singleflight.Group
 }
 
 type AccountRuntimeBlocker interface {
@@ -131,6 +133,15 @@ func (s *RateLimitService) SetOpenAIFailureCounterCache(cache OpenAIFailureCount
 	s.openAIFailureCounterCache = cache
 }
 
+// SetOpenAIQuotaLimitChecker installs the live quota confirmation used by the
+// optional auto-disable guard.
+func (s *RateLimitService) SetOpenAIQuotaLimitChecker(checker OpenAIQuotaLimitChecker) {
+	if s == nil {
+		return
+	}
+	s.openAIQuotaLimitChecker = checker
+}
+
 // SetSettingService 设置系统设置服务（可选依赖）
 func (s *RateLimitService) SetSettingService(settingService *SettingService) {
 	s.settingService = settingService
@@ -199,8 +210,8 @@ func (s *RateLimitService) maybeAutoDisableOpenAIAccountOnFailure(
 		return false
 	}
 	countCtx, cancel := openAIAccountStateContext(ctx)
-	defer cancel()
 	count, err := s.openAIFailureCounterCache.IncrementOpenAIFailureCount(countCtx, account.ID)
+	cancel()
 	if err != nil {
 		slog.Warn("openai_failure_counter_increment_failed", "account_id", account.ID, "status_code", statusCode, "error", err)
 		return false
@@ -208,12 +219,42 @@ func (s *RateLimitService) maybeAutoDisableOpenAIAccountOnFailure(
 	if count < int64(settings.AutoDisableThreshold) {
 		return false
 	}
+	quotaConfirmed := false
+	if settings.AutoDisableQuotaCheckEnabled {
+		if s.openAIQuotaLimitChecker == nil {
+			slog.Warn("openai_failure_auto_disable_quota_check_unavailable", "account_id", account.ID, "status_code", statusCode, "count", count)
+			return false
+		}
+		quotaCtx, quotaCancel := openAIAccountStateContext(ctx)
+		value, quotaErr, _ := s.openAIQuotaCheckSF.Do(strconv.FormatInt(account.ID, 10), func() (any, error) {
+			return s.openAIQuotaLimitChecker.IsQuotaLimitReached(quotaCtx, account.ID)
+		})
+		quotaCancel()
+		if quotaErr != nil {
+			slog.Warn("openai_failure_auto_disable_quota_check_failed", "account_id", account.ID, "status_code", statusCode, "count", count, "error", quotaErr)
+			return false
+		}
+		quotaConfirmed, _ = value.(bool)
+		if !quotaConfirmed {
+			slog.Info("openai_failure_auto_disable_quota_available", "account_id", account.ID, "status_code", statusCode, "count", count, "threshold", settings.AutoDisableThreshold)
+			return false
+		}
+	}
 	reason := fmt.Sprintf(
 		"Automatically paused after %d consecutive OpenAI OAuth upstream 429/502 failures (last status %d). Re-enable scheduling manually after checking the account quota and upstream health.",
 		settings.AutoDisableThreshold,
 		statusCode,
 	)
-	if err := setAccountSchedulableWithReason(countCtx, s.accountRepo, account.ID, false, reason); err != nil {
+	if quotaConfirmed {
+		reason = fmt.Sprintf(
+			"Automatically paused after %d consecutive OpenAI OAuth upstream 429/502 failures and a live quota check confirmed the Codex limit was reached (last status %d). Re-enable scheduling manually after the quota resets or upstream health is restored.",
+			settings.AutoDisableThreshold,
+			statusCode,
+		)
+	}
+	persistCtx, persistCancel := openAIAccountStateContext(ctx)
+	defer persistCancel()
+	if err := setAccountSchedulableWithReason(persistCtx, s.accountRepo, account.ID, false, reason); err != nil {
 		slog.Warn("openai_failure_auto_disable_failed", "account_id", account.ID, "status_code", statusCode, "count", count, "error", err)
 		return false
 	}
@@ -230,6 +271,8 @@ func (s *RateLimitService) maybeAutoDisableOpenAIAccountOnFailure(
 		"status_code", statusCode,
 		"count", count,
 		"threshold", settings.AutoDisableThreshold,
+		"quota_check_enabled", settings.AutoDisableQuotaCheckEnabled,
+		"quota_confirmed", quotaConfirmed,
 		"response_bytes", len(responseBody),
 	)
 	return true

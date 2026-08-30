@@ -122,6 +122,7 @@ export interface RateLimit429CooldownSettings {
   cooldown_seconds: number;
   auto_disable_enabled: boolean;
   auto_disable_threshold: number;
+  auto_disable_quota_check_enabled: boolean;
 }
 
 export interface GlobalTempUnschedulableSettings {

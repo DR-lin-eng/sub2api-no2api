@@ -272,6 +272,7 @@ describe("admin settings query and action owners", () => {
         cooldown_seconds: 5,
         auto_disable_enabled: false,
         auto_disable_threshold: 3,
+        auto_disable_quota_check_enabled: false,
       },
       { enabled: true },
       {
@@ -501,6 +502,7 @@ describe("admin settings query and action owners", () => {
           cooldown_seconds: 5,
           auto_disable_enabled: false,
           auto_disable_threshold: 3,
+          auto_disable_quota_check_enabled: false,
         },
       ],
       [

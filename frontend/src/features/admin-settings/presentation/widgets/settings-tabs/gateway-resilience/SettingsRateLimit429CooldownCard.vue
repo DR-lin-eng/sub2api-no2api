@@ -80,23 +80,42 @@
 
           <div
             v-if="rateLimit429CooldownForm.auto_disable_enabled"
-            class="mt-4"
+            class="mt-4 space-y-4"
           >
-            <label
-              class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+            <div>
+              <label
+                class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                {{ t("admin.settings.rateLimit429Cooldown.autoDisableThreshold") }}
+              </label>
+              <input
+                v-model.number="rateLimit429CooldownForm.auto_disable_threshold"
+                type="number"
+                min="1"
+                max="100"
+                class="input w-32"
+              />
+              <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.rateLimit429Cooldown.autoDisableThresholdHint") }}
+              </p>
+            </div>
+
+            <div
+              class="flex items-center justify-between gap-4 border-t border-gray-100 pt-4 dark:border-dark-700"
             >
-              {{ t("admin.settings.rateLimit429Cooldown.autoDisableThreshold") }}
-            </label>
-            <input
-              v-model.number="rateLimit429CooldownForm.auto_disable_threshold"
-              type="number"
-              min="1"
-              max="100"
-              class="input w-32"
-            />
-            <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-              {{ t("admin.settings.rateLimit429Cooldown.autoDisableThresholdHint") }}
-            </p>
+              <div>
+                <label class="font-medium text-gray-900 dark:text-white">{{
+                  t("admin.settings.rateLimit429Cooldown.quotaCheck")
+                }}</label>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                  {{ t("admin.settings.rateLimit429Cooldown.quotaCheckHint") }}
+                </p>
+              </div>
+              <Toggle
+                v-model="rateLimit429CooldownForm.auto_disable_quota_check_enabled"
+                data-testid="oauth-failure-quota-check-toggle"
+              />
+            </div>
           </div>
         </div>
 

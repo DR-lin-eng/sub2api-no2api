@@ -279,6 +279,9 @@ func ProvideOpenAIQuotaService(
 	service.SetHTTPUpstream(httpUpstream, tlsFPProfileService)
 	if openAIGatewayService != nil {
 		service.SetCodexSimulationSettingService(openAIGatewayService.settingService)
+		if openAIGatewayService.rateLimitService != nil {
+			openAIGatewayService.rateLimitService.SetOpenAIQuotaLimitChecker(service)
+		}
 	}
 	service.agentIdentityWS = openAIGatewayService
 	return service

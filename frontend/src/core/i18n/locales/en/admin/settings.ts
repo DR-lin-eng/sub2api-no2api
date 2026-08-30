@@ -1038,6 +1038,8 @@ export default {
         autoDisableHint: 'Persistently remove an OpenAI OAuth account from every pool after the threshold; API-key accounts are excluded.',
         autoDisableThreshold: 'Consecutive Failure Threshold',
         autoDisableThresholdHint: 'Counts OAuth account-scoped 429 and 502 responses; successful requests reset the counter (1-100).',
+        quotaCheck: 'Confirm Quota Limit Before Disabling',
+        quotaCheckHint: 'Query the main Codex quota after the threshold and disable only when upstream marks it limited or usage reaches 100%. Query failures, unknown quota, and available quota keep scheduling enabled.',
         saved: '429 default cooldown settings saved',
         saveFailed: 'Failed to save 429 default cooldown settings'
       },

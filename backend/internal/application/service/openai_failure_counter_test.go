@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -18,6 +19,17 @@ type openAIFailureCounterStub struct {
 	count        int64
 	resetCalls   int
 	incrementErr error
+}
+
+type openAIQuotaLimitCheckerStub struct {
+	limited bool
+	err     error
+	calls   int
+}
+
+func (c *openAIQuotaLimitCheckerStub) IsQuotaLimitReached(context.Context, int64) (bool, error) {
+	c.calls++
+	return c.limited, c.err
 }
 
 func (c *openAIFailureCounterStub) IncrementOpenAIFailureCount(context.Context, int64) (int64, error) {
@@ -51,17 +63,109 @@ func (r *openAIFailureAutoDisableRepo) UpdateExtra(_ context.Context, _ int64, u
 }
 
 func openAIFailurePolicySettingService(t *testing.T, enabled bool, threshold int) *SettingService {
+	return openAIFailurePolicySettingServiceWithQuotaCheck(t, enabled, threshold, false)
+}
+
+func openAIFailurePolicySettingServiceWithQuotaCheck(t *testing.T, enabled bool, threshold int, quotaCheckEnabled bool) *SettingService {
 	t.Helper()
 	repo := newMockSettingRepo()
 	payload, err := json.Marshal(RateLimit429CooldownSettings{
-		Enabled:              true,
-		CooldownSeconds:      5,
-		AutoDisableEnabled:   enabled,
-		AutoDisableThreshold: threshold,
+		Enabled:                      true,
+		CooldownSeconds:              5,
+		AutoDisableEnabled:           enabled,
+		AutoDisableThreshold:         threshold,
+		AutoDisableQuotaCheckEnabled: quotaCheckEnabled,
 	})
 	require.NoError(t, err)
 	repo.data[SettingKeyRateLimit429CooldownSettings] = string(payload)
 	return NewSettingService(repo, &config.Config{})
+}
+
+func TestRateLimitService_AutoDisableQuotaCheckRequiresConfirmedLimit(t *testing.T) {
+	for _, tc := range []struct {
+		name               string
+		limited            bool
+		queryErr           error
+		wantDisabled       bool
+		wantReasonFragment string
+	}{
+		{name: "available quota keeps scheduling enabled"},
+		{name: "query failure keeps scheduling enabled", queryErr: errors.New("quota unavailable")},
+		{name: "confirmed limit disables scheduling", limited: true, wantDisabled: true, wantReasonFragment: "live quota check confirmed the Codex limit was reached"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &openAIFailureAutoDisableRepo{}
+			counter := &openAIFailureCounterStub{}
+			checker := &openAIQuotaLimitCheckerStub{limited: tc.limited, err: tc.queryErr}
+			svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+			svc.SetSettingService(openAIFailurePolicySettingServiceWithQuotaCheck(t, true, 1, true))
+			svc.SetOpenAIFailureCounterCache(counter)
+			svc.SetOpenAIQuotaLimitChecker(checker)
+			account := &Account{ID: 9010, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
+
+			disabled := svc.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), account, http.StatusTooManyRequests, nil)
+
+			require.Equal(t, tc.wantDisabled, disabled)
+			require.Equal(t, tc.wantDisabled, !account.Schedulable)
+			require.Equal(t, 1, checker.calls)
+			if tc.wantDisabled {
+				require.Equal(t, []bool{false}, repo.schedulableCalls)
+				require.Contains(t, account.SchedulingDisabledReason(), tc.wantReasonFragment)
+			} else {
+				require.Empty(t, repo.schedulableCalls)
+				require.Empty(t, account.SchedulingDisabledReason())
+			}
+		})
+	}
+}
+
+func TestRateLimitService_AutoDisableQuotaCheckWaitsForFailureThreshold(t *testing.T) {
+	repo := &openAIFailureAutoDisableRepo{}
+	counter := &openAIFailureCounterStub{}
+	checker := &openAIQuotaLimitCheckerStub{limited: true}
+	svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+	svc.SetSettingService(openAIFailurePolicySettingServiceWithQuotaCheck(t, true, 2, true))
+	svc.SetOpenAIFailureCounterCache(counter)
+	svc.SetOpenAIQuotaLimitChecker(checker)
+	account := &Account{ID: 9011, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
+
+	require.False(t, svc.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), account, http.StatusBadGateway, nil))
+	require.Zero(t, checker.calls)
+	require.True(t, svc.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), account, http.StatusBadGateway, nil))
+	require.Equal(t, 1, checker.calls)
+}
+
+func TestOpenAIQuotaUsageLimitReachedUsesOnlyMainCodexBucket(t *testing.T) {
+	usage := &OpenAIQuotaUsage{RateLimitsByLimitID: map[string]OpenAIAppServerRateLimitBucket{
+		"codex": {
+			LimitID: "codex",
+			Primary: &OpenAIAppServerRateLimitWindow{UsedPercent: 99.9},
+		},
+		"codex_other": {
+			LimitID: "codex_other",
+			Primary: &OpenAIAppServerRateLimitWindow{UsedPercent: 100},
+		},
+	}}
+	require.False(t, isOpenAIQuotaUsageLimitReached(usage))
+
+	main := usage.RateLimitsByLimitID["codex"]
+	main.Primary.UsedPercent = 100
+	usage.RateLimitsByLimitID["codex"] = main
+	require.True(t, isOpenAIQuotaUsageLimitReached(usage))
+
+	usage = &OpenAIQuotaUsage{
+		RateLimit: &OpenAIRateLimit{LimitID: "codex", LimitReached: true},
+		RateLimitsByLimitID: map[string]OpenAIAppServerRateLimitBucket{
+			"codex_other": {
+				LimitID: "codex_other",
+				Primary: &OpenAIAppServerRateLimitWindow{UsedPercent: 100},
+			},
+		},
+	}
+	require.True(t, isOpenAIQuotaUsageLimitReached(usage))
+
+	usage = &OpenAIQuotaUsage{RateLimit: &OpenAIRateLimit{LimitReached: true}}
+	require.True(t, isOpenAIQuotaUsageLimitReached(usage))
 }
 
 func TestRateLimitService_AutoDisablesOpenAIAccountAtConfiguredConsecutiveFailureThreshold(t *testing.T) {

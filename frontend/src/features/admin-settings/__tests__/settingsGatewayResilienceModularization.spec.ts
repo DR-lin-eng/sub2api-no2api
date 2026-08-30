@@ -42,7 +42,7 @@ const cards = [
     marker: 'Rate Limit Cooldown (429) Settings',
     component: 'SettingsRateLimit429CooldownCard',
     file: 'SettingsRateLimit429CooldownCard.vue',
-		templateHash: 'f67ee648a29bf97f05eec63478c731950b7981b3058475ca107b5d2923ebf3eb',
+    templateHash: '2372ee396a22dfce14a6d67be613f1073f6f5c07c2f6fc68a3c67b4ed9081e72',
   },
   {
     marker: 'Stream Timeout Settings',

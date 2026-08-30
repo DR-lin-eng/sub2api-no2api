@@ -37,15 +37,17 @@ func TestGetRateLimit429CooldownSettings_DefaultsWhenNotSet(t *testing.T) {
 	require.Equal(t, 5, settings.CooldownSeconds)
 	require.False(t, settings.AutoDisableEnabled)
 	require.Equal(t, 3, settings.AutoDisableThreshold)
+	require.False(t, settings.AutoDisableQuotaCheckEnabled)
 }
 
 func TestGetRateLimit429CooldownSettings_ReadsFromDB(t *testing.T) {
 	repo := newMockSettingRepo()
 	data, _ := json.Marshal(RateLimit429CooldownSettings{
-		Enabled:              false,
-		CooldownSeconds:      12,
-		AutoDisableEnabled:   true,
-		AutoDisableThreshold: 7,
+		Enabled:                      false,
+		CooldownSeconds:              12,
+		AutoDisableEnabled:           true,
+		AutoDisableThreshold:         7,
+		AutoDisableQuotaCheckEnabled: true,
 	})
 	repo.data[SettingKeyRateLimit429CooldownSettings] = string(data)
 	svc := NewSettingService(repo, &config.Config{})
@@ -56,6 +58,7 @@ func TestGetRateLimit429CooldownSettings_ReadsFromDB(t *testing.T) {
 	require.Equal(t, 12, settings.CooldownSeconds)
 	require.True(t, settings.AutoDisableEnabled)
 	require.Equal(t, 7, settings.AutoDisableThreshold)
+	require.True(t, settings.AutoDisableQuotaCheckEnabled)
 }
 
 func TestGetRateLimit429CooldownSettings_LegacyJSONKeepsCircuitBreakerDisabled(t *testing.T) {
@@ -70,6 +73,7 @@ func TestGetRateLimit429CooldownSettings_LegacyJSONKeepsCircuitBreakerDisabled(t
 	require.Equal(t, 8, settings.CooldownSeconds)
 	require.False(t, settings.AutoDisableEnabled)
 	require.Equal(t, 3, settings.AutoDisableThreshold)
+	require.False(t, settings.AutoDisableQuotaCheckEnabled)
 }
 
 func TestSetRateLimit429CooldownSettings_EnabledRejectsOutOfRange(t *testing.T) {

@@ -102,7 +102,7 @@ func (s *OpenAIQuotaService) doCodexQuotaHTTP(
 	return resp.StatusCode, resp.Header.Clone(), responseBody, nil
 }
 
-func (s *OpenAIQuotaService) queryUsageWithAccountTransport(ctx context.Context, accountID int64) (*OpenAIQuotaUsage, error) {
+func (s *OpenAIQuotaService) queryUsageWithAccountTransport(ctx context.Context, accountID int64, includeResetCredits bool) (*OpenAIQuotaUsage, error) {
 	var route platformegress.Route
 	accessToken, chatGPTAccountID, _, fedRAMP, err := s.prepareUpstreamCall(ctx, accountID, &route)
 	if err != nil {
@@ -140,8 +140,10 @@ func (s *OpenAIQuotaService) queryUsageWithAccountTransport(ctx context.Context,
 		break
 	}
 	payload.FetchedAt = time.Now().Unix()
-	if details := s.queryResetCreditDetailsWithAccountTransport(ctx, accountID, account, accessToken, chatGPTAccountID, fedRAMP); details != nil {
-		applyOpenAIQuotaResetCreditDetails(&payload, details)
+	if includeResetCredits {
+		if details := s.queryResetCreditDetailsWithAccountTransport(ctx, accountID, account, accessToken, chatGPTAccountID, fedRAMP); details != nil {
+			applyOpenAIQuotaResetCreditDetails(&payload, details)
+		}
 	}
 	return &payload, nil
 }

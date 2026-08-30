@@ -490,10 +490,11 @@ type OverloadCooldownSettings struct {
 
 // RateLimit429CooldownSettings 429默认回避配置 DTO
 type RateLimit429CooldownSettings struct {
-	Enabled              bool `json:"enabled"`
-	CooldownSeconds      int  `json:"cooldown_seconds"`
-	AutoDisableEnabled   bool `json:"auto_disable_enabled"`
-	AutoDisableThreshold int  `json:"auto_disable_threshold"`
+	Enabled                      bool `json:"enabled"`
+	CooldownSeconds              int  `json:"cooldown_seconds"`
+	AutoDisableEnabled           bool `json:"auto_disable_enabled"`
+	AutoDisableThreshold         int  `json:"auto_disable_threshold"`
+	AutoDisableQuotaCheckEnabled bool `json:"auto_disable_quota_check_enabled"`
 }
 
 // GlobalTempUnschedulableSettings 全局临时不可调度配置 DTO

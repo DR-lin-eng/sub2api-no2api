@@ -175,6 +175,12 @@ python3 tools/disable_oauth_accounts.py --base-url "https://<your-domain>" --pla
 `schedulable` 持久设为 `false`，账号列表通过 `scheduling_disabled_reason` 显示触发阈值和
 最后状态码。该账号若绑定多个分组，会从所有相关调度候选中移除。
 
+`auto_disable_quota_check_enabled` 默认 `false`。开启后，达到失败阈值时会触发实时主
+Codex 额度检查，而不会直接停调；只有上游明确返回限额状态，或主额度窗口已用比例达到
+`100%`，才会关闭调度。额度查询失败、缺少可判定数据、尚有额度，或仅未知/辅助额度桶
+达到上限时都不会关闭账号；连续计数保留，后续账号级 429/502 会再次检查。该检查只读取主额度，不查询
+重置额度明细或服务端 token 活动。
+
 ```bash
 curl -X PUT "${BASE}/api/v1/admin/settings/rate-limit-429-cooldown" \
   -H "x-api-key: ${ADMIN_API_KEY}" \
@@ -183,7 +189,8 @@ curl -X PUT "${BASE}/api/v1/admin/settings/rate-limit-429-cooldown" \
     "enabled": true,
     "cooldown_seconds": 5,
     "auto_disable_enabled": true,
-    "auto_disable_threshold": 3
+    "auto_disable_threshold": 3,
+    "auto_disable_quota_check_enabled": true
   }'
 ```
 

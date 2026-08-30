@@ -120,6 +120,9 @@ Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换
 - 网关韧性设置可选择开启 OpenAI OAuth 连续失败熔断：只累计账号级 429 与 502，
   成功请求清零 Redis 共享计数；达到管理员阈值后原子写入 `schedulable=false` 和暂停原因，
   并通过 scheduler outbox 从该账号绑定的所有分组移除。OpenAI API Key 账号不参与该计数。
+  可选的额度确认开关会在达到阈值后实时查询主 Codex 额度；只有上游明确标记限额或主额度
+  窗口已用比例达到 100% 才停调。查询失败、额度未知或只有辅助额度桶耗尽时保持可调度，
+  后续失败仍可再次确认。
   管理员单个或批量重新启用调度时会清除暂停原因与失败计数。
 - OAuth 空 `model_mapping` 账号先按 `accounts.extra.oauth_supported_models` 实时能力快照
   过滤（OpenAI 使用 Codex 模型归一化）；没有成功快照时才回退平台既有模型规则。显式映射

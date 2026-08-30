@@ -1033,6 +1033,8 @@ export default {
         autoDisableHint: '达到阈值后将 OpenAI OAuth 账号从所有号池持久移除；API Key 对接账号不受影响。',
         autoDisableThreshold: '连续失败阈值',
         autoDisableThresholdHint: '仅统计 OAuth 账号级 429 和 502；成功请求会清零计数（1-100 次）。',
+        quotaCheck: '关闭前实时确认额度限额',
+        quotaCheckHint: '达到阈值后查询主 Codex 额度；仅在上游明确限额或已用比例达到 100% 时关闭。查询失败、额度未知或尚有额度时保持可调度。',
         saved: '429 默认回避设置保存成功',
         saveFailed: '保存 429 默认回避设置失败'
       },
