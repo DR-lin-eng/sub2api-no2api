@@ -6,7 +6,7 @@ export default {
     adminDescription: 'Review user messages and reply as support.',
     inbox: 'Conversations',
     inboxHint: 'All administrators share this support inbox',
-    searchUser: 'Search email or username',
+    searchUser: 'Search email, username, conversation ID, user ID, or message text',
     unreadOnly: 'Unread only',
     unread: 'Unread',
     markUnread: 'Mark unread',
@@ -56,6 +56,7 @@ export default {
     assets: {
       upload: 'Upload image',
       uploadFailed: 'Image upload or send failed',
+      removePending: 'Remove pending image',
       retry: 'Image failed to load; click to retry',
       image: '[Image]',
       sticker: 'Sticker',
@@ -78,6 +79,8 @@ export default {
     },
     quickReplies: {
       short: 'Quick replies',
+      oneClick: 'Send quick replies immediately',
+      oneClickHint: 'When enabled, selecting a quick reply sends it immediately; otherwise it fills the composer.',
       add: 'Add quick reply',
       import: 'Import',
       importHint: 'One item per line with a Tab between title and content; up to 50 items. Content is plain text.',

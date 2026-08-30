@@ -17,8 +17,9 @@ type CustomMenuItem struct {
 	PageSlug   string `json:"page_slug,omitempty"`
 	Visibility string `json:"visibility"` // "user" or "admin"
 	SortOrder  int    `json:"sort_order"`
-	// ForwardAccessToken explicitly delegates the current browser access token
-	// to the embedded page via postMessage. It is disabled by default.
+	// ForwardAccessToken is the backward-compatible switch name for issuing a
+	// short-lived embedded permission capability via postMessage. The browser
+	// access token itself is never delegated.
 	ForwardAccessToken bool `json:"forward_access_token,omitempty"`
 }
 
@@ -337,8 +338,9 @@ type SystemSettings struct {
 	AvailableChannelsEnabled bool `json:"available_channels_enabled"`
 
 	// Support Chat feature switch
-	SupportChatEnabled       bool `json:"support_chat_enabled"`
-	SupportChatRetentionDays int  `json:"support_chat_retention_days"`
+	SupportChatEnabled          bool `json:"support_chat_enabled"`
+	SupportChatRetentionEnabled bool `json:"support_chat_retention_enabled"`
+	SupportChatRetentionDays    int  `json:"support_chat_retention_days"`
 
 	// Model Plaza feature (public group/model pricing showcase)
 	ModelPlazaEnabled          bool   `json:"model_plaza_enabled"`

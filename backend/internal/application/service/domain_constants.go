@@ -425,9 +425,10 @@ const (
 	// redirect away. Defaults to false (explicit opt-in feature).
 	SettingKeySupportChatEnabled = "support_chat_enabled"
 
-	// SettingKeySupportChatRetentionDays controls how long ordinary support-chat
-	// messages remain in the live database. Zero keeps messages indefinitely.
-	SettingKeySupportChatRetentionDays = "support_chat_retention_days"
+	// Support-chat retention is an explicit opt-in because it permanently deletes
+	// ordinary messages. Zero days keeps messages indefinitely even when enabled.
+	SettingKeySupportChatRetentionEnabled = "support_chat_retention_enabled"
+	SettingKeySupportChatRetentionDays    = "support_chat_retention_days"
 
 	// SettingKeyModelPlazaEnabled is a DB-backed soft switch for the Model Plaza page
 	// (public group/model pricing showcase). When false: the plaza endpoint returns 404

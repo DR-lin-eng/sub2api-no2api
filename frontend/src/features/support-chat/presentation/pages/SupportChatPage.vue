@@ -11,13 +11,18 @@
             <span class="h-2 w-2 rounded-full" :class="socketConnected ? 'bg-emerald-500' : 'bg-gray-400'"></span>
             {{ socketConnected ? t('supportChat.connected') : t('supportChat.offline') }}
           </span>
-          <button type="button" class="btn btn-secondary btn-sm" :disabled="loading" @click="reload">
+          <button type="button" class="btn btn-secondary btn-sm" :disabled="loading || olderMessagesLoading" @click="reload">
             {{ t('common.refresh') }}
           </button>
         </div>
       </header>
 
-      <div ref="messagePaneRef" class="min-h-0 flex-1 overflow-y-auto bg-gray-50 p-5 dark:bg-dark-950/60">
+      <div ref="messagePaneRef" class="min-h-0 flex-1 overflow-y-auto bg-gray-50 p-5 dark:bg-dark-950/60" @scroll="handleMessagePaneScroll">
+        <div v-if="hasOlderMessages" class="sticky top-0 z-10 mb-3 flex justify-center">
+          <button type="button" class="btn btn-secondary btn-sm shadow-sm" :disabled="loading || olderMessagesLoading" @click="loadOlderMessages">
+            {{ olderMessagesLoading ? t('common.loading') : t('supportChat.loadOlder') }}
+          </button>
+        </div>
         <div v-if="loading && messages.length === 0" class="flex h-full items-center justify-center text-sm text-gray-500 dark:text-dark-400">
           {{ t('common.loading') }}
         </div>
@@ -45,6 +50,7 @@
         :sending="sending"
         :disabled="loading"
         :replying-to="replyingTo"
+        draft-key="user"
         @submit="handleSend"
         @upload="handleUpload"
         @cancel-reply="replyingTo = null"
@@ -54,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import { useAppStore } from '@/core/stores/appStore'
@@ -69,6 +75,12 @@ import {
   type ChatSendMessageInput,
 } from '@/features/support-chat/data/datasources/supportChatDatasource'
 import { useSupportChatSocket } from '@/features/support-chat/presentation/composables/useSupportChatSocket'
+import {
+  chatMessagePageCount,
+  loadChatMessagePages,
+  mergeChatMessages,
+  SUPPORT_CHAT_MESSAGE_PAGE_SIZE,
+} from '@/features/support-chat/presentation/composables/supportChatHistory'
 import { useSupportChatAdminStore } from '@/features/support-chat/presentation/stores/supportChatAdminStore'
 import SupportMessageComposer from '@/features/support-chat/presentation/widgets/SupportMessageComposer.vue'
 import SupportMessageList from '@/features/support-chat/presentation/widgets/SupportMessageList.vue'
@@ -84,10 +96,17 @@ const replyingTo = ref<ChatMessage | null>(null)
 const messagePaneRef = ref<HTMLElement | null>(null)
 const composerRef = ref<InstanceType<typeof SupportMessageComposer> | null>(null)
 const socketConnected = ref(false)
+const olderMessagesLoading = ref(false)
+const messagePage = ref(1)
+const messagePages = ref(1)
+const stickMessagesToBottom = ref(true)
 let fallbackPollTimer: ReturnType<typeof setInterval> | null = null
 const SUPPORT_CHAT_RESYNC_MS = 15000
 const SUPPORT_CHAT_CONNECTED_RESYNC_MS = 60000
 let lastResyncAt = 0
+let messageLoadSequence = 0
+
+const hasOlderMessages = computed(() => messagePage.value < messagePages.value)
 
 const socket = useSupportChatSocket({
   scope: 'user',
@@ -95,6 +114,7 @@ const socket = useSupportChatSocket({
     socketConnected.value = connected
   },
   onMessage: (message) => {
+    stickMessagesToBottom.value = isMessagePaneNearBottom()
     appendMessage(message)
     if (message.sender_type === 'admin') {
       appStore.setSupportUserUnread(true)
@@ -104,7 +124,7 @@ const socket = useSupportChatSocket({
         supportChatAdminStore.markUserRead()
       })
     }
-    void scrollToBottom()
+    if (stickMessagesToBottom.value) void scrollToBottom()
   },
   onMessageRecalled: (message) => {
     replaceMessage(message)
@@ -136,6 +156,12 @@ function messageScrollSignature(): string {
   return messages.value.map((message) => `${message.id}:${message.created_at}:${message.recalled_at || ''}`).join('|')
 }
 
+function isMessagePaneNearBottom(): boolean {
+  const pane = messagePaneRef.value
+  if (!pane) return true
+  return pane.scrollHeight - pane.scrollTop - pane.clientHeight < 80
+}
+
 function errorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message) return error.message
   if (typeof error === 'object' && error !== null && 'message' in error) {
@@ -152,14 +178,22 @@ async function scrollToBottom() {
 }
 
 async function syncMessages(showLoading: boolean) {
+  const sequence = ++messageLoadSequence
+  const requestedPage = Math.max(1, messagePage.value)
   if (showLoading) loading.value = true
   try {
-    const [currentConversation, page] = await Promise.all([
+    const [currentConversation, history] = await Promise.all([
       getUserChatConversation(),
-      listUserChatMessages({ page: 1, page_size: 100 }),
+      loadChatMessagePages(
+        page => listUserChatMessages({ page, page_size: SUPPORT_CHAT_MESSAGE_PAGE_SIZE }),
+        requestedPage,
+      ),
     ])
+    if (sequence !== messageLoadSequence) return
     conversation.value = currentConversation
-    messages.value = page.items
+    messages.value = history.items
+    messagePage.value = history.page
+    messagePages.value = history.pages
     lastResyncAt = Date.now()
     if (currentConversation.unread_by_user > 0) {
       await markUserChatRead()
@@ -168,12 +202,50 @@ async function syncMessages(showLoading: boolean) {
       appStore.setSupportUserUnread(false)
       supportChatAdminStore.markUserRead()
     }
-    await scrollToBottom()
+    if (stickMessagesToBottom.value) await scrollToBottom()
   } catch (error) {
     appStore.showError(errorMessage(error, t('supportChat.loadFailed')))
   } finally {
     if (showLoading) loading.value = false
   }
+}
+
+async function loadOlderMessages() {
+  if (olderMessagesLoading.value || loading.value || !hasOlderMessages.value) return
+  const sequence = messageLoadSequence
+  const nextPage = messagePage.value + 1
+  const pane = messagePaneRef.value
+  const previousHeight = pane?.scrollHeight ?? 0
+  const previousTop = pane?.scrollTop ?? 0
+  olderMessagesLoading.value = true
+  stickMessagesToBottom.value = false
+  try {
+    const page = await listUserChatMessages({
+      page: nextPage,
+      page_size: SUPPORT_CHAT_MESSAGE_PAGE_SIZE,
+    })
+    if (sequence !== messageLoadSequence) return
+    if (page.items.length === 0) {
+      messagePages.value = messagePage.value
+      return
+    }
+    messages.value = mergeChatMessages(messages.value, page.items)
+    messagePage.value = Math.max(messagePage.value, nextPage)
+    messagePages.value = Math.max(messagePage.value, chatMessagePageCount(page))
+    await nextTick()
+    if (pane) pane.scrollTop = previousTop + (pane.scrollHeight - previousHeight)
+  } catch (error) {
+    appStore.showError(errorMessage(error, t('supportChat.loadFailed')))
+  } finally {
+    olderMessagesLoading.value = false
+  }
+}
+
+function handleMessagePaneScroll(event: Event) {
+  const pane = event.target as HTMLElement | null
+  if (!pane) return
+  stickMessagesToBottom.value = pane.scrollHeight - pane.scrollTop - pane.clientHeight < 80
+  if (pane.scrollTop <= 80) void loadOlderMessages()
 }
 
 async function reload() {
@@ -201,15 +273,15 @@ async function handleSend(input: ChatSendMessageInput) {
   }
 }
 
-async function handleUpload(value: { file: File; content: string; reply_to_id: number | null }) {
+async function handleUpload(value: { files: File[]; content: string; reply_to_id: number | null }) {
   if (sending.value) return
   sending.value = true
   try {
-    const asset = await uploadUserChatAsset(value.file)
+    const assets = await Promise.all(value.files.map(file => uploadUserChatAsset(file)))
     const message = await sendUserChatMessage({
       content: value.content || '[image]',
       kind: 'image',
-      asset_ids: [asset.id],
+      asset_ids: assets.map(asset => asset.id),
       reply_to_id: value.reply_to_id,
     })
     appendMessage(message)
@@ -232,7 +304,7 @@ onMounted(async () => {
 })
 
 watch(messageScrollSignature, () => {
-  void scrollToBottom()
+  if (stickMessagesToBottom.value) void scrollToBottom()
 }, { flush: 'post' })
 
 onBeforeUnmount(() => {

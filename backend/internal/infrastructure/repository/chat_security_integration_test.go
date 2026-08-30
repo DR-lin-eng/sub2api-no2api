@@ -166,6 +166,31 @@ func TestChatRecallAndManualUnreadStateAreDurableAndAuthorizationAware(t *testin
 	_, _, err = messageRepo.RecallByAdmin(ctx, conversation.ID, userMessage.ID, admin.ID, time.Now().UTC())
 	require.ErrorIs(t, err, chat.ErrMessageRecallNotAllowed)
 
+	for name, search := range map[string]string{
+		"email":           user.Email,
+		"user id":         fmt.Sprint(user.ID),
+		"conversation id": fmt.Sprint(conversation.ID),
+		"message content": "user message",
+	} {
+		t.Run("search by "+name, func(t *testing.T) {
+			items, _, searchErr := conversationRepo.List(
+				ctx,
+				pagination.PaginationParams{Page: 1, PageSize: 20},
+				chat.ConversationListFilters{Search: search},
+			)
+			require.NoError(t, searchErr)
+			require.Len(t, items, 1)
+			require.Equal(t, conversation.ID, items[0].ID)
+		})
+	}
+	recalledMatches, _, err := conversationRepo.List(
+		ctx,
+		pagination.PaginationParams{Page: 1, PageSize: 20},
+		chat.ConversationListFilters{Search: "mistaken private reply"},
+	)
+	require.NoError(t, err)
+	require.Empty(t, recalledMatches, "recalled message payloads must not remain searchable")
+
 	_, _, err = conversationRepo.MarkRead(ctx, conversation.ID, chat.SenderTypeAdmin)
 	require.NoError(t, err)
 	changed, err = conversationRepo.MarkUnreadByAdmin(ctx, conversation.ID)

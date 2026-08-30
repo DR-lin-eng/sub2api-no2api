@@ -2,6 +2,15 @@
   <div class="space-y-3">
     <div class="flex flex-wrap gap-2">
       <button
+        v-for="item in builtInItems"
+        :key="`builtin:${item.title}`"
+        type="button"
+        class="rounded-xl border border-primary-200 bg-primary-50 px-3 py-2 text-left text-sm text-primary-700 hover:border-primary-400 dark:border-primary-800 dark:bg-primary-900/20 dark:text-primary-200"
+        @click="emit('use', item.content)"
+      >
+        {{ item.title }}
+      </button>
+      <button
         v-for="item in items"
         :key="item.id"
         type="button"
@@ -56,8 +65,9 @@ import type { ChatQuickReply } from '@/features/support-chat/data/datasources/su
 
 const props = withDefaults(defineProps<{
   items: ChatQuickReply[]
+  builtInItems?: Array<{ title: string; content: string }>
   busy?: boolean
-}>(), { busy: false })
+}>(), { builtInItems: () => [], busy: false })
 
 const emit = defineEmits<{
   use: [content: string]

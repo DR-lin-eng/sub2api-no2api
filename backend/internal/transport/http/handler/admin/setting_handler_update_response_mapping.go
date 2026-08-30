@@ -281,9 +281,10 @@ func buildSettingsUpdateResponsePayload(
 		ChannelMonitorPublicShareEnabled:     updatedSettings.ChannelMonitorPublicShareEnabled,
 		ChannelMonitorPublicShareRequireAuth: updatedSettings.ChannelMonitorPublicShareRequireAuth,
 
-		AvailableChannelsEnabled: updatedSettings.AvailableChannelsEnabled,
-		SupportChatEnabled:       updatedSettings.SupportChatEnabled,
-		SupportChatRetentionDays: updatedSettings.SupportChatRetentionDays,
+		AvailableChannelsEnabled:    updatedSettings.AvailableChannelsEnabled,
+		SupportChatEnabled:          updatedSettings.SupportChatEnabled,
+		SupportChatRetentionEnabled: updatedSettings.SupportChatRetentionEnabled,
+		SupportChatRetentionDays:    updatedSettings.SupportChatRetentionDays,
 
 		ModelPlazaEnabled:          updatedSettings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth:      updatedSettings.ModelPlazaRequireAuth,

@@ -17,7 +17,7 @@
     </div>
 
     <div v-if="activePanel" class="mb-3 rounded-2xl border border-gray-200 bg-gray-50 p-3 dark:border-dark-700 dark:bg-dark-950/60">
-      <div v-if="activePanel === 'stickers'" class="flex flex-wrap gap-2">
+      <div v-if="activePanel === 'stickers'" class="grid max-h-56 grid-cols-6 gap-2 overflow-y-auto sm:grid-cols-10">
         <button
           v-for="emoji in emojiStickers"
           :key="emoji"
@@ -29,17 +29,26 @@
         </button>
       </div>
 
-      <SupportQuickReplyPanel
-        v-else-if="activePanel === 'replies'"
-        :items="quickReplies"
-        :busy="toolsBusy"
-        @use="useQuickReply"
-        @create="emit('quickReplyCreate', $event)"
-        @update="emit('quickReplyUpdate', $event)"
-        @delete="emit('quickReplyDelete', $event)"
-        @reorder="emit('quickReplyReorder', $event)"
-        @import="emit('quickReplyImport', $event)"
-      />
+      <div v-else-if="activePanel === 'replies'" class="space-y-3">
+        <div class="flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white px-3 py-2 dark:border-dark-700 dark:bg-dark-800">
+          <div>
+            <p class="text-sm font-medium text-gray-700 dark:text-dark-200">{{ t('supportChat.quickReplies.oneClick') }}</p>
+            <p class="text-xs text-gray-500 dark:text-dark-400">{{ t('supportChat.quickReplies.oneClickHint') }}</p>
+          </div>
+          <Toggle v-model="oneClickReply" data-testid="support-quick-reply-one-click" />
+        </div>
+        <SupportQuickReplyPanel
+          :items="quickReplies"
+          :built-in-items="builtInReplies"
+          :busy="toolsBusy"
+          @use="useQuickReply"
+          @create="emit('quickReplyCreate', $event)"
+          @update="emit('quickReplyUpdate', $event)"
+          @delete="emit('quickReplyDelete', $event)"
+          @reorder="emit('quickReplyReorder', $event)"
+          @import="emit('quickReplyImport', $event)"
+        />
+      </div>
 
       <div v-else-if="activePanel === 'catalog'" class="space-y-3">
         <div class="flex items-center gap-2">
@@ -102,9 +111,26 @@
       @paste="handlePaste"
     />
 
+    <div v-if="pendingImages.length" class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div v-for="image in pendingImages" :key="image.id" class="group relative overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-800">
+        <img v-if="image.previewUrl" :src="image.previewUrl" :alt="image.file.name" class="aspect-square w-full object-cover" />
+        <div v-else class="flex aspect-square items-center justify-center px-2 text-center text-xs text-gray-500 dark:text-dark-400">
+          {{ image.file.name }}
+        </div>
+        <button
+          type="button"
+          class="absolute right-1 top-1 inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/65 text-lg text-white hover:bg-red-600"
+          :aria-label="t('supportChat.assets.removePending')"
+          @click="removePendingImage(image.id)"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+
     <div class="mt-2 flex flex-wrap items-center gap-2">
       <button type="button" class="composer-tool" :title="t('supportChat.assets.upload')" :disabled="disabled || sending" @click="messageFileInput?.click()">📎</button>
-      <input ref="messageFileInput" class="hidden" type="file" accept="image/png,image/jpeg,image/gif,image/webp" @change="handleMessageFile" />
+      <input ref="messageFileInput" class="hidden" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple @change="handleMessageFile" />
       <button type="button" class="composer-tool" :class="activePanel === 'stickers' ? 'composer-tool-active' : ''" @click="togglePanel('stickers')">😊</button>
       <button v-if="adminMode" type="button" class="composer-tool" :class="activePanel === 'replies' ? 'composer-tool-active' : ''" @click="togglePanel('replies')">
         {{ t('supportChat.quickReplies.short') }}
@@ -116,7 +142,7 @@
         {{ t('supportChat.transfer.action') }}
       </button>
       <span class="ml-auto text-xs text-gray-400">{{ draft.length }}/{{ maxLength }}</span>
-      <button type="submit" class="btn btn-primary min-w-24" :disabled="disabled || sending || !draft.trim()">
+      <button type="submit" class="btn btn-primary min-w-24" :disabled="disabled || sending || !canSubmit">
         {{ sending ? t('common.submitting') : t('supportChat.send') }}
       </button>
     </div>
@@ -124,8 +150,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import Toggle from '@/common/widgets/forms/Toggle.vue'
 import {
   type ChatAsset,
   type ChatMessage,
@@ -137,6 +164,17 @@ import SupportQuickReplyPanel from '@/features/support-chat/presentation/widgets
 
 type ComposerPanel = 'stickers' | 'replies' | 'catalog' | 'transfer'
 
+interface PendingImage {
+  id: string
+  file: File
+  previewUrl: string
+}
+
+const MAX_PENDING_IMAGES = 4
+const MAX_IMAGE_BYTES = 5 << 20
+const QUICK_REPLY_MODE_KEY = 'support_chat_one_click_reply_v1'
+const DRAFT_KEY_PREFIX = 'support_chat_draft_v2:'
+
 const props = withDefaults(defineProps<{
   sending?: boolean
   disabled?: boolean
@@ -147,6 +185,7 @@ const props = withDefaults(defineProps<{
   quickReplies?: ChatQuickReply[]
   libraryAssets?: ChatAsset[]
   stickerAssets?: ChatAsset[]
+  draftKey?: string
 }>(), {
   sending: false,
   disabled: false,
@@ -157,11 +196,12 @@ const props = withDefaults(defineProps<{
   quickReplies: () => [],
   libraryAssets: () => [],
   stickerAssets: () => [],
+  draftKey: 'default',
 })
 
 const emit = defineEmits<{
   submit: [input: ChatSendMessageInput]
-  upload: [value: { file: File; content: string; reply_to_id: number | null }]
+  upload: [value: { files: File[]; content: string; reply_to_id: number | null }]
   cancelReply: []
   transfer: [value: { amount: number; notes: string }]
   quickReplyCreate: [value: { title: string; content: string }]
@@ -185,9 +225,21 @@ const catalogScope = ref<'library' | 'sticker'>('library')
 const catalogCollection = ref('')
 const transferAmount = ref<number | null>(null)
 const transferNotes = ref('')
-const emojiStickers = ['👍', '✅', '🎉', '🙏', '😊', '🤝', '💡', '📌', '⏳', '❤️']
+const pendingImages = ref<PendingImage[]>([])
+const oneClickReply = ref(readOneClickReply())
+const emojiStickers = [
+  '👍', '👎', '✅', '❌', '🎉', '🙏', '😊', '😁', '😂', '🥰',
+  '🤝', '👏', '💡', '📌', '⏳', '❤️', '🔥', '⭐', '💯', '👀',
+  '🫡', '🤔', '😅', '😢', '😮', '🚀', '🛠️', '📣', '💬', '📦',
+]
 
 const activeCatalog = computed(() => catalogScope.value === 'library' ? props.libraryAssets : props.stickerAssets)
+const canSubmit = computed(() => draft.value.trim().length > 0 || pendingImages.value.length > 0)
+const builtInReplies = computed(() => [
+  { title: t('supportChat.composer.replyHello'), content: t('supportChat.composer.replyHelloContent') },
+  { title: t('supportChat.composer.replyNeedMoreInfo'), content: t('supportChat.composer.replyNeedMoreInfoContent') },
+  { title: t('supportChat.composer.replyResolved'), content: t('supportChat.composer.replyResolvedContent') },
+])
 const validTransfer = computed(() => {
   const amount = Number(transferAmount.value)
   return Number.isFinite(amount) && amount > 0 && amount <= 1_000_000_000
@@ -205,7 +257,15 @@ function replyID(): number | null {
 function submitText() {
   if (isComposing.value) return
   const content = draft.value.trim()
-  if (!content || props.disabled || props.sending) return
+  if ((!content && pendingImages.value.length === 0) || props.disabled || props.sending) return
+  if (pendingImages.value.length > 0) {
+    emit('upload', {
+      files: pendingImages.value.map(image => image.file),
+      content,
+      reply_to_id: replyID(),
+    })
+    return
+  }
   emit('submit', { content, kind: 'text', reply_to_id: replyID() })
 }
 
@@ -218,6 +278,8 @@ function handleKeydown(event: KeyboardEvent) {
 
 function clearDraft() {
   draft.value = ''
+  clearPendingImages()
+  removeStoredDraft(props.draftKey)
 }
 
 function sendEmoji(emoji: string) {
@@ -241,21 +303,126 @@ function sendCatalogAsset(asset: ChatAsset) {
 }
 
 function useQuickReply(content: string) {
-  draft.value = content.slice(0, props.maxLength)
+  const next = content.trim().slice(0, props.maxLength)
+  if (oneClickReply.value && next && pendingImages.value.length === 0 && !props.disabled && !props.sending) {
+    emit('submit', { content: next, kind: 'text', reply_to_id: replyID() })
+  } else {
+    draft.value = next
+  }
   activePanel.value = null
 }
 
-function emitImageUpload(file: File | null) {
-  if (!file || props.disabled || props.sending) return
-  emit('upload', { file, content: draft.value.trim(), reply_to_id: replyID() })
+function readOneClickReply(): boolean {
+  try {
+    return localStorage.getItem(QUICK_REPLY_MODE_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+function persistOneClickReply(enabled: boolean) {
+  try {
+    localStorage.setItem(QUICK_REPLY_MODE_KEY, String(enabled))
+  } catch {
+    // Storage can be unavailable in hardened browser contexts.
+  }
+}
+
+function storedDraftKey(key: string): string {
+  return `${DRAFT_KEY_PREFIX}${key || 'default'}`
+}
+
+function readStoredDraft(key: string): string {
+  try {
+    return (localStorage.getItem(storedDraftKey(key)) || '').slice(0, props.maxLength)
+  } catch {
+    return ''
+  }
+}
+
+function persistDraft(key: string, value: string) {
+  try {
+    const storageKey = storedDraftKey(key)
+    if (value) localStorage.setItem(storageKey, value.slice(0, props.maxLength))
+    else localStorage.removeItem(storageKey)
+  } catch {
+    // Draft persistence is best effort and never blocks sending.
+  }
+}
+
+function removeStoredDraft(key: string) {
+  try {
+    localStorage.removeItem(storedDraftKey(key))
+  } catch {
+    // Ignore inaccessible storage.
+  }
+}
+
+function imageFiles(files: Iterable<File> | null | undefined): File[] {
+  if (!files) return []
+  return Array.from(files).filter(file => {
+    const type = file.type.toLowerCase()
+    const supportedType = type.startsWith('image/') || type === '' || type === 'application/octet-stream'
+    return supportedType && file.size > 0 && file.size <= MAX_IMAGE_BYTES
+  })
+}
+
+function createPendingImage(file: File): PendingImage {
+  let previewUrl = ''
+  try {
+    previewUrl = URL.createObjectURL(file)
+  } catch {
+    // File name remains visible when this browser cannot create object URLs.
+  }
+  return {
+    id: `${file.name}:${file.size}:${file.lastModified}:${Math.random().toString(36).slice(2)}`,
+    file,
+    previewUrl,
+  }
+}
+
+function addPendingImages(files: Iterable<File> | null | undefined): number {
+  if (props.disabled || props.sending) return 0
+  const remaining = MAX_PENDING_IMAGES - pendingImages.value.length
+  if (remaining <= 0) return 0
+  const existing = new Set(pendingImages.value.map(image => `${image.file.name}:${image.file.size}:${image.file.lastModified}`))
+  const accepted = imageFiles(files)
+    .filter(file => {
+      const key = `${file.name}:${file.size}:${file.lastModified}`
+      if (existing.has(key)) return false
+      existing.add(key)
+      return true
+    })
+    .slice(0, remaining)
+  pendingImages.value.push(...accepted.map(createPendingImage))
+  return accepted.length
+}
+
+function revokePendingImage(image: PendingImage) {
+  if (!image.previewUrl) return
+  try {
+    URL.revokeObjectURL(image.previewUrl)
+  } catch {
+    // Ignore browsers without object URL support.
+  }
+}
+
+function removePendingImage(id: string) {
+  const index = pendingImages.value.findIndex(image => image.id === id)
+  if (index < 0) return
+  const [removed] = pendingImages.value.splice(index, 1)
+  revokePendingImage(removed)
+}
+
+function clearPendingImages() {
+  pendingImages.value.forEach(revokePendingImage)
+  pendingImages.value = []
 }
 
 function handleMessageFile(event: Event) {
   const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
+  addPendingImages(input.files)
   input.value = ''
-  if (!file) return
-  emitImageUpload(file)
 }
 
 function handleCatalogFile(event: Event) {
@@ -277,14 +444,6 @@ function submitTransfer() {
 function hasFilePayload(dataTransfer: DataTransfer | null | undefined): boolean {
   if (!dataTransfer) return false
   return dataTransfer.files.length > 0 || Array.from(dataTransfer.types || []).includes('Files')
-}
-
-function firstDroppedFile(files: FileList | null | undefined): File | null {
-  if (!files?.length) return null
-  return Array.from(files).find(file => {
-    const type = file.type.toLowerCase()
-    return type.startsWith('image/') || type === '' || type === 'application/octet-stream'
-  }) || null
 }
 
 function handleDragEnter(event: DragEvent) {
@@ -309,20 +468,35 @@ function handleDragLeave(event: DragEvent) {
 function handleDrop(event: DragEvent) {
   dragDepth.value = 0
   isDropActive.value = false
-  emitImageUpload(firstDroppedFile(event.dataTransfer?.files))
+  addPendingImages(event.dataTransfer?.files)
 }
 
 function handlePaste(event: ClipboardEvent) {
   const clipboard = event.clipboardData
   if (!clipboard) return
-  const file = firstDroppedFile(clipboard.files) || Array.from(clipboard.items || [])
+  const files = [
+    ...Array.from(clipboard.files || []),
+    ...Array.from(clipboard.items || [])
     .filter(item => item.kind === 'file')
     .map(item => item.getAsFile())
-    .find((candidate): candidate is File => Boolean(candidate)) || null
-  if (!file) return
-  event.preventDefault()
-  emitImageUpload(file)
+    .filter((candidate): candidate is File => Boolean(candidate)),
+  ]
+  if (addPendingImages(files) > 0) event.preventDefault()
 }
+
+watch(oneClickReply, persistOneClickReply)
+
+watch(draft, value => {
+  persistDraft(props.draftKey, value)
+})
+
+watch(() => props.draftKey, (next, previous) => {
+  if (previous && previous !== next) persistDraft(previous, draft.value)
+  clearPendingImages()
+  draft.value = readStoredDraft(next)
+}, { immediate: true })
+
+onBeforeUnmount(clearPendingImages)
 
 defineExpose({ clearDraft })
 </script>

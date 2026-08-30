@@ -9,6 +9,7 @@ import {
   recallAdminChatMessage,
   sendAdminChatMessage,
   transferAdminChatBalance,
+  uploadAdminChatAsset,
   uploadUserChatAsset,
 } from '@/features/support-chat/data/datasources/supportChatDatasource'
 
@@ -95,6 +96,7 @@ describe('support chat frontend security contract', () => {
     await uploadUserChatAsset(new File(['png'], 'payload.html', { type: 'image/png' }))
     expect(post.mock.calls[0][0]).toBe('/chat/assets')
     expect(post.mock.calls[0][1]).toBeInstanceOf(FormData)
+    expect(post.mock.calls[0][2]).toEqual({ headers: { 'Content-Type': undefined } })
 
     await expect(uploadUserChatAsset(new File(['<svg/>'], 'payload.svg', { type: 'image/svg+xml' })))
       .rejects.toThrow(/Only PNG/)
@@ -116,5 +118,19 @@ describe('support chat frontend security contract', () => {
     const sniffedForm = post.mock.calls[1]?.[1] as FormData
     expect((sniffedForm.get('file') as File).type).toBe('image/png')
     expect((sniffedForm.get('file') as File).name).toBe('image.png')
+  })
+
+  it('uses browser-generated multipart boundaries for administrator uploads too', async () => {
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({
+      data: { id: 8, scope: 'message', name: 'image.png', mime_type: 'image/png', size: 3 },
+    })
+
+    await uploadAdminChatAsset(7, new File(['png'], 'admin.png', { type: 'image/png' }))
+
+    expect(post).toHaveBeenCalledWith(
+      '/admin/chat/conversations/7/assets',
+      expect.any(FormData),
+      { headers: { 'Content-Type': undefined } },
+    )
   })
 })

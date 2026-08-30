@@ -394,9 +394,10 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		ChannelMonitorPublicShareEnabled:     settings.ChannelMonitorPublicShareEnabled,
 		ChannelMonitorPublicShareRequireAuth: settings.ChannelMonitorPublicShareRequireAuth,
 
-		AvailableChannelsEnabled: settings.AvailableChannelsEnabled,
-		SupportChatEnabled:       settings.SupportChatEnabled,
-		SupportChatRetentionDays: settings.SupportChatRetentionDays,
+		AvailableChannelsEnabled:    settings.AvailableChannelsEnabled,
+		SupportChatEnabled:          settings.SupportChatEnabled,
+		SupportChatRetentionEnabled: settings.SupportChatRetentionEnabled,
+		SupportChatRetentionDays:    settings.SupportChatRetentionDays,
 
 		ModelPlazaEnabled:          settings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth:      settings.ModelPlazaRequireAuth,

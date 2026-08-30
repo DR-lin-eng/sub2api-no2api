@@ -680,9 +680,9 @@ export default {
         namePlaceholder: '如：帮助中心',
         url: '页面 URL',
         urlPlaceholder: 'https://example.com/page',
-        forwardAccessToken: '转发用户访问令牌',
+        forwardAccessToken: '向嵌入页提供权限验证令牌',
         forwardAccessTokenHint:
-          '默认关闭。开启后会通过限定目标来源的浏览器消息，把当前用户会话委托给嵌入页面。仅对完全可信的页面开启。',
+          '默认关闭。开启后仅通过限定目标来源的浏览器消息发送 90 秒有效、限当前菜单使用的权限令牌；不会发送登录凭证，令牌不能登录 Sub2API。远程页面必须使用 HTTPS。',
         iconSvg: 'SVG 图标',
         iconSvgPlaceholder: '<svg>...</svg>',
         iconPreview: '图标预览',
