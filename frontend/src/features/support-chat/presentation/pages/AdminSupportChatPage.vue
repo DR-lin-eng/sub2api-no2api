@@ -184,7 +184,7 @@ import {
   sendAdminChatMessage,
   transferAdminChatBalance,
   updateAdminChatQuickReply,
-  uploadAdminChatAsset,
+  uploadAdminChatAssets,
   type ChatAsset,
   type ChatConversation,
   type ChatMessage,
@@ -562,7 +562,7 @@ async function handleUpload(value: { files: File[]; content: string; reply_to_id
   const conversationID = selectedConversationID.value
   sending.value = true
   try {
-    const assets = await Promise.all(value.files.map(file => uploadAdminChatAsset(conversationID, file)))
+    const assets = await uploadAdminChatAssets(conversationID, value.files)
     const message = await sendAdminChatMessage(conversationID, {
       content: value.content || '[image]',
       kind: 'image',

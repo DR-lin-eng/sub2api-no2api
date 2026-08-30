@@ -10,6 +10,7 @@ import {
   sendAdminChatMessage,
   transferAdminChatBalance,
   uploadAdminChatAsset,
+  uploadUserChatAssets,
   uploadUserChatAsset,
 } from '@/features/support-chat/data/datasources/supportChatDatasource'
 
@@ -132,5 +133,54 @@ describe('support chat frontend security contract', () => {
       expect.any(FormData),
       { headers: { 'Content-Type': undefined } },
     )
+  })
+
+  it('bounds multi-image uploads to the two server decode slots and preserves selection order', async () => {
+    let active = 0
+    let maxActive = 0
+    let callIndex = 0
+    const pending = Array.from({ length: 4 }, (_, index) => {
+      let resolve!: () => void
+      const promise = new Promise<void>((done) => { resolve = done })
+      return { id: index + 1, promise, resolve }
+    })
+    const post = vi.spyOn(apiClient, 'post').mockImplementation(async () => {
+      const current = pending[callIndex++]
+      active += 1
+      maxActive = Math.max(maxActive, active)
+      await current.promise
+      active -= 1
+      return {
+        data: {
+          id: current.id,
+          scope: 'message',
+          name: 'image.png',
+          mime_type: 'image/png',
+          size: 3,
+        },
+      }
+    })
+    const files = pending.map(item => new File(['png'], `image-${item.id}.png`, { type: 'image/png' }))
+
+    const uploads = uploadUserChatAssets(files)
+    await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(2))
+    expect(maxActive).toBe(2)
+
+    pending[1].resolve()
+    await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(3))
+    expect(maxActive).toBe(2)
+
+    pending[0].resolve()
+    await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(4))
+    pending[2].resolve()
+    pending[3].resolve()
+
+    await expect(uploads).resolves.toMatchObject([
+      { id: 1 },
+      { id: 2 },
+      { id: 3 },
+      { id: 4 },
+    ])
+    expect(maxActive).toBe(2)
   })
 })
