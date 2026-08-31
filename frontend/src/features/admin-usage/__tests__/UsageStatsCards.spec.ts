@@ -81,6 +81,9 @@ describe('UsageStatsCards', () => {
     expect(tooltip.classes()).toContain('right-0')
     expect(tooltip.classes()).toContain('sm:left-1/2')
     expect(tooltip.classes()).toContain('sm:-translate-x-1/2')
+    expect(tooltip.classes()).toContain('hidden')
+    expect(tooltip.classes()).toContain('group-hover:block')
+    expect(tooltip.classes()).not.toContain('opacity-0')
   })
 
   it('ignores injected account cost for user audiences', () => {

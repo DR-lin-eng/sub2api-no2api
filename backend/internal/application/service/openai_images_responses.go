@@ -38,6 +38,10 @@ type OpenAIImagesUpstreamError struct {
 	Message           string
 	Param             string
 	UpstreamRequestID string
+
+	// SynthesizedFromModelText marks a request-level verdict inferred from plain
+	// model output, rather than a structured upstream capability error.
+	SynthesizedFromModelText bool
 }
 
 func (e *OpenAIImagesUpstreamError) Error() string {
@@ -710,10 +714,11 @@ func openAIImagesTextFallbackErrorForText(text string) *OpenAIImagesUpstreamErro
 		}
 	}
 	return &OpenAIImagesUpstreamError{
-		StatusCode: http.StatusBadGateway,
-		ErrorType:  "upstream_error",
-		Code:       "image_generation_unavailable",
-		Message:    "Upstream did not execute image generation",
+		StatusCode:               http.StatusBadGateway,
+		ErrorType:                "upstream_error",
+		Code:                     "image_generation_unavailable",
+		Message:                  "Upstream did not execute image generation",
+		SynthesizedFromModelText: true,
 	}
 }
 
@@ -2080,7 +2085,9 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthResponseError(
 	})
 
 	if upstreamErr.Code == "image_generation_unavailable" {
-		s.coolOpenAIImagesOAuthTool(ctx, account)
+		if shouldCoolOpenAIImagesToolForError(upstreamErr) {
+			s.coolOpenAIImagesOAuthTool(ctx, account)
+		}
 		if responseWritten {
 			return err
 		}
@@ -2113,6 +2120,10 @@ const (
 	openAIImagesOAuthUnavailableCooldown = 30 * time.Minute
 	openAIImagesOAuthUnavailableReason   = "openai_images_oauth_tool_unavailable"
 )
+
+func shouldCoolOpenAIImagesToolForError(upstreamErr *OpenAIImagesUpstreamError) bool {
+	return upstreamErr != nil && !upstreamErr.SynthesizedFromModelText
+}
 
 func (s *OpenAIGatewayService) coolOpenAIImagesOAuthTool(ctx context.Context, account *Account) {
 	if s == nil || s.accountRepo == nil || account == nil || account.Platform != PlatformOpenAI {

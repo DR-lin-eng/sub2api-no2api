@@ -37,7 +37,7 @@
             </svg>
             <span
               data-testid="cache-breakdown-tooltip"
-              class="pointer-events-none absolute right-0 top-full z-30 mt-2 w-56 rounded-lg border border-gray-200 bg-white p-3 text-left text-xs text-gray-700 opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus:opacity-100 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 dark:border-dark-600 dark:bg-dark-800 dark:text-dark-200"
+              class="pointer-events-none absolute right-0 top-full z-30 mt-2 hidden w-56 rounded-lg border border-gray-200 bg-white p-3 text-left text-xs text-gray-700 shadow-lg group-hover:block group-focus:block sm:left-1/2 sm:right-auto sm:-translate-x-1/2 dark:border-dark-600 dark:bg-dark-800 dark:text-dark-200"
             >
               <span class="mb-2 block font-medium text-gray-900 dark:text-white">
                 {{ cacheDetailLabel() }}

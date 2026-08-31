@@ -1329,6 +1329,9 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 					return nil
 				}
 				eventType, _, _ := parseOpenAIWSEventEnvelope(payload)
+				if (eventType == "error" || eventType == "response.failed") && markOpenAIWSV2PassthroughCyberPolicy(c, payload) {
+					return nil
+				}
 				if isOpenAIWSTerminalEvent(eventType) {
 					s.handleOpenAIWSTerminalTransientFailure(ctx, account, capturedSessionModel, handshakeHeaders, payload)
 				}
@@ -1553,6 +1556,24 @@ func openAIWSPassthroughRelayClientClose(exit openaiwsv2.RelayExit, completedTur
 		return coderws.StatusInternalError, "upstream websocket proxy failed", true
 	}
 	return 0, "", false
+}
+
+func markOpenAIWSV2PassthroughCyberPolicy(c *gin.Context, payload []byte) bool {
+	hit, code, message := detectOpenAICyberPolicy(payload)
+	if !hit {
+		return false
+	}
+	usage := OpenAIUsage{}
+	parseOpenAIWSResponseUsageFromCompletedEvent(payload, &usage)
+	MarkOpsCyberPolicy(c, CyberPolicyMark{
+		Code:           code,
+		Message:        message,
+		Body:           truncateString(string(payload), 4096),
+		UpstreamStatus: http.StatusOK,
+		UpstreamInTok:  usage.InputTokens,
+		UpstreamOutTok: usage.OutputTokens,
+	})
+	return true
 }
 
 func (s *OpenAIGatewayService) mapOpenAIWSPassthroughDialError(

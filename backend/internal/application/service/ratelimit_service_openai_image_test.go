@@ -120,7 +120,7 @@ func TestOpenAIGatewayServiceForwardImages_ImageRateLimitReturnsFailoverAndCools
 	require.Equal(t, openAIImageGenerationRateLimitKey, repo.modelRateLimitCalls[0].scope)
 }
 
-func TestOpenAIGatewayServiceForwardImages_TextFallbackCoolsImageCapability(t *testing.T) {
+func TestOpenAIGatewayServiceForwardImages_TextFallbackDoesNotCoolImageCapability(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	repo := &modelNotFoundAccountRepoStub{}
 	body := []byte(`{"model":"gpt-image-2","prompt":"draw a cat"}`)
@@ -144,17 +144,22 @@ func TestOpenAIGatewayServiceForwardImages_TextFallbackCoolsImageCapability(t *t
 	require.NoError(t, err)
 	account := &Account{ID: 205, Name: "openai-oauth", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"access_token": "token-123"}}
 
-	before := time.Now()
 	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
 
 	require.Nil(t, result)
 	var failoverErr *UpstreamFailoverError
 	require.ErrorAs(t, err, &failoverErr)
 	require.False(t, failoverErr.RetryableOnSameAccount)
-	require.Len(t, repo.modelRateLimitCalls, 1)
-	call := repo.modelRateLimitCalls[0]
-	require.Equal(t, account.ID, call.accountID)
-	require.Equal(t, openAIImageGenerationRateLimitKey, call.scope)
-	require.Equal(t, openAIImagesOAuthUnavailableReason, call.reason)
-	require.WithinDuration(t, before.Add(openAIImagesOAuthUnavailableCooldown), call.resetAt, time.Second)
+	require.Empty(t, repo.modelRateLimitCalls)
+}
+
+func TestShouldCoolOpenAIImagesToolForError(t *testing.T) {
+	require.False(t, shouldCoolOpenAIImagesToolForError(nil))
+	require.False(t, shouldCoolOpenAIImagesToolForError(&OpenAIImagesUpstreamError{
+		Code:                     "image_generation_unavailable",
+		SynthesizedFromModelText: true,
+	}))
+	require.True(t, shouldCoolOpenAIImagesToolForError(&OpenAIImagesUpstreamError{
+		Code: "image_generation_unavailable",
+	}))
 }

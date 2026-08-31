@@ -40,6 +40,12 @@ func BenchmarkAdaptResponsesClientToolsForAnthropic_Changed2KiB(b *testing.B) {
 	benchmarkAdaptChangedResponsesClientTools(b, 2*1024)
 }
 
+func TestAppendRawJSONTreatsEmptyObjectAsAnthropicPlaceholder(t *testing.T) {
+	fragment := `{"query":"status"}`
+	require.JSONEq(t, fragment, string(appendRawJSON(json.RawMessage("{ \n\t }"), fragment)))
+	require.Equal(t, `{"existing":true}{"query":"status"}`, string(appendRawJSON(json.RawMessage(`{"existing":true}`), fragment)))
+}
+
 func BenchmarkAdaptResponsesClientToolsForAnthropic_Changed256KiB(b *testing.B) {
 	benchmarkAdaptChangedResponsesClientTools(b, 256*1024)
 }

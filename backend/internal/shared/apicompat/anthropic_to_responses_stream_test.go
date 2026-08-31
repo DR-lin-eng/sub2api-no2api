@@ -185,3 +185,73 @@ func TestAnthropicEventToResponses_ToolCallCompletedCarriesArguments(t *testing.
 		t.Errorf("name = %q, want get_weather", fc.Name)
 	}
 }
+
+func TestAnthropicEventToResponses_ThinkingAfterTextKeepsMessageOutput(t *testing.T) {
+	state := NewAnthropicEventToResponsesState()
+	state.Model = "claude-sonnet-4-5"
+
+	var events []ResponsesStreamEvent
+	feed := func(evt *AnthropicStreamEvent) {
+		events = append(events, AnthropicEventToResponsesEvents(evt, state)...)
+	}
+
+	i0, i1 := 0, 1
+	feed(&AnthropicStreamEvent{Type: "message_start", Message: &AnthropicResponse{ID: "msg_1"}})
+	feed(&AnthropicStreamEvent{Type: "content_block_start", Index: &i0, ContentBlock: &AnthropicContentBlock{Type: "text"}})
+	feed(&AnthropicStreamEvent{Type: "content_block_delta", Index: &i0, Delta: &AnthropicDelta{Type: "text_delta", Text: "answer"}})
+	feed(&AnthropicStreamEvent{Type: "content_block_stop", Index: &i0})
+	feed(&AnthropicStreamEvent{Type: "content_block_start", Index: &i1, ContentBlock: &AnthropicContentBlock{Type: "thinking"}})
+	feed(&AnthropicStreamEvent{Type: "content_block_delta", Index: &i1, Delta: &AnthropicDelta{Type: "thinking_delta", Thinking: "hmm"}})
+	feed(&AnthropicStreamEvent{Type: "content_block_stop", Index: &i1})
+	feed(&AnthropicStreamEvent{Type: "message_stop"})
+
+	var completed *ResponsesStreamEvent
+	for i := range events {
+		if events[i].Type == "response.completed" {
+			completed = &events[i]
+		}
+	}
+	if completed == nil || completed.Response == nil {
+		t.Fatal("response.completed was not emitted")
+	}
+	outputs := completed.Response.Output
+	if len(outputs) != 2 {
+		t.Fatalf("response.completed carries %d output items, want 2: %+v", len(outputs), outputs)
+	}
+	if outputs[0].Type != "message" || len(outputs[0].Content) != 1 || outputs[0].Content[0].Text != "answer" {
+		t.Fatalf("assistant text was not retained: %+v", outputs[0])
+	}
+	if outputs[1].Type != "reasoning" {
+		t.Fatalf("output[1].type = %q, want reasoning", outputs[1].Type)
+	}
+}
+
+func TestAnthropicEventToResponses_MultipleTextBlocksAdvanceContentIndex(t *testing.T) {
+	state := NewAnthropicEventToResponsesState()
+	state.Model = "claude-sonnet-4-5"
+
+	var events []ResponsesStreamEvent
+	feed := func(evt *AnthropicStreamEvent) {
+		events = append(events, AnthropicEventToResponsesEvents(evt, state)...)
+	}
+
+	i0, i1 := 0, 1
+	feed(&AnthropicStreamEvent{Type: "message_start", Message: &AnthropicResponse{ID: "msg_1"}})
+	feed(&AnthropicStreamEvent{Type: "content_block_start", Index: &i0, ContentBlock: &AnthropicContentBlock{Type: "text"}})
+	feed(&AnthropicStreamEvent{Type: "content_block_delta", Index: &i0, Delta: &AnthropicDelta{Type: "text_delta", Text: "first"}})
+	feed(&AnthropicStreamEvent{Type: "content_block_stop", Index: &i0})
+	feed(&AnthropicStreamEvent{Type: "content_block_start", Index: &i1, ContentBlock: &AnthropicContentBlock{Type: "text"}})
+	feed(&AnthropicStreamEvent{Type: "content_block_delta", Index: &i1, Delta: &AnthropicDelta{Type: "text_delta", Text: "second"}})
+	feed(&AnthropicStreamEvent{Type: "content_block_stop", Index: &i1})
+	feed(&AnthropicStreamEvent{Type: "message_stop"})
+
+	var indexes []int
+	for _, event := range events {
+		if event.Type == "response.content_part.added" {
+			indexes = append(indexes, event.ContentIndex)
+		}
+	}
+	if len(indexes) != 2 || indexes[0] != 0 || indexes[1] != 1 {
+		t.Fatalf("content_part.added indexes = %v, want [0 1]", indexes)
+	}
+}

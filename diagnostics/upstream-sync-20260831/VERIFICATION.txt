@@ -1,0 +1,98 @@
+OBJECT=Selective upstream review through 52374af94031f04df8de6fc91deb77a179e04b06
+BASE_COMMIT=e9c683244af76f4b1a1d0057eb367c4a2b2e0f06
+BRANCH=codex/upstream-sync-20260831
+CHANGED_BRANCH=unreviewed-upstream-delta -> reviewed-modular-integration
+CHANGED_FIELD=pending -> anthropic_stream_lifecycle/raw_chat_terminal
+
+ARTIFACTS
+MODIFIED_FILE=/Users/lin/sub2api-no2api/diagnostics/upstream-sync-20260831/MODIFIED_FILE
+DIFF_FILE=/Users/lin/sub2api-no2api/diagnostics/upstream-sync-20260831/DIFF_FILE
+VERIFICATION=/Users/lin/sub2api-no2api/diagnostics/upstream-sync-20260831/VERIFICATION.txt
+ROLLBACK=/Users/lin/sub2api-no2api/diagnostics/upstream-sync-20260831/ROLLBACK.sh
+
+HASHES
+ORIGINAL_SHA256=7a13d4a44ca18c40836cec39900ac1576ce41e556b7c15bcace27cf67844c5d8
+MODIFIED_SHA256=0703c793fc710c1515de6cfc4dc98a9bce05b2d673444b5e78e5b0628b31501e
+DIFF_SHA256=1d46a07495693c3505a0fa2aeb98538a091aef19268181c9358113d6f12b093e
+
+BASELINE
+COMMAND=jq -e '(.branch == "unreviewed-upstream-delta") and (.field == "pending") and (.message_text == "dropped") and (.content_indexes == [0,0]) and (.raw_stream_status == "false_success")' diagnostics/upstream-sync-20260831/ORIGINAL_FILE
+INPUT=ORIGINAL_FILE with branch=unreviewed-upstream-delta, field=pending, message_text=dropped, content_indexes=[0,0], raw_stream_status=false_success
+LITERAL_OUTPUT=true
+EXIT_STATUS=0
+RESULT=Baseline fixture records the unreviewed state, dropped Anthropic text, duplicate content indexes, and false-success raw stream status.
+
+MODIFIED
+COMMAND=jq -e '(.branch == "reviewed-modular-integration") and (.field == "anthropic_stream_lifecycle/raw_chat_terminal") and (.message_text == "preserved") and (.content_indexes == [0,1]) and (.raw_stream_status == "typed_failover_or_error")' diagnostics/upstream-sync-20260831/MODIFIED_FILE
+INPUT=MODIFIED_FILE after selective integration
+LITERAL_OUTPUT=true
+EXIT_STATUS=0
+RESULT=Modified fixture records the reviewed modular branch, preserved text, monotonic content indexes, and typed raw-stream termination behavior.
+
+ROLLBACK_COPY
+COMMAND=cp diagnostics/upstream-sync-20260831/MODIFIED_FILE /private/tmp/sub2api-upstream-sync-rollback-copy.json
+INPUT=MODIFIED_FILE
+LITERAL_OUTPUT=(empty)
+EXIT_STATUS=0
+
+ROLLBACK
+COMMAND=diagnostics/upstream-sync-20260831/ROLLBACK.sh /private/tmp/sub2api-upstream-sync-rollback-copy.json
+INPUT=/private/tmp/sub2api-upstream-sync-rollback-copy.json, an independent copy of MODIFIED_FILE
+LITERAL_OUTPUT=ROLLBACK_RESULT=restored
+LITERAL_OUTPUT=RESTORED_SHA256=7a13d4a44ca18c40836cec39900ac1576ce41e556b7c15bcace27cf67844c5d8
+LITERAL_OUTPUT=RESTORED_BEHAVIOR=branch=unreviewed-upstream-delta,field=pending,raw_stream_status=false_success
+EXIT_STATUS=0
+VERIFY_COMMAND=cmp diagnostics/upstream-sync-20260831/ORIGINAL_FILE /private/tmp/sub2api-upstream-sync-rollback-copy.json
+VERIFY_LITERAL_OUTPUT=(empty)
+VERIFY_EXIT_STATUS=0
+RESTORED_STATUS=Rollback copy matches ORIGINAL_SHA256 and restores the unreviewed/pending/false_success state. MODIFIED_FILE remains changed at MODIFIED_SHA256 with branch=reviewed-modular-integration.
+
+DOCKER_BASELINE_AND_MODIFIED
+COMMAND=docker run --rm -v /private/tmp/sub2api-baseline-20260831/backend:/workspace -w /workspace golang:1.26.6-alpine sh -c 'apk add --no-cache git >/dev/null && GOCACHE=/tmp/go-build GOPROXY=https://goproxy.cn,direct go test -tags=unit ./internal/application/service ./internal/infrastructure/repository ./internal/transport/http/handler ./internal/transport/http/handler/admin ./internal/modules/payment/provider ./internal/shared/apicompat'
+RESULT=Baseline packages passed; application/service 176.893s, repository 5.642s, handler 31.867s.
+EXIT_STATUS=0
+COMMAND=docker run --rm -v /private/tmp/sub2api-sync-20260831/backend:/workspace -w /workspace golang:1.26.6-alpine sh -c 'apk add --no-cache git >/dev/null && GOCACHE=/tmp/go-build GOPROXY=https://goproxy.cn,direct go test -tags=unit ./internal/application/service ./internal/infrastructure/repository ./internal/transport/http/handler ./internal/transport/http/handler/admin ./internal/modules/payment/provider ./internal/shared/apicompat'
+RESULT=Modified packages passed; application/service 176.318s, repository 6.106s, handler 32.237s.
+EXIT_STATUS=0
+
+FULL_DOCKER_TESTS
+COMMAND=docker run --rm -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v /private/tmp/sub2api-sync-docker-gotmp:/gotmp -v /private/tmp/sub2api-sync-docker-gocache:/gocache -v /private/tmp/sub2api-sync-20260831/backend:/workspace -w /workspace sub2api-pr25-followup-go-test:1.26.6 sh -c 'GOTMPDIR=/gotmp GOCACHE=/gocache go test -vet=off -p=1 -tags=unit ./...'
+RESULT=All backend packages passed; application/service 174.920s, handler 31.150s.
+EXIT_STATUS=0
+COMMAND=docker run --rm -v sub2api-sync-frontend-node_modules:/workspace/frontend/node_modules -v /private/tmp/sub2api-sync-20260831:/workspace -w /workspace/frontend node:24-alpine sh -c 'corepack enable && corepack prepare pnpm@11.17.0 --activate >/dev/null && pnpm exec vitest run'
+LITERAL_OUTPUT=Test Files 348 passed (348)
+LITERAL_OUTPUT=Tests 2134 passed (2134)
+EXIT_STATUS=0
+
+STATIC_AND_BUILD
+COMMAND=golangci-lint run --concurrency 1 --timeout 10m on application/service and remaining touched packages
+LITERAL_OUTPUT=0 issues.
+EXIT_STATUS=0
+COMMAND=GOCACHE=/private/tmp/sub2api-gocache-sync0831 go vet ./internal/application/service ./internal/infrastructure/repository ./internal/transport/http/handler ./internal/transport/http/handler/admin ./internal/modules/payment/provider ./internal/shared/apicompat
+LITERAL_OUTPUT=(empty)
+EXIT_STATUS=0
+COMMAND=pnpm run typecheck && pnpm run lint:check && pnpm run build
+RESULT=vue-tsc, eslint, and Vite production build completed successfully.
+EXIT_STATUS=0
+COMMAND=make check-docs
+LITERAL_OUTPUT=Documentation checks passed.
+EXIT_STATUS=0
+COMMAND=git diff --check
+LITERAL_OUTPUT=(empty)
+EXIT_STATUS=0
+
+PERFORMANCE
+RAW_TERMINAL=210.4-216.3 ns/op,0 B/op,0 allocs/op
+WS_TURN_MAPPING=18.15-18.59 ns/op,0 B/op,0 allocs/op
+GROK_INTENT_SNAPSHOT=341.7-344.9 ns/op,136 B/op,3 allocs/op
+GROK_FULL_BODY_COPY_CONTROL=293646-336887 ns/op,8396939-8396945 B/op,4 allocs/op
+
+FINAL_IMAGE
+TAG=sub2api-upstream-sync:20260831
+IMAGE_ID=sha256:0ff34bc07b56386d229c2c0bea0c97ea333b237a5296f475206ebeccb0614631
+IMAGE_SIZE=42405982
+BASELINE_IMAGE_SIZE=42400058
+HEALTH_RESULT=HTTP 200 {"status":"ok"}
+READY_RESULT=HTTP 200 {"ready":true,"current_version":"0.1.191","draining":false,"in_flight":0}
+DOCKER_HEALTH=healthy
+MIGRATIONS=287 rows; 230-236 present; latest 236_add_custom_model_request_templates.sql
