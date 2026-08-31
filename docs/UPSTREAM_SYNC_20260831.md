@@ -132,4 +132,6 @@ git diff --check
 
 ### 差异关闭
 
-发布后以 tree 不变的 tracking merge 记录 `upstream/main` `52374af94031f04df8de6fc91deb77a179e04b06`。tracking merge、远端 SHA、Actions 和 GHCR 证据在实际发布后追加；任何未来审查只在上游行为或本表 owner/决策发生实质变化时重开。
+语义移植提交为 `907712e6d73b184ab3d8402d353048419751b61a`。随后以 tree 不变的 tracking merge `fbbfa3bacd860fe7f0f805b9c421ea782c2e944e` 记录 `upstream/main` `52374af94031f04df8de6fc91deb77a179e04b06`：两个相邻 tree 均为 `0ca315f3595e41b4fd480d25dff5d43e9e87425d`，`git diff HEAD^1 HEAD` 为空，`HEAD..upstream/main` 为 0。任何未来审查只在上游行为或本表 owner/决策发生实质变化时重开。
+
+远端 SHA、Actions 和 GHCR 证据在实际发布后核验。
