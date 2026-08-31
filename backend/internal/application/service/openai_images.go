@@ -39,6 +39,7 @@ const (
 	openAIImageBackendUserAgent            = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 	openAIImageMaxDownloadBytes            = 50 << 20 // 50 MiB per image download
 	openAIImageMaxUploadPartSize           = 20 << 20 // 20MB per multipart upload part
+	openAIImageMaxMultipartParts           = 64
 	openAIImagesResponsesMainModel         = "gpt-5.4-mini"
 	openAIImagesVerbatimPromptInstructions = "When invoking the image_generation tool, use the user's image prompt verbatim. Do not rewrite, expand, summarize, embellish, translate, normalize punctuation, or add or remove visual details or constraints. Preserve the original language, wording, capitalization, quotes, and punctuation exactly."
 )
@@ -322,6 +323,7 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 	}
 
 	reader := multipart.NewReader(bytes.NewReader(body), boundary)
+	partCount := 0
 	for {
 		part, err := reader.NextPart()
 		if err == io.EOF {
@@ -330,16 +332,21 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 		if err != nil {
 			return fmt.Errorf("read multipart body: %w", err)
 		}
+		partCount++
+		if partCount > openAIImageMaxMultipartParts {
+			_ = part.Close()
+			return fmt.Errorf("multipart request exceeds %d parts", openAIImageMaxMultipartParts)
+		}
 		name := strings.TrimSpace(part.FormName())
 		if name == "" {
 			_ = part.Close()
 			continue
 		}
 
-		data, err := io.ReadAll(io.LimitReader(part, openAIImageMaxUploadPartSize))
+		data, err := readOpenAIImageMultipartPart(part, name)
 		_ = part.Close()
 		if err != nil {
-			return fmt.Errorf("read multipart field %s: %w", name, err)
+			return err
 		}
 
 		fileName := strings.TrimSpace(part.FileName())
@@ -439,6 +446,17 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 		return fmt.Errorf("image file is required")
 	}
 	return nil
+}
+
+func readOpenAIImageMultipartPart(part io.Reader, name string) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(part, openAIImageMaxUploadPartSize+1))
+	if err != nil {
+		return nil, fmt.Errorf("read multipart field %s: %w", name, err)
+	}
+	if len(data) > openAIImageMaxUploadPartSize {
+		return nil, fmt.Errorf("multipart field %s exceeds %d bytes", name, openAIImageMaxUploadPartSize)
+	}
+	return data, nil
 }
 
 func parseOpenAIImageDimensions(_ textproto.MIMEHeader) (int, int) {

@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"mime/multipart"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -169,6 +172,174 @@ func TestApplyOpenAIImagesRequestAdapterConvertsMultipartFilesToDataURIArray(t *
 	require.True(t, ok)
 	require.Len(t, images, 1)
 	require.Contains(t, images[0], "data:image/png;base64,")
+}
+
+func TestApplyOpenAIImagesRequestAdapterRejectsOversizedMultipartPart(t *testing.T) {
+	var input bytes.Buffer
+	writer := multipart.NewWriter(&input)
+	file, err := writer.CreateFormFile("image", "oversized.png")
+	require.NoError(t, err)
+	_, err = file.Write(bytes.Repeat([]byte{'x'}, openAIImageMaxUploadPartSize+1))
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	adapter := map[string]any{
+		"upstream": map[string]any{"content_type": "application/json"},
+	}
+	_, err = applyOpenAIImagesRequestAdapter(
+		input.Bytes(),
+		writer.FormDataContentType(),
+		&OpenAIImagesRequest{Endpoint: openAIImagesEditsEndpoint},
+		"upstream-image-model",
+		adapter,
+	)
+	require.ErrorContains(t, err, "multipart field image exceeds")
+}
+
+func TestApplyOpenAIImagesRequestAdapterRejectsTooManyMultipartParts(t *testing.T) {
+	var input bytes.Buffer
+	writer := multipart.NewWriter(&input)
+	for index := 0; index <= openAIImageMaxMultipartParts; index++ {
+		require.NoError(t, writer.WriteField(fmt.Sprintf("field_%d", index), ""))
+	}
+	require.NoError(t, writer.Close())
+
+	adapter := map[string]any{
+		"upstream": map[string]any{"content_type": "application/json"},
+	}
+	_, err := applyOpenAIImagesRequestAdapter(
+		input.Bytes(),
+		writer.FormDataContentType(),
+		&OpenAIImagesRequest{Endpoint: openAIImagesEditsEndpoint},
+		"upstream-image-model",
+		adapter,
+	)
+	require.ErrorContains(t, err, "multipart request exceeds 64 parts")
+}
+
+func TestApplyOpenAIImagesRequestAdapterRejectsRenderedUnsafeEndpoint(t *testing.T) {
+	for _, prompt := range []string{"https://attacker.example/collect", "../admin"} {
+		t.Run(prompt, func(t *testing.T) {
+			body := []byte(`{"model":"public-model","prompt":` + strconv.Quote(prompt) + `}`)
+			adapter := map[string]any{
+				"upstream": map[string]any{
+					"path":         "/v1/{{request.prompt}}",
+					"content_type": "application/json",
+				},
+			}
+
+			_, err := applyOpenAIImagesRequestAdapter(
+				body,
+				"application/json",
+				&OpenAIImagesRequest{
+					Endpoint: openAIImagesGenerationsEndpoint,
+					Model:    "public-model",
+					Prompt:   prompt,
+				},
+				"upstream-image-model",
+				adapter,
+			)
+			require.ErrorContains(t, err, "custom model upstream path must be an absolute URL path")
+		})
+	}
+}
+
+func TestApplyOpenAIImagesRequestAdapterRejectsBodyAmplification(t *testing.T) {
+	body := []byte(`{"model":"public-model","payload":"` + strings.Repeat("a", 1<<20) + `"}`)
+	adapter := map[string]any{
+		"upstream": map[string]any{"content_type": "application/json"},
+		"body": map[string]any{
+			"mode": "replace",
+			"value": map[string]any{
+				"first":  "{{request.body}}",
+				"second": "{{request.body}}",
+			},
+		},
+	}
+
+	_, err := applyOpenAIImagesRequestAdapter(
+		body,
+		"application/json",
+		&OpenAIImagesRequest{Endpoint: openAIImagesGenerationsEndpoint, Model: "public-model"},
+		"upstream-image-model",
+		adapter,
+	)
+	require.ErrorContains(t, err, "adapted image request body exceeds")
+}
+
+func TestApplyOpenAIImagesRequestAdapterAllowsSingleBodyProjection(t *testing.T) {
+	body := []byte(`{"model":"public-model","payload":"` + strings.Repeat("a", 1<<20) + `"}`)
+	adapter := map[string]any{
+		"upstream": map[string]any{"content_type": "application/json"},
+		"body": map[string]any{
+			"mode": "replace",
+			"value": map[string]any{
+				"forwarded": "{{request.body}}",
+			},
+		},
+	}
+
+	adapted, err := applyOpenAIImagesRequestAdapter(
+		body,
+		"application/json",
+		&OpenAIImagesRequest{Endpoint: openAIImagesGenerationsEndpoint, Model: "public-model"},
+		"upstream-image-model",
+		adapter,
+	)
+	require.NoError(t, err)
+	require.Less(t, int64(len(adapted.Body)), customModelAdaptedRequestBodyLimit(len(body)))
+}
+
+func TestCustomModelJSONValueFitsWithinLimitMatchesMarshal(t *testing.T) {
+	value := map[string]any{
+		"escaped": "quotes=\" slash=\\ controls=\n html=<&>",
+		"unicode": "snowman \u2603 separators \u2028\u2029",
+		"values":  []any{nil, true, false, float64(12.5), int64(-42), uint64(42)},
+		"nested":  map[string]string{"key": "value"},
+	}
+	encoded, err := json.Marshal(value)
+	require.NoError(t, err)
+
+	fits, err := customModelJSONValueFitsWithinLimit(value, int64(len(encoded)))
+	require.NoError(t, err)
+	require.True(t, fits)
+
+	fits, err = customModelJSONValueFitsWithinLimit(value, int64(len(encoded)-1))
+	require.NoError(t, err)
+	require.False(t, fits)
+}
+
+func BenchmarkApplyOpenAIImagesRequestAdapter(b *testing.B) {
+	body := []byte(`{"model":"public-model","prompt":"` + strings.Repeat("a", 64<<10) + `"}`)
+	parsed := &OpenAIImagesRequest{
+		Endpoint: openAIImagesGenerationsEndpoint,
+		Model:    "public-model",
+		Prompt:   strings.Repeat("a", 64<<10),
+		N:        1,
+	}
+	adapter := map[string]any{
+		"upstream": map[string]any{"content_type": "application/json"},
+		"body": map[string]any{
+			"mode": "merge",
+			"value": map[string]any{
+				"provider_model": "{{request.upstream_model}}",
+			},
+		},
+	}
+
+	b.ReportAllocs()
+	b.SetBytes(int64(len(body)))
+	for b.Loop() {
+		if _, err := applyOpenAIImagesRequestAdapter(
+			body,
+			"application/json",
+			parsed,
+			"upstream-image-model",
+			adapter,
+		); err != nil {
+			b.Fatal(err)
+		}
+	}
 }
 
 func TestApplyOpenAIImagesRequestAdapterRendersTypedVariables(t *testing.T) {

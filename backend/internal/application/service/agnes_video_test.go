@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -109,7 +110,7 @@ func TestForwardAgnesVideoContentUsesBoundAccountEndpoint(t *testing.T) {
 	}}
 
 	result, err := svc.forwardAgnesVideoContent(
-		context.Background(), c, account, "secret-token", "task-1", time.Now(),
+		context.Background(), c, account, "https://agnes.example/v1", "secret-token", "task-1", time.Now(),
 	)
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -118,7 +119,45 @@ func TestForwardAgnesVideoContentUsesBoundAccountEndpoint(t *testing.T) {
 	require.Equal(t, "Bearer secret-token", upstream.request.Header.Get("Authorization"))
 	require.Equal(t, "bytes=0-3", upstream.request.Header.Get("Range"))
 	require.Equal(t, http.StatusPartialContent, recorder.Code)
+	require.Equal(t, "private, no-store", recorder.Header().Get("Cache-Control"))
+	require.Equal(t, "nosniff", recorder.Header().Get("X-Content-Type-Options"))
 	require.Equal(t, "data", recorder.Body.String())
+}
+
+func TestForwardAgnesVideoRejectsBaseURLOutsideAllowlist(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/generations", nil)
+	svc := &OpenAIGatewayService{cfg: &config.Config{Security: config.SecurityConfig{
+		URLAllowlist: config.URLAllowlistConfig{
+			Enabled:       true,
+			UpstreamHosts: []string{"agnes.example"},
+		},
+	}}}
+	account := &Account{Type: AccountTypeAPIKey, Credentials: map[string]any{
+		"base_url": "https://attacker.example/v1",
+	}}
+
+	_, err := svc.ForwardAgnesVideo(
+		context.Background(),
+		c,
+		account,
+		AgnesVideoEndpointGenerations,
+		"",
+		[]byte(`{"model":"agnes-video-v2","prompt":"test"}`),
+		"application/json",
+	)
+	require.ErrorContains(t, err, "invalid base_url")
+}
+
+func TestAgnesVideoErrorLogBodyIsBoundedAndRedacted(t *testing.T) {
+	body := []byte(`{"access_token":"sensitive-token","message":"` + strings.Repeat("x", 4096) + `"}`)
+
+	logged := agnesVideoErrorLogBody(body)
+
+	require.NotContains(t, logged, "sensitive-token")
+	require.LessOrEqual(t, len(logged), agnesVideoErrorLogMaxBytes)
 }
 
 func TestAgnesVideoTaskBindingIsScopedToUserAndAPIKey(t *testing.T) {
