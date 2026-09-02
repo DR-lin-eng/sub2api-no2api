@@ -468,6 +468,7 @@ export interface ActivityLotteryPool {
   description: string
   required_group_ids: number[]
   enabled: boolean
+  can_draw?: boolean
   daily_limit: number
   sort_order: number
   prizes: ActivityLotteryPrize[]

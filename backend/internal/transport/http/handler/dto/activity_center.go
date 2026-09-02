@@ -197,23 +197,24 @@ func ActivityParticipationRecordFromService(record *activitycenter.Record, inclu
 		RewardStatus:  record.RewardStatus,
 		CreatedAt:     record.CreatedAt,
 	}
+	var reward struct {
+		ValueAmount string   `json:"value_amount"`
+		Value       string   `json:"value"`
+		Code        string   `json:"code"`
+		InflatePct  *float64 `json:"inflate_pct"`
+	}
+	if json.Unmarshal([]byte(record.RewardPayloadJSON), &reward) == nil {
+		out.RewardValue = reward.ValueAmount
+		if reward.Value != "" {
+			out.RewardValue = reward.Value
+		}
+		out.RewardCode = reward.Code
+		out.InflatePct = reward.InflatePct
+	}
 	if includePrivate {
 		out.RewardPayloadJSON = record.RewardPayloadJSON
 	} else {
-		var reward struct {
-			ValueAmount string   `json:"value_amount"`
-			Value       string   `json:"value"`
-			Code        string   `json:"code"`
-			InflatePct  *float64 `json:"inflate_pct"`
-		}
-		if json.Unmarshal([]byte(record.RewardPayloadJSON), &reward) == nil {
-			out.RewardValue = reward.ValueAmount
-			if reward.Value != "" {
-				out.RewardValue = reward.Value
-			}
-			out.RewardCode = reward.Code
-			out.InflatePct = reward.InflatePct
-		}
+		out.RewardPayloadJSON = ""
 	}
 	return out
 }
@@ -289,6 +290,7 @@ func sanitizePublicActivityCampaignConfigJSON(raw string) string {
 			"name":               pool.Name,
 			"description":        pool.Description,
 			"required_group_ids": pool.RequiredGroupIDs,
+			"can_draw":           pool.CanDraw,
 			"daily_limit":        pool.DailyLimit,
 			"prizes":             prizes,
 		})

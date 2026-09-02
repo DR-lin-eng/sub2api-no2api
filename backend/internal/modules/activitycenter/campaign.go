@@ -283,6 +283,7 @@ type LotteryPool struct {
 	Description      string         `json:"description"`
 	RequiredGroupIDs []int64        `json:"required_group_ids"`
 	Enabled          *bool          `json:"enabled"`
+	CanDraw          bool           `json:"-"`
 	DailyLimit       int            `json:"daily_limit"`
 	Prizes           []LotteryPrize `json:"prizes"`
 }
@@ -1078,16 +1079,14 @@ func filterCampaignPoolsForUser(campaign *Campaign, groupIDs []int64) bool {
 		if pool.Enabled != nil && !*pool.Enabled {
 			continue
 		}
-		eligible := len(pool.RequiredGroupIDs) == 0
+		pool.CanDraw = len(pool.RequiredGroupIDs) == 0
 		for _, required := range pool.RequiredGroupIDs {
 			if _, ok := groups[required]; ok {
-				eligible = true
+				pool.CanDraw = true
 				break
 			}
 		}
-		if eligible {
-			filtered = append(filtered, pool)
-		}
+		filtered = append(filtered, pool)
 	}
 	if len(filtered) == 0 {
 		return false

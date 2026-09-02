@@ -421,7 +421,7 @@ func TestCampaignServiceListUserRecordsFiltersByUser(t *testing.T) {
 	require.Equal(t, int64(1001), records[0].UserID)
 }
 
-func TestCampaignServiceVisibleLotteryOnlyReturnsEligiblePools(t *testing.T) {
+func TestCampaignServiceVisibleLotteryReturnsAllPoolsWithEligibility(t *testing.T) {
 	repo := newFakeCampaignRepo()
 	svc := NewService(repo)
 	created, err := svc.Create(context.Background(), &CreateInput{
@@ -439,8 +439,10 @@ func TestCampaignServiceVisibleLotteryOnlyReturnsEligiblePools(t *testing.T) {
 	require.NoError(t, err)
 	config, err := parseActivityConfig(item.ConfigJSON)
 	require.NoError(t, err)
-	require.Len(t, config.Lottery.Pools, 1)
+	require.Len(t, config.Lottery.Pools, 2)
 	require.Equal(t, "public", config.Lottery.Pools[0].ID)
+	require.True(t, config.Lottery.Pools[0].CanDraw)
+	require.False(t, config.Lottery.Pools[1].CanDraw)
 
 	repo.groupIDs = []int64{7}
 	item, err = svc.GetVisibleForUser(context.Background(), created.ID, 1001)
@@ -448,6 +450,8 @@ func TestCampaignServiceVisibleLotteryOnlyReturnsEligiblePools(t *testing.T) {
 	config, err = parseActivityConfig(item.ConfigJSON)
 	require.NoError(t, err)
 	require.Len(t, config.Lottery.Pools, 2)
+	require.True(t, config.Lottery.Pools[0].CanDraw)
+	require.True(t, config.Lottery.Pools[1].CanDraw)
 }
 
 func TestCampaignServiceCreateNormalizesDefaults(t *testing.T) {

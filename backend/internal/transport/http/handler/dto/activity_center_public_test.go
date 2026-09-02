@@ -26,6 +26,7 @@ func TestUserActivityCampaignFromService_RedactsLotteryWeights(t *testing.T) {
 	require.NotContains(t, out.ConfigJSON, "SECRET")
 	require.NotContains(t, out.ConfigJSON, "is_fallback")
 	require.Contains(t, out.ConfigJSON, `"required_group_ids":[11,12]`)
+	require.Contains(t, out.ConfigJSON, `"can_draw":false`)
 	require.Contains(t, out.ConfigJSON, `"daily_limit":1`)
 	require.NotContains(t, out.ConfigJSON, "sort_order")
 	require.NotContains(t, out.ConfigJSON, "tier")
@@ -60,4 +61,19 @@ func TestActivityParticipationRecordFromService_RedactsPrivateRewardPayloadForUs
 	require.Equal(t, "5", userOut.RewardValue)
 	require.Equal(t, "SECRET", userOut.RewardCode)
 	require.Contains(t, adminOut.RewardPayloadJSON, "SECRET")
+}
+
+func TestActivityParticipationRecordFromService_MapsCheckinRewardValueForAdmin(t *testing.T) {
+	t.Parallel()
+
+	record := &activitycenter.Record{
+		CampaignType:      activitycenter.CampaignTypeCheckin,
+		RewardStatus:      "granted",
+		RewardPayloadJSON: `{"day":1,"reward_type":"balance","value":"10","label":"签到奖励"}`,
+	}
+
+	out := ActivityParticipationRecordFromService(record, true)
+
+	require.Equal(t, "10", out.RewardValue)
+	require.Equal(t, record.RewardPayloadJSON, out.RewardPayloadJSON)
 }

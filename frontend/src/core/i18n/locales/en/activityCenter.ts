@@ -38,6 +38,7 @@ export default {
       title: 'Lottery pools',
       pool: 'Pool',
       drawNow: 'Draw now',
+      notEligible: 'Not eligible',
       drawing: 'Drawing...',
       wheelLabel: 'Wheel',
       wheelHint: 'Click to start',

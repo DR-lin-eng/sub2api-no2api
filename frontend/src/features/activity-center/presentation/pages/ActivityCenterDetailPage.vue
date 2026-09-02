@@ -82,12 +82,12 @@
                         <button
                           type="button"
                           class="absolute left-1/2 top-1/2 z-10 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border-[3px] border-white bg-primary-500 text-white shadow-[0_10px_20px_rgba(15,23,42,0.14)] transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-90 dark:border-dark-900 dark:bg-primary-400"
-                          :disabled="wheelState(pool.id).spinning || pool.prizes.length === 0"
+                          :disabled="wheelState(pool.id).spinning || pool.prizes.length === 0 || pool.can_draw === false"
                           @click="drawPool(pool)"
                         >
                           <Icon name="sparkles" size="xs" />
                           <span class="mt-0.5 text-[10px] font-semibold leading-none">
-                            {{ wheelState(pool.id).spinning ? t('activityCenter.lottery.drawing') : t('activityCenter.lottery.drawNow') }}
+                            {{ pool.can_draw === false ? t('activityCenter.lottery.notEligible') : (wheelState(pool.id).spinning ? t('activityCenter.lottery.drawing') : t('activityCenter.lottery.drawNow')) }}
                           </span>
                         </button>
                       </div>
@@ -226,7 +226,7 @@
                 <h2 class="mt-1 truncate text-base font-semibold text-gray-900 dark:text-white">{{ activityText(pool.name, t) || t('activityCenter.lottery.pool') }}</h2>
                 </div>
                 <span class="inline-flex shrink-0 items-center rounded-full bg-primary-50 px-2.5 py-1 text-xs font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-200">
-                  {{ t('activityCenter.lottery.drawNow') }}
+                  {{ pool.can_draw === false ? t('activityCenter.lottery.notEligible') : t('activityCenter.lottery.drawNow') }}
                 </span>
               </div>
 
@@ -545,7 +545,7 @@ function wait(ms: number) {
 }
 
 async function drawPool(pool: ActivityLotteryPool) {
-  if (pool.prizes.length === 0) return
+  if (pool.can_draw === false || pool.prizes.length === 0) return
   const state = wheelState(pool.id)
   if (state.spinning) return
 

@@ -38,6 +38,7 @@ export default {
       title: '抽奖奖池',
       pool: '奖池',
       drawNow: '立即抽奖',
+      notEligible: '不可参与',
       drawing: '抽奖中...',
       wheelLabel: '抽奖轮盘',
       wheelHint: '点击开始抽奖',
