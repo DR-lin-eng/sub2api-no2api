@@ -289,6 +289,30 @@ func BenchmarkOrdinaryConcurrencyHotPath(b *testing.B) {
 	})
 }
 
+func BenchmarkAccountsLoadBatchLargePool(b *testing.B) {
+	rdb := newBenchmarkRedisClient(b)
+	defer func() { _ = rdb.Close() }()
+	cache := newBenchmarkConcurrencyCache(b, rdb)
+	ctx := context.Background()
+
+	for _, size := range []int{3000, 5000} {
+		accounts := make([]service.AccountWithConcurrency, size)
+		baseID := time.Now().UnixNano()
+		for i := range accounts {
+			accounts[i] = service.AccountWithConcurrency{ID: baseID + int64(i), MaxConcurrency: 4}
+		}
+		b.Run(fmt.Sprintf("accounts=%d", size), func(b *testing.B) {
+			b.ReportAllocs()
+			for range b.N {
+				result, err := cache.GetAccountsLoadBatch(ctx, accounts)
+				if err != nil || len(result) != size {
+					b.Fatalf("load batch: count=%d err=%v", len(result), err)
+				}
+			}
+		})
+	}
+}
+
 func benchmarkAcquireAccountSeparateLive(
 	ctx context.Context,
 	cache *concurrencyCache,

@@ -53,12 +53,6 @@ export default {
           enabledHint: 'When off, the sidebar entry is hidden and the endpoint returns an empty list.',
         },
         supportChat: supportChatMessages,
-        activityCenter: {
-          title: 'Activity Center',
-          description: 'Controls the user-facing activity hub for campaigns, tasks, rewards, and operation timelines. Disabled by default.',
-          enabled: 'Enable Activity Center',
-          enabledHint: 'When off, the user sidebar entry is hidden and direct visits to /activity-center return to the dashboard.',
-        },
         modelPlaza: {
           title: 'Model Plaza',
           description: 'A public page showcasing available models and pricing by group. Disabled by default.',
@@ -690,12 +684,9 @@ export default {
         namePlaceholder: 'e.g. Help Center',
         url: 'Page URL',
         urlPlaceholder: 'https://example.com/page',
-        forwardAccessToken: 'Forward user access token',
+        forwardAccessToken: 'Provide embedded permission proof',
         forwardAccessTokenHint:
-          'Disabled by default. Enabling this delegates the current user session to the embedded page through an origin-locked browser message. Enable only for a fully trusted page.',
-        forwardAccessTokenInUrl: 'Forward user access token in URL',
-        forwardAccessTokenInUrlHint:
-          'Disabled by default. Enabling this places the token in the token parameter of iframe and new-window URLs, where it may appear in history, logs, and referrers. Enable only for a fully trusted page that requires legacy URL authentication.',
+          'Disabled by default. Sends a 90-second, menu-scoped permission capability through an origin-locked browser message. Login credentials are never sent and the capability cannot sign in to Sub2API. Remote pages must use HTTPS.',
         iconSvg: 'SVG Icon',
         iconSvgPlaceholder: '<svg>...</svg>',
         iconPreview: 'Icon Preview',
@@ -1037,12 +1028,18 @@ export default {
         saveFailed: 'Failed to save overload cooldown settings'
       },
       rateLimit429Cooldown: {
-        title: '429 Default Cooldown',
-        description: 'Configure the default account cooldown when upstream returns 429 without an explicit reset time',
+        title: '429 Cooldown and OAuth Circuit Breaker',
+        description: 'Configure fallback 429 cooldowns and optional OpenAI OAuth account shutdown after repeated 429/502 failures',
         enabled: 'Enable 429 Default Cooldown',
         enabledHint: 'Pause account scheduling when a 429 has no reset time, then auto-recover after cooldown',
         cooldownSeconds: 'Cooldown Duration (seconds)',
         cooldownSecondsHint: 'Default cooldown duration (1-7200 seconds); explicit upstream reset times still take precedence',
+        autoDisable: 'Disable OAuth Account After Consecutive 429/502 Failures',
+        autoDisableHint: 'Persistently remove an OpenAI OAuth account from every pool after the threshold; API-key accounts are excluded.',
+        autoDisableThreshold: 'Consecutive Failure Threshold',
+        autoDisableThresholdHint: 'Counts OAuth account-scoped 429 and 502 responses; successful requests reset the counter (1-100).',
+        quotaCheck: 'Confirm Quota Limit Before Disabling',
+        quotaCheckHint: 'Query the main Codex quota after the threshold and disable only when upstream marks it limited or usage reaches 100%. Query failures, unknown quota, and available quota keep scheduling enabled.',
         saved: '429 default cooldown settings saved',
         saveFailed: 'Failed to save 429 default cooldown settings'
       },

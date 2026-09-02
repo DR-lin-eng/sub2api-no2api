@@ -62,6 +62,41 @@ func TestOpenAIWSHTTPBridgeDecisionKeepsSmallFramesOnWS(t *testing.T) {
 	require.True(t, svc.shouldBridgeOpenAIWSHTTP(&Account{Platform: PlatformGrok}, 1, "resp_existing"))
 }
 
+func TestOpenAIWSPassthroughFirstMessageBridgeDecision(t *testing.T) {
+	const threshold = 100
+	svc := &OpenAIGatewayService{cfg: &config.Config{Gateway: config.GatewayConfig{
+		OpenAIWS: config.GatewayOpenAIWSConfig{
+			HTTPBridgeEnabled:        true,
+			HTTPBridgeThresholdBytes: threshold,
+		},
+	}}}
+	exactThresholdPayload := `{"type":"response.create","input":"` +
+		strings.Repeat("x", threshold-len(`{"type":"response.create","input":""}`)) + `"}`
+
+	tests := []struct {
+		name    string
+		payload string
+		want    bool
+	}{
+		{name: "oversized without previous response id bridges", payload: `{"type":"response.create","input":"` + strings.Repeat("x", 100) + `"}`, want: true},
+		{name: "omitted type bridges as response create", payload: `{"input":"` + strings.Repeat("x", 100) + `"}`, want: true},
+		{name: "blank type bridges as response create", payload: `{"type":"   ","padding":"` + strings.Repeat("x", 100) + `"}`, want: true},
+		{name: "exact threshold bridges", payload: exactThresholdPayload, want: true},
+		{name: "small stays passthrough", payload: `{"type":"response.create","input":"x"}`},
+		{name: "previous response id stays passthrough", payload: `{"type":"response.create","previous_response_id":"resp_previous","input":"` + strings.Repeat("x", 100) + `"}`},
+		{name: "duplicate type stays passthrough", payload: `{"type":"response.create","type":"response.create","input":"` + strings.Repeat("x", 100) + `"}`},
+		{name: "null type bridges as response create", payload: `{"type":null,"padding":"` + strings.Repeat("x", 100) + `"}`, want: true},
+		{name: "non-string type stays passthrough", payload: `{"type":123,"padding":"` + strings.Repeat("x", 100) + `"}`},
+		{name: "other event stays passthrough", payload: `{"type":"session.update","padding":"` + strings.Repeat("x", 100) + `"}`},
+		{name: "malformed JSON stays passthrough", payload: `{"type":"response.create","padding":"` + strings.Repeat("x", 100)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, svc.shouldBridgeOpenAIWSPassthroughFirstMessage(nil, []byte(tt.payload)))
+		})
+	}
+}
+
 func TestProxyOpenAIWSHTTPBridgeTurnTransportErrorFailoverSafety(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

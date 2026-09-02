@@ -1,5 +1,6 @@
 import { createI18n } from 'vue-i18n'
 import { safeLocalStorage } from '@/core/utils/safeStorage'
+import { canonicalizeRoutePath } from '@/core/utils/routePath'
 
 type LocaleCode = 'en' | 'zh'
 
@@ -80,7 +81,7 @@ function matchesRoutePrefix(path: string, prefix: string): boolean {
 }
 
 export function getLocaleScopesForRoute(pathname: string): LocaleScope[] {
-  const path = pathname.split(/[?#]/, 1)[0] || '/'
+  const path = canonicalizeRoutePath(pathname.split(/[?#]/, 1)[0] || '/')
   const scopes: LocaleScope[] = ['base']
 
   if (matchesRoutePrefix(path, '/admin')) {

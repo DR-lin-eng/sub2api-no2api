@@ -1638,20 +1638,21 @@ func buildUpstreamTransportWithTLSFingerprint(settings poolSettings, proxyURL *u
 }
 
 func buildUpstreamTransportWithTLSFingerprintForRoute(settings poolSettings, proxyURL *url.URL, profile *tlsfingerprint.Profile, route platformegress.Route, policy platformegress.Policy) (*http.Transport, error) {
+	// net/http's HTTP/2 upgrade path requires a concrete *tls.Conn, while the
+	// fingerprint dialer intentionally returns *utls.UConn. Keep the wire
+	// fingerprint parameters but pin this adapter to HTTP/1.1 so an h2 ALPN
+	// response can never be parsed by the HTTP/1 transport.
+	effectiveProfile := profile.ForHTTP1()
 	transport := &http.Transport{
 		MaxIdleConns:          settings.maxIdleConns,
 		MaxIdleConnsPerHost:   settings.maxIdleConnsPerHost,
 		MaxConnsPerHost:       settings.maxConnsPerHost,
 		IdleConnTimeout:       settings.idleConnTimeout,
 		ResponseHeaderTimeout: settings.responseHeaderTimeout,
-		// 禁用默认的 TLS，我们使用自定义的 DialTLSContext。Codex's
-		// rustls profile explicitly offers h2, so retain HTTP/2 when present.
-		ForceAttemptHTTP2: profileOffersHTTP2(profile),
-	}
-	if transport.ForceAttemptHTTP2 {
-		if _, err := enableOpenAIHTTP2KeepAlive(transport); err != nil {
-			return nil, err
-		}
+		// Disable automatic HTTP/2 because DialTLSContext returns a uTLS
+		// connection rather than the *tls.Conn required by net/http.
+		ForceAttemptHTTP2: false,
+		TLSNextProto:      make(map[string]func(string, *tls.Conn) http.RoundTripper),
 	}
 
 	// 根据代理类型选择合适的 TLS 指纹 Dialer
@@ -1669,7 +1670,7 @@ func buildUpstreamTransportWithTLSFingerprintForRoute(settings poolSettings, pro
 				return nil, err
 			}
 		}
-		dialer := tlsfingerprint.NewDialer(profile, baseDialer)
+		dialer := tlsfingerprint.NewDialer(effectiveProfile, baseDialer)
 		transport.DialTLSContext = dialer.DialTLSContext
 	} else {
 		scheme := strings.ToLower(proxyURL.Scheme)
@@ -1677,18 +1678,18 @@ func buildUpstreamTransportWithTLSFingerprintForRoute(settings poolSettings, pro
 		case "socks5", "socks5h":
 			// SOCKS5 代理：使用 SOCKS5ProxyDialer
 			slog.Debug("tls_fingerprint_transport_socks5", "proxy", proxyURL.Host)
-			socks5Dialer := tlsfingerprint.NewSOCKS5ProxyDialer(profile, proxyURL)
+			socks5Dialer := tlsfingerprint.NewSOCKS5ProxyDialer(effectiveProfile, proxyURL)
 			transport.DialTLSContext = socks5Dialer.DialTLSContext
 		case "https":
 			// The dialer establishes the proxy's TLS layer with the platform
 			// verifier, then uses uTLS inside the CONNECT tunnel for the target.
 			slog.Debug("tls_fingerprint_transport_https_proxy_connect", "proxy", proxyURL.Host)
-			httpDialer := tlsfingerprint.NewHTTPProxyDialer(profile, proxyURL)
+			httpDialer := tlsfingerprint.NewHTTPProxyDialer(effectiveProfile, proxyURL)
 			transport.DialTLSContext = httpDialer.DialTLSContext
 		case "http":
 			// HTTP/HTTPS 代理：使用 HTTPProxyDialer（CONNECT 隧道）
 			slog.Debug("tls_fingerprint_transport_http_connect", "proxy", proxyURL.Host)
-			httpDialer := tlsfingerprint.NewHTTPProxyDialer(profile, proxyURL)
+			httpDialer := tlsfingerprint.NewHTTPProxyDialer(effectiveProfile, proxyURL)
 			transport.DialTLSContext = httpDialer.DialTLSContext
 		default:
 			// 未知代理类型，回退到普通代理配置（无 TLS 指纹）
@@ -1700,18 +1701,6 @@ func buildUpstreamTransportWithTLSFingerprintForRoute(settings poolSettings, pro
 	}
 
 	return transport, nil
-}
-
-func profileOffersHTTP2(profile *tlsfingerprint.Profile) bool {
-	if profile == nil {
-		return false
-	}
-	for _, protocol := range profile.ALPNProtocols {
-		if strings.EqualFold(strings.TrimSpace(protocol), "h2") {
-			return true
-		}
-	}
-	return false
 }
 
 // trackedBody 带跟踪功能的响应体包装器

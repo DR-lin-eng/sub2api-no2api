@@ -62,6 +62,9 @@ export function useSettingsGatewayPolicies() {
   const rateLimit429CooldownForm = reactive({
     enabled: true,
     cooldown_seconds: 5,
+    auto_disable_enabled: false,
+    auto_disable_threshold: 3,
+    auto_disable_quota_check_enabled: false,
   });
 
   // Global Temporary Unschedulable 状态
@@ -257,6 +260,10 @@ export function useSettingsGatewayPolicies() {
       const updated = await updateRateLimit429CooldownSettings({
         enabled: rateLimit429CooldownForm.enabled,
         cooldown_seconds: rateLimit429CooldownForm.cooldown_seconds,
+        auto_disable_enabled: rateLimit429CooldownForm.auto_disable_enabled,
+        auto_disable_threshold: rateLimit429CooldownForm.auto_disable_threshold,
+        auto_disable_quota_check_enabled:
+          rateLimit429CooldownForm.auto_disable_quota_check_enabled,
       });
       Object.assign(rateLimit429CooldownForm, updated);
       appStore.showSuccess(t("admin.settings.rateLimit429Cooldown.saved"));

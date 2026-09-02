@@ -445,13 +445,6 @@ export async function getVideoGenerationContent(apiKey: string, taskId: string):
   return blob
 }
 
-// Re-export from modelCapabilityService
-export {
-  isMediaStudioImageModel,
-  isMediaStudioVideoModel,
-  isMediaStudioAudioModel,
-} from "@/features/custom-model-config/domain/services/modelCapabilityService";
-
 export function mediaStudioErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.trim()) return error.message
   if (typeof error === 'string' && error.trim()) return error

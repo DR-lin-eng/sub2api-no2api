@@ -6,7 +6,7 @@
 
 | 文件 | 作用 |
 | --- | --- |
-| `index.ts` | 路由记录、全局 guard、滚动恢复、预加载和 chunk 错误恢复 |
+| `index.ts` | 路由记录、全局 guard、路径规范化、滚动恢复、预加载和 chunk 错误恢复 |
 | `meta.d.ts` | `RouteMeta` 类型扩展 |
 | `setupRedirect.ts` | setup 已完成时的目标路径选择 |
 | `title.ts` | 站点名、i18n 和自定义菜单标题解析 |
@@ -38,7 +38,6 @@ rg -n 'path:|name:|component:' frontend/src/core/routes/index.ts
 | `requiresRiskControl` | 是否要求风控功能启用 |
 | `requiresSupportChat` | 是否要求在线客服功能显式启用 |
 | `requiresMediaStudio` | 是否要求媒体工坊功能显式启用 |
-| `requiresActivityCenter` | 是否要求活动中心功能显式启用 |
 | `title`, `titleKey`, `descriptionKey` | 页面标题和 i18n 元数据 |
 | `breadcrumbs`, `icon`, `hideInMenu` | 导航展示元数据 |
 
@@ -48,14 +47,17 @@ rg -n 'path:|name:|component:' frontend/src/core/routes/index.ts
 
 `beforeEach` 的主要顺序是：
 
-1. 启动导航 loading，并首次恢复内存 access token。
-2. 根据站点设置和路由元数据生成标题。
-3. 处理 `/setup` 已完成重定向。
-4. 处理公共路由、登录态和 backend mode 公共白名单。
-5. 验证登录和管理员角色。
-6. 确保支付、风控、客服、媒体工坊和活动中心所需的公开设置已加载，再应用功能开关。
-7. 应用 simple mode 和 backend mode 的访问限制。
-8. 导航完成后停止 loading 并触发空闲预加载。
+1. 将包含大写字母的 pathname 替换为小写规范 URL，并保留 query/hash。
+2. 启动导航 loading，并首次恢复内存 access token。
+3. 根据站点设置和路由元数据生成标题。
+4. 处理 `/setup` 已完成重定向。
+5. 处理公共路由、登录态和 backend mode 公共白名单。
+6. 验证登录和管理员角色。
+7. 确保支付、风控、客服和媒体工坊所需的公开设置已加载，再应用功能开关。
+8. 应用 simple mode 和 backend mode 的访问限制。
+9. 导航完成后停止 loading 并触发空闲预加载。
+
+Vue Router 默认允许大小写变体匹配；规范化必须在加载 route-scoped locale 之前执行，否则例如 `/ADMIN/dashboard` 会只加载 base 文案并显示原始 i18n key。
 
 动态 import 在部署更新后可能失效。`router.onError` 对 chunk load error 做一次受控刷新；修改时必须保留防循环机制。
 

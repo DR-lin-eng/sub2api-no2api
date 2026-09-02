@@ -17,12 +17,10 @@ type CustomMenuItem struct {
 	PageSlug   string `json:"page_slug,omitempty"`
 	Visibility string `json:"visibility"` // "user" or "admin"
 	SortOrder  int    `json:"sort_order"`
-	// ForwardAccessToken explicitly delegates the current browser access token
-	// to the embedded page via postMessage. It is disabled by default.
+	// ForwardAccessToken is the backward-compatible switch name for issuing a
+	// short-lived embedded permission capability via postMessage. The browser
+	// access token itself is never delegated.
 	ForwardAccessToken bool `json:"forward_access_token,omitempty"`
-	// ForwardAccessTokenInURL explicitly includes the current access token in
-	// the embedded page URL. It is disabled by default.
-	ForwardAccessTokenInURL bool `json:"forward_access_token_in_url,omitempty"`
 }
 
 // CustomEndpoint represents an admin-configured API endpoint for quick copy.
@@ -353,9 +351,6 @@ type SystemSettings struct {
 	// Media Studio feature switch
 	MediaStudioEnabled bool `json:"media_studio_enabled"`
 
-	// Activity Center feature switch
-	ActivityCenterEnabled bool `json:"activity_center_enabled"`
-
 	// Custom model configuration feature switch
 	CustomModelConfigEnabled bool `json:"custom_model_config_enabled"`
 
@@ -471,8 +466,6 @@ type PublicSettings struct {
 
 	MediaStudioEnabled bool `json:"media_studio_enabled"`
 
-	ActivityCenterEnabled bool `json:"activity_center_enabled"`
-
 	CustomModelConfigEnabled bool `json:"custom_model_config_enabled"`
 
 	IPv6EgressUIEnabled bool `json:"ipv6_egress_ui_enabled"`
@@ -499,8 +492,11 @@ type OverloadCooldownSettings struct {
 
 // RateLimit429CooldownSettings 429默认回避配置 DTO
 type RateLimit429CooldownSettings struct {
-	Enabled         bool `json:"enabled"`
-	CooldownSeconds int  `json:"cooldown_seconds"`
+	Enabled                      bool `json:"enabled"`
+	CooldownSeconds              int  `json:"cooldown_seconds"`
+	AutoDisableEnabled           bool `json:"auto_disable_enabled"`
+	AutoDisableThreshold         int  `json:"auto_disable_threshold"`
+	AutoDisableQuotaCheckEnabled bool `json:"auto_disable_quota_check_enabled"`
 }
 
 // GlobalTempUnschedulableSettings 全局临时不可调度配置 DTO

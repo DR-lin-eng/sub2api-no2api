@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -1277,14 +1278,42 @@ func (s *BillingService) computeTokenBreakdown(
 // multiplier 用于长上下文等场景下的整体价格缩放（普通调用传 1.0 即可）。
 func (s *BillingService) computeCacheCreationCost(pricing *ModelPricing, tokens UsageTokens, price, multiplier float64) float64 {
 	if pricing.SupportsCacheBreakdown && (pricing.CacheCreation5mPrice > 0 || pricing.CacheCreation1hPrice > 0) {
-		if tokens.CacheCreation5mTokens == 0 && tokens.CacheCreation1hTokens == 0 && tokens.CacheCreationTokens > 0 {
+		cacheCreation5mTokens, cacheCreation1hTokens := normalizeCacheCreationBreakdown(tokens)
+		if cacheCreation5mTokens == 0 && cacheCreation1hTokens == 0 && tokens.CacheCreationTokens > 0 {
 			// API 未返回 ephemeral 明细，回退到全部按 5m 单价计费
 			return float64(tokens.CacheCreationTokens) * pricing.CacheCreation5mPrice * multiplier
 		}
-		return float64(tokens.CacheCreation5mTokens)*pricing.CacheCreation5mPrice*multiplier +
-			float64(tokens.CacheCreation1hTokens)*pricing.CacheCreation1hPrice*multiplier
+		return float64(cacheCreation5mTokens)*pricing.CacheCreation5mPrice*multiplier +
+			float64(cacheCreation1hTokens)*pricing.CacheCreation1hPrice*multiplier
 	}
 	return float64(tokens.CacheCreationTokens) * price * multiplier
+}
+
+// normalizeCacheCreationBreakdown caps contradictory 5m/1h details at the
+// reported aggregate while retaining their ratio as closely as integer tokens
+// allow. Providers occasionally send stale TTL details during a window switch;
+// never bill more cache-write tokens than the aggregate usage.
+func normalizeCacheCreationBreakdown(tokens UsageTokens) (int, int) {
+	fiveMinutes := tokens.CacheCreation5mTokens
+	oneHour := tokens.CacheCreation1hTokens
+	aggregate := tokens.CacheCreationTokens
+	if fiveMinutes < 0 {
+		fiveMinutes = 0
+	}
+	if oneHour < 0 {
+		oneHour = 0
+	}
+	if aggregate <= 0 || (fiveMinutes <= aggregate && oneHour <= aggregate-fiveMinutes) {
+		return fiveMinutes, oneHour
+	}
+
+	detailTotal := float64(fiveMinutes) + float64(oneHour)
+	normalizedFiveMinutes := math.Round(float64(aggregate) * float64(fiveMinutes) / detailTotal)
+	if normalizedFiveMinutes >= float64(aggregate) {
+		return aggregate, 0
+	}
+	fiveMinutes = int(normalizedFiveMinutes)
+	return fiveMinutes, aggregate - fiveMinutes
 }
 
 // calculatePerRequestCost 按次/图片计费

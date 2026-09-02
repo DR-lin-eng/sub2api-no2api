@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
+	"github.com/Wei-Shaw/sub2api/internal/shared/logredact"
 	"github.com/Wei-Shaw/sub2api/internal/shared/responseheaders"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
@@ -24,6 +25,7 @@ const (
 	AgnesVideoEndpointGenerations AgnesVideoEndpoint = "generations"
 	AgnesVideoEndpointStatus      AgnesVideoEndpoint = "status"
 	AgnesVideoEndpointContent     AgnesVideoEndpoint = "content"
+	agnesVideoErrorLogMaxBytes                       = 2 << 10
 )
 
 func (e AgnesVideoEndpoint) httpMethod() string {
@@ -90,7 +92,10 @@ func buildAgnesVideoURL(account *Account, endpoint AgnesVideoEndpoint, taskID st
 	if account == nil {
 		return "", fmt.Errorf("agnes account is required")
 	}
-	baseURL := account.GetBaseURL()
+	return buildAgnesVideoURLFromBase(account.GetBaseURL(), endpoint, taskID)
+}
+
+func buildAgnesVideoURLFromBase(baseURL string, endpoint AgnesVideoEndpoint, taskID string) (string, error) {
 	if baseURL == "" {
 		return "", fmt.Errorf("agnes account base_url is required")
 	}
@@ -126,14 +131,18 @@ func (s *OpenAIGatewayService) ForwardAgnesVideo(
 	if account == nil {
 		return nil, fmt.Errorf("agnes account is required")
 	}
+	validatedBaseURL, err := s.validateUpstreamBaseURL(account.GetBaseURL())
+	if err != nil {
+		return nil, err
+	}
 	if endpoint == AgnesVideoEndpointContent {
 		token, _, err := s.getRequestCredential(ctx, c, account)
 		if err != nil {
 			return nil, err
 		}
-		return s.forwardAgnesVideoContent(ctx, c, account, token, taskID, startTime)
+		return s.forwardAgnesVideoContent(ctx, c, account, validatedBaseURL, token, taskID, startTime)
 	}
-	targetURL, err := buildAgnesVideoURL(account, endpoint, taskID)
+	targetURL, err := buildAgnesVideoURLFromBase(validatedBaseURL, endpoint, taskID)
 	if err != nil {
 		return nil, err
 	}
@@ -230,7 +239,7 @@ func (s *OpenAIGatewayService) handleAgnesVideoErrorResponse(ctx context.Context
 	reqLog := logger.FromContext(ctx)
 	reqLog.Error("agnes_video.upstream_error",
 		zap.Int("status_code", resp.StatusCode),
-		zap.String("response_body", string(respBody)),
+		zap.String("response_body", agnesVideoErrorLogBody(respBody)),
 		zap.String("request_id", requestID),
 		zap.String("upstream_model", upstreamModel),
 		zap.Int64("account_id", account.ID),
@@ -258,64 +267,25 @@ func (s *OpenAIGatewayService) handleAgnesVideoErrorResponse(ctx context.Context
 	return nil, failoverErr
 }
 
+func agnesVideoErrorLogBody(body []byte) string {
+	if len(body) > agnesVideoErrorLogMaxBytes {
+		body = body[:agnesVideoErrorLogMaxBytes]
+	}
+	return logredact.RedactText(string(body))
+}
+
 func (s *OpenAIGatewayService) forwardAgnesVideoContent(
 	ctx context.Context,
 	c *gin.Context,
 	account *Account,
-	token, taskID string,
+	validatedBaseURL, token, taskID string,
 	startTime time.Time,
 ) (*OpenAIForwardResult, error) {
-	statusURL, err := buildAgnesVideoURL(account, AgnesVideoEndpointStatus, taskID)
+	contentURL, err := buildAgnesVideoURLFromBase(validatedBaseURL, AgnesVideoEndpointContent, taskID)
 	if err != nil {
 		return nil, err
 	}
-
-	statusReq, err := http.NewRequestWithContext(ctx, http.MethodGet, statusURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	statusReq.Header.Set("Authorization", "Bearer "+token)
-	statusReq.Header.Set("Accept", "application/json")
-	account.ApplyHeaderOverrides(statusReq.Header)
-
-	proxyURL := ""
-	if account.ProxyID != nil && account.Proxy != nil {
-		proxyURL = account.Proxy.URL()
-	}
-	statusResp, err := doAccountHTTPUpstream(s.httpUpstream, statusReq, proxyURL, account)
-	if err != nil {
-		return nil, fmt.Errorf("query agnes video status: %w", err)
-	}
-	defer func() { _ = statusResp.Body.Close() }()
-
-	statusBody, err := ReadUpstreamResponseBody(statusResp.Body, s.cfg, c, openAITooLargeError)
-	if err != nil {
-		return nil, err
-	}
-	if statusResp.StatusCode != http.StatusOK {
-		setOpsUpstreamError(c, statusResp.StatusCode, "Agnes video status query failed", truncateString(string(statusBody), 512))
-		return nil, &UpstreamFailoverError{
-			StatusCode:      statusResp.StatusCode,
-			ResponseBody:    statusBody,
-			ResponseHeaders: statusResp.Header.Clone(),
-		}
-	}
-
-	videoURL := ""
-	for _, path := range []string{"video.url", "video_url", "data.video_url", "url"} {
-		if videoURL = strings.TrimSpace(gjson.GetBytes(statusBody, path).String()); videoURL != "" {
-			break
-		}
-	}
-	if videoURL == "" {
-		return nil, fmt.Errorf("agnes video url not found in status response")
-	}
-
-	if !strings.HasPrefix(videoURL, "http://") && !strings.HasPrefix(videoURL, "https://") {
-		return nil, fmt.Errorf("invalid agnes video url: %s", videoURL)
-	}
-
-	contentReq, err := http.NewRequestWithContext(ctx, http.MethodGet, videoURL, nil)
+	contentReq, err := http.NewRequestWithContext(ctx, http.MethodGet, contentURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -323,9 +293,16 @@ func (s *OpenAIGatewayService) forwardAgnesVideoContent(
 		contentReq.Header.Set("Range", rangeHeader)
 	}
 	contentReq.Header.Set("Authorization", "Bearer "+token)
+	contentReq.Header.Set("Accept", "*/*")
 	account.ApplyHeaderOverrides(contentReq.Header)
 
+	proxyURL := ""
+	if account.ProxyID != nil && account.Proxy != nil {
+		proxyURL = account.Proxy.URL()
+	}
+	upstreamStart := time.Now()
 	contentResp, err := doAccountHTTPUpstream(s.httpUpstream, contentReq, proxyURL, account)
+	SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
 	if err != nil {
 		return nil, fmt.Errorf("download agnes video content: %w", err)
 	}
@@ -336,6 +313,8 @@ func (s *OpenAIGatewayService) forwardAgnesVideoContent(
 			c.Header(h, v)
 		}
 	}
+	c.Header("Cache-Control", "private, no-store")
+	c.Header("X-Content-Type-Options", "nosniff")
 	c.Status(contentResp.StatusCode)
 	_, _ = io.Copy(c.Writer, contentResp.Body)
 	return &OpenAIForwardResult{
@@ -417,7 +396,7 @@ func rewriteAgnesVideoContentURLs(respBody []byte, taskID, proxyURL string) []by
 }
 
 func agnesVideoContentProxyURL(c *gin.Context, taskID string) string {
-	return fmt.Sprintf("/v1/videos/%s/content", taskID)
+	return fmt.Sprintf("/v1/videos/%s/content", url.PathEscape(taskID))
 }
 
 func writeAgnesVideoResponse(c *gin.Context, resp *http.Response, body []byte, filter *responseheaders.CompiledHeaderFilter) {

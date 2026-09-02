@@ -34,12 +34,14 @@ const (
 	openAIImagesGenerationsURL = "https://api.openai.com/v1/images/generations"
 	openAIImagesEditsURL       = "https://api.openai.com/v1/images/edits"
 
-	openAIChatGPTStartURL          = "https://chatgpt.com/"
-	openAIChatGPTFilesURL          = "https://chatgpt.com/backend-api/files"
-	openAIImageBackendUserAgent    = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-	openAIImageMaxDownloadBytes    = 50 << 20 // 50 MiB per image download
-	openAIImageMaxUploadPartSize   = 20 << 20 // 20MB per multipart upload part
-	openAIImagesResponsesMainModel = "gpt-5.4-mini"
+	openAIChatGPTStartURL                  = "https://chatgpt.com/"
+	openAIChatGPTFilesURL                  = "https://chatgpt.com/backend-api/files"
+	openAIImageBackendUserAgent            = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+	openAIImageMaxDownloadBytes            = 50 << 20 // 50 MiB per image download
+	openAIImageMaxUploadPartSize           = 20 << 20 // 20MB per multipart upload part
+	openAIImageMaxMultipartParts           = 64
+	openAIImagesResponsesMainModel         = "gpt-5.4-mini"
+	openAIImagesVerbatimPromptInstructions = "When invoking the image_generation tool, use the user's image prompt verbatim. Do not rewrite, expand, summarize, embellish, translate, normalize punctuation, or add or remove visual details or constraints. Preserve the original language, wording, capitalization, quotes, and punctuation exactly."
 )
 
 type OpenAIImagesCapability string
@@ -321,6 +323,7 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 	}
 
 	reader := multipart.NewReader(bytes.NewReader(body), boundary)
+	partCount := 0
 	for {
 		part, err := reader.NextPart()
 		if err == io.EOF {
@@ -329,16 +332,21 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 		if err != nil {
 			return fmt.Errorf("read multipart body: %w", err)
 		}
+		partCount++
+		if partCount > openAIImageMaxMultipartParts {
+			_ = part.Close()
+			return fmt.Errorf("multipart request exceeds %d parts", openAIImageMaxMultipartParts)
+		}
 		name := strings.TrimSpace(part.FormName())
 		if name == "" {
 			_ = part.Close()
 			continue
 		}
 
-		data, err := io.ReadAll(io.LimitReader(part, openAIImageMaxUploadPartSize))
+		data, err := readOpenAIImageMultipartPart(part, name)
 		_ = part.Close()
 		if err != nil {
-			return fmt.Errorf("read multipart field %s: %w", name, err)
+			return err
 		}
 
 		fileName := strings.TrimSpace(part.FileName())
@@ -440,6 +448,17 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 	return nil
 }
 
+func readOpenAIImageMultipartPart(part io.Reader, name string) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(part, openAIImageMaxUploadPartSize+1))
+	if err != nil {
+		return nil, fmt.Errorf("read multipart field %s: %w", name, err)
+	}
+	if len(data) > openAIImageMaxUploadPartSize {
+		return nil, fmt.Errorf("multipart field %s exceeds %d bytes", name, openAIImageMaxUploadPartSize)
+	}
+	return data, nil
+}
+
 func parseOpenAIImageDimensions(_ textproto.MIMEHeader) (int, int) {
 	return 0, 0
 }
@@ -490,8 +509,26 @@ func (s *OpenAIGatewayService) validateOpenAIImagesModel(ctx context.Context, mo
 	if err := validateOpenAIImagesModel(model); err == nil {
 		return nil
 	}
-	if s != nil && s.customModelCapabilities != nil {
-		configured, err := s.customModelCapabilities.HasCapability(ctx, model, "image")
+	configured, err := s.hasCustomModelCapability(ctx, model, "image")
+	if err != nil {
+		return fmt.Errorf("failed to resolve custom model capabilities: %w", err)
+	}
+	if configured {
+		return nil
+	}
+	return validateOpenAIImagesModel(model)
+}
+
+func (s *OpenAIGatewayService) validateOpenAIImagesMappedModel(
+	ctx context.Context,
+	upstreamModel string,
+	configuredModels ...string,
+) error {
+	if err := validateOpenAIImagesModel(upstreamModel); err == nil {
+		return nil
+	}
+	for _, model := range append(configuredModels, upstreamModel) {
+		configured, err := s.hasCustomModelCapability(ctx, model, "image")
 		if err != nil {
 			return fmt.Errorf("failed to resolve custom model capabilities: %w", err)
 		}
@@ -499,7 +536,46 @@ func (s *OpenAIGatewayService) validateOpenAIImagesModel(ctx context.Context, mo
 			return nil
 		}
 	}
-	return validateOpenAIImagesModel(model)
+	return validateOpenAIImagesModel(upstreamModel)
+}
+
+func (s *OpenAIGatewayService) hasCustomModelCapability(
+	ctx context.Context,
+	model string,
+	capability string,
+) (bool, error) {
+	if s == nil || s.customModelCapabilities == nil {
+		return false, nil
+	}
+	return s.customModelCapabilities.HasCapability(ctx, model, capability)
+}
+
+func (s *OpenAIGatewayService) resolveCustomModelRequestAdapter(
+	ctx context.Context,
+	models ...string,
+) (map[string]any, bool, error) {
+	if s == nil || s.customModelCapabilities == nil {
+		return nil, false, nil
+	}
+	seen := make(map[string]struct{}, len(models))
+	for _, model := range models {
+		key := strings.ToLower(strings.TrimSpace(model))
+		if key == "" {
+			continue
+		}
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		adapter, configured, err := s.customModelCapabilities.ResolveRequestAdapter(ctx, model)
+		if err != nil {
+			return nil, false, err
+		}
+		if configured {
+			return adapter, true, nil
+		}
+	}
+	return nil, false, nil
 }
 func validateOpenAIImagesResponseFormat(responseFormat string) error {
 	switch strings.ToLower(strings.TrimSpace(responseFormat)) {
@@ -609,15 +685,16 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	channelMappedModel string,
 ) (*OpenAIForwardResult, error) {
 	startTime := time.Now()
-	requestModel := strings.TrimSpace(parsed.Model)
+	clientModel := strings.TrimSpace(parsed.Model)
+	requestModel := clientModel
 	if mapped := strings.TrimSpace(channelMappedModel); mapped != "" {
 		requestModel = mapped
 	}
-	if err := s.validateOpenAIImagesModel(ctx, requestModel); err != nil {
+	if err := s.validateOpenAIImagesModel(ctx, clientModel); err != nil {
 		return nil, err
 	}
 	upstreamModel := account.GetMappedModel(requestModel)
-	if err := s.validateOpenAIImagesModel(ctx, upstreamModel); err != nil {
+	if err := s.validateOpenAIImagesMappedModel(ctx, upstreamModel, clientModel, requestModel); err != nil {
 		return nil, err
 	}
 	logger.LegacyPrintf(
@@ -635,7 +712,9 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	forwardEndpoint := parsed.Endpoint
 	var adapterHeaders map[string]string
 	if s.customModelCapabilities != nil {
-		requestAdapter, configured, resolveErr := s.customModelCapabilities.ResolveRequestAdapter(ctx, upstreamModel)
+		requestAdapter, configured, resolveErr := s.resolveCustomModelRequestAdapter(
+			ctx, clientModel, requestModel, upstreamModel,
+		)
 		if resolveErr != nil {
 			return nil, resolveErr
 		}

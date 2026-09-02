@@ -180,10 +180,12 @@
           :selecting-all="selectingAllResults"
           :all-results-selected="allResultsSelected"
           :querying-upstream-quota="bulkQueryingUpstreamQuota"
+          :querying-openai-quota="bulkQueryingOpenAIQuota"
           @delete="handleBulkDelete"
           @reset-status="handleBulkResetStatus"
           @refresh-token="handleBulkRefreshToken"
           @query-upstream-quota="handleBulkQueryUpstreamQuota"
+          @query-openai-quota="handleBulkQueryOpenAIQuota"
           @probe-upstream-billing="handleBulkProbeUpstreamBilling"
           @edit-selected="openBulkEditSelected"
           @edit-filtered="openBulkEditFiltered"
@@ -340,6 +342,7 @@
               :today-stats="todayStatsByAccountId[String(row.id)] ?? null"
               :today-stats-loading="todayStatsLoading"
               :manual-refresh-token="usageManualRefreshToken"
+              :bulk-openai-quota-result="bulkOpenAIQuotaResults.get(row.id)"
               :upstream-quota-result="upstreamQuotaResults.get(row.id)"
               :now="upstreamBillingNow"
               @account-updated="handleAccountUpdated"
@@ -538,10 +541,12 @@ const {
   selectingAllResults,
   allResultsSelected,
   bulkQueryingUpstreamQuota,
+  bulkQueryingOpenAIQuota,
   handleBulkDelete,
   handleBulkResetStatus,
   handleBulkRefreshToken,
   handleBulkQueryUpstreamQuota,
+  handleBulkQueryOpenAIQuota,
   handleBulkProbeUpstreamBilling,
   openBulkEditSelected,
   openBulkEditFiltered,
@@ -578,6 +583,7 @@ const {
   todayStatsLoading,
   todayStatsError,
   usageManualRefreshToken,
+  bulkOpenAIQuotaResults,
   upstreamQuotaResults,
   upstreamBillingNow,
   upstreamBillingProbeGloballyEnabled,

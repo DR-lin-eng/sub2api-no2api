@@ -324,6 +324,107 @@ describe('OpenAIQuotaResetCell — 外审 F6:影子禁用重置', () => {
     wrapper.unmount()
   })
 
+  it('没有主动快照时按规范化窗口显示被动额度并标明来源', () => {
+    const sampledAt = new Date().toISOString()
+    const fiveHourReset = new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString()
+    const sevenDayReset = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+    const wrapper = mount(OpenAIQuotaResetCell, {
+      props: {
+        account: makeAccount({
+          id: 1901,
+          extra: {
+            codex_usage_updated_at: sampledAt,
+            codex_5h_used_percent: 21,
+            codex_5h_window_minutes: 300,
+            codex_5h_reset_at: fiveHourReset,
+            codex_7d_used_percent: 54,
+            codex_7d_window_minutes: 10080,
+            codex_7d_reset_at: sevenDayReset
+          }
+        })
+      },
+      global: {
+        stubs: {
+          UsageProgressBar: {
+            props: ['label', 'utilization'],
+            template: '<div class="rate-limit-bar">{{ label }}|{{ utilization }}</div>'
+          }
+        }
+      }
+    })
+
+    expect(wrapper.text()).toContain('5h|21')
+    expect(wrapper.text()).toContain('7d|54')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.passiveSampled')
+    expect(refreshOpenAIQuota).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('主动持久化桶优先于可能不同的被动响应头快照', () => {
+    const wrapper = mount(OpenAIQuotaResetCell, {
+      props: {
+        account: makeAccount({
+          id: 1902,
+          extra: {
+            codex_5h_used_percent: 91,
+            codex_5h_window_minutes: 300,
+            codex_rate_limit_snapshot: {
+              fetched_at: 1770000000,
+              rate_limits_by_limit_id: {
+                codex: {
+                  limit_id: 'codex',
+                  primary: {
+                    used_percent: 24,
+                    window_duration_mins: 300
+                  }
+                }
+              }
+            }
+          }
+        })
+      },
+      global: {
+        stubs: {
+          UsageProgressBar: {
+            props: ['label', 'utilization'],
+            template: '<div class="rate-limit-bar">{{ label }}|{{ utilization }}</div>'
+          }
+        }
+      }
+    })
+
+    expect(wrapper.text()).toContain('5h|24')
+    expect(wrapper.text()).not.toContain('5h|91')
+    expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.passiveSampled')
+    wrapper.unmount()
+  })
+
+  it('被动窗口已经重置时不继续显示旧占用比例', () => {
+    const wrapper = mount(OpenAIQuotaResetCell, {
+      props: {
+        account: makeAccount({
+          id: 1903,
+          extra: {
+            codex_5h_used_percent: 87,
+            codex_5h_reset_at: '2020-01-01T00:00:00Z'
+          }
+        })
+      },
+      global: {
+        stubs: {
+          UsageProgressBar: {
+            props: ['label', 'utilization'],
+            template: '<div class="rate-limit-bar">{{ label }}|{{ utilization }}</div>'
+          }
+        }
+      }
+    })
+
+    expect(wrapper.text()).toContain('5h|0')
+    expect(wrapper.text()).not.toContain('5h|87')
+    wrapper.unmount()
+  })
+
   it('主查询也会刷新父组件提供的本地计数', async () => {
     const queryLocalUsage = vi.fn().mockResolvedValue(undefined)
     vi.mocked(refreshOpenAIQuota).mockResolvedValue({

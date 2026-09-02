@@ -3,13 +3,14 @@ import {
   buildChatWebSocket,
   parseChatSocketEvent,
   type ChatMessage,
+  type ChatReadState,
 } from '@/features/support-chat/data/datasources/supportChatDatasource'
 
 export interface SupportChatSocketOptions {
   scope: 'user' | 'admin'
   onMessage: (message: ChatMessage) => void
   onStatusChange?: (connected: boolean) => void
-  onReadState?: (conversationID: number, reader: 'user' | 'admin') => void
+  onReadState?: (readState: ChatReadState) => void
   onMessageRecalled?: (message: ChatMessage) => void
 }
 
@@ -72,7 +73,7 @@ export function useSupportChatSocket(options: SupportChatSocketOptions) {
       } else if (parsed?.type === 'message_recalled' && parsed.message) {
         options.onMessageRecalled?.(parsed.message)
       } else if (parsed?.type === 'read_state' && parsed.read_state) {
-        options.onReadState?.(parsed.read_state.conversation_id, parsed.read_state.reader)
+        options.onReadState?.(parsed.read_state)
       }
     }
     ws.onerror = () => {

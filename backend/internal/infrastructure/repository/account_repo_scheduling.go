@@ -704,6 +704,42 @@ func (r *accountRepository) SetSchedulable(ctx context.Context, id int64, schedu
 	return nil
 }
 
+// SetSchedulableWithReason atomically updates the scheduling flag, its
+// administrator-visible reason, and the scheduler outbox event.
+func (r *accountRepository) SetSchedulableWithReason(ctx context.Context, id int64, schedulable bool, reason string) error {
+	if r == nil || r.sql == nil {
+		return fmt.Errorf("account repository SQL executor is unavailable")
+	}
+	result, err := r.sql.ExecContext(ctx, `
+		WITH updated AS (
+			UPDATE accounts AS a
+			SET schedulable = $1,
+				extra = CASE
+					WHEN $2 = '' THEN COALESCE(a.extra, '{}'::jsonb) - $3
+					ELSE jsonb_set(COALESCE(a.extra, '{}'::jsonb), ARRAY[$3]::text[], to_jsonb($2::text), true)
+				END,
+				updated_at = NOW()
+			WHERE a.id = $4
+				AND a.deleted_at IS NULL
+			RETURNING a.id
+		)
+		INSERT INTO scheduler_outbox (event_type, account_id, group_id, payload)
+		SELECT $5, updated.id, NULL, NULL FROM updated
+	`, schedulable, reason, service.AccountSchedulingDisabledReasonExtraKey, id, service.SchedulerOutboxEventAccountChanged)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return service.ErrAccountNotFound
+	}
+	r.syncSchedulerAccountSnapshotDetached(ctx, id)
+	return nil
+}
+
 func (r *accountRepository) AutoPauseExpiredAccounts(ctx context.Context, now time.Time) (int64, error) {
 	rows, err := r.sql.QueryContext(ctx, `
 		UPDATE accounts

@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -105,6 +106,26 @@ func TestJA3Fingerprint(t *testing.T) {
 	} else {
 		t.Errorf("✗ JA4 cipher hash mismatch: got %s, expected containing %s", fpResp.TLS.JA4, expectedJA4CipherHash)
 	}
+}
+
+func TestAccountVariantsProduceDifferentJA3(t *testing.T) {
+	if os.Getenv("TLSFINGERPRINT_NETWORK_TESTS") != "1" {
+		t.Skip("skipping account-variant network check (set TLSFINGERPRINT_NETWORK_TESTS=1)")
+	}
+
+	first := fetchFingerprint(t, VariantForKey(BuiltInCodexRustlsProfile(), "account-1001"))
+	second := fetchFingerprint(t, VariantForKey(BuiltInCodexRustlsProfile(), "account-1002"))
+	if first == nil || second == nil {
+		return
+	}
+	if first.JA3Hash == second.JA3Hash {
+		t.Fatalf("account variants shared JA3 hash %s", first.JA3Hash)
+	}
+	if first.JA4 == second.JA4 {
+		t.Fatalf("account variants shared JA4 %s", first.JA4)
+	}
+	t.Logf("account-1001 JA3=%s JA4=%s", first.JA3Hash, first.JA4)
+	t.Logf("account-1002 JA3=%s JA4=%s", second.JA3Hash, second.JA4)
 }
 
 // TestAllProfiles tests multiple TLS fingerprint profiles against tls.peet.ws.

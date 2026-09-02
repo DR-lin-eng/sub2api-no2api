@@ -37,15 +37,19 @@ describe('custom page HTML security', () => {
     expect(container.querySelector('iframe, script')).toBeNull()
   })
 
-  it('keeps relative iframe paths but rejects protocol-relative URLs', () => {
+  it('keeps relative iframe paths but rejects protocol-relative URL variants', () => {
     const relative = sanitizeCustomPageHtml('<iframe src="/docs/embed"></iframe>', 'Embedded content')
     const protocolRelative = sanitizeCustomPageHtml('<iframe src="//evil.example.com/embed"></iframe>', 'Embedded content')
+    const backslashRelative = sanitizeCustomPageHtml('<iframe src="/\\evil.example.com/embed"></iframe>', 'Embedded content')
 
     const relativeContainer = document.createElement('div')
     relativeContainer.innerHTML = relative
     const protocolRelativeContainer = document.createElement('div')
     protocolRelativeContainer.innerHTML = protocolRelative
+    const backslashRelativeContainer = document.createElement('div')
+    backslashRelativeContainer.innerHTML = backslashRelative
     expect(relativeContainer.querySelector('iframe')?.getAttribute('src')).toBe('/docs/embed')
     expect(protocolRelativeContainer.querySelector('iframe')).toBeNull()
+    expect(backslashRelativeContainer.querySelector('iframe')).toBeNull()
   })
 })

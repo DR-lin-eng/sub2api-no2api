@@ -3,11 +3,14 @@
 package admin
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sort"
+	"sync"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
@@ -96,6 +99,70 @@ type openAIQuotaRefreshEnvelope struct {
 	Data openAIQuotaRefreshResponse `json:"data"`
 }
 
+type openAIQuotaRefreshBatchEnvelope struct {
+	Code int                             `json:"code"`
+	Data openAIQuotaRefreshBatchResponse `json:"data"`
+}
+
+type openAIQuotaBatchAdminServiceStub struct {
+	service.AdminService
+	accounts []*service.Account
+}
+
+func (s *openAIQuotaBatchAdminServiceStub) GetAccountsByIDs(_ context.Context, ids []int64) ([]*service.Account, error) {
+	allowed := make(map[int64]struct{}, len(ids))
+	for _, id := range ids {
+		allowed[id] = struct{}{}
+	}
+	result := make([]*service.Account, 0, len(s.accounts))
+	for _, account := range s.accounts {
+		if account != nil {
+			if _, ok := allowed[account.ID]; ok {
+				result = append(result, account)
+			}
+		}
+	}
+	return result, nil
+}
+
+type openAIQuotaBatchWorkflowStub struct {
+	mu         sync.Mutex
+	queryIDs   []int64
+	queryError map[int64]error
+}
+
+func (s *openAIQuotaBatchWorkflowStub) QueryUsage(ctx context.Context, accountID int64) (*service.OpenAIQuotaUsage, error) {
+	return s.QueryUsageWithServerUsage(ctx, accountID)
+}
+
+func (s *openAIQuotaBatchWorkflowStub) QueryUsageWithServerUsage(_ context.Context, accountID int64) (*service.OpenAIQuotaUsage, error) {
+	s.mu.Lock()
+	s.queryIDs = append(s.queryIDs, accountID)
+	err := s.queryError[accountID]
+	s.mu.Unlock()
+	if err != nil {
+		return nil, err
+	}
+	return &service.OpenAIQuotaUsage{
+		FetchedAt: accountID,
+		RateLimitsByLimitID: map[string]service.OpenAIAppServerRateLimitBucket{
+			"codex": {LimitID: "codex"},
+		},
+	}, nil
+}
+
+func (s *openAIQuotaBatchWorkflowStub) CacheResetCreditsSnapshot(context.Context, int64, *service.OpenAIRateLimitResetCredits) error {
+	return nil
+}
+
+func (s *openAIQuotaBatchWorkflowStub) CacheRateLimitSnapshot(context.Context, int64, *service.OpenAIQuotaUsage) error {
+	return nil
+}
+
+func (s *openAIQuotaBatchWorkflowStub) ResetCredit(context.Context, int64) (*service.OpenAIQuotaResetResult, error) {
+	return nil, errors.New("unexpected reset")
+}
+
 func performOpenAIQuotaResetRequest(t *testing.T, handler *OpenAIOAuthHandler, ctx context.Context) (int, openAIQuotaResetEnvelope) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -123,6 +190,25 @@ func performOpenAIQuotaRefreshRequest(t *testing.T, handler *OpenAIOAuthHandler)
 	router.ServeHTTP(recorder, request)
 
 	var envelope openAIQuotaRefreshEnvelope
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &envelope))
+	return recorder.Code, envelope
+}
+
+func performOpenAIQuotaRefreshBatchRequest(t *testing.T, handler *OpenAIOAuthHandler, body string) (int, openAIQuotaRefreshBatchEnvelope) {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.POST("/api/v1/admin/openai/accounts/quota/refresh/batch", handler.RefreshQuotaBatch)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/admin/openai/accounts/quota/refresh/batch",
+		bytes.NewBufferString(body),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(recorder, request)
+
+	var envelope openAIQuotaRefreshBatchEnvelope
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &envelope))
 	return recorder.Code, envelope
 }
@@ -286,6 +372,51 @@ func TestOpenAIRefreshQuotaPersistsSnapshotWithoutHidingReadFailures(t *testing.
 		require.Equal(t, http.StatusInternalServerError, status)
 		require.Zero(t, quota.cacheCalls)
 	})
+}
+
+func TestOpenAIRefreshQuotaBatchQueriesOnlyOpenAIOAuthAndIsolatesFailures(t *testing.T) {
+	quota := &openAIQuotaBatchWorkflowStub{queryError: map[int64]error{
+		4: errors.New("upstream unavailable"),
+	}}
+	handler := &OpenAIOAuthHandler{
+		adminService: &openAIQuotaBatchAdminServiceStub{accounts: []*service.Account{
+			{ID: 1, Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth},
+			{ID: 2, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey},
+			{ID: 4, Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth},
+		}},
+		quotaService: quota,
+	}
+
+	status, envelope := performOpenAIQuotaRefreshBatchRequest(t, handler, `{"account_ids":[4,2,1,3,1]}`)
+
+	require.Equal(t, http.StatusOK, status)
+	require.Contains(t, envelope.Data.Results, int64(1))
+	require.True(t, envelope.Data.Results[1].CachePersisted)
+	require.True(t, envelope.Data.Results[1].RateLimitSnapshotPersisted)
+	require.Equal(t, []int64{2}, envelope.Data.SkippedAccountIDs)
+	require.Contains(t, envelope.Data.Errors[3], "account not found")
+	require.Contains(t, envelope.Data.Errors[4], "upstream unavailable")
+	quota.mu.Lock()
+	queried := append([]int64(nil), quota.queryIDs...)
+	quota.mu.Unlock()
+	sort.Slice(queried, func(i, j int) bool { return queried[i] < queried[j] })
+	require.Equal(t, []int64{1, 4}, queried)
+}
+
+func TestOpenAIRefreshQuotaBatchRejectsMoreThanTwentyAccounts(t *testing.T) {
+	ids := make([]int64, openAIQuotaRefreshBatchMaxAccounts+1)
+	for i := range ids {
+		ids[i] = int64(i + 1)
+	}
+	body, err := json.Marshal(map[string]any{"account_ids": ids})
+	require.NoError(t, err)
+
+	status, _ := performOpenAIQuotaRefreshBatchRequest(t, &OpenAIOAuthHandler{
+		adminService: &openAIQuotaBatchAdminServiceStub{},
+		quotaService: &openAIQuotaBatchWorkflowStub{},
+	}, string(body))
+
+	require.Equal(t, http.StatusBadRequest, status)
 }
 
 func TestNewOpenAIOAuthHandlerKeepsNilQuotaCapabilitiesGuarded(t *testing.T) {

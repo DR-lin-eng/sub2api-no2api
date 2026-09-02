@@ -11,11 +11,19 @@ import (
 )
 
 type supportChatRetentionPolicyStub struct {
-	days int
-	err  error
+	days     int
+	sequence []int
+	err      error
+	calls    int
 }
 
 func (p *supportChatRetentionPolicyStub) GetSupportChatRetentionDays(context.Context) (int, error) {
+	p.calls++
+	if len(p.sequence) > 0 {
+		days := p.sequence[0]
+		p.sequence = p.sequence[1:]
+		return days, p.err
+	}
 	return p.days, p.err
 }
 
@@ -76,6 +84,28 @@ func TestSupportChatRetentionRunOnceUsesCurrentPolicyAndDrainsBatches(t *testing
 	require.Len(t, cleaner.cutoffs, 2)
 	require.Equal(t, now.Add(-30*24*time.Hour), cleaner.cutoffs[0])
 	require.Equal(t, []int{2, 2}, cleaner.limits)
+}
+
+func TestSupportChatRetentionRunOnceStopsWhenAdminDisablesCleanupBetweenBatches(t *testing.T) {
+	now := time.Date(2026, 8, 30, 12, 0, 0, 0, time.UTC)
+	cleaner := &supportChatRetentionCleanerStub{results: []chat.RetentionCleanupResult{
+		{MessagesDeleted: 2},
+		{MessagesDeleted: 2},
+	}}
+	policy := &supportChatRetentionPolicyStub{sequence: []int{30, 0}}
+	svc := &SupportChatRetentionService{
+		cleaner:    cleaner,
+		policy:     policy,
+		instance:   "test-instance",
+		batchSize:  2,
+		maxBatches: 5,
+	}
+
+	result, err := svc.RunOnce(context.Background(), now)
+	require.NoError(t, err)
+	require.Equal(t, chat.RetentionCleanupResult{MessagesDeleted: 2}, result)
+	require.Equal(t, 2, policy.calls)
+	require.Len(t, cleaner.cutoffs, 1)
 }
 
 func TestSupportChatRetentionRunOnceSkipsPermanentRetentionAndPolicyErrors(t *testing.T) {

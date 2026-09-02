@@ -143,7 +143,7 @@ import Icon from '@/common/widgets/icons/Icon.vue';
 import CustomModelConfigDialog from '../widgets/CustomModelConfigDialog.vue';
 import CustomModelRequestTemplateManager from '../widgets/CustomModelRequestTemplateManager.vue';
 import { customModelConfigDatasource } from '../../data/datasources/customModelConfigDatasource';
-import { initializeModelCapabilities } from '../../domain/services/modelCapabilityService';
+import { invalidateRuntimeModelCapabilities } from '../../modelCapabilityCache';
 import type {
   CustomModelConfig,
   CustomModelRequestTemplate,
@@ -184,10 +184,8 @@ function getCapabilityClass(cap: ModelCapability): string {
 
 async function loadConfigs() {
   loading.value = true;
-  try {
-    configs.value = await customModelConfigDatasource.getAll();
-    // Refresh cache
-    initializeModelCapabilities(configs.value);
+	try {
+		configs.value = await customModelConfigDatasource.getAll();
   } catch (error) {
     console.error('Failed to load custom model configs:', error);
   } finally {
@@ -223,8 +221,9 @@ function closeDialog() {
 }
 
 async function handleSaved() {
-  closeDialog();
-  await loadConfigs();
+	closeDialog();
+	invalidateRuntimeModelCapabilities();
+	await loadConfigs();
 }
 
 async function handleDelete(config: CustomModelConfig) {
@@ -232,9 +231,10 @@ async function handleDelete(config: CustomModelConfig) {
     return;
   }
 
-  try {
-    await customModelConfigDatasource.delete(config.id);
-    await loadConfigs();
+	try {
+		await customModelConfigDatasource.delete(config.id);
+		invalidateRuntimeModelCapabilities();
+		await loadConfigs();
   } catch (error) {
     console.error('Failed to delete model config:', error);
     alert(t('admin.customModelConfig.actions.deleteFailed', 'Failed to delete model configuration'));

@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -14,6 +16,8 @@ import (
 type MediaStudioHandler struct {
 	mediaStudioService *service.MediaStudioService
 }
+
+const maxMediaStudioRequestBodyBytes = 256 << 10
 
 func NewMediaStudioHandler(mediaStudioService *service.MediaStudioService) *MediaStudioHandler {
 	return &MediaStudioHandler{mediaStudioService: mediaStudioService}
@@ -30,8 +34,7 @@ func (h *MediaStudioHandler) GetAdminGroupRoutes(c *gin.Context) {
 
 func (h *MediaStudioHandler) UpdateAdminGroupRoutes(c *gin.Context) {
 	var routes service.MediaStudioGroupRoutes
-	if err := c.ShouldBindJSON(&routes); err != nil {
-		response.BadRequest(c, "Invalid media studio group routes: "+err.Error())
+	if !bindMediaStudioJSON(c, &routes, "Invalid media studio group routes") {
 		return
 	}
 	updated, err := h.mediaStudioService.SaveGroupRoutes(c.Request.Context(), routes)
@@ -94,14 +97,15 @@ type mediaStudioSessionRequest struct {
 }
 
 func (h *MediaStudioHandler) CreateSession(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	c.Header("Pragma", "no-cache")
 	subject, ok := middleware2.GetAuthSubjectFromContext(c)
 	if !ok {
 		response.Unauthorized(c, "User not authenticated")
 		return
 	}
 	var req mediaStudioSessionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Invalid media studio session request: "+err.Error())
+	if !bindMediaStudioJSON(c, &req, "Invalid media studio session request") {
 		return
 	}
 	key, err := h.mediaStudioService.EnsureAPIKey(
@@ -119,4 +123,18 @@ func (h *MediaStudioHandler) CreateSession(c *gin.Context) {
 		"group_id":   req.GroupID,
 		"media_type": strings.TrimSpace(req.MediaType),
 	})
+}
+
+func bindMediaStudioJSON(c *gin.Context, target any, invalidMessage string) bool {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxMediaStudioRequestBodyBytes)
+	if err := c.ShouldBindJSON(target); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			response.RequestEntityTooLarge(c, "Request body too large")
+		} else {
+			response.BadRequest(c, invalidMessage)
+		}
+		return false
+	}
+	return true
 }

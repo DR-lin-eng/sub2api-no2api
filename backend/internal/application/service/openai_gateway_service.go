@@ -316,6 +316,16 @@ func SetActualOpenAIUpstreamEndpoint(c *gin.Context, endpoint string) {
 	}
 }
 
+// ClearActualOpenAIUpstreamEndpoint clears the endpoint recorded by a previous
+// account attempt. Handlers reuse one Gin context across failover attempts, so
+// stale runtime state must not leak into error and usage observability.
+func ClearActualOpenAIUpstreamEndpoint(c *gin.Context) {
+	if c == nil {
+		return
+	}
+	c.Set(openAIUpstreamEndpointContextKey, "")
+}
+
 // GetActualOpenAIUpstreamEndpoint returns the endpoint recorded by the latest
 // forwarding attempt in this request.
 func GetActualOpenAIUpstreamEndpoint(c *gin.Context) string {

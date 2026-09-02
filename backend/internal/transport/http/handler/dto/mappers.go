@@ -282,6 +282,7 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		ParentAccountID:         a.ParentAccountID,
 		QuotaDimension:          a.QuotaDimension,
 	}
+	out.SchedulingDisabledReason = a.SchedulingDisabledReason()
 
 	// 提取 5h 窗口费用控制和会话数量控制配置（仅 Anthropic OAuth/SetupToken 账号有效）
 	if a.IsAnthropicOAuthOrSetupToken() {
@@ -420,7 +421,8 @@ func redactAccountManagedExtra(extra map[string]any) map[string]any {
 		switch key {
 		case service.OllamaCloudUsageSessionExtraKey,
 			service.OllamaCloudUsageAutoRefreshExtraKey,
-			service.OllamaCloudUsageSnapshotExtraKey:
+			service.OllamaCloudUsageSnapshotExtraKey,
+			service.AccountSchedulingDisabledReasonExtraKey:
 			continue
 		default:
 			redacted[key] = value

@@ -28,6 +28,9 @@ export interface BulkAccountUpdatePayloadState {
   openaiFlattenNamespacesEnabled: boolean
   enableOpenAILongContextBilling: boolean
   openAILongContextBillingEnabled: boolean
+  enableTLSFingerprint: boolean
+  tlsFingerprintEnabled: boolean
+  tlsFingerprintProfileId: number | null
   enableOpenAIEndpointCapabilities: boolean
   openAIEndpointCapabilities: OpenAIEndpointCapability[]
   enableOpenAIResponsesMode: boolean
@@ -122,6 +125,15 @@ export function buildBulkAccountUpdatePayload(
 
   if (state.enableOpenAILongContextBilling) {
     ensureExtra().openai_long_context_billing_enabled = state.openAILongContextBillingEnabled
+  }
+  if (state.enableTLSFingerprint) {
+    const extra = ensureExtra()
+    extra.enable_tls_fingerprint = state.tlsFingerprintEnabled
+    // Bulk enabling defaults to the stable account-assignment sentinel so a
+    // large batch does not collapse onto one shared ClientHello profile.
+    extra.tls_fingerprint_profile_id = state.tlsFingerprintEnabled
+      ? state.tlsFingerprintProfileId
+      : null
   }
   if (state.enableOpenAIEndpointCapabilities) {
     credentials.openai_capabilities = state.openAIEndpointCapabilities.filter(

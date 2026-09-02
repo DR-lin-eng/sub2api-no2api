@@ -89,7 +89,12 @@ function createDeferred<T>() {
   return { promise, resolve }
 }
 
-function runGuard(meta: Record<string, unknown>, path: string) {
+function runGuard(
+  meta: Record<string, unknown>,
+  path: string,
+  query: Record<string, unknown> = {},
+  hash = '',
+) {
   if (!routerHarness.guard) {
     throw new Error('router guard was not registered')
   }
@@ -99,6 +104,8 @@ function runGuard(meta: Record<string, unknown>, path: string) {
     {
       path,
       fullPath: path,
+      query,
+      hash,
       name: 'FeatureRoute',
       params: {},
       meta: { requiresAuth: true, ...meta },
@@ -290,5 +297,19 @@ describe('feature route guard', () => {
     const allowed = runGuard({ requiresAdmin: true, requiresIPv6Egress: true }, '/admin/egress')
     await allowed.navigation
     expect(allowed.next).toHaveBeenCalledWith()
+  })
+
+  it('redirects uppercase paths to their lowercase canonical URL', async () => {
+    const { navigation, next } = runGuard({}, '/ADMIN/dashboard', { tab: 'Overview' }, '#Top')
+
+    await navigation
+
+    expect(next).toHaveBeenCalledOnce()
+    expect(next).toHaveBeenCalledWith({
+      path: '/admin/dashboard',
+      query: { tab: 'Overview' },
+      hash: '#Top',
+      replace: true,
+    })
   })
 })

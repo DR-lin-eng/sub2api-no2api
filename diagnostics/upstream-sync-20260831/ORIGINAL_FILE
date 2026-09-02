@@ -1,0 +1,8 @@
+{
+  "review_boundary": "efb46db0a960fdad94502b1c3a982a0051cf5245..52374af94031f04df8de6fc91deb77a179e04b06",
+  "branch": "unreviewed-upstream-delta",
+  "field": "pending",
+  "message_text": "dropped",
+  "content_indexes": [0, 0],
+  "raw_stream_status": "false_success"
+}

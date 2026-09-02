@@ -316,7 +316,7 @@ func anthropicAssistantToResponses(raw json.RawMessage) ([]ResponsesInputItem, e
 		}
 		args := "{}"
 		if len(b.Input) > 0 {
-			args = string(b.Input)
+			args = string(sanitizeAnthropicToolUseInput(b.Name, string(b.Input)))
 		}
 		fcID := toResponsesCallID(b.ID)
 		items = append(items, ResponsesInputItem{

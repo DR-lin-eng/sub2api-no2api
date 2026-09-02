@@ -639,7 +639,10 @@
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <label class="input-label">{{ t('admin.accounts.expiresAt') }}</label>
         <input v-model="expiresAtInput" type="datetime-local" class="input" />
-        <p class="input-hint">{{ t('admin.accounts.expiresAtHint') }}</p>
+        <p class="input-hint">
+          {{ t('admin.accounts.expiresAtHint') }}
+          {{ t('admin.accounts.expiresAtTimezoneHint', { timezone: browserTimeZone }) }}
+        </p>
       </div>
 
       <!-- OpenAI 自动透传开关（OAuth/API Key） -->
@@ -1142,8 +1145,10 @@ import ProxyAdBanner from '@/common/widgets/data/ProxyAdBanner.vue'
 import ProxySelector from '@/common/widgets/data/ProxySelector.vue'
 import Select from '@/common/widgets/forms/Select.vue'
 import Toggle from '@/common/widgets/forms/Toggle.vue'
+import { getBrowserTimeZone } from '@/core/utils/format'
 import type { CreateAccountAdvancedContext } from '../../accountEditorContext'
 
 const props = defineProps<{ context: CreateAccountAdvancedContext }>()
+const browserTimeZone = getBrowserTimeZone()
 const { accountCategory, addOpenAICompactModelMapping, addTempUnschedRule, allowOverages, anthropicAPIKeyAuthScheme, anthropicPassthroughEnabled, isSimpleMode, autoPauseOnExpired, baseRpm, cacheTTLOverrideEnabled, cacheTTLOverrideTarget, codexFingerprintMode, codexFingerprintModeOptions, codexPrewarmContinuationEnabled, codexThinkingTagNormalizationEnabled, codexCLIOnlyAppServerEnabled, codexCLIOnlyEnabled, customBaseUrl, customBaseUrlEnabled, expiresAtInput, form, getOpenAICompactModelMappingKey, getTempUnschedRuleKey, groups, interceptWarmupRequests, maxSessions, mixedScheduling, moveTempUnschedRule, openAICompactMode, openAICompactModeOptions, openAICompactModelMappings, openAIEndpointCapabilities, openAIEndpointCapabilityOptions, openAIForceImageAPIEnabled, openAILongContextBillingEnabled, openAIResponsesMode, openAIResponsesModeOptions, openAITextGenerationCapabilityEnabled, openAIWSModeConcurrencyHintKey, openAIWSModeOptions, openaiPassthroughEnabled, openaiFlattenNamespacesEnabled, openaiResponsesWebSocketV2Mode, proxies, removeOpenAICompactModelMapping, removeTempUnschedRule, rpmLimitEnabled, rpmStickyBuffer, rpmStrategy, sessionIdMaskingEnabled, sessionIdleTimeout, sessionLimitEnabled, t, tempUnschedEnabled, tempUnschedPresets, tempUnschedRules, tlsFingerprintEnabled, tlsFingerprintProfileId, tlsFingerprintProfiles, toggleOpenAIEndpointCapability, toggleOpenAILongContextBilling, umqModeOptions, userMsgQueueMode, webSearchEmulationMode, webSearchGlobalEnabled, windowCostEnabled, windowCostLimit, windowCostStickyReserve } = props.context
 </script>

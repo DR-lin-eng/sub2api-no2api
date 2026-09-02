@@ -67,7 +67,7 @@ func resolveOpenAIWSSessionHeaders(c *gin.Context, promptCacheKey string) openAI
 	if c != nil && c.Request != nil {
 		if sessionID := strings.TrimSpace(c.Request.Header.Get("session-id")); sessionID != "" {
 			resolution.SessionID = sessionID
-			resolution.SessionSource = "header_session_id"
+			resolution.SessionSource = "header_session-id"
 		} else if sessionID := strings.TrimSpace(c.Request.Header.Get("session_id")); sessionID != "" {
 			resolution.SessionID = sessionID
 			resolution.SessionSource = "header_session_id"

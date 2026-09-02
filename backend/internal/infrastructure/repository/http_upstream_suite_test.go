@@ -192,6 +192,18 @@ func (s *HTTPUpstreamSuite) TestOpenAIProfileTLSFingerprintDoesNotInheritGeneric
 	require.Equal(s.T(), time.Duration(0), transport.ResponseHeaderTimeout, "OpenAI TLS path should not inherit generic header timeout")
 }
 
+func (s *HTTPUpstreamSuite) TestTLSFingerprintProfileWithHTTP2IsPinnedToHTTP1() {
+	profile := &tlsfingerprint.Profile{
+		Name:          "codex-rustls",
+		ALPNProtocols: []string{"h2", "http/1.1"},
+	}
+
+	transport, err := buildUpstreamTransportWithTLSFingerprint(poolSettings{}, nil, profile)
+	require.NoError(s.T(), err)
+	require.False(s.T(), transport.ForceAttemptHTTP2, "uTLS connections cannot be handed to net/http's HTTP/2 adapter")
+	require.NotNil(s.T(), transport.TLSNextProto, "TLS fingerprint HTTP/1.1 mode must disable automatic HTTP/2")
+}
+
 func (s *HTTPUpstreamSuite) TestTLSFingerprintPoolIsScopedToAccountAndProfile() {
 	s.cfg.Gateway = config.GatewayConfig{
 		ConnectionPoolIsolation: config.ConnectionPoolIsolationProxy,

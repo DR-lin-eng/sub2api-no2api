@@ -417,6 +417,7 @@ export interface Account {
 
   // Rate limit & scheduling fields
   schedulable: boolean
+  scheduling_disabled_reason?: string | null
   rate_limited_at: string | null
   rate_limit_reset_at: string | null
   overload_until: string | null

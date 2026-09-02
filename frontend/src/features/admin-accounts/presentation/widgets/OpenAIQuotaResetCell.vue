@@ -83,8 +83,11 @@
       data-testid="openai-rate-limit-buckets"
       class="space-y-1"
     >
-      <div class="text-[9px] font-medium text-gray-500 dark:text-gray-400">
-        {{ t('admin.accounts.upstreamBilling.quotaModeRateLimits') }}
+      <div class="flex items-center gap-1.5 text-[9px] font-medium text-gray-500 dark:text-gray-400">
+        <span>{{ t('admin.accounts.upstreamBilling.quotaModeRateLimits') }}</span>
+        <span v-if="isPassiveQuotaData" class="italic text-gray-400 dark:text-gray-500">
+          {{ t('admin.accounts.usageWindow.passiveSampled') }}
+        </span>
       </div>
       <div
         v-for="window in rateLimitWindows"
@@ -243,11 +246,14 @@ import { useI18n } from 'vue-i18n'
 import type { Account, WindowStats } from '@/types'
 import {
   refreshOpenAIQuota,
-  resetOpenAIQuota,
-  type OpenAIAppServerRateLimitBucket,
-  type OpenAIQuotaUsage,
-  type OpenAIQuotaResetResult
+  resetOpenAIQuota
 } from '@/features/admin-accounts/data/datasources/adminAccountsDatasource'
+import type {
+  OpenAIAppServerRateLimitBucket,
+  OpenAIQuotaRefreshResult,
+  OpenAIQuotaUsage,
+  OpenAIQuotaResetResult
+} from '@/features/admin-accounts/data/dtos/openAIQuotaDtos'
 import ConfirmDialog from '@/common/widgets/feedback/ConfirmDialog.vue'
 import { formatCompactNumber } from '@/core/utils/format'
 import UsageProgressBar from './UsageProgressBar.vue'
@@ -265,6 +271,7 @@ const props = defineProps<{
   } | null
   /** Refresh local request/token/cost counters with the upstream snapshot. */
   queryLocalUsage?: () => Promise<void>
+  externalQuotaResult?: OpenAIQuotaRefreshResult | null
 }>()
 
 const emit = defineEmits<{
@@ -288,6 +295,18 @@ const resetMessage = ref<string | null>(null)
 const resetWarning = ref<string | null>(null)
 const showResetConfirm = ref(false)
 const showResetCreditDetails = ref(false)
+
+const quotaNumber = (value: unknown): number | null => {
+  if (value == null || (typeof value === 'string' && value.trim() === '')) return null
+  const parsed = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+const quotaResetUnixSeconds = (value: unknown): number | undefined => {
+  if (typeof value !== 'string' || value.trim() === '') return undefined
+  const milliseconds = Date.parse(value)
+  return Number.isNaN(milliseconds) ? undefined : Math.floor(milliseconds / 1000)
+}
 
 const readCachedResetCredits = (account: Account): OpenAIQuotaUsage | null => {
   const cached = account.extra?.codex_reset_credit_snapshot
@@ -339,6 +358,7 @@ const readPersistedQuotaSnapshot = (account: Account): OpenAIQuotaUsage | null =
 
   const fetchedAt = Number(snapshot.fetched_at ?? snapshot.fetchedAt ?? 0)
   return {
+    source: 'active',
     fetched_at: Number.isFinite(fetchedAt) ? fetchedAt : 0,
     rate_limits_by_limit_id: hasBuckets
       ? rateLimits as OpenAIQuotaUsage['rate_limits_by_limit_id']
@@ -347,8 +367,47 @@ const readPersistedQuotaSnapshot = (account: Account): OpenAIQuotaUsage | null =
   }
 }
 
+const readPassiveQuotaSnapshot = (account: Account): OpenAIQuotaUsage | null => {
+  const extra = account.extra
+  if (!extra) return null
+
+  const fiveHourUsed = quotaNumber(extra.codex_5h_used_percent)
+  const sevenDayUsed = quotaNumber(extra.codex_7d_used_percent)
+  if (fiveHourUsed == null && sevenDayUsed == null) return null
+
+  const fiveHourMinutes = quotaNumber(extra.codex_5h_window_minutes) ?? 300
+  const sevenDayMinutes = quotaNumber(extra.codex_7d_window_minutes) ?? 10080
+  const fiveHourReset = quotaResetUnixSeconds(extra.codex_5h_reset_at)
+  const sevenDayReset = quotaResetUnixSeconds(extra.codex_7d_reset_at)
+  const nowSeconds = Math.floor(Date.now() / 1000)
+  const primary = sevenDayUsed == null ? undefined : {
+    used_percent: sevenDayReset != null && sevenDayReset <= nowSeconds ? 0 : sevenDayUsed,
+    window_duration_mins: sevenDayMinutes,
+    resets_at: sevenDayReset
+  }
+  const secondary = fiveHourUsed == null ? undefined : {
+    used_percent: fiveHourReset != null && fiveHourReset <= nowSeconds ? 0 : fiveHourUsed,
+    window_duration_mins: fiveHourMinutes,
+    resets_at: fiveHourReset
+  }
+  return {
+    source: 'passive',
+    fetched_at: typeof extra.codex_usage_updated_at === 'string'
+      ? quotaResetUnixSeconds(extra.codex_usage_updated_at) ?? 0
+      : 0,
+    rate_limits_by_limit_id: {
+      codex: {
+        limit_id: 'codex',
+        limit_name: 'codex',
+        primary,
+        secondary
+      }
+    }
+  }
+}
+
 const quotaDataForAccount = (account: Account): OpenAIQuotaUsage | null => {
-  const snapshot = cachedQuotaSnapshot(account) ?? readPersistedQuotaSnapshot(account)
+  const snapshot = cachedQuotaSnapshot(account) ?? readPersistedQuotaSnapshot(account) ?? readPassiveQuotaSnapshot(account)
   const credits = readCachedResetCredits(account)
   if (!snapshot) return credits
   return {
@@ -366,6 +425,7 @@ data.value = initialQuotaData
 const isShadow = computed(() => props.account.parent_account_id != null)
 
 const availableResetCount = computed(() => data.value?.rate_limit_reset_credits?.available_count ?? 0)
+const isPassiveQuotaData = computed(() => data.value?.source === 'passive')
 const resetCreditExpirations = computed(() =>
   ((data.value ?? cachedData.value)?.rate_limit_reset_credits?.credits ?? [])
     .map((credit) => credit.expires_at?.trim() ?? '')
@@ -739,11 +799,12 @@ const handleQuery = async () => {
     const localPromise = props.queryLocalUsage?.() ?? Promise.resolve()
     const result = await quotaPromise
     await localPromise
-    openAIQuotaSnapshotCache.set(props.account.id, result)
-    data.value = result
-    emit('quota-updated', result)
+    const activeResult = { ...result, source: 'active' as const }
+    openAIQuotaSnapshotCache.set(props.account.id, activeResult)
+    data.value = activeResult
+    emit('quota-updated', activeResult)
     if (result.cache_persisted) {
-      cachedData.value = result
+      cachedData.value = activeResult
     } else {
       resetWarning.value = t('admin.accounts.openaiQuotaReset.refreshCachePersistFailed')
     }
@@ -756,7 +817,7 @@ const handleQuery = async () => {
 
 const clearQuotaSnapshot = () => {
   openAIQuotaSnapshotCache.delete(props.account.id)
-  const fallback = readCachedResetCredits(props.account)
+  const fallback = quotaDataForAccount(props.account)
   cachedData.value = fallback
   data.value = fallback
 }
@@ -821,7 +882,14 @@ watch(
   () => [
     props.account.id,
     props.account.extra?.codex_reset_credit_snapshot,
-    props.account.extra?.codex_rate_limit_snapshot
+    props.account.extra?.codex_rate_limit_snapshot,
+    props.account.extra?.codex_usage_updated_at,
+    props.account.extra?.codex_5h_used_percent,
+    props.account.extra?.codex_5h_window_minutes,
+    props.account.extra?.codex_5h_reset_at,
+    props.account.extra?.codex_7d_used_percent,
+    props.account.extra?.codex_7d_window_minutes,
+    props.account.extra?.codex_7d_reset_at
   ] as const,
   () => {
     // Account row may be reused across paginated lists; reset local state.
@@ -836,6 +904,20 @@ watch(
     showResetConfirm.value = false
     showResetCreditDetails.value = false
   }
+)
+
+watch(
+  () => props.externalQuotaResult,
+  (result) => {
+    if (!result) return
+    const activeResult = { ...result, source: 'active' as const }
+    openAIQuotaSnapshotCache.set(props.account.id, activeResult)
+    data.value = activeResult
+    cachedData.value = activeResult
+    error.value = null
+    emit('quota-updated', activeResult)
+  },
+  { immediate: true }
 )
 
 watch(

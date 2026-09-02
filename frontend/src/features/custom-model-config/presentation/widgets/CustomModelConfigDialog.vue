@@ -136,6 +136,11 @@ const emit = defineEmits<{
 }>();
 
 const availableCapabilities: ModelCapability[] = ['image', 'video', 'audio'];
+const capabilityLabels = computed<Record<ModelCapability, string>>(() => ({
+  image: t('admin.customModelConfig.capabilities.image'),
+  video: t('admin.customModelConfig.capabilities.video'),
+  audio: t('admin.customModelConfig.capabilities.audio'),
+}));
 
 const submitting = ref(false);
 const form = ref({
@@ -184,7 +189,7 @@ function resetForm() {
 }
 
 function getCapabilityLabel(cap: ModelCapability): string {
-  return t(`admin.customModelConfig.capabilities.${cap}`);
+  return capabilityLabels.value[cap];
 }
 
 function handleClose() {

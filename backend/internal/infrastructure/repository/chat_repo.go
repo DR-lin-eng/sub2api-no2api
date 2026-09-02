@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/chatasset"
@@ -85,24 +86,26 @@ func (r *chatConversationRepository) List(
 		q = q.Where(chatConversationUnreadByAdminPredicate())
 	}
 	if search := strings.TrimSpace(filters.Search); search != "" {
-		searchPredicates := []predicate.ChatConversation{
-			chatconversation.HasUserWith(user.Or(
-				user.EmailContainsFold(search),
-				user.UsernameContainsFold(search),
-			)),
-			chatconversation.HasMessagesWith(
-				chatmessage.RecalledAtIsNil(),
-				chatmessage.ContentContainsFold(search),
-			),
-		}
 		if id, err := strconv.ParseInt(search, 10, 64); err == nil && id > 0 {
-			searchPredicates = append(
-				searchPredicates,
+			q = q.Where(chatconversation.Or(
 				chatconversation.IDEQ(id),
 				chatconversation.UserIDEQ(id),
-			)
+			))
+		} else {
+			searchPredicates := []predicate.ChatConversation{
+				chatconversation.HasUserWith(user.Or(
+					user.EmailContainsFold(search),
+					user.UsernameContainsFold(search),
+				)),
+			}
+			if utf8.RuneCountInString(search) >= 2 {
+				searchPredicates = append(searchPredicates, chatconversation.HasMessagesWith(
+					chatmessage.RecalledAtIsNil(),
+					chatmessage.ContentContainsFold(search),
+				))
+			}
+			q = q.Where(chatconversation.Or(searchPredicates...))
 		}
-		q = q.Where(chatconversation.Or(searchPredicates...))
 	}
 
 	total, err := q.Count(ctx)

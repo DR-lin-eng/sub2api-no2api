@@ -96,17 +96,26 @@ func RegisterGatewayRoutes(
 		}
 	}
 	videoGenerationHandler := func(c *gin.Context) {
-		// 先读取请求体以提取模型名
-		bodyBytes, err := pkghttputil.ReadRequestBodyWithPrealloc(c.Request)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": gin.H{"type": "invalid_request_error", "message": "Failed to read request body"},
-			})
-			return
+		bodyBytes, buffered := pkghttputil.BufferedRequestBody(c.Request)
+		if !buffered {
+			var err error
+			bodyBytes, err = pkghttputil.ReadRequestBodyWithPrealloc(c.Request)
+			if err != nil {
+				status := http.StatusBadRequest
+				message := "Failed to read request body"
+				var maxErr *http.MaxBytesError
+				if errors.As(err, &maxErr) {
+					status = http.StatusRequestEntityTooLarge
+					message = "Request body is too large"
+				}
+				c.JSON(status, gin.H{
+					"error": gin.H{"type": "invalid_request_error", "message": message},
+				})
+				return
+			}
 		}
 		if len(bodyBytes) > 0 {
-			// 恢复请求体供后续 handler 使用
-			c.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+			resetRequestBody(c, bodyBytes)
 
 			// 尝试解析模型名
 			modelName := gjson.GetBytes(bodyBytes, "model").String()
@@ -573,6 +582,7 @@ func compositeGeminiModelFromParams(c *gin.Context) string {
 }
 
 func resetRequestBody(c *gin.Context, body []byte) {
+	c.Request = pkghttputil.WithBufferedRequestBody(c.Request, body)
 	c.Request.Body = io.NopCloser(bytes.NewReader(body))
 	c.Request.ContentLength = int64(len(body))
 	c.Request.Header.Set("Content-Length", strconv.Itoa(len(body)))

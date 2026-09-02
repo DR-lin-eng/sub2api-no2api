@@ -49,7 +49,7 @@ import { getAll as getAllGroups } from '@/features/admin-groups/data/datasources
 import { useTableLoader } from '@/common/composables/useTableLoader'
 import { useSwipeSelect, type SwipeSelectVirtualContext } from '@/common/composables/useSwipeSelect'
 import { useTableSelection } from '@/common/composables/useTableSelection'
-import { fetchAllAccountIds } from '@/features/admin-accounts/presentation/composables/accountSelection'
+import { accountMatchesFilters, fetchAllAccountIds } from '@/features/admin-accounts/presentation/composables/accountSelection'
 import {
   ACCOUNT_SORT_STORAGE_KEY,
   loadInitialAccountSortState,
@@ -79,6 +79,7 @@ import { useAccountTablePresentation } from '@/features/admin-accounts/presentat
 import { useAccountColumnPreferences } from '@/features/admin-accounts/presentation/composables/useAccountColumnPreferences'
 import { useAccountTodayStats } from '@/features/admin-accounts/presentation/composables/useAccountTodayStats'
 import type { AccountTableViewContext } from '@/features/admin-accounts/presentation/accountTableViewContext'
+import { buildAccountQueryFiltersFromState, mergeRuntimeFields } from '@/features/admin-accounts/presentation/accountListTransforms'
 import type { Account, AccountPlatform, AccountType, Proxy as AccountProxy, AdminGroup } from '@/types'
 import type { ClaudeModel } from '@/features/admin-accounts/data/dtos/adminAccountDtos'
 
@@ -165,6 +166,8 @@ const {
   upstreamQuotaResults,
   upstreamQuotaErrors,
   bulkQueryingUpstreamQuota,
+  bulkQueryingOpenAIQuota,
+  bulkOpenAIQuotaResults,
   upstreamBillingFeedback,
   upstreamQuotaFeedback,
   upstreamBillingProbeGloballyEnabled,
@@ -177,6 +180,7 @@ const {
   handleQueryUpstreamQuota,
   handleBulkProbeUpstreamBilling,
   handleBulkQueryUpstreamQuota,
+  handleBulkQueryOpenAIQuota,
   disposeUpstreamBilling
 } = useAccountsUpstreamBilling({
   currentAdminID: () => authStore.user?.id ?? null,
@@ -864,6 +868,7 @@ const handleBulkRefreshToken = async () => {
     appStore.showError(String(error))
   }
 }
+
 const updateSchedulableInList = (accountIds: number[], schedulable: boolean) => {
   if (accountIds.length === 0) return
   const idSet = new Set(accountIds)
@@ -1053,116 +1058,7 @@ const handleDataImported = () => {
   showImportData.value = false
   reload()
 }
-const ACCOUNT_UNGROUPED_GROUP_QUERY_VALUE = 'ungrouped'
-const ACCOUNT_PRIVACY_MODE_UNSET_QUERY_VALUE = '__unset__'
-const buildAccountQueryFilters = () => ({
-  platform: params.platform || '',
-  type: params.type || '',
-  status: params.status || '',
-  oauth_quota: params.oauth_quota || '',
-  group: params.group || '',
-  privacy_mode: params.privacy_mode || '',
-  search: params.search || '',
-  sort_by: sortState.sort_by,
-  sort_order: sortState.sort_order
-})
-const readQuotaNumber = (value: unknown): number | null => {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : null
-  }
-  return null
-}
-const quotaResetIsActive = (value: unknown, unixSeconds = false): boolean => {
-  if (value == null || value === '') return true
-  if (unixSeconds) {
-    const seconds = readQuotaNumber(value)
-    return seconds == null || seconds > Date.now() / 1000
-  }
-  if (typeof value !== 'string' && !(value instanceof Date)) return true
-  const timestamp = new Date(value).getTime()
-  return Number.isNaN(timestamp) || timestamp > Date.now()
-}
-const accountHasExhaustedOAuthQuota = (account: Account): boolean => {
-  if (account.type !== 'oauth' || !account.extra) return false
-  const percentWindows = [
-    ['codex_5h_used_percent', 'codex_5h_reset_at'],
-    ['codex_7d_used_percent', 'codex_7d_reset_at'],
-    ['codex_primary_used_percent', 'codex_primary_reset_at'],
-    ['codex_secondary_used_percent', 'codex_secondary_reset_at']
-  ]
-  if (percentWindows.some(([usageKey, resetKey]) =>
-    (readQuotaNumber(account.extra?.[usageKey]) ?? -1) >= 100 && quotaResetIsActive(account.extra?.[resetKey])
-  )) return true
-  const ratioWindows = [
-    ['session_window_utilization', 'session_window_end'],
-    ['passive_usage_7d_utilization', 'passive_usage_7d_reset'],
-    ['passive_usage_7d_oi_utilization', 'passive_usage_7d_oi_reset']
-  ]
-  if (ratioWindows.some(([usageKey, resetKey]) => {
-    const resetValue = resetKey === 'session_window_end' ? account.session_window_end : account.extra?.[resetKey]
-    return (readQuotaNumber(account.extra?.[usageKey]) ?? -1) >= 1 && quotaResetIsActive(resetValue, resetKey !== 'session_window_end')
-  })) return true
-  const billing = account.extra.grok_billing_snapshot
-  if (billing && typeof billing === 'object' && !Array.isArray(billing)) {
-    const snapshot = billing as Record<string, unknown>
-    const billingWindowActive = quotaResetIsActive(snapshot.period_end) && quotaResetIsActive(snapshot.billing_period_end)
-    return billingWindowActive && ['usage_percent', 'used_percent'].some(key => (readQuotaNumber(snapshot[key]) ?? -1) >= 100)
-  }
-  return false
-}
-const accountMatchesCurrentFilters = (account: Account) => {
-  const filters = buildAccountQueryFilters()
-  if (filters.platform && account.platform !== filters.platform) return false
-  if (filters.type && account.type !== filters.type) return false
-  if (filters.oauth_quota === 'exhausted' && !accountHasExhaustedOAuthQuota(account)) return false
-  if (filters.status) {
-    const now = Date.now()
-    const rateLimitResetAt = account.rate_limit_reset_at ? new Date(account.rate_limit_reset_at).getTime() : Number.NaN
-    const isRateLimited = Number.isFinite(rateLimitResetAt) && rateLimitResetAt > now
-    const tempUnschedUntil = account.temp_unschedulable_until ? new Date(account.temp_unschedulable_until).getTime() : Number.NaN
-    const isTempUnschedulable = Number.isFinite(tempUnschedUntil) && tempUnschedUntil > now
-
-    if (filters.status === 'active') {
-      if (account.status !== 'active' || isRateLimited || isTempUnschedulable || !account.schedulable) return false
-    } else if (filters.status === 'rate_limited') {
-      if (account.status !== 'active' || !isRateLimited || isTempUnschedulable) return false
-    } else if (filters.status === 'temp_unschedulable') {
-      if (account.status !== 'active' || !isTempUnschedulable) return false
-    } else if (filters.status === 'unschedulable') {
-      if (account.status !== 'active' || account.schedulable || isRateLimited || isTempUnschedulable) return false
-    } else if (account.status !== filters.status) {
-      return false
-    }
-  }
-  if (filters.group) {
-    const groupIds = account.group_ids ?? account.groups?.map((group) => group.id) ?? []
-    if (filters.group === ACCOUNT_UNGROUPED_GROUP_QUERY_VALUE) {
-      if (groupIds.length > 0) return false
-    } else if (!groupIds.includes(Number(filters.group))) {
-      return false
-    }
-  }
-  const privacyMode = typeof account.extra?.privacy_mode === 'string' ? account.extra.privacy_mode : ''
-  if (filters.privacy_mode) {
-    if (filters.privacy_mode === ACCOUNT_PRIVACY_MODE_UNSET_QUERY_VALUE) {
-      if (privacyMode.trim() !== '') return false
-    } else if (privacyMode !== filters.privacy_mode) {
-      return false
-    }
-  }
-  const search = String(filters.search || '').trim().toLowerCase()
-  if (search && !account.name.toLowerCase().includes(search)) return false
-  return true
-}
-const mergeRuntimeFields = (oldAccount: Account, updatedAccount: Account): Account => ({
-  ...updatedAccount,
-  current_concurrency: updatedAccount.current_concurrency ?? oldAccount.current_concurrency,
-  current_window_cost: updatedAccount.current_window_cost ?? oldAccount.current_window_cost,
-  active_sessions: updatedAccount.active_sessions ?? oldAccount.active_sessions,
-  cpa_capacity: updatedAccount.cpa_capacity ?? oldAccount.cpa_capacity
-})
+const buildAccountQueryFilters = () => buildAccountQueryFiltersFromState(toRaw(params), sortState)
 
 const syncPaginationAfterLocalRemoval = () => {
   const nextTotal = Math.max(0, pagination.total - 1)
@@ -1182,7 +1078,7 @@ const patchAccountInList = (updatedAccount: Account) => {
   const index = accounts.value.findIndex(account => account.id === updatedAccount.id)
   if (index === -1) return
   const mergedAccount = mergeRuntimeFields(accounts.value[index], updatedAccount)
-  if (!accountMatchesCurrentFilters(mergedAccount)) {
+  if (!accountMatchesFilters(mergedAccount, buildAccountQueryFilters())) {
     accounts.value = accounts.value.filter(account => account.id !== mergedAccount.id)
     syncPaginationAfterLocalRemoval()
     removeSelectedAccounts([mergedAccount.id])
@@ -1477,10 +1373,12 @@ const accountTableViewContext = {
   selectingAllResults,
   allResultsSelected,
   bulkQueryingUpstreamQuota,
+  bulkQueryingOpenAIQuota,
   handleBulkDelete,
   handleBulkResetStatus,
   handleBulkRefreshToken,
   handleBulkQueryUpstreamQuota,
+  handleBulkQueryOpenAIQuota,
   handleBulkProbeUpstreamBilling,
   openBulkEditSelected,
   openBulkEditFiltered,
@@ -1517,6 +1415,7 @@ const accountTableViewContext = {
   todayStatsLoading,
   todayStatsError,
   usageManualRefreshToken,
+  bulkOpenAIQuotaResults,
   upstreamQuotaResults,
   upstreamBillingNow,
   upstreamBillingProbeGloballyEnabled,

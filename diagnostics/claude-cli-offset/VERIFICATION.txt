@@ -1,0 +1,109 @@
+Claude CLI Read offset investigation verification
+
+Publication base/branch:
+- base ref: origin/main at 0d9727a02077333146ff7cef4d2d98848013946a
+- branch: codex/fix-claude-cli-read-offset
+
+Changed branch/field:
+- branch: unclassified -> sanitized-read-offset
+- field: pending -> response.function_call_arguments.delta
+
+Artifacts:
+- MODIFIED_FILE: /Users/lin/.codex/worktrees/4258/sub2api-no2api/diagnostics/claude-cli-offset/MODIFIED_FILE.json
+- DIFF_FILE: /Users/lin/.codex/worktrees/4258/sub2api-no2api/diagnostics/claude-cli-offset/DIFF_FILE.diff
+- VERIFICATION.txt: /Users/lin/.codex/worktrees/4258/sub2api-no2api/diagnostics/claude-cli-offset/VERIFICATION.txt
+- ROLLBACK.sh: /Users/lin/.codex/worktrees/4258/sub2api-no2api/diagnostics/claude-cli-offset/ROLLBACK.sh
+- ORIGINAL_FILE: /Users/lin/.codex/worktrees/4258/sub2api-no2api/diagnostics/claude-cli-offset/ORIGINAL_FILE.json
+
+Original hash (preserved):
+2318b589e35ea481bb1700a161e6c176b2b90c505da24e8e0c31d5ae62e17daf  ORIGINAL_FILE.json
+
+BASELINE exact command/input/result:
+- cwd: /Users/lin/.codex/worktrees/4258/sub2api-no2api
+- command: jq -e '(.branch == "unclassified") and (.field == "pending") and (.observed_result == "pending")' diagnostics/claude-cli-offset/ORIGINAL_FILE.json
+- input: ORIGINAL_FILE.json with branch=unclassified and field=pending
+- literal output: true
+- exit status: 0
+- result: baseline fixture passed
+- command: GOCACHE=/private/tmp/sub2api-gocache go test ./internal/shared/apicompat -run 'TestResponsesToAnthropic_ReadToolDropsEmptyPages' -count=1
+- cwd: /Users/lin/.codex/worktrees/4258/sub2api-no2api/backend
+- literal output: ok  github.com/Wei-Shaw/sub2api/internal/shared/apicompat  0.380s
+- exit status: 0
+- result: baseline Go regression tests passed
+
+MODIFIED exact command/input/result:
+- command: jq -e '(.branch == "sanitized-read-offset") and (.field == "response.function_call_arguments.delta") and (.observed_result | contains("\\\"limit\\\":60}")) and (.observed_result | contains("5180581636390513") | not)' ../diagnostics/claude-cli-offset/MODIFIED_FILE.json
+- cwd: /Users/lin/.codex/worktrees/4258/sub2api-no2api/backend
+- input: MODIFIED_FILE.json after the Read offset sanitizer branch
+- literal output: true
+- exit status: 0
+- result: modified fixture passed and records the sanitized output
+- command: GOCACHE=/private/tmp/sub2api-gocache go test ./internal/shared/apicompat -run 'Test(ResToAnthFuncArgsDelta_ReadToolDropsAbsurdOffset|ResToAnthFuncArgsDelta_ReadToolReassemblesReportedOffsetFragments|SanitizeClaudeReadOffsetPreservesPracticalValues|ResponsesToAnthropic_ReadToolDropsAbsurdOffset|AnthropicToResponses_CleansAbsurdReadOffsetFromHistory)' -count=1
+- cwd: /Users/lin/.codex/worktrees/4258/sub2api-no2api/backend
+- literal output: ok  github.com/Wei-Shaw/sub2api/internal/shared/apicompat  0.612s
+- exit status: 0
+- result: modified offset-sanitization regression tests passed
+
+ROLLBACK exact command/input/result:
+- command: cp diagnostics/claude-cli-offset/MODIFIED_FILE.json /private/tmp/claude-cli-offset-rollback.json && ./diagnostics/claude-cli-offset/ROLLBACK.sh /private/tmp/claude-cli-offset-rollback.json
+- cwd: /Users/lin/.codex/worktrees/4258/sub2api-no2api
+- input: another copy at /private/tmp/claude-cli-offset-rollback.json
+- literal output: restored /private/tmp/claude-cli-offset-rollback.json from ORIGINAL_FILE.json
+- rollback exit status: 0
+- command: cmp diagnostics/claude-cli-offset/ORIGINAL_FILE.json /private/tmp/claude-cli-offset-rollback.json
+- literal output: (empty)
+- comparison exit status: 0
+- literal output after status probe: modified branch=sanitized-read-offset; rollback branch=unclassified; modified result={\\\"file_path\\\":\\\"/tmp/demo.ts\\\",\\\"limit\\\":60}; rollback result=pending
+- restored behavior/status: rollback copy branch=unclassified and result=pending; MODIFIED_FILE remains branch=sanitized-read-offset and result omits offset
+
+DIFF_FILE generation:
+- command: diff -u diagnostics/claude-cli-offset/ORIGINAL_FILE.json diagnostics/claude-cli-offset/MODIFIED_FILE.json > diagnostics/claude-cli-offset/DIFF_FILE.diff
+- exit status: 1 (expected: files differ)
+- MODIFIED_FILE hash: cf6522964f22124142f268f16a66e92dae61938cd391f3d95676bd6f612ab36a
+- DIFF_FILE hash: 10fece764a227eecb086599bf4dd762cd33378fde30a5d7925eb1566b4eb8094
+- ROLLBACK.sh hash: 6496f5d3ecf51fa610136412420c40c7ddb65c9b7ec9d62f77decb67234cb139
+
+Observed source boundary:
+- ResponsesStreamEvent.Arguments/Delta are strings, so JSON number precision is not involved in the response-side conversion.
+- The Read sanitizer removes pages="" and omits only absurd offsets above 1e12; it does not guess a replacement line number.
+
+BASELINE/MODIFIED/ROLLBACK command status summary after the production fix:
+- baseline fixture: `jq -e ... ORIGINAL_FILE.json`, output `true`, exit `0`.
+- modified fixture: `jq -e ... MODIFIED_FILE.json`, output `true`, exit `0`.
+- modified package tests: output `ok github.com/Wei-Shaw/sub2api/internal/shared/apicompat 0.593s`, exit `0`.
+- rollback copy: `ROLLBACK.sh` output `restored /private/tmp/claude-cli-offset-rollback.json from ORIGINAL_FILE.json`, exit `0`; `cmp` output empty, exit `0`.
+
+Broader regression verification:
+- command: GOCACHE=/private/tmp/sub2api-gocache go test ./internal/shared/apicompat ./internal/application/service ./internal/transport/http/handler
+- cwd: /Users/lin/.codex/worktrees/4258/sub2api-no2api/backend
+- literal output: ok  github.com/Wei-Shaw/sub2api/internal/shared/apicompat  0.612s; ok  github.com/Wei-Shaw/sub2api/internal/application/service  126.002s; ok  github.com/Wei-Shaw/sub2api/internal/transport/http/handler  31.560s
+- exit status: 0
+- result: Claude-compatible adapter, service, and HTTP handler suites passed
+
+Publication-copy full test:
+- command: GOCACHE=/private/tmp/sub2api-gocache go test ./...
+- cwd: /private/tmp/sub2api-claude-offset-publish/backend
+- literal output: all backend packages `ok` or `[no test files]`; representative lines include `ok github.com/Wei-Shaw/sub2api/internal/application/service 126.002s` and `ok github.com/Wei-Shaw/sub2api/internal/transport/http/handler 31.560s`
+- exit status: 0
+
+Additional checks:
+- command: make check-docs
+- cwd: /Users/lin/.codex/worktrees/4258/sub2api-no2api
+- literal output: Documentation checks passed.
+- exit status: 0
+- command: GOCACHE=/private/tmp/sub2api-gocache go test -race ./internal/shared/apicompat
+- cwd: /Users/lin/.codex/worktrees/4258/sub2api-no2api/backend
+- literal output: ok  github.com/Wei-Shaw/sub2api/internal/shared/apicompat  1.654s
+- exit status: 0
+- command: GOCACHE=/private/tmp/sub2api-gocache make test-backend
+- cwd: /Users/lin/.codex/worktrees/4258/sub2api-no2api
+- result: `go test ./...` passed for all backend packages; the subsequent lint step stopped with `make[1]: golangci-lint: No such file or directory`
+- exit status: 2 (lint executable absent; Go test phase passed)
+- command: GOCACHE=/private/tmp/sub2api-gocache go test ./...
+- cwd: /Users/lin/.codex/worktrees/4258/sub2api-no2api/backend
+- literal output: all backend packages `ok` or `[no test files]`
+- exit status: 0
+- command: GOCACHE=/private/tmp/sub2api-gocache go vet ./internal/shared/apicompat
+- cwd: /Users/lin/.codex/worktrees/4258/sub2api-no2api/backend
+- literal output: (empty)
+- exit status: 0

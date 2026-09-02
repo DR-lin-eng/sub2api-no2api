@@ -53,12 +53,6 @@ export default {
           enabledHint: '关闭后用户端侧边栏入口隐藏，接口返回空数组。',
         },
         supportChat: supportChatMessages,
-        activityCenter: {
-          title: '活动中心',
-          description: '控制用户侧活动中心入口，用于承载公告活动、任务、奖励和运营时间线。默认关闭。',
-          enabled: '启用活动中心',
-          enabledHint: '关闭后用户侧边栏隐藏活动中心入口，直接访问 /activity-center 会返回仪表盘。',
-        },
         modelPlaza: {
           title: '模型广场',
           description: '以分组为单位向访客展示可用模型与价格的公开页面。默认关闭。',
@@ -686,12 +680,9 @@ export default {
         namePlaceholder: '如：帮助中心',
         url: '页面 URL',
         urlPlaceholder: 'https://example.com/page',
-        forwardAccessToken: '转发用户访问令牌',
+        forwardAccessToken: '向嵌入页提供权限验证令牌',
         forwardAccessTokenHint:
-          '默认关闭。开启后会通过限定目标来源的浏览器消息，把当前用户会话委托给嵌入页面。仅对完全可信的页面开启。',
-        forwardAccessTokenInUrl: '通过 URL 转发用户访问令牌',
-        forwardAccessTokenInUrlHint:
-          '默认关闭。开启后会把令牌写入 iframe 和新窗口 URL 的 token 参数，可能出现在历史记录、日志和访问来源中。仅对完全可信且兼容旧版 URL 认证的页面开启。',
+          '默认关闭。开启后仅通过限定目标来源的浏览器消息发送 90 秒有效、限当前菜单使用的权限令牌；不会发送登录凭证，令牌不能登录 Sub2API。远程页面必须使用 HTTPS。',
         iconSvg: 'SVG 图标',
         iconSvgPlaceholder: '<svg>...</svg>',
         iconPreview: '图标预览',
@@ -1032,12 +1023,18 @@ export default {
         saveFailed: '保存过载冷却设置失败'
       },
       rateLimit429Cooldown: {
-        title: '429 默认回避',
-        description: '配置上游返回 429 且没有明确重置时间时的默认账号回避策略',
+        title: '429 回避与 OAuth 熔断',
+        description: '配置无 reset 的 429 回避，以及连续 429/502 后关闭 OpenAI OAuth 账号调度的策略',
         enabled: '启用 429 默认回避',
         enabledHint: '收到无重置时间的 429 时暂停该账号调度，冷却后自动恢复',
         cooldownSeconds: '回避时长（秒）',
         cooldownSecondsHint: '默认回避持续时间（1-7200 秒）；上游返回明确 reset 时仍优先使用上游时间',
+        autoDisable: '连续 429/502 后关闭 OAuth 账号调度',
+        autoDisableHint: '达到阈值后将 OpenAI OAuth 账号从所有号池持久移除；API Key 对接账号不受影响。',
+        autoDisableThreshold: '连续失败阈值',
+        autoDisableThresholdHint: '仅统计 OAuth 账号级 429 和 502；成功请求会清零计数（1-100 次）。',
+        quotaCheck: '关闭前实时确认额度限额',
+        quotaCheckHint: '达到阈值后查询主 Codex 额度；仅在上游明确限额或已用比例达到 100% 时关闭。查询失败、额度未知或尚有额度时保持可调度。',
         saved: '429 默认回避设置保存成功',
         saveFailed: '保存 429 默认回避设置失败'
       },

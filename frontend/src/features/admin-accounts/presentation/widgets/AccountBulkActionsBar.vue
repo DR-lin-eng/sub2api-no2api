@@ -50,6 +50,13 @@
         >
           {{ t('admin.accounts.bulkActions.queryUpstreamQuota') }}
         </button>
+        <button
+          :disabled="queryingOpenaiQuota"
+          @click="$emit('query-openai-quota')"
+          class="btn btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {{ t('admin.accounts.bulkActions.queryOpenAIQuota') }}
+        </button>
         <button @click="$emit('probe-upstream-billing')" class="btn btn-secondary btn-sm">{{ t('admin.accounts.bulkActions.probeUpstreamBilling') }}</button>
         <button @click="$emit('toggle-schedulable', true)" class="btn btn-success btn-sm">{{ t('admin.accounts.bulkActions.enableScheduling') }}</button>
         <button @click="$emit('toggle-schedulable', false)" class="btn btn-warning btn-sm">{{ t('admin.accounts.bulkActions.disableScheduling') }}</button>
@@ -71,11 +78,13 @@ withDefaults(defineProps<{
   selectingAll?: boolean
   allResultsSelected?: boolean
   queryingUpstreamQuota?: boolean
+  queryingOpenaiQuota?: boolean
 }>(), {
   totalResults: 0,
   selectingAll: false,
   allResultsSelected: false,
-  queryingUpstreamQuota: false
+  queryingUpstreamQuota: false,
+  queryingOpenaiQuota: false
 })
 defineEmits([
   'delete',
@@ -88,6 +97,7 @@ defineEmits([
   'reset-status',
   'refresh-token',
   'query-upstream-quota',
+  'query-openai-quota',
   'probe-upstream-billing'
 ])
 

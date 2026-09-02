@@ -63,9 +63,6 @@ func appendNotificationAndRiskSettingChanges(changed []string, before, after *se
 	if before.MediaStudioEnabled != after.MediaStudioEnabled {
 		changed = append(changed, "media_studio_enabled")
 	}
-	if before.ActivityCenterEnabled != after.ActivityCenterEnabled {
-		changed = append(changed, "activity_center_enabled")
-	}
 	if before.CustomModelConfigEnabled != after.CustomModelConfigEnabled {
 		changed = append(changed, "custom_model_config_enabled")
 	}

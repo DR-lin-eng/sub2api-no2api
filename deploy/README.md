@@ -750,8 +750,10 @@ Sub2API supports opt-in, account-scoped TLS fingerprint simulation for Claude Co
 - Built-in OpenAI profile follows the Codex Rustls aws-lc-rs provider parameters
 - JA3 Hash: `1a28e69016765d92e3b381168d68922c`
 - JA4: `t13d5911h1_a33745022dd6_1f22a2ca17c4`
-- Profile selection is stable per account ID (rendezvous hashing); repeated requests and
-  WebSocket reconnects for one account reuse the same profile. An explicit profile binding wins.
+- Unbound OpenAI/Codex accounts receive a stable pseudo-random wire variant per account ID;
+  repeated requests and WebSocket reconnects for one account reuse the same variant. An explicit
+  profile binding remains the base family but still derives a distinct OpenAI OAuth account variant.
+  The persisted JWT secret HMAC-scopes variant seeds and is never sent in ClientHello.
 
 ### Configuration
 
@@ -795,7 +797,8 @@ gateway:
 
 **Curves:** `29` (X25519), `23` (P-256), `24` (P-384), `25` (P-521)
 
-OpenAI/Codex's built-in profile offers `h2` and `http/1.1` ALPN. WebSocket upgrades use an
-HTTP/1.1-only copy of that profile. Rustls randomizes ClientHello extension order per handshake,
-so this feature guarantees stable provider parameters and account isolation, not a byte-identical
-cross-platform JA3 hash.
+OpenAI/Codex's built-in profile describes `h2` and `http/1.1` ALPN. The HTTP upstream uTLS
+adapter uses an HTTP/1.1-only copy because Go's standard HTTP/2 adapter requires a concrete
+`*tls.Conn`, while uTLS returns `*utls.UConn`; WebSocket upgrades use the same HTTP/1.1 copy.
+Rustls randomizes ClientHello extension order per handshake, so this feature guarantees stable
+provider parameters and account isolation, not a byte-identical cross-platform JA3 hash.

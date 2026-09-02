@@ -766,6 +766,7 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 			OpenAIOAuthSupportedModelsExtraKey,
 			OpenAIOAuthSupportedModelsSyncedAtExtraKey,
 			CodexVirtualClientKeyExtraKey,
+			AccountSchedulingDisabledReasonExtraKey,
 		} {
 			if v, ok := account.Extra[key]; ok {
 				normalizedExtra[key] = v
@@ -996,6 +997,7 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	delete(input.Extra, OllamaCloudUsageSessionExtraKey)
 	delete(input.Extra, OllamaCloudUsageAutoRefreshExtraKey)
 	delete(input.Extra, OllamaCloudUsageSnapshotExtraKey)
+	delete(input.Extra, AccountSchedulingDisabledReasonExtraKey)
 
 	if len(input.AccountIDs) == 0 && input.Filters != nil {
 		accountIDs, err := s.resolveBulkUpdateTargetIDs(ctx, input.Filters)
@@ -1222,6 +1224,9 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 		}
 
 		entry.Success = true
+		if input.Schedulable != nil && *input.Schedulable && s.runtimeStateCleaner != nil {
+			s.runtimeStateCleaner.DeleteAccountRuntimeState(accountID)
+		}
 		result.Success++
 		result.SuccessIDs = append(result.SuccessIDs, accountID)
 		result.Results = append(result.Results, entry)
@@ -1354,6 +1359,9 @@ func (s *adminServiceImpl) bulkUpdateAccountsWithCPA(
 			result.FailedIDs = append(result.FailedIDs, accountID)
 		} else {
 			entry.Success = true
+			if input.Schedulable != nil && *input.Schedulable && s.runtimeStateCleaner != nil {
+				s.runtimeStateCleaner.DeleteAccountRuntimeState(accountID)
+			}
 			result.Success++
 			result.SuccessIDs = append(result.SuccessIDs, accountID)
 		}
@@ -1495,8 +1503,11 @@ func (s *adminServiceImpl) SetAccountError(ctx context.Context, id int64, errorM
 }
 
 func (s *adminServiceImpl) SetAccountSchedulable(ctx context.Context, id int64, schedulable bool) (*Account, error) {
-	if err := s.accountRepo.SetSchedulable(ctx, id, schedulable); err != nil {
+	if err := setAccountSchedulableWithReason(ctx, s.accountRepo, id, schedulable, ""); err != nil {
 		return nil, err
+	}
+	if schedulable && s.runtimeStateCleaner != nil {
+		s.runtimeStateCleaner.DeleteAccountRuntimeState(id)
 	}
 	updated, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {

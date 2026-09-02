@@ -243,9 +243,31 @@ func NewOpenAIQuotaService(
 // stable error codes / HTTP statuses.
 func (s *OpenAIQuotaService) QueryUsage(ctx context.Context, accountID int64) (*OpenAIQuotaUsage, error) {
 	if s != nil && cLevelTransportSimulationEnabled(s.settingService) && s.httpUpstream != nil {
-		return s.queryUsageWithAccountTransport(ctx, accountID)
+		return s.queryUsageWithAccountTransport(ctx, accountID, true)
 	}
-	return s.queryUsage(ctx, accountID, false)
+	return s.queryUsage(ctx, accountID, false, true)
+}
+
+// IsQuotaLimitReached performs the narrow live check used before an optional
+// failure-circuit shutdown. It skips reset-credit and token-activity requests
+// because neither is needed to decide whether the main Codex limit was reached.
+func (s *OpenAIQuotaService) IsQuotaLimitReached(ctx context.Context, accountID int64) (bool, error) {
+	if s == nil {
+		return false, fmt.Errorf("openai quota service is unavailable")
+	}
+	var (
+		usage *OpenAIQuotaUsage
+		err   error
+	)
+	if s != nil && cLevelTransportSimulationEnabled(s.settingService) && s.httpUpstream != nil {
+		usage, err = s.queryUsageWithAccountTransport(ctx, accountID, false)
+	} else {
+		usage, err = s.queryUsage(ctx, accountID, false, false)
+	}
+	if err != nil {
+		return false, err
+	}
+	return isOpenAIQuotaUsageLimitReached(usage), nil
 }
 
 // QueryUsageWithServerUsage performs the same quota query and additionally
@@ -253,10 +275,10 @@ func (s *OpenAIQuotaService) QueryUsage(ctx context.Context, accountID int64) (*
 // from QueryUsage so background Spark/shadow refreshes do not incur an extra
 // profile request unless an administrator explicitly queries the quota card.
 func (s *OpenAIQuotaService) QueryUsageWithServerUsage(ctx context.Context, accountID int64) (*OpenAIQuotaUsage, error) {
-	return s.queryUsage(ctx, accountID, true)
+	return s.queryUsage(ctx, accountID, true, true)
 }
 
-func (s *OpenAIQuotaService) queryUsage(ctx context.Context, accountID int64, includeServerUsage bool) (*OpenAIQuotaUsage, error) {
+func (s *OpenAIQuotaService) queryUsage(ctx context.Context, accountID int64, includeServerUsage, includeResetCredits bool) (*OpenAIQuotaUsage, error) {
 	var route platformegress.Route
 	accessToken, chatGPTAccountID, proxyURL, fedRAMP, err := s.prepareUpstreamCall(ctx, accountID, &route)
 	if err != nil {
@@ -304,20 +326,22 @@ func (s *OpenAIQuotaService) queryUsage(ctx context.Context, accountID int64, in
 	}
 
 	payload.FetchedAt = time.Now().Unix()
-	details := s.queryResetCreditDetails(callCtx, client, accessToken, chatGPTAccountID, fedRAMP, accountID)
-	if details != nil {
-		hasDetailCount := details.AvailableCount != nil
-		if payload.RateLimitResetCredits == nil {
-			payload.RateLimitResetCredits = &OpenAIRateLimitResetCredits{}
-		}
-		if details.CreditListPresent {
-			payload.RateLimitResetCredits.Credits = details.Credits
-		}
-		switch {
-		case hasDetailCount:
-			payload.RateLimitResetCredits.AvailableCount = *details.AvailableCount
-		case details.CreditListPresent:
-			payload.RateLimitResetCredits.AvailableCount = details.AvailableCreditCount
+	if includeResetCredits {
+		details := s.queryResetCreditDetails(callCtx, client, accessToken, chatGPTAccountID, fedRAMP, accountID)
+		if details != nil {
+			hasDetailCount := details.AvailableCount != nil
+			if payload.RateLimitResetCredits == nil {
+				payload.RateLimitResetCredits = &OpenAIRateLimitResetCredits{}
+			}
+			if details.CreditListPresent {
+				payload.RateLimitResetCredits.Credits = details.Credits
+			}
+			switch {
+			case hasDetailCount:
+				payload.RateLimitResetCredits.AvailableCount = *details.AvailableCount
+			case details.CreditListPresent:
+				payload.RateLimitResetCredits.AvailableCount = details.AvailableCreditCount
+			}
 		}
 	}
 	if includeServerUsage {

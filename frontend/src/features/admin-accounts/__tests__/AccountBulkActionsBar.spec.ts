@@ -43,4 +43,23 @@ describe('AccountBulkActionsBar', () => {
     await button!.trigger('click')
     expect(wrapper.emitted('probe-upstream-billing')).toHaveLength(1)
   })
+
+  it('exposes the active OpenAI OAuth quota batch action', async () => {
+    const wrapper = mount(AccountBulkActionsBar, {
+      props: {
+        selectedIds: [1, 2],
+        queryingOpenaiQuota: false
+      }
+    })
+
+    const button = wrapper.findAll('button').find(item =>
+      item.text().includes('admin.accounts.bulkActions.queryOpenAIQuota')
+    )
+    expect(button).toBeDefined()
+    await button!.trigger('click')
+    expect(wrapper.emitted('query-openai-quota')).toHaveLength(1)
+
+    await wrapper.setProps({ queryingOpenaiQuota: true })
+    expect(button!.attributes('disabled')).toBeDefined()
+  })
 })

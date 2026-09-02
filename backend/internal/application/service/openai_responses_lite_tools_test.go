@@ -171,6 +171,50 @@ func TestNormalizeOpenAIResponsesLiteToolsRejectsNonBooleanParallelFlag(t *testi
 	require.False(t, changed)
 }
 
+func TestNormalizeOpenAIResponsesLitePayloadForAccount_APIKeyPinsParallelCalls(t *testing.T) {
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	body := []byte(`{"model":"gpt-5.6","parallel_tool_calls":true,"tools":[{"type":"function","name":"shell"}]}`)
+
+	updated, changed, err := normalizeOpenAIResponsesLitePayloadForAccount(body, account)
+
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.False(t, gjson.GetBytes(updated, "parallel_tool_calls").Bool())
+	require.True(t, gjson.GetBytes(updated, "tools.0").Exists())
+}
+
+func TestNormalizeOpenAIResponsesLitePayloadForAccount_APIKeyPreservesNumbersAndValidatesFlag(t *testing.T) {
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	body := []byte(`{"model":"gpt-5.6","parallel_tool_calls":"true","temperature":0.123456789012345678}`)
+
+	updated, changed, err := normalizeOpenAIResponsesLitePayloadForAccount(body, account)
+
+	require.ErrorContains(t, err, "parallel_tool_calls to be a boolean")
+	require.False(t, changed)
+	require.Equal(t, body, updated)
+}
+
+func TestNormalizeOpenAIResponsesLiteParallelPayload_PreservesLargeNumbers(t *testing.T) {
+	body := []byte(`{"model":"gpt-5.6","sequence":900719925474099312345,"parallel_tool_calls":true}`)
+	updated, changed, err := normalizeOpenAIResponsesLiteParallelToolCallsPayload(body)
+
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, "900719925474099312345", gjson.GetBytes(updated, "sequence").Raw)
+	require.False(t, gjson.GetBytes(updated, "parallel_tool_calls").Bool())
+}
+
+func TestNormalizeOpenAIResponsesLitePayloadForAccount_NonOpenAIIsNoop(t *testing.T) {
+	account := &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey}
+	body := []byte(`{"parallel_tool_calls":true}`)
+
+	updated, changed, err := normalizeOpenAIResponsesLitePayloadForAccount(body, account)
+
+	require.NoError(t, err)
+	require.False(t, changed)
+	require.Equal(t, body, updated)
+}
+
 func TestNormalizeOpenAIResponsesLiteTools_EnsuresReasoningContext(t *testing.T) {
 	tests := []struct {
 		name      string

@@ -49,6 +49,15 @@
               </p>
             </div>
             <div class="flex shrink-0 items-center gap-1 text-xs sm:gap-2">
+              <button
+                v-if="selectedConversationID"
+                type="button"
+                class="btn btn-secondary btn-sm px-2 sm:px-3"
+                :disabled="messagesLoading || markingUnread || selectedConversation?.manually_unread_by_admin"
+                @click="markSelectedUnread"
+              >
+                {{ selectedConversation?.manually_unread_by_admin ? t('supportChat.markedUnread') : t('supportChat.markUnread') }}
+              </button>
               <span class="inline-flex items-center gap-1 rounded-full px-2 py-1 font-medium sm:px-2.5" :class="socketConnected ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200' : 'bg-gray-100 text-gray-600 dark:bg-dark-800 dark:text-dark-300'">
                 <span class="h-2 w-2 rounded-full" :class="socketConnected ? 'bg-emerald-500' : 'bg-gray-400'"></span>
                 <span class="hidden sm:inline">{{ socketConnected ? t('supportChat.connected') : t('supportChat.offline') }}</span>
@@ -59,16 +68,6 @@
                   <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M7.977 14.652H2.985m0 0v.001m0-.001l3.181-3.183a8.25 8.25 0 0113.803 3.7" />
                 </svg>
               </button>
-              <button
-                v-if="selectedConversationID"
-                type="button"
-                class="btn btn-secondary btn-sm px-2 sm:px-3"
-                :disabled="markingUnread || selectedConversation?.manually_unread_by_admin"
-                @click="markSelectedUnread"
-              >
-                <span class="hidden sm:inline">{{ selectedConversation?.manually_unread_by_admin ? t('supportChat.markedUnread') : t('supportChat.markUnread') }}</span>
-                <span class="sm:hidden">{{ selectedConversation?.manually_unread_by_admin ? '!' : '•' }}</span>
-              </button>
             </div>
           </header>
 
@@ -78,7 +77,12 @@
           @scroll="handleMessagePaneScroll"
         >
           <div v-if="selectedConversationID && hasOlderMessages" class="sticky top-0 z-10 mb-3 flex justify-center">
-            <button type="button" class="btn btn-secondary btn-sm shadow-sm" :disabled="messagesLoading || olderMessagesLoading" @click="loadOlderMessages">
+            <button
+              type="button"
+              class="btn btn-secondary btn-sm shadow-sm"
+              :disabled="messagesLoading || olderMessagesLoading"
+              @click="loadOlderMessages"
+            >
               {{ olderMessagesLoading ? t('common.loading') : t('supportChat.loadOlder') }}
             </button>
           </div>
@@ -103,33 +107,36 @@
             :messages="messages"
             own-sender="admin"
             asset-scope="admin"
-            :receiver-unread-count="selectedConversation?.unread_by_user ?? 0"
-            :show-read-state="true"
             allow-recall
             :recalling-message-id="recallingMessageID"
-            @reply="handleReply"
+            :peer-read-at="selectedConversation?.last_read_by_user_at"
+            @reply="replyingTo = $event"
             @recall="requestRecall"
           />
         </div>
 
         <SupportMessageComposer
+          ref="composerRef"
           :sending="sending"
           :disabled="!selectedConversationID || messagesLoading"
-          :draft-key="selectedConversationID ? `admin:${selectedConversationID}` : 'admin:none'"
-          :clear-nonce="composerClearNonce"
-          :image-library="imageLibrary"
-          :stickers="stickers"
+          admin-mode
+          :tools-busy="toolsBusy"
           :replying-to="replyingTo"
-          :conversation="selectedConversation"
-          show-assistant-tools
+          :draft-key="selectedConversationID ? `admin:${selectedConversationID}` : 'admin:none'"
+          :quick-replies="quickReplies"
+          :library-assets="libraryAssets"
+          :sticker-assets="stickerAssets"
           @submit="handleSend"
-          @submit-rich="handleRichSend"
-          @library-image-add-selected="handleLibraryImageAddSelected"
-          @library-image-delete="handleLibraryImageDelete"
-          @sticker-add-selected="handleStickerAddSelected"
-          @sticker-delete="handleStickerDelete"
-          @cancel-reply="handleCancelReply"
+          @upload="handleUpload"
+          @cancel-reply="replyingTo = null"
           @transfer="handleTransfer"
+          @quick-reply-create="handleQuickReplyCreate"
+          @quick-reply-update="handleQuickReplyUpdate"
+          @quick-reply-delete="handleQuickReplyDelete"
+          @quick-reply-reorder="handleQuickReplyReorder"
+          @quick-reply-import="handleQuickReplyImport"
+          @catalog-create="handleCatalogCreate"
+          @catalog-delete="handleCatalogDelete"
         />
         </div>
       </div>
@@ -141,6 +148,15 @@
       :user="userProfile"
       @close="closeUserProfile"
     />
+    <ConfirmDialog
+      :show="Boolean(recallCandidate)"
+      :title="t('supportChat.recall.confirmTitle')"
+      :message="t('supportChat.recall.confirmMessage')"
+      :confirm-text="t('supportChat.recall.action')"
+      danger
+      @confirm="confirmRecall"
+      @cancel="recallCandidate = null"
+    />
   </AppLayout>
 </template>
 
@@ -148,28 +164,32 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
+import ConfirmDialog from '@/common/widgets/feedback/ConfirmDialog.vue'
 import { useAppStore } from '@/core/stores/appStore'
 import { getById as getAdminUserById } from '@/features/admin-users/data/datasources/adminUsersDatasource'
 import {
-  createAdminChatImageLibraryItem,
-  createAdminChatSticker,
-  deleteAdminChatImageLibraryItem,
-  deleteAdminChatSticker,
+  createAdminChatCatalogAsset,
+  createAdminChatQuickReply,
+  deleteAdminChatCatalogAsset,
+  deleteAdminChatQuickReply,
+  importAdminChatQuickReplies,
+  listAdminChatCatalog,
   listAdminChatConversations,
-  listAdminChatImageLibrary,
   listAdminChatMessages,
-  listAdminChatStickers,
+  listAdminChatQuickReplies,
   markAdminChatRead,
   markAdminChatUnread,
   recallAdminChatMessage,
-  sendAdminChatRichMessage,
+  reorderAdminChatQuickReplies,
+  sendAdminChatMessage,
   transferAdminChatBalance,
-  uploadAdminChatAsset,
+  updateAdminChatQuickReply,
+  uploadAdminChatAssets,
+  type ChatAsset,
   type ChatConversation,
-  type ChatSendMessageInput,
-  type ChatImageLibraryItem,
   type ChatMessage,
-  type ChatStickerItem,
+  type ChatQuickReply,
+  type ChatSendMessageInput,
 } from '@/features/support-chat/data/datasources/supportChatDatasource'
 import { useSupportChatSocket } from '@/features/support-chat/presentation/composables/useSupportChatSocket'
 import {
@@ -179,10 +199,6 @@ import {
   SUPPORT_CHAT_MESSAGE_PAGE_SIZE,
 } from '@/features/support-chat/presentation/composables/supportChatHistory'
 import { useSupportChatAdminStore } from '@/features/support-chat/presentation/stores/supportChatAdminStore'
-import {
-  buildImageMessageContent,
-  buildStickerMessageContent,
-} from '@/features/support-chat/presentation/utils/supportChatMessageContent'
 import AdminConversationList from '@/features/support-chat/presentation/widgets/AdminConversationList.vue'
 import SupportMessageComposer from '@/features/support-chat/presentation/widgets/SupportMessageComposer.vue'
 import SupportMessageList from '@/features/support-chat/presentation/widgets/SupportMessageList.vue'
@@ -197,51 +213,37 @@ const conversationTotal = ref(0)
 const conversationsLoading = ref(false)
 const selectedConversationID = ref<number | null>(null)
 const messages = ref<ChatMessage[]>([])
+const replyingTo = ref<ChatMessage | null>(null)
 const messagesLoading = ref(false)
 const olderMessagesLoading = ref(false)
 const sending = ref(false)
-const recallingMessageID = ref<number | null>(null)
 const markingUnread = ref(false)
+const recallingMessageID = ref<number | null>(null)
+const recallCandidate = ref<ChatMessage | null>(null)
+const toolsBusy = ref(false)
+const quickReplies = ref<ChatQuickReply[]>([])
+const libraryAssets = ref<ChatAsset[]>([])
+const stickerAssets = ref<ChatAsset[]>([])
 const search = ref('')
 const unreadOnly = ref(false)
 const socketConnected = ref(false)
 const messagePaneRef = ref<HTMLElement | null>(null)
+const composerRef = ref<InstanceType<typeof SupportMessageComposer> | null>(null)
 const userProfileDialogOpen = ref(false)
 const userProfileLoading = ref(false)
 const userProfile = ref<AdminUser | null>(null)
-const composerClearNonce = ref(0)
-const imageLibrary = ref<ChatImageLibraryItem[]>([])
-const stickers = ref<ChatStickerItem[]>([])
-const replyingTo = ref<ChatMessage | null>(null)
 const selectedConversationSnapshot = ref<ChatConversation | null>(null)
 const messagePage = ref(1)
 const messagePages = ref(1)
 const stickMessagesToBottom = ref(true)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
-let optimisticMessageSeed = 0
-let conversationsRequestID = 0
-
-interface PendingImage {
-  type: 'imageFile' | 'imageUrl'
-  file?: File
-  previewUrl?: string
-  url?: string
-  name: string
-}
-
-interface PendingSticker {
-  id?: string
-  name: string
-  url?: string
-  emoji?: string
-}
-
-interface ComposerSubmitPayload {
-  text: string
-  images?: PendingImage[]
-  sticker?: PendingSticker | null
-  replyTo?: number
-}
+let fallbackPollTimer: ReturnType<typeof setInterval> | null = null
+let messageLoadSequence = 0
+const SUPPORT_CHAT_RESYNC_MS = 15000
+const SUPPORT_CHAT_CONNECTED_RESYNC_MS = 60000
+let lastResyncAt = 0
+const LEGACY_QUICK_REPLY_KEY = 'support_chat_custom_replies_v1'
+const LEGACY_QUICK_REPLY_MIGRATED_KEY = 'support_chat_quick_replies_migrated_v2'
 
 const selectedConversation = computed(() => {
   if (!selectedConversationID.value) return null
@@ -257,35 +259,26 @@ const socket = useSupportChatSocket({
     socketConnected.value = connected
   },
   onMessage: async (message) => {
-    const isCurrentConversation = selectedConversationID.value === message.conversation_id
-
-    // Update conversation list
-    upsertConversationActivity(message, isCurrentConversation)
-
-    // If user sent a message, they've read all admin messages
-    if (message.sender_type === 'user') {
-      const existing = conversations.value.find((item) => item.id === message.conversation_id)
-      if (existing) existing.unread_by_user = 0
-    }
-
-    // If viewing this conversation, append message and mark as read
-    if (isCurrentConversation) {
+    upsertConversationActivity(message)
+    if (selectedConversationID.value === message.conversation_id) {
       appendMessage(message)
-      if (message.sender_type === 'user') {
-        void markSelectedRead()
-      }
+      if (message.sender_type === 'user') await markSelectedRead()
       if (stickMessagesToBottom.value) await scrollToBottom()
     }
   },
   onMessageRecalled: (message) => {
-    if (selectedConversationID.value === message.conversation_id) replaceMessage(message.id, message)
+    if (selectedConversationID.value !== message.conversation_id) return
+    replaceMessage(message)
+    if (replyingTo.value?.id === message.id) replyingTo.value = null
   },
-  onReadState: (conversationID, reader) => {
-    // When user marks as read, clear unread_by_user for that conversation
-    if (reader === 'user') {
-      const existing = conversations.value.find((item) => item.id === conversationID)
-      if (existing) existing.unread_by_user = 0
-    }
+  onReadState: (readState) => {
+    const conversation = conversations.value.find(item => item.id === readState.conversation_id)
+      ?? (selectedConversationSnapshot.value?.id === readState.conversation_id
+        ? selectedConversationSnapshot.value
+        : null)
+    if (!conversation) return
+    if (readState.reader === 'user') conversation.last_read_by_user_at = readState.read_at
+    else conversation.last_read_by_admin_at = readState.read_at
   },
 })
 
@@ -295,28 +288,24 @@ function appendMessage(message: ChatMessage) {
   messages.value.push(message)
 }
 
-function mergeMessages(nextMessages: ChatMessage[]): boolean {
-  let changed = false
-  for (const message of nextMessages) {
-    const index = messages.value.findIndex((item) => item.id === message.id)
-    if (index >= 0) {
-      messages.value[index] = { ...messages.value[index], ...message }
-    } else {
-      messages.value.push(message)
-      changed = true
-    }
+function replaceMessage(message: ChatMessage) {
+  const index = messages.value.findIndex((item) => item.id === message.id)
+  if (index < 0) {
+    messages.value.push(message)
+    return
   }
-  return changed
-}
-
-function messageScrollSignature(): string {
-  return messages.value.map((message) => `${message.id}:${message.created_at}`).join('|')
+  messages.value[index] = message
+  messages.value = [...messages.value]
 }
 
 function isMessagePaneNearBottom(): boolean {
   const pane = messagePaneRef.value
   if (!pane) return true
   return pane.scrollHeight - pane.scrollTop - pane.clientHeight < 80
+}
+
+function messageScrollSignature(): string {
+  return messages.value.map((message) => `${message.id}:${message.created_at}:${message.recalled_at || ''}`).join('|')
 }
 
 function displayUser(conversation: ChatConversation): string {
@@ -332,55 +321,24 @@ function errorMessage(error: unknown, fallback: string): string {
   return fallback
 }
 
-function imageMessageContent(url: string, name: string): string {
-  return buildImageMessageContent(url, name, t('supportChat.composer.imageAlt'))
-}
-
-function stickerMessageContent(sticker: { id?: string; name: string; url?: string; emoji?: string }): string {
-  return buildStickerMessageContent(sticker as { id: string; name: string; url?: string; emoji?: string })
-}
-
-function nextOptimisticMessageID(): number {
-  optimisticMessageSeed += 1
-  return -(Date.now() + optimisticMessageSeed)
-}
-
-function appendOptimisticMessage(content: string): ChatMessage | null {
-  if (!selectedConversationID.value || !content) return null
-  const message: ChatMessage = {
-    id: nextOptimisticMessageID(),
-    conversation_id: selectedConversationID.value,
-    sender_type: 'admin',
-    sender_id: 0,
-    content,
-    created_at: new Date().toISOString(),
-  }
-  appendMessage(message)
-  return message
-}
-
-function replaceMessage(messageID: number, nextMessage: ChatMessage) {
-  messages.value = messages.value.filter((item) => item.id === messageID || item.id !== nextMessage.id)
-  const index = messages.value.findIndex((item) => item.id === messageID)
-  if (index >= 0) {
-    messages.value.splice(index, 1, nextMessage)
-    return
-  }
-  appendMessage(nextMessage)
-}
-
-function upsertConversationActivity(message: ChatMessage, isCurrentlyViewing = false) {
+function upsertConversationActivity(message: ChatMessage) {
   const existing = conversations.value.find((item) => item.id === message.conversation_id)
   if (!existing) {
+    if (selectedConversationSnapshot.value?.id === message.conversation_id) {
+      selectedConversationSnapshot.value.last_message_at = message.created_at
+      if (message.sender_type === 'user') selectedConversationSnapshot.value.unread_by_admin += 1
+    }
     void loadConversations()
     return
   }
   existing.last_message_at = message.created_at
-  if (message.sender_type === 'user' && !isCurrentlyViewing) {
-    // Only increment unread if admin is NOT currently viewing this conversation
+  if (message.sender_type === 'user') {
     existing.unread_by_admin += 1
     appStore.setSupportInboxUnread(true)
     supportChatAdminStore.markHasUnread()
+  }
+  if (selectedConversationSnapshot.value?.id === message.conversation_id) {
+    selectedConversationSnapshot.value = existing
   }
   conversations.value = [...conversations.value].sort((a, b) => {
     const at = Date.parse(a.last_message_at || a.updated_at) || 0
@@ -397,7 +355,7 @@ async function scrollToBottom() {
 }
 
 async function loadConversations() {
-  const requestID = ++conversationsRequestID
+  if (conversationsLoading.value) return
   conversationsLoading.value = true
   try {
     const page = await listAdminChatConversations({
@@ -406,25 +364,24 @@ async function loadConversations() {
       unread_only: unreadOnly.value,
       search: search.value.trim() || undefined,
     })
-    if (requestID !== conversationsRequestID) return
     conversations.value = page.items
+    lastResyncAt = Date.now()
     conversationTotal.value = page.total
     if (unreadOnly.value) {
       supportChatAdminStore.setUnreadConversationCount(page.total)
     } else {
       void supportChatAdminStore.refreshUnreadIndicator(true)
     }
-    if (selectedConversationID.value && !conversations.value.some((item) => item.id === selectedConversationID.value)) {
-      selectedConversationSnapshot.value = conversations.value.find((item) => item.id === selectedConversationID.value) ?? selectedConversationSnapshot.value
+    const selected = selectedConversationID.value
+      ? conversations.value.find((item) => item.id === selectedConversationID.value)
+      : null
+    if (selected) {
+      selectedConversationSnapshot.value = selected
     }
   } catch (error) {
-    if (requestID === conversationsRequestID) {
-      appStore.showError(errorMessage(error, t('supportChat.loadFailed')))
-    }
+    appStore.showError(errorMessage(error, t('supportChat.loadFailed')))
   } finally {
-    if (requestID === conversationsRequestID) {
-      conversationsLoading.value = false
-    }
+    conversationsLoading.value = false
   }
 }
 
@@ -432,6 +389,7 @@ async function selectConversation(conversationID: number) {
   if (selectedConversationID.value === conversationID) return
   selectedConversationID.value = conversationID
   selectedConversationSnapshot.value = conversations.value.find((item) => item.id === conversationID) ?? null
+  replyingTo.value = null
   messages.value = []
   messagePage.value = 1
   messagePages.value = 1
@@ -441,11 +399,13 @@ async function selectConversation(conversationID: number) {
 }
 
 function backToConversationList() {
+  messageLoadSequence += 1
   selectedConversationID.value = null
   selectedConversationSnapshot.value = null
   messages.value = []
   messagePage.value = 1
   messagePages.value = 1
+  replyingTo.value = null
 }
 
 async function openUserProfile(conversation: ChatConversation) {
@@ -468,36 +428,38 @@ function closeUserProfile() {
 }
 
 async function reloadSelectedMessages() {
-  await syncSelectedMessages(true)
-}
-
-async function syncSelectedMessages(showLoading: boolean) {
-  if (!selectedConversationID.value || messagesLoading.value) return
-  if (showLoading) messagesLoading.value = true
+  if (!selectedConversationID.value) return
+  const conversationID = selectedConversationID.value
+  const sequence = ++messageLoadSequence
+  const requestedPage = Math.max(1, messagePage.value)
+  const shouldStickToBottom = stickMessagesToBottom.value
+  messagesLoading.value = true
   try {
-    const requestedPage = Math.max(1, messagePage.value)
     const history = await loadChatMessagePages(
-      (page) => listAdminChatMessages(selectedConversationID.value!, { page, page_size: SUPPORT_CHAT_MESSAGE_PAGE_SIZE }),
+      (page) => listAdminChatMessages(conversationID, {
+        page,
+        page_size: SUPPORT_CHAT_MESSAGE_PAGE_SIZE,
+      }),
       requestedPage,
     )
-    if (showLoading) {
-      messages.value = history.items
-      messagePage.value = history.page
-      messagePages.value = history.pages
-      if (stickMessagesToBottom.value) await scrollToBottom()
-    } else if (mergeMessages(history.items) && stickMessagesToBottom.value) {
-      await scrollToBottom()
-    }
+    if (sequence !== messageLoadSequence || selectedConversationID.value !== conversationID) return
+    messages.value = history.items
+    messagePage.value = history.page
+    messagePages.value = history.pages
+    stickMessagesToBottom.value = shouldStickToBottom
+    if (shouldStickToBottom) await scrollToBottom()
   } catch (error) {
     appStore.showError(errorMessage(error, t('supportChat.loadFailed')))
   } finally {
-    if (showLoading) messagesLoading.value = false
+    if (sequence === messageLoadSequence) messagesLoading.value = false
   }
 }
 
 async function loadOlderMessages() {
   const conversationID = selectedConversationID.value
   if (!conversationID || olderMessagesLoading.value || messagesLoading.value || !hasOlderMessages.value) return
+
+  const sequence = messageLoadSequence
   const nextPage = messagePage.value + 1
   const pane = messagePaneRef.value
   const previousHeight = pane?.scrollHeight ?? 0
@@ -505,11 +467,18 @@ async function loadOlderMessages() {
   olderMessagesLoading.value = true
   stickMessagesToBottom.value = false
   try {
-    const page = await listAdminChatMessages(conversationID, { page: nextPage, page_size: SUPPORT_CHAT_MESSAGE_PAGE_SIZE })
-    if (selectedConversationID.value !== conversationID) return
+    const page = await listAdminChatMessages(conversationID, {
+      page: nextPage,
+      page_size: SUPPORT_CHAT_MESSAGE_PAGE_SIZE,
+    })
+    if (sequence !== messageLoadSequence || selectedConversationID.value !== conversationID) return
+    if (page.items.length === 0) {
+      messagePages.value = messagePage.value
+      return
+    }
     messages.value = mergeChatMessages(messages.value, page.items)
     messagePage.value = Math.max(messagePage.value, nextPage)
-    messagePages.value = Math.max(messagePages.value, chatMessagePageCount(page))
+    messagePages.value = Math.max(messagePage.value, chatMessagePageCount(page))
     await nextTick()
     if (pane) pane.scrollTop = previousTop + (pane.scrollHeight - previousHeight)
   } catch (error) {
@@ -526,29 +495,39 @@ function handleMessagePaneScroll(event: Event) {
   if (pane.scrollTop <= 80) void loadOlderMessages()
 }
 
-async function markSelectedRead() {
-  if (!selectedConversationID.value) return
-  await markAdminChatRead(selectedConversationID.value)
-  const existing = conversations.value.find((item) => item.id === selectedConversationID.value)
-  const target = existing ?? selectedConversationSnapshot.value
+async function markSelectedRead(conversationID = selectedConversationID.value) {
+  if (!conversationID) return
+  await markAdminChatRead(conversationID)
+  const existing = conversations.value.find((item) => item.id === conversationID)
+  const target = existing ?? (selectedConversationSnapshot.value?.id === conversationID
+    ? selectedConversationSnapshot.value
+    : null)
   if (target) {
     target.unread_by_admin = 0
     target.manually_unread_by_admin = false
+    target.last_read_by_admin_at = new Date().toISOString()
+    if (selectedConversationSnapshot.value?.id === conversationID) {
+      selectedConversationSnapshot.value = target
+    }
   }
   await supportChatAdminStore.refreshUnreadIndicator(true)
   appStore.setSupportInboxUnread(supportChatAdminStore.hasUnread)
 }
 
 async function markSelectedUnread() {
-  if (!selectedConversationID.value || markingUnread.value) return
-  const existing = conversations.value.find((item) => item.id === selectedConversationID.value)
-  if (existing?.manually_unread_by_admin) return
+  const conversationID = selectedConversationID.value
+  if (!conversationID || markingUnread.value || selectedConversation.value?.manually_unread_by_admin) return
   markingUnread.value = true
   try {
-    await markAdminChatUnread(selectedConversationID.value)
-    if (existing) existing.manually_unread_by_admin = true
+    await markAdminChatUnread(conversationID)
+    const existing = conversations.value.find((item) => item.id === conversationID)
+    const target = existing ?? (selectedConversationSnapshot.value?.id === conversationID
+      ? selectedConversationSnapshot.value
+      : null)
+    if (target) target.manually_unread_by_admin = true
     await supportChatAdminStore.refreshUnreadIndicator(true)
     appStore.setSupportInboxUnread(supportChatAdminStore.hasUnread)
+    appStore.showSuccess(t('supportChat.markUnreadSuccess'))
   } catch (error) {
     appStore.showError(errorMessage(error, t('supportChat.markUnreadFailed')))
   } finally {
@@ -556,38 +535,20 @@ async function markSelectedUnread() {
   }
 }
 
-function requestRecall(message: ChatMessage) {
-  if (!selectedConversationID.value || message.sender_type !== 'admin' || message.recalled_at || message.kind === 'balance_transfer') return
-  if (!window.confirm(t('supportChat.recall.confirmMessage'))) return
-  void confirmRecall(message)
-}
-
-async function confirmRecall(message: ChatMessage) {
-  if (recallingMessageID.value) return
-  recallingMessageID.value = message.id
-  try {
-    const recalled = await recallAdminChatMessage(message.conversation_id, message.id)
-    replaceMessage(message.id, recalled)
-    appStore.showSuccess(t('supportChat.recall.success'))
-  } catch (error) {
-    appStore.showError(errorMessage(error, t('supportChat.recall.failed')))
-  } finally {
-    recallingMessageID.value = null
-  }
-}
-
-async function handleSend(content: string) {
+async function handleSend(input: ChatSendMessageInput) {
   if (!selectedConversationID.value) return
+  const conversationID = selectedConversationID.value
   sending.value = true
   try {
-    const message = await sendAdminChatRichMessage(selectedConversationID.value, { content, kind: 'text' })
-    appendMessage(message)
-    upsertConversationActivity(message, true)
-    const existing = conversations.value.find((item) => item.id === message.conversation_id)
-    if (existing) existing.unread_by_user += 1
-    composerClearNonce.value += 1
-    await markSelectedRead()
-    await scrollToBottom()
+    const message = await sendAdminChatMessage(conversationID, input)
+    if (selectedConversationID.value === conversationID) appendMessage(message)
+    upsertConversationActivity(message)
+    if (selectedConversationID.value === conversationID) {
+      composerRef.value?.clearDraft()
+      replyingTo.value = null
+      await markSelectedRead(conversationID)
+      if (stickMessagesToBottom.value) await scrollToBottom()
+    }
     void supportChatAdminStore.refreshUnreadIndicator(true)
   } catch (error) {
     appStore.showError(errorMessage(error, t('supportChat.sendFailed')))
@@ -596,195 +557,179 @@ async function handleSend(content: string) {
   }
 }
 
+async function handleUpload(value: { files: File[]; content: string; reply_to_id: number | null }) {
+  if (!selectedConversationID.value || sending.value) return
+  const conversationID = selectedConversationID.value
+  sending.value = true
+  try {
+    const assets = await uploadAdminChatAssets(conversationID, value.files)
+    const message = await sendAdminChatMessage(conversationID, {
+      content: value.content || '[image]',
+      kind: 'image',
+      asset_ids: assets.map(asset => asset.id),
+      reply_to_id: value.reply_to_id,
+    })
+    if (selectedConversationID.value === conversationID) appendMessage(message)
+    upsertConversationActivity(message)
+    if (selectedConversationID.value === conversationID) {
+      composerRef.value?.clearDraft()
+      replyingTo.value = null
+      if (stickMessagesToBottom.value) await scrollToBottom()
+    }
+  } catch (error) {
+    appStore.showError(errorMessage(error, t('supportChat.assets.uploadFailed')))
+  } finally {
+    sending.value = false
+  }
+}
+
+function requestRecall(message: ChatMessage) {
+  if (message.sender_type !== 'admin' || message.recalled_at || message.kind === 'balance_transfer') return
+  recallCandidate.value = message
+}
+
+async function confirmRecall() {
+  const candidate = recallCandidate.value
+  if (!candidate || recallingMessageID.value) return
+  recallCandidate.value = null
+  recallingMessageID.value = candidate.id
+  try {
+    const recalled = await recallAdminChatMessage(candidate.conversation_id, candidate.id)
+    if (selectedConversationID.value === candidate.conversation_id) {
+      replaceMessage(recalled)
+      if (replyingTo.value?.id === candidate.id) replyingTo.value = null
+    }
+    appStore.showSuccess(t('supportChat.recall.success'))
+  } catch (error) {
+    appStore.showError(errorMessage(error, t('supportChat.recall.failed')))
+  } finally {
+    recallingMessageID.value = null
+  }
+}
+
 async function handleTransfer(value: { amount: number; notes: string }) {
   if (!selectedConversationID.value || sending.value) return
+  const conversationID = selectedConversationID.value
   sending.value = true
   try {
-    const result = await transferAdminChatBalance(selectedConversationID.value, value.amount, value.notes)
-    if (result.message) {
-      appendMessage(result.message)
-      upsertConversationActivity(result.message, true)
-      const existing = conversations.value.find((item) => item.id === result.message!.conversation_id)
-      if (existing) existing.unread_by_user += 1
-      await markSelectedRead()
-      if (stickMessagesToBottom.value) await scrollToBottom()
-    }
-    appStore.showSuccess(t('supportChat.composer.transferSuccess', { amount: value.amount, newBalance: result.balance }))
+    const result = await transferAdminChatBalance(conversationID, value.amount, value.notes)
+    if (selectedConversationID.value === conversationID) appendMessage(result.message)
+    upsertConversationActivity(result.message)
+    if (selectedConversationID.value === conversationID && stickMessagesToBottom.value) await scrollToBottom()
+    appStore.showSuccess(t('supportChat.transfer.success'))
   } catch (error) {
-    appStore.showError(errorMessage(error, t('supportChat.composer.transferFailed')))
+    appStore.showError(errorMessage(error, t('supportChat.transfer.failed')))
   } finally {
     sending.value = false
   }
 }
 
-async function handleRichSend(payload: ComposerSubmitPayload) {
-  if (!selectedConversationID.value) return
-  sending.value = true
-  let optimisticMessage: ChatMessage | null = null
-  const shouldRevokePreviewUrls: string[] = []
+async function loadSupportTools() {
+  await migrateLegacyQuickReplies()
   try {
-    let content = payload.text.trim()
-    let structuredInput: ChatSendMessageInput | null = null
-
-    // 处理回复
-    if (payload.replyTo) structuredInput = { kind: 'text', reply_to_id: payload.replyTo }
-
-    // 处理多图上传
-    if (payload.images && payload.images.length > 0) {
-      const imageContents: string[] = []
-
-      for (const img of payload.images) {
-        if (img.type === 'imageFile' && img.previewUrl && img.name) {
-          // 先显示 optimistic 预览
-          imageContents.push(imageMessageContent(img.previewUrl, img.name))
-          shouldRevokePreviewUrls.push(img.previewUrl)
-        } else if (img.type === 'imageUrl' && img.url && img.name) {
-          // 直接使用 URL
-          imageContents.push(imageMessageContent(img.url, img.name))
-        }
-      }
-
-      // 显示 optimistic 消息
-      if (imageContents.length > 0) {
-        const optimisticContent = content ? `${content}\n${imageContents.join('\n')}` : imageContents.join('\n')
-        optimisticMessage = appendOptimisticMessage(optimisticContent)
-        composerClearNonce.value += 1
-        await scrollToBottom()
-      }
-
-      // 上传所有图片文件
-      const uploadedContents: string[] = []
-      const assetIDs: number[] = []
-      for (const img of payload.images) {
-        if (img.type === 'imageFile' && img.file) {
-          const asset = await uploadAdminChatAsset(img.file, selectedConversationID.value)
-          uploadedContents.push(imageMessageContent(asset.url, asset.name || img.name))
-          if (asset.id) assetIDs.push(asset.id)
-        } else if (img.type === 'imageUrl' && img.url && img.name) {
-          uploadedContents.push(imageMessageContent(img.url, img.name))
-          const assetID = Number((img.url.match(/\/assets\/(\d+)$/) || [])[1])
-          if (Number.isFinite(assetID) && assetID > 0) assetIDs.push(assetID)
-        }
-      }
-      if (uploadedContents.length > 0) {
-        content = content ? `${content}\n${uploadedContents.join('\n')}` : uploadedContents.join('\n')
-      }
-      if (assetIDs.length > 0) structuredInput = { ...structuredInput, kind: 'image', asset_ids: assetIDs, content: payload.text.trim() || undefined }
-    }
-    // 处理表情包
-    else if (payload.sticker) {
-      const stickerContent = stickerMessageContent(payload.sticker)
-      content = content ? `${content}\n${stickerContent}` : stickerContent
-      optimisticMessage = appendOptimisticMessage(content)
-      composerClearNonce.value += 1
-      if (stickMessagesToBottom.value) await scrollToBottom()
-      const stickerID = Number(payload.sticker.id)
-      structuredInput = Number.isFinite(stickerID) && stickerID > 0
-        ? { ...structuredInput, kind: 'sticker', asset_ids: [stickerID], content: payload.text.trim() || undefined }
-        : { ...structuredInput, kind: 'sticker', content: payload.text.trim() || undefined, sticker: { name: payload.sticker.name, emoji: payload.sticker.emoji } }
-    }
-
-    if (!content) return
-    const message = await sendAdminChatRichMessage(selectedConversationID.value, structuredInput?.kind
-      ? { ...structuredInput, content: structuredInput.content ?? (structuredInput.kind === 'text' ? content : undefined) }
-      : { content, kind: 'text' })
-    if (optimisticMessage) {
-      replaceMessage(optimisticMessage.id, message)
-    } else {
-      appendMessage(message)
-    }
-    upsertConversationActivity(message)
-    const existing = conversations.value.find((item) => item.id === message.conversation_id)
-    if (existing) existing.unread_by_user += 1
-    await markSelectedRead()
-    await scrollToBottom()
-    composerClearNonce.value += 1
-    replyingTo.value = null
+    const [replies, library, stickers] = await Promise.all([
+      listAdminChatQuickReplies(),
+      listAdminChatCatalog('library'),
+      listAdminChatCatalog('sticker'),
+    ])
+    quickReplies.value = replies
+    libraryAssets.value = library
+    stickerAssets.value = stickers
   } catch (error) {
-    if (optimisticMessage) {
-      const optimisticMessageID = optimisticMessage.id
-      messages.value = messages.value.filter((item) => item.id !== optimisticMessageID)
-    }
-    appStore.showError(errorMessage(error, t('supportChat.sendFailed')))
+    appStore.showError(errorMessage(error, t('supportChat.toolsLoadFailed')))
+  }
+}
+
+async function migrateLegacyQuickReplies() {
+  try {
+    if (localStorage.getItem(LEGACY_QUICK_REPLY_MIGRATED_KEY) === 'true') return
+    const raw = localStorage.getItem(LEGACY_QUICK_REPLY_KEY)
+    const parsed = raw ? JSON.parse(raw) as unknown : []
+    const items = Array.isArray(parsed) ? parsed.map((value) => {
+      if (!value || typeof value !== 'object') return null
+      const record = value as Record<string, unknown>
+      const title = typeof record.title === 'string' ? record.title.trim().slice(0, 100) : ''
+      const content = typeof record.content === 'string' ? record.content.trim().slice(0, 10000) : ''
+      return title && content ? { title, content } : null
+    }).filter((item): item is { title: string; content: string } => Boolean(item)).slice(0, 50) : []
+    if (items.length > 0) await importAdminChatQuickReplies(items)
+    localStorage.removeItem(LEGACY_QUICK_REPLY_KEY)
+    localStorage.setItem(LEGACY_QUICK_REPLY_MIGRATED_KEY, 'true')
+  } catch {
+    // Keep legacy data for a future retry without blocking the support inbox.
+  }
+}
+
+async function runTool(operation: () => Promise<void>) {
+  if (toolsBusy.value) return
+  toolsBusy.value = true
+  try {
+    await operation()
+  } catch (error) {
+    appStore.showError(errorMessage(error, t('supportChat.toolActionFailed')))
   } finally {
-    for (const url of shouldRevokePreviewUrls) {
-      URL.revokeObjectURL(url)
-    }
-    sending.value = false
+    toolsBusy.value = false
   }
 }
 
-function handleReply(message: ChatMessage) {
-  replyingTo.value = message
+function handleQuickReplyCreate(value: { title: string; content: string }) {
+  void runTool(async () => {
+    await createAdminChatQuickReply({ title: value.title, content: value.content })
+    quickReplies.value = await listAdminChatQuickReplies()
+  })
 }
 
-function handleCancelReply() {
-  replyingTo.value = null
+function handleQuickReplyUpdate(value: { id: number; title: string; content: string }) {
+  void runTool(async () => {
+    await updateAdminChatQuickReply(value.id, { title: value.title, content: value.content })
+    quickReplies.value = await listAdminChatQuickReplies()
+  })
 }
 
-async function handleLibraryImageAddSelected(file: File) {
-  sending.value = true
-  try {
-    const item = await createAdminChatImageLibraryItem({
-      file,
-      name: file.name,
-      category: t('supportChat.composer.defaultImageCategory'),
-    })
-    imageLibrary.value = [item, ...imageLibrary.value]
-  } catch (error) {
-    appStore.showError(errorMessage(error, t('supportChat.imageUploadFailed')))
-  } finally {
-    sending.value = false
-  }
+function handleQuickReplyDelete(id: number) {
+  void runTool(async () => {
+    await deleteAdminChatQuickReply(id)
+    quickReplies.value = await listAdminChatQuickReplies()
+  })
 }
 
-async function handleLibraryImageDelete(image: { id: string }) {
-  try {
-    await deleteAdminChatImageLibraryItem(image.id)
-    imageLibrary.value = imageLibrary.value.filter((item) => item.id !== image.id)
-  } catch (error) {
-    appStore.showError(errorMessage(error, t('supportChat.imageDeleteFailed')))
-  }
+function handleQuickReplyReorder(ids: number[]) {
+  void runTool(async () => {
+    await reorderAdminChatQuickReplies(ids)
+    quickReplies.value = await listAdminChatQuickReplies()
+  })
 }
 
-async function handleStickerAddSelected(file: File) {
-  sending.value = true
-  try {
-    const item = await createAdminChatSticker({
-      file,
-      name: file.name,
-      group: t('supportChat.composer.defaultStickerGroup'),
-    })
-    stickers.value = [item, ...stickers.value]
-  } catch (error) {
-    appStore.showError(errorMessage(error, t('supportChat.stickerUploadFailed')))
-  } finally {
-    sending.value = false
-  }
+function handleQuickReplyImport(items: Array<{ title: string; content: string }>) {
+  void runTool(async () => {
+    quickReplies.value = await importAdminChatQuickReplies(items)
+  })
 }
 
-async function handleStickerDelete(sticker: { id: string }) {
-  try {
-    await deleteAdminChatSticker(sticker.id)
-    stickers.value = stickers.value.filter((item) => item.id !== sticker.id)
-  } catch (error) {
-    appStore.showError(errorMessage(error, t('supportChat.stickerDeleteFailed')))
-  }
+function handleCatalogCreate(value: { scope: 'library' | 'sticker'; file: File; collection: string }) {
+  void runTool(async () => {
+    await createAdminChatCatalogAsset(value.scope, value.file, value.collection)
+    const items = await listAdminChatCatalog(value.scope)
+    if (value.scope === 'library') libraryAssets.value = items
+    else stickerAssets.value = items
+  })
 }
 
-async function loadImageLibrary() {
-  try {
-    imageLibrary.value = await listAdminChatImageLibrary()
-  } catch (error) {
-    appStore.showError(errorMessage(error, t('supportChat.loadFailed')))
-  }
+function handleCatalogDelete(value: { scope: 'library' | 'sticker'; id: number }) {
+  void runTool(async () => {
+    await deleteAdminChatCatalogAsset(value.scope, value.id)
+    const items = await listAdminChatCatalog(value.scope)
+    if (value.scope === 'library') libraryAssets.value = items
+    else stickerAssets.value = items
+  })
 }
 
-async function loadStickers() {
-  try {
-    stickers.value = await listAdminChatStickers()
-  } catch (error) {
-    appStore.showError(errorMessage(error, t('supportChat.loadFailed')))
+async function resyncMessages() {
+  if (sending.value) return
+  if (socketConnected.value && Date.now() - lastResyncAt < SUPPORT_CHAT_CONNECTED_RESYNC_MS) return
+  await loadConversations()
+  if (selectedConversationID.value) {
+    await reloadSelectedMessages()
   }
 }
 
@@ -800,17 +745,21 @@ watch(messageScrollSignature, () => {
 }, { flush: 'post' })
 
 onMounted(async () => {
-  await loadConversations()
-  void loadImageLibrary()
-  void loadStickers()
+  await Promise.all([loadConversations(), loadSupportTools()])
   socket.connect()
+  fallbackPollTimer = setInterval(() => {
+    void resyncMessages()
+  }, SUPPORT_CHAT_RESYNC_MS)
 })
 
 onBeforeUnmount(() => {
-  conversationsRequestID += 1
   if (searchTimer) {
     clearTimeout(searchTimer)
     searchTimer = null
+  }
+  if (fallbackPollTimer) {
+    clearInterval(fallbackPollTimer)
+    fallbackPollTimer = null
   }
 })
 </script>

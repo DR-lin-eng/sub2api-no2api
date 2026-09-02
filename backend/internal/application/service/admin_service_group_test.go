@@ -913,6 +913,30 @@ func TestAdminService_UpdateGroup_ClearsReasoningPolicyForUnsupportedPlatform(t 
 	require.Empty(t, repo.updated.ReasoningEffortMappings)
 }
 
+func TestAdminService_UpdateGroup_PreservesQuotaLimitsWhenOmitted(t *testing.T) {
+	daily, weekly, monthly := 10.0, 20.0, 30.0
+	existing := &Group{
+		ID:               1,
+		Name:             "limited-group",
+		Platform:         PlatformOpenAI,
+		Status:           StatusActive,
+		SubscriptionType: SubscriptionTypeStandard,
+		RateMultiplier:   1,
+		DailyLimitUSD:    &daily,
+		WeeklyLimitUSD:   &weekly,
+		MonthlyLimitUSD:  &monthly,
+	}
+	repo := &groupRepoStubForAdmin{getByID: existing}
+	svc := &adminServiceImpl{groupRepo: repo}
+
+	_, err := svc.UpdateGroup(context.Background(), existing.ID, &UpdateGroupInput{Name: "renamed"})
+
+	require.NoError(t, err)
+	require.Equal(t, daily, *repo.updated.DailyLimitUSD)
+	require.Equal(t, weekly, *repo.updated.WeeklyLimitUSD)
+	require.Equal(t, monthly, *repo.updated.MonthlyLimitUSD)
+}
+
 func TestAdminService_UpdateGroup_ClearsPeakRateWhenChangingToStandard(t *testing.T) {
 	existingGroup := &Group{
 		ID:                 1,

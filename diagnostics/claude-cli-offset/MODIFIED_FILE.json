@@ -1,0 +1,15 @@
+{
+  "fixture": "claude-cli-read-offset",
+  "branch": "sanitized-read-offset",
+  "field": "response.function_call_arguments.delta",
+  "upstream_deltas": [
+    "{\\\"file_path\\\":\\\"/tmp/demo.ts\\\",\\\"limit\\\":60,\\\"offset\\\":",
+    "518",
+    "058",
+    "163",
+    "639",
+    "051",
+    "3}"
+  ],
+  "observed_result": "{\\\"file_path\\\":\\\"/tmp/demo.ts\\\",\\\"limit\\\":60}"
+}

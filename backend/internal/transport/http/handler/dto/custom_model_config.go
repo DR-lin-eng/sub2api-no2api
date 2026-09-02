@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/internal/application/service"
 )
 
 type CustomModelConfig struct {
@@ -38,42 +38,42 @@ type CreateCustomModelConfigRequest struct {
 
 type UpdateCustomModelConfigRequest struct {
 	PrefixMatch  *bool           `json:"prefix_match"`
-	Capabilities []string        `json:"capabilities"`
+	Capabilities *[]string       `json:"capabilities"`
 	TemplateID   json.RawMessage `json:"template_id"`
-	VideoAPIType string          `json:"video_api_type"`
+	VideoAPIType json.RawMessage `json:"video_api_type"`
 }
 
-func CustomModelConfigFromEnt(e *ent.CustomModelConfig, templateName string) *CustomModelConfig {
-	if e == nil {
+func CustomModelConfigFromService(item *service.CustomModelConfig) *CustomModelConfig {
+	if item == nil {
 		return nil
 	}
 	return &CustomModelConfig{
-		ID:           int64(e.ID),
-		ModelName:    e.ModelName,
-		PrefixMatch:  e.PrefixMatch,
-		Capabilities: e.Capabilities,
-		TemplateID:   e.TemplateID,
-		TemplateName: templateName,
-		VideoAPIType: e.VideoAPIType,
-		CreatedAt:    e.CreatedAt,
-		UpdatedAt:    e.UpdatedAt,
+		ID:           item.ID,
+		ModelName:    item.ModelName,
+		PrefixMatch:  item.PrefixMatch,
+		Capabilities: append([]string(nil), item.Capabilities...),
+		TemplateID:   item.TemplateID,
+		TemplateName: item.TemplateName,
+		VideoAPIType: item.VideoAPIType,
+		CreatedAt:    item.CreatedAt,
+		UpdatedAt:    item.UpdatedAt,
 	}
 }
 
-func CustomModelRequestTemplateFromEnt(e *ent.CustomModelRequestTemplate) *CustomModelRequestTemplate {
-	if e == nil {
+func CustomModelRequestTemplateFromService(item *service.CustomModelRequestTemplate) *CustomModelRequestTemplate {
+	if item == nil {
 		return nil
 	}
-	adapter := e.RequestAdapter
+	adapter := item.RequestAdapter
 	if adapter == nil {
 		adapter = map[string]any{}
 	}
 	return &CustomModelRequestTemplate{
-		ID:             int64(e.ID),
-		Name:           e.Name,
-		Description:    e.Description,
+		ID:             item.ID,
+		Name:           item.Name,
+		Description:    item.Description,
 		RequestAdapter: adapter,
-		CreatedAt:      e.CreatedAt,
-		UpdatedAt:      e.UpdatedAt,
+		CreatedAt:      item.CreatedAt,
+		UpdatedAt:      item.UpdatedAt,
 	}
 }

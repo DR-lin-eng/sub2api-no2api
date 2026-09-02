@@ -1,0 +1,92 @@
+OBJECT=OpenAI OAuth consecutive 429/502 scheduling circuit breaker
+BRANCH=codex/openai-oauth-failure-circuit
+BASE_COMMIT=a2357b43b5646b0e868289846d846992812b0ad9
+CHANGED_FIELDS=rate_limit_429_cooldown_settings.auto_disable_enabled,rate_limit_429_cooldown_settings.auto_disable_threshold,account.scheduling_disabled_reason
+SCOPE=OpenAI OAuth only; OpenAI API Key accounts are excluded
+
+ARTIFACTS
+MODIFIED_FILE=/Users/lin/.codex/worktrees/5c59/sub2api-no2api/diagnostics/openai-oauth-failure-circuit/MODIFIED_FILE
+DIFF_FILE=/Users/lin/.codex/worktrees/5c59/sub2api-no2api/diagnostics/openai-oauth-failure-circuit/DIFF_FILE
+VERIFICATION=/Users/lin/.codex/worktrees/5c59/sub2api-no2api/diagnostics/openai-oauth-failure-circuit/VERIFICATION.txt
+ROLLBACK=/Users/lin/.codex/worktrees/5c59/sub2api-no2api/diagnostics/openai-oauth-failure-circuit/ROLLBACK.sh
+
+HASHES
+ORIGINAL_SHA256=2e157eb7de21857ec38d1733482900cfa2a090a4fa9cc59ef48446429f2b05b0
+MODIFIED_SHA256=c04215cfe3b2b3993ef8ee08b63170db4d6bca64a13cd32bf86b7c1b15a4fce4
+
+BASELINE
+COMMAND=jq -n -e '{"enabled":true,"cooldown_seconds":5} | ((.auto_disable_enabled // false) == false and (.auto_disable_threshold // 3) == 3)'
+INPUT={"enabled":true,"cooldown_seconds":5}
+LITERAL_OUTPUT=true
+EXIT_STATUS=0
+RESULT=Legacy JSON keeps the new circuit breaker disabled and normalizes its threshold to 3.
+
+MODIFIED
+COMMAND=jq -e '.auto_disable_enabled == true and .auto_disable_threshold == 4' diagnostics/openai-oauth-failure-circuit/MODIFIED_FILE
+INPUT=/Users/lin/.codex/worktrees/5c59/sub2api-no2api/diagnostics/openai-oauth-failure-circuit/MODIFIED_FILE
+LITERAL_OUTPUT=true
+EXIT_STATUS=0
+RESULT=The modified fixture enables the OAuth-only circuit breaker at four consecutive failures.
+
+ROLLBACK_COPY
+COMMAND=cp diagnostics/openai-oauth-failure-circuit/MODIFIED_FILE /tmp/sub2api-oauth-failure-circuit-rollback-copy.json
+INPUT=MODIFIED_FILE
+LITERAL_OUTPUT=(empty)
+EXIT_STATUS=0
+
+ROLLBACK
+COMMAND=diagnostics/openai-oauth-failure-circuit/ROLLBACK.sh /tmp/sub2api-oauth-failure-circuit-rollback-copy.json
+INPUT=/tmp/sub2api-oauth-failure-circuit-rollback-copy.json
+LITERAL_OUTPUT=ROLLBACK_RESULT=restored
+LITERAL_OUTPUT=RESTORED_SHA256=2e157eb7de21857ec38d1733482900cfa2a090a4fa9cc59ef48446429f2b05b0
+LITERAL_OUTPUT=RESTORED_BEHAVIOR=auto_disable_enabled=false,auto_disable_threshold=3
+EXIT_STATUS=0
+RESTORED_STATUS=The rollback copy matches the original SHA-256 and restores disabled-by-default behavior. MODIFIED_FILE remains changed at c04215cfe3b2b3993ef8ee08b63170db4d6bca64a13cd32bf86b7c1b15a4fce4.
+
+TARGETED_DOCKER_TEST
+COMMAND=docker run --rm -v "$PWD/backend:/src" -v sub2api-5c59-gomod:/go/pkg/mod -v sub2api-5c59-gocache:/root/.cache/go-build -w /src golang:1.26.6 go test -tags=unit ./internal/application/service ./internal/infrastructure/repository -run 'TestRateLimitService_AutoDisable|TestOpenAIGatewayService_Success|TestOpenAIStreamDisconnect502|TestOpenAILocalStreamStaging502|TestAccountRepositorySetSchedulableWithReason|TestAccountRepositoryBulkEnableClearsSchedulingDisabledReason|TestOpenAIFailureCounterCache|TestOpenAIGatewayService_CodexPrewarmTerminalFailure' -count=1
+LITERAL_OUTPUT=ok   github.com/Wei-Shaw/sub2api/internal/application/service 0.160s
+LITERAL_OUTPUT=ok   github.com/Wei-Shaw/sub2api/internal/infrastructure/repository 0.059s
+EXIT_STATUS=0
+
+FULL_DOCKER_TEST
+COMMAND=docker run --rm -v "$PWD/backend:/src" -v sub2api-5c59-gomod:/go/pkg/mod -v sub2api-5c59-gocache:/root/.cache/go-build -w /src golang:1.26.6 go test -tags=unit ./... -count=1
+RESULT=Post-rebase run passed all backend packages; application/service 173.410s, repository 5.250s, handler 31.324s.
+EXIT_STATUS=0
+
+LIVE_REDIS_TEST
+COMMAND=docker run --rm --network sub2api-5c59-failure-net -e TEST_REDIS_URL=redis://sub2api-5c59-failure-redis:6379/15 -v "$PWD/backend:/src" -v sub2api-5c59-gomod:/go/pkg/mod -v sub2api-5c59-gocache:/root/.cache/go-build -w /src golang:1.26.6 go test ./internal/infrastructure/repository -run '^TestOpenAIFailureCounterCacheLiveRedis$' -count=1 -v
+LITERAL_OUTPUT=--- PASS: TestOpenAIFailureCounterCacheLiveRedis (0.01s)
+LITERAL_OUTPUT=PASS
+EXIT_STATUS=0
+
+FRONTEND_AND_DOCS
+COMMAND=pnpm exec vitest run src/features/admin-accounts/__tests__/AccountStatusIndicator.spec.ts src/features/admin-settings/__tests__/adminSettingsQueryActions.spec.ts
+RESULT=2 files passed, 18 tests passed
+EXIT_STATUS=0
+COMMAND=pnpm run typecheck
+RESULT=vue-tsc --noEmit completed
+EXIT_STATUS=0
+COMMAND=pnpm run lint:check
+RESULT=eslint . completed
+EXIT_STATUS=0
+COMMAND=make check-docs
+LITERAL_OUTPUT=Documentation checks passed.
+EXIT_STATUS=0
+
+PERFORMANCE_DOCKER
+LEGACY_5000=41966625 ns/op,16094968 B/op,151604 allocs/op
+V2_TOP64_5000=960133 ns/op,632755 B/op,3619 allocs/op
+REDIS_LOAD_3000=6330517 ns/op,2927155 B/op,51045 allocs/op
+REDIS_LOAD_5000=9091192 ns/op,4983244 B/op,85055 allocs/op
+
+FINAL_IMAGE
+TAG=sub2api-oauth-failure-circuit:test
+IMAGE_ID=sha256:dd3c621d0f05c7cfe370205153acbad2cc7fc51af6fce628eb4bdc327af22668
+HEALTH_COMMAND=curl -sS -i http://127.0.0.1:62791/health
+HEALTH_RESULT=HTTP 200 {"status":"ok"}
+READY_COMMAND=curl -sS -i http://127.0.0.1:62791/ready
+READY_RESULT=HTTP 200 {"ready":true,"current_version":"0.1.190-oauth-circuit-post-rebase","draining":false,"in_flight":0}
+
+BROWSER_ACCEPTANCE
+RESULT=The gateway page saved auto_disable_enabled=true and auto_disable_threshold=4, then read both values back after reload. The page explicitly states that API Key integrations are excluded. The account list rendered the paused OAuth fixture and its full scheduling_disabled_reason.

@@ -283,6 +283,14 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		if errors.As(err, &dialErr) && dialErr != nil && dialErr.StatusCode == http.StatusTooManyRequests {
 			s.persistOpenAIWSRateLimitSignal(ctx, account, dialErr.ResponseHeaders, nil, "rate_limit_exceeded", "rate_limit_error", strings.TrimSpace(err.Error()))
 		}
+		if account.IsCodexPrewarmContinuationEnabled() && dialErr != nil && shouldFailoverOpenAIWSPreOutputFailure(dialErr.StatusCode, dialErr.ResponseBody) {
+			return nil, newOpenAIWSPreOutputFailoverError(
+				dialErr.StatusCode,
+				dialErr.ResponseHeaders,
+				dialErr.ResponseBody,
+				dialErr.Error(),
+			)
+		}
 		return nil, wrapOpenAIWSFallback(classifyOpenAIWSAcquireError(err), err)
 	}
 	// cleanExit 标记正常终端事件退出，此时上游不会再发送帧，连接可安全归还复用。
@@ -681,14 +689,31 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		}
 
 		if eventType == "error" {
-			s.handleOpenAIWSErrorEventTransientFailure(ctx, account, mappedModel, lease.HandshakeHeaders(), message)
 			errCodeRaw, errTypeRaw, errMsgRaw := parseOpenAIWSErrorEventFields(message)
-			s.persistOpenAIWSRateLimitSignal(ctx, account, lease.HandshakeHeaders(), message, errCodeRaw, errTypeRaw, errMsgRaw)
 			errMsg := strings.TrimSpace(errMsgRaw)
 			if errMsg == "" {
 				errMsg = "Upstream websocket error"
 			}
 			fallbackReason, canFallback := classifyOpenAIWSErrorEventFromRaw(errCodeRaw, errTypeRaw, errMsgRaw)
+			statusCode := openAIWSErrorHTTPStatusFromRaw(errCodeRaw, errTypeRaw)
+			if account.IsCodexPrewarmContinuationEnabled() && !wroteDownstream && fallbackReason != "upgrade_required" && fallbackReason != "ws_unsupported" &&
+				fallbackReason != "ws_connection_limit_reached" && fallbackReason != "previous_response_not_found" &&
+				fallbackReason != "invalid_encrypted_content" {
+				if failoverErr := s.handleOpenAIWSPreOutputFailure(
+					ctx,
+					account,
+					mappedModel,
+					statusCode,
+					lease.HandshakeHeaders(),
+					message,
+					errMsg,
+				); failoverErr != nil {
+					lease.MarkBroken()
+					return nil, failoverErr
+				}
+			}
+			s.handleOpenAIWSErrorEventTransientFailure(ctx, account, mappedModel, lease.HandshakeHeaders(), message)
+			s.persistOpenAIWSRateLimitSignal(ctx, account, lease.HandshakeHeaders(), message, errCodeRaw, errTypeRaw, errMsgRaw)
 			errCode, errType, errMessage := summarizeOpenAIWSErrorEventFieldsFromRaw(errCodeRaw, errTypeRaw, errMsgRaw)
 			logOpenAIWSModeInfo(
 				"error_event account_id=%d conn_id=%s idx=%d fallback_reason=%s can_fallback=%v err_code=%s err_type=%s err_message=%s",
@@ -745,7 +770,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			if !wroteDownstream && canFallback {
 				return nil, wrapOpenAIWSFallback(fallbackReason, errors.New(errMsg))
 			}
-			statusCode := openAIWSErrorHTTPStatusFromRaw(errCodeRaw, errTypeRaw)
+			statusCode = openAIWSErrorHTTPStatusFromRaw(errCodeRaw, errTypeRaw)
 			if isOpenAIWSOverloadError(errCodeRaw, errTypeRaw, errMsgRaw) {
 				statusCode = http.StatusServiceUnavailable
 			}
@@ -763,6 +788,26 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 				})
 			}
 			return nil, fmt.Errorf("openai ws error event: %s", errMsg)
+		}
+
+		if eventType == "response.failed" && account.IsCodexPrewarmContinuationEnabled() && !wroteDownstream {
+			errCodeRaw, errTypeRaw, _ := parseOpenAIWSErrorEventFields(message)
+			statusCode := openAIWSPayloadStatusCode(message)
+			if statusCode == 0 {
+				statusCode = openAIWSErrorHTTPStatusFromRaw(errCodeRaw, errTypeRaw)
+			}
+			if failoverErr := s.handleOpenAIWSPreOutputFailure(
+				ctx,
+				account,
+				mappedModel,
+				statusCode,
+				lease.HandshakeHeaders(),
+				message,
+				extractUpstreamErrorMessage(message),
+			); failoverErr != nil {
+				lease.MarkBroken()
+				return nil, failoverErr
+			}
 		}
 
 		if eventType == "response.failed" && !wroteDownstream && IsOpenAIGenericUpstreamFailureBody(message) {

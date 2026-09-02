@@ -663,6 +663,12 @@ type RateLimit429CooldownSettings struct {
 	Enabled bool `json:"enabled"`
 	// CooldownSeconds 默认回避时长（秒）
 	CooldownSeconds int `json:"cooldown_seconds"`
+	// AutoDisableEnabled 是否在连续 429/502 达到阈值后关闭 OpenAI OAuth 账号调度
+	AutoDisableEnabled bool `json:"auto_disable_enabled"`
+	// AutoDisableThreshold 连续失败阈值
+	AutoDisableThreshold int `json:"auto_disable_threshold"`
+	// AutoDisableQuotaCheckEnabled 是否要求实时额度查询确认主 Codex 额度已限额后再关闭调度
+	AutoDisableQuotaCheckEnabled bool `json:"auto_disable_quota_check_enabled"`
 }
 
 // GlobalTempUnschedulableSettings controls temporary account scheduling pauses globally.
@@ -681,8 +687,11 @@ func DefaultOverloadCooldownSettings() *OverloadCooldownSettings {
 // DefaultRateLimit429CooldownSettings 返回默认的429回避配置（启用，5秒）
 func DefaultRateLimit429CooldownSettings() *RateLimit429CooldownSettings {
 	return &RateLimit429CooldownSettings{
-		Enabled:         true,
-		CooldownSeconds: 5,
+		Enabled:                      true,
+		CooldownSeconds:              5,
+		AutoDisableEnabled:           false,
+		AutoDisableThreshold:         3,
+		AutoDisableQuotaCheckEnabled: false,
 	}
 }
 

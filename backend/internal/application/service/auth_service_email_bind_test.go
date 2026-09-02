@@ -214,6 +214,46 @@ func TestAuthServiceBindEmailIdentity_RejectsExistingEmailOnAnotherUser(t *testi
 	require.Equal(t, 0, countProviderGrantRecords(t, client, sourceUser.ID, "email", "first_bind"))
 }
 
+func TestAuthServiceBindEmailIdentity_RejectsAliasOfExistingEmailOnAnotherUser(t *testing.T) {
+	cache := &emailBindCacheStub{
+		data: &service.VerificationCodeData{
+			Code:      "123456",
+			CreatedAt: time.Now().UTC(),
+			ExpiresAt: time.Now().UTC().Add(10 * time.Minute),
+		},
+	}
+	svc, _, client := newAuthServiceForEmailBind(t, nil, cache, nil)
+	ctx := context.Background()
+	sourceUser, err := client.User.Create().
+		SetEmail("source-alias" + service.OIDCConnectSyntheticEmailDomain).
+		SetUsername("source-alias").
+		SetPasswordHash("old-hash").
+		SetBalance(1).
+		SetConcurrency(1).
+		SetRole(service.RoleUser).
+		SetStatus(service.StatusActive).
+		Save(ctx)
+	require.NoError(t, err)
+	_, err = client.User.Create().
+		SetEmail("alice@gmail.com").
+		SetUsername("alice").
+		SetPasswordHash("hash").
+		SetBalance(1).
+		SetConcurrency(1).
+		SetRole(service.RoleUser).
+		SetStatus(service.StatusActive).
+		Save(ctx)
+	require.NoError(t, err)
+
+	updatedUser, err := svc.BindEmailIdentity(ctx, sourceUser.ID, "a.l.i.c.e+tag@googlemail.com", "123456", "new-password")
+	require.ErrorIs(t, err, service.ErrEmailExists)
+	require.Nil(t, updatedUser)
+
+	storedUser, err := client.User.Get(ctx, sourceUser.ID)
+	require.NoError(t, err)
+	require.Equal(t, "source-alias"+service.OIDCConnectSyntheticEmailDomain, storedUser.Email)
+}
+
 func TestAuthServiceBindEmailIdentity_RollsBackWhenFirstBindDefaultsFail(t *testing.T) {
 	assigner := &flakyEmailBindDefaultSubAssignerStub{err: errors.New("temporary assign failure")}
 	cache := &emailBindCacheStub{

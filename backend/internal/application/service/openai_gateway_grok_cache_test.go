@@ -162,7 +162,11 @@ func TestResolveGrokCacheIdentityIDEHeaderPriority(t *testing.T) {
 		got := resolveGrokCacheIdentity(c, body, "explicit-argument", "grok-4.5")
 		onlyCurrent := newGrokCacheTestContext(402)
 		onlyCurrent.Request.Header.Set(header.name, header.value)
-		want := resolveGrokCacheIdentity(onlyCurrent, []byte(`{"model":"grok","input":"unrelated"}`), "", "grok-4.5")
+		wantBody := []byte(`{"model":"grok","input":"unrelated"}`)
+		if header.name == grokConversationIDHeader {
+			wantBody = body
+		}
+		want := resolveGrokCacheIdentity(onlyCurrent, wantBody, "", "grok-4.5")
 		require.Equal(t, want, got, header.name)
 		c.Request.Header.Del(header.name)
 	}
@@ -190,11 +194,29 @@ func TestExplicitGrokCacheSeedPriority(t *testing.T) {
 
 	body := []byte(`{"model":"grok","prompt_cache_key":"body-key","input":"hi"}`)
 	for _, header := range headers {
-		require.Equal(t, header.value, explicitGrokCacheSeed(c, body, "explicit-argument"), header.name)
+		want := header.value
+		if header.name == grokConversationIDHeader {
+			want = "body-key"
+		}
+		require.Equal(t, want, explicitGrokCacheSeed(c, body, "explicit-argument"), header.name)
 		c.Request.Header.Del(header.name)
 	}
 	require.Equal(t, "body-key", explicitGrokCacheSeed(c, body, "explicit-argument"))
 	require.Equal(t, "explicit-argument", explicitGrokCacheSeed(c, []byte(`{"model":"grok"}`), "explicit-argument"))
+}
+
+func TestResolveGrokCacheIdentitySideCallSharesParentCacheKey(t *testing.T) {
+	const parentSession = "6f1c2f46-0f5e-4f9d-9d4e-2f0f1c3d5b7a"
+
+	mainTurn := newGrokCacheTestContext(910)
+	mainTurn.Request.Header.Set(grokConversationIDHeader, parentSession)
+	mainIdentity := resolveGrokCacheIdentity(mainTurn, []byte(`{"model":"grok-4.6","input":"main"}`), "", "grok-4.6")
+	require.NotEmpty(t, mainIdentity)
+
+	sideCall := newGrokCacheTestContext(910)
+	sideCall.Request.Header.Set(grokConversationIDHeader, "turn-summary-fresh-call")
+	sideIdentity := resolveGrokCacheIdentity(sideCall, []byte(`{"model":"grok-4.6","prompt_cache_key":"`+parentSession+`","input":"summary"}`), "", "grok-4.6")
+	require.Equal(t, mainIdentity, sideIdentity)
 }
 
 func TestResolveGrokCacheIdentityIDEHeadersAreStableIsolatedAndOpaque(t *testing.T) {

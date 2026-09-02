@@ -8,8 +8,10 @@ import {
 import {
   probeUpstreamBilling,
   probeUpstreamBillingBatch,
+  refreshOpenAIQuotaBatch,
   queryUpstreamQuota
 } from '@/features/admin-accounts/data/datasources/adminAccountActions'
+import type { OpenAIQuotaRefreshResult } from '@/features/admin-accounts/data/dtos/openAIQuotaDtos'
 import { extractApiErrorMessage } from '@/core/utils/apiError'
 import {
   persistUpstreamQuotaCache,
@@ -62,6 +64,7 @@ interface AccountsUpstreamBillingOptions {
 
 const UPSTREAM_BILLING_PROBE_BATCH_SIZE = 20
 const UPSTREAM_QUOTA_QUERY_BATCH_SIZE = 4
+const OPENAI_QUOTA_BATCH_SIZE = 20
 
 export function useAccountsUpstreamBilling(options: AccountsUpstreamBillingOptions) {
   const { t } = useI18n()
@@ -73,6 +76,8 @@ export function useAccountsUpstreamBilling(options: AccountsUpstreamBillingOptio
   let upstreamQuotaGlobalGeneration = 0
   const upstreamQuotaAccountGenerations = new Map<number, number>()
   const bulkQueryingUpstreamQuota = ref(false)
+  const bulkQueryingOpenAIQuota = ref(false)
+  const bulkOpenAIQuotaResults = reactive(new Map<number, OpenAIQuotaRefreshResult>())
   const upstreamBillingFeedback = reactive(new Map<number, UpstreamActionFeedback>())
   const upstreamQuotaFeedback = reactive(new Map<number, UpstreamActionFeedback>())
   const upstreamBillingFeedbackTimers = new Map<number, ReturnType<typeof setTimeout>>()
@@ -116,6 +121,7 @@ export function useAccountsUpstreamBilling(options: AccountsUpstreamBillingOptio
       upstreamQuotaAccountGenerations.clear()
       queryingUpstreamQuota.clear()
       upstreamQuotaResults.clear()
+      bulkOpenAIQuotaResults.clear()
       upstreamQuotaStateIdentities.clear()
       upstreamQuotaErrors.clear()
       upstreamQuotaFeedbackTimers.forEach(timer => clearTimeout(timer))
@@ -127,6 +133,7 @@ export function useAccountsUpstreamBilling(options: AccountsUpstreamBillingOptio
     upstreamQuotaAccountGenerations.set(accountID, (upstreamQuotaAccountGenerations.get(accountID) ?? 0) + 1)
     queryingUpstreamQuota.delete(accountID)
     upstreamQuotaResults.delete(accountID)
+    bulkOpenAIQuotaResults.delete(accountID)
     upstreamQuotaStateIdentities.delete(accountID)
     upstreamQuotaErrors.delete(accountID)
     clearUpstreamActionFeedback(upstreamQuotaFeedback, upstreamQuotaFeedbackTimers, accountID)
@@ -148,6 +155,7 @@ export function useAccountsUpstreamBilling(options: AccountsUpstreamBillingOptio
         upstreamQuotaGlobalGeneration += 1
         queryingUpstreamQuota.clear()
         upstreamQuotaResults.clear()
+        bulkOpenAIQuotaResults.clear()
         upstreamQuotaStateIdentities.clear()
         upstreamQuotaErrors.clear()
         upstreamBillingFeedbackTimers.forEach(timer => clearTimeout(timer))
@@ -387,6 +395,67 @@ export function useAccountsUpstreamBilling(options: AccountsUpstreamBillingOptio
     return options.showProgress(message)
   }
 
+  const handleBulkQueryOpenAIQuota = async () => {
+    if (bulkQueryingOpenAIQuota.value) return
+    const accountIDs = [...options.getSelectedAccountIDs()]
+    if (accountIDs.length === 0) {
+      options.showError(t('admin.accounts.bulkActions.noOpenAIOAuthAccounts'))
+      return
+    }
+
+    const batches: number[][] = []
+    for (let start = 0; start < accountIDs.length; start += OPENAI_QUOTA_BATCH_SIZE) {
+      batches.push(accountIDs.slice(start, start + OPENAI_QUOTA_BATCH_SIZE))
+    }
+    let progressToastID: string | null = batches.length > 1
+      ? replaceProgressToast(null, t('admin.accounts.bulkActions.openAIQuotaBatchStarted', {
+          count: accountIDs.length,
+          total: batches.length
+        }))
+      : null
+    let succeeded = 0
+    let failed = 0
+    let skipped = 0
+    bulkQueryingOpenAIQuota.value = true
+    try {
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex += 1) {
+        const batch = batches[batchIndex]
+        try {
+          const result = await refreshOpenAIQuotaBatch(batch)
+          for (const [accountID, quota] of Object.entries(result.results)) {
+            const id = Number(accountID)
+            if (Number.isSafeInteger(id) && quota) bulkOpenAIQuotaResults.set(id, quota)
+          }
+          succeeded += Object.keys(result.results).length
+          failed += Object.keys(result.errors).length
+          skipped += result.skipped_account_ids.length
+        } catch (error) {
+          failed += batch.length
+          console.error('Failed to query OpenAI quota batch:', error)
+        }
+
+        if (progressToastID && batchIndex < batches.length - 1) {
+          progressToastID = replaceProgressToast(progressToastID, t('admin.accounts.bulkActions.openAIQuotaBatchProgress', {
+            completed: batchIndex + 1,
+            next: batchIndex + 2,
+            total: batches.length
+          }))
+        }
+      }
+
+      if (succeeded === 0 && failed === 0) {
+        options.showError(t('admin.accounts.bulkActions.noOpenAIOAuthAccounts'))
+      } else if (failed > 0 || skipped > 0) {
+        options.showError(t('admin.accounts.bulkActions.openAIQuotaBatchPartial', { succeeded, skipped, failed }))
+      } else {
+        options.showSuccess(t('admin.accounts.bulkActions.openAIQuotaBatchCompleted', { count: succeeded }))
+      }
+    } finally {
+      if (progressToastID) options.hideProgress(progressToastID)
+      bulkQueryingOpenAIQuota.value = false
+    }
+  }
+
   const handleBulkProbeUpstreamBilling = async () => {
     const accountIDs = [...options.getSelectedAccountIDs()]
     if (accountIDs.length === 0) {
@@ -507,6 +576,8 @@ export function useAccountsUpstreamBilling(options: AccountsUpstreamBillingOptio
     upstreamQuotaResults,
     upstreamQuotaErrors,
     bulkQueryingUpstreamQuota,
+    bulkQueryingOpenAIQuota,
+    bulkOpenAIQuotaResults,
     upstreamBillingFeedback,
     upstreamQuotaFeedback,
     upstreamBillingProbeGloballyEnabled,
@@ -520,6 +591,7 @@ export function useAccountsUpstreamBilling(options: AccountsUpstreamBillingOptio
     handleQueryUpstreamQuota,
     handleBulkProbeUpstreamBilling,
     handleBulkQueryUpstreamQuota,
+    handleBulkQueryOpenAIQuota,
     disposeUpstreamBilling
   }
 }

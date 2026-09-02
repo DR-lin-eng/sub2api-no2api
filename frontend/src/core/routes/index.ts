@@ -14,6 +14,7 @@ import { getSetupStatus } from '@/features/setup/data/datasources/setupDatasourc
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveRouteDocumentTitle } from './title'
 import { isOpaqueDocument } from '@/core/utils/embedded-url'
+import { canonicalizeRoutePath } from '@/core/utils/routePath'
 import { loadRouteLocaleMessages } from '@/core/i18n'
 import { safeSessionStorage } from '@/core/utils/safeStorage'
 
@@ -957,6 +958,20 @@ function isBackendModePublicRouteAllowed(path: string, hasPendingAuthSession: bo
 }
 
 router.beforeEach(async (to, _from, next) => {
+  // Vue Router matches paths case-insensitively by default. Redirecting before
+  // auth/i18n work keeps the address bar canonical and ensures an uppercase
+  // variant such as `/ADMIN/dashboard` loads the admin locale scope.
+  const canonicalPath = canonicalizeRoutePath(to.path)
+  if (canonicalPath !== to.path) {
+    next({
+      path: canonicalPath,
+      query: to.query,
+      hash: to.hash,
+      replace: true,
+    })
+    return
+  }
+
   // 开始导航加载状态
   navigationLoading.startNavigation()
 

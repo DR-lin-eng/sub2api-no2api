@@ -1,5 +1,6 @@
 import cpaMessages from './accounts.cpa'
 import codexMessages from './accounts.codex'
+import bulkActionsMessages from './accounts.bulk-actions'
 
 export default {
     accounts: {
@@ -524,26 +525,7 @@ export default {
       bulkSchedulableDisabled: '成功停止 {count} 个账号的调度',
       bulkSchedulablePartial: '部分调度更新成功：成功 {success} 个，失败 {failed} 个',
       bulkSchedulableResultUnknown: '批量调度结果不完整，请稍后重试或刷新列表',
-      bulkActions: {
-        selected: '已选择 {count} 个账号',
-        selectedAll: '已选择全部 {count} 个匹配账号',
-        selectCurrentPage: '本页全选',
-        selectAllResults: '选择全部 {count} 个结果',
-        selectingAll: '正在选择全部...',
-        selectAllFailed: '选择全部匹配账号失败',
-        clear: '清除选择',
-        edit: '批量编辑账号',
-        delete: '批量删除',
-        enableScheduling: '批量启用调度',
-        disableScheduling: '批量停止调度',
-        resetStatus: '批量重置状态',
-        refreshToken: '批量刷新令牌',
-        queryUpstreamQuota: '获取余额',
-        probeUpstreamBilling: '探测上游倍率',
-        resetStatusSuccess: '已成功重置 {count} 个账号状态',
-        refreshTokenSuccess: '已成功刷新 {count} 个账号令牌',
-        partialSuccess: '操作部分完成：{success} 成功，{failed} 失败'
-      },
+      bulkActions: bulkActionsMessages,
       bulkEdit: {
         title: '批量编辑账号',
         selectionInfo: '已选择 {count} 个账号。只更新您勾选或填写的字段，未勾选的字段保持不变。',
@@ -926,8 +908,8 @@ export default {
         },
         tlsFingerprint: {
           label: 'TLS 指纹模拟',
-          hint: '为 Anthropic 或 OpenAI OAuth 账号固定一个稳定的 TLS 指纹',
-          defaultProfile: '内置默认',
+          hint: '为账号固定稳定的 TLS 指纹；OpenAI OAuth 默认使用账号独立变体',
+          defaultProfile: '内置默认（账号独立变体）',
           randomProfile: '按账号稳定分配'
         },
         sessionIdMasking: {
@@ -976,6 +958,7 @@ export default {
       billingRateMultiplierHint: '0 表示不计费，仅影响账号计费',
       expiresAt: '过期时间',
       expiresAtHint: '留空表示不过期',
+      expiresAtTimezoneHint: '输入按浏览器本地时区（{timezone}）解释。',
       higherPriorityFirst: '数值越小优先级越高',
       mixedScheduling: '在 /v1/messages 中使用',
       mixedSchedulingHint: '启用后可参与 Anthropic/Gemini 分组的调度',

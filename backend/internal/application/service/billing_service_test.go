@@ -1287,6 +1287,31 @@ func TestCalculateCost_SupportsCacheBreakdown(t *testing.T) {
 	require.InDelta(t, expected5m+expected1h, cost.CacheCreationCost, 1e-10)
 }
 
+func TestCalculateCost_CapsContradictoryCacheBreakdownAtAggregate(t *testing.T) {
+	svc := &BillingService{
+		cfg: &config.Config{},
+		fallbackPrices: map[string]*ModelPricing{
+			"claude-sonnet-4": {
+				InputPricePerToken:     3e-6,
+				OutputPricePerToken:    15e-6,
+				SupportsCacheBreakdown: true,
+				CacheCreation5mPrice:   4e-6,
+				CacheCreation1hPrice:   8e-6,
+			},
+		},
+	}
+
+	cost, err := svc.CalculateCost("claude-sonnet-4", UsageTokens{
+		CacheCreationTokens:   100,
+		CacheCreation5mTokens: 80,
+		CacheCreation1hTokens: 80,
+	}, 1)
+
+	require.NoError(t, err)
+	// The 80/80 detail ratio is retained as 50/50 while the billed total is 100.
+	require.InDelta(t, 50*4e-6+50*8e-6, cost.CacheCreationCost, 1e-12)
+}
+
 func TestCalculateCost_LargeTokenCount(t *testing.T) {
 	svc := newTestBillingService()
 

@@ -301,7 +301,7 @@ async function handleSubmit() {
     return
   }
 
-  const headerSet: Record<string, string> = {}
+  const headerSet: Record<string, string> = Object.create(null) as Record<string, string>
   for (const header of form.value.headers) {
     const name = header.name.trim()
     if (!name) continue

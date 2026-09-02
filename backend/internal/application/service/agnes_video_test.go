@@ -8,7 +8,10 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
+	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -18,6 +21,31 @@ type customModelVideoTypeResolverStub struct {
 	videoAPIType string
 	configured   bool
 	err          error
+}
+
+type agnesVideoHTTPUpstreamStub struct {
+	request  *http.Request
+	response *http.Response
+}
+
+func (s *agnesVideoHTTPUpstreamStub) Do(
+	req *http.Request,
+	_ string,
+	_ int64,
+	_ int,
+) (*http.Response, error) {
+	s.request = req
+	return s.response, nil
+}
+
+func (s *agnesVideoHTTPUpstreamStub) DoWithTLS(
+	req *http.Request,
+	proxyURL string,
+	accountID int64,
+	accountConcurrency int,
+	_ *tlsfingerprint.Profile,
+) (*http.Response, error) {
+	return s.Do(req, proxyURL, accountID, accountConcurrency)
 }
 
 func (s customModelVideoTypeResolverStub) HasCapability(context.Context, string, string) (bool, error) {
@@ -56,6 +84,80 @@ func TestBuildAgnesVideoURLUsesAgnesProtocolPaths(t *testing.T) {
 	statusURL, err := buildAgnesVideoURL(account, AgnesVideoEndpointStatus, "task/123")
 	require.NoError(t, err)
 	require.Equal(t, "https://agnes.example/v1/video/generations/task%2F123", statusURL)
+
+	contentURL, err := buildAgnesVideoURL(account, AgnesVideoEndpointContent, "task/123")
+	require.NoError(t, err)
+	require.Equal(t, "https://agnes.example/v1/video/generations/task%2F123/content", contentURL)
+}
+
+func TestForwardAgnesVideoContentUsesBoundAccountEndpoint(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/videos/task-1/content", nil)
+	c.Request.Header.Set("Range", "bytes=0-3")
+	upstream := &agnesVideoHTTPUpstreamStub{response: &http.Response{
+		StatusCode: http.StatusPartialContent,
+		Header: http.Header{
+			"Content-Type":  []string{"video/mp4"},
+			"Content-Range": []string{"bytes 0-3/8"},
+		},
+		Body: io.NopCloser(strings.NewReader("data")),
+	}}
+	svc := &OpenAIGatewayService{httpUpstream: upstream}
+	account := &Account{ID: 9, Type: AccountTypeAPIKey, Credentials: map[string]any{
+		"base_url": "https://agnes.example/v1",
+	}}
+
+	result, err := svc.forwardAgnesVideoContent(
+		context.Background(), c, account, "https://agnes.example/v1", "secret-token", "task-1", time.Now(),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.NotNil(t, upstream.request)
+	require.Equal(t, "https://agnes.example/v1/video/generations/task-1/content", upstream.request.URL.String())
+	require.Equal(t, "Bearer secret-token", upstream.request.Header.Get("Authorization"))
+	require.Equal(t, "bytes=0-3", upstream.request.Header.Get("Range"))
+	require.Equal(t, http.StatusPartialContent, recorder.Code)
+	require.Equal(t, "private, no-store", recorder.Header().Get("Cache-Control"))
+	require.Equal(t, "nosniff", recorder.Header().Get("X-Content-Type-Options"))
+	require.Equal(t, "data", recorder.Body.String())
+}
+
+func TestForwardAgnesVideoRejectsBaseURLOutsideAllowlist(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/generations", nil)
+	svc := &OpenAIGatewayService{cfg: &config.Config{Security: config.SecurityConfig{
+		URLAllowlist: config.URLAllowlistConfig{
+			Enabled:       true,
+			UpstreamHosts: []string{"agnes.example"},
+		},
+	}}}
+	account := &Account{Type: AccountTypeAPIKey, Credentials: map[string]any{
+		"base_url": "https://attacker.example/v1",
+	}}
+
+	_, err := svc.ForwardAgnesVideo(
+		context.Background(),
+		c,
+		account,
+		AgnesVideoEndpointGenerations,
+		"",
+		[]byte(`{"model":"agnes-video-v2","prompt":"test"}`),
+		"application/json",
+	)
+	require.ErrorContains(t, err, "invalid base_url")
+}
+
+func TestAgnesVideoErrorLogBodyIsBoundedAndRedacted(t *testing.T) {
+	body := []byte(`{"access_token":"sensitive-token","message":"` + strings.Repeat("x", 4096) + `"}`)
+
+	logged := agnesVideoErrorLogBody(body)
+
+	require.NotContains(t, logged, "sensitive-token")
+	require.LessOrEqual(t, len(logged), agnesVideoErrorLogMaxBytes)
 }
 
 func TestAgnesVideoTaskBindingIsScopedToUserAndAPIKey(t *testing.T) {
@@ -129,6 +231,10 @@ func TestRewriteAgnesVideoContentURLsSupportsRootVideoURL(t *testing.T) {
 		"/v1/videos/task-1/content",
 	)
 	require.Equal(t, "/v1/videos/task-1/content", gjson.GetBytes(result, "video_url").String())
+}
+
+func TestAgnesVideoContentProxyURLEscapesTaskID(t *testing.T) {
+	require.Equal(t, "/v1/videos/task%2F123/content", agnesVideoContentProxyURL(nil, "task/123"))
 }
 
 func TestResolveCustomModelVideoAPITypePropagatesResolverError(t *testing.T) {

@@ -112,15 +112,21 @@ func (h *SettingHandler) GetRateLimit429CooldownSettings(c *gin.Context) {
 	}
 
 	response.Success(c, dto.RateLimit429CooldownSettings{
-		Enabled:         settings.Enabled,
-		CooldownSeconds: settings.CooldownSeconds,
+		Enabled:                      settings.Enabled,
+		CooldownSeconds:              settings.CooldownSeconds,
+		AutoDisableEnabled:           settings.AutoDisableEnabled,
+		AutoDisableThreshold:         settings.AutoDisableThreshold,
+		AutoDisableQuotaCheckEnabled: settings.AutoDisableQuotaCheckEnabled,
 	})
 }
 
 // UpdateRateLimit429CooldownSettingsRequest 更新429默认回避配置请求
 type UpdateRateLimit429CooldownSettingsRequest struct {
-	Enabled         bool `json:"enabled"`
-	CooldownSeconds int  `json:"cooldown_seconds"`
+	Enabled                      bool  `json:"enabled"`
+	CooldownSeconds              int   `json:"cooldown_seconds"`
+	AutoDisableEnabled           bool  `json:"auto_disable_enabled"`
+	AutoDisableThreshold         int   `json:"auto_disable_threshold"`
+	AutoDisableQuotaCheckEnabled *bool `json:"auto_disable_quota_check_enabled"`
 }
 
 // UpdateRateLimit429CooldownSettings 更新429默认回避配置
@@ -132,9 +138,24 @@ func (h *SettingHandler) UpdateRateLimit429CooldownSettings(c *gin.Context) {
 		return
 	}
 
+	quotaCheckEnabled := false
+	if req.AutoDisableQuotaCheckEnabled == nil {
+		current, err := h.settingService.GetRateLimit429CooldownSettings(c.Request.Context())
+		if err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
+		quotaCheckEnabled = current.AutoDisableQuotaCheckEnabled
+	} else {
+		quotaCheckEnabled = *req.AutoDisableQuotaCheckEnabled
+	}
+
 	settings := &service.RateLimit429CooldownSettings{
-		Enabled:         req.Enabled,
-		CooldownSeconds: req.CooldownSeconds,
+		Enabled:                      req.Enabled,
+		CooldownSeconds:              req.CooldownSeconds,
+		AutoDisableEnabled:           req.AutoDisableEnabled,
+		AutoDisableThreshold:         req.AutoDisableThreshold,
+		AutoDisableQuotaCheckEnabled: quotaCheckEnabled,
 	}
 
 	if err := h.settingService.SetRateLimit429CooldownSettings(c.Request.Context(), settings); err != nil {
@@ -149,8 +170,11 @@ func (h *SettingHandler) UpdateRateLimit429CooldownSettings(c *gin.Context) {
 	}
 
 	response.Success(c, dto.RateLimit429CooldownSettings{
-		Enabled:         updatedSettings.Enabled,
-		CooldownSeconds: updatedSettings.CooldownSeconds,
+		Enabled:                      updatedSettings.Enabled,
+		CooldownSeconds:              updatedSettings.CooldownSeconds,
+		AutoDisableEnabled:           updatedSettings.AutoDisableEnabled,
+		AutoDisableThreshold:         updatedSettings.AutoDisableThreshold,
+		AutoDisableQuotaCheckEnabled: updatedSettings.AutoDisableQuotaCheckEnabled,
 	})
 }
 

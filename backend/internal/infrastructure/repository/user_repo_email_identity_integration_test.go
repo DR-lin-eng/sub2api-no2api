@@ -5,6 +5,7 @@ package repository
 import (
 	"context"
 
+	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 )
@@ -83,4 +84,21 @@ func (s *UserRepoSuite) TestUpdate_ReplacesEmailAuthIdentityWhenEmailChanges() {
 		Count(context.Background())
 	s.Require().NoError(err)
 	s.Require().Zero(oldCount)
+}
+
+func (s *UserRepoSuite) TestUpdateEmailWithAliasGuardRejectsAliasCollision() {
+	owner := s.mustCreateUser(&service.User{Email: "alice@gmail.com"})
+	target := s.mustCreateUser(&service.User{Email: "alias-target@synthetic.invalid"})
+
+	tx, err := s.client.Tx(s.ctx)
+	s.Require().NoError(err)
+	txCtx := dbent.NewTxContext(s.ctx, tx)
+	err = s.repo.UpdateEmailWithAliasGuard(txCtx, target.ID, "a.l.i.c.e+tag@googlemail.com", "new-password-hash")
+	s.Require().ErrorIs(err, service.ErrEmailExists)
+	s.Require().NoError(tx.Rollback())
+
+	stored, err := s.client.User.Get(s.ctx, target.ID)
+	s.Require().NoError(err)
+	s.Require().Equal("alias-target@synthetic.invalid", stored.Email)
+	s.Require().NotEqual(owner.ID, target.ID)
 }

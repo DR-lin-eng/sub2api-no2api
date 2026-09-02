@@ -138,9 +138,13 @@ import {
   createTempUnschedRule,
   formatPoolModeRetryStatusCodes,
   getCodexFingerprintModeOptions,
+  isOpenAIPersonalAccessTokenCredentials,
   moveTempUnschedRule as moveTempUnschedRuleInPlace,
   normalizeCodexFingerprintMode,
+  normalizeOpenAIEndpointCapabilities,
   normalizePoolModeRetryCount,
+  readCodexWebSearchEnabled,
+  readOpenAIEndpointCapabilities,
   removeModelMapping as removeModelMappingAt,
   type CodexFingerprintMode,
   type ModelMapping,
@@ -491,29 +495,11 @@ const openAITextGenerationCapabilityEnabled = computed(() =>
   openAIEndpointCapabilities.value.includes('chat_completions')
 )
 
-const isOpenAIPersonalAccessTokenCredentials = (credentials?: Record<string, unknown>) => {
-  const authMode = String(credentials?.auth_mode ?? credentials?.openai_auth_mode ?? '')
-    .trim()
-    .toLowerCase()
-  return authMode === 'personalaccesstoken' || authMode === 'personal_access_token'
-}
-
 const isOpenAIPersonalAccessTokenAccount = computed(() =>
   props.account?.platform === 'openai' &&
   props.account?.type === 'oauth' &&
   isOpenAIPersonalAccessTokenCredentials(props.account.credentials as Record<string, unknown> | undefined)
 )
-
-const readCodexWebSearchEnabled = (credentials?: Record<string, unknown>) => {
-  const raw = credentials?.openai_capabilities
-  if (Array.isArray(raw)) {
-    return raw.includes('alpha_search')
-  }
-  if (raw !== null && typeof raw === 'object') {
-    return (raw as Record<string, unknown>).alpha_search === true
-  }
-  return true
-}
 
 const applyCodexWebSearchCapability = (credentials: Record<string, unknown>) => {
   if (codexWebSearchEnabled.value) {
@@ -521,32 +507,6 @@ const applyCodexWebSearchCapability = (credentials: Record<string, unknown>) => 
     return
   }
   credentials.openai_capabilities = ['chat_completions']
-}
-
-const normalizeOpenAIEndpointCapabilities = (values: OpenAIEndpointCapability[]) => {
-  const allowed: OpenAIEndpointCapability[] = ['chat_completions', 'embeddings']
-  const selected = allowed.filter((value) => values.includes(value))
-  return selected.length > 0 ? selected : allowed
-}
-
-const readOpenAIEndpointCapabilities = (credentials?: Record<string, unknown>): OpenAIEndpointCapability[] => {
-  const raw = credentials?.openai_capabilities
-  if (Array.isArray(raw)) {
-    return normalizeOpenAIEndpointCapabilities(
-      raw.filter((value): value is OpenAIEndpointCapability =>
-        value === 'chat_completions' || value === 'embeddings'
-      )
-    )
-  }
-  if (raw !== null && typeof raw === 'object') {
-    const capabilityMap = raw as Record<string, unknown>
-    return normalizeOpenAIEndpointCapabilities(
-      openAIEndpointCapabilityOptions.value
-        .map((option) => option.value)
-        .filter((value) => capabilityMap[value] === true)
-    )
-  }
-  return ['chat_completions', 'embeddings']
 }
 
 const toggleOpenAIEndpointCapability = (capability: OpenAIEndpointCapability, event?: Event) => {
@@ -1294,6 +1254,7 @@ function loadTempUnschedRules(credentials?: Record<string, unknown>) {
 
 // Load quota control settings from account (Anthropic OAuth/SetupToken only)
 function loadQuotaControlSettings(account: Account) {
+  const extra = account.extra as Record<string, unknown> | undefined
   // Reset all quota control state first
   windowCostEnabled.value = false
   windowCostLimit.value = null
@@ -1320,8 +1281,10 @@ function loadQuotaControlSettings(account: Account) {
 
   // TLS fingerprint settings are also available for OpenAI OAuth/Codex accounts.
   if (tlsFingerprintEligible) {
-    tlsFingerprintEnabled.value = account.enable_tls_fingerprint === true
-    tlsFingerprintProfileId.value = account.tls_fingerprint_profile_id ?? null
+    const storedEnabled = account.enable_tls_fingerprint === true
+    tlsFingerprintEnabled.value = storedEnabled || extra?.enable_tls_fingerprint === true
+    const storedProfileID = account.tls_fingerprint_profile_id ?? extra?.tls_fingerprint_profile_id
+    tlsFingerprintProfileId.value = normalizeTLSFingerprintProfileID(storedProfileID)
   }
 
   // Remaining quota controls apply only to Anthropic OAuth/SetupToken accounts.
@@ -1396,6 +1359,13 @@ function toPositiveNumber(value: unknown) {
     return null
   }
   return Math.trunc(num)
+}
+
+function normalizeTLSFingerprintProfileID(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null
+  const parsed = typeof value === 'number' ? value : Number(value)
+  if (!Number.isInteger(parsed) || (parsed !== -1 && parsed <= 0)) return null
+  return parsed
 }
 
 const {

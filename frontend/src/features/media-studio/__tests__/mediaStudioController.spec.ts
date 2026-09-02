@@ -202,10 +202,11 @@ describe('media studio controller', () => {
     const createObjectURL = vi.fn().mockReturnValue('blob:video-preview')
     const revokeObjectURL = vi.fn()
     const getVideoContent = vi.fn().mockResolvedValue(new Blob(['video'], { type: 'video/mp4' }))
+    const createSession = vi.fn().mockResolvedValue(session())
     const controller = useMediaStudioController({
       storage: localStorage,
       getConfig: vi.fn().mockResolvedValue(config),
-      createSession: vi.fn().mockResolvedValue(session()),
+      createSession,
       listModels: vi.fn().mockResolvedValue({ object: 'list', data: [{ id: 'grok-imagine-video' }] }),
       submitVideo: vi.fn().mockResolvedValue({ id: 'video-1', status: 'processing', raw: {} }),
       getVideoTask: vi.fn().mockResolvedValue({ id: 'video-1', status: 'completed', raw: {} }),
@@ -225,6 +226,7 @@ describe('media studio controller', () => {
     await settle()
 
     expect(controller.modelOptions.value).toEqual(['grok-imagine-video'])
+    expect(createSession).toHaveBeenCalledTimes(1)
     expect(getVideoContent).toHaveBeenCalledWith('sk-demo', 'video-1')
     expect(controller.conversation.value.messages.at(-1)).toMatchObject({
       mode: 'video', status: 'completed', resolution: '1080p', duration: 15,
@@ -235,18 +237,15 @@ describe('media studio controller', () => {
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:video-preview')
   })
 
-  it('fills missing images when an upstream ignores n', async () => {
+  it('keeps successful concurrent image results when another request fails', async () => {
     const submitImage = vi.fn()
       .mockResolvedValueOnce({
         id: 'image-main', task_id: 'image-main', object: 'image.generation.task', status: 'completed',
         result: { data: [{ url: 'https://cdn.example/image-1.png' }] }, created_at: 1, expires_at: 2,
       })
+      .mockRejectedValueOnce(new Error('one upstream request failed'))
       .mockResolvedValueOnce({
-        id: 'image-fallback-2', task_id: 'image-fallback-2', object: 'image.generation.task', status: 'completed',
-        result: { data: [{ url: 'https://cdn.example/image-2.png' }] }, created_at: 1, expires_at: 2,
-      })
-      .mockResolvedValueOnce({
-        id: 'image-fallback-3', task_id: 'image-fallback-3', object: 'image.generation.task', status: 'completed',
+        id: 'image-3', task_id: 'image-3', object: 'image.generation.task', status: 'completed',
         result: { data: [{ url: 'https://cdn.example/image-3.png' }] }, created_at: 1, expires_at: 2,
       })
     const controller = useMediaStudioController({
@@ -263,9 +262,14 @@ describe('media studio controller', () => {
     await controller.submitPrompt()
 
     expect(submitImage).toHaveBeenCalledTimes(3)
-    expect(submitImage.mock.calls[0][1].n).toBe(3)
-    expect(submitImage.mock.calls[1][1].n).toBe(1)
-    expect(controller.conversation.value.messages.at(-1)?.images).toHaveLength(3)
+    expect(submitImage.mock.calls.every(call => call[1].n === 1)).toBe(true)
+    expect(controller.conversation.value.messages.at(-1)).toMatchObject({
+      status: 'completed',
+      images: [
+        { src: 'https://cdn.example/image-1.png' },
+        { src: 'https://cdn.example/image-3.png' },
+      ],
+    })
   })
 
   it('persists configuration without prompt input', async () => {

@@ -84,6 +84,13 @@ describe('route locale scopes', () => {
     ])
   })
 
+  it.each([
+    ['/ADMIN/dashboard', ['base', 'user', 'admin']],
+    ['/Admin/support?tab=overview#details', ['base', 'user', 'admin', 'supportChat']],
+  ] as const)('resolves admin messages for uppercase route URLs (%s)', (path, expectedScopes) => {
+    expect(getLocaleScopesForRoute(path)).toEqual(expectedScopes)
+  })
+
   it.each(['en', 'zh'] as const)(
     'resolves every shared usage-page key from the %s user scope',
     async (locale) => {

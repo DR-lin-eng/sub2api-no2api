@@ -133,6 +133,10 @@ import {
   detectTheme,
   postEmbeddedAuthContext,
 } from '@/core/utils/embedded-url'
+import {
+  issueEmbeddedCapability,
+  type EmbeddedCapabilityIssue,
+} from '@/features/channels-user/data/datasources/embeddedCapabilityDatasource'
 import { sanitizeCustomPageHtml } from '@/features/channels-user/presentation/customPageHtml'
 import { marked } from 'marked'
 
@@ -163,6 +167,8 @@ let themeObserver: MutationObserver | null = null
 let markdownRenderRequestSeq = 0
 let embeddedAuthDispatchSeq = 0
 let embeddedAuthRetryTimers: ReturnType<typeof setTimeout>[] = []
+let activeEmbeddedCapability: EmbeddedCapabilityIssue | null = null
+let embeddedAuthIssuing = false
 
 const menuItemId = computed(() => route.params.id as string)
 
@@ -194,10 +200,6 @@ const embeddedUrl = computed(() => {
     authStore.user?.id,
     pageTheme.value,
     locale.value,
-    {
-      authToken: authStore.token,
-      forwardAccessTokenInUrl: menuItem.value.forward_access_token_in_url === true,
-    },
   )
 })
 
@@ -207,62 +209,80 @@ const isValidUrl = computed(() => {
   return url.startsWith('http://') || url.startsWith('https://')
 })
 
-function clearEmbeddedAuthRetryTimers() {
-  embeddedAuthRetryTimers.forEach((timer) => clearTimeout(timer))
+function clearEmbeddedAuthDispatch() {
+  embeddedAuthDispatchSeq += 1
+  for (const timer of embeddedAuthRetryTimers) clearTimeout(timer)
   embeddedAuthRetryTimers = []
+  activeEmbeddedCapability = null
+  embeddedAuthIssuing = false
 }
 
-function embeddedTargetOrigin(url: string): string {
+function embeddedTargetOrigin(): string {
   try {
-    const parsed = new URL(url)
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.origin : ''
+    return new URL(embeddedUrl.value).origin
   } catch {
     return ''
   }
 }
 
-function sendEmbeddedAuthContext() {
-  clearEmbeddedAuthRetryTimers()
-  const dispatchSeq = ++embeddedAuthDispatchSeq
-  if (menuItem.value?.forward_access_token !== true) return
-
-  const targetWindow = embeddedFrame.value?.contentWindow ?? null
-  const targetUrl = embeddedUrl.value
-  const authToken = authStore.token
-  if (!targetWindow || !authToken) return
-
-  const send = () => {
-    if (dispatchSeq !== embeddedAuthDispatchSeq) return
-    postEmbeddedAuthContext(targetWindow, targetUrl, {
+function postActiveEmbeddedCapability(): boolean {
+  if (!activeEmbeddedCapability) return false
+  return postEmbeddedAuthContext(
+    embeddedFrame.value?.contentWindow ?? null,
+    embeddedUrl.value,
+    {
       userId: authStore.user?.id,
-      authToken,
-    })
-  }
-
-  // A load event can happen before an embedded SPA finishes registering its
-  // message listener. Retry briefly, while keeping the token out of the URL.
-  send()
-  embeddedAuthRetryTimers = EMBEDDED_AUTH_RETRY_DELAYS_MS.map((delay) =>
-    setTimeout(send, delay),
+      capabilityToken: activeEmbeddedCapability.token,
+      expiresAt: activeEmbeddedCapability.expires_at,
+    },
   )
 }
 
-function onEmbeddedAuthReady(event: MessageEvent) {
+async function sendEmbeddedAuthContext() {
+  if (menuItem.value?.forward_access_token !== true) return
   const frame = embeddedFrame.value
-  if (!frame || event.source !== frame.contentWindow) return
+  const targetOrigin = embeddedTargetOrigin()
+  const menuId = menuItem.value?.id || ''
+  if (!frame?.contentWindow || !targetOrigin || !menuId) return
 
-  const targetOrigin = embeddedTargetOrigin(embeddedUrl.value)
-  if (!targetOrigin || event.origin !== targetOrigin) return
-
-  const data = event.data as { type?: unknown; version?: unknown } | null
-  if (
-    data?.type !== EMBEDDED_AUTH_READY_MESSAGE_TYPE ||
-    data.version !== 1
-  ) {
+  const expiresAt = Date.parse(activeEmbeddedCapability?.expires_at || '')
+  if (Number.isFinite(expiresAt) && expiresAt > Date.now() + 5000) {
+    postActiveEmbeddedCapability()
     return
   }
+  if (embeddedAuthIssuing) return
 
-  sendEmbeddedAuthContext()
+  const dispatchSeq = embeddedAuthDispatchSeq
+  embeddedAuthIssuing = true
+  try {
+    const capability = await issueEmbeddedCapability(menuId, targetOrigin)
+    if (dispatchSeq !== embeddedAuthDispatchSeq || frame !== embeddedFrame.value) return
+    activeEmbeddedCapability = capability
+    postActiveEmbeddedCapability()
+    for (const timer of embeddedAuthRetryTimers) clearTimeout(timer)
+    embeddedAuthRetryTimers = EMBEDDED_AUTH_RETRY_DELAYS_MS.map(delay => setTimeout(() => {
+      if (dispatchSeq === embeddedAuthDispatchSeq) postActiveEmbeddedCapability()
+    }, delay))
+  } catch {
+    if (dispatchSeq === embeddedAuthDispatchSeq) activeEmbeddedCapability = null
+  } finally {
+    if (dispatchSeq === embeddedAuthDispatchSeq) embeddedAuthIssuing = false
+  }
+}
+
+function handleEmbeddedAuthReady(event: MessageEvent) {
+  const frame = embeddedFrame.value
+  const targetOrigin = embeddedTargetOrigin()
+  if (!frame?.contentWindow || event.source !== frame.contentWindow || event.origin !== targetOrigin) return
+  if (!event.data || typeof event.data !== 'object') return
+  const message = event.data as { type?: unknown; version?: unknown }
+  if (message.type !== EMBEDDED_AUTH_READY_MESSAGE_TYPE || (message.version !== 1 && message.version !== 2)) return
+  const expiresAt = Date.parse(activeEmbeddedCapability?.expires_at || '')
+  if (Number.isFinite(expiresAt) && expiresAt > Date.now() + 5000) {
+    postActiveEmbeddedCapability()
+  } else {
+    void sendEmbeddedAuthContext()
+  }
 }
 
 function generateHeadingId(text: string, index: number): string {
@@ -424,19 +444,16 @@ watch([markdownSlug, locale], ([slug]) => {
 }, { immediate: true })
 
 watch(
-  [
-    () => menuItem.value?.forward_access_token,
-    () => menuItem.value?.forward_access_token_in_url,
-    () => authStore.token,
-  ],
+  [() => menuItem.value?.id, () => menuItem.value?.url, () => menuItem.value?.forward_access_token, () => authStore.user?.id],
   () => {
+    clearEmbeddedAuthDispatch()
     void nextTick(sendEmbeddedAuthContext)
   },
 )
 
 onMounted(async () => {
-  window.addEventListener('message', onEmbeddedAuthReady)
   pageTheme.value = detectTheme()
+  window.addEventListener('message', handleEmbeddedAuthReady)
 
   if (typeof document !== 'undefined') {
     themeObserver = new MutationObserver(() => {
@@ -458,9 +475,8 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  window.removeEventListener('message', onEmbeddedAuthReady)
-  clearEmbeddedAuthRetryTimers()
-  embeddedAuthDispatchSeq += 1
+  clearEmbeddedAuthDispatch()
+  window.removeEventListener('message', handleEmbeddedAuthReady)
   if (themeObserver) {
     themeObserver.disconnect()
     themeObserver = null

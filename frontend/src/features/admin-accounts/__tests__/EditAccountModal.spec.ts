@@ -441,6 +441,48 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_long_context_billing_enabled).toBe(false)
   })
 
+  it('rehydrates OpenAI TLS fingerprint state from extra when flattened fields are absent', async () => {
+    const account = {
+      ...buildAccount(),
+      type: 'oauth',
+      extra: {
+        enable_tls_fingerprint: true,
+        tls_fingerprint_profile_id: -1
+      }
+    }
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    const toggle = wrapper.get('[data-testid="edit-openai-tls-fingerprint-toggle"]')
+    expect(toggle.classes()).toContain('bg-primary-600')
+
+    await wrapper.setProps({ show: false })
+    await wrapper.setProps({ show: true })
+    expect(wrapper.get('[data-testid="edit-openai-tls-fingerprint-toggle"]').classes()).toContain('bg-primary-600')
+  })
+
+  it('keeps OpenAI TLS fingerprint settings when the account response only has flattened fields', async () => {
+    const account = {
+      ...buildAccount(),
+      type: 'oauth',
+      enable_tls_fingerprint: true,
+      tls_fingerprint_profile_id: -1,
+      extra: {}
+    }
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).toMatchObject({
+      enable_tls_fingerprint: true,
+      tls_fingerprint_profile_id: -1
+    })
+  })
+
     it('loads and clears the OAuth-only namespace flattening switch', async () => {
     const account = buildAccount()
     account.type = 'oauth'

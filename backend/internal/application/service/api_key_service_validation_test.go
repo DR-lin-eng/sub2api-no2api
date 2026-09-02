@@ -30,6 +30,17 @@ func TestValidateCreateAPIKeyRequestNumericLimits(t *testing.T) {
 	}
 }
 
+func TestValidateMediaStudioAPIKeyMutationKeepsManagedIdentityReserved(t *testing.T) {
+	managed := MediaStudioAPIKeyName
+	regular := "regular key"
+
+	require.ErrorIs(t, validateMediaStudioAPIKeyMutation("", &managed, false), ErrAPIKeyReservedName)
+	require.NoError(t, validateMediaStudioAPIKeyMutation("", &managed, true))
+	require.ErrorIs(t, validateMediaStudioAPIKeyMutation(MediaStudioAPIKeyName, nil, false), ErrAPIKeyReservedName)
+	require.ErrorIs(t, validateMediaStudioAPIKeyMutation(MediaStudioAPIKeyName, &regular, false), ErrAPIKeyReservedName)
+	require.NoError(t, validateMediaStudioAPIKeyMutation("ordinary", &regular, false))
+}
+
 func TestValidateUpdateAPIKeyRequestNumericLimits(t *testing.T) {
 	zero, large, negative, nan, inf := 0.0, 1e100, -1.0, math.NaN(), math.Inf(1)
 	require.NoError(t, validateUpdateAPIKeyRequest(UpdateAPIKeyRequest{Quota: &zero, RateLimit7d: &large}))

@@ -1,0 +1,19 @@
+--- diagnostics/claude-cli-offset/ORIGINAL_FILE.json	2026-08-26 22:47:59
++++ diagnostics/claude-cli-offset/MODIFIED_FILE.json	2026-08-26 23:51:20
+@@ -1,7 +1,7 @@
+ {
+   "fixture": "claude-cli-read-offset",
+-  "branch": "unclassified",
+-  "field": "pending",
++  "branch": "sanitized-read-offset",
++  "field": "response.function_call_arguments.delta",
+   "upstream_deltas": [
+     "{\\\"file_path\\\":\\\"/tmp/demo.ts\\\",\\\"limit\\\":60,\\\"offset\\\":",
+     "518",
+@@ -11,5 +11,5 @@
+     "051",
+     "3}"
+   ],
+-  "observed_result": "pending"
++  "observed_result": "{\\\"file_path\\\":\\\"/tmp/demo.ts\\\",\\\"limit\\\":60}"
+ }

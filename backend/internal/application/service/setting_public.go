@@ -708,6 +708,7 @@ type PublicSettingsInjectionPayload struct {
 	ModelPlazaRequireAuth                bool   `json:"model_plaza_require_auth"`
 	MediaStudioEnabled                   bool   `json:"media_studio_enabled"`
 	ActivityCenterEnabled                bool   `json:"activity_center_enabled"`
+	CustomModelConfigEnabled             bool   `json:"custom_model_config_enabled"`
 	IPv6EgressUIEnabled                  bool   `json:"ipv6_egress_ui_enabled"`
 	AffiliateEnabled                     bool   `json:"affiliate_enabled"`
 	RiskControlEnabled                   bool   `json:"risk_control_enabled"`
@@ -797,6 +798,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		ModelPlazaRequireAuth:                settings.ModelPlazaRequireAuth,
 		MediaStudioEnabled:                   settings.MediaStudioEnabled,
 		ActivityCenterEnabled:                settings.ActivityCenterEnabled,
+		CustomModelConfigEnabled:             settings.CustomModelConfigEnabled,
 		IPv6EgressUIEnabled:                  settings.IPv6EgressUIEnabled,
 		AffiliateEnabled:                     settings.AffiliateEnabled,
 		RiskControlEnabled:                   settings.RiskControlEnabled,

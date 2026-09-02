@@ -892,6 +892,9 @@ describe("admin SettingsView payment visible method controls", () => {
     getRateLimit429CooldownSettings.mockResolvedValue({
       enabled: true,
       cooldown_seconds: 5,
+      auto_disable_enabled: false,
+      auto_disable_threshold: 3,
+      auto_disable_quota_check_enabled: false,
     });
     updateRateLimit429CooldownSettings.mockImplementation(async (payload) => payload);
     getGlobalTempUnschedulableSettings.mockResolvedValue({ enabled: true });
@@ -1067,11 +1070,13 @@ describe("admin SettingsView payment visible method controls", () => {
 
     const input = wrapper.get("#support-chat-retention-days");
     expect((input.element as HTMLInputElement).value).toBe("30");
+    expect((input.element as HTMLInputElement).disabled).toBe(false);
     await input.setValue("90");
     await wrapper.find("form").trigger("submit.prevent");
     await flushPromises();
 
     const payload = updateSettings.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(payload.support_chat_retention_enabled).toBe(true);
     expect(payload.support_chat_retention_days).toBe(90);
   });
 
@@ -1306,6 +1311,47 @@ describe("admin SettingsView payment visible method controls", () => {
 
     expect(updateGlobalTempUnschedulableSettings).toHaveBeenCalledWith({
       enabled: true,
+    });
+  });
+
+  it("loads and saves live quota confirmation for the OAuth failure circuit", async () => {
+    getRateLimit429CooldownSettings.mockResolvedValueOnce({
+      enabled: true,
+      cooldown_seconds: 5,
+      auto_disable_enabled: true,
+      auto_disable_threshold: 4,
+      auto_disable_quota_check_enabled: false,
+    });
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+
+    const card = wrapper
+      .findAll(".card")
+      .find((node) =>
+        node.text().includes("admin.settings.rateLimit429Cooldown.title"),
+      );
+    expect(card).toBeDefined();
+
+    const quotaToggle = card!.get(
+      '[data-testid="oauth-failure-quota-check-toggle"]',
+    );
+    expect((quotaToggle.element as HTMLInputElement).checked).toBe(false);
+    await quotaToggle.setValue(true);
+
+    const saveButton = card!
+      .findAll("button")
+      .find((node) => node.text().includes("common.save"));
+    expect(saveButton).toBeDefined();
+    await saveButton?.trigger("click");
+    await flushPromises();
+
+    expect(updateRateLimit429CooldownSettings).toHaveBeenCalledWith({
+      enabled: true,
+      cooldown_seconds: 5,
+      auto_disable_enabled: true,
+      auto_disable_threshold: 4,
+      auto_disable_quota_check_enabled: true,
     });
   });
 
@@ -2104,6 +2150,9 @@ describe("admin SettingsView wechat connect controls", () => {
     getRateLimit429CooldownSettings.mockResolvedValue({
       enabled: true,
       cooldown_seconds: 5,
+      auto_disable_enabled: false,
+      auto_disable_threshold: 3,
+      auto_disable_quota_check_enabled: false,
     });
     updateRateLimit429CooldownSettings.mockImplementation(async (payload) => payload);
     getGlobalTempUnschedulableSettings.mockResolvedValue({ enabled: true });

@@ -30,6 +30,15 @@ vi.mock('@/features/admin-accounts/data/datasources/adminAccountsDatasource', ()
   default: {}
 }))
 
+vi.mock('@/features/admin-settings/data/datasources/tlsFingerprintProfileDatasource', () => ({
+  list: vi.fn().mockResolvedValue([
+    { id: 7, name: 'Codex desktop' }
+  ]),
+  default: {
+    list: vi.fn().mockResolvedValue([])
+  }
+}))
+
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
   return {
@@ -240,6 +249,62 @@ describe('BulkEditAccountModal', () => {
         openai_passthrough: true
       }
     })
+  })
+
+  it('OpenAI OAuth 批量编辑可开启 TLS 指纹模拟并按账号稳定分配 profile', async () => {
+    const wrapper = mountModal({
+      selectedPlatforms: ['openai'],
+      selectedTypes: ['oauth']
+    })
+
+    await wrapper.get('#bulk-edit-openai-tls-fingerprint-enabled').setValue(true)
+    await wrapper.get('[data-testid="bulk-edit-openai-tls-fingerprint-toggle"]').trigger('click')
+    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(bulkUpdate).toHaveBeenCalledWith([1, 2], {
+      extra: {
+        enable_tls_fingerprint: true,
+        tls_fingerprint_profile_id: -1
+      }
+    })
+  })
+
+  it('OpenAI OAuth 批量编辑可统一选择 TLS 指纹 profile', async () => {
+    const wrapper = mountModal({
+      selectedPlatforms: ['openai'],
+      selectedTypes: ['oauth']
+    })
+
+    await wrapper.get('#bulk-edit-openai-tls-fingerprint-enabled').setValue(true)
+    await wrapper.get('[data-testid="bulk-edit-openai-tls-fingerprint-toggle"]').trigger('click')
+    const profile = wrapper.get('[data-testid="bulk-edit-openai-tls-fingerprint-profile"]')
+    await profile.trigger('focus')
+    await flushPromises()
+    await profile.setValue('7')
+    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(bulkUpdate).toHaveBeenCalledWith([1, 2], {
+      extra: {
+        enable_tls_fingerprint: true,
+        tls_fingerprint_profile_id: 7
+      }
+    })
+  })
+
+  it('TLS 指纹模拟批量入口仅对 OpenAI OAuth 展示', () => {
+    const apiKeyWrapper = mountModal({
+      selectedPlatforms: ['openai'],
+      selectedTypes: ['apikey']
+    })
+    expect(apiKeyWrapper.find('#bulk-edit-openai-tls-fingerprint-enabled').exists()).toBe(false)
+
+    const setupTokenWrapper = mountModal({
+      selectedPlatforms: ['openai'],
+      selectedTypes: ['setup-token']
+    })
+    expect(setupTokenWrapper.find('#bulk-edit-openai-tls-fingerprint-enabled').exists()).toBe(false)
   })
 
   it('OpenAI OAuth 批量编辑可开启 namespace 摊平兼容开关', async () => {

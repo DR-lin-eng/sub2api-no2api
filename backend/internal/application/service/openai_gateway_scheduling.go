@@ -28,6 +28,7 @@ const (
 )
 
 var explicitOpenAIHeaderSessionNames = []string{
+	"session-id",
 	"session_id",
 	"conversation_id",
 	claudeCodeSessionHeader,
@@ -108,7 +109,7 @@ func (s *OpenAIGatewayService) GenerateExplicitSessionHash(c *gin.Context, body 
 // GenerateSessionHash generates a sticky-session hash for OpenAI requests.
 //
 // Priority:
-//  1. Header: session_id
+//  1. Header: session-id / session_id
 //  2. Header: conversation_id
 //  3. Header: X-Claude-Code-Session-Id
 //  4. Header: x-session-affinity / x-session-id / x-opencode-session (OpenCode)
@@ -1274,6 +1275,10 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 	}
 
 	// ============ Layer 1: Sticky session ============
+	// A healthy sticky account whose bounded wait queue is full may spill one
+	// request into Layer 2. Keep that spillover temporary so a short burst does
+	// not migrate the conversation to a cache-cold account.
+	stickyCapacitySpillover := false
 	if sessionHash != "" && !contentSessionConcurrent {
 		accountID := stickyAccountID
 		if accountID > 0 && !isExcluded(accountID) {
@@ -1321,6 +1326,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 								MaxWaiting:     cfg.StickySessionMaxWaiting,
 							})
 						}
+						stickyCapacitySpillover = true
 					}
 				}
 			}
@@ -1479,7 +1485,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 				if selectErr != nil {
 					return nil, true, selectErr
 				}
-				if sessionHash != "" && !contentSessionConcurrent && !preserveStickyBinding {
+				if sessionHash != "" && !contentSessionConcurrent && !preserveStickyBinding && !stickyCapacitySpillover {
 					_ = s.setStickySessionAccountID(ctx, groupID, sessionHash, fresh.ID, openaiStickySessionTTL)
 				}
 				return selection, true, nil
@@ -1526,7 +1532,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 				if selectErr != nil {
 					return nil, selectErr
 				}
-				if sessionHash != "" && !contentSessionConcurrent && !preserveStickyBinding {
+				if sessionHash != "" && !contentSessionConcurrent && !preserveStickyBinding && !stickyCapacitySpillover {
 					_ = s.setStickySessionAccountID(ctx, groupID, sessionHash, fresh.ID, openaiStickySessionTTL)
 				}
 				return selection, nil

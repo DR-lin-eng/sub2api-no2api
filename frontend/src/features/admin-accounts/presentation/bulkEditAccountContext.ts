@@ -60,3 +60,17 @@ export interface BulkEditCPAContext {
   enableCPA: Ref<boolean>
   t: Translate
 }
+
+export interface BulkEditCapacityContext {
+  concurrency: Ref<number>
+  enableConcurrency: Ref<boolean>
+  enableLoadFactor: Ref<boolean>
+  enablePriority: Ref<boolean>
+  enableProxy: Ref<boolean>
+  enableRateMultiplier: Ref<boolean>
+  loadFactor: Ref<number | null>
+  priority: Ref<number>
+  proxyId: Ref<number | null>
+  rateMultiplier: Ref<number>
+  t: Translate
+}

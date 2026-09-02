@@ -115,27 +115,35 @@ curl -X POST "${BASE}/api/v1/admin/users/123/balance" \
 https://help.example.com/page?user_id=123&theme=light&lang=zh&ui_mode=embedded
 ```
 
-默认情况下，访问令牌不会写入 iframe URL、新窗口 URL、referrer 或 `src_url`。如果管理员对单个自定义菜单显式开启“转发用户访问令牌”，令牌仅在 iframe 加载完成后通过限定 `targetOrigin` 的 `postMessage` 发送。为兼容嵌入页异步初始化，宿主会在短时间内重试发送；嵌入页完成监听后也可以向父窗口发送 ready 消息，触发立即重发。另有独立的“通过 URL 转发用户访问令牌”开关，开启后会把令牌写入 URL 的 `token` 参数，以兼容旧版嵌入页。
+Sub2API 登录令牌不会写入 iframe URL、新窗口 URL、referrer、`src_url` 或浏览器消息。如果管理员对单个自定义菜单显式开启“向嵌入页提供权限验证令牌”，后端会签发 90 秒有效、绑定菜单与目标 origin 的能力令牌，并仅在 iframe 加载完成后通过限定 `targetOrigin` 的 `postMessage` 发送：
 
 ```json
 {
   "type": "sub2api:embedded-auth",
-  "version": 1,
-  "token": "<access-token>",
+  "version": 2,
+  "credential_type": "embedded_capability",
+  "token": "<short-lived-capability>",
+  "expires_at": "2026-08-30T12:01:30Z",
   "user_id": 123
 }
 ```
 
-ready 消息格式：
+嵌入页应在安装监听器后发送 ready 消息；宿主会校验 `event.origin` 和 `event.source` 后重发当前能力令牌：
 
 ```json
-{
-  "type": "sub2api:embedded-auth-ready",
-  "version": 1
-}
+{"type":"sub2api:embedded-auth-ready","version":2}
 ```
 
-ready 消息必须通过 `window.parent.postMessage` 发送，并把父页面 origin 作为 `targetOrigin`。嵌入页必须把 Sub2API 部署 origin 配置为固定 allowlist，并严格校验 `event.origin`、`event.source`、消息类型和版本。消息开关等同于把当前用户会话委托给嵌入页，URL 开关会把令牌暴露在 URL 中，两者都只能对完全可信的页面启用。新窗口仅在开启 URL 开关时接收令牌。
+嵌入页不能把能力令牌当作 Sub2API Bearer Token。它只能调用权限验证接口；浏览器调用时，请求 `Origin` 还必须与令牌受众一致：
+
+```http
+POST /api/v1/auth/embedded-capability/verify
+Content-Type: application/json
+
+{"token":"<short-lived-capability>","audience":"https://help.example.com"}
+```
+
+验证成功返回 `valid`、`user_id`、`role`、`menu_id`、`audience`、`permissions` 和 `expires_at`，不会创建会话、Cookie、刷新令牌或登录令牌。能力令牌使用与登录 JWT 不同的派生签名密钥，无法反向登录 Sub2API；菜单开关关闭、URL/角色变化、用户停用、密码导致 TokenVersion 变化或令牌过期后，验证立即失败。非本机目标必须使用 HTTPS；HTTP 只允许 loopback 开发地址。嵌入页若从浏览器直接调用验证接口，还须把自身 origin 加入 Sub2API 的 `cors.allowed_origins`；也可以由嵌入页后端代为验证。新窗口始终不会接收令牌。
 
 ### 5) 失败处理建议
 - 支付成功与充值成功分状态落库
@@ -156,7 +164,7 @@ This document describes the minimal Sub2API Admin API surface for external payme
 - Recharge after payment success
 - User lookup
 - Manual balance correction
-- Custom iframe context and explicit token delegation
+- Custom iframe context and explicit permission-capability delegation
 
 ### Base URL
 - Production: `https://<your-domain>`
@@ -260,27 +268,22 @@ Example:
 https://help.example.com/page?user_id=123&theme=light&lang=en&ui_mode=embedded
 ```
 
-By default, access tokens are never placed in iframe URLs, new-window URLs, referrers, or `src_url`. If an administrator explicitly enables "Forward user access token" for an individual custom menu item, the token is sent only after the iframe loads through a `postMessage` call locked to the exact target origin. To support embedded SPAs that register their listener asynchronously, the host retries briefly; the embedded page may also send a ready message to trigger an immediate resend. A separate "Forward user access token in URL" switch is available for legacy embedded pages that require the token query parameter:
+Sub2API login tokens are never placed in iframe URLs, new-window URLs, referrers, `src_url`, or browser messages. If an administrator explicitly enables "Provide embedded permission proof" for a custom menu item, the backend issues a 90-second capability bound to that menu and target origin. Only that capability is sent after the iframe loads through a `postMessage` call locked to the exact target origin:
 
 ```json
 {
   "type": "sub2api:embedded-auth",
-  "version": 1,
-  "token": "<access-token>",
+  "version": 2,
+  "credential_type": "embedded_capability",
+  "token": "<short-lived-capability>",
+  "expires_at": "2026-08-30T12:01:30Z",
   "user_id": 123
 }
 ```
 
-Ready message:
+After installing its listener, the embedded page can send `{"type":"sub2api:embedded-auth-ready","version":2}`. The host validates both `event.origin` and `event.source` before resending the current capability.
 
-```json
-{
-  "type": "sub2api:embedded-auth-ready",
-  "version": 1
-}
-```
-
-The ready message must be sent with `window.parent.postMessage` and the parent origin as `targetOrigin`. The embedded page must configure the Sub2API deployment origin as a fixed allowlist and strictly validate `event.origin`, `event.source`, message type, and version. Enabling the message option delegates the current user session to the embedded page, while enabling the URL option places the token in the `token` query parameter. Both options should only be enabled for fully trusted pages. New windows receive the token only when the URL option is enabled.
+The capability is not a Sub2API Bearer token. It can only be introspected with `POST /api/v1/auth/embedded-capability/verify` and a JSON body containing `token` and the exact `audience` origin. Browser requests must also have a matching `Origin` header. Successful verification returns identity and menu permissions without creating a session, cookie, refresh token, or login token. A separately derived signing key prevents the capability from authenticating to normal Sub2API endpoints. Verification fails after expiry, opt-out, menu URL or role changes, user deactivation, or TokenVersion changes. Non-loopback targets must use HTTPS. Direct browser introspection also requires the embedded origin in Sub2API's `cors.allowed_origins`; a backend-to-backend verification call is supported instead. New windows never receive a capability.
 
 ### 5) Failure handling recommendations
 - Persist payment success and recharge success as separate states

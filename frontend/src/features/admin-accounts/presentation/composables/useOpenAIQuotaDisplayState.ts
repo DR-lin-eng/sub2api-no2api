@@ -1,5 +1,5 @@
 import { computed, ref, type Ref } from 'vue'
-import type { OpenAIQuotaUsage } from '@/features/admin-accounts/data/datasources/adminAccountsDatasource'
+import type { OpenAIQuotaUsage } from '@/features/admin-accounts/data/dtos/openAIQuotaDtos'
 import type { AccountUsageInfo } from '@/types'
 
 /**

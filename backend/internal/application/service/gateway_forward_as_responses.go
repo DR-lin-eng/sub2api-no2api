@@ -673,10 +673,28 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 
 // appendRawJSON appends a JSON fragment string to existing raw JSON.
 func appendRawJSON(existing json.RawMessage, fragment string) json.RawMessage {
-	if len(existing) == 0 {
+	if len(existing) == 0 || isEmptyJSONObjectPlaceholder(existing) {
 		return json.RawMessage(fragment)
 	}
 	return json.RawMessage(string(existing) + fragment)
+}
+
+func isEmptyJSONObjectPlaceholder(existing json.RawMessage) bool {
+	if len(existing) > 64 {
+		return false
+	}
+	trimmed := bytes.TrimSpace(existing)
+	if len(trimmed) < 2 || trimmed[0] != '{' || trimmed[len(trimmed)-1] != '}' {
+		return false
+	}
+	for _, value := range trimmed[1 : len(trimmed)-1] {
+		switch value {
+		case ' ', '\t', '\r', '\n':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // writeResponsesError writes an error response in OpenAI Responses API format.

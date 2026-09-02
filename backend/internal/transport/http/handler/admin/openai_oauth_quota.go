@@ -3,15 +3,18 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/shared/response"
 	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/sync/errgroup"
 )
 
 type openAIQuotaService interface {
@@ -37,7 +40,11 @@ const (
 	openAIQuotaResetWarningAccountRecoveryFailed = "account_state_recovery_failed"
 	openAIQuotaResetWarningAccountRefreshFailed  = "account_state_refresh_failed"
 	openAIQuotaResetPostProcessTimeout           = 8 * time.Second
+	openAIQuotaRefreshBatchConcurrency           = 4
+	openAIQuotaRefreshBatchMaxAccounts           = 20
 )
+
+var errOpenAIQuotaEmptyResult = errors.New("openai quota query returned an empty result")
 
 type openAIQuotaResetResponse struct {
 	service.OpenAIQuotaResetResult
@@ -94,6 +101,31 @@ func (h *OpenAIOAuthHandler) queryOpenAIQuotaUsage(ctx context.Context, accountI
 	return h.quotaService.QueryUsage(ctx, accountID)
 }
 
+func (h *OpenAIOAuthHandler) refreshOpenAIQuota(ctx context.Context, accountID int64) (*openAIQuotaRefreshResponse, error) {
+	usage, err := h.queryOpenAIQuotaUsage(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+	if usage == nil {
+		return nil, errOpenAIQuotaEmptyResult
+	}
+
+	result := &openAIQuotaRefreshResponse{OpenAIQuotaUsage: *usage}
+	if err := h.quotaService.CacheResetCreditsSnapshot(ctx, accountID, usage.RateLimitResetCredits); err != nil {
+		slog.Warn("openai_quota_reset_credit_cache_persist_failed", "account_id", accountID, "error", err)
+	} else {
+		result.CachePersisted = true
+	}
+	if cacher, ok := h.quotaService.(openAIQuotaRateLimitSnapshotCacher); ok {
+		if err := cacher.CacheRateLimitSnapshot(ctx, accountID, usage); err != nil {
+			slog.Warn("openai_quota_rate_limit_snapshot_persist_failed", "account_id", accountID, "error", err)
+		} else {
+			result.RateLimitSnapshotPersisted = true
+		}
+	}
+	return result, nil
+}
+
 // QueryQuota queries the rate-limit / quota usage without mutating account state.
 // GET /api/v1/admin/openai/accounts/:id/quota
 func (h *OpenAIOAuthHandler) QueryQuota(c *gin.Context) {
@@ -125,28 +157,104 @@ func (h *OpenAIOAuthHandler) RefreshQuota(c *gin.Context) {
 		return
 	}
 
-	usage, err := h.queryOpenAIQuotaUsage(c.Request.Context(), accountID)
+	result, err := h.refreshOpenAIQuota(c.Request.Context(), accountID)
+	if err != nil {
+		if errors.Is(err, errOpenAIQuotaEmptyResult) {
+			response.Error(c, http.StatusInternalServerError, err.Error())
+			return
+		}
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+type openAIQuotaRefreshBatchRequest struct {
+	AccountIDs []int64 `json:"account_ids"`
+}
+
+type openAIQuotaRefreshBatchResponse struct {
+	Results           map[int64]*openAIQuotaRefreshResponse `json:"results"`
+	Errors            map[int64]string                      `json:"errors"`
+	SkippedAccountIDs []int64                               `json:"skipped_account_ids"`
+}
+
+// RefreshQuotaBatch actively queries selected OpenAI OAuth accounts with bounded concurrency.
+// POST /api/v1/admin/openai/accounts/quota/refresh/batch
+func (h *OpenAIOAuthHandler) RefreshQuotaBatch(c *gin.Context) {
+	var req openAIQuotaRefreshBatchRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	accountIDs := normalizeInt64IDList(req.AccountIDs)
+	if len(accountIDs) == 0 {
+		response.BadRequest(c, "account_ids is required")
+		return
+	}
+	if len(accountIDs) > openAIQuotaRefreshBatchMaxAccounts {
+		response.BadRequest(c, "account_ids must contain at most 20 unique IDs")
+		return
+	}
+	if h.quotaService == nil {
+		response.BadRequest(c, "openai quota service is not enabled")
+		return
+	}
+	if h.adminService == nil {
+		response.Error(c, http.StatusServiceUnavailable, "admin account service is not available")
+		return
+	}
+
+	accounts, err := h.adminService.GetAccountsByIDs(c.Request.Context(), accountIDs)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
-	if usage == nil {
-		response.Error(c, http.StatusInternalServerError, "openai quota query returned an empty result")
-		return
+	accountsByID := make(map[int64]*service.Account, len(accounts))
+	for _, account := range accounts {
+		if account != nil {
+			accountsByID[account.ID] = account
+		}
 	}
 
-	result := openAIQuotaRefreshResponse{OpenAIQuotaUsage: *usage}
-	if err := h.quotaService.CacheResetCreditsSnapshot(c.Request.Context(), accountID, usage.RateLimitResetCredits); err != nil {
-		slog.Warn("openai_quota_reset_credit_cache_persist_failed", "account_id", accountID, "error", err)
-	} else {
-		result.CachePersisted = true
+	result := openAIQuotaRefreshBatchResponse{
+		Results: make(map[int64]*openAIQuotaRefreshResponse),
+		Errors:  make(map[int64]string),
 	}
-	if cacher, ok := h.quotaService.(openAIQuotaRateLimitSnapshotCacher); ok {
-		if err := cacher.CacheRateLimitSnapshot(c.Request.Context(), accountID, usage); err != nil {
-			slog.Warn("openai_quota_rate_limit_snapshot_persist_failed", "account_id", accountID, "error", err)
-		} else {
-			result.RateLimitSnapshotPersisted = true
+	eligibleIDs := make([]int64, 0, len(accountIDs))
+	for _, accountID := range accountIDs {
+		account := accountsByID[accountID]
+		if account == nil {
+			result.Errors[accountID] = service.ErrAccountNotFound.Error()
+			continue
 		}
+		if !account.IsOpenAIOAuth() {
+			result.SkippedAccountIDs = append(result.SkippedAccountIDs, accountID)
+			continue
+		}
+		eligibleIDs = append(eligibleIDs, accountID)
+	}
+
+	var mu sync.Mutex
+	g, gctx := errgroup.WithContext(c.Request.Context())
+	g.SetLimit(openAIQuotaRefreshBatchConcurrency)
+	for _, accountID := range eligibleIDs {
+		accountID := accountID
+		g.Go(func() error {
+			quota, quotaErr := h.refreshOpenAIQuota(gctx, accountID)
+			mu.Lock()
+			defer mu.Unlock()
+			if quotaErr != nil {
+				result.Errors[accountID] = quotaErr.Error()
+				return nil
+			}
+			result.Results[accountID] = quota
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		response.ErrorFrom(c, err)
+		return
 	}
 	response.Success(c, result)
 }

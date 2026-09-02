@@ -2,10 +2,14 @@ package service
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"hash/fnv"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -198,6 +202,41 @@ func (s *TLSFingerprintProfileService) getStableProfileForKey(stableKey string) 
 	return s.localCache[selectedID].ToTLSProfile()
 }
 
+func tlsFingerprintVariantKey(account *Account) string {
+	if account == nil {
+		return ""
+	}
+	if account.ID > 0 {
+		return strconv.FormatInt(account.ID, 10)
+	}
+	return account.CodexVirtualClientKey()
+}
+
+func saltedTLSFingerprintVariantKey(key, salt string) string {
+	salt = strings.TrimSpace(salt)
+	if key == "" || salt == "" {
+		return key
+	}
+	mac := hmac.New(sha256.New, []byte(salt))
+	_, _ = mac.Write([]byte("sub2api:tls-fingerprint-account:v1\x00"))
+	_, _ = mac.Write([]byte(key))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func (s *TLSFingerprintProfileService) accountScopedOpenAIProfile(account *Account, profile *tlsfingerprint.Profile) *tlsfingerprint.Profile {
+	if account == nil || !account.IsOpenAIOAuth() || profile == nil {
+		return profile
+	}
+	variantKey := tlsFingerprintVariantKey(account)
+	// Salt the deterministic account key with the server's persisted JWT secret
+	// when available. The salt never crosses the wire, but prevents observers
+	// from predicting the variant sequence from visible account IDs.
+	if s != nil && s.settingService != nil && s.settingService.cfg != nil {
+		variantKey = saltedTLSFingerprintVariantKey(variantKey, s.settingService.cfg.JWT.Secret)
+	}
+	return tlsfingerprint.VariantForKey(profile, variantKey)
+}
+
 func fnvHash64(value string) uint64 {
 	hasher := fnv.New64a()
 	_, _ = hasher.Write([]byte(value))
@@ -219,13 +258,17 @@ func (s *TLSFingerprintProfileService) ResolveTLSProfile(account *Account) *tlsf
 	id := account.GetTLSFingerprintProfileID()
 	if id > 0 {
 		if p := s.GetProfileByID(id); p != nil {
-			return p
+			// An administrator-selected profile is the base wire family, while
+			// OpenAI OAuth still receives an account-specific variant so a bulk
+			// assignment cannot make every account present the same ClientHello.
+			return s.accountScopedOpenAIProfile(account, p)
 		}
 	}
-	// OpenAI/Codex uses the source-derived Rustls profile by default. Database
-	// profiles are opt-in via an explicit ID or the stable-assignment sentinel.
+	// OpenAI/Codex uses an account-scoped pseudo-random variant of the source-
+	// derived Rustls profile by default. The variant is stable for the account,
+	// while its offer ordering differs from neighboring accounts.
 	if account.IsOpenAIOAuth() && id == 0 {
-		return tlsfingerprint.BuiltInCodexRustlsProfile()
+		return s.accountScopedOpenAIProfile(account, tlsfingerprint.BuiltInCodexRustlsProfile())
 	}
 	stableKey := ""
 	if s.settingService != nil && codexsimulation.CLevelEnabled() {
@@ -235,11 +278,11 @@ func (s *TLSFingerprintProfileService) ResolveTLSProfile(account *Account) *tlsf
 		stableKey = strconv.FormatInt(account.ID, 10)
 	}
 	if p := s.getStableProfileForKey(stableKey); p != nil {
-		return p
+		return s.accountScopedOpenAIProfile(account, p)
 	}
 	// TLS 启用但没有可配置 profile 时，按上游平台选择内置传输参数。
 	if account.IsOpenAIOAuth() {
-		return tlsfingerprint.BuiltInCodexRustlsProfile()
+		return s.accountScopedOpenAIProfile(account, tlsfingerprint.BuiltInCodexRustlsProfile())
 	}
 	return &tlsfingerprint.Profile{Name: "Built-in Default (Node.js 24.x)"}
 }

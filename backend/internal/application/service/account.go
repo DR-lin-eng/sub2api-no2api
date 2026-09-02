@@ -127,6 +127,14 @@ type OpenAIEndpointCapability string
 
 const openAILongContextBillingEnabledKey = "openai_long_context_billing_enabled"
 
+const (
+	// TLSFingerprintEnabledExtraKey controls account-level TLS simulation.
+	TLSFingerprintEnabledExtraKey = "enable_tls_fingerprint"
+	// TLSFingerprintProfileIDExtraKey selects an administrator-authored profile;
+	// -1 denotes stable account assignment and 0/absent uses the built-in variant.
+	TLSFingerprintProfileIDExtraKey = "tls_fingerprint_profile_id"
+)
+
 // CodexPrewarmContinuationExtraKey enables the account-level Codex WSv2
 // empty-prewarm + developer-role continuation flow. It also opts the account
 // out of this service's local Codex 5h/7d usage-window auto-pause gate so the
@@ -169,6 +177,11 @@ const OpenAIOAuthSupportedModelsSyncedAtExtraKey = "openai_oauth_supported_model
 // is made unschedulable after the upstream reports a durable balance shortage.
 // Missing and non-boolean values intentionally default to false.
 const AutoDisableOnUpstreamInsufficientBalanceExtraKey = "auto_disable_on_upstream_insufficient_balance"
+
+// AccountSchedulingDisabledReasonExtraKey stores a human-readable reason for
+// an administrator or gateway policy disabling scheduling. It lives in Extra
+// so older database schemas and scheduler snapshots remain compatible.
+const AccountSchedulingDisabledReasonExtraKey = "account_scheduling_disabled_reason"
 
 const (
 	OpenAIEndpointCapabilityChatCompletions OpenAIEndpointCapability = "chat_completions"
@@ -232,6 +245,17 @@ func (a *Account) AutoDisableOnUpstreamInsufficientBalanceEnabled() bool {
 	}
 	enabled, ok := a.Extra[AutoDisableOnUpstreamInsufficientBalanceExtraKey].(bool)
 	return ok && enabled
+}
+
+func (a *Account) SchedulingDisabledReason() string {
+	if a == nil || a.Extra == nil {
+		return ""
+	}
+	value, ok := a.Extra[AccountSchedulingDisabledReasonExtraKey].(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(value)
 }
 
 // IsSyntheticUITest reports whether the account belongs to an isolated UI load-test
@@ -2332,7 +2356,7 @@ func (a *Account) IsTLSFingerprintEnabled() bool {
 	if a.Extra == nil {
 		return false
 	}
-	if v, ok := a.Extra["enable_tls_fingerprint"]; ok {
+	if v, ok := a.Extra[TLSFingerprintEnabledExtraKey]; ok {
 		if enabled, ok := v.(bool); ok {
 			return enabled
 		}
@@ -2346,7 +2370,7 @@ func (a *Account) GetTLSFingerprintProfileID() int64 {
 	if a.Extra == nil {
 		return 0
 	}
-	v, ok := a.Extra["tls_fingerprint_profile_id"]
+	v, ok := a.Extra[TLSFingerprintProfileIDExtraKey]
 	if !ok {
 		return 0
 	}

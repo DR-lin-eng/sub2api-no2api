@@ -90,6 +90,12 @@ Claude Code 的 compact user turn 在 Responses 兼容出口和 Chat-only 出口
 `compaction_trigger`/`compaction` item 仍属于另一条 `/v1/responses` 远程 Compact
 协议，不能用普通 Messages 响应替代。
 
+Responses → Anthropic 的 Claude Code `Read` 工具参数在完整 JSON 可解析后做窄范围兼容清洗：
+`pages: ""` 和明显超出实际文件行号范围的异常超大 `offset` 会被省略，普通 offset、合法
+`pages` 值以及其他工具参数保持原样。这样可以避免 GPT-5.5/5.6 偶发生成的污染参数进入
+Claude Code 下一轮上下文并触发重复 Read；网关没有文件长度信息，因此不会猜测或改写为另一个
+具体行号。历史 assistant `tool_use` 回放也使用同一清洗规则。
+
 ### 账号出口路由
 
 账号 repository 和调度快照一并加载 `egress_mode` 与 IPv6 绑定。选中账号后，
@@ -111,6 +117,13 @@ Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换
 - 获取用户槽位后必须再次检查计费资格；排队期间余额、订阅或平台额度可能变化。
 - 账号槽位、用户槽位和图片槽位在所有返回与取消路径释放。
 - failover 必须记录失败账号并受最大切换次数约束。
+- 网关韧性设置可选择开启 OpenAI OAuth 连续失败熔断：只累计账号级 429 与 502，
+  成功请求清零 Redis 共享计数；达到管理员阈值后原子写入 `schedulable=false` 和暂停原因，
+  并通过 scheduler outbox 从该账号绑定的所有分组移除。OpenAI API Key 账号不参与该计数。
+  可选的额度确认开关会在达到阈值后实时查询主 Codex 额度；只有上游明确标记限额或主额度
+  窗口已用比例达到 100% 才停调。查询失败、额度未知或只有辅助额度桶耗尽时保持可调度，
+  后续失败仍可再次确认。
+  管理员单个或批量重新启用调度时会清除暂停原因与失败计数。
 - OAuth 空 `model_mapping` 账号先按 `accounts.extra.oauth_supported_models` 实时能力快照
   过滤（OpenAI 使用 Codex 模型归一化）；没有成功快照时才回退平台既有模型规则。显式映射
   和自动透传优先级更高，快照同步失败不得清空上一次成功结果。
@@ -268,7 +281,7 @@ cmd/server/main.go
 
 后台任务包括但不限于用量结算、缓存失效、调度快照、凭据刷新、OAuth 模型能力同步、过期清理、Ops 聚合、图片任务和支付订单处理。它们的构造与停止依赖集中在 `backend/cmd/server/wire.go` 和生成的 `wire_gen.go`。
 
-在线客服消息自动清理由数据库设置 `support_chat_retention_enabled` 显式启用，默认关闭；启用后由 `support_chat_retention_days` 控制保留时长，`0` 仍表示永久保留。工作节点每 10 分钟由单实例锁协调一次分批清理；删除普通过期消息后同步重算会话最后消息时间和双方未读数，并清除无引用的消息图片。余额转账回执作为财务与幂等凭证不进入自动清理。
+在线客服消息自动清理由数据库设置 `support_chat_retention_enabled` 显式启用，默认关闭；启用后由 `support_chat_retention_days` 控制保留时长，`0` 仍表示永久保留。工作节点每 10 分钟由单实例锁协调一次分批清理，并在每批前重新读取管理员策略；删除普通过期消息后同步重算会话最后消息时间和双方未读数，并清除无引用的消息图片。已读和未读普通消息使用相同期限，余额转账回执作为财务与幂等凭证不进入自动清理。
 
 新增后台任务必须具备：明确 owner、可取消 context/Stop、有限并发和队列、幂等或可恢复语义，以及在 `Application.Cleanup` 中正确停止的路径。
 
@@ -302,6 +315,7 @@ frontend/src
 | API Key 401/403 | API Key auth context、分组要求、billing eligibility |
 | 一直选中同一账号 | session hash、粘性缓存、候选过滤和失败账号集合 |
 | 503/429 后反复调度坏账号 | 错误分类、临时不可调度状态、scheduler exclusion |
+| OpenAI OAuth 连续 429/502 耗尽换号预算 | 网关韧性中的 OAuth 熔断阈值、账号 `scheduling_disabled_reason`、Redis `openai_failure_count:account:*` |
 | 流式响应头或错误格式异常 | handler 写出时机、SSE headers、stream-started 分支 |
 | 前端有余额但网关拒绝 | 展示余额、pending/frozen 状态、billing cache 与准入一起检查 |
 | 前端登录循环 | `core/networks/client.ts` 刷新合并、session refresh API、`features/auth` store、`core/routes` guard |

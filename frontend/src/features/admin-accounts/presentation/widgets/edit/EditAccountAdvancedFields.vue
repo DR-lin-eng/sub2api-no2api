@@ -254,7 +254,10 @@
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <label class="input-label">{{ t('admin.accounts.expiresAt') }}</label>
         <input v-model="expiresAtInput" type="datetime-local" class="input" />
-        <p class="input-hint">{{ t('admin.accounts.expiresAtHint') }}</p>
+        <p class="input-hint">
+          {{ t('admin.accounts.expiresAtHint') }}
+          {{ t('admin.accounts.expiresAtTimezoneHint', { timezone: browserTimeZone }) }}
+        </p>
       </div>
 
       <!-- OpenAI 自动透传开关（OAuth/API Key） -->
@@ -833,9 +836,11 @@ import ProxySelector from '@/common/widgets/data/ProxySelector.vue'
 import QuotaLimitCard from '../QuotaLimitCard.vue'
 import Select from '@/common/widgets/forms/Select.vue'
 import Toggle from '@/common/widgets/forms/Toggle.vue'
+import { getBrowserTimeZone } from '@/core/utils/format'
 import type { EditAccountAdvancedContext } from '../../accountEditorContext'
 import { isUpstreamBillingProbeEligible } from '../../upstreamBillingProbeEligibility'
 
 const props = defineProps<{ context: EditAccountAdvancedContext }>()
+const browserTimeZone = getBrowserTimeZone()
 const { account, addTempUnschedRule, anthropicAPIKeyAuthScheme, anthropicPassthroughEnabled, codexFingerprintMode, codexFingerprintModeOptions, codexPrewarmContinuationEnabled, codexThinkingTagNormalizationEnabled, codexCLIOnlyAppServerEnabled, codexCLIOnlyEnabled, codexImageToolBadgeClass, codexImageToolBadgeLabel, codexImageToolMode, codexImageToolOptions, codexWebSearchEnabled, editDailyResetHour, editDailyResetMode, editQuotaDailyLimit, editQuotaLimit, editQuotaWeeklyLimit, editResetTimezone, editWeeklyResetDay, editWeeklyResetHour, editWeeklyResetMode, expiresAtInput, form, getTempUnschedRuleKey, handleOllamaCloudUsageUpdated, interceptWarmupRequests, isOpenAIPersonalAccessTokenAccount, isSparkShadow, moveTempUnschedRule, openAIEndpointCapabilities, openAIEndpointCapabilityOptions, openAIForceImageAPIEnabled, openAILongContextBillingEnabled, openAIResponsesMode, openAIResponsesModeOptions, openAIResponsesStatusKey, openAITextGenerationCapabilityEnabled, openAIWSModeConcurrencyHintKey, openAIWSModeOptions, openaiPassthroughEnabled, openaiFlattenNamespacesEnabled, openaiResponsesWebSocketV2Mode, proxies, quotaNotifyGlobalEnabled, quotaNotifyState, removeTempUnschedRule, t, tempUnschedEnabled, tempUnschedPresets, tempUnschedRules, toggleOpenAIEndpointCapability, upstreamBillingAutoProbeEnabled, upstreamBillingRateSyncEnabled, webSearchEmulationMode, webSearchGlobalEnabled } = props.context
 </script>

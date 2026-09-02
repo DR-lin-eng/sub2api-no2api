@@ -75,7 +75,7 @@ func limitChatSearch(search string) string {
 }
 
 // ListConversations returns the admin inbox, paginated and optionally
-// filtered to unread-by-admin conversations or a user/message search.
+// filtered to unread-by-admin conversations or identity/message/ID search.
 // GET /api/v1/admin/chat/conversations
 func (h *ChatHandler) ListConversations(c *gin.Context) {
 	page, pageSize := response.ParsePaginationWithMax(c, 100)
@@ -289,7 +289,7 @@ const (
 	chatAdminWSPingInterval   = 30 * time.Second
 	chatAdminWSMaxReadBytes   = 1024
 	chatAdminWSSendBufferSize = 32
-	chatAdminWSMaxAuthAge     = 0
+	chatAdminWSMaxAuthAge     = 5 * time.Minute
 )
 
 // WS handles the realtime push connection shared by every connected admin:
@@ -314,11 +314,14 @@ func (h *ChatHandler) WS(c *gin.Context) {
 	send := make(chan []byte, chatAdminWSSendBufferSize)
 	handle := h.hub.RegisterAdmin(send)
 	defer h.hub.UnregisterAdmin(handle)
+	authExpiresAt, _ := middleware2.GetJWTExpiresAtFromContext(c)
+
 	wsutil.PumpWebSocket(conn, send, wsutil.PumpConfig{
-		WriteTimeout: chatAdminWSWriteTimeout,
-		PongWait:     chatAdminWSPongWait,
-		PingInterval: chatAdminWSPingInterval,
-		MaxReadBytes: chatAdminWSMaxReadBytes,
-		MaxAuthAge:   chatAdminWSMaxAuthAge,
+		WriteTimeout:  chatAdminWSWriteTimeout,
+		PongWait:      chatAdminWSPongWait,
+		PingInterval:  chatAdminWSPingInterval,
+		MaxReadBytes:  chatAdminWSMaxReadBytes,
+		AuthExpiresAt: authExpiresAt,
+		MaxAuthAge:    chatAdminWSMaxAuthAge,
 	})
 }

@@ -1,9 +1,13 @@
 package handler
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	coderws "github.com/coder/websocket"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,5 +46,24 @@ func BenchmarkOpenAIWSTurnChannelMappingHotPath(b *testing.B) {
 		if !ok || snapshot.mapping.MappedModel != mapping.MappedModel {
 			b.Fatal("turn snapshot was not preserved")
 		}
+	}
+}
+
+func TestShouldReportOpenAIWSProxyAccountFailureIgnoresClientClose(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "bare normal close", err: coderws.CloseError{Code: coderws.StatusNormalClosure, Reason: "done"}, want: false},
+		{name: "wrapped normal close", err: fmt.Errorf("read: %w", coderws.CloseError{Code: coderws.StatusNormalClosure}), want: false},
+		{name: "client cancellation", err: service.NewOpenAIWSClientCloseError(coderws.StatusGoingAway, "request canceled", context.Canceled), want: false},
+		{name: "abnormal close", err: coderws.CloseError{Code: coderws.StatusAbnormalClosure, Reason: "reset"}, want: true},
+		{name: "upstream failure", err: errors.New("upstream websocket read failed"), want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, shouldReportOpenAIWSProxyAccountFailure(tt.err))
+		})
 	}
 }
