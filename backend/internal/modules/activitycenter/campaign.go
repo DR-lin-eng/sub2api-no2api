@@ -283,7 +283,7 @@ type LotteryPool struct {
 	Description      string         `json:"description"`
 	RequiredGroupIDs []int64        `json:"required_group_ids"`
 	Enabled          *bool          `json:"enabled"`
-	CanDraw          bool           `json:"-"`
+	CanDraw          bool           `json:"can_draw"`
 	DailyLimit       int            `json:"daily_limit"`
 	Prizes           []LotteryPrize `json:"prizes"`
 }
