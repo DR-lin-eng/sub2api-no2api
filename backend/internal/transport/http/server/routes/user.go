@@ -135,6 +135,9 @@ func RegisterUserRoutes(
 				campaigns.GET("", h.ActivityCenter.ListCampaigns)
 				campaigns.GET("/:id", h.ActivityCenter.GetCampaign)
 				campaigns.POST("/:id/participate", h.ActivityCenter.Participate)
+				campaigns.GET("/:id/checkin/status", h.ActivityCenter.GetCheckinStatus)
+				campaigns.POST("/:id/checkin", h.ActivityCenter.Checkin)
+				campaigns.GET("/:id/checkin/leaderboard", h.ActivityCenter.CheckinLeaderboard)
 			}
 		}
 

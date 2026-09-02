@@ -493,6 +493,7 @@ export default {
         lottery: 'Lottery',
         inflate: 'Code inflation',
         redeem: 'Redeem',
+        checkin: 'Daily check-in',
         custom: 'Custom'
       },
       columns: {
@@ -521,6 +522,8 @@ export default {
         lottery: 'Lottery config',
         inflate: 'Code inflation config',
         redeem: 'Redeem config',
+        checkin: 'Check-in config',
+        checkinCycle: 'Cycle', checkinTimezone: 'Timezone', weekly: '7 days', biweekly: '14 days', monthly: '30 days', dailyRewards: 'Daily rewards', rewardDay: 'Day number', balance: 'Balance', concurrency: 'Concurrency', subscription: 'Subscription', balanceAmount: 'Balance amount', concurrencyCount: 'Concurrency count', subscriptionDays: 'Subscription duration (days)', rewardValue: 'Reward value', rewardLabel: 'Reward label', addReward: 'Add reward',
         minValue: 'Minimum code value',
         maxValue: 'Maximum code value',
         minInflatePct: 'Minimum inflation (%)',

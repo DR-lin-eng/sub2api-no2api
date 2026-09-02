@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="mx-auto max-w-6xl space-y-4">
+    <div class="mx-auto max-w-7xl space-y-4 px-2 sm:px-4">
       <RouterLink
         to="/activity-center"
         class="inline-flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-white"
@@ -14,7 +14,7 @@
         <div class="h-32 animate-pulse rounded-2xl bg-gray-100 dark:bg-dark-800"></div>
       </div>
 
-      <section v-else-if="campaign" class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <section v-else-if="campaign" :class="['grid gap-4', campaign.type === 'checkin' ? 'lg:grid-cols-[minmax(0,1fr)_280px]' : 'lg:grid-cols-[minmax(0,1fr)_340px]']">
         <div class="space-y-4">
           <div v-if="campaign.type === 'lottery'" class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-dark-700 dark:bg-dark-900/90">
             <div class="flex items-center justify-between gap-3">
@@ -124,6 +124,57 @@
               </div>
             </div>
           </div>
+
+          <div v-else-if="campaign.type === 'checkin'" class="flex h-full flex-col overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-sm dark:border-dark-700 dark:bg-dark-900 lg:min-h-[340px]">
+            <div class="border-b border-gray-200 px-5 py-5 dark:border-dark-700 sm:px-6">
+              <div class="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex min-w-0 items-center gap-4">
+                  <div :class="['flex h-12 w-12 shrink-0 items-center justify-center rounded-lg', checkinStatus.checked_today ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300']">
+                    <Icon :name="checkinStatus.checked_today ? 'checkCircle' : 'calendar'" size="lg" />
+                  </div>
+                  <div class="min-w-0">
+                    <p :class="['text-xs font-semibold uppercase', checkinStatus.checked_today ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300']">
+                      {{ checkinStatus.checked_today ? t('activityCenter.checkin.todayDone') : t('activityCenter.checkin.todayReady') }}
+                    </p>
+                    <h2 class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ t('activityCenter.checkin.title') }}</h2>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">{{ t('activityCenter.checkin.streak', { count: checkinStatus.streak_days }) }}</p>
+                  </div>
+                </div>
+                <button type="button" :class="['btn min-h-11 w-full shrink-0 sm:w-40', checkinStatus.checked_today ? 'bg-emerald-600 text-white hover:bg-emerald-600 dark:bg-emerald-700' : 'btn-primary']" :disabled="checkinLoading" @click="submitCheckin">
+                  <Icon :name="checkinStatus.checked_today ? 'checkCircle' : 'gift'" size="sm" class="mr-2" />
+                  {{ checkinStatus.checked_today ? t('activityCenter.checkin.checked') : (checkinLoading ? t('activityCenter.checkin.submitting') : t('activityCenter.checkin.submit')) }}
+                </button>
+              </div>
+
+              <div v-if="currentCheckinReward" class="mt-5 flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 dark:border-dark-700 dark:bg-dark-800">
+                <Icon name="gift" size="md" class="shrink-0 text-primary-600 dark:text-primary-300" />
+                <div class="min-w-0">
+                  <p class="text-xs text-gray-500 dark:text-dark-400">{{ t('activityCenter.checkin.todayReward') }}</p>
+                  <p class="mt-0.5 truncate text-sm font-semibold text-gray-900 dark:text-white">{{ checkinRewardText(currentCheckinReward) }}</p>
+                  <p v-if="currentCheckinReward.label" class="mt-0.5 truncate text-xs text-gray-500 dark:text-dark-400">{{ activityText(currentCheckinReward.label, t) }}</p>
+                </div>
+                <span class="ml-auto shrink-0 text-xs font-medium text-gray-500 dark:text-dark-400">{{ t('activityCenter.checkin.dayLabel', { day: checkinTargetDay }) }}</span>
+              </div>
+            </div>
+
+            <div class="px-5 py-5 sm:px-6">
+              <div class="flex items-center justify-between gap-3">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('activityCenter.checkin.rewardCalendar') }}</h3>
+                <span class="text-xs text-gray-500 dark:text-dark-400">{{ t('activityCenter.checkin.day', { day: checkinTargetDay }) }}</span>
+              </div>
+              <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+                <div v-for="reward in checkinRewards" :key="reward.day" :class="checkinRewardClass(reward.day)">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="text-xs font-semibold">{{ t('activityCenter.checkin.dayLabel', { day: reward.day }) }}</span>
+                    <Icon v-if="isCheckinRewardClaimed(reward.day)" name="checkCircle" size="xs" class="shrink-0 text-emerald-600 dark:text-emerald-300" />
+                    <span v-else-if="reward.day === checkinTargetDay" class="h-2 w-2 shrink-0 rounded-full bg-amber-500"></span>
+                  </div>
+                  <p class="mt-2 line-clamp-2 min-h-8 text-xs leading-4">{{ checkinRewardText(reward) }}</p>
+                  <p v-if="reward.label" class="mt-1 line-clamp-1 text-[11px] leading-4 opacity-70">{{ activityText(reward.label, t) }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <aside class="space-y-4 lg:sticky lg:top-4 lg:self-start">
@@ -144,6 +195,22 @@
                 {{ activityTimeRange(campaign) }}
               </span>
             </div>
+          </div>
+
+          <div v-if="campaign.type === 'checkin'" class="flex flex-col rounded-lg border border-gray-200 bg-white p-5 shadow-sm dark:border-dark-700 dark:bg-dark-900 lg:h-[340px]">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2"><Icon name="chart" size="sm" class="text-primary-600 dark:text-primary-300" /><h2 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('activityCenter.checkin.leaderboard') }}</h2></div>
+              <button type="button" class="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-dark-800" :title="t('activityCenter.refresh')" @click="loadCheckinLeaderboard"><Icon name="refresh" size="xs" :class="leaderboardLoading ? 'animate-spin' : ''" /></button>
+            </div>
+            <div v-if="leaderboardLoading && leaderboard.length === 0" class="mt-4 space-y-3"><div v-for="index in 3" :key="index" class="h-8 animate-pulse rounded-md bg-gray-100 dark:bg-dark-800"></div></div>
+            <div v-else-if="leaderboard.length > 0" class="mt-4 min-h-0 space-y-2 overflow-y-auto pr-1 lg:flex-1">
+              <div v-for="item in leaderboard" :key="`${item.rank}-${item.username}`" class="flex items-center gap-3 rounded-md bg-gray-50 px-3 py-2.5 dark:bg-dark-800">
+                <span :class="['w-5 shrink-0 text-center text-xs font-bold', item.rank <= 3 ? 'text-amber-600 dark:text-amber-300' : 'text-gray-400 dark:text-dark-500']">{{ item.rank }}</span>
+                <span class="min-w-0 flex-1 truncate text-sm font-medium text-gray-800 dark:text-gray-100">{{ item.username }}</span>
+                <span class="shrink-0 text-right text-xs text-gray-500 dark:text-dark-400">{{ t('activityCenter.checkin.leaderboardStats', { streak: item.streak_days, count: item.checkin_count }) }}</span>
+              </div>
+            </div>
+            <p v-else class="mt-4 text-sm text-gray-500 dark:text-dark-400">{{ t('activityCenter.checkin.leaderboardEmpty') }}</p>
           </div>
 
           <div v-if="campaign.content" class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-dark-700 dark:bg-dark-900/90">
@@ -249,7 +316,7 @@ import { useAppStore } from '@/core/stores/appStore'
 import { extractI18nErrorMessage } from '@/core/utils/apiError'
 import { formatDateTime } from '@/core/utils/format'
 import activityCenterAPI from '@/features/activity-center/data/datasources/activityCenterDatasource'
-import type { ActivityCampaignConfig, ActivityInflateConfig, ActivityLotteryPool, ActivityLotteryPrize, ActivityParticipationRecord, UserActivityCampaign } from '@/types'
+import type { ActivityCampaignConfig, ActivityCheckinConfig, ActivityCheckinLeaderboardEntry, ActivityCheckinReward, ActivityCheckinStatus, ActivityInflateConfig, ActivityLotteryPool, ActivityLotteryPrize, ActivityParticipationRecord, UserActivityCampaign } from '@/types'
 
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
@@ -265,6 +332,10 @@ const loading = ref(false)
 const recordsLoading = ref(false)
 const redeemCodeInput = ref('')
 const redeeming = ref(false)
+const checkinLoading = ref(false)
+const checkinStatus = ref<ActivityCheckinStatus>({ checked_today: false, streak_days: 0, cycle_day: 0 })
+const leaderboardLoading = ref(false)
+const leaderboard = ref<ActivityCheckinLeaderboardEntry[]>([])
 const DRAW_SPIN_DURATION = 4200
 
 interface WheelState {
@@ -305,6 +376,54 @@ const inflateConfig = computed<ActivityInflateConfig>(() => parsedConfig.value.i
   required_group_ids: [],
   priority: 0
 })
+const checkinConfig = computed<ActivityCheckinConfig>(() => parsedConfig.value.checkin || { timezone: 'Asia/Shanghai', cycle_type: 'weekly', required_group_ids: [], daily_rewards: [], streak_mode: 'reset_on_miss' })
+const checkinRewards = computed(() => checkinConfig.value.daily_rewards || [])
+const checkinTargetDay = computed(() => {
+  if (checkinStatus.value.checked_today) return Math.max(1, checkinStatus.value.cycle_day)
+  const nextDay = Math.max(1, checkinStatus.value.cycle_day + 1)
+  const maxDay = checkinRewards.value.reduce((max, reward) => Math.max(max, reward.day), 1)
+  return nextDay > maxDay ? 1 : nextDay
+})
+const currentCheckinReward = computed(() => checkinRewards.value.find((reward) => reward.day === checkinTargetDay.value))
+
+function checkinRewardText(reward: ActivityCheckinReward) {
+  const value = String(reward.value || '').trim()
+  return `${prizeTypeLabel(reward.reward_type)} ${value}`.trim()
+}
+
+function isCheckinRewardClaimed(day: number) {
+  return checkinStatus.value.checked_today ? day <= checkinStatus.value.cycle_day : day < checkinTargetDay.value
+}
+
+function checkinRewardClass(day: number) {
+  const base = 'min-w-0 rounded-lg border p-3 transition-colors'
+  if (isCheckinRewardClaimed(day)) return `${base} border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-200`
+  if (day === checkinTargetDay.value) return `${base} border-amber-300 bg-amber-50 text-amber-900 ring-1 ring-amber-200 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-100 dark:ring-amber-900`
+  return `${base} border-gray-200 bg-white text-gray-500 dark:border-dark-700 dark:bg-dark-900 dark:text-dark-400`
+}
+
+async function loadCheckinStatus() {
+  if (campaign.value?.type !== 'checkin') return
+  try { checkinStatus.value = await activityCenterAPI.getCheckinStatus(campaign.value.id) } catch { /* detail load owns the visible error */ }
+}
+
+async function loadCheckinLeaderboard() {
+  if (campaign.value?.type !== 'checkin') return
+  leaderboardLoading.value = true
+  try { leaderboard.value = await activityCenterAPI.getCheckinLeaderboard(campaign.value.id) } catch { leaderboard.value = [] } finally { leaderboardLoading.value = false }
+}
+
+async function submitCheckin() {
+  if (!campaign.value || checkinLoading.value || checkinStatus.value.checked_today) return
+  checkinLoading.value = true
+  try {
+    const result = await activityCenterAPI.checkin(campaign.value.id)
+    checkinStatus.value = result.status
+    records.value = [result.record, ...records.value]
+  } catch (error: any) {
+    appStore.showError(extractI18nErrorMessage(error, t, 'activityCenter.errors', t('activityCenter.checkin.failed')))
+  } finally { checkinLoading.value = false }
+}
 
 function activityTimeRange(item: UserActivityCampaign) {
   if (item.starts_at && item.ends_at) return `${formatTime(item.starts_at)} - ${formatTime(item.ends_at)}`
@@ -478,7 +597,9 @@ async function loadCampaign() {
   }
   loading.value = true
   try {
-    campaign.value = await activityCenterAPI.getById(campaignId.value)
+		campaign.value = await activityCenterAPI.getById(campaignId.value)
+		await loadCheckinStatus()
+		await loadCheckinLeaderboard()
     await loadRecords()
   } catch (error: any) {
     campaign.value = null

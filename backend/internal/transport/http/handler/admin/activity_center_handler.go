@@ -27,7 +27,7 @@ type CreateActivityCampaignRequest struct {
 	Subtitle   string `json:"subtitle"`
 	BannerURL  string `json:"banner_url"`
 	BannerHTML string `json:"banner_html"`
-	Type       string `json:"type" binding:"omitempty,oneof=lottery inflate redeem custom"`
+	Type       string `json:"type" binding:"omitempty,oneof=lottery inflate redeem checkin custom"`
 	RefID      string `json:"ref_id"`
 	ConfigJSON string `json:"config_json"`
 	Status     string `json:"status" binding:"omitempty,oneof=draft active archived"`
@@ -42,7 +42,7 @@ type UpdateActivityCampaignRequest struct {
 	Subtitle   *string `json:"subtitle"`
 	BannerURL  *string `json:"banner_url"`
 	BannerHTML *string `json:"banner_html"`
-	Type       *string `json:"type" binding:"omitempty,oneof=lottery inflate redeem custom"`
+	Type       *string `json:"type" binding:"omitempty,oneof=lottery inflate redeem checkin custom"`
 	RefID      *string `json:"ref_id"`
 	ConfigJSON *string `json:"config_json"`
 	Status     *string `json:"status" binding:"omitempty,oneof=draft active archived"`

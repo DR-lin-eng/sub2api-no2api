@@ -490,6 +490,7 @@ export default {
         lottery: '抽奖',
         inflate: '兑换码膨胀',
         redeem: '兑换',
+        checkin: '每日签到',
         custom: '自定义'
       },
       columns: {
@@ -518,6 +519,8 @@ export default {
         lottery: '抽奖配置',
         inflate: '兑换码膨胀配置',
         redeem: '兑换配置',
+        checkin: '签到配置',
+        checkinCycle: '签到周期', checkinTimezone: '活动时区', weekly: '7 天', biweekly: '14 天', monthly: '30 天', dailyRewards: '每日奖励', rewardDay: '第几天', balance: '余额', concurrency: '并发数', subscription: '订阅', balanceAmount: '余额金额', concurrencyCount: '并发数量', subscriptionDays: '订阅时长（天）', rewardValue: '奖励数值', rewardLabel: '奖励说明', addReward: '添加奖励',
         minValue: '最低兑换金额',
         maxValue: '最高兑换金额',
         minInflatePct: '最低膨胀比例 (%)',

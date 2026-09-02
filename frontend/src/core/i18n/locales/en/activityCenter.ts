@@ -18,6 +18,7 @@ export default {
       lottery: 'Lottery',
       inflate: 'Code inflation',
       redeem: 'Redeem',
+      checkin: 'Daily check-in',
       custom: 'Custom',
     },
     fields: {
@@ -50,6 +51,7 @@ export default {
       noPrizes: 'No prizes configured',
     },
     errors: {
+      ACTIVITY_CAMPAIGN_ALREADY_CHECKED_IN: 'You have already checked in today',
       ACTIVITY_CAMPAIGN_DAILY_LIMIT: 'You have already drawn today. Please come back tomorrow.',
       ACTIVITY_CAMPAIGN_NO_PRIZE: 'There are no prizes available in this pool.',
       ACTIVITY_CAMPAIGN_NOT_ELIGIBLE: 'You are not eligible for this activity.',
@@ -91,6 +93,9 @@ export default {
       rateRange: 'Inflation range',
       success: 'Redeemed successfully. Balance credited.',
       failed: 'Redemption failed'
+    },
+    checkin: {
+      title: 'Daily check-in', streak: '{count} consecutive days', day: 'Current progress: day {day}', dayLabel: 'Day {day}', todayReady: 'Check-in pending', todayDone: 'Completed today', todayReward: "Today's reward", rewardCalendar: 'Check-in rewards', leaderboard: 'Check-in leaderboard', leaderboardStats: '{streak} day streak · {count} check-ins', leaderboardEmpty: 'No check-ins yet', submit: 'Check in now', checked: 'Checked in today', submitting: 'Checking in...', failed: 'Check-in failed'
     },
     prizeTypes: {
       none: 'No prize',

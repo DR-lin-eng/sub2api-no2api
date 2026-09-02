@@ -17,6 +17,7 @@ import (
 const (
 	CampaignTypeLottery = "lottery"
 	CampaignTypeInflate = "inflate"
+	CampaignTypeCheckin = "checkin"
 	// CampaignTypeRedeem is retained for campaigns created before inflate was introduced.
 	CampaignTypeRedeem = "redeem"
 	CampaignTypeCustom = "custom"
@@ -29,24 +30,25 @@ const (
 )
 
 var (
-	ErrCampaignNotFound        = infraerrors.NotFound("ACTIVITY_CAMPAIGN_NOT_FOUND", "activity campaign not found")
-	ErrCampaignNotVisible      = infraerrors.NotFound("ACTIVITY_CAMPAIGN_NOT_VISIBLE", "activity campaign is not available")
-	ErrCampaignInputRequired   = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_INPUT_REQUIRED", "activity campaign input is required")
-	ErrCampaignTitleInvalid    = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_TITLE_INVALID", "activity campaign title is invalid")
-	ErrCampaignSubtitleInvalid = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_SUBTITLE_INVALID", "activity campaign subtitle is invalid")
-	ErrCampaignBannerInvalid   = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_BANNER_INVALID", "activity campaign banner_url is invalid")
-	ErrCampaignRefInvalid      = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_REF_INVALID", "activity campaign ref_id is invalid")
-	ErrCampaignConfigInvalid   = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_CONFIG_INVALID", "activity campaign config_json is invalid")
-	ErrCampaignTypeInvalid     = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_TYPE_INVALID", "activity campaign type is invalid")
-	ErrCampaignStatusInvalid   = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_STATUS_INVALID", "activity campaign status is invalid")
-	ErrCampaignContentInvalid  = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_CONTENT_INVALID", "activity campaign content is invalid")
-	ErrCampaignSortInvalid     = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_SORT_INVALID", "activity campaign sort_order is invalid")
-	ErrCampaignScheduleInvalid = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_TIME_RANGE_INVALID", "starts_at must be before ends_at")
-	ErrCampaignNoPrize         = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_NO_PRIZE", "activity campaign has no available prize")
-	ErrCampaignPoolNotFound    = infraerrors.NotFound("ACTIVITY_CAMPAIGN_POOL_NOT_FOUND", "activity lottery pool not found")
-	ErrCampaignNotEligible     = infraerrors.Forbidden("ACTIVITY_CAMPAIGN_NOT_ELIGIBLE", "user is not eligible for this activity")
-	ErrCampaignDailyLimit      = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_DAILY_LIMIT", "daily activity participation limit reached")
-	ErrCampaignRewardFailed    = infraerrors.InternalServer("ACTIVITY_CAMPAIGN_REWARD_FAILED", "activity reward could not be granted")
+	ErrCampaignNotFound         = infraerrors.NotFound("ACTIVITY_CAMPAIGN_NOT_FOUND", "activity campaign not found")
+	ErrCampaignNotVisible       = infraerrors.NotFound("ACTIVITY_CAMPAIGN_NOT_VISIBLE", "activity campaign is not available")
+	ErrCampaignInputRequired    = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_INPUT_REQUIRED", "activity campaign input is required")
+	ErrCampaignTitleInvalid     = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_TITLE_INVALID", "activity campaign title is invalid")
+	ErrCampaignSubtitleInvalid  = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_SUBTITLE_INVALID", "activity campaign subtitle is invalid")
+	ErrCampaignBannerInvalid    = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_BANNER_INVALID", "activity campaign banner_url is invalid")
+	ErrCampaignRefInvalid       = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_REF_INVALID", "activity campaign ref_id is invalid")
+	ErrCampaignConfigInvalid    = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_CONFIG_INVALID", "activity campaign config_json is invalid")
+	ErrCampaignTypeInvalid      = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_TYPE_INVALID", "activity campaign type is invalid")
+	ErrCampaignStatusInvalid    = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_STATUS_INVALID", "activity campaign status is invalid")
+	ErrCampaignContentInvalid   = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_CONTENT_INVALID", "activity campaign content is invalid")
+	ErrCampaignSortInvalid      = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_SORT_INVALID", "activity campaign sort_order is invalid")
+	ErrCampaignScheduleInvalid  = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_TIME_RANGE_INVALID", "starts_at must be before ends_at")
+	ErrCampaignNoPrize          = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_NO_PRIZE", "activity campaign has no available prize")
+	ErrCampaignPoolNotFound     = infraerrors.NotFound("ACTIVITY_CAMPAIGN_POOL_NOT_FOUND", "activity lottery pool not found")
+	ErrCampaignNotEligible      = infraerrors.Forbidden("ACTIVITY_CAMPAIGN_NOT_ELIGIBLE", "user is not eligible for this activity")
+	ErrCampaignDailyLimit       = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_DAILY_LIMIT", "daily activity participation limit reached")
+	ErrCampaignRewardFailed     = infraerrors.InternalServer("ACTIVITY_CAMPAIGN_REWARD_FAILED", "activity reward could not be granted")
+	ErrCampaignAlreadyCheckedIn = infraerrors.BadRequest("ACTIVITY_CAMPAIGN_ALREADY_CHECKED_IN", "already checked in today")
 )
 
 type Campaign struct {
@@ -113,11 +115,22 @@ type Repository interface {
 	UserHasAllowedGroup(ctx context.Context, userID int64, groupIDs []int64) (bool, error)
 	ListUserAllowedGroupIDs(ctx context.Context, userID int64) ([]int64, error)
 	ListRecords(ctx context.Context, params pagination.PaginationParams, filters RecordFilters) ([]Record, *pagination.PaginationResult, error)
+	GetCheckinStatus(ctx context.Context, campaignID, userID int64, checkinDate time.Time, cycleDays int) (*CheckinStatus, error)
+	ListCheckinLeaderboard(ctx context.Context, campaignID int64, limit int) ([]CheckinLeaderboardEntry, error)
+	CreateCheckinRecord(ctx context.Context, record *CheckinRecord) error
 }
 
 type Service struct {
 	repo          Repository
 	rewardGranter RewardGranter
+}
+
+type CheckinLeaderboardEntry struct {
+	Rank         int
+	UserName     string
+	UserEmail    string
+	StreakDays   int
+	CheckinCount int
 }
 
 func NewService(repo Repository) *Service {
@@ -179,6 +192,45 @@ type Record struct {
 	CreatedAt         time.Time
 }
 
+type CheckinReward struct {
+	Day           int    `json:"day"`
+	RewardType    string `json:"reward_type"`
+	Value         string `json:"value"`
+	RewardGroupID int64  `json:"reward_group_id,omitempty"`
+	Label         string `json:"label,omitempty"`
+}
+
+type CheckinConfig struct {
+	Timezone         string          `json:"timezone"`
+	CycleType        string          `json:"cycle_type"`
+	RequiredGroupIDs []int64         `json:"required_group_ids"`
+	DailyRewards     []CheckinReward `json:"daily_rewards"`
+	StreakMode       string          `json:"streak_mode"`
+}
+
+type CheckinRecord struct {
+	ID                int64
+	CampaignID        int64
+	UserID            int64
+	CheckinDate       time.Time
+	CycleNo           int
+	CycleDay          int
+	StreakDays        int
+	RewardType        string
+	RewardValue       string
+	RewardStatus      string
+	RewardPayloadJSON string
+	CreatedAt         time.Time
+}
+
+type CheckinStatus struct {
+	CheckedToday    bool
+	StreakDays      int
+	CycleDay        int
+	LastCheckinDate *time.Time
+	Records         []CheckinRecord
+}
+
 type ParticipateInput struct {
 	UserID int64
 	PoolID string
@@ -209,6 +261,7 @@ type ActivityConfig struct {
 	Lottery *LotteryConfig `json:"lottery"`
 	Inflate *InflateConfig `json:"inflate"`
 	Redeem  *InflateConfig `json:"redeem"`
+	Checkin *CheckinConfig `json:"checkin"`
 }
 
 type InflateConfig struct {
@@ -869,6 +922,12 @@ func normalizeCampaign(c *Campaign) error {
 			return ErrCampaignConfigInvalid
 		}
 	}
+	if c.Type == CampaignTypeCheckin {
+		config, err := parseActivityConfig(c.ConfigJSON)
+		if err != nil || validateCheckinConfig(config) != nil {
+			return ErrCampaignConfigInvalid
+		}
+	}
 	return nil
 }
 
@@ -1044,11 +1103,52 @@ func filterCampaignPoolsForUser(campaign *Campaign, groupIDs []int64) bool {
 
 func isValidCampaignType(value string) bool {
 	switch value {
-	case CampaignTypeLottery, CampaignTypeInflate, CampaignTypeRedeem, CampaignTypeCustom:
+	case CampaignTypeLottery, CampaignTypeInflate, CampaignTypeCheckin, CampaignTypeRedeem, CampaignTypeCustom:
 		return true
 	default:
 		return false
 	}
+}
+
+func validateCheckinConfig(config *ActivityConfig) error {
+	if config == nil || config.Checkin == nil || len(config.Checkin.DailyRewards) == 0 {
+		return ErrCampaignConfigInvalid
+	}
+	cycleDays := map[string]int{"weekly": 7, "biweekly": 14, "monthly": 30}
+	if config.Checkin.CycleType == "" {
+		config.Checkin.CycleType = "weekly"
+	}
+	maxDay, ok := cycleDays[config.Checkin.CycleType]
+	if !ok || (config.Checkin.StreakMode != "" && config.Checkin.StreakMode != "reset_on_miss") {
+		return ErrCampaignConfigInvalid
+	}
+	seen := make(map[int]struct{}, len(config.Checkin.DailyRewards))
+	for _, reward := range config.Checkin.DailyRewards {
+		if reward.Day < 1 || reward.Day > maxDay || reward.Value == "" {
+			return ErrCampaignConfigInvalid
+		}
+		if _, exists := seen[reward.Day]; exists {
+			return ErrCampaignConfigInvalid
+		}
+		seen[reward.Day] = struct{}{}
+		switch reward.RewardType {
+		case "balance":
+			if value, err := strconv.ParseFloat(reward.Value, 64); err != nil || value <= 0 {
+				return ErrCampaignConfigInvalid
+			}
+		case "concurrency":
+			if value, err := strconv.Atoi(reward.Value); err != nil || value <= 0 {
+				return ErrCampaignConfigInvalid
+			}
+		case "subscription":
+			if reward.RewardGroupID <= 0 {
+				return ErrCampaignConfigInvalid
+			}
+		default:
+			return ErrCampaignConfigInvalid
+		}
+	}
+	return nil
 }
 
 func isValidCampaignStatus(value string) bool {

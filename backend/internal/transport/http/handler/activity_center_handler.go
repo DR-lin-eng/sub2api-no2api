@@ -102,6 +102,67 @@ func (h *ActivityCenterHandler) Participate(c *gin.Context) {
 	response.Success(c, dto.ActivityParticipationRecordFromService(record, false))
 }
 
+func (h *ActivityCenterHandler) GetCheckinStatus(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not found in context")
+		return
+	}
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		response.BadRequest(c, "Invalid activity campaign ID")
+		return
+	}
+	status, err := h.service.CheckinStatus(c.Request.Context(), id, subject.UserID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, dto.ActivityCheckinStatusFromService(status))
+}
+
+func (h *ActivityCenterHandler) Checkin(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not found in context")
+		return
+	}
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		response.BadRequest(c, "Invalid activity campaign ID")
+		return
+	}
+	record, status, err := h.service.Checkin(c.Request.Context(), id, subject.UserID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"record": dto.ActivityParticipationRecordFromService(record, false), "status": dto.ActivityCheckinStatusFromService(status)})
+}
+
+func (h *ActivityCenterHandler) CheckinLeaderboard(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not found in context")
+		return
+	}
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		response.BadRequest(c, "Invalid activity campaign ID")
+		return
+	}
+	if _, err := h.service.GetVisibleForUser(c.Request.Context(), id, subject.UserID); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	items, err := h.service.CheckinLeaderboard(c.Request.Context(), id)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, dto.ActivityCheckinLeaderboardFromService(items))
+}
+
 func (h *ActivityCenterHandler) ListMyRecords(c *gin.Context) {
 	if h == nil || h.service == nil {
 		response.InternalError(c, "Activity center service not available")

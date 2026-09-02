@@ -370,6 +370,12 @@
             </div>
           </div>
         </div>
+        <div v-else-if="form.type === 'checkin'" class="rounded-lg border border-gray-200 p-3 dark:border-dark-600">
+          <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">{{ t('admin.activityCenter.config.checkin') }}</h3>
+          <div class="grid gap-3 sm:grid-cols-2"><div><label class="input-label">{{ t('admin.activityCenter.config.checkinCycle') }}</label><select v-model="checkinConfig.cycle_type" class="input"><option value="weekly">{{ t('admin.activityCenter.config.weekly') }}</option><option value="biweekly">{{ t('admin.activityCenter.config.biweekly') }}</option><option value="monthly">{{ t('admin.activityCenter.config.monthly') }}</option></select></div><div><label class="input-label">{{ t('admin.activityCenter.config.checkinTimezone') }}</label><input v-model="checkinConfig.timezone" class="input" /></div></div>
+          <div class="mt-3"><label class="input-label">{{ t('admin.activityCenter.config.dailyRewards') }}</label><div v-for="reward in checkinConfig.daily_rewards" :key="reward.day" class="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-5"><input v-model.number="reward.day" type="number" min="1" class="input" :placeholder="t('admin.activityCenter.config.rewardDay')" /><select v-model="reward.reward_type" class="input"><option value="balance">{{ t('admin.activityCenter.config.balance') }}</option><option value="concurrency">{{ t('admin.activityCenter.config.concurrency') }}</option><option value="subscription">{{ t('admin.activityCenter.config.subscription') }}</option></select><input v-model="reward.value" class="input" :placeholder="reward.reward_type === 'subscription' ? t('admin.activityCenter.config.subscriptionDays') : reward.reward_type === 'concurrency' ? t('admin.activityCenter.config.concurrencyCount') : t('admin.activityCenter.config.balanceAmount')" /><input v-model="reward.label" class="input" :placeholder="t('admin.activityCenter.config.rewardLabel')" /><Select v-if="reward.reward_type === 'subscription'" v-model="reward.reward_group_id" :options="rewardGroupOptions" :placeholder="t('admin.activityCenter.config.selectSubscriptionGroup')" searchable /></div><button type="button" class="btn btn-secondary mt-2" @click="checkinConfig.daily_rewards.push({ day: checkinConfig.daily_rewards.length + 1, reward_type: 'balance', value: '', reward_group_id: null, label: '' })">{{ t('admin.activityCenter.config.addReward') }}</button></div>
+          <GroupSelector v-model="checkinConfig.required_group_ids" :groups="adminGroups" :searchable="true" />
+        </div>
         <div v-else-if="form.type === 'inflate' || form.type === 'redeem'" class="rounded-lg border border-gray-200 p-3 dark:border-dark-600">
           <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">{{ t('admin.activityCenter.config.inflate') }}</h3>
           <div class="grid gap-4 md:grid-cols-3">
@@ -646,6 +652,12 @@ const customConfig = reactive({
   action_label: '',
   action_hint: ''
 })
+const checkinConfig = reactive({
+  timezone: 'Asia/Shanghai',
+  cycle_type: 'weekly' as 'weekly' | 'biweekly' | 'monthly',
+  required_group_ids: [] as number[],
+  daily_rewards: [{ day: 1, reward_type: 'balance' as 'balance' | 'concurrency' | 'subscription', value: '', reward_group_id: null as number | null, label: '' }]
+})
 const activeCodePrize = ref<LotteryPrizeForm | null>(null)
 const activeCodePage = ref(0)
 const batchCodesText = ref('')
@@ -674,6 +686,7 @@ const typeOptions = computed(() => [
   { value: '', label: t('admin.activityCenter.filters.allTypes') },
   { value: 'lottery', label: t('admin.activityCenter.types.lottery') },
   { value: 'inflate', label: t('admin.activityCenter.types.inflate') },
+  { value: 'checkin', label: t('admin.activityCenter.types.checkin') },
   { value: 'redeem', label: t('admin.activityCenter.types.redeem') },
   { value: 'custom', label: t('admin.activityCenter.types.custom') }
 ])
@@ -756,6 +769,10 @@ function resetActivityConfig() {
   inflateConfig.priority = 0
   customConfig.action_label = ''
   customConfig.action_hint = ''
+  checkinConfig.timezone = 'Asia/Shanghai'
+  checkinConfig.cycle_type = 'weekly'
+  checkinConfig.required_group_ids = []
+  checkinConfig.daily_rewards = [{ day: 1, reward_type: 'balance', value: '', reward_group_id: null, label: '' }]
 }
 
 function endOfSelectedStartDayLocalInput(value: string) {
@@ -1092,6 +1109,12 @@ function applyActivityConfig(raw: string | undefined) {
     customConfig.action_label = parsed.custom.action_label || ''
     customConfig.action_hint = parsed.custom.action_hint || ''
   }
+  if (parsed.checkin) {
+    checkinConfig.timezone = parsed.checkin.timezone || 'Asia/Shanghai'
+    checkinConfig.cycle_type = parsed.checkin.cycle_type || 'weekly'
+    checkinConfig.required_group_ids = normalizeGroupIds(parsed.checkin.required_group_ids || [])
+    checkinConfig.daily_rewards = (parsed.checkin.daily_rewards || []).map((reward) => ({ day: reward.day, reward_type: reward.reward_type || 'balance', value: String(reward.value ?? ''), reward_group_id: reward.reward_group_id || null, label: reward.label || '' }))
+  }
 }
 
 function buildActivityConfigJSON() {
@@ -1135,6 +1158,8 @@ function buildActivityConfigJSON() {
     }
     if (form.type === 'inflate') config.inflate = inflate
     else config.redeem = inflate
+  } else if (form.type === 'checkin') {
+    config.checkin = { ...checkinConfig, streak_mode: 'reset_on_miss' }
   } else {
     config.custom = {
       action_label: customConfig.action_label.trim(),

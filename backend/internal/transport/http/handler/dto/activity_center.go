@@ -71,6 +71,35 @@ type ActivityParticipationRecord struct {
 	CreatedAt         time.Time `json:"created_at"`
 }
 
+type ActivityCheckinStatus struct {
+	CheckedToday    bool       `json:"checked_today"`
+	StreakDays      int        `json:"streak_days"`
+	CycleDay        int        `json:"cycle_day"`
+	LastCheckinDate *time.Time `json:"last_checkin_date,omitempty"`
+}
+
+type ActivityCheckinLeaderboardEntry struct {
+	Rank         int    `json:"rank"`
+	UserName     string `json:"username"`
+	StreakDays   int    `json:"streak_days"`
+	CheckinCount int    `json:"checkin_count"`
+}
+
+func ActivityCheckinLeaderboardFromService(items []activitycenter.CheckinLeaderboardEntry) []ActivityCheckinLeaderboardEntry {
+	out := make([]ActivityCheckinLeaderboardEntry, 0, len(items))
+	for _, item := range items {
+		out = append(out, ActivityCheckinLeaderboardEntry{Rank: item.Rank, UserName: item.UserName, StreakDays: item.StreakDays, CheckinCount: item.CheckinCount})
+	}
+	return out
+}
+
+func ActivityCheckinStatusFromService(status *activitycenter.CheckinStatus) *ActivityCheckinStatus {
+	if status == nil {
+		return nil
+	}
+	return &ActivityCheckinStatus{CheckedToday: status.CheckedToday, StreakDays: status.StreakDays, CycleDay: status.CycleDay, LastCheckinDate: status.LastCheckinDate}
+}
+
 func ActivityCampaignFromService(campaign *activitycenter.Campaign) *ActivityCampaign {
 	if campaign == nil {
 		return nil
@@ -213,6 +242,17 @@ func publicActivityCampaignConfigJSON(campaign *activitycenter.Campaign) string 
 		return string(out)
 	}
 	if campaign.Type != activitycenter.CampaignTypeLottery {
+		if campaign.Type == activitycenter.CampaignTypeCheckin {
+			var config activitycenter.ActivityConfig
+			if err := json.Unmarshal([]byte(campaign.ConfigJSON), &config); err != nil || config.Checkin == nil {
+				return "{}"
+			}
+			out, err := json.Marshal(map[string]any{"checkin": config.Checkin})
+			if err != nil {
+				return "{}"
+			}
+			return string(out)
+		}
 		return "{}"
 	}
 	return sanitizePublicActivityCampaignConfigJSON(campaign.ConfigJSON)

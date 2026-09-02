@@ -259,6 +259,83 @@ RETURNING id, created_at
 	return nil
 }
 
+func (r *activityCenterRepository) GetCheckinStatus(ctx context.Context, campaignID, userID int64, checkinDate time.Time, cycleDays int) (*activitycenter.CheckinStatus, error) {
+	rows, err := r.executor(ctx).QueryContext(ctx, `
+SELECT id, campaign_id, user_id, checkin_date, cycle_no, cycle_day, streak_days,
+       reward_type, reward_value, reward_status, reward_payload_json, created_at
+FROM act_checkin_records
+WHERE campaign_id = $1 AND user_id = $2 AND checkin_date >= $3::date - ($4::int * INTERVAL '1 day')
+ORDER BY checkin_date DESC, id DESC LIMIT $4`, campaignID, userID, checkinDate.Format("2006-01-02"), cycleDays)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	status := &activitycenter.CheckinStatus{}
+	for rows.Next() {
+		var item activitycenter.CheckinRecord
+		if err := rows.Scan(&item.ID, &item.CampaignID, &item.UserID, &item.CheckinDate, &item.CycleNo, &item.CycleDay, &item.StreakDays, &item.RewardType, &item.RewardValue, &item.RewardStatus, &item.RewardPayloadJSON, &item.CreatedAt); err != nil {
+			return nil, err
+		}
+		status.Records = append(status.Records, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(status.Records) == 0 {
+		return status, nil
+	}
+	latest := status.Records[0]
+	status.LastCheckinDate = &latest.CheckinDate
+	latestDate := latest.CheckinDate.Format("2006-01-02")
+	today := checkinDate.Format("2006-01-02")
+	status.CheckedToday = latestDate == today
+	if status.CheckedToday || latestDate == checkinDate.AddDate(0, 0, -1).Format("2006-01-02") {
+		status.StreakDays = latest.StreakDays
+		status.CycleDay = latest.CycleDay
+	}
+	return status, nil
+}
+
+func (r *activityCenterRepository) CreateCheckinRecord(ctx context.Context, record *activitycenter.CheckinRecord) error {
+	if record == nil {
+		return activitycenter.ErrCampaignInputRequired
+	}
+	row := r.queryRow(ctx, `
+INSERT INTO act_checkin_records (campaign_id, user_id, checkin_date, cycle_no, cycle_day, streak_days, reward_type, reward_value, reward_status, reward_payload_json)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id, created_at`, record.CampaignID, record.UserID, record.CheckinDate, record.CycleNo, record.CycleDay, record.StreakDays, record.RewardType, record.RewardValue, record.RewardStatus, record.RewardPayloadJSON)
+	if err := row.Scan(&record.ID, &record.CreatedAt); err != nil {
+		return translatePersistenceError(err, activitycenter.ErrCampaignAlreadyCheckedIn, nil)
+	}
+	return nil
+}
+
+func (r *activityCenterRepository) ListCheckinLeaderboard(ctx context.Context, campaignID int64, limit int) ([]activitycenter.CheckinLeaderboardEntry, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 10
+	}
+	rows, err := r.executor(ctx).QueryContext(ctx, `
+SELECT COALESCE(NULLIF(BTRIM(u.username), ''), ''), COALESCE(u.email, ''), MAX(r.streak_days), COUNT(*)
+FROM act_checkin_records r
+LEFT JOIN users u ON u.id = r.user_id
+WHERE r.campaign_id = $1
+GROUP BY r.user_id, COALESCE(NULLIF(BTRIM(u.username), ''), ''), COALESCE(u.email, '')
+ORDER BY MAX(r.streak_days) DESC, COUNT(*) DESC, MAX(r.checkin_date) DESC
+LIMIT $2`, campaignID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]activitycenter.CheckinLeaderboardEntry, 0, limit)
+	for rows.Next() {
+		var item activitycenter.CheckinLeaderboardEntry
+		if err := rows.Scan(&item.UserName, &item.UserEmail, &item.StreakDays, &item.CheckinCount); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
 func (r *activityCenterRepository) CountUserPoolRecordsSince(ctx context.Context, userID, campaignID int64, poolID string, since time.Time) (int64, error) {
 	var count int64
 	err := r.queryRow(ctx, `

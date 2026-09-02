@@ -18,6 +18,7 @@ export default {
       lottery: '抽奖',
       inflate: '兑换码膨胀',
       redeem: '兑换',
+      checkin: '每日签到',
       custom: '自定义',
     },
     fields: {
@@ -50,6 +51,7 @@ export default {
       noPrizes: '暂无奖品配置',
     },
     errors: {
+      ACTIVITY_CAMPAIGN_ALREADY_CHECKED_IN: '今天已经签到过了',
       ACTIVITY_CAMPAIGN_DAILY_LIMIT: '今天已经抽过了，明天再来吧',
       ACTIVITY_CAMPAIGN_NO_PRIZE: '当前奖池暂无可发放的奖品',
       ACTIVITY_CAMPAIGN_NOT_ELIGIBLE: '你不满足该活动的参与条件',
@@ -91,6 +93,9 @@ export default {
       rateRange: '膨胀比例范围',
       success: '兑换成功，余额已到账',
       failed: '兑换失败'
+    },
+    checkin: {
+      title: '每日签到', streak: '已连续签到 {count} 天', day: '当前进度：第 {day} 天', dayLabel: '第 {day} 天', todayReady: '今日待签到', todayDone: '今日已完成', todayReward: '今日奖励', rewardCalendar: '签到奖励', leaderboard: '签到排行榜', leaderboardStats: '连续 {streak} 天 · 签到 {count} 次', leaderboardEmpty: '暂无签到记录', submit: '立即签到', checked: '今日已签到', submitting: '签到中...', failed: '签到失败'
     },
     prizeTypes: {
       none: '谢谢参与',

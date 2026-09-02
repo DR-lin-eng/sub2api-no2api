@@ -11,12 +11,13 @@ import (
 )
 
 type fakeCampaignRepo struct {
-	items       map[int64]*Campaign
-	records     []Record
-	nextID      int64
-	eligible    bool
-	eligibleSet bool
-	groupIDs    []int64
+	items          map[int64]*Campaign
+	records        []Record
+	checkinRecords []CheckinRecord
+	nextID         int64
+	eligible       bool
+	eligibleSet    bool
+	groupIDs       []int64
 }
 
 func newFakeCampaignRepo() *fakeCampaignRepo {
@@ -177,6 +178,40 @@ func (r *fakeCampaignRepo) ListRecords(_ context.Context, params pagination.Pagi
 		out = append(out, record)
 	}
 	return out, &pagination.PaginationResult{Total: int64(len(out)), Page: params.Page, PageSize: params.PageSize, Pages: 1}, nil
+}
+
+func (r *fakeCampaignRepo) GetCheckinStatus(_ context.Context, campaignID, userID int64, checkinDate time.Time, _ int) (*CheckinStatus, error) {
+	status := &CheckinStatus{}
+	for i := range r.checkinRecords {
+		item := r.checkinRecords[i]
+		if item.CampaignID == campaignID && item.UserID == userID {
+			status.Records = append(status.Records, item)
+		}
+	}
+	if len(status.Records) > 0 {
+		item := status.Records[len(status.Records)-1]
+		status.LastCheckinDate = &item.CheckinDate
+		status.CheckedToday = item.CheckinDate.Format("2006-01-02") == checkinDate.Format("2006-01-02")
+		status.StreakDays, status.CycleDay = item.StreakDays, item.CycleDay
+	}
+	return status, nil
+}
+
+func (r *fakeCampaignRepo) CreateCheckinRecord(_ context.Context, record *CheckinRecord) error {
+	for _, item := range r.checkinRecords {
+		if item.CampaignID == record.CampaignID && item.UserID == record.UserID && item.CheckinDate.Format("2006-01-02") == record.CheckinDate.Format("2006-01-02") {
+			return ErrCampaignAlreadyCheckedIn
+		}
+	}
+	record.ID = r.nextID
+	r.nextID++
+	record.CreatedAt = time.Now()
+	r.checkinRecords = append(r.checkinRecords, *record)
+	return nil
+}
+
+func (r *fakeCampaignRepo) ListCheckinLeaderboard(_ context.Context, _ int64, _ int) ([]CheckinLeaderboardEntry, error) {
+	return nil, nil
 }
 
 func TestCampaignServiceParticipateLotteryRecordsPrize(t *testing.T) {

@@ -441,7 +441,7 @@ export interface AnnouncementUserReadStatus {
 
 // ==================== Activity Center Types ====================
 
-export type ActivityCampaignType = 'lottery' | 'inflate' | 'redeem' | 'custom'
+export type ActivityCampaignType = 'lottery' | 'inflate' | 'redeem' | 'checkin' | 'custom'
 export type ActivityCampaignStatus = 'draft' | 'active' | 'archived'
 export type ActivityPrizeType = 'card' | 'balance' | 'concurrency' | 'subscription' | 'none'
 
@@ -492,11 +492,28 @@ export interface ActivityCustomConfig {
   action_hint: string
 }
 
+export interface ActivityCheckinReward {
+  day: number
+  reward_type: 'balance' | 'concurrency' | 'subscription'
+  value: string
+  reward_group_id?: number | null
+  label?: string
+}
+
+export interface ActivityCheckinConfig {
+  timezone: string
+  cycle_type: 'weekly' | 'biweekly' | 'monthly'
+  required_group_ids: number[]
+  daily_rewards: ActivityCheckinReward[]
+  streak_mode: 'reset_on_miss'
+}
+
 export interface ActivityCampaignConfig {
   lottery?: ActivityLotteryConfig
   inflate?: ActivityInflateConfig
   redeem?: ActivityRedeemConfig
-  custom?: ActivityCustomConfig
+	custom?: ActivityCustomConfig
+	checkin?: ActivityCheckinConfig
 }
 
 export interface ActivityPrizeStockStat {
@@ -561,6 +578,20 @@ export interface ActivityParticipationRecord {
   reward_code?: string
   reward_payload_json?: string
   created_at: string
+}
+
+export interface ActivityCheckinStatus {
+  checked_today: boolean
+  streak_days: number
+  cycle_day: number
+  last_checkin_date?: string
+}
+
+export interface ActivityCheckinLeaderboardEntry {
+  rank: number
+  username: string
+  streak_days: number
+  checkin_count: number
 }
 
 export interface CreateActivityCampaignRequest {
