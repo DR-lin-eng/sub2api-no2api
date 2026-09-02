@@ -71,6 +71,12 @@ export default {
           enabled: '启用媒体工坊',
           enabledHint: '关闭后用户侧边栏隐藏媒体工坊入口，直接访问 /media-studio 会返回控制台。',
         },
+        activityCenter: {
+          title: '活动中心',
+          description: '控制活动中心活动和奖励功能。默认关闭。',
+          enabled: '启用活动中心',
+          enabledHint: '关闭后用户侧边栏隐藏活动中心入口，活动接口不可访问。',
+        },
         customModelConfig: {
           title: '自定义模型配置',
           description: '配置模型能力覆盖规则，用于多模态路由判断。',

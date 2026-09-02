@@ -17,6 +17,7 @@ type ActivityCampaign struct {
 	RefID           string                   `json:"ref_id"`
 	ConfigJSON      string                   `json:"config_json"`
 	Status          string                   `json:"status"`
+	EffectiveStatus string                   `json:"effective_status"`
 	StartsAt        *time.Time               `json:"starts_at,omitempty"`
 	EndsAt          *time.Time               `json:"ends_at,omitempty"`
 	SortOrder       int                      `json:"sort_order"`
@@ -74,23 +75,40 @@ func ActivityCampaignFromService(campaign *activitycenter.Campaign) *ActivityCam
 		return nil
 	}
 	return &ActivityCampaign{
-		ID:         campaign.ID,
-		Title:      campaign.Title,
-		Subtitle:   campaign.Subtitle,
-		BannerURL:  campaign.BannerURL,
-		BannerHTML: campaign.BannerHTML,
-		Type:       campaign.Type,
-		RefID:      campaign.RefID,
-		ConfigJSON: campaign.ConfigJSON,
-		Status:     campaign.Status,
-		StartsAt:   campaign.StartsAt,
-		EndsAt:     campaign.EndsAt,
-		SortOrder:  campaign.SortOrder,
-		Content:    campaign.Content,
-		CreatedBy:  campaign.CreatedBy,
-		CreatedAt:  campaign.CreatedAt,
-		UpdatedAt:  campaign.UpdatedAt,
+		ID:              campaign.ID,
+		Title:           campaign.Title,
+		Subtitle:        campaign.Subtitle,
+		BannerURL:       campaign.BannerURL,
+		BannerHTML:      campaign.BannerHTML,
+		Type:            campaign.Type,
+		RefID:           campaign.RefID,
+		ConfigJSON:      campaign.ConfigJSON,
+		Status:          campaign.Status,
+		EffectiveStatus: effectiveCampaignStatus(campaign, time.Now()),
+		StartsAt:        campaign.StartsAt,
+		EndsAt:          campaign.EndsAt,
+		SortOrder:       campaign.SortOrder,
+		Content:         campaign.Content,
+		CreatedBy:       campaign.CreatedBy,
+		CreatedAt:       campaign.CreatedAt,
+		UpdatedAt:       campaign.UpdatedAt,
 	}
+}
+
+func effectiveCampaignStatus(campaign *activitycenter.Campaign, now time.Time) string {
+	if campaign == nil {
+		return ""
+	}
+	if campaign.Status != activitycenter.CampaignStatusActive {
+		return campaign.Status
+	}
+	if campaign.StartsAt != nil && now.Before(*campaign.StartsAt) {
+		return "scheduled"
+	}
+	if campaign.EndsAt != nil && !now.Before(*campaign.EndsAt) {
+		return "ended"
+	}
+	return activitycenter.CampaignStatusActive
 }
 
 func ActivityPrizeStockStatsFromService(stats []activitycenter.PrizeStockStat) []ActivityPrizeStockStat {

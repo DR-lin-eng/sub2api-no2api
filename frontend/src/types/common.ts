@@ -512,6 +512,7 @@ export interface ActivityCampaign {
   ref_id: string
   config_json: string
   status: ActivityCampaignStatus
+  effective_status?: ActivityCampaignStatus | 'scheduled' | 'ended'
   starts_at?: string
   ends_at?: string
   sort_order: number

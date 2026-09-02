@@ -890,19 +890,22 @@ function typeLabel(value: string) {
 }
 
 function statusLabel(row: ActivityCampaign) {
-  if (row.status === 'draft') return t('admin.activityCenter.status.draft')
-  const now = new Date()
-  if (row.status === 'active' && row.starts_at && new Date(row.starts_at) > now) {
+  const status = row.effective_status || row.status
+  if (status === 'draft') return t('admin.activityCenter.status.draft')
+  if (status === 'scheduled') {
     return t('admin.activityCenter.status.scheduled')
   }
-  if (row.status === 'active') return t('admin.activityCenter.status.live')
+  if (status === 'ended') {
+    return t('admin.activityCenter.status.ended')
+  }
+  if (status === 'active') return t('admin.activityCenter.status.live')
   return t('admin.activityCenter.status.archived')
 }
 
 function statusClass(row: ActivityCampaign) {
-  if (row.status === 'draft') return 'badge-gray'
-  if (row.status === 'active' && row.starts_at && new Date(row.starts_at) > new Date()) return 'badge-warning'
-  if (row.status === 'active') return 'badge-success'
+  const status = row.effective_status || row.status
+  if (status === 'scheduled') return 'badge-warning'
+  if (status === 'active') return 'badge-success'
   return 'badge-gray'
 }
 

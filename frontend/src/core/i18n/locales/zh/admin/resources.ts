@@ -483,6 +483,7 @@ export default {
         active: '启用',
         scheduled: '已排期',
         live: '进行中',
+        ended: '已结束',
         archived: '已归档'
       },
       types: {

@@ -981,6 +981,11 @@ function shouldShowSupportUserDot(item: NavItem): boolean {
 }
 
 function isActive(path: string): boolean {
+  // The records page is a sibling of the activity center page, not a child
+  // for navigation highlighting purposes.
+  if (path === '/activity-center') {
+    return route.path === path || (route.path.startsWith(path + '/') && !route.path.startsWith('/activity-center/records'))
+  }
   return route.path === path || route.path.startsWith(path + '/')
 }
 

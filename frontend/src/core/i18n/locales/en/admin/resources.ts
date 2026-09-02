@@ -486,6 +486,7 @@ export default {
         active: 'Active',
         scheduled: 'Scheduled',
         live: 'Live',
+        ended: 'Ended',
         archived: 'Archived'
       },
       types: {

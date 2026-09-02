@@ -405,6 +405,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		ModelPlazaDescription:      settings.ModelPlazaDescription,
 
 		MediaStudioEnabled:       settings.MediaStudioEnabled,
+		ActivityCenterEnabled:    settings.ActivityCenterEnabled,
 		CustomModelConfigEnabled: settings.CustomModelConfigEnabled,
 		IPv6EgressUIEnabled:      settings.IPv6EgressUIEnabled,
 
