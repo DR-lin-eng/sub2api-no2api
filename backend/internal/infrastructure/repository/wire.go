@@ -112,6 +112,7 @@ var ProviderSet = wire.NewSet(
 	NewChatMessageRepository,
 	NewChatAssetRepository,
 	NewChatQuickReplyRepository,
+	NewActivityCenterRepository,
 	NewCustomModelConfigRepository,
 	// Cache implementations
 	NewGatewayCache,
