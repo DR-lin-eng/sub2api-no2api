@@ -104,11 +104,24 @@
             </div>
           </div>
 
-          <div v-else-if="campaign.type === 'redeem'" class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-dark-700 dark:bg-dark-900/90">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('activityCenter.redeem.title') }}</h2>
+          <div v-else-if="campaign.type === 'inflate' || campaign.type === 'redeem'" class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-dark-700 dark:bg-dark-900/90">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('activityCenter.inflate.title') }}</h2>
             <div class="mt-4 flex flex-col gap-3 sm:flex-row">
-              <input type="text" class="input" :placeholder="redeemConfig.placeholder || t('activityCenter.redeem.placeholder')" />
-              <button type="button" class="btn btn-primary shrink-0" disabled>{{ t('activityCenter.redeem.submit') }}</button>
+              <input v-model="redeemCodeInput" type="text" class="input" :placeholder="t('activityCenter.inflate.placeholder')" :disabled="redeeming" @keyup.enter="redeemCode" />
+              <button type="button" class="btn btn-primary shrink-0" :disabled="redeeming || !redeemCodeInput.trim()" @click="redeemCode">
+                {{ redeeming ? t('activityCenter.inflate.submitting') : t('activityCenter.inflate.submit') }}
+              </button>
+            </div>
+            <p class="mt-2 text-xs text-gray-500 dark:text-dark-400">{{ t('activityCenter.inflate.hint') }}</p>
+            <div class="mt-4 grid gap-2 text-xs sm:grid-cols-2">
+              <div class="rounded-lg bg-gray-50 px-3 py-2 dark:bg-dark-800">
+                <span class="text-gray-500 dark:text-dark-400">{{ t('activityCenter.inflate.valueRange') }}</span>
+                <strong class="ml-2 text-gray-800 dark:text-gray-100">{{ inflateConfig.min_value }} - {{ inflateConfig.max_value }}</strong>
+              </div>
+              <div class="rounded-lg bg-primary-50 px-3 py-2 dark:bg-primary-900/20">
+                <span class="text-primary-700 dark:text-primary-300">{{ t('activityCenter.inflate.rateRange') }}</span>
+                <strong class="ml-2 text-primary-800 dark:text-primary-200">{{ inflateConfig.min_inflate_pct }}% - {{ inflateConfig.max_inflate_pct }}%</strong>
+              </div>
             </div>
           </div>
         </div>
@@ -190,6 +203,7 @@
                     </p>
                     <p v-if="record.reward_value" class="mt-2 break-words text-sm font-medium text-primary-700 dark:text-primary-300">
                       {{ record.reward_value }}
+                      <span v-if="record.inflate_pct != null" class="ml-2 text-xs font-normal">(+{{ formatInflatePct(record.inflate_pct) }}%)</span>
                     </p>
                     <div v-if="record.reward_code" class="mt-2 border-l-2 border-primary-300 pl-2.5 dark:border-primary-600">
                       <div class="mb-1 flex items-center gap-1 text-xs font-medium text-gray-500 dark:text-dark-400">
@@ -235,7 +249,7 @@ import { useAppStore } from '@/core/stores/appStore'
 import { extractI18nErrorMessage } from '@/core/utils/apiError'
 import { formatDateTime } from '@/core/utils/format'
 import activityCenterAPI from '@/features/activity-center/data/datasources/activityCenterDatasource'
-import type { ActivityCampaignConfig, ActivityLotteryPool, ActivityLotteryPrize, ActivityParticipationRecord, ActivityRedeemConfig, UserActivityCampaign } from '@/types'
+import type { ActivityCampaignConfig, ActivityInflateConfig, ActivityLotteryPool, ActivityLotteryPrize, ActivityParticipationRecord, UserActivityCampaign } from '@/types'
 
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
@@ -249,11 +263,8 @@ const campaign = ref<UserActivityCampaign | null>(null)
 const records = ref<ActivityParticipationRecord[]>([])
 const loading = ref(false)
 const recordsLoading = ref(false)
-const emptyRedeemConfig: ActivityRedeemConfig = {
-  code_mode: 'manual',
-  placeholder: '',
-  success_message: ''
-}
+const redeemCodeInput = ref('')
+const redeeming = ref(false)
 const DRAW_SPIN_DURATION = 4200
 
 interface WheelState {
@@ -286,7 +297,14 @@ const parsedConfig = computed<ActivityCampaignConfig>(() => {
 })
 
 const lotteryPools = computed(() => parsedConfig.value.lottery?.pools?.filter((pool) => pool.enabled !== false) || [])
-const redeemConfig = computed(() => parsedConfig.value.redeem || emptyRedeemConfig)
+const inflateConfig = computed<ActivityInflateConfig>(() => parsedConfig.value.inflate || parsedConfig.value.redeem || {
+  min_value: '0',
+  max_value: '0',
+  min_inflate_pct: '0',
+  max_inflate_pct: '0',
+  required_group_ids: [],
+  priority: 0
+})
 
 function activityTimeRange(item: UserActivityCampaign) {
   if (item.starts_at && item.ends_at) return `${formatTime(item.starts_at)} - ${formatTime(item.ends_at)}`
@@ -296,6 +314,26 @@ function activityTimeRange(item: UserActivityCampaign) {
 
 function formatTime(raw?: string) {
   return raw ? formatDateTime(raw) : t('activityCenter.noTime')
+}
+
+function formatInflatePct(value: number) {
+  return Number(value).toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1')
+}
+
+async function redeemCode() {
+  const code = redeemCodeInput.value.trim()
+  if (!code || redeeming.value) return
+  redeeming.value = true
+  try {
+    await activityCenterAPI.redeemCode(code)
+    redeemCodeInput.value = ''
+    appStore.showSuccess(t('activityCenter.inflate.success'))
+    await loadRecords()
+  } catch (error: any) {
+    appStore.showError(extractI18nErrorMessage(error, t, 'activityCenter.errors', t('activityCenter.inflate.failed')))
+  } finally {
+    redeeming.value = false
+  }
 }
 
 function prizeTypeLabel(type: ActivityLotteryPrize['prize_type']) {

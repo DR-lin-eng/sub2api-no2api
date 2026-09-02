@@ -18,6 +18,10 @@
             <button @click="reload" :disabled="loading" class="btn btn-secondary" :title="t('common.refresh')">
               <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
             </button>
+            <button type="button" class="btn btn-secondary" @click="showRecordsDialog = true">
+              <Icon name="clipboard" size="md" class="mr-1" />
+              {{ t('admin.activityCenter.records.title') }}
+            </button>
             <button @click="openCreate" class="btn btn-primary">
               <Icon name="plus" size="md" class="mr-1" />
               {{ t('admin.activityCenter.createCampaign') }}
@@ -102,75 +106,34 @@
       </template>
     </TablePageLayout>
 
-    <section v-if="!isEditorRoute" class="mt-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-dark-700 dark:bg-dark-800">
-      <div class="mb-4 flex flex-wrap items-center gap-3">
-        <div>
-          <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('admin.activityCenter.records.title') }}</h2>
-          <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">{{ t('admin.activityCenter.records.description') }}</p>
-        </div>
-        <div class="ml-auto flex flex-wrap items-center gap-2">
-          <input
-            v-model="recordSearchQuery"
-            type="text"
-            class="input w-64"
-            :placeholder="t('admin.activityCenter.records.searchPlaceholder')"
-            @input="handleRecordSearch"
-          />
-          <button type="button" class="btn btn-secondary" :disabled="recordsLoading" :title="t('common.refresh')" @click="reloadRecords">
-            <Icon name="refresh" size="md" :class="recordsLoading ? 'animate-spin' : ''" />
+    <BaseDialog
+      :show="showRecordsDialog"
+      mode="dialog"
+      width="extra-wide"
+      :title="t('admin.activityCenter.records.title')"
+      @close="showRecordsDialog = false"
+    >
+      <div class="space-y-4">
+        <div class="flex flex-wrap gap-3">
+          <input v-model="recordSearch" class="input min-w-56 flex-1" :placeholder="t('admin.activityCenter.records.searchPlaceholder')" @keyup.enter="loadActivityRecords" />
+          <button type="button" class="btn btn-secondary" :disabled="recordsLoading" :title="t('common.refresh')" @click="loadActivityRecords">
+            <Icon name="refresh" size="sm" :class="recordsLoading ? 'animate-spin' : ''" />
           </button>
         </div>
+        <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-dark-700">
+          <table class="min-w-full text-left text-sm">
+            <thead class="border-b border-gray-200 bg-gray-50 text-xs text-gray-500 dark:border-dark-700 dark:bg-dark-800 dark:text-dark-400">
+              <tr><th class="px-3 py-2">{{ t('admin.activityCenter.records.columns.user') }}</th><th class="px-3 py-2">{{ t('admin.activityCenter.records.columns.campaign') }}</th><th class="px-3 py-2">{{ t('admin.activityCenter.records.columns.prize') }}</th><th class="px-3 py-2">{{ t('admin.activityCenter.records.columns.rewardStatus') }}</th><th class="px-3 py-2">{{ t('admin.activityCenter.records.columns.createdAt') }}</th></tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-dark-700">
+              <tr v-for="record in activityRecords" :key="record.id"><td class="px-3 py-2">{{ record.user_email || record.user_name || `#${record.user_id}` }}</td><td class="px-3 py-2">{{ record.campaign_title }}</td><td class="px-3 py-2">{{ record.prize_label || record.reward_value || '-' }}</td><td class="px-3 py-2"><span class="badge badge-gray">{{ recordStatusLabel(record.reward_status) }}</span></td><td class="whitespace-nowrap px-3 py-2 text-gray-500 dark:text-dark-400">{{ formatDateTime(record.created_at) }}</td></tr>
+              <tr v-if="!recordsLoading && activityRecords.length === 0"><td colspan="5" class="px-3 py-8 text-center text-sm text-gray-500 dark:text-dark-400">{{ t('admin.activityCenter.records.empty') }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <Pagination v-if="recordPagination.total > 0" :page="recordPagination.page" :total="recordPagination.total" :page-size="recordPagination.page_size" @update:page="changeRecordPage" @update:pageSize="changeRecordPageSize" />
       </div>
-      <DataTable
-        :columns="recordColumns"
-        :data="records"
-        :loading="recordsLoading"
-        :server-side-sort="true"
-        default-sort-key="created_at"
-        default-sort-order="desc"
-        @sort="handleRecordSort"
-      >
-        <template #cell-user="{ row }">
-          <div class="min-w-0">
-            <div class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ row.user_email || row.user_name || `#${row.user_id}` }}</div>
-            <div class="mt-0.5 text-xs text-gray-500 dark:text-dark-400">#{{ row.user_id }}</div>
-          </div>
-        </template>
-        <template #cell-campaign="{ row }">
-          <div class="min-w-0">
-            <div class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ row.campaign_title }}</div>
-            <div class="mt-0.5 text-xs text-gray-500 dark:text-dark-400">{{ typeLabel(row.campaign_type) }}</div>
-          </div>
-        </template>
-        <template #cell-prize="{ row }">
-          <div class="min-w-0">
-            <div class="flex items-center gap-2">
-              <span v-if="row.prize_color" class="h-2.5 w-2.5 rounded-full" :style="{ backgroundColor: row.prize_color }"></span>
-              <span class="truncate text-sm text-gray-700 dark:text-dark-300">{{ row.prize_label || t('admin.activityCenter.records.noPrize') }}</span>
-            </div>
-            <code v-if="recordRewardDetail(row)" class="mt-1 block max-w-56 truncate text-xs text-gray-500 dark:text-dark-400">{{ recordRewardDetail(row) }}</code>
-          </div>
-        </template>
-        <template #cell-reward_status="{ row }">
-          <span class="badge badge-gray">{{ recordRewardStatusLabel(row.reward_status) }}</span>
-        </template>
-        <template #cell-created_at="{ value }">
-          <span class="text-sm text-gray-500 dark:text-dark-400">{{ formatDateTime(value) }}</span>
-        </template>
-        <template #empty>
-          <EmptyState :title="t('empty.noData')" :description="t('admin.activityCenter.records.empty')" />
-        </template>
-      </DataTable>
-      <Pagination
-        v-if="recordsPagination.total > 0"
-        class="mt-4"
-        :page="recordsPagination.page"
-        :total="recordsPagination.total"
-        :page-size="recordsPagination.page_size"
-        @update:page="handleRecordPageChange"
-        @update:pageSize="handleRecordPageSizeChange"
-      />
-    </section>
+    </BaseDialog>
 
     <BaseDialog
       :show="isEditorRoute || showDialog"
@@ -407,21 +370,34 @@
             </div>
           </div>
         </div>
-        <div v-else-if="form.type === 'redeem'" class="rounded-lg border border-gray-200 p-3 dark:border-dark-600">
-          <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">{{ t('admin.activityCenter.config.redeem') }}</h3>
+        <div v-else-if="form.type === 'inflate' || form.type === 'redeem'" class="rounded-lg border border-gray-200 p-3 dark:border-dark-600">
+          <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">{{ t('admin.activityCenter.config.inflate') }}</h3>
           <div class="grid gap-4 md:grid-cols-3">
             <div>
-              <label class="input-label">{{ t('admin.activityCenter.config.codeMode') }}</label>
-              <Select v-model="redeemConfig.code_mode" :options="redeemModeOptions" />
+              <label class="input-label">{{ t('admin.activityCenter.config.minValue') }}</label>
+              <input v-model="inflateConfig.min_value" type="number" min="0" step="0.01" class="input" />
             </div>
             <div>
-              <label class="input-label">{{ t('admin.activityCenter.config.placeholder') }}</label>
-              <input v-model="redeemConfig.placeholder" class="input" />
+              <label class="input-label">{{ t('admin.activityCenter.config.maxValue') }}</label>
+              <input v-model="inflateConfig.max_value" type="number" min="0" step="0.01" class="input" />
             </div>
             <div>
-              <label class="input-label">{{ t('admin.activityCenter.config.successMessage') }}</label>
-              <input v-model="redeemConfig.success_message" class="input" />
+              <label class="input-label">{{ t('admin.activityCenter.config.priority') }}</label>
+              <input v-model.number="inflateConfig.priority" type="number" min="0" class="input" />
             </div>
+          </div>
+          <div class="mt-4 grid gap-4 md:grid-cols-2">
+            <div>
+              <label class="input-label">{{ t('admin.activityCenter.config.minInflatePct') }}</label>
+              <input v-model="inflateConfig.min_inflate_pct" type="number" min="0" max="100" step="0.01" class="input" />
+            </div>
+            <div>
+              <label class="input-label">{{ t('admin.activityCenter.config.maxInflatePct') }}</label>
+              <input v-model="inflateConfig.max_inflate_pct" type="number" min="0" max="100" step="0.01" class="input" />
+            </div>
+          </div>
+          <div class="mt-4">
+            <GroupSelector v-model="inflateConfig.required_group_ids" :groups="adminGroups" :searchable="true" />
           </div>
         </div>
         <div v-else class="rounded-lg border border-gray-200 p-3 dark:border-dark-600">
@@ -585,13 +561,15 @@ function showEditorSection(section: 'basic' | 'lottery' | 'detail') {
 }
 
 const campaigns = ref<ActivityCampaign[]>([])
-const records = ref<ActivityParticipationRecord[]>([])
 const loading = ref(false)
-const recordsLoading = ref(false)
 const saving = ref(false)
 const searchQuery = ref('')
-const recordSearchQuery = ref('')
 const showDialog = ref(false)
+const showRecordsDialog = ref(false)
+const activityRecords = ref<ActivityParticipationRecord[]>([])
+const recordsLoading = ref(false)
+const recordSearch = ref('')
+const recordPagination = reactive({ page: 1, page_size: 20, total: 0 })
 const showDeleteDialog = ref(false)
 const editingCampaign = ref<ActivityCampaign | null>(null)
 const deletingCampaign = ref<ActivityCampaign | null>(null)
@@ -609,18 +587,7 @@ const pagination = reactive({
   total: 0
 })
 
-const recordsPagination = reactive({
-  page: 1,
-  page_size: 20,
-  total: 0
-})
-
 const sortState = reactive({
-  sort_by: 'created_at',
-  sort_order: 'desc' as 'asc' | 'desc'
-})
-
-const recordSortState = reactive({
   sort_by: 'created_at',
   sort_order: 'desc' as 'asc' | 'desc'
 })
@@ -667,10 +634,13 @@ interface LotteryPoolForm {
 }
 
 const lotteryPools = ref<LotteryPoolForm[]>([])
-const redeemConfig = reactive({
-  code_mode: 'manual' as 'manual' | 'generated',
-  placeholder: '',
-  success_message: ''
+const inflateConfig = reactive({
+  min_value: '0',
+  max_value: '999999999',
+  min_inflate_pct: '0',
+  max_inflate_pct: '0',
+  required_group_ids: [] as number[],
+  priority: 0
 })
 const customConfig = reactive({
   action_label: '',
@@ -700,18 +670,10 @@ const columns = computed<Column[]>(() => [
   { key: 'actions', label: t('admin.activityCenter.columns.actions') }
 ])
 
-const recordColumns = computed<Column[]>(() => [
-  { key: 'user', label: t('admin.activityCenter.records.columns.user') },
-  { key: 'campaign', label: t('admin.activityCenter.records.columns.campaign') },
-  { key: 'pool_name', label: t('admin.activityCenter.records.columns.pool') },
-  { key: 'prize', label: t('admin.activityCenter.records.columns.prize') },
-  { key: 'reward_status', label: t('admin.activityCenter.records.columns.rewardStatus') },
-  { key: 'created_at', label: t('admin.activityCenter.records.columns.createdAt'), sortable: true }
-])
-
 const typeOptions = computed(() => [
   { value: '', label: t('admin.activityCenter.filters.allTypes') },
   { value: 'lottery', label: t('admin.activityCenter.types.lottery') },
+  { value: 'inflate', label: t('admin.activityCenter.types.inflate') },
   { value: 'redeem', label: t('admin.activityCenter.types.redeem') },
   { value: 'custom', label: t('admin.activityCenter.types.custom') }
 ])
@@ -745,11 +707,6 @@ const rewardGroupOptions = computed(() => [
     .filter((group) => group.subscription_type === 'subscription')
     .map((group) => ({ value: group.id, label: `${group.name} (#${group.id})` }))
 ])
-const redeemModeOptions = computed(() => [
-  { value: 'manual', label: t('admin.activityCenter.redeemModes.manual') },
-  { value: 'generated', label: t('admin.activityCenter.redeemModes.generated') }
-])
-
 function uniqueConfigId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
@@ -791,9 +748,12 @@ function createDefaultPool(overrides: Partial<LotteryPoolForm> = {}): LotteryPoo
 
 function resetActivityConfig() {
   lotteryPools.value = [createDefaultPool()]
-  redeemConfig.code_mode = 'manual'
-  redeemConfig.placeholder = t('admin.activityCenter.config.defaultRedeemPlaceholder')
-  redeemConfig.success_message = t('admin.activityCenter.config.defaultRedeemSuccess')
+  inflateConfig.min_value = '0'
+  inflateConfig.max_value = '999999999'
+  inflateConfig.min_inflate_pct = '0'
+  inflateConfig.max_inflate_pct = '0'
+  inflateConfig.required_group_ids = []
+  inflateConfig.priority = 0
   customConfig.action_label = ''
   customConfig.action_hint = ''
 }
@@ -1119,10 +1079,14 @@ function applyActivityConfig(raw: string | undefined) {
       if (pool.prizes.length === 0) pool.prizes.push(createDefaultPrize())
     })
   }
-  if (parsed.redeem) {
-    redeemConfig.code_mode = parsed.redeem.code_mode === 'generated' ? 'generated' : 'manual'
-    redeemConfig.placeholder = parsed.redeem.placeholder || ''
-    redeemConfig.success_message = parsed.redeem.success_message || ''
+  const parsedInflate = parsed.inflate || parsed.redeem
+  if (parsedInflate) {
+    inflateConfig.min_value = String(parsedInflate.min_value ?? '0')
+    inflateConfig.max_value = String(parsedInflate.max_value ?? '999999999')
+    inflateConfig.min_inflate_pct = String(parsedInflate.min_inflate_pct ?? '0')
+    inflateConfig.max_inflate_pct = String(parsedInflate.max_inflate_pct ?? '0')
+    inflateConfig.required_group_ids = normalizeGroupIds(parsedInflate.required_group_ids || [])
+    inflateConfig.priority = Number.isFinite(parsedInflate.priority) ? parsedInflate.priority : 0
   }
   if (parsed.custom) {
     customConfig.action_label = parsed.custom.action_label || ''
@@ -1160,12 +1124,17 @@ function buildActivityConfigJSON() {
         }))
       }))
     }
-  } else if (form.type === 'redeem') {
-    config.redeem = {
-      code_mode: redeemConfig.code_mode,
-      placeholder: redeemConfig.placeholder.trim(),
-      success_message: redeemConfig.success_message.trim()
+  } else if (form.type === 'inflate' || form.type === 'redeem') {
+    const inflate = {
+      min_value: String(inflateConfig.min_value).trim(),
+      max_value: String(inflateConfig.max_value).trim(),
+      min_inflate_pct: String(inflateConfig.min_inflate_pct).trim(),
+      max_inflate_pct: String(inflateConfig.max_inflate_pct).trim(),
+      required_group_ids: normalizeGroupIds(inflateConfig.required_group_ids),
+      priority: Number(inflateConfig.priority) || 0
     }
+    if (form.type === 'inflate') config.inflate = inflate
+    else config.redeem = inflate
   } else {
     config.custom = {
       action_label: customConfig.action_label.trim(),
@@ -1176,7 +1145,6 @@ function buildActivityConfigJSON() {
 }
 
 let abortController: AbortController | null = null
-let recordSearchTimer: ReturnType<typeof setTimeout> | null = null
 
 async function reload() {
   if (abortController) abortController.abort()
@@ -1212,29 +1180,6 @@ async function reload() {
   }
 }
 
-async function reloadRecords() {
-  recordsLoading.value = true
-  try {
-    const response = await adminActivityCenterAPI.listRecords(
-      recordsPagination.page,
-      recordsPagination.page_size,
-      {
-        search: recordSearchQuery.value || undefined,
-        sort_by: recordSortState.sort_by,
-        sort_order: recordSortState.sort_order
-      }
-    )
-    records.value = response.items
-    recordsPagination.total = response.total
-    recordsPagination.page = response.page
-    recordsPagination.page_size = response.page_size
-  } catch (error: any) {
-    appStore.showError(error?.message || t('admin.activityCenter.records.failedToLoad'))
-  } finally {
-    recordsLoading.value = false
-  }
-}
-
 async function loadAdminGroups() {
   try {
     adminGroups.value = await getAllAdminGroups()
@@ -1242,6 +1187,44 @@ async function loadAdminGroups() {
     appStore.showError(error?.message || t('admin.activityCenter.failedToLoadGroups'))
   }
 }
+
+async function loadActivityRecords() {
+  recordsLoading.value = true
+  try {
+    const response = await adminActivityCenterAPI.listRecords(recordPagination.page, recordPagination.page_size, {
+      search: recordSearch.value || undefined,
+      sort_by: 'created_at',
+      sort_order: 'desc'
+    })
+    activityRecords.value = response.items
+    recordPagination.page = response.page
+    recordPagination.page_size = response.page_size
+    recordPagination.total = response.total
+  } catch (error: any) {
+    appStore.showError(error?.message || t('admin.activityCenter.records.failedToLoad'))
+  } finally {
+    recordsLoading.value = false
+  }
+}
+
+function changeRecordPage(page: number) {
+  recordPagination.page = page
+  void loadActivityRecords()
+}
+
+function changeRecordPageSize(pageSize: number) {
+  recordPagination.page = 1
+  recordPagination.page_size = pageSize
+  void loadActivityRecords()
+}
+
+function recordStatusLabel(status: ActivityParticipationRecord['reward_status']) {
+  return t(`admin.activityCenter.records.rewardStatus.${status}`)
+}
+
+watch(showRecordsDialog, (visible) => {
+  if (visible) void loadActivityRecords()
+})
 
 function handlePageChange(page: number) {
   pagination.page = page
@@ -1254,29 +1237,11 @@ function handlePageSizeChange(pageSize: number) {
   reload()
 }
 
-function handleRecordPageChange(page: number) {
-  recordsPagination.page = page
-  reloadRecords()
-}
-
-function handleRecordPageSizeChange(pageSize: number) {
-  recordsPagination.page_size = pageSize
-  recordsPagination.page = 1
-  reloadRecords()
-}
-
 function handleSort(key: string, order: 'asc' | 'desc') {
   sortState.sort_by = key
   sortState.sort_order = order
   pagination.page = 1
   reload()
-}
-
-function handleRecordSort(key: string, order: 'asc' | 'desc') {
-  recordSortState.sort_by = key
-  recordSortState.sort_order = order
-  recordsPagination.page = 1
-  reloadRecords()
 }
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
@@ -1286,28 +1251,6 @@ function handleSearch() {
     pagination.page = 1
     reload()
   }, 300)
-}
-
-function handleRecordSearch() {
-  if (recordSearchTimer) clearTimeout(recordSearchTimer)
-  recordSearchTimer = setTimeout(() => {
-    recordsPagination.page = 1
-    reloadRecords()
-  }, 300)
-}
-
-function recordRewardStatusLabel(value: ActivityParticipationRecord['reward_status']) {
-  return t(`admin.activityCenter.records.rewardStatus.${value}`)
-}
-
-function recordRewardDetail(record: ActivityParticipationRecord) {
-  if (!record.reward_payload_json) return ''
-  try {
-    const payload = JSON.parse(record.reward_payload_json) as Record<string, unknown>
-    return String(payload.code || payload.value || payload.value_amount || '')
-  } catch {
-    return ''
-  }
 }
 
 async function handleSave() {
@@ -1389,7 +1332,6 @@ onMounted(() => {
   } else {
     resetActivityConfig()
     void reload()
-    void reloadRecords()
   }
 })
 
@@ -1411,7 +1353,6 @@ watch(
 
 onUnmounted(() => {
   if (searchTimer) clearTimeout(searchTimer)
-  if (recordSearchTimer) clearTimeout(recordSearchTimer)
   abortController?.abort()
 })
 </script>

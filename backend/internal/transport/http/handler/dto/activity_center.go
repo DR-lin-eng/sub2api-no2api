@@ -65,6 +65,7 @@ type ActivityParticipationRecord struct {
 	ResultStatus      string    `json:"result_status"`
 	RewardStatus      string    `json:"reward_status"`
 	RewardValue       string    `json:"reward_value,omitempty"`
+	InflatePct        *float64  `json:"inflate_pct,omitempty"`
 	RewardCode        string    `json:"reward_code,omitempty"`
 	RewardPayloadJSON string    `json:"reward_payload_json,omitempty"`
 	CreatedAt         time.Time `json:"created_at"`
@@ -171,9 +172,10 @@ func ActivityParticipationRecordFromService(record *activitycenter.Record, inclu
 		out.RewardPayloadJSON = record.RewardPayloadJSON
 	} else {
 		var reward struct {
-			ValueAmount string `json:"value_amount"`
-			Value       string `json:"value"`
-			Code        string `json:"code"`
+			ValueAmount string   `json:"value_amount"`
+			Value       string   `json:"value"`
+			Code        string   `json:"code"`
+			InflatePct  *float64 `json:"inflate_pct"`
 		}
 		if json.Unmarshal([]byte(record.RewardPayloadJSON), &reward) == nil {
 			out.RewardValue = reward.ValueAmount
@@ -181,13 +183,36 @@ func ActivityParticipationRecordFromService(record *activitycenter.Record, inclu
 				out.RewardValue = reward.Value
 			}
 			out.RewardCode = reward.Code
+			out.InflatePct = reward.InflatePct
 		}
 	}
 	return out
 }
 
 func publicActivityCampaignConfigJSON(campaign *activitycenter.Campaign) string {
-	if campaign == nil || campaign.Type != activitycenter.CampaignTypeLottery {
+	if campaign == nil {
+		return "{}"
+	}
+	if campaign.Type == activitycenter.CampaignTypeInflate || campaign.Type == activitycenter.CampaignTypeRedeem {
+		var config activitycenter.ActivityConfig
+		if err := json.Unmarshal([]byte(campaign.ConfigJSON), &config); err != nil {
+			return "{}"
+		}
+		rule := config.Inflate
+		if rule == nil {
+			rule = config.Redeem
+		}
+		if rule == nil {
+			return "{}"
+		}
+		payload := map[string]any{"inflate": rule}
+		out, err := json.Marshal(payload)
+		if err != nil {
+			return "{}"
+		}
+		return string(out)
+	}
+	if campaign.Type != activitycenter.CampaignTypeLottery {
 		return "{}"
 	}
 	return sanitizePublicActivityCampaignConfigJSON(campaign.ConfigJSON)

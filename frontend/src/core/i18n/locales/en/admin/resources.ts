@@ -491,6 +491,7 @@ export default {
       },
       types: {
         lottery: 'Lottery',
+        inflate: 'Code inflation',
         redeem: 'Redeem',
         custom: 'Custom'
       },
@@ -518,7 +519,13 @@ export default {
       },
       config: {
         lottery: 'Lottery config',
+        inflate: 'Code inflation config',
         redeem: 'Redeem config',
+        minValue: 'Minimum code value',
+        maxValue: 'Maximum code value',
+        minInflatePct: 'Minimum inflation (%)',
+        maxInflatePct: 'Maximum inflation (%)',
+        priority: 'Priority',
         custom: 'Custom config',
         addPool: 'Add pool',
         pool: 'Pool',

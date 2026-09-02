@@ -16,6 +16,7 @@ export default {
     },
     types: {
       lottery: '抽奖',
+      inflate: '兑换码膨胀',
       redeem: '兑换',
       custom: '自定义',
     },
@@ -54,6 +55,13 @@ export default {
       ACTIVITY_CAMPAIGN_NOT_ELIGIBLE: '你不满足该活动的参与条件',
       ACTIVITY_CAMPAIGN_NOT_VISIBLE: '该活动当前不可参与',
       ACTIVITY_CAMPAIGN_REWARD_FAILED: '奖励发放失败，请稍后查看活动记录',
+      REDEEM_CODE_NOT_FOUND: '兑换码不存在，请检查后重试',
+      REDEEM_CODE_USED: '兑换码已使用',
+      REDEEM_CODE_EXPIRED: '兑换码已过期',
+      REDEEM_CODE_LOCKED: '兑换码正在处理中，请稍后重试',
+      REDEEM_CODE_INVALID: '兑换码无效',
+      REDEEM_CODE_UNSUPPORTED_TYPE: '该兑换码类型不支持在此处兑换',
+      REDEEM_RATE_LIMITED: '尝试次数过多，请稍后再试'
     },
     records: {
       title: '我的活动记录',
@@ -65,12 +73,24 @@ export default {
       none: '谢谢参与',
       pending: '待发放',
       granted: '已发放',
+      inflated: '已膨胀',
       failed: '发放失败',
     },
     redeem: {
       title: '兑换入口',
       placeholder: '请输入兑换码',
       submit: '兑换',
+    },
+    inflate: {
+      title: '兑换码膨胀',
+      placeholder: '请输入余额兑换码',
+      submit: '立即兑换',
+      submitting: '兑换中...',
+      hint: '符合活动条件的余额兑换码将按规则增加到账金额。',
+      valueRange: '兑换金额范围',
+      rateRange: '膨胀比例范围',
+      success: '兑换成功，余额已到账',
+      failed: '兑换失败'
     },
     prizeTypes: {
       none: '谢谢参与',

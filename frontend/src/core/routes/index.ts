@@ -674,12 +674,6 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresAdmin: true, title: 'Create Activity' }
   },
   {
-    path: '/admin/activity-center/records',
-    name: 'AdminActivityCenterRecords',
-    component: () => import('@/features/activity-center/presentation/pages/AdminActivityRecordsPage.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true, title: 'Activity Records', titleKey: 'admin.activityCenter.records.title' }
-  },
-  {
     path: '/admin/activity-center/campaigns/:id/edit',
     name: 'AdminActivityCenterCampaignEdit',
     component: () => import('@/features/activity-center/presentation/pages/AdminActivityCenterPage.vue'),

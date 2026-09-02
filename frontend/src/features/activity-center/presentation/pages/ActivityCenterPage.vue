@@ -23,6 +23,7 @@
                 <select v-model="typeFilter" class="input">
                   <option value="all">{{ t('activityCenter.filters.allTypes') }}</option>
                   <option value="lottery">{{ t('activityCenter.types.lottery') }}</option>
+                  <option value="inflate">{{ t('activityCenter.types.inflate') }}</option>
                   <option value="redeem">{{ t('activityCenter.types.redeem') }}</option>
                   <option value="custom">{{ t('activityCenter.types.custom') }}</option>
                 </select>
@@ -172,7 +173,7 @@ function campaignSummary(item: UserActivityCampaign) {
     const prizeCount = pools.reduce((sum, pool) => sum + (pool.prizes?.length || 0), 0)
     return t('activityCenter.card.lotterySummary', { pools: pools.length, prizes: prizeCount })
   }
-  if (item.type === 'redeem') return t('activityCenter.card.redeemSummary')
+  if (item.type === 'inflate' || item.type === 'redeem') return t('activityCenter.card.redeemSummary')
   return t('activityCenter.card.customSummary')
 }
 

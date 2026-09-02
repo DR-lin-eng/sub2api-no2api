@@ -18,6 +18,11 @@ export async function participate(id: number, poolId?: string): Promise<Activity
   return data
 }
 
+export async function redeemCode(code: string) {
+  const { data } = await apiClient.post('/redeem', { code })
+  return data
+}
+
 export async function listMyRecords(
   page: number = 1,
   pageSize: number = 20
@@ -32,6 +37,7 @@ const activityCenterAPI = {
   list,
   getById,
   participate,
+  redeemCode,
   listMyRecords
 }
 

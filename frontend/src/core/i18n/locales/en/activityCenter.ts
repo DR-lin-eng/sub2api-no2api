@@ -16,6 +16,7 @@ export default {
     },
     types: {
       lottery: 'Lottery',
+      inflate: 'Code inflation',
       redeem: 'Redeem',
       custom: 'Custom',
     },
@@ -54,6 +55,13 @@ export default {
       ACTIVITY_CAMPAIGN_NOT_ELIGIBLE: 'You are not eligible for this activity.',
       ACTIVITY_CAMPAIGN_NOT_VISIBLE: 'This activity is not currently available.',
       ACTIVITY_CAMPAIGN_REWARD_FAILED: 'The reward could not be issued. Please check your activity records later.',
+      REDEEM_CODE_NOT_FOUND: 'Redeem code not found. Check the code and try again.',
+      REDEEM_CODE_USED: 'This redeem code has already been used.',
+      REDEEM_CODE_EXPIRED: 'This redeem code has expired.',
+      REDEEM_CODE_LOCKED: 'This redeem code is being processed. Try again shortly.',
+      REDEEM_CODE_INVALID: 'This redeem code is invalid.',
+      REDEEM_CODE_UNSUPPORTED_TYPE: 'This redeem code type cannot be used here.',
+      REDEEM_RATE_LIMITED: 'Too many attempts. Try again later.'
     },
     records: {
       title: 'My activity records',
@@ -65,12 +73,24 @@ export default {
       none: 'No prize',
       pending: 'Pending',
       granted: 'Granted',
+      inflated: 'Inflated',
       failed: 'Failed',
     },
     redeem: {
       title: 'Redeem',
       placeholder: 'Enter redeem code',
       submit: 'Redeem',
+    },
+    inflate: {
+      title: 'Code inflation',
+      placeholder: 'Enter a balance code',
+      submit: 'Redeem',
+      submitting: 'Redeeming...',
+      hint: 'Eligible balance codes receive the configured bonus.',
+      valueRange: 'Code value range',
+      rateRange: 'Inflation range',
+      success: 'Redeemed successfully. Balance credited.',
+      failed: 'Redemption failed'
     },
     prizeTypes: {
       none: 'No prize',

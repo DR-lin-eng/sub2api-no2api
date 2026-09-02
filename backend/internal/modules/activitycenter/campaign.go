@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"math"
 	"math/big"
 	"strconv"
 	"strings"
@@ -15,8 +16,10 @@ import (
 
 const (
 	CampaignTypeLottery = "lottery"
-	CampaignTypeRedeem  = "redeem"
-	CampaignTypeCustom  = "custom"
+	CampaignTypeInflate = "inflate"
+	// CampaignTypeRedeem is retained for campaigns created before inflate was introduced.
+	CampaignTypeRedeem = "redeem"
+	CampaignTypeCustom = "custom"
 )
 
 const (
@@ -204,6 +207,17 @@ type RewardGranter interface {
 
 type ActivityConfig struct {
 	Lottery *LotteryConfig `json:"lottery"`
+	Inflate *InflateConfig `json:"inflate"`
+	Redeem  *InflateConfig `json:"redeem"`
+}
+
+type InflateConfig struct {
+	MinValue         string  `json:"min_value"`
+	MaxValue         string  `json:"max_value"`
+	RequiredGroupIDs []int64 `json:"required_group_ids"`
+	MinInflatePct    string  `json:"min_inflate_pct"`
+	MaxInflatePct    string  `json:"max_inflate_pct"`
+	Priority         int     `json:"priority"`
 }
 
 type LotteryConfig struct {
@@ -384,6 +398,97 @@ func (s *Service) ListVisibleForUser(ctx context.Context, userID int64) ([]Campa
 		}
 	}
 	return out, nil
+}
+
+func (s *Service) ResolveInflatedBalance(ctx context.Context, userID int64, amount float64) (float64, int64, string, string, float64, error) {
+	if amount <= 0 {
+		return amount, 0, "", "", 0, nil
+	}
+	items, err := s.repo.ListVisible(ctx, time.Now())
+	if err != nil {
+		return 0, 0, "", "", 0, err
+	}
+	groups, err := s.repo.ListUserAllowedGroupIDs(ctx, userID)
+	if err != nil {
+		return 0, 0, "", "", 0, err
+	}
+	groupSet := make(map[int64]struct{}, len(groups))
+	for _, groupID := range groups {
+		groupSet[groupID] = struct{}{}
+	}
+	matched := false
+	bestPriority := -1
+	minPct, maxPct := 0.0, 0.0
+	var campaignID int64
+	var campaignTitle, campaignType string
+	for _, campaign := range items {
+		if campaign.Type != CampaignTypeInflate && campaign.Type != CampaignTypeRedeem {
+			continue
+		}
+		config, err := parseActivityConfig(campaign.ConfigJSON)
+		if err != nil {
+			continue
+		}
+		rule := config.Inflate
+		if rule == nil {
+			rule = config.Redeem
+		}
+		if rule == nil {
+			continue
+		}
+		minValue, err1 := strconv.ParseFloat(rule.MinValue, 64)
+		maxValue, err2 := strconv.ParseFloat(rule.MaxValue, 64)
+		low, err3 := strconv.ParseFloat(rule.MinInflatePct, 64)
+		high, err4 := strconv.ParseFloat(rule.MaxInflatePct, 64)
+		if err1 != nil || err2 != nil || err3 != nil || err4 != nil || amount < minValue || amount > maxValue {
+			continue
+		}
+		eligible := len(rule.RequiredGroupIDs) == 0
+		for _, groupID := range rule.RequiredGroupIDs {
+			if _, ok := groupSet[groupID]; ok {
+				eligible = true
+				break
+			}
+		}
+		if !eligible || (matched && rule.Priority <= bestPriority) {
+			continue
+		}
+		matched, bestPriority, minPct, maxPct = true, rule.Priority, low, high
+		campaignID, campaignTitle, campaignType = campaign.ID, campaign.Title, campaign.Type
+	}
+	if !matched || maxPct <= 0 {
+		return amount, 0, "", "", 0, nil
+	}
+	ratio, err := cryptoRandomInt(1000001)
+	if err != nil {
+		return 0, 0, "", "", 0, err
+	}
+	pct := minPct + (maxPct-minPct)*float64(ratio)/1000000
+	// Balances are stored with eight decimal places; round once before the
+	// transaction applies the adjustment so binary float noise is not credited.
+	credited := math.Round((amount+amount*pct/100)*1e8) / 1e8
+	return credited, campaignID, campaignTitle, campaignType, pct, nil
+}
+
+func (s *Service) RecordInflation(ctx context.Context, userID, campaignID int64, title, campaignType string, originalAmount, creditedAmount, inflatePct float64) error {
+	payload, err := json.Marshal(map[string]any{
+		"original_amount": originalAmount,
+		"credited_amount": creditedAmount,
+		"inflate_pct":     inflatePct,
+		"value":           strconv.FormatFloat(creditedAmount, 'f', -1, 64),
+	})
+	if err != nil {
+		return err
+	}
+	return s.repo.CreateRecord(ctx, &Record{
+		CampaignID:        campaignID,
+		CampaignTitle:     title,
+		CampaignType:      campaignType,
+		UserID:            userID,
+		ResultStatus:      "inflated",
+		RewardStatus:      "granted",
+		RewardPayloadJSON: string(payload),
+	})
 }
 
 func (s *Service) Participate(ctx context.Context, campaignID int64, input ParticipateInput) (*Record, error) {
@@ -758,6 +863,50 @@ func normalizeCampaign(c *Campaign) error {
 			return ErrCampaignConfigInvalid
 		}
 	}
+	if c.Type == CampaignTypeInflate {
+		config, err := parseActivityConfig(c.ConfigJSON)
+		if err != nil || validateInflateConfig(config) != nil {
+			return ErrCampaignConfigInvalid
+		}
+	}
+	return nil
+}
+
+func validateInflateConfig(config *ActivityConfig) error {
+	if config == nil {
+		return ErrCampaignConfigInvalid
+	}
+	rule := config.Inflate
+	if rule == nil {
+		rule = config.Redeem
+	}
+	if rule == nil {
+		return ErrCampaignConfigInvalid
+	}
+	minValue, err := strconv.ParseFloat(strings.TrimSpace(rule.MinValue), 64)
+	if err != nil || minValue < 0 {
+		return ErrCampaignConfigInvalid
+	}
+	maxValue, err := strconv.ParseFloat(strings.TrimSpace(rule.MaxValue), 64)
+	if err != nil || maxValue < minValue {
+		return ErrCampaignConfigInvalid
+	}
+	minPct, err := strconv.ParseFloat(strings.TrimSpace(rule.MinInflatePct), 64)
+	if err != nil || minPct < 0 || minPct > 100 {
+		return ErrCampaignConfigInvalid
+	}
+	maxPct, err := strconv.ParseFloat(strings.TrimSpace(rule.MaxInflatePct), 64)
+	if err != nil || maxPct < minPct || maxPct > 100 {
+		return ErrCampaignConfigInvalid
+	}
+	if rule.Priority < 0 {
+		return ErrCampaignConfigInvalid
+	}
+	for _, groupID := range rule.RequiredGroupIDs {
+		if groupID <= 0 {
+			return ErrCampaignConfigInvalid
+		}
+	}
 	return nil
 }
 
@@ -895,7 +1044,7 @@ func filterCampaignPoolsForUser(campaign *Campaign, groupIDs []int64) bool {
 
 func isValidCampaignType(value string) bool {
 	switch value {
-	case CampaignTypeLottery, CampaignTypeRedeem, CampaignTypeCustom:
+	case CampaignTypeLottery, CampaignTypeInflate, CampaignTypeRedeem, CampaignTypeCustom:
 		return true
 	default:
 		return false

@@ -441,7 +441,7 @@ export interface AnnouncementUserReadStatus {
 
 // ==================== Activity Center Types ====================
 
-export type ActivityCampaignType = 'lottery' | 'redeem' | 'custom'
+export type ActivityCampaignType = 'lottery' | 'inflate' | 'redeem' | 'custom'
 export type ActivityCampaignStatus = 'draft' | 'active' | 'archived'
 export type ActivityPrizeType = 'card' | 'balance' | 'concurrency' | 'subscription' | 'none'
 
@@ -477,11 +477,15 @@ export interface ActivityLotteryConfig {
   pools: ActivityLotteryPool[]
 }
 
-export interface ActivityRedeemConfig {
-  code_mode: 'manual' | 'generated'
-  placeholder: string
-  success_message: string
+export interface ActivityInflateConfig {
+  min_value: string
+  max_value: string
+  required_group_ids: number[]
+  min_inflate_pct: string
+  max_inflate_pct: string
+  priority: number
 }
+export type ActivityRedeemConfig = ActivityInflateConfig
 
 export interface ActivityCustomConfig {
   action_label: string
@@ -490,6 +494,7 @@ export interface ActivityCustomConfig {
 
 export interface ActivityCampaignConfig {
   lottery?: ActivityLotteryConfig
+  inflate?: ActivityInflateConfig
   redeem?: ActivityRedeemConfig
   custom?: ActivityCustomConfig
 }
@@ -552,6 +557,7 @@ export interface ActivityParticipationRecord {
   result_status: 'recorded' | 'won' | 'none'
   reward_status: 'none' | 'pending' | 'granted' | 'failed'
   reward_value?: string
+  inflate_pct?: number
   reward_code?: string
   reward_payload_json?: string
   created_at: string

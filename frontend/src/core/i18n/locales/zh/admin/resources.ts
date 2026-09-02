@@ -488,6 +488,7 @@ export default {
       },
       types: {
         lottery: '抽奖',
+        inflate: '兑换码膨胀',
         redeem: '兑换',
         custom: '自定义'
       },
@@ -515,7 +516,13 @@ export default {
       },
       config: {
         lottery: '抽奖配置',
+        inflate: '兑换码膨胀配置',
         redeem: '兑换配置',
+        minValue: '最低兑换金额',
+        maxValue: '最高兑换金额',
+        minInflatePct: '最低膨胀比例 (%)',
+        maxInflatePct: '最高膨胀比例 (%)',
+        priority: '优先级',
         custom: '自定义配置',
         addPool: '添加奖池',
         pool: '奖池',

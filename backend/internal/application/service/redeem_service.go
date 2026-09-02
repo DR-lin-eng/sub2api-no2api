@@ -69,6 +69,18 @@ type RedeemCodeRepository interface {
 	SumPositiveBalanceByUser(ctx context.Context, userID int64) (float64, error)
 }
 
+type RedeemCodeUsageValueWriter interface {
+	UseWithValue(ctx context.Context, id, userID int64, value float64) error
+}
+
+type RedeemInflationResolver interface {
+	ResolveInflatedBalance(ctx context.Context, userID int64, amount float64) (float64, int64, string, string, float64, error)
+}
+
+type RedeemInflationRecorder interface {
+	RecordInflation(ctx context.Context, userID, campaignID int64, title, campaignType string, originalAmount, creditedAmount, inflatePct float64) error
+}
+
 // GenerateCodesRequest 生成兑换码请求
 type GenerateCodesRequest struct {
 	Count          int     `json:"count"`
@@ -145,6 +157,11 @@ type RedeemService struct {
 	entClient            *dbent.Client
 	authCacheInvalidator APIKeyAuthCacheInvalidator
 	affiliateService     *AffiliateService
+	inflationResolver    RedeemInflationResolver
+}
+
+func (s *RedeemService) SetInflationResolver(resolver RedeemInflationResolver) {
+	s.inflationResolver = resolver
 }
 
 // NewRedeemService 创建兑换码服务实例
@@ -457,6 +474,16 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
+	amount := redeemCode.Value
+	var inflationCampaignID int64
+	var inflationTitle, inflationType string
+	var inflationPct float64
+	if amount > 0 && s.inflationResolver != nil {
+		amount, inflationCampaignID, inflationTitle, inflationType, inflationPct, err = s.inflationResolver.ResolveInflatedBalance(ctx, userID, amount)
+		if err != nil {
+			return nil, fmt.Errorf("resolve activity inflation: %w", err)
+		}
+	}
 
 	// 使用数据库事务保证兑换码标记与权益发放的原子性
 	tx, err := s.entClient.Tx(ctx)
@@ -470,7 +497,13 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 
 	// 【关键】先标记兑换码为已使用，确保并发安全
 	// 利用数据库乐观锁（WHERE status = 'unused'）保证原子性
-	if err := s.redeemRepo.Use(txCtx, redeemCode.ID, userID); err != nil {
+	use := func() error { return s.redeemRepo.Use(txCtx, redeemCode.ID, userID) }
+	if redeemCode.Type == RedeemTypeBalance && amount != redeemCode.Value {
+		if writer, ok := s.redeemRepo.(RedeemCodeUsageValueWriter); ok {
+			use = func() error { return writer.UseWithValue(txCtx, redeemCode.ID, userID, amount) }
+		}
+	}
+	if err := use(); err != nil {
 		if errors.Is(err, ErrRedeemCodeNotFound) || errors.Is(err, ErrRedeemCodeUsed) {
 			return nil, ErrRedeemCodeUsed
 		}
@@ -480,7 +513,15 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 	// 执行兑换逻辑（兑换码已被锁定，此时可安全操作）
 	switch redeemCode.Type {
 	case RedeemTypeBalance:
-		amount := redeemCode.Value
+		if inflationCampaignID > 0 {
+			recorder, ok := s.inflationResolver.(RedeemInflationRecorder)
+			if !ok {
+				return nil, errors.New("activity inflation resolver cannot record redemption")
+			}
+			if err := recorder.RecordInflation(txCtx, userID, inflationCampaignID, inflationTitle, inflationType, redeemCode.Value, amount, inflationPct); err != nil {
+				return nil, fmt.Errorf("record activity inflation: %w", err)
+			}
+		}
 		if amount < 0 {
 			if s.redeemUserRepo == nil {
 				return nil, errors.New("user repository does not support atomic redeem balance adjustments")
@@ -535,6 +576,9 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 	// 提交事务
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit transaction: %w", err)
+	}
+	if redeemCode.Type == RedeemTypeBalance {
+		redeemCode.Value = amount
 	}
 
 	// 事务提交成功后失效缓存

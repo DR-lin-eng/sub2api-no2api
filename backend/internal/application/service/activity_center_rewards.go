@@ -22,6 +22,7 @@ func ProvideActivityCenterService(
 	subscriptionService *SubscriptionService,
 	authCacheInvalidator APIKeyAuthCacheInvalidator,
 	billingCacheService *BillingCacheService,
+	redeemService *RedeemService,
 ) *activitycenter.Service {
 	svc := activitycenter.NewService(repo)
 	svc.SetRewardGranter(&activityCenterRewardGranter{
@@ -30,6 +31,9 @@ func ProvideActivityCenterService(
 		authCacheInvalidator: authCacheInvalidator,
 		billingCacheService:  billingCacheService,
 	})
+	if redeemService != nil {
+		redeemService.SetInflationResolver(svc)
+	}
 	return svc
 }
 

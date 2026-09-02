@@ -871,7 +871,6 @@ const adminNavItems = computed((): NavItem[] => {
     { path: '/admin/account-inspection', label: t('nav.accountInspection'), icon: SignalIcon },
     { path: '/admin/announcements', label: t('nav.announcements'), icon: BellIcon },
     { path: '/admin/activity-center/campaigns', label: t('nav.activityCenterAdmin'), icon: GiftIcon },
-    { path: '/admin/activity-center/records', label: t('nav.activityRecords'), icon: OrderIcon },
     { path: '/admin/support', label: t('nav.supportInbox'), icon: SupportChatIcon, featureFlag: flagSupportChat },
     { path: '/admin/proxies', label: t('nav.proxies'), icon: ServerIcon },
     { path: '/admin/egress', label: t('nav.ipv6Egress'), icon: GlobeIcon, featureFlag: flagIPv6Egress },
