@@ -693,6 +693,9 @@ export default {
         forwardAccessToken: 'Provide embedded permission proof',
         forwardAccessTokenHint:
           'Disabled by default. Sends a 90-second, menu-scoped permission capability through an origin-locked browser message. Login credentials are never sent and the capability cannot sign in to Sub2API. Remote pages must use HTTPS.',
+        forwardAccessTokenInUrl: 'Forward user access token in URL',
+        forwardAccessTokenInUrlHint:
+          'Disabled by default. Places the token in the token parameter of iframe and new-window URLs, where it may appear in history, logs, and referrers. Enable only for a fully trusted page that requires legacy URL authentication.',
         iconSvg: 'SVG Icon',
         iconSvgPlaceholder: '<svg>...</svg>',
         iconPreview: 'Icon Preview',

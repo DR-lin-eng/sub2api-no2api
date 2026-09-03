@@ -689,6 +689,9 @@ export default {
         forwardAccessToken: '向嵌入页提供权限验证令牌',
         forwardAccessTokenHint:
           '默认关闭。开启后仅通过限定目标来源的浏览器消息发送 90 秒有效、限当前菜单使用的权限令牌；不会发送登录凭证，令牌不能登录 Sub2API。远程页面必须使用 HTTPS。',
+        forwardAccessTokenInUrl: '通过 URL 转发用户访问令牌',
+        forwardAccessTokenInUrlHint:
+          '默认关闭。开启后会把令牌写入 iframe 和新窗口 URL 的 token 参数，可能出现在历史记录、日志和访问来源中。仅对完全可信且兼容旧版 URL 认证的页面开启。',
         iconSvg: 'SVG 图标',
         iconSvgPlaceholder: '<svg>...</svg>',
         iconPreview: '图标预览',
