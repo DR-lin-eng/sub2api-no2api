@@ -75,6 +75,12 @@ keepalive 已提交 200 后，安全响应元数据走预声明的 HTTP trailer�
 设置库慢或不可用不会阻塞转发；可重试 transport timeout 只有在预算耗尽后才建立账号 runtime block，
 成功恢复时仅清理同一原因的 block。
 
+Codex Desktop 新建委派任务或启动定时任务时，首轮可能注入没有 `call_id` 的合成
+`function_call_output`，其 `id` 使用 `fco_*` item 标识。HTTP 与 WS ingress 会在普通工具输出
+校验前对已验证的 delegation/automation 信封做窄范围转换，将其原位恢复为 user message；
+不得把 `fco_*` item `id` 伪造成 `call_id`。其他工具输出仍必须携带可与真实调用上下文配对的
+`call_id`，未知或含歧义调用上下文的输入不会进入该兼容分支。
+
 ### Claude Messages 的上下文控制与 Compact
 
 `/v1/messages` 与 `/v1/responses` 是两条独立的兼容链路。OpenAI 目标的

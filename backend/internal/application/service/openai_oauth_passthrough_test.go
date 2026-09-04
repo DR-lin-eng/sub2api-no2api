@@ -170,6 +170,48 @@ func TestOpenAIGatewayService_ResponsesUnknownModelDoesNotFallbackToGPT54(t *tes
 	require.True(t, rec.Code >= http.StatusBadRequest)
 }
 
+func TestOpenAIGatewayService_HTTPForwardNormalizesCalllessCodexBootstrap(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	body := []byte(`{"model":"gpt-5.5","stream":false,"input":[{"type":"function_call_output","id":"fco_01a05cff-3864-7e31-bc57-65098a0035a9","namespace":"codex_app","name":"create_thread","output":"<codex_delegation><source_thread_id>thread-1</source_thread_id><input>inspect</input></codex_delegation>"}]}`)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusBadRequest,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"error":{"type":"invalid_request_error","message":"stop after capture"}}`)),
+	}}
+	svc := &OpenAIGatewayService{
+		cfg: &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{
+			Enabled: false, AllowInsecureHTTP: true,
+		}}},
+		httpUpstream: upstream,
+	}
+	account := &Account{
+		ID:          457,
+		Name:        "openai-apikey-bootstrap",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Concurrency: 1,
+		Credentials: map[string]any{"api_key": "sk-test", "base_url": "http://upstream.example"},
+		Extra: map[string]any{
+			openai_compat.ExtraKeyResponsesMode:      string(openai_compat.ResponsesSupportModeAuto),
+			openai_compat.ExtraKeyResponsesSupported: true,
+		},
+		Status: StatusActive, Schedulable: true,
+	}
+
+	result, err := svc.Forward(context.Background(), c, account, body)
+	require.Error(t, err)
+	require.Nil(t, result)
+	require.Equal(t, "message", gjson.GetBytes(upstream.lastBody, "input.0.type").String())
+	require.Equal(t, "user", gjson.GetBytes(upstream.lastBody, "input.0.role").String())
+	require.False(t, gjson.GetBytes(upstream.lastBody, "input.0.id").Exists())
+	require.False(t, gjson.GetBytes(upstream.lastBody, "input.0.call_id").Exists())
+}
+
 func TestOpenAIGatewayService_NativeResponsesBodyModificationPreservesHTMLChars(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

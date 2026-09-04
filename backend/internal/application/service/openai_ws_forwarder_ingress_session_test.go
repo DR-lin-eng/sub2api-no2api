@@ -198,7 +198,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_KeepLeaseAcrossT
 		return message
 	}
 
-	writeMessage(`{"type":"response.create","model":"gpt-5.1","stream":false}`)
+	writeMessage(`{"type":"response.create","model":"gpt-5.1","stream":false,"input":[{"type":"function_call_output","id":"fco_01a05cff-3864-7e31-bc57-65098a0035a9","namespace":"codex_app","name":"create_thread","output":"<codex_delegation><source_thread_id>thread-1</source_thread_id><input>inspect</input></codex_delegation>"}]}`)
 	firstTurnImageEvent := readMessage()
 	require.Equal(t, "response.output_item.done", gjson.GetBytes(firstTurnImageEvent, "type").String())
 	require.Equal(t, "completed", gjson.GetBytes(firstTurnImageEvent, "item.status").String())
@@ -230,6 +230,11 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_KeepLeaseAcrossT
 	require.Equal(t, int64(1), metrics.AcquireTotal, "同一 ingress 会话多 turn 应只获取一次上游 lease")
 	require.Equal(t, 1, captureDialer.DialCount(), "同一 ingress 会话应保持同一上游连接")
 	require.Len(t, captureConn.writes, 2, "应向同一上游连接发送两轮 response.create")
+	firstWrite := requestToJSONString(captureConn.writes[0])
+	require.Equal(t, "message", gjson.Get(firstWrite, "input.0.type").String(), "Codex bootstrap 应在 WS ingress 转成普通输入")
+	require.Equal(t, "user", gjson.Get(firstWrite, "input.0.role").String())
+	require.False(t, gjson.Get(firstWrite, "input.0.id").Exists(), "bootstrap 的 fco item id 不得作为上游对象引用")
+	require.False(t, gjson.Get(firstWrite, "input.0.call_id").Exists(), "bootstrap 的 fco item id 不得伪造成 call_id")
 	secondWrite := requestToJSONString(captureConn.writes[1])
 	require.False(t, gjson.Get(secondWrite, "input.0.id").Exists(), "API-key WS 上游不得收到非法 reasoning item id")
 	require.Equal(t, "cipher", gjson.Get(secondWrite, "input.0.encrypted_content").String(), "清洗 id 时必须保留 reasoning 上下文")

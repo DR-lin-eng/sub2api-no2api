@@ -379,6 +379,55 @@ func TestApplyCodexOAuthTransform_ConvertsToolRoleMessageToFunctionCallOutput(t 
 	require.False(t, hasRole)
 }
 
+func TestApplyCodexOAuthTransform_DoesNotUseToolMessageItemIDAsCallID(t *testing.T) {
+	reqBody := map[string]any{
+		"model": "gpt-5.5",
+		"input": []any{
+			map[string]any{
+				"type":    "message",
+				"role":    "tool",
+				"id":      "fco_01a05cff-3864-7e31-bc57-65098a0035a9",
+				"content": "bootstrap",
+			},
+		},
+	}
+
+	applyCodexOAuthTransform(reqBody, true, false)
+
+	input, ok := reqBody["input"].([]any)
+	require.True(t, ok)
+	require.Len(t, input, 1)
+	item, ok := input[0].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "message", item["type"])
+	require.Equal(t, "user", item["role"])
+	require.NotContains(t, item, "call_id")
+}
+
+func TestApplyCodexOAuthTransform_DoesNotPromoteFunctionCallOutputItemIDToCallID(t *testing.T) {
+	reqBody := map[string]any{
+		"model": "gpt-5.5",
+		"input": []any{
+			map[string]any{
+				"type":      "function_call_output",
+				"id":        "fco_01a05cff-3864-7e31-bc57-65098a0035a9",
+				"namespace": "codex_app",
+				"name":      "create_thread",
+				"output":    "<codex_delegation><source_thread_id>thread-1</source_thread_id><input>inspect</input></codex_delegation>",
+			},
+		},
+	}
+
+	applyCodexOAuthTransform(reqBody, true, false)
+
+	input, ok := reqBody["input"].([]any)
+	require.True(t, ok)
+	require.Len(t, input, 1)
+	item, ok := input[0].(map[string]any)
+	require.True(t, ok)
+	require.NotContains(t, item, "call_id")
+}
+
 func TestApplyCodexOAuthTransform_StringifiesNonStringMessageContentText(t *testing.T) {
 	reqBody := map[string]any{
 		"model": "gpt-5.4",

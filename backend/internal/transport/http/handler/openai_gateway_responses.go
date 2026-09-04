@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	"github.com/Wei-Shaw/sub2api/internal/shared/apicompat"
 	"github.com/Wei-Shaw/sub2api/internal/shared/ip"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
@@ -103,6 +104,13 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	}
 	if cappedBody, changed := applyOpenAIReasoningEffortPolicyForRequest(c, apiKey, body); changed {
 		body = cappedBody
+	}
+	if normalizedBody, bootstrapKind, changed := apicompat.NormalizeCodexCallOutputBootstrap(body); changed {
+		body = normalizedBody
+		reqLog.Info("openai.codex_bootstrap_normalized",
+			zap.String("kind", bootstrapKind),
+			zap.String("normalization", "call_output_to_user_message"),
+		)
 	}
 
 	reqStream, ok := parseOpenAICompatibleStream(body)

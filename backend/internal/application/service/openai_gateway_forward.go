@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/shared/apicompat"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
 	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
 	"github.com/gin-gonic/gin"
@@ -33,6 +34,9 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	clearGrokResponsesClientToolMapping(c)
 	clearOpenAIResponsesNamespaceNames(c)
 	startTime := time.Now()
+	if normalizedBody, _, changed := apicompat.NormalizeCodexCallOutputBootstrap(body); changed {
+		body = normalizedBody
+	}
 	// 固定渠道映射后的请求级 canonical body；账号 normalize/strip 不得改写跨 failover hint。
 	canonicalImageIntentBody := body
 	body, _, err := sanitizeOpenAIResponsesToolParameterTypes(body)

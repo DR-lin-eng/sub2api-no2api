@@ -11,7 +11,7 @@ handler 负责协议边界：校验请求、提取调用上下文、调用 appli
 | `quotaview/` | 配额展示投影 |
 | `auth*` | 登录、OAuth、会话和当前用户接口 |
 | `gateway*` | Anthropic/Claude 网关入口 |
-| `openai*` | OpenAI/Codex/Responses/Images/WS 入口 |
+| `openai*`, `codex_bootstrap*` | OpenAI/Codex/Responses/Images/WS 入口及合成首轮输入适配 |
 | `payment*`, `batch_image*`, `image_task*` | 支付和图片任务接口 |
 | `chat*`, `admin/chat*` | 用户在线客服与管理员客服收件箱接口 |
 | `ops*`, `usage*`, `channel_monitor*` | 运维、用量和监控接口 |

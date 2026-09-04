@@ -723,6 +723,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	if err := validateOpenAIWSBearerToken(account, token); err != nil {
 		return err
 	}
+	firstClientMessage = normalizeCodexBootstrapForOpenAIWS(account.ID, 1, firstClientMessage)
 	visibleOutputTTFT := s.useOpenAIVisibleOutputTTFT(ctx)
 	if isOpenAIResponsesLiteWebSocketPayload(firstClientMessage) {
 		liteFirstMessage, _, liteErr := normalizeOpenAIResponsesLitePayloadForAccount(firstClientMessage, account)
@@ -1049,6 +1050,13 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			}
 			eventType := strings.TrimSpace(gjson.GetBytes(payload, "type").String())
 			isResponseCreate := eventType == "response.create"
+			turnNo := int(completedTurns.Load()) + 1
+			if turnNo < 2 {
+				turnNo = 2
+			}
+			if isResponseCreate {
+				payload = normalizeCodexBootstrapForOpenAIWS(account.ID, turnNo, payload)
+			}
 			acceptedTurn := false
 			if isResponseCreate {
 				if !turnLifecycle.beginResponseCreate(clientFrameConn.markTurnStarted) {
@@ -1080,10 +1088,6 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 						payload = capped
 					}
 				}
-			}
-			turnNo := int(completedTurns.Load()) + 1
-			if turnNo < 2 {
-				turnNo = 2
 			}
 			requestModelForThisFrame := ""
 			if isResponseCreate {

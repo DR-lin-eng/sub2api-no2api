@@ -195,13 +195,17 @@ func startPassthroughLifecycleServer(
 }
 
 func dialPassthroughLifecycleClient(t *testing.T, server *httptest.Server) *coderws.Conn {
+	return dialPassthroughLifecycleClientWithPayload(t, server, []byte(`{"type":"response.create","model":"gpt-5.1","stream":false}`))
+}
+
+func dialPassthroughLifecycleClientWithPayload(t *testing.T, server *httptest.Server, payload []byte) *coderws.Conn {
 	t.Helper()
 	dialCtx, cancelDial := context.WithTimeout(context.Background(), 3*time.Second)
 	clientConn, _, err := coderws.Dial(dialCtx, "ws"+strings.TrimPrefix(server.URL, "http"), nil)
 	cancelDial()
 	require.NoError(t, err)
 	writeCtx, cancelWrite := context.WithTimeout(context.Background(), 3*time.Second)
-	err = clientConn.Write(writeCtx, coderws.MessageText, []byte(`{"type":"response.create","model":"gpt-5.1","stream":false}`))
+	err = clientConn.Write(writeCtx, coderws.MessageText, payload)
 	cancelWrite()
 	require.NoError(t, err)
 	return clientConn
@@ -223,6 +227,37 @@ func requirePassthroughUpstreamWrite(t *testing.T, upstream *stagedPassthroughCo
 	case <-time.After(timeout):
 		t.Fatal("passthrough request was not forwarded upstream")
 		return nil
+	}
+}
+
+func TestPassthroughLifecycle_NormalizesCalllessCodexBootstrap(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	controlCtx, cancelControl := context.WithCancelCause(context.Background())
+	defer cancelControl(context.Canceled)
+	upstream := newStagedPassthroughConn()
+	server, serverErr := startPassthroughLifecycleServer(
+		t, controlCtx, newPassthroughLifecycleService(passthroughLifecycleConfig(), upstream), passthroughLifecycleAccount(),
+	)
+	defer server.Close()
+	payload := []byte(`{"type":"response.create","model":"gpt-5.1","stream":false,"input":[{"type":"function_call_output","id":"fco_01a05cff-3864-7e31-bc57-65098a0035a9","namespace":"codex_app","name":"create_thread","output":"<codex_delegation><source_thread_id>thread-1</source_thread_id><input>inspect</input></codex_delegation>"}]}`)
+	clientConn := dialPassthroughLifecycleClientWithPayload(t, server, payload)
+	defer func() { _ = clientConn.CloseNow() }()
+
+	forwarded := requirePassthroughUpstreamWrite(t, upstream, time.Second)
+	require.Equal(t, "message", gjson.GetBytes(forwarded, "input.0.type").String())
+	require.Equal(t, "user", gjson.GetBytes(forwarded, "input.0.role").String())
+	require.False(t, gjson.GetBytes(forwarded, "input.0.id").Exists())
+	require.False(t, gjson.GetBytes(forwarded, "input.0.call_id").Exists())
+
+	upstream.Send(`{"type":"response.completed","response":{"id":"resp_bootstrap","model":"gpt-5.1","usage":{"input_tokens":1,"output_tokens":1}}}`)
+	completed, err := readPassthroughLifecycleFrame(t, clientConn, time.Second)
+	require.NoError(t, err)
+	require.Equal(t, "resp_bootstrap", gjson.GetBytes(completed, "response.id").String())
+	require.NoError(t, clientConn.Close(coderws.StatusNormalClosure, "done"))
+	select {
+	case <-serverErr:
+	case <-time.After(3 * time.Second):
+		t.Fatal("passthrough bootstrap test server did not exit")
 	}
 }
 

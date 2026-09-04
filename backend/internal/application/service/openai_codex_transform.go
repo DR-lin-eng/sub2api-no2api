@@ -447,7 +447,10 @@ func normalizeCodexToolRoleMessages(input []any) ([]any, bool) {
 			continue
 		}
 
-		callID := firstNonEmptyString(m["call_id"], m["tool_call_id"], m["id"])
+		// role:"tool" is a Chat-style message. Its item id is not a Responses
+		// function_call.call_id (Codex bootstrap ids use fco_*), so only accept the
+		// explicit pairing fields and never synthesize a call_id from item.id.
+		callID := firstNonEmptyString(m["call_id"], m["tool_call_id"])
 		callID = strings.TrimSpace(callID)
 		if callID == "" {
 			// Responses does not accept role:"tool". If no call id is available,
@@ -1587,7 +1590,7 @@ func filterCodexInputWithOptions(input []any, opts codexInputFilterOptions) []an
 
 		if isCodexToolCallItemType(typ) {
 			callID, ok := m["call_id"].(string)
-			if !ok || strings.TrimSpace(callID) == "" {
+			if isCodexToolCallContextItemType(typ) && (!ok || strings.TrimSpace(callID) == "") {
 				if id, ok := m["id"].(string); ok && strings.TrimSpace(id) != "" {
 					callID = id
 					ensureCopy()

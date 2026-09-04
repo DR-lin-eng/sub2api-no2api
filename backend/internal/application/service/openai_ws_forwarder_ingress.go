@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/shared/apicompat"
 	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
 	coderws "github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
@@ -94,6 +95,20 @@ func skipFirstOpenAIWSBeforeTurnHook(hooks *OpenAIWSIngressHooks) *OpenAIWSIngre
 		return original(turn)
 	}
 	return &cloned
+}
+
+func normalizeCodexBootstrapForOpenAIWS(accountID int64, turn int, payload []byte) []byte {
+	normalized, bootstrapKind, changed := apicompat.NormalizeCodexCallOutputBootstrap(payload)
+	if !changed {
+		return payload
+	}
+	logOpenAIWSModeInfo(
+		"ingress_ws_codex_bootstrap_normalized account_id=%d turn=%d kind=%s normalization=call_output_to_user_message",
+		accountID,
+		turn,
+		normalizeOpenAIWSLogValue(bootstrapKind),
+	)
+	return normalized
 }
 
 func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
@@ -284,9 +299,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", errors.New("invalid json"))
 		}
 
-		values := gjson.GetManyBytes(trimmed, "type", "model", "prompt_cache_key", "previous_response_id")
+		normalized := normalizeCodexBootstrapForOpenAIWS(account.ID, turn, trimmed)
+		values := gjson.GetManyBytes(normalized, "type", "model", "prompt_cache_key", "previous_response_id")
 		eventType := strings.TrimSpace(values[0].String())
-		normalized := trimmed
 		switch eventType {
 		case "":
 			eventType = "response.create"
