@@ -18,6 +18,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const completedCodexSolManifest = `{"models":[{"input_modalities":["text","image"],"service_tiers":[{"id":"priority","name":"Fast","description":"Priority processing for lower latency."}],"slug":"gpt-5.6-sol"}]}`
+
 type codexModelsFailoverAccountRepo struct {
 	service.AccountRepository
 	accounts []service.Account
@@ -135,7 +137,7 @@ func TestCodexModelsFailsOverFromRetryableUpstreamStatus(t *testing.T) {
 			if recorder.Code != http.StatusOK {
 				t.Fatalf("status: got %d, want %d; body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
 			}
-			if got, want := recorder.Body.String(), `{"models":[{"slug":"gpt-5.6-sol"}]}`; got != want {
+			if got, want := recorder.Body.String(), completedCodexSolManifest; got != want {
 				t.Fatalf("body: got %q, want %q", got, want)
 			}
 		})
@@ -170,7 +172,7 @@ func TestCodexModelsFailsOverFromInvalidManifestEnvelope(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status: got %d, want %d; body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
 	}
-	if got, want := recorder.Body.String(), `{"models":[{"slug":"gpt-5.6-sol"}]}`; got != want {
+	if got, want := recorder.Body.String(), completedCodexSolManifest; got != want {
 		t.Fatalf("body: got %q, want %q", got, want)
 	}
 }

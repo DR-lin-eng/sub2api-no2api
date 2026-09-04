@@ -642,7 +642,7 @@ describe('UseKeyModal', () => {
     expect(models['gpt-5.6'].name).toBe('GPT-5.6 (Sol)')
   })
 
-  it('renders Claude Fable 5 OpenCode config with adaptive thinking', async () => {
+  it('renders Claude Fable models in OpenCode config with adaptive thinking', async () => {
     const wrapper = mount(UseKeyModal, {
       props: {
         show: true,
@@ -676,8 +676,12 @@ describe('UseKeyModal', () => {
 
     expect(claudeConfig).toBeDefined()
     const parsed = JSON.parse(claudeConfig!)
+    const fable51 = parsed.provider['antigravity-claude'].models['claude-fable-5-1']
     const fable = parsed.provider['antigravity-claude'].models['claude-fable-5']
 
+    expect(fable51.name).toBe('Claude Fable 5.1')
+    expect(fable51.limit).toEqual({ context: 1048576, output: 128000 })
+    expect(fable51.options.thinking).toEqual({ type: 'adaptive' })
     expect(fable.name).toBe('Claude Fable 5')
     expect(fable.limit).toEqual({ context: 1048576, output: 128000 })
     expect(fable.options.thinking).toEqual({ type: 'adaptive' })

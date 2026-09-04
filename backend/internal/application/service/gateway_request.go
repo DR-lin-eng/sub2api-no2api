@@ -13,6 +13,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/shared/antigravity"
+	"github.com/Wei-Shaw/sub2api/internal/shared/claude"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -904,23 +905,43 @@ func sanitizeAnthropicBodyForBetaTokens(body []byte, anthropicBetaHeader string)
 	if len(body) == 0 {
 		return body, false
 	}
+	fields := gjson.GetManyBytes(body, "context_management", "context_hint", "fallbacks", "fallback_credit_token")
+	type betaGatedField struct {
+		name     string
+		exists   bool
+		required []string
+	}
+	gated := [...]betaGatedField{
+		{name: "context_management", exists: fields[0].Exists(), required: []string{anthropicBetaContextManagementToken}},
+		{name: "context_hint", exists: fields[1].Exists(), required: []string{anthropicBetaContextHintToken}},
+		{name: "fallbacks", exists: fields[2].Exists(), required: []string{claude.BetaServerSideFallback}},
+		{name: "fallback_credit_token", exists: fields[3].Exists(), required: []string{claude.BetaServerSideFallback, claude.BetaFallbackCredit, claude.BetaFallbackCreditLegacy}},
+	}
 	changed := false
-	deleteField := func(path, token string) {
-		if !gjson.GetBytes(body, path).Exists() || anthropicBetaTokensContains(anthropicBetaHeader, token) {
-			return
+	for _, field := range gated {
+		if !field.exists {
+			continue
 		}
-		updated, err := sjson.DeleteBytes(body, path)
+		keep := false
+		for _, token := range field.required {
+			if anthropicBetaTokensContains(anthropicBetaHeader, token) {
+				keep = true
+				break
+			}
+		}
+		if keep {
+			continue
+		}
+		updated, err := sjson.DeleteBytes(body, field.name)
 		if err != nil {
 			logger.LegacyPrintf("service.gateway",
-				"[CtxMgmtSanitize] delete %s failed: %v (body len=%d). body and final anthropic-beta header may be out of sync.",
-				path, err, len(body))
-			return
+				"[BetaFieldSanitize] delete %s failed: %v (body len=%d). body and final anthropic-beta header may be out of sync.",
+				field.name, err, len(body))
+			continue
 		}
 		body = updated
 		changed = true
 	}
-	deleteField("context_management", anthropicBetaContextManagementToken)
-	deleteField("context_hint", anthropicBetaContextHintToken)
 	return body, changed
 }
 

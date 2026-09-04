@@ -17,8 +17,8 @@ const {
 
 <template>
   <section class="border-t border-gray-200 pt-4 dark:border-dark-400">
-    <div class="flex items-start justify-between gap-4">
-      <div>
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div class="min-w-0 flex-1">
         <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">
           {{ t("admin.groups.modelPricing.title") }}
         </h4>
@@ -26,7 +26,7 @@ const {
           {{ t("admin.groups.modelPricing.description") }}
         </p>
       </div>
-      <button type="button" class="btn btn-secondary" @click="addModelPricing">
+      <button type="button" class="btn btn-secondary shrink-0 whitespace-nowrap" @click="addModelPricing">
         <Icon name="plus" size="sm" class="mr-1" />
         {{ t("admin.groups.modelPricing.add") }}
       </button>

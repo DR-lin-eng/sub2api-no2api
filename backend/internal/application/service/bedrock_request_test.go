@@ -3,6 +3,7 @@ package service
 import (
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/shared/claude"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -439,6 +440,30 @@ func bedrockAnthropicBetaNames(body []byte) []string {
 		names[i] = token.String()
 	}
 	return names
+}
+
+func TestPrepareBedrockRequestBodyWithTokens_StripsUnsupportedFallbackFields(t *testing.T) {
+	body := []byte(`{"messages":[{"role":"user","content":"hi"}],"max_tokens":100,"fallbacks":"default","fallback_credit_token":"tok_123"}`)
+
+	result, err := PrepareBedrockRequestBodyWithTokens(
+		body,
+		"us.anthropic.claude-opus-4-6-v1",
+		[]string{claude.BetaServerSideFallback},
+		false,
+	)
+	require.NoError(t, err)
+	require.False(t, gjson.GetBytes(result, "fallbacks").Exists())
+	require.False(t, gjson.GetBytes(result, "fallback_credit_token").Exists())
+	for _, token := range bedrockAnthropicBetaNames(result) {
+		require.NotEqual(t, claude.BetaServerSideFallback, token)
+	}
+}
+
+func TestSanitizeBedrockCCFields_StripsFallbackFields(t *testing.T) {
+	body := []byte(`{"messages":[],"fallbacks":"default","fallback_credit_token":"tok_123"}`)
+	result := sanitizeBedrockCCFields(body)
+	require.False(t, gjson.GetBytes(result, "fallbacks").Exists())
+	require.False(t, gjson.GetBytes(result, "fallback_credit_token").Exists())
 }
 
 func TestBedrockCrossRegionPrefix(t *testing.T) {

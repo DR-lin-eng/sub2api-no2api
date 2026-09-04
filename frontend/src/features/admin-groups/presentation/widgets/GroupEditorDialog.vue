@@ -39,7 +39,7 @@ const {
 <BaseDialog
   :show="show"
   :title="t(isEdit ? 'admin.groups.editGroup' : 'admin.groups.createGroup')"
-  width="normal"
+  width="wide"
   @close="close"
 >
   <form

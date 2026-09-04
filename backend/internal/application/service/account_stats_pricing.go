@@ -62,29 +62,16 @@ func resolveAccountStatsCost(
 }
 
 // tryModelFilePricing 使用模型定价文件（LiteLLM/fallback）中的价格计算费用。
+// Reuse the same pricing pipeline as user billing so image-token subsets,
+// cache TTLs, service tiers and model policies cannot drift here.
 func tryModelFilePricing(billingService *BillingService, model string, tokens UsageTokens, serviceTier string) *float64 {
-	pricing, err := billingService.GetModelPricing(model)
-	if err != nil || pricing == nil {
+	breakdown, err := billingService.CalculateCostWithServiceTier(
+		model, tokens, 1, normalizeBillingServiceTier(serviceTier),
+	)
+	if err != nil || breakdown == nil || breakdown.TotalCost <= 0 {
 		return nil
 	}
-	normalizedTier := normalizeBillingServiceTier(serviceTier)
-	if normalizedTier == "priority" || normalizedTier == "flex" ||
-		billingService.shouldApplySessionLongContextPricing(tokens, pricing) {
-		breakdown, err := billingService.CalculateCostWithServiceTier(model, tokens, 1, normalizedTier)
-		if err != nil || breakdown == nil || breakdown.TotalCost <= 0 {
-			return nil
-		}
-		return &breakdown.TotalCost
-	}
-	cost := float64(tokens.InputTokens)*pricing.InputPricePerToken +
-		float64(tokens.OutputTokens)*pricing.OutputPricePerToken +
-		float64(tokens.CacheCreationTokens)*pricing.CacheCreationPricePerToken +
-		float64(tokens.CacheReadTokens)*pricing.CacheReadPricePerToken +
-		float64(tokens.ImageOutputTokens)*pricing.ImageOutputPricePerToken
-	if cost <= 0 {
-		return nil
-	}
-	return &cost
+	return &breakdown.TotalCost
 }
 
 // tryCustomRules 遍历自定义规则，按数组顺序先命中为准。

@@ -33,8 +33,8 @@ const baselines: OpenCodeBaseline[] = [
   },
   {
     platform: 'antigravity-claude',
-    bytes: 1844,
-    sha256: 'aab8c3e2fc3fd33d98be6f49cf906164b21471998b47ccdd588a915977cc57db',
+    bytes: 2327,
+    sha256: '43d6e7b7809d3911bacff829c96f6de43b356a47db4b9799baf98e6eb1cc8aa1',
     providerKeys: ['options', 'npm', 'name', 'models']
   },
   {

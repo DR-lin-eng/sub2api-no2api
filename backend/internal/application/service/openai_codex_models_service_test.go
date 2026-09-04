@@ -406,6 +406,7 @@ func TestFetchCodexModelsManifestMissingToken(t *testing.T) {
 
 func TestFetchCodexModelsManifestAPIKeyCustomUpstream(t *testing.T) {
 	manifestBody := `{"models":[{"slug":"gpt-5.6"}]}`
+	wantBody := `{"models":[{"input_modalities":["text","image"],"service_tiers":[{"id":"priority","name":"Fast","description":"Priority processing for lower latency."}],"slug":"gpt-5.6"}]}`
 	var gotRequest *http.Request
 	var gotProxyURL string
 	var gotAccountID int64
@@ -462,11 +463,11 @@ func TestFetchCodexModelsManifestAPIKeyCustomUpstream(t *testing.T) {
 	if gotProxyURL != "" || gotAccountID != 2 || gotConcurrency != 3 {
 		t.Errorf("upstream routing metadata: proxy=%q account_id=%d concurrency=%d", gotProxyURL, gotAccountID, gotConcurrency)
 	}
-	if string(manifest.Body) != manifestBody {
-		t.Errorf("body not passed through verbatim: got %q", manifest.Body)
+	if string(manifest.Body) != wantBody {
+		t.Errorf("body capability completion: got %q", manifest.Body)
 	}
-	if manifest.ETag != `W/"api-key-manifest"` {
-		t.Errorf("etag not passed through: got %q", manifest.ETag)
+	if manifest.ETag != codexModelsManifestBodyETag(manifest.Body) {
+		t.Errorf("etag not recomputed for completed body: got %q", manifest.ETag)
 	}
 }
 
@@ -492,7 +493,7 @@ func TestFetchCodexModelsManifestAPIKeyConvertsStandardOpenAIModelList(t *testin
 	if err != nil {
 		t.Fatalf("FetchCodexModelsManifest returned error: %v", err)
 	}
-	if got, want := string(manifest.Body), `{"models":[{"slug":"gpt-5.6"},{"slug":"gpt-5.6-codex"}]}`; got != want {
+	if got, want := string(manifest.Body), `{"models":[{"input_modalities":["text","image"],"service_tiers":[{"id":"priority","name":"Fast","description":"Priority processing for lower latency."}],"slug":"gpt-5.6"},{"input_modalities":["text","image"],"service_tiers":[{"id":"priority","name":"Fast","description":"Priority processing for lower latency."}],"slug":"gpt-5.6-codex"}]}`; got != want {
 		t.Errorf("converted body: got %q, want %q", got, want)
 	}
 	require.Equal(t, codexModelsManifestBodyETag(manifest.Body), manifest.ETag)
@@ -506,19 +507,19 @@ func TestAdjustAPIKeyCodexModelsManifest(t *testing.T) {
 		want string
 	}{
 		{
-			name: "affected models disable responses lite and preserve unknown fields",
+			name: "known models get bounded capability fallbacks and preserve unknown fields",
 			body: `{"models":[{"slug":"gpt-5.6-sol","use_responses_lite":true,"unknown_model":{"enabled":true}},{"slug":"gpt-5.6-terra","use_responses_lite":true},{"slug":"gpt-5.6-luna","use_responses_lite":true}],"unknown_top":{"version":1}}`,
-			want: `{"models":[{"slug":"gpt-5.6-sol","unknown_model":{"enabled":true},"use_responses_lite":false},{"slug":"gpt-5.6-terra","use_responses_lite":false},{"slug":"gpt-5.6-luna","use_responses_lite":false}],"unknown_top":{"version":1}}`,
+			want: `{"models":[{"input_modalities":["text","image"],"service_tiers":[{"id":"priority","name":"Fast","description":"Priority processing for lower latency."}],"slug":"gpt-5.6-sol","unknown_model":{"enabled":true},"use_responses_lite":false},{"input_modalities":["text","image"],"service_tiers":[{"id":"priority","name":"Fast","description":"Priority processing for lower latency."}],"slug":"gpt-5.6-terra","use_responses_lite":false},{"input_modalities":["text","image"],"service_tiers":[{"id":"priority","name":"Fast","description":"Priority processing for lower latency."}],"slug":"gpt-5.6-luna","use_responses_lite":false}],"unknown_top":{"version":1}}`,
 		},
 		{
-			name: "unaffected model unchanged",
-			body: ` {"models":[{"slug":"gpt-5.6-codex","use_responses_lite":true}]} `,
-			want: ` {"models":[{"slug":"gpt-5.6-codex","use_responses_lite":true}]} `,
+			name: "explicit upstream capabilities remain authoritative",
+			body: `{"models":[{"slug":"gpt-5.6-codex","input_modalities":["text"],"service_tiers":[],"use_responses_lite":true}]}`,
+			want: `{"models":[{"slug":"gpt-5.6-codex","input_modalities":["text"],"service_tiers":[],"use_responses_lite":true}]}`,
 		},
 		{
-			name: "false missing and alternate entries unchanged",
-			body: `{"models":[{"slug":"gpt-5.6-sol","use_responses_lite":false},{"slug":"gpt-5.6-terra"},null,"gpt-5.6-luna",{"slug":17,"use_responses_lite":true}]}`,
-			want: `{"models":[{"slug":"gpt-5.6-sol","use_responses_lite":false},{"slug":"gpt-5.6-terra"},null,"gpt-5.6-luna",{"slug":17,"use_responses_lite":true}]}`,
+			name: "unknown and alternate entries unchanged",
+			body: `{"models":[{"slug":"provider/custom-model"},null,"gpt-5.6-luna",{"slug":17,"use_responses_lite":true}]}`,
+			want: `{"models":[{"slug":"provider/custom-model"},null,"gpt-5.6-luna",{"slug":17,"use_responses_lite":true}]}`,
 		},
 	}
 
@@ -544,7 +545,7 @@ func TestFetchCodexModelsManifestAPIKeyDisablesResponsesLiteForAffectedModels(t 
 	s := newCodexModelsAPIKeyTestService(upstream)
 	manifest, err := s.FetchCodexModelsManifest(context.Background(), newCodexModelsAPIKeyTestAccount("https://upstream.example"), "0.145.0", "")
 	require.NoError(t, err)
-	require.JSONEq(t, `{"models":[{"slug":"gpt-5.6-sol","use_responses_lite":false},{"slug":"gpt-5.6-codex","use_responses_lite":true}],"metadata":{"version":1}}`, string(manifest.Body))
+	require.JSONEq(t, `{"models":[{"slug":"gpt-5.6-sol","use_responses_lite":false,"input_modalities":["text","image"],"service_tiers":[{"id":"priority","name":"Fast","description":"Priority processing for lower latency."}]},{"slug":"gpt-5.6-codex","use_responses_lite":true,"input_modalities":["text","image"],"service_tiers":[{"id":"priority","name":"Fast","description":"Priority processing for lower latency."}]}],"metadata":{"version":1}}`, string(manifest.Body))
 	require.Equal(t, codexModelsManifestBodyETag(manifest.Body), manifest.ETag)
 	require.Equal(t, `"upstream-strong"`, manifest.upstreamETag)
 
@@ -689,7 +690,7 @@ func TestFetchCodexModelsManifestAPIKeyDoesNotCacheInvalidEnvelope(t *testing.T)
 	if err != nil {
 		t.Fatalf("second fetch returned error: %v", err)
 	}
-	if got, want := string(manifest.Body), `{"models":[{"slug":"gpt-5.6"}]}`; got != want {
+	if got, want := string(manifest.Body), `{"models":[{"input_modalities":["text","image"],"service_tiers":[{"id":"priority","name":"Fast","description":"Priority processing for lower latency."}],"slug":"gpt-5.6"}]}`; got != want {
 		t.Errorf("body: got %q, want %q", got, want)
 	}
 	if got := calls.Load(); got != 2 {
@@ -699,6 +700,7 @@ func TestFetchCodexModelsManifestAPIKeyDoesNotCacheInvalidEnvelope(t *testing.T)
 
 func TestFetchCodexModelsManifestAPIKeySharedRefreshSurvivesCallerCancellation(t *testing.T) {
 	const manifestBody = `{"models":[{"slug":"gpt-5.6"}]}`
+	const completedManifestBody = `{"models":[{"input_modalities":["text","image"],"service_tiers":[{"id":"priority","name":"Fast","description":"Priority processing for lower latency."}],"slug":"gpt-5.6"}]}`
 	var calls atomic.Int32
 	var readStartedOnce sync.Once
 	readStarted := make(chan struct{})
@@ -775,7 +777,7 @@ func TestFetchCodexModelsManifestAPIKeySharedRefreshSurvivesCallerCancellation(t
 		if result.err != nil {
 			t.Fatalf("second caller returned error: %v", result.err)
 		}
-		if string(result.manifest.Body) != manifestBody {
+		if string(result.manifest.Body) != completedManifestBody {
 			t.Errorf("second caller body: got %q", result.manifest.Body)
 		}
 	case <-time.After(time.Second):
@@ -1096,7 +1098,7 @@ func TestFetchCodexModelsManifestAPIKeyRevalidatesStaleETag(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stale fetch returned error: %v", err)
 	}
-	if got := string(manifest.Body); got != `{"models":[{"slug":"gpt-5.6-sol","use_responses_lite":false}]}` {
+	if got := string(manifest.Body); got != `{"models":[{"input_modalities":["text","image"],"service_tiers":[{"id":"priority","name":"Fast","description":"Priority processing for lower latency."}],"slug":"gpt-5.6-sol","use_responses_lite":false}]}` {
 		t.Fatalf("stale body: got %q", got)
 	}
 	select {
@@ -1122,7 +1124,7 @@ func TestFetchCodexModelsManifestAPIKeyRevalidatesStaleETag(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	manifest, err = s.FetchCodexModelsManifest(context.Background(), account, "0.144.0", "")
-	if err != nil || string(manifest.Body) != `{"models":[{"slug":"gpt-5.6-sol","use_responses_lite":false}]}` {
+	if err != nil || string(manifest.Body) != `{"models":[{"input_modalities":["text","image"],"service_tiers":[{"id":"priority","name":"Fast","description":"Priority processing for lower latency."}],"slug":"gpt-5.6-sol","use_responses_lite":false}]}` {
 		t.Fatalf("renewed cached manifest: body=%q err=%v", manifest.Body, err)
 	}
 	if got := calls.Load(); got != 2 {

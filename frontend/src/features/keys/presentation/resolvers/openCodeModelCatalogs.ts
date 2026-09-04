@@ -435,6 +435,22 @@ export const antigravityGeminiModelCatalog = {
 } satisfies OpenCodeModelCatalog
 
 export const claudeModelCatalog = {
+  'claude-fable-5-1': {
+    name: 'Claude Fable 5.1',
+    limit: {
+      context: 1048576,
+      output: 128000
+    },
+    modalities: {
+      input: ['text', 'image', 'pdf'],
+      output: ['text']
+    },
+    options: {
+      thinking: {
+        type: 'adaptive'
+      }
+    }
+  },
   'claude-fable-5': {
     name: 'Claude Fable 5',
     limit: {

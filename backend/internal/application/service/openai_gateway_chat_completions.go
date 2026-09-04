@@ -59,6 +59,18 @@ func (s *OpenAIGatewayService) ForwardAsChatCompletions(
 	promptCacheKey string,
 	defaultMappedModel string,
 ) (*OpenAIForwardResult, error) {
+	return s.forwardAsChatCompletions(ctx, c, account, body, promptCacheKey, defaultMappedModel, false)
+}
+
+func (s *OpenAIGatewayService) forwardAsChatCompletions(
+	ctx context.Context,
+	c *gin.Context,
+	account *Account,
+	body []byte,
+	promptCacheKey string,
+	defaultMappedModel string,
+	compatPromptCacheTenantIsolated bool,
+) (*OpenAIForwardResult, error) {
 	beginUpstreamResponseModelObservation(c)
 	ClearActualOpenAIUpstreamEndpoint(c)
 	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) {
@@ -115,12 +127,17 @@ func (s *OpenAIGatewayService) ForwardAsChatCompletions(
 	// derive a stable seed from the final upstream model family.
 	billingModel := resolveOpenAIForwardModel(account, originalModel, defaultMappedModel)
 	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
+	isResponsesShape := !gjson.GetBytes(body, "messages").Exists() && gjson.GetBytes(body, "input").Exists()
 
 	promptCacheKey = strings.TrimSpace(promptCacheKey)
 	compatPromptCacheInjected := false
-	if promptCacheKey == "" && account.Type == AccountTypeOAuth && shouldAutoInjectPromptCacheKeyForCompat(upstreamModel) {
+	if promptCacheKey == "" && !isResponsesShape && account.IsOpenAI() && shouldAutoInjectPromptCacheKeyForCompat(upstreamModel) {
 		promptCacheKey = deriveCompatPromptCacheKey(&chatReq, upstreamModel)
 		compatPromptCacheInjected = promptCacheKey != ""
+		if compatPromptCacheInjected && account.IsOpenAIApiKey() {
+			promptCacheKey = isolateOpenAISessionID(getAPIKeyIDFromContext(c), promptCacheKey)
+			compatPromptCacheTenantIsolated = true
+		}
 	}
 
 	// 3. Build the upstream (Responses API) body.
@@ -135,8 +152,6 @@ func (s *OpenAIGatewayService) ForwardAsChatCompletions(
 	// Detect that shape and forward the raw body as-is, only rewriting `model`
 	// to the resolved upstream model. The downstream codex OAuth transform will
 	// still normalize store/stream/instructions/etc.
-	isResponsesShape := !gjson.GetBytes(body, "messages").Exists() && gjson.GetBytes(body, "input").Exists()
-
 	var (
 		responsesReq  *apicompat.ResponsesRequest
 		responsesBody []byte
@@ -272,7 +287,11 @@ func (s *OpenAIGatewayService) ForwardAsChatCompletions(
 
 	if promptCacheKey != "" {
 		apiKeyID := getAPIKeyIDFromContext(c)
-		upstreamReq.Header.Set("session_id", generateSessionUUID(isolateOpenAISessionID(apiKeyID, promptCacheKey)))
+		sessionKey := promptCacheKey
+		if !compatPromptCacheTenantIsolated {
+			sessionKey = isolateOpenAISessionID(apiKeyID, promptCacheKey)
+		}
+		upstreamReq.Header.Set("session_id", generateSessionUUID(sessionKey))
 	}
 
 	// 7. Send request
@@ -294,7 +313,7 @@ func (s *OpenAIGatewayService) ForwardAsChatCompletions(
 			if err := s.recoverAgentIdentityTask(ctx, account, expectedTaskID); err != nil {
 				return nil, fmt.Errorf("agent identity task recovery failed: %w", err)
 			}
-			return s.ForwardAsChatCompletions(markAgentIdentityTaskRecoveryTried(ctx), c, account, body, promptCacheKey, defaultMappedModel)
+			return s.forwardAsChatCompletions(markAgentIdentityTaskRecoveryTried(ctx), c, account, body, promptCacheKey, defaultMappedModel, compatPromptCacheTenantIsolated)
 		}
 		if account.Type == AccountTypeAPIKey &&
 			openai_compat.ResolveResponsesSupport(account.Extra) == openai_compat.ResponsesSupportUnknown &&

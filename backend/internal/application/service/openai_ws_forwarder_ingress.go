@@ -1401,7 +1401,15 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 					}
 				}
 				replayCollector.AddEvent(eventType, upstreamMessage)
-				if err := writeDownstreamMessage(upstreamMessage); err != nil {
+				// Only rewrite the downstream copy. Account health and retry
+				// classification below must continue to inspect the original code.
+				clientMessage := upstreamMessage
+				if eventType == "error" || eventType == "response.failed" {
+					if rewritten, changed := sanitizeOpenAICapacityShedErrorCodeForClient(clientMessage); changed {
+						clientMessage = rewritten
+					}
+				}
+				if err := writeDownstreamMessage(clientMessage); err != nil {
 					return nil, err
 				}
 			}

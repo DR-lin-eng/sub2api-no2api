@@ -615,14 +615,28 @@ func adjustAPIKeyCodexModelsManifest(body []byte) ([]byte, error) {
 		if err := json.Unmarshal(model["slug"], &slug); err != nil {
 			continue
 		}
-		if _, targeted := apiKeyCodexModelsWithoutResponsesLite[slug]; !targeted {
+		modelChanged := false
+		if _, targeted := apiKeyCodexModelsWithoutResponsesLite[slug]; targeted {
+			var useResponsesLite bool
+			if err := json.Unmarshal(model["use_responses_lite"], &useResponsesLite); err == nil && useResponsesLite {
+				model["use_responses_lite"] = json.RawMessage("false")
+				modelChanged = true
+			}
+		}
+		// Native compatible manifests and standard /models responses often omit
+		// Codex client capability metadata. Add only conservative known-family
+		// fallbacks; an explicit upstream field, including an empty array, wins.
+		if _, exists := model["input_modalities"]; !exists && codexManifestKnownImageInputModel(slug) {
+			model["input_modalities"] = json.RawMessage(`["text","image"]`)
+			modelChanged = true
+		}
+		if _, exists := model["service_tiers"]; !exists && codexManifestKnownPriorityTierModel(slug) {
+			model["service_tiers"] = json.RawMessage(`[{"id":"priority","name":"Fast","description":"Priority processing for lower latency."}]`)
+			modelChanged = true
+		}
+		if !modelChanged {
 			continue
 		}
-		var useResponsesLite bool
-		if err := json.Unmarshal(model["use_responses_lite"], &useResponsesLite); err != nil || !useResponsesLite {
-			continue
-		}
-		model["use_responses_lite"] = json.RawMessage("false")
 		adjusted, err := json.Marshal(model)
 		if err != nil {
 			return nil, fmt.Errorf("encode model %q: %w", slug, err)
@@ -644,6 +658,34 @@ func adjustAPIKeyCodexModelsManifest(body []byte) ([]byte, error) {
 		return nil, fmt.Errorf("encode JSON object: %w", err)
 	}
 	return adjusted, nil
+}
+
+func codexManifestFallbackModelID(modelID string) string {
+	modelID = strings.ToLower(strings.TrimSpace(modelID))
+	if slash := strings.LastIndexByte(modelID, '/'); slash >= 0 {
+		modelID = strings.TrimSpace(modelID[slash+1:])
+	}
+	return modelID
+}
+
+func codexManifestKnownImageInputModel(modelID string) bool {
+	normalized := codexManifestFallbackModelID(modelID)
+	for _, prefix := range []string{"gpt-5", "gpt-4o", "gpt-4.1", "gpt-4.5", "gpt-4-turbo", "gpt-4-vision"} {
+		if strings.HasPrefix(normalized, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func codexManifestKnownPriorityTierModel(modelID string) bool {
+	normalized := codexManifestFallbackModelID(modelID)
+	for _, family := range []string{"gpt-5.4", "gpt-5.5", "gpt-5.6"} {
+		if normalized == family || strings.HasPrefix(normalized, family+"-") {
+			return true
+		}
+	}
+	return false
 }
 
 // convertOpenAIModelListToCodexManifest rewrites a standard OpenAI

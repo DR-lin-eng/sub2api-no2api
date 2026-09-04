@@ -242,7 +242,8 @@ func TestCalculateStatsCost_TokenBilling_WithImageOutput(t *testing.T) {
 	}
 	result := calculateStatsCost(pricing, tokens, 1)
 	require.NotNil(t, result)
-	// 100*0.001 + 50*0.002 + 10*0.01 = 0.1 + 0.1 + 0.1 = 0.3
+	// Custom account-stat rules preserve their existing additive bucket contract.
+	// 100*0.001 + 50*0.002 + 10*0.01 = 0.3.
 	require.InDelta(t, 0.3, *result, 1e-12)
 }
 
@@ -581,8 +582,9 @@ func TestTryModelFilePricing_WithImageOutput(t *testing.T) {
 	}
 	result := tryModelFilePricing(bs, "claude-sonnet-4", tokens, "")
 	require.NotNil(t, result)
-	// 100*0.001 + 50*0.002 + 10*0.01 = 0.1 + 0.1 + 0.1 = 0.3
-	require.InDelta(t, 0.3, *result, 1e-12)
+	// The shared billing pipeline treats ImageOutputTokens as an OutputTokens subset.
+	// 100*0.001 + (50-10)*0.002 + 10*0.01 = 0.28.
+	require.InDelta(t, 0.28, *result, 1e-12)
 }
 
 func TestTryModelFilePricing_WithCacheTokens(t *testing.T) {

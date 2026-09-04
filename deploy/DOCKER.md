@@ -50,6 +50,18 @@ volumes:
 
 The example uses the small-machine Redis preset. See [Redis Tuning](./REDIS_TUNING.md) for memory sizing and the `50k+ RPM` preset.
 
+## Startup and Database Recovery
+
+Sub2API applies migrations during startup. PostgreSQL may still be recovering
+briefly after a host or Docker daemon restart, so the application retries only
+transient PostgreSQL startup and connection-class errors with bounded
+exponential backoff. Invalid credentials, migration checksum mismatches, SQL
+errors, and other permanent failures still stop startup immediately.
+
+The full Compose health check verifies both `pg_isready` and a simple SQL query.
+`depends_on: condition: service_healthy` orders a fresh Compose start, while the
+application-level retry also covers restored containers after a daemon restart.
+
 ## Environment Variables
 
 | Variable | Description | Required | Default |

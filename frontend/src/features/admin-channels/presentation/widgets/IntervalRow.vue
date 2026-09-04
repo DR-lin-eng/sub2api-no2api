@@ -1,5 +1,5 @@
 <template>
-  <div class="flex items-start gap-2 rounded border p-2"
+  <div class="flex flex-wrap items-start gap-2 rounded border p-2"
        :class="isEmpty ? 'border-red-400 bg-red-50 dark:border-red-500 dark:bg-red-950/20' : 'border-gray-200 bg-white dark:border-dark-500 dark:bg-dark-700'">
     <!-- Token mode: context range + prices ($/MTok) -->
     <template v-if="mode === 'token'">
@@ -13,22 +13,22 @@
         <input :value="interval.max_tokens ?? ''" @input="emitField('max_tokens', toIntOrNull(($event.target as HTMLInputElement).value))"
           type="number" min="0" class="input mt-0.5 text-xs" :placeholder="'∞'" />
       </div>
-      <div class="flex-1">
+      <div class="min-w-28 flex-1">
         <label class="text-xs text-gray-400">{{ t('admin.channels.form.inputPrice') }} <span v-if="isEmpty" class="text-red-500">*</span> <span class="text-gray-300">$/M</span></label>
         <input :value="interval.input_price" @input="emitField('input_price', ($event.target as HTMLInputElement).value)"
           type="number" step="any" min="0" class="input mt-0.5 text-xs" />
       </div>
-      <div class="flex-1">
+      <div class="min-w-28 flex-1">
         <label class="text-xs text-gray-400">{{ t('admin.channels.form.outputPrice') }} <span v-if="isEmpty" class="text-red-500">*</span> <span class="text-gray-300">$/M</span></label>
         <input :value="interval.output_price" @input="emitField('output_price', ($event.target as HTMLInputElement).value)"
           type="number" step="any" min="0" class="input mt-0.5 text-xs" />
       </div>
-      <div class="flex-1">
+      <div class="min-w-28 flex-1">
         <label class="text-xs text-gray-400">{{ t('admin.channels.form.cacheWritePriceShort') }} <span class="text-gray-300">$/M</span></label>
         <input :value="interval.cache_write_price" @input="emitField('cache_write_price', ($event.target as HTMLInputElement).value)"
           type="number" step="any" min="0" class="input mt-0.5 text-xs" />
       </div>
-      <div class="flex-1">
+      <div class="min-w-28 flex-1">
         <label class="text-xs text-gray-400">{{ t('admin.channels.form.cacheReadPriceShort') }} <span class="text-gray-300">$/M</span></label>
         <input :value="interval.cache_read_price" @input="emitField('cache_read_price', ($event.target as HTMLInputElement).value)"
           type="number" step="any" min="0" class="input mt-0.5 text-xs" />
@@ -54,7 +54,7 @@
         <input :value="interval.max_tokens ?? ''" @input="emitField('max_tokens', toIntOrNull(($event.target as HTMLInputElement).value))"
           type="number" min="0" class="input mt-0.5 text-xs" :placeholder="'∞'" />
       </div>
-      <div class="flex-1">
+      <div class="min-w-28 flex-1">
         <label class="text-xs text-gray-400">{{ t('admin.channels.form.perRequestPrice') }} <span v-if="isEmpty" class="text-red-500">*</span> <span class="text-gray-300">$</span></label>
         <input :value="interval.per_request_price" @input="emitField('per_request_price', ($event.target as HTMLInputElement).value)"
           type="number" step="any" min="0" class="input mt-0.5 text-xs" />
