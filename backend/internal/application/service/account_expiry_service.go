@@ -9,11 +9,18 @@ import (
 
 // AccountExpiryService periodically pauses expired accounts when auto-pause is enabled.
 type AccountExpiryService struct {
-	accountRepo AccountRepository
-	interval    time.Duration
-	stopCh      chan struct{}
-	stopOnce    sync.Once
-	wg          sync.WaitGroup
+	accountRepo           AccountRepository
+	quotaResetAutoEnabler *RateLimitService
+	interval              time.Duration
+	stopCh                chan struct{}
+	stopOnce              sync.Once
+	wg                    sync.WaitGroup
+}
+
+func (s *AccountExpiryService) SetOpenAIOAuthQuotaResetAutoEnabler(enabler *RateLimitService) {
+	if s != nil {
+		s.quotaResetAutoEnabler = enabler
+	}
 }
 
 func NewAccountExpiryService(accountRepo AccountRepository, interval time.Duration) *AccountExpiryService {
@@ -57,15 +64,25 @@ func (s *AccountExpiryService) Stop() {
 }
 
 func (s *AccountExpiryService) runOnce() {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	updated, err := s.accountRepo.AutoPauseExpiredAccounts(ctx, time.Now())
+	expiryCtx, cancelExpiry := context.WithTimeout(context.Background(), 5*time.Second)
+	updated, err := s.accountRepo.AutoPauseExpiredAccounts(expiryCtx, time.Now())
+	cancelExpiry()
 	if err != nil {
 		log.Printf("[AccountExpiry] Auto pause expired accounts failed: %v", err)
+	} else if updated > 0 {
+		log.Printf("[AccountExpiry] Auto paused %d expired accounts", updated)
+	}
+	if s.quotaResetAutoEnabler == nil {
 		return
 	}
-	if updated > 0 {
-		log.Printf("[AccountExpiry] Auto paused %d expired accounts", updated)
+	quotaCtx, cancelQuota := context.WithTimeout(context.Background(), 5*time.Second)
+	enabled, err := s.quotaResetAutoEnabler.AutoEnableOpenAIAccountsAfterQuotaReset(quotaCtx, time.Now())
+	cancelQuota()
+	if err != nil {
+		log.Printf("[AccountExpiry] Auto enable OpenAI OAuth accounts after quota reset failed: %v", err)
+		return
+	}
+	if enabled > 0 {
+		log.Printf("[AccountExpiry] Auto enabled %d OpenAI OAuth accounts after quota reset", enabled)
 	}
 }

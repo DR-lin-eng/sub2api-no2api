@@ -35,6 +35,10 @@ type openAIAccountStateRecoverer interface {
 	RecoverAccountState(ctx context.Context, accountID int64, options service.AccountRecoveryOptions) (*service.SuccessfulTestRecoveryResult, error)
 }
 
+type openAIQuotaAccountAutoEnabler interface {
+	MaybeAutoEnableOpenAIAccountAfterQuotaQuery(ctx context.Context, accountID int64, usage *service.OpenAIQuotaUsage) (*service.Account, bool, error)
+}
+
 const (
 	openAIQuotaResetWarningCacheRefreshFailed    = "reset_credit_cache_refresh_failed"
 	openAIQuotaResetWarningAccountRecoveryFailed = "account_state_recovery_failed"
@@ -57,8 +61,10 @@ type openAIQuotaResetResponse struct {
 
 type openAIQuotaRefreshResponse struct {
 	service.OpenAIQuotaUsage
-	CachePersisted             bool `json:"cache_persisted"`
-	RateLimitSnapshotPersisted bool `json:"rate_limit_snapshot_persisted"`
+	CachePersisted             bool         `json:"cache_persisted"`
+	RateLimitSnapshotPersisted bool         `json:"rate_limit_snapshot_persisted"`
+	AccountAutoEnabled         bool         `json:"account_auto_enabled"`
+	Account                    *dto.Account `json:"account,omitempty"`
 }
 
 // OpenAIQuotaUsage implements json.Unmarshaler for the upstream protocol.
@@ -74,8 +80,10 @@ func (r *openAIQuotaRefreshResponse) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	var meta struct {
-		CachePersisted             bool `json:"cache_persisted"`
-		RateLimitSnapshotPersisted bool `json:"rate_limit_snapshot_persisted"`
+		CachePersisted             bool         `json:"cache_persisted"`
+		RateLimitSnapshotPersisted bool         `json:"rate_limit_snapshot_persisted"`
+		AccountAutoEnabled         bool         `json:"account_auto_enabled"`
+		Account                    *dto.Account `json:"account,omitempty"`
 	}
 	if err := json.Unmarshal(data, &meta); err != nil {
 		return err
@@ -83,6 +91,8 @@ func (r *openAIQuotaRefreshResponse) UnmarshalJSON(data []byte) error {
 	r.OpenAIQuotaUsage = usage
 	r.CachePersisted = meta.CachePersisted
 	r.RateLimitSnapshotPersisted = meta.RateLimitSnapshotPersisted
+	r.AccountAutoEnabled = meta.AccountAutoEnabled
+	r.Account = meta.Account
 	return nil
 }
 
@@ -123,10 +133,21 @@ func (h *OpenAIOAuthHandler) refreshOpenAIQuota(ctx context.Context, accountID i
 			result.RateLimitSnapshotPersisted = true
 		}
 	}
+	if enabler, ok := h.rateLimitService.(openAIQuotaAccountAutoEnabler); ok {
+		account, enabled, err := enabler.MaybeAutoEnableOpenAIAccountAfterQuotaQuery(ctx, accountID, usage)
+		if err != nil {
+			return nil, err
+		}
+		result.AccountAutoEnabled = enabled
+		if enabled && account != nil {
+			result.Account = dto.AccountFromService(account)
+		}
+	}
 	return result, nil
 }
 
-// QueryQuota queries the rate-limit / quota usage without mutating account state.
+// QueryQuota queries the rate-limit / quota usage and may restore an account
+// marked by the OAuth failure circuit when the corresponding setting is enabled.
 // GET /api/v1/admin/openai/accounts/:id/quota
 func (h *OpenAIOAuthHandler) QueryQuota(c *gin.Context) {
 	accountID, ok := openAIQuotaAccountID(c)
@@ -141,6 +162,11 @@ func (h *OpenAIOAuthHandler) QueryQuota(c *gin.Context) {
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
+	}
+	if enabler, ok := h.rateLimitService.(openAIQuotaAccountAutoEnabler); ok {
+		if _, _, enableErr := enabler.MaybeAutoEnableOpenAIAccountAfterQuotaQuery(c.Request.Context(), accountID, usage); enableErr != nil {
+			slog.Warn("openai_quota_query_auto_enable_failed", "account_id", accountID, "error", enableErr)
+		}
 	}
 	response.Success(c, usage)
 }

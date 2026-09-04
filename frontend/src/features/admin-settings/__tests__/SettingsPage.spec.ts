@@ -895,6 +895,8 @@ describe("admin SettingsView payment visible method controls", () => {
       auto_disable_enabled: false,
       auto_disable_threshold: 3,
       auto_disable_quota_check_enabled: false,
+      auto_enable_after_quota_reset_enabled: false,
+      auto_enable_when_quota_available_enabled: false,
     });
     updateRateLimit429CooldownSettings.mockImplementation(async (payload) => payload);
     getGlobalTempUnschedulableSettings.mockResolvedValue({ enabled: true });
@@ -1321,6 +1323,8 @@ describe("admin SettingsView payment visible method controls", () => {
       auto_disable_enabled: true,
       auto_disable_threshold: 4,
       auto_disable_quota_check_enabled: false,
+      auto_enable_after_quota_reset_enabled: false,
+      auto_enable_when_quota_available_enabled: false,
     });
     const wrapper = mountView();
     await flushPromises();
@@ -1338,6 +1342,8 @@ describe("admin SettingsView payment visible method controls", () => {
     );
     expect((quotaToggle.element as HTMLInputElement).checked).toBe(false);
     await quotaToggle.setValue(true);
+    await card!.get('[data-testid="oauth-quota-reset-auto-enable-toggle"]').setValue(true);
+    await card!.get('[data-testid="oauth-quota-query-auto-enable-toggle"]').setValue(true);
 
     const saveButton = card!
       .findAll("button")
@@ -1352,6 +1358,8 @@ describe("admin SettingsView payment visible method controls", () => {
       auto_disable_enabled: true,
       auto_disable_threshold: 4,
       auto_disable_quota_check_enabled: true,
+      auto_enable_after_quota_reset_enabled: true,
+      auto_enable_when_quota_available_enabled: true,
     });
   });
 
@@ -2153,6 +2161,8 @@ describe("admin SettingsView wechat connect controls", () => {
       auto_disable_enabled: false,
       auto_disable_threshold: 3,
       auto_disable_quota_check_enabled: false,
+      auto_enable_after_quota_reset_enabled: false,
+      auto_enable_when_quota_available_enabled: false,
     });
     updateRateLimit429CooldownSettings.mockImplementation(async (payload) => payload);
     getGlobalTempUnschedulableSettings.mockResolvedValue({ enabled: true });

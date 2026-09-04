@@ -1,0 +1,152 @@
+OBJECT=OpenAI OAuth continuous 429/502 circuit auto-enable
+CHANGED_BRANCH=codex/openai-oauth-quota-auto-enable rebased on origin/main 746440eb6
+CHANGED_FIELDS=rate_limit_429_cooldown_settings.auto_enable_after_quota_reset_enabled,rate_limit_429_cooldown_settings.auto_enable_when_quota_available_enabled,account.account_auto_enable_source,account.account_auto_enable_at
+SCOPE=OpenAI OAuth accounts disabled by the continuous 429/502 circuit only; OpenAI API Key integration is unchanged
+
+ARTIFACTS
+MODIFIED_FILE=/Users/lin/.codex/worktrees/a407/sub2api-no2api/diagnostics/openai-oauth-quota-auto-enable/MODIFIED_FILE
+DIFF_FILE=/Users/lin/.codex/worktrees/a407/sub2api-no2api/diagnostics/openai-oauth-quota-auto-enable/DIFF_FILE
+VERIFICATION=/Users/lin/.codex/worktrees/a407/sub2api-no2api/diagnostics/openai-oauth-quota-auto-enable/VERIFICATION.txt
+ROLLBACK=/Users/lin/.codex/worktrees/a407/sub2api-no2api/diagnostics/openai-oauth-quota-auto-enable/ROLLBACK.sh
+
+HASHES
+ORIGINAL_SHA256=3806440e51b321294b3d9f182685e1e64fefde097c6964761533809d5004af60
+MODIFIED_SHA256=83627106192ea3e2c29bebc881eb985ecf9d1cd961e4b6ae72d75040296564ec
+
+BASELINE_FIXTURE
+COMMAND=jq -n -e '{scope:"openai/oauth", continuous_failure_circuit:{auto_disable_enabled:true,auto_disable_threshold:3,auto_disable_quota_check_enabled:true}, auto_enable_after_quota_reset_enabled:false, auto_enable_when_quota_available_enabled:false, api_key_integration_unchanged:true} | (.auto_enable_after_quota_reset_enabled == false and .auto_enable_when_quota_available_enabled == false and .api_key_integration_unchanged == true)'
+INPUT=scope=openai/oauth; auto_enable_after_quota_reset_enabled=false; auto_enable_when_quota_available_enabled=false; api_key_integration_unchanged=true
+LITERAL_OUTPUT=true
+EXIT_STATUS=0
+RESULT=Before the change both automatic recovery switches were disabled while the continuous OAuth circuit and API Key integration fixture were unchanged.
+
+BASELINE_DOCKER_TEST
+COMMAND=docker run --rm -v "$PWD/backend:/workspace:ro" -w /workspace sub2api-pr25-followup-go-test:1.26.6 sh -c 'GOCACHE=/tmp/go-build go test -vet=off -p=1 -tags=unit ./internal/application/service ./internal/transport/http/handler/admin'
+INPUT=HEAD=615d29b93 source tree before this change
+LITERAL_OUTPUT=ok github.com/Wei-Shaw/sub2api/internal/application/service 175.965s; ok github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin 0.497s
+EXIT_STATUS=0
+RESULT=Baseline service and admin handler tests passed.
+
+MODIFIED_FIXTURE
+COMMAND=jq -e '.auto_enable_after_quota_reset_enabled == true and .auto_enable_when_quota_available_enabled == true and .api_key_integration_unchanged == true' diagnostics/openai-oauth-quota-auto-enable/MODIFIED_FILE
+INPUT=/Users/lin/.codex/worktrees/a407/sub2api-no2api/diagnostics/openai-oauth-quota-auto-enable/MODIFIED_FILE
+LITERAL_OUTPUT=true
+EXIT_STATUS=0
+RESULT=Both recovery switches are enabled in the changed fixture and the API Key integration flag remains unchanged.
+
+MODIFIED_DOCKER_TARGETED_TEST
+COMMAND=docker run --rm -v "$PWD/backend:/workspace:ro" -v sub2api-a407-gomod:/go/pkg/mod -v sub2api-a407-gocache:/root/.cache/go-build -w /workspace golang:1.26.6-alpine sh -c 'GOCACHE=/root/.cache/go-build go test -vet=off -p=1 -tags=unit ./internal/application/service ./internal/infrastructure/repository ./internal/transport/http/handler/admin ./cmd/server'
+INPUT=changed backend source
+LITERAL_OUTPUT=ok github.com/Wei-Shaw/sub2api/internal/application/service (cached); ok github.com/Wei-Shaw/sub2api/internal/infrastructure/repository 5.153s; ok github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin (cached); ok github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto (cached); ok github.com/Wei-Shaw/sub2api/cmd/server (cached)
+EXIT_STATUS=0
+RESULT=Changed service, repository, handler, and Wire-generated server tests passed.
+
+MODIFIED_DOCKER_FEATURE_TEST
+COMMAND=docker run --rm -v "$PWD/backend:/workspace:ro" -v sub2api-a407-gomod:/go/pkg/mod -v sub2api-a407-gocache:/root/.cache/go-build -w /workspace golang:1.26.6-alpine sh -c 'GOCACHE=/root/.cache/go-build go test -vet=off -p=1 -tags=unit ./internal/application/service -run "TestRateLimitService_AutoDisablePersistsQuotaResetFromLiveCheck|TestRateLimitService_AutoDisablePersistsQuotaResetFrom429HeadersWithoutLiveCheck|TestMaybeAutoEnableOpenAIAccountAfterQuotaQuery|TestAutoEnableOpenAIAccountsAfterQuotaResetHonorsSwitch" -count=1 -v'
+INPUT=changed OAuth auto-enable behavior
+LITERAL_OUTPUT=PASS; ok github.com/Wei-Shaw/sub2api/internal/application/service 0.136s
+EXIT_STATUS=0
+RESULT=The feature-specific marker, Unix reset-time, available-quota, manual-pause, API-Key exclusion, and switch-gating tests passed.
+
+MODIFIED_DOCKER_UNIT_FULL
+COMMAND=docker run --rm -v "$PWD/backend:/workspace" -v sub2api-a407-gomod:/go/pkg/mod -v sub2api-a407-gocache:/root/.cache/go-build -w /workspace golang:1.26.6-alpine sh -c 'GOCACHE=/root/.cache/go-build go test -vet=off -p=1 -tags=unit ./... -count=1'
+INPUT=changed backend source
+LITERAL_OUTPUT=ok github.com/Wei-Shaw/sub2api/internal/application/service 176.260s; ok github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2 3.016s; ok github.com/Wei-Shaw/sub2api/internal/infrastructure/repository 5.071s; ok github.com/Wei-Shaw/sub2api/internal/transport/http/handler 31.592s; ok github.com/Wei-Shaw/sub2api/internal/transport/http/server 1.774s; ok github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes 1.158s; all listed packages exited successfully
+EXIT_STATUS=0
+RESULT=All backend unit packages passed in Docker.
+
+MODIFIED_DOCKER_FRONTEND_TEST
+COMMAND=docker run --rm -v "$PWD/frontend:/workspace" -v sub2api-a407-node-modules:/workspace/node_modules -w /workspace node:24-bookworm sh -lc 'corepack enable && corepack prepare pnpm@11.17.0 --activate >/dev/null && pnpm exec vitest run'
+INPUT=changed frontend source
+LITERAL_OUTPUT=Test Files 348 passed (348); Tests 2134 passed (2134)
+EXIT_STATUS=0
+RESULT=Full frontend Vitest suite passed.
+
+MODIFIED_DOCKER_TYPECHECK_LINT
+COMMAND=docker run --rm -v "$PWD/frontend:/workspace" -v sub2api-a407-node-modules:/workspace/node_modules -w /workspace node:24-bookworm sh -lc 'corepack enable && corepack prepare pnpm@11.17.0 --activate >/dev/null && pnpm exec vitest run src/features/admin-settings/__tests__/settingsGatewayResilienceModularization.spec.ts && pnpm run typecheck && pnpm run lint:check'
+INPUT=changed frontend source
+LITERAL_OUTPUT=2 tests passed; vue-tsc --noEmit; eslint .
+EXIT_STATUS=0
+RESULT=The changed settings card hash, TypeScript typecheck, and ESLint checks passed.
+
+MODIFIED_DOCKER_DOCS
+COMMAND=docker run --rm -v "$PWD:/workspace" -w /workspace alpine:3.22 sh -lc 'apk add --no-cache bash git make >/dev/null && make check-docs'
+INPUT=changed repository docs
+LITERAL_OUTPUT=Documentation checks passed.
+EXIT_STATUS=0
+RESULT=Documentation links and structure passed.
+
+MODIFIED_DOCKER_BUILD
+COMMAND=docker run --rm -v "$PWD:/workspace" -v sub2api-a407-node-modules:/workspace/frontend/node_modules -w /workspace/frontend node:24-bookworm sh -lc 'corepack enable && corepack prepare pnpm@11.17.0 --activate >/dev/null && pnpm run build'
+INPUT=changed frontend and backend asset output
+LITERAL_OUTPUT=1387 modules transformed; vite v6.4.3; built in 33.54s
+EXIT_STATUS=0
+RESULT=Production frontend build completed and wrote the ignored embedded web asset output.
+
+MODIFIED_DOCKER_BACKEND_BUILD
+COMMAND=docker build -f Dockerfile -t sub2api-oauth-quota-auto-enable:test .
+INPUT=backend directory build context
+LITERAL_OUTPUT=#11 DONE 86.7s; #12 naming to docker.io/library/sub2api-oauth-quota-auto-enable:test done; #12 DONE 23.3s; IMAGE_ID=sha256:73ad065db23e282588172e03b641bff17e269e2e6d70aed5e3673a4b65a741b0
+FINAL_DOCKER_UNIT_RECHECK
+COMMAND=docker run --rm -v "$PWD/backend:/workspace" -v sub2api-a407-gomod:/go/pkg/mod -v sub2api-a407-gocache:/root/.cache/go-build -w /workspace golang:1.26.6-alpine sh -c 'GOCACHE=/root/.cache/go-build go test -vet=off -p=1 -tags=unit ./... -count=1'
+INPUT=final changed backend source after Unix reset-time and cooldown clearing review
+LITERAL_OUTPUT=ok github.com/Wei-Shaw/sub2api/internal/application/service 176.260s; ok github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2 3.016s; ok github.com/Wei-Shaw/sub2api/internal/infrastructure/repository 5.071s; ok github.com/Wei-Shaw/sub2api/internal/transport/http/handler 31.592s; ok github.com/Wei-Shaw/sub2api/internal/transport/http/server 1.774s; ok github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes 1.158s; all packages exited successfully
+EXIT_STATUS=0
+RESULT=Final backend unit suite passed after the last repository and test-fixture edits.
+
+POST_REBASE_DOCKER_BACKEND
+COMMAND=docker run --rm -v "$PWD/backend:/workspace" -v sub2api-a407-gomod:/go/pkg/mod -v sub2api-a407-gocache:/root/.cache/go-build -w /workspace golang:1.26.6-alpine sh -c 'GOCACHE=/root/.cache/go-build go test -vet=off -p=1 -tags=unit ./... -count=1'
+INPUT=codex/openai-oauth-quota-auto-enable rebased on origin/main 746440eb6
+LITERAL_OUTPUT=ok github.com/Wei-Shaw/sub2api/internal/application/service 181.569s; ok github.com/Wei-Shaw/sub2api/internal/infrastructure/repository 5.338s; ok github.com/Wei-Shaw/sub2api/internal/transport/http/handler 32.760s; ok github.com/Wei-Shaw/sub2api/internal/transport/http/server 1.768s; all packages exited successfully
+EXIT_STATUS=0
+RESULT=The complete backend unit suite passed after rebasing onto the latest remote main.
+
+POST_REBASE_DOCKER_FRONTEND
+COMMAND=docker run --rm -v "$PWD/frontend:/workspace" -v sub2api-a407-node-modules:/workspace/node_modules -w /workspace node:24-bookworm sh -lc 'corepack enable && corepack prepare pnpm@11.17.0 --activate >/dev/null && pnpm exec vitest run src/features/admin-settings/__tests__/SettingsPage.spec.ts src/features/admin-settings/__tests__/adminSettingsQueryActions.spec.ts src/features/admin-settings/__tests__/settingsGatewayResilienceModularization.spec.ts src/features/admin-accounts/__tests__/OpenAIQuotaResetCell.spark_shadow.spec.ts src/features/admin-accounts/__tests__/AccountsPage.upstreamQuota.spec.ts && pnpm run typecheck && pnpm run lint:check'
+INPUT=rebased frontend source
+LITERAL_OUTPUT=Test Files 5 passed (5); Tests 85 passed (85); vue-tsc --noEmit; eslint .
+EXIT_STATUS=0
+RESULT=The affected frontend tests, typecheck, and lint passed after rebasing.
+EXIT_STATUS=0
+RESULT=The backend production image built successfully from the backend Dockerfile after the final Unix reset-time and cooldown-clearing changes.
+
+MODIFIED_DOCKER_LAYOUT
+COMMAND=docker run --rm -v "$PWD/backend:/workspace" -v sub2api-a407-gomod:/go/pkg/mod -v sub2api-a407-gocache:/root/.cache/go-build -w /workspace golang:1.26.6-alpine sh -c 'apk add --no-cache make bash git >/dev/null && make check-layout'
+INPUT=changed backend source layout
+LITERAL_OUTPUT=./scripts/check-source-layout.sh
+EXIT_STATUS=0
+RESULT=Backend source layout checks passed.
+
+POSTGRES_INTEGRATION_ATTEMPT
+COMMAND=docker run --rm -v /Users/lin/.docker/run/docker.sock:/var/run/docker.sock -v "$PWD/backend:/workspace" -v sub2api-a407-gomod:/go/pkg/mod -v sub2api-a407-gocache:/root/.cache/go-build -w /workspace golang:1.26.6-alpine sh -c 'apk add --no-cache docker-cli >/dev/null && SUB2API_TEST_POSTGRES_IMAGE=postgres:15-alpine GOCACHE=/root/.cache/go-build go test -vet=off -p=1 -tags=integration ./internal/infrastructure/repository -run TestAccountRepoSuite/TestAutoEnableOpenAIOAuthAccountsAfterQuotaResetIsScoped -count=1 -v'
+INPUT=changed repository integration test with PostgreSQL 15 and Redis testcontainers
+LITERAL_OUTPUT=initdb: error: could not create directory "/var/lib/postgresql/data/pg_wal": No space left on device
+EXIT_STATUS=1
+RESULT=PostgreSQL testcontainer could not start because Docker Desktop reported no space left on device; the integration assertion was not executed.
+
+POSTGRES_TRANSACTION_VERIFICATION
+COMMAND=docker exec sub2api-audit-mod2-postgres psql -U sub2api -d sub2api -v ON_ERROR_STOP=1 -At -c '<temporary accounts and scheduler_outbox tables; execute production-equivalent auto-enable CTE; inspect rows; ROLLBACK>'
+INPUT=id=1 OpenAI OAuth marked/due; id=2 manual pause; id=3 OpenAI API Key marked/due; id=4 expired OAuth; id=5 future OAuth; id=6 malformed reset value
+LITERAL_OUTPUT=AUTO_ENABLED_IDS=1; ENABLED=1; PRESERVED_DISABLED=2,3,4,5,6; MARKER_CLEARED=true; COOLDOWN_CLEARED=true; OUTBOX=1; ROLLBACK
+EXIT_STATUS=0
+RESULT=The PostgreSQL 18 transaction restored only the due marked OpenAI OAuth account, preserved all exclusion cases, cleared its marker/account cooldown, wrote its scheduler outbox row, and rolled back all fixture changes.
+
+INTEGRATION_TEST_COMPILE
+COMMAND=docker run --rm -v "$PWD/backend:/workspace:ro" -v sub2api-a407-gomod:/go/pkg/mod -v sub2api-a407-gocache:/root/.cache/go-build -w /workspace golang:1.26.6-alpine sh -c 'GOCACHE=/root/.cache/go-build go test -c -tags=integration ./internal/infrastructure/repository -o /tmp/repository-integration.test && test -x /tmp/repository-integration.test && printf "INTEGRATION_COMPILE=ok\\n"'
+INPUT=final repository integration test source
+LITERAL_OUTPUT=INTEGRATION_COMPILE=ok
+EXIT_STATUS=0
+RESULT=The integration test package and new PostgreSQL fixture compile successfully in Docker.
+
+ROLLBACK_COPY
+COMMAND=cp diagnostics/openai-oauth-quota-auto-enable/MODIFIED_FILE /tmp/sub2api-oauth-quota-auto-enable-rollback-copy.json
+INPUT=MODIFIED_FILE
+LITERAL_OUTPUT=(empty)
+EXIT_STATUS=0
+
+ROLLBACK
+COMMAND=diagnostics/openai-oauth-quota-auto-enable/ROLLBACK.sh /tmp/sub2api-oauth-quota-auto-enable-rollback-copy.json
+INPUT=/tmp/sub2api-oauth-quota-auto-enable-rollback-copy.json
+LITERAL_OUTPUT=ROLLBACK_RESULT=restored; RESTORED_SHA256=3806440e51b321294b3d9f182685e1e64fefde097c6964761533809d5004af60; RESTORED_BEHAVIOR=auto_enable_after_quota_reset_enabled=false,auto_enable_when_quota_available_enabled=false
+EXIT_STATUS=0
+RESTORED_STATUS=The independent rollback copy matches the original SHA-256 and restores both switches to false. MODIFIED_FILE remains changed at 83627106192ea3e2c29bebc881eb985ecf9d1cd961e4b6ae72d75040296564ec.

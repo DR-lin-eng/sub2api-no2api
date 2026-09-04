@@ -184,6 +184,16 @@ const AutoDisableOnUpstreamInsufficientBalanceExtraKey = "auto_disable_on_upstre
 const AccountSchedulingDisabledReasonExtraKey = "account_scheduling_disabled_reason"
 
 const (
+	// AccountAutoEnableSourceExtraKey marks a persistent scheduling pause that
+	// may be reversed by a narrowly scoped automatic recovery policy.
+	AccountAutoEnableSourceExtraKey = "account_auto_enable_source"
+	// AccountAutoEnableAtExtraKey stores the upstream-confirmed quota reset Unix time.
+	AccountAutoEnableAtExtraKey = "account_auto_enable_at"
+	// AccountAutoEnableSourceOpenAIOAuthFailure identifies the OAuth failure circuit.
+	AccountAutoEnableSourceOpenAIOAuthFailure = "openai_oauth_failure_circuit"
+)
+
+const (
 	OpenAIEndpointCapabilityChatCompletions OpenAIEndpointCapability = "chat_completions"
 	OpenAIEndpointCapabilityEmbeddings      OpenAIEndpointCapability = "embeddings"
 	OpenAIEndpointCapabilityAlphaSearch     OpenAIEndpointCapability = "alpha_search"

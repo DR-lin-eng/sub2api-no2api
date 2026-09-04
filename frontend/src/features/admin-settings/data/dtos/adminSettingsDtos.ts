@@ -123,6 +123,8 @@ export interface RateLimit429CooldownSettings {
   auto_disable_enabled: boolean;
   auto_disable_threshold: number;
   auto_disable_quota_check_enabled: boolean;
+  auto_enable_after_quota_reset_enabled: boolean;
+  auto_enable_when_quota_available_enabled: boolean;
 }
 
 export interface GlobalTempUnschedulableSettings {

@@ -367,6 +367,7 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 		idx++
 	}
 	clearSchedulingDisabledReason := updates.Schedulable != nil && *updates.Schedulable
+	clearAutoEnableMetadata := updates.Schedulable != nil
 	if updates.ProbeEnabled != nil {
 		if updates.Extra == nil {
 			updates.Extra = make(map[string]any)
@@ -408,7 +409,7 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 				" AND "+ollamaCloudBaseURLMatchesSQL(credentialPlaceholder+"::jsonb ->> 'base_url'")+")")
 	}
 
-	if len(updates.Extra) > 0 || len(ollamaGroupIdentityChanges) > 0 || ollamaProxyIdentityChanged != "" || clearSchedulingDisabledReason {
+	if len(updates.Extra) > 0 || len(ollamaGroupIdentityChanges) > 0 || ollamaProxyIdentityChanged != "" || clearAutoEnableMetadata {
 		extraExpression := "COALESCE(extra, '{}'::jsonb)"
 		if len(updates.Extra) > 0 {
 			payload, err := json.Marshal(updates.Extra)
@@ -427,6 +428,11 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 		}
 		if clearSchedulingDisabledReason {
 			extraExpression = "(" + extraExpression + ") - '" + service.AccountSchedulingDisabledReasonExtraKey + "'"
+		}
+		if clearAutoEnableMetadata {
+			extraExpression = "(" + extraExpression + ")" +
+				" - '" + service.AccountAutoEnableSourceExtraKey + "'" +
+				" - '" + service.AccountAutoEnableAtExtraKey + "'"
 		}
 		eligibleAccount := "platform IN ('openai', 'anthropic') AND type = 'apikey'"
 		groupIdentityChanged := ""

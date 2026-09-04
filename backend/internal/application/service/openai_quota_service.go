@@ -252,8 +252,15 @@ func (s *OpenAIQuotaService) QueryUsage(ctx context.Context, accountID int64) (*
 // failure-circuit shutdown. It skips reset-credit and token-activity requests
 // because neither is needed to decide whether the main Codex limit was reached.
 func (s *OpenAIQuotaService) IsQuotaLimitReached(ctx context.Context, accountID int64) (bool, error) {
+	limited, _, err := s.QueryQuotaStatus(ctx, accountID)
+	return limited, err
+}
+
+// QueryQuotaStatus returns the main Codex limit decision and its latest active
+// reset boundary from one narrow upstream request.
+func (s *OpenAIQuotaService) QueryQuotaStatus(ctx context.Context, accountID int64) (bool, *time.Time, error) {
 	if s == nil {
-		return false, fmt.Errorf("openai quota service is unavailable")
+		return false, nil, fmt.Errorf("openai quota service is unavailable")
 	}
 	var (
 		usage *OpenAIQuotaUsage
@@ -265,9 +272,9 @@ func (s *OpenAIQuotaService) IsQuotaLimitReached(ctx context.Context, accountID 
 		usage, err = s.queryUsage(ctx, accountID, false, false)
 	}
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
-	return isOpenAIQuotaUsageLimitReached(usage), nil
+	return isOpenAIQuotaUsageLimitReached(usage), openAIQuotaUsageMainResetAt(usage, time.Now()), nil
 }
 
 // QueryUsageWithServerUsage performs the same quota query and additionally

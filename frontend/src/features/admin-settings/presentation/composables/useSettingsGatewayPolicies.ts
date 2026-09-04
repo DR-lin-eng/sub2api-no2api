@@ -65,6 +65,8 @@ export function useSettingsGatewayPolicies() {
     auto_disable_enabled: false,
     auto_disable_threshold: 3,
     auto_disable_quota_check_enabled: false,
+    auto_enable_after_quota_reset_enabled: false,
+    auto_enable_when_quota_available_enabled: false,
   });
 
   // Global Temporary Unschedulable 状态
@@ -264,6 +266,10 @@ export function useSettingsGatewayPolicies() {
         auto_disable_threshold: rateLimit429CooldownForm.auto_disable_threshold,
         auto_disable_quota_check_enabled:
           rateLimit429CooldownForm.auto_disable_quota_check_enabled,
+        auto_enable_after_quota_reset_enabled:
+          rateLimit429CooldownForm.auto_enable_after_quota_reset_enabled,
+        auto_enable_when_quota_available_enabled:
+          rateLimit429CooldownForm.auto_enable_when_quota_available_enabled,
       });
       Object.assign(rateLimit429CooldownForm, updated);
       appStore.showSuccess(t("admin.settings.rateLimit429Cooldown.saved"));

@@ -273,6 +273,8 @@ describe("admin settings query and action owners", () => {
         auto_disable_enabled: false,
         auto_disable_threshold: 3,
         auto_disable_quota_check_enabled: false,
+        auto_enable_after_quota_reset_enabled: false,
+        auto_enable_when_quota_available_enabled: false,
       },
       { enabled: true },
       {
@@ -503,6 +505,8 @@ describe("admin settings query and action owners", () => {
           auto_disable_enabled: false,
           auto_disable_threshold: 3,
           auto_disable_quota_check_enabled: false,
+          auto_enable_after_quota_reset_enabled: false,
+          auto_enable_when_quota_available_enabled: false,
         },
       ],
       [

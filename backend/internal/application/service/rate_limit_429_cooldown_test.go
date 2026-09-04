@@ -38,16 +38,20 @@ func TestGetRateLimit429CooldownSettings_DefaultsWhenNotSet(t *testing.T) {
 	require.False(t, settings.AutoDisableEnabled)
 	require.Equal(t, 3, settings.AutoDisableThreshold)
 	require.False(t, settings.AutoDisableQuotaCheckEnabled)
+	require.False(t, settings.AutoEnableAfterQuotaResetEnabled)
+	require.False(t, settings.AutoEnableWhenQuotaAvailableEnabled)
 }
 
 func TestGetRateLimit429CooldownSettings_ReadsFromDB(t *testing.T) {
 	repo := newMockSettingRepo()
 	data, _ := json.Marshal(RateLimit429CooldownSettings{
-		Enabled:                      false,
-		CooldownSeconds:              12,
-		AutoDisableEnabled:           true,
-		AutoDisableThreshold:         7,
-		AutoDisableQuotaCheckEnabled: true,
+		Enabled:                             false,
+		CooldownSeconds:                     12,
+		AutoDisableEnabled:                  true,
+		AutoDisableThreshold:                7,
+		AutoDisableQuotaCheckEnabled:        true,
+		AutoEnableAfterQuotaResetEnabled:    true,
+		AutoEnableWhenQuotaAvailableEnabled: true,
 	})
 	repo.data[SettingKeyRateLimit429CooldownSettings] = string(data)
 	svc := NewSettingService(repo, &config.Config{})
@@ -59,6 +63,8 @@ func TestGetRateLimit429CooldownSettings_ReadsFromDB(t *testing.T) {
 	require.True(t, settings.AutoDisableEnabled)
 	require.Equal(t, 7, settings.AutoDisableThreshold)
 	require.True(t, settings.AutoDisableQuotaCheckEnabled)
+	require.True(t, settings.AutoEnableAfterQuotaResetEnabled)
+	require.True(t, settings.AutoEnableWhenQuotaAvailableEnabled)
 }
 
 func TestGetRateLimit429CooldownSettings_LegacyJSONKeepsCircuitBreakerDisabled(t *testing.T) {
@@ -74,6 +80,8 @@ func TestGetRateLimit429CooldownSettings_LegacyJSONKeepsCircuitBreakerDisabled(t
 	require.False(t, settings.AutoDisableEnabled)
 	require.Equal(t, 3, settings.AutoDisableThreshold)
 	require.False(t, settings.AutoDisableQuotaCheckEnabled)
+	require.False(t, settings.AutoEnableAfterQuotaResetEnabled)
+	require.False(t, settings.AutoEnableWhenQuotaAvailableEnabled)
 }
 
 func TestSetRateLimit429CooldownSettings_EnabledRejectsOutOfRange(t *testing.T) {

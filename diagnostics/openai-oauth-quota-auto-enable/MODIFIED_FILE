@@ -1,0 +1,11 @@
+{
+  "scope": "openai/oauth",
+  "continuous_failure_circuit": {
+    "auto_disable_enabled": true,
+    "auto_disable_threshold": 3,
+    "auto_disable_quota_check_enabled": true
+  },
+  "auto_enable_after_quota_reset_enabled": true,
+  "auto_enable_when_quota_available_enabled": true,
+  "api_key_integration_unchanged": true
+}

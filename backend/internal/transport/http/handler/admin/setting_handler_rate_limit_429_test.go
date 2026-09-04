@@ -16,7 +16,7 @@ import (
 func TestUpdateRateLimit429CooldownSettingsPreservesOmittedQuotaCheckSwitch(t *testing.T) {
 	handler, repo := newPanelSettingHandlerTest()
 	repo.values = map[string]string{
-		service.SettingKeyRateLimit429CooldownSettings: `{"enabled":true,"cooldown_seconds":5,"auto_disable_enabled":true,"auto_disable_threshold":3,"auto_disable_quota_check_enabled":true}`,
+		service.SettingKeyRateLimit429CooldownSettings: `{"enabled":true,"cooldown_seconds":5,"auto_disable_enabled":true,"auto_disable_threshold":3,"auto_disable_quota_check_enabled":true,"auto_enable_after_quota_reset_enabled":true,"auto_enable_when_quota_available_enabled":true}`,
 	}
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
@@ -29,18 +29,22 @@ func TestUpdateRateLimit429CooldownSettingsPreservesOmittedQuotaCheckSwitch(t *t
 
 	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
 	require.Contains(t, repo.values[service.SettingKeyRateLimit429CooldownSettings], `"auto_disable_quota_check_enabled":true`)
+	require.Contains(t, repo.values[service.SettingKeyRateLimit429CooldownSettings], `"auto_enable_after_quota_reset_enabled":true`)
+	require.Contains(t, repo.values[service.SettingKeyRateLimit429CooldownSettings], `"auto_enable_when_quota_available_enabled":true`)
 	require.Contains(t, recorder.Body.String(), `"auto_disable_quota_check_enabled":true`)
+	require.Contains(t, recorder.Body.String(), `"auto_enable_after_quota_reset_enabled":true`)
+	require.Contains(t, recorder.Body.String(), `"auto_enable_when_quota_available_enabled":true`)
 }
 
 func TestUpdateRateLimit429CooldownSettingsUpdatesQuotaCheckSwitch(t *testing.T) {
 	handler, repo := newPanelSettingHandlerTest()
 	repo.values = map[string]string{
-		service.SettingKeyRateLimit429CooldownSettings: `{"enabled":true,"cooldown_seconds":5,"auto_disable_enabled":true,"auto_disable_threshold":3,"auto_disable_quota_check_enabled":true}`,
+		service.SettingKeyRateLimit429CooldownSettings: `{"enabled":true,"cooldown_seconds":5,"auto_disable_enabled":true,"auto_disable_threshold":3,"auto_disable_quota_check_enabled":true,"auto_enable_after_quota_reset_enabled":false,"auto_enable_when_quota_available_enabled":false}`,
 	}
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodPut, "/api/v1/admin/settings/rate-limit-429-cooldown", bytes.NewBufferString(
-		`{"enabled":true,"cooldown_seconds":5,"auto_disable_enabled":true,"auto_disable_threshold":3,"auto_disable_quota_check_enabled":false}`,
+		`{"enabled":true,"cooldown_seconds":5,"auto_disable_enabled":true,"auto_disable_threshold":3,"auto_disable_quota_check_enabled":false,"auto_enable_after_quota_reset_enabled":true,"auto_enable_when_quota_available_enabled":true}`,
 	))
 	c.Request.Header.Set("Content-Type", "application/json")
 
@@ -48,4 +52,6 @@ func TestUpdateRateLimit429CooldownSettingsUpdatesQuotaCheckSwitch(t *testing.T)
 
 	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
 	require.Contains(t, repo.values[service.SettingKeyRateLimit429CooldownSettings], `"auto_disable_quota_check_enabled":false`)
+	require.Contains(t, repo.values[service.SettingKeyRateLimit429CooldownSettings], `"auto_enable_after_quota_reset_enabled":true`)
+	require.Contains(t, repo.values[service.SettingKeyRateLimit429CooldownSettings], `"auto_enable_when_quota_available_enabled":true`)
 }

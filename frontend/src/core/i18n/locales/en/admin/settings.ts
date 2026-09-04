@@ -1040,6 +1040,10 @@ export default {
         autoDisableThresholdHint: 'Counts OAuth account-scoped 429 and 502 responses; successful requests reset the counter (1-100).',
         quotaCheck: 'Confirm Quota Limit Before Disabling',
         quotaCheckHint: 'Query the main Codex quota after the threshold and disable only when upstream marks it limited or usage reaches 100%. Query failures, unknown quota, and available quota keep scheduling enabled.',
+        autoEnableAfterReset: 'Enable Account After Quota Countdown',
+        autoEnableAfterResetHint: 'After a confirmed main Codex limit triggers the OAuth circuit, restore scheduling when the upstream reset countdown ends. Manually paused accounts stay paused.',
+        autoEnableWhenAvailable: 'Enable Account When Quota Is Available',
+        autoEnableWhenAvailableHint: 'When an active main Codex quota query confirms available capacity, restore an account paused by the OAuth circuit. Unknown quota, API-key accounts, and manually paused accounts are unchanged.',
         saved: '429 default cooldown settings saved',
         saveFailed: 'Failed to save 429 default cooldown settings'
       },

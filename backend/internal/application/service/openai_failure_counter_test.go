@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	"github.com/gin-gonic/gin"
@@ -23,6 +24,7 @@ type openAIFailureCounterStub struct {
 
 type openAIQuotaLimitCheckerStub struct {
 	limited bool
+	resetAt *time.Time
 	err     error
 	calls   int
 }
@@ -30,6 +32,11 @@ type openAIQuotaLimitCheckerStub struct {
 func (c *openAIQuotaLimitCheckerStub) IsQuotaLimitReached(context.Context, int64) (bool, error) {
 	c.calls++
 	return c.limited, c.err
+}
+
+func (c *openAIQuotaLimitCheckerStub) QueryQuotaStatus(context.Context, int64) (bool, *time.Time, error) {
+	c.calls++
+	return c.limited, c.resetAt, c.err
 }
 
 func (c *openAIFailureCounterStub) IncrementOpenAIFailureCount(context.Context, int64) (int64, error) {
@@ -103,7 +110,7 @@ func TestRateLimitService_AutoDisableQuotaCheckRequiresConfirmedLimit(t *testing
 			svc.SetOpenAIQuotaLimitChecker(checker)
 			account := &Account{ID: 9010, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
 
-			disabled := svc.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), account, http.StatusTooManyRequests, nil)
+			disabled := svc.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), account, http.StatusTooManyRequests, nil, nil)
 
 			require.Equal(t, tc.wantDisabled, disabled)
 			require.Equal(t, tc.wantDisabled, !account.Schedulable)
@@ -111,12 +118,64 @@ func TestRateLimitService_AutoDisableQuotaCheckRequiresConfirmedLimit(t *testing
 			if tc.wantDisabled {
 				require.Equal(t, []bool{false}, repo.schedulableCalls)
 				require.Contains(t, account.SchedulingDisabledReason(), tc.wantReasonFragment)
+				require.Equal(t, AccountAutoEnableSourceOpenAIOAuthFailure, account.Extra[AccountAutoEnableSourceExtraKey])
 			} else {
 				require.Empty(t, repo.schedulableCalls)
 				require.Empty(t, account.SchedulingDisabledReason())
 			}
 		})
 	}
+}
+
+func TestRateLimitService_AutoDisablePersistsQuotaResetFromLiveCheck(t *testing.T) {
+	resetAt := time.Now().Add(90 * time.Minute).UTC().Truncate(time.Second)
+	repo := &openAIFailureAutoDisableRepo{}
+	counter := &openAIFailureCounterStub{}
+	checker := &openAIQuotaLimitCheckerStub{limited: true, resetAt: &resetAt}
+	svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+	svc.SetSettingService(openAIFailurePolicySettingServiceWithQuotaCheck(t, true, 1, true))
+	svc.SetOpenAIFailureCounterCache(counter)
+	svc.SetOpenAIQuotaLimitChecker(checker)
+	account := &Account{ID: 9012, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
+
+	require.True(t, svc.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), account, http.StatusTooManyRequests, nil, nil))
+	require.Equal(t, resetAt.Unix(), account.Extra[AccountAutoEnableAtExtraKey])
+	require.NotEmpty(t, repo.extraUpdates)
+	require.Equal(t, resetAt.Unix(), repo.extraUpdates[0][AccountAutoEnableAtExtraKey])
+}
+
+func TestRateLimitService_AutoDisablePersistsQuotaResetFrom429HeadersWithoutLiveCheck(t *testing.T) {
+	repo := &openAIFailureAutoDisableRepo{}
+	counter := &openAIFailureCounterStub{}
+	svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+	svc.SetSettingService(openAIFailurePolicySettingService(t, true, 1))
+	svc.SetOpenAIFailureCounterCache(counter)
+	account := &Account{ID: 9013, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
+	headers := http.Header{}
+	headers.Set("x-codex-primary-used-percent", "100")
+	headers.Set("x-codex-primary-reset-after-seconds", "3600")
+	headers.Set("x-codex-primary-window-minutes", "300")
+
+	require.True(t, svc.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), account, http.StatusTooManyRequests, headers, nil))
+	raw, ok := account.Extra[AccountAutoEnableAtExtraKey].(int64)
+	require.True(t, ok)
+	require.WithinDuration(t, time.Now().Add(time.Hour), time.Unix(raw, 0), 2*time.Second)
+}
+
+func TestOpenAIFailureCircuitDoesNotInvent502ResetFromHeaders(t *testing.T) {
+	account := &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+		Extra: map[string]any{
+			"codex_5h_used_percent": 50,
+		},
+	}
+	headers := http.Header{}
+	headers.Set("x-codex-primary-used-percent", "50")
+	headers.Set("x-codex-primary-reset-after-seconds", "3600")
+	headers.Set("x-codex-primary-window-minutes", "300")
+
+	require.Nil(t, openAIFailureCircuitResetAt(account, http.StatusBadGateway, headers, nil, time.Now()))
 }
 
 func TestRateLimitService_AutoDisableQuotaCheckWaitsForFailureThreshold(t *testing.T) {
@@ -129,9 +188,9 @@ func TestRateLimitService_AutoDisableQuotaCheckWaitsForFailureThreshold(t *testi
 	svc.SetOpenAIQuotaLimitChecker(checker)
 	account := &Account{ID: 9011, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
 
-	require.False(t, svc.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), account, http.StatusBadGateway, nil))
+	require.False(t, svc.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), account, http.StatusBadGateway, nil, nil))
 	require.Zero(t, checker.calls)
-	require.True(t, svc.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), account, http.StatusBadGateway, nil))
+	require.True(t, svc.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), account, http.StatusBadGateway, nil, nil))
 	require.Equal(t, 1, checker.calls)
 }
 
@@ -183,19 +242,20 @@ func TestRateLimitService_AutoDisablesOpenAIAccountAtConfiguredConsecutiveFailur
 	}
 
 	for _, status := range []int{http.StatusBadGateway, http.StatusTooManyRequests} {
-		require.False(t, service.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), account, status, nil))
+		require.False(t, service.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), account, status, nil, nil))
 		require.True(t, account.Schedulable)
 	}
-	require.True(t, service.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), account, http.StatusTooManyRequests, nil))
+	require.True(t, service.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), account, http.StatusTooManyRequests, nil, nil))
 	require.False(t, account.Schedulable)
 	require.Equal(t, []bool{false}, repo.schedulableCalls)
 	require.Equal(t, "Automatically paused after 3 consecutive OpenAI OAuth upstream 429/502 failures (last status 429). Re-enable scheduling manually after checking the account quota and upstream health.", account.SchedulingDisabledReason())
+	require.Equal(t, AccountAutoEnableSourceOpenAIOAuthFailure, account.Extra[AccountAutoEnableSourceExtraKey])
 	require.NotEmpty(t, repo.extraUpdates)
 	require.Equal(t, int64(3), counter.count, "the counter remains armed until success or manual recovery")
 
 	// The threshold crossing is idempotent: later failures do not enqueue a
 	// second persistent update for the same counter window.
-	require.False(t, service.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), account, http.StatusBadGateway, nil))
+	require.False(t, service.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), account, http.StatusBadGateway, nil, nil))
 	require.Equal(t, []bool{false}, repo.schedulableCalls)
 }
 
@@ -207,7 +267,7 @@ func TestRateLimitService_AutoDisableDisabledDoesNotCount(t *testing.T) {
 	service.SetOpenAIFailureCounterCache(counter)
 	account := &Account{ID: 9002, Platform: PlatformOpenAI, Status: StatusActive, Schedulable: true}
 
-	require.False(t, service.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), account, http.StatusBadGateway, nil))
+	require.False(t, service.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), account, http.StatusBadGateway, nil, nil))
 	require.Zero(t, counter.count)
 	require.Empty(t, repo.schedulableCalls)
 }
@@ -253,7 +313,7 @@ func TestRateLimitService_AutoDisableIgnoresNonAccountScopedFailures(t *testing.
 		{name: "client error", account: &Account{ID: 9006, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Schedulable: true}, status: http.StatusBadRequest},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			require.False(t, service.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), tc.account, tc.status, nil))
+			require.False(t, service.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), tc.account, tc.status, nil, nil))
 		})
 	}
 	require.Zero(t, counter.count)
@@ -322,7 +382,7 @@ func TestRateLimitService_AutoDisableNeverCountsOpenAIAPIKeyAccounts(t *testing.
 	}
 
 	for _, statusCode := range []int{http.StatusTooManyRequests, http.StatusBadGateway} {
-		require.False(t, service.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), account, statusCode, nil))
+		require.False(t, service.maybeAutoDisableOpenAIAccountOnFailure(context.Background(), account, statusCode, nil, nil))
 	}
 	require.Zero(t, counter.count)
 	require.True(t, account.Schedulable)

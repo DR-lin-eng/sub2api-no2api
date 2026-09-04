@@ -116,6 +116,36 @@
                 data-testid="oauth-failure-quota-check-toggle"
               />
             </div>
+
+            <div class="flex items-center justify-between gap-4 border-t border-gray-100 pt-4 dark:border-dark-700">
+              <div>
+                <label class="font-medium text-gray-900 dark:text-white">{{
+                  t("admin.settings.rateLimit429Cooldown.autoEnableAfterReset")
+                }}</label>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                  {{ t("admin.settings.rateLimit429Cooldown.autoEnableAfterResetHint") }}
+                </p>
+              </div>
+              <Toggle
+                v-model="rateLimit429CooldownForm.auto_enable_after_quota_reset_enabled"
+                data-testid="oauth-quota-reset-auto-enable-toggle"
+              />
+            </div>
+
+            <div class="flex items-center justify-between gap-4 border-t border-gray-100 pt-4 dark:border-dark-700">
+              <div>
+                <label class="font-medium text-gray-900 dark:text-white">{{
+                  t("admin.settings.rateLimit429Cooldown.autoEnableWhenAvailable")
+                }}</label>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                  {{ t("admin.settings.rateLimit429Cooldown.autoEnableWhenAvailableHint") }}
+                </p>
+              </div>
+              <Toggle
+                v-model="rateLimit429CooldownForm.auto_enable_when_quota_available_enabled"
+                data-testid="oauth-quota-query-auto-enable-toggle"
+              />
+            </div>
           </div>
         </div>
 

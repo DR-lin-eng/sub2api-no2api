@@ -80,7 +80,7 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
 	stateCtx, cancel := openAIAccountStateContext(ctx)
 	defer cancel()
 	modelScope := firstRequestedModel(canonicalModel)
-	if s != nil && s.rateLimitService != nil && s.rateLimitService.maybeAutoDisableOpenAIAccountOnFailure(stateCtx, account, statusCode, responseBody) {
+	if s != nil && s.rateLimitService != nil && s.rateLimitService.maybeAutoDisableOpenAIAccountOnFailure(stateCtx, account, statusCode, headers, responseBody) {
 		return true
 	}
 	if s.autoDisableOnUpstreamInsufficientBalance(stateCtx, account, statusCode, responseBody) {

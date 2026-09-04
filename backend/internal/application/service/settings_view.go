@@ -663,6 +663,10 @@ type RateLimit429CooldownSettings struct {
 	AutoDisableThreshold int `json:"auto_disable_threshold"`
 	// AutoDisableQuotaCheckEnabled 是否要求实时额度查询确认主 Codex 额度已限额后再关闭调度
 	AutoDisableQuotaCheckEnabled bool `json:"auto_disable_quota_check_enabled"`
+	// AutoEnableAfterQuotaResetEnabled 是否在已确认的主 Codex 额度倒计时结束后自动恢复账号调度
+	AutoEnableAfterQuotaResetEnabled bool `json:"auto_enable_after_quota_reset_enabled"`
+	// AutoEnableWhenQuotaAvailableEnabled 是否在主动额度查询确认仍有主 Codex 额度时自动恢复账号调度
+	AutoEnableWhenQuotaAvailableEnabled bool `json:"auto_enable_when_quota_available_enabled"`
 }
 
 // GlobalTempUnschedulableSettings controls temporary account scheduling pauses globally.
@@ -681,11 +685,13 @@ func DefaultOverloadCooldownSettings() *OverloadCooldownSettings {
 // DefaultRateLimit429CooldownSettings 返回默认的429回避配置（启用，5秒）
 func DefaultRateLimit429CooldownSettings() *RateLimit429CooldownSettings {
 	return &RateLimit429CooldownSettings{
-		Enabled:                      true,
-		CooldownSeconds:              5,
-		AutoDisableEnabled:           false,
-		AutoDisableThreshold:         3,
-		AutoDisableQuotaCheckEnabled: false,
+		Enabled:                             true,
+		CooldownSeconds:                     5,
+		AutoDisableEnabled:                  false,
+		AutoDisableThreshold:                3,
+		AutoDisableQuotaCheckEnabled:        false,
+		AutoEnableAfterQuotaResetEnabled:    false,
+		AutoEnableWhenQuotaAvailableEnabled: false,
 	}
 }
 

@@ -112,21 +112,25 @@ func (h *SettingHandler) GetRateLimit429CooldownSettings(c *gin.Context) {
 	}
 
 	response.Success(c, dto.RateLimit429CooldownSettings{
-		Enabled:                      settings.Enabled,
-		CooldownSeconds:              settings.CooldownSeconds,
-		AutoDisableEnabled:           settings.AutoDisableEnabled,
-		AutoDisableThreshold:         settings.AutoDisableThreshold,
-		AutoDisableQuotaCheckEnabled: settings.AutoDisableQuotaCheckEnabled,
+		Enabled:                             settings.Enabled,
+		CooldownSeconds:                     settings.CooldownSeconds,
+		AutoDisableEnabled:                  settings.AutoDisableEnabled,
+		AutoDisableThreshold:                settings.AutoDisableThreshold,
+		AutoDisableQuotaCheckEnabled:        settings.AutoDisableQuotaCheckEnabled,
+		AutoEnableAfterQuotaResetEnabled:    settings.AutoEnableAfterQuotaResetEnabled,
+		AutoEnableWhenQuotaAvailableEnabled: settings.AutoEnableWhenQuotaAvailableEnabled,
 	})
 }
 
 // UpdateRateLimit429CooldownSettingsRequest 更新429默认回避配置请求
 type UpdateRateLimit429CooldownSettingsRequest struct {
-	Enabled                      bool  `json:"enabled"`
-	CooldownSeconds              int   `json:"cooldown_seconds"`
-	AutoDisableEnabled           bool  `json:"auto_disable_enabled"`
-	AutoDisableThreshold         int   `json:"auto_disable_threshold"`
-	AutoDisableQuotaCheckEnabled *bool `json:"auto_disable_quota_check_enabled"`
+	Enabled                             bool  `json:"enabled"`
+	CooldownSeconds                     int   `json:"cooldown_seconds"`
+	AutoDisableEnabled                  bool  `json:"auto_disable_enabled"`
+	AutoDisableThreshold                int   `json:"auto_disable_threshold"`
+	AutoDisableQuotaCheckEnabled        *bool `json:"auto_disable_quota_check_enabled"`
+	AutoEnableAfterQuotaResetEnabled    *bool `json:"auto_enable_after_quota_reset_enabled"`
+	AutoEnableWhenQuotaAvailableEnabled *bool `json:"auto_enable_when_quota_available_enabled"`
 }
 
 // UpdateRateLimit429CooldownSettings 更新429默认回避配置
@@ -138,24 +142,33 @@ func (h *SettingHandler) UpdateRateLimit429CooldownSettings(c *gin.Context) {
 		return
 	}
 
-	quotaCheckEnabled := false
-	if req.AutoDisableQuotaCheckEnabled == nil {
-		current, err := h.settingService.GetRateLimit429CooldownSettings(c.Request.Context())
-		if err != nil {
-			response.ErrorFrom(c, err)
-			return
-		}
-		quotaCheckEnabled = current.AutoDisableQuotaCheckEnabled
-	} else {
+	current, err := h.settingService.GetRateLimit429CooldownSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	quotaCheckEnabled := current.AutoDisableQuotaCheckEnabled
+	if req.AutoDisableQuotaCheckEnabled != nil {
 		quotaCheckEnabled = *req.AutoDisableQuotaCheckEnabled
+	}
+	autoEnableAfterReset := current.AutoEnableAfterQuotaResetEnabled
+	if req.AutoEnableAfterQuotaResetEnabled != nil {
+		autoEnableAfterReset = *req.AutoEnableAfterQuotaResetEnabled
+	}
+	autoEnableWhenAvailable := current.AutoEnableWhenQuotaAvailableEnabled
+	if req.AutoEnableWhenQuotaAvailableEnabled != nil {
+		autoEnableWhenAvailable = *req.AutoEnableWhenQuotaAvailableEnabled
 	}
 
 	settings := &service.RateLimit429CooldownSettings{
-		Enabled:                      req.Enabled,
-		CooldownSeconds:              req.CooldownSeconds,
-		AutoDisableEnabled:           req.AutoDisableEnabled,
-		AutoDisableThreshold:         req.AutoDisableThreshold,
-		AutoDisableQuotaCheckEnabled: quotaCheckEnabled,
+		Enabled:                             req.Enabled,
+		CooldownSeconds:                     req.CooldownSeconds,
+		AutoDisableEnabled:                  req.AutoDisableEnabled,
+		AutoDisableThreshold:                req.AutoDisableThreshold,
+		AutoDisableQuotaCheckEnabled:        quotaCheckEnabled,
+		AutoEnableAfterQuotaResetEnabled:    autoEnableAfterReset,
+		AutoEnableWhenQuotaAvailableEnabled: autoEnableWhenAvailable,
 	}
 
 	if err := h.settingService.SetRateLimit429CooldownSettings(c.Request.Context(), settings); err != nil {
@@ -170,11 +183,13 @@ func (h *SettingHandler) UpdateRateLimit429CooldownSettings(c *gin.Context) {
 	}
 
 	response.Success(c, dto.RateLimit429CooldownSettings{
-		Enabled:                      updatedSettings.Enabled,
-		CooldownSeconds:              updatedSettings.CooldownSeconds,
-		AutoDisableEnabled:           updatedSettings.AutoDisableEnabled,
-		AutoDisableThreshold:         updatedSettings.AutoDisableThreshold,
-		AutoDisableQuotaCheckEnabled: updatedSettings.AutoDisableQuotaCheckEnabled,
+		Enabled:                             updatedSettings.Enabled,
+		CooldownSeconds:                     updatedSettings.CooldownSeconds,
+		AutoDisableEnabled:                  updatedSettings.AutoDisableEnabled,
+		AutoDisableThreshold:                updatedSettings.AutoDisableThreshold,
+		AutoDisableQuotaCheckEnabled:        updatedSettings.AutoDisableQuotaCheckEnabled,
+		AutoEnableAfterQuotaResetEnabled:    updatedSettings.AutoEnableAfterQuotaResetEnabled,
+		AutoEnableWhenQuotaAvailableEnabled: updatedSettings.AutoEnableWhenQuotaAvailableEnabled,
 	})
 }
 

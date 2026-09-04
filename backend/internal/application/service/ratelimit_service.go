@@ -154,6 +154,11 @@ type cachedOpenAIFailurePolicySettings struct {
 	expiresAt int64
 }
 
+type openAIQuotaCheckResult struct {
+	limited bool
+	resetAt *time.Time
+}
+
 func (s *RateLimitService) openAIFailurePolicySettings(ctx context.Context) RateLimit429CooldownSettings {
 	defaults := DefaultRateLimit429CooldownSettings()
 	if defaults == nil {
@@ -198,6 +203,7 @@ func (s *RateLimitService) maybeAutoDisableOpenAIAccountOnFailure(
 	ctx context.Context,
 	account *Account,
 	statusCode int,
+	headers http.Header,
 	responseBody []byte,
 ) bool {
 	if s == nil || account == nil || !account.Schedulable || !account.IsOpenAIOAuth() ||
@@ -220,6 +226,7 @@ func (s *RateLimitService) maybeAutoDisableOpenAIAccountOnFailure(
 		return false
 	}
 	quotaConfirmed := false
+	var quotaResetAt *time.Time
 	if settings.AutoDisableQuotaCheckEnabled {
 		if s.openAIQuotaLimitChecker == nil {
 			slog.Warn("openai_failure_auto_disable_quota_check_unavailable", "account_id", account.ID, "status_code", statusCode, "count", count)
@@ -227,18 +234,28 @@ func (s *RateLimitService) maybeAutoDisableOpenAIAccountOnFailure(
 		}
 		quotaCtx, quotaCancel := openAIAccountStateContext(ctx)
 		value, quotaErr, _ := s.openAIQuotaCheckSF.Do(strconv.FormatInt(account.ID, 10), func() (any, error) {
-			return s.openAIQuotaLimitChecker.IsQuotaLimitReached(quotaCtx, account.ID)
+			if checker, ok := s.openAIQuotaLimitChecker.(OpenAIQuotaStatusChecker); ok {
+				limited, resetAt, err := checker.QueryQuotaStatus(quotaCtx, account.ID)
+				return openAIQuotaCheckResult{limited: limited, resetAt: resetAt}, err
+			}
+			limited, err := s.openAIQuotaLimitChecker.IsQuotaLimitReached(quotaCtx, account.ID)
+			return openAIQuotaCheckResult{limited: limited}, err
 		})
 		quotaCancel()
 		if quotaErr != nil {
 			slog.Warn("openai_failure_auto_disable_quota_check_failed", "account_id", account.ID, "status_code", statusCode, "count", count, "error", quotaErr)
 			return false
 		}
-		quotaConfirmed, _ = value.(bool)
+		quotaResult, _ := value.(openAIQuotaCheckResult)
+		quotaConfirmed = quotaResult.limited
+		quotaResetAt = quotaResult.resetAt
 		if !quotaConfirmed {
 			slog.Info("openai_failure_auto_disable_quota_available", "account_id", account.ID, "status_code", statusCode, "count", count, "threshold", settings.AutoDisableThreshold)
 			return false
 		}
+	}
+	if quotaResetAt == nil {
+		quotaResetAt = openAIFailureCircuitResetAt(account, statusCode, headers, responseBody, time.Now())
 	}
 	reason := fmt.Sprintf(
 		"Automatically paused after %d consecutive OpenAI OAuth upstream 429/502 failures (last status %d). Re-enable scheduling manually after checking the account quota and upstream health.",
@@ -254,7 +271,15 @@ func (s *RateLimitService) maybeAutoDisableOpenAIAccountOnFailure(
 	}
 	persistCtx, persistCancel := openAIAccountStateContext(ctx)
 	defer persistCancel()
-	if err := setAccountSchedulableWithReason(persistCtx, s.accountRepo, account.ID, false, reason); err != nil {
+	if err := setAccountSchedulableWithReasonAndAutoEnable(
+		persistCtx,
+		s.accountRepo,
+		account.ID,
+		false,
+		reason,
+		AccountAutoEnableSourceOpenAIOAuthFailure,
+		quotaResetAt,
+	); err != nil {
 		slog.Warn("openai_failure_auto_disable_failed", "account_id", account.ID, "status_code", statusCode, "count", count, "error", err)
 		return false
 	}
@@ -262,9 +287,15 @@ func (s *RateLimitService) maybeAutoDisableOpenAIAccountOnFailure(
 	// immediately; the repository outbox propagates the durable change to peers.
 	account.Schedulable = false
 	if account.Extra == nil {
-		account.Extra = make(map[string]any, 1)
+		account.Extra = make(map[string]any, 3)
 	}
 	account.Extra[AccountSchedulingDisabledReasonExtraKey] = reason
+	account.Extra[AccountAutoEnableSourceExtraKey] = AccountAutoEnableSourceOpenAIOAuthFailure
+	if quotaResetAt != nil {
+		account.Extra[AccountAutoEnableAtExtraKey] = quotaResetAt.Unix()
+	} else {
+		delete(account.Extra, AccountAutoEnableAtExtraKey)
+	}
 	s.notifyAccountSchedulingBlocked(account, time.Time{}, "openai_failure_auto_disabled")
 	slog.Warn("openai_account_auto_disabled_after_consecutive_failures",
 		"account_id", account.ID,

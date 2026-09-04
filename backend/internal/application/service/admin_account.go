@@ -201,6 +201,9 @@ var duplicateAccountDiscardedExtraKeys = map[string]struct{}{
 	"codex_7d_reset_after_seconds":           {},
 	"codex_7d_window_minutes":                {},
 	"codex_7d_reset_at":                      {},
+	AccountSchedulingDisabledReasonExtraKey:  {},
+	AccountAutoEnableSourceExtraKey:          {},
+	AccountAutoEnableAtExtraKey:              {},
 }
 
 func duplicateAccountExtra(value map[string]any) (map[string]any, error) {
@@ -767,6 +770,8 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 			OpenAIOAuthSupportedModelsSyncedAtExtraKey,
 			CodexVirtualClientKeyExtraKey,
 			AccountSchedulingDisabledReasonExtraKey,
+			AccountAutoEnableSourceExtraKey,
+			AccountAutoEnableAtExtraKey,
 		} {
 			if v, ok := account.Extra[key]; ok {
 				normalizedExtra[key] = v
@@ -972,6 +977,9 @@ func (s *adminServiceImpl) UpdateAccountExtra(ctx context.Context, id int64, upd
 	delete(updates, OllamaCloudUsageSessionExtraKey)
 	delete(updates, OllamaCloudUsageAutoRefreshExtraKey)
 	delete(updates, OllamaCloudUsageSnapshotExtraKey)
+	delete(updates, AccountSchedulingDisabledReasonExtraKey)
+	delete(updates, AccountAutoEnableSourceExtraKey)
+	delete(updates, AccountAutoEnableAtExtraKey)
 	if _, exists := updates[openAILongContextBillingEnabledKey]; exists {
 		account, err := s.accountRepo.GetByID(ctx, id)
 		if err != nil {
@@ -998,6 +1006,8 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	delete(input.Extra, OllamaCloudUsageAutoRefreshExtraKey)
 	delete(input.Extra, OllamaCloudUsageSnapshotExtraKey)
 	delete(input.Extra, AccountSchedulingDisabledReasonExtraKey)
+	delete(input.Extra, AccountAutoEnableSourceExtraKey)
+	delete(input.Extra, AccountAutoEnableAtExtraKey)
 
 	if len(input.AccountIDs) == 0 && input.Filters != nil {
 		accountIDs, err := s.resolveBulkUpdateTargetIDs(ctx, input.Filters)

@@ -707,25 +707,58 @@ func (r *accountRepository) SetSchedulable(ctx context.Context, id int64, schedu
 // SetSchedulableWithReason atomically updates the scheduling flag, its
 // administrator-visible reason, and the scheduler outbox event.
 func (r *accountRepository) SetSchedulableWithReason(ctx context.Context, id int64, schedulable bool, reason string) error {
+	return r.SetSchedulableWithReasonAndAutoEnable(ctx, id, schedulable, reason, "", nil)
+}
+
+// SetSchedulableWithReasonAndAutoEnable atomically updates the persistent
+// scheduling state and its optional OAuth quota recovery marker.
+func (r *accountRepository) SetSchedulableWithReasonAndAutoEnable(
+	ctx context.Context,
+	id int64,
+	schedulable bool,
+	reason string,
+	autoEnableSource string,
+	autoEnableAt *time.Time,
+) error {
 	if r == nil || r.sql == nil {
 		return fmt.Errorf("account repository SQL executor is unavailable")
+	}
+	var autoEnableAtUnix int64
+	if autoEnableAt != nil {
+		autoEnableAtUnix = autoEnableAt.Unix()
 	}
 	result, err := r.sql.ExecContext(ctx, `
 		WITH updated AS (
 			UPDATE accounts AS a
 			SET schedulable = $1,
-				extra = CASE
-					WHEN $2 = '' THEN COALESCE(a.extra, '{}'::jsonb) - $3
-					ELSE jsonb_set(COALESCE(a.extra, '{}'::jsonb), ARRAY[$3]::text[], to_jsonb($2::text), true)
-				END,
+				extra = (
+					CASE
+						WHEN $2 = '' THEN COALESCE(a.extra, '{}'::jsonb) - $3
+						ELSE jsonb_set(COALESCE(a.extra, '{}'::jsonb), ARRAY[$3]::text[], to_jsonb($2::text), true)
+					END
+					- $4
+					- $5
+				)
+				|| CASE WHEN $6 = '' THEN '{}'::jsonb ELSE jsonb_build_object($4, $6) END
+				|| CASE WHEN $7 = 0 THEN '{}'::jsonb ELSE jsonb_build_object($5, $7) END,
 				updated_at = NOW()
-			WHERE a.id = $4
+			WHERE a.id = $8
 				AND a.deleted_at IS NULL
 			RETURNING a.id
 		)
 		INSERT INTO scheduler_outbox (event_type, account_id, group_id, payload)
-		SELECT $5, updated.id, NULL, NULL FROM updated
-	`, schedulable, reason, service.AccountSchedulingDisabledReasonExtraKey, id, service.SchedulerOutboxEventAccountChanged)
+		SELECT $9, updated.id, NULL, NULL FROM updated
+	`,
+		schedulable,
+		reason,
+		service.AccountSchedulingDisabledReasonExtraKey,
+		service.AccountAutoEnableSourceExtraKey,
+		service.AccountAutoEnableAtExtraKey,
+		autoEnableSource,
+		autoEnableAtUnix,
+		id,
+		service.SchedulerOutboxEventAccountChanged,
+	)
 	if err != nil {
 		return err
 	}
@@ -738,6 +771,140 @@ func (r *accountRepository) SetSchedulableWithReason(ctx context.Context, id int
 	}
 	r.syncSchedulerAccountSnapshotDetached(ctx, id)
 	return nil
+}
+
+// AutoEnableOpenAIOAuthAccountIfMarked restores one account only while the
+// OAuth failure-circuit marker is still present. A concurrent manual pause
+// clears that marker and therefore wins this compare-and-set race.
+func (r *accountRepository) AutoEnableOpenAIOAuthAccountIfMarked(ctx context.Context, id int64) (bool, error) {
+	if r == nil || r.sql == nil {
+		return false, fmt.Errorf("account repository SQL executor is unavailable")
+	}
+	result, err := r.sql.ExecContext(ctx, `
+		WITH updated AS (
+			UPDATE accounts AS a
+			SET schedulable = TRUE,
+				rate_limited_at = NULL,
+				rate_limit_reset_at = NULL,
+				extra = COALESCE(a.extra, '{}'::jsonb) - $1 - $2 - $3,
+				updated_at = NOW()
+			WHERE a.id = $4
+				AND a.deleted_at IS NULL
+				AND a.platform = $5
+				AND a.type = $6
+				AND a.status = $7
+				AND a.schedulable = FALSE
+				AND (a.auto_pause_on_expired IS NOT TRUE OR a.expires_at IS NULL OR a.expires_at > NOW())
+				AND a.extra ->> $2 = $8
+			RETURNING a.id
+		)
+		INSERT INTO scheduler_outbox (event_type, account_id, group_id, payload)
+		SELECT $9, updated.id, NULL, NULL FROM updated
+	`,
+		service.AccountSchedulingDisabledReasonExtraKey,
+		service.AccountAutoEnableSourceExtraKey,
+		service.AccountAutoEnableAtExtraKey,
+		id,
+		service.PlatformOpenAI,
+		service.AccountTypeOAuth,
+		service.StatusActive,
+		service.AccountAutoEnableSourceOpenAIOAuthFailure,
+		service.SchedulerOutboxEventAccountChanged,
+	)
+	if err != nil {
+		return false, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	if affected == 0 {
+		return false, nil
+	}
+	r.syncSchedulerAccountSnapshotDetached(ctx, id)
+	return true, nil
+}
+
+// AutoEnableOpenAIOAuthAccountsAfterQuotaReset restores a bounded batch whose
+// upstream-confirmed quota reset deadline has elapsed.
+func (r *accountRepository) AutoEnableOpenAIOAuthAccountsAfterQuotaReset(ctx context.Context, now time.Time, limit int) ([]int64, error) {
+	if r == nil || r.sql == nil {
+		return nil, fmt.Errorf("account repository SQL executor is unavailable")
+	}
+	if limit <= 0 {
+		return []int64{}, nil
+	}
+	rows, err := r.sql.QueryContext(ctx, `
+		WITH candidates AS MATERIALIZED (
+			SELECT a.id
+			FROM accounts AS a
+			WHERE a.deleted_at IS NULL
+				AND a.platform = $1
+				AND a.type = $2
+				AND a.status = $3
+				AND a.schedulable = FALSE
+				AND (a.auto_pause_on_expired IS NOT TRUE OR a.expires_at IS NULL OR a.expires_at > $7)
+				AND a.extra ->> $4 = $5
+				AND CASE
+					WHEN jsonb_typeof(a.extra -> $6) = 'number'
+						AND a.extra ->> $6 ~ '^[0-9]{1,19}$'
+					THEN (a.extra ->> $6)::numeric <= EXTRACT(EPOCH FROM $7)
+					ELSE FALSE
+				END
+			ORDER BY a.id
+			LIMIT $8
+		), updated AS (
+			UPDATE accounts AS a
+			SET schedulable = TRUE,
+				rate_limited_at = NULL,
+				rate_limit_reset_at = NULL,
+				extra = COALESCE(a.extra, '{}'::jsonb) - $9 - $4 - $6,
+				updated_at = NOW()
+			FROM candidates
+			WHERE a.id = candidates.id
+				AND a.schedulable = FALSE
+				AND a.extra ->> $4 = $5
+				AND (a.auto_pause_on_expired IS NOT TRUE OR a.expires_at IS NULL OR a.expires_at > $7)
+			RETURNING a.id
+		), outboxed AS (
+			INSERT INTO scheduler_outbox (event_type, account_id, group_id, payload)
+			SELECT $10, updated.id, NULL, NULL FROM updated
+			RETURNING account_id
+		)
+		SELECT id FROM updated ORDER BY id
+	`,
+		service.PlatformOpenAI,
+		service.AccountTypeOAuth,
+		service.StatusActive,
+		service.AccountAutoEnableSourceExtraKey,
+		service.AccountAutoEnableSourceOpenAIOAuthFailure,
+		service.AccountAutoEnableAtExtraKey,
+		now,
+		limit,
+		service.AccountSchedulingDisabledReasonExtraKey,
+		service.SchedulerOutboxEventAccountChanged,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	accountIDs := make([]int64, 0)
+	for rows.Next() {
+		var accountID int64
+		if err := rows.Scan(&accountID); err != nil {
+			return nil, err
+		}
+		accountIDs = append(accountIDs, accountID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(accountIDs) == 0 {
+		return accountIDs, nil
+	}
+	r.syncSchedulerAccountSnapshots(ctx, accountIDs)
+	return accountIDs, nil
 }
 
 func (r *accountRepository) AutoPauseExpiredAccounts(ctx context.Context, now time.Time) (int64, error) {

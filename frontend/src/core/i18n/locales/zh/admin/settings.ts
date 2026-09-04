@@ -1035,6 +1035,10 @@ export default {
         autoDisableThresholdHint: '仅统计 OAuth 账号级 429 和 502；成功请求会清零计数（1-100 次）。',
         quotaCheck: '关闭前实时确认额度限额',
         quotaCheckHint: '达到阈值后查询主 Codex 额度；仅在上游明确限额或已用比例达到 100% 时关闭。查询失败、额度未知或尚有额度时保持可调度。',
+        autoEnableAfterReset: '额度倒计时结束后自动开启账号',
+        autoEnableAfterResetHint: '主 Codex 额度确认耗尽并触发 OAuth 熔断后，在上游重置倒计时结束时自动恢复账号调度。管理员手动关闭的账号不会被开启。',
+        autoEnableWhenAvailable: '查询到仍有额度时自动开启账号',
+        autoEnableWhenAvailableHint: '主动查询主 Codex 额度并确认仍有可用额度时，自动恢复由 OAuth 熔断关闭的账号。额度未知、API Key 账号和管理员手动关闭的账号不受影响。',
         saved: '429 默认回避设置保存成功',
         saveFailed: '保存 429 默认回避设置失败'
       },

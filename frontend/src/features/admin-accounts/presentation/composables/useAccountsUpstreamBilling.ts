@@ -424,7 +424,12 @@ export function useAccountsUpstreamBilling(options: AccountsUpstreamBillingOptio
           const result = await refreshOpenAIQuotaBatch(batch)
           for (const [accountID, quota] of Object.entries(result.results)) {
             const id = Number(accountID)
-            if (Number.isSafeInteger(id) && quota) bulkOpenAIQuotaResults.set(id, quota)
+            if (Number.isSafeInteger(id) && quota) {
+              bulkOpenAIQuotaResults.set(id, quota)
+              if (quota.account_auto_enabled && quota.account) {
+                options.patchAccountInList(quota.account)
+              }
+            }
           }
           succeeded += Object.keys(result.results).length
           failed += Object.keys(result.errors).length

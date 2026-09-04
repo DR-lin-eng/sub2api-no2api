@@ -181,6 +181,12 @@ Codex 额度检查，而不会直接停调；只有上游明确返回限额状�
 达到上限时都不会关闭账号；连续计数保留，后续账号级 429/502 会再次检查。该检查只读取主额度，不查询
 重置额度明细或服务端 token 活动。
 
+`auto_enable_after_quota_reset_enabled` 与 `auto_enable_when_quota_available_enabled` 也默认
+`false`。前者会在额度检查记录的主 Codex 重置倒计时结束后，由分钟级后台任务恢复账号；
+后者会在管理端主动刷新额度且主 Codex bucket 明确仍有额度时立即恢复账号。两者只处理由
+上述 OpenAI OAuth 失败熔断写入专用恢复标记的账号；管理员手工停调会清除该标记，因此不会被
+后台恢复。OpenAI API Key 账号以及其它平台/账号类型不参与自动恢复。
+
 ```bash
 curl -X PUT "${BASE}/api/v1/admin/settings/rate-limit-429-cooldown" \
   -H "x-api-key: ${ADMIN_API_KEY}" \
@@ -190,12 +196,14 @@ curl -X PUT "${BASE}/api/v1/admin/settings/rate-limit-429-cooldown" \
     "cooldown_seconds": 5,
     "auto_disable_enabled": true,
     "auto_disable_threshold": 3,
-    "auto_disable_quota_check_enabled": true
+    "auto_disable_quota_check_enabled": true,
+    "auto_enable_after_quota_reset_enabled": true,
+    "auto_enable_when_quota_available_enabled": true
   }'
 ```
 
-该操作需要 `admin.settings.write`。自动关闭不会自动恢复；管理员在账号管理中单个或批量
-重新启用调度时，暂停原因和 Redis 连续失败计数会同时清除。
+该操作需要 `admin.settings.write`。两个恢复开关关闭时，自动停调仍保持原有的人工恢复行为；
+管理员在账号管理中单个或批量更新调度开关时，暂停原因、自动恢复标记和 Redis 连续失败计数会清除。
 
 ## Key 管理接口
 

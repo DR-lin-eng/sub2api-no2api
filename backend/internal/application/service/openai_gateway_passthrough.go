@@ -1803,7 +1803,7 @@ func (s *OpenAIGatewayService) newOpenAIStreamFailoverError(
 		if c != nil && c.Request != nil {
 			failureCtx = c.Request.Context()
 		}
-		s.rateLimitService.maybeAutoDisableOpenAIAccountOnFailure(failureCtx, account, statusCode, payload)
+		s.rateLimitService.maybeAutoDisableOpenAIAccountOnFailure(failureCtx, account, statusCode, headers, payload)
 	}
 	return failoverErr
 }

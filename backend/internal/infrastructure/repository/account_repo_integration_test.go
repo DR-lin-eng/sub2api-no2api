@@ -978,6 +978,96 @@ func (s *AccountRepoSuite) TestSetSchedulable() {
 	s.Require().Equal(account.ID, cacheRecorder.setAccounts[0].ID)
 }
 
+func (s *AccountRepoSuite) TestAutoEnableOpenAIOAuthAccountsAfterQuotaResetIsScoped() {
+	now := time.Now().UTC()
+	resetAt := now.Add(-time.Minute).Unix()
+	markUnschedulable := func(account *service.Account) {
+		s.Require().NoError(s.client.Account.UpdateOneID(account.ID).SetSchedulable(false).Exec(s.ctx))
+	}
+	marked := mustCreateAccount(s.T(), s.client, &service.Account{
+		Name:        "oauth-auto-enable-marked",
+		Platform:    service.PlatformOpenAI,
+		Type:        service.AccountTypeOAuth,
+		Status:      service.StatusActive,
+		Schedulable: false,
+		Extra: map[string]any{
+			service.AccountSchedulingDisabledReasonExtraKey: "consecutive 429/502",
+			service.AccountAutoEnableSourceExtraKey:         service.AccountAutoEnableSourceOpenAIOAuthFailure,
+			service.AccountAutoEnableAtExtraKey:             resetAt,
+		},
+	})
+	markUnschedulable(marked)
+	s.Require().NoError(s.client.Account.UpdateOneID(marked.ID).
+		SetRateLimitedAt(now).
+		SetRateLimitResetAt(now.Add(time.Hour)).
+		Exec(s.ctx))
+	manual := mustCreateAccount(s.T(), s.client, &service.Account{
+		Name:        "oauth-auto-enable-manual",
+		Platform:    service.PlatformOpenAI,
+		Type:        service.AccountTypeOAuth,
+		Status:      service.StatusActive,
+		Schedulable: false,
+		Extra:       map[string]any{service.AccountAutoEnableAtExtraKey: resetAt},
+	})
+	markUnschedulable(manual)
+	apiKey := mustCreateAccount(s.T(), s.client, &service.Account{
+		Name:        "apikey-auto-enable-marker",
+		Platform:    service.PlatformOpenAI,
+		Type:        service.AccountTypeAPIKey,
+		Status:      service.StatusActive,
+		Schedulable: false,
+		Extra: map[string]any{
+			service.AccountAutoEnableSourceExtraKey: service.AccountAutoEnableSourceOpenAIOAuthFailure,
+			service.AccountAutoEnableAtExtraKey:     resetAt,
+		},
+	})
+	markUnschedulable(apiKey)
+	expired := mustCreateAccount(s.T(), s.client, &service.Account{
+		Name:               "oauth-auto-enable-expired",
+		Platform:           service.PlatformOpenAI,
+		Type:               service.AccountTypeOAuth,
+		Status:             service.StatusActive,
+		Schedulable:        false,
+		AutoPauseOnExpired: true,
+		ExpiresAt:          func() *time.Time { value := now.Add(-time.Hour); return &value }(),
+		Extra: map[string]any{
+			service.AccountAutoEnableSourceExtraKey: service.AccountAutoEnableSourceOpenAIOAuthFailure,
+			service.AccountAutoEnableAtExtraKey:     resetAt,
+		},
+	})
+	markUnschedulable(expired)
+	s.Require().NoError(s.client.Account.UpdateOneID(expired.ID).
+		SetAutoPauseOnExpired(true).
+		SetExpiresAt(now.Add(-time.Hour)).
+		Exec(s.ctx))
+
+	ids, err := s.repo.AutoEnableOpenAIOAuthAccountsAfterQuotaReset(s.ctx, now, 20)
+	s.Require().NoError(err)
+	s.Require().Contains(ids, marked.ID)
+	s.Require().NotContains(ids, manual.ID)
+	s.Require().NotContains(ids, apiKey.ID)
+	s.Require().NotContains(ids, expired.ID)
+
+	updated, err := s.repo.GetByID(s.ctx, marked.ID)
+	s.Require().NoError(err)
+	s.Require().True(updated.Schedulable)
+	s.Require().Nil(updated.RateLimitedAt)
+	s.Require().Nil(updated.RateLimitResetAt)
+	s.Require().NotContains(updated.Extra, service.AccountSchedulingDisabledReasonExtraKey)
+	s.Require().NotContains(updated.Extra, service.AccountAutoEnableSourceExtraKey)
+	s.Require().NotContains(updated.Extra, service.AccountAutoEnableAtExtraKey)
+
+	unchanged, err := s.repo.GetByID(s.ctx, manual.ID)
+	s.Require().NoError(err)
+	s.Require().False(unchanged.Schedulable)
+	apiKeyState, err := s.repo.GetByID(s.ctx, apiKey.ID)
+	s.Require().NoError(err)
+	s.Require().False(apiKeyState.Schedulable)
+	expiredState, err := s.repo.GetByID(s.ctx, expired.ID)
+	s.Require().NoError(err)
+	s.Require().False(expiredState.Schedulable)
+}
+
 func (s *AccountRepoSuite) TestBulkUpdate_SyncSchedulerSnapshotOnDisabled() {
 	account1 := mustCreateAccount(s.T(), s.client, &service.Account{Name: "bulk-1", Status: service.StatusActive, Schedulable: true})
 	account2 := mustCreateAccount(s.T(), s.client, &service.Account{Name: "bulk-2", Status: service.StatusActive, Schedulable: true})

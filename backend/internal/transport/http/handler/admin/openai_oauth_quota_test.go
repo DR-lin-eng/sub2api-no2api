@@ -77,6 +77,23 @@ func (s *openAIAccountStateRecovererStub) RecoverAccountState(ctx context.Contex
 	return &service.SuccessfulTestRecoveryResult{}, s.err
 }
 
+type openAIQuotaAutoEnableRecovererStub struct {
+	openAIAccountStateRecovererStub
+	account *service.Account
+	enabled bool
+	err     error
+	calls   int
+}
+
+func (s *openAIQuotaAutoEnableRecovererStub) MaybeAutoEnableOpenAIAccountAfterQuotaQuery(
+	context.Context,
+	int64,
+	*service.OpenAIQuotaUsage,
+) (*service.Account, bool, error) {
+	s.calls++
+	return s.account, s.enabled, s.err
+}
+
 type openAIResetAdminServiceStub struct {
 	service.AdminService
 	account *service.Account
@@ -372,6 +389,32 @@ func TestOpenAIRefreshQuotaPersistsSnapshotWithoutHidingReadFailures(t *testing.
 		require.Equal(t, http.StatusInternalServerError, status)
 		require.Zero(t, quota.cacheCalls)
 	})
+}
+
+func TestOpenAIRefreshQuotaReturnsAutoEnabledAccount(t *testing.T) {
+	quota := successfulOpenAIQuotaWorkflowStub()
+	quota.queryResult.RateLimitsByLimitID = map[string]service.OpenAIAppServerRateLimitBucket{
+		"codex": {
+			LimitID: "codex",
+			Primary: &service.OpenAIAppServerRateLimitWindow{UsedPercent: 25, WindowDurationMins: 10080},
+		},
+	}
+	recoverer := &openAIQuotaAutoEnableRecovererStub{
+		account: &service.Account{
+			ID: 42, Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+			Status: service.StatusActive, Schedulable: true,
+		},
+		enabled: true,
+	}
+	handler := &OpenAIOAuthHandler{quotaService: quota, rateLimitService: recoverer}
+
+	status, envelope := performOpenAIQuotaRefreshRequest(t, handler)
+
+	require.Equal(t, http.StatusOK, status)
+	require.True(t, envelope.Data.AccountAutoEnabled)
+	require.NotNil(t, envelope.Data.Account)
+	require.True(t, envelope.Data.Account.Schedulable)
+	require.Equal(t, 1, recoverer.calls)
 }
 
 func TestOpenAIRefreshQuotaBatchQueriesOnlyOpenAIOAuthAndIsolatesFailures(t *testing.T) {

@@ -803,6 +803,9 @@ const handleQuery = async () => {
     openAIQuotaSnapshotCache.set(props.account.id, activeResult)
     data.value = activeResult
     emit('quota-updated', activeResult)
+    if (result.account_auto_enabled && result.account) {
+      emit('account-updated', result.account)
+    }
     if (result.cache_persisted) {
       cachedData.value = activeResult
     } else {
