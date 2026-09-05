@@ -155,7 +155,8 @@ Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换
 `gateway.codex_simulation`；记录缺失时才使用 YAML/环境变量作为兼容默认值。当前节点保存后立即生效，
 其他节点最多在 5 秒后台刷新周期后生效；OAuth 请求只读内存快照，不承担数据库刷新。首次启用 A 或 B 时
 服务端自动生成并保存身份密钥，接口只返回
-密钥是否已配置。A/B/C 默认关闭，并且不改变账号调度、计费或通用 failover。A 的
+密钥是否已配置。A/B/C 默认关闭；A/C 不改变账号调度，B enforce 只在已知 incremental owner 时
+给现有调度器增加 owner principal/本地账号候选约束，不改变匹配候选之间的排序、计费或通用 failover。A 的
 `full_simulation_enabled` 只作用于 `codex_fingerprint_mode=full` 的 OpenAI OAuth 账号；B 的
 `continuation_mode=off|shadow|enforce` 独立于账号指纹模式。C 的
 `c_level_simulation_enabled` 独立控制新增的账号级 HTTP/TLS、虚拟客户端连接池、Cloudflare 基础设施 Cookie
@@ -173,7 +174,10 @@ HMAC；项目头在所有 HTTP/WS 上游构造器中删除。每个账号 attemp
 
 B 在 application 层将 body 分成 full/incremental，并读取 Redis string state（失败时使用有界本地
 fallback）判断 root/response owner。shadow 只读取、分类和记录假设；enforce 允许 full body 经结构化
-清理后迁移，但拒绝跨主体 incremental。相同主体的 WS incremental 必须取得原连接；连接繁忙沿用连接
+清理后迁移，但拒绝跨主体 incremental。已知 owner 的 incremental 在账号获取前将候选约束到记录的
+principal；若 `previous_response_id -> account_id` 或当前节点的原始连接仍可用，则同时约束本地账号并把它
+加入 Scheduler V2 优先候选。账号元数据只携带非凭据的
+`codex_virtual_client_key`，完整凭据仍在选中后读取。相同主体的 WS incremental 必须取得原连接；连接繁忙沿用连接
 池等待，主体或连接不匹配返回独立终态错误，handler 直接写出协议兼容错误，不进入账号 failover。
 成功 turn 才写 owner/response；成功 Compact 才推进 generation。更完整的差异与故障语义见
 [Codex OAuth 模拟的有意差异](codex/intentional-divergences.md)。

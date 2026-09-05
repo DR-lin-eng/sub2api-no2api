@@ -247,7 +247,8 @@ score =
 - 正常 `last_used_at` 使用 Unix 秒，越旧分数越小。
 - 异常超远未来时间被限制在优先级权重以内。
 - Gemini bucket 中，原生 Gemini 非 OAuth 在完全相同优先级和秒级 LRU 时增加 `0.25`，因此原生 OAuth 先出。
-- `1e11` 在完全支配时间项的同时，使最高优先级总分仍保留 `0.25` 的 float64 精度；该公式使用索引版本 2。
+- `1e11` 在完全支配时间项的同时，使最高优先级总分仍保留 `0.25` 的 float64 精度；该公式自索引版本 2
+  起保持不变。当前索引版本 3 额外携带非凭据的 Codex virtual-client namespace，供请求级 owner affinity 过滤。
 - Redis 在完全相同分数时可按 member 排序，所以相同权重账号 ID 不要求与旧版相同。
 
 ### 7.2 因子注册表

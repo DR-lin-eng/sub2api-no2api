@@ -315,7 +315,7 @@ func openAICompactSupportTier(account *Account) int {
 // 检查母账号凭据可用性；该检查未内置于本函数，以避免注入 DB 依赖。
 func isOpenAICompatibleAccountEligibleForRequest(ctx context.Context, account *Account, platform string, requestedModel string, requireCompact bool, requiredCapability OpenAIEndpointCapability) bool {
 	platform = normalizeOpenAICompatiblePlatform(platform)
-	if account == nil || account.Platform != platform || !account.IsOpenAICompatible() || !account.IsSchedulableForModelWithContext(ctx, requestedModel) {
+	if account == nil || !codexContinuationSchedulingMatches(ctx, account) || account.Platform != platform || !account.IsOpenAICompatible() || !account.IsSchedulableForModelWithContext(ctx, requestedModel) {
 		return false
 	}
 	if vetoed, _ := profitControlVetoReason(ctx, account); vetoed {
@@ -1628,7 +1628,8 @@ func (s *OpenAIGatewayService) withOpenAISchedulerCandidateFilter(ctx context.Co
 	parentLookup := s.parentAccountLookup(requestCtx)
 	needsUpstreamCheck := groupID != nil && s.needsUpstreamChannelRestrictionCheck(requestCtx, groupID)
 	return withSchedulerCandidatePredicate(ctx, func(account *Account) bool {
-		if !isOpenAICompatibleAccountEligibleForRequest(requestCtx, account, platform, requestedModel, false, requiredCapability) ||
+		if !s.codexContinuationCandidateMatches(requestCtx, account) ||
+			!isOpenAICompatibleAccountEligibleForRequest(withoutCodexContinuationSchedulingAffinity(requestCtx), account, platform, requestedModel, false, requiredCapability) ||
 			!openAIStickyAccountMatchesGroup(account, groupID) ||
 			s.isOpenAIAccountRuntimeBlocked(account) ||
 			!parentHealthyForShadow(account, parentLookup) {

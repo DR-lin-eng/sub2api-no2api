@@ -72,10 +72,14 @@ attempt 从它单独派生；需要重建 JSON 时使用结构化解析与确定
 `encrypted_content`。B 只保存 `root -> owner` 与 `response -> owner`，不建立 item-owner 数据库：
 
 - full body 可以在跨主体前结构化清理，保留明文与可证明完整的 call/output 对；
-- incremental body 不能跨主体；
+- incremental body 不能跨主体；enforce 在选号前按已记录的 owner principal 过滤候选；现有
+  `previous_response_id -> account_id` 或当前节点的原始连接仍可用时同时锁定本地账号并把它注入
+  Scheduler V2 优先候选；跨节点缺少原连接时仍安全回退到 principal-only 过滤，避免先选中其他主体并
+  产生可避免的 409；
 - 同主体 WS incremental 必须复用原始上游 WS 连接，连接繁忙由现有池等待；
 - 未知 owner 可以先尝试；若上游返回 `invalid_encrypted_content`，写入 external tombstone；
-- enforce 下的主体/连接不匹配是请求终态，不包装为 `UpstreamFailoverError`；
+- enforce 下经过 owner-principal 约束后仍发生的主体/连接不匹配是请求终态，不包装为
+  `UpstreamFailoverError`；
 - shadow 只读状态、分类和记录假设，不写 owner、不拒绝请求。
 
 账号配置为 WS `passthrough` 时，B enforce 会在该请求入口收敛到 `ctx_pool`。直接 relay 没有可跨请求

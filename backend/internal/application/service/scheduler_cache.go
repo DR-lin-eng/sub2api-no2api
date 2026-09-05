@@ -30,7 +30,7 @@ const (
 	// SchedulerCandidateIndexVersion must be incremented whenever an index-time
 	// score factor or its source metadata changes. Old indexes then become cache
 	// misses and are rebuilt before use.
-	SchedulerCandidateIndexVersion = "2"
+	SchedulerCandidateIndexVersion = "3"
 )
 
 var (

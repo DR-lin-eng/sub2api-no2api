@@ -2110,6 +2110,9 @@ func (s *defaultOpenAIAccountScheduler) isAccountRequestCompatibleReason(ctx con
 	if account == nil {
 		return false, "account_nil"
 	}
+	if s != nil && s.service != nil && !s.service.codexContinuationCandidateMatches(ctx, account) {
+		return false, "codex_continuation_principal_mismatch"
+	}
 	if s != nil && s.service != nil && s.service.isOpenAIAccountRequestRuntimeBlocked(account, req.RequestedModel) {
 		return false, "runtime_blocked"
 	}
