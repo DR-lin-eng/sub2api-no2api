@@ -206,6 +206,7 @@ func TestBulkUpdateAcceptsFilterTargetRequest(t *testing.T) {
 			"platform":     "openai",
 			"type":         "oauth",
 			"status":       "active",
+			"oauth_quota":  service.AccountOAuthQuotaFilter5hExhausted,
 			"group":        "12",
 			"privacy_mode": "blocked",
 			"search":       "bulk-target",
@@ -221,6 +222,22 @@ func TestBulkUpdateAcceptsFilterTargetRequest(t *testing.T) {
 	var resp map[string]any
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 	require.Equal(t, float64(0), resp["code"])
+	require.NotNil(t, adminSvc.lastBulkUpdateAccountInput)
+	require.NotNil(t, adminSvc.lastBulkUpdateAccountInput.Filters)
+	require.Equal(t, service.AccountOAuthQuotaFilter5hExhausted, adminSvc.lastBulkUpdateAccountInput.Filters.OAuthQuota)
+}
+
+func TestBulkUpdateRejectsInvalidOAuthQuotaFilter(t *testing.T) {
+	adminSvc := newStubAdminService()
+	router := setupAccountMixedChannelRouter(adminSvc)
+	body := []byte(`{"filters":{"oauth_quota":"unknown"},"schedulable":true}`)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/bulk-update", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusBadRequest, recorder.Code)
+	require.Nil(t, adminSvc.lastBulkUpdateAccountInput)
 }
 
 func TestBulkUpdateAcceptsDedicatedUpstreamBillingProbeSetting(t *testing.T) {

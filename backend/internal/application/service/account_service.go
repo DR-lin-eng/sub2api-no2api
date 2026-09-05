@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
@@ -18,11 +19,44 @@ var (
 const AccountListGroupUngrouped int64 = -1
 const AccountPrivacyModeUnsetFilter = "__unset__"
 
-// AccountOAuthQuotaFilterExhausted selects OAuth accounts whose persisted
-// quota snapshot shows at least one known window at 100% usage.  The snapshot
-// is intentionally used here instead of issuing an upstream request for every
-// row in an admin list.
-const AccountOAuthQuotaFilterExhausted = "exhausted"
+// AccountOAuthQuotaFilter* values select persisted quota snapshots in the
+// admin account list. These filters never trigger an upstream request.
+const (
+	// AccountOAuthQuotaFilterExhausted preserves the original broad OAuth
+	// filter: any supported active window is fully used.
+	AccountOAuthQuotaFilterExhausted = "exhausted"
+	// AccountOAuthQuotaFilterHasQuota selects OAuth accounts with a known quota
+	// snapshot and at least one usable window.
+	AccountOAuthQuotaFilterHasQuota = "has_quota"
+	// AccountOAuthQuotaFilterWithReset selects OpenAI OAuth accounts with a
+	// persisted reset-credit snapshot that reports available credits.
+	AccountOAuthQuotaFilterWithReset = "with_reset"
+	// AccountOAuthQuotaFilter5hExhausted and AccountOAuthQuotaFilter7dExhausted
+	// select the corresponding OpenAI Codex quota window at 100%.
+	AccountOAuthQuotaFilter5hExhausted = "5h_exhausted"
+	AccountOAuthQuotaFilter7dExhausted = "7d_exhausted"
+)
+
+// NormalizeAccountOAuthQuotaFilter constrains callers to the documented wire
+// values and returns one canonical value for ETags and repository calls.
+func NormalizeAccountOAuthQuotaFilter(value string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "":
+		return "", nil
+	case AccountOAuthQuotaFilterExhausted:
+		return AccountOAuthQuotaFilterExhausted, nil
+	case AccountOAuthQuotaFilterHasQuota:
+		return AccountOAuthQuotaFilterHasQuota, nil
+	case AccountOAuthQuotaFilterWithReset:
+		return AccountOAuthQuotaFilterWithReset, nil
+	case AccountOAuthQuotaFilter5hExhausted:
+		return AccountOAuthQuotaFilter5hExhausted, nil
+	case AccountOAuthQuotaFilter7dExhausted:
+		return AccountOAuthQuotaFilter7dExhausted, nil
+	default:
+		return "", fmt.Errorf("invalid OAuth quota filter")
+	}
+}
 
 // AdminAccountOAuthQuotaListService is an optional extension of AdminService
 // for the paginated account-list OAuth quota filter. Keeping it separate from

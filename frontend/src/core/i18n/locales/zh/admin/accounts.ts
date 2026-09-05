@@ -95,7 +95,7 @@ export default {
       // Filter options
       allPlatforms: '全部平台',
       allTypes: '全部类型',
-      allStatus: '全部状态', allOAuthQuota: '全部 OAuth 额度', oauthQuotaExhausted: 'OAuth 额度已耗尽',
+      allStatus: '全部状态', allOAuthQuota: '全部 OAuth 额度', oauthQuotaHasQuota: 'OAuth 有额度', oauthQuotaExhausted: 'OAuth 额度已耗尽', openAIQuotaWithReset: 'OpenAI OAuth 有可用重置', openAIQuota5hExhausted: 'OpenAI 5h 额度已满', openAIQuota7dExhausted: 'OpenAI 7d 额度已满',
       allGroups: '全部分组',
       ungroupedGroup: '未分配分组',
       oauthType: 'OAuth',

@@ -426,6 +426,7 @@ type BulkUpdateAccountFilters struct {
 	Platform    string
 	Type        string
 	Status      string
+	OAuthQuota  string
 	Group       string
 	Search      string
 	PrivacyMode string

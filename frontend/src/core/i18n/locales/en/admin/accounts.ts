@@ -95,7 +95,7 @@ export default {
       notesHint: 'Notes are optional',
       allPlatforms: 'All Platforms',
       allTypes: 'All Types',
-      allStatus: 'All Status', allOAuthQuota: 'All OAuth Quota', oauthQuotaExhausted: 'OAuth quota exhausted',
+      allStatus: 'All Status', allOAuthQuota: 'All OAuth Quota', oauthQuotaHasQuota: 'OAuth has quota', oauthQuotaExhausted: 'OAuth quota exhausted', openAIQuotaWithReset: 'OpenAI OAuth with reset credits', openAIQuota5hExhausted: 'OpenAI 5h quota full', openAIQuota7dExhausted: 'OpenAI 7d quota full',
       allGroups: 'All Groups',
       ungroupedGroup: 'Ungrouped',
       oauthType: 'OAuth',

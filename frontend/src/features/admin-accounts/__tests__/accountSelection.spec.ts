@@ -84,4 +84,59 @@ describe('accountMatchesFilters', () => {
   it('stops treating an expired quota snapshot as exhausted', () => {
     expect(accountMatchesFilters(account, { oauth_quota: 'exhausted' }, Date.parse('2026-08-29T00:00:00Z'))).toBe(false)
   })
+
+  it('matches OpenAI quota modes against the corresponding window', () => {
+    const fiveHourFull = {
+      ...account,
+      id: 8,
+      extra: {
+        codex_5h_used_percent: 100,
+        codex_5h_reset_at: '2026-08-28T00:00:00Z'
+      }
+    } as Account
+    const hasQuota = {
+      ...account,
+      id: 9,
+      extra: {
+        codex_5h_used_percent: 40,
+        codex_5h_reset_at: '2026-08-28T00:00:00Z',
+        codex_reset_credit_snapshot: {
+          available_count: 1,
+          credits: [{ expires_at: '2026-08-30T00:00:00Z' }]
+        }
+      }
+    } as Account
+    const noReset = {
+      ...account,
+      id: 10,
+      extra: { codex_7d_used_percent: 20 }
+    } as Account
+
+    expect(accountMatchesFilters(fiveHourFull, { oauth_quota: '5h_exhausted' }, now)).toBe(true)
+    expect(accountMatchesFilters(fiveHourFull, { oauth_quota: '7d_exhausted' }, now)).toBe(false)
+    expect(accountMatchesFilters({
+      ...account,
+      extra: {
+        codex_secondary_used_percent: 100,
+        codex_secondary_reset_after_seconds: 3600,
+        codex_usage_updated_at: '2026-08-27T00:00:00Z'
+      }
+    } as Account, { oauth_quota: '5h_exhausted' }, now)).toBe(true)
+    expect(accountMatchesFilters({
+      ...account,
+      extra: {
+        codex_primary_used_percent: 100,
+        codex_primary_window_minutes: 300,
+        codex_primary_reset_after_seconds: 3600,
+        codex_usage_updated_at: '2026-08-27T00:00:00Z'
+      }
+    } as Account, { oauth_quota: '5h_exhausted' }, now)).toBe(true)
+    expect(accountMatchesFilters(hasQuota, { oauth_quota: 'has_quota' }, now)).toBe(true)
+    expect(accountMatchesFilters(hasQuota, { oauth_quota: 'with_reset' }, now)).toBe(true)
+    expect(accountMatchesFilters(noReset, { oauth_quota: 'with_reset' }, now)).toBe(false)
+    expect(accountMatchesFilters({
+      ...hasQuota,
+      extra: { codex_5h_used_percent: 40, codex_5h_reset_at: '2026-08-28T00:00:00Z' }
+    } as Account, { oauth_quota: 'with_reset' }, now)).toBe(false)
+  })
 })

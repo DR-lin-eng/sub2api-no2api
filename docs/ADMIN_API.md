@@ -6,7 +6,7 @@
 
 - 基础地址：`https://<your-domain>`
 - Admin API 前缀：`/api/v1/admin`
-- 账号列表 `GET /api/v1/admin/accounts` 支持 `oauth_quota=exhausted` 筛选。该筛选在数据库分页前检查已持久化的 OAuth 用量快照；任一已知窗口达到 100% 且尚未过重置时间的账号会被返回，缺少快照的账号不会被推断为耗尽。
+- 账号列表 `GET /api/v1/admin/accounts` 支持 `oauth_quota` 筛选：`exhausted`（兼容值，任一 OAuth 窗口满额）、`has_quota`（有已知额度且当前没有满额窗口）、`with_reset`（OpenAI OAuth 有可用重置次数）、`5h_exhausted` 和 `7d_exhausted`（OpenAI OAuth 对应窗口满额）。筛选在数据库分页前检查已持久化快照；有效重置时间已过去的窗口按已重置处理，缺少快照或无法确认窗口的账号不会被误判为有额度或满额。
 - JSON 请求头：`Content-Type: application/json`
 - 机器调用认证头：`x-api-key: <admin-api-key>`
 - 管理员页面调用：`Authorization: Bearer <admin-jwt>`

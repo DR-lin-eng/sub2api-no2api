@@ -151,6 +151,55 @@ func TestAccountHandlerListOAuthQuotaFilterUsesPersistedOAuthSnapshots(t *testin
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
+func TestAccountHandlerListSupportsOpenAIQuotaFilterModes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	now := time.Now().UTC()
+	adminSvc := newStubAdminService()
+	adminSvc.accounts = []service.Account{
+		{ID: 201, Name: "openai-has-quota", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth, Status: service.StatusActive, Extra: map[string]any{"codex_5h_used_percent": 25.0}},
+		{ID: 202, Name: "openai-with-reset", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth, Status: service.StatusActive, Extra: map[string]any{"codex_5h_used_percent": 80.0, "codex_5h_reset_at": now.Add(time.Hour).Format(time.RFC3339), "codex_reset_credit_snapshot": map[string]any{"available_count": 2, "credits": []any{map[string]any{"expires_at": now.Add(24 * time.Hour).Format(time.RFC3339)}}}}},
+		{ID: 203, Name: "openai-5h-full", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth, Status: service.StatusActive, Extra: map[string]any{"codex_5h_used_percent": 100.0, "codex_5h_reset_at": now.Add(time.Hour).Format(time.RFC3339)}},
+		{ID: 204, Name: "openai-7d-full", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth, Status: service.StatusActive, Extra: map[string]any{"codex_7d_used_percent": 100.0, "codex_7d_reset_at": now.Add(time.Hour).Format(time.RFC3339)}},
+		{ID: 205, Name: "openai-expired-full", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth, Status: service.StatusActive, Extra: map[string]any{"codex_5h_used_percent": 100.0, "codex_5h_reset_at": now.Add(-time.Hour).Format(time.RFC3339)}},
+		{ID: 206, Name: "anthropic-has-quota", Platform: service.PlatformAnthropic, Type: service.AccountTypeOAuth, Status: service.StatusActive, Extra: map[string]any{"session_window_utilization": 0.2}},
+	}
+	handler := NewAccountHandler(adminSvc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	router := gin.New()
+	router.GET("/api/v1/admin/accounts", handler.List)
+
+	filters := []struct {
+		value string
+		ids   []int64
+	}{
+		{service.AccountOAuthQuotaFilterHasQuota, []int64{201, 202, 205, 206}},
+		{service.AccountOAuthQuotaFilterWithReset, []int64{202}},
+		{service.AccountOAuthQuotaFilter5hExhausted, []int64{203}},
+		{service.AccountOAuthQuotaFilter7dExhausted, []int64{204}},
+	}
+	for _, testCase := range filters {
+		t.Run(testCase.value, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodGet, "/api/v1/admin/accounts?oauth_quota="+testCase.value, nil)
+			router.ServeHTTP(recorder, request)
+
+			require.Equal(t, http.StatusOK, recorder.Code)
+			var payload struct {
+				Data struct {
+					Items []struct {
+						ID int64 `json:"id"`
+					} `json:"items"`
+				} `json:"data"`
+			}
+			require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &payload))
+			ids := make([]int64, 0, len(payload.Data.Items))
+			for _, item := range payload.Data.Items {
+				ids = append(ids, item.ID)
+			}
+			require.ElementsMatch(t, testCase.ids, ids)
+		})
+	}
+}
+
 func TestAccountHandlerListBatchesIndependentWindowCosts(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	adminSvc := newStubAdminService()

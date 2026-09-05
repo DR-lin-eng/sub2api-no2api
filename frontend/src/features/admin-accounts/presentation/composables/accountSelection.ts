@@ -1,4 +1,5 @@
 import type { Account } from '@/types'
+import { ACCOUNT_OAUTH_QUOTA_FILTER } from '@/features/admin-accounts/data/dtos/accountQuotaFilters'
 
 interface AccountIDRow {
   id: number
@@ -50,16 +51,169 @@ const quotaResetIsActive = (value: unknown, now: number, unixSeconds = false): b
   return Number.isNaN(timestamp) || timestamp > now
 }
 
+const quotaWindowIsActive = (
+  extra: Record<string, unknown>,
+  resetAtKey: string,
+  resetAfterKey: string,
+  now: number
+): boolean => {
+  if (extra[resetAtKey] != null && extra[resetAtKey] !== '') {
+    return quotaResetIsActive(extra[resetAtKey], now)
+  }
+  const resetAfter = readQuotaNumber(extra[resetAfterKey])
+  if (resetAfter != null) {
+    const updatedAt = typeof extra.codex_usage_updated_at === 'string'
+      ? Date.parse(extra.codex_usage_updated_at)
+      : Number.NaN
+    if (Number.isFinite(updatedAt)) return updatedAt + resetAfter * 1000 > now
+  }
+  return true
+}
+
+interface OpenAIQuotaSnapshotWindow {
+  used: unknown
+  durationMinutes: unknown
+  resetAt: unknown
+}
+
+const snapshotObject = (value: unknown): Record<string, unknown> | null => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  return value as Record<string, unknown>
+}
+
+const openAIQuotaSnapshotWindows = (account: Account): OpenAIQuotaSnapshotWindow[] => {
+  const extra = snapshotObject(account.extra?.codex_rate_limit_snapshot)
+  if (!extra) return []
+  const windows: OpenAIQuotaSnapshotWindow[] = []
+  const buckets = snapshotObject(extra.rate_limits_by_limit_id ?? extra.rateLimitsByLimitId)
+  if (buckets) {
+    Object.values(buckets).forEach((rawBucket) => {
+      const bucket = snapshotObject(rawBucket)
+      if (!bucket) return
+      const nested = ['primary', 'secondary']
+        .map(key => snapshotObject(bucket[key]))
+        .filter((window): window is Record<string, unknown> => window != null)
+      if (nested.length > 0) {
+        nested.forEach(window => windows.push({
+          used: window.used_percent ?? window.usedPercent,
+          durationMinutes: window.window_duration_mins ?? window.windowDurationMins,
+          resetAt: window.resets_at ?? window.resetsAt
+        }))
+        return
+      }
+      if (bucket.used_percent != null || bucket.usedPercent != null) {
+        windows.push({
+          used: bucket.used_percent ?? bucket.usedPercent,
+          durationMinutes: bucket.window_duration_mins ?? bucket.windowDurationMins,
+          resetAt: bucket.resets_at ?? bucket.resetsAt
+        })
+      }
+    })
+  }
+  const legacy = snapshotObject(extra.rate_limit ?? extra.rateLimit)
+  if (legacy) {
+    const legacyWindowKeys = ['primary_window', 'secondary_window', 'primary', 'secondary']
+    legacyWindowKeys.forEach(key => {
+      const window = snapshotObject(legacy[key])
+      if (!window) return
+      windows.push({
+        used: window.used_percent ?? window.usedPercent,
+        durationMinutes: window.window_duration_mins ?? window.windowDurationMins ?? (
+          readQuotaNumber(window.limit_window_seconds) != null
+            ? readQuotaNumber(window.limit_window_seconds)! / 60
+            : undefined
+        ),
+        resetAt: window.reset_at ?? window.resets_at ?? window.resetsAt
+      })
+    })
+  }
+  return windows
+}
+
+const openAIQuotaWindowMatches = (
+  account: Account,
+  window: '5h' | '7d',
+  now: number,
+  exhausted: boolean
+): boolean => {
+  if (account.platform !== 'openai' || account.type !== 'oauth' || !account.extra) return false
+  const extra = account.extra as Record<string, unknown>
+  const canonical = window === '5h'
+    ? { used: 'codex_5h_used_percent', resetAt: 'codex_5h_reset_at', resetAfter: 'codex_5h_reset_after_seconds' }
+    : { used: 'codex_7d_used_percent', resetAt: 'codex_7d_reset_at', resetAfter: 'codex_7d_reset_after_seconds' }
+  const canonicalUsed = readQuotaNumber(extra[canonical.used])
+  if (canonicalUsed != null && (exhausted ? canonicalUsed >= 100 : canonicalUsed < 100) &&
+    quotaWindowIsActive(extra, canonical.resetAt, canonical.resetAfter, now)) return true
+
+  const legacyWindows = [
+    { name: 'primary', defaultWindow: '7d' },
+    { name: 'secondary', defaultWindow: '5h' }
+  ] as const
+  if (legacyWindows.some(candidate => {
+    const used = readQuotaNumber(extra[`codex_${candidate.name}_used_percent`])
+    const durationKey = `codex_${candidate.name}_window_minutes`
+    const duration = readQuotaNumber(extra[durationKey])
+    const matchesWindow = duration == null
+      ? !Object.prototype.hasOwnProperty.call(extra, durationKey) && candidate.defaultWindow === window
+      : window === '5h' ? duration >= 240 && duration <= 360 : duration >= 10000 && duration <= 10160
+    return used != null && matchesWindow && (exhausted ? used >= 100 : used < 100) && quotaWindowIsActive(
+      extra,
+      `codex_${candidate.name}_reset_at`,
+      `codex_${candidate.name}_reset_after_seconds`,
+      now
+    )
+  })) return true
+
+  return openAIQuotaSnapshotWindows(account).some(snapshot => {
+    const duration = readQuotaNumber(snapshot.durationMinutes)
+    const used = readQuotaNumber(snapshot.used)
+    if (duration == null || used == null) return false
+    const inWindow = window === '5h' ? duration >= 240 && duration <= 360 : duration >= 10000 && duration <= 10160
+    return inWindow && (exhausted ? used >= 100 : used < 100) && quotaResetIsActive(snapshot.resetAt, now, true)
+  })
+}
+
+const accountHasOpenAIQuotaReset = (account: Account, now: number): boolean => {
+  if (account.platform !== 'openai' || account.type !== 'oauth' || !account.extra) return false
+  const extra = account.extra as Record<string, unknown>
+  const resetCredits = snapshotObject(extra.codex_reset_credit_snapshot)
+  const count = readQuotaNumber(resetCredits?.available_count ?? resetCredits?.availableCount) ?? 0
+  if (count <= 0 || !Array.isArray(resetCredits?.credits)) return false
+  return resetCredits.credits.some(rawCredit => {
+    const credit = snapshotObject(rawCredit)
+    const expiresAt = credit?.expires_at ?? credit?.expiresAt
+    if (typeof expiresAt !== 'string' || expiresAt.trim() === '') return false
+    const expiry = Date.parse(expiresAt)
+    return Number.isNaN(expiry) || expiry > now
+  })
+}
+
+const accountHasKnownOAuthQuota = (account: Account): boolean => {
+  if (account.type !== 'oauth' || !account.extra) return false
+  const extra = account.extra as Record<string, unknown>
+  const knownKeys = [
+    'codex_5h_used_percent', 'codex_7d_used_percent',
+    'codex_primary_used_percent', 'codex_secondary_used_percent',
+    'session_window_utilization', 'passive_usage_7d_utilization',
+    'passive_usage_7d_oi_utilization'
+  ]
+  if (knownKeys.some(key => readQuotaNumber(extra[key]) != null)) return true
+  const billing = snapshotObject(extra.grok_billing_snapshot)
+  if (billing && ['usage_percent', 'used_percent'].some(key => readQuotaNumber(billing[key]) != null)) return true
+  return openAIQuotaSnapshotWindows(account).some(window => readQuotaNumber(window.used) != null)
+}
+
 const accountHasExhaustedOAuthQuota = (account: Account, now: number): boolean => {
   if (account.type !== 'oauth' || !account.extra) return false
+  const extra = account.extra as Record<string, unknown>
   const percentWindows = [
-    ['codex_5h_used_percent', 'codex_5h_reset_at'],
-    ['codex_7d_used_percent', 'codex_7d_reset_at'],
-    ['codex_primary_used_percent', 'codex_primary_reset_at'],
-    ['codex_secondary_used_percent', 'codex_secondary_reset_at']
+    ['codex_5h_used_percent', 'codex_5h_reset_at', 'codex_5h_reset_after_seconds'],
+    ['codex_7d_used_percent', 'codex_7d_reset_at', 'codex_7d_reset_after_seconds'],
+    ['codex_primary_used_percent', 'codex_primary_reset_at', 'codex_primary_reset_after_seconds'],
+    ['codex_secondary_used_percent', 'codex_secondary_reset_at', 'codex_secondary_reset_after_seconds']
   ]
-  if (percentWindows.some(([usageKey, resetKey]) =>
-    (readQuotaNumber(account.extra?.[usageKey]) ?? -1) >= 100 && quotaResetIsActive(account.extra?.[resetKey], now)
+  if (percentWindows.some(([usageKey, resetKey, resetAfterKey]) =>
+    (readQuotaNumber(extra[usageKey]) ?? -1) >= 100 && quotaWindowIsActive(extra, resetKey, resetAfterKey, now)
   )) return true
   const ratioWindows = [
     ['session_window_utilization', 'session_window_end'],
@@ -74,15 +228,23 @@ const accountHasExhaustedOAuthQuota = (account: Account, now: number): boolean =
   if (billing && typeof billing === 'object' && !Array.isArray(billing)) {
     const snapshot = billing as Record<string, unknown>
     const billingWindowActive = quotaResetIsActive(snapshot.period_end, now) && quotaResetIsActive(snapshot.billing_period_end, now)
-    return billingWindowActive && ['usage_percent', 'used_percent'].some(key => (readQuotaNumber(snapshot[key]) ?? -1) >= 100)
+    if (billingWindowActive && ['usage_percent', 'used_percent'].some(key => (readQuotaNumber(snapshot[key]) ?? -1) >= 100)) return true
   }
-  return false
+  return openAIQuotaSnapshotWindows(account).some(window =>
+    (readQuotaNumber(window.used) ?? -1) >= 100 && quotaResetIsActive(window.resetAt, now, true)
+  )
 }
 
 export function accountMatchesFilters(account: Account, filters: AccountSelectionFilters, now = Date.now()): boolean {
   if (filters.platform && account.platform !== filters.platform) return false
   if (filters.type && account.type !== filters.type) return false
-  if (filters.oauth_quota === 'exhausted' && !accountHasExhaustedOAuthQuota(account, now)) return false
+  const quotaFilter = filters.oauth_quota ?? ''
+  if (quotaFilter === ACCOUNT_OAUTH_QUOTA_FILTER.exhausted && !accountHasExhaustedOAuthQuota(account, now)) return false
+  if (quotaFilter === ACCOUNT_OAUTH_QUOTA_FILTER.hasQuota &&
+    (!accountHasKnownOAuthQuota(account) || accountHasExhaustedOAuthQuota(account, now))) return false
+  if (quotaFilter === ACCOUNT_OAUTH_QUOTA_FILTER.withReset && !accountHasOpenAIQuotaReset(account, now)) return false
+  if (quotaFilter === ACCOUNT_OAUTH_QUOTA_FILTER.fiveHourExhausted && !openAIQuotaWindowMatches(account, '5h', now, true)) return false
+  if (quotaFilter === ACCOUNT_OAUTH_QUOTA_FILTER.sevenDayExhausted && !openAIQuotaWindowMatches(account, '7d', now, true)) return false
   if (filters.status) {
     const rateLimitResetAt = account.rate_limit_reset_at ? new Date(account.rate_limit_reset_at).getTime() : Number.NaN
     const isRateLimited = Number.isFinite(rateLimitResetAt) && rateLimitResetAt > now

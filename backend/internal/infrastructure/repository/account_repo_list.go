@@ -99,18 +99,109 @@ func (r *accountRepository) accountListFilteredQuery(platform, accountType, stat
 func oauthQuotaExhaustedPredicate() dbpredicate.Account {
 	return dbpredicate.Account(func(s *entsql.Selector) {
 		extra := s.C(dbaccount.FieldExtra)
-		branches := []string{
-			jsonQuotaWindowPredicate(extra, "codex_5h_used_percent", 100, jsonFutureTimestampPredicate(extra, "codex_5h_reset_at")),
-			jsonQuotaWindowPredicate(extra, "codex_7d_used_percent", 100, jsonFutureTimestampPredicate(extra, "codex_7d_reset_at")),
-			jsonQuotaWindowPredicate(extra, "codex_primary_used_percent", 100, jsonFutureTimestampPredicate(extra, "codex_primary_reset_at")),
-			jsonQuotaWindowPredicate(extra, "codex_secondary_used_percent", 100, jsonFutureTimestampPredicate(extra, "codex_secondary_reset_at")),
-			jsonQuotaWindowPredicate(extra, "session_window_utilization", 1, "("+s.C(dbaccount.FieldSessionWindowEnd)+" IS NULL OR "+s.C(dbaccount.FieldSessionWindowEnd)+" > NOW())"),
-			jsonQuotaWindowPredicate(extra, "passive_usage_7d_utilization", 1, jsonFutureUnixPredicate(extra, "passive_usage_7d_reset")),
-			jsonQuotaWindowPredicate(extra, "passive_usage_7d_oi_utilization", 1, jsonFutureUnixPredicate(extra, "passive_usage_7d_oi_reset")),
-			jsonQuotaWindowPredicate(extra, "grok_billing_snapshot.usage_percent", 100, grokBillingWindowActivePredicate(extra)),
-			jsonQuotaWindowPredicate(extra, "grok_billing_snapshot.used_percent", 100, grokBillingWindowActivePredicate(extra)),
+		s.Where(entsql.ExprP(oauthQuotaExhaustedExpression(extra, s.C(dbaccount.FieldSessionWindowEnd))))
+	})
+}
+
+func oauthQuotaExhaustedExpression(extra, sessionWindowEnd string) string {
+	branches := []string{
+		jsonQuotaWindowPredicate(extra, "codex_5h_used_percent", 100, jsonQuotaWindowActivePredicate(extra, "codex_5h_reset_at", "codex_5h_reset_after_seconds")),
+		jsonQuotaWindowPredicate(extra, "codex_7d_used_percent", 100, jsonQuotaWindowActivePredicate(extra, "codex_7d_reset_at", "codex_7d_reset_after_seconds")),
+		jsonQuotaWindowPredicate(extra, "codex_primary_used_percent", 100, jsonQuotaWindowActivePredicate(extra, "codex_primary_reset_at", "codex_primary_reset_after_seconds")),
+		jsonQuotaWindowPredicate(extra, "codex_secondary_used_percent", 100, jsonQuotaWindowActivePredicate(extra, "codex_secondary_reset_at", "codex_secondary_reset_after_seconds")),
+		jsonQuotaWindowPredicate(extra, "session_window_utilization", 1, "("+sessionWindowEnd+" IS NULL OR "+sessionWindowEnd+" > NOW())"),
+		jsonQuotaWindowPredicate(extra, "passive_usage_7d_utilization", 1, jsonFutureUnixPredicate(extra, "passive_usage_7d_reset")),
+		jsonQuotaWindowPredicate(extra, "passive_usage_7d_oi_utilization", 1, jsonFutureUnixPredicate(extra, "passive_usage_7d_oi_reset")),
+		jsonQuotaWindowPredicate(extra, "grok_billing_snapshot.usage_percent", 100, grokBillingWindowActivePredicate(extra)),
+		jsonQuotaWindowPredicate(extra, "grok_billing_snapshot.used_percent", 100, grokBillingWindowActivePredicate(extra)),
+		// The active App Server snapshot stores epoch reset times below dynamic
+		// limit IDs. These branches cover it without treating an expired window
+		// as exhausted.
+		jsonSnapshotWindowExhaustedPredicate(extra, "primary"),
+		jsonSnapshotWindowExhaustedPredicate(extra, "secondary"),
+		jsonSnapshotFlatWindowExhaustedPredicate(extra),
+		jsonLegacySnapshotWindowExhaustedPredicate(extra, "primary_window"),
+		jsonLegacySnapshotWindowExhaustedPredicate(extra, "secondary_window"),
+	}
+	return "(" + strings.Join(branches, " OR ") + ")"
+}
+
+func oauthQuotaKnownExpression(extra string) string {
+	paths := []string{
+		"codex_5h_used_percent",
+		"codex_7d_used_percent",
+		"codex_primary_used_percent",
+		"codex_secondary_used_percent",
+		"session_window_utilization",
+		"passive_usage_7d_utilization",
+		"passive_usage_7d_oi_utilization",
+		"grok_billing_snapshot.usage_percent",
+		"grok_billing_snapshot.used_percent",
+		"codex_rate_limit_snapshot.rate_limits_by_limit_id.*.primary.used_percent",
+		"codex_rate_limit_snapshot.rate_limits_by_limit_id.*.secondary.used_percent",
+		"codex_rate_limit_snapshot.rate_limits_by_limit_id.*.used_percent",
+		"codex_rate_limit_snapshot.rate_limit.primary_window.used_percent",
+		"codex_rate_limit_snapshot.rate_limit.secondary_window.used_percent",
+	}
+	known := make([]string, 0, len(paths))
+	for _, path := range paths {
+		known = append(known, jsonNumericPathExists(extra, path, ">=", 0))
+	}
+	return "(" + strings.Join(known, " OR ") + ")"
+}
+
+func oauthQuotaHasQuotaPredicate() dbpredicate.Account {
+	return dbpredicate.Account(func(s *entsql.Selector) {
+		extra := s.C(dbaccount.FieldExtra)
+		known := oauthQuotaKnownExpression(extra)
+		exhausted := oauthQuotaExhaustedExpression(extra, s.C(dbaccount.FieldSessionWindowEnd))
+		// A row is available only when it has a known supported snapshot and no
+		// currently active window is full. Expired windows are therefore usable
+		// again, while unknown snapshots stay out of this filter.
+		s.Where(entsql.ExprP("(" + known + " AND NOT " + exhausted + ")"))
+	})
+}
+
+func openAIQuotaWithResetPredicate() dbpredicate.Account {
+	return dbpredicate.Account(func(s *entsql.Selector) {
+		extra := s.C(dbaccount.FieldExtra)
+		s.Where(entsql.ExprP(jsonResetCreditAvailablePredicate(extra)))
+	})
+}
+
+func openAIQuotaWindowExhaustedPredicate(window string) dbpredicate.Account {
+	return dbpredicate.Account(func(s *entsql.Selector) {
+		extra := s.C(dbaccount.FieldExtra)
+		var branches []string
+		switch window {
+		case "5h":
+			branches = []string{
+				jsonQuotaWindowPredicate(extra, "codex_5h_used_percent", 100, jsonQuotaWindowActivePredicate(extra, "codex_5h_reset_at", "codex_5h_reset_after_seconds")),
+				jsonLegacyCodexWindowExhaustedPredicate(extra, "primary", 240, 360),
+				jsonLegacyCodexWindowExhaustedPredicate(extra, "secondary", 240, 360),
+				jsonLegacyCodexWindowExhaustedWithoutDurationPredicate(extra, "secondary"),
+				jsonSnapshotWindowExhaustedPredicateForDuration(extra, "primary", 240, 360),
+				jsonSnapshotWindowExhaustedPredicateForDuration(extra, "secondary", 240, 360),
+				jsonSnapshotFlatWindowExhaustedPredicateForDuration(extra, 240, 360),
+				jsonLegacySnapshotWindowExhaustedPredicateForDuration(extra, "primary_window", 10800, 21600),
+				jsonLegacySnapshotWindowExhaustedPredicateForDuration(extra, "secondary_window", 10800, 21600),
+			}
+		case "7d":
+			branches = []string{
+				jsonQuotaWindowPredicate(extra, "codex_7d_used_percent", 100, jsonQuotaWindowActivePredicate(extra, "codex_7d_reset_at", "codex_7d_reset_after_seconds")),
+				jsonLegacyCodexWindowExhaustedPredicate(extra, "primary", 10000, 10160),
+				jsonLegacyCodexWindowExhaustedPredicate(extra, "secondary", 10000, 10160),
+				jsonLegacyCodexWindowExhaustedWithoutDurationPredicate(extra, "primary"),
+				jsonSnapshotWindowExhaustedPredicateForDuration(extra, "primary", 10000, 10160),
+				jsonSnapshotWindowExhaustedPredicateForDuration(extra, "secondary", 10000, 10160),
+				jsonSnapshotFlatWindowExhaustedPredicateForDuration(extra, 10000, 10160),
+				jsonLegacySnapshotWindowExhaustedPredicateForDuration(extra, "primary_window", 604000, 605600),
+				jsonLegacySnapshotWindowExhaustedPredicateForDuration(extra, "secondary_window", 604000, 605600),
+			}
 		}
-		s.Where(entsql.ExprP("(" + strings.Join(branches, " OR ") + ")"))
+		if len(branches) > 0 {
+			s.Where(entsql.ExprP("(" + strings.Join(branches, " OR ") + ")"))
+		}
 	})
 }
 
@@ -118,9 +209,84 @@ func jsonPathExists(extra, path string) string {
 	return "jsonb_path_exists(" + extra + ", '" + path + "')"
 }
 
-func jsonQuotaWindowPredicate(extra, key string, threshold float64, activePredicate string) string {
+func jsonPathExistsWithNow(extra, path string) string {
+	return "jsonb_path_exists(" + extra + ", '" + path + "', jsonb_build_object('now', EXTRACT(EPOCH FROM NOW())))"
+}
+
+func jsonNumericPathExists(extra, path, operator string, threshold float64) string {
 	thresholdText := strconv.FormatFloat(threshold, 'f', -1, 64)
-	return "(" + jsonPathExists(extra, "$."+key+" ? (@ >= "+thresholdText+")") + " AND " + activePredicate + ")"
+	return jsonPathExists(extra, "$."+path+" ? (@ "+operator+" "+thresholdText+")")
+}
+
+func jsonQuotaWindowPredicate(extra, key string, threshold float64, activePredicate string) string {
+	return "(" + jsonNumericPathExists(extra, key, ">=", threshold) + " AND " + activePredicate + ")"
+}
+
+func jsonQuotaWindowActivePredicate(extra, resetAtKey, resetAfterKey string) string {
+	resetAtValue := extra + " #> '{" + resetAtKey + "}'"
+	resetAtText := extra + " #>> '{" + resetAtKey + "}'"
+	if resetAfterKey == "" {
+		return "(CASE WHEN jsonb_typeof(" + resetAtValue + ") = 'string' AND " + resetAtText + " ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T' THEN (" + resetAtText + ")::timestamptz > NOW() ELSE TRUE END)"
+	}
+	resetAfterValue := extra + " #> '{" + resetAfterKey + "}'"
+	resetAfterText := extra + " #>> '{" + resetAfterKey + "}'"
+	updatedAtValue := extra + " #> '{codex_usage_updated_at}'"
+	updatedAtText := extra + " #>> '{codex_usage_updated_at}'"
+	return "(CASE " +
+		"WHEN jsonb_typeof(" + resetAtValue + ") = 'string' AND " + resetAtText + " ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T' THEN (" + resetAtText + ")::timestamptz > NOW() " +
+		"WHEN jsonb_typeof(" + resetAfterValue + ") = 'number' AND jsonb_typeof(" + updatedAtValue + ") = 'string' AND " + updatedAtText + " ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T' THEN (" + updatedAtText + ")::timestamptz + (" + resetAfterText + ")::double precision * INTERVAL '1 second' > NOW() " +
+		"ELSE TRUE END)"
+}
+
+func jsonResetCreditAvailablePredicate(extra string) string {
+	positiveCount := "(" +
+		jsonNumericPathExists(extra, "codex_reset_credit_snapshot.available_count", ">", 0) + " OR " +
+		jsonNumericPathExists(extra, "codex_reset_credit_snapshot.availableCount", ">", 0) + ")"
+	credits := extra + " #> '{codex_reset_credit_snapshot,credits}'"
+	expiresAt := "COALESCE(credit #>> '{expires_at}', credit #>> '{expiresAt}')"
+	return "(" + positiveCount + " AND EXISTS (SELECT 1 FROM jsonb_array_elements(" +
+		"CASE WHEN jsonb_typeof(" + credits + ") = 'array' THEN " + credits + " ELSE '[]'::jsonb END" +
+		") AS credit WHERE " + expiresAt + " <> '' AND CASE WHEN " + expiresAt +
+		" ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T' THEN (" + expiresAt + ")::timestamptz > NOW() ELSE TRUE END))"
+}
+
+func jsonLegacyCodexWindowExhaustedPredicate(extra, window string, minMinutes, maxMinutes int) string {
+	return "(" +
+		jsonNumericPathExists(extra, "codex_"+window+"_used_percent", ">=", 100) + " AND " +
+		jsonNumericPathExists(extra, "codex_"+window+"_window_minutes", ">=", float64(minMinutes)) + " AND " +
+		jsonNumericPathExists(extra, "codex_"+window+"_window_minutes", "<=", float64(maxMinutes)) + " AND " +
+		jsonQuotaWindowActivePredicate(extra, "codex_"+window+"_reset_at", "codex_"+window+"_reset_after_seconds") + ")"
+}
+
+func jsonLegacyCodexWindowExhaustedWithoutDurationPredicate(extra, window string) string {
+	return "(" +
+		jsonNumericPathExists(extra, "codex_"+window+"_used_percent", ">=", 100) + " AND NOT " +
+		jsonPathExists(extra, "$.codex_"+window+"_window_minutes") + " AND " +
+		jsonQuotaWindowActivePredicate(extra, "codex_"+window+"_reset_at", "codex_"+window+"_reset_after_seconds") + ")"
+}
+
+func jsonSnapshotWindowExhaustedPredicate(extra, window string) string {
+	return jsonPathExistsWithNow(extra, "$.codex_rate_limit_snapshot.rate_limits_by_limit_id.*."+window+" ? (@.used_percent >= 100 && (!exists(@.resets_at) || @.resets_at > $now))")
+}
+
+func jsonSnapshotFlatWindowExhaustedPredicate(extra string) string {
+	return jsonPathExistsWithNow(extra, "$.codex_rate_limit_snapshot.rate_limits_by_limit_id.* ? (@.used_percent >= 100 && (!exists(@.resets_at) || @.resets_at > $now))")
+}
+
+func jsonSnapshotWindowExhaustedPredicateForDuration(extra, window string, minMinutes, maxMinutes int) string {
+	return jsonPathExistsWithNow(extra, "$.codex_rate_limit_snapshot.rate_limits_by_limit_id.*."+window+" ? (@.used_percent >= 100 && @.window_duration_mins >= "+strconv.Itoa(minMinutes)+" && @.window_duration_mins <= "+strconv.Itoa(maxMinutes)+" && (!exists(@.resets_at) || @.resets_at > $now))")
+}
+
+func jsonSnapshotFlatWindowExhaustedPredicateForDuration(extra string, minMinutes, maxMinutes int) string {
+	return jsonPathExistsWithNow(extra, "$.codex_rate_limit_snapshot.rate_limits_by_limit_id.* ? (@.used_percent >= 100 && @.window_duration_mins >= "+strconv.Itoa(minMinutes)+" && @.window_duration_mins <= "+strconv.Itoa(maxMinutes)+" && (!exists(@.resets_at) || @.resets_at > $now))")
+}
+
+func jsonLegacySnapshotWindowExhaustedPredicate(extra, window string) string {
+	return jsonPathExistsWithNow(extra, "$.codex_rate_limit_snapshot.rate_limit."+window+" ? (@.used_percent >= 100 && (!exists(@.reset_at) || @.reset_at > $now))")
+}
+
+func jsonLegacySnapshotWindowExhaustedPredicateForDuration(extra, window string, minSeconds, maxSeconds int) string {
+	return jsonPathExistsWithNow(extra, "$.codex_rate_limit_snapshot.rate_limit."+window+" ? (@.used_percent >= 100 && @.limit_window_seconds >= "+strconv.Itoa(minSeconds)+" && @.limit_window_seconds <= "+strconv.Itoa(maxSeconds)+" && (!exists(@.reset_at) || @.reset_at > $now))")
 }
 
 func grokBillingWindowActivePredicate(extra string) string {
@@ -129,13 +295,6 @@ func grokBillingWindowActivePredicate(extra string) string {
 		" AND " +
 		jsonFutureTimestampPredicatePath(extra, "grok_billing_snapshot,billing_period_end") +
 		")"
-}
-
-// jsonFutureTimestampPredicate treats an absent or malformed reset timestamp
-// as unknown (and therefore keeps the observed exhaustion match), while a
-// valid timestamp in the past means the window has already reset.
-func jsonFutureTimestampPredicate(extra, key string) string {
-	return jsonFutureTimestampPredicatePath(extra, key)
 }
 
 func jsonFutureTimestampPredicatePath(extra, path string) string {
@@ -151,6 +310,11 @@ func jsonFutureUnixPredicate(extra, key string) string {
 }
 
 func applyOAuthQuotaFilter(q *dbent.AccountQuery, filter string) (*dbent.AccountQuery, error) {
+	normalized, err := service.NormalizeAccountOAuthQuotaFilter(filter)
+	if err != nil {
+		return nil, err
+	}
+	filter = normalized
 	switch filter {
 	case "":
 		return q, nil
@@ -160,6 +324,29 @@ func applyOAuthQuotaFilter(q *dbent.AccountQuery, filter string) (*dbent.Account
 		return q.Where(
 			dbaccount.TypeEQ(service.AccountTypeOAuth),
 			oauthQuotaExhaustedPredicate(),
+		), nil
+	case service.AccountOAuthQuotaFilterHasQuota:
+		return q.Where(
+			dbaccount.TypeEQ(service.AccountTypeOAuth),
+			oauthQuotaHasQuotaPredicate(),
+		), nil
+	case service.AccountOAuthQuotaFilterWithReset:
+		return q.Where(
+			dbaccount.PlatformEQ(service.PlatformOpenAI),
+			dbaccount.TypeEQ(service.AccountTypeOAuth),
+			openAIQuotaWithResetPredicate(),
+		), nil
+	case service.AccountOAuthQuotaFilter5hExhausted:
+		return q.Where(
+			dbaccount.PlatformEQ(service.PlatformOpenAI),
+			dbaccount.TypeEQ(service.AccountTypeOAuth),
+			openAIQuotaWindowExhaustedPredicate("5h"),
+		), nil
+	case service.AccountOAuthQuotaFilter7dExhausted:
+		return q.Where(
+			dbaccount.PlatformEQ(service.PlatformOpenAI),
+			dbaccount.TypeEQ(service.AccountTypeOAuth),
+			openAIQuotaWindowExhaustedPredicate("7d"),
 		), nil
 	default:
 		return nil, errors.New("invalid OAuth quota filter")

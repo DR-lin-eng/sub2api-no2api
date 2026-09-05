@@ -176,6 +176,7 @@ type BulkUpdateAccountFilters struct {
 	Platform    string `json:"platform"`
 	Type        string `json:"type"`
 	Status      string `json:"status"`
+	OAuthQuota  string `json:"oauth_quota"`
 	Group       string `json:"group"`
 	Search      string `json:"search"`
 	PrivacyMode string `json:"privacy_mode"`
@@ -235,7 +236,11 @@ func parseAccountOAuthQuotaFilter(c *gin.Context) (string, error) {
 	values := make([]string, 0, 2)
 	for _, key := range []string{accountOAuthQuotaFilterQueryKey, "oauth_quota_status"} {
 		if value := strings.TrimSpace(c.Query(key)); value != "" {
-			values = append(values, value)
+			normalized, err := service.NormalizeAccountOAuthQuotaFilter(value)
+			if err != nil {
+				return "", infraerrors.BadRequest("INVALID_OAUTH_QUOTA_FILTER", "invalid OAuth quota filter")
+			}
+			values = append(values, normalized)
 		}
 	}
 	if len(values) == 2 && values[0] != values[1] {
@@ -244,9 +249,6 @@ func parseAccountOAuthQuotaFilter(c *gin.Context) (string, error) {
 	filter := ""
 	if len(values) > 0 {
 		filter = values[0]
-	}
-	if filter != "" && filter != service.AccountOAuthQuotaFilterExhausted {
-		return "", infraerrors.BadRequest("INVALID_OAUTH_QUOTA_FILTER", "invalid OAuth quota filter")
 	}
 	return filter, nil
 }
@@ -2130,6 +2132,14 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 		response.BadRequest(c, "account_ids or filters is required")
 		return
 	}
+	if req.Filters != nil {
+		oauthQuotaFilter, err := service.NormalizeAccountOAuthQuotaFilter(req.Filters.OAuthQuota)
+		if err != nil {
+			response.ErrorFrom(c, infraerrors.BadRequest("INVALID_OAUTH_QUOTA_FILTER", "invalid OAuth quota filter"))
+			return
+		}
+		req.Filters.OAuthQuota = oauthQuotaFilter
+	}
 	// base_rpm 输入校验：负值归零，超过 10000 截断
 	sanitizeExtraBaseRPM(req.Extra)
 
@@ -2201,6 +2211,7 @@ func toServiceBulkUpdateAccountFilters(filters *BulkUpdateAccountFilters) *servi
 		Platform:    filters.Platform,
 		Type:        filters.Type,
 		Status:      filters.Status,
+		OAuthQuota:  filters.OAuthQuota,
 		Group:       filters.Group,
 		Search:      filters.Search,
 		PrivacyMode: filters.PrivacyMode,

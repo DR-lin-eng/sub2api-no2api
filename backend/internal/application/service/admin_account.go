@@ -40,6 +40,11 @@ func (s *adminServiceImpl) ListAccountsWithOAuthQuotaFilter(
 	groupID int64,
 	privacyMode, sortBy, sortOrder, oauthQuotaFilter string,
 ) ([]Account, int64, error) {
+	normalizedFilter, err := NormalizeAccountOAuthQuotaFilter(oauthQuotaFilter)
+	if err != nil {
+		return nil, 0, err
+	}
+	oauthQuotaFilter = normalizedFilter
 	if oauthQuotaFilter == "" {
 		return s.ListAccounts(ctx, page, pageSize, platform, accountType, status, search, groupID, privacyMode, sortBy, sortOrder)
 	}
@@ -77,6 +82,11 @@ func (s *adminServiceImpl) ListAccountsForSchedulerScoreFilterWithOAuthQuota(
 	groupID int64,
 	privacyMode, oauthQuotaFilter string,
 ) ([]Account, error) {
+	normalizedFilter, err := NormalizeAccountOAuthQuotaFilter(oauthQuotaFilter)
+	if err != nil {
+		return nil, err
+	}
+	oauthQuotaFilter = normalizedFilter
 	if oauthQuotaFilter == "" {
 		return s.ListAccountsForSchedulerScoreFilter(ctx, platform, accountType, status, search, groupID, privacyMode)
 	}
@@ -1428,19 +1438,41 @@ func (s *adminServiceImpl) resolveBulkUpdateTargetIDs(ctx context.Context, filte
 	accountIDs := make([]int64, 0, pageSize)
 
 	for {
-		accounts, total, err := s.ListAccounts(
-			ctx,
-			page,
-			pageSize,
-			filters.Platform,
-			filters.Type,
-			filters.Status,
-			filters.Search,
-			groupID,
-			filters.PrivacyMode,
-			"",
-			"",
+		var (
+			accounts []Account
+			total    int64
+			err      error
 		)
+		if filters.OAuthQuota != "" {
+			accounts, total, err = s.ListAccountsWithOAuthQuotaFilter(
+				ctx,
+				page,
+				pageSize,
+				filters.Platform,
+				filters.Type,
+				filters.Status,
+				filters.Search,
+				groupID,
+				filters.PrivacyMode,
+				"",
+				"",
+				filters.OAuthQuota,
+			)
+		} else {
+			accounts, total, err = s.ListAccounts(
+				ctx,
+				page,
+				pageSize,
+				filters.Platform,
+				filters.Type,
+				filters.Status,
+				filters.Search,
+				groupID,
+				filters.PrivacyMode,
+				"",
+				"",
+			)
+		}
 		if err != nil {
 			return nil, err
 		}

@@ -694,6 +694,113 @@ func (s *AccountRepoSuite) TestListWithOAuthQuotaFilterPaginatesBeforeHydration(
 	require.Error(s.T(), err)
 }
 
+func (s *AccountRepoSuite) TestListWithOAuthQuotaFilterSupportsQuotaModes() {
+	tx := testEntTx(s.T())
+	client := tx.Client()
+	repo := newAccountRepositoryWithSQL(client, tx, nil)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	futureReset := now.Add(time.Hour).Format(time.RFC3339)
+	pastReset := now.Add(-time.Hour).Format(time.RFC3339)
+
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "openai-has-quota", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{"codex_5h_used_percent": 25.0},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "openai-with-reset", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{"codex_5h_used_percent": 80.0, "codex_5h_reset_at": futureReset, "codex_reset_credit_snapshot": map[string]any{"available_count": 2.0, "credits": []any{map[string]any{"expires_at": now.Add(24 * time.Hour).Format(time.RFC3339)}}}},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "openai-expired-reset-credit", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{"codex_5h_used_percent": 20.0, "codex_reset_credit_snapshot": map[string]any{"available_count": 1.0, "credits": []any{map[string]any{"expires_at": pastReset}}}},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "openai-5h-full", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{"codex_5h_used_percent": 100.0, "codex_5h_reset_at": futureReset},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "openai-7d-full", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{"codex_7d_used_percent": 100.0, "codex_7d_reset_at": futureReset},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "openai-both-full", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{
+			"codex_5h_used_percent": 100.0, "codex_5h_reset_at": futureReset,
+			"codex_7d_used_percent": 100.0, "codex_7d_reset_at": futureReset,
+		},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "openai-expired-full", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{"codex_5h_used_percent": 100.0, "codex_5h_reset_at": pastReset},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "anthropic-has-quota", Platform: service.PlatformAnthropic, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{"session_window_utilization": 0.2},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "openai-active-5h", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{
+			"codex_rate_limit_snapshot": map[string]any{
+				"rate_limits_by_limit_id": map[string]any{
+					"codex": map[string]any{
+						"primary": map[string]any{"used_percent": 100.0, "window_duration_mins": 300.0, "resets_at": float64(now.Add(time.Hour).Unix())},
+					},
+				},
+			},
+		},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "openai-active-7d", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{
+			"codex_rate_limit_snapshot": map[string]any{
+				"rate_limits_by_limit_id": map[string]any{
+					"codex": map[string]any{
+						"primary": map[string]any{"used_percent": 100.0, "window_duration_mins": 10080.0, "resets_at": float64(now.Add(time.Hour).Unix())},
+					},
+				},
+			},
+		},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "openai-legacy-5h", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{"codex_secondary_used_percent": 100.0, "codex_secondary_reset_after_seconds": 3600.0, "codex_usage_updated_at": now.Format(time.RFC3339)},
+	})
+	mustCreateAccount(s.T(), client, &service.Account{
+		Name: "openai-legacy-7d", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+		Extra: map[string]any{"codex_primary_used_percent": 100.0, "codex_primary_reset_after_seconds": 3600.0, "codex_usage_updated_at": now.Format(time.RFC3339)},
+	})
+
+	listNames := func(filter string) ([]string, int64) {
+		accounts, page, err := repo.ListWithOAuthQuotaFilter(
+			ctx,
+			pagination.PaginationParams{Page: 1, PageSize: 100, SortBy: "name", SortOrder: "asc"},
+			"", "", "", "", 0, "", filter,
+		)
+		require.NoError(s.T(), err)
+		names := make([]string, 0, len(accounts))
+		for _, account := range accounts {
+			names = append(names, account.Name)
+		}
+		return names, page.Total
+	}
+
+	cases := []struct {
+		filter string
+		names  []string
+	}{
+		{service.AccountOAuthQuotaFilterHasQuota, []string{"openai-has-quota", "openai-with-reset", "openai-expired-reset-credit", "openai-expired-full", "anthropic-has-quota"}},
+		{service.AccountOAuthQuotaFilterWithReset, []string{"openai-with-reset"}},
+		{service.AccountOAuthQuotaFilter5hExhausted, []string{"openai-5h-full", "openai-both-full", "openai-active-5h", "openai-legacy-5h"}},
+		{service.AccountOAuthQuotaFilter7dExhausted, []string{"openai-7d-full", "openai-both-full", "openai-active-7d", "openai-legacy-7d"}},
+	}
+	for _, testCase := range cases {
+		names, total := listNames(testCase.filter)
+		require.Equal(s.T(), int64(len(testCase.names)), total, testCase.filter)
+		require.ElementsMatch(s.T(), testCase.names, names, testCase.filter)
+	}
+}
+
 // --- ListByGroup / ListActive / ListByPlatform ---
 
 func (s *AccountRepoSuite) TestListByGroup() {

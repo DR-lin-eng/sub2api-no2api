@@ -49,6 +49,24 @@ type accountRepoStubForBulkUpdate struct {
 	}
 }
 
+type accountRepoStubForBulkUpdateOAuthQuota struct {
+	*accountRepoStubForBulkUpdate
+	filteredCalls int
+	filter        string
+}
+
+func (s *accountRepoStubForBulkUpdateOAuthQuota) ListWithOAuthQuotaFilter(
+	_ context.Context,
+	params pagination.PaginationParams,
+	platform, accountType, status, search string,
+	groupID int64,
+	privacyMode, filter string,
+) ([]Account, *pagination.PaginationResult, error) {
+	s.filteredCalls++
+	s.filter = filter
+	return s.ListWithFilters(context.Background(), params, platform, accountType, status, search, groupID, privacyMode)
+}
+
 func (s *accountRepoStubForBulkUpdate) BulkUpdate(_ context.Context, ids []int64, updates AccountBulkUpdate) (int64, error) {
 	s.bulkUpdateIDs = append([]int64{}, ids...)
 	s.bulkUpdate = updates
@@ -443,4 +461,25 @@ func TestAdminServiceBulkUpdateAccounts_ResolvesIDsFromFilters(t *testing.T) {
 	require.Equal(t, 2, result.Success)
 	require.Equal(t, 0, result.Failed)
 	require.Equal(t, []int64{7, 11}, result.SuccessIDs)
+}
+
+func TestAdminServiceBulkUpdateAccountsResolvesOAuthQuotaFilter(t *testing.T) {
+	repo := &accountRepoStubForBulkUpdateOAuthQuota{
+		accountRepoStubForBulkUpdate: &accountRepoStubForBulkUpdate{
+			listData:   []Account{{ID: 17}},
+			listResult: &pagination.PaginationResult{Total: 1},
+		},
+	}
+	svc := &adminServiceImpl{accountRepo: repo}
+	schedulable := true
+	result, err := svc.BulkUpdateAccounts(context.Background(), &BulkUpdateAccountsInput{
+		Filters:     &BulkUpdateAccountFilters{Platform: PlatformOpenAI, OAuthQuota: AccountOAuthQuotaFilter7dExhausted},
+		Schedulable: &schedulable,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, repo.filteredCalls)
+	require.Equal(t, AccountOAuthQuotaFilter7dExhausted, repo.filter)
+	require.Equal(t, []int64{17}, repo.bulkUpdateIDs)
+	require.Equal(t, 1, result.Success)
 }

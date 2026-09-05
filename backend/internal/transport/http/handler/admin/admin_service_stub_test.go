@@ -451,23 +451,17 @@ func (s *stubAdminService) ListAccounts(ctx context.Context, page, pageSize int,
 }
 
 func (s *stubAdminService) ListAccountsWithOAuthQuotaFilter(_ context.Context, page, pageSize int, platform, accountType, status, search string, groupID int64, privacyMode, sortBy, sortOrder, oauthQuotaFilter string) ([]service.Account, int64, error) {
+	filter, err := service.NormalizeAccountOAuthQuotaFilter(oauthQuotaFilter)
+	if err != nil {
+		return nil, 0, err
+	}
 	s.lastListAccounts.oauthQuota = oauthQuotaFilter
 	s.lastListAccounts.calls++
 	filtered := make([]service.Account, 0, len(s.accounts))
 	for _, account := range s.accounts {
-		if account.Type != service.AccountTypeOAuth {
-			continue
-		}
-		if value, ok := account.Extra["codex_5h_used_percent"].(float64); ok && value >= 100 {
-			filtered = append(filtered, account)
-			continue
-		}
-		if value, ok := account.Extra["session_window_utilization"].(float64); ok && value >= 1 {
+		if stubAccountMatchesOAuthQuotaFilter(account, filter) {
 			filtered = append(filtered, account)
 		}
-	}
-	if oauthQuotaFilter == "" {
-		filtered = append([]service.Account(nil), s.accounts...)
 	}
 	if page < 1 {
 		page = 1
@@ -504,14 +498,78 @@ func (s *stubAdminService) ListAccountsForSchedulerScoreFilterWithOAuthQuota(_ c
 	}
 	filtered := make([]service.Account, 0, len(accounts))
 	for _, account := range accounts {
-		if account.Type != service.AccountTypeOAuth {
-			continue
-		}
-		if value, ok := account.Extra["codex_5h_used_percent"].(float64); ok && value >= 100 {
+		if stubAccountMatchesOAuthQuotaFilter(account, oauthQuotaFilter) {
 			filtered = append(filtered, account)
 		}
 	}
 	return filtered, nil
+}
+
+func stubAccountMatchesOAuthQuotaFilter(account service.Account, filter string) bool {
+	if filter == "" {
+		return true
+	}
+	if account.Type != service.AccountTypeOAuth {
+		return false
+	}
+	number := func(key string) (float64, bool) {
+		value, ok := account.Extra[key].(float64)
+		return value, ok
+	}
+	resetActive := func(key string) bool {
+		value, ok := account.Extra[key].(string)
+		if !ok || value == "" {
+			return true
+		}
+		resetAt, err := time.Parse(time.RFC3339, value)
+		return err != nil || resetAt.After(time.Now())
+	}
+	fiveHour, fiveHourKnown := number("codex_5h_used_percent")
+	sevenDay, sevenDayKnown := number("codex_7d_used_percent")
+	session, sessionKnown := number("session_window_utilization")
+	exhausted := (fiveHourKnown && fiveHour >= 100 && resetActive("codex_5h_reset_at")) ||
+		(sevenDayKnown && sevenDay >= 100 && resetActive("codex_7d_reset_at")) ||
+		(sessionKnown && session >= 1)
+	switch filter {
+	case service.AccountOAuthQuotaFilterExhausted:
+		return exhausted
+	case service.AccountOAuthQuotaFilterHasQuota:
+		return (fiveHourKnown || sevenDayKnown || sessionKnown) && !exhausted
+	case service.AccountOAuthQuotaFilterWithReset:
+		if account.Platform != service.PlatformOpenAI {
+			return false
+		}
+		if snapshot, ok := account.Extra["codex_reset_credit_snapshot"].(map[string]any); ok {
+			positiveCount := false
+			switch count := snapshot["available_count"].(type) {
+			case float64:
+				positiveCount = count > 0
+			case int:
+				positiveCount = count > 0
+			}
+			if positiveCount {
+				credits, _ := snapshot["credits"].([]any)
+				for _, rawCredit := range credits {
+					credit, _ := rawCredit.(map[string]any)
+					expiresAt, _ := credit["expires_at"].(string)
+					if expiresAt == "" {
+						continue
+					}
+					expiry, err := time.Parse(time.RFC3339, expiresAt)
+					if err != nil || expiry.After(time.Now()) {
+						return true
+					}
+				}
+			}
+		}
+		return false
+	case service.AccountOAuthQuotaFilter5hExhausted:
+		return account.Platform == service.PlatformOpenAI && fiveHourKnown && fiveHour >= 100 && resetActive("codex_5h_reset_at")
+	case service.AccountOAuthQuotaFilter7dExhausted:
+		return account.Platform == service.PlatformOpenAI && sevenDayKnown && sevenDay >= 100 && resetActive("codex_7d_reset_at")
+	default:
+		return false
+	}
 }
 
 func (s *stubAdminService) ListOpenAISchedulableAccountsForSchedulerScore(_ context.Context, groupID *int64) ([]service.Account, error) {
