@@ -93,6 +93,17 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	if upstreamModel != originalModel {
 		upstreamBody = ReplaceModelInBody(body, upstreamModel)
 	}
+	if rawEffort := gjson.GetBytes(upstreamBody, "reasoning_effort").String(); rawEffort != "" {
+		if isOpenAIGPT6AstraModel(upstreamModel) {
+			if normalizedEffort := normalizeOpenAIReasoningEffortForModel(rawEffort, upstreamModel); normalizedEffort != "" && normalizedEffort != rawEffort {
+				var normalizeErr error
+				upstreamBody, normalizeErr = sjson.SetBytes(upstreamBody, "reasoning_effort", normalizedEffort)
+				if normalizeErr != nil {
+					return nil, fmt.Errorf("normalize GPT-6 Astra reasoning effort: %w", normalizeErr)
+				}
+			}
+		}
+	}
 	if normalizedBody, normalized := NormalizeGLMOpenAIReasoningEffort(upstreamBody, upstreamModel); normalized {
 		upstreamBody = normalizedBody
 	}

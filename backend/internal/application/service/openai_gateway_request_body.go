@@ -1611,17 +1611,32 @@ func normalizeOpenAIReasoningEffort(raw string) string {
 }
 
 func normalizeOpenAIReasoningEffortForModel(raw, model string) string {
-	if strings.EqualFold(strings.TrimSpace(raw), "max") && supportsOpenAIReasoningEffortMax(model) {
+	rawNormalized := strings.ToLower(strings.TrimSpace(raw))
+	if (rawNormalized == "none" || rawNormalized == "minimal") && isOpenAIGPT6AstraModel(model) {
+		return "low"
+	}
+	if rawNormalized == "max" && supportsOpenAIReasoningEffortMax(model) {
 		return "max"
 	}
 	return normalizeOpenAIReasoningEffort(raw)
+}
+
+func normalizeOpenAIReasoningEffortForUpstream(raw, model string) (string, bool) {
+	normalized := strings.ToLower(strings.TrimSpace(raw))
+	if (normalized == "none" || normalized == "minimal") && isOpenAIGPT6AstraModel(model) {
+		return "low", true
+	}
+	if normalized == "minimal" {
+		return "none", true
+	}
+	return "", false
 }
 
 // supportsOpenAIReasoningEffortMax reports model families whose native scale
 // has a distinct max level. Other models retain the legacy max -> xhigh
 // normalization for compatibility with their upstream contract.
 func supportsOpenAIReasoningEffortMax(model string) bool {
-	if isOpenAIGPT56Model(model) {
+	if isOpenAIGPT56Model(model) || isOpenAIGPT6AstraModel(model) {
 		return true
 	}
 	normalized := strings.ToLower(lastOpenAIModelSegment(model))

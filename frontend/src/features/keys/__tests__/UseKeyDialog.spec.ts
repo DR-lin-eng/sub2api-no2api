@@ -634,6 +634,12 @@ describe('UseKeyModal', () => {
 
     const parsed = JSON.parse(wrapper.find('pre code').text())
     const models = parsed.provider.openai.models
+    expect(models['gpt-6-astra']).toMatchObject({
+      name: 'GPT-6 Astra',
+      limit: { context: 1050000, output: 128000 },
+      modalities: { input: ['text', 'image'], output: ['text'] }
+    })
+    expect(models['gpt-6-astra'].variants).toEqual({ low: {}, medium: {}, high: {}, xhigh: {}, max: {} })
     for (const model of ['gpt-5.6', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']) {
       expect(models[model]).toBeDefined()
       expect(models[model].variants).toHaveProperty('max')

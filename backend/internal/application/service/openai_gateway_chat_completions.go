@@ -172,7 +172,8 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 				responsesBody = stripped
 			}
 		}
-		responsesBody, normalizedServiceTier, err := normalizeResponsesBodyServiceTier(responsesBody)
+		var normalizedServiceTier string
+		responsesBody, normalizedServiceTier, err = normalizeResponsesBodyServiceTier(responsesBody)
 		if err != nil {
 			return nil, fmt.Errorf("normalize service_tier in responses-shape body: %w", err)
 		}
@@ -183,7 +184,17 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 			ServiceTier: normalizedServiceTier,
 		}
 		if effort := gjson.GetBytes(responsesBody, "reasoning.effort").String(); effort != "" {
-			responsesReq.Reasoning = &apicompat.ResponsesReasoning{Effort: effort}
+			normalizedEffort := normalizeOpenAIReasoningEffortForModel(effort, upstreamModel)
+			if normalizedEffort == "" {
+				normalizedEffort = effort
+			}
+			responsesReq.Reasoning = &apicompat.ResponsesReasoning{Effort: normalizedEffort}
+			if normalizedEffort != effort {
+				responsesBody, err = sjson.SetBytes(responsesBody, "reasoning.effort", normalizedEffort)
+				if err != nil {
+					return nil, fmt.Errorf("normalize reasoning effort in responses-shape body: %w", err)
+				}
+			}
 		}
 	} else {
 		// Normal path: convert Chat Completions → Responses.
@@ -193,6 +204,7 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 			return nil, fmt.Errorf("convert chat completions to responses: %w", err)
 		}
 		responsesReq.Model = upstreamModel
+		normalizeGPT6AstraResponsesRequest(responsesReq, upstreamModel)
 		normalizeResponsesRequestServiceTier(responsesReq)
 		responsesBody, err = json.Marshal(responsesReq)
 		if err != nil {
@@ -377,6 +389,20 @@ func normalizeResponsesRequestServiceTier(req *apicompat.ResponsesRequest) {
 		return
 	}
 	req.ServiceTier = normalizedOpenAIServiceTierValue(req.ServiceTier)
+}
+
+func normalizeGPT6AstraResponsesRequest(req *apicompat.ResponsesRequest, model string) {
+	if req == nil || !isOpenAIGPT6AstraModel(model) {
+		return
+	}
+	if req.Reasoning != nil {
+		if effort := normalizeOpenAIReasoningEffortForModel(req.Reasoning.Effort, model); effort != "" {
+			req.Reasoning.Effort = effort
+		}
+	}
+	// GPT-6 Astra is a reasoning model and does not accept custom sampling values.
+	req.Temperature = nil
+	req.TopP = nil
 }
 
 func normalizeResponsesBodyServiceTier(body []byte) ([]byte, string, error) {
