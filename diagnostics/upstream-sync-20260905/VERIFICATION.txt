@@ -1,0 +1,467 @@
+UPSTREAM SYNC VERIFICATION — 2026-09-05
+STATE: LOCAL_FINAL_GATES_PASS; publication must be verified separately at the final pushed SHA.
+BRANCH: codex/upstream-review-20260905
+INITIAL_BASELINE: 0741f5d103b1e0daebafd68fa9ba845dbd257fe7
+PUBLICATION_AND_ROLLBACK_BASELINE: 71da6ec33bc08edb44c9cc581feb65e9486101c6
+FUNCTIONAL_SOURCE_COMMIT: c9c0b96fb6db06797411564e1b71f4e2747a64ec
+UPSTREAM_FUNCTION_FREEZE: 578785ee7fb35030b094b69624efe25670a36f5f
+UPSTREAM_REVIEWED_ANCESTRY_TARGET: ab99d56e9626e6cd731592dae8553c9758a0efa2
+VERSION: keep fork 0.1.193; upstream VERSION-only 0.2.1 excluded.
+PR_INVENTORY: 31; undocumented=0; decisions and reopening conditions in docs/UPSTREAM_SYNC_20260905.md.
+
+CHANGED_BRANCH_FIELD:
+  backend/internal/infrastructure/repository/ops_repo_metrics.go
+  InsertSystemMetrics DBConnActive (also integer duration, TTFT, Redis/DB, goroutine, queue and memory metrics):
+  opsNullInt -> opsNullMetricInt / opsNullMetricInt64.
+  Explicit pointer-to-zero is a valid SQL zero; nil remains SQL NULL.
+  Original file SHA256: 7f18f0070597216bb62e790890fb4dfcb9ce9daa85fb71f506dc550b1ff34724
+  Modified file SHA256: 23536bef7245dcac7c2113c70cb36a3563da782da85d6836d08c761d8e4d61c5
+  Rollback patch is relative to 71da6ec33 so the separate continuation owner-affinity fix stays present.
+
+ARTIFACT_PATHS:
+  MODIFIED_FILE=/private/tmp/sub2api-upstream-review-20260905-8c42/repo/diagnostics/upstream-sync-20260905/MODIFIED_FILE
+  DIFF_FILE=/private/tmp/sub2api-upstream-review-20260905-8c42/repo/diagnostics/upstream-sync-20260905/DIFF_FILE
+  VERIFICATION.txt=/private/tmp/sub2api-upstream-review-20260905-8c42/repo/diagnostics/upstream-sync-20260905/VERIFICATION.txt
+  ROLLBACK.sh=/private/tmp/sub2api-upstream-review-20260905-8c42/repo/diagnostics/upstream-sync-20260905/ROLLBACK.sh
+  MANIFEST.json=/private/tmp/sub2api-upstream-review-20260905-8c42/repo/diagnostics/upstream-sync-20260905/MANIFEST.json
+
+FILE_ROLLBACK:
+  COMMAND: /private/tmp/sub2api-upstream-review-20260905-8c42/repo/diagnostics/upstream-sync-20260905/ROLLBACK.sh /private/tmp/sub2api-upstream-review-20260905-8c42/rollback-final
+  INPUT: independent copy of baseline 71da6ec33 with DIFF_FILE applied; 59 changed-file hashes checked before overwrite.
+  LITERAL_OUTPUT:
+ROLLBACK restored=59 files hash_match=true
+ROLLBACK_EXIT=0
+
+  EXIT_STATUS: 0
+  RESTORED_STATUS: all 59 original hashes match; primary repository and MODIFIED_FILE remain modified.
+  DIFF_FILE contains a unified patch; .gitattributes excludes only this patch artifact's context whitespace from source whitespace checking.
+
+PRE-MAIN-REFRESH_DOCKER_GATES:
+  Full Go unit suite (before merging new origin/main): GO_DEFINITIVE_EXIT=0.
+  Frontend unchanged by new origin/main: typecheck, eslint, Vitest exit=0; 354 files, 2159 tests passed.
+  Final merged Go/race/vet/lint and baseline/modified/rollback probes: PASS; commands and results below.
+
+NON-PASS_ATTEMPTS_RETAINED:
+  go-integrated-main.log: service compiler signal: killed while image build/lint were competing for host memory; test-only runner stopped, observed exit 137. Not a pass.
+  lint-memory-bounded.log: loaded part of the source before origin/main merge and part afterward; 6 typecheck issues, exit 1. Superseded only by a frozen-source rerun.
+  modified-image-final.log: Docker Hub auth connection reset, exit 1. Retry recorded separately.
+
+PERFORMANCE:
+  INPUT: BenchmarkSyncEffectiveResponsesTools; 256 KiB history; linux/arm64; GOMAXPROCS=2; interleaved baseline/modified samples.
+  Baseline and modified benchmark source/function are unchanged by 71da6ec33.
+  Ordinary history: baseline 2.460–2.995 ms/op, ~1,352,363–1,352,376 B/op, 17 allocs/op;
+                    modified 1.899–2.308 ms/op, 271,016–271,019 B/op, 13 allocs/op.
+  Discovery history: baseline 2.528–3.634 ms/op, 1,353,289–1,353,291 B/op, 31 allocs/op;
+                     modified 2.130–2.817 ms/op, 276,875–276,899 B/op, 129 allocs/op.
+  Interpretation: ~80% less allocated memory in these cases; discovery allocation count increases due to newly promoted tool definitions.
+  These are shared-host microbenchmarks, not production throughput or TTFT guarantees.
+  Literal benchmark log: /private/tmp/sub2api-upstream-review-20260905-8c42/benchmark-final-interleaved.log
+
+FINAL_GATES: PASS
+
+BASELINE:
+  COMMAND: /private/tmp/sub2api-upstream-review-20260905-8c42/repo/diagnostics/upstream-sync-20260905/VERIFY.sh baseline /private/tmp/sub2api-upstream-review-20260905-8c42/baseline-71da6ec33
+  INPUT: OpsInsertSystemMetricsInput{DBConnActive: &zero}, zero=0; SQL argument capture uses sqlmock, no production database.
+  LITERAL_OUTPUT:
+DBConnActive(&0)=NULL
+baseline test_exit=0
+PROBE_EXIT=0
+  EXIT_STATUS: 0
+
+MODIFIED:
+  COMMAND: /private/tmp/sub2api-upstream-review-20260905-8c42/repo/diagnostics/upstream-sync-20260905/VERIFY.sh modified /private/tmp/sub2api-upstream-review-20260905-8c42/repo
+  INPUT: OpsInsertSystemMetricsInput{DBConnActive: &zero}, zero=0; SQL argument capture uses sqlmock, no production database.
+  LITERAL_OUTPUT:
+DBConnActive(&0)=0
+modified test_exit=0
+PROBE_EXIT=0
+  EXIT_STATUS: 0
+
+ROLLBACK:
+  COMMAND: /private/tmp/sub2api-upstream-review-20260905-8c42/repo/diagnostics/upstream-sync-20260905/VERIFY.sh rollback /private/tmp/sub2api-upstream-review-20260905-8c42/rollback-final
+  INPUT: OpsInsertSystemMetricsInput{DBConnActive: &zero}, zero=0; SQL argument capture uses sqlmock, no production database.
+  LITERAL_OUTPUT:
+DBConnActive(&0)=NULL
+rollback test_exit=0
+PROBE_EXIT=0
+  EXIT_STATUS: 0
+
+RESTORED_BEHAVIOR: rollback DBConnActive(&0)=NULL; 59 original file hashes restored; baseline continuation owner affinity is preserved. Repository and MODIFIED_FILE retain the changed zero-preserving behavior.
+
+DOCKER_FINAL_TEST_AND_LINT_COMMANDS:
+#!/bin/bash
+set -eu
+ROOT=/private/tmp/sub2api-upstream-review-20260905-8c42
+REPO="$ROOT/repo"
+while ! grep -q '^MODIFIED_IMAGE_FINAL_EXIT=0$' "$ROOT/modified-image-final-retry.log"; do
+  if grep -Eq '^MODIFIED_IMAGE_FINAL_EXIT=[1-9]' "$ROOT/modified-image-final-retry.log"; then echo 'Image build gate failed'; exit 1; fi
+  sleep 10
+done
+cd "$REPO"
+set +e
+docker run --rm --name upstream-review-8c42-tests-serial -e GOMAXPROCS=2 -e GOMEMLIMIT=3GiB -e GOGC=60 -e GOCACHE=/root/.cache/go-build -v "$REPO/backend:/src/backend" -v codex-sub2api-go-mod:/go/pkg/mod -v codex-sub2api-go-build:/root/.cache/go-build -w /src/backend sub2api-pr31:go-test sh -c 'go version && go test -vet=off -p=1 -tags=unit ./... && go test -race -vet=off -p=1 -tags=unit ./internal/application/service ./internal/shared/apicompat ./internal/transport/http/handler -run "Test.*(CodexContinuation|OpenAIWSCyber|CyberPolicy|OpenAIWSPreviousResponseID|OpenAIWSBootstrap|GeminiCustomList)" && go vet -p=1 ./...' > "$ROOT/go-integrated-serial.log" 2>&1
+result=$?
+echo "GO_INTEGRATED_SERIAL_EXIT=$result" | tee -a "$ROOT/go-integrated-serial.log"
+if [ "$result" -ne 0 ]; then tail -60 "$ROOT/go-integrated-serial.log"; exit "$result"; fi
+for mode in baseline modified rollback; do
+  case "$mode" in baseline) target="$ROOT/baseline-71da6ec33";; modified) target="$REPO";; rollback) target="$ROOT/rollback-final";; esac
+  "$REPO/diagnostics/upstream-sync-20260905/VERIFY.sh" "$mode" "$target" > "$ROOT/probe-final-$mode.log" 2>&1
+  result=$?
+  echo "PROBE_EXIT=$result" >> "$ROOT/probe-final-$mode.log"
+  cat "$ROOT/probe-final-$mode.log"
+  if [ "$result" -ne 0 ]; then exit "$result"; fi
+done
+docker run --rm --name upstream-review-8c42-lint-final -e GOFLAGS=-p=1 -e GOMEMLIMIT=3GiB -e GOGC=60 -e GOMAXPROCS=2 -e GOCACHE=/root/.cache/go-build -e GOLANGCI_LINT_CACHE=/root/.cache/golangci-lint -v "$REPO/backend:/src/backend" -v codex-sub2api-go-mod:/go/pkg/mod -v codex-sub2api-go-build:/root/.cache/go-build -v codex-sub2api-golangci-lint:/root/.cache/golangci-lint -w /src/backend golangci/golangci-lint:v2.9 golangci-lint run --concurrency=2 --timeout=30m > "$ROOT/lint-integrated-final.log" 2>&1
+result=$?
+echo "LINT_INTEGRATED_FINAL_EXIT=$result" | tee -a "$ROOT/lint-integrated-final.log"
+cat "$ROOT/lint-integrated-final.log"
+exit "$result"
+
+DOCKER_FINAL_GO_LITERAL_OUTPUT:
+go version go1.26.6 linux/arm64
+ok  	github.com/Wei-Shaw/sub2api/cmd/cleanup-ingress-reject-logs	(cached)
+?   	github.com/Wei-Shaw/sub2api/cmd/jwtgen	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/cmd/profit-preview	(cached)
+ok  	github.com/Wei-Shaw/sub2api/cmd/server	(cached)
+?   	github.com/Wei-Shaw/sub2api/ent	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/account	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/accountegressbinding	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/accountgroup	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/announcement	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/announcementread	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/apikey	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/authidentity	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/authidentitychannel	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/batchimageevent	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/batchimageitem	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/batchimagejob	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitor	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatasset	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatconversation	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatmessage	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatmessageasset	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatquickreply	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/compositemodelroute	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/custommodelconfig	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/custommodelrequesttemplate	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/enttest	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/group	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/hook	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/idempotencyrecord	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/intercept	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/ipv6egresspool	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/ent/migrate	(cached)
+?   	github.com/Wei-Shaw/sub2api/ent/paymentauditlog	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/paymentorder	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/pendingauthsession	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/predicate	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/promocode	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/promocodeusage	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/proxy	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/redeemcode	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/redeemcodeusage	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/runtime	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/ent/schema	(cached)
+?   	github.com/Wei-Shaw/sub2api/ent/schema/mixins	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/securitysecret	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/setting	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/subscriptionplan	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/usagecleanuptask	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/usagelog	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/user	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userallowedgroup	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userattributedefinition	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userattributevalue	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userplatformquota	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/usersubscription	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	187.149s
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/bootstrap/setup	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/domain	(cached)
+?   	github.com/Wei-Shaw/sub2api/internal/domain/model	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/infrastructure/repository	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/activitycenter	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/chat	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/egress	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/payment	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/payment/provider	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/securityaudit	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/config	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/egress	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/liveattestation	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/middleware	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/anthropicfp	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/antigravity	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/chatgptcookies	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/claude	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation	(cached)
+?   	github.com/Wei-Shaw/sub2api/internal/shared/ctxkey	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/errors	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/gemini	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/geminicli	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/googleapi	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/httpclient	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/httputil	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/ip	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/logger	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/logredact	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/oauth	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/oauthstate	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openai	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openai_compat	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/pagination	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/proxyurl	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/proxyutil	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/remotecontrol	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/response	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/responseheaders	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/servertiming	(cached)
+?   	github.com/Wei-Shaw/sub2api/internal/shared/sysutil	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/timezone	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/usagestats	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/websearch	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/wsutil	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/xai	(cached)
+?   	github.com/Wei-Shaw/sub2api/internal/testutil	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	32.151s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.502s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server	1.786s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware	0.044s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes	0.988s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/webassets	(cached)
+ok  	github.com/Wei-Shaw/sub2api/migrations	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	1.546s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	1.034s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	1.102s
+GO_INTEGRATED_SERIAL_EXIT=0
+
+DOCKER_FINAL_LINT_LITERAL_OUTPUT:
+0 issues.
+LINT_INTEGRATED_FINAL_EXIT=0
+
+DOCKER_RUNTIME_CYCLE_COMMAND:
+/private/tmp/sub2api-upstream-review-20260905-8c42/runtime/check-cycle.sh
+INPUT: isolated Compose project upstream-review-8c42; PostgreSQL 18, Redis 8; same persistent database across BASELINE -> MODIFIED -> ROLLBACK -> RESTORED_MODIFIED.
+SCRIPT:
+#!/bin/sh
+set -eu
+COMPOSE=/private/tmp/sub2api-upstream-review-20260905-8c42/runtime/compose.yaml
+SCHEMA_BASELINE=
+for phase in BASELINE MODIFIED ROLLBACK RESTORED_MODIFIED; do
+  case "$phase" in BASELINE|ROLLBACK) APP_IMAGE=sub2api-upstream-review-8c42:baseline-71da6ec33;; *) APP_IMAGE=sub2api-upstream-review-8c42:modified;; esac
+  export APP_IMAGE
+  docker compose -p upstream-review-8c42 -f "$COMPOSE" up -d --wait --wait-timeout 120 app
+  echo "PHASE=$phase IMAGE=$APP_IMAGE"
+  HEALTH=$(curl -fsS http://127.0.0.1:18442/health)
+  READY=$(curl -fsS http://127.0.0.1:18442/ready)
+  printf '%s\n%s\n' "$HEALTH" "$READY"
+  python3 - "$HEALTH" "$READY" <<'ASSERT'
+import json,sys
+health,ready=map(json.loads,sys.argv[1:])
+assert health.get('status')=='ok',health
+assert ready.get('ready') is True and ready.get('draining') is False,ready
+assert ready.get('current_version')=='0.1.193',ready
+ASSERT
+  SCHEMA=$(docker compose -p upstream-review-8c42 -f "$COMPOSE" exec -T postgres psql -U sub2api -d sub2api -Atc 'SELECT count(*),max(filename) FROM schema_migrations')
+  printf '%s\n' "$SCHEMA"
+  if [ "$phase" = BASELINE ]; then SCHEMA_BASELINE=$SCHEMA; fi
+  [ "$SCHEMA" = "$SCHEMA_BASELINE" ]
+  [ "$SCHEMA" = '288|237_add_activity_center.sql' ]
+  docker compose -p upstream-review-8c42 -f "$COMPOSE" exec -T app /app/sub2api -version 2>&1
+  echo "PHASE_EXIT=0"
+done
+
+LITERAL_OUTPUT:
+ Container upstream-review-8c42-redis-1 Running 
+ Container upstream-review-8c42-postgres-1 Running 
+ Container upstream-review-8c42-app-1 Recreate 
+ Container upstream-review-8c42-app-1 Recreated 
+ Container upstream-review-8c42-postgres-1 Waiting 
+ Container upstream-review-8c42-redis-1 Waiting 
+ Container upstream-review-8c42-postgres-1 Healthy 
+ Container upstream-review-8c42-redis-1 Healthy 
+ Container upstream-review-8c42-app-1 Starting 
+ Container upstream-review-8c42-app-1 Started 
+ Container upstream-review-8c42-app-1 Waiting 
+ Container upstream-review-8c42-postgres-1 Waiting 
+ Container upstream-review-8c42-redis-1 Waiting 
+ Container upstream-review-8c42-redis-1 Healthy 
+ Container upstream-review-8c42-postgres-1 Healthy 
+ Container upstream-review-8c42-app-1 Healthy 
+PHASE=BASELINE IMAGE=sub2api-upstream-review-8c42:baseline-71da6ec33
+{"status":"ok"}
+{"ready":true,"node_id":"a2b0357aed26","node_name":"a2b0357aed26","current_version":"0.1.193","draining":false,"in_flight":0}
+288|237_add_activity_center.sql
+2026-09-05T19:35:12.258+0800	INFO	stdlog	Sub2API 0.1.193 (commit: 71da6ec33bc08edb44c9cc581feb65e9486101c6, built: 2026-09-05T11:30:47Z)	{"service": "sub2api", "env": "bootstrap", "legacy_stdlog": true}
+PHASE_EXIT=0
+ Container upstream-review-8c42-postgres-1 Running 
+ Container upstream-review-8c42-redis-1 Running 
+ Container upstream-review-8c42-app-1 Recreate 
+ Container upstream-review-8c42-app-1 Recreated 
+ Container upstream-review-8c42-postgres-1 Waiting 
+ Container upstream-review-8c42-redis-1 Waiting 
+ Container upstream-review-8c42-redis-1 Healthy 
+ Container upstream-review-8c42-postgres-1 Healthy 
+ Container upstream-review-8c42-app-1 Starting 
+ Container upstream-review-8c42-app-1 Started 
+ Container upstream-review-8c42-postgres-1 Waiting 
+ Container upstream-review-8c42-redis-1 Waiting 
+ Container upstream-review-8c42-app-1 Waiting 
+ Container upstream-review-8c42-redis-1 Healthy 
+ Container upstream-review-8c42-postgres-1 Healthy 
+ Container upstream-review-8c42-app-1 Healthy 
+PHASE=MODIFIED IMAGE=sub2api-upstream-review-8c42:modified
+{"status":"ok"}
+{"ready":true,"node_id":"ac7ac537b04a","node_name":"ac7ac537b04a","current_version":"0.1.193","draining":false,"in_flight":0}
+288|237_add_activity_center.sql
+2026-09-05T19:35:20.532+0800	INFO	stdlog	Sub2API 0.1.193 (commit: c9c0b96fb6db06797411564e1b71f4e2747a64ec, built: 2026-09-05T11:34:25Z)	{"service": "sub2api", "env": "bootstrap", "legacy_stdlog": true}
+PHASE_EXIT=0
+ Container upstream-review-8c42-postgres-1 Running 
+ Container upstream-review-8c42-redis-1 Running 
+ Container upstream-review-8c42-app-1 Recreate 
+ Container upstream-review-8c42-app-1 Recreated 
+ Container upstream-review-8c42-redis-1 Waiting 
+ Container upstream-review-8c42-postgres-1 Waiting 
+ Container upstream-review-8c42-postgres-1 Healthy 
+ Container upstream-review-8c42-redis-1 Healthy 
+ Container upstream-review-8c42-app-1 Starting 
+ Container upstream-review-8c42-app-1 Started 
+ Container upstream-review-8c42-app-1 Waiting 
+ Container upstream-review-8c42-postgres-1 Waiting 
+ Container upstream-review-8c42-redis-1 Waiting 
+ Container upstream-review-8c42-postgres-1 Healthy 
+ Container upstream-review-8c42-redis-1 Healthy 
+ Container upstream-review-8c42-app-1 Healthy 
+PHASE=ROLLBACK IMAGE=sub2api-upstream-review-8c42:baseline-71da6ec33
+{"status":"ok"}
+{"ready":true,"node_id":"45cfa81f87ff","node_name":"45cfa81f87ff","current_version":"0.1.193","draining":false,"in_flight":0}
+288|237_add_activity_center.sql
+2026-09-05T19:35:29.780+0800	INFO	stdlog	Sub2API 0.1.193 (commit: 71da6ec33bc08edb44c9cc581feb65e9486101c6, built: 2026-09-05T11:30:47Z)	{"service": "sub2api", "env": "bootstrap", "legacy_stdlog": true}
+PHASE_EXIT=0
+ Container upstream-review-8c42-redis-1 Running 
+ Container upstream-review-8c42-postgres-1 Running 
+ Container upstream-review-8c42-app-1 Recreate 
+ Container upstream-review-8c42-app-1 Recreated 
+ Container upstream-review-8c42-redis-1 Waiting 
+ Container upstream-review-8c42-postgres-1 Waiting 
+ Container upstream-review-8c42-redis-1 Healthy 
+ Container upstream-review-8c42-postgres-1 Healthy 
+ Container upstream-review-8c42-app-1 Starting 
+ Container upstream-review-8c42-app-1 Started 
+ Container upstream-review-8c42-app-1 Waiting 
+ Container upstream-review-8c42-postgres-1 Waiting 
+ Container upstream-review-8c42-redis-1 Waiting 
+ Container upstream-review-8c42-postgres-1 Healthy 
+ Container upstream-review-8c42-redis-1 Healthy 
+ Container upstream-review-8c42-app-1 Healthy 
+PHASE=RESTORED_MODIFIED IMAGE=sub2api-upstream-review-8c42:modified
+{"status":"ok"}
+{"ready":true,"node_id":"c324620b1f31","node_name":"c324620b1f31","current_version":"0.1.193","draining":false,"in_flight":0}
+288|237_add_activity_center.sql
+2026-09-05T19:35:41.470+0800	INFO	stdlog	Sub2API 0.1.193 (commit: c9c0b96fb6db06797411564e1b71f4e2747a64ec, built: 2026-09-05T11:34:25Z)	{"service": "sub2api", "env": "bootstrap", "legacy_stdlog": true}
+PHASE_EXIT=0
+RUNTIME_CYCLE_FINAL_EXIT=0
+
+EXIT_STATUS: 0
+
+IMAGE_BUILD_COMMANDS (cwd=/private/tmp/sub2api-upstream-review-20260905-8c42/repo):
+docker buildx build --load --progress plain --build-arg VERSION=0.1.193 --build-arg COMMIT=71da6ec33bc08edb44c9cc581feb65e9486101c6 -t sub2api-upstream-review-8c42:baseline-71da6ec33 ../baseline-71da6ec33
+docker buildx build --load --progress plain --build-arg VERSION=0.1.193 --build-arg COMMIT=c9c0b96fb6db06797411564e1b71f4e2747a64ec -t sub2api-upstream-review-8c42:modified .
+BASELINE_IMAGE_FINAL_EXIT=0
+MODIFIED_IMAGE_FINAL_EXIT=0
+IMAGE_INSPECT_LITERAL_OUTPUT:
+sub2api-upstream-review-8c42:baseline-71da6ec33 id=sha256:61c4322dff8cf35335c4e802c4abad0059d95b878445b5d84ed0ed7ee33bf3d5 size=42561647
+sub2api-upstream-review-8c42:modified id=sha256:4bf78a8e0861a149e9da62a1dd3b9097e2eb382fa99d78239baac7eeab0412b1 size=42560754
+
+STATIC_COMMANDS (each chained with &&):
+/bin/bash -n deploy/apple-container.sh
+/bin/bash deploy/tests/apple-container-test.sh
+/bin/sh deploy/tests/docker-compose-security-test.sh
+/bin/sh deploy/tests/docker-runtime-resources-test.sh
+/bin/sh deploy/test-caddyfile-cache.sh
+make check-docs
+make -C backend check-layout
+git diff --check
+LITERAL_OUTPUT_EXCERPT:
+[INFO] Sub2API stack and persistent data deleted.
+Apple container lifecycle tests passed.
+docker compose security test passed
+docker runtime resources test passed
+Caddyfile preserves backend cache policy, SSE streaming, and non-SSE compression
+Documentation checks passed.
+./scripts/check-source-layout.sh
+STATIC_FINAL_EXIT=0
+EXIT_STATUS: 0
+
+PERFORMANCE_LITERAL_OUTPUT:
+
+STATE=baseline
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/shared/apicompat
+BenchmarkSyncEffectiveResponsesTools/ordinary_history-2         	     498	   2734426 ns/op	  95.89 MB/s	 1352376 B/op	      17 allocs/op
+BenchmarkSyncEffectiveResponsesTools/ordinary_history-2         	     423	   2952281 ns/op	  88.81 MB/s	 1352363 B/op	      17 allocs/op
+BenchmarkSyncEffectiveResponsesTools/discovery_history-2        	     471	   2902064 ns/op	  90.40 MB/s	 1353291 B/op	      31 allocs/op
+BenchmarkSyncEffectiveResponsesTools/discovery_history-2        	     385	   3633569 ns/op	  72.20 MB/s	 1353290 B/op	      31 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	5.398s
+BENCH_EXIT=0
+
+STATE=repo
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/shared/apicompat
+BenchmarkSyncEffectiveResponsesTools/ordinary_history-2         	     612	   1898580 ns/op	 138.10 MB/s	  271019 B/op	      13 allocs/op
+BenchmarkSyncEffectiveResponsesTools/ordinary_history-2         	     703	   2308150 ns/op	 113.59 MB/s	  271016 B/op	      13 allocs/op
+BenchmarkSyncEffectiveResponsesTools/discovery_history-2        	     457	   2443011 ns/op	 107.38 MB/s	  276899 B/op	     129 allocs/op
+BenchmarkSyncEffectiveResponsesTools/discovery_history-2        	     396	   2816701 ns/op	  93.14 MB/s	  276881 B/op	     129 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	5.049s
+BENCH_EXIT=0
+
+STATE=baseline
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/shared/apicompat
+BenchmarkSyncEffectiveResponsesTools/ordinary_history-2         	     513	   2459790 ns/op	 106.59 MB/s	 1352376 B/op	      17 allocs/op
+BenchmarkSyncEffectiveResponsesTools/ordinary_history-2         	     403	   2994547 ns/op	  87.56 MB/s	 1352363 B/op	      17 allocs/op
+BenchmarkSyncEffectiveResponsesTools/discovery_history-2        	     516	   2662493 ns/op	  98.53 MB/s	 1353291 B/op	      31 allocs/op
+BenchmarkSyncEffectiveResponsesTools/discovery_history-2        	     474	   2527925 ns/op	 103.78 MB/s	 1353289 B/op	      31 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	5.063s
+BENCH_EXIT=0
+
+STATE=repo
+goos: linux
+goarch: arm64
+pkg: github.com/Wei-Shaw/sub2api/internal/shared/apicompat
+BenchmarkSyncEffectiveResponsesTools/ordinary_history-2         	     638	   2059647 ns/op	 127.30 MB/s	  271019 B/op	      13 allocs/op
+BenchmarkSyncEffectiveResponsesTools/ordinary_history-2         	     603	   1989131 ns/op	 131.81 MB/s	  271016 B/op	      13 allocs/op
+BenchmarkSyncEffectiveResponsesTools/discovery_history-2        	     643	   2130115 ns/op	 123.16 MB/s	  276891 B/op	     129 allocs/op
+BenchmarkSyncEffectiveResponsesTools/discovery_history-2        	     438	   2500867 ns/op	 104.90 MB/s	  276875 B/op	     129 allocs/op
+PASS
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	4.997s
+BENCH_EXIT=0
+
+
+ARTIFACT_SHA256 (verification report deliberately excluded from self-hashing):
+ORIGINAL_FILE 7f18f0070597216bb62e790890fb4dfcb9ce9daa85fb71f506dc550b1ff34724
+MODIFIED_FILE 23536bef7245dcac7c2113c70cb36a3563da782da85d6836d08c761d8e4d61c5
+DIFF_FILE 6448047d6dd44ce63f668af08902273a24669319bf286bc93b96bf2650291856
+MANIFEST.json f78501bcdc05fc93a8efc43044079e77a1d4e6e7eb4d656881430d0e440c4df3
+ROLLBACK.sh e00825d3a4ec907d1949632c985f6b5c049a9a5d6ef17fcbe51745cb82ee3cdc
+VERIFY.sh e4162b6ed291bc412637af00638b49615ee9cd0a5be5ca959d53c4d57bf7baeb
+METRICS_PROBE.go 3e7fb92f75c706c6b062a45b72ca8215c8a123ae83f4fb43f4cbdc5bf53b4080

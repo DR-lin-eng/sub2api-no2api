@@ -78,10 +78,10 @@
 
 ### 冻结边界与处理规则
 
-- fork 基线：`0741f5d103b1e0daebafd68fa9ba845dbd257fe7`，版本 `0.1.193`。
+- 初始 fork 基线：`0741f5d103b1e0daebafd68fa9ba845dbd257fe7`，版本 `0.1.193`。发布前主线新增续接账号归属修复 `71da6ec33bc08edb44c9cc581feb65e9486101c6`，已正常合入并保留；最终文件回滚和镜像升级基线均以该提交为准。
 - 上次已关闭上游：`b1748c4ea99ce2120401a269142aa071e18a84da`。
 - 本轮功能冻结点：`578785ee7fb35030b094b69624efe25670a36f5f`，76 个提交、31 个 first-parent 合并 PR。
-- 2026-09-05 再次 fetch 后仅新增 `ab99d56e9626e6cd731592dae8553c9758a0efa2`，只把上游 VERSION 从 `0.2.0` 改为 `0.2.1`。已审核该差异并保留 fork 版本；最终 ancestry 关闭到该不可变 SHA。
+- 2026-09-05 再次 fetch 后仅新增 `ab99d56e9626e6cd731592dae8553c9758a0efa2`，只把上游 VERSION 从 `0.2.0` 改为 `0.2.1`。已审核该版本差异并保留 fork 版本 `0.1.193`；功能冻结点仍为 `578785ee`，最终 ancestry 关闭到已审查的 `ab99d56e`，不接入其 VERSION 内容。
 - 原工作区不变；选择性移植到当前 owner，禁止恢复 legacy service/handler/views 树、赞助内容或旧迁移号。
 - “关闭”表示审查决策已记录，不表示暂缓功能已实现。暂缓项仅在本表重新打开条件满足时单独处理，避免重复扫描已重构代码。
 
@@ -136,4 +136,8 @@
 
 ### 本批验证和发布
 
-最终命令、输入、字面输出、退出状态、文件 hash、Docker 升级/回退和发布 SHA 保存到本批验证产物。尚未执行的门槛不记为通过。
+最终命令、输入、字面输出、退出状态、文件 hash、Docker 升级/回退保存到 `diagnostics/upstream-sync-20260905/VERIFICATION.txt`。发布 SHA、exact-SHA Actions 和 GHCR manifest 在独立发布记录中另行核对；本地测试不代替远端发布证据。
+
+- 本轮回滚 patch 以发布前最新 fork 主线 `71da6ec33` 为基线，撤销本轮选择性同步时保留其 continuation owner affinity 修复。
+- `openai_gateway_websocket.go` 是主线新增修复与本轮同步的唯一重叠文件；保留首包 bootstrap 规范化、账号归属约束、账号重检，以及本轮 cyber-policy logical-turn 状态清理，合并后重新运行完整 unit 和交叉路径 race 测试。
+- 256 KiB 历史 microbenchmark 在同机交错运行；记录全部样本范围，不把共享 Docker 宿主的单次延迟或 suite 总耗时当作生产吞吐保证。

@@ -20,3 +20,6 @@ backend/migrations/*.sql text eol=lf
 
 # Dockerfile
 Dockerfile text eol=lf
+
+# Unified patch context retains source indentation and blank context lines.
+diagnostics/upstream-sync-20260905/DIFF_FILE -whitespace

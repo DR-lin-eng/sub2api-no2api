@@ -1,4 +1,8 @@
 {
+  ".gitattributes": {
+    "original": "1e7e4dd88806c211173003844b25304bac2ba04d0c2dc4afbb7a5e181fd3bf7c",
+    "modified": "a93b655e624dc54be5f35dc1aa6bb8947700ec87844a63353a137a1203d66e8d"
+  },
   "backend/internal/application/service/gateway_billing_header.go": {
     "original": "161c0aae376ea91aeb033d075edbdbc7a2d4ab969fd3fa2dc62250d8e9a9b08f",
     "modified": "9a0fd97ba58cb2224ac4ce480b156a1ceb8df1af6acad911d55210365aa0b257"
@@ -161,7 +165,7 @@
   },
   "backend/internal/transport/http/handler/gemini_v1beta_handler_test.go": {
     "original": "d49e56e38ebfa2a5032c5de9c0d9eda9644088df037bf1e6553701730ee718d8",
-    "modified": "5a39ad48bfb88b33ca0a23a6ec768a6f0f620cb09437de82fb98bf8fa778dde9"
+    "modified": "ebea267d0363d66a98c8f583795344c88dc53f9df44ef498b17cae0686694e9b"
   },
   "backend/internal/transport/http/handler/openai_gateway_cyber_policy.go": {
     "original": "b44a278f8bfd592eab6aab1ec9bbb5c428d9ee2080d33d23781844edf53c677b",
@@ -172,8 +176,8 @@
     "modified": "a353964c15e855e5769526461b6165a86dd5b8a85bbe165abebd36f77bd8db1a"
   },
   "backend/internal/transport/http/handler/openai_gateway_websocket.go": {
-    "original": "72459f06146b179bdfc6c2279de56de2045139eaccc8e06b69548287a144e2eb",
-    "modified": "dd1d5f83d3de41369b4d29cfa27b882c0158758346fdea9a548fd1bf74be4f4e"
+    "original": "36bd7239115c3fea6ca75a18e951349f5ddc248a7635f9f43dbfaff9b74bd8b0",
+    "modified": "988c5c548e92c3643ba3c56244c64afa9494fb4763f4662ecc8227e9b8bfdee4"
   },
   "deploy/.env.example": {
     "original": "2ab2b391815acc925c3e81e9d5572e231f9f1fd75941570ef13f0fbdc9bf9fda",
@@ -199,6 +203,10 @@
     "original": "d40dc7e9fef56cfd4afcd7b82fd48fcad588203d0f844d4756fe95e53643fdf9",
     "modified": "82cc6b6300d455380c76aa993bb130f6ba6960d13d50209d73559d21a6c90a61"
   },
+  "docs/UPSTREAM_SYNC_20260905.md": {
+    "original": "6d0f8048b3afee2c17860c18f43979222486fcba3e1add7211dbb541d4078fd8",
+    "modified": "376f80fe1668a5bb05fd65b7aba7c3d29150fd4c5a0872a19628761a75649be4"
+  },
   "frontend/src/common/widgets/layout/AppSidebar.vue": {
     "original": "60c278069ed22c5bccd083dc6203993b0100dd4cde2f9650c05c10cd2590b4b4",
     "modified": "cdea213e910a7197c22649f0f614fbf014a98e15a381108966ab278faaa03696"
@@ -206,6 +214,18 @@
   "frontend/src/common/widgets/layout/__tests__/AppSidebar.spec.ts": {
     "original": "1ba5d80b840e0d28706cf7c169f5f2f557f5a21f5aa7e9a7718d426990c99d99",
     "modified": "ebf0969a61f1f67fff979d29a10999e7207675141d7ed8b1c297fa42ada4fa42"
+  },
+  "frontend/src/core/i18n/__tests__/groupsModelsEndpoint.spec.ts": {
+    "original": null,
+    "modified": "bd3e90e6edefdd9d473ea0f5ec0c7df9ec95871882d9640e167310b9eb0f1943"
+  },
+  "frontend/src/core/i18n/locales/en/admin/overview.ts": {
+    "original": "340bc36f10a20f6dcc1f0e9115a7a98144fec049dbb3abe526a52a8346000a17",
+    "modified": "cc75d3f6f552dd5a3b49e0961a4d7cb56816aa2ee27e43bea4a94aaed14ace67"
+  },
+  "frontend/src/core/i18n/locales/zh/admin/overview.ts": {
+    "original": "91834eebefaa425fe685a0f65e8d2c0431e99ef679e45bd420a0da4712123be4",
+    "modified": "afc7faf8650f79d7c84258883251cb602bccaa7dfd734c7aa411d5c108f18d77"
   },
   "frontend/src/features/admin-groups/__tests__/groupsModelsListLayout.spec.ts": {
     "original": "b3283ad91ba06a3c820009f7320fc37e7e3fbe88b55ecf07ade83f1565d7a8bc",
