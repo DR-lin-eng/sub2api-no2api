@@ -156,7 +156,11 @@ import {
 import { useClipboard } from '@/common/composables/useClipboard'
 import ModelIcon from '@/common/widgets/icons/ModelIcon.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
-import { allModels, getModelsByPlatform } from '@/features/admin-accounts/presentation/composables/useModelWhitelist'
+import {
+  allModels,
+  getDefaultModelsByPlatform,
+  getModelsByPlatform
+} from '@/features/admin-accounts/presentation/composables/useModelWhitelist'
 
 const { t } = useI18n()
 
@@ -276,7 +280,7 @@ const handleEnter = () => {
 const fillRelated = () => {
   const newModels = [...props.modelValue]
   for (const platform of normalizedPlatforms.value) {
-    for (const model of getModelsByPlatform(platform)) {
+    for (const model of getDefaultModelsByPlatform(platform)) {
       if (!newModels.includes(model)) {
         newModels.push(model)
       }

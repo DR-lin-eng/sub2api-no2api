@@ -2,8 +2,23 @@
 // 模型列表（硬编码，与 new-api 一致）
 // =====================
 
-// OpenAI
-const openaiModels = [
+// OpenAI：同步按钮和创建账号使用的默认白名单。
+const openaiDefaultModels = [
+  'codex-auto-review',
+  'gpt-5.4-mini',
+  'gpt-5.5',
+  'gpt-5.6-luna',
+  'gpt-5.6-sol',
+  'gpt-5.6-terra',
+  'gpt-6-astra',
+  'gpt-reserve',
+  'gpt-image-1',
+  'gpt-image-1.5',
+  'gpt-image-2'
+]
+
+// OpenAI：完整下拉候选目录，保留历史模型并补齐默认项。
+const openaiModels = [...new Set([
   // GPT-6 系列
   'gpt-6-astra',
   // GPT-5.2 系列
@@ -19,8 +34,9 @@ const openaiModels = [
   'gpt-5.3-codex-spark', 'codex-auto-review',
   'gpt-4o-audio-preview', 'gpt-4o-realtime-preview',
   // GPT Image 系列
-  'gpt-image-1', 'gpt-image-1.5', 'gpt-image-2'
-]
+  'gpt-image-1', 'gpt-image-1.5', 'gpt-image-2',
+  ...openaiDefaultModels
+])]
 
 // Anthropic Claude
 export const claudeModels = [
@@ -449,6 +465,11 @@ export function getModelsByPlatform(platform: string): string[] {
     case 'perplexity': return perplexityModels
     default: return claudeModels
   }
+}
+
+// 自动填充的默认模型与完整候选目录分开，其他平台沿用原行为。
+export function getDefaultModelsByPlatform(platform: string): string[] {
+  return platform === 'openai' ? openaiDefaultModels : getModelsByPlatform(platform)
 }
 
 // 按平台获取预设映射

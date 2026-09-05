@@ -33,6 +33,7 @@ OAuth composable 和创建账号的 OAuth 兑换编排直接依赖账号 OAuth A
 
 - `accountEditorContext.ts`: 字段组件的最小类型契约。
 - `accountFormPolicy.ts`: 创建和编辑共用的纯表单转换。
+- `useModelWhitelist.ts`: 完整候选模型目录、默认填充列表与白名单/映射转换。`getModelsByPlatform` 保留下拉框的历史候选；`getDefaultModelsByPlatform` 仅用于“同步最新支持模型”按钮和创建表单的自动填充，OpenAI 使用当前支持列表并保留 GPT Image 模型。同步默认项只补充缺失模型，不覆盖已保存或自定义的白名单；预设映射与上游同步保持独立。
 - `useCreateAccountEditorPolicy.ts`: 创建表单 watcher 与字段动作。
 - `useCreateAccountOAuthActions.ts`: 创建账号的 OAuth exchange/import/batch 流程。
 - `accountEditUpdatePayload.ts`: 按账号类型和平台构造编辑 payload。

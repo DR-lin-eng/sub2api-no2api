@@ -65,6 +65,20 @@ vi.mock('vue-i18n', async () => {
 
 import CreateAccountModal from '@/features/admin-accounts/presentation/widgets/CreateAccountDialog.vue'
 
+const expectedOpenAIDefaultModels = [
+  'codex-auto-review',
+  'gpt-5.4-mini',
+  'gpt-5.5',
+  'gpt-5.6-luna',
+  'gpt-5.6-sol',
+  'gpt-5.6-terra',
+  'gpt-6-astra',
+  'gpt-reserve',
+  'gpt-image-1',
+  'gpt-image-1.5',
+  'gpt-image-2'
+]
+
 const BaseDialogStub = defineComponent({
   name: 'BaseDialog',
   props: { show: { type: Boolean, default: false } },
@@ -182,6 +196,30 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
       warnings: [],
     })
     createOpenAICodexPATMock.mockReset().mockResolvedValue({})
+  })
+
+  it('prefills only the supported default whitelist for a new OpenAI OAuth account', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'OpenAI')
+
+    expect(wrapper.findComponent({ name: 'ModelWhitelistSelector' }).props('modelValue')).toEqual(expectedOpenAIDefaultModels)
+  })
+
+  it('restores supported defaults rather than all candidates when switching back to whitelist mode', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'OpenAI')
+    await selectButtonByText(wrapper, 'admin.accounts.modelMapping')
+    await selectButtonByText(wrapper, 'admin.accounts.modelWhitelist')
+
+    expect(wrapper.findComponent({ name: 'ModelWhitelistSelector' }).props('modelValue')).toEqual(expectedOpenAIDefaultModels)
+  })
+
+  it('creates an OpenAI API key account with only the default models in its whitelist', async () => {
+    await submitApiKeyAccount('openai')
+
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials?.model_mapping).toEqual(
+      Object.fromEntries(expectedOpenAIDefaultModels.map(model => [model, model]))
+    )
   })
 
   it('sends false explicitly for normal OpenAI account creation by default', async () => {

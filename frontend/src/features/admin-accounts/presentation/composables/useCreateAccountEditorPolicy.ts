@@ -14,7 +14,7 @@ import {
 } from '../accountFormPolicy'
 import {
   fetchAntigravityDefaultMappings,
-  getModelsByPlatform,
+  getDefaultModelsByPlatform,
 } from './useModelWhitelist'
 import type { useAccountOAuth } from './useAccountOAuth'
 import type { useOpenAIOAuth } from './useOpenAIOAuth'
@@ -135,7 +135,7 @@ export function useCreateAccountEditorPolicy(context: CreateAccountEditorPolicyC
           .then(profiles => { tlsFingerprintProfiles.value = profiles.map(p => ({ id: p.id, name: p.name })) })
           .catch(() => { tlsFingerprintProfiles.value = [] })
         // Modal opened - fill related models
-        allowedModels.value = [...getModelsByPlatform(form.platform)]
+        allowedModels.value = [...getDefaultModelsByPlatform(form.platform)]
         // Antigravity: 默认使用映射模式并填充默认映射
         if (form.platform === 'antigravity') {
           antigravityModelRestrictionMode.value = 'mapping'
@@ -318,7 +318,7 @@ export function useCreateAccountEditorPolicy(context: CreateAccountEditorPolicyC
     [modelRestrictionMode, () => form.platform],
     ([newMode]) => {
       if (newMode === 'whitelist') {
-        allowedModels.value = [...getModelsByPlatform(form.platform)]
+        allowedModels.value = [...getDefaultModelsByPlatform(form.platform)]
       }
     }
   )

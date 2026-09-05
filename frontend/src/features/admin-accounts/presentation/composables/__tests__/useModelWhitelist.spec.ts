@@ -4,18 +4,71 @@ vi.mock('@/features/admin-accounts/data/datasources/adminAccountQueries', () => 
   getAntigravityDefaultModelMapping: vi.fn()
 }))
 
-import { buildModelMappingObject, getModelsByPlatform, splitModelMappingObject } from '../useModelWhitelist'
+import { allModels, buildModelMappingObject, getDefaultModelsByPlatform, getModelsByPlatform, splitModelMappingObject } from '../useModelWhitelist'
+
+const expectedOpenAIModels = [
+  'codex-auto-review',
+  'gpt-5.4-mini',
+  'gpt-5.5',
+  'gpt-5.6-luna',
+  'gpt-5.6-sol',
+  'gpt-5.6-terra',
+  'gpt-6-astra',
+  'gpt-reserve',
+  'gpt-image-1',
+  'gpt-image-1.5',
+  'gpt-image-2'
+]
+
+const expectedOpenAICatalog = [
+  'gpt-6-astra',
+  'gpt-5.2',
+  'gpt-5.2-2025-12-11',
+  'gpt-5.2-chat-latest',
+  'gpt-5.2-pro',
+  'gpt-5.2-pro-2025-12-11',
+  'gpt-5.6',
+  'gpt-5.6-sol',
+  'gpt-5.6-terra',
+  'gpt-5.6-luna',
+  'gpt-5.5',
+  'gpt-5.4',
+  'gpt-5.4-mini',
+  'gpt-5.4-2026-03-05',
+  'gpt-5.3-codex-spark',
+  'codex-auto-review',
+  'gpt-4o-audio-preview',
+  'gpt-4o-realtime-preview',
+  'gpt-image-1',
+  'gpt-image-1.5',
+  'gpt-image-2',
+  'gpt-reserve'
+]
 
 describe('useModelWhitelist', () => {
-  it('openai 模型列表包含 GPT-5.4 官方快照', () => {
-    const models = getModelsByPlatform('openai')
+  it('OpenAI 默认列表与当前 Codex 模型一致并保留图片模型', () => {
+    expect(getDefaultModelsByPlatform('openai')).toEqual(expectedOpenAIModels)
+  })
 
-    expect(models).toContain('gpt-6-astra')
-    expect(models).toContain('gpt-5.4')
-    expect(models).toContain('gpt-5.4-mini')
-    expect(models).toContain('gpt-5.4-2026-03-05')
-    expect(models).toContain('codex-auto-review')
-    expect(models).toContain('gpt-5.6')
+  it('完整候选目录保留全部旧模型并补齐新的默认模型', () => {
+    expect(getModelsByPlatform('openai')).toEqual(expectedOpenAICatalog)
+    expect(allModels.slice(0, expectedOpenAICatalog.length)).toEqual(
+      expectedOpenAICatalog.map(model => ({ value: model, label: model }))
+    )
+  })
+
+  it('OpenAI 默认模型可完整保存并还原为白名单', () => {
+    const mapping = buildModelMappingObject('whitelist', getDefaultModelsByPlatform('openai'), [])
+
+    expect(mapping).toEqual(Object.fromEntries(expectedOpenAIModels.map(model => [model, model])))
+    expect(splitModelMappingObject(mapping)).toEqual({
+      allowedModels: expectedOpenAIModels,
+      modelMappings: []
+    })
+  })
+
+  it.each(['anthropic', 'gemini', 'antigravity', 'grok', 'bedrock', 'custom-platform'])('其他平台 %s 的默认模型沿用原候选列表', platform => {
+    expect(getDefaultModelsByPlatform(platform)).toEqual(getModelsByPlatform(platform))
   })
 
   it('openai 模型列表不再暴露已下线的 ChatGPT 登录 Codex 模型', () => {
