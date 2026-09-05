@@ -805,6 +805,9 @@ func (s *OpenAIGatewayService) resolveAccountByPreviousResponseIDForCapability(
 		_ = store.DeleteResponseAccount(ctx, derefGroupID(groupID), responseID)
 		return 0, nil, "", nil
 	}
+	if !codexContinuationSchedulingMatches(ctx, account) {
+		return 0, nil, "", nil
+	}
 	// 非 WSv2 场景（如 force_http/全局关闭）不应使用 previous_response_id 粘连，
 	// 以保持“回滚到 HTTP”后的历史行为一致性。
 	if s.getOpenAIWSProtocolResolver().Resolve(account).Transport != OpenAIUpstreamTransportResponsesWebsocketV2 {
@@ -839,6 +842,9 @@ func (s *OpenAIGatewayService) resolveAccountByPreviousResponseIDForCapability(
 		latest, latestErr := s.accountRepo.GetByID(ctx, account.ID)
 		if latestErr != nil || latest == nil {
 			_ = store.DeleteResponseAccount(ctx, derefGroupID(groupID), responseID)
+			return 0, nil, "", nil
+		}
+		if !codexContinuationSchedulingMatches(ctx, latest) {
 			return 0, nil, "", nil
 		}
 		if shouldClearStickySession(latest, requestedModel) || !latest.IsOpenAI() || !latest.IsSchedulable() {

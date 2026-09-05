@@ -97,10 +97,11 @@ func TestSchedulerCacheV2_EngineStateCompareAndSetAndIndexVersion(t *testing.T) 
 	setSchedulerV2TestCandidateIndex(t, cache, bucket, []service.Account{
 		schedulerV2TestAccount(8, service.PlatformGemini, service.AccountTypeOAuth, 1, nil),
 	})
-	require.NoError(t, cache.rdb.Set(ctx, schedulerBucketKey(schedulerCandidateReady, bucket), "obsolete", 0).Err())
+	require.Equal(t, "3", service.SchedulerCandidateIndexVersion)
+	require.NoError(t, cache.rdb.Set(ctx, schedulerBucketKey(schedulerCandidateReady, bucket), "2", 0).Err())
 	_, hit, err := cache.GetCandidatePage(ctx, bucket, 0, 8)
 	require.NoError(t, err)
-	require.False(t, hit, "a score-version mismatch must force a candidate rebuild")
+	require.False(t, hit, "the previous metadata/index version must force a candidate rebuild")
 }
 
 func TestSchedulerCacheV2_ReplaceMovesOnlyOneAccountBetweenBuckets(t *testing.T) {

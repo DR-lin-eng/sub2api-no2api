@@ -19,6 +19,10 @@ import (
 	"go.uber.org/zap"
 )
 
+func shouldApplyCodexContinuationAffinity(forceImageTool bool, requestPlatform string) bool {
+	return !forceImageTool && requestPlatform == service.PlatformOpenAI
+}
+
 // Responses handles OpenAI Responses API endpoint
 // POST /openai/v1/responses
 func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
@@ -187,7 +191,24 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	// 解析渠道级模型映射
 	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
 	forwardBody := openAIModelMappedBody(body, channelMapping.Mapped, channelMapping.MappedModel, h.gatewayService.ReplaceModelInBody)
+	requestPlatform := openAICompatibleRequestPlatform(c.Request.Context(), apiKey)
 	h.gatewayService.PrepareCodexSimulationRequest(c, apiKey.ID, apiKey.GroupID, forwardBody)
+	// Forced image bridging performs a separate Images-account selection and does
+	// not forward the Responses continuation to that account. Keep its API-key
+	// image candidates outside the OAuth continuation-principal constraint.
+	if shouldApplyCodexContinuationAffinity(forceImageTool, requestPlatform) {
+		continuationSchedulingCtx, continuationSchedulingErr := h.gatewayService.WithCodexContinuationSchedulingAffinity(c.Request.Context(), c, forwardBody)
+		if continuationSchedulingErr != nil {
+			var terminalErr *service.CodexContinuationTerminalError
+			if errors.As(continuationSchedulingErr, &terminalErr) {
+				h.handleStreamingAwareError(c, terminalErr.HTTPStatus, terminalErr.ErrorType, terminalErr.Message, streamStarted)
+				return
+			}
+			h.handleStreamingAwareError(c, http.StatusInternalServerError, "api_error", "Failed to prepare Codex continuation scheduling", streamStarted)
+			return
+		}
+		c.Request = c.Request.WithContext(continuationSchedulingCtx)
+	}
 	seedOpenAIForwardImageIntentHint(c, channelMapping.Mapped, imageIntent)
 	if channelMapping.Mapped {
 		c.Request = c.Request.WithContext(service.WithOpenAIForwardModel(
@@ -209,8 +230,6 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 
 	// Get subscription info (may be nil)
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
-	requestPlatform := openAICompatibleRequestPlatform(c.Request.Context(), apiKey)
-
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
 	routingStart := time.Now()
 

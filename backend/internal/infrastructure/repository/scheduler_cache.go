@@ -1478,6 +1478,18 @@ func (c *schedulerCache) mgetChunked(ctx context.Context, keys []string) ([]any,
 }
 
 func buildSchedulerMetadataAccount(account service.Account) service.Account {
+	extra := filterSchedulerExtra(account.Extra)
+	if account.IsOpenAIOAuth() {
+		if virtualClientKey := account.CodexVirtualClientKey(); virtualClientKey != "" {
+			if extra == nil {
+				extra = make(map[string]any, 1)
+			}
+			// This namespace is intentionally non-credential state. Keeping it in
+			// metadata lets request predicates identify the owner principal before
+			// Scheduler V2 hydrates the selected account's full credential payload.
+			extra[service.CodexVirtualClientKeyExtraKey] = virtualClientKey
+		}
+	}
 	return service.Account{
 		ID:                      account.ID,
 		Name:                    account.Name,
@@ -1507,7 +1519,7 @@ func buildSchedulerMetadataAccount(account service.Account) service.Account {
 		AccountGroups:           filterSchedulerAccountGroups(account.AccountGroups),
 		GroupIDs:                filterSchedulerGroupIDs(account.GroupIDs, account.AccountGroups),
 		Credentials:             filterSchedulerCredentials(account.Credentials),
-		Extra:                   filterSchedulerExtra(account.Extra),
+		Extra:                   extra,
 	}
 }
 

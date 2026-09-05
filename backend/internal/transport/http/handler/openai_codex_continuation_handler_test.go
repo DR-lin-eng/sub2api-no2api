@@ -17,9 +17,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+	"go.uber.org/zap"
 )
 
-func TestOpenAIGatewayHandlerCodexContinuationMismatchDoesNotFailOver(t *testing.T) {
+func TestOpenAIGatewayHandlerCodexContinuationReroutesToOwnerPrincipal(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	groupID := int64(4501)
 	repo := &codexContinuationHandlerAccountRepo{
@@ -55,7 +56,7 @@ func TestOpenAIGatewayHandlerCodexContinuationMismatchDoesNotFailOver(t *testing
 	firstBody := []byte(`{"model":"gpt-5.4","stream":false,"input":"hello"}`)
 	firstContext, firstRecorder := newCodexContinuationHandlerContext(groupID, firstBody)
 	handler.Responses(firstContext)
-	require.Equal(t, http.StatusOK, firstRecorder.Code, firstRecorder.Body.String())
+	require.Equal(t, http.StatusOK, firstRecorder.Code, "%s; upstream hits=%v", firstRecorder.Body.String(), upstream.accountHits())
 	require.Equal(t, "resp_owner", gjson.GetBytes(firstRecorder.Body.Bytes(), "id").String())
 	require.Equal(t, []int64{101}, upstream.accountHits())
 	require.Empty(t, upstream.projectHeaders()[0], "ingress-only project header must not reach upstream")
@@ -65,10 +66,40 @@ func TestOpenAIGatewayHandlerCodexContinuationMismatchDoesNotFailOver(t *testing
 	secondContext, secondRecorder := newCodexContinuationHandlerContext(groupID, secondBody)
 	handler.Responses(secondContext)
 
+	// This lightweight handler fixture only exposes HTTP upstream transport, so
+	// the same-principal continuation stops at the stricter original-WS check.
+	// The selected account proves the avoidable cross-principal 409 was removed.
 	require.Equal(t, http.StatusConflict, secondRecorder.Code, secondRecorder.Body.String())
-	require.Equal(t, "invalid_request_error", gjson.GetBytes(secondRecorder.Body.Bytes(), "error.type").String())
-	require.Contains(t, gjson.GetBytes(secondRecorder.Body.Bytes(), "error.message").String(), "cannot migrate")
-	require.Equal(t, []int64{101}, upstream.accountHits(), "terminal mismatch must not touch principal B or fail over to principal A")
+	message := gjson.GetBytes(secondRecorder.Body.Bytes(), "error.message").String()
+	require.Contains(t, message, "requires its original upstream WebSocket connection")
+	require.NotContains(t, message, "cannot migrate to the selected upstream principal")
+	selectedAccountID, selected := secondContext.Get(opsAccountIDKey)
+	require.True(t, selected)
+	require.Equal(t, int64(101), selectedAccountID)
+	require.Equal(t, []int64{101}, upstream.accountHits(), "principal B must never be selected or contacted")
+}
+
+func TestCodexContinuationAffinitySkipsForcedImageAccountSelection(t *testing.T) {
+	require.True(t, shouldApplyCodexContinuationAffinity(false, service.PlatformOpenAI))
+	require.False(t, shouldApplyCodexContinuationAffinity(false, service.PlatformGrok), "Grok Responses must not inherit Codex OAuth owner affinity")
+	require.False(t, shouldApplyCodexContinuationAffinity(true, service.PlatformOpenAI), "forced image bridging must keep independent API-key image candidates")
+}
+
+func TestNormalizeOpenAIWSBootstrapBeforeScheduling(t *testing.T) {
+	body := []byte(`{"model":"gpt-5.5","input":[{"type":"function_call_output","id":"fco_1","namespace":"codex_app","name":"create_thread","output":"<codex_delegation><source_thread_id>thread-1</source_thread_id><input>inspect</input></codex_delegation>"}]}`)
+	normalized := normalizeOpenAIWSBootstrapBeforeScheduling(zap.NewNop(), body)
+
+	require.Equal(t, "message", gjson.GetBytes(normalized, "input.0.type").String())
+	require.Equal(t, "user", gjson.GetBytes(normalized, "input.0.role").String())
+	require.False(t, gjson.GetBytes(normalized, "input.0.call_id").Exists())
+	require.NotEqual(t, string(body), string(normalized))
+}
+
+func TestOpenAIWSPreviousResponseRecoveryPreservesEnforcedOwnerAffinity(t *testing.T) {
+	require.True(t, shouldStripOpenAIWSPreviousResponseID("resp_1", false, true, false))
+	require.False(t, shouldStripOpenAIWSPreviousResponseID("resp_1", false, true, true), "known owner affinity must preserve the exact continuation anchor")
+	require.False(t, shouldStripOpenAIWSPreviousResponseID("resp_1", true, true, false))
+	require.False(t, shouldStripOpenAIWSPreviousResponseID("resp_1", false, false, false))
 }
 
 func codexContinuationHandlerAccount(id int64, priority int, principal string) service.Account {

@@ -370,6 +370,33 @@ func TestSchedulerSnapshotV2_ConfigurableCandidateAndScanLimits(t *testing.T) {
 	require.Equal(t, 6, cache.candidateRowsRead)
 }
 
+func TestSchedulerSnapshotV2_PriorityAccountBypassesOrdinaryScanWindow(t *testing.T) {
+	cache := newSchedulerV2CacheStub()
+	cache.state = SchedulerEngineState{
+		Engine: SchedulerEngineV2, Status: SchedulerEngineStatusActive,
+		CandidateLimit: 2, ScanLimit: 4,
+	}
+	bucket := SchedulerBucket{Platform: PlatformOpenAI, Mode: SchedulerModeSingle}
+	indexed := make([]Account, 0, 9)
+	for i := 1; i <= 8; i++ {
+		indexed = append(indexed, schedulerScenarioAccount(int64(i), PlatformOpenAI, AccountTypeOAuth, 1, nil))
+	}
+	owner := schedulerScenarioAccount(999, PlatformOpenAI, AccountTypeOAuth, 1, nil)
+	owner.Extra = map[string]any{CodexVirtualClientKeyExtraKey: "chatgpt:owner-999"}
+	indexed = append(indexed, owner)
+	setSchedulerV2StubIndex(t, cache, bucket, indexed)
+	svc := NewSchedulerSnapshotService(cache, nil, nil, nil, nil)
+	ctx := withSchedulerCandidatePriorityIDs(context.Background(), []int64{owner.ID})
+	ctx = withSchedulerCandidatePredicate(ctx, func(account *Account) bool {
+		return account != nil && account.ID == owner.ID && account.CodexVirtualClientKey() == "chatgpt:owner-999"
+	})
+
+	accounts, _, err := svc.ListSchedulableAccounts(ctx, nil, PlatformOpenAI, false)
+	require.NoError(t, err)
+	require.Equal(t, []int64{owner.ID}, accountValueIDs(accounts))
+	require.Equal(t, 4, cache.candidateRowsRead, "ordinary scanning remains bounded by the configured scan limit")
+}
+
 func TestSchedulerSnapshotV2_LimitsPropagateThroughGlobalState(t *testing.T) {
 	cache := newSchedulerV2CacheStub()
 	cache.state = SchedulerEngineState{Engine: SchedulerEngineV2, Status: SchedulerEngineStatusActive}

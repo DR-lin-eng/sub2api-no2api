@@ -153,6 +153,220 @@ func TestCodexContinuationEnforceOwnershipMatrix(t *testing.T) {
 	}
 }
 
+func TestCodexContinuationSchedulingAffinityFiltersToRecordedOwnerAccount(t *testing.T) {
+	svc := newCodexSimulationTestService(false, codexContinuationEnforce)
+	c := newCodexSimulationTestContext("/v1/responses")
+	c.Request.Header.Set("thread-id", "affinity-thread")
+	body := []byte(`{"previous_response_id":"resp_affinity","input":"next"}`)
+	svc.PrepareCodexSimulationRequest(c, 1, nil, body)
+	request, ok := codexSimulationRequestStateFromGin(c)
+	require.True(t, ok)
+
+	owner := openAIFingerprintAccount(91, nil)
+	owner.Credentials = map[string]any{"chatgpt_account_id": "affinity-principal"}
+	ownerPrincipal := svc.resolveCodexSimulationPrincipal(owner)
+	ownerKey := svc.codexResponseOwnerStateKeyForRequest(request, "resp_affinity")
+	store := svc.getCodexSimulationStateStore()
+	require.NoError(t, store.set(
+		context.Background(),
+		ownerKey,
+		"owned:"+ownerPrincipal.key,
+	))
+	require.NoError(t, svc.getOpenAIWSStateStore().BindResponseAccount(context.Background(), 0, "resp_affinity", owner.ID, time.Hour))
+
+	schedulingCtx, err := svc.WithCodexContinuationSchedulingAffinity(context.Background(), c, body)
+	require.NoError(t, err)
+	require.True(t, codexContinuationSchedulingMatches(schedulingCtx, owner))
+	require.Equal(t, []int64{owner.ID}, schedulerCandidatePriorityIDs(schedulingCtx))
+	metadataOwner := *owner
+	metadataOwner.Credentials = nil
+	metadataOwner.Extra = map[string]any{CodexVirtualClientKeyExtraKey: owner.CodexVirtualClientKey()}
+	require.True(t, codexContinuationSchedulingMatches(schedulingCtx, &metadataOwner), "scheduler metadata must preserve the virtual-client namespace")
+
+	samePrincipal := openAIFingerprintAccount(92, nil)
+	samePrincipal.Credentials = map[string]any{"chatgpt_account_id": "affinity-principal"}
+	require.False(t, codexContinuationSchedulingMatches(schedulingCtx, samePrincipal), "the original WebSocket belongs to the recorded local account pool")
+
+	otherPrincipal := openAIFingerprintAccount(93, nil)
+	otherPrincipal.Credentials = map[string]any{"chatgpt_account_id": "other-principal"}
+	require.False(t, codexContinuationSchedulingMatches(schedulingCtx, otherPrincipal))
+
+	apiKeyAccount := &Account{ID: 94, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	require.False(t, codexContinuationSchedulingMatches(schedulingCtx, apiKeyAccount))
+
+	// The process-local connection ID preserves exact account affinity even after
+	// the shared response-account binding expires.
+	require.NoError(t, svc.getOpenAIWSStateStore().DeleteResponseAccount(context.Background(), 0, "resp_affinity"))
+	svc.getOpenAIWSStateStore().BindResponseConn("resp_affinity", "oa_ws_91_7", time.Hour)
+	connectionSchedulingCtx, err := svc.WithCodexContinuationSchedulingAffinity(context.Background(), c, body)
+	require.NoError(t, err)
+	require.Equal(t, []int64{owner.ID}, schedulerCandidatePriorityIDs(connectionSchedulingCtx))
+	require.False(t, codexContinuationSchedulingMatches(connectionSchedulingCtx, samePrincipal))
+
+	// Owner state remains compatible with older nodes. When neither account nor
+	// local connection affinity exists, scheduling safely falls back to principal.
+	svc.getOpenAIWSStateStore().DeleteResponseConn("resp_affinity")
+	legacySchedulingCtx, err := svc.WithCodexContinuationSchedulingAffinity(context.Background(), c, body)
+	require.NoError(t, err)
+	require.True(t, codexContinuationSchedulingMatches(legacySchedulingCtx, samePrincipal))
+	require.Empty(t, schedulerCandidatePriorityIDs(legacySchedulingCtx))
+}
+
+func TestCodexContinuationSchedulingAffinitySelectsOwnerBeforeLoadBalance(t *testing.T) {
+	svc := newCodexSimulationTestService(false, codexContinuationEnforce)
+	owner := Account{
+		ID: 101, Name: "owner", Platform: PlatformOpenAI, Type: AccountTypeOAuth,
+		Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 1,
+		Credentials: map[string]any{"access_token": "owner-token", "chatgpt_account_id": "affinity-owner"},
+	}
+	other := Account{
+		ID: 102, Name: "other", Platform: PlatformOpenAI, Type: AccountTypeOAuth,
+		Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0,
+		Credentials: map[string]any{"access_token": "other-token", "chatgpt_account_id": "affinity-other"},
+	}
+	svc.accountRepo = schedulerTestOpenAIAccountRepo{accounts: []Account{other, owner}}
+
+	c := newCodexSimulationTestContext("/v1/responses")
+	c.Request.Header.Set("thread-id", "affinity-selection-thread")
+	body := []byte(`{"input":[{"type":"item_reference","id":"missing"}]}`)
+	svc.PrepareCodexSimulationRequest(c, 1, nil, body)
+	request, ok := codexSimulationRequestStateFromGin(c)
+	require.True(t, ok)
+	ownerPrincipal := svc.codexSimulationPrincipalForAccountWithSecret(&owner, request.settings.IdentitySecret)
+	rootOwnerKey := codexRootOwnerStateKey(request.root.rootKey)
+	store := svc.getCodexSimulationStateStore()
+	require.NoError(t, store.set(
+		context.Background(),
+		rootOwnerKey,
+		"owned:"+ownerPrincipal.key,
+	))
+	svc.getOpenAIWSStateStore().BindSessionConn(0, request.root.rootKey, "oa_ws_101_9", time.Hour)
+
+	schedulingCtx, err := svc.WithCodexContinuationSchedulingAffinity(context.Background(), c, body)
+	require.NoError(t, err)
+	require.Equal(t, []int64{owner.ID}, schedulerCandidatePriorityIDs(schedulingCtx))
+	selection, _, err := svc.SelectAccountWithSchedulerForCapability(
+		schedulingCtx,
+		nil,
+		"",
+		"affinity-selection-session",
+		"gpt-5.4",
+		nil,
+		OpenAIUpstreamTransportAny,
+		"",
+		false,
+		false,
+		true,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	require.NotNil(t, selection.Account)
+	require.Equal(t, owner.ID, selection.Account.ID, "load balancing must not select the higher-priority wrong principal")
+	if selection.ReleaseFunc != nil {
+		selection.ReleaseFunc()
+	}
+
+	advanced := newDefaultOpenAIAccountScheduler(svc, newOpenAIAccountRuntimeStats())
+	advancedSelection, _, err := advanced.Select(schedulingCtx, OpenAIAccountScheduleRequest{
+		Platform:             PlatformOpenAI,
+		SessionHash:          "affinity-advanced-session",
+		RequestedModel:       "gpt-5.4",
+		RequiredTransport:    OpenAIUpstreamTransportAny,
+		UseUpstreamTokenCost: true,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, advancedSelection)
+	require.NotNil(t, advancedSelection.Account)
+	require.Equal(t, owner.ID, advancedSelection.Account.ID, "advanced scheduler must enforce the same owner-principal constraint")
+	if advancedSelection.ReleaseFunc != nil {
+		advancedSelection.ReleaseFunc()
+	}
+
+	metadataCandidate := owner
+	metadataCandidate.Credentials = map[string]any{"model_mapping": map[string]any{"gpt-5.4": "gpt-5.4"}}
+	metadataCandidate.Extra = nil
+	svc.schedulerSnapshot = &SchedulerSnapshotService{cache: &openAISnapshotCacheStub{
+		accountsByID: map[int64]*Account{owner.ID: &owner},
+	}}
+	require.True(t, svc.codexContinuationCandidateMatches(schedulingCtx, &metadataCandidate), "legacy scheduler metadata should hydrate the full account before rejecting owner affinity")
+
+	mutatedOwner := owner
+	mutatedOwner.Credentials = map[string]any{"access_token": "rotated-token", "chatgpt_account_id": "different-principal"}
+	svc.accountRepo = schedulerTestOpenAIAccountRepo{accounts: []Account{mutatedOwner}}
+	staleOwner := owner
+	svc.schedulerSnapshot = &SchedulerSnapshotService{cache: &openAISnapshotCacheStub{
+		accountsByID: map[int64]*Account{owner.ID: &staleOwner},
+	}}
+	_, err = svc.RefreshCodexContinuationSchedulingAccount(schedulingCtx, &owner)
+	require.ErrorIs(t, err, ErrAccountSchedulingChanged, "authoritative DB principal changes must beat a stale scheduler snapshot before forward")
+
+	expensiveRate := 0.8
+	expensiveOwner := owner
+	expensiveOwner.RateMultiplier = &expensiveRate
+	expensiveOwner.UpdatedAt = time.Unix(2, 0)
+	staleOwner.UpdatedAt = time.Unix(1, 0)
+	svc.accountRepo = schedulerTestOpenAIAccountRepo{accounts: []Account{expensiveOwner}}
+	svc.schedulerSnapshot = &SchedulerSnapshotService{cache: &openAISnapshotCacheStub{
+		accountsByID: map[int64]*Account{owner.ID: &staleOwner},
+	}}
+	profitCtx := context.WithValue(schedulingCtx, profitControlGateCtxKey{}, &profitControlGate{threshold: 0.5})
+	refreshed, err := svc.RefreshCodexContinuationSchedulingAccount(profitCtx, &owner)
+	require.NoError(t, err)
+	latest, vetoed, reason := svc.ProfitControlVetoLatest(profitCtx, refreshed)
+	require.Same(t, refreshed, latest)
+	require.True(t, vetoed, "profit control must evaluate the authoritative refreshed account")
+	require.Equal(t, profitControlFilterReasonThreshold, reason)
+}
+
+func TestCodexContinuationSchedulingAffinityLeavesFullAndUnknownRequestsUnrestricted(t *testing.T) {
+	svc := newCodexSimulationTestService(false, codexContinuationEnforce)
+	otherPrincipal := openAIFingerprintAccount(95, nil)
+	otherPrincipal.Credentials = map[string]any{"chatgpt_account_id": "other-principal"}
+
+	fullContext := newCodexSimulationTestContext("/v1/responses")
+	fullContext.Request.Header.Set("thread-id", "affinity-full-thread")
+	fullBody := []byte(`{"input":"complete history"}`)
+	svc.PrepareCodexSimulationRequest(fullContext, 1, nil, fullBody)
+	fullRequest, ok := codexSimulationRequestStateFromGin(fullContext)
+	require.True(t, ok)
+	require.NoError(t, svc.getCodexSimulationStateStore().set(
+		context.Background(),
+		codexRootOwnerStateKey(fullRequest.root.rootKey),
+		"owned:"+strings.Repeat("a", 64),
+	))
+	fullSchedulingCtx, err := svc.WithCodexContinuationSchedulingAffinity(context.Background(), fullContext, fullBody)
+	require.NoError(t, err)
+	require.True(t, codexContinuationSchedulingMatches(fullSchedulingCtx, otherPrincipal), "self-contained full history may migrate through the sanitizer")
+
+	unknownContext := newCodexSimulationTestContext("/v1/responses")
+	unknownContext.Request.Header.Set("thread-id", "affinity-unknown-thread")
+	unknownBody := []byte(`{"previous_response_id":"resp_unknown","input":"next"}`)
+	svc.PrepareCodexSimulationRequest(unknownContext, 1, nil, unknownBody)
+	unknownSchedulingCtx, err := svc.WithCodexContinuationSchedulingAffinity(context.Background(), unknownContext, unknownBody)
+	require.NoError(t, err)
+	require.True(t, codexContinuationSchedulingMatches(unknownSchedulingCtx, otherPrincipal), "unknown ownership keeps the existing first-attempt behavior")
+}
+
+func TestCodexContinuationSchedulingAffinityRejectsExternalIncrementalState(t *testing.T) {
+	svc := newCodexSimulationTestService(false, codexContinuationEnforce)
+	c := newCodexSimulationTestContext("/v1/responses")
+	c.Request.Header.Set("thread-id", "affinity-external-thread")
+	body := []byte(`{"previous_response_id":"resp_external_affinity","input":"next"}`)
+	svc.PrepareCodexSimulationRequest(c, 1, nil, body)
+	request, ok := codexSimulationRequestStateFromGin(c)
+	require.True(t, ok)
+	require.NoError(t, svc.getCodexSimulationStateStore().set(
+		context.Background(),
+		svc.codexResponseOwnerStateKeyForRequest(request, "resp_external_affinity"),
+		"external",
+	))
+
+	_, err := svc.WithCodexContinuationSchedulingAffinity(context.Background(), c, body)
+	var terminalErr *CodexContinuationTerminalError
+	require.ErrorAs(t, err, &terminalErr)
+	require.Contains(t, terminalErr.Message, "cannot migrate")
+}
+
 func TestCodexContinuationParseFailureClosesOnlyCrossPrincipalEnforce(t *testing.T) {
 	invalidBody := []byte(`{"input":`)
 	svc := newCodexSimulationTestService(false, codexContinuationEnforce)
@@ -217,10 +431,10 @@ func TestCodexContinuationSuccessAndInvalidEncryptedState(t *testing.T) {
 	require.True(t, ok)
 	principal := svc.resolveCodexSimulationPrincipal(account)
 	store := svc.getCodexSimulationStateStore()
-	requireCodexOwnerValue(t, store, codexRootOwnerStateKey(request.root.rootKey), "owned:"+principal.key)
+	rootStateKey := codexRootOwnerStateKey(request.root.rootKey)
+	requireCodexOwnerValue(t, store, rootStateKey, "owned:"+principal.key)
 	requireCodexOwnerValue(t, store, svc.codexResponseOwnerStateKey("resp_owner"), "owned:"+principal.key)
 	require.Len(t, store.entries, 2, "only response and root ownership belong in the simulation store")
-	rootStateKey := codexRootOwnerStateKey(request.root.rootKey)
 	firstExpiry := store.entries[rootStateKey].expiresAt
 	time.Sleep(time.Millisecond)
 	svc.completeCodexSimulationSuccess(context.Background(), c, account, "", "")
@@ -243,6 +457,13 @@ func TestCodexContinuationSuccessAndInvalidEncryptedState(t *testing.T) {
 	require.True(t, ok)
 	requireCodexOwnerValue(t, store, codexRootOwnerStateKey(unknownRequest.root.rootKey), "external")
 	requireCodexOwnerValue(t, store, svc.codexResponseOwnerStateKey("resp_external"), "external")
+}
+
+func TestCodexContinuationAccountIDFromConnID(t *testing.T) {
+	require.Equal(t, int64(91), codexContinuationAccountIDFromConnID("oa_ws_91_7"))
+	for _, invalid := range []string{"", "oa_ws_", "oa_ws_0_1", "oa_ws_91_0", "oa_ws_bad_1", "other_91_1"} {
+		require.Zero(t, codexContinuationAccountIDFromConnID(invalid), invalid)
+	}
 }
 
 func TestCodexSimulationStateFallsBackLocallyAndExpires(t *testing.T) {
