@@ -30,6 +30,7 @@ func TestGPT6AstraModelIdentityAndCapabilities(t *testing.T) {
 	require.Empty(t, normalizeKnownOpenAICodexModel("gpt-6-orion"))
 	require.False(t, codexManifestKnownImageInputModel("gpt-6-orion"))
 	require.False(t, shouldAutoInjectPromptCacheKeyForCompat("gpt-6-orion"))
+	require.False(t, isOpenAIGPT6AstraModel("gpt-5.6-sol"))
 }
 
 func TestGPT6AstraForwardNormalizesUnsupportedReasoningEffort(t *testing.T) {
