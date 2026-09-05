@@ -112,6 +112,10 @@ func normalizeKnownOpenAICodexModel(model string) string {
 }
 
 func isOpenAIGPT6AstraModel(model string) bool {
+	segment := strings.ToLower(lastOpenAIModelSegment(model))
+	if !strings.HasPrefix(segment, "gpt-6") && !strings.HasPrefix(segment, "gpt6") {
+		return false
+	}
 	normalized := canonicalizeOpenAIModelAliasSpelling(model)
 	normalized = strings.TrimSuffix(normalized, "-openai-compact")
 	return normalized == "gpt-6-astra-max" || isKnownOpenAIModelVariant(normalized, "gpt-6-astra")
