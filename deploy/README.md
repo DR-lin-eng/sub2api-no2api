@@ -815,3 +815,7 @@ adapter uses an HTTP/1.1-only copy because Go's standard HTTP/2 adapter requires
 `*tls.Conn`, while uTLS returns `*utls.UConn`; WebSocket upgrades use the same HTTP/1.1 copy.
 Rustls randomizes ClientHello extension order per handshake, so this feature guarantees stable
 provider parameters and account isolation, not a byte-identical cross-platform JA3 hash.
+
+### Claude CLI 兼容版本
+
+`SUB2API_CLAUDE_CLI_VERSION` 可选，默认空值保留内置版本；只接受不低于内置 pin 的稳定三段版本。进程启动时解析一次，修改或移除后重新创建应用容器。数据库和账号配置格式保持不变。

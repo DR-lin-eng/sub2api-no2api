@@ -2,6 +2,7 @@ package service
 
 import (
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -83,6 +84,39 @@ func TestDetectOpenAICyberPolicy(t *testing.T) {
 				require.Equal(t, "cyber_policy", code)
 				require.Equal(t, tc.msg, msg)
 			}
+		})
+	}
+}
+
+func TestMarkOpenAICyberPolicyEventBounded(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	payload := []byte(`{"error":{"code":"cyber_policy","message":"blocked"},"padding":"` + strings.Repeat("x", 100000) + `"}`)
+	require.True(t, markOpenAICyberPolicyEvent(c, payload, 403, &OpenAIUsage{InputTokens: 3, OutputTokens: 5}))
+	mark := GetOpsCyberPolicy(c)
+	require.Len(t, mark.Body, 4096)
+	require.Equal(t, 403, mark.UpstreamStatus)
+	require.EqualValues(t, 3, mark.UpstreamInTok)
+	require.EqualValues(t, 5, mark.UpstreamOutTok)
+	require.False(t, markOpenAICyberPolicyEvent(c, []byte(`{"error":{"code":"rate_limit_exceeded"}}`), 429, nil))
+	require.Equal(t, mark, GetOpsCyberPolicy(c))
+}
+
+func TestMarkOpenAICyberPolicyEventUsageShapes(t *testing.T) {
+	for _, tc := range []struct {
+		name, payload string
+		input, output int
+	}{
+		{"bare_error", `{"type":"error","error":{"code":"cyber_policy","message":"blocked"},"usage":{"input_tokens":5,"output_tokens":1}}`, 5, 1},
+		{"response_failed", `{"type":"response.failed","response":{"error":{"code":"cyber_policy"},"usage":{"input_tokens":9,"output_tokens":2}}}`, 9, 2},
+		{"prior_usage", `{"type":"error","error":{"code":"cyber_policy"}}`, 3, 4},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			prior := OpenAIUsage{InputTokens: 3, OutputTokens: 4}
+			require.True(t, markOpenAICyberPolicyEvent(c, []byte(tc.payload), 200, &prior))
+			require.Equal(t, tc.input, GetOpsCyberPolicy(c).UpstreamInTok)
+			require.Equal(t, tc.output, GetOpsCyberPolicy(c).UpstreamOutTok)
+			require.Equal(t, 3, prior.InputTokens, "recording must not mutate caller usage")
 		})
 	}
 }

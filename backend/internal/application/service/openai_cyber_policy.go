@@ -86,3 +86,27 @@ func detectOpenAICyberPolicy(payload []byte) (bool, string, string) {
 	}
 	return true, "cyber_policy", strings.TrimSpace(msg)
 }
+
+func markOpenAICyberPolicyEvent(c *gin.Context, payload []byte, upstreamStatus int, usage *OpenAIUsage) bool {
+	hit, code, message := detectOpenAICyberPolicy(payload)
+	if !hit {
+		return false
+	}
+	// Bound the diagnostic copy before converting to a string.
+	body := payload
+	if len(body) > 4096 {
+		body = body[:4096]
+	}
+	mark := CyberPolicyMark{Code: code, Message: message, Body: string(body), UpstreamStatus: upstreamStatus}
+	observedUsage := OpenAIUsage{}
+	if usage != nil {
+		observedUsage = *usage
+	}
+	// Bare error events may carry top-level usage even though the normal
+	// completion-event fast path intentionally skips them.
+	parseOpenAIWSResponseUsageFromCompletedEvent(payload, &observedUsage)
+	mark.UpstreamInTok = observedUsage.InputTokens
+	mark.UpstreamOutTok = observedUsage.OutputTokens
+	MarkOpsCyberPolicy(c, mark)
+	return true
+}

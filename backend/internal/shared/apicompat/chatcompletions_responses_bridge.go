@@ -88,7 +88,7 @@ func EffectiveResponsesTools(req *ResponsesRequest) ([]ResponsesTool, error) {
 	}
 
 	tools := append([]ResponsesTool(nil), req.Tools...)
-	inputRaw := bytesTrimSpace(req.Input)
+	inputRaw := bytes.TrimSpace(req.Input)
 	if len(inputRaw) == 0 || string(inputRaw) == "null" || inputRaw[0] != '[' {
 		return tools, nil
 	}
@@ -97,8 +97,9 @@ func EffectiveResponsesTools(req *ResponsesRequest) ([]ResponsesTool, error) {
 	if err := json.Unmarshal(inputRaw, &items); err != nil {
 		return nil, fmt.Errorf("parse responses input for additional tools: %w", err)
 	}
+	var discoveryItems []any
 	for _, raw := range items {
-		raw = bytesTrimSpace(raw)
+		raw = bytes.TrimSpace(raw)
 		if len(raw) == 0 || raw[0] != '{' {
 			continue
 		}
@@ -107,6 +108,14 @@ func EffectiveResponsesTools(req *ResponsesRequest) ([]ResponsesTool, error) {
 		}
 		if err := json.Unmarshal(raw, &discriminator); err != nil {
 			return nil, fmt.Errorf("parse responses additional tools item: %w", err)
+		}
+		if discriminator.Type == "tool_search_output" {
+			var discovery map[string]any
+			if err := json.Unmarshal(raw, &discovery); err != nil {
+				return nil, fmt.Errorf("parse responses tool discovery: %w", err)
+			}
+			discoveryItems = append(discoveryItems, discovery)
+			continue
 		}
 		if discriminator.Type != "additional_tools" {
 			continue
@@ -118,6 +127,39 @@ func EffectiveResponsesTools(req *ResponsesRequest) ([]ResponsesTool, error) {
 			return nil, fmt.Errorf("parse responses additional tools item: %w", err)
 		}
 		tools = append(tools, item.Tools...)
+	}
+	if len(discoveryItems) == 0 || !HasToolSearchTool(tools) {
+		return tools, nil
+	}
+	encoded, err := json.Marshal(tools)
+	if err != nil {
+		return nil, fmt.Errorf("encode discovery declarations: %w", err)
+	}
+	var rawTools []any
+	if err := json.Unmarshal(encoded, &rawTools); err != nil {
+		return nil, fmt.Errorf("decode discovery declarations: %w", err)
+	}
+	promotion := map[string]any{"tools": rawTools, "input": discoveryItems}
+	changed, err := promoteResponsesToolSearchDiscoveries(promotion)
+	if err != nil {
+		return nil, err
+	}
+	if changed {
+		// Only new declarations cross the untyped/typed boundary.
+		allTools, ok := promotion["tools"].([]any)
+		if !ok || len(allTools) < len(rawTools) {
+			return nil, fmt.Errorf("invalid promoted tool declarations")
+		}
+		promoted := allTools[len(rawTools):]
+		encoded, err := json.Marshal(promoted)
+		if err != nil {
+			return nil, fmt.Errorf("encode promoted declarations: %w", err)
+		}
+		var discovered []ResponsesTool
+		if err := json.Unmarshal(encoded, &discovered); err != nil {
+			return nil, fmt.Errorf("decode promoted declarations: %w", err)
+		}
+		tools = append(tools, discovered...)
 	}
 	return tools, nil
 }
@@ -354,6 +396,11 @@ func buildChatMessagesFromItems(messages []ChatMessage, rawItems []json.RawMessa
 			continue
 		case "function_call_output", "custom_tool_call_output", "tool_search_output":
 			outputRaw := bytesTrimSpace(item["output"])
+			if itemType == "tool_search_output" && (len(outputRaw) == 0 || string(outputRaw) == "null") {
+				// Newer client-side discovery returns declarations in tools rather
+				// than output. Preserve them in history as well as the tool catalog.
+				outputRaw = bytesTrimSpace(item["tools"])
+			}
 			callID := rawString(item["call_id"])
 			if callID == "" && invalidEmptyFunctionCallOutputs > 0 {
 				invalidEmptyFunctionCallOutputs--

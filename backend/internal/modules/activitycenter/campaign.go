@@ -1133,15 +1133,6 @@ func filterCampaignPoolsForUser(campaign *Campaign, groupIDs []int64) bool {
 	return true
 }
 
-func isValidCampaignType(value string) bool {
-	switch value {
-	case CampaignTypeLottery, CampaignTypeInflate, CampaignTypeCheckin, CampaignTypeRedeem, CampaignTypeCustom:
-		return true
-	default:
-		return false
-	}
-}
-
 func validateCheckinConfig(config *ActivityConfig) error {
 	if config == nil || config.Checkin == nil || len(config.Checkin.DailyRewards) == 0 {
 		return ErrCampaignConfigInvalid
@@ -1192,13 +1183,4 @@ func validateCheckinConfig(config *ActivityConfig) error {
 		}
 	}
 	return nil
-}
-
-func isValidCampaignStatus(value string) bool {
-	switch value {
-	case CampaignStatusDraft, CampaignStatusActive, CampaignStatusArchived:
-		return true
-	default:
-		return false
-	}
 }

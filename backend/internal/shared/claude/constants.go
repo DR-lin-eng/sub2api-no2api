@@ -102,7 +102,7 @@ var DefaultHeaders = map[string]string{
 	// Keep these in sync with recent Claude CLI traffic to reduce the chance
 	// that Claude Code-scoped OAuth credentials are rejected as "non-CLI" usage.
 	// 版本参考：对齐 Parrot (src/transform/cc_mimicry.py:49) 的 CLI_USER_AGENT。
-	"User-Agent":                                "claude-cli/" + CLICurrentVersion + " (external, cli)",
+	"User-Agent":                                "claude-cli/" + CLIVersion() + " (external, cli)",
 	"X-Stainless-Lang":                          "js",
 	"X-Stainless-Package-Version":               "0.94.0",
 	"X-Stainless-OS":                            "Linux",

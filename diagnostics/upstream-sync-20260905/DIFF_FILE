@@ -1,0 +1,2069 @@
+diff --git a/backend/internal/application/service/gateway_billing_header.go b/backend/internal/application/service/gateway_billing_header.go
+index 5dd047478..3efafc04e 100644
+--- a/backend/internal/application/service/gateway_billing_header.go
++++ b/backend/internal/application/service/gateway_billing_header.go
+@@ -5,13 +5,27 @@ import (
+ 	"regexp"
+ 	"strings"
+ 
++	"github.com/Wei-Shaw/sub2api/internal/shared/claude"
++
+ 	"github.com/tidwall/gjson"
+ 	"github.com/tidwall/sjson"
+ )
+ 
+-// ccVersionInBillingRe matches the semver part of cc_version (X.Y.Z), preserving
+-// the trailing message-derived suffix (e.g. ".c02") if present.
++// ccVersionInBillingRe matches the semver part of cc_version.
+ var ccVersionInBillingRe = regexp.MustCompile(`cc_version=\d+\.\d+\.\d+`)
++var ccVersionWithFingerprintInBillingRe = regexp.MustCompile(`cc_version=\d+\.\d+\.\d+\.[0-9a-fA-F]{3}\b`)
++
++// effectiveBillingUserAgent follows the final OAuth header selection, including
++// forced mimicry when fingerprint unification is disabled.
++func effectiveBillingUserAgent(tokenType string, mimicClaudeCode bool, fingerprint *Fingerprint) string {
++	if tokenType == "oauth" && mimicClaudeCode {
++		return claude.DefaultHeaders["User-Agent"]
++	}
++	if fingerprint == nil {
++		return ""
++	}
++	return fingerprint.UserAgent
++}
+ 
+ // syncBillingHeaderVersion rewrites cc_version in x-anthropic-billing-header
+ // system text blocks to match the version extracted from userAgent.
+@@ -33,7 +47,11 @@ func syncBillingHeaderVersion(body []byte, userAgent string) []byte {
+ 		text := item.Get("text")
+ 		if text.Exists() && text.Type == gjson.String &&
+ 			strings.HasPrefix(text.String(), "x-anthropic-billing-header") {
+-			newText := ccVersionInBillingRe.ReplaceAllString(text.String(), replacement)
++			newText := text.String()
++			if ccVersionWithFingerprintInBillingRe.MatchString(newText) {
++				newText = ccVersionWithFingerprintInBillingRe.ReplaceAllString(newText, replacement+"."+computeClaudeCodeFingerprint(body, version))
++			}
++			newText = ccVersionInBillingRe.ReplaceAllString(newText, replacement)
+ 			if newText != text.String() {
+ 				if updated, err := sjson.SetBytes(body, fmt.Sprintf("system.%d.text", idx), newText); err == nil {
+ 					body = updated
+diff --git a/backend/internal/application/service/gateway_billing_header_test.go b/backend/internal/application/service/gateway_billing_header_test.go
+index 0d5930996..834017f66 100644
+--- a/backend/internal/application/service/gateway_billing_header_test.go
++++ b/backend/internal/application/service/gateway_billing_header_test.go
+@@ -1,7 +1,20 @@
+ package service
+ 
+ import (
++	"context"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
+ 	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/Wei-Shaw/sub2api/internal/shared/claude"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
++	"github.com/tidwall/sjson"
+ 
+ 	"github.com/stretchr/testify/assert"
+ )
+@@ -15,10 +28,10 @@ func TestSyncBillingHeaderVersion(t *testing.T) {
+ 		unchanged bool   // expect body to remain the same
+ 	}{
+ 		{
+-			name:      "replaces cc_version preserving message-derived suffix",
++			name:      "replaces cc_version and recomputes message-derived suffix",
+ 			body:      `{"system":[{"type":"text","text":"x-anthropic-billing-header: cc_version=2.1.81.df2; cc_entrypoint=cli; cch=00000;"},{"type":"text","text":"You are Claude Code.","cache_control":{"type":"ephemeral"}}],"messages":[]}`,
+ 			userAgent: "claude-cli/2.1.22 (external, cli)",
+-			wantSub:   "cc_version=2.1.22.df2",
++			wantSub:   "cc_version=2.1.22." + computeClaudeCodeFingerprint([]byte(`{"messages":[]}`), "2.1.22"),
+ 		},
+ 		{
+ 			name:      "no billing header in system",
+@@ -65,3 +78,101 @@ func TestSyncBillingHeaderVersion(t *testing.T) {
+ 		})
+ 	}
+ }
++
++func TestSyncBillingHeaderVersion_RecomputesFingerprintIdempotently(t *testing.T) {
++	body := []byte(`{"system":[{"type":"text","text":"x-anthropic-billing-header: cc_version=2.1.81.df2; cc_entrypoint=cli;"}],"messages":[{"role":"user","content":"hello"}]}`)
++	got := syncBillingHeaderVersion(body, "claude-cli/2.1.220")
++	want := "cc_version=2.1.220." + computeClaudeCodeFingerprint(body, "2.1.220")
++	if !strings.Contains(gjson.GetBytes(got, "system.0.text").String(), want) {
++		t.Fatalf("billing header=%s want substring=%s", gjson.GetBytes(got, "system.0.text").String(), want)
++	}
++	if string(got) != string(syncBillingHeaderVersion(got, "claude-cli/2.1.220")) {
++		t.Fatal("billing rewrite must be idempotent")
++	}
++}
++
++func TestEffectiveBillingUserAgent(t *testing.T) {
++	tests := []struct {
++		name        string
++		tokenType   string
++		mimic       bool
++		fingerprint *Fingerprint
++		want        string
++	}{
++		{name: "mimic uses canonical Claude UA", tokenType: "oauth", mimic: true, fingerprint: &Fingerprint{UserAgent: "claude-cli/2.9.0"}, want: claude.DefaultHeaders["User-Agent"]},
++		{name: "fingerprint used when not mimicking", tokenType: "oauth", fingerprint: &Fingerprint{UserAgent: "claude-cli/2.9.0"}, want: "claude-cli/2.9.0"},
++		{name: "nil fingerprint is empty", tokenType: "oauth", want: ""},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			if got := effectiveBillingUserAgent(tt.tokenType, tt.mimic, tt.fingerprint); got != tt.want {
++				t.Fatalf("effectiveBillingUserAgent() = %q, want %q", got, tt.want)
++			}
++		})
++	}
++}
++
++func TestBuildOAuthRequest_BillingMatchesWireUserAgent(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	for _, endpoint := range []string{"messages", "count_tokens"} {
++		for _, tc := range []struct {
++			name      string
++			mimic     bool
++			identity  bool
++			disableFP bool
++		}{
++			{name: "mimic_overrides_cached_version", mimic: true, identity: true},
++			{name: "mimic_without_identity", mimic: true},
++			{name: "mimic_with_fingerprint_disabled", mimic: true, identity: true, disableFP: true},
++			{name: "passthrough_uses_cached_version", identity: true},
++		} {
++			t.Run(endpoint+"/"+tc.name, func(t *testing.T) {
++				resetGatewayForwardingSettingsCacheForTest(t)
++				c, _ := gin.CreateTestContext(httptest.NewRecorder())
++				c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
++				body := []byte(`{"model":"claude-haiku-4-5","system":[{"type":"text","text":""}],"messages":[{"role":"user","content":"hello world"}]}`)
++				billing, err := buildBillingAttributionText(body, "2.1.81")
++				require.NoError(t, err)
++				body, err = sjson.SetBytes(body, "system.0.text", billing)
++				require.NoError(t, err)
++
++				cfg := &config.Config{}
++				svc := &GatewayService{cfg: cfg}
++				cachedUA := "claude-cli/2.9.0 (external, cli)"
++				if tc.identity {
++					svc.identityService = NewIdentityService(&stubIdentityCache{fingerprint: &Fingerprint{
++						UserAgent: cachedUA, ClientID: "test-client", UpdatedAt: time.Now().Unix(),
++					}})
++				}
++				if tc.disableFP {
++					svc.settingService = NewSettingService(&gatewayTTLSettingRepo{data: map[string]string{
++						SettingKeyEnableFingerprintUnification: "false",
++					}}, cfg)
++				}
++				account := &Account{ID: 1, Platform: PlatformAnthropic, Type: AccountTypeOAuth}
++				var req *http.Request
++				var wireBody []byte
++				if endpoint == "messages" {
++					req, wireBody, err = svc.buildUpstreamRequest(context.Background(), c, account,
++						body, "test-token", "oauth", "claude-haiku-4-5", false, tc.mimic)
++				} else {
++					req, wireBody, err = svc.buildCountTokensRequest(context.Background(), c, account,
++						body, "test-token", "oauth", "claude-haiku-4-5", tc.mimic)
++				}
++				require.NoError(t, err)
++				defer func() { require.NoError(t, req.Body.Close()) }()
++				wantUA := cachedUA
++				if tc.mimic {
++					wantUA = claude.DefaultHeaders["User-Agent"]
++				}
++				require.Equal(t, wantUA, getHeaderRaw(req.Header, "User-Agent"))
++				version := ExtractCLIVersion(wantUA)
++				require.Contains(t, gjson.GetBytes(wireBody, "system.0.text").String(),
++					"cc_version="+version+"."+computeClaudeCodeFingerprint(wireBody, version)+";")
++				actualBody, err := io.ReadAll(req.Body)
++				require.NoError(t, err)
++				require.Equal(t, wireBody, actualBody)
++			})
++		}
++	}
++}
+diff --git a/backend/internal/application/service/gateway_claude_oauth_body.go b/backend/internal/application/service/gateway_claude_oauth_body.go
+index 358d308b8..c67e3fe98 100644
+--- a/backend/internal/application/service/gateway_claude_oauth_body.go
++++ b/backend/internal/application/service/gateway_claude_oauth_body.go
+@@ -751,14 +751,14 @@ func expandClaudeOAuthSystemPromptTextTemplate(body []byte, text string, expansi
+ 		return "", nil
+ 	}
+ 	expansionPrompt = defaultClaudeOAuthExpansionPrompt(expansionPrompt)
+-	billingText, err := buildBillingAttributionText(body, claude.CLICurrentVersion)
++	billingText, err := buildBillingAttributionText(body, claude.CLIVersion())
+ 	if err != nil {
+ 		return "", err
+ 	}
+-	fp := computeClaudeCodeFingerprint(body, claude.CLICurrentVersion)
++	fp := computeClaudeCodeFingerprint(body, claude.CLIVersion())
+ 	replacer := strings.NewReplacer(
+ 		"{billing_header}", billingText,
+-		"{cc_version}", claude.CLICurrentVersion,
++		"{cc_version}", claude.CLIVersion(),
+ 		"{fp}", fp,
+ 		"{claude_code_system_prompt}", claudeCodeSystemPrompt,
+ 		"{claude_code_expansion_prompt}", expansionPrompt,
+diff --git a/backend/internal/application/service/gateway_count_tokens.go b/backend/internal/application/service/gateway_count_tokens.go
+index 4271359c6..9af9872db 100644
+--- a/backend/internal/application/service/gateway_count_tokens.go
++++ b/backend/internal/application/service/gateway_count_tokens.go
+@@ -481,9 +481,13 @@ func (s *GatewayService) buildCountTokensRequest(ctx context.Context, c *gin.Con
+ 		}
+ 	}
+ 
+-	// 同步 billing header cc_version 与实际发送的 User-Agent 版本
+-	if ctFingerprint != nil && ctEnableFP {
+-		body = syncBillingHeaderVersion(body, ctFingerprint.UserAgent)
++	// Disabled fingerprint unification does not disable forced mimicry headers.
++	var billingFingerprint *Fingerprint
++	if ctEnableFP {
++		billingFingerprint = ctFingerprint
++	}
++	if billingUA := effectiveBillingUserAgent(tokenType, mimicClaudeCode, billingFingerprint); billingUA != "" {
++		body = syncBillingHeaderVersion(body, billingUA)
+ 	}
+ 
+ 	// === 计算最终 anthropic-beta header（先于 body sanitize 与 CCH 签名）===
+diff --git a/backend/internal/application/service/gateway_request.go b/backend/internal/application/service/gateway_request.go
+index ea889d835..61488b68c 100644
+--- a/backend/internal/application/service/gateway_request.go
++++ b/backend/internal/application/service/gateway_request.go
+@@ -1354,6 +1354,9 @@ func NormalizeGLMOpenAIReasoningEffort(body []byte, mappedModel string) ([]byte,
+ 	}
+ 
+ 	mapped := normalizeGLMOpenAIReasoningEffort(raw)
++	if strings.EqualFold(strings.TrimSpace(mappedModel), "glm-5.3") && strings.EqualFold(raw, "low") {
++		mapped = "low"
++	}
+ 	if mapped == "" || mapped == raw {
+ 		return body, false
+ 	}
+diff --git a/backend/internal/application/service/gateway_request_test.go b/backend/internal/application/service/gateway_request_test.go
+index d4e010a5e..d13c765ee 100644
+--- a/backend/internal/application/service/gateway_request_test.go
++++ b/backend/internal/application/service/gateway_request_test.go
+@@ -1639,3 +1639,12 @@ func TestNormalizeGLMOpenAIReasoningEffort(t *testing.T) {
+ 		})
+ 	}
+ }
++
++func TestNormalizeGLM53ExplicitLow(t *testing.T) {
++	for _, model := range []string{"glm-5.3", " GLM-5.3 "} {
++		body := []byte(`{"model":"glm-5.3","reasoning_effort":"low","messages":[]}`)
++		got, changed := NormalizeGLMOpenAIReasoningEffort(body, model)
++		require.False(t, changed)
++		require.Equal(t, body, got)
++	}
++}
+diff --git a/backend/internal/application/service/gateway_upstream_request.go b/backend/internal/application/service/gateway_upstream_request.go
+index fc9799890..8c76258ad 100644
+--- a/backend/internal/application/service/gateway_upstream_request.go
++++ b/backend/internal/application/service/gateway_upstream_request.go
+@@ -83,9 +83,9 @@ func (s *GatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Contex
+ 		}
+ 	}
+ 
+-	// 同步 billing header cc_version 与实际发送的 User-Agent 版本
+-	if fingerprint != nil {
+-		body = syncBillingHeaderVersion(body, fingerprint.UserAgent)
++	// Mimicry may override the cached User-Agent later, even without a fingerprint.
++	if billingUA := effectiveBillingUserAgent(tokenType, mimicClaudeCode, fingerprint); billingUA != "" {
++		body = syncBillingHeaderVersion(body, billingUA)
+ 	}
+ 
+ 	// === 计算最终 anthropic-beta header（先于 body sanitize 与 CCH 签名）===
+diff --git a/backend/internal/application/service/identity_service.go b/backend/internal/application/service/identity_service.go
+index fd87ea363..aa37f6331 100644
+--- a/backend/internal/application/service/identity_service.go
++++ b/backend/internal/application/service/identity_service.go
+@@ -20,7 +20,7 @@ import (
+ 
+ var (
+ 	claudeCLICurrentMajor = func() int {
+-		_, version, ok := parseFingerprintUserAgentShape("claude-cli/" + claude.CLICurrentVersion)
++		_, version, ok := parseFingerprintUserAgentShape("claude-cli/" + claude.CLIVersion())
+ 		if !ok {
+ 			return 0
+ 		}
+@@ -152,7 +152,7 @@ func fingerprintUserAgentLooksLikeClaudeCLI(ua string) bool {
+ 
+ // 默认指纹值（当客户端未提供时使用）
+ var defaultFingerprint = Fingerprint{
+-	UserAgent:               "claude-cli/" + claude.CLICurrentVersion + " (external, cli)",
++	UserAgent:               "claude-cli/" + claude.CLIVersion() + " (external, cli)",
+ 	StainlessLang:           "js",
+ 	StainlessPackageVersion: "0.94.0",
+ 	StainlessOS:             "Linux",
+diff --git a/backend/internal/application/service/openai_compat_model_test.go b/backend/internal/application/service/openai_compat_model_test.go
+index bab03a752..e437a5797 100644
+--- a/backend/internal/application/service/openai_compat_model_test.go
++++ b/backend/internal/application/service/openai_compat_model_test.go
+@@ -1162,7 +1162,7 @@ func TestForwardAsAnthropic_PreviousResponseIDKeepsMultiToolCallContext(t *testi
+ 	require.Equal(t, "continue", gjson.GetBytes(upstream.lastBody, "input.5.content.0.text").String())
+ }
+ 
+-func TestForwardAsAnthropic_ReplaysWithoutContinuationWhenPreviousResponseMissing(t *testing.T) {
++func TestForwardAsAnthropic_ReplaysFullToolHistoryWhenPreviousResponseUnavailable(t *testing.T) {
+ 	t.Parallel()
+ 	gin.SetMode(gin.TestMode)
+ 
+@@ -1184,12 +1184,12 @@ func TestForwardAsAnthropic_ReplaysWithoutContinuationWhenPreviousResponseMissin
+ 	}
+ 
+ 	svc.bindOpenAICompatSessionResponseID(context.Background(), nil, account, "stable-cache-key", "resp_missing")
+-	secondBody := []byte(`{"model":"claude-sonnet-4-5","max_tokens":16,"messages":[{"role":"user","content":"first"},{"role":"assistant","content":"ok"},{"role":"user","content":"second"}],"stream":false}`)
++	secondBody := []byte(`{"model":"claude-sonnet-4-5","max_tokens":16,"messages":[{"role":"user","content":"first"},{"role":"assistant","content":[{"type":"tool_use","id":"call_1","name":"lookup","input":{"q":"first"}}]},{"role":"user","content":[{"type":"tool_result","tool_use_id":"call_1","content":"found"},{"type":"text","text":"second"}]}],"tools":[{"name":"lookup","input_schema":{"type":"object"}}],"stream":false}`)
+ 	upstream.responses = []*http.Response{
+ 		{
+ 			StatusCode: http.StatusBadRequest,
+ 			Header:     http.Header{"Content-Type": []string{"application/json"}, "x-request-id": []string{"rid_prev_missing"}},
+-			Body:       io.NopCloser(strings.NewReader(`{"error":{"code":"previous_response_not_found","message":"previous response not found"}}`)),
++			Body:       io.NopCloser(strings.NewReader(`{"error":{"message":"previous_response_id is not available for this user","type":"invalid_request_error"}}`)),
+ 		},
+ 		openAICompatSSECompletedResponse("resp_replayed", "gpt-5.3-codex"),
+ 	}
+@@ -1206,11 +1206,54 @@ func TestForwardAsAnthropic_ReplaysWithoutContinuationWhenPreviousResponseMissin
+ 	require.Len(t, upstream.requests, 2)
+ 	require.Equal(t, "resp_missing", gjson.GetBytes(upstream.bodies[0], "previous_response_id").String())
+ 	require.False(t, gjson.GetBytes(upstream.bodies[1], "previous_response_id").Exists())
+-	require.Equal(t, int64(4), gjson.GetBytes(upstream.bodies[1], "input.#").Int())
++	require.Equal(t, int64(5), gjson.GetBytes(upstream.bodies[1], "input.#").Int())
+ 	require.Equal(t, "developer", gjson.GetBytes(upstream.bodies[1], "input.0.role").String())
+ 	require.Contains(t, gjson.GetBytes(upstream.bodies[1], "input.0.content.0.text").String(), "<sub2api-claude-code-todo-guard>")
+ 	require.Equal(t, "first", gjson.GetBytes(upstream.bodies[1], "input.1.content.0.text").String())
+-	require.Equal(t, "second", gjson.GetBytes(upstream.bodies[1], "input.3.content.0.text").String())
++	require.Equal(t, "function_call", gjson.GetBytes(upstream.bodies[1], "input.2.type").String())
++	require.Equal(t, "call_1", gjson.GetBytes(upstream.bodies[1], "input.2.call_id").String())
++	require.Equal(t, "function_call_output", gjson.GetBytes(upstream.bodies[1], "input.3.type").String())
++	require.Equal(t, "call_1", gjson.GetBytes(upstream.bodies[1], "input.3.call_id").String())
++	require.Equal(t, "found", gjson.GetBytes(upstream.bodies[1], "input.3.output").String())
++	require.Equal(t, "second", gjson.GetBytes(upstream.bodies[1], "input.4.content.0.text").String())
++}
++
++func TestOpenAICompatPreviousResponseUnavailableRecognitionIsStrict(t *testing.T) {
++	t.Parallel()
++	body := []byte(`{"error":{"message":"previous_response_id is not available for this user","type":"invalid_request_error"}}`)
++	require.True(t, isOpenAICompatPreviousResponseNotFound(http.StatusBadRequest, "", body))
++	require.False(t, isOpenAICompatPreviousResponseNotFound(http.StatusForbidden, "", body))
++	require.False(t, isOpenAICompatPreviousResponseNotFound(http.StatusBadRequest, "permission is not available for this user", nil))
++	require.False(t, isOpenAICompatPreviousResponseNotFound(http.StatusBadRequest, "previous_response_id is not available for this project", nil))
++}
++
++func TestForwardAsAnthropic_PreviousResponseUnavailableRetryFailureDoesNotLoop(t *testing.T) {
++	t.Parallel()
++	gin.SetMode(gin.TestMode)
++
++	unavailable := func() *http.Response {
++		return &http.Response{
++			StatusCode: http.StatusBadRequest,
++			Header:     http.Header{"Content-Type": []string{"application/json"}},
++			Body:       io.NopCloser(strings.NewReader(`{"error":{"message":"previous_response_id is not available for this user","type":"invalid_request_error"}}`)),
++		}
++	}
++	upstream := &httpUpstreamRecorder{responses: []*http.Response{unavailable(), unavailable()}}
++	svc := &OpenAIGatewayService{
++		httpUpstream: upstream,
++		cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
++	}
++	account := &Account{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1, Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://api.openai.com/v1"}}
++	svc.bindOpenAICompatSessionResponseID(context.Background(), nil, account, "stable-cache-key", "resp_missing")
++	body := []byte(`{"model":"claude-sonnet-4-5","max_tokens":16,"messages":[{"role":"user","content":"hello"}],"stream":false}`)
++	rec := httptest.NewRecorder()
++	c, _ := gin.CreateTestContext(rec)
++	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body))
++
++	_, _ = svc.ForwardAsAnthropic(context.Background(), c, account, body, "stable-cache-key", "gpt-5.3-codex")
++	require.Len(t, upstream.requests, 2)
++	require.True(t, gjson.GetBytes(upstream.bodies[0], "previous_response_id").Exists())
++	require.False(t, gjson.GetBytes(upstream.bodies[1], "previous_response_id").Exists())
+ }
+ 
+ func TestForwardAsAnthropic_DisablesAPIKeyContinuationWhenUpstreamRequiresWebSocketV2(t *testing.T) {
+diff --git a/backend/internal/application/service/openai_cyber_policy.go b/backend/internal/application/service/openai_cyber_policy.go
+index 524bade30..6a91b0278 100644
+--- a/backend/internal/application/service/openai_cyber_policy.go
++++ b/backend/internal/application/service/openai_cyber_policy.go
+@@ -86,3 +86,27 @@ func detectOpenAICyberPolicy(payload []byte) (bool, string, string) {
+ 	}
+ 	return true, "cyber_policy", strings.TrimSpace(msg)
+ }
++
++func markOpenAICyberPolicyEvent(c *gin.Context, payload []byte, upstreamStatus int, usage *OpenAIUsage) bool {
++	hit, code, message := detectOpenAICyberPolicy(payload)
++	if !hit {
++		return false
++	}
++	// Bound the diagnostic copy before converting to a string.
++	body := payload
++	if len(body) > 4096 {
++		body = body[:4096]
++	}
++	mark := CyberPolicyMark{Code: code, Message: message, Body: string(body), UpstreamStatus: upstreamStatus}
++	observedUsage := OpenAIUsage{}
++	if usage != nil {
++		observedUsage = *usage
++	}
++	// Bare error events may carry top-level usage even though the normal
++	// completion-event fast path intentionally skips them.
++	parseOpenAIWSResponseUsageFromCompletedEvent(payload, &observedUsage)
++	mark.UpstreamInTok = observedUsage.InputTokens
++	mark.UpstreamOutTok = observedUsage.OutputTokens
++	MarkOpsCyberPolicy(c, mark)
++	return true
++}
+diff --git a/backend/internal/application/service/openai_cyber_policy_test.go b/backend/internal/application/service/openai_cyber_policy_test.go
+index 1ee480548..3bce10606 100644
+--- a/backend/internal/application/service/openai_cyber_policy_test.go
++++ b/backend/internal/application/service/openai_cyber_policy_test.go
+@@ -2,6 +2,7 @@ package service
+ 
+ import (
+ 	"net/http/httptest"
++	"strings"
+ 	"testing"
+ 
+ 	"github.com/gin-gonic/gin"
+@@ -86,3 +87,36 @@ func TestDetectOpenAICyberPolicy(t *testing.T) {
+ 		})
+ 	}
+ }
++
++func TestMarkOpenAICyberPolicyEventBounded(t *testing.T) {
++	c, _ := gin.CreateTestContext(httptest.NewRecorder())
++	payload := []byte(`{"error":{"code":"cyber_policy","message":"blocked"},"padding":"` + strings.Repeat("x", 100000) + `"}`)
++	require.True(t, markOpenAICyberPolicyEvent(c, payload, 403, &OpenAIUsage{InputTokens: 3, OutputTokens: 5}))
++	mark := GetOpsCyberPolicy(c)
++	require.Len(t, mark.Body, 4096)
++	require.Equal(t, 403, mark.UpstreamStatus)
++	require.EqualValues(t, 3, mark.UpstreamInTok)
++	require.EqualValues(t, 5, mark.UpstreamOutTok)
++	require.False(t, markOpenAICyberPolicyEvent(c, []byte(`{"error":{"code":"rate_limit_exceeded"}}`), 429, nil))
++	require.Equal(t, mark, GetOpsCyberPolicy(c))
++}
++
++func TestMarkOpenAICyberPolicyEventUsageShapes(t *testing.T) {
++	for _, tc := range []struct {
++		name, payload string
++		input, output int
++	}{
++		{"bare_error", `{"type":"error","error":{"code":"cyber_policy","message":"blocked"},"usage":{"input_tokens":5,"output_tokens":1}}`, 5, 1},
++		{"response_failed", `{"type":"response.failed","response":{"error":{"code":"cyber_policy"},"usage":{"input_tokens":9,"output_tokens":2}}}`, 9, 2},
++		{"prior_usage", `{"type":"error","error":{"code":"cyber_policy"}}`, 3, 4},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			c, _ := gin.CreateTestContext(httptest.NewRecorder())
++			prior := OpenAIUsage{InputTokens: 3, OutputTokens: 4}
++			require.True(t, markOpenAICyberPolicyEvent(c, []byte(tc.payload), 200, &prior))
++			require.Equal(t, tc.input, GetOpsCyberPolicy(c).UpstreamInTok)
++			require.Equal(t, tc.output, GetOpsCyberPolicy(c).UpstreamOutTok)
++			require.Equal(t, 3, prior.InputTokens, "recording must not mutate caller usage")
++		})
++	}
++}
+diff --git a/backend/internal/application/service/openai_gateway_cc_pipeline.go b/backend/internal/application/service/openai_gateway_cc_pipeline.go
+index b5bd00eda..2ed0b713a 100644
+--- a/backend/internal/application/service/openai_gateway_cc_pipeline.go
++++ b/backend/internal/application/service/openai_gateway_cc_pipeline.go
+@@ -225,6 +225,7 @@ func (s *OpenAIGatewayService) sendCCUpstreamRequest(
+ 	// 账号级请求头覆写：放在所有内置默认头（含 Grok CLI 身份头）之后应用，
+ 	// 使配置值获得除共享传输层强制头之外的最高优先级。
+ 	account.ApplyHeaderOverrides(upstreamReq.Header)
++	applyOpenCodeSessionHeader(c, account, targetURL, upstreamReq.Header)
+ 
+ 	proxyURL := ""
+ 	if account.Proxy != nil {
+diff --git a/backend/internal/application/service/openai_gateway_passthrough.go b/backend/internal/application/service/openai_gateway_passthrough.go
+index 2cbe7fa21..9084b9794 100644
+--- a/backend/internal/application/service/openai_gateway_passthrough.go
++++ b/backend/internal/application/service/openai_gateway_passthrough.go
+@@ -735,6 +735,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
+ 
+ 	// 账号级请求头覆写（仅 openai api_key 账号启用时生效；OAuth 路径 no-op）
+ 	account.ApplyHeaderOverrides(req.Header)
++	applyOpenCodeSessionHeader(c, account, targetURL, req.Header)
+ 	applyOpenAICodexBetaFeatures(c, account, req.Header)
+ 	applyOpenAICodexRoutingHintFromBody(ctx, account, "http_passthrough", req.Header, outboundBody, "not_applicable")
+ 	applyCodexSimulationProfileHeaders(req.Header, fingerprintIDs)
+diff --git a/backend/internal/application/service/openai_gateway_request_build.go b/backend/internal/application/service/openai_gateway_request_build.go
+index 7d2f86f83..4167714fc 100644
+--- a/backend/internal/application/service/openai_gateway_request_build.go
++++ b/backend/internal/application/service/openai_gateway_request_build.go
+@@ -161,6 +161,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
+ 
+ 	// 账号级请求头覆写（仅 openai api_key 账号启用时生效；OAuth 路径 no-op）
+ 	account.ApplyHeaderOverrides(req.Header)
++	applyOpenCodeSessionHeader(c, account, targetURL, req.Header)
+ 	applyOpenAICodexBetaFeatures(c, account, req.Header)
+ 	applyOpenAICodexRoutingHintFromBody(ctx, account, "http", req.Header, outboundBody, "not_applicable")
+ 	applyCodexSimulationProfileHeaders(req.Header, fingerprintIDs)
+diff --git a/backend/internal/application/service/openai_messages_continuation.go b/backend/internal/application/service/openai_messages_continuation.go
+index fec9f8219..873fa3f0e 100644
+--- a/backend/internal/application/service/openai_messages_continuation.go
++++ b/backend/internal/application/service/openai_messages_continuation.go
+@@ -111,6 +111,7 @@ func isOpenAICompatPreviousResponseNotFound(statusCode int, upstreamMsg string,
+ 	check := func(s string) bool {
+ 		lower := strings.ToLower(strings.TrimSpace(s))
+ 		return strings.Contains(lower, "previous_response_not_found") ||
++			lower == "previous_response_id is not available for this user" ||
+ 			(strings.Contains(lower, "previous response") && strings.Contains(lower, "not found")) ||
+ 			(strings.Contains(lower, "unsupported parameter") && strings.Contains(lower, "previous_response_id"))
+ 	}
+diff --git a/backend/internal/application/service/openai_opencode_session.go b/backend/internal/application/service/openai_opencode_session.go
+new file mode 100644
+index 000000000..ff0b61fbf
+--- /dev/null
++++ b/backend/internal/application/service/openai_opencode_session.go
+@@ -0,0 +1,31 @@
++package service
++
++import (
++	"net/http"
++	"net/url"
++	"strings"
++
++	"github.com/gin-gonic/gin"
++)
++
++const openCodeSessionHeader = "X-OpenCode-Session"
++
++func applyOpenCodeSessionHeader(c *gin.Context, account *Account, targetURL string, headers http.Header) {
++	if c == nil || c.Request == nil || account == nil || account.Type != AccountTypeAPIKey || headers == nil {
++		return
++	}
++	sessionID := strings.TrimSpace(c.GetHeader(openCodeSessionHeader))
++	if sessionID == "" {
++		return
++	}
++	parsed, err := url.Parse(targetURL)
++	if err != nil || !strings.EqualFold(parsed.Scheme, "https") || !strings.EqualFold(parsed.Hostname(), "opencode.ai") {
++		return
++	}
++	for key := range headers {
++		if strings.EqualFold(key, openCodeSessionHeader) {
++			delete(headers, key)
++		}
++	}
++	headers.Set(openCodeSessionHeader, sessionID)
++}
+diff --git a/backend/internal/application/service/openai_opencode_session_test.go b/backend/internal/application/service/openai_opencode_session_test.go
+new file mode 100644
+index 000000000..029eccb30
+--- /dev/null
++++ b/backend/internal/application/service/openai_opencode_session_test.go
+@@ -0,0 +1,223 @@
++package service
++
++import (
++	"context"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++)
++
++func newOpenCodeSessionTestContext(t *testing.T, value string) *gin.Context {
++	t.Helper()
++	recorder := httptest.NewRecorder()
++	c, _ := gin.CreateTestContext(recorder)
++	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
++	if value != "" {
++		c.Request.Header.Set(openCodeSessionHeader, value)
++	}
++	return c
++}
++
++func openCodeSessionTestService() *OpenAIGatewayService {
++	return &OpenAIGatewayService{cfg: &config.Config{
++		Security: config.SecurityConfig{
++			URLAllowlist: config.URLAllowlistConfig{Enabled: false},
++		},
++	}}
++}
++
++func openCodeSessionTestAccount(baseURL string) *Account {
++	return &Account{
++		ID:       1,
++		Platform: PlatformOpenAI,
++		Type:     AccountTypeAPIKey,
++		Credentials: map[string]any{
++			"base_url":                   baseURL,
++			credKeyHeaderOverrideEnabled: true,
++			credKeyHeaderOverrides:       map[string]any{"x-opencode-session": "fixed-account-value"},
++		},
++	}
++}
++
++func requireSingleOpenCodeSessionHeader(t *testing.T, headers http.Header, want string) {
++	t.Helper()
++	count := 0
++	for key, values := range headers {
++		if strings.EqualFold(key, openCodeSessionHeader) {
++			count += len(values)
++			require.Equal(t, []string{want}, values)
++		}
++	}
++	require.Equal(t, 1, count)
++}
++
++func TestApplyOpenCodeSessionHeaderTrustBoundary(t *testing.T) {
++	tests := []struct {
++		name      string
++		account   *Account
++		targetURL string
++		incoming  string
++		want      string
++	}{
++		{
++			name:      "official origin",
++			account:   openCodeSessionTestAccount("https://opencode.ai/zen/v1"),
++			targetURL: "https://opencode.ai/zen/v1/chat/completions",
++			incoming:  " conversation-123 ",
++			want:      "conversation-123",
++		},
++		{
++			name:      "lookalike origin",
++			account:   openCodeSessionTestAccount("https://opencode.ai.evil.example/v1"),
++			targetURL: "https://opencode.ai.evil.example/v1/responses",
++			incoming:  "conversation-123",
++		},
++		{
++			name:      "subdomain is not implicitly trusted",
++			account:   openCodeSessionTestAccount("https://api.opencode.ai/v1"),
++			targetURL: "https://api.opencode.ai/v1/responses",
++			incoming:  "conversation-123",
++		},
++		{
++			name:      "insecure official origin",
++			account:   openCodeSessionTestAccount("http://opencode.ai/zen/v1"),
++			targetURL: "http://opencode.ai/zen/v1/responses",
++			incoming:  "conversation-123",
++		},
++		{
++			name:      "missing caller value",
++			account:   openCodeSessionTestAccount("https://opencode.ai/zen/v1"),
++			targetURL: "https://opencode.ai/zen/v1/responses",
++		},
++		{
++			name:      "oauth account",
++			account:   &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth},
++			targetURL: "https://opencode.ai/zen/v1/responses",
++			incoming:  "conversation-123",
++		},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			headers := make(http.Header)
++			applyOpenCodeSessionHeader(newOpenCodeSessionTestContext(t, tt.incoming), tt.account, tt.targetURL, headers)
++			require.Equal(t, tt.want, headers.Get(openCodeSessionHeader))
++		})
++	}
++}
++
++func TestOpenCodeSessionForwardedByResponsesBuildersAfterAccountOverride(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	svc := openCodeSessionTestService()
++	account := openCodeSessionTestAccount("https://opencode.ai/zen/v1")
++	body := []byte(`{"model":"gpt-5","input":"hello"}`)
++
++	tests := []struct {
++		name  string
++		build func(*gin.Context) (*http.Request, error)
++	}{
++		{
++			name: "normal responses",
++			build: func(c *gin.Context) (*http.Request, error) {
++				return svc.buildUpstreamRequest(context.Background(), c, account, body, "token", false, "", false)
++			},
++		},
++		{
++			name: "passthrough responses",
++			build: func(c *gin.Context) (*http.Request, error) {
++				return svc.buildUpstreamRequestOpenAIPassthrough(context.Background(), c, account, body, "token")
++			},
++		},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			c := newOpenCodeSessionTestContext(t, "conversation-456")
++			req, err := tt.build(c)
++			require.NoError(t, err)
++			requireSingleOpenCodeSessionHeader(t, req.Header, "conversation-456")
++		})
++	}
++}
++
++func TestOpenCodeSessionMissingCallerValueKeepsExistingOverrideBehavior(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	svc := openCodeSessionTestService()
++	account := openCodeSessionTestAccount("https://opencode.ai/zen/v1")
++	c := newOpenCodeSessionTestContext(t, "")
++
++	req, err := svc.buildUpstreamRequest(
++		context.Background(), c, account,
++		[]byte(`{"model":"gpt-5","input":"hello"}`), "token", false, "", false,
++	)
++	require.NoError(t, err)
++	require.Equal(t, "fixed-account-value", getHeaderRaw(req.Header, "x-opencode-session"))
++}
++
++type openCodeSessionHTTPUpstream struct {
++	request *http.Request
++}
++
++func (u *openCodeSessionHTTPUpstream) Do(req *http.Request, _ string, _ int64, _ int) (*http.Response, error) {
++	u.request = req
++	return &http.Response{
++		StatusCode: http.StatusOK,
++		Header:     make(http.Header),
++		Body:       io.NopCloser(strings.NewReader(`{}`)),
++	}, nil
++}
++
++func (u *openCodeSessionHTTPUpstream) DoWithTLS(req *http.Request, proxyURL string, accountID int64, concurrency int, _ *tlsfingerprint.Profile) (*http.Response, error) {
++	return u.Do(req, proxyURL, accountID, concurrency)
++}
++
++func TestOpenCodeSessionForwardedByRawChatCompletionsAfterAccountOverride(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	upstream := &openCodeSessionHTTPUpstream{}
++	svc := openCodeSessionTestService()
++	svc.httpUpstream = upstream
++	account := openCodeSessionTestAccount("https://opencode.ai/zen/v1")
++	c := newOpenCodeSessionTestContext(t, "conversation-789")
++
++	resp, err := svc.sendCCUpstreamRequest(
++		context.Background(), c, account,
++		"https://opencode.ai/zen/v1/chat/completions", []byte(`{"model":"gpt-5"}`),
++		false, "token", "", "",
++	)
++	require.NoError(t, err)
++	require.NoError(t, resp.Body.Close())
++	require.NotNil(t, upstream.request)
++	requireSingleOpenCodeSessionHeader(t, upstream.request.Header, "conversation-789")
++}
++
++func TestOpenCodeSessionIsNotForwardedToOtherUpstreams(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	svc := openCodeSessionTestService()
++	body := []byte(`{"model":"gpt-5","input":"hello"}`)
++
++	for _, baseURL := range []string{
++		"https://api.openai.com/v1",
++		"https://opencode.ai.evil.example/v1",
++		"https://api.opencode.ai/v1",
++	} {
++		t.Run(baseURL, func(t *testing.T) {
++			account := &Account{
++				ID:          1,
++				Platform:    PlatformOpenAI,
++				Type:        AccountTypeAPIKey,
++				Credentials: map[string]any{"base_url": baseURL},
++			}
++			c := newOpenCodeSessionTestContext(t, "private-conversation")
++			req, err := svc.buildUpstreamRequest(context.Background(), c, account, body, "token", false, "", false)
++			require.NoError(t, err)
++			require.Empty(t, req.Header.Get(openCodeSessionHeader))
++		})
++	}
++}
+diff --git a/backend/internal/application/service/openai_ws_forwarder_ingress.go b/backend/internal/application/service/openai_ws_forwarder_ingress.go
+index f9d2e6c5b..8931d0c86 100644
+--- a/backend/internal/application/service/openai_ws_forwarder_ingress.go
++++ b/backend/internal/application/service/openai_ws_forwarder_ingress.go
+@@ -1246,6 +1246,12 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
+ 					return nil, err
+ 				}
+ 			}
++			if openAIWSEventShouldParseUsage(eventType) {
++				parseOpenAIWSResponseUsageFromCompletedEvent(upstreamMessage, &usage)
++			}
++			if eventType == "error" || eventType == "response.failed" {
++				markOpenAICyberPolicyEvent(c, upstreamMessage, http.StatusOK, &usage)
++			}
+ 			if eventType == "error" {
+ 				canonicalModel := canonicalOpenAIAccountSchedulingModel(account, originalModel)
+ 				s.handleOpenAIWSErrorEventTransientFailure(ctx, account, canonicalModel, lease.HandshakeHeaders(), upstreamMessage)
+@@ -1373,23 +1379,8 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
+ 				ms := int(time.Since(turnStart).Milliseconds())
+ 				firstTokenMs = &ms
+ 			}
+-			if openAIWSEventShouldParseUsage(eventType) {
+-				parseOpenAIWSResponseUsageFromCompletedEvent(upstreamMessage, &usage)
+-			}
+-			imageCounter.AddSSEData(upstreamMessage)
+ 
+-			if eventType == "response.failed" {
+-				if hit, code, msg := detectOpenAICyberPolicy(upstreamMessage); hit {
+-					MarkOpsCyberPolicy(c, CyberPolicyMark{
+-						Code:           code,
+-						Message:        msg,
+-						Body:           truncateString(string(upstreamMessage), 4096),
+-						UpstreamStatus: http.StatusOK,
+-						UpstreamInTok:  usage.InputTokens,
+-						UpstreamOutTok: usage.OutputTokens,
+-					})
+-				}
+-			}
++			imageCounter.AddSSEData(upstreamMessage)
+ 
+ 			if !clientDisconnected {
+ 				if needModelReplace && len(mappedModelBytes) > 0 && openAIWSEventMayContainModel(eventType) && bytes.Contains(upstreamMessage, mappedModelBytes) {
+diff --git a/backend/internal/application/service/openai_ws_forwarder_v2.go b/backend/internal/application/service/openai_ws_forwarder_v2.go
+index e5722beea..c174c712b 100644
+--- a/backend/internal/application/service/openai_ws_forwarder_v2.go
++++ b/backend/internal/application/service/openai_ws_forwarder_v2.go
+@@ -675,17 +675,8 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
+ 		}
+ 		imageCounter.AddSSEData(message)
+ 
+-		if eventType == "response.failed" {
+-			if hit, code, msg := detectOpenAICyberPolicy(message); hit {
+-				MarkOpsCyberPolicy(c, CyberPolicyMark{
+-					Code:           code,
+-					Message:        msg,
+-					Body:           truncateString(string(message), 4096),
+-					UpstreamStatus: http.StatusOK,
+-					UpstreamInTok:  usage.InputTokens,
+-					UpstreamOutTok: usage.OutputTokens,
+-				})
+-			}
++		if eventType == "error" || eventType == "response.failed" {
++			markOpenAICyberPolicyEvent(c, message, http.StatusOK, usage)
+ 		}
+ 
+ 		if eventType == "error" {
+diff --git a/backend/internal/application/service/openai_ws_http_bridge.go b/backend/internal/application/service/openai_ws_http_bridge.go
+index 8ec96de14..856465fa3 100644
+--- a/backend/internal/application/service/openai_ws_http_bridge.go
++++ b/backend/internal/application/service/openai_ws_http_bridge.go
+@@ -458,6 +458,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
+ 
+ 	if resp.StatusCode >= 400 {
+ 		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, openAIWSHTTPBridgeErrorBodyLimitBytes))
++		markOpenAICyberPolicyEvent(c, respBody, resp.StatusCode, nil)
+ 		upstreamMsg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(respBody)))
+ 		if upstreamMsg == "" {
+ 			upstreamMsg = http.StatusText(resp.StatusCode)
+@@ -603,6 +604,9 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
+ 		if openAIWSEventShouldParseUsage(eventType) {
+ 			parseOpenAIWSResponseUsageFromCompletedEvent(upstreamMessage, &usage)
+ 		}
++		if eventType == "error" || eventType == "response.failed" {
++			markOpenAICyberPolicyEvent(c, upstreamMessage, http.StatusOK, &usage)
++		}
+ 		imageCounter.AddSSEData(upstreamMessage)
+ 
+ 		if needModelReplace && len(mappedModelBytes) > 0 && openAIWSEventMayContainModel(eventType) && strings.Contains(trimmedData, mappedModel) {
+diff --git a/backend/internal/application/service/openai_ws_v2_passthrough_adapter.go b/backend/internal/application/service/openai_ws_v2_passthrough_adapter.go
+index e80f350b9..7ef50b6e3 100644
+--- a/backend/internal/application/service/openai_ws_v2_passthrough_adapter.go
++++ b/backend/internal/application/service/openai_ws_v2_passthrough_adapter.go
+@@ -1563,21 +1563,9 @@ func openAIWSPassthroughRelayClientClose(exit openaiwsv2.RelayExit, completedTur
+ }
+ 
+ func markOpenAIWSV2PassthroughCyberPolicy(c *gin.Context, payload []byte) bool {
+-	hit, code, message := detectOpenAICyberPolicy(payload)
+-	if !hit {
+-		return false
+-	}
+ 	usage := OpenAIUsage{}
+ 	parseOpenAIWSResponseUsageFromCompletedEvent(payload, &usage)
+-	MarkOpsCyberPolicy(c, CyberPolicyMark{
+-		Code:           code,
+-		Message:        message,
+-		Body:           truncateString(string(payload), 4096),
+-		UpstreamStatus: http.StatusOK,
+-		UpstreamInTok:  usage.InputTokens,
+-		UpstreamOutTok: usage.OutputTokens,
+-	})
+-	return true
++	return markOpenAICyberPolicyEvent(c, payload, http.StatusOK, &usage)
+ }
+ 
+ func (s *OpenAIGatewayService) mapOpenAIWSPassthroughDialError(
+diff --git a/backend/internal/application/service/payment_order_expiry_service.go b/backend/internal/application/service/payment_order_expiry_service.go
+index b292ef89a..ed66e200e 100644
+--- a/backend/internal/application/service/payment_order_expiry_service.go
++++ b/backend/internal/application/service/payment_order_expiry_service.go
+@@ -98,12 +98,12 @@ func (s *PaymentOrderExpiryService) runOnce() {
+ 	defer release()
+ 
+ 	reconcileCtx, cancel := context.WithTimeout(context.Background(), expiryCheckTimeout)
+-	recovered, err := s.paymentSvc.ReconcilePendingWxpayOrders(reconcileCtx)
++	recovered, err := s.paymentSvc.ReconcilePendingPaymentOrders(reconcileCtx)
+ 	cancel()
+ 	if err != nil {
+-		slog.Warn("[PaymentOrderExpiry] failed to reconcile pending wxpay orders", "error", err)
++		slog.Warn("[PaymentOrderExpiry] failed to reconcile pending payment orders", "error", err)
+ 	} else if recovered > 0 {
+-		slog.Info("[PaymentOrderExpiry] reconciled paid wxpay orders", "count", recovered)
++		slog.Info("[PaymentOrderExpiry] reconciled paid orders", "count", recovered)
+ 	}
+ 
+ 	expireCtx, cancel := context.WithTimeout(context.Background(), expiryCheckTimeout)
+diff --git a/backend/internal/application/service/payment_order_lifecycle.go b/backend/internal/application/service/payment_order_lifecycle.go
+index 68a948c77..6a2f0dd17 100644
+--- a/backend/internal/application/service/payment_order_lifecycle.go
++++ b/backend/internal/application/service/payment_order_lifecycle.go
+@@ -27,7 +27,7 @@ const (
+ 	checkPaidResultAlreadyPaid = "already_paid"
+ 	checkPaidResultCancelled   = "cancelled"
+ 
+-	pendingWxpayReconcileLimit = 20
++	pendingPaymentReconcileLimit = 20
+ )
+ 
+ type checkPaidOptions struct {
+@@ -303,9 +303,9 @@ func (s *PaymentService) VerifyOrderByOutTradeNo(ctx context.Context, outTradeNo
+ 	return o, nil
+ }
+ 
+-// ReconcilePendingWxpayOrders actively checks recent pending WeChat orders so
++// ReconcilePendingPaymentOrders actively checks recent pending Alipay and WeChat orders so
+ // missed provider notifications do not wait until order expiry to fulfill.
+-func (s *PaymentService) ReconcilePendingWxpayOrders(ctx context.Context) (int, error) {
++func (s *PaymentService) ReconcilePendingPaymentOrders(ctx context.Context) (int, error) {
+ 	now := time.Now()
+ 	orders, err := s.entClient.PaymentOrder.Query().
+ 		Where(
+@@ -316,13 +316,17 @@ func (s *PaymentService) ReconcilePendingWxpayOrders(ctx context.Context) (int,
+ 				paymentorder.PaymentTypeHasPrefix(payment.TypeWxpay+"_"),
+ 				paymentorder.ProviderKeyEQ(payment.TypeWxpay),
+ 				paymentorder.ProviderKeyHasPrefix(payment.TypeWxpay+"_"),
++				paymentorder.PaymentTypeEQ(payment.TypeAlipay),
++				paymentorder.PaymentTypeHasPrefix(payment.TypeAlipay+"_"),
++				paymentorder.ProviderKeyEQ(payment.TypeAlipay),
++				paymentorder.ProviderKeyHasPrefix(payment.TypeAlipay+"_"),
+ 			),
+ 		).
+ 		Order(dbent.Asc(paymentorder.FieldCreatedAt)).
+-		Limit(pendingWxpayReconcileLimit).
++		Limit(pendingPaymentReconcileLimit).
+ 		All(ctx)
+ 	if err != nil {
+-		return 0, fmt.Errorf("query pending wxpay orders: %w", err)
++		return 0, fmt.Errorf("query pending payment orders: %w", err)
+ 	}
+ 
+ 	recovered := 0
+@@ -473,3 +477,8 @@ func psStringValue(value *string) string {
+ 	}
+ 	return *value
+ }
++
++// ReconcilePendingWxpayOrders keeps the pre-Alipay method for internal extensions.
++func (s *PaymentService) ReconcilePendingWxpayOrders(ctx context.Context) (int, error) {
++	return s.ReconcilePendingPaymentOrders(ctx)
++}
+diff --git a/backend/internal/application/service/payment_order_lifecycle_test.go b/backend/internal/application/service/payment_order_lifecycle_test.go
+index 118f017f2..412e5a320 100644
+--- a/backend/internal/application/service/payment_order_lifecycle_test.go
++++ b/backend/internal/application/service/payment_order_lifecycle_test.go
+@@ -579,7 +579,7 @@ func TestCancelOrderStillClosesUnpaidUpstreamOrder(t *testing.T) {
+ 	require.Equal(t, OrderStatusCancelled, reloaded.Status)
+ }
+ 
+-func TestReconcilePendingWxpayOrdersBackfillsPaidOrder(t *testing.T) {
++func TestReconcilePendingPaymentOrdersBackfillsPaidOrder(t *testing.T) {
+ 	ctx := context.Background()
+ 	client := newPaymentOrderLifecycleTestClient(t)
+ 
+@@ -667,7 +667,7 @@ func TestReconcilePendingWxpayOrdersBackfillsPaidOrder(t *testing.T) {
+ 		providersLoaded: true,
+ 	}
+ 
+-	recovered, err := svc.ReconcilePendingWxpayOrders(ctx)
++	recovered, err := svc.ReconcilePendingPaymentOrders(ctx)
+ 	require.NoError(t, err)
+ 	require.Equal(t, 1, recovered)
+ 	require.Equal(t, order.OutTradeNo, provider.lastQueryTradeNo)
+@@ -681,6 +681,59 @@ func TestReconcilePendingWxpayOrdersBackfillsPaidOrder(t *testing.T) {
+ 	require.Len(t, redeemRepo.useCalls, 1)
+ }
+ 
++func TestReconcilePendingPaymentOrdersQueriesAlipayOrder(t *testing.T) {
++	ctx := context.Background()
++	client := newPaymentOrderLifecycleTestClient(t)
++
++	user, err := client.User.Create().
++		SetEmail("alipay-reconcile@example.com").
++		SetPasswordHash("hash").
++		SetUsername("alipay-reconcile-user").
++		Save(ctx)
++	require.NoError(t, err)
++
++	order, err := client.PaymentOrder.Create().
++		SetUserID(user.ID).
++		SetUserEmail(user.Email).
++		SetUserName(user.Username).
++		SetAmount(50).
++		SetPayAmount(50).
++		SetFeeRate(0).
++		SetRechargeCode("ALIPAY-RECONCILE").
++		SetOutTradeNo("sub2_alipay_reconcile").
++		SetPaymentType(payment.TypeAlipay).
++		SetPaymentTradeNo("").
++		SetOrderType(payment.OrderTypeBalance).
++		SetStatus(OrderStatusPending).
++		SetExpiresAt(time.Now().Add(time.Hour)).
++		SetClientIP("127.0.0.1").
++		SetSrcHost("api.example.com").
++		Save(ctx)
++	require.NoError(t, err)
++
++	registry := payment.NewRegistry()
++	provider := &paymentOrderLifecycleQueryProvider{
++		key: payment.TypeAlipay,
++		resp: &payment.QueryOrderResponse{
++			TradeNo: order.OutTradeNo,
++			Status:  payment.ProviderStatusPending,
++		},
++	}
++	registry.Register(provider)
++
++	svc := &PaymentService{
++		entClient:       client,
++		registry:        registry,
++		providersLoaded: true,
++	}
++
++	recovered, err := svc.ReconcilePendingPaymentOrders(ctx)
++	require.NoError(t, err)
++	require.Zero(t, recovered)
++	require.Equal(t, 1, provider.queryCalls)
++	require.Equal(t, order.OutTradeNo, provider.lastQueryTradeNo)
++}
++
+ func TestVerifyOrderByOutTradeNoUsesOutTradeNoWhenPaymentTradeNoAlreadyExistsForAlipay(t *testing.T) {
+ 	ctx := context.Background()
+ 	client := newPaymentOrderLifecycleTestClient(t)
+diff --git a/backend/internal/infrastructure/repository/ops_repo_metrics.go b/backend/internal/infrastructure/repository/ops_repo_metrics.go
+index f7725de74..7566d06e5 100644
+--- a/backend/internal/infrastructure/repository/ops_repo_metrics.go
++++ b/backend/internal/infrastructure/repository/ops_repo_metrics.go
+@@ -120,23 +120,23 @@ INSERT INTO ops_system_metrics (
+ 		opsNullFloat64(input.QPS),
+ 		opsNullFloat64(input.TPS),
+ 
+-		opsNullInt(input.DurationP50Ms),
+-		opsNullInt(input.DurationP90Ms),
+-		opsNullInt(input.DurationP95Ms),
+-		opsNullInt(input.DurationP99Ms),
++		opsNullMetricInt(input.DurationP50Ms),
++		opsNullMetricInt(input.DurationP90Ms),
++		opsNullMetricInt(input.DurationP95Ms),
++		opsNullMetricInt(input.DurationP99Ms),
+ 		opsNullFloat64(input.DurationAvgMs),
+-		opsNullInt(input.DurationMaxMs),
++		opsNullMetricInt(input.DurationMaxMs),
+ 
+-		opsNullInt(input.TTFTP50Ms),
+-		opsNullInt(input.TTFTP90Ms),
+-		opsNullInt(input.TTFTP95Ms),
+-		opsNullInt(input.TTFTP99Ms),
++		opsNullMetricInt(input.TTFTP50Ms),
++		opsNullMetricInt(input.TTFTP90Ms),
++		opsNullMetricInt(input.TTFTP95Ms),
++		opsNullMetricInt(input.TTFTP99Ms),
+ 		opsNullFloat64(input.TTFTAvgMs),
+-		opsNullInt(input.TTFTMaxMs),
++		opsNullMetricInt(input.TTFTMaxMs),
+ 
+ 		opsNullFloat64(input.CPUUsagePercent),
+-		opsNullInt(input.MemoryUsedMB),
+-		opsNullInt(input.MemoryTotalMB),
++		opsNullMetricInt64(input.MemoryUsedMB),
++		opsNullMetricInt64(input.MemoryTotalMB),
+ 		opsNullFloat64(input.MemoryUsagePercent),
+ 
+ 		opsNullFloat64(input.NetworkReceiveBytesPerSecond),
+@@ -146,15 +146,15 @@ INSERT INTO ops_system_metrics (
+ 		opsNullBool(input.DBOK),
+ 		opsNullBool(input.RedisOK),
+ 
+-		opsNullInt(input.RedisConnTotal),
+-		opsNullInt(input.RedisConnIdle),
++		opsNullMetricInt(input.RedisConnTotal),
++		opsNullMetricInt(input.RedisConnIdle),
+ 
+-		opsNullInt(input.DBConnActive),
+-		opsNullInt(input.DBConnIdle),
+-		opsNullInt(input.DBConnWaiting),
++		opsNullMetricInt(input.DBConnActive),
++		opsNullMetricInt(input.DBConnIdle),
++		opsNullMetricInt(input.DBConnWaiting),
+ 
+-		opsNullInt(input.GoroutineCount),
+-		opsNullInt(input.ConcurrencyQueueDepth),
++		opsNullMetricInt(input.GoroutineCount),
++		opsNullMetricInt(input.ConcurrencyQueueDepth),
+ 	)
+ 	return err
+ }
+@@ -481,3 +481,17 @@ func opsNullTime(v *time.Time) any {
+ 	}
+ 	return sql.NullTime{Time: *v, Valid: true}
+ }
++
++func opsNullMetricInt(v *int) any {
++	if v == nil {
++		return sql.NullInt64{}
++	}
++	return sql.NullInt64{Int64: int64(*v), Valid: true}
++}
++
++func opsNullMetricInt64(v *int64) any {
++	if v == nil {
++		return sql.NullInt64{}
++	}
++	return sql.NullInt64{Int64: *v, Valid: true}
++}
+diff --git a/backend/internal/infrastructure/repository/ops_repo_metrics_test.go b/backend/internal/infrastructure/repository/ops_repo_metrics_test.go
+new file mode 100644
+index 000000000..c255e1efa
+--- /dev/null
++++ b/backend/internal/infrastructure/repository/ops_repo_metrics_test.go
+@@ -0,0 +1,60 @@
++package repository
++
++import (
++	"context"
++	"database/sql/driver"
++	"testing"
++	"time"
++
++	"github.com/DATA-DOG/go-sqlmock"
++	"github.com/Wei-Shaw/sub2api/internal/application/service"
++)
++
++func TestInsertSystemMetricsNullableIntegerMetrics(t *testing.T) {
++	createdAt := time.Date(2026, time.September, 4, 12, 0, 0, 0, time.UTC)
++	zero := 0
++
++	tests := []struct {
++		name         string
++		dbConnActive *int
++		wantDBActive driver.Value
++	}{
++		{name: "explicit zero is preserved", dbConnActive: &zero, wantDBActive: int64(0)},
++		{name: "unavailable metric remains null", dbConnActive: nil, wantDBActive: nil},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			db, mock, err := sqlmock.New()
++			if err != nil {
++				t.Fatalf("sqlmock.New: %v", err)
++			}
++			t.Cleanup(func() { _ = db.Close() })
++
++			args := make([]driver.Value, 43)
++			args[0] = createdAt
++			args[1] = int64(1)
++			for i := 4; i <= 12; i++ {
++				args[i] = int64(0)
++			}
++			// qps/tps are nullable float metrics at indexes 13 and 14.
++			args[38] = tt.wantDBActive
++
++			mock.ExpectExec("INSERT INTO ops_system_metrics").
++				WithArgs(args...).
++				WillReturnResult(sqlmock.NewResult(1, 1))
++
++			repo := &opsRepository{db: db}
++			err = repo.InsertSystemMetrics(context.Background(), &service.OpsInsertSystemMetricsInput{
++				CreatedAt:    createdAt,
++				DBConnActive: tt.dbConnActive,
++			})
++			if err != nil {
++				t.Fatalf("InsertSystemMetrics: %v", err)
++			}
++			if err := mock.ExpectationsWereMet(); err != nil {
++				t.Fatalf("unmet SQL expectations: %v", err)
++			}
++		})
++	}
++}
+diff --git a/backend/internal/modules/README.md b/backend/internal/modules/README.md
+index 4a598ba93..27d07da1f 100644
+--- a/backend/internal/modules/README.md
++++ b/backend/internal/modules/README.md
+@@ -9,4 +9,6 @@
+ | `payment/` | 支付金额、币种、渠道注册与提供商适配 |
+ | `securityaudit/` | Prompt 审计、同步防护、队列和审计策略 |
+ 
++活动类型与状态的纯白名单判断集中在 `activitycenter/campaign_state.go`。
++
+ 模块通过公开接口与 application/transport 连接。禁止模块通过读取其他模块的内部状态形成隐式耦合。
+diff --git a/backend/internal/modules/activitycenter/campaign.go b/backend/internal/modules/activitycenter/campaign.go
+index 80332c085..d4a475d46 100644
+--- a/backend/internal/modules/activitycenter/campaign.go
++++ b/backend/internal/modules/activitycenter/campaign.go
+@@ -1133,15 +1133,6 @@ func filterCampaignPoolsForUser(campaign *Campaign, groupIDs []int64) bool {
+ 	return true
+ }
+ 
+-func isValidCampaignType(value string) bool {
+-	switch value {
+-	case CampaignTypeLottery, CampaignTypeInflate, CampaignTypeCheckin, CampaignTypeRedeem, CampaignTypeCustom:
+-		return true
+-	default:
+-		return false
+-	}
+-}
+-
+ func validateCheckinConfig(config *ActivityConfig) error {
+ 	if config == nil || config.Checkin == nil || len(config.Checkin.DailyRewards) == 0 {
+ 		return ErrCampaignConfigInvalid
+@@ -1193,12 +1184,3 @@ func validateCheckinConfig(config *ActivityConfig) error {
+ 	}
+ 	return nil
+ }
+-
+-func isValidCampaignStatus(value string) bool {
+-	switch value {
+-	case CampaignStatusDraft, CampaignStatusActive, CampaignStatusArchived:
+-		return true
+-	default:
+-		return false
+-	}
+-}
+diff --git a/backend/internal/modules/activitycenter/campaign_state.go b/backend/internal/modules/activitycenter/campaign_state.go
+new file mode 100644
+index 000000000..6aabbc67e
+--- /dev/null
++++ b/backend/internal/modules/activitycenter/campaign_state.go
+@@ -0,0 +1,19 @@
++package activitycenter
++
++func isValidCampaignType(value string) bool {
++	switch value {
++	case CampaignTypeLottery, CampaignTypeInflate, CampaignTypeCheckin, CampaignTypeRedeem, CampaignTypeCustom:
++		return true
++	default:
++		return false
++	}
++}
++
++func isValidCampaignStatus(value string) bool {
++	switch value {
++	case CampaignStatusDraft, CampaignStatusActive, CampaignStatusArchived:
++		return true
++	default:
++		return false
++	}
++}
+diff --git a/backend/internal/shared/apicompat/README.md b/backend/internal/shared/apicompat/README.md
+index 43d6f4f78..5e6f194bd 100644
+--- a/backend/internal/shared/apicompat/README.md
++++ b/backend/internal/shared/apicompat/README.md
+@@ -1,3 +1,5 @@
+ # apicompat
+ 
+ Anthropic、Chat Completions 与 Responses 的双向协议转换。`*_to_*` 负责转换，`*_bridge*` 负责兼容桥接，`responses_stream_*` 负责流事件，`codex_bootstrap*` 负责识别 Codex Desktop 的合成首轮输入，`types.go` 定义公共结构。
++
++Chat 兼容桥的 `EffectiveResponsesTools` 同时处理 additional_tools 和完成的 tool_search_output；只把相关发现项交给既有冲突/去重 helper，不再次解码完整历史。heartbeat 与 delegation 均由共享 bootstrap owner 严格验证。
+diff --git a/backend/internal/shared/apicompat/chatcompletions_responses_bridge.go b/backend/internal/shared/apicompat/chatcompletions_responses_bridge.go
+index deb86ab33..959275724 100644
+--- a/backend/internal/shared/apicompat/chatcompletions_responses_bridge.go
++++ b/backend/internal/shared/apicompat/chatcompletions_responses_bridge.go
+@@ -88,7 +88,7 @@ func EffectiveResponsesTools(req *ResponsesRequest) ([]ResponsesTool, error) {
+ 	}
+ 
+ 	tools := append([]ResponsesTool(nil), req.Tools...)
+-	inputRaw := bytesTrimSpace(req.Input)
++	inputRaw := bytes.TrimSpace(req.Input)
+ 	if len(inputRaw) == 0 || string(inputRaw) == "null" || inputRaw[0] != '[' {
+ 		return tools, nil
+ 	}
+@@ -97,8 +97,9 @@ func EffectiveResponsesTools(req *ResponsesRequest) ([]ResponsesTool, error) {
+ 	if err := json.Unmarshal(inputRaw, &items); err != nil {
+ 		return nil, fmt.Errorf("parse responses input for additional tools: %w", err)
+ 	}
++	var discoveryItems []any
+ 	for _, raw := range items {
+-		raw = bytesTrimSpace(raw)
++		raw = bytes.TrimSpace(raw)
+ 		if len(raw) == 0 || raw[0] != '{' {
+ 			continue
+ 		}
+@@ -108,6 +109,14 @@ func EffectiveResponsesTools(req *ResponsesRequest) ([]ResponsesTool, error) {
+ 		if err := json.Unmarshal(raw, &discriminator); err != nil {
+ 			return nil, fmt.Errorf("parse responses additional tools item: %w", err)
+ 		}
++		if discriminator.Type == "tool_search_output" {
++			var discovery map[string]any
++			if err := json.Unmarshal(raw, &discovery); err != nil {
++				return nil, fmt.Errorf("parse responses tool discovery: %w", err)
++			}
++			discoveryItems = append(discoveryItems, discovery)
++			continue
++		}
+ 		if discriminator.Type != "additional_tools" {
+ 			continue
+ 		}
+@@ -119,6 +128,39 @@ func EffectiveResponsesTools(req *ResponsesRequest) ([]ResponsesTool, error) {
+ 		}
+ 		tools = append(tools, item.Tools...)
+ 	}
++	if len(discoveryItems) == 0 || !HasToolSearchTool(tools) {
++		return tools, nil
++	}
++	encoded, err := json.Marshal(tools)
++	if err != nil {
++		return nil, fmt.Errorf("encode discovery declarations: %w", err)
++	}
++	var rawTools []any
++	if err := json.Unmarshal(encoded, &rawTools); err != nil {
++		return nil, fmt.Errorf("decode discovery declarations: %w", err)
++	}
++	promotion := map[string]any{"tools": rawTools, "input": discoveryItems}
++	changed, err := promoteResponsesToolSearchDiscoveries(promotion)
++	if err != nil {
++		return nil, err
++	}
++	if changed {
++		// Only new declarations cross the untyped/typed boundary.
++		allTools, ok := promotion["tools"].([]any)
++		if !ok || len(allTools) < len(rawTools) {
++			return nil, fmt.Errorf("invalid promoted tool declarations")
++		}
++		promoted := allTools[len(rawTools):]
++		encoded, err := json.Marshal(promoted)
++		if err != nil {
++			return nil, fmt.Errorf("encode promoted declarations: %w", err)
++		}
++		var discovered []ResponsesTool
++		if err := json.Unmarshal(encoded, &discovered); err != nil {
++			return nil, fmt.Errorf("decode promoted declarations: %w", err)
++		}
++		tools = append(tools, discovered...)
++	}
+ 	return tools, nil
+ }
+ 
+@@ -354,6 +396,11 @@ func buildChatMessagesFromItems(messages []ChatMessage, rawItems []json.RawMessa
+ 			continue
+ 		case "function_call_output", "custom_tool_call_output", "tool_search_output":
+ 			outputRaw := bytesTrimSpace(item["output"])
++			if itemType == "tool_search_output" && (len(outputRaw) == 0 || string(outputRaw) == "null") {
++				// Newer client-side discovery returns declarations in tools rather
++				// than output. Preserve them in history as well as the tool catalog.
++				outputRaw = bytesTrimSpace(item["tools"])
++			}
+ 			callID := rawString(item["call_id"])
+ 			if callID == "" && invalidEmptyFunctionCallOutputs > 0 {
+ 				invalidEmptyFunctionCallOutputs--
+diff --git a/backend/internal/shared/apicompat/chatcompletions_responses_bridge_custom_tools_test.go b/backend/internal/shared/apicompat/chatcompletions_responses_bridge_custom_tools_test.go
+index 6265a64d0..be71be400 100644
+--- a/backend/internal/shared/apicompat/chatcompletions_responses_bridge_custom_tools_test.go
++++ b/backend/internal/shared/apicompat/chatcompletions_responses_bridge_custom_tools_test.go
+@@ -946,3 +946,62 @@ func TestChatCompletionsChunkToResponsesEvents_FunctionToolStreamUnaffected(t *t
+ 	}
+ 	assert.True(t, sawArgsDelta, "function 工具应保持原有参数增量事件")
+ }
++
++func TestResponsesToChatCompletionsRequest_PromotesCompletedToolSearchDiscoveries(t *testing.T) {
++	var req ResponsesRequest
++	require.NoError(t, json.Unmarshal([]byte(`{
++		"model":"gpt-5","tools":[
++			{"type":"tool_search"},
++			{"type":"function","name":"inspect","parameters":{"type":"object"}}
++		],"input":[
++			{"type":"tool_search_call","call_id":"search_1","arguments":{"query":"workspace"}},
++			{"type":"tool_search_output","call_id":"search_1","status":"completed","execution":"client","tools":[
++				{"type":"function","name":"inspect","parameters":{"type":"object"}},
++				{"type":"custom","name":"exec"},
++				{"type":"namespace","name":"collaboration","tools":[{"type":"function","name":"spawn_agent","parameters":{"type":"object"}}]}
++			]}
++		]}`), &req))
++
++	effective, err := EffectiveResponsesTools(&req)
++	require.NoError(t, err)
++	require.Len(t, effective, 4, "the identical static discovery must be deduplicated")
++	assert.True(t, CustomToolNames(effective)["exec"])
++	namespaces := NamespaceToolNames(effective)
++	assert.Equal(t, NamespacedToolName{Namespace: "collaboration", Name: "spawn_agent"}, namespaces["collaboration__spawn_agent"])
++
++	chatReq, err := ResponsesToChatCompletionsRequest(&req)
++	require.NoError(t, err)
++	require.Len(t, chatReq.Tools, 4)
++	assert.Equal(t, []string{"tool_search", "inspect", "exec", "collaboration__spawn_agent"}, []string{
++		chatReq.Tools[0].Function.Name, chatReq.Tools[1].Function.Name,
++		chatReq.Tools[2].Function.Name, chatReq.Tools[3].Function.Name,
++	})
++	require.Len(t, chatReq.Messages, 2)
++	assert.Equal(t, "tool", chatReq.Messages[1].Role)
++	var discoveryPayload []map[string]any
++	var serialized string
++	require.NoError(t, json.Unmarshal(chatReq.Messages[1].Content, &serialized))
++	require.NoError(t, json.Unmarshal([]byte(serialized), &discoveryPayload))
++	require.Len(t, discoveryPayload, 3)
++
++	responses := ChatCompletionsResponseToResponses(&ChatCompletionsResponse{Choices: []ChatChoice{{
++		Message: ChatMessage{Role: "assistant", ToolCalls: []ChatToolCall{
++			{ID: "call_1", Type: "function", Function: ChatFunctionCall{Name: "collaboration__spawn_agent", Arguments: `{}`}},
++			{ID: "call_2", Type: "function", Function: ChatFunctionCall{Name: "exec", Arguments: `{"input":"pwd"}`}},
++		}},
++	}}}, req.Model, CustomToolNames(effective), HasToolSearchTool(effective), namespaces)
++	require.Len(t, responses.Output, 2)
++	assert.Equal(t, "function_call", responses.Output[0].Type)
++	assert.Equal(t, "spawn_agent", responses.Output[0].Name)
++	assert.Equal(t, "collaboration", responses.Output[0].Namespace)
++	assert.Equal(t, "custom_tool_call", responses.Output[1].Type)
++	assert.Equal(t, "exec", responses.Output[1].Name)
++	assert.Equal(t, "pwd", responses.Output[1].Input)
++}
++
++func TestEffectiveResponsesTools_RejectsDiscoveredConflict(t *testing.T) {
++	var req ResponsesRequest
++	require.NoError(t, json.Unmarshal([]byte(`{"tools":[{"type":"tool_search"},{"type":"function","name":"inspect","parameters":{"type":"object"}}],"input":[{"type":"tool_search_output","call_id":"search_conflict","status":"completed","tools":[{"type":"function","name":"inspect","parameters":{"type":"string"}}]}]}`), &req))
++	_, err := EffectiveResponsesTools(&req)
++	require.ErrorContains(t, err, "conflicts")
++}
+diff --git a/backend/internal/shared/apicompat/codex_bootstrap.go b/backend/internal/shared/apicompat/codex_bootstrap.go
+index fcd42dfb3..d56dc821f 100644
+--- a/backend/internal/shared/apicompat/codex_bootstrap.go
++++ b/backend/internal/shared/apicompat/codex_bootstrap.go
+@@ -141,7 +141,7 @@ func codexCallOutputBootstrapKind(item map[string]any) string {
+ 		validCodexDelegationEnvelope(output) {
+ 		return CodexBootstrapDelegation
+ 	}
+-	if namespace == "codex_app" && name == "automation_update" && validCodexAutomationBootstrap(output) {
++	if namespace == "codex_app" && name == "automation_update" && (validCodexAutomationBootstrap(output) || validCodexAutomationHeartbeat(output)) {
+ 		return CodexBootstrapAutomation
+ 	}
+ 	return ""
+@@ -344,3 +344,53 @@ func consumeUniqueJSONValue(decoder *json.Decoder) bool {
+ 		return false
+ 	}
+ }
++
++func validCodexAutomationHeartbeat(value string) bool {
++	decoder := xml.NewDecoder(strings.NewReader(value))
++	var rootSeen, automationIDSeen bool
++	var automationID bytes.Buffer
++	depth := 0
++	for {
++		token, err := decoder.Token()
++		if err == io.EOF {
++			id := automationID.String()
++			return rootSeen && automationIDSeen && depth == 0 &&
++				strings.TrimSpace(id) == id && validCodexAutomationID(id)
++		}
++		if err != nil {
++			return false
++		}
++		switch current := token.(type) {
++		case xml.StartElement:
++			depth++
++			if current.Name.Space != "" || len(current.Attr) != 0 || depth > 2 {
++				return false
++			}
++			if depth == 1 {
++				if rootSeen || current.Name.Local != "heartbeat" {
++					return false
++				}
++				rootSeen = true
++			} else if automationIDSeen || current.Name.Local != "automation_id" {
++				return false
++			}
++			automationIDSeen = depth == 2
++		case xml.EndElement:
++			if current.Name.Space != "" {
++				return false
++			}
++			depth--
++			if depth < 0 {
++				return false
++			}
++		case xml.CharData:
++			if depth == 2 {
++				_, _ = automationID.Write(current)
++			} else if len(bytes.TrimSpace(current)) != 0 {
++				return false
++			}
++		case xml.Comment, xml.ProcInst, xml.Directive:
++			return false
++		}
++	}
++}
+diff --git a/backend/internal/shared/apicompat/codex_bootstrap_test.go b/backend/internal/shared/apicompat/codex_bootstrap_test.go
+index 9a31c547a..4caa6150f 100644
+--- a/backend/internal/shared/apicompat/codex_bootstrap_test.go
++++ b/backend/internal/shared/apicompat/codex_bootstrap_test.go
+@@ -88,3 +88,29 @@ func TestNormalizeCodexCallOutputBootstrap_RejectsOrdinaryOrAmbiguousOutputs(t *
+ 		})
+ 	}
+ }
++
++func TestNormalizeCodexCallOutputBootstrap_Heartbeat(t *testing.T) {
++	for _, tc := range []struct {
++		output string
++		valid  bool
++	}{
++		{`<heartbeat><automation_id>review-pr</automation_id></heartbeat>`, true},
++		{`<heartbeat><automation_id>review-pr</automation_id><automation_id>x</automation_id></heartbeat>`, false},
++		{`<heartbeat><automation_id>../x</automation_id></heartbeat>`, false},
++		{`<heartbeat attr="x"><automation_id>review-pr</automation_id></heartbeat>`, false},
++		{`<heartbeat><!--x--><automation_id>review-pr</automation_id></heartbeat>`, false},
++		{`<heartbeat><automation_id>review-pr</automation_id></heartbeat><heartbeat/>`, false},
++	} {
++		t.Run(tc.output, func(t *testing.T) {
++			body := []byte(`{"input":[{"type":"function_call_output","id":"fco_heartbeat","namespace":"codex_app","name":"automation_update","output":` + string(mustMarshalJSON(t, tc.output)) + `}]}`)
++			got, kind, changed := NormalizeCodexCallOutputBootstrap(body)
++			require.Equal(t, tc.valid, changed)
++			if tc.valid {
++				require.Equal(t, CodexBootstrapAutomation, kind)
++				require.Equal(t, tc.output, gjson.GetBytes(got, "input.0.content.0.text").String())
++			} else {
++				require.Equal(t, body, got)
++			}
++		})
++	}
++}
+diff --git a/backend/internal/shared/apicompat/upstream_sync_benchmark_test.go b/backend/internal/shared/apicompat/upstream_sync_benchmark_test.go
+new file mode 100644
+index 000000000..61e108e21
+--- /dev/null
++++ b/backend/internal/shared/apicompat/upstream_sync_benchmark_test.go
+@@ -0,0 +1,28 @@
++package apicompat
++
++import (
++	"encoding/json"
++	"strings"
++	"testing"
++)
++
++func BenchmarkSyncEffectiveResponsesTools(b *testing.B) {
++	for _, discovery := range []bool{false, true} {
++		name := "ordinary_history"
++		suffix := ""
++		if discovery {
++			name = "discovery_history"
++			suffix = `,{"type":"tool_search_output","call_id":"search_1","status":"completed","tools":[{"type":"function","name":"lookup","parameters":{"type":"object"}}]}`
++		}
++		req := &ResponsesRequest{Tools: []ResponsesTool{{Type: "tool_search"}}, Input: json.RawMessage(`[{"type":"message","role":"user","content":"` + strings.Repeat("x", 262144) + `"}` + suffix + `]`)}
++		b.Run(name, func(b *testing.B) {
++			b.ReportAllocs()
++			b.SetBytes(int64(len(req.Input)))
++			for b.Loop() {
++				if _, err := EffectiveResponsesTools(req); err != nil {
++					b.Fatal(err)
++				}
++			}
++		})
++	}
++}
+diff --git a/backend/internal/shared/claude/README.md b/backend/internal/shared/claude/README.md
+index 62e3bb982..52cbf733d 100644
+--- a/backend/internal/shared/claude/README.md
++++ b/backend/internal/shared/claude/README.md
+@@ -1,3 +1,3 @@
+ # claude
+ 
+-Claude 协议稳定常量。文件索引：`constants.go`。
++Claude 协议常量位于 `constants.go`。`cli_version.go` 在进程启动时读取可选的 `SUB2API_CLAUDE_CLI_VERSION`；空值沿用内置版本，仅接受不低于内置 pin 的稳定三段 semver。修改环境变量后需重建容器/重启进程；移除变量即可恢复内置值。
+diff --git a/backend/internal/shared/claude/cli_version.go b/backend/internal/shared/claude/cli_version.go
+new file mode 100644
+index 000000000..c53d47de5
+--- /dev/null
++++ b/backend/internal/shared/claude/cli_version.go
+@@ -0,0 +1,37 @@
++package claude
++
++import (
++	"log/slog"
++	"os"
++	"strings"
++
++	"golang.org/x/mod/semver"
++)
++
++const CLIVersionEnv = "SUB2API_CLAUDE_CLI_VERSION"
++
++var resolvedCLIVersion = resolveCLIVersion(os.Getenv(CLIVersionEnv))
++
++func CLIVersion() string { return resolvedCLIVersion }
++func IsSupportedCLIVersion(version string) bool {
++	version = strings.TrimSpace(version)
++	if version == "" {
++		return false
++	}
++	canonical := "v" + version
++	if !semver.IsValid(canonical) || semver.Canonical(canonical) != canonical || semver.Prerelease(canonical) != "" || semver.Build(canonical) != "" {
++		return false
++	}
++	return semver.Compare(canonical, "v"+CLICurrentVersion) >= 0
++}
++func resolveCLIVersion(raw string) string {
++	version := strings.TrimSpace(raw)
++	if version == "" {
++		return CLICurrentVersion
++	}
++	if !IsSupportedCLIVersion(version) {
++		slog.Warn("ignoring invalid Claude CLI version override; falling back to built-in pin", "env", CLIVersionEnv, "value", version, "builtin", CLICurrentVersion)
++		return CLICurrentVersion
++	}
++	return version
++}
+diff --git a/backend/internal/shared/claude/cli_version_test.go b/backend/internal/shared/claude/cli_version_test.go
+new file mode 100644
+index 000000000..043df2b55
+--- /dev/null
++++ b/backend/internal/shared/claude/cli_version_test.go
+@@ -0,0 +1,73 @@
++package claude
++
++import "testing"
++
++func TestIsSupportedCLIVersion(t *testing.T) {
++	cases := []struct {
++		name    string
++		version string
++		want    bool
++	}{
++		{"内置基线本身", CLICurrentVersion, true},
++		{"高于基线的补丁位", "2.1.251", true},
++		{"高于基线的次版本", "2.2.0", true},
++		{"高于基线的主版本", "3.0.0", true},
++		{"低于基线", "2.1.219", false},
++		{"远低于基线", "1.0.0", false},
++		{"空值", "", false},
++		{"只有两段", "2.2", false},
++		{"带 v 前缀", "v2.2.0", false},
++		{"预发布后缀", "2.2.0-local", false},
++		{"构建元数据", "2.2.0+build1", false},
++		{"哨兵版本带后缀", "999.0.0-local", false},
++		{"纯数字哨兵仍然合法（形态没问题，运维自负）", "999.0.0", true},
++		{"非数字", "abc", false},
++		{"多余的段", "2.2.0.1", false},
++	}
++	for _, tc := range cases {
++		t.Run(tc.name, func(t *testing.T) {
++			if got := IsSupportedCLIVersion(tc.version); got != tc.want {
++				t.Fatalf("IsSupportedCLIVersion(%q) = %v, want %v", tc.version, got, tc.want)
++			}
++		})
++	}
++}
++
++func TestResolveCLIVersion(t *testing.T) {
++	cases := []struct {
++		name string
++		raw  string
++		want string
++	}{
++		{"未配置时用内置基线", "", CLICurrentVersion},
++		{"只有空白等同未配置", "   ", CLICurrentVersion},
++		{"合法覆盖生效", "2.1.251", "2.1.251"},
++		{"两侧空白被裁掉", "  2.1.251  ", "2.1.251"},
++		{"非法值回落基线", "not-a-version", CLICurrentVersion},
++		{"向下覆盖被拒", "2.0.0", CLICurrentVersion},
++		{"预发布后缀被拒（会毒化账号指纹）", "2.2.0-local", CLICurrentVersion},
++	}
++	for _, tc := range cases {
++		t.Run(tc.name, func(t *testing.T) {
++			if got := resolveCLIVersion(tc.raw); got != tc.want {
++				t.Fatalf("resolveCLIVersion(%q) = %q, want %q", tc.raw, got, tc.want)
++			}
++		})
++	}
++}
++
++// 伪装身份的自洽性：User-Agent 头里的版本号必须与 CLIVersion() 一致。
++// 两者由不同代码路径写入同一个请求，不一致会被上游判为非正版客户端。
++func TestDefaultHeadersUserAgentMatchesCLIVersion(t *testing.T) {
++	want := "claude-cli/" + CLIVersion() + " (external, cli)"
++	if got := DefaultHeaders["User-Agent"]; got != want {
++		t.Fatalf("DefaultHeaders[User-Agent] = %q, want %q", got, want)
++	}
++}
++
++// 没有配置覆盖时，CLIVersion() 必须等于内置基线——保证本 PR 对既有部署零行为变化。
++func TestCLIVersionDefaultsToBuiltinPin(t *testing.T) {
++	if got := CLIVersion(); got != CLICurrentVersion {
++		t.Fatalf("CLIVersion() = %q, want built-in pin %q (测试进程未设置 %s)", got, CLICurrentVersion, CLIVersionEnv)
++	}
++}
+diff --git a/backend/internal/shared/claude/constants.go b/backend/internal/shared/claude/constants.go
+index 974ff3be1..53c70b002 100644
+--- a/backend/internal/shared/claude/constants.go
++++ b/backend/internal/shared/claude/constants.go
+@@ -102,7 +102,7 @@ var DefaultHeaders = map[string]string{
+ 	// Keep these in sync with recent Claude CLI traffic to reduce the chance
+ 	// that Claude Code-scoped OAuth credentials are rejected as "non-CLI" usage.
+ 	// 版本参考：对齐 Parrot (src/transform/cc_mimicry.py:49) 的 CLI_USER_AGENT。
+-	"User-Agent":                                "claude-cli/" + CLICurrentVersion + " (external, cli)",
++	"User-Agent":                                "claude-cli/" + CLIVersion() + " (external, cli)",
+ 	"X-Stainless-Lang":                          "js",
+ 	"X-Stainless-Package-Version":               "0.94.0",
+ 	"X-Stainless-OS":                            "Linux",
+diff --git a/backend/internal/transport/http/handler/gemini_v1beta_handler.go b/backend/internal/transport/http/handler/gemini_v1beta_handler.go
+index 1edf3e4a8..929149aec 100644
+--- a/backend/internal/transport/http/handler/gemini_v1beta_handler.go
++++ b/backend/internal/transport/http/handler/gemini_v1beta_handler.go
+@@ -52,6 +52,11 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
+ 		return
+ 	}
+ 
++	if models, ok := customGeminiModelsList(apiKey.Group); ok {
++		c.JSON(http.StatusOK, models)
++		return
++	}
++
+ 	priorityAdmissionEnabled := metadataPriorityAdmissionEnabled(c, h.concurrencyHelper)
+ 	if priorityAdmissionEnabled {
+ 		authSubject, ok := middleware.GetAuthSubjectFromContext(c)
+@@ -108,6 +113,17 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
+ 	writeUpstreamResponse(c, res)
+ }
+ 
++func customGeminiModelsList(group *service.Group) (gemini.ModelsListResponse, bool) {
++	if group == nil || !group.CustomModelsListEnabled() {
++		return gemini.ModelsListResponse{}, false
++	}
++	models := make([]gemini.Model, 0, len(group.ModelsListConfig.Models))
++	for _, modelID := range group.ModelsListConfig.Models {
++		models = append(models, gemini.FallbackModel(modelID))
++	}
++	return gemini.ModelsListResponse{Models: models}, true
++}
++
+ // GeminiV1BetaGetModel proxies:
+ // GET /v1beta/models/{model}
+ func (h *GatewayHandler) GeminiV1BetaGetModel(c *gin.Context) {
+diff --git a/backend/internal/transport/http/handler/gemini_v1beta_handler_test.go b/backend/internal/transport/http/handler/gemini_v1beta_handler_test.go
+index f1f4cd836..3370109bf 100644
+--- a/backend/internal/transport/http/handler/gemini_v1beta_handler_test.go
++++ b/backend/internal/transport/http/handler/gemini_v1beta_handler_test.go
+@@ -12,6 +12,14 @@ import (
+ 
+ // TestGeminiV1BetaHandler_PlatformRoutingInvariant 文档化并验证 Handler 层的平台路由逻辑不变量
+ // 该测试确保 gemini 和 antigravity 平台的路由逻辑符合预期
++func TestCustomGeminiModelsList(t *testing.T) {
++	group := &service.Group{ModelsListConfig: service.GroupModelsListConfig{Enabled: true, Models: []string{"gemini-custom"}}}
++	got, ok := customGeminiModelsList(group)
++	require.True(t, ok)
++	require.Len(t, got.Models, 1)
++	require.Equal(t, "models/gemini-custom", got.Models[0].Name)
++}
++
+ func TestGeminiV1BetaHandler_PlatformRoutingInvariant(t *testing.T) {
+ 	tests := []struct {
+ 		name            string
+diff --git a/backend/internal/transport/http/handler/openai_gateway_cyber_policy.go b/backend/internal/transport/http/handler/openai_gateway_cyber_policy.go
+index e581a40ca..1ad4b9ed6 100644
+--- a/backend/internal/transport/http/handler/openai_gateway_cyber_policy.go
++++ b/backend/internal/transport/http/handler/openai_gateway_cyber_policy.go
+@@ -361,11 +361,17 @@ func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarked(c *gin.Context, apiKey
+ // guard. WS-only: called at the END of AfterTurn, after recordCyberPolicyIfMarked
+ // and RecordUsage (which reads CyberBlocked) have both consumed the mark.
+ func clearCyberPolicyTurnState(c *gin.Context) {
++	clearCyberPolicyAttemptState(c, true)
++}
++
++func clearCyberPolicyAttemptState(c *gin.Context, resetRecorded bool) {
+ 	if c == nil {
+ 		return
+ 	}
+ 	service.ClearOpsCyberPolicy(c)
+-	c.Set(cyberPolicyRecordedKey, false)
++	if resetRecorded {
++		c.Set(cyberPolicyRecordedKey, false)
++	}
+ }
+ 
+ func summarizeWSCloseErrorForLog(err error) (string, string) {
+diff --git a/backend/internal/transport/http/handler/openai_gateway_cyber_test.go b/backend/internal/transport/http/handler/openai_gateway_cyber_test.go
+index 77f5d9036..9167494da 100644
+--- a/backend/internal/transport/http/handler/openai_gateway_cyber_test.go
++++ b/backend/internal/transport/http/handler/openai_gateway_cyber_test.go
+@@ -1,6 +1,7 @@
+ package handler
+ 
+ import (
++	"net/http"
+ 	"net/http/httptest"
+ 	"strings"
+ 	"testing"
+@@ -178,3 +179,41 @@ func TestBuildCyberPolicyOpsErrorEntry_StatusCode(t *testing.T) {
+ 		})
+ 	}
+ }
++
++func TestAdvanceOpenAIWSCyberBlockStateDefersBlockAcrossFailover(t *testing.T) {
++	failoverErr := &service.UpstreamFailoverError{StatusCode: http.StatusTooManyRequests}
++
++	blocked, pending := advanceOpenAIWSCyberBlockState(false, false, true, failoverErr)
++	require.False(t, blocked, "the replacement account must receive the current turn")
++	require.True(t, pending, "the cyber hit must still block later turns")
++
++	blocked, pending = advanceOpenAIWSCyberBlockState(blocked, pending, false, failoverErr)
++	require.False(t, blocked, "additional failover attempts must remain eligible")
++	require.True(t, pending)
++
++	blocked, pending = advanceOpenAIWSCyberBlockState(blocked, pending, false, nil)
++	require.True(t, blocked, "the next client turn must be blocked after failover finishes")
++	require.False(t, pending)
++}
++
++func TestClearCyberPolicyAttemptStatePreservesRecordedGuardDuringFailover(t *testing.T) {
++	c := newTestGinContext()
++	h := &OpenAIGatewayHandler{}
++
++	service.MarkOpsCyberPolicy(c, service.CyberPolicyMark{Message: "account-a", UpstreamStatus: http.StatusOK})
++	h.recordCyberPolicyIfMarked(c, nil, nil, nil, "gpt-5", true, "", service.ChannelUsageFields{}, "")
++	require.True(t, c.GetBool(cyberPolicyRecordedKey))
++
++	clearCyberPolicyAttemptState(c, false)
++	require.Nil(t, service.GetOpsCyberPolicy(c))
++	require.True(t, c.GetBool(cyberPolicyRecordedKey), "the same logical turn must not record again after failover")
++
++	service.MarkOpsCyberPolicy(c, service.CyberPolicyMark{Message: "account-b", UpstreamStatus: http.StatusOK})
++	h.recordCyberPolicyIfMarked(c, nil, nil, nil, "gpt-5", true, "", service.ChannelUsageFields{}, "")
++	require.Equal(t, "account-b", service.GetOpsCyberPolicy(c).Message)
++	require.True(t, c.GetBool(cyberPolicyRecordedKey))
++
++	clearCyberPolicyAttemptState(c, true)
++	require.Nil(t, service.GetOpsCyberPolicy(c))
++	require.False(t, c.GetBool(cyberPolicyRecordedKey), "a completed logical turn must reset the guard")
++}
+diff --git a/backend/internal/transport/http/handler/openai_gateway_websocket.go b/backend/internal/transport/http/handler/openai_gateway_websocket.go
+index 3a8844e3b..d8953284a 100644
+--- a/backend/internal/transport/http/handler/openai_gateway_websocket.go
++++ b/backend/internal/transport/http/handler/openai_gateway_websocket.go
+@@ -211,6 +211,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
+ 		return
+ 	}
+ 	cyberBlockedThisConn := false
++	cyberBlockPendingAfterFailover := false
+ 
+ 	// 解析渠道级模型映射
+ 	channelMappingWS, _ := h.gatewayService.ResolveChannelMappingAndRestrict(ctx, apiKey.GroupID, reqModel)
+@@ -662,7 +663,9 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
+ 				// F1: cyber 标记按 turn 生命周期清理——defer 保证任意早返回路径都执行；
+ 				// CyberBlocked 必须在 submit 前同步预捕获（task 闭包由 worker 池异步执行，
+ 				// 届时 defer 已清除标记）。
+-				defer clearCyberPolicyTurnState(c)
++				defer func() {
++					clearCyberPolicyAttemptState(c, !cyberBlockPendingAfterFailover)
++				}()
+ 				releaseTurnSlots()
+ 				turnRequestedModel := reqModel
+ 				turnMapping := channelMappingWS
+@@ -684,10 +687,11 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
+ 					turnUpstreamModel = account.GetMappedModel(mappedModel)
+ 				}
+ 				turnUsageFields := turnMapping.ToUsageFields(turnRequestedModel, turnUpstreamModel)
++				cyberMarked := service.GetOpsCyberPolicy(c) != nil
+ 				h.recordCyberPolicyIfMarked(c, apiKey, account, subscription, turnRequestedModel, turnErr != nil, cyberBlockKey, turnUsageFields, requestPayloadHash)
+-				if service.GetOpsCyberPolicy(c) != nil {
+-					cyberBlockedThisConn = true
+-				}
++				cyberBlockedThisConn, cyberBlockPendingAfterFailover = advanceOpenAIWSCyberBlockState(
++					cyberBlockedThisConn, cyberBlockPendingAfterFailover, cyberMarked, turnErr,
++				)
+ 				if turnErr != nil {
+ 					if result == nil || result.ImageCount <= 0 {
+ 						return
+@@ -851,3 +855,23 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
+ 	}
+ 
+ }
++
++// advanceOpenAIWSCyberBlockState permits only the in-flight failover attempt;
++// once that logical turn finishes the connection rejects subsequent turns.
++func advanceOpenAIWSCyberBlockState(blocked, pending, marked bool, turnErr error) (bool, bool) {
++	var failoverErr *service.UpstreamFailoverError
++	isFailover := errors.As(turnErr, &failoverErr)
++	if blocked {
++		return true, false
++	}
++	if marked {
++		if isFailover {
++			return false, true
++		}
++		return true, false
++	}
++	if pending && !isFailover {
++		return true, false
++	}
++	return blocked, pending
++}
+diff --git a/deploy/.env.example b/deploy/.env.example
+index d16da7b9e..5025e3a85 100644
+--- a/deploy/.env.example
++++ b/deploy/.env.example
+@@ -529,3 +529,6 @@ OPS_ENABLED=true
+ # Leave empty for direct connection (recommended for overseas servers)
+ # 留空表示直连（适用于海外服务器）
+ UPDATE_PROXY_URL=
++
++# Optional Claude CLI pin, strict X.Y.Z and not below the built-in baseline.
++SUB2API_CLAUDE_CLI_VERSION=
+diff --git a/deploy/README.md b/deploy/README.md
+index 6595f2af5..532a69517 100644
+--- a/deploy/README.md
++++ b/deploy/README.md
+@@ -815,3 +815,7 @@ adapter uses an HTTP/1.1-only copy because Go's standard HTTP/2 adapter requires
+ `*tls.Conn`, while uTLS returns `*utls.UConn`; WebSocket upgrades use the same HTTP/1.1 copy.
+ Rustls randomizes ClientHello extension order per handshake, so this feature guarantees stable
+ provider parameters and account isolation, not a byte-identical cross-platform JA3 hash.
++
++### Claude CLI 兼容版本
++
++`SUB2API_CLAUDE_CLI_VERSION` 可选，默认空值保留内置版本；只接受不低于内置 pin 的稳定三段版本。进程启动时解析一次，修改或移除后重新创建应用容器。数据库和账号配置格式保持不变。
+diff --git a/deploy/docker-compose.dev.yml b/deploy/docker-compose.dev.yml
+index d829681e2..f46848128 100644
+--- a/deploy/docker-compose.dev.yml
++++ b/deploy/docker-compose.dev.yml
+@@ -60,6 +60,7 @@ services:
+       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@sub2api.local}
+       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+       - JWT_SECRET=${JWT_SECRET:-}
++      - SUB2API_CLAUDE_CLI_VERSION=${SUB2API_CLAUDE_CLI_VERSION:-}
+       - SETUP_MIGRATION_TIMEOUT_SECONDS=${SETUP_MIGRATION_TIMEOUT_SECONDS:-0}
+       - TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY:-}
+       - TZ=${TZ:-Asia/Shanghai}
+diff --git a/deploy/docker-compose.local.yml b/deploy/docker-compose.local.yml
+index c2fe26b2c..50c87390e 100644
+--- a/deploy/docker-compose.local.yml
++++ b/deploy/docker-compose.local.yml
+@@ -118,6 +118,7 @@ services:
+       # will be generated on each startup.
+       # Generate a secure secret: openssl rand -hex 32
+       - JWT_SECRET=${JWT_SECRET:-}
++      - SUB2API_CLAUDE_CLI_VERSION=${SUB2API_CLAUDE_CLI_VERSION:-}
+       - JWT_EXPIRE_HOUR=${JWT_EXPIRE_HOUR:-24}
+ 
+       # =======================================================================
+diff --git a/deploy/docker-compose.standalone.yml b/deploy/docker-compose.standalone.yml
+index 3bdbfe7df..d7b05daf9 100644
+--- a/deploy/docker-compose.standalone.yml
++++ b/deploy/docker-compose.standalone.yml
+@@ -97,6 +97,7 @@ services:
+       # JWT Configuration
+       # =======================================================================
+       - JWT_SECRET=${JWT_SECRET:-}
++      - SUB2API_CLAUDE_CLI_VERSION=${SUB2API_CLAUDE_CLI_VERSION:-}
+       - JWT_EXPIRE_HOUR=${JWT_EXPIRE_HOUR:-24}
+ 
+       # =======================================================================
+diff --git a/deploy/docker-compose.yml b/deploy/docker-compose.yml
+index c282946e7..1ae1ef536 100644
+--- a/deploy/docker-compose.yml
++++ b/deploy/docker-compose.yml
+@@ -114,6 +114,7 @@ services:
+       # will be generated on each startup.
+       # Generate a secure secret: openssl rand -hex 32
+       - JWT_SECRET=${JWT_SECRET:-}
++      - SUB2API_CLAUDE_CLI_VERSION=${SUB2API_CLAUDE_CLI_VERSION:-}
+       - JWT_EXPIRE_HOUR=${JWT_EXPIRE_HOUR:-24}
+ 
+       # =======================================================================
+diff --git a/frontend/src/common/widgets/layout/AppSidebar.vue b/frontend/src/common/widgets/layout/AppSidebar.vue
+index 9ccc39a77..5486bdf38 100644
+--- a/frontend/src/common/widgets/layout/AppSidebar.vue
++++ b/frontend/src/common/widgets/layout/AppSidebar.vue
+@@ -290,8 +290,8 @@ const supportUserHasUnread = computed(() => appStore.supportUserHasUnread)
+ 
+ const homePath = computed(() => (isAdmin.value ? '/admin/dashboard' : '/dashboard'))
+ 
+-// Track which parent nav groups are expanded
+-const expandedGroups = ref<Set<string>>(new Set())
++// Explicit per-group overrides take precedence over automatic active-route expansion.
++const groupExpandOverrides = ref<Map<string, boolean>>(new Map())
+ 
+ // Site settings from appStore (cached, no flicker)
+ const siteName = computed(() => appStore.siteName)
+@@ -994,15 +994,13 @@ function isGroupActive(item: NavItem): boolean {
+ }
+ 
+ function isGroupExpanded(item: NavItem): boolean {
+-  return expandedGroups.value.has(item.path) || isGroupActive(item)
++  const override = groupExpandOverrides.value.get(item.path)
++  if (override !== undefined) return override
++  return isGroupActive(item)
+ }
+ 
+ function toggleGroup(item: NavItem) {
+-  if (expandedGroups.value.has(item.path)) {
+-    expandedGroups.value.delete(item.path)
+-  } else {
+-    expandedGroups.value.add(item.path)
+-  }
++  groupExpandOverrides.value.set(item.path, !isGroupExpanded(item))
+ }
+ 
+ /**
+@@ -1022,9 +1020,7 @@ function handleGroupClick(item: NavItem) {
+   if (route.path !== item.path) {
+     router.push(item.path)
+   }
+-  if (!expandedGroups.value.has(item.path)) {
+-    expandedGroups.value.add(item.path)
+-  }
++  groupExpandOverrides.value.set(item.path, true)
+ }
+ 
+ // Initialize theme
+diff --git a/frontend/src/common/widgets/layout/__tests__/AppSidebar.spec.ts b/frontend/src/common/widgets/layout/__tests__/AppSidebar.spec.ts
+index 53aa0e4ea..cf0dca9ac 100644
+--- a/frontend/src/common/widgets/layout/__tests__/AppSidebar.spec.ts
++++ b/frontend/src/common/widgets/layout/__tests__/AppSidebar.spec.ts
+@@ -85,3 +85,11 @@ describe('AppSidebar activity center feature switch', () => {
+     expect(componentSource).toContain('featureFlag: flagActivityCenter')
+   })
+ })
++
++
++describe('AppSidebar active group override', () => {
++  it('allows explicit collapse on an active route', () => {
++    expect(componentSource).toContain('const groupExpandOverrides = ref<Map<string, boolean>>(new Map())')
++    expect(componentSource).toContain('if (override !== undefined) return override')
++  })
++})
+diff --git a/frontend/src/features/admin-groups/__tests__/groupsModelsListLayout.spec.ts b/frontend/src/features/admin-groups/__tests__/groupsModelsListLayout.spec.ts
+index b23ac8d9e..44230941b 100644
+--- a/frontend/src/features/admin-groups/__tests__/groupsModelsListLayout.spec.ts
++++ b/frontend/src/features/admin-groups/__tests__/groupsModelsListLayout.spec.ts
+@@ -31,3 +31,8 @@ describe("groups models list layout", () => {
+     expect(pricingSource).toContain("shrink-0 whitespace-nowrap");
+   });
+ });
++
++
++it('uses Gemini native endpoint copy', () => {
++  expect(coreFieldsSource).toContain('form.platform === "gemini" ? "/v1beta/models" : "/v1/models"')
++})
+diff --git a/frontend/src/features/admin-groups/presentation/widgets/GroupEditorCoreFields.vue b/frontend/src/features/admin-groups/presentation/widgets/GroupEditorCoreFields.vue
+index 453d45ef4..b61fb9def 100644
+--- a/frontend/src/features/admin-groups/presentation/widgets/GroupEditorCoreFields.vue
++++ b/frontend/src/features/admin-groups/presentation/widgets/GroupEditorCoreFields.vue
+@@ -371,10 +371,10 @@ const {
+       <div class="mb-3 flex items-center justify-between gap-3">
+         <div>
+           <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+-            {{ t("admin.groups.modelsList.title") }}
++            {{ t("admin.groups.modelsList.title", { endpoint: form.platform === "gemini" ? "/v1beta/models" : "/v1/models" }) }}
+           </label>
+           <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+-            {{ t("admin.groups.modelsList.hint") }}
++            {{ t("admin.groups.modelsList.hint", { endpoint: form.platform === "gemini" ? "/v1beta/models" : "/v1/models" }) }}
+           </p>
+         </div>
+         <button

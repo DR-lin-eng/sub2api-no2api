@@ -114,6 +114,7 @@ services:
       # will be generated on each startup.
       # Generate a secure secret: openssl rand -hex 32
       - JWT_SECRET=${JWT_SECRET:-}
+      - SUB2API_CLAUDE_CLI_VERSION=${SUB2API_CLAUDE_CLI_VERSION:-}
       - JWT_EXPIRE_HOUR=${JWT_EXPIRE_HOUR:-24}
 
       # =======================================================================

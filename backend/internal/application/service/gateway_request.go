@@ -1354,6 +1354,9 @@ func NormalizeGLMOpenAIReasoningEffort(body []byte, mappedModel string) ([]byte,
 	}
 
 	mapped := normalizeGLMOpenAIReasoningEffort(raw)
+	if strings.EqualFold(strings.TrimSpace(mappedModel), "glm-5.3") && strings.EqualFold(raw, "low") {
+		mapped = "low"
+	}
 	if mapped == "" || mapped == raw {
 		return body, false
 	}

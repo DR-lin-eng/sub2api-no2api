@@ -1,5 +1,7 @@
 # 上游同步审查记录（2026-09-05）
 
+> 本页保留当天两个独立批次。当前批次为下文“第二批：31 个主线 PR”；第一批证据只属于其原始冻结点。
+
 ## 审查边界
 
 - 本项目发布基线：`origin/main` `bd8bf53551ce787759000fb72cfccf29fb755183`。
@@ -68,3 +70,70 @@
 ## 发布证据
 
 远端 SHA、Actions 与 GHCR 证据在实际推送后补记。
+
+
+---
+
+## 第二批：31 个主线 PR（当前批次）
+
+### 冻结边界与处理规则
+
+- fork 基线：`0741f5d103b1e0daebafd68fa9ba845dbd257fe7`，版本 `0.1.193`。
+- 上次已关闭上游：`b1748c4ea99ce2120401a269142aa071e18a84da`。
+- 本轮功能冻结点：`578785ee7fb35030b094b69624efe25670a36f5f`，76 个提交、31 个 first-parent 合并 PR。
+- 2026-09-05 再次 fetch 后仅新增 `ab99d56e9626e6cd731592dae8553c9758a0efa2`，只把上游 VERSION 从 `0.2.0` 改为 `0.2.1`。已审核该差异并保留 fork 版本；最终 ancestry 关闭到该不可变 SHA。
+- 原工作区不变；选择性移植到当前 owner，禁止恢复 legacy service/handler/views 树、赞助内容或旧迁移号。
+- “关闭”表示审查决策已记录，不表示暂缓功能已实现。暂缓项仅在本表重新打开条件满足时单独处理，避免重复扫描已重构代码。
+
+### 选择性移植与性能审查
+
+| PR | 当前 owner 与处理 | 性能及兼容性 |
+| --- | --- | --- |
+| #6580 | `frontend/src/common/widgets/layout/AppSidebar.vue` 显式展开/折叠覆盖 active-route 默认值 | 单次 Map 查询，无路由或持久格式变化 |
+| #6599 | `transport/http/handler/gemini_v1beta_handler.go` 在认证和平台验证后本地返回启用的自定义模型列表；分组编辑器提示 `/v1beta/models` | 自定义路径省去账号租赁和上游 I/O；强制 Antigravity 路由保持原行为 |
+| #6594 | `infrastructure/repository/ops_repo_metrics.go` 为度量整数使用专用 nullable helper | 指针 nil 保留 NULL，显式 0 写入 0；ID helper 不变，无 schema 变化 |
+| #6531 | `application/service/openai_messages_continuation.go` 精确识别 unavailable-for-user 续接错误 | 复用已有一次回放边界，不增加重试次数 |
+| #6550 | `payment_order_lifecycle.go` 已有定时协调同时覆盖 Alipay/WeChat；保留旧方法包装 | 单次查询仍 LIMIT 20、既有顺序处理；不新增定时器，不改变已支付幂等与退款规则 |
+| #6581 | `openai_opencode_session.go` 在请求构造、passthrough 和 Chat fallback 应用 caller session header | 无 header 时立即返回；仅 API-key + HTTPS opencode.ai；其他上游不转发 |
+| #6606 / #6640 | `shared/claude/cli_version.go` 启动时解析可选 CLI 版本；billing/header/identity 统一版本及三位后缀 | 未设置保持内置版本；拒绝低版本和非三段稳定 semver；只有已识别 billing 块重算，普通 body 不哈希；messages/count_tokens wire body 回归 |
+| #6553 | `shared/apicompat/codex_bootstrap.go` 严格识别 heartbeat bootstrap | 沿用既有长度、重复字段、call-id 和历史上下文约束；XML 只接受一个 automation_id、无属性和额外节点 |
+| #6593 | `shared/apicompat/chatcompletions_responses_bridge.go` 推广完成的工具发现并保留 tools 形态的历史结果 | 不采用上游再次解码整个历史的实现；只解码 discovery 项、复用当前冲突与去重规则；本函数用 byte trim 去掉两次整段字符串复制 |
+| #6507（部分） | 当前 GLM Chat owner 保留 GLM-5.3 显式 low | 仅已映射 GLM-5.3 命中，不改变其他 GLM 或无显式参数的请求 |
+| #6636 | WS ingress、V2、HTTP bridge、passthrough 统一记录 error/response.failed；handler 按逻辑 turn 保留记录 guard | 首写获胜、换号不重复记账；仅当前已存在 failover 链继续，完成后仍屏蔽后续 turn；错误 body 先截 4096 字节再复制 |
+
+### 已有实现，差异关闭
+
+| PR | 事实来源 / 保留行为 |
+| --- | --- |
+| #6492 / #6536 | 当前 channel mapping / scheduler owner 已区分 requested、mapped、canonical model；保留别名调度与本项目的渠道规则，不替换为 legacy 算法 |
+| #6397 | 保留当前 WS replay 独立字节所有权、512 项 / 2 MiB 上限；不引入上游 unsafe 共享切片别名 |
+| #6529 | 当前 passthrough 在普通 reasoning 规范化前转入独立透传链路；不追加上游旧函数或重复重写 none |
+| #6620 / #6626 / #6628 / #6572 | GPT-6 Astra、none/minimal -> low、prompt cache 与能力补齐已经在本项目相应 owner 和测试覆盖；保留之前性能短路重构 |
+| #6539 | 共享 `codex_bootstrap` 已允许明确 FCO bootstrap 与合法历史上下文并存；已有 delegation historical-context 回归 |
+
+### 暂缓 / 部分移植的重新打开条件
+
+| PR | 原因与重新打开条件 |
+| --- | --- |
+| #6535 | 定价文件 hot reload 需与此前 #6353 的价格覆盖优先级、远端目录和历史账单共同设计；价格 owner 方案及对账矩阵确认后重开 |
+| #6602 | 账号 pinned manifest 涉及 Group schema、auth snapshot 和缓存契约；独立迁移及旧缓存回退方案齐备后重开 |
+| #6514 | reasoning pricing 涉及账务字段、迁移与历史账单；按 fork 新迁移号完成升级及降级对账后重开 |
+| #6555 | upstream request ID 持久化与当前 usage / Ops owner 和迁移历史交叉；统一字段契约后重开，不直接搬上游生成代码 |
+| #6638 | 图片 URL 回填需要接入当前 egress、URL allowlist、媒体任务大小和下载超时边界；独立资源预算设计后重开 |
+| #6590 | 当前 manifest 代理按实际选中账号和上游能力传递，不采用上游跨账号生成 catalog；在本地生成 catalog 的 owner 正式引入时再评估 capability 推断 |
+| #6542 | 批量改并发错误 code 涉及本项目 priority admission、Responses SSE、Anthropic 和 Gemini 的共享调用方；协议矩阵单独验证后重开，保留现有错误格式 |
+| #6510 | 上游按 session hash 无条件删除注册，缺少当前并行请求租赁/代际所有权；同一 session 另一成功请求可能仍占用。需 token/compare-delete 释放设计、并发 race + Redis 验证后重开，不引入该竞态 |
+| #6507（Anthropic 部分） | 上游 native Anthropic forwarder 在本项目没有同构 owner；其强制 thinking=enabled 会改变显式 disabled 语义。待当前 CN transport 契约设计后接入 |
+| #6571 | ultrafast 同时改变服务等级、计费倍率和管理员策略；不当成静态清单变更，独立费率/开关/旧客户端矩阵确认后重开 |
+| #6557 | 上游 AccountListItem/lite 与本项目按需详情、分组和管理动作状态契约不一致；独立测量大账号列表载荷、查询及详情动作后重开 |
+
+### 平滑升级约束
+
+- 本批不新增数据库迁移、不改 Ent/Wire 生成结果、不改默认版本或数据库内容；新环境变量为空时保持旧默认值。
+- 支付协调复用原 worker 和上限，不新增每请求数据库访问、后台 goroutine、ticker 或无界缓存。
+- 基线 `activitycenter/campaign.go` 1204 行触发现有 1200 行门槛。只将类型/状态两个纯判断函数原样移到 `campaign_state.go`，不放宽检查规则。
+- 发布前分别验证 Docker unit、前端、lint、性能、独立 PostgreSQL/Redis 的升级/回退及文件 rollback；性能数字只解释对应 microbenchmark，不能以测试总耗时代替真实吞吐证据。
+
+### 本批验证和发布
+
+最终命令、输入、字面输出、退出状态、文件 hash、Docker 升级/回退和发布 SHA 保存到本批验证产物。尚未执行的门槛不记为通过。

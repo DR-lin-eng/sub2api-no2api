@@ -290,8 +290,8 @@ const supportUserHasUnread = computed(() => appStore.supportUserHasUnread)
 
 const homePath = computed(() => (isAdmin.value ? '/admin/dashboard' : '/dashboard'))
 
-// Track which parent nav groups are expanded
-const expandedGroups = ref<Set<string>>(new Set())
+// Explicit per-group overrides take precedence over automatic active-route expansion.
+const groupExpandOverrides = ref<Map<string, boolean>>(new Map())
 
 // Site settings from appStore (cached, no flicker)
 const siteName = computed(() => appStore.siteName)
@@ -994,15 +994,13 @@ function isGroupActive(item: NavItem): boolean {
 }
 
 function isGroupExpanded(item: NavItem): boolean {
-  return expandedGroups.value.has(item.path) || isGroupActive(item)
+  const override = groupExpandOverrides.value.get(item.path)
+  if (override !== undefined) return override
+  return isGroupActive(item)
 }
 
 function toggleGroup(item: NavItem) {
-  if (expandedGroups.value.has(item.path)) {
-    expandedGroups.value.delete(item.path)
-  } else {
-    expandedGroups.value.add(item.path)
-  }
+  groupExpandOverrides.value.set(item.path, !isGroupExpanded(item))
 }
 
 /**
@@ -1022,9 +1020,7 @@ function handleGroupClick(item: NavItem) {
   if (route.path !== item.path) {
     router.push(item.path)
   }
-  if (!expandedGroups.value.has(item.path)) {
-    expandedGroups.value.add(item.path)
-  }
+  groupExpandOverrides.value.set(item.path, true)
 }
 
 // Initialize theme

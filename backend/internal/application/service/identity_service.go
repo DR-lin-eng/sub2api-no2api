@@ -20,7 +20,7 @@ import (
 
 var (
 	claudeCLICurrentMajor = func() int {
-		_, version, ok := parseFingerprintUserAgentShape("claude-cli/" + claude.CLICurrentVersion)
+		_, version, ok := parseFingerprintUserAgentShape("claude-cli/" + claude.CLIVersion())
 		if !ok {
 			return 0
 		}
@@ -152,7 +152,7 @@ func fingerprintUserAgentLooksLikeClaudeCLI(ua string) bool {
 
 // 默认指纹值（当客户端未提供时使用）
 var defaultFingerprint = Fingerprint{
-	UserAgent:               "claude-cli/" + claude.CLICurrentVersion + " (external, cli)",
+	UserAgent:               "claude-cli/" + claude.CLIVersion() + " (external, cli)",
 	StainlessLang:           "js",
 	StainlessPackageVersion: "0.94.0",
 	StainlessOS:             "Linux",

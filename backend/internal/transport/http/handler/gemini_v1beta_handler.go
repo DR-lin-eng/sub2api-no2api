@@ -52,6 +52,11 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 		return
 	}
 
+	if models, ok := customGeminiModelsList(apiKey.Group); ok {
+		c.JSON(http.StatusOK, models)
+		return
+	}
+
 	priorityAdmissionEnabled := metadataPriorityAdmissionEnabled(c, h.concurrencyHelper)
 	if priorityAdmissionEnabled {
 		authSubject, ok := middleware.GetAuthSubjectFromContext(c)
@@ -106,6 +111,17 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 		return
 	}
 	writeUpstreamResponse(c, res)
+}
+
+func customGeminiModelsList(group *service.Group) (gemini.ModelsListResponse, bool) {
+	if group == nil || !group.CustomModelsListEnabled() {
+		return gemini.ModelsListResponse{}, false
+	}
+	models := make([]gemini.Model, 0, len(group.ModelsListConfig.Models))
+	for _, modelID := range group.ModelsListConfig.Models {
+		models = append(models, gemini.FallbackModel(modelID))
+	}
+	return gemini.ModelsListResponse{Models: models}, true
 }
 
 // GeminiV1BetaGetModel proxies:

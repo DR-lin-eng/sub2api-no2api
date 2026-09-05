@@ -371,10 +371,10 @@ const {
       <div class="mb-3 flex items-center justify-between gap-3">
         <div>
           <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {{ t("admin.groups.modelsList.title") }}
+            {{ t("admin.groups.modelsList.title", { endpoint: form.platform === "gemini" ? "/v1beta/models" : "/v1/models" }) }}
           </label>
           <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {{ t("admin.groups.modelsList.hint") }}
+            {{ t("admin.groups.modelsList.hint", { endpoint: form.platform === "gemini" ? "/v1beta/models" : "/v1/models" }) }}
           </p>
         </div>
         <button

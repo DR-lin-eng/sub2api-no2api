@@ -88,3 +88,29 @@ func TestNormalizeCodexCallOutputBootstrap_RejectsOrdinaryOrAmbiguousOutputs(t *
 		})
 	}
 }
+
+func TestNormalizeCodexCallOutputBootstrap_Heartbeat(t *testing.T) {
+	for _, tc := range []struct {
+		output string
+		valid  bool
+	}{
+		{`<heartbeat><automation_id>review-pr</automation_id></heartbeat>`, true},
+		{`<heartbeat><automation_id>review-pr</automation_id><automation_id>x</automation_id></heartbeat>`, false},
+		{`<heartbeat><automation_id>../x</automation_id></heartbeat>`, false},
+		{`<heartbeat attr="x"><automation_id>review-pr</automation_id></heartbeat>`, false},
+		{`<heartbeat><!--x--><automation_id>review-pr</automation_id></heartbeat>`, false},
+		{`<heartbeat><automation_id>review-pr</automation_id></heartbeat><heartbeat/>`, false},
+	} {
+		t.Run(tc.output, func(t *testing.T) {
+			body := []byte(`{"input":[{"type":"function_call_output","id":"fco_heartbeat","namespace":"codex_app","name":"automation_update","output":` + string(mustMarshalJSON(t, tc.output)) + `}]}`)
+			got, kind, changed := NormalizeCodexCallOutputBootstrap(body)
+			require.Equal(t, tc.valid, changed)
+			if tc.valid {
+				require.Equal(t, CodexBootstrapAutomation, kind)
+				require.Equal(t, tc.output, gjson.GetBytes(got, "input.0.content.0.text").String())
+			} else {
+				require.Equal(t, body, got)
+			}
+		})
+	}
+}

@@ -161,6 +161,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 
 	// 账号级请求头覆写（仅 openai api_key 账号启用时生效；OAuth 路径 no-op）
 	account.ApplyHeaderOverrides(req.Header)
+	applyOpenCodeSessionHeader(c, account, targetURL, req.Header)
 	applyOpenAICodexBetaFeatures(c, account, req.Header)
 	applyOpenAICodexRoutingHintFromBody(ctx, account, "http", req.Header, outboundBody, "not_applicable")
 	applyCodexSimulationProfileHeaders(req.Header, fingerprintIDs)

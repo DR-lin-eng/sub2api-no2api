@@ -1,0 +1,218 @@
+{
+  "backend/internal/application/service/gateway_billing_header.go": {
+    "original": "161c0aae376ea91aeb033d075edbdbc7a2d4ab969fd3fa2dc62250d8e9a9b08f",
+    "modified": "9a0fd97ba58cb2224ac4ce480b156a1ceb8df1af6acad911d55210365aa0b257"
+  },
+  "backend/internal/application/service/gateway_billing_header_test.go": {
+    "original": "e0d22134a831ca82635df9a156c8334f9894021724a8c760b54709dfe995eda7",
+    "modified": "d23e5a18772bbd1c56c9b58e5c8aed79d959fd729040a8c4df9115e950477879"
+  },
+  "backend/internal/application/service/gateway_claude_oauth_body.go": {
+    "original": "2bf031a767b530c2061efd0b17f952975d20637d74e1b1497e5720c72392ac4f",
+    "modified": "0f3186dfcc27125156278e8f916c4fbf33cd5b10d34e6c86a0a3156db17d824b"
+  },
+  "backend/internal/application/service/gateway_count_tokens.go": {
+    "original": "092a48a873cf1a4dbd82077cc395aad109923b3fea441c9e7910324d00f29bd4",
+    "modified": "73fcb939fb7007789226e7aeb4337d72aa09a4d880789b539f32d464b818dee7"
+  },
+  "backend/internal/application/service/gateway_request.go": {
+    "original": "fe1ce185f1072989e775bacc3be6f2dff10a1f8c40c4e4d93c38ead6be98eb93",
+    "modified": "5b485049f986f3a08c116679973b8f082547cce7c5e3dc66df5509026d0db31d"
+  },
+  "backend/internal/application/service/gateway_request_test.go": {
+    "original": "c255e1815468fdafa9d09e4da012204d1298838c7c53d4168ef157ebceefdfb6",
+    "modified": "9393c889d2433d27e11168c8ffda4ef8f0f0704950d428979888b5f5caa58d11"
+  },
+  "backend/internal/application/service/gateway_upstream_request.go": {
+    "original": "3e3c76c92dfe0b9b1c3f30de1ea9b4ad6ec59bb4ce68054464b0d4f5c0775729",
+    "modified": "cddf62b6b1c45faf1e7bd3ba790ad3fcf5b01f46d22c36753009416ee08991f0"
+  },
+  "backend/internal/application/service/identity_service.go": {
+    "original": "d059e96f21bc7ed2d8fb80c530f02e8b9e74e277c6733aedde880f697aea6938",
+    "modified": "8d688850447c715e36e011ddeb4f3ac2dd318eea3a8da6f9c021dcf2e6bc2836"
+  },
+  "backend/internal/application/service/openai_compat_model_test.go": {
+    "original": "65b1961a24cb29593dcb72869b4bdada109b2b185586864036a9613b86778298",
+    "modified": "dc60cd187f88a04b4cdb450641413e8ba09f8f8dd08ae1255596653097d4e2d4"
+  },
+  "backend/internal/application/service/openai_cyber_policy.go": {
+    "original": "5cdf480cb35eafc6abe1ab3b09939d4cd597ac969e9262bff1993ec0df9d5635",
+    "modified": "ebc4530cd76e94f9f47c7a0659b844367f803b35559e1078928f84783ea8d96d"
+  },
+  "backend/internal/application/service/openai_cyber_policy_test.go": {
+    "original": "dcc3ce77a4adc6d38523ceccaa101b578cadc91eba630200e28402fc2cd75519",
+    "modified": "76f01758db5b637736ed75b9de7079469847d2b4f0d7513a0fdba9e0c848c4e5"
+  },
+  "backend/internal/application/service/openai_gateway_cc_pipeline.go": {
+    "original": "00ce33624bf58559433c21bded241583c11b115b586622889927653c669bb57a",
+    "modified": "f57045ff50a48f85bf2d22c89f05f13065344f0f31f89eb0c174e9cf805214fa"
+  },
+  "backend/internal/application/service/openai_gateway_passthrough.go": {
+    "original": "1829cb82332aac2a90fba0cf2ef704d57784f6362d2e8f60cdc294d982e435b7",
+    "modified": "f2d1f1c3761b9f706a01850d2df41b90f62faf21a48db50e64087f752493a13f"
+  },
+  "backend/internal/application/service/openai_gateway_request_build.go": {
+    "original": "712a8f4377ec9d6218c2f01168c41244abb336768d82e3d4ca5a5ee4cce35097",
+    "modified": "f107f3c9a422591c509f39b4221c02bd2207f208130bfdd0e980a5b63eee1ff2"
+  },
+  "backend/internal/application/service/openai_messages_continuation.go": {
+    "original": "3158d04cdb90e5a43b2feca8be0b6f85ce3c30319d3824debe39750cb0f49cf0",
+    "modified": "412108c93c5031489da3a3a96c1c28c83c669ad252c9ce6e7fa09500dec3d987"
+  },
+  "backend/internal/application/service/openai_opencode_session.go": {
+    "original": null,
+    "modified": "1f4337689325b20a3d89a188beafbfdebc75c81058750443101a744ff4a9ce10"
+  },
+  "backend/internal/application/service/openai_opencode_session_test.go": {
+    "original": null,
+    "modified": "51e55e47cdf045bb34e7c2f60a2b326b9427ad127978729377dc5a745e1da5d2"
+  },
+  "backend/internal/application/service/openai_ws_forwarder_ingress.go": {
+    "original": "6faf292c5adfbdd0051b0b31548d2ce8e931524dd7751d333e80ccfdf5278074",
+    "modified": "fe8764e5f7fd32f3db1821b5e5ecd0570b8fc34da762bf746fc877e9d7ce98e8"
+  },
+  "backend/internal/application/service/openai_ws_forwarder_v2.go": {
+    "original": "21cd2cf0433513b14e3a144db63d52914be9c0ffc98c927f28fdf69af4fdb224",
+    "modified": "4b9d364a6fd16019646bda81869aaf81d93f5d04167640f896750310043ac449"
+  },
+  "backend/internal/application/service/openai_ws_http_bridge.go": {
+    "original": "00f3e559b3766ec2baddce105bc1ec05126cb1d6c1767bec0e08b77e63b8fdcd",
+    "modified": "c7c692032f24f2b7761890e92da10a826ea40eec0c3c77f6de5f43aa8f3fdef4"
+  },
+  "backend/internal/application/service/openai_ws_v2_passthrough_adapter.go": {
+    "original": "bbc184a94a5164c3d7a835271b522d44334e80f5032784f3c8a507a866b1c723",
+    "modified": "e68906ae6956e10518a471c2d87503f87f7feef8063dd6e09228e5a23015af5f"
+  },
+  "backend/internal/application/service/payment_order_expiry_service.go": {
+    "original": "1e7a6f68d05bace9ee1722646a686808f56b79034139e76f22cecd739730637f",
+    "modified": "ce38b65461728dc576db43fe6e5ba74ddbfa62feb4ac2e4873e4cbd9523a0fa0"
+  },
+  "backend/internal/application/service/payment_order_lifecycle.go": {
+    "original": "88e84b88266ab3ca887b5038b82410e9b10a6b39404b01209fb5a62cd08568e8",
+    "modified": "69a044122d092a693b22010b5f932313b553ff6695c7c465fac9faf843ed7531"
+  },
+  "backend/internal/application/service/payment_order_lifecycle_test.go": {
+    "original": "d5ffb10c6dc2ed02600f877753e6a403869da4dd5788e294d52cb4d9afcb5768",
+    "modified": "1ae8b97e2e512b914b4e990c4e6d11218cbc3d28a731219a4bf44a309fd2475d"
+  },
+  "backend/internal/infrastructure/repository/ops_repo_metrics.go": {
+    "original": "7f18f0070597216bb62e790890fb4dfcb9ce9daa85fb71f506dc550b1ff34724",
+    "modified": "23536bef7245dcac7c2113c70cb36a3563da782da85d6836d08c761d8e4d61c5"
+  },
+  "backend/internal/infrastructure/repository/ops_repo_metrics_test.go": {
+    "original": null,
+    "modified": "74fe3b1d0ffd9ef14713736a7f2568cb0d45907134a4b6849e8a67b28b65c1ad"
+  },
+  "backend/internal/modules/README.md": {
+    "original": "b46fbb5982661989a5b9b7347e1ce917b6f306416485a2f48e64583429e1cb8e",
+    "modified": "c3c304af04425cf717736d503e8c3da5dcb454d928d21197e3982cd648938f17"
+  },
+  "backend/internal/modules/activitycenter/campaign.go": {
+    "original": "7c1668263a6a3bddcc0e1188ccd96d677dc3e2e7744cc270d563577e6eb5330b",
+    "modified": "d7a0e2081f5349119264ba70c63c5c8c29879b2efbd15226bad566e0d9f25213"
+  },
+  "backend/internal/modules/activitycenter/campaign_state.go": {
+    "original": null,
+    "modified": "ecec03d4221f008443c0a940782b85897afbb3b7a487259f028c55c284eb5efe"
+  },
+  "backend/internal/shared/apicompat/README.md": {
+    "original": "67312ebcac7794d6099850a6e4939e590c17d85ea9dbd3b0585f06284887086d",
+    "modified": "bb9f70d729ce97102e6fa30795848a506a1939a83ed903ee7d3d09da06f141d4"
+  },
+  "backend/internal/shared/apicompat/chatcompletions_responses_bridge.go": {
+    "original": "08d732598a408ddc2c269a97393e020255344519525515c5071db204aea69cb3",
+    "modified": "c88b435b4346f20097d18a292bee40d5a60238e4014ce202f9c0d914288462e7"
+  },
+  "backend/internal/shared/apicompat/chatcompletions_responses_bridge_custom_tools_test.go": {
+    "original": "ee1bbd548ae56790d74366768cf95e84e905074f93aaec9da0f76b0504139740",
+    "modified": "a5f59b2a822e26b3256215506a0a6ef7b1431fbe6dda35157a2f279d10d578ea"
+  },
+  "backend/internal/shared/apicompat/codex_bootstrap.go": {
+    "original": "3a4708edae402185bbbb66d7ca8c08ff29452b7102e6a2200b919f2e5959fa2f",
+    "modified": "3f6f9b80cb9c209017eaced78cd306ec0d4c7e5fd51732c10cb1b126e1aadfd0"
+  },
+  "backend/internal/shared/apicompat/codex_bootstrap_test.go": {
+    "original": "6ea5a92879f2ae94c0fbe57e72bdae5495f86fc70ef193424db3a9bed28932c6",
+    "modified": "537d379deafcfe4b5349a4c26e91af8f0c7f1202443dd908c6343c8d40292cbf"
+  },
+  "backend/internal/shared/apicompat/upstream_sync_benchmark_test.go": {
+    "original": null,
+    "modified": "7c7529950fecdd2294b3dce8446594f6bf19bdfc3da120e3df42752e56fa39a0"
+  },
+  "backend/internal/shared/claude/README.md": {
+    "original": "41837b3e16659d174e5ee5730151bca6769aae6fea2df251ea032aa93ed0e3a7",
+    "modified": "a5c584d65e8dc3f0691191841dac0c4cae93c0afe8c845cf447a278307243a06"
+  },
+  "backend/internal/shared/claude/cli_version.go": {
+    "original": null,
+    "modified": "6707c0414b333da8d5669f2a86e9b44a77a4bcc91b99445c18938c906efb1253"
+  },
+  "backend/internal/shared/claude/cli_version_test.go": {
+    "original": null,
+    "modified": "81466c8cebce08bab1639937d95f1abfbefe4664ca8fe77f40825ae664f85c15"
+  },
+  "backend/internal/shared/claude/constants.go": {
+    "original": "a7f039725762bb2d538baa4ca400e2f79ec282c2c063dc63f3247c5b329210e7",
+    "modified": "6e5ccb5befd327ffcdd5140503f8e633b06409a4a4acb445cb0bee0946c6186a"
+  },
+  "backend/internal/transport/http/handler/gemini_v1beta_handler.go": {
+    "original": "7dd6589592b287f805b7a892a9c3aafae34aa9d3ceb11e3a3b69477ece0ee1f5",
+    "modified": "8d34650decd6fa259540c5394ff08e8baeb341d249256c1c422eec0962ac5053"
+  },
+  "backend/internal/transport/http/handler/gemini_v1beta_handler_test.go": {
+    "original": "d49e56e38ebfa2a5032c5de9c0d9eda9644088df037bf1e6553701730ee718d8",
+    "modified": "5a39ad48bfb88b33ca0a23a6ec768a6f0f620cb09437de82fb98bf8fa778dde9"
+  },
+  "backend/internal/transport/http/handler/openai_gateway_cyber_policy.go": {
+    "original": "b44a278f8bfd592eab6aab1ec9bbb5c428d9ee2080d33d23781844edf53c677b",
+    "modified": "2adb74092f2e242416b8291f8caf3cffc732186ecfdb68d1615db1f55ff7ef6d"
+  },
+  "backend/internal/transport/http/handler/openai_gateway_cyber_test.go": {
+    "original": "02db629a6e19b532c9a58a4685f962994739401e658bed4624231f8986b0cbea",
+    "modified": "a353964c15e855e5769526461b6165a86dd5b8a85bbe165abebd36f77bd8db1a"
+  },
+  "backend/internal/transport/http/handler/openai_gateway_websocket.go": {
+    "original": "72459f06146b179bdfc6c2279de56de2045139eaccc8e06b69548287a144e2eb",
+    "modified": "dd1d5f83d3de41369b4d29cfa27b882c0158758346fdea9a548fd1bf74be4f4e"
+  },
+  "deploy/.env.example": {
+    "original": "2ab2b391815acc925c3e81e9d5572e231f9f1fd75941570ef13f0fbdc9bf9fda",
+    "modified": "8c092f4326e3dd8b5e2f6f230cfaa7fbc70c51ca4e2b8b2252ebd5535a80b07c"
+  },
+  "deploy/README.md": {
+    "original": "d2c1fe74ce3b7b66f3bd7904a3a69c53edde1efa0cdbda5cbc529d3ef8470b39",
+    "modified": "6038569db3d398e11179205a969050b8019638c697de270df72588341c26103f"
+  },
+  "deploy/docker-compose.dev.yml": {
+    "original": "51c5ee061e7f09234597f82cb48483c235b5a91b2971b8305fb86ba2638504f1",
+    "modified": "74dfff309606401ae1b65c4933c171176b812699878abc321894d92a201f28d8"
+  },
+  "deploy/docker-compose.local.yml": {
+    "original": "6633d143093e1456e9aa692281d1045f8db5c0f877c9720183c94702607438d2",
+    "modified": "61ca66402ebd62d4f07f493323b9d393c5a9798846050bb5c44c2d0e64f8c7ab"
+  },
+  "deploy/docker-compose.standalone.yml": {
+    "original": "48d7aad8bfce253a49307a27356ff0a34663192889a3add73c3df14f3783470c",
+    "modified": "b094fb9920ca8ed1de9762c27f5ca508bda63e66200bdca80d2e67b12bed218d"
+  },
+  "deploy/docker-compose.yml": {
+    "original": "d40dc7e9fef56cfd4afcd7b82fd48fcad588203d0f844d4756fe95e53643fdf9",
+    "modified": "82cc6b6300d455380c76aa993bb130f6ba6960d13d50209d73559d21a6c90a61"
+  },
+  "frontend/src/common/widgets/layout/AppSidebar.vue": {
+    "original": "60c278069ed22c5bccd083dc6203993b0100dd4cde2f9650c05c10cd2590b4b4",
+    "modified": "cdea213e910a7197c22649f0f614fbf014a98e15a381108966ab278faaa03696"
+  },
+  "frontend/src/common/widgets/layout/__tests__/AppSidebar.spec.ts": {
+    "original": "1ba5d80b840e0d28706cf7c169f5f2f557f5a21f5aa7e9a7718d426990c99d99",
+    "modified": "ebf0969a61f1f67fff979d29a10999e7207675141d7ed8b1c297fa42ada4fa42"
+  },
+  "frontend/src/features/admin-groups/__tests__/groupsModelsListLayout.spec.ts": {
+    "original": "b3283ad91ba06a3c820009f7320fc37e7e3fbe88b55ecf07ade83f1565d7a8bc",
+    "modified": "a4180c9368136e5a25a0613b0cb0753ac0e532848da99fc202fc74737541eb92"
+  },
+  "frontend/src/features/admin-groups/presentation/widgets/GroupEditorCoreFields.vue": {
+    "original": "40046c3fa94b6c5fcc57cd50aa1ddbffbbd95899e2c58c8c73df1e2ca2611852",
+    "modified": "a57900a6264e6334c1b2fbc7bad4cd909a7f79fdea3908ca3ecd77a19352d1e5"
+  }
+}

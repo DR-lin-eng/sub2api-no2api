@@ -85,3 +85,11 @@ describe('AppSidebar activity center feature switch', () => {
     expect(componentSource).toContain('featureFlag: flagActivityCenter')
   })
 })
+
+
+describe('AppSidebar active group override', () => {
+  it('allows explicit collapse on an active route', () => {
+    expect(componentSource).toContain('const groupExpandOverrides = ref<Map<string, boolean>>(new Map())')
+    expect(componentSource).toContain('if (override !== undefined) return override')
+  })
+})

@@ -1639,3 +1639,12 @@ func TestNormalizeGLMOpenAIReasoningEffort(t *testing.T) {
 		})
 	}
 }
+
+func TestNormalizeGLM53ExplicitLow(t *testing.T) {
+	for _, model := range []string{"glm-5.3", " GLM-5.3 "} {
+		body := []byte(`{"model":"glm-5.3","reasoning_effort":"low","messages":[]}`)
+		got, changed := NormalizeGLMOpenAIReasoningEffort(body, model)
+		require.False(t, changed)
+		require.Equal(t, body, got)
+	}
+}

@@ -458,6 +458,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 
 	if resp.StatusCode >= 400 {
 		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, openAIWSHTTPBridgeErrorBodyLimitBytes))
+		markOpenAICyberPolicyEvent(c, respBody, resp.StatusCode, nil)
 		upstreamMsg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(respBody)))
 		if upstreamMsg == "" {
 			upstreamMsg = http.StatusText(resp.StatusCode)
@@ -602,6 +603,9 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 		}
 		if openAIWSEventShouldParseUsage(eventType) {
 			parseOpenAIWSResponseUsageFromCompletedEvent(upstreamMessage, &usage)
+		}
+		if eventType == "error" || eventType == "response.failed" {
+			markOpenAICyberPolicyEvent(c, upstreamMessage, http.StatusOK, &usage)
 		}
 		imageCounter.AddSSEData(upstreamMessage)
 

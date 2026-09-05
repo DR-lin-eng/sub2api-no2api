@@ -31,3 +31,8 @@ describe("groups models list layout", () => {
     expect(pricingSource).toContain("shrink-0 whitespace-nowrap");
   });
 });
+
+
+it('uses Gemini native endpoint copy', () => {
+  expect(coreFieldsSource).toContain('form.platform === "gemini" ? "/v1beta/models" : "/v1/models"')
+})
