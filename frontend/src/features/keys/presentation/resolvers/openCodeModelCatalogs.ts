@@ -32,6 +32,27 @@ interface OpenCodeModelDefinition {
 export type OpenCodeModelCatalog = Readonly<Record<string, OpenCodeModelDefinition>>
 
 export const openAIModelCatalog = {
+  'gpt-6-astra': {
+    name: 'GPT-6 Astra',
+    limit: {
+      context: 1050000,
+      output: 128000
+    },
+    modalities: {
+      input: ['text', 'image'],
+      output: ['text']
+    },
+    options: {
+      store: false
+    },
+    variants: {
+      low: {},
+      medium: {},
+      high: {},
+      xhigh: {},
+      max: {}
+    }
+  },
   'gpt-5.2': {
     name: 'GPT-5.2',
     limit: {

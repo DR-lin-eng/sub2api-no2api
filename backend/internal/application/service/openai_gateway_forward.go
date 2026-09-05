@@ -371,9 +371,11 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			markPatchSet("model", upstreamModel)
 		}
 	}
-	if strings.TrimSpace(gjson.GetBytes(body, "reasoning.effort").String()) == "minimal" {
-		markPatchSet("reasoning.effort", "none")
-		logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Normalized reasoning.effort: minimal -> none (account: %s)", account.Name)
+	if rawEffort := gjson.GetBytes(body, "reasoning.effort").String(); rawEffort != "" {
+		if normalizedEffort, changed := normalizeOpenAIReasoningEffortForUpstream(rawEffort, upstreamModel); changed {
+			markPatchSet("reasoning.effort", normalizedEffort)
+			logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Normalized reasoning.effort: %s -> %s (model: %s, account: %s)", rawEffort, normalizedEffort, upstreamModel, account.Name)
+		}
 	}
 
 	imageIntent = imageIntent || IsImageGenerationIntent(openAIResponsesEndpoint, reqModel, nil) || isOpenAIImageGenerationModel(upstreamModel)

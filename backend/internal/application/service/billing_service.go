@@ -149,7 +149,11 @@ const (
 )
 
 func normalizeBillingServiceTier(serviceTier string) string {
-	return strings.ToLower(strings.TrimSpace(serviceTier))
+	normalized := strings.ToLower(strings.TrimSpace(serviceTier))
+	if normalized == "fast" {
+		return "priority"
+	}
+	return normalized
 }
 
 func usePriorityServiceTierPricing(serviceTier string, pricing *ModelPricing) bool {
@@ -353,6 +357,22 @@ func (s *BillingService) initFallbackPricing() {
 	// GPT-5.5 / GPT-5.5 Pro 暂无独立定价，回退到 GPT-5.4。
 	s.fallbackPrices["gpt-5.5"] = s.fallbackPrices["gpt-5.4"]
 	s.fallbackPrices["gpt-5.5-pro"] = s.fallbackPrices["gpt-5.4"]
+
+	// OpenAI GPT-6 Astra 官方价格（USD/token）。Fast 为 Standard 的 2 倍，
+	// Flex 为 Standard 的 0.5 倍；超过 272K 输入后整次请求输入/缓存 2 倍、输出 1.5 倍。
+	s.fallbackPrices["gpt-6-astra"] = &ModelPricing{
+		InputPricePerToken:                 10e-6,
+		InputPricePerTokenPriority:         20e-6,
+		OutputPricePerToken:                50e-6,
+		OutputPricePerTokenPriority:        100e-6,
+		CacheCreationPricePerToken:         12.5e-6,
+		CacheCreationPricePerTokenPriority: 25e-6,
+		CacheReadPricePerToken:             1e-6,
+		CacheReadPricePerTokenPriority:     2e-6,
+		LongContextInputThreshold:          openAIGPT54LongContextInputThreshold,
+		LongContextInputMultiplier:         openAIGPT54LongContextInputMultiplier,
+		LongContextOutputMultiplier:        openAIGPT54LongContextOutputMultiplier,
+	}
 
 	// OpenAI GPT-5.6 官方价格（USD/token）。缓存写入为输入价的 1.25 倍。
 	s.fallbackPrices["gpt-5.6-sol"] = &ModelPricing{
@@ -854,6 +874,8 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 	// OpenAI（GPT-5 / Codex 族）：仅匹配已知型号，避免未知 OpenAI 型号误计价。
 	if normalized := normalizeKnownOpenAICodexModel(modelLower); normalized != "" {
 		switch normalized {
+		case "gpt-6-astra":
+			return s.fallbackPrices["gpt-6-astra"]
 		case "gpt-5.6-sol":
 			return s.fallbackPrices["gpt-5.6-sol"]
 		case "gpt-5.6-terra":
@@ -1393,20 +1415,21 @@ func (s *BillingService) applyModelSpecificPricingPolicy(model string, pricing *
 		return nil
 	}
 	normalized := normalizeKnownOpenAICodexModel(model)
+	isGPT6Astra := normalized == "gpt-6-astra"
 	isGPT56 := isOpenAIGPT56Model(normalized)
 	usesLegacyLongContextPricing := usesOpenAILegacyLongContextPricing(normalized)
-	if !isGPT56 && !usesLegacyLongContextPricing {
+	if !isGPT6Astra && !isGPT56 && !usesLegacyLongContextPricing {
 		return pricing
 	}
-	needsLongContextPolicy := (isGPT56 || usesLegacyLongContextPricing) &&
+	needsLongContextPolicy := (isGPT6Astra || isGPT56 || usesLegacyLongContextPricing) &&
 		(pricing.LongContextInputThreshold <= 0 || pricing.LongContextInputMultiplier <= 0 || pricing.LongContextOutputMultiplier <= 0)
-	needsCacheCreationPolicy := isGPT56 && !pricing.CacheCreationPriceExplicit && (pricing.CacheCreationPricePerToken <= 0 ||
+	needsCacheCreationPolicy := (isGPT6Astra || isGPT56) && !pricing.CacheCreationPriceExplicit && (pricing.CacheCreationPricePerToken <= 0 ||
 		(pricing.InputPricePerTokenPriority > 0 && pricing.CacheCreationPricePerTokenPriority <= 0))
 	if !needsLongContextPolicy && !needsCacheCreationPolicy {
 		return pricing
 	}
 	cloned := *pricing
-	if isGPT56 && !cloned.CacheCreationPriceExplicit {
+	if (isGPT6Astra || isGPT56) && !cloned.CacheCreationPriceExplicit {
 		if cloned.CacheCreationPricePerToken <= 0 {
 			cloned.CacheCreationPricePerToken = cloned.InputPricePerToken * 1.25
 		}
@@ -1414,7 +1437,7 @@ func (s *BillingService) applyModelSpecificPricingPolicy(model string, pricing *
 			cloned.CacheCreationPricePerTokenPriority = cloned.InputPricePerTokenPriority * 1.25
 		}
 	}
-	if isGPT56 || usesLegacyLongContextPricing {
+	if isGPT6Astra || isGPT56 || usesLegacyLongContextPricing {
 		if cloned.LongContextInputThreshold <= 0 {
 			cloned.LongContextInputThreshold = openAIGPT54LongContextInputThreshold
 		}

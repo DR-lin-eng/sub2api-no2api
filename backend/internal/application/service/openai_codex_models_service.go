@@ -670,6 +670,9 @@ func codexManifestFallbackModelID(modelID string) string {
 
 func codexManifestKnownImageInputModel(modelID string) bool {
 	normalized := codexManifestFallbackModelID(modelID)
+	if strings.HasPrefix(normalized, "gpt-6") && isOpenAIGPT6AstraModel(normalized) {
+		return true
+	}
 	for _, prefix := range []string{"gpt-5", "gpt-4o", "gpt-4.1", "gpt-4.5", "gpt-4-turbo", "gpt-4-vision"} {
 		if strings.HasPrefix(normalized, prefix) {
 			return true
@@ -680,6 +683,9 @@ func codexManifestKnownImageInputModel(modelID string) bool {
 
 func codexManifestKnownPriorityTierModel(modelID string) bool {
 	normalized := codexManifestFallbackModelID(modelID)
+	if strings.HasPrefix(normalized, "gpt-6") && isOpenAIGPT6AstraModel(normalized) {
+		return true
+	}
 	for _, family := range []string{"gpt-5.4", "gpt-5.5", "gpt-5.6"} {
 		if normalized == family || strings.HasPrefix(normalized, family+"-") {
 			return true
