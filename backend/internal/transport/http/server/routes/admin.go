@@ -44,6 +44,9 @@ func RegisterAdminRoutes(
 		// 公告管理
 		registerAnnouncementRoutes(admin, h)
 
+		// 活动中心
+		registerActivityCenterRoutes(admin, h)
+
 		// OpenAI OAuth
 		registerOpenAIOAuthRoutes(admin, h)
 
@@ -533,6 +536,21 @@ func registerAnnouncementRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		announcements.PUT("/:id", h.Admin.Announcement.Update)
 		announcements.DELETE("/:id", h.Admin.Announcement.Delete)
 		announcements.GET("/:id/read-status", h.Admin.Announcement.ListReadStatus)
+	}
+}
+
+func registerActivityCenterRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	activityCenter := admin.Group("/activity-center")
+	{
+		activityCenter.GET("/records", h.Admin.ActivityCenter.ListRecords)
+		campaigns := activityCenter.Group("/campaigns")
+		{
+			campaigns.GET("", h.Admin.ActivityCenter.ListCampaigns)
+			campaigns.POST("", h.Admin.ActivityCenter.CreateCampaign)
+			campaigns.GET("/:id", h.Admin.ActivityCenter.GetCampaign)
+			campaigns.PUT("/:id", h.Admin.ActivityCenter.UpdateCampaign)
+			campaigns.DELETE("/:id", h.Admin.ActivityCenter.DeleteCampaign)
+		}
 	}
 }
 

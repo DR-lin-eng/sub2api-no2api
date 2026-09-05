@@ -218,6 +218,9 @@ export default {
     auditLogs: 'Audit Logs',
     support: 'Support',
     supportInbox: 'Support Inbox',
+    activityCenter: 'Activity Center',
+    activityCenterAdmin: 'Activity Center Admin',
+    activityRecords: 'Activity Records',
   },
 
   // Auth

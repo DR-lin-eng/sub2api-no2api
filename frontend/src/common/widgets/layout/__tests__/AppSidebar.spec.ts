@@ -1,12 +1,11 @@
 import { readFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-const componentPath = resolve(dirname(fileURLToPath(import.meta.url)), '../AppSidebar.vue')
+const componentPath = resolve(process.cwd(), 'src/common/widgets/layout/AppSidebar.vue')
 const componentSource = readFileSync(componentPath, 'utf8')
-const stylePath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../core/themes/style.css')
+const stylePath = resolve(process.cwd(), 'src/core/themes/style.css')
 const styleSource = readFileSync(stylePath, 'utf8')
 
 describe('AppSidebar custom SVG styles', () => {
@@ -44,8 +43,8 @@ describe('AppSidebar scroll position persistence', () => {
 
 describe('AppSidebar header styles', () => {
   it('does not clip the version badge dropdown', () => {
-    const sidebarHeaderBlockMatch = styleSource.match(/\.sidebar-header\s*\{[\s\S]*?\n {2}\}/)
-    const sidebarBrandBlockMatch = componentSource.match(/\.sidebar-brand\s*\{[\s\S]*?\n\}/)
+    const sidebarHeaderBlockMatch = styleSource.match(/\.sidebar-header\s*\{[\s\S]*?\n {2}}/)
+    const sidebarBrandBlockMatch = componentSource.match(/\.sidebar-brand\s*\{[\s\S]*?\n}/)
 
     expect(sidebarHeaderBlockMatch).not.toBeNull()
     expect(sidebarBrandBlockMatch).not.toBeNull()
@@ -76,5 +75,13 @@ describe('AppSidebar IPv6 egress feature switch', () => {
     expect(componentSource).toContain('const flagIPv6Egress = makeSidebarFlag(FeatureFlags.ipv6Egress)')
     expect(componentSource).toContain("path: '/admin/egress'")
     expect(componentSource).toContain('featureFlag: flagIPv6Egress')
+  })
+})
+
+describe('AppSidebar activity center feature switch', () => {
+  it('filters the user entry through the public feature-flag registry', () => {
+    expect(componentSource).toContain('const flagActivityCenter = makeSidebarFlag(FeatureFlags.activityCenter)')
+    expect(componentSource).toContain("path: '/activity-center'")
+    expect(componentSource).toContain('featureFlag: flagActivityCenter')
   })
 })

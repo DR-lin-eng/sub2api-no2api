@@ -39,6 +39,17 @@ function dynamicLocaleCalls(): Map<string, number> {
 }
 
 const auditedDynamicCalls: Record<string, number> = {
+  // Activity enums and the fixed legacy-text allowlist are covered in activitySafety.spec.ts.
+  'features/activity-center/presentation/activityCenterText.ts :: `${namespace}.${key}`': 1,
+  'features/activity-center/presentation/pages/ActivityCenterDetailPage.vue :: `activityCenter.prizeTypes.${type}`': 1,
+  'features/activity-center/presentation/pages/ActivityCenterDetailPage.vue :: `activityCenter.types.${type}`': 1,
+  'features/activity-center/presentation/pages/ActivityCenterPage.vue :: `activityCenter.types.${type}`': 1,
+  'features/activity-center/presentation/pages/ActivityRecordsPage.vue :: `activityCenter.types.${type}`': 1,
+  'features/activity-center/presentation/pages/AdminActivityCenterPage.vue :: `admin.activityCenter.records.rewardStatus.${status}`': 1,
+  'features/activity-center/presentation/pages/AdminActivityCenterPage.vue :: `admin.activityCenter.types.${value}`': 1,
+  'features/activity-center/presentation/pages/AdminActivityRecordsPage.vue :: `admin.activityCenter.records.rewardStatus.${value}`': 1,
+  'features/activity-center/presentation/pages/AdminActivityRecordsPage.vue :: `admin.activityCenter.types.${value}`': 1,
+
   'features/admin-account-inspection/presentation/widgets/QuotaUsageDistributionChart.vue :: `admin.accountInspection.quotaUsage.buckets.${bucket.key}`': 1,
   'features/admin-accounts/presentation/accountEditUpdatePayload.ts :: `admin.accounts.headerOverride.${headerError}`': 2,
   'features/admin-accounts/presentation/widgets/BulkEditAccountDialog.vue :: `admin.accounts.headerOverride.${headerError}`': 1,

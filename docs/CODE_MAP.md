@@ -24,6 +24,7 @@
 | 修改分组用量汇总 | `application/service/group_usage_rollup.go` | `infrastructure/repository/group_usage_rollup_repo.go`, `usage_log_repo_group_rollup.go`, `features/admin-groups/` | rollup unit/integration + admin-groups feature tests |
 | 修改订阅配额 | `application/service/subscription*` | `repository/subscription*`, middleware | subscription + gateway billing 测试 |
 | 修改支付 | `internal/modules/payment/`, `frontend/src/features/billing/paymentContracts.ts` | `routes/payment.go`, payment handlers/repositories；前端 `features/billing/`, `features/admin-orders/` | provider、webhook、订单状态 + 前端 billing/admin-orders 测试 |
+| 修改活动中心/抽奖 | `internal/modules/activitycenter/campaign.go`, `transport/http/server/routes/user.go`, `admin.go` | `repository/activity_center_repo.go`, `application/service/activity_center_rewards.go`, 前端 `features/activity-center/` | activitycenter + DTO/handler 编译 + activity-center Vitest/typecheck |
 | 修改数据库表 | `backend/ent/schema/` | `backend/migrations/`, repository, DTO | generate + migration/integration tests |
 | 修改运行配置 | `platform/config/` | `deploy/config.example.yaml`, setting service/admin UI | config tests + 相关 service/前端测试 |
 | 修改多实例节点或集群发布 | `application/service/cluster*` | `repository/cluster*`, admin cluster handler, `features/admin-cluster/` | cluster service/repository + handler + 页面测试 |

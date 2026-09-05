@@ -773,12 +773,13 @@ const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
 const flagAdminPayment = () => adminSettingsStore.paymentEnabled
 const flagBatchImageAccess = () => canUseBatchImage.value
 const flagMediaStudio = makeSidebarFlag(FeatureFlags.mediaStudio)
+const flagActivityCenter = makeSidebarFlag(FeatureFlags.activityCenter)
 const flagIPv6Egress = makeSidebarFlag(FeatureFlags.ipv6Egress)
 
 // buildSelfNavItems 构造用户自己的导航项（用户端主菜单和管理员的"我的账户"子菜单共享这组声明）。
 // withDashboard=true 时包含仪表盘（用户端），false 时不含（管理员的个人区已经有独立仪表盘入口）。
 //
-// 条目顺序：密钥 → 用量 → 可用渠道 → 渠道状态 → 订阅/支付 → 兑换/资料。
+// 条目顺序：活动中心 → 密钥 → 用量 → 可用渠道 → 渠道状态 → 订阅/支付 → 兑换/资料。
 // 可用渠道紧挨渠道状态之上，让用户"先看自己能用什么、再看对应状态"。
 function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   const items: NavItem[] = []
@@ -786,6 +787,8 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
     items.push({ path: '/dashboard', label: t('nav.dashboard'), icon: DashboardIcon })
   }
   items.push(
+    { path: '/activity-center', label: t('nav.activityCenter'), icon: GiftIcon, featureFlag: flagActivityCenter },
+    { path: '/activity-center/records', label: t('nav.activityRecords'), icon: OrderIcon, featureFlag: flagActivityCenter },
     { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
     { path: '/batch-image', label: t('nav.batchImage'), icon: BatchImageIcon, hideInSimpleMode: true, featureFlag: flagBatchImageAccess },
     { path: '/media-studio', label: t('nav.mediaStudio'), icon: MediaStudioIcon, hideInSimpleMode: true, featureFlag: flagMediaStudio },
@@ -867,6 +870,7 @@ const adminNavItems = computed((): NavItem[] => {
     { path: '/admin/accounts', label: t('nav.accounts'), icon: GlobeIcon },
     { path: '/admin/account-inspection', label: t('nav.accountInspection'), icon: SignalIcon },
     { path: '/admin/announcements', label: t('nav.announcements'), icon: BellIcon },
+    { path: '/admin/activity-center/campaigns', label: t('nav.activityCenterAdmin'), icon: GiftIcon },
     { path: '/admin/support', label: t('nav.supportInbox'), icon: SupportChatIcon, featureFlag: flagSupportChat },
     { path: '/admin/proxies', label: t('nav.proxies'), icon: ServerIcon },
     { path: '/admin/egress', label: t('nav.ipv6Egress'), icon: GlobeIcon, featureFlag: flagIPv6Egress },
@@ -976,6 +980,11 @@ function shouldShowSupportUserDot(item: NavItem): boolean {
 }
 
 function isActive(path: string): boolean {
+  // The records page is a sibling of the activity center page, not a child
+  // for navigation highlighting purposes.
+  if (path === '/activity-center') {
+    return route.path === path || (route.path.startsWith(path + '/') && !route.path.startsWith('/activity-center/records'))
+  }
   return route.path === path || route.path.startsWith(path + '/')
 }
 

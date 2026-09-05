@@ -218,6 +218,9 @@ export default {
     auditLogs: '操作日志',
     support: '在线客服',
     supportInbox: '客服收件箱',
+    activityCenter: '活动中心',
+    activityCenterAdmin: '活动中心管理',
+    activityRecords: '活动记录',
   },
 
   // Auth

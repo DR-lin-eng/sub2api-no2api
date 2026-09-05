@@ -4,6 +4,7 @@ import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 import { getLocaleScopesForRoute, type LocaleScope } from '@/core/i18n'
+import enActivityCenter from '@/core/i18n/locales/en/activityCenter'
 import enAdmin from '@/core/i18n/locales/en/admin'
 import enBatchImage from '@/core/i18n/locales/en/batchImage'
 import enCommon from '@/core/i18n/locales/en/common'
@@ -12,6 +13,7 @@ import enLanding from '@/core/i18n/locales/en/landing'
 import enMediaStudio from '@/core/i18n/locales/en/mediaStudio'
 import enMisc from '@/core/i18n/locales/en/misc'
 import enSupportChat from '@/core/i18n/locales/en/supportChat'
+import zhActivityCenter from '@/core/i18n/locales/zh/activityCenter'
 import zhAdmin from '@/core/i18n/locales/zh/admin'
 import zhBatchImage from '@/core/i18n/locales/zh/batchImage'
 import zhCommon from '@/core/i18n/locales/zh/common'
@@ -45,6 +47,7 @@ const localeScopes = {
   en: {
     base: { ...enLanding, ...enCommon },
     user: { ...enDashboard, ...enMisc },
+    activityCenter: enActivityCenter,
     batchImage: enBatchImage,
     mediaStudio: enMediaStudio,
     supportChat: enSupportChat,
@@ -53,6 +56,7 @@ const localeScopes = {
   zh: {
     base: { ...zhLanding, ...zhCommon },
     user: { ...zhDashboard, ...zhMisc },
+    activityCenter: zhActivityCenter,
     batchImage: zhBatchImage,
     mediaStudio: zhMediaStudio,
     supportChat: zhSupportChat,

@@ -2,6 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, type Component } from "vue";
 import { flushPromises, mount } from "@vue/test-utils";
 
+vi.mock("vue-router", async (importOriginal) => ({
+ ...(await importOriginal<typeof import("vue-router")>()),
+ useRoute: () => ({ query: {} }),
+ useRouter: () => ({ replace: vi.fn() }),
+}));
+
 import SettingsView from "@/features/admin-settings/presentation/pages/SettingsPage.vue";
 import PanelRateLimitSettingsCard from "@/features/admin-settings/presentation/widgets/PanelRateLimitSettingsCard.vue";
 

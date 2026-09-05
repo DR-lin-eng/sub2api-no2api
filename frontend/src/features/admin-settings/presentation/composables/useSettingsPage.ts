@@ -1,5 +1,6 @@
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRoute, useRouter } from "vue-router";
 import { useClipboard } from "@/common/composables/useClipboard";
 import {
   isStepUpBlocked,
@@ -50,7 +51,9 @@ import { useSettingsRegistrationDefaults } from "./useSettingsRegistrationDefaul
 import { useSettingsStructuredEditors } from "./useSettingsStructuredEditors";
 import { useSettingsWebSearch } from "./useSettingsWebSearch";
 export function useSettingsPage() {
-	const { t, locale } = useI18n();
+  const { t, locale } = useI18n();
+  const route = useRoute();
+  const router = useRouter();
   const appStore = useAppStore();
   // 关闭 step-up 开关是敏感操作：后端返回 STEP_UP_REQUIRED 时弹 TOTP 码重试
   const settingsStepUp = useStepUp();
@@ -73,19 +76,29 @@ export function useSettingsPage() {
       : "https://github.com/DR-lin-eng/sub2api-no2api/blob/main/docs/PAYMENT.md#supported-payment-methods",
   );
 
-	type SettingsTab =
-		| "general"
-		| "agreement"
-		| "features"
-		| "security"
-		| "users"
-		| "gateway"
-		| "performance"
-		| "payment"
-		| "email"
-		| "backup";
-	const activeTab = ref<SettingsTab>("general");
-  const panelRateLimitSettingsMounted = ref(false);
+  const settingsTabKeys = [
+    "general",
+    "agreement",
+    "features",
+    "security",
+    "users",
+    "gateway",
+    "performance",
+    "payment",
+    "email",
+    "backup",
+  ] as const;
+  type SettingsTab = (typeof settingsTabKeys)[number];
+
+  function resolveSettingsTab(value: unknown): SettingsTab {
+    return typeof value === "string" &&
+      settingsTabKeys.includes(value as SettingsTab)
+      ? (value as SettingsTab)
+      : "general";
+  }
+
+  const activeTab = ref<SettingsTab>(resolveSettingsTab(route.query.tab));
+  const panelRateLimitSettingsMounted = ref(activeTab.value === "security");
   const settingsTabs = [
     { key: "general" as SettingsTab, icon: "home" as const },
     { key: "agreement" as SettingsTab, icon: "document" as const },
@@ -109,11 +122,30 @@ export function useSettingsPage() {
   } as const;
 
   function selectSettingsTab(tab: SettingsTab): void {
-		if (tab === "security") {
-			panelRateLimitSettingsMounted.value = true;
-		}
-		activeTab.value = tab;
-	}
+    if (tab === "security") {
+      panelRateLimitSettingsMounted.value = true;
+    }
+    activeTab.value = tab;
+    if (route.query.tab !== tab) {
+      void router.replace({
+        query: {
+          ...route.query,
+          tab,
+        },
+      });
+    }
+  }
+
+  watch(
+    () => route.query.tab,
+    (tab) => {
+      const nextTab = resolveSettingsTab(tab);
+      activeTab.value = nextTab;
+      if (nextTab === "security") {
+        panelRateLimitSettingsMounted.value = true;
+      }
+    },
+  );
 
   function focusSettingsTab(tab: SettingsTab): void {
     window.requestAnimationFrame(() => {

@@ -4,6 +4,7 @@ import dashboard from './dashboard'
 import batchImage from './batchImage'
 import mediaStudio from './mediaStudio'
 import supportChat from './supportChat'
+import activityCenter from './activityCenter'
 import admin from './admin'
 import misc from './misc'
 
@@ -14,6 +15,7 @@ export default {
   ...batchImage,
   ...mediaStudio,
   ...supportChat,
+  ...activityCenter,
   admin,
   ...misc,
 }

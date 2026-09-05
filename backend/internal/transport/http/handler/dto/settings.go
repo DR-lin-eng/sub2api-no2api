@@ -351,6 +351,9 @@ type SystemSettings struct {
 	// Media Studio feature switch
 	MediaStudioEnabled bool `json:"media_studio_enabled"`
 
+	// Activity Center feature switch
+	ActivityCenterEnabled bool `json:"activity_center_enabled"`
+
 	// Custom model configuration feature switch
 	CustomModelConfigEnabled bool `json:"custom_model_config_enabled"`
 
@@ -465,6 +468,9 @@ type PublicSettings struct {
 	ModelPlazaRequireAuth bool `json:"model_plaza_require_auth"`
 
 	MediaStudioEnabled bool `json:"media_studio_enabled"`
+
+	// Activity Center feature switch
+	ActivityCenterEnabled bool `json:"activity_center_enabled"`
 
 	CustomModelConfigEnabled bool `json:"custom_model_config_enabled"`
 

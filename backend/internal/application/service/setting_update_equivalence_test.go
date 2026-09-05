@@ -92,7 +92,9 @@ func TestBuildSystemSettingsUpdatesGolden(t *testing.T) {
 
 	updates, err := svc.buildSystemSettingsUpdates(context.Background(), settings)
 	require.NoError(t, err)
-	require.Equal(t, 230, len(updates), "system setting key count")
+	require.Equal(t, 231, len(updates), "system setting key count")
+	require.Equal(t, "false", updates[SettingKeyActivityCenterEnabled], "activity center is opt-in")
+	delete(updates, SettingKeyActivityCenterEnabled) // All previously shipped settings keep their exact baseline digest.
 	require.Equal(t, "e382017d2f6e379f3aecbd82d42edbc379d0c96c632bd6db7ff9f494a8d1536c", digestSystemSettingUpdates(t, updates), "system setting digest")
 	require.Equal(t, []string{"@example.com", "*.edu.cn"}, settings.RegistrationEmailSuffixWhitelist)
 	require.Equal(t, clientip.ResolutionModeTrustedProxy, settings.ClientIPResolutionMode)

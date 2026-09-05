@@ -5,7 +5,7 @@ import { canonicalizeRoutePath } from '@/core/utils/routePath'
 type LocaleCode = 'en' | 'zh'
 
 type LocaleMessages = Record<string, any>
-export type LocaleScope = 'base' | 'user' | 'batchImage' | 'mediaStudio' | 'supportChat' | 'admin'
+export type LocaleScope = 'base' | 'user' | 'batchImage' | 'mediaStudio' | 'supportChat' | 'activityCenter' | 'admin'
 
 const LOCALE_KEY = 'sub2api_locale'
 const DEFAULT_LOCALE: LocaleCode = 'en'
@@ -26,6 +26,7 @@ const localeLoaders: Record<LocaleCode, Record<LocaleScope, () => Promise<Locale
       ])
       return { ...dashboard.default, ...misc.default }
     },
+    activityCenter: async () => (await import('./locales/en/activityCenter')).default,
     batchImage: async () => (await import('./locales/en/batchImage')).default,
     mediaStudio: async () => (await import('./locales/en/mediaStudio')).default,
     supportChat: async () => (await import('./locales/en/supportChat')).default,
@@ -46,6 +47,7 @@ const localeLoaders: Record<LocaleCode, Record<LocaleScope, () => Promise<Locale
       ])
       return { ...dashboard.default, ...misc.default }
     },
+    activityCenter: async () => (await import('./locales/zh/activityCenter')).default,
     batchImage: async () => (await import('./locales/zh/batchImage')).default,
     mediaStudio: async () => (await import('./locales/zh/mediaStudio')).default,
     supportChat: async () => (await import('./locales/zh/supportChat')).default,
@@ -54,6 +56,7 @@ const localeLoaders: Record<LocaleCode, Record<LocaleScope, () => Promise<Locale
 }
 
 const USER_ROUTE_PREFIXES = [
+  '/activity-center',
   '/dashboard',
   '/keys',
   '/batch-image',
@@ -86,6 +89,7 @@ export function getLocaleScopesForRoute(pathname: string): LocaleScope[] {
     if (matchesRoutePrefix(path, '/admin/support')) {
       scopes.push('supportChat')
     }
+    if (matchesRoutePrefix(path, '/admin/activity-center')) scopes.push('activityCenter')
     return scopes
   }
 
@@ -95,6 +99,7 @@ export function getLocaleScopesForRoute(pathname: string): LocaleScope[] {
   ) {
     scopes.push('user')
   }
+  if (matchesRoutePrefix(path, '/activity-center')) scopes.push('activityCenter')
   if (matchesRoutePrefix(path, '/batch-image')) {
     scopes.push('batchImage')
   }

@@ -1,5 +1,5 @@
 <template>
-  <Teleport to="body">
+  <Teleport v-if="mode === 'dialog'" to="body">
     <Transition name="modal">
       <div
         v-if="show"
@@ -45,6 +45,16 @@
       </div>
     </Transition>
   </Teleport>
+  <section v-else-if="show" class="mx-auto w-full max-w-7xl bg-white dark:bg-dark-900">
+    <header class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-dark-700">
+      <h1 class="text-lg font-semibold text-gray-900 dark:text-white">{{ title }}</h1>
+      <button v-if="showCloseButton" type="button" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-dark-800 dark:hover:text-white" :aria-label="closeLabel" @click="emit('close')">
+        <Icon name="x" size="md" />
+      </button>
+    </header>
+    <div class="p-5"><slot></slot></div>
+    <footer v-if="$slots.footer" class="border-t border-gray-200 px-5 py-4 dark:border-dark-700"><slot name="footer"></slot></footer>
+  </section>
 </template>
 
 <script setup lang="ts">
@@ -73,6 +83,8 @@ interface Props {
   showCloseButton?: boolean
   zIndex?: number
   initialFocus?: InitialFocus
+  mode?: 'dialog' | 'page'
+  closeLabel?: string
 }
 
 interface Emits {
@@ -85,7 +97,9 @@ const props = withDefaults(defineProps<Props>(), {
   closeOnClickOutside: false,
   showCloseButton: true,
   zIndex: 50,
-  initialFocus: 'first'
+  initialFocus: 'first',
+  mode: 'dialog',
+  closeLabel: 'Close'
 })
 
 const emit = defineEmits<Emits>()
@@ -134,7 +148,7 @@ const syncBodyScrollLock = (locked: boolean) => {
 watch(
   () => props.show,
   async (isOpen) => {
-    if (isOpen) {
+    if (isOpen && props.mode === 'dialog') {
       // 保存当前焦点元素
       previousActiveElement = document.activeElement as HTMLElement
       syncBodyScrollLock(true)
@@ -152,7 +166,7 @@ watch(
         )
         firstFocusable?.focus()
       }
-    } else {
+    } else if (!isOpen || props.mode !== 'dialog') {
       syncBodyScrollLock(false)
       // 恢复之前的焦点
       if (previousActiveElement && typeof previousActiveElement.focus === 'function') {

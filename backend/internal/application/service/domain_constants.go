@@ -453,6 +453,10 @@ const (
 	// It is opt-in so rolling upgrades do not expose a new generation workspace unexpectedly.
 	SettingKeyMediaStudioEnabled = "media_studio_enabled"
 
+	// SettingKeyActivityCenterEnabled is a DB-backed soft switch for the user-facing Activity Center page.
+	// It is opt-in so rolling upgrades do not expose a new campaign workspace unexpectedly.
+	SettingKeyActivityCenterEnabled = "activity_center_enabled"
+
 	// SettingKeyCustomModelConfigEnabled enables the custom model configuration feature,
 	// allowing administrators to manually configure model capabilities (image, video, audio).
 	SettingKeyCustomModelConfigEnabled = "custom_model_config_enabled"

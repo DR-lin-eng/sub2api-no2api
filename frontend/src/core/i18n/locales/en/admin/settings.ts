@@ -71,6 +71,12 @@ export default {
           enabled: 'Enable Media Studio',
           enabledHint: 'When off, the user sidebar entry is hidden and direct visits to /media-studio return to the dashboard.',
         },
+        activityCenter: {
+          title: 'Activity Center',
+          description: 'Control activity campaigns and rewards. Disabled by default.',
+          enabled: 'Enable Activity Center',
+          enabledHint: 'When off, the user sidebar entry is hidden and activity endpoints are unavailable.',
+        },
         customModelConfig: {
           title: 'Custom Model Config',
           description: 'Configure model capability overrides for multimodal routing.',

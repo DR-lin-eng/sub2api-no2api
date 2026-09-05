@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	"github.com/Wei-Shaw/sub2api/internal/modules/activitycenter"
 	"github.com/Wei-Shaw/sub2api/internal/modules/chat"
 	moduleegress "github.com/Wei-Shaw/sub2api/internal/modules/egress"
 	"github.com/Wei-Shaw/sub2api/internal/modules/securityaudit"
@@ -22,6 +23,7 @@ func ProvideAdminHandlers(
 	accountHandler *admin.AccountHandler,
 	accountInspectionHandler *admin.AccountInspectionHandler,
 	announcementHandler *admin.AnnouncementHandler,
+	activityCenterHandler *admin.ActivityCenterHandler,
 	dataManagementHandler *admin.DataManagementHandler,
 	backupHandler *admin.BackupHandler,
 	oauthHandler *admin.OAuthHandler,
@@ -67,6 +69,7 @@ func ProvideAdminHandlers(
 		Account:                accountHandler,
 		AccountInspection:      accountInspectionHandler,
 		Announcement:           announcementHandler,
+		ActivityCenter:         activityCenterHandler,
 		DataManagement:         dataManagementHandler,
 		Backup:                 backupHandler,
 		OAuth:                  oauthHandler,
@@ -177,6 +180,14 @@ func ProvideBatchImageHandler(
 	return h
 }
 
+func ProvideActivityCenterUserHandler(svc *activitycenter.Service) *ActivityCenterHandler {
+	return NewActivityCenterHandler(svc)
+}
+
+func ProvideActivityCenterAdminHandler(svc *activitycenter.Service) *admin.ActivityCenterHandler {
+	return admin.NewActivityCenterHandler(svc)
+}
+
 // ProvideSystemHandler creates admin.SystemHandler with UpdateService
 func ProvideSystemHandler(updateService *service.UpdateService, lockService *service.SystemOperationLockService, cfg *config.Config) *admin.SystemHandler {
 	handler := admin.NewSystemHandler(updateService, lockService)
@@ -220,6 +231,7 @@ func ProvideHandlers(
 	redeemHandler *RedeemHandler,
 	subscriptionHandler *SubscriptionHandler,
 	announcementHandler *AnnouncementHandler,
+	activityCenterHandler *ActivityCenterHandler,
 	channelMonitorUserHandler *ChannelMonitorUserHandler,
 	adminHandlers *AdminHandlers,
 	gatewayHandler *GatewayHandler,
@@ -246,6 +258,7 @@ func ProvideHandlers(
 		Redeem:           redeemHandler,
 		Subscription:     subscriptionHandler,
 		Announcement:     announcementHandler,
+		ActivityCenter:   activityCenterHandler,
 		ChannelMonitor:   channelMonitorUserHandler,
 		Admin:            adminHandlers,
 		Gateway:          gatewayHandler,
@@ -274,6 +287,7 @@ var ProviderSet = wire.NewSet(
 	NewRedeemHandler,
 	NewSubscriptionHandler,
 	NewAnnouncementHandler,
+	ProvideActivityCenterUserHandler,
 	NewChannelMonitorUserHandler,
 	ProvideGatewayHandler,
 	ProvideOpenAIGatewayHandler,
@@ -296,6 +310,7 @@ var ProviderSet = wire.NewSet(
 	admin.ProvideAccountHandler,
 	admin.NewAccountInspectionHandler,
 	admin.NewAnnouncementHandler,
+	ProvideActivityCenterAdminHandler,
 	admin.NewDataManagementHandler,
 	admin.NewBackupHandler,
 	admin.NewOAuthHandler,

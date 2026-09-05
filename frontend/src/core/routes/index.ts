@@ -218,6 +218,41 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/activity-center',
+    name: 'ActivityCenter',
+    component: () => import('@/features/activity-center/presentation/pages/ActivityCenterPage.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Activity Center',
+      titleKey: 'activityCenter.title',
+      descriptionKey: 'activityCenter.description',
+      requiresActivityCenter: true
+    }
+  },
+  {
+    path: '/activity-center/:id',
+    name: 'ActivityCenterDetail',
+    component: () => import('@/features/activity-center/presentation/pages/ActivityCenterDetailPage.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Activity Detail',
+      titleKey: 'activityCenter.detail.title',
+      requiresActivityCenter: true
+    }
+  },
+  {
+    path: '/activity-center/records',
+    name: 'ActivityCenterRecords',
+    component: () => import('@/features/activity-center/presentation/pages/ActivityRecordsPage.vue'),
+    meta: {
+      requiresAuth: true,
+      title: 'Activity Records',
+      titleKey: 'activityCenter.records.title'
+    }
+  },
+  {
     path: '/keys',
     name: 'Keys',
     component: () => import('@/features/keys/presentation/pages/KeysPage.vue'),
@@ -619,6 +654,30 @@ const routes: RouteRecordRaw[] = [
       titleKey: 'admin.announcements.title',
       descriptionKey: 'admin.announcements.description'
     }
+  },
+  {
+    path: '/admin/activity-center/campaigns',
+    name: 'AdminActivityCenterCampaigns',
+    component: () => import('@/features/activity-center/presentation/pages/AdminActivityCenterPage.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Activity Center',
+      titleKey: 'admin.activityCenter.title',
+      descriptionKey: 'admin.activityCenter.description'
+    }
+  },
+  {
+    path: '/admin/activity-center/campaigns/new',
+    name: 'AdminActivityCenterCampaignCreate',
+    component: () => import('@/features/activity-center/presentation/pages/AdminActivityCenterPage.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Create Activity', titleKey: 'admin.activityCenter.createCampaign' }
+  },
+  {
+    path: '/admin/activity-center/campaigns/:id/edit',
+    name: 'AdminActivityCenterCampaignEdit',
+    component: () => import('@/features/activity-center/presentation/pages/AdminActivityCenterPage.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Edit Activity', titleKey: 'admin.activityCenter.editCampaign' }
   },
   {
     path: '/admin/support',
@@ -1069,7 +1128,7 @@ router.beforeEach(async (to, _from, next) => {
   // 公共设置可能尚未加载（App.vue 的 onMounted 异步拉取晚于首次导航，且纯静态部署
   // 无 __APP_CONFIG__ 注入）。此时 cachedPublicSettings 为空会把 payment/risk_control
   // 误判为“未启用”而错误拦截，故这里先确保设置加载完成。
-  if ((to.meta.requiresPayment || to.meta.requiresRiskControl || to.meta.requiresSupportChat || to.meta.requiresMediaStudio || to.meta.requiresIPv6Egress) && !appStore.publicSettingsLoaded) {
+  if ((to.meta.requiresPayment || to.meta.requiresRiskControl || to.meta.requiresSupportChat || to.meta.requiresMediaStudio || to.meta.requiresActivityCenter || to.meta.requiresIPv6Egress) && !appStore.publicSettingsLoaded) {
     try {
       await appStore.fetchPublicSettings()
     } catch (error) {
@@ -1108,6 +1167,14 @@ router.beforeEach(async (to, _from, next) => {
   if (
     to.meta.requiresMediaStudio &&
     (!appStore.publicSettingsLoaded || appStore.cachedPublicSettings?.media_studio_enabled !== true)
+  ) {
+    next(authStore.isAdmin ? '/admin/settings' : '/dashboard')
+    return
+  }
+
+  if (
+    to.meta.requiresActivityCenter &&
+    (!appStore.publicSettingsLoaded || appStore.cachedPublicSettings?.activity_center_enabled !== true)
   ) {
     next(authStore.isAdmin ? '/admin/settings' : '/dashboard')
     return

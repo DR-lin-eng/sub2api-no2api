@@ -389,6 +389,14 @@ func (r *redeemCodeRepository) batchUpdate(ctx context.Context, client *dbent.Cl
 }
 
 func (r *redeemCodeRepository) Use(ctx context.Context, id, userID int64) error {
+	return r.use(ctx, id, userID, nil)
+}
+
+func (r *redeemCodeRepository) UseWithValue(ctx context.Context, id, userID int64, value float64) error {
+	return r.use(ctx, id, userID, &value)
+}
+
+func (r *redeemCodeRepository) use(ctx context.Context, id, userID int64, usageValue *float64) error {
 	client := clientFromContext(ctx, r.client)
 	code, err := client.RedeemCode.Query().Where(redeemcode.IDEQ(id)).ForUpdate().Only(ctx)
 	if err != nil {
@@ -429,10 +437,14 @@ func (r *redeemCodeRepository) Use(ctx context.Context, id, userID int64) error 
 		Save(ctx); err != nil {
 		return err
 	}
+	value := code.Value
+	if usageValue != nil {
+		value = *usageValue
+	}
 	if _, err := client.RedeemCodeUsage.Create().
 		SetRedeemCodeID(id).
 		SetUserID(userID).
-		SetValue(code.Value).
+		SetValue(value).
 		SetUsedAt(now).
 		Save(ctx); err != nil {
 		return err
@@ -463,6 +475,7 @@ func (r *redeemCodeRepository) ListByUser(ctx context.Context, userID int64, lim
 		}
 		code.UsedBy = &userID
 		code.UsedAt = &usage.UsedAt
+		code.Value = usage.Value
 		out = append(out, *code)
 		seen[code.ID] = struct{}{}
 	}
@@ -508,6 +521,7 @@ func (r *redeemCodeRepository) ListByUserPaginated(ctx context.Context, userID i
 		}
 		code.UsedBy = &userID
 		code.UsedAt = &usage.UsedAt
+		code.Value = usage.Value
 		all = append(all, *code)
 		seen[code.ID] = struct{}{}
 	}

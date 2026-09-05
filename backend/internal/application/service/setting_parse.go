@@ -216,6 +216,9 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		// Media Studio feature (default disabled; opt-in)
 		SettingKeyMediaStudioEnabled: "false",
 
+		// Activity Center feature (default disabled; opt-in)
+		SettingKeyActivityCenterEnabled: "false",
+
 		// Custom model configuration feature (default disabled; opt-in)
 		SettingKeyCustomModelConfigEnabled: "false",
 
