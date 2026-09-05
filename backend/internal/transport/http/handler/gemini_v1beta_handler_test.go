@@ -4,14 +4,16 @@ package handler
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	"github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
-// TestGeminiV1BetaHandler_PlatformRoutingInvariant 文档化并验证 Handler 层的平台路由逻辑不变量
-// 该测试确保 gemini 和 antigravity 平台的路由逻辑符合预期
+// TestCustomGeminiModelsList validates configured model-list shaping.
 func TestCustomGeminiModelsList(t *testing.T) {
 	group := &service.Group{ModelsListConfig: service.GroupModelsListConfig{Enabled: true, Models: []string{"gemini-custom"}}}
 	got, ok := customGeminiModelsList(group)
@@ -174,4 +176,19 @@ func TestShouldFallbackGeminiModel_DelegatesScopeFallback(t *testing.T) {
 		Body:       []byte("insufficient authentication scopes"),
 	}
 	require.True(t, shouldFallbackGeminiModel("gemini-future-model", res))
+}
+
+func TestGeminiCustomListDoesNotAcquireAccount(t *testing.T) {
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1beta/models", nil)
+	c.Set(string(middleware.ContextKeyAPIKey), &service.APIKey{Group: &service.Group{
+		Platform:         service.PlatformGemini,
+		ModelsListConfig: service.GroupModelsListConfig{Enabled: true, Models: []string{"gemini-custom"}},
+	}})
+	// No gateway/identity/concurrency dependencies: any upstream acquisition
+	// would panic rather than producing this configured response.
+	(&GatewayHandler{}).GeminiV1BetaListModels(c)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), "models/gemini-custom")
 }
