@@ -634,6 +634,27 @@ func TestBuildSchedulerMetadataAccount_KeepsSparkShadowRoutingIdentity(t *testin
 	require.Equal(t, map[string]any{"gpt-5.3-codex-spark": "gpt-5.3-codex-spark"}, got.Credentials["model_mapping"])
 	require.Equal(t, map[string]any{"gpt-5.4": "gpt-5.4-openai-compact"}, got.Credentials["compact_model_mapping"])
 	require.Nil(t, got.Credentials["access_token"])
+	require.Equal(t, "parent:100", got.Extra[service.CodexVirtualClientKeyExtraKey])
+}
+
+func TestBuildSchedulerMetadataAccount_KeepsCodexVirtualClientNamespaceWithoutOAuthCredentials(t *testing.T) {
+	account := service.Account{
+		ID:       201,
+		Platform: service.PlatformOpenAI,
+		Type:     service.AccountTypeOAuth,
+		Credentials: map[string]any{
+			"access_token":       "drop-me",
+			"refresh_token":      "drop-me-too",
+			"chatgpt_account_id": "principal-201",
+		},
+	}
+
+	got := buildSchedulerMetadataAccount(account)
+
+	require.Equal(t, "chatgpt:principal-201", got.Extra[service.CodexVirtualClientKeyExtraKey])
+	require.NotContains(t, got.Credentials, "access_token")
+	require.NotContains(t, got.Credentials, "refresh_token")
+	require.NotContains(t, got.Credentials, "chatgpt_account_id")
 }
 
 func TestSchedulerCacheBucketRetirementFencesWritersAndReopen(t *testing.T) {

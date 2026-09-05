@@ -5,10 +5,12 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -59,9 +61,135 @@ type codexContinuationAttempt struct {
 	sanitized              bool
 }
 
+type codexContinuationSchedulingAffinityKey struct{}
+
+func withCodexContinuationSchedulingAffinity(ctx context.Context, predicate func(*Account) bool) context.Context {
+	if ctx == nil || predicate == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, codexContinuationSchedulingAffinityKey{}, predicate)
+}
+
+func codexContinuationSchedulingMatches(ctx context.Context, account *Account) bool {
+	if ctx == nil || account == nil {
+		return account != nil
+	}
+	predicate, ok := ctx.Value(codexContinuationSchedulingAffinityKey{}).(func(*Account) bool)
+	return !ok || predicate == nil || predicate(account)
+}
+
+func withoutCodexContinuationSchedulingAffinity(ctx context.Context) context.Context {
+	if ctx == nil {
+		return nil
+	}
+	return context.WithValue(ctx, codexContinuationSchedulingAffinityKey{}, (func(*Account) bool)(nil))
+}
+
+// codexContinuationCandidateMatches hydrates a scheduler-metadata candidate
+// when the metadata predates the virtual-client namespace field. The request
+// hot path still performs no database read unless an owner-affinity predicate
+// is active and a scheduler snapshot is present.
+func (s *OpenAIGatewayService) codexContinuationCandidateMatches(ctx context.Context, account *Account) bool {
+	if codexContinuationSchedulingMatches(ctx, account) {
+		return true
+	}
+	if !codexContinuationSchedulingAffinityActive(ctx) || s == nil || s.schedulerSnapshot == nil || account == nil || !account.IsOpenAIOAuth() {
+		return false
+	}
+	if codexContinuationAccountHasIdentityMetadata(account) {
+		return false
+	}
+	full, err := s.schedulerSnapshot.GetAccount(ctx, account.ID)
+	return err == nil && full != nil && codexContinuationSchedulingMatches(ctx, full)
+}
+
+func codexContinuationAccountHasIdentityMetadata(account *Account) bool {
+	if account == nil {
+		return false
+	}
+	if account.GetExtraString(CodexVirtualClientKeyExtraKey) != "" ||
+		account.GetCredential("chatgpt_account_id") != "" ||
+		account.GetOpenAIDeviceID() != "" || account.ParentAccountID != nil {
+		return true
+	}
+	for key := range account.Credentials {
+		switch key {
+		case "model_mapping", "compact_model_mapping", "compact_model_fallbacks", "openai_capabilities",
+			"auth_mode", "openai_auth_mode", "api_key", "project_id", "oauth_type", "plan_type":
+			continue
+		default:
+			return true
+		}
+	}
+	return false
+}
+
+func codexContinuationSchedulingAffinityActive(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	predicate, _ := ctx.Value(codexContinuationSchedulingAffinityKey{}).(func(*Account) bool)
+	return predicate != nil
+}
+
+// CodexContinuationSchedulingAffinityActive reports whether this request is
+// pinned to a known continuation owner. Handlers use it to avoid converting an
+// enforce-mode incremental request into a cross-account recovery replay.
+func CodexContinuationSchedulingAffinityActive(ctx context.Context) bool {
+	return codexContinuationSchedulingAffinityActive(ctx)
+}
+
+func codexContinuationAccountIDFromConnID(connID string) int64 {
+	remainder, ok := strings.CutPrefix(strings.TrimSpace(connID), "oa_ws_")
+	if !ok {
+		return 0
+	}
+	rawAccountID, rawSequence, ok := strings.Cut(remainder, "_")
+	if !ok || rawAccountID == "" || rawSequence == "" {
+		return 0
+	}
+	accountID, accountErr := strconv.ParseInt(rawAccountID, 10, 64)
+	sequence, sequenceErr := strconv.ParseUint(rawSequence, 10, 64)
+	if accountErr != nil || sequenceErr != nil || accountID <= 0 || sequence == 0 {
+		return 0
+	}
+	return accountID
+}
+
+// RefreshCodexContinuationSchedulingAccount rehydrates an affinity-constrained
+// selection immediately before forwarding. This closes the queue/admission
+// race where the account's upstream principal changes after candidate scoring.
+func (s *OpenAIGatewayService) RefreshCodexContinuationSchedulingAccount(ctx context.Context, selected *Account) (*Account, error) {
+	if !codexContinuationSchedulingAffinityActive(ctx) {
+		return selected, nil
+	}
+	if s == nil || selected == nil || selected.ID <= 0 {
+		return nil, fmt.Errorf("%w: Codex continuation account is missing", ErrAccountSchedulingChanged)
+	}
+
+	latest := selected
+	var err error
+	if s.accountRepo != nil {
+		latest, err = s.accountRepo.GetByID(ctx, selected.ID)
+	} else if s.schedulerSnapshot != nil {
+		latest, err = s.schedulerSnapshot.GetAccount(ctx, selected.ID)
+	}
+	if errors.Is(err, ErrAccountNotFound) {
+		return nil, fmt.Errorf("%w: Codex continuation account %d no longer matches its owner", ErrAccountSchedulingChanged, selected.ID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("refresh Codex continuation account %d: %w", selected.ID, err)
+	}
+	if latest == nil || !latest.IsSchedulable() || !codexContinuationSchedulingMatches(ctx, latest) {
+		return nil, fmt.Errorf("%w: Codex continuation account %d no longer matches its owner", ErrAccountSchedulingChanged, selected.ID)
+	}
+	return latest, nil
+}
+
 // CodexContinuationTerminalError is returned directly to the handler. It is
-// deliberately not an UpstreamFailoverError because changing accounts cannot
-// repair an incremental principal or connection mismatch.
+// deliberately not an UpstreamFailoverError: owner-aware scheduling first
+// returns to the recorded local account, but it must never replay an incremental
+// continuation on a different principal or connection.
 type CodexContinuationTerminalError struct {
 	HTTPStatus int
 	ErrorType  string
@@ -101,6 +229,90 @@ func (s *OpenAIGatewayService) codexContinuationModeForRequest(ctx context.Conte
 		return codexContinuationOff
 	}
 	return settings.continuationMode()
+}
+
+// WithCodexContinuationSchedulingAffinity constrains account selection for an
+// enforce-mode incremental continuation to records representing its recorded
+// upstream principal and, when an existing response or process-local connection
+// binding is present, its exact local account.
+// The constraint is installed before account acquisition, so an expired
+// response/session sticky binding cannot make the handler select another
+// principal and fail with a preventable 409. Owner values remain wire-compatible
+// with older nodes throughout a rolling upgrade.
+func (s *OpenAIGatewayService) WithCodexContinuationSchedulingAffinity(
+	ctx context.Context,
+	c *gin.Context,
+	body []byte,
+) (context.Context, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	request, ok := codexSimulationRequestStateFromGin(c)
+	if !ok || request.settings.continuationMode() != codexContinuationEnforce {
+		return ctx, nil
+	}
+
+	classification := classifyCodexContinuationBody(body)
+	if classification.kind != codexContinuationIncremental {
+		return ctx, nil
+	}
+	ownership := s.lookupCodexContinuationOwnership(ctx, request, classification.previousResponseID)
+	switch ownership.kind {
+	case codexContinuationOwnerExternal:
+		if classification.parseErr != nil {
+			return ctx, newCodexContinuationTerminalError(
+				"Codex continuation body could not be safely sanitized for principal migration",
+				classification.parseErr,
+			)
+		}
+		return ctx, newCodexContinuationTerminalError(
+			"Codex incremental continuation cannot migrate to the selected upstream principal",
+			nil,
+		)
+	case codexContinuationOwnerOwned:
+		expectedPrincipal := strings.TrimSpace(ownership.principal)
+		if expectedPrincipal == "" {
+			return ctx, nil
+		}
+		expectedAccountID := int64(0)
+		if stateStore := s.getOpenAIWSStateStore(); stateStore != nil {
+			if classification.previousResponseID != "" {
+				accountID, lookupErr := stateStore.GetResponseAccount(ctx, getOpenAIGroupIDFromContext(c), classification.previousResponseID)
+				if lookupErr != nil {
+					slog.WarnContext(ctx, "failed to resolve Codex continuation response account affinity", "error", lookupErr)
+				} else if accountID > 0 {
+					expectedAccountID = accountID
+				}
+			}
+			if expectedAccountID <= 0 {
+				connID := ""
+				if classification.previousResponseID != "" {
+					connID, _ = stateStore.GetResponseConn(classification.previousResponseID)
+				}
+				if connID == "" {
+					connID, _ = stateStore.GetSessionConn(getOpenAIGroupIDFromContext(c), request.root.rootKey)
+				}
+				expectedAccountID = codexContinuationAccountIDFromConnID(connID)
+			}
+		}
+		identitySecret := request.settings.IdentitySecret
+		affinityCtx := withCodexContinuationSchedulingAffinity(ctx, func(account *Account) bool {
+			if account == nil || !account.IsOpenAIOAuth() {
+				return false
+			}
+			if expectedAccountID > 0 && account.ID != expectedAccountID {
+				return false
+			}
+			principal := s.codexSimulationPrincipalForAccountWithSecret(account, identitySecret)
+			return principal.key == expectedPrincipal
+		})
+		if expectedAccountID > 0 {
+			affinityCtx = withSchedulerCandidatePriorityIDs(affinityCtx, []int64{expectedAccountID})
+		}
+		return affinityCtx, nil
+	default:
+		return ctx, nil
+	}
 }
 
 func (s *OpenAIGatewayService) prepareCodexContinuationAttempt(

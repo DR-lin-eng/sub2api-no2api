@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	"github.com/Wei-Shaw/sub2api/internal/shared/apicompat"
 	"github.com/Wei-Shaw/sub2api/internal/shared/ip"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
 
@@ -41,6 +42,24 @@ func openAIWSConcurrencyCloseStatus(err error) coderws.StatusCode {
 		return coderws.StatusTryAgainLater
 	}
 	return coderws.StatusInternalError
+}
+
+func normalizeOpenAIWSBootstrapBeforeScheduling(reqLog *zap.Logger, payload []byte) []byte {
+	normalized, bootstrapKind, changed := apicompat.NormalizeCodexCallOutputBootstrap(payload)
+	if !changed {
+		return payload
+	}
+	if reqLog != nil {
+		reqLog.Info("openai.websocket_codex_bootstrap_normalized",
+			zap.String("kind", bootstrapKind),
+			zap.String("normalization", "call_output_to_user_message"),
+		)
+	}
+	return normalized
+}
+
+func shouldStripOpenAIWSPreviousResponseID(previousResponseID string, stickyPreviousHit, previousResponseCanMove, ownerAffinity bool) bool {
+	return strings.TrimSpace(previousResponseID) != "" && !stickyPreviousHit && previousResponseCanMove && !ownerAffinity
 }
 
 // ResponsesWebSocket handles OpenAI Responses API WebSocket ingress endpoint
@@ -162,6 +181,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, "model is required in first response.create payload")
 		return
 	}
+	firstMessage = normalizeOpenAIWSBootstrapBeforeScheduling(reqLog, firstMessage)
 	ensureCompositeTargetPlatform(c, apiKey, reqModel)
 	ctx = c.Request.Context()
 	if apiKey.Group != nil && apiKey.Group.Platform == service.PlatformComposite {
@@ -215,6 +235,24 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 
 	// 解析渠道级模型映射
 	channelMappingWS, _ := h.gatewayService.ResolveChannelMappingAndRestrict(ctx, apiKey.GroupID, reqModel)
+	requestPlatform := openAICompatibleRequestPlatform(ctx, apiKey)
+	codexSchedulingBody := openAIModelMappedBody(firstMessage, channelMappingWS.Mapped, channelMappingWS.MappedModel, h.gatewayService.ReplaceModelInBody)
+	h.gatewayService.PrepareCodexSimulationRequest(c, apiKey.ID, apiKey.GroupID, codexSchedulingBody)
+	// Forced image bridging selects an Images account independently; do not let
+	// the Responses OAuth-owner constraint exclude valid API-key image accounts.
+	if shouldApplyCodexContinuationAffinity(forceImageTool, requestPlatform) {
+		ctx, err = h.gatewayService.WithCodexContinuationSchedulingAffinity(c.Request.Context(), c, codexSchedulingBody)
+		if err != nil {
+			var terminalErr *service.CodexContinuationTerminalError
+			if errors.As(err, &terminalErr) {
+				closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, terminalErr.Message)
+				return
+			}
+			closeOpenAIClientWS(wsConn, coderws.StatusInternalError, "failed to prepare Codex continuation scheduling")
+			return
+		}
+		c.Request = c.Request.WithContext(ctx)
+	}
 
 	var currentUserRelease func()
 	var currentAccountRelease func()
@@ -280,7 +318,6 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 	}
 
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
-	requestPlatform := openAICompatibleRequestPlatform(ctx, apiKey)
 	requiredTransport := service.OpenAIUpstreamTransportResponsesWebsocketV2Ingress
 	if requestPlatform == service.PlatformGrok {
 		requiredTransport = service.OpenAIUpstreamTransportHTTPSSE
@@ -486,7 +523,21 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				return
 			}
 		}
-		latest, vetoed, reason := h.gatewayService.ProfitControlVetoLatest(admissionCtx, account)
+		latest, refreshErr := h.gatewayService.RefreshCodexContinuationSchedulingAccount(admissionCtx, account)
+		if refreshErr != nil {
+			if accountReleaseFunc != nil {
+				accountReleaseFunc()
+			}
+			if errors.Is(refreshErr, service.ErrAccountSchedulingChanged) {
+				reqLog.Info("openai.websocket_codex_continuation_account_reschedule", zap.Int64("account_id", account.ID), zap.Error(refreshErr))
+				addFailedAccountID(&failedAccountIDs, account.ID)
+				continue
+			}
+			reqLog.Warn("openai.websocket_codex_continuation_account_refresh_failed", zap.Int64("account_id", account.ID), zap.Error(refreshErr))
+			closeOpenAIClientWS(wsConn, coderws.StatusTryAgainLater, "account scheduling state is unavailable")
+			return
+		}
+		latest, vetoed, reason := h.gatewayService.ProfitControlVetoLatest(admissionCtx, latest)
 		if vetoed {
 			if accountReleaseFunc != nil {
 				accountReleaseFunc()
@@ -760,9 +811,14 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		wsFirstMessage := wsAttemptMessage
 		// 切组/会话失配防护：previous_response_id 未在当前分组命中粘连账号（StickyPreviousHit=false），
 		// 说明该会话链不属于本次调度到的账号，原样转发会触发上游会话链鉴权失败（“鉴权失败，请检查 API Key”）。
-		// 故剥离首包里的 previous_response_id，改用首包内 input 重建上下文；带 function_call_output 的
-		// 工具续链无法重建，保持原样。仅作用于首轮首包，后续 turn 的续链由 WS 转发层既有逻辑处理。
-		if previousResponseID != "" && !scheduleDecision.StickyPreviousHit && previousResponseCanMove {
+		// 故剥离首包里的 previous_response_id，改用首包内 input 重建上下文；带 function_call_output 或
+		// enforce owner affinity 的续链必须保留原锚点。仅作用于首轮首包，后续 turn 由 WS 转发层处理。
+		if shouldStripOpenAIWSPreviousResponseID(
+			previousResponseID,
+			scheduleDecision.StickyPreviousHit,
+			previousResponseCanMove,
+			service.CodexContinuationSchedulingAffinityActive(ctx),
+		) {
 			wsFirstMessage = service.RemovePreviousResponseIDFromBody(wsFirstMessage)
 			wsAttemptMessage = append([]byte(nil), wsFirstMessage...)
 			reqLog.Debug("openai.websocket_previous_response_id_stripped_cross_group",

@@ -63,7 +63,20 @@ func (h *OpenAIGatewayHandler) acquireResponsesAccountSlot(
 	ctx := service.ContextWithSelectionProfitGate(c.Request.Context(), selection)
 	account := selection.Account
 	if selection.Acquired {
-		latest, vetoed, reason := h.gatewayService.ProfitControlVetoLatest(ctx, account)
+		latest, err := h.gatewayService.RefreshCodexContinuationSchedulingAccount(ctx, account)
+		if err != nil {
+			if selection.ReleaseFunc != nil {
+				selection.ReleaseFunc()
+			}
+			if errors.Is(err, service.ErrAccountSchedulingChanged) {
+				reqLog.Info("openai.codex_continuation_account_reschedule", zap.Int64("account_id", account.ID), zap.Error(err))
+				return nil, accountSlotAcquireReschedule
+			}
+			reqLog.Warn("openai.codex_continuation_account_refresh_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+			h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "Account scheduling state is unavailable", *streamStarted)
+			return nil, accountSlotAcquireFailed
+		}
+		latest, vetoed, reason := h.gatewayService.ProfitControlVetoLatest(ctx, latest)
 		if vetoed {
 			if selection.ReleaseFunc != nil {
 				selection.ReleaseFunc()
@@ -170,7 +183,20 @@ func (h *OpenAIGatewayHandler) acquireResponsesAccountSlot(
 		h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "Account scheduling state is unavailable", *streamStarted)
 		return nil, accountSlotAcquireFailed
 	}
-	latest, vetoed, reason := h.gatewayService.ProfitControlVetoLatest(ctx, account)
+	latest, refreshErr := h.gatewayService.RefreshCodexContinuationSchedulingAccount(ctx, account)
+	if refreshErr != nil {
+		if accountReleaseFunc != nil {
+			accountReleaseFunc()
+		}
+		if errors.Is(refreshErr, service.ErrAccountSchedulingChanged) {
+			reqLog.Info("openai.codex_continuation_account_reschedule_after_wait", zap.Int64("account_id", account.ID), zap.Error(refreshErr))
+			return nil, accountSlotAcquireReschedule
+		}
+		reqLog.Warn("openai.codex_continuation_account_refresh_after_wait_failed", zap.Int64("account_id", account.ID), zap.Error(refreshErr))
+		h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "Account scheduling state is unavailable", *streamStarted)
+		return nil, accountSlotAcquireFailed
+	}
+	latest, vetoed, reason := h.gatewayService.ProfitControlVetoLatest(ctx, latest)
 	if vetoed {
 		if accountReleaseFunc != nil {
 			accountReleaseFunc()
