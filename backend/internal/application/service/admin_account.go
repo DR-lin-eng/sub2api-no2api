@@ -164,6 +164,9 @@ var duplicateAccountDiscardedExtraKeys = map[string]struct{}{
 	"crs_account_id": {},
 	"crs_kind":       {},
 	"crs_synced_at":  {},
+	cpaSyncSourceKey: {},
+	cpaSyncFileKey:   {},
+	cpaSyncedAtKey:   {},
 	// Local quota usage and derived window timestamps must start fresh.
 	"quota_used":            {},
 	"quota_daily_used":      {},

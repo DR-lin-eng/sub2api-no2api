@@ -8,6 +8,7 @@
     <AccountStatsModal :show="showStats" :account="statsAcc" @close="closeStatsModal" />
     <ScheduledTestsPanel :show="showSchedulePanel" :account-id="scheduleAcc?.id ?? null" :model-options="scheduleModelOptions" @close="closeSchedulePanel" />
     <AccountActionMenu :show="menu.show" :account="menu.acc" :position="menu.pos" @close="menu.show = false" @test="handleTest" @sync-cpa="handleSyncCPA" @stats="handleViewStats" @schedule="handleSchedule" @duplicate="handleDuplicateAccount" @reauth="handleReAuth" @refresh-token="handleRefresh" @recover-state="handleRecoverState" @reset-quota="handleResetQuota" @set-privacy="handleSetPrivacy" @create-spark-shadow="handleCreateSparkShadow" />
+    <SyncFromCpaModal :show="showCPASync" :groups="groups" @close="showCPASync = false" @synced="handleCPASyncCompleted" />
     <SyncFromCrsModal :show="showSync" @close="showSync = false" @synced="handleSyncCompleted" />
     <ImportDataModal :show="showImportData" @close="showImportData = false" @imported="handleDataImported" />
     <BulkEditAccountModal
@@ -64,6 +65,7 @@ import ConfirmDialog from '@/common/widgets/feedback/ConfirmDialog.vue'
 import { CreateAccountModal, EditAccountModal, BulkEditAccountModal, SyncFromCrsModal, TempUnschedStatusModal } from '@/features/admin-accounts/presentation/widgets'
 import AccountsTableView from '@/features/admin-accounts/presentation/widgets/AccountsTableView.vue'
 import AccountActionMenu from '@/features/admin-accounts/presentation/widgets/AccountActionMenu.vue'
+import SyncFromCpaModal from '@/features/admin-accounts/presentation/widgets/SyncFromCpaDialog.vue'
 import ImportDataModal from '@/features/admin-accounts/presentation/widgets/ImportDataDialog.vue'
 import ReAuthAccountModal from '@/features/admin-accounts/presentation/widgets/AdminReAuthAccountDialog.vue'
 import AccountTestModal from '@/features/admin-accounts/presentation/widgets/AdminAccountTestDialog.vue'
@@ -133,6 +135,7 @@ const selTypes = computed<AccountType[]>(() => {
 })
 const showCreate = ref(false)
 const showEdit = ref(false)
+const showCPASync = ref(false)
 const showSync = ref(false)
 const showImportData = ref(false)
 const showExportDataDialog = ref(false)
@@ -498,6 +501,7 @@ const isAnyModalOpen = computed(() => {
   return (
     showCreate.value ||
     showEdit.value ||
+    showCPASync.value ||
     showSync.value ||
     showImportData.value ||
     showExportDataDialog.value ||
@@ -664,6 +668,16 @@ const toggleAccountToolsDropdown = () => {
   showAutoRefreshDropdown.value = false
   if (nextVisible) updateAccountToolsDropdownPosition()
   showAccountToolsDropdown.value = nextVisible
+}
+
+const openSyncFromCpa = () => {
+  closeAccountToolsDropdown()
+  showCPASync.value = true
+}
+
+const handleCPASyncCompleted = () => {
+  invalidateUpstreamQuotaState()
+  reload()
 }
 
 const openSyncFromCrs = () => {
@@ -1359,6 +1373,7 @@ const accountTableViewContext = {
   accountToolsDropdownStyle,
   accountToolsDropdownPosition,
   toggleAccountToolsDropdown,
+  openSyncFromCpa,
   openSyncFromCrs,
   openImportData,
   openExportDataDialogFromMenu,

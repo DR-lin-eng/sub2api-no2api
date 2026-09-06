@@ -53,6 +53,7 @@ export interface AccountTableViewContext {
   accountToolsDropdownStyle: ComputedRef<CSSProperties>
   accountToolsDropdownPosition: AccountToolsDropdownPosition
   toggleAccountToolsDropdown: () => void
+  openSyncFromCpa: () => void
   openSyncFromCrs: () => void
   openImportData: () => void
   openExportDataDialogFromMenu: () => void

@@ -1,3 +1,4 @@
+import type { CPASyncParams, CPASyncResult } from '../dtos/cpaSyncDtos'
 import { apiClient } from '@/core/networks/client'
 import type {
   Account,
@@ -444,6 +445,13 @@ export async function setOllamaCloudUsageAutoRefresh(
 export async function refreshOllamaCloudUsage(id: number): Promise<OllamaCloudUsageState> {
   const { data } = await apiClient.post<OllamaCloudUsageState>(
     `/admin/accounts/${id}/ollama-cloud-usage/refresh`
+  )
+  return data
+}
+
+export async function syncFromCpa(params: CPASyncParams, signal?: AbortSignal): Promise<CPASyncResult> {
+  const { data } = await apiClient.post<CPASyncResult>(
+    '/admin/accounts/sync/cpa', params, { signal, timeout: 180000 }
   )
   return data
 }

@@ -17,6 +17,7 @@
 | `ops*`, `audit*`, `content_moderation*` | 运维、审计和内容策略 |
 | `setting*`, `notification*`, `backup*` | 配置、通知和维护用例 |
 | `oauth_model_sync_service.go` | OpenAI OAuth 实时模型能力快照与定时同步 |
+| `cpa_sync_service.go`, `cpa_sync_options.go` | CPA OAuth 账号预览、健康筛选、分组同步和有限 OAuth 功能覆盖 |
 | `cluster*` | 稳定节点身份、心跳清单、任务租约、就绪门禁与串行版本发布 |
 | `wire.go` | application provider 集合 |
 

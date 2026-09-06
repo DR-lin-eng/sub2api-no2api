@@ -1,4 +1,30 @@
 export default {
+  cpaImport: {
+    menu: 'Sync from CPA',
+    title: 'Sync OAuth accounts from CPA',
+    description: 'Read CLIProxyAPI accounts through the backend. Only enabled, healthy OAuth credentials are imported. The CPA administrator password is used for this operation only and is not saved.',
+    platform: 'Platform to sync',
+    oauthOptions: 'OAuth feature options',
+    groupHint: 'Select one or more active groups on the same platform. New accounts remain ungrouped if none are selected.',
+    applyExisting: 'Apply selected groups and OAuth options to existing accounts too',
+    updateHint: 'By default, updates only refresh credentials and sync metadata. Existing groups, features, names, concurrency and enabled state are preserved. Checking this replaces groups and applies the selected options.',
+    previewSummary: '{total} CPA credentials: {eligible} eligible, {skipped} excluded.',
+    existing: 'Update',
+    newAccount: 'Create',
+    empty: 'No enabled, healthy accounts can be imported for this platform.',
+    recheckHint: 'CPA status is checked again during sync. Disabled, abnormal, cooling down, removed or invalid credentials are skipped.',
+    progress: 'Syncing: {done} / {total} processed',
+    missingFields: 'Enter the CPA management URL and administrator password.',
+    previewFailed: 'CPA preview failed. Check the URL, administrator password and backend remote-sync URL configuration.',
+    batchFailed: 'Sync stopped with {remaining} accounts awaiting confirmation. Confirmed results are retained below. Preview again before continuing instead of resubmitting blindly.',
+    reasons: {
+      disabled: 'Disabled', abnormal: 'Abnormal or cooling down', runtime_only: 'Runtime-only credential', unsupported_provider: 'Unsupported provider',
+      invalid_file_name: 'Invalid file name', duplicate_file_name: 'Ambiguous duplicate file name', other_platform: 'Other platform', removed: 'Removed from CPA',
+      download_failed: 'Credential download failed', invalid_credential: 'Invalid or disabled credential', cancelled: 'Operation interrupted',
+      local_type_conflict: 'Local account type conflict', identity_changed: 'The CPA file now represents a different account', save_failed: 'Account could not be saved',
+      token_cache_invalidation_failed: 'Account saved; token cache refresh failed'
+    }
+  },
   syncCPA: 'Sync CPA',
   syncCPASuccess: 'CPA synced: {enabled} enabled, {abnormal} abnormal, {capacity} counted toward concurrency',
   syncCPAFailed: 'Failed to sync CPA',

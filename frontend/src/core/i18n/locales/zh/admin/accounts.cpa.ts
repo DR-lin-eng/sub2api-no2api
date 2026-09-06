@@ -1,4 +1,30 @@
 export default {
+  cpaImport: {
+    menu: '从 CPA 同步',
+    title: '从 CPA 同步 OAuth 账号',
+    description: '通过后端读取 CLIProxyAPI 账号，仅同步已启用且状态正常的 OAuth 凭据。CPA 管理密码仅用于本次操作，不保存。',
+    platform: '同步平台',
+    oauthOptions: 'OAuth 功能选项',
+    groupHint: '可选择同平台的一个或多个启用分组。不选分组时，新账号保持未分组。',
+    applyExisting: '将所选分组和 OAuth 功能同时应用到已有账号',
+    updateHint: '默认只更新已有账号的凭据和同步信息，保留其分组、功能、名称、并发与启停状态。勾选后将替换分组，并应用当前功能选项。',
+    previewSummary: 'CPA 共 {total} 个凭据，符合条件 {eligible} 个，排除 {skipped} 个。',
+    existing: '更新',
+    newAccount: '新建',
+    empty: '此平台暂无已启用且状态正常的可导入账号。',
+    recheckHint: '执行时重新读取 CPA 状态。停用、异常、冷却中、已移除或凭据无效的账号会被跳过。',
+    progress: '正在同步：已处理 {done} / {total}',
+    missingFields: '请填写 CPA 管理地址和管理员密码。',
+    previewFailed: 'CPA 预览失败，请检查地址、管理员密码和后端远程同步 URL 配置。',
+    batchFailed: '同步已停止，另有 {remaining} 个账号结果待确认。已确认的结果保留如下；请重新预览后继续，避免重复提交。',
+    reasons: {
+      disabled: '已停用', abnormal: '异常或冷却中', runtime_only: '仅运行时凭据', unsupported_provider: '暂不支持的平台',
+      invalid_file_name: '文件名无效', duplicate_file_name: '同名凭据存在歧义', other_platform: '其他平台', removed: '已从 CPA 移除',
+      download_failed: '凭据下载失败', invalid_credential: '凭据无效或已停用', cancelled: '操作已中断',
+      local_type_conflict: '本地账号类型冲突', identity_changed: 'CPA 文件对应的账号身份已改变', save_failed: '账号保存失败',
+      token_cache_invalidation_failed: '账号已保存，Token 缓存刷新失败'
+    }
+  },
   syncCPA: '同步 CPA',
   syncCPASuccess: 'CPA 已同步：启用 {enabled}，异常 {abnormal}，计入并发 {capacity}',
   syncCPAFailed: 'CPA 同步失败',

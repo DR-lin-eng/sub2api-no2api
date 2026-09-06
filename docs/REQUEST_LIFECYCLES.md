@@ -208,6 +208,27 @@ sequenceDiagram
     Client-->>Page: unwrapped data or normalized error
 ```
 
+### CPA OAuth 账号同步
+
+管理端账号页通过 `POST /api/v1/admin/accounts/sync/cpa/preview` 读取 CPA 的
+`/v0/management/auth-files` 清单，再通过 `POST /api/v1/admin/accounts/sync/cpa` 按选中的文件导入。
+预览只返回文件名、平台、名称、邮箱和本地匹配信息，不返回凭据；执行阶段在服务端重新读取清单，
+仅下载 `active`、未禁用、未标记不可用、未处于冷却期且不是 runtime-only 的 OAuth 文件。
+
+```text
+SyncFromCpaDialog
+  -> adminAccountQueries/actions
+  -> account_cpa_sync.go
+  -> CPASyncService
+  -> cpasync.Client (list + bounded downloads)
+  -> AdminService CreateAccount/UpdateAccount
+  -> token cache invalidation
+```
+
+同步请求携带目标 `group_ids` 和有限的 `oauth_options`。新账号绑定所选同平台活动分组；
+已有账号默认只更新凭据与 CPA 来源元数据，勾选“应用到已有账号”后才替换分组并覆盖所选 OAuth 开关。
+同一 CPA 来源使用进程锁和可用的 PostgreSQL advisory lock，文件名、平台、凭据身份和远端健康状态在写入前再次校验。
+
 ### 阅读顺序
 
 1. `frontend/src/core/routes/index.ts` 找 feature page 和权限元数据。

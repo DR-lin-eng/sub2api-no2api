@@ -87,6 +87,10 @@
                           {{ t('admin.accounts.dataActions') }}
                         </div>
                       </div>
+                      <button class="account-tools-menu-item" @click="openSyncFromCpa">
+                        <span class="account-tools-menu-icon bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300"><Icon name="sync" size="sm" /></span>
+                        <span class="flex-1 text-left">{{ t('admin.accounts.cpaImport.menu') }}</span>
+                      </button>
                       <button class="account-tools-menu-item" @click="openSyncFromCrs">
                         <span class="account-tools-menu-icon bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">
                           <Icon name="sync" size="sm" />
@@ -527,6 +531,7 @@ const {
   accountToolsDropdownStyle,
   accountToolsDropdownPosition,
   toggleAccountToolsDropdown,
+  openSyncFromCpa,
   openSyncFromCrs,
   openImportData,
   openExportDataDialogFromMenu,

@@ -1,3 +1,4 @@
+import type { CPAConnectionParams, CPAPreviewResult } from '../dtos/cpaSyncDtos'
 import { apiClient } from '@/core/networks/client'
 import type {
   Account,
@@ -235,6 +236,14 @@ export async function previewFromCrs(
   const { data } = await apiClient.post<PreviewFromCRSResult>(
     '/admin/accounts/sync/crs/preview',
     params
+  )
+  return data
+}
+
+/** Preview only metadata; CPA credentials are fetched server-side during sync. */
+export async function previewFromCpa(params: CPAConnectionParams, signal?: AbortSignal): Promise<CPAPreviewResult> {
+  const { data } = await apiClient.post<CPAPreviewResult>(
+    '/admin/accounts/sync/cpa/preview', params, { signal, timeout: 30000 }
   )
   return data
 }
