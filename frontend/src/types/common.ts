@@ -86,7 +86,8 @@ export interface User {
   linuxdo_bound?: boolean
   oidc_bound?: boolean
   wechat_bound?: boolean
-  role: 'admin' | 'user' // User role for authorization
+  role: string // Built-in role or configured permission-group ID
+  permissions?: string[] // Effective admin permissions for a custom role
   balance: number // User balance for API usage
   frozen_balance?: number // Balance currently held by async batch jobs
   available_balance?: number // Balance after queued usage awaiting settlement

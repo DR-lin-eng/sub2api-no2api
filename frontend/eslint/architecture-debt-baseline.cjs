@@ -29,7 +29,6 @@ module.exports = {
       'src/common/widgets/data/VersionBadge.vue',
       'src/common/widgets/layout/AppHeader.vue',
       'src/common/widgets/layout/AppLayout.vue',
-      'src/common/widgets/layout/AppSidebar.vue',
       'src/features/admin-audit/presentation/pages/AuditLogPage.vue',
       'src/features/admin-backup/presentation/pages/BackupPage.vue',
       'src/features/billing/presentation/pages/PaymentPage.vue',

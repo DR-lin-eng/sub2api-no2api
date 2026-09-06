@@ -8,6 +8,8 @@ vi.mock("vue-router", async (importOriginal) => ({
  useRouter: () => ({ replace: vi.fn() }),
 }));
 
+vi.mock("@/features/auth", () => ({ useAuthStore: () => ({ isAdmin: true, hasPermission: () => true }) }));
+
 import SettingsView from "@/features/admin-settings/presentation/pages/SettingsPage.vue";
 import PanelRateLimitSettingsCard from "@/features/admin-settings/presentation/widgets/PanelRateLimitSettingsCard.vue";
 

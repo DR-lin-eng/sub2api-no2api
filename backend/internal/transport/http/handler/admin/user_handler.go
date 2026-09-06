@@ -64,7 +64,7 @@ type CreateUserRequest struct {
 	Password       string                         `json:"password" binding:"required,min=6"`
 	Username       string                         `json:"username"`
 	Notes          string                         `json:"notes"`
-	Role           string                         `json:"role" binding:"omitempty,oneof=admin user"`
+	Role           string                         `json:"role" binding:"omitempty,max=20"`
 	Balance        *float64                       `json:"balance"`
 	Concurrency    int                            `json:"concurrency"`
 	RPMLimit       int                            `json:"rpm_limit"`
@@ -79,7 +79,7 @@ type UpdateUserRequest struct {
 	Password       string                         `json:"password" binding:"omitempty,min=6"`
 	Username       *string                        `json:"username"`
 	Notes          *string                        `json:"notes"`
-	Role           string                         `json:"role" binding:"omitempty,oneof=admin user"`
+	Role           string                         `json:"role" binding:"omitempty,max=20"`
 	Balance        *float64                       `json:"balance"`
 	Concurrency    *int                           `json:"concurrency"`
 	RPMLimit       *int                           `json:"rpm_limit"`
@@ -139,6 +139,9 @@ func (h *UserHandler) List(c *gin.Context) {
 		Search:     search,
 		GroupName:  strings.TrimSpace(c.Query("group_name")),
 		Attributes: parseAttributeFilters(c),
+	}
+	if role, ok := middleware.GetUserRoleFromContext(c); ok && role != service.RoleAdmin {
+		filters.Role = service.RoleUser
 	}
 	if raw, ok := c.GetQuery("scheduling_tier"); ok {
 		value, parseErr := strconv.ParseInt(strings.TrimSpace(raw), 10, 16)
@@ -288,6 +291,15 @@ func (h *UserHandler) Create(c *gin.Context) {
 		return
 	}
 
+	if !delegatedUserFieldsAllowed(c, false, req.Balance != nil || req.Concurrency != 0 || req.RPMLimit != 0 || req.SchedulingTier != nil || len(req.AllowedGroups) > 0) {
+		return
+	}
+
+	if role, ok := middleware.GetUserRoleFromContext(c); ok && role != service.RoleAdmin && req.Role != "" && req.Role != service.RoleUser {
+		response.Forbidden(c, "Only administrators can assign permission groups")
+		return
+	}
+
 	// 创建管理员账号属权限敏感操作：需最近完成 step-up 2FA 验证。
 	if req.Role == service.RoleAdmin {
 		if !middleware.EnforceStepUp(c, h.totpService, h.userService, h.settingService) {
@@ -331,9 +343,25 @@ func (h *UserHandler) Update(c *gin.Context) {
 		return
 	}
 
+	if !delegatedUserFieldsAllowed(c, req.Email != "" || req.Password != "", req.Balance != nil || req.Concurrency != nil || req.RPMLimit != nil || req.SchedulingTier != nil || req.AllowedGroups != nil || len(req.GroupRates) > 0) {
+		return
+	}
+
+	if role, ok := middleware.GetUserRoleFromContext(c); ok && role != service.RoleAdmin {
+		target, err := h.adminService.GetUser(c.Request.Context(), userID)
+		if err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
+		if target.Role != service.RoleUser || (req.Role != "" && req.Role != service.RoleUser) {
+			response.Forbidden(c, "Only administrators can modify staff accounts or permission groups")
+			return
+		}
+	}
+
 	// 防锁死保护：管理员不能把自己降级为普通用户(单管理员场景下会失去后台访问权)。
 	// 与既有"不能禁用/删除 admin"保护一致。降级其他管理员仍然允许。
-	if req.Role == service.RoleUser && userID == getAdminIDFromContext(c) {
+	if req.Role != "" && req.Role != service.RoleAdmin && userID == getAdminIDFromContext(c) {
 		response.BadRequest(c, "cannot demote yourself from admin")
 		return
 	}

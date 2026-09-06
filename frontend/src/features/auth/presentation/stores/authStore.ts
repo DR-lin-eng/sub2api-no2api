@@ -121,6 +121,14 @@ export const useAuthStore = defineStore('auth', () => {
     return roleVerified.value && user.value?.role === 'admin'
   })
 
+  const canAccessAdmin = computed(() => roleVerified.value && !!user.value &&
+    (user.value.role === 'admin' || (user.value.permissions?.length ?? 0) > 0))
+
+  const hasPermission = (permission: string): boolean => {
+    if (!roleVerified.value || !user.value) return false
+    return user.value.role === 'admin' || (user.value.permissions ?? []).includes(permission)
+  }
+
   const isRoleVerified = computed(() => roleVerified.value)
   const isSimpleMode = computed(() => runMode.value === 'simple')
   const hasPendingAuthSession = computed(() => pendingAuthSession.value !== null)
@@ -525,6 +533,8 @@ export const useAuthStore = defineStore('auth', () => {
     // Computed
     isAuthenticated,
     isAdmin,
+    canAccessAdmin,
+    hasPermission,
     isRoleVerified,
     isSimpleMode,
     hasPendingAuthSession,

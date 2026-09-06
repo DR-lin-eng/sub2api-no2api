@@ -27,14 +27,15 @@
       </div>
       <div>
         <label class="input-label">{{ t('admin.users.form.roleLabel') }}</label>
-        <select v-model="form.role" class="input">
+        <select v-model="form.role" :disabled="!authStore.isAdmin" class="input">
           <option value="user">{{ t('admin.users.roles.user') }}</option>
           <option value="admin">{{ t('admin.users.roles.admin') }}</option>
+          <option v-for="group in permissionGroups" :key="group.id" :value="group.id">{{ group.name }}</option>
         </select>
       </div>
       <div>
         <label class="input-label">{{ t('admin.users.form.schedulingTier') }}</label>
-        <select v-model.number="form.scheduling_tier" class="input" data-test="scheduling-tier-select">
+        <select v-model.number="form.scheduling_tier" :disabled="!authStore.hasPermission('users.billing')" class="input" data-test="scheduling-tier-select">
           <option :value="0">{{ t('admin.users.schedulingTiers.priority') }}</option>
           <option :value="1">{{ t('admin.users.schedulingTiers.normal') }}</option>
           <option :value="2">{{ t('admin.users.schedulingTiers.low') }}</option>
@@ -44,17 +45,17 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label class="input-label">{{ t('admin.users.columns.balance') }}</label>
-          <input v-model="form.balance" type="number" step="any" class="input" />
+          <input v-model="form.balance" :disabled="!authStore.hasPermission('users.billing')" type="number" step="any" class="input" />
         </div>
         <div>
           <label class="input-label">{{ t('admin.users.columns.concurrency') }}</label>
-          <input v-model.number="form.concurrency" type="number" class="input" />
+          <input v-model.number="form.concurrency" :disabled="!authStore.hasPermission('users.billing')" type="number" class="input" />
         </div>
       </div>
       <div>
         <label class="input-label">{{ t('admin.users.form.rpmLimit') }}</label>
         <input
-          v-model.number="form.rpm_limit"
+          v-model.number="form.rpm_limit" :disabled="!authStore.hasPermission('users.billing')"
           type="number"
           min="0"
           step="1"
@@ -79,9 +80,10 @@
 </template>
 
 <script setup lang="ts">
+import { useAuthStore } from '@/features/auth'
 import { reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { create as createAdminUser } from '@/features/admin-users/data/datasources/adminUsersDatasource'
+import { create as createAdminUser, listPermissionGroups } from '@/features/admin-users/data/datasources/adminUsersDatasource'
 import { useAppStore } from '@/core/stores/appStore'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
@@ -93,7 +95,9 @@ const props = defineProps<{ show: boolean }>()
 const emit = defineEmits(['close', 'success']); const { t } = useI18n()
 const appStore = useAppStore()
 
-const form = reactive({ email: '', password: '', username: '', notes: '', role: 'user' as 'user' | 'admin', balance: '', concurrency: 1, rpm_limit: 0, scheduling_tier: 1 as RequestSchedulingTier })
+const authStore = useAuthStore()
+const permissionGroups = ref<{ id: string; name: string }[]>([])
+const form = reactive({ email: '', password: '', username: '', notes: '', role: 'user', balance: '', concurrency: 1, rpm_limit: 0, scheduling_tier: 1 as RequestSchedulingTier })
 
 const stepUp = useStepUp()
 const loading = ref(false)
@@ -104,10 +108,11 @@ const submit = async () => {
   try {
     const { balance: rawBalance, ...rest } = { ...form }
     const balance = String(rawBalance).trim()
-    const payload: typeof rest & { balance?: number } = { ...rest }
+    const payload: Partial<typeof rest> & { email: string; password: string; balance?: number } = { ...rest }
     if (balance !== '') {
       payload.balance = Number(balance)
     }
+    if (!authStore.hasPermission('users.billing')) { delete payload.balance; delete payload.concurrency; delete payload.rpm_limit; delete payload.scheduling_tier }
     // 创建管理员属敏感操作：后端返回 STEP_UP_REQUIRED 时弹 TOTP 验证并重试
     await stepUp.run(() => createAdminUser(payload))
     appStore.showSuccess(t('admin.users.userCreated'))
@@ -127,7 +132,7 @@ const submit = async () => {
   } finally { loading.value = false }
 }
 
-watch(() => props.show, (v) => { if(v) Object.assign(form, { email: '', password: '', username: '', notes: '', role: 'user', balance: '', concurrency: 1, rpm_limit: 0, scheduling_tier: 1 }) })
+watch(() => props.show, (v) => { if(v) { Object.assign(form, { email: '', password: '', username: '', notes: '', role: 'user', balance: '', concurrency: 1, rpm_limit: 0, scheduling_tier: 1 }); if (authStore.isAdmin) listPermissionGroups().then((data) => { permissionGroups.value = data.groups }).catch(() => { permissionGroups.value = [] }) } }, { immediate: true })
 
 const generateRandomPassword = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%^&*'

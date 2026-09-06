@@ -59,6 +59,16 @@ const fakeRefreshResponse = {
 }
 
 describe('useAuthStore', () => {
+  it('treats verified staff as delegated access, not a full administrator', async () => {
+    mockLogin.mockResolvedValue({ ...fakeAuthResponse, user: { ...fakeUser, role: 'support', permissions: ['support.read'] } })
+    const store = useAuthStore()
+    await store.login({ email: 'test@example.com', password: 'password' })
+    expect(store.isAdmin).toBe(false)
+    expect(store.canAccessAdmin).toBe(true)
+    expect(store.hasPermission('support.read')).toBe(true)
+    expect(store.hasPermission('settings.manage')).toBe(false)
+  })
+
   beforeEach(() => {
     setActivePinia(createPinia())
     localStorage.clear()

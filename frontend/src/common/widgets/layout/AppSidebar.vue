@@ -211,7 +211,11 @@
 import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useAdminSettingsStore, useAppStore, useAuthStore, useOnboardingStore } from '@/stores'
+import { useAuthStore } from '@/features/auth'
+import { useAppStore } from '@/core/stores/appStore'
+import { useOnboardingStore } from '@/core/stores/onboardingStore'
+import { useAdminSettingsStore } from '@/features/admin-settings/presentation/stores/adminSettingsStore'
+import { adminLandingPath, canAccessAdminPage } from '@/core/routes/adminPermissions'
 import VersionBadge from '@/common/widgets/data/VersionBadge.vue'
 import { sanitizeSvg } from '@/core/utils/sanitize'
 import { sanitizeUrl } from '@/core/utils/url'
@@ -238,6 +242,7 @@ interface NavItem {
    * 开关切换时菜单自动更新。
    */
   featureFlag?: () => boolean | undefined
+  permission?: string
 }
 
 // applyFeatureFlags 递归过滤掉 featureFlag() === false 的节点（含子节点）。
@@ -282,13 +287,30 @@ const { canUseBatchImage, refreshBatchImageAccess } = useBatchImageAccess()
 
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const mobileOpen = computed(() => appStore.mobileOpen)
-const isAdmin = computed(() => authStore.isAdmin)
+const isAdmin = computed(() => authStore.canAccessAdmin)
+
+function applyPermissions(items: NavItem[]): NavItem[] {
+  if (authStore.user?.role === 'admin') return items
+  const out: NavItem[] = []
+  for (const item of items) {
+    if (!canAccessAdminPage(authStore, item.path)) continue
+    if (item.children) {
+      const children = applyPermissions(item.children)
+      if (children.length === 0) continue
+      out.push({ ...item, children })
+    } else {
+      out.push(item)
+    }
+  }
+  return out
+}
+
 const sidebarNavRef = ref<HTMLElement | null>(null)
 const isDark = ref(document.documentElement.classList.contains('dark'))
 const supportInboxHasUnread = computed(() => appStore.supportInboxHasUnread)
 const supportUserHasUnread = computed(() => appStore.supportUserHasUnread)
 
-const homePath = computed(() => (isAdmin.value ? '/admin/dashboard' : '/dashboard'))
+const homePath = computed(() => adminLandingPath(authStore, appStore.cachedPublicSettings?.support_chat_enabled === true))
 
 // Explicit per-group overrides take precedence over automatic active-route expansion.
 const groupExpandOverrides = ref<Map<string, boolean>>(new Map())
@@ -850,11 +872,11 @@ const customMenuItemsForAdmin = computed(() => {
 // Admin navigation items
 const adminNavItems = computed((): NavItem[] => {
   const baseItems: NavItem[] = [
-    { path: '/admin/dashboard', label: t('nav.dashboard'), icon: DashboardIcon },
-    { path: '/admin/ops', label: t('nav.ops'), icon: ChartIcon, featureFlag: flagOpsMonitoring },
-    { path: '/admin/multi-instance', label: t('nav.multiInstance'), icon: ServerIcon },
-    { path: '/admin/users', label: t('nav.users'), icon: UsersIcon, hideInSimpleMode: true },
-    { path: '/admin/groups', label: t('nav.groups'), icon: FolderIcon, hideInSimpleMode: true },
+    { path: '/admin/dashboard', label: t('nav.dashboard'), icon: DashboardIcon, permission: 'dashboard.read' },
+    { path: '/admin/ops', label: t('nav.ops'), icon: ChartIcon, featureFlag: flagOpsMonitoring, permission: 'dashboard.read' },
+    { path: '/admin/multi-instance', label: t('nav.multiInstance'), icon: ServerIcon, permission: 'settings.manage' },
+    { path: '/admin/users', label: t('nav.users'), icon: UsersIcon, hideInSimpleMode: true, permission: 'users.manage' },
+    { path: '/admin/groups', label: t('nav.groups'), icon: FolderIcon, hideInSimpleMode: true, permission: 'groups.manage' },
     {
       path: '/admin/channels',
       label: t('nav.channelManagement'),
@@ -866,14 +888,14 @@ const adminNavItems = computed((): NavItem[] => {
         { path: '/admin/channels/monitor', label: t('nav.channelMonitor'), icon: SignalIcon, featureFlag: flagChannelMonitor },
       ],
     },
-    { path: '/admin/subscriptions', label: t('nav.subscriptions'), icon: CreditCardIcon, hideInSimpleMode: true },
-    { path: '/admin/accounts', label: t('nav.accounts'), icon: GlobeIcon },
-    { path: '/admin/account-inspection', label: t('nav.accountInspection'), icon: SignalIcon },
-    { path: '/admin/announcements', label: t('nav.announcements'), icon: BellIcon },
-    { path: '/admin/activity-center/campaigns', label: t('nav.activityCenterAdmin'), icon: GiftIcon },
-    { path: '/admin/support', label: t('nav.supportInbox'), icon: SupportChatIcon, featureFlag: flagSupportChat },
-    { path: '/admin/proxies', label: t('nav.proxies'), icon: ServerIcon },
-    { path: '/admin/egress', label: t('nav.ipv6Egress'), icon: GlobeIcon, featureFlag: flagIPv6Egress },
+    { path: '/admin/subscriptions', label: t('nav.subscriptions'), icon: CreditCardIcon, hideInSimpleMode: true, permission: 'users.manage' },
+    { path: '/admin/accounts', label: t('nav.accounts'), icon: GlobeIcon, permission: 'accounts.manage' },
+    { path: '/admin/account-inspection', label: t('nav.accountInspection'), icon: SignalIcon, permission: 'accounts.manage' },
+    { path: '/admin/announcements', label: t('nav.announcements'), icon: BellIcon, permission: 'settings.manage' },
+    { path: '/admin/activity-center/campaigns', label: t('nav.activityCenterAdmin'), icon: GiftIcon, permission: 'settings.manage' },
+    { path: '/admin/support', label: t('nav.supportInbox'), icon: SupportChatIcon, featureFlag: flagSupportChat, permission: 'support.read' },
+    { path: '/admin/proxies', label: t('nav.proxies'), icon: ServerIcon, permission: 'accounts.manage' },
+    { path: '/admin/egress', label: t('nav.ipv6Egress'), icon: GlobeIcon, featureFlag: flagIPv6Egress, permission: 'accounts.manage' },
     {
       path: '/admin/security-audit',
       label: t('nav.securityAudit'),
@@ -885,8 +907,8 @@ const adminNavItems = computed((): NavItem[] => {
         { path: '/admin/prompt-audit', label: t('nav.promptAudit'), icon: ShieldIcon, featureFlag: flagRiskControl },
       ],
     },
-    { path: '/admin/redeem', label: t('nav.redeemCodes'), icon: TicketIcon, hideInSimpleMode: true },
-    { path: '/admin/promo-codes', label: t('nav.promoCodes'), icon: GiftIcon, hideInSimpleMode: true },
+    { path: '/admin/redeem', label: t('nav.redeemCodes'), icon: TicketIcon, hideInSimpleMode: true, permission: 'users.manage' },
+    { path: '/admin/promo-codes', label: t('nav.promoCodes'), icon: GiftIcon, hideInSimpleMode: true, permission: 'users.manage' },
     {
       path: '/admin/affiliates',
       label: t('nav.affiliateManagement'),
@@ -913,26 +935,31 @@ const adminNavItems = computed((): NavItem[] => {
         { path: '/admin/orders/plans', label: t('nav.paymentPlans'), icon: CreditCardIcon },
       ],
     },
-    { path: '/admin/usage', label: t('nav.usage'), icon: ChartIcon },
-    { path: '/admin/audit-logs', label: t('nav.auditLogs'), icon: ShieldIcon, hideInSimpleMode: true }
+    { path: '/admin/usage', label: t('nav.usage'), icon: ChartIcon, permission: 'dashboard.read' },
+    { path: '/admin/audit-logs', label: t('nav.auditLogs'), icon: ShieldIcon, hideInSimpleMode: true, permission: 'settings.manage' }
   ]
 
-  const visible = applyFeatureFlags(baseItems)
+  const visible = applyPermissions(applyFeatureFlags(baseItems))
+  const settingsItem: NavItem = { path: '/admin/settings', label: t('nav.settings'), icon: CogIcon, permission: 'settings.manage' }
 
   // 简单模式下，在系统设置前插入 API密钥
   if (authStore.isSimpleMode) {
     const filtered = applySimpleMode(visible)
     filtered.push({ path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon })
-    filtered.push({ path: '/admin/settings', label: t('nav.settings'), icon: CogIcon })
+    if (authStore.hasPermission('settings.manage')) filtered.push(settingsItem)
     for (const cm of customMenuItemsForAdmin.value) {
-      filtered.push({ path: `/custom/${cm.id}`, label: cm.label, icon: null, iconSvg: cm.icon_svg })
+      if (authStore.isAdmin) {
+        filtered.push({ path: `/custom/${cm.id}`, label: cm.label, icon: null, iconSvg: cm.icon_svg })
+      }
     }
     return filtered
   }
 
-  visible.push({ path: '/admin/settings', label: t('nav.settings'), icon: CogIcon })
+  if (authStore.hasPermission('settings.manage')) visible.push(settingsItem)
   for (const cm of customMenuItemsForAdmin.value) {
-    visible.push({ path: `/custom/${cm.id}`, label: cm.label, icon: null, iconSvg: cm.icon_svg })
+    if (authStore.isAdmin) {
+      visible.push({ path: `/custom/${cm.id}`, label: cm.label, icon: null, iconSvg: cm.icon_svg })
+    }
   }
   return visible
 })
@@ -1037,7 +1064,7 @@ watch(
   () => authStore.isAuthenticated,
   (authenticated) => {
     if (authenticated) {
-      if (isAdmin.value) {
+      if (authStore.isAdmin) {
         adminSettingsStore.fetch()
       }
     }
@@ -1047,7 +1074,7 @@ watch(
 
 // Fetch admin settings (for feature-gated nav items like Ops).
 watch(
-  isAdmin,
+  () => authStore.isAdmin,
   (v) => {
     if (v) {
       adminSettingsStore.fetch()
@@ -1058,7 +1085,7 @@ watch(
 
 onMounted(() => {
   void refreshBatchImageAccess()
-  if (isAdmin.value) {
+  if (authStore.isAdmin) {
     adminSettingsStore.fetch()
   }
   // Restore sidebar scroll position after route change re-mounts the component

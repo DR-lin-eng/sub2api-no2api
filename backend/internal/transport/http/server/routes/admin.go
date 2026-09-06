@@ -21,6 +21,7 @@ func RegisterAdminRoutes(
 ) {
 	admin := v1.Group("/admin")
 	admin.Use(gin.HandlerFunc(adminAuth))
+	admin.Use(middleware.AdminPermissionMiddleware(settingService))
 	admin.Use(panelRateLimiter.Authenticated())
 	// 审计中间件挂在认证之后：所有管理面变更类操作 + 敏感读取入审计日志
 	admin.Use(gin.HandlerFunc(auditLog))
@@ -393,7 +394,10 @@ func registerDashboardRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 
 func registerUserManagementRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	users := admin.Group("/users")
+	users.Use(h.Admin.User.RequireManagedUser)
 	{
+		users.GET("/permission-groups", h.Admin.User.ListPermissionGroups)
+		users.GET("/:id/basic", h.Admin.User.GetBasic)
 		users.GET("", h.Admin.User.List)
 		users.GET("/:id", h.Admin.User.GetByID)
 		users.POST("/:id/auth-identities", h.Admin.User.BindAuthIdentity)
@@ -659,6 +663,8 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	{
 		adminSettings.GET("", h.Admin.Setting.GetSettings)
 		adminSettings.PUT("", h.Admin.Setting.UpdateSettings)
+		adminSettings.GET("/permission-groups", h.Admin.Setting.GetPermissionGroups)
+		adminSettings.PUT("/permission-groups", h.Admin.Setting.UpdatePermissionGroups)
 		adminSettings.POST("/test-smtp", h.Admin.Setting.TestSMTPConnection)
 		adminSettings.POST("/send-test-email", h.Admin.Setting.SendTestEmail)
 		adminSettings.GET("/email-templates", h.Admin.Setting.ListEmailTemplates)

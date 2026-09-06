@@ -33,6 +33,8 @@ const (
 	// ContextKeyJWTExpiresAt records the verified access-token expiry so
 	// long-lived transports can stop when the authentication grant expires.
 	ContextKeyJWTExpiresAt ContextKey = "jwt_expires_at"
+	// ContextKeyAdminPermissions contains the permission keys resolved for a custom admin role.
+	ContextKeyAdminPermissions ContextKey = "admin_permissions"
 )
 
 // GetJWTExpiresAtFromContext returns the expiry of the JWT authenticated for

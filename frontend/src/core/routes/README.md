@@ -9,6 +9,7 @@
 | `index.ts` | 路由记录、全局 guard、路径规范化、滚动恢复、预加载和 chunk 错误恢复 |
 | `meta.d.ts` | `RouteMeta` 类型扩展 |
 | `setupRedirect.ts` | setup 已完成时的目标路径选择 |
+| `adminPermissions.ts` | 自定义员工的页面权限白名单和无循环登录落点；未映射页仅限完整管理员 |
 | `title.ts` | 站点名、i18n 和自定义菜单标题解析 |
 | `__tests__/` | guard 辅助、标题和 setup 重定向测试 |
 
@@ -52,7 +53,7 @@ rg -n 'path:|name:|component:' frontend/src/core/routes/index.ts
 3. 根据站点设置和路由元数据生成标题。
 4. 处理 `/setup` 已完成重定向。
 5. 处理公共路由、登录态和 backend mode 公共白名单。
-6. 验证登录和管理员角色。
+6. 验证登录、完整管理员或自定义组的页面权限。
 7. 确保支付、风控、客服和媒体工坊所需的公开设置已加载，再应用功能开关。
 8. 应用 simple mode 和 backend mode 的访问限制。
 9. 导航完成后停止 loading 并触发空闲预加载。

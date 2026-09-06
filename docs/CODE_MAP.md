@@ -31,6 +31,7 @@
 | 修改 Ops/审计 | `handler/admin/ops*`, `application/service/ops*` | `repository/ops*`, 前端 `features/admin-ops/`, `features/admin-audit/` | query/service + 前端 feature 测试 |
 | 修改入口风控或 Cloudflare 封禁联动 | `application/service/invalid_auth_abuse_limiter.go`, `cloudflare_ingress_settings.go`, `server/middleware/ingress_reject.go` | `repository/cloudflare_ingress*`, `repository/cloudflare_waf*`, admin ops handler, `features/admin-risk-control/` | limiter + 持久密文 + Access Rule/WAF mock + Redis 状态 + 入口页测试 |
 | 修改在线客服 | `internal/modules/chat/`, `handler/chat*`, `handler/admin/chat*` | `repository/chat*`, `application/service/support_chat*`, 前端 `features/support-chat/` 与 `features/admin-settings/` | chat service/repository + handler + 设置/前端 feature 测试 |
+| 修改管理端权限组/客服角色 | `application/service/permission_groups.go`, `server/middleware/admin_permissions.go`, `handler/admin/permission_group_handler.go` | `settings.permission_groups` 迁移、用户角色分配、前端 `features/admin-settings/` 与 `features/auth/` | 权限组/service + middleware + 前端权限/设置测试 + Docker |
 | 修改前端页面 | `frontend/src/core/routes/index.ts`, `features/<domain>/presentation/pages/` | 同 feature 的 `widgets/`, `composables/`, `stores/`, `data/datasources/` 与 `core/i18n/` | 相邻 spec + typecheck |
 
 ## 后端功能前缀

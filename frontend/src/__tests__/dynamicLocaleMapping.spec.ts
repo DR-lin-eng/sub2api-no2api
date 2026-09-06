@@ -78,6 +78,8 @@ const auditedDynamicCalls: Record<string, number> = {
   'features/admin-risk-control/presentation/pages/IngressRiskPage.vue :: `admin.ingressRisk.timeRanges.${value}`': 1,
   'features/admin-settings/presentation/composables/useSettingsPaymentProviders.ts :: `payment.methods.${conflict.method}`': 1,
   'features/admin-settings/presentation/pages/SettingsPage.vue :: `admin.settings.tabs.${tab.key}`': 1,
+  "features/admin-settings/presentation/widgets/settings-tabs/SettingsPermissionGroupsTab.vue :: `admin.settings.permissionGroups.catalog.${permission.key.replace(/\\./g, '_')}.description`": 1,
+  "features/admin-settings/presentation/widgets/settings-tabs/SettingsPermissionGroupsTab.vue :: `admin.settings.permissionGroups.catalog.${permission.key.replace(/\\./g, '_')}.name`": 1,
   'features/admin-users/presentation/pages/UsersPage.vue :: `admin.users.schedulingTiers.${schedulingTierKey(value)}`': 1,
   'features/admin-users/presentation/widgets/BulkEditUserDialog.vue :: `admin.users.schedulingTiers.${schedulingTierValue.value === 0 ? \'priority\' : schedulingTierValue.value === 2 ? \'low\' : \'normal\'}`': 1,
   'features/admin-users/presentation/widgets/UserPlatformQuotaDialog.vue :: `admin.users.platformQuota.window${quotaWindow.charAt(0).toUpperCase() + quotaWindow.slice(1)}`': 1,

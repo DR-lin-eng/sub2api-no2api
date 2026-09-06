@@ -136,7 +136,7 @@ func (h *AuthHandler) respondWithTokenPair(c *gin.Context, user *service.User) {
 		response.Success(c, AuthResponse{
 			AccessToken: token,
 			TokenType:   "Bearer",
-			User:        dto.UserFromService(user),
+			User:        h.userDTOWithPermissions(c.Request.Context(), user),
 		})
 		return
 	}
@@ -146,8 +146,19 @@ func (h *AuthHandler) respondWithTokenPair(c *gin.Context, user *service.User) {
 		RefreshToken: tokenPair.RefreshToken,
 		ExpiresIn:    tokenPair.ExpiresIn,
 		TokenType:    "Bearer",
-		User:         dto.UserFromService(user),
+		User:         h.userDTOWithPermissions(c.Request.Context(), user),
 	})
+}
+
+func (h *AuthHandler) userDTOWithPermissions(ctx context.Context, user *service.User) *dto.User {
+	out := dto.UserFromService(user)
+	if out == nil || h == nil || h.settingSvc == nil {
+		return out
+	}
+	if permissions, err := h.settingSvc.PermissionsForRole(ctx, user.Role); err == nil {
+		out.Permissions = permissions
+	}
+	return out
 }
 
 func (h *AuthHandler) refreshTokenCookieTTL() time.Duration {
@@ -162,7 +173,7 @@ func (h *AuthHandler) ensureBackendModeAllowsUser(ctx context.Context, user *ser
 	if user == nil {
 		return infraerrors.Unauthorized("INVALID_USER", "user not found")
 	}
-	if h == nil || !h.isBackendModeEnabled(ctx) || user.IsAdmin() {
+	if h == nil || !h.isBackendModeEnabled(ctx) || h.hasAdminPermissions(ctx, user) {
 		return nil
 	}
 	return infraerrors.Forbidden("BACKEND_MODE_ADMIN_ONLY", "Backend mode is active. Only admin login is allowed.")
@@ -173,6 +184,20 @@ func (h *AuthHandler) ensureBackendModeAllowsNewUserLogin(ctx context.Context) e
 		return nil
 	}
 	return infraerrors.Forbidden("BACKEND_MODE_ADMIN_ONLY", "Backend mode is active. Only admin login is allowed.")
+}
+
+func (h *AuthHandler) hasAdminPermissions(ctx context.Context, user *service.User) bool {
+	if user == nil {
+		return false
+	}
+	if user.IsAdmin() {
+		return true
+	}
+	if h.settingSvc == nil {
+		return false
+	}
+	permissions, err := h.settingSvc.PermissionsForRole(ctx, user.Role)
+	return err == nil && len(permissions) > 0
 }
 
 func (h *AuthHandler) isBackendModeEnabled(ctx context.Context) bool {
@@ -458,8 +483,14 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 		runMode = h.cfg.RunMode
 	}
 
+	profile := userProfileResponseFromService(user, identities)
+	if h.settingSvc != nil {
+		if permissions, permissionErr := h.settingSvc.PermissionsForRole(c.Request.Context(), user.Role); permissionErr == nil {
+			profile.Permissions = permissions
+		}
+	}
 	response.Success(c, UserResponse{
-		userProfileResponse: userProfileResponseFromService(user, identities),
+		userProfileResponse: profile,
 		RunMode:             runMode,
 	})
 }

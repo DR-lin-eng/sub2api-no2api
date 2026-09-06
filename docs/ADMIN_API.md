@@ -97,6 +97,51 @@ curl -X POST "${BASE}/api/v1/admin/settings/admin-api-keys" \
 
 旧版单一 Admin API Key 仅保留只读兼容能力，不能修改设置、轮换自身或执行其他写操作。建议重新创建 scoped Key 后撤销旧 Key。
 
+## 权限组与客服角色
+
+分步操作见 [权限组与客服账号使用教程](PERMISSION_GROUPS.md)。配置和分配权限组仅限完整管理员；`settings.manage` 不开放权限组修改或管理员密钥管理。
+
+管理员账号除内置 `admin` 角色外，还可以使用设置中的“权限组”配置自定义管理角色。权限组保存在 `settings.permission_groups`，角色 ID 会直接保存到用户的 `role` 字段；创建或编辑用户时选择权限组即可生效。自定义角色只能访问被授予的权限，未列入权限目录的 Admin 路由默认拒绝；前端导航隐藏只是体验层，后端中间件仍会逐路由校验。
+
+内置权限组 `support`（显示名称“客服”）默认包含：
+
+- `support.read`：查看在线客服会话、消息、未读数和素材。
+- `support.write`：回复、处理、标记已读/未读、撤回消息以及上传客服资源。
+- `users.read_basic`：查看客服资料弹窗所需的用户基本信息。
+
+默认客服组不包含余额转账权限。余额转账需要额外授予 `support.balance_transfer`，该权限由后端单独保护。基本信息接口只返回明确白名单字段（用户 ID、邮箱、用户名、角色、状态、余额快照、并发/RPM 限制、备注、调度等级和时间字段），不会返回 API Key、身份绑定或通知收件人。
+
+权限组配置接口：
+
+- `GET /api/v1/admin/settings/permission-groups`：返回权限目录和当前权限组。
+- `PUT /api/v1/admin/settings/permission-groups`：以完整列表替换权限组；内置客服组不能删除，权限必须来自返回的目录。
+- `GET /api/v1/admin/users/permission-groups`：返回用户角色选择器使用的权限组列表。
+- `GET /api/v1/admin/users/:id/basic`：返回客服资料弹窗使用的基本用户信息。
+
+更新示例：
+
+```bash
+curl -X PUT "${BASE}/api/v1/admin/settings/permission-groups" \
+  -H "Authorization: Bearer ${ADMIN_JWT}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "groups": [
+      {
+        "id": "support",
+        "name": "客服",
+        "permissions": ["support.read", "support.write", "users.read_basic"],
+        "built_in": true
+      },
+      {
+        "id": "ops",
+        "name": "运营只读",
+        "permissions": ["dashboard.read"],
+        "built_in": false
+      }
+    ]
+  }'
+```
+
 ## 使用 scoped Key 调用 Admin API
 
 ```bash

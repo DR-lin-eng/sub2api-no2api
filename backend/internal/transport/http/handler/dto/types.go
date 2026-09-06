@@ -15,6 +15,7 @@ type User struct {
 	Email             string     `json:"email"`
 	Username          string     `json:"username"`
 	Role              string     `json:"role"`
+	Permissions       []string   `json:"permissions,omitempty"`
 	Balance           float64    `json:"balance"`
 	FrozenBalance     float64    `json:"frozen_balance"`
 	AvailableBalance  *float64   `json:"available_balance,omitempty"`

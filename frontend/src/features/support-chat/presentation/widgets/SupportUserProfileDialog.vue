@@ -60,12 +60,13 @@ import { computed, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import { formatCurrency, formatDateTime } from '@/core/utils/format'
-import type { AdminUser, RequestSchedulingTier } from '@/types'
+import type { BasicUser } from '@/features/admin-users/data/datasources/adminUsersDatasource'
+import type { RequestSchedulingTier } from '@/types'
 
 const props = defineProps<{
   show: boolean
   loading: boolean
-  user: AdminUser | null
+  user: BasicUser | null
 }>()
 
 defineEmits<{
@@ -92,12 +93,12 @@ const InfoItem = {
   },
 }
 
-function statusLabel(status: AdminUser['status']): string {
+function statusLabel(status: BasicUser['status']): string {
   return status === 'active' ? t('supportChat.userProfile.active') : t('supportChat.userProfile.disabled')
 }
 
-function roleLabel(role: AdminUser['role']): string {
-  return role === 'admin' ? t('supportChat.userProfile.admin') : t('supportChat.userProfile.normalUser')
+function roleLabel(role: BasicUser['role']): string {
+  return role === 'admin' ? t('supportChat.userProfile.admin') : role === 'user' ? t('supportChat.userProfile.normalUser') : role
 }
 
 function rpmLimitLabel(value: number | undefined): string {

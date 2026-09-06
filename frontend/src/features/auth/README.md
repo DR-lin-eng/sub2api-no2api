@@ -39,3 +39,7 @@ pnpm exec vitest run src/features/auth/__tests__/authProfileLocaleScopes.spec.ts
 pnpm run lint:check
 pnpm run typecheck
 ```
+
+## 员工权限
+
+`isAdmin` 只表示经服务端确认的完整管理员；`canAccessAdmin` 表示具有后台授权的员工，`hasPermission` 检查明确授权。持久化的缓存资料不能解锁权限；Router 和菜单使用 `core/routes/adminPermissions.ts`，后端仍逐请求执行鉴权。
