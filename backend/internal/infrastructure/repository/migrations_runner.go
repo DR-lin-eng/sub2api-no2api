@@ -243,6 +243,11 @@ func applyMigrationsFS(ctx context.Context, db *sql.DB, fsys fs.FS) error {
 			continue
 		}
 
+		executionSQL, err := migrationSQLForExecution(name, checksum, content)
+		if err != nil {
+			return fmt.Errorf("prepare migration %s: %w", name, err)
+		}
+
 		// 默认迁移在事务中执行，确保原子性：要么完全成功，要么完全回滚。
 		tx, err := lockConn.BeginTx(ctx, nil)
 		if err != nil {
@@ -250,7 +255,7 @@ func applyMigrationsFS(ctx context.Context, db *sql.DB, fsys fs.FS) error {
 		}
 
 		// 执行迁移 SQL
-		if _, err := tx.ExecContext(ctx, content); err != nil {
+		if _, err := tx.ExecContext(ctx, executionSQL); err != nil {
 			_ = tx.Rollback()
 			return fmt.Errorf("apply migration %s: %w", name, err)
 		}

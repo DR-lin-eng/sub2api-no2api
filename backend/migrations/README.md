@@ -34,7 +34,7 @@ Example: `017_add_gemini_tier_id.sql`
 
 ## Migration File Structure
 
-This project uses a custom migration runner (`internal/infrastructure/repository/migrations_runner.go`) that executes the full SQL file content as-is.
+This project uses a custom migration runner (`internal/infrastructure/repository/migrations_runner.go`) that normally executes the full SQL file content as-is. The checksum-pinned activity-center exception below changes only its type CHECK clauses during execution.
 
 - Regular migrations (`*.sql`): executed in a transaction.
 - Non-transactional migrations (`*_notx.sql`): split by statement and executed without transaction (for `CONCURRENTLY`).
@@ -182,3 +182,40 @@ VALUES ('NNN_migration.sql', 'calculated_checksum', NOW());
 
 - Migration runner: `internal/infrastructure/repository/migrations_runner.go`
 - PostgreSQL docs: https://www.postgresql.org/docs/
+
+
+## Legacy activity-center upgrades (237)
+
+`237_add_activity_center.sql` remains byte-for-byte immutable. Older installations
+can already have `act_campaigns` without `config_json`; `CREATE TABLE IF NOT EXISTS`
+does not add missing columns. Migration `236a_repair_activity_center_campaign_config.sql`
+therefore runs before 237 and adds that column only when the table already exists.
+It preserves existing configuration values and is a no-op on a fresh database.
+
+237 also concatenates historical type-constraint changes. An intermediate CHECK
+excludes existing `checkin` campaigns/participation records before a later statement
+adds that type back. A preflight constraint change alone cannot prevent this failure.
+`migrations_activity_center_compat.go` therefore widens exactly six CHECK clauses
+**only for 237's original, pinned SHA256**. It keeps `external_link` and `announcement`
+rows from earlier schemas too; no campaigns, participation records, or rewards are
+rewritten. Unknown file checksums are rejected, not allowlisted. The runner still
+executes the SQL and records the original file checksum atomically under its session
+advisory lock. It does not mark a failed migration complete or disable constraints.
+
+`238_preserve_legacy_activity_campaign_types.sql` brings installations that already
+completed 237 to the same validated constraints. This database compatibility does
+not enable creation of obsolete activity types in the application API.
+
+Regression coverage:
+
+```sh
+cd backend
+go test ./migrations ./internal/infrastructure/repository -run 'ActivityCenter|MigrationSQLForExecution|ApplyMigrationsFS_Activity' -count=1
+go test -tags=integration ./internal/infrastructure/repository -run 'ActivityCenterMigration|MigrationsRunner_' -count=1
+```
+
+The integration command requires Docker. It tests fresh and populated legacy
+schemas, configuration/reward preservation, checksums, reruns and transaction rollback.
+A failed startup migration rolls back and exits the application; an automatic
+container restart will retry it. A restart policy change alone does not repair the
+schema. Apply the compatible build rather than inserting completion records manually.
