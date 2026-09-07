@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/shared/openaitiming"
 )
 
 const (
@@ -173,6 +175,7 @@ type UsageLog struct {
 	OpenAIWSMode bool
 	DurationMs   *int
 	FirstTokenMs *int
+	OpenAITiming *openaitiming.Metrics
 	UserAgent    *string
 	IPAddress    *string
 	// SessionID is the explicit client-provided request correlation identifier

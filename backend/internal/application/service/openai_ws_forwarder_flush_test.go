@@ -33,13 +33,14 @@ func testOpenAIGatewayServiceForwardWSV2FlushesSemanticOutputBeforeVisibleToken(
 	created := []byte(`{"type":"response.created","response":{"id":"resp_flush","model":"gpt-5.1"}}`)
 	semanticOutput := []byte(`{"type":"response.output_audio.done","response_id":"resp_flush","audio":"encoded"}`)
 	visibleToken := []byte(`{"type":"response.output_text.delta","response_id":"resp_flush","delta":"visible"}`)
+	timing := []byte(`{"type":"responsesapi.websocket_timing","timing_metrics":{"response_id":"resp_flush","engine_service_ttft_total_ms":690.87897,"total_turn_time_s":1.047620254}}`)
 	terminal := []byte(`{"type":"response.completed","response":{"id":"resp_flush","model":"gpt-5.1","usage":{"input_tokens":2,"output_tokens":1}}}`)
 	allowVisible := make(chan struct{})
 	visibleWaiting := make(chan struct{})
 	captureConn := &openAIWSCaptureConn{
-		events:      [][]byte{created, semanticOutput, visibleToken, terminal},
-		readGates:   []<-chan struct{}{nil, nil, allowVisible, nil},
-		readWaiting: []chan struct{}{nil, nil, visibleWaiting, nil},
+		events:      [][]byte{created, semanticOutput, visibleToken, timing, terminal},
+		readGates:   []<-chan struct{}{nil, nil, allowVisible, nil, nil},
+		readWaiting: []chan struct{}{nil, nil, visibleWaiting, nil, nil},
 	}
 
 	cfg := newOpenAIWSV2TestConfig()
@@ -98,4 +99,7 @@ func testOpenAIGatewayServiceForwardWSV2FlushesSemanticOutputBeforeVisibleToken(
 	result := <-resultCh
 	require.NotNil(t, result)
 	require.NotNil(t, result.FirstTokenMs, "TTFT measurement must remain independent from delivery")
+	require.NotNil(t, result.OpenAITiming)
+	require.Equal(t, 691, *result.OpenAITiming.FirstTokenMs())
+	require.Equal(t, 1048, *result.OpenAITiming.DurationMs())
 }

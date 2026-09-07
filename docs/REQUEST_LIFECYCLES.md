@@ -184,6 +184,10 @@ principal；若 `previous_response_id -> account_id` 或当前节点的原始连
 
 ## 浏览器管理请求
 
+OpenAI 用量记录同时保留本地观测计时和可选上游遥测。用量明细展示优先采用有效上游值，
+管理员获得两套计时和来源；用户保持原有字段与界面。调度、计费和 Ops 本地口径不变，
+详细边界见 [OpenAI 请求计时](OPENAI_TIMING.md)。
+
 浏览器 API 主要位于 `/api/v1/...`。前端不直接拼接鉴权、刷新或统一错误逻辑。
 
 ```mermaid

@@ -311,6 +311,8 @@ func TestOpenAIWSHTTPBridgeRelaysSSEFramesAsWebSocketMessages(t *testing.T) {
 		"",
 		`data: {"type":"response.output_text.delta","response":{"id":"resp_bridge"},"delta":"ok"}`,
 		"",
+		`data: {"type":"responsesapi.websocket_timing","timing_metrics":{"response_id":"resp_bridge","engine_service_ttft_total_ms":690.87897,"total_turn_time_s":1.047620254}}`,
+		"",
 		`data: {"type":"response.completed","response":{"id":"resp_bridge","model":"gpt-5","usage":{"input_tokens":3,"output_tokens":2}}}`,
 		"",
 	}, "\n")
@@ -405,10 +407,12 @@ func TestOpenAIWSHTTPBridgeRelaysSSEFramesAsWebSocketMessages(t *testing.T) {
 
 	created := readEvent()
 	delta := readEvent()
+	timing := readEvent()
 	completed := readEvent()
 
 	require.Equal(t, "response.created", gjson.GetBytes(created, "type").String())
 	require.Equal(t, "response.output_text.delta", gjson.GetBytes(delta, "type").String())
+	require.Equal(t, "responsesapi.websocket_timing", gjson.GetBytes(timing, "type").String())
 	require.Equal(t, "response.completed", gjson.GetBytes(completed, "type").String())
 
 	select {
@@ -416,6 +420,9 @@ func TestOpenAIWSHTTPBridgeRelaysSSEFramesAsWebSocketMessages(t *testing.T) {
 		require.NoError(t, bridge.err)
 		require.NotNil(t, bridge.result)
 		require.Equal(t, "resp_bridge", bridge.result.RequestID)
+		require.NotNil(t, bridge.result.OpenAITiming)
+		require.Equal(t, 691, *bridge.result.OpenAITiming.FirstTokenMs())
+		require.Equal(t, 1048, *bridge.result.OpenAITiming.DurationMs())
 		require.Equal(t, 3, bridge.result.Usage.InputTokens)
 		require.Equal(t, 2, bridge.result.Usage.OutputTokens)
 		require.True(t, bridge.result.OpenAIWSMode)

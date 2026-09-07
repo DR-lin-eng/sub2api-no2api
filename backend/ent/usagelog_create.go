@@ -463,6 +463,12 @@ func (_c *UsageLogCreate) SetNillableFirstTokenMs(v *int) *UsageLogCreate {
 	return _c
 }
 
+// SetOpenaiTiming sets the "openai_timing" field.
+func (_c *UsageLogCreate) SetOpenaiTiming(v map[string]interface{}) *UsageLogCreate {
+	_c.mutation.SetOpenaiTiming(v)
+	return _c
+}
+
 // SetUserAgent sets the "user_agent" field.
 func (_c *UsageLogCreate) SetUserAgent(v string) *UsageLogCreate {
 	_c.mutation.SetUserAgent(v)
@@ -1082,6 +1088,10 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.FirstTokenMs(); ok {
 		_spec.SetField(usagelog.FieldFirstTokenMs, field.TypeInt, value)
 		_node.FirstTokenMs = &value
+	}
+	if value, ok := _c.mutation.OpenaiTiming(); ok {
+		_spec.SetField(usagelog.FieldOpenaiTiming, field.TypeJSON, value)
+		_node.OpenaiTiming = value
 	}
 	if value, ok := _c.mutation.UserAgent(); ok {
 		_spec.SetField(usagelog.FieldUserAgent, field.TypeString, value)
@@ -1863,6 +1873,24 @@ func (u *UsageLogUpsert) AddFirstTokenMs(v int) *UsageLogUpsert {
 // ClearFirstTokenMs clears the value of the "first_token_ms" field.
 func (u *UsageLogUpsert) ClearFirstTokenMs() *UsageLogUpsert {
 	u.SetNull(usagelog.FieldFirstTokenMs)
+	return u
+}
+
+// SetOpenaiTiming sets the "openai_timing" field.
+func (u *UsageLogUpsert) SetOpenaiTiming(v map[string]interface{}) *UsageLogUpsert {
+	u.Set(usagelog.FieldOpenaiTiming, v)
+	return u
+}
+
+// UpdateOpenaiTiming sets the "openai_timing" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateOpenaiTiming() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldOpenaiTiming)
+	return u
+}
+
+// ClearOpenaiTiming clears the value of the "openai_timing" field.
+func (u *UsageLogUpsert) ClearOpenaiTiming() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldOpenaiTiming)
 	return u
 }
 
@@ -2817,6 +2845,27 @@ func (u *UsageLogUpsertOne) UpdateFirstTokenMs() *UsageLogUpsertOne {
 func (u *UsageLogUpsertOne) ClearFirstTokenMs() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearFirstTokenMs()
+	})
+}
+
+// SetOpenaiTiming sets the "openai_timing" field.
+func (u *UsageLogUpsertOne) SetOpenaiTiming(v map[string]interface{}) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetOpenaiTiming(v)
+	})
+}
+
+// UpdateOpenaiTiming sets the "openai_timing" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateOpenaiTiming() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateOpenaiTiming()
+	})
+}
+
+// ClearOpenaiTiming clears the value of the "openai_timing" field.
+func (u *UsageLogUpsertOne) ClearOpenaiTiming() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearOpenaiTiming()
 	})
 }
 
@@ -3973,6 +4022,27 @@ func (u *UsageLogUpsertBulk) UpdateFirstTokenMs() *UsageLogUpsertBulk {
 func (u *UsageLogUpsertBulk) ClearFirstTokenMs() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearFirstTokenMs()
+	})
+}
+
+// SetOpenaiTiming sets the "openai_timing" field.
+func (u *UsageLogUpsertBulk) SetOpenaiTiming(v map[string]interface{}) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetOpenaiTiming(v)
+	})
+}
+
+// UpdateOpenaiTiming sets the "openai_timing" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateOpenaiTiming() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateOpenaiTiming()
+	})
+}
+
+// ClearOpenaiTiming clears the value of the "openai_timing" field.
+func (u *UsageLogUpsertBulk) ClearOpenaiTiming() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearOpenaiTiming()
 	})
 }
 

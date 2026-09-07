@@ -232,6 +232,12 @@
               <span class="font-medium tabular-nums" :class="LATENCY_TEXT_CLASSES[durationSeverity(row.duration_ms ?? 0)]">{{ formatDuration(row.duration_ms) }}</span>
               <span class="text-gray-400 dark:text-gray-500">{{ t('usage.latencyOutputSpeed') }}</span>
               <span data-testid="output-token-speed" class="font-medium tabular-nums text-teal-600 dark:text-teal-400">{{ formatOutputTokenSpeed(row) }}</span>
+              <template v-if="isAdminAudience && row.openai_timing">
+                <span class="text-gray-400 dark:text-gray-500">{{ t('usage.timingLocalFirst') }}</span>
+                <span data-testid="local-first-token" class="tabular-nums text-gray-600 dark:text-gray-300">{{ formatDuration(row.local_first_token_ms) }}</span>
+                <span class="text-gray-400 dark:text-gray-500">{{ t('usage.timingEngineFirst') }}</span>
+                <span data-testid="openai-first-token" class="tabular-nums text-gray-600 dark:text-gray-300">{{ formatDuration(row.openai_timing.engine_service_ttft_total_ms) }}</span>
+              </template>
             </div>
           </div>
         </template>

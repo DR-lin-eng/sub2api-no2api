@@ -84,6 +84,17 @@ const usage = {
   account_rate_multiplier: 1.75,
   account_stats_cost: 0.7,
   account: { id: 9981, name: 'private-account-name' },
+  local_first_token_ms: 1250,
+  local_duration_ms: 1800,
+  first_token_source: 'openai',
+  duration_source: 'openai',
+  openai_timing: {
+    first_sampled_message_ttft_ms: 470,
+    engine_service_ttft_total_ms: 690.87897,
+    engine_queue_max_ms: 74,
+    total_turn_time_s: 1.047620254,
+    num_engine_calls: 1,
+  },
 } as AdminUsageLog
 
 const mountDialog = (audience: 'user' | 'admin') => mount(UsageDetailDialog, {
@@ -118,6 +129,9 @@ describe('UsageDetailDialog audience boundary', () => {
     expect(text).not.toContain('private-account-name')
     expect(text).not.toContain('#987654321')
     expect(text).not.toContain('private-billing-tier')
+    expect(text).not.toContain('usage.timingComparison')
+    expect(text).not.toContain('690.87897')
+    expect(text).not.toContain('1250 ms')
   })
 
   it('shows administrator diagnostics for admin audiences', () => {
@@ -129,5 +143,21 @@ describe('UsageDetailDialog audience boundary', () => {
     expect(text).toContain('private-account-name')
     expect(text).toContain('#987654321')
     expect(text).toContain('private-billing-tier')
+    expect(text).toContain('usage.timingComparison')
+    expect(text).toContain('1250 ms')
+    expect(text).toContain('690.87897 ms')
+    expect(text).toContain('559.12103 ms')
+    expect(text).toContain('1047.620254 ms')
+    expect(text).toContain('752.379746 ms')
+  })
+
+  it('shows legacy local timing and missing upstream values without zero substitution', async () => {
+    const wrapper = mountDialog('admin')
+    await wrapper.setProps({ usage: { ...usage, openai_timing: null, local_first_token_ms: undefined, local_duration_ms: undefined, first_token_source: undefined, duration_source: undefined } })
+    const text = wrapper.get('[data-testid="timing-comparison"]').text()
+    expect(text).toContain('100 ms')
+    expect(text).toContain('500 ms')
+    expect(text).toContain('usage.timingLocal')
+    expect(text).not.toContain('690.87897')
   })
 })

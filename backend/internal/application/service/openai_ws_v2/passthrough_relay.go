@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/shared/openaitiming"
 	coderws "github.com/coder/websocket"
 	"github.com/tidwall/gjson"
 )
@@ -30,6 +31,7 @@ type Usage struct {
 }
 
 type RelayResult struct {
+	OpenAITiming            *openaitiming.Metrics
 	RequestModel            string
 	ResponseModel           string
 	ResponseModelConflict   bool
@@ -44,6 +46,7 @@ type RelayResult struct {
 }
 
 type RelayTurnResult struct {
+	OpenAITiming          *openaitiming.Metrics
 	RequestModel          string
 	ResponseModel         string
 	ResponseModelConflict bool
@@ -97,6 +100,7 @@ type RelayTraceEvent struct {
 }
 
 type relayState struct {
+	lastOpenAITiming  *openaitiming.Metrics
 	usage             Usage
 	requestModelMu    sync.RWMutex
 	requestModel      string
@@ -118,6 +122,7 @@ type relayExitSignal struct {
 }
 
 type observedUpstreamEvent struct {
+	openAITiming     *openaitiming.Metrics
 	terminal         bool
 	eventType        string
 	responseID       string
@@ -129,6 +134,7 @@ type observedUpstreamEvent struct {
 }
 
 type relayTurnTiming struct {
+	openAITiming          openaitiming.Collector
 	startAt               time.Time
 	firstTokenMs          *int
 	firstResponseModel    string
@@ -749,6 +755,19 @@ func observeUpstreamMessage(
 		responseID = strings.TrimSpace(values[3].String())
 	}
 	now := nowFn()
+	// Telemetry attaches only to an existing turn. Unknown/late IDs never
+	// create a turn or change active-turn timing.
+	if eventType == openaitiming.EventType {
+		id := gjson.GetBytes(message, "timing_metrics.response_id").String()
+		turn := state.activeTurn
+		if id != "" {
+			turn = state.turnTimingByID[id]
+		}
+		if turn != nil {
+			turn.openAITiming.Observe(message, eventType)
+		}
+		return observedUpstreamEvent{eventType: eventType}
+	}
 
 	if state.firstTokenMs == nil && isTTFTEvent(eventType, state.legacyTTFT) {
 		ms := int(now.Sub(startAt).Milliseconds())
@@ -781,6 +800,9 @@ func observeUpstreamMessage(
 		turnTiming = state.activeTurn
 	}
 	observeRelayTurnResponseModel(turnTiming, firstRelayResponseModel(message), isTerminalEvent(eventType))
+	if turnTiming != nil {
+		turnTiming.openAITiming.Observe(message, eventType)
+	}
 	if !isTerminalEvent(eventType) {
 		return observed
 	}
@@ -789,6 +811,8 @@ func observeUpstreamMessage(
 	if responseID != "" {
 		state.lastResponseID = responseID
 		if turnTiming, ok := openAIWSRelayDeleteTurnTiming(state, responseID); ok {
+			observed.openAITiming = turnTiming.openAITiming.Snapshot()
+			state.lastOpenAITiming = observed.openAITiming
 			observed.responseModel = relayTurnResponseModel(&turnTiming)
 			observed.responseConflict = turnTiming.responseModelConflict
 			state.lastResponseModel = observed.responseModel
@@ -829,6 +853,7 @@ func emitTurnComplete(
 		TerminalEventType:     observed.eventType,
 		Duration:              observed.duration,
 		FirstTokenMs:          openAIWSRelayCloneIntPtr(observed.firstToken),
+		OpenAITiming:          observed.openAITiming,
 	})
 }
 
@@ -1059,6 +1084,7 @@ func enrichResult(result *RelayResult, state *relayState, duration time.Duration
 	result.RequestID = state.lastResponseID
 	result.TerminalEventType = state.terminalEventType
 	result.FirstTokenMs = state.firstTokenMs
+	result.OpenAITiming = state.lastOpenAITiming
 }
 
 func (s *relayState) setRequestModel(model string) {
