@@ -1,0 +1,1208 @@
+diff --git a/backend/internal/application/service/openai_gateway_forward.go b/backend/internal/application/service/openai_gateway_forward.go
+index f9d56e861..3ff3fab30 100644
+--- a/backend/internal/application/service/openai_gateway_forward.go
++++ b/backend/internal/application/service/openai_gateway_forward.go
+@@ -966,7 +966,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
+ 
+ 		// Send request
+ 		upstreamStart := time.Now()
+-		resp, err := s.doAccountHTTPUpstream(upstreamReq, proxyURL, account)
++		resp, err := s.doOpenAIResponsesUpstream(ctx, c, upstreamReq, proxyURL, account, reqStream)
+ 		SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
+ 		if headerGuard != nil && headerGuard.stopHeaderWait() {
+ 			if resp != nil && resp.Body != nil {
+diff --git a/backend/internal/application/service/openai_gateway_passthrough.go b/backend/internal/application/service/openai_gateway_passthrough.go
+index 9084b9794..d5aceeb0b 100644
+--- a/backend/internal/application/service/openai_gateway_passthrough.go
++++ b/backend/internal/application/service/openai_gateway_passthrough.go
+@@ -367,11 +367,11 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
+ 				zap.Int("attempts_used", used),
+ 				zap.Int("attempt_budget", limit),
+ 			).Warn("openai.passthrough_attempt_budget_exhausted")
+-			return nil, newOpenAIPassthroughAttemptBudgetError()
++			return nil, budget.exhaustedError()
+ 		}
+ 
+ 		upstreamStart := time.Now()
+-		resp, err = s.doAccountHTTPUpstream(upstreamReq, proxyURL, account)
++		resp, err = s.doOpenAIResponsesUpstream(ctx, c, upstreamReq, proxyURL, account, reqStream)
+ 		SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
+ 		if headerGuard != nil && headerGuard.stopHeaderWait() {
+ 			if resp != nil && resp.Body != nil {
+@@ -886,6 +886,9 @@ func writeOpenAIPassthroughErrorEnvelope(c *gin.Context, downstreamStatus int, u
+ 	if c == nil {
+ 		return
+ 	}
++	if writeOpenAIResponsesErrorAfterKeepalive(c, downstreamStatus, "upstream_error", message) {
++		return
++	}
+ 	body := marshalOpenAIPassthroughErrorEnvelope(message)
+ 	if writeOpenAICompactSSEBridge(c, downstreamStatus, body) {
+ 		return
+@@ -1101,6 +1104,7 @@ type openaiNonStreamingResultPassthrough struct {
+ }
+ 
+ const openAIStreamKeepaliveBytesKey = "openai_stream_keepalive_bytes"
++const openAIStreamLastWriteKey = "openai_stream_last_write"
+ 
+ func recordOpenAIStreamKeepaliveBytes(c *gin.Context, written int) {
+ 	if c == nil || written <= 0 {
+@@ -1111,6 +1115,29 @@ func recordOpenAIStreamKeepaliveBytes(c *gin.Context, written int) {
+ 		current, _ = value.(int)
+ 	}
+ 	c.Set(openAIStreamKeepaliveBytesKey, current+written)
++	c.Set(openAIStreamLastWriteKey, time.Now())
++}
++
++func openAIStreamKeepaliveDelay(c *gin.Context, interval time.Duration) time.Duration {
++	delay := time.Until(openAIStreamLastWriteAt(c).Add(interval))
++	if delay <= 0 {
++		return time.Nanosecond
++	}
++	return delay
++}
++
++func openAIStreamLastWriteAt(c *gin.Context) time.Time {
++	if c == nil {
++		return time.Now()
++	}
++	if value, ok := c.Get(openAIStreamLastWriteKey); ok {
++		if lastWrite, valid := value.(time.Time); valid {
++			return lastWrite
++		}
++	}
++	now := time.Now()
++	c.Set(openAIStreamLastWriteKey, now)
++	return now
+ }
+ 
+ func openAIStreamClientOutputStarted(c *gin.Context, localStarted bool) bool {
+@@ -1126,7 +1153,8 @@ func openAIStreamClientOutputStarted(c *gin.Context, localStarted bool) bool {
+ 
+ func openAIStreamEventIsPreambleTrimmed(eventType string) bool {
+ 	switch eventType {
+-	case "response.created", "response.in_progress":
++	case "response.created", "response.in_progress", "codex.rate_limits", "codex.response.metadata":
++		// Transport metadata is not model output, even when carried in data frames.
+ 		return true
+ 	default:
+ 		return false
+@@ -1627,13 +1655,15 @@ func (s *OpenAIGatewayService) handleOpenAIResponseFailedBeforeOutput(
+ 		s.recordOpenAIStreamUpstreamError(c, account, passthrough, upstreamRequestID, "http_error", payload, errMsg)
+ 		if c != nil && c.Writer != nil {
+ 			MarkResponseCommitted(c)
+-			c.Writer.Header().Set("Content-Type", "application/json; charset=utf-8")
+-			c.JSON(status, gin.H{
+-				"error": gin.H{
+-					"type":    errType,
+-					"message": errMsg,
+-				},
+-			})
++			if !writeOpenAIResponsesErrorAfterKeepalive(c, status, errType, errMsg) {
++				c.Writer.Header().Set("Content-Type", "application/json; charset=utf-8")
++				c.JSON(status, gin.H{
++					"error": gin.H{
++						"type":    errType,
++						"message": errMsg,
++					},
++				})
++			}
+ 		}
+ 		return fmt.Errorf("upstream response failed: passthrough rule matched message=%s", errMsg), true
+ 	}
+@@ -1680,6 +1710,9 @@ func openAIStreamFailedEventShouldFailover(payload []byte, message string) bool
+ }
+ 
+ func openAIStreamFailureIsExplicitlyRetryable(payload []byte, message string) bool {
++	if gjson.GetBytes(payload, "type").String() == "error" && openAIStreamFailedEventErrorCode(payload) == "server_error" {
++		return openAIStreamFailedEventShouldFailover(payload, message)
++	}
+ 	if IsOpenAIGenericUpstreamFailureBody(payload) {
+ 		return true
+ 	}
+@@ -1940,6 +1973,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
+ 	sawDone := false
+ 	sawTerminalEvent := false
+ 	sawFailedEvent := false
++	sawResponseFailedEvent := false
+ 	responsesSemanticOutputSeen := false
+ 	capacityFailoverSuppressedLogged := false
+ 	failedMessage := ""
+@@ -1981,14 +2015,14 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
+ 
+ 	keepaliveInterval := time.Duration(0)
+ 	keepaliveInterval = s.openAIStreamKeepaliveIntervalWithContext(ctx)
+-	var keepaliveTicker *time.Ticker
++	var keepaliveTimer *time.Timer
+ 	var keepaliveCh <-chan time.Time
+ 	if keepaliveInterval > 0 {
+-		keepaliveTicker = time.NewTicker(keepaliveInterval)
+-		keepaliveCh = keepaliveTicker.C
+-		defer keepaliveTicker.Stop()
++		keepaliveTimer = time.NewTimer(openAIStreamKeepaliveDelay(c, keepaliveInterval))
++		keepaliveCh = keepaliveTimer.C
++		defer keepaliveTimer.Stop()
+ 	}
+-	lastDownstreamWriteAt := time.Now()
++	lastDownstreamWriteAt := openAIStreamLastWriteAt(c)
+ 	downstreamEventInProgress := false
+ 	// pendingLines 在首个可见输出前保留前导事件，确保无输出失败仍可安全 failover。
+ 	var preOutputStage *openAIFirstOutputStage
+@@ -2161,6 +2195,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
+ 				firstOutputTimeout, "passthrough_semantic_output", resp.Header,
+ 			)
+ 		case <-keepaliveCh:
++			keepaliveTimer.Reset(keepaliveInterval)
+ 			if clientDisconnected || downstreamEventInProgress || time.Since(lastDownstreamWriteAt) < keepaliveInterval {
+ 				continue
+ 			}
+@@ -2222,6 +2257,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
+ 				isFailureEnvelope = openAIStreamFailureIsExplicitlyRetryable(dataBytes, failureEnvelopeMessage)
+ 			}
+ 			if isFailureEnvelope {
++				sawResponseFailedEvent = eventType == "response.failed"
+ 				failedMessage = failureEnvelopeMessage
+ 				if failedMessage == "" {
+ 					failedMessage = extractOpenAISSEErrorMessage(dataBytes)
+@@ -2385,6 +2421,12 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
+ 				}
+ 			}
+ 		}
++		if sawResponseFailedEvent && line == "" {
++			// A failed response is final. Do not forward later synthetic progress
++			// or wait for a relay to close an otherwise still-live connection.
++			_ = resp.Body.Close()
++			return resultWithUsage(), fmt.Errorf("upstream response failed: %s", failedMessage)
++		}
+ 	}
+ 	if scanErr != nil {
+ 		err := scanErr
+diff --git a/backend/internal/application/service/openai_gateway_response_handling.go b/backend/internal/application/service/openai_gateway_response_handling.go
+index d3f0e38b7..8df0d102d 100644
+--- a/backend/internal/application/service/openai_gateway_response_handling.go
++++ b/backend/internal/application/service/openai_gateway_response_handling.go
+@@ -188,14 +188,14 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
+ 	keepaliveInterval := time.Duration(0)
+ 	keepaliveInterval = s.openAIStreamKeepaliveIntervalWithContext(ctx)
+ 	// 下游 keepalive 仅用于防止代理空闲断开
+-	var keepaliveTicker *time.Ticker
++	var keepaliveTimer *time.Timer
+ 	if keepaliveInterval > 0 {
+-		keepaliveTicker = time.NewTicker(keepaliveInterval)
+-		defer keepaliveTicker.Stop()
++		keepaliveTimer = time.NewTimer(openAIStreamKeepaliveDelay(c, keepaliveInterval))
++		defer keepaliveTimer.Stop()
+ 	}
+ 	var keepaliveCh <-chan time.Time
+-	if keepaliveTicker != nil {
+-		keepaliveCh = keepaliveTicker.C
++	if keepaliveTimer != nil {
++		keepaliveCh = keepaliveTimer.C
+ 	}
+ 
+ 	var firstOutputTimer *time.Timer
+@@ -225,7 +225,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
+ 	// Track downstream writes separately from upstream reads: pre-output failover
+ 	// can buffer response.created / response.in_progress, so keepalive must be
+ 	// based on downstream idle time.
+-	lastDownstreamWriteAt := time.Now()
++	lastDownstreamWriteAt := openAIStreamLastWriteAt(c)
+ 
+ 	// 仅发送一次错误事件，避免多次写入导致协议混乱。
+ 	// 注意：OpenAI `/v1/responses` streaming 事件必须符合 OpenAI Responses schema；
+@@ -234,6 +234,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
+ 	clientDisconnected := false // 客户端断开后继续 drain 上游以收集 usage
+ 	sawTerminalEvent := false
+ 	sawFailedEvent := false
++	sawResponseFailedEvent := false
+ 	responsesSemanticOutputSeen := false
+ 	capacityFailoverSuppressedLogged := false
+ 	failedMessage := ""
+@@ -411,7 +412,9 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
+ 		}
+ 		// 客户端断开/取消请求时，上游读取往往会返回 context canceled。
+ 		// /v1/responses 的 SSE 事件必须符合 OpenAI 协议；这里不注入自定义 error event，避免下游 SDK 解析失败。
+-		if errors.Is(scanErr, context.Canceled) || errors.Is(scanErr, context.DeadlineExceeded) {
++		if errors.Is(scanErr, context.Canceled) ||
++			(errors.Is(scanErr, context.DeadlineExceeded) &&
++				(ctx.Err() != nil || openAIStreamClientOutputStarted(c, clientOutputStarted) || eventShouldFlush || sawOutputProgressEvent)) {
+ 			if eventShouldFlush {
+ 				flushPending("Client disconnected during canceled stream flush, returning collected usage")
+ 			}
+@@ -466,6 +469,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
+ 			}
+ 			forceFlushFailedEvent := false
+ 			if isFailureEnvelope {
++				sawResponseFailedEvent = eventType == "response.failed"
+ 				failedMessage = failureEnvelopeMessage
+ 				if failedMessage == "" {
+ 					failedMessage = extractOpenAISSEErrorMessage(dataBytes)
+@@ -700,6 +704,10 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
+ 			if streamEarlyErr != nil {
+ 				return resultWithUsage(), streamEarlyErr
+ 			}
++			if sawResponseFailedEvent && documentScanner.Text() == "" {
++				_ = resp.Body.Close()
++				return finalizeStream()
++			}
+ 		}
+ 		if result, err, done := handleScanErr(documentScanner.Err()); done {
+ 			return result, err
+@@ -793,6 +801,11 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
+ 			if streamEarlyErr != nil {
+ 				return resultWithUsage(), streamEarlyErr
+ 			}
++			if sawResponseFailedEvent && ev.line == "" {
++				// Finish at the failure's event boundary, not at transport EOF.
++				_ = resp.Body.Close()
++				return finalizeStream()
++			}
+ 
+ 		case <-intervalCh:
+ 			lastRead := time.Unix(0, atomic.LoadInt64(&lastReadAt))
+@@ -807,6 +820,10 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
+ 			if s.rateLimitService != nil {
+ 				s.rateLimitService.HandleStreamTimeout(ctx, account, originalModel)
+ 			}
++			if stageFirstOutput && !openAIStreamClientOutputStarted(c, clientOutputStarted) && !eventShouldFlush && !sawOutputProgressEvent {
++				_ = resp.Body.Close()
++				return resultWithUsage(), s.newOpenAIStreamFailoverError(c, account, false, upstreamRequestID, nil, "OpenAI stream timed out before semantic output")
++			}
+ 			sendErrorEvent("stream_timeout")
+ 			return resultWithUsage(), fmt.Errorf("stream data interval timeout")
+ 
+@@ -825,10 +842,11 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
+ 			)
+ 
+ 		case <-keepaliveCh:
++			keepaliveTimer.Reset(keepaliveInterval)
+ 			if clientDisconnected {
+ 				continue
+ 			}
+-			if eventInProgress {
++			if eventInProgress && (firstOutputStage == nil || firstOutputStage.closed || eventStartsClientOutput || sawOutputProgressEvent) {
+ 				continue
+ 			}
+ 			if time.Since(lastDownstreamWriteAt) < keepaliveInterval {
+diff --git a/backend/internal/application/service/openai_gateway_upstream_errors.go b/backend/internal/application/service/openai_gateway_upstream_errors.go
+index 5239cdac9..9225f784a 100644
+--- a/backend/internal/application/service/openai_gateway_upstream_errors.go
++++ b/backend/internal/application/service/openai_gateway_upstream_errors.go
+@@ -436,6 +436,9 @@ func (s *OpenAIGatewayService) handleErrorResponse(
+ 			UpstreamStatus: resp.StatusCode,
+ 		})
+ 		setOpsUpstreamError(c, resp.StatusCode, cyberMsg, truncateString(string(body), 2048))
++		if writeOpenAIResponsesErrorAfterKeepalive(c, resp.StatusCode, code, cyberMsg) {
++			return nil, fmt.Errorf("openai cyber_policy: %s", cyberMsg)
++		}
+ 		writeOpenAIPassthroughResponseHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
+ 		contentType := resp.Header.Get("Content-Type")
+ 		if contentType == "" {
+@@ -515,12 +518,14 @@ func (s *OpenAIGatewayService) handleErrorResponse(
+ 		"Upstream request failed",
+ 	); matched {
+ 		MarkResponseCommitted(c)
+-		c.JSON(status, gin.H{
+-			"error": gin.H{
+-				"type":    errType,
+-				"message": errMsg,
+-			},
+-		})
++		if !writeOpenAIResponsesErrorAfterKeepalive(c, status, errType, errMsg) {
++			c.JSON(status, gin.H{
++				"error": gin.H{
++					"type":    errType,
++					"message": errMsg,
++				},
++			})
++		}
+ 		if upstreamMsg == "" {
+ 			upstreamMsg = errMsg
+ 		}
+@@ -543,12 +548,14 @@ func (s *OpenAIGatewayService) handleErrorResponse(
+ 			Detail:             upstreamDetail,
+ 		})
+ 		MarkResponseCommitted(c)
+-		c.JSON(http.StatusInternalServerError, gin.H{
+-			"error": gin.H{
+-				"type":    "upstream_error",
+-				"message": "Upstream gateway error",
+-			},
+-		})
++		if !writeOpenAIResponsesErrorAfterKeepalive(c, http.StatusInternalServerError, "upstream_error", "Upstream gateway error") {
++			c.JSON(http.StatusInternalServerError, gin.H{
++				"error": gin.H{
++					"type":    "upstream_error",
++					"message": "Upstream gateway error",
++				},
++			})
++		}
+ 		if upstreamMsg == "" {
+ 			return nil, fmt.Errorf("upstream error: %d (not in custom error codes)", resp.StatusCode)
+ 		}
+@@ -625,12 +632,14 @@ func (s *OpenAIGatewayService) handleErrorResponse(
+ 		errMsg = upstreamMsg
+ 	}
+ 
+-	c.JSON(statusCode, gin.H{
+-		"error": gin.H{
+-			"type":    errType,
+-			"message": errMsg,
+-		},
+-	})
++	if !writeOpenAIResponsesErrorAfterKeepalive(c, statusCode, errType, errMsg) {
++		c.JSON(statusCode, gin.H{
++			"error": gin.H{
++				"type":    errType,
++				"message": errMsg,
++			},
++		})
++	}
+ 
+ 	if upstreamMsg == "" {
+ 		return nil, fmt.Errorf("upstream error: %d", resp.StatusCode)
+diff --git a/backend/internal/application/service/openai_passthrough_retry_budget.go b/backend/internal/application/service/openai_passthrough_retry_budget.go
+index 874548ecd..d3ff8d980 100644
+--- a/backend/internal/application/service/openai_passthrough_retry_budget.go
++++ b/backend/internal/application/service/openai_passthrough_retry_budget.go
+@@ -23,6 +23,28 @@ type openAIPassthroughRetryBudget struct {
+ 	mu          sync.Mutex
+ 	maxAttempts int
+ 	used        int
++	poolAccount int64
++	poolUsed    map[int64]int
++}
++
++// UseOpenAIStreamPoolAccount bounds each distinct account's transport attempts
++// while the Responses handler walks its monotonically growing exclusion set.
++// Reselecting an account must not replenish its budget.
++func UseOpenAIStreamPoolAccount(c *gin.Context, accountID int64) {
++	if c == nil || accountID <= 0 {
++		return
++	}
++	budget := openAIPassthroughBudgetForContext(c)
++	budget.mu.Lock()
++	defer budget.mu.Unlock()
++	if budget.poolUsed == nil {
++		budget.poolUsed = make(map[int64]int)
++	}
++	budget.poolAccount = accountID
++	if _, exists := budget.poolUsed[accountID]; !exists {
++		budget.poolUsed[accountID] = 0
++	}
++	budget.maxAttempts = len(budget.poolUsed) * defaultOpenAIPassthroughAttemptBudget()
+ }
+ 
+ func defaultOpenAIPassthroughAttemptBudget() int {
+@@ -76,6 +98,14 @@ func (b *openAIPassthroughRetryBudget) reserve() (attempt, maxAttempts int, ok b
+ 	}
+ 	b.mu.Lock()
+ 	defer b.mu.Unlock()
++	if b.poolUsed != nil {
++		if b.poolUsed[b.poolAccount] >= defaultOpenAIPassthroughAttemptBudget() {
++			return b.used, b.maxAttempts, false
++		}
++		b.poolUsed[b.poolAccount]++
++		b.used++
++		return b.used, b.maxAttempts, true
++	}
+ 	if b.maxAttempts <= 0 {
+ 		b.maxAttempts = defaultOpenAIPassthroughAttemptBudget()
+ 	}
+@@ -109,6 +139,16 @@ func newOpenAIPassthroughAttemptBudgetError() *UpstreamFailoverError {
+ 	}
+ }
+ 
++func (b *openAIPassthroughRetryBudget) exhaustedError() *UpstreamFailoverError {
++	err := newOpenAIPassthroughAttemptBudgetError()
++	b.mu.Lock()
++	defer b.mu.Unlock()
++	if b.poolUsed != nil {
++		err.NextAccountAction = NextAccountRetry
++	}
++	return err
++}
++
+ func markOpenAIPassthroughNonReplayable(err *UpstreamFailoverError) {
+ 	if err == nil {
+ 		return
+diff --git a/backend/internal/application/service/openai_upstream_client_error.go b/backend/internal/application/service/openai_upstream_client_error.go
+index 4727a1881..b940d0de0 100644
+--- a/backend/internal/application/service/openai_upstream_client_error.go
++++ b/backend/internal/application/service/openai_upstream_client_error.go
+@@ -77,6 +77,13 @@ func writeOpenAIUpstreamClientError(c *gin.Context, statusCode int, body []byte,
+ 		message = openAIUpstreamClientErrorFallbackMessage
+ 	}
+ 	errorPayload["message"] = message
++	code, _ := errorPayload["code"].(string)
++	if code == "" {
++		code, _ = errorPayload["type"].(string)
++	}
++	if writeOpenAIResponsesErrorAfterKeepalive(c, statusCode, code, message) {
++		return
++	}
+ 
+ 	c.JSON(statusCode, gin.H{"error": errorPayload})
+ }
+diff --git a/backend/internal/transport/http/handler/openai_gateway_responses.go b/backend/internal/transport/http/handler/openai_gateway_responses.go
+index 860f239b3..1319bd398 100644
+--- a/backend/internal/transport/http/handler/openai_gateway_responses.go
++++ b/backend/internal/transport/http/handler/openai_gateway_responses.go
+@@ -284,6 +284,9 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
+ 	requireCompact := compactionRoute.legacyCompact
+ 
+ 	maxAccountSwitches := h.maxAccountSwitches
++	// A connected LLM stream keeps recovering before semantic commitment. Its
++	// finite boundary is the eligible pool, not an arbitrary early switch cap.
++	recoverStreamPool := llmStream && requestPlatform == service.PlatformOpenAI
+ 	service.ConfigureOpenAIPassthroughAttemptBudget(c, maxAccountSwitches)
+ 	switchCount := 0
+ 	firstOutputTimeoutSwitchCount := 0
+@@ -405,6 +408,9 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
+ 			return
+ 		}
+ 		account = selection.Account
++		if recoverStreamPool {
++			service.UseOpenAIStreamPoolAccount(c, account.ID)
++		}
+ 
+ 		// Forward request
+ 		service.SetOpsLatencyMs(c, service.OpsRoutingLatencyMsKey, time.Since(routingStart).Milliseconds())
+@@ -489,7 +495,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
+ 						h.handleFailoverExhausted(c, failoverErr, streamStarted)
+ 						return
+ 					}
+-					if openAIFirstOutputFailoverExhausted(failoverErr, &firstOutputTimeoutSwitchCount) {
++					if !recoverStreamPool && openAIFirstOutputFailoverExhausted(failoverErr, &firstOutputTimeoutSwitchCount) {
+ 						h.handleFailoverExhausted(c, failoverErr, streamStarted)
+ 						return
+ 					}
+@@ -517,12 +523,12 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
+ 					h.gatewayService.RecordOpenAIAccountSwitch()
+ 					addFailedAccountID(&failedAccountIDs, account.ID)
+ 					lastFailoverErr = failoverErr
+-					if switchCount >= maxAccountSwitches {
++					if !recoverStreamPool && switchCount >= maxAccountSwitches {
+ 						h.handleFailoverExhausted(c, failoverErr, streamStarted)
+ 						return
+ 					}
+ 					switchCount++
+-					if h.gatewayService.ShouldStopOpenAIOAuth429Failover(account, failoverErr.StatusCode, switchCount, &oauth429FailoverState) {
++					if !recoverStreamPool && h.gatewayService.ShouldStopOpenAIOAuth429Failover(account, failoverErr.StatusCode, switchCount, &oauth429FailoverState) {
+ 						h.handleFailoverExhausted(c, failoverErr, streamStarted)
+ 						return
+ 					}
+diff --git a/backend/internal/transport/http/handler/openai_responses_failover_cancel_test.go b/backend/internal/transport/http/handler/openai_responses_failover_cancel_test.go
+index 73a6b1efb..2a05807cd 100644
+--- a/backend/internal/transport/http/handler/openai_responses_failover_cancel_test.go
++++ b/backend/internal/transport/http/handler/openai_responses_failover_cancel_test.go
+@@ -49,7 +49,7 @@ func (u *openAIResponsesFailoverCancelUpstream) calls() []int64 {
+ 	return append([]int64(nil), u.accountIDs...)
+ }
+ 
+-func newOpenAIResponsesFailoverTestHandler(t *testing.T, upstream service.HTTPUpstream) *OpenAIGatewayHandler {
++func newOpenAIResponsesFailoverTestHandler(t *testing.T, upstream service.HTTPUpstream, setup ...func(*[]service.Account, *config.Config)) *OpenAIGatewayHandler {
+ 	t.Helper()
+ 	accounts := []service.Account{
+ 		{
+@@ -75,8 +75,11 @@ func newOpenAIResponsesFailoverTestHandler(t *testing.T, upstream service.HTTPUp
+ 			Credentials: map[string]any{"access_token": "token-2"},
+ 		},
+ 	}
+-	accountRepo := openAIImagesFailoverAccountRepo{accounts: accounts}
+ 	cfg := &config.Config{RunMode: config.RunModeSimple}
++	for _, configure := range setup {
++		configure(&accounts, cfg)
++	}
++	accountRepo := openAIImagesFailoverAccountRepo{accounts: accounts}
+ 	gatewayService := service.NewOpenAIGatewayService(
+ 		accountRepo,
+ 		nil,
+diff --git a/docs/REQUEST_LIFECYCLES.md b/docs/REQUEST_LIFECYCLES.md
+index b034729a0..42384529e 100644
+--- a/docs/REQUEST_LIFECYCLES.md
++++ b/docs/REQUEST_LIFECYCLES.md
+@@ -57,9 +57,14 @@ OpenAI 兼容入口的会话键按以下顺序解析：显式 `session_id`/
+ OpenAI Responses 请求在首个语义事件前使用
+ `gateway.openai_first_output_timeout_seconds`（默认 90 秒；
+ `high/xhigh/max` 可由 `gateway.openai_high_effort_first_output_timeout_seconds`
+-单独设置，默认 180 秒）。`response.created`、`response.in_progress` 和 SSE
+-注释心跳不计作语义输出；超时会关闭当前上游连接，并在尚未提交语义字节时最多
+-切换一个账号。HTTP SSE 等待期间按 `gateway.stream_keepalive_interval` 发送注释心跳，
++单独设置，默认 180 秒）。`response.created`、`response.in_progress`、
++`codex.rate_limits`、`codex.response.metadata` 和 SSE 注释心跳不计作语义输出，
++也不因配额或元数据帧而禁用首输出保护；超时会关闭当前上游连接。OpenAI LLM 的
++HTTP Responses 请求在尚未提交语义字节、且错误允许重试时继续排除失败账号，直到成功或
++可调度号池耗尽，不再受首输出一次切号和普通最大切号数的提前截断；透传路径每个已选择
++账号最多四次 transport attempt，重选同账号不补充预算。非流式、图片及其他入口保持原预算。
++HTTP SSE 等待响应头（包括换号后的等待）及响应体期间按
++`gateway.stream_keepalive_interval` 发送注释心跳，换号和响应头/体阶段切换不重置保活时钟；
+ 账号尝试的前导事件和普通响应头保持私有；若 keepalive 先提交 200，安全元数据改走 trailer，
+ 因此仍可在同一下游连接内无感换号。该策略覆盖
+ 原生 HTTP、HTTP 透传、WSv2 正式请求及其预热；显式设为
+@@ -68,7 +73,13 @@ OpenAI Responses 请求在首个语义事件前使用
+ WSv2 在首语义输出前耗尽内部重连预算时，会把读取/连接类失败转换为统一的
+ 账号 failover 信号；不会落到通用 `Upstream request failed`，也不会重放已经提交的语义事件。
+ 
+-透传请求的传输重试使用请求级总 attempt budget，账号切换不会重置预算；显式
++HTTP Responses 流中的显式 `server_error` 在首语义输出前进入既有有界恢复流程，
++中间失败事件不向客户端提交；确定性的上下文或策略拒绝仍保留原语义。
++恢复成功时，客户端在原连接收到成功账号的流。已输出内容后发生的失败不重放请求；
++完整失败事件一旦写出即结束该流，不再转发失败后的心跳、`response.in_progress` 或重复失败。
++
++普通透传请求的传输重试使用请求级总 attempt budget；上述流式号池恢复则按每个已尝试
++账号累计预算，两者都不因重选同账号而补充预算。显式
+ `store:true`、图片生成、`previous_response_id` 或工具输出请求不做无法证明幂等的重放。
+ keepalive 已提交 200 后，安全响应元数据走预声明的 HTTP trailer，Codex turn state
+ 同时写入账号隔离的会话状态并在后续 OAuth 请求回注。流设置采用 stale-while-revalidate，
+diff --git a/backend/internal/application/service/openai_response_header_keepalive.go b/backend/internal/application/service/openai_response_header_keepalive.go
+new file mode 100644
+index 000000000..5ec591273
+--- /dev/null
++++ b/backend/internal/application/service/openai_response_header_keepalive.go
+@@ -0,0 +1,89 @@
++package service
++
++import (
++	"context"
++	"net/http"
++	"time"
++
++	"github.com/gin-gonic/gin"
++)
++
++// The response-body loop starts too late to protect a slow first attempt or a
++// recovery account waiting for headers. Keep writes on the request goroutine;
++// only the HTTP round trip runs concurrently, without touching the Gin context.
++func (s *OpenAIGatewayService) doOpenAIResponsesUpstream(ctx context.Context, c *gin.Context, req *http.Request, proxyURL string, account *Account, stream bool) (*http.Response, error) {
++	if !stream || account == nil || !account.IsOpenAI() || c == nil || c.Writer == nil {
++		return s.doAccountHTTPUpstream(req, proxyURL, account)
++	}
++	interval := s.openAIStreamKeepaliveIntervalWithContext(ctx)
++	if interval <= 0 {
++		return s.doAccountHTTPUpstream(req, proxyURL, account)
++	}
++	if ctx == nil {
++		ctx = context.Background()
++	}
++	upstreamCtx, cancel := context.WithCancel(req.Context())
++	req = req.WithContext(upstreamCtx)
++	type result struct {
++		response *http.Response
++		err      error
++	}
++	results := make(chan result)
++	done := make(chan struct{})
++	defer close(done)
++	go func() {
++		resp, err := s.doAccountHTTPUpstream(req, proxyURL, account)
++		select {
++		case results <- result{resp, err}:
++		case <-done:
++			if resp != nil && resp.Body != nil {
++				_ = resp.Body.Close()
++			}
++		}
++	}()
++	timer := time.NewTimer(openAIStreamKeepaliveDelay(c, interval))
++	defer timer.Stop()
++	for {
++		select {
++		case result := <-results:
++			if result.err == nil && result.response != nil && result.response.Body != nil {
++				result.response.Body = &openAIRequestContextReadCloser{ReadCloser: result.response.Body, cleanup: cancel}
++			} else {
++				cancel()
++			}
++			return result.response, result.err
++		case <-ctx.Done():
++			cancel()
++			return nil, ctx.Err()
++		case <-upstreamCtx.Done():
++			cancel()
++			return nil, upstreamCtx.Err()
++		case <-timer.C:
++			if !c.Writer.Written() {
++				declareOpenAIStreamResponseMetadataTrailers(c)
++				c.Header("Content-Type", "text/event-stream")
++				c.Header("Cache-Control", "no-cache")
++				c.Header("Connection", "keep-alive")
++				c.Header("X-Accel-Buffering", "no")
++			}
++			n, err := c.Writer.Write([]byte(":\n\n"))
++			recordOpenAIStreamKeepaliveBytes(c, n)
++			if err != nil {
++				cancel()
++				return nil, context.Canceled
++			}
++			c.Writer.Flush()
++			timer.Reset(interval)
++		}
++	}
++}
++
++func writeOpenAIResponsesErrorAfterKeepalive(c *gin.Context, status int, code, message string) bool {
++	if c == nil || c.Writer == nil || !openAIStreamResponseMetadataTrailersActive(c) || !c.Writer.Written() {
++		return false
++	}
++	StopOpenAICompactSSEKeepaliveCommitted(c)
++	MarkResponseCommitted(c)
++	writeOpenAICompactSSEFailureMessage(c, status, code, message)
++	return true
++}
+diff --git a/backend/internal/application/service/openai_stream_control_test.go b/backend/internal/application/service/openai_stream_control_test.go
+new file mode 100644
+index 000000000..167bd98d6
+--- /dev/null
++++ b/backend/internal/application/service/openai_stream_control_test.go
+@@ -0,0 +1,268 @@
++package service
++
++import (
++	"context"
++	"errors"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"os"
++	"strings"
++	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++	"github.com/tidwall/gjson"
++)
++
++const streamControlPreamble = "data: {\"type\":\"codex.rate_limits\",\"rate_limits\":{\"allowed\":true}}\n\n" +
++	"data: {\"type\":\"codex.response.metadata\",\"headers\":{\"x-codex-turn-state\":\"fixture-state\"}}\n\n" +
++	"data: {\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_control\"}}\n\n"
++
++func runStreamControlResponse(svc *OpenAIGatewayService, mode string, c *gin.Context, body io.ReadCloser) (*OpenAIUsage, *int, error) {
++	resp := &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: body}
++	account := &Account{ID: 81, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
++	if mode == "native" {
++		result, err := svc.handleStreamingResponse(c.Request.Context(), resp, c, account, time.Now(), "gpt-5.6-sol", "gpt-5.6-sol")
++		return result.usage, result.firstTokenMs, err
++	}
++	result, err := svc.handleStreamingResponsePassthrough(c.Request.Context(), resp, c, account, time.Now(), "gpt-5.6-sol", "gpt-5.6-sol")
++	return result.usage, result.firstTokenMs, err
++}
++
++func TestOpenAIStreamControlClassification(t *testing.T) {
++	for _, eventType := range []string{"codex.rate_limits", "codex.response.metadata", "response.created", "response.in_progress"} {
++		t.Run(eventType, func(t *testing.T) {
++			payload := `{"type":"` + eventType + `"}`
++			require.False(t, openAIStreamDataStartsClientOutput(payload, eventType))
++			require.False(t, openAIStreamDataSignalsOutputProgressTrimmed(payload, eventType))
++		})
++	}
++	require.True(t, openAIStreamDataStartsClientOutput(`{"type":"response.future_event"}`, "response.future_event"))
++}
++
++func TestOpenAIStreamControlServerErrorClassification(t *testing.T) {
++	for _, tc := range []struct {
++		code    string
++		message string
++		retry   bool
++	}{
++		{"server_error", "Upstream service temporarily unavailable. Please retry your request.", true},
++		{"server_error", "Transport error: network error: error decoding response body", true},
++		{"invalid_request_error", "Invalid input", false},
++		{"server_error", "Your input exceeds the context window of this model", false},
++		{"server_error", "Request blocked by content policy", false},
++		{"custom_notice", "An ordinary compatibility event", false},
++	} {
++		t.Run(tc.code+"/"+tc.message, func(t *testing.T) {
++			payload := []byte(`{"type":"error","error":{"type":"upstream_error","code":"` + tc.code + `","message":"` + tc.message + `"}}`)
++			require.Equal(t, tc.retry, openAIStreamFailureIsExplicitlyRetryable(payload, tc.message))
++		})
++	}
++}
++
++func TestOpenAIStreamControlDeterministicErrorAfterHeaderKeepalive(t *testing.T) {
++	for _, mode := range []string{"native", "passthrough"} {
++		t.Run(mode, func(t *testing.T) {
++			recorder := httptest.NewRecorder()
++			c, _ := gin.CreateTestContext(recorder)
++			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
++			c.Header("Content-Type", "text/event-stream")
++			n, err := c.Writer.WriteString(":\n\n")
++			require.NoError(t, err)
++			recordOpenAIStreamKeepaliveBytes(c, n)
++			c.Writer.Flush()
++			body := []byte(`{"error":{"code":"context_length_exceeded","type":"invalid_request_error","message":"Your input exceeds the context window of this model"}}`)
++			resp := &http.Response{StatusCode: http.StatusBadRequest, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(string(body)))}
++			svc := &OpenAIGatewayService{cfg: &config.Config{}}
++			account := &Account{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
++			if mode == "native" {
++				_, err = svc.handleErrorResponse(context.Background(), resp, c, account, nil)
++			} else {
++				err = svc.handleErrorResponsePassthrough(context.Background(), resp, c, account, nil, body)
++			}
++			require.Error(t, err)
++			require.Equal(t, "text/event-stream", recorder.Result().Header.Get("Content-Type"))
++			require.Equal(t, 1, strings.Count(recorder.Body.String(), `"type":"response.failed"`))
++			require.Contains(t, recorder.Body.String(), "context window")
++			require.True(t, IsResponseCommitted(c))
++		})
++	}
++}
++
++func TestOpenAIStreamControlFailureSampleCanFailoverAfterKeepalive(t *testing.T) {
++	sample, err := os.ReadFile("testdata/openai_control_failure.sse")
++	require.NoError(t, err)
++	for _, mode := range []string{"native", "passthrough"} {
++		t.Run(mode, func(t *testing.T) {
++			recorder := httptest.NewRecorder()
++			c, _ := gin.CreateTestContext(recorder)
++			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
++			svc := &OpenAIGatewayService{cfg: &config.Config{}}
++			n, err := c.Writer.WriteString(":\n\n")
++			require.NoError(t, err)
++			recordOpenAIStreamKeepaliveBytes(c, n)
++			c.Writer.Flush()
++			_, ttft, err := runStreamControlResponse(svc, mode, c, io.NopCloser(strings.NewReader(string(sample))))
++			var failover *UpstreamFailoverError
++			require.ErrorAs(t, err, &failover)
++			require.Equal(t, http.StatusBadGateway, failover.StatusCode)
++			require.Nil(t, ttft)
++			require.Equal(t, ":\n\n", recorder.Body.String(), "failed attempt must remain private")
++			require.False(t, openAIStreamClientOutputStarted(c, false))
++
++			healthy := "data: {\"type\":\"response.output_text.delta\",\"delta\":\"recovered\"}\n\n" +
++				"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_healthy\",\"usage\":{\"input_tokens\":3,\"output_tokens\":1}}}\n\n"
++			usage, _, err := runStreamControlResponse(svc, mode, c, io.NopCloser(strings.NewReader(healthy)))
++			require.NoError(t, err)
++			require.Equal(t, 3, usage.InputTokens)
++			require.Equal(t, 1, usage.OutputTokens)
++			require.Contains(t, recorder.Body.String(), "recovered")
++			require.NotContains(t, recorder.Body.String(), "fixture-turn-state")
++			require.NotContains(t, recorder.Body.String(), "response.failed")
++		})
++	}
++}
++
++func TestOpenAIStreamControlEOFBeforeOutputCanFailover(t *testing.T) {
++	for _, mode := range []string{"native", "passthrough"} {
++		for _, readErr := range []error{io.ErrUnexpectedEOF, context.DeadlineExceeded} {
++			for _, prefix := range []string{streamControlPreamble, "data: {\"type\":\"codex.response.metadata\",\"headers\":{}}\n\n"} {
++				t.Run(mode+"/"+readErr.Error()+"/"+gjson.Get(strings.TrimPrefix(prefix, "data: "), "type").String(), func(t *testing.T) {
++					recorder := httptest.NewRecorder()
++					c, _ := gin.CreateTestContext(recorder)
++					c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
++					body := &openAIResponseFlushReadError{payload: []byte(prefix), err: readErr}
++					_, ttft, err := runStreamControlResponse(&OpenAIGatewayService{cfg: &config.Config{}}, mode, c, body)
++					var failover *UpstreamFailoverError
++					require.ErrorAs(t, err, &failover)
++					require.Nil(t, ttft)
++					require.Empty(t, recorder.Body.String())
++				})
++			}
++		}
++	}
++}
++
++func TestOpenAIStreamControlWatchdogKeepsHeartbeatsWithoutSemanticOutput(t *testing.T) {
++	for _, mode := range []string{"native", "passthrough"} {
++		t.Run(mode, func(t *testing.T) {
++			recorder := httptest.NewRecorder()
++			c, _ := gin.CreateTestContext(recorder)
++			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
++			svc := &OpenAIGatewayService{cfg: &config.Config{Gateway: config.GatewayConfig{
++				OpenAIFirstOutputTimeoutSeconds: 2, StreamKeepaliveInterval: 1,
++			}}}
++			body := newOpenAICompatBlockingReadCloser([]byte(streamControlPreamble + "event: response.in_progress\n"))
++			defer body.Close()
++			done := make(chan error, 1)
++			go func() {
++				_, _, err := runStreamControlResponse(svc, mode, c, body)
++				done <- err
++			}()
++			var err error
++			select {
++			case err = <-done:
++			case <-time.After(3 * time.Second):
++				_ = body.Close()
++				<-done
++				t.Fatal("control frames disabled the first-output watchdog")
++			}
++			var failover *UpstreamFailoverError
++			require.ErrorAs(t, err, &failover)
++			require.Equal(t, http.StatusGatewayTimeout, failover.StatusCode)
++			require.Contains(t, recorder.Body.String(), ":\n\n")
++			require.NotContains(t, recorder.Body.String(), "data:")
++			require.False(t, openAIStreamClientOutputStarted(c, false))
++		})
++	}
++}
++
++func TestOpenAIStreamControlNativeDataTimeoutBeforeOutputCanFailover(t *testing.T) {
++	c, _ := gin.CreateTestContext(httptest.NewRecorder())
++	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
++	body := newOpenAICompatBlockingReadCloser([]byte(streamControlPreamble))
++	defer body.Close()
++	svc := &OpenAIGatewayService{cfg: &config.Config{Gateway: config.GatewayConfig{StreamDataIntervalTimeout: 1, StreamKeepaliveInterval: 1}}}
++	_, _, err := runStreamControlResponse(svc, "native", c, body)
++	var failover *UpstreamFailoverError
++	require.ErrorAs(t, err, &failover)
++	require.False(t, openAIStreamClientOutputStarted(c, false))
++}
++
++func TestOpenAIStreamControlFailureEndsHTTPWithoutWaitingForEOF(t *testing.T) {
++	for _, mode := range []string{"native", "passthrough"} {
++		for _, http2 := range []bool{false, true} {
++			name := mode + "/http1"
++			if http2 {
++				name = mode + "/http2"
++			}
++			t.Run(name, func(t *testing.T) {
++				// The upstream stays open after failure and keeps claiming progress.
++				body := newOpenAICompatBlockingReadCloser([]byte(
++					"data: {\"type\":\"response.output_text.delta\",\"delta\":\"partial\"}\n\n" +
++						"data: {\"type\":\"response.failed\",\"response\":{\"id\":\"resp_wire\",\"status\":\"failed\",\"error\":{\"code\":\"server_error\",\"message\":\"generation failed\"},\"usage\":{\"input_tokens\":7,\"output_tokens\":2}}}\n\n" +
++						":\n\ndata: {\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_wire\"}}\n\n"))
++				defer body.Close()
++				type outcome struct {
++					usage *OpenAIUsage
++					err   error
++				}
++				done := make(chan outcome, 1)
++				router := gin.New()
++				router.POST("/v1/responses", func(c *gin.Context) {
++					defer body.Close()
++					svc := &OpenAIGatewayService{cfg: &config.Config{Gateway: config.GatewayConfig{StreamKeepaliveInterval: 1}}}
++					usage, _, err := runStreamControlResponse(svc, mode, c, body)
++					done <- outcome{usage, err}
++				})
++				server := httptest.NewUnstartedServer(router)
++				server.EnableHTTP2 = http2
++				server.StartTLS()
++				defer server.Close()
++				defer body.Close()
++				ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
++				defer cancel()
++				req, err := http.NewRequestWithContext(ctx, http.MethodPost, server.URL+"/v1/responses", nil)
++				require.NoError(t, err)
++				response, err := server.Client().Do(req)
++				require.NoError(t, err)
++				defer response.Body.Close()
++				wire, readErr := io.ReadAll(response.Body)
++				_ = body.Close()
++				result := <-done
++				require.NoError(t, readErr, "failure must end the HTTP body cleanly before another heartbeat")
++				require.ErrorContains(t, result.err, "upstream response failed:")
++				var failover *UpstreamFailoverError
++				require.False(t, errors.As(result.err, &failover), "partial output must not be replayed")
++				require.Equal(t, 7, result.usage.InputTokens)
++				require.Equal(t, 2, result.usage.OutputTokens)
++				require.Equal(t, 1, strings.Count(string(wire), `"type":"response.failed"`))
++				require.NotContains(t, string(wire), "response.in_progress")
++				require.True(t, strings.HasSuffix(string(wire), "\n\n"))
++				if http2 {
++					require.Equal(t, 2, response.ProtoMajor)
++				}
++			})
++		}
++	}
++}
++
++func TestOpenAIStreamControlErrorPairRetainsTerminalUsage(t *testing.T) {
++	for _, mode := range []string{"native", "passthrough"} {
++		t.Run(mode, func(t *testing.T) {
++			c, _ := gin.CreateTestContext(httptest.NewRecorder())
++			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
++			body := io.NopCloser(strings.NewReader(
++				"data: {\"type\":\"response.output_text.delta\",\"delta\":\"partial\"}\n\n" +
++					"data: {\"type\":\"error\",\"error\":{\"code\":\"server_error\",\"message\":\"temporary failure\"}}\n\n" +
++					"data: {\"type\":\"response.failed\",\"response\":{\"id\":\"resp_pair\",\"status\":\"failed\",\"error\":{\"code\":\"server_error\",\"message\":\"temporary failure\"},\"usage\":{\"input_tokens\":9,\"output_tokens\":2}}}\n\n"))
++			usage, _, err := runStreamControlResponse(&OpenAIGatewayService{cfg: &config.Config{}}, mode, c, body)
++			require.ErrorContains(t, err, "upstream response failed:")
++			require.Equal(t, 9, usage.InputTokens)
++			require.Equal(t, 2, usage.OutputTokens)
++		})
++	}
++}
+diff --git a/backend/internal/application/service/openai_stream_pool_budget_test.go b/backend/internal/application/service/openai_stream_pool_budget_test.go
+new file mode 100644
+index 000000000..814fe66e4
+--- /dev/null
++++ b/backend/internal/application/service/openai_stream_pool_budget_test.go
+@@ -0,0 +1,54 @@
++package service
++
++import (
++	"context"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++)
++
++func TestOpenAIStreamPoolRecoveryBudgetDoesNotRefillSameAccount(t *testing.T) {
++	c, _ := gin.CreateTestContext(httptest.NewRecorder())
++	ConfigureOpenAIPassthroughAttemptBudget(c, 1)
++	for accountID := int64(1); accountID <= 7; accountID++ {
++		UseOpenAIStreamPoolAccount(c, accountID)
++		budget := openAIPassthroughBudgetForContext(c)
++		for i := 0; i < defaultOpenAIPassthroughAttemptBudget(); i++ {
++			_, _, ok := budget.reserve()
++			require.True(t, ok)
++		}
++		UseOpenAIStreamPoolAccount(c, accountID)
++		_, _, ok := budget.reserve()
++		require.False(t, ok)
++		require.True(t, budget.exhaustedError().ShouldRetryNextAccount())
++	}
++	require.False(t, newOpenAIPassthroughAttemptBudgetError().ShouldRetryNextAccount())
++}
++
++func TestOpenAIStreamPoolRecoveryHeaderHeartbeatSurvivesShortAttempts(t *testing.T) {
++	recorder := httptest.NewRecorder()
++	c, _ := gin.CreateTestContext(recorder)
++	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
++	svc := &OpenAIGatewayService{
++		cfg: &config.Config{Gateway: config.GatewayConfig{StreamKeepaliveInterval: 1}},
++		httpUpstream: &httpUpstreamRecorder{
++			onDo: func() { time.Sleep(450 * time.Millisecond) },
++			resp: &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(""))},
++		},
++	}
++	for i := 0; i < 3; i++ {
++		req := httptest.NewRequest(http.MethodPost, "https://upstream.example/v1/responses", nil)
++		resp, err := svc.doOpenAIResponsesUpstream(context.Background(), c, req, "", &Account{ID: 1, Platform: PlatformOpenAI}, true)
++		require.NoError(t, err)
++		require.NoError(t, resp.Body.Close())
++	}
++	require.Contains(t, recorder.Body.String(), ":\n\n", "short attempts must not reset the request heartbeat")
++	require.False(t, openAIStreamClientOutputStarted(c, false))
++}
+diff --git a/backend/internal/application/service/testdata/openai_control_failure.sse b/backend/internal/application/service/testdata/openai_control_failure.sse
+new file mode 100644
+index 000000000..eb07aaac0
+--- /dev/null
++++ b/backend/internal/application/service/testdata/openai_control_failure.sse
+@@ -0,0 +1,22 @@
++data: {"type":"codex.rate_limits","rate_limits":{"allowed":true,"limit_reached":false,"primary":{"used_percent":39}}}
++
++data: {"type":"codex.response.metadata","headers":{"x-codex-turn-state":"fixture-turn-state"}}
++
++data: {"type":"response.created","response":{"id":"resp_control_fixture","object":"response","created_at":1,"status":"in_progress","model":"gpt-5.6-sol","output":[]},"sequence_number":0}
++
++data: {"type":"response.in_progress","response":{"id":"resp_control_fixture","status":"in_progress"},"sequence_number":1}
++
++:
++
++data: {"type":"error","error":{"type":"upstream_error","code":"server_error","message":"Upstream service temporarily unavailable. Please retry your request.","param":null},"sequence_number":2}
++
++data: {"type":"response.failed","response":{"id":"resp_control_fixture","status":"failed","error":{"code":"server_error","message":"Upstream service temporarily unavailable. Please retry your request.","type":"upstream_error"}},"sequence_number":3}
++
++:
++
++data: {"type":"response.in_progress","response":{"id":"resp_control_fixture","created_at":26,"status":"in_progress","model":"gpt-5.6-sol"}}
++
++:
++
++data: {"type":"response.failed","response":{"id":"resp_fixture_error","status":"failed","error":{"code":"codex_ws_connection_pressure","message":"codex upstream stalled: no real data for 5m0s, connection recycled"}}}
++
+diff --git a/backend/internal/transport/http/handler/openai_stream_pool_recovery_test.go b/backend/internal/transport/http/handler/openai_stream_pool_recovery_test.go
+new file mode 100644
+index 000000000..b8a6429fa
+--- /dev/null
++++ b/backend/internal/transport/http/handler/openai_stream_pool_recovery_test.go
+@@ -0,0 +1,188 @@
++//go:build unit
++
++package handler
++
++import (
++	"bufio"
++	"context"
++	"fmt"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"sync"
++	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/application/service"
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++)
++
++type streamPoolRecoveryUpstream struct {
++	service.HTTPUpstream
++	mu             sync.Mutex
++	accounts       []int64
++	releaseFailure <-chan struct{}
++	releaseSuccess <-chan struct{}
++	exhausted      bool
++	timeout        bool
++}
++
++func (u *streamPoolRecoveryUpstream) Do(req *http.Request, _ string, accountID int64, _ int) (*http.Response, error) {
++	u.mu.Lock()
++	u.accounts = append(u.accounts, accountID)
++	first := len(u.accounts) == 1
++	u.mu.Unlock()
++	if accountID == 5 && !u.exhausted {
++		select {
++		case <-u.releaseSuccess:
++		case <-req.Context().Done():
++			return nil, req.Context().Err()
++		}
++		return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(
++			"data: {\"type\":\"response.output_text.delta\",\"delta\":\"recovered\"}\n\n" +
++				"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_recovered\",\"output\":[],\"usage\":{\"input_tokens\":3,\"output_tokens\":1}}}\n\n"))}, nil
++	}
++	reader, writer := io.Pipe()
++	go func() {
++		defer writer.Close()
++		if _, err := io.WriteString(writer, "data: {\"type\":\"codex.rate_limits\",\"rate_limits\":{\"allowed\":true}}\n\n"); err != nil {
++			return
++		}
++		if u.timeout {
++			select {
++			case <-req.Context().Done():
++			case <-time.After(2500 * time.Millisecond):
++			}
++			return
++		}
++		if first {
++			select {
++			case <-u.releaseFailure:
++			case <-req.Context().Done():
++				return
++			}
++		}
++		_, _ = io.WriteString(writer, "data: {\"type\":\"error\",\"error\":{\"type\":\"upstream_error\",\"code\":\"server_error\",\"message\":\"Transport error: network error: error decoding response body\"}}\n\n")
++	}()
++	return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"text/event-stream"}}, Body: reader}, nil
++}
++
++func TestOpenAIStreamPoolRecoveryContinuesPastTwoFirstOutputTimeouts(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	for _, passthrough := range []bool{false, true} {
++		t.Run(fmt.Sprintf("passthrough=%v", passthrough), func(t *testing.T) {
++			gate := make(chan struct{})
++			close(gate)
++			upstream := &streamPoolRecoveryUpstream{timeout: true, releaseFailure: gate, releaseSuccess: gate}
++			h := newOpenAIResponsesFailoverTestHandler(t, upstream, func(accounts *[]service.Account, cfg *config.Config) {
++				cfg.Gateway.StreamKeepaliveInterval = 1
++				cfg.Gateway.OpenAIFirstOutputTimeoutSeconds = 1
++				last := (*accounts)[0]
++				last.ID, last.Priority = 5, 5
++				*accounts = append(*accounts, last)
++				for i := range *accounts {
++					(*accounts)[i].Extra = map[string]any{"openai_passthrough": passthrough}
++				}
++			})
++			h.maxAccountSwitches = 1
++			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
++			defer cancel()
++			c, recorder := newOpenAIResponsesFailoverTestContext(t, ctx)
++			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(`{"model":"gpt-5.6-sol","stream":true,"store":false,"input":"hello","instructions":"fixture"}`)).WithContext(ctx)
++			h.Responses(c)
++			require.Contains(t, recorder.Body.String(), "recovered")
++			require.NotContains(t, recorder.Body.String(), "response.failed")
++			require.NotContains(t, recorder.Body.String(), `"type":"error"`)
++			upstream.mu.Lock()
++			calls := append([]int64(nil), upstream.accounts...)
++			upstream.mu.Unlock()
++			require.Equal(t, []int64{1, 2, 5}, calls)
++		})
++	}
++}
++
++func TestOpenAIStreamPoolRecoveryKeepsOneConnectionUntilPoolExhausted(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	for _, passthrough := range []bool{false, true} {
++		for _, exhausted := range []bool{false, true} {
++			t.Run(fmt.Sprintf("passthrough=%v/exhausted=%v", passthrough, exhausted), func(t *testing.T) {
++				failureGate := make(chan struct{})
++				successGate := make(chan struct{})
++				var failureOnce, successOnce sync.Once
++				releaseFailure := func() { failureOnce.Do(func() { close(failureGate) }) }
++				releaseSuccess := func() { successOnce.Do(func() { close(successGate) }) }
++				upstream := &streamPoolRecoveryUpstream{releaseFailure: failureGate, releaseSuccess: successGate, exhausted: exhausted}
++				h := newOpenAIResponsesFailoverTestHandler(t, upstream, func(accounts *[]service.Account, cfg *config.Config) {
++					cfg.Gateway.StreamKeepaliveInterval = 1
++					cfg.Gateway.OpenAIFirstOutputTimeoutSeconds = 10
++					for id := int64(3); id <= 5; id++ {
++						account := (*accounts)[0]
++						account.ID, account.Priority = id, int(id)
++						*accounts = append(*accounts, account)
++					}
++					for i := range *accounts {
++						(*accounts)[i].Extra = map[string]any{"openai_passthrough": passthrough}
++					}
++				})
++				h.maxAccountSwitches = 1
++				router := gin.New()
++				router.POST("/v1/responses", func(c *gin.Context) {
++					fixture, _ := newOpenAIResponsesFailoverTestContext(t, c.Request.Context())
++					for key, value := range fixture.Keys {
++						c.Set(key, value)
++					}
++					h.Responses(c)
++				})
++				server := httptest.NewTLSServer(router)
++				defer server.Close()
++				defer releaseFailure()
++				defer releaseSuccess()
++				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
++				defer cancel()
++				req, err := http.NewRequestWithContext(ctx, http.MethodPost, server.URL+"/v1/responses", strings.NewReader(`{"model":"gpt-5.6-sol","stream":true,"store":false,"input":"hello","instructions":"fixture"}`))
++				require.NoError(t, err)
++				req.Header.Set("Content-Type", "application/json")
++				resp, err := server.Client().Do(req)
++				require.NoError(t, err)
++				defer resp.Body.Close()
++				scanner := bufio.NewScanner(resp.Body)
++				var wire strings.Builder
++				heartbeats := 0
++				for scanner.Scan() {
++					line := scanner.Text()
++					wire.WriteString(line + "\n")
++					if strings.HasPrefix(line, ":") {
++						heartbeats++
++						if heartbeats == 1 {
++							releaseFailure()
++						}
++						if heartbeats >= 2 {
++							releaseSuccess()
++						}
++					}
++				}
++				require.NoError(t, scanner.Err())
++				require.Equal(t, http.StatusOK, resp.StatusCode)
++				require.GreaterOrEqual(t, heartbeats, 1)
++				upstream.mu.Lock()
++				calls := append([]int64(nil), upstream.accounts...)
++				upstream.mu.Unlock()
++				require.Equal(t, []int64{1, 2, 3, 4, 5}, calls, "try each eligible account before exposing failure")
++				require.NotContains(t, wire.String(), `"type":"error"`)
++				require.NotContains(t, wire.String(), "error decoding response body")
++				if exhausted {
++					require.Equal(t, 1, strings.Count(wire.String(), `"type":"response.failed"`))
++					require.NotContains(t, wire.String(), "response.completed")
++				} else {
++					require.GreaterOrEqual(t, heartbeats, 2, "keepalive must cover recovery response-header waits")
++					require.Contains(t, wire.String(), "recovered")
++					require.Equal(t, 1, strings.Count(wire.String(), `"type":"response.completed"`))
++					require.NotContains(t, wire.String(), "response.failed")
++				}
++			})
++		}
++	}
++}

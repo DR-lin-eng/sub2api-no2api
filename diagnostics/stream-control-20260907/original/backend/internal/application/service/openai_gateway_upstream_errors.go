@@ -436,9 +436,6 @@ func (s *OpenAIGatewayService) handleErrorResponse(
 			UpstreamStatus: resp.StatusCode,
 		})
 		setOpsUpstreamError(c, resp.StatusCode, cyberMsg, truncateString(string(body), 2048))
-		if writeOpenAIResponsesErrorAfterKeepalive(c, resp.StatusCode, code, cyberMsg) {
-			return nil, fmt.Errorf("openai cyber_policy: %s", cyberMsg)
-		}
 		writeOpenAIPassthroughResponseHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 		contentType := resp.Header.Get("Content-Type")
 		if contentType == "" {
@@ -518,14 +515,12 @@ func (s *OpenAIGatewayService) handleErrorResponse(
 		"Upstream request failed",
 	); matched {
 		MarkResponseCommitted(c)
-		if !writeOpenAIResponsesErrorAfterKeepalive(c, status, errType, errMsg) {
-			c.JSON(status, gin.H{
-				"error": gin.H{
-					"type":    errType,
-					"message": errMsg,
-				},
-			})
-		}
+		c.JSON(status, gin.H{
+			"error": gin.H{
+				"type":    errType,
+				"message": errMsg,
+			},
+		})
 		if upstreamMsg == "" {
 			upstreamMsg = errMsg
 		}
@@ -548,14 +543,12 @@ func (s *OpenAIGatewayService) handleErrorResponse(
 			Detail:             upstreamDetail,
 		})
 		MarkResponseCommitted(c)
-		if !writeOpenAIResponsesErrorAfterKeepalive(c, http.StatusInternalServerError, "upstream_error", "Upstream gateway error") {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": gin.H{
-					"type":    "upstream_error",
-					"message": "Upstream gateway error",
-				},
-			})
-		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": gin.H{
+				"type":    "upstream_error",
+				"message": "Upstream gateway error",
+			},
+		})
 		if upstreamMsg == "" {
 			return nil, fmt.Errorf("upstream error: %d (not in custom error codes)", resp.StatusCode)
 		}
@@ -632,14 +625,12 @@ func (s *OpenAIGatewayService) handleErrorResponse(
 		errMsg = upstreamMsg
 	}
 
-	if !writeOpenAIResponsesErrorAfterKeepalive(c, statusCode, errType, errMsg) {
-		c.JSON(statusCode, gin.H{
-			"error": gin.H{
-				"type":    errType,
-				"message": errMsg,
-			},
-		})
-	}
+	c.JSON(statusCode, gin.H{
+		"error": gin.H{
+			"type":    errType,
+			"message": errMsg,
+		},
+	})
 
 	if upstreamMsg == "" {
 		return nil, fmt.Errorf("upstream error: %d", resp.StatusCode)

@@ -367,11 +367,11 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 				zap.Int("attempts_used", used),
 				zap.Int("attempt_budget", limit),
 			).Warn("openai.passthrough_attempt_budget_exhausted")
-			return nil, budget.exhaustedError()
+			return nil, newOpenAIPassthroughAttemptBudgetError()
 		}
 
 		upstreamStart := time.Now()
-		resp, err = s.doOpenAIResponsesUpstream(ctx, c, upstreamReq, proxyURL, account, reqStream)
+		resp, err = s.doAccountHTTPUpstream(upstreamReq, proxyURL, account)
 		SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
 		if headerGuard != nil && headerGuard.stopHeaderWait() {
 			if resp != nil && resp.Body != nil {
@@ -507,7 +507,6 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 		OpenAIWSMode:                  false,
 		Duration:                      time.Since(startTime),
 		FirstTokenMs:                  firstTokenMs,
-		OpenAITiming:                  observedOpenAITiming(c),
 	}
 	if imageCount > 0 {
 		forwardResult.ImageCount = imageCount
@@ -887,9 +886,6 @@ func writeOpenAIPassthroughErrorEnvelope(c *gin.Context, downstreamStatus int, u
 	if c == nil {
 		return
 	}
-	if writeOpenAIResponsesErrorAfterKeepalive(c, downstreamStatus, "upstream_error", message) {
-		return
-	}
 	body := marshalOpenAIPassthroughErrorEnvelope(message)
 	if writeOpenAICompactSSEBridge(c, downstreamStatus, body) {
 		return
@@ -1105,7 +1101,6 @@ type openaiNonStreamingResultPassthrough struct {
 }
 
 const openAIStreamKeepaliveBytesKey = "openai_stream_keepalive_bytes"
-const openAIStreamLastWriteKey = "openai_stream_last_write"
 
 func recordOpenAIStreamKeepaliveBytes(c *gin.Context, written int) {
 	if c == nil || written <= 0 {
@@ -1116,29 +1111,6 @@ func recordOpenAIStreamKeepaliveBytes(c *gin.Context, written int) {
 		current, _ = value.(int)
 	}
 	c.Set(openAIStreamKeepaliveBytesKey, current+written)
-	c.Set(openAIStreamLastWriteKey, time.Now())
-}
-
-func openAIStreamKeepaliveDelay(c *gin.Context, interval time.Duration) time.Duration {
-	delay := time.Until(openAIStreamLastWriteAt(c).Add(interval))
-	if delay <= 0 {
-		return time.Nanosecond
-	}
-	return delay
-}
-
-func openAIStreamLastWriteAt(c *gin.Context) time.Time {
-	if c == nil {
-		return time.Now()
-	}
-	if value, ok := c.Get(openAIStreamLastWriteKey); ok {
-		if lastWrite, valid := value.(time.Time); valid {
-			return lastWrite
-		}
-	}
-	now := time.Now()
-	c.Set(openAIStreamLastWriteKey, now)
-	return now
 }
 
 func openAIStreamClientOutputStarted(c *gin.Context, localStarted bool) bool {
@@ -1154,8 +1126,7 @@ func openAIStreamClientOutputStarted(c *gin.Context, localStarted bool) bool {
 
 func openAIStreamEventIsPreambleTrimmed(eventType string) bool {
 	switch eventType {
-	case "response.created", "response.in_progress", "codex.rate_limits", "codex.response.metadata":
-		// Transport metadata is not model output, even when carried in data frames.
+	case "response.created", "response.in_progress":
 		return true
 	default:
 		return false
@@ -1656,15 +1627,13 @@ func (s *OpenAIGatewayService) handleOpenAIResponseFailedBeforeOutput(
 		s.recordOpenAIStreamUpstreamError(c, account, passthrough, upstreamRequestID, "http_error", payload, errMsg)
 		if c != nil && c.Writer != nil {
 			MarkResponseCommitted(c)
-			if !writeOpenAIResponsesErrorAfterKeepalive(c, status, errType, errMsg) {
-				c.Writer.Header().Set("Content-Type", "application/json; charset=utf-8")
-				c.JSON(status, gin.H{
-					"error": gin.H{
-						"type":    errType,
-						"message": errMsg,
-					},
-				})
-			}
+			c.Writer.Header().Set("Content-Type", "application/json; charset=utf-8")
+			c.JSON(status, gin.H{
+				"error": gin.H{
+					"type":    errType,
+					"message": errMsg,
+				},
+			})
 		}
 		return fmt.Errorf("upstream response failed: passthrough rule matched message=%s", errMsg), true
 	}
@@ -1711,9 +1680,6 @@ func openAIStreamFailedEventShouldFailover(payload []byte, message string) bool 
 }
 
 func openAIStreamFailureIsExplicitlyRetryable(payload []byte, message string) bool {
-	if gjson.GetBytes(payload, "type").String() == "error" && openAIStreamFailedEventErrorCode(payload) == "server_error" {
-		return openAIStreamFailedEventShouldFailover(payload, message)
-	}
 	if IsOpenAIGenericUpstreamFailureBody(payload) {
 		return true
 	}
@@ -1931,7 +1897,6 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 	mappedModel string,
 	reasoningEfforts ...string,
 ) (*openaiStreamingResultPassthrough, error) {
-	beginOpenAITimingObservation(c)
 	visibleOutputTTFT := s.useOpenAIVisibleOutputTTFT(ctx)
 	observer := upstreamResponseModelObserverFromContext(c)
 	if observer == nil {
@@ -1975,7 +1940,6 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 	sawDone := false
 	sawTerminalEvent := false
 	sawFailedEvent := false
-	sawResponseFailedEvent := false
 	responsesSemanticOutputSeen := false
 	capacityFailoverSuppressedLogged := false
 	failedMessage := ""
@@ -2017,14 +1981,14 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 
 	keepaliveInterval := time.Duration(0)
 	keepaliveInterval = s.openAIStreamKeepaliveIntervalWithContext(ctx)
-	var keepaliveTimer *time.Timer
+	var keepaliveTicker *time.Ticker
 	var keepaliveCh <-chan time.Time
 	if keepaliveInterval > 0 {
-		keepaliveTimer = time.NewTimer(openAIStreamKeepaliveDelay(c, keepaliveInterval))
-		keepaliveCh = keepaliveTimer.C
-		defer keepaliveTimer.Stop()
+		keepaliveTicker = time.NewTicker(keepaliveInterval)
+		keepaliveCh = keepaliveTicker.C
+		defer keepaliveTicker.Stop()
 	}
-	lastDownstreamWriteAt := openAIStreamLastWriteAt(c)
+	lastDownstreamWriteAt := time.Now()
 	downstreamEventInProgress := false
 	// pendingLines 在首个可见输出前保留前导事件，确保无输出失败仍可安全 failover。
 	var preOutputStage *openAIFirstOutputStage
@@ -2197,7 +2161,6 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 				firstOutputTimeout, "passthrough_semantic_output", resp.Header,
 			)
 		case <-keepaliveCh:
-			keepaliveTimer.Reset(keepaliveInterval)
 			if clientDisconnected || downstreamEventInProgress || time.Since(lastDownstreamWriteAt) < keepaliveInterval {
 				continue
 			}
@@ -2220,7 +2183,6 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 			trimmedData := strings.TrimSpace(data)
 			rawEventType := strings.TrimSpace(gjson.GetBytes(dataBytes, "type").String())
 			observer.ObserveOpenAI(dataBytes, rawEventType)
-			observeOpenAITiming(c, dataBytes, rawEventType)
 			if needModelReplace && strings.Contains(data, mappedModel) {
 				line = s.replaceModelInSSELine(line, mappedModel, originalModel)
 				if replacedData, replaced := extractOpenAISSEDataLine(line); replaced {
@@ -2260,7 +2222,6 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 				isFailureEnvelope = openAIStreamFailureIsExplicitlyRetryable(dataBytes, failureEnvelopeMessage)
 			}
 			if isFailureEnvelope {
-				sawResponseFailedEvent = eventType == "response.failed"
 				failedMessage = failureEnvelopeMessage
 				if failedMessage == "" {
 					failedMessage = extractOpenAISSEErrorMessage(dataBytes)
@@ -2424,12 +2385,6 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 				}
 			}
 		}
-		if sawResponseFailedEvent && line == "" {
-			// A failed response is final. Do not forward later synthetic progress
-			// or wait for a relay to close an otherwise still-live connection.
-			_ = resp.Body.Close()
-			return resultWithUsage(), fmt.Errorf("upstream response failed: %s", failedMessage)
-		}
 	}
 	if scanErr != nil {
 		err := scanErr
@@ -2513,7 +2468,6 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 	originalModel string,
 	mappedModel string,
 ) (*openaiNonStreamingResultPassthrough, error) {
-	beginOpenAITimingObservation(c)
 	if openAIStreamResponseMetadataTrailersActive(c) {
 		declareOpenAIStreamResponseMetadataTrailers(c)
 	}
@@ -2538,7 +2492,6 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 	if observer == nil {
 		observer = beginUpstreamResponseModelObservation(c)
 	}
-	observeOpenAITimingBody(c, body)
 	if bodyHasSSEFraming(body) {
 		observeOpenAISSEBody(observer, string(body))
 	} else {

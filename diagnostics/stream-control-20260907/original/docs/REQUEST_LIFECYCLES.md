@@ -57,14 +57,9 @@ OpenAI 兼容入口的会话键按以下顺序解析：显式 `session_id`/
 OpenAI Responses 请求在首个语义事件前使用
 `gateway.openai_first_output_timeout_seconds`（默认 90 秒；
 `high/xhigh/max` 可由 `gateway.openai_high_effort_first_output_timeout_seconds`
-单独设置，默认 180 秒）。`response.created`、`response.in_progress`、
-`codex.rate_limits`、`codex.response.metadata` 和 SSE 注释心跳不计作语义输出，
-也不因配额或元数据帧而禁用首输出保护；超时会关闭当前上游连接。OpenAI LLM 的
-HTTP Responses 请求在尚未提交语义字节、且错误允许重试时继续排除失败账号，直到成功或
-可调度号池耗尽，不再受首输出一次切号和普通最大切号数的提前截断；透传路径每个已选择
-账号最多四次 transport attempt，重选同账号不补充预算。非流式、图片及其他入口保持原预算。
-HTTP SSE 等待响应头（包括换号后的等待）及响应体期间按
-`gateway.stream_keepalive_interval` 发送注释心跳，换号和响应头/体阶段切换不重置保活时钟；
+单独设置，默认 180 秒）。`response.created`、`response.in_progress` 和 SSE
+注释心跳不计作语义输出；超时会关闭当前上游连接，并在尚未提交语义字节时最多
+切换一个账号。HTTP SSE 等待期间按 `gateway.stream_keepalive_interval` 发送注释心跳，
 账号尝试的前导事件和普通响应头保持私有；若 keepalive 先提交 200，安全元数据改走 trailer，
 因此仍可在同一下游连接内无感换号。该策略覆盖
 原生 HTTP、HTTP 透传、WSv2 正式请求及其预热；显式设为
@@ -73,13 +68,7 @@ HTTP SSE 等待响应头（包括换号后的等待）及响应体期间按
 WSv2 在首语义输出前耗尽内部重连预算时，会把读取/连接类失败转换为统一的
 账号 failover 信号；不会落到通用 `Upstream request failed`，也不会重放已经提交的语义事件。
 
-HTTP Responses 流中的显式 `server_error` 在首语义输出前进入既有有界恢复流程，
-中间失败事件不向客户端提交；确定性的上下文或策略拒绝仍保留原语义。
-恢复成功时，客户端在原连接收到成功账号的流。已输出内容后发生的失败不重放请求；
-完整失败事件一旦写出即结束该流，不再转发失败后的心跳、`response.in_progress` 或重复失败。
-
-普通透传请求的传输重试使用请求级总 attempt budget；上述流式号池恢复则按每个已尝试
-账号累计预算，两者都不因重选同账号而补充预算。显式
+透传请求的传输重试使用请求级总 attempt budget，账号切换不会重置预算；显式
 `store:true`、图片生成、`previous_response_id` 或工具输出请求不做无法证明幂等的重放。
 keepalive 已提交 200 后，安全响应元数据走预声明的 HTTP trailer，Codex turn state
 同时写入账号隔离的会话状态并在后续 OAuth 请求回注。流设置采用 stale-while-revalidate，
@@ -194,10 +183,6 @@ principal；若 `previous_response_id -> account_id` 或当前节点的原始连
 [Codex OAuth 模拟的有意差异](codex/intentional-divergences.md)。
 
 ## 浏览器管理请求
-
-OpenAI 用量记录同时保留本地观测计时和可选上游遥测。用量明细展示优先采用有效上游值，
-管理员获得两套计时和来源；用户保持原有字段与界面。调度、计费和 Ops 本地口径不变，
-详细边界见 [OpenAI 请求计时](OPENAI_TIMING.md)。
 
 浏览器 API 主要位于 `/api/v1/...`。前端不直接拼接鉴权、刷新或统一错误逻辑。
 

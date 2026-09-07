@@ -47,7 +47,6 @@ func (s *OpenAIGatewayService) handleStreamingResponse(ctx context.Context, resp
 }
 
 func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.Context, resp *http.Response, c *gin.Context, account *Account, startTime time.Time, originalModel, mappedModel, reasoningEffort string) (*openaiStreamingResult, error) {
-	beginOpenAITimingObservation(c)
 	visibleOutputTTFT := s.useOpenAIVisibleOutputTTFT(ctx)
 	observer := upstreamResponseModelObserverFromContext(c)
 	if observer == nil {
@@ -189,14 +188,14 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 	keepaliveInterval := time.Duration(0)
 	keepaliveInterval = s.openAIStreamKeepaliveIntervalWithContext(ctx)
 	// 下游 keepalive 仅用于防止代理空闲断开
-	var keepaliveTimer *time.Timer
+	var keepaliveTicker *time.Ticker
 	if keepaliveInterval > 0 {
-		keepaliveTimer = time.NewTimer(openAIStreamKeepaliveDelay(c, keepaliveInterval))
-		defer keepaliveTimer.Stop()
+		keepaliveTicker = time.NewTicker(keepaliveInterval)
+		defer keepaliveTicker.Stop()
 	}
 	var keepaliveCh <-chan time.Time
-	if keepaliveTimer != nil {
-		keepaliveCh = keepaliveTimer.C
+	if keepaliveTicker != nil {
+		keepaliveCh = keepaliveTicker.C
 	}
 
 	var firstOutputTimer *time.Timer
@@ -226,7 +225,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 	// Track downstream writes separately from upstream reads: pre-output failover
 	// can buffer response.created / response.in_progress, so keepalive must be
 	// based on downstream idle time.
-	lastDownstreamWriteAt := openAIStreamLastWriteAt(c)
+	lastDownstreamWriteAt := time.Now()
 
 	// 仅发送一次错误事件，避免多次写入导致协议混乱。
 	// 注意：OpenAI `/v1/responses` streaming 事件必须符合 OpenAI Responses schema；
@@ -235,7 +234,6 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 	clientDisconnected := false // 客户端断开后继续 drain 上游以收集 usage
 	sawTerminalEvent := false
 	sawFailedEvent := false
-	sawResponseFailedEvent := false
 	responsesSemanticOutputSeen := false
 	capacityFailoverSuppressedLogged := false
 	failedMessage := ""
@@ -413,9 +411,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 		}
 		// 客户端断开/取消请求时，上游读取往往会返回 context canceled。
 		// /v1/responses 的 SSE 事件必须符合 OpenAI 协议；这里不注入自定义 error event，避免下游 SDK 解析失败。
-		if errors.Is(scanErr, context.Canceled) ||
-			(errors.Is(scanErr, context.DeadlineExceeded) &&
-				(ctx.Err() != nil || openAIStreamClientOutputStarted(c, clientOutputStarted) || eventShouldFlush || sawOutputProgressEvent)) {
+		if errors.Is(scanErr, context.Canceled) || errors.Is(scanErr, context.DeadlineExceeded) {
 			if eventShouldFlush {
 				flushPending("Client disconnected during canceled stream flush, returning collected usage")
 			}
@@ -452,7 +448,6 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			eventTypeRaw := gjson.GetBytes(dataBytes, "type").String()
 			eventType := strings.TrimSpace(eventTypeRaw)
 			observer.ObserveOpenAI(dataBytes, eventTypeRaw)
-			observeOpenAITiming(c, dataBytes, eventTypeRaw)
 			if openAIStreamDataSignalsOutputProgressTrimmed(trimmedData, eventType) {
 				sawOutputProgressEvent = true
 			}
@@ -471,7 +466,6 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			}
 			forceFlushFailedEvent := false
 			if isFailureEnvelope {
-				sawResponseFailedEvent = eventType == "response.failed"
 				failedMessage = failureEnvelopeMessage
 				if failedMessage == "" {
 					failedMessage = extractOpenAISSEErrorMessage(dataBytes)
@@ -706,10 +700,6 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			if streamEarlyErr != nil {
 				return resultWithUsage(), streamEarlyErr
 			}
-			if sawResponseFailedEvent && documentScanner.Text() == "" {
-				_ = resp.Body.Close()
-				return finalizeStream()
-			}
 		}
 		if result, err, done := handleScanErr(documentScanner.Err()); done {
 			return result, err
@@ -803,11 +793,6 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			if streamEarlyErr != nil {
 				return resultWithUsage(), streamEarlyErr
 			}
-			if sawResponseFailedEvent && ev.line == "" {
-				// Finish at the failure's event boundary, not at transport EOF.
-				_ = resp.Body.Close()
-				return finalizeStream()
-			}
 
 		case <-intervalCh:
 			lastRead := time.Unix(0, atomic.LoadInt64(&lastReadAt))
@@ -821,10 +806,6 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			// 处理流超时，可能标记账户为临时不可调度或错误状态
 			if s.rateLimitService != nil {
 				s.rateLimitService.HandleStreamTimeout(ctx, account, originalModel)
-			}
-			if stageFirstOutput && !openAIStreamClientOutputStarted(c, clientOutputStarted) && !eventShouldFlush && !sawOutputProgressEvent {
-				_ = resp.Body.Close()
-				return resultWithUsage(), s.newOpenAIStreamFailoverError(c, account, false, upstreamRequestID, nil, "OpenAI stream timed out before semantic output")
 			}
 			sendErrorEvent("stream_timeout")
 			return resultWithUsage(), fmt.Errorf("stream data interval timeout")
@@ -844,11 +825,10 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			)
 
 		case <-keepaliveCh:
-			keepaliveTimer.Reset(keepaliveInterval)
 			if clientDisconnected {
 				continue
 			}
-			if eventInProgress && (firstOutputStage == nil || firstOutputStage.closed || eventStartsClientOutput || sawOutputProgressEvent) {
+			if eventInProgress {
 				continue
 			}
 			if time.Since(lastDownstreamWriteAt) < keepaliveInterval {
@@ -1279,7 +1259,6 @@ func openAICacheCreationTokensFromUsage(value gjson.Result) int {
 }
 
 func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, resp *http.Response, c *gin.Context, account *Account, originalModel, mappedModel string) (*openaiNonStreamingResult, error) {
-	beginOpenAITimingObservation(c)
 	body, err := ReadUpstreamResponseBody(resp.Body, s.cfg, c, openAITooLargeError)
 	if err != nil {
 		return nil, err
@@ -1288,7 +1267,6 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
 	if observer == nil {
 		observer = beginUpstreamResponseModelObservation(c)
 	}
-	observeOpenAITimingBody(c, body)
 	if bodyHasSSEFraming(body) {
 		observeOpenAISSEBody(observer, string(body))
 	} else {

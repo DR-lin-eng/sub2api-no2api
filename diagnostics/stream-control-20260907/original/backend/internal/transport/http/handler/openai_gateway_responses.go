@@ -284,9 +284,6 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	requireCompact := compactionRoute.legacyCompact
 
 	maxAccountSwitches := h.maxAccountSwitches
-	// A connected LLM stream keeps recovering before semantic commitment. Its
-	// finite boundary is the eligible pool, not an arbitrary early switch cap.
-	recoverStreamPool := llmStream && requestPlatform == service.PlatformOpenAI
 	service.ConfigureOpenAIPassthroughAttemptBudget(c, maxAccountSwitches)
 	switchCount := 0
 	firstOutputTimeoutSwitchCount := 0
@@ -408,9 +405,6 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			return
 		}
 		account = selection.Account
-		if recoverStreamPool {
-			service.UseOpenAIStreamPoolAccount(c, account.ID)
-		}
 
 		// Forward request
 		service.SetOpsLatencyMs(c, service.OpsRoutingLatencyMsKey, time.Since(routingStart).Milliseconds())
@@ -495,7 +489,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 						h.handleFailoverExhausted(c, failoverErr, streamStarted)
 						return
 					}
-					if !recoverStreamPool && openAIFirstOutputFailoverExhausted(failoverErr, &firstOutputTimeoutSwitchCount) {
+					if openAIFirstOutputFailoverExhausted(failoverErr, &firstOutputTimeoutSwitchCount) {
 						h.handleFailoverExhausted(c, failoverErr, streamStarted)
 						return
 					}
@@ -523,12 +517,12 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 					h.gatewayService.RecordOpenAIAccountSwitch()
 					addFailedAccountID(&failedAccountIDs, account.ID)
 					lastFailoverErr = failoverErr
-					if !recoverStreamPool && switchCount >= maxAccountSwitches {
+					if switchCount >= maxAccountSwitches {
 						h.handleFailoverExhausted(c, failoverErr, streamStarted)
 						return
 					}
 					switchCount++
-					if !recoverStreamPool && h.gatewayService.ShouldStopOpenAIOAuth429Failover(account, failoverErr.StatusCode, switchCount, &oauth429FailoverState) {
+					if h.gatewayService.ShouldStopOpenAIOAuth429Failover(account, failoverErr.StatusCode, switchCount, &oauth429FailoverState) {
 						h.handleFailoverExhausted(c, failoverErr, streamStarted)
 						return
 					}
