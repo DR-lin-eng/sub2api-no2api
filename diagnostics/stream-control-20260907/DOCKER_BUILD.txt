@@ -1,0 +1,56 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.test
+#1 transferring dockerfile: 115B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/sub2api-cpa-backend-test:20260906
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [1/2] FROM docker.io/library/sub2api-cpa-backend-test:20260906@sha256:64e6355fc108df54c0f9751c91a24b593dceebf01cebebe2f2e5658849e8fa4a
+#4 resolve docker.io/library/sub2api-cpa-backend-test:20260906@sha256:64e6355fc108df54c0f9751c91a24b593dceebf01cebebe2f2e5658849e8fa4a done
+#4 DONE 0.0s
+
+#5 [2/2] RUN apk add --no-cache build-base
+#5 27.89 ( 1/21) Installing libgcc (15.2.0-r5)
+#5 29.34 ( 2/21) Installing jansson (2.15.0-r0)
+#5 29.78 ( 3/21) Installing libstdc++ (15.2.0-r5)
+#5 39.43 ( 4/21) Installing binutils (2.45.1-r1)
+#5 43.99 ( 5/21) Installing libmagic (5.47-r2)
+#5 48.96 ( 6/21) Installing file (5.47-r2)
+#5 49.72 ( 7/21) Installing libgcc-static (15.2.0-r5)
+#5 52.37 ( 8/21) Installing libgomp (15.2.0-r5)
+#5 53.14 ( 9/21) Installing libatomic (15.2.0-r5)
+#5 53.68 (10/21) Installing gmp (6.3.0-r4)
+#5 54.25 (11/21) Installing isl26 (0.26-r2)
+#5 55.81 (12/21) Installing mpfr4 (4.2.2-r0)
+#5 57.19 (13/21) Installing mpc1 (1.3.1-r1)
+#5 57.35 (14/21) Installing gcc (15.2.0-r5)
+#5 155.8 (15/21) Installing libstdc++-dev (15.2.0-r5)
+#5 161.2 (16/21) Installing musl-dev (1.2.6-r2)
+#5 210.5 (17/21) Installing g++ (15.2.0-r5)
+#5 233.7 (18/21) Installing make (4.4.1-r4)
+#5 234.6 (19/21) Installing fortify-headers (3.0.1-r2)
+#5 235.2 (20/21) Installing patch (2.8-r0)
+#5 236.0 (21/21) Installing build-base (0.5-r4)
+#5 236.0 Executing busybox-1.37.0-r31.trigger
+#5 236.1 OK: 260.2 MiB in 51 packages
+#5 DONE 236.2s
+
+#6 exporting to image
+#6 exporting layers
+#6 exporting layers 7.6s done
+#6 exporting manifest sha256:b139c7e64f9760e28c2c2a4892028d57f14255cef1bead8745800e2367ed4906 done
+#6 exporting config sha256:c2e15c92cca2c1d52cc058d491246f9579ecf067a3d0d0a1205ddc39196a635e done
+#6 exporting attestation manifest sha256:bc46f2e5c64d8d6e3587850dff53a726ac1da5ffbde028d38047ee6d17a7efe7 0.0s done
+#6 exporting manifest list sha256:3250446107c8abf24a19a644a22ce7ddfa1761a9de4c3a8ea8bb7cfc0c9500cf done
+#6 naming to docker.io/library/sub2api-stream-control-test:20260907 done
+#6 unpacking to docker.io/library/sub2api-stream-control-test:20260907
+#6 unpacking to docker.io/library/sub2api-stream-control-test:20260907 0.9s done
+#6 DONE 8.6s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/tyb0oghrrngs4rrnj1e89jp8v

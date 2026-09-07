@@ -1,0 +1,372 @@
+BASELINE input: TestOpenAIStreamControl* and TestOpenAIStreamPoolRecovery*; native/passthrough; HTTP/1.1/HTTP/2; sanitized SSE fixture; five-account recovery
+2026/09/07 16:23:06 Timezone initialized: UTC (UTC offset: +00:00)
+--- FAIL: TestOpenAIStreamControlClassification (0.00s)
+    --- FAIL: TestOpenAIStreamControlClassification/codex.rate_limits (0.00s)
+        openai_stream_control_test.go:39: 
+            	Error Trace:	/app/backend/internal/application/service/openai_stream_control_test.go:39
+            	Error:      	Should be false
+            	Test:       	TestOpenAIStreamControlClassification/codex.rate_limits
+    --- FAIL: TestOpenAIStreamControlClassification/codex.response.metadata (0.00s)
+        openai_stream_control_test.go:40: 
+            	Error Trace:	/app/backend/internal/application/service/openai_stream_control_test.go:40
+            	Error:      	Should be false
+            	Test:       	TestOpenAIStreamControlClassification/codex.response.metadata
+--- FAIL: TestOpenAIStreamControlServerErrorClassification (0.00s)
+    --- FAIL: TestOpenAIStreamControlServerErrorClassification/server_error/Upstream_service_temporarily_unavailable._Please_retry_your_request. (0.00s)
+        openai_stream_control_test.go:61: 
+            	Error Trace:	/app/backend/internal/application/service/openai_stream_control_test.go:61
+            	Error:      	Not equal: 
+            	            	expected: true
+            	            	actual  : false
+            	Test:       	TestOpenAIStreamControlServerErrorClassification/server_error/Upstream_service_temporarily_unavailable._Please_retry_your_request.
+    --- FAIL: TestOpenAIStreamControlServerErrorClassification/server_error/Transport_error:_network_error:_error_decoding_response_body (0.00s)
+        openai_stream_control_test.go:61: 
+            	Error Trace:	/app/backend/internal/application/service/openai_stream_control_test.go:61
+            	Error:      	Not equal: 
+            	            	expected: true
+            	            	actual  : false
+            	Test:       	TestOpenAIStreamControlServerErrorClassification/server_error/Transport_error:_network_error:_error_decoding_response_body
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] [WARNING] Headers were already written. Wanted to override status code 200 with 400
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] [WARNING] Headers were already written. Wanted to override status code 200 with 400
+--- FAIL: TestOpenAIStreamControlDeterministicErrorAfterHeaderKeepalive (0.00s)
+    --- FAIL: TestOpenAIStreamControlDeterministicErrorAfterHeaderKeepalive/native (0.00s)
+        openai_stream_control_test.go:88: 
+            	Error Trace:	/app/backend/internal/application/service/openai_stream_control_test.go:88
+            	Error:      	Not equal: 
+            	            	expected: 1
+            	            	actual  : 0
+            	Test:       	TestOpenAIStreamControlDeterministicErrorAfterHeaderKeepalive/native
+    --- FAIL: TestOpenAIStreamControlDeterministicErrorAfterHeaderKeepalive/passthrough (0.00s)
+        openai_stream_control_test.go:88: 
+            	Error Trace:	/app/backend/internal/application/service/openai_stream_control_test.go:88
+            	Error:      	Not equal: 
+            	            	expected: 1
+            	            	actual  : 0
+            	Test:       	TestOpenAIStreamControlDeterministicErrorAfterHeaderKeepalive/passthrough
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+--- FAIL: TestOpenAIStreamControlFailureSampleCanFailoverAfterKeepalive (0.00s)
+    --- FAIL: TestOpenAIStreamControlFailureSampleCanFailoverAfterKeepalive/native (0.00s)
+        openai_stream_control_test.go:110: 
+            	Error Trace:	/app/backend/internal/application/service/openai_stream_control_test.go:110
+            	Error:      	Should be in error chain:
+            	            	expected: *service.UpstreamFailoverError
+            	            	in chain: "upstream response failed: codex upstream stalled: no real data for 5m0s, connection recycled" (*errors.errorString)
+            	Test:       	TestOpenAIStreamControlFailureSampleCanFailoverAfterKeepalive/native
+    --- FAIL: TestOpenAIStreamControlFailureSampleCanFailoverAfterKeepalive/passthrough (0.00s)
+        openai_stream_control_test.go:110: 
+            	Error Trace:	/app/backend/internal/application/service/openai_stream_control_test.go:110
+            	Error:      	Should be in error chain:
+            	            	expected: *service.UpstreamFailoverError
+            	            	in chain: "upstream response failed: codex upstream stalled: no real data for 5m0s, connection recycled" (*errors.errorString)
+            	Test:       	TestOpenAIStreamControlFailureSampleCanFailoverAfterKeepalive/passthrough
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+2026/09/07 16:23:06 [OpenAI passthrough] 流读取异常中断: account=81 request_id= err=unexpected EOF
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+2026/09/07 16:23:06 [OpenAI passthrough] 流读取异常中断: account=81 request_id= err=unexpected EOF
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+--- FAIL: TestOpenAIStreamControlEOFBeforeOutputCanFailover (0.00s)
+    --- FAIL: TestOpenAIStreamControlEOFBeforeOutputCanFailover/native/unexpected_EOF/codex.rate_limits (0.00s)
+        openai_stream_control_test.go:140: 
+            	Error Trace:	/app/backend/internal/application/service/openai_stream_control_test.go:140
+            	Error:      	Should be in error chain:
+            	            	expected: *service.UpstreamFailoverError
+            	            	in chain: "stream read error: unexpected EOF" (*fmt.wrapError)
+            	            		"unexpected EOF" (*errors.errorString)
+            	Test:       	TestOpenAIStreamControlEOFBeforeOutputCanFailover/native/unexpected_EOF/codex.rate_limits
+    --- FAIL: TestOpenAIStreamControlEOFBeforeOutputCanFailover/native/unexpected_EOF/codex.response.metadata (0.00s)
+        openai_stream_control_test.go:140: 
+            	Error Trace:	/app/backend/internal/application/service/openai_stream_control_test.go:140
+            	Error:      	Should be in error chain:
+            	            	expected: *service.UpstreamFailoverError
+            	            	in chain: "stream read error: unexpected EOF" (*fmt.wrapError)
+            	            		"unexpected EOF" (*errors.errorString)
+            	Test:       	TestOpenAIStreamControlEOFBeforeOutputCanFailover/native/unexpected_EOF/codex.response.metadata
+    --- FAIL: TestOpenAIStreamControlEOFBeforeOutputCanFailover/native/context_deadline_exceeded/codex.rate_limits (0.00s)
+        openai_stream_control_test.go:140: 
+            	Error Trace:	/app/backend/internal/application/service/openai_stream_control_test.go:140
+            	Error:      	Should be in error chain:
+            	            	expected: *service.UpstreamFailoverError
+            	            	in chain: "stream usage incomplete: context deadline exceeded" (*fmt.wrapError)
+            	            		"context deadline exceeded" (context.deadlineExceededError)
+            	Test:       	TestOpenAIStreamControlEOFBeforeOutputCanFailover/native/context_deadline_exceeded/codex.rate_limits
+    --- FAIL: TestOpenAIStreamControlEOFBeforeOutputCanFailover/native/context_deadline_exceeded/codex.response.metadata (0.00s)
+        openai_stream_control_test.go:140: 
+            	Error Trace:	/app/backend/internal/application/service/openai_stream_control_test.go:140
+            	Error:      	Should be in error chain:
+            	            	expected: *service.UpstreamFailoverError
+            	            	in chain: "stream usage incomplete: context deadline exceeded" (*fmt.wrapError)
+            	            		"context deadline exceeded" (context.deadlineExceededError)
+            	Test:       	TestOpenAIStreamControlEOFBeforeOutputCanFailover/native/context_deadline_exceeded/codex.response.metadata
+    --- FAIL: TestOpenAIStreamControlEOFBeforeOutputCanFailover/passthrough/unexpected_EOF/codex.rate_limits (0.00s)
+        openai_stream_control_test.go:140: 
+            	Error Trace:	/app/backend/internal/application/service/openai_stream_control_test.go:140
+            	Error:      	Should be in error chain:
+            	            	expected: *service.UpstreamFailoverError
+            	            	in chain: "stream read error: unexpected EOF" (*fmt.wrapError)
+            	            		"unexpected EOF" (*errors.errorString)
+            	Test:       	TestOpenAIStreamControlEOFBeforeOutputCanFailover/passthrough/unexpected_EOF/codex.rate_limits
+    --- FAIL: TestOpenAIStreamControlEOFBeforeOutputCanFailover/passthrough/unexpected_EOF/codex.response.metadata (0.00s)
+        openai_stream_control_test.go:140: 
+            	Error Trace:	/app/backend/internal/application/service/openai_stream_control_test.go:140
+            	Error:      	Should be in error chain:
+            	            	expected: *service.UpstreamFailoverError
+            	            	in chain: "stream read error: unexpected EOF" (*fmt.wrapError)
+            	            		"unexpected EOF" (*errors.errorString)
+            	Test:       	TestOpenAIStreamControlEOFBeforeOutputCanFailover/passthrough/unexpected_EOF/codex.response.metadata
+    --- FAIL: TestOpenAIStreamControlEOFBeforeOutputCanFailover/passthrough/context_deadline_exceeded/codex.rate_limits (0.00s)
+        openai_stream_control_test.go:140: 
+            	Error Trace:	/app/backend/internal/application/service/openai_stream_control_test.go:140
+            	Error:      	Should be in error chain:
+            	            	expected: *service.UpstreamFailoverError
+            	            	in chain: "stream usage incomplete: context deadline exceeded" (*fmt.wrapError)
+            	            		"context deadline exceeded" (context.deadlineExceededError)
+            	Test:       	TestOpenAIStreamControlEOFBeforeOutputCanFailover/passthrough/context_deadline_exceeded/codex.rate_limits
+    --- FAIL: TestOpenAIStreamControlEOFBeforeOutputCanFailover/passthrough/context_deadline_exceeded/codex.response.metadata (0.00s)
+        openai_stream_control_test.go:140: 
+            	Error Trace:	/app/backend/internal/application/service/openai_stream_control_test.go:140
+            	Error:      	Should be in error chain:
+            	            	expected: *service.UpstreamFailoverError
+            	            	in chain: "stream usage incomplete: context deadline exceeded" (*fmt.wrapError)
+            	            		"context deadline exceeded" (context.deadlineExceededError)
+            	Test:       	TestOpenAIStreamControlEOFBeforeOutputCanFailover/passthrough/context_deadline_exceeded/codex.response.metadata
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+--- FAIL: TestOpenAIStreamControlWatchdogKeepsHeartbeatsWithoutSemanticOutput (6.01s)
+    --- FAIL: TestOpenAIStreamControlWatchdogKeepsHeartbeatsWithoutSemanticOutput/native (3.01s)
+        openai_stream_control_test.go:171: control frames disabled the first-output watchdog
+    --- FAIL: TestOpenAIStreamControlWatchdogKeepsHeartbeatsWithoutSemanticOutput/passthrough (3.01s)
+        openai_stream_control_test.go:171: control frames disabled the first-output watchdog
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+2026/09/07 16:23:13 Stream data interval timeout: account=81 model=gpt-5.6-sol interval=1s
+--- FAIL: TestOpenAIStreamControlNativeDataTimeoutBeforeOutputCanFailover (1.01s)
+    openai_stream_control_test.go:191: 
+        	Error Trace:	/app/backend/internal/application/service/openai_stream_control_test.go:191
+        	Error:      	Should be in error chain:
+        	            	expected: *service.UpstreamFailoverError
+        	            	in chain: "stream data interval timeout" (*errors.errorString)
+        	Test:       	TestOpenAIStreamControlNativeDataTimeoutBeforeOutputCanFailover
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] POST   /v1/responses             --> github.com/Wei-Shaw/sub2api/internal/application/service.TestOpenAIStreamControlFailureEndsHTTPWithoutWaitingForEOF.func1.1 (1 handlers)
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] POST   /v1/responses             --> github.com/Wei-Shaw/sub2api/internal/application/service.TestOpenAIStreamControlFailureEndsHTTPWithoutWaitingForEOF.func1.1 (1 handlers)
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] POST   /v1/responses             --> github.com/Wei-Shaw/sub2api/internal/application/service.TestOpenAIStreamControlFailureEndsHTTPWithoutWaitingForEOF.func1.1 (1 handlers)
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] POST   /v1/responses             --> github.com/Wei-Shaw/sub2api/internal/application/service.TestOpenAIStreamControlFailureEndsHTTPWithoutWaitingForEOF.func1.1 (1 handlers)
+--- FAIL: TestOpenAIStreamControlFailureEndsHTTPWithoutWaitingForEOF (6.03s)
+    --- FAIL: TestOpenAIStreamControlFailureEndsHTTPWithoutWaitingForEOF/native/http1 (1.51s)
+        openai_stream_control_test.go:236: 
+            	Error Trace:	/app/backend/internal/application/service/openai_stream_control_test.go:236
+            	Error:      	Received unexpected error:
+            	            	context deadline exceeded
+            	Test:       	TestOpenAIStreamControlFailureEndsHTTPWithoutWaitingForEOF/native/http1
+            	Messages:   	failure must end the HTTP body cleanly before another heartbeat
+    --- FAIL: TestOpenAIStreamControlFailureEndsHTTPWithoutWaitingForEOF/native/http2 (1.50s)
+        openai_stream_control_test.go:236: 
+            	Error Trace:	/app/backend/internal/application/service/openai_stream_control_test.go:236
+            	Error:      	Received unexpected error:
+            	            	context deadline exceeded
+            	Test:       	TestOpenAIStreamControlFailureEndsHTTPWithoutWaitingForEOF/native/http2
+            	Messages:   	failure must end the HTTP body cleanly before another heartbeat
+    --- FAIL: TestOpenAIStreamControlFailureEndsHTTPWithoutWaitingForEOF/passthrough/http1 (1.50s)
+        openai_stream_control_test.go:236: 
+            	Error Trace:	/app/backend/internal/application/service/openai_stream_control_test.go:236
+            	Error:      	Received unexpected error:
+            	            	context deadline exceeded
+            	Test:       	TestOpenAIStreamControlFailureEndsHTTPWithoutWaitingForEOF/passthrough/http1
+            	Messages:   	failure must end the HTTP body cleanly before another heartbeat
+    --- FAIL: TestOpenAIStreamControlFailureEndsHTTPWithoutWaitingForEOF/passthrough/http2 (1.51s)
+        openai_stream_control_test.go:236: 
+            	Error Trace:	/app/backend/internal/application/service/openai_stream_control_test.go:236
+            	Error:      	Received unexpected error:
+            	            	context deadline exceeded
+            	Test:       	TestOpenAIStreamControlFailureEndsHTTPWithoutWaitingForEOF/passthrough/http2
+            	Messages:   	failure must end the HTTP body cleanly before another heartbeat
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+FAIL
+FAIL	github.com/Wei-Shaw/sub2api/internal/application/service	13.070s
+2026/09/07 16:23:21 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/09/07 16:23:24 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/09/07 16:23:24 [OpenAI 自动透传] 命中自动透传分支: account=1 name=responses-account-1 type=oauth model=gpt-5.6-sol stream=true
+--- FAIL: TestOpenAIStreamPoolRecoveryContinuesPastTwoFirstOutputTimeouts (5.01s)
+    --- FAIL: TestOpenAIStreamPoolRecoveryContinuesPastTwoFirstOutputTimeouts/passthrough=false (2.51s)
+        openai_stream_pool_recovery_test.go:96: 
+            	Error Trace:	/app/backend/internal/transport/http/handler/openai_stream_pool_recovery_test.go:96
+            	Error:      	"data: {\"type\":\"codex.rate_limits\",\"rate_limits\":{\"allowed\":true}}\n\n:\n\n:\n\nevent: response.failed\ndata: {\"type\":\"response.failed\",\"response\":{\"id\":\"resp_5a6ffe36e1944ff7ab88f34b07328939\",\"object\":\"response\",\"created_at\":1788798204,\"model\":\"gpt-5.6-sol\",\"status\":\"failed\",\"output\":[],\"error\":{\"code\":\"upstream_error\",\"message\":\"Upstream request failed\"}}}\n\n" does not contain "recovered"
+            	Test:       	TestOpenAIStreamPoolRecoveryContinuesPastTwoFirstOutputTimeouts/passthrough=false
+    --- FAIL: TestOpenAIStreamPoolRecoveryContinuesPastTwoFirstOutputTimeouts/passthrough=true (2.51s)
+        openai_stream_pool_recovery_test.go:96: 
+            	Error Trace:	/app/backend/internal/transport/http/handler/openai_stream_pool_recovery_test.go:96
+            	Error:      	"data: {\"type\":\"codex.rate_limits\",\"rate_limits\":{\"allowed\":true}}\n\n:\n\n:\n\nevent: response.failed\ndata: {\"type\":\"response.failed\",\"response\":{\"id\":\"resp_ed75d30a2eaa4a8d8aac0d6250efdb6a\",\"object\":\"response\",\"created_at\":1788798206,\"model\":\"gpt-5.6-sol\",\"status\":\"failed\",\"output\":[],\"error\":{\"code\":\"upstream_error\",\"message\":\"Upstream request failed\"}}}\n\n" does not contain "recovered"
+            	Test:       	TestOpenAIStreamPoolRecoveryContinuesPastTwoFirstOutputTimeouts/passthrough=true
+2026/09/07 16:23:26 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/09/07 16:23:27 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/09/07 16:23:28 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/09/07 16:23:28 [OpenAI 自动透传] 命中自动透传分支: account=1 name=responses-account-1 type=oauth model=gpt-5.6-sol stream=true
+2026/09/07 16:23:30 [OpenAI WS Mode][openai_ws_mode=true] bootstrap enabled=false oauth_enabled=false apikey_enabled=false force_http=false responses_websockets_v2=false responses_websockets=false payload_log_sample_rate=0.000 event_flush_batch_size=0 event_flush_interval_ms=0 prewarm_cooldown_ms=0 retry_backoff_initial_ms=0 retry_backoff_max_ms=0 retry_jitter_ratio=0.000 retry_total_budget_ms=0 ws_read_limit_bytes=16777216
+2026/09/07 16:23:30 [OpenAI 自动透传] 命中自动透传分支: account=1 name=responses-account-1 type=oauth model=gpt-5.6-sol stream=true
+--- FAIL: TestOpenAIStreamPoolRecoveryKeepsOneConnectionUntilPoolExhausted (5.04s)
+    --- FAIL: TestOpenAIStreamPoolRecoveryKeepsOneConnectionUntilPoolExhausted/passthrough=false/exhausted=false (1.01s)
+        openai_stream_pool_recovery_test.go:173: 
+            	Error Trace:	/app/backend/internal/transport/http/handler/openai_stream_pool_recovery_test.go:173
+            	Error:      	Not equal: 
+            	            	expected: []int64{1, 2, 3, 4, 5}
+            	            	actual  : []int64{1}
+            	            	
+            	            	Diff:
+            	            	--- Expected
+            	            	+++ Actual
+            	            	@@ -1,7 +1,3 @@
+            	            	-([]int64) (len=5) {
+            	            	- (int64) 1,
+            	            	- (int64) 2,
+            	            	- (int64) 3,
+            	            	- (int64) 4,
+            	            	- (int64) 5
+            	            	+([]int64) (len=1) {
+            	            	+ (int64) 1
+            	            	 }
+            	Test:       	TestOpenAIStreamPoolRecoveryKeepsOneConnectionUntilPoolExhausted/passthrough=false/exhausted=false
+            	Messages:   	try each eligible account before exposing failure
+    --- FAIL: TestOpenAIStreamPoolRecoveryKeepsOneConnectionUntilPoolExhausted/passthrough=false/exhausted=true (1.00s)
+        openai_stream_pool_recovery_test.go:173: 
+            	Error Trace:	/app/backend/internal/transport/http/handler/openai_stream_pool_recovery_test.go:173
+            	Error:      	Not equal: 
+            	            	expected: []int64{1, 2, 3, 4, 5}
+            	            	actual  : []int64{1}
+            	            	
+            	            	Diff:
+            	            	--- Expected
+            	            	+++ Actual
+            	            	@@ -1,7 +1,3 @@
+            	            	-([]int64) (len=5) {
+            	            	- (int64) 1,
+            	            	- (int64) 2,
+            	            	- (int64) 3,
+            	            	- (int64) 4,
+            	            	- (int64) 5
+            	            	+([]int64) (len=1) {
+            	            	+ (int64) 1
+            	            	 }
+            	Test:       	TestOpenAIStreamPoolRecoveryKeepsOneConnectionUntilPoolExhausted/passthrough=false/exhausted=true
+            	Messages:   	try each eligible account before exposing failure
+    --- FAIL: TestOpenAIStreamPoolRecoveryKeepsOneConnectionUntilPoolExhausted/passthrough=true/exhausted=false (2.01s)
+        openai_stream_pool_recovery_test.go:173: 
+            	Error Trace:	/app/backend/internal/transport/http/handler/openai_stream_pool_recovery_test.go:173
+            	Error:      	Not equal: 
+            	            	expected: []int64{1, 2, 3, 4, 5}
+            	            	actual  : []int64{1}
+            	            	
+            	            	Diff:
+            	            	--- Expected
+            	            	+++ Actual
+            	            	@@ -1,7 +1,3 @@
+            	            	-([]int64) (len=5) {
+            	            	- (int64) 1,
+            	            	- (int64) 2,
+            	            	- (int64) 3,
+            	            	- (int64) 4,
+            	            	- (int64) 5
+            	            	+([]int64) (len=1) {
+            	            	+ (int64) 1
+            	            	 }
+            	Test:       	TestOpenAIStreamPoolRecoveryKeepsOneConnectionUntilPoolExhausted/passthrough=true/exhausted=false
+            	Messages:   	try each eligible account before exposing failure
+    --- FAIL: TestOpenAIStreamPoolRecoveryKeepsOneConnectionUntilPoolExhausted/passthrough=true/exhausted=true (1.01s)
+        openai_stream_pool_recovery_test.go:173: 
+            	Error Trace:	/app/backend/internal/transport/http/handler/openai_stream_pool_recovery_test.go:173
+            	Error:      	Not equal: 
+            	            	expected: []int64{1, 2, 3, 4, 5}
+            	            	actual  : []int64{1}
+            	            	
+            	            	Diff:
+            	            	--- Expected
+            	            	+++ Actual
+            	            	@@ -1,7 +1,3 @@
+            	            	-([]int64) (len=5) {
+            	            	- (int64) 1,
+            	            	- (int64) 2,
+            	            	- (int64) 3,
+            	            	- (int64) 4,
+            	            	- (int64) 5
+            	            	+([]int64) (len=1) {
+            	            	+ (int64) 1
+            	            	 }
+            	Test:       	TestOpenAIStreamPoolRecoveryKeepsOneConnectionUntilPoolExhausted/passthrough=true/exhausted=true
+            	Messages:   	try each eligible account before exposing failure
+FAIL
+FAIL	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	10.069s
+FAIL
+BASELINE exit=1

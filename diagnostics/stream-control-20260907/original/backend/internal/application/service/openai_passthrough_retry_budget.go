@@ -23,28 +23,6 @@ type openAIPassthroughRetryBudget struct {
 	mu          sync.Mutex
 	maxAttempts int
 	used        int
-	poolAccount int64
-	poolUsed    map[int64]int
-}
-
-// UseOpenAIStreamPoolAccount bounds each distinct account's transport attempts
-// while the Responses handler walks its monotonically growing exclusion set.
-// Reselecting an account must not replenish its budget.
-func UseOpenAIStreamPoolAccount(c *gin.Context, accountID int64) {
-	if c == nil || accountID <= 0 {
-		return
-	}
-	budget := openAIPassthroughBudgetForContext(c)
-	budget.mu.Lock()
-	defer budget.mu.Unlock()
-	if budget.poolUsed == nil {
-		budget.poolUsed = make(map[int64]int)
-	}
-	budget.poolAccount = accountID
-	if _, exists := budget.poolUsed[accountID]; !exists {
-		budget.poolUsed[accountID] = 0
-	}
-	budget.maxAttempts = len(budget.poolUsed) * defaultOpenAIPassthroughAttemptBudget()
 }
 
 func defaultOpenAIPassthroughAttemptBudget() int {
@@ -98,14 +76,6 @@ func (b *openAIPassthroughRetryBudget) reserve() (attempt, maxAttempts int, ok b
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if b.poolUsed != nil {
-		if b.poolUsed[b.poolAccount] >= defaultOpenAIPassthroughAttemptBudget() {
-			return b.used, b.maxAttempts, false
-		}
-		b.poolUsed[b.poolAccount]++
-		b.used++
-		return b.used, b.maxAttempts, true
-	}
 	if b.maxAttempts <= 0 {
 		b.maxAttempts = defaultOpenAIPassthroughAttemptBudget()
 	}
@@ -137,16 +107,6 @@ func newOpenAIPassthroughAttemptBudgetError() *UpstreamFailoverError {
 		// same-account replay.
 		RetryableOnSameAccount: false,
 	}
-}
-
-func (b *openAIPassthroughRetryBudget) exhaustedError() *UpstreamFailoverError {
-	err := newOpenAIPassthroughAttemptBudgetError()
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if b.poolUsed != nil {
-		err.NextAccountAction = NextAccountRetry
-	}
-	return err
 }
 
 func markOpenAIPassthroughNonReplayable(err *UpstreamFailoverError) {

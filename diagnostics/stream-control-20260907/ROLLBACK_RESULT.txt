@@ -1,0 +1,1 @@
+ROLLBACK restored=14 original_hashes=PASS added_files=absent

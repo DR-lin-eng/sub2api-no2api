@@ -1,0 +1,2 @@
+FROM sub2api-cpa-backend-test:20260906
+RUN apk add --no-cache build-base

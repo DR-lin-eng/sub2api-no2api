@@ -77,13 +77,6 @@ func writeOpenAIUpstreamClientError(c *gin.Context, statusCode int, body []byte,
 		message = openAIUpstreamClientErrorFallbackMessage
 	}
 	errorPayload["message"] = message
-	code, _ := errorPayload["code"].(string)
-	if code == "" {
-		code, _ = errorPayload["type"].(string)
-	}
-	if writeOpenAIResponsesErrorAfterKeepalive(c, statusCode, code, message) {
-		return
-	}
 
 	c.JSON(statusCode, gin.H{"error": errorPayload})
 }

@@ -1,0 +1,4 @@
+MODIFIED input: TestOpenAIStreamControl* and TestOpenAIStreamPoolRecovery*; native/passthrough; HTTP/1.1/HTTP/2; sanitized SSE fixture; five-account recovery
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	6.421s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	10.090s
+MODIFIED exit=0
