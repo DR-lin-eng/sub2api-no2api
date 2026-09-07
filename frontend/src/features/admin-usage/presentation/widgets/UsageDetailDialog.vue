@@ -62,6 +62,16 @@
         </dl>
       </section>
 
+      <section v-if="isAdminAudience" data-testid="timing-comparison">
+        <h4 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('usage.timingComparison') }}</h4>
+        <dl class="mt-3 grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
+          <div v-for="item in timingDetails" :key="item.key" class="min-w-0 border-b border-gray-100 pb-2 dark:border-dark-700/70">
+            <dt class="break-words text-xs text-gray-500 dark:text-gray-400">{{ item.label }}</dt>
+            <dd class="mt-1 break-all text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">{{ item.value }}</dd>
+          </div>
+        </dl>
+      </section>
+
       <section>
         <div class="flex flex-wrap items-center justify-between gap-2">
           <h4 class="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
@@ -260,6 +270,32 @@ const usageDetails = computed(() => {
 const hasCacheTierBreakdown = computed(() =>
   (props.usage?.cache_creation_5m_tokens ?? 0) > 0 || (props.usage?.cache_creation_1h_tokens ?? 0) > 0
 )
+
+const timingDetails = computed(() => {
+  const usage = props.usage
+  if (!isAdminAudience.value || !usage) return []
+  const timing = usage.openai_timing
+  const localFirst = usage.local_first_token_ms === undefined ? usage.first_token_ms : usage.local_first_token_ms
+  const localDuration = usage.local_duration_ms === undefined ? usage.duration_ms : usage.local_duration_ms
+  const upstreamDuration = timing?.total_turn_time_s == null ? null : timing.total_turn_time_s * 1000
+  const source = (value: string | undefined): string => value === 'openai' ? 'OpenAI' : value === 'local' || value == null ? t('usage.timingLocal') : t('usage.unknown')
+  const exactMs = (value: number | null | undefined): string => value == null || !Number.isFinite(value) ? '-' : `${Number(value.toFixed(6))} ms`
+  const difference = (local: number | null | undefined, upstream: number | null | undefined): string => local == null || upstream == null ? '-' : exactMs(local - upstream)
+  return [
+    { key: 'first_source', label: t('usage.timingFirstSource'), value: source(usage.first_token_source) },
+    { key: 'duration_source', label: t('usage.timingDurationSource'), value: source(usage.duration_source) },
+    { key: 'local_first', label: t('usage.timingLocalFirst'), value: exactMs(localFirst) },
+    { key: 'local_duration', label: t('usage.timingLocalDuration'), value: exactMs(localDuration) },
+    { key: 'engine_first', label: t('usage.timingEngineFirst'), value: exactMs(timing?.engine_service_ttft_total_ms) },
+    { key: 'upstream_duration', label: t('usage.timingUpstreamDuration'), value: exactMs(upstreamDuration) },
+    { key: 'first_diff', label: t('usage.timingFirstDifference'), value: usage.first_token_source === 'openai' ? difference(localFirst, timing?.engine_service_ttft_total_ms) : '-' },
+    { key: 'duration_diff', label: t('usage.timingDurationDifference'), value: difference(localDuration, upstreamDuration) },
+    { key: 'sampled_first', label: t('usage.timingSampledFirst'), value: exactMs(timing?.first_sampled_message_ttft_ms) },
+    { key: 'queue', label: t('usage.timingQueue'), value: exactMs(timing?.engine_queue_max_ms) },
+    { key: 'api_duration', label: t('usage.timingAPIDuration'), value: exactMs(timing?.responsesapi_duration_excl_client_tools_ms) },
+    { key: 'engine_calls', label: t('usage.timingEngineCalls'), value: timing?.num_engine_calls?.toString() ?? '-' },
+  ]
+})
 
 const formatCost = (value: number | null | undefined): string => `$${(value ?? 0).toFixed(10)}`
 const formatRate = (value: number | null | undefined): string => value == null || !Number.isFinite(value) ? '-' : `${value.toFixed(4)}x`

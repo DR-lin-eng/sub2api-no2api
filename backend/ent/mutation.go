@@ -52585,6 +52585,7 @@ type UsageLogMutation struct {
 	addduration_ms               *int
 	first_token_ms               *int
 	addfirst_token_ms            *int
+	openai_timing                *map[string]interface{}
 	user_agent                   *string
 	ip_address                   *string
 	image_count                  *int
@@ -54472,6 +54473,55 @@ func (m *UsageLogMutation) ResetFirstTokenMs() {
 	delete(m.clearedFields, usagelog.FieldFirstTokenMs)
 }
 
+// SetOpenaiTiming sets the "openai_timing" field.
+func (m *UsageLogMutation) SetOpenaiTiming(value map[string]interface{}) {
+	m.openai_timing = &value
+}
+
+// OpenaiTiming returns the value of the "openai_timing" field in the mutation.
+func (m *UsageLogMutation) OpenaiTiming() (r map[string]interface{}, exists bool) {
+	v := m.openai_timing
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOpenaiTiming returns the old "openai_timing" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldOpenaiTiming(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOpenaiTiming is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOpenaiTiming requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOpenaiTiming: %w", err)
+	}
+	return oldValue.OpenaiTiming, nil
+}
+
+// ClearOpenaiTiming clears the value of the "openai_timing" field.
+func (m *UsageLogMutation) ClearOpenaiTiming() {
+	m.openai_timing = nil
+	m.clearedFields[usagelog.FieldOpenaiTiming] = struct{}{}
+}
+
+// OpenaiTimingCleared returns if the "openai_timing" field was cleared in this mutation.
+func (m *UsageLogMutation) OpenaiTimingCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldOpenaiTiming]
+	return ok
+}
+
+// ResetOpenaiTiming resets all changes to the "openai_timing" field.
+func (m *UsageLogMutation) ResetOpenaiTiming() {
+	m.openai_timing = nil
+	delete(m.clearedFields, usagelog.FieldOpenaiTiming)
+}
+
 // SetUserAgent sets the "user_agent" field.
 func (m *UsageLogMutation) SetUserAgent(s string) {
 	m.user_agent = &s
@@ -55287,7 +55337,7 @@ func (m *UsageLogMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UsageLogMutation) Fields() []string {
-	fields := make([]string, 0, 47)
+	fields := make([]string, 0, 48)
 	if m.user != nil {
 		fields = append(fields, usagelog.FieldUserID)
 	}
@@ -55389,6 +55439,9 @@ func (m *UsageLogMutation) Fields() []string {
 	}
 	if m.first_token_ms != nil {
 		fields = append(fields, usagelog.FieldFirstTokenMs)
+	}
+	if m.openai_timing != nil {
+		fields = append(fields, usagelog.FieldOpenaiTiming)
 	}
 	if m.user_agent != nil {
 		fields = append(fields, usagelog.FieldUserAgent)
@@ -55505,6 +55558,8 @@ func (m *UsageLogMutation) Field(name string) (ent.Value, bool) {
 		return m.DurationMs()
 	case usagelog.FieldFirstTokenMs:
 		return m.FirstTokenMs()
+	case usagelog.FieldOpenaiTiming:
+		return m.OpenaiTiming()
 	case usagelog.FieldUserAgent:
 		return m.UserAgent()
 	case usagelog.FieldIPAddress:
@@ -55608,6 +55663,8 @@ func (m *UsageLogMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldDurationMs(ctx)
 	case usagelog.FieldFirstTokenMs:
 		return m.OldFirstTokenMs(ctx)
+	case usagelog.FieldOpenaiTiming:
+		return m.OldOpenaiTiming(ctx)
 	case usagelog.FieldUserAgent:
 		return m.OldUserAgent(ctx)
 	case usagelog.FieldIPAddress:
@@ -55880,6 +55937,13 @@ func (m *UsageLogMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetFirstTokenMs(v)
+		return nil
+	case usagelog.FieldOpenaiTiming:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOpenaiTiming(v)
 		return nil
 	case usagelog.FieldUserAgent:
 		v, ok := value.(string)
@@ -56296,6 +56360,9 @@ func (m *UsageLogMutation) ClearedFields() []string {
 	if m.FieldCleared(usagelog.FieldFirstTokenMs) {
 		fields = append(fields, usagelog.FieldFirstTokenMs)
 	}
+	if m.FieldCleared(usagelog.FieldOpenaiTiming) {
+		fields = append(fields, usagelog.FieldOpenaiTiming)
+	}
 	if m.FieldCleared(usagelog.FieldUserAgent) {
 		fields = append(fields, usagelog.FieldUserAgent)
 	}
@@ -56375,6 +56442,9 @@ func (m *UsageLogMutation) ClearField(name string) error {
 		return nil
 	case usagelog.FieldFirstTokenMs:
 		m.ClearFirstTokenMs()
+		return nil
+	case usagelog.FieldOpenaiTiming:
+		m.ClearOpenaiTiming()
 		return nil
 	case usagelog.FieldUserAgent:
 		m.ClearUserAgent()
@@ -56512,6 +56582,9 @@ func (m *UsageLogMutation) ResetField(name string) error {
 		return nil
 	case usagelog.FieldFirstTokenMs:
 		m.ResetFirstTokenMs()
+		return nil
+	case usagelog.FieldOpenaiTiming:
+		m.ResetOpenaiTiming()
 		return nil
 	case usagelog.FieldUserAgent:
 		m.ResetUserAgent()

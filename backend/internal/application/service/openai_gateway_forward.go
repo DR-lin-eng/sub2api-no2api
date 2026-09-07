@@ -27,6 +27,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		c.Request = c.Request.WithContext(requestCtx)
 	}
 	beginUpstreamResponseModelObservation(c)
+	beginOpenAITimingObservation(c)
 	ClearActualOpenAIUpstreamEndpoint(c)
 	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) {
 		SetActualOpenAIUpstreamEndpoint(c, "/v1/chat/completions")
@@ -1136,6 +1137,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			OpenAIWSMode:                  false,
 			Duration:                      time.Since(startTime),
 			FirstTokenMs:                  firstTokenMs,
+			OpenAITiming:                  observedOpenAITiming(c),
 		}
 		if imageCount > 0 {
 			forwardResult.ImageCount = imageCount

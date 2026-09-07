@@ -50,6 +50,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	defaultMappedModel string,
 ) (*OpenAIForwardResult, error) {
 	beginUpstreamResponseModelObservation(c)
+	beginOpenAITimingObservation(c)
 	ClearActualOpenAIUpstreamEndpoint(c)
 	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) {
 		SetActualOpenAIUpstreamEndpoint(c, "/v1/chat/completions")
@@ -638,7 +639,7 @@ func (s *OpenAIGatewayService) handleAnthropicCompactStreamingResponse(
 ) (*OpenAIForwardResult, error) {
 	requestID := resp.Header.Get("x-request-id")
 
-	finalResponse, usage, acc, err := s.readOpenAICompatBufferedTerminal(resp, "openai messages compact buffered", requestID)
+	finalResponse, usage, acc, err := s.readOpenAICompatBufferedTerminal(resp, "openai messages compact buffered", requestID, c)
 	if err != nil {
 		return nil, err
 	}
@@ -721,7 +722,7 @@ func (s *OpenAIGatewayService) handleAnthropicBufferedStreamingResponse(
 ) (*OpenAIForwardResult, error) {
 	requestID := resp.Header.Get("x-request-id")
 
-	finalResponse, usage, acc, err := s.readOpenAICompatBufferedTerminal(resp, "openai messages buffered", requestID)
+	finalResponse, usage, acc, err := s.readOpenAICompatBufferedTerminal(resp, "openai messages buffered", requestID, c)
 	if err != nil {
 		var readErr *openAICompatBufferedReadError
 		if errors.As(err, &readErr) && readErr != nil {
@@ -809,6 +810,7 @@ func (s *OpenAIGatewayService) writeAnthropicBufferedFinalResponse(
 			BillingModel:                  billingModel,
 			UpstreamModel:                 upstreamModel,
 			UpstreamResponseModel:         observedUpstreamResponseModel(c),
+			OpenAITiming:                  observedOpenAITiming(c),
 			UpstreamResponseModelConflict: observedUpstreamResponseModelConflict(c),
 			Stream:                        clientStream,
 			Duration:                      time.Since(startTime),
@@ -837,6 +839,7 @@ func (s *OpenAIGatewayService) writeAnthropicBufferedFinalResponse(
 		BillingModel:                  billingModel,
 		UpstreamModel:                 upstreamModel,
 		UpstreamResponseModel:         observedUpstreamResponseModel(c),
+		OpenAITiming:                  observedOpenAITiming(c),
 		UpstreamResponseModelConflict: observedUpstreamResponseModelConflict(c),
 		Stream:                        clientStream,
 		Duration:                      time.Since(startTime),
@@ -1954,7 +1957,12 @@ func (s *OpenAIGatewayService) readOpenAICompatBufferedTerminal(
 	resp *http.Response,
 	logPrefix string,
 	requestID string,
+	contexts ...*gin.Context,
 ) (*apicompat.ResponsesResponse, OpenAIUsage, *apicompat.BufferedResponseAccumulator, error) {
+	var timingContext *gin.Context
+	if len(contexts) > 0 {
+		timingContext = contexts[0]
+	}
 	acc := apicompat.NewBufferedResponseAccumulator()
 	var usage OpenAIUsage
 	if resp == nil || resp.Body == nil {
@@ -2031,6 +2039,7 @@ func (s *OpenAIGatewayService) readOpenAICompatBufferedTerminal(
 			if !ok {
 				if frame, ok := parser.Finish(); ok {
 					payload := openAICompatPayloadWithEventType(frame.Data, frame.EventType)
+					observeOpenAITiming(timingContext, []byte(payload), gjson.Get(payload, "type").String())
 					var event apicompat.ResponsesStreamEvent
 					if err := json.Unmarshal([]byte(payload), &event); err == nil {
 						acc.ProcessEvent(&event)
@@ -2069,6 +2078,7 @@ func (s *OpenAIGatewayService) readOpenAICompatBufferedTerminal(
 				continue
 			}
 			payload := openAICompatPayloadWithEventType(frame.Data, frame.EventType)
+			observeOpenAITiming(timingContext, []byte(payload), gjson.Get(payload, "type").String())
 
 			var event apicompat.ResponsesStreamEvent
 			if err := json.Unmarshal([]byte(payload), &event); err != nil {
@@ -2206,6 +2216,7 @@ func (s *OpenAIGatewayService) handleAnthropicStreamingResponse(
 			Stream:                        true,
 			Duration:                      time.Since(startTime),
 			FirstTokenMs:                  firstTokenMs,
+			OpenAITiming:                  observedOpenAITiming(c),
 			ClientDisconnect:              clientDisconnected,
 			ClientOutputStarted:           clientOutputStarted,
 		}
@@ -2234,6 +2245,7 @@ func (s *OpenAIGatewayService) handleAnthropicStreamingResponse(
 	// processDataLine handles a single "data: ..." SSE line from upstream.
 	processDataLine := func(payload string) bool {
 		observer.ObserveOpenAI([]byte(payload), strings.TrimSpace(gjson.Get(payload, "type").String()))
+		observeOpenAITiming(c, []byte(payload), gjson.Get(payload, "type").String())
 		if firstChunk {
 			firstChunk = false
 			ms := int(time.Since(startTime).Milliseconds())

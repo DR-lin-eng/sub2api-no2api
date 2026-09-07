@@ -143,6 +143,8 @@ describe('UsageTable audience boundary', () => {
     account: { id: 9981, name: 'private-account-name' },
     account_rate_multiplier: 1.75,
     account_stats_cost: 0.7,
+    local_first_token_ms: 1250,
+    openai_timing: { engine_service_ttft_total_ms: 690.87897 },
   }
   const columns = [
     { key: 'account', label: 'Account' },
@@ -181,6 +183,8 @@ describe('UsageTable audience boundary', () => {
     expect(wrapper.text()).not.toContain('private-response-model')
     expect(wrapper.text()).not.toContain('/private/upstream-endpoint')
     expect(wrapper.text()).not.toContain('private-account-name')
+    expect(wrapper.find('[data-testid="openai-first-token"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="local-first-token"]').exists()).toBe(false)
 
     const tooltipTriggers = wrapper.findAll('.group.relative')
     await tooltipTriggers[tooltipTriggers.length - 1].trigger('mouseenter')
@@ -199,6 +203,8 @@ describe('UsageTable audience boundary', () => {
     expect(wrapper.text()).toContain('private-response-model')
     expect(wrapper.text()).toContain('/private/upstream-endpoint')
     expect(wrapper.text()).toContain('private-account-name')
+    expect(wrapper.get('[data-testid="openai-first-token"]').text()).toContain('690.87897ms')
+    expect(wrapper.get('[data-testid="local-first-token"]').text()).toContain('1.25s')
   })
 })
 

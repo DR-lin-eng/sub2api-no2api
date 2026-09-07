@@ -6,7 +6,7 @@
 
 | 分组 | 包 |
 | --- | --- |
-| 协议与兼容 | `anthropicfp`, `apicompat`, `claude`, `gemini`, `googleapi`, `openai_compat`, `remotecontrol` |
+| 协议与兼容 | `anthropicfp`, `apicompat`, `claude`, `gemini`, `googleapi`, `openai_compat`, `openaitiming`, `remotecontrol` |
 | 上游客户端 | `antigravity`, `geminicli`, `openai`, `xai`, `websearch` |
 | HTTP 与网络 | `chatgptcookies`, `httpclient`, `httputil`, `ip`, `proxyurl`, `proxyutil`, `response`, `responseheaders`, `servertiming`, `urlvalidator` |
 | OAuth 与安全 | `codexsimulation`, `oauth`, `oauthstate`, `tlsfingerprint`, `logredact` |

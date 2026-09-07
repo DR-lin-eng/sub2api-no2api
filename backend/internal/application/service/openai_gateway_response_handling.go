@@ -47,6 +47,7 @@ func (s *OpenAIGatewayService) handleStreamingResponse(ctx context.Context, resp
 }
 
 func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.Context, resp *http.Response, c *gin.Context, account *Account, startTime time.Time, originalModel, mappedModel, reasoningEffort string) (*openaiStreamingResult, error) {
+	beginOpenAITimingObservation(c)
 	visibleOutputTTFT := s.useOpenAIVisibleOutputTTFT(ctx)
 	observer := upstreamResponseModelObserverFromContext(c)
 	if observer == nil {
@@ -451,6 +452,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			eventTypeRaw := gjson.GetBytes(dataBytes, "type").String()
 			eventType := strings.TrimSpace(eventTypeRaw)
 			observer.ObserveOpenAI(dataBytes, eventTypeRaw)
+			observeOpenAITiming(c, dataBytes, eventTypeRaw)
 			if openAIStreamDataSignalsOutputProgressTrimmed(trimmedData, eventType) {
 				sawOutputProgressEvent = true
 			}
@@ -1277,6 +1279,7 @@ func openAICacheCreationTokensFromUsage(value gjson.Result) int {
 }
 
 func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, resp *http.Response, c *gin.Context, account *Account, originalModel, mappedModel string) (*openaiNonStreamingResult, error) {
+	beginOpenAITimingObservation(c)
 	body, err := ReadUpstreamResponseBody(resp.Body, s.cfg, c, openAITooLargeError)
 	if err != nil {
 		return nil, err
@@ -1285,6 +1288,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
 	if observer == nil {
 		observer = beginUpstreamResponseModelObservation(c)
 	}
+	observeOpenAITimingBody(c, body)
 	if bodyHasSSEFraming(body) {
 		observeOpenAISSEBody(observer, string(body))
 	} else {

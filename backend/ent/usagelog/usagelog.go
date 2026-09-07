@@ -82,6 +82,8 @@ const (
 	FieldDurationMs = "duration_ms"
 	// FieldFirstTokenMs holds the string denoting the first_token_ms field in the database.
 	FieldFirstTokenMs = "first_token_ms"
+	// FieldOpenaiTiming holds the string denoting the openai_timing field in the database.
+	FieldOpenaiTiming = "openai_timing"
 	// FieldUserAgent holds the string denoting the user_agent field in the database.
 	FieldUserAgent = "user_agent"
 	// FieldIPAddress holds the string denoting the ip_address field in the database.
@@ -194,6 +196,7 @@ var Columns = []string{
 	FieldStream,
 	FieldDurationMs,
 	FieldFirstTokenMs,
+	FieldOpenaiTiming,
 	FieldUserAgent,
 	FieldIPAddress,
 	FieldImageCount,

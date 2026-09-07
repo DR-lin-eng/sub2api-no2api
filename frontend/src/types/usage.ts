@@ -87,6 +87,20 @@ export interface UsageLogAccountSummary {
 }
 
 export interface AdminUsageLog extends UsageLog {
+  local_first_token_ms?: number | null
+  local_duration_ms?: number | null
+  first_token_source?: 'local' | 'openai'
+  duration_source?: 'local' | 'openai'
+  openai_timing?: {
+    response_id?: string
+    timing_scope?: string
+    first_sampled_message_ttft_ms?: number | null
+    engine_service_ttft_total_ms?: number | null
+    engine_queue_max_ms?: number | null
+    total_turn_time_s?: number | null
+    num_engine_calls?: number | null
+    responsesapi_duration_excl_client_tools_ms?: number | null
+  } | null
   upstream_endpoint?: string | null
   upstream_model?: string | null
   upstream_response_model?: string | null

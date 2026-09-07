@@ -653,6 +653,15 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 	if requestedModel == "" {
 		requestedModel = l.Model
 	}
+	firstTokenMs, durationMs := l.FirstTokenMs, l.DurationMs
+	if l.ImageCount == 0 && l.VideoCount == 0 {
+		if upstream := l.OpenAITiming.FirstTokenMs(); upstream != nil {
+			firstTokenMs = upstream
+		}
+	}
+	if upstream := l.OpenAITiming.DurationMs(); upstream != nil {
+		durationMs = upstream
+	}
 	return UsageLog{
 		ID:                        l.ID,
 		UserID:                    l.UserID,
@@ -683,8 +692,8 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 		RequestType:               requestType.String(),
 		Stream:                    stream,
 		OpenAIWSMode:              openAIWSMode,
-		DurationMs:                l.DurationMs,
-		FirstTokenMs:              l.FirstTokenMs,
+		DurationMs:                durationMs,
+		FirstTokenMs:              firstTokenMs,
 		ImageCount:                l.ImageCount,
 		ImageSize:                 l.ImageSize,
 		ImageInputSize:            l.ImageInputSize,
@@ -729,8 +738,20 @@ func UsageLogFromServiceAdmin(l *service.UsageLog) *AdminUsageLog {
 		return nil
 	}
 	usageLog := usageLogFromServiceUser(l)
+	firstTokenSource, durationSource := "local", "local"
+	if l.ImageCount == 0 && l.VideoCount == 0 && l.OpenAITiming.FirstTokenMs() != nil {
+		firstTokenSource = "openai"
+	}
+	if l.OpenAITiming.DurationMs() != nil {
+		durationSource = "openai"
+	}
 	return &AdminUsageLog{
 		UsageLog:              usageLog,
+		LocalFirstTokenMs:     l.FirstTokenMs,
+		LocalDurationMs:       l.DurationMs,
+		FirstTokenSource:      firstTokenSource,
+		DurationSource:        durationSource,
+		OpenAITiming:          l.OpenAITiming,
 		UpstreamEndpoint:      l.UpstreamEndpoint,
 		UpstreamModel:         l.UpstreamModel,
 		UpstreamResponseModel: l.UpstreamResponseModel,

@@ -507,6 +507,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 		OpenAIWSMode:                  false,
 		Duration:                      time.Since(startTime),
 		FirstTokenMs:                  firstTokenMs,
+		OpenAITiming:                  observedOpenAITiming(c),
 	}
 	if imageCount > 0 {
 		forwardResult.ImageCount = imageCount
@@ -1930,6 +1931,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 	mappedModel string,
 	reasoningEfforts ...string,
 ) (*openaiStreamingResultPassthrough, error) {
+	beginOpenAITimingObservation(c)
 	visibleOutputTTFT := s.useOpenAIVisibleOutputTTFT(ctx)
 	observer := upstreamResponseModelObserverFromContext(c)
 	if observer == nil {
@@ -2218,6 +2220,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 			trimmedData := strings.TrimSpace(data)
 			rawEventType := strings.TrimSpace(gjson.GetBytes(dataBytes, "type").String())
 			observer.ObserveOpenAI(dataBytes, rawEventType)
+			observeOpenAITiming(c, dataBytes, rawEventType)
 			if needModelReplace && strings.Contains(data, mappedModel) {
 				line = s.replaceModelInSSELine(line, mappedModel, originalModel)
 				if replacedData, replaced := extractOpenAISSEDataLine(line); replaced {
@@ -2510,6 +2513,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 	originalModel string,
 	mappedModel string,
 ) (*openaiNonStreamingResultPassthrough, error) {
+	beginOpenAITimingObservation(c)
 	if openAIStreamResponseMetadataTrailersActive(c) {
 		declareOpenAIStreamResponseMetadataTrailers(c)
 	}
@@ -2534,6 +2538,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 	if observer == nil {
 		observer = beginUpstreamResponseModelObservation(c)
 	}
+	observeOpenAITimingBody(c, body)
 	if bodyHasSSEFraming(body) {
 		observeOpenAISSEBody(observer, string(body))
 	} else {

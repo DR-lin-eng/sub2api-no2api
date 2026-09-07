@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
+	"github.com/Wei-Shaw/sub2api/internal/shared/openaitiming"
 	"github.com/Wei-Shaw/sub2api/internal/shared/responseheaders"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
@@ -39,6 +40,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	}
 	visibleOutputTTFT := s.useOpenAIVisibleOutputTTFT(ctx)
 	responseModelObserver := &upstreamResponseModelObserver{}
+	timingCollector := &openaitiming.Collector{}
 
 	wsURL, err := s.buildOpenAIResponsesWSURL(account)
 	if err != nil {
@@ -616,6 +618,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			continue
 		}
 		responseModelObserver.ObserveOpenAI(message, eventType)
+		timingCollector.Observe(message, eventType)
 		eventCount++
 		if firstEventType == "" {
 			firstEventType = eventType
@@ -969,6 +972,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		Model:                         originalModel,
 		UpstreamModel:                 mappedModel,
 		UpstreamResponseModel:         responseModelObserver.Model(),
+		OpenAITiming:                  timingCollector.Snapshot(),
 		UpstreamResponseModelConflict: responseModelObserver.Conflict(),
 		ImageCount:                    imageCounter.Count(),
 		ImageOutputSizes:              imageCounter.Sizes(),

@@ -20,6 +20,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/shared/ip"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
 	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
+	"github.com/Wei-Shaw/sub2api/internal/shared/openaitiming"
 	"github.com/Wei-Shaw/sub2api/internal/shared/responseheaders"
 	"github.com/cespare/xxhash/v2"
 	"github.com/gin-gonic/gin"
@@ -262,6 +263,7 @@ type OpenAIForwardResult struct {
 	ResponseHeaders       http.Header
 	Duration              time.Duration
 	FirstTokenMs          *int
+	OpenAITiming          *openaitiming.Metrics
 	ClientDisconnect      bool
 	ImageCount            int
 	ImageSize             string

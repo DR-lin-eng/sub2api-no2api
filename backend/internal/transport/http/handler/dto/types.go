@@ -8,6 +8,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	moduleegress "github.com/Wei-Shaw/sub2api/internal/modules/egress"
+	"github.com/Wei-Shaw/sub2api/internal/shared/openaitiming"
 )
 
 type User struct {
@@ -573,6 +574,11 @@ type UsageLog struct {
 // AdminUsageLog 是管理员接口使用的 usage log DTO（包含管理员字段）。
 type AdminUsageLog struct {
 	UsageLog
+	LocalFirstTokenMs *int                  `json:"local_first_token_ms"`
+	LocalDurationMs   *int                  `json:"local_duration_ms"`
+	FirstTokenSource  string                `json:"first_token_source"`
+	DurationSource    string                `json:"duration_source"`
+	OpenAITiming      *openaitiming.Metrics `json:"openai_timing,omitempty"`
 
 	// UpstreamEndpoint is the normalized upstream endpoint path, e.g. /v1/responses.
 	UpstreamEndpoint *string `json:"upstream_endpoint,omitempty"`
