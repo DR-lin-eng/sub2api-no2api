@@ -47,7 +47,7 @@ func (u *streamPoolRecoveryUpstream) Do(req *http.Request, _ string, accountID i
 	}
 	reader, writer := io.Pipe()
 	go func() {
-		defer writer.Close()
+		defer func() { _ = writer.Close() }()
 		if _, err := io.WriteString(writer, "data: {\"type\":\"codex.rate_limits\",\"rate_limits\":{\"allowed\":true}}\n\n"); err != nil {
 			return
 		}
@@ -147,7 +147,7 @@ func TestOpenAIStreamPoolRecoveryKeepsOneConnectionUntilPoolExhausted(t *testing
 				req.Header.Set("Content-Type", "application/json")
 				resp, err := server.Client().Do(req)
 				require.NoError(t, err)
-				defer resp.Body.Close()
+				defer func() { _ = resp.Body.Close() }()
 				scanner := bufio.NewScanner(resp.Body)
 				var wire strings.Builder
 				heartbeats := 0

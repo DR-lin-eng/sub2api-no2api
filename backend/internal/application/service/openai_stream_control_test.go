@@ -156,7 +156,7 @@ func TestOpenAIStreamControlWatchdogKeepsHeartbeatsWithoutSemanticOutput(t *test
 				OpenAIFirstOutputTimeoutSeconds: 2, StreamKeepaliveInterval: 1,
 			}}}
 			body := newOpenAICompatBlockingReadCloser([]byte(streamControlPreamble + "event: response.in_progress\n"))
-			defer body.Close()
+			defer func() { _ = body.Close() }()
 			done := make(chan error, 1)
 			go func() {
 				_, _, err := runStreamControlResponse(svc, mode, c, body)
@@ -184,7 +184,7 @@ func TestOpenAIStreamControlNativeDataTimeoutBeforeOutputCanFailover(t *testing.
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
 	body := newOpenAICompatBlockingReadCloser([]byte(streamControlPreamble))
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 	svc := &OpenAIGatewayService{cfg: &config.Config{Gateway: config.GatewayConfig{StreamDataIntervalTimeout: 1, StreamKeepaliveInterval: 1}}}
 	_, _, err := runStreamControlResponse(svc, "native", c, body)
 	var failover *UpstreamFailoverError
@@ -205,7 +205,7 @@ func TestOpenAIStreamControlFailureEndsHTTPWithoutWaitingForEOF(t *testing.T) {
 					"data: {\"type\":\"response.output_text.delta\",\"delta\":\"partial\"}\n\n" +
 						"data: {\"type\":\"response.failed\",\"response\":{\"id\":\"resp_wire\",\"status\":\"failed\",\"error\":{\"code\":\"server_error\",\"message\":\"generation failed\"},\"usage\":{\"input_tokens\":7,\"output_tokens\":2}}}\n\n" +
 						":\n\ndata: {\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_wire\"}}\n\n"))
-				defer body.Close()
+				defer func() { _ = body.Close() }()
 				type outcome struct {
 					usage *OpenAIUsage
 					err   error
@@ -213,7 +213,7 @@ func TestOpenAIStreamControlFailureEndsHTTPWithoutWaitingForEOF(t *testing.T) {
 				done := make(chan outcome, 1)
 				router := gin.New()
 				router.POST("/v1/responses", func(c *gin.Context) {
-					defer body.Close()
+					defer func() { _ = body.Close() }()
 					svc := &OpenAIGatewayService{cfg: &config.Config{Gateway: config.GatewayConfig{StreamKeepaliveInterval: 1}}}
 					usage, _, err := runStreamControlResponse(svc, mode, c, body)
 					done <- outcome{usage, err}
@@ -222,14 +222,14 @@ func TestOpenAIStreamControlFailureEndsHTTPWithoutWaitingForEOF(t *testing.T) {
 				server.EnableHTTP2 = http2
 				server.StartTLS()
 				defer server.Close()
-				defer body.Close()
+				defer func() { _ = body.Close() }()
 				ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
 				defer cancel()
 				req, err := http.NewRequestWithContext(ctx, http.MethodPost, server.URL+"/v1/responses", nil)
 				require.NoError(t, err)
 				response, err := server.Client().Do(req)
 				require.NoError(t, err)
-				defer response.Body.Close()
+				defer func() { _ = response.Body.Close() }()
 				wire, readErr := io.ReadAll(response.Body)
 				_ = body.Close()
 				result := <-done
