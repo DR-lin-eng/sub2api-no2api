@@ -57,7 +57,7 @@ WS 转发、WS/HTTP bridge 和 WS v2 passthrough。每个 attempt 或 turn 独�
 从 `backend/` 执行相关单元测试：
 
 ```sh
-go test ./internal/shared/openaitiming ./internal/application/service/... ./internal/transport/http/handler/dto ./internal/infrastructure/repository
+go test -tags=unit ./internal/shared/openaitiming ./internal/application/service/... ./internal/transport/http/handler/dto ./internal/infrastructure/repository
 go test -tags integration ./internal/infrastructure/repository -run 'TestOpenAITimingPersistence|TestUsageLogRepoSuite|TestUsageLogRepositoryCreate'
 ```
 
@@ -72,3 +72,4 @@ pnpm run build
 
 数据库集成测试使用独立 Docker PostgreSQL/Redis，验证单条、批量、best-effort 和无返回值写入路径，
 并确认回读保留本地计时、上游小数精度及原有 token 数。
+提交前使用 `make test-unit` 与 CI 保持一致，包含仅在 `unit` build tag 下启用的列参数契约测试。
