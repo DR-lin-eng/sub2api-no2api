@@ -1,0 +1,1040 @@
+diff --git a/.gitattributes b/.gitattributes
+index 3cf3664be3c2eca4fa8b6f0a210fe893e2b09195..a106a7408616a62e7fcffea4486fa552417d79d2 100644
+--- a/.gitattributes
++++ b/.gitattributes
+@@ -28,3 +28,4 @@ diagnostics/upstream-sync-20260905/DIFF_FILE -whitespace
+ diagnostics/stream-control-20260907/DIFF_FILE -whitespace
+ diagnostics/stream-control-20260907/*.txt -whitespace
+ backend/internal/application/service/testdata/openai_control_failure.sse whitespace=-blank-at-eof
++diagnostics/feature-docs-20260908/DIFF_FILE -whitespace
+diff --git a/.gitignore b/.gitignore
+index ae8cab4276ffb1690ed83338ac53f95b2b0e3fc4..355ada66236dbfb3df78b11439c184027d61b76c 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -154,6 +154,11 @@ docs/*
+ !docs/CPA_POOL_DYNAMIC_LOAD_BALANCING_CN.md
+ !docs/CLOUDFLARE_EDGE_RULES.md
+ !docs/FRONTEND_CORS_DEPLOYMENT_CN.md
++!docs/UPSTREAM_SYNC_20260908.md
++!docs/FEATURES.md
++!docs/ACTIVITY_CENTER.md
++!docs/SUPPORT_CHAT.md
++!docs/CUSTOM_MODELS_AND_MEDIA.md
+ !docs/codex/
+ !docs/codex/intentional-divergences.md
+ !docs/legal/
+diff --git a/backend/internal/modules/README.md b/backend/internal/modules/README.md
+index 27d07da1fd54e025b103846adc169218fb9df3f8..de22965ba1942a409975b0b3b3b51256f2d7dd22 100644
+--- a/backend/internal/modules/README.md
++++ b/backend/internal/modules/README.md
+@@ -4,11 +4,14 @@
+ 
+ | 模块 | 作用 |
+ | --- | --- |
+-| `activitycenter/` | 活动配置、用户可见性、抽奖资格、事务抽奖与参与记录领域规则 |
+-| `chat/` | 在线客服会话、消息、未读状态、撤回事件、保留清理和实时广播 |
+-| `payment/` | 支付金额、币种、渠道注册与提供商适配 |
+-| `securityaudit/` | Prompt 审计、同步防护、队列和审计策略 |
++| [activitycenter](activitycenter/README.md) | 活动配置、可见性、抽奖、签到、兑换膨胀和参与记录领域规则 |
++| [chat](chat/README.md) | 在线客服会话、消息、未读状态、撤回事件、保留清理和实时广播 |
++| [egress](egress/README.md) | 账号 IPv6 出口池、绑定、探测和 HE 隧道管理 |
++| [payment](payment/README.md) | 支付金额、币种、渠道注册与提供商适配 |
++| [securityaudit](securityaudit/README.md) | Prompt 审计、同步防护、队列和审计策略 |
+ 
+ 活动类型与状态的纯白名单判断集中在 `activitycenter/campaign_state.go`。
+ 
+ 模块通过公开接口与 application/transport 连接。禁止模块通过读取其他模块的内部状态形成隐式耦合。
++
++用户流程和全部功能入口见 [功能索引](../../../docs/FEATURES.md)。新增模块时同步新增目录 README，并在本页与功能索引登记。
+diff --git a/backend/internal/modules/activitycenter/README.md b/backend/internal/modules/activitycenter/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..9ad2698449aed9b89ab385eeb9c64375ae51cacb
+--- /dev/null
++++ b/backend/internal/modules/activitycenter/README.md
+@@ -0,0 +1,28 @@
++# Activity Center
++
++本模块持有活动配置、用户可见性、参与资格、抽奖、签到和兑换膨胀的领域规则。操作说明见 [活动中心](../../../../docs/ACTIVITY_CENTER.md)。
++
++## 职责与入口
++
++- [campaign.go](campaign.go)：实体、Repository/RewardGranter 端口、配置校验、奖池与库存、参与记录、膨胀规则。
++- [campaign_state.go](campaign_state.go)：活动类型与状态的白名单。
++- [checkin.go](checkin.go)：按活动时区计算签到日、连续签到与周期奖励、脱敏排行榜。
++- [activity_center_rewards.go](../../application/service/activity_center_rewards.go)：奖励发放和兑换膨胀的应用层接入。
++- [activity_center_repo.go](../../infrastructure/repository/activity_center_repo.go)：持久化、参与事务、并发锁与提交后回调。
++
++## 不变量
++
++活动必须处于 `active` 且在生效时间窗内，用户还必须满足对应分组资格。库存、每日限制和当日签到判定在事务内复查；奖励发放与参与记录使用相同事务，缓存等副作用在提交后执行。
++
++`redeem` 是兼容旧数据的膨胀活动类型。签到 `monthly` 表示 30 天循环，不是自然月；中断连续签到后重新从第 1 天开始。用户 DTO 不应泄露未抽中的卡密库存或管理端配置。
++
++## 验证
++
++从 `backend/` 执行领域与奖励回归：
++
++```sh
++go test ./internal/modules/activitycenter
++go test ./internal/application/service -run 'TestActivityCenter'
++```
++
++事务、并发和迁移还需验证 repository 中的 `activity_center_repo_integration_test.go` 与 `migrations_activity_center*`，按 [后端测试约定](../../../AGENTS.md) 使用数据库环境。
+diff --git a/backend/internal/modules/chat/README.md b/backend/internal/modules/chat/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..1f0e3b478bf57c612c5f89bdf8c0eac2cb7ddce0
+--- /dev/null
++++ b/backend/internal/modules/chat/README.md
+@@ -0,0 +1,31 @@
++# Support Chat
++
++本模块持有每个用户与客服之间的单一长期会话，不按工单或每次连接拆分会话。当前管理员作为客服；使用与部署边界见 [在线客服](../../../../docs/SUPPORT_CHAT.md)。
++
++## 职责与入口
++
++- [types.go](types.go)：会话、消息、资产引用、未读状态与 repository 端口。
++- [service.go](service.go)：收发、引用回复、幂等、撤回、已读和保留清理。
++- [asset.go](asset.go)、[quick_reply.go](quick_reply.go)：图片资产、图库、表情和快捷回复。
++- [hub.go](hub.go)：当前进程内的 WebSocket 客户端登记与事件广播。
++- [wire.go](wire.go)：依赖装配；具体数据库访问在 [repository](../../infrastructure/repository/) 的 `chat*` 文件中。
++
++## 不变量
++
++用户消息和资产读取始终限制在本人会话。消息持久化与会话未读更新必须原子完成；写入成功后才广播。重复幂等键不得让不同消息被当成同一条成功发送。管理员“标为未读”是私人提醒，不增加真实用户未读消息数。
++
++余额转账由 [support_chat_transfer.go](../../application/service/support_chat_transfer.go) 编排，不允许普通消息 payload 自行生成转账事实。普通消息保留清理由 [support_chat_retention.go](../../application/service/support_chat_retention.go) 调度，财务消息和图库的保留规则单独处理。
++
++Hub 不提供跨实例消息总线；WebSocket 事件不能代替数据库历史查询。扩展多节点实时能力时必须明确投递、补拉和去重协议。
++
++## 验证
++
++从 `backend/` 执行：
++
++```sh
++go test ./internal/modules/chat
++go test ./internal/application/service -run 'TestSupportChat'
++go test ./internal/transport/http/handler/... -run 'TestChat'
++```
++
++存储权限与原子性另见 repository 的 `chat_security_integration_test.go`；前端入口见 [support-chat README](../../../../frontend/src/features/support-chat/README.md)。
+diff --git a/docs/ACTIVITY_CENTER.md b/docs/ACTIVITY_CENTER.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..8bad99a7730111f5c8bd30107f4ba3719fae5cb5
+--- /dev/null
++++ b/docs/ACTIVITY_CENTER.md
+@@ -0,0 +1,44 @@
++# 活动中心
++
++活动中心面向已登录用户提供活动列表、详情、参与记录和奖励结果；管理员在 `/admin/activity-center/campaigns` 创建和维护活动。用户入口由 `activity_center_enabled` 控制，但资格、时间窗、库存、频率和奖励发放始终由后端校验。
++
++## 活动类型
++
++| 类型 | 行为 |
++| --- | --- |
++| `lottery` | 用户选择或使用默认奖池后进行加权抽奖；奖品可以是余额、订阅、卡密或其他已实现奖励类型。 |
++| `checkin` | 按活动时区判断自然日签到，按连续天数发放周期奖励，并提供脱敏排行榜。 |
++| `inflate` | 余额充值/兑换等已接入金额按活动配置增加到账金额，并记录原始金额、到账金额和膨胀比例。 |
++| `redeem` | 兼容旧数据的兑换膨胀类型，新配置应优先使用明确的 `inflate` 类型。 |
++| `custom` | 由管理端配置展示内容和引用 ID；是否有可执行奖励取决于对应业务接入。 |
++
++活动状态为 `draft`、`active` 或 `archived`。只有 `active` 且当前时间处于 `starts_at`（含）到 `ends_at`（不含）之间的活动对用户可见。管理员列表可以看到非活动状态，用户列表不能据此推断管理配置。
++
++## 抽奖与签到
++
++抽奖奖池可以配置用户分组资格、每日参与上限、奖品权重、总库存和奖品代码。服务端在参与事务中重新加载活动、判断资格和每日限制，再按密码学随机数进行加权选择；库存为零的奖品不进入候选。中奖后奖励和参与记录在同一事务内落库，提交后的通知或缓存操作不改变事务结果。
++
++签到配置包含活动时区、`weekly`/`biweekly`/`monthly` 周期、必需分组、每日奖励和连续签到模式。`monthly` 当前按 30 天计算；断签后连续天数从 1 重新开始。重复签到返回明确错误，不会再次发放奖励。排行榜只返回脱敏姓名或邮箱，不返回可识别的完整邮箱。
++
++膨胀活动在已接入的兑换/余额流程中解析有效活动，生成膨胀后的到账金额并单独记录原始值。活动规则不应在前端复制；前端只显示服务端返回的结果。
++
++## 入口与事实源
++
++- 用户：`GET /api/v1/activity-center/campaigns`、`GET /api/v1/activity-center/campaigns/:id`、`POST /participate`、`GET/POST /checkin/*`、`GET /records`。
++- 管理员：`/api/v1/admin/activity-center/campaigns` 的分页、详情、创建、更新、删除，以及 `/records` 查询。
++- 前端 owner：[activity-center](../frontend/src/features/activity-center/README.md)。
++- 领域规则：[activitycenter module](../backend/internal/modules/activitycenter/README.md)；HTTP 映射在 `backend/internal/transport/http/handler/activity_center_handler.go`。
++
++接口的完整参数和响应以 routes、handler DTO 与 datasource 为准。不要把活动中心记录当作完整财务流水；奖励落库后仍由相应余额、订阅或卡密模块维护其事实。
++
++## 验证
++
++从仓库根目录执行：
++
++```sh
++cd backend && go test ./internal/modules/activitycenter
++cd backend && go test ./internal/application/service -run 'TestActivityCenter'
++cd frontend && pnpm exec vitest run src/features/activity-center
++```
++
++涉及迁移、库存并发或奖励事务时，还要运行 activity center repository integration tests。
+diff --git a/docs/CODE_MAP.md b/docs/CODE_MAP.md
+index 65c5717a6960219dd101d54935f8bf77b46b0a0c..4868a35cba1cc62abc2e28ea53669ffdbcc9d399 100644
+--- a/docs/CODE_MAP.md
++++ b/docs/CODE_MAP.md
+@@ -2,6 +2,8 @@
+ 
+ 本文按“要改什么”组织入口，目标是在不读取整个仓库的情况下快速缩小上下文。表中路径是起点，不代表修改只限于单个文件。
+ 
++需要先了解功能、页面入口或查找目录 README 时，先读 [功能总览与文档索引](FEATURES.md)。活动运营见 [活动中心](ACTIVITY_CENTER.md)，客服见 [在线客服](SUPPORT_CHAT.md)，模型能力和媒体工作区见 [自定义模型与媒体工坊](CUSTOM_MODELS_AND_MEDIA.md)。
++
+ ## 一分钟定位
+ 
+ | 任务 | 先读 | 继续追踪 | 优先测试 |
+diff --git a/docs/CUSTOM_MODELS_AND_MEDIA.md b/docs/CUSTOM_MODELS_AND_MEDIA.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..318c11785bfadce5acd0f1385fd39b951bba5020
+--- /dev/null
++++ b/docs/CUSTOM_MODELS_AND_MEDIA.md
+@@ -0,0 +1,41 @@
++# 自定义模型与媒体工坊
++
++本文说明管理员如何声明模型能力，以及用户媒体工坊如何消费这些能力。两者共享模型名称和能力概念，但自定义配置不是账号凭据、模型价格或网关可用性的替代物。
++
++## 自定义模型配置
++
++管理员页面为 `/admin/custom-model-config`，后端路由为 `/api/v1/admin/custom-model-configs`。配置可以使用完整模型名精确匹配，或使用前缀匹配；运行时先使用精确匹配，再使用最长匹配前缀。能力值包括已实现的图片、视频和音频等标识，视频还可指定对应 API 类型。
++
++请求模板单独管理 `name`、描述和 `request_adapter`，模型配置通过 `template_id` 关联。模板适配器只在支持的网关/媒体调用位置消费；保存模板不会自动让任意上游支持该协议。
++
++`custom_model_config_enabled` 是运行时总开关。关闭时保留管理端配置，但网关运行时不使用它。管理端的 `runtime=1` 查询只返回当前启用的运行时配置，供媒体能力缓存按需加载。后端运行时缓存约 5 秒刷新；前端能力判定缓存 60 秒并合并并发刷新请求，保存或删除后应主动失效。
++
++## 媒体工坊
++
++用户页面为 `/media-studio`，由 `media_studio_enabled` 控制。用户端先读取媒体配置和模型列表，再创建会话；图片可以同步返回或转入异步任务，视频提交任务后轮询状态并通过 API Key 读取受保护内容，批量图片复用 [批量图片](BATCH_IMAGE_MVP.md) 工作区。
++
++媒体工坊支持的模型来自后端分组、账号能力和自定义能力解析。配置模型能力只影响能力筛选和请求适配，不创建账号、不绕过 API Key/分组权限，也不改变计费。用户页面中的提示词和生成结果只保留当前页面内存；本地存储只保存 Key 选择和生成参数，不保存敏感提示词或媒体内容。
++
++管理员还可以在 `/api/v1/admin/media-studio/group-routes` 配置分组的媒体路由。该设置决定媒体请求使用哪些分组；它与普通模型网关路由和自定义模型配置分开维护。
++
++## 失败与安全边界
++
++异步图片/视频的“已受理”不等于生成完成，页面必须轮询终态并处理失败、取消和超时。受保护媒体读取必须走认证请求或受控签名 URL，不能把 access token 拼进资源地址。模型列表中的未知能力应回退到本地化未知状态，不能拼接未经验证的翻译 key。
++
++能力缓存不可在应用启动时为匿名用户强制请求管理员接口；它应在实际媒体或管理场景按需加载。请求模板和媒体配置的 JSON 大小、字段和 URL 校验由后端 handler/service 执行，前端校验只用于交互反馈。
++
++## 事实源与验证
++
++- 前端 owner：[custom-model-config](../frontend/src/features/custom-model-config/README.md) 与 [media-studio](../frontend/src/features/media-studio/README.md)。
++- 后端入口：`backend/internal/transport/http/handler/admin/custom_model_config_handler.go`、`media_studio_handler.go` 与对应 application service。
++- 异步图片接口：[异步图片任务](ASYNC_IMAGE_TASKS.md)；通用模型、账号和计费链路：[关键请求链路](REQUEST_LIFECYCLES.md)。
++
++从仓库根目录执行：
++
++```sh
++cd backend && go test ./internal/application/service -run 'TestCustomModel|TestMediaStudio'
++cd backend && go test ./internal/transport/http/handler/admin -run 'TestCustomModel'
++cd frontend && pnpm exec vitest run src/features/custom-model-config src/features/media-studio
++```
++
++新增能力、模板字段或媒体模式时，同时更新 DTO、管理端设置、用户模型列表、错误处理、计费和流式/异步测试。
+diff --git a/docs/FEATURES.md b/docs/FEATURES.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..ae5c68eb21ca92254935ceea2dece975b0262a33
+--- /dev/null
++++ b/docs/FEATURES.md
+@@ -0,0 +1,89 @@
++# 功能总览与文档索引
++
++本文面向部署管理员、功能使用者和维护者，按当前实现登记功能入口。页面路径来自 [前端路由](../frontend/src/core/routes/index.ts)，接口以 [后端路由](../backend/internal/transport/http/server/routes/) 为准；目录 README 解释代码归属，专题文档解释配置和操作流程。发布记录和 `openspec` 提案不替代当前功能说明。
++
++## 使用边界
++
++- 浏览器用户 API 使用 `/api/v1` 和登录会话；模型请求使用网关 API Key。两类凭据不能互换，管理自动化另见 [Admin API](ADMIN_API.md)。
++- 页面可见性受角色、站点模式、功能开关和分组权限影响。前端隐藏菜单不代表后端授权；具体访问以路由中间件和业务校验为准。
++- 模型展示、模型能力声明、可调度账号和计费配置是不同层次。模型出现在目录中，不代表当前 Key 一定能调用。
++- 下表的“嵌入”表示组件或数据能力，不暗示存在独立路由。精确参数和响应字段应继续追踪 datasource、DTO 和 handler。
++
++## 用户与公共功能
++
++| 功能 | 页面或使用位置 | 当前能力与文档 |
++| --- | --- | --- |
++| 首次安装 | `/setup` | 数据库、Redis 连接测试与管理员初始化：[setup](../frontend/src/features/setup/README.md) |
++| 公共首页与法律文档 | `/home`、`/legal/:documentId`、未知路由 | 公开设置、受控首页内容、登录协议和 404：[common](../frontend/src/common/README.md) |
++| 注册与登录 | `/login`、`/register`、认证回调 | 邮箱、OAuth、二次认证、会话恢复和密码找回：[auth](../frontend/src/features/auth/README.md) |
++| 个人资料 | `/profile` | 密码、通知邮箱、身份绑定和 TOTP：[profile](../frontend/src/features/profile/README.md) |
++| Passkey | 登录流程与个人资料内嵌 | WebAuthn 凭据注册、登录、重命名和撤销：[passkeys](../frontend/src/features/passkeys/README.md) |
++| 用户仪表盘 | `/dashboard` | 本人用量、趋势、模型分布和 Key 统计：[dashboard-user](../frontend/src/features/dashboard-user/README.md) |
++| API Key | `/keys`、`/key-usage` | 创建编辑、有序分组绑定、用量查询与客户端配置：[keys](../frontend/src/features/keys/README.md) |
++| 可用分组 | Key 编辑器等内嵌 | 当前用户可绑定分组及专属倍率：[groups-user](../frontend/src/features/groups-user/README.md) |
++| 用量记录 | `/usage` | 本人请求、费用、错误和筛选导出：[usage](../frontend/src/features/usage/README.md) |
++| 订阅 | `/subscriptions` | 有效订阅、配额进度和平台用量：[subscriptions](../frontend/src/features/subscriptions/README.md) |
++| 支付与兑换 | `/purchase`、`/orders`、`/redeem` | 购买、订单、支付恢复和卡密兑换：[billing](../frontend/src/features/billing/README.md)、[支付专题](PAYMENT_CN.md) |
++| 邀请返利 | `/affiliate` | 邀请记录、返利额度和转入余额：[affiliate](../frontend/src/features/affiliate/README.md) |
++| 公告 | 应用壳层内嵌 | 定向公告、弹窗队列、已读状态：[announcements](../frontend/src/features/announcements/README.md) |
++| 活动中心 | `/activity-center`、详情与参与记录 | 抽奖、签到、兑换膨胀、自定义活动：[activity-center](../frontend/src/features/activity-center/README.md)、[活动专题](ACTIVITY_CENTER.md) |
++| 在线客服 | `/support` | 长期会话、图片、回复引用、已读状态：[support-chat](../frontend/src/features/support-chat/README.md)、[客服专题](SUPPORT_CHAT.md) |
++| 模型广场 | `/model-plaza` | 模型筛选、分组与价格展示：[model-plaza](../frontend/src/features/model-plaza/README.md) |
++| 渠道与自定义页 | `/available-channels`、`/monitor`、`/custom/:id` | 可用渠道、状态页组合与受控自定义页面：[channels-user](../frontend/src/features/channels-user/README.md) |
++| 只读渠道监控 | `/monitor/public`，登录状态页内嵌 | 可用率、延迟、模型时间线和共享视图：[channel-monitor-user](../frontend/src/features/channel-monitor-user/README.md) |
++| 批量图片 | `/batch-image`，媒体工坊内嵌 | 批任务、重试、预览和下载：[batch-image](../frontend/src/features/batch-image/README.md)、[批量图片](BATCH_IMAGE_MVP.md) |
++| 媒体工坊 | `/media-studio` | 图片生成、视频任务和批量工作区：[media-studio](../frontend/src/features/media-studio/README.md)、[配置与边界](CUSTOM_MODELS_AND_MEDIA.md) |
++
++## 管理功能
++
++| 功能 | 页面或使用位置 | 当前能力与文档 |
++| --- | --- | --- |
++| 管理仪表盘 | `/admin/dashboard` | 全站汇总、趋势和排名：[admin-dashboard](../frontend/src/features/admin-dashboard/README.md) |
++| 用户管理 | `/admin/users` | 身份、分组、余额、平台额度和批量限制：[admin-users](../frontend/src/features/admin-users/README.md) |
++| 分组管理 | `/admin/groups` | 分组、倍率、模型范围和组合路由：[admin-groups](../frontend/src/features/admin-groups/README.md)、[组合分组](COMPOSITE_GROUPS.md) |
++| 上游账号 | `/admin/accounts` | 账号、授权、导入、批量操作、测试和额度快照：[admin-accounts](../frontend/src/features/admin-accounts/README.md) |
++| 账号巡检 | `/admin/account-inspection` | 策略、手动或自动执行、异常与额度分布：[admin-account-inspection](../frontend/src/features/admin-account-inspection/README.md) |
++| 代理 | `/admin/proxies` | 代理配置、导入和连通性测试：[admin-proxies](../frontend/src/features/admin-proxies/README.md) |
++| IPv6 出口 | `/admin/egress` | 地址池、绑定、探测和 HE 隧道：[admin-egress](../frontend/src/features/admin-egress/README.md)、[出口专题](IPV6_EGRESS.md) |
++| 渠道定价 | `/admin/channels/pricing` | 模型价格、分组关联和时段价格：[admin-channels](../frontend/src/features/admin-channels/README.md) |
++| 渠道监控配置 | `/admin/channels/monitor` | 主动或被动监控、模板、手动测试和历史：[admin-channel-monitor](../frontend/src/features/admin-channel-monitor/README.md) |
++| 自定义模型 | `/admin/custom-model-config` | 能力、精确或前缀匹配、请求模板：[custom-model-config](../frontend/src/features/custom-model-config/README.md)、[配置专题](CUSTOM_MODELS_AND_MEDIA.md) |
++| 订阅管理 | `/admin/subscriptions` | 分配、批量分配、延期、撤销、恢复和额度重置：[admin-subscriptions](../frontend/src/features/admin-subscriptions/README.md) |
++| 支付管理 | `/admin/orders` 及仪表盘、套餐子页 | 订单、履约重试、退款、套餐与支付提供商：[admin-orders](../frontend/src/features/admin-orders/README.md) |
++| 卡密管理 | `/admin/redeem` | 生成、导出、状态维护和批量编辑：[admin-redeem](../frontend/src/features/admin-redeem/README.md) |
++| 优惠码 | `/admin/promo-codes` | 注册优惠码、使用上限、有效期和使用记录：[admin-promo](../frontend/src/features/admin-promo/README.md) |
++| 全站用量 | `/admin/usage` | 管理员请求明细、成本、筛选、导出和清理任务：[admin-usage](../frontend/src/features/admin-usage/README.md) |
++| Ops | `/admin/ops` | 并发、流量、错误、日志、告警和结算队列：[admin-ops](../frontend/src/features/admin-ops/README.md) |
++| 风控与入口拒绝 | `/admin/risk-control`、`/admin/security-audit/ingress` | 内容审核、入口拒绝记录与 Cloudflare 联动：[admin-risk-control](../frontend/src/features/admin-risk-control/README.md) |
++| Prompt 审计 | `/admin/prompt-audit` | 审计端点池、策略、运行状态和事件管理：[prompt-audit](../frontend/src/features/prompt-audit/README.md) |
++| 操作审计 | `/admin/audit-logs` | 管理操作记录、详情和现场 TOTP 清理：[admin-audit](../frontend/src/features/admin-audit/README.md) |
++| 多实例 | `/admin/multi-instance` | 节点、负载、任务与滚动发布：[admin-cluster](../frontend/src/features/admin-cluster/README.md)、[部署专题](../deploy/MULTI_INSTANCE.md) |
++| 备份 | 系统设置内嵌 | S3、备份、恢复、定时计划和图片存储：[admin-backup](../frontend/src/features/admin-backup/README.md) |
++| 系统设置 | `/admin/settings` | 站点、认证、功能开关、网关策略与运行设置：[admin-settings](../frontend/src/features/admin-settings/README.md) |
++
++管理端的公告、活动、客服和返利页面由上表用户功能中的同名 feature 共同持有，并非另建一套 owner。它们分别位于 `/admin/announcements`、`/admin/activity-center/campaigns`、`/admin/support` 和 `/admin/affiliates` 下。
++
++## 网关与后台能力
++
++| 能力 | 功能文档 | 实现入口 |
++| --- | --- | --- |
++| Anthropic、OpenAI、Gemini 等协议、SSE 和 WebSocket | [关键请求链路](REQUEST_LIFECYCLES.md) | [gateway 路由](../backend/internal/transport/http/server/routes/gateway.go) |
++| 调度、账号选择、多分组与失败切换 | [代码地图](CODE_MAP.md)、[候选索引](SCHEDULER_CANDIDATE_INDEX_OPTIMIZATION_CN.md)、[CPA 号池](CPA_POOL_DYNAMIC_LOAD_BALANCING_CN.md) | [application service](../backend/internal/application/service/README.md) |
++| 用量结算与余额、订阅投影 | [关键请求链路](REQUEST_LIFECYCLES.md)、[支付集成](ADMIN_PAYMENT_INTEGRATION_API.md) | [repository](../backend/internal/infrastructure/repository/README.md) |
++| 异步图片提交、查询与内容 | [异步图片 API](ASYNC_IMAGE_TASKS.md) | [Images handler](../backend/internal/transport/http/handler/) |
++| Codex OAuth 行为 | [有意差异](codex/intentional-divergences.md) | [请求链路](REQUEST_LIFECYCLES.md) |
++
++垂直后端模块另有完整目录说明：[activitycenter](../backend/internal/modules/activitycenter/README.md)、[chat](../backend/internal/modules/chat/README.md)、[egress](../backend/internal/modules/egress/README.md)、[payment](../backend/internal/modules/payment/README.md)、[securityaudit](../backend/internal/modules/securityaudit/README.md)。并非所有功能都已经迁入 `modules`；存量服务仍以代码地图为准。
++
++## 维护与验证
++
++新增 `frontend/src/features/<domain>` 或 `backend/internal/modules/<domain>` 时，同步新增该目录的 `README.md` 并在本页登记。说明至少包括职责、真实入口、权限或状态边界、已有测试位置；不要为没有测试的目录编造验证命令。新增专题同时登记到 [文档中心](README.md)。
++
++从仓库根目录执行：
++
++```sh
++make check-docs
++git diff --check
++```
++
++文档检查覆盖目录 README 的存在、索引登记和维护文档的本地链接；它不证明页面交互、权限或业务行为已经通过运行测试。修改业务时仍须按 [代码地图](CODE_MAP.md) 和子目录说明运行对应测试。
+diff --git a/docs/README.md b/docs/README.md
+index 626a55000cf2afdc157f4f9615170d511e1d767f..0b5c0621096be0d2b93b1620430770d20f47ccd7 100644
+--- a/docs/README.md
++++ b/docs/README.md
+@@ -12,6 +12,16 @@
+ 
+ 代码代理还应先读取根目录 [AGENTS.md](../AGENTS.md)。进入子树后继续读取 [backend/AGENTS.md](../backend/AGENTS.md) 或 [frontend/AGENTS.md](../frontend/AGENTS.md)；这些文件只保存高频、稳定的操作约束，细节以本目录和源码为准。
+ 
++## 按功能查阅
++
++从 [功能总览与文档索引](FEATURES.md) 查找用户端、管理端、网关和后台能力，以及每个前端 feature 和后端模块的目录 README。页面入口、嵌入式组件和后台接口在索引中分别标注。
++
++| 文档 | 内容 |
++| --- | --- |
++| [活动中心](ACTIVITY_CENTER.md) | 抽奖、签到、兑换膨胀、资格与奖励记录 |
++| [在线客服](SUPPORT_CHAT.md) | 会话、图片、已读、转账、保留清理与多实例边界 |
++| [自定义模型与媒体工坊](CUSTOM_MODELS_AND_MEDIA.md) | 能力配置、请求模板、媒体生成与分组路由 |
++
+ ## 接口与集成
+ 
+ | 文档 | 内容 |
+@@ -78,6 +88,7 @@
+ 
+ - 代码是事实源，文档负责解释边界、入口和决策，不复制大段实现。
+ - 新增专题文档时在本页登记，并说明目标读者和事实源。
++- 新增前端 feature 或后端垂直模块时，补齐目录 README 并登记到 [功能索引](FEATURES.md)；`make check-docs` 会检查覆盖和链接。
+ - 修改目录结构、启动入口、验证命令、请求链路或配置来源时，同步更新相关文档。
+ - 每个后端目录 README 维护“职责和文件前缀”，不要逐个列出所有文件。
+ - 文档中的命令必须标明执行目录；示例凭据只能使用占位符。
+diff --git a/docs/SUPPORT_CHAT.md b/docs/SUPPORT_CHAT.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..7767f367744df1c4251e2be2f7fdd6f4949dca2a
+--- /dev/null
++++ b/docs/SUPPORT_CHAT.md
+@@ -0,0 +1,45 @@
++# 在线客服
++
++在线客服提供用户与管理员之间的单一长期会话。用户入口为 `/support`，管理员收件箱为 `/admin/support`；`support_chat_enabled` 关闭时两侧路由都由后端功能守卫拒绝。当前实现没有独立客服角色，管理员即客服处理方。
++
++## 会话与消息
++
++每个用户最多有一个客服会话，首次访问或发送消息时按用户创建/取得。用户只能读取和写入自己的会话；管理员可以在收件箱分页查看会话、搜索用户或消息、筛选未读并打开任意会话。
++
++消息类型包括文本、图片、贴纸和余额转账。文本可引用已有消息；发送请求带幂等键，重复请求返回同一成功消息，不能用相同键创建不同消息。普通消息写入和会话未读状态更新原子完成，数据库写入成功后才通过 WebSocket 广播。
++
++用户和管理员分别维护已读时间。管理员可以设置自己的未读提醒，该提醒不增加真实用户消息的未读数。撤回是有权限和状态限制的服务端动作，客户端收到撤回事件后仍可通过历史接口取得一致状态。
++
++## 图片、快捷回复与转账
++
++图片上传先保存受保护资产，再由消息引用资产 ID；消息列表通过认证接口读取资产。单个资产最大 5 MiB，单条消息最多引用 4 个资产；前端的选择器、粘贴和拖放应使用同一限制。图库和贴纸由管理员维护，快捷回复最多 50 条并支持导入、排序和更新。
++
++余额转账由服务端客服转账用例执行，消息中的 `balance_transfer` 元数据是结果展示，不是余额事实源。转账成功后才广播消息和刷新双方视图；余额变更仍以余额/账务服务记录为准。
++
++## 实时与保留
++
++HTTP 历史接口是事实源，WebSocket 只负责当前进程的消息、撤回和已读广播。断线后前端应重新连接并按游标/分页合并历史，不能只依赖丢失的实时事件。多实例部署时，当前 Hub 不自动提供跨实例广播；扩展时需增加明确的跨节点投递和去重方案。
++
++启用保留清理后，后台任务每 10 分钟尝试运行，单次使用最多 2 分钟、每批最多 500 条且最多 100 批，并使用共享租约避免多个实例重复清理。管理员修改策略后，任务在批次间重新读取；设为 0 表示永久保留普通客服消息。未挂接资产按独立清理规则处理，不能把备份保留策略当作客服保留策略。
++
++## 入口与事实源
++
++- 用户 HTTP：`/api/v1/chat/conversation`、`/messages`、`/assets`、`/read`、`/unread-count`；用户 WebSocket：`/api/v1/chat/ws`。
++- 管理 HTTP：`/api/v1/admin/chat/*`，包括会话、消息、撤回、资产、转账、图库、贴纸、快捷回复和 WebSocket。
++- 前端 owner：[support-chat](../frontend/src/features/support-chat/README.md)。
++- 领域规则：[chat module](../backend/internal/modules/chat/README.md)；保留与转账编排在 `backend/internal/application/service/support_chat_*.go`。
++
++完整字段和错误码以 handler、DTO、datasource 与模块类型为准。敏感图片 URL、认证 token 和余额细节不能写入日志或普通前端持久存储。
++
++## 验证
++
++从仓库根目录执行：
++
++```sh
++cd backend && go test ./internal/modules/chat
++cd backend && go test ./internal/application/service -run 'TestSupportChat'
++cd backend && go test ./internal/transport/http/handler/... -run 'TestChat'
++cd frontend && pnpm exec vitest run src/features/support-chat
++```
++
++涉及 PostgreSQL 权限、资产访问或多实例行为时，还需运行 chat repository integration tests。
+diff --git a/docs/UPSTREAM_SYNC_20260908.md b/docs/UPSTREAM_SYNC_20260908.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..3e6897b9005e066982aac8fc5e0490147c7a8625
+--- /dev/null
++++ b/docs/UPSTREAM_SYNC_20260908.md
+@@ -0,0 +1,37 @@
++# 上游同步审查记录（2026-09-08）
++
++本文记录 2026-09-08 批次的选择性上游同步。它只说明当前提交中已经验证的处理和边界；完整命令、镜像、运行栈与文件回滚证据保存在 [`diagnostics/upstream-sync-20260908/VERIFICATION.txt`](../diagnostics/upstream-sync-20260908/VERIFICATION.txt)。
++
++## 审查边界
++
++- 本批项目基线：`2c6606b8374d64c3afd3dae0447eaf19f521523c`。
++- 上游冻结点：`14e0a49e17afebf62c5f788f4ef1dc8eef56ac76`。
++- 选择性同步分支：`codex/upstream-sync-20260908`。
++- 本项目继续以模块化后端、feature owner 和现有协议兼容边界为事实源，不直接恢复上游 legacy 目录或旧迁移号。
++
++## 选择性处理
++
++| 主题 | 当前 owner 与处理 | 边界 |
++| --- | --- | --- |
++| 协议与工具事件 | 将上游协议修复映射到现有 `application/service`、`shared/apicompat` 和 WS relay owner，并保留本项目既有的 turn 状态与错误边界。 | 不改变已提交语义事件后的重放和 failover 规则。 |
++| 价格与用量 | 复用当前统一计费、模型目录和账号统计 owner，补齐本批需要的模型/价格行为。 | 历史账单、渠道优先级和实际扣费仍以现有 billing 管线为准。 |
++| 备份与兑换 | 保留当前备份锁、异步任务和兑换时间窗口实现，在现有 repository/service 边界内接入修复。 | 不新增重复 worker，不把管理页面状态当作持久事实。 |
++| WebSocket turn 状态 | 在当前 `openai_ws_v2` / passthrough 生命周期中维护终态、失败和后续事件边界。 | 终态之后的合成进度、注释或重复失败不会继续转发。 |
++| 管理端与用户端筛选 | 将账号、订阅和用量筛选落到当前 feature datasource、DTO 和页面 owner。 | 服务端分页、权限和用户范围仍是最终约束，前端筛选不扩大可见范围。 |
++| GPT-6 Astra 目录 | 更新现有 OpenAI/Codex 模型目录、说明和能力映射。 | 静态目录更新不自动授予账号能力，也不替代价格或调度配置。 |
++
++## 升级与性能边界
++
++- 本批不以文档或兼容移植为理由恢复 legacy `internal/service`、`internal/handler` 或 `frontend/src/views` 结构。
++- 迁移、配置和缓存变化必须保持旧数据库可启动、旧客户端协议可解析以及滚动升级期间的状态兼容。
++- `BenchmarkUpstreamSyncArgumentTracking` 的对比显示：基线字符串拼接约 `16.82-21.08 ms/op`、`36,099,648-36,099,661 B/op`、`1023 allocs/op`；有界摘要实现约 `84.33-92.59 us/op`、`1256 B/op`、`9 allocs/op`。这些数字只代表该 microbenchmark，不代表生产吞吐或端到端延迟保证。
++
++## 验证结果
++
++现有批次证据记录了以下结果：
++
++- Docker Go unit、聚焦 race、前端 Vitest（357 个文件、2173 项测试）、typecheck、lint、build、`make check-docs` 和 backend layout 检查通过。
++- PostgreSQL 18 + Redis 8 升级/回退循环中 `/health` 和 `/ready` 保持成功，migration 计数和最新文件名保持不变。
++- 独立副本回滚后恢复到基线提交，修改副本仍保留变更；具体输出和镜像摘要见验证文件。
++
++发布后的远端 SHA、Actions 和 GHCR 结果应在实际推送后追加，不以本地测试替代远端证据。
+diff --git a/frontend/README.md b/frontend/README.md
+index 9530f9e3bb4cb10cef68ed40006f824888f348ad..de23826b16ae101920439bec1c24cc785689b88c 100644
+--- a/frontend/README.md
++++ b/frontend/README.md
+@@ -23,6 +23,8 @@ pnpm run build
+ 
+ ## 源码索引
+ 
++全部 feature、公共页面的功能入口及目录 README 见 [功能总览与文档索引](../docs/FEATURES.md)。新增 feature 或公共 owner 时同步维护该索引与同目录 README。
++
+ | 路径 | 作用 |
+ | --- | --- |
+ | `src/main.ts` | 应用启动、Pinia、公开设置、i18n 和 Router 初始化 |
+diff --git a/frontend/src/common/README.md b/frontend/src/common/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..5ca09af9fc27e91111afe9a3ca8ffd6cf62c81e2
+--- /dev/null
++++ b/frontend/src/common/README.md
+@@ -0,0 +1,27 @@
++# Common Pages And Widgets
++
++本目录持有不属于单一业务 feature 的页面、布局、通用组件和可复用交互。公共页面入口包括 `/home`、`/legal/:documentId` 和未匹配路由的 404 页面；业务功能仍由 `src/features/<domain>/` owner 持有。
++
++## 页面与边界
++
++- [pages/HomePage.vue](pages/HomePage.vue)：读取公开设置，展示默认首页、紧凑首页或受控自定义首页内容，并提供登录/仪表盘与模型广场入口。
++- [pages/LegalDocumentPage.vue](pages/LegalDocumentPage.vue)：展示登录协议、管理员合规文档和公开法律文档；Markdown 转 HTML 后经过清洗。
++- [pages/NotFoundPage.vue](pages/NotFoundPage.vue)：统一未知路由反馈，不承载业务状态。
++- [widgets/](widgets/)：跨用户端、管理端或多个 feature 复用的布局、上传、公告和展示组件。
++
++首页的 `home_content` 只有受控 HTML 或绝对 HTTP(S) URL 可进入相应展示路径。URL iframe 使用无同源权限的 sandbox、`no-referrer` 和懒加载；HTML、Markdown、SVG 和公告内容分别使用各自 sanitizer。公共页面不能把浏览器 token、管理权限或未清洗的 API 内容写入 DOM。
++
++法律文档的 `admin-compliance` 内容由仓库内置双语 Markdown 提供，其他登录协议来自公开设置；文档不存在、为空或设置加载失败时分别展示对应状态。公共页面读取设置用于展示，不替代后端鉴权或合规守卫。
++
++## 依赖与验证
++
++Common 可以依赖 `core` 和稳定的 feature public entry，但不应持有领域 API、领域 Store 或管理员权限事实。公告组件通过 `features/announcements` 的公开 Store 工作，认证和网络能力继续由 `core`/`features/auth` 提供。
++
++从 `frontend/` 执行：
++
++```sh
++pnpm exec vitest run src/common/pages src/common/widgets/data/__tests__
++pnpm exec vitest run src/__tests__/dynamicHtmlSecurity.spec.ts src/core/utils/__tests__/homeContent.spec.ts
++```
++
++修改公共 HTML、iframe、Markdown 或 SVG 展示时，必须同时检查动态 HTML 安全门禁和所有消费路由的 locale scope。
+diff --git a/frontend/src/features/activity-center/README.md b/frontend/src/features/activity-center/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..a0914a7bedf97c94e4986b8f4d6b7c57b4563494
+--- /dev/null
++++ b/frontend/src/features/activity-center/README.md
+@@ -0,0 +1,19 @@
++# Activity Center
++
++本 feature 同时持有用户活动列表、详情、参与记录和管理员活动编辑、记录组件。用户入口为 `/activity-center`，管理员入口为 `/admin/activity-center/campaigns`；记录组件的实际挂载以路由和页面引用为准。
++
++## 代码归属
++
++- [data/datasources](data/datasources/)：用户活动、抽奖、签到、兑换、记录与管理员 CRUD 请求。
++- [presentation/pages](presentation/pages/)：活动加载、编辑、参与和结果展示。
++- [presentation/activityHtml.ts](presentation/activityHtml.ts)：活动 HTML 展示清洗。
++- [presentation/checkinCalendar.ts](presentation/checkinCalendar.ts)：签到日历展示转换。
++- [presentation/widgets/ActivityCardCodeDialog.vue](presentation/widgets/ActivityCardCodeDialog.vue)：中奖卡密结果展示。
++
++## 功能边界
++
++`activity_center_enabled` 控制用户活动访问，后端仍校验时间窗、分组资格、库存、每日限制和重复签到。前端动画与中奖结果展示不决定奖励。类型、配置和奖励流程见 [活动专题](../../../../docs/ACTIVITY_CENTER.md)；后端规则由 [activitycenter](../../../../backend/internal/modules/activitycenter/README.md) 持有。
++
++## 验证
++
++从 `frontend/` 执行 `pnpm exec vitest run src/features/activity-center`。重点覆盖活动详情、管理员编辑、HTML 清洗和用户 DTO。修改抽奖或签到字段还要运行后端领域、奖励与事务测试。
+diff --git a/frontend/src/features/admin-audit/README.md b/frontend/src/features/admin-audit/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..7eeaa417faa52e604c83d4c0b65285c32163071a
+--- /dev/null
++++ b/frontend/src/features/admin-audit/README.md
+@@ -0,0 +1,13 @@
++# Admin Audit
++
++本 feature 提供 `/admin/audit-logs` 的管理操作审计查询，不是 Prompt 内容审计或网关用量日志。
++
++- [data/datasources/adminAuditDatasource.ts](data/datasources/adminAuditDatasource.ts)：分页筛选、单条详情与清空协议。
++- [presentation/pages/AuditLogPage.vue](presentation/pages/AuditLogPage.vue)：查询、详情和清空交互。
++- 后端事实源：[管理路由](../../../../backend/internal/transport/http/server/routes/admin.go) 的 `registerAuditLogRoutes`，以及 middleware、service、repository 的 `audit_log*` 实现。
++
++管理路由在认证后记录变更操作及敏感读取。清空接口要求请求体中的现场 `totp_code`，不以已有 step-up 窗口替代；界面应以服务端结果为准。记录中的脱敏字段不能被前端恢复成原始凭据。
++
++## 验证
++
++当前目录没有独立 Vitest。修改时从 `frontend/` 运行 `pnpm run typecheck` 与 `pnpm exec vitest run src/core/routes/__tests__/adminRouteAccess.spec.ts`，并补充列表、详情、TOTP 错误及成功后的刷新测试。权限与清理动作另需后端审计相关测试。
+diff --git a/frontend/src/features/admin-backup/README.md b/frontend/src/features/admin-backup/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..f97005ca608ef3b64183ee9ec786133ec8d22f3d
+--- /dev/null
++++ b/frontend/src/features/admin-backup/README.md
+@@ -0,0 +1,24 @@
++# Admin Backup
++
++本 feature 的 `BackupPage` 嵌入系统设置的备份页签，当前没有独立 `/admin/backup` 路由。
++
++## 两套接口
++
++| 入口 | 作用 |
++| --- | --- |
++| [adminBackupDatasource.ts](data/datasources/adminBackupDatasource.ts) | `/admin/backups`：S3 配置、定时计划、备份记录、下载、恢复和异步图片存储 |
++| [dataManagementDatasource.ts](data/datasources/dataManagementDatasource.ts) | `/admin/data-management`：备份 Agent 健康、PostgreSQL/Redis 来源配置、S3 profile 和任务协议 |
++| [BackupPage.vue](presentation/pages/BackupPage.vue) | 当前页面主要消费第一套接口；持有操作、进度轮询和恢复轮询 |
++| [backupStatus.ts](backupStatus.ts) | 两类任务及恢复状态的展示映射 |
++
++`completed` 与 `succeeded` 分属不同协议，`partial_succeeded` 也不能展示成全部完成。分卷下载返回 `parts` 时应保留序号和大小，不假定总有单一 `url`。
++
++## 操作边界
++
++先保存并测试 S3，再配置定时计划或创建备份；创建响应仅代表任务已受理，按记录状态确认最终完成。恢复由页面确认、密码输入、step-up 与后端共同控制；恢复状态独立于原备份状态。离开页面需停止轮询。
++
++图片存储可选择复用备份 S3 的连接信息，但保留自己的 bucket/prefix；这不等同于把图片内容纳入数据库备份。后端入口见 [backup handler](../../../../backend/internal/transport/http/handler/admin/backup_handler.go) 和 [备份服务](../../../../backend/internal/application/service/backup_service.go)。
++
++## 验证
++
++从 `frontend/` 执行 `pnpm exec vitest run src/features/admin-backup`。覆盖分卷下载、状态映射、错误和恢复交互；真实备份或恢复验证另需独立数据库及对象存储环境。
+diff --git a/frontend/src/features/admin-channel-monitor/README.md b/frontend/src/features/admin-channel-monitor/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..1cf5a7e66e743adf8349bd4313502337052bb933
+--- /dev/null
++++ b/frontend/src/features/admin-channel-monitor/README.md
+@@ -0,0 +1,16 @@
++# Admin Channel Monitor
++
++本 feature 提供 `/admin/channels/monitor` 的监控配置、手动执行、历史结果、复制和请求模板管理。用户只读视图由 [channel-monitor-user](../channel-monitor-user/README.md) 持有。
++
++- [adminChannelMonitorDatasource.ts](data/datasources/adminChannelMonitorDatasource.ts)：监控配置与结果协议，包含 `active`/`passive` 模式、主模型与附加模型。
++- [adminChannelMonitorTemplateDatasource.ts](data/datasources/adminChannelMonitorTemplateDatasource.ts)：模板 CRUD、应用到监控和关联查询。
++- [presentation/widgets](presentation/widgets/)：请求覆盖参数、表单、Key 选择、过滤与执行结果。
++- [ChannelMonitorPage.vue](presentation/pages/ChannelMonitorPage.vue)：列表、选择、请求和弹窗编排。
++
++主动监控发起探测，被动监控从实际请求观测中汇总；应区分探测延迟、ping 延迟和可用率。创建配置后再核对手动执行结果与历史状态，不以保存成功代表渠道正常。复制动作保留既有幂等语义。
++
++后端入口为 [channel_monitor_service.go](../../../../backend/internal/application/service/channel_monitor_service.go) 及同前缀 checker、runner、passive 和 repository；共享页面公开性由后端独立控制，不自动公开全部管理员配置。
++
++## 验证
++
++从 `frontend/` 执行 `pnpm exec vitest run src/features/admin-channel-monitor src/features/channel-monitor-user`，覆盖复制、Grok 配置、动作菜单与用户状态展示。探测和模板变更还需对应后端测试。
+diff --git a/frontend/src/features/admin-cluster/README.md b/frontend/src/features/admin-cluster/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..1038d106062fdaa8d395474c3e3b9820c70b2a2e
+--- /dev/null
++++ b/frontend/src/features/admin-cluster/README.md
+@@ -0,0 +1,14 @@
++# Admin Cluster
++
++本 feature 提供 `/admin/multi-instance` 的节点状态、负载、共享任务与滚动发布界面。部署前提和运维流程见 [多实例部署](../../../../deploy/MULTI_INSTANCE.md)。
++
++- [data/datasources/adminClusterDatasource.ts](data/datasources/adminClusterDatasource.ts)：集群状态、节点改名及发布任务的创建、暂停、恢复、取消、确认、目标重试。
++- [presentation/pages/MultiInstancePage.vue](presentation/pages/MultiInstancePage.vue)：加载、刷新与操作编排。
++- [presentation/widgets](presentation/widgets/)：节点负载、汇总和版本发布面板。
++- [presentation/clusterLocale.ts](presentation/clusterLocale.ts)：节点、任务、发布状态的显式文案映射。
++
++节点 `node_id` 与进程 `runner_id` 不是同一标识；进程重启不应被解释为新增逻辑节点。节点状态、发布任务状态和单个目标状态也不能共用一个枚举。创建、取消和最终确认发布的后端路由要求 step-up，页面按钮不是权限事实源。
++
++## 验证
++
++从 `frontend/` 执行 `pnpm exec vitest run src/features/admin-cluster`。真实版本切换另需多节点环境验证，不能仅凭页面测试推断部署成功。
+diff --git a/frontend/src/features/admin-dashboard/README.md b/frontend/src/features/admin-dashboard/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..3f590a914f428981d5e952e044b607fe773c4c7d
+--- /dev/null
++++ b/frontend/src/features/admin-dashboard/README.md
+@@ -0,0 +1,11 @@
++# Admin Dashboard
++
++本 feature 持有 `/admin/dashboard` 的全站经营与用量汇总、趋势、模型/分组统计和排名；实时运维排障由 [admin-ops](../admin-ops/README.md) 持有。
++
++- [data/datasources/adminDashboardDatasource.ts](data/datasources/adminDashboardDatasource.ts)：管理仪表盘查询、聚合快照和批量用户/Key 用量；也被其他管理 feature 消费。
++- [presentation/pages/DashboardPage.vue](presentation/pages/DashboardPage.vue)：筛选、请求和图表编排。
++- [__tests__/DashboardPage.spec.ts](__tests__/DashboardPage.spec.ts)：现有页面回归。
++
++统计的时间范围、时区、分组和费用口径必须随请求保留。聚合快照与实时信号并非同一刷新时刻，不能用管理端统计替代账务事实或把全站接口复用于普通用户仪表盘。
++
++从 `frontend/` 执行 `pnpm exec vitest run src/features/admin-dashboard`；共享 datasource 变更还需检查 admin-usage、admin-users 和后端 dashboard/usage 聚合测试。
+diff --git a/frontend/src/features/admin-promo/README.md b/frontend/src/features/admin-promo/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..fd69e6852b788249453412834980caf7db21581a
+--- /dev/null
++++ b/frontend/src/features/admin-promo/README.md
+@@ -0,0 +1,13 @@
++# Admin Promo Codes
++
++本 feature 提供 `/admin/promo-codes` 的注册优惠码管理；它与 [卡密兑换](../admin-redeem/README.md) 及支付订单不是同一流程。
++
++- [data/datasources/adminPromoDatasource.ts](data/datasources/adminPromoDatasource.ts)：分页筛选、创建、修改、删除和使用记录。
++- [presentation/pages/PromoCodesPage.vue](presentation/pages/PromoCodesPage.vue)：优惠码配置与记录弹窗。
++- 注册校验从 [auth 路由](../../../../backend/internal/transport/http/server/routes/auth.go) 继续追踪；管理接口从 [admin 路由](../../../../backend/internal/transport/http/server/routes/admin.go) 的 `registerPromoCodeRoutes` 进入。
++
++状态、使用次数限制和有效期必须由后端校验。管理员修改优惠码后应刷新列表与详情；页面显示剩余次数不代表可以跳过注册时的再次校验。
++
++## 验证
++
++当前目录没有独立 Vitest。从 `frontend/` 运行 `pnpm run typecheck` 并补充 CRUD、次数上限、过期和注册消费的相关回归；不要把未存在的 feature 测试当成已覆盖。
+diff --git a/frontend/src/features/admin-redeem/README.md b/frontend/src/features/admin-redeem/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..2f153d9079a6f9d0cd898fbf84e17a854abe9dee
+--- /dev/null
++++ b/frontend/src/features/admin-redeem/README.md
+@@ -0,0 +1,11 @@
++# Admin Redeem Codes
++
++本 feature 持有 `/admin/redeem` 的卡密列表、生成、导出、删除和批量更新。用户兑换由 [billing](../billing/README.md) 持有，也可从活动中心调用同一兑换接口。
++
++- [data/datasources/adminRedeemDatasource.ts](data/datasources/adminRedeemDatasource.ts)：卡密请求与批量更新协议。
++- [presentation/pages/RedeemPage.vue](presentation/pages/RedeemPage.vue)：筛选、选择、批量动作和导出。
++- [presentation/redeemLocale.ts](presentation/redeemLocale.ts)：类型与状态的文案映射。
++
++批量编辑区分“字段未选中”与“显式更新为零或空值”；已使用卡密的敏感字段受后端约束。导出内容包含可兑换凭据，不作为日志或普通页面缓存。发放与兑换规则来自 [redeem_service.go](../../../../backend/internal/application/service/redeem_service.go)；活动膨胀的影响见 [活动中心](../../../../docs/ACTIVITY_CENTER.md)。
++
++从 `frontend/` 执行 `pnpm exec vitest run src/features/admin-redeem`。批量字段、已使用卡密和兑换事务还需对应后端回归。
+diff --git a/frontend/src/features/admin-subscriptions/README.md b/frontend/src/features/admin-subscriptions/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..096d1b4416135d0065299c0dad62423b6aaa928a
+--- /dev/null
++++ b/frontend/src/features/admin-subscriptions/README.md
+@@ -0,0 +1,13 @@
++# Admin Subscriptions
++
++本 feature 提供 `/admin/subscriptions` 的订阅分配、批量分配、延期、撤销、恢复和日/周/月额度重置。
++
++- [data/datasources/adminSubscriptionsDatasource.ts](data/datasources/adminSubscriptionsDatasource.ts)：全站、按用户/分组的订阅查询，以及管理动作。
++- [presentation/pages/SubscriptionsPage.vue](presentation/pages/SubscriptionsPage.vue)：筛选列表、详情和操作编排。
++- [subscriptionStatus.ts](subscriptionStatus.ts)：订阅状态共享展示入口。
++
++撤销/恢复、延期和额度重置是不同操作；额度窗口重置不等于延长有效期。状态和网关准入仍以后端 subscription service 为准。套餐销售与订单在 [admin-orders](../admin-orders/README.md)，用户进度在 [subscriptions](../subscriptions/README.md)，避免在本 feature 重建支付或账务规则。
++
++## 验证
++
++当前目录没有独立 Vitest。从 `frontend/` 执行 `pnpm run typecheck` 和 `pnpm exec vitest run src/features/subscriptions/__tests__/subscriptionStatus.spec.ts`；修改管理操作时补充 payload、失败恢复和写后刷新测试，并验证后端订阅与计费准入。
+diff --git a/frontend/src/features/affiliate/README.md b/frontend/src/features/affiliate/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..7ae9bd47551b252ae3af2b5d4aaeeea8214d2182
+--- /dev/null
++++ b/frontend/src/features/affiliate/README.md
+@@ -0,0 +1,12 @@
++# Affiliate
++
++本 feature 同时持有 `/affiliate` 用户邀请返利页，以及 `/admin/affiliates/invites`、`rebates`、`transfers` 管理记录页。
++
++- [presentation/pages](presentation/pages/)：邀请链接、返利额度、邀请记录、转入余额及管理员筛选。
++- [data/datasources/adminAffiliatesDatasource.ts](data/datasources/adminAffiliatesDatasource.ts)：管理员专属设置、返利率和记录查询。
++- 用户详情与额度转入请求当前归属 [profileDatasource.ts](../profile/data/datasources/profileDatasource.ts) 的 `getAffiliateDetail`、`transferAffiliateQuota`，不是本目录另建的用户 datasource。
++- 后端规则来自 [affiliate_service.go](../../../../backend/internal/application/service/affiliate_service.go) 和对应 repository。
++
++返利额度转入账户余额不等于现金提现。生效返利率、可转入额度和最终余额以服务端返回为准，转入成功后再刷新用户信息与记录；不要在前端自行累加返利作为账务事实。
++
++从 `frontend/` 执行 `pnpm exec vitest run src/features/affiliate`。费率、幂等或账务变更还需 affiliate service/repository 回归。
+diff --git a/frontend/src/features/announcements/README.md b/frontend/src/features/announcements/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..b23b5b267a5e55a5c6cecf59d356dee421d2a54d
+--- /dev/null
++++ b/frontend/src/features/announcements/README.md
+@@ -0,0 +1,12 @@
++# Announcements
++
++本 feature 持有 `/admin/announcements` 的公告管理，以及应用壳层中的用户公告列表、弹窗队列和已读状态；没有独立用户公告路由。
++
++- [data/datasources](data/datasources/)：管理员 CRUD/阅读统计与用户可见公告/标为已读接口。
++- [presentation/pages/AnnouncementsPage.vue](presentation/pages/AnnouncementsPage.vue)：管理页面。
++- [presentation/widgets](presentation/widgets/)：目标用户条件编辑和阅读状态查看。
++- [presentation/stores/announcementsStore.ts](presentation/stores/announcementsStore.ts)：用户列表、未读数、弹窗排队与当前会话内去重。
++
++可见性与定向条件由 [announcement_service.go](../../../../backend/internal/application/service/announcement_service.go) 决定。Store 普通拉取按 20 分钟节流，失败后允许重试；缓存最多保留本次返回的前 20 条，不等于后台公告总数。退出或切换用户应清空公告与弹窗会话状态。
++
++从 `frontend/` 执行 `pnpm exec vitest run src/features/announcements`；定向规则变更还需后端 announcement targeting 回归，弹窗生命周期变更应补充 Store 测试。
+diff --git a/frontend/src/features/channel-monitor-user/README.md b/frontend/src/features/channel-monitor-user/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..65de9dfa85a34de092590c8b77a226c0901e7ecf
+--- /dev/null
++++ b/frontend/src/features/channel-monitor-user/README.md
+@@ -0,0 +1,12 @@
++# User Channel Monitor
++
++本 feature 提供只读监控组件与 `/monitor/public` 共享页面；登录后的 `/monitor` 页面由 [channels-user](../channels-user/README.md) 组合这些组件。
++
++- [data/datasources/channelMonitorUserDatasource.ts](data/datasources/channelMonitorUserDatasource.ts)：登录接口 `/channel-monitors` 与共享接口 `/channel-status-share`，含列表、详情和批量状态。
++- [presentation/widgets](presentation/widgets/)：监控卡片、时间线、可用率、延迟和详情。
++- [presentation/composables/useChannelMonitorFormat.ts](presentation/composables/useChannelMonitorFormat.ts)：指标与时间展示。
++- [channelMonitorLocale.ts](channelMonitorLocale.ts)：共享文案入口。
++
++共享页面不是管理员数据的匿名版本；共享开关和返回内容由 [公共监控路由](../../../../backend/internal/transport/http/server/routes/channel_monitor_public.go) 及 handler 控制。`unknown`、`error`、`failed` 等状态应分别展示，不把缺失延迟当成 0ms 或健康。
++
++从 `frontend/` 执行 `pnpm exec vitest run src/features/channel-monitor-user`，并核对后端用户/公共监控测试。新增状态需覆盖中英文及未来未知值。
+diff --git a/frontend/src/features/channels-user/README.md b/frontend/src/features/channels-user/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..8bc589b402d0342a5cf213c851bc6b7036ef866e
+--- /dev/null
++++ b/frontend/src/features/channels-user/README.md
+@@ -0,0 +1,12 @@
++# User Channels And Custom Pages
++
++本 feature 组合 `/available-channels` 可用渠道、`/monitor` 登录监控和 `/custom/:id` 自定义页面。
++
++- [data/datasources/channelsUserDatasource.ts](data/datasources/channelsUserDatasource.ts)：当前用户可见渠道。
++- [data/datasources/embeddedCapabilityDatasource.ts](data/datasources/embeddedCapabilityDatasource.ts)：自定义嵌入页面的专用能力凭据请求。
++- [presentation/pages](presentation/pages/)：渠道列表、监控组件装配和自定义内容宿主。
++- [presentation/customPageHtml.ts](presentation/customPageHtml.ts)：自定义 HTML 处理边界。
++
++渠道展示不授予新分组权限。自定义 HTML/iframe 必须保留现有清洗、sandbox、URL 与消息来源校验；专用能力凭据不等于浏览器 JWT，不能把登录 token 或通用管理员凭据发给嵌入页面。外部支付嵌入流程见 [支付集成 API](../../../../docs/ADMIN_PAYMENT_INTEGRATION_API.md)。
++
++从 `frontend/` 执行 `pnpm exec vitest run src/features/channels-user src/features/channel-monitor-user`。HTML 渲染变化还需共享动态 HTML 门禁；跨域问题参阅 [CORS 部署](../../../../docs/FRONTEND_CORS_DEPLOYMENT_CN.md)。
+diff --git a/frontend/src/features/custom-model-config/README.md b/frontend/src/features/custom-model-config/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..db05b4805568e6883bc7c0f17b913668719bb5f1
+--- /dev/null
++++ b/frontend/src/features/custom-model-config/README.md
+@@ -0,0 +1,13 @@
++# Custom Model Config
++
++本 feature 提供 `/admin/custom-model-config` 的自定义能力和请求模板管理。完整配置流程见 [自定义模型与媒体工坊](../../../../docs/CUSTOM_MODELS_AND_MEDIA.md)。
++
++- [data/dtos](data/dtos/)、[data/datasources](data/datasources/)：管理协议、模型与模板 CRUD；`runtime=1` 查询启用后的能力视图。
++- [domain/entities](domain/entities/)：能力与模板实体。
++- [domain/services/modelCapabilityService.ts](domain/services/modelCapabilityService.ts)：纯能力查询，精确匹配优先，其次最长前缀。
++- [modelCapabilityCache.ts](modelCapabilityCache.ts)：按需加载、60 秒缓存和请求去重。
++- [presentation](presentation/)：列表、配置对话框与模板编辑/导入。
++
++`custom_model_config_enabled` 控制运行时生效，不删除管理员已保存的配置。全应用启动不预取此管理接口；用户媒体模型列表由媒体工坊接口提供，不能改成普通用户请求管理员配置。能力声明不创建上游账号、授权或价格。
++
++从 `frontend/` 执行 `pnpm exec vitest run src/features/custom-model-config src/features/media-studio`。后端 resolver、模板校验和 handler 另有同主题回归；修改模板需同时覆盖网关应用位置。
+diff --git a/frontend/src/features/dashboard-user/README.md b/frontend/src/features/dashboard-user/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..139b3b002567aa91bc872cfd7cec1685aecf63ee
+--- /dev/null
++++ b/frontend/src/features/dashboard-user/README.md
+@@ -0,0 +1,11 @@
++# User Dashboard
++
++本 feature 持有 `/dashboard` 的本人余额/用量摘要、趋势、模型分布、近期记录、API Key 统计与快捷入口。
++
++- [presentation/pages/DashboardPage.vue](presentation/pages/DashboardPage.vue)：请求、刷新、筛选和生命周期。
++- [presentation/widgets](presentation/widgets/)：统计、图表、近期记录、Key 用量和快捷动作。
++- 本目录没有独立 datasource；用量查询由 [usageDatasource.ts](../usage/data/datasources/usageDatasource.ts) 提供，用户身份来自 auth/profile，Key 和订阅由各自 feature 提供。
++
++这里消费当前用户范围内的 `/usage/dashboard` 接口，不复用 `/admin/dashboard`。快照、近期记录与待结算值有各自刷新语义；不能把待结算量误认为已完成账务。快捷入口还需遵循站点功能开关。
++
++从 `frontend/` 执行 `pnpm exec vitest run src/features/dashboard-user src/features/usage`；数据口径变化需同步后端 usage dashboard 测试。
+diff --git a/frontend/src/features/groups-user/README.md b/frontend/src/features/groups-user/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..760c792b8370bf145ff87adb0d419bab1a82b52d
+--- /dev/null
++++ b/frontend/src/features/groups-user/README.md
+@@ -0,0 +1,18 @@
++# User Groups
++
++本 feature 只持有普通用户的分组查询，没有独立页面、Store 或管理员 CRUD。
++
++- [data/datasources/groupsUserDatasource.ts](data/datasources/groupsUserDatasource.ts)：`/groups/available` 返回可绑定分组，`/groups/rates` 返回本人自定义倍率，空倍率响应归一化为空对象。
++- 主要消费者是 [keys](../keys/README.md) 和共享分组选择组件；管理配置归属 [admin-groups](../admin-groups/README.md)。
++
++标准分组是否公开或获授权、订阅分组是否有有效订阅，均由后端判定。列表选择不替代创建 Key 与网关请求时的权限复查。倍率是服务端数据，展示时应保留未设置与显式值的区别。
++
++## 验证
++
++当前目录没有独立 Vitest。已有消费者回归从 `frontend/` 执行：
++
++```sh
++pnpm exec vitest run src/features/keys src/common/widgets/data/__tests__/GroupOptionItem.spec.ts
++```
++
++协议变化时补充 datasource 用例，并验证后端 available-groups 与 API Key 鉴权。
+diff --git a/frontend/src/features/prompt-audit/README.md b/frontend/src/features/prompt-audit/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..b994b5e3b0a16b1d50370fe8534c8e8139a5a30a
+--- /dev/null
++++ b/frontend/src/features/prompt-audit/README.md
+@@ -0,0 +1,12 @@
++# Prompt Audit
++
++本 feature 提供 `/admin/prompt-audit` 的 Prompt 审计策略、端点池、运行状态和事件工作区。它独立于 [操作审计](../admin-audit/README.md) 与 [内容风控](../admin-risk-control/README.md)。
++
++- [data/datasources/promptAuditDatasource.ts](data/datasources/promptAuditDatasource.ts)：配置、探测、runtime、事件详情和删除协议。
++- [domain](domain/)：审计类型、视图模型与纯转换。
++- [presentation/widgets](presentation/widgets/)：PolicyPanel、EndpointPool、RuntimeOverview、事件详情和筛选删除。
++- [presentation/pages/PromptAuditPage.vue](presentation/pages/PromptAuditPage.vue)：查询和动作编排。
++
++后端 owner 是 [securityaudit](../../../../backend/internal/modules/securityaudit/README.md)。同步防护与异步审计有不同的等待/失败语义，保存配置不代表端点探测已经成功。按筛选删除应保留预览与实际删除的区分；事件原文和敏感字段遵守服务端返回边界。
++
++从 `frontend/` 执行 `pnpm exec vitest run src/features/prompt-audit`。策略或队列字段变化还需后端模块回归及 [路由覆盖测试](../../../../backend/internal/transport/http/server/routes/prompt_audit_route_coverage_test.go)。
+diff --git a/frontend/src/features/setup/README.md b/frontend/src/features/setup/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..b17921d35ac3ad1caae18f8683f5fa92e4325216
+--- /dev/null
++++ b/frontend/src/features/setup/README.md
+@@ -0,0 +1,11 @@
++# Setup
++
++本 feature 持有首次安装 `/setup` 向导：数据库与 Redis 参数、连接测试、管理员和服务参数，以及安装完成后的跳转。
++
++- [data/datasources/setupDatasource.ts](data/datasources/setupDatasource.ts)：`/setup/status`、`test-db`、`test-redis`、`install`。
++- [presentation/pages/SetupWizardPage.vue](presentation/pages/SetupWizardPage.vue)：步骤与提交编排。
++- 后端事实源：[bootstrap/setup](../../../../backend/internal/bootstrap/setup/README.md)。
++
++Setup API 不在 `/api/v1` 下，当前保留专用 Axios client，并通过共享 URL helper 解析根地址；这是已有初始化入口，不是新增普通业务 client 的范例。数据库、Redis 和管理员密码只用于安装流程，不能写入日志或浏览器持久缓存。
++
++服务完成安装后，路由守卫依据 `needs_setup` 与实际登录状态决定后续跳转，不能无条件把普通用户送入管理页。当前 feature 没有独立 Vitest；从 `frontend/` 执行 `pnpm exec vitest run src/core/routes` 和 `pnpm run typecheck`，安装动作另需后端 bootstrap/setup 测试及独立空数据库。
+diff --git a/frontend/src/features/subscriptions/README.md b/frontend/src/features/subscriptions/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..f80ac35cab9e0e858bc36ac1efb0dc4b32d16a1e
+--- /dev/null
++++ b/frontend/src/features/subscriptions/README.md
+@@ -0,0 +1,12 @@
++# User Subscriptions
++
++本 feature 提供 `/subscriptions` 的订阅列表、配额进度、平台用量与套餐展示组件。购买和订单履约由 [billing](../billing/README.md) 持有，后台分配由 [admin-subscriptions](../admin-subscriptions/README.md) 持有。
++
++- [data/datasources/subscriptionsDatasource.ts](data/datasources/subscriptionsDatasource.ts)：本人订阅、有效订阅、进度和汇总。
++- [presentation/stores/subscriptionsStore.ts](presentation/stores/subscriptionsStore.ts)：60 秒缓存、请求去重、代际失效和轮询生命周期。
++- [presentation/widgets](presentation/widgets/)：套餐卡、平台成本/额度与用量分布。
++- [subscriptionStore.ts](subscriptionStore.ts)、[subscriptionPlanCard.ts](subscriptionPlanCard.ts)、[subscriptionStatus.ts](subscriptionStatus.ts)：跨 feature 的具体公开入口。
++
++有效期、日/周/月窗口与平台额度是不同维度，以服务端进度为准。退出或切换用户时清理 Store，避免旧请求回填；套餐价格和币种复用 billing 的稳定协议与展示规则。
++
++从 `frontend/` 执行 `pnpm exec vitest run src/features/subscriptions src/features/billing`。变更缓存、共享卡片或状态时覆盖失效响应、未知值、币种与用户/管理员词表。
+diff --git a/frontend/src/features/support-chat/README.md b/frontend/src/features/support-chat/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..5873fa46af82e304d6d85d275b93ffb1eb75f8e5
+--- /dev/null
++++ b/frontend/src/features/support-chat/README.md
+@@ -0,0 +1,13 @@
++# Support Chat
++
++本 feature 同时持有 `/support` 用户会话和 `/admin/support` 管理员收件箱。功能开关、消息和保留规则见 [在线客服](../../../../docs/SUPPORT_CHAT.md)。
++
++- [data/datasources/supportChatDatasource.ts](data/datasources/supportChatDatasource.ts)：会话、消息、图片资产、已读、图库、快捷回复、转账及 WebSocket 连接信息。
++- [presentation/pages](presentation/pages/)：用户/管理员页面、历史加载和操作编排。
++- [presentation/composables](presentation/composables/)：WebSocket、未读轮询与历史合并。
++- [presentation/widgets](presentation/widgets/)：输入框、图片、消息列表、会话列表和快捷回复。
++- [presentation/utils/sanitizeChatHtml.ts](presentation/utils/sanitizeChatHtml.ts)：消息 HTML 清洗。
++
++每个用户只有一个长期会话，当前客服入口使用管理员权限。消息以服务端 ID 和幂等键去重；上传使用有界并发，文件选择、粘贴和拖放应遵循同一大小/数量限制。受保护图片由认证请求取回，不将 token 放进图片 URL。退出页面释放 object URL、socket 和轮询。
++
++从 `frontend/` 执行 `pnpm exec vitest run src/features/support-chat`；后端入口及事务、撤回、保留测试见 [chat 模块](../../../../backend/internal/modules/chat/README.md)。
+diff --git a/frontend/src/features/usage/README.md b/frontend/src/features/usage/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..1e810807a3b03d81758e3a6a9d966cd13dfce202
+--- /dev/null
++++ b/frontend/src/features/usage/README.md
+@@ -0,0 +1,12 @@
++# User Usage
++
++本 feature 持有 `/usage` 的本人请求记录、统计、导出、错误列表与详情，并向用户仪表盘提供用量数据接口。
++
++- [data/datasources/usageDatasource.ts](data/datasources/usageDatasource.ts)：本人列表、统计、错误、dashboard 快照及 Key 已结算/待结算查询。
++- [presentation/pages/UsagePage.vue](presentation/pages/UsagePage.vue)：筛选、分页、查询取消、导出和详情编排。
++- [presentation/widgets](presentation/widgets/)：用户错误请求及详情。
++- 共享用量组件由 [admin-usage](../admin-usage/README.md) 的具体公开出口持有；用户视图必须使用用户 audience，不渲染账号、上游端点或管理员成本字段。
++
++前端只展示服务端返回的本人用量；API Key 过滤不改变用户边界。已结算金额、待结算请求与错误记录不能合并成同一成功计费口径。账务链路见 [关键请求链路](../../../../docs/REQUEST_LIFECYCLES.md)。
++
++从 `frontend/` 执行 `pnpm exec vitest run src/features/usage src/features/dashboard-user src/features/admin-usage`；字段与费用口径变化需同步后端 usage DTO/handler 和 billing 回归。
+diff --git a/tools/check-docs.sh b/tools/check-docs.sh
+index bfbb17c1058de247c4e7bb36b5dc33db03be7ef7..9acdb06d8174143596cab0a6ea1a332a48ae71e5 100755
+--- a/tools/check-docs.sh
++++ b/tools/check-docs.sh
+@@ -10,11 +10,13 @@ backend/AGENTS.md
+ frontend/AGENTS.md
+ DEV_GUIDE.md
+ docs/README.md
++docs/FEATURES.md
+ docs/ARCHITECTURE.md
+ docs/CODE_MAP.md
+ docs/REQUEST_LIFECYCLES.md
+ backend/README.md
+ frontend/README.md
++frontend/src/common/README.md
+ deploy/README.md'
+ 
+ maintained_docs='AGENTS.md
+@@ -25,14 +27,25 @@ README.md
+ README_CN.md
+ README_JA.md
+ docs/README.md
++docs/FEATURES.md
+ docs/ARCHITECTURE.md
+ docs/CODE_MAP.md
+ docs/REQUEST_LIFECYCLES.md
+ backend/README.md
+ frontend/README.md
++frontend/src/common/README.md
+ frontend/src/core/routes/README.md
+ frontend/src/core/stores/README.md'
+ 
++for feature_readme in frontend/src/features/*/README.md; do
++	maintained_docs="$maintained_docs
++$feature_readme"
++done
++for module_readme in backend/internal/modules/*/README.md; do
++	maintained_docs="$maintained_docs
++$module_readme"
++done
++
+ required_paths='backend/cmd/server/main.go
+ backend/cmd/server/wire.go
+ backend/ent/schema
+@@ -55,29 +68,63 @@ frontend/src/main.ts
+ 
+ status=0
+ 
+-printf '%s\n' "$required_files" | while IFS= read -r path; do
++if ! grep -Fq '../frontend/src/common/README.md' docs/FEATURES.md; then
++	echo "docs error: common owner is not registered in docs/FEATURES.md" >&2
++	status=1
++fi
++
++for path in $required_files; do
+ 	[ -n "$path" ] || continue
+ 	if [ ! -f "$path" ]; then
+ 		echo "docs error: required file is missing: $path" >&2
+-		exit 1
++		status=1
++	fi
++done
++
++# Every feature and vertical backend module needs a local owner README and an
++# entry in the feature index. Keep this check directory-driven so new domains
++# cannot silently bypass the documentation inventory.
++for feature_dir in frontend/src/features/*; do
++	[ -d "$feature_dir" ] || continue
++	feature=$(basename "$feature_dir")
++	if [ ! -f "$feature_dir/README.md" ]; then
++		echo "docs error: feature README is missing: $feature_dir/README.md" >&2
++		status=1
++	fi
++	if ! grep -Fq "../frontend/src/features/$feature/README.md" docs/FEATURES.md; then
++		echo "docs error: feature is not registered in docs/FEATURES.md: $feature" >&2
++		status=1
+ 	fi
+-done || status=1
++done
+ 
+-printf '%s\n' "$required_paths" | while IFS= read -r path; do
++for module_dir in backend/internal/modules/*; do
++	[ -d "$module_dir" ] || continue
++	module=$(basename "$module_dir")
++	if [ ! -f "$module_dir/README.md" ]; then
++		echo "docs error: module README is missing: $module_dir/README.md" >&2
++		status=1
++	fi
++	if ! grep -Fq "../backend/internal/modules/$module/README.md" docs/FEATURES.md; then
++		echo "docs error: module is not registered in docs/FEATURES.md: $module" >&2
++		status=1
++	fi
++done
++
++for path in $required_paths; do
+ 	[ -n "$path" ] || continue
+ 	if [ ! -e "$path" ]; then
+ 		echo "docs error: documented source path is missing: $path" >&2
+-		exit 1
++		status=1
+ 	fi
+-done || status=1
++done
+ 
+-printf '%s\n' "$maintained_docs" | while IFS= read -r doc; do
++for doc in $maintained_docs; do
+ 	[ -n "$doc" ] || continue
+ 	doc_dir=$(dirname "$doc")
+ 	links=$(grep -Eo '\]\([^)]*\)' "$doc" 2>/dev/null | sed -E 's/^\]\((.*)\)$/\1/' || true)
+ 	[ -n "$links" ] || continue
+ 
+-	printf '%s\n' "$links" | while IFS= read -r target; do
++	for target in $links; do
+ 		case "$target" in
+ 			''|'#'*|http://*|https://*|mailto:*|tel:*) continue ;;
+ 		esac
+@@ -86,16 +133,17 @@ printf '%s\n' "$maintained_docs" | while IFS= read -r doc; do
+ 		case "$target" in
+ 			*' '*|'<'*|'>'*)
+ 				echo "docs error: unsupported local link syntax in $doc: $target" >&2
+-				exit 1
++				status=1
++				continue
+ 				;;
+ 		esac
+ 
+ 		if [ ! -e "$repo_root/$doc_dir/$target" ]; then
+ 			echo "docs error: broken local link in $doc: $target" >&2
+-			exit 1
++			status=1
+ 		fi
+ 	done
+-done || status=1
++done
+ 
+ stale_output=$(mktemp "${TMPDIR:-/tmp}/sub2api-docs-stale.XXXXXX")
+ trap 'rm -f "$stale_output"' EXIT HUP INT TERM
