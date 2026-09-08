@@ -336,6 +336,10 @@ func normalizeCodexToolChoice(reqBody map[string]any) bool {
 	if choiceType == "" {
 		return false
 	}
+	// Selection policy is not a declared tool type. Keep its restrictions intact.
+	if choiceType == "allowed_tools" {
+		return false
+	}
 	modified := false
 	if choiceType == "function" {
 		name := strings.TrimSpace(firstNonEmptyString(choiceMap["name"]))

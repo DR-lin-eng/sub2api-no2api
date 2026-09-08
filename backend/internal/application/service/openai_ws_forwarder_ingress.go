@@ -589,6 +589,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	}
 	fingerprintIDs = firstPayload.fingerprintIDs
 
+	shouldHTTPBridge := forceHTTPBridge || s.shouldBridgeOpenAIWSHTTP(account, firstPayload.payloadBytes, firstPayload.previousResponseID)
 	turnState := strings.TrimSpace(c.GetHeader(openAIWSTurnStateHeader))
 	stateStore := s.getOpenAIWSStateStore()
 	groupID := getOpenAIGroupIDFromContext(c)
@@ -598,6 +599,12 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	storeDisabled := false
 	refreshIngressRouteState := func(payload openAIWSClientPayload) error {
 		sessionHash = s.GenerateSessionHash(c, payload.rawForHash)
+		preferredConnID = ""
+		storeDisabled = s.isOpenAIWSStoreDisabledInRequestRaw(payload.payloadRaw, account)
+		// Independent HTTP bridges must not inherit another socket's turn state.
+		if shouldHTTPBridge {
+			return nil
+		}
 		if turnState == "" && stateStore != nil && sessionHash != "" {
 			savedTurnState, ok, stateErr := stateStore.GetSessionTurnState(ctx, groupID, sessionHash)
 			logOpenAIWSSessionTurnStateWarn("get", groupID, sessionHash, stateErr)
@@ -606,14 +613,12 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			}
 		}
 
-		preferredConnID = ""
 		if stateStore != nil && payload.previousResponseID != "" {
 			if connID, ok := stateStore.GetResponseConn(payload.previousResponseID); ok {
 				preferredConnID = connID
 			}
 		}
 
-		storeDisabled = s.isOpenAIWSStoreDisabledInRequestRaw(payload.payloadRaw, account)
 		if stateStore != nil && storeDisabled && payload.previousResponseID == "" && sessionHash != "" {
 			if connID, ok := stateStore.GetSessionConn(groupID, sessionHash); ok {
 				preferredConnID = connID
@@ -634,7 +639,6 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		return routeErr
 	}
 
-	shouldHTTPBridge := forceHTTPBridge || s.shouldBridgeOpenAIWSHTTP(account, firstPayload.payloadBytes, firstPayload.previousResponseID)
 	if shouldHTTPBridge && codexContinuationRequiresExactConnection(c) {
 		return wrapCodexContinuationIngressError(newCodexContinuationTerminalError(
 			"Codex incremental continuation cannot leave its original upstream WebSocket connection",
@@ -793,11 +797,8 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				bridgeAccountFailoverInputExists = true
 			}
 			if bridgeTurnState := strings.TrimSpace(result.ResponseHeaders.Get(openAIWSTurnStateHeader)); bridgeTurnState != "" {
+				// Keep this connection's state local, while account affinity remains shared.
 				turnState = bridgeTurnState
-				if stateStore != nil && sessionHash != "" {
-					stateErr := stateStore.BindSessionTurnState(ctx, groupID, sessionHash, bridgeTurnState, s.openAIWSSessionStickyTTL())
-					logOpenAIWSSessionTurnStateWarn("set", groupID, sessionHash, stateErr)
-				}
 			}
 			responseID := strings.TrimSpace(result.RequestID)
 			if responseID != "" && stateStore != nil {

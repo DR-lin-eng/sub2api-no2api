@@ -54,6 +54,24 @@ func (s *RedeemCacheSuite) TestMultipleIncrements() {
 	require.Equal(s.T(), 3, count, "count after 3 increments")
 }
 
+func (s *RedeemCacheSuite) TestFailureWindowIsFixedAndMissingTTLIsRepaired() {
+	key := redeemRateLimitKey(20)
+	require.NoError(s.T(), s.rdb.Set(s.ctx, key, 2, time.Minute).Err())
+	require.NoError(s.T(), s.cache.IncrementRedeemAttemptCount(s.ctx, 20))
+	ttl, err := s.rdb.PTTL(s.ctx, key).Result()
+	require.NoError(s.T(), err)
+	require.Greater(s.T(), ttl, time.Duration(0))
+	require.LessOrEqual(s.T(), ttl, time.Minute)
+	require.NoError(s.T(), s.rdb.Persist(s.ctx, key).Err())
+	require.NoError(s.T(), s.cache.IncrementRedeemAttemptCount(s.ctx, 20))
+	ttl, err = s.rdb.PTTL(s.ctx, key).Result()
+	require.NoError(s.T(), err)
+	s.AssertTTLWithin(ttl, time.Second, redeemRateLimitDuration)
+	count, err := s.cache.GetRedeemAttemptCount(s.ctx, 20)
+	require.NoError(s.T(), err)
+	require.Equal(s.T(), 4, count)
+}
+
 func (s *RedeemCacheSuite) TestAcquireAndReleaseRedeemLock() {
 	ok, err := s.cache.AcquireRedeemLock(s.ctx, "CODE", 10*time.Second)
 	require.NoError(s.T(), err, "AcquireRedeemLock")

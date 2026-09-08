@@ -100,18 +100,20 @@ type RelayTraceEvent struct {
 }
 
 type relayState struct {
-	lastOpenAITiming  *openaitiming.Metrics
-	usage             Usage
-	requestModelMu    sync.RWMutex
-	requestModel      string
-	lastResponseID    string
-	lastResponseModel string
-	responseConflict  bool
-	terminalEventType string
-	firstTokenMs      *int
-	legacyTTFT        bool
-	turnTimingByID    map[string]*relayTurnTiming
-	activeTurn        *relayTurnTiming
+	pendingTurn         atomic.Bool
+	turnWroteDownstream atomic.Bool
+	lastOpenAITiming    *openaitiming.Metrics
+	usage               Usage
+	requestModelMu      sync.RWMutex
+	requestModel        string
+	lastResponseID      string
+	lastResponseModel   string
+	responseConflict    bool
+	terminalEventType   string
+	firstTokenMs        *int
+	legacyTTFT          bool
+	turnTimingByID      map[string]*relayTurnTiming
+	activeTurn          *relayTurnTiming
 }
 
 type relayExitSignal struct {
@@ -177,6 +179,7 @@ func Relay(
 	}
 	startAt := nowFn()
 	state := &relayState{requestModel: result.RequestModel, legacyTTFT: options.LegacyTTFT}
+	state.pendingTurn.Store(strings.TrimSpace(gjson.GetBytes(firstClientMessage, "type").String()) == "response.create")
 	onTrace := options.OnTrace
 
 	relayCtx, relayCancel := context.WithCancel(ctx)
@@ -194,8 +197,10 @@ func Relay(
 		return upstreamConn.WriteFrame(writeCtx, msgType, payload)
 	}
 	writeClientFrameUpstream := func(msgType coderws.MessageType, payload []byte) error {
-		if msgType == coderws.MessageText && strings.TrimSpace(gjson.GetBytes(payload, "type").String()) == "response.create" {
+		if strings.TrimSpace(gjson.GetBytes(payload, "type").String()) == "response.create" {
 			state.setRequestModel(strings.TrimSpace(gjson.GetBytes(payload, "model").String()))
+			state.pendingTurn.Store(true)
+			state.turnWroteDownstream.Store(false)
 		}
 		return writeUpstream(msgType, payload)
 	}
@@ -509,6 +514,7 @@ func runUpstreamToClient(
 		if beforeClientWrite != nil {
 			beforeClientWrite(msgType, payload)
 		}
+		state.turnWroteDownstream.Store(true)
 		writeErr := writeClient(msgType, payload)
 		if afterClientWrite != nil {
 			afterClientWrite(msgType, payload, writeErr)
@@ -542,7 +548,7 @@ func runUpstreamToClient(
 			graceful := isDisconnectError(err)
 			// A clean WebSocket close is only a transport handshake. Once a
 			// Responses turn is active, success still requires a terminal event.
-			if graceful && openAIWSRelayActiveTurnID(state) != "" {
+			if graceful && (state.pendingTurn.Load() || openAIWSRelayActiveTurnID(state) != "") {
 				graceful = false
 				err = errors.New("upstream websocket closed before terminal event: " + err.Error())
 			}
@@ -563,7 +569,7 @@ func runUpstreamToClient(
 		}
 		markActivity()
 		if beforeWriteClient != nil {
-			if err := beforeWriteClient(msgType, payload, wroteDownstream); err != nil {
+			if err := beforeWriteClient(msgType, payload, state.turnWroteDownstream.Load()); err != nil {
 				emitRelayTrace(onTrace, RelayTraceEvent{
 					Stage:           "upstream_message_rejected",
 					Direction:       "upstream_to_client",
@@ -585,7 +591,14 @@ func runUpstreamToClient(
 		case coderws.MessageText:
 			observedEvent = observeUpstreamMessage(state, payload, startAt, nowFn, onUsageParseFailure)
 		case coderws.MessageBinary:
-			// binary frame 直接透传，不进入 JSON 观测路径（避免无效解析开销）。
+			// Binary payloads stay opaque to billing; JSON terminals still settle lifecycle.
+			if isTerminalEvent(strings.TrimSpace(gjson.GetBytes(payload, "type").String())) {
+				state.pendingTurn.Store(false)
+				state.activeTurn = nil
+			}
+		}
+		if observedEvent.terminal || strings.TrimSpace(gjson.GetBytes(payload, "type").String()) == "error" {
+			state.pendingTurn.Store(false)
 		}
 		emitTurnComplete(onTurnComplete, state, observedEvent)
 		if dropDownstreamWrites != nil && dropDownstreamWrites.Load() {
@@ -1125,51 +1138,6 @@ func isDisconnectError(err error) bool {
 		strings.Contains(message, "use of closed network connection") ||
 		strings.Contains(message, "connection reset by peer") ||
 		strings.Contains(message, "broken pipe")
-}
-
-func isTerminalEvent(eventType string) bool {
-	switch eventType {
-	case "response.completed", "response.done", "response.failed", "response.incomplete", "response.cancelled", "response.canceled":
-		return true
-	default:
-		return false
-	}
-}
-
-func shouldParseUsage(eventType string) bool {
-	switch eventType {
-	case "response.completed", "response.done", "response.failed", "response.incomplete", "response.cancelled", "response.canceled":
-		return true
-	default:
-		return false
-	}
-}
-
-func isTokenEvent(eventType string) bool {
-	eventType = strings.TrimSpace(eventType)
-	return strings.HasSuffix(eventType, ".delta") ||
-		eventType == "response.output_text.done" ||
-		eventType == "response.function_call_arguments.done"
-}
-
-func isTTFTEvent(eventType string, legacy bool) bool {
-	if !legacy {
-		return isTokenEvent(eventType)
-	}
-	eventType = strings.TrimSpace(eventType)
-	if eventType == "" {
-		return false
-	}
-	switch eventType {
-	case "response.created", "response.in_progress", "response.output_item.added", "response.output_item.done":
-		return false
-	}
-	if strings.Contains(eventType, ".delta") ||
-		strings.HasPrefix(eventType, "response.output_text") ||
-		strings.HasPrefix(eventType, "response.output") {
-		return true
-	}
-	return eventType == "response.completed" || eventType == "response.done"
 }
 
 func minDuration(a, b time.Duration) time.Duration {

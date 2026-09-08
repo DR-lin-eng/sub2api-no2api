@@ -1344,6 +1344,9 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 					s.handleOpenAIWSErrorEventTransientFailure(ctx, account, capturedSessionModel, handshakeHeaders, payload)
 				}
 				if account.Platform == PlatformOpenAI && !wroteDownstream && isOpenAIWSOverloadPayload(payload) {
+					if completedTurns.Load() > 0 {
+						return NewOpenAIWSClientCloseError(coderws.StatusTryAgainLater, "upstream overloaded; please reconnect", errors.New("later passthrough turn overloaded before output"))
+					}
 					message := strings.TrimSpace(gjson.GetBytes(payload, "response.error.message").String())
 					if message == "" {
 						message = strings.TrimSpace(gjson.GetBytes(payload, "error.message").String())
@@ -1371,6 +1374,9 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 					truncateOpenAIWSLogValue(errTypeRaw, openAIWSLogValueMaxLen),
 					truncateOpenAIWSLogValue(errMsgRaw, openAIWSLogValueMaxLen),
 				)
+				if completedTurns.Load() > 0 {
+					return NewOpenAIWSClientCloseError(coderws.StatusTryAgainLater, "upstream rate limit exceeded; please reconnect", errors.New("later passthrough turn rate limited before output"))
+				}
 				return &UpstreamFailoverError{
 					StatusCode:      http.StatusTooManyRequests,
 					ResponseBody:    append([]byte(nil), payload...),

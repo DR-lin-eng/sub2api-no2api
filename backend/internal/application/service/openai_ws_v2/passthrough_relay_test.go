@@ -267,8 +267,8 @@ func TestRelay_UpstreamDisconnect(t *testing.T) {
 	defer cancel()
 
 	result, relayExit := Relay(ctx, clientConn, upstreamConn, firstPayload, RelayOptions{})
-	// 上游 EOF 属于 disconnect，标记为 graceful
-	require.Nil(t, relayExit, "上游 EOF 应被视为 graceful disconnect")
+	require.NotNil(t, relayExit)
+	require.ErrorContains(t, relayExit.Err, "before terminal event")
 	require.Equal(t, "gpt-4o", result.RequestModel)
 }
 
@@ -628,8 +628,9 @@ func TestRelay_BinaryFramePassthrough(t *testing.T) {
 	defer cancel()
 
 	result, relayExit := Relay(ctx, clientConn, upstreamConn, firstPayload, RelayOptions{})
-	require.Nil(t, relayExit)
 	// binary frame 不解析 usage
+	require.NotNil(t, relayExit)
+	require.ErrorContains(t, relayExit.Err, "before terminal event")
 	require.Equal(t, 0, result.Usage.InputTokens)
 
 	clientWrites := clientConn.Writes()
@@ -702,7 +703,8 @@ func TestRelay_PreservesFirstMessageType(t *testing.T) {
 	_, relayExit := Relay(ctx, clientConn, upstreamConn, firstPayload, RelayOptions{
 		FirstMessageType: coderws.MessageBinary,
 	})
-	require.Nil(t, relayExit)
+	require.NotNil(t, relayExit)
+	require.ErrorContains(t, relayExit.Err, "before terminal event")
 
 	upstreamWrites := upstreamConn.Writes()
 	require.Len(t, upstreamWrites, 1)

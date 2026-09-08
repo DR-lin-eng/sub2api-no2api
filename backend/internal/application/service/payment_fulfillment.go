@@ -330,6 +330,9 @@ func resolveRedeemAction(existing *RedeemCode, lookupErr error) redeemAction {
 func (s *PaymentService) doBalance(ctx context.Context, o *dbent.PaymentOrder, lease *paymentFulfillmentLease) error {
 	// Idempotency: check if redeem code already exists (from a previous partial run)
 	existing, lookupErr := s.redeemService.GetByCode(ctx, o.RechargeCode)
+	if lookupErr != nil && !errors.Is(lookupErr, ErrRedeemCodeNotFound) {
+		return fmt.Errorf("lookup payment redeem code: %w", lookupErr)
+	}
 	action := resolveRedeemAction(existing, lookupErr)
 
 	switch action {

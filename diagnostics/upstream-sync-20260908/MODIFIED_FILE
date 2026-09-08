@@ -1,0 +1,8 @@
+Object: codex/upstream-sync-20260908 working copy
+Baseline commit: 2c6606b8374d64c3afd3dae0447eaf19f521523c
+Reviewed upstream: 14e0a49e17afebf62c5f788f4ef1dc8eef56ac76
+Modified files: 45 tracked/untracked source and test files plus verification artifacts
+Representative baseline -> modified hashes:
+  backend/internal/application/service/gateway_messages_cache.go 96916974febc9b1064509cf720b1bc269a0f75ae -> c03f4d46a95b953a92f930b87407a21fa07a609e
+  backend/internal/shared/apicompat/responses_to_chatcompletions.go a89a1b4203516a73e7e0650dc1ed66102172caef -> 7cd4a047b4dae10a7a25856fd61deddec7c90439
+State: modified and validated; source copy remains changed until publication.
