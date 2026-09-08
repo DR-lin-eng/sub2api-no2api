@@ -111,6 +111,15 @@ func FlattenResponsesNamespacesExcept(req map[string]any, preserved map[string]b
 	req["tools"] = flattened
 	rewriteNamespaceQualifiedCalls(req["input"], names)
 	if choice, ok := req["tool_choice"].(map[string]any); ok {
+		if strings.TrimSpace(stringValue(choice["type"])) == "allowed_tools" {
+			if tools, ok := choice["tools"].([]any); ok {
+				for _, raw := range tools {
+					if tool, ok := raw.(map[string]any); ok {
+						rewriteNamespaceQualifiedCall(tool, names)
+					}
+				}
+			}
+		}
 		choiceNamespace := strings.TrimSpace(stringValue(choice["name"]))
 		if strings.TrimSpace(stringValue(choice["type"])) == "namespace" && !preserved[choiceNamespace] {
 			req["tool_choice"] = "auto"

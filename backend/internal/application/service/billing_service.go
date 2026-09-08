@@ -476,7 +476,19 @@ func (s *BillingService) initFallbackPricing() {
 	// Source: https://docs.z.ai/guides/overview/pricing (USD per 1M tokens)
 	// 注意：CacheReadPricePerToken 即"缓存命中"价格，CacheCreationPricePerToken 留空（智谱未公开写入价，按 0 处理）。
 	// GLM-4.6 与 GLM-4.5 在 z.ai 国际版上定价一致；GLM-4.5 国内按 ¥0.8/¥2，汇率换算后约 $0.112/$0.28，与国际版 $0.6/$2.2 不同，本分支采用国际版 USD 口径与现有 Claude/GPT 一致。
-	// GLM-5.2 与 GLM-5.1 在 z.ai 上同价。
+	// GLM-5.3 / GLM-5.2 与 GLM-5.1 在 z.ai 上同价。
+	s.fallbackPrices["glm-5.3-flash"] = &ModelPricing{
+		InputPricePerToken:     0.15e-6,
+		OutputPricePerToken:    0.5e-6,
+		CacheReadPricePerToken: 0.03e-6,
+		SupportsCacheBreakdown: false,
+	}
+	s.fallbackPrices["glm-5.3"] = &ModelPricing{
+		InputPricePerToken:     1.4e-6,
+		OutputPricePerToken:    4.4e-6,
+		CacheReadPricePerToken: 0.26e-6,
+		SupportsCacheBreakdown: false,
+	}
 	s.fallbackPrices["glm-5.2"] = &ModelPricing{
 		InputPricePerToken:     1.4e-6,
 		OutputPricePerToken:    4.4e-6,
@@ -775,6 +787,12 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 
 	// 智谱 GLM（z.ai 公开 SKU：glm-5.2 / glm-5.1 / glm-5 / glm-5-turbo / glm-4.7 / glm-4.6 / glm-4.5 等）
 	// 匹配顺序：先判别最高 tier，再依次降级。
+	if strings.Contains(modelLower, "glm-5.3-flash") || strings.Contains(modelLower, "glm-5.3flash") {
+		return s.fallbackPrices["glm-5.3-flash"]
+	}
+	if strings.Contains(modelLower, "glm-5.3") {
+		return s.fallbackPrices["glm-5.3"]
+	}
 	if strings.Contains(modelLower, "glm-5.2") {
 		return s.fallbackPrices["glm-5.2"]
 	}

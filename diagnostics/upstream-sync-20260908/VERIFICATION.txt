@@ -1,0 +1,43 @@
+Object: upstream selective sync 2c6606b8374d64c3afd3dae0447eaf19f521523c -> 14e0a49e17afebf62c5f788f4ef1dc8eef56ac76
+Changed branch/field: codex/upstream-sync-20260908; protocol, pricing, backup lock, redeem window, WS turn state, frontend filters, and GPT-6 catalog behavior.
+Artifacts: MODIFIED_FILE, DIFF_FILE, VERIFICATION.txt, ROLLBACK.sh.
+
+BASELINE command:
+  docker run --rm -e GOMAXPROCS=2 -e GOMEMLIMIT=3GiB -v /private/tmp/sub2api-upstream-sync-20260908-5ae0/baseline/backend:/src/backend -w /src/backend sub2api-stream-control-test:20260907 go test -vet=off -p=1 -tags=unit ./...
+BASELINE result: exit 0; all backend unit packages passed.
+
+MODIFIED command:
+  docker exec sub2api-upstream-5ae0-go go test -vet=off -p=1 -tags=unit ./...
+MODIFIED result: exit 0; all backend unit packages passed.
+
+RACE command:
+  docker exec sub2api-upstream-5ae0-go go test -vet=off -p=1 -race -tags=unit ./internal/application/service/openai_ws_v2 ./internal/shared/apicompat
+RACE result: exit 0; openai_ws_v2 7.111s, apicompat 1.056s.
+
+FRONTEND commands/results:
+  docker exec -e CI=true sub2api-upstream-5ae0-frontend pnpm exec vitest run ... -> exit 0; 357 files, 2173 tests.
+  docker exec -e CI=true sub2api-upstream-5ae0-frontend pnpm run typecheck -> exit 0.
+  docker exec -e CI=true sub2api-upstream-5ae0-frontend pnpm run lint:check -> exit 0.
+  docker exec -e CI=true sub2api-upstream-5ae0-frontend pnpm run build -> exit 0; built in 32.52s.
+  make check-docs -> exit 0; Documentation checks passed.
+  backend/make check-layout -> exit 0.
+
+PERFORMANCE command/result:
+  docker exec sub2api-upstream-5ae0-go go test ./internal/shared/apicompat -run '^$' -bench '^BenchmarkUpstreamSyncArgumentTracking$' -benchmem -count=3
+  Upstream concat: 16.82-21.08 ms/op, 36,099,648-36,099,661 B/op, 1023 allocs/op.
+  Modified bounded digest: 84.33-92.59 us/op, 1256 B/op, 9 allocs/op.
+
+DOCKER upgrade/rollback command/result:
+  ./diagnostics/upstream-sync-20260908/RUNTIME.sh BASELINE -> exit 0; health ok, ready true, migration 291|239_add_usage_openai_timing.sql.
+  ./diagnostics/upstream-sync-20260908/RUNTIME.sh MODIFIED -> exit 0; health ok, ready true, migration 291|239_add_usage_openai_timing.sql.
+  ./diagnostics/upstream-sync-20260908/RUNTIME.sh ROLLBACK -> exit 0; health ok, ready true, migration unchanged.
+  ./diagnostics/upstream-sync-20260908/RUNTIME.sh RESTORED_MODIFIED -> exit 0; health ok, ready true, migration unchanged.
+
+ROLLBACK command/result:
+  independent-copy test: ROLLBACK.sh <copy> 2c6606b8374d64c3afd3dae0447eaf19f521523c -> exit 0; HEAD restored to baseline and modified source copy remained changed.
+
+Docker images:
+  baseline sha256:ee889f50ec41219371b65691db262402cdf7e4894cfa31c0c21eaf52b8d16f3a
+  modified sha256:b06aa51944c2cf60ce9d1cbb4037942611fbca369d62d8d2789623c470f5f2ec
+
+Restored behavior/status: baseline and modified images both served health=ok and ready=true on the same PostgreSQL 18/Redis 8 data; migration count/name remained 291|239_add_usage_openai_timing.sql; rollback copy returned to baseline commit.

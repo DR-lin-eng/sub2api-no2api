@@ -164,6 +164,28 @@ function mountUsageView() {
 }
 
 describe('user UsageView', () => {
+  it('loads later API key pages and stops on a repeated page', async () => {
+    list.mockResolvedValueOnce({ items: [{ id: 1, name: 'first' }], pages: 50 })
+      .mockResolvedValueOnce({ items: [{ id: 101, name: 'later' }], pages: 50 })
+      .mockResolvedValueOnce({ items: [{ id: 101, name: 'later' }], pages: 50 })
+    const wrapper = mountUsageView()
+    await flushPromises()
+    expect(list).toHaveBeenCalledTimes(3)
+    expect(list.mock.calls.map((call) => call[0])).toEqual([1, 2, 3])
+    wrapper.unmount()
+    expect(list.mock.calls[0]![3].signal.aborted).toBe(true)
+  })
+
+  it('stops API key pagination when the page unmounts', async () => {
+    let resolvePage!: (page: unknown) => void
+    list.mockImplementationOnce(() => new Promise((resolve) => { resolvePage = resolve }))
+    const wrapper = mountUsageView()
+    wrapper.unmount()
+    resolvePage({ items: [{ id: 1, name: 'first' }], pages: 2 })
+    await flushPromises()
+    expect(list).toHaveBeenCalledTimes(1)
+  })
+
   beforeEach(() => {
     query.mockReset()
     getStats.mockReset()
@@ -220,7 +242,7 @@ describe('user UsageView', () => {
       include_model_stats: false,
       include_group_stats: true,
     }))
-    expect(list).toHaveBeenCalledWith(1, 100)
+    expect(list).toHaveBeenCalledWith(1, 100, undefined, { signal: expect.any(AbortSignal) })
     expect(getAvailable).toHaveBeenCalled()
     expect(wrapper.getComponent({ name: 'UsageTable' }).props('audience')).toBe('user')
   })

@@ -905,7 +905,7 @@ func sanitizeAnthropicBodyForBetaTokens(body []byte, anthropicBetaHeader string)
 	if len(body) == 0 {
 		return body, false
 	}
-	fields := gjson.GetManyBytes(body, "context_management", "context_hint", "fallbacks", "fallback_credit_token")
+	fields := gjson.GetManyBytes(body, "context_management", "context_hint", "fallbacks", "fallback_credit_token", "thinking.block_binding")
 	type betaGatedField struct {
 		name     string
 		exists   bool
@@ -916,6 +916,7 @@ func sanitizeAnthropicBodyForBetaTokens(body []byte, anthropicBetaHeader string)
 		{name: "context_hint", exists: fields[1].Exists(), required: []string{anthropicBetaContextHintToken}},
 		{name: "fallbacks", exists: fields[2].Exists(), required: []string{claude.BetaServerSideFallback}},
 		{name: "fallback_credit_token", exists: fields[3].Exists(), required: []string{claude.BetaServerSideFallback, claude.BetaFallbackCredit, claude.BetaFallbackCreditLegacy}},
+		{name: "thinking.block_binding", exists: fields[4].Exists(), required: []string{claude.BetaThinkingBindingControls}},
 	}
 	changed := false
 	for _, field := range gated {

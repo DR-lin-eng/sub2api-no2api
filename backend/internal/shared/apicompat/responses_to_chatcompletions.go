@@ -1,10 +1,13 @@
 package apicompat
 
 import (
+	"bytes"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"hash"
 	"strings"
 	"time"
 )
@@ -124,6 +127,7 @@ type ResponsesEventToChatState struct {
 	Finalized              bool        // true after finish chunk has been emitted
 	NextToolCallIndex      int         // next sequential tool_call index to assign
 	OutputIndexToToolIndex map[int]int // Responses output_index → Chat tool_calls index
+	arguments              map[int]*chatArgumentProgress
 	IncludeUsage           bool
 	Usage                  *ChatUsage
 }
@@ -152,6 +156,8 @@ func ResponsesEventToChatChunks(evt *ResponsesStreamEvent, state *ResponsesEvent
 		// 均按 OutputIndex 累加到对应工具调用。
 		"response.custom_tool_call_input.delta":
 		return resToChatHandleFuncArgsDelta(evt, state)
+	case "response.function_call_arguments.done", "response.custom_tool_call_input.done":
+		return resToChatHandleFuncArgsDone(evt, state)
 	case "response.reasoning_summary_text.delta",
 		// 原始推理文本增量（真实 Codex 客户端消费的 reasoning_text.delta），
 		// 与 reasoning summary 一样映射为 reasoning_content。
@@ -271,6 +277,11 @@ func resToChatHandleFuncArgsDelta(evt *ResponsesStreamEvent, state *ResponsesEve
 	if !ok {
 		return nil
 	}
+	progress := state.argumentProgress(evt.OutputIndex)
+	if progress.done {
+		return nil
+	}
+	progress.append(evt.Delta)
 
 	return []ChatCompletionsChunk{makeChatDeltaChunk(state, ChatDelta{
 		ToolCalls: []ChatToolCall{{
@@ -279,6 +290,67 @@ func resToChatHandleFuncArgsDelta(evt *ResponsesStreamEvent, state *ResponsesEve
 				Arguments: evt.Delta,
 			},
 		}},
+	})}
+}
+
+// Keep only a digest and byte count: retaining concatenated deltas is quadratic
+// in stream length and needlessly duplicates tool arguments already sent.
+type chatArgumentProgress struct {
+	digest  hash.Hash
+	bytes   int
+	done    bool
+	scratch [512]byte
+}
+
+func (p *chatArgumentProgress) append(delta string) {
+	p.hashString(p.digest, delta)
+	p.bytes += len(delta)
+}
+
+func (p *chatArgumentProgress) hashString(digest hash.Hash, value string) {
+	for len(value) > 0 {
+		n := copy(p.scratch[:], value)
+		_, _ = digest.Write(p.scratch[:n])
+		value = value[n:]
+	}
+}
+
+func (s *ResponsesEventToChatState) argumentProgress(index int) *chatArgumentProgress {
+	if s.arguments == nil {
+		s.arguments = make(map[int]*chatArgumentProgress)
+	}
+	if s.arguments[index] == nil {
+		s.arguments[index] = &chatArgumentProgress{digest: sha256.New()}
+	}
+	return s.arguments[index]
+}
+
+func resToChatHandleFuncArgsDone(evt *ResponsesStreamEvent, state *ResponsesEventToChatState) []ChatCompletionsChunk {
+	idx, ok := state.OutputIndexToToolIndex[evt.OutputIndex]
+	if !ok || state.Finalized {
+		return nil
+	}
+	completed := evt.Arguments
+	if evt.Type == "response.custom_tool_call_input.done" {
+		completed = evt.Input
+	}
+	progress := state.argumentProgress(evt.OutputIndex)
+	if progress.done || len(completed) < progress.bytes {
+		return nil
+	}
+	prefix := sha256.New()
+	progress.hashString(prefix, completed[:progress.bytes])
+	var expected, digest [sha256.Size]byte
+	if !bytes.Equal(prefix.Sum(expected[:0]), progress.digest.Sum(digest[:0])) {
+		return nil
+	}
+	remainder := completed[progress.bytes:]
+	progress.done = true
+	if remainder == "" {
+		return nil
+	}
+	return []ChatCompletionsChunk{makeChatDeltaChunk(state, ChatDelta{
+		ToolCalls: []ChatToolCall{{Index: &idx, Function: ChatFunctionCall{Arguments: remainder}}},
 	})}
 }
 
@@ -452,7 +524,7 @@ type bufferedFuncCall struct {
 type BufferedResponseAccumulator struct {
 	text                 strings.Builder
 	reasoning            strings.Builder
-	funcCalls            []bufferedFuncCall
+	funcCalls            []*bufferedFuncCall
 	outputIndexToFuncIdx map[int]int
 }
 
@@ -476,7 +548,7 @@ func (a *BufferedResponseAccumulator) ProcessEvent(event *ResponsesStreamEvent) 
 		if event.Item != nil && (event.Item.Type == "function_call" || event.Item.Type == "custom_tool_call") {
 			idx := len(a.funcCalls)
 			a.outputIndexToFuncIdx[event.OutputIndex] = idx
-			a.funcCalls = append(a.funcCalls, bufferedFuncCall{
+			a.funcCalls = append(a.funcCalls, &bufferedFuncCall{
 				CallID: event.Item.CallID,
 				Name:   event.Item.Name,
 			})
@@ -486,6 +558,15 @@ func (a *BufferedResponseAccumulator) ProcessEvent(event *ResponsesStreamEvent) 
 			if idx, ok := a.outputIndexToFuncIdx[event.OutputIndex]; ok {
 				_, _ = a.funcCalls[idx].Args.WriteString(event.Delta)
 			}
+		}
+	case "response.function_call_arguments.done", "response.custom_tool_call_input.done":
+		completed := event.Arguments
+		if event.Type == "response.custom_tool_call_input.done" {
+			completed = event.Input
+		}
+		if idx, ok := a.outputIndexToFuncIdx[event.OutputIndex]; ok && completed != "" {
+			a.funcCalls[idx].Args.Reset()
+			_, _ = a.funcCalls[idx].Args.WriteString(completed)
 		}
 	case "response.reasoning_summary_text.delta", "response.reasoning_text.delta":
 		if event.Delta != "" {
@@ -538,15 +619,45 @@ func (a *BufferedResponseAccumulator) BuildOutput() []ResponsesOutput {
 	return out
 }
 
-// SupplementResponseOutput fills resp.Output from accumulated delta content
-// when the terminal event delivered an empty output array. If resp.Output is
-// already populated, this is a no-op (preserves backward compatibility).
+// SupplementResponseOutput fills missing terminal output or tool arguments.
+// Explicit nonempty terminal arguments remain authoritative.
 func (a *BufferedResponseAccumulator) SupplementResponseOutput(resp *ResponsesResponse) {
-	if resp == nil || len(resp.Output) > 0 {
+	if resp == nil {
 		return
 	}
-	if !a.HasContent() {
+	if len(resp.Output) == 0 {
+		if a.HasContent() {
+			resp.Output = a.BuildOutput()
+		}
 		return
 	}
-	resp.Output = a.BuildOutput()
+	byCallID := make(map[string]*bufferedFuncCall, len(a.funcCalls))
+	for _, call := range a.funcCalls {
+		if _, exists := byCallID[call.CallID]; exists {
+			byCallID[call.CallID] = nil
+		} else {
+			byCallID[call.CallID] = call
+		}
+	}
+	for outputIndex := range resp.Output {
+		item := &resp.Output[outputIndex]
+		if item.Type != "function_call" && item.Type != "custom_tool_call" {
+			continue
+		}
+		call := byCallID[item.CallID]
+		if item.CallID == "" {
+			call = nil
+			if idx, ok := a.outputIndexToFuncIdx[outputIndex]; ok {
+				call = a.funcCalls[idx]
+			}
+		}
+		if call == nil || (item.Name != "" && item.Name != call.Name) {
+			continue
+		}
+		if item.Type == "function_call" && item.Arguments == "" {
+			item.Arguments = call.Args.String()
+		} else if item.Type == "custom_tool_call" && item.Input == "" {
+			item.Input = call.Args.String()
+		}
+	}
 }

@@ -804,15 +804,36 @@ const handleColumnClickOutside = (event: MouseEvent) => {
   }
 }
 
+const filterOptionsController = new AbortController()
+const loadApiKeyOptions = async () => {
+  const firstPage = await keysAPI.list(1, 100, undefined, { signal: filterOptionsController.signal })
+  const keys = [...firstPage.items]
+  const seen = new Set(keys.map((key) => key.id))
+  const pages = Number.isSafeInteger(firstPage.pages) ? firstPage.pages : 1
+  for (let page = 2; page <= pages && keys.length > 0; page++) {
+    if (filterOptionsController.signal.aborted) break
+    const result = await keysAPI.list(page, 100, undefined, { signal: filterOptionsController.signal })
+    const additions = result.items.filter((key) => !seen.has(key.id))
+    if (additions.length === 0) break
+    for (const key of additions) {
+      seen.add(key.id)
+      keys.push(key)
+    }
+  }
+  return keys
+}
+
 const loadFilterOptions = async () => {
   try {
     const [keys, availableGroups] = await Promise.all([
-      keysAPI.list(1, 100),
+      loadApiKeyOptions(),
       userGroupsAPI.getAvailable(),
     ])
-    apiKeys.value = keys.items
+    if (filterOptionsController.signal.aborted) return
+    apiKeys.value = keys
     groups.value = availableGroups
   } catch (error) {
+    if (filterOptionsController.signal.aborted) return
     console.error('Failed to load usage filter options:', error)
   }
 }
@@ -885,6 +906,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   abortController?.abort()
+  filterOptionsController.abort()
   document.removeEventListener('click', handleColumnClickOutside)
 })
 

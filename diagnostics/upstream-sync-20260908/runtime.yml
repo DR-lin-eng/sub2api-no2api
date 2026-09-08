@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: fixture
+      POSTGRES_PASSWORD: fixture-local-5ae0
+      POSTGRES_DB: fixture
+    volumes:
+      - database:/var/lib/postgresql
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U fixture -d fixture"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  redis:
+    image: redis:8-alpine
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  app:
+    image: ${SYNC_IMAGE:-sub2api-upstream-5ae0:baseline}
+    ports:
+      - "127.0.0.1:18871:8080"
+    environment:
+      AUTO_SETUP: "true"
+      SERVER_MODE: release
+      SERVER_PORT: 8080
+      DATABASE_HOST: postgres
+      DATABASE_USER: fixture
+      DATABASE_PASSWORD: fixture-local-5ae0
+      DATABASE_DBNAME: fixture
+      DATABASE_SSLMODE: disable
+      REDIS_HOST: redis
+      JWT_SECRET: fixture-local-only-5ae0-jwt-secret-20260908
+      ADMIN_EMAIL: review@example.test
+      ADMIN_PASSWORD: Fixture-5ae0-test-password
+      TOTP_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      OAUTH_MODEL_SYNC_ENABLED: "false"
+    volumes:
+      - appdata:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, -T, "5", -O, /dev/null, "http://localhost:8080/ready"]
+      interval: 2s
+      timeout: 6s
+      retries: 60
+      start_period: 10s
+volumes:
+  database:
+  appdata:

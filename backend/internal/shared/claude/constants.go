@@ -20,11 +20,12 @@ const (
 	BetaFastMode                 = "fast-mode-2026-02-01"
 
 	// 新增（对齐官方 CLI 2.1.9x 以来的流量）
-	BetaPromptCachingScope = "prompt-caching-scope-2026-01-05"
-	BetaEffort             = "effort-2025-11-24"
-	BetaRedactThinking     = "redact-thinking-2026-02-12"
-	BetaContextManagement  = "context-management-2025-06-27"
-	BetaExtendedCacheTTL   = "extended-cache-ttl-2025-04-11"
+	BetaPromptCachingScope      = "prompt-caching-scope-2026-01-05"
+	BetaEffort                  = "effort-2025-11-24"
+	BetaRedactThinking          = "redact-thinking-2026-02-12"
+	BetaContextManagement       = "context-management-2025-06-27"
+	BetaThinkingBindingControls = "thinking-binding-controls-2026-08-01"
+	BetaExtendedCacheTTL        = "extended-cache-ttl-2025-04-11"
 
 	// Server-side refusal fallback is an opt-in Messages beta. Keep these
 	// tokens out of the default mimicry headers: enabling them may change the
@@ -93,6 +94,7 @@ func FullClaudeCodeMimicryBetas() []string {
 		BetaPromptCachingScope,
 		BetaEffort,
 		BetaContextManagement,
+		BetaThinkingBindingControls,
 		BetaExtendedCacheTTL,
 	}
 }

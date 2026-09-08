@@ -220,7 +220,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	dataManagementService := service.NewDataManagementService()
 	dataManagementHandler := admin.NewDataManagementHandler(dataManagementService)
 	backupObjectStoreFactory := repository.NewS3BackupStoreFactory()
-	dbDumper := repository.NewPgDumper(configConfig)
+	dbDumper := repository.NewPgDumper(configConfig, db)
 	clusterRepository := repository.NewClusterRepository(db)
 	clusterHealthChecker := repository.NewClusterHealthChecker(redisClient)
 	serviceBuildInfo := provideServiceBuildInfo(buildInfo)

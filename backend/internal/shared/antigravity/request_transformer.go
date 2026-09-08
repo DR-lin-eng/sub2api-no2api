@@ -147,22 +147,14 @@ func TransformClaudeToGeminiWithOptions(claudeReq *ClaudeRequest, projectID, map
 		SessionID: generateStableSessionID(contents),
 	}
 
-	// 针对 Gemini Reasoning 模型（如 gemini-3.1-pro-high等）过滤强制空 ToolConfig
-	isReasoning := IsGeminiReasoningModel(targetModel)
-	if !isReasoning || len(tools) > 0 {
-		// 总是设置 toolConfig，与官方客户端一致
-		innerRequest.ToolConfig = &GeminiToolConfig{
-			FunctionCallingConfig: &GeminiFunctionCallingConfig{
-				Mode: "VALIDATED",
-			},
-		}
-		// Gemini rejects a request that mixes a server-side tool (for example
-		// googleSearch) with function declarations unless this explicit opt-in is
-		// present. Keep the field absent for single-tool requests for compatibility.
-		if hasMixedToolInvocations(tools) {
-			enabled := true
-			innerRequest.ToolConfig.IncludeServerSideToolInvocations = &enabled
-		}
+	// Reasoning models also require toolConfig when no tools are declared.
+	innerRequest.ToolConfig = &GeminiToolConfig{
+		FunctionCallingConfig: &GeminiFunctionCallingConfig{Mode: "VALIDATED"},
+	}
+	// Mixed server-side and function tools require this explicit opt-in.
+	if hasMixedToolInvocations(tools) {
+		enabled := true
+		innerRequest.ToolConfig.IncludeServerSideToolInvocations = &enabled
 	}
 
 	if systemInstruction != nil {
