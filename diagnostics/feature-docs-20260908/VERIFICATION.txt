@@ -1,0 +1,82 @@
+FEATURE DOCUMENTATION VERIFICATION - 2026-09-08
+
+CHANGED_BRANCH_FIELD:
+  branch: codex/feature-docs-20260908 (rebased onto origin/main)
+  field: docs/FEATURES.md feature inventory plus directory README coverage gate
+  source_paths_in_patch: 36
+  patch_stats: 36 files changed, 713 insertions, 15 deletions
+  feature_coverage: 41 frontend features, 0 missing
+  module_coverage: 5 backend modules, 0 missing
+  common_owner_coverage: 1 public common owner, 0 missing
+  markdown_link_check: 159 files, 0 broken local links
+
+MODIFIED_FILE_HASH:
+  source_copy: docs/README.md
+  original_sha256: c0921e5339d2f4d12d7734b05049d1902f04cfc8f15701718215d0f01b183b60
+  modified_sha256: 0725ea214b2395d5812e397e182cf5b875f7f265ac9669f5b2e2a62cecd0fd0c
+  result: changed copy retained
+
+ARTIFACT_PATHS:
+  MODIFIED_FILE=/Users/lin/.codex/worktrees/20d2/sub2api-no2api/diagnostics/feature-docs-20260908/MODIFIED_FILE
+  DIFF_FILE=/Users/lin/.codex/worktrees/20d2/sub2api-no2api/diagnostics/feature-docs-20260908/DIFF_FILE
+  VERIFICATION.txt=/Users/lin/.codex/worktrees/20d2/sub2api-no2api/diagnostics/feature-docs-20260908/VERIFICATION.txt
+  ROLLBACK.sh=/Users/lin/.codex/worktrees/20d2/sub2api-no2api/diagnostics/feature-docs-20260908/ROLLBACK.sh
+
+BASELINE:
+  COMMAND: cd /private/tmp/sub2api-docs-baseline-final8.RDvYKT && make check-docs
+  INPUT: origin/main archive `/private/tmp/sub2api-docs-feature-baseline.tar` at `10288343a835997eed2d199329bbcb1d64388165`.
+  LITERAL_OUTPUT:
+docs error: broken local link in docs/README.md: UPSTREAM_SYNC_20260908.md
+Documentation checks passed.
+  RESULT: the pre-change script reported the mainline's missing upstream-sync document but masked the failure through its pipeline status.
+  EXIT_STATUS: 0 (masked link failure)
+
+MODIFIED:
+  COMMAND: cd /private/tmp/sub2api-docs-modified-final8.uWXiqf && make check-docs && sh -n tools/check-docs.sh && git diff --check
+  INPUT: independent origin/main copy with final DIFF_FILE applied; 24 new directory README files, 5 new docs/*.md documents, the missing upstream-sync record, .gitignore/.gitattributes entries, and directory-driven coverage checks.
+  LITERAL_OUTPUT:
+Documentation checks passed.
+  RESULT: required files, source paths, local links, feature README coverage, module README coverage, stale layout checks, shell syntax, and whitespace checks passed.
+  EXIT_STATUS: 0
+
+ROLLBACK:
+  COMMAND:
+repo_root=$(pwd)
+patch_file="$repo_root/diagnostics/feature-docs-20260908/DIFF_FILE"
+rollback_script="$repo_root/diagnostics/feature-docs-20260908/ROLLBACK.sh"
+rollback_repo=$(mktemp -d /private/tmp/sub2api-docs-rollback-final8.XXXXXX)
+tar -xf /private/tmp/sub2api-docs-feature-baseline.tar -C "$rollback_repo"
+git -C "$rollback_repo" init -q
+git -C "$rollback_repo" config user.email codex@example.invalid
+git -C "$rollback_repo" config user.name Codex
+git -C "$rollback_repo" add -f .
+git -C "$rollback_repo" commit -q -m baseline
+git -C "$rollback_repo" apply "$patch_file"
+printf 'forward_status_paths=%s\n' "$(git -C "$rollback_repo" status --short | wc -l | tr -d ' ')"
+"$rollback_script" "$rollback_repo"
+printf 'final_status=%s\n' "$(git -C "$rollback_repo" status --short | wc -l | tr -d ' ')"
+  INPUT: independent origin/main baseline repository with the final 36-path DIFF_FILE applied; ROLLBACK.sh verified the modified docs/README.md hash before applying the reverse patch and the original hash afterward.
+  LITERAL_OUTPUT:
+forward_status_paths=36
+ROLLBACK restored=36 paths clean=true
+final_status=0
+rollback_repo=/private/tmp/sub2api-docs-rollback-final8.a0Jxs3
+  RESULT: reverse patch applied and all 36 source paths were restored.
+  EXIT_STATUS: 0
+
+NEGATIVE_GATE_PROBE:
+  COMMAND: apply DIFF_FILE to an independent baseline copy, move frontend/src/common/README.md aside, then run make check-docs.
+  INPUT: independent modified copy with one required common owner README removed.
+  LITERAL_OUTPUT:
+docs error: required file is missing: frontend/src/common/README.md
+docs error: broken local link in docs/FEATURES.md: ../frontend/src/common/README.md
+make: *** [check-docs] Error 1
+negative_exit=2
+negative_result=expected_failure
+  RESULT: coverage gate rejects a missing README and its resulting index link.
+  EXIT_STATUS: 2 (make wrapper; underlying check-docs exit was 1)
+
+RESTORED_BEHAVIOR_STATUS:
+  independent rollback repository: clean status, original docs/README.md hash restored.
+  primary repository: documentation changes remain present.
+  MODIFIED_FILE: changed hash remains present.

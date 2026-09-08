@@ -10,11 +10,13 @@ backend/AGENTS.md
 frontend/AGENTS.md
 DEV_GUIDE.md
 docs/README.md
+docs/FEATURES.md
 docs/ARCHITECTURE.md
 docs/CODE_MAP.md
 docs/REQUEST_LIFECYCLES.md
 backend/README.md
 frontend/README.md
+frontend/src/common/README.md
 deploy/README.md'
 
 maintained_docs='AGENTS.md
@@ -25,13 +27,24 @@ README.md
 README_CN.md
 README_JA.md
 docs/README.md
+docs/FEATURES.md
 docs/ARCHITECTURE.md
 docs/CODE_MAP.md
 docs/REQUEST_LIFECYCLES.md
 backend/README.md
 frontend/README.md
+frontend/src/common/README.md
 frontend/src/core/routes/README.md
 frontend/src/core/stores/README.md'
+
+for feature_readme in frontend/src/features/*/README.md; do
+	maintained_docs="$maintained_docs
+$feature_readme"
+done
+for module_readme in backend/internal/modules/*/README.md; do
+	maintained_docs="$maintained_docs
+$module_readme"
+done
 
 required_paths='backend/cmd/server/main.go
 backend/cmd/server/wire.go
@@ -55,29 +68,63 @@ frontend/src/main.ts
 
 status=0
 
-printf '%s\n' "$required_files" | while IFS= read -r path; do
+if ! grep -Fq '../frontend/src/common/README.md' docs/FEATURES.md; then
+	echo "docs error: common owner is not registered in docs/FEATURES.md" >&2
+	status=1
+fi
+
+for path in $required_files; do
 	[ -n "$path" ] || continue
 	if [ ! -f "$path" ]; then
 		echo "docs error: required file is missing: $path" >&2
-		exit 1
+		status=1
 	fi
-done || status=1
+done
 
-printf '%s\n' "$required_paths" | while IFS= read -r path; do
+# Every feature and vertical backend module needs a local owner README and an
+# entry in the feature index. Keep this check directory-driven so new domains
+# cannot silently bypass the documentation inventory.
+for feature_dir in frontend/src/features/*; do
+	[ -d "$feature_dir" ] || continue
+	feature=$(basename "$feature_dir")
+	if [ ! -f "$feature_dir/README.md" ]; then
+		echo "docs error: feature README is missing: $feature_dir/README.md" >&2
+		status=1
+	fi
+	if ! grep -Fq "../frontend/src/features/$feature/README.md" docs/FEATURES.md; then
+		echo "docs error: feature is not registered in docs/FEATURES.md: $feature" >&2
+		status=1
+	fi
+done
+
+for module_dir in backend/internal/modules/*; do
+	[ -d "$module_dir" ] || continue
+	module=$(basename "$module_dir")
+	if [ ! -f "$module_dir/README.md" ]; then
+		echo "docs error: module README is missing: $module_dir/README.md" >&2
+		status=1
+	fi
+	if ! grep -Fq "../backend/internal/modules/$module/README.md" docs/FEATURES.md; then
+		echo "docs error: module is not registered in docs/FEATURES.md: $module" >&2
+		status=1
+	fi
+done
+
+for path in $required_paths; do
 	[ -n "$path" ] || continue
 	if [ ! -e "$path" ]; then
 		echo "docs error: documented source path is missing: $path" >&2
-		exit 1
+		status=1
 	fi
-done || status=1
+done
 
-printf '%s\n' "$maintained_docs" | while IFS= read -r doc; do
+for doc in $maintained_docs; do
 	[ -n "$doc" ] || continue
 	doc_dir=$(dirname "$doc")
 	links=$(grep -Eo '\]\([^)]*\)' "$doc" 2>/dev/null | sed -E 's/^\]\((.*)\)$/\1/' || true)
 	[ -n "$links" ] || continue
 
-	printf '%s\n' "$links" | while IFS= read -r target; do
+	for target in $links; do
 		case "$target" in
 			''|'#'*|http://*|https://*|mailto:*|tel:*) continue ;;
 		esac
@@ -86,16 +133,17 @@ printf '%s\n' "$maintained_docs" | while IFS= read -r doc; do
 		case "$target" in
 			*' '*|'<'*|'>'*)
 				echo "docs error: unsupported local link syntax in $doc: $target" >&2
-				exit 1
+				status=1
+				continue
 				;;
 		esac
 
 		if [ ! -e "$repo_root/$doc_dir/$target" ]; then
 			echo "docs error: broken local link in $doc: $target" >&2
-			exit 1
+			status=1
 		fi
 	done
-done || status=1
+done
 
 stale_output=$(mktemp "${TMPDIR:-/tmp}/sub2api-docs-stale.XXXXXX")
 trap 'rm -f "$stale_output"' EXIT HUP INT TERM

@@ -154,6 +154,11 @@ docs/*
 !docs/CPA_POOL_DYNAMIC_LOAD_BALANCING_CN.md
 !docs/CLOUDFLARE_EDGE_RULES.md
 !docs/FRONTEND_CORS_DEPLOYMENT_CN.md
+!docs/UPSTREAM_SYNC_20260908.md
+!docs/FEATURES.md
+!docs/ACTIVITY_CENTER.md
+!docs/SUPPORT_CHAT.md
+!docs/CUSTOM_MODELS_AND_MEDIA.md
 !docs/codex/
 !docs/codex/intentional-divergences.md
 !docs/legal/

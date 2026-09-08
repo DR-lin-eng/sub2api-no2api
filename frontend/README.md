@@ -23,6 +23,8 @@ pnpm run build
 
 ## 源码索引
 
+全部 feature、公共页面的功能入口及目录 README 见 [功能总览与文档索引](../docs/FEATURES.md)。新增 feature 或公共 owner 时同步维护该索引与同目录 README。
+
 | 路径 | 作用 |
 | --- | --- |
 | `src/main.ts` | 应用启动、Pinia、公开设置、i18n 和 Router 初始化 |
