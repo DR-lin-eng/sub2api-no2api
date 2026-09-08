@@ -1,0 +1,69 @@
+BASELINE_SHA256
+b2fa9bc72a5e7bbf94cc528e817429e146478f4a14eec5d88f5d1b62f2d71578  /tmp/sub2api-baseline/backend/internal/application/service/openai_account_scheduler.go
+1c0f1b5eefdfc40edba8d2a3b09b0e584f6232a16a29550fa661547ae6ec0467  /tmp/sub2api-baseline/backend/internal/application/service/openai_gateway_scheduling.go
+0cf832ed1bca8251518ea14d057e2556ef236ad83f096b0c02c14d2ed87ee1dc  /tmp/sub2api-baseline/backend/internal/application/service/openai_account_scheduler_test.go
+d0e35813dd1c9b418d56de8321446b75372d638de303b0c7fb7162a3c4239e6c  /tmp/sub2api-baseline/docs/REQUEST_LIFECYCLES.md
+
+MODIFIED_SHA256
+a127c351b0740d1d3825478f4c73f7fc6a1483726e63d32cabd3754eb2132861  backend/internal/application/service/openai_account_scheduler.go
+6865c97d9f84664c9834400b2928c2d3f1226fcb69dc2ccac18b209f3aab0d2c  backend/internal/application/service/openai_gateway_scheduling.go
+183d14d4df89905eaa85c6792a2d401f57100b11e48108155f202ac52e9e1b2c  backend/internal/application/service/openai_account_scheduler_test.go
+ae45a697a6d1ca178b6fb949b167ea9204b4fe5283186aaaef0b45b561c464cf  docs/REQUEST_LIFECYCLES.md
+
+CHANGED_BRANCH_OR_FIELD
+application scheduler: all-OAuth exact-tie request entropy within bounded Top-K
+advanced scheduler: sticky escape only after wait queue saturation
+legacy load-aware scheduling: all-full cached load triggers uncached refresh
+
+BASELINE_COMMAND
+docker run --rm -v /tmp/sub2api-baseline/backend:/app/backend -v sub2api-scheduler-gomod:/go/pkg/mod -v sub2api-scheduler-baseline-gocache:/tmp/go-build -w /app/backend golang:1.26.6-alpine sh -c 'GOPROXY=https://goproxy.cn,direct GOSUMDB=sum.golang.google.cn GOMODCACHE=/go/pkg/mod GOCACHE=/tmp/go-build go test ./internal/application/service ./internal/transport/http/...'
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	30.420s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.266s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto	0.011s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview	0.012s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset	0.006s
+?   	github.com/Wei-Shaw/sub2api/internal/transport/http/server	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware	0.019s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes	0.942s
+exit_status=0
+
+MODIFIED_COMMAND
+docker run --rm -v "$PWD/backend:/app/backend" -v sub2api-scheduler-gomod:/go/pkg/mod -v sub2api-scheduler-gocache:/tmp/go-build -w /app/backend golang:1.26.6-alpine sh -c 'GOPROXY=https://goproxy.cn,direct GOSUMDB=sum.golang.google.cn GOMODCACHE=/go/pkg/mod GOCACHE=/tmp/go-build go test ./internal/application/service ./internal/transport/http/...'
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	133.623s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	30.424s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.262s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset	(cached)
+?   	github.com/Wei-Shaw/sub2api/internal/transport/http/server	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware	0.019s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes	0.984s
+exit_status=0
+
+HOST_FOCUSED_COMMANDS
+cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/transport/http/...
+cd backend && GOCACHE=/tmp/sub2api-gocache go test -race ./internal/application/service -run 'TestDeriveOpenAISelectionSeed_PreservedStickyOverflowAddsEntropy|TestOpenAIAccountLoadPlanRandomizesEqualOAuthTopK|TestOpenAIGatewayService_SelectAccountWithScheduler_StickyFullWaitsBeforeSwitching|TestOpenAIGatewayService_SelectAccountWithScheduler_RefreshesAllFullSnapshot' -count=1
+result=passed; exit_status=0
+
+DOCKER_FOCUSED_COMMAND
+docker run --rm -v "$PWD/backend:/app/backend" -v sub2api-scheduler-gomod:/go/pkg/mod -v sub2api-scheduler-gocache:/tmp/go-build -w /app/backend golang:1.26.6-alpine sh -c 'GOPROXY=https://goproxy.cn,direct GOSUMDB=sum.golang.google.cn GOMODCACHE=/go/pkg/mod GOCACHE=/tmp/go-build go test ./internal/application/service -run "TestDeriveOpenAISelectionSeed_PreservedStickyOverflowAddsEntropy|TestOpenAIAccountLoadPlanRandomizesEqualOAuthTopK|TestOpenAIGatewayService_SelectAccountWithScheduler_StickyFullWaitsBeforeSwitching|TestOpenAIGatewayService_SelectAccountWithScheduler_RefreshesAllFullSnapshot" -count=1'
+ok; exit_status=0
+
+DOC_COMMAND
+make check-docs
+result=Documentation checks passed.; exit_status=0
+
+ROLLBACK_COMMAND
+diagnostics/openai-oauth-scheduler-20260908/ROLLBACK.sh /tmp/openai-oauth-rollback-test/target.go /tmp/openai-oauth-rollback-test/baseline.go
+rollback_before=a127c351b0740d1d3825478f4c73f7fc6a1483726e63d32cabd3754eb2132861
+rollback_after=b2fa9bc72a5e7bbf94cc528e817429e146478f4a14eec5d88f5d1b62f2d71578
+rollback_expected=b2fa9bc72a5e7bbf94cc528e817429e146478f4a14eec5d88f5d1b62f2d71578
+restored_behavior=baseline_source_hash_restored; modified_file_remains_changed
+exit_status=0
+
+ARTIFACT_PATHS
+/Users/lin/.codex/worktrees/9aa1/sub2api-no2api/diagnostics/openai-oauth-scheduler-20260908/MODIFIED_FILE
+/Users/lin/.codex/worktrees/9aa1/sub2api-no2api/diagnostics/openai-oauth-scheduler-20260908/DIFF_FILE
+/Users/lin/.codex/worktrees/9aa1/sub2api-no2api/diagnostics/openai-oauth-scheduler-20260908/VERIFICATION.txt
+/Users/lin/.codex/worktrees/9aa1/sub2api-no2api/diagnostics/openai-oauth-scheduler-20260908/ROLLBACK.sh

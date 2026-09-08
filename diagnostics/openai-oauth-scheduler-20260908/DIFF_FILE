@@ -1,0 +1,307 @@
+diff --git a/backend/internal/application/service/openai_account_scheduler.go b/backend/internal/application/service/openai_account_scheduler.go
+index 590b86b15..889c0db9a 100644
+--- a/backend/internal/application/service/openai_account_scheduler.go
++++ b/backend/internal/application/service/openai_account_scheduler.go
+@@ -723,17 +723,31 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
+ 	}
+ 
+ 	cfg := s.service.schedulingConfig()
++	// Keep a healthy sticky conversation on its account while the bounded wait
++	// queue still has room. Escaping on the first full-slot observation made
++	// short bursts migrate to a cache-cold account even though the original
++	// account could have admitted the request shortly afterwards. Only spill
++	// over once the queue is saturated (or when no queue is configured).
+ 	// WaitPlan.MaxConcurrency 使用 Concurrency（非 EffectiveLoadFactor），因为 WaitPlan 控制的是 Redis 实际并发槽位等待。
+ 	if s.service.concurrencyService != nil {
+ 		if escapeCfg.enabled && !contentSessionOverflow && acquireErr == nil && result != nil && !result.Acquired {
+-			errorRate, ttft, _ := s.stats.snapshot(accountID)
+-			slog.Info("sticky_escape_triggered",
+-				"account_id", accountID,
+-				"reason", "concurrency_full",
+-				"error_rate", errorRate,
+-				"ttft", ttft,
+-			)
+-			return nil, accountID, nil
++			waitingCount, waitErr := s.service.concurrencyService.GetAccountWaitingCount(ctx, accountID)
++			queueSaturated := cfg.StickySessionMaxWaiting <= 0 || (waitErr == nil && waitingCount >= cfg.StickySessionMaxWaiting)
++			if queueSaturated {
++				errorRate, ttft := 0.0, 0.0
++				if s.stats != nil {
++					errorRate, ttft, _ = s.stats.snapshot(accountID)
++				}
++				slog.Info("sticky_escape_triggered",
++					"account_id", accountID,
++					"reason", "concurrency_full_queue_saturated",
++					"waiting_count", waitingCount,
++					"max_waiting", cfg.StickySessionMaxWaiting,
++					"error_rate", errorRate,
++					"ttft", ttft,
++				)
++				return nil, accountID, nil
++			}
+ 		}
+ 		return &AccountSelectionResult{
+ 			Account: account,
+@@ -809,6 +823,18 @@ func openAIAccountSchedulingPriority(account *Account) int {
+ 	return account.Priority
+ }
+ 
++func openAIAccountCandidatePoolOAuthOnly(candidates []*Account) bool {
++	if len(candidates) == 0 {
++		return false
++	}
++	for _, candidate := range candidates {
++		if candidate == nil || !candidate.IsOpenAIOAuth() {
++			return false
++		}
++	}
++	return true
++}
++
+ func (s *defaultOpenAIAccountScheduler) shouldEscapeStickyAccount(accountID int64, cfg openAIStickyEscapeConfig) (reason string, errorRate float64, ttft float64, shouldEscape bool) {
+ 	if !cfg.enabled || s == nil || s.stats == nil || accountID <= 0 {
+ 		return "", 0, 0, false
+@@ -828,6 +854,7 @@ type openAIAccountCandidateScore struct {
+ 	loadInfo           *AccountLoadInfo
+ 	loadKnown          bool
+ 	channelKey         string
++	selectionTieBreak  uint64
+ 	score              float64
+ 	upstreamCostFactor float64
+ 	priority           int
+@@ -900,6 +927,9 @@ func isOpenAIAccountCandidateBetter(left openAIAccountCandidateScore, right open
+ 	if leftShare != rightShare {
+ 		return leftShare > rightShare
+ 	}
++	if left.selectionTieBreak != right.selectionTieBreak {
++		return left.selectionTieBreak < right.selectionTieBreak
++	}
+ 	return left.account.ID < right.account.ID
+ }
+ 
+@@ -1049,8 +1079,10 @@ func deriveOpenAISelectionSeed(req OpenAIAccountScheduleRequest) uint64 {
+ 	}
+ 
+ 	seed := hasher.Sum64()
+-	// 对“无会话锚点”的纯负载均衡请求引入时间熵，避免固定命中同一账号。
+-	if (strings.TrimSpace(req.SessionHash) == "" || req.ContentSessionConcurrent) && strings.TrimSpace(req.PreviousResponseID) == "" {
++	// 对“无会话锚点”的纯负载均衡请求，以及已从粘性账号溢出的请求
++	// 引入时间熵，避免固定命中同一账号。保留粘性绑定时仍不改写绑定，
++	// 这里只让备用候选在相同负载下拥有不同的平局顺序。
++	if req.PreserveStickyBinding || ((strings.TrimSpace(req.SessionHash) == "" || req.ContentSessionConcurrent) && strings.TrimSpace(req.PreviousResponseID) == "") {
+ 		seed ^= uint64(time.Now().UnixNano())
+ 	}
+ 	if seed == 0 {
+@@ -1099,6 +1131,17 @@ func (s *defaultOpenAIAccountScheduler) buildOpenAIAccountLoadPlan(
+ 			streamDegraded: streamDegraded,
+ 		})
+ 	}
++	// A bounded Top-K is important for large pools, but an ID-based final
++	// tiebreak would permanently favor the first few OAuth accounts whenever
++	// Redis reports the same load for all of them. Use request-scoped entropy
++	// only for exact scheduling ties; real load, queue, priority and health
++	// signals continue to dominate the ordering.
++	if openAIAccountCandidatePoolOAuthOnly(filtered) {
++		tieBreakRNG := newOpenAISelectionRNG(deriveOpenAISelectionSeed(req))
++		for i := range allCandidates {
++			allCandidates[i].selectionTieBreak = tieBreakRNG.nextUint64()
++		}
++	}
+ 
+ 	candidates := allCandidates
+ 	staleSnapshotCompactRetry := make([]openAIAccountCandidateScore, 0, len(allCandidates))
+diff --git a/backend/internal/application/service/openai_account_scheduler_test.go b/backend/internal/application/service/openai_account_scheduler_test.go
+index 149684c2d..a488dd579 100644
+--- a/backend/internal/application/service/openai_account_scheduler_test.go
++++ b/backend/internal/application/service/openai_account_scheduler_test.go
+@@ -3838,6 +3838,20 @@ func TestDeriveOpenAISelectionSeed_NoAffinityAddsEntropy(t *testing.T) {
+ 	require.NotEqual(t, seed1, seed2)
+ }
+ 
++func TestDeriveOpenAISelectionSeed_PreservedStickyOverflowAddsEntropy(t *testing.T) {
++	req := OpenAIAccountScheduleRequest{
++		SessionHash:           "sticky-overflow",
++		PreviousResponseID:    "response-1",
++		PreserveStickyBinding: true,
++	}
++	seed1 := deriveOpenAISelectionSeed(req)
++	time.Sleep(1 * time.Millisecond)
++	seed2 := deriveOpenAISelectionSeed(req)
++	require.NotZero(t, seed1)
++	require.NotZero(t, seed2)
++	require.NotEqual(t, seed1, seed2)
++}
++
+ func TestBuildOpenAIWeightedSelectionOrder_HandlesInvalidScores(t *testing.T) {
+ 	candidates := []openAIAccountCandidateScore{
+ 		{
+@@ -4153,3 +4167,135 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_SubscriptionPriorityWai
+ 	require.Equal(t, int64(38011), selection.WaitPlan.AccountID)
+ 	require.Equal(t, openAIAccountScheduleLayerLoadBalance, decision.Layer)
+ }
++
++func TestOpenAIGatewayService_SelectAccountWithScheduler_StickyFullWaitsBeforeSwitching(t *testing.T) {
++	resetOpenAIAdvancedSchedulerSettingCacheForTest()
++	ctx := context.Background()
++	groupID := int64(10107)
++	accounts := []Account{
++		{ID: 37001, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0, GroupIDs: []int64{groupID}},
++		{ID: 37002, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0, GroupIDs: []int64{groupID}},
++	}
++	cache := &schedulerTestGatewayCache{sessionBindings: map[string]int64{"openai:sticky_wait_before_switch": accounts[0].ID}}
++	concurrencyCache := schedulerTestConcurrencyCache{
++		acquireResults: map[int64]bool{accounts[0].ID: false},
++		waitCounts:     map[int64]int{accounts[0].ID: 0},
++		loadMap: map[int64]*AccountLoadInfo{
++			accounts[0].ID: {AccountID: accounts[0].ID, LoadRate: 100},
++			accounts[1].ID: {AccountID: accounts[1].ID, LoadRate: 0},
++		},
++	}
++	cfg := &config.Config{}
++	cfg.Gateway.OpenAIScheduler.StickyEscapeEnabled = true
++	cfg.Gateway.OpenAIScheduler.StickyEscapeTTFTMs = 15000
++	cfg.Gateway.OpenAIScheduler.StickyEscapeErrorRate = 0.5
++	cfg.Gateway.Scheduling.StickySessionMaxWaiting = 2
++	svc := &OpenAIGatewayService{
++		accountRepo:        schedulerTestOpenAIAccountRepo{accounts: accounts},
++		cache:              cache,
++		cfg:                cfg,
++		rateLimitService:   newOpenAIAdvancedSchedulerRateLimitService("true"),
++		concurrencyService: NewConcurrencyService(concurrencyCache),
++	}
++
++	selection, decision, err := svc.SelectAccountWithScheduler(ctx, &groupID, "", "sticky_wait_before_switch", "gpt-5.1", nil, OpenAIUpstreamTransportAny, false)
++	require.NoError(t, err)
++	require.NotNil(t, selection)
++	require.Equal(t, accounts[0].ID, selection.Account.ID)
++	require.NotNil(t, selection.WaitPlan)
++	require.Equal(t, openAIAccountScheduleLayerSessionSticky, decision.Layer)
++	require.Equal(t, accounts[0].ID, cache.sessionBindings["openai:sticky_wait_before_switch"])
++}
++
++func TestOpenAIAccountLoadPlanRandomizesEqualOAuthTopK(t *testing.T) {
++	cfg := &config.Config{}
++	cfg.Gateway.OpenAIWS.LBTopK = 2
++	cfg.Gateway.OpenAIWS.SchedulerScoreWeights.Priority = 1
++	cfg.Gateway.OpenAIWS.SchedulerScoreWeights.Load = 1
++	gateway := &OpenAIGatewayService{cfg: cfg}
++	scheduler := &defaultOpenAIAccountScheduler{service: gateway, stats: newOpenAIAccountRuntimeStats()}
++	candidates := make([]*Account, 0, 6)
++	loads := make(map[int64]*AccountLoadInfo, 6)
++	for i := int64(1); i <= 6; i++ {
++		account := &Account{ID: 38000 + i, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 4}
++		candidates = append(candidates, account)
++		loads[account.ID] = &AccountLoadInfo{AccountID: account.ID, LoadRate: 0}
++	}
++	plan := scheduler.buildOpenAIAccountLoadPlan(context.Background(), OpenAIAccountScheduleRequest{Platform: PlatformOpenAI}, candidates, loads)
++	require.Equal(t, 2, plan.topK)
++	require.Len(t, plan.selectionOrder, 2)
++
++	seen := make(map[int64]struct{}, len(candidates))
++	for i := 0; i < 256; i++ {
++		req := OpenAIAccountScheduleRequest{Platform: PlatformOpenAI, SessionHash: fmt.Sprintf("oauth-tie-%d", i)}
++		current := scheduler.buildOpenAIAccountLoadPlan(context.Background(), req, candidates, loads)
++		for _, candidate := range current.selectionOrder {
++			seen[candidate.account.ID] = struct{}{}
++		}
++	}
++	require.Len(t, seen, len(candidates), "equal-load OAuth candidates should not be permanently pinned to low IDs")
++}
++
++type staleThenFreshOpenAIConcurrencyCache struct {
++	schedulerTestConcurrencyCache
++	freshLoadMap map[int64]*AccountLoadInfo
++	reads        int
++}
++
++func (c *staleThenFreshOpenAIConcurrencyCache) GetAccountsLoadBatch(ctx context.Context, accounts []AccountWithConcurrency) (map[int64]*AccountLoadInfo, error) {
++	c.reads++
++	if c.reads > 1 && c.freshLoadMap != nil {
++		out := make(map[int64]*AccountLoadInfo, len(accounts))
++		for _, account := range accounts {
++			if load, ok := c.freshLoadMap[account.ID]; ok {
++				out[account.ID] = load
++			} else {
++				out[account.ID] = &AccountLoadInfo{AccountID: account.ID}
++			}
++		}
++		return out, nil
++	}
++	return c.schedulerTestConcurrencyCache.GetAccountsLoadBatch(ctx, accounts)
++}
++
++func TestOpenAIGatewayService_SelectAccountWithScheduler_RefreshesAllFullSnapshot(t *testing.T) {
++	resetOpenAIAdvancedSchedulerSettingCacheForTest()
++	ctx := context.Background()
++	groupID := int64(10109)
++	accounts := []Account{
++		{ID: 39001, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 2, Priority: 0, GroupIDs: []int64{groupID}},
++		{ID: 39002, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 2, Priority: 0, GroupIDs: []int64{groupID}},
++	}
++	loadCache := &staleThenFreshOpenAIConcurrencyCache{
++		schedulerTestConcurrencyCache: schedulerTestConcurrencyCache{
++			loadMap: map[int64]*AccountLoadInfo{
++				accounts[0].ID: {AccountID: accounts[0].ID, CurrentConcurrency: 2, LoadRate: 100},
++				accounts[1].ID: {AccountID: accounts[1].ID, CurrentConcurrency: 2, LoadRate: 100},
++			},
++			acquireResults: map[int64]bool{accounts[1].ID: true},
++		},
++		freshLoadMap: map[int64]*AccountLoadInfo{
++			accounts[0].ID: {AccountID: accounts[0].ID, CurrentConcurrency: 2, LoadRate: 100},
++			accounts[1].ID: {AccountID: accounts[1].ID, CurrentConcurrency: 0, LoadRate: 0},
++		},
++	}
++	cfg := &config.Config{}
++	cfg.Gateway.Scheduling.LoadBatchEnabled = true
++	svc := &OpenAIGatewayService{
++		accountRepo:        schedulerTestOpenAIAccountRepo{accounts: accounts},
++		cache:              &schedulerTestGatewayCache{},
++		cfg:                cfg,
++		rateLimitService:   newOpenAIAdvancedSchedulerRateLimitService("false"),
++		concurrencyService: NewConcurrencyService(loadCache),
++	}
++
++	selection, decision, err := svc.SelectAccountWithScheduler(ctx, &groupID, "", "", "gpt-5.1", nil, OpenAIUpstreamTransportAny, false)
++	require.NoError(t, err)
++	require.NotNil(t, selection)
++	require.Equal(t, accounts[1].ID, selection.Account.ID)
++	require.Equal(t, openAIAccountScheduleLayerLoadBalance, decision.Layer)
++	require.Equal(t, 2, loadCache.reads, "an all-full cached snapshot must trigger one uncached refresh")
++	if selection.ReleaseFunc != nil {
++		selection.ReleaseFunc()
++	}
++}
+diff --git a/backend/internal/application/service/openai_gateway_scheduling.go b/backend/internal/application/service/openai_gateway_scheduling.go
+index 9d19861bc..50415fcde 100644
+--- a/backend/internal/application/service/openai_gateway_scheduling.go
++++ b/backend/internal/application/service/openai_gateway_scheduling.go
+@@ -1407,7 +1407,12 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
+ 		}
+ 
+ 		if len(available) == 0 {
+-			return nil, false, nil
++			// The snapshot may be stale and report every account at capacity.
++			// Mark the pass as attempted so the caller performs one uncached
++			// Redis read before falling back to a wait plan. Without this, a
++			// transiently full snapshot could pin the request to an arbitrary
++			// account while another OAuth account is already idle.
++			return nil, true, nil
+ 		}
+ 
+ 		sort.SliceStable(available, func(i, j int) bool {
+diff --git a/docs/REQUEST_LIFECYCLES.md b/docs/REQUEST_LIFECYCLES.md
+index 0286d59fc..abe90405b 100644
+--- a/docs/REQUEST_LIFECYCLES.md
++++ b/docs/REQUEST_LIFECYCLES.md
+@@ -54,6 +54,11 @@ OpenAI 兼容入口的会话键按以下顺序解析：显式 `session_id`/
+ 请求因上游容量/传输等 request-scoped 错误临时切换账号，当前请求可以由备用账号完成，
+ 但后续轮次仍保留原粘性账号绑定；只有账号级不可用状态才清理该绑定。
+ 
++高并发时，健康的粘性账号先使用其有限等待队列；只有队列已满才允许请求溢出到
++负载均衡层，避免短暂的槽位竞争造成缓存冷启动和非预期切号。OpenAI OAuth 候选在
++有界 Top-K 内遇到相同负载时使用请求级随机平局，避免固定低编号热集；批量负载快照
++若将所有账号判为满载会先执行一次无缓存刷新，再创建兜底等待计划。
++
+ OpenAI Responses 请求在首个语义事件前使用
+ `gateway.openai_first_output_timeout_seconds`（默认 90 秒；
+ `high/xhigh/max` 可由 `gateway.openai_high_effort_first_output_timeout_seconds`

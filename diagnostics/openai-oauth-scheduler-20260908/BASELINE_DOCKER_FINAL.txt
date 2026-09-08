@@ -1,0 +1,9 @@
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	30.420s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.266s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto	0.011s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview	0.012s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset	0.006s
+?   	github.com/Wei-Shaw/sub2api/internal/transport/http/server	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware	0.019s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes	0.942s

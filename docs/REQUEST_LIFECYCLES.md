@@ -54,6 +54,11 @@ OpenAI 兼容入口的会话键按以下顺序解析：显式 `session_id`/
 请求因上游容量/传输等 request-scoped 错误临时切换账号，当前请求可以由备用账号完成，
 但后续轮次仍保留原粘性账号绑定；只有账号级不可用状态才清理该绑定。
 
+高并发时，健康的粘性账号先使用其有限等待队列；只有队列已满才允许请求溢出到
+负载均衡层，避免短暂的槽位竞争造成缓存冷启动和非预期切号。OpenAI OAuth 候选在
+有界 Top-K 内遇到相同负载时使用请求级随机平局，避免固定低编号热集；批量负载快照
+若将所有账号判为满载会先执行一次无缓存刷新，再创建兜底等待计划。
+
 OpenAI Responses 请求在首个语义事件前使用
 `gateway.openai_first_output_timeout_seconds`（默认 90 秒；
 `high/xhigh/max` 可由 `gateway.openai_high_effort_first_output_timeout_seconds`

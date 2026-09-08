@@ -1407,7 +1407,12 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 		}
 
 		if len(available) == 0 {
-			return nil, false, nil
+			// The snapshot may be stale and report every account at capacity.
+			// Mark the pass as attempted so the caller performs one uncached
+			// Redis read before falling back to a wait plan. Without this, a
+			// transiently full snapshot could pin the request to an arbitrary
+			// account while another OAuth account is already idle.
+			return nil, true, nil
 		}
 
 		sort.SliceStable(available, func(i, j int) bool {

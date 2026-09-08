@@ -1,0 +1,2 @@
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2	(cached)
