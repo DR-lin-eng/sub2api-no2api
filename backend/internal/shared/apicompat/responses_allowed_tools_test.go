@@ -16,5 +16,7 @@ func TestFlattenResponsesNamespacesAllowedTools(t *testing.T) {
 	require.True(t, changed)
 	require.Equal(t, "tools__lookup", choiceTool["name"])
 	require.NotContains(t, choiceTool, "namespace")
-	require.Equal(t, "required", req["tool_choice"].(map[string]any)["mode"])
+	choice, ok := req["tool_choice"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "required", choice["mode"])
 }

@@ -1,0 +1,16 @@
+BASE=2c6606b8374d64c3afd3dae0447eaf19f521523c
+UPSTREAM=14e0a49e17afebf62c5f788f4ef1dc8eef56ac76
+FUNCTIONAL_COMMIT=781f2d03178f5d68ccbdc0f13da531e981605f35
+TRACKING_COMMIT=8bdddfef1646c2e80c426d7f46ca69ae18117a6e
+
+git diff --stat BASE..FUNCTIONAL_COMMIT:
+29 files changed, 445 insertions(+), 140 deletions(-), plus 19 newly created verification/test/asset files recorded by the functional commit.
+
+Semantic branches:
+- protocol: allowed_tools, function_call_arguments.done, named delegation outputs, beta-gated thinking.block_binding
+- runtime: backup migration advisory lock, fixed-window redeem increment, Fable model-scoped credits_required, WS turn terminal/isolation
+- catalog/billing: GPT-6 Astra instructions, GLM-5.3 prices, Gemini tier aliases, Antigravity toolConfig
+- frontend: cancellable API-key pagination, Turnstile loading, expiry shortcuts, subscription usage links
+
+Difference closure:
+git rev-list --left-right --count TRACKING_COMMIT...UPSTREAM = 553 0
