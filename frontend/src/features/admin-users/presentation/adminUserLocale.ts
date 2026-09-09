@@ -5,6 +5,7 @@ const roleKeys = {
   user: 'admin.users.roles.user',
 } as const
 
-export function adminUserRoleLabel(t: LocaleTranslate, value: unknown): string {
+export function adminUserRoleLabel(t: LocaleTranslate, value: unknown, customLabels: Record<string, string> = {}): string {
+  if (typeof value === 'string' && customLabels[value]) return customLabels[value]
   return enumLocaleLabel(t, roleKeys, value)
 }

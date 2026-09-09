@@ -1,0 +1,37 @@
+# Actual diff: custom-role admin authentication permission context
+# BASELINE: acbbfcebfe0bc2cba3bee13162715bd612adf871
+diff --git a/backend/internal/transport/http/server/middleware/admin_auth.go b/backend/internal/transport/http/server/middleware/admin_auth.go
+index 7e6fa77c8..cbf577063 100644
+--- a/backend/internal/transport/http/server/middleware/admin_auth.go
++++ b/backend/internal/transport/http/server/middleware/admin_auth.go
+@@ -147,6 +147,7 @@ func validateAdminAPIKey(
+
+	setAuthSubject(c, admin.ID, admin.Concurrency, admin.SchedulingTier)
+	c.Set(string(ContextKeyUserRole), admin.Role)
++	SetAdminPermissions(c, []string{"*"})
+	c.Set(ContextKeyAuthEmail, admin.Email)
+	c.Set("auth_method", "admin_api_key")
+	c.Set("admin_api_key_id", keyInfo.ID)
+@@ -263,14 +264,20 @@ func validateJWTForAdmin(
+		return false
+	}
+
+-	// 检查管理员权限
+-	if !user.IsAdmin() {
++	// 管理员角色保持全量权限；自定义权限组至少需要一个已配置权限。
++	permissions, permissionErr := settingService.PermissionsForRole(c.Request.Context(), user.Role)
++	if permissionErr != nil {
++		AbortWithError(c, 500, "INTERNAL_ERROR", "Unable to load permission group")
++		return false
++	}
++	if !user.IsAdmin() && len(permissions) == 0 {
+		AbortWithError(c, 403, "FORBIDDEN", "Admin access required")
+		return false
+	}
+
+	setAuthSubject(c, user.ID, user.Concurrency, user.SchedulingTier)
+	c.Set(string(ContextKeyUserRole), user.Role)
++	SetAdminPermissions(c, permissions)
+	c.Set(ContextKeyAuthEmail, user.Email)
+	c.Set(ContextKeySessionID, claims.SessionID)
+	if claims.ExpiresAt != nil {

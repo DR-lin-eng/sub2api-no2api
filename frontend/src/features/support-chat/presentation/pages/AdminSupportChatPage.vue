@@ -53,7 +53,7 @@
                 v-if="selectedConversationID"
                 type="button"
                 class="btn btn-secondary btn-sm px-2 sm:px-3"
-                :disabled="messagesLoading || markingUnread || selectedConversation?.manually_unread_by_admin"
+                :disabled="!authStore.hasPermission('support.write') || messagesLoading || markingUnread || selectedConversation?.manually_unread_by_admin"
                 @click="markSelectedUnread"
               >
                 {{ selectedConversation?.manually_unread_by_admin ? t('supportChat.markedUnread') : t('supportChat.markUnread') }}
@@ -107,7 +107,7 @@
             :messages="messages"
             own-sender="admin"
             asset-scope="admin"
-            allow-recall
+            :allow-recall="authStore.hasPermission('support.write')"
             :recalling-message-id="recallingMessageID"
             :peer-read-at="selectedConversation?.last_read_by_user_at"
             @reply="replyingTo = $event"
@@ -118,7 +118,7 @@
         <SupportMessageComposer
           ref="composerRef"
           :sending="sending"
-          :disabled="!selectedConversationID || messagesLoading"
+          :disabled="!selectedConversationID || messagesLoading || !authStore.hasPermission('support.write')"
           admin-mode
           :tools-busy="toolsBusy"
           :replying-to="replyingTo"
@@ -129,6 +129,7 @@
           @submit="handleSend"
           @upload="handleUpload"
           @cancel-reply="replyingTo = null"
+          :allow-transfer="authStore.hasPermission('support.balance_transfer')"
           @transfer="handleTransfer"
           @quick-reply-create="handleQuickReplyCreate"
           @quick-reply-update="handleQuickReplyUpdate"
@@ -166,7 +167,8 @@ import { useI18n } from 'vue-i18n'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import ConfirmDialog from '@/common/widgets/feedback/ConfirmDialog.vue'
 import { useAppStore } from '@/core/stores/appStore'
-import { getById as getAdminUserById } from '@/features/admin-users/data/datasources/adminUsersDatasource'
+import { useAuthStore } from '@/features/auth'
+import { getBasicById } from '@/features/admin-users/data/datasources/adminUsersDatasource'
 import {
   createAdminChatCatalogAsset,
   createAdminChatQuickReply,
@@ -203,10 +205,11 @@ import AdminConversationList from '@/features/support-chat/presentation/widgets/
 import SupportMessageComposer from '@/features/support-chat/presentation/widgets/SupportMessageComposer.vue'
 import SupportMessageList from '@/features/support-chat/presentation/widgets/SupportMessageList.vue'
 import SupportUserProfileDialog from '@/features/support-chat/presentation/widgets/SupportUserProfileDialog.vue'
-import type { AdminUser } from '@/types'
+import type { BasicUser } from '@/features/admin-users/data/datasources/adminUsersDatasource'
 
 const { t } = useI18n()
 const appStore = useAppStore()
+const authStore = useAuthStore()
 const supportChatAdminStore = useSupportChatAdminStore()
 const conversations = ref<ChatConversation[]>([])
 const conversationTotal = ref(0)
@@ -231,7 +234,7 @@ const messagePaneRef = ref<HTMLElement | null>(null)
 const composerRef = ref<InstanceType<typeof SupportMessageComposer> | null>(null)
 const userProfileDialogOpen = ref(false)
 const userProfileLoading = ref(false)
-const userProfile = ref<AdminUser | null>(null)
+const userProfile = ref<BasicUser | null>(null)
 const selectedConversationSnapshot = ref<ChatConversation | null>(null)
 const messagePage = ref(1)
 const messagePages = ref(1)
@@ -409,11 +412,12 @@ function backToConversationList() {
 }
 
 async function openUserProfile(conversation: ChatConversation) {
+  if (!authStore.hasPermission('users.read_basic')) return
   userProfileDialogOpen.value = true
   userProfile.value = null
   userProfileLoading.value = true
   try {
-    userProfile.value = await getAdminUserById(conversation.user_id)
+    userProfile.value = await getBasicById(conversation.user_id)
   } catch (error) {
     appStore.showError(errorMessage(error, t('supportChat.userProfile.loadFailed')))
     userProfileDialogOpen.value = false
@@ -496,7 +500,7 @@ function handleMessagePaneScroll(event: Event) {
 }
 
 async function markSelectedRead(conversationID = selectedConversationID.value) {
-  if (!conversationID) return
+  if (!conversationID || !authStore.hasPermission('support.write')) return
   await markAdminChatRead(conversationID)
   const existing = conversations.value.find((item) => item.id === conversationID)
   const target = existing ?? (selectedConversationSnapshot.value?.id === conversationID

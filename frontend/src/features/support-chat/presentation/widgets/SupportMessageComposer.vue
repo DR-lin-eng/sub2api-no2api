@@ -138,7 +138,7 @@
       <button v-if="adminMode" type="button" class="composer-tool" :class="activePanel === 'catalog' ? 'composer-tool-active' : ''" @click="togglePanel('catalog')">
         {{ t('supportChat.assets.catalog') }}
       </button>
-      <button v-if="adminMode" type="button" class="composer-tool" :class="activePanel === 'transfer' ? 'composer-tool-active' : ''" @click="togglePanel('transfer')">
+      <button v-if="adminMode && allowTransfer" type="button" class="composer-tool" :class="activePanel === 'transfer' ? 'composer-tool-active' : ''" @click="togglePanel('transfer')">
         {{ t('supportChat.transfer.action') }}
       </button>
       <span class="ml-auto text-xs text-gray-400">{{ draft.length }}/{{ maxLength }}</span>
@@ -180,6 +180,7 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
   maxLength?: number
   adminMode?: boolean
+  allowTransfer?: boolean
   toolsBusy?: boolean
   replyingTo?: ChatMessage | null
   quickReplies?: ChatQuickReply[]
@@ -191,6 +192,7 @@ const props = withDefaults(defineProps<{
   disabled: false,
   maxLength: 10000,
   adminMode: false,
+  allowTransfer: false,
   toolsBusy: false,
   replyingTo: null,
   quickReplies: () => [],

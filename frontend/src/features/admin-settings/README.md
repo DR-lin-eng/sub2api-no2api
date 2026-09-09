@@ -27,3 +27,7 @@
 pnpm exec vitest run src/features/admin-settings
 pnpm run typecheck
 ```
+
+## 人员权限组
+
+`SettingsPermissionGroupsTab.vue` 按需挂载、独立加载和保存权限组，保存失败保留草稿。`permissionGroupsDatasource.ts` 与对应 DTO 负责协议。只有完整管理员可以编辑；`settings.manage` 不等同于授权管理。操作教程见 [权限组教程](../../../../docs/PERMISSION_GROUPS.md)。

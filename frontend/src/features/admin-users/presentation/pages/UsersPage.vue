@@ -102,7 +102,7 @@
 
           <template #cell-role="{ value }">
             <span :class="['badge', value === 'admin' ? 'badge-purple' : 'badge-gray']">
-              {{ adminUserRoleLabel(t, value) }}
+              {{ adminUserRoleLabel(t, value, permissionGroupLabels) }}
             </span>
           </template>
 
@@ -556,6 +556,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
+import { useAuthStore } from '@/features/auth'
 import { getPersistedPageSize } from '@/common/composables/usePersistedPageSize'
 import { useTableSelection } from '@/common/composables/useTableSelection'
 import { formatDateTime } from '@/core/utils/format'
@@ -575,6 +576,7 @@ import {
   deleteUser,
   getBatchPlatformQuotas,
   list as listAdminUsers,
+  listPermissionGroups,
   toggleStatus,
 } from '@/features/admin-users/data/datasources/adminUsersDatasource'
 import {
@@ -610,6 +612,8 @@ import GroupReplaceModal from '@/features/admin-users/presentation/widgets/Group
 import { adminUserRoleLabel } from '@/features/admin-users/presentation/adminUserLocale'
 
 const appStore = useAppStore()
+const authStore = useAuthStore()
+const permissionGroupLabels = ref<Record<string, string>>({})
 
 interface UsersTableToolbarExposed {
   closeDropdownsOnOutsideClick: (target: HTMLElement) => void
@@ -1327,6 +1331,14 @@ const loadAttributeDefinitions = async () => {
 // Handle attributes modal close - reload definitions and users
 const handleAttributesModalClose = async () => {
   showAttributesModal.value = false
+  if (authStore.isAdmin || authStore.hasPermission('users.manage')) {
+    try {
+      const data = await listPermissionGroups()
+      permissionGroupLabels.value = Object.fromEntries(data.groups.map(group => [group.id, group.name]))
+    } catch {
+      permissionGroupLabels.value = {}
+    }
+  }
   await loadAttributeDefinitions()
   loadUsers()
 }
@@ -1600,6 +1612,14 @@ const handleScroll = () => {
 }
 
 onMounted(async () => {
+  if (authStore.isAdmin || authStore.hasPermission('users.manage')) {
+    try {
+      const data = await listPermissionGroups()
+      permissionGroupLabels.value = Object.fromEntries(data.groups.map(group => [group.id, group.name]))
+    } catch {
+      permissionGroupLabels.value = {}
+    }
+  }
   await loadAttributeDefinitions()
   loadSavedFilters()
   loadSavedColumns()

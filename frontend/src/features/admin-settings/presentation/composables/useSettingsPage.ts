@@ -1,3 +1,4 @@
+import { useAuthStore } from "@/features/auth";
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
@@ -82,6 +83,7 @@ export function useSettingsPage() {
     "features",
     "security",
     "users",
+    "permission-groups",
     "gateway",
     "performance",
     "payment",
@@ -99,12 +101,14 @@ export function useSettingsPage() {
 
   const activeTab = ref<SettingsTab>(resolveSettingsTab(route.query.tab));
   const panelRateLimitSettingsMounted = ref(activeTab.value === "security");
+  const authStore = useAuthStore();
   const settingsTabs = [
     { key: "general" as SettingsTab, icon: "home" as const },
     { key: "agreement" as SettingsTab, icon: "document" as const },
     { key: "features" as SettingsTab, icon: "bolt" as const },
     { key: "security" as SettingsTab, icon: "shield" as const },
     { key: "users" as SettingsTab, icon: "user" as const },
+    ...(authStore.isAdmin ? [{ key: "permission-groups" as SettingsTab, icon: "shield" as const }] : []),
     { key: "gateway" as SettingsTab, icon: "server" as const },
     { key: "performance" as SettingsTab, icon: "bolt" as const },
     { key: "payment" as SettingsTab, icon: "creditCard" as const },

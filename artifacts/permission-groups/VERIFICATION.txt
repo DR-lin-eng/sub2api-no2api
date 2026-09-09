@@ -1,0 +1,144 @@
+Permission groups release verification
+Date: 2026-09-06
+Branch: codex/custom-permission-groups
+Base commit: acbbfcebfe0bc2cba3bee13162715bd612adf871
+
+Changed branch/field
+--------------------
+The changed authorization branch is backend/internal/transport/http/server/middleware/admin_auth.go: validateJWTForAdmin now resolves the authenticated user's configured permission-group ID through SettingService.PermissionsForRole, rejects non-admin users with no resolved permissions, and stores the resolved permissions in ContextKeyAdminPermissions. Admin remains the full-access wildcard. The associated field is the user's existing role value, now accepting a validated permission-group ID; migration 238_permission_groups.sql seeds support/客服 with support.read, support.write, and users.read_basic.
+
+Artifacts
+---------
+MODIFIED_FILE: artifacts/permission-groups/MODIFIED_FILE
+DIFF_FILE: artifacts/permission-groups/DIFF_FILE
+VERIFICATION.txt: artifacts/permission-groups/VERIFICATION.txt
+ROLLBACK.sh: artifacts/permission-groups/ROLLBACK.sh
+Original MODIFIED_FILE SHA256: ce96b732050d71edb7dd3630f824a15a3904b9bc0fd1e35c2e354ffc801b03d7
+Modified MODIFIED_FILE SHA256: 89f879503fa791d33852dc22a380ec406c7478f4e0021f690be5899621edae92
+
+BASELINE_COMMAND
+---------------
+BASE=/private/tmp/permission-groups-release-baseline; rm -rf "$BASE"; mkdir -p "$BASE"; git archive acbbfcebfe0bc2cba3bee13162715bd612adf871 | tar -x -C "$BASE"; docker run --rm -v "$BASE":/workspace:ro -v /Users/lin/go/pkg/mod:/go/pkg/mod -v /private/tmp/permission-groups-go-cache:/root/.cache/go-build -w /workspace/backend -e GOMAXPROCS=4 sub2api-237:go-test sh -c 'go test -tags=unit -p 4 -count=1 ./internal/application/service ./internal/transport/http/server/middleware ./internal/transport/http/handler/admin ./internal/transport/http/server/routes'
+BASELINE_INPUT
+BASELINE_INPUT=git archive of acbbfcebfe0bc2cba3bee13162715bd612adf871 in /private/tmp/permission-groups-release-baseline; Docker image sub2api-237:go-test; Go cache /private/tmp/permission-groups-go-cache.
+BASELINE_LITERAL_OUTPUT
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	180.030s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware	0.260s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.721s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes	1.314s
+BASELINE_RESULT
+exit status 0 (PASS)
+
+MODIFIED_COMMAND
+----------------
+docker run --rm --name permission-groups-release-backend -v /Users/lin/.codex/worktrees/1f40/sub2api-no2api:/workspace:ro -v /Users/lin/go/pkg/mod:/go/pkg/mod -v /private/tmp/permission-groups-go-cache:/root/.cache/go-build -w /workspace/backend -e GOMAXPROCS=4 sub2api-237:go-test sh -c 'go test -tags=unit -p 4 -count=1 ./internal/application/service ./internal/transport/http/server/middleware ./internal/transport/http/handler/admin ./internal/transport/http/server/routes'
+MODIFIED_INPUT
+MODIFIED_INPUT=current worktree /Users/lin/.codex/worktrees/1f40/sub2api-no2api, mounted read-only into Docker; focused backend packages with the unit build tag.
+MODIFIED_LITERAL_OUTPUT
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	176.931s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware	0.049s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.496s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes	1.002s
+MODIFIED_RESULT
+exit status 0 (PASS)
+
+FRONTEND_DOCKER_COMMAND
+-----------------------
+docker run --rm --name permission-groups-release-frontend -v /Users/lin/.codex/worktrees/1f40/sub2api-no2api:/workspace -w /workspace/frontend -e CI=true node:24-alpine sh -c 'npm install -g pnpm@11.17.0 && pnpm install --frozen-lockfile && node_modules/.bin/vue-tsc --noEmit && node_modules/.bin/eslint . && node_modules/.bin/vitest run src/__tests__/dynamicLocaleMapping.spec.ts src/core/routes/__tests__ src/features/admin-settings/__tests__/permissionGroups.spec.ts src/features/auth/__tests__/authStore.spec.ts src/features/admin-settings/__tests__/SettingsPage.spec.ts src/features/support-chat/__tests__ src/common/widgets/layout/__tests__ src/features/admin-users/__tests__/adminUserLocale.spec.ts'
+FRONTEND_INPUT
+Frontend source mounted at /workspace/frontend; node:24-alpine; pnpm 11.17.0; frozen lockfile installation.
+FRONTEND_LITERAL_OUTPUT
+Test Files  20 passed (20)
+Tests       188 passed (188)
+Duration    8.88s
+FRONTEND_RESULT
+exit status 0 (PASS; 20 files, 188 tests)
+
+DOCKER_IMAGE_COMMAND
+--------------------
+docker buildx build --load -t sub2api-permission-groups:release-test .
+DOCKER_IMAGE_INPUT
+Current worktree source; Docker Buildx loaded the final image.
+DOCKER_IMAGE_LITERAL_OUTPUT
+#39 DONE 2.8s
+DOCKER_IMAGE_ID
+sha256:45c3666364c4619f7c8103b8fd471c9c086de0c96b8eceae0eb536afc4c955fb
+DOCKER_IMAGE_RESULT
+exit status 0 (PASS)
+
+RUNTIME_COMMAND
+---------------
+node tools/permission-groups-smoke.mjs sub2api-permission-groups:release-test
+RUNTIME_INPUT
+Disposable Docker network, PostgreSQL 18-alpine and Redis 8-alpine with tmpfs data; random temporary credentials; no existing containers or databases reused.
+RUNTIME_LITERAL_OUTPUT
+ISOLATED_APP_HEALTH => 200
+LOGIN admin@fixture.local => 200
+GET /admin/compliance => 200
+POST /admin/compliance/accept => 200
+GET /admin/settings/permission-groups => 200
+PUT /admin/settings/permission-groups => 200
+PUT /admin/settings/permission-groups => 400
+GET /admin/settings => 200
+PUT /admin/settings => 200
+POST /admin/users => 200
+POST /admin/users => 200
+POST /admin/users => 200
+POST /admin/users => 200
+POST /admin/users => 200
+LOGIN user@fixture.local => 200
+LOGIN support@fixture.local => 200
+GET /admin/compliance => 200
+POST /admin/compliance/accept => 200
+POST /chat/messages => 200
+GET /admin/chat/conversations => 200
+CONVERSATION_FIXTURE {"ID":1,"UserID":2,"LastMessageAt":"2026-09-06T09:43:35.57979+08:00","UnreadByUser":0,"UnreadByAdmin":1,"ManuallyUnreadByAdmin":false,"LastReadByUserAt":null,"LastReadByAdminAt":null,"CreatedAt":"2026-09-06T09:43:35.578605+08:00","UpdatedAt":"2026-09-06T09:43:35.580682+08:00","UserEmail":"user@fixture.local","UserUsername":""}
+GET /admin/users/2/basic => 200
+POST /admin/chat/conversations/1/messages => 200
+GET /admin/users/3/basic => 403
+GET /admin/users => 403
+GET /admin/users/2/api-keys => 403
+POST /admin/chat/conversations/1/balance-transfers => 403
+GET /admin/settings => 403
+GET /admin/accounts => 403
+GET /admin/chat/conversations => 403
+LOGIN readonly@fixture.local => 200
+GET /admin/compliance => 200
+POST /admin/compliance/accept => 200
+GET /admin/chat/conversations => 200
+POST /admin/chat/conversations/1/messages => 403
+LOGIN settings@fixture.local => 200
+GET /admin/compliance => 200
+POST /admin/compliance/accept => 200
+PUT /admin/settings/permission-groups => 403
+POST /admin/settings/admin-api-keys => 403
+LOGIN users@fixture.local => 200
+GET /admin/compliance => 200
+POST /admin/compliance/accept => 200
+PUT /admin/users/2 => 200
+PUT /admin/users/2 => 403
+PUT /admin/users/2 => 403
+DELETE /admin/users/3 => 403
+POST /admin/users => 403
+PUT /admin/settings/permission-groups => 200
+GET /admin/chat/conversations => 403
+GET /admin/users/2/basic => 200
+SMOKE_PASS assertions=49; role changes effective on existing JWT; basic profile allowlist verified
+CLEANUP_PASS isolated containers/network/temporary credentials removed
+RUNTIME_RESULT
+exit status 0 (PASS; 49 assertions; isolated containers/network cleaned)
+
+ROLLBACK_COMMAND
+----------------
+/Users/lin/.codex/worktrees/1f40/sub2api-no2api/artifacts/permission-groups/ROLLBACK.sh /private/tmp/permission-groups-release-baseline/backend/internal/transport/http/server/middleware/admin_auth.go /private/tmp/permission-groups-release-rollback-target/admin_auth.go
+ROLLBACK_INPUT
+Independent copy /private/tmp/permission-groups-release-rollback-target/admin_auth.go was first populated with the modified file. ROLLBACK.sh then restored it from the baseline source; MODIFIED_FILE was restored from the current modified source afterward.
+ROLLBACK_LITERAL_OUTPUT
+ROLLBACK_RESTORED=/private/tmp/permission-groups-release-rollback-target/admin_auth.go
+SHA256=ce96b732050d71edb7dd3630f824a15a3904b9bc0fd1e35c2e354ffc801b03d7
+ROLLBACK_RESULT
+exit status 0 (PASS)
+
+RESTORED_BEHAVIOR
+-----------------
+Rollback target SHA256 equals the original baseline SHA256 and therefore restores the pre-feature admin-auth behavior. MODIFIED_FILE remains the changed current source and its SHA256 is intentionally different from the original.

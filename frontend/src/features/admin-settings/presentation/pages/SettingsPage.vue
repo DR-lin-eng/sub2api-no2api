@@ -49,6 +49,7 @@
         <SettingsFeaturesTab v-show="activeTab === 'features'" />
         <SettingsSecurityTab v-show="activeTab === 'security'" />
         <SettingsUsersTab v-show="activeTab === 'users'" />
+        <SettingsPermissionGroupsTab v-if="permissionGroupsMounted && authStore.isAdmin" v-show="activeTab === 'permission-groups'" />
         <SettingsGatewayTab v-show="activeTab === 'gateway'" />
         <SettingsPerformanceTab v-show="activeTab === 'performance'" />
         <SettingsPaymentTab v-show="activeTab === 'payment'" />
@@ -56,7 +57,7 @@
         <SettingsBackupTab v-show="activeTab === 'backup'" />
 
         <!-- Save Button -->
-        <div v-show="activeTab !== 'backup'" class="flex justify-end">
+        <div v-show="activeTab !== 'backup' && activeTab !== 'permission-groups'" class="flex justify-end">
           <button
             type="submit"
             :disabled="saving || loadFailed"
@@ -139,17 +140,23 @@ import SettingsAgreementTab from '@/features/admin-settings/presentation/widgets
 import SettingsFeaturesTab from '@/features/admin-settings/presentation/widgets/settings-tabs/SettingsFeaturesTab.vue'
 import SettingsSecurityTab from '@/features/admin-settings/presentation/widgets/settings-tabs/SettingsSecurityTab.vue'
 import SettingsUsersTab from '@/features/admin-settings/presentation/widgets/settings-tabs/SettingsUsersTab.vue'
+import SettingsPermissionGroupsTab from '@/features/admin-settings/presentation/widgets/settings-tabs/SettingsPermissionGroupsTab.vue'
 import SettingsGatewayTab from '@/features/admin-settings/presentation/widgets/settings-tabs/SettingsGatewayTab.vue'
 import SettingsPerformanceTab from '@/features/admin-settings/presentation/widgets/settings-tabs/SettingsPerformanceTab.vue'
 import SettingsPaymentTab from '@/features/admin-settings/presentation/widgets/settings-tabs/SettingsPaymentTab.vue'
 import SettingsEmailTab from '@/features/admin-settings/presentation/widgets/settings-tabs/SettingsEmailTab.vue'
 import SettingsBackupTab from '@/features/admin-settings/presentation/widgets/settings-tabs/SettingsBackupTab.vue'
+import { useAuthStore } from '@/features/auth'
+import { watch, ref } from 'vue'
 import { useSettingsPage } from '@/features/admin-settings/presentation/composables/useSettingsPage'
 import { provideSettingsPageContext } from '@/features/admin-settings/presentation/composables/settingsPageContext'
 
 const settingsPage = useSettingsPage()
 provideSettingsPageContext(settingsPage)
 
+const authStore = useAuthStore()
+const permissionGroupsMounted = ref(false)
+watch(() => settingsPage.activeTab.value, (tab) => { if (tab === 'permission-groups') permissionGroupsMounted.value = true }, { immediate: true })
 const { activeTab, affiliateConfirmDialog, allPaymentTypes, cancelAffiliateConfirm, editingProvider, enabledProviderKeyOptions, handleAffiliateConfirm, handleDeleteProvider, handleSaveProvider, handleSettingsTabKeydown, loadFailed, loading, providerDialogRef, providerKeyOptions, providerSaving, saveSettings, saving, selectSettingsTab, settingsStepUp, settingsTabs, showDeleteProviderDialog, showProviderDialog, t } = settingsPage
 </script>
 

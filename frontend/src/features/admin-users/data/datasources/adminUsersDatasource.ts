@@ -48,7 +48,7 @@ export async function list(
   pageSize: number = 20,
   filters?: {
     status?: 'active' | 'disabled'
-    role?: 'admin' | 'user'
+    role?: string
     scheduling_tier?: RequestSchedulingTier
     search?: string
     group_name?: string         // fuzzy filter by allowed group name
@@ -114,7 +114,7 @@ export async function create(userData: {
   password: string
   username?: string
   notes?: string
-  role?: 'admin' | 'user'
+  role?: string
   balance?: number
   concurrency?: number
   rpm_limit?: number
@@ -356,3 +356,22 @@ export const usersAPI = {
 }
 
 export default usersAPI
+
+export interface AdminPermissionGroupOption {
+  id: string
+  name: string
+  permissions: string[]
+  built_in: boolean
+}
+
+export async function listPermissionGroups(): Promise<{ groups: AdminPermissionGroupOption[] }> {
+  const { data } = await apiClient.get<{ groups: AdminPermissionGroupOption[] }>('/admin/users/permission-groups')
+  return data
+}
+
+export type BasicUser = Pick<AdminUser, 'id' | 'email' | 'username' | 'role' | 'status' | 'balance' | 'available_balance' | 'concurrency' | 'rpm_limit' | 'notes' | 'scheduling_tier' | 'created_at' | 'last_active_at' | 'last_used_at'>
+
+export async function getBasicById(id: number): Promise<BasicUser> {
+  const { data } = await apiClient.get<BasicUser>(`/admin/users/${id}/basic`)
+  return data
+}

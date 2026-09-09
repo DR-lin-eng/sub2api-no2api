@@ -37,7 +37,7 @@ const appStore = useAppStore()
 const authStore = useAuthStore()
 const adminComplianceStore = useAdminComplianceStore()
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
-const isAdmin = computed(() => authStore.isAdmin)
+const isAdmin = computed(() => authStore.canAccessAdmin)
 const onboardingAutoStartReady = computed(() => {
   return !isAdmin.value || (
     adminComplianceStore.initialized && !adminComplianceStore.shouldShow
