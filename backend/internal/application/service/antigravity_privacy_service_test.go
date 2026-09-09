@@ -3,7 +3,10 @@
 package service
 
 import (
+	"encoding/json"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func applyAntigravitySubscriptionResult(account *Account, result AntigravitySubscriptionResult) (map[string]any, map[string]any) {
@@ -64,4 +67,13 @@ func TestApplyAntigravityPrivacyMode_PreservedBySubscriptionResult(t *testing.T)
 	if got := extra["existing"]; got != "value" {
 		t.Fatalf("expected existing extra fields to be preserved, got %v", got)
 	}
+}
+
+func TestAntigravityTokenInfoJSONIncludesOptionalPlanType(t *testing.T) {
+	info := AntigravityTokenInfo{AccessToken: "access", PlanType: "Pro"}
+	encoded, err := json.Marshal(info)
+	require.NoError(t, err)
+	var payload map[string]any
+	require.NoError(t, json.Unmarshal(encoded, &payload))
+	require.Equal(t, "Pro", payload["plan_type"])
 }

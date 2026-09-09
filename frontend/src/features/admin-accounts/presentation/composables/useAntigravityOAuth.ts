@@ -136,8 +136,9 @@ export function useAntigravityOAuth() {
       refresh_token: refreshToken,
       token_type: tokenInfo.token_type,
       expires_at: expiresAt,
-      project_id: tokenInfo.project_id,
-      email: tokenInfo.email
+		project_id: tokenInfo.project_id,
+		email: tokenInfo.email,
+		...(tokenInfo.plan_type ? { plan_type: tokenInfo.plan_type } : {})
     }
   }
 

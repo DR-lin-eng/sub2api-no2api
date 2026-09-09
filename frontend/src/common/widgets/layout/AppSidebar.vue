@@ -290,7 +290,7 @@ const mobileOpen = computed(() => appStore.mobileOpen)
 const isAdmin = computed(() => authStore.canAccessAdmin)
 
 function applyPermissions(items: NavItem[]): NavItem[] {
-  if (authStore.user?.role === 'admin') return items
+  if (authStore.isAdmin) return items
   const out: NavItem[] = []
   for (const item of items) {
     if (!canAccessAdminPage(authStore, item.path)) continue

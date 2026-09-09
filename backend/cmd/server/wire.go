@@ -79,6 +79,7 @@ func provideServiceBuildInfo(buildInfo handler.BuildInfo) service.BuildInfo {
 }
 
 func provideCleanup(
+	channelService *service.ChannelService,
 	entClient *ent.Client,
 	rdb *redis.Client,
 	opsMetricsCollector *service.OpsMetricsCollector,
@@ -140,6 +141,9 @@ func provideCleanup(
 	egressService *moduleegress.Service,
 ) func() {
 	return func() {
+		if channelService != nil {
+			channelService.Stop()
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 

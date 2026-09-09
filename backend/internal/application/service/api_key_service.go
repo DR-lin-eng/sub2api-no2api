@@ -1293,9 +1293,9 @@ func (s *APIKeyService) SearchAPIKeys(ctx context.Context, userID int64, keyword
 	return keys, nil
 }
 
-// GetUserAllowedGroupIDSet 返回 user_allowed_groups 授权给该用户的专属分组 ID 集合。
+// GetUserAllowedGroupIDSet 返回普通授权与有效订阅授予的模型广场分组 ID 集合。
 //
-// 与 GetAvailableGroups 的区别：这里是「橱窗」语义（模型广场用），不检查订阅有效性，
+// 与 GetAvailableGroups 的区别：这里保留普通授权的「橱窗」语义，并补充有效订阅，
 // 也不关心分组是否活跃——仅回答"哪些专属分组对该用户可见"。返回值恒非 nil。
 func (s *APIKeyService) GetUserAllowedGroupIDSet(ctx context.Context, userID int64) (map[int64]struct{}, error) {
 	user, err := s.userRepo.GetByID(ctx, userID)
@@ -1305,6 +1305,15 @@ func (s *APIKeyService) GetUserAllowedGroupIDSet(ctx context.Context, userID int
 	allowed := make(map[int64]struct{}, len(user.AllowedGroups))
 	for _, id := range user.AllowedGroups {
 		allowed[id] = struct{}{}
+	}
+	if s.userSubRepo != nil {
+		activeSubscriptions, err := s.userSubRepo.ListActiveByUserID(ctx, userID)
+		if err != nil {
+			return nil, fmt.Errorf("list active subscriptions: %w", err)
+		}
+		for _, subscription := range activeSubscriptions {
+			allowed[subscription.GroupID] = struct{}{}
+		}
 	}
 	return allowed, nil
 }

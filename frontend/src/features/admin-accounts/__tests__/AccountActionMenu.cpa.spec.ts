@@ -20,7 +20,7 @@ describe('AccountActionMenu CPA sync', () => {
   it('emits sync for an enabled CPA account', async () => {
     const value = account(true)
     const wrapper = mount(AccountActionMenu, {
-      props: { show: true, account: value, position: { top: 10, left: 10 } },
+      props: { show: true, account: value, anchorRect: new DOMRect(10, 10, 40, 24) },
       global: { stubs: { Icon: true, Teleport: true } }
     })
 
@@ -32,7 +32,7 @@ describe('AccountActionMenu CPA sync', () => {
 
   it('hides sync outside enabled CPA mode', () => {
     const wrapper = mount(AccountActionMenu, {
-      props: { show: true, account: account(false), position: { top: 10, left: 10 } },
+      props: { show: true, account: account(false), anchorRect: new DOMRect(10, 10, 40, 24) },
       global: { stubs: { Icon: true, Teleport: true } }
     })
     expect(wrapper.text()).not.toContain('admin.accounts.syncCPA')

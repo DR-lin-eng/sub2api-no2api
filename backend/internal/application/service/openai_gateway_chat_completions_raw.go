@@ -113,6 +113,11 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 			return nil, fmt.Errorf("normalize Grok reasoning effort: %w", normalizeErr)
 		}
 		upstreamBody = normalizedGrokBody
+		cleanedBody, sanitizeErr := sanitizeGrokResponsesUnsupportedFields(upstreamBody)
+		if sanitizeErr != nil {
+			return nil, fmt.Errorf("sanitize Grok unsupported fields: %w", sanitizeErr)
+		}
+		upstreamBody = cleanedBody
 	}
 
 	// 4. Apply OpenAI fast policy on the CC body

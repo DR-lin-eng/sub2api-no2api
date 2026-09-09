@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: sync_test
+      POSTGRES_USER: sync_test
+      POSTGRES_PASSWORD: sync_fixture_only
+    volumes:
+      - db:/var/lib/postgresql
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U sync_test -d sync_test']
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  redis:
+    image: redis:8-alpine
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  app:
+    image: ${SYNC_IMAGE:-sub2api-upstream-sync-20260909:baseline-main}
+    ports: ["127.0.0.1:18589:8080"]
+    environment:
+      AUTO_SETUP: "true"
+      DATABASE_HOST: db
+      DATABASE_PORT: "5432"
+      DATABASE_USER: sync_test
+      DATABASE_PASSWORD: sync_fixture_only
+      DATABASE_DBNAME: sync_test
+      DATABASE_SSLMODE: disable
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      ADMIN_EMAIL: sync-admin@example.test
+      ADMIN_PASSWORD: SyncFixtureOnly-20260909!
+      JWT_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      TOTP_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      OAUTH_MODEL_SYNC_ENABLED: "false"
+      TZ: UTC
+    volumes: ["app:/app/data"]
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+volumes:
+  db: {}
+  app: {}

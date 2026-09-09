@@ -1,0 +1,55 @@
+Object: upstream selective sync and performance review
+Changed branch: codex/upstream-sync-20260909
+Baseline commit: dd31d9958d7d62c9e212e2c1ac54967cbd9d733a
+Reviewed upstream: 14e0a49e17afebf62c5f788f4ef1dc8eef56ac76..270eac6973049fe1b50eb75560a74a029e82884c
+Changed fields: proxy nullable update semantics; proxy backup inverse edge; fallback origin; JSON date bounds; Redis range API; channel cache pub/sub; OpenAI 429 fallback; Chat-to-Responses cancellation; Grok field sanitization; plaza subscriptions; registration/payment/account UI; Apple subnet; Ops retention.
+Artifacts:
+  MODIFIED_FILE=diagnostics/upstream-sync-20260909/MODIFIED_FILE
+  DIFF_FILE=diagnostics/upstream-sync-20260909/DIFF_FILE
+  VERIFICATION.txt=diagnostics/upstream-sync-20260909/VERIFICATION.txt
+  ROLLBACK.sh=diagnostics/upstream-sync-20260909/ROLLBACK.sh
+
+BASELINE command:
+docker run --rm -e GOMAXPROCS=2 -e GOMEMLIMIT=3GiB -e GOPROXY=off -v /private/tmp/sub2api-upstream-sync-20260909.1T87sO/baseline-main:/src -v /private/tmp/sub2api-upstream-sync-20260909.1T87sO/cache:/go -w /src/backend golang:1.26.6-alpine sh -c 'go test -mod=mod -vet=off -p=1 -tags=unit ./internal/application/service'
+BASELINE result: exit 0; service package passed (baseline full package sweep also reached transport/webassets and migrations; only the later candidate-only tests were absent).
+BASELINE benchmark command:
+docker run --rm -e GOMAXPROCS=2 -e GOMEMLIMIT=3GiB -e GOPROXY=off -v /private/tmp/sub2api-upstream-sync-20260909.1T87sO/baseline-main:/src -v /private/tmp/sub2api-upstream-sync-20260909.1T87sO/cache:/go -w /src/backend golang:1.26.6-alpine sh -c 'go test -mod=mod -vet=off -p=1 -tags=unit -run "^$" -bench "^BenchmarkUpstreamSync20260909$" -benchmem -count=3 ./internal/application/service'
+BASELINE result: channel_cache_hit 20.52/20.54/20.58 ns/op, 0 allocs; grok_without_field_256KiB 69998/69934/70056 ns/op, 0 allocs; PASS, exit 0.
+
+MODIFIED command:
+docker exec sub2api-sync-1t87-go sh -c 'go test -mod=mod -vet=off -p=1 -tags=unit ./internal/application/service ./internal/infrastructure/repository ./internal/transport/http/handler/admin'
+MODIFIED result: exit 0; service 182.634s, repository 6.633s, focused handler tests passed.
+MODIFIED frontend command:
+docker exec sub2api-sync-1t87-frontend sh -c 'pnpm exec vitest run src/features/billing src/features/auth src/features/admin-proxies src/features/admin-accounts src/features/channels-user src/__tests__/dynamicHtmlSecurity.spec.ts && pnpm run typecheck && pnpm run lint:check'
+MODIFIED frontend result: 105 files, 793 tests passed; typecheck and eslint passed; exit 0.
+MODIFIED build command:
+BUILDX_CONFIG=/private/tmp/sub2api-upstream-sync-20260909.1T87sO/buildx docker build --progress=plain --build-arg GOPROXY=https://proxy.golang.org,direct --build-arg GOSUMDB=sum.golang.org --build-arg VERSION=0.1.196 --build-arg COMMIT=codex-upstream-sync-20260909 -t sub2api-upstream-sync-20260909:candidate -f Dockerfile .
+MODIFIED build result: image index sha256:03a0fb6338b3434327857d71b1b08fa3cb1a19b95e60fff03cbc532387215a01; exit 0.
+MODIFIED integration command:
+docker run --rm -e CI=true -e GOMAXPROCS=1 -e GOMEMLIMIT=2GiB -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v /var/run/docker.sock:/var/run/docker.sock -v /private/tmp/sub2api-upstream-sync-20260909.1T87sO/repo:/src -v /private/tmp/sub2api-upstream-sync-20260909.1T87sO/cache:/go -w /src/backend golang:1.26.6-alpine sh -c 'apk add --no-cache docker-cli >/dev/null; go test -mod=mod -vet=off -p=1 -tags=integration ./internal/infrastructure/repository -run "Proxy(Backup|Repeated|Expiry)|TestMigrations" -count=1'
+MODIFIED integration result: ok github.com/Wei-Shaw/sub2api/internal/infrastructure/repository 5.933s; exit 0.
+MODIFIED race command:
+docker run --rm -e CGO_ENABLED=1 -e GOMAXPROCS=1 -e GOMEMLIMIT=2GiB -v /private/tmp/sub2api-upstream-sync-20260909.1T87sO/repo:/src -v /private/tmp/sub2api-upstream-sync-20260909.1T87sO/cache:/go -w /src/backend golang:1.26.6-bookworm sh -c 'go test -mod=mod -vet=off -p=1 -race -tags=unit ./internal/application/service -run "TestChannelCache|TestForwardAsChatCompletions" -count=1'
+MODIFIED race result: ok github.com/Wei-Shaw/sub2api/internal/application/service 1.338s; exit 0.
+MODIFIED performance result: channel_cache_hit 21.83/22.69/22.48 ns/op, 0 allocs; grok_without_field_256KiB 71696/71146/71625 ns/op, 0 allocs; PASS, exit 0. The cache hit remains lock-free; Grok no-field scan is linear in body size and allocation-free.
+
+DOCKER runtime upgrade command:
+docker compose -p sub2api-sync-1t87 -f diagnostics/upstream-sync-20260909/compose.yaml up -d --wait --wait-timeout 180
+DOCKER runtime result: baseline health {"status":"ok"}, ready true version 0.1.196; candidate health {"status":"ok"}, ready true version 0.1.196; schema_migrations 292 and max filename 239_add_usage_openai_timing.sql before and after; users 1 before and after.
+DOCKER rollback command:
+SYNC_IMAGE=sub2api-upstream-sync-20260909:baseline-main docker compose -p sub2api-sync-1t87 -f diagnostics/upstream-sync-20260909/compose.yaml up -d --wait --wait-timeout 180
+DOCKER rollback result: health {"status":"ok"}; ready true; exit 0.
+DOCKER restored command:
+SYNC_IMAGE=sub2api-upstream-sync-20260909:candidate docker compose -p sub2api-sync-1t87 -f diagnostics/upstream-sync-20260909/compose.yaml up -d --wait --wait-timeout 180
+DOCKER restored result: health {"status":"ok"}; ready true; exit 0; app healthy.
+
+ROLLBACK command:
+diagnostics/upstream-sync-20260909/ROLLBACK.sh /private/tmp/sub2api-upstream-sync-20260909.1T87sO/rollback-copy
+ROLLBACK input: independent git copy with a temporary README change and copied json_time.go.
+ROLLBACK literal output: ROLLBACK restored=dd31d9958d7d62c9e212e2c1ac54967cbd9d733a status=clean
+ROLLBACK exit: 0
+ROLLBACK verification: independent copy HEAD equals baseline, porcelain is empty, and original MODIFIED_FILE source copy remains changed.
+
+Documentation command:
+make check-docs
+Documentation result: Documentation checks passed.; exit 0.

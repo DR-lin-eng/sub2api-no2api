@@ -1,0 +1,60 @@
+# 上游同步审查记录（2026-09-09）
+
+本批冻结并审查上游 `main` 的 `14e0a49e17afebf62c5f788f4ef1dc8eef56ac76..270eac6973049fe1b50eb75560a74a029e82884c`。本项目基线为 `dd31d9958d7d62c9e212e2c1ac54967cbd9d733a`（远端 `origin/main`，版本 0.1.196），上游新增 70 个提交、30 个合并 PR。模块化目录仍是事实源；不把上游 legacy `internal/service`、`internal/handler` 或 `frontend/src/views` 整树合入。
+
+## 选择性移植
+
+| 上游 PR | 处理 | 升级与性能边界 |
+| --- | --- | --- |
+| #6811 proxy partial update | 在 `application/service` 合并已存在代理状态；DTO 用 `NullableInt64Field` 区分省略与显式 null，导入流程显式清空字段。 | PUT 省略字段保持旧值；显式 null 才清空；只增加一次既有代理查询，不增加探测请求。 |
+| #6815 directed proxy backups | Ent 源 schema 增加 `primary_proxies` 反向边，移除生成层错误的唯一约束；基线迁移 149 已是普通 FK/index，Ent 只补 inverse edge；不新增 SQL。 | 一个备用代理可被多个主代理共享；旧 `backup_proxy_id` 数据无需转换，迁移可重复执行。 |
+| #6816 repeated proxy fallback | 过期回退更新使用 `COALESCE(proxy_fallback_origin_id, $1)`，并处理已经回退过的账号。 | 保留首次 origin，手动回切仍能恢复原代理；SQL 仍是单次批量 UPDATE。 |
+| #6810 / #6836 date range | 服务端拒绝 `time.Time` 年份超出 JSON 可表达范围；管理端日期输入限制到 `9999-12-31`。 | 旧合法日期和 null 不变，避免升级后响应序列化失败。 |
+| #6814 go-redis 9.22 | 升级 go-redis、cpuid、atomic，并将有序集合范围读取改为 `ZRangeArgs`。 | 只改变 Redis 客户端 API 调用，Lua、键和 TTL 不变；减少弃用路径，未增加往返。 |
+| #6320 runtime block cooldown | 保留现有本地 block 的权威恢复与 generation 合同；不接入会清理新写入保护的旧快路径。 | 需上游明确 generation/持久状态契约后重开。 |
+| #6754 client disconnect drain | 流式 Chat→Responses 上游请求使用独立可取消 context，并在关闭 body 前先取消。 | 客户端断开后及时停止上游读取，非流式和已提交语义输出路径不变。 |
+| #6839 Grok external web access | Grok 原生 Chat 直转路径复用递归不支持字段清洗，移除 `external_web_access`。 | 无字段时只做 byte contains 快速分支；有字段时单次 JSON 清洗，Responses 行为保持一致。 |
+| #6838 Claude probe any model | 将解析出的 `max_tokens` 带入验证 body，并允许任意模型的显式 `max_tokens=1` 探测绕过。 | 仍要求 Claude CLI UA；只放行单 token 探测，不放宽普通 messages 校验。 |
+| #6812 model plaza subscriptions | 登录用户的广场可见专属分组集合合并有效订阅分组。 | 仅广场低频查询增加一次已有订阅仓库读取；网关鉴权与可绑定权限不改变。 |
+| #6819 registration visibility | 登录页仅在公共设置加载成功且 `registration_enabled=true` 时显示注册链接。 | 设置失败时隐藏入口；后端注册鉴权继续是最终约束。 |
+| #6762 payment help Markdown | 支付帮助文本经 `marked` 和 `DOMPurify` 渲染到现有 Markdown 样式 owner。 | 仅展示路径解析文本；无网络、状态或支付协议变化。 |
+| #6764 failed refresh selection | 批量刷新失败时保留失败账号 ID（无 ID 时保留原选择）。 | 不重复请求；只更新前端选择状态。 |
+| #6821 Antigravity plan type | OAuth token DTO 暴露 `plan_type`，创建凭据时保留该字段。 | 可选字段为空时完全兼容旧响应；不改变 token 交换。 |
+| #6513 Apple container subnet | 新增可选 `APPLE_CONTAINER_NETWORK_SUBNET`，创建网络时传递并校验已有网络冲突。 | 默认空值沿用自动分配；冲突时停止且保留容器与持久卷。 |
+
+## 已覆盖或关闭重复差异
+
+- #6791 的 `groups.model_allowlist` 自愈迁移依赖上游列重命名，而本项目继续使用 `models_list_config` 的兼容 schema；直接移植会破坏旧数据库，保留为独立迁移设计项。
+- #6235 channel cache invalidation 已移植为 Redis pub/sub 双节点失效，带 generation、singleflight 重试和 Stop 幂等测试。
+- #6434 client disconnect drain：当前 WS 取消读可能丢失 partial usage；上游 blind drain 不适配本 fork，保留为需要 websocket close/read 语义设计的后续项。
+- #6424 Ops access log 已由 request middleware 写入 `ops_system_log_skip`，sink 队列有界；不重复加入上游默认持久化开关。
+- #6281 long-stream HTTP/2 keepalive 已由 `HTTPUpstreamProfileOpenAIStream`、显式 HTTP/2 PING 和 30 秒 WS sweep 覆盖；上游新增未使用的 profile 不引入。
+- #6488 Grok media eligibility：后端已有能力，专用 UI/GET-PUT owner 尚缺，保留后续；#6821 plan 解析、#6798 账号菜单浮层、#6659 非活跃分组保护已移植到模块化 owner。
+
+## 逐 PR 关闭台账
+
+冻结区间共 30 个合并 PR；下表保留每个差异的唯一关闭结论，后续只从 `270eac6973049fe1b50eb75560a74a029e82884c` 之后重新审查。
+
+| PR | 结论 |
+| --- | --- |
+| #6811, #6815, #6816, #6810, #6836, #6814 | 已移植并有单元/集成回归；代理迁移无物理 schema 变化。 |
+| #6372, #6754, #6839, #6838, #6812, #6819 | 已移植并验证边界行为。 |
+| #6762, #6764, #6821, #6513, #6798, #6659, #6706 | 已移植到当前前端/部署 owner；保留现有权限和 sandbox 约束。 |
+| #6235, #6424 | 已按本项目 Redis 失效和日志 retention owner 重构；不复制 legacy 默认值。 |
+| #6320, #6434, #6488 | 部分实现或延期；缺少与当前 runtime/WS/UI owner 同构契约，已关闭本轮差异。 |
+| #6791, #6758, #6759, #6760, #6775, #6281 | 不适用或延期；涉及不同 schema、平台、统计窗口、插件树或未接线 profile。 |
+
+## 暂缓并关闭本批差异
+
+#6758 MiniMax 首类平台、#6759 channel-monitor 用户排行开关、#6760 周期成本估算、#6775 Windows ZIP 读取器、以及 #6810 之外的完整 announcement/proxy legacy UI 均需要独立的 feature owner、协议或迁移设计；当前 owner 没有同构缺口，本批不引入。上游 README sponsor 更新和 VERSION-only 提交也不进入 fork。
+
+## 性能与平滑升级边界
+
+- 热路径没有新增无界缓存、goroutine 或 ticker；Redis 读取仍是单次命令，Grok 清洗无字段时为常数级快速分支。
+- 代理 schema 迁移只删除可能存在的 `backup_proxy_id` 唯一约束并确保普通索引；不改现有账号绑定值。
+- 运行时 block 使用进程内锁和 generation，持久 cooldown 仍由调度快照负责；滚动升级时旧实例可继续读取旧字段。
+- Payment Markdown 和登录入口均以旧默认值保持可用，前端 API JSON 字段向后兼容。
+
+## 验证与差异关闭
+
+基线和修改后命令、字面输出、退出状态、Docker 镜像摘要、运行时升级/回退和独立副本回滚记录在 [`diagnostics/upstream-sync-20260909/VERIFICATION.txt`](../diagnostics/upstream-sync-20260909/VERIFICATION.txt)。完成验证后以 tree-preserving tracking merge 关闭固定上游 SHA；以后只从该 SHA 之后重新审查。

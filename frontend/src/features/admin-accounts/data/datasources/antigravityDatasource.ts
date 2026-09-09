@@ -28,8 +28,9 @@ export interface AntigravityTokenInfo {
   token_type?: string
   expires_at?: number | string
   expires_in?: number
-  project_id?: string
-  email?: string
+	project_id?: string
+	plan_type?: string
+	email?: string
   [key: string]: unknown
 }
 

@@ -630,3 +630,22 @@ func TestShouldStopOpenAIOAuth429Failover_TracksOneGrokFollowupAttempt(t *testin
 	require.False(t, svc.ShouldStopOpenAIOAuth429Failover(account, http.StatusTooManyRequests, 0, &state))
 	require.False(t, svc.ShouldStopOpenAIOAuth429Failover(apiKeyAccount, http.StatusTooManyRequests, 2, &state))
 }
+
+func TestOpenAIOAuth429FallbackDisabledKeepsUnexhaustedAccountEligible(t *testing.T) {
+	repo := &rateLimitAccountRepoStub{}
+	settingsRepo := newRuntimeSettingRepoStub()
+	require.NoError(t, settingsRepo.Set(context.Background(), SettingKeyRateLimit429CooldownSettings, `{"enabled":false,"cooldown_seconds":5}`))
+	settings := &SettingService{settingRepo: settingsRepo}
+	rateLimits := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+	rateLimits.SetSettingService(settings)
+	svc := &OpenAIGatewayService{rateLimitService: rateLimits}
+	rateLimits.SetAccountRuntimeBlocker(svc)
+	account := &Account{ID: 707, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+	headers := http.Header{}
+	headers.Set("x-codex-primary-used-percent", "20")
+	headers.Set("x-codex-primary-reset-after-seconds", "604800")
+	headers.Set("x-codex-primary-window-minutes", "10080")
+	svc.handleOpenAIAccountUpstreamError(context.Background(), account, http.StatusTooManyRequests, headers, []byte(`{"error":{"message":"try later"}}`))
+	require.False(t, svc.isOpenAIAccountRequestRuntimeBlocked(account, "gpt-5.6-sol"))
+	require.Zero(t, repo.rateLimitedCalls)
+}

@@ -181,6 +181,15 @@ describe('LoginPage public-settings resilience', () => {
     vi.restoreAllMocks()
   })
 
+  it.each([true, false, undefined])('shows registration only when explicitly enabled (%s)', async (enabled) => {
+    fetchPublicSettingsMock.mockResolvedValue({ ...publicSettings, registration_enabled: enabled })
+    const wrapper = mountLogin()
+    expect(wrapper.text()).not.toContain('auth.signUp')
+    await flushPromises()
+    expect(wrapper.text().includes('auth.signUp')).toBe(enabled === true)
+    wrapper.unmount()
+  })
+
   it('uses the injected/cache snapshot and enables the form without a second direct query', async () => {
     appStore.cachedPublicSettings = publicSettings
     fetchPublicSettingsMock.mockResolvedValue(publicSettings)

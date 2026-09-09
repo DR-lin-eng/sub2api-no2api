@@ -1,0 +1,7 @@
+Object: codex/upstream-sync-20260909 working copy
+Baseline commit: dd31d9958d7d62c9e212e2c1ac54967cbd9d733a
+Reviewed upstream range: 14e0a49e17afebf62c5f788f4ef1dc8eef56ac76..270eac6973049fe1b50eb75560a74a029e82884c
+Modified tracked/untracked paths: 73
+Working diff SHA-256: f199b60a044ed1826277fe1a6a23cda328565341fb91bbc64c13a5854be874ca
+Changed branches: proxy partial update/null semantics; proxy backup inverse edge; repeated fallback origin; JSON date bounds; go-redis 9.22 API; Redis channel cache invalidation; OpenAI 429 fallback; Chat-to-Responses cancellation; Grok raw field sanitization; model plaza subscriptions; registration/help/account menu/drag UI; Apple subnet option; ops retention.
+State: modified and validated; this source copy remains changed until publication.
