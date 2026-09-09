@@ -156,3 +156,9 @@ docker run --rm -e GOMAXPROCS=2 -e GOMEMLIMIT=3GiB -v /private/tmp/sub2api-image
 Literal output:
 ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.009s
 Exit status: 0. Image baseline behavior and same-main group allowlist checks passed.
+
+Rollback semantic preservation (final merged HEAD):
+Input: independent copy at HEAD 596b57446 with the batch applied, an unrelated README change, and untracked ROLLBACK_PROBE.
+Command: python3 - (checked each path in `git diff --name-only 5988d12c7 ec9a79798 -- backend deploy frontend` and then inspected HEAD/README/ROLLBACK_PROBE)
+Literal output: ROLLBACK semantic result: 16/16 batch paths restored to 5988d12c7; HEAD=596b57446 preserved; README and ROLLBACK_PROBE preserved; exit status=0
+Result: changed branch state and unrelated worktree state remain intact while the reviewed batch is restorable.
