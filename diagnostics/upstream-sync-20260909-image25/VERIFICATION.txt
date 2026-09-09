@@ -169,3 +169,8 @@ CI run 34386819340: success; duplicate CI run 34386819943: success; Security Sca
 GHCR command: BUILDX_CONFIG=/private/tmp/sub2api-review-buildx docker buildx imagetools inspect ghcr.io/dr-lin-eng/sub2api-no2api:sha-bd3d78d
 Literal result: Digest sha256:b0fb7701692047592ef65b2751ea2e862ff51f4a9a947d47a75f8fd880d611ff; manifests linux/amd64 and linux/arm64 plus attestations; exit status 0.
 The Docker publish log identifies `org.opencontainers.image.revision=bd3d78d5eb5663238bac383d94177564f74c4bd5`.
+
+FINAL DOCUMENTATION COMMIT:
+`30528f2ac2c5bfc046737f280650ba468a08d7cd` was pushed after the evidence correction. CI runs 34388076606 and 34388077332, Security Scan runs 34388076615 and 34388077078, and Docker Image run 34388076960 all completed success.
+GHCR command: BUILDX_CONFIG=/private/tmp/sub2api-review-buildx docker buildx imagetools inspect ghcr.io/dr-lin-eng/sub2api-no2api:sha-30528f2
+Literal result: Digest sha256:94bf0ed9a972c7491301bd11fed8d7a660a9c3a97ff3372de940dc4abe6c785c; linux/amd64 and linux/arm64 manifests plus attestations; exit status 0.

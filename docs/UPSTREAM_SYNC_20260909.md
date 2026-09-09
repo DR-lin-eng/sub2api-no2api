@@ -88,3 +88,6 @@
 合并时保留了同期主线 `a65ac5551` 的分组模型白名单。该功能自带的迁移使最终基线从 292 条变为 293 条；这不属于 Image 2.5 批次新增迁移。最终文件回滚仅反向应用本批 16 个源码、测试和部署文件的 patch，保留 HEAD、同期主线提交、其他本地改动和未跟踪文件。审查台账和证据保留；冲突会在写入前使回滚停止。
 
 最终主线证据提交 `bd3d78d5eb5663238bac383d94177564f74c4bd5` 已再次通过 CI、Security Scan 和 Docker Image；GHCR `sha-bd3d78d` 摘要为 `sha256:b0fb7701692047592ef65b2751ea2e862ff51f4a9a947d47a75f8fd880d611ff`，包含 amd64/arm64。
+
+
+最终文档证据提交 `30528f2ac2c5bfc046737f280650ba468a08d7cd` 的 CI、Security Scan 和 Docker Image 均通过；GHCR `sha-30528f2` 摘要为 `sha256:94bf0ed9a972c7491301bd11fed8d7a660a9c3a97ff3372de940dc4abe6c785c`，包含 amd64/arm64。
