@@ -61,6 +61,8 @@ export interface ModelsListConfig {
   models: string[]
 }
 
+export type ModelAllowlist = ModelsListConfig
+
 export interface Group {
   id: number
   name: string
@@ -104,6 +106,7 @@ export interface Group {
   allow_live: boolean
   default_mapped_model?: string
   messages_dispatch_model_config?: OpenAIMessagesDispatchModelConfig
+  model_allowlist?: ModelAllowlist
   require_oauth_only: boolean
   require_privacy_set: boolean
   created_at: string

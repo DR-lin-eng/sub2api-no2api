@@ -16,6 +16,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
 )
 
 const completedCodexSolManifest = `{"models":[{"input_modalities":["text","image"],"service_tiers":[{"id":"priority","name":"Fast","description":"Priority processing for lower latency."}],"slug":"gpt-5.6-sol"}]}`
@@ -115,6 +116,20 @@ func TestCodexModelsCanceledRequestDoesNotWriteResponse(t *testing.T) {
 
 	if c.Writer.Written() {
 		t.Fatalf("canceled request wrote an HTTP response: status=%d body=%q", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestFilterCodexManifestByAllowlist(t *testing.T) {
+	body := []byte(`{"models":[{"slug":"gpt-5.4"},{"slug":"gpt-4.1"}]}`)
+	filtered, err := filterCodexManifestByAllowlist(body, service.GroupModelAllowlist{Enabled: true, Models: []string{"gpt-5.4"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := gjson.GetBytes(filtered, "models.#").Int(); got != 1 {
+		t.Fatalf("expected one allowlisted manifest model, got %d: %s", got, filtered)
+	}
+	if got := gjson.GetBytes(filtered, "models.0.slug").String(); got != "gpt-5.4" {
+		t.Fatalf("unexpected model: %s", got)
 	}
 }
 

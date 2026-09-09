@@ -16,6 +16,33 @@ import (
 
 type bufferedRequestBodyContextKey struct{}
 
+// PrereadBody keeps a complete immutable request body for middleware that must
+// inspect it before the protocol handler. Bytes can be reused without a copy.
+type PrereadBody struct {
+	body   []byte
+	reader *bytes.Reader
+}
+
+func NewPrereadBody(body []byte) *PrereadBody {
+	return &PrereadBody{body: body, reader: bytes.NewReader(body)}
+}
+
+func (p *PrereadBody) Read(dst []byte) (int, error) {
+	if p == nil {
+		return 0, io.EOF
+	}
+	return p.reader.Read(dst)
+}
+
+func (p *PrereadBody) Close() error { return nil }
+
+func (p *PrereadBody) Bytes() []byte {
+	if p == nil {
+		return nil
+	}
+	return p.body
+}
+
 // WithBufferedRequestBody attaches an immutable body already read by routing
 // middleware so the selected protocol handler does not allocate and read it a
 // second time.
@@ -49,6 +76,9 @@ const (
 func ReadRequestBodyWithPrealloc(req *http.Request) ([]byte, error) {
 	if req == nil || req.Body == nil {
 		return nil, nil
+	}
+	if preread, ok := req.Body.(*PrereadBody); ok {
+		return preread.Bytes(), nil
 	}
 
 	capHint := requestBodyReadInitCap

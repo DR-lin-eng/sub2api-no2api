@@ -191,3 +191,18 @@ func TestAPIKeyService_RoundTripsGroupPricingInAuthSnapshot(t *testing.T) {
 		t.Fatalf("expected group model pricing after snapshot materialization, got %#v", roundTripped.Group.ModelPricing)
 	}
 }
+
+func TestAPIKeyService_RoundTripsGroupModelAllowlistInAuthSnapshot(t *testing.T) {
+	groupID := int64(31)
+	key := &APIKey{
+		ID: 10, UserID: 20, GroupID: &groupID,
+		User: &User{ID: 20, Status: StatusActive},
+		Group: &Group{ID: groupID, Platform: PlatformOpenAI, Status: StatusActive, ModelAllowlist: GroupModelAllowlist{Enabled: true, Models: []string{"gpt-5.4", "gpt-5-mini"}}},
+	}
+	svc := &APIKeyService{}
+	snapshot := svc.snapshotFromAPIKey(t.Context(), key)
+	require.True(t, snapshot.Group.ModelAllowlist.Enabled)
+	require.Equal(t, []string{"gpt-5.4", "gpt-5-mini"}, snapshot.Group.ModelAllowlist.Models)
+	roundTripped := svc.snapshotToAPIKey("sk-test", snapshot)
+	require.Equal(t, key.Group.ModelAllowlist, roundTripped.Group.ModelAllowlist)
+}

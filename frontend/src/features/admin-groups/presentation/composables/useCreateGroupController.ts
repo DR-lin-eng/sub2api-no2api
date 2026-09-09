@@ -324,6 +324,7 @@ export function useCreateGroupController({
         ),
         model_routing: convertRoutingRulesToApiFormat(modelRoutingRules.value),
         models_list_config: buildModelsListConfig(modelsListState),
+        model_allowlist: buildModelsListConfig(modelsListState),
         supported_model_scopes: normalizeSupportedModelScopesForPlatform(
           createForm.platform,
           createForm.supported_model_scopes,

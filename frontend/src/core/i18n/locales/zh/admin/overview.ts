@@ -1060,10 +1060,10 @@ export default {
         sumTooHigh: '最低毛利率与安全缓冲之和必须小于 100%，否则将排除全部账号'
       },
       modelsList: {
-        title: '自定义 {endpoint} 模型列表',
-        hint: '仅影响 {endpoint} 展示结果，不影响白名单模型调用和账号调度。',
-        loading: '正在加载模型列表...',
-        empty: '暂无可展示模型',
+        title: '{endpoint} 可用模型',
+        hint: '仅选中的模型会在该分组中展示并接受调用请求。可按需选择模型。',
+        loading: '正在加载可用模型...',
+        empty: '暂无可用模型',
         selectedSummary: '已选 {selected} / {total}',
         selectAll: '全选',
         invertSelection: '反选'

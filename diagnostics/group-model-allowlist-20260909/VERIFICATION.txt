@@ -1,0 +1,64 @@
+BRANCH: detached HEAD b337c6b9f (origin/main)
+FIELD: groups.model_allowlist (JSONB), with legacy models_list_config migration compatibility
+
+ARTIFACTS:
+MODIFIED_FILE: diagnostics/group-model-allowlist-20260909/MODIFIED_FILE
+DIFF_FILE: diagnostics/group-model-allowlist-20260909/DIFF_FILE
+VERIFICATION.txt: diagnostics/group-model-allowlist-20260909/VERIFICATION.txt
+ROLLBACK.sh: diagnostics/group-model-allowlist-20260909/ROLLBACK.sh
+
+BASELINE:
+COMMAND: cd backend && GOCACHE=/tmp/sub2api-gocache-baseline go test ./internal/application/service/... ./internal/transport/http/handler/... ./internal/transport/http/server/middleware/...
+INPUT: repository at b337c6b9f before this change; no test input files
+LITERAL OUTPUT: all 8 packages passed (service 143.089s; handler 31.341s; middleware 0.516s)
+RESULT: baseline passed
+EXIT STATUS: 0
+
+MODIFIED:
+COMMAND: cd backend && GOCACHE=/tmp/sub2api-gocache-all3 go test ./...
+INPUT: final workspace source including groups.model_allowlist and gateway admission/listing changes
+LITERAL OUTPUT: all backend packages passed; internal/shared/requestmodel passed after final PrereadBody fix
+RESULT: full backend regression passed
+EXIT STATUS: 0
+COMMAND: cd backend && GOCACHE=/tmp/sub2api-gocache-final2 go test ./internal/application/service ./internal/transport/http/server/middleware ./internal/transport/http/handler -run 'Test(GroupModelAllowlist|FilterCodexManifestByAllowlist)'
+INPUT: final allowlist normalization, admission, listing, Codex manifest filtering tests
+LITERAL OUTPUT: ok service 1.075s; ok middleware 0.607s; ok handler 1.003s
+RESULT: final targeted regression passed
+EXIT STATUS: 0
+COMMAND: cd frontend && pnpm run typecheck && pnpm exec vitest run src/features/admin-groups/__tests__/groupEditorControllers.spec.ts src/features/admin-groups/__tests__/groupsModelsListResolver.spec.ts && pnpm run lint:check
+INPUT: final admin group editor and i18n/type sources
+LITERAL OUTPUT: typecheck passed; 2 files / 10 tests passed; eslint passed
+RESULT: frontend validation passed
+EXIT STATUS: 0
+COMMAND: ./tools/check-docs.sh
+INPUT: updated docs/CODE_MAP.md and docs/CUSTOM_MODELS_AND_MEDIA.md
+LITERAL OUTPUT: Documentation checks passed.
+RESULT: documentation validation passed
+EXIT STATUS: 0
+
+DOCKER:
+COMMAND: docker build --tag sub2api-model-allowlist:local .
+INPUT: final Dockerfile and workspace source
+LITERAL OUTPUT: #39 DONE 2.4s; image sub2api-model-allowlist:local created
+RESULT: final image built
+EXIT STATUS: 0
+COMMAND: docker compose -p sub2api-model-allowlist -f /private/tmp/sub2api-model-allowlist-compose/compose.yml up -d; curl -sS http://127.0.0.1:18091/ready; docker compose -p sub2api-model-allowlist -f /private/tmp/sub2api-model-allowlist-compose/compose.yml exec -T db psql -U sub2api -d sub2api -Atc "SELECT column_name ...; SELECT count(*) ..."
+INPUT: PostgreSQL 18, Redis 8, final application image, AUTO_SETUP=true
+LITERAL OUTPUT: {"ready":true,"node_id":"ccf2ee5fe48b","node_name":"ccf2ee5fe48b","current_version":"0.1.196","draining":false,"in_flight":0}
+model_allowlist
+1
+RESULT: Docker startup and ready endpoint passed; migration 235_group_model_allowlist.sql applied and groups.model_allowlist exists
+EXIT STATUS: 0
+
+ROLLBACK:
+COMMAND: cp diagnostics/group-model-allowlist-20260909/MODIFIED_FILE /tmp/group-model-allowlist-rollback-copy.go && diagnostics/group-model-allowlist-20260909/ROLLBACK.sh /tmp/group-model-allowlist-rollback-copy.go && cmp diagnostics/group-model-allowlist-20260909/ORIGINAL_FILE /tmp/group-model-allowlist-rollback-copy.go
+INPUT: independent rollback copy of MODIFIED_FILE
+LITERAL OUTPUT: rollback copy restored: true
+RESULT: restored behavior/status equals ORIGINAL_FILE; MODIFIED_FILE remains changed
+EXIT STATUS: 0
+
+HASHES:
+ORIGINAL_FILE sha256=292be450a0d8bb95db54718349624451ef52037c8cffdec27341dbe98f3dd65d
+MODIFIED_FILE sha256=6696acb020527212ccb07a9cfc22d7ad4b90cbfadf6d41cbf4da4a4aa8d1f294
+DIFF_FILE sha256=c89ac378d43b744b05e07ddee1836c11228c1bc94098c19d08ead94b50207ba2
+ROLLBACK.sh sha256=a636b6a84a842e03d4c8dfcdfe2c577a5069f91dec02a1ea9abad7e554cfd1bf
