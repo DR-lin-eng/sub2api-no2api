@@ -101,6 +101,27 @@
           </fieldset>
         </div>
 
+        <div class="flex items-center justify-between gap-4 border-t border-gray-100 pt-5 dark:border-dark-700">
+          <div>
+            <label class="font-medium text-gray-900 dark:text-white">
+              {{ t("admin.settings.codexSimulation.forceAccountPrewarm") }}
+            </label>
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+              {{ t("admin.settings.codexSimulation.forceAccountPrewarmHint") }}
+            </p>
+          </div>
+          <fieldset
+            class="m-0 min-w-0 border-0 p-0"
+            :disabled="codexSimulationLoadFailed || codexSimulationSaving"
+          >
+            <Toggle
+              :model-value="codexSimulationForm.codex_prewarm_continuation_force_enabled === true"
+              @update:model-value="codexSimulationForm.codex_prewarm_continuation_force_enabled = $event"
+              data-testid="codex-prewarm-force-toggle"
+            />
+          </fieldset>
+        </div>
+
         <div class="grid gap-5 border-t border-gray-100 pt-5 dark:border-dark-700 md:grid-cols-2">
           <div>
             <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -153,6 +174,7 @@
               ? 'text-amber-700 dark:text-amber-300'
               : codexSimulationForm.full_simulation_enabled ||
                   codexSimulationForm.c_level_simulation_enabled ||
+                  codexSimulationForm.codex_prewarm_continuation_force_enabled ||
                   codexSimulationForm.continuation_mode !== 'off'
               ? 'text-amber-700 dark:text-amber-300'
               : 'text-green-700 dark:text-green-300'
@@ -164,6 +186,7 @@
               ? t("admin.settings.codexSimulation.stateUnknown")
               : codexSimulationForm.full_simulation_enabled ||
                   codexSimulationForm.c_level_simulation_enabled ||
+                  codexSimulationForm.codex_prewarm_continuation_force_enabled ||
                   codexSimulationForm.continuation_mode !== "off"
               ? t("admin.settings.codexSimulation.experimentalEnabled")
               : t("admin.settings.codexSimulation.originalBehaviorActive")

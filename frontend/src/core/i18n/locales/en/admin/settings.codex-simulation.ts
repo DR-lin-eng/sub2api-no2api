@@ -5,6 +5,8 @@ export default {
   fullSimulationHint: 'Applies only to OpenAI OAuth accounts using full fingerprint mode and rebuilds identity, metadata, and cache keys together.',
   cLevelSimulation: 'C: Transport and Client Simulation',
   cLevelSimulationHint: 'Controls the new account-scoped HTTP/TLS path, virtual-client pool, Cloudflare infrastructure cookies, and Remote Control protocol projection.',
+  forceAccountPrewarm: 'Force Codex account prewarm',
+  forceAccountPrewarmHint: 'When enabled, every OpenAI OAuth account uses Codex prewarm continuation, and newly imported or created accounts are saved with it enabled.',
   continuationMode: 'B: Continuation Protection',
   continuationModeHint: 'Shadow only records decisions. Enforce rejects cross-principal incremental continuation and sanitizes full migration requests.',
   modeOff: 'Off',

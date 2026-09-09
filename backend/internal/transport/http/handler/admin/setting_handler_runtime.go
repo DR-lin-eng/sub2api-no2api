@@ -278,11 +278,16 @@ func (h *SettingHandler) UpdateCodexSimulationSettings(c *gin.Context) {
 	if req.CLevelSimulationEnabled != nil {
 		cLevelEnabled = *req.CLevelSimulationEnabled
 	}
+	prewarmForceEnabled := current.CodexPrewarmContinuationForceEnabled
+	if req.CodexPrewarmContinuationForceEnabled != nil {
+		prewarmForceEnabled = *req.CodexPrewarmContinuationForceEnabled
+	}
 	settings, err := h.settingService.SetCodexSimulationSettings(c.Request.Context(), &service.CodexSimulationSettings{
-		FullSimulationEnabled:   *req.FullSimulationEnabled,
-		CLevelSimulationEnabled: cLevelEnabled,
-		ContinuationMode:        mode,
-		StateTTLSeconds:         *req.StateTTLSeconds,
+		FullSimulationEnabled:                *req.FullSimulationEnabled,
+		CLevelSimulationEnabled:              cLevelEnabled,
+		CodexPrewarmContinuationForceEnabled: prewarmForceEnabled,
+		ContinuationMode:                     mode,
+		StateTTLSeconds:                      *req.StateTTLSeconds,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -308,11 +313,12 @@ func codexSimulationSettingsDTO(settings *service.CodexSimulationSettings) dto.C
 		return dto.CodexSimulationSettings{}
 	}
 	return dto.CodexSimulationSettings{
-		FullSimulationEnabled:    settings.FullSimulationEnabled,
-		CLevelSimulationEnabled:  settings.CLevelSimulationEnabled,
-		ContinuationMode:         settings.ContinuationMode,
-		StateTTLSeconds:          settings.StateTTLSeconds,
-		IdentitySecretConfigured: settings.IdentitySecretConfigured(),
+		FullSimulationEnabled:                settings.FullSimulationEnabled,
+		CLevelSimulationEnabled:              settings.CLevelSimulationEnabled,
+		CodexPrewarmContinuationForceEnabled: settings.CodexPrewarmContinuationForceEnabled,
+		ContinuationMode:                     settings.ContinuationMode,
+		StateTTLSeconds:                      settings.StateTTLSeconds,
+		IdentitySecretConfigured:             settings.IdentitySecretConfigured(),
 	}
 }
 

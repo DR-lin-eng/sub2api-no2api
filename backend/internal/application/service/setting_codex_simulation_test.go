@@ -132,6 +132,29 @@ func TestCLevelSimulationGateFollowsAdminSettings(t *testing.T) {
 	require.False(t, codexsimulation.CLevelEnabled())
 }
 
+func TestCodexPrewarmForceGateFollowsAdminSettings(t *testing.T) {
+	codexsimulation.SetPrewarmContinuationEnabled(false)
+	t.Cleanup(func() { codexsimulation.SetPrewarmContinuationEnabled(false) })
+	repo := newCodexSimulationSettingRepo()
+	svc := NewSettingService(repo, &config.Config{})
+	updated, err := svc.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{
+		CodexPrewarmContinuationForceEnabled: true,
+		ContinuationMode:                     "off",
+		StateTTLSeconds:                      60,
+	})
+	require.NoError(t, err)
+	require.True(t, updated.CodexPrewarmContinuationForceEnabled)
+	require.True(t, codexsimulation.PrewarmContinuationEnabled())
+	require.Contains(t, repo.raw(SettingKeyCodexSimulationSettings), "codex_prewarm_continuation_force_enabled")
+
+	loaded, err := svc.GetCodexSimulationSettings(context.Background())
+	require.NoError(t, err)
+	require.True(t, loaded.CodexPrewarmContinuationForceEnabled)
+	_, err = svc.ForceDisableCodexSimulationSettings(context.Background())
+	require.NoError(t, err)
+	require.False(t, codexsimulation.PrewarmContinuationEnabled())
+}
+
 func TestCodexSimulationSettingsPersistedOffOverridesYAMLOn(t *testing.T) {
 	repo := newCodexSimulationSettingRepo()
 	require.NoError(t, repo.Set(context.Background(), SettingKeyCodexSimulationSettings,
