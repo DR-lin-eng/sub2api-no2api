@@ -196,7 +196,7 @@ func TestAPIKeyService_RoundTripsGroupModelAllowlistInAuthSnapshot(t *testing.T)
 	groupID := int64(31)
 	key := &APIKey{
 		ID: 10, UserID: 20, GroupID: &groupID,
-		User: &User{ID: 20, Status: StatusActive},
+		User:  &User{ID: 20, Status: StatusActive},
 		Group: &Group{ID: groupID, Platform: PlatformOpenAI, Status: StatusActive, ModelAllowlist: GroupModelAllowlist{Enabled: true, Models: []string{"gpt-5.4", "gpt-5-mini"}}},
 	}
 	svc := &APIKeyService{}
