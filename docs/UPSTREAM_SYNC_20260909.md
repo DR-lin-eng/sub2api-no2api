@@ -91,3 +91,5 @@
 
 
 最终文档证据提交 `30528f2ac2c5bfc046737f280650ba468a08d7cd` 的 CI、Security Scan 和 Docker Image 均通过；GHCR `sha-30528f2` 摘要为 `sha256:94bf0ed9a972c7491301bd11fed8d7a660a9c3a97ff3372de940dc4abe6c785c`，包含 amd64/arm64。
+
+最终文档收尾提交 `06e524e0e44c2d0a1fec0b85555cf82286657a81` 的 CI、Security Scan 和 Docker Image 均通过；GHCR `sha-06e524e` 摘要为 `sha256:15eba59a18b517ac35bdd8509f33ca855bc0c05dd6e185d91d81c3ce384d4e12`，包含 amd64/arm64。

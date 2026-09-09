@@ -174,3 +174,8 @@ FINAL DOCUMENTATION COMMIT:
 `30528f2ac2c5bfc046737f280650ba468a08d7cd` was pushed after the evidence correction. CI runs 34388076606 and 34388077332, Security Scan runs 34388076615 and 34388077078, and Docker Image run 34388076960 all completed success.
 GHCR command: BUILDX_CONFIG=/private/tmp/sub2api-review-buildx docker buildx imagetools inspect ghcr.io/dr-lin-eng/sub2api-no2api:sha-30528f2
 Literal result: Digest sha256:94bf0ed9a972c7491301bd11fed8d7a660a9c3a97ff3372de940dc4abe6c785c; linux/amd64 and linux/arm64 manifests plus attestations; exit status 0.
+
+FINAL DOCUMENTATION CLOSE:
+Commit `06e524e0e44c2d0a1fec0b85555cf82286657a81` carries the final documentation correction. CI runs 34389657463 and 34389659245, Security Scan runs 34389657500 and 34389658670, and Docker Image run 34389658437 completed success.
+GHCR command: BUILDX_CONFIG=/private/tmp/sub2api-review-buildx docker buildx imagetools inspect ghcr.io/dr-lin-eng/sub2api-no2api:sha-06e524e
+Literal result: Digest sha256:15eba59a18b517ac35bdd8509f33ca855bc0c05dd6e185d91d81c3ce384d4e12; linux/amd64 and linux/arm64 plus attestations; exit status 0.
