@@ -299,7 +299,7 @@ export function useEditGroupController({
       group.reasoning_effort_mappings,
       group.platform,
     );
-    resetModelsListState(modelsListState, group.models_list_config);
+    resetModelsListState(modelsListState, group.model_allowlist ?? group.models_list_config);
     modelRoutingRules.value = await runtime.convertApiFormatToRoutingRules(
       group.model_routing,
     );
@@ -395,6 +395,7 @@ export function useEditGroupController({
             : editForm.fallback_group_id_on_invalid_request,
         model_routing: convertRoutingRulesToApiFormat(modelRoutingRules.value),
         models_list_config: buildModelsListConfig(modelsListState),
+        model_allowlist: buildModelsListConfig(modelsListState),
         supported_model_scopes: normalizeSupportedModelScopesForPlatform(
           editForm.platform,
           editForm.supported_model_scopes,
@@ -507,7 +508,7 @@ export function useEditGroupController({
         resetModelsListState(
           modelsListState,
           editForm.platform === editingGroup.value.platform
-            ? editingGroup.value.models_list_config
+            ? editingGroup.value.model_allowlist ?? editingGroup.value.models_list_config
             : undefined,
         );
         void loadModelsListCandidates(editingGroup.value.id, newValue);

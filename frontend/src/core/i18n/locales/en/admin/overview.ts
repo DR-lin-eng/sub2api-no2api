@@ -1063,10 +1063,10 @@ export default {
         sumTooHigh: 'Min gross margin plus safety buffer must be less than 100%, otherwise every account would be excluded'
       },
       modelsList: {
-        title: 'Custom {endpoint} Model List',
-        hint: 'Only changes the {endpoint} response. Whitelist model calls and account routing are unchanged.',
-        loading: 'Loading model list...',
-        empty: 'No displayable models',
+        title: 'Available models for {endpoint}',
+        hint: 'Only selected models are shown and accepted for requests in this group. Wildcards are not required; choose each model explicitly.',
+        loading: 'Loading available models...',
+        empty: 'No available models',
         selectedSummary: 'Selected {selected} / {total}',
         selectAll: 'Select all',
         invertSelection: 'Invert'

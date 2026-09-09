@@ -53,6 +53,19 @@ func (h *BatchImageHandler) Submit(c *gin.Context) {
 	c.JSON(http.StatusOK, got)
 }
 
+func filterBatchImageModelsByAllowlist(models []service.BatchImagePublicModel, allowlist service.GroupModelAllowlist) []service.BatchImagePublicModel {
+	if !allowlist.Enabled {
+		return models
+	}
+	filtered := make([]service.BatchImagePublicModel, 0, len(models))
+	for _, model := range models {
+		if allowlist.Allows(model.ID) {
+			filtered = append(filtered, model)
+		}
+	}
+	return filtered
+}
+
 func (h *BatchImageHandler) checkSecurityAuditBeforeSubmit(c *gin.Context, req *service.BatchImageSubmitRequest) bool {
 	if h == nil || h.openAI == nil || req == nil {
 		return true
@@ -138,6 +151,9 @@ func (h *BatchImageHandler) Models(c *gin.Context) {
 	if err != nil {
 		batchImageError(c, err)
 		return
+	}
+	if apiKey, ok := middleware.GetAPIKeyFromContext(c); ok && apiKey != nil && apiKey.Group != nil {
+		got.Data = filterBatchImageModelsByAllowlist(got.Data, apiKey.Group.ModelAllowlist)
 	}
 	c.JSON(http.StatusOK, got)
 }

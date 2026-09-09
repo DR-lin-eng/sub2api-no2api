@@ -2,6 +2,7 @@ import type {
   ChannelModelPricing,
   Group,
   GroupPlatform,
+  ModelAllowlist,
   ModelsListConfig,
   OpenAIMessagesDispatchModelConfig,
   ReasoningEffortMapping,
@@ -23,6 +24,7 @@ export interface AdminGroup extends Group {
   default_mapped_model?: string
   messages_dispatch_model_config?: OpenAIMessagesDispatchModelConfig
   models_list_config?: ModelsListConfig
+  model_allowlist?: ModelAllowlist
   sort_order: number
 }
 
@@ -124,6 +126,7 @@ export interface CreateGroupRequest {
   mcp_xml_inject?: boolean
   supported_model_scopes?: string[]
   models_list_config?: ModelsListConfig
+  model_allowlist?: ModelAllowlist
   allow_messages_dispatch?: boolean
   allow_live?: boolean
   default_mapped_model?: string

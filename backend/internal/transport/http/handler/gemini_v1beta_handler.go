@@ -114,11 +114,17 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 }
 
 func customGeminiModelsList(group *service.Group) (gemini.ModelsListResponse, bool) {
-	if group == nil || !group.CustomModelsListEnabled() {
+	if group == nil {
 		return gemini.ModelsListResponse{}, false
 	}
-	models := make([]gemini.Model, 0, len(group.ModelsListConfig.Models))
-	for _, modelID := range group.ModelsListConfig.Models {
+	modelIDs := group.ModelsListConfig.Models
+	if group.ModelAllowlistEnabled() {
+		modelIDs = group.ModelAllowlist.FilterForListing(defaultModelIDsForPlatform(service.PlatformGemini))
+	} else if !group.CustomModelsListEnabled() {
+		return gemini.ModelsListResponse{}, false
+	}
+	models := make([]gemini.Model, 0, len(modelIDs))
+	for _, modelID := range modelIDs {
 		models = append(models, gemini.FallbackModel(modelID))
 	}
 	return gemini.ModelsListResponse{Models: models}, true

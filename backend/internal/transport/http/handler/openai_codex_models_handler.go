@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -91,6 +93,9 @@ func (h *OpenAIGatewayHandler) CodexModels(c *gin.Context) {
 			if accountRelease != nil {
 				defer accountRelease()
 			}
+			if apiKey.Group.ModelAllowlistEnabled() {
+				return h.gatewayService.FetchCodexModelsManifest(c.Request.Context(), account, c.Query("client_version"), "")
+			}
 			return h.gatewayService.FetchCodexModelsManifest(c.Request.Context(), account, c.Query("client_version"), c.GetHeader("If-None-Match"))
 		}()
 		if err != nil {
@@ -109,15 +114,62 @@ func (h *OpenAIGatewayHandler) CodexModels(c *gin.Context) {
 		if c.Request.Context().Err() != nil {
 			return
 		}
+		if manifest.NotModified {
+			if manifest.ETag != "" {
+				c.Header("ETag", manifest.ETag)
+			}
+			c.Status(http.StatusNotModified)
+			return
+		}
+		if apiKey.Group.ModelAllowlistEnabled() {
+			filtered, filterErr := filterCodexManifestByAllowlist(manifest.Body, apiKey.Group.ModelAllowlist)
+			if filterErr != nil {
+				h.errorResponse(c, http.StatusBadGateway, "upstream_error", "invalid Codex models manifest")
+				return
+			}
+			manifest.Body = filtered
+			manifest.ETag = ""
+		}
 
 		if manifest.ETag != "" {
 			c.Header("ETag", manifest.ETag)
 		}
-		if manifest.NotModified {
-			c.Status(http.StatusNotModified)
-			return
-		}
 		c.Data(http.StatusOK, "application/json", manifest.Body)
 		return
 	}
+}
+
+func filterCodexManifestByAllowlist(body []byte, allowlist service.GroupModelAllowlist) ([]byte, error) {
+	if !allowlist.Enabled {
+		return body, nil
+	}
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return nil, err
+	}
+	var models []json.RawMessage
+	if raw, ok := envelope["models"]; ok {
+		if err := json.Unmarshal(raw, &models); err != nil {
+			return nil, err
+		}
+	}
+	filtered := models[:0]
+	for _, raw := range models {
+		var item struct {
+			Slug string `json:"slug"`
+			ID   string `json:"id"`
+		}
+		if err := json.Unmarshal(raw, &item); err != nil {
+			return nil, err
+		}
+		model := strings.TrimSpace(item.Slug)
+		if model == "" {
+			model = strings.TrimSpace(item.ID)
+		}
+		if model != "" && allowlist.Allows(model) {
+			filtered = append(filtered, raw)
+		}
+	}
+	envelope["models"], _ = json.Marshal(filtered)
+	return json.Marshal(envelope)
 }

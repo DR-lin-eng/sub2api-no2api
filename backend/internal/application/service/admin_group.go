@@ -111,6 +111,9 @@ func (s *adminServiceImpl) GetGroupMediaStudioModels(ctx context.Context, id int
 		platform = group.Platform
 	}
 
+	if group.ModelAllowlist.Enabled {
+		return normalizeMediaStudioCandidateModels(group.ModelAllowlist.Models), nil
+	}
 	if group.ModelsListConfig.Enabled {
 		return normalizeMediaStudioCandidateModels(group.ModelsListConfig.Models), nil
 	}
@@ -541,6 +544,11 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		}
 	}
 
+	modelAllowlist, err := normalizeGroupModelAllowlist(input.ModelAllowlist)
+	if err != nil {
+		return nil, err
+	}
+
 	group := &Group{
 		Name:                            input.Name,
 		Description:                     input.Description,
@@ -590,6 +598,7 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		DefaultMappedModel:              input.DefaultMappedModel,
 		MessagesDispatchModelConfig:     normalizeOpenAIMessagesDispatchModelConfig(input.MessagesDispatchModelConfig),
 		ModelsListConfig:                normalizeGroupModelsListConfig(input.ModelsListConfig),
+		ModelAllowlist:                  modelAllowlist,
 		RPMLimit:                        input.RPMLimit,
 		MaxReasoningEffort:              maxReasoningEffort,
 		ReasoningEffortMappings:         reasoningEffortMappings,
@@ -956,6 +965,13 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	}
 	if input.ModelsListConfig != nil {
 		group.ModelsListConfig = normalizeGroupModelsListConfig(*input.ModelsListConfig)
+	}
+	if input.ModelAllowlist != nil {
+		modelAllowlist, normalizeErr := normalizeGroupModelAllowlist(*input.ModelAllowlist)
+		if normalizeErr != nil {
+			return nil, normalizeErr
+		}
+		group.ModelAllowlist = modelAllowlist
 	}
 	if input.RPMLimit != nil {
 		group.RPMLimit = *input.RPMLimit
