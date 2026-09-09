@@ -1,0 +1,116 @@
+Object: upstream PR #6874 Image 2.5 OAuth selective sync and performance review
+Changed branch: codex/upstream-sync-20260909-image25
+Baseline commit: 5988d12c7b1c0c941bb41a5fd797c9af0b5ccda6
+Reviewed upstream boundary: 270eac6973049fe1b50eb75560a74a029e82884c..98d86915becae9fe9491a91ffc6defd5235c8d2b
+Reviewed PR: Wei-Shaw/sub2api#6874, merge 5de5e2bed035d43591a2e10e51f420ef6a84eb98
+Final code commit before tracking merge: 7608b0751cad5e9da90181784cc12ac5f4411c50
+Tracking merge commit: 569cde3e41c6474a1e95b30c4b1e9c2e7d7314a8 (tree-preserving merge of upstream/main at 98d86915b)
+Changed fields: Image 2.5 model catalog and whitelist; OAuth Images Responses driver; image input token usage; driver error cooling; image pricing; Compose environment wiring; account-test diagnostics.
+
+Artifacts:
+  MODIFIED_FILE=diagnostics/upstream-sync-20260909-image25/MODIFIED_FILE
+  DIFF_FILE=diagnostics/upstream-sync-20260909-image25/DIFF_FILE
+  VERIFICATION.txt=diagnostics/upstream-sync-20260909-image25/VERIFICATION.txt
+  ROLLBACK.sh=diagnostics/upstream-sync-20260909-image25/ROLLBACK.sh
+
+Source hash evidence:
+  sha256sum diagnostics/upstream-sync-20260909-image25/MODIFIED_FILE.baseline diagnostics/upstream-sync-20260909-image25/MODIFIED_FILE
+  literal output: 8bcb687cbd0ed136bce5639518d5099226654e498b5600dc01f022641a46502d  diagnostics/upstream-sync-20260909-image25/MODIFIED_FILE.baseline
+                   e91bf4d71c4181dc40b8800ac28113e4f0fbef70c01167f35d90e4aa500000fd  diagnostics/upstream-sync-20260909-image25/MODIFIED_FILE
+  result: baseline source and changed source hashes differ; exit status 0.
+
+BASELINE command (first attempt, intentionally recorded environment failure):
+  docker run --rm -e GOMAXPROCS=2 -e GOMEMLIMIT=3GiB -e GOPROXY=off -v /private/tmp/sub2api-review-20260909:/src -v /private/tmp/sub2api-review-cache:/go -w /src/backend golang:1.26.6-alpine sh -c 'go test -mod=mod -vet=off -p=1 -tags=unit ./internal/application/service ./internal/shared/openai ./internal/transport/http/handler/admin'
+  literal result: module lookup disabled by GOPROXY=off; package setup failed.
+  exit status: 1.
+
+BASELINE command (Docker, writable cache and network):
+  docker run --rm -e GOMAXPROCS=2 -e GOMEMLIMIT=3GiB -e GOPROXY=https://proxy.golang.org,direct -e GOSUMDB=sum.golang.org -v /private/tmp/sub2api-review-20260909:/src -v /private/tmp/sub2api-review-cache:/go -w /src/backend golang:1.26.6-alpine sh -c 'go test -mod=mod -vet=off -p=1 -tags=unit ./internal/application/service ./internal/shared/openai ./internal/transport/http/handler/admin'
+  literal output: ok  github.com/Wei-Shaw/sub2api/internal/application/service 194.761s
+                  ok  github.com/Wei-Shaw/sub2api/internal/shared/openai 0.002s
+                  ok  github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin 0.511s
+  result: PASS; exit status 0.
+
+BASELINE performance command:
+  docker run --rm -e GOMAXPROCS=2 -e GOMEMLIMIT=3GiB -e GOPROXY=https://proxy.golang.org,direct -e GOSUMDB=sum.golang.org -v /private/tmp/sub2api-review-baseline-20260909:/src -v /private/tmp/sub2api-review-cache:/go -w /src/backend golang:1.26.6-alpine sh -c 'go test -mod=mod -vet=off -p=1 -tags=unit -run "^$" -bench "Benchmark(OpenAIPassthroughImageIntentReuse_LargeBody|PricingServiceGetIdentifiedModelPricing)$" -benchmem -count=3 ./internal/application/service'
+  literal output: Once 25472462-25710407 ns/op, 0 B/op, 0 allocs/op; Twice 50596206-50793024 ns/op, 0 B/op, 0 allocs/op; pricing 465.4-526.8 ns/op, 176 B/op, 3 allocs/op; PASS.
+  exit status: 0.
+
+MODIFIED command (Docker, full backend unit):
+  docker run --rm -e GOMAXPROCS=2 -e GOMEMLIMIT=3GiB -e GOPROXY=https://proxy.golang.org,direct -e GOSUMDB=sum.golang.org -v /private/tmp/sub2api-review-20260909:/src -v /private/tmp/sub2api-review-cache:/go -w /src/backend golang:1.26.6-alpine sh -c 'go test -mod=mod -vet=off -p=1 -tags=unit ./...'
+  literal output: service 193.857s; application/service/openai_ws_v2 6.018s; infrastructure/repository 6.922s; transport/http/handler 40.892s; all listed packages PASS.
+  exit status: 0.
+
+MODIFIED focused race command:
+  docker run --rm -e CGO_ENABLED=1 -e GOMAXPROCS=2 -e GOMEMLIMIT=3GiB -e GOPROXY=https://proxy.golang.org,direct -e GOSUMDB=sum.golang.org -v /private/tmp/sub2api-review-20260909:/src -v /private/tmp/sub2api-review-cache:/go -w /src/backend golang:1.26.6-bookworm sh -c 'go test -mod=mod -vet=off -p=1 -race -tags=unit ./internal/application/service -run "Test(OpenAIImages|NormalizeOpenAIResponsesImageOnlyModel|GPTImage25|AccountTestService_OpenAIImageOAuth)" -count=1'
+  literal output: ok  github.com/Wei-Shaw/sub2api/internal/application/service 2.254s
+  exit status: 0.
+
+MODIFIED focused regression command:
+  docker run --rm -e GOMAXPROCS=2 -e GOMEMLIMIT=3GiB -e GOPROXY=https://proxy.golang.org,direct -e GOSUMDB=sum.golang.org -v /private/tmp/sub2api-review-20260909:/src -v /private/tmp/sub2api-review-cache:/go -w /src/backend golang:1.26.6-alpine sh -c 'go test -mod=mod -vet=off -p=1 -tags=unit ./internal/application/service -run "Test(OpenAIImages|NormalizeOpenAIResponsesImageOnlyModel|GPTImage25|AccountTestService_OpenAIImageOAuth)" -count=1'
+  literal output: ok  github.com/Wei-Shaw/sub2api/internal/application/service 1.164s
+  exit status: 0.
+
+MODIFIED performance command:
+  docker run --rm -e GOMAXPROCS=2 -e GOMEMLIMIT=3GiB -e GOPROXY=https://proxy.golang.org,direct -e GOSUMDB=sum.golang.org -v /private/tmp/sub2api-review-20260909:/src -v /private/tmp/sub2api-review-cache:/go -w /src/backend golang:1.26.6-alpine sh -c 'go test -mod=mod -vet=off -p=1 -tags=unit -run "^$" -bench "Benchmark(OpenAIPassthroughImageIntentReuse_LargeBody|PricingServiceGetIdentifiedModelPricing)$" -benchmem -count=3 ./internal/application/service'
+  literal output: Once 25495370-25683149 ns/op, 0 B/op, 0 allocs/op; Twice 50780564-51057788 ns/op, 0 B/op, 0 allocs/op; pricing 465.4-516.9 ns/op, 176 B/op, 3 allocs/op; PASS.
+  result: ranges overlap baseline; no allocation increase observed; exit status 0.
+
+MODIFIED frontend command:
+  docker run --rm -e CI=true -v /private/tmp/sub2api-review-20260909:/src -v /private/tmp/sub2api-pnpm-store:/pnpm-store -w /src/frontend node:24-bookworm sh -c 'corepack enable && pnpm config set store-dir /pnpm-store && pnpm install --frozen-lockfile && pnpm exec vitest run src/features/admin-accounts/presentation/composables/__tests__/useModelWhitelist.spec.ts && pnpm run typecheck'
+  literal output: 1 test file; 15 tests passed; vue-tsc --noEmit exit 0.
+  exit status: 0.
+
+MODIFIED frontend lint command:
+  docker run --rm -e CI=true -v /private/tmp/sub2api-review-20260909:/src -v /private/tmp/sub2api-pnpm-store:/pnpm-store -w /src/frontend node:24-bookworm sh -c 'corepack enable && pnpm config set store-dir /pnpm-store && pnpm run lint:check -- src/features/admin-accounts/presentation/composables/useModelWhitelist.ts'
+  literal output: eslint . -- src/features/admin-accounts/presentation/composables/useModelWhitelist.ts
+  exit status: 0.
+
+MODIFIED JSON/Compose/docs checks:
+  python3 -m json.tool backend/resources/model-pricing/model_prices_and_context_window.json
+  literal output: pricing_json_valid; exit status 0.
+  for f in deploy/docker-compose.yml deploy/docker-compose.dev.yml deploy/docker-compose.local.yml deploy/docker-compose.standalone.yml; do env POSTGRES_PASSWORD=test POSTGRES_USER=sub2api POSTGRES_DB=sub2api DATABASE_HOST=postgres DATABASE_PORT=5432 DATABASE_USER=sub2api DATABASE_PASSWORD=test DATABASE_DBNAME=sub2api DATABASE_SSLMODE=disable REDIS_HOST=redis REDIS_PORT=6379 REDIS_USERNAME= REDIS_PASSWORD= REDIS_DB=0 ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD=test JWT_SECRET=test JWT_EXPIRE_HOUR=24 docker compose -f "$f" config >/dev/null || exit 1; done
+  literal output: docker-compose.yml=valid; docker-compose.dev.yml=valid; docker-compose.local.yml=valid; docker-compose.standalone.yml=valid; exit status 0.
+  make check-docs
+  literal output: Documentation checks passed.; exit status 0.
+
+DOCKER IMAGE commands:
+  BUILDX_CONFIG=/private/tmp/sub2api-review-buildx docker build --progress=plain --build-arg GOPROXY=https://proxy.golang.org,direct --build-arg GOSUMDB=sum.golang.org --build-arg VERSION=0.1.196 --build-arg COMMIT=codex-upstream-sync-20260909-image25 -t sub2api-upstream-sync-20260909-image25:modified -f Dockerfile .
+  literal result: image index sha256:08e43a7c170119602bb943664799ada9d381d9f70129b04d6f6c23fedde8762b; exit status 0.
+  BUILDX_CONFIG=/private/tmp/sub2api-review-baseline-buildx docker build --progress=plain --build-arg GOPROXY=https://proxy.golang.org,direct --build-arg GOSUMDB=sum.golang.org --build-arg VERSION=0.1.196 --build-arg COMMIT=baseline-5988d12c7 -t sub2api-upstream-sync-20260909-image25:baseline -f Dockerfile .
+  literal result: image index sha256:11ff1164daa217b78091587b061244f72cfcdf1f2538f74d287f5b08a9b21f03; exit status 0.
+
+DOCKER runtime baseline command:
+  docker compose -p sub2api-sync-image25 -f diagnostics/upstream-sync-20260909-image25/compose.yaml up -d --wait --wait-timeout 180
+  curl -fsS http://127.0.0.1:18590/health
+  curl -fsS http://127.0.0.1:18590/ready
+  docker compose -p sub2api-sync-image25 -f diagnostics/upstream-sync-20260909-image25/compose.yaml exec -T -e PGPASSWORD=sync_fixture_only app psql -h db -U sync_test -d sync_test -Atc 'select count(*) from schema_migrations; select max(filename) from schema_migrations; select count(*) from users;'
+  literal output: {"status":"ok"}; {"ready":true,"node_id":"1318037f1a8a","node_name":"1318037f1a8a","current_version":"0.1.196","draining":false,"in_flight":0}; 292; 239_add_usage_openai_timing.sql; 1.
+  result: exit status 0 for compose/health/ready/psql command sequence. An initial psql call without PGPASSWORD returned `fe_sendauth: no password supplied` and exit 2; rerun with explicit fixture password passed.
+
+DOCKER runtime modified command:
+  SYNC_IMAGE=sub2api-upstream-sync-20260909-image25:modified docker compose -p sub2api-sync-image25 -f diagnostics/upstream-sync-20260909-image25/compose.yaml up -d --wait --wait-timeout 180
+  curl -fsS http://127.0.0.1:18590/health
+  curl -fsS http://127.0.0.1:18590/ready
+  docker compose -p sub2api-sync-image25 -f diagnostics/upstream-sync-20260909-image25/compose.yaml exec -T -e PGPASSWORD=sync_fixture_only app psql -h db -U sync_test -d sync_test -Atc 'select count(*) from schema_migrations; select max(filename) from schema_migrations; select count(*) from users;'
+  literal output: {"status":"ok"}; {"ready":true,"node_id":"8903d244831b","node_name":"8903d244831b","current_version":"0.1.196","draining":false,"in_flight":0}; 292; 239_add_usage_openai_timing.sql; 1.
+  exit status 0.
+
+DOCKER runtime rollback command:
+  SYNC_IMAGE=sub2api-upstream-sync-20260909-image25:baseline docker compose -p sub2api-sync-image25 -f diagnostics/upstream-sync-20260909-image25/compose.yaml up -d --wait --wait-timeout 180
+  curl -fsS http://127.0.0.1:18590/health
+  curl -fsS http://127.0.0.1:18590/ready
+  docker compose -p sub2api-sync-image25 -f diagnostics/upstream-sync-20260909-image25/compose.yaml exec -T -e PGPASSWORD=sync_fixture_only app psql -h db -U sync_test -d sync_test -Atc 'select count(*) from schema_migrations; select max(filename) from schema_migrations; select count(*) from users;'
+  literal output: {"status":"ok"}; {"ready":true,"node_id":"9bf2b51dd6b9","node_name":"9bf2b51dd6b9","current_version":"0.1.196","draining":false,"in_flight":0}; 292; 239_add_usage_openai_timing.sql; 1.
+  exit status 0.
+
+ROLLBACK command (independent copy):
+  diagnostics/upstream-sync-20260909-image25/ROLLBACK.sh /private/tmp/sub2api-review-rollback-copy-20260909 5988d12c7b1c0c941bb41a5fd797c9af0b5ccda6
+  input: clone at 7608b0751cad5e9da90181784cc12ac5f4411c50 with README modification and untracked ROLLBACK_PROBE.
+  literal output: ROLLBACK restored=5988d12c7b1c0c941bb41a5fd797c9af0b5ccda6 status=clean
+  result: ROLLBACK_COMPARE_EXIT_STATUS=0; independent copy HEAD equals baseline and porcelain is empty; primary MODIFIED_FILE source remains changed.
+  exit status: 0.
+
+Restored behavior/status:
+  after runtime rollback, baseline image returned health ok and ready=true with version 0.1.196; schema_migrations=292, max migration=239_add_usage_openai_timing.sql, users=1.
+  source branch remained codex/upstream-sync-20260909-image25 with MODIFIED_FILE changed.
