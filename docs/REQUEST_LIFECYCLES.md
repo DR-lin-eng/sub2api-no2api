@@ -177,6 +177,9 @@ Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换
 `continuation_mode=off|shadow|enforce` 独立于账号指纹模式。C 的
 `c_level_simulation_enabled` 独立控制新增的账号级 HTTP/TLS、虚拟客户端连接池、Cloudflare 基础设施 Cookie
 和 Remote Control 协议投影；C 关闭时这些新增传输投影回退到原有路径。
+同一面板中的 `codex_prewarm_continuation_force_enabled` 是系统级账号预热开关；开启后所有 OpenAI OAuth
+账号在运行时强制走预热续接，创建、OAuth 导入及更新账号时也会持久化该账号开关，关闭系统开关不会影响
+已显式保存的账号级启用状态。
 
 每个 HTTP 请求在开始时固定一份运行时设置快照，普通设置变更只影响后续请求。下游 WS 也保持单会话快照，
 但紧急恢复原版后，已启用 A/B/C 的现有 WS 会在下一轮请求时关闭并要求客户端重连，避免继续使用模拟身份。

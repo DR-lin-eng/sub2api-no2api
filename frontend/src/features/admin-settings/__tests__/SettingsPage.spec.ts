@@ -1397,6 +1397,7 @@ describe("admin SettingsView payment visible method controls", () => {
     await card!
       .get('[data-testid="codex-simulation-c-level-toggle"]')
       .setValue(false);
+    await card!.get('[data-testid="codex-prewarm-force-toggle"]').setValue(true);
     await card!
       .get('[data-testid="codex-simulation-continuation-mode"]')
       .setValue("shadow");
@@ -1407,6 +1408,7 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(updateCodexSimulationSettings).toHaveBeenLastCalledWith({
       full_simulation_enabled: false,
       c_level_simulation_enabled: false,
+      codex_prewarm_continuation_force_enabled: true,
       continuation_mode: "shadow",
       state_ttl_seconds: 3600,
     });
@@ -1416,6 +1418,9 @@ describe("admin SettingsView payment visible method controls", () => {
     await flushPromises();
 
     expect(forceDisableCodexSimulationSettings).toHaveBeenCalledOnce();
+    expect(
+      (card!.get('[data-testid="codex-prewarm-force-toggle"]').element as HTMLInputElement).checked,
+    ).toBe(false);
     expect(
       card!.get('[data-testid="codex-simulation-effective-state"]').text(),
     ).toContain("admin.settings.codexSimulation.originalBehaviorActive");

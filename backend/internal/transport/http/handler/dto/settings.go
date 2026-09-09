@@ -513,18 +513,20 @@ type GlobalTempUnschedulableSettings struct {
 }
 
 type CodexSimulationSettings struct {
-	FullSimulationEnabled    bool   `json:"full_simulation_enabled"`
-	CLevelSimulationEnabled  bool   `json:"c_level_simulation_enabled"`
-	ContinuationMode         string `json:"continuation_mode"`
-	StateTTLSeconds          int    `json:"state_ttl_seconds"`
-	IdentitySecretConfigured bool   `json:"identity_secret_configured"`
+	FullSimulationEnabled                bool   `json:"full_simulation_enabled"`
+	CLevelSimulationEnabled              bool   `json:"c_level_simulation_enabled"`
+	CodexPrewarmContinuationForceEnabled bool   `json:"codex_prewarm_continuation_force_enabled"`
+	ContinuationMode                     string `json:"continuation_mode"`
+	StateTTLSeconds                      int    `json:"state_ttl_seconds"`
+	IdentitySecretConfigured             bool   `json:"identity_secret_configured"`
 }
 
 type UpdateCodexSimulationSettingsRequest struct {
-	FullSimulationEnabled   *bool   `json:"full_simulation_enabled"`
-	CLevelSimulationEnabled *bool   `json:"c_level_simulation_enabled"`
-	ContinuationMode        *string `json:"continuation_mode"`
-	StateTTLSeconds         *int    `json:"state_ttl_seconds"`
+	FullSimulationEnabled                *bool   `json:"full_simulation_enabled"`
+	CLevelSimulationEnabled              *bool   `json:"c_level_simulation_enabled"`
+	CodexPrewarmContinuationForceEnabled *bool   `json:"codex_prewarm_continuation_force_enabled"`
+	ContinuationMode                     *string `json:"continuation_mode"`
+	StateTTLSeconds                      *int    `json:"state_ttl_seconds"`
 }
 
 // PanelRateLimitSettings 面板 API 限流配置 DTO

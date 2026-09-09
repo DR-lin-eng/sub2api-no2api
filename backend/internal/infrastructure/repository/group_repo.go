@@ -757,7 +757,7 @@ func (r *groupRepository) GetAccountCount(ctx context.Context, groupID int64) (t
 			COUNT(*) FILTER (WHERE %s),
 			COUNT(*) FILTER (WHERE %s)
 		FROM account_groups ag JOIN accounts a ON a.id = ag.account_id
-		WHERE ag.group_id = $1`, groupAccountAvailableSQL, groupAccountTemporarilyLimitedSQL),
+		WHERE ag.group_id = $1`, groupAccountAvailableSQL(), groupAccountTemporarilyLimitedSQL()),
 		[]any{groupID}, &total, &active, &rateLimited)
 	return
 }
@@ -886,30 +886,32 @@ type groupAccountCounts struct {
 	RateLimited int64
 }
 
-const (
-	// 分组页的"可用"账号数必须与账号仓储的 ListSchedulableByGroupID 过滤口径一致。
-	groupAccountAvailableSQL = `a.deleted_at IS NULL
+// 分组页的"可用"账号数必须与账号仓储的 ListSchedulableByGroupID 过滤口径一致。
+func groupAccountAvailableSQL() string {
+	return `a.deleted_at IS NULL
 				AND a.status = 'active'
 				AND a.schedulable = true
 				AND (a.expires_at IS NULL OR a.expires_at > NOW() OR a.auto_pause_on_expired = FALSE)
-				AND ` + accountSchedulableRateLimitSQL + `
+				AND ` + accountSchedulableRateLimitSQL() + `
 				AND (a.overload_until IS NULL OR a.overload_until <= NOW())
-				AND ` + accountSchedulableTempUnschedulableSQL
+				AND ` + accountSchedulableTempUnschedulableSQL()
+}
 
-	// 这里沿用历史字段名 RateLimitedAccountCount，但统计的是会让账号暂时退出调度的时间窗口。
-	groupAccountTemporarilyLimitedSQL = `a.deleted_at IS NULL
+// 这里沿用历史字段名 RateLimitedAccountCount，但统计的是会让账号暂时退出调度的时间窗口。
+func groupAccountTemporarilyLimitedSQL() string {
+	return `a.deleted_at IS NULL
 				AND a.status = 'active'
 				AND a.schedulable = true
 				AND (a.expires_at IS NULL OR a.expires_at > NOW() OR a.auto_pause_on_expired = FALSE)
 				AND (
-					(a.rate_limit_reset_at > NOW() AND NOT ` + codexPrewarmContinuationEnabledAccountSQL + `) OR
+					(a.rate_limit_reset_at > NOW() AND NOT ` + codexPrewarmContinuationEnabledAccountSQL() + `) OR
 					a.overload_until > NOW() OR
 					(a.temp_unschedulable_until > NOW() AND NOT (
-						` + codexPrewarmContinuationEnabledAccountSQL + ` AND
+						` + codexPrewarmContinuationEnabledAccountSQL() + ` AND
 						` + codexPrewarmContinuation429TempReasonSQL + `
 					))
 				)`
-)
+}
 
 func (r *groupRepository) loadAccountCounts(ctx context.Context, groupIDs []int64) (counts map[int64]groupAccountCounts, err error) {
 	counts = make(map[int64]groupAccountCounts, len(groupIDs))
@@ -926,7 +928,7 @@ func (r *groupRepository) loadAccountCounts(ctx context.Context, groupIDs []int6
 		FROM account_groups ag
 		JOIN accounts a ON a.id = ag.account_id
 		WHERE ag.group_id = ANY($1)
-		GROUP BY ag.group_id`, groupAccountAvailableSQL, groupAccountTemporarilyLimitedSQL),
+		GROUP BY ag.group_id`, groupAccountAvailableSQL(), groupAccountTemporarilyLimitedSQL()),
 		pq.Array(groupIDs),
 	)
 	if err != nil {

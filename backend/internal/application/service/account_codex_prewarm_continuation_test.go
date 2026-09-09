@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
 	"github.com/stretchr/testify/require"
 )
 
@@ -59,6 +60,15 @@ func TestAccount_IsCodexPrewarmContinuationEnabled(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAccount_IsCodexPrewarmContinuationEnabledHonorsGlobalForce(t *testing.T) {
+	codexsimulation.SetPrewarmContinuationEnabled(true)
+	t.Cleanup(func() { codexsimulation.SetPrewarmContinuationEnabled(false) })
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+	require.True(t, account.IsCodexPrewarmContinuationEnabled())
+	apiKey := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	require.False(t, apiKey.IsCodexPrewarmContinuationEnabled())
 }
 
 func BenchmarkAccount_IsCodexPrewarmContinuationEnabled(b *testing.B) {

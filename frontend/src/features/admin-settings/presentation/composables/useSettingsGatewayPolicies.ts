@@ -82,6 +82,7 @@ export function useSettingsGatewayPolicies() {
   const codexSimulationForm = reactive<CodexSimulationSettings>({
     full_simulation_enabled: false,
     c_level_simulation_enabled: false,
+    codex_prewarm_continuation_force_enabled: false,
     continuation_mode: "off",
     state_ttl_seconds: 604800,
     identity_secret_configured: false,
@@ -323,8 +324,12 @@ export function useSettingsGatewayPolicies() {
   }
 
   function applyCodexSimulationSettings(settings: CodexSimulationSettings) {
-    Object.assign(codexSimulationForm, settings);
-    lastCodexSimulationSettings.value = { ...settings };
+    const normalized = {
+      ...settings,
+      codex_prewarm_continuation_force_enabled: settings.codex_prewarm_continuation_force_enabled === true,
+    };
+    Object.assign(codexSimulationForm, normalized);
+    lastCodexSimulationSettings.value = { ...normalized };
     codexSimulationLoadFailed.value = false;
   }
 
@@ -351,6 +356,7 @@ export function useSettingsGatewayPolicies() {
       CodexSimulationSettings,
       | "full_simulation_enabled"
       | "c_level_simulation_enabled"
+      | "codex_prewarm_continuation_force_enabled"
       | "continuation_mode"
       | "state_ttl_seconds"
     >,
@@ -376,6 +382,7 @@ export function useSettingsGatewayPolicies() {
       {
         full_simulation_enabled: codexSimulationForm.full_simulation_enabled,
         c_level_simulation_enabled: Boolean(codexSimulationForm.c_level_simulation_enabled),
+        codex_prewarm_continuation_force_enabled: Boolean(codexSimulationForm.codex_prewarm_continuation_force_enabled),
         continuation_mode: codexSimulationForm.continuation_mode,
         state_ttl_seconds: codexSimulationForm.state_ttl_seconds,
       },

@@ -24,11 +24,12 @@ const (
 // request. IdentitySecret is persisted but must never be returned by an HTTP
 // handler; transport DTOs expose only IdentitySecretConfigured.
 type CodexSimulationSettings struct {
-	FullSimulationEnabled   bool   `json:"full_simulation_enabled"`
-	CLevelSimulationEnabled bool   `json:"c_level_simulation_enabled"`
-	ContinuationMode        string `json:"continuation_mode"`
-	StateTTLSeconds         int    `json:"state_ttl_seconds"`
-	IdentitySecret          string `json:"identity_secret"`
+	FullSimulationEnabled                bool   `json:"full_simulation_enabled"`
+	CLevelSimulationEnabled              bool   `json:"c_level_simulation_enabled"`
+	CodexPrewarmContinuationForceEnabled bool   `json:"codex_prewarm_continuation_force_enabled"`
+	ContinuationMode                     string `json:"continuation_mode"`
+	StateTTLSeconds                      int    `json:"state_ttl_seconds"`
+	IdentitySecret                       string `json:"identity_secret"`
 }
 
 func (s CodexSimulationSettings) IdentitySecretConfigured() bool {
@@ -177,6 +178,7 @@ func (s *SettingService) LoadCodexSimulationSettings(ctx context.Context) error 
 	}
 	s.codexSimulationSettings.Store(&settings)
 	codexsimulation.SetCLevelEnabled(settings.CLevelSimulationEnabled)
+	codexsimulation.SetPrewarmContinuationEnabled(settings.CodexPrewarmContinuationForceEnabled)
 	return nil
 }
 
@@ -323,6 +325,7 @@ func (s *SettingService) ForceDisableCodexSimulationSettings(ctx context.Context
 	}
 	settings.FullSimulationEnabled = false
 	settings.CLevelSimulationEnabled = false
+	settings.CodexPrewarmContinuationForceEnabled = false
 	settings.ContinuationMode = string(codexContinuationOff)
 
 	validated, err := validateCodexSimulationSettings(settings)
@@ -347,6 +350,7 @@ func (s *SettingService) persistCodexSimulationSettings(ctx context.Context, set
 	s.codexSimulationSettingsRevision.Add(1)
 	s.codexSimulationSettings.Store(&settings)
 	codexsimulation.SetCLevelEnabled(settings.CLevelSimulationEnabled)
+	codexsimulation.SetPrewarmContinuationEnabled(settings.CodexPrewarmContinuationForceEnabled)
 	return &settings, nil
 }
 

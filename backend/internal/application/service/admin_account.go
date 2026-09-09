@@ -589,6 +589,13 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 	if err != nil {
 		return nil, err
 	}
+	if input.Platform == PlatformOpenAI && input.Type == AccountTypeOAuth &&
+		s.settingService != nil && s.settingService.CodexSimulationSettingsSnapshot(ctx).CodexPrewarmContinuationForceEnabled {
+		if accountExtra == nil {
+			accountExtra = make(map[string]any)
+		}
+		accountExtra[CodexPrewarmContinuationExtraKey] = true
+	}
 	accountExtra, err = normalizeGrokMediaEligibilityExtra(input.Platform, accountExtra)
 	if err != nil {
 		return nil, err
@@ -864,6 +871,15 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 			delete(account.Extra, OllamaCloudUsageSnapshotExtraKey)
 		}
 	}
+	// The system switch is authoritative while enabled. Keep account edits from
+	// persisting an explicit false that would appear to disable the feature.
+	if account.IsOpenAIOAuth() && s.settingService != nil &&
+		s.settingService.CodexSimulationSettingsSnapshot(ctx).CodexPrewarmContinuationForceEnabled {
+		if account.Extra == nil {
+			account.Extra = make(map[string]any)
+		}
+		account.Extra[CodexPrewarmContinuationExtraKey] = true
+	}
 	// 只在指针非 nil 时更新 Concurrency（支持设置为 0）
 	if input.Concurrency != nil {
 		account.Concurrency = normalizeAccountConcurrency(account.Platform, account.Type, *input.Concurrency)
@@ -990,6 +1006,9 @@ func (s *adminServiceImpl) UpdateAccountExtra(ctx context.Context, id int64, upd
 	delete(updates, AccountSchedulingDisabledReasonExtraKey)
 	delete(updates, AccountAutoEnableSourceExtraKey)
 	delete(updates, AccountAutoEnableAtExtraKey)
+	if len(updates) == 0 {
+		return nil
+	}
 	if _, exists := updates[openAILongContextBillingEnabledKey]; exists {
 		account, err := s.accountRepo.GetByID(ctx, id)
 		if err != nil {
@@ -999,8 +1018,14 @@ func (s *adminServiceImpl) UpdateAccountExtra(ctx context.Context, id int64, upd
 			return err
 		}
 	}
-	if len(updates) == 0 {
-		return nil
+	if s.settingService != nil && s.settingService.CodexSimulationSettingsSnapshot(ctx).CodexPrewarmContinuationForceEnabled {
+		account, err := s.accountRepo.GetByID(ctx, id)
+		if err != nil {
+			return err
+		}
+		if account.IsOpenAIOAuth() {
+			updates[CodexPrewarmContinuationExtraKey] = true
+		}
 	}
 	return s.accountRepo.UpdateExtra(ctx, id, updates)
 }
