@@ -1,13 +1,10 @@
 #!/bin/sh
 set -eu
-TARGET=${1:?usage: ROLLBACK.sh TARGET [BASELINE_COMMIT]}
-BASELINE=${2:-5988d12c7b1c0c941bb41a5fd797c9af0b5ccda6}
-git -C "$TARGET" reset --hard "$BASELINE" >/dev/null
-git -C "$TARGET" clean -fd >/dev/null
-HEAD=$(git -C "$TARGET" rev-parse HEAD)
-STATUS=$(git -C "$TARGET" status --porcelain)
-if [ "$HEAD" != "$BASELINE" ] || [ -n "$STATUS" ]; then
-  echo "ROLLBACK verification failed: head=$HEAD status=$STATUS" >&2
-  exit 1
-fi
-printf 'ROLLBACK restored=%s status=clean\n' "$HEAD"
+rollback_target=${1:?usage: ROLLBACK.sh TARGET_CHECKOUT}
+rollback_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+rollback_patch="$rollback_dir/DIFF_FILE"
+# Check the entire reverse patch before writing; later conflicting edits stop
+# the operation. HEAD, unrelated paths and untracked files remain untouched.
+git -C "$rollback_target" apply --reverse --check "$rollback_patch"
+git -C "$rollback_target" apply --reverse "$rollback_patch"
+printf 'ROLLBACK status=restored HEAD=%s\n' "$(git -C "$rollback_target" rev-parse HEAD)"

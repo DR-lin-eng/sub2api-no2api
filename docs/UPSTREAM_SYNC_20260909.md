@@ -65,8 +65,8 @@
 
 | 上游差异 | 当前 owner 与处理 | 升级与性能边界 |
 | --- | --- | --- |
-| #6874 Image 2.5 模型目录 | `internal/shared/openai` 与管理端模型白名单加入 `gpt-image-2.5-flare`、`gpt-image-2.5-sunburst`；图片定价资源加入两个模型及 `2026-09-08` 日期快照。 | 仅增加静态目录项；显式账号/分组白名单仍是最终权限，旧账号和旧请求不改变。 |
-| #6874 OAuth Images 主控 | 图片 Responses 主控默认从已下线的 `gpt-5.4-mini` 切换为 `gpt-5.6-luna`；`SUB2API_IMAGES_MAIN_MODEL` 可在 Compose 重启后覆盖。图片工具模型与文本主控保持独立。 | 读取一次短环境变量并复用既有请求构造；无迁移、无额外 I/O、无新增 goroutine。 |
+| #6874 Image 2.5 模型目录 | `internal/shared/openai` 与管理端模型白名单加入 `gpt-image-2.5-flare`、`gpt-image-2.5-sunburst`；图片定价资源加入两个模型及 `2026-09-08` 日期快照。 | 仅增加静态目录项；显式账号/分组白名单不会自动扩展。 |
+| #6874 OAuth Images 主控 | 图片 Responses 主控默认从已下线的 `gpt-5.4-mini` 切换为 `gpt-5.6-luna`；`SUB2API_IMAGES_MAIN_MODEL` 可在 Compose 重新创建容器后覆盖。图片工具模型与文本主控保持独立。 | 读取一次短环境变量并复用既有请求构造；无迁移、无额外 I/O、无新增 goroutine。 |
 | #6874 图片用量与错误 | `tool_usage.image_gen.input_tokens_details.image_tokens` 进入 `ImageInputTokens` 并受总输入 token 上限约束；主控模型被拒时直接透传错误，避免错误冷却图片能力；管理端测试显示主控/图片模型并识别 HTTP 200 SSE 错误。 | 保留现有计费分离和失败切换边界；只在错误或图片路径读取结构化字段。 |
 
 ### 差异关闭
@@ -75,8 +75,14 @@
 
 ### 性能结论
 
-图片主控覆盖只影响图片请求和含图片工具的 Responses 归一化；模型白名单和定价均为有界静态查找。Docker microbenchmark 对比记录在 [`diagnostics/upstream-sync-20260909-image25/VERIFICATION.txt`](../diagnostics/upstream-sync-20260909-image25/VERIFICATION.txt)，未观察到额外分配或高频数据库/网络访问。
+图片主控覆盖只影响图片请求和以图片模型作为顶层模型的 Responses 归一化；显式文本主控保持原值。目录精确命中仍为 map 查找，缺失时沿用原有模糊匹配链路。Docker 现有大图片意图解析与定价索引 microbenchmark 对比记录在 [`diagnostics/upstream-sync-20260909-image25/VERIFICATION.txt`](../diagnostics/upstream-sync-20260909-image25/VERIFICATION.txt)，这两个基准的分配数保持不变。代码审查未发现新增数据库/网络访问；这些基准不代表真实出图吞吐或延迟。
 
 ### 增量验证
 
 本轮基线、修改后、Docker 构建与 PostgreSQL 18 + Redis 8 滚动升级/回退，以及独立副本文件回滚证据均记录在 [`diagnostics/upstream-sync-20260909-image25/VERIFICATION.txt`](../diagnostics/upstream-sync-20260909-image25/VERIFICATION.txt)。
+
+### 发布与最终回退
+
+本项目 [PR #39](https://github.com/DR-lin-eng/sub2api-no2api/pull/39) 已合并为 `596b57446ce4b087b809ea116b2770729a318c81`，该 SHA 的 [CI](https://github.com/DR-lin-eng/sub2api-no2api/actions/runs/34383935613)、[Security Scan](https://github.com/DR-lin-eng/sub2api-no2api/actions/runs/34383935817) 和 [Docker Image](https://github.com/DR-lin-eng/sub2api-no2api/actions/runs/34383935558) 均通过。GHCR `sha-596b574` 摘要为 `sha256:8d638da1dea34fdaa092220fb6d8ab7b33f2911c8b4bf2ae30fe95bf58179832`，包含 amd64/arm64。
+
+合并时保留了同期主线 `a65ac5551` 的分组模型白名单。该功能自带的迁移使最终基线从 292 条变为 293 条；这不属于 Image 2.5 批次新增迁移。最终文件回滚仅反向应用本批 16 个源码、测试和部署文件的 patch，保留 HEAD、同期主线提交、其他本地改动和未跟踪文件。审查台账和证据保留；冲突会在写入前使回滚停止。

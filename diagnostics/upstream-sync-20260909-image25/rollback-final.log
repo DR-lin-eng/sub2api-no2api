@@ -1,0 +1,7 @@
+COMMAND: /private/tmp/sub2api-review-20260909/diagnostics/upstream-sync-20260909-image25/ROLLBACK.sh /private/tmp/sub2api-image25-rollback-final
+INPUT: merged 596b57446ce4b087b809ea116b2770729a318c81 with unrelated README edit and untracked ROLLBACK_PROBE
+ROLLBACK status=restored HEAD=596b57446ce4b087b809ea116b2770729a318c81
+EXIT_STATUS=0
+ROLLBACK_FILE_CHECK=16/16
+UNRELATED_MAIN_AND_LOCAL_CHANGES=preserved
+MODIFIED_FILE=changed

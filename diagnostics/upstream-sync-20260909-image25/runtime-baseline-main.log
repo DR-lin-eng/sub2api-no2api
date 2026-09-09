@@ -1,0 +1,103 @@
+{
+  "phase": "baseline-main",
+  "image": "ghcr.io/dr-lin-eng/sub2api-no2api:sha-a65ac55",
+  "records": [
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-p",
+        "sub2api-sync-image25",
+        "-f",
+        "/private/tmp/sub2api-review-20260909/diagnostics/upstream-sync-20260909-image25/compose.yaml",
+        "up",
+        "-d",
+        "--wait",
+        "--wait-timeout",
+        "180"
+      ],
+      "stdout": "",
+      "stderr": " Container sub2api-sync-image25-db-1 Running \n Container sub2api-sync-image25-redis-1 Running \n Container sub2api-sync-image25-app-1 Recreate \n Container sub2api-sync-image25-app-1 Recreated \n Container sub2api-sync-image25-db-1 Waiting \n Container sub2api-sync-image25-redis-1 Waiting \n Container sub2api-sync-image25-db-1 Healthy \n Container sub2api-sync-image25-redis-1 Healthy \n Container sub2api-sync-image25-app-1 Starting \n Container sub2api-sync-image25-app-1 Started \n Container sub2api-sync-image25-app-1 Waiting \n Container sub2api-sync-image25-db-1 Waiting \n Container sub2api-sync-image25-redis-1 Waiting \n Container sub2api-sync-image25-redis-1 Healthy \n Container sub2api-sync-image25-db-1 Healthy \n Container sub2api-sync-image25-app-1 Healthy \n",
+      "exit_status": 0
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-p",
+        "sub2api-sync-image25",
+        "-f",
+        "/private/tmp/sub2api-review-20260909/diagnostics/upstream-sync-20260909-image25/compose.yaml",
+        "exec",
+        "-T",
+        "app",
+        "wget",
+        "-qO-",
+        "http://127.0.0.1:8080/health"
+      ],
+      "stdout": "{\"status\":\"ok\"}",
+      "stderr": "",
+      "exit_status": 0
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-p",
+        "sub2api-sync-image25",
+        "-f",
+        "/private/tmp/sub2api-review-20260909/diagnostics/upstream-sync-20260909-image25/compose.yaml",
+        "exec",
+        "-T",
+        "app",
+        "wget",
+        "-qO-",
+        "http://127.0.0.1:8080/ready"
+      ],
+      "stdout": "{\"ready\":true,\"node_id\":\"a1ec99340b00\",\"node_name\":\"a1ec99340b00\",\"current_version\":\"0.1.196\",\"draining\":false,\"in_flight\":0}",
+      "stderr": "",
+      "exit_status": 0
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-p",
+        "sub2api-sync-image25",
+        "-f",
+        "/private/tmp/sub2api-review-20260909/diagnostics/upstream-sync-20260909-image25/compose.yaml",
+        "exec",
+        "-T",
+        "db",
+        "psql",
+        "-U",
+        "sync_test",
+        "-d",
+        "sync_test",
+        "-Atc",
+        "select count(*) from schema_migrations; select max(filename) from schema_migrations; select count(*) from users; select count(*) from information_schema.columns where table_name='groups' and column_name='model_allowlist';"
+      ],
+      "stdout": "293\n239_add_usage_openai_timing.sql\n1\n1\n",
+      "stderr": "",
+      "exit_status": 0
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-p",
+        "sub2api-sync-image25",
+        "-f",
+        "/private/tmp/sub2api-review-20260909/diagnostics/upstream-sync-20260909-image25/compose.yaml",
+        "exec",
+        "-T",
+        "app",
+        "/app/sub2api",
+        "-version"
+      ],
+      "stdout": "2026-09-09T17:56:37.203Z\tINFO\tstdlog\tSub2API 0.1.196 (commit: a65ac5551f92692c78221b9e201a1cd60901bf99, built: 2026-09-09T15:42:53Z)\t{\"service\": \"sub2api\", \"env\": \"bootstrap\", \"legacy_stdlog\": true}\n",
+      "stderr": "",
+      "exit_status": 0
+    }
+  ]
+}
