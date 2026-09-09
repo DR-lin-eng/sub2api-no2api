@@ -4,6 +4,7 @@ Baseline commit: 5988d12c7b1c0c941bb41a5fd797c9af0b5ccda6
 Reviewed upstream boundary: 270eac6973049fe1b50eb75560a74a029e82884c..98d86915becae9fe9491a91ffc6defd5235c8d2b
 Reviewed PR: Wei-Shaw/sub2api#6874, merge 5de5e2bed035d43591a2e10e51f420ef6a84eb98
 Final code commit before tracking merge: 7608b0751cad5e9da90181784cc12ac5f4411c50
+Tracking merge commit: 569cde3e41c6474a1e95b30c4b1e9c2e7d7314a8 (tree-preserving merge of upstream/main at 98d86915b)
 Changed fields: Image 2.5 model catalog and whitelist; OAuth Images Responses driver; image input token usage; driver error cooling; image pricing; Compose environment wiring; account-test diagnostics.
 
 Artifacts:
