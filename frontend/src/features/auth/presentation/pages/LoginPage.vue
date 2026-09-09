@@ -248,7 +248,7 @@
     </div>
 
     <!-- Footer -->
-    <template v-if="!backendModeEnabled && !opaqueDocument" #footer>
+    <template v-if="!backendModeEnabled && !opaqueDocument && publicSettingsLoaded && registrationEnabled" #footer>
       <p class="text-gray-500 dark:text-dark-400">
         {{ t('auth.dontHaveAccount') }}
         <router-link
@@ -332,6 +332,7 @@ const passkeyLoading = ref<boolean>(false)
 const errorMessage = ref<string>('')
 const showPassword = ref<boolean>(false)
 const publicSettingsLoaded = ref<boolean>(false)
+const registrationEnabled = ref<boolean>(false)
 const settingsLoading = ref<boolean>(false)
 const settingsLoadFailed = ref<boolean>(false)
 const opaqueDocument = computed(() => isOpaqueDocument())
@@ -501,6 +502,7 @@ async function loadPublicSettings(force = false): Promise<void> {
     oidcOAuthProviderName.value = settings.oidc_oauth_provider_name || 'OIDC'
     githubOAuthEnabled.value = settings.github_oauth_enabled
     googleOAuthEnabled.value = settings.google_oauth_enabled
+    registrationEnabled.value = settings.registration_enabled === true
     passwordResetEnabled.value = settings.password_reset_enabled
     passkeyEnabled.value = settings.passkey_enabled === true
     applyLoginAgreementSettings(settings)

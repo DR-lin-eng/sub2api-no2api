@@ -716,3 +716,23 @@ describe('PaymentView WeChat JSAPI flow', () => {
     expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).toContain('weixin://wxpay/bizpayurl?pr=fallback-native')
   })
 })
+
+
+describe('Payment help rendering', () => {
+  it('renders sanitized Markdown inside the checkout help panel', async () => {
+    vi.useRealTimers()
+    routeState.path = '/purchase'
+    routeState.query = {}
+    window.localStorage.clear()
+    getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoFixture({ help_text: '**Help** <script>alert(1)</script>' }))
+    fetchActiveSubscriptions.mockReset().mockResolvedValue(undefined)
+    const wrapper = shallowMount(PaymentView, { global: { stubs: {
+      AppLayout: { template: '<div><slot /></div>' }, Teleport: true,
+    } } })
+    await flushPromises()
+    const help = wrapper.get('.markdown-body')
+    expect(help.html()).toContain('<strong>Help</strong>')
+    expect(help.html()).not.toContain('<script>')
+    wrapper.unmount()
+  })
+})

@@ -56,6 +56,7 @@ func TestProvideCleanup_WithMinimalDependencies_NoPanic(t *testing.T) {
 	userMessageQueueSvc := service.NewUserMessageQueueService(nil, nil, nil)
 
 	cleanup := provideCleanup(
+		nil, // channelService
 		nil, // entClient
 		nil, // redis
 		&service.OpsMetricsCollector{},

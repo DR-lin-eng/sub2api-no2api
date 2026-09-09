@@ -47,9 +47,20 @@ func TestClaudeCodeValidator_MessagesWithoutProbeStillNeedStrictValidation(t *te
 
 	ok := validator.Validate(req, map[string]any{
 		"model":      "claude-haiku-4-5",
-		"max_tokens": 1,
+		"max_tokens": 2,
 	})
 	require.False(t, ok)
+}
+
+func TestClaudeCodeValidator_ProbeBypassAllowsAnyModel(t *testing.T) {
+	validator := NewClaudeCodeValidator()
+	req := httptest.NewRequest(http.MethodPost, "http://example.com/v1/messages", nil)
+	req.Header.Set("User-Agent", "claude-cli/2.1.259 (darwin; arm64)")
+
+	require.True(t, validator.Validate(req, map[string]any{
+		"model":      "claude-opus-4-6",
+		"max_tokens": float64(1),
+	}))
 }
 
 func TestClaudeCodeValidator_CountTokensPathUAOnly(t *testing.T) {

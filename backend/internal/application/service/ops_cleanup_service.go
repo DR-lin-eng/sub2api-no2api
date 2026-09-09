@@ -220,7 +220,13 @@ func (s *OpsCleanupService) computeEffectiveLocked(ctx context.Context) {
 		}
 		return
 	}
-	var adv OpsAdvancedSettings
+	adv := OpsAdvancedSettings{DataRetention: OpsDataRetentionSettings{
+		CleanupEnabled:             base.Enabled,
+		CleanupSchedule:            base.Schedule,
+		ErrorLogRetentionDays:      base.ErrorLogRetentionDays,
+		MinuteMetricsRetentionDays: base.MinuteMetricsRetentionDays,
+		HourlyMetricsRetentionDays: base.HourlyMetricsRetentionDays,
+	}}
 	if err := json.Unmarshal([]byte(raw), &adv); err != nil {
 		logger.LegacyPrintf("service.ops_cleanup",
 			"[OpsCleanup] parse advanced settings failed, using cfg: %v", err)
@@ -301,12 +307,13 @@ func (s *OpsCleanupService) runCleanupOnce(ctx context.Context) (opsCleanupDelet
 	effective := s.snapshotEffective()
 	now := time.Now().UTC()
 
+	systemLogDays := s.systemLogRetentionDays(ctx, effective.ErrorLogRetentionDays)
 	targets := []opsCleanupTarget{
 		{effective.ErrorLogRetentionDays, "ops_error_logs", "created_at", false, &out.errorLogs},
 		{effective.ErrorLogRetentionDays, "ops_ingress_reject_aggregates", "bucket_start", false, &out.ingressRejects},
 		{effective.ErrorLogRetentionDays, "ops_alert_events", "created_at", false, &out.alertEvents},
-		{effective.ErrorLogRetentionDays, "ops_system_logs", "created_at", false, &out.systemLogs},
-		{effective.ErrorLogRetentionDays, "ops_system_log_cleanup_audits", "created_at", false, &out.logAudits},
+		{systemLogDays, "ops_system_logs", "created_at", false, &out.systemLogs},
+		{systemLogDays, "ops_system_log_cleanup_audits", "created_at", false, &out.logAudits},
 		{effective.MinuteMetricsRetentionDays, "ops_system_metrics", "created_at", false, &out.systemMetrics},
 		{effective.HourlyMetricsRetentionDays, "ops_metrics_hourly", "bucket_start", false, &out.hourlyPreagg},
 		{effective.HourlyMetricsRetentionDays, "ops_metrics_daily", "bucket_date", true, &out.dailyPreagg},

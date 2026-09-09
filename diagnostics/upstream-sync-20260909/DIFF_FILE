@@ -1,0 +1,18 @@
+BASE=dd31d9958d7d62c9e212e2c1ac54967cbd9d733a
+UPSTREAM=270eac6973049fe1b50eb75560a74a029e82884c
+BRANCH=codex/upstream-sync-20260909
+SOURCE_DIFF_COMMAND=git diff --binary HEAD
+SOURCE_DIFF_SHA256=55c5991de13a1a85535e659550427541273af14d291bcc40c49211c67367ea4b
+SOURCE_DIFF_STAT_COMMAND=git diff --stat HEAD
+SOURCE_DIFF_STAT= 80 files changed, 2180 insertions(+), 317 deletions(-)
+
+Semantic diff groups:
+- Proxy partial update preserves omitted nullable fields and clears only explicit null; repeated fallback retains first origin.
+- Proxy Ent inverse edge supports many primaries without a new migration; Redis range calls use ZRangeArgs.
+- Channel cache uses Redis pub/sub invalidation, atomic snapshots, generation checks, bounded singleflight reloads, and idempotent Stop.
+- OpenAI 429 no longer treats an unexhausted reset window as quota exhaustion; disabled fallback leaves the account eligible.
+- Chat-to-Responses stream forwarding cancels detached upstream context before body close; Grok raw Chat sanitizes unsupported fields.
+- Frontend payment Markdown is sanitized by a dedicated owner; registration, failed refresh selection, account menu positioning, proxy response shape, inactive groups, Antigravity plan type, and custom embed dragging are covered.
+- Ops cleanup keeps runtime system-log retention separate from advanced error-log retention; Apple Container subnet is optional.
+
+Untracked test/artifact files are listed by git status and included in this commit. Recreate the full binary patch with SOURCE_DIFF_COMMAND when reviewing.
