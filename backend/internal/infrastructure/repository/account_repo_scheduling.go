@@ -118,7 +118,7 @@ func (r *accountRepository) ListSchedulableCapacityByGroupIDs(ctx context.Contex
 			AND (a.overload_until IS NULL OR a.overload_until <= $3)
 			AND %s
 		ORDER BY ag.group_id ASC, ag.priority ASC, a.priority ASC, a.id ASC
-	`, strings.ReplaceAll(accountSchedulableTempUnschedulableSQL, "NOW()", "$3"), strings.ReplaceAll(accountSchedulableRateLimitSQL, "NOW()", "$3")), pq.Array(groupIDs), service.StatusActive, time.Now())
+	`, strings.ReplaceAll(accountSchedulableTempUnschedulableSQL(), "NOW()", "$3"), strings.ReplaceAll(accountSchedulableRateLimitSQL(), "NOW()", "$3")), pq.Array(groupIDs), service.StatusActive, time.Now())
 	if err != nil {
 		return nil, err
 	}

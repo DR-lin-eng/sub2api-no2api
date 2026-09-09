@@ -7,26 +7,45 @@ import (
 	dbaccount "github.com/Wei-Shaw/sub2api/ent/account"
 	dbpredicate "github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
 
 	entsql "entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqljson"
 )
 
-const (
-	codexPrewarmContinuationEnabledAccountSQL = `(a.platform = 'openai'
+const codexPrewarmContinuationEnabledAccountSQLPerAccount = `(a.platform = 'openai'
 		AND a.type = 'oauth'
 		AND COALESCE(a.extra, '{}'::jsonb) @> '{"codex_prewarm_continuation_enabled":true}'::jsonb)`
-	codexPrewarmContinuation429TempReasonSQL = `COALESCE(a.temp_unschedulable_reason, '') ~ '"status_code"[[:space:]]*:[[:space:]]*429[[:space:]]*([,}])'`
-	accountSchedulableRateLimitSQL           = `(a.rate_limit_reset_at IS NULL
+
+const codexPrewarmContinuation429TempReasonSQL = `COALESCE(a.temp_unschedulable_reason, '') ~ '"status_code"[[:space:]]*:[[:space:]]*429[[:space:]]*([,}])'`
+
+func codexPrewarmContinuationEnabledAccountSQL() string {
+	if codexsimulation.PrewarmContinuationEnabled() {
+		return `(a.platform = 'openai' AND a.type = 'oauth')`
+	}
+	return codexPrewarmContinuationEnabledAccountSQLPerAccount
+}
+
+func accountSchedulableRateLimitSQL() string {
+	return `(a.rate_limit_reset_at IS NULL
 		OR a.rate_limit_reset_at <= NOW()
-		OR ` + codexPrewarmContinuationEnabledAccountSQL + `)`
-	accountSchedulableTempUnschedulableSQL = `(a.temp_unschedulable_until IS NULL
+		OR ` + codexPrewarmContinuationEnabledAccountSQL() + `)`
+}
+
+func accountSchedulableTempUnschedulableSQL() string {
+	return `(a.temp_unschedulable_until IS NULL
 		OR a.temp_unschedulable_until <= NOW()
-		OR (` + codexPrewarmContinuationEnabledAccountSQL + `
+		OR (` + codexPrewarmContinuationEnabledAccountSQL() + `
 			AND ` + codexPrewarmContinuation429TempReasonSQL + `))`
-)
+}
 
 func codexPrewarmContinuationEnabledAccountPredicate() dbpredicate.Account {
+	if codexsimulation.PrewarmContinuationEnabled() {
+		return dbaccount.And(
+			dbaccount.PlatformEQ(service.PlatformOpenAI),
+			dbaccount.TypeEQ(service.AccountTypeOAuth),
+		)
+	}
 	return dbaccount.And(
 		dbaccount.PlatformEQ(service.PlatformOpenAI),
 		dbaccount.TypeEQ(service.AccountTypeOAuth),
@@ -41,6 +60,12 @@ func codexPrewarmContinuationEnabledAccountPredicate() dbpredicate.Account {
 }
 
 func codexPrewarmContinuationDisabledAccountPredicate() dbpredicate.Account {
+	if codexsimulation.PrewarmContinuationEnabled() {
+		return dbaccount.Or(
+			dbaccount.PlatformNEQ(service.PlatformOpenAI),
+			dbaccount.TypeNEQ(service.AccountTypeOAuth),
+		)
+	}
 	return dbaccount.Or(
 		dbaccount.PlatformNEQ(service.PlatformOpenAI),
 		dbaccount.TypeNEQ(service.AccountTypeOAuth),

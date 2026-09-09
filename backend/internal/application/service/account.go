@@ -16,6 +16,7 @@ import (
 	moduleegress "github.com/Wei-Shaw/sub2api/internal/modules/egress"
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	platformegress "github.com/Wei-Shaw/sub2api/internal/platform/egress"
+	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
 	"github.com/Wei-Shaw/sub2api/internal/shared/openai_compat"
 	"github.com/Wei-Shaw/sub2api/internal/shared/xai"
 )
@@ -1570,9 +1571,16 @@ func (a *Account) IsOpenAIOAuth() bool {
 // IsCodexPrewarmContinuationEnabled reports whether this OpenAI OAuth account
 // should use the opt-in Codex continuation bundle: empty generate=false
 // prewarm, native-history developer roles, and request header overrides.
-// Missing or non-boolean values remain opt-out.
+// The system force switch overrides account values. Otherwise missing or
+// non-boolean values remain opt-out.
 func (a *Account) IsCodexPrewarmContinuationEnabled() bool {
-	if a == nil || !a.IsOpenAIOAuth() || a.Extra == nil {
+	if a == nil || !a.IsOpenAIOAuth() {
+		return false
+	}
+	if codexsimulation.PrewarmContinuationEnabled() {
+		return true
+	}
+	if a.Extra == nil {
 		return false
 	}
 	enabled, ok := a.Extra[CodexPrewarmContinuationExtraKey].(bool)

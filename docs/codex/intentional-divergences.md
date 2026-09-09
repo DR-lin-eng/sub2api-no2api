@@ -139,6 +139,8 @@ YAML。点击“强制恢复原版行为”会调用无请求体的 `POST .../co
 不受旧文件中启用值影响。已有模拟 WS 会在下一轮关闭并通过重连进入原版路径。首次启用时后端自动生成
 共享身份密钥，管理 API
 只公开 `identity_secret_configured`，不会返回密钥内容。
+系统级 `codex_prewarm_continuation_force_enabled` 开启后会覆盖账号级关闭值，并让后续创建或导入的
+OpenAI OAuth 账号自动保存 `codex_prewarm_continuation_enabled=true`。
 
 下列 YAML 只保留为数据库尚无记录时的兼容默认值：
 

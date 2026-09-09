@@ -5,6 +5,7 @@ package codexsimulation
 import "sync/atomic"
 
 var cLevelEnabled atomic.Bool
+var prewarmContinuationEnabled atomic.Bool
 
 // SetCLevelEnabled updates the administrator-controlled C-level transport
 // simulation switch. The setting service is the authoritative writer.
@@ -16,4 +17,18 @@ func SetCLevelEnabled(enabled bool) {
 // Request adapters use an atomic read and never query the database.
 func CLevelEnabled() bool {
 	return cLevelEnabled.Load()
+}
+
+// SetPrewarmContinuationEnabled updates the administrator-controlled global
+// Codex account prewarm switch. Account and repository scheduling paths use
+// this process-local value so the switch is enforced without a database read
+// on request hot paths.
+func SetPrewarmContinuationEnabled(enabled bool) {
+	prewarmContinuationEnabled.Store(enabled)
+}
+
+// PrewarmContinuationEnabled reports the current global Codex account prewarm
+// switch.
+func PrewarmContinuationEnabled() bool {
+	return prewarmContinuationEnabled.Load()
 }
