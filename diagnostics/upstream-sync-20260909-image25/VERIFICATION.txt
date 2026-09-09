@@ -7,7 +7,7 @@ Upstream PR: https://github.com/Wei-Shaw/sub2api/pull/6874
 Upstream merge: 5de5e2bed035d43591a2e10e51f420ef6a84eb98
 Tracking merge: 569cde3e41c6474a1e95b30c4b1e9c2e7d7314a8 (tree preserved)
 Project PR: https://github.com/DR-lin-eng/sub2api-no2api/pull/39
-Project merge: 596b57446ce4b087b809ea116b2770729a318c81
+Project PR merge: 596b57446ce4b087b809ea116b2770729a318c81
 Merge-time main baseline: a65ac5551f92692c78221b9e201a1cd60901bf99
 Version: 0.1.196; upstream VERSION=0.2.4 was reviewed but not imported.
 
@@ -162,3 +162,10 @@ Input: independent copy at HEAD 596b57446 with the batch applied, an unrelated R
 Command: python3 - (checked each path in `git diff --name-only 5988d12c7 ec9a79798 -- backend deploy frontend` and then inspected HEAD/README/ROLLBACK_PROBE)
 Literal output: ROLLBACK semantic result: 16/16 batch paths restored to 5988d12c7; HEAD=596b57446 preserved; README and ROLLBACK_PROBE preserved; exit status=0
 Result: changed branch state and unrelated worktree state remain intact while the reviewed batch is restorable.
+
+FINAL MAIN EVIDENCE COMMIT:
+After the PR merge, preserving rollback evidence was pushed as `bd3d78d5eb5663238bac383d94177564f74c4bd5` on `origin/main`.
+CI run 34386819340: success; duplicate CI run 34386819943: success; Security Scan runs 34386819564 and 34386819835: success; Docker Image run 34386819884: success.
+GHCR command: BUILDX_CONFIG=/private/tmp/sub2api-review-buildx docker buildx imagetools inspect ghcr.io/dr-lin-eng/sub2api-no2api:sha-bd3d78d
+Literal result: Digest sha256:b0fb7701692047592ef65b2751ea2e862ff51f4a9a947d47a75f8fd880d611ff; manifests linux/amd64 and linux/arm64 plus attestations; exit status 0.
+The Docker publish log identifies `org.opencontainers.image.revision=bd3d78d5eb5663238bac383d94177564f74c4bd5`.
