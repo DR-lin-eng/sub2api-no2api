@@ -58,3 +58,25 @@
 ## 验证与差异关闭
 
 基线和修改后命令、字面输出、退出状态、Docker 镜像摘要、运行时升级/回退和独立副本回滚记录在 [`diagnostics/upstream-sync-20260909/VERIFICATION.txt`](../diagnostics/upstream-sync-20260909/VERIFICATION.txt)。完成验证后以 tree-preserving tracking merge 关闭固定上游 SHA；以后只从该 SHA 之后重新审查。
+
+## 增量批次：上游 PR #6874（2026-09-10）
+
+本轮从已关闭边界 `270eac6973049fe1b50eb75560a74a029e82884c` 继续审查到上游 `98d86915becae9fe9491a91ffc6defd5235c8d2b`。区间内唯一功能 PR 是 #6874（Image 2.5 OAuth），随后仅有上游版本提交 `0.2.4`；版本号不进入本项目，继续保留当前 `0.1.196` 兼容契约。
+
+| 上游差异 | 当前 owner 与处理 | 升级与性能边界 |
+| --- | --- | --- |
+| #6874 Image 2.5 模型目录 | `internal/shared/openai` 与管理端模型白名单加入 `gpt-image-2.5-flare`、`gpt-image-2.5-sunburst`；图片定价资源加入两个模型及 `2026-09-08` 日期快照。 | 仅增加静态目录项；显式账号/分组白名单仍是最终权限，旧账号和旧请求不改变。 |
+| #6874 OAuth Images 主控 | 图片 Responses 主控默认从已下线的 `gpt-5.4-mini` 切换为 `gpt-5.6-luna`；`SUB2API_IMAGES_MAIN_MODEL` 可在 Compose 重启后覆盖。图片工具模型与文本主控保持独立。 | 读取一次短环境变量并复用既有请求构造；无迁移、无额外 I/O、无新增 goroutine。 |
+| #6874 图片用量与错误 | `tool_usage.image_gen.input_tokens_details.image_tokens` 进入 `ImageInputTokens` 并受总输入 token 上限约束；主控模型被拒时直接透传错误，避免错误冷却图片能力；管理端测试显示主控/图片模型并识别 HTTP 200 SSE 错误。 | 保留现有计费分离和失败切换边界；只在错误或图片路径读取结构化字段。 |
+
+### 差异关闭
+
+上游 PR #6874 已按本项目 `transport -> application -> domain` owner 选择性移植；上游 legacy `internal/service`、`internal/pkg`、旧前端路径和 `VERSION=0.2.4` 不直接合入。上一批 `14e0a49e..270eac697` 的差异继续关闭，后续只审查 `98d86915b` 之后的新提交。
+
+### 性能结论
+
+图片主控覆盖只影响图片请求和含图片工具的 Responses 归一化；模型白名单和定价均为有界静态查找。Docker microbenchmark 对比记录在 [`diagnostics/upstream-sync-20260909-image25/VERIFICATION.txt`](../diagnostics/upstream-sync-20260909-image25/VERIFICATION.txt)，未观察到额外分配或高频数据库/网络访问。
+
+### 增量验证
+
+本轮基线、修改后、Docker 构建与 PostgreSQL 18 + Redis 8 滚动升级/回退，以及独立副本文件回滚证据均记录在 [`diagnostics/upstream-sync-20260909-image25/VERIFICATION.txt`](../diagnostics/upstream-sync-20260909-image25/VERIFICATION.txt)。
