@@ -2,6 +2,7 @@ Object: upstream selective sync and performance review
 Changed branch: codex/upstream-sync-20260909
 Baseline commit: dd31d9958d7d62c9e212e2c1ac54967cbd9d733a
 Reviewed upstream: 14e0a49e17afebf62c5f788f4ef1dc8eef56ac76..270eac6973049fe1b50eb75560a74a029e82884c
+Latest fork main included before push: b337c6b9f23a8ffb987ecb10fa58a40fac3cadc6 (PR #37 Codex prewarm switch)
 Changed fields: proxy nullable update semantics; proxy backup inverse edge; fallback origin; JSON date bounds; Redis range API; channel cache pub/sub; OpenAI 429 fallback; Chat-to-Responses cancellation; Grok field sanitization; plaza subscriptions; registration/payment/account UI; Apple subnet; Ops retention.
 Artifacts:
   MODIFIED_FILE=diagnostics/upstream-sync-20260909/MODIFIED_FILE
@@ -19,6 +20,7 @@ BASELINE result: channel_cache_hit 20.52/20.54/20.58 ns/op, 0 allocs; grok_witho
 MODIFIED command:
 docker exec sub2api-sync-1t87-go sh -c 'go test -mod=mod -vet=off -p=1 -tags=unit ./internal/application/service ./internal/infrastructure/repository ./internal/transport/http/handler/admin'
 MODIFIED result: exit 0; service 182.634s, repository 6.633s, focused handler tests passed.
+Latest-main regression: `go test ... -run "CodexPrewarm|SettingCodexSimulation"` -> ok, exit 0.
 MODIFIED frontend command:
 docker exec sub2api-sync-1t87-frontend sh -c 'pnpm exec vitest run src/features/billing src/features/auth src/features/admin-proxies src/features/admin-accounts src/features/channels-user src/__tests__/dynamicHtmlSecurity.spec.ts && pnpm run typecheck && pnpm run lint:check'
 MODIFIED frontend result: 105 files, 793 tests passed; typecheck and eslint passed; exit 0.
