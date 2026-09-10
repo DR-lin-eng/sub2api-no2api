@@ -819,3 +819,11 @@ provider parameters and account isolation, not a byte-identical cross-platform J
 ### Claude CLI 兼容版本
 
 `SUB2API_CLAUDE_CLI_VERSION` 可选，默认空值保留内置版本；只接受不低于内置 pin 的稳定三段版本。进程启动时解析一次，修改或移除后重新创建应用容器。数据库和账号配置格式保持不变。
+
+## OAuth Images 主控模型
+
+OAuth Images 请求通过 Responses 文本主控调用 `image_generation`；默认主控为 `gpt-5.6-luna`。`SUB2API_IMAGES_MAIN_MODEL` 可覆盖主控，图片工具内的 Flare、Sunburst 等模型保持所选值，已提供文本主控的 Responses 请求保持原值。
+
+Compose 用户修改 `.env` 后，在部署目录执行 `docker compose up -d sub2api`，使容器重新创建并加载环境变量。已有 Compose 文件也需加入该变量的 environment 转发；四个当前 Compose 示例均已接线。二进制部署在服务环境中设置该变量并重启进程。
+
+显式账号映射或分组白名单需按需加入新图片模型；升级不会自动扩大这些权限。默认图片模型仍为 `gpt-image-2`。本批未新增数据库迁移，价格覆盖继续按现有分组、渠道和价格目录优先级处理。

@@ -1,0 +1,181 @@
+Object: upstream PR #6874 Image 2.5 OAuth selective sync
+Changed branch: codex/upstream-sync-20260909-image25
+Changed fields: OpenAI image catalog, OAuth Images driver, image input token accounting, driver rejection handling, account-test errors, Compose driver environment.
+Code baseline: 5988d12c7b1c0c941bb41a5fd797c9af0b5ccda6
+Reviewed upstream: 270eac6973049fe1b50eb75560a74a029e82884c..98d86915becae9fe9491a91ffc6defd5235c8d2b
+Upstream PR: https://github.com/Wei-Shaw/sub2api/pull/6874
+Upstream merge: 5de5e2bed035d43591a2e10e51f420ef6a84eb98
+Tracking merge: 569cde3e41c6474a1e95b30c4b1e9c2e7d7314a8 (tree preserved)
+Project PR: https://github.com/DR-lin-eng/sub2api-no2api/pull/39
+Project PR merge: 596b57446ce4b087b809ea116b2770729a318c81
+Merge-time main baseline: a65ac5551f92692c78221b9e201a1cd60901bf99
+Version: 0.1.196; upstream VERSION=0.2.4 was reviewed but not imported.
+
+Artifacts (absolute paths in this review checkout):
+  MODIFIED_FILE=/private/tmp/sub2api-review-20260909/diagnostics/upstream-sync-20260909-image25/MODIFIED_FILE
+  DIFF_FILE=/private/tmp/sub2api-review-20260909/diagnostics/upstream-sync-20260909-image25/DIFF_FILE
+  VERIFICATION.txt=/private/tmp/sub2api-review-20260909/diagnostics/upstream-sync-20260909-image25/VERIFICATION.txt
+  ROLLBACK.sh=/private/tmp/sub2api-review-20260909/diagnostics/upstream-sync-20260909-image25/ROLLBACK.sh
+
+SHA-256:
+  MODIFIED_FILE.baseline: 8bcb687cbd0ed136bce5639518d5099226654e498b5600dc01f022641a46502d
+  MODIFIED_FILE: e91bf4d71c4181dc40b8800ac28113e4f0fbef70c01167f35d90e4aa500000fd
+  DIFF_FILE: 14b7145dc056487ce70a505e3292f7c019849b053c3314fc7b3c9138e1a1d360
+  ROLLBACK.sh: 75fb21a4596c3683e3b8a6c736e784a9ecce9b6bcfc5f21534a0b29dea562fe1
+
+BASELINE command (cwd: /private/tmp/sub2api-review-20260909; tree was 5988d12c7):
+docker run --rm -e GOMAXPROCS=2 -e GOMEMLIMIT=3GiB -e GOPROXY=https://proxy.golang.org,direct -e GOSUMDB=sum.golang.org -v /private/tmp/sub2api-review-20260909:/src -v /private/tmp/sub2api-review-cache:/go -w /src/backend golang:1.26.6-alpine sh -c 'go test -mod=mod -vet=off -p=1 -tags=unit ./internal/application/service ./internal/shared/openai ./internal/transport/http/handler/admin'
+BASELINE input: existing unit fixtures, no production credentials.
+BASELINE output:
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	194.761s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openai	0.002s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.511s
+BASELINE exit status: 0.
+
+MODIFIED command (same cwd):
+docker run --rm -e GOMAXPROCS=2 -e GOMEMLIMIT=3GiB -e GOPROXY=https://proxy.golang.org,direct -e GOSUMDB=sum.golang.org -v /private/tmp/sub2api-review-20260909:/src -v /private/tmp/sub2api-review-cache:/go -w /src/backend golang:1.26.6-alpine sh -c 'go test -mod=mod -vet=off -p=1 -tags=unit ./...'
+MODIFIED input: all backend unit fixtures, including default/override driver, image model preservation, image input usage and SSE error cases.
+MODIFIED output excerpts:
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	193.857s
+ok  	github.com/Wei-Shaw/sub2api/internal/infrastructure/repository	6.922s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	40.892s
+ok  	github.com/Wei-Shaw/sub2api/migrations	0.002s
+MODIFIED result: all packages passed; exit status 0.
+The later added driver-rejection regression also passed in the focused suite (1.164s, exit 0).
+
+Focused race command:
+docker run --rm -e CGO_ENABLED=1 -e GOMAXPROCS=2 -e GOMEMLIMIT=3GiB -e GOPROXY=https://proxy.golang.org,direct -e GOSUMDB=sum.golang.org -v /private/tmp/sub2api-review-20260909:/src -v /private/tmp/sub2api-review-cache:/go -w /src/backend golang:1.26.6-bookworm sh -c 'go test -mod=mod -vet=off -p=1 -race -tags=unit ./internal/application/service -run "Test(OpenAIImages|NormalizeOpenAIResponsesImageOnlyModel|GPTImage25|AccountTestService_OpenAIImageOAuth)" -count=1'
+Output: ok  github.com/Wei-Shaw/sub2api/internal/application/service 2.254s
+Exit status: 0. The last driver-rejection test was added after this local race run.
+
+Frontend command:
+docker run --rm -e CI=true -v /private/tmp/sub2api-review-20260909:/src -v /private/tmp/sub2api-pnpm-store:/pnpm-store -w /src/frontend node:24-bookworm sh -c 'corepack enable && pnpm config set store-dir /pnpm-store && pnpm install --frozen-lockfile && pnpm exec vitest run src/features/admin-accounts/presentation/composables/__tests__/useModelWhitelist.spec.ts && pnpm run typecheck'
+Result: 1 file / 15 tests passed; typecheck passed; exit status 0.
+A subsequent Docker `pnpm run lint:check -- src/features/admin-accounts/presentation/composables/useModelWhitelist.ts` also passed, exit 0.
+Four Compose variants parsed with explicit fixture database variables; JSON pricing validation and make check-docs passed.
+
+PERFORMANCE command (run for baseline then candidate mount):
+docker run --rm -e GOMAXPROCS=2 -e GOMEMLIMIT=3GiB -e GOPROXY=https://proxy.golang.org,direct -e GOSUMDB=sum.golang.org -v /private/tmp/sub2api-review-baseline-20260909:/src -v /private/tmp/sub2api-review-cache:/go -w /src/backend golang:1.26.6-alpine sh -c 'go test -mod=mod -vet=off -p=1 -tags=unit -run "^$" -bench "Benchmark(OpenAIPassthroughImageIntentReuse_LargeBody|PricingServiceGetIdentifiedModelPricing)$" -benchmem -count=3 ./internal/application/service'
+Candidate command changed only source mount to /private/tmp/sub2api-review-20260909:/src.
+Baseline samples:
+  Once: 25639683 / 25710407 / 25472462 ns/op; 0 B/op; 0 allocs/op.
+  Twice: 50596206 / 50793024 / 50643366 ns/op; 0 B/op; 0 allocs/op.
+  Pricing sonnet: 481.8 / 479.3 / 492.4 ns/op; 176 B/op; 3 allocs/op.
+  Pricing opus: 523.0 / 526.8 / 521.3 ns/op; 176 B/op; 3 allocs/op.
+Candidate samples:
+  Once: 25495370 / 25560101 / 25683149 ns/op; 0 B/op; 0 allocs/op.
+  Twice: 50981394 / 51057788 / 50780564 ns/op; 0 B/op; 0 allocs/op.
+  Pricing sonnet: 470.6 / 472.6 / 465.4 ns/op; 176 B/op; 3 allocs/op.
+  Pricing opus: 513.8 / 511.4 / 516.9 ns/op; 176 B/op; 3 allocs/op.
+Both runs: PASS; exit status 0. No allocation increase in these existing image-intent and identified-pricing paths. These samples do not measure image generation latency or new-model fallback cost. Source review found no new request-level DB/network calls or background workers.
+
+DOCKER BUILDS (cwd candidate and baseline checkout respectively):
+BUILDX_CONFIG=/private/tmp/sub2api-review-buildx docker build --progress=plain --build-arg GOPROXY=https://proxy.golang.org,direct --build-arg GOSUMDB=sum.golang.org --build-arg VERSION=0.1.196 --build-arg COMMIT=codex-upstream-sync-20260909-image25 -t sub2api-upstream-sync-20260909-image25:modified -f Dockerfile .
+Result: sha256:08e43a7c170119602bb943664799ada9d381d9f70129b04d6f6c23fedde8762b; exit 0.
+BUILDX_CONFIG=/private/tmp/sub2api-review-baseline-buildx docker build --progress=plain --build-arg GOPROXY=https://proxy.golang.org,direct --build-arg GOSUMDB=sum.golang.org --build-arg VERSION=0.1.196 --build-arg COMMIT=baseline-5988d12c7 -t sub2api-upstream-sync-20260909-image25:baseline -f Dockerfile .
+Result: sha256:11ff1164daa217b78091587b061244f72cfcdf1f2538f74d287f5b08a9b21f03; exit 0.
+Initial baseline 5988d12c7 -> candidate -> baseline runtime: health ok, ready true, migration count 292, latest filename 239_add_usage_openai_timing.sql, users 1 throughout.
+
+FINAL MERGED RUNTIME (isolated PostgreSQL 18 + Redis 8):
+The merge retained a65ac5551's independent model_allowlist migration. The final baseline has 293 migrations; Image 2.5 itself adds none.
+
+Command: python3 /private/tmp/sub2api-review-20260909/diagnostics/upstream-sync-20260909-image25/runtime_check.py baseline-main ghcr.io/dr-lin-eng/sub2api-no2api:sha-a65ac55
+Input: the same persisted fixture DB/app volumes; see runtime-baseline-main.log for every Docker command and unabridged output.
+health literal output:
+{"status":"ok"}ready literal output:
+{"ready":true,"node_id":"a1ec99340b00","node_name":"a1ec99340b00","current_version":"0.1.196","draining":false,"in_flight":0}schema/users/allowlist literal output:
+293
+239_add_usage_openai_timing.sql
+1
+1
+binary literal output:
+2026-09-09T17:56:37.203Z	INFO	stdlog	Sub2API 0.1.196 (commit: a65ac5551f92692c78221b9e201a1cd60901bf99, built: 2026-09-09T15:42:53Z)	{"service": "sub2api", "env": "bootstrap", "legacy_stdlog": true}
+Result: health=ok, ready=true, migrations=293, users=1, model_allowlist=present; exit status 0.
+
+Command: python3 /private/tmp/sub2api-review-20260909/diagnostics/upstream-sync-20260909-image25/runtime_check.py modified-main ghcr.io/dr-lin-eng/sub2api-no2api@sha256:8d638da1dea34fdaa092220fb6d8ab7b33f2911c8b4bf2ae30fe95bf58179832
+Input: the same persisted fixture DB/app volumes; see runtime-modified-main.log for every Docker command and unabridged output.
+health literal output:
+{"status":"ok"}ready literal output:
+{"ready":true,"node_id":"d6bdee90cbd9","node_name":"d6bdee90cbd9","current_version":"0.1.196","draining":false,"in_flight":0}schema/users/allowlist literal output:
+293
+239_add_usage_openai_timing.sql
+1
+1
+binary literal output:
+2026-09-09T17:58:13.652Z	INFO	stdlog	Sub2API 0.1.196 (commit: 596b57446ce4b087b809ea116b2770729a318c81, built: 2026-09-09T17:38:34Z)	{"service": "sub2api", "env": "bootstrap", "legacy_stdlog": true}
+Result: health=ok, ready=true, migrations=293, users=1, model_allowlist=present; exit status 0.
+
+Command: python3 /private/tmp/sub2api-review-20260909/diagnostics/upstream-sync-20260909-image25/runtime_check.py rollback-main ghcr.io/dr-lin-eng/sub2api-no2api@sha256:c827d487106ec1ed7897fcd309d01d228fc439e6504d012c3eac56d065780c56
+Input: the same persisted fixture DB/app volumes; see runtime-rollback-main.log for every Docker command and unabridged output.
+health literal output:
+{"status":"ok"}ready literal output:
+{"ready":true,"node_id":"848c11356d54","node_name":"848c11356d54","current_version":"0.1.196","draining":false,"in_flight":0}schema/users/allowlist literal output:
+293
+239_add_usage_openai_timing.sql
+1
+1
+binary literal output:
+2026-09-09T17:58:39.465Z	INFO	stdlog	Sub2API 0.1.196 (commit: a65ac5551f92692c78221b9e201a1cd60901bf99, built: 2026-09-09T15:42:53Z)	{"service": "sub2api", "env": "bootstrap", "legacy_stdlog": true}
+Result: health=ok, ready=true, migrations=293, users=1, model_allowlist=present; exit status 0.
+
+Command: python3 /private/tmp/sub2api-review-20260909/diagnostics/upstream-sync-20260909-image25/runtime_check.py restored-main ghcr.io/dr-lin-eng/sub2api-no2api@sha256:8d638da1dea34fdaa092220fb6d8ab7b33f2911c8b4bf2ae30fe95bf58179832
+Input: the same persisted fixture DB/app volumes; see runtime-restored-main.log for every Docker command and unabridged output.
+health literal output:
+{"status":"ok"}ready literal output:
+{"ready":true,"node_id":"110079ad1f47","node_name":"110079ad1f47","current_version":"0.1.196","draining":false,"in_flight":0}schema/users/allowlist literal output:
+293
+239_add_usage_openai_timing.sql
+1
+1
+binary literal output:
+2026-09-09T17:59:14.273Z	INFO	stdlog	Sub2API 0.1.196 (commit: 596b57446ce4b087b809ea116b2770729a318c81, built: 2026-09-09T17:38:34Z)	{"service": "sub2api", "env": "bootstrap", "legacy_stdlog": true}
+Result: health=ok, ready=true, migrations=293, users=1, model_allowlist=present; exit status 0.
+
+FINAL FILE ROLLBACK:
+COMMAND: /private/tmp/sub2api-review-20260909/diagnostics/upstream-sync-20260909-image25/ROLLBACK.sh /private/tmp/sub2api-image25-rollback-final
+INPUT: merged 596b57446ce4b087b809ea116b2770729a318c81 with unrelated README edit and untracked ROLLBACK_PROBE
+ROLLBACK status=restored HEAD=596b57446ce4b087b809ea116b2770729a318c81
+EXIT_STATUS=0
+ROLLBACK_FILE_CHECK=16/16
+UNRELATED_MAIN_AND_LOCAL_CHANGES=preserved
+MODIFIED_FILE=changed
+Conflict probe: changed the driver line in the independent copy before invoking ROLLBACK.sh. Exit status 1; the complete git diff remained byte-identical. After removing that synthetic conflict, rollback succeeded again. The script now applies only the checked reverse patch; it does not reset HEAD or clean unrelated files.
+
+PUBLICATION:
+PR head ec9a79798dbe5f539aede32393de126d54e67dc7: CI 34382784411, Docker Image 34382784382, Security Scan 34382784427 all success.
+Merged 596b57446ce4b087b809ea116b2770729a318c81: CI 34383935613 (unit + integration), Docker Image 34383935558, Security Scan 34383935817 all success.
+GHCR command: BUILDX_CONFIG=/private/tmp/sub2api-review-buildx docker buildx imagetools inspect ghcr.io/dr-lin-eng/sub2api-no2api:sha-596b574
+Digest: sha256:8d638da1dea34fdaa092220fb6d8ab7b33f2911c8b4bf2ae30fe95bf58179832
+Platforms: linux/amd64, linux/arm64 (plus attestations). Exit status 0.
+The Docker workflow logs and pulled binary both identify revision 596b57446ce4b087b809ea116b2770729a318c81.
+
+Resolved environment issues: empty Go cache with GOPROXY=off failed setup; network-enabled rerun passed. Alpine race required cgo/Bookworm. Compose required fixture database variables. Buildx and gh log caches were moved to writable temporary paths. The first psql check omitted its password; the explicit fixture password check passed. A full-length SHA Docker tag was absent; the workflow's short SHA tag was verified. No live provider image generation or production throughput test was performed.
+
+FINAL rollback Docker regression command (run with source held unchanged):
+docker run --rm -e GOMAXPROCS=2 -e GOMEMLIMIT=3GiB -v /private/tmp/sub2api-image25-rollback-final:/src -v /private/tmp/sub2api-review-cache:/go -w /src/backend golang:1.26.6-alpine sh -c 'go test -vet=off -p=1 -tags=unit ./internal/application/service -run "Test(BuildOpenAIImages|NormalizeOpenAIResponsesImageOnlyModel|AccountTestService_OpenAIImage|GroupModelAllowlist)" -count=1'
+Literal output:
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.009s
+Exit status: 0. Image baseline behavior and same-main group allowlist checks passed.
+
+Rollback semantic preservation (final merged HEAD):
+Input: independent copy at HEAD 596b57446 with the batch applied, an unrelated README change, and untracked ROLLBACK_PROBE.
+Command: python3 - (checked each path in `git diff --name-only 5988d12c7 ec9a79798 -- backend deploy frontend` and then inspected HEAD/README/ROLLBACK_PROBE)
+Literal output: ROLLBACK semantic result: 16/16 batch paths restored to 5988d12c7; HEAD=596b57446 preserved; README and ROLLBACK_PROBE preserved; exit status=0
+Result: changed branch state and unrelated worktree state remain intact while the reviewed batch is restorable.
+
+FINAL MAIN EVIDENCE COMMIT:
+After the PR merge, preserving rollback evidence was pushed as `bd3d78d5eb5663238bac383d94177564f74c4bd5` on `origin/main`.
+CI run 34386819340: success; duplicate CI run 34386819943: success; Security Scan runs 34386819564 and 34386819835: success; Docker Image run 34386819884: success.
+GHCR command: BUILDX_CONFIG=/private/tmp/sub2api-review-buildx docker buildx imagetools inspect ghcr.io/dr-lin-eng/sub2api-no2api:sha-bd3d78d
+Literal result: Digest sha256:b0fb7701692047592ef65b2751ea2e862ff51f4a9a947d47a75f8fd880d611ff; manifests linux/amd64 and linux/arm64 plus attestations; exit status 0.
+The Docker publish log identifies `org.opencontainers.image.revision=bd3d78d5eb5663238bac383d94177564f74c4bd5`.
+
+FINAL DOCUMENTATION COMMIT:
+`30528f2ac2c5bfc046737f280650ba468a08d7cd` was pushed after the evidence correction. CI runs 34388076606 and 34388077332, Security Scan runs 34388076615 and 34388077078, and Docker Image run 34388076960 all completed success.
+GHCR command: BUILDX_CONFIG=/private/tmp/sub2api-review-buildx docker buildx imagetools inspect ghcr.io/dr-lin-eng/sub2api-no2api:sha-30528f2
+Literal result: Digest sha256:94bf0ed9a972c7491301bd11fed8d7a660a9c3a97ff3372de940dc4abe6c785c; linux/amd64 and linux/arm64 manifests plus attestations; exit status 0.
+
+FINAL DOCUMENTATION CLOSE:
+Commit `06e524e0e44c2d0a1fec0b85555cf82286657a81` carries the final documentation correction. CI runs 34389657463 and 34389659245, Security Scan runs 34389657500 and 34389658670, and Docker Image run 34389658437 completed success.
+GHCR command: BUILDX_CONFIG=/private/tmp/sub2api-review-buildx docker buildx imagetools inspect ghcr.io/dr-lin-eng/sub2api-no2api:sha-06e524e
+Literal result: Digest sha256:15eba59a18b517ac35bdd8509f33ca855bc0c05dd6e185d91d81c3ce384d4e12; linux/amd64 and linux/arm64 plus attestations; exit status 0.

@@ -58,3 +58,38 @@
 ## 验证与差异关闭
 
 基线和修改后命令、字面输出、退出状态、Docker 镜像摘要、运行时升级/回退和独立副本回滚记录在 [`diagnostics/upstream-sync-20260909/VERIFICATION.txt`](../diagnostics/upstream-sync-20260909/VERIFICATION.txt)。完成验证后以 tree-preserving tracking merge 关闭固定上游 SHA；以后只从该 SHA 之后重新审查。
+
+## 增量批次：上游 PR #6874（2026-09-10）
+
+本轮从已关闭边界 `270eac6973049fe1b50eb75560a74a029e82884c` 继续审查到上游 `98d86915becae9fe9491a91ffc6defd5235c8d2b`。区间内唯一功能 PR 是 #6874（Image 2.5 OAuth），随后仅有上游版本提交 `0.2.4`；版本号不进入本项目，继续保留当前 `0.1.196` 兼容契约。
+
+| 上游差异 | 当前 owner 与处理 | 升级与性能边界 |
+| --- | --- | --- |
+| #6874 Image 2.5 模型目录 | `internal/shared/openai` 与管理端模型白名单加入 `gpt-image-2.5-flare`、`gpt-image-2.5-sunburst`；图片定价资源加入两个模型及 `2026-09-08` 日期快照。 | 仅增加静态目录项；显式账号/分组白名单不会自动扩展。 |
+| #6874 OAuth Images 主控 | 图片 Responses 主控默认从已下线的 `gpt-5.4-mini` 切换为 `gpt-5.6-luna`；`SUB2API_IMAGES_MAIN_MODEL` 可在 Compose 重新创建容器后覆盖。图片工具模型与文本主控保持独立。 | 读取一次短环境变量并复用既有请求构造；无迁移、无额外 I/O、无新增 goroutine。 |
+| #6874 图片用量与错误 | `tool_usage.image_gen.input_tokens_details.image_tokens` 进入 `ImageInputTokens` 并受总输入 token 上限约束；主控模型被拒时直接透传错误，避免错误冷却图片能力；管理端测试显示主控/图片模型并识别 HTTP 200 SSE 错误。 | 保留现有计费分离和失败切换边界；只在错误或图片路径读取结构化字段。 |
+
+### 差异关闭
+
+上游 PR #6874 已按本项目 `transport -> application -> domain` owner 选择性移植；上游 legacy `internal/service`、`internal/pkg`、旧前端路径和 `VERSION=0.2.4` 不直接合入。上一批 `14e0a49e..270eac697` 的差异继续关闭，后续只审查 `98d86915b` 之后的新提交。
+
+### 性能结论
+
+图片主控覆盖只影响图片请求和以图片模型作为顶层模型的 Responses 归一化；显式文本主控保持原值。目录精确命中仍为 map 查找，缺失时沿用原有模糊匹配链路。Docker 现有大图片意图解析与定价索引 microbenchmark 对比记录在 [`diagnostics/upstream-sync-20260909-image25/VERIFICATION.txt`](../diagnostics/upstream-sync-20260909-image25/VERIFICATION.txt)，这两个基准的分配数保持不变。代码审查未发现新增数据库/网络访问；这些基准不代表真实出图吞吐或延迟。
+
+### 增量验证
+
+本轮基线、修改后、Docker 构建与 PostgreSQL 18 + Redis 8 滚动升级/回退，以及独立副本文件回滚证据均记录在 [`diagnostics/upstream-sync-20260909-image25/VERIFICATION.txt`](../diagnostics/upstream-sync-20260909-image25/VERIFICATION.txt)。
+
+### 发布与最终回退
+
+本项目 [PR #39](https://github.com/DR-lin-eng/sub2api-no2api/pull/39) 已合并为 `596b57446ce4b087b809ea116b2770729a318c81`，该 SHA 的 [CI](https://github.com/DR-lin-eng/sub2api-no2api/actions/runs/34383935613)、[Security Scan](https://github.com/DR-lin-eng/sub2api-no2api/actions/runs/34383935817) 和 [Docker Image](https://github.com/DR-lin-eng/sub2api-no2api/actions/runs/34383935558) 均通过。GHCR `sha-596b574`（PR 合并构建）摘要为 `sha256:8d638da1dea34fdaa092220fb6d8ab7b33f2911c8b4bf2ae30fe95bf58179832`，包含 amd64/arm64。
+
+合并时保留了同期主线 `a65ac5551` 的分组模型白名单。该功能自带的迁移使最终基线从 292 条变为 293 条；这不属于 Image 2.5 批次新增迁移。最终文件回滚仅反向应用本批 16 个源码、测试和部署文件的 patch，保留 HEAD、同期主线提交、其他本地改动和未跟踪文件。审查台账和证据保留；冲突会在写入前使回滚停止。
+
+最终主线证据提交 `bd3d78d5eb5663238bac383d94177564f74c4bd5` 已再次通过 CI、Security Scan 和 Docker Image；GHCR `sha-bd3d78d` 摘要为 `sha256:b0fb7701692047592ef65b2751ea2e862ff51f4a9a947d47a75f8fd880d611ff`，包含 amd64/arm64。
+
+
+最终文档证据提交 `30528f2ac2c5bfc046737f280650ba468a08d7cd` 的 CI、Security Scan 和 Docker Image 均通过；GHCR `sha-30528f2` 摘要为 `sha256:94bf0ed9a972c7491301bd11fed8d7a660a9c3a97ff3372de940dc4abe6c785c`，包含 amd64/arm64。
+
+最终文档收尾提交 `06e524e0e44c2d0a1fec0b85555cf82286657a81` 的 CI、Security Scan 和 Docker Image 均通过；GHCR `sha-06e524e` 摘要为 `sha256:15eba59a18b517ac35bdd8509f33ca855bc0c05dd6e185d91d81c3ce384d4e12`，包含 amd64/arm64。
