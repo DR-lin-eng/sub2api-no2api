@@ -8,5 +8,6 @@
   "deploy/config.example.yaml": "b71c12e09e86a3c4da6911941b564a0719cae6e1d39df4bd21e7a424e0db20e6",
   "docs/REQUEST_LIFECYCLES.md": "eb4b4d2f16adfe319b0eda6df9d103ffc4cfbcff2302a1f546666cae3baa9028",
   "backend/internal/application/service/pricing_service_corrections.go": "8fea041134024c488199e77757fa0f74ddfd09733ef0f5ac23c64cbd5a8e07fa",
-  "backend/internal/application/service/pricing_service_corrections_test.go": "d90a82e2d42a42da0519e081f2749bb41567ac80e3c23d9f1218552be99640e3"
+  "backend/internal/application/service/pricing_service_corrections_test.go": "d90a82e2d42a42da0519e081f2749bb41567ac80e3c23d9f1218552be99640e3",
+  "backend/internal/transport/http/handler/openai_gateway_handler_test.go": "96c1f4a94a312c759fa7ded14395a51b1eb64241f407e682f3052414497dda31"
 }

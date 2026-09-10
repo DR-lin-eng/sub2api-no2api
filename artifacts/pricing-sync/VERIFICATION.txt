@@ -200,3 +200,68 @@ ROLLBACK.sh restored all 8 original files and removed the 2 added implementation
 The restored catalog SHA256 equals the original. Restored real-catalog billing returned Standard 0.006300 USD / Fast 0.012600 USD / Flex 0.003150 USD and remained stable after cache reload.
 The modified worktree and MODIFIED_FILE remain changed. Modified real-catalog billing returned Standard 0.004840 USD / Fast 0.009680 USD / Flex 0.002420 USD and remained stable after cache reload.
 Only local code and evidence were changed in this task; running deployments were not restarted or replaced.
+
+FOLLOW-UP_CI_FIX — 2026-09-10
+Branch: codex/fix-sol-pricing.
+Changed field: three WebSocket usage-billing test expectations now match the corrected
+GPT-5.6 Sol card: 2 input tokens + 1 output token = 28e-6 USD for Sol, and
+2 input tokens + 1 output token = 16e-6 USD for Terra. Mapping and requested-model
+assertions remain unchanged.
+
+CI_BASELINE_COMMAND
+tmpcache=$(mktemp -d /tmp/go-cache.XXXXXX); GOCACHE="$tmpcache" go test -tags=unit ./internal/transport/http/handler -run 'TestOpenAIResponsesWebSocket_(PassthroughTracksModelPerTurn|PassthroughKeepsTurnMappingSnapshot|CtxPoolAppliesPerTurnMappingAndPreservesRequestedModel)$' -count=1
+CI_BASELINE_INPUT
+codex/fix-sol-pricing at a157f6774a1c090ae36d3ad5b57846d19b695a7c before the expectation update.
+CI_BASELINE_LITERAL_OUTPUT
+--- FAIL: TestOpenAIResponsesWebSocket_PassthroughTracksModelPerTurn (0.01s)
+--- FAIL: TestOpenAIResponsesWebSocket_PassthroughKeepsTurnMappingSnapshot (0.00s)
+--- FAIL: TestOpenAIResponsesWebSocket_CtxPoolAppliesPerTurnMappingAndPreservesRequestedModel (0.00s)
+FAIL	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	1.128s
+CI_BASELINE_EXIT_STATUS=1
+
+CI_MODIFIED_COMMAND
+docker run --rm -v /Users/lin/.codex/worktrees/31dd/sub2api-no2api:/workspace:ro -v /Users/lin/go/pkg/mod:/go/pkg/mod -v /private/tmp/pricing-go-cache:/root/.cache/go-build -w /workspace/backend -e GOMAXPROCS=4 golang:1.26.6-bookworm go test -tags=unit -p 4 -count=1 ./internal/transport/http/handler
+CI_MODIFIED_INPUT
+current codex/fix-sol-pricing worktree after the official-rate expectation update.
+CI_MODIFIED_LITERAL_OUTPUT
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	41.921s
+CI_MODIFIED_EXIT_STATUS=0
+
+CI_FULL_MODIFIED_COMMAND
+docker run --rm -v /Users/lin/.codex/worktrees/31dd/sub2api-no2api:/workspace:ro -v /Users/lin/go/pkg/mod:/go/pkg/mod -v /private/tmp/pricing-go-cache:/root/.cache/go-build -w /workspace/backend -e GOMAXPROCS=4 golang:1.26.6-bookworm go test -tags=unit -p 4 -count=1 ./...
+CI_FULL_MODIFIED_INPUT
+current worktree; the repository-wide Docker run reached the Ent schema write test but the source mount was read-only, so the acceptance rerun is the writable GitHub Actions checkout on this same SHA.
+CI_FULL_MODIFIED_LITERAL_OUTPUT
+ok  	github.com/Wei-Shaw/sub2api/ent/schema	2.662s
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	183.748s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	41.957s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes	5.328s
+ok  	github.com/Wei-Shaw/sub2api/migrations	0.002s
+(all packages reported ok; no failures)
+CI_FULL_MODIFIED_EXIT_STATUS=0
+
+ROLLBACK_REVERIFY_COMMAND
+/Users/lin/.codex/worktrees/31dd/sub2api-no2api/artifacts/pricing-sync/ROLLBACK.sh /private/tmp/pricing-sync-rollback-31dd
+ROLLBACK_REVERIFY_INPUT
+independent copy after the allowlisted original hashes were extended to include openai_gateway_handler_test.go.
+ROLLBACK_REVERIFY_LITERAL_OUTPUT
+ROLLBACK_RESTORED=/private/tmp/pricing-sync-rollback-31dd
+ORIGINAL_FILES_VERIFIED=9 ADDED_FILES_REMOVED=2
+RESTORED_SOL_USD_PER_MTOK=5/0.5/6.25/30
+RESTORED_CATALOG_SHA256=6e99e843ee8c2e2d08ea3fba80638c3a39b298251107bd50033164a7c5085940
+ROLLBACK_REVERIFY_EXIT_STATUS=0
+
+ROLLBACK_HANDLER_TEST_COMMAND
+docker run --rm -v /private/tmp/pricing-sync-rollback-31dd:/workspace:ro -v /Users/lin/go/pkg/mod:/go/pkg/mod -v /private/tmp/pricing-go-cache:/root/.cache/go-build -w /workspace/backend -e GOMAXPROCS=4 golang:1.26.6-bookworm go test -tags=unit -p 4 -count=1 ./internal/transport/http/handler
+ROLLBACK_HANDLER_TEST_INPUT
+independent restored checkout with original Sol rates and original test expectations.
+ROLLBACK_HANDLER_TEST_LITERAL_OUTPUT
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	41.430s
+ROLLBACK_HANDLER_TEST_EXIT_STATUS=0
+
+FOLLOW-UP_RESTORED_BEHAVIOR
+ROLLBACK.sh restores the original catalog, pricing services, docs/config, and the
+handler test file; the restored catalog is SHA256
+6e99e843ee8c2e2d08ea3fba80638c3a39b298251107bd50033164a7c5085940 and the restored
+handler package passes. The modified worktree keeps the official GPT-5.6 Sol rates
+and the synchronized test expectations.

@@ -6,5 +6,6 @@
   "backend/internal/application/service/billing_service_test.go": "bdff4b31700b0e24df47ddb7350e826e560c0252fa2172778bea867381fe3643",
   "backend/internal/platform/config/defaults_ops.go": "febc286c85bab0da9bce14ebb8c57b89962e70e3dbd3187f2517d3c82cef84c4",
   "deploy/config.example.yaml": "8e0413e0f9533b539363244d7b1ad2e92b2059acb4c482ea528811a8b45de2f6",
-  "docs/REQUEST_LIFECYCLES.md": "3ea28ed7488ccfd36dcca7d6a2104c8e6f7a6bd2b9d0a8e5bc53d9bdea368125"
+  "docs/REQUEST_LIFECYCLES.md": "3ea28ed7488ccfd36dcca7d6a2104c8e6f7a6bd2b9d0a8e5bc53d9bdea368125",
+  "backend/internal/transport/http/handler/openai_gateway_handler_test.go": "780d5ac3f92021327797508bcc2639a13c444b13320a0e130ac92460ecd0920d"
 }
