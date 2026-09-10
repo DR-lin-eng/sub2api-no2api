@@ -126,6 +126,11 @@ Claude Code 下一轮上下文并触发重复 Read；网关没有文件长度信
 路由；启用账号 TLS Profile 时还携带同一稳定 Profile key。请求热路径不为出口或
 Profile 重查数据库。
 
+Codex OAuth 的 HTTP、透传、Compact 和 WS 握手共用 UA 身份解析：账号完整 UA 优先于全局完整 UA，
+未配置时才由固定/同步版本生成默认 CLI UA。显式 UA 的引擎版本和 Desktop 应用构建号分别保留，
+完整指纹模式沿用同一结果。WS 池将 UA、originator、version 和 TLS Profile 一起用于握手兼容检查；
+变更身份后重新拨号，未变更时继续复用。具体边界见 [Codex 身份差异](codex/intentional-divergences.md)。
+
 IPv6 模式只解析 AAAA 并从绑定源地址拨号。无 AAAA、缺少绑定或路由失败时不允许
 Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换后只关闭旧空闲连接。
 完整数据、管理和 Docker 路由边界见 [账号级 IPv6 出口](IPV6_EGRESS.md)。

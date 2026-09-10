@@ -245,6 +245,9 @@ func (s *OpenAIGatewayService) FetchCodexModelsManifest(ctx context.Context, acc
 	clientVersion = strings.TrimSpace(clientVersion)
 	if clientVersion == "" {
 		clientVersion = CodexCanonicalClientVersion()
+		if credAccount.IsOpenAIOAuth() {
+			clientVersion = resolveCodexOutboundIdentity(credAccount.GetOpenAIUserAgent()).version
+		}
 	}
 
 	requestEndpoint := chatgptCodexModelsURL
@@ -314,7 +317,7 @@ func (s *OpenAIGatewayService) FetchCodexModelsManifest(ctx context.Context, acc
 	headers.Set("Originator", identity.originator)
 	headers.Set("User-Agent", identity.userAgent)
 	headerVersion := NormalizeCodexClientVersion(clientVersion)
-	if headerVersion == "" || CompareVersions(headerVersion, codexUpstreamMinVersion) < 0 {
+	if !useAPIKeyUpstream || headerVersion == "" || CompareVersions(headerVersion, codexUpstreamMinVersion) < 0 {
 		headerVersion = identity.version
 	}
 	headers.Set("Version", headerVersion)

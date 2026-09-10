@@ -387,6 +387,9 @@ func applyCodexFingerprintWSHeaders(headers http.Header, ids *codexFingerprintID
 	if ids.fullSimulation {
 		headers.Set("x-client-request-id", ids.threadID)
 	} else {
+		// Match the ordinary HTTP projection for this attempt. A downstream
+		// request ID must not survive after its session/turn identity is replaced.
+		headers.Set("x-client-request-id", ids.turnID)
 		headers.Set("session_id", ids.sessionID)
 	}
 	applyCodexSimulationProfileHeaders(headers, ids)

@@ -7,13 +7,11 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
@@ -337,7 +335,7 @@ func (s *OpenAIGatewayService) prepareCodexSimulationAttemptForTurn(
 	var ids *codexFingerprintIDs
 	if requestState.settings.FullSimulationEnabled && requestState.settings.configured() &&
 		account.GetCodexFingerprintMode() == codexFingerprintFull {
-		ids = s.resolveCodexFullSimulationIDs(ctx, requestState, principal, turn)
+		ids = s.resolveCodexFullSimulationIDs(ctx, requestState, principal, account, turn)
 		if ids != nil {
 			ids.requestKind = codexRequestKindForContext(c, body)
 			ids.directInstallationHeader = ids.requestKind == codexRequestKindCompaction
@@ -412,6 +410,7 @@ func (s *OpenAIGatewayService) resolveCodexFullSimulationIDs(
 	ctx context.Context,
 	request *codexSimulationRequestState,
 	principal codexSimulationPrincipal,
+	account *Account,
 	turn int,
 ) *codexFingerprintIDs {
 	if request == nil || principal.key == "" {
@@ -427,7 +426,7 @@ func (s *OpenAIGatewayService) resolveCodexFullSimulationIDs(
 		}
 	}
 	sessionID := codexSimulationUUID(secret, "session:v2", request.root.rootKey, principal.key)
-	profile := resolveCodexSimulationProfile(secret, principal.key)
+	profile := resolveCodexSimulationProfile(secret, principal.key, s.codexIdentityOverrideUA(account))
 	windowID := sessionID + ":" + strconv.FormatUint(generation, 10)
 	return &codexFingerprintIDs{
 		mode:            codexFingerprintFull,
@@ -447,29 +446,16 @@ func (s *OpenAIGatewayService) resolveCodexFullSimulationIDs(
 	}
 }
 
-func resolveCodexSimulationProfile(secret, principalKey string) codexSimulationProfile {
-	version := codexClientVersionFromUA(codexCanonicalUserAgent())
-	arch := runtime.GOARCH
-	if arch == "amd64" {
-		arch = "x86_64"
-	}
-	digest := codexSimulationHMAC(secret, "profile:v1", runtime.GOOS, arch, principalKey)
-	terminals := []string{"xterm-256color", "screen-256color"}
-	terminal := terminals[int(digest[0])%len(terminals)]
-	osValue := "Ubuntu 22.4.0"
-	switch runtime.GOOS {
-	case "darwin":
-		osValue = "Mac OS 14.0.0"
-	case "windows":
-		osValue = "Windows 11"
-		terminal = "WindowsTerminal"
-	}
-	originator := openai.CodexCLIOriginator
+func resolveCodexSimulationProfile(secret, principalKey, overrideUA string) codexSimulationProfile {
+	// Full simulation changes session/device IDs, but uses the same resolved
+	// client identity as ordinary HTTP, WS, probes and account settings.
+	identity := resolveCodexOutboundIdentity(overrideUA)
+	digest := codexSimulationHMAC(secret, "profile:v2", principalKey, identity.userAgent)
 	return codexSimulationProfile{
 		id:         hex.EncodeToString(digest[:8]),
-		userAgent:  fmt.Sprintf("%s/%s (%s; %s) %s", originator, version, osValue, arch, terminal),
-		originator: originator,
-		version:    version,
+		userAgent:  identity.userAgent,
+		originator: identity.originator,
+		version:    identity.version,
 	}
 }
 

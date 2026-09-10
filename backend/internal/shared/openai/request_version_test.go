@@ -6,6 +6,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestSetCodexUserAgentVersionPreservesAppBuild(t *testing.T) {
+	const ua = "Codex Desktop/0.153.4 (Windows 10.0.26200; x86_64) unknown (Codex Desktop; 26.903.71938)"
+	require.Equal(t, "Codex Desktop/0.200.0 (Windows 10.0.26200; x86_64) unknown (Codex Desktop; 26.903.71938)", SetCodexUserAgentVersion(ua, "0.200.0"))
+}
+
 func TestParseCodexEngineVersion(t *testing.T) {
 	cases := []struct {
 		name    string
