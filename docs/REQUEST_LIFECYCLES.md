@@ -42,6 +42,18 @@ sequenceDiagram
 5. 对应 `gateway*_forward*` / `openai*_forward*`：确认上游请求与响应转换。
 6. `gateway_usage_billing.go` 或 `openai_gateway_usage.go`：确认用量解析和计费提交。
 
+### 蒸馏分组轻量链路
+
+管理员将分组的 `is_distillation_group` 设为 `true` 后，仅对 Anthropic OAuth/SetupToken
+账号启用该链路。网关会删除请求体中的 `prompt_cache_key`、`prompt_cache_retention`、
+`cache_control` 及代理生成的缓存断点；每个分组/账号的请求计数按 10000 个逻辑请求划分
+session ID 窗口，同一窗口内的重试状态复用同一个合成 session ID。蒸馏链路不读取或保存
+上游 session 缓存对象。
+
+蒸馏分组只执行一次上游请求：跳过传输重试、指数退避、thinking/budget/tool 错误修正、账号
+failover 和 fallback 分组；失败时立即返回协议兼容错误。鉴权、计费准入、槽位释放、取消处理、
+用量幂等写入和 HTTP/SSE/WS 终止事件仍然执行。普通分组继续使用既有缓存、重试和 failover 规则。
+
 ### Claude Code -> OpenAI 会话信号
 
 OpenAI 兼容入口的会话键按以下顺序解析：显式 `session_id`/

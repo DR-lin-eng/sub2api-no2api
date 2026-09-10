@@ -329,6 +329,10 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		if err != nil {
 			var failoverErr *service.UpstreamFailoverError
 			if errors.As(err, &failoverErr) {
+				if h.gatewayService.IsDistillationGroupRequest(c, account) {
+					h.handleCCFailoverExhausted(c, failoverErr, streamStarted)
+					return
+				}
 				if c.Writer.Size() != writerSizeBeforeForward {
 					h.handleCCFailoverExhausted(c, failoverErr, true)
 					return

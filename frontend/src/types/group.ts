@@ -100,6 +100,7 @@ export interface Group {
   peak_end: string
   peak_rate_multiplier: number
   claude_code_only: boolean
+  is_distillation_group?: boolean
   fallback_group_id: number | null
   fallback_group_id_on_invalid_request: number | null
   allow_messages_dispatch?: boolean

@@ -1131,6 +1131,12 @@ export default {
         fallbackHint: 'Non-Claude Code requests will use this group. Leave empty to reject directly.',
         noFallback: 'No Fallback (Reject)'
       },
+      distillation: {
+        title: 'Distillation Group (No Cache / Fail Fast)',
+        enabled: 'Distillation mode enabled',
+        disabled: 'Standard forwarding mode',
+        hint: 'Removes prompt_cache_key, cache_control, and related cache fields; rotates session IDs every 10,000 requests and disables retries, failover, and error repair.'
+      },
       openaiMessages: {
         title: 'OpenAI Messages Dispatch',
         allowDispatch: 'Allow /v1/messages dispatch',

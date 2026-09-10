@@ -129,6 +129,7 @@ func cloneGroupForDuplicate(source *Group, operationID string) *Group {
 		VideoPrice1080P:                 cloneGroupValuePointer(source.VideoPrice1080P),
 		WebSearchPricePerCall:           cloneGroupValuePointer(source.WebSearchPricePerCall),
 		ClaudeCodeOnly:                  source.ClaudeCodeOnly,
+		IsDistillationGroup:             source.IsDistillationGroup,
 		FallbackGroupID:                 cloneGroupValuePointer(source.FallbackGroupID),
 		FallbackGroupIDOnInvalidRequest: cloneGroupValuePointer(source.FallbackGroupIDOnInvalidRequest),
 		ModelRouting:                    cloneGroupModelRouting(source.ModelRouting),

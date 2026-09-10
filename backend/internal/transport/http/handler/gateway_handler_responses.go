@@ -320,6 +320,10 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		if err != nil {
 			var failoverErr *service.UpstreamFailoverError
 			if errors.As(err, &failoverErr) {
+				if h.gatewayService.IsDistillationGroupRequest(c, account) {
+					h.handleResponsesFailoverExhausted(c, failoverErr, streamStarted)
+					return
+				}
 				// Can't failover if streaming content already sent
 				if c.Writer.Size() != writerSizeBeforeForward {
 					h.handleResponsesFailoverExhausted(c, failoverErr, true)

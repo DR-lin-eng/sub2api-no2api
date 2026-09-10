@@ -382,6 +382,7 @@ func TestAPIContracts(t *testing.T) {
 						"video_rate_independent": false,
 						"video_rate_multiplier": 0,
 						"claude_code_only": false,
+						"is_distillation_group": false,
 						"allow_messages_dispatch": false,
 						"allow_live": false,
 						"fallback_group_id": null,
