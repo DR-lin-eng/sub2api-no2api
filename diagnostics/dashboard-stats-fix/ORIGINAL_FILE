@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
@@ -389,17 +388,6 @@ func (r *usageLogRepository) GetUserDashboardStats(ctx context.Context, userID i
 	//   1) 无平台归属的极少数行（group/account 都没 platform）会被 HAVING 排除；
 	//   2) usageLogSuccessFilterUL 会把 actual_cost = 0 的失败 placeholder 行排除，
 	//      而 totalStatsQuery/todayStatsQuery 没有这层过滤、会把这些行的 request 计数算进去。
-	if err := r.loadUserDashboardPlatformStats(ctx, stats, userID, today); err != nil {
-		// Platform details are an optional projection. Keep the core dashboard
-		// usable when an older/partially migrated database cannot serve this
-		// additional join or when the query is cancelled under load.
-		slog.Warn("user dashboard platform stats unavailable", "user_id", userID, "error", err)
-	}
-
-	return stats, nil
-}
-
-func (r *usageLogRepository) loadUserDashboardPlatformStats(ctx context.Context, stats *UserDashboardStats, userID int64, today time.Time) error {
 	platformQuery := `
 		SELECT
 			` + usageLogEffectivePlatformExpr + ` as platform,
@@ -420,9 +408,8 @@ func (r *usageLogRepository) loadUserDashboardPlatformStats(ctx context.Context,
 	`
 	rows, err := r.sql.QueryContext(ctx, platformQuery, userID, today)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	platformStats := make([]PlatformDashboardStats, 0)
 	for rows.Next() {
 		var p PlatformDashboardStats
 		if err := rows.Scan(
@@ -435,19 +422,18 @@ func (r *usageLogRepository) loadUserDashboardPlatformStats(ctx context.Context,
 			&p.TodayActualCost,
 		); err != nil {
 			_ = rows.Close()
-			return err
+			return nil, err
 		}
-		platformStats = append(platformStats, p)
-	}
-	if err := rows.Err(); err != nil {
-		_ = rows.Close()
-		return err
+		stats.ByPlatform = append(stats.ByPlatform, p)
 	}
 	if err := rows.Close(); err != nil {
-		return err
+		return nil, err
 	}
-	stats.ByPlatform = platformStats
-	return nil
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return stats, nil
 }
 
 // getPerformanceStatsByAPIKey 获取指定 API Key 的 RPM 和 TPM（近5分钟平均值）
