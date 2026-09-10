@@ -327,6 +327,7 @@ export default {
         cpaFresh: 'CPA capacity is fresh. Fallback concurrency after disabling CPA: {fallback}',
         cpaStale: 'CPA is using a stale snapshot. Fallback concurrency after disabling CPA: {fallback}',
         cpaUnavailable: 'CPA capacity is unavailable and scheduling is stopped. Fallback concurrency after disabling CPA: {fallback}',
+        sessionIDGrowth: 'OpenAI Session ID growth this minute: {count}/min',
         windowCost: {
           blocked: '5h window cost exceeded, account scheduling paused',
           stickyOnly: '5h window cost at threshold, only sticky sessions allowed',

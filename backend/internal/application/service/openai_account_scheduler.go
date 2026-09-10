@@ -2492,6 +2492,7 @@ func (s *OpenAIGatewayService) SelectAccountWithScheduler(
 	selection, decision, err := s.selectAccountWithScheduler(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, "", "", requireCompact, PlatformOpenAI, false, true)
 	if selection != nil && selection.Account != nil {
 		s.recordOpenAIContentSessionCandidate(ctx, groupID, sessionHash, selection.Account.ID)
+		s.recordOpenAISessionIDGrowth(ctx, sessionHash, selection.Account)
 	}
 	return selection, decision, err
 }
@@ -2520,6 +2521,7 @@ func (s *OpenAIGatewayService) SelectAccountWithSchedulerForCapability(
 	selection, decision, err := s.selectAccountWithScheduler(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, requiredCapability, "", requireCompact, platform, previousResponseCanMove, useUpstreamTokenCost)
 	if selection != nil && selection.Account != nil {
 		s.recordOpenAIContentSessionCandidate(ctx, groupID, sessionHash, selection.Account.ID)
+		s.recordOpenAISessionIDGrowth(ctx, sessionHash, selection.Account)
 	}
 	return selection, decision, err
 }
@@ -2535,6 +2537,7 @@ func (s *OpenAIGatewayService) SelectAccountWithSchedulerForImages(
 	selection, decision, err := s.selectAccountWithScheduler(ctx, groupID, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, "", requiredCapability, false, PlatformOpenAI, false, false)
 	if err == nil && selection != nil && selection.Account != nil {
 		s.recordOpenAIContentSessionCandidate(ctx, groupID, sessionHash, selection.Account.ID)
+		s.recordOpenAISessionIDGrowth(ctx, sessionHash, selection.Account)
 		return selection, decision, nil
 	}
 	// Forced API capability must never fall back to OAuth/basic accounts.
@@ -2545,8 +2548,23 @@ func (s *OpenAIGatewayService) SelectAccountWithSchedulerForImages(
 	}
 	if selection != nil && selection.Account != nil {
 		s.recordOpenAIContentSessionCandidate(ctx, groupID, sessionHash, selection.Account.ID)
+		s.recordOpenAISessionIDGrowth(ctx, sessionHash, selection.Account)
 	}
 	return selection, decision, err
+}
+
+func (s *OpenAIGatewayService) recordOpenAISessionIDGrowth(ctx context.Context, sessionHash string, account *Account) {
+	if s == nil || account == nil || account.Platform != PlatformOpenAI || strings.TrimSpace(sessionHash) == "" {
+		return
+	}
+	if openAISessionHashMetadataFromContext(ctx).contentDerived {
+		return
+	}
+	metrics := s.sessionIDRateMetrics
+	if metrics == nil {
+		metrics = DefaultOpenAISessionIDRateMetrics()
+	}
+	metrics.Record(account.ID, sessionHash, time.Now())
 }
 
 func (s *OpenAIGatewayService) selectAccountWithScheduler(

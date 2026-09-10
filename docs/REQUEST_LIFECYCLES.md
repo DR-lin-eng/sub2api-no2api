@@ -59,6 +59,11 @@ OpenAI 兼容入口的会话键按以下顺序解析：显式 `session_id`/
 有界 Top-K 内遇到相同负载时使用请求级随机平局，避免固定低编号热集；批量负载快照
 若将所有账号判为满载会先执行一次无缓存刷新，再创建兜底等待计划。
 
+管理端 `/admin/ops/concurrency-snapshot` 同时返回 OpenAI 显式 session ID 的当前分钟
+首次观测去重增长量（同一 session ID 在 1 小时内不重复计数）：平台、分组和账号行提供 `session_id_growth_per_minute`，响应级
+`session_id_growth` 提供筛选范围内总增速和最大账号增速。该指标只保存在进程内短期内存，
+按 UTC 分钟轮换，不进入用量聚合、账单或持久化表；内容派生会话不计入该指标。
+
 OpenAI Responses 请求在首个语义事件前使用
 `gateway.openai_first_output_timeout_seconds`（默认 90 秒；
 `high/xhigh/max` 可由 `gateway.openai_high_effort_first_output_timeout_seconds`

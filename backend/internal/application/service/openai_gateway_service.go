@@ -490,6 +490,7 @@ type OpenAIGatewayService struct {
 	openaiProxyStreamCircuit       *openAIProxyStreamCircuit
 	openaiProxyStreamFailOpenLogAt atomic.Int64
 	openaiContentSessions          *openAIContentSessionTracker
+	sessionIDRateMetrics           *OpenAISessionIDRateMetrics
 
 	openaiWSFallbackUntil               sync.Map // key: int64(accountID), value: time.Time
 	openaiAccountRuntimeBlockUntil      sync.Map // key: int64(accountID), value: time.Time
@@ -582,6 +583,7 @@ func NewOpenAIGatewayService(
 		codexSnapshotThrottle:   newAccountWriteThrottle(openAICodexSnapshotPersistMinInterval),
 		openaiModelTransient:    newOpenAIAccountModelTransientState(openAIModelTransientDefaultMax),
 		openaiStreamDegradation: newOpenAIStreamDegradationState(),
+		sessionIDRateMetrics:    DefaultOpenAISessionIDRateMetrics(),
 	}
 	svc.openaiWSResolver = newOpenAIWSProtocolResolver(cfg, func() bool {
 		return svc.isOpenAIWSModeRouterV2Enabled(context.Background())

@@ -278,6 +278,7 @@ export default {
         cpaFresh: 'CPA 容量为最新快照；关闭联动后的备用并发为 {fallback}',
         cpaStale: 'CPA 当前使用过期快照；关闭联动后的备用并发为 {fallback}',
         cpaUnavailable: 'CPA 容量不可用，当前已停止调度；关闭联动后的备用并发为 {fallback}',
+        sessionIDGrowth: 'OpenAI Session ID 当前分钟增速：{count}/分钟',
         windowCost: {
           blocked: '5h窗口费用超限，账号暂停调度',
           stickyOnly: '5h窗口费用达阈值，仅允许粘性会话',

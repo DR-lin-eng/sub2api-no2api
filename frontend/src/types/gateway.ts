@@ -388,7 +388,8 @@ export interface Account {
   proxy_fallback_origin_name?: string | null
   concurrency: number
   load_factor?: number | null
-  current_concurrency?: number // Real-time concurrency count from Redis
+	current_concurrency?: number // Real-time concurrency count from Redis
+	session_id_growth_per_minute?: number // Distinct OpenAI session IDs observed this minute
   cpa_capacity?: CPACapacityStatus | null
   stream_degraded?: boolean
   stream_degradation_level?: number

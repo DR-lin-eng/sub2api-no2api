@@ -58,6 +58,7 @@ type OpsService struct {
 	concurrencyService          *ConcurrencyService
 	gatewayService              *GatewayService
 	openAIGatewayService        *OpenAIGatewayService
+	sessionIDRateMetrics        *OpenAISessionIDRateMetrics
 	geminiCompatService         *GeminiMessagesCompatService
 	antigravityGatewayService   *AntigravityGatewayService
 	systemLogSink               *OpsSystemLogSink
@@ -155,6 +156,7 @@ func NewOpsService(
 		concurrencyService:        concurrencyService,
 		gatewayService:            gatewayService,
 		openAIGatewayService:      openAIGatewayService,
+		sessionIDRateMetrics:      DefaultOpenAISessionIDRateMetrics(),
 		geminiCompatService:       geminiCompatService,
 		antigravityGatewayService: antigravityGatewayService,
 		systemLogSink:             systemLogSink,
