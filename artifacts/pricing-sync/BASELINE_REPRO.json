@@ -1,0 +1,28 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    "/Users/lin/.codex/worktrees/31dd/sub2api-no2api:/workspace:ro",
+    "-v",
+    "/Users/lin/go/pkg/mod:/go/pkg/mod",
+    "-v",
+    "/private/tmp/pricing-go-cache:/root/.cache/go-build",
+    "-w",
+    "/workspace/backend",
+    "-e",
+    "GOMAXPROCS=4",
+    "golang:1.26.6-bookworm",
+    "go",
+    "test",
+    "-p",
+    "4",
+    "-count=1",
+    "-run",
+    "Test(PricingService_SolPromotion.*|DefaultPricingIncludesOfficialGPT56Rates|GPT56DedicatedFallbacksUseOfficialRates|BillingService_GPT56LongContextBoundaryIsExclusive)$",
+    "./internal/application/service"
+  ],
+  "input": "original implementation with new official-price assertions",
+  "exit_status": 1
+}

@@ -1,0 +1,4 @@
+[
+  "backend/internal/application/service/pricing_service_corrections.go",
+  "backend/internal/application/service/pricing_service_corrections_test.go"
+]

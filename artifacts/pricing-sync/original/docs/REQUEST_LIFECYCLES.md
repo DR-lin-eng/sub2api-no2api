@@ -126,11 +126,6 @@ Claude Code 下一轮上下文并触发重复 Read；网关没有文件长度信
 路由；启用账号 TLS Profile 时还携带同一稳定 Profile key。请求热路径不为出口或
 Profile 重查数据库。
 
-Codex OAuth 的 HTTP、透传、Compact 和 WS 握手共用 UA 身份解析：账号完整 UA 优先于全局完整 UA，
-未配置时才由固定/同步版本生成默认 CLI UA。显式 UA 的引擎版本和 Desktop 应用构建号分别保留，
-完整指纹模式沿用同一结果。WS 池将 UA、originator、version 和 TLS Profile 一起用于握手兼容检查；
-变更身份后重新拨号，未变更时继续复用。具体边界见 [Codex 身份差异](codex/intentional-divergences.md)。
-
 IPv6 模式只解析 AAAA 并从绑定源地址拨号。无 AAAA、缺少绑定或路由失败时不允许
 Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换后只关闭旧空闲连接。
 完整数据、管理和 Docker 路由边界见 [账号级 IPv6 出口](IPV6_EGRESS.md)。
@@ -296,14 +291,6 @@ handler success/usage
 - 队列满、worker 拒绝或 Redis 不可用时，关键结算必须进入受限 fallback 或同步执行，不能丢弃。
 - 缓存回填使用版本/新旧保护，避免旧数据库快照覆盖更晚的扣费结果。
 - 修改计费时同时验证余额模式、订阅模式、重复提交、并发提交和故障恢复。
-
-### 价格目录与官方费率
-
-`PricingService` 在启动时加载缓存，并按配置检查远端目录；渠道和分组自定义定价仍优先于模型目录。默认远端跟踪 `Wei-Shaw/model-price-repo/main`，内置文件补充缺失模型，两个 service 的静态价格承担最后兜底。
-
-2026-09-10 核对 [OpenAI 官方价格](https://developers.openai.com/api/docs/pricing)：GPT-5.6 Sol 的 Standard 输入、缓存读取、缓存写入、输出分别为 **$4 / $0.4 / $5 / $20 per 1M tokens**；Fast（兼容 `priority`）为 2 倍，Flex 和目录中的 Batch 为 0.5 倍。输入总量超过 272K 时，输入与缓存按 2 倍、输出按 1.5 倍计算。官方注明优惠价至少持续至 2026-11-21，后续调价需再次核对。
-
-默认远端仍返回完整 Sol 旧费率（$5 / $0.5 / $6.25 / $30 及其 Fast 价）时，下载和缓存加载阶段定向纠正这组费率，再构建内存索引。原始缓存字节与远端同步哈希保持对应关系。该纠正只匹配默认仓库的 `main` URL 和完整旧费率；自定义价格源、固定 commit、其他模型以及远端后续不同费率均按原目录处理。请求计费热路径不增加网络或磁盘访问。
 
 ### 账号渠道统计与详细日志
 

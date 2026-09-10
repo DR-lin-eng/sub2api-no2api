@@ -1,0 +1,5 @@
+# Preserve literal test output, fetched documentation, and unified diff bytes.
+*.log -whitespace
+DIFF_FILE -whitespace
+VERIFICATION.txt -whitespace
+OFFICIAL_PRICING.md -whitespace
