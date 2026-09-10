@@ -1129,6 +1129,12 @@ export default {
         fallbackHint: '非 Claude Code 请求将使用此分组，留空则直接拒绝',
         noFallback: '不降级（直接拒绝）'
       },
+      distillation: {
+        title: '蒸馏分组（无缓存 / 快速失败）',
+        enabled: '已启用蒸馏模式',
+        disabled: '普通转发模式',
+        hint: '清除 prompt_cache_key、cache_control 等缓存字段；每 10000 个请求轮换 session ID，并关闭重试、换号和错误修正。'
+      },
       openaiMessages: {
         title: 'OpenAI Messages 调度配置',
         allowDispatch: '允许 /v1/messages 调度',

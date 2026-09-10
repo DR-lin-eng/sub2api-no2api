@@ -35,6 +35,8 @@ const (
 	rpmKeyTTL = 120 * time.Second
 )
 
+const distillationRequestCounterPrefix = "distill:req:"
+
 // RPMCacheImpl RPM 计数器缓存 Redis 实现
 type RPMCacheImpl struct {
 	rdb *redis.Client
@@ -86,6 +88,17 @@ func (c *RPMCacheImpl) IncrementRPM(ctx context.Context, accountID int64) (int, 
 	}
 
 	return int(incrCmd.Val()), nil
+}
+
+// IncrementDistillation is an unexpiring atomic request counter used only for
+// distillation session windows. It is not an upstream cache key.
+func (c *RPMCacheImpl) IncrementDistillation(ctx context.Context, groupID, accountID int64) (int64, error) {
+	key := fmt.Sprintf("%s%d:%d", distillationRequestCounterPrefix, groupID, accountID)
+	value, err := c.rdb.Incr(ctx, key).Result()
+	if err != nil {
+		return 0, fmt.Errorf("distillation counter increment: %w", err)
+	}
+	return value, nil
 }
 
 // GetRPM 获取当前分钟的 RPM 计数

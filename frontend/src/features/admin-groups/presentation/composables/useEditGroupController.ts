@@ -267,6 +267,7 @@ export function useEditGroupController({
       group.profit_safety_buffer,
     );
     editForm.claude_code_only = group.claude_code_only || false;
+    editForm.is_distillation_group = group.is_distillation_group || false;
     editForm.fallback_group_id = group.fallback_group_id;
     editForm.fallback_group_id_on_invalid_request =
       group.fallback_group_id_on_invalid_request;

@@ -48,6 +48,11 @@ func (s *GatewayService) ForwardCountTokens(ctx context.Context, c *gin.Context,
 		body = parsed.Body.Bytes()
 		return nil
 	}
+	if s.IsDistillationGroupRequest(c, account) {
+		if err := replaceBody(stripDistillationCacheFields(body)); err != nil {
+			return err
+		}
+	}
 	reqModel := parsed.Model
 
 	// Pre-filter: strip empty text blocks to prevent upstream 400.
@@ -66,17 +71,21 @@ func (s *GatewayService) ForwardCountTokens(ctx context.Context, c *gin.Context,
 			return err
 		}
 
-		if err := replaceBody(s.rewriteMessageCacheControlIfEnabled(ctx, body)); err != nil {
+		if !s.IsDistillationGroupRequest(c, account) {
+			if err := replaceBody(s.rewriteMessageCacheControlIfEnabled(ctx, body)); err != nil {
+				return err
+			}
+			if rw := buildToolNameRewriteFromBody(body); rw != nil {
+				if err := replaceBody(applyToolNameRewriteToBody(body, rw)); err != nil {
+					return err
+				}
+			} else {
+				if err := replaceBody(applyToolsLastCacheBreakpoint(body)); err != nil {
+					return err
+				}
+			}
+		} else if err := replaceBody(stripDistillationCacheFields(body)); err != nil {
 			return err
-		}
-		if rw := buildToolNameRewriteFromBody(body); rw != nil {
-			if err := replaceBody(applyToolNameRewriteToBody(body, rw)); err != nil {
-				return err
-			}
-		} else {
-			if err := replaceBody(applyToolsLastCacheBreakpoint(body)); err != nil {
-				return err
-			}
 		}
 	}
 
@@ -470,10 +479,17 @@ func (s *GatewayService) buildCountTokensRequest(ctx context.Context, c *gin.Con
 		fp, err := s.identityService.GetOrCreateFingerprint(ctx, account.ID, clientHeaders)
 		if err == nil {
 			ctFingerprint = fp
-			if !ctEnableMPT {
+			if !ctEnableMPT || s.IsDistillationGroupRequest(c, account) {
 				accountUUID := account.GetExtraString("account_uuid")
-				if accountUUID != "" && fp.ClientID != "" {
-					if newBody, err := s.identityService.RewriteUserIDWithMasking(ctx, body, account, accountUUID, fp.ClientID, fp.UserAgent); err == nil && len(newBody) > 0 {
+				if fp.ClientID != "" {
+					var newBody []byte
+					var rewriteErr error
+					if distillSessionID, enabled := s.DistillationSessionID(ctx, c, account); enabled {
+						newBody, rewriteErr = s.identityService.RewriteUserIDWithSessionID(body, account, accountUUID, fp.ClientID, fp.UserAgent, distillSessionID)
+					} else if accountUUID != "" {
+						newBody, rewriteErr = s.identityService.RewriteUserIDWithMasking(ctx, body, account, accountUUID, fp.ClientID, fp.UserAgent)
+					}
+					if rewriteErr == nil && len(newBody) > 0 {
 						body = newBody
 					}
 				}

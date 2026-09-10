@@ -95,6 +95,42 @@ const {
       </div>
     </div>
 
+    <!-- 蒸馏分组：无缓存、快速失败（仅 anthropic 平台） -->
+    <div v-if="form.platform === 'anthropic'" class="border-t pt-4">
+      <div class="mb-1.5 flex items-center gap-1">
+        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+          {{ t("admin.groups.distillation.title") }}
+        </label>
+      </div>
+      <div class="flex items-center gap-3">
+        <button
+          type="button"
+          @click="form.is_distillation_group = !form.is_distillation_group"
+          :class="[
+            'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
+            form.is_distillation_group
+              ? 'bg-primary-500'
+              : 'bg-gray-300 dark:bg-dark-600',
+          ]"
+        >
+          <span
+            :class="[
+              'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
+              form.is_distillation_group ? 'translate-x-6' : 'translate-x-1',
+            ]"
+          />
+        </button>
+        <span class="text-sm text-gray-500 dark:text-gray-400">
+          {{
+            form.is_distillation_group
+              ? t("admin.groups.distillation.enabled")
+              : t("admin.groups.distillation.disabled")
+          }}
+        </span>
+      </div>
+      <p class="input-hint">{{ t("admin.groups.distillation.hint") }}</p>
+    </div>
+
     <!-- Codex 网页搜索按次计费（仅 openai 平台） -->
     <div
       v-if="form.platform === 'openai'"
