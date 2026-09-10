@@ -53,14 +53,14 @@ var (
 		SupportsPromptCaching:           true,
 	}
 	openAIGPT56SolFallbackPricing = &LiteLLMModelPricing{
-		InputCostPerToken:                   4e-06,
-		InputCostPerTokenPriority:           8e-06,
-		OutputCostPerToken:                  2e-05,
-		OutputCostPerTokenPriority:          4e-05,
-		CacheCreationInputTokenCost:         5e-06,
-		CacheCreationInputTokenCostPriority: 1e-05,
-		CacheReadInputTokenCost:             4e-07,
-		CacheReadInputTokenCostPriority:     8e-07,
+		InputCostPerToken:                   5e-06,
+		InputCostPerTokenPriority:           1e-05,
+		OutputCostPerToken:                  3e-05,
+		OutputCostPerTokenPriority:          6e-05,
+		CacheCreationInputTokenCost:         6.25e-06,
+		CacheCreationInputTokenCostPriority: 1.25e-05,
+		CacheReadInputTokenCost:             5e-07,
+		CacheReadInputTokenCostPriority:     1e-06,
 		LongContextInputTokenThreshold:      openAIGPT54LongContextInputThreshold,
 		LongContextInputCostMultiplier:      openAIGPT54LongContextInputMultiplier,
 		LongContextOutputCostMultiplier:     openAIGPT54LongContextOutputMultiplier,
@@ -406,7 +406,6 @@ func (s *PricingService) downloadPricingData() error {
 		return fmt.Errorf("parse pricing data: %w", err)
 	}
 	data = s.mergeFallbackPricingData(data)
-	s.correctDefaultCatalogPricing(data)
 
 	// 保存到本地文件
 	pricingFile := s.getPricingFilePath()
@@ -548,9 +547,6 @@ func (s *PricingService) loadPricingData(filePath string) error {
 		return fmt.Errorf("parse pricing data: %w", err)
 	}
 	pricingData = s.mergeFallbackPricingData(pricingData)
-	if filepath.Clean(filePath) == filepath.Clean(s.getPricingFilePath()) {
-		s.correctDefaultCatalogPricing(pricingData)
-	}
 
 	// 计算哈希
 	hash := sha256.Sum256(data)

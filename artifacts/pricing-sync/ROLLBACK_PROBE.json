@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/Users/lin/.codex/worktrees/31dd/sub2api-no2api/artifacts/pricing-sync/PROBE.sh",
+    "ROLLBACK"
+  ],
+  "input": "captured remote catalog ba07ca6d...; 700 input + 100 cache read + 200 cache write + 50 output tokens; rate multiplier 1",
+  "exit_status": 0
+}

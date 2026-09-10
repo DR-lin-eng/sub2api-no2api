@@ -1,0 +1,10 @@
+{
+  "backend/resources/model-pricing/model_prices_and_context_window.json": "6e99e843ee8c2e2d08ea3fba80638c3a39b298251107bd50033164a7c5085940",
+  "backend/internal/application/service/pricing_service.go": "5a981584b4617d61aa3889b851394947f3678801f32ad9291866baea413f55d2",
+  "backend/internal/application/service/billing_service.go": "795ab80f3a0f5d6a8911ff11a63964033eb9c015e44786dde183d847b24b1372",
+  "backend/internal/application/service/pricing_service_test.go": "360bd4806c5f93eab20818f86f59f86233280b04fe05bd41e4f7332e850eabb6",
+  "backend/internal/application/service/billing_service_test.go": "bdff4b31700b0e24df47ddb7350e826e560c0252fa2172778bea867381fe3643",
+  "backend/internal/platform/config/defaults_ops.go": "febc286c85bab0da9bce14ebb8c57b89962e70e3dbd3187f2517d3c82cef84c4",
+  "deploy/config.example.yaml": "8e0413e0f9533b539363244d7b1ad2e92b2059acb4c482ea528811a8b45de2f6",
+  "docs/REQUEST_LIFECYCLES.md": "3ea28ed7488ccfd36dcca7d6a2104c8e6f7a6bd2b9d0a8e5bc53d9bdea368125"
+}

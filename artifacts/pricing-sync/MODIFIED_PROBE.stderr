@@ -1,0 +1,12 @@
+2026/09/10 06:46:56 [Pricing] Local pricing file not found, downloading...
+2026/09/10 06:46:56 [Pricing] Downloading from https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json
+2026/09/10 06:46:56 [Pricing] Corrected default catalog GPT-5.6 Sol legacy rates to official promotional rates
+2026/09/10 06:46:56 [Pricing] Downloaded 230 models successfully
+2026/09/10 06:46:56 [Pricing] Update scheduler started (check every 10m0s)
+2026/09/10 06:46:56 [Pricing] Service initialized with 230 models
+2026/09/10 06:46:56 [Pricing] Corrected default catalog GPT-5.6 Sol legacy rates to official promotional rates
+2026/09/10 06:46:56 [Pricing] Loaded 230 models from /tmp/pricing-probe-563984262/model_pricing.json
+2026/09/10 06:46:56 [Pricing] Update scheduler started (check every 10m0s)
+2026/09/10 06:46:56 [Pricing] Service initialized with 230 models
+2026/09/10 06:46:56 [Pricing] Service stopped
+2026/09/10 06:46:56 [Pricing] Service stopped
