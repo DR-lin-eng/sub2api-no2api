@@ -622,7 +622,7 @@ const (
 	// SettingKeyAntigravityUserAgentVersion Antigravity 上游 User-Agent 版本号（空值使用环境变量/默认值）
 	SettingKeyAntigravityUserAgentVersion = "antigravity_user_agent_version"
 	// SettingKeyOpenAICodexUserAgent OpenAI Codex 完整 User-Agent（空值使用内置默认）。
-	// 自定义值只贡献客户端和设备指纹；版本段由生效的客户端版本重建。
+	// 自定义值保留引擎版本和应用构建号；固定/同步版本仅用于默认 CLI UA。
 	SettingKeyOpenAICodexUserAgent = "openai_codex_user_agent"
 	// SettingKeyOpenAICodexClientVersion 是管理员固定的出站 Codex 客户端版本。
 	// 空值依次回退到自动同步值和编译期默认值。

@@ -28,9 +28,20 @@ parent/fork/turn/root 关联 ID 会按虚拟 principal 重新派生，合法的 
 投影同步改写；账号指纹计划仍是最终覆盖者。旧的 `session_id` / `conversation_id` 只作为网关内部
 兼容投影保留，不得把下游原值直接带到另一个上游账号。
 
-出站身份策略开启时，命中已知容量降载桶的 `codex-tui` 会在最终身份解析边界改写为
-`codex_cli_rs`；版本、OS、架构和终端指纹保留，User-Agent 首段与 `originator` 始终配对。
-将 `gateway.disable_codex_identity_enforcement` 设为 `true` 后，该归一化也随之关闭，保留完整回滚语义。
+出站 UA 按账号 `credentials.user_agent`、全局 `openai_codex_user_agent`、默认 CLI 身份的顺序解析；
+`ForceCodexCLI` 开启时使用全局/默认身份。显式配置的官方客户端 UA 保留名称、引擎版本、OS、架构、
+终端和末尾的应用构建号，`originator` 从 UA 首段配对，`version` 取首个 `/` 后的引擎版本。
+例如 `Codex Desktop/0.153.4 (Windows 10.0.26200; x86_64) unknown (Codex Desktop; 26.903.71938)`
+中的 `0.153.4` 和 `26.903.71938` 分属引擎与应用，不能互相覆盖；`codex-tui` 等显式身份也不会自动
+归一为 `codex_cli_rs`。固定/自动同步版本只负责生成未配置完整 UA 时的默认 CLI 身份。
+无效或非官方 UA 继续回退为规范身份。将 `gateway.disable_codex_identity_enforcement` 设为 `true`
+后使用请求 UA 配对身份，`version` 仍与 UA 的引擎版本保持一致。
+
+HTTP 普通转发、透传、Compact 与 WS 使用同一身份解析结果，full simulation 不再另按服务器 OS
+生成 CLI UA。WS 连接兼容键包含 `User-Agent`、`originator`、`version` 和账号 TLS Profile；
+身份设置改变后的新请求不会复用旧握手，身份不变时保留原连接亲和性。
+旧的 session/full 指纹模式也从同一请求计划设置 HTTP 与 WS 握手的 `x-client-request-id`，
+不再由 WS 继承入站原值；后续 WS 帧仍按既有协议在 body metadata 中投影每轮身份。
 
 上游 WebSocket 可能以 `type:error` 或 `response.failed` 返回 `server_is_overloaded`、`slow_down`
 或仅包含过载消息。网关只在首个语义输出前把它转换为携带原始事件体和握手响应头的 503
@@ -95,11 +106,11 @@ string-state 接口下不提供跨实例原子计数。
 
 ## 平台与传输层
 
-Profile 从 `identity_secret + principal` 确定性派生，但只在部署宿主的平台族内选择源码真实的终端组合。
+身份 Profile 从 `identity_secret + principal + 已解析 UA` 确定性派生，UA 配置与普通请求共用解析器。
 OpenAI OAuth 的稳定数据库 profile 分配也优先使用 `chatgpt_account_id`，避免同一虚拟 principal
 在本地账号 failover 后切换 TLS 外观；Spark shadow 只保存不含凭据的
-`codex_virtual_client_key` 来继承该 namespace。这样未来引入原生传输 sidecar 时不会出现 UA 声称
-macOS、传输层却固定呈现 Linux 的长期矛盾。
+`codex_virtual_client_key` 来继承该 namespace。UA 中的平台字段和 TLS ClientHello 参数是不同层级；
+保留 Desktop UA 不代表传输栈变为官方原生客户端。
 
 当多个 OAuth 记录共享同一非本地虚拟 principal、出口路由和 TLS profile 时，账号级 upstream pool 也使用
 该 principal 的不可逆短 key；缺少 upstream principal 的 `local:` 账号仍保持本地账号隔离。

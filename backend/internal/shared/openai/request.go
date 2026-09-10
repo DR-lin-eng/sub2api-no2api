@@ -275,8 +275,9 @@ func CodexUserAgentVersion(userAgent string) string {
 	return strings.TrimSpace(rest)
 }
 
-// SetCodexUserAgentVersion rebuilds only the version declarations in a
-// Codex-style User-Agent, preserving the client name and machine fingerprint.
+// SetCodexUserAgentVersion rebuilds only the engine version in a Codex-style
+// User-Agent. The trailing clientInfo.version belongs to the host application
+// (for example, a Desktop build number) and is independent of the engine.
 // It returns an empty string when the input cannot be rebuilt safely.
 func SetCodexUserAgentVersion(userAgent, version string) string {
 	ua := strings.TrimSpace(userAgent)
@@ -299,28 +300,7 @@ func SetCodexUserAgentVersion(userAgent, version string) string {
 	} else if strings.TrimSpace(rest) == "" {
 		return ""
 	}
-	return rewriteCodexUATrailerVersion(client+"/"+version+tail, version)
-}
-
-func rewriteCodexUATrailerVersion(ua, version string) string {
-	open := strings.LastIndex(ua, "(")
-	if open < 0 {
-		return ua
-	}
-	closeIdx := strings.Index(ua[open+1:], ")")
-	if closeIdx < 0 {
-		return ua
-	}
-	inner := ua[open+1 : open+1+closeIdx]
-	semi := strings.Index(inner, ";")
-	if semi < 0 {
-		return ua
-	}
-	name := strings.TrimSpace(inner[:semi])
-	if name == "" || !IsCodexOfficialClientOriginator(name) {
-		return ua
-	}
-	return ua[:open+1] + name + "; " + version + ua[open+1+closeIdx:]
+	return client + "/" + version + tail
 }
 
 const codexLoadShedOriginator = "codex-tui"

@@ -148,8 +148,8 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	}
 	applyStagedCodexFingerprintHeaders(c, account, req.Header)
 
-	// OAuth requests leave through one canonical identity. Account-level UA
-	// overrides keep their fingerprint but their version is rebuilt.
+	// OAuth requests leave through one paired identity. Explicit account UAs
+	// retain their engine version and independent application build number.
 	if account.Type == AccountTypeOAuth {
 		enforceCodexIdentityHeadersWithUA(req.Header, s.codexIdentityOverrideUA(account))
 	}

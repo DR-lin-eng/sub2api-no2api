@@ -84,6 +84,9 @@ type openAIWSAcquireRequest struct {
 }
 
 type openAIWSHandshakeCompatibilityKey struct {
+	userAgent      string
+	originator     string
+	version        string
 	betaFeatures   string
 	fingerprintKey string
 	tlsProfileKey  string
@@ -2100,6 +2103,9 @@ func normalizeOpenAIWSBetaFeatures(headers http.Header) string {
 
 func normalizeOpenAIWSHandshakeCompatibility(headers http.Header) openAIWSHandshakeCompatibilityKey {
 	return openAIWSHandshakeCompatibilityKey{
+		userAgent:      headers.Get("User-Agent"),
+		originator:     headers.Get("originator"),
+		version:        headers.Get("version"),
 		betaFeatures:   normalizeOpenAIWSBetaFeatures(headers),
 		fingerprintKey: headers.Get(codexFingerprintWSKeyHeader),
 	}

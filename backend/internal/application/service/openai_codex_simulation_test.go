@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
-	"runtime"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
@@ -134,7 +133,7 @@ func TestCodexSimulationPrincipalAndTurnMapping(t *testing.T) {
 	require.Equal(t, firstIDs.sessionID, firstIDs.threadID)
 	require.Equal(t, firstIDs.sessionID, firstIDs.promptCacheKey)
 	require.Equal(t, firstIDs.sessionID+":0", firstIDs.windowID)
-	require.Contains(t, firstIDs.profile.userAgent, runtimeProfileOSFragment())
+	require.Equal(t, CodexCanonicalUserAgent(), firstIDs.profile.userAgent)
 }
 
 func TestCodexFullSimulationStillRequiresAccountFullMode(t *testing.T) {
@@ -373,15 +372,4 @@ func newCodexSimulationTestContext(path string) *gin.Context {
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodPost, path, nil)
 	return c
-}
-
-func runtimeProfileOSFragment() string {
-	switch runtime.GOOS {
-	case "darwin":
-		return "Mac OS"
-	case "windows":
-		return "Windows"
-	default:
-		return "Ubuntu"
-	}
 }
