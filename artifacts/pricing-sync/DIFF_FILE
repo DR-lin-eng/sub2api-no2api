@@ -1,0 +1,450 @@
+--- a/backend/resources/model-pricing/model_prices_and_context_window.json
++++ b/backend/resources/model-pricing/model_prices_and_context_window.json
+@@ -5055,17 +5055,17 @@
+     "supports_xhigh_reasoning_effort": true
+   },
+   "gpt-5.6-sol": {
+-    "cache_creation_input_token_cost": 6.25e-06,
+-    "cache_creation_input_token_cost_batches": 3.125e-06,
+-    "cache_creation_input_token_cost_flex": 3.125e-06,
+-    "cache_creation_input_token_cost_priority": 1.25e-05,
+-    "cache_read_input_token_cost": 5e-07,
+-    "cache_read_input_token_cost_flex": 2.5e-07,
+-    "cache_read_input_token_cost_priority": 1e-06,
+-    "input_cost_per_token": 5e-06,
+-    "input_cost_per_token_batches": 2.5e-06,
+-    "input_cost_per_token_flex": 2.5e-06,
+-    "input_cost_per_token_priority": 1e-05,
++    "cache_creation_input_token_cost": 5e-06,
++    "cache_creation_input_token_cost_batches": 2.5e-06,
++    "cache_creation_input_token_cost_flex": 2.5e-06,
++    "cache_creation_input_token_cost_priority": 1e-05,
++    "cache_read_input_token_cost": 4e-07,
++    "cache_read_input_token_cost_flex": 2e-07,
++    "cache_read_input_token_cost_priority": 8e-07,
++    "input_cost_per_token": 4e-06,
++    "input_cost_per_token_batches": 2e-06,
++    "input_cost_per_token_flex": 2e-06,
++    "input_cost_per_token_priority": 8e-06,
+     "long_context_input_token_threshold": 272000,
+     "long_context_input_cost_multiplier": 2.0,
+     "long_context_output_cost_multiplier": 1.5,
+@@ -5074,10 +5074,10 @@
+     "max_output_tokens": 128000,
+     "max_tokens": 128000,
+     "mode": "chat",
+-    "output_cost_per_token": 3e-05,
+-    "output_cost_per_token_batches": 1.5e-05,
+-    "output_cost_per_token_flex": 1.5e-05,
+-    "output_cost_per_token_priority": 6e-05,
++    "output_cost_per_token": 2e-05,
++    "output_cost_per_token_batches": 1e-05,
++    "output_cost_per_token_flex": 1e-05,
++    "output_cost_per_token_priority": 4e-05,
+     "supported_endpoints": [
+       "/v1/chat/completions",
+       "/v1/batch",
+--- a/backend/internal/application/service/pricing_service.go
++++ b/backend/internal/application/service/pricing_service.go
+@@ -53,14 +53,14 @@
+ 		SupportsPromptCaching:           true,
+ 	}
+ 	openAIGPT56SolFallbackPricing = &LiteLLMModelPricing{
+-		InputCostPerToken:                   5e-06,
+-		InputCostPerTokenPriority:           1e-05,
+-		OutputCostPerToken:                  3e-05,
+-		OutputCostPerTokenPriority:          6e-05,
+-		CacheCreationInputTokenCost:         6.25e-06,
+-		CacheCreationInputTokenCostPriority: 1.25e-05,
+-		CacheReadInputTokenCost:             5e-07,
+-		CacheReadInputTokenCostPriority:     1e-06,
++		InputCostPerToken:                   4e-06,
++		InputCostPerTokenPriority:           8e-06,
++		OutputCostPerToken:                  2e-05,
++		OutputCostPerTokenPriority:          4e-05,
++		CacheCreationInputTokenCost:         5e-06,
++		CacheCreationInputTokenCostPriority: 1e-05,
++		CacheReadInputTokenCost:             4e-07,
++		CacheReadInputTokenCostPriority:     8e-07,
+ 		LongContextInputTokenThreshold:      openAIGPT54LongContextInputThreshold,
+ 		LongContextInputCostMultiplier:      openAIGPT54LongContextInputMultiplier,
+ 		LongContextOutputCostMultiplier:     openAIGPT54LongContextOutputMultiplier,
+@@ -406,6 +406,7 @@
+ 		return fmt.Errorf("parse pricing data: %w", err)
+ 	}
+ 	data = s.mergeFallbackPricingData(data)
++	s.correctDefaultCatalogPricing(data)
+ 
+ 	// 保存到本地文件
+ 	pricingFile := s.getPricingFilePath()
+@@ -547,6 +548,9 @@
+ 		return fmt.Errorf("parse pricing data: %w", err)
+ 	}
+ 	pricingData = s.mergeFallbackPricingData(pricingData)
++	if filepath.Clean(filePath) == filepath.Clean(s.getPricingFilePath()) {
++		s.correctDefaultCatalogPricing(pricingData)
++	}
+ 
+ 	// 计算哈希
+ 	hash := sha256.Sum256(data)
+--- a/backend/internal/application/service/billing_service.go
++++ b/backend/internal/application/service/billing_service.go
+@@ -375,15 +375,16 @@
+ 	}
+ 
+ 	// OpenAI GPT-5.6 官方价格（USD/token）。缓存写入为输入价的 1.25 倍。
++	// Sol 优惠价于 2026-09-10 核对，官方承诺至少持续至 2026-11-21。
+ 	s.fallbackPrices["gpt-5.6-sol"] = &ModelPricing{
+-		InputPricePerToken:                 5e-6,
+-		InputPricePerTokenPriority:         10e-6,
+-		OutputPricePerToken:                30e-6,
+-		OutputPricePerTokenPriority:        60e-6,
+-		CacheCreationPricePerToken:         6.25e-6,
+-		CacheCreationPricePerTokenPriority: 12.5e-6,
+-		CacheReadPricePerToken:             0.5e-6,
+-		CacheReadPricePerTokenPriority:     1e-6,
++		InputPricePerToken:                 4e-6,
++		InputPricePerTokenPriority:         8e-6,
++		OutputPricePerToken:                20e-6,
++		OutputPricePerTokenPriority:        40e-6,
++		CacheCreationPricePerToken:         5e-6,
++		CacheCreationPricePerTokenPriority: 10e-6,
++		CacheReadPricePerToken:             0.4e-6,
++		CacheReadPricePerTokenPriority:     0.8e-6,
+ 		LongContextInputThreshold:          openAIGPT54LongContextInputThreshold,
+ 		LongContextInputMultiplier:         openAIGPT54LongContextInputMultiplier,
+ 		LongContextOutputMultiplier:        openAIGPT54LongContextOutputMultiplier,
+--- a/backend/internal/application/service/pricing_service_test.go
++++ b/backend/internal/application/service/pricing_service_test.go
+@@ -211,7 +211,7 @@
+ 		input, cached      float64
+ 		cacheWrite, output float64
+ 	}{
+-		{name: "gpt-5.6-sol", input: 5e-6, cached: 0.5e-6, cacheWrite: 6.25e-6, output: 30e-6},
++		{name: "gpt-5.6-sol", input: 4e-6, cached: 0.4e-6, cacheWrite: 5e-6, output: 20e-6},
+ 		{name: "gpt-5.6-terra", input: 2e-6, cached: 0.2e-6, cacheWrite: 2.5e-6, output: 12e-6},
+ 		{name: "gpt-5.6-luna", input: 0.2e-6, cached: 0.02e-6, cacheWrite: 0.25e-6, output: 1.2e-6},
+ 	}
+@@ -221,6 +221,7 @@
+ 	}{
+ 		{name: "standard", priceScale: 1},
+ 		{name: "priority", priceScale: 2},
++		{name: "fast", priceScale: 2},
+ 		{name: "flex", priceScale: 0.5},
+ 	}
+ 	tokens := UsageTokens{
+@@ -255,10 +256,10 @@
+ 
+ 	cost, err := svc.CalculateCost("gpt-5.6-sol", tokens, 1)
+ 	require.NoError(t, err)
+-	require.InDelta(t, 100000*5e-6, cost.InputCost, 1e-12)
+-	require.InDelta(t, 100000*6.25e-6, cost.CacheCreationCost, 1e-12)
+-	require.InDelta(t, 72000*0.5e-6, cost.CacheReadCost, 1e-12)
+-	require.InDelta(t, 10*30e-6, cost.OutputCost, 1e-12)
++	require.InDelta(t, 100000*4e-6, cost.InputCost, 1e-12)
++	require.InDelta(t, 100000*5e-6, cost.CacheCreationCost, 1e-12)
++	require.InDelta(t, 72000*0.4e-6, cost.CacheReadCost, 1e-12)
++	require.InDelta(t, 10*20e-6, cost.OutputCost, 1e-12)
+ }
+ 
+ func TestPricingService_BareGPT56AliasDeterministicallyUsesSol(t *testing.T) {
+@@ -301,7 +302,7 @@
+ 		input, cached, cacheWrite, output                                 float64
+ 		inputPriority, cachedPriority, cacheWritePriority, outputPriority float64
+ 	}{
+-		{model: "gpt-5.6-sol", input: 5e-6, cached: 0.5e-6, cacheWrite: 6.25e-6, output: 30e-6, inputPriority: 10e-6, cachedPriority: 1e-6, cacheWritePriority: 12.5e-6, outputPriority: 60e-6},
++		{model: "gpt-5.6-sol", input: 4e-6, cached: 0.4e-6, cacheWrite: 5e-6, output: 20e-6, inputPriority: 8e-6, cachedPriority: 0.8e-6, cacheWritePriority: 10e-6, outputPriority: 40e-6},
+ 		{model: "gpt-5.6-terra", input: 2e-6, cached: 0.2e-6, cacheWrite: 2.5e-6, output: 12e-6, inputPriority: 4e-6, cachedPriority: 0.4e-6, cacheWritePriority: 5e-6, outputPriority: 24e-6},
+ 		{model: "gpt-5.6-luna", input: 0.2e-6, cached: 0.02e-6, cacheWrite: 0.25e-6, output: 1.2e-6, inputPriority: 0.4e-6, cachedPriority: 0.04e-6, cacheWritePriority: 0.5e-6, outputPriority: 2.4e-6},
+ 	}
+@@ -329,7 +330,7 @@
+ 		model                             string
+ 		input, cached, cacheWrite, output float64
+ 	}{
+-		{model: "gpt-5.6-sol", input: 5e-6, cached: 0.5e-6, cacheWrite: 6.25e-6, output: 30e-6},
++		{model: "gpt-5.6-sol", input: 4e-6, cached: 0.4e-6, cacheWrite: 5e-6, output: 20e-6},
+ 		{model: "gpt-5.6-terra", input: 2e-6, cached: 0.2e-6, cacheWrite: 2.5e-6, output: 12e-6},
+ 		{model: "gpt-5.6-luna", input: 0.2e-6, cached: 0.02e-6, cacheWrite: 0.25e-6, output: 1.2e-6},
+ 	}
+--- a/backend/internal/application/service/billing_service_test.go
++++ b/backend/internal/application/service/billing_service_test.go
+@@ -1666,8 +1666,8 @@
+ 	})
+ 	require.NoError(t, err)
+ 	require.True(t, pricing.ApplyServiceTierMultiplier)
+-	require.InDelta(t, 60e-6, pricing.OutputPricePerTokenPriority, 1e-12)
+-	require.InDelta(t, 1e-6, pricing.CacheReadPricePerTokenPriority, 1e-12)
++	require.InDelta(t, 40e-6, pricing.OutputPricePerTokenPriority, 1e-12)
++	require.InDelta(t, 0.8e-6, pricing.CacheReadPricePerTokenPriority, 1e-12)
+ }
+ 
+ func TestGetModelPricingWithChannel_UnknownModelReturnsError(t *testing.T) {
+--- a/backend/internal/platform/config/defaults_ops.go
++++ b/backend/internal/platform/config/defaults_ops.go
+@@ -45,7 +45,7 @@
+ 	viper.SetDefault("rate_limit.overload_cooldown_minutes", 10)
+ 	viper.SetDefault("rate_limit.oauth_401_cooldown_minutes", 10)
+ 
+-	// Pricing - 从 model-price-repo 同步模型定价和上下文窗口数据（固定到 commit，避免分支漂移）
++	// Pricing - 从 model-price-repo main 分支同步模型定价和上下文窗口数据。
+ 	viper.SetDefault("pricing.remote_url", "https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json")
+ 	viper.SetDefault("pricing.hash_url", "https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.sha256")
+ 	viper.SetDefault("pricing.data_dir", "./data")
+--- a/deploy/config.example.yaml
++++ b/deploy/config.example.yaml
+@@ -1088,8 +1088,8 @@
+ # 定价数据源（可选）
+ # =============================================================================
+ pricing:
+-  # URL to fetch model pricing data (default: pinned model-price-repo commit)
+-  # 获取模型定价数据的 URL（默认：固定 commit 的 model-price-repo）
++  # URL to fetch model pricing data (default: model-price-repo main branch)
++  # 获取模型定价数据的 URL（默认跟踪 model-price-repo main 分支）
+   remote_url: "https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/refs/heads/main//model_prices_and_context_window.json"
+   # Hash verification URL (optional)
+   # 哈希校验 URL（可选）
+--- a/docs/REQUEST_LIFECYCLES.md
++++ b/docs/REQUEST_LIFECYCLES.md
+@@ -292,6 +292,14 @@
+ - 缓存回填使用版本/新旧保护，避免旧数据库快照覆盖更晚的扣费结果。
+ - 修改计费时同时验证余额模式、订阅模式、重复提交、并发提交和故障恢复。
+ 
++### 价格目录与官方费率
++
++`PricingService` 在启动时加载缓存，并按配置检查远端目录；渠道和分组自定义定价仍优先于模型目录。默认远端跟踪 `Wei-Shaw/model-price-repo/main`，内置文件补充缺失模型，两个 service 的静态价格承担最后兜底。
++
++2026-09-10 核对 [OpenAI 官方价格](https://developers.openai.com/api/docs/pricing)：GPT-5.6 Sol 的 Standard 输入、缓存读取、缓存写入、输出分别为 **$4 / $0.4 / $5 / $20 per 1M tokens**；Fast（兼容 `priority`）为 2 倍，Flex 和目录中的 Batch 为 0.5 倍。输入总量超过 272K 时，输入与缓存按 2 倍、输出按 1.5 倍计算。官方注明优惠价至少持续至 2026-11-21，后续调价需再次核对。
++
++默认远端仍返回完整 Sol 旧费率（$5 / $0.5 / $6.25 / $30 及其 Fast 价）时，下载和缓存加载阶段定向纠正这组费率，再构建内存索引。原始缓存字节与远端同步哈希保持对应关系。该纠正只匹配默认仓库的 `main` URL 和完整旧费率；自定义价格源、固定 commit、其他模型以及远端后续不同费率均按原目录处理。请求计费热路径不增加网络或磁盘访问。
++
+ ### 账号渠道统计与详细日志
+ 
+ 管理端账号“使用统计”固定展示最近 30 个自然日。费用、请求、Token、响应时间、TTFT、模型及上下游端点由 `ops_account_usage_daily` 保存为运维聚合数据；查询时只合并聚合水位之后尚未汇总的 `usage_logs`。手动或定时删除详细请求日志前必须先同步推进这份聚合，聚合失败则不得删除会影响当前展示窗口的原始记录。
+--- /dev/null
++++ b/backend/internal/application/service/pricing_service_corrections.go
+@@ -0,0 +1,49 @@
++package service
++
++import (
++	"net/url"
++	"path"
++	"strings"
++
++	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
++)
++
++// correctDefaultCatalogPricing handles the default feed's known stale Sol
++// card, verified against https://developers.openai.com/api/docs/pricing on
++// 2026-09-10. Run only when loading a catalog, before publishing its index.
++// Custom feeds and pinned revisions keep their explicit prices. A different
++// future upstream card must also win over this narrowly matched correction.
++func (s *PricingService) correctDefaultCatalogPricing(data map[string]*LiteLLMModelPricing) {
++	if s == nil || s.cfg == nil {
++		return
++	}
++	u, err := url.Parse(strings.TrimSpace(s.cfg.Pricing.RemoteURL))
++	if err != nil || u.Scheme != "https" || u.Host != "raw.githubusercontent.com" || u.RawQuery != "" {
++		return
++	}
++	switch path.Clean(u.Path) {
++	case "/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json",
++		"/Wei-Shaw/model-price-repo/refs/heads/main/model_prices_and_context_window.json":
++	default:
++		return
++	}
++
++	p := data["gpt-5.6-sol"]
++	if p == nil || p.LiteLLMProvider != "openai" ||
++		p.InputCostPerToken != 5e-6 || p.OutputCostPerToken != 30e-6 ||
++		p.CacheReadInputTokenCost != 0.5e-6 || p.CacheCreationInputTokenCost != 6.25e-6 ||
++		p.InputCostPerTokenPriority != 10e-6 || p.OutputCostPerTokenPriority != 60e-6 ||
++		p.CacheReadInputTokenCostPriority != 1e-6 || p.CacheCreationInputTokenCostPriority != 12.5e-6 {
++		return
++	}
++	current := openAIGPT56SolFallbackPricing
++	p.InputCostPerToken = current.InputCostPerToken
++	p.OutputCostPerToken = current.OutputCostPerToken
++	p.CacheReadInputTokenCost = current.CacheReadInputTokenCost
++	p.CacheCreationInputTokenCost = current.CacheCreationInputTokenCost
++	p.InputCostPerTokenPriority = current.InputCostPerTokenPriority
++	p.OutputCostPerTokenPriority = current.OutputCostPerTokenPriority
++	p.CacheReadInputTokenCostPriority = current.CacheReadInputTokenCostPriority
++	p.CacheCreationInputTokenCostPriority = current.CacheCreationInputTokenCostPriority
++	logger.LegacyPrintf("service.pricing", "%s", "[Pricing] Corrected default catalog GPT-5.6 Sol legacy rates to official promotional rates")
++}
+--- /dev/null
++++ b/backend/internal/application/service/pricing_service_corrections_test.go
+@@ -0,0 +1,126 @@
++package service
++
++import (
++	"context"
++	"crypto/sha256"
++	"encoding/hex"
++	"encoding/json"
++	"os"
++	"testing"
++
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/stretchr/testify/require"
++)
++
++// The default catalog still used this complete pre-promotion price card on
++// 2026-09-10. Keep it separate from the current shipped catalog for regression.
++const solLegacyCatalog = `{
++	"gpt-5.6-sol": {
++		"input_cost_per_token": 0.000005,
++		"output_cost_per_token": 0.000030,
++		"cache_read_input_token_cost": 0.0000005,
++		"cache_creation_input_token_cost": 0.00000625,
++		"input_cost_per_token_priority": 0.000010,
++		"output_cost_per_token_priority": 0.000060,
++		"cache_read_input_token_cost_priority": 0.000001,
++		"cache_creation_input_token_cost_priority": 0.0000125,
++		"litellm_provider": "openai",
++		"mode": "chat",
++		"supports_prompt_caching": true
++	},
++	"gpt-5.5": {"input_cost_per_token": 0.000005, "output_cost_per_token": 0.000030}
++}`
++
++type solCatalogRemote struct {
++	body []byte
++}
++
++func (r *solCatalogRemote) FetchPricingJSON(context.Context, string) ([]byte, error) {
++	return r.body, nil
++}
++
++func (r *solCatalogRemote) FetchHashText(context.Context, string) (string, error) {
++	hash := sha256.Sum256(r.body)
++	return hex.EncodeToString(hash[:]), nil
++}
++
++func TestPricingService_SolPromotionSurvivesCatalogRefreshAndRestart(t *testing.T) {
++	for _, remoteURL := range []string{
++		"https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json",
++		"https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/refs/heads/main//model_prices_and_context_window.json",
++	} {
++		t.Run(remoteURL, func(t *testing.T) {
++			cfg := &config.Config{Pricing: config.PricingConfig{
++				RemoteURL: remoteURL,
++				DataDir:   t.TempDir(),
++			}}
++			remote := &solCatalogRemote{body: []byte(solLegacyCatalog)}
++			svc := NewPricingService(cfg, remote)
++			for _, phase := range []string{"download", "refresh", "restart"} {
++				t.Run(phase, func(t *testing.T) {
++					if phase == "restart" {
++						svc = NewPricingService(cfg, remote)
++						require.NoError(t, svc.loadPricingData(svc.getPricingFilePath()))
++					} else {
++						require.NoError(t, svc.downloadPricingData())
++					}
++					cached, err := os.ReadFile(svc.getPricingFilePath())
++					require.NoError(t, err)
++					require.Equal(t, remote.body, cached, "raw cache and synchronization hash stay paired")
++					hash := sha256.Sum256(cached)
++					require.Equal(t, hex.EncodeToString(hash[:]), svc.localHash)
++					pricing := svc.GetIdentifiedModelPricing("gpt-5.6-sol")
++					require.NotNil(t, pricing)
++					require.InDelta(t, 4e-6, pricing.InputCostPerToken, 1e-12)
++					require.InDelta(t, 5e-6, svc.GetModelPricing("gpt-5.5").InputCostPerToken, 1e-12)
++					billing := NewBillingService(cfg, svc)
++					for _, model := range []string{"gpt-5.6-sol", "gpt-5.6", "openai/gpt-5.6-sol"} {
++						p, err := billing.GetModelPricing(model)
++						require.NoError(t, err)
++						assertGPT56FallbackPricing(t, p, 4e-6, 0.4e-6, 5e-6, 20e-6)
++						for _, tier := range []struct {
++							name  string
++							scale float64
++						}{{"", 1}, {"fast", 2}, {"priority", 2}, {"flex", 0.5}} {
++							cost, err := billing.CalculateCostWithServiceTier(model, UsageTokens{
++								InputTokens: 700, CacheCreationTokens: 200, CacheReadTokens: 100, OutputTokens: 50,
++							}, 1, tier.name)
++							require.NoError(t, err)
++							require.InDelta(t, 0.00484*tier.scale, cost.TotalCost, 1e-12, "model=%s tier=%s", model, tier.name)
++						}
++					}
++				})
++			}
++		})
++	}
++}
++
++func TestPricingService_SolPromotionPreservesCustomAndUpdatedCatalogs(t *testing.T) {
++	for _, tc := range []struct {
++		name, remoteURL string
++		input           float64
++	}{
++		{"custom source", "https://pricing.example.test/models.json", 5e-6},
++		{"local-only source", "", 5e-6},
++		{"pinned source", "https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/1234567/model_prices_and_context_window.json", 5e-6},
++		{"changed upstream rate", "https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json", 3e-6},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			var catalog map[string]map[string]any
++			require.NoError(t, json.Unmarshal([]byte(solLegacyCatalog), &catalog))
++			catalog["gpt-5.6-sol"]["input_cost_per_token"] = tc.input
++			body, err := json.Marshal(catalog)
++			require.NoError(t, err)
++			svc := NewPricingService(&config.Config{Pricing: config.PricingConfig{
++				RemoteURL: tc.remoteURL, DataDir: t.TempDir(),
++			}}, nil)
++			require.NoError(t, os.WriteFile(svc.getPricingFilePath(), body, 0600))
++			require.NoError(t, svc.loadPricingData(svc.getPricingFilePath()))
++			p := svc.GetModelPricing("gpt-5.6-sol")
++			require.NotNil(t, p)
++			require.InDelta(t, tc.input, p.InputCostPerToken, 1e-12)
++			require.InDelta(t, 30e-6, p.OutputCostPerToken, 1e-12)
++			require.InDelta(t, 12.5e-6, p.CacheCreationInputTokenCostPriority, 1e-12)
++		})
++	}
++}
+
+diff --git a/backend/internal/transport/http/handler/openai_gateway_handler_test.go b/backend/internal/transport/http/handler/openai_gateway_handler_test.go
+index 5eb4bc03b..47a0342e0 100644
+--- a/backend/internal/transport/http/handler/openai_gateway_handler_test.go
++++ b/backend/internal/transport/http/handler/openai_gateway_handler_test.go
+@@ -1557,8 +1557,10 @@ func TestOpenAIResponsesWebSocket_PassthroughTracksModelPerTurn(t *testing.T) {
+ 	require.Equal(t, "gpt-5.6-terra", *got.logs[1].UpstreamModel)
+ 	require.NotNil(t, got.logs[1].ModelMappingChain)
+ 	require.Equal(t, "terra→terra-channel→gpt-5.6-terra", *got.logs[1].ModelMappingChain)
+-	require.InDelta(t, got.logs[1].TotalCost*2.5, got.logs[0].TotalCost, 1e-12,
+-		"each turn must be billed with its own channel-mapped model")
++	require.InDelta(t, 28e-6, got.logs[0].TotalCost, 1e-12,
++		"the Sol turn must use the official GPT-5.6 Sol rate")
++	require.InDelta(t, 16e-6, got.logs[1].TotalCost, 1e-12,
++		"the Terra turn must use the Terra rate")
+ }
+ 
+ func TestOpenAIResponsesWebSocket_UnchangedChannelTargetOutsideAccountMappingKeysRemainsValid(t *testing.T) {
+@@ -1619,7 +1621,7 @@ func TestOpenAIResponsesWebSocket_PassthroughKeepsTurnMappingSnapshot(t *testing
+ 	require.Equal(t, "gpt-5.6-sol", *got.logs[0].UpstreamModel)
+ 	require.NotNil(t, got.logs[0].ModelMappingChain)
+ 	require.Equal(t, "sol→gpt-5.6-sol", *got.logs[0].ModelMappingChain)
+-	require.InDelta(t, 40e-6, got.logs[0].TotalCost, 1e-12,
++	require.InDelta(t, 28e-6, got.logs[0].TotalCost, 1e-12,
+ 		"the in-flight turn must retain the channel-mapped billing model used when it was sent")
+ 
+ 	require.Equal(t, "sol", got.logs[1].Model)
+@@ -1627,8 +1629,8 @@ func TestOpenAIResponsesWebSocket_PassthroughKeepsTurnMappingSnapshot(t *testing
+ 	require.Equal(t, "gpt-5.6-terra", *got.logs[1].UpstreamModel)
+ 	require.NotNil(t, got.logs[1].ModelMappingChain)
+ 	require.Equal(t, "sol→gpt-5.6-terra", *got.logs[1].ModelMappingChain)
+-	require.InDelta(t, got.logs[1].TotalCost*2.5, got.logs[0].TotalCost, 1e-12,
+-		"the next turn must use the updated channel mapping")
++	require.InDelta(t, 16e-6, got.logs[1].TotalCost, 1e-12,
++		"the next turn must use the updated channel mapping and Terra rate")
+ }
+ 
+ func TestOpenAIResponsesWebSocket_CtxPoolAppliesPerTurnMappingAndPreservesRequestedModel(t *testing.T) {
+@@ -1652,7 +1654,7 @@ func TestOpenAIResponsesWebSocket_CtxPoolAppliesPerTurnMappingAndPreservesReques
+ 	require.Len(t, got.logs, 2)
+ 	require.Equal(t, "gpt-5.6-sol", got.logs[0].RequestedModel)
+ 	require.Nil(t, got.logs[0].ModelMappingChain)
+-	require.InDelta(t, 40e-6, got.logs[0].TotalCost, 1e-12)
++	require.InDelta(t, 28e-6, got.logs[0].TotalCost, 1e-12)
+ 	require.Equal(t, "gpt-5.6-terra", got.logs[1].RequestedModel)
+ 	require.NotNil(t, got.logs[1].ModelMappingChain)
+ 	require.Equal(t, "gpt-5.6-terra→gpt-5.6-sol", *got.logs[1].ModelMappingChain)

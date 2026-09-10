@@ -1,0 +1,13 @@
+{
+  "backend/resources/model-pricing/model_prices_and_context_window.json": "e770fd4419a9c28e73754afb8a638146eea7cc80671a651024b94e464622c64f",
+  "backend/internal/application/service/pricing_service.go": "90a75ea348b380a092647265f428ee862c32a65ae689477ba55bcf33033b82de",
+  "backend/internal/application/service/billing_service.go": "267b5096be5528dc20c11042e9c3dc2fd7c3bf27a424e583a49f111079ed27ab",
+  "backend/internal/application/service/pricing_service_test.go": "53996548f68a50a905829a133553a84a0cabcec87b0dedaab271e37df69a6b71",
+  "backend/internal/application/service/billing_service_test.go": "08b4e4c8f34b6b1e3722bf99b1b157538e19bc85674976ffedf5a810e55b214f",
+  "backend/internal/platform/config/defaults_ops.go": "a52bc200c4167626be379a1154cf51cd120e47de03f5f618cebdfaa9eae269a5",
+  "deploy/config.example.yaml": "b71c12e09e86a3c4da6911941b564a0719cae6e1d39df4bd21e7a424e0db20e6",
+  "docs/REQUEST_LIFECYCLES.md": "eb4b4d2f16adfe319b0eda6df9d103ffc4cfbcff2302a1f546666cae3baa9028",
+  "backend/internal/application/service/pricing_service_corrections.go": "8fea041134024c488199e77757fa0f74ddfd09733ef0f5ac23c64cbd5a8e07fa",
+  "backend/internal/application/service/pricing_service_corrections_test.go": "d90a82e2d42a42da0519e081f2749bb41567ac80e3c23d9f1218552be99640e3",
+  "backend/internal/transport/http/handler/openai_gateway_handler_test.go": "96c1f4a94a312c759fa7ded14395a51b1eb64241f407e682f3052414497dda31"
+}

@@ -1,0 +1,27 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    "/Users/lin/.codex/worktrees/31dd/sub2api-no2api:/workspace:ro",
+    "-v",
+    "/Users/lin/go/pkg/mod:/go/pkg/mod",
+    "-v",
+    "/private/tmp/pricing-go-cache:/root/.cache/go-build",
+    "-w",
+    "/workspace/backend",
+    "-e",
+    "GOMAXPROCS=4",
+    "golang:1.26.6-bookworm",
+    "go",
+    "test",
+    "-tags=unit",
+    "-p",
+    "4",
+    "-count=1",
+    "./internal/application/service"
+  ],
+  "input": "modified worktree; full application service unit suite",
+  "exit_status": 0
+}

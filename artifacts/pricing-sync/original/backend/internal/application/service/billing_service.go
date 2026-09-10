@@ -375,16 +375,15 @@ func (s *BillingService) initFallbackPricing() {
 	}
 
 	// OpenAI GPT-5.6 官方价格（USD/token）。缓存写入为输入价的 1.25 倍。
-	// Sol 优惠价于 2026-09-10 核对，官方承诺至少持续至 2026-11-21。
 	s.fallbackPrices["gpt-5.6-sol"] = &ModelPricing{
-		InputPricePerToken:                 4e-6,
-		InputPricePerTokenPriority:         8e-6,
-		OutputPricePerToken:                20e-6,
-		OutputPricePerTokenPriority:        40e-6,
-		CacheCreationPricePerToken:         5e-6,
-		CacheCreationPricePerTokenPriority: 10e-6,
-		CacheReadPricePerToken:             0.4e-6,
-		CacheReadPricePerTokenPriority:     0.8e-6,
+		InputPricePerToken:                 5e-6,
+		InputPricePerTokenPriority:         10e-6,
+		OutputPricePerToken:                30e-6,
+		OutputPricePerTokenPriority:        60e-6,
+		CacheCreationPricePerToken:         6.25e-6,
+		CacheCreationPricePerTokenPriority: 12.5e-6,
+		CacheReadPricePerToken:             0.5e-6,
+		CacheReadPricePerTokenPriority:     1e-6,
 		LongContextInputThreshold:          openAIGPT54LongContextInputThreshold,
 		LongContextInputMultiplier:         openAIGPT54LongContextInputMultiplier,
 		LongContextOutputMultiplier:        openAIGPT54LongContextOutputMultiplier,

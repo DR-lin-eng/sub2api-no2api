@@ -1,0 +1,28 @@
+{
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    "/private/tmp/pricing-sync-rollback-31dd:/workspace:ro",
+    "-v",
+    "/Users/lin/go/pkg/mod:/go/pkg/mod",
+    "-v",
+    "/private/tmp/pricing-go-cache:/root/.cache/go-build",
+    "-w",
+    "/workspace/backend",
+    "-e",
+    "GOMAXPROCS=4",
+    "golang:1.26.6-bookworm",
+    "go",
+    "test",
+    "-p",
+    "4",
+    "-count=1",
+    "-run",
+    "Test(DefaultPricingIncludesOfficialGPT56Rates|GPT56DedicatedFallbacksUseOfficialRates|BillingService_GPT56.*|GetModelPricingWithChannel_PreservesUpstreamTierMetadata)$",
+    "./internal/application/service"
+  ],
+  "input": "restored original source and original pricing tests; Sol old rates",
+  "exit_status": 0
+}

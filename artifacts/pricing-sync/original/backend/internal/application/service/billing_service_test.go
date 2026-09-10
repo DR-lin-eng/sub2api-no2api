@@ -1666,8 +1666,8 @@ func TestGetModelPricingWithChannel_PreservesUpstreamTierMetadata(t *testing.T) 
 	})
 	require.NoError(t, err)
 	require.True(t, pricing.ApplyServiceTierMultiplier)
-	require.InDelta(t, 40e-6, pricing.OutputPricePerTokenPriority, 1e-12)
-	require.InDelta(t, 0.8e-6, pricing.CacheReadPricePerTokenPriority, 1e-12)
+	require.InDelta(t, 60e-6, pricing.OutputPricePerTokenPriority, 1e-12)
+	require.InDelta(t, 1e-6, pricing.CacheReadPricePerTokenPriority, 1e-12)
 }
 
 func TestGetModelPricingWithChannel_UnknownModelReturnsError(t *testing.T) {
