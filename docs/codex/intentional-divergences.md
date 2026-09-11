@@ -42,8 +42,8 @@ full simulation 的 session、thread、turn 以及上下文窗口 ID 使用 UUID
 无效或非官方 UA 继续回退为规范身份。将 `gateway.disable_codex_identity_enforcement` 设为 `true`
 后使用请求 UA 配对身份，`version` 仍与 UA 的引擎版本保持一致。
 
-HTTP 普通转发、透传、Compact 与 WS 使用同一身份解析结果，full simulation 不再另按服务器 OS
-生成 CLI UA。WS 连接兼容键包含 `User-Agent`、`originator`、`version` 和账号 TLS Profile；
+HTTP 普通转发、透传、Compact 与 WS 默认使用同一身份解析结果。full simulation 的 Linux 画像仅在
+C 与实验性传输开关同时开启且账号未配置 UA 时启用。WS 连接兼容键包含 `User-Agent`、`originator`、`version` 和账号 TLS Profile；
 身份设置改变后的新请求不会复用旧握手，身份不变时保留原连接亲和性。
 旧的 session/full 指纹模式也从同一请求计划设置 HTTP 与 WS 握手的 `x-client-request-id`，
 不再由 WS 继承入站原值；后续 WS 帧仍按既有协议在 body metadata 中投影每轮身份。
@@ -117,9 +117,10 @@ OpenAI OAuth 的稳定数据库 profile 分配也优先使用 `chatgpt_account_i
 `codex_virtual_client_key` 来继承该 namespace。UA 中的平台字段和 TLS ClientHello 参数是不同层级；
 保留 Desktop UA 不代表传输栈变为官方原生客户端。
 
-在 Linux amd64 上，full simulation 会从插件提供的五个抓包画像（Fedora/Arch/Ubuntu/Debian，
+在 Linux amd64 上，C 与实验性传输开关同时开启且账号未配置 UA 时，full simulation 会从插件提供的五个抓包画像（Fedora/Arch/Ubuntu/Debian，
 `xterm-256color`、`alacritty`、`kitty`、`screen`）中按 principal 稳定选择一个；Codex 版本仍由网关
-canonical version 同步决定。macOS/Windows 保持宿主平台画像，避免跨平台 UA 与实际传输环境冲突。
+canonical version 同步决定。账号显式 UA 继续优先；任一开关关闭或宿主不是 Linux amd64 时，
+沿用共享 UA 解析结果，保留全局或账号的完整客户端身份。
 
 当多个 OAuth 记录共享同一非本地虚拟 principal、出口路由和 TLS profile 时，账号级 upstream pool 也使用
 该 principal 的不可逆短 key；缺少 upstream principal 的 `local:` 账号仍保持本地账号隔离。

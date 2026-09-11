@@ -145,7 +145,8 @@ Profile 重查数据库。
 
 Codex OAuth 的 HTTP、透传、Compact 和 WS 握手共用 UA 身份解析：账号完整 UA 优先于全局完整 UA，
 未配置时才由固定/同步版本生成默认 CLI UA。显式 UA 的引擎版本和 Desktop 应用构建号分别保留，
-完整指纹模式沿用同一结果。WS 池将 UA、originator、version 和 TLS Profile 一起用于握手兼容检查；
+完整指纹模式默认沿用同一结果；Linux 插件画像由下述 C 与实验性传输开关共同控制，账号显式 UA 继续优先。
+WS 池将 UA、originator、version 和 TLS Profile 一起用于握手兼容检查；
 变更身份后重新拨号，未变更时继续复用。具体边界见 [Codex 身份差异](codex/intentional-divergences.md)。
 
 IPv6 模式只解析 AAAA 并从绑定源地址拨号。无 AAAA、缺少绑定或路由失败时不允许
@@ -221,8 +222,9 @@ full simulation 的 session/thread/turn 使用 UUIDv7，并从同一 attempt pla
 `thread_id:window_number`。每个 OpenAI OAuth 账号有一个随机生成、持久化在
 `accounts.extra.codex_context_window_id` 的 `context_window_id`；body 与 `x-codex-turn-metadata` 只使用该账号值，
 不接受下游窗口 ID 原样透传。installation ID 继续作为独立的 UUIDv4 安装身份。
-Linux amd64 的 Codex profile 会按 principal 稳定选择一组已验证的 Fedora、Arch、Ubuntu 或 Debian
-终端画像；其他宿主保持本地平台画像，版本沿用网关 canonical version。
+C 与实验性传输开关同时开启、账号未配置 UA 时，Linux amd64 的 Codex profile 会按 principal
+稳定选择一组 Fedora、Arch、Ubuntu 或 Debian 终端画像，版本沿用网关 canonical version。
+账号显式 UA、任一开关关闭或其他宿主平台均沿用共享 UA 解析结果。
 
 B 在 application 层将 body 分成 full/incremental，并读取 Redis string state（失败时使用有界本地
 fallback）判断 root/response owner。shadow 只读取、分类和记录假设；enforce 允许 full body 经结构化

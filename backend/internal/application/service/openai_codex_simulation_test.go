@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
-	"strings"
+	"runtime"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
@@ -138,7 +138,7 @@ func TestCodexSimulationPrincipalAndTurnMapping(t *testing.T) {
 	require.Equal(t, firstIDs.sessionID, firstIDs.promptCacheKey)
 	require.Equal(t, firstIDs.sessionID+":1", firstIDs.windowID)
 	require.Equal(t, 1, firstIDs.windowNumber)
-	require.True(t, containsCodexSimulationPersonaOS(firstIDs.profile.userAgent))
+	require.Equal(t, CodexCanonicalUserAgent(), firstIDs.profile.userAgent)
 }
 
 func TestCodexFullSimulationUsesAccountFixedRandomContextWindowAndV7IDs(t *testing.T) {
@@ -177,9 +177,58 @@ func TestCodexLinuxPersonaCatalogBorrowsPluginProfiles(t *testing.T) {
 	require.Equal(t, codexPersonaPreset{originator: "codex_cli_rs", os: "Ubuntu 22.4.0", arch: "x86_64", terminal: "screen"}, codexLinuxAMD64PersonaPresets[3])
 	require.Equal(t, codexPersonaPreset{originator: "codex_exec", os: "Debian 12.8", arch: "x86_64", terminal: "kitty"}, codexLinuxAMD64PersonaPresets[4])
 
-	first := resolveCodexSimulationProfile(codexSimulationTestSecret, "principal-a")
-	second := resolveCodexSimulationProfile(codexSimulationTestSecret, "principal-a")
+	first := resolveCodexSimulationProfile(codexSimulationTestSecret, "principal-a", "", true)
+	second := resolveCodexSimulationProfile(codexSimulationTestSecret, "principal-a", "", true)
 	require.Equal(t, first, second, "one principal must keep one selected persona")
+}
+
+func TestCodexSimulationPersonaRequiresBothSwitchesAndPreservesAccountUA(t *testing.T) {
+	const canonicalUA = "Codex Desktop/0.153.4 (Windows 10.0.26200; x86_64) unknown (Codex Desktop; 26.903.71938)"
+	const accountUA = "codex_cli_rs/0.190.0 (Mac OS 14.0.0; arm64) xterm-256color"
+	SetCodexCanonicalUserAgentResolver(func() string { return canonicalUA })
+	t.Cleanup(func() { SetCodexCanonicalUserAgentResolver(nil) })
+	for _, tc := range []struct {
+		name         string
+		cLevel       bool
+		experimental bool
+	}{
+		{name: "off"},
+		{name: "C only", cLevel: true},
+		{name: "experiment only", experimental: true},
+		{name: "both", cLevel: true, experimental: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := newCodexSimulationTestService(true, codexContinuationOff)
+			svc.cfg.Gateway.CodexSimulation.CLevelSimulationEnabled = tc.cLevel
+			svc.cfg.Gateway.CodexSimulation.ExperimentalTransportEnabled = tc.experimental
+			for _, override := range []string{"", accountUA} {
+				account := openAIFingerprintAccount(908, map[string]any{codexFingerprintModeExtraKey: "full"})
+				account.Credentials = map[string]any{"chatgpt_account_id": "persona-gate", "user_agent": override}
+				c := newCodexSimulationTestContext("/v1/responses")
+				body := []byte(`{"model":"gpt-5.5","input":"hello"}`)
+				_, err := svc.PrepareCodexSimulationAttempt(context.Background(), c, account, body)
+				require.NoError(t, err)
+				ids := resolveCodexFingerprintIDsFromGinContext(account, c)
+				require.NotNil(t, ids)
+				profile := ids.profile
+				switch {
+				case override != "":
+					require.Equal(t, accountUA, profile.userAgent)
+					require.Equal(t, "0.190.0", profile.version)
+					require.Equal(t, "codex_cli_rs", profile.originator)
+				case tc.cLevel && tc.experimental && runtime.GOOS == "linux" && runtime.GOARCH == "amd64":
+					require.NotEqual(t, canonicalUA, profile.userAgent)
+					require.Contains(t, profile.userAgent, "/0.153.4 (")
+					require.Contains(t, profile.userAgent, "; x86_64)")
+					require.Contains(t, []string{"codex_cli_rs", "codex_exec"}, profile.originator)
+				default:
+					require.Equal(t, canonicalUA, profile.userAgent)
+					require.Equal(t, "0.153.4", profile.version)
+					require.Equal(t, "Codex Desktop", profile.originator)
+				}
+			}
+		})
+	}
 }
 
 func TestCodexFullSimulationStillRequiresAccountFullMode(t *testing.T) {
@@ -418,13 +467,4 @@ func newCodexSimulationTestContext(path string) *gin.Context {
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodPost, path, nil)
 	return c
-}
-
-func containsCodexSimulationPersonaOS(userAgent string) bool {
-	for _, fragment := range []string{"Ubuntu", "Fedora", "Arch Linux", "Debian", "Mac OS", "Windows"} {
-		if strings.Contains(userAgent, fragment) {
-			return true
-		}
-	}
-	return false
 }

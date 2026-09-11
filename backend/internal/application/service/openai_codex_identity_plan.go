@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
@@ -453,7 +452,8 @@ func (s *OpenAIGatewayService) resolveCodexFullSimulationIDs(
 		}
 	}
 	sessionID := codexSimulationUUIDv7(secret, "session:v2", request.root.createdAtMS, request.root.rootKey, principal.key)
-	profile := resolveCodexSimulationProfile(secret, principal.key)
+	profile := resolveCodexSimulationProfile(secret, principal.key, s.codexIdentityOverrideUA(account),
+		request.settings.CLevelSimulationEnabled && request.settings.ExperimentalTransportEnabled)
 	windowNumber := int(generation) + 1
 	windowID := sessionID + ":" + strconv.Itoa(windowNumber)
 	contextWindowID := s.ensureCodexContextWindowID(ctx, account)
@@ -477,42 +477,26 @@ func (s *OpenAIGatewayService) resolveCodexFullSimulationIDs(
 	}
 }
 
-func resolveCodexSimulationProfile(secret, principalKey string) codexSimulationProfile {
-	version := CodexCanonicalClientVersion()
-	if version == "" {
-		version = "0.153.4"
-	}
-	digest := codexSimulationHMAC(secret, "profile:v2", principalKey)
-	if runtime.GOOS == "linux" && runtime.GOARCH == "amd64" {
+func resolveCodexSimulationProfile(secret, principalKey, overrideUA string, experimental bool) codexSimulationProfile {
+	identity := resolveCodexOutboundIdentity(overrideUA)
+	// Preserve the shared UA policy unless the request snapshot opts into the
+	// Linux persona experiment. An explicit account UA remains authoritative.
+	if experimental && strings.TrimSpace(overrideUA) == "" && runtime.GOOS == "linux" && runtime.GOARCH == "amd64" {
+		digest := codexSimulationHMAC(secret, "profile:v2", principalKey)
 		preset := codexLinuxAMD64PersonaPresets[int(digest[0])%len(codexLinuxAMD64PersonaPresets)]
 		return codexSimulationProfile{
 			id:         hex.EncodeToString(digest[:8]),
-			userAgent:  fmt.Sprintf("%s/%s (%s; %s) %s", preset.originator, version, preset.os, preset.arch, preset.terminal),
+			userAgent:  fmt.Sprintf("%s/%s (%s; %s) %s", preset.originator, identity.version, preset.os, preset.arch, preset.terminal),
 			originator: preset.originator,
-			version:    version,
+			version:    identity.version,
 		}
 	}
-	arch := runtime.GOARCH
-	if arch == "amd64" {
-		arch = "x86_64"
-	}
-	digest = codexSimulationHMAC(secret, "profile:v1", runtime.GOOS, arch, principalKey)
-	terminals := []string{"xterm-256color", "screen-256color"}
-	terminal := terminals[int(digest[0])%len(terminals)]
-	osValue := "Ubuntu 22.4.0"
-	switch runtime.GOOS {
-	case "darwin":
-		osValue = "Mac OS 14.0.0"
-	case "windows":
-		osValue = "Windows 11"
-		terminal = "WindowsTerminal"
-	}
-	originator := openai.CodexCLIOriginator
+	digest := codexSimulationHMAC(secret, "profile:v2", principalKey, identity.userAgent)
 	return codexSimulationProfile{
 		id:         hex.EncodeToString(digest[:8]),
-		userAgent:  fmt.Sprintf("%s/%s (%s; %s) %s", originator, version, osValue, arch, terminal),
-		originator: originator,
-		version:    version,
+		userAgent:  identity.userAgent,
+		originator: identity.originator,
+		version:    identity.version,
 	}
 }
 
