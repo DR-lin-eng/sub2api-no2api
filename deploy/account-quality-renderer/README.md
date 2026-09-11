@@ -1,0 +1,3 @@
+# Account quality renderer
+
+The optional renderer receives generated SVG/HTML over an internal Docker network, blocks external page requests, renders a 16-frame PNG/WebP animation, and classifies sampled frames with `models/best.pt` (Ultralytics 8.4.14, labels `normal`/`unnormal`). The checkpoint SHA-256 is `96bc1abf360ffba879310a0c5d4b4d9d70027083358999ed9fd3daba84fae2b6`. It returns no HTML. Start it with `docker compose --profile quality up -d account-quality-renderer`, then set `ACCOUNT_QUALITY_RENDERER_URL=http://account-quality-renderer:8090` and a shared `ACCOUNT_QUALITY_RENDERER_TOKEN` on Sub2API. Keep the token on the private network.

@@ -779,8 +779,13 @@ func ProvideAccountInspectionService(
 	lockCache LeaderLockCache,
 	db *sql.DB,
 	cfg *config.Config,
+	accountTestSvc *AccountTestService,
+	qualityProcessor AccountQualityArtifactProcessor,
+	qualityArtifacts AccountQualityArtifactRepository,
+	groupRepo GroupRepository,
 ) *AccountInspectionService {
 	svc := NewAccountInspectionService(accountRepo, usageService, settingRepo)
+	svc.SetQualityDependencies(accountTestSvc, qualityProcessor, qualityArtifacts, groupRepo)
 	svc.SetLeaderLock(lockCache, db)
 	if cfg != nil && cfg.Deployment.WorkerEnabledResolved() {
 		svc.Start()

@@ -49,6 +49,11 @@ const (
 	accountInspectionLeaderLockKey          = "account-inspection:run:leader"
 	accountInspectionLeaderLockTTL          = 6 * time.Minute
 	accountInspectionTickInterval           = time.Minute
+	accountQualityDefaultIntervalMinutes    = 10
+	accountQualityDefaultFailureThreshold   = 2
+	accountQualityDefaultRecoveryThreshold  = 2
+	accountQualityMaxConcurrent             = 4
+	accountQualityDefaultPrompt             = "创建一个html，内容是SVG绘制一个鹈鹕骑自行车的2D动画。页面必须自包含，只使用内联SVG、CSS关键帧动画和少量JavaScript；鹈鹕、车轮、脚踏、道路和背景都要画出来，动画要可见。只返回完整HTML源码，不要 Markdown 代码围栏，不要解释。"
 )
 
 var (
@@ -63,31 +68,49 @@ var (
 // AccountInspectionSettings controls both the periodic runner and the manual run.
 // A zero API-key cache/multiplier threshold means "display only".
 type AccountInspectionSettings struct {
-	Enabled                 bool    `json:"enabled"`
-	IntervalMinutes         int     `json:"interval_minutes"`
-	AutoDisable             bool    `json:"auto_disable"`
-	LookbackMinutes         int     `json:"lookback_minutes"`
-	MinRequests             int     `json:"min_requests"`
-	TTFTThresholdMs         int     `json:"ttft_threshold_ms"`
-	SuccessRateThreshold    float64 `json:"success_rate_threshold"`
-	OAuthQuotaCheckEnabled  bool    `json:"oauth_quota_check_enabled"`
-	APIKeyQuotaCheckEnabled bool    `json:"api_key_quota_check_enabled"`
-	APIKeyMinCacheHitRate   float64 `json:"api_key_min_cache_hit_rate"`
-	APIKeyMaxRateMultiplier float64 `json:"api_key_max_rate_multiplier"`
-	APIKeyMinRemainingQuota float64 `json:"api_key_min_remaining_quota"`
+	Enabled                  bool    `json:"enabled"`
+	IntervalMinutes          int     `json:"interval_minutes"`
+	AutoDisable              bool    `json:"auto_disable"`
+	LookbackMinutes          int     `json:"lookback_minutes"`
+	MinRequests              int     `json:"min_requests"`
+	TTFTThresholdMs          int     `json:"ttft_threshold_ms"`
+	SuccessRateThreshold     float64 `json:"success_rate_threshold"`
+	OAuthQuotaCheckEnabled   bool    `json:"oauth_quota_check_enabled"`
+	APIKeyQuotaCheckEnabled  bool    `json:"api_key_quota_check_enabled"`
+	APIKeyMinCacheHitRate    float64 `json:"api_key_min_cache_hit_rate"`
+	APIKeyMaxRateMultiplier  float64 `json:"api_key_max_rate_multiplier"`
+	APIKeyMinRemainingQuota  float64 `json:"api_key_min_remaining_quota"`
+	QualityMonitoringEnabled bool    `json:"quality_monitoring_enabled"`
+	QualityIntervalMinutes   int     `json:"quality_interval_minutes"`
+	QualityModel             string  `json:"quality_model"`
+	QualityEffort            string  `json:"quality_effort"`
+	QualityPrompt            string  `json:"quality_prompt"`
+	QualityFailureThreshold  int     `json:"quality_failure_threshold"`
+	QualityRecoveryThreshold int     `json:"quality_recovery_threshold"`
+	QualityDegradedGroupID   *int64  `json:"quality_degraded_group_id"`
+	QualityMaxConcurrent     int     `json:"quality_max_concurrent"`
+	QualityMinConfidence     float64 `json:"quality_min_confidence"`
+	QualityPublicEnabled     bool    `json:"quality_public_enabled"`
 }
 
 func DefaultAccountInspectionSettings() AccountInspectionSettings {
 	return AccountInspectionSettings{
-		Enabled:                 false,
-		IntervalMinutes:         accountInspectionDefaultIntervalMinutes,
-		AutoDisable:             true,
-		LookbackMinutes:         accountInspectionDefaultLookbackMinutes,
-		MinRequests:             accountInspectionDefaultMinRequests,
-		TTFTThresholdMs:         accountInspectionDefaultTTFTMs,
-		SuccessRateThreshold:    accountInspectionDefaultSuccessRate,
-		OAuthQuotaCheckEnabled:  true,
-		APIKeyQuotaCheckEnabled: true,
+		Enabled:                  false,
+		IntervalMinutes:          accountInspectionDefaultIntervalMinutes,
+		AutoDisable:              true,
+		LookbackMinutes:          accountInspectionDefaultLookbackMinutes,
+		MinRequests:              accountInspectionDefaultMinRequests,
+		TTFTThresholdMs:          accountInspectionDefaultTTFTMs,
+		SuccessRateThreshold:     accountInspectionDefaultSuccessRate,
+		OAuthQuotaCheckEnabled:   true,
+		APIKeyQuotaCheckEnabled:  true,
+		QualityIntervalMinutes:   accountQualityDefaultIntervalMinutes,
+		QualityEffort:            "medium",
+		QualityPrompt:            accountQualityDefaultPrompt,
+		QualityFailureThreshold:  accountQualityDefaultFailureThreshold,
+		QualityRecoveryThreshold: accountQualityDefaultRecoveryThreshold,
+		QualityMaxConcurrent:     accountQualityMaxConcurrent,
+		QualityMinConfidence:     0.85,
 	}
 }
 
@@ -128,6 +151,36 @@ func (s *AccountInspectionSettings) normalize() {
 	if s.APIKeyMinRemainingQuota < 0 {
 		s.APIKeyMinRemainingQuota = 0
 	}
+	if s.QualityIntervalMinutes < 1 {
+		s.QualityIntervalMinutes = accountQualityDefaultIntervalMinutes
+	}
+	if s.QualityFailureThreshold < 1 {
+		s.QualityFailureThreshold = accountQualityDefaultFailureThreshold
+	}
+	if s.QualityRecoveryThreshold < 1 {
+		s.QualityRecoveryThreshold = accountQualityDefaultRecoveryThreshold
+	}
+	if strings.TrimSpace(s.QualityPrompt) == "" {
+		s.QualityPrompt = accountQualityDefaultPrompt
+	}
+	switch strings.ToLower(strings.TrimSpace(s.QualityEffort)) {
+	case "minimal", "low", "medium", "high", "xhigh", "max":
+		s.QualityEffort = strings.ToLower(strings.TrimSpace(s.QualityEffort))
+	default:
+		s.QualityEffort = "medium"
+	}
+	if s.QualityMaxConcurrent < 1 {
+		s.QualityMaxConcurrent = 1
+	}
+	if s.QualityMaxConcurrent > accountQualityMaxConcurrent {
+		s.QualityMaxConcurrent = accountQualityMaxConcurrent
+	}
+	if s.QualityMinConfidence <= 0 {
+		s.QualityMinConfidence = 0.85
+	}
+	if s.QualityMinConfidence > 1 {
+		s.QualityMinConfidence = 1
+	}
 }
 
 func (s AccountInspectionSettings) validate() error {
@@ -146,32 +199,47 @@ func (s AccountInspectionSettings) validate() error {
 	if s.APIKeyMinCacheHitRate < 0 || s.APIKeyMinCacheHitRate > 1 || s.APIKeyMaxRateMultiplier < 0 || s.APIKeyMinRemainingQuota < 0 {
 		return infraerrors.BadRequest("INVALID_ACCOUNT_INSPECTION_API_KEY_THRESHOLDS", "API key inspection thresholds are invalid")
 	}
+	if s.QualityIntervalMinutes < 1 || s.QualityFailureThreshold < 1 || s.QualityRecoveryThreshold < 1 || s.QualityMaxConcurrent < 1 || s.QualityMaxConcurrent > accountQualityMaxConcurrent {
+		return infraerrors.BadRequest("INVALID_ACCOUNT_QUALITY_SETTINGS", "quality monitoring settings are invalid")
+	}
+	if s.QualityMinConfidence <= 0 || s.QualityMinConfidence > 1 {
+		return infraerrors.BadRequest("INVALID_ACCOUNT_QUALITY_CONFIDENCE", "quality_min_confidence must be between 0 and 1")
+	}
 	return nil
 }
 
 type AccountInspectionAccountResult struct {
-	AccountID               int64     `json:"account_id"`
-	Name                    string    `json:"name"`
-	Platform                string    `json:"platform"`
-	Type                    string    `json:"type"`
-	Status                  string    `json:"status"`
-	Schedulable             bool      `json:"schedulable"`
-	Action                  string    `json:"action"`
-	Reasons                 []string  `json:"reasons"`
-	TotalRequests           int64     `json:"total_requests"`
-	SuccessfulRequests      int64     `json:"successful_requests"`
-	SuccessRate             *float64  `json:"success_rate,omitempty"`
-	AvgFirstTokenMs         *float64  `json:"avg_first_token_ms,omitempty"`
-	CacheHitRate            *float64  `json:"cache_hit_rate,omitempty"`
-	CacheReadTokens         int64     `json:"cache_read_tokens,omitempty"`
-	CacheCreationTokens     int64     `json:"cache_creation_tokens,omitempty"`
-	RateMultiplier          *float64  `json:"rate_multiplier,omitempty"`
-	RemainingQuota          *float64  `json:"remaining_quota,omitempty"`
-	RemainingQuotaDimension string    `json:"remaining_quota_dimension,omitempty"`
-	QuotaUnlimited          bool      `json:"quota_unlimited,omitempty"`
-	QuotaUsedPercent        *float64  `json:"quota_used_percent,omitempty"`
-	QuotaUsageDimension     string    `json:"quota_usage_dimension,omitempty"`
-	ObservedAt              time.Time `json:"observed_at"`
+	AccountID                  int64     `json:"account_id"`
+	Name                       string    `json:"name"`
+	Platform                   string    `json:"platform"`
+	Type                       string    `json:"type"`
+	Status                     string    `json:"status"`
+	Schedulable                bool      `json:"schedulable"`
+	Action                     string    `json:"action"`
+	Reasons                    []string  `json:"reasons"`
+	TotalRequests              int64     `json:"total_requests"`
+	SuccessfulRequests         int64     `json:"successful_requests"`
+	SuccessRate                *float64  `json:"success_rate,omitempty"`
+	AvgFirstTokenMs            *float64  `json:"avg_first_token_ms,omitempty"`
+	CacheHitRate               *float64  `json:"cache_hit_rate,omitempty"`
+	CacheReadTokens            int64     `json:"cache_read_tokens,omitempty"`
+	CacheCreationTokens        int64     `json:"cache_creation_tokens,omitempty"`
+	RateMultiplier             *float64  `json:"rate_multiplier,omitempty"`
+	RemainingQuota             *float64  `json:"remaining_quota,omitempty"`
+	RemainingQuotaDimension    string    `json:"remaining_quota_dimension,omitempty"`
+	QuotaUnlimited             bool      `json:"quota_unlimited,omitempty"`
+	QuotaUsedPercent           *float64  `json:"quota_used_percent,omitempty"`
+	QuotaUsageDimension        string    `json:"quota_usage_dimension,omitempty"`
+	ObservedAt                 time.Time `json:"observed_at"`
+	QualityStatus              string    `json:"quality_status,omitempty"`
+	QualityConsecutiveFailures int       `json:"quality_consecutive_failures,omitempty"`
+	QualityConsecutivePasses   int       `json:"quality_consecutive_passes,omitempty"`
+	QualityAction              string    `json:"quality_action,omitempty"`
+	QualityError               string    `json:"quality_error,omitempty"`
+	QualityLatencyMs           int64     `json:"quality_latency_ms,omitempty"`
+	QualityRunID               string    `json:"quality_run_id,omitempty"`
+	QualityLabel               string    `json:"quality_label,omitempty"`
+	QualityConfidence          float64   `json:"quality_confidence,omitempty"`
 }
 
 type AccountInspectionQuotaBucket struct {
@@ -196,20 +264,26 @@ type AccountInspectionSummary struct {
 	AlreadyDisabled        int                                `json:"already_disabled"`
 	OAuthAccounts          int                                `json:"oauth_accounts"`
 	APIKeyAccounts         int                                `json:"api_key_accounts"`
+	QualityInspected       int                                `json:"quality_inspected"`
+	QualityPassed          int                                `json:"quality_passed"`
+	QualityDegraded        int                                `json:"quality_degraded"`
+	QualitySwitched        int                                `json:"quality_switched"`
 	QuotaUsageDistribution AccountInspectionQuotaDistribution `json:"quota_usage_distribution"`
 }
 
 type AccountInspectionRunState struct {
-	RunID            string                           `json:"run_id,omitempty"`
-	Status           string                           `json:"status"`
-	Trigger          string                           `json:"trigger,omitempty"`
-	StartedAt        *time.Time                       `json:"started_at,omitempty"`
-	CompletedAt      *time.Time                       `json:"completed_at,omitempty"`
-	NextRunAt        *time.Time                       `json:"next_run_at,omitempty"`
-	Summary          AccountInspectionSummary         `json:"summary"`
-	Results          []AccountInspectionAccountResult `json:"results,omitempty"`
-	ResultsTruncated bool                             `json:"results_truncated,omitempty"`
-	Error            string                           `json:"error,omitempty"`
+	RunID               string                           `json:"run_id,omitempty"`
+	Status              string                           `json:"status"`
+	Trigger             string                           `json:"trigger,omitempty"`
+	StartedAt           *time.Time                       `json:"started_at,omitempty"`
+	CompletedAt         *time.Time                       `json:"completed_at,omitempty"`
+	NextRunAt           *time.Time                       `json:"next_run_at,omitempty"`
+	Summary             AccountInspectionSummary         `json:"summary"`
+	Results             []AccountInspectionAccountResult `json:"results,omitempty"`
+	ResultsTruncated    bool                             `json:"results_truncated,omitempty"`
+	Error               string                           `json:"error,omitempty"`
+	QualityLastRunAt    *time.Time                       `json:"quality_last_run_at,omitempty"`
+	InspectionLastRunAt *time.Time                       `json:"inspection_last_run_at,omitempty"`
 }
 
 type AccountInspectionListFilter struct {
@@ -235,15 +309,17 @@ type AccountInspectionOverview struct {
 }
 
 type AccountInspectionRunView struct {
-	RunID            string                   `json:"run_id,omitempty"`
-	Status           string                   `json:"status"`
-	Trigger          string                   `json:"trigger,omitempty"`
-	StartedAt        *time.Time               `json:"started_at,omitempty"`
-	CompletedAt      *time.Time               `json:"completed_at,omitempty"`
-	NextRunAt        *time.Time               `json:"next_run_at,omitempty"`
-	Summary          AccountInspectionSummary `json:"summary"`
-	ResultsTruncated bool                     `json:"results_truncated,omitempty"`
-	Error            string                   `json:"error,omitempty"`
+	RunID               string                   `json:"run_id,omitempty"`
+	Status              string                   `json:"status"`
+	Trigger             string                   `json:"trigger,omitempty"`
+	StartedAt           *time.Time               `json:"started_at,omitempty"`
+	CompletedAt         *time.Time               `json:"completed_at,omitempty"`
+	NextRunAt           *time.Time               `json:"next_run_at,omitempty"`
+	Summary             AccountInspectionSummary `json:"summary"`
+	ResultsTruncated    bool                     `json:"results_truncated,omitempty"`
+	Error               string                   `json:"error,omitempty"`
+	QualityLastRunAt    *time.Time               `json:"quality_last_run_at,omitempty"`
+	InspectionLastRunAt *time.Time               `json:"inspection_last_run_at,omitempty"`
 }
 
 func inspectionRunView(state AccountInspectionRunState) AccountInspectionRunView {
@@ -251,17 +327,23 @@ func inspectionRunView(state AccountInspectionRunState) AccountInspectionRunView
 		RunID: state.RunID, Status: state.Status, Trigger: state.Trigger,
 		StartedAt: state.StartedAt, CompletedAt: state.CompletedAt,
 		NextRunAt: state.NextRunAt, Summary: state.Summary, Error: state.Error,
-		ResultsTruncated: state.ResultsTruncated,
+		QualityLastRunAt:    state.QualityLastRunAt,
+		InspectionLastRunAt: state.InspectionLastRunAt,
+		ResultsTruncated:    state.ResultsTruncated,
 	}
 }
 
 type AccountInspectionService struct {
-	accountRepo  AccountRepository
-	usageService *AccountUsageService
-	settingRepo  SettingRepository
-	lockCache    LeaderLockCache
-	db           *sql.DB
-	instanceID   string
+	accountRepo      AccountRepository
+	usageService     *AccountUsageService
+	settingRepo      SettingRepository
+	accountTestSvc   AccountQualityProbeRunner
+	qualityProcessor AccountQualityArtifactProcessor
+	qualityArtifacts AccountQualityArtifactRepository
+	groupRepo        GroupRepository
+	lockCache        LeaderLockCache
+	db               *sql.DB
+	instanceID       string
 
 	parentCtx    context.Context
 	parentCancel context.CancelFunc
@@ -269,6 +351,13 @@ type AccountInspectionService struct {
 	stopOnce     sync.Once
 	wg           sync.WaitGroup
 	running      atomic.Bool
+}
+
+// AccountQualityProbeRunner is the transport-level account probe used by the
+// quality monitor. Keeping the interface narrow makes the monitor testable and
+// prevents it from depending on a concrete upstream implementation.
+type AccountQualityProbeRunner interface {
+	RunQualityTestBackground(context.Context, int64, string, string, string) (*ScheduledTestResult, error)
 }
 
 func NewAccountInspectionService(accountRepo AccountRepository, usageService *AccountUsageService, settingRepo SettingRepository) *AccountInspectionService {
@@ -281,6 +370,13 @@ func NewAccountInspectionService(accountRepo AccountRepository, usageService *Ac
 		parentCtx:    ctx,
 		parentCancel: cancel,
 	}
+}
+
+func (s *AccountInspectionService) SetQualityDependencies(probe AccountQualityProbeRunner, processor AccountQualityArtifactProcessor, artifacts AccountQualityArtifactRepository, groups GroupRepository) {
+	if s == nil {
+		return
+	}
+	s.accountTestSvc, s.qualityProcessor, s.qualityArtifacts, s.groupRepo = probe, processor, artifacts, groups
 }
 
 func (s *AccountInspectionService) SetLeaderLock(lockCache LeaderLockCache, db *sql.DB) {
@@ -330,7 +426,7 @@ func (s *AccountInspectionService) runDue() {
 	ctx, cancel := context.WithTimeout(s.parentCtx, accountInspectionRunTimeout)
 	defer cancel()
 	settings, err := s.GetSettings(ctx)
-	if err != nil || !settings.Enabled {
+	if err != nil || (!settings.Enabled && !settings.QualityMonitoringEnabled) {
 		return
 	}
 	state, err := s.loadState(ctx)
@@ -340,7 +436,10 @@ func (s *AccountInspectionService) runDue() {
 	if state.Status == AccountInspectionStatusRunning && state.StartedAt != nil && time.Since(*state.StartedAt) < accountInspectionRunTimeout {
 		return
 	}
-	if state.CompletedAt != nil && time.Now().Before(state.CompletedAt.Add(time.Duration(settings.IntervalMinutes)*time.Minute)) {
+	now := time.Now()
+	inspectionDue := settings.Enabled && (state.InspectionLastRunAt == nil || !now.Before(state.InspectionLastRunAt.Add(time.Duration(settings.IntervalMinutes)*time.Minute)))
+	qualityDue := settings.QualityMonitoringEnabled && (state.QualityLastRunAt == nil || !now.Before(state.QualityLastRunAt.Add(time.Duration(settings.QualityIntervalMinutes)*time.Minute)))
+	if !inspectionDue && !qualityDue {
 		return
 	}
 	if _, err := s.RunNow(ctx, "scheduled"); err != nil && !errors.Is(err, ErrAccountInspectionBusy) {
@@ -433,6 +532,9 @@ func (s *AccountInspectionService) GetOverview(ctx context.Context, filter Accou
 	}, nil
 }
 
+// GetPublicQualitySnapshot exposes only aggregate health and renderer labels;
+// account IDs, names, prompts, credentials, and raw HTML remain private.
+
 func filterInspectionResults(results []AccountInspectionAccountResult, filter AccountInspectionListFilter) []AccountInspectionAccountResult {
 	search := strings.ToLower(strings.TrimSpace(filter.Search))
 	out := make([]AccountInspectionAccountResult, 0, len(results))
@@ -458,7 +560,7 @@ func filterInspectionResults(results []AccountInspectionAccountResult, filter Ac
 }
 
 func (s *AccountInspectionService) RunNow(ctx context.Context, trigger string) (*AccountInspectionRunState, error) {
-	if s == nil || s.accountRepo == nil || s.usageService == nil {
+	if s == nil || s.accountRepo == nil || (s.usageService == nil && s.accountTestSvc == nil) {
 		return nil, ErrAccountInspectionUnavailable
 	}
 	if !s.running.CompareAndSwap(false, true) {
@@ -479,6 +581,8 @@ func (s *AccountInspectionService) execute(ctx context.Context, trigger string) 
 		return nil, err
 	}
 	now := time.Now().UTC()
+	previousState, _ := s.loadState(ctx)
+	runHealth := s.usageService != nil && (settings.Enabled || trigger == "manual")
 	state := &AccountInspectionRunState{
 		RunID: uuid.NewString(), Status: AccountInspectionStatusRunning, Trigger: trigger, StartedAt: &now,
 		Summary: AccountInspectionSummary{QuotaUsageDistribution: newAccountInspectionQuotaDistribution()},
@@ -502,14 +606,37 @@ func (s *AccountInspectionService) execute(ctx context.Context, trigger string) 
 	for i := range eligible {
 		ids = append(ids, eligible[i].ID)
 	}
-	stats, err := s.usageService.GetAccountHourlyUsageStatsBatch(ctx, ids, now.Add(-time.Duration(settings.LookbackMinutes)*time.Minute), now)
-	if err != nil {
-		return s.failState(ctx, state, err)
-	}
 	results := make([]AccountInspectionAccountResult, 0, len(eligible))
-	for i := range eligible {
-		result := evaluateAccountInspection(&eligible[i], stats[eligible[i].ID], settings, now)
-		results = append(results, result)
+	if runHealth {
+		stats, statsErr := s.usageService.GetAccountHourlyUsageStatsBatch(ctx, ids, now.Add(-time.Duration(settings.LookbackMinutes)*time.Minute), now)
+		if statsErr != nil {
+			return s.failState(ctx, state, statsErr)
+		}
+		for i := range eligible {
+			result := evaluateAccountInspection(&eligible[i], stats[eligible[i].ID], settings, now)
+			results = append(results, result)
+		}
+	} else {
+		for i := range eligible {
+			results = append(results, neutralAccountInspectionResult(&eligible[i], now))
+		}
+	}
+	if settings.QualityMonitoringEnabled && s.accountTestSvc != nil {
+		qualityDue := previousState == nil || previousState.QualityLastRunAt == nil || now.Sub(*previousState.QualityLastRunAt) >= time.Duration(settings.QualityIntervalMinutes)*time.Minute
+		if qualityDue {
+			if err := s.runQualityMonitoring(ctx, eligible, results, previousState, settings, now); err != nil {
+				return s.failState(ctx, state, err)
+			}
+			state.QualityLastRunAt = &now
+		} else {
+			s.applyPreviousQuality(results, previousState)
+			state.QualityLastRunAt = previousState.QualityLastRunAt
+		}
+	}
+	if runHealth {
+		state.InspectionLastRunAt = &now
+	} else if previousState != nil {
+		state.InspectionLastRunAt = previousState.InspectionLastRunAt
 	}
 	quotaDistribution := summarizeAccountInspectionQuotaDistribution(results)
 	sort.SliceStable(results, func(i, j int) bool {
@@ -525,7 +652,10 @@ func (s *AccountInspectionService) execute(ctx context.Context, trigger string) 
 	}
 	flaggedIDs := make([]int64, 0)
 	for i := range results {
-		if len(results[i].Reasons) > 0 && settings.AutoDisable && results[i].Schedulable {
+		qualityOnly := hasInspectionReason(results[i].Reasons, "quality_probe_degraded")
+		// Quality degradation is routed, not disabled. Existing health reasons
+		// still obey the legacy auto-disable policy.
+		if runHealth && len(results[i].Reasons) > 0 && settings.AutoDisable && !qualityOnly && results[i].Schedulable {
 			flaggedIDs = append(flaggedIDs, results[i].AccountID)
 		}
 	}
@@ -575,6 +705,9 @@ func (s *AccountInspectionService) execute(ctx context.Context, trigger string) 
 	state.Status = AccountInspectionStatusSucceeded
 	state.CompletedAt = &completed
 	next := completed.Add(time.Duration(settings.IntervalMinutes) * time.Minute)
+	if settings.QualityMonitoringEnabled && (!settings.Enabled || settings.QualityIntervalMinutes < settings.IntervalMinutes) {
+		next = completed.Add(time.Duration(settings.QualityIntervalMinutes) * time.Minute)
+	}
 	state.NextRunAt = &next
 	if err := s.saveState(ctx, state); err != nil {
 		return nil, err
@@ -642,7 +775,19 @@ func (s *AccountInspectionService) saveState(ctx context.Context, state *Account
 }
 
 func isAccountInspectionType(account *Account) bool {
-	return account != nil && (account.Type == AccountTypeOAuth || account.IsAPIKeyOrBedrock())
+	return account != nil && (account.Type == AccountTypeOAuth || account.IsAPIKeyOrBedrock() || account.Type == AccountTypeServiceAccount)
+}
+
+func neutralAccountInspectionResult(account *Account, now time.Time) AccountInspectionAccountResult {
+	result := AccountInspectionAccountResult{
+		AccountID: account.ID, Name: account.Name, Platform: account.Platform, Type: account.Type,
+		Status: "healthy", Schedulable: account.Schedulable, Action: AccountInspectionActionNone,
+		Reasons: []string{}, ObservedAt: now,
+	}
+	if account.Type == AccountTypeOAuth {
+		result.QuotaUsedPercent, result.QuotaUsageDimension = accountInspectionQuotaUsage(account, now)
+	}
+	return result
 }
 
 func evaluateAccountInspection(account *Account, stats *usagestats.AccountHourlyUsageStats, settings AccountInspectionSettings, now time.Time) AccountInspectionAccountResult {
@@ -723,6 +868,18 @@ func evaluateAccountInspection(account *Account, stats *usagestats.AccountHourly
 func summarizeInspectionResults(results []AccountInspectionAccountResult) AccountInspectionSummary {
 	summary := AccountInspectionSummary{Inspected: len(results)}
 	for _, result := range results {
+		if result.QualityStatus != "" {
+			summary.QualityInspected++
+		}
+		if result.QualityStatus == "healthy" {
+			summary.QualityPassed++
+		}
+		if result.QualityStatus == "degraded" {
+			summary.QualityDegraded++
+		}
+		if result.QualityAction == "switched_group" {
+			summary.QualitySwitched++
+		}
 		if result.Type == AccountTypeOAuth {
 			summary.OAuthAccounts++
 		} else {

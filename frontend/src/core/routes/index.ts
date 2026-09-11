@@ -200,6 +200,15 @@ const routes: RouteRecordRaw[] = [
       titleKey: 'nav.channelStatus'
     }
   },
+  {
+    path: '/monitor/quality/public',
+    name: 'AccountQualityShare',
+    component: () => import('@/features/account-quality/presentation/pages/AccountQualitySharePage.vue'),
+    meta: {
+      requiresAuth: false,
+      title: 'Account Quality',
+    },
+  },
 
   // ==================== User Routes ====================
   {
@@ -924,7 +933,7 @@ let authInitialized = false
 const navigationLoading = useNavigationLoadingState()
 // 延迟初始化预加载，传入 router 实例
 let routePrefetch: ReturnType<typeof useRoutePrefetch> | null = null
-const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal']
+const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal', '/monitor/quality/public']
 const BACKEND_MODE_CALLBACK_PATHS = [
   '/auth/callback',
   '/auth/linuxdo/callback',

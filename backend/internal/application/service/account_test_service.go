@@ -38,6 +38,17 @@ const (
 	defaultAntigravityTestModel = "claude-sonnet-4-6"
 )
 
+type accountTestEffortContextKey struct{}
+
+func withAccountTestEffort(ctx context.Context, effort string) context.Context {
+	return context.WithValue(ctx, accountTestEffortContextKey{}, strings.ToLower(strings.TrimSpace(effort)))
+}
+
+func accountTestEffort(ctx context.Context) string {
+	value, _ := ctx.Value(accountTestEffortContextKey{}).(string)
+	return value
+}
+
 // TestEvent represents a SSE event for account testing
 type TestEvent struct {
 	Type     string `json:"type"`
@@ -624,6 +635,14 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 		upstreamTestModelID = normalizeOpenAIModelForUpstream(credentialAccount, testModelID)
 	}
 	payload := createOpenAITestPayload(upstreamTestModelID, isOAuth, prompt)
+	if effort := accountTestEffort(ctx); effort != "" {
+		if isOAuth || mode != AccountTestModeChatCompletions {
+			payload["reasoning"] = map[string]any{"effort": effort}
+		}
+		if mode == AccountTestModeChatCompletions {
+			payload["reasoning_effort"] = effort
+		}
+	}
 	payloadBytes, _ := json.Marshal(payload)
 
 	// Send test_start event once. A task-invalid Agent Identity response may
@@ -748,6 +767,9 @@ func (s *AccountTestService) testOpenAIChatCompletionsConnection(
 	c.Writer.Flush()
 
 	payload := createOpenAIChatCompletionsTestPayload(testModelID, prompt)
+	if effort := accountTestEffort(ctx); effort != "" {
+		payload["reasoning_effort"] = effort
+	}
 	payloadBytes, _ := json.Marshal(payload)
 
 	s.sendEvent(c, TestEvent{Type: "test_start", Model: testModelID})
@@ -1895,13 +1917,25 @@ func (s *AccountTestService) sendErrorAndEnd(c *gin.Context, errorMsg string) er
 // RunTestBackground executes an account test in-memory (no real HTTP client),
 // capturing SSE output via httptest.NewRecorder, then parses the result.
 func (s *AccountTestService) RunTestBackground(ctx context.Context, accountID int64, modelID string) (*ScheduledTestResult, error) {
+	return s.runTestBackground(ctx, accountID, modelID, "", "")
+}
+
+// RunQualityTestBackground executes the same account-specific transport probe
+// used by the admin test endpoint, but supplies a deterministic quality prompt.
+// The caller owns the grader; this method only captures the upstream response
+// and preserves the existing SSE/error semantics.
+func (s *AccountTestService) RunQualityTestBackground(ctx context.Context, accountID int64, modelID, prompt, effort string) (*ScheduledTestResult, error) {
+	return s.runTestBackground(withAccountTestEffort(ctx, effort), accountID, modelID, prompt, effort)
+}
+
+func (s *AccountTestService) runTestBackground(ctx context.Context, accountID int64, modelID, prompt, _ string) (*ScheduledTestResult, error) {
 	startedAt := time.Now()
 
 	w := httptest.NewRecorder()
 	ginCtx, _ := gin.CreateTestContext(w)
 	ginCtx.Request = (&http.Request{}).WithContext(ctx)
 
-	testErr := s.TestAccountConnection(ginCtx, accountID, modelID, "", AccountTestModeDefault)
+	testErr := s.TestAccountConnection(ginCtx, accountID, modelID, prompt, AccountTestModeDefault)
 
 	finishedAt := time.Now()
 	body := w.Body.String()

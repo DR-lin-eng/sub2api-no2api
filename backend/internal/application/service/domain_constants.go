@@ -474,6 +474,11 @@ const (
 	SettingKeyAccountInspectionSettings = "account_inspection_settings"
 	SettingKeyAccountInspectionState    = "account_inspection_state"
 
+	// Account quality routing markers are stored in accounts.extra so existing
+	// account rows and scheduler snapshots remain backward compatible.
+	AccountQualityOriginalGroupsExtraKey = "account_quality_original_group_ids"
+	AccountQualityRoutingGroupExtraKey   = "account_quality_routing_group_id"
+
 	// SettingKeyOllamaCloudUsageSettings stores the opt-in global runner switch and interval.
 	SettingKeyOllamaCloudUsageSettings = "ollama_cloud_usage_settings"
 

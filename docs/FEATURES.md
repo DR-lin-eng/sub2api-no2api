@@ -31,6 +31,7 @@
 | 模型广场 | `/model-plaza` | 模型筛选、分组与价格展示：[model-plaza](../frontend/src/features/model-plaza/README.md) |
 | 渠道与自定义页 | `/available-channels`、`/monitor`、`/custom/:id` | 可用渠道、状态页组合与受控自定义页面：[channels-user](../frontend/src/features/channels-user/README.md) |
 | 只读渠道监控 | `/monitor/public`，登录状态页内嵌 | 可用率、延迟、模型时间线和共享视图：[channel-monitor-user](../frontend/src/features/channel-monitor-user/README.md) |
+| 公开账号质量看板 | `/monitor/quality/public` | 账号级质量时间线、分类缩略图和 24 小时聚合：[account-quality](../frontend/src/features/account-quality/README.md) |
 | 批量图片 | `/batch-image`，媒体工坊内嵌 | 批任务、重试、预览和下载：[batch-image](../frontend/src/features/batch-image/README.md)、[批量图片](BATCH_IMAGE_MVP.md) |
 | 媒体工坊 | `/media-studio` | 图片生成、视频任务和批量工作区：[media-studio](../frontend/src/features/media-studio/README.md)、[配置与边界](CUSTOM_MODELS_AND_MEDIA.md) |
 
@@ -42,7 +43,7 @@
 | 用户管理 | `/admin/users` | 身份、分组、余额、平台额度和批量限制：[admin-users](../frontend/src/features/admin-users/README.md) |
 | 分组管理 | `/admin/groups` | 分组、倍率、模型范围和组合路由：[admin-groups](../frontend/src/features/admin-groups/README.md)、[组合分组](COMPOSITE_GROUPS.md) |
 | 上游账号 | `/admin/accounts` | 账号、授权、导入、批量操作、测试和额度快照：[admin-accounts](../frontend/src/features/admin-accounts/README.md) |
-| 账号巡检 | `/admin/account-inspection` | 策略、手动或自动执行、异常与额度分布：[admin-account-inspection](../frontend/src/features/admin-account-inspection/README.md) |
+| 账号巡检 | `/admin/account-inspection` | 策略、手动或自动执行、异常与额度分布；可配置质量探测、模型思考强度、分类置信度和降智分组：[admin-account-inspection](../frontend/src/features/admin-account-inspection/README.md) |
 | 代理 | `/admin/proxies` | 代理配置、导入和连通性测试：[admin-proxies](../frontend/src/features/admin-proxies/README.md) |
 | IPv6 出口 | `/admin/egress` | 地址池、绑定、探测和 HE 隧道：[admin-egress](../frontend/src/features/admin-egress/README.md)、[出口专题](IPV6_EGRESS.md) |
 | 渠道定价 | `/admin/channels/pricing` | 模型价格、分组关联和时段价格：[admin-channels](../frontend/src/features/admin-channels/README.md) |

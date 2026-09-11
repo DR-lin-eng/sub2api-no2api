@@ -17,6 +17,7 @@ import (
 type ChannelMonitorUserHandler struct {
 	monitorService *service.ChannelMonitorService
 	settingService *service.SettingService
+	qualityService *service.AccountInspectionService
 }
 
 // NewChannelMonitorUserHandler 创建 handler。
@@ -24,11 +25,53 @@ type ChannelMonitorUserHandler struct {
 func NewChannelMonitorUserHandler(
 	monitorService *service.ChannelMonitorService,
 	settingService *service.SettingService,
+	qualityService ...*service.AccountInspectionService,
 ) *ChannelMonitorUserHandler {
-	return &ChannelMonitorUserHandler{
+	h := &ChannelMonitorUserHandler{
 		monitorService: monitorService,
 		settingService: settingService,
 	}
+	if len(qualityService) > 0 {
+		h.qualityService = qualityService[0]
+	}
+	return h
+}
+
+func ProvideChannelMonitorUserHandler(monitorService *service.ChannelMonitorService, settingService *service.SettingService, qualityService *service.AccountInspectionService) *ChannelMonitorUserHandler {
+	return NewChannelMonitorUserHandler(monitorService, settingService, qualityService)
+}
+
+// PublicQualityDashboard returns a credential-free 24-hour quality snapshot.
+func (h *ChannelMonitorUserHandler) PublicQualityDashboard(c *gin.Context) {
+	if h == nil || h.qualityService == nil {
+		response.NotFound(c, "Account quality share is not enabled")
+		return
+	}
+	snapshot, err := h.qualityService.GetPublicQualitySnapshot(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, snapshot)
+}
+
+// PublicQualityImage serves only renderer-produced assets retained for 24h.
+func (h *ChannelMonitorUserHandler) PublicQualityImage(c *gin.Context) {
+	if h == nil || h.qualityService == nil {
+		response.NotFound(c, "Account quality share is not enabled")
+		return
+	}
+	format := c.Query("format")
+	if format == "" {
+		format = "png"
+	}
+	data, contentType, err := h.qualityService.GetPublicQualityImage(c.Request.Context(), c.Param("id"), format)
+	if err != nil {
+		response.NotFound(c, "Quality image not found")
+		return
+	}
+	c.Header("Cache-Control", "public, max-age=300, immutable")
+	c.Data(200, contentType, data)
 }
 
 // featureEnabled 返回当前渠道监控功能是否开启。
