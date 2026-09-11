@@ -44,8 +44,8 @@ sequenceDiagram
 
 ### 蒸馏分组轻量链路
 
-管理员将分组的 `is_distillation_group` 设为 `true` 后，仅对 Anthropic OAuth/SetupToken
-账号启用该链路。网关会删除请求体中的 `prompt_cache_key`、`prompt_cache_retention`、
+管理员将分组的 `is_distillation_group` 设为 `true` 后，对 Anthropic OAuth/SetupToken 和
+OpenAI OAuth 账号启用该链路。网关会删除请求体中的 `prompt_cache_key`、`prompt_cache_retention`、
 `cache_control` 及代理生成的缓存断点；每个分组/账号的请求计数按 10000 个逻辑请求划分
 session ID 窗口，同一窗口内的重试状态复用同一个合成 session ID。蒸馏链路不读取或保存
 上游 session 缓存对象。

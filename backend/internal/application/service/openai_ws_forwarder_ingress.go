@@ -301,6 +301,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		}
 
 		normalized := normalizeCodexBootstrapForOpenAIWS(account.ID, turn, trimmed)
+		if s.IsDistillationGroupRequest(c, account) {
+			normalized = stripDistillationCacheFields(normalized)
+		}
 		values := gjson.GetManyBytes(normalized, "type", "model", "prompt_cache_key", "previous_response_id")
 		eventType := strings.TrimSpace(values[0].String())
 		switch eventType {

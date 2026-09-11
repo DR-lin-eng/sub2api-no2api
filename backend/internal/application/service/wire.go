@@ -212,6 +212,7 @@ func ProvideOpenAIGatewayService(
 	userSubRepo UserSubscriptionRepository,
 	userGroupRateRepo UserGroupRateRepository,
 	cache GatewayCache,
+	rpmCache RPMCache,
 	cfg *config.Config,
 	schedulerSnapshot *SchedulerSnapshotService,
 	concurrencyService *ConcurrencyService,
@@ -258,6 +259,9 @@ func ProvideOpenAIGatewayService(
 	svc.SetTLSFingerprintProfileService(tlsFPProfileService)
 	if tlsFPProfileService != nil {
 		tlsFPProfileService.SetCodexSimulationSettingService(settingService)
+	}
+	if counter, ok := rpmCache.(distillationCounter); ok {
+		svc.SetDistillationCounter(counter)
 	}
 	return svc
 }

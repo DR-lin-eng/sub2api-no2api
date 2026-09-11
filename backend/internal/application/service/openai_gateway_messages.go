@@ -49,6 +49,11 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	promptCacheKey string,
 	defaultMappedModel string,
 ) (*OpenAIForwardResult, error) {
+	distillation := s.IsDistillationGroupRequest(c, account)
+	if distillation {
+		body = stripDistillationCacheFields(body)
+		promptCacheKey = ""
+	}
 	beginUpstreamResponseModelObservation(c)
 	beginOpenAITimingObservation(c)
 	ClearActualOpenAIUpstreamEndpoint(c)
@@ -124,7 +129,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 			compatPromptCacheInjected = true
 		}
 	}
-	if promptCacheKey == "" && shouldAutoInjectPromptCacheKeyForCompat(upstreamModel) {
+	if !distillation && promptCacheKey == "" && shouldAutoInjectPromptCacheKeyForCompat(upstreamModel) {
 		promptCacheKey = promptCacheKeyFromAnthropicMetadataSession(&anthropicReq)
 		if promptCacheKey == "" {
 			promptCacheKey = deriveAnthropicCacheControlPromptCacheKey(&anthropicReq)
@@ -311,6 +316,9 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 			return nil, fmt.Errorf("sanitize Responses input ids: %w", err)
 		}
 	}
+	if distillation {
+		responsesBody = stripDistillationCacheFields(responsesBody)
+	}
 	if account.Platform == PlatformOpenAI {
 		if policyBody, changed := ApplyOpenAIReasoningEffortPolicyFromContext(ctx, responsesBody); changed {
 			responsesBody = policyBody
@@ -466,7 +474,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	// 8. Handle error response with failover
 	if resp.StatusCode >= 400 {
 		respBody, upstreamMsg := s.readOpenAIUpstreamError(resp)
-		if !agentIdentityTaskRecoveryWasTried(ctx) && s.isAgentIdentityAccount(ctx, account) && isAgentIdentityTaskInvalidHTTPResponse(resp.StatusCode, respBody) {
+		if !distillation && !agentIdentityTaskRecoveryWasTried(ctx) && s.isAgentIdentityAccount(ctx, account) && isAgentIdentityTaskInvalidHTTPResponse(resp.StatusCode, respBody) {
 			expectedTaskID := account.GetCredential("task_id")
 			if err := s.recoverAgentIdentityTask(ctx, account, expectedTaskID); err != nil {
 				return nil, fmt.Errorf("agent identity task recovery failed: %w", err)
@@ -474,7 +482,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 			return s.ForwardAsAnthropic(markAgentIdentityTaskRecoveryTried(ctx), c, account, body, promptCacheKey, defaultMappedModel)
 		}
 
-		if anthropicCompactRequest && anthropicCompactModelMapped &&
+		if !distillation && anthropicCompactRequest && anthropicCompactModelMapped &&
 			isOpenAICompactModelUnavailableHTTP(resp.StatusCode, upstreamMsg, respBody) &&
 			len(anthropicCompactFallbackUpstreamModels) > 0 {
 			logger.L().Warn("openai_messages.compact_model_unavailable_fallback",
@@ -498,7 +506,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 				zap.Error(fallbackErr),
 			)
 		}
-		if previousResponseID != "" && (isOpenAICompatPreviousResponseNotFound(resp.StatusCode, upstreamMsg, respBody) || isOpenAICompatPreviousResponseUnsupported(resp.StatusCode, upstreamMsg, respBody)) {
+		if !distillation && previousResponseID != "" && (isOpenAICompatPreviousResponseNotFound(resp.StatusCode, upstreamMsg, respBody) || isOpenAICompatPreviousResponseUnsupported(resp.StatusCode, upstreamMsg, respBody)) {
 			if isOpenAICompatPreviousResponseUnsupported(resp.StatusCode, upstreamMsg, respBody) {
 				s.disableOpenAICompatSessionContinuation(ctx, c, account, promptCacheKey)
 			} else {
@@ -514,7 +522,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 		// Grok account-switched history often fails decrypt; strip encrypted
 		// reasoning once at the client-body level so failover accounts can accept
 		// the multi-turn tool continuation instead of cascading 400s.
-		if account.Platform == PlatformGrok &&
+		if !distillation && account.Platform == PlatformGrok &&
 			isGrokInvalidEncryptedContentResponse(resp.StatusCode, respBody) &&
 			!grokEncryptedContentStripRetried(ctx) {
 			if strippedBody, ok := stripAnthropicThinkingSignatures(body); ok {
@@ -523,6 +531,9 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 				)
 				return s.ForwardAsAnthropic(markGrokEncryptedContentStripRetried(ctx), c, account, strippedBody, promptCacheKey, defaultMappedModel)
 			}
+		}
+		if distillation {
+			return s.handleAnthropicErrorResponse(resp, c, account, billingModel)
 		}
 		if foErr := s.failoverOpenAIUpstreamHTTPError(modelCtx, c, account, resp, respBody, upstreamMsg, upstreamModel); foErr != nil {
 			return nil, foErr

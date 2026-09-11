@@ -492,6 +492,7 @@ type OpenAIGatewayService struct {
 	openaiContentSessions          *openAIContentSessionTracker
 	sessionIDAdmissionCache        OpenAISessionIDAdmissionCache
 	sessionIDRateMetrics           *OpenAISessionIDRateMetrics
+	distillationCounterSource      distillationCounter
 
 	openaiWSFallbackUntil               sync.Map // key: int64(accountID), value: time.Time
 	openaiAccountRuntimeBlockUntil      sync.Map // key: int64(accountID), value: time.Time
@@ -518,6 +519,26 @@ type OpenAIGatewayService struct {
 	codexPrincipalLocalTotal    atomic.Uint64
 	codexContextWindowMu        sync.Mutex
 	codexContextWindowIDs       sync.Map // key: account ID, value: account-scoped UUID
+}
+
+// SetDistillationCounter wires the shared Redis-backed request counter used by
+// distillation groups. It is intentionally a setter so existing test and
+// embedding constructors remain source-compatible.
+func (s *OpenAIGatewayService) SetDistillationCounter(source distillationCounter) {
+	if s != nil {
+		s.distillationCounterSource = source
+	}
+}
+
+func (s *OpenAIGatewayService) IsDistillationGroupRequest(c *gin.Context, account *Account) bool {
+	return isDistillationGroupRequest(c, account)
+}
+
+func (s *OpenAIGatewayService) DistillationSessionID(ctx context.Context, c *gin.Context, account *Account) (string, bool) {
+	if s == nil {
+		return "", false
+	}
+	return distillationSessionID(ctx, c, account, s.distillationCounterSource)
 }
 
 // NewOpenAIGatewayService creates a new OpenAIGatewayService

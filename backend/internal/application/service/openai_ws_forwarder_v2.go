@@ -65,6 +65,12 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	)
 
 	payload := s.buildOpenAIWSCreatePayload(reqBody, account)
+	if s.IsDistillationGroupRequest(c, account) {
+		var cleaned map[string]any
+		if err := json.Unmarshal(stripDistillationCacheFields(payloadAsJSONBytes(payload)), &cleaned); err == nil {
+			payload = cleaned
+		}
+	}
 	reasoningEffort := ""
 	if effort := extractOpenAIReasoningEffort(reqBody, mappedModel, originalModel); effort != nil {
 		reasoningEffort = strings.TrimSpace(*effort)

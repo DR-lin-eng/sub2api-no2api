@@ -43,10 +43,20 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 
 	outboundBody := body
 	var codexSessionIDs *codexOutboundSessionIDs
+	distillation := s.IsDistillationGroupRequest(c, account)
+	if distillation {
+		outboundBody = stripDistillationCacheFields(outboundBody)
+	}
 	if account.IsOpenAIOAuth() && (fingerprintIDs == nil || fingerprintIDs.mode == codexFingerprintOff) {
-		codexSessionIDs = resolveCodexOutboundSessionIDs(c, account, body, promptCacheKey)
+		if distillation {
+			if sessionID, enabled := s.DistillationSessionID(ctx, c, account); enabled {
+				codexSessionIDs = &codexOutboundSessionIDs{sessionID: sessionID, threadID: sessionID, clientRequestID: sessionID}
+			}
+		} else {
+			codexSessionIDs = resolveCodexOutboundSessionIDs(c, account, outboundBody, promptCacheKey)
+		}
 		var rewriteErr error
-		outboundBody, rewriteErr = rewriteCodexOutboundSessionMetadata(body, codexSessionIDs)
+		outboundBody, rewriteErr = rewriteCodexOutboundSessionMetadata(outboundBody, codexSessionIDs)
 		if rewriteErr != nil {
 			return nil, rewriteErr
 		}
@@ -121,14 +131,26 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 		} else {
 			req.Header.Set("accept", "text/event-stream")
 		}
-		if promptCacheKey != "" {
+		if promptCacheKey != "" && !distillation {
 			isolated := isolateOpenAISessionID(apiKeyID, promptCacheKey)
 			req.Header.Set("session_id", isolated)
 			if !compatMessagesBridge || clientConversationID != "" {
 				req.Header.Set("conversation_id", isolated)
 			}
 		}
-		applyResolvedCodexOutboundSessionHeaders(c, account, req.Header, fingerprintIDs, codexSessionIDs)
+		if distillation && codexSessionIDs != nil {
+			apiKeyID := getAPIKeyIDFromContext(c)
+			for _, name := range []string{"session-id", "session_id", "thread-id", "thread_id", "x-client-request-id", "conversation_id"} {
+				req.Header.Del(name)
+			}
+			req.Header.Set("session-id", codexSessionIDs.sessionID)
+			req.Header.Set("thread-id", codexSessionIDs.threadID)
+			req.Header.Set("x-client-request-id", codexSessionIDs.clientRequestID)
+			req.Header.Set("session_id", isolateOpenAISessionID(apiKeyID, codexSessionIDs.sessionID))
+			req.Header.Set("conversation_id", isolateOpenAISessionID(apiKeyID, codexSessionIDs.sessionID))
+		} else {
+			applyResolvedCodexOutboundSessionHeaders(c, account, req.Header, fingerprintIDs, codexSessionIDs)
+		}
 	} else if isOpenAIResponsesCompactPath(c) {
 		// compact 上游是 unary JSON 协议：API-key 账号也显式声明 Accept，
 		// 避免 OpenAI 兼容网关按 SSE 返回（#3777 期望行为 4）。

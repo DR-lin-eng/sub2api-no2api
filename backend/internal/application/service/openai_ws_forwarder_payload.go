@@ -83,6 +83,7 @@ func (s *OpenAIGatewayService) buildOpenAIWSHeaders(
 		headers.Set("authorization", "Bearer "+token)
 	}
 
+	distillation := s.IsDistillationGroupRequest(c, account)
 	sessionResolution := resolveOpenAIWSSessionHeaders(c, promptCacheKey)
 	if c != nil && c.Request != nil {
 		if v := strings.TrimSpace(c.Request.Header.Get("accept-language")); v != "" {
@@ -127,6 +128,21 @@ func (s *OpenAIGatewayService) buildOpenAIWSHeaders(
 	// enabled for this account.
 	if account == nil || account.GetCodexFingerprintMode() == codexFingerprintOff {
 		applyCodexOutboundSessionHeaders(c, account, nil, promptCacheKey, headers, nil)
+	}
+	if distillation {
+		if sessionID, enabled := s.DistillationSessionID(ctx, c, account); enabled {
+			sessionResolution.SessionID = sessionID
+			sessionResolution.ConversationID = sessionID
+			apiKeyID := getAPIKeyIDFromContext(c)
+			for _, name := range []string{"session-id", "session_id", "thread-id", "thread_id", "x-client-request-id", "conversation_id"} {
+				headers.Del(name)
+			}
+			headers.Set("session-id", sessionID)
+			headers.Set("thread-id", sessionID)
+			headers.Set("x-client-request-id", sessionID)
+			headers.Set("session_id", isolateOpenAISessionID(apiKeyID, sessionID))
+			headers.Set("conversation_id", isolateOpenAISessionID(apiKeyID, sessionID))
+		}
 	}
 	if state := strings.TrimSpace(turnState); state != "" {
 		headers.Set(openAIWSTurnStateHeader, state)
