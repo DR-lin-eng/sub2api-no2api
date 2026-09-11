@@ -695,6 +695,8 @@ const baseSettingsResponse = {
   openai_low_upstream_rate_priority_enabled: false,
   openai_oauth_scheduling_rate_multiplier: 1,
   openai_content_session_burst_balance_enabled: false,
+  openai_session_id_rate_limit_enabled: false,
+  openai_session_id_rate_limit_per_minute: 0,
   openai_advanced_scheduler_enabled: false,
   openai_advanced_scheduler_sticky_weighted_enabled: false,
   openai_advanced_scheduler_subscription_priority_enabled: false,
@@ -1946,6 +1948,13 @@ describe("admin SettingsView payment visible method controls", () => {
     const burstBalanceToggle = wrapper.get(
       '[data-testid="openai-content-session-burst-balance-toggle"]',
     );
+    const sessionRateToggle = wrapper.get(
+      '[data-testid="openai-session-id-rate-limit-toggle"]',
+    );
+    expect((sessionRateToggle.element as HTMLInputElement).checked).toBe(false);
+    expect(wrapper.find('[data-testid="openai-session-id-rate-limit-per-minute"]').exists()).toBe(false);
+    await sessionRateToggle.setValue(true);
+    await wrapper.get('[data-testid="openai-session-id-rate-limit-per-minute"]').setValue("12");
     expect((burstBalanceToggle.element as HTMLInputElement).checked).toBe(false);
     await burstBalanceToggle.setValue(true);
     await lowRateToggle.setValue(true);
@@ -1973,6 +1982,8 @@ describe("admin SettingsView payment visible method controls", () => {
         openai_low_upstream_rate_priority_enabled: true,
         openai_oauth_scheduling_rate_multiplier: 0.05,
         openai_content_session_burst_balance_enabled: true,
+        openai_session_id_rate_limit_enabled: true,
+        openai_session_id_rate_limit_per_minute: 12,
       }),
     );
 

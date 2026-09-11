@@ -326,6 +326,8 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 		lowUpstreamRatePriorityEnabled: settings.OpenAILowUpstreamRatePriorityEnabled,
 		oauthSchedulingRateMultiplier:  settings.OpenAIOAuthSchedulingRateMultiplier,
 		contentSessionBurstBalance:     settings.OpenAIContentSessionBurstBalanceEnabled,
+		sessionIDRateLimitEnabled:      settings.OpenAISessionIDRateLimitEnabled,
+		sessionIDRateLimitPerMinute:    settings.OpenAISessionIDRateLimitPerMinute,
 		enabled:                        settings.OpenAIAdvancedSchedulerEnabled,
 		stickyWeightedEnabled:          settings.OpenAIAdvancedSchedulerStickyWeightedEnabled,
 		subscriptionPriorityEnabled:    settings.OpenAIAdvancedSchedulerSubscriptionPriorityEnabled,

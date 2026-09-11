@@ -54,6 +54,8 @@ type cachedOpenAIAdvancedSchedulerSetting struct {
 	lowUpstreamRatePriorityEnabled bool
 	oauthSchedulingRateMultiplier  float64
 	contentSessionBurstBalance     bool
+	sessionIDRateLimitEnabled      bool
+	sessionIDRateLimitPerMinute    int
 	enabled                        bool
 	stickyWeightedEnabled          bool
 	subscriptionPriorityEnabled    bool
@@ -66,6 +68,8 @@ type openAIAdvancedSchedulerRuntimeSettings struct {
 	lowUpstreamRatePriorityEnabled bool
 	oauthSchedulingRateMultiplier  float64
 	contentSessionBurstBalance     bool
+	sessionIDRateLimitEnabled      bool
+	sessionIDRateLimitPerMinute    int
 	enabled                        bool
 	stickyWeightedEnabled          bool
 	subscriptionPriorityEnabled    bool
@@ -2256,6 +2260,8 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 				lowUpstreamRatePriorityEnabled: cached.lowUpstreamRatePriorityEnabled,
 				oauthSchedulingRateMultiplier:  cached.oauthSchedulingRateMultiplier,
 				contentSessionBurstBalance:     cached.contentSessionBurstBalance,
+				sessionIDRateLimitEnabled:      cached.sessionIDRateLimitEnabled,
+				sessionIDRateLimitPerMinute:    cached.sessionIDRateLimitPerMinute,
 				enabled:                        cached.enabled,
 				stickyWeightedEnabled:          cached.stickyWeightedEnabled,
 				subscriptionPriorityEnabled:    cached.subscriptionPriorityEnabled,
@@ -2272,6 +2278,8 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 					lowUpstreamRatePriorityEnabled: cached.lowUpstreamRatePriorityEnabled,
 					oauthSchedulingRateMultiplier:  cached.oauthSchedulingRateMultiplier,
 					contentSessionBurstBalance:     cached.contentSessionBurstBalance,
+					sessionIDRateLimitEnabled:      cached.sessionIDRateLimitEnabled,
+					sessionIDRateLimitPerMinute:    cached.sessionIDRateLimitPerMinute,
 					enabled:                        cached.enabled,
 					stickyWeightedEnabled:          cached.stickyWeightedEnabled,
 					subscriptionPriorityEnabled:    cached.subscriptionPriorityEnabled,
@@ -2284,6 +2292,8 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 		lowUpstreamRatePriorityEnabled := false
 		oauthSchedulingRateMultiplier := defaultOpenAIOAuthSchedulingRateMultiplier
 		contentSessionBurstBalance := false
+		sessionIDRateLimitEnabled := false
+		sessionIDRateLimitPerMinute := 0
 		enabled := false
 		stickyWeightedEnabled := false
 		subscriptionPriorityEnabled := false
@@ -2297,6 +2307,8 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 				lowUpstreamRatePriorityEnabled = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAILowUpstreamRatePriorityEnabled]), "true")
 				oauthSchedulingRateMultiplier = parseOpenAIOAuthSchedulingRateMultiplier(values[SettingKeyOpenAIOAuthSchedulingRateMultiplier])
 				contentSessionBurstBalance = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAIContentSessionBurstBalanceEnabled]), "true")
+				sessionIDRateLimitEnabled = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAISessionIDRateLimitEnabled]), "true")
+				sessionIDRateLimitPerMinute = parseOpenAISessionIDRateLimitPerMinute(values[SettingKeyOpenAISessionIDRateLimitPerMinute])
 				enabled = strings.EqualFold(strings.TrimSpace(values[openAIAdvancedSchedulerSettingKey]), "true")
 				stickyWeightedEnabled = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled]), "true")
 				subscriptionPriorityEnabled = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled]), "true")
@@ -2315,6 +2327,8 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 				lowUpstreamRatePriorityEnabled = strings.EqualFold(strings.TrimSpace(fallbackValues[SettingKeyOpenAILowUpstreamRatePriorityEnabled]), "true")
 				oauthSchedulingRateMultiplier = parseOpenAIOAuthSchedulingRateMultiplier(fallbackValues[SettingKeyOpenAIOAuthSchedulingRateMultiplier])
 				contentSessionBurstBalance = strings.EqualFold(strings.TrimSpace(fallbackValues[SettingKeyOpenAIContentSessionBurstBalanceEnabled]), "true")
+				sessionIDRateLimitEnabled = strings.EqualFold(strings.TrimSpace(fallbackValues[SettingKeyOpenAISessionIDRateLimitEnabled]), "true")
+				sessionIDRateLimitPerMinute = parseOpenAISessionIDRateLimitPerMinute(fallbackValues[SettingKeyOpenAISessionIDRateLimitPerMinute])
 				enabled = strings.EqualFold(strings.TrimSpace(fallbackValues[openAIAdvancedSchedulerSettingKey]), "true")
 				stickyWeightedEnabled = strings.EqualFold(strings.TrimSpace(fallbackValues[SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled]), "true")
 				subscriptionPriorityEnabled = strings.EqualFold(strings.TrimSpace(fallbackValues[SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled]), "true")
@@ -2327,6 +2341,8 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 			lowUpstreamRatePriorityEnabled: lowUpstreamRatePriorityEnabled,
 			oauthSchedulingRateMultiplier:  oauthSchedulingRateMultiplier,
 			contentSessionBurstBalance:     contentSessionBurstBalance,
+			sessionIDRateLimitEnabled:      sessionIDRateLimitEnabled,
+			sessionIDRateLimitPerMinute:    sessionIDRateLimitPerMinute,
 			enabled:                        enabled,
 			stickyWeightedEnabled:          stickyWeightedEnabled,
 			subscriptionPriorityEnabled:    subscriptionPriorityEnabled,
@@ -2338,6 +2354,8 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 			lowUpstreamRatePriorityEnabled: lowUpstreamRatePriorityEnabled,
 			oauthSchedulingRateMultiplier:  oauthSchedulingRateMultiplier,
 			contentSessionBurstBalance:     contentSessionBurstBalance,
+			sessionIDRateLimitEnabled:      sessionIDRateLimitEnabled,
+			sessionIDRateLimitPerMinute:    sessionIDRateLimitPerMinute,
 			enabled:                        enabled,
 			stickyWeightedEnabled:          stickyWeightedEnabled,
 			subscriptionPriorityEnabled:    subscriptionPriorityEnabled,
@@ -2386,6 +2404,8 @@ func openAIAdvancedSchedulerRuntimeSettingKeys() []string {
 		SettingKeyOpenAILowUpstreamRatePriorityEnabled,
 		SettingKeyOpenAIOAuthSchedulingRateMultiplier,
 		SettingKeyOpenAIContentSessionBurstBalanceEnabled,
+		SettingKeyOpenAISessionIDRateLimitEnabled,
+		SettingKeyOpenAISessionIDRateLimitPerMinute,
 		openAIAdvancedSchedulerSettingKey,
 		SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled,
 		SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled,
@@ -2623,6 +2643,55 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 }
 
 func (s *OpenAIGatewayService) selectAccountWithSchedulerInGroup(
+	ctx context.Context,
+	groupID *int64,
+	previousResponseID string,
+	sessionHash string,
+	requestedModel string,
+	excludedIDs map[int64]struct{},
+	requiredTransport OpenAIUpstreamTransport,
+	requiredCapability OpenAIEndpointCapability,
+	requiredImageCapability OpenAIImagesCapability,
+	requireCompact bool,
+	platform string,
+	previousResponseCanMove bool,
+	useUpstreamTokenCost bool,
+) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
+	enabled, limit := s.openAISessionIDRateLimitSettings(ctx)
+	if !enabled || limit <= 0 || strings.TrimSpace(sessionHash) == "" || openAISessionHashMetadataFromContext(ctx).contentDerived || normalizeOpenAICompatiblePlatform(platform) != PlatformOpenAI || (strings.TrimSpace(previousResponseID) != "" && !previousResponseCanMove) || codexContinuationSchedulingAffinityActive(ctx) {
+		return s.selectAccountWithSchedulerInGroupRaw(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, requiredCapability, requiredImageCapability, requireCompact, platform, previousResponseCanMove, useUpstreamTokenCost)
+	}
+	effectiveExcludedIDs := cloneExcludedAccountIDs(excludedIDs)
+	var lastDecision OpenAIAccountScheduleDecision
+	for attempt := 0; attempt < openAIAccountSelectionProbeLimit; attempt++ {
+		selection, decision, err := s.selectAccountWithSchedulerInGroupRaw(ctx, groupID, previousResponseID, sessionHash, requestedModel, effectiveExcludedIDs, requiredTransport, requiredCapability, requiredImageCapability, requireCompact, platform, previousResponseCanMove, useUpstreamTokenCost)
+		lastDecision = decision
+		if selection == nil || selection.Account == nil || err != nil {
+			return selection, decision, err
+		}
+		admission, admissionErr := s.admitOpenAISessionID(ctx, selection.Account.ID, sessionHash, limit)
+		if admissionErr != nil {
+			// Preserve the existing fail-open behavior when Redis is unavailable.
+			return selection, decision, nil
+		}
+		if admission.Allowed {
+			return selection, decision, nil
+		}
+		if strings.TrimSpace(previousResponseID) == "" && s.cache != nil {
+			_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
+		}
+		if selection.ReleaseFunc != nil {
+			selection.ReleaseFunc()
+		}
+		if effectiveExcludedIDs == nil {
+			effectiveExcludedIDs = make(map[int64]struct{})
+		}
+		effectiveExcludedIDs[selection.Account.ID] = struct{}{}
+	}
+	return nil, lastDecision, ErrNoAvailableAccounts
+}
+
+func (s *OpenAIGatewayService) selectAccountWithSchedulerInGroupRaw(
 	ctx context.Context,
 	groupID *int64,
 	previousResponseID string,

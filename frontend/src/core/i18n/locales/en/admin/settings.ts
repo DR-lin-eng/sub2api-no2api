@@ -486,7 +486,10 @@ export default {
         requestPriorityPendingMiB: 'Pending request bodies per instance (MiB)',
         requestPriorityPendingMiBHint: 'Caps request bodies actually buffered in this process. Default: 256 MiB. Request bodies are never stored in Redis.',
         contentSessionBurstBalance: 'Spread concurrent content sessions',
-        contentSessionBurstBalanceHint: 'Disabled by default. When enabled, an initial bounded set of overlapping requests with identical content and no explicit session identifier is spread by account load. High-concurrency overflow is sent directly through a bounded pool of previously validated accounts, trying two accounts before using the existing queue limits. Sequential requests and explicit session_id, prompt_cache_key, and previous_response_id affinity remain unchanged.'
+        contentSessionBurstBalanceHint: 'Disabled by default. When enabled, an initial bounded set of overlapping requests with identical content and no explicit session identifier is spread by account load. High-concurrency overflow is sent directly through a bounded pool of previously validated accounts, trying two accounts before using the existing queue limits. Sequential requests and explicit session_id, prompt_cache_key, and previous_response_id affinity remain unchanged.',
+        sessionIDRateLimit: 'OpenAI Session ID rate limit per minute',
+        sessionIDRateLimitHint: 'Limits the number of newly observed explicit Session IDs per OpenAI account per minute; 0 means unlimited. Existing sessions are not counted again.',
+        sessionIDRateLimitPerMinute: 'Per-account limit per minute'
       },
       upstreamBillingProbe: {
         title: 'Upstream Rate Auto Detection',

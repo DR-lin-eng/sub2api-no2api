@@ -274,6 +274,8 @@ type UpdateSettingsRequest struct {
 	OpenAILowUpstreamRatePriorityEnabled               *bool    `json:"openai_low_upstream_rate_priority_enabled"`
 	OpenAIOAuthSchedulingRateMultiplier                *float64 `json:"openai_oauth_scheduling_rate_multiplier"`
 	OpenAIContentSessionBurstBalanceEnabled            *bool    `json:"openai_content_session_burst_balance_enabled"`
+	OpenAISessionIDRateLimitEnabled                    *bool    `json:"openai_session_id_rate_limit_enabled"`
+	OpenAISessionIDRateLimitPerMinute                  *int     `json:"openai_session_id_rate_limit_per_minute"`
 	OpenAIAdvancedSchedulerEnabled                     *bool    `json:"openai_advanced_scheduler_enabled"`
 	OpenAIAdvancedSchedulerStickyWeightedEnabled       *bool    `json:"openai_advanced_scheduler_sticky_weighted_enabled"`
 	OpenAIAdvancedSchedulerSubscriptionPriorityEnabled *bool    `json:"openai_advanced_scheduler_subscription_priority_enabled"`

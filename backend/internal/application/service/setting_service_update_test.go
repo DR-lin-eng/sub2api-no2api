@@ -596,6 +596,17 @@ func TestSettingService_ParseSettingsDefaultsOpenAIOAuthSchedulingRateMultiplier
 	require.Equal(t, 0.05, svc.parseSettings(map[string]string{SettingKeyOpenAIOAuthSchedulingRateMultiplier: "0.05"}).OpenAIOAuthSchedulingRateMultiplier)
 }
 
+func TestSettingService_ParseSettingsOpenAISessionIDRateLimit(t *testing.T) {
+	svc := NewSettingService(&settingUpdateRepoStub{}, &config.Config{})
+	settings := svc.parseSettings(map[string]string{
+		SettingKeyOpenAISessionIDRateLimitEnabled:   "true",
+		SettingKeyOpenAISessionIDRateLimitPerMinute: "12",
+	})
+	require.True(t, settings.OpenAISessionIDRateLimitEnabled)
+	require.Equal(t, 12, settings.OpenAISessionIDRateLimitPerMinute)
+	require.Equal(t, 0, svc.parseSettings(map[string]string{SettingKeyOpenAISessionIDRateLimitPerMinute: "-1"}).OpenAISessionIDRateLimitPerMinute)
+}
+
 func TestSettingService_GetAllSettings_OpenAIAdvancedSchedulerEffectiveValuesUseConfig(t *testing.T) {
 	cfg := &config.Config{}
 	cfg.Gateway.OpenAIWS.LBTopK = 13

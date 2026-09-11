@@ -273,6 +273,8 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingPaymentVisibleMethodAlipayEnabled:                     "false",
 		SettingPaymentVisibleMethodWxpayEnabled:                      "false",
 		SettingKeyOpenAIContentSessionBurstBalanceEnabled:            "false",
+		SettingKeyOpenAISessionIDRateLimitEnabled:                    "false",
+		SettingKeyOpenAISessionIDRateLimitPerMinute:                  "0",
 		openAIAdvancedSchedulerSettingKey:                            "false",
 		SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled:       "false",
 		SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled: "false",
@@ -322,6 +324,17 @@ func parseSchedulerV2Limits(candidateRaw, scanRaw string) (int, int) {
 		return DefaultSchedulerCandidateFetchLimit, DefaultSchedulerCandidateScanLimit
 	}
 	return candidateLimit, scanLimit
+}
+
+func parseOpenAISessionIDRateLimitPerMinute(raw string) int {
+	value, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || value < 0 {
+		return 0
+	}
+	if value > 1000000 {
+		return 1000000
+	}
+	return value
 }
 
 func clampAffiliateRebateRate(value float64) float64 {

@@ -81,6 +81,8 @@ func (s *SettingService) applyGatewaySettings(result *SystemSettings, settings m
 	result.OpenAILowUpstreamRatePriorityEnabled = settings[SettingKeyOpenAILowUpstreamRatePriorityEnabled] == "true"
 	result.OpenAIOAuthSchedulingRateMultiplier = parseOpenAIOAuthSchedulingRateMultiplier(settings[SettingKeyOpenAIOAuthSchedulingRateMultiplier])
 	result.OpenAIContentSessionBurstBalanceEnabled = settings[SettingKeyOpenAIContentSessionBurstBalanceEnabled] == "true"
+	result.OpenAISessionIDRateLimitEnabled = settings[SettingKeyOpenAISessionIDRateLimitEnabled] == "true"
+	result.OpenAISessionIDRateLimitPerMinute = parseOpenAISessionIDRateLimitPerMinute(settings[SettingKeyOpenAISessionIDRateLimitPerMinute])
 	result.OpenAIAdvancedSchedulerEnabled = settings[openAIAdvancedSchedulerSettingKey] == "true"
 	result.OpenAIAdvancedSchedulerStickyWeightedEnabled = settings[SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled] == "true"
 	result.OpenAIAdvancedSchedulerSubscriptionPriorityEnabled = settings[SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled] == "true"

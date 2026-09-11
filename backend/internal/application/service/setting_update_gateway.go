@@ -49,6 +49,8 @@ func writeGatewaySystemSettingUpdates(updates map[string]string, settings *Syste
 	updates[SettingKeyOpenAILowUpstreamRatePriorityEnabled] = strconv.FormatBool(settings.OpenAILowUpstreamRatePriorityEnabled)
 	updates[SettingKeyOpenAIOAuthSchedulingRateMultiplier] = strconv.FormatFloat(settings.OpenAIOAuthSchedulingRateMultiplier, 'f', -1, 64)
 	updates[SettingKeyOpenAIContentSessionBurstBalanceEnabled] = strconv.FormatBool(settings.OpenAIContentSessionBurstBalanceEnabled)
+	updates[SettingKeyOpenAISessionIDRateLimitEnabled] = strconv.FormatBool(settings.OpenAISessionIDRateLimitEnabled)
+	updates[SettingKeyOpenAISessionIDRateLimitPerMinute] = strconv.Itoa(settings.OpenAISessionIDRateLimitPerMinute)
 	updates[openAIAdvancedSchedulerSettingKey] = strconv.FormatBool(settings.OpenAIAdvancedSchedulerEnabled)
 	updates[SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled] = strconv.FormatBool(settings.OpenAIAdvancedSchedulerStickyWeightedEnabled)
 	updates[SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled] = strconv.FormatBool(settings.OpenAIAdvancedSchedulerSubscriptionPriorityEnabled)

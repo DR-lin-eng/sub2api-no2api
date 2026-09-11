@@ -333,6 +333,8 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		OpenAILowUpstreamRatePriorityEnabled:                   settings.OpenAILowUpstreamRatePriorityEnabled,
 		OpenAIOAuthSchedulingRateMultiplier:                    settings.OpenAIOAuthSchedulingRateMultiplier,
 		OpenAIContentSessionBurstBalanceEnabled:                settings.OpenAIContentSessionBurstBalanceEnabled,
+		OpenAISessionIDRateLimitEnabled:                        settings.OpenAISessionIDRateLimitEnabled,
+		OpenAISessionIDRateLimitPerMinute:                      settings.OpenAISessionIDRateLimitPerMinute,
 		OpenAIAdvancedSchedulerEnabled:                         settings.OpenAIAdvancedSchedulerEnabled,
 		OpenAIAdvancedSchedulerStickyWeightedEnabled:           settings.OpenAIAdvancedSchedulerStickyWeightedEnabled,
 		OpenAIAdvancedSchedulerSubscriptionPriorityEnabled:     settings.OpenAIAdvancedSchedulerSubscriptionPriorityEnabled,

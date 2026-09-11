@@ -304,6 +304,8 @@ type SystemSettings struct {
 	OpenAILowUpstreamRatePriorityEnabled                   bool
 	OpenAIOAuthSchedulingRateMultiplier                    float64
 	OpenAIContentSessionBurstBalanceEnabled                bool
+	OpenAISessionIDRateLimitEnabled                        bool
+	OpenAISessionIDRateLimitPerMinute                      int
 	OpenAIAdvancedSchedulerEnabled                         bool
 	OpenAIAdvancedSchedulerStickyWeightedEnabled           bool
 	OpenAIAdvancedSchedulerSubscriptionPriorityEnabled     bool

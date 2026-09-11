@@ -514,6 +514,25 @@
         />
       </div>
 
+      <div class="flex items-center justify-between border-t border-gray-100 pt-5 dark:border-dark-700">
+        <div>
+          <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+            {{ t("admin.settings.scheduling.sessionIDRateLimit") }}
+          </label>
+          <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            {{ t("admin.settings.scheduling.sessionIDRateLimitHint") }}
+          </p>
+        </div>
+        <Toggle v-model="form.openai_session_id_rate_limit_enabled" data-testid="openai-session-id-rate-limit-toggle" />
+      </div>
+
+      <div v-if="form.openai_session_id_rate_limit_enabled" class="flex flex-col gap-2 border-t border-gray-100 pt-5 dark:border-dark-700 sm:flex-row sm:items-center sm:justify-between">
+        <label for="openai-session-id-rate-limit-per-minute" class="text-sm text-gray-700 dark:text-gray-300">
+          {{ t("admin.settings.scheduling.sessionIDRateLimitPerMinute") }}
+        </label>
+        <input id="openai-session-id-rate-limit-per-minute" v-model.number="form.openai_session_id_rate_limit_per_minute" class="input w-full sm:w-32" type="number" min="0" max="1000000" step="1" data-testid="openai-session-id-rate-limit-per-minute" />
+      </div>
+
       <div
         v-if="!form.openai_advanced_scheduler_enabled"
         class="flex items-center justify-between border-t border-gray-100 pt-5 dark:border-dark-700"

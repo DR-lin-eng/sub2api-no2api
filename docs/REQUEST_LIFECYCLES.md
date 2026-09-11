@@ -76,6 +76,12 @@ OpenAI 兼容入口的会话键按以下顺序解析：显式 `session_id`/
 `session_id_growth` 提供筛选范围内总增速和最大账号增速。该指标只保存在进程内短期内存，
 按 UTC 分钟轮换，不进入用量聚合、账单或持久化表；内容派生会话不计入该指标。
 
+系统设置的“OpenAI Session ID 每分钟限速”开关对应
+`openai_session_id_rate_limit_enabled`，启用后按
+`openai_session_id_rate_limit_per_minute` 对每个 OpenAI 账号的新增显式 Session ID 做
+Redis 原子限速；0 表示不限制。达到上限的账号从本次候选中排除，已有 Session ID 不重复
+消耗额度。
+
 OpenAI Responses 请求在首个语义事件前使用
 `gateway.openai_first_output_timeout_seconds`（默认 90 秒；
 `high/xhigh/max` 可由 `gateway.openai_high_effort_first_output_timeout_seconds`

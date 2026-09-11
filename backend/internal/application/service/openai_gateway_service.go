@@ -490,6 +490,7 @@ type OpenAIGatewayService struct {
 	openaiProxyStreamCircuit       *openAIProxyStreamCircuit
 	openaiProxyStreamFailOpenLogAt atomic.Int64
 	openaiContentSessions          *openAIContentSessionTracker
+	sessionIDAdmissionCache        OpenAISessionIDAdmissionCache
 	sessionIDRateMetrics           *OpenAISessionIDRateMetrics
 
 	openaiWSFallbackUntil               sync.Map // key: int64(accountID), value: time.Time
@@ -590,6 +591,9 @@ func NewOpenAIGatewayService(
 	svc.openaiWSResolver = newOpenAIWSProtocolResolver(cfg, func() bool {
 		return svc.isOpenAIWSModeRouterV2Enabled(context.Background())
 	})
+	if admissionCache, ok := cache.(OpenAISessionIDAdmissionCache); ok {
+		svc.sessionIDAdmissionCache = admissionCache
+	}
 	if rateLimitService != nil {
 		rateLimitService.SetAccountRuntimeBlocker(svc)
 	}

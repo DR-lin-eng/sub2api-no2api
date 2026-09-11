@@ -352,6 +352,10 @@ function buildOpenAISchedulingSettingsPayload({
       form.openai_oauth_scheduling_rate_multiplier,
     openai_content_session_burst_balance_enabled:
       form.openai_content_session_burst_balance_enabled,
+    openai_session_id_rate_limit_enabled:
+      form.openai_session_id_rate_limit_enabled,
+    openai_session_id_rate_limit_per_minute:
+      Math.max(0, Math.min(1000000, Math.floor(Number(form.openai_session_id_rate_limit_per_minute) || 0))),
     openai_advanced_scheduler_enabled:
       form.openai_advanced_scheduler_enabled,
     openai_advanced_scheduler_sticky_weighted_enabled:

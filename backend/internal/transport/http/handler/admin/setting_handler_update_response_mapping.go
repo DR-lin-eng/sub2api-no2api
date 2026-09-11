@@ -220,6 +220,8 @@ func buildSettingsUpdateResponsePayload(
 		OpenAILowUpstreamRatePriorityEnabled:                   updatedSettings.OpenAILowUpstreamRatePriorityEnabled,
 		OpenAIOAuthSchedulingRateMultiplier:                    updatedSettings.OpenAIOAuthSchedulingRateMultiplier,
 		OpenAIContentSessionBurstBalanceEnabled:                updatedSettings.OpenAIContentSessionBurstBalanceEnabled,
+		OpenAISessionIDRateLimitEnabled:                        updatedSettings.OpenAISessionIDRateLimitEnabled,
+		OpenAISessionIDRateLimitPerMinute:                      updatedSettings.OpenAISessionIDRateLimitPerMinute,
 		OpenAIAdvancedSchedulerEnabled:                         updatedSettings.OpenAIAdvancedSchedulerEnabled,
 		OpenAIAdvancedSchedulerStickyWeightedEnabled:           updatedSettings.OpenAIAdvancedSchedulerStickyWeightedEnabled,
 		OpenAIAdvancedSchedulerSubscriptionPriorityEnabled:     updatedSettings.OpenAIAdvancedSchedulerSubscriptionPriorityEnabled,

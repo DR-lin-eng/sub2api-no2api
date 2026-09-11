@@ -235,6 +235,8 @@ func buildSystemSettingsUpdate(prepared *preparedSettingsUpdate) *service.System
 		OpenAILowUpstreamRatePriorityEnabled:               boolValueOrDefault(req.OpenAILowUpstreamRatePriorityEnabled, previousSettings.OpenAILowUpstreamRatePriorityEnabled),
 		OpenAIOAuthSchedulingRateMultiplier:                float64ValueOrDefault(req.OpenAIOAuthSchedulingRateMultiplier, previousSettings.OpenAIOAuthSchedulingRateMultiplier),
 		OpenAIContentSessionBurstBalanceEnabled:            boolValueOrDefault(req.OpenAIContentSessionBurstBalanceEnabled, previousSettings.OpenAIContentSessionBurstBalanceEnabled),
+		OpenAISessionIDRateLimitEnabled:                    boolValueOrDefault(req.OpenAISessionIDRateLimitEnabled, previousSettings.OpenAISessionIDRateLimitEnabled),
+		OpenAISessionIDRateLimitPerMinute:                  intValueOrDefault(req.OpenAISessionIDRateLimitPerMinute, previousSettings.OpenAISessionIDRateLimitPerMinute),
 		OpenAIAdvancedSchedulerEnabled:                     boolValueOrDefault(req.OpenAIAdvancedSchedulerEnabled, previousSettings.OpenAIAdvancedSchedulerEnabled),
 		OpenAIAdvancedSchedulerStickyWeightedEnabled:       boolValueOrDefault(req.OpenAIAdvancedSchedulerStickyWeightedEnabled, previousSettings.OpenAIAdvancedSchedulerStickyWeightedEnabled),
 		OpenAIAdvancedSchedulerSubscriptionPriorityEnabled: boolValueOrDefault(req.OpenAIAdvancedSchedulerSubscriptionPriorityEnabled, previousSettings.OpenAIAdvancedSchedulerSubscriptionPriorityEnabled),

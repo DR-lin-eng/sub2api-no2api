@@ -148,6 +148,12 @@ func appendOpenAISchedulerSettingChanges(changed []string, before, after *servic
 	if before.OpenAIContentSessionBurstBalanceEnabled != after.OpenAIContentSessionBurstBalanceEnabled {
 		changed = append(changed, "openai_content_session_burst_balance_enabled")
 	}
+	if before.OpenAISessionIDRateLimitEnabled != after.OpenAISessionIDRateLimitEnabled {
+		changed = append(changed, "openai_session_id_rate_limit_enabled")
+	}
+	if before.OpenAISessionIDRateLimitPerMinute != after.OpenAISessionIDRateLimitPerMinute {
+		changed = append(changed, "openai_session_id_rate_limit_per_minute")
+	}
 	if before.OpenAIAdvancedSchedulerSubscriptionPriorityEnabled != after.OpenAIAdvancedSchedulerSubscriptionPriorityEnabled {
 		changed = append(changed, "openai_advanced_scheduler_subscription_priority_enabled")
 	}

@@ -49,6 +49,9 @@ func (s *SettingService) prepareSystemSettingsUpdate(ctx context.Context, settin
 	if err := s.normalizeOpenAIAdvancedSchedulerOverrides(settings); err != nil {
 		return "", err
 	}
+	if settings.OpenAISessionIDRateLimitPerMinute < 0 || settings.OpenAISessionIDRateLimitPerMinute > 1000000 {
+		return "", infraerrors.BadRequest("INVALID_OPENAI_SESSION_ID_RATE_LIMIT", "OpenAI session ID rate limit must be between 0 and 1000000 per minute")
+	}
 	if strings.TrimSpace(settings.ClientIPResolutionMode) == "" {
 		if s.clientIPResolver != nil {
 			settings.ClientIPResolutionMode, settings.ClientIPTrustedProxies = s.clientIPResolver.CurrentConfiguration()
