@@ -282,9 +282,14 @@ func (h *SettingHandler) UpdateCodexSimulationSettings(c *gin.Context) {
 	if req.CodexPrewarmContinuationForceEnabled != nil {
 		prewarmForceEnabled = *req.CodexPrewarmContinuationForceEnabled
 	}
+	experimentalTransportEnabled := current.ExperimentalTransportEnabled
+	if req.ExperimentalTransportEnabled != nil {
+		experimentalTransportEnabled = *req.ExperimentalTransportEnabled
+	}
 	settings, err := h.settingService.SetCodexSimulationSettings(c.Request.Context(), &service.CodexSimulationSettings{
 		FullSimulationEnabled:                *req.FullSimulationEnabled,
 		CLevelSimulationEnabled:              cLevelEnabled,
+		ExperimentalTransportEnabled:         experimentalTransportEnabled,
 		CodexPrewarmContinuationForceEnabled: prewarmForceEnabled,
 		ContinuationMode:                     mode,
 		StateTTLSeconds:                      *req.StateTTLSeconds,
@@ -315,6 +320,7 @@ func codexSimulationSettingsDTO(settings *service.CodexSimulationSettings) dto.C
 	return dto.CodexSimulationSettings{
 		FullSimulationEnabled:                settings.FullSimulationEnabled,
 		CLevelSimulationEnabled:              settings.CLevelSimulationEnabled,
+		ExperimentalTransportEnabled:         settings.ExperimentalTransportEnabled,
 		CodexPrewarmContinuationForceEnabled: settings.CodexPrewarmContinuationForceEnabled,
 		ContinuationMode:                     settings.ContinuationMode,
 		StateTTLSeconds:                      settings.StateTTLSeconds,

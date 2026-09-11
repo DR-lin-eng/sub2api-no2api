@@ -8,6 +8,10 @@ import (
 	"strconv"
 )
 
+// CodexX25519MLKEM768 is the IANA hybrid key-share group used by the plugin's
+// Linux persona captures. It is supported by the pinned uTLS dependency.
+const CodexX25519MLKEM768 uint16 = 4588
+
 // BuiltInCodexRustlsProfile returns the stable, conservative subset of the
 // aws-lc-rs provider used by the official Codex transport. Rustls randomizes
 // extension order per handshake, so this profile describes the provider
@@ -55,6 +59,38 @@ func (p *Profile) ForHTTP1() *Profile {
 // HTTP/2.
 func (p *Profile) ForWebSocket() *Profile {
 	return p.ForHTTP1()
+}
+
+// WithCodexExperimentalTransport enables the plugin-derived comparison
+// behavior on a cloned profile: hybrid X25519+ML-KEM-768 key shares and
+// per-connection extension shuffling. The source profile is never mutated.
+func (p *Profile) WithCodexExperimentalTransport() *Profile {
+	if p == nil {
+		return nil
+	}
+	clone := cloneProfile(p)
+	clone.RandomizeExtensions = true
+	if len(clone.Curves) == 0 {
+		clone.Curves = []uint16{29, 23, 24}
+	}
+	if len(clone.KeyShareGroups) == 0 {
+		clone.KeyShareGroups = []uint16{29}
+	}
+	if len(clone.ALPNProtocols) == 0 {
+		clone.ALPNProtocols = []string{"h2", "http/1.1"}
+	}
+	clone.Curves = prependUniqueUint16(clone.Curves, CodexX25519MLKEM768)
+	clone.KeyShareGroups = prependUniqueUint16(clone.KeyShareGroups, CodexX25519MLKEM768)
+	return clone
+}
+
+func prependUniqueUint16(values []uint16, value uint16) []uint16 {
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append([]uint16{value}, values...)
 }
 
 // FingerprintKey returns a stable, non-sensitive identity for the effective

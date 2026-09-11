@@ -70,6 +70,8 @@ var codexOfficialClientMetadataKeys = map[string]struct{}{
 	"thread_id":                {},
 	"turn_id":                  {},
 	"x-codex-window-id":        {},
+	"window_number":            {},
+	"context_window_id":        {},
 	"x-codex-turn-metadata":    {},
 	"x-codex-turn-state":       {},
 	"x-openai-subagent":        {},
@@ -88,6 +90,8 @@ var codexOfficialTurnMetadataKeys = map[string]struct{}{
 	"agent_name":                     {},
 	"turn_id":                        {},
 	"window_id":                      {},
+	"window_number":                  {},
+	"context_window_id":              {},
 	"request_kind":                   {},
 	"compaction":                     {},
 	"forked_from_thread_id":          {},
@@ -219,6 +223,8 @@ type codexFingerprintIDs struct {
 	threadID                 string
 	turnID                   string
 	windowID                 string
+	windowNumber             int
+	contextWindowID          string
 	promptCacheKey           string
 	generation               uint64
 	turnStartedAtMS          int64
@@ -479,11 +485,16 @@ func applyCodexTurnMetadataFields(metadata map[string]any, ids *codexFingerprint
 	metadata["window_id"] = ids.windowID
 	metadata["turn_started_at_unix_ms"] = ids.turnStartedAtMS
 	if ids.fullSimulation {
-		for _, key := range []string{"forked_from_thread_id", "parent_thread_id", "parent_turn_id", "root_turn_id"} {
+		metadata["window_number"] = ids.windowNumber
+		if ids.contextWindowID != "" {
+			metadata["context_window_id"] = ids.contextWindowID
+		}
+		for _, key := range []string{"forked_from_thread_id", "parent_thread_id", "parent_turn_id"} {
 			if raw, ok := metadata[key].(string); ok && strings.TrimSpace(raw) != "" {
 				metadata[key] = rewriteCodexSimulationMetadataID(ids, key, raw)
 			}
 		}
+		metadata["root_turn_id"] = ids.turnID
 		if subagent, ok := metadata["subagent_kind"].(string); ok && !validCodexSubagentValue(subagent) {
 			delete(metadata, "subagent_kind")
 		}
@@ -540,6 +551,10 @@ func applyCodexFingerprintClientMetadataMap(metadata map[string]any, ids *codexF
 	}
 	metadata["x-codex-installation-id"] = ids.installationID
 	if ids.fullSimulation {
+		metadata["root_turn_id"] = ids.turnID
+		if ids.contextWindowID != "" {
+			metadata["context_window_id"] = ids.contextWindowID
+		}
 		if parent, ok := metadata["x-codex-parent-thread-id"].(string); ok && strings.TrimSpace(parent) != "" {
 			metadata["x-codex-parent-thread-id"] = rewriteCodexSimulationMetadataID(ids, "parent_thread_id", parent)
 		}

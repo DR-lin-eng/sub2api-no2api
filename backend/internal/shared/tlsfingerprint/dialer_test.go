@@ -408,3 +408,30 @@ func fetchFingerprint(t *testing.T, profile *Profile) *TLSInfo {
 
 	return &fpResp.TLS
 }
+
+func TestCodexExperimentalProfileAddsMLKEMAndRandomizesExtensions(t *testing.T) {
+	base := BuiltInCodexRustlsProfile()
+	experimental := base.WithCodexExperimentalTransport()
+	if experimental == base {
+		t.Fatal("experimental profile must be a clone")
+	}
+	if !experimental.RandomizeExtensions {
+		t.Fatal("experimental profile must enable extension randomization")
+	}
+	if len(experimental.KeyShareGroups) == 0 || experimental.KeyShareGroups[0] != CodexX25519MLKEM768 {
+		t.Fatalf("experimental key shares = %v, want ML-KEM first", experimental.KeyShareGroups)
+	}
+	spec := ClientHelloSpecFromProfile(experimental)
+	found := false
+	for _, curve := range experimental.Curves {
+		if curve == CodexX25519MLKEM768 {
+			found = true
+		}
+	}
+	if !found || len(spec.Extensions) == 0 {
+		t.Fatalf("experimental curves/extensions missing: curves=%v extensions=%d", experimental.Curves, len(spec.Extensions))
+	}
+	if len(base.Curves) > 0 && base.Curves[0] == CodexX25519MLKEM768 {
+		t.Fatal("base profile was mutated")
+	}
+}

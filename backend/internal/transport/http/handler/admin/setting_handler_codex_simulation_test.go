@@ -78,6 +78,22 @@ func TestCodexSimulationSettingsHandlerPersistsCLevelSwitch(t *testing.T) {
 	require.True(t, persisted.CLevelSimulationEnabled)
 }
 
+func TestCodexSimulationSettingsHandlerPersistsExperimentalTransportSwitch(t *testing.T) {
+	h, repo := newCodexSimulationSettingHandlerTest(&config.Config{})
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPut, "/api/v1/admin/settings/codex-simulation", bytes.NewBufferString(
+		`{"full_simulation_enabled":false,"c_level_simulation_enabled":true,"experimental_transport_enabled":true,"continuation_mode":"off","state_ttl_seconds":604800}`,
+	))
+	c.Request.Header.Set("Content-Type", "application/json")
+	h.UpdateCodexSimulationSettings(c)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var persisted service.CodexSimulationSettings
+	require.NoError(t, json.Unmarshal([]byte(repo.values[service.SettingKeyCodexSimulationSettings]), &persisted))
+	require.True(t, persisted.ExperimentalTransportEnabled)
+	require.Contains(t, recorder.Body.String(), `"experimental_transport_enabled":true`)
+}
+
 func TestRestoreOriginalCodexBehaviorOverwritesMalformedSettingsWithoutBody(t *testing.T) {
 	h, repo := newCodexSimulationSettingHandlerTest(&config.Config{})
 	repo.values = map[string]string{

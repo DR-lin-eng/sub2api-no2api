@@ -299,6 +299,7 @@ func NewSettingService(settingRepo SettingRepository, cfg *config.Config) *Setti
 	codexSimulationSettings := svc.defaultCodexSimulationSettings()
 	svc.codexSimulationSettings.Store(&codexSimulationSettings)
 	codexsimulation.SetCLevelEnabled(codexSimulationSettings.CLevelSimulationEnabled)
+	codexsimulation.SetExperimentalTransportEnabled(codexSimulationSettings.ExperimentalTransportEnabled)
 	codexsimulation.SetPrewarmContinuationEnabled(codexSimulationSettings.CodexPrewarmContinuationForceEnabled)
 	if cfg != nil {
 		svc.openAIWSModeRouterV2Enabled.Store(cfg.Gateway.OpenAIWS.ModeRouterV2Enabled)

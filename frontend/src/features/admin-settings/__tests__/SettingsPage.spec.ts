@@ -1408,6 +1408,7 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(updateCodexSimulationSettings).toHaveBeenLastCalledWith({
       full_simulation_enabled: false,
       c_level_simulation_enabled: false,
+      experimental_transport_enabled: false,
       codex_prewarm_continuation_force_enabled: true,
       continuation_mode: "shadow",
       state_ttl_seconds: 3600,

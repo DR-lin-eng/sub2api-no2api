@@ -13,11 +13,16 @@
 
 本项目因此在 full simulation 出站时只生成横线形式的 session/thread 头，并使
 `session_id == thread_id == prompt_cache_key`、`x-client-request-id == thread_id`。window projection
-采用 `thread_id:window_number` 形状。下游提供的 Codex 保留身份头先被删除，再从同一 attempt plan
-重建。full simulation 的 direct `x-codex-installation-id` 只在 Compact projection 保留，普通
+采用 `thread_id:window_number` 形状，编号从 1 开始。下游提供的 Codex 保留身份头先被删除，再从同一
+attempt plan 重建。full simulation 的 direct `x-codex-installation-id` 只在 Compact projection 保留，普通
 Responses/WS 通过 `client_metadata` 投影；`client_metadata` 顶层只保留源码兼容投影；调用方自定义键会转入
 `x-codex-turn-metadata` 的有界扁平 extra 字段，并按源码规则限制键和值长度。
-parent/fork/turn/root 关联 ID 会按虚拟 principal 重新派生，合法的 subagent 分类和对应兼容头会保留。
+每个 OpenAI OAuth 账号在首次创建或首次 full simulation 请求时生成一个随机 `context_window_id`，写入
+`accounts.extra.codex_context_window_id`，后续请求固定复用；它不会采用下游提供的窗口 ID。root_turn_id
+始终与当前 turn_id 对齐，parent/fork/turn 关联 ID 按虚拟 principal 重新派生，合法的 subagent 分类和对应兼容头会保留。
+
+full simulation 的 session、thread、turn 以及上下文窗口 ID 使用 UUIDv7 的毫秒时间戳布局；installation ID
+继续使用 UUIDv4，以保持安装身份与会话时间身份的边界。
 
 ## 默认 OAuth 出站身份
 
@@ -37,8 +42,8 @@ parent/fork/turn/root 关联 ID 会按虚拟 principal 重新派生，合法的 
 无效或非官方 UA 继续回退为规范身份。将 `gateway.disable_codex_identity_enforcement` 设为 `true`
 后使用请求 UA 配对身份，`version` 仍与 UA 的引擎版本保持一致。
 
-HTTP 普通转发、透传、Compact 与 WS 使用同一身份解析结果，full simulation 不再另按服务器 OS
-生成 CLI UA。WS 连接兼容键包含 `User-Agent`、`originator`、`version` 和账号 TLS Profile；
+HTTP 普通转发、透传、Compact 与 WS 默认使用同一身份解析结果。full simulation 的 Linux 画像仅在
+C 与实验性传输开关同时开启且账号未配置 UA 时启用。WS 连接兼容键包含 `User-Agent`、`originator`、`version` 和账号 TLS Profile；
 身份设置改变后的新请求不会复用旧握手，身份不变时保留原连接亲和性。
 旧的 session/full 指纹模式也从同一请求计划设置 HTTP 与 WS 握手的 `x-client-request-id`，
 不再由 WS 继承入站原值；后续 WS 帧仍按既有协议在 body metadata 中投影每轮身份。
@@ -112,10 +117,15 @@ OpenAI OAuth 的稳定数据库 profile 分配也优先使用 `chatgpt_account_i
 `codex_virtual_client_key` 来继承该 namespace。UA 中的平台字段和 TLS ClientHello 参数是不同层级；
 保留 Desktop UA 不代表传输栈变为官方原生客户端。
 
+在 Linux amd64 上，C 与实验性传输开关同时开启且账号未配置 UA 时，full simulation 会从插件提供的五个抓包画像（Fedora/Arch/Ubuntu/Debian，
+`xterm-256color`、`alacritty`、`kitty`、`screen`）中按 principal 稳定选择一个；Codex 版本仍由网关
+canonical version 同步决定。账号显式 UA 继续优先；任一开关关闭或宿主不是 Linux amd64 时，
+沿用共享 UA 解析结果，保留全局或账号的完整客户端身份。
+
 当多个 OAuth 记录共享同一非本地虚拟 principal、出口路由和 TLS profile 时，账号级 upstream pool 也使用
 该 principal 的不可逆短 key；缺少 upstream principal 的 `local:` 账号仍保持本地账号隔离。
 
-当前 A/B 是纯 Go 请求语义实现，明确不模拟以下内容；这与独立的、按账号启用的 TLS
+当前 A/B 是纯 Go 请求语义实现；实验性传输开关仅在 C-level 下按账号启用。默认路径明确不模拟以下内容；这与独立的、按账号启用的 TLS
 Profile 传输层开关是两个边界。OpenAI/Codex 的 models、usage、quota 辅助请求现在也复用账号级
 HTTP/TLS upstream；未接入该端口的测试桩仍保留旧客户端 fallback：
 
@@ -134,8 +144,10 @@ full simulation 会清理下游直接注入的 `x-oai-attestation`、residency �
 - Codex Rust 网络栈的字节级传输特征；
 - attestation、residency 或本项目无法真实证明的客户端能力。
 
-这些属于 A/B 的暂缓 phase C。启用 A/B 不应被描述为完成了传输层等价；启用账号 TLS
-Profile 后也只能保证 Rustls provider 参数和连接隔离，不能保证跨平台 byte-for-byte JA3。
+实验性传输开关打开后会尝试启用 uTLS 的 X25519MLKEM768、每连接扩展顺序随机化以及 req/v3 的
+HTTP/2 SETTINGS/WINDOW 参数；它们仍然不能保证跨平台 byte-for-byte JA3，也不能替代真实抓包验证。
+开关关闭时保留现有 Go transport。诊断文件只写入脱敏的账号、persona、routing-hint 是否出现和恢复状态，
+路径为 `pricing.data_dir/plugin-diag/codex-persona.log`。
 
 `CaptureWireProfile` / `WireProfileFingerprint` 只提供确定性的 ClientHello-input golden 摘要；真实 socket
 字节 capture、HTTP/2 SETTINGS/HPACK 和连接时序仍需独立的 capture harness。
@@ -160,6 +172,7 @@ gateway:
   codex_simulation:
     full_simulation_enabled: false
     c_level_simulation_enabled: false
+    experimental_transport_enabled: false
     identity_secret: ""
     continuation_mode: off # off|shadow|enforce
     state_ttl_seconds: 604800

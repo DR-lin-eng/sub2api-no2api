@@ -6,10 +6,12 @@ import (
 	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
@@ -113,7 +115,9 @@ func TestCodexSimulationPrincipalAndTurnMapping(t *testing.T) {
 	secondAttempt, ok := codexSimulationAttemptFromGin(c)
 	require.True(t, ok)
 	require.Equal(t, firstAttempt.principal.key, secondAttempt.principal.key)
-	require.Equal(t, firstIDs, *secondAttempt.fingerprint, "local records for one upstream principal must share identity")
+	require.Equal(t, firstIDs.sessionID, secondAttempt.fingerprint.sessionID, "local records for one upstream principal must share session identity")
+	require.Equal(t, firstIDs.turnID, secondAttempt.fingerprint.turnID, "local records for one upstream principal must share turn identity")
+	require.NotEqual(t, firstIDs.contextWindowID, secondAttempt.fingerprint.contextWindowID, "context windows are random and fixed per local account")
 
 	_, err = svc.PrepareCodexSimulationAttempt(context.Background(), c, otherPrincipal, body)
 	require.NoError(t, err)
@@ -132,8 +136,99 @@ func TestCodexSimulationPrincipalAndTurnMapping(t *testing.T) {
 
 	require.Equal(t, firstIDs.sessionID, firstIDs.threadID)
 	require.Equal(t, firstIDs.sessionID, firstIDs.promptCacheKey)
-	require.Equal(t, firstIDs.sessionID+":0", firstIDs.windowID)
+	require.Equal(t, firstIDs.sessionID+":1", firstIDs.windowID)
+	require.Equal(t, 1, firstIDs.windowNumber)
 	require.Equal(t, CodexCanonicalUserAgent(), firstIDs.profile.userAgent)
+}
+
+func TestCodexFullSimulationUsesAccountFixedRandomContextWindowAndV7IDs(t *testing.T) {
+	svc := newCodexSimulationTestService(true, codexContinuationOff)
+	account := openAIFingerprintAccount(901, map[string]any{codexFingerprintModeExtraKey: "full"})
+	account.Credentials = map[string]any{"chatgpt_account_id": "fixed-context-principal"}
+	body := []byte(`{"model":"gpt-5.5","input":"hello"}`)
+
+	newAttempt := func() *codexFingerprintIDs {
+		c := newCodexSimulationTestContext("/v1/responses")
+		c.Request.Header.Set("thread-id", "same-conversation")
+		svc.PrepareCodexSimulationRequest(c, 77, nil, body)
+		_, err := svc.PrepareCodexSimulationAttempt(context.Background(), c, account, body)
+		require.NoError(t, err)
+		attempt, ok := codexSimulationAttemptFromGin(c)
+		require.True(t, ok)
+		return attempt.fingerprint
+	}
+
+	first := newAttempt()
+	second := newAttempt()
+	require.NotEmpty(t, first.contextWindowID)
+	require.Equal(t, first.contextWindowID, second.contextWindowID, "context_window_id must be fixed to the account")
+	require.Equal(t, uuid.Version(7), uuid.MustParse(first.contextWindowID).Version())
+	require.Equal(t, uuid.Version(7), uuid.MustParse(first.sessionID).Version())
+	require.Equal(t, uuid.Version(7), uuid.MustParse(first.threadID).Version())
+	require.Equal(t, uuid.Version(7), uuid.MustParse(first.turnID).Version())
+	require.Equal(t, uuid.Version(4), uuid.MustParse(first.installationID).Version())
+}
+
+func TestCodexLinuxPersonaCatalogBorrowsPluginProfiles(t *testing.T) {
+	require.Len(t, codexLinuxAMD64PersonaPresets, 5)
+	require.Equal(t, codexPersonaPreset{originator: "codex_cli_rs", os: "Fedora 42", arch: "x86_64", terminal: "xterm-256color"}, codexLinuxAMD64PersonaPresets[0])
+	require.Equal(t, codexPersonaPreset{originator: "codex_cli_rs", os: "Arch Linux rolling", arch: "x86_64", terminal: "alacritty"}, codexLinuxAMD64PersonaPresets[1])
+	require.Equal(t, codexPersonaPreset{originator: "codex_cli_rs", os: "Fedora 42", arch: "x86_64", terminal: "kitty"}, codexLinuxAMD64PersonaPresets[2])
+	require.Equal(t, codexPersonaPreset{originator: "codex_cli_rs", os: "Ubuntu 22.4.0", arch: "x86_64", terminal: "screen"}, codexLinuxAMD64PersonaPresets[3])
+	require.Equal(t, codexPersonaPreset{originator: "codex_exec", os: "Debian 12.8", arch: "x86_64", terminal: "kitty"}, codexLinuxAMD64PersonaPresets[4])
+
+	first := resolveCodexSimulationProfile(codexSimulationTestSecret, "principal-a", "", true)
+	second := resolveCodexSimulationProfile(codexSimulationTestSecret, "principal-a", "", true)
+	require.Equal(t, first, second, "one principal must keep one selected persona")
+}
+
+func TestCodexSimulationPersonaRequiresBothSwitchesAndPreservesAccountUA(t *testing.T) {
+	const canonicalUA = "Codex Desktop/0.153.4 (Windows 10.0.26200; x86_64) unknown (Codex Desktop; 26.903.71938)"
+	const accountUA = "codex_cli_rs/0.190.0 (Mac OS 14.0.0; arm64) xterm-256color"
+	SetCodexCanonicalUserAgentResolver(func() string { return canonicalUA })
+	t.Cleanup(func() { SetCodexCanonicalUserAgentResolver(nil) })
+	for _, tc := range []struct {
+		name         string
+		cLevel       bool
+		experimental bool
+	}{
+		{name: "off"},
+		{name: "C only", cLevel: true},
+		{name: "experiment only", experimental: true},
+		{name: "both", cLevel: true, experimental: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := newCodexSimulationTestService(true, codexContinuationOff)
+			svc.cfg.Gateway.CodexSimulation.CLevelSimulationEnabled = tc.cLevel
+			svc.cfg.Gateway.CodexSimulation.ExperimentalTransportEnabled = tc.experimental
+			for _, override := range []string{"", accountUA} {
+				account := openAIFingerprintAccount(908, map[string]any{codexFingerprintModeExtraKey: "full"})
+				account.Credentials = map[string]any{"chatgpt_account_id": "persona-gate", "user_agent": override}
+				c := newCodexSimulationTestContext("/v1/responses")
+				body := []byte(`{"model":"gpt-5.5","input":"hello"}`)
+				_, err := svc.PrepareCodexSimulationAttempt(context.Background(), c, account, body)
+				require.NoError(t, err)
+				ids := resolveCodexFingerprintIDsFromGinContext(account, c)
+				require.NotNil(t, ids)
+				profile := ids.profile
+				switch {
+				case override != "":
+					require.Equal(t, accountUA, profile.userAgent)
+					require.Equal(t, "0.190.0", profile.version)
+					require.Equal(t, "codex_cli_rs", profile.originator)
+				case tc.cLevel && tc.experimental && runtime.GOOS == "linux" && runtime.GOARCH == "amd64":
+					require.NotEqual(t, canonicalUA, profile.userAgent)
+					require.Contains(t, profile.userAgent, "/0.153.4 (")
+					require.Contains(t, profile.userAgent, "; x86_64)")
+					require.Contains(t, []string{"codex_cli_rs", "codex_exec"}, profile.originator)
+				default:
+					require.Equal(t, canonicalUA, profile.userAgent)
+					require.Equal(t, "0.153.4", profile.version)
+					require.Equal(t, "Codex Desktop", profile.originator)
+				}
+			}
+		})
+	}
 }
 
 func TestCodexFullSimulationStillRequiresAccountFullMode(t *testing.T) {
