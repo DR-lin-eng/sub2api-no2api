@@ -54,36 +54,24 @@ func distillationGroupFromGin(c *gin.Context) *Group {
 	return nil
 }
 
-// IsDistillationGroupRequest is the single runtime gate for the lightweight
-// distillation path. It deliberately requires an Anthropic OAuth/SetupToken
-// account because the rewritten identity is metadata.user_id.
-func (s *GatewayService) IsDistillationGroupRequest(c *gin.Context, account *Account) bool {
+// isDistillationGroupRequest is the single runtime gate for the lightweight
+// distillation path. Anthropic and OpenAI OAuth accounts have upstream session
+// identity projections that can be rewritten safely; API-key accounts do not.
+func isDistillationGroupRequest(c *gin.Context, account *Account) bool {
 	group := distillationGroupFromGin(c)
-	return group != nil && group.IsDistillationGroup && account != nil && account.IsAnthropicOAuthOrSetupToken()
+	return group != nil && group.IsDistillationGroup && account != nil &&
+		(account.IsAnthropicOAuthOrSetupToken() || account.IsOpenAIOAuth())
 }
 
-func (s *GatewayService) nextDistillationCounter(ctx context.Context, groupID, accountID int64) uint64 {
-	if s != nil && s.rpmCache != nil {
-		if counter, ok := s.rpmCache.(distillationCounter); ok {
-			if value, err := counter.IncrementDistillation(ctx, groupID, accountID); err == nil && value > 0 {
-				return uint64(value)
-			}
-		}
-	}
-	key := distillationCounterKey{groupID: groupID, accountID: accountID}
-	value, _ := localDistillationCounters.LoadOrStore(key, &atomic.Uint64{})
-	counter, ok := value.(*atomic.Uint64)
-	if !ok || counter == nil {
-		return 0
-	}
-	return counter.Add(1)
+func (s *GatewayService) IsDistillationGroupRequest(c *gin.Context, account *Account) bool {
+	return isDistillationGroupRequest(c, account)
 }
 
 // DistillationSessionID returns one deterministic synthetic session ID for the
 // current request/account. A request-local map prevents retries of the same
 // account from consuming more than one request-window slot.
-func (s *GatewayService) DistillationSessionID(ctx context.Context, c *gin.Context, account *Account) (string, bool) {
-	if !s.IsDistillationGroupRequest(c, account) {
+func distillationSessionID(ctx context.Context, c *gin.Context, account *Account, source distillationCounter) (string, bool) {
+	if !isDistillationGroupRequest(c, account) {
 		return "", false
 	}
 	group := distillationGroupFromGin(c)
@@ -100,7 +88,7 @@ func (s *GatewayService) DistillationSessionID(ctx context.Context, c *gin.Conte
 		}
 	}
 
-	count := s.nextDistillationCounter(ctx, group.ID, account.ID)
+	count := nextDistillationCounter(ctx, group.ID, account.ID, source)
 	bucket := (count - 1) / distillationSessionWindow
 	sessionID := generateUUIDFromSeed(fmt.Sprintf("sub2api:distill:v1:%d:%d:%d", group.ID, account.ID, bucket))
 	if c != nil {
@@ -114,6 +102,52 @@ func (s *GatewayService) DistillationSessionID(ctx context.Context, c *gin.Conte
 		c.Set(distillationSessionStateKey, states)
 	}
 	return sessionID, true
+}
+
+func distillationSessionIDFromContext(c *gin.Context, account *Account) (string, bool) {
+	if c == nil || account == nil {
+		return "", false
+	}
+	value, exists := c.Get(distillationSessionStateKey)
+	if !exists {
+		return "", false
+	}
+	states, ok := value.(map[int64]distillationSessionState)
+	if !ok {
+		return "", false
+	}
+	state, ok := states[account.ID]
+	if !ok || state.sessionID == "" {
+		return "", false
+	}
+	group := distillationGroupFromGin(c)
+	if group == nil || state.groupID != group.ID {
+		return "", false
+	}
+	return state.sessionID, true
+}
+
+func nextDistillationCounter(ctx context.Context, groupID, accountID int64, source distillationCounter) uint64 {
+	if source != nil {
+		if value, err := source.IncrementDistillation(ctx, groupID, accountID); err == nil && value > 0 {
+			return uint64(value)
+		}
+	}
+	key := distillationCounterKey{groupID: groupID, accountID: accountID}
+	value, _ := localDistillationCounters.LoadOrStore(key, &atomic.Uint64{})
+	counter, ok := value.(*atomic.Uint64)
+	if !ok || counter == nil {
+		return 0
+	}
+	return counter.Add(1)
+}
+
+func (s *GatewayService) DistillationSessionID(ctx context.Context, c *gin.Context, account *Account) (string, bool) {
+	var source distillationCounter
+	if s != nil && s.rpmCache != nil {
+		source, _ = s.rpmCache.(distillationCounter)
+	}
+	return distillationSessionID(ctx, c, account, source)
 }
 
 var distillationCacheFields = map[string]struct{}{

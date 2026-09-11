@@ -1133,7 +1133,7 @@ export default {
         title: '蒸馏分组（无缓存 / 快速失败）',
         enabled: '已启用蒸馏模式',
         disabled: '普通转发模式',
-        hint: '清除 prompt_cache_key、cache_control 等缓存字段；每 10000 个请求轮换 session ID，并关闭重试、换号和错误修正。'
+        hint: 'Anthropic 和 OpenAI OAuth 账号适用：清除 prompt_cache_key、cache_control 等缓存字段；每 10000 个请求轮换 session ID，并关闭重试、换号和错误修正。'
       },
       openaiMessages: {
         title: 'OpenAI Messages 调度配置',

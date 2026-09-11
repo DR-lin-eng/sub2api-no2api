@@ -95,8 +95,8 @@ const {
       </div>
     </div>
 
-    <!-- 蒸馏分组：无缓存、快速失败（仅 anthropic 平台） -->
-    <div v-if="form.platform === 'anthropic'" class="border-t pt-4">
+    <!-- 蒸馏分组：无缓存、快速失败（Anthropic / OpenAI 平台） -->
+    <div v-if="form.platform === 'anthropic' || form.platform === 'openai'" class="border-t pt-4">
       <div class="mb-1.5 flex items-center gap-1">
         <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
           {{ t("admin.groups.distillation.title") }}

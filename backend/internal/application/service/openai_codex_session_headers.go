@@ -157,6 +157,20 @@ func applyCodexOutboundSessionHeaders(
 	if account == nil || !account.IsOpenAIOAuth() || headers == nil {
 		return
 	}
+	if isDistillationGroupRequest(c, account) {
+		if sessionID, ok := distillationSessionIDFromContext(c, account); ok {
+			apiKeyID := getAPIKeyIDFromContext(c)
+			for _, name := range []string{"session-id", "session_id", "thread-id", "thread_id", "x-client-request-id", "conversation_id"} {
+				headers.Del(name)
+			}
+			headers.Set("session-id", sessionID)
+			headers.Set("thread-id", sessionID)
+			headers.Set("x-client-request-id", sessionID)
+			headers.Set("session_id", isolateOpenAISessionID(apiKeyID, sessionID))
+			headers.Set("conversation_id", isolateOpenAISessionID(apiKeyID, sessionID))
+		}
+		return
+	}
 	if len(body) == 0 && c != nil {
 		if value, exists := c.Get(codexOutboundSessionBodyContextKey); exists {
 			if staged, ok := value.([]byte); ok {
