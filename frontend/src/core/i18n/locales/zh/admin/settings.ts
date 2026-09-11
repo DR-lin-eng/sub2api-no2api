@@ -481,7 +481,7 @@ export default {
         contentSessionBurstBalance: '内容会话并发分散',
         contentSessionBurstBalanceHint: '默认关闭。开启后，对没有显式会话标识且请求内容相同的重叠请求执行有上限的初始负载分散；高并发超额请求在已筛选的有界候选池内直接轮转并尝试两个账号，均忙时沿用账号排队限制。顺序请求、显式 session_id、prompt_cache_key 和 previous_response_id 的粘性保持不变。',
         sessionIDRateLimit: 'OpenAI Session ID 每分钟限速',
-        sessionIDRateLimitHint: '开启后限制单个 OpenAI 账号每分钟首次出现的显式 Session ID 数量；0 表示不限制。只影响新 Session ID，已有会话不重复计数。',
+        sessionIDRateLimitHint: '开启后仅限制单个 OpenAI OAuth 账号每分钟首次出现的显式 Session ID 数量；API Key 账号不受影响。0 表示不限制；已有会话不重复计数。',
         sessionIDRateLimitPerMinute: '每账号每分钟上限'
       },
       upstreamBillingProbe: {

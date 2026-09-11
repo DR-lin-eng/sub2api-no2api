@@ -14,6 +14,10 @@ type OpenAISessionIDAdmissionCache interface {
 	AdmitOpenAISessionID(ctx context.Context, accountID int64, sessionHash string, maxPerMinute int) (OpenAISessionIDAdmissionDecision, error)
 }
 
+func openAISessionIDRateLimitApplies(account *Account) bool {
+	return account != nil && account.IsOpenAIOAuth()
+}
+
 func (s *OpenAIGatewayService) openAISessionIDRateLimitSettings(ctx context.Context) (bool, int) {
 	settings := s.openAIAdvancedSchedulerRuntimeSettings(ctx)
 	return settings.sessionIDRateLimitEnabled, settings.sessionIDRateLimitPerMinute

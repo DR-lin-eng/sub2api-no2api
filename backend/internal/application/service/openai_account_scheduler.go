@@ -2669,6 +2669,9 @@ func (s *OpenAIGatewayService) selectAccountWithSchedulerInGroup(
 		if selection == nil || selection.Account == nil || err != nil {
 			return selection, decision, err
 		}
+		if !openAISessionIDRateLimitApplies(selection.Account) {
+			return selection, decision, nil
+		}
 		admission, admissionErr := s.admitOpenAISessionID(ctx, selection.Account.ID, sessionHash, limit)
 		if admissionErr != nil {
 			// Preserve the existing fail-open behavior when Redis is unavailable.
