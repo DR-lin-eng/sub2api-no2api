@@ -5,6 +5,8 @@ export default {
   fullSimulationHint: '仅作用于指纹模式为 full 的 OpenAI OAuth 账号，统一重建身份、元数据与缓存键。',
   cLevelSimulation: 'C：传输与客户端模拟',
   cLevelSimulationHint: '控制本次新增的账号级 HTTP/TLS、虚拟客户端连接池、Cloudflare 基础设施 Cookie 与 Remote Control 协议投影。',
+  experimentalTransport: '实验性传输对比',
+  experimentalTransportHint: '在 C 开启后启用插件参考的 ML-KEM、每连接扩展随机化、HTTP/2 参数和诊断记录；异常时可单独关闭。',
   forceAccountPrewarm: '系统强制开启 Codex 账号预热',
   forceAccountPrewarmHint: '开启后所有 OpenAI OAuth 账号强制使用 Codex 预热续接；之后导入或创建的账号会自动保存为启用。',
   continuationMode: 'B：续接保护模式',

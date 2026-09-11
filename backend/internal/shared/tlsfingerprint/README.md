@@ -11,6 +11,10 @@ OpenAI/Codex 的内置基础 Profile 取 Rustls aws-lc-rs 的
 默认 cipher suites、key-exchange groups 和 `h2`/`http/1.1` ALPN，不能宣称固定 JA3，因为
 官方 Rustls 会随机化 ClientHello 扩展顺序。
 
+管理员开启 Codex A/B/C 下的 `experimental_transport_enabled` 后，OpenAI OAuth profile 会在副本上加入
+X25519MLKEM768（4588）key share，并使用 uTLS 的 `ShuffleChromeTLSExtensions` 做每连接扩展顺序随机化。
+该开关关闭时 profile 不增加混合组，也不改变扩展顺序；原始 profile 始终保持不变。
+
 通过 `HTTPUpstream` 的 uTLS 拨号器发送请求时，连接会使用该 Profile 的 TLS 参数并将
 ALPN 收窄为 `http/1.1`。标准库 `net/http` 的 HTTP/2 适配器要求具体的 `*tls.Conn`，
 而 uTLS 返回 `*utls.UConn`；保留 `h2` 会让服务端发送 HTTP/2 帧给 HTTP/1.1 编解码器。

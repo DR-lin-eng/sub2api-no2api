@@ -26,6 +26,7 @@ const (
 type CodexSimulationSettings struct {
 	FullSimulationEnabled                bool   `json:"full_simulation_enabled"`
 	CLevelSimulationEnabled              bool   `json:"c_level_simulation_enabled"`
+	ExperimentalTransportEnabled         bool   `json:"experimental_transport_enabled,omitempty"`
 	CodexPrewarmContinuationForceEnabled bool   `json:"codex_prewarm_continuation_force_enabled"`
 	ContinuationMode                     string `json:"continuation_mode"`
 	StateTTLSeconds                      int    `json:"state_ttl_seconds"`
@@ -82,6 +83,7 @@ func (s *SettingService) defaultCodexSimulationSettings() CodexSimulationSetting
 	cfg := s.cfg.Gateway.CodexSimulation
 	settings.FullSimulationEnabled = cfg.FullSimulationEnabled
 	settings.CLevelSimulationEnabled = cfg.CLevelSimulationEnabled
+	settings.ExperimentalTransportEnabled = cfg.ExperimentalTransportEnabled
 	settings.IdentitySecret = strings.TrimSpace(cfg.IdentitySecret)
 	settings.ContinuationMode = normalizeCodexContinuationMode(cfg.ContinuationMode)
 	if cfg.StateTTLSeconds > 0 {
@@ -178,6 +180,7 @@ func (s *SettingService) LoadCodexSimulationSettings(ctx context.Context) error 
 	}
 	s.codexSimulationSettings.Store(&settings)
 	codexsimulation.SetCLevelEnabled(settings.CLevelSimulationEnabled)
+	codexsimulation.SetExperimentalTransportEnabled(settings.ExperimentalTransportEnabled)
 	codexsimulation.SetPrewarmContinuationEnabled(settings.CodexPrewarmContinuationForceEnabled)
 	return nil
 }
@@ -325,6 +328,7 @@ func (s *SettingService) ForceDisableCodexSimulationSettings(ctx context.Context
 	}
 	settings.FullSimulationEnabled = false
 	settings.CLevelSimulationEnabled = false
+	settings.ExperimentalTransportEnabled = false
 	settings.CodexPrewarmContinuationForceEnabled = false
 	settings.ContinuationMode = string(codexContinuationOff)
 
@@ -350,6 +354,7 @@ func (s *SettingService) persistCodexSimulationSettings(ctx context.Context, set
 	s.codexSimulationSettingsRevision.Add(1)
 	s.codexSimulationSettings.Store(&settings)
 	codexsimulation.SetCLevelEnabled(settings.CLevelSimulationEnabled)
+	codexsimulation.SetExperimentalTransportEnabled(settings.ExperimentalTransportEnabled)
 	codexsimulation.SetPrewarmContinuationEnabled(settings.CodexPrewarmContinuationForceEnabled)
 	return &settings, nil
 }

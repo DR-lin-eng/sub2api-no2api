@@ -15,7 +15,8 @@ func TestCodexFullSimulationGoldenWireProjection(t *testing.T) {
 		sessionID:       "session",
 		threadID:        "session",
 		turnID:          "turn",
-		windowID:        "session:0",
+		windowID:        "session:1",
+		windowNumber:    1,
 		promptCacheKey:  "session",
 		requestKind:     codexRequestKindTurn,
 		turnStartedAtMS: 1700000000000,
@@ -33,7 +34,7 @@ func TestCodexFullSimulationGoldenWireProjection(t *testing.T) {
 	require.Empty(t, headers.Get("x-oai-attestation"))
 	require.Empty(t, headers.Get("x-openai-internal-codex-residency"))
 	require.Equal(t, "session", headers.Get("x-client-request-id"))
-	require.Equal(t, `{"custom":"value","installation_id":"install","request_kind":"turn","sandbox":"workspace-write","session_id":"session","thread_id":"session","turn_id":"turn","turn_started_at_unix_ms":1700000000000,"window_id":"session:0"}`, headers.Get("x-codex-turn-metadata"))
+	require.Equal(t, `{"custom":"value","installation_id":"install","request_kind":"turn","root_turn_id":"turn","sandbox":"workspace-write","session_id":"session","thread_id":"session","turn_id":"turn","turn_started_at_unix_ms":1700000000000,"window_id":"session:1","window_number":1}`, headers.Get("x-codex-turn-metadata"))
 
 	rewritten, changed, err := applyCodexFingerprintClientMetadataToBody(
 		[]byte(`{"model":"gpt-5.5","client_metadata":{"custom":"value"}}`),
@@ -41,5 +42,5 @@ func TestCodexFullSimulationGoldenWireProjection(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.True(t, changed)
-	require.Equal(t, `{"model":"gpt-5.5","client_metadata":{"session_id":"session","thread_id":"session","turn_id":"turn","x-codex-installation-id":"install","x-codex-turn-metadata":"{\"custom\":\"value\",\"installation_id\":\"install\",\"request_kind\":\"turn\",\"session_id\":\"session\",\"thread_id\":\"session\",\"turn_id\":\"turn\",\"turn_started_at_unix_ms\":1700000000000,\"window_id\":\"session:0\"}","x-codex-window-id":"session:0"},"prompt_cache_key":"session"}`, string(rewritten))
+	require.Equal(t, `{"model":"gpt-5.5","client_metadata":{"root_turn_id":"turn","session_id":"session","thread_id":"session","turn_id":"turn","x-codex-installation-id":"install","x-codex-turn-metadata":"{\"custom\":\"value\",\"installation_id\":\"install\",\"request_kind\":\"turn\",\"root_turn_id\":\"turn\",\"session_id\":\"session\",\"thread_id\":\"session\",\"turn_id\":\"turn\",\"turn_started_at_unix_ms\":1700000000000,\"window_id\":\"session:1\",\"window_number\":1}","x-codex-window-id":"session:1"},"prompt_cache_key":"session"}`, string(rewritten))
 }

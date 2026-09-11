@@ -19,6 +19,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation"
 	"github.com/Wei-Shaw/sub2api/internal/shared/openai_compat"
 	"github.com/Wei-Shaw/sub2api/internal/shared/xai"
+	"github.com/google/uuid"
 )
 
 type Account struct {
@@ -147,6 +148,12 @@ const CodexPrewarmContinuationExtraKey = "codex_prewarm_continuation_enabled"
 // credential: a shadow account may carry the parent's principal namespace here
 // without receiving the parent's access/refresh token.
 const CodexVirtualClientKeyExtraKey = "codex_virtual_client_key"
+
+// CodexContextWindowIDExtraKey stores the account-scoped context window UUID
+// used by full Codex simulation. It is generated once with crypto-random
+// entropy and then persisted in Account.Extra so every request for this
+// account presents the same context window identity.
+const CodexContextWindowIDExtraKey = "codex_context_window_id"
 
 // CodexThinkingTagNormalizationExtraKey enables conversion of a complete
 // leading <thinking>...</thinking> block returned as ordinary Chat
@@ -1814,6 +1821,42 @@ func (a *Account) GetOpenAISessionID() string {
 		return ""
 	}
 	return strings.TrimSpace(a.GetExtraString("openai_session_id"))
+}
+
+// GetCodexContextWindowID returns the validated account-scoped context window
+// identity. Invalid or legacy values are treated as missing and healed by
+// EnsureCodexContextWindowID.
+func (a *Account) GetCodexContextWindowID() string {
+	if a == nil || !a.IsOpenAIOAuth() {
+		return ""
+	}
+	value := strings.TrimSpace(a.GetExtraString(CodexContextWindowIDExtraKey))
+	parsed, err := uuid.Parse(value)
+	if err != nil || parsed == uuid.Nil {
+		return ""
+	}
+	return parsed.String()
+}
+
+// EnsureCodexContextWindowID lazily creates the account-scoped context window
+// identity. Callers must persist the resulting Extra field when the account
+// came from durable storage; subsequent calls reuse the same value.
+func (a *Account) EnsureCodexContextWindowID() string {
+	if a == nil || !a.IsOpenAIOAuth() {
+		return ""
+	}
+	if existing := a.GetCodexContextWindowID(); existing != "" {
+		return existing
+	}
+	id, err := uuid.NewV7()
+	if err != nil {
+		id = uuid.New()
+	}
+	if a.Extra == nil {
+		a.Extra = make(map[string]any)
+	}
+	a.Extra[CodexContextWindowIDExtraKey] = id.String()
+	return id.String()
 }
 
 func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapability) bool {

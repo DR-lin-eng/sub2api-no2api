@@ -340,6 +340,8 @@ gateway:
     full_simulation_enabled: false
     # C：账号级 HTTP/TLS、虚拟客户端连接池和基础设施 Cookie/协议投影。
     c_level_simulation_enabled: false
+    # Experimental plugin-derived transport comparison (requires C-level on).
+    experimental_transport_enabled: false
     # A 或 B 启用时必填，至少 32 字节；所有实例必须一致。
     # 轮换会使 root、principal、owner 与 Compact generation 短状态整体失效。
     identity_secret: ""

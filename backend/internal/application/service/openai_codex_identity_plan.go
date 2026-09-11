@@ -7,11 +7,13 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
@@ -44,6 +46,7 @@ type codexSimulationRootPlan struct {
 	conversationSource codexConversationSignalSource
 	canonicalBodyHash  [sha256.Size]byte
 	requestSeed        string
+	createdAtMS        int64
 }
 
 type codexSimulationTurnPlan struct {
@@ -92,6 +95,26 @@ type codexSimulationProfile struct {
 	version    string
 }
 
+// codexPersonaPreset borrows the plugin's measured Linux client personas while
+// keeping version selection under the gateway's canonical Codex version sync.
+// The preset list is deliberately platform-gated: a macOS or Windows process
+// must not claim to be a Linux executable merely because C-level simulation is
+// enabled.
+type codexPersonaPreset struct {
+	originator string
+	os         string
+	arch       string
+	terminal   string
+}
+
+var codexLinuxAMD64PersonaPresets = []codexPersonaPreset{
+	{originator: "codex_cli_rs", os: "Fedora 42", arch: "x86_64", terminal: "xterm-256color"},
+	{originator: "codex_cli_rs", os: "Arch Linux rolling", arch: "x86_64", terminal: "alacritty"},
+	{originator: "codex_cli_rs", os: "Fedora 42", arch: "x86_64", terminal: "kitty"},
+	{originator: "codex_cli_rs", os: "Ubuntu 22.4.0", arch: "x86_64", terminal: "screen"},
+	{originator: "codex_exec", os: "Debian 12.8", arch: "x86_64", terminal: "kitty"},
+}
+
 type codexSimulationAttempt struct {
 	request      *codexSimulationRequestState
 	principal    codexSimulationPrincipal
@@ -131,6 +154,8 @@ func (s *OpenAIGatewayService) codexSimulationSettingsSnapshot(ctx context.Conte
 	} else if s != nil && s.cfg != nil {
 		cfg := s.cfg.Gateway.CodexSimulation
 		settings.FullSimulationEnabled = cfg.FullSimulationEnabled
+		settings.CLevelSimulationEnabled = cfg.CLevelSimulationEnabled
+		settings.ExperimentalTransportEnabled = cfg.ExperimentalTransportEnabled
 		settings.IdentitySecret = strings.TrimSpace(cfg.IdentitySecret)
 		settings.ContinuationMode = normalizeCodexContinuationMode(cfg.ContinuationMode)
 		if cfg.StateTTLSeconds > 0 {
@@ -198,6 +223,7 @@ func (s *OpenAIGatewayService) PrepareCodexSimulationRequest(
 			conversationSource: source,
 			canonicalBodyHash:  sha256.Sum256(canonicalBody),
 			requestSeed:        requestSeed,
+			createdAtMS:        time.Now().UnixMilli(),
 		},
 		turns: make(map[int]codexSimulationTurnPlan, 1),
 	}
@@ -210,9 +236,10 @@ func (s *OpenAIGatewayService) PrepareCodexSimulationRequest(
 // instead of allowing a connection to straddle two virtual clients.
 func codexSimulationSettingsEpoch(settings CodexSimulationSettings) string {
 	digest := sha256.Sum256([]byte(fmt.Sprintf(
-		"enabled=%t\x00c_level=%t\x00mode=%s\x00ttl=%d\x00secret=%s",
+		"enabled=%t\x00c_level=%t\x00experimental_transport=%t\x00mode=%s\x00ttl=%d\x00secret=%s",
 		settings.FullSimulationEnabled,
 		settings.CLevelSimulationEnabled,
+		settings.ExperimentalTransportEnabled,
 		settings.continuationMode(),
 		settings.StateTTLSeconds,
 		settings.IdentitySecret,
@@ -425,9 +452,11 @@ func (s *OpenAIGatewayService) resolveCodexFullSimulationIDs(
 			generation = stored
 		}
 	}
-	sessionID := codexSimulationUUID(secret, "session:v2", request.root.rootKey, principal.key)
-	profile := resolveCodexSimulationProfile(secret, principal.key, s.codexIdentityOverrideUA(account))
-	windowID := sessionID + ":" + strconv.FormatUint(generation, 10)
+	sessionID := codexSimulationUUIDv7(secret, "session:v2", request.root.createdAtMS, request.root.rootKey, principal.key)
+	profile := resolveCodexSimulationProfile(secret, principal.key)
+	windowNumber := int(generation) + 1
+	windowID := sessionID + ":" + strconv.Itoa(windowNumber)
+	contextWindowID := s.ensureCodexContextWindowID(ctx, account)
 	return &codexFingerprintIDs{
 		mode:            codexFingerprintFull,
 		fullSimulation:  true,
@@ -436,8 +465,10 @@ func (s *OpenAIGatewayService) resolveCodexFullSimulationIDs(
 		installationID:  codexSimulationUUID(secret, "installation:v2", principal.key),
 		sessionID:       sessionID,
 		threadID:        sessionID,
-		turnID:          codexSimulationUUID(secret, "turn:v2", request.root.rootKey, principal.key, turnPlan.seed),
+		turnID:          codexSimulationUUIDv7(secret, "turn:v2", turnPlan.startedAtMS, request.root.rootKey, principal.key, turnPlan.seed),
 		windowID:        windowID,
+		windowNumber:    windowNumber,
+		contextWindowID: contextWindowID,
 		promptCacheKey:  sessionID,
 		generation:      generation,
 		turnStartedAtMS: turnPlan.startedAtMS,
@@ -446,16 +477,42 @@ func (s *OpenAIGatewayService) resolveCodexFullSimulationIDs(
 	}
 }
 
-func resolveCodexSimulationProfile(secret, principalKey, overrideUA string) codexSimulationProfile {
-	// Full simulation changes session/device IDs, but uses the same resolved
-	// client identity as ordinary HTTP, WS, probes and account settings.
-	identity := resolveCodexOutboundIdentity(overrideUA)
-	digest := codexSimulationHMAC(secret, "profile:v2", principalKey, identity.userAgent)
+func resolveCodexSimulationProfile(secret, principalKey string) codexSimulationProfile {
+	version := CodexCanonicalClientVersion()
+	if version == "" {
+		version = "0.153.4"
+	}
+	digest := codexSimulationHMAC(secret, "profile:v2", principalKey)
+	if runtime.GOOS == "linux" && runtime.GOARCH == "amd64" {
+		preset := codexLinuxAMD64PersonaPresets[int(digest[0])%len(codexLinuxAMD64PersonaPresets)]
+		return codexSimulationProfile{
+			id:         hex.EncodeToString(digest[:8]),
+			userAgent:  fmt.Sprintf("%s/%s (%s; %s) %s", preset.originator, version, preset.os, preset.arch, preset.terminal),
+			originator: preset.originator,
+			version:    version,
+		}
+	}
+	arch := runtime.GOARCH
+	if arch == "amd64" {
+		arch = "x86_64"
+	}
+	digest = codexSimulationHMAC(secret, "profile:v1", runtime.GOOS, arch, principalKey)
+	terminals := []string{"xterm-256color", "screen-256color"}
+	terminal := terminals[int(digest[0])%len(terminals)]
+	osValue := "Ubuntu 22.4.0"
+	switch runtime.GOOS {
+	case "darwin":
+		osValue = "Mac OS 14.0.0"
+	case "windows":
+		osValue = "Windows 11"
+		terminal = "WindowsTerminal"
+	}
+	originator := openai.CodexCLIOriginator
 	return codexSimulationProfile{
 		id:         hex.EncodeToString(digest[:8]),
-		userAgent:  identity.userAgent,
-		originator: identity.originator,
-		version:    identity.version,
+		userAgent:  fmt.Sprintf("%s/%s (%s; %s) %s", originator, version, osValue, arch, terminal),
+		originator: originator,
+		version:    version,
 	}
 }
 
@@ -484,6 +541,80 @@ func codexSimulationUUID(secret, domain string, parts ...string) string {
 	id[6] = (id[6] & 0x0f) | 0x40
 	id[8] = (id[8] & 0x3f) | 0x80
 	return id.String()
+}
+
+// codexSimulationUUIDv7 preserves the Codex wire convention where the first
+// 48 bits carry the Unix-millisecond creation time. The remaining bits come
+// from the identity-secret HMAC, so the value is deterministic for one
+// simulation plan while retaining UUIDv7's timestamp shape.
+func codexSimulationUUIDv7(secret, domain string, timestampMS int64, parts ...string) string {
+	digest := codexSimulationHMAC(secret, domain, parts...)
+	var id uuid.UUID
+	copy(id[:], digest[:len(id)])
+	if timestampMS <= 0 {
+		timestampMS = time.Now().UnixMilli()
+	}
+	ts := uint64(timestampMS) & ((uint64(1) << 48) - 1)
+	id[0] = byte(ts >> 40)
+	id[1] = byte(ts >> 32)
+	id[2] = byte(ts >> 24)
+	id[3] = byte(ts >> 16)
+	id[4] = byte(ts >> 8)
+	id[5] = byte(ts)
+	id[6] = (id[6] & 0x0f) | 0x70
+	id[8] = (id[8] & 0x3f) | 0x80
+	return id.String()
+}
+
+// ensureCodexContextWindowID creates the account-scoped random context UUID
+// exactly once in this process and persists it for accounts loaded from the
+// database. A fresh request then reuses the account value instead of exposing
+// a caller-provided window identity.
+func (s *OpenAIGatewayService) ensureCodexContextWindowID(ctx context.Context, account *Account) string {
+	if s == nil || account == nil || !account.IsOpenAIOAuth() {
+		return ""
+	}
+	s.codexContextWindowMu.Lock()
+	defer s.codexContextWindowMu.Unlock()
+	if existing := account.GetCodexContextWindowID(); existing != "" {
+		if account.ID > 0 {
+			s.codexContextWindowIDs.Store(account.ID, existing)
+		}
+		return existing
+	}
+	if account.ID > 0 {
+		if cached, ok := s.codexContextWindowIDs.Load(account.ID); ok {
+			if existing, ok := cached.(string); ok && existing != "" {
+				if account.Extra == nil {
+					account.Extra = make(map[string]any)
+				}
+				account.Extra[CodexContextWindowIDExtraKey] = existing
+				return existing
+			}
+		}
+	}
+	id := account.EnsureCodexContextWindowID()
+	if account.ID > 0 {
+		s.codexContextWindowIDs.Store(account.ID, id)
+	}
+	if id == "" || s.accountRepo == nil || s.settingService == nil || account.ID <= 0 {
+		return id
+	}
+	// AccountRepository.UpdateExtra is an atomic JSONB merge. Keep the request
+	// usable if a legacy test double or a transient database error rejects this
+	// best-effort backfill; the in-memory account remains fixed for this request.
+	func() {
+		defer func() { _ = recover() }()
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		persistCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		defer cancel()
+		_ = s.accountRepo.UpdateExtra(persistCtx, account.ID, map[string]any{
+			CodexContextWindowIDExtraKey: id,
+		})
+	}()
+	return id
 }
 
 func codexSimulationGenerationStateKey(rootKey, principalKey string) string {

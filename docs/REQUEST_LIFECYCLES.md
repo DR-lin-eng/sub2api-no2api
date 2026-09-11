@@ -199,6 +199,9 @@ Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换
 `continuation_mode=off|shadow|enforce` 独立于账号指纹模式。C 的
 `c_level_simulation_enabled` 独立控制新增的账号级 HTTP/TLS、虚拟客户端连接池、Cloudflare 基础设施 Cookie
 和 Remote Control 协议投影；C 关闭时这些新增传输投影回退到原有路径。
+`experimental_transport_enabled` 是 C 下的二级实验开关；只有 C 与该开关同时开启时，才启用插件参考的
+ML-KEM-768 key share、每连接 TLS 扩展随机化、req/v3 HTTP/2 SETTINGS/WINDOW 参数和
+`pricing.data_dir/plugin-diag/codex-persona.log` 诊断写入。任一开关关闭即回退到现有 Go transport。
 同一面板中的 `codex_prewarm_continuation_force_enabled` 是系统级账号预热开关；开启后所有 OpenAI OAuth
 账号在运行时强制走预热续接，创建、OAuth 导入及更新账号时也会持久化该账号开关，关闭系统开关不会影响
 已显式保存的账号级启用状态。
@@ -212,6 +215,14 @@ HMAC；项目头在所有 HTTP/WS 上游构造器中删除。每个账号 attemp
 `root × upstream principal` 派生 body、Header、prompt cache 和 WS 使用的同一身份计划。主体优先取
 `chatgpt_account_id`；缺失时退回本地账号 ID 命名空间。多个本地记录指向相同
 `chatgpt_account_id` 时有意视为同一上游主体。
+
+full simulation 的 session/thread/turn 使用 UUIDv7，并从同一 attempt plan 投影到请求头、`prompt_cache_key`
+和 `client_metadata`。`root_turn_id` 与当前 `turn_id` 保持一致，`window_id` 使用从 1 开始的
+`thread_id:window_number`。每个 OpenAI OAuth 账号有一个随机生成、持久化在
+`accounts.extra.codex_context_window_id` 的 `context_window_id`；body 与 `x-codex-turn-metadata` 只使用该账号值，
+不接受下游窗口 ID 原样透传。installation ID 继续作为独立的 UUIDv4 安装身份。
+Linux amd64 的 Codex profile 会按 principal 稳定选择一组已验证的 Fedora、Arch、Ubuntu 或 Debian
+终端画像；其他宿主保持本地平台画像，版本沿用网关 canonical version。
 
 B 在 application 层将 body 分成 full/incremental，并读取 Redis string state（失败时使用有界本地
 fallback）判断 root/response owner。shadow 只读取、分类和记录假设；enforce 允许 full body 经结构化

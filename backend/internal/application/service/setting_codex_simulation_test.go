@@ -132,6 +132,32 @@ func TestCLevelSimulationGateFollowsAdminSettings(t *testing.T) {
 	require.False(t, codexsimulation.CLevelEnabled())
 }
 
+func TestExperimentalTransportGateFollowsAdminSettings(t *testing.T) {
+	codexsimulation.SetCLevelEnabled(true)
+	codexsimulation.SetExperimentalTransportEnabled(false)
+	t.Cleanup(func() {
+		codexsimulation.SetCLevelEnabled(false)
+		codexsimulation.SetExperimentalTransportEnabled(false)
+	})
+	repo := newCodexSimulationSettingRepo()
+	cfg := &config.Config{}
+	svc := NewSettingService(repo, cfg)
+	updated, err := svc.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{
+		CLevelSimulationEnabled:      true,
+		ExperimentalTransportEnabled: true,
+		ContinuationMode:             "off",
+		StateTTLSeconds:              60,
+	})
+	require.NoError(t, err)
+	require.True(t, updated.ExperimentalTransportEnabled)
+	require.True(t, codexsimulation.ExperimentalTransportEnabled())
+	require.True(t, codexsimulation.CodexExperimentalTransportEnabled())
+	_, err = svc.ForceDisableCodexSimulationSettings(context.Background())
+	require.NoError(t, err)
+	require.False(t, codexsimulation.ExperimentalTransportEnabled())
+	require.False(t, codexsimulation.CodexExperimentalTransportEnabled())
+}
+
 func TestCodexPrewarmForceGateFollowsAdminSettings(t *testing.T) {
 	codexsimulation.SetPrewarmContinuationEnabled(false)
 	t.Cleanup(func() { codexsimulation.SetPrewarmContinuationEnabled(false) })

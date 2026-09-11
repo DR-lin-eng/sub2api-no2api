@@ -515,6 +515,8 @@ type OpenAIGatewayService struct {
 	openaiCodexTurnStateWrites  atomic.Uint64
 	codexPrincipalUpstreamTotal atomic.Uint64
 	codexPrincipalLocalTotal    atomic.Uint64
+	codexContextWindowMu        sync.Mutex
+	codexContextWindowIDs       sync.Map // key: account ID, value: account-scoped UUID
 }
 
 // NewOpenAIGatewayService creates a new OpenAIGatewayService

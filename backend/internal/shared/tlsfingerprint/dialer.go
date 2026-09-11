@@ -44,6 +44,7 @@ type Profile struct {
 	KeyShareGroups      []uint16 // Empty uses [X25519]
 	PSKModes            []uint16 // Empty uses [psk_dhe_ke]
 	Extensions          []uint16 // Extension type IDs in order; empty uses default Node.js 24.x order
+	RandomizeExtensions bool     // Experimental per-connection extension permutation
 }
 
 // Dialer creates TLS connections with custom fingerprints.
@@ -484,6 +485,11 @@ func buildClientHelloSpecFromProfile(profile *Profile) *utls.ClientHelloSpec {
 			extensions = append(extensions, &utls.GenericExtension{Id: id})
 		}
 	}
+	if profile != nil && profile.RandomizeExtensions {
+		// Keep the caller's profile immutable while borrowing rustls' per-connection
+		// extension-order randomization for the explicit comparison switch.
+		extensions = utls.ShuffleChromeTLSExtensions(extensions)
+	}
 
 	// For default extension order with EnableGREASE, wrap with GREASE bookends
 	if enableGREASE && (profile == nil || len(profile.Extensions) == 0) {
@@ -498,6 +504,14 @@ func buildClientHelloSpecFromProfile(profile *Profile) *utls.ClientHelloSpec {
 		TLSVersMax:         utls.VersionTLS13,
 		TLSVersMin:         utls.VersionTLS10,
 	}
+}
+
+// ClientHelloSpecFromProfile exposes the deterministic custom ClientHello
+// builder to an experimental HTTP/2 adapter. Production callers should keep
+// using Dialer; this export only avoids duplicating the profile-to-uTLS mapping
+// in another transport package.
+func ClientHelloSpecFromProfile(profile *Profile) *utls.ClientHelloSpec {
+	return buildClientHelloSpecFromProfile(profile)
 }
 
 // toUint8s converts []uint16 to []uint8 (for utls fields that require []uint8).

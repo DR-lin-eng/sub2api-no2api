@@ -83,6 +83,27 @@
         <div class="flex items-center justify-between gap-4 border-t border-gray-100 pt-5 dark:border-dark-700">
           <div>
             <label class="font-medium text-gray-900 dark:text-white">
+              {{ t("admin.settings.codexSimulation.experimentalTransport") }}
+            </label>
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+              {{ t("admin.settings.codexSimulation.experimentalTransportHint") }}
+            </p>
+          </div>
+          <fieldset
+            class="m-0 min-w-0 border-0 p-0"
+            :disabled="codexSimulationLoadFailed || codexSimulationSaving || !codexSimulationForm.c_level_simulation_enabled"
+          >
+            <Toggle
+              :model-value="codexSimulationForm.experimental_transport_enabled === true"
+              @update:model-value="codexSimulationForm.experimental_transport_enabled = $event"
+              data-testid="codex-simulation-experimental-transport-toggle"
+            />
+          </fieldset>
+        </div>
+
+        <div class="flex items-center justify-between gap-4 border-t border-gray-100 pt-5 dark:border-dark-700">
+          <div>
+            <label class="font-medium text-gray-900 dark:text-white">
               {{ t("admin.settings.codexSimulation.cLevelSimulation") }}
             </label>
             <p class="text-sm text-gray-500 dark:text-gray-400">
@@ -174,6 +195,7 @@
               ? 'text-amber-700 dark:text-amber-300'
               : codexSimulationForm.full_simulation_enabled ||
                   codexSimulationForm.c_level_simulation_enabled ||
+                  codexSimulationForm.experimental_transport_enabled ||
                   codexSimulationForm.codex_prewarm_continuation_force_enabled ||
                   codexSimulationForm.continuation_mode !== 'off'
               ? 'text-amber-700 dark:text-amber-300'
@@ -186,6 +208,7 @@
               ? t("admin.settings.codexSimulation.stateUnknown")
               : codexSimulationForm.full_simulation_enabled ||
                   codexSimulationForm.c_level_simulation_enabled ||
+                  codexSimulationForm.experimental_transport_enabled ||
                   codexSimulationForm.codex_prewarm_continuation_force_enabled ||
                   codexSimulationForm.continuation_mode !== "off"
               ? t("admin.settings.codexSimulation.experimentalEnabled")

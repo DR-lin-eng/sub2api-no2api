@@ -13,3 +13,19 @@ func TestCLevelGateRoundTrip(t *testing.T) {
 	}
 	SetCLevelEnabled(false)
 }
+
+func TestExperimentalTransportGateRequiresCLevel(t *testing.T) {
+	SetCLevelEnabled(false)
+	SetExperimentalTransportEnabled(true)
+	t.Cleanup(func() {
+		SetCLevelEnabled(false)
+		SetExperimentalTransportEnabled(false)
+	})
+	if CodexExperimentalTransportEnabled() {
+		t.Fatal("experimental transport must remain inactive while C-level simulation is off")
+	}
+	SetCLevelEnabled(true)
+	if !CodexExperimentalTransportEnabled() {
+		t.Fatal("experimental transport should activate when both switches are on")
+	}
+}

@@ -515,6 +515,7 @@ type GlobalTempUnschedulableSettings struct {
 type CodexSimulationSettings struct {
 	FullSimulationEnabled                bool   `json:"full_simulation_enabled"`
 	CLevelSimulationEnabled              bool   `json:"c_level_simulation_enabled"`
+	ExperimentalTransportEnabled         bool   `json:"experimental_transport_enabled"`
 	CodexPrewarmContinuationForceEnabled bool   `json:"codex_prewarm_continuation_force_enabled"`
 	ContinuationMode                     string `json:"continuation_mode"`
 	StateTTLSeconds                      int    `json:"state_ttl_seconds"`
@@ -524,6 +525,7 @@ type CodexSimulationSettings struct {
 type UpdateCodexSimulationSettingsRequest struct {
 	FullSimulationEnabled                *bool   `json:"full_simulation_enabled"`
 	CLevelSimulationEnabled              *bool   `json:"c_level_simulation_enabled"`
+	ExperimentalTransportEnabled         *bool   `json:"experimental_transport_enabled"`
 	CodexPrewarmContinuationForceEnabled *bool   `json:"codex_prewarm_continuation_force_enabled"`
 	ContinuationMode                     *string `json:"continuation_mode"`
 	StateTTLSeconds                      *int    `json:"state_ttl_seconds"`
