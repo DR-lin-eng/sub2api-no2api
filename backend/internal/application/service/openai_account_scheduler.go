@@ -2672,6 +2672,7 @@ func (s *OpenAIGatewayService) selectAccountWithSchedulerInGroup(
 		admission, admissionErr := s.admitOpenAISessionID(ctx, selection.Account.ID, sessionHash, limit)
 		if admissionErr != nil {
 			// Preserve the existing fail-open behavior when Redis is unavailable.
+			s.recordOpenAISessionIDGrowth(ctx, sessionHash, selection.Account)
 			return selection, decision, nil
 		}
 		if admission.Allowed {

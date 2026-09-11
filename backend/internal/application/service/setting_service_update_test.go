@@ -487,6 +487,8 @@ func TestSettingService_UpdateSettings_PaymentVisibleMethodsAndAdvancedScheduler
 		OpenAILowUpstreamRatePriorityEnabled:               true,
 		OpenAIOAuthSchedulingRateMultiplier:                0.05,
 		OpenAIContentSessionBurstBalanceEnabled:            true,
+		OpenAISessionIDRateLimitEnabled:                    true,
+		OpenAISessionIDRateLimitPerMinute:                  12,
 		OpenAIAdvancedSchedulerEnabled:                     true,
 		OpenAIAdvancedSchedulerStickyWeightedEnabled:       true,
 		OpenAIAdvancedSchedulerSubscriptionPriorityEnabled: true,
@@ -510,6 +512,8 @@ func TestSettingService_UpdateSettings_PaymentVisibleMethodsAndAdvancedScheduler
 	require.Equal(t, "true", repo.updates[SettingKeyOpenAILowUpstreamRatePriorityEnabled])
 	require.Equal(t, "0.05", repo.updates[SettingKeyOpenAIOAuthSchedulingRateMultiplier])
 	require.Equal(t, "true", repo.updates[SettingKeyOpenAIContentSessionBurstBalanceEnabled])
+	require.Equal(t, "true", repo.updates[SettingKeyOpenAISessionIDRateLimitEnabled])
+	require.Equal(t, "12", repo.updates[SettingKeyOpenAISessionIDRateLimitPerMinute])
 	require.Equal(t, "true", repo.updates[openAIAdvancedSchedulerSettingKey])
 	require.Equal(t, "true", repo.updates[SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled])
 	require.Equal(t, "true", repo.updates[SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled])
