@@ -456,7 +456,7 @@ func (s *httpUpstreamService) writeCodexExperimentalDiagnostic(req *http.Request
 	if err != nil {
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	routingHintSeen := req != nil && strings.TrimSpace(req.Header.Get("x-codex-routing-hint")) != ""
 	persona := ""
 	if req != nil {

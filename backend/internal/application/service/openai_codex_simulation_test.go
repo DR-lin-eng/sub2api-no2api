@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -419,17 +418,6 @@ func newCodexSimulationTestContext(path string) *gin.Context {
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodPost, path, nil)
 	return c
-}
-
-func runtimeProfileOSFragment() string {
-	switch runtime.GOOS {
-	case "darwin":
-		return "Mac OS"
-	case "windows":
-		return "Windows"
-	default:
-		return "Ubuntu"
-	}
 }
 
 func containsCodexSimulationPersonaOS(userAgent string) bool {
