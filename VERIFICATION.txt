@@ -1,39 +1,41 @@
-Changed branch/fields: codex/account-quality-source-group; independent account quality stages, stage1 exact-answer/reasoning-token gate, stage2 renderer gate, source/degraded group scheduling, public page link, configurable timeout.
+Changed branch/fields: codex/account-quality-source-group; public quality page now shows conversation IDs, response IDs, final answers for both stages, reasoning token values, status timeline, and preview images.
 
-Artifacts (all reopened/updated):
+Artifacts:
 - /Users/lin/.codex/worktrees/b443/sub2api-no2api/MODIFIED_FILE
 - /Users/lin/.codex/worktrees/b443/sub2api-no2api/DIFF_FILE
 - /Users/lin/.codex/worktrees/b443/sub2api-no2api/VERIFICATION.txt
 - /Users/lin/.codex/worktrees/b443/sub2api-no2api/ROLLBACK.sh
 
-BASELINE command: docker run --rm sub2api-account-quality-stages-baseline-builder:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/application/service -run "Test(AccountInspection|Quality)" -count=1'
-BASELINE literal output/result: ok github.com/Wei-Shaw/sub2api/internal/application/service 0.012s
-BASELINE exit status: 0
+BASELINE source: frontend/src/features/account-quality/presentation/pages/AccountQualitySharePage.vue at parent commit 35ee93131.
+BASELINE SHA-256: 4502896ee8352b71270295ca7eb27badc98f8c51abf4b8b02ce2b51c5da3e6f2
+BASELINE bytes: 6816
+MODIFIED source SHA-256: a1bca8abc9ded2b12c1ee4aa0a3be6cc8a411535e3237cb07b32e406288ccc2e
+MODIFIED bytes: 13340
 
-MODIFIED command: docker run --rm sub2api-account-quality-stages-modified-builder:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/application/service -run "Test(AccountInspection|Quality)" -count=1'
-MODIFIED literal output/result: ok github.com/Wei-Shaw/sub2api/internal/application/service 0.011s
-MODIFIED exit status: 0
+BASELINE command: git show HEAD^:frontend/src/features/account-quality/presentation/pages/AccountQualitySharePage.vue > /tmp/quality-public-20260912/BASELINE_ACCOUNT_QUALITY_SHARE.vue
+BASELINE result: source extracted; exit status 0.
+MODIFIED command: cp frontend/src/features/account-quality/presentation/pages/AccountQualitySharePage.vue /tmp/quality-public-20260912/MODIFIED_ACCOUNT_QUALITY_SHARE.vue
+MODIFIED result: source copied; exit status 0.
 
-HTTP MODIFIED command: docker run --rm sub2api-account-quality-stages-modified-builder:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/transport/http/handler/admin ./internal/transport/http/handler ./internal/transport/http/server/routes ./internal/transport/http/server/middleware -run Test -count=1'
-HTTP MODIFIED literal output/result: all four packages passed; exit status: 0
+BACKEND command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/infrastructure/repository ./migrations
+BACKEND literal output/result: ok service 143.544s; ok repository 5.812s; ok migrations 0.625s; exit status 0.
+TARGETED conversation command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/infrastructure/repository ./migrations -run 'TestQualityConversation|TestAccountQualityConversation' -count=1
+TARGETED literal output/result: service 1.315s; repository 1.113s; migrations 0.670s; exit status 0.
+HTTP command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/transport/http/handler/...
+HTTP literal output/result: handler 31.575s; admin 1.036s; dto 0.731s; quotaview 0.720s; supportchatasset cached; exit status 0.
 
-Frontend commands/results:
-pnpm exec vitest run src/features/admin-account-quality/__tests__/AccountQualityPage.spec.ts src/core/i18n/__tests__/routeLocaleCoverage.spec.ts -> 5 tests passed, exit 0.
-pnpm run typecheck -> passed, exit 0.
-pnpm run lint:check -> passed, exit 0.
-make check-docs -> passed, exit 0.
+FRONTEND command: cd frontend && pnpm run typecheck && pnpm run lint:check && pnpm exec vitest run src/features/account-quality/__tests__/AccountQualitySharePage.spec.ts src/features/admin-account-quality/__tests__/AccountQualityPage.spec.ts src/core/i18n/__tests__/routeLocaleCoverage.spec.ts
+FRONTEND literal output/result: typecheck passed; eslint passed; 3 test files, 7 tests passed; exit status 0.
+FRONTEND BUILD command: cd frontend && pnpm run build
+FRONTEND BUILD literal output/result: Vite production build completed; exit status 0.
+DOCKER BUILD command: docker build --target backend-builder -t sub2api-account-quality-public-final:test .
+DOCKER BUILD literal output/result: embedded frontend build and backend build completed; image tagged sub2api-account-quality-public-final:test; exit status 0.
+DOCKER TEST command: docker run --rm sub2api-account-quality-public-final:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/application/service ./internal/infrastructure/repository ./migrations'
+DOCKER TEST literal output/result: service 132.727s; repository 4.881s; migrations 0.004s; all passed; exit status 0.
 
-Docker build command: docker build --progress=plain -t sub2api-account-quality-stages:test . -> frontend production build and embedded backend build completed, image tagged, exit 0.
+ROLLBACK command: ./ROLLBACK.sh /tmp/quality-public-20260912/BASELINE_ACCOUNT_QUALITY_SHARE.vue /tmp/quality-public-20260912/ROLLBACK_COPY.vue after temporary mutation.
+ROLLBACK literal output/result: restored: /tmp/quality-public-20260912/ROLLBACK_COPY.vue; cmp exit status 0.
+RESTORED SHA-256: 4502896ee8352b71270295ca7eb27badc98f8c51abf4b8b02ce2b51c5da3e6f2
 
-Rollback command: ./ROLLBACK.sh /tmp/sub2api-quality-artifacts-20260912/BASELINE_FILE /tmp/sub2api-quality-artifacts-20260912/rollback-copy.go after transient mutation; literal output: restored: /tmp/sub2api-quality-artifacts-20260912/rollback-copy.go; cmp exit status: 0.
-BASELINE_FILE SHA-256: ed6c6c07dcee7da705d9fee8d26228ce6d9242a468d1a57b5245e0a7fafcb542
-MODIFIED_COPY SHA-256: 877dccb58406bfd2f91a737cf52136d6ce7fdd3ac42b9d48e1c46eab00480117
-RESTORED rollback-copy SHA-256: ed6c6c07dcee7da705d9fee8d26228ce6d9242a468d1a57b5245e0a7fafcb542
-
-Restored behavior/status: rollback copy exactly matches baseline SHA; working tree source remains modified for the requested feature.
-
-Final committed source verification (bdbb2fd5d):
-MODIFIED final Docker build: docker build --target backend-builder -t sub2api-account-quality-stages-modified-final:test . -> completed successfully, exit status 0.
-MODIFIED final quality command: docker run --rm sub2api-account-quality-stages-modified-final:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/application/service -run "TestQuality|TestAccountQuality" -count=1' -> ok github.com/Wei-Shaw/sub2api/internal/application/service 0.027s, exit status 0.
-MODIFIED final HTTP command: docker run --rm sub2api-account-quality-stages-modified-final:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/transport/http/handler/admin ./internal/transport/http/handler ./internal/transport/http/server/routes ./internal/transport/http/server/middleware -run Test -count=1' -> admin 0.291s, handler 30.685s, routes 5.466s, middleware 0.025s, all passed, exit status 0.
-Remote publication: branch bdbb2fd5d; PR #49 merged into main as fd73d74cece1607b5dcbf274f6061666624ae447.
+Remote publication baseline: PR #48/#49/#50 merged into main through abe7a16f216deb76a2acf3ec2d0b814cf21474a9.
+Working tree remains changed for the current public conversation display update.

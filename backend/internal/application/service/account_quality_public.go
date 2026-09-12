@@ -8,14 +8,16 @@ import (
 )
 
 type AccountQualityPublicPoint struct {
-	ID         string    `json:"id"`
-	Status     string    `json:"status"`
-	Label      string    `json:"label,omitempty"`
-	Confidence float64   `json:"confidence,omitempty"`
-	Model      string    `json:"model,omitempty"`
-	Effort     string    `json:"effort,omitempty"`
-	LatencyMs  int64     `json:"latency_ms,omitempty"`
-	StartedAt  time.Time `json:"started_at"`
+	ID         string                     `json:"id"`
+	Status     string                     `json:"status"`
+	Label      string                     `json:"label,omitempty"`
+	Confidence float64                    `json:"confidence,omitempty"`
+	Model      string                     `json:"model,omitempty"`
+	Effort     string                     `json:"effort,omitempty"`
+	LatencyMs  int64                      `json:"latency_ms,omitempty"`
+	StartedAt  time.Time                  `json:"started_at"`
+	Details    AccountQualityProbeDetails `json:"details"`
+	HasPreview bool                       `json:"has_preview"`
 }
 
 type AccountQualityPublicSnapshot struct {
@@ -47,12 +49,13 @@ func (s *AccountQualityMonitoringService) GetPublicQualitySnapshot(ctx context.C
 	state, stateErr := s.loadState(ctx)
 	if stateErr == nil && state != nil {
 		result.LastRunAt = state.LastRunAt
-		if state.LastRunAt != nil {
+		result.NextRunAt = state.NextRunAt
+		if result.NextRunAt == nil && state.LastRunAt != nil {
 			next := state.LastRunAt.Add(time.Duration(settings.IntervalMinutes) * time.Minute)
 			result.NextRunAt = &next
 		}
 	}
-	if s.qualityArtifacts != nil && settings.Stage2Enabled {
+	if s.qualityArtifacts != nil {
 		runs, listErr := s.qualityArtifacts.ListPublic(ctx, now.Add(-24*time.Hour), 200)
 		if listErr != nil {
 			return nil, listErr
@@ -61,6 +64,10 @@ func (s *AccountQualityMonitoringService) GetPublicQualitySnapshot(ctx context.C
 			result.Total++
 			switch run.Status {
 			case "ready":
+				if run.Details.Stage1 != nil || run.Details.Stage2 != nil {
+					result.Passed++
+					break
+				}
 				switch run.Label {
 				case "normal":
 					result.Passed++
@@ -79,13 +86,13 @@ func (s *AccountQualityMonitoringService) GetPublicQualitySnapshot(ctx context.C
 			if result.ModelVersion == "" {
 				result.ModelVersion = run.ModelVersion
 			}
-			result.Points = append(result.Points, AccountQualityPublicPoint{ID: run.ID, Status: run.Status, Label: run.Label, Confidence: run.Confidence, Model: run.Model, Effort: run.Effort, LatencyMs: run.LatencyMs, StartedAt: run.StartedAt})
+			result.Points = append(result.Points, AccountQualityPublicPoint{ID: run.ID, Status: run.Status, Label: run.Label, Confidence: run.Confidence, Model: run.Model, Effort: run.Effort, LatencyMs: run.LatencyMs, StartedAt: run.StartedAt, Details: run.Details, HasPreview: run.HasPreview})
 		}
 		return result, nil
 	}
 	if state != nil {
 		for _, item := range state.Results {
-			if item.QualityStatus == "" || item.QualityStatus == "disabled" {
+			if item.ObservedAt.Before(now.Add(-24*time.Hour)) || item.QualityStatus == "" || item.QualityStatus == "disabled" {
 				continue
 			}
 			result.Total++

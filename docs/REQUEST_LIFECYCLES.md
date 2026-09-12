@@ -53,8 +53,8 @@ outbox。目标分组必须存在、启用且与账号平台一致；切换失�
 `unnormal`）分类。服务只返回 PNG/WebP、标签、置信度和模型版本；原始 HTML 不入库。
 
 开启 `quality_public_enabled` 后，匿名页 `/monitor/quality/public` 读取
-`GET /api/v1/account-quality-share`，仅展示 24 小时聚合、状态时间线和已生成 PNG/WebP；资源由
-`GET /api/v1/account-quality-share/image/:id?format=png|webp` 提供，并限制 24 小时保留。
+`GET /api/v1/account-quality-share`，按 manxue.ai 风格展示 24 小时摘要、可点击状态时间线、检测对话/响应 ID、两阶段最终回答文本、reasoning token 和图片预览；回答只保留最多 16 KiB 并在前端按纯文本渲染，不返回账号 ID、凭据或原始请求。图片由
+`GET /api/v1/account-quality-share/image/:id?format=png|webp` 提供，并限制 24 小时保留。历史记录如果没有对话详情会显示“上游未返回”，不会伪造 ID。
 
 ### 阅读顺序
 

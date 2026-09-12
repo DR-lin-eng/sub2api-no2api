@@ -61,6 +61,8 @@ type TestEvent struct {
 	Data            any    `json:"data,omitempty"`
 	Success         bool   `json:"success,omitempty"`
 	Error           string `json:"error,omitempty"`
+	ConversationID  string `json:"conversation_id,omitempty"`
+	ResponseID      string `json:"response_id,omitempty"`
 	ReasoningTokens *int64 `json:"reasoning_tokens,omitempty"`
 }
 
@@ -1358,6 +1360,7 @@ func (s *AccountTestService) processGeminiStream(c *gin.Context, body io.Reader)
 		if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
 			continue
 		}
+		s.captureQualityResponseIdentity(c, data)
 		if tokens := reasoningTokensFromPayload(data); tokens != nil {
 			reasoningTokens = tokens
 		}
@@ -1566,6 +1569,7 @@ func (s *AccountTestService) processOpenAIChatCompletionsStream(c *gin.Context, 
 			return s.sendErrorAndEnd(c, "Invalid Chat Completions response from /v1/chat/completions: expected JSON data")
 		}
 		seenJSON = true
+		s.captureQualityResponseIdentity(c, data)
 		if tokens := reasoningTokensFromPayload(data); tokens != nil {
 			reasoningTokens = tokens
 		}
@@ -1641,6 +1645,7 @@ func (s *AccountTestService) processOpenAIStream(c *gin.Context, body io.Reader)
 		if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
 			continue
 		}
+		s.captureQualityResponseIdentity(c, data)
 		if tokens := reasoningTokensFromPayload(data); tokens != nil {
 			reasoningTokens = tokens
 		}
@@ -1963,6 +1968,7 @@ func (s *AccountTestService) runTestBackground(ctx context.Context, accountID in
 	finishedAt := time.Now()
 	body := w.Body.String()
 	responseText, errMsg, reasoningTokens := parseTestSSEOutputWithReasoning(body)
+	conversationID, responseID := parseQualityResponseIdentity(body)
 
 	status := "success"
 	if testErr != nil || errMsg != "" {
@@ -1977,9 +1983,10 @@ func (s *AccountTestService) runTestBackground(ctx context.Context, accountID in
 		ResponseText:    responseText,
 		ErrorMessage:    errMsg,
 		ReasoningTokens: reasoningTokens,
-		LatencyMs:       finishedAt.Sub(startedAt).Milliseconds(),
-		StartedAt:       startedAt,
-		FinishedAt:      finishedAt,
+		ConversationID:  conversationID, ResponseID: responseID,
+		LatencyMs:  finishedAt.Sub(startedAt).Milliseconds(),
+		StartedAt:  startedAt,
+		FinishedAt: finishedAt,
 	}, nil
 }
 

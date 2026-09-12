@@ -16,3 +16,11 @@ func TestAccountQualityRunsMigrationStoresRenderedArtifactsOnly(t *testing.T) {
 	require.Contains(t, sql, "png BYTEA")
 	require.Contains(t, sql, "webp BYTEA")
 }
+
+func TestAccountQualityConversationMigrationIsAdditive(t *testing.T) {
+	content, err := FS.ReadFile("242_account_quality_probe_details.sql")
+	require.NoError(t, err)
+	sql := strings.Join(strings.Fields(string(content)), " ")
+	require.Contains(t, sql, "ADD COLUMN IF NOT EXISTS probe_details JSONB NOT NULL DEFAULT '{}'::jsonb")
+	require.NotContains(t, sql, "DROP")
+}

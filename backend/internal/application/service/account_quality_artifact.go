@@ -34,6 +34,8 @@ type AccountQualityRun struct {
 	PNG          []byte
 	WebP         []byte
 	Error        string
+	Details      AccountQualityProbeDetails
+	HasPreview   bool
 }
 
 type AccountQualityArtifactRepository interface {

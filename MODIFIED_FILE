@@ -1,8 +1,7 @@
 Changed branch: codex/account-quality-source-group
-Changed source/fields:
-- backend/internal/application/service/account_quality_monitoring.go: independent stage1/stage2 settings, editable prompts/answer, min_reasoning_tokens, reasoning distribution, 120-second default timeout (30–300 seconds), 11-minute quality run budget.
-- backend/internal/application/service/account_quality_monitor.go: stage-specific execution, exact answer matching, renderer classification, token threshold and group scheduling.
-- backend/internal/application/service/account_test_service.go: provider usage extraction for OpenAI Responses/Chat Completions/Gemini and quality usage collection.
-- frontend/src/features/admin-account-quality/presentation/pages/AccountQualityPage.vue: stage toggles/editors, source/degraded groups, token distribution, account token column, public-page button.
-MODIFIED_FILE is intentionally left changed; rollback is tested only on an independent copy.
-- backend/internal/application/service/account_test_service.go additionally keeps reading Gemini trailing usageMetadata after finishReason so reasoning token counts are not lost.
+Changed feature: public account-quality page now follows the manxue.ai-style summary → timeline → evidence-gallery layout.
+Public record fields: provider conversation_id/response_id, bounded final answer text for stage 1 and stage 2, reasoning_tokens, stage status, classifier status, and has_preview.
+Public image: WebP/PNG preview opens from /api/v1/account-quality-share/image/:id?format=webp in an enlarged detail dialog.
+Privacy invariant: account_id, account name, credentials, prompt, raw request and reasoning text are not returned; answers are capped at 16 KiB and rendered as escaped text.
+Migration: backend/migrations/242_account_quality_probe_details.sql adds probe_details JSONB without changing old rows.
+MODIFIED_FILE is intentionally changed; rollback is tested on an independent copy.
