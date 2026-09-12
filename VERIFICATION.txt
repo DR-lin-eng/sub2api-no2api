@@ -51,6 +51,8 @@ DEPLOY DOCKER BUILD result: deploy/Dockerfile image built successfully; exit 0.
 ROLLBACK command: ./ROLLBACK.sh /tmp/quality-embedded-final-20260913/BASELINE_QUALITY_MONITORING.go /tmp/quality-embedded-final-20260913/ROLLBACK_COPY.go after temporary mutation.
 ROLLBACK literal result: cmp exit 0; restored SHA-256 4cb48b3f1fa42d2e7cebbe50c506376e093419603af57749983cce1905f3e86d; current source remains modified.
 
-Final remote state: branch b59805f84e6bb7935b9f84c8d0f339e7f6a5b242; main 1e032da0b36c16e865bf548734d5e664a4161335; existing Compose/environment configuration unchanged.
+Final remote state before this metadata commit: branch b59805f84e6bb7935b9f84c8d0f339e7f6a5b242; main 1e032da0b36c16e865bf548734d5e664a4161335; existing Compose/environment configuration unchanged.
 
 Embedded model smoke output files: /tmp/quality-module-20260913/render-output/preview.png and preview.webp were generated and visually inspected.
+
+Metadata commit: f93aab68234d65348a5451498f859ada7411ee01; its follow-up only refreshes this evidence file.
