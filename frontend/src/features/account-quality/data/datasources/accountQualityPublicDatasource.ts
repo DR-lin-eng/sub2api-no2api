@@ -1,5 +1,14 @@
 import { apiClient } from '@/core/networks/client'
 
+export interface AccountQualityStageDetail {
+  status: string
+  conversation_id?: string
+  response_id?: string
+  answer: string
+  answer_truncated?: boolean
+  reasoning_tokens?: number | null
+}
+
 export interface AccountQualityPublicPoint {
   id: string
   status: string
@@ -9,6 +18,8 @@ export interface AccountQualityPublicPoint {
   effort?: string
   latency_ms?: number
   started_at: string
+  has_preview?: boolean
+  details?: { stage1?: AccountQualityStageDetail | null; stage2?: AccountQualityStageDetail | null }
 }
 
 export interface AccountQualityPublicSnapshot {
@@ -16,6 +27,8 @@ export interface AccountQualityPublicSnapshot {
   effort: string
   interval_minutes: number
   now: string
+  last_run_at?: string
+  next_run_at?: string
   total: number
   passed: number
   degraded: number

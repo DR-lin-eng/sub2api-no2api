@@ -106,12 +106,16 @@ func (r *accountQualityArtifactRepository) Save(ctx context.Context, run *servic
 	if len(run.PNG) > qualityArtifactMaxBytes || len(run.WebP) > qualityArtifactMaxBytes {
 		return errors.New("quality artifact exceeds size limit")
 	}
-	_, err := r.db.ExecContext(ctx, `
+	details, err := json.Marshal(run.Details)
+	if err != nil {
+		return err
+	}
+	_, err = r.db.ExecContext(ctx, `
 		INSERT INTO account_quality_runs
-		(id, account_id, model, effort, status, label, confidence, started_at, finished_at, latency_ms, model_version, png, webp, error_message)
-		VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+		(id, account_id, model, effort, status, label, confidence, started_at, finished_at, latency_ms, model_version, png, webp, error_message, probe_details)
+		VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb)
 	`, run.ID, run.AccountID, run.Model, run.Effort, run.Status, run.Label, run.Confidence,
-		run.StartedAt, run.FinishedAt, run.LatencyMs, run.ModelVersion, run.PNG, run.WebP, run.Error)
+		run.StartedAt, run.FinishedAt, run.LatencyMs, run.ModelVersion, run.PNG, run.WebP, run.Error, string(details))
 	if err != nil {
 		return err
 	}
@@ -130,7 +134,7 @@ func (r *accountQualityArtifactRepository) ListPublic(ctx context.Context, since
 		limit = 200
 	}
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id::text, account_id, model, effort, status, label, confidence, started_at, finished_at, latency_ms, model_version, error_message
+		SELECT id::text, account_id, model, effort, status, label, confidence, started_at, finished_at, latency_ms, model_version, error_message, probe_details, COALESCE(octet_length(webp),0) > 0
 		FROM account_quality_runs WHERE finished_at >= $1 ORDER BY finished_at DESC LIMIT $2`, since, limit)
 	if err != nil {
 		return nil, err
@@ -139,8 +143,12 @@ func (r *accountQualityArtifactRepository) ListPublic(ctx context.Context, since
 	out := make([]service.AccountQualityRun, 0, limit)
 	for rows.Next() {
 		var run service.AccountQualityRun
-		if err := rows.Scan(&run.ID, &run.AccountID, &run.Model, &run.Effort, &run.Status, &run.Label, &run.Confidence, &run.StartedAt, &run.FinishedAt, &run.LatencyMs, &run.ModelVersion, &run.Error); err != nil {
+		var details []byte
+		if err := rows.Scan(&run.ID, &run.AccountID, &run.Model, &run.Effort, &run.Status, &run.Label, &run.Confidence, &run.StartedAt, &run.FinishedAt, &run.LatencyMs, &run.ModelVersion, &run.Error, &details, &run.HasPreview); err != nil {
 			return nil, err
+		}
+		if err := json.Unmarshal(details, &run.Details); err != nil {
+			return nil, fmt.Errorf("decode quality details: %w", err)
 		}
 		out = append(out, run)
 	}
@@ -161,7 +169,7 @@ func (r *accountQualityArtifactRepository) GetPublicImage(ctx context.Context, i
 		return nil, "", errors.New("unsupported quality image format")
 	}
 	var data []byte
-	if err := r.db.QueryRowContext(ctx, fmt.Sprintf("SELECT %s FROM account_quality_runs WHERE id = $1::uuid AND finished_at >= NOW() - INTERVAL '24 hours' AND status IN ('ready','wrong','uncertain')", column), id).Scan(&data); err != nil {
+	if err := r.db.QueryRowContext(ctx, fmt.Sprintf("SELECT %s FROM account_quality_runs WHERE id = $1::uuid AND finished_at >= NOW() - INTERVAL '24 hours' AND octet_length(%s) > 0", column, column), id).Scan(&data); err != nil {
 		return nil, "", err
 	}
 	return data, contentType, nil

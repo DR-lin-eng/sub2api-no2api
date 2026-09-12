@@ -57,13 +57,14 @@ type qualityStageOutcome struct {
 	latencyMs       int64
 	reasoningTokens *int64
 	artifact        *QualityArtifact
-	runID           string
+	detail          AccountQualityStageDetail
 }
 
 func (s *AccountQualityMonitoringService) runQualityStage(ctx context.Context, account Account, settings AccountQualitySettings, stage, prompt string) (outcome qualityStageOutcome) {
 	probeCtx, cancel := context.WithTimeout(ctx, time.Duration(settings.TimeoutSeconds)*time.Second)
 	defer cancel()
 	started := time.Now().UTC()
+	defer func() { outcome.detail.Status = outcome.status }()
 	probe, err := s.accountTestSvc.RunQualityTestBackground(probeCtx, account.ID, strings.TrimSpace(settings.Model), prompt, settings.Effort)
 	outcome.status, outcome.operational = "error", true
 	if err != nil {
@@ -77,6 +78,7 @@ func (s *AccountQualityMonitoringService) runQualityStage(ctx context.Context, a
 		return
 	}
 	outcome.latencyMs, outcome.reasoningTokens = probe.LatencyMs, probe.ReasoningTokens
+	outcome.detail = qualityStageDetail(probe)
 	if probe.Status != "success" {
 		outcome.errorMessage = strings.TrimSpace(probe.ErrorMessage)
 		if outcome.errorMessage == "" {
@@ -126,21 +128,7 @@ func (s *AccountQualityMonitoringService) runQualityStage(ctx context.Context, a
 	default:
 		outcome.status, outcome.operational, outcome.errorMessage = "uncertain", false, "classifier returned unknown label"
 	}
-	if s.qualityArtifacts != nil {
-		run := &AccountQualityRun{AccountID: account.ID, Model: strings.TrimSpace(settings.Model), Effort: settings.Effort, Status: "uncertain", Label: artifact.Label, Confidence: artifact.Confidence, StartedAt: probe.StartedAt, FinishedAt: probe.FinishedAt, LatencyMs: probe.LatencyMs, ModelVersion: artifact.ModelVersion, PNG: artifact.PNG, WebP: artifact.WebP, Error: outcome.errorMessage}
-		if outcome.status == "passed" {
-			run.Status = "ready"
-		}
-		if outcome.status == "wrong" {
-			run.Status = "wrong"
-		}
-		if saveErr := s.qualityArtifacts.Save(ctx, run); saveErr != nil {
-			outcome.status, outcome.operational = "error", true
-			outcome.errorMessage = "artifact save failed: " + saveErr.Error()
-		} else {
-			outcome.runID = run.ID
-		}
-	}
+
 	return outcome
 }
 
@@ -188,6 +176,9 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 				result.QualityStatus = "disabled"
 				return
 			}
+			started := time.Now().UTC()
+			details := AccountQualityProbeDetails{}
+			var artifact *QualityArtifact
 			var stageErrors []string
 			wrong, operational, uncertain := false, false, false
 			observe := func(name string, stage qualityStageOutcome) {
@@ -208,11 +199,13 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 			if settings.Stage1Enabled {
 				stage := s.runQualityStage(ctx, account, settings, "stage1", settings.Stage1Prompt)
 				result.QualityStage1Status, result.QualityReasoningTokens = stage.status, stage.reasoningTokens
+				details.Stage1 = &stage.detail
 				observe("stage1", stage)
 			}
 			if settings.Stage2Enabled {
 				stage := s.runQualityStage(ctx, account, settings, "stage2", settings.Stage2Prompt)
-				result.QualityStage2Status, result.QualityRunID = stage.status, stage.runID
+				result.QualityStage2Status = stage.status
+				details.Stage2, artifact = &stage.detail, stage.artifact
 				if stage.artifact != nil {
 					result.QualityLabel, result.QualityConfidence = stage.artifact.Label, stage.artifact.Confidence
 				}
@@ -257,6 +250,24 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 			}
 			if uncertain {
 				outcome = "uncertain"
+			}
+			if wrong {
+				outcome = "wrong"
+			} // Match the combined verdict when another stage errors.
+			if s.qualityArtifacts != nil {
+				run := &AccountQualityRun{AccountID: account.ID, Model: strings.TrimSpace(settings.Model), Effort: settings.Effort, Status: outcome, StartedAt: started, FinishedAt: time.Now().UTC(), LatencyMs: result.QualityLatencyMs, Details: details, Error: result.QualityError}
+				if outcome == "passed" {
+					run.Status = "ready"
+				}
+				if artifact != nil {
+					run.Label, run.Confidence, run.ModelVersion = artifact.Label, artifact.Confidence, artifact.ModelVersion
+					run.PNG, run.WebP = artifact.PNG, artifact.WebP
+				}
+				if err := s.qualityArtifacts.Save(ctx, run); err != nil {
+					recordErr(fmt.Errorf("save quality conversation: %w", err))
+				} else {
+					result.QualityRunID = run.ID
+				}
 			}
 			updates := qualityExtraUpdate(account.Extra, status, failures, passes, now, outcome, result.QualityError)
 			if history, ok := updates[accountQualityHistoryExtraKey].([]map[string]any); ok && len(history) > 0 {
