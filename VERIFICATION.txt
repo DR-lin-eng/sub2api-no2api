@@ -64,3 +64,10 @@ DOCKER TEST literal result: service 140.614s, repository 4.916s, migrations 0.00
 ROLLBACK command: ./ROLLBACK.sh /tmp/quality-drawing-timeout-20260913/BASELINE_ACCOUNT_QUALITY_MONITOR.go /tmp/quality-drawing-timeout-20260913/ROLLBACK_COPY.go after appending a temporary mutation.
 ROLLBACK literal result: restored target and cmp returned 0; restored SHA-256 8c7d91fc5ebdd7a4fa9ef11a7a1437e1a1392ae492a7a90da20409c0fe270425.
 Restored behavior/status: rollback copy matches baseline; current working source remains modified on branch.
+
+Final timeout patch publication:
+- BASELINE field/file: backend/internal/application/service/account_quality_monitor.go at 69a31b758; SHA-256 8c7d91fc5ebdd7a4fa9ef11a7a1437e1a1392ae492a7a90da20409c0fe270425; 18247 bytes.
+- MODIFIED field/file: backend/internal/application/service/account_quality_monitor.go at de9c083a1; SHA-256 8ddd0ee1722f9ec61e9ff5408c1e5e446f5189d9ebcc16b72836485cf67294a0; 19297 bytes.
+- MODIFIED source command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service -run 'TestQualityDrawingTimeoutOnlyAppliesBeforeFirstOutput' -count=1; literal result: ok github.com/Wei-Shaw/sub2api/internal/application/service 3.343s; exit status 0.
+- ROLLBACK executable: /Users/lin/.codex/worktrees/b443/sub2api-no2api/ROLLBACK.sh; independent rollback copy cmp exit 0 and restored baseline SHA 8c7d91fc5ebdd7a4fa9ef11a7a1437e1a1392ae492a7a90da20409c0fe270425.
+- Remote push: de9c083a1096e841f730048ed0cce38f8aa7771a; PR #52 merged; main merge SHA 955b19795816dfb07e8d582331d3786e57946d29.
