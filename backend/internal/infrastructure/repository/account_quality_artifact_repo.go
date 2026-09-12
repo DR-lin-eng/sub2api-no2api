@@ -59,7 +59,7 @@ func (p *httpAccountQualityArtifactProcessor) Process(ctx context.Context, html 
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("quality renderer returned HTTP %d", resp.StatusCode)
 	}
@@ -135,7 +135,7 @@ func (r *accountQualityArtifactRepository) ListPublic(ctx context.Context, since
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	out := make([]service.AccountQualityRun, 0, limit)
 	for rows.Next() {
 		var run service.AccountQualityRun

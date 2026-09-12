@@ -1,0 +1,2 @@
+This marker is intentionally kept as a small top-level verification artifact.
+The source modification is tracked in backend/internal/application/service/account_quality_monitoring.go.

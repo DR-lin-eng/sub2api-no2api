@@ -34,21 +34,21 @@ type AccountQualityPublicSnapshot struct {
 	Points          []AccountQualityPublicPoint `json:"points"`
 }
 
-func (s *AccountInspectionService) GetPublicQualitySnapshot(ctx context.Context) (*AccountQualityPublicSnapshot, error) {
+func (s *AccountQualityMonitoringService) GetPublicQualitySnapshot(ctx context.Context) (*AccountQualityPublicSnapshot, error) {
 	settings, err := s.GetSettings(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if !settings.QualityMonitoringEnabled || !settings.QualityPublicEnabled {
+	if !settings.Enabled || !settings.PublicEnabled {
 		return nil, infraerrors.NotFound("ACCOUNT_QUALITY_PUBLIC_DISABLED", "account quality public share is disabled")
 	}
 	now := time.Now().UTC()
-	result := &AccountQualityPublicSnapshot{Model: settings.QualityModel, Effort: settings.QualityEffort, IntervalMinutes: settings.QualityIntervalMinutes, Now: now, Points: []AccountQualityPublicPoint{}}
+	result := &AccountQualityPublicSnapshot{Model: settings.Model, Effort: settings.Effort, IntervalMinutes: settings.IntervalMinutes, Now: now, Points: []AccountQualityPublicPoint{}}
 	state, stateErr := s.loadState(ctx)
 	if stateErr == nil && state != nil {
-		result.LastRunAt = state.QualityLastRunAt
-		if state.QualityLastRunAt != nil {
-			next := state.QualityLastRunAt.Add(time.Duration(settings.QualityIntervalMinutes) * time.Minute)
+		result.LastRunAt = state.LastRunAt
+		if state.LastRunAt != nil {
+			next := state.LastRunAt.Add(time.Duration(settings.IntervalMinutes) * time.Minute)
 			result.NextRunAt = &next
 		}
 	}
@@ -61,11 +61,12 @@ func (s *AccountInspectionService) GetPublicQualitySnapshot(ctx context.Context)
 			result.Total++
 			switch run.Status {
 			case "ready":
-				if run.Label == "normal" {
+				switch run.Label {
+				case "normal":
 					result.Passed++
-				} else if run.Label == "unnormal" {
+				case "unnormal":
 					result.Degraded++
-				} else {
+				default:
 					result.Uncertain++
 				}
 			case "wrong":
@@ -102,12 +103,12 @@ func (s *AccountInspectionService) GetPublicQualitySnapshot(ctx context.Context)
 	return result, nil
 }
 
-func (s *AccountInspectionService) GetPublicQualityImage(ctx context.Context, id, format string) ([]byte, string, error) {
+func (s *AccountQualityMonitoringService) GetPublicQualityImage(ctx context.Context, id, format string) ([]byte, string, error) {
 	settings, err := s.GetSettings(ctx)
 	if err != nil {
 		return nil, "", err
 	}
-	if !settings.QualityMonitoringEnabled || !settings.QualityPublicEnabled || s.qualityArtifacts == nil {
+	if !settings.Enabled || !settings.PublicEnabled || s.qualityArtifacts == nil {
 		return nil, "", infraerrors.NotFound("ACCOUNT_QUALITY_PUBLIC_DISABLED", "account quality public share is disabled")
 	}
 	return s.qualityArtifacts.GetPublicImage(ctx, id, format)

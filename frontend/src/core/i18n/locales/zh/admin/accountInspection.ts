@@ -1,4 +1,19 @@
 export default {
+  accountQuality: {
+    title: '账号质量监控',
+    description: '独立探测账号输出质量，并按连续结果切换分组。',
+    settingsTitle: '质量巡检策略',
+    settingsCaption: '质量巡检单独保存、单独调度、单独手动运行，不会触发账号健康巡检。',
+    runNow: '立即质量巡检',
+    passed: '正常',
+    uncertain: '待确认',
+    errors: '错误',
+    saved: '质量巡检设置已保存',
+    loadFailed: '加载质量巡检失败',
+    saveFailed: '保存质量巡检设置失败',
+    runFailed: '执行质量巡检失败',
+    runCompleted: '质量巡检完成，发现 {count} 个降智账号',
+  },
   accountInspection: {
     title: '账号巡检',
     description: '统一检查账号健康状态与调度资格',
@@ -60,6 +75,8 @@ export default {
       modelPlaceholder: '留空使用账号默认模型',
       effort: '思考强度',
       degradedGroup: '降智分组',
+      sourceGroup: '检测源分组',
+      allGroups: '全部分组',
       noSwitch: '仅记录，不切换分组',
       failureThreshold: '连续失败次数',
       recoveryThreshold: '连续恢复次数',

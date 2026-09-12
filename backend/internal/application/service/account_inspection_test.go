@@ -104,10 +104,12 @@ func TestAccountInspectionDefaultsMatchScriptThresholds(t *testing.T) {
 	require.InDelta(t, 0.60, settings.SuccessRateThreshold, 1e-9)
 	require.Equal(t, 1, settings.MinRequests)
 	require.True(t, settings.OAuthQuotaCheckEnabled)
-	require.False(t, settings.QualityMonitoringEnabled)
-	require.Equal(t, 10, settings.QualityIntervalMinutes)
-	require.Equal(t, 2, settings.QualityFailureThreshold)
-	require.Equal(t, 2, settings.QualityRecoveryThreshold)
+	quality := DefaultAccountQualitySettings()
+	require.False(t, quality.Enabled)
+	require.Equal(t, 10, quality.IntervalMinutes)
+	require.Equal(t, 2, quality.FailureThreshold)
+	require.Equal(t, 2, quality.RecoveryThreshold)
+	require.Nil(t, quality.SourceGroupID)
 }
 
 func TestQualityAnswerPassesOnlyIndependentNumber21(t *testing.T) {

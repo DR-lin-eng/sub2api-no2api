@@ -35,12 +35,12 @@ sequenceDiagram
 
 ### 账号级质量监控与降智分组切换
 
-管理员在 `/admin/account-inspection` 开启质量监控后，后台复用账号测试的真实上游传输路径，按
-`quality_interval_minutes` 对账号发送独立探测提示词（默认采用 manxue.ai 风格的形状/口味保证数题，并要求
+管理员在独立的 `/admin/account-quality` 保存质量策略并启用质量巡检，可指定 `source_group_id` 作为检测源；后台复用账号测试的真实上游传输路径，按
+`interval_minutes` 对账号发送独立探测提示词（默认采用 manxue.ai 风格的形状/口味保证数题，并要求
 最后一行 `ANSWER=整数`）。回答中出现独立数字 `21` 视为通过；请求错误不递增质量失败计数，答题判分失败
-达到 `quality_failure_threshold` 才标记为 `degraded`。
+达到 `failure_threshold` 才标记为 `degraded`。选择检测源分组后只探测该分组账号；已经切入降智分组的账号仍会继续探测以支持恢复。未配置检测源时扫描全部支持的平台账号。账号健康巡检在 `/admin/account-inspection` 使用独立设置、状态和调度器，两个入口互不触发。
 
-配置 `quality_degraded_group_id` 后，首次进入降智状态会先把原 `account_groups` 列表写入账号
+配置 `degraded_group_id` 后，首次进入降智状态会先把原 `account_groups` 列表写入账号
 `extra.account_quality_original_group_ids`，再通过现有 `BindGroups` 事务绑定目标分组并写 scheduler
 outbox。目标分组必须存在、启用且与账号平台一致；切换失败不会静默修改原分组。连续通过达到
 `quality_recovery_threshold` 时，仅当账号仍停留在记录的降智分组，系统才恢复原分组；管理员在此期间手动

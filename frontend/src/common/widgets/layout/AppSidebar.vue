@@ -891,6 +891,7 @@ const adminNavItems = computed((): NavItem[] => {
     { path: '/admin/subscriptions', label: t('nav.subscriptions'), icon: CreditCardIcon, hideInSimpleMode: true, permission: 'users.manage' },
     { path: '/admin/accounts', label: t('nav.accounts'), icon: GlobeIcon, permission: 'accounts.manage' },
     { path: '/admin/account-inspection', label: t('nav.accountInspection'), icon: SignalIcon, permission: 'accounts.manage' },
+    { path: '/admin/account-quality', label: t('nav.accountQuality'), icon: SignalIcon, permission: 'accounts.manage' },
     { path: '/admin/announcements', label: t('nav.announcements'), icon: BellIcon, permission: 'settings.manage' },
     { path: '/admin/activity-center/campaigns', label: t('nav.activityCenterAdmin'), icon: GiftIcon, permission: 'settings.manage' },
     { path: '/admin/support', label: t('nav.supportInbox'), icon: SupportChatIcon, featureFlag: flagSupportChat, permission: 'support.read' },

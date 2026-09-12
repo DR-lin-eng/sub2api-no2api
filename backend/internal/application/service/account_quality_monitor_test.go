@@ -38,7 +38,7 @@ func (r qualityGroupRepoStub) GetByID(context.Context, int64) (*Group, error) { 
 func TestQualityGroupSwitchPreservesOriginalAndRestoresAfterRecovery(t *testing.T) {
 	targetID := int64(20)
 	repo := &qualityRepoStub{groups: map[int64][]int64{}, extra: map[int64]map[string]any{}}
-	svc := &AccountInspectionService{accountRepo: repo, groupRepo: qualityGroupRepoStub{group: &Group{ID: targetID, Platform: PlatformOpenAI, Status: StatusActive}}}
+	svc := &AccountQualityMonitoringService{accountRepo: repo, groupRepo: qualityGroupRepoStub{group: &Group{ID: targetID, Platform: PlatformOpenAI, Status: StatusActive}}}
 	account := &Account{ID: 7, Platform: PlatformOpenAI, GroupIDs: []int64{10, 11}, Extra: map[string]any{}}
 	result := &AccountInspectionAccountResult{}
 	require.NoError(t, svc.switchQualityGroup(context.Background(), account, &targetID, result))
@@ -56,7 +56,7 @@ func TestQualityGroupSwitchPreservesOriginalAndRestoresAfterRecovery(t *testing.
 
 func TestQualityGroupRestorePreservesManualGroupChange(t *testing.T) {
 	repo := &qualityRepoStub{groups: map[int64][]int64{}, extra: map[int64]map[string]any{}}
-	svc := &AccountInspectionService{accountRepo: repo}
+	svc := &AccountQualityMonitoringService{accountRepo: repo}
 	account := &Account{ID: 8, GroupIDs: []int64{30}, Extra: map[string]any{AccountQualityOriginalGroupsExtraKey: []any{float64(10)}, AccountQualityRoutingGroupExtraKey: float64(20)}}
 	result := &AccountInspectionAccountResult{}
 	require.NoError(t, svc.restoreQualityGroups(context.Background(), account, result))
@@ -75,7 +75,18 @@ func TestQualityExtraUpdateKeepsBoundedHistory(t *testing.T) {
 }
 
 func TestQualityDefaultPromptIsDeterministic(t *testing.T) {
-	settings := DefaultAccountInspectionSettings()
-	require.Contains(t, settings.QualityPrompt, "SVG")
-	require.Contains(t, settings.QualityPrompt, "鹈鹕骑自行车")
+	settings := DefaultAccountQualitySettings()
+	require.Contains(t, settings.Prompt, "SVG")
+	require.Contains(t, settings.Prompt, "鹈鹕骑自行车")
+}
+
+func TestQualityProbeEligibleUsesSourceGroupAndKeepsReroutedAccount(t *testing.T) {
+	source := int64(10)
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, GroupIDs: []int64{10}}
+	require.True(t, qualityProbeEligible(account, &source))
+	account.GroupIDs = []int64{20}
+	account.Extra = map[string]any{AccountQualityRoutingGroupExtraKey: float64(20)}
+	require.True(t, qualityProbeEligible(account, &source))
+	account.GroupIDs = []int64{30}
+	require.False(t, qualityProbeEligible(account, &source))
 }

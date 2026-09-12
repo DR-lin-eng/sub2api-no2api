@@ -112,7 +112,16 @@ export default {
         minutes: '{m}m',
         withSuffix: '{time} to lift'
       }
-    }
+    },
+    accountQuality: {
+      eyebrow: 'MODEL QUALITY', title: 'Account model quality', subtitle: 'Model quality monitoring',
+      refresh: 'Refresh results', refreshing: 'Refreshing…', recent: 'Last 24 hours',
+      total: '24h checks', totalNote: 'account-level checks', passed: 'Normal', passedNote: 'classified normal',
+      degraded: 'Degraded', degradedNote: 'classified unnormal', uncertain: 'Uncertain', uncertainNote: 'below confidence threshold',
+      errors: 'Request errors', errorsNote: 'excluded from classification', timeline: '24-hour quality timeline', timelineNote: 'Each block is one account render and classification',
+      empty: 'No public quality results', normal: 'Normal', abnormal: 'Degraded', waiting: 'Uncertain', failed: 'Request error',
+      footer: 'Updates every {minutes} minutes · account identity, prompts, and raw HTML are hidden', qualityDisabled: 'Quality monitoring is not public or temporarily unavailable.',
+    },
   },
 
   adminCompliance: {
@@ -159,7 +168,6 @@ export default {
       registerRequiredWarning: 'Please read and accept the latest terms before registering.'
     }
   },
-
   // Navigation
   nav: {
     dashboard: 'Dashboard',
@@ -183,15 +191,7 @@ export default {
     subscriptions: 'Subscriptions',
     accounts: 'Accounts',
     accountInspection: 'Account Inspection',
-    accountQuality: {
-      eyebrow: 'MODEL QUALITY', title: 'Account model quality', subtitle: 'Model quality monitoring',
-      refresh: 'Refresh results', refreshing: 'Refreshing…', recent: 'Last 24 hours',
-      total: '24h checks', totalNote: 'account-level checks', passed: 'Normal', passedNote: 'classified normal',
-      degraded: 'Degraded', degradedNote: 'classified unnormal', uncertain: 'Uncertain', uncertainNote: 'below confidence threshold',
-      errors: 'Request errors', errorsNote: 'excluded from classification', timeline: '24-hour quality timeline', timelineNote: 'Each block is one account render and classification',
-      empty: 'No public quality results', normal: 'Normal', abnormal: 'Degraded', waiting: 'Uncertain', failed: 'Request error',
-      footer: 'Updates every {minutes} minutes · account identity, prompts, and raw HTML are hidden', qualityDisabled: 'Quality monitoring is not public or temporarily unavailable.',
-    },
+    accountQuality: 'Account Quality',
     customModelConfig: 'Custom Model Config',
     proxies: 'Proxies',
     ipv6Egress: 'IPv6 Egress',

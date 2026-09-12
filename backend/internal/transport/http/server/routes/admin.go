@@ -99,6 +99,9 @@ func RegisterAdminRoutes(
 		// 账号巡检
 		registerAccountInspectionRoutes(admin, h)
 
+		// 账号质量监控（独立于账号巡检策略）
+		registerAccountQualityRoutes(admin, h)
+
 		// 用户属性管理
 		registerUserAttributeRoutes(admin, h)
 
@@ -823,6 +826,15 @@ func registerAccountInspectionRoutes(admin *gin.RouterGroup, h *handler.Handlers
 		inspection.GET("", h.Admin.AccountInspection.AccountInspectionSettings)
 		inspection.PUT("/settings", h.Admin.AccountInspection.UpdateAccountInspectionSettings)
 		inspection.POST("/run", h.Admin.AccountInspection.RunAccountInspection)
+	}
+}
+
+func registerAccountQualityRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	quality := admin.Group("/account-quality")
+	{
+		quality.GET("", h.Admin.AccountQuality.Overview)
+		quality.PUT("/settings", h.Admin.AccountQuality.UpdateSettings)
+		quality.POST("/run", h.Admin.AccountQuality.Run)
 	}
 }
 
