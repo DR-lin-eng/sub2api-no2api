@@ -7,11 +7,11 @@
 
 ARG ALPINE_IMAGE=alpine:3.21
 ARG QUALITY_RUNTIME_IMAGE=python:3.11-slim-bookworm
-ARG POSTGRES_IMAGE=postgres:18-bookworm
+ARG POSTGRES_IMAGE=postgres:18-alpine
 
 FROM ${POSTGRES_IMAGE} AS pg-client
-RUN mkdir -p /client && cp /usr/lib/postgresql/18/bin/pg_dump /usr/lib/postgresql/18/bin/psql /client/ \
-    && cp "$(find /usr/lib -name libpq.so.5 -print -quit)" /client/libpq.so.5
+RUN mkdir -p /client && cp /usr/local/bin/pg_dump /usr/local/bin/psql /client/ \
+    && cp /usr/local/lib/libpq.so.5 /client/libpq.so.5
 
 FROM ${QUALITY_RUNTIME_IMAGE} AS quality-runtime
 

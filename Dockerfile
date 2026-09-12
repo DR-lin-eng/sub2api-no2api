@@ -11,7 +11,7 @@ ARG NODE_IMAGE=node:24-alpine
 ARG GOLANG_IMAGE=golang:1.26.6-alpine
 ARG ALPINE_IMAGE=alpine:3.21
 ARG QUALITY_RUNTIME_IMAGE=python:3.11-slim-bookworm
-ARG POSTGRES_IMAGE=postgres:18-bookworm
+ARG POSTGRES_IMAGE=postgres:18-alpine
 ARG GOPROXY=https://goproxy.cn,direct
 ARG GOSUMDB=sum.golang.google.cn
 ARG NPM_CONFIG_REGISTRY=
@@ -102,8 +102,8 @@ RUN --mount=type=cache,id=sub2api-gomod,target=/go/pkg/mod \
 # Stage 3: PostgreSQL Client (version-matched with docker-compose)
 # -----------------------------------------------------------------------------
 FROM ${POSTGRES_IMAGE} AS pg-client
-RUN mkdir -p /client && cp /usr/lib/postgresql/18/bin/pg_dump /usr/lib/postgresql/18/bin/psql /client/ \
-    && cp "$(find /usr/lib -name libpq.so.5 -print -quit)" /client/libpq.so.5
+RUN mkdir -p /client && cp /usr/local/bin/pg_dump /usr/local/bin/psql /client/ \
+    && cp /usr/local/lib/libpq.so.5 /client/libpq.so.5
 
 # -----------------------------------------------------------------------------
 # Stage 4: Final Runtime Image
