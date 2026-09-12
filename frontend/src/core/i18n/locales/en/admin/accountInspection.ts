@@ -5,6 +5,7 @@ export default {
     settingsTitle: 'Quality inspection policy',
     settingsCaption: 'Quality inspection has its own settings, scheduler, and manual run.',
     runNow: 'Run quality inspection',
+    openPublic: 'Open public page',
     passed: 'Healthy',
     uncertain: 'Uncertain',
     errors: 'Errors',

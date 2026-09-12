@@ -4,9 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
+
+type qualityProbeDeadlineStub struct{ deadline time.Time }
+
+func (p *qualityProbeDeadlineStub) RunQualityTestBackground(ctx context.Context, _ int64, _, _, _ string) (*ScheduledTestResult, error) {
+	p.deadline, _ = ctx.Deadline()
+	return &ScheduledTestResult{Status: "failed", ErrorMessage: "Stream read error: context deadline exceeded"}, nil
+}
 
 func TestAccountQualitySettingsUseIndependentSettingKeys(t *testing.T) {
 	repo := &inspectionSettingRepoStub{values: map[string]string{}}
@@ -31,4 +39,20 @@ func TestAccountInspectionSettingsDoNotSerializeQualityPolicy(t *testing.T) {
 	require.NoError(t, err)
 	require.NotContains(t, string(payload), "quality_monitoring_enabled")
 	require.NotContains(t, string(payload), "quality_source_group_id")
+}
+
+func TestQualityProbeTimeoutIsLongerThanLegacyThirtySecondsAndReportsError(t *testing.T) {
+	probe := &qualityProbeDeadlineStub{}
+	repo := &qualityRepoStub{extra: map[int64]map[string]any{}}
+	svc := &AccountQualityMonitoringService{accountRepo: repo, accountTestSvc: probe}
+	account := Account{ID: 478, Name: "quality", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
+	results := []AccountInspectionAccountResult{neutralAccountInspectionResult(&account, time.Now().UTC())}
+	settings := DefaultAccountQualitySettings()
+
+	err := svc.runQualityMonitoring(context.Background(), []Account{account}, results, nil, settings, time.Now().UTC())
+	require.NoError(t, err)
+	require.Greater(t, time.Until(probe.deadline), 100*time.Second)
+	require.Equal(t, "error", results[0].QualityStatus)
+	require.Zero(t, results[0].QualityConsecutiveFailures)
+	require.Contains(t, results[0].QualityError, "context deadline exceeded")
 }

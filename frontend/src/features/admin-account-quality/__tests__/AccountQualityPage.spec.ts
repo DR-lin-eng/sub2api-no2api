@@ -39,6 +39,22 @@ describe('AccountQualityPage', () => {
     expect(getOverview).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('quality-account')
     expect(wrapper.text()).toContain('admin.accountQuality.title')
+    const publicLink = wrapper.find('a[href="/monitor/quality/public"]')
+    expect(publicLink.exists()).toBe(true)
+    expect(publicLink.attributes('target')).toBe('_blank')
+  })
+
+  it('renders a failed quality probe as an error rather than healthy', async () => {
+    getOverview.mockResolvedValueOnce({
+      settings: {},
+      run: { status: 'succeeded', summary: { inspected: 1, passed: 0, degraded: 0, uncertain: 0, errors: 1, switched: 0 } },
+      results: { items: [{ account_id: 478, name: 'timeout-account', platform: 'openai', quality_status: 'error', quality_error: 'Stream read error: context deadline exceeded', quality_latency_ms: 120000 }], total: 1 },
+    })
+    const wrapper = mount(AccountQualityPage, { global: { stubs: { AppLayout: { template: '<div><slot /></div>' }, Icon: { template: '<span />' }, Toggle: { template: '<button />' } } } })
+    await flushPromises()
+    const row = wrapper.find('tbody tr')
+    expect(row.text()).toContain('admin.accountQuality.errors')
+    expect(row.text()).not.toContain('healthy')
+    expect(row.find('span.text-red-600').exists()).toBe(true)
   })
 })
-
