@@ -26,7 +26,7 @@ export default {
     reasoningBuckets: { '0_49': '0–49', '50_99': '50–99', '100_249': '100–249', '250_499': '250–499', '500_999': '500–999', '1000_plus': '1000+' },
     stagePolicyHint: 'Stages can be toggled independently; when both are enabled, text runs before drawing. Wrong answers or low token counts are degraded; consecutive failures only control group switching.',
     timeout: 'Probe timeout (seconds)',
-    timeoutHint: 'Set 30–300 seconds; default is 120 seconds.',
+    timeoutHint: 'Set 30–300 seconds (default 120) for stage 1 and stage 2 before any drawing output; streamed drawing output is allowed to finish.',
     passed: 'Healthy',
     uncertain: 'Uncertain',
     errors: 'Errors',

@@ -1,9 +1,11 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"strings"
+	"sync"
 	"unicode/utf8"
 )
 
@@ -21,6 +23,30 @@ type AccountQualityStageDetail struct {
 type AccountQualityProbeDetails struct {
 	Stage1 *AccountQualityStageDetail `json:"stage1,omitempty"`
 	Stage2 *AccountQualityStageDetail `json:"stage2,omitempty"`
+}
+
+type qualityProbeOutputSignal struct {
+	once sync.Once
+	done chan struct{}
+}
+
+type qualityProbeOutputSignalContextKey struct{}
+
+func withQualityProbeOutputSignal(ctx context.Context) (context.Context, *qualityProbeOutputSignal) {
+	signal := &qualityProbeOutputSignal{done: make(chan struct{})}
+	return context.WithValue(ctx, qualityProbeOutputSignalContextKey{}, signal), signal
+}
+
+func markQualityProbeOutput(ctx context.Context) {
+	if signal, ok := ctx.Value(qualityProbeOutputSignalContextKey{}).(*qualityProbeOutputSignal); ok && signal != nil {
+		signal.once.Do(func() { close(signal.done) })
+	}
+}
+
+func markQualityProbeOutputForContext(c *gin.Context) {
+	if c != nil && c.Request != nil {
+		markQualityProbeOutput(c.Request.Context())
+	}
 }
 
 func qualityStageDetail(probe *ScheduledTestResult) AccountQualityStageDetail {

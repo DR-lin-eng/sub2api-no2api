@@ -1378,6 +1378,9 @@ func (s *AccountTestService) processGeminiStream(c *gin.Context, body io.Reader)
 					if parts, ok := content["parts"].([]any); ok {
 						for _, part := range parts {
 							if partMap, ok := part.(map[string]any); ok {
+								if text, ok := partMap["text"].(string); ok && text != "" {
+									markQualityProbeOutputForContext(c)
+								}
 								if thought, _ := partMap["thought"].(bool); thought {
 									continue
 								}
@@ -1592,12 +1595,21 @@ func (s *AccountTestService) processOpenAIChatCompletionsStream(c *gin.Context, 
 				continue
 			}
 			if delta, ok := choice["delta"].(map[string]any); ok {
+				if len(delta) > 0 {
+					for _, value := range delta {
+						if text, ok := value.(string); ok && text != "" {
+							markQualityProbeOutputForContext(c)
+							break
+						}
+					}
+				}
 				if text, ok := delta["content"].(string); ok && text != "" {
 					s.sendEvent(c, TestEvent{Type: "content", Text: text})
 				}
 			}
 			if message, ok := choice["message"].(map[string]any); ok {
 				if text, ok := message["content"].(string); ok && text != "" {
+					markQualityProbeOutputForContext(c)
 					s.sendEvent(c, TestEvent{Type: "content", Text: text})
 				}
 			}
@@ -1651,6 +1663,9 @@ func (s *AccountTestService) processOpenAIStream(c *gin.Context, body io.Reader)
 		}
 
 		eventType, _ := data["type"].(string)
+		if strings.HasSuffix(eventType, ".delta") {
+			markQualityProbeOutputForContext(c)
+		}
 
 		switch eventType {
 		case "response.output_text.delta":
@@ -1926,6 +1941,9 @@ func (s *AccountTestService) testOpenAIImageOAuth(c *gin.Context, ctx context.Co
 }
 
 func (s *AccountTestService) sendEvent(c *gin.Context, event TestEvent) {
+	if c != nil && c.Request != nil && (event.Type == "content" || event.Type == "image") {
+		markQualityProbeOutput(c.Request.Context())
+	}
 	eventJSON, _ := json.Marshal(event)
 	if _, err := fmt.Fprintf(c.Writer, "data: %s\n\n", eventJSON); err != nil {
 		log.Printf("failed to write SSE event: %v", err)
