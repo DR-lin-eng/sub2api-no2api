@@ -34,7 +34,7 @@ DOCKER TEST result: service 2.144s; repository 0.019s; migrations 0.002s; admin 
 ROLLBACK command: ./ROLLBACK.sh /tmp/quality-embedded-final-20260913/BASELINE_QUALITY_MONITORING.go /tmp/quality-embedded-final-20260913/ROLLBACK_COPY.go after appending a temporary mutation.
 ROLLBACK result: restored target and cmp exit 0; restored SHA-256 4cb48b3f1fa42d2e7cebbe50c506376e093419603af57749983cce1905f3e86d. Working tree source remains changed.
 
-Remote publication: PR #52 was merged before this follow-up. PR #54 embedded renderer/progress and PR #55 preserved the original postgres:18-alpine image; PR #55 merged into main as 6162ed53ba80c148b389552c6bbf5ad19ada9223.
+Remote publication: PR #52 was merged before this follow-up. PR #54 embedded renderer/progress, PR #55 preserved the original postgres:18-alpine image, and PR #56 merged the final artifact update into main as 7cda144c44a0ec104d6232bb2520893e5c152ba2.
 
 Final embedded renderer/progress verification (2026-09-13):
 BASELINE command: git show 3103aa4ef:backend/internal/application/service/account_quality_monitoring.go > /tmp/quality-embedded-final-20260913/BASELINE_QUALITY_MONITORING.go
@@ -51,4 +51,6 @@ DEPLOY DOCKER BUILD result: deploy/Dockerfile image built successfully; exit 0.
 ROLLBACK command: ./ROLLBACK.sh /tmp/quality-embedded-final-20260913/BASELINE_QUALITY_MONITORING.go /tmp/quality-embedded-final-20260913/ROLLBACK_COPY.go after temporary mutation.
 ROLLBACK literal result: cmp exit 0; restored SHA-256 4cb48b3f1fa42d2e7cebbe50c506376e093419603af57749983cce1905f3e86d; current source remains modified.
 
-Final remote state: branch 7de00564af364e485f3e246d685fae86a50c4ded; main 6162ed53ba80c148b389552c6bbf5ad19ada9223; existing Compose/environment configuration unchanged.
+Final remote state: branch 0270fdbc49a9dac009b001c1e40c278ab4de3830; main 7cda144c44a0ec104d6232bb2520893e5c152ba2; existing Compose/environment configuration unchanged.
+
+Embedded model smoke output files: /tmp/quality-module-20260913/render-output/preview.png and preview.webp were generated and visually inspected.
