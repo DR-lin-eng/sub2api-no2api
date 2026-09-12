@@ -5,3 +5,4 @@ PNG/WebP and the real normal/unnormal verdict. Existing renderer settings are no
 rewritten. Manual quality runs return immediately and persist total, completed,
 running, queued, current account, current stage, and elapsed per-account phase.
 The missing renderer configuration path is removed from normal operation: the main website image embeds the worker and best.pt classifier. Existing non-empty renderer URLs are still honored unchanged.
+Final remote state preserves the original postgres:18-alpine base and leaves existing Compose/environment settings untouched.

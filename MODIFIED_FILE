@@ -8,3 +8,5 @@ Existing account-quality settings and existing renderer environment values remai
 MODIFIED_FILE is intentionally left changed; rollback is tested only on an independent copy.
 - Main image packages the embedded worker, model, Python/Playwright/Chromium CPU runtime, while existing Compose/environment files remain untouched.
 - Manual POST now returns immediately; GET overview shows total/completed/running/queued plus current account and phase.
+
+- Final follow-up adds embedded best.pt runtime packaging and live progress without changing existing Compose/environment settings.
