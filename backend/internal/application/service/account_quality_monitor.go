@@ -46,6 +46,7 @@ const (
 	accountQualityPassesExtraKey      = "account_quality_consecutive_passes"
 	accountQualityLastCheckedExtraKey = "account_quality_last_checked_at"
 	accountQualityHistoryExtraKey     = "account_quality_history"
+	accountQualityProbeTimeout        = 2 * time.Minute
 )
 
 // runQualityMonitoring performs bounded, account-specific probes. It is kept
@@ -73,7 +74,7 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 			defer wg.Done()
 			defer func() { <-sem }()
 			model := strings.TrimSpace(settings.Model)
-			probeCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			probeCtx, cancel := context.WithTimeout(ctx, accountQualityProbeTimeout)
 			defer cancel()
 			probe, err := s.accountTestSvc.RunQualityTestBackground(probeCtx, account.ID, model, settings.Prompt, settings.Effort)
 			if err != nil {
@@ -125,7 +126,10 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 				// health circuit; they must not move an otherwise healthy account to
 				// a quality group.
 				result := &results[index]
-				result.QualityStatus, result.QualityConsecutiveFailures, result.QualityConsecutivePasses = status, failures, passes
+				// Keep consecutive counters unchanged for transport/auth/timeout
+				// failures, but expose the current probe as an error instead of
+				// showing a stale healthy/degraded label beside the error text.
+				result.QualityStatus, result.QualityConsecutiveFailures, result.QualityConsecutivePasses = "error", failures, passes
 				if status == "degraded" {
 					result.Reasons = appendUniqueReason(result.Reasons, "quality_probe_degraded")
 				}
@@ -155,7 +159,7 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 				// A renderer/classifier error is operationally distinct from a
 				// wrong answer and must not move the account between groups.
 				result := &results[index]
-				result.QualityStatus, result.QualityConsecutiveFailures, result.QualityConsecutivePasses = status, failures, passes
+				result.QualityStatus, result.QualityConsecutiveFailures, result.QualityConsecutivePasses = "error", failures, passes
 				result.QualityError = strings.TrimSpace(probe.ErrorMessage)
 				result.QualityLatencyMs = probe.LatencyMs
 				writeQualityExtra(s.accountRepo, ctx, account.ID, qualityExtraUpdate(account.Extra, status, failures, passes, now, "error", result.QualityError))

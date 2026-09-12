@@ -5,6 +5,7 @@ export default {
     settingsTitle: '质量巡检策略',
     settingsCaption: '质量巡检单独保存、单独调度、单独手动运行，不会触发账号健康巡检。',
     runNow: '立即质量巡检',
+    openPublic: '打开公开展示页',
     passed: '正常',
     uncertain: '待确认',
     errors: '错误',

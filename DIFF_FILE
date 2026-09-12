@@ -1,1 +1,4 @@
-Quality inspection and account health inspection now use separate settings, state keys, services, schedulers, handlers and pages.
+Quality inspection and account health inspection use separate settings, state keys,
+services, schedulers, handlers and pages. The quality probe deadline changed from
+30 seconds to 120 seconds; timeout rows show error status without changing quality
+counters. The admin quality page links to /monitor/quality/public.
