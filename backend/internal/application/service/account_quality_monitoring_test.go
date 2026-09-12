@@ -21,6 +21,7 @@ func TestAccountQualitySettingsUseIndependentSettingKeys(t *testing.T) {
 	svc := NewAccountQualityMonitoringService(nil, repo, nil, nil, nil, nil)
 	settings := DefaultAccountQualitySettings()
 	settings.Enabled = true
+	settings.TimeoutSeconds = 180
 	settings.SourceGroupID = nil
 	saved, err := svc.UpdateSettings(context.Background(), &settings)
 	require.NoError(t, err)
@@ -31,6 +32,7 @@ func TestAccountQualitySettingsUseIndependentSettingKeys(t *testing.T) {
 	var encoded map[string]any
 	require.NoError(t, json.Unmarshal([]byte(repo.values[SettingKeyAccountQualitySettings]), &encoded))
 	require.Equal(t, true, encoded["enabled"])
+	require.Equal(t, float64(180), encoded["timeout_seconds"])
 	require.NotContains(t, encoded, "quality_monitoring_enabled")
 }
 
@@ -48,11 +50,35 @@ func TestQualityProbeTimeoutIsLongerThanLegacyThirtySecondsAndReportsError(t *te
 	account := Account{ID: 478, Name: "quality", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
 	results := []AccountInspectionAccountResult{neutralAccountInspectionResult(&account, time.Now().UTC())}
 	settings := DefaultAccountQualitySettings()
+	settings.TimeoutSeconds = 180
 
 	err := svc.runQualityMonitoring(context.Background(), []Account{account}, results, nil, settings, time.Now().UTC())
 	require.NoError(t, err)
-	require.Greater(t, time.Until(probe.deadline), 100*time.Second)
+	require.Greater(t, time.Until(probe.deadline), 170*time.Second)
 	require.Equal(t, "error", results[0].QualityStatus)
 	require.Zero(t, results[0].QualityConsecutiveFailures)
 	require.Contains(t, results[0].QualityError, "context deadline exceeded")
+}
+
+func TestAccountQualitySettingsValidateTimeoutRange(t *testing.T) {
+	settings := DefaultAccountQualitySettings()
+	settings.TimeoutSeconds = 29
+	require.Error(t, settings.validate())
+	settings.TimeoutSeconds = 301
+	require.Error(t, settings.validate())
+	settings.TimeoutSeconds = 180
+	require.NoError(t, settings.validate())
+}
+
+func TestAccountQualitySettingsMigrateLegacyPromptAndStages(t *testing.T) {
+	repo := &inspectionSettingRepoStub{values: map[string]string{
+		SettingKeyAccountQualitySettings: `{"enabled":true,"prompt":"legacy drawing prompt","timeout_seconds":120}`,
+	}}
+	svc := NewAccountQualityMonitoringService(nil, repo, nil, nil, nil, nil)
+	settings, err := svc.GetSettings(context.Background())
+	require.NoError(t, err)
+	require.False(t, settings.Stage1Enabled)
+	require.True(t, settings.Stage2Enabled)
+	require.Equal(t, "legacy drawing prompt", settings.Stage2Prompt)
+	require.Equal(t, settings.Stage2Prompt, settings.Prompt)
 }

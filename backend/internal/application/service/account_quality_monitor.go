@@ -46,12 +46,106 @@ const (
 	accountQualityPassesExtraKey      = "account_quality_consecutive_passes"
 	accountQualityLastCheckedExtraKey = "account_quality_last_checked_at"
 	accountQualityHistoryExtraKey     = "account_quality_history"
-	accountQualityProbeTimeout        = 2 * time.Minute
 )
 
-// runQualityMonitoring performs bounded, account-specific probes. It is kept
-// separate from the usage-stat inspection so operators can enable quality
-// probes without changing billing or request accounting.
+// qualityStageOutcome separates answer failures from operational errors.
+type qualityStageOutcome struct {
+	status          string
+	passed          bool
+	operational     bool
+	errorMessage    string
+	latencyMs       int64
+	reasoningTokens *int64
+	artifact        *QualityArtifact
+	runID           string
+}
+
+func (s *AccountQualityMonitoringService) runQualityStage(ctx context.Context, account Account, settings AccountQualitySettings, stage, prompt string) (outcome qualityStageOutcome) {
+	probeCtx, cancel := context.WithTimeout(ctx, time.Duration(settings.TimeoutSeconds)*time.Second)
+	defer cancel()
+	started := time.Now().UTC()
+	probe, err := s.accountTestSvc.RunQualityTestBackground(probeCtx, account.ID, strings.TrimSpace(settings.Model), prompt, settings.Effort)
+	outcome.status, outcome.operational = "error", true
+	if err != nil {
+		outcome.errorMessage = err.Error()
+		outcome.latencyMs = time.Since(started).Milliseconds()
+		return
+	}
+	if probe == nil {
+		outcome.errorMessage = "quality probe returned no result"
+		outcome.latencyMs = time.Since(started).Milliseconds()
+		return
+	}
+	outcome.latencyMs, outcome.reasoningTokens = probe.LatencyMs, probe.ReasoningTokens
+	if probe.Status != "success" {
+		outcome.errorMessage = strings.TrimSpace(probe.ErrorMessage)
+		if outcome.errorMessage == "" {
+			outcome.errorMessage = "quality probe request failed"
+		}
+		return outcome
+	}
+	if stage == "stage1" {
+		if !qualityAnswerPassesExpected(probe.ResponseText, settings.Stage1Answer) {
+			outcome.status, outcome.operational, outcome.errorMessage = "wrong", false, "answer did not match the configured answer"
+			return outcome
+		}
+		if settings.MinReasoningTokens > 0 {
+			if probe.ReasoningTokens == nil {
+				outcome.status, outcome.errorMessage = "uncertain", "upstream did not report reasoning tokens"
+				outcome.operational = false
+				return outcome
+			}
+			if *probe.ReasoningTokens < settings.MinReasoningTokens {
+				outcome.status, outcome.errorMessage = "wrong", fmt.Sprintf("reasoning tokens below threshold: %d < %d", *probe.ReasoningTokens, settings.MinReasoningTokens)
+				outcome.operational = false
+				return outcome
+			}
+		}
+		outcome.status, outcome.passed, outcome.operational = "passed", true, false
+		return outcome
+	}
+	if s.qualityProcessor == nil {
+		outcome.errorMessage = "renderer/classifier is not configured"
+		return outcome
+	}
+	artifact, processErr := s.qualityProcessor.Process(probeCtx, probe.ResponseText)
+	if processErr != nil {
+		outcome.errorMessage = "render/classification failed: " + processErr.Error()
+		return outcome
+	}
+	outcome.artifact = artifact
+	if artifact == nil || artifact.Confidence < settings.MinConfidence {
+		outcome.status, outcome.operational, outcome.errorMessage = "uncertain", false, "classifier confidence below threshold"
+		return outcome
+	}
+	switch artifact.Label {
+	case "normal":
+		outcome.status, outcome.passed, outcome.operational = "passed", true, false
+	case "unnormal":
+		outcome.status, outcome.passed, outcome.operational = "wrong", false, false
+	default:
+		outcome.status, outcome.operational, outcome.errorMessage = "uncertain", false, "classifier returned unknown label"
+	}
+	if s.qualityArtifacts != nil {
+		run := &AccountQualityRun{AccountID: account.ID, Model: strings.TrimSpace(settings.Model), Effort: settings.Effort, Status: "uncertain", Label: artifact.Label, Confidence: artifact.Confidence, StartedAt: probe.StartedAt, FinishedAt: probe.FinishedAt, LatencyMs: probe.LatencyMs, ModelVersion: artifact.ModelVersion, PNG: artifact.PNG, WebP: artifact.WebP, Error: outcome.errorMessage}
+		if outcome.status == "passed" {
+			run.Status = "ready"
+		}
+		if outcome.status == "wrong" {
+			run.Status = "wrong"
+		}
+		if saveErr := s.qualityArtifacts.Save(ctx, run); saveErr != nil {
+			outcome.status, outcome.operational = "error", true
+			outcome.errorMessage = "artifact save failed: " + saveErr.Error()
+		} else {
+			outcome.runID = run.ID
+		}
+	}
+	return outcome
+}
+
+// runQualityMonitoring performs enabled stages in order; disabling either
+// stage skips its upstream request.
 func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Context, accounts []Account, results []AccountInspectionAccountResult, previous *AccountQualityRunState, settings AccountQualitySettings, now time.Time) error {
 	previousByID := make(map[int64]AccountInspectionAccountResult)
 	if previous != nil {
@@ -63,163 +157,116 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 	var wg sync.WaitGroup
 	var firstErr error
 	var errMu sync.Mutex
+	recordErr := func(err error) {
+		if err != nil {
+			errMu.Lock()
+			if firstErr == nil {
+				firstErr = err
+			}
+			errMu.Unlock()
+		}
+	}
 	for i := range accounts {
 		account := accounts[i]
 		if !qualityProbeEligible(&account, settings.SourceGroupID) {
 			continue
 		}
-		sem <- struct{}{}
+		select {
+		case sem <- struct{}{}:
+		case <-ctx.Done():
+			recordErr(ctx.Err())
+			continue
+		}
 		wg.Add(1)
 		go func(index int, account Account) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			model := strings.TrimSpace(settings.Model)
-			probeCtx, cancel := context.WithTimeout(ctx, accountQualityProbeTimeout)
-			defer cancel()
-			probe, err := s.accountTestSvc.RunQualityTestBackground(probeCtx, account.ID, model, settings.Prompt, settings.Effort)
-			if err != nil {
-				probe = &ScheduledTestResult{Status: "failed", ErrorMessage: err.Error()}
-			}
-			requestOK := probe != nil && probe.Status == "success"
-			passed := false
-			classified := false
-			artifactStatus := "error"
-			var artifact *QualityArtifact
-			processErr := error(nil)
-			if requestOK && s.qualityProcessor == nil {
-				requestOK = false
-				probe.ErrorMessage = "renderer/classifier is not configured"
-			}
-			if requestOK && s.qualityProcessor != nil {
-				artifact, processErr = s.qualityProcessor.Process(probeCtx, probe.ResponseText)
-				if processErr != nil {
-					requestOK = false
-					probe.ErrorMessage = "render/classification failed: " + processErr.Error()
-				} else if artifact == nil || artifact.Confidence < settings.MinConfidence {
-					requestOK = false
-					artifactStatus = "uncertain"
-					probe.ErrorMessage = "classifier confidence below threshold"
-				} else if artifact.Label != "normal" && artifact.Label != "unnormal" {
-					requestOK = false
-					artifactStatus = "uncertain"
-					probe.ErrorMessage = "classifier returned unknown label"
-				} else {
-					classified = true
-					passed = artifact.Label == "normal"
-					artifactStatus = "ready"
-					if s.qualityArtifacts != nil {
-						run := &AccountQualityRun{AccountID: account.ID, Model: model, Effort: settings.Effort, Status: "ready", Label: artifact.Label, Confidence: artifact.Confidence, StartedAt: probe.StartedAt, FinishedAt: probe.FinishedAt, LatencyMs: probe.LatencyMs, ModelVersion: artifact.ModelVersion, PNG: artifact.PNG, WebP: artifact.WebP}
-						if !passed {
-							run.Status = "wrong"
-						}
-						if err := s.qualityArtifacts.Save(ctx, run); err != nil {
-							probe.ErrorMessage = "artifact save failed: " + err.Error()
-						}
-						result := &results[index]
-						result.QualityRunID, result.QualityLabel, result.QualityConfidence = run.ID, run.Label, run.Confidence
-					}
-				}
-			}
+			result := &results[index]
 			failures, passes, status := qualityCounters(account.Extra)
-			if !requestOK {
-				// Transport/auth/rate-limit failures belong to the existing account
-				// health circuit; they must not move an otherwise healthy account to
-				// a quality group.
-				result := &results[index]
-				// Keep consecutive counters unchanged for transport/auth/timeout
-				// failures, but expose the current probe as an error instead of
-				// showing a stale healthy/degraded label beside the error text.
-				result.QualityStatus, result.QualityConsecutiveFailures, result.QualityConsecutivePasses = "error", failures, passes
-				if status == "degraded" {
-					result.Reasons = appendUniqueReason(result.Reasons, "quality_probe_degraded")
-				}
-				if probe != nil {
-					result.QualityError = strings.TrimSpace(probe.ErrorMessage)
-					result.QualityLatencyMs = probe.LatencyMs
-				}
-				startedAt, finishedAt, latency := now, now, int64(0)
-				if probe != nil {
-					startedAt, finishedAt, latency = probe.StartedAt, probe.FinishedAt, probe.LatencyMs
-				}
-				if s.qualityArtifacts != nil {
-					run := &AccountQualityRun{AccountID: account.ID, Model: model, Effort: settings.Effort, Status: artifactStatus, Confidence: 0, StartedAt: startedAt, FinishedAt: finishedAt, LatencyMs: latency, Error: result.QualityError}
-					if artifact != nil {
-						run.Label, run.Confidence, run.ModelVersion = artifact.Label, artifact.Confidence, artifact.ModelVersion
-					}
-					if saveErr := s.qualityArtifacts.Save(ctx, run); saveErr == nil {
-						result.QualityRunID = run.ID
-						result.QualityLabel = run.Label
-						result.QualityConfidence = run.Confidence
-					}
-				}
-				writeQualityExtra(s.accountRepo, ctx, account.ID, qualityExtraUpdate(account.Extra, status, failures, passes, now, "error", result.QualityError))
+			result.QualityStage1Status, result.QualityStage2Status = "disabled", "disabled"
+			if !settings.Stage1Enabled && !settings.Stage2Enabled {
+				result.QualityStatus = "disabled"
 				return
 			}
-			if !classified {
-				// A renderer/classifier error is operationally distinct from a
-				// wrong answer and must not move the account between groups.
-				result := &results[index]
-				result.QualityStatus, result.QualityConsecutiveFailures, result.QualityConsecutivePasses = "error", failures, passes
-				result.QualityError = strings.TrimSpace(probe.ErrorMessage)
-				result.QualityLatencyMs = probe.LatencyMs
-				writeQualityExtra(s.accountRepo, ctx, account.ID, qualityExtraUpdate(account.Extra, status, failures, passes, now, "error", result.QualityError))
-				return
+			var stageErrors []string
+			wrong, operational, uncertain := false, false, false
+			observe := func(name string, stage qualityStageOutcome) {
+				result.QualityLatencyMs += stage.latencyMs
+				if stage.status == "wrong" {
+					wrong = true
+				}
+				if stage.operational {
+					operational = true
+				}
+				if stage.status == "uncertain" {
+					uncertain = true
+				}
+				if stage.errorMessage != "" {
+					stageErrors = append(stageErrors, name+": "+stage.errorMessage)
+				}
 			}
-			if passed {
-				passes++
-				failures = 0
-			} else {
+			if settings.Stage1Enabled {
+				stage := s.runQualityStage(ctx, account, settings, "stage1", settings.Stage1Prompt)
+				result.QualityStage1Status, result.QualityReasoningTokens = stage.status, stage.reasoningTokens
+				observe("stage1", stage)
+			}
+			if settings.Stage2Enabled {
+				stage := s.runQualityStage(ctx, account, settings, "stage2", settings.Stage2Prompt)
+				result.QualityStage2Status, result.QualityRunID = stage.status, stage.runID
+				if stage.artifact != nil {
+					result.QualityLabel, result.QualityConfidence = stage.artifact.Label, stage.artifact.Confidence
+				}
+				observe("stage2", stage)
+			}
+			result.QualityError = strings.Join(stageErrors, "; ")
+			if wrong {
 				failures++
 				passes = 0
-			}
-			if passed {
-				status = "healthy"
+				status = "degraded"
+				result.QualityStatus = "degraded"
+			} else if operational || uncertain {
+				result.QualityStatus = "error"
+				if !operational {
+					result.QualityStatus = "uncertain"
+				}
 			} else {
-				status = "degraded"
+				passes++
+				failures = 0
+				if prior, ok := previousByID[account.ID]; ok && prior.QualityStatus == "degraded" && passes < settings.RecoveryThreshold {
+					status = "degraded"
+				} else {
+					status = "healthy"
+				}
+				result.QualityStatus = status
 			}
-			if prior, ok := previousByID[account.ID]; ok && prior.QualityStatus == "degraded" && passed && passes < settings.RecoveryThreshold {
-				status = "degraded"
-			}
-			if failures >= settings.FailureThreshold {
-				status = "degraded"
-			}
-			if status == "degraded" && failures < settings.FailureThreshold && previousByID[account.ID].QualityStatus != "degraded" {
-				status = "healthy"
-			}
-			if prior, ok := previousByID[account.ID]; ok && prior.QualityStatus == "degraded" && passes >= settings.RecoveryThreshold {
-				status = "healthy"
-			}
-			result := &results[index]
-			result.QualityStatus, result.QualityConsecutiveFailures, result.QualityConsecutivePasses = status, failures, passes
-			if probe != nil {
-				result.QualityError = strings.TrimSpace(probe.ErrorMessage)
-				result.QualityLatencyMs = probe.LatencyMs
-			}
+			result.QualityConsecutiveFailures, result.QualityConsecutivePasses = failures, passes
 			if status == "degraded" {
 				result.Reasons = appendUniqueReason(result.Reasons, "quality_probe_degraded")
 			}
-			if status == "degraded" && failures >= settings.FailureThreshold {
-				if err := s.switchQualityGroup(ctx, &account, settings.DegradedGroupID, result); err != nil {
-					errMu.Lock()
-					if firstErr == nil {
-						firstErr = err
-					}
-					errMu.Unlock()
-				}
-			} else if status == "healthy" && passes >= settings.RecoveryThreshold {
-				if err := s.restoreQualityGroups(ctx, &account, result); err != nil {
-					errMu.Lock()
-					if firstErr == nil {
-						firstErr = err
-					}
-					errMu.Unlock()
+			if wrong && failures >= settings.FailureThreshold {
+				recordErr(s.switchQualityGroup(ctx, &account, settings.DegradedGroupID, result))
+			} else if !wrong && !operational && !uncertain && status == "healthy" && passes >= settings.RecoveryThreshold {
+				recordErr(s.restoreQualityGroups(ctx, &account, result))
+			}
+			outcome := "passed"
+			if wrong {
+				outcome = "wrong"
+			}
+			if operational {
+				outcome = "error"
+			}
+			if uncertain {
+				outcome = "uncertain"
+			}
+			updates := qualityExtraUpdate(account.Extra, status, failures, passes, now, outcome, result.QualityError)
+			if history, ok := updates[accountQualityHistoryExtraKey].([]map[string]any); ok && len(history) > 0 {
+				entry := history[len(history)-1]
+				entry["stage1_status"], entry["stage2_status"] = result.QualityStage1Status, result.QualityStage2Status
+				if result.QualityReasoningTokens != nil {
+					entry["reasoning_tokens"] = *result.QualityReasoningTokens
 				}
 			}
-			outcome := "wrong"
-			if passed {
-				outcome = "passed"
-			}
-			writeQualityExtra(s.accountRepo, ctx, account.ID, qualityExtraUpdate(account.Extra, status, failures, passes, now, outcome, result.QualityError))
+			recordErr(writeQualityExtraErr(s.accountRepo, ctx, account.ID, updates))
 		}(i, account)
 	}
 	wg.Wait()
@@ -320,6 +367,17 @@ func accountHasGroup(account *Account, groupID int64) bool {
 
 func qualityAnswerPasses(answer string) bool {
 	return regexp.MustCompile(`(^|[^0-9])21([^0-9]|$)`).MatchString(answer)
+}
+
+func qualityAnswerPassesExpected(answer, expected string) bool {
+	// Stage one is an exact-answer gate: any explanation, alternate number, or
+	// extra text is considered a failed answer. Keep the legacy
+	// qualityAnswerPasses helper for the account-inspection compatibility path.
+	expected = strings.TrimSpace(expected)
+	if expected == "" {
+		expected = accountQualityDefaultStage1Answer
+	}
+	return strings.TrimSpace(answer) == expected
 }
 
 func qualityCounters(extra map[string]any) (failures, passes int, status string) {

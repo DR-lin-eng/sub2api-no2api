@@ -1,6 +1,7 @@
-Changed source: backend/internal/application/service/account_quality_monitor.go
-Changed behavior: quality probes use a 120-second context deadline; current
-transport/auth/timeout failures are rendered as error and do not increment
-consecutive failure counters or trigger group switching.
-Changed UI: frontend/src/features/admin-account-quality/presentation/pages/AccountQualityPage.vue
-adds a button linking to /monitor/quality/public and localizes error status.
+Changed branch: codex/account-quality-source-group
+Changed source/fields:
+- backend/internal/application/service/account_quality_monitoring.go: independent stage1/stage2 settings, editable prompts/answer, min_reasoning_tokens, reasoning distribution, 120-second default timeout (30–300 seconds), 11-minute quality run budget.
+- backend/internal/application/service/account_quality_monitor.go: stage-specific execution, exact answer matching, renderer classification, token threshold and group scheduling.
+- backend/internal/application/service/account_test_service.go: provider usage extraction for OpenAI Responses/Chat Completions/Gemini and quality usage collection.
+- frontend/src/features/admin-account-quality/presentation/pages/AccountQualityPage.vue: stage toggles/editors, source/degraded groups, token distribution, account token column, public-page button.
+MODIFIED_FILE is intentionally left changed; rollback is tested only on an independent copy.

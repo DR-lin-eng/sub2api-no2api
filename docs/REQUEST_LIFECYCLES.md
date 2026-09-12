@@ -36,17 +36,15 @@ sequenceDiagram
 ### 账号级质量监控与降智分组切换
 
 管理员在独立的 `/admin/account-quality` 保存质量策略并启用质量巡检，可指定 `source_group_id` 作为检测源；后台复用账号测试的真实上游传输路径，按
-`interval_minutes` 对账号发送独立探测提示词（默认采用 manxue.ai 风格的形状/口味保证数题，并要求
-最后一行 `ANSWER=整数`）。回答中出现独立数字 `21` 视为通过；请求错误不递增质量失败计数，答题判分失败
-达到 `failure_threshold` 才标记为 `degraded`。选择检测源分组后只探测该分组账号；已经切入降智分组的账号仍会继续探测以支持恢复。未配置检测源时扫描全部支持的平台账号。账号健康巡检在 `/admin/account-inspection` 使用独立设置、状态和调度器，两个入口互不触发。
+`interval_minutes` 对账号执行两个可独立开关的阶段：`stage1_enabled` 开启糖果形状/口味保证题（默认 `stage1_answer=21`），`stage2_enabled` 开启 SVG 鹈鹕骑自行车画图题并交给渲染分类器。管理员可编辑 `stage1_prompt`、`stage1_answer` 和 `stage2_prompt`。只运行启用的阶段；全开时先文字题再画图。答案必须匹配配置答案且画图分类为 `normal` 才算通过。答错、画图为 `unnormal` 或第一阶段 reasoning token 低于阈值显示为 `degraded`；`failure_threshold` 决定连续失败几轮后自动切组，恢复遵循 `recovery_threshold`。请求或分类错误不递增失败计数。选择检测源分组后只探测该分组账号；已经切入降智分组的账号仍会继续探测以支持恢复。未配置检测源时扫描全部支持的平台账号。账号健康巡检在 `/admin/account-inspection` 使用独立设置、状态和调度器，两个入口互不触发。
 
 配置 `degraded_group_id` 后，首次进入降智状态会先把原 `account_groups` 列表写入账号
 `extra.account_quality_original_group_ids`，再通过现有 `BindGroups` 事务绑定目标分组并写 scheduler
 outbox。目标分组必须存在、启用且与账号平台一致；切换失败不会静默修改原分组。连续通过达到
-`quality_recovery_threshold` 时，仅当账号仍停留在记录的降智分组，系统才恢复原分组；管理员在此期间手动
+`recovery_threshold` 时，仅当账号仍停留在记录的降智分组，系统才恢复原分组；管理员在此期间手动
 改组则保留手动结果。未配置目标分组时质量状态仍可观测，但不改变调度资格。
 
-质量监控最多并发 4 个探测，每个探测 120 秒超时；传输、鉴权或超时错误显示为本次 `error`，但不递增质量失败计数，也不触发降智分组切换。状态、连续计数及最近 24 次结果摘要存入 `accounts.extra`，与用量日志统计分离；探测不会把回答写入用量或对外返回。普通 API Key/OAuth 请求的账号筛选、槽位、粘性会话、计费和 failover 语义保持不变。
+质量监控最多并发 4 个探测，每个探测使用 `timeout_seconds`（默认 120 秒，可由管理员设置为 30–300 秒）；传输、鉴权或超时错误显示为本次 `error`，但不递增质量失败计数，也不触发降智分组切换。第一阶段从上游实际 usage 提取 reasoning token：OpenAI Responses 的 `response.usage.output_tokens_details.reasoning_tokens`、Chat Completions 的 `usage.completion_tokens_details.reasoning_tokens`，Gemini 的 `usageMetadata.thoughtsTokenCount`。缺失用量显示未知；启用阈值时该次结果为待确认，不按 0 判降智。`min_reasoning_tokens` 默认 0（仅展示），管理员可设置 0–1000000；严格小于阈值判为降智，等于阈值通过。摘要提供 0–49、50–99、100–249、250–499、500–999、1000+ 六个区间、均值、已测和未知数量；汇总在分页和截断前完成。状态、连续计数和最近 24 次阶段摘要存入 `accounts.extra`，探测不会把回答或推理正文写入用量或对外返回。
 
 渲染与分类由可选的 `account-quality-renderer` Docker 服务承担：Sub2API 通过内网
 `POST /v1/process` 发送生成的 HTML，服务在无外网、无 Cookie 的 Playwright Chromium 中截取

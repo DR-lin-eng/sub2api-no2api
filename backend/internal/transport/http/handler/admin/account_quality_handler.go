@@ -4,7 +4,6 @@ import (
 	"context"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/shared/response"
@@ -58,7 +57,7 @@ func (h *AccountQualityHandler) Run(c *gin.Context) {
 		response.ErrorFrom(c, service.ErrAccountInspectionUnavailable)
 		return
 	}
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), service.AccountQualityRunTimeout)
 	defer cancel()
 	if _, err := h.qualityService.RunNow(ctx, "manual"); err != nil {
 		response.ErrorFrom(c, err)

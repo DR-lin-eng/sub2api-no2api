@@ -6,6 +6,6 @@
 - `data/datasources/accountQualityDatasource.ts`: `/admin/account-quality` 请求 owner。
 - `presentation/pages/AccountQualityPage.vue`: 质量设置、摘要和结果表。
 
-管理页操作区提供“打开公开展示页”按钮，跳转到 `/monitor/quality/public`；质量探测单次超时为 120 秒，超时显示为错误且不会改变连续失败计数或分组。
+管理页操作区提供“打开公开展示页”按钮，跳转到 `/monitor/quality/public`；质量探测单次超时默认 120 秒，可在质量巡检策略中自定义 30–300 秒。质量巡检分为两个可独立开关的阶段：第一阶段是糖果形状/口味保证题（默认答案 21），第二阶段是 SVG 鹈鹕骑自行车画图题。管理员可编辑第一阶段题目与答案、第二阶段提示词。页面显示每个账号的阶段结果、实际 reasoning token 和完整分布；低于阈值的账号标记为降智，缺失 token 显示为待确认。
 
 质量设置使用 `account_quality_settings`，运行状态使用 `account_quality_state`；账号健康巡检使用另一组设置、状态和调度器。
