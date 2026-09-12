@@ -37,6 +37,7 @@ export default {
     saveFailed: '保存质量巡检设置失败',
     runFailed: '执行质量巡检失败',
     runCompleted: '质量巡检完成，发现 {count} 个降智账号',
+    runStarted: '质量巡检已开始，正在后台执行',
   },
   accountInspection: {
     title: '账号巡检',

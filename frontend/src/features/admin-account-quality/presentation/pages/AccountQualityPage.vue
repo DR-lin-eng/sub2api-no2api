@@ -17,7 +17,7 @@
             <span>{{ t('admin.accountQuality.openPublic') }}</span>
           </a>
           <button class="btn btn-secondary" type="button" :disabled="loading || running" @click="loadOverview">{{ t('admin.accountInspection.refresh') }}</button>
-          <button class="btn btn-primary" type="button" :disabled="loading || running" @click="runNow">{{ running ? t('admin.accountInspection.running') : t('admin.accountQuality.runNow') }}</button>
+          <button class="btn btn-primary" type="button" :disabled="loading || running || run?.status === 'running'" @click="runNow">{{ running || run?.status === 'running' ? t('admin.accountInspection.running') : t('admin.accountQuality.runNow') }}</button>
         </div>
       </header>
 
@@ -97,7 +97,7 @@ function qualityStatusLabel(status?: string): string { if (status === 'healthy')
 function qualityStatusClass(status?: string): string { if (status === 'degraded') return 'text-amber-600'; if (status === 'error') return 'text-red-600'; if (status === 'uncertain') return 'text-gray-500'; return 'text-emerald-600' }
 async function loadOverview() { loading.value = true; errorMessage.value = ''; try { const data = await getOverview(); overview.value = data; Object.assign(settings, data.settings) } catch (error) { errorMessage.value = extractApiErrorMessage(error, t('admin.accountQuality.loadFailed')) } finally { loading.value = false } }
 async function saveSettings() { saving.value = true; try { Object.assign(settings, await updateSettings({ ...settings })); appStore.showSuccess(t('admin.accountQuality.saved')) } catch (error) { errorMessage.value = extractApiErrorMessage(error, t('admin.accountQuality.saveFailed')) } finally { saving.value = false } }
-async function runNow() { running.value = true; try { overview.value = await runQualityMonitoring(); Object.assign(settings, overview.value.settings); appStore.showSuccess(t('admin.accountQuality.runCompleted', { count: overview.value.run.summary.degraded })) } catch (error) { errorMessage.value = extractApiErrorMessage(error, t('admin.accountQuality.runFailed')) } finally { running.value = false; await loadOverview() } }
+async function runNow() { running.value = true; try { overview.value = await runQualityMonitoring(); Object.assign(settings, overview.value.settings); appStore.showSuccess(overview.value.run.status === 'running' ? t('admin.accountQuality.runStarted') : t('admin.accountQuality.runCompleted', { count: overview.value.run.summary.degraded })) } catch (error) { errorMessage.value = extractApiErrorMessage(error, t('admin.accountQuality.runFailed')) } finally { running.value = false; await loadOverview() } }
 onMounted(() => { void loadOverview(); void getAllGroups().then(items => { groups.value = items.filter(item => item.status === 'active' && (item.platform === 'openai' || item.platform === 'gemini')) }).catch(() => { groups.value = [] }); timer = setInterval(() => { if (run.value?.status === 'running') void loadOverview() }, 5000) }); onBeforeUnmount(() => { if (timer) clearInterval(timer) })
 </script>
 

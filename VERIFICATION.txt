@@ -76,3 +76,22 @@ Additional requested behavior:
 - Empty renderer configuration uses the embedded website-code SVG validator/preview; existing non-empty renderer configuration remains an override and is not rewritten.
 - POST /api/v1/admin/account-quality/run now returns the persisted running overview immediately; GET /api/v1/admin/account-quality exposes progress.total, progress.completed, current_account, current_account_id and current_stage while probes continue.
 - TestQualityProgressCallbackTracksAccountStageAndCompletion and TestStartNowReturnsRunningStateBeforeLongProbeCompletes passed locally.
+
+Renderer/progress update (2026-09-13):
+- Existing deployment/config files remain unchanged; no renderer setting is added to the admin form or migrated.
+- Empty external renderer configuration falls back to account_quality_embedded_renderer.go, which validates bounded SVG, removes script/event/external content, stores SVG preview, and serves format=svg. Existing non-empty renderer continues to take precedence.
+- StartNow returns a persisted running state immediately. Progress fields are total, completed, current_account_id, current_account, current_stage; the admin page polls every 5 seconds and displays a progress bar.
+
+LOCAL BACKEND command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/infrastructure/repository ./migrations ./internal/transport/http/handler/...
+LOCAL BACKEND literal result: service 136.785s; repository 5.502s; migrations 0.258s; handler 31.532s; admin 0.463s; dto 0.348s; quotaview 0.342s; supportchatasset cached; exit status 0.
+LOCAL TARGETED command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/infrastructure/repository ./migrations ./internal/transport/http/handler/admin -run 'TestQuality|TestAccountQuality' -count=1
+LOCAL TARGETED literal result: service 3.150s; repository 0.866s; migrations 0.368s; admin 0.530s; exit status 0.
+LOCAL FRONTEND command: cd frontend && pnpm run typecheck && pnpm run lint:check && pnpm exec vitest run src/features/admin-account-quality/__tests__/AccountQualityPage.spec.ts src/core/i18n/__tests__/routeLocaleCoverage.spec.ts
+LOCAL FRONTEND literal result: typecheck passed; eslint passed; 2 test files, 5 tests passed; exit status 0.
+COMPOSE command: POSTGRES_PASSWORD=test docker compose -f deploy/docker-compose.local.yml config
+COMPOSE literal result: configuration parsed successfully with existing profile-based renderer, no configuration files changed; exit status 0.
+DOCKER BUILD command: docker build --target backend-builder -t sub2api-account-quality-local-progress-final:test .
+DOCKER BUILD literal result: embedded frontend/backend image built successfully; exit status 0.
+DOCKER TEST command: docker run --rm sub2api-account-quality-local-progress-final:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/application/service ./internal/infrastructure/repository ./migrations ./internal/transport/http/handler/admin -run "TestQuality|TestAccountQuality" -count=1'
+DOCKER TEST literal result: service 2.144s; repository 0.019s; migrations 0.002s; admin 0.014s; all passed; exit status 0.
+ROLLBACK command/result: independent modified-copy mutation restored from BASELINE_ACCOUNT_QUALITY_MONITOR.go; cmp exit status 0; baseline SHA-256 8c7d91fc5ebdd7a4fa9ef11a7a1437e1a1392ae492a7a90da20409c0fe270425 restored. Working tree source remains changed.

@@ -37,6 +37,7 @@ export default {
     saveFailed: 'Failed to save quality settings',
     runFailed: 'Failed to run quality inspection',
     runCompleted: 'Quality inspection complete. {count} degraded account(s)',
+    runStarted: 'Quality inspection started and is running in the background',
   },
   accountInspection: {
     title: 'Account Inspection',
