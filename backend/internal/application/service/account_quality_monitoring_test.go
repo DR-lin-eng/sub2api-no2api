@@ -32,4 +32,3 @@ func TestAccountInspectionSettingsDoNotSerializeQualityPolicy(t *testing.T) {
 	require.NotContains(t, string(payload), "quality_monitoring_enabled")
 	require.NotContains(t, string(payload), "quality_source_group_id")
 }
-
