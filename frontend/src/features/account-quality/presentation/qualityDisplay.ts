@@ -17,8 +17,7 @@ export const verdictColor = {
   passed: 'bg-emerald-500', wrong: 'bg-rose-500', uncertain: 'bg-amber-400', error: 'bg-slate-400'
 }
 export function previewURL(point: AccountQualityPublicPoint): string {
-  const format = point.preview_format === 'svg' ? 'svg' : 'webp'
-  return `/api/v1/account-quality-share/image/${encodeURIComponent(point.id)}?format=${format}`
+  return `/api/v1/account-quality-share/image/${encodeURIComponent(point.id)}?format=webp`
 }
 export function hasPreview(point: AccountQualityPublicPoint): boolean {
   return !!point.id && (point.has_preview ?? ['ready', 'wrong'].includes(point.status))

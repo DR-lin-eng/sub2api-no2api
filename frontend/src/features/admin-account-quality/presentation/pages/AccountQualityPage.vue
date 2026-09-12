@@ -16,17 +16,17 @@
             <Icon name="externalLink" size="sm" />
             <span>{{ t('admin.accountQuality.openPublic') }}</span>
           </a>
-          <button class="btn btn-secondary" type="button" :disabled="loading || running" @click="loadOverview">{{ t('admin.accountInspection.refresh') }}</button>
+          <button class="btn btn-secondary" type="button" :disabled="loading || running" @click="loadOverview()">{{ t('admin.accountInspection.refresh') }}</button>
           <button class="btn btn-primary" type="button" :disabled="loading || running || run?.status === 'running'" @click="runNow">{{ running || run?.status === 'running' ? t('admin.accountInspection.running') : t('admin.accountQuality.runNow') }}</button>
         </div>
       </header>
 
-      <div v-if="errorMessage" class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ errorMessage }}</div>
+      <div v-if="errorMessage || run?.error" class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ errorMessage || run?.error }}</div>
 
-      <section v-if="run?.status === 'running'" class="rounded-lg border border-primary-200 bg-primary-50 p-4 dark:border-primary-900/60 dark:bg-primary-950/30">
+      <section v-if="run?.progress" class="rounded-lg border border-primary-200 bg-primary-50 p-4 dark:border-primary-900/60 dark:bg-primary-950/30">
         <div class="flex flex-wrap items-center justify-between gap-2 text-sm font-medium"><span>{{ t('admin.accountQuality.progressTitle') }}</span><span>{{ runProgress.completed }} / {{ runProgress.total }}</span></div>
-        <div class="mt-3 h-2 overflow-hidden rounded-full bg-primary-100 dark:bg-primary-900"><div class="h-full rounded-full bg-primary-600 transition-all" :style="{ width: `${progressPercent}%` }" /></div>
-        <p class="mt-2 text-xs text-primary-800 dark:text-primary-200">{{ runProgress.current_account || t('admin.accountQuality.progressPreparing') }} · {{ runProgress.current_stage || '-' }}</p>
+        <div role="progressbar" :aria-label="t('admin.accountQuality.progressTitle')" :aria-valuenow="runProgress.completed" :aria-valuemax="runProgress.total || 1" aria-valuemin="0" class="mt-3 h-2 overflow-hidden rounded-full bg-primary-100 dark:bg-primary-900"><div class="h-full rounded-full bg-primary-600 transition-all" :style="{ width: `${progressPercent}%` }" /></div>
+        <p class="mt-2 text-xs text-primary-800 dark:text-primary-200">{{ t('admin.accountQuality.progressCounts', { queued: runProgress.queued || 0, running: runProgress.running || 0 }) }} · {{ t('admin.accountQuality.elapsed') }} {{ elapsed(run?.started_at, run?.completed_at) }}</p>
       </section>
 
       <section class="border-y border-gray-200 py-5 dark:border-dark-700">
@@ -68,8 +68,13 @@
       </section>
 
       <section class="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800">
-        <table class="w-full min-w-[1100px] text-left text-sm"><thead class="bg-gray-50 text-xs text-gray-500 dark:bg-dark-900/60"><tr><th class="px-4 py-3">{{ t('admin.accountInspection.results.account') }}</th><th class="px-4 py-3">{{ t('admin.accountQuality.stageResults') }}</th><th class="px-4 py-3">{{ t('admin.accountInspection.results.state') }}</th><th class="px-4 py-3">{{ t('admin.accountQuality.reasoningTokens') }}</th><th class="px-4 py-3">{{ t('admin.accountInspection.results.action') }}</th><th class="px-4 py-3">{{ t('admin.accountInspection.results.reason') }}</th><th class="px-4 py-3">{{ t('admin.accountQuality.probeLatency') }}</th></tr></thead><tbody class="divide-y divide-gray-100 dark:divide-dark-700"><tr v-for="row in results" :key="row.account_id"><td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ row.name }} <span class="text-xs text-gray-400">#{{ row.account_id }} · {{ row.platform }}</span></td><td class="px-4 py-3 text-xs"><span class="mr-3">S1 {{ qualityStageLabel(row.quality_stage1_status) }}</span><span>S2 {{ qualityStageLabel(row.quality_stage2_status) }}</span></td><td class="px-4 py-3"><span :class="qualityStatusClass(row.quality_status)">{{ qualityStatusLabel(row.quality_status) }}</span><span class="ml-2 text-xs text-gray-400">F{{ row.quality_consecutive_failures || 0 }} / P{{ row.quality_consecutive_passes || 0 }}</span></td><td class="px-4 py-3 tabular-nums">{{ row.quality_reasoning_tokens == null ? t('common.unknown') : row.quality_reasoning_tokens.toLocaleString() }}</td><td class="px-4 py-3 text-xs">{{ row.quality_action || '-' }}</td><td class="max-w-md truncate px-4 py-3 text-xs text-gray-500" :title="row.quality_error">{{ row.quality_error || row.quality_label || '-' }}</td><td class="px-4 py-3 tabular-nums">{{ row.quality_latency_ms ? `${Math.round(row.quality_latency_ms)}ms` : '-' }}</td></tr><tr v-if="!loading && !results.length"><td colspan="7" class="px-4 py-10 text-center text-gray-500">{{ t('admin.accountInspection.results.noResults') }}</td></tr></tbody></table>
+        <table class="w-full min-w-[1100px] text-left text-sm"><thead class="bg-gray-50 text-xs text-gray-500 dark:bg-dark-900/60"><tr><th class="px-4 py-3">{{ t('admin.accountInspection.results.account') }}</th><th class="px-4 py-3">{{ t('admin.accountQuality.stageResults') }}</th><th class="px-4 py-3">{{ t('admin.accountInspection.results.state') }}</th><th class="px-4 py-3">{{ t('admin.accountQuality.reasoningTokens') }}</th><th class="px-4 py-3">{{ t('admin.accountInspection.results.action') }}</th><th class="px-4 py-3">{{ t('admin.accountInspection.results.reason') }}</th><th class="px-4 py-3">{{ t('admin.accountQuality.probeLatency') }}</th></tr></thead><tbody class="divide-y divide-gray-100 dark:divide-dark-700"><tr v-for="row in results" :key="row.account_id"><td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ row.name }} <span class="text-xs text-gray-400">#{{ row.account_id }} · {{ row.platform }}</span></td><td class="px-4 py-3 text-xs"><p class="mb-2 text-primary-600 dark:text-primary-400">{{ phaseLabel(row.quality_phase) }} · {{ elapsed(row.quality_started_at, row.quality_completed_at) }}</p><span class="mr-3">S1 {{ qualityStageLabel(row.quality_stage1_status) }}</span><span>S2 {{ qualityStageLabel(row.quality_stage2_status) }}</span></td><td class="px-4 py-3"><span :class="qualityStatusClass(row.quality_status)">{{ qualityStatusLabel(row.quality_status) }}</span><span class="ml-2 text-xs text-gray-400">F{{ row.quality_consecutive_failures || 0 }} / P{{ row.quality_consecutive_passes || 0 }}</span></td><td class="px-4 py-3 tabular-nums">{{ row.quality_reasoning_tokens == null ? t('common.unknown') : row.quality_reasoning_tokens.toLocaleString() }}</td><td class="px-4 py-3 text-xs">{{ row.quality_action || '-' }}</td><td class="max-w-md truncate px-4 py-3 text-xs text-gray-500" :title="row.quality_error">{{ row.quality_error || row.quality_label || '-' }}</td><td class="px-4 py-3 tabular-nums">{{ row.quality_latency_ms ? `${Math.round(row.quality_latency_ms)}ms` : '-' }}</td></tr><tr v-if="!loading && !results.length"><td colspan="7" class="px-4 py-10 text-center text-gray-500">{{ run?.status === 'running' ? t('admin.accountQuality.progressPreparing') : t('admin.accountInspection.results.noResults') }}</td></tr></tbody></table>
       </section>
+      <div class="flex items-center justify-between text-sm text-gray-500" v-if="(overview?.results.pages || 1) > 1">
+        <button class="btn btn-secondary" :disabled="page <= 1 || loading" @click="changePage(-1)">{{ t('common.back') }}</button>
+        <span>{{ page }} / {{ overview?.results.pages }} · {{ overview?.results.total }}</span>
+        <button class="btn btn-secondary" :disabled="page >= (overview?.results.pages || 1) || loading" @click="changePage(1)">{{ t('common.next') }}</button>
+      </div>
     </main>
   </AppLayout>
 </template>
@@ -92,13 +97,70 @@ const settings = reactive<AccountQualitySettings>({ enabled: false, interval_min
 const statusLabel = computed(() => run.value?.status === 'running' ? t('admin.accountInspection.status.running') : run.value?.status === 'failed' ? t('admin.accountInspection.status.failed') : run.value?.status === 'succeeded' ? t('admin.accountInspection.status.succeeded') : t('admin.accountInspection.status.idle')); const statusClass = computed(() => run.value?.status === 'failed' ? 'bg-red-50 text-red-700' : run.value?.status === 'succeeded' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'); const summaryItems = computed(() => { const s = run.value?.summary ?? { inspected: 0, passed: 0, degraded: 0, uncertain: 0, errors: 0, switched: 0, reasoning_token_distribution: { average_tokens: null, measured_accounts: 0, unknown_accounts: 0, buckets: [] } }; return [{ key: 'inspected', label: t('admin.accountInspection.summary.inspected'), value: s.inspected }, { key: 'passed', label: t('admin.accountQuality.passed'), value: s.passed }, { key: 'degraded', label: t('admin.accountInspection.summary.qualityDegraded'), value: s.degraded }, { key: 'uncertain', label: t('admin.accountQuality.uncertain'), value: s.uncertain }, { key: 'errors', label: t('admin.accountQuality.errors'), value: s.errors }, { key: 'switched', label: t('admin.accountInspection.summary.qualitySwitched'), value: s.switched }] })
 const reasoningDistribution = computed(() => run.value?.summary.reasoning_token_distribution ?? { average_tokens: null, measured_accounts: 0, unknown_accounts: 0, buckets: [] }); const reasoningBuckets = computed(() => reasoningDistribution.value.buckets); const reasoningAverage = computed(() => reasoningDistribution.value.average_tokens == null ? '-' : reasoningDistribution.value.average_tokens.toFixed(1)); const reasoningMeasured = computed(() => reasoningDistribution.value.measured_accounts); const reasoningUnknown = computed(() => reasoningDistribution.value.unknown_accounts)
 function reasoningBucketLabel(key: string): string { const labels: Record<string, string> = { '0_49': t('admin.accountQuality.reasoningBuckets.0_49'), '50_99': t('admin.accountQuality.reasoningBuckets.50_99'), '100_249': t('admin.accountQuality.reasoningBuckets.100_249'), '250_499': t('admin.accountQuality.reasoningBuckets.250_499'), '500_999': t('admin.accountQuality.reasoningBuckets.500_999'), '1000_plus': t('admin.accountQuality.reasoningBuckets.1000_plus') }; return labels[key] ?? key }
-function qualityStageLabel(status?: string): string { if (status === 'passed') return t('admin.accountQuality.stagePassed'); if (status === 'wrong') return t('admin.accountQuality.stageWrong'); if (status === 'uncertain') return t('admin.accountQuality.uncertain'); if (status === 'error') return t('admin.accountQuality.errors'); if (status === 'disabled') return t('admin.accountQuality.stageDisabled'); return '-' }
-function qualityStatusLabel(status?: string): string { if (status === 'healthy') return t('admin.accountQuality.passed'); if (status === 'degraded') return t('admin.accountInspection.summary.qualityDegraded'); if (status === 'uncertain') return t('admin.accountQuality.uncertain'); if (status === 'error') return t('admin.accountQuality.errors'); return '-' }
+function qualityStageLabel(status?: string): string { if (status === 'running') return t('admin.accountInspection.running'); if (status === 'queued') return t('admin.accountQuality.queued'); if (status === 'passed') return t('admin.accountQuality.stagePassed'); if (status === 'wrong') return t('admin.accountQuality.stageWrong'); if (status === 'uncertain') return t('admin.accountQuality.uncertain'); if (status === 'error') return t('admin.accountQuality.errors'); if (status === 'disabled') return t('admin.accountQuality.stageDisabled'); return '-' }
+function qualityStatusLabel(status?: string): string { if (status === 'running') return t('admin.accountInspection.running'); if (status === 'queued') return t('admin.accountQuality.queued'); if (status === 'disabled') return t('admin.accountQuality.stageDisabled'); if (status === 'healthy') return t('admin.accountQuality.passed'); if (status === 'degraded') return t('admin.accountInspection.summary.qualityDegraded'); if (status === 'uncertain') return t('admin.accountQuality.uncertain'); if (status === 'error') return t('admin.accountQuality.errors'); return '-' }
 function qualityStatusClass(status?: string): string { if (status === 'degraded') return 'text-amber-600'; if (status === 'error') return 'text-red-600'; if (status === 'uncertain') return 'text-gray-500'; return 'text-emerald-600' }
-async function loadOverview() { loading.value = true; errorMessage.value = ''; try { const data = await getOverview(); overview.value = data; Object.assign(settings, data.settings) } catch (error) { errorMessage.value = extractApiErrorMessage(error, t('admin.accountQuality.loadFailed')) } finally { loading.value = false } }
-async function saveSettings() { saving.value = true; try { Object.assign(settings, await updateSettings({ ...settings })); appStore.showSuccess(t('admin.accountQuality.saved')) } catch (error) { errorMessage.value = extractApiErrorMessage(error, t('admin.accountQuality.saveFailed')) } finally { saving.value = false } }
-async function runNow() { running.value = true; try { overview.value = await runQualityMonitoring(); Object.assign(settings, overview.value.settings); appStore.showSuccess(overview.value.run.status === 'running' ? t('admin.accountQuality.runStarted') : t('admin.accountQuality.runCompleted', { count: overview.value.run.summary.degraded })) } catch (error) { errorMessage.value = extractApiErrorMessage(error, t('admin.accountQuality.runFailed')) } finally { running.value = false; await loadOverview() } }
-onMounted(() => { void loadOverview(); void getAllGroups().then(items => { groups.value = items.filter(item => item.status === 'active' && (item.platform === 'openai' || item.platform === 'gemini')) }).catch(() => { groups.value = [] }); timer = setInterval(() => { if (run.value?.status === 'running') void loadOverview() }, 5000) }); onBeforeUnmount(() => { if (timer) clearInterval(timer) })
+const page = ref(1)
+const now = ref(Date.now())
+let elapsedTimer: ReturnType<typeof setInterval> | undefined
+let disposed = false
+function elapsed(start?: string | null, end?: string | null): string {
+  const started = Date.parse(start || '')
+  if (!Number.isFinite(started)) return '—'
+  const duration = Math.max(0, Math.floor(((end ? Date.parse(end) : now.value) - started) / 1000))
+  return `${Math.floor(duration / 60)}m ${duration % 60}s`
+}
+function phaseLabel(phase?: string): string {
+  const labels: Record<string, string> = {
+    queued: t('admin.accountQuality.queued'),
+    stage1: t('admin.accountQuality.stage1Running'),
+    stage2: t('admin.accountQuality.stage2Running'),
+    rendering: t('admin.accountQuality.rendering'),
+    saving: t('admin.accountQuality.persisting'),
+    complete: t('admin.accountQuality.completed'),
+    skipped: t('admin.accountQuality.stageDisabled'),
+    cancelled: t('admin.accountQuality.cancelled')
+  }
+  return labels[phase || ''] || '—'
+}
+async function loadOverview(refreshSettings = true) {
+  if (loading.value || disposed) return
+  loading.value = true
+  try {
+    const data = await getOverview({ page: page.value, page_size: 50 })
+    if (disposed) return
+    const priorStatus = run.value?.status
+    overview.value = data
+    if (refreshSettings) { Object.assign(settings, data.settings); errorMessage.value = '' }
+    if (priorStatus === 'running' && data.run.status === 'succeeded') appStore.showSuccess(t('admin.accountQuality.runCompleted', { count: data.run.summary.degraded }))
+  } catch (error) { errorMessage.value = extractApiErrorMessage(error, t('admin.accountQuality.loadFailed')) }
+  finally { loading.value = false }
+}
+async function changePage(delta: number) { page.value += delta; await loadOverview(false) }
+async function saveSettings() {
+  saving.value = true
+  try { Object.assign(settings, await updateSettings({ ...settings })); errorMessage.value = ''; appStore.showSuccess(t('admin.accountQuality.saved')) }
+  catch (error) { errorMessage.value = extractApiErrorMessage(error, t('admin.accountQuality.saveFailed')) }
+  finally { saving.value = false }
+}
+async function runNow() {
+  running.value = true
+  errorMessage.value = ''
+  page.value = 1
+  try {
+    overview.value = await runQualityMonitoring()
+    if (overview.value.run.status === 'running') appStore.showSuccess(t('admin.accountQuality.runStarted'))
+    else appStore.showSuccess(t('admin.accountQuality.runCompleted', { count: overview.value.run.summary.degraded }))
+  } catch (error) { errorMessage.value = extractApiErrorMessage(error, t('admin.accountQuality.runFailed')) }
+  finally { running.value = false }
+}
+onMounted(() => {
+  void loadOverview()
+  void getAllGroups().then(items => { groups.value = items.filter(item => item.status === 'active' && (item.platform === 'openai' || item.platform === 'gemini')) }).catch(() => { groups.value = [] })
+  timer = setInterval(() => { if (run.value?.status === 'running') void loadOverview(false) }, 5000)
+  elapsedTimer = setInterval(() => { now.value = Date.now() }, 1000)
+})
+onBeforeUnmount(() => { disposed = true; if (timer) clearInterval(timer); clearInterval(elapsedTimer) })
 </script>
 
 <style scoped>

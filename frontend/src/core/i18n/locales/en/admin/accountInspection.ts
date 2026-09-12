@@ -1,5 +1,15 @@
 export default {
   accountQuality: {
+    progressCounts: 'Queued {queued} · Running {running}',
+    elapsed: 'Elapsed',
+    queued: 'Queued',
+    stage1Running: 'Checking text answer',
+    stage2Running: 'Generating drawing',
+    rendering: 'Rendering and classifying',
+    persisting: 'Saving result',
+    completed: 'Completed',
+    cancelled: 'Interrupted',
+
     title: 'Account Quality Monitoring',
     description: 'Probe account output quality independently and route on consecutive results.',
     settingsTitle: 'Quality inspection policy',

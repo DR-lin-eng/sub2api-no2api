@@ -19,7 +19,6 @@ export interface AccountQualityPublicPoint {
   latency_ms?: number
   started_at: string
   has_preview?: boolean
-  preview_format?: string
   details?: { stage1?: AccountQualityStageDetail | null; stage2?: AccountQualityStageDetail | null }
 }
 

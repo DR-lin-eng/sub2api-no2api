@@ -9,6 +9,7 @@
 ARG NODE_IMAGE=node:24-alpine
 ARG GOLANG_IMAGE=golang:1.26.6-alpine
 ARG ALPINE_IMAGE=alpine:3.20
+ARG QUALITY_RUNTIME_IMAGE=python:3.11-slim-bookworm
 ARG GOPROXY=https://goproxy.cn,direct
 ARG GOSUMDB=sum.golang.google.cn
 
@@ -83,24 +84,29 @@ RUN VERSION_VALUE="${VERSION}" && \
 # -----------------------------------------------------------------------------
 # Stage 3: Final Runtime Image
 # -----------------------------------------------------------------------------
-FROM ${ALPINE_IMAGE}
+FROM ${QUALITY_RUNTIME_IMAGE} AS quality-runtime
 
 # Labels
 LABEL maintainer="DR-lin-eng <github.com/DR-lin-eng>"
 LABEL description="Sub2API - AI API Gateway Platform"
 LABEL org.opencontainers.image.source="https://github.com/DR-lin-eng/sub2api-no2api"
 
-# Install runtime dependencies
-RUN apk add --no-cache \
-    ca-certificates \
-    tzdata \
-    curl \
-    su-exec \
-    && rm -rf /var/cache/apk/*
+# Build-time dependencies for the in-process quality module. No sidecar, URL,
+# runtime installer, or changes to existing Compose/environment are required.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates tzdata curl wget gosu libpq5 libldap-2.5-0 libkrb5-3 liblz4-1 libzstd1 libedit2 \
+    && ln -s /usr/sbin/gosu /usr/local/bin/su-exec \
+    && rm -rf /var/lib/apt/lists/*
+COPY backend/resources/quality-renderer/requirements.txt /opt/quality-renderer/requirements.txt
+RUN pip install --no-cache-dir torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cpu \
+    && pip install --no-cache-dir -r /opt/quality-renderer/requirements.txt \
+    && playwright install --with-deps chromium \
+    && chmod -R a+rX /ms-playwright && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
-RUN addgroup -g 1000 sub2api && \
-    adduser -u 1000 -G sub2api -s /bin/sh -D sub2api
+RUN groupadd -g 1000 sub2api && \
+    useradd -u 1000 -g sub2api -m -s /bin/sh sub2api
 
 # Set working directory
 WORKDIR /app

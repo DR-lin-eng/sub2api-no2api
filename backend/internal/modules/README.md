@@ -7,6 +7,7 @@
 | [activitycenter](activitycenter/README.md) | 活动配置、可见性、抽奖、签到、兑换膨胀和参与记录领域规则 |
 | [chat](chat/README.md) | 在线客服会话、消息、未读状态、撤回事件、保留清理和实时广播 |
 | [egress](egress/README.md) | 账号 IPv6 出口池、绑定、探测和 HE 隧道管理 |
+| [qualityrender](qualityrender/README.md) | 内嵌本地 HTML 渲染与 best.pt 实际分类，无额外服务配置 |
 | [payment](payment/README.md) | 支付金额、币种、渠道注册与提供商适配 |
 | [securityaudit](securityaudit/README.md) | Prompt 审计、同步防护、队列和审计策略 |
 

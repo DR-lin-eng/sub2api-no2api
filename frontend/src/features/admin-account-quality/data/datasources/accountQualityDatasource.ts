@@ -12,8 +12,6 @@ export async function updateSettings(settings: AccountQualitySettings): Promise<
 }
 
 export async function runQualityMonitoring(): Promise<AccountQualityOverview> {
-  // Two five-minute stages can run sequentially; keep the browser request
-  // alive for the backend's eleven-minute quality-run budget.
-  const { data } = await apiClient.post<AccountQualityOverview>('/admin/account-quality/run', undefined, { timeout: 660000 })
+  const { data } = await apiClient.post<AccountQualityOverview>('/admin/account-quality/run')
   return data
 }

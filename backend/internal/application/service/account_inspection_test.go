@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,12 +13,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type inspectionSettingRepoStub struct{ values map[string]string }
+type inspectionSettingRepoStub struct {
+	values map[string]string
+	mu     sync.Mutex
+}
 
 func (s *inspectionSettingRepoStub) Get(context.Context, string) (*Setting, error) {
 	return nil, ErrSettingNotFound
 }
 func (s *inspectionSettingRepoStub) GetValue(_ context.Context, key string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	value, ok := s.values[key]
 	if !ok {
 		return "", ErrSettingNotFound
@@ -25,6 +31,8 @@ func (s *inspectionSettingRepoStub) GetValue(_ context.Context, key string) (str
 	return value, nil
 }
 func (s *inspectionSettingRepoStub) Set(_ context.Context, key, value string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.values[key] = value
 	return nil
 }

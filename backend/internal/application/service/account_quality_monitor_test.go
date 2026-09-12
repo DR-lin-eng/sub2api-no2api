@@ -179,19 +179,6 @@ func TestQualityStagesBothDisabledSkipProbe(t *testing.T) {
 	require.Equal(t, "disabled", results[0].QualityStage2Status)
 }
 
-func TestQualityStageTwoUsesEmbeddedSVGRendererWithoutExternalConfiguration(t *testing.T) {
-	account := Account{ID: 16, Name: "embedded-render", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
-	probe := &qualityStageProbeStub{responses: []string{"<html><svg viewBox='0 0 10 10'><circle cx='5' cy='5' r='4'/></svg></html>"}}
-	repo := &qualityRepoStub{extra: map[int64]map[string]any{}}
-	svc := &AccountQualityMonitoringService{accountRepo: repo, accountTestSvc: probe}
-	settings := DefaultAccountQualitySettings()
-	settings.Stage1Enabled = false
-	results := []AccountInspectionAccountResult{neutralAccountInspectionResult(&account, time.Now().UTC())}
-	require.NoError(t, svc.runQualityMonitoring(context.Background(), []Account{account}, results, nil, settings, time.Now().UTC()))
-	require.Equal(t, "passed", results[0].QualityStage2Status)
-	require.Equal(t, "healthy", results[0].QualityStatus)
-}
-
 func TestStartNowReturnsRunningStateBeforeLongProbeCompletes(t *testing.T) {
 	settings := DefaultAccountQualitySettings()
 	settings.Enabled = true
@@ -236,7 +223,7 @@ func TestQualityProgressCallbackTracksAccountStageAndCompletion(t *testing.T) {
 		events = append(events, fmt.Sprintf("%d:%s:%t", index, stage, done))
 	}
 	require.NoError(t, svc.runQualityMonitoring(context.Background(), []Account{account}, results, nil, settings, time.Now().UTC(), progress))
-	require.Equal(t, []string{"0:stage1:false", "0:stage2:false", "0:complete:true"}, events)
+	require.Equal(t, []string{"0:stage1:false", "0:stage2:false", "0:rendering:false", "0:saving:false", "0:complete:true"}, events)
 }
 
 func TestQualityStageOneNonTwentyOneIsDegraded(t *testing.T) {

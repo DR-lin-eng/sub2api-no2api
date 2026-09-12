@@ -184,6 +184,8 @@ type AccountQualityRunState struct {
 type AccountQualityProgress struct {
 	Total            int    `json:"total"`
 	Completed        int    `json:"completed"`
+	Running          int    `json:"running"`
+	Queued           int    `json:"queued"`
 	CurrentAccountID int64  `json:"current_account_id,omitempty"`
 	CurrentAccount   string `json:"current_account,omitempty"`
 	CurrentStage     string `json:"current_stage,omitempty"`
@@ -233,6 +235,9 @@ type AccountQualityMonitoringService struct {
 	stopOnce     sync.Once
 	wg           sync.WaitGroup
 	running      atomic.Bool
+	lifecycleMu  sync.Mutex
+	runWG        sync.WaitGroup
+	stopping     bool
 }
 
 func NewAccountQualityMonitoringService(accountRepo AccountRepository, settingRepo SettingRepository, probe AccountQualityProbeRunner, processor AccountQualityArtifactProcessor, artifacts AccountQualityArtifactRepository, groups GroupRepository) *AccountQualityMonitoringService {
@@ -257,7 +262,16 @@ func (s *AccountQualityMonitoringService) Stop() {
 	if s == nil {
 		return
 	}
-	s.stopOnce.Do(func() { s.parentCancel(); s.wg.Wait() })
+	s.stopOnce.Do(func() {
+		s.lifecycleMu.Lock()
+		s.stopping = true
+		if s.parentCancel != nil {
+			s.parentCancel()
+		}
+		s.lifecycleMu.Unlock()
+		s.wg.Wait()
+		s.runWG.Wait()
+	})
 }
 
 func (s *AccountQualityMonitoringService) runLoop() {
@@ -402,10 +416,12 @@ func (s *AccountQualityMonitoringService) RunNow(ctx context.Context, trigger st
 	if s == nil || s.accountRepo == nil || s.accountTestSvc == nil {
 		return nil, ErrAccountInspectionUnavailable
 	}
-	if !s.running.CompareAndSwap(false, true) {
-		return nil, ErrAccountInspectionBusy
+	if err := s.beginQualityRun(); err != nil {
+		return nil, err
 	}
-	defer s.running.Store(false)
+	defer s.endQualityRun()
+	ctx, cancel := s.qualityRunContext(ctx)
+	defer cancel()
 	release, acquired := tryAcquireSingletonLeaderLock(ctx, s.lockCache, s.db, accountQualityLeaderLockKey, s.instanceID, accountQualityLeaderLockTTL)
 	if !acquired {
 		return nil, ErrAccountInspectionBusy
@@ -420,31 +436,36 @@ func (s *AccountQualityMonitoringService) StartNow(ctx context.Context, trigger 
 	if s == nil || s.accountRepo == nil || s.accountTestSvc == nil {
 		return nil, ErrAccountInspectionUnavailable
 	}
-	if !s.running.CompareAndSwap(false, true) {
-		return nil, ErrAccountInspectionBusy
+	if err := s.beginQualityRun(); err != nil {
+		return nil, err
 	}
 	release, acquired := tryAcquireSingletonLeaderLock(ctx, s.lockCache, s.db, accountQualityLeaderLockKey, s.instanceID, accountQualityLeaderLockTTL)
 	if !acquired {
-		s.running.Store(false)
+		s.endQualityRun()
 		return nil, ErrAccountInspectionBusy
 	}
 	settings, err := s.GetSettings(ctx)
 	if err != nil {
 		release()
-		s.running.Store(false)
+		s.endQualityRun()
 		return nil, err
 	}
 	if err := s.validateQualityGroups(ctx, settings); err != nil {
 		release()
-		s.running.Store(false)
+		s.endQualityRun()
 		return nil, err
 	}
-	previous, _ := s.loadState(ctx)
+	previous, err := s.loadState(ctx)
+	if err != nil {
+		release()
+		s.endQualityRun()
+		return nil, err
+	}
 	now := time.Now().UTC()
 	state := &AccountQualityRunState{RunID: uuid.NewString(), Status: AccountInspectionStatusRunning, Trigger: trigger, StartedAt: &now, Results: []AccountInspectionAccountResult{}, Summary: AccountQualitySummary{ReasoningTokenDistribution: newReasoningTokenDistribution()}}
 	if err := s.saveState(ctx, state); err != nil {
 		release()
-		s.running.Store(false)
+		s.endQualityRun()
 		return nil, err
 	}
 	parentCtx := s.parentCtx
@@ -452,13 +473,15 @@ func (s *AccountQualityMonitoringService) StartNow(ctx context.Context, trigger 
 		parentCtx = context.Background()
 	}
 	runCtx, cancel := context.WithTimeout(parentCtx, AccountQualityRunTimeout)
+	initial := *state
+	initial.Summary.ReasoningTokenDistribution = newReasoningTokenDistribution()
 	go func() {
-		defer cancel()
+		defer s.endQualityRun()
 		defer release()
-		defer s.running.Store(false)
-		_, _ = s.executeRun(runCtx, trigger, previous, state)
+		defer cancel()
+		_, _ = s.executeRun(runCtx, trigger, previous, state, &settings)
 	}()
-	return state, nil
+	return &initial, nil
 }
 
 func (s *AccountQualityMonitoringService) execute(ctx context.Context, trigger string) (*AccountQualityRunState, error) {
@@ -466,8 +489,12 @@ func (s *AccountQualityMonitoringService) execute(ctx context.Context, trigger s
 	return s.executeRun(ctx, trigger, previous, nil)
 }
 
-func (s *AccountQualityMonitoringService) executeRun(ctx context.Context, trigger string, previous *AccountQualityRunState, state *AccountQualityRunState) (*AccountQualityRunState, error) {
+func (s *AccountQualityMonitoringService) executeRun(ctx context.Context, trigger string, previous *AccountQualityRunState, state *AccountQualityRunState, frozen ...*AccountQualitySettings) (*AccountQualityRunState, error) {
 	settings, err := s.GetSettings(ctx)
+	if len(frozen) > 0 && frozen[0] != nil {
+		settings = *frozen[0]
+		err = nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -494,29 +521,56 @@ func (s *AccountQualityMonitoringService) executeRun(ctx context.Context, trigge
 	results := make([]AccountInspectionAccountResult, len(eligible))
 	for i := range eligible {
 		results[i] = neutralAccountInspectionResult(&eligible[i], now)
+		results[i].QualityPhase, results[i].QualityStatus = "queued", "queued"
+		results[i].QualityStage1Status, results[i].QualityStage2Status = "disabled", "disabled"
+		if settings.Stage1Enabled {
+			results[i].QualityStage1Status = "queued"
+		}
+		if settings.Stage2Enabled {
+			results[i].QualityStage2Status = "queued"
+		}
 	}
 	state.Results = append([]AccountInspectionAccountResult(nil), results...)
 	var progressMu sync.Mutex
-	completedCount := 0
+	var progressErr error
 	progress := func(index int, stage string, done bool) {
 		progressMu.Lock()
 		defer progressMu.Unlock()
-		if done {
-			completedCount++
-		}
-		state.Progress = AccountQualityProgress{Total: len(eligible), Completed: completedCount, CurrentAccountID: eligible[index].ID, CurrentAccount: eligible[index].Name, CurrentStage: stage}
+		// Read only the invoking worker's row; snapshot storage never shares mutable
+		// slices with the active worker rows.
 		state.Results[index] = results[index]
-		_ = s.saveState(ctx, state)
+		state.Results[index].Reasons = append([]string(nil), results[index].Reasons...)
+		updateQualityProgress(state)
+		state.Progress.CurrentAccountID, state.Progress.CurrentAccount, state.Progress.CurrentStage = eligible[index].ID, eligible[index].Name, stage
+		if err := s.saveProgress(ctx, state); err != nil && progressErr == nil {
+			progressErr = err
+		}
 	}
-	state.Progress = AccountQualityProgress{Total: len(eligible)}
-	if err := s.runQualityMonitoring(ctx, eligible, results, previous, settings, now, progress); err != nil {
+	updateQualityProgress(state)
+	if err := s.saveProgress(ctx, state); err != nil {
 		return s.failState(ctx, state, err)
 	}
+	runErr := s.runQualityMonitoring(ctx, eligible, results, previous, settings, now, progress)
 	state.Results = results
-	state.Progress = AccountQualityProgress{Total: len(eligible), Completed: len(eligible)}
-	state.Summary = summarizeQualityResults(results)
-	state.Summary.Inspected = len(eligible)
-	state.Summary.ReasoningTokenDistribution = summarizeReasoningTokenDistribution(results)
+	if ctx.Err() != nil {
+		for i := range state.Results {
+			row := &state.Results[i]
+			if row.QualityCompletedAt == nil {
+				row.QualityPhase = "cancelled"
+				row.QualityStatus = "error"
+				row.QualityCompletedAt = ptrQualityTime(time.Now().UTC())
+			}
+		}
+		runErr = ctx.Err()
+	}
+	updateQualityProgress(state)
+	state.Progress.CurrentAccountID, state.Progress.CurrentAccount, state.Progress.CurrentStage = 0, "", ""
+	if runErr != nil {
+		return s.failState(ctx, state, runErr)
+	}
+	if progressErr != nil {
+		return s.failState(ctx, state, progressErr)
+	}
 	state.LastRunAt = &now
 	completed := time.Now().UTC()
 	state.Status, state.CompletedAt = AccountInspectionStatusSucceeded, &completed
@@ -536,7 +590,11 @@ func (s *AccountQualityMonitoringService) failState(ctx context.Context, state *
 	now := time.Now().UTC()
 	state.Status, state.CompletedAt = AccountInspectionStatusFailed, &now
 	state.Error = truncateQualityError(strings.TrimSpace(runErr.Error()))
-	_ = s.saveState(ctx, state)
+	// Cancellation must still persist a terminal status so reloads do not show
+	// a stale running task forever. Only the state write is detached and bounded.
+	persistCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	_ = s.saveProgress(persistCtx, state)
 	return nil, runErr
 }
 
@@ -649,4 +707,56 @@ func summarizeQualityResults(results []AccountInspectionAccountResult) AccountQu
 		}
 	}
 	return summary
+}
+
+func (s *AccountQualityMonitoringService) beginQualityRun() error {
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
+	if s.stopping {
+		return ErrAccountInspectionUnavailable
+	}
+	if !s.running.CompareAndSwap(false, true) {
+		return ErrAccountInspectionBusy
+	}
+	s.runWG.Add(1)
+	return nil
+}
+func (s *AccountQualityMonitoringService) endQualityRun() { s.running.Store(false); s.runWG.Done() }
+func (s *AccountQualityMonitoringService) qualityRunContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	runCtx, cancel := context.WithTimeout(ctx, AccountQualityRunTimeout)
+	if s.parentCtx == nil {
+		return runCtx, cancel
+	}
+	stop := context.AfterFunc(s.parentCtx, cancel)
+	return runCtx, func() { stop(); cancel() }
+}
+func ptrQualityTime(value time.Time) *time.Time { return &value }
+func updateQualityProgress(state *AccountQualityRunState) {
+	state.Progress.Total = len(state.Results)
+	state.Progress.Completed = 0
+	state.Progress.Running = 0
+	state.Progress.Queued = 0
+	finished := make([]AccountInspectionAccountResult, 0, len(state.Results))
+	for _, row := range state.Results {
+		switch row.QualityPhase {
+		case "complete", "skipped", "cancelled":
+			state.Progress.Completed++
+			finished = append(finished, row)
+		case "queued":
+			state.Progress.Queued++
+		default:
+			state.Progress.Running++
+		}
+	}
+	state.Summary = summarizeQualityResults(finished)
+	state.Summary.Inspected = len(finished)
+	state.Summary.ReasoningTokenDistribution = summarizeReasoningTokenDistribution(finished)
+}
+func (s *AccountQualityMonitoringService) saveProgress(ctx context.Context, state *AccountQualityRunState) error {
+	copy := *state
+	if len(copy.Results) > accountInspectionMaxStoredResults {
+		copy.Results = copy.Results[:accountInspectionMaxStoredResults]
+		copy.ResultsTruncated = true
+	}
+	return s.saveState(ctx, &copy)
 }

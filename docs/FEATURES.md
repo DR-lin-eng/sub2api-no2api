@@ -75,7 +75,7 @@
 | 异步图片提交、查询与内容 | [异步图片 API](ASYNC_IMAGE_TASKS.md) | [Images handler](../backend/internal/transport/http/handler/) |
 | Codex OAuth 行为 | [有意差异](codex/intentional-divergences.md) | [请求链路](REQUEST_LIFECYCLES.md) |
 
-垂直后端模块另有完整目录说明：[activitycenter](../backend/internal/modules/activitycenter/README.md)、[chat](../backend/internal/modules/chat/README.md)、[egress](../backend/internal/modules/egress/README.md)、[payment](../backend/internal/modules/payment/README.md)、[securityaudit](../backend/internal/modules/securityaudit/README.md)。并非所有功能都已经迁入 `modules`；存量服务仍以代码地图为准。
+垂直后端模块另有完整目录说明：[qualityrender](../backend/internal/modules/qualityrender/README.md)、[activitycenter](../backend/internal/modules/activitycenter/README.md)、[chat](../backend/internal/modules/chat/README.md)、[egress](../backend/internal/modules/egress/README.md)、[payment](../backend/internal/modules/payment/README.md)、[securityaudit](../backend/internal/modules/securityaudit/README.md)。并非所有功能都已经迁入 `modules`；存量服务仍以代码地图为准。
 
 ## 维护与验证
 

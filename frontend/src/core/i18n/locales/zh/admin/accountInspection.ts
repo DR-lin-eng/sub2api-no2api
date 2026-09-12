@@ -1,5 +1,15 @@
 export default {
   accountQuality: {
+    progressCounts: '排队 {queued} · 执行中 {running}',
+    elapsed: '已用时',
+    queued: '排队中',
+    stage1Running: '文字题检测中',
+    stage2Running: '绘图生成中',
+    rendering: '渲染与分类中',
+    persisting: '保存检测结果',
+    completed: '已完成',
+    cancelled: '已中断',
+
     title: '账号质量监控',
     description: '独立探测账号输出质量，并按连续结果切换分组。',
     settingsTitle: '质量巡检策略',

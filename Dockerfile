@@ -10,7 +10,8 @@
 ARG NODE_IMAGE=node:24-alpine
 ARG GOLANG_IMAGE=golang:1.26.6-alpine
 ARG ALPINE_IMAGE=alpine:3.21
-ARG POSTGRES_IMAGE=postgres:18-alpine
+ARG QUALITY_RUNTIME_IMAGE=python:3.11-slim-bookworm
+ARG POSTGRES_IMAGE=postgres:18-bookworm
 ARG GOPROXY=https://goproxy.cn,direct
 ARG GOSUMDB=sum.golang.google.cn
 ARG NPM_CONFIG_REGISTRY=
@@ -101,39 +102,40 @@ RUN --mount=type=cache,id=sub2api-gomod,target=/go/pkg/mod \
 # Stage 3: PostgreSQL Client (version-matched with docker-compose)
 # -----------------------------------------------------------------------------
 FROM ${POSTGRES_IMAGE} AS pg-client
+RUN mkdir -p /client && cp /usr/lib/postgresql/18/bin/pg_dump /usr/lib/postgresql/18/bin/psql /client/ \
+    && cp "$(find /usr/lib -name libpq.so.5 -print -quit)" /client/libpq.so.5
 
 # -----------------------------------------------------------------------------
 # Stage 4: Final Runtime Image
 # -----------------------------------------------------------------------------
-FROM ${ALPINE_IMAGE}
+FROM ${QUALITY_RUNTIME_IMAGE} AS quality-runtime
 
 # Labels
 LABEL maintainer="DR-lin-eng <github.com/DR-lin-eng>"
 LABEL description="Sub2API - AI API Gateway Platform"
 LABEL org.opencontainers.image.source="https://github.com/DR-lin-eng/sub2api-no2api"
 
-# Install runtime dependencies
-RUN apk add --no-cache \
-    ca-certificates \
-    tzdata \
-    su-exec \
-    libpq \
-    zstd-libs \
-    lz4-libs \
-    krb5-libs \
-    libldap \
-    libedit \
-    && rm -rf /var/cache/apk/*
+# Build-time dependencies for the in-process quality module. No sidecar, URL,
+# runtime installer, or changes to existing Compose/environment are required.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates tzdata curl wget gosu libpq5 libldap-2.5-0 libkrb5-3 liblz4-1 libzstd1 libedit2 \
+    && ln -s /usr/sbin/gosu /usr/local/bin/su-exec \
+    && rm -rf /var/lib/apt/lists/*
+COPY backend/resources/quality-renderer/requirements.txt /opt/quality-renderer/requirements.txt
+RUN pip install --no-cache-dir torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cpu \
+    && pip install --no-cache-dir -r /opt/quality-renderer/requirements.txt \
+    && playwright install --with-deps chromium \
+    && chmod -R a+rX /ms-playwright && rm -rf /var/lib/apt/lists/*
 
-# Copy pg_dump and psql from the same postgres image used in docker-compose
-# This ensures version consistency between backup tools and the database server
-COPY --from=pg-client /usr/local/bin/pg_dump /usr/local/bin/pg_dump
-COPY --from=pg-client /usr/local/bin/psql /usr/local/bin/psql
-COPY --from=pg-client /usr/local/lib/libpq.so.5* /usr/local/lib/
+COPY --from=pg-client /client/pg_dump /usr/local/bin/pg_dump
+COPY --from=pg-client /client/psql /usr/local/bin/psql
+COPY --from=pg-client /client/libpq.so.5 /usr/local/lib/
+RUN ldconfig
 
 # Create non-root user
-RUN addgroup -g 1000 sub2api && \
-    adduser -u 1000 -G sub2api -s /bin/sh -D sub2api
+RUN groupadd -g 1000 sub2api && \
+    useradd -u 1000 -g sub2api -m -s /bin/sh sub2api
 
 # Set working directory
 WORKDIR /app
