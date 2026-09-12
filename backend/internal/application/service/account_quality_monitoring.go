@@ -23,6 +23,9 @@ const (
 	accountQualityDefaultFailureThreshold  = 2
 	accountQualityDefaultRecoveryThreshold = 2
 	accountQualityMaxConcurrent            = 4
+	accountQualityDefaultProbeTimeoutSec   = 120
+	accountQualityMinProbeTimeoutSec       = 30
+	accountQualityMaxProbeTimeoutSec       = 300
 	accountQualityDefaultPrompt            = "创建一个html，内容是SVG绘制一个鹈鹕骑自行车的2D动画。页面必须自包含，只使用内联SVG、CSS关键帧动画和少量JavaScript；鹈鹕、车轮、脚踏、道路和背景都要画出来，动画要可见。只返回完整HTML源码，不要 Markdown 代码围栏，不要解释。"
 )
 
@@ -32,6 +35,7 @@ const (
 type AccountQualitySettings struct {
 	Enabled           bool    `json:"enabled"`
 	IntervalMinutes   int     `json:"interval_minutes"`
+	TimeoutSeconds    int     `json:"timeout_seconds"`
 	Model             string  `json:"model"`
 	Effort            string  `json:"effort"`
 	Prompt            string  `json:"prompt"`
@@ -47,6 +51,7 @@ type AccountQualitySettings struct {
 func DefaultAccountQualitySettings() AccountQualitySettings {
 	return AccountQualitySettings{
 		IntervalMinutes:   accountQualityDefaultIntervalMinutes,
+		TimeoutSeconds:    accountQualityDefaultProbeTimeoutSec,
 		Effort:            "medium",
 		Prompt:            accountQualityDefaultPrompt,
 		FailureThreshold:  accountQualityDefaultFailureThreshold,
@@ -59,6 +64,9 @@ func DefaultAccountQualitySettings() AccountQualitySettings {
 func (s *AccountQualitySettings) normalize() {
 	if s.IntervalMinutes < 1 {
 		s.IntervalMinutes = accountQualityDefaultIntervalMinutes
+	}
+	if s.TimeoutSeconds <= 0 {
+		s.TimeoutSeconds = accountQualityDefaultProbeTimeoutSec
 	}
 	if s.FailureThreshold < 1 {
 		s.FailureThreshold = accountQualityDefaultFailureThreshold
@@ -90,7 +98,7 @@ func (s *AccountQualitySettings) normalize() {
 }
 
 func (s AccountQualitySettings) validate() error {
-	if s.IntervalMinutes < 1 || s.FailureThreshold < 1 || s.RecoveryThreshold < 1 || s.MaxConcurrent < 1 || s.MaxConcurrent > accountQualityMaxConcurrent {
+	if s.IntervalMinutes < 1 || s.TimeoutSeconds < accountQualityMinProbeTimeoutSec || s.TimeoutSeconds > accountQualityMaxProbeTimeoutSec || s.FailureThreshold < 1 || s.RecoveryThreshold < 1 || s.MaxConcurrent < 1 || s.MaxConcurrent > accountQualityMaxConcurrent {
 		return infraerrors.BadRequest("INVALID_ACCOUNT_QUALITY_SETTINGS", "quality settings are invalid")
 	}
 	if s.MinConfidence <= 0 || s.MinConfidence > 1 {
@@ -249,6 +257,7 @@ func (s *AccountQualityMonitoringService) GetSettings(ctx context.Context) (Acco
 				var legacy struct {
 					Enabled           bool    `json:"quality_monitoring_enabled"`
 					IntervalMinutes   int     `json:"quality_interval_minutes"`
+					TimeoutSeconds    int     `json:"quality_timeout_seconds"`
 					Model             string  `json:"quality_model"`
 					Effort            string  `json:"quality_effort"`
 					Prompt            string  `json:"quality_prompt"`
@@ -261,7 +270,7 @@ func (s *AccountQualityMonitoringService) GetSettings(ctx context.Context) (Acco
 					PublicEnabled     bool    `json:"quality_public_enabled"`
 				}
 				if json.Unmarshal([]byte(legacyRaw), &legacy) == nil {
-					settings := AccountQualitySettings{Enabled: legacy.Enabled, IntervalMinutes: legacy.IntervalMinutes, Model: legacy.Model, Effort: legacy.Effort, Prompt: legacy.Prompt, FailureThreshold: legacy.FailureThreshold, RecoveryThreshold: legacy.RecoveryThreshold, DegradedGroupID: legacy.DegradedGroupID, SourceGroupID: legacy.SourceGroupID, MaxConcurrent: legacy.MaxConcurrent, MinConfidence: legacy.MinConfidence, PublicEnabled: legacy.PublicEnabled}
+					settings := AccountQualitySettings{Enabled: legacy.Enabled, IntervalMinutes: legacy.IntervalMinutes, TimeoutSeconds: legacy.TimeoutSeconds, Model: legacy.Model, Effort: legacy.Effort, Prompt: legacy.Prompt, FailureThreshold: legacy.FailureThreshold, RecoveryThreshold: legacy.RecoveryThreshold, DegradedGroupID: legacy.DegradedGroupID, SourceGroupID: legacy.SourceGroupID, MaxConcurrent: legacy.MaxConcurrent, MinConfidence: legacy.MinConfidence, PublicEnabled: legacy.PublicEnabled}
 					settings.normalize()
 					return settings, nil
 				}

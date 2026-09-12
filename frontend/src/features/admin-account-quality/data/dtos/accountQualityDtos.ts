@@ -1,6 +1,7 @@
 export interface AccountQualitySettings {
   enabled: boolean
   interval_minutes: number
+  timeout_seconds: number
   model: string
   effort: string
   prompt: string
@@ -62,4 +63,3 @@ export interface AccountQualityOverview {
     pages: number
   }
 }
-

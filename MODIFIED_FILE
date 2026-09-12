@@ -1,6 +1,8 @@
 Changed source: backend/internal/application/service/account_quality_monitor.go
-Changed behavior: quality probes use a 120-second context deadline; current
-transport/auth/timeout failures are rendered as error and do not increment
-consecutive failure counters or trigger group switching.
+Changed behavior: quality probes use administrator-controlled timeout_seconds
+(default 120, valid range 30-300); current transport/auth/timeout failures are
+rendered as error and do not increment consecutive failure counters or trigger
+group switching.
 Changed UI: frontend/src/features/admin-account-quality/presentation/pages/AccountQualityPage.vue
-adds a button linking to /monitor/quality/public and localizes error status.
+adds timeout_seconds input, a button linking to /monitor/quality/public, and
+localized error status.

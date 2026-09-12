@@ -46,7 +46,6 @@ const (
 	accountQualityPassesExtraKey      = "account_quality_consecutive_passes"
 	accountQualityLastCheckedExtraKey = "account_quality_last_checked_at"
 	accountQualityHistoryExtraKey     = "account_quality_history"
-	accountQualityProbeTimeout        = 2 * time.Minute
 )
 
 // runQualityMonitoring performs bounded, account-specific probes. It is kept
@@ -74,7 +73,7 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 			defer wg.Done()
 			defer func() { <-sem }()
 			model := strings.TrimSpace(settings.Model)
-			probeCtx, cancel := context.WithTimeout(ctx, accountQualityProbeTimeout)
+			probeCtx, cancel := context.WithTimeout(ctx, time.Duration(settings.TimeoutSeconds)*time.Second)
 			defer cancel()
 			probe, err := s.accountTestSvc.RunQualityTestBackground(probeCtx, account.ID, model, settings.Prompt, settings.Effort)
 			if err != nil {

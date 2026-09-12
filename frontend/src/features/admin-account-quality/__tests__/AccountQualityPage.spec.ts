@@ -23,7 +23,7 @@ import AccountQualityPage from '../presentation/pages/AccountQualityPage.vue'
 describe('AccountQualityPage', () => {
   beforeEach(() => {
     getOverview.mockReset().mockResolvedValue({
-      settings: { enabled: true, interval_minutes: 10, model: '', effort: 'medium', prompt: '', failure_threshold: 2, recovery_threshold: 2, degraded_group_id: null, source_group_id: null, max_concurrent: 4, min_confidence: 0.85, public_enabled: false },
+      settings: { enabled: true, interval_minutes: 10, timeout_seconds: 120, model: '', effort: 'medium', prompt: '', failure_threshold: 2, recovery_threshold: 2, degraded_group_id: null, source_group_id: null, max_concurrent: 4, min_confidence: 0.85, public_enabled: false },
       run: { status: 'succeeded', summary: { inspected: 1, passed: 1, degraded: 0, uncertain: 0, errors: 0, switched: 0 } },
       results: { items: [{ account_id: 1, name: 'quality-account', platform: 'openai', type: 'oauth', quality_status: 'healthy', observed_at: '2026-09-12T00:00:00Z' }], total: 1, page: 1, page_size: 50, pages: 1 },
     })

@@ -6,6 +6,8 @@ export default {
     settingsCaption: 'Quality inspection has its own settings, scheduler, and manual run.',
     runNow: 'Run quality inspection',
     openPublic: 'Open public page',
+    timeout: 'Probe timeout (seconds)',
+    timeoutHint: 'Set 30–300 seconds; default is 120 seconds.',
     passed: 'Healthy',
     uncertain: 'Uncertain',
     errors: 'Errors',

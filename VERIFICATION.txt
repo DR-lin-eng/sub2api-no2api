@@ -1,4 +1,4 @@
-Changed branch/field: codex/account-quality-source-group; quality probes use accountQualityProbeTimeout=2*time.Minute and error rows preserve counters; quality policy fields remain in AccountQualitySettings and account_quality_settings/account_quality_state.
+Changed branch/field: codex/account-quality-source-group; AccountQualitySettings.timeout_seconds controls per-probe context (default 120, range 30-300) and error rows preserve counters; quality policy remains in account_quality_settings/account_quality_state.
 
 Artifacts:
 - MODIFIED_FILE
@@ -22,5 +22,6 @@ ROLLBACK output: rollback_cmp_exit:0; SHA-256 restored to 0d7d5ef0d3731ff41017a7
 ROLLBACK exit: 0
 
 UI verification: AccountQualityPage test found href=/monitor/quality/public with target=_blank; error-status test renders error instead of healthy.
-Docker build: sub2api-quality-stream-fix:test built successfully; frontend production build and embedded backend build completed with exit 0.
+UI verification: AccountQualityPage test found href=/monitor/quality/public with target=_blank; error-status test renders error instead of healthy; timeout_seconds input is present.
+Docker build: sub2api-quality-timeout-config:test built successfully; frontend production build and embedded backend build completed with exit 0.
 Restored behavior/status: independent rollback copy exactly matches baseline. Working tree remains changed on branch codex/account-quality-source-group.

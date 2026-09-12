@@ -43,10 +43,10 @@ sequenceDiagram
 配置 `degraded_group_id` 后，首次进入降智状态会先把原 `account_groups` 列表写入账号
 `extra.account_quality_original_group_ids`，再通过现有 `BindGroups` 事务绑定目标分组并写 scheduler
 outbox。目标分组必须存在、启用且与账号平台一致；切换失败不会静默修改原分组。连续通过达到
-`quality_recovery_threshold` 时，仅当账号仍停留在记录的降智分组，系统才恢复原分组；管理员在此期间手动
+`recovery_threshold` 时，仅当账号仍停留在记录的降智分组，系统才恢复原分组；管理员在此期间手动
 改组则保留手动结果。未配置目标分组时质量状态仍可观测，但不改变调度资格。
 
-质量监控最多并发 4 个探测，每个探测 120 秒超时；传输、鉴权或超时错误显示为本次 `error`，但不递增质量失败计数，也不触发降智分组切换。状态、连续计数及最近 24 次结果摘要存入 `accounts.extra`，与用量日志统计分离；探测不会把回答写入用量或对外返回。普通 API Key/OAuth 请求的账号筛选、槽位、粘性会话、计费和 failover 语义保持不变。
+质量监控最多并发 4 个探测，每个探测使用 `timeout_seconds`（默认 120 秒，可由管理员设置为 30–300 秒）；传输、鉴权或超时错误显示为本次 `error`，但不递增质量失败计数，也不触发降智分组切换。状态、连续计数及最近 24 次结果摘要存入 `accounts.extra`，与用量日志统计分离；探测不会把回答写入用量或对外返回。普通 API Key/OAuth 请求的账号筛选、槽位、粘性会话、计费和 failover 语义保持不变。
 
 渲染与分类由可选的 `account-quality-renderer` Docker 服务承担：Sub2API 通过内网
 `POST /v1/process` 发送生成的 HTML，服务在无外网、无 Cookie 的 Playwright Chromium 中截取
