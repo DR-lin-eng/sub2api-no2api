@@ -4,3 +4,4 @@ summary metrics, 24-hour clickable timeline, filters, evidence cards and enlarge
 image preview. Backend filters old records to 24 hours, keeps raw account identity
 out of the projection, and uses additive migration 242 for probe_details.
 Drawing probes now time out only while waiting for the first streamed output. Once OpenAI/Gemini emits text or an image, the per-probe no-output timer stops and the stream may run until the outer quality-run budget.
+Drawing probes now distinguish no-output stalls from long generation: timeout_seconds cancels only before the first stream event, while output-bearing streams continue until the quality-run hard budget.
