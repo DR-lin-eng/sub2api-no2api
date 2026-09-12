@@ -12,3 +12,4 @@ MODIFIED_FILE is intentionally changed; rollback is tested on an independent cop
 - Current branch commit: de9c083a1; merged main commit: 955b19795816dfb07e8d582331d3786e57946d29.
 - Renderer default: embedded website-code SVG validation/preview; existing external renderer configuration is untouched and remains an optional override.
 - Manual run: returns immediately with a persisted running state and account/stage progress.
+- Renderer behavior: no new renderer setting is required; empty renderer configuration uses the embedded website-code SVG validator/preview. Existing non-empty renderer settings remain untouched.
