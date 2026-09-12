@@ -31,3 +31,9 @@ MODIFIED_COPY SHA-256: 877dccb58406bfd2f91a737cf52136d6ce7fdd3ac42b9d48e1c46eab0
 RESTORED rollback-copy SHA-256: ed6c6c07dcee7da705d9fee8d26228ce6d9242a468d1a57b5245e0a7fafcb542
 
 Restored behavior/status: rollback copy exactly matches baseline SHA; working tree source remains modified for the requested feature.
+
+Final committed source verification (bdbb2fd5d):
+MODIFIED final Docker build: docker build --target backend-builder -t sub2api-account-quality-stages-modified-final:test . -> completed successfully, exit status 0.
+MODIFIED final quality command: docker run --rm sub2api-account-quality-stages-modified-final:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/application/service -run "TestQuality|TestAccountQuality" -count=1' -> ok github.com/Wei-Shaw/sub2api/internal/application/service 0.027s, exit status 0.
+MODIFIED final HTTP command: docker run --rm sub2api-account-quality-stages-modified-final:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/transport/http/handler/admin ./internal/transport/http/handler ./internal/transport/http/server/routes ./internal/transport/http/server/middleware -run Test -count=1' -> admin 0.291s, handler 30.685s, routes 5.466s, middleware 0.025s, all passed, exit status 0.
+Remote publication: branch bdbb2fd5d; PR #49 merged into main as fd73d74cece1607b5dcbf274f6061666624ae447.

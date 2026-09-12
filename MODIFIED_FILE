@@ -5,3 +5,4 @@ Changed source/fields:
 - backend/internal/application/service/account_test_service.go: provider usage extraction for OpenAI Responses/Chat Completions/Gemini and quality usage collection.
 - frontend/src/features/admin-account-quality/presentation/pages/AccountQualityPage.vue: stage toggles/editors, source/degraded groups, token distribution, account token column, public-page button.
 MODIFIED_FILE is intentionally left changed; rollback is tested only on an independent copy.
+- backend/internal/application/service/account_test_service.go additionally keeps reading Gemini trailing usageMetadata after finishReason so reasoning token counts are not lost.

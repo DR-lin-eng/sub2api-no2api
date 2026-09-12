@@ -5,3 +5,4 @@ Only wrong answers/low tokens/classifier `unnormal` increment degradation; trans
 errors stay error. Source-group selection, degraded-group switching, public page,
 configurable 30–300 second per-stage timeout, token buckets and legacy migration are
 preserved.
+Gemini SSE parsing also consumes a trailing usageMetadata event after finishReason, preserving the final reasoning-token count.
