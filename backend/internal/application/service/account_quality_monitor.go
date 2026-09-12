@@ -60,8 +60,48 @@ type qualityStageOutcome struct {
 	detail          AccountQualityStageDetail
 }
 
+// qualityStageContext bounds the initial wait for a drawing response. Once a
+// streamed content/image event arrives, the upstream request is allowed to
+// finish without the short probe timeout; the outer quality-run context still
+// provides the worker's hard safety budget.
+func qualityStageContext(ctx context.Context, stage string, timeoutSeconds int) (context.Context, func()) {
+	if stage != "stage2" {
+		return context.WithTimeout(ctx, time.Duration(timeoutSeconds)*time.Second)
+	}
+	probeCtx, cancel := context.WithCancel(ctx)
+	probeCtx, signal := withQualityProbeOutputSignal(probeCtx)
+	timer := time.NewTimer(time.Duration(timeoutSeconds) * time.Second)
+	timerDone := make(chan struct{})
+	go func() {
+		defer close(timerDone)
+		select {
+		case <-signal.done:
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+		case <-timer.C:
+			cancel()
+		case <-probeCtx.Done():
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+		}
+	}()
+	cleanup := func() {
+		cancel()
+		<-timerDone
+	}
+	return probeCtx, cleanup
+}
+
 func (s *AccountQualityMonitoringService) runQualityStage(ctx context.Context, account Account, settings AccountQualitySettings, stage, prompt string) (outcome qualityStageOutcome) {
-	probeCtx, cancel := context.WithTimeout(ctx, time.Duration(settings.TimeoutSeconds)*time.Second)
+	probeCtx, cancel := qualityStageContext(ctx, stage, settings.TimeoutSeconds)
 	defer cancel()
 	started := time.Now().UTC()
 	defer func() { outcome.detail.Status = outcome.status }()

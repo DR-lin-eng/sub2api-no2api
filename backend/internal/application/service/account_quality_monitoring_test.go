@@ -12,7 +12,9 @@ import (
 type qualityProbeDeadlineStub struct{ deadline time.Time }
 
 func (p *qualityProbeDeadlineStub) RunQualityTestBackground(ctx context.Context, _ int64, _, _, _ string) (*ScheduledTestResult, error) {
-	p.deadline, _ = ctx.Deadline()
+	if deadline, ok := ctx.Deadline(); ok {
+		p.deadline = deadline
+	}
 	return &ScheduledTestResult{Status: "failed", ErrorMessage: "Stream read error: context deadline exceeded"}, nil
 }
 
@@ -81,4 +83,21 @@ func TestAccountQualitySettingsMigrateLegacyPromptAndStages(t *testing.T) {
 	require.True(t, settings.Stage2Enabled)
 	require.Equal(t, "legacy drawing prompt", settings.Stage2Prompt)
 	require.Equal(t, settings.Stage2Prompt, settings.Prompt)
+}
+
+func TestQualityDrawingTimeoutOnlyAppliesBeforeFirstOutput(t *testing.T) {
+	ctx, cleanup := qualityStageContext(context.Background(), "stage2", 1)
+	markQualityProbeOutput(ctx)
+	time.Sleep(1100 * time.Millisecond)
+	require.NoError(t, ctx.Err())
+	cleanup()
+
+	ctx, cleanup = qualityStageContext(context.Background(), "stage2", 1)
+	defer cleanup()
+	select {
+	case <-ctx.Done():
+		require.ErrorIs(t, ctx.Err(), context.Canceled)
+	case <-time.After(1500 * time.Millisecond):
+		t.Fatal("drawing context did not time out before first output")
+	}
 }

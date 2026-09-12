@@ -147,8 +147,8 @@ export default {
 
       eyebrow: 'MODEL QUALITY', title: 'Account model quality', subtitle: 'Model quality monitoring',
       refresh: 'Refresh results', refreshing: 'Refreshing…', recent: 'Last 24 hours',
-      total: '24h checks', totalNote: 'account-level checks', passed: 'Normal', passedNote: 'classified normal',
-      degraded: 'Degraded', degradedNote: 'classified unnormal', uncertain: 'Uncertain', uncertainNote: 'below confidence threshold',
+      total: '24h checks', totalNote: 'account-level checks', passed: 'Normal', passedNote: 'all enabled stages passed',
+      degraded: 'Degraded', degradedNote: 'text or drawing check failed', uncertain: 'Uncertain', uncertainNote: 'below confidence threshold',
       errors: 'Request errors', errorsNote: 'excluded from classification', timeline: '24-hour quality timeline', timelineNote: 'Select a check to view its conversation, answer and preview',
       empty: 'No public quality results', normal: 'Normal', abnormal: 'Degraded', waiting: 'Uncertain', failed: 'Request error',
       footer: 'Checks every {minutes} minutes · Refreshes every 20 seconds · Answers displayed as plain text', qualityDisabled: 'Quality monitoring is not public or temporarily unavailable.',

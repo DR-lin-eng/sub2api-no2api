@@ -5,3 +5,7 @@ Public image: WebP/PNG preview opens from /api/v1/account-quality-share/image/:i
 Privacy invariant: account_id, account name, credentials, prompt, raw request and reasoning text are not returned; answers are capped at 16 KiB and rendered as escaped text.
 Migration: backend/migrations/242_account_quality_probe_details.sql adds probe_details JSONB without changing old rows.
 MODIFIED_FILE is intentionally changed; rollback is tested on an independent copy.
+- backend/internal/application/service/account_quality_monitor.go: stage 2 now uses an output-aware context; timeout_seconds only covers no-output wait and is cancelled after the first streamed content/image event. Outer AccountQualityRunTimeout remains the hard run budget.
+- backend/internal/application/service/account_test_service.go: streamed text/reasoning/image deltas mark output, preserving long OpenAI drawing streams.
+- backend/internal/application/service/account_quality_monitor.go: drawing stage timeout now cancels only before first output; once a streaming text/image/reasoning event arrives, long generation continues until the outer run budget.
+- backend/internal/application/service/account_test_service.go: OpenAI Responses and Chat Completions, plus Gemini, mark streamed output so the no-output timer stops.

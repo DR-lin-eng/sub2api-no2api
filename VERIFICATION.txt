@@ -39,3 +39,28 @@ RESTORED SHA-256: 4502896ee8352b71270295ca7eb27badc98f8c51abf4b8b02ce2b51c5da3e6
 
 Remote publication baseline: PR #48/#49/#50 merged into main through abe7a16f216deb76a2acf3ec2d0b814cf21474a9.
 Working tree remains changed for the current public conversation display update.
+
+Drawing timeout change:
+- Stage 2 uses an output-aware context. timeout_seconds is only the no-output wait; first streamed content/image/reasoning delta cancels that timer. The outer AccountQualityRunTimeout remains the hard bound.
+- Test: TestQualityDrawingTimeoutOnlyAppliesBeforeFirstOutput passed (output before 1 second remains active; no output cancels after 1 second).
+- Docker build: docker build --target backend-builder -t sub2api-account-quality-timeout-stream:test . -> embedded frontend/backend build passed, exit status 0.
+- Docker test: docker run --rm sub2api-account-quality-timeout-stream:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/application/service ./internal/infrastructure/repository ./migrations' -> service 140.614s, repository 4.916s, migrations 0.005s; all passed, exit status 0.
+- Local regression: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/infrastructure/repository ./migrations -> service/repository/migrations passed; exit status 0.
+- Local frontend: typecheck, lint, public/admin Vitest and locale coverage passed; public page test 2/2, admin page test 2/2, locale coverage 3/3; exit status 0.
+- Rollback copy remains restored to the recorded baseline SHA with cmp exit 0; working source stays modified.
+
+Drawing timeout verification (2026-09-13):
+Changed field: stage2 no-output wait in AccountQualityMonitoringService.runQualityStage; output signal is marked by streamed provider events in AccountTestService.
+BASELINE source command: git show 69a31b758:backend/internal/application/service/account_quality_monitor.go > /tmp/quality-drawing-timeout-20260913/BASELINE_ACCOUNT_QUALITY_MONITOR.go
+BASELINE literal result: source extracted, baseline SHA-256 8c7d91fc5ebdd7a4fa9ef11a7a1437e1a1392ae492a7a90da20409c0fe270425, 18247 bytes, exit status 0.
+MODIFIED source command: cp backend/internal/application/service/account_quality_monitor.go /tmp/quality-drawing-timeout-20260913/MODIFIED_ACCOUNT_QUALITY_MONITOR.go
+MODIFIED literal result: source copied, modified SHA-256 8ddd0ee1722f9ec61e9ff5408c1e5e446f5189d9ebcc16b72836485cf67294a0, 19297 bytes, exit status 0.
+TIMEOUT TEST command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service -run 'TestQualityDrawingTimeoutOnlyAppliesBeforeFirstOutput' -count=1
+TIMEOUT TEST literal result: ok github.com/Wei-Shaw/sub2api/internal/application/service 3.343s, exit status 0.
+DOCKER BUILD command: docker build --target backend-builder -t sub2api-account-quality-timeout-stream:test .
+DOCKER BUILD literal result: image built with embedded frontend/backend; exit status 0.
+DOCKER TEST command: docker run --rm sub2api-account-quality-timeout-stream:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/application/service ./internal/infrastructure/repository ./migrations'
+DOCKER TEST literal result: service 140.614s, repository 4.916s, migrations 0.005s; all passed, exit status 0.
+ROLLBACK command: ./ROLLBACK.sh /tmp/quality-drawing-timeout-20260913/BASELINE_ACCOUNT_QUALITY_MONITOR.go /tmp/quality-drawing-timeout-20260913/ROLLBACK_COPY.go after appending a temporary mutation.
+ROLLBACK literal result: restored target and cmp returned 0; restored SHA-256 8c7d91fc5ebdd7a4fa9ef11a7a1437e1a1392ae492a7a90da20409c0fe270425.
+Restored behavior/status: rollback copy matches baseline; current working source remains modified on branch.
