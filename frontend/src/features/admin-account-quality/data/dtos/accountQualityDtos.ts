@@ -74,6 +74,7 @@ export interface AccountQualityRun {
   summary: AccountQualitySummary
   results?: AccountQualityResult[]
   error?: string
+  progress: { total: number; completed: number; current_account_id?: number; current_account?: string; current_stage?: string }
 }
 
 export interface AccountQualityOverview {

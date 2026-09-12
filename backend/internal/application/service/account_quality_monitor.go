@@ -146,11 +146,17 @@ func (s *AccountQualityMonitoringService) runQualityStage(ctx context.Context, a
 		outcome.status, outcome.passed, outcome.operational = "passed", true, false
 		return outcome
 	}
-	if s.qualityProcessor == nil {
-		outcome.errorMessage = "renderer/classifier is not configured"
-		return outcome
+	var artifact *QualityArtifact
+	var processErr error
+	if s.qualityProcessor != nil {
+		artifact, processErr = s.qualityProcessor.Process(probeCtx, probe.ResponseText)
 	}
-	artifact, processErr := s.qualityProcessor.Process(probeCtx, probe.ResponseText)
+	if s.qualityProcessor == nil || (processErr != nil && strings.Contains(processErr.Error(), "not configured")) {
+		// Keep the stage usable without an external renderer. The embedded SVG
+		// renderer is deterministic and returns a browser-safe preview; a
+		// configured renderer still takes precedence when it succeeds.
+		artifact, processErr = processEmbeddedQualitySVG(probeCtx, probe.ResponseText)
+	}
 	if processErr != nil {
 		outcome.errorMessage = "render/classification failed: " + processErr.Error()
 		return outcome
@@ -174,7 +180,7 @@ func (s *AccountQualityMonitoringService) runQualityStage(ctx context.Context, a
 
 // runQualityMonitoring performs enabled stages in order; disabling either
 // stage skips its upstream request.
-func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Context, accounts []Account, results []AccountInspectionAccountResult, previous *AccountQualityRunState, settings AccountQualitySettings, now time.Time) error {
+func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Context, accounts []Account, results []AccountInspectionAccountResult, previous *AccountQualityRunState, settings AccountQualitySettings, now time.Time, progress ...func(int, string, bool)) error {
 	previousByID := make(map[int64]AccountInspectionAccountResult)
 	if previous != nil {
 		for _, result := range previous.Results {
@@ -210,6 +216,13 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 			defer wg.Done()
 			defer func() { <-sem }()
 			result := &results[index]
+			notify := func(stage string, done bool) {
+				for _, callback := range progress {
+					if callback != nil {
+						callback(index, stage, done)
+					}
+				}
+			}
 			failures, passes, status := qualityCounters(account.Extra)
 			result.QualityStage1Status, result.QualityStage2Status = "disabled", "disabled"
 			if !settings.Stage1Enabled && !settings.Stage2Enabled {
@@ -237,12 +250,14 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 				}
 			}
 			if settings.Stage1Enabled {
+				notify("stage1", false)
 				stage := s.runQualityStage(ctx, account, settings, "stage1", settings.Stage1Prompt)
 				result.QualityStage1Status, result.QualityReasoningTokens = stage.status, stage.reasoningTokens
 				details.Stage1 = &stage.detail
 				observe("stage1", stage)
 			}
 			if settings.Stage2Enabled {
+				notify("stage2", false)
 				stage := s.runQualityStage(ctx, account, settings, "stage2", settings.Stage2Prompt)
 				result.QualityStage2Status = stage.status
 				details.Stage2, artifact = &stage.detail, stage.artifact
@@ -302,6 +317,13 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 				if artifact != nil {
 					run.Label, run.Confidence, run.ModelVersion = artifact.Label, artifact.Confidence, artifact.ModelVersion
 					run.PNG, run.WebP = artifact.PNG, artifact.WebP
+					run.SVG = artifact.SVG
+					switch {
+					case len(run.WebP) > 0:
+						run.PreviewFormat = "webp"
+					case len(run.SVG) > 0:
+						run.PreviewFormat = "svg"
+					}
 				}
 				if err := s.qualityArtifacts.Save(ctx, run); err != nil {
 					recordErr(fmt.Errorf("save quality conversation: %w", err))
@@ -318,6 +340,7 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 				}
 			}
 			recordErr(writeQualityExtraErr(s.accountRepo, ctx, account.ID, updates))
+			notify("complete", true)
 		}(i, account)
 	}
 	wg.Wait()

@@ -18,6 +18,7 @@ type AccountQualityPublicPoint struct {
 	StartedAt  time.Time                  `json:"started_at"`
 	Details    AccountQualityProbeDetails `json:"details"`
 	HasPreview bool                       `json:"has_preview"`
+	PreviewFormat string                  `json:"preview_format,omitempty"`
 }
 
 type AccountQualityPublicSnapshot struct {
@@ -86,7 +87,7 @@ func (s *AccountQualityMonitoringService) GetPublicQualitySnapshot(ctx context.C
 			if result.ModelVersion == "" {
 				result.ModelVersion = run.ModelVersion
 			}
-			result.Points = append(result.Points, AccountQualityPublicPoint{ID: run.ID, Status: run.Status, Label: run.Label, Confidence: run.Confidence, Model: run.Model, Effort: run.Effort, LatencyMs: run.LatencyMs, StartedAt: run.StartedAt, Details: run.Details, HasPreview: run.HasPreview})
+			result.Points = append(result.Points, AccountQualityPublicPoint{ID: run.ID, Status: run.Status, Label: run.Label, Confidence: run.Confidence, Model: run.Model, Effort: run.Effort, LatencyMs: run.LatencyMs, StartedAt: run.StartedAt, Details: run.Details, HasPreview: run.HasPreview, PreviewFormat: run.PreviewFormat})
 		}
 		return result, nil
 	}

@@ -71,3 +71,8 @@ Final timeout patch publication:
 - MODIFIED source command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service -run 'TestQualityDrawingTimeoutOnlyAppliesBeforeFirstOutput' -count=1; literal result: ok github.com/Wei-Shaw/sub2api/internal/application/service 3.343s; exit status 0.
 - ROLLBACK executable: /Users/lin/.codex/worktrees/b443/sub2api-no2api/ROLLBACK.sh; independent rollback copy cmp exit 0 and restored baseline SHA 8c7d91fc5ebdd7a4fa9ef11a7a1437e1a1392ae492a7a90da20409c0fe270425.
 - Remote push: de9c083a1096e841f730048ed0cce38f8aa7771a; PR #52 merged; main merge SHA 955b19795816dfb07e8d582331d3786e57946d29.
+
+Additional requested behavior:
+- Empty renderer configuration uses the embedded website-code SVG validator/preview; existing non-empty renderer configuration remains an override and is not rewritten.
+- POST /api/v1/admin/account-quality/run now returns the persisted running overview immediately; GET /api/v1/admin/account-quality exposes progress.total, progress.completed, current_account, current_account_id and current_stage while probes continue.
+- TestQualityProgressCallbackTracksAccountStageAndCompletion and TestStartNowReturnsRunningStateBeforeLongProbeCompletes passed locally.

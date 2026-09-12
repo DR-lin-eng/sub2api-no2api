@@ -176,6 +176,17 @@ type AccountQualityRunState struct {
 	Results          []AccountInspectionAccountResult `json:"results,omitempty"`
 	ResultsTruncated bool                             `json:"results_truncated,omitempty"`
 	Error            string                           `json:"error,omitempty"`
+	Progress         AccountQualityProgress           `json:"progress"`
+}
+
+// AccountQualityProgress is persisted while a run is active so an operator
+// can see overall queue progress and the account/stage currently in flight.
+type AccountQualityProgress struct {
+	Total            int    `json:"total"`
+	Completed        int    `json:"completed"`
+	CurrentAccountID int64  `json:"current_account_id,omitempty"`
+	CurrentAccount   string `json:"current_account,omitempty"`
+	CurrentStage     string `json:"current_stage,omitempty"`
 }
 
 type AccountQualityOverview struct {
@@ -185,23 +196,24 @@ type AccountQualityOverview struct {
 }
 
 type AccountQualityRunView struct {
-	RunID            string                `json:"run_id,omitempty"`
-	Status           string                `json:"status"`
-	Trigger          string                `json:"trigger,omitempty"`
-	StartedAt        *time.Time            `json:"started_at,omitempty"`
-	CompletedAt      *time.Time            `json:"completed_at,omitempty"`
-	NextRunAt        *time.Time            `json:"next_run_at,omitempty"`
-	LastRunAt        *time.Time            `json:"last_run_at,omitempty"`
-	Summary          AccountQualitySummary `json:"summary"`
-	ResultsTruncated bool                  `json:"results_truncated,omitempty"`
-	Error            string                `json:"error,omitempty"`
+	RunID            string                 `json:"run_id,omitempty"`
+	Status           string                 `json:"status"`
+	Trigger          string                 `json:"trigger,omitempty"`
+	StartedAt        *time.Time             `json:"started_at,omitempty"`
+	CompletedAt      *time.Time             `json:"completed_at,omitempty"`
+	NextRunAt        *time.Time             `json:"next_run_at,omitempty"`
+	LastRunAt        *time.Time             `json:"last_run_at,omitempty"`
+	Summary          AccountQualitySummary  `json:"summary"`
+	ResultsTruncated bool                   `json:"results_truncated,omitempty"`
+	Error            string                 `json:"error,omitempty"`
+	Progress         AccountQualityProgress `json:"progress"`
 }
 
 func qualityRunView(state *AccountQualityRunState) AccountQualityRunView {
 	if state == nil {
 		return AccountQualityRunView{Status: AccountInspectionStatusIdle}
 	}
-	return AccountQualityRunView{RunID: state.RunID, Status: state.Status, Trigger: state.Trigger, StartedAt: state.StartedAt, CompletedAt: state.CompletedAt, NextRunAt: state.NextRunAt, LastRunAt: state.LastRunAt, Summary: state.Summary, ResultsTruncated: state.ResultsTruncated, Error: state.Error}
+	return AccountQualityRunView{RunID: state.RunID, Status: state.Status, Trigger: state.Trigger, StartedAt: state.StartedAt, CompletedAt: state.CompletedAt, NextRunAt: state.NextRunAt, LastRunAt: state.LastRunAt, Summary: state.Summary, ResultsTruncated: state.ResultsTruncated, Error: state.Error, Progress: state.Progress}
 }
 
 type AccountQualityMonitoringService struct {
@@ -402,7 +414,59 @@ func (s *AccountQualityMonitoringService) RunNow(ctx context.Context, trigger st
 	return s.execute(ctx, trigger)
 }
 
+// StartNow starts a manual quality run in the background. The caller receives
+// a persisted running state immediately and polls GetOverview for progress.
+func (s *AccountQualityMonitoringService) StartNow(ctx context.Context, trigger string) (*AccountQualityRunState, error) {
+	if s == nil || s.accountRepo == nil || s.accountTestSvc == nil {
+		return nil, ErrAccountInspectionUnavailable
+	}
+	if !s.running.CompareAndSwap(false, true) {
+		return nil, ErrAccountInspectionBusy
+	}
+	release, acquired := tryAcquireSingletonLeaderLock(ctx, s.lockCache, s.db, accountQualityLeaderLockKey, s.instanceID, accountQualityLeaderLockTTL)
+	if !acquired {
+		s.running.Store(false)
+		return nil, ErrAccountInspectionBusy
+	}
+	settings, err := s.GetSettings(ctx)
+	if err != nil {
+		release()
+		s.running.Store(false)
+		return nil, err
+	}
+	if err := s.validateQualityGroups(ctx, settings); err != nil {
+		release()
+		s.running.Store(false)
+		return nil, err
+	}
+	previous, _ := s.loadState(ctx)
+	now := time.Now().UTC()
+	state := &AccountQualityRunState{RunID: uuid.NewString(), Status: AccountInspectionStatusRunning, Trigger: trigger, StartedAt: &now, Results: []AccountInspectionAccountResult{}, Summary: AccountQualitySummary{ReasoningTokenDistribution: newReasoningTokenDistribution()}}
+	if err := s.saveState(ctx, state); err != nil {
+		release()
+		s.running.Store(false)
+		return nil, err
+	}
+	parentCtx := s.parentCtx
+	if parentCtx == nil {
+		parentCtx = context.Background()
+	}
+	runCtx, cancel := context.WithTimeout(parentCtx, AccountQualityRunTimeout)
+	go func() {
+		defer cancel()
+		defer release()
+		defer s.running.Store(false)
+		_, _ = s.executeRun(runCtx, trigger, previous, state)
+	}()
+	return state, nil
+}
+
 func (s *AccountQualityMonitoringService) execute(ctx context.Context, trigger string) (*AccountQualityRunState, error) {
+	previous, _ := s.loadState(ctx)
+	return s.executeRun(ctx, trigger, previous, nil)
+}
+
+func (s *AccountQualityMonitoringService) executeRun(ctx context.Context, trigger string, previous *AccountQualityRunState, state *AccountQualityRunState) (*AccountQualityRunState, error) {
 	settings, err := s.GetSettings(ctx)
 	if err != nil {
 		return nil, err
@@ -411,8 +475,9 @@ func (s *AccountQualityMonitoringService) execute(ctx context.Context, trigger s
 		return nil, err
 	}
 	now := time.Now().UTC()
-	previous, _ := s.loadState(ctx)
-	state := &AccountQualityRunState{RunID: uuid.NewString(), Status: AccountInspectionStatusRunning, Trigger: trigger, StartedAt: &now, Results: []AccountInspectionAccountResult{}, Summary: AccountQualitySummary{ReasoningTokenDistribution: newReasoningTokenDistribution()}}
+	if state == nil {
+		state = &AccountQualityRunState{RunID: uuid.NewString(), Status: AccountInspectionStatusRunning, Trigger: trigger, StartedAt: &now, Results: []AccountInspectionAccountResult{}, Summary: AccountQualitySummary{ReasoningTokenDistribution: newReasoningTokenDistribution()}}
+	}
 	if err := s.saveState(ctx, state); err != nil {
 		return nil, err
 	}
@@ -430,10 +495,25 @@ func (s *AccountQualityMonitoringService) execute(ctx context.Context, trigger s
 	for i := range eligible {
 		results[i] = neutralAccountInspectionResult(&eligible[i], now)
 	}
-	if err := s.runQualityMonitoring(ctx, eligible, results, previous, settings, now); err != nil {
+	state.Results = append([]AccountInspectionAccountResult(nil), results...)
+	var progressMu sync.Mutex
+	completedCount := 0
+	progress := func(index int, stage string, done bool) {
+		progressMu.Lock()
+		defer progressMu.Unlock()
+		if done {
+			completedCount++
+		}
+		state.Progress = AccountQualityProgress{Total: len(eligible), Completed: completedCount, CurrentAccountID: eligible[index].ID, CurrentAccount: eligible[index].Name, CurrentStage: stage}
+		state.Results[index] = results[index]
+		_ = s.saveState(ctx, state)
+	}
+	state.Progress = AccountQualityProgress{Total: len(eligible)}
+	if err := s.runQualityMonitoring(ctx, eligible, results, previous, settings, now, progress); err != nil {
 		return s.failState(ctx, state, err)
 	}
 	state.Results = results
+	state.Progress = AccountQualityProgress{Total: len(eligible), Completed: len(eligible)}
 	state.Summary = summarizeQualityResults(results)
 	state.Summary.Inspected = len(eligible)
 	state.Summary.ReasoningTokenDistribution = summarizeReasoningTokenDistribution(results)

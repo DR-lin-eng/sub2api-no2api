@@ -106,16 +106,19 @@ func (r *accountQualityArtifactRepository) Save(ctx context.Context, run *servic
 	if len(run.PNG) > qualityArtifactMaxBytes || len(run.WebP) > qualityArtifactMaxBytes {
 		return errors.New("quality artifact exceeds size limit")
 	}
+	if len(run.SVG) > qualityArtifactMaxHTMLBytes {
+		return errors.New("quality SVG preview exceeds size limit")
+	}
 	details, err := json.Marshal(run.Details)
 	if err != nil {
 		return err
 	}
 	_, err = r.db.ExecContext(ctx, `
 		INSERT INTO account_quality_runs
-		(id, account_id, model, effort, status, label, confidence, started_at, finished_at, latency_ms, model_version, png, webp, error_message, probe_details)
-		VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb)
+		(id, account_id, model, effort, status, label, confidence, started_at, finished_at, latency_ms, model_version, png, webp, error_message, probe_details, preview_svg, preview_format)
+		VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,$16,$17)
 	`, run.ID, run.AccountID, run.Model, run.Effort, run.Status, run.Label, run.Confidence,
-		run.StartedAt, run.FinishedAt, run.LatencyMs, run.ModelVersion, run.PNG, run.WebP, run.Error, string(details))
+		run.StartedAt, run.FinishedAt, run.LatencyMs, run.ModelVersion, run.PNG, run.WebP, run.Error, string(details), run.SVG, run.PreviewFormat)
 	if err != nil {
 		return err
 	}
@@ -134,7 +137,7 @@ func (r *accountQualityArtifactRepository) ListPublic(ctx context.Context, since
 		limit = 200
 	}
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id::text, account_id, model, effort, status, label, confidence, started_at, finished_at, latency_ms, model_version, error_message, probe_details, COALESCE(octet_length(webp),0) > 0
+		SELECT id::text, account_id, model, effort, status, label, confidence, started_at, finished_at, latency_ms, model_version, error_message, probe_details, COALESCE(octet_length(webp),0) > 0 OR COALESCE(octet_length(preview_svg),0) > 0, preview_format
 		FROM account_quality_runs WHERE finished_at >= $1 ORDER BY finished_at DESC LIMIT $2`, since, limit)
 	if err != nil {
 		return nil, err
@@ -144,7 +147,7 @@ func (r *accountQualityArtifactRepository) ListPublic(ctx context.Context, since
 	for rows.Next() {
 		var run service.AccountQualityRun
 		var details []byte
-		if err := rows.Scan(&run.ID, &run.AccountID, &run.Model, &run.Effort, &run.Status, &run.Label, &run.Confidence, &run.StartedAt, &run.FinishedAt, &run.LatencyMs, &run.ModelVersion, &run.Error, &details, &run.HasPreview); err != nil {
+		if err := rows.Scan(&run.ID, &run.AccountID, &run.Model, &run.Effort, &run.Status, &run.Label, &run.Confidence, &run.StartedAt, &run.FinishedAt, &run.LatencyMs, &run.ModelVersion, &run.Error, &details, &run.HasPreview, &run.PreviewFormat); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal(details, &run.Details); err != nil {
@@ -165,7 +168,10 @@ func (r *accountQualityArtifactRepository) GetPublicImage(ctx context.Context, i
 	if format == "webp" {
 		column, contentType = "webp", "image/webp"
 	}
-	if format != "png" && format != "webp" {
+	if format == "svg" {
+		column, contentType = "preview_svg", "image/svg+xml"
+	}
+	if format != "png" && format != "webp" && format != "svg" {
 		return nil, "", errors.New("unsupported quality image format")
 	}
 	var data []byte

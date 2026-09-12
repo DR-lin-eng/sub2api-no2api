@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"context"
 	"strconv"
 	"strings"
 
@@ -57,13 +56,11 @@ func (h *AccountQualityHandler) Run(c *gin.Context) {
 		response.ErrorFrom(c, service.ErrAccountInspectionUnavailable)
 		return
 	}
-	ctx, cancel := context.WithTimeout(c.Request.Context(), service.AccountQualityRunTimeout)
-	defer cancel()
-	if _, err := h.qualityService.RunNow(ctx, "manual"); err != nil {
+	if _, err := h.qualityService.StartNow(c.Request.Context(), "manual"); err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
-	overview, err := h.qualityService.GetOverview(ctx, service.AccountInspectionListFilter{Page: 1, PageSize: 50})
+	overview, err := h.qualityService.GetOverview(c.Request.Context(), service.AccountInspectionListFilter{Page: 1, PageSize: 50})
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return

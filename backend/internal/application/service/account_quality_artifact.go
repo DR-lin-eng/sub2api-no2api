@@ -13,6 +13,7 @@ type QualityArtifact struct {
 	ModelVersion string
 	PNG          []byte
 	WebP         []byte
+	SVG          []byte
 }
 
 type AccountQualityArtifactProcessor interface {
@@ -20,22 +21,24 @@ type AccountQualityArtifactProcessor interface {
 }
 
 type AccountQualityRun struct {
-	ID           string
-	AccountID    int64
-	Model        string
-	Effort       string
-	Status       string
-	Label        string
-	Confidence   float64
-	StartedAt    time.Time
-	FinishedAt   time.Time
-	LatencyMs    int64
-	ModelVersion string
-	PNG          []byte
-	WebP         []byte
-	Error        string
-	Details      AccountQualityProbeDetails
-	HasPreview   bool
+	ID            string
+	AccountID     int64
+	Model         string
+	Effort        string
+	Status        string
+	Label         string
+	Confidence    float64
+	StartedAt     time.Time
+	FinishedAt    time.Time
+	LatencyMs     int64
+	ModelVersion  string
+	PNG           []byte
+	WebP          []byte
+	SVG           []byte
+	PreviewFormat string
+	Error         string
+	Details       AccountQualityProbeDetails
+	HasPreview    bool
 }
 
 type AccountQualityArtifactRepository interface {

@@ -10,3 +10,5 @@ MODIFIED_FILE is intentionally changed; rollback is tested on an independent cop
 - backend/internal/application/service/account_quality_monitor.go: drawing stage timeout now cancels only before first output; once a streaming text/image/reasoning event arrives, long generation continues until the outer run budget.
 - backend/internal/application/service/account_test_service.go: OpenAI Responses and Chat Completions, plus Gemini, mark streamed output so the no-output timer stops.
 - Current branch commit: de9c083a1; merged main commit: 955b19795816dfb07e8d582331d3786e57946d29.
+- Renderer default: embedded website-code SVG validation/preview; existing external renderer configuration is untouched and remains an optional override.
+- Manual run: returns immediately with a persisted running state and account/stage progress.
