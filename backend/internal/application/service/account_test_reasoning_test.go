@@ -43,7 +43,7 @@ func TestReasoningTokensAreCapturedFromSSETerminalUsage(t *testing.T) {
 	}{
 		{name: "responses", stream: "data: {\"type\":\"response.output_text.delta\",\"delta\":\"21\"}\n\ndata: {\"type\":\"response.completed\",\"response\":{\"usage\":{\"output_tokens_details\":{\"reasoning_tokens\":256}}}}\n\n", read: (*AccountTestService).processOpenAIStream, want: 256},
 		{name: "chat completions", stream: "data: {\"choices\":[{\"delta\":{\"content\":\"21\"},\"finish_reason\":\"stop\"}]}\n\ndata: {\"choices\":[],\"usage\":{\"completion_tokens_details\":{\"reasoning_tokens\":80}}}\n\ndata: [DONE]\n\n", read: (*AccountTestService).processOpenAIChatCompletionsStream, want: 80},
-		{name: "gemini", stream: "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"21\"}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"thoughtsTokenCount\":120}}\n\n", read: (*AccountTestService).processGeminiStream, want: 120},
+		{name: "gemini", stream: "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"21\"}]},\"finishReason\":\"STOP\"}]}\n\ndata: {\"usageMetadata\":{\"thoughtsTokenCount\":120}}\n\n", read: (*AccountTestService).processGeminiStream, want: 120},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			recorder := httptest.NewRecorder()
