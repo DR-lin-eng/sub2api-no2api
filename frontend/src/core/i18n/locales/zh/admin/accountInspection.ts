@@ -1,5 +1,15 @@
 export default {
   accountQuality: {
+    progressCounts: '排队 {queued} · 执行中 {running}',
+    elapsed: '已用时',
+    queued: '排队中',
+    stage1Running: '文字题检测中',
+    stage2Running: '绘图生成中',
+    rendering: '渲染与分类中',
+    persisting: '保存检测结果',
+    completed: '已完成',
+    cancelled: '已中断',
+
     title: '账号质量监控',
     description: '独立探测账号输出质量，并按连续结果切换分组。',
     settingsTitle: '质量巡检策略',
@@ -27,6 +37,8 @@ export default {
     stagePolicyHint: '两个阶段可独立开关；全开时先执行文字题，再执行画图题。答错或低于 token 阈值会判为降智，连续失败次数仅控制自动切组。',
     timeout: '单次探测超时（秒）',
     timeoutHint: '第一阶段等待和第二阶段无输出等待可设置 30–300 秒，默认 120 秒；画图开始流式输出后不再触发该短超时。',
+    progressTitle: '质量巡检进度',
+    progressPreparing: '准备检测账号',
     passed: '正常',
     uncertain: '待确认',
     errors: '错误',
@@ -35,6 +47,7 @@ export default {
     saveFailed: '保存质量巡检设置失败',
     runFailed: '执行质量巡检失败',
     runCompleted: '质量巡检完成，发现 {count} 个降智账号',
+    runStarted: '质量巡检已开始，正在后台执行',
   },
   accountInspection: {
     title: '账号巡检',

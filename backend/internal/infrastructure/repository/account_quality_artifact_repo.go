@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
+	"github.com/Wei-Shaw/sub2api/internal/modules/qualityrender"
 	"github.com/google/uuid"
 )
 
@@ -29,6 +30,9 @@ type httpAccountQualityArtifactProcessor struct {
 }
 
 func NewAccountQualityArtifactProcessor() service.AccountQualityArtifactProcessor {
+	if strings.TrimSpace(os.Getenv("ACCOUNT_QUALITY_RENDERER_URL")) == "" {
+		return &embeddedAccountQualityProcessor{renderer: qualityrender.New()}
+	}
 	return &httpAccountQualityArtifactProcessor{
 		endpoint: strings.TrimRight(strings.TrimSpace(os.Getenv("ACCOUNT_QUALITY_RENDERER_URL")), "/"),
 		token:    strings.TrimSpace(os.Getenv("ACCOUNT_QUALITY_RENDERER_TOKEN")),
@@ -173,4 +177,16 @@ func (r *accountQualityArtifactRepository) GetPublicImage(ctx context.Context, i
 		return nil, "", err
 	}
 	return data, contentType, nil
+}
+
+// The default local module shares no network listener or settings with the old
+// optional renderer. Existing explicitly configured endpoints keep their behavior.
+type embeddedAccountQualityProcessor struct{ renderer *qualityrender.Processor }
+
+func (p *embeddedAccountQualityProcessor) Process(ctx context.Context, html string) (*service.QualityArtifact, error) {
+	artifact, err := p.renderer.Process(ctx, html)
+	if err != nil {
+		return nil, err
+	}
+	return &service.QualityArtifact{Label: artifact.Label, Confidence: artifact.Confidence, ModelVersion: artifact.ModelVersion, PNG: artifact.PNG, WebP: artifact.WebP}, nil
 }

@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -10,8 +12,13 @@ import (
 
 type qualityRepoStub struct {
 	AccountRepository
-	groups map[int64][]int64
-	extra  map[int64]map[string]any
+	groups   map[int64][]int64
+	extra    map[int64]map[string]any
+	accounts []Account
+}
+
+func (r *qualityRepoStub) ListAllWithFilters(context.Context, string, string, string, string, int64, string) ([]Account, error) {
+	return append([]Account(nil), r.accounts...), nil
 }
 
 func (r *qualityRepoStub) BindGroups(_ context.Context, accountID int64, ids []int64) error {
@@ -97,6 +104,17 @@ type qualityStageProbeStub struct {
 	prompts   []string
 }
 
+type blockingQualityProbeStub struct {
+	started chan struct{}
+	release chan struct{}
+}
+
+func (p *blockingQualityProbeStub) RunQualityTestBackground(context.Context, int64, string, string, string) (*ScheduledTestResult, error) {
+	close(p.started)
+	<-p.release
+	return &ScheduledTestResult{Status: "success", ResponseText: "21"}, nil
+}
+
 func (p *qualityStageProbeStub) RunQualityTestBackground(_ context.Context, _ int64, _, prompt, _ string) (*ScheduledTestResult, error) {
 	p.prompts = append(p.prompts, prompt)
 	if len(p.results) > 0 {
@@ -159,6 +177,53 @@ func TestQualityStagesBothDisabledSkipProbe(t *testing.T) {
 	require.Equal(t, "disabled", results[0].QualityStatus)
 	require.Equal(t, "disabled", results[0].QualityStage1Status)
 	require.Equal(t, "disabled", results[0].QualityStage2Status)
+}
+
+func TestStartNowReturnsRunningStateBeforeLongProbeCompletes(t *testing.T) {
+	settings := DefaultAccountQualitySettings()
+	settings.Enabled = true
+	settings.Stage2Enabled = false
+	settingsJSON, err := json.Marshal(settings)
+	require.NoError(t, err)
+	probe := &blockingQualityProbeStub{started: make(chan struct{}), release: make(chan struct{})}
+	repo := &qualityRepoStub{accounts: []Account{{ID: 15, Name: "slow-drawing", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}}, extra: map[int64]map[string]any{}}
+	settingsRepo := &inspectionSettingRepoStub{values: map[string]string{SettingKeyAccountQualitySettings: string(settingsJSON)}}
+	svc := NewAccountQualityMonitoringService(repo, settingsRepo, probe, nil, nil, nil)
+	started := time.Now()
+	state, err := svc.StartNow(context.Background(), "manual")
+	require.NoError(t, err)
+	require.Less(t, time.Since(started), 500*time.Millisecond)
+	require.Equal(t, AccountInspectionStatusRunning, state.Status)
+	select {
+	case <-probe.started:
+	case <-time.After(time.Second):
+		t.Fatal("background quality probe did not start")
+	}
+	overview, err := svc.GetOverview(context.Background(), AccountInspectionListFilter{Page: 1, PageSize: 50})
+	require.NoError(t, err)
+	require.Equal(t, AccountInspectionStatusRunning, overview.Run.Status)
+	require.Equal(t, 1, overview.Run.Progress.Total)
+	require.Equal(t, 0, overview.Run.Progress.Completed)
+	close(probe.release)
+	deadline := time.Now().Add(time.Second)
+	for svc.running.Load() && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	require.False(t, svc.running.Load())
+}
+
+func TestQualityProgressCallbackTracksAccountStageAndCompletion(t *testing.T) {
+	account := Account{ID: 14, Name: "progress-account", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
+	probe := &qualityStageProbeStub{responses: []string{"21", "<svg/>"}}
+	svc := &AccountQualityMonitoringService{accountRepo: &qualityRepoStub{extra: map[int64]map[string]any{}}, accountTestSvc: probe, qualityProcessor: &qualityStageProcessorStub{}}
+	settings := DefaultAccountQualitySettings()
+	results := []AccountInspectionAccountResult{neutralAccountInspectionResult(&account, time.Now().UTC())}
+	var events []string
+	progress := func(index int, stage string, done bool) {
+		events = append(events, fmt.Sprintf("%d:%s:%t", index, stage, done))
+	}
+	require.NoError(t, svc.runQualityMonitoring(context.Background(), []Account{account}, results, nil, settings, time.Now().UTC(), progress))
+	require.Equal(t, []string{"0:stage1:false", "0:stage2:false", "0:rendering:false", "0:saving:false", "0:complete:true"}, events)
 }
 
 func TestQualityStageOneNonTwentyOneIsDegraded(t *testing.T) {

@@ -1,5 +1,15 @@
 export default {
   accountQuality: {
+    progressCounts: 'Queued {queued} · Running {running}',
+    elapsed: 'Elapsed',
+    queued: 'Queued',
+    stage1Running: 'Checking text answer',
+    stage2Running: 'Generating drawing',
+    rendering: 'Rendering and classifying',
+    persisting: 'Saving result',
+    completed: 'Completed',
+    cancelled: 'Interrupted',
+
     title: 'Account Quality Monitoring',
     description: 'Probe account output quality independently and route on consecutive results.',
     settingsTitle: 'Quality inspection policy',
@@ -27,6 +37,8 @@ export default {
     stagePolicyHint: 'Stages can be toggled independently; when both are enabled, text runs before drawing. Wrong answers or low token counts are degraded; consecutive failures only control group switching.',
     timeout: 'Probe timeout (seconds)',
     timeoutHint: 'Set 30–300 seconds (default 120) for stage 1 and stage 2 before any drawing output; streamed drawing output is allowed to finish.',
+    progressTitle: 'Quality inspection progress',
+    progressPreparing: 'Preparing account checks',
     passed: 'Healthy',
     uncertain: 'Uncertain',
     errors: 'Errors',
@@ -35,6 +47,7 @@ export default {
     saveFailed: 'Failed to save quality settings',
     runFailed: 'Failed to run quality inspection',
     runCompleted: 'Quality inspection complete. {count} degraded account(s)',
+    runStarted: 'Quality inspection started and is running in the background',
   },
   accountInspection: {
     title: 'Account Inspection',

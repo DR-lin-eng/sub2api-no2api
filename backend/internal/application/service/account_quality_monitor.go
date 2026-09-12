@@ -100,7 +100,7 @@ func qualityStageContext(ctx context.Context, stage string, timeoutSeconds int) 
 	return probeCtx, cleanup
 }
 
-func (s *AccountQualityMonitoringService) runQualityStage(ctx context.Context, account Account, settings AccountQualitySettings, stage, prompt string) (outcome qualityStageOutcome) {
+func (s *AccountQualityMonitoringService) runQualityStage(ctx context.Context, account Account, settings AccountQualitySettings, stage, prompt string, beforeRender ...func()) (outcome qualityStageOutcome) {
 	probeCtx, cancel := qualityStageContext(ctx, stage, settings.TimeoutSeconds)
 	defer cancel()
 	started := time.Now().UTC()
@@ -147,8 +147,13 @@ func (s *AccountQualityMonitoringService) runQualityStage(ctx context.Context, a
 		return outcome
 	}
 	if s.qualityProcessor == nil {
-		outcome.errorMessage = "renderer/classifier is not configured"
+		outcome.errorMessage = "renderer/classifier is unavailable"
 		return outcome
+	}
+	for _, callback := range beforeRender {
+		if callback != nil {
+			callback()
+		}
 	}
 	artifact, processErr := s.qualityProcessor.Process(probeCtx, probe.ResponseText)
 	if processErr != nil {
@@ -174,7 +179,7 @@ func (s *AccountQualityMonitoringService) runQualityStage(ctx context.Context, a
 
 // runQualityMonitoring performs enabled stages in order; disabling either
 // stage skips its upstream request.
-func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Context, accounts []Account, results []AccountInspectionAccountResult, previous *AccountQualityRunState, settings AccountQualitySettings, now time.Time) error {
+func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Context, accounts []Account, results []AccountInspectionAccountResult, previous *AccountQualityRunState, settings AccountQualitySettings, now time.Time, progress ...func(int, string, bool)) error {
 	previousByID := make(map[int64]AccountInspectionAccountResult)
 	if previous != nil {
 		for _, result := range previous.Results {
@@ -210,13 +215,28 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 			defer wg.Done()
 			defer func() { <-sem }()
 			result := &results[index]
+			notify := func(stage string, done bool) {
+				result.QualityPhase = stage
+				if done {
+					finished := time.Now().UTC()
+					result.QualityCompletedAt = &finished
+				}
+				for _, callback := range progress {
+					if callback != nil {
+						callback(index, stage, done)
+					}
+				}
+			}
 			failures, passes, status := qualityCounters(account.Extra)
 			result.QualityStage1Status, result.QualityStage2Status = "disabled", "disabled"
 			if !settings.Stage1Enabled && !settings.Stage2Enabled {
 				result.QualityStatus = "disabled"
+				notify("skipped", true)
 				return
 			}
 			started := time.Now().UTC()
+			result.QualityStartedAt = &started
+			result.QualityStatus = "running"
 			details := AccountQualityProbeDetails{}
 			var artifact *QualityArtifact
 			var stageErrors []string
@@ -237,13 +257,17 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 				}
 			}
 			if settings.Stage1Enabled {
+				result.QualityStage1Status = "running"
+				notify("stage1", false)
 				stage := s.runQualityStage(ctx, account, settings, "stage1", settings.Stage1Prompt)
 				result.QualityStage1Status, result.QualityReasoningTokens = stage.status, stage.reasoningTokens
 				details.Stage1 = &stage.detail
 				observe("stage1", stage)
 			}
 			if settings.Stage2Enabled {
-				stage := s.runQualityStage(ctx, account, settings, "stage2", settings.Stage2Prompt)
+				result.QualityStage2Status = "running"
+				notify("stage2", false)
+				stage := s.runQualityStage(ctx, account, settings, "stage2", settings.Stage2Prompt, func() { notify("rendering", false) })
 				result.QualityStage2Status = stage.status
 				details.Stage2, artifact = &stage.detail, stage.artifact
 				if stage.artifact != nil {
@@ -294,6 +318,7 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 			if wrong {
 				outcome = "wrong"
 			} // Match the combined verdict when another stage errors.
+			notify("saving", false)
 			if s.qualityArtifacts != nil {
 				run := &AccountQualityRun{AccountID: account.ID, Model: strings.TrimSpace(settings.Model), Effort: settings.Effort, Status: outcome, StartedAt: started, FinishedAt: time.Now().UTC(), LatencyMs: result.QualityLatencyMs, Details: details, Error: result.QualityError}
 				if outcome == "passed" {
@@ -318,6 +343,7 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 				}
 			}
 			recordErr(writeQualityExtraErr(s.accountRepo, ctx, account.ID, updates))
+			notify("complete", true)
 		}(i, account)
 	}
 	wg.Wait()

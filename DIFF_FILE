@@ -1,8 +1,7 @@
-Public quality records now persist and display conversation/response IDs plus the
-bounded final answer from each enabled stage. The public page mirrors manxue.ai:
-summary metrics, 24-hour clickable timeline, filters, evidence cards and enlarged
-image preview. Backend filters old records to 24 hours, keeps raw account identity
-out of the projection, and uses additive migration 242 for probe_details.
-Drawing probes now time out only while waiting for the first streamed output. Once OpenAI/Gemini emits text or an image, the per-probe no-output timer stops and the stream may run until the outer quality-run budget.
-Drawing probes now distinguish no-output stalls from long generation: timeout_seconds cancels only before the first stream event, while output-bearing streams continue until the quality-run hard budget.
-Verification confirms the output-aware timeout: a 1-second stage-2 no-output context cancels, while a stream that emits output remains active after the same interval.
+The drawing stage now uses a local embedded qualityrender module when no existing
+renderer URL is configured. The worker renders HTML/SVG in offline Chromium and
+runs the supplied best.pt model (Ultralytics 8.4.14) on sampled frames, returning
+PNG/WebP and the real normal/unnormal verdict. Existing renderer settings are not
+rewritten. Manual quality runs return immediately and persist total, completed,
+running, queued, current account, current stage, and elapsed per-account phase.
+The missing renderer configuration path is removed from normal operation: the main website image embeds the worker and best.pt classifier. Existing non-empty renderer URLs are still honored unchanged.

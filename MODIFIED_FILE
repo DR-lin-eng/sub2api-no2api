@@ -1,12 +1,10 @@
 Changed branch: codex/account-quality-source-group
-Changed feature: public account-quality page now follows the manxue.ai-style summary → timeline → evidence-gallery layout.
-Public record fields: provider conversation_id/response_id, bounded final answer text for stage 1 and stage 2, reasoning_tokens, stage status, classifier status, and has_preview.
-Public image: WebP/PNG preview opens from /api/v1/account-quality-share/image/:id?format=webp in an enlarged detail dialog.
-Privacy invariant: account_id, account name, credentials, prompt, raw request and reasoning text are not returned; answers are capped at 16 KiB and rendered as escaped text.
-Migration: backend/migrations/242_account_quality_probe_details.sql adds probe_details JSONB without changing old rows.
-MODIFIED_FILE is intentionally changed; rollback is tested on an independent copy.
-- backend/internal/application/service/account_quality_monitor.go: stage 2 now uses an output-aware context; timeout_seconds only covers no-output wait and is cancelled after the first streamed content/image event. Outer AccountQualityRunTimeout remains the hard run budget.
-- backend/internal/application/service/account_test_service.go: streamed text/reasoning/image deltas mark output, preserving long OpenAI drawing streams.
-- backend/internal/application/service/account_quality_monitor.go: drawing stage timeout now cancels only before first output; once a streaming text/image/reasoning event arrives, long generation continues until the outer run budget.
-- backend/internal/application/service/account_test_service.go: OpenAI Responses and Chat Completions, plus Gemini, mark streamed output so the no-output timer stops.
-- Current branch commit: de9c083a1; merged main commit: 955b19795816dfb07e8d582331d3786e57946d29.
+Changed fields:
+- backend/internal/modules/qualityrender/: embedded worker.py and best.pt (Ultralytics 8.4.14) run locally from the main website process; no HTTP renderer URL, token, sidecar, or Compose change is required.
+- backend/internal/application/service/account_quality_monitoring.go: persisted run progress (total/completed/running/queued/current account/current stage), asynchronous manual StartNow, per-account phase/timestamps, bounded run cancellation.
+- backend/internal/transport/http/handler/admin/account_quality_handler.go and frontend/src/features/admin-account-quality/: immediate manual response plus account/total progress display and elapsed time.
+- Dockerfile, Dockerfile.goreleaser, deploy/Dockerfile: package Python 3.11, Playwright Chromium, CPU Torch/Ultralytics and local runtime assets into the existing website image.
+Existing account-quality settings and existing renderer environment values remain unchanged; non-empty legacy renderer URL still uses its original HTTP path.
+MODIFIED_FILE is intentionally left changed; rollback is tested only on an independent copy.
+- Main image packages the embedded worker, model, Python/Playwright/Chromium CPU runtime, while existing Compose/environment files remain untouched.
+- Manual POST now returns immediately; GET overview shows total/completed/running/queued plus current account and phase.

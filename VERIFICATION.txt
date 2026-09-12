@@ -1,73 +1,52 @@
-Changed branch/fields: codex/account-quality-source-group; public quality page now shows conversation IDs, response IDs, final answers for both stages, reasoning token values, status timeline, and preview images.
+Changed branch/fields: codex/account-quality-source-group; local embedded renderer with best.pt, asynchronous account-quality run progress, existing config preservation.
 
-Artifacts:
+Artifacts (all updated/reopened):
 - /Users/lin/.codex/worktrees/b443/sub2api-no2api/MODIFIED_FILE
 - /Users/lin/.codex/worktrees/b443/sub2api-no2api/DIFF_FILE
 - /Users/lin/.codex/worktrees/b443/sub2api-no2api/VERIFICATION.txt
 - /Users/lin/.codex/worktrees/b443/sub2api-no2api/ROLLBACK.sh
 
-BASELINE source: frontend/src/features/account-quality/presentation/pages/AccountQualitySharePage.vue at parent commit 35ee93131.
-BASELINE SHA-256: 4502896ee8352b71270295ca7eb27badc98f8c51abf4b8b02ce2b51c5da3e6f2
-BASELINE bytes: 6816
-MODIFIED source SHA-256: a1bca8abc9ded2b12c1ee4aa0a3be6cc8a411535e3237cb07b32e406288ccc2e
-MODIFIED bytes: 13340
+BASELINE source command: git show 3103aa4ef:backend/internal/application/service/account_quality_monitoring.go > /tmp/quality-embedded-final-20260913/BASELINE_QUALITY_MONITORING.go
+BASELINE result: SHA-256 4cb48b3f1fa42d2e7cebbe50c506376e093419603af57749983cce1905f3e86d; 23502 bytes; exit 0.
+MODIFIED source command: cp backend/internal/application/service/account_quality_monitoring.go /tmp/quality-embedded-final-20260913/MODIFIED_QUALITY_MONITORING.go
+MODIFIED result: SHA-256 5151cac98bc1d21bc62bb0aa02064ed2a5eb88ac04c468a5cd2be5171dbc719a; 30289 bytes; exit 0.
 
-BASELINE command: git show HEAD^:frontend/src/features/account-quality/presentation/pages/AccountQualitySharePage.vue > /tmp/quality-public-20260912/BASELINE_ACCOUNT_QUALITY_SHARE.vue
-BASELINE result: source extracted; exit status 0.
-MODIFIED command: cp frontend/src/features/account-quality/presentation/pages/AccountQualitySharePage.vue /tmp/quality-public-20260912/MODIFIED_ACCOUNT_QUALITY_SHARE.vue
-MODIFIED result: source copied; exit status 0.
+LOCAL backend command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/infrastructure/repository ./internal/modules/qualityrender ./migrations ./internal/transport/http/handler/admin
+LOCAL backend result: service 137.509s; repository 5.791s; qualityrender 0.699s; migrations cached; admin 1.051s; exit 0.
+RACE command: cd backend && GOCACHE=/tmp/sub2api-gocache go test -race ./internal/application/service -run 'TestStartNowReturnsRunningStateBeforeLongProbeCompletes|TestQualityProgressCallbackTracksAccountStageAndCompletion' -count=1
+RACE result: quality progress tests passed; exit 0.
+FRONTEND command: cd frontend && pnpm run typecheck && pnpm run lint:check && pnpm exec vitest run src/features/admin-account-quality/__tests__/AccountQualityPage.spec.ts src/core/i18n/__tests__/routeLocaleCoverage.spec.ts
+FRONTEND result: typecheck passed; eslint passed; 2 test files, 5 tests passed; exit 0.
+DOCS command: make check-docs
+DOCS result: Documentation checks passed; exit 0.
+COMPOSE command: POSTGRES_PASSWORD=test docker compose -f deploy/docker-compose.local.yml config
+COMPOSE result: parsed successfully; existing Compose files remain unchanged in this change; exit 0.
 
-BACKEND command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/infrastructure/repository ./migrations
-BACKEND literal output/result: ok service 143.544s; ok repository 5.812s; ok migrations 0.625s; exit status 0.
-TARGETED conversation command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/infrastructure/repository ./migrations -run 'TestQualityConversation|TestAccountQualityConversation' -count=1
-TARGETED literal output/result: service 1.315s; repository 1.113s; migrations 0.670s; exit status 0.
-HTTP command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/transport/http/handler/...
-HTTP literal output/result: handler 31.575s; admin 1.036s; dto 0.731s; quotaview 0.720s; supportchatasset cached; exit status 0.
+DOCKER BUILD command: docker build --target backend-builder -t sub2api-quality-embedded-final:test .
+DOCKER BUILD result: embedded website binary built successfully; exit 0.
+DOCKER RUNTIME command: docker build --progress=plain -t sub2api-quality-embedded-final-runtime:test .
+DOCKER RUNTIME result: full Python/Chromium/Ultralytics runtime image built successfully; exit 0.
+DOCKER MODEL command: docker run --rm --network none --read-only --tmpfs /tmp:size=512m --cpus=2 --memory=4g -v /tmp/quality-module-20260913/qualityrender.test:/qualityrender.test:ro -v /tmp/quality-module-20260913/render-output:/output -e QUALITY_RENDER_INTEGRATION=1 -e QUALITY_RENDER_TEST_OUTPUT=/output --entrypoint /qualityrender.test sub2api-quality-embedded-final-runtime:test -test.v
+DOCKER MODEL result: TestEmbeddedCheckpoint PASS; TestRejectsInvalidInputAndCancellation PASS; TestLocalRenderRealModel PASS (model=8.4.14, label=unnormal, confidence=0.999999, png=31382, webp=40980); exit 0.
+DOCKER TEST command: docker run --rm sub2api-account-quality-local-progress-final:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/application/service ./internal/infrastructure/repository ./migrations ./internal/transport/http/handler/admin -run "TestQuality|TestAccountQuality" -count=1'
+DOCKER TEST result: service 2.144s; repository 0.019s; migrations 0.002s; admin 0.014s; exit 0.
 
-FRONTEND command: cd frontend && pnpm run typecheck && pnpm run lint:check && pnpm exec vitest run src/features/account-quality/__tests__/AccountQualitySharePage.spec.ts src/features/admin-account-quality/__tests__/AccountQualityPage.spec.ts src/core/i18n/__tests__/routeLocaleCoverage.spec.ts
-FRONTEND literal output/result: typecheck passed; eslint passed; 3 test files, 7 tests passed; exit status 0.
-FRONTEND BUILD command: cd frontend && pnpm run build
-FRONTEND BUILD literal output/result: Vite production build completed; exit status 0.
-DOCKER BUILD command: docker build --target backend-builder -t sub2api-account-quality-public-final:test .
-DOCKER BUILD literal output/result: embedded frontend build and backend build completed; image tagged sub2api-account-quality-public-final:test; exit status 0.
-DOCKER TEST command: docker run --rm sub2api-account-quality-public-final:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/application/service ./internal/infrastructure/repository ./migrations'
-DOCKER TEST literal output/result: service 132.727s; repository 4.881s; migrations 0.004s; all passed; exit status 0.
+ROLLBACK command: ./ROLLBACK.sh /tmp/quality-embedded-final-20260913/BASELINE_QUALITY_MONITORING.go /tmp/quality-embedded-final-20260913/ROLLBACK_COPY.go after appending a temporary mutation.
+ROLLBACK result: restored target and cmp exit 0; restored SHA-256 4cb48b3f1fa42d2e7cebbe50c506376e093419603af57749983cce1905f3e86d. Working tree source remains changed.
 
-ROLLBACK command: ./ROLLBACK.sh /tmp/quality-public-20260912/BASELINE_ACCOUNT_QUALITY_SHARE.vue /tmp/quality-public-20260912/ROLLBACK_COPY.vue after temporary mutation.
-ROLLBACK literal output/result: restored: /tmp/quality-public-20260912/ROLLBACK_COPY.vue; cmp exit status 0.
-RESTORED SHA-256: 4502896ee8352b71270295ca7eb27badc98f8c51abf4b8b02ce2b51c5da3e6f2
+Remote previous merge status: PR #52 was merged before this follow-up; this follow-up is on codex/account-quality-source-group and awaits its own push/merge.
 
-Remote publication baseline: PR #48/#49/#50 merged into main through abe7a16f216deb76a2acf3ec2d0b814cf21474a9.
-Working tree remains changed for the current public conversation display update.
-
-Drawing timeout change:
-- Stage 2 uses an output-aware context. timeout_seconds is only the no-output wait; first streamed content/image/reasoning delta cancels that timer. The outer AccountQualityRunTimeout remains the hard bound.
-- Test: TestQualityDrawingTimeoutOnlyAppliesBeforeFirstOutput passed (output before 1 second remains active; no output cancels after 1 second).
-- Docker build: docker build --target backend-builder -t sub2api-account-quality-timeout-stream:test . -> embedded frontend/backend build passed, exit status 0.
-- Docker test: docker run --rm sub2api-account-quality-timeout-stream:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/application/service ./internal/infrastructure/repository ./migrations' -> service 140.614s, repository 4.916s, migrations 0.005s; all passed, exit status 0.
-- Local regression: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/infrastructure/repository ./migrations -> service/repository/migrations passed; exit status 0.
-- Local frontend: typecheck, lint, public/admin Vitest and locale coverage passed; public page test 2/2, admin page test 2/2, locale coverage 3/3; exit status 0.
-- Rollback copy remains restored to the recorded baseline SHA with cmp exit 0; working source stays modified.
-
-Drawing timeout verification (2026-09-13):
-Changed field: stage2 no-output wait in AccountQualityMonitoringService.runQualityStage; output signal is marked by streamed provider events in AccountTestService.
-BASELINE source command: git show 69a31b758:backend/internal/application/service/account_quality_monitor.go > /tmp/quality-drawing-timeout-20260913/BASELINE_ACCOUNT_QUALITY_MONITOR.go
-BASELINE literal result: source extracted, baseline SHA-256 8c7d91fc5ebdd7a4fa9ef11a7a1437e1a1392ae492a7a90da20409c0fe270425, 18247 bytes, exit status 0.
-MODIFIED source command: cp backend/internal/application/service/account_quality_monitor.go /tmp/quality-drawing-timeout-20260913/MODIFIED_ACCOUNT_QUALITY_MONITOR.go
-MODIFIED literal result: source copied, modified SHA-256 8ddd0ee1722f9ec61e9ff5408c1e5e446f5189d9ebcc16b72836485cf67294a0, 19297 bytes, exit status 0.
-TIMEOUT TEST command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service -run 'TestQualityDrawingTimeoutOnlyAppliesBeforeFirstOutput' -count=1
-TIMEOUT TEST literal result: ok github.com/Wei-Shaw/sub2api/internal/application/service 3.343s, exit status 0.
-DOCKER BUILD command: docker build --target backend-builder -t sub2api-account-quality-timeout-stream:test .
-DOCKER BUILD literal result: image built with embedded frontend/backend; exit status 0.
-DOCKER TEST command: docker run --rm sub2api-account-quality-timeout-stream:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/application/service ./internal/infrastructure/repository ./migrations'
-DOCKER TEST literal result: service 140.614s, repository 4.916s, migrations 0.005s; all passed, exit status 0.
-ROLLBACK command: ./ROLLBACK.sh /tmp/quality-drawing-timeout-20260913/BASELINE_ACCOUNT_QUALITY_MONITOR.go /tmp/quality-drawing-timeout-20260913/ROLLBACK_COPY.go after appending a temporary mutation.
-ROLLBACK literal result: restored target and cmp returned 0; restored SHA-256 8c7d91fc5ebdd7a4fa9ef11a7a1437e1a1392ae492a7a90da20409c0fe270425.
-Restored behavior/status: rollback copy matches baseline; current working source remains modified on branch.
-
-Final timeout patch publication:
-- BASELINE field/file: backend/internal/application/service/account_quality_monitor.go at 69a31b758; SHA-256 8c7d91fc5ebdd7a4fa9ef11a7a1437e1a1392ae492a7a90da20409c0fe270425; 18247 bytes.
-- MODIFIED field/file: backend/internal/application/service/account_quality_monitor.go at de9c083a1; SHA-256 8ddd0ee1722f9ec61e9ff5408c1e5e446f5189d9ebcc16b72836485cf67294a0; 19297 bytes.
-- MODIFIED source command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service -run 'TestQualityDrawingTimeoutOnlyAppliesBeforeFirstOutput' -count=1; literal result: ok github.com/Wei-Shaw/sub2api/internal/application/service 3.343s; exit status 0.
-- ROLLBACK executable: /Users/lin/.codex/worktrees/b443/sub2api-no2api/ROLLBACK.sh; independent rollback copy cmp exit 0 and restored baseline SHA 8c7d91fc5ebdd7a4fa9ef11a7a1437e1a1392ae492a7a90da20409c0fe270425.
-- Remote push: de9c083a1096e841f730048ed0cce38f8aa7771a; PR #52 merged; main merge SHA 955b19795816dfb07e8d582331d3786e57946d29.
+Final embedded renderer/progress verification (2026-09-13):
+BASELINE command: git show 3103aa4ef:backend/internal/application/service/account_quality_monitoring.go > /tmp/quality-embedded-final-20260913/BASELINE_QUALITY_MONITORING.go
+BASELINE literal result: SHA-256 4cb48b3f1fa42d2e7cebbe50c506376e093419603af57749983cce1905f3e86d;    23502 bytes; exit 0.
+MODIFIED command: cp backend/internal/application/service/account_quality_monitoring.go /tmp/quality-embedded-final-20260913/MODIFIED_QUALITY_MONITORING.go
+MODIFIED literal result: SHA-256 5151cac98bc1d21bc62bb0aa02064ed2a5eb88ac04c468a5cd2be5171dbc719a;    30289 bytes; exit 0.
+PROGRESS tests: TestQualityProgressCallbackTracksAccountStageAndCompletion and TestStartNowReturnsRunningStateBeforeLongProbeCompletes passed; exit 0.
+EMBEDDED MODEL command: docker run --rm --network none --read-only --tmpfs /tmp:size=512m --cpus=2 --memory=4g -v /tmp/quality-embedded-final-20260913/qualityrender.test:/qualityrender.test:ro -v /tmp/quality-embedded-final-20260913/render-output:/output -e QUALITY_RENDER_INTEGRATION=1 -e QUALITY_RENDER_TEST_OUTPUT=/output --entrypoint /qualityrender.test sub2api-quality-embedded-final:test -test.v
+EMBEDDED MODEL result: TestEmbeddedCheckpoint PASS; TestRejectsInvalidInputAndCancellation PASS; TestLocalRenderRealModel PASS (model=8.4.14, label=unnormal, confidence=0.999999, png=31382, webp=41068); exit 0.
+COMPOSE preservation command: git diff --exit-code 3103aa4ef -- deploy/docker-compose.yml deploy/docker-compose.local.yml deploy/.env.example deploy/config.example.yaml
+COMPOSE preservation result: no diff; existing deployment/config files unchanged; exit 0.
+DEPLOY DOCKER BUILD command: docker build -f deploy/Dockerfile -t sub2api-quality-embedded-deploy:test .
+DEPLOY DOCKER BUILD result: deploy/Dockerfile image built successfully; exit 0.
+ROLLBACK command: ./ROLLBACK.sh /tmp/quality-embedded-final-20260913/BASELINE_QUALITY_MONITORING.go /tmp/quality-embedded-final-20260913/ROLLBACK_COPY.go after temporary mutation.
+ROLLBACK literal result: cmp exit 0; restored SHA-256 4cb48b3f1fa42d2e7cebbe50c506376e093419603af57749983cce1905f3e86d; current source remains modified.

@@ -25,6 +25,9 @@ export interface AccountQualityResult {
   name: string
   platform: string
   type: string
+  quality_phase?: string
+  quality_started_at?: string | null
+  quality_completed_at?: string | null
   quality_status?: string
   quality_stage1_status?: string
   quality_stage2_status?: string
@@ -74,6 +77,7 @@ export interface AccountQualityRun {
   summary: AccountQualitySummary
   results?: AccountQualityResult[]
   error?: string
+  progress?: { total: number; completed: number; running?: number; queued?: number; current_account_id?: number; current_account?: string; current_stage?: string }
 }
 
 export interface AccountQualityOverview {
