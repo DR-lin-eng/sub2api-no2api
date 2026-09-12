@@ -1,5 +1,7 @@
-Quality inspection and account health inspection use separate settings, state keys,
-services, schedulers, handlers and pages. The quality probe deadline changed from
-30 seconds to an administrator-controlled timeout_seconds (default 120, range
-30-300); timeout rows show error status without changing quality counters. The
-admin quality page links to /monitor/quality/public and edits timeout_seconds.
+Quality monitoring now runs two administrator-controlled stages independently: the
+stage 1 candy question requires exact configured answer 21 and records reasoning
+tokens; stage 2 sends the SVG pelican-bike prompt to the renderer/classifier.
+Only wrong answers/low tokens/classifier `unnormal` increment degradation; transport
+errors stay error. Source-group selection, degraded-group switching, public page,
+configurable 30–300 second per-stage timeout, token buckets and legacy migration are
+preserved.

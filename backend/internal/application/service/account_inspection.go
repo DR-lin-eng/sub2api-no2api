@@ -181,6 +181,9 @@ type AccountInspectionAccountResult struct {
 	QualityRunID               string    `json:"quality_run_id,omitempty"`
 	QualityLabel               string    `json:"quality_label,omitempty"`
 	QualityConfidence          float64   `json:"quality_confidence,omitempty"`
+	QualityStage1Status        string    `json:"quality_stage1_status,omitempty"`
+	QualityStage2Status        string    `json:"quality_stage2_status,omitempty"`
+	QualityReasoningTokens     *int64    `json:"quality_reasoning_tokens,omitempty"`
 }
 
 type AccountInspectionQuotaBucket struct {

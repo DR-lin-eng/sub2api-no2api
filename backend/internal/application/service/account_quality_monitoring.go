@@ -16,9 +16,13 @@ import (
 )
 
 const (
-	accountQualityLeaderLockKey            = "account-quality:run:leader"
-	accountQualityStateKey                 = SettingKeyAccountQualityState
-	accountQualityLeaderLockTTL            = 6 * time.Minute
+	accountQualityLeaderLockKey = "account-quality:run:leader"
+	accountQualityStateKey      = SettingKeyAccountQualityState
+	// A quality run may execute both stages for every account. The per-stage
+	// probe timeout is configurable up to five minutes, so the run budget must
+	// cover two sequential stages plus scheduling overhead.
+	AccountQualityRunTimeout               = 11 * time.Minute
+	accountQualityLeaderLockTTL            = 12 * time.Minute
 	accountQualityDefaultIntervalMinutes   = 10
 	accountQualityDefaultFailureThreshold  = 2
 	accountQualityDefaultRecoveryThreshold = 2
@@ -26,26 +30,39 @@ const (
 	accountQualityDefaultProbeTimeoutSec   = 120
 	accountQualityMinProbeTimeoutSec       = 30
 	accountQualityMaxProbeTimeoutSec       = 300
-	accountQualityDefaultPrompt            = "创建一个html，内容是SVG绘制一个鹈鹕骑自行车的2D动画。页面必须自包含，只使用内联SVG、CSS关键帧动画和少量JavaScript；鹈鹕、车轮、脚踏、道路和背景都要画出来，动画要可见。只返回完整HTML源码，不要 Markdown 代码围栏，不要解释。"
+	accountQualityMaxReasoningTokenLimit   = 1_000_000
+	accountQualityDefaultStage1Answer      = "21"
+	accountQualityDefaultStage1Prompt      = `在一个黑色的袋子里放有三种口味的糖果，每种糖果有两种不同的形状（圆形和五角星形，不同的形状靠手感可以分辨）。现已知不同口味的糖和不同形状的数量统计如下表。参赛者需要在活动前决定摸出的糖果数目，那么，最少取出多少个糖果才能保证手中同时拥有不同形状的苹果味和桃子味的糖？（同时手中有圆形苹果味匹配五角星桃子味糖果，或者有圆形桃子味匹配五角星苹果味糖果都满足要求）
+苹果味 桃子味 西瓜味
+圆形 7 9 8
+五角星形 7 6 4
+请只输出最终答案，不要输出推理过程或其他文字。`
+	accountQualityDefaultStage2Prompt = "创建一个html，内容是SVG绘制一个鹈鹕骑自行车的2D动画。页面必须自包含，只使用内联SVG、CSS关键帧动画和少量JavaScript；鹈鹕、车轮、脚踏、道路和背景都要画出来，动画要可见。只返回完整HTML源码，不要 Markdown 代码围栏，不要解释。"
 )
 
 // AccountQualitySettings owns the account-level quality probe policy. It is
 // deliberately separate from AccountInspectionSettings so saving or running
 // one policy never starts the other policy.
 type AccountQualitySettings struct {
-	Enabled           bool    `json:"enabled"`
-	IntervalMinutes   int     `json:"interval_minutes"`
-	TimeoutSeconds    int     `json:"timeout_seconds"`
-	Model             string  `json:"model"`
-	Effort            string  `json:"effort"`
-	Prompt            string  `json:"prompt"`
-	FailureThreshold  int     `json:"failure_threshold"`
-	RecoveryThreshold int     `json:"recovery_threshold"`
-	DegradedGroupID   *int64  `json:"degraded_group_id"`
-	SourceGroupID     *int64  `json:"source_group_id"`
-	MaxConcurrent     int     `json:"max_concurrent"`
-	MinConfidence     float64 `json:"min_confidence"`
-	PublicEnabled     bool    `json:"public_enabled"`
+	Enabled            bool    `json:"enabled"`
+	IntervalMinutes    int     `json:"interval_minutes"`
+	TimeoutSeconds     int     `json:"timeout_seconds"`
+	Model              string  `json:"model"`
+	Effort             string  `json:"effort"`
+	Prompt             string  `json:"prompt,omitempty"` // Deprecated alias for stage2_prompt.
+	Stage1Enabled      bool    `json:"stage1_enabled"`
+	Stage1Prompt       string  `json:"stage1_prompt"`
+	Stage1Answer       string  `json:"stage1_answer"`
+	Stage2Enabled      bool    `json:"stage2_enabled"`
+	Stage2Prompt       string  `json:"stage2_prompt"`
+	FailureThreshold   int     `json:"failure_threshold"`
+	RecoveryThreshold  int     `json:"recovery_threshold"`
+	DegradedGroupID    *int64  `json:"degraded_group_id"`
+	SourceGroupID      *int64  `json:"source_group_id"`
+	MaxConcurrent      int     `json:"max_concurrent"`
+	MinConfidence      float64 `json:"min_confidence"`
+	MinReasoningTokens int64   `json:"min_reasoning_tokens"`
+	PublicEnabled      bool    `json:"public_enabled"`
 }
 
 func DefaultAccountQualitySettings() AccountQualitySettings {
@@ -53,7 +70,12 @@ func DefaultAccountQualitySettings() AccountQualitySettings {
 		IntervalMinutes:   accountQualityDefaultIntervalMinutes,
 		TimeoutSeconds:    accountQualityDefaultProbeTimeoutSec,
 		Effort:            "medium",
-		Prompt:            accountQualityDefaultPrompt,
+		Stage1Enabled:     true,
+		Stage1Prompt:      accountQualityDefaultStage1Prompt,
+		Stage1Answer:      accountQualityDefaultStage1Answer,
+		Stage2Enabled:     true,
+		Stage2Prompt:      accountQualityDefaultStage2Prompt,
+		Prompt:            accountQualityDefaultStage2Prompt,
 		FailureThreshold:  accountQualityDefaultFailureThreshold,
 		RecoveryThreshold: accountQualityDefaultRecoveryThreshold,
 		MaxConcurrent:     accountQualityMaxConcurrent,
@@ -74,8 +96,21 @@ func (s *AccountQualitySettings) normalize() {
 	if s.RecoveryThreshold < 1 {
 		s.RecoveryThreshold = accountQualityDefaultRecoveryThreshold
 	}
-	if strings.TrimSpace(s.Prompt) == "" {
-		s.Prompt = accountQualityDefaultPrompt
+	if strings.TrimSpace(s.Stage1Prompt) == "" {
+		s.Stage1Prompt = accountQualityDefaultStage1Prompt
+	}
+	if strings.TrimSpace(s.Stage1Answer) == "" {
+		s.Stage1Answer = accountQualityDefaultStage1Answer
+	}
+	if strings.TrimSpace(s.Stage2Prompt) == "" {
+		s.Stage2Prompt = strings.TrimSpace(s.Prompt)
+		if s.Stage2Prompt == "" {
+			s.Stage2Prompt = accountQualityDefaultStage2Prompt
+		}
+	}
+	s.Prompt = s.Stage2Prompt
+	if s.MinReasoningTokens < 0 {
+		s.MinReasoningTokens = 0
 	}
 	s.Effort = strings.ToLower(strings.TrimSpace(s.Effort))
 	switch s.Effort {
@@ -98,7 +133,10 @@ func (s *AccountQualitySettings) normalize() {
 }
 
 func (s AccountQualitySettings) validate() error {
-	if s.IntervalMinutes < 1 || s.TimeoutSeconds < accountQualityMinProbeTimeoutSec || s.TimeoutSeconds > accountQualityMaxProbeTimeoutSec || s.FailureThreshold < 1 || s.RecoveryThreshold < 1 || s.MaxConcurrent < 1 || s.MaxConcurrent > accountQualityMaxConcurrent {
+	if len([]byte(s.Stage1Prompt)) > 8192 || len([]byte(s.Stage2Prompt)) > 8192 || len([]byte(s.Stage1Answer)) > 512 {
+		return infraerrors.BadRequest("INVALID_ACCOUNT_QUALITY_QUESTION", "quality prompts or answer are too long")
+	}
+	if s.IntervalMinutes < 1 || s.TimeoutSeconds < accountQualityMinProbeTimeoutSec || s.TimeoutSeconds > accountQualityMaxProbeTimeoutSec || s.MinReasoningTokens > accountQualityMaxReasoningTokenLimit || s.FailureThreshold < 1 || s.RecoveryThreshold < 1 || s.MaxConcurrent < 1 || s.MaxConcurrent > accountQualityMaxConcurrent {
 		return infraerrors.BadRequest("INVALID_ACCOUNT_QUALITY_SETTINGS", "quality settings are invalid")
 	}
 	if s.MinConfidence <= 0 || s.MinConfidence > 1 {
@@ -117,12 +155,13 @@ func (s AccountQualitySettings) validate() error {
 }
 
 type AccountQualitySummary struct {
-	Inspected int `json:"inspected"`
-	Passed    int `json:"passed"`
-	Degraded  int `json:"degraded"`
-	Uncertain int `json:"uncertain"`
-	Errors    int `json:"errors"`
-	Switched  int `json:"switched"`
+	Inspected                  int                                      `json:"inspected"`
+	Passed                     int                                      `json:"passed"`
+	Degraded                   int                                      `json:"degraded"`
+	Uncertain                  int                                      `json:"uncertain"`
+	Errors                     int                                      `json:"errors"`
+	Switched                   int                                      `json:"switched"`
+	ReasoningTokenDistribution AccountQualityReasoningTokenDistribution `json:"reasoning_token_distribution"`
 }
 
 type AccountQualityRunState struct {
@@ -225,14 +264,14 @@ func (s *AccountQualityMonitoringService) runLoop() {
 }
 
 func (s *AccountQualityMonitoringService) runDue() {
-	ctx, cancel := context.WithTimeout(s.parentCtx, accountInspectionRunTimeout)
+	ctx, cancel := context.WithTimeout(s.parentCtx, AccountQualityRunTimeout)
 	defer cancel()
 	settings, err := s.GetSettings(ctx)
 	if err != nil || !settings.Enabled {
 		return
 	}
 	state, err := s.loadState(ctx)
-	if err != nil || (state.Status == AccountInspectionStatusRunning && state.StartedAt != nil && time.Since(*state.StartedAt) < accountInspectionRunTimeout) {
+	if err != nil || (state.Status == AccountInspectionStatusRunning && state.StartedAt != nil && time.Since(*state.StartedAt) < AccountQualityRunTimeout) {
 		return
 	}
 	now := time.Now()
@@ -270,7 +309,7 @@ func (s *AccountQualityMonitoringService) GetSettings(ctx context.Context) (Acco
 					PublicEnabled     bool    `json:"quality_public_enabled"`
 				}
 				if json.Unmarshal([]byte(legacyRaw), &legacy) == nil {
-					settings := AccountQualitySettings{Enabled: legacy.Enabled, IntervalMinutes: legacy.IntervalMinutes, TimeoutSeconds: legacy.TimeoutSeconds, Model: legacy.Model, Effort: legacy.Effort, Prompt: legacy.Prompt, FailureThreshold: legacy.FailureThreshold, RecoveryThreshold: legacy.RecoveryThreshold, DegradedGroupID: legacy.DegradedGroupID, SourceGroupID: legacy.SourceGroupID, MaxConcurrent: legacy.MaxConcurrent, MinConfidence: legacy.MinConfidence, PublicEnabled: legacy.PublicEnabled}
+					settings := AccountQualitySettings{Enabled: legacy.Enabled, IntervalMinutes: legacy.IntervalMinutes, TimeoutSeconds: legacy.TimeoutSeconds, Model: legacy.Model, Effort: legacy.Effort, Stage2Enabled: true, Stage2Prompt: legacy.Prompt, Prompt: legacy.Prompt, FailureThreshold: legacy.FailureThreshold, RecoveryThreshold: legacy.RecoveryThreshold, DegradedGroupID: legacy.DegradedGroupID, SourceGroupID: legacy.SourceGroupID, MaxConcurrent: legacy.MaxConcurrent, MinConfidence: legacy.MinConfidence, PublicEnabled: legacy.PublicEnabled}
 					settings.normalize()
 					return settings, nil
 				}
@@ -285,6 +324,24 @@ func (s *AccountQualityMonitoringService) GetSettings(ctx context.Context) (Acco
 	settings := defaults
 	if err := json.Unmarshal([]byte(raw), &settings); err != nil {
 		return defaults, fmt.Errorf("parse account quality settings: %w", err)
+	}
+	var fields map[string]json.RawMessage
+	if json.Unmarshal([]byte(raw), &fields) == nil {
+		if _, hasStage := fields["stage1_enabled"]; !hasStage {
+			settings.Stage1Enabled = false
+			settings.Stage2Enabled = true
+		}
+		// Older independent quality settings used `prompt` for the drawing
+		// probe. If the new field is absent, preserve that operator value rather
+		// than letting the defaults overwrite it.
+		if _, hasStage2Prompt := fields["stage2_prompt"]; !hasStage2Prompt {
+			if legacyPrompt, ok := fields["prompt"]; ok {
+				var prompt string
+				if json.Unmarshal(legacyPrompt, &prompt) == nil && strings.TrimSpace(prompt) != "" {
+					settings.Stage2Prompt = prompt
+				}
+			}
+		}
 	}
 	settings.normalize()
 	return settings, nil
@@ -355,7 +412,7 @@ func (s *AccountQualityMonitoringService) execute(ctx context.Context, trigger s
 	}
 	now := time.Now().UTC()
 	previous, _ := s.loadState(ctx)
-	state := &AccountQualityRunState{RunID: uuid.NewString(), Status: AccountInspectionStatusRunning, Trigger: trigger, StartedAt: &now, Results: []AccountInspectionAccountResult{}}
+	state := &AccountQualityRunState{RunID: uuid.NewString(), Status: AccountInspectionStatusRunning, Trigger: trigger, StartedAt: &now, Results: []AccountInspectionAccountResult{}, Summary: AccountQualitySummary{ReasoningTokenDistribution: newReasoningTokenDistribution()}}
 	if err := s.saveState(ctx, state); err != nil {
 		return nil, err
 	}
@@ -365,7 +422,7 @@ func (s *AccountQualityMonitoringService) execute(ctx context.Context, trigger s
 	}
 	eligible := make([]Account, 0, len(accounts))
 	for i := range accounts {
-		if qualityProbeSupported(&accounts[i]) {
+		if qualityProbeEligible(&accounts[i], settings.SourceGroupID) {
 			eligible = append(eligible, accounts[i])
 		}
 	}
@@ -379,6 +436,7 @@ func (s *AccountQualityMonitoringService) execute(ctx context.Context, trigger s
 	state.Results = results
 	state.Summary = summarizeQualityResults(results)
 	state.Summary.Inspected = len(eligible)
+	state.Summary.ReasoningTokenDistribution = summarizeReasoningTokenDistribution(results)
 	state.LastRunAt = &now
 	completed := time.Now().UTC()
 	state.Status, state.CompletedAt = AccountInspectionStatusSucceeded, &completed
@@ -403,7 +461,7 @@ func (s *AccountQualityMonitoringService) failState(ctx context.Context, state *
 }
 
 func (s *AccountQualityMonitoringService) loadState(ctx context.Context) (*AccountQualityRunState, error) {
-	state := &AccountQualityRunState{Status: AccountInspectionStatusIdle, Results: []AccountInspectionAccountResult{}}
+	state := &AccountQualityRunState{Status: AccountInspectionStatusIdle, Results: []AccountInspectionAccountResult{}, Summary: AccountQualitySummary{ReasoningTokenDistribution: newReasoningTokenDistribution()}}
 	if s == nil || s.settingRepo == nil {
 		return state, nil
 	}
@@ -422,6 +480,9 @@ func (s *AccountQualityMonitoringService) loadState(ctx context.Context) (*Accou
 	}
 	if state.Results == nil {
 		state.Results = []AccountInspectionAccountResult{}
+	}
+	if state.Summary.ReasoningTokenDistribution.Buckets == nil {
+		state.Summary.ReasoningTokenDistribution = newReasoningTokenDistribution()
 	}
 	for i := range state.Results {
 		if state.Results[i].Reasons == nil {
@@ -491,7 +552,7 @@ func paginateInspectionResults(results []AccountInspectionAccountResult, filter 
 }
 
 func summarizeQualityResults(results []AccountInspectionAccountResult) AccountQualitySummary {
-	var summary AccountQualitySummary
+	summary := AccountQualitySummary{ReasoningTokenDistribution: newReasoningTokenDistribution()}
 	for _, result := range results {
 		switch result.QualityStatus {
 		case "healthy":

@@ -51,16 +51,17 @@ func accountTestEffort(ctx context.Context) string {
 
 // TestEvent represents a SSE event for account testing
 type TestEvent struct {
-	Type     string `json:"type"`
-	Text     string `json:"text,omitempty"`
-	Model    string `json:"model,omitempty"`
-	Status   string `json:"status,omitempty"`
-	Code     string `json:"code,omitempty"`
-	ImageURL string `json:"image_url,omitempty"`
-	MimeType string `json:"mime_type,omitempty"`
-	Data     any    `json:"data,omitempty"`
-	Success  bool   `json:"success,omitempty"`
-	Error    string `json:"error,omitempty"`
+	Type            string `json:"type"`
+	Text            string `json:"text,omitempty"`
+	Model           string `json:"model,omitempty"`
+	Status          string `json:"status,omitempty"`
+	Code            string `json:"code,omitempty"`
+	ImageURL        string `json:"image_url,omitempty"`
+	MimeType        string `json:"mime_type,omitempty"`
+	Data            any    `json:"data,omitempty"`
+	Success         bool   `json:"success,omitempty"`
+	Error           string `json:"error,omitempty"`
+	ReasoningTokens *int64 `json:"reasoning_tokens,omitempty"`
 }
 
 const (
@@ -767,6 +768,9 @@ func (s *AccountTestService) testOpenAIChatCompletionsConnection(
 	c.Writer.Flush()
 
 	payload := createOpenAIChatCompletionsTestPayload(testModelID, prompt)
+	if collect, _ := ctx.Value(accountTestUsageContextKey{}).(bool); collect {
+		payload["stream_options"] = map[string]any{"include_usage": true}
+	}
 	if effort := accountTestEffort(ctx); effort != "" {
 		payload["reasoning_effort"] = effort
 	}
@@ -1326,12 +1330,13 @@ func createGeminiTestPayload(modelID string, prompt string) []byte {
 // processGeminiStream processes SSE stream from Gemini API
 func (s *AccountTestService) processGeminiStream(c *gin.Context, body io.Reader) error {
 	reader := bufio.NewReader(body)
+	var reasoningTokens *int64
 
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
-				s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
+				s.sendEvent(c, TestEvent{Type: "test_complete", Success: true, ReasoningTokens: reasoningTokens})
 				return nil
 			}
 			return s.sendErrorAndEnd(c, fmt.Sprintf("Stream read error: %s", err.Error()))
@@ -1344,13 +1349,16 @@ func (s *AccountTestService) processGeminiStream(c *gin.Context, body io.Reader)
 
 		jsonStr := strings.TrimPrefix(line, "data: ")
 		if jsonStr == "[DONE]" {
-			s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
+			s.sendEvent(c, TestEvent{Type: "test_complete", Success: true, ReasoningTokens: reasoningTokens})
 			return nil
 		}
 
 		var data map[string]any
 		if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
 			continue
+		}
+		if tokens := reasoningTokensFromPayload(data); tokens != nil {
+			reasoningTokens = tokens
 		}
 
 		// Support two Gemini response formats:
@@ -1366,6 +1374,9 @@ func (s *AccountTestService) processGeminiStream(c *gin.Context, body io.Reader)
 					if parts, ok := content["parts"].([]any); ok {
 						for _, part := range parts {
 							if partMap, ok := part.(map[string]any); ok {
+								if thought, _ := partMap["thought"].(bool); thought {
+									continue
+								}
 								if text, ok := partMap["text"].(string); ok && text != "" {
 									s.sendEvent(c, TestEvent{Type: "content", Text: text})
 								}
@@ -1387,7 +1398,7 @@ func (s *AccountTestService) processGeminiStream(c *gin.Context, body io.Reader)
 
 				// Check for completion after extracting content
 				if finishReason, ok := candidate["finishReason"].(string); ok && finishReason != "" {
-					s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
+					s.sendEvent(c, TestEvent{Type: "test_complete", Success: true, ReasoningTokens: reasoningTokens})
 					return nil
 				}
 			}
@@ -1516,6 +1527,7 @@ func (s *AccountTestService) processOpenAIChatCompletionsStream(c *gin.Context, 
 	reader := bufio.NewReader(body)
 	seenJSON := false
 	seenFinish := false
+	var reasoningTokens *int64
 
 	for {
 		line, err := reader.ReadString('\n')
@@ -1523,7 +1535,7 @@ func (s *AccountTestService) processOpenAIChatCompletionsStream(c *gin.Context, 
 			if err == io.EOF {
 				if seenFinish {
 					s.sendEvent(c, TestEvent{Type: "status", Text: "已通过 /v1/chat/completions 验证"})
-					s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
+					s.sendEvent(c, TestEvent{Type: "test_complete", Success: true, ReasoningTokens: reasoningTokens})
 					return nil
 				}
 				if seenJSON {
@@ -1542,7 +1554,7 @@ func (s *AccountTestService) processOpenAIChatCompletionsStream(c *gin.Context, 
 		jsonStr := sseDataPrefix.ReplaceAllString(line, "")
 		if jsonStr == "[DONE]" {
 			s.sendEvent(c, TestEvent{Type: "status", Text: "已通过 /v1/chat/completions 验证"})
-			s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
+			s.sendEvent(c, TestEvent{Type: "test_complete", Success: true, ReasoningTokens: reasoningTokens})
 			return nil
 		}
 
@@ -1551,6 +1563,9 @@ func (s *AccountTestService) processOpenAIChatCompletionsStream(c *gin.Context, 
 			return s.sendErrorAndEnd(c, "Invalid Chat Completions response from /v1/chat/completions: expected JSON data")
 		}
 		seenJSON = true
+		if tokens := reasoningTokensFromPayload(data); tokens != nil {
+			reasoningTokens = tokens
+		}
 
 		if errData, ok := data["error"].(map[string]any); ok {
 			errorMsg := "Chat Completions API (/v1/chat/completions) returned an error"
@@ -1590,13 +1605,14 @@ func (s *AccountTestService) processOpenAIChatCompletionsStream(c *gin.Context, 
 func (s *AccountTestService) processOpenAIStream(c *gin.Context, body io.Reader) error {
 	reader := bufio.NewReader(body)
 	seenCompleted := false
+	var reasoningTokens *int64
 
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
 				if seenCompleted {
-					s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
+					s.sendEvent(c, TestEvent{Type: "test_complete", Success: true, ReasoningTokens: reasoningTokens})
 					return nil
 				}
 				return s.sendErrorAndEnd(c, "Stream ended before response.completed")
@@ -1612,7 +1628,7 @@ func (s *AccountTestService) processOpenAIStream(c *gin.Context, body io.Reader)
 		jsonStr := sseDataPrefix.ReplaceAllString(line, "")
 		if jsonStr == "[DONE]" {
 			if seenCompleted {
-				s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
+				s.sendEvent(c, TestEvent{Type: "test_complete", Success: true, ReasoningTokens: reasoningTokens})
 				return nil
 			}
 			return s.sendErrorAndEnd(c, "Stream ended before response.completed")
@@ -1621,6 +1637,9 @@ func (s *AccountTestService) processOpenAIStream(c *gin.Context, body io.Reader)
 		var data map[string]any
 		if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
 			continue
+		}
+		if tokens := reasoningTokensFromPayload(data); tokens != nil {
+			reasoningTokens = tokens
 		}
 
 		eventType, _ := data["type"].(string)
@@ -1632,7 +1651,7 @@ func (s *AccountTestService) processOpenAIStream(c *gin.Context, body io.Reader)
 				s.sendEvent(c, TestEvent{Type: "content", Text: delta})
 			}
 		case "response.completed", "response.done":
-			s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
+			s.sendEvent(c, TestEvent{Type: "test_complete", Success: true, ReasoningTokens: reasoningTokens})
 			return nil
 		case "response.failed":
 			errorMsg := "OpenAI response failed"
@@ -1925,6 +1944,7 @@ func (s *AccountTestService) RunTestBackground(ctx context.Context, accountID in
 // The caller owns the grader; this method only captures the upstream response
 // and preserves the existing SSE/error semantics.
 func (s *AccountTestService) RunQualityTestBackground(ctx context.Context, accountID int64, modelID, prompt, effort string) (*ScheduledTestResult, error) {
+	ctx = withAccountTestUsage(ctx)
 	return s.runTestBackground(withAccountTestEffort(ctx, effort), accountID, modelID, prompt, effort)
 }
 
@@ -1939,7 +1959,7 @@ func (s *AccountTestService) runTestBackground(ctx context.Context, accountID in
 
 	finishedAt := time.Now()
 	body := w.Body.String()
-	responseText, errMsg := parseTestSSEOutput(body)
+	responseText, errMsg, reasoningTokens := parseTestSSEOutputWithReasoning(body)
 
 	status := "success"
 	if testErr != nil || errMsg != "" {
@@ -1950,12 +1970,13 @@ func (s *AccountTestService) runTestBackground(ctx context.Context, accountID in
 	}
 
 	return &ScheduledTestResult{
-		Status:       status,
-		ResponseText: responseText,
-		ErrorMessage: errMsg,
-		LatencyMs:    finishedAt.Sub(startedAt).Milliseconds(),
-		StartedAt:    startedAt,
-		FinishedAt:   finishedAt,
+		Status:          status,
+		ResponseText:    responseText,
+		ErrorMessage:    errMsg,
+		ReasoningTokens: reasoningTokens,
+		LatencyMs:       finishedAt.Sub(startedAt).Milliseconds(),
+		StartedAt:       startedAt,
+		FinishedAt:      finishedAt,
 	}, nil
 }
 

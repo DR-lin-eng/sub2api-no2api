@@ -1,27 +1,33 @@
-Changed branch/field: codex/account-quality-source-group; AccountQualitySettings.timeout_seconds controls per-probe context (default 120, range 30-300) and error rows preserve counters; quality policy remains in account_quality_settings/account_quality_state.
+Changed branch/fields: codex/account-quality-source-group; independent account quality stages, stage1 exact-answer/reasoning-token gate, stage2 renderer gate, source/degraded group scheduling, public page link, configurable timeout.
 
-Artifacts:
-- MODIFIED_FILE
-- DIFF_FILE
-- VERIFICATION.txt
-- ROLLBACK.sh
+Artifacts (all reopened/updated):
+- /Users/lin/.codex/worktrees/b443/sub2api-no2api/MODIFIED_FILE
+- /Users/lin/.codex/worktrees/b443/sub2api-no2api/DIFF_FILE
+- /Users/lin/.codex/worktrees/b443/sub2api-no2api/VERIFICATION.txt
+- /Users/lin/.codex/worktrees/b443/sub2api-no2api/ROLLBACK.sh
 
-BASELINE command: docker run --rm sub2api-quality-split-baseline:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/application/service -run "Test(AccountInspection|Quality)" -count=1'
-BASELINE output: ok github.com/Wei-Shaw/sub2api/internal/application/service 0.013s
-BASELINE exit: 0
+BASELINE command: docker run --rm sub2api-account-quality-stages-baseline-builder:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/application/service -run "Test(AccountInspection|Quality)" -count=1'
+BASELINE literal output/result: ok github.com/Wei-Shaw/sub2api/internal/application/service 0.012s
+BASELINE exit status: 0
 
-MODIFIED command: docker run --rm sub2api-quality-split-modified:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/application/service -run "Test(AccountInspection|Quality)" -count=1'
-MODIFIED output: ok github.com/Wei-Shaw/sub2api/internal/application/service 0.020s
-MODIFIED exit: 0
+MODIFIED command: docker run --rm sub2api-account-quality-stages-modified-builder:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/application/service -run "Test(AccountInspection|Quality)" -count=1'
+MODIFIED literal output/result: ok github.com/Wei-Shaw/sub2api/internal/application/service 0.011s
+MODIFIED exit status: 0
 
-HTTP MODIFIED command: docker run --rm sub2api-quality-split-modified:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/transport/http/handler/admin ./internal/transport/http/handler ./internal/transport/http/server/routes ./internal/transport/http/server/middleware -run "Test" -count=1'
-HTTP MODIFIED result: all four packages passed; exit 0.
+HTTP MODIFIED command: docker run --rm sub2api-account-quality-stages-modified-builder:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/transport/http/handler/admin ./internal/transport/http/handler ./internal/transport/http/server/routes ./internal/transport/http/server/middleware -run Test -count=1'
+HTTP MODIFIED literal output/result: all four packages passed; exit status: 0
 
-ROLLBACK command: cp BASELINE_FILE rollback-copy.go; mutate; restore with cp BASELINE_FILE rollback-copy.go; cmp -s BASELINE_FILE rollback-copy.go
-ROLLBACK output: rollback_cmp_exit:0; SHA-256 restored to 0d7d5ef0d3731ff41017a713af8ab0b1d96a9ccee98f666941d920fe11d4d7fd
-ROLLBACK exit: 0
+Frontend commands/results:
+pnpm exec vitest run src/features/admin-account-quality/__tests__/AccountQualityPage.spec.ts src/core/i18n/__tests__/routeLocaleCoverage.spec.ts -> 5 tests passed, exit 0.
+pnpm run typecheck -> passed, exit 0.
+pnpm run lint:check -> passed, exit 0.
+make check-docs -> passed, exit 0.
 
-UI verification: AccountQualityPage test found href=/monitor/quality/public with target=_blank; error-status test renders error instead of healthy.
-UI verification: AccountQualityPage test found href=/monitor/quality/public with target=_blank; error-status test renders error instead of healthy; timeout_seconds input is present.
-Docker build: sub2api-quality-timeout-config:test built successfully; frontend production build and embedded backend build completed with exit 0.
-Restored behavior/status: independent rollback copy exactly matches baseline. Working tree remains changed on branch codex/account-quality-source-group.
+Docker build command: docker build --progress=plain -t sub2api-account-quality-stages:test . -> frontend production build and embedded backend build completed, image tagged, exit 0.
+
+Rollback command: ./ROLLBACK.sh /tmp/sub2api-quality-artifacts-20260912/BASELINE_FILE /tmp/sub2api-quality-artifacts-20260912/rollback-copy.go after transient mutation; literal output: restored: /tmp/sub2api-quality-artifacts-20260912/rollback-copy.go; cmp exit status: 0.
+BASELINE_FILE SHA-256: ed6c6c07dcee7da705d9fee8d26228ce6d9242a468d1a57b5245e0a7fafcb542
+MODIFIED_COPY SHA-256: 877dccb58406bfd2f91a737cf52136d6ce7fdd3ac42b9d48e1c46eab00480117
+RESTORED rollback-copy SHA-256: ed6c6c07dcee7da705d9fee8d26228ce6d9242a468d1a57b5245e0a7fafcb542
+
+Restored behavior/status: rollback copy exactly matches baseline SHA; working tree source remains modified for the requested feature.

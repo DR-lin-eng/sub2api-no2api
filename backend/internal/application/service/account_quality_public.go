@@ -52,7 +52,7 @@ func (s *AccountQualityMonitoringService) GetPublicQualitySnapshot(ctx context.C
 			result.NextRunAt = &next
 		}
 	}
-	if s.qualityArtifacts != nil {
+	if s.qualityArtifacts != nil && settings.Stage2Enabled {
 		runs, listErr := s.qualityArtifacts.ListPublic(ctx, now.Add(-24*time.Hour), 200)
 		if listErr != nil {
 			return nil, listErr
@@ -85,7 +85,7 @@ func (s *AccountQualityMonitoringService) GetPublicQualitySnapshot(ctx context.C
 	}
 	if state != nil {
 		for _, item := range state.Results {
-			if item.QualityStatus == "" {
+			if item.QualityStatus == "" || item.QualityStatus == "disabled" {
 				continue
 			}
 			result.Total++
@@ -94,6 +94,8 @@ func (s *AccountQualityMonitoringService) GetPublicQualitySnapshot(ctx context.C
 				result.Passed++
 			case "degraded":
 				result.Degraded++
+			case "error":
+				result.Error++
 			default:
 				result.Uncertain++
 			}

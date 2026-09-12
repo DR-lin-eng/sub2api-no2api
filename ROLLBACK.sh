@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
-BASELINE="${1:-/tmp/sub2api-quality-split-20260912/BASELINE_FILE}"
-TARGET="${2:-/tmp/sub2api-quality-split-20260912/rollback-copy.go}"
+BASELINE="${1:?baseline file is required}"
+TARGET="${2:?rollback target is required}"
 cp "$BASELINE" "$TARGET"
 cmp -s "$BASELINE" "$TARGET"
 echo "restored: $TARGET"
