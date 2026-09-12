@@ -11,4 +11,4 @@ MODIFIED_FILE is intentionally left changed; rollback is tested only on an indep
 
 - Final follow-up adds embedded best.pt runtime packaging and live progress without changing existing Compose/environment settings.
 
-- Final metadata commit: f93aab682.
+- Final metadata commit: 5e29efd24.
