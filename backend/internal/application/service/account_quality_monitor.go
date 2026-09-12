@@ -266,25 +266,6 @@ func truncateQualityError(value string) string {
 	return value
 }
 
-func (s *AccountQualityMonitoringService) applyPreviousQuality(results []AccountInspectionAccountResult, previous *AccountQualityRunState) {
-	if previous == nil {
-		return
-	}
-	byID := make(map[int64]AccountInspectionAccountResult, len(previous.Results))
-	for _, result := range previous.Results {
-		byID[result.AccountID] = result
-	}
-	for i := range results {
-		if prior, ok := byID[results[i].AccountID]; ok {
-			results[i].QualityStatus, results[i].QualityConsecutiveFailures, results[i].QualityConsecutivePasses = prior.QualityStatus, prior.QualityConsecutiveFailures, prior.QualityConsecutivePasses
-			results[i].QualityAction, results[i].QualityError = prior.QualityAction, prior.QualityError
-			if prior.QualityStatus == "degraded" {
-				results[i].Reasons = appendUniqueReason(results[i].Reasons, "quality_probe_degraded")
-			}
-		}
-	}
-}
-
 func qualityProbeSupported(account *Account) bool {
 	if account == nil || !account.IsActive() {
 		return false
@@ -362,15 +343,6 @@ func appendUniqueReason(reasons []string, reason string) []string {
 		}
 	}
 	return append(reasons, reason)
-}
-
-func hasInspectionReason(reasons []string, reason string) bool {
-	for _, value := range reasons {
-		if value == reason {
-			return true
-		}
-	}
-	return false
 }
 
 func (s *AccountQualityMonitoringService) switchQualityGroup(ctx context.Context, account *Account, targetID *int64, result *AccountInspectionAccountResult) error {

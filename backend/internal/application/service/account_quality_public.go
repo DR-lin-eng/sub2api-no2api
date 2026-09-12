@@ -61,11 +61,12 @@ func (s *AccountQualityMonitoringService) GetPublicQualitySnapshot(ctx context.C
 			result.Total++
 			switch run.Status {
 			case "ready":
-				if run.Label == "normal" {
+				switch run.Label {
+				case "normal":
 					result.Passed++
-				} else if run.Label == "unnormal" {
+				case "unnormal":
 					result.Degraded++
-				} else {
+				default:
 					result.Uncertain++
 				}
 			case "wrong":
