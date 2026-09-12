@@ -8,17 +8,17 @@ import (
 )
 
 type AccountQualityPublicPoint struct {
-	ID         string                     `json:"id"`
-	Status     string                     `json:"status"`
-	Label      string                     `json:"label,omitempty"`
-	Confidence float64                    `json:"confidence,omitempty"`
-	Model      string                     `json:"model,omitempty"`
-	Effort     string                     `json:"effort,omitempty"`
-	LatencyMs  int64                      `json:"latency_ms,omitempty"`
-	StartedAt  time.Time                  `json:"started_at"`
-	Details    AccountQualityProbeDetails `json:"details"`
-	HasPreview bool                       `json:"has_preview"`
-	PreviewFormat string                  `json:"preview_format,omitempty"`
+	ID            string                     `json:"id"`
+	Status        string                     `json:"status"`
+	Label         string                     `json:"label,omitempty"`
+	Confidence    float64                    `json:"confidence,omitempty"`
+	Model         string                     `json:"model,omitempty"`
+	Effort        string                     `json:"effort,omitempty"`
+	LatencyMs     int64                      `json:"latency_ms,omitempty"`
+	StartedAt     time.Time                  `json:"started_at"`
+	Details       AccountQualityProbeDetails `json:"details"`
+	HasPreview    bool                       `json:"has_preview"`
+	PreviewFormat string                     `json:"preview_format,omitempty"`
 }
 
 type AccountQualityPublicSnapshot struct {
