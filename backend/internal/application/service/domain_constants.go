@@ -473,6 +473,9 @@ const (
 	// Account inspection settings and latest persisted run snapshot.
 	SettingKeyAccountInspectionSettings = "account_inspection_settings"
 	SettingKeyAccountInspectionState    = "account_inspection_state"
+	// Account quality monitoring has an independent policy and run snapshot.
+	SettingKeyAccountQualitySettings = "account_quality_settings"
+	SettingKeyAccountQualityState    = "account_quality_state"
 
 	// Account quality routing markers are stored in accounts.extra so existing
 	// account rows and scheduler snapshots remain backward compatible.

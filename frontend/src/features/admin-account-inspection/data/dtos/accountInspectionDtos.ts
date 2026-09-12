@@ -11,17 +11,6 @@ export interface AccountInspectionSettings {
   api_key_min_cache_hit_rate: number
   api_key_max_rate_multiplier: number
   api_key_min_remaining_quota: number
-  quality_monitoring_enabled: boolean
-  quality_interval_minutes: number
-  quality_model: string
-  quality_effort: string
-  quality_min_confidence: number
-  quality_public_enabled: boolean
-  quality_prompt: string
-  quality_failure_threshold: number
-  quality_recovery_threshold: number
-  quality_degraded_group_id: number | null
-  quality_max_concurrent: number
 }
 
 export interface AccountInspectionSummary {
@@ -32,10 +21,6 @@ export interface AccountInspectionSummary {
   already_disabled: number
   oauth_accounts: number
   api_key_accounts: number
-  quality_inspected?: number
-  quality_passed?: number
-  quality_degraded?: number
-  quality_switched?: number
   quota_usage_distribution?: AccountInspectionQuotaDistribution
 }
 
@@ -63,7 +48,6 @@ export interface AccountInspectionRun {
   summary: AccountInspectionSummary
   error?: string
   results_truncated?: boolean
-  quality_last_run_at?: string | null
 }
 
 export type AccountInspectionAction = 'none' | 'reported' | 'disabled' | 'already_disabled' | 'error' | string
@@ -91,12 +75,6 @@ export interface AccountInspectionResult {
   quota_used_percent?: number | null
   quota_usage_dimension?: string
   observed_at: string
-  quality_status?: 'healthy' | 'degraded' | string
-  quality_consecutive_failures?: number
-  quality_consecutive_passes?: number
-  quality_action?: string
-  quality_error?: string
-  quality_latency_ms?: number
 }
 
 export interface AccountInspectionPage {

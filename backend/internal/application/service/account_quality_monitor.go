@@ -2,11 +2,39 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
 )
+
+func (s *AccountQualityMonitoringService) validateQualityGroups(ctx context.Context, settings AccountQualitySettings) error {
+	if settings.SourceGroupID == nil && settings.DegradedGroupID == nil {
+		return nil
+	}
+	if s.groupRepo == nil {
+		return fmt.Errorf("quality group repository is unavailable")
+	}
+	var source, target *Group
+	var err error
+	if settings.SourceGroupID != nil {
+		source, err = s.groupRepo.GetByID(ctx, *settings.SourceGroupID)
+		if err != nil || source == nil || source.Status != StatusActive || (source.Platform != PlatformOpenAI && source.Platform != PlatformGemini) {
+			return fmt.Errorf("quality source group is missing, inactive, or unsupported")
+		}
+	}
+	if settings.DegradedGroupID != nil {
+		target, err = s.groupRepo.GetByID(ctx, *settings.DegradedGroupID)
+		if err != nil || target == nil || target.Status != StatusActive || (target.Platform != PlatformOpenAI && target.Platform != PlatformGemini) {
+			return fmt.Errorf("quality degraded group is missing, inactive, or unsupported")
+		}
+	}
+	if source != nil && target != nil && source.Platform != target.Platform {
+		return fmt.Errorf("quality source and degraded groups must use the same platform")
+	}
+	return nil
+}
 
 type accountQualityStateWriter interface {
 	UpdateExtra(context.Context, int64, map[string]any) error
@@ -23,20 +51,20 @@ const (
 // runQualityMonitoring performs bounded, account-specific probes. It is kept
 // separate from the usage-stat inspection so operators can enable quality
 // probes without changing billing or request accounting.
-func (s *AccountInspectionService) runQualityMonitoring(ctx context.Context, accounts []Account, results []AccountInspectionAccountResult, previous *AccountInspectionRunState, settings AccountInspectionSettings, now time.Time) error {
+func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Context, accounts []Account, results []AccountInspectionAccountResult, previous *AccountQualityRunState, settings AccountQualitySettings, now time.Time) error {
 	previousByID := make(map[int64]AccountInspectionAccountResult)
 	if previous != nil {
 		for _, result := range previous.Results {
 			previousByID[result.AccountID] = result
 		}
 	}
-	sem := make(chan struct{}, settings.QualityMaxConcurrent)
+	sem := make(chan struct{}, settings.MaxConcurrent)
 	var wg sync.WaitGroup
 	var firstErr error
 	var errMu sync.Mutex
 	for i := range accounts {
 		account := accounts[i]
-		if !qualityProbeSupported(&account) {
+		if !qualityProbeEligible(&account, settings.SourceGroupID) {
 			continue
 		}
 		sem <- struct{}{}
@@ -44,10 +72,10 @@ func (s *AccountInspectionService) runQualityMonitoring(ctx context.Context, acc
 		go func(index int, account Account) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			model := strings.TrimSpace(settings.QualityModel)
+			model := strings.TrimSpace(settings.Model)
 			probeCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			defer cancel()
-			probe, err := s.accountTestSvc.RunQualityTestBackground(probeCtx, account.ID, model, settings.QualityPrompt, settings.QualityEffort)
+			probe, err := s.accountTestSvc.RunQualityTestBackground(probeCtx, account.ID, model, settings.Prompt, settings.Effort)
 			if err != nil {
 				probe = &ScheduledTestResult{Status: "failed", ErrorMessage: err.Error()}
 			}
@@ -66,7 +94,7 @@ func (s *AccountInspectionService) runQualityMonitoring(ctx context.Context, acc
 				if processErr != nil {
 					requestOK = false
 					probe.ErrorMessage = "render/classification failed: " + processErr.Error()
-				} else if artifact == nil || artifact.Confidence < settings.QualityMinConfidence {
+				} else if artifact == nil || artifact.Confidence < settings.MinConfidence {
 					requestOK = false
 					artifactStatus = "uncertain"
 					probe.ErrorMessage = "classifier confidence below threshold"
@@ -79,7 +107,7 @@ func (s *AccountInspectionService) runQualityMonitoring(ctx context.Context, acc
 					passed = artifact.Label == "normal"
 					artifactStatus = "ready"
 					if s.qualityArtifacts != nil {
-						run := &AccountQualityRun{AccountID: account.ID, Model: model, Effort: settings.QualityEffort, Status: "ready", Label: artifact.Label, Confidence: artifact.Confidence, StartedAt: probe.StartedAt, FinishedAt: probe.FinishedAt, LatencyMs: probe.LatencyMs, ModelVersion: artifact.ModelVersion, PNG: artifact.PNG, WebP: artifact.WebP}
+						run := &AccountQualityRun{AccountID: account.ID, Model: model, Effort: settings.Effort, Status: "ready", Label: artifact.Label, Confidence: artifact.Confidence, StartedAt: probe.StartedAt, FinishedAt: probe.FinishedAt, LatencyMs: probe.LatencyMs, ModelVersion: artifact.ModelVersion, PNG: artifact.PNG, WebP: artifact.WebP}
 						if !passed {
 							run.Status = "wrong"
 						}
@@ -110,7 +138,7 @@ func (s *AccountInspectionService) runQualityMonitoring(ctx context.Context, acc
 					startedAt, finishedAt, latency = probe.StartedAt, probe.FinishedAt, probe.LatencyMs
 				}
 				if s.qualityArtifacts != nil {
-					run := &AccountQualityRun{AccountID: account.ID, Model: model, Effort: settings.QualityEffort, Status: artifactStatus, Confidence: 0, StartedAt: startedAt, FinishedAt: finishedAt, LatencyMs: latency, Error: result.QualityError}
+					run := &AccountQualityRun{AccountID: account.ID, Model: model, Effort: settings.Effort, Status: artifactStatus, Confidence: 0, StartedAt: startedAt, FinishedAt: finishedAt, LatencyMs: latency, Error: result.QualityError}
 					if artifact != nil {
 						run.Label, run.Confidence, run.ModelVersion = artifact.Label, artifact.Confidence, artifact.ModelVersion
 					}
@@ -145,16 +173,16 @@ func (s *AccountInspectionService) runQualityMonitoring(ctx context.Context, acc
 			} else {
 				status = "degraded"
 			}
-			if prior, ok := previousByID[account.ID]; ok && prior.QualityStatus == "degraded" && passed && passes < settings.QualityRecoveryThreshold {
+			if prior, ok := previousByID[account.ID]; ok && prior.QualityStatus == "degraded" && passed && passes < settings.RecoveryThreshold {
 				status = "degraded"
 			}
-			if failures >= settings.QualityFailureThreshold {
+			if failures >= settings.FailureThreshold {
 				status = "degraded"
 			}
-			if status == "degraded" && failures < settings.QualityFailureThreshold && previousByID[account.ID].QualityStatus != "degraded" {
+			if status == "degraded" && failures < settings.FailureThreshold && previousByID[account.ID].QualityStatus != "degraded" {
 				status = "healthy"
 			}
-			if prior, ok := previousByID[account.ID]; ok && prior.QualityStatus == "degraded" && passes >= settings.QualityRecoveryThreshold {
+			if prior, ok := previousByID[account.ID]; ok && prior.QualityStatus == "degraded" && passes >= settings.RecoveryThreshold {
 				status = "healthy"
 			}
 			result := &results[index]
@@ -166,15 +194,15 @@ func (s *AccountInspectionService) runQualityMonitoring(ctx context.Context, acc
 			if status == "degraded" {
 				result.Reasons = appendUniqueReason(result.Reasons, "quality_probe_degraded")
 			}
-			if status == "degraded" && failures >= settings.QualityFailureThreshold {
-				if err := s.switchQualityGroup(ctx, &account, settings.QualityDegradedGroupID, result); err != nil {
+			if status == "degraded" && failures >= settings.FailureThreshold {
+				if err := s.switchQualityGroup(ctx, &account, settings.DegradedGroupID, result); err != nil {
 					errMu.Lock()
 					if firstErr == nil {
 						firstErr = err
 					}
 					errMu.Unlock()
 				}
-			} else if status == "healthy" && passes >= settings.QualityRecoveryThreshold {
+			} else if status == "healthy" && passes >= settings.RecoveryThreshold {
 				if err := s.restoreQualityGroups(ctx, &account, result); err != nil {
 					errMu.Lock()
 					if firstErr == nil {
@@ -238,7 +266,7 @@ func truncateQualityError(value string) string {
 	return value
 }
 
-func (s *AccountInspectionService) applyPreviousQuality(results []AccountInspectionAccountResult, previous *AccountInspectionRunState) {
+func (s *AccountQualityMonitoringService) applyPreviousQuality(results []AccountInspectionAccountResult, previous *AccountQualityRunState) {
 	if previous == nil {
 		return
 	}
@@ -267,6 +295,42 @@ func qualityProbeSupported(account *Account) bool {
 	supportedPlatform := account.Platform == PlatformOpenAI || account.Platform == PlatformGemini
 	supportedType := account.Type == AccountTypeOAuth || account.Type == AccountTypeAPIKey || (account.Type == AccountTypeServiceAccount && account.Platform == PlatformGemini)
 	return supportedPlatform && supportedType
+}
+
+func qualityProbeEligible(account *Account, sourceGroupID *int64) bool {
+	if !qualityProbeSupported(account) {
+		return false
+	}
+	if sourceGroupID == nil || *sourceGroupID <= 0 {
+		return true
+	}
+	if accountHasGroup(account, *sourceGroupID) {
+		return true
+	}
+	// Continue probing accounts already moved to the degraded group so a
+	// healthy streak can restore their original source-group binding.
+	if account == nil || account.Extra == nil {
+		return false
+	}
+	target, ok := resolveAccountExtraNumber(account.Extra, AccountQualityRoutingGroupExtraKey)
+	return ok && target > 0 && accountHasGroup(account, int64(target))
+}
+
+func accountHasGroup(account *Account, groupID int64) bool {
+	if account == nil || groupID <= 0 {
+		return false
+	}
+	for _, id := range account.GroupIDs {
+		if id == groupID {
+			return true
+		}
+	}
+	for _, group := range account.AccountGroups {
+		if group.GroupID == groupID {
+			return true
+		}
+	}
+	return false
 }
 
 func qualityAnswerPasses(answer string) bool {
@@ -309,7 +373,7 @@ func hasInspectionReason(reasons []string, reason string) bool {
 	return false
 }
 
-func (s *AccountInspectionService) switchQualityGroup(ctx context.Context, account *Account, targetID *int64, result *AccountInspectionAccountResult) error {
+func (s *AccountQualityMonitoringService) switchQualityGroup(ctx context.Context, account *Account, targetID *int64, result *AccountInspectionAccountResult) error {
 	if targetID == nil || *targetID <= 0 || s.groupRepo == nil {
 		result.QualityAction = "degraded"
 		return nil
@@ -338,7 +402,7 @@ func (s *AccountInspectionService) switchQualityGroup(ctx context.Context, accou
 	return nil
 }
 
-func (s *AccountInspectionService) restoreQualityGroups(ctx context.Context, account *Account, result *AccountInspectionAccountResult) error {
+func (s *AccountQualityMonitoringService) restoreQualityGroups(ctx context.Context, account *Account, result *AccountInspectionAccountResult) error {
 	if account == nil || len(account.Extra) == 0 {
 		result.QualityAction = "healthy"
 		return nil

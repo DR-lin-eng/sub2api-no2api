@@ -112,7 +112,16 @@ export default {
         minutes: '{m}m',
         withSuffix: '{time} 后解除'
       }
-    }
+    },
+    accountQuality: {
+      eyebrow: '模型质量', title: '账号级模型质量监控', subtitle: '模型质量检测',
+      refresh: '刷新结果', refreshing: '刷新中…', recent: '最近 24 小时',
+      total: '24h 检测', totalNote: '次账号级检测', passed: '正常', passedNote: '分类为 normal',
+      degraded: '降智', degradedNote: '分类为 unnormal', uncertain: '待确认', uncertainNote: '置信度不足',
+      errors: '请求失败', errorsNote: '未计入分类', timeline: '24 小时检测时间线', timelineNote: '每个色块对应一次账号级渲染与分类',
+      empty: '暂无公开检测记录', normal: '正常', abnormal: '降智', waiting: '待确认', failed: '请求失败',
+      footer: '每 {minutes} 分钟更新 · 不展示账号身份、提示词或原始 HTML', qualityDisabled: '质量监控暂未公开或暂时无法读取。',
+    },
   },
 
   adminCompliance: {
@@ -159,7 +168,6 @@ export default {
       registerRequiredWarning: '请先阅读并同意最新条款后再注册。'
     }
   },
-
   // Navigation
   nav: {
     dashboard: '仪表盘',
@@ -183,15 +191,7 @@ export default {
     subscriptions: '订阅管理',
     accounts: '账号管理',
     accountInspection: '账号巡检',
-    accountQuality: {
-      eyebrow: '模型质量', title: '账号级模型质量监控', subtitle: '模型质量检测',
-      refresh: '刷新结果', refreshing: '刷新中…', recent: '最近 24 小时',
-      total: '24h 检测', totalNote: '次账号级检测', passed: '正常', passedNote: '分类为 normal',
-      degraded: '降智', degradedNote: '分类为 unnormal', uncertain: '待确认', uncertainNote: '置信度不足',
-      errors: '请求失败', errorsNote: '未计入分类', timeline: '24 小时检测时间线', timelineNote: '每个色块对应一次账号级渲染与分类',
-      empty: '暂无公开检测记录', normal: '正常', abnormal: '降智', waiting: '待确认', failed: '请求失败',
-      footer: '每 {minutes} 分钟更新 · 不展示账号身份、提示词或原始 HTML', qualityDisabled: '质量监控暂未公开或暂时无法读取。',
-    },
+    accountQuality: '质量巡检',
     customModelConfig: '自定义模型配置',
     proxies: 'IP管理',
     ipv6Egress: 'IPv6 出口',

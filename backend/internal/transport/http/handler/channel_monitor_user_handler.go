@@ -17,7 +17,7 @@ import (
 type ChannelMonitorUserHandler struct {
 	monitorService *service.ChannelMonitorService
 	settingService *service.SettingService
-	qualityService *service.AccountInspectionService
+	qualityService *service.AccountQualityMonitoringService
 }
 
 // NewChannelMonitorUserHandler 创建 handler。
@@ -25,7 +25,7 @@ type ChannelMonitorUserHandler struct {
 func NewChannelMonitorUserHandler(
 	monitorService *service.ChannelMonitorService,
 	settingService *service.SettingService,
-	qualityService ...*service.AccountInspectionService,
+	qualityService ...*service.AccountQualityMonitoringService,
 ) *ChannelMonitorUserHandler {
 	h := &ChannelMonitorUserHandler{
 		monitorService: monitorService,
@@ -37,7 +37,7 @@ func NewChannelMonitorUserHandler(
 	return h
 }
 
-func ProvideChannelMonitorUserHandler(monitorService *service.ChannelMonitorService, settingService *service.SettingService, qualityService *service.AccountInspectionService) *ChannelMonitorUserHandler {
+func ProvideChannelMonitorUserHandler(monitorService *service.ChannelMonitorService, settingService *service.SettingService, qualityService *service.AccountQualityMonitoringService) *ChannelMonitorUserHandler {
 	return NewChannelMonitorUserHandler(monitorService, settingService, qualityService)
 }
 

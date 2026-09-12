@@ -1,4 +1,19 @@
 export default {
+  accountQuality: {
+    title: 'Account Quality Monitoring',
+    description: 'Probe account output quality independently and route on consecutive results.',
+    settingsTitle: 'Quality inspection policy',
+    settingsCaption: 'Quality inspection has its own settings, scheduler, and manual run.',
+    runNow: 'Run quality inspection',
+    passed: 'Healthy',
+    uncertain: 'Uncertain',
+    errors: 'Errors',
+    saved: 'Quality settings saved',
+    loadFailed: 'Failed to load quality inspection',
+    saveFailed: 'Failed to save quality settings',
+    runFailed: 'Failed to run quality inspection',
+    runCompleted: 'Quality inspection complete. {count} degraded account(s)',
+  },
   accountInspection: {
     title: 'Account Inspection',
     description: 'Inspect account health and scheduling eligibility',
@@ -60,6 +75,8 @@ export default {
       modelPlaceholder: 'Leave blank for the account default',
       effort: 'Reasoning effort',
       degradedGroup: 'Degraded group',
+      sourceGroup: 'Source group to inspect',
+      allGroups: 'All groups',
       noSwitch: 'Record only; do not switch groups',
       failureThreshold: 'Consecutive failures',
       recoveryThreshold: 'Consecutive recovery passes',
