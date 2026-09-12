@@ -69,3 +69,16 @@ func TestAccountQualitySettingsValidateTimeoutRange(t *testing.T) {
 	settings.TimeoutSeconds = 180
 	require.NoError(t, settings.validate())
 }
+
+func TestAccountQualitySettingsMigrateLegacyPromptAndStages(t *testing.T) {
+	repo := &inspectionSettingRepoStub{values: map[string]string{
+		SettingKeyAccountQualitySettings: `{"enabled":true,"prompt":"legacy drawing prompt","timeout_seconds":120}`,
+	}}
+	svc := NewAccountQualityMonitoringService(nil, repo, nil, nil, nil, nil)
+	settings, err := svc.GetSettings(context.Background())
+	require.NoError(t, err)
+	require.False(t, settings.Stage1Enabled)
+	require.True(t, settings.Stage2Enabled)
+	require.Equal(t, "legacy drawing prompt", settings.Stage2Prompt)
+	require.Equal(t, settings.Stage2Prompt, settings.Prompt)
+}
