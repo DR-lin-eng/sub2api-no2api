@@ -1331,6 +1331,7 @@ func createGeminiTestPayload(modelID string, prompt string) []byte {
 func (s *AccountTestService) processGeminiStream(c *gin.Context, body io.Reader) error {
 	reader := bufio.NewReader(body)
 	var reasoningTokens *int64
+	finished := false
 
 	for {
 		line, err := reader.ReadString('\n')
@@ -1367,7 +1368,7 @@ func (s *AccountTestService) processGeminiStream(c *gin.Context, body io.Reader)
 		if resp, ok := data["response"].(map[string]any); ok && resp != nil {
 			data = resp
 		}
-		if candidates, ok := data["candidates"].([]any); ok && len(candidates) > 0 {
+		if candidates, ok := data["candidates"].([]any); ok && len(candidates) > 0 && !finished {
 			if candidate, ok := candidates[0].(map[string]any); ok {
 				// Extract content first (before checking completion)
 				if content, ok := candidate["content"].(map[string]any); ok {
@@ -1398,8 +1399,10 @@ func (s *AccountTestService) processGeminiStream(c *gin.Context, body io.Reader)
 
 				// Check for completion after extracting content
 				if finishReason, ok := candidate["finishReason"].(string); ok && finishReason != "" {
-					s.sendEvent(c, TestEvent{Type: "test_complete", Success: true, ReasoningTokens: reasoningTokens})
-					return nil
+					// Some Gemini transports emit usageMetadata in a trailing
+					// event after the candidate's finishReason. Keep consuming
+					// the stream so the quality probe can retain that count.
+					finished = true
 				}
 			}
 		}
