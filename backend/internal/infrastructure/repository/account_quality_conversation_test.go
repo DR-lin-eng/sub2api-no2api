@@ -24,7 +24,7 @@ func (qualityDetailsArg) Match(value driver.Value) bool {
 func TestQualityConversationRepositoryRoundTrip(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	repo := NewAccountQualityArtifactRepository(db)
 	now := time.Now().UTC()
 	id := "719a94e5-4f93-4ab8-a495-4b430be08a10"
