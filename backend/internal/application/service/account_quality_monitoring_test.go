@@ -88,7 +88,7 @@ func TestAccountQualitySettingsMigrateLegacyPromptAndStages(t *testing.T) {
 func TestQualityDrawingTimeoutOnlyAppliesBeforeFirstOutput(t *testing.T) {
 	ctx, cleanup := qualityStageContext(context.Background(), "stage2", 1)
 	markQualityProbeOutput(ctx)
-	time.Sleep(20 * time.Millisecond)
+	time.Sleep(1100 * time.Millisecond)
 	require.NoError(t, ctx.Err())
 	cleanup()
 

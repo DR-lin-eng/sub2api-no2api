@@ -39,3 +39,12 @@ RESTORED SHA-256: 4502896ee8352b71270295ca7eb27badc98f8c51abf4b8b02ce2b51c5da3e6
 
 Remote publication baseline: PR #48/#49/#50 merged into main through abe7a16f216deb76a2acf3ec2d0b814cf21474a9.
 Working tree remains changed for the current public conversation display update.
+
+Drawing timeout change:
+- Stage 2 uses an output-aware context. timeout_seconds is only the no-output wait; first streamed content/image/reasoning delta cancels that timer. The outer AccountQualityRunTimeout remains the hard bound.
+- Test: TestQualityDrawingTimeoutOnlyAppliesBeforeFirstOutput passed (output before 1 second remains active; no output cancels after 1 second).
+- Docker build: docker build --target backend-builder -t sub2api-account-quality-timeout-stream:test . -> embedded frontend/backend build passed, exit status 0.
+- Docker test: docker run --rm sub2api-account-quality-timeout-stream:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/application/service ./internal/infrastructure/repository ./migrations' -> service 140.614s, repository 4.916s, migrations 0.005s; all passed, exit status 0.
+- Local regression: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/infrastructure/repository ./migrations -> service/repository/migrations passed; exit status 0.
+- Local frontend: typecheck, lint, public/admin Vitest and locale coverage passed; public page test 2/2, admin page test 2/2, locale coverage 3/3; exit status 0.
+- Rollback copy remains restored to the recorded baseline SHA with cmp exit 0; working source stays modified.
