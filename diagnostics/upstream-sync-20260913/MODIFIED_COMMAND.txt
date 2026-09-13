@@ -1,0 +1,1 @@
+GOCACHE=/private/tmp/go-cache-sub2 go test -tags=unit ./internal/application/service ./internal/shared/apicompat ./internal/shared/httputil ./internal/transport/http/server/middleware -run "Test(OpenAIWSConnPool|OpenAIWSConn|NormalizeCodexCallOutputBootstrap|ReadRequestBody|PairCodexClientIdentity|JWTAuth|AdminAuth)" -count=1 -timeout=300s

@@ -71,7 +71,7 @@ func disableOpenAITraining(ctx context.Context, clientFactory PrivacyClientFacto
 
 	if resp.StatusCode == 403 || resp.StatusCode == 503 {
 		body := resp.String()
-		if strings.Contains(body, "cloudflare") || strings.Contains(body, "cf-") || strings.Contains(body, "Just a moment") {
+		if isCloudflareChallengeResponse(resp.Header.Get("cf-mitigated"), body) {
 			slog.Warn("openai_privacy_cf_blocked", "status", resp.StatusCode)
 			return PrivacyModeCFBlocked
 		}
@@ -84,6 +84,15 @@ func disableOpenAITraining(ctx context.Context, clientFactory PrivacyClientFacto
 
 	slog.Info("openai_privacy_training_disabled")
 	return PrivacyModeTrainingOff
+}
+
+// isCloudflareChallengeResponse recognizes the explicit challenge marker and
+// retains the legacy body fallback for older edge responses without headers.
+func isCloudflareChallengeResponse(cfMitigated, body string) bool {
+	if strings.EqualFold(strings.TrimSpace(cfMitigated), "challenge") {
+		return true
+	}
+	return strings.Contains(body, "cloudflare") || strings.Contains(body, "cf-") || strings.Contains(body, "Just a moment")
 }
 
 // ChatGPTAccountInfo 从 chatgpt.com/backend-api/accounts/check 获取的账号信息

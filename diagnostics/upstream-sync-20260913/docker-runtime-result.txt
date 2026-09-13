@@ -1,0 +1,4 @@
+health={"status":"ok"}
+ready={"ready":true,"node_id":"43207b05f60a","node_name":"43207b05f60a","current_version":"0.1.200","draining":false,"in_flight":0}
+container=running/0
+migrations=296

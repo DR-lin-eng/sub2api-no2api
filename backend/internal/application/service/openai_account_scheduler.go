@@ -81,15 +81,18 @@ var openAIAdvancedSchedulerSettingCache atomic.Value // *cachedOpenAIAdvancedSch
 var openAIAdvancedSchedulerSettingSF singleflight.Group
 
 type OpenAIAccountScheduleRequest struct {
-	GroupID                  *int64
-	Platform                 string
-	SessionHash              string
-	StickyAccountID          int64
-	EphemeralStickyAccount   bool
-	StickyPreviousAccountID  int64
-	StickyWeighted           bool
-	SubscriptionPriority     bool
-	PreserveStickyBinding    bool
+	GroupID                 *int64
+	Platform                string
+	SessionHash             string
+	StickyAccountID         int64
+	EphemeralStickyAccount  bool
+	StickyPreviousAccountID int64
+	StickyWeighted          bool
+	SubscriptionPriority    bool
+	PreserveStickyBinding   bool
+	// DisableStickyEscape keeps task-owner lookups on their bound account even
+	// when generic sticky health/concurrency heuristics would prefer another.
+	DisableStickyEscape      bool
 	ContentSessionConcurrent bool
 	PreviousResponseID       string
 	PreviousResponseCanMove  bool
@@ -702,7 +705,7 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 	}
 	escapeCfg := s.service.openAIStickyEscapeConfig()
 	contentSessionOverflow := openAIContentSessionRequestOverflow(ctx)
-	if reason, errorRate, ttft, shouldEscape := s.shouldEscapeStickyAccount(accountID, escapeCfg); !contentSessionOverflow && shouldEscape {
+	if reason, errorRate, ttft, shouldEscape := s.shouldEscapeStickyAccount(accountID, escapeCfg); !contentSessionOverflow && shouldEscape && !req.DisableStickyEscape {
 		slog.Info("sticky_escape_triggered",
 			"account_id", accountID,
 			"reason", reason,
@@ -713,6 +716,9 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 	}
 	result, acquireErr := s.service.tryAcquireAccountSlot(ctx, accountID, account.Concurrency)
 	if errors.Is(acquireErr, ErrPriorityAdmissionUnavailable) {
+		return nil, 0, acquireErr
+	}
+	if acquireErr != nil && req.DisableStickyEscape {
 		return nil, 0, acquireErr
 	}
 	if acquireErr == nil && result != nil && result.Acquired {
@@ -734,7 +740,7 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 	// over once the queue is saturated (or when no queue is configured).
 	// WaitPlan.MaxConcurrency 使用 Concurrency（非 EffectiveLoadFactor），因为 WaitPlan 控制的是 Redis 实际并发槽位等待。
 	if s.service.concurrencyService != nil {
-		if escapeCfg.enabled && !contentSessionOverflow && acquireErr == nil && result != nil && !result.Acquired {
+		if escapeCfg.enabled && !req.DisableStickyEscape && !contentSessionOverflow && acquireErr == nil && result != nil && !result.Acquired {
 			waitingCount, waitErr := s.service.concurrencyService.GetAccountWaitingCount(ctx, accountID)
 			queueSaturated := cfg.StickySessionMaxWaiting <= 0 || (waitErr == nil && waitingCount >= cfg.StickySessionMaxWaiting)
 			if queueSaturated {

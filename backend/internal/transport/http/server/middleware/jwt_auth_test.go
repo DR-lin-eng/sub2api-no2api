@@ -21,14 +21,43 @@ import (
 type stubJWTUserRepo struct {
 	service.UserRepository
 	users map[int64]*service.User
+	err   error
 }
 
 func (r *stubJWTUserRepo) GetByID(_ context.Context, id int64) (*service.User, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
 	u, ok := r.users[id]
 	if !ok {
-		return nil, errors.New("user not found")
+		return nil, service.ErrUserNotFound
 	}
 	return u, nil
+}
+
+func TestJWTAuth_TransientUserLookupKeepsSessionRetryable(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := &config.Config{}
+	cfg.JWT.Secret = "test-jwt-secret-32bytes-long!!!"
+	cfg.JWT.AccessTokenExpireMinutes = 60
+	userRepo := &stubJWTUserRepo{err: errors.New("database temporarily unavailable")}
+	authSvc := service.NewAuthService(nil, userRepo, nil, nil, cfg, nil, nil, nil, nil, nil, nil, nil, nil)
+	userSvc := service.NewUserService(userRepo, nil, nil, nil)
+	r := gin.New()
+	r.Use(gin.HandlerFunc(NewJWTAuthMiddleware(authSvc, userSvc, nil, nil)))
+	r.GET("/protected", func(c *gin.Context) { c.Status(http.StatusOK) })
+	token, err := authSvc.GenerateToken(context.Background(), &service.User{ID: 1, Role: "user", Status: service.StatusActive, TokenVersion: 1})
+	require.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusInternalServerError, w.Code)
+	var body ErrorResponse
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	require.Equal(t, "INTERNAL_ERROR", body.Code)
 }
 
 func (r *stubJWTUserRepo) GetUserAvatar(_ context.Context, _ int64) (*service.UserAvatar, error) {
