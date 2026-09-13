@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
-	"github.com/Wei-Shaw/sub2api/internal/modules/qualityrender"
 	"github.com/google/uuid"
 )
 
@@ -31,8 +30,10 @@ type httpAccountQualityArtifactProcessor struct {
 }
 
 func NewAccountQualityArtifactProcessor() service.AccountQualityArtifactProcessor {
+	// Preview rendering moved to the browser. Keep the optional HTTP adapter for
+	// deployments that still use it, but the quality service never invokes it.
 	if strings.TrimSpace(os.Getenv("ACCOUNT_QUALITY_RENDERER_URL")) == "" {
-		return &embeddedAccountQualityProcessor{renderer: qualityrender.New()}
+		return nil
 	}
 	return &httpAccountQualityArtifactProcessor{
 		endpoint: strings.TrimRight(strings.TrimSpace(os.Getenv("ACCOUNT_QUALITY_RENDERER_URL")), "/"),
@@ -136,7 +137,7 @@ func (r *accountQualityArtifactRepository) ListPublic(ctx context.Context, since
 		limit = 200
 	}
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id::text, account_id, model, effort, status, label, confidence, started_at, finished_at, latency_ms, model_version, error_message, probe_details, COALESCE(octet_length(webp),0) > 0
+		SELECT id::text, account_id, model, effort, status, label, confidence, started_at, finished_at, latency_ms, model_version, error_message, probe_details, (COALESCE(octet_length(webp),0) > 0 OR COALESCE(length(probe_details->'stage2'->>'preview_html'),0) > 0)
 		FROM account_quality_runs WHERE finished_at >= $1 ORDER BY finished_at DESC LIMIT $2`, since, limit)
 	if err != nil {
 		return nil, err
@@ -175,17 +176,4 @@ func (r *accountQualityArtifactRepository) GetPublicImage(ctx context.Context, i
 		return nil, "", err
 	}
 	return data, contentType, nil
-}
-
-// The default local module shares no network listener or settings with the old
-// optional renderer. Existing endpoints can still supply previews; the service
-// grades the source code independently of their legacy classifier verdict.
-type embeddedAccountQualityProcessor struct{ renderer *qualityrender.Processor }
-
-func (p *embeddedAccountQualityProcessor) Process(ctx context.Context, html string) (*service.QualityArtifact, error) {
-	artifact, err := p.renderer.Process(ctx, html)
-	if err != nil {
-		return nil, err
-	}
-	return &service.QualityArtifact{PNG: artifact.PNG, WebP: artifact.WebP}, nil
 }

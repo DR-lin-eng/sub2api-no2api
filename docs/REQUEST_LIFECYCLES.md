@@ -48,7 +48,7 @@ outbox。目标分组必须存在、启用且与账号平台一致；切换失�
 
 画图阶段的质量判定改为后端 Go 代码匹配：`modules/qualityrender` 按提供的 `model_a_fingerprint.py` 规则，对完整 HTML/SVG 计算 9 项加权特征（总分 100，默认阈值 55），记录命中特征、缺失特征和规则版本。分数表示代码结构相似度，不是概率；管理员可设置阈值，也可选择命中 Model A 或未命中 Model A 为正常。旧 `min_confidence` 字段继续返回以兼容已有配置，但不再参与代码匹配判定；已有非空 `ACCOUNT_QUALITY_RENDERER_URL` 仍只用于生成预览。
 
-预览渲染仍由后端内嵌 `modules/qualityrender` 执行：工作脚本随二进制嵌入，主 Docker 镜像在构建时安装 Python、Chromium、Playwright 和 Pillow。调用通过本地子进程标准输入/输出完成，不监听端口，也不要求修改 Compose、环境变量或持久设置。Chromium 使用离线模式、CSP 与外部请求阻断，固定 896×672 画面采样 16 帧，仅输出 PNG/WebP；代码匹配先于渲染执行，预览失败不会丢失匹配分数和对话详情。每实例仅启动一个渲染进程，渲染限时 90 秒，任务取消会终止进程组；输入限制 1 MiB、图片各 4 MiB。公开接口不返回可执行 SVG。
+预览渲染改由前端浏览器完成：后端仅在 `probe_details.stage2.preview_html` 保存经过 CSP/外链过滤且最多 256 KiB 的 HTML，公开接口返回该字段；前端使用 `iframe srcdoc` 与 `sandbox="allow-scripts"` 加载自包含动画，历史 PNG/WebP 记录仍可通过原图片接口查看。主 Docker 镜像不再安装 Python、Chromium 或 Playwright，代码匹配仍在后端 Go 中执行。预览 HTML 不允许外部网络、框架、对象、表单或事件属性，代码匹配先于预览生成，浏览器预览失败不会丢失匹配分数和对话详情。公开接口不返回账号凭据或原始请求。
 
 手动调用 `/api/v1/admin/account-quality/run` 会立即返回 `running` 状态；后台继续执行并持久化 `progress.total/completed/running/queued` 和各账号 `quality_phase`（排队、文字题、绘图生成、渲染分类、保存、完成或中断），管理页每 5 秒轮询展示总任务进度和账号级阶段进度。调度触发仍使用同一质量运行器并等待完整结果。开启 `quality_public_enabled` 后，匿名页 `/monitor/quality/public` 读取
 `GET /api/v1/account-quality-share`，按 manxue.ai 风格展示 24 小时摘要、可点击状态时间线、检测对话/响应 ID、两阶段最终回答文本、reasoning token 和图片预览；回答只保留最多 16 KiB 并在前端按纯文本渲染，不返回账号 ID、凭据或原始请求。图片由

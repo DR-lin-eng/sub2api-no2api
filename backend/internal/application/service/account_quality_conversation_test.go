@@ -21,7 +21,7 @@ type qualityConversationStore struct {
 
 func (s *qualityConversationStore) Save(_ context.Context, run *AccountQualityRun) error {
 	run.ID = "719a94e5-4f93-4ab8-a495-4b430be08a10"
-	run.HasPreview = len(run.WebP) > 0
+	run.HasPreview = len(run.WebP) > 0 || run.Details.Stage2 != nil && run.Details.Stage2.PreviewHTML != ""
 	s.runs = append(s.runs, *run)
 	return nil
 }
@@ -67,7 +67,7 @@ func TestQualityConversationPersistsTextOnlyAndCombinedVerdict(t *testing.T) {
 			config, _ := json.Marshal(settings)
 			store := &qualityConversationStore{}
 			probe := &qualityStageProbeStub{results: []*ScheduledTestResult{{Status: "success", ResponseText: tc.answer, ConversationID: "conv_text", ResponseID: "resp_text", ReasoningTokens: reasoningTokenPtr(0)}, {Status: "success", ResponseText: modelAHTML, ResponseID: "resp_image"}}}
-			svc := &AccountQualityMonitoringService{accountRepo: &qualityRepoStub{extra: map[int64]map[string]any{}}, accountTestSvc: probe, qualityProcessor: &qualityStageProcessorStub{}, qualityArtifacts: store, settingRepo: &inspectionSettingRepoStub{values: map[string]string{SettingKeyAccountQualitySettings: string(config)}}}
+			svc := &AccountQualityMonitoringService{accountRepo: &qualityRepoStub{extra: map[int64]map[string]any{}}, accountTestSvc: probe, qualityArtifacts: store, settingRepo: &inspectionSettingRepoStub{values: map[string]string{SettingKeyAccountQualitySettings: string(config)}}}
 			account := Account{ID: 123456, Name: "private account", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive}
 			rows := []AccountInspectionAccountResult{{AccountID: account.ID}}
 			require.NoError(t, svc.runQualityMonitoring(context.Background(), []Account{account}, rows, nil, settings, time.Now()))
@@ -102,6 +102,19 @@ func TestQualityConversationBoundsUTF8AndValidatesIDs(t *testing.T) {
 	require.Empty(t, detail.ResponseID)
 	detail = qualityStageDetail(&ScheduledTestResult{ResponseText: "a\x00b"})
 	require.Equal(t, "ab", detail.Answer)
+}
+
+func TestQualityPreviewHTMLIsBoundedAndRemovesExternalSinks(t *testing.T) {
+	detail := qualityStageDetail(&ScheduledTestResult{ResponseText: `<svg><script>requestAnimationFrame(()=>{});</script><use href="#bird"/><img src="https://evil.example/x.png" onload="alert(1)"/><iframe src="https://evil.example"></iframe></svg>`})
+	require.Equal(t, "ready", detail.PreviewStatus)
+	require.Contains(t, detail.PreviewHTML, "requestAnimationFrame")
+	require.NotContains(t, detail.PreviewHTML, "iframe")
+	require.NotContains(t, detail.PreviewHTML, "evil.example")
+	require.NotContains(t, detail.PreviewHTML, "onload")
+
+	detail = qualityStageDetail(&ScheduledTestResult{ResponseText: `<svg>` + strings.Repeat("x", 300<<10) + `</svg>`})
+	require.Empty(t, detail.PreviewHTML)
+	require.True(t, detail.PreviewHTMLTruncated)
 }
 
 func TestQualityConversationPublicDisabledAndLegacy(t *testing.T) {

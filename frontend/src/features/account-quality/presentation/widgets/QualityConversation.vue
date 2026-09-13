@@ -15,7 +15,7 @@
       <p class="text-slate-500">{{ t('common.accountQuality.codeMatchHint') }}</p>
       <details v-if="detail.code_match.matched_signals.length"><summary class="cursor-pointer">{{ t('common.accountQuality.matchedSignals') }} ({{ detail.code_match.matched_signals.length }}/{{ detail.code_match.matched_signals.length + detail.code_match.missing_signals.length }})</summary><ul class="mt-2 list-inside list-disc space-y-1"><li v-for="signal in detail.code_match.matched_signals" :key="signal">{{ signalLabels[signal] || t('common.unknown') }}</li></ul></details>
     </div>
-    <p v-if="detail?.preview_status === 'error'" class="text-xs text-amber-600">{{ t('common.accountQuality.previewFailed') }}</p>
+    <p v-if="detail?.preview_status === 'unavailable'" class="text-xs text-amber-600">{{ t('common.accountQuality.previewUnavailable') }}</p>
     <div class="border-t border-slate-100 pt-3 dark:border-dark-700">
       <p class="mb-2 text-xs text-slate-500">{{ t('common.accountQuality.answer') }}</p>
       <pre v-if="detail?.answer" class="max-h-72 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-3 font-mono text-sm leading-relaxed [overflow-wrap:anywhere] dark:bg-dark-900">{{ detail.answer }}</pre>

@@ -14,7 +14,9 @@ export interface AccountQualityCodeMatch {
 
 export interface AccountQualityStageDetail {
   code_match?: AccountQualityCodeMatch | null
-  preview_status?: 'ready' | 'error'
+  preview_status?: 'ready' | 'unavailable'
+  preview_html?: string
+  preview_html_truncated?: boolean
 
   status: string
   conversation_id?: string

@@ -150,6 +150,7 @@ export default {
       codeMatchHint: 'This score measures similarity in the generated code structure.',
       matchedSignals: 'Matched signals',
       previewFailed: 'Preview generation failed; the code match result was retained.',
+      previewUnavailable: 'Preview will be rendered in your browser.',
       signals: { trig: 'Trigonometry and frame animation', reuse: 'SVG component reuse', motion: 'Reduced motion support', pause: 'Play/pause button', title: 'SVG title and description', visibility: 'Page visibility listener', naming: 'Multiword kebab naming', palette: 'No :root style declaration', scene: 'No specified HTML background classes' },
       reasoningTokens: "Reasoning tokens",
       due: "Waiting for next run",
