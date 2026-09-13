@@ -72,6 +72,70 @@ func TestAccountQualitySettingsValidateTimeoutRange(t *testing.T) {
 	require.NoError(t, settings.validate())
 }
 
+func TestAccountQualitySettingsAllowConcurrencyUpTo200(t *testing.T) {
+	settings := DefaultAccountQualitySettings()
+	require.Equal(t, 4, settings.MaxConcurrent, "keep the existing default to avoid an implicit load increase")
+	settings.MaxConcurrent = 200
+	require.NoError(t, settings.validate())
+	settings.MaxConcurrent = 201
+	require.Error(t, settings.validate())
+	settings.normalize()
+	require.Equal(t, 200, settings.MaxConcurrent)
+}
+
+func TestQualityRunQueueAcceptsOnePendingRoundWhenBusy(t *testing.T) {
+	now := time.Now().UTC()
+	state, err := json.Marshal(AccountQualityRunState{Status: AccountInspectionStatusRunning, StartedAt: &now})
+	require.NoError(t, err)
+	repo := &qualityRepoStub{extra: map[int64]map[string]any{}}
+	settingsRepo := &inspectionSettingRepoStub{values: map[string]string{accountQualityStateKey: string(state)}}
+	svc := NewAccountQualityMonitoringService(repo, settingsRepo, &qualityStageProbeStub{}, nil, nil, nil)
+	svc.running.Store(true)
+	svc.runWG.Add(1)
+	defer sRunDone(svc)
+
+	queued, err := svc.StartNow(context.Background(), "manual")
+	require.NoError(t, err)
+	require.Equal(t, AccountInspectionStatusRunning, queued.Status)
+	require.Equal(t, 1, queued.Progress.PendingRuns)
+	require.Equal(t, 1, svc.pendingQualityRuns())
+	queuedAgain, err := svc.StartNow(context.Background(), "scheduled")
+	require.NoError(t, err)
+	require.Equal(t, 1, queuedAgain.Progress.PendingRuns, "additional ticks coalesce instead of piling up unbounded work")
+	require.Equal(t, 1, svc.pendingQualityRuns())
+}
+
+func TestQualityRunDueQueuesAfterIntervalWithoutCancellingCurrentRun(t *testing.T) {
+	started := time.Now().UTC().Add(-2 * time.Minute)
+	stateJSON, err := json.Marshal(AccountQualityRunState{Status: AccountInspectionStatusRunning, StartedAt: &started})
+	require.NoError(t, err)
+	settings := DefaultAccountQualitySettings()
+	settings.Enabled, settings.IntervalMinutes = true, 1
+	settingsJSON, err := json.Marshal(settings)
+	require.NoError(t, err)
+	repo := &inspectionSettingRepoStub{values: map[string]string{SettingKeyAccountQualitySettings: string(settingsJSON), accountQualityStateKey: string(stateJSON)}}
+	svc := NewAccountQualityMonitoringService(&qualityRepoStub{}, repo, &qualityStageProbeStub{}, nil, nil, nil)
+	svc.runDue()
+	require.Equal(t, 1, svc.pendingQualityRuns())
+	trigger, ok := svc.takePendingQualityRun()
+	require.True(t, ok)
+	require.Equal(t, "scheduled", trigger)
+}
+
+func TestQualityRunFinishDoesNotDropPendingRound(t *testing.T) {
+	svc := NewAccountQualityMonitoringService(nil, nil, nil, nil, nil, nil)
+	svc.running.Store(true)
+	svc.runWG.Add(1)
+	require.True(t, svc.enqueueQualityRun("scheduled"))
+	svc.finishQualityRun()
+	// This fixture has no account repository, so handoff cannot start; the
+	// pending round remains queued for the next scheduler attempt.
+	require.Equal(t, 1, svc.pendingQualityRuns())
+	require.False(t, svc.running.Load())
+}
+
+func sRunDone(svc *AccountQualityMonitoringService) { svc.running.Store(false); svc.runWG.Done() }
+
 func TestAccountQualitySettingsMigrateLegacyPromptAndStages(t *testing.T) {
 	repo := &inspectionSettingRepoStub{values: map[string]string{
 		SettingKeyAccountQualitySettings: `{"enabled":true,"prompt":"legacy drawing prompt","timeout_seconds":120}`,

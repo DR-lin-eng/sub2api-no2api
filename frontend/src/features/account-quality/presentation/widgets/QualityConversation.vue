@@ -12,6 +12,7 @@
     <div v-if="detail?.code_match" class="space-y-2 rounded-lg bg-slate-50 p-3 text-xs dark:bg-dark-900" data-testid="code-match-result">
       <p class="font-medium">{{ t('common.accountQuality.codeMatchScore', { score: detail.code_match.score, threshold: detail.code_match.threshold }) }}</p>
       <p>{{ detail.code_match.is_model_a ? t('common.accountQuality.modelAMatched') : t('common.accountQuality.modelANotMatched') }} · {{ detail.code_match.normal_class === 'other' ? t('common.accountQuality.otherNormal') : t('common.accountQuality.modelANormal') }}</p>
+      <p v-if="!detail.code_match.source_complete" class="font-medium text-amber-600">{{ t('common.accountQuality.incompleteDrawing') }}</p>
       <p class="text-slate-500">{{ t('common.accountQuality.codeMatchHint') }}</p>
       <details v-if="detail.code_match.matched_signals.length"><summary class="cursor-pointer">{{ t('common.accountQuality.matchedSignals') }} ({{ detail.code_match.matched_signals.length }}/{{ detail.code_match.matched_signals.length + detail.code_match.missing_signals.length }})</summary><ul class="mt-2 list-inside list-disc space-y-1"><li v-for="signal in detail.code_match.matched_signals" :key="signal">{{ signalLabels[signal] || t('common.unknown') }}</li></ul></details>
     </div>

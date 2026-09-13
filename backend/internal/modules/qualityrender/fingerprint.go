@@ -25,6 +25,7 @@ type CodeMatch struct {
 	MissingSignals []string `json:"missing_signals"`
 	IsModelA       bool     `json:"is_model_a"`
 	Threshold      float64  `json:"threshold"`
+	SourceComplete bool     `json:"source_complete"`
 }
 
 var (
@@ -68,7 +69,7 @@ func MatchHTML(source string, threshold float64) (*CodeMatch, error) {
 		{"no_root_css_vars", 7, !strings.Contains(commentPattern.ReplaceAllString(source, ""), ":root")},
 		{"pure_svg_scene", 8, !layerPattern.MatchString(source)},
 	}
-	result := &CodeMatch{Version: FingerprintVersion, Threshold: threshold, MatchedSignals: []string{}, MissingSignals: []string{}}
+	result := &CodeMatch{Version: FingerprintVersion, Threshold: threshold, SourceComplete: completeSVGSource(source), MatchedSignals: []string{}, MissingSignals: []string{}}
 	for _, signal := range signals {
 		result.MaxPoints += signal.weight
 		if signal.hit {
@@ -118,7 +119,7 @@ func containsSVG(source string) bool {
 	for {
 		switch tokens.Next() {
 		case html.ErrorToken:
-			return false
+			return incompleteSVGMarker(source)
 		case html.StartTagToken, html.SelfClosingTagToken:
 			name, _ := tokens.TagName()
 			if string(name) == "svg" {
@@ -126,4 +127,30 @@ func containsSVG(source string) bool {
 			}
 		}
 	}
+}
+
+var executableHTMLPattern = regexp.MustCompile(`(?is)<(?:script|style)\b[^>]*>.*?(?:</(?:script|style)\s*>|$)`)
+
+func incompleteSVGMarker(source string) bool {
+	clean := commentPattern.ReplaceAllString(source, "")
+	clean = executableHTMLPattern.ReplaceAllString(clean, "")
+	return regexp.MustCompile(`(?is)<svg(?:\s|/?>|$)`).MatchString(clean)
+}
+
+func completeSVGSource(source string) bool {
+	clean := commentPattern.ReplaceAllString(source, "")
+	clean = executableHTMLPattern.ReplaceAllString(clean, "")
+	start := regexp.MustCompile(`(?is)<svg(?:\s|/?>)`).FindStringIndex(clean)
+	if start == nil {
+		return false
+	}
+	openEnd := strings.Index(clean[start[0]:], ">")
+	if openEnd < 0 {
+		return false
+	}
+	openTag := clean[start[0] : start[0]+openEnd+1]
+	if strings.HasSuffix(strings.TrimSpace(openTag), "/>") {
+		return true
+	}
+	return strings.Contains(strings.ToLower(clean[start[0]+openEnd+1:]), "</svg>")
 }

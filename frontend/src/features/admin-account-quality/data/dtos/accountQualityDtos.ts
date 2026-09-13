@@ -4,6 +4,7 @@ export interface AccountQualityCodeMatch {
   raw_points: number
   max_points: number
   threshold: number
+  source_complete: boolean
   is_model_a: boolean
   normal_class: 'model_a' | 'other'
   matched_signals: string[]
@@ -92,7 +93,7 @@ export interface AccountQualityRun {
   summary: AccountQualitySummary
   results?: AccountQualityResult[]
   error?: string
-  progress?: { total: number; completed: number; running?: number; queued?: number; current_account_id?: number; current_account?: string; current_stage?: string }
+  progress?: { total: number; completed: number; running?: number; queued?: number; pending_runs?: number; current_account_id?: number; current_account?: string; current_stage?: string }
 }
 
 export interface AccountQualityOverview {

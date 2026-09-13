@@ -127,6 +127,19 @@ func (s *AccountQualityMonitoringService) runQualityStage(ctx context.Context, a
 		outcome.detail.PreviewStatus = "unavailable"
 	}
 	if probe.Status != "success" {
+		if stage == "stage2" && strings.TrimSpace(probe.ResponseText) != "" {
+			// A stream can contain useful partial HTML before terminating. Analyze
+			// that source instead of discarding it as an empty request failure.
+			s.matchQualityDrawing(probeCtx, probe.ResponseText, settings, &outcome, beforeRender)
+			if outcome.detail.CodeMatch != nil {
+				if !outcome.detail.CodeMatch.SourceComplete {
+					return outcome
+				}
+				// A complete source accompanied by a failed upstream status is still
+				// an operational failure, not a successful quality pass.
+				outcome.status, outcome.passed, outcome.operational = "error", false, true
+			}
+		}
 		outcome.errorMessage = strings.TrimSpace(probe.ErrorMessage)
 		if outcome.errorMessage == "" {
 			outcome.errorMessage = "quality probe request failed"

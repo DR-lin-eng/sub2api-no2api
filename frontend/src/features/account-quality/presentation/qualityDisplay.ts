@@ -22,6 +22,12 @@ export function previewURL(point: AccountQualityPublicPoint): string {
 export function hasPreview(point: AccountQualityPublicPoint): boolean {
   return !!point.id && (!!point.details?.stage2?.preview_html || (point.has_preview ?? ['ready', 'wrong'].includes(point.status)))
 }
+export function hasQualityEvidence(point: AccountQualityPublicPoint): boolean {
+  if (hasPreview(point) || !!point.label?.trim()) return true
+  return [point.details?.stage1, point.details?.stage2].some((stage) =>
+    !!stage && (!!stage.code_match || !!stage.preview_html?.trim() || !!stage.conversation_id?.trim() || !!stage.response_id?.trim() || !!stage.answer?.trim()),
+  )
+}
 export function qualityTime(value?: string): string {
   if (!value || Number.isNaN(Date.parse(value))) return '—'
   return new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(value)).replace(/\//g, '-')
