@@ -380,11 +380,11 @@ func qualityProbeSupported(account *Account) bool {
 	if account == nil || !account.IsActive() {
 		return false
 	}
-	// The probe prompt is part of the Gemini/OpenAI request body. Other
-	// platforms currently use fixed connection probes and must not be judged by
-	// this quality grader until their prompt path is explicit.
+	// Other platforms use fixed connection probes and are not graded here.
 	supportedPlatform := account.Platform == PlatformOpenAI || account.Platform == PlatformGemini
-	supportedType := account.Type == AccountTypeOAuth || account.Type == AccountTypeAPIKey || (account.Type == AccountTypeServiceAccount && account.Platform == PlatformGemini)
+	// Quality probes use the OAuth conversational path only. API-key and
+	// service-account credentials are intentionally excluded from this monitor.
+	supportedType := account.Type == AccountTypeOAuth
 	return supportedPlatform && supportedType
 }
 

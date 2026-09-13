@@ -35,7 +35,7 @@ sequenceDiagram
 
 ### 账号级质量监控与降智分组切换
 
-管理员在独立的 `/admin/account-quality` 保存质量策略并启用质量巡检，可指定 `source_group_id` 作为检测源；后台复用账号测试的真实上游传输路径，按
+管理员在独立的 `/admin/account-quality` 保存质量策略并启用质量巡检，可指定 `source_group_id` 作为检测源；后台只筛选启用的 OpenAI/Gemini OAuth 账号，API Key 和 service account 不会进入检测队列；后台复用账号测试的真实上游传输路径，按
 `interval_minutes` 对账号执行两个可独立开关的阶段：`stage1_enabled` 开启糖果形状/口味保证题（默认 `stage1_answer=21`），`stage2_enabled` 开启 SVG 鹈鹕骑自行车画图题并进行代码匹配和预览渲染。管理员可编辑 `stage1_prompt`、`stage1_answer` 和 `stage2_prompt`。只运行启用的阶段；全开时先文字题再画图。答案必须匹配配置答案且代码匹配规则通过才算通过。答错、代码匹配未通过或第一阶段 reasoning token 低于阈值显示为 `degraded`；`failure_threshold` 决定连续失败几轮后自动切组，恢复遵循 `recovery_threshold`。请求或分类错误不递增失败计数。选择检测源分组后只探测该分组账号；已经切入降智分组的账号仍会继续探测以支持恢复。未配置检测源时扫描全部支持的平台账号。账号健康巡检在 `/admin/account-inspection` 使用独立设置、状态和调度器，两个入口互不触发。
 
 配置 `degraded_group_id` 后，首次进入降智状态会先把原 `account_groups` 列表写入账号
