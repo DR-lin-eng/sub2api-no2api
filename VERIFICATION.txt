@@ -88,3 +88,10 @@ Static checks:
 make check-docs -> Documentation checks passed. (exit 0)
 make -C backend check-layout -> exit 0
 Gofmt/go vet focused -> exit 0
+
+PUBLISHED CI (exact merge SHA a927f948b5e21971f1130c7f2e68cc82e4ab88e1):
+- CI run 34763767578: success
+- Docker Image run 34763767598: success
+- Security Scan run 34763767618: success
+- PR #63 merged at 2026-09-13T14:49:09Z
+PR-head CI (a70d9bb1d1da7798385d4d0ae5e5b5f50636eb29): CI 34763088078, Docker 34763088133, Security 34763088070: all success.
