@@ -3,8 +3,6 @@ package qualityrender
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"fmt"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -12,11 +10,6 @@ import (
 	"time"
 )
 
-func TestEmbeddedCheckpoint(t *testing.T) {
-	if got := fmt.Sprintf("%x", sha256.Sum256(checkpoint)); got != "96bc1abf360ffba879310a0c5d4b4d9d70027083358999ed9fd3daba84fae2b6" {
-		t.Fatalf("checkpoint: %s", got)
-	}
-}
 func TestRejectsInvalidInputAndCancellation(t *testing.T) {
 	p := New()
 	if _, err := p.Process(context.Background(), ""); err == nil {
@@ -45,9 +38,6 @@ func TestLocalRenderRealModel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if artifact.ModelVersion != "8.4.14" || (artifact.Label != "normal" && artifact.Label != "unnormal") {
-		t.Fatalf("invalid model result: %+v", artifact)
-	}
 	config, err := png.DecodeConfig(bytes.NewReader(artifact.PNG))
 	if err != nil {
 		t.Fatal(err)
@@ -66,7 +56,7 @@ func TestLocalRenderRealModel(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	t.Logf("model=%s label=%s confidence=%.6f png=%d webp=%d", artifact.ModelVersion, artifact.Label, artifact.Confidence, len(artifact.PNG), len(artifact.WebP))
+	t.Logf("preview png=%d webp=%d", len(artifact.PNG), len(artifact.WebP))
 	if _, err := New().Process(ctx, "<html>not an SVG</html>"); err == nil {
 		t.Fatal("invalid drawing was classified")
 	}

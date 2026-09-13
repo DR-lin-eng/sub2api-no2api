@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/modules/qualityrender"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
 	"github.com/google/uuid"
 )
@@ -44,46 +46,56 @@ const (
 // deliberately separate from AccountInspectionSettings so saving or running
 // one policy never starts the other policy.
 type AccountQualitySettings struct {
-	Enabled            bool    `json:"enabled"`
-	IntervalMinutes    int     `json:"interval_minutes"`
-	TimeoutSeconds     int     `json:"timeout_seconds"`
-	Model              string  `json:"model"`
-	Effort             string  `json:"effort"`
-	Prompt             string  `json:"prompt,omitempty"` // Deprecated alias for stage2_prompt.
-	Stage1Enabled      bool    `json:"stage1_enabled"`
-	Stage1Prompt       string  `json:"stage1_prompt"`
-	Stage1Answer       string  `json:"stage1_answer"`
-	Stage2Enabled      bool    `json:"stage2_enabled"`
-	Stage2Prompt       string  `json:"stage2_prompt"`
-	FailureThreshold   int     `json:"failure_threshold"`
-	RecoveryThreshold  int     `json:"recovery_threshold"`
-	DegradedGroupID    *int64  `json:"degraded_group_id"`
-	SourceGroupID      *int64  `json:"source_group_id"`
-	MaxConcurrent      int     `json:"max_concurrent"`
-	MinConfidence      float64 `json:"min_confidence"`
-	MinReasoningTokens int64   `json:"min_reasoning_tokens"`
-	PublicEnabled      bool    `json:"public_enabled"`
+	Enabled              bool    `json:"enabled"`
+	IntervalMinutes      int     `json:"interval_minutes"`
+	TimeoutSeconds       int     `json:"timeout_seconds"`
+	Model                string  `json:"model"`
+	Effort               string  `json:"effort"`
+	Prompt               string  `json:"prompt,omitempty"` // Deprecated alias for stage2_prompt.
+	Stage1Enabled        bool    `json:"stage1_enabled"`
+	Stage1Prompt         string  `json:"stage1_prompt"`
+	Stage1Answer         string  `json:"stage1_answer"`
+	Stage2Enabled        bool    `json:"stage2_enabled"`
+	Stage2Prompt         string  `json:"stage2_prompt"`
+	FailureThreshold     int     `json:"failure_threshold"`
+	RecoveryThreshold    int     `json:"recovery_threshold"`
+	DegradedGroupID      *int64  `json:"degraded_group_id"`
+	SourceGroupID        *int64  `json:"source_group_id"`
+	MaxConcurrent        int     `json:"max_concurrent"`
+	MinConfidence        float64 `json:"min_confidence"` // Legacy image-classifier setting, retained for API compatibility.
+	CodeMatchThreshold   float64 `json:"code_match_threshold"`
+	CodeMatchNormalClass string  `json:"code_match_normal_class"`
+	MinReasoningTokens   int64   `json:"min_reasoning_tokens"`
+	PublicEnabled        bool    `json:"public_enabled"`
 }
 
 func DefaultAccountQualitySettings() AccountQualitySettings {
 	return AccountQualitySettings{
-		IntervalMinutes:   accountQualityDefaultIntervalMinutes,
-		TimeoutSeconds:    accountQualityDefaultProbeTimeoutSec,
-		Effort:            "medium",
-		Stage1Enabled:     true,
-		Stage1Prompt:      accountQualityDefaultStage1Prompt,
-		Stage1Answer:      accountQualityDefaultStage1Answer,
-		Stage2Enabled:     true,
-		Stage2Prompt:      accountQualityDefaultStage2Prompt,
-		Prompt:            accountQualityDefaultStage2Prompt,
-		FailureThreshold:  accountQualityDefaultFailureThreshold,
-		RecoveryThreshold: accountQualityDefaultRecoveryThreshold,
-		MaxConcurrent:     accountQualityMaxConcurrent,
-		MinConfidence:     0.85,
+		IntervalMinutes:      accountQualityDefaultIntervalMinutes,
+		TimeoutSeconds:       accountQualityDefaultProbeTimeoutSec,
+		Effort:               "medium",
+		Stage1Enabled:        true,
+		Stage1Prompt:         accountQualityDefaultStage1Prompt,
+		Stage1Answer:         accountQualityDefaultStage1Answer,
+		Stage2Enabled:        true,
+		Stage2Prompt:         accountQualityDefaultStage2Prompt,
+		Prompt:               accountQualityDefaultStage2Prompt,
+		FailureThreshold:     accountQualityDefaultFailureThreshold,
+		RecoveryThreshold:    accountQualityDefaultRecoveryThreshold,
+		MaxConcurrent:        accountQualityMaxConcurrent,
+		MinConfidence:        0.85,
+		CodeMatchThreshold:   qualityrender.DefaultMatchThreshold,
+		CodeMatchNormalClass: "model_a",
 	}
 }
 
 func (s *AccountQualitySettings) normalize() {
+	if s.CodeMatchThreshold == 0 {
+		s.CodeMatchThreshold = qualityrender.DefaultMatchThreshold
+	}
+	if s.CodeMatchNormalClass == "" {
+		s.CodeMatchNormalClass = "model_a"
+	}
 	if s.IntervalMinutes < 1 {
 		s.IntervalMinutes = accountQualityDefaultIntervalMinutes
 	}
@@ -133,6 +145,12 @@ func (s *AccountQualitySettings) normalize() {
 }
 
 func (s AccountQualitySettings) validate() error {
+	if math.IsNaN(s.CodeMatchThreshold) || math.IsInf(s.CodeMatchThreshold, 0) || s.CodeMatchThreshold < 1 || s.CodeMatchThreshold > 100 {
+		return infraerrors.BadRequest("INVALID_ACCOUNT_QUALITY_CODE_THRESHOLD", "code_match_threshold must be between 1 and 100")
+	}
+	if s.CodeMatchNormalClass != "model_a" && s.CodeMatchNormalClass != "other" {
+		return infraerrors.BadRequest("INVALID_ACCOUNT_QUALITY_CODE_CLASS", "code_match_normal_class must be model_a or other")
+	}
 	if len([]byte(s.Stage1Prompt)) > 8192 || len([]byte(s.Stage2Prompt)) > 8192 || len([]byte(s.Stage1Answer)) > 512 {
 		return infraerrors.BadRequest("INVALID_ACCOUNT_QUALITY_QUESTION", "quality prompts or answer are too long")
 	}

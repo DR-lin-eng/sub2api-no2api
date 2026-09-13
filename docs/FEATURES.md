@@ -44,7 +44,7 @@
 | 分组管理 | `/admin/groups` | 分组、倍率、模型范围和组合路由：[admin-groups](../frontend/src/features/admin-groups/README.md)、[组合分组](COMPOSITE_GROUPS.md) |
 | 上游账号 | `/admin/accounts` | 账号、授权、导入、批量操作、测试和额度快照：[admin-accounts](../frontend/src/features/admin-accounts/README.md) |
 | 账号巡检 | `/admin/account-inspection` | 健康策略、手动或自动执行、异常与额度分布：[admin-account-inspection](../frontend/src/features/admin-account-inspection/README.md) |
-| 账号质量巡检 | `/admin/account-quality` | 独立质量探测策略、模型思考强度、分类置信度、源分组、降智分组和结果快照：[admin-account-quality](../frontend/src/features/admin-account-quality/README.md) |
+| 账号质量巡检 | `/admin/account-quality` | 独立质量探测策略、模型思考强度、代码匹配阈值、源分组、降智分组和结果快照：[admin-account-quality](../frontend/src/features/admin-account-quality/README.md) |
 | 代理 | `/admin/proxies` | 代理配置、导入和连通性测试：[admin-proxies](../frontend/src/features/admin-proxies/README.md) |
 | IPv6 出口 | `/admin/egress` | 地址池、绑定、探测和 HE 隧道：[admin-egress](../frontend/src/features/admin-egress/README.md)、[出口专题](IPV6_EGRESS.md) |
 | 渠道定价 | `/admin/channels/pricing` | 模型价格、分组关联和时段价格：[admin-channels](../frontend/src/features/admin-channels/README.md) |

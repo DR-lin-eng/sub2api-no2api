@@ -1,58 +1,30 @@
-Changed branch/fields: codex/account-quality-source-group; local embedded renderer with best.pt, asynchronous account-quality run progress, existing config preservation.
+Changed branch/fields: codex/account-quality-source-group; stage2 code-match algorithm, configurable threshold/normal class, embedded PNG/WebP preview retention.
 
-Artifacts (all updated/reopened):
+Artifacts (absolute paths):
 - /Users/lin/.codex/worktrees/b443/sub2api-no2api/MODIFIED_FILE
 - /Users/lin/.codex/worktrees/b443/sub2api-no2api/DIFF_FILE
 - /Users/lin/.codex/worktrees/b443/sub2api-no2api/VERIFICATION.txt
 - /Users/lin/.codex/worktrees/b443/sub2api-no2api/ROLLBACK.sh
 
-BASELINE source command: git show 3103aa4ef:backend/internal/application/service/account_quality_monitoring.go > /tmp/quality-embedded-final-20260913/BASELINE_QUALITY_MONITORING.go
-BASELINE result: SHA-256 4cb48b3f1fa42d2e7cebbe50c506376e093419603af57749983cce1905f3e86d; 23502 bytes; exit 0.
-MODIFIED source command: cp backend/internal/application/service/account_quality_monitoring.go /tmp/quality-embedded-final-20260913/MODIFIED_QUALITY_MONITORING.go
-MODIFIED result: SHA-256 5151cac98bc1d21bc62bb0aa02064ed2a5eb88ac04c468a5cd2be5171dbc719a; 30289 bytes; exit 0.
+BASELINE command: git show HEAD:backend/internal/application/service/account_quality_monitoring.go > /tmp/quality-code-match-20260913/BASELINE_QUALITY_MONITORING.go && shasum -a 256 /tmp/quality-code-match-20260913/BASELINE_QUALITY_MONITORING.go
+BASELINE literal result: 5151cac98bc1d21bc62bb0aa02064ed2a5eb88ac04c468a5cd2be5171dbc719a  /tmp/quality-code-match-20260913/BASELINE_QUALITY_MONITORING.go; 30289 bytes; exit 0.
+MODIFIED command: cp backend/internal/application/service/account_quality_monitoring.go /tmp/quality-code-match-20260913/MODIFIED_QUALITY_MONITORING.go && shasum -a 256 /tmp/quality-code-match-20260913/MODIFIED_QUALITY_MONITORING.go
+MODIFIED literal result: e980542b397efb715b593e7f5be378047c03c84cfd75e4cebb822771f10cd84c  /tmp/quality-code-match-20260913/MODIFIED_QUALITY_MONITORING.go; 31361 bytes; exit 0.
 
-LOCAL backend command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/infrastructure/repository ./internal/modules/qualityrender ./migrations ./internal/transport/http/handler/admin
-LOCAL backend result: service 137.509s; repository 5.791s; qualityrender 0.699s; migrations cached; admin 1.051s; exit 0.
-RACE command: cd backend && GOCACHE=/tmp/sub2api-gocache go test -race ./internal/application/service -run 'TestStartNowReturnsRunningStateBeforeLongProbeCompletes|TestQualityProgressCallbackTracksAccountStageAndCompletion' -count=1
-RACE result: quality progress tests passed; exit 0.
-FRONTEND command: cd frontend && pnpm run typecheck && pnpm run lint:check && pnpm exec vitest run src/features/admin-account-quality/__tests__/AccountQualityPage.spec.ts src/core/i18n/__tests__/routeLocaleCoverage.spec.ts
-FRONTEND result: typecheck passed; eslint passed; 2 test files, 5 tests passed; exit 0.
+BASELINE test command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/modules/qualityrender ./internal/application/service ./internal/infrastructure/repository -run 'TestQuality|TestAccountQuality|TestMatchHTML' -count=1
+BASELINE test result: pre-change reference run passed existing module/service/repository suites; exit 0.
+MODIFIED test command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/modules/qualityrender ./internal/application/service ./internal/infrastructure/repository -run 'TestQuality|TestAccountQuality|TestMatchHTML' -count=1
+MODIFIED literal result: ok qualityrender; ok application/service; ok infrastructure/repository; exit 0.
+
+FRONTEND command: cd frontend && pnpm run typecheck && pnpm run lint:check && pnpm exec vitest run src/features/admin-account-quality/__tests__/AccountQualityPage.spec.ts src/features/account-quality/__tests__/AccountQualitySharePage.spec.ts
+FRONTEND literal result: vue-tsc passed; eslint passed; 4 tests passed; exit 0.
 DOCS command: make check-docs
-DOCS result: Documentation checks passed; exit 0.
-COMPOSE command: POSTGRES_PASSWORD=test docker compose -f deploy/docker-compose.local.yml config
-COMPOSE result: parsed successfully; existing Compose files remain unchanged in this change; exit 0.
+DOCS literal result: Documentation checks passed.; exit 0.
+DOCKER command: docker build --target backend-builder -t sub2api-code-match-builder:test .
+DOCKER literal result: Docker daemon activity directory denied by host; exit 1. No image/build claim made. A Dockerized Go test was run with golang:1.26.6-bookworm and all selected packages passed; exit 0.
 
-DOCKER BUILD command: docker build --target backend-builder -t sub2api-quality-embedded-final:test .
-DOCKER BUILD result: embedded website binary built successfully; exit 0.
-DOCKER RUNTIME command: docker build --progress=plain -t sub2api-quality-embedded-final-runtime:test .
-DOCKER RUNTIME result: full Python/Chromium/Ultralytics runtime image built successfully; exit 0.
-DOCKER MODEL command: docker run --rm --network none --read-only --tmpfs /tmp:size=512m --cpus=2 --memory=4g -v /tmp/quality-module-20260913/qualityrender.test:/qualityrender.test:ro -v /tmp/quality-module-20260913/render-output:/output -e QUALITY_RENDER_INTEGRATION=1 -e QUALITY_RENDER_TEST_OUTPUT=/output --entrypoint /qualityrender.test sub2api-quality-embedded-final-runtime:test -test.v
-DOCKER MODEL result: TestEmbeddedCheckpoint PASS; TestRejectsInvalidInputAndCancellation PASS; TestLocalRenderRealModel PASS (model=8.4.14, label=unnormal, confidence=0.999999, png=31382, webp=40980); exit 0.
-DOCKER TEST command: docker run --rm sub2api-account-quality-local-progress-final:test sh -lc 'export PATH=/usr/local/go/bin:$PATH; cd /app/backend && GOCACHE=/tmp/go-cache go test ./internal/application/service ./internal/infrastructure/repository ./migrations ./internal/transport/http/handler/admin -run "TestQuality|TestAccountQuality" -count=1'
-DOCKER TEST result: service 2.144s; repository 0.019s; migrations 0.002s; admin 0.014s; exit 0.
+ROLLBACK command: cp BASELINE_QUALITY_MONITORING.go ROLLBACK_COPY.go; printf '\n' >> ROLLBACK_COPY.go; ./ROLLBACK.sh BASELINE_QUALITY_MONITORING.go ROLLBACK_COPY.go
+ROLLBACK literal result: restored: /tmp/quality-code-match-20260913/ROLLBACK_COPY.go; cmp=0; restored SHA-256 5151cac98bc1d21bc62bb0aa02064ed2a5eb88ac04c468a5cd2be5171dbc719a; exit 0.
+Restored behavior/status: independent rollback copy is byte-identical to BASELINE; working tree remains on the modified code-match branch.
 
-ROLLBACK command: ./ROLLBACK.sh /tmp/quality-embedded-final-20260913/BASELINE_QUALITY_MONITORING.go /tmp/quality-embedded-final-20260913/ROLLBACK_COPY.go after appending a temporary mutation.
-ROLLBACK result: restored target and cmp exit 0; restored SHA-256 4cb48b3f1fa42d2e7cebbe50c506376e093419603af57749983cce1905f3e86d. Working tree source remains changed.
-
-Remote publication: PR #52 was merged before this follow-up. PR #54 embedded renderer/progress, PR #55 preserved the original postgres:18-alpine image, and PR #56 merged the final artifact update into main as 7cda144c44a0ec104d6232bb2520893e5c152ba2. PR #58 merged final verification updates into main as 1e032da0b36c16e865bf548734d5e664a4161335.
-
-Final embedded renderer/progress verification (2026-09-13):
-BASELINE command: git show 3103aa4ef:backend/internal/application/service/account_quality_monitoring.go > /tmp/quality-embedded-final-20260913/BASELINE_QUALITY_MONITORING.go
-BASELINE literal result: SHA-256 4cb48b3f1fa42d2e7cebbe50c506376e093419603af57749983cce1905f3e86d;    23502 bytes; exit 0.
-MODIFIED command: cp backend/internal/application/service/account_quality_monitoring.go /tmp/quality-embedded-final-20260913/MODIFIED_QUALITY_MONITORING.go
-MODIFIED literal result: SHA-256 5151cac98bc1d21bc62bb0aa02064ed2a5eb88ac04c468a5cd2be5171dbc719a;    30289 bytes; exit 0.
-PROGRESS tests: TestQualityProgressCallbackTracksAccountStageAndCompletion and TestStartNowReturnsRunningStateBeforeLongProbeCompletes passed; exit 0.
-EMBEDDED MODEL command: docker run --rm --network none --read-only --tmpfs /tmp:size=512m --cpus=2 --memory=4g -v /tmp/quality-embedded-final-20260913/qualityrender.test:/qualityrender.test:ro -v /tmp/quality-embedded-final-20260913/render-output:/output -e QUALITY_RENDER_INTEGRATION=1 -e QUALITY_RENDER_TEST_OUTPUT=/output --entrypoint /qualityrender.test sub2api-quality-embedded-final:test -test.v
-EMBEDDED MODEL result: TestEmbeddedCheckpoint PASS; TestRejectsInvalidInputAndCancellation PASS; TestLocalRenderRealModel PASS (model=8.4.14, label=unnormal, confidence=0.999999, png=31382, webp=41068); exit 0.
-COMPOSE preservation command: git diff --exit-code 3103aa4ef -- deploy/docker-compose.yml deploy/docker-compose.local.yml deploy/.env.example deploy/config.example.yaml
-COMPOSE preservation result: no diff; existing deployment/config files unchanged; exit 0.
-DEPLOY DOCKER BUILD command: docker build -f deploy/Dockerfile -t sub2api-quality-embedded-deploy:test .
-DEPLOY DOCKER BUILD result: deploy/Dockerfile image built successfully; exit 0.
-ROLLBACK command: ./ROLLBACK.sh /tmp/quality-embedded-final-20260913/BASELINE_QUALITY_MONITORING.go /tmp/quality-embedded-final-20260913/ROLLBACK_COPY.go after temporary mutation.
-ROLLBACK literal result: cmp exit 0; restored SHA-256 4cb48b3f1fa42d2e7cebbe50c506376e093419603af57749983cce1905f3e86d; current source remains modified.
-
-Final remote state before this metadata commit: branch b59805f84e6bb7935b9f84c8d0f339e7f6a5b242; main 1e032da0b36c16e865bf548734d5e664a4161335; existing Compose/environment configuration unchanged.
-
-Embedded model smoke output files: /tmp/quality-module-20260913/render-output/preview.png and preview.webp were generated and visually inspected.
-
-Metadata commit: f93aab68234d65348a5451498f859ada7411ee01; its follow-up only refreshes this evidence file.
+Public preview regression: existing AccountQualitySharePage tests passed; PNG/WebP preview contract and image enlargement path remain unchanged. New code-match evidence is shown in admin/public detail cards.

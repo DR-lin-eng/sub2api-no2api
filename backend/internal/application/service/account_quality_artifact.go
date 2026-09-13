@@ -6,7 +6,7 @@ import (
 )
 
 // QualityArtifact is the immutable result of rendering an account's generated
-// SVG/HTML and classifying its first frame.
+// SVG/HTML. The quality service assigns the verdict from source-code matching.
 type QualityArtifact struct {
 	Label        string
 	Confidence   float64

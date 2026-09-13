@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -22,7 +23,7 @@ const qualityArtifactMaxBytes = 4 << 20
 
 // HTTPAccountQualityArtifactProcessor keeps generated HTML in a private,
 // network-isolated renderer. The renderer returns only raster artifacts and a
-// classifier decision; raw HTML never reaches the public API.
+// legacy classifier decision, which is ignored; grading uses source code.
 type httpAccountQualityArtifactProcessor struct {
 	endpoint string
 	token    string
@@ -68,24 +69,21 @@ func (p *httpAccountQualityArtifactProcessor) Process(ctx context.Context, html 
 		return nil, fmt.Errorf("quality renderer returned HTTP %d", resp.StatusCode)
 	}
 	var payload struct {
-		Label        string  `json:"label"`
-		Confidence   float64 `json:"confidence"`
-		ModelVersion string  `json:"model_version"`
-		PNG          string  `json:"png_base64"`
-		WebP         string  `json:"webp_base64"`
+		PNG  string `json:"png_base64"`
+		WebP string `json:"webp_base64"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 12<<20)).Decode(&payload); err != nil {
 		return nil, err
 	}
 	png, err := base64.StdEncoding.DecodeString(payload.PNG)
-	if err != nil || len(png) == 0 {
+	if err != nil || len(png) == 0 || len(png) > qualityArtifactMaxBytes {
 		return nil, errors.New("quality renderer returned invalid PNG")
 	}
 	webp, err := base64.StdEncoding.DecodeString(payload.WebP)
-	if err != nil || len(webp) == 0 {
+	if err != nil || len(webp) == 0 || len(webp) > qualityArtifactMaxBytes {
 		return nil, errors.New("quality renderer returned invalid WebP")
 	}
-	return &service.QualityArtifact{Label: payload.Label, Confidence: payload.Confidence, ModelVersion: payload.ModelVersion, PNG: png, WebP: webp}, nil
+	return &service.QualityArtifact{PNG: png, WebP: webp}, nil
 }
 
 type accountQualityArtifactRepository struct{ db *sql.DB }
@@ -180,7 +178,8 @@ func (r *accountQualityArtifactRepository) GetPublicImage(ctx context.Context, i
 }
 
 // The default local module shares no network listener or settings with the old
-// optional renderer. Existing explicitly configured endpoints keep their behavior.
+// optional renderer. Existing endpoints can still supply previews; the service
+// grades the source code independently of their legacy classifier verdict.
 type embeddedAccountQualityProcessor struct{ renderer *qualityrender.Processor }
 
 func (p *embeddedAccountQualityProcessor) Process(ctx context.Context, html string) (*service.QualityArtifact, error) {
@@ -188,5 +187,5 @@ func (p *embeddedAccountQualityProcessor) Process(ctx context.Context, html stri
 	if err != nil {
 		return nil, err
 	}
-	return &service.QualityArtifact{Label: artifact.Label, Confidence: artifact.Confidence, ModelVersion: artifact.ModelVersion, PNG: artifact.PNG, WebP: artifact.WebP}, nil
+	return &service.QualityArtifact{PNG: artifact.PNG, WebP: artifact.WebP}, nil
 }

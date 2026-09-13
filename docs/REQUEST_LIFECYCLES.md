@@ -36,7 +36,7 @@ sequenceDiagram
 ### 账号级质量监控与降智分组切换
 
 管理员在独立的 `/admin/account-quality` 保存质量策略并启用质量巡检，可指定 `source_group_id` 作为检测源；后台复用账号测试的真实上游传输路径，按
-`interval_minutes` 对账号执行两个可独立开关的阶段：`stage1_enabled` 开启糖果形状/口味保证题（默认 `stage1_answer=21`），`stage2_enabled` 开启 SVG 鹈鹕骑自行车画图题并交给渲染分类器。管理员可编辑 `stage1_prompt`、`stage1_answer` 和 `stage2_prompt`。只运行启用的阶段；全开时先文字题再画图。答案必须匹配配置答案且画图分类为 `normal` 才算通过。答错、画图为 `unnormal` 或第一阶段 reasoning token 低于阈值显示为 `degraded`；`failure_threshold` 决定连续失败几轮后自动切组，恢复遵循 `recovery_threshold`。请求或分类错误不递增失败计数。选择检测源分组后只探测该分组账号；已经切入降智分组的账号仍会继续探测以支持恢复。未配置检测源时扫描全部支持的平台账号。账号健康巡检在 `/admin/account-inspection` 使用独立设置、状态和调度器，两个入口互不触发。
+`interval_minutes` 对账号执行两个可独立开关的阶段：`stage1_enabled` 开启糖果形状/口味保证题（默认 `stage1_answer=21`），`stage2_enabled` 开启 SVG 鹈鹕骑自行车画图题并进行代码匹配和预览渲染。管理员可编辑 `stage1_prompt`、`stage1_answer` 和 `stage2_prompt`。只运行启用的阶段；全开时先文字题再画图。答案必须匹配配置答案且代码匹配规则通过才算通过。答错、代码匹配未通过或第一阶段 reasoning token 低于阈值显示为 `degraded`；`failure_threshold` 决定连续失败几轮后自动切组，恢复遵循 `recovery_threshold`。请求或分类错误不递增失败计数。选择检测源分组后只探测该分组账号；已经切入降智分组的账号仍会继续探测以支持恢复。未配置检测源时扫描全部支持的平台账号。账号健康巡检在 `/admin/account-inspection` 使用独立设置、状态和调度器，两个入口互不触发。
 
 配置 `degraded_group_id` 后，首次进入降智状态会先把原 `account_groups` 列表写入账号
 `extra.account_quality_original_group_ids`，再通过现有 `BindGroups` 事务绑定目标分组并写 scheduler
@@ -46,9 +46,9 @@ outbox。目标分组必须存在、启用且与账号平台一致；切换失�
 
 质量监控最多并发 4 个探测。第一阶段使用 `timeout_seconds`（默认 120 秒，可由管理员设置为 30–300 秒）；第二阶段的该值只限制“尚未收到任何流式内容”的等待时间。OpenAI 画图探测使用 Responses 流式请求，收到首个内容/图片事件后不再触发这项短超时，继续等待上游完成；整个质量运行仍受外层运行预算约束。传输、鉴权或无输出超时错误显示为本次 `error`，但不递增质量失败计数，也不触发降智分组切换。第一阶段从上游实际 usage 提取 reasoning token：OpenAI Responses 的 `response.usage.output_tokens_details.reasoning_tokens`、Chat Completions 的 `usage.completion_tokens_details.reasoning_tokens`，Gemini 的 `usageMetadata.thoughtsTokenCount`。缺失用量显示未知；启用阈值时该次结果为待确认，不按 0 判降智。`min_reasoning_tokens` 默认 0（仅展示），管理员可设置 0–1000000；严格小于阈值判为降智，等于阈值通过。摘要提供 0–49、50–99、100–249、250–499、500–999、1000+ 六个区间、均值、已测和未知数量；汇总在分页和截断前完成。状态、连续计数和最近 24 次阶段摘要存入 `accounts.extra`，探测不写入用量日志；公开页仅展示下文列出的最终回答，不展示推理正文。
 
-渲染与分类默认由后端内嵌 `modules/qualityrender` 模块执行：工作脚本与 `best.pt` 随二进制嵌入，主 Docker 镜像在构建时安装 Python、Chromium、Playwright 和 Ultralytics **8.4.14** CPU 运行时。调用通过本地子进程标准输入/输出完成，不监听端口，也不要求修改 Compose、环境变量或持久设置。已有非空 `ACCOUNT_QUALITY_RENDERER_URL` 继续使用原 HTTP 路径。
+画图阶段的质量判定改为后端 Go 代码匹配：`modules/qualityrender` 按提供的 `model_a_fingerprint.py` 规则，对完整 HTML/SVG 计算 9 项加权特征（总分 100，默认阈值 55），记录命中特征、缺失特征和规则版本。分数表示代码结构相似度，不是概率；管理员可设置阈值，也可选择命中 Model A 或未命中 Model A 为正常。旧 `min_confidence` 字段继续返回以兼容已有配置，但不再参与代码匹配判定；已有非空 `ACCOUNT_QUALITY_RENDERER_URL` 仍只用于生成预览。
 
-每次渲染使用独立临时目录和最小环境；Chromium 使用离线模式、CSP 与外部请求阻断，固定 896×672 画面采样 16 帧，`best.pt` 对第 0、7、15 帧执行实际分类，仅输出 PNG/WebP、标签、置信度与版本。结构合法的 SVG 不等同于分类通过。每实例仅启动一个渲染进程，渲染/分类限时 90 秒，任务取消会终止进程组；输入限制 1 MiB、图片各 4 MiB。模型 SHA-256 为 `96bc1abf360ffba879310a0c5d4b4d9d70027083358999ed9fd3daba84fae2b6`。公开接口不返回可执行 SVG。
+预览渲染仍由后端内嵌 `modules/qualityrender` 执行：工作脚本随二进制嵌入，主 Docker 镜像在构建时安装 Python、Chromium、Playwright 和 Pillow。调用通过本地子进程标准输入/输出完成，不监听端口，也不要求修改 Compose、环境变量或持久设置。Chromium 使用离线模式、CSP 与外部请求阻断，固定 896×672 画面采样 16 帧，仅输出 PNG/WebP；代码匹配先于渲染执行，预览失败不会丢失匹配分数和对话详情。每实例仅启动一个渲染进程，渲染限时 90 秒，任务取消会终止进程组；输入限制 1 MiB、图片各 4 MiB。公开接口不返回可执行 SVG。
 
 手动调用 `/api/v1/admin/account-quality/run` 会立即返回 `running` 状态；后台继续执行并持久化 `progress.total/completed/running/queued` 和各账号 `quality_phase`（排队、文字题、绘图生成、渲染分类、保存、完成或中断），管理页每 5 秒轮询展示总任务进度和账号级阶段进度。调度触发仍使用同一质量运行器并等待完整结果。开启 `quality_public_enabled` 后，匿名页 `/monitor/quality/public` 读取
 `GET /api/v1/account-quality-share`，按 manxue.ai 风格展示 24 小时摘要、可点击状态时间线、检测对话/响应 ID、两阶段最终回答文本、reasoning token 和图片预览；回答只保留最多 16 KiB 并在前端按纯文本渲染，不返回账号 ID、凭据或原始请求。图片由

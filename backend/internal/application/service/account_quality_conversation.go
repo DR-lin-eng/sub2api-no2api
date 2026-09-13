@@ -12,12 +12,14 @@ import (
 // Only final answers and provider identifiers are retained. Never copy request
 // bodies, credentials, errors, or reasoning text into this public projection.
 type AccountQualityStageDetail struct {
-	Status          string `json:"status"`
-	ConversationID  string `json:"conversation_id,omitempty"`
-	ResponseID      string `json:"response_id,omitempty"`
-	Answer          string `json:"answer"`
-	AnswerTruncated bool   `json:"answer_truncated,omitempty"`
-	ReasoningTokens *int64 `json:"reasoning_tokens,omitempty"`
+	CodeMatch       *AccountQualityCodeMatch `json:"code_match,omitempty"`
+	PreviewStatus   string                   `json:"preview_status,omitempty"`
+	Status          string                   `json:"status"`
+	ConversationID  string                   `json:"conversation_id,omitempty"`
+	ResponseID      string                   `json:"response_id,omitempty"`
+	Answer          string                   `json:"answer"`
+	AnswerTruncated bool                     `json:"answer_truncated,omitempty"`
+	ReasoningTokens *int64                   `json:"reasoning_tokens,omitempty"`
 }
 
 type AccountQualityProbeDetails struct {

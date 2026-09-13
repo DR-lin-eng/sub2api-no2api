@@ -1,8 +1,17 @@
-The drawing stage now uses a local embedded qualityrender module when no existing
-renderer URL is configured. The worker renders HTML/SVG in offline Chromium and
-runs the supplied best.pt model (Ultralytics 8.4.14) on sampled frames, returning
-PNG/WebP and the real normal/unnormal verdict. Existing renderer settings are not
-rewritten. Manual quality runs return immediately and persist total, completed,
-running, queued, current account, current stage, and elapsed per-account phase.
-The missing renderer configuration path is removed from normal operation: the main website image embeds the worker and best.pt classifier. Existing non-empty renderer URLs are still honored unchanged.
-Final remote state preserves the original postgres:18-alpine base and leaves existing Compose/environment settings untouched.
+Algorithm replacement diff
+==========================
+Old: 代码匹配算法/Ultralytics frame classifier returned normal/unnormal and confidence.
+New: Go MatchHTML(source, threshold) evaluates the supplied reference signals:
+  js_trig_leg_animation 20, defs_use_reuse 15, reduced_motion_js 12,
+  play_pause_button 12, title_desc_aria_labelledby 10,
+  visibilitychange_listener 8, multiword_kebab_naming 8,
+  no_root_css_vars 7, pure_svg_scene 8.
+The score is round(100*raw_points/100, 1), with matched/missing signal names and
+version code-fingerprint-v1. Default threshold is 55. Model A is normal by
+default; an administrator may select the inverse normal class.
+
+The HTML/SVG source is graded before preview rendering. The existing embedded
+worker still renders 16 offline Chromium frames and returns PNG/WebP. Preview
+failure is surfaced as preview_status=error while code-match evidence and the
+bounded public answer remain available. No new renderer URL or Compose setting
+is introduced; the old non-empty renderer URL remains a preview provider.

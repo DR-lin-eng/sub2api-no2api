@@ -27,8 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && ln -s /usr/sbin/gosu /usr/local/bin/su-exec \
     && rm -rf /var/lib/apt/lists/*
 COPY backend/resources/quality-renderer/requirements.txt /opt/quality-renderer/requirements.txt
-RUN pip install --no-cache-dir torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cpu \
-    && pip install --no-cache-dir -r /opt/quality-renderer/requirements.txt \
+RUN pip install --no-cache-dir -r /opt/quality-renderer/requirements.txt \
     && playwright install --with-deps chromium \
     && chmod -R a+rX /ms-playwright && rm -rf /var/lib/apt/lists/*
 
