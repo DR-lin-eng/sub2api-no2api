@@ -98,6 +98,17 @@ func TestQualityProbeEligibleUsesSourceGroupAndKeepsReroutedAccount(t *testing.T
 	require.False(t, qualityProbeEligible(account, &source))
 }
 
+func TestQualityProbeOnlyIncludesOAuthAccounts(t *testing.T) {
+	for _, accountType := range []string{AccountTypeAPIKey, AccountTypeServiceAccount} {
+		account := &Account{Platform: PlatformOpenAI, Type: accountType, Status: StatusActive, GroupIDs: []int64{10}}
+		require.False(t, qualityProbeEligible(account, nil), "account type %s must not be quality-probed", accountType)
+	}
+	for _, platform := range []string{PlatformOpenAI, PlatformGemini} {
+		account := &Account{Platform: platform, Type: AccountTypeOAuth, Status: StatusActive, GroupIDs: []int64{10}}
+		require.True(t, qualityProbeEligible(account, nil), "OAuth %s account should be eligible", platform)
+	}
+}
+
 type qualityStageProbeStub struct {
 	responses []string
 	results   []*ScheduledTestResult

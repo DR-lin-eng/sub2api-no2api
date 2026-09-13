@@ -15,3 +15,9 @@ renders bounded preview_html in an iframe with sandbox="allow-scripts" and a
 strict CSP. Historical PNG/WebP records remain readable. The backend image no
 longer installs or invokes Chromium, Python or Playwright; no new renderer URL
 or Compose setting is introduced.
+
+OAuth scope follow-up
+=====================
+qualityProbeSupported now requires AccountTypeOAuth exactly. Active OpenAI/Gemini
+OAuth accounts remain eligible (subject to source/degraded group routing); API-key
+and service-account accounts return false before any probe request is scheduled.

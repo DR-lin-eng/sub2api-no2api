@@ -11,3 +11,7 @@ Source files changed:
 
 Legacy min_confidence and renderer environment fields remain API-compatible, but no backend renderer is invoked; old PNG/WebP records remain readable.
 MODIFIED_FILE intentionally remains changed; rollback is tested on /tmp/quality-code-match-20260913/ROLLBACK_COPY.go.
+
+Follow-up changed field:
+- backend/internal/application/service/account_quality_monitor.go: qualityProbeSupported now accepts only AccountTypeOAuth; API key and service-account credentials are excluded even when active and in the configured source group.
+- backend/internal/application/service/account_quality_monitor_test.go: explicit OAuth-only eligibility test.
