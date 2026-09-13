@@ -943,7 +943,77 @@ func sanitizeAnthropicBodyForBetaTokens(body []byte, anthropicBetaHeader string)
 		body = updated
 		changed = true
 	}
+	if sanitized, changedMessage := stripAnthropicMessageOutputConfigUnlessBeta(body, anthropicBetaHeader); changedMessage {
+		body = sanitized
+		changed = true
+	}
 	return body, changed
+}
+
+// stripAnthropicMessageOutputConfigUnlessBeta removes the message-level
+// output_config extension unless the matching beta is present. It deliberately
+// leaves top-level output_config untouched and preserves every message except
+// the empty system control message emitted by some clients.
+func stripAnthropicMessageOutputConfigUnlessBeta(body []byte, anthropicBetaHeader string) ([]byte, bool) {
+	if anthropicBetaTokensContains(anthropicBetaHeader, claude.BetaMidConversationOutputConfig) ||
+		!bytes.Contains(body, []byte("output_config")) {
+		return body, false
+	}
+	messages := gjson.GetBytes(body, "messages")
+	if !messages.Exists() || !messages.IsArray() {
+		return body, false
+	}
+	var rawMessages []json.RawMessage
+	if err := json.Unmarshal([]byte(messages.Raw), &rawMessages); err != nil {
+		return body, false
+	}
+	changed := false
+	rebuilt := make([]json.RawMessage, 0, len(rawMessages))
+	for _, raw := range rawMessages {
+		if !gjson.GetBytes(raw, "output_config").Exists() {
+			rebuilt = append(rebuilt, raw)
+			continue
+		}
+		changed = true
+		if gjson.GetBytes(raw, "role").String() == "system" && !anthropicMessageContentHasBody(gjson.GetBytes(raw, "content")) {
+			continue
+		}
+		stripped, err := sjson.DeleteBytes(raw, "output_config")
+		if err != nil {
+			return body, false
+		}
+		rebuilt = append(rebuilt, json.RawMessage(stripped))
+	}
+	if !changed {
+		return body, false
+	}
+	rebuiltBytes, err := json.Marshal(rebuilt)
+	if err != nil {
+		return body, false
+	}
+	out, err := sjson.SetRawBytes(body, "messages", rebuiltBytes)
+	if err != nil {
+		return body, false
+	}
+	return out, true
+}
+
+func anthropicMessageContentHasBody(content gjson.Result) bool {
+	if !content.Exists() || content.Type == gjson.Null {
+		return false
+	}
+	if content.Type == gjson.String {
+		return content.String() != ""
+	}
+	if !content.IsArray() {
+		return true
+	}
+	var blocks []any
+	if err := json.Unmarshal([]byte(content.Raw), &blocks); err != nil {
+		return true
+	}
+	cleaned, _ := stripEmptyTextBlocksFromSlice(blocks)
+	return len(cleaned) > 0
 }
 
 // anthropicBetaTokensContains 检测逗号分隔的 anthropic-beta header 是否含指定 token。

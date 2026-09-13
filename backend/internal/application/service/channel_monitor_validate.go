@@ -63,8 +63,8 @@ func validateJitter(jitterSec, intervalSec int) error {
 
 // validateEndpoint 校验 endpoint：
 //   - scheme 强制 https（拒绝 http，避免明文凭证 + 部分 SSRF 利用面）
-//   - 必须为 origin（无 path/query/fragment），防止用户填 https://api.openai.com/v1
-//     导致 joinURL 拼出 /v1/v1/chat/completions
+//   - 允许上游路径前缀（如 /anthropic），但禁止 query/fragment；joinURL 会
+//     按完整路径段合并，避免重复追加 /v1。
 //   - hostname 不能是 localhost/metadata 等已知元数据 hostname
 //   - 解析所有 IP，任一落在 loopback/RFC1918/link-local/ULA 段即拒绝（防 SSRF）
 //
@@ -83,9 +83,6 @@ func validateEndpoint(ep string) error {
 	}
 	if u.Host == "" {
 		return ErrChannelMonitorInvalidEndpoint
-	}
-	if u.Path != "" && u.Path != "/" {
-		return ErrChannelMonitorEndpointPath
 	}
 	if u.RawQuery != "" || u.Fragment != "" {
 		return ErrChannelMonitorEndpointPath

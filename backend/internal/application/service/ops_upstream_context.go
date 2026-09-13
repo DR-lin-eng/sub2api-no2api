@@ -32,10 +32,9 @@ const (
 	// ops_error_logger 中间件检查此 key，为 true 时跳过错误记录。
 	OpsSkipPassthroughKey = "ops_skip_passthrough"
 
-	// OpsStreamErrorKey 保存 handleStreamingAwareError 在「响应已固化为 HTTP 200 的 SSE 流」
-	// 上就地(in-band)补发错误帧时记录的 OpsStreamError。因为 wire 状态码停留在 200，
-	// ops_error_logger 的 status>=400 采集路径永远不会触发，这类流内失败
-	//（例如等待并发槽位超时后回退的限流、Wait 后二次计费校验失败）本会在错误看板里隐形。
+	// OpsStreamErrorKey 保存响应状态已固化为 2xx 后的带内错误。它既覆盖 handler
+	// 追加的 SSE 失败帧，也覆盖 Gemini 等上游在 2xx 正文/事件里携带的请求级错误信号；
+	// ops_error_logger 在 status<400 分支消费它并补记错误日志。
 	OpsStreamErrorKey = "ops_stream_error"
 
 	// Client-side configuration denials should remain visible in ops_error_logs,
@@ -107,12 +106,9 @@ func OpsClientBusinessLimitedReason(c *gin.Context) string {
 	return strings.TrimSpace(reason)
 }
 
-// OpsStreamError 描述网关在「响应状态已固化为 200」之后（keepalive ping 或部分数据
-// 已 flush）就地以 SSE error 帧形式返回的错误。由于 HTTP 状态码停留在 200，
-// 而 ops_error_logger 以 status>=400 为采集触发条件，这类流内失败
-// （并发限流回退、Wait 后二次计费校验失败、流开始后才无可用账号等）本会在错误看板里
-// 完全隐形。handler.handleStreamingAwareError 负责标记，ops_error_logger 中间件在
-// status<400 分支消费它并补记一条错误日志。
+// OpsStreamError 描述响应状态已固化为 2xx 后的带内错误。由于 wire 状态仍是成功，
+// ops_error_logger 需要在 status<400 分支消费该标记并补记错误日志。RequestScoped
+// 用于不应继承上游账号归因的请求级结果；NonStream 用于标记非 SSE 正文信号。
 type OpsStreamError struct {
 	// ErrType 是写入 SSE 帧的对客错误类型（如 rate_limit_error / upstream_error / api_error）。
 	ErrType string
@@ -127,6 +123,14 @@ type OpsStreamError struct {
 	// CountTowardsSLA 表示虽然 wire 状态已固化为 200，请求在应用语义上仍然失败，
 	// Ops 应使用 IntendedStatus 计入错误率/SLA。
 	CountTowardsSLA bool
+	// RequestScoped marks an in-band result that belongs to the request rather
+	// than to a provider attempt (for example Gemini content filtering). Such a
+	// result must not inherit stale upstream attribution or skip-monitoring rules.
+	RequestScoped bool
+	// NonStream marks a signal observed in a non-streaming 2xx response body.
+	// It lets Ops retain the actual request shape instead of labeling every
+	// in-band signal as an SSE stream.
+	NonStream bool
 }
 
 // MarkOpsStreamError 记录一次就地 SSE 错误，供 ops 日志采集。
@@ -151,6 +155,12 @@ func MarkOpsStreamFailure(c *gin.Context, errType, code, message string, intende
 		IntendedStatus:  intendedStatus,
 		CountTowardsSLA: true,
 	})
+}
+
+// MarkOpsStreamErrorValue records an in-band error with additional scope
+// metadata. The first mark still wins, matching MarkOpsStreamError semantics.
+func MarkOpsStreamErrorValue(c *gin.Context, streamErr OpsStreamError) {
+	markOpsStreamError(c, streamErr)
 }
 
 func markOpsStreamError(c *gin.Context, streamErr OpsStreamError) {

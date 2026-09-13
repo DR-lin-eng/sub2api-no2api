@@ -149,6 +149,20 @@ func TestSanitizeAnthropicBodyForBetaTokens_CombinesIndependentCapabilities(t *t
 	require.False(t, gjson.GetBytes(out, "fallbacks").Exists())
 }
 
+func TestSanitizeAnthropicBodyForBetaTokens_MessageOutputConfig(t *testing.T) {
+	body := []byte(`{"output_config":{"effort":"high"},"messages":[{"role":"system","content":[],"output_config":{"effort":"high"}},{"role":"user","content":"hello","output_config":{"effort":"low"}},{"role":"assistant","content":[{"type":"text","text":"ok"}],"output_config":{"effort":"medium"}}]}`)
+	out, changed := sanitizeAnthropicBodyForBetaTokens(body, "oauth-2025-04-20")
+	require.True(t, changed)
+	require.True(t, gjson.GetBytes(out, "output_config").Exists(), "top-level output_config is not message-level beta gated")
+	require.Len(t, gjson.GetBytes(out, "messages").Array(), 2, "empty system control message should be removed")
+	require.False(t, gjson.GetBytes(out, "messages.0.output_config").Exists())
+	require.False(t, gjson.GetBytes(out, "messages.1.output_config").Exists())
+
+	preserved, changed := sanitizeAnthropicBodyForBetaTokens(body, claude.BetaMidConversationOutputConfig)
+	require.False(t, changed)
+	require.JSONEq(t, string(body), string(preserved))
+}
+
 // ★ 关键回归断言：能力维度 sanitize 解决了 "真 CC + haiku" 路径的过度删除问题。
 // 真实 Claude Code CLI 2.1.87+ 客户端 header 含 context-management beta；
 // 即使 model 是 haiku，sanitize 也不应剥离功能字段。
@@ -361,6 +375,13 @@ func TestNormalizeClaudeOAuthRequestBody_PreservesClientContextManagement(t *tes
 	require.Equal(t, "custom_strategy",
 		gjson.GetBytes(out, "context_management.edits.0.type").String(),
 		"客户端透传的 context_management 内容必须原样保留")
+}
+
+func TestNormalizeClaudeOAuthRequestBody_PreservesClientSystemCacheControl(t *testing.T) {
+	body := []byte(`{"model":"claude-haiku-4-5","system":[{"type":"text","text":"client anchor","cache_control":{"type":"ephemeral","ttl":"1h"}}],"messages":[]}`)
+	out, _ := normalizeClaudeOAuthRequestBody(body, "claude-haiku-4-5", claudeOAuthNormalizeOptions{})
+	require.Equal(t, "ephemeral", gjson.GetBytes(out, "system.0.cache_control.type").String())
+	require.Equal(t, "1h", gjson.GetBytes(out, "system.0.cache_control.ttl").String())
 }
 
 func TestNormalizeClaudeOAuthRequestBody_NoThinking_NoInject(t *testing.T) {

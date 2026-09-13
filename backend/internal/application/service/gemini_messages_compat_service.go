@@ -1522,7 +1522,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 	var firstTokenMs *int
 
 	if stream {
-		streamRes, err := s.handleNativeStreamingResponse(c, resp, startTime, isOAuth)
+		streamRes, err := s.handleNativeStreamingResponseObserved(c, resp, startTime, isOAuth, account, requestID)
 		if err != nil {
 			return nil, err
 		}
@@ -1530,17 +1530,23 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 		firstTokenMs = streamRes.firstTokenMs
 	} else {
 		if useUpstreamStream {
-			collected, usageObj, err := collectGeminiSSE(resp.Body, isOAuth)
+			var best geminiResponseSignal
+			collected, usageObj, stats, err := collectGeminiSSEObserved(resp.Body, isOAuth, func(rawBytes []byte) {
+				if sig, ok := detectGeminiResponseSignal(rawBytes); ok && sig.Kind > best.Kind {
+					best = sig
+				}
+			})
 			if err != nil {
 				return nil, s.writeGoogleError(c, http.StatusBadGateway, "Failed to read upstream stream")
 			}
+			s.finalizeGeminiSSESignal(c, account, false, requestID, best, stats.dataEvents > 0, stats.fallback)
 			b, _ := json.Marshal(collected)
 			upstreamResponseModelObserverFromContext(c).ObserveGemini(b)
 			observeGeminiImageOutputs(c, b)
 			c.Data(http.StatusOK, "application/json", b)
 			usage = usageObj
 		} else {
-			usageResp, err := s.handleNativeNonStreamingResponse(c, resp, isOAuth)
+			usageResp, err := s.handleNativeNonStreamingResponseObserved(c, resp, isOAuth, account, requestID)
 			if err != nil {
 				return nil, err
 			}
@@ -2254,25 +2260,47 @@ func unwrapIfNeeded(isOAuth bool, raw []byte) []byte {
 }
 
 func collectGeminiSSE(body io.Reader, isOAuth bool) (map[string]any, *ClaudeUsage, error) {
+	collected, usage, _, err := collectGeminiSSEObserved(body, isOAuth, nil)
+	return collected, usage, err
+}
+
+type geminiSSECollectStats struct {
+	dataEvents int
+	fallback   *geminiSSEFallbackBody
+}
+
+// collectGeminiSSEObserved aggregates a stream while optionally inspecting
+// each decoded event for in-band Gemini signals. The legacy wrapper above
+// keeps other compatibility paths byte/behavior compatible.
+func collectGeminiSSEObserved(body io.Reader, isOAuth bool, observe func([]byte)) (map[string]any, *ClaudeUsage, geminiSSECollectStats, error) {
 	reader := bufio.NewReader(body)
 
 	var last map[string]any
 	var lastWithParts map[string]any
 	var collectedTextParts []string // Collect all text parts for aggregation
 	usage := &ClaudeUsage{}
+	stats := geminiSSECollectStats{fallback: &geminiSSEFallbackBody{}}
 
 	for {
 		line, err := reader.ReadString('\n')
 		if len(line) > 0 {
 			trimmed := strings.TrimRight(line, "\r\n")
-			if strings.HasPrefix(trimmed, "data:") {
+			if !strings.HasPrefix(trimmed, "data:") {
+				if stats.dataEvents == 0 {
+					stats.fallback.AddLine(trimmed)
+				}
+			} else {
 				payload := strings.TrimSpace(strings.TrimPrefix(trimmed, "data:"))
 				switch payload {
 				case "", "[DONE]":
 					if payload == "[DONE]" {
-						return mergeCollectedTextParts(pickGeminiCollectResult(last, lastWithParts), collectedTextParts), usage, nil
+						return mergeCollectedTextParts(pickGeminiCollectResult(last, lastWithParts), collectedTextParts), usage, stats, nil
 					}
 				default:
+					// A non-empty data frame is evidence that the upstream emitted a
+					// response even if its JSON wrapper is malformed or cannot be
+					// unwrapped. Do not misclassify that case as EMPTY_RESPONSE.
+					stats.dataEvents++
 					var parsed map[string]any
 					var rawBytes []byte
 					if isOAuth {
@@ -2284,6 +2312,11 @@ func collectGeminiSSE(body io.Reader, isOAuth bool) (map[string]any, *ClaudeUsag
 					} else {
 						rawBytes = []byte(payload)
 						_ = json.Unmarshal(rawBytes, &parsed)
+					}
+					if len(rawBytes) > 0 {
+						if observe != nil {
+							observe(rawBytes)
+						}
 					}
 					if parsed != nil {
 						last = parsed
@@ -2308,11 +2341,11 @@ func collectGeminiSSE(body io.Reader, isOAuth bool) (map[string]any, *ClaudeUsag
 			break
 		}
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, stats, err
 		}
 	}
 
-	return mergeCollectedTextParts(pickGeminiCollectResult(last, lastWithParts), collectedTextParts), usage, nil
+	return mergeCollectedTextParts(pickGeminiCollectResult(last, lastWithParts), collectedTextParts), usage, stats, nil
 }
 
 func pickGeminiCollectResult(last map[string]any, lastWithParts map[string]any) map[string]any {
@@ -2473,7 +2506,14 @@ type UpstreamHTTPResult struct {
 	Body       []byte
 }
 
+// handleNativeNonStreamingResponse preserves the legacy internal helper
+// signature used by compatibility tests and callers that do not need signal
+// attribution metadata.
 func (s *GeminiMessagesCompatService) handleNativeNonStreamingResponse(c *gin.Context, resp *http.Response, isOAuth bool) (*ClaudeUsage, error) {
+	return s.handleNativeNonStreamingResponseObserved(c, resp, isOAuth, nil, "")
+}
+
+func (s *GeminiMessagesCompatService) handleNativeNonStreamingResponseObserved(c *gin.Context, resp *http.Response, isOAuth bool, account *Account, upstreamRequestID string) (*ClaudeUsage, error) {
 	if s.cfg != nil && s.cfg.Gateway.GeminiDebugResponseHeaders {
 		logger.LegacyPrintf("service.gemini_messages_compat", "[GeminiAPI] ========== Response Headers ==========")
 		for key, values := range resp.Header {
@@ -2501,6 +2541,11 @@ func (s *GeminiMessagesCompatService) handleNativeNonStreamingResponse(c *gin.Co
 	}
 	observer.ObserveGemini(respBody)
 	observeGeminiImageOutputs(c, respBody)
+	if sig, ok := detectGeminiResponseSignalInBody(respBody); ok {
+		s.markGeminiResponseSignal(c, account, sig, false, upstreamRequestID)
+	} else if isGeminiEmptyResponseBody(respBody) {
+		s.markGeminiEmptyResponse(c, account, false, upstreamRequestID)
+	}
 
 	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 
@@ -2516,7 +2561,12 @@ func (s *GeminiMessagesCompatService) handleNativeNonStreamingResponse(c *gin.Co
 	return &ClaudeUsage{}, nil
 }
 
+// handleNativeStreamingResponse preserves the legacy helper signature.
 func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Context, resp *http.Response, startTime time.Time, isOAuth bool) (*geminiNativeStreamResult, error) {
+	return s.handleNativeStreamingResponseObserved(c, resp, startTime, isOAuth, nil, "")
+}
+
+func (s *GeminiMessagesCompatService) handleNativeStreamingResponseObserved(c *gin.Context, resp *http.Response, startTime time.Time, isOAuth bool, account *Account, upstreamRequestID string) (*geminiNativeStreamResult, error) {
 	if s.cfg != nil && s.cfg.Gateway.GeminiDebugResponseHeaders {
 		logger.LegacyPrintf("service.gemini_messages_compat", "[GeminiAPI] ========== Streaming Response Headers ==========")
 		for key, values := range resp.Header {
@@ -2552,6 +2602,9 @@ func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Conte
 		observer = beginUpstreamResponseModelObservation(c)
 	}
 	var firstTokenMs *int
+	var best geminiResponseSignal
+	sawDataEvent := false
+	fallback := &geminiSSEFallbackBody{}
 
 	for {
 		line, err := reader.ReadString('\n')
@@ -2577,6 +2630,10 @@ func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Conte
 					} else {
 						rawBytes = []byte(payload)
 					}
+					sawDataEvent = true
+					if sig, ok := detectGeminiResponseSignal(rawBytes); ok && sig.Kind > best.Kind {
+						best = sig
+					}
 
 					if u := extractGeminiUsage(rawBytes); u != nil {
 						usage = u
@@ -2599,6 +2656,9 @@ func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Conte
 					flusher.Flush()
 				}
 			} else {
+				if !sawDataEvent {
+					fallback.AddLine(trimmed)
+				}
 				_, _ = io.WriteString(c.Writer, line)
 				flusher.Flush()
 			}
@@ -2611,6 +2671,8 @@ func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Conte
 			return nil, err
 		}
 	}
+
+	s.finalizeGeminiSSESignal(c, account, true, upstreamRequestID, best, sawDataEvent, fallback)
 
 	return &geminiNativeStreamResult{usage: usage, firstTokenMs: firstTokenMs}, nil
 }

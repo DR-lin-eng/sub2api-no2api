@@ -1,17 +1,4 @@
-Changed branch: codex/account-quality-source-group
-Changed field: account_quality stage2 classifier -> Go HTML/SVG code fingerprint (code-fingerprint-v1), with configurable code_match_threshold and code_match_normal_class; frontend sandbox iframe renders preview HTML; backend is matcher-only.
-
-Source files changed:
-- backend/internal/modules/qualityrender/fingerprint.go (9 weighted signals, structural title/desc matching)
-- backend/internal/modules/qualityrender/fingerprint.go and backend/internal/application/service/account_quality_conversation.go (bounded preview_html for frontend)
-- backend/internal/application/service/account_quality_code_match.go (verdict integration)
-- backend/internal/application/service/account_quality_monitoring.go (settings)
-- frontend/src/features/admin-account-quality/ (threshold/class controls)
-- frontend/src/features/account-quality/ (public score/signals/preview status)
-
-Legacy min_confidence and renderer environment fields remain API-compatible, but no backend renderer is invoked; old PNG/WebP records remain readable.
-MODIFIED_FILE intentionally remains changed; rollback is tested on /tmp/quality-code-match-20260913/ROLLBACK_COPY.go.
-
-Follow-up changed field:
-- backend/internal/application/service/account_quality_monitor.go: qualityProbeSupported now accepts only AccountTypeOAuth; API key and service-account credentials are excluded even when active and in the configured source group.
-- backend/internal/application/service/account_quality_monitor_test.go: explicit OAuth-only eligibility test.
+Changed branch: codex/upstream-sync-20260913
+Changed fields: upstream main PRs through bdb42e22; OpenAI WS pool reader/queue lifecycle; Gemini in-band signal classification; Claude cache-control and message output_config beta gating; model discovery routes; transient auth/session handling; monitor endpoint path; EasyPay upstreamType; Codex heartbeat envelope; Firefox privacy transport; Antigravity Gemini 3.7/3.8 catalog/pricing.
+Representative modified copy: diagnostics/upstream-sync-20260913/MODIFIED_FILE (header_util.go)
+Original source hash preserved in diagnostics/upstream-sync-20260913/BASELINE_FILE; modified copy remains changed.

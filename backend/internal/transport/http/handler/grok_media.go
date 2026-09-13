@@ -198,28 +198,54 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 	}
 	routingStart := time.Now()
 	requiredCapability := grokMediaRequiredCapability(endpoint)
+	var accountReleaseFunc func()
+	releaseAccount := func() {
+		if accountReleaseFunc != nil {
+			accountReleaseFunc()
+			accountReleaseFunc = nil
+		}
+	}
+	defer releaseAccount()
 
 	for {
+		releaseAccount()
 		if failoverClientGone(c) {
 			return
 		}
-		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForCapability(
-			requestCtx,
-			apiKey.GroupID,
-			"",
-			sessionHash,
-			routingModel,
-			failedAccountIDs,
-			service.OpenAIUpstreamTransportHTTPSSE,
-			requiredCapability,
-			false,
-			false,
-			false,
-			service.PlatformGrok,
-		)
+		var selection *service.AccountSelectionResult
+		var scheduleDecision service.OpenAIAccountScheduleDecision
+		if boundLookupAccountID > 0 {
+			selection, scheduleDecision, err = h.gatewayService.SelectGrokMediaVideoRequestAccount(
+				requestCtx, apiKey.GroupID, sessionHash, boundLookupAccountID, routingModel,
+			)
+		} else {
+			selection, scheduleDecision, err = h.gatewayService.SelectAccountWithSchedulerForCapability(
+				requestCtx,
+				apiKey.GroupID,
+				"",
+				sessionHash,
+				routingModel,
+				failedAccountIDs,
+				service.OpenAIUpstreamTransportHTTPSSE,
+				requiredCapability,
+				false,
+				false,
+				false,
+				service.PlatformGrok,
+			)
+		}
+		// Own a scheduler-acquired slot before eligibility checks; every exit
+		// path below releases it through the same once-only function.
+		if selection != nil && selection.Acquired && selection.ReleaseFunc != nil {
+			accountReleaseFunc = selection.ReleaseFunc
+		}
 		if err != nil {
 			if failoverClientGone(c) {
 				reqLog.Info("grok_media.account_select_aborted_client_disconnected", zap.Error(err))
+				return
+			}
+			if boundLookupAccountID > 0 && errors.Is(err, service.ErrNoAvailableAccounts) {
+				h.errorResponse(c, http.StatusNotFound, "not_found_error", "Video request not found")
 				return
 			}
 			reqLog.Warn("grok_media.account_select_failed",
@@ -264,6 +290,9 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 			h.errorResponse(c, cls.Status, cls.ErrType, cls.Message)
 			return
 		}
+		if failoverClientGone(c) {
+			return
+		}
 		if boundLookupAccountID > 0 && selection.Account.ID != boundLookupAccountID {
 			reqLog.Warn("grok_media.video_lookup_bound_account_unavailable",
 				zap.Int64("bound_account_id", boundLookupAccountID),
@@ -286,7 +315,7 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		if endpoint.IsGenerationRequest() {
 			eligible, eligibilityReason, eligibilityErr := h.ensureGrokMediaAccountEligibility(requestCtx, account)
 			if !eligible {
-				releaseRejectedGrokMediaSelection(selection)
+				releaseAccount()
 				mediaEligibilityRejected = true
 				addFailedAccountID(&failedAccountIDs, account.ID)
 				reqLog.Warn("grok_media.account_eligibility_rejected",
@@ -303,11 +332,21 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 				continue
 			}
 		}
+		if failoverClientGone(c) {
+			return
+		}
 		sessionHash = ensureOpenAIPoolModeSessionHash(sessionHash, account)
 		setOpsSelectedAccount(c, account.ID, account.Platform)
 		c.Request = c.Request.WithContext(service.WithAccountEgressContext(c.Request.Context(), account, h.cfg))
 
-		accountReleaseFunc, acquireOutcome := h.acquireResponsesAccountSlot(c, apiKey.GroupID, sessionHash, selection, false, &streamStarted, reqLog)
+		admissionSessionHash := sessionHash
+		if boundLookupAccountID > 0 {
+			// Video ownership already has its own TTL; do not replace it with a
+			// generic text-session binding during admission.
+			admissionSessionHash = ""
+		}
+		var acquireOutcome accountSlotAcquireOutcome
+		accountReleaseFunc, acquireOutcome = h.acquireResponsesAccountSlot(c, apiKey.GroupID, admissionSessionHash, selection, false, &streamStarted, reqLog)
 		if acquireOutcome == accountSlotAcquireReschedule {
 			addFailedAccountID(&failedAccountIDs, account.ID)
 			continue
@@ -320,11 +359,7 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		forwardStart := time.Now()
 		writerSizeBeforeForward := c.Writer.Size()
 		result, err := func() (*service.OpenAIForwardResult, error) {
-			defer func() {
-				if accountReleaseFunc != nil {
-					accountReleaseFunc()
-				}
-			}()
+			defer releaseAccount()
 			return h.gatewayService.ForwardGrokMedia(requestCtx, c, account, endpoint, requestID, body, contentType)
 		}()
 

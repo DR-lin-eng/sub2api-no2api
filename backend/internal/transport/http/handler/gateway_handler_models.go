@@ -2,6 +2,8 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -89,18 +91,12 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 
 	// Fallback to default models
 	if platform == service.PlatformOpenAI {
-		c.JSON(http.StatusOK, gin.H{
-			"object": "list",
-			"data":   openai.DefaultModels,
-		})
+		writeModelsListResponse(c, openai.DefaultModels)
 		return
 	}
 
 	if platform == service.PlatformGemini {
-		c.JSON(http.StatusOK, gin.H{
-			"object": "list",
-			"data":   geminicli.DefaultModels,
-		})
+		writeModelsListResponse(c, geminicli.DefaultModels)
 		return
 	}
 	if platform == service.PlatformGrok {
@@ -108,10 +104,7 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"object": "list",
-		"data":   claude.DefaultModels,
-	})
+	writeModelsListResponse(c, claude.DefaultModels)
 }
 
 func (h *GatewayHandler) apiKeyBindingsAvailableModels(ctx context.Context, bindings []service.APIKeyGroupBinding) ([]string, string) {
@@ -202,10 +195,7 @@ func writeModelsList(c *gin.Context, platform string, modelIDs []string) {
 			CreatedAt:   "2024-01-01T00:00:00Z",
 		})
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"object": "list",
-		"data":   models,
-	})
+	writeModelsListResponse(c, models)
 }
 
 func writeCustomModelsList(c *gin.Context, platform string, modelIDs []string) {
@@ -268,10 +258,47 @@ func writeGrokModelsList(c *gin.Context, modelIDs []string) {
 		models = append(models, item)
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"object": "list",
-		"data":   models,
-	})
+	writeModelsListResponse(c, models)
+}
+
+// writeModelsListResponse serves both the collection and optional
+// /models/:model retrieval. Collection responses retain their existing shape;
+// item retrieval returns the complete selected entry with all capability fields.
+func writeModelsListResponse(c *gin.Context, models any) {
+	if c == nil || c.Param("model") == "" {
+		c.JSON(http.StatusOK, gin.H{"object": "list", "data": models})
+		return
+	}
+	body, err := json.Marshal(gin.H{"object": "list", "data": models})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"type": "api_error", "message": "Failed to encode model catalogue"}})
+		return
+	}
+	var envelope struct {
+		Data []json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": gin.H{"type": "upstream_error", "message": "Invalid model catalogue"}})
+		return
+	}
+	wanted := c.Param("model")
+	for _, raw := range envelope.Data {
+		var entry struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal(raw, &entry); err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"error": gin.H{"type": "upstream_error", "message": "Invalid model catalogue entry"}})
+			return
+		}
+		if entry.ID == wanted {
+			c.Data(http.StatusOK, "application/json", raw)
+			return
+		}
+	}
+	c.JSON(http.StatusNotFound, gin.H{"error": gin.H{
+		"type": "invalid_request_error", "code": "model_not_found", "param": "model",
+		"message": fmt.Sprintf("Model %q does not exist or is not available for this group", wanted),
+	}})
 }
 
 func grokModelSupportsConfigurableReasoning(modelID string) bool {
@@ -304,10 +331,7 @@ func writeOpenAIModelsList(c *gin.Context, modelIDs []string) {
 			DisplayName: modelID,
 		})
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"object": "list",
-		"data":   models,
-	})
+	writeModelsListResponse(c, models)
 }
 
 func customModelsListSource(platform string, availableModels, fallbackModels []string) []string {

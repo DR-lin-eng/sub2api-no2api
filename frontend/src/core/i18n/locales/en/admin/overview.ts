@@ -1064,7 +1064,7 @@ export default {
       },
       modelsList: {
         title: 'Available models for {endpoint}',
-        hint: 'Only selected models are shown and accepted for requests in this group. Wildcards are not required; choose each model explicitly.',
+        hint: 'Only selected models are shown for {endpoint} and accepted for requests in this group. Wildcards are not required; choose each model explicitly.',
         loading: 'Loading available models...',
         empty: 'No available models',
         selectedSummary: 'Selected {selected} / {total}',

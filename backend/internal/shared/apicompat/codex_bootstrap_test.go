@@ -95,6 +95,10 @@ func TestNormalizeCodexCallOutputBootstrap_Heartbeat(t *testing.T) {
 		valid  bool
 	}{
 		{`<heartbeat><automation_id>review-pr</automation_id></heartbeat>`, true},
+		{`<heartbeat><automation_id>review-pr</automation_id><current_time_iso>2026-09-13T12:00:00Z</current_time_iso><instructions>check status</instructions></heartbeat>`, true},
+		{`<heartbeat><automation_id>review-pr</automation_id><current_time_iso>bad</current_time_iso><instructions>check status</instructions></heartbeat>`, false},
+		{`<heartbeat><automation_id>review-pr</automation_id><current_time_iso>2026-09-13T12:00:00Z</current_time_iso></heartbeat>`, false},
+		{`<heartbeat><automation_id>review-pr</automation_id><instructions>check status</instructions></heartbeat>`, false},
 		{`<heartbeat><automation_id>review-pr</automation_id><automation_id>x</automation_id></heartbeat>`, false},
 		{`<heartbeat><automation_id>../x</automation_id></heartbeat>`, false},
 		{`<heartbeat attr="x"><automation_id>review-pr</automation_id></heartbeat>`, false},

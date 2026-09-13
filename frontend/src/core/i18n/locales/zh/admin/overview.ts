@@ -1061,7 +1061,7 @@ export default {
       },
       modelsList: {
         title: '{endpoint} 可用模型',
-        hint: '仅选中的模型会在该分组中展示并接受调用请求。可按需选择模型。',
+        hint: '仅选中的模型会在{endpoint}中展示并接受调用请求。可按需选择模型。',
         loading: '正在加载可用模型...',
         empty: '暂无可用模型',
         selectedSummary: '已选 {selected} / {total}',

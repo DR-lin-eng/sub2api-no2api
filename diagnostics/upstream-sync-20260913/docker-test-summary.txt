@@ -1,0 +1,8 @@
+       6 lines
+exit=0
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	185.608s
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/httputil	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	(cached)
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware	0.029s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	41.282s
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes	5.274s

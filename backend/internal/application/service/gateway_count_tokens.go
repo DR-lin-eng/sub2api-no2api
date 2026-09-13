@@ -64,9 +64,8 @@ func (s *GatewayService) ForwardCountTokens(ctx context.Context, c *gin.Context,
 	shouldMimicClaudeCode := account.IsOAuth() && !isClaudeCodeCT
 
 	if shouldMimicClaudeCode {
-		normalizeOpts := claudeOAuthNormalizeOptions{stripSystemCacheControl: true}
 		var normalizedBody []byte
-		normalizedBody, reqModel = normalizeClaudeOAuthRequestBody(body, reqModel, normalizeOpts)
+		normalizedBody, reqModel = normalizeClaudeOAuthRequestBody(body, reqModel, claudeOAuthNormalizeOptions{})
 		if err := replaceBody(normalizedBody); err != nil {
 			return err
 		}
@@ -85,6 +84,10 @@ func (s *GatewayService) ForwardCountTokens(ctx context.Context, c *gin.Context,
 				}
 			}
 		} else if err := replaceBody(stripDistillationCacheFields(body)); err != nil {
+			return err
+		}
+		// Preserve system cache anchors while enforcing the upstream four-breakpoint cap.
+		if err := replaceBody(enforceCacheControlLimit(body)); err != nil {
 			return err
 		}
 	}

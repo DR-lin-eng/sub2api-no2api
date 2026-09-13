@@ -74,6 +74,17 @@ func TestDefaultAntigravityModelMapping_Gemini36FlashModels(t *testing.T) {
 	}
 }
 
+func TestDefaultAntigravityModelMapping_Gemini37And38FlashModels(t *testing.T) {
+	for _, model := range []string{
+		"gemini-3.7-flash", "gemini-3.7-flash-high", "gemini-3.7-flash-low", "gemini-3.7-flash-medium", "gemini-3.7-flash-tiered",
+		"gemini-3.8-flash", "gemini-3.8-flash-high", "gemini-3.8-flash-low", "gemini-3.8-flash-medium", "gemini-3.8-flash-tiered",
+	} {
+		if got := DefaultAntigravityModelMapping[model]; got != model {
+			t.Fatalf("expected %s to map to itself, got %q", model, got)
+		}
+	}
+}
+
 func TestDefaultBedrockModelMapping_ContainsNewClaudeModels(t *testing.T) {
 	t.Parallel()
 

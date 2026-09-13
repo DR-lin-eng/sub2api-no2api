@@ -52,6 +52,22 @@ type openAIWSIdlePingCapable interface {
 	SupportsIdlePingWithoutReader() bool
 }
 
+// openAIWSReaderLoopCapable marks implementations whose control frames are
+// consumed only while ReadMessage is running. A pooled idle connection needs a
+// resident bounded reader so the upstream can receive pong responses during
+// long inter-turn gaps.
+type openAIWSReaderLoopCapable interface {
+	RequiresReaderLoop() bool
+}
+
+type openAIWSUpstreamPingCounter interface {
+	UpstreamPingCount() int64
+}
+
+type openAIWSForceCloser interface {
+	CloseNow() error
+}
+
 // openAIWSClientDialer 抽象 WS 建连器。
 type openAIWSClientDialer interface {
 	Dial(ctx context.Context, wsURL string, headers http.Header, proxyURL string) (openAIWSClientConn, int, http.Header, error)
@@ -187,9 +203,14 @@ func (d *coderOpenAIWSClientDialer) DialRouteWithProfile(
 		return nil, 0, nil, errors.New("ws url is empty")
 	}
 
+	wrapped := &coderOpenAIWSClientConn{}
 	opts := &coderws.DialOptions{
 		HTTPHeader:      cloneHeader(headers),
 		CompressionMode: coderws.CompressionContextTakeover,
+		OnPingReceived: func(context.Context, []byte) bool {
+			wrapped.upstreamPings.Add(1)
+			return true
+		},
 	}
 	policy := d.currentEgressPolicy()
 	effective, err := platformegress.ApplyPolicy(route, policy)
@@ -229,7 +250,8 @@ func (d *coderOpenAIWSClientDialer) DialRouteWithProfile(
 	if resp != nil {
 		respHeaders = cloneHeader(resp.Header)
 	}
-	return &coderOpenAIWSClientConn{conn: conn}, 0, respHeaders, nil
+	wrapped.conn = conn
+	return wrapped, 0, respHeaders, nil
 }
 
 func dialOpenAIWSRoute(dialer openAIWSClientDialer, ctx context.Context, wsURL string, headers http.Header, route platformegress.Route) (openAIWSClientConn, int, http.Header, error) {
@@ -437,7 +459,15 @@ func (d *coderOpenAIWSClientDialer) SnapshotTransportMetrics() OpenAIWSTransport
 }
 
 type coderOpenAIWSClientConn struct {
-	conn *coderws.Conn
+	conn          *coderws.Conn
+	upstreamPings atomic.Int64
+}
+
+func (c *coderOpenAIWSClientConn) UpstreamPingCount() int64 {
+	if c == nil {
+		return 0
+	}
+	return c.upstreamPings.Load()
 }
 
 var _ openaiwsv2.FrameConn = (*coderOpenAIWSClientConn)(nil)
@@ -514,6 +544,8 @@ func (*coderOpenAIWSClientConn) SupportsIdlePingWithoutReader() bool {
 	return false
 }
 
+func (*coderOpenAIWSClientConn) RequiresReaderLoop() bool { return true }
+
 func (c *coderOpenAIWSClientConn) Close() error {
 	if c == nil || c.conn == nil {
 		return nil
@@ -522,4 +554,11 @@ func (c *coderOpenAIWSClientConn) Close() error {
 	_ = c.conn.Close(coderws.StatusNormalClosure, "")
 	_ = c.conn.CloseNow()
 	return nil
+}
+
+func (c *coderOpenAIWSClientConn) CloseNow() error {
+	if c == nil || c.conn == nil {
+		return nil
+	}
+	return c.conn.CloseNow()
 }

@@ -84,3 +84,10 @@ func TestPairCodexClientIdentity(t *testing.T) {
 		})
 	}
 }
+
+func TestPairCodexClientIdentityRejectsHeaderControls(t *testing.T) {
+	for _, ua := range []string{"codex-tui/1.0.0\r\nX-Leak: yes", "codex_cli_rs/1.0.0\n"} {
+		_, _, ok := PairCodexClientIdentity(ua)
+		require.False(t, ok)
+	}
+}

@@ -313,7 +313,7 @@ describe('API Client', () => {
   // --- 401 Token 刷新 ---
 
   describe('401 Token 刷新', () => {
-    it('无 refresh cookie 时 401 清除内存 token', async () => {
+    it('刷新服务临时不可用时 401 保留内存 token 以便重试', async () => {
       tokenStore.setAccessToken('expired-token')
       // 不设置 refresh_token
 
@@ -339,7 +339,7 @@ describe('API Client', () => {
 
       await expect(apiClient.get('/test')).rejects.toBeDefined()
 
-      expect(tokenStore.getAccessToken()).toBeNull()
+      expect(tokenStore.getAccessToken()).toBe('expired-token')
 
       // 恢复 location
       Object.defineProperty(window, 'location', {
