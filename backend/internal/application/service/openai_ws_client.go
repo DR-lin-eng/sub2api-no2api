@@ -60,10 +60,6 @@ type openAIWSReaderLoopCapable interface {
 	RequiresReaderLoop() bool
 }
 
-type openAIWSUpstreamPingCounter interface {
-	UpstreamPingCount() int64
-}
-
 type openAIWSForceCloser interface {
 	CloseNow() error
 }

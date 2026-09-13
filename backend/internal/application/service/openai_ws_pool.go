@@ -349,20 +349,6 @@ func (c *openAIWSConn) hasReaderLoop() bool {
 	return c != nil && c.readerLoopResults != nil
 }
 
-func (c *openAIWSConn) readerLoopClosedByPeer() bool {
-	return c != nil && c.readerLoopPeerClosed.Load()
-}
-
-func (c *openAIWSConn) upstreamPingCount() int64 {
-	if c == nil || c.ws == nil {
-		return 0
-	}
-	if counter, ok := c.ws.(openAIWSUpstreamPingCounter); ok {
-		return counter.UpstreamPingCount()
-	}
-	return 0
-}
-
 func (c *openAIWSConn) readerLoopPending() bool {
 	return c.hasReaderLoop() && len(c.readerLoopResults) > 0
 }
