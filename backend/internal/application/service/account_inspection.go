@@ -180,6 +180,7 @@ type AccountInspectionAccountResult struct {
 	QualityLatencyMs           int64      `json:"quality_latency_ms,omitempty"`
 	QualityRunID               string     `json:"quality_run_id,omitempty"`
 	QualityLabel               string     `json:"quality_label,omitempty"`
+	QualityCodeMatch           *AccountQualityCodeMatch `json:"quality_code_match,omitempty"`
 	QualityConfidence          float64    `json:"quality_confidence,omitempty"`
 	QualityPhase               string     `json:"quality_phase,omitempty"`
 	QualityStartedAt           *time.Time `json:"quality_started_at,omitempty"`

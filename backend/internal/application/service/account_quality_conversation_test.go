@@ -66,7 +66,7 @@ func TestQualityConversationPersistsTextOnlyAndCombinedVerdict(t *testing.T) {
 			settings.Stage2Enabled = tc.drawing
 			config, _ := json.Marshal(settings)
 			store := &qualityConversationStore{}
-			probe := &qualityStageProbeStub{results: []*ScheduledTestResult{{Status: "success", ResponseText: tc.answer, ConversationID: "conv_text", ResponseID: "resp_text", ReasoningTokens: reasoningTokenPtr(0)}, {Status: "success", ResponseText: "<svg/>", ResponseID: "resp_image"}}}
+			probe := &qualityStageProbeStub{results: []*ScheduledTestResult{{Status: "success", ResponseText: tc.answer, ConversationID: "conv_text", ResponseID: "resp_text", ReasoningTokens: reasoningTokenPtr(0)}, {Status: "success", ResponseText: modelAHTML, ResponseID: "resp_image"}}}
 			svc := &AccountQualityMonitoringService{accountRepo: &qualityRepoStub{extra: map[int64]map[string]any{}}, accountTestSvc: probe, qualityProcessor: &qualityStageProcessorStub{}, qualityArtifacts: store, settingRepo: &inspectionSettingRepoStub{values: map[string]string{SettingKeyAccountQualitySettings: string(config)}}}
 			account := Account{ID: 123456, Name: "private account", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive}
 			rows := []AccountInspectionAccountResult{{AccountID: account.ID}}

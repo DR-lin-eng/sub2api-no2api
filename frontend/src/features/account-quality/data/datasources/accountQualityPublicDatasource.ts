@@ -1,6 +1,21 @@
 import { apiClient } from '@/core/networks/client'
 
+export interface AccountQualityCodeMatch {
+  version: string
+  score: number
+  raw_points: number
+  max_points: number
+  threshold: number
+  is_model_a: boolean
+  normal_class: 'model_a' | 'other'
+  matched_signals: string[]
+  missing_signals: string[]
+}
+
 export interface AccountQualityStageDetail {
+  code_match?: AccountQualityCodeMatch | null
+  preview_status?: 'ready' | 'error'
+
   status: string
   conversation_id?: string
   response_id?: string

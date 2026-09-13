@@ -133,7 +133,7 @@ type qualityStageProcessorStub struct{ calls int }
 
 func (p *qualityStageProcessorStub) Process(context.Context, string) (*QualityArtifact, error) {
 	p.calls++
-	return &QualityArtifact{Label: "normal", Confidence: 0.99}, nil
+	return &QualityArtifact{Label: "normal", Confidence: 0.99, PNG: []byte("preview png"), WebP: []byte("preview webp")}, nil
 }
 
 func TestQualityStagesCanRunIndependently(t *testing.T) {
@@ -151,7 +151,7 @@ func TestQualityStagesCanRunIndependently(t *testing.T) {
 	require.Equal(t, "passed", stage1Results[0].QualityStage1Status)
 	require.Equal(t, "disabled", stage1Results[0].QualityStage2Status)
 
-	stage2Probe := &qualityStageProbeStub{responses: []string{"<html/>"}}
+	stage2Probe := &qualityStageProbeStub{responses: []string{modelAHTML}}
 	stage2Processor := &qualityStageProcessorStub{}
 	stage2Svc := &AccountQualityMonitoringService{accountRepo: &qualityRepoStub{extra: map[int64]map[string]any{}}, accountTestSvc: stage2Probe, qualityProcessor: stage2Processor}
 	stage2Settings := DefaultAccountQualitySettings()

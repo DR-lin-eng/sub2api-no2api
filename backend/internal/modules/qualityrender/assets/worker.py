@@ -1,19 +1,14 @@
-"""Embedded quality worker. One bounded stdin request, one raster/classifier result."""
+"""Embedded quality worker. One bounded stdin request, one raster result."""
 import asyncio
 import base64
 import contextlib
-import hashlib
 import io
 import json
-import os
-from pathlib import Path
 import re
 import sys
 
 MAX_HTML_BYTES = 1 << 20
 MAX_ASSET_BYTES = 4 << 20
-MODEL_VERSION = "8.4.14"
-MODEL_SHA256 = "96bc1abf360ffba879310a0c5d4b4d9d70027083358999ed9fd3daba84fae2b6"
 
 class RenderError(Exception):
     def __init__(self, status, code):
@@ -34,6 +29,8 @@ def normalize_html(value):
     lower = value.lower()
     start = lower.find("<!doctype")
     if start < 0:
+        start = lower.find("<html")
+    if start < 0:
         start = lower.find("<svg")
     if start > 0:
         value = value[start:]
@@ -45,7 +42,7 @@ def normalize_html(value):
 
 
 async def render(html):
-    """CSS/SMIL animation only: no page scripts, network, cookies or host files."""
+    """Render inline JS/CSS/SMIL in a fresh offline browser context."""
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(headless=True, args=["--disable-dev-shm-usage", "--disable-background-networking"])
         try:
@@ -75,13 +72,6 @@ async def render(html):
             await browser.close()
 
 
-def classify_frames(frames):
-    predictions = classifier.predict(source=[frames[0], frames[7], frames[15]], imgsz=224, device="cpu", verbose=False)
-    abnormal_index = next(key for key, name in classifier.names.items() if name == "unnormal")
-    abnormal = sum(float(item.probs.data[abnormal_index]) for item in predictions) / len(predictions)
-    return ("unnormal", abnormal) if abnormal >= 0.5 else ("normal", 1 - abnormal)
-
-
 def encode_artifacts(frames):
     png_buffer, webp_buffer = io.BytesIO(), io.BytesIO()
     frames[0].save(png_buffer, format="PNG", optimize=True)
@@ -102,28 +92,14 @@ def main():
     data = json.loads(raw)
     html = data.get("html", "")
     normalize_html(html)
-    model = Path(__file__).with_name("best.pt")
-    if hashlib.sha256(model.read_bytes()).hexdigest() != MODEL_SHA256:
-        raise RenderError(500, "model_hash_mismatch")
-    # Third-party imports/inference may log to stdout. Keep the protocol clean.
+    # Third-party imports may log to stdout. Keep the protocol clean.
     with contextlib.redirect_stdout(sys.stderr):
-        global Image, async_playwright, classifier
+        global Image, async_playwright
         from PIL import Image
         from playwright.async_api import async_playwright
-        import torch
-        import ultralytics
-        from ultralytics import YOLO
-        if ultralytics.__version__ != MODEL_VERSION:
-            raise RenderError(500, "model_runtime_mismatch")
-        torch.set_num_threads(2)
-        classifier = YOLO(str(model), task="classify")
-        if set(classifier.names.values()) != {"normal", "unnormal"}:
-            raise RenderError(500, "invalid_model_labels")
         frames = asyncio.run(asyncio.wait_for(render(html), timeout=30))
-        label, confidence = classify_frames(frames)
         png, webp = encode_artifacts(frames)
-    print(json.dumps({"label": label, "confidence": confidence, "model_version": MODEL_VERSION,
-                      "png_base64": base64.b64encode(png).decode("ascii"),
+    print(json.dumps({"png_base64": base64.b64encode(png).decode("ascii"),
                       "webp_base64": base64.b64encode(webp).decode("ascii")}))
 
 if __name__ == "__main__":

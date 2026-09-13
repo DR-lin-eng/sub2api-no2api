@@ -146,33 +146,7 @@ func (s *AccountQualityMonitoringService) runQualityStage(ctx context.Context, a
 		outcome.status, outcome.passed, outcome.operational = "passed", true, false
 		return outcome
 	}
-	if s.qualityProcessor == nil {
-		outcome.errorMessage = "renderer/classifier is unavailable"
-		return outcome
-	}
-	for _, callback := range beforeRender {
-		if callback != nil {
-			callback()
-		}
-	}
-	artifact, processErr := s.qualityProcessor.Process(probeCtx, probe.ResponseText)
-	if processErr != nil {
-		outcome.errorMessage = "render/classification failed: " + processErr.Error()
-		return outcome
-	}
-	outcome.artifact = artifact
-	if artifact == nil || artifact.Confidence < settings.MinConfidence {
-		outcome.status, outcome.operational, outcome.errorMessage = "uncertain", false, "classifier confidence below threshold"
-		return outcome
-	}
-	switch artifact.Label {
-	case "normal":
-		outcome.status, outcome.passed, outcome.operational = "passed", true, false
-	case "unnormal":
-		outcome.status, outcome.passed, outcome.operational = "wrong", false, false
-	default:
-		outcome.status, outcome.operational, outcome.errorMessage = "uncertain", false, "classifier returned unknown label"
-	}
+	s.matchQualityDrawing(probeCtx, probe.ResponseText, settings, &outcome, beforeRender)
 
 	return outcome
 }
@@ -269,6 +243,7 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 				notify("stage2", false)
 				stage := s.runQualityStage(ctx, account, settings, "stage2", settings.Stage2Prompt, func() { notify("rendering", false) })
 				result.QualityStage2Status = stage.status
+				result.QualityCodeMatch = stage.detail.CodeMatch
 				details.Stage2, artifact = &stage.detail, stage.artifact
 				if stage.artifact != nil {
 					result.QualityLabel, result.QualityConfidence = stage.artifact.Label, stage.artifact.Confidence

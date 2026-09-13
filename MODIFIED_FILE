@@ -1,14 +1,13 @@
 Changed branch: codex/account-quality-source-group
-Changed fields:
-- backend/internal/modules/qualityrender/: embedded worker.py and best.pt (Ultralytics 8.4.14) run locally from the main website process; no HTTP renderer URL, token, sidecar, or Compose change is required.
-- backend/internal/application/service/account_quality_monitoring.go: persisted run progress (total/completed/running/queued/current account/current stage), asynchronous manual StartNow, per-account phase/timestamps, bounded run cancellation.
-- backend/internal/transport/http/handler/admin/account_quality_handler.go and frontend/src/features/admin-account-quality/: immediate manual response plus account/total progress display and elapsed time.
-- Dockerfile, Dockerfile.goreleaser, deploy/Dockerfile: package Python 3.11, Playwright Chromium, CPU Torch/Ultralytics and local runtime assets into the existing website image.
-Existing account-quality settings and existing renderer environment values remain unchanged; non-empty legacy renderer URL still uses its original HTTP path.
-MODIFIED_FILE is intentionally left changed; rollback is tested only on an independent copy.
-- Main image packages the embedded worker, model, Python/Playwright/Chromium CPU runtime, while existing Compose/environment files remain untouched.
-- Manual POST now returns immediately; GET overview shows total/completed/running/queued plus current account and phase.
+Changed field: account_quality stage2 classifier -> Go HTML/SVG code fingerprint (code-fingerprint-v1), with configurable code_match_threshold and code_match_normal_class; embedded Chromium renderer remains preview-only.
 
-- Final follow-up adds embedded best.pt runtime packaging and live progress without changing existing Compose/environment settings.
+Source files changed:
+- backend/internal/modules/qualityrender/fingerprint.go (9 weighted signals, structural title/desc matching)
+- backend/internal/modules/qualityrender/processor.go and assets/worker.py (PNG/WebP preview only)
+- backend/internal/application/service/account_quality_code_match.go (verdict integration)
+- backend/internal/application/service/account_quality_monitoring.go (settings)
+- frontend/src/features/admin-account-quality/ (threshold/class controls)
+- frontend/src/features/account-quality/ (public score/signals/preview status)
 
-- Final metadata commit: 5e29efd24.
+Legacy min_confidence and non-empty ACCOUNT_QUALITY_RENDERER_URL remain compatible; legacy renderer output label/confidence is ignored for grading.
+MODIFIED_FILE intentionally remains changed; rollback is tested on /tmp/quality-code-match-20260913/ROLLBACK_COPY.go.

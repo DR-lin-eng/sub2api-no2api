@@ -1,3 +1,15 @@
+export interface AccountQualityCodeMatch {
+  version: string
+  score: number
+  raw_points: number
+  max_points: number
+  threshold: number
+  is_model_a: boolean
+  normal_class: 'model_a' | 'other'
+  matched_signals: string[]
+  missing_signals: string[]
+}
+
 export interface AccountQualitySettings {
   enabled: boolean
   interval_minutes: number
@@ -15,6 +27,8 @@ export interface AccountQualitySettings {
   degraded_group_id: number | null
   source_group_id: number | null
   max_concurrent: number
+  code_match_threshold: number
+  code_match_normal_class: 'model_a' | 'other'
   min_confidence: number
   min_reasoning_tokens: number
   public_enabled: boolean
@@ -39,6 +53,7 @@ export interface AccountQualityResult {
   quality_latency_ms?: number
   quality_label?: string
   quality_confidence?: number
+  quality_code_match?: AccountQualityCodeMatch | null
   observed_at: string
 }
 
