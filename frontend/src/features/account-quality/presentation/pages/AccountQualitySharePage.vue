@@ -73,7 +73,7 @@ import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import QualityPreview from '../widgets/QualityPreview.vue'
 import QualityConversation from '../widgets/QualityConversation.vue'
-import { qualityTime, qualityVerdict, verdictColor, hasPreview } from '../qualityDisplay'
+import { qualityTime, qualityVerdict, verdictColor, hasPreview, hasQualityEvidence } from '../qualityDisplay'
 import { getPublicSnapshot, type AccountQualityPublicPoint, type AccountQualityPublicSnapshot } from '../../data/datasources/accountQualityPublicDatasource'
 const { t } = useI18n()
 const snapshot = ref<AccountQualityPublicSnapshot | null>(null)
@@ -87,10 +87,11 @@ let serverOffset = 0
 let disposed = false
 let timer: ReturnType<typeof setInterval> | undefined
 let clock: ReturnType<typeof setInterval> | undefined
-const timeline = computed(() => [...(snapshot.value?.points || [])].reverse())
+const displayPoints = computed(() => (snapshot.value?.points || []).filter(hasQualityEvidence))
+const timeline = computed(() => [...displayPoints.value].reverse())
 const classified = computed(() => (snapshot.value?.passed || 0) + (snapshot.value?.degraded || 0))
 const passRate = computed(() => classified.value ? `${((snapshot.value!.passed / classified.value) * 100).toFixed(1)}%` : '—')
-const filteredPoints = computed(() => (snapshot.value?.points || []).filter(p => filter.value === 'all' || (filter.value === 'images' ? hasPreview(p) : qualityVerdict(p) === filter.value)))
+const filteredPoints = computed(() => displayPoints.value.filter(p => filter.value === 'all' || (filter.value === 'images' ? hasPreview(p) : qualityVerdict(p) === filter.value)))
 const visiblePoints = computed(() => filteredPoints.value.slice(0, visibleCount.value))
 const legends = computed(() => [
   { key: 'passed' as const, label: t('common.accountQuality.normal') },

@@ -21,3 +21,16 @@ OAuth scope follow-up
 qualityProbeSupported now requires AccountTypeOAuth exactly. Active OpenAI/Gemini
 OAuth accounts remain eligible (subject to source/degraded group routing); API-key
 and service-account accounts return false before any probe request is scheduled.
+
+Concurrency/queue and incomplete-drawing follow-up
+=================================================
+`max_concurrent` keeps its default 4 but now validates and accepts up to 200;
+the admin input and DTO expose that range. A scheduled or manual trigger that
+arrives while a round is active is coalesced into one pending round, shown as
+`pending_runs`, and starts only after the active round releases its leader lock.
+The active context is never cancelled by the interval timer.
+
+Partial drawing streams are analyzed from the received HTML/SVG. The matcher
+records `source_complete=false` and the UI labels the incomplete result. Failed
+records with no answer, IDs, match evidence or preview are omitted from the
+public timeline and cards; historical image-backed rows remain visible.

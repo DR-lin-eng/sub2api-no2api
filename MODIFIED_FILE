@@ -15,3 +15,8 @@ MODIFIED_FILE intentionally remains changed; rollback is tested on /tmp/quality-
 Follow-up changed field:
 - backend/internal/application/service/account_quality_monitor.go: qualityProbeSupported now accepts only AccountTypeOAuth; API key and service-account credentials are excluded even when active and in the configured source group.
 - backend/internal/application/service/account_quality_monitor_test.go: explicit OAuth-only eligibility test.
+
+Concurrency and queue follow-up:
+- backend/internal/application/service/account_quality_monitoring.go: max_concurrent default remains 4, administrator-configurable upper bound is 200; scheduled/manual rounds use a single pending-round queue and never cancel an active round.
+- frontend/src/features/admin-account-quality/presentation/pages/AccountQualityPage.vue: max concurrency input accepts 1–200 and displays queued round count.
+- backend/internal/application/service/account_quality_public.go and frontend/src/features/account-quality/presentation/: empty failed conversations are filtered; partial SVG answers retain code-match evidence and source_complete=false.

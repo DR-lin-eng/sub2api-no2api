@@ -26,11 +26,11 @@ describe('AccountQualitySharePage', () => {
     expect(wrapper.find('img[src="/preview.webp"]').exists()).toBe(true)
   })
 
-  it('renders unavailable ids instead of inventing an account id', async () => {
+  it('hides empty failed conversations instead of showing a blank detail card', async () => {
     getPublicSnapshot.mockResolvedValueOnce({ model: '', effort: 'medium', interval_minutes: 10, now: '2026-09-12T12:00:00Z', total: 1, passed: 0, degraded: 0, uncertain: 0, error: 1, points: [{ id: 'run-2', status: 'error', started_at: '2026-09-12T11:50:00Z', details: { stage1: { status: 'error', answer: '' } } }] })
     const wrapper = mount(AccountQualitySharePage, { global: { stubs: { BaseDialog: { template: '<div><slot /></div>' }, QualityPreview: { template: '<div />' }, QualityConversation: { template: '<div />' } } } })
     await flushPromises()
-    expect(wrapper.text()).toContain('common.accountQuality.idUnavailable')
+    expect(wrapper.text()).not.toContain('common.accountQuality.idUnavailable')
     expect(wrapper.text()).not.toContain('account-')
   })
 })

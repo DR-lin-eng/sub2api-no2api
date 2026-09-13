@@ -30,6 +30,10 @@ func (s *AccountQualityMonitoringService) matchQualityDrawing(_ context.Context,
 	// The legacy confidence field remains zero: a source-code similarity score
 	// is not a classifier probability. Preview HTML is rendered by the frontend.
 	outcome.artifact = &QualityArtifact{Label: label, ModelVersion: match.Version}
+	if !match.SourceComplete {
+		outcome.status, outcome.passed, outcome.operational = "wrong", false, false
+		outcome.errorMessage = "drawing response incomplete; code match retained"
+	}
 	if outcome.detail.PreviewHTML != "" {
 		outcome.detail.PreviewStatus = "ready"
 	} else {

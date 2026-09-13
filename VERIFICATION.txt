@@ -52,3 +52,58 @@ DOCKER command: docker run --rm -v /Users/lin/.codex/worktrees/b443/sub2api-no2a
 DOCKER literal result: application/service ok 0.071s; infrastructure/repository ok 0.035s [no tests to run]; exit 0.
 
 Restored behavior/status: API key and service-account fixtures are rejected by qualityProbeEligible; OpenAI and Gemini OAuth fixtures remain eligible. No account probe is started for rejected types.
+
+Concurrency and incomplete-answer follow-up (2026-09-14)
+---------------------------------------------------------
+Changed fields: `accountQualityMaxConcurrent` 4 -> 200 upper bound with separate default 4; `AccountQualityProgress.PendingRuns`; single pending-round handoff; partial SVG code matching; public empty-failure filtering.
+
+BASELINE command: git show HEAD:backend/internal/application/service/account_quality_monitoring.go > /tmp/quality-concurrency-20260914/BASELINE_ACCOUNT_QUALITY_SETTINGS.go && shasum -a 256 /tmp/quality-concurrency-20260914/BASELINE_ACCOUNT_QUALITY_SETTINGS.go
+BASELINE literal result: e980542b397efb715b593e7f5be378047c03c84cfd75e4cebb822771f10cd84c; 31361 bytes; exit 0.
+MODIFIED command: cp backend/internal/application/service/account_quality_monitoring.go /tmp/quality-concurrency-20260914/MODIFIED_ACCOUNT_QUALITY_SETTINGS.go && shasum -a 256 /tmp/quality-concurrency-20260914/MODIFIED_ACCOUNT_QUALITY_SETTINGS.go
+MODIFIED literal result: 1e47df63f55e77f51e9d6d60b6880394a8ccb88fa5f53429d760bb425a0a958c; 34522 bytes; exit 0.
+
+BASELINE test command: (git archive 25084c617 | tar -x -C /tmp/quality-concurrency-20260914/baseline-src) && cd /tmp/quality-concurrency-20260914/baseline-src/backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/infrastructure/repository ./internal/modules/qualityrender -run 'TestQuality|TestAccountQuality|TestMatchHTML' -count=1
+BASELINE literal result: application/service ok 5.872s; infrastructure/repository ok 3.590s; qualityrender ok 3.073s; exit 0.
+
+MODIFIED test command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/infrastructure/repository ./internal/modules/qualityrender -run 'TestQuality|TestAccountQuality|TestMatchHTML' -count=1
+MODIFIED literal result: application/service ok 3.017s; infrastructure/repository ok 0.737s; qualityrender ok 0.303s; exit 0.
+
+DOCKER command: docker run --rm -v /Users/lin/.codex/worktrees/b443/sub2api-no2api:/src -w /src/backend -e GOCACHE=/tmp/go-cache golang:1.26.6-bookworm sh -lc 'export PATH=/usr/local/go/bin:$PATH; go test ./internal/application/service ./internal/infrastructure/repository ./internal/modules/qualityrender -run "TestQuality|TestAccountQuality|TestMatchHTML" -count=1'
+DOCKER literal result: application/service ok 2.150s; infrastructure/repository ok 0.021s; qualityrender ok 0.026s; exit 0.
+
+FRONTEND command: cd frontend && pnpm run typecheck && pnpm run lint:check && pnpm exec vitest run src/features/admin-account-quality/__tests__/AccountQualityPage.spec.ts src/features/account-quality/__tests__/AccountQualitySharePage.spec.ts src/features/account-quality/__tests__/QualityPreview.spec.ts
+FRONTEND literal result: vue-tsc and eslint passed; quality UI tests passed (6 tests); exit 0.
+DOCS command: make check-docs
+DOCS literal result: Documentation checks passed.; exit 0.
+
+ROLLBACK command: cp BASELINE_ACCOUNT_QUALITY_SETTINGS.go ROLLBACK_COPY.go; printf '\n' >> ROLLBACK_COPY.go; ./ROLLBACK.sh BASELINE_ACCOUNT_QUALITY_SETTINGS.go ROLLBACK_COPY.go
+ROLLBACK literal result: restored: /tmp/quality-concurrency-20260914/ROLLBACK_COPY.go; cmp=0; SHA-256 e980542b397efb715b593e7f5be378047c03c84cfd75e4cebb822771f10cd84c; exit 0.
+Restored behavior/status: previous round remains unmodified while queued round waits; OAuth-only filtering remains active; partial drawing evidence is preserved; empty failed public cards are omitted.
+
+
+Concurrency queue follow-up (2026-09-14)
+----------------------------------------
+Changed fields: `max_concurrent` default 4 and administrator upper bound 200; `AccountQualityProgress.pending_runs`; queue handoff after an active round; incomplete drawing evidence and empty-failure filtering.
+
+BASELINE command: git show 25084c617:backend/internal/application/service/account_quality_monitoring.go > /tmp/quality-concurrency-20260914/BASELINE_ACCOUNT_QUALITY_SETTINGS.go && shasum -a 256 /tmp/quality-concurrency-20260914/BASELINE_ACCOUNT_QUALITY_SETTINGS.go
+BASELINE literal result: e980542b397efb715b593e7f5be378047c03c84cfd75e4cebb822771f10cd84c; 31361 bytes; exit 0.
+MODIFIED command: cp backend/internal/application/service/account_quality_monitoring.go /tmp/quality-concurrency-20260914/MODIFIED_ACCOUNT_QUALITY_SETTINGS.go && shasum -a 256 /tmp/quality-concurrency-20260914/MODIFIED_ACCOUNT_QUALITY_SETTINGS.go
+MODIFIED literal result: 1e47df63f55e77f51e9d6d60b6880394a8ccb88fa5f53429d760bb425a0a958c; 34522 bytes; exit 0.
+
+BASELINE test command: (git archive 25084c617 | tar -x -C /tmp/quality-concurrency-20260914/baseline-src) && cd /tmp/quality-concurrency-20260914/baseline-src/backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/infrastructure/repository ./internal/modules/qualityrender -run 'TestQuality|TestAccountQuality|TestMatchHTML' -count=1
+BASELINE literal result: application/service ok 5.872s; infrastructure/repository ok 3.590s; qualityrender ok 3.073s; exit 0.
+MODIFIED test command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/modules/qualityrender ./internal/application/service ./internal/infrastructure/repository -run 'TestQuality|TestAccountQuality|TestMatchHTML' -count=1
+MODIFIED literal result: qualityrender ok 0.263s; application/service ok 3.027s; infrastructure/repository ok 0.755s; exit 0.
+RACE command: cd backend && GOCACHE=/tmp/sub2api-gocache go test -race ./internal/application/service -run 'TestQualityRunQueue|TestQualityRunDueQueues|TestQualityRunFinish|TestAccountQualitySettingsAllowConcurrencyUpTo200' -count=1
+RACE literal result: application/service ok 2.495s; exit 0.
+DOCKER command: docker run --rm -v /Users/lin/.codex/worktrees/b443/sub2api-no2api:/src -w /src/backend -e GOCACHE=/tmp/go-cache golang:1.26.6-bookworm sh -lc 'export PATH=/usr/local/go/bin:$PATH; go test ./internal/modules/qualityrender ./internal/application/service ./internal/infrastructure/repository -run "TestQuality|TestAccountQuality|TestMatchHTML" -count=1'
+DOCKER literal result: qualityrender ok 0.012s; application/service ok 2.166s; infrastructure/repository ok 0.015s; exit 0.
+
+FRONTEND command: cd frontend && pnpm run typecheck && pnpm run lint:check && pnpm exec vitest run src/features/admin-account-quality/__tests__/AccountQualityPage.spec.ts src/features/account-quality/__tests__/AccountQualitySharePage.spec.ts
+FRONTEND literal result: vue-tsc and eslint passed; 4 quality UI tests passed; exit 0.
+DOCS command: make check-docs
+DOCS literal result: Documentation checks passed.; exit 0.
+
+ROLLBACK command: cp BASELINE_ACCOUNT_QUALITY_SETTINGS.go ROLLBACK_COPY.go; printf '\n' >> ROLLBACK_COPY.go; ./ROLLBACK.sh BASELINE_ACCOUNT_QUALITY_SETTINGS.go ROLLBACK_COPY.go
+ROLLBACK literal result: restored: /tmp/quality-concurrency-20260914/ROLLBACK_COPY.go; cmp=0; SHA-256 e980542b397efb715b593e7f5be378047c03c84cfd75e4cebb822771f10cd84c; exit 0.
+Restored behavior/status: previous quality round remains running while one pending round is coalesced; handoff starts only after completion; repeated ticks do not create unbounded queue entries.

@@ -6,6 +6,7 @@ export interface AccountQualityCodeMatch {
   raw_points: number
   max_points: number
   threshold: number
+  source_complete: boolean
   is_model_a: boolean
   normal_class: 'model_a' | 'other'
   matched_signals: string[]

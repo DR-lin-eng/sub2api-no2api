@@ -64,6 +64,19 @@ func TestMatchHTMLTitleDescriptionUsesStructuralIDs(t *testing.T) {
 	t.Fatalf("structural title/desc signal missing: %+v", got)
 }
 
+func TestMatchHTMLAnalyzesIncompleteSVG(t *testing.T) {
+	got, err := MatchHTML(`<html><body><svg><script>Math.sin(0); requestAnimationFrame(tick)</script>`, 55)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.SourceComplete {
+		t.Fatalf("incomplete source marked complete: %+v", got)
+	}
+	if len(got.MatchedSignals) == 0 {
+		t.Fatalf("partial source was not analyzed: %+v", got)
+	}
+}
+
 func TestMatchHTMLMatchesReferenceFixtures(t *testing.T) {
 	raw, err := os.ReadFile("testdata/fingerprint_cases.json")
 	if err != nil {

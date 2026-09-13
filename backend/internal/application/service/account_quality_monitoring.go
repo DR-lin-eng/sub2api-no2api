@@ -28,7 +28,8 @@ const (
 	accountQualityDefaultIntervalMinutes   = 10
 	accountQualityDefaultFailureThreshold  = 2
 	accountQualityDefaultRecoveryThreshold = 2
-	accountQualityMaxConcurrent            = 4
+	accountQualityDefaultConcurrent        = 4
+	accountQualityMaxConcurrent            = 200
 	accountQualityDefaultProbeTimeoutSec   = 120
 	accountQualityMinProbeTimeoutSec       = 30
 	accountQualityMaxProbeTimeoutSec       = 300
@@ -82,7 +83,7 @@ func DefaultAccountQualitySettings() AccountQualitySettings {
 		Prompt:               accountQualityDefaultStage2Prompt,
 		FailureThreshold:     accountQualityDefaultFailureThreshold,
 		RecoveryThreshold:    accountQualityDefaultRecoveryThreshold,
-		MaxConcurrent:        accountQualityMaxConcurrent,
+		MaxConcurrent:        accountQualityDefaultConcurrent,
 		MinConfidence:        0.85,
 		CodeMatchThreshold:   qualityrender.DefaultMatchThreshold,
 		CodeMatchNormalClass: "model_a",
@@ -204,6 +205,7 @@ type AccountQualityProgress struct {
 	Completed        int    `json:"completed"`
 	Running          int    `json:"running"`
 	Queued           int    `json:"queued"`
+	PendingRuns      int    `json:"pending_runs,omitempty"`
 	CurrentAccountID int64  `json:"current_account_id,omitempty"`
 	CurrentAccount   string `json:"current_account,omitempty"`
 	CurrentStage     string `json:"current_stage,omitempty"`
@@ -247,15 +249,18 @@ type AccountQualityMonitoringService struct {
 	db               *sql.DB
 	instanceID       string
 
-	parentCtx    context.Context
-	parentCancel context.CancelFunc
-	startOnce    sync.Once
-	stopOnce     sync.Once
-	wg           sync.WaitGroup
-	running      atomic.Bool
-	lifecycleMu  sync.Mutex
-	runWG        sync.WaitGroup
-	stopping     bool
+	parentCtx      context.Context
+	parentCancel   context.CancelFunc
+	startOnce      sync.Once
+	stopOnce       sync.Once
+	wg             sync.WaitGroup
+	running        atomic.Bool
+	lifecycleMu    sync.Mutex
+	runWG          sync.WaitGroup
+	pendingMu      sync.Mutex
+	pendingRuns    int
+	pendingTrigger string
+	stopping       bool
 }
 
 func NewAccountQualityMonitoringService(accountRepo AccountRepository, settingRepo SettingRepository, probe AccountQualityProbeRunner, processor AccountQualityArtifactProcessor, artifacts AccountQualityArtifactRepository, groups GroupRepository) *AccountQualityMonitoringService {
@@ -315,10 +320,35 @@ func (s *AccountQualityMonitoringService) runDue() {
 		return
 	}
 	state, err := s.loadState(ctx)
-	if err != nil || (state.Status == AccountInspectionStatusRunning && state.StartedAt != nil && time.Since(*state.StartedAt) < AccountQualityRunTimeout) {
+	if err != nil {
 		return
 	}
 	now := time.Now()
+	if state.Status == AccountInspectionStatusRunning {
+		// Do not cancel or overlap a long round. If its interval elapsed while
+		// running, remember one scheduled round and start it immediately after
+		// the current round finishes.
+		fresh := state.StartedAt != nil && now.Sub(*state.StartedAt) < AccountQualityRunTimeout
+		if s.running.Load() || fresh {
+			if state.StartedAt != nil && !now.Before(state.StartedAt.Add(time.Duration(settings.IntervalMinutes)*time.Minute)) {
+				s.enqueueQualityRun("scheduled")
+			}
+			return
+		}
+		// A persisted running state older than the hard run budget can belong to
+		// a crashed worker. It is safe to reclaim through the normal leader lock.
+		if state.StartedAt != nil && now.Sub(*state.StartedAt) >= AccountQualityRunTimeout {
+			s.enqueueQualityRun("scheduled")
+		}
+	}
+	if trigger, pending := s.takePendingQualityRun(); pending {
+		// A queued round takes precedence over the normal interval calculation;
+		// it was due while the previous round was still running.
+		if _, runErr := s.RunNow(ctx, trigger); runErr != nil {
+			s.enqueueQualityRun(trigger)
+		}
+		return
+	}
 	if state.LastRunAt != nil && now.Before(state.LastRunAt.Add(time.Duration(settings.IntervalMinutes)*time.Minute)) {
 		return
 	}
@@ -427,7 +457,9 @@ func (s *AccountQualityMonitoringService) GetOverview(ctx context.Context, filte
 	}
 	filtered := filterQualityResults(state.Results, filter)
 	page, _ := paginateInspectionResults(filtered, filter)
-	return &AccountQualityOverview{Settings: settings, Run: qualityRunView(state), Results: page}, nil
+	view := qualityRunView(state)
+	view.Progress.PendingRuns = s.pendingQualityRuns()
+	return &AccountQualityOverview{Settings: settings, Run: view, Results: page}, nil
 }
 
 func (s *AccountQualityMonitoringService) RunNow(ctx context.Context, trigger string) (*AccountQualityRunState, error) {
@@ -435,9 +467,17 @@ func (s *AccountQualityMonitoringService) RunNow(ctx context.Context, trigger st
 		return nil, ErrAccountInspectionUnavailable
 	}
 	if err := s.beginQualityRun(); err != nil {
+		if errors.Is(err, ErrAccountInspectionBusy) {
+			s.enqueueQualityRun(trigger)
+			state, loadErr := s.loadState(ctx)
+			if loadErr == nil && state != nil {
+				state.Progress.PendingRuns = s.pendingQualityRuns()
+				return state, nil
+			}
+		}
 		return nil, err
 	}
-	defer s.endQualityRun()
+	defer s.finishQualityRun()
 	ctx, cancel := s.qualityRunContext(ctx)
 	defer cancel()
 	release, acquired := tryAcquireSingletonLeaderLock(ctx, s.lockCache, s.db, accountQualityLeaderLockKey, s.instanceID, accountQualityLeaderLockTTL)
@@ -455,11 +495,25 @@ func (s *AccountQualityMonitoringService) StartNow(ctx context.Context, trigger 
 		return nil, ErrAccountInspectionUnavailable
 	}
 	if err := s.beginQualityRun(); err != nil {
+		if errors.Is(err, ErrAccountInspectionBusy) {
+			s.enqueueQualityRun(trigger)
+			state, loadErr := s.loadState(ctx)
+			if loadErr == nil && state != nil {
+				state.Progress.PendingRuns = s.pendingQualityRuns()
+				return state, nil
+			}
+		}
 		return nil, err
 	}
 	release, acquired := tryAcquireSingletonLeaderLock(ctx, s.lockCache, s.db, accountQualityLeaderLockKey, s.instanceID, accountQualityLeaderLockTTL)
 	if !acquired {
 		s.endQualityRun()
+		s.enqueueQualityRun(trigger)
+		state, loadErr := s.loadState(ctx)
+		if loadErr == nil && state != nil {
+			state.Progress.PendingRuns = s.pendingQualityRuns()
+			return state, nil
+		}
 		return nil, ErrAccountInspectionBusy
 	}
 	settings, err := s.GetSettings(ctx)
@@ -494,7 +548,7 @@ func (s *AccountQualityMonitoringService) StartNow(ctx context.Context, trigger 
 	initial := *state
 	initial.Summary.ReasoningTokenDistribution = newReasoningTokenDistribution()
 	go func() {
-		defer s.endQualityRun()
+		defer s.finishQualityRun()
 		defer release()
 		defer cancel()
 		_, _ = s.executeRun(runCtx, trigger, previous, state, &settings)
@@ -739,6 +793,52 @@ func (s *AccountQualityMonitoringService) beginQualityRun() error {
 	s.runWG.Add(1)
 	return nil
 }
+
+func (s *AccountQualityMonitoringService) enqueueQualityRun(trigger string) bool {
+	s.pendingMu.Lock()
+	defer s.pendingMu.Unlock()
+	if s.pendingRuns > 0 {
+		return false
+	}
+	s.pendingRuns = 1
+	s.pendingTrigger = trigger
+	return true
+}
+
+func (s *AccountQualityMonitoringService) takePendingQualityRun() (string, bool) {
+	s.pendingMu.Lock()
+	defer s.pendingMu.Unlock()
+	if s.pendingRuns == 0 {
+		return "", false
+	}
+	trigger := s.pendingTrigger
+	s.pendingRuns, s.pendingTrigger = 0, ""
+	return trigger, true
+}
+
+func (s *AccountQualityMonitoringService) pendingQualityRuns() int {
+	s.pendingMu.Lock()
+	defer s.pendingMu.Unlock()
+	return s.pendingRuns
+}
+
+// finishQualityRun releases the current slot only after handing off one
+// pending round. This keeps Stop waiting across the handoff and guarantees a
+// scheduled round is not lost when its interval elapses during a long run.
+func (s *AccountQualityMonitoringService) finishQualityRun() {
+	s.running.Store(false)
+	trigger, pending := s.takePendingQualityRun()
+	s.lifecycleMu.Lock()
+	stopping := s.stopping
+	s.lifecycleMu.Unlock()
+	if pending && !stopping {
+		if _, err := s.StartNow(context.Background(), trigger); err != nil {
+			s.enqueueQualityRun(trigger)
+		}
+	}
+	s.runWG.Done()
+}
+
 func (s *AccountQualityMonitoringService) endQualityRun() { s.running.Store(false); s.runWG.Done() }
 func (s *AccountQualityMonitoringService) qualityRunContext(ctx context.Context) (context.Context, context.CancelFunc) {
 	runCtx, cancel := context.WithTimeout(ctx, AccountQualityRunTimeout)

@@ -39,6 +39,7 @@ describe('AccountQualityPage', () => {
     expect(getOverview).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('quality-account')
     expect(wrapper.text()).toContain('admin.accountQuality.title')
+    expect(wrapper.find('input[type="number"][max="200"]').exists()).toBe(true)
     const publicLink = wrapper.find('a[href="/monitor/quality/public"]')
     expect(publicLink.exists()).toBe(true)
     expect(publicLink.attributes('target')).toBe('_blank')

@@ -133,3 +133,24 @@ func TestQualityConversationPublicDisabledAndLegacy(t *testing.T) {
 	require.Nil(t, snapshot.Points[0].Details.Stage1)
 	require.True(t, snapshot.Points[0].HasPreview)
 }
+
+func TestQualityPublicSnapshotOmitsEmptyFailedConversation(t *testing.T) {
+	settings := DefaultAccountQualitySettings()
+	settings.Enabled, settings.PublicEnabled = true, true
+	config, err := json.Marshal(settings)
+	require.NoError(t, err)
+	now := time.Now().UTC()
+	store := &qualityConversationStore{runs: []AccountQualityRun{
+		{ID: "empty-failure", Status: "error", StartedAt: now, FinishedAt: now, Error: "stream ended before response.completed", Details: AccountQualityProbeDetails{Stage1: &AccountQualityStageDetail{Status: "error"}, Stage2: &AccountQualityStageDetail{Status: "error"}}},
+		{ID: "partial-drawing", Status: "wrong", StartedAt: now, FinishedAt: now, Details: AccountQualityProbeDetails{Stage2: &AccountQualityStageDetail{Status: "wrong", Answer: "<svg>", CodeMatch: &AccountQualityCodeMatch{NormalClass: "model_a"}}}},
+	}}
+	svc := &AccountQualityMonitoringService{
+		settingRepo:      &inspectionSettingRepoStub{values: map[string]string{SettingKeyAccountQualitySettings: string(config)}},
+		qualityArtifacts: store,
+	}
+	snapshot, err := svc.GetPublicQualitySnapshot(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, 1, snapshot.Total)
+	require.Len(t, snapshot.Points, 1)
+	require.Equal(t, "partial-drawing", snapshot.Points[0].ID)
+}

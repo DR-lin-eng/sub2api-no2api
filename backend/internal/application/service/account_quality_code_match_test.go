@@ -78,6 +78,36 @@ func TestQualityCodeMatchUsesFullAnswerAndSurvivesPreviewFailure(t *testing.T) {
 	require.Equal(t, point.Details.Stage2.CodeMatch, decoded.Stage2.CodeMatch)
 }
 
+func TestQualityCodeMatchAnalyzesPartialStreamBeforeFailure(t *testing.T) {
+	partial := `<html><body><svg><script>Math.sin(0);requestAnimationFrame(tick)</script>`
+	settings := DefaultAccountQualitySettings()
+	probe := &qualityStageProbeStub{results: []*ScheduledTestResult{{Status: "failed", ResponseText: partial, ErrorMessage: "stream ended before response.completed"}}}
+	svc := &AccountQualityMonitoringService{accountTestSvc: probe}
+	result := svc.runQualityStage(context.Background(), Account{}, settings, "stage2", "drawing")
+	if result.detail.CodeMatch == nil {
+		t.Fatalf("partial failed stream was not analyzed: %+v", result)
+	}
+	require.False(t, result.detail.CodeMatch.SourceComplete)
+	require.Equal(t, "wrong", result.status)
+	require.False(t, result.operational)
+	require.Contains(t, result.errorMessage, "incomplete")
+	require.Equal(t, "unavailable", result.detail.PreviewStatus)
+	require.True(t, result.detail.PreviewHTMLTruncated)
+}
+
+func TestQualityCodeMatchKeepsCompleteFailedStreamAsOperationalError(t *testing.T) {
+	complete := `<html><body><svg></svg>`
+	settings := DefaultAccountQualitySettings()
+	probe := &qualityStageProbeStub{results: []*ScheduledTestResult{{Status: "failed", ResponseText: complete, ErrorMessage: "upstream reset"}}}
+	svc := &AccountQualityMonitoringService{accountTestSvc: probe}
+	result := svc.runQualityStage(context.Background(), Account{}, settings, "stage2", "drawing")
+	require.NotNil(t, result.detail.CodeMatch)
+	require.True(t, result.detail.CodeMatch.SourceComplete)
+	require.Equal(t, "error", result.status)
+	require.True(t, result.operational)
+	require.Contains(t, result.errorMessage, "upstream reset")
+}
+
 func TestQualityCodeMatchRejectsNonDrawingWithoutCallingRenderer(t *testing.T) {
 	for _, source := range []string{"", "no drawing", "<!-- <svg/> -->", `<script>const s="<svg/>";</script>`, "<svg/>" + strings.Repeat("x", 1<<20)} {
 		svc := &AccountQualityMonitoringService{accountTestSvc: &qualityStageProbeStub{responses: []string{source}}}

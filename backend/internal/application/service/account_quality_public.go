@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
@@ -61,6 +62,9 @@ func (s *AccountQualityMonitoringService) GetPublicQualitySnapshot(ctx context.C
 			return nil, listErr
 		}
 		for _, run := range runs {
+			if !hasPublicQualityEvidence(run) {
+				continue
+			}
 			result.Total++
 			switch run.Status {
 			case "ready":
@@ -95,6 +99,9 @@ func (s *AccountQualityMonitoringService) GetPublicQualitySnapshot(ctx context.C
 			if item.ObservedAt.Before(now.Add(-24*time.Hour)) || item.QualityStatus == "" || item.QualityStatus == "disabled" {
 				continue
 			}
+			if strings.TrimSpace(item.QualityError) != "" && item.QualityRunID == "" {
+				continue
+			}
 			result.Total++
 			switch item.QualityStatus {
 			case "healthy":
@@ -110,6 +117,23 @@ func (s *AccountQualityMonitoringService) GetPublicQualitySnapshot(ctx context.C
 		}
 	}
 	return result, nil
+}
+
+// hasPublicQualityEvidence prevents empty upstream failures from becoming
+// clickable conversation cards. Keep legacy rows that have a label or image.
+func hasPublicQualityEvidence(run AccountQualityRun) bool {
+	if run.HasPreview || strings.TrimSpace(run.Label) != "" {
+		return true
+	}
+	for _, detail := range []*AccountQualityStageDetail{run.Details.Stage1, run.Details.Stage2} {
+		if detail == nil {
+			continue
+		}
+		if strings.TrimSpace(detail.Answer) != "" || strings.TrimSpace(detail.ConversationID) != "" || strings.TrimSpace(detail.ResponseID) != "" || detail.CodeMatch != nil || strings.TrimSpace(detail.PreviewHTML) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *AccountQualityMonitoringService) GetPublicQualityImage(ctx context.Context, id, format string) ([]byte, string, error) {

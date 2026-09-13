@@ -75,8 +75,12 @@ func qualityPreviewHTML(source string) (string, bool) {
 	if strings.TrimSpace(source) == "" || len(source) > MaxQualityHTMLBytes {
 		return "", false
 	}
-	if _, err := qualityrender.MatchHTML(source, 0); err != nil {
+	match, err := qualityrender.MatchHTML(source, 0)
+	if err != nil {
 		return "", false
+	}
+	if !match.SourceComplete {
+		return "", true
 	}
 	value := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(source, "```html"), "```"))
 	value = stripQualityPreviewTags(value)
