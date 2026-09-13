@@ -20,7 +20,7 @@ MODIFIED literal result: application/service ok 3.412s; infrastructure/repositor
 DOCKER test command: docker run --rm -v /Users/lin/.codex/worktrees/b443/sub2api-no2api:/src -w /src/backend -e GOCACHE=/tmp/go-cache golang:1.26.6-bookworm sh -lc 'export PATH=/usr/local/go/bin:$PATH; go test ./internal/application/service ./internal/infrastructure/repository ./internal/modules/qualityrender -run "TestQuality|TestAccountQuality|TestMatchHTML" -count=1'
 DOCKER literal result: application/service ok 2.152s; infrastructure/repository ok 0.029s; qualityrender ok 0.004s; exit 0.
 DOCKER image build command: DOCKER_BUILDKIT=0 docker build --target backend-builder -t sub2api-browser-preview-builder:test .
-DOCKER image build result: buildx check was blocked by the local Docker Desktop activity-directory permission; exit 1. No image-build success claimed. Dockerized Go tests passed. Main image Dockerfile now uses Alpine runtime and contains no Python/Chromium/Playwright installation.
+DOCKER image build result: local buildx check was blocked by Docker Desktop activity-directory permission; exit 1. The corresponding PR #61 CI Build and publish image check passed (4m4s). Dockerized Go tests passed. Main image Dockerfile now uses Alpine runtime and contains no Python/Chromium/Playwright installation.
 
 FRONTEND command: cd frontend && pnpm run typecheck && pnpm run lint:check && pnpm exec vitest run src/features/admin-account-quality/__tests__/AccountQualityPage.spec.ts src/features/account-quality/__tests__/AccountQualitySharePage.spec.ts src/features/account-quality/__tests__/QualityPreview.spec.ts
 FRONTEND literal result: vue-tsc passed; eslint passed; 6 tests passed (including QualityPreview sandbox iframe); exit 0.
@@ -29,6 +29,8 @@ DOCS literal result: Documentation checks passed.; exit 0.
 
 ROLLBACK command: cp BASELINE_ACCOUNT_QUALITY.go ROLLBACK_COPY.go; printf '\n' >> ROLLBACK_COPY.go; ./ROLLBACK.sh BASELINE_ACCOUNT_QUALITY.go ROLLBACK_COPY.go
 ROLLBACK literal result: restored: /tmp/quality-browser-render-20260913/ROLLBACK_COPY.go; cmp=0; SHA-256 17483e49906d0f2e7cce017997efece3e5fca41d30da71227095bd7953b69d45; exit 0.
-Restored behavior/status: independent rollback copy is byte-identical to baseline; working tree remains modified for frontend rendering.
+Restored behavior/status: independent rollback copy is byte-identical to baseline; working tree is clean after commit.
 
 Public preview behavior: new records expose bounded CSP-wrapped `preview_html` and render it via `iframe srcdoc` with `sandbox="allow-scripts"`; old records with PNG/WebP still use the existing image endpoint. External URLs, frames, objects, forms and event-handler attributes are stripped; animation scripts remain inline-only.
+
+Publication: PR #61 merged into main at 2026-09-13T03:40:55Z; merge SHA 55e3a6d15f840e0e8114da12a08209df7555844c; implementation branch SHA ab7f00337fa2ee15a4fec3407c99bd8a013eb26d; evidence branch SHA 2bacf965501a9299a35284241cfc96467d122b1b.
