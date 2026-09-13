@@ -82,4 +82,11 @@ Docker 使用 Go `1.26.6-alpine` 运行同一组后端 focused tests，并构建
 
 ## 发布跟踪
 
-提交和推送必须使用 `codex/upstream-sync-20260913`，创建 PR 后以 PR 合并产生的 exact SHA 查询 `gh run list --commit <SHA>`，不得沿用合并前 SHA 的 CI 结果。CI 状态、PR URL、workflow run id 和最终 SHA 在发布后回填本节及验证 artifact。
+提交和推送使用 `codex/upstream-sync-20260913`，PR [#63](https://github.com/DR-lin-eng/sub2api-no2api/pull/63) 已合并。
+
+* PR head：`a70d9bb1d1da7798385d4d0ae5e5b5f50636eb29`
+* 最终 main merge SHA：`a927f948b5e21971f1130c7f2e68cc82e4ab88e1`
+* 合并后 exact-SHA CI：CI run `34763767578`、Docker Image run `34763767598`、Security Scan run `34763767618`，均 `success`。
+* PR head CI：CI run `34763088078`、Docker Image run `34763088133`、Security Scan run `34763088070`，均 `success`；首次 lint 失败 run `34762525761` 已因 3 个 unused 符号修复后取消并由上述 run 重跑通过。
+
+所有状态均以 exact commit 查询，不沿用合并前 SHA 的 CI 结果。完整命令和原始结果见验证 artifact。
