@@ -11,6 +11,7 @@ import (
 
 const FingerprintVersion = "code-fingerprint-v1"
 const DefaultMatchThreshold = 55.0
+const MaxHTMLBytes = 1 << 20
 
 // CodeMatch is a weighted source-code similarity score, not a probability or
 // proof of model identity. Signal names, weights and case sensitivity mirror

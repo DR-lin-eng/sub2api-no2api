@@ -1,13 +1,13 @@
 Changed branch: codex/account-quality-source-group
-Changed field: account_quality stage2 classifier -> Go HTML/SVG code fingerprint (code-fingerprint-v1), with configurable code_match_threshold and code_match_normal_class; embedded Chromium renderer remains preview-only.
+Changed field: account_quality stage2 classifier -> Go HTML/SVG code fingerprint (code-fingerprint-v1), with configurable code_match_threshold and code_match_normal_class; frontend sandbox iframe renders preview HTML; backend is matcher-only.
 
 Source files changed:
 - backend/internal/modules/qualityrender/fingerprint.go (9 weighted signals, structural title/desc matching)
-- backend/internal/modules/qualityrender/processor.go and assets/worker.py (PNG/WebP preview only)
+- backend/internal/modules/qualityrender/fingerprint.go and backend/internal/application/service/account_quality_conversation.go (bounded preview_html for frontend)
 - backend/internal/application/service/account_quality_code_match.go (verdict integration)
 - backend/internal/application/service/account_quality_monitoring.go (settings)
 - frontend/src/features/admin-account-quality/ (threshold/class controls)
 - frontend/src/features/account-quality/ (public score/signals/preview status)
 
-Legacy min_confidence and non-empty ACCOUNT_QUALITY_RENDERER_URL remain compatible; legacy renderer output label/confidence is ignored for grading.
+Legacy min_confidence and renderer environment fields remain API-compatible, but no backend renderer is invoked; old PNG/WebP records remain readable.
 MODIFIED_FILE intentionally remains changed; rollback is tested on /tmp/quality-code-match-20260913/ROLLBACK_COPY.go.

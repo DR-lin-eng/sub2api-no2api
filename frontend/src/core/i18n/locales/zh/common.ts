@@ -150,6 +150,7 @@ export default {
       codeMatchHint: '根据生成代码的结构特征评分，表示代码相似度。',
       matchedSignals: '命中特征',
       previewFailed: '预览生成失败，代码匹配结果已保留。',
+      previewUnavailable: '预览将在浏览器中生成。',
       signals: { trig: '三角函数与逐帧动画', reuse: 'SVG 组件复用', motion: '减少动态效果支持', pause: '播放／暂停按钮', title: 'SVG 标题与说明', visibility: '页面可见性监听', naming: '多词连字符命名', palette: '无 :root 样式声明', scene: '无指定的 HTML 背景类' },
       reasoningTokens: "Reasoning tokens",
       due: "等待下一轮",

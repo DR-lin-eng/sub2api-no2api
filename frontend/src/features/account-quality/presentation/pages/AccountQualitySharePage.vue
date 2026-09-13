@@ -43,7 +43,7 @@
           <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <article v-for="(point, index) in visiblePoints" :key="point.id || index" class="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-dark-700 dark:bg-dark-800">
               <div class="flex items-center justify-between gap-2 px-4 py-3"><time class="text-xs text-slate-500">{{ qualityTime(point.started_at) }}</time><span class="flex items-center gap-1.5 text-xs"><i class="h-1.5 w-1.5 rounded-full" :class="verdictColor[qualityVerdict(point)]" />{{ verdictLabel(point) }}</span></div>
-              <button v-if="hasPreview(point)" class="block w-full px-3" :aria-label="t('common.accountQuality.enlarge')" @click="selected = point"><QualityPreview :point="point" /></button>
+              <div v-if="hasPreview(point)" class="block w-full px-3" role="button" tabindex="0" :aria-label="t('common.accountQuality.enlarge')" @click="selected = point" @keydown.enter="selected = point"><QualityPreview :point="point" /></div>
               <div class="space-y-3 p-4">
                 <div class="text-xs"><p class="text-slate-500">{{ t('common.accountQuality.conversationId') }}</p><p class="mt-1 break-all font-mono">{{ point.details?.stage1?.conversation_id || point.details?.stage2?.conversation_id || t('common.accountQuality.idUnavailable') }}</p></div>
                 <div><p class="text-xs text-slate-500">{{ t('common.accountQuality.answer') }}</p><p class="mt-1 line-clamp-3 whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">{{ point.details?.stage1?.answer || point.details?.stage2?.answer || t('common.accountQuality.noAnswer') }}</p></div>

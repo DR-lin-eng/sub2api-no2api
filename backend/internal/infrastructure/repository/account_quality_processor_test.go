@@ -5,10 +5,13 @@ import (
 	"testing"
 )
 
-func TestQualityProcessorDefaultsToEmbeddedWithoutChangingConfiguration(t *testing.T) {
+func TestQualityProcessorDefaultsToBrowserRendering(t *testing.T) {
 	t.Setenv("ACCOUNT_QUALITY_RENDERER_URL", "")
 	t.Setenv("ACCOUNT_QUALITY_RENDERER_TOKEN", "")
-	require.IsType(t, &embeddedAccountQualityProcessor{}, NewAccountQualityArtifactProcessor())
+	require.Nil(t, NewAccountQualityArtifactProcessor())
+}
+
+func TestQualityProcessorKeepsLegacyRemoteAdapterForCompatibility(t *testing.T) {
 	t.Setenv("ACCOUNT_QUALITY_RENDERER_URL", "http://existing-renderer:8090/")
 	t.Setenv("ACCOUNT_QUALITY_RENDERER_TOKEN", "existing-token")
 	p, ok := NewAccountQualityArtifactProcessor().(*httpAccountQualityArtifactProcessor)

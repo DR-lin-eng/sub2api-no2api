@@ -119,6 +119,13 @@ func (s *AccountQualityMonitoringService) runQualityStage(ctx context.Context, a
 	}
 	outcome.latencyMs, outcome.reasoningTokens = probe.LatencyMs, probe.ReasoningTokens
 	outcome.detail = qualityStageDetail(probe)
+	if stage != "stage2" {
+		// Stage 1 is a text answer; never expose an accidental SVG-looking
+		// substring from that answer as executable preview content.
+		outcome.detail.PreviewHTML = ""
+		outcome.detail.PreviewHTMLTruncated = false
+		outcome.detail.PreviewStatus = "unavailable"
+	}
 	if probe.Status != "success" {
 		outcome.errorMessage = strings.TrimSpace(probe.ErrorMessage)
 		if outcome.errorMessage == "" {

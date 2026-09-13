@@ -9,7 +9,6 @@
 ARG NODE_IMAGE=node:24-alpine
 ARG GOLANG_IMAGE=golang:1.26.6-alpine
 ARG ALPINE_IMAGE=alpine:3.20
-ARG QUALITY_RUNTIME_IMAGE=python:3.11-slim-bookworm
 ARG GOPROXY=https://goproxy.cn,direct
 ARG GOSUMDB=sum.golang.google.cn
 
@@ -84,50 +83,20 @@ RUN VERSION_VALUE="${VERSION}" && \
 # -----------------------------------------------------------------------------
 # Stage 3: Final Runtime Image
 # -----------------------------------------------------------------------------
-FROM ${QUALITY_RUNTIME_IMAGE} AS quality-runtime
-
-# Labels
+FROM ${ALPINE_IMAGE}
 LABEL maintainer="DR-lin-eng <github.com/DR-lin-eng>"
 LABEL description="Sub2API - AI API Gateway Platform"
 LABEL org.opencontainers.image.source="https://github.com/DR-lin-eng/sub2api-no2api"
-
-# Build-time dependencies for the in-process quality module. No sidecar, URL,
-# runtime installer, or changes to existing Compose/environment are required.
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates tzdata curl wget gosu libpq5 libldap-2.5-0 libkrb5-3 liblz4-1 libzstd1 libedit2 \
-    && ln -s /usr/sbin/gosu /usr/local/bin/su-exec \
-    && rm -rf /var/lib/apt/lists/*
-COPY backend/resources/quality-renderer/requirements.txt /opt/quality-renderer/requirements.txt
-RUN pip install --no-cache-dir -r /opt/quality-renderer/requirements.txt \
-    && playwright install --with-deps chromium \
-    && chmod -R a+rX /ms-playwright && rm -rf /var/lib/apt/lists/*
-
-# Create non-root user
-RUN groupadd -g 1000 sub2api && \
-    useradd -u 1000 -g sub2api -m -s /bin/sh sub2api
-
-# Set working directory
+RUN apk add --no-cache ca-certificates tzdata curl su-exec && rm -rf /var/cache/apk/*
+RUN addgroup -g 1000 sub2api && adduser -u 1000 -G sub2api -s /bin/sh -D sub2api
 WORKDIR /app
-
-# Copy binary and runtime fallback resources from builder
 COPY --from=backend-builder /app/sub2api /app/sub2api
 COPY --from=backend-builder --chown=sub2api:sub2api /app/backend/resources /app/resources
-
-# Create data directory
 RUN mkdir -p /app/data && chown -R sub2api:sub2api /app
-
-# Copy entrypoint script (fixes volume permissions then drops to sub2api)
 COPY deploy/docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
-
-# Expose port (can be overridden by SERVER_PORT env var)
 EXPOSE 8080
-
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD wget -q -T 5 -O /dev/null http://localhost:${SERVER_PORT:-8080}/ready || exit 1
-
-# Run the application (entrypoint fixes /app/data ownership then execs as sub2api)
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["/app/sub2api"]

@@ -4,22 +4,27 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/gin-gonic/gin"
+	"regexp"
 	"strings"
 	"sync"
 	"unicode/utf8"
+
+	"github.com/Wei-Shaw/sub2api/internal/modules/qualityrender"
 )
 
 // Only final answers and provider identifiers are retained. Never copy request
 // bodies, credentials, errors, or reasoning text into this public projection.
 type AccountQualityStageDetail struct {
-	CodeMatch       *AccountQualityCodeMatch `json:"code_match,omitempty"`
-	PreviewStatus   string                   `json:"preview_status,omitempty"`
-	Status          string                   `json:"status"`
-	ConversationID  string                   `json:"conversation_id,omitempty"`
-	ResponseID      string                   `json:"response_id,omitempty"`
-	Answer          string                   `json:"answer"`
-	AnswerTruncated bool                     `json:"answer_truncated,omitempty"`
-	ReasoningTokens *int64                   `json:"reasoning_tokens,omitempty"`
+	CodeMatch            *AccountQualityCodeMatch `json:"code_match,omitempty"`
+	PreviewStatus        string                   `json:"preview_status,omitempty"`
+	PreviewHTML          string                   `json:"preview_html,omitempty"`
+	PreviewHTMLTruncated bool                     `json:"preview_html_truncated,omitempty"`
+	Status               string                   `json:"status"`
+	ConversationID       string                   `json:"conversation_id,omitempty"`
+	ResponseID           string                   `json:"response_id,omitempty"`
+	Answer               string                   `json:"answer"`
+	AnswerTruncated      bool                     `json:"answer_truncated,omitempty"`
+	ReasoningTokens      *int64                   `json:"reasoning_tokens,omitempty"`
 }
 
 type AccountQualityProbeDetails struct {
@@ -53,7 +58,58 @@ func markQualityProbeOutputForContext(c *gin.Context) {
 
 func qualityStageDetail(probe *ScheduledTestResult) AccountQualityStageDetail {
 	answer, truncated := boundedQualityText(probe.ResponseText, 16384)
-	return AccountQualityStageDetail{ConversationID: qualityProviderID(probe.ConversationID), ResponseID: qualityProviderID(probe.ResponseID), Answer: answer, AnswerTruncated: truncated, ReasoningTokens: probe.ReasoningTokens}
+	preview, previewTruncated := qualityPreviewHTML(probe.ResponseText)
+	status := "unavailable"
+	if preview != "" {
+		status = "ready"
+	}
+	return AccountQualityStageDetail{ConversationID: qualityProviderID(probe.ConversationID), ResponseID: qualityProviderID(probe.ResponseID), Answer: answer, AnswerTruncated: truncated, ReasoningTokens: probe.ReasoningTokens, PreviewHTML: preview, PreviewHTMLTruncated: previewTruncated, PreviewStatus: status}
+}
+
+// qualityPreviewHTML returns a bounded, self-contained document for the
+// browser sandbox. Scripts remain available for animation, while navigation,
+// external resources and event-handler attributes are removed. The source used
+// for grading is never truncated; only the public preview is bounded.
+func qualityPreviewHTML(source string) (string, bool) {
+	const maxPreviewBytes = 256 << 10
+	if strings.TrimSpace(source) == "" || len(source) > MaxQualityHTMLBytes {
+		return "", false
+	}
+	if _, err := qualityrender.MatchHTML(source, 0); err != nil {
+		return "", false
+	}
+	value := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(source, "```html"), "```"))
+	value = stripQualityPreviewTags(value)
+	if len([]byte(value)) > maxPreviewBytes {
+		return "", true
+	}
+	return `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; media-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'>` + value, false
+}
+
+const MaxQualityHTMLBytes = 1 << 20
+
+var (
+	qualityPreviewTagPattern   = regexp.MustCompile(`(?is)<(?:iframe|object|embed|base|link|form)\b[^>]*>.*?</(?:iframe|object|embed|base|link|form)\s*>|<(?:iframe|object|embed|base|link|form)\b[^>]*/?>`)
+	qualityPreviewEventPattern = regexp.MustCompile(`(?i)\s+on[a-z0-9_-]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)`)
+	qualityPreviewURLPattern   = regexp.MustCompile(`(?i)\s+(src|href|xlink:href)\s*=\s*("([^"]*)"|'([^']*)')`)
+	qualityPreviewMetaPattern  = regexp.MustCompile(`(?is)<meta\b[^>]*>`)
+)
+
+func stripQualityPreviewTags(value string) string {
+	value = qualityPreviewTagPattern.ReplaceAllString(value, "")
+	value = qualityPreviewEventPattern.ReplaceAllString(value, "")
+	value = qualityPreviewMetaPattern.ReplaceAllString(value, "")
+	return qualityPreviewURLPattern.ReplaceAllStringFunc(value, func(attribute string) string {
+		match := qualityPreviewURLPattern.FindStringSubmatch(attribute)
+		url := match[3]
+		if url == "" {
+			url = match[4]
+		}
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(url)), "#") || strings.HasPrefix(strings.ToLower(strings.TrimSpace(url)), "data:") {
+			return attribute
+		}
+		return ""
+	})
 }
 
 func boundedQualityText(text string, limit int) (string, bool) {

@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"math"
 	"strings"
 	"testing"
@@ -14,12 +13,6 @@ import (
 
 // 55 points: baseline 15 + trig 20 + reduced motion 12 + visibility 8.
 const modelAHTML = `<svg/><script>Math.sin(0);requestAnimationFrame(tick);matchMedia("prefers-reduced-motion");document.addEventListener("visibilitychange",()=>{});</script>`
-
-type qualityPreviewFailure struct{}
-
-func (qualityPreviewFailure) Process(context.Context, string) (*QualityArtifact, error) {
-	return nil, errors.New("preview runtime error")
-}
 
 func TestQualityCodeMatchOverridesLegacyClassifierAndRetainsPreview(t *testing.T) {
 	for _, tc := range []struct {
@@ -37,15 +30,12 @@ func TestQualityCodeMatchOverridesLegacyClassifierAndRetainsPreview(t *testing.T
 			settings.CodeMatchThreshold, settings.CodeMatchNormalClass = tc.threshold, tc.normalClass
 			settings.MinConfidence = 1 // Never applies to code similarity.
 			probe := &qualityStageProbeStub{responses: []string{tc.source}}
-			preview := &qualityStageProcessorStub{}
-			svc := &AccountQualityMonitoringService{accountTestSvc: probe, qualityProcessor: preview}
+			svc := &AccountQualityMonitoringService{accountTestSvc: probe}
 			result := svc.runQualityStage(context.Background(), Account{}, settings, "stage2", "drawing")
 			require.Equal(t, tc.status, result.status)
 			require.False(t, result.operational)
-			require.Equal(t, 1, preview.calls)
 			require.Equal(t, "ready", result.detail.PreviewStatus)
-			require.Equal(t, []byte("preview png"), result.artifact.PNG)
-			require.Equal(t, []byte("preview webp"), result.artifact.WebP)
+			require.NotEmpty(t, result.detail.PreviewHTML)
 			require.Equal(t, "code-fingerprint-v1", result.artifact.ModelVersion)
 			require.Zero(t, result.artifact.Confidence)
 			require.Equal(t, tc.threshold, result.detail.CodeMatch.Threshold)
@@ -63,8 +53,8 @@ func TestQualityCodeMatchUsesFullAnswerAndSurvivesPreviewFailure(t *testing.T) {
 	svc := &AccountQualityMonitoringService{
 		accountRepo:      &qualityRepoStub{extra: map[int64]map[string]any{}},
 		accountTestSvc:   &qualityStageProbeStub{responses: []string{source}},
-		qualityProcessor: qualityPreviewFailure{}, qualityArtifacts: store,
-		settingRepo: &inspectionSettingRepoStub{values: map[string]string{SettingKeyAccountQualitySettings: string(raw)}},
+		qualityArtifacts: store,
+		settingRepo:      &inspectionSettingRepoStub{values: map[string]string{SettingKeyAccountQualitySettings: string(raw)}},
 	}
 	account := Account{ID: 10, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive}
 	rows := []AccountInspectionAccountResult{{AccountID: 10}}
@@ -72,12 +62,13 @@ func TestQualityCodeMatchUsesFullAnswerAndSurvivesPreviewFailure(t *testing.T) {
 	require.Equal(t, "healthy", rows[0].QualityStatus)
 	require.Equal(t, 55.0, rows[0].QualityCodeMatch.Score)
 	require.Equal(t, "ready", store.runs[0].Status)
+	require.NotEmpty(t, store.runs[0].Details.Stage2.PreviewHTML)
 	snapshot, err := svc.GetPublicQualitySnapshot(context.Background())
 	require.NoError(t, err)
 	point := snapshot.Points[0]
-	require.False(t, point.HasPreview)
+	require.True(t, point.HasPreview)
 	require.True(t, point.Details.Stage2.AnswerTruncated)
-	require.Equal(t, "error", point.Details.Stage2.PreviewStatus)
+	require.Equal(t, "ready", point.Details.Stage2.PreviewStatus)
 	require.Equal(t, 55.0, point.Details.Stage2.CodeMatch.Score)
 	// Verify the JSONB/public projection retains the complete matching evidence.
 	encoded, err := json.Marshal(point.Details)
@@ -89,13 +80,11 @@ func TestQualityCodeMatchUsesFullAnswerAndSurvivesPreviewFailure(t *testing.T) {
 
 func TestQualityCodeMatchRejectsNonDrawingWithoutCallingRenderer(t *testing.T) {
 	for _, source := range []string{"", "no drawing", "<!-- <svg/> -->", `<script>const s="<svg/>";</script>`, "<svg/>" + strings.Repeat("x", 1<<20)} {
-		preview := &qualityStageProcessorStub{}
-		svc := &AccountQualityMonitoringService{accountTestSvc: &qualityStageProbeStub{responses: []string{source}}, qualityProcessor: preview}
+		svc := &AccountQualityMonitoringService{accountTestSvc: &qualityStageProbeStub{responses: []string{source}}}
 		result := svc.runQualityStage(context.Background(), Account{}, DefaultAccountQualitySettings(), "stage2", "drawing")
 		require.Equal(t, "error", result.status)
 		require.True(t, result.operational)
 		require.Nil(t, result.detail.CodeMatch)
-		require.Zero(t, preview.calls)
 	}
 }
 

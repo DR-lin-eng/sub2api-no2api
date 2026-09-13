@@ -129,13 +129,6 @@ func (p *qualityStageProbeStub) RunQualityTestBackground(_ context.Context, _ in
 	return &ScheduledTestResult{Status: "success", ResponseText: response}, nil
 }
 
-type qualityStageProcessorStub struct{ calls int }
-
-func (p *qualityStageProcessorStub) Process(context.Context, string) (*QualityArtifact, error) {
-	p.calls++
-	return &QualityArtifact{Label: "normal", Confidence: 0.99, PNG: []byte("preview png"), WebP: []byte("preview webp")}, nil
-}
-
 func TestQualityStagesCanRunIndependently(t *testing.T) {
 	account := Account{ID: 9, Name: "quality", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
 	results := func() []AccountInspectionAccountResult {
@@ -152,14 +145,12 @@ func TestQualityStagesCanRunIndependently(t *testing.T) {
 	require.Equal(t, "disabled", stage1Results[0].QualityStage2Status)
 
 	stage2Probe := &qualityStageProbeStub{responses: []string{modelAHTML}}
-	stage2Processor := &qualityStageProcessorStub{}
-	stage2Svc := &AccountQualityMonitoringService{accountRepo: &qualityRepoStub{extra: map[int64]map[string]any{}}, accountTestSvc: stage2Probe, qualityProcessor: stage2Processor}
+	stage2Svc := &AccountQualityMonitoringService{accountRepo: &qualityRepoStub{extra: map[int64]map[string]any{}}, accountTestSvc: stage2Probe}
 	stage2Settings := DefaultAccountQualitySettings()
 	stage2Settings.Stage1Enabled = false
 	stage2Results := results()
 	require.NoError(t, stage2Svc.runQualityMonitoring(context.Background(), []Account{account}, stage2Results, nil, stage2Settings, time.Now().UTC()))
 	require.Len(t, stage2Probe.prompts, 1)
-	require.Equal(t, 1, stage2Processor.calls)
 	require.Equal(t, "disabled", stage2Results[0].QualityStage1Status)
 	require.Equal(t, "passed", stage2Results[0].QualityStage2Status)
 }
@@ -215,7 +206,7 @@ func TestStartNowReturnsRunningStateBeforeLongProbeCompletes(t *testing.T) {
 func TestQualityProgressCallbackTracksAccountStageAndCompletion(t *testing.T) {
 	account := Account{ID: 14, Name: "progress-account", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
 	probe := &qualityStageProbeStub{responses: []string{"21", "<svg/>"}}
-	svc := &AccountQualityMonitoringService{accountRepo: &qualityRepoStub{extra: map[int64]map[string]any{}}, accountTestSvc: probe, qualityProcessor: &qualityStageProcessorStub{}}
+	svc := &AccountQualityMonitoringService{accountRepo: &qualityRepoStub{extra: map[int64]map[string]any{}}, accountTestSvc: probe}
 	settings := DefaultAccountQualitySettings()
 	results := []AccountInspectionAccountResult{neutralAccountInspectionResult(&account, time.Now().UTC())}
 	var events []string
@@ -223,7 +214,7 @@ func TestQualityProgressCallbackTracksAccountStageAndCompletion(t *testing.T) {
 		events = append(events, fmt.Sprintf("%d:%s:%t", index, stage, done))
 	}
 	require.NoError(t, svc.runQualityMonitoring(context.Background(), []Account{account}, results, nil, settings, time.Now().UTC(), progress))
-	require.Equal(t, []string{"0:stage1:false", "0:stage2:false", "0:rendering:false", "0:saving:false", "0:complete:true"}, events)
+	require.Equal(t, []string{"0:stage1:false", "0:stage2:false", "0:saving:false", "0:complete:true"}, events)
 }
 
 func TestQualityStageOneNonTwentyOneIsDegraded(t *testing.T) {

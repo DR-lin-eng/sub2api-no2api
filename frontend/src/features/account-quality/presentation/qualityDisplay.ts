@@ -20,7 +20,7 @@ export function previewURL(point: AccountQualityPublicPoint): string {
   return `/api/v1/account-quality-share/image/${encodeURIComponent(point.id)}?format=webp`
 }
 export function hasPreview(point: AccountQualityPublicPoint): boolean {
-  return !!point.id && (point.has_preview ?? ['ready', 'wrong'].includes(point.status))
+  return !!point.id && (!!point.details?.stage2?.preview_html || (point.has_preview ?? ['ready', 'wrong'].includes(point.status)))
 }
 export function qualityTime(value?: string): string {
   if (!value || Number.isNaN(Date.parse(value))) return '—'

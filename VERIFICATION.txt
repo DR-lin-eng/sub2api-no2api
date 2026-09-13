@@ -1,4 +1,4 @@
-Changed branch/fields: codex/account-quality-source-group; stage2 code-match algorithm, configurable threshold/normal class, embedded PNG/WebP preview retention.
+Changed branch/fields: codex/account-quality-source-group; removed embedded Chromium/Python preview renderer from the main image, moved stage-2 HTML/SVG preview rendering to the frontend sandbox iframe, retained Go code matching and historical PNG/WebP fallback.
 
 Artifacts (absolute paths):
 - /Users/lin/.codex/worktrees/b443/sub2api-no2api/MODIFIED_FILE
@@ -6,25 +6,29 @@ Artifacts (absolute paths):
 - /Users/lin/.codex/worktrees/b443/sub2api-no2api/VERIFICATION.txt
 - /Users/lin/.codex/worktrees/b443/sub2api-no2api/ROLLBACK.sh
 
-BASELINE command: git show HEAD:backend/internal/application/service/account_quality_monitoring.go > /tmp/quality-code-match-20260913/BASELINE_QUALITY_MONITORING.go && shasum -a 256 /tmp/quality-code-match-20260913/BASELINE_QUALITY_MONITORING.go
-BASELINE literal result: 5151cac98bc1d21bc62bb0aa02064ed2a5eb88ac04c468a5cd2be5171dbc719a  /tmp/quality-code-match-20260913/BASELINE_QUALITY_MONITORING.go; 30289 bytes; exit 0.
-MODIFIED command: cp backend/internal/application/service/account_quality_monitoring.go /tmp/quality-code-match-20260913/MODIFIED_QUALITY_MONITORING.go && shasum -a 256 /tmp/quality-code-match-20260913/MODIFIED_QUALITY_MONITORING.go
-MODIFIED literal result: e980542b397efb715b593e7f5be378047c03c84cfd75e4cebb822771f10cd84c  /tmp/quality-code-match-20260913/MODIFIED_QUALITY_MONITORING.go; 31361 bytes; exit 0.
+BASELINE command: git show d52ad860d:backend/internal/application/service/account_quality_conversation.go > /tmp/quality-browser-render-20260913/BASELINE_ACCOUNT_QUALITY.go && shasum -a 256 /tmp/quality-browser-render-20260913/BASELINE_ACCOUNT_QUALITY.go
+BASELINE literal result: 17483e49906d0f2e7cce017997efece3e5fca41d30da71227095bd7953b69d45; 4284 bytes; exit 0.
+MODIFIED command: cp backend/internal/application/service/account_quality_conversation.go /tmp/quality-browser-render-20260913/MODIFIED_ACCOUNT_QUALITY.go && shasum -a 256 /tmp/quality-browser-render-20260913/MODIFIED_ACCOUNT_QUALITY.go
+MODIFIED literal result: e2287358244e80affc59f91ddc6dc413ebb5848d0ab59de7d61aefa1407bf28d; 7033 bytes; exit 0.
 
-BASELINE test command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/modules/qualityrender ./internal/application/service ./internal/infrastructure/repository -run 'TestQuality|TestAccountQuality|TestMatchHTML' -count=1
-BASELINE test result: pre-change reference run passed existing module/service/repository suites; exit 0.
-MODIFIED test command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/modules/qualityrender ./internal/application/service ./internal/infrastructure/repository -run 'TestQuality|TestAccountQuality|TestMatchHTML' -count=1
-MODIFIED literal result: ok qualityrender; ok application/service; ok infrastructure/repository; exit 0.
+BASELINE test command: (git archive d52ad860d | tar -x -C /tmp/quality-browser-render-20260913/baseline-src) && cd /tmp/quality-browser-render-20260913/baseline-src/backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/infrastructure/repository ./internal/modules/qualityrender -run 'TestQuality|TestAccountQuality|TestMatchHTML' -count=1
+BASELINE literal result: qualityrender ok 0.680s; application/service ok 3.420s; infrastructure/repository ok 1.126s; exit 0.
 
-FRONTEND command: cd frontend && pnpm run typecheck && pnpm run lint:check && pnpm exec vitest run src/features/admin-account-quality/__tests__/AccountQualityPage.spec.ts src/features/account-quality/__tests__/AccountQualitySharePage.spec.ts
-FRONTEND literal result: vue-tsc passed; eslint passed; 4 tests passed; exit 0.
+MODIFIED test command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/infrastructure/repository ./internal/modules/qualityrender -run 'TestQuality|TestAccountQuality|TestMatchHTML' -count=1
+MODIFIED literal result: application/service ok 3.412s; infrastructure/repository ok 1.050s; qualityrender ok 0.566s; exit 0.
+
+DOCKER test command: docker run --rm -v /Users/lin/.codex/worktrees/b443/sub2api-no2api:/src -w /src/backend -e GOCACHE=/tmp/go-cache golang:1.26.6-bookworm sh -lc 'export PATH=/usr/local/go/bin:$PATH; go test ./internal/application/service ./internal/infrastructure/repository ./internal/modules/qualityrender -run "TestQuality|TestAccountQuality|TestMatchHTML" -count=1'
+DOCKER literal result: application/service ok 2.152s; infrastructure/repository ok 0.029s; qualityrender ok 0.004s; exit 0.
+DOCKER image build command: DOCKER_BUILDKIT=0 docker build --target backend-builder -t sub2api-browser-preview-builder:test .
+DOCKER image build result: buildx check was blocked by the local Docker Desktop activity-directory permission; exit 1. No image-build success claimed. Dockerized Go tests passed. Main image Dockerfile now uses Alpine runtime and contains no Python/Chromium/Playwright installation.
+
+FRONTEND command: cd frontend && pnpm run typecheck && pnpm run lint:check && pnpm exec vitest run src/features/admin-account-quality/__tests__/AccountQualityPage.spec.ts src/features/account-quality/__tests__/AccountQualitySharePage.spec.ts src/features/account-quality/__tests__/QualityPreview.spec.ts
+FRONTEND literal result: vue-tsc passed; eslint passed; 6 tests passed (including QualityPreview sandbox iframe); exit 0.
 DOCS command: make check-docs
 DOCS literal result: Documentation checks passed.; exit 0.
-DOCKER command: docker build --target backend-builder -t sub2api-code-match-builder:test .
-DOCKER literal result: Docker daemon activity directory denied by host; exit 1. No image/build claim made. A Dockerized Go test was run with golang:1.26.6-bookworm and all selected packages passed; exit 0.
 
-ROLLBACK command: cp BASELINE_QUALITY_MONITORING.go ROLLBACK_COPY.go; printf '\n' >> ROLLBACK_COPY.go; ./ROLLBACK.sh BASELINE_QUALITY_MONITORING.go ROLLBACK_COPY.go
-ROLLBACK literal result: restored: /tmp/quality-code-match-20260913/ROLLBACK_COPY.go; cmp=0; restored SHA-256 5151cac98bc1d21bc62bb0aa02064ed2a5eb88ac04c468a5cd2be5171dbc719a; exit 0.
-Restored behavior/status: independent rollback copy is byte-identical to BASELINE; working tree remains on the modified code-match branch.
+ROLLBACK command: cp BASELINE_ACCOUNT_QUALITY.go ROLLBACK_COPY.go; printf '\n' >> ROLLBACK_COPY.go; ./ROLLBACK.sh BASELINE_ACCOUNT_QUALITY.go ROLLBACK_COPY.go
+ROLLBACK literal result: restored: /tmp/quality-browser-render-20260913/ROLLBACK_COPY.go; cmp=0; SHA-256 17483e49906d0f2e7cce017997efece3e5fca41d30da71227095bd7953b69d45; exit 0.
+Restored behavior/status: independent rollback copy is byte-identical to baseline; working tree remains modified for frontend rendering.
 
-Public preview regression: existing AccountQualitySharePage tests passed; PNG/WebP preview contract and image enlargement path remain unchanged. New code-match evidence is shown in admin/public detail cards.
+Public preview behavior: new records expose bounded CSP-wrapped `preview_html` and render it via `iframe srcdoc` with `sandbox="allow-scripts"`; old records with PNG/WebP still use the existing image endpoint. External URLs, frames, objects, forms and event-handler attributes are stripped; animation scripts remain inline-only.
