@@ -87,6 +87,98 @@ func TestOpenAIWSConnLease_WriteJSONAndGuards(t *testing.T) {
 	require.ErrorIs(t, err, errOpenAIWSConnClosed)
 }
 
+type openAIWSReaderLoopTestConn struct {
+	readStarted chan struct{}
+	readQueue   chan []byte
+	closeCh     chan struct{}
+	closeOnce   sync.Once
+}
+
+func newOpenAIWSReaderLoopTestConn() *openAIWSReaderLoopTestConn {
+	return &openAIWSReaderLoopTestConn{
+		readStarted: make(chan struct{}),
+		readQueue:   make(chan []byte, 2),
+		closeCh:     make(chan struct{}),
+	}
+}
+
+func (*openAIWSReaderLoopTestConn) RequiresReaderLoop() bool             { return true }
+func (*openAIWSReaderLoopTestConn) WriteJSON(context.Context, any) error { return nil }
+func (*openAIWSReaderLoopTestConn) Ping(context.Context) error           { return nil }
+func (c *openAIWSReaderLoopTestConn) ReadMessage(ctx context.Context) ([]byte, error) {
+	select {
+	case <-c.readStarted:
+	default:
+		close(c.readStarted)
+	}
+	select {
+	case payload := <-c.readQueue:
+		return payload, nil
+	case <-c.closeCh:
+		return nil, errors.New("reader closed")
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+func (c *openAIWSReaderLoopTestConn) Close() error {
+	c.closeOnce.Do(func() { close(c.closeCh) })
+	return nil
+}
+
+func TestOpenAIWSConnReaderLoopKeepsControlReadAndHandsOffPayload(t *testing.T) {
+	ws := newOpenAIWSReaderLoopTestConn()
+	conn := newOpenAIWSConn("reader-loop", 1, ws, nil)
+	defer conn.close()
+	require.Eventually(t, func() bool {
+		select {
+		case <-ws.readStarted:
+			return true
+		default:
+			return false
+		}
+	}, time.Second, time.Millisecond)
+	require.True(t, conn.tryAcquire())
+	ws.readQueue <- []byte(`{"type":"response.completed"}`)
+	payload, err := conn.readMessageWithTimeout(time.Second)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"type":"response.completed"}`, string(payload))
+	conn.release()
+}
+
+func TestOpenAIWSConnReaderLoopRejectsDirtyIdleConnection(t *testing.T) {
+	ws := newOpenAIWSReaderLoopTestConn()
+	conn := newOpenAIWSConn("reader-loop-dirty", 1, ws, nil)
+	defer conn.close()
+	require.Eventually(t, func() bool {
+		select {
+		case <-ws.readStarted:
+			return true
+		default:
+			return false
+		}
+	}, time.Second, time.Millisecond)
+	ws.readQueue <- []byte(`{"type":"response.output_text.delta","delta":"stale"}`)
+	require.Eventually(t, func() bool { return conn.readerLoopPending() }, time.Second, time.Millisecond)
+	require.False(t, conn.tryAcquire())
+	require.True(t, conn.isUnusable())
+}
+
+func TestOpenAIWSConnAcquireOrPoolChangedWakesOnTopologyChange(t *testing.T) {
+	conn := newOpenAIWSConn("queue-wake", 1, &openAIWSFakeConn{}, nil)
+	require.True(t, conn.tryAcquire(), "occupy the only lease token")
+	changed := make(chan struct{})
+	done := make(chan error, 1)
+	go func() { done <- conn.acquireOrPoolChanged(context.Background(), changed) }()
+	close(changed)
+	select {
+	case err := <-done:
+		require.ErrorIs(t, err, errOpenAIWSPoolChanged)
+	case <-time.After(time.Second):
+		t.Fatal("queue waiter was not woken by account-pool change")
+	}
+	conn.release()
+}
+
 func TestOpenAIWSConn_WriteJSONWithTimeout_NilParentContextUsesBackground(t *testing.T) {
 	probe := &openAIWSContextProbeConn{}
 	conn := newOpenAIWSConn("ctx_probe", 1, probe, nil)
@@ -976,7 +1068,10 @@ func TestOpenAIWSConnPool_EffectiveMaxConnsByAccount_ModeRouterV2RespectsHardCap
 	pool := newOpenAIWSConnPool(cfg)
 
 	high := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Concurrency: 20}
-	require.Equal(t, 8, pool.effectiveMaxConnsByAccount(high), "v2 路径也必须受连接池硬上限约束")
+	require.Equal(t, 6, pool.effectiveMaxConnsByAccount(high), "v2 路径应沿用显式账号类型系数")
+
+	low := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 3}
+	require.Equal(t, 2, pool.effectiveMaxConnsByAccount(low), "v2 路径应向上取整显式系数结果")
 
 	nonPositive := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 0}
 	require.Equal(t, 0, pool.effectiveMaxConnsByAccount(nonPositive), "并发数<=0 时应不可调度")

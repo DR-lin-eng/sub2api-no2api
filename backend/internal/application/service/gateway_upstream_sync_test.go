@@ -47,6 +47,17 @@ func TestUpstreamSyncGeminiPriceAliases(t *testing.T) {
 	require.Equal(t, "gemini-9-flash-high", normalizeGeminiThinkingTierAlias("gemini-9-flash-high"))
 }
 
+func TestUpstreamSyncGeminiFlashFallbackPricing(t *testing.T) {
+	svc := &BillingService{fallbackPrices: make(map[string]*ModelPricing)}
+	svc.initFallbackPricing()
+	for _, model := range []string{"gemini-3.7-flash", "gemini-3.7-flash-high", "gemini-3.8-flash", "gemini-3.8-flash-tiered"} {
+		price := svc.getFallbackPricing(model)
+		require.NotNil(t, price)
+		require.Equal(t, 0.75e-6, price.InputPricePerToken)
+		require.Equal(t, 3.75e-6, price.OutputPricePerToken)
+	}
+}
+
 func TestUpstreamSyncGLMPricing(t *testing.T) {
 	service := &BillingService{fallbackPrices: make(map[string]*ModelPricing)}
 	service.initFallbackPricing()

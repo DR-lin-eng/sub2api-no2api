@@ -322,6 +322,47 @@ func (s *OpenAIGatewayService) ResolveGrokMediaVideoRequestAccount(
 	return s.cache.GetSessionAccountID(ctx, derefGroupID(groupID), cacheKey)
 }
 
+// SelectGrokMediaVideoRequestAccount admits only the account bound when the
+// video task was created. Generic sticky selection may escape a degraded or
+// busy account and overwrite the ownership semantics required by lookups.
+func (s *OpenAIGatewayService) SelectGrokMediaVideoRequestAccount(
+	ctx context.Context,
+	groupID *int64,
+	sessionHash string,
+	accountID int64,
+	requestedModel string,
+) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
+	decision := OpenAIAccountScheduleDecision{Layer: openAIAccountScheduleLayerSessionSticky}
+	if s == nil || accountID <= 0 || strings.TrimSpace(sessionHash) == "" {
+		return nil, decision, ErrNoAvailableAccounts
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx = WithOpenAIProfitControlSuppressed(ctx)
+	scheduler := &defaultOpenAIAccountScheduler{service: s}
+	selection, _, err := scheduler.selectBySessionHash(ctx, OpenAIAccountScheduleRequest{
+		GroupID:               groupID,
+		Platform:              PlatformGrok,
+		SessionHash:           sessionHash,
+		StickyAccountID:       accountID,
+		PreserveStickyBinding: true,
+		DisableStickyEscape:   true,
+		RequestedModel:        requestedModel,
+		RequiredTransport:     OpenAIUpstreamTransportHTTPSSE,
+	})
+	if err != nil {
+		return nil, decision, err
+	}
+	if selection == nil || selection.Account == nil {
+		return nil, decision, ErrNoAvailableAccounts
+	}
+	decision.StickySessionHit = true
+	decision.SelectedAccountID = selection.Account.ID
+	decision.SelectedAccountType = selection.Account.Type
+	return selection, decision, nil
+}
+
 func (s *OpenAIGatewayService) ForwardGrokMedia(
 	ctx context.Context,
 	c *gin.Context,

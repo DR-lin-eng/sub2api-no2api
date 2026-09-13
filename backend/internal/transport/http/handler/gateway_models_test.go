@@ -69,6 +69,33 @@ func TestDefaultModelIDsForCompositeIncludesAntigravityDefaults(t *testing.T) {
 	require.Contains(t, compositeIDs, antigravityIDs[0])
 }
 
+func TestGatewayModels_SingleModelReturnsCompleteEntry(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/models/gpt-test", nil)
+	c.Params = gin.Params{{Key: "model", Value: "gpt-test"}}
+	writeModelsListResponse(c, []map[string]any{{
+		"id": "gpt-test", "object": "model", "owned_by": "openai", "context_window": 128000,
+	}})
+	require.Equal(t, http.StatusOK, rec.Code)
+	var got map[string]any
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	require.Equal(t, "gpt-test", got["id"])
+	require.Equal(t, float64(128000), got["context_window"])
+}
+
+func TestGatewayModels_SingleModelNotFoundUsesStableError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/models/missing", nil)
+	c.Params = gin.Params{{Key: "model", Value: "missing"}}
+	writeModelsListResponse(c, []map[string]any{{"id": "gpt-test"}})
+	require.Equal(t, http.StatusNotFound, rec.Code)
+	require.Contains(t, rec.Body.String(), `"code":"model_not_found"`)
+}
+
 func TestGatewayModels_GeminiGroupFallsBackToGeminiModels(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

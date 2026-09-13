@@ -242,10 +242,32 @@ apiClient.interceptors.response.use(
 
             // Refresh response was not successful, fall through to clear auth
             throw new Error('Token refresh failed')
-          } catch {
+          } catch (refreshError) {
             // Refresh failed - notify subscribers with empty token
             onTokenRefreshed('')
             isRefreshing = false
+
+            // A temporary refresh transport failure must not destroy a valid
+            // browser session. Keep the in-memory token and let the caller
+            // retry; only an explicit 401/invalid-refresh response below
+            // should transition the UI to the login state.
+            if (axios.isAxiosError(refreshError)) {
+              const refreshStatus = refreshError.response?.status ?? 0
+              if (refreshStatus === 0 || refreshStatus === 429 || refreshStatus >= 500) {
+                return Promise.reject({
+                  status: refreshStatus,
+                  code: 'TOKEN_REFRESH_UNAVAILABLE',
+                  message: refreshError.response?.data?.message || refreshError.message,
+                })
+              }
+            }
+            if (refreshError instanceof Error && /network|timeout|timed out|temporar/i.test(refreshError.message)) {
+              return Promise.reject({
+                status: 0,
+                code: 'TOKEN_REFRESH_UNAVAILABLE',
+                message: refreshError.message,
+              })
+            }
 
             // Clear tokens and redirect to login
             clearTokenMemory()

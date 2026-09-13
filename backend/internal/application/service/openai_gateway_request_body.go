@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/Wei-Shaw/sub2api/internal/shared/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator"
@@ -227,7 +228,8 @@ func sanitizeOpenAIResponsesInputIDs(body []byte, stripAllReasoningIDs bool) ([]
 		return body, false, nil
 	}
 
-	input := gjson.GetBytes(body, "input")
+	root := parseRawJSONView(body)
+	input := root.Get("input")
 	if !input.Exists() {
 		return body, false, nil
 	}
@@ -242,6 +244,74 @@ func sanitizeOpenAIResponsesInputIDs(body []byte, stripAllReasoningIDs bool) ([]
 			return body, false, nil
 		}
 
+		// GJSON intentionally exposes raw slices of the original body.  Keep
+		// unchanged image/tool items as those slices and copy the complete body
+		// only once at the final replacement step.  Duplicate-key or malformed
+		// JSON is handed to the decoder path to preserve its last-key semantics.
+		if !root.IsObject() || !gjson.ValidBytes(body) || !utf8.Valid(body) || hasDuplicateJSONObjectKeys(root) {
+			return sanitizeOpenAIResponsesInputIDsDecoded(body, stripAllReasoningIDs)
+		}
+		items := make([]string, 0, 16)
+		fallback := false
+		var rebuildErr error
+		input.ForEach(func(_, item gjson.Result) bool {
+			if item.IsObject() && rawOpenAIResponsesInputItemNeedsSanitization(item, stripAllReasoningIDs) && hasDuplicateJSONObjectKeys(item) {
+				fallback = true
+				return false
+			}
+			itemRaw, _, keep, sanitizeErr := sanitizeRawOpenAIResponsesInputItem(item, stripAllReasoningIDs)
+			if sanitizeErr != nil {
+				rebuildErr = sanitizeErr
+				return false
+			}
+			if !keep {
+				return true
+			}
+			items = append(items, itemRaw)
+			return true
+		})
+		if fallback {
+			return sanitizeOpenAIResponsesInputIDsDecoded(body, stripAllReasoningIDs)
+		}
+		if rebuildErr != nil {
+			return body, false, fmt.Errorf("sanitize Responses input item ids: %w", rebuildErr)
+		}
+		return replaceOpenAIRawInput(body, input, items), true, nil
+	}
+
+	itemRaw, changed, keep, err := sanitizeRawOpenAIResponsesInputItem(input, stripAllReasoningIDs)
+	if err != nil {
+		return body, false, fmt.Errorf("sanitize Responses input item: %w", err)
+	}
+	if !changed {
+		return body, false, nil
+	}
+	if !root.IsObject() || !gjson.ValidBytes(body) || !utf8.Valid(body) || hasDuplicateJSONObjectKeys(root) {
+		return sanitizeOpenAIResponsesInputIDsDecoded(body, stripAllReasoningIDs)
+	}
+	if !keep {
+		itemRaw = "[]"
+	}
+	return replaceOpenAIRawValue(body, input, itemRaw), true, nil
+}
+
+// sanitizeOpenAIResponsesInputIDsDecoded is the compatibility path for
+// malformed or duplicate-key JSON.  The standard decoder intentionally keeps
+// the last duplicate key, unlike GJSON's first-key view.
+func sanitizeOpenAIResponsesInputIDsDecoded(body []byte, stripAllReasoningIDs bool) ([]byte, bool, error) {
+	input := gjson.GetBytes(body, "input")
+	if !input.Exists() {
+		return body, false, nil
+	}
+	if input.IsArray() {
+		changed := false
+		input.ForEach(func(_, item gjson.Result) bool {
+			changed = rawOpenAIResponsesInputItemNeedsSanitization(item, stripAllReasoningIDs)
+			return !changed
+		})
+		if !changed {
+			return body, false, nil
+		}
 		var rebuilt bytes.Buffer
 		rebuilt.Grow(len(input.Raw))
 		_ = rebuilt.WriteByte('[')
@@ -267,14 +337,12 @@ func sanitizeOpenAIResponsesInputIDs(body []byte, stripAllReasoningIDs bool) ([]
 			return body, false, fmt.Errorf("sanitize Responses input item ids: %w", rebuildErr)
 		}
 		_ = rebuilt.WriteByte(']')
-
 		sanitized, err := sjson.SetRawBytes(body, "input", rebuilt.Bytes())
 		if err != nil {
 			return body, false, fmt.Errorf("replace sanitized Responses input: %w", err)
 		}
 		return sanitized, true, nil
 	}
-
 	itemRaw, changed, keep, err := sanitizeRawOpenAIResponsesInputItem(input, stripAllReasoningIDs)
 	if err != nil {
 		return body, false, fmt.Errorf("sanitize Responses input item: %w", err)

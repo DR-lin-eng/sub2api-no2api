@@ -21,7 +21,7 @@ import (
 type reqClientOptions struct {
 	ProxyURL     string        // 代理 URL（支持 http/https/socks5）
 	Timeout      time.Duration // 请求超时时间
-	Impersonate  bool          // 是否模拟 Chrome 浏览器指纹
+	Impersonate  bool          // 是否模拟浏览器指纹（当前为 Firefox，Cloudflare 对旧 Chrome 组合会发起质询）
 	ForceHTTP2   bool          // 是否强制使用 HTTP/2
 	EgressRoute  platformegress.Route
 	EgressPolicy platformegress.Policy
@@ -80,7 +80,11 @@ func getSharedReqClient(opts reqClientOptions) (*req.Client, error) {
 		client = client.EnableForceHTTP2()
 	}
 	if opts.Impersonate {
-		client = client.ImpersonateChrome()
+		// chatgpt.com's Cloudflare edge challenges the stale Chrome/120
+		// Client-Hints profile used by req. Firefox's coherent TLS/header
+		// profile is accepted for the privacy settings and account metadata
+		// endpoints while leaving non-impersonated OAuth clients unchanged.
+		client = client.ImpersonateFirefox()
 	}
 	trimmed, _, err := proxyurl.Parse(opts.ProxyURL)
 	if err != nil {
@@ -258,11 +262,11 @@ func buildReqClientKey(opts reqClientOptions) string {
 
 // CreatePrivacyReqClient creates an HTTP client for OpenAI privacy settings API
 // This is exported for use by OpenAIPrivacyService
-// Uses Chrome TLS fingerprint impersonation to bypass Cloudflare checks
+// Uses Firefox TLS fingerprint impersonation to avoid stale Chrome Cloudflare challenges.
 func CreatePrivacyReqClient(ctx context.Context, proxyURL string) (*req.Client, error) {
 	return getSharedReqClientForContext(ctx, reqClientOptions{
 		ProxyURL:    proxyURL,
 		Timeout:     30 * time.Second,
-		Impersonate: true, // Enable Chrome TLS fingerprint impersonation
+		Impersonate: true, // Enable Firefox TLS fingerprint impersonation
 	})
 }
