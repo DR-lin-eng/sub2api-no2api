@@ -79,11 +79,15 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
 	}
 	stateCtx, cancel := openAIAccountStateContext(ctx)
 	defer cancel()
+	stateCtx = withOAuth401CleanupAttemptState(stateCtx)
 	modelScope := firstRequestedModel(canonicalModel)
+	if statusCode == http.StatusUnauthorized && s.rateLimitService != nil && s.rateLimitService.tryAutoDeleteOAuthAccountOn401(stateCtx, account) {
+		return true
+	}
 	if s != nil && s.rateLimitService != nil && s.rateLimitService.maybeAutoDisableOpenAIAccountOnFailure(stateCtx, account, statusCode, headers, responseBody) {
 		return true
 	}
-	if s.autoDisableOnUpstreamInsufficientBalance(stateCtx, account, statusCode, responseBody) {
+	if statusCode != http.StatusUnauthorized && s.autoDisableOnUpstreamInsufficientBalance(stateCtx, account, statusCode, responseBody) {
 		return true
 	}
 	if statusCode == http.StatusTooManyRequests && account.BypassesLocalOpenAI429SchedulingBlocks() {

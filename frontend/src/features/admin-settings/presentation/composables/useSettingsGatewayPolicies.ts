@@ -11,6 +11,7 @@ import {
   getCodexSimulationSettings,
   getGlobalTempUnschedulableSettings,
   getOverloadCooldownSettings,
+  getOAuth401CleanupSettings,
   getRateLimit429CooldownSettings,
   getRectifierSettings,
   getStreamTimeoutSettings,
@@ -21,6 +22,7 @@ import {
   updateCodexSimulationSettings,
   updateGlobalTempUnschedulableSettings,
   updateOverloadCooldownSettings,
+  updateOAuth401CleanupSettings,
   updateRateLimit429CooldownSettings,
   updateRectifierSettings,
   updateStreamTimeoutSettings,
@@ -59,6 +61,9 @@ export function useSettingsGatewayPolicies() {
   // Rate Limit Cooldown (429) 状态
   const rateLimit429CooldownLoading = ref(true);
   const rateLimit429CooldownSaving = ref(false);
+  const oauth401CleanupSaving = ref(false);
+  const oauth401CleanupLoading = ref(true);
+  const oauth401CleanupForm = reactive({ enabled: false });
   const rateLimit429CooldownForm = reactive({
     enabled: true,
     cooldown_seconds: 5,
@@ -284,6 +289,43 @@ export function useSettingsGatewayPolicies() {
       );
     } finally {
       rateLimit429CooldownSaving.value = false;
+    }
+  }
+
+  async function saveOAuth401CleanupSettings() {
+    if (
+      oauth401CleanupForm.enabled &&
+      !window.confirm(t("admin.settings.oauth401Cleanup.confirmEnable"))
+    ) {
+      return;
+    }
+    oauth401CleanupSaving.value = true;
+    try {
+      const updated = await updateOAuth401CleanupSettings({
+        enabled: oauth401CleanupForm.enabled,
+      });
+      Object.assign(oauth401CleanupForm, updated);
+      appStore.showSuccess(t("admin.settings.oauth401Cleanup.saved"));
+    } catch (error: unknown) {
+      appStore.showError(
+        extractApiErrorMessage(
+          error,
+          t("admin.settings.oauth401Cleanup.saveFailed"),
+        ),
+      );
+    } finally {
+      oauth401CleanupSaving.value = false;
+    }
+  }
+
+  async function loadOAuth401CleanupSettings() {
+    oauth401CleanupLoading.value = true;
+    try {
+      Object.assign(oauth401CleanupForm, await getOAuth401CleanupSettings());
+    } catch {
+      oauth401CleanupForm.enabled = false;
+    } finally {
+      oauth401CleanupLoading.value = false;
     }
   }
 
@@ -714,6 +756,7 @@ export function useSettingsGatewayPolicies() {
     loadCodexSimulationSettings,
     loadGlobalTempUnschedulableSettings,
     loadOllamaCloudUsageSettings,
+    loadOAuth401CleanupSettings,
     loadOverloadCooldownSettings,
     loadRateLimit429CooldownSettings,
     loadRectifierSettings,
@@ -722,6 +765,9 @@ export function useSettingsGatewayPolicies() {
     ollamaCloudUsageForm,
     ollamaCloudUsageLoading,
     ollamaCloudUsageSaving,
+    oauth401CleanupForm,
+    oauth401CleanupLoading,
+    oauth401CleanupSaving,
     openaiFastPolicyActionOptions,
     openaiFastPolicyForm,
     openaiFastPolicyLoaded,
@@ -743,6 +789,7 @@ export function useSettingsGatewayPolicies() {
     saveCodexSimulationSettings,
     saveGlobalTempUnschedulableSettings,
     saveOllamaCloudUsageSettings,
+    saveOAuth401CleanupSettings,
     saveOverloadCooldownSettings,
     saveRateLimit429CooldownSettings,
     saveRectifierSettings,

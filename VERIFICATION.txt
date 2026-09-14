@@ -1,77 +1,138 @@
-Changed branch/fields: codex/account-quality-source-group; stage-2 interrupted-output handling now uses stage-1 text authority, retains partial code analysis, and displays an interruption warning.
+Changed branch/field: codex/oauth-401-auto-cleanup from baseline 119540e8404d5e9661370a2b18854bb0ee1fb911; oauth_401_cleanup_settings.enabled and the upstream HTTP 401 branch.
 
 Artifacts:
-- /Users/lin/.codex/worktrees/b443/sub2api-no2api/MODIFIED_FILE
-- /Users/lin/.codex/worktrees/b443/sub2api-no2api/DIFF_FILE
-- /Users/lin/.codex/worktrees/b443/sub2api-no2api/VERIFICATION.txt
-- /Users/lin/.codex/worktrees/b443/sub2api-no2api/ROLLBACK.sh (executable)
+- /Users/lin/.codex/worktrees/d0fa/sub2api-no2api/MODIFIED_FILE
+- /Users/lin/.codex/worktrees/d0fa/sub2api-no2api/DIFF_FILE
+- /Users/lin/.codex/worktrees/d0fa/sub2api-no2api/VERIFICATION.txt
+- /Users/lin/.codex/worktrees/d0fa/sub2api-no2api/ROLLBACK.sh (executable)
 
-BASELINE command: git show HEAD:backend/internal/application/service/account_quality_monitor.go > /tmp/quality-incomplete-authoritative-20260914/BASELINE_QUALITY_MONITOR.go && shasum -a 256 /tmp/quality-incomplete-authoritative-20260914/BASELINE_QUALITY_MONITOR.go
-BASELINE literal output: 0ef07c97d99ff21e3c0b217f5b4184916fc95e39b3e31fe0adb7f5ac39b04245; 20046 bytes; exit 0.
-MODIFIED command: cp backend/internal/application/service/account_quality_monitor.go /tmp/quality-incomplete-authoritative-20260914/MODIFIED_QUALITY_MONITOR.go && shasum -a 256 /tmp/quality-incomplete-authoritative-20260914/MODIFIED_QUALITY_MONITOR.go
-MODIFIED literal output: b8dd8a866cea53a4445101845ca4cccd2a1aa3e0dfbcf174338ac4a250344263; 20640 bytes; exit 0.
+Implemented behavior:
+- The gateway resilience setting is independent from the 429 policy and defaults disabled.
+- GET/PUT /api/v1/admin/settings/oauth-401-cleanup reads and writes {"enabled":true|false}.
+- When enabled, an upstream model-gateway HTTP 401 can soft-delete only a direct type=oauth credential owner.
+- API Key, Setup Token, and credential-shadow accounts never enter the delete repository path.
+- Full credentials JSONB equality, including _token_version, is checked under a PostgreSQL row lock.
+- A credential CAS miss preserves a concurrently reauthorized account, fails over only the stale request, and does not install an account-level runtime block.
+- A successful delete includes linked shadows, group and egress bindings, scheduled tests, scheduler outbox events, cache cleanup, and a short deletion block against concurrent stale snapshots.
+- A repository failure falls back to the pre-existing 401 cooldown/error path.
 
-BASELINE test command: rm -rf /tmp/quality-incomplete-authoritative-20260914/baseline-src && mkdir -p /tmp/quality-incomplete-authoritative-20260914/baseline-src && git archive HEAD | tar -x -C /tmp/quality-incomplete-authoritative-20260914/baseline-src && (cd /tmp/quality-incomplete-authoritative-20260914/baseline-src/backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/modules/qualityrender ./internal/application/service ./internal/infrastructure/repository -run 'TestQuality|TestAccountQuality|TestMatchHTML' -count=1)
-BASELINE literal output: qualityrender ok 0.304s; application/service ok 3.070s; infrastructure/repository ok 0.776s; exit 0.
-MODIFIED test command: (cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/modules/qualityrender ./internal/application/service ./internal/infrastructure/repository -run 'TestQuality|TestAccountQuality|TestMatchHTML' -count=1)
-MODIFIED literal output: qualityrender ok 0.343s; application/service ok 3.082s; infrastructure/repository ok 0.791s; exit 0.
+BASELINE source command:
+git show HEAD:backend/internal/application/service/ratelimit_service.go > /tmp/sub2api-oauth401-baseline.uF0cUh/BASELINE_RATELIMIT_SERVICE.go && shasum -a 256 /tmp/sub2api-oauth401-baseline.uF0cUh/BASELINE_RATELIMIT_SERVICE.go && wc -c /tmp/sub2api-oauth401-baseline.uF0cUh/BASELINE_RATELIMIT_SERVICE.go
+BASELINE input: HEAD:backend/internal/application/service/ratelimit_service.go at 119540e8404d5e9661370a2b18854bb0ee1fb911.
+BASELINE literal output:
+b58d922b9022f26700b7edb472c981782bc0e9813aa91114a9a1a03449736f6e  /tmp/sub2api-oauth401-baseline.uF0cUh/BASELINE_RATELIMIT_SERVICE.go
+  102870 /tmp/sub2api-oauth401-baseline.uF0cUh/BASELINE_RATELIMIT_SERVICE.go
+BASELINE exit status: 0.
 
-RACE command: cd backend && GOCACHE=/tmp/sub2api-gocache go test -race ./internal/application/service -run 'TestInterruptedDrawingUsesTextStageAsAccountVerdict|TestInterruptedDrawingWithoutTextStageIsUncertain|TestQualityCodeMatchAnalyzesPartialStreamBeforeFailure|TestQualityCodeMatchKeepsCompleteFailedStreamAsOperationalError' -count=1
-RACE literal output: application/service ok 2.807s; exit 0.
-DOCKER command: docker run --rm -v /Users/lin/.codex/worktrees/b443/sub2api-no2api:/src -w /src/backend -e GOCACHE=/tmp/go-cache golang:1.26.6-bookworm sh -lc 'export PATH=/usr/local/go/bin:$PATH; go test ./internal/modules/qualityrender ./internal/application/service ./internal/infrastructure/repository -run "TestQuality|TestAccountQuality|TestMatchHTML" -count=1'
-DOCKER literal output: qualityrender ok 0.018s; application/service ok 2.161s; infrastructure/repository ok 0.019s; exit 0.
+BASELINE test command:
+cd /tmp/sub2api-oauth401-baseline.uF0cUh/backend && GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/application/service ./internal/transport/http/handler/admin ./internal/transport/http/server/middleware ./internal/transport/http/server/routes -run 'Test.*(OAuth401|401AutoDelete|RuntimeStateCleaner)|TestAdminAPIKeyScopePolicy|TestRequiredAdminPermission' -count=1
+BASELINE test input: clean git archive of HEAD 119540e8404d5e9661370a2b18854bb0ee1fb911.
+BASELINE literal output:
+ok  github.com/Wei-Shaw/sub2api/internal/application/service  1.174s
+ok  github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin  0.442s [no tests to run]
+ok  github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware  0.447s
+ok  github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes  0.886s [no tests to run]
+BASELINE test exit status: 0; legacy OAuth 401 cooldown behavior passed and no auto-delete tests existed.
 
-FRONTEND command: cd frontend && pnpm run typecheck && pnpm run lint:check && pnpm exec vitest run src/features/account-quality/__tests__/AccountQualitySharePage.spec.ts src/features/account-quality/__tests__/QualityConversation.spec.ts src/features/admin-account-quality/__tests__/AccountQualityPage.spec.ts
-FRONTEND literal output: vue-tsc passed; eslint passed; 8 tests passed (including interrupted warning and text-authority coverage); exit 0.
+MODIFIED source command:
+cd /Users/lin/.codex/worktrees/d0fa/sub2api-no2api && cp backend/internal/application/service/ratelimit_service.go MODIFIED_FILE && shasum -a 256 MODIFIED_FILE && wc -c MODIFIED_FILE
+MODIFIED input: working-tree backend/internal/application/service/ratelimit_service.go.
+MODIFIED literal output:
+4e45c99818dfc8ec6d3a88faa20598379527e2bb9b8b6e6902de67d4b91e571f  MODIFIED_FILE
+  103295 MODIFIED_FILE
+MODIFIED exit status: 0.
+
+MODIFIED test command:
+cd /Users/lin/.codex/worktrees/d0fa/sub2api-no2api/backend && GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/application/service ./internal/transport/http/handler/admin ./internal/transport/http/server/middleware ./internal/transport/http/server/routes -run 'Test.*(OAuth401|401AutoDelete|RuntimeStateCleaner)|TestAdminAPIKeyScopePolicy|TestRequiredAdminPermission' -count=1
+MODIFIED test input: enabled/disabled policy, OAuth direct owner, credential shadow, API Key, Setup Token, CAS miss without outer runtime blocking, repository failure, HTTP-status priority over body classification, Grok 401, admin handler, and settings permissions.
+MODIFIED literal output:
+ok  github.com/Wei-Shaw/sub2api/internal/application/service  1.359s
+ok  github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin  0.627s
+ok  github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware  0.736s
+ok  github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes  1.369s [no tests to run]
+MODIFIED test exit status: 0.
+
+RACE command:
+cd backend && GOCACHE=/tmp/sub2api-gocache go test -race -tags=unit ./internal/application/service -run 'Test.*(OAuth401|401AutoDelete|RuntimeStateCleaner)' -count=1
+RACE input: OAuth 401 service and runtime cleanup tests.
+RACE literal output: ok  github.com/Wei-Shaw/sub2api/internal/application/service  3.190s
+RACE exit status: 0.
+
+POSTGRESQL integration command:
+cd backend && GOCACHE=/tmp/sub2api-gocache go test -tags=integration ./internal/infrastructure/repository -run 'TestAccountRepoSuite/TestDeleteOAuthAccountIfCredentialsUnchanged' -count=1
+POSTGRESQL input: Testcontainers PostgreSQL with stale/current credential versions, linked shadow, group bindings, IPv6 egress bindings, scheduled tests, API Key guard, and scheduler outbox.
+POSTGRESQL literal output: ok  github.com/Wei-Shaw/sub2api/internal/infrastructure/repository  15.626s
+POSTGRESQL exit status: 0.
+
+FULL BACKEND command:
+cd backend && GOCACHE=/tmp/sub2api-gocache go test ./... -count=1
+FULL BACKEND literal result: every test-bearing package reported ok, every other package reported [no test files], and no FAIL line was emitted.
+FULL BACKEND exit status: 0.
+
+GO VET command:
+cd backend && GOCACHE=/tmp/sub2api-gocache go vet ./internal/application/service ./internal/infrastructure/repository ./internal/transport/http/handler/admin ./internal/transport/http/server/middleware ./internal/transport/http/server/routes ./cmd/server
+GO VET literal output: empty.
+GO VET exit status: 0.
+
+FRONTEND focused command:
+cd frontend && pnpm exec vitest run src/features/admin-settings/__tests__/SettingsPage.spec.ts src/features/admin-settings/__tests__/adminSettingsQueryActions.spec.ts
+FRONTEND focused input: gateway card loading/saving/confirmation and GET/PUT datasource contracts.
+FRONTEND focused literal result: Test Files 2 passed (2); Tests 61 passed (61).
+FRONTEND focused exit status: 0.
+
+FRONTEND critical command: make test-frontend-critical
+FRONTEND critical literal result: Test Files 28 passed (28); Tests 238 passed (238).
+FRONTEND critical exit status: 0.
+TYPECHECK command: cd frontend && pnpm run typecheck
+TYPECHECK literal output: $ vue-tsc --noEmit
+TYPECHECK exit status: 0.
+LINT command: cd frontend && pnpm run lint:check
+LINT literal output: $ eslint .
+LINT exit status: 0.
 DOCS command: make check-docs
-DOCS literal output: Documentation checks passed.; exit 0.
+DOCS literal output: Documentation checks passed.
+DOCS exit status: 0.
 
-ROLLBACK command: cp BASELINE_QUALITY_MONITOR.go ROLLBACK_COPY.go; printf '\n' >> ROLLBACK_COPY.go; ./ROLLBACK.sh BASELINE_QUALITY_MONITOR.go ROLLBACK_COPY.go
-ROLLBACK literal output: restored_behavior=baseline_bytes; restored_sha256=0ef07c97d99ff21e3c0b217f5b4184916fc95e39b3e31fe0adb7f5ac39b04245; cmp=0; exit 0.
-Restored behavior/status: rollback copy is byte-identical to baseline; modified behavior is retained in the working tree until commit.
+DOCKER focused-test command:
+docker run --rm -v /Users/lin/.codex/worktrees/d0fa/sub2api-no2api:/src -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -w /src/backend -e GOCACHE=/tmp/go-cache golang:1.26.6-bookworm sh -lc 'export PATH=/usr/local/go/bin:$PATH; go test -tags=unit ./internal/application/service ./internal/transport/http/handler/admin ./internal/transport/http/server/middleware ./internal/transport/http/server/routes -run "Test.*(OAuth401|401AutoDelete|RuntimeStateCleaner)|TestAdminAPIKeyScopePolicy|TestRequiredAdminPermission" -count=1'
+DOCKER focused-test input: the final working tree at /src and the host Go module cache mounted read-only.
+DOCKER focused-test literal output:
+ok  github.com/Wei-Shaw/sub2api/internal/application/service  0.148s
+ok  github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin  0.051s
+ok  github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware  0.054s
+ok  github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes  0.039s [no tests to run]
+DOCKER focused-test exit status: 0.
 
-Degraded-account API follow-up (2026-09-14)
--------------------------------------------
-Changed fields: `GET /api/v1/admin/account-quality/degraded-accounts`; OAuth degraded/401 projection; admin.accounts.read scope mapping; audit-sensitive-read mapping; detailed API documentation.
+DOCKER frontend command:
+docker build --progress=plain --target frontend-builder -t sub2api-oauth401-frontend:119540e84 .
+DOCKER frontend input: current repository build context.
+DOCKER frontend literal result: 1427 modules transformed; built in 31.99s; manifest list sha256:01de638d16f2646a0dae27269dda67c237e7544a943d5e516f22e274ca42b7f2.
+DOCKER frontend exit status: 0.
 
-BASELINE command: git show HEAD:backend/internal/transport/http/handler/admin/account_quality_handler.go > /tmp/account-quality-degraded-api-20260914/BASELINE_ACCOUNT_QUALITY_HANDLER.go && shasum -a 256 /tmp/account-quality-degraded-api-20260914/BASELINE_ACCOUNT_QUALITY_HANDLER.go
-BASELINE literal result: e193006015aa89c5d1c60de453739cb7f251b164bdad3731969e1bedf24c984b; 2613 bytes; exit 0.
-MODIFIED command: cp backend/internal/transport/http/handler/admin/account_quality_handler.go /tmp/account-quality-degraded-api-20260914/MODIFIED_ACCOUNT_QUALITY_HANDLER.go && shasum -a 256 /tmp/account-quality-degraded-api-20260914/MODIFIED_ACCOUNT_QUALITY_HANDLER.go
-MODIFIED literal result: dc6bb7cb9b7d8c3e5dd3fc3770893f2f654527f88870892a0806b8af1170770e; 3111 bytes; exit 0.
+DOCKER image command:
+docker build --progress=plain --build-arg VERSION=oauth401-test-final2 --build-arg COMMIT=119540e8404d5e9661370a2b18854bb0ee1fb911 -t sub2api-oauth401:final2 .
+DOCKER image input: current repository build context plus the verified frontend-builder output.
+DOCKER image literal result: manifest list sha256:1f4ae2dec62cb73175fb3e602580626fa61822b6e1c48268716206c0277a7ecc.
+DOCKER image exit status: 0.
 
-BASELINE test command: git archive HEAD | tar -x -C /tmp/account-quality-degraded-api-20260914/baseline-src && (cd /tmp/account-quality-degraded-api-20260914/baseline-src/backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/transport/http/handler/admin ./internal/transport/http/server/middleware ./internal/transport/http/server/routes -run 'TestListDegradedQualityAccounts|TestRequiredAdminPermission|TestAdminAPIKeyScopePolicy' -count=1)
-BASELINE literal result: application/service ok 0.982s [no tests to run]; handler/admin ok 0.486s [no tests to run]; middleware ok 0.502s; routes ok 0.946s [no tests to run]; exit 0.
-MODIFIED test command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/transport/http/handler/admin ./internal/transport/http/server/middleware ./internal/transport/http/server/routes -run 'TestListDegradedQualityAccounts|TestRequiredAdminPermission|TestAdminAPIKeyScopePolicy' -count=1
-MODIFIED literal result: application/service ok 0.989s; handler/admin ok 0.477s; middleware ok 0.483s; routes ok 0.884s; exit 0.
-VET command: cd backend && GOCACHE=/tmp/sub2api-gocache go vet ./internal/application/service ./internal/transport/http/handler/admin ./internal/transport/http/server/middleware
-VET literal result: exit 0.
-DOCKER command: docker run --rm -v /Users/lin/.codex/worktrees/b443/sub2api-no2api:/src -w /src/backend -e GOCACHE=/tmp/go-cache golang:1.26.6-bookworm sh -lc 'export PATH=/usr/local/go/bin:$PATH; go test ./internal/application/service ./internal/transport/http/handler/admin ./internal/transport/http/server/middleware ./internal/transport/http/server/routes -run "TestListDegradedQualityAccounts|TestRequiredAdminPermission|TestAdminAPIKeyScopePolicy" -count=1'
-DOCKER literal result: application/service ok 2.152s; handler/admin ok 0.538s; middleware ok 0.298s; routes ok 6.007s; exit 0.
+DOCKER smoke command:
+docker run --rm --entrypoint /app/sub2api sub2api-oauth401:final2 -version
+DOCKER smoke input: locally built sub2api-oauth401:final2 image.
+DOCKER smoke literal output: Sub2API oauth401-test-final2 (commit: 119540e8404d5e9661370a2b18854bb0ee1fb911, built: 2026-09-14T16:24:13Z)
+DOCKER smoke exit status: 0.
 
-ROLLBACK command: cp BASELINE_ACCOUNT_QUALITY_HANDLER.go ROLLBACK_COPY.go; printf '\n' >> ROLLBACK_COPY.go; ./ROLLBACK.sh BASELINE_ACCOUNT_QUALITY_HANDLER.go ROLLBACK_COPY.go
-ROLLBACK literal result: restored: /tmp/account-quality-degraded-api-20260914/ROLLBACK_COPY.go; cmp=0; SHA-256 e193006015aa89c5d1c60de453739cb7f251b164bdad3731969e1bedf24c984b; exit 0.
-Restored behavior/status: independent handler rollback copy is byte-identical; modified API exposes only OAuth degraded/401 diagnostics.
+KNOWN BASELINE test command:
+/Users/lin/.codex/worktrees/d0fa/sub2api-no2api/frontend/node_modules/.bin/vitest run src/features/admin-settings/__tests__/settingsGatewayResilienceModularization.spec.ts
+KNOWN BASELINE input: clean HEAD archive, then current working tree.
+KNOWN BASELINE literal result for both inputs: expected Codex card hash 0928b5c0cb00f36c97b69ce5b1f1be4b7defaad8311efd9ed966e677fbb5d1b4, received 4025c05ec8d88c465004b60d11ca20069185cf8a0dddaa332946e0a2bb2a951b; 1 test passed and 1 failed.
+KNOWN BASELINE exit status: 1 for both clean HEAD and modified tree; the OAuth card composition test itself passed and the failure predates this change.
 
-API endpoint follow-up (2026-09-14)
-----------------------------------
-Changed fields: `ListDegradedQualityAccounts`; `GET /api/v1/admin/account-quality/degraded-accounts`; `admin.accounts.read` scope and `accounts.manage` permission mapping; audit mapping; detailed API document.
-
-BASELINE command: git show HEAD:backend/internal/transport/http/handler/admin/account_quality_handler.go > /tmp/account-quality-degraded-api-20260914/BASELINE_ACCOUNT_QUALITY_HANDLER.go && shasum -a 256 /tmp/account-quality-degraded-api-20260914/BASELINE_ACCOUNT_QUALITY_HANDLER.go
-BASELINE literal result: e193006015aa89c5d1c60de453739cb7f251b164bdad3731969e1bedf24c984b; 2613 bytes; exit 0.
-MODIFIED command: cp backend/internal/transport/http/handler/admin/account_quality_handler.go /tmp/account-quality-degraded-api-20260914/MODIFIED_ACCOUNT_QUALITY_HANDLER.go && shasum -a 256 /tmp/account-quality-degraded-api-20260914/MODIFIED_ACCOUNT_QUALITY_HANDLER.go
-MODIFIED literal result: dc6bb7cb9b7d8c3e5dd3fc3770893f2f654527f88870892a0806b8af1170770e; 3111 bytes; exit 0.
-
-BASELINE test command: git archive HEAD | tar -x -C /tmp/account-quality-degraded-api-20260914/baseline-src && (cd /tmp/account-quality-degraded-api-20260914/baseline-src/backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/transport/http/handler/admin ./internal/transport/http/server/middleware ./internal/transport/http/server/routes -run 'TestListDegradedQualityAccounts|TestRequiredAdminPermission|TestAdminAPIKeyScopePolicy' -count=1)
-BASELINE literal result: application/service ok 0.982s [no tests to run]; handler/admin ok 0.486s [no tests to run]; middleware ok 0.502s; routes ok 0.946s [no tests to run]; exit 0.
-MODIFIED test command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/transport/http/handler/admin ./internal/transport/http/server/middleware ./internal/transport/http/server/routes -run 'TestListDegradedQualityAccounts|TestRequiredAdminPermission|TestAdminAPIKeyScopePolicy' -count=1
-MODIFIED literal result: application/service ok 0.999s; handler/admin ok 0.477s; middleware ok 0.483s; routes ok 0.884s; exit 0.
-VET command: cd backend && GOCACHE=/tmp/sub2api-gocache go vet ./internal/application/service ./internal/transport/http/handler/admin ./internal/transport/http/server/middleware
-VET literal result: exit 0.
-DOCKER command: docker run --rm -v /Users/lin/.codex/worktrees/b443/sub2api-no2api:/src -w /src/backend -e GOCACHE=/tmp/go-cache golang:1.26.6-bookworm sh -lc 'export PATH=/usr/local/go/bin:$PATH; go test ./internal/application/service ./internal/transport/http/handler/admin ./internal/transport/http/server/middleware ./internal/transport/http/server/routes -run "TestListDegradedQualityAccounts|TestRequiredAdminPermission|TestAdminAPIKeyScopePolicy" -count=1'
-DOCKER literal result: application/service ok 2.152s; handler/admin ok 0.538s; middleware ok 0.298s; routes ok 6.007s; exit 0.
-
-ROLLBACK command: cp BASELINE_ACCOUNT_QUALITY_HANDLER.go ROLLBACK_COPY.go; printf '\n' >> ROLLBACK_COPY.go; ./ROLLBACK.sh BASELINE_ACCOUNT_QUALITY_HANDLER.go ROLLBACK_COPY.go
-ROLLBACK literal result: restored: /tmp/account-quality-degraded-api-20260914/ROLLBACK_COPY.go; cmp=0; SHA-256 e193006015aa89c5d1c60de453739cb7f251b164bdad3731969e1bedf24c984b; exit 0.
-Restored behavior/status: handler rollback copy is byte-identical; modified endpoint is retained in the working tree.
-
-Publication: PR #67 merged into main at 2026-09-14T02:12:47Z; merge SHA 8735edb0552bc1662e88c44d981bc20bea783b85; implementation SHA a8f677df71e1f4e623ebb397189008ebb53ac2aa.
+ROLLBACK command:
+cp MODIFIED_FILE /tmp/sub2api-oauth401-baseline.uF0cUh/ROLLBACK_COPY.go && printf '\n// rollback probe final\n' >> /tmp/sub2api-oauth401-baseline.uF0cUh/ROLLBACK_COPY.go && ./ROLLBACK.sh /tmp/sub2api-oauth401-baseline.uF0cUh/BASELINE_RATELIMIT_SERVICE.go /tmp/sub2api-oauth401-baseline.uF0cUh/ROLLBACK_COPY.go && cmp /tmp/sub2api-oauth401-baseline.uF0cUh/BASELINE_RATELIMIT_SERVICE.go /tmp/sub2api-oauth401-baseline.uF0cUh/ROLLBACK_COPY.go && printf 'cmp=0\n'
+ROLLBACK input: an independently modified copy of MODIFIED_FILE plus the preserved HEAD baseline.
+ROLLBACK literal output:
+restored_behavior=baseline_bytes
+restored_sha256=b58d922b9022f26700b7edb472c981782bc0e9813aa91114a9a1a03449736f6e
+cmp=0
+ROLLBACK exit status: 0.
+Restored behavior/status: the independent rollback copy is byte-identical to the original HEAD implementation; MODIFIED_FILE and the working tree retain the enabled, CAS-guarded OAuth 401 cleanup implementation.

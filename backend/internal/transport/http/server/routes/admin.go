@@ -690,6 +690,8 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		// 429默认回避配置
 		adminSettings.GET("/rate-limit-429-cooldown", h.Admin.Setting.GetRateLimit429CooldownSettings)
 		adminSettings.PUT("/rate-limit-429-cooldown", h.Admin.Setting.UpdateRateLimit429CooldownSettings)
+		adminSettings.GET("/oauth-401-cleanup", h.Admin.Setting.GetOAuth401CleanupSettings)
+		adminSettings.PUT("/oauth-401-cleanup", h.Admin.Setting.UpdateOAuth401CleanupSettings)
 		// 全局临时不可调度开关
 		adminSettings.GET("/temp-unschedulable", h.Admin.Setting.GetGlobalTempUnschedulableSettings)
 		adminSettings.PUT("/temp-unschedulable", h.Admin.Setting.UpdateGlobalTempUnschedulableSettings)

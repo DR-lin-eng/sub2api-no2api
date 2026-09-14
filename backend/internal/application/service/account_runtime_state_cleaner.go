@@ -17,12 +17,16 @@ func ProvideAccountRuntimeStateCleaner(
 	antigravityTokenProvider *AntigravityTokenProvider,
 	rateLimitService *RateLimitService,
 ) AccountRuntimeStateCleaner {
-	return &compositeAccountRuntimeStateCleaner{
+	cleaner := &compositeAccountRuntimeStateCleaner{
 		usageCache:               usageCache,
 		openAIGatewayService:     openAIGatewayService,
 		antigravityTokenProvider: antigravityTokenProvider,
 		rateLimitService:         rateLimitService,
 	}
+	if rateLimitService != nil {
+		rateLimitService.SetAccountRuntimeStateCleaner(cleaner)
+	}
+	return cleaner
 }
 
 func (c *compositeAccountRuntimeStateCleaner) DeleteAccountRuntimeState(accountID int64) {

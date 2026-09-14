@@ -1083,6 +1083,16 @@ export default {
         saved: '429 default cooldown settings saved',
         saveFailed: 'Failed to save 429 default cooldown settings'
       },
+      oauth401Cleanup: {
+        title: 'OAuth 401 Automatic Cleanup',
+        description: 'Configure OAuth account cleanup when the gateway receives an upstream 401 authentication error',
+        enabled: 'Delete OAuth accounts that return 401',
+        enabledHint: 'Only direct OAuth credential accounts are handled. API-key accounts, Setup Tokens, and credential-less Spark shadows are not directly deleted.',
+        warning: 'This soft-deletes the account and linked shadows. A credential comparison preserves an account that was reauthorized after the failed request started.',
+        confirmEnable: 'Enable automatic OAuth 401 deletion? Direct OAuth accounts that receive an upstream gateway 401 will be cleaned up automatically.',
+        saved: 'OAuth 401 automatic cleanup settings saved',
+        saveFailed: 'Failed to save OAuth 401 automatic cleanup settings'
+      },
       globalTempUnschedulable: {
         title: 'Global Temporary Scheduling Pause',
         description: 'Control temporary account scheduling pauses caused by credential, transport, or upstream failures',

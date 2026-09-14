@@ -9,6 +9,7 @@ import {
   type EmailTemplatePreviewResponse,
   type GlobalTempUnschedulableSettings,
   type OverloadCooldownSettings,
+  type OAuth401CleanupSettings,
   type PanelRateLimitSettings,
   type PreviewEmailTemplateRequest,
   type RateLimit429CooldownSettings,
@@ -167,6 +168,16 @@ export async function updateRateLimit429CooldownSettings(
 ): Promise<RateLimit429CooldownSettings> {
   const { data } = await apiClient.put<RateLimit429CooldownSettings>(
     "/admin/settings/rate-limit-429-cooldown",
+    settings,
+  );
+  return data;
+}
+
+export async function updateOAuth401CleanupSettings(
+  settings: OAuth401CleanupSettings,
+): Promise<OAuth401CleanupSettings> {
+  const { data } = await apiClient.put<OAuth401CleanupSettings>(
+    "/admin/settings/oauth-401-cleanup",
     settings,
   );
   return data;

@@ -677,6 +677,12 @@ type RateLimit429CooldownSettings struct {
 	AutoEnableWhenQuotaAvailableEnabled bool `json:"auto_enable_when_quota_available_enabled"`
 }
 
+// OAuth401CleanupSettings controls deletion of direct OAuth credential
+// accounts after an upstream 401 observed by the model gateway.
+type OAuth401CleanupSettings struct {
+	Enabled bool `json:"enabled"`
+}
+
 // GlobalTempUnschedulableSettings controls temporary account scheduling pauses globally.
 type GlobalTempUnschedulableSettings struct {
 	Enabled bool `json:"enabled"`
@@ -701,6 +707,10 @@ func DefaultRateLimit429CooldownSettings() *RateLimit429CooldownSettings {
 		AutoEnableAfterQuotaResetEnabled:    false,
 		AutoEnableWhenQuotaAvailableEnabled: false,
 	}
+}
+
+func DefaultOAuth401CleanupSettings() *OAuth401CleanupSettings {
+	return &OAuth401CleanupSettings{Enabled: false}
 }
 
 // DefaultBetaPolicySettings 返回默认的 Beta 策略配置

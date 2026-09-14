@@ -127,6 +127,10 @@ export interface RateLimit429CooldownSettings {
   auto_enable_when_quota_available_enabled: boolean;
 }
 
+export interface OAuth401CleanupSettings {
+  enabled: boolean;
+}
+
 export interface GlobalTempUnschedulableSettings {
   enabled: boolean;
 }

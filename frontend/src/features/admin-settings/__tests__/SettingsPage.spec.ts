@@ -22,6 +22,8 @@ const {
   getOverloadCooldownSettings,
   getRateLimit429CooldownSettings,
   updateRateLimit429CooldownSettings,
+  getOAuth401CleanupSettings,
+  updateOAuth401CleanupSettings,
   getGlobalTempUnschedulableSettings,
   updateGlobalTempUnschedulableSettings,
   getCodexSimulationSettings,
@@ -61,6 +63,8 @@ const {
   getOverloadCooldownSettings: vi.fn(),
   getRateLimit429CooldownSettings: vi.fn(),
   updateRateLimit429CooldownSettings: vi.fn(),
+  getOAuth401CleanupSettings: vi.fn(),
+  updateOAuth401CleanupSettings: vi.fn(),
   getGlobalTempUnschedulableSettings: vi.fn(),
   updateGlobalTempUnschedulableSettings: vi.fn(),
   getCodexSimulationSettings: vi.fn(),
@@ -113,6 +117,8 @@ vi.mock("@/api", () => ({
       getOverloadCooldownSettings,
       getRateLimit429CooldownSettings,
       updateRateLimit429CooldownSettings,
+      getOAuth401CleanupSettings,
+      updateOAuth401CleanupSettings,
       getGlobalTempUnschedulableSettings,
       updateGlobalTempUnschedulableSettings,
       getPanelRateLimitSettings,
@@ -160,6 +166,7 @@ vi.mock(
       getOverloadCooldownSettings,
       getPanelRateLimitSettings,
       getRateLimit429CooldownSettings,
+      getOAuth401CleanupSettings,
       getRectifierSettings,
       getSettings,
       getStreamTimeoutSettings,
@@ -197,6 +204,7 @@ vi.mock(
       updateOverloadCooldownSettings: vi.fn(),
       updatePanelRateLimitSettings,
       updateRateLimit429CooldownSettings,
+      updateOAuth401CleanupSettings,
       updateRectifierSettings: vi.fn(),
       updateSettings,
       updateStreamTimeoutSettings,
@@ -846,6 +854,8 @@ describe("admin SettingsView payment visible method controls", () => {
     getOverloadCooldownSettings.mockReset();
     getRateLimit429CooldownSettings.mockReset();
     updateRateLimit429CooldownSettings.mockReset();
+    getOAuth401CleanupSettings.mockReset();
+    updateOAuth401CleanupSettings.mockReset();
     getGlobalTempUnschedulableSettings.mockReset();
     updateGlobalTempUnschedulableSettings.mockReset();
     getCodexSimulationSettings.mockReset();
@@ -909,6 +919,8 @@ describe("admin SettingsView payment visible method controls", () => {
       auto_enable_when_quota_available_enabled: false,
     });
     updateRateLimit429CooldownSettings.mockImplementation(async (payload) => payload);
+    getOAuth401CleanupSettings.mockResolvedValue({ enabled: false });
+    updateOAuth401CleanupSettings.mockImplementation(async (payload) => payload);
     getGlobalTempUnschedulableSettings.mockResolvedValue({ enabled: true });
     updateGlobalTempUnschedulableSettings.mockImplementation(
       async (payload) => payload,
@@ -1371,6 +1383,29 @@ describe("admin SettingsView payment visible method controls", () => {
       auto_enable_after_quota_reset_enabled: true,
       auto_enable_when_quota_available_enabled: true,
     });
+  });
+
+  it("saves OAuth 401 automatic deletion from gateway resilience settings", async () => {
+    getOAuth401CleanupSettings.mockResolvedValueOnce({ enabled: false });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+
+    const card = wrapper
+      .findAll(".card")
+      .find((node) => node.text().includes("admin.settings.oauth401Cleanup.title"));
+    expect(card).toBeDefined();
+    await card!.get('[data-testid="oauth-401-auto-delete-toggle"]').setValue(true);
+    const saveButton = card!
+      .findAll("button")
+      .find((node) => node.text().includes("common.save"));
+    await saveButton?.trigger("click");
+    await flushPromises();
+
+    expect(confirm).toHaveBeenCalledWith("admin.settings.oauth401Cleanup.confirmEnable");
+    expect(updateOAuth401CleanupSettings).toHaveBeenCalledWith({ enabled: true });
+    confirm.mockRestore();
   });
 
   it("saves Codex A/B controls and restores original behavior", async () => {
@@ -2135,6 +2170,8 @@ describe("admin SettingsView wechat connect controls", () => {
     getOverloadCooldownSettings.mockReset();
     getRateLimit429CooldownSettings.mockReset();
     updateRateLimit429CooldownSettings.mockReset();
+    getOAuth401CleanupSettings.mockReset();
+    updateOAuth401CleanupSettings.mockReset();
     getGlobalTempUnschedulableSettings.mockReset();
     updateGlobalTempUnschedulableSettings.mockReset();
     getCodexSimulationSettings.mockReset();
@@ -2190,6 +2227,8 @@ describe("admin SettingsView wechat connect controls", () => {
       auto_enable_when_quota_available_enabled: false,
     });
     updateRateLimit429CooldownSettings.mockImplementation(async (payload) => payload);
+    getOAuth401CleanupSettings.mockResolvedValue({ enabled: false });
+    updateOAuth401CleanupSettings.mockImplementation(async (payload) => payload);
     getGlobalTempUnschedulableSettings.mockResolvedValue({ enabled: true });
     updateGlobalTempUnschedulableSettings.mockImplementation(
       async (payload) => payload,
@@ -2418,6 +2457,8 @@ describe("admin SettingsView platform quota matrix", () => {
     getOverloadCooldownSettings.mockReset();
     getRateLimit429CooldownSettings.mockReset();
     updateRateLimit429CooldownSettings.mockReset();
+    getOAuth401CleanupSettings.mockReset();
+    updateOAuth401CleanupSettings.mockReset();
     getGlobalTempUnschedulableSettings.mockReset();
     updateGlobalTempUnschedulableSettings.mockReset();
     getCodexSimulationSettings.mockReset();
@@ -2450,6 +2491,8 @@ describe("admin SettingsView platform quota matrix", () => {
     getOverloadCooldownSettings.mockResolvedValue({});
     getRateLimit429CooldownSettings.mockResolvedValue({});
     updateRateLimit429CooldownSettings.mockResolvedValue({});
+    getOAuth401CleanupSettings.mockResolvedValue({ enabled: false });
+    updateOAuth401CleanupSettings.mockResolvedValue({ enabled: false });
     getGlobalTempUnschedulableSettings.mockResolvedValue({ enabled: true });
     updateGlobalTempUnschedulableSettings.mockResolvedValue({ enabled: true });
     getCodexSimulationSettings.mockResolvedValue({

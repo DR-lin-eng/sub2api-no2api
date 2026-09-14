@@ -509,6 +509,10 @@ type RateLimit429CooldownSettings struct {
 	AutoEnableWhenQuotaAvailableEnabled bool `json:"auto_enable_when_quota_available_enabled"`
 }
 
+type OAuth401CleanupSettings struct {
+	Enabled bool `json:"enabled"`
+}
+
 // GlobalTempUnschedulableSettings 全局临时不可调度配置 DTO
 type GlobalTempUnschedulableSettings struct {
 	Enabled bool `json:"enabled"`

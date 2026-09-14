@@ -917,6 +917,35 @@ func (s *SettingService) SetRateLimit429CooldownSettings(ctx context.Context, se
 	return s.settingRepo.Set(ctx, SettingKeyRateLimit429CooldownSettings, string(data))
 }
 
+func (s *SettingService) GetOAuth401CleanupSettings(ctx context.Context) (*OAuth401CleanupSettings, error) {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyOAuth401CleanupSettings)
+	if err != nil {
+		if errors.Is(err, ErrSettingNotFound) {
+			return DefaultOAuth401CleanupSettings(), nil
+		}
+		return nil, fmt.Errorf("get OAuth 401 cleanup settings: %w", err)
+	}
+	if strings.TrimSpace(value) == "" {
+		return DefaultOAuth401CleanupSettings(), nil
+	}
+	var settings OAuth401CleanupSettings
+	if err := json.Unmarshal([]byte(value), &settings); err != nil {
+		return DefaultOAuth401CleanupSettings(), nil
+	}
+	return &settings, nil
+}
+
+func (s *SettingService) SetOAuth401CleanupSettings(ctx context.Context, settings *OAuth401CleanupSettings) error {
+	if settings == nil {
+		return fmt.Errorf("settings cannot be nil")
+	}
+	data, err := json.Marshal(settings)
+	if err != nil {
+		return fmt.Errorf("marshal OAuth 401 cleanup settings: %w", err)
+	}
+	return s.settingRepo.Set(ctx, SettingKeyOAuth401CleanupSettings, string(data))
+}
+
 // LoadGlobalTempUnschedulableSetting loads the global temporary scheduling pause switch.
 func (s *SettingService) LoadGlobalTempUnschedulableSetting(ctx context.Context) error {
 	if s == nil || s.settingRepo == nil {
