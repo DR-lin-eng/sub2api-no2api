@@ -152,12 +152,11 @@ func StopOpenAICompactSSEKeepaliveCommitted(c *gin.Context) bool {
 	return committed
 }
 
-// OpenAICompactKeepaliveAdjustedWrittenSize 返回排除 compact 心跳注释字节后
-// 的响应已写字节数；无心跳的请求等价于 c.Writer.Size()。心跳字节不构成语义
-// 响应——handler 以"Forward 前后 Size 是否变化"判定是否已向客户端写出响应
-// （变化则放弃 failover 换号），该判定不得被心跳污染，否则 compact 请求
-// 一旦在上游等待期间发过心跳，上游 429/5xx 就不再换号（#3887 加固审计）。
-// 仅心跳字节时归一化为 -1（gin 的"未写出"哨兵值），与提交前的快照可比。
+// OpenAICompactKeepaliveAdjustedWrittenSize 返回排除 compact/stream 心跳和
+// replay-safe Codex rate-limit 控制帧后的语义响应字节数；无这些字节时等价于
+// c.Writer.Size()。handler 以"Forward 前后 Size 是否变化"判定是否已向客户端
+// 写出不可重放响应，不能被心跳或首个控制帧污染。仅保活/控制字节时归一化为
+// -1（gin 的"未写出"哨兵值），与提交前的快照可比。
 func OpenAICompactKeepaliveAdjustedWrittenSize(c *gin.Context) int {
 	if c == nil || c.Writer == nil {
 		return -1
@@ -180,7 +179,14 @@ func OpenAICompactKeepaliveAdjustedWrittenSize(c *gin.Context) int {
 	if size < 0 {
 		return size
 	}
-	keepaliveBytes := compactKeepaliveBytes + streamKeepaliveBytes
+	// A flushed Codex control preamble is visible to the client for latency
+	// feedback but remains replay-safe. Exclude it from the semantic response
+	// size used by the handler's failover/commit checks until real output lands.
+	controlOutputBytes := 0
+	if value, ok := c.Get(openAIStreamControlOutputBytesKey); ok {
+		controlOutputBytes, _ = value.(int)
+	}
+	keepaliveBytes := compactKeepaliveBytes + streamKeepaliveBytes + controlOutputBytes
 	if keepaliveBytes <= 0 {
 		return size
 	}

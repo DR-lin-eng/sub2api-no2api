@@ -421,6 +421,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	usage := &OpenAIUsage{}
 	imageCounter := newOpenAIImageOutputCounter()
 	var firstTokenMs *int
+	var localFirstEventTTFTMs *int
 	streamOutputStarted := false
 	responseID := ""
 	var finalResponse []byte
@@ -651,9 +652,16 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		if !firstOutputComplete && (isTerminalEvent || openAIStreamDataStartsClientOutput(string(message), eventType)) {
 			firstOutputComplete = true
 		}
-		if firstTokenMs == nil && isTTFTEvent {
+		isLocalFirstEventTTFT := isOpenAILocalFirstEventType(eventType)
+		if isTTFTEvent && (firstTokenMs == nil || isLocalFirstEventTTFT) {
 			ms := int(time.Since(startTime).Milliseconds())
-			firstTokenMs = &ms
+			if isLocalFirstEventTTFT {
+				if localFirstEventTTFTMs == nil {
+					localFirstEventTTFTMs = &ms
+				}
+			} else if firstTokenMs == nil {
+				firstTokenMs = &ms
+			}
 		}
 		if debugEnabled && shouldLogOpenAIWSEvent(eventCount, eventType) {
 			logOpenAIWSModeDebug(
@@ -948,6 +956,10 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	}
 	if stateStore != nil && storeDisabled && sessionHash != "" {
 		stateStore.BindSessionConn(groupID, sessionHash, lease.ConnID(), s.openAIWSSessionStickyTTL())
+	}
+	if localFirstEventTTFTMs != nil &&
+		(upstreamTerminalEvent == "response.completed" || upstreamTerminalEvent == "response.done") {
+		firstTokenMs = localFirstEventTTFTMs
 	}
 	firstTokenMsValue := -1
 	if firstTokenMs != nil {

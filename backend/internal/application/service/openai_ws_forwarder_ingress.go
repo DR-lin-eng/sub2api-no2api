@@ -1048,6 +1048,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		usage := OpenAIUsage{}
 		imageCounter := newOpenAIImageOutputCounter()
 		var firstTokenMs *int
+		var localFirstEventTTFTMs *int
 		reqStream := openAIWSPayloadBoolFromRaw(payload, "stream", true)
 		turnPreviousResponseID := openAIWSPayloadStringFromRaw(payload, "previous_response_id")
 		turnPreviousResponseIDKind := ClassifyOpenAIPreviousResponseIDKind(turnPreviousResponseID)
@@ -1066,9 +1067,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		rateLimitsPreambleOpen := bufferRateLimitsPreamble
 		rateLimitsPreamble := make([][]byte, 0, 2)
 		rateLimitsPreambleBytes := 0
-		// Codex OAuth ingress must keep non-semantic response.created/in_progress
-		// frames private until the attempt is known to be replay-safe. API-key
-		// ingress retains its historical immediate-delivery timing.
+		// Codex OAuth ingress keeps response.created/in_progress, rate limits, and
+		// turn metadata private until the attempt is known to be replay-safe. The
+		// rate-limit timestamp is still captured for the local TTFT metric.
 		bufferSemanticPreamble := account.IsOpenAIOAuth()
 		semanticPreamble := make([][]byte, 0, 4)
 		semanticPreambleBytes := 0
@@ -1215,6 +1216,10 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 					firstEventType = eventType
 				}
 				lastEventType = eventType
+			}
+			if firstTokenMs == nil && localFirstEventTTFTMs == nil && isOpenAILocalFirstEventType(eventType) {
+				ms := int(time.Since(turnStart).Milliseconds())
+				localFirstEventTTFTMs = &ms
 			}
 			if rateLimitsPreambleOpen && isOpenAIWSRateLimitsPreamble(eventType) {
 				if rateLimitsPreambleBytes+len(upstreamMessage) <= openAIStreamPreOutputBufferLimit {
@@ -1382,9 +1387,16 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			if isTerminalEvent {
 				terminalEventCount++
 			}
-			if firstTokenMs == nil && isTTFTEvent {
+			isLocalFirstEventTTFT := isOpenAILocalFirstEventType(eventType)
+			if isTTFTEvent && (firstTokenMs == nil || isLocalFirstEventTTFT) {
 				ms := int(time.Since(turnStart).Milliseconds())
-				firstTokenMs = &ms
+				if isLocalFirstEventTTFT {
+					if localFirstEventTTFTMs == nil {
+						localFirstEventTTFTMs = &ms
+					}
+				} else if firstTokenMs == nil {
+					firstTokenMs = &ms
+				}
 			}
 
 			imageCounter.AddSSEData(upstreamMessage)
@@ -1414,6 +1426,10 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			if isTerminalEvent {
 				canonicalModel := canonicalOpenAIAccountSchedulingModel(account, originalModel)
 				terminalEvent := s.handleOpenAIWSTerminalTransientFailure(ctx, account, canonicalModel, lease.HandshakeHeaders(), upstreamMessage)
+				if localFirstEventTTFTMs != nil &&
+					(terminalEvent == "response.completed" || terminalEvent == "response.done") {
+					firstTokenMs = localFirstEventTTFTMs
+				}
 				// 客户端已断连时，上游连接的 session 状态不可信，标记 broken 避免回池复用。
 				if clientDisconnected {
 					lease.MarkBroken()

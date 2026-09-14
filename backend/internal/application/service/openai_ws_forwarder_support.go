@@ -1005,7 +1005,8 @@ func newOpenAIWSOverloadFailoverError(headers http.Header, payload []byte, messa
 
 func isOpenAIWSRateLimitsPreamble(eventType string) bool {
 	eventType = strings.ToLower(strings.TrimSpace(eventType))
-	return eventType == "rate_limits" ||
+	return eventType == "codex.rate_limits" ||
+		eventType == "rate_limits" ||
 		strings.HasPrefix(eventType, "rate_limits.") ||
 		eventType == "response.rate_limits" ||
 		strings.HasPrefix(eventType, "response.rate_limits.")
