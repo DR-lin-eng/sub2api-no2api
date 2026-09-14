@@ -71,6 +71,14 @@ type OpenAIWSStateStore interface {
 	DeleteSessionConn(groupID int64, sessionHash string)
 }
 
+// openAIWSConnectionBindingCleaner lets the connection-pool sweep remove
+// response/session connection cache (RCC) entries whose process-local socket
+// no longer exists. It stays separate from OpenAIWSStateStore so callers that
+// only need routing state do not gain a maintenance concern.
+type openAIWSConnectionBindingCleaner interface {
+	cleanupConnectionBindings(now time.Time, connectionExists func(string) bool)
+}
+
 type defaultOpenAIWSStateStore struct {
 	cache       GatewayCache
 	sharedCache OpenAIWSSharedStateCache
@@ -340,14 +348,32 @@ func (s *defaultOpenAIWSStateStore) maybeCleanup() {
 	if !s.lastCleanupUnixNano.CompareAndSwap(last.UnixNano(), now.UnixNano()) {
 		return
 	}
+	s.cleanupBindings(now, nil)
+}
 
+// cleanupConnectionBindings is called by the connection pool's periodic
+// worker. Supplying the live-connection predicate removes dangling RCC links
+// before their longer sticky TTL expires, while the same bounded sweep also
+// expires the other process-local state when request traffic is idle.
+func (s *defaultOpenAIWSStateStore) cleanupConnectionBindings(now time.Time, connectionExists func(string) bool) {
+	if s == nil || connectionExists == nil {
+		return
+	}
+	if now.IsZero() {
+		now = time.Now()
+	}
+	s.lastCleanupUnixNano.Store(now.UnixNano())
+	s.cleanupBindings(now, connectionExists)
+}
+
+func (s *defaultOpenAIWSStateStore) cleanupBindings(now time.Time, connectionExists func(string) bool) {
 	// 增量限额清理，避免高规模下一次性全量扫描导致长时间阻塞。
 	s.responseToAccountMu.Lock()
 	cleanupExpiredAccountBindings(s.responseToAccount, now, openAIWSStateStoreCleanupMaxPerMap)
 	s.responseToAccountMu.Unlock()
 
 	s.responseToConnMu.Lock()
-	cleanupExpiredConnBindings(s.responseToConn, now, openAIWSStateStoreCleanupMaxPerMap)
+	cleanupExpiredConnBindings(s.responseToConn, now, openAIWSStateStoreCleanupMaxPerMap, connectionExists)
 	s.responseToConnMu.Unlock()
 
 	s.sessionToTurnStateMu.Lock()
@@ -355,7 +381,7 @@ func (s *defaultOpenAIWSStateStore) maybeCleanup() {
 	s.sessionToTurnStateMu.Unlock()
 
 	s.sessionToConnMu.Lock()
-	cleanupExpiredSessionConnBindings(s.sessionToConn, now, openAIWSStateStoreCleanupMaxPerMap)
+	cleanupExpiredSessionConnBindings(s.sessionToConn, now, openAIWSStateStoreCleanupMaxPerMap, connectionExists)
 	s.sessionToConnMu.Unlock()
 }
 
@@ -375,13 +401,14 @@ func cleanupExpiredAccountBindings(bindings map[string]openAIWSAccountBinding, n
 	}
 }
 
-func cleanupExpiredConnBindings(bindings map[string]openAIWSConnBinding, now time.Time, maxScan int) {
+func cleanupExpiredConnBindings(bindings map[string]openAIWSConnBinding, now time.Time, maxScan int, connectionExists func(string) bool) {
 	if len(bindings) == 0 || maxScan <= 0 {
 		return
 	}
 	scanned := 0
 	for key, binding := range bindings {
-		if now.After(binding.expiresAt) {
+		connID := strings.TrimSpace(binding.connID)
+		if now.After(binding.expiresAt) || connID == "" || (connectionExists != nil && !connectionExists(connID)) {
 			delete(bindings, key)
 		}
 		scanned++
@@ -407,13 +434,14 @@ func cleanupExpiredTurnStateBindings(bindings map[string]openAIWSTurnStateBindin
 	}
 }
 
-func cleanupExpiredSessionConnBindings(bindings map[string]openAIWSSessionConnBinding, now time.Time, maxScan int) {
+func cleanupExpiredSessionConnBindings(bindings map[string]openAIWSSessionConnBinding, now time.Time, maxScan int, connectionExists func(string) bool) {
 	if len(bindings) == 0 || maxScan <= 0 {
 		return
 	}
 	scanned := 0
 	for key, binding := range bindings {
-		if now.After(binding.expiresAt) {
+		connID := strings.TrimSpace(binding.connID)
+		if now.After(binding.expiresAt) || connID == "" || (connectionExists != nil && !connectionExists(connID)) {
 			delete(bindings, key)
 		}
 		scanned++
