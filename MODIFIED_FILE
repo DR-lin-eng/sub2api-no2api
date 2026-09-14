@@ -18,3 +18,14 @@ Four artifacts:
 - /Users/lin/.codex/worktrees/b443/sub2api-no2api/DIFF_FILE
 - /Users/lin/.codex/worktrees/b443/sub2api-no2api/VERIFICATION.txt
 - /Users/lin/.codex/worktrees/b443/sub2api-no2api/ROLLBACK.sh
+
+API addition:
+- GET /api/v1/admin/account-quality/degraded-accounts returns OAuth OpenAI/Gemini accounts whose quality status is degraded, plus OAuth accounts with recorded 401/Unauthorized errors.
+- Response fields: account_id, email, quality_status, reason, optional http_status=401, error_message, last_checked_at.
+- API Key/service-account records are excluded; admin JWT requires accounts.manage, scoped Admin API Key requires admin.accounts.read (broad admin.read is insufficient).
+
+API implementation details:
+- AccountQualityMonitoringService.ListDegradedQualityAccounts scans only OAuth accounts using the existing repository filter.
+- It merges persisted account extra status, latest quality run state, account ErrorMessage, and quality history to detect degraded/401 records.
+- HTTP 401 is returned as an item field (`http_status: 401`); unauthenticated API calls still return normal HTTP 401 and are not converted into data items.
+- Route: GET /api/v1/admin/account-quality/degraded-accounts.

@@ -68,6 +68,21 @@ func (h *AccountQualityHandler) Run(c *gin.Context) {
 	response.Success(c, overview)
 }
 
+// DegradedAccounts returns OAuth accounts currently marked degraded and OAuth
+// accounts with a recorded HTTP 401 quality/upstream error.
+func (h *AccountQualityHandler) DegradedAccounts(c *gin.Context) {
+	if h == nil || h.qualityService == nil {
+		response.ErrorFrom(c, service.ErrAccountInspectionUnavailable)
+		return
+	}
+	result, err := h.qualityService.ListDegradedQualityAccounts(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
 func parseQualityPagination(c *gin.Context) (int, int) {
 	page, pageSize := 1, 50
 	if raw := c.Query("page"); raw != "" {

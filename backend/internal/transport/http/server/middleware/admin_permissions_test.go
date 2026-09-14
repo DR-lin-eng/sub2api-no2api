@@ -16,6 +16,7 @@ func TestRequiredAdminPermissionSeparatesBasicUserInfoAndSensitiveUserRoutes(t *
 		{http.MethodPost, "/api/v1/admin/chat/conversations/1/messages", service.PermissionSupportWrite},
 		{http.MethodPost, "/api/v1/admin/chat/conversations/1/balance-transfers", service.PermissionSupportTransfer},
 		{http.MethodGet, "/api/v1/admin/users/1/basic", service.PermissionUsersReadBasic},
+		{http.MethodGet, "/api/v1/admin/account-quality/degraded-accounts", service.PermissionAccountsManage},
 		{http.MethodGet, "/api/v1/admin/users/1/api-keys", service.PermissionUsersCredentials},
 		{http.MethodPost, "/api/v1/admin/users/1/balance", service.PermissionUsersBilling},
 	}

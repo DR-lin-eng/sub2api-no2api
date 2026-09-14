@@ -29,3 +29,47 @@ DOCS literal output: Documentation checks passed.; exit 0.
 ROLLBACK command: cp BASELINE_QUALITY_MONITOR.go ROLLBACK_COPY.go; printf '\n' >> ROLLBACK_COPY.go; ./ROLLBACK.sh BASELINE_QUALITY_MONITOR.go ROLLBACK_COPY.go
 ROLLBACK literal output: restored_behavior=baseline_bytes; restored_sha256=0ef07c97d99ff21e3c0b217f5b4184916fc95e39b3e31fe0adb7f5ac39b04245; cmp=0; exit 0.
 Restored behavior/status: rollback copy is byte-identical to baseline; modified behavior is retained in the working tree until commit.
+
+Degraded-account API follow-up (2026-09-14)
+-------------------------------------------
+Changed fields: `GET /api/v1/admin/account-quality/degraded-accounts`; OAuth degraded/401 projection; admin.accounts.read scope mapping; audit-sensitive-read mapping; detailed API documentation.
+
+BASELINE command: git show HEAD:backend/internal/transport/http/handler/admin/account_quality_handler.go > /tmp/account-quality-degraded-api-20260914/BASELINE_ACCOUNT_QUALITY_HANDLER.go && shasum -a 256 /tmp/account-quality-degraded-api-20260914/BASELINE_ACCOUNT_QUALITY_HANDLER.go
+BASELINE literal result: e193006015aa89c5d1c60de453739cb7f251b164bdad3731969e1bedf24c984b; 2613 bytes; exit 0.
+MODIFIED command: cp backend/internal/transport/http/handler/admin/account_quality_handler.go /tmp/account-quality-degraded-api-20260914/MODIFIED_ACCOUNT_QUALITY_HANDLER.go && shasum -a 256 /tmp/account-quality-degraded-api-20260914/MODIFIED_ACCOUNT_QUALITY_HANDLER.go
+MODIFIED literal result: dc6bb7cb9b7d8c3e5dd3fc3770893f2f654527f88870892a0806b8af1170770e; 3111 bytes; exit 0.
+
+BASELINE test command: git archive HEAD | tar -x -C /tmp/account-quality-degraded-api-20260914/baseline-src && (cd /tmp/account-quality-degraded-api-20260914/baseline-src/backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/transport/http/handler/admin ./internal/transport/http/server/middleware ./internal/transport/http/server/routes -run 'TestListDegradedQualityAccounts|TestRequiredAdminPermission|TestAdminAPIKeyScopePolicy' -count=1)
+BASELINE literal result: application/service ok 0.982s [no tests to run]; handler/admin ok 0.486s [no tests to run]; middleware ok 0.502s; routes ok 0.946s [no tests to run]; exit 0.
+MODIFIED test command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/transport/http/handler/admin ./internal/transport/http/server/middleware ./internal/transport/http/server/routes -run 'TestListDegradedQualityAccounts|TestRequiredAdminPermission|TestAdminAPIKeyScopePolicy' -count=1
+MODIFIED literal result: application/service ok 0.989s; handler/admin ok 0.477s; middleware ok 0.483s; routes ok 0.884s; exit 0.
+VET command: cd backend && GOCACHE=/tmp/sub2api-gocache go vet ./internal/application/service ./internal/transport/http/handler/admin ./internal/transport/http/server/middleware
+VET literal result: exit 0.
+DOCKER command: docker run --rm -v /Users/lin/.codex/worktrees/b443/sub2api-no2api:/src -w /src/backend -e GOCACHE=/tmp/go-cache golang:1.26.6-bookworm sh -lc 'export PATH=/usr/local/go/bin:$PATH; go test ./internal/application/service ./internal/transport/http/handler/admin ./internal/transport/http/server/middleware ./internal/transport/http/server/routes -run "TestListDegradedQualityAccounts|TestRequiredAdminPermission|TestAdminAPIKeyScopePolicy" -count=1'
+DOCKER literal result: application/service ok 2.152s; handler/admin ok 0.538s; middleware ok 0.298s; routes ok 6.007s; exit 0.
+
+ROLLBACK command: cp BASELINE_ACCOUNT_QUALITY_HANDLER.go ROLLBACK_COPY.go; printf '\n' >> ROLLBACK_COPY.go; ./ROLLBACK.sh BASELINE_ACCOUNT_QUALITY_HANDLER.go ROLLBACK_COPY.go
+ROLLBACK literal result: restored: /tmp/account-quality-degraded-api-20260914/ROLLBACK_COPY.go; cmp=0; SHA-256 e193006015aa89c5d1c60de453739cb7f251b164bdad3731969e1bedf24c984b; exit 0.
+Restored behavior/status: independent handler rollback copy is byte-identical; modified API exposes only OAuth degraded/401 diagnostics.
+
+API endpoint follow-up (2026-09-14)
+----------------------------------
+Changed fields: `ListDegradedQualityAccounts`; `GET /api/v1/admin/account-quality/degraded-accounts`; `admin.accounts.read` scope and `accounts.manage` permission mapping; audit mapping; detailed API document.
+
+BASELINE command: git show HEAD:backend/internal/transport/http/handler/admin/account_quality_handler.go > /tmp/account-quality-degraded-api-20260914/BASELINE_ACCOUNT_QUALITY_HANDLER.go && shasum -a 256 /tmp/account-quality-degraded-api-20260914/BASELINE_ACCOUNT_QUALITY_HANDLER.go
+BASELINE literal result: e193006015aa89c5d1c60de453739cb7f251b164bdad3731969e1bedf24c984b; 2613 bytes; exit 0.
+MODIFIED command: cp backend/internal/transport/http/handler/admin/account_quality_handler.go /tmp/account-quality-degraded-api-20260914/MODIFIED_ACCOUNT_QUALITY_HANDLER.go && shasum -a 256 /tmp/account-quality-degraded-api-20260914/MODIFIED_ACCOUNT_QUALITY_HANDLER.go
+MODIFIED literal result: dc6bb7cb9b7d8c3e5dd3fc3770893f2f654527f88870892a0806b8af1170770e; 3111 bytes; exit 0.
+
+BASELINE test command: git archive HEAD | tar -x -C /tmp/account-quality-degraded-api-20260914/baseline-src && (cd /tmp/account-quality-degraded-api-20260914/baseline-src/backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/transport/http/handler/admin ./internal/transport/http/server/middleware ./internal/transport/http/server/routes -run 'TestListDegradedQualityAccounts|TestRequiredAdminPermission|TestAdminAPIKeyScopePolicy' -count=1)
+BASELINE literal result: application/service ok 0.982s [no tests to run]; handler/admin ok 0.486s [no tests to run]; middleware ok 0.502s; routes ok 0.946s [no tests to run]; exit 0.
+MODIFIED test command: cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/application/service ./internal/transport/http/handler/admin ./internal/transport/http/server/middleware ./internal/transport/http/server/routes -run 'TestListDegradedQualityAccounts|TestRequiredAdminPermission|TestAdminAPIKeyScopePolicy' -count=1
+MODIFIED literal result: application/service ok 0.999s; handler/admin ok 0.477s; middleware ok 0.483s; routes ok 0.884s; exit 0.
+VET command: cd backend && GOCACHE=/tmp/sub2api-gocache go vet ./internal/application/service ./internal/transport/http/handler/admin ./internal/transport/http/server/middleware
+VET literal result: exit 0.
+DOCKER command: docker run --rm -v /Users/lin/.codex/worktrees/b443/sub2api-no2api:/src -w /src/backend -e GOCACHE=/tmp/go-cache golang:1.26.6-bookworm sh -lc 'export PATH=/usr/local/go/bin:$PATH; go test ./internal/application/service ./internal/transport/http/handler/admin ./internal/transport/http/server/middleware ./internal/transport/http/server/routes -run "TestListDegradedQualityAccounts|TestRequiredAdminPermission|TestAdminAPIKeyScopePolicy" -count=1'
+DOCKER literal result: application/service ok 2.152s; handler/admin ok 0.538s; middleware ok 0.298s; routes ok 6.007s; exit 0.
+
+ROLLBACK command: cp BASELINE_ACCOUNT_QUALITY_HANDLER.go ROLLBACK_COPY.go; printf '\n' >> ROLLBACK_COPY.go; ./ROLLBACK.sh BASELINE_ACCOUNT_QUALITY_HANDLER.go ROLLBACK_COPY.go
+ROLLBACK literal result: restored: /tmp/account-quality-degraded-api-20260914/ROLLBACK_COPY.go; cmp=0; SHA-256 e193006015aa89c5d1c60de453739cb7f251b164bdad3731969e1bedf24c984b; exit 0.
+Restored behavior/status: handler rollback copy is byte-identical; modified endpoint is retained in the working tree.
