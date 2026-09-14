@@ -75,3 +75,5 @@ ROLLBACK literal result: restored: /tmp/account-quality-degraded-api-20260914/RO
 Restored behavior/status: handler rollback copy is byte-identical; modified endpoint is retained in the working tree.
 
 Publication: PR #67 merged into main at 2026-09-14T02:12:47Z; merge SHA 8735edb0552bc1662e88c44d981bc20bea783b85; implementation SHA a8f677df71e1f4e623ebb397189008ebb53ac2aa.
+
+Documentation publication: PR #68 merged into main at 2026-09-14T02:36:41Z; merge SHA 119540e8404d5e9661370a2b18854bb0ee1fb911. `docs/ACCOUNT_QUALITY_DEGRADED_ACCOUNTS_API.md` is now present on origin/main.
