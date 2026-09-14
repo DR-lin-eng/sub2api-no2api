@@ -5,6 +5,7 @@ export default {
     queued: '排队中',
     stage1Running: '文字题检测中',
     stage2Running: '绘图生成中',
+    outputInterrupted: '输出被中断，分析可能错误',
     rendering: '生成动画预览',
     persisting: '保存检测结果',
     completed: '已完成',

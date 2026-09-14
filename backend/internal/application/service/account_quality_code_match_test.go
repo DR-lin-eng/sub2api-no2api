@@ -88,11 +88,14 @@ func TestQualityCodeMatchAnalyzesPartialStreamBeforeFailure(t *testing.T) {
 		t.Fatalf("partial failed stream was not analyzed: %+v", result)
 	}
 	require.False(t, result.detail.CodeMatch.SourceComplete)
-	require.Equal(t, "wrong", result.status)
+	require.Equal(t, "interrupted", result.status)
 	require.False(t, result.operational)
-	require.Contains(t, result.errorMessage, "incomplete")
+	require.True(t, result.incomplete)
+	require.Contains(t, result.errorMessage, "output interrupted")
 	require.Equal(t, "unavailable", result.detail.PreviewStatus)
 	require.True(t, result.detail.PreviewHTMLTruncated)
+	require.True(t, result.detail.OutputInterrupted)
+	require.Contains(t, result.detail.AnalysisWarning, "analysis may be inaccurate")
 }
 
 func TestQualityCodeMatchKeepsCompleteFailedStreamAsOperationalError(t *testing.T) {

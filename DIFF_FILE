@@ -1,36 +1,11 @@
-Algorithm replacement diff
+Incomplete drawing verdict
 ==========================
-Old: best.pt/Ultralytics frame classifier returned normal/unnormal and confidence.
-New: Go MatchHTML(source, threshold) evaluates the supplied reference signals:
-  js_trig_leg_animation 20, defs_use_reuse 15, reduced_motion_js 12,
-  play_pause_button 12, title_desc_aria_labelledby 10,
-  visibilitychange_listener 8, multiword_kebab_naming 8,
-  no_root_css_vars 7, pure_svg_scene 8.
-The score is round(100*raw_points/100, 1), with matched/missing signal names and
-version code-fingerprint-v1. Default threshold is 55. Model A is normal by
-default; an administrator may select the inverse normal class.
+Old: partial stage-2 HTML/SVG set status=wrong and degraded the whole account.
+New: partial stage-2 output is analyzed normally but marked interrupted and
+source_complete=false. The UI writes “输出被中断，分析可能错误”.
 
-The HTML/SVG source is graded before browser preview rendering. The frontend
-renders bounded preview_html in an iframe with sandbox="allow-scripts" and a
-strict CSP. Historical PNG/WebP records remain readable. The backend image no
-longer installs or invokes Chromium, Python or Playwright; no new renderer URL
-or Compose setting is introduced.
-
-OAuth scope follow-up
-=====================
-qualityProbeSupported now requires AccountTypeOAuth exactly. Active OpenAI/Gemini
-OAuth accounts remain eligible (subject to source/degraded group routing); API-key
-and service-account accounts return false before any probe request is scheduled.
-
-Concurrency/queue and incomplete-drawing follow-up
-=================================================
-`max_concurrent` keeps its default 4 but now validates and accepts up to 200;
-the admin input and DTO expose that range. A scheduled or manual trigger that
-arrives while a round is active is coalesced into one pending round, shown as
-`pending_runs`, and starts only after the active round releases its leader lock.
-The active context is never cancelled by the interval timer.
-
-Partial drawing streams are analyzed from the received HTML/SVG. The matcher
-records `source_complete=false` and the UI labels the incomplete result. Failed
-records with no answer, IDs, match evidence or preview are omitted from the
-public timeline and cards; historical image-backed rows remain visible.
+With stage 1 enabled, the text answer is authoritative for the account verdict,
+consecutive counters, recovery and degraded-group switching. Stage-2 code-match
+score/signals remain visible. With stage 1 disabled, interruption is uncertain.
+Complete failed streams remain operational errors. Empty failed records remain
+filtered from the public panel.

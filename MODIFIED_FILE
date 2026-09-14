@@ -1,22 +1,20 @@
 Changed branch: codex/account-quality-source-group
-Changed field: account_quality stage2 classifier -> Go HTML/SVG code fingerprint (code-fingerprint-v1), with configurable code_match_threshold and code_match_normal_class; frontend sandbox iframe renders preview HTML; backend is matcher-only.
+Changed field: incomplete stage-2 drawing responses.
 
-Source files changed:
-- backend/internal/modules/qualityrender/fingerprint.go (9 weighted signals, structural title/desc matching)
-- backend/internal/modules/qualityrender/fingerprint.go and backend/internal/application/service/account_quality_conversation.go (bounded preview_html for frontend)
-- backend/internal/application/service/account_quality_code_match.go (verdict integration)
-- backend/internal/application/service/account_quality_monitoring.go (settings)
-- frontend/src/features/admin-account-quality/ (threshold/class controls)
-- frontend/src/features/account-quality/ (public score/signals/preview status)
+Behavior:
+- Go code matcher still evaluates the partial HTML/SVG and records score,
+  matched/missing signals, and source_complete=false.
+- The stage is marked `interrupted` with output_interrupted=true and a fixed
+  analysis warning: “输出被中断，分析可能错误”。
+- When stage 1 is enabled, the account-level result and group-switch decision
+  use the text question only: text passed => healthy, text wrong => degraded,
+  text operational error => error. An interrupted drawing is evidence-only.
+- When stage 1 is disabled, an interrupted drawing is uncertain.
+- The public/admin detail views retain image/code analysis and show the warning;
+  the public verdict maps to the text-stage result.
 
-Legacy min_confidence and renderer environment fields remain API-compatible, but no backend renderer is invoked; old PNG/WebP records remain readable.
-MODIFIED_FILE intentionally remains changed; rollback is tested on /tmp/quality-code-match-20260913/ROLLBACK_COPY.go.
-
-Follow-up changed field:
-- backend/internal/application/service/account_quality_monitor.go: qualityProbeSupported now accepts only AccountTypeOAuth; API key and service-account credentials are excluded even when active and in the configured source group.
-- backend/internal/application/service/account_quality_monitor_test.go: explicit OAuth-only eligibility test.
-
-Concurrency and queue follow-up:
-- backend/internal/application/service/account_quality_monitoring.go: max_concurrent default remains 4, administrator-configurable upper bound is 200; scheduled/manual rounds use a single pending-round queue and never cancel an active round.
-- frontend/src/features/admin-account-quality/presentation/pages/AccountQualityPage.vue: max concurrency input accepts 1–200 and displays queued round count.
-- backend/internal/application/service/account_quality_public.go and frontend/src/features/account-quality/presentation/: empty failed conversations are filtered; partial SVG answers retain code-match evidence and source_complete=false.
+Four artifacts:
+- /Users/lin/.codex/worktrees/b443/sub2api-no2api/MODIFIED_FILE
+- /Users/lin/.codex/worktrees/b443/sub2api-no2api/DIFF_FILE
+- /Users/lin/.codex/worktrees/b443/sub2api-no2api/VERIFICATION.txt
+- /Users/lin/.codex/worktrees/b443/sub2api-no2api/ROLLBACK.sh

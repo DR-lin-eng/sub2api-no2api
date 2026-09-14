@@ -166,6 +166,37 @@ func TestQualityStagesCanRunIndependently(t *testing.T) {
 	require.Equal(t, "passed", stage2Results[0].QualityStage2Status)
 }
 
+func TestInterruptedDrawingUsesTextStageAsAccountVerdict(t *testing.T) {
+	account := Account{ID: 16, Name: "partial-drawing", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
+	settings := DefaultAccountQualitySettings()
+	settings.Stage1Enabled, settings.Stage2Enabled = true, true
+	probe := &qualityStageProbeStub{results: []*ScheduledTestResult{
+		{Status: "success", ResponseText: "21", ReasoningTokens: reasoningTokenPtr(80)},
+		{Status: "failed", ResponseText: `<html><body><svg><script>Math.sin(0);requestAnimationFrame(tick)</script>`, ErrorMessage: "stream ended before response.completed"},
+	}}
+	rows := []AccountInspectionAccountResult{neutralAccountInspectionResult(&account, time.Now().UTC())}
+	svc := &AccountQualityMonitoringService{accountRepo: &qualityRepoStub{extra: map[int64]map[string]any{}}, accountTestSvc: probe}
+	require.NoError(t, svc.runQualityMonitoring(context.Background(), []Account{account}, rows, nil, settings, time.Now().UTC()))
+	require.Equal(t, "healthy", rows[0].QualityStatus, "text answer is authoritative when drawing output is interrupted")
+	require.Equal(t, "passed", rows[0].QualityStage1Status)
+	require.Equal(t, "interrupted", rows[0].QualityStage2Status)
+	require.NotNil(t, rows[0].QualityCodeMatch)
+	require.False(t, rows[0].QualityCodeMatch.SourceComplete)
+	require.Contains(t, rows[0].QualityError, "output interrupted")
+}
+
+func TestInterruptedDrawingWithoutTextStageIsUncertain(t *testing.T) {
+	account := Account{ID: 17, Name: "partial-only", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
+	settings := DefaultAccountQualitySettings()
+	settings.Stage1Enabled, settings.Stage2Enabled = false, true
+	probe := &qualityStageProbeStub{results: []*ScheduledTestResult{{Status: "failed", ResponseText: `<svg><path`, ErrorMessage: "stream ended"}}}
+	rows := []AccountInspectionAccountResult{neutralAccountInspectionResult(&account, time.Now().UTC())}
+	svc := &AccountQualityMonitoringService{accountRepo: &qualityRepoStub{extra: map[int64]map[string]any{}}, accountTestSvc: probe}
+	require.NoError(t, svc.runQualityMonitoring(context.Background(), []Account{account}, rows, nil, settings, time.Now().UTC()))
+	require.Equal(t, "uncertain", rows[0].QualityStatus)
+	require.Equal(t, "interrupted", rows[0].QualityStage2Status)
+}
+
 func TestQualityStagesBothDisabledSkipProbe(t *testing.T) {
 	account := Account{ID: 13, Name: "quality", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
 	probe := &qualityStageProbeStub{}

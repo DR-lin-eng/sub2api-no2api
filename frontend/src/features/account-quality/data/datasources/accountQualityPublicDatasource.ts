@@ -18,6 +18,8 @@ export interface AccountQualityStageDetail {
   preview_status?: 'ready' | 'unavailable'
   preview_html?: string
   preview_html_truncated?: boolean
+  output_interrupted?: boolean
+  analysis_warning?: string
 
   status: string
   conversation_id?: string

@@ -11,4 +11,4 @@
 质量设置使用 `account_quality_settings`，运行状态使用 `account_quality_state`；`max_concurrent` 默认 4，可由管理员设置到 200；账号质量巡检只筛选启用的 OpenAI/Gemini OAuth 账号，API Key 和 service account 永不进入检测队列；上一轮未完成时，新的定时或手动轮次合并为一个待开始任务，当前轮次不会被中断；上一轮完成后立即启动排队轮次。账号健康巡检使用另一组设置、状态和调度器。
 
 
-第二阶段 HTML/SVG 在 sandboxed iframe 中由前端浏览器渲染，历史记录保留 WebP 图片回退。流式回答不完整时仍分析已收到的代码并标记不完整；完全没有回答、ID、匹配或预览的失败记录不展示在公开面板。
+第二阶段 HTML/SVG 在 sandboxed iframe 中由前端浏览器渲染，历史记录保留 WebP 图片回退。流式回答不完整时仍分析已收到的代码，并在详情显示“输出被中断，分析可能错误”；账号总结果以文字题为准。完全没有回答、ID、匹配或预览的失败记录不展示在公开面板。

@@ -19,6 +19,8 @@ type AccountQualityStageDetail struct {
 	PreviewStatus        string                   `json:"preview_status,omitempty"`
 	PreviewHTML          string                   `json:"preview_html,omitempty"`
 	PreviewHTMLTruncated bool                     `json:"preview_html_truncated,omitempty"`
+	OutputInterrupted    bool                     `json:"output_interrupted,omitempty"`
+	AnalysisWarning      string                   `json:"analysis_warning,omitempty"`
 	Status               string                   `json:"status"`
 	ConversationID       string                   `json:"conversation_id,omitempty"`
 	ResponseID           string                   `json:"response_id,omitempty"`
