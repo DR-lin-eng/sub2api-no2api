@@ -1106,6 +1106,38 @@ type openaiNonStreamingResultPassthrough struct {
 
 const openAIStreamKeepaliveBytesKey = "openai_stream_keepalive_bytes"
 const openAIStreamLastWriteKey = "openai_stream_last_write"
+const openAIStreamControlOutputBytesKey = "openai_stream_control_output_bytes"
+const openAIStreamSemanticOutputBytesKey = "openai_stream_semantic_output_bytes"
+
+func addOpenAIStreamOutputBytes(c *gin.Context, key string, written int) {
+	if c == nil || written <= 0 {
+		return
+	}
+	current := 0
+	if value, ok := c.Get(key); ok {
+		current, _ = value.(int)
+	}
+	c.Set(key, current+written)
+}
+
+func recordOpenAIStreamControlOutput(c *gin.Context, written int) {
+	addOpenAIStreamOutputBytes(c, openAIStreamControlOutputBytesKey, written)
+}
+
+func recordOpenAIStreamSemanticOutput(c *gin.Context, written int) {
+	addOpenAIStreamOutputBytes(c, openAIStreamSemanticOutputBytesKey, written)
+}
+
+func openAIStreamControlOnlyOutputCommitted(c *gin.Context) bool {
+	if c == nil {
+		return false
+	}
+	controlBytes, _ := c.Get(openAIStreamControlOutputBytesKey)
+	semanticBytes, _ := c.Get(openAIStreamSemanticOutputBytesKey)
+	control, _ := controlBytes.(int)
+	semantic, _ := semanticBytes.(int)
+	return control > 0 && semantic == 0 && OpenAICompactKeepaliveAdjustedWrittenSize(c) < 0
+}
 
 func recordOpenAIStreamKeepaliveBytes(c *gin.Context, written int) {
 	if c == nil || written <= 0 {
@@ -1144,6 +1176,12 @@ func openAIStreamLastWriteAt(c *gin.Context) time.Time {
 func openAIStreamClientOutputStarted(c *gin.Context, localStarted bool) bool {
 	if localStarted {
 		return true
+	}
+	if openAIStreamControlOnlyOutputCommitted(c) {
+		// The first Codex rate-limit frame is deliberately flushed for
+		// perceived latency, but it remains replay-safe and is not semantic
+		// output for failover decisions.
+		return false
 	}
 	if c == nil || c.Writer == nil {
 		return false
@@ -1969,18 +2007,25 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 	usage := &OpenAIUsage{}
 	imageCounter := newOpenAIImageOutputCounter()
 	var firstTokenMs *int
+	// Control-plane Codex events can be the first upstream data. Keep their
+	// local timestamp separate until this attempt reaches a non-failed terminal
+	// event, so a retryable attempt does not become a successful TTFT sample.
+	var localFirstEventTTFTMs *int
 	visibleOutputObserved := false
 	responseID := ""
 	clientDisconnected := false
 	sawDone := false
 	sawTerminalEvent := false
 	sawFailedEvent := false
+	successfulTerminalEvent := false
 	sawResponseFailedEvent := false
 	responsesSemanticOutputSeen := false
 	capacityFailoverSuppressedLogged := false
 	failedMessage := ""
 	clientOutputStarted := false
+	controlEventInProgress := false
 	sawOutputProgressEvent := false
+	seenUpstreamDataEvent := false
 	upstreamRequestID := strings.TrimSpace(resp.Header.Get("x-request-id"))
 	reasoningEffort := ""
 	if len(reasoningEfforts) > 0 {
@@ -2026,13 +2071,16 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 	}
 	lastDownstreamWriteAt := openAIStreamLastWriteAt(c)
 	downstreamEventInProgress := false
-	// pendingLines 在首个可见输出前保留前导事件，确保无输出失败仍可安全 failover。
+	// pendingLines/stage 在首个语义输出前保留前导事件；rate_limits 是可重放
+	// 的控制帧，会单独即时下发，不影响其余前导事件的 failover 安全性。
 	var preOutputStage *openAIFirstOutputStage
 	if preservePreOutputForFailover {
-		stage := newDefaultOpenAIFirstOutputStage()
-		preOutputStage = stage
+		preOutputStage = newDefaultOpenAIFirstOutputStage()
 		defer func() {
-			if err := stage.Close(); err != nil {
+			if preOutputStage == nil {
+				return
+			}
+			if err := preOutputStage.Close(); err != nil {
 				logger.LegacyPrintf("service.openai_gateway", "OpenAI passthrough first-output staging cleanup failed: account=%d error=%v", account.ID, err)
 			}
 		}()
@@ -2089,6 +2137,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 			if preOutputStage.Buffered() == 0 {
 				return true
 			}
+			stagedBytes := preOutputStage.Buffered()
 			if err := preOutputStage.CommitTo(w); err != nil {
 				clientDisconnected = true
 				logger.LegacyPrintf("service.openai_gateway", "[OpenAI passthrough] Client disconnected during staged output commit: account=%d error=%v", account.ID, err)
@@ -2096,6 +2145,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 			}
 			preOutputStage = nil
 			noteTurnStateCommitted()
+			recordOpenAIStreamSemanticOutput(c, int(stagedBytes))
 			return true
 		}
 		pendingEndedEvent := len(pendingLines) == 0 || pendingLines[len(pendingLines)-1] == ""
@@ -2163,6 +2213,9 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 
 	needModelReplace := strings.TrimSpace(originalModel) != "" && strings.TrimSpace(mappedModel) != "" && strings.TrimSpace(originalModel) != strings.TrimSpace(mappedModel)
 	resultWithUsage := func() *openaiStreamingResultPassthrough {
+		if localFirstEventTTFTMs != nil && successfulTerminalEvent {
+			firstTokenMs = localFirstEventTTFTMs
+		}
 		return &openaiStreamingResultPassthrough{
 			usage:            usage,
 			firstTokenMs:     firstTokenMs,
@@ -2215,7 +2268,10 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 		lineStartsClientOutput := false
 		lineNeedsFlush := false
 		forceFlushFailedEvent := false
+		immediateFirstEvent := false
 		if data, ok := extractOpenAISSEDataLine(line); ok {
+			firstUpstreamDataEvent := !seenUpstreamDataEvent
+			seenUpstreamDataEvent = true
 			dataBytes := []byte(data)
 			trimmedData := strings.TrimSpace(data)
 			rawEventType := strings.TrimSpace(gjson.GetBytes(dataBytes, "type").String())
@@ -2312,6 +2368,9 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 			}
 			if openAIStreamEventIsTerminal(trimmedData) {
 				sawTerminalEvent = true
+				if !isFailureEnvelope && (eventType == "response.completed" || eventType == "response.done" || trimmedData == "[DONE]") {
+					successfulTerminalEvent = true
+				}
 				stopFirstOutputWatchdog()
 			}
 			if responseID == "" {
@@ -2327,6 +2386,8 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 				trimmedData = strings.TrimSpace(string(sanitizedData))
 				line = "data: " + string(sanitizedData)
 			}
+			startsLocalFirstEventTTFT := openAIStreamDataStartsLocalFirstEventTTFT(trimmedData, eventType)
+			immediateFirstEvent = firstUpstreamDataEvent && isOpenAIImmediateFirstEventType(eventType)
 			if !clientOutputStarted || !visibleOutputObserved {
 				lineStartsClientOutput = openAIStreamDataStartsClientOutputTrimmed(trimmedData, eventType)
 				lineNeedsFlush = openAIStreamEventNeedsFlushKnownValidity(
@@ -2336,6 +2397,12 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 					forceFlushFailedEvent,
 					dataValid,
 				)
+				if immediateFirstEvent {
+					// The first Codex control event is replay-safe and should not
+					// wait behind the semantic-output staging buffer.
+					lineNeedsFlush = true
+					controlEventInProgress = true
+				}
 			} else {
 				lineNeedsFlush = forceFlushFailedEvent
 			}
@@ -2352,9 +2419,16 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 			if !visibleOutputObserved && openAIStreamDataStartsVisibleOutput(trimmedData, eventType) {
 				visibleOutputObserved = true
 			}
-			if firstTokenMs == nil && openAIStreamDataStartsTTFT(trimmedData, eventType, visibleOutputTTFT) {
+			startsTTFT := openAIStreamDataStartsTTFT(trimmedData, eventType, visibleOutputTTFT)
+			if firstTokenMs == nil && startsTTFT {
 				ms := int(time.Since(startTime).Milliseconds())
-				firstTokenMs = &ms
+				if startsLocalFirstEventTTFT {
+					if localFirstEventTTFTMs == nil {
+						localFirstEventTTFTMs = &ms
+					}
+				} else {
+					firstTokenMs = &ms
+				}
 			}
 			if lineStartsClientOutput {
 				stopFirstOutputWatchdog()
@@ -2363,7 +2437,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 		}
 
 		if !clientDisconnected {
-			if !clientOutputStarted && !lineNeedsFlush {
+			if !clientOutputStarted && !lineNeedsFlush && !controlEventInProgress {
 				if preOutputStage != nil {
 					incomingBytes := int64(len(line) + 1)
 					if incomingBytes > preOutputStage.limit-preOutputStage.Buffered() {
@@ -2403,24 +2477,50 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 				}
 				continue
 			}
+			if !clientOutputStarted && controlEventInProgress && preOutputStage != nil && preOutputStage.Buffered() > 0 {
+				stagedBytes := preOutputStage.Buffered()
+				completedStage := preOutputStage
+				if err := completedStage.CommitTo(w); err != nil {
+					clientDisconnected = true
+					continue
+				}
+				preOutputStage = newDefaultOpenAIFirstOutputStage()
+				if err := completedStage.Close(); err != nil {
+					logger.LegacyPrintf("service.openai_gateway", "OpenAI passthrough control-output staging cleanup failed: account=%d error=%v", account.ID, err)
+				}
+				recordOpenAIStreamControlOutput(c, int(stagedBytes))
+			}
 			if !clientOutputStarted && pendingOutputBytes() > 0 {
 				if !writePendingLines() {
 					continue
 				}
 			}
-			applyAttemptResponseHeaders()
-			if _, err := fmt.Fprintln(w, line); err != nil {
+			if !controlEventInProgress {
+				applyAttemptResponseHeaders()
+			}
+			if written, err := fmt.Fprintln(w, line); err != nil {
 				clientDisconnected = true
 				logger.LegacyPrintf("service.openai_gateway", "[OpenAI passthrough] Client disconnected during streaming, continue draining upstream for usage: account=%d", account.ID)
 			} else {
-				if !clientOutputStarted {
-					noteTurnStateCommitted()
+				if controlEventInProgress {
+					recordOpenAIStreamControlOutput(c, written)
+				} else {
+					recordOpenAIStreamSemanticOutput(c, written)
+					if !clientOutputStarted {
+						noteTurnStateCommitted()
+					}
 				}
-				clientOutputStarted = true
+				if !controlEventInProgress {
+					clientOutputStarted = true
+				}
 				downstreamEventInProgress = line != ""
 				flushPending = true
 				if line == "" {
 					flushPendingOutput()
+					if controlEventInProgress {
+						controlEventInProgress = false
+						downstreamEventInProgress = false
+					}
 				}
 			}
 		}

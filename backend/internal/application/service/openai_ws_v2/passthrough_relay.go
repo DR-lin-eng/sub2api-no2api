@@ -111,9 +111,15 @@ type relayState struct {
 	responseConflict    bool
 	terminalEventType   string
 	firstTokenMs        *int
-	legacyTTFT          bool
-	turnTimingByID      map[string]*relayTurnTiming
-	activeTurn          *relayTurnTiming
+	firstEventTTFTMs    *int
+	// A control-plane first event can precede the response.created frame that
+	// establishes a per-turn response ID. Keep the candidate until that turn is
+	// created so aggregate and per-turn local TTFT remain consistent.
+	pendingFirstEventTTFTMs *int
+	pendingFirstEventMu     sync.Mutex
+	legacyTTFT              bool
+	turnTimingByID          map[string]*relayTurnTiming
+	activeTurn              *relayTurnTiming
 }
 
 type relayExitSignal struct {
@@ -139,6 +145,7 @@ type relayTurnTiming struct {
 	openAITiming          openaitiming.Collector
 	startAt               time.Time
 	firstTokenMs          *int
+	firstEventTTFTMs      *int
 	firstResponseModel    string
 	terminalResponseModel string
 	responseModelConflict bool
@@ -201,6 +208,7 @@ func Relay(
 			state.setRequestModel(strings.TrimSpace(gjson.GetBytes(payload, "model").String()))
 			state.pendingTurn.Store(true)
 			state.turnWroteDownstream.Store(false)
+			state.resetFirstEventTTFT()
 		}
 		return writeUpstream(msgType, payload)
 	}
@@ -599,6 +607,7 @@ func runUpstreamToClient(
 		}
 		if observedEvent.terminal || strings.TrimSpace(gjson.GetBytes(payload, "type").String()) == "error" {
 			state.pendingTurn.Store(false)
+			state.resetFirstEventTTFT()
 		}
 		emitTurnComplete(onTurnComplete, state, observedEvent)
 		if dropDownstreamWrites != nil && dropDownstreamWrites.Load() {
@@ -782,15 +791,25 @@ func observeUpstreamMessage(
 		return observedUpstreamEvent{eventType: eventType}
 	}
 
-	if state.firstTokenMs == nil && isTTFTEvent(eventType, state.legacyTTFT) {
+	isLocalFirstEventTTFT := isFirstEventTTFTEvent(eventType)
+	if isTTFTEvent(eventType, state.legacyTTFT) {
 		ms := int(now.Sub(startAt).Milliseconds())
 		if ms >= 0 {
-			state.firstTokenMs = &ms
-		}
-		if state.activeTurn != nil && state.activeTurn.firstTokenMs == nil {
-			tms := int(now.Sub(state.activeTurn.startAt).Milliseconds())
-			if tms >= 0 {
-				state.activeTurn.firstTokenMs = &tms
+			if isLocalFirstEventTTFT {
+				state.setFirstEventTTFTIfNil(&ms)
+				if state.activeTurn != nil && state.activeTurn.firstEventTTFTMs == nil {
+					state.activeTurn.firstEventTTFTMs = &ms
+				} else if state.activeTurn == nil && state.pendingFirstEventTTFT() == nil {
+					state.setPendingFirstEventTTFT(&ms)
+				}
+			} else if state.firstTokenMs == nil {
+				state.firstTokenMs = &ms
+				if state.activeTurn != nil && state.activeTurn.firstTokenMs == nil {
+					tms := int(now.Sub(state.activeTurn.startAt).Milliseconds())
+					if tms >= 0 {
+						state.activeTurn.firstTokenMs = &tms
+					}
+				}
 			}
 		}
 	}
@@ -803,11 +822,19 @@ func observeUpstreamMessage(
 	var turnTiming *relayTurnTiming
 	if responseID != "" {
 		turnTiming = openAIWSRelayGetOrInitTurnTiming(state, responseID, now)
-		if turnTiming != nil && turnTiming.firstTokenMs == nil && isTTFTEvent(eventType, state.legacyTTFT) {
-			ms := int(now.Sub(turnTiming.startAt).Milliseconds())
-			if ms >= 0 {
-				turnTiming.firstTokenMs = &ms
+		if turnTiming != nil && turnTiming.firstTokenMs == nil {
+			if pending := state.takePendingFirstEventTTFT(); pending != nil {
+				turnTiming.firstEventTTFTMs = pending
+			} else if isTTFTEvent(eventType, state.legacyTTFT) {
+				if !isLocalFirstEventTTFT {
+					ms := int(now.Sub(turnTiming.startAt).Milliseconds())
+					if ms >= 0 {
+						turnTiming.firstTokenMs = &ms
+					}
+				}
 			}
+		} else if turnTiming != nil && isLocalFirstEventTTFT && turnTiming.firstEventTTFTMs == nil {
+			turnTiming.firstEventTTFTMs = state.firstEventTTFT()
 		}
 	} else {
 		turnTiming = state.activeTurn
@@ -823,7 +850,15 @@ func observeUpstreamMessage(
 	state.terminalEventType = eventType
 	if responseID != "" {
 		state.lastResponseID = responseID
+		if isSuccessfulLocalTTFTTerminal(eventType) {
+			if firstEvent := state.firstEventTTFT(); firstEvent != nil {
+				state.firstTokenMs = firstEvent
+			}
+		}
 		if turnTiming, ok := openAIWSRelayDeleteTurnTiming(state, responseID); ok {
+			if isSuccessfulLocalTTFTTerminal(eventType) && turnTiming.firstEventTTFTMs != nil {
+				turnTiming.firstTokenMs = openAIWSRelayCloneIntPtr(turnTiming.firstEventTTFTMs)
+			}
 			observed.openAITiming = turnTiming.openAITiming.Snapshot()
 			state.lastOpenAITiming = observed.openAITiming
 			observed.responseModel = relayTurnResponseModel(&turnTiming)
@@ -838,6 +873,9 @@ func observeUpstreamMessage(
 			observed.firstToken = openAIWSRelayCloneIntPtr(turnTiming.firstTokenMs)
 		}
 	}
+	// The aggregate first-token value is already retained above; clear the
+	// turn-local candidate before the next response.create frame.
+	state.clearFirstEventTTFT()
 	return observed
 }
 
@@ -979,6 +1017,75 @@ func openAIWSRelayCloneIntPtr(v *int) *int {
 	}
 	cloned := *v
 	return &cloned
+}
+
+func (s *relayState) setPendingFirstEventTTFT(value *int) {
+	if s == nil {
+		return
+	}
+	s.pendingFirstEventMu.Lock()
+	s.pendingFirstEventTTFTMs = openAIWSRelayCloneIntPtr(value)
+	s.pendingFirstEventMu.Unlock()
+}
+
+func (s *relayState) resetFirstEventTTFT() {
+	if s == nil {
+		return
+	}
+	s.pendingFirstEventMu.Lock()
+	s.firstEventTTFTMs = nil
+	s.pendingFirstEventTTFTMs = nil
+	s.pendingFirstEventMu.Unlock()
+}
+
+func (s *relayState) setFirstEventTTFTIfNil(value *int) {
+	if s == nil || value == nil {
+		return
+	}
+	s.pendingFirstEventMu.Lock()
+	if s.firstEventTTFTMs == nil {
+		s.firstEventTTFTMs = openAIWSRelayCloneIntPtr(value)
+	}
+	s.pendingFirstEventMu.Unlock()
+}
+
+func (s *relayState) firstEventTTFT() *int {
+	if s == nil {
+		return nil
+	}
+	s.pendingFirstEventMu.Lock()
+	defer s.pendingFirstEventMu.Unlock()
+	return openAIWSRelayCloneIntPtr(s.firstEventTTFTMs)
+}
+
+func (s *relayState) clearFirstEventTTFT() {
+	if s == nil {
+		return
+	}
+	s.pendingFirstEventMu.Lock()
+	s.firstEventTTFTMs = nil
+	s.pendingFirstEventTTFTMs = nil
+	s.pendingFirstEventMu.Unlock()
+}
+
+func (s *relayState) pendingFirstEventTTFT() *int {
+	if s == nil {
+		return nil
+	}
+	s.pendingFirstEventMu.Lock()
+	defer s.pendingFirstEventMu.Unlock()
+	return openAIWSRelayCloneIntPtr(s.pendingFirstEventTTFTMs)
+}
+
+func (s *relayState) takePendingFirstEventTTFT() *int {
+	if s == nil {
+		return nil
+	}
+	s.pendingFirstEventMu.Lock()
+	defer s.pendingFirstEventMu.Unlock()
+	value := openAIWSRelayCloneIntPtr(s.pendingFirstEventTTFTMs)
+	s.pendingFirstEventTTFTMs = nil
+	return value
 }
 
 func parseUsageAndAccumulate(

@@ -105,3 +105,47 @@ func TestOpenAIMessagesAnthropicStreamBuffersStartUntilVisibleOutput(t *testing.
 	require.Contains(t, body, "event: content_block_delta")
 	assert.Less(t, strings.Index(body, "event: message_start"), strings.Index(body, "event: content_block_delta"))
 }
+
+func TestOpenAIMessagesAnthropicStreamLocalTTFTUsesCodexFirstEvent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := &OpenAIGatewayService{cfg: &config.Config{Gateway: config.GatewayConfig{MaxLineSize: defaultMaxLineSize}}}
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"X-Request-Id": []string{"rid-first-event"}},
+		Body: io.NopCloser(strings.NewReader(strings.Join([]string{
+			"event: codex.rate_limits",
+			`data: {"type":"codex.rate_limits","rate_limits":{"allowed":true}}`,
+			"",
+			"event: response.created",
+			`data: {"type":"response.created","response":{"id":"resp_first_event","model":"gpt-5.5","status":"in_progress"}}`,
+			"",
+			"event: response.output_text.delta",
+			`data: {"type":"response.output_text.delta","delta":"Hello"}`,
+			"",
+			"event: response.completed",
+			`data: {"type":"response.completed","response":{"id":"resp_first_event","status":"completed","usage":{"input_tokens":1,"output_tokens":1}}}`,
+			"",
+		}, "\n"))),
+	}
+
+	result, err := svc.handleAnthropicStreamingResponse(
+		resp,
+		c,
+		&Account{ID: 1, Platform: PlatformOpenAI, Name: "first-event"},
+		"gpt-5.5",
+		"gpt-5.5",
+		"gpt-5.5",
+		time.Now(),
+		1,
+	)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.NotNil(t, result.FirstTokenMs)
+	require.Less(t, *result.FirstTokenMs, 100,
+		"local TTFT should use the first Codex control event while client output stays staged")
+}

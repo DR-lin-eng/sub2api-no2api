@@ -519,7 +519,7 @@ export default {
         openAIWSModeRouterV2: 'OpenAI WS account mode router',
         openAIWSModeRouterV2Hint: 'Web control for gateway.openai_ws.mode_router_v2_enabled. When enabled, each OpenAI account\'s WS mode selects ctx_pool, passthrough, http_bridge, or off. Changes apply at runtime.',
         openAIVisibleOutputTTFT: 'OpenAI visible-output TTFT',
-        openAIVisibleOutputTTFTHint: 'Enabled by default. Records TTFT at the first client-usable text, audio, or tool argument. Disable to use the 0.1.179 event definition. This affects metrics only, not stream delivery.',
+        openAIVisibleOutputTTFTHint: 'Enabled by default. Records TTFT at the first client-usable text, audio, or tool argument; when Codex sends rate_limits/metadata first, the local baseline retains that first event and HTTP SSE rate_limits is delivered immediately. Disable to use the 0.1.179 event definition. The setting affects TTFT metrics only; immediate rate_limits delivery is unchanged.',
         fingerprintUnification: 'Fingerprint Unification',
         fingerprintUnificationHint: 'Unify X-Stainless-* headers across users sharing the same OAuth account. Disabling passes through each client\'s original headers.',
         metadataPassthrough: 'Metadata Passthrough',

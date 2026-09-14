@@ -494,6 +494,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 	usage := OpenAIUsage{}
 	imageCounter := newOpenAIImageOutputCounter()
 	var firstTokenMs *int
+	var localFirstEventTTFTMs *int
 	reqStream := openAIWSPayloadBoolFromRaw(body, "stream", true)
 	eventCount := 0
 	tokenEventCount := 0
@@ -523,6 +524,10 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 	}
 
 	resultWithUsage := func() *OpenAIForwardResult {
+		if localFirstEventTTFTMs != nil &&
+			(upstreamTerminalEvent == "response.completed" || upstreamTerminalEvent == "response.done") {
+			firstTokenMs = localFirstEventTTFTMs
+		}
 		imageCount := imageCounter.Count()
 		result := &OpenAIForwardResult{
 			RequestID:                     responseID,
@@ -601,9 +606,17 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 		if isTokenEvent {
 			tokenEventCount++
 		}
-		if firstTokenMs == nil && isOpenAIWSTTFTEvent(eventType, visibleOutputTTFT) {
+		isLocalFirstEventTTFT := isOpenAILocalFirstEventType(eventType)
+		if isOpenAIWSTTFTEvent(eventType, visibleOutputTTFT) &&
+			(firstTokenMs == nil || isLocalFirstEventTTFT) {
 			ms := int(time.Since(turnStart).Milliseconds())
-			firstTokenMs = &ms
+			if isLocalFirstEventTTFT {
+				if localFirstEventTTFTMs == nil {
+					localFirstEventTTFTMs = &ms
+				}
+			} else if firstTokenMs == nil {
+				firstTokenMs = &ms
+			}
 		}
 		if openAIWSEventShouldParseUsage(eventType) {
 			parseOpenAIWSResponseUsageFromCompletedEvent(upstreamMessage, &usage)

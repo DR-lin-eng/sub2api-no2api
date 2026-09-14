@@ -110,7 +110,9 @@ func TestOpenAIStreamControlFailureSampleCanFailoverAfterKeepalive(t *testing.T)
 			require.ErrorAs(t, err, &failover)
 			require.Equal(t, http.StatusBadGateway, failover.StatusCode)
 			require.Nil(t, ttft)
-			require.Equal(t, ":\n\n", recorder.Body.String(), "failed attempt must remain private")
+			require.Contains(t, recorder.Body.String(), `"type":"codex.rate_limits"`, "the first Codex control event is flushed immediately")
+			require.NotContains(t, recorder.Body.String(), `"type":"codex.response.metadata"`, "turn-state metadata remains attempt-local")
+			require.NotContains(t, recorder.Body.String(), `"type":"response.created"`, "later lifecycle events remain attempt-local")
 			require.False(t, openAIStreamClientOutputStarted(c, false))
 
 			healthy := "data: {\"type\":\"response.output_text.delta\",\"delta\":\"recovered\"}\n\n" +
@@ -129,7 +131,12 @@ func TestOpenAIStreamControlFailureSampleCanFailoverAfterKeepalive(t *testing.T)
 func TestOpenAIStreamControlEOFBeforeOutputCanFailover(t *testing.T) {
 	for _, mode := range []string{"native", "passthrough"} {
 		for _, readErr := range []error{io.ErrUnexpectedEOF, context.DeadlineExceeded} {
-			for _, prefix := range []string{streamControlPreamble, "data: {\"type\":\"codex.response.metadata\",\"headers\":{}}\n\n"} {
+			for _, prefix := range []string{
+				streamControlPreamble,
+				"data: {\"type\":\"codex.response.metadata\",\"headers\":{}}\n\n",
+				"data: {\"type\":\"codex.response.metadata\",\"headers\":{}}\n\n" +
+					"data: {\"type\":\"codex.rate_limits\",\"rate_limits\":{\"allowed\":true}}\n\n",
+			} {
 				t.Run(mode+"/"+readErr.Error()+"/"+gjson.Get(strings.TrimPrefix(prefix, "data: "), "type").String(), func(t *testing.T) {
 					recorder := httptest.NewRecorder()
 					c, _ := gin.CreateTestContext(recorder)
@@ -139,7 +146,13 @@ func TestOpenAIStreamControlEOFBeforeOutputCanFailover(t *testing.T) {
 					var failover *UpstreamFailoverError
 					require.ErrorAs(t, err, &failover)
 					require.Nil(t, ttft)
-					require.Empty(t, recorder.Body.String())
+					firstLine := strings.Split(prefix, "\n")[0]
+					firstType := gjson.Get(strings.TrimPrefix(firstLine, "data: "), "type").String()
+					if firstType == "codex.rate_limits" {
+						require.Contains(t, recorder.Body.String(), `"type":"codex.rate_limits"`)
+					} else {
+						require.Empty(t, recorder.Body.String())
+					}
 				})
 			}
 		}
@@ -173,8 +186,103 @@ func TestOpenAIStreamControlWatchdogKeepsHeartbeatsWithoutSemanticOutput(t *test
 			var failover *UpstreamFailoverError
 			require.ErrorAs(t, err, &failover)
 			require.Equal(t, http.StatusGatewayTimeout, failover.StatusCode)
-			require.Contains(t, recorder.Body.String(), ":\n\n")
-			require.NotContains(t, recorder.Body.String(), "data:")
+			require.Contains(t, recorder.Body.String(), `"type":"codex.rate_limits"`)
+			require.False(t, openAIStreamClientOutputStarted(c, false))
+		})
+	}
+}
+
+func TestOpenAIStreamControlRateLimitsFlushesBeforeSemanticOutput(t *testing.T) {
+	for _, mode := range []string{"native", "passthrough"} {
+		t.Run(mode, func(t *testing.T) {
+			recorder := newOpenAIResponseFlushRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+			svc := &OpenAIGatewayService{cfg: &config.Config{Gateway: config.GatewayConfig{
+				OpenAIFirstOutputTimeoutSeconds: 5,
+			}}}
+			body := newOpenAICompatBlockingReadCloser([]byte(
+				"event: codex.rate_limits\n" +
+					"data: {\"type\":\"codex.rate_limits\",\"rate_limits\":{\"allowed\":true}}\n\n",
+			))
+			resultCh := make(chan error, 1)
+			go func() {
+				_, _, err := runStreamControlResponse(svc, mode, c, body)
+				resultCh <- err
+			}()
+
+			require.Eventually(t, func() bool {
+				bodyText, _ := recorder.snapshot()
+				return strings.Contains(bodyText, `"type":"codex.rate_limits"`)
+			}, time.Second, 10*time.Millisecond,
+				"the first Codex event must reach the client before semantic output")
+			require.False(t, openAIStreamClientOutputStarted(c, false),
+				"a control-only flush remains replay-safe")
+			_ = body.Close()
+			select {
+			case err := <-resultCh:
+				var failover *UpstreamFailoverError
+				require.ErrorAs(t, err, &failover)
+			case <-time.After(time.Second):
+				t.Fatal("stream did not stop after closing the upstream body")
+			}
+		})
+	}
+}
+
+func TestOpenAIStreamControlFailedAfterSemanticOutputKeepsSemanticTTFT(t *testing.T) {
+	for _, mode := range []string{"native", "passthrough"} {
+		t.Run(mode, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+			body := strings.Join([]string{
+				`data: {"type":"codex.rate_limits","rate_limits":{"allowed":true}}`,
+				"",
+				`data: {"type":"response.output_text.delta","delta":"partial"}`,
+				"",
+				`data: {"type":"response.failed","response":{"id":"resp_partial","status":"failed","error":{"code":"server_error","message":"failed"}}}`,
+				"",
+			}, "\n")
+
+			_, ttft, err := runStreamControlResponse(
+				&OpenAIGatewayService{cfg: &config.Config{}},
+				mode,
+				c,
+				io.NopCloser(strings.NewReader(body)),
+			)
+			require.Error(t, err)
+			require.NotNil(t, ttft,
+				"a failed turn that already produced semantic output keeps its semantic TTFT")
+			require.Contains(t, recorder.Body.String(), "partial")
+		})
+	}
+}
+
+func TestOpenAIStreamControlRestagesLargeMetadataAfterImmediateFirstEvent(t *testing.T) {
+	largeMetadata := strings.Repeat("x", openAIStreamPreOutputBufferLimit+1024)
+	body := "data: {\"type\":\"codex.rate_limits\",\"rate_limits\":{\"allowed\":true}}\n\n" +
+		"data: {\"type\":\"codex.response.metadata\",\"headers\":{\"padding\":\"" + largeMetadata + "\"}}\n\n" +
+		"data: {\"type\":\"response.failed\",\"response\":{\"id\":\"resp_large_metadata\",\"status\":\"failed\",\"error\":{\"code\":\"server_error\",\"message\":\"failed\"}}}\n\n"
+
+	for _, mode := range []string{"native", "passthrough"} {
+		t.Run(mode, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+			_, ttft, err := runStreamControlResponse(
+				&OpenAIGatewayService{cfg: &config.Config{}},
+				mode,
+				c,
+				io.NopCloser(strings.NewReader(body)),
+			)
+
+			var failover *UpstreamFailoverError
+			require.ErrorAs(t, err, &failover)
+			require.Nil(t, ttft)
+			require.Contains(t, recorder.Body.String(), `"type":"codex.rate_limits"`)
+			require.NotContains(t, recorder.Body.String(), `"type":"codex.response.metadata"`)
+			require.NotContains(t, recorder.Body.String(), largeMetadata)
 			require.False(t, openAIStreamClientOutputStarted(c, false))
 		})
 	}

@@ -30,6 +30,7 @@ OpenAI 官方 [Codex Metrics](https://developers.openai.com/codex/config-advance
 - 管理员 DTO 另外返回 `local_first_token_ms`、`local_duration_ms`、`first_token_source`、
   `duration_source` 和 `openai_timing`。列表并列显示本地与引擎首字，详情显示完整对比与差值。
 - Ops、账号聚合、统计摘要、调度、首输出超时、重试和计费继续使用既有本地口径，不受展示投影影响。
+- Codex SSE/WS 的 `codex.rate_limits` 或 `codex.response.metadata` 若先于模型输出到达，可作为本地首事件时间候选；HTTP SSE 的 `codex.rate_limits` 会在完整事件边界立即下发，`codex.response.metadata` 及 WS 前导帧仍保留在尝试缓冲中。两者都不计作语义输出；本地候选不解除首输出看门狗，失败切换仍按语义输出判断，成功轮次写入本地 `first_token_ms`（已开始语义输出的失败轮次仍遵循既有 partial-output 记录规则）。
 - 历史记录和其他平台没有遥测时保持原值；图片/视频不会因为上游遥测重新获得 TTFT。
 
 ## 采集边界

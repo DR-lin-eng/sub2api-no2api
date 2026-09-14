@@ -512,7 +512,7 @@ export default {
         openAIWSModeRouterV2: 'OpenAI WS 账号模式路由',
         openAIWSModeRouterV2Hint: '对应 gateway.openai_ws.mode_router_v2_enabled。开启后按每个 OpenAI 账号的 WS mode 选择 ctx_pool、passthrough、http_bridge 或 off，保存后运行时生效。',
         openAIVisibleOutputTTFT: 'OpenAI 可见输出 TTFT 口径',
-        openAIVisibleOutputTTFTHint: '默认开启，首字时间记录到首个客户端可用的文本、音频或工具参数。关闭后使用 0.1.179 的旧事件口径；仅影响 TTFT 统计，不改变流式输出。',
+        openAIVisibleOutputTTFTHint: '默认开启，首字时间记录到首个客户端可用的文本、音频或工具参数；若 Codex 先发 rate_limits/metadata，本地首字基线也保留该首事件，HTTP SSE 的 rate_limits 会立即下发。关闭后使用 0.1.179 的旧事件口径；设置只影响 TTFT 统计，rate_limits 的即时下发保持不变。',
         fingerprintUnification: '指纹统一化',
         fingerprintUnificationHint: '统一共享同一 OAuth 账号的用户的 X-Stainless-* 请求头。关闭后透传客户端原始请求头。',
         metadataPassthrough: 'Metadata 透传',

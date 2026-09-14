@@ -79,7 +79,7 @@ func (s *OpenAIGatewayService) doOpenAIResponsesUpstream(ctx context.Context, c 
 }
 
 func writeOpenAIResponsesErrorAfterKeepalive(c *gin.Context, status int, code, message string) bool {
-	if c == nil || c.Writer == nil || !openAIStreamResponseMetadataTrailersActive(c) || !c.Writer.Written() {
+	if c == nil || c.Writer == nil || (!openAIStreamResponseMetadataTrailersActive(c) && !openAIStreamControlOnlyOutputCommitted(c)) || !c.Writer.Written() {
 		return false
 	}
 	StopOpenAICompactSSEKeepaliveCommitted(c)
