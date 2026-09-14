@@ -116,6 +116,26 @@ func TestOpenAILocalTTFTSupportsCodexFirstEvent(t *testing.T) {
 	}
 }
 
+func TestOpenAIRequestFirstEventTTFTUsesRequestClockAcrossAttempts(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	BeginOpenAIRequestFirstEventTTFT(c, time.Now().Add(-50*time.Millisecond))
+	recordOpenAIRequestFirstEventDelivered(c)
+
+	attemptLocalTTFT := 1
+	resolved := PreferOpenAIRequestFirstEventTTFT(c, &attemptLocalTTFT)
+	require.NotNil(t, resolved)
+	require.GreaterOrEqual(t, *resolved, 40)
+	require.Less(t, *resolved, 200)
+	require.Greater(t, *resolved, attemptLocalTTFT,
+		"durations from different attempt clocks must not be compared numerically")
+
+	first := *resolved
+	time.Sleep(5 * time.Millisecond)
+	recordOpenAIRequestFirstEventDelivered(c)
+	require.Equal(t, first, *PreferOpenAIRequestFirstEventTTFT(c, nil),
+		"only the first delivered control event is retained")
+}
+
 func TestOpenAIResponsesLocalTTFTUsesCodexRateLimitsFirstEvent(t *testing.T) {
 	for _, passthrough := range []bool{false, true} {
 		name := "native"

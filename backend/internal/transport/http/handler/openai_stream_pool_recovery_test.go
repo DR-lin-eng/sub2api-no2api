@@ -30,6 +30,45 @@ type streamPoolRecoveryUpstream struct {
 	timeout        bool
 }
 
+type streamPoolFirstEventTTFTUpstream struct {
+	service.HTTPUpstream
+	mu       sync.Mutex
+	accounts []int64
+}
+
+func (u *streamPoolFirstEventTTFTUpstream) Do(_ *http.Request, _ string, accountID int64, _ int) (*http.Response, error) {
+	u.mu.Lock()
+	u.accounts = append(u.accounts, accountID)
+	first := len(u.accounts) == 1
+	u.mu.Unlock()
+	if first {
+		time.Sleep(30 * time.Millisecond)
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": {"text/event-stream"}},
+			Body: io.NopCloser(strings.NewReader(
+				"data: {\"type\":\"codex.rate_limits\",\"rate_limits\":{\"allowed\":true}}\n\n" +
+					"data: {\"type\":\"error\",\"error\":{\"type\":\"upstream_error\",\"code\":\"server_error\",\"message\":\"Transport error: retry\"}}\n\n",
+			)),
+		}, nil
+	}
+	time.Sleep(500 * time.Millisecond)
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": {"text/event-stream"}},
+		Body: io.NopCloser(strings.NewReader(
+			"data: {\"type\":\"response.output_text.delta\",\"delta\":\"recovered\"}\n\n" +
+				"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_recovered\",\"output\":[],\"usage\":{\"input_tokens\":3,\"output_tokens\":1}}}\n\n",
+		)),
+	}, nil
+}
+
+func (u *streamPoolFirstEventTTFTUpstream) calls() []int64 {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	return append([]int64(nil), u.accounts...)
+}
+
 func (u *streamPoolRecoveryUpstream) Do(req *http.Request, _ string, accountID int64, _ int) (*http.Response, error) {
 	u.mu.Lock()
 	u.accounts = append(u.accounts, accountID)
@@ -100,6 +139,40 @@ func TestOpenAIStreamPoolRecoveryContinuesPastTwoFirstOutputTimeouts(t *testing.
 			calls := append([]int64(nil), upstream.accounts...)
 			upstream.mu.Unlock()
 			require.Equal(t, []int64{1, 2, 5}, calls)
+		})
+	}
+}
+
+func TestOpenAIStreamPoolRecoveryKeepsFirstDeliveredControlEventTTFT(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, passthrough := range []bool{false, true} {
+		t.Run(fmt.Sprintf("passthrough=%v", passthrough), func(t *testing.T) {
+			upstream := &streamPoolFirstEventTTFTUpstream{}
+			h := newOpenAIResponsesFailoverTestHandler(t, upstream, func(accounts *[]service.Account, _ *config.Config) {
+				for i := range *accounts {
+					(*accounts)[i].Extra = map[string]any{"openai_passthrough": passthrough}
+				}
+			})
+			c, recorder := newOpenAIResponsesFailoverTestContext(t, context.Background())
+			c.Request = httptest.NewRequest(
+				http.MethodPost,
+				"/v1/responses",
+				strings.NewReader(`{"model":"gpt-5.6-sol","stream":true,"store":false,"input":"hello","instructions":"fixture"}`),
+			)
+
+			h.Responses(c)
+
+			require.Equal(t, []int64{1, 2}, upstream.calls())
+			require.Contains(t, recorder.Body.String(), `"type":"codex.rate_limits"`)
+			require.Contains(t, recorder.Body.String(), "recovered")
+			value, ok := c.Get(service.OpsTimeToFirstTokenMsKey)
+			require.True(t, ok)
+			firstTokenMs, ok := value.(int64)
+			require.True(t, ok)
+			t.Logf("request_first_event_ttft_ms=%d delayed_success_ms=500", firstTokenMs)
+			require.GreaterOrEqual(t, firstTokenMs, int64(20))
+			require.Less(t, firstTokenMs, int64(400),
+				"TTFT must retain the first flushed control event instead of the delayed successful attempt")
 		})
 	}
 }
