@@ -9,3 +9,19 @@ consecutive counters, recovery and degraded-group switching. Stage-2 code-match
 score/signals remain visible. With stage 1 disabled, interruption is uncertain.
 Complete failed streams remain operational errors. Empty failed records remain
 filtered from the public panel.
+
+Degraded-account API
+====================
+GET /api/v1/admin/account-quality/degraded-accounts is an admin-only read API.
+It scans current OAuth quality metadata and the latest persisted quality state,
+returns only OpenAI/Gemini OAuth records, and emits email/account_id plus a
+reason. HTTP 401/Unauthorized text from account ErrorMessage, quality history,
+or quality state is included as reason=unauthorized with http_status=401. API Key
+and service-account accounts are excluded. Missing email returns an empty string
+without dropping the account. The API uses the standard {code,message,data}
+envelope and is documented in docs/ACCOUNT_QUALITY_DEGRADED_ACCOUNTS_API.md.
+
+The API includes 401 diagnostics as data (`http_status=401`) while preserving
+HTTP 401 for callers that fail admin authentication. Current account metadata
+and latest persisted quality state are both checked so a 401 remains visible
+when the run snapshot and account error field differ.

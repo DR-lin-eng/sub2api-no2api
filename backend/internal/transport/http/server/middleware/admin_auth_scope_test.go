@@ -26,6 +26,8 @@ func TestAdminAPIKeyScopePolicy(t *testing.T) {
 		{http.MethodDelete, "/api/v1/admin/settings/admin-api-keys/id", []string{service.AdminAPIKeyScopeSettingsRead}, false},
 		{http.MethodGet, "/api/v1/admin/accounts/data", []string{service.AdminAPIKeyScopeRead}, false},
 		{http.MethodGet, "/api/v1/admin/account-inspection", []string{service.AdminAPIKeyScopeAccountsRead}, true},
+		{http.MethodGet, "/api/v1/admin/account-quality/degraded-accounts", []string{service.AdminAPIKeyScopeAccountsRead}, true},
+		{http.MethodGet, "/api/v1/admin/account-quality/degraded-accounts", []string{service.AdminAPIKeyScopeRead}, false},
 		{http.MethodPost, "/api/v1/admin/account-inspection/run", []string{service.AdminAPIKeyScopeAccountsRead}, false},
 		{http.MethodPost, "/api/v1/admin/account-inspection/run", []string{service.AdminAPIKeyScopeAccountsWrite}, true},
 		{http.MethodGet, "/api/v1/admin/ops/concurrency", []string{service.AdminAPIKeyScopeRead}, true},

@@ -179,6 +179,11 @@ func adminAPIKeyRequestAllowed(c *gin.Context, scopes []string) bool {
 	}
 	required := adminAPIKeyRequiredScope(c.Request.Method, path)
 	for _, scope := range scopes {
+		// This endpoint exposes provider email addresses and local account IDs,
+		// so the broad admin.read scope is intentionally insufficient.
+		if path == "/api/v1/admin/account-quality/degraded-accounts" && scope == service.AdminAPIKeyScopeRead {
+			continue
+		}
 		if scope == required || scope == service.AdminAPIKeyScopeRead && strings.HasSuffix(required, ".read") || scope == service.AdminAPIKeyScopeWrite && strings.HasSuffix(required, ".write") {
 			return true
 		}
@@ -201,6 +206,8 @@ func adminAPIKeyRequiredScope(method, path string) string {
 	case strings.HasPrefix(path, "/api/v1/admin/accounts"):
 		return service.AdminAPIKeyScopeAccountsRead[:len(service.AdminAPIKeyScopeAccountsRead)-len(".read")] + verb
 	case strings.HasPrefix(path, "/api/v1/admin/account-inspection"):
+		return service.AdminAPIKeyScopeAccountsRead[:len(service.AdminAPIKeyScopeAccountsRead)-len(".read")] + verb
+	case strings.HasPrefix(path, "/api/v1/admin/account-quality"):
 		return service.AdminAPIKeyScopeAccountsRead[:len(service.AdminAPIKeyScopeAccountsRead)-len(".read")] + verb
 	case strings.HasPrefix(path, "/api/v1/admin/settings"):
 		return service.AdminAPIKeyScopeSettingsRead[:len(service.AdminAPIKeyScopeSettingsRead)-len(".read")] + verb

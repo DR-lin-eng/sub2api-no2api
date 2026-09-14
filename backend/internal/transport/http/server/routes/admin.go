@@ -833,6 +833,7 @@ func registerAccountQualityRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	quality := admin.Group("/account-quality")
 	{
 		quality.GET("", h.Admin.AccountQuality.Overview)
+		quality.GET("/degraded-accounts", h.Admin.AccountQuality.DegradedAccounts)
 		quality.PUT("/settings", h.Admin.AccountQuality.UpdateSettings)
 		quality.POST("/run", h.Admin.AccountQuality.Run)
 	}

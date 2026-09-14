@@ -66,6 +66,8 @@ curl -X POST "${BASE}/api/v1/admin/settings/admin-api-keys" \
 
 ## 权限范围
 
+账号质量诊断接口详见[降智账号 API](ACCOUNT_QUALITY_DEGRADED_ACCOUNTS_API.md)。`GET /api/v1/admin/account-quality/degraded-accounts` 需要 `admin.accounts.read` scope（或管理员 JWT 对应的 `accounts.manage` 权限），返回降智 OAuth 账号的 `email`、`account_id`，并在数据项中保留上游 401（`http_status: 401`）。
+
 | Scope | 允许的操作 |
 | --- | --- |
 | `admin.read` | 所有非敏感 Admin GET/HEAD/OPTIONS 请求 |
