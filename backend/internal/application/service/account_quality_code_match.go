@@ -31,8 +31,11 @@ func (s *AccountQualityMonitoringService) matchQualityDrawing(_ context.Context,
 	// is not a classifier probability. Preview HTML is rendered by the frontend.
 	outcome.artifact = &QualityArtifact{Label: label, ModelVersion: match.Version}
 	if !match.SourceComplete {
-		outcome.status, outcome.passed, outcome.operational = "wrong", false, false
-		outcome.errorMessage = "drawing response incomplete; code match retained"
+		outcome.status, outcome.passed, outcome.operational = "interrupted", false, false
+		outcome.incomplete = true
+		outcome.errorMessage = "drawing output interrupted; analysis may be inaccurate"
+		outcome.detail.OutputInterrupted = true
+		outcome.detail.AnalysisWarning = "drawing output interrupted; analysis may be inaccurate"
 	}
 	if outcome.detail.PreviewHTML != "" {
 		outcome.detail.PreviewStatus = "ready"

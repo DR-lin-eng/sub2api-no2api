@@ -8,6 +8,12 @@ export function qualityVerdict(point: AccountQualityPublicPoint): 'passed' | 'wr
     if (stages.length > 0 && stages.every(stage => stage.status === 'passed')) return 'passed'
     if (stages.some(stage => stage.status === 'wrong')) return 'wrong'
     if (stages.some(stage => stage.status === 'error')) return 'error'
+    if (stages.some(stage => stage.status === 'interrupted')) {
+      if (point.details?.stage1?.status === 'passed') return 'passed'
+      if (point.details?.stage1?.status === 'wrong') return 'wrong'
+      if (point.details?.stage1?.status === 'error') return 'error'
+      return 'uncertain'
+    }
   }
   if (point.status === 'ready' && point.label === 'unnormal') return 'wrong'
   if (point.status === 'uncertain' || point.status === 'ready') return 'uncertain'

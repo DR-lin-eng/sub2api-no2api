@@ -53,6 +53,7 @@ type qualityStageOutcome struct {
 	status          string
 	passed          bool
 	operational     bool
+	incomplete      bool
 	errorMessage    string
 	latencyMs       int64
 	reasoningTokens *int64
@@ -133,6 +134,7 @@ func (s *AccountQualityMonitoringService) runQualityStage(ctx context.Context, a
 			s.matchQualityDrawing(probeCtx, probe.ResponseText, settings, &outcome, beforeRender)
 			if outcome.detail.CodeMatch != nil {
 				if !outcome.detail.CodeMatch.SourceComplete {
+					outcome.incomplete = true
 					return outcome
 				}
 				// A complete source accompanied by a failed upstream status is still
@@ -234,9 +236,16 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 			details := AccountQualityProbeDetails{}
 			var artifact *QualityArtifact
 			var stageErrors []string
-			wrong, operational, uncertain := false, false, false
+			wrong, operational, uncertain, interrupted := false, false, false, false
 			observe := func(name string, stage qualityStageOutcome) {
 				result.QualityLatencyMs += stage.latencyMs
+				if stage.incomplete {
+					interrupted = true
+					if stage.errorMessage != "" {
+						stageErrors = append(stageErrors, name+": "+stage.errorMessage)
+					}
+					return
+				}
 				if stage.status == "wrong" {
 					wrong = true
 				}
@@ -269,6 +278,13 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 					result.QualityLabel, result.QualityConfidence = stage.artifact.Label, stage.artifact.Confidence
 				}
 				observe("stage2", stage)
+			}
+			// An interrupted drawing is evidence-only. When the text stage ran,
+			// its answer is authoritative for the account verdict. If text was
+			// disabled, retain an uncertain result rather than treating a partial
+			// drawing as a pass or a hard quality failure.
+			if interrupted && !settings.Stage1Enabled {
+				uncertain = true
 			}
 			result.QualityError = strings.Join(stageErrors, "; ")
 			if wrong {

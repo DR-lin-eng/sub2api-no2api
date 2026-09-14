@@ -5,6 +5,7 @@ export default {
     queued: 'Queued',
     stage1Running: 'Checking text answer',
     stage2Running: 'Generating drawing',
+    outputInterrupted: 'Output interrupted; analysis may be inaccurate',
     rendering: 'Rendering preview',
     persisting: 'Saving result',
     completed: 'Completed',
