@@ -260,6 +260,8 @@ principal；若 `previous_response_id -> account_id` 或当前节点的原始连
 加入 Scheduler V2 优先候选。账号元数据只携带非凭据的
 `codex_virtual_client_key`，完整凭据仍在选中后读取。相同主体的 WS incremental 必须取得原连接；连接繁忙沿用连接
 池等待，主体或连接不匹配返回独立终态错误，handler 直接写出协议兼容错误，不进入账号 failover。
+连接池的 30 秒后台 sweep 同步清理本节点 RCC（response/session -> conn）中的过期、空值或已无存活 socket
+绑定；每张映射单轮最多扫描 512 条，健康连接绑定不受影响，避免低流量时无效粘连一直保留到较长的状态 TTL。
 成功 turn 才写 owner/response；成功 Compact 才推进 generation。更完整的差异与故障语义见
 [Codex OAuth 模拟的有意差异](codex/intentional-divergences.md)。
 

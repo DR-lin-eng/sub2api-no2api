@@ -805,6 +805,9 @@ type openAIWSConnPool struct {
 
 	metrics openAIWSPoolMetrics
 
+	stateCleanupMu sync.RWMutex
+	stateCleaner   openAIWSConnectionBindingCleaner
+
 	workerStopCh chan struct{}
 	workerWg     sync.WaitGroup
 	closeOnce    sync.Once
@@ -857,6 +860,16 @@ func (p *openAIWSConnPool) setClientDialerForTest(dialer openAIWSClientDialer) {
 		return
 	}
 	p.clientDialer = dialer
+}
+
+func (p *openAIWSConnPool) setStateStoreForCleanup(store OpenAIWSStateStore) {
+	if p == nil {
+		return
+	}
+	cleaner, _ := store.(openAIWSConnectionBindingCleaner)
+	p.stateCleanupMu.Lock()
+	p.stateCleaner = cleaner
+	p.stateCleanupMu.Unlock()
 }
 
 // Close 停止后台 worker 并关闭所有空闲连接，应在优雅关闭时调用。
@@ -1054,6 +1067,39 @@ func (p *openAIWSConnPool) runBackgroundCleanupSweep(now time.Time) {
 	for _, result := range results {
 		closeOpenAIWSConns(result.evicted)
 	}
+	p.cleanupEmptyRCCBindings(now)
+}
+
+func (p *openAIWSConnPool) cleanupEmptyRCCBindings(now time.Time) {
+	if p == nil {
+		return
+	}
+	p.stateCleanupMu.RLock()
+	cleaner := p.stateCleaner
+	p.stateCleanupMu.RUnlock()
+	if cleaner != nil {
+		cleaner.cleanupConnectionBindings(now, p.hasUsableConnection)
+	}
+}
+
+func (p *openAIWSConnPool) hasUsableConnection(connID string) bool {
+	if p == nil {
+		return false
+	}
+	connID = stringsTrim(connID)
+	accountID := codexContinuationAccountIDFromConnID(connID)
+	if accountID <= 0 {
+		return false
+	}
+	accountPool, ok := p.getAccountPool(accountID)
+	if !ok || accountPool == nil {
+		return false
+	}
+	accountPool.mu.Lock()
+	conn, ok := accountPool.conns[connID]
+	live := ok && conn != nil && !conn.isClosed() && !conn.isUnusable()
+	accountPool.mu.Unlock()
+	return live
 }
 
 func (p *openAIWSConnPool) Acquire(ctx context.Context, req openAIWSAcquireRequest) (*openAIWSConnLease, error) {

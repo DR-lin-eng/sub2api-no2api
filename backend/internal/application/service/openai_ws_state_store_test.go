@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -232,6 +233,87 @@ func TestOpenAIWSStateStore_MaybeCleanupRemovesExpiredIncrementally(t *testing.T
 	remaining := len(store.responseToConn)
 	store.responseToConnMu.RUnlock()
 	require.Zero(t, remaining, "多轮 cleanup 后应逐步清空全部过期键")
+}
+
+func TestOpenAIWSPoolScheduledCleanupPrunesEmptyRCCBindings(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 2
+	cfg.Gateway.OpenAIWS.MaxIdlePerAccount = 2
+	pool := newOpenAIWSConnPool(cfg)
+	t.Cleanup(pool.Close)
+
+	const accountID int64 = 73
+	liveConn := newOpenAIWSConn("oa_ws_73_1", accountID, &openAIWSFakeConn{}, nil)
+	staleConn := newOpenAIWSConn("oa_ws_73_2", accountID, &openAIWSFakeConn{}, nil)
+	accountPool := pool.getOrCreateAccountPool(accountID)
+	accountPool.mu.Lock()
+	accountPool.conns[liveConn.id] = liveConn
+	accountPool.conns[staleConn.id] = staleConn
+	accountPool.mu.Unlock()
+
+	store := NewOpenAIWSStateStore(nil)
+	service := &OpenAIGatewayService{
+		cfg:                cfg,
+		openaiWSPool:       pool,
+		openaiWSStateStore: store,
+	}
+	require.Same(t, pool, service.getOpenAIWSConnPool())
+
+	store.BindResponseConn("resp_live", liveConn.id, time.Hour)
+	store.BindSessionConn(7, "session_live", liveConn.id, time.Hour)
+	store.BindResponseConn("resp_stale", staleConn.id, time.Hour)
+	store.BindSessionConn(7, "session_stale", staleConn.id, time.Hour)
+	pool.evictConn(accountID, staleConn.id)
+
+	pool.runBackgroundCleanupSweep(time.Now())
+
+	gotLive, ok := store.GetResponseConn("resp_live")
+	require.True(t, ok)
+	require.Equal(t, liveConn.id, gotLive)
+	gotLive, ok = store.GetSessionConn(7, "session_live")
+	require.True(t, ok)
+	require.Equal(t, liveConn.id, gotLive)
+	_, ok = store.GetResponseConn("resp_stale")
+	require.False(t, ok, "scheduled cleanup must remove RCC links to an evicted connection")
+	_, ok = store.GetSessionConn(7, "session_stale")
+	require.False(t, ok, "scheduled cleanup must remove session links to an evicted connection")
+}
+
+func TestOpenAIWSPoolScheduledCleanupPrunesRCCBindingsIncrementally(t *testing.T) {
+	pool := &openAIWSConnPool{}
+	store := NewOpenAIWSStateStore(nil)
+	pool.setStateStoreForCleanup(store)
+
+	total := 3 * openAIWSStateStoreCleanupMaxPerMap
+	for i := 0; i < total; i++ {
+		connID := fmt.Sprintf("oa_ws_74_%d", i+1)
+		store.BindResponseConn(fmt.Sprintf("resp_stale_%d", i), connID, time.Hour)
+		store.BindSessionConn(7, fmt.Sprintf("session_stale_%d", i), connID, time.Hour)
+	}
+
+	pool.runBackgroundCleanupSweep(time.Now())
+	rawStore, ok := store.(*defaultOpenAIWSStateStore)
+	require.True(t, ok)
+	rawStore.responseToConnMu.RLock()
+	responsesAfterFirst := len(rawStore.responseToConn)
+	rawStore.responseToConnMu.RUnlock()
+	rawStore.sessionToConnMu.RLock()
+	sessionsAfterFirst := len(rawStore.sessionToConn)
+	rawStore.sessionToConnMu.RUnlock()
+	require.Equal(t, total-openAIWSStateStoreCleanupMaxPerMap, responsesAfterFirst)
+	require.Equal(t, total-openAIWSStateStoreCleanupMaxPerMap, sessionsAfterFirst)
+
+	for i := 0; i < 2; i++ {
+		pool.runBackgroundCleanupSweep(time.Now())
+	}
+	rawStore.responseToConnMu.RLock()
+	remainingResponses := len(rawStore.responseToConn)
+	rawStore.responseToConnMu.RUnlock()
+	rawStore.sessionToConnMu.RLock()
+	remainingSessions := len(rawStore.sessionToConn)
+	rawStore.sessionToConnMu.RUnlock()
+	require.Zero(t, remainingResponses)
+	require.Zero(t, remainingSessions)
 }
 
 func TestEnsureBindingCapacity_EvictsOneWhenMapIsFull(t *testing.T) {
