@@ -193,6 +193,29 @@ func (h *SettingHandler) UpdateRateLimit429CooldownSettings(c *gin.Context) {
 	})
 }
 
+func (h *SettingHandler) GetOAuth401CleanupSettings(c *gin.Context) {
+	settings, err := h.settingService.GetOAuth401CleanupSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, dto.OAuth401CleanupSettings{Enabled: settings.Enabled})
+}
+
+func (h *SettingHandler) UpdateOAuth401CleanupSettings(c *gin.Context) {
+	var req dto.OAuth401CleanupSettings
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	settings := &service.OAuth401CleanupSettings{Enabled: req.Enabled}
+	if err := h.settingService.SetOAuth401CleanupSettings(c.Request.Context(), settings); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Success(c, dto.OAuth401CleanupSettings{Enabled: settings.Enabled})
+}
+
 // GetGlobalTempUnschedulableSettings 获取全局临时不可调度配置
 // GET /api/v1/admin/settings/temp-unschedulable
 func (h *SettingHandler) GetGlobalTempUnschedulableSettings(c *gin.Context) {

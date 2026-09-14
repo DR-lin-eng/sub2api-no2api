@@ -1078,6 +1078,16 @@ export default {
         saved: '429 默认回避设置保存成功',
         saveFailed: '保存 429 默认回避设置失败'
       },
+      oauth401Cleanup: {
+        title: 'OAuth 401 自动清理',
+        description: '配置网关收到上游 401 鉴权错误时的 OAuth 账号清理策略',
+        enabled: '自动删除返回 401 的 OAuth 账号',
+        enabledHint: '仅处理直接 OAuth 凭据账号；API Key、Setup Token 和不持有凭据的 Spark 影子账号不会被直接删除。',
+        warning: '该操作会软删除账号及关联影子账号。若检测到账号已被重新授权，系统会保留新凭据。',
+        confirmEnable: '确认开启 OAuth 401 自动删除吗？开启后，网关上游返回 401 的直接 OAuth 账号会被自动清理。',
+        saved: 'OAuth 401 自动清理设置已保存',
+        saveFailed: '保存 OAuth 401 自动清理设置失败'
+      },
       globalTempUnschedulable: {
         title: '全局临时不可调度',
         description: '控制账号因凭据、传输或上游临时故障进入暂停冷却的全局策略',

@@ -449,6 +449,7 @@ export function useSettingsPage() {
     loadCodexSimulationSettings,
     loadGlobalTempUnschedulableSettings,
     loadOllamaCloudUsageSettings,
+    loadOAuth401CleanupSettings,
     loadOverloadCooldownSettings,
     loadRateLimit429CooldownSettings,
     loadRectifierSettings,
@@ -457,6 +458,9 @@ export function useSettingsPage() {
     ollamaCloudUsageForm,
     ollamaCloudUsageLoading,
     ollamaCloudUsageSaving,
+    oauth401CleanupForm,
+    oauth401CleanupLoading,
+    oauth401CleanupSaving,
     openaiFastPolicyActionOptions,
     openaiFastPolicyForm,
     openaiFastPolicyLoaded,
@@ -478,6 +482,7 @@ export function useSettingsPage() {
     saveCodexSimulationSettings,
     saveGlobalTempUnschedulableSettings,
     saveOllamaCloudUsageSettings,
+    saveOAuth401CleanupSettings,
     saveOverloadCooldownSettings,
     saveRateLimit429CooldownSettings,
     saveRectifierSettings,
@@ -879,6 +884,7 @@ export function useSettingsPage() {
     loadScopedAdminApiKeys();
     loadUpstreamBillingProbeSettings();
     loadOllamaCloudUsageSettings();
+    loadOAuth401CleanupSettings();
     loadOverloadCooldownSettings();
     loadRateLimit429CooldownSettings();
     loadGlobalTempUnschedulableSettings();
@@ -1031,6 +1037,9 @@ export function useSettingsPage() {
     overloadCooldownForm,
     overloadCooldownLoading,
     overloadCooldownSaving,
+    oauth401CleanupForm,
+    oauth401CleanupLoading,
+    oauth401CleanupSaving,
     panelRateLimitSettingsMounted,
     parseSubscribedAt,
     paymentGuideHref,
@@ -1072,6 +1081,7 @@ export function useSettingsPage() {
     saveCodexSimulationSettings,
     saveGlobalTempUnschedulableSettings,
     saveOllamaCloudUsageSettings,
+    saveOAuth401CleanupSettings,
     saveOverloadCooldownSettings,
     saveRateLimit429CooldownSettings,
     saveRectifierSettings,

@@ -302,6 +302,149 @@ func (s *AccountRepoSuite) TestDelete_WithGroupBindings() {
 	s.Require().Zero(count, "expected bindings to be removed")
 }
 
+func (s *AccountRepoSuite) TestDeleteOAuthAccountIfCredentialsUnchangedGuardsReauthorizationAndCascadesShadow() {
+	credentials := map[string]any{"access_token": "expired", "refresh_token": "rt-current", "_token_version": float64(7)}
+	parent := mustCreateAccount(s.T(), s.client, &service.Account{
+		Name:        "oauth-401-parent",
+		Platform:    service.PlatformOpenAI,
+		Type:        service.AccountTypeOAuth,
+		Credentials: credentials,
+	})
+	parentID := parent.ID
+	shadow := mustCreateAccount(s.T(), s.client, &service.Account{
+		Name:            "oauth-401-shadow",
+		Platform:        service.PlatformOpenAI,
+		Type:            service.AccountTypeOAuth,
+		ParentAccountID: &parentID,
+		QuotaDimension:  service.QuotaDimensionSpark,
+		Credentials:     map[string]any{"model_mapping": map[string]any{"gpt-5.5": "gpt-5.5"}},
+	})
+	group := mustCreateGroup(s.T(), s.client, &service.Group{Name: "oauth-401-delete-group", Platform: service.PlatformOpenAI})
+	mustBindAccountToGroup(s.T(), s.client, parent.ID, group.ID, 1)
+	mustBindAccountToGroup(s.T(), s.client, shadow.ID, group.ID, 1)
+	pool, err := s.client.IPv6EgressPool.Create().
+		SetName("oauth-401-delete-pool").
+		SetCidr("2001:db8:401::/64").
+		Save(s.ctx)
+	s.Require().NoError(err)
+	_, err = s.client.AccountEgressBinding.Create().
+		SetAccountID(parent.ID).
+		SetPoolID(pool.ID).
+		SetSourceIpv6("2001:db8:401::1").
+		Save(s.ctx)
+	s.Require().NoError(err)
+	_, err = s.client.AccountEgressBinding.Create().
+		SetAccountID(shadow.ID).
+		SetPoolID(pool.ID).
+		SetSourceIpv6("2001:db8:401::2").
+		Save(s.ctx)
+	s.Require().NoError(err)
+	_, err = s.repo.sql.ExecContext(s.ctx, `
+		INSERT INTO scheduled_test_plans (account_id, model_id)
+		VALUES ($1, 'gpt-test'), ($2, 'gpt-test')
+	`, parent.ID, shadow.ID)
+	s.Require().NoError(err)
+	_, err = s.repo.sql.ExecContext(s.ctx, "DELETE FROM scheduler_outbox WHERE account_id IN ($1, $2)", parent.ID, shadow.ID)
+	s.Require().NoError(err)
+	cacheRecorder := &schedulerCacheRecorder{accounts: map[int64]*service.Account{parent.ID: parent, shadow.ID: shadow}}
+	s.repo.schedulerCache = cacheRecorder
+
+	deletedIDs, applied, err := s.repo.DeleteOAuthAccountIfCredentialsUnchanged(
+		s.ctx,
+		parent.ID,
+		map[string]any{"access_token": "expired", "refresh_token": "rt-stale", "_token_version": float64(6)},
+	)
+	s.Require().NoError(err)
+	s.Require().False(applied)
+	s.Require().Empty(deletedIDs)
+	_, err = s.repo.GetByID(s.ctx, parent.ID)
+	s.Require().NoError(err, "a stale 401 must preserve the reauthorized parent")
+	_, err = s.repo.GetByID(s.ctx, shadow.ID)
+	s.Require().NoError(err, "a stale 401 must preserve the linked shadow")
+	var retainedRelatedRows int
+	s.Require().NoError(scanSingleRow(
+		s.ctx,
+		s.repo.sql,
+		"SELECT COUNT(*) FROM account_egress_bindings WHERE account_id IN ($1, $2)",
+		[]any{parent.ID, shadow.ID},
+		&retainedRelatedRows,
+	))
+	s.Require().Equal(2, retainedRelatedRows, "a stale 401 must preserve egress bindings")
+	s.Require().NoError(scanSingleRow(
+		s.ctx,
+		s.repo.sql,
+		"SELECT COUNT(*) FROM scheduled_test_plans WHERE account_id IN ($1, $2)",
+		[]any{parent.ID, shadow.ID},
+		&retainedRelatedRows,
+	))
+	s.Require().Equal(2, retainedRelatedRows, "a stale 401 must preserve scheduled tests")
+
+	deletedIDs, applied, err = s.repo.DeleteOAuthAccountIfCredentialsUnchanged(s.ctx, parent.ID, credentials)
+	s.Require().NoError(err)
+	s.Require().True(applied)
+	s.Require().Equal([]int64{shadow.ID, parent.ID}, deletedIDs)
+	s.Require().Equal([]int64{shadow.ID, parent.ID}, cacheRecorder.deleteIDs)
+	_, err = s.repo.GetByID(s.ctx, parent.ID)
+	s.Require().Error(err)
+	_, err = s.repo.GetByID(s.ctx, shadow.ID)
+	s.Require().Error(err)
+	bindings, err := s.client.AccountGroup.Query().Where(accountgroup.AccountIDIn(parent.ID, shadow.ID)).Count(s.ctx)
+	s.Require().NoError(err)
+	s.Require().Zero(bindings)
+	var deletedRelatedRows int
+	s.Require().NoError(scanSingleRow(
+		s.ctx,
+		s.repo.sql,
+		"SELECT COUNT(*) FROM account_egress_bindings WHERE account_id IN ($1, $2)",
+		[]any{parent.ID, shadow.ID},
+		&deletedRelatedRows,
+	))
+	s.Require().Zero(deletedRelatedRows, "OAuth 401 cleanup must release egress bindings")
+	s.Require().NoError(scanSingleRow(
+		s.ctx,
+		s.repo.sql,
+		"SELECT COUNT(*) FROM scheduled_test_plans WHERE account_id IN ($1, $2)",
+		[]any{parent.ID, shadow.ID},
+		&deletedRelatedRows,
+	))
+	s.Require().Zero(deletedRelatedRows, "OAuth 401 cleanup must remove scheduled tests")
+	var softDeletedAccounts int
+	s.Require().NoError(scanSingleRow(
+		s.ctx,
+		s.repo.sql,
+		"SELECT COUNT(*) FROM accounts WHERE id IN ($1, $2) AND deleted_at IS NOT NULL",
+		[]any{parent.ID, shadow.ID},
+		&softDeletedAccounts,
+	))
+	s.Require().Equal(2, softDeletedAccounts, "OAuth 401 cleanup must soft-delete the credential owner and shadow")
+	var outboxEvents int
+	s.Require().NoError(scanSingleRow(
+		s.ctx,
+		s.repo.sql,
+		"SELECT COUNT(*) FROM scheduler_outbox WHERE event_type = $1 AND account_id IN ($2, $3)",
+		[]any{service.SchedulerOutboxEventAccountChanged, parent.ID, shadow.ID},
+		&outboxEvents,
+	))
+	s.Require().Equal(2, outboxEvents, "OAuth 401 cleanup must publish one scheduler event per deleted account")
+}
+
+func (s *AccountRepoSuite) TestDeleteOAuthAccountIfCredentialsUnchangedRejectsNonOAuthAccount() {
+	credentials := map[string]any{"api_key": "sk-must-survive"}
+	account := mustCreateAccount(s.T(), s.client, &service.Account{
+		Name:        "oauth-401-api-key-guard",
+		Platform:    service.PlatformOpenAI,
+		Type:        service.AccountTypeAPIKey,
+		Credentials: credentials,
+	})
+
+	deletedIDs, applied, err := s.repo.DeleteOAuthAccountIfCredentialsUnchanged(s.ctx, account.ID, credentials)
+	s.Require().NoError(err)
+	s.Require().False(applied)
+	s.Require().Empty(deletedIDs)
+	_, err = s.repo.GetByID(s.ctx, account.ID)
+	s.Require().NoError(err, "repository guard must preserve non-OAuth accounts")
+}
+
 // --- List / ListWithFilters ---
 
 func (s *AccountRepoSuite) TestList() {

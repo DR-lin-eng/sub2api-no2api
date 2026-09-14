@@ -36,6 +36,25 @@ func TestUpdateRateLimit429CooldownSettingsPreservesOmittedQuotaCheckSwitch(t *t
 	require.Contains(t, recorder.Body.String(), `"auto_enable_when_quota_available_enabled":true`)
 }
 
+func TestUpdateOAuth401CleanupSettings(t *testing.T) {
+	handler, repo := newPanelSettingHandlerTest()
+	repo.values = map[string]string{
+		service.SettingKeyOAuth401CleanupSettings: `{"enabled":false}`,
+	}
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPut, "/api/v1/admin/settings/oauth-401-cleanup", bytes.NewBufferString(
+		`{"enabled":true}`,
+	))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	handler.UpdateOAuth401CleanupSettings(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	require.JSONEq(t, `{"enabled":true}`, repo.values[service.SettingKeyOAuth401CleanupSettings])
+	require.Contains(t, recorder.Body.String(), `"enabled":true`)
+}
+
 func TestUpdateRateLimit429CooldownSettingsUpdatesQuotaCheckSwitch(t *testing.T) {
 	handler, repo := newPanelSettingHandlerTest()
 	repo.values = map[string]string{

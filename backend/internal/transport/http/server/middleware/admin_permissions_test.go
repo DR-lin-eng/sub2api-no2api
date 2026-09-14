@@ -19,6 +19,7 @@ func TestRequiredAdminPermissionSeparatesBasicUserInfoAndSensitiveUserRoutes(t *
 		{http.MethodGet, "/api/v1/admin/account-quality/degraded-accounts", service.PermissionAccountsManage},
 		{http.MethodGet, "/api/v1/admin/users/1/api-keys", service.PermissionUsersCredentials},
 		{http.MethodPost, "/api/v1/admin/users/1/balance", service.PermissionUsersBilling},
+		{http.MethodPut, "/api/v1/admin/settings/oauth-401-cleanup", service.PermissionSettingsManage},
 	}
 	for _, tt := range tests {
 		t.Run(tt.method+" "+tt.path, func(t *testing.T) {

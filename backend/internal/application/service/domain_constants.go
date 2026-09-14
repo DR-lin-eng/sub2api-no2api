@@ -494,6 +494,8 @@ const (
 
 	// SettingKeyRateLimit429CooldownSettings stores JSON config for 429 fallback cooldown handling.
 	SettingKeyRateLimit429CooldownSettings = "rate_limit_429_cooldown_settings"
+	// SettingKeyOAuth401CleanupSettings stores the opt-in gateway OAuth 401 deletion policy.
+	SettingKeyOAuth401CleanupSettings = "oauth_401_cleanup_settings"
 
 	// SettingKeyGlobalTempUnschedulableEnabled controls all temporary account scheduling pauses.
 	SettingKeyGlobalTempUnschedulableEnabled = "global_temp_unschedulable_enabled"

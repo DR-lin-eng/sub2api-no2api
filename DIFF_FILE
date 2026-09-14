@@ -1,27 +1,54 @@
-Incomplete drawing verdict
-==========================
-Old: partial stage-2 HTML/SVG set status=wrong and degraded the whole account.
-New: partial stage-2 output is analyzed normally but marked interrupted and
-source_complete=false. The UI writes “输出被中断，分析可能错误”.
+OAuth 401 gateway cleanup diff
+==============================
 
-With stage 1 enabled, the text answer is authoritative for the account verdict,
-consecutive counters, recovery and degraded-group switching. Stage-2 code-match
-score/signals remain visible. With stage 1 disabled, interruption is uncertain.
-Complete failed streams remain operational errors. Empty failed records remain
-filtered from the public panel.
+Base
+----
+Feature branch: codex/oauth-401-auto-cleanup
+Original baseline: 119540e8404d5e9661370a2b18854bb0ee1fb911
+Original gateway behavior: OAuth HTTP 401 invalidated the token cache and used the existing cooldown/error path.
 
-Degraded-account API
-====================
-GET /api/v1/admin/account-quality/degraded-accounts is an admin-only read API.
-It scans current OAuth quality metadata and the latest persisted quality state,
-returns only OpenAI/Gemini OAuth records, and emits email/account_id plus a
-reason. HTTP 401/Unauthorized text from account ErrorMessage, quality history,
-or quality state is included as reason=unauthorized with http_status=401. API Key
-and service-account accounts are excluded. Missing email returns an empty string
-without dropping the account. The API uses the standard {code,message,data}
-envelope and is documented in docs/ACCOUNT_QUALITY_DEGRADED_ACCOUNTS_API.md.
+Setting and API
+---------------
+- Added persisted setting oauth_401_cleanup_settings with field enabled=false by default.
+- Added GET /api/v1/admin/settings/oauth-401-cleanup.
+- Added PUT /api/v1/admin/settings/oauth-401-cleanup with payload {"enabled":true|false}.
+- GET requires the existing settings read scope; PUT requires settings write/settings.manage.
+- Added a destructive-action card under Gateway Service -> Gateway Resilience with confirmation and Chinese/English messages.
 
-The API includes 401 diagnostics as data (`http_status=401`) while preserving
-HTTP 401 for callers that fail admin authentication. Current account metadata
-and latest persisted quality state are both checked so a 401 remains visible
-when the run snapshot and account error field differ.
+Gateway branch
+--------------
+- HandleUpstreamError now checks the enabled policy for an upstream HTTP 401.
+- Grok's separate upstream error handler applies the same policy.
+- Only a direct account with type=oauth can enter the deletion repository.
+- API Key, Setup Token, and credential-shadow accounts retain their previous handling.
+- The setting read is fail-closed and cached for five seconds with atomic storage and singleflight.
+- A CAS miss means concurrent reauthorization won; the account is preserved, the stale request fails over, and no account-level runtime block is added.
+- A deletion error preserves the account and falls back to the existing 401 cooldown/error behavior.
+
+Transactional deletion
+----------------------
+- Locks the credential owner and compares the complete credentials JSONB document, including _token_version.
+- Soft-deletes the owner and linked shadows in one PostgreSQL transaction.
+- Removes account-group bindings, IPv6 egress bindings, and scheduled test plans.
+- Writes one scheduler account-changed outbox event per deleted account.
+- Removes scheduler snapshots, invalidates token/session/stat caches, and installs a short deleted-account block against concurrent stale snapshots.
+
+Primary implementation files
+----------------------------
+- backend/internal/application/service/ratelimit_oauth_401_delete.go
+- backend/internal/application/service/ratelimit_service.go
+- backend/internal/application/service/openai_gateway_grok.go
+- backend/internal/application/service/setting_features.go
+- backend/internal/infrastructure/repository/account_repo_oauth_401_delete.go
+- backend/internal/transport/http/handler/admin/setting_handler_runtime.go
+- backend/internal/transport/http/server/routes/admin.go
+- frontend/src/features/admin-settings/presentation/widgets/settings-tabs/gateway-resilience/SettingsOAuth401CleanupCard.vue
+
+Regression coverage
+-------------------
+- Enabled, disabled, CAS-miss, repository-error, direct-shadow, API Key, Setup Token, Grok, body-classification priority, and runtime-cleanup unit paths.
+- OpenAI outer-gateway tests prove that a CAS miss does not block reauthorized credentials and a successful delete retains the dedicated deletion block.
+- Testcontainers PostgreSQL coverage for soft delete, child cascade, related rows, outbox events, and repository API Key guard.
+- Handler, permissions, frontend query/action, UI confirmation, typecheck, lint, docs, race, full backend, and Docker builds.
+
+Exact commands and literal results are recorded in VERIFICATION.txt.

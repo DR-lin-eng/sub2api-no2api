@@ -12,6 +12,9 @@
     <!-- Rate Limit Cooldown (429) Settings -->
     <SettingsRateLimit429CooldownCard />
 
+    <!-- OAuth 401 Cleanup Settings -->
+    <SettingsOAuth401CleanupCard />
+
     <!-- Stream Timeout Settings -->
     <SettingsStreamTimeoutCard />
 
@@ -31,6 +34,7 @@ import SettingsCodexSimulationCard from './gateway-resilience/SettingsCodexSimul
 import SettingsGlobalTempUnschedulableCard from './gateway-resilience/SettingsGlobalTempUnschedulableCard.vue'
 import SettingsOverloadCooldownCard from './gateway-resilience/SettingsOverloadCooldownCard.vue'
 import SettingsRateLimit429CooldownCard from './gateway-resilience/SettingsRateLimit429CooldownCard.vue'
+import SettingsOAuth401CleanupCard from './gateway-resilience/SettingsOAuth401CleanupCard.vue'
 import SettingsStreamTimeoutCard from './gateway-resilience/SettingsStreamTimeoutCard.vue'
 import SettingsRequestRectifierCard from './gateway-resilience/SettingsRequestRectifierCard.vue'
 import SettingsBetaPolicyCard from './gateway-resilience/SettingsBetaPolicyCard.vue'
