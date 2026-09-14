@@ -298,6 +298,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 				} else {
 					if completedControlOutput {
 						recordOpenAIStreamControlOutput(c, int(pendingBeforeFlush))
+						recordOpenAIRequestFirstEventDelivered(c)
 						if firstOutputStage != nil && firstOutputStage.closed {
 							completedStage := firstOutputStage
 							firstOutputStage = newDefaultOpenAIFirstOutputStage()

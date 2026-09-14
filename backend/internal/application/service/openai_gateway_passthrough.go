@@ -2518,6 +2518,9 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 				if line == "" {
 					flushPendingOutput()
 					if controlEventInProgress {
+						if !clientDisconnected {
+							recordOpenAIRequestFirstEventDelivered(c)
+						}
 						controlEventInProgress = false
 						downstreamEventInProgress = false
 					}

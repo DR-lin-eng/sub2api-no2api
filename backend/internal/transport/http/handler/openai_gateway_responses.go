@@ -34,6 +34,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	setOpenAIClientTransportHTTP(c)
 
 	requestStart := time.Now()
+	service.BeginOpenAIRequestFirstEventTTFT(c, requestStart)
 
 	// Get apiKey and user from context (set by ApiKeyAuth middleware)
 	apiKey, ok := middleware2.GetAPIKeyFromContext(c)
@@ -454,6 +455,9 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			responseLatencyMs = forwardDurationMs - upstreamLatencyMs
 		}
 		service.SetOpsLatencyMs(c, service.OpsResponseLatencyMsKey, responseLatencyMs)
+		if err == nil && reqStream && !imageIntent && result != nil {
+			result.FirstTokenMs = service.PreferOpenAIRequestFirstEventTTFT(c, result.FirstTokenMs)
+		}
 		if err == nil && !imageIntent && result != nil && result.ImageCount <= 0 && result.FirstTokenMs != nil {
 			service.SetOpsLatencyMs(c, service.OpsTimeToFirstTokenMsKey, int64(*result.FirstTokenMs))
 		}
