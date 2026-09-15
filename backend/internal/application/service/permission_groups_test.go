@@ -77,3 +77,19 @@ func TestPermissionGroups_UpdatePersistsCustomGroup(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []string{PermissionDashboardRead}, permissions)
 }
+
+func TestPermissionGroups_AcceptsAnnouncementManagementPermission(t *testing.T) {
+	definitions := PermissionDefinitions()
+	keys := make([]string, 0, len(definitions))
+	for _, definition := range definitions {
+		keys = append(keys, definition.Key)
+	}
+	require.Contains(t, keys, PermissionAnnouncementsManage)
+
+	groups := append(DefaultPermissionGroups(), PermissionGroup{
+		ID: "publisher", Name: "公告运营", Permissions: []string{PermissionAnnouncementsManage},
+	})
+	normalized, err := NormalizePermissionGroups(groups)
+	require.NoError(t, err)
+	require.Len(t, normalized, 2)
+}

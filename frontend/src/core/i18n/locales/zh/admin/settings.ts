@@ -29,6 +29,7 @@ export default {
           users_credentials: { name: "用户：登录与密钥", description: "查看普通用户密钥、绑定登录身份和修改邮箱密码" },
           users_billing: { name: "用户：余额与配额", description: "修改普通用户余额、并发、RPM、分组和配额" },
           dashboard_read: { name: "仪表盘：查看", description: "查看管理仪表盘；不包含运维和审计页面" },
+          announcements_manage: { name: "公告：管理", description: "查看、发布、编辑、删除公告并查看阅读状态" },
           settings_manage: { name: "系统设置：管理", description: "管理系统设置；权限组和管理员密钥仅限完整管理员" },
           groups_manage: { name: "模型分组：管理", description: "管理模型分组和分组路由；不是人员权限组" },
           accounts_manage: { name: "上游账号：管理", description: "管理上游账号、巡检、代理和出口" },
