@@ -57,13 +57,15 @@ ROLLBACK restored behavior/status: the independent copy exactly matches origin/m
 
 Upstream review:
 - Previous reviewed upstream: bdb42e22f81fcb633ff0a060961211dd2bcb515b.
-- Frozen upstream main: badfad8b7248b8aac0e6b503a06e392aa31cb294.
-- Scope: 44 commits and 18 first-parent merged PRs.
+- Functional upstream freeze: badfad8b7248b8aac0e6b503a06e392aa31cb294.
+- Final upstream close point: 32682a4f84c6a29104439050a0be14737552cec2.
+- Scope: 45 commits, 18 first-parent merged PRs, and one direct README sponsor commit.
 - Imported correctness changes: #7112, #7073, #7085, #7111, #7082, #7094, #7076, #6925, #6689, #6654, #7126, #7072, and #6257.
 - Closed with no net change: #7110 was fully reverted by #7148.
 - Deferred for separate owner/performance review: #6691, #7091, and #6769.
 - Tree-preserving ancestry merge: 3e023a3ba9c977b65734a50ee44c797bdef408f3; parents c68988fa504f3ac207bf98bb6db3d7cecb98cd9d and badfad8b7248b8aac0e6b503a06e392aa31cb294.
-- Upstream main was rechecked before publication and remained badfad8b7248b8aac0e6b503a06e392aa31cb294.
+- Upstream advanced during CI to direct commit 32682a4f84c6a29104439050a0be14737552cec2, which only changed sponsor links/tables in README.md, README_CN.md, and README_JA.md.
+- The sponsor content was excluded under the project's no-sponsor rule; merge 32f828212ec4bbe01617140ef42494856a753167 records 32682a4f as a second parent with identical pre/post tree 6a47ce90a029dbb69511da324c47f9c71e2731f3.
 - Downstream origin/main advanced to 69810eab4e2bfee8cb002ae9594116a845ff2078 (PR #73); its 18 changed files had zero overlap and were merged as a21077696ca72b3046f95e919c6f949ffa772479.
 
 Implemented channel behavior:

@@ -9,12 +9,13 @@
 | 初始下游基线 | `origin/main` @ `16d03822490fedbec5b0a26dced55c35970d6fe5` |
 | 发布合并基线 | `origin/main` @ `69810eab4e2bfee8cb002ae9594116a845ff2078`（PR #73，变更文件与本轮功能零重叠） |
 | 上一审查点 | `upstream/main` @ `bdb42e22f81fcb633ff0a060961211dd2bcb515b` |
-| 本轮上游冻结 | `upstream/main` @ `badfad8b7248b8aac0e6b503a06e392aa31cb294` |
-| 增量范围 | `bdb42e22f81fcb633ff0a060961211dd2bcb515b..badfad8b7248b8aac0e6b503a06e392aa31cb294` |
-| 增量规模 | 44 commits，18 个 first-parent 合并 PR |
+| 功能冻结点 | `upstream/main` @ `badfad8b7248b8aac0e6b503a06e392aa31cb294` |
+| 最终上游关闭点 | `upstream/main` @ `32682a4f84c6a29104439050a0be14737552cec2` |
+| 增量范围 | `bdb42e22f81fcb633ff0a060961211dd2bcb515b..32682a4f84c6a29104439050a0be14737552cec2` |
+| 增量规模 | 45 commits，18 个 first-parent 合并 PR，1 个直接 README 提交 |
 | 分支 | `codex/upstream-sync-20260915` |
 
-上一轮代码语义已审到 `bdb42e22`，但 Git 提交图没有把该 SHA 记为第二父提交。本轮在完成语义移植后使用 tree-preserving `ours` merge 把 `badfad8b` 纳入祖先，后续只需从该 SHA 向前审查。
+上一轮代码语义已审到 `bdb42e22`，但 Git 提交图没有把该 SHA 记为第二父提交。本轮在完成语义移植后使用 tree-preserving `ours` merge 把 `badfad8b` 纳入祖先；CI 等待期间新增的 `32682a4f` 也已单独审查并纳入祖先，后续只需从最终关闭点向前审查。
 
 ## 本轮增量 PR
 
@@ -37,6 +38,8 @@
 | #6691 | 暂缓 | API Key 批量编辑是独立用户写入面；本项目已有不同的 keys feature owner，需要单独的后端授权和交互审查。 |
 | #7091 | 暂缓 | 订阅多动作批处理会扩大幂等、事务和恢复边界；现有批量分配保持不变，另立专题移植。 |
 | #6769 | 暂缓 | Ollama 异步 rate-limit reset 引入额外探针、CAS 与后台调度；需与现有 Ollama session/refresh owner 单独压测。 |
+
+上游直接提交 `32682a4f` 只调整三份 README 的赞助链接和赞助商表格。本项目三份 README 均保持无赞助广告规范，因此不导入内容，并由 tree-preserving merge `32f828212` 关闭差异。
 
 ## 渠道适配补齐
 
