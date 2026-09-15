@@ -13,7 +13,7 @@ OpenAI 官方 [Codex Metrics](https://developers.openai.com/codex/config-advance
 | 字段 | 样本原值 | 使用方式 |
 | --- | --- | --- |
 | `first_sampled_message_ttft_ms` | 470 | 管理员查看采样首字，不与服务层 TTFT 相加 |
-| `engine_service_ttft_total_ms` | 690.87897 | 用户明细首字优先值，按毫秒四舍五入为 691 |
+| `engine_service_ttft_total_ms` | 690.87897 | 与有效本地首字比较后取较小值，按毫秒四舍五入为 691 |
 | `engine_queue_max_ms` | 74 | 管理员查看排队耗时，不再次计入首字 |
 | `total_turn_time_s` | 1.047620254 | 用户明细耗时优先值，乘 1000 后四舍五入为 1048 ms |
 | `responsesapi_duration_excl_client_tools_ms` | 1413.618964 | 管理员额外参考 API 层耗时 |
@@ -25,7 +25,7 @@ OpenAI 官方 [Codex Metrics](https://developers.openai.com/codex/config-advance
 
 - `usage_logs.first_token_ms` / `duration_ms` 继续保存原有本地观测值。
 - 新增可空 JSONB 列 `openai_timing`，只保存明确允许的计时字段，不保存完整响应、提示词或凭据。
-- 用量明细 DTO 的 `first_token_ms` / `duration_ms` 优先使用有效上游值，分别缺失时分别回退到本地值。
+- 用量明细 DTO 的 `first_token_ms` 取有效本地首字与 OpenAI 引擎首字中的较小值，任一缺失时使用另一项；`duration_ms` 继续优先使用有效上游值，缺失时回退到本地值。
 - 普通用户页面、详情和明细导出保持原来的首字/总耗时展示；用户 DTO 不增加来源或诊断字段。
 - 管理员 DTO 另外返回 `local_first_token_ms`、`local_duration_ms`、`first_token_source`、
   `duration_source` 和 `openai_timing`。列表并列显示本地与引擎首字，详情显示完整对比与差值。

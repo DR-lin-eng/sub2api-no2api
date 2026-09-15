@@ -288,7 +288,7 @@ const timingDetails = computed(() => {
     { key: 'local_duration', label: t('usage.timingLocalDuration'), value: exactMs(localDuration) },
     { key: 'engine_first', label: t('usage.timingEngineFirst'), value: exactMs(timing?.engine_service_ttft_total_ms) },
     { key: 'upstream_duration', label: t('usage.timingUpstreamDuration'), value: exactMs(upstreamDuration) },
-    { key: 'first_diff', label: t('usage.timingFirstDifference'), value: usage.first_token_source === 'openai' ? difference(localFirst, timing?.engine_service_ttft_total_ms) : '-' },
+    { key: 'first_diff', label: t('usage.timingFirstDifference'), value: difference(localFirst, timing?.engine_service_ttft_total_ms) },
     { key: 'duration_diff', label: t('usage.timingDurationDifference'), value: difference(localDuration, upstreamDuration) },
     { key: 'sampled_first', label: t('usage.timingSampledFirst'), value: exactMs(timing?.first_sampled_message_ttft_ms) },
     { key: 'queue', label: t('usage.timingQueue'), value: exactMs(timing?.engine_queue_max_ms) },

@@ -160,4 +160,22 @@ describe('UsageDetailDialog audience boundary', () => {
     expect(text).toContain('usage.timingLocal')
     expect(text).not.toContain('690.87897')
   })
+
+  it('keeps the timing difference visible when local TTFT is lower', async () => {
+    const wrapper = mountDialog('admin')
+    await wrapper.setProps({
+      usage: {
+        ...usage,
+        first_token_ms: 420,
+        local_first_token_ms: 420,
+        first_token_source: 'local',
+        openai_timing: { ...usage.openai_timing, engine_service_ttft_total_ms: 690.87897 },
+      },
+    })
+
+    const text = wrapper.get('[data-testid="timing-comparison"]').text()
+    expect(text).toContain('420 ms')
+    expect(text).toContain('690.87897 ms')
+    expect(text).toContain('-270.87897 ms')
+  })
 })
