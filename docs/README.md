@@ -58,6 +58,7 @@
 | [上游同步审查记录（2026-09-08）](UPSTREAM_SYNC_20260908.md) | v0.2.2 主线 PR 的选择性移植、平滑升级、性能 benchmark、Docker 与回退验证 |
 | [上游同步审查记录（2026-09-09）](UPSTREAM_SYNC_20260909.md) | 新增主线 PR 的选择性移植、代理/Redis/协议性能边界、Docker 与回退验证 |
 | [上游同步审查记录（2026-09-13）](UPSTREAM_SYNC_20260913.md) | 上游 main 至 `bdb42e22` 的选择性同步、WS/Gemini/认证性能与平滑升级边界、Docker 和 CI 跟踪 |
+| [上游同步审查记录（2026-09-15）](UPSTREAM_SYNC_20260915.md) | 上游 main 至 `badfad8b` 的增量修复、国产渠道补齐、性能边界、Docker 与 CI 跟踪 |
 | [GPT-6 Astra 接入记录](GPT6_ASTRA.md) | OpenAI 官方模型目录、能力、价格和本项目兼容计费映射 |
 | [OpenAI 请求计时](OPENAI_TIMING.md) | 上游 timing 采集、用户明细投影与管理员本地/上游对比 |
 

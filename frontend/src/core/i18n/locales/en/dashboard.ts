@@ -589,7 +589,11 @@ export default {
       openai: 'OpenAI',
       anthropic: 'Anthropic',
       gemini: 'Gemini',
-      grok: 'Grok'
+      grok: 'Grok',
+      kimi: 'Kimi',
+      zhipu: 'Zhipu GLM',
+      deepseek: 'DeepSeek',
+      minimax: 'MiniMax'
     },
     extraModelsHeader: 'Extra Models',
     extraModelsEmpty: 'No extra models',

@@ -168,8 +168,12 @@ type providerAdapter struct {
 //
 //nolint:gochecknoglobals // 适配器表是只读静态数据，初始化后不变更。
 var providerAdapters = map[string]providerAdapter{
-	MonitorProviderOpenAI: providerOpenAIChatAdapter,
-	MonitorProviderGrok:   providerGrokChatAdapter,
+	MonitorProviderOpenAI:   providerOpenAIChatAdapter,
+	MonitorProviderGrok:     providerGrokChatAdapter,
+	MonitorProviderKimi:     providerOpenAIChatAdapter,
+	MonitorProviderZhipu:    providerOpenAIChatAdapter,
+	MonitorProviderDeepseek: providerOpenAIChatAdapter,
+	MonitorProviderMiniMax:  providerOpenAIChatAdapter,
 	MonitorProviderAnthropic: {
 		buildPath: func(string) string { return providerAnthropicPath },
 		buildBody: func(model, prompt string) ([]byte, error) {
@@ -474,11 +478,14 @@ func bodyMergeDenyKey(provider, apiMode string) string {
 	if provider == MonitorProviderOpenAI {
 		return provider + ":" + defaultAPIMode(apiMode)
 	}
+	if IsCNProvider(provider) {
+		return MonitorProviderOpenAI + ":" + MonitorAPIModeChatCompletions
+	}
 	return provider
 }
 
 func validateReplaceRequestBody(provider, apiMode string, body map[string]any) error {
-	if provider != MonitorProviderOpenAI && provider != MonitorProviderGrok {
+	if provider != MonitorProviderOpenAI && provider != MonitorProviderGrok && !IsCNProvider(provider) {
 		return nil
 	}
 	switch defaultAPIMode(apiMode) {

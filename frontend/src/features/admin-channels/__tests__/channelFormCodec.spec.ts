@@ -274,12 +274,20 @@ describe('channel form codec', () => {
       'openai',
       'gemini',
       'antigravity',
-      'grok',
+        'grok',
+        'kimi',
+        'zhipu',
+        'deepseek',
+        'minimax',
     ])
     expect(sections.map(section => section.group_ids)).toStrictEqual([
       [1, 3],
       [2, 1],
-      [1],
+        [1],
+        [1],
+        [1],
+        [1],
+        [1],
       [1],
       [1],
     ])

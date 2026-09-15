@@ -412,8 +412,17 @@ func (a *Account) IsGrokOAuth() bool {
 	return a.IsGrok() && a.Type == AccountTypeOAuth
 }
 
+func (a *Account) IsKimi() bool     { return a != nil && a.Platform == PlatformKimi }
+func (a *Account) IsZhipu() bool    { return a != nil && a.Platform == PlatformZhipu }
+func (a *Account) IsDeepseek() bool { return a != nil && a.Platform == PlatformDeepseek }
+func (a *Account) IsMiniMax() bool  { return a != nil && a.Platform == PlatformMiniMax }
+
+func (a *Account) IsCNProvider() bool {
+	return a != nil && IsCNProvider(a.Platform)
+}
+
 func (a *Account) IsOpenAICompatible() bool {
-	return a != nil && (a.Platform == PlatformOpenAI || a.Platform == PlatformGrok)
+	return a != nil && (a.Platform == PlatformOpenAI || a.Platform == PlatformGrok || a.IsCNProvider())
 }
 
 func (a *Account) GeminiOAuthType() string {
@@ -1654,16 +1663,49 @@ func (a *Account) IsOpenAIApiKey() bool {
 }
 
 func (a *Account) GetOpenAIBaseURL() string {
-	if !a.IsOpenAI() {
+	if a == nil || (!a.IsOpenAI() && !a.IsCNProvider()) {
 		return ""
 	}
 	if a.Type == AccountTypeAPIKey {
-		baseURL := a.GetCredential("base_url")
+		baseURL := strings.TrimSpace(a.GetCredential("base_url"))
 		if baseURL != "" {
 			return baseURL
 		}
 	}
-	return "https://api.openai.com"
+	switch a.Platform {
+	case PlatformKimi:
+		if a.GetAccountMode() == AccountModeCoding {
+			return DefaultKimiCodingBaseURL
+		}
+		return DefaultKimiPayGBaseURL
+	case PlatformZhipu:
+		if a.GetAccountMode() == AccountModeCoding {
+			return DefaultZhipuCodingBaseURL
+		}
+		return DefaultZhipuPayGBaseURL
+	case PlatformDeepseek:
+		return DefaultDeepseekBaseURL
+	case PlatformMiniMax:
+		return DefaultMiniMaxBaseURL
+	default:
+		return "https://api.openai.com"
+	}
+}
+
+func (a *Account) GetAccountMode() string {
+	if a == nil || !a.IsCNProvider() {
+		return ""
+	}
+	switch mode := strings.TrimSpace(a.GetCredential("account_mode")); mode {
+	case AccountModePayG, AccountModeCoding:
+		return mode
+	default:
+		return AccountModePayG
+	}
+}
+
+func (a *Account) IsCodingPlan() bool {
+	return a.GetAccountMode() == AccountModeCoding
 }
 
 func (a *Account) GetOpenAIAccessToken() string {
@@ -1749,6 +1791,13 @@ func (a *Account) GetOpenAIIDToken() string {
 
 func (a *Account) GetOpenAIApiKey() string {
 	if !a.IsOpenAIApiKey() {
+		return ""
+	}
+	return a.GetCredential("api_key")
+}
+
+func (a *Account) GetOpenAIProtocolAPIKey() string {
+	if a == nil || a.Type != AccountTypeAPIKey || (!a.IsOpenAI() && !a.IsCNProvider()) {
 		return ""
 	}
 	return a.GetCredential("api_key")

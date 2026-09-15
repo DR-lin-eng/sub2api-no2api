@@ -269,7 +269,8 @@ func plazaAutoPlatforms(groupPlatform string) []string {
 	switch groupPlatform {
 	case PlatformComposite:
 		return matchingPlatforms(groupPlatform)
-	case PlatformAnthropic, PlatformGemini, PlatformOpenAI, PlatformAntigravity, PlatformGrok:
+	case PlatformAnthropic, PlatformGemini, PlatformOpenAI, PlatformAntigravity, PlatformGrok,
+		PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax:
 		return []string{groupPlatform}
 	default:
 		return nil
@@ -278,7 +279,8 @@ func plazaAutoPlatforms(groupPlatform string) []string {
 
 func plazaDefaultModelCandidateIDs(platform string) []string {
 	switch platform {
-	case PlatformAnthropic, PlatformGemini, PlatformOpenAI, PlatformAntigravity, PlatformGrok:
+	case PlatformAnthropic, PlatformGemini, PlatformOpenAI, PlatformAntigravity, PlatformGrok,
+		PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax:
 		return defaultModelsListCandidateIDs(platform)
 	default:
 		return nil

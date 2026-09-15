@@ -272,7 +272,43 @@ func responsesInputToChatMessages(instructions string, inputRaw json.RawMessage)
 	if err != nil {
 		return nil, err
 	}
-	return normalizeChatMessagesWithToolOutputMedia(built, mediaByCallID), nil
+	normalized := normalizeChatMessagesWithToolOutputMedia(built, mediaByCallID)
+	return normalizeResponsesDerivedChatMessageRoles(normalized), nil
+}
+
+func normalizeResponsesDerivedChatMessageRoles(messages []ChatMessage) []ChatMessage {
+	isInstructionRole := func(role string) bool {
+		return role == "system" || role == "developer"
+	}
+	leading := 0
+	for leading < len(messages) && isInstructionRole(messages[leading].Role) {
+		leading++
+	}
+
+	out := make([]ChatMessage, 0, len(messages))
+	switch leading {
+	case 0:
+	case 1:
+		out = append(out, messages[0])
+	default:
+		merged := make([]string, 0, leading)
+		for _, message := range messages[:leading] {
+			if text := strings.TrimSpace(chatMessageContentText(message.Content)); text != "" {
+				merged = append(merged, text)
+			}
+		}
+		if len(merged) > 0 {
+			content, _ := json.Marshal(strings.Join(merged, "\n\n"))
+			out = append(out, ChatMessage{Role: "system", Content: content})
+		}
+	}
+	for _, message := range messages[leading:] {
+		if isInstructionRole(message.Role) {
+			message.Role = "user"
+		}
+		out = append(out, message)
+	}
+	return out
 }
 
 // buildChatMessagesFromItems walks the Responses input items and appends the

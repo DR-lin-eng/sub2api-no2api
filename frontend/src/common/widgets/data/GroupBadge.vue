@@ -159,9 +159,13 @@ const labelClass = computed(() => {
   if (props.platform === 'antigravity') {
     return `${base} bg-purple-200/60 text-purple-800 dark:bg-purple-800/40 dark:text-purple-300`
   }
-  if (props.platform === 'grok') {
-    return `${base} bg-zinc-300/70 text-zinc-800 dark:bg-zinc-700/60 dark:text-zinc-200`
-  }
+    if (props.platform === 'grok') {
+      return `${base} bg-zinc-300/70 text-zinc-800 dark:bg-zinc-700/60 dark:text-zinc-200`
+    }
+    if (props.platform === 'kimi') return `${base} bg-pink-200/60 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300`
+    if (props.platform === 'zhipu') return `${base} bg-indigo-200/60 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300`
+    if (props.platform === 'deepseek') return `${base} bg-cyan-200/60 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300`
+    if (props.platform === 'minimax') return `${base} bg-rose-200/60 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300`
   if (props.platform === 'composite') {
     return `${base} bg-cyan-200/70 text-cyan-900 dark:bg-cyan-900/50 dark:text-cyan-300`
   }
@@ -195,11 +199,15 @@ const badgeClass = computed(() => {
       ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
       : 'bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-900/20 dark:text-fuchsia-400'
   }
-  if (props.platform === 'grok') {
+    if (props.platform === 'grok') {
     return isSubscription.value
       ? 'bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-100'
       : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200'
-  }
+    }
+    if (props.platform === 'kimi') return 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300'
+    if (props.platform === 'zhipu') return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+    if (props.platform === 'deepseek') return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300'
+    if (props.platform === 'minimax') return 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
   if (props.platform === 'composite') {
     return isSubscription.value
       ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300'

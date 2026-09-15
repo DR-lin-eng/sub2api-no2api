@@ -86,6 +86,23 @@ func TestNormalizeOpenAIPassthroughOAuthBody_ArrayInputUnchanged(t *testing.T) {
 	require.Equal(t, "message", input.Array()[0].Get("type").String())
 }
 
+func TestNormalizeOpenAIPassthroughOAuthBody_StripsOnlyInputItemInternalMetadata(t *testing.T) {
+	body := []byte(`{"internal_chat_message_metadata_passthrough":{"top":true},"input":[{"type":"message","content":"keep","internal_chat_message_metadata_passthrough":{"drop":true}},{"type":"function_call","arguments":"{\"internal_chat_message_metadata_passthrough\":true}"}]}`)
+
+	normalized, changed, err := normalizeOpenAIPassthroughOAuthBody(body, false)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.True(t, gjson.GetBytes(normalized, "internal_chat_message_metadata_passthrough.top").Bool())
+	require.False(t, gjson.GetBytes(normalized, "input.0.internal_chat_message_metadata_passthrough").Exists())
+	require.Contains(t, gjson.GetBytes(normalized, "input.1.arguments").String(), "internal_chat_message_metadata_passthrough")
+
+	decoded := map[string]any{"input": []any{map[string]any{
+		"type": "message", "internal_chat_message_metadata_passthrough": map[string]any{"drop": true},
+	}}}
+	require.True(t, stripOpenAIInternalInputMetadataDecoded(decoded))
+	require.NotContains(t, decoded["input"].([]any)[0].(map[string]any), "internal_chat_message_metadata_passthrough")
+}
+
 func TestDetectOpenAIPassthroughInstructionsRejectReason(t *testing.T) {
 	for _, tt := range []struct {
 		name string

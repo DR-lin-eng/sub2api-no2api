@@ -58,3 +58,32 @@ func TestProxyHandlerUpdatePreservesFieldPresence(t *testing.T) {
 		})
 	}
 }
+
+func TestProxyHandlerUpdatePreservesCredentialPresence(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, tc := range []struct {
+		name     string
+		body     string
+		wantUser *string
+		wantPass *string
+	}{
+		{name: "omitted", body: `{}`},
+		{name: "explicit empty", body: `{"username":"","password":""}`, wantUser: ptrString(""), wantPass: ptrString("")},
+		{name: "trimmed", body: `{"username":" user ","password":" pass "}`, wantUser: ptrString("user"), wantPass: ptrString("pass")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := &proxyPartialUpdateService{}
+			router := gin.New()
+			router.PUT("/proxies/:id", NewProxyHandler(svc).Update)
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPut, "/proxies/9", strings.NewReader(tc.body))
+			req.Header.Set("Content-Type", "application/json")
+			router.ServeHTTP(w, req)
+			require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+			require.Equal(t, tc.wantUser, svc.input.Username)
+			require.Equal(t, tc.wantPass, svc.input.Password)
+		})
+	}
+}
+
+func ptrString(value string) *string { return &value }

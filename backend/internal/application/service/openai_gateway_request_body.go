@@ -902,6 +902,22 @@ func extractOpenAIRequestMetaFromBody(body []byte) (model string, stream bool, p
 	return view.Model, view.Stream, view.PromptCacheKey
 }
 
+func stripOpenAIInternalInputMetadataDecoded(reqBody map[string]any) bool {
+	input, _ := reqBody["input"].([]any)
+	changed := false
+	for _, value := range input {
+		item, ok := value.(map[string]any)
+		if !ok {
+			continue
+		}
+		if _, exists := item["internal_chat_message_metadata_passthrough"]; exists {
+			delete(item, "internal_chat_message_metadata_passthrough")
+			changed = true
+		}
+	}
+	return changed
+}
+
 // normalizeOpenAIPassthroughOAuthBody 将透传 OAuth 请求体收敛为旧链路关键行为：
 // 1) 删除 ChatGPT internal API 不支持的顶层 Responses 参数
 // 2) store=false 3) 非 compact 保持 stream=true；compact 强制 stream=false
@@ -947,6 +963,23 @@ func normalizeOpenAIPassthroughOAuthBody(body []byte, compact bool) ([]byte, boo
 			next, err := sjson.SetRawBytes(normalized, "input", []byte("["+inputResult.Raw+"]"))
 			if err != nil {
 				return body, false, fmt.Errorf("normalize passthrough body input object: %w", err)
+			}
+			normalized = next
+			changed = true
+		}
+	}
+
+	// Remove only the provider-internal field on input items. User content and
+	// same-named top-level fields remain byte-exact.
+	input := gjson.GetBytes(normalized, "input")
+	if input.IsArray() {
+		for i, item := range input.Array() {
+			if !item.IsObject() || !item.Get("internal_chat_message_metadata_passthrough").Exists() {
+				continue
+			}
+			next, err := sjson.DeleteBytes(normalized, fmt.Sprintf("input.%d.internal_chat_message_metadata_passthrough", i))
+			if err != nil {
+				return body, false, fmt.Errorf("normalize oauth input metadata: %w", err)
 			}
 			normalized = next
 			changed = true

@@ -362,6 +362,10 @@ export default {
         gemini: 'Gemini',
         antigravity: 'Antigravity',
         grok: 'Grok',
+        kimi: 'Kimi',
+        zhipu: '智谱 GLM',
+        deepseek: 'DeepSeek',
+        minimax: 'MiniMax',
       },
       types: {
         oauth: 'OAuth',

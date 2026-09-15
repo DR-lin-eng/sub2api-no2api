@@ -104,9 +104,10 @@ func TestResponsesInputToChatMessages_DeveloperRoleTrimAndCaseInsensitive(t *tes
 
 	messages, err := responsesInputToChatMessages("", input)
 	require.NoError(t, err)
-	require.Len(t, messages, 2)
+	require.Len(t, messages, 1)
 
-	assert.Equal(t, []string{"system", "system"}, chatMessageRoles(messages))
+	assert.Equal(t, []string{"system"}, chatMessageRoles(messages))
+	assert.JSONEq(t, `"one\n\ntwo"`, string(messages[0].Content))
 }
 
 func TestResponsesToChatCompletionsRequest_InstructionsAndInputDeveloperRole(t *testing.T) {
@@ -121,12 +122,11 @@ func TestResponsesToChatCompletionsRequest_InstructionsAndInputDeveloperRole(t *
 
 	out, err := ResponsesToChatCompletionsRequest(req)
 	require.NoError(t, err)
-	require.Len(t, out.Messages, 3)
+	require.Len(t, out.Messages, 2)
 
-	assert.Equal(t, []string{"system", "system", "user"}, chatMessageRoles(out.Messages))
-	assert.JSONEq(t, `"Use concise answers."`, string(out.Messages[0].Content))
-	assert.JSONEq(t, `"Prefer JSON."`, string(out.Messages[1].Content))
-	assert.JSONEq(t, `"Hello"`, string(out.Messages[2].Content))
+	assert.Equal(t, []string{"system", "user"}, chatMessageRoles(out.Messages))
+	assert.JSONEq(t, `"Use concise answers.\n\nPrefer JSON."`, string(out.Messages[0].Content))
+	assert.JSONEq(t, `"Hello"`, string(out.Messages[1].Content))
 }
 
 func TestResponsesToChatCompletionsRequest_TextFormatJsonObject(t *testing.T) {

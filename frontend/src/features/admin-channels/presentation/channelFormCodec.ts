@@ -44,7 +44,11 @@ export const channelPlatformOrder: GroupPlatform[] = [
   'openai',
   'gemini',
   'antigravity',
-  'grok',
+    'grok',
+    'kimi',
+    'zhipu',
+    'deepseek',
+    'minimax',
 ]
 
 function pricingFormEntryToAPI(

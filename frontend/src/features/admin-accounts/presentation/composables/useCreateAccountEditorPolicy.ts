@@ -3,6 +3,7 @@ import type { useI18n } from 'vue-i18n'
 import type { AccountType } from '@/types'
 import type { OpenAIWSMode } from '@/core/utils/openaiWsMode'
 import { OPENAI_WS_MODE_OFF } from '@/core/utils/openaiWsMode'
+import { defaultAPIKeyBaseURL, isCNAccountPlatform } from '@/core/constants/account'
 import {
   addEmptyModelMapping,
   addPresetModelMapping,
@@ -184,14 +185,7 @@ export function useCreateAccountEditorPolicy(context: CreateAccountEditorPolicyC
     () => form.platform,
     (newPlatform) => {
       // Reset base URL based on platform
-      apiKeyBaseUrl.value =
-        (newPlatform === 'openai')
-          ? 'https://api.openai.com'
-          : newPlatform === 'gemini'
-            ? 'https://generativelanguage.googleapis.com'
-            : newPlatform === 'grok'
-              ? 'https://api.x.ai/v1'
-              : 'https://api.anthropic.com'
+        apiKeyBaseUrl.value = defaultAPIKeyBaseURL(newPlatform)
       // Clear model-related settings
       allowedModels.value = []
       modelMappings.value = []
@@ -211,13 +205,18 @@ export function useCreateAccountEditorPolicy(context: CreateAccountEditorPolicyC
         antigravityModelMappings.value = []
         antigravityModelRestrictionMode.value = 'mapping'
       }
-      if (newPlatform === 'grok') {
+        if (newPlatform === 'grok') {
         accountCategory.value = 'oauth-based'
         addMethod.value = 'oauth'
         modelRestrictionMode.value = 'mapping'
         form.concurrency = 1
         form.load_factor = null
-      }
+        }
+        if (isCNAccountPlatform(newPlatform)) {
+          accountCategory.value = 'apikey'
+          addMethod.value = 'oauth'
+          modelRestrictionMode.value = 'whitelist'
+        }
       if (newPlatform !== 'gemini' && newPlatform !== 'anthropic' && accountCategory.value === 'service_account') {
         accountCategory.value = 'oauth-based'
       }

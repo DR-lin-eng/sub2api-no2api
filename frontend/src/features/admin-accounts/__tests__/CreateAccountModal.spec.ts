@@ -346,6 +346,32 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     expect(createAccountMock.mock.calls[0]?.[0]?.upstream_billing_probe_enabled).toBe(true)
   })
 
+  it.each([
+    ['kimi', 'https://api.moonshot.cn/v1'],
+    ['zhipu', 'https://open.bigmodel.cn/api/paas/v4'],
+    ['deepseek', 'https://api.deepseek.com'],
+    ['minimax', 'https://api.minimaxi.com/v1'],
+  ] as const)('creates first-class %s API-key accounts with the provider default', async (platform, baseURL) => {
+    const wrapper = mountModal()
+    await wrapper.get(`[data-testid="account-platform-${platform}"]`).trigger('click')
+    await flushPromises()
+    await wrapper.get('form#create-account-form input[type="text"]').setValue(`${platform} account`)
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('provider-key')
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(createAccountMock).toHaveBeenCalledTimes(1)
+    expect(createAccountMock.mock.calls[0]?.[0]).toMatchObject({
+      platform,
+      type: 'apikey',
+      credentials: {
+        api_key: 'provider-key',
+        base_url: baseURL,
+        account_mode: 'payg',
+      },
+    })
+  })
+
   it('leaves Codex session import billing ownership to the backend', async () => {
     const wrapper = await openCodexImportStep()
     await wrapper.get('[data-testid="import-codex-session"]').trigger('click')

@@ -141,7 +141,7 @@ import {
 } from '@/features/admin-accounts/presentation/credentialsBuilder'
 import { formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/core/utils/format'
 import { createStableObjectKeyResolver } from '@/core/utils/stableObjectKey'
-import { VERTEX_LOCATION_OPTIONS } from '@/core/constants/account'
+import { VERTEX_LOCATION_OPTIONS, defaultAPIKeyBaseURL, isCNAccountPlatform } from '@/core/constants/account'
 import {
   OPENAI_WS_MODE_CTX_POOL,
   OPENAI_WS_MODE_OFF,
@@ -1318,20 +1318,16 @@ const handleSubmit = async () => {
   }
 
   // Determine default base URL based on platform
-  const defaultBaseUrl =
-    form.platform === 'openai'
-      ? 'https://api.openai.com'
-      : form.platform === 'gemini'
-        ? 'https://generativelanguage.googleapis.com'
-        : form.platform === 'grok'
-          ? 'https://api.x.ai/v1'
-          : 'https://api.anthropic.com'
+    const defaultBaseUrl = defaultAPIKeyBaseURL(form.platform)
 
   // Build credentials with optional model mapping
-  const credentials: Record<string, unknown> = {
+    const credentials: Record<string, unknown> = {
     base_url: apiKeyBaseUrl.value.trim() || defaultBaseUrl,
     api_key: apiKeyValue.value.trim()
-  }
+    }
+    if (isCNAccountPlatform(form.platform)) {
+      credentials.account_mode = 'payg'
+    }
   if (form.platform === 'gemini') {
     credentials.tier_id = geminiTierAIStudio.value
   }

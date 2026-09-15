@@ -23,7 +23,11 @@ import {
   PROVIDER_OPENAI,
   PROVIDER_ANTHROPIC,
   PROVIDER_GEMINI,
-  PROVIDER_GROK,
+    PROVIDER_GROK,
+    PROVIDER_KIMI,
+    PROVIDER_ZHIPU,
+    PROVIDER_DEEPSEEK,
+    PROVIDER_MINIMAX,
   STATUS_OPERATIONAL,
   STATUS_DEGRADED,
   STATUS_FAILED,
@@ -86,8 +90,16 @@ export function useChannelMonitorFormat() {
         return 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300'
       case PROVIDER_GEMINI:
         return 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300'
-      case PROVIDER_GROK:
-        return 'bg-zinc-100 text-zinc-700 dark:bg-zinc-500/15 dark:text-zinc-300'
+        case PROVIDER_GROK:
+          return 'bg-zinc-100 text-zinc-700 dark:bg-zinc-500/15 dark:text-zinc-300'
+        case PROVIDER_KIMI:
+          return 'bg-pink-100 text-pink-700 dark:bg-pink-500/15 dark:text-pink-300'
+        case PROVIDER_ZHIPU:
+          return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300'
+        case PROVIDER_DEEPSEEK:
+          return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300'
+        case PROVIDER_MINIMAX:
+          return 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300'
       default:
         return NEUTRAL_BADGE
     }
@@ -112,10 +124,18 @@ export function useChannelMonitorFormat() {
         return active
           ? 'border-sky-500 bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-400'
           : 'border-gray-200 bg-white text-gray-600 hover:border-sky-300 hover:text-sky-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-400 dark:hover:border-sky-500/50'
-      case PROVIDER_GROK:
+        case PROVIDER_GROK:
         return active
           ? 'border-zinc-500 bg-zinc-50 text-zinc-800 dark:bg-zinc-500/15 dark:text-zinc-200 dark:border-zinc-400'
-          : 'border-gray-200 bg-white text-gray-600 hover:border-zinc-400 hover:text-zinc-800 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-400 dark:hover:border-zinc-500/50'
+            : 'border-gray-200 bg-white text-gray-600 hover:border-zinc-400 hover:text-zinc-800 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-400 dark:hover:border-zinc-500/50'
+        case PROVIDER_KIMI:
+          return active ? 'border-pink-500 bg-pink-50 text-pink-700 dark:bg-pink-500/15 dark:text-pink-300' : 'border-gray-200 bg-white text-gray-600 hover:border-pink-300 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-400'
+        case PROVIDER_ZHIPU:
+          return active ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300' : 'border-gray-200 bg-white text-gray-600 hover:border-indigo-300 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-400'
+        case PROVIDER_DEEPSEEK:
+          return active ? 'border-cyan-500 bg-cyan-50 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300' : 'border-gray-200 bg-white text-gray-600 hover:border-cyan-300 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-400'
+        case PROVIDER_MINIMAX:
+          return active ? 'border-rose-500 bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300' : 'border-gray-200 bg-white text-gray-600 hover:border-rose-300 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-400'
       default:
         return active
           ? 'border-gray-400 bg-gray-50 text-gray-700 dark:border-dark-500 dark:bg-dark-700 dark:text-gray-200'
@@ -204,8 +224,16 @@ export function providerGradient(provider: string): string {
       return 'bg-gradient-to-br from-orange-50 to-amber-100 dark:from-orange-500/10 dark:to-amber-500/20'
     case PROVIDER_GEMINI:
       return 'bg-gradient-to-br from-sky-50 to-indigo-100 dark:from-sky-500/10 dark:to-indigo-500/20'
-    case PROVIDER_GROK:
-      return 'bg-gradient-to-br from-zinc-50 to-neutral-200 dark:from-zinc-500/10 dark:to-neutral-500/20'
+      case PROVIDER_GROK:
+        return 'bg-gradient-to-br from-zinc-50 to-neutral-200 dark:from-zinc-500/10 dark:to-neutral-500/20'
+      case PROVIDER_KIMI:
+        return 'bg-gradient-to-br from-pink-50 to-pink-100 dark:from-pink-500/10 dark:to-pink-500/20'
+      case PROVIDER_ZHIPU:
+        return 'bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-500/10 dark:to-indigo-500/20'
+      case PROVIDER_DEEPSEEK:
+        return 'bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-cyan-500/10 dark:to-cyan-500/20'
+      case PROVIDER_MINIMAX:
+        return 'bg-gradient-to-br from-rose-50 to-rose-100 dark:from-rose-500/10 dark:to-rose-500/20'
     default:
       return 'bg-gradient-to-br from-gray-100 to-gray-200 dark:from-dark-700 dark:to-dark-600'
   }

@@ -1,3 +1,25 @@
+import type { AccountPlatform } from '@/types'
+
+export const CN_ACCOUNT_PLATFORMS = ['kimi', 'zhipu', 'deepseek', 'minimax'] as const
+export type CNAccountPlatform = (typeof CN_ACCOUNT_PLATFORMS)[number]
+
+export function isCNAccountPlatform(platform: string): platform is CNAccountPlatform {
+  return (CN_ACCOUNT_PLATFORMS as readonly string[]).includes(platform)
+}
+
+export function defaultAPIKeyBaseURL(platform: AccountPlatform): string {
+  switch (platform) {
+    case 'openai': return 'https://api.openai.com'
+    case 'gemini': return 'https://generativelanguage.googleapis.com'
+    case 'grok': return 'https://api.x.ai/v1'
+    case 'kimi': return 'https://api.moonshot.cn/v1'
+    case 'zhipu': return 'https://open.bigmodel.cn/api/paas/v4'
+    case 'deepseek': return 'https://api.deepseek.com'
+    case 'minimax': return 'https://api.minimaxi.com/v1'
+    default: return 'https://api.anthropic.com'
+  }
+}
+
 /** WebSearch emulation mode values (must match backend WebSearchMode* constants in account.go) */
 export const WEB_SEARCH_MODE_DEFAULT = 'default' as const
 export const WEB_SEARCH_MODE_ENABLED = 'enabled' as const

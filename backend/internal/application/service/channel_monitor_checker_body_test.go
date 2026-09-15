@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
 
@@ -212,6 +213,24 @@ func TestGrokMonitorConfiguration(t *testing.T) {
 	}
 	if err := validateReplaceRequestBody(MonitorProviderGrok, MonitorAPIModeChatCompletions, map[string]any{}); err == nil {
 		t.Fatal("grok replace-mode body should require messages")
+	}
+}
+
+func TestCNProviderMonitorAdaptersUseOpenAICompatibleChat(t *testing.T) {
+	for _, provider := range []string{
+		MonitorProviderKimi, MonitorProviderZhipu, MonitorProviderDeepseek, MonitorProviderMiniMax,
+	} {
+		t.Run(provider, func(t *testing.T) {
+			require.NoError(t, validateProvider(provider))
+			require.NoError(t, validateAPIMode(provider, MonitorAPIModeChatCompletions))
+			require.Error(t, validateAPIMode(provider, MonitorAPIModeResponses))
+
+			h := &openAICaptureHandler{}
+			endpoint := setupFakeOpenAI(t, h)
+			result := runCheckForModel(context.Background(), provider, endpoint, "provider-key", "model", nil)
+			require.Equal(t, MonitorStatusOperational, result.Status, result.Message)
+			require.Equal(t, "Bearer provider-key", h.lastHeaders.Get("Authorization"))
+		})
 	}
 }
 
