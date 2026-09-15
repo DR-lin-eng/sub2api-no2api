@@ -15,18 +15,19 @@ interface CredentialPublicKeyResponse {
 
 interface PreparedCredentialKey {
   keyId: string
-  publicKeyDER: Uint8Array
+  publicKey: CryptoKey
   expiresAt: number
   serverTimeOffset: number
 }
 
 let prefetchedCredentialKey: Promise<PreparedCredentialKey> | null = null
 
-function prefetchCredentialFallback(): void {
-  const cryptoApi = globalThis.crypto as Partial<Crypto> | undefined
-  if (!cryptoApi?.subtle && typeof cryptoApi?.getRandomValues === 'function') {
-    void import('./credentialEncryptionFallback').catch(() => undefined)
+function requireWebCrypto(): Crypto {
+  const cryptoApi = globalThis.crypto
+  if (!cryptoApi?.subtle) {
+    throw new Error('Secure credential encryption is not supported by this browser')
   }
+  return cryptoApi
 }
 
 function decodeBase64(value: string): Uint8Array {
@@ -40,7 +41,8 @@ function decodeBase64(value: string): Uint8Array {
   return bytes
 }
 
-function encodeBase64URL(bytes: Uint8Array): string {
+function encodeBase64URL(value: ArrayBuffer): string {
+  const bytes = new Uint8Array(value)
   let binary = ''
   for (const byte of bytes) {
     binary += String.fromCharCode(byte)
@@ -58,9 +60,17 @@ async function fetchCredentialKey(): Promise<PreparedCredentialKey> {
     throw new Error('Credential encryption key is expired')
   }
 
+  const cryptoApi = requireWebCrypto()
+  const publicKey = await cryptoApi.subtle.importKey(
+    'spki',
+    decodeBase64(data.public_key),
+    { name: 'RSA-OAEP', hash: 'SHA-256' },
+    false,
+    ['encrypt']
+  )
   return {
     keyId: data.key_id,
-    publicKeyDER: decodeBase64(data.public_key),
+    publicKey,
     expiresAt: now + Math.max(0, Math.min(data.expires_at, data.flow_expires_at) - data.server_time),
     serverTimeOffset: data.server_time - now
   }
@@ -92,7 +102,6 @@ async function takeCredentialKey(): Promise<PreparedCredentialKey> {
 // Starts a one-shot key request when an auth view opens. The result is consumed
 // by the next credential submission and is never persisted across page loads.
 export function prefetchCredentialKey(): Promise<void> {
-  prefetchCredentialFallback()
   if (!prefetchedCredentialKey) {
     const request = fetchCredentialKey()
     prefetchedCredentialKey = request
@@ -109,37 +118,8 @@ export function prefetchCredentialKey(): Promise<void> {
 }
 
 export async function createCredentialEnvelope(email: string, password: string): Promise<CredentialEnvelope> {
+  const cryptoApi = requireWebCrypto()
   const serverKey = await takeCredentialKey()
-  const plaintext = new TextEncoder().encode(JSON.stringify({
-    email,
-    password,
-    issued_at: Math.floor(Date.now() / 1000) + serverKey.serverTimeOffset
-  }))
-  const cryptoApi = globalThis.crypto
-  if (!cryptoApi?.subtle) {
-    const { encryptCredentialWithFallback } = await import('./credentialEncryptionFallback')
-    const encrypted = await encryptCredentialWithFallback({
-      publicKeyDER: serverKey.publicKeyDER,
-      keyId: serverKey.keyId,
-      plaintext,
-      cryptoApi
-    })
-    return {
-      algorithm: CREDENTIAL_ALGORITHM,
-      key_id: serverKey.keyId,
-      encrypted_key: encodeBase64URL(encrypted.encryptedKey),
-      iv: encodeBase64URL(encrypted.iv),
-      ciphertext: encodeBase64URL(encrypted.ciphertext)
-    }
-  }
-
-  const publicKey = await cryptoApi.subtle.importKey(
-    'spki',
-    serverKey.publicKeyDER,
-    { name: 'RSA-OAEP', hash: 'SHA-256' },
-    false,
-    ['encrypt']
-  )
   const aesKey = await cryptoApi.subtle.generateKey(
     { name: 'AES-GCM', length: 256 },
     true,
@@ -148,12 +128,17 @@ export async function createCredentialEnvelope(email: string, password: string):
   const rawAESKey = await cryptoApi.subtle.exportKey('raw', aesKey)
   const encryptedKey = await cryptoApi.subtle.encrypt(
     { name: 'RSA-OAEP' },
-    publicKey,
+    serverKey.publicKey,
     rawAESKey
   )
 
   const iv = cryptoApi.getRandomValues(new Uint8Array(12))
   const encoder = new TextEncoder()
+  const plaintext = encoder.encode(JSON.stringify({
+    email,
+    password,
+    issued_at: Math.floor(Date.now() / 1000) + serverKey.serverTimeOffset
+  }))
   const ciphertext = await cryptoApi.subtle.encrypt(
     {
       name: 'AES-GCM',
@@ -167,9 +152,9 @@ export async function createCredentialEnvelope(email: string, password: string):
   return {
     algorithm: CREDENTIAL_ALGORITHM,
     key_id: serverKey.keyId,
-    encrypted_key: encodeBase64URL(new Uint8Array(encryptedKey)),
-    iv: encodeBase64URL(iv),
-    ciphertext: encodeBase64URL(new Uint8Array(ciphertext))
+    encrypted_key: encodeBase64URL(encryptedKey),
+    iv: encodeBase64URL(iv.buffer),
+    ciphertext: encodeBase64URL(ciphertext)
   }
 }
 

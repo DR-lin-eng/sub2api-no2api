@@ -1,0 +1,82 @@
+IP-and-port login credential fallback verification
+
+BASELINE_COMMIT: ccd37eb75fbd9769ac3e4e77ddb8e736f72faca9
+BASELINE_SHA256: 26f95615a94482c6b129123680fafc4347cb0bdefc8e4892e80b219a6bf20be4
+MODIFIED_SHA256: eca8415d351ac660acc47c6ecc956efcf496cdb09e522085d5b451b53e8a59b3
+CHANGED_BRANCH_FIELD: detached HEAD / createCredentialEnvelope when crypto.subtle is absent; node-forge is isolated as vendor-credential-crypto
+
+ARTIFACT_PATHS:
+MODIFIED_FILE: /Users/lin/.codex/worktrees/25d4/sub2api-no2api/diagnostics/ip-port-login-fallback/MODIFIED_FILE
+DIFF_FILE: /Users/lin/.codex/worktrees/25d4/sub2api-no2api/diagnostics/ip-port-login-fallback/DIFF_FILE
+VERIFICATION.txt: /Users/lin/.codex/worktrees/25d4/sub2api-no2api/diagnostics/ip-port-login-fallback/VERIFICATION.txt
+ROLLBACK.sh: /Users/lin/.codex/worktrees/25d4/sub2api-no2api/diagnostics/ip-port-login-fallback/ROLLBACK.sh
+
+BASELINE:
+COMMAND: docker build --target frontend-builder --tag sub2api-ip-login-baseline:ccd37eb75 .
+INPUT: repository at ccd37eb75fbd9769ac3e4e77ddb8e736f72faca9 before the fallback change
+LITERAL_OUTPUT: #14 DONE 60.3s; naming to docker.io/library/sub2api-ip-login-baseline:ccd37eb75 done
+EXIT_STATUS: 0
+RESULT: the unchanged frontend production baseline built successfully.
+
+COMMAND: docker run --rm -v /Users/lin/.codex/worktrees/25d4/sub2api-no2api/frontend/src/core/networks/__tests__/credentialEncryption.spec.ts:/app/frontend/src/core/networks/__tests__/credentialEncryption.spec.ts:ro sub2api-ip-login-baseline:ccd37eb75 pnpm exec vitest run src/core/networks/__tests__/credentialEncryption.spec.ts
+INPUT: baseline implementation with the new no-SubtleCrypto regression test mounted read-only; crypto.getRandomValues is present and crypto.subtle is absent
+LITERAL_OUTPUT: Test Files 1 failed (1); Tests 1 failed | 3 passed (4); Error: Secure credential encryption is not supported by this browser
+EXIT_STATUS: 1
+RESULT: baseline defect reproduced at requireWebCrypto before an encrypted login envelope could be produced.
+
+MODIFIED:
+COMMAND: docker run --rm -v /Users/lin/.codex/worktrees/25d4/sub2api-no2api/frontend:/app -v sub2api-ip-login-node-modules:/app/node_modules -w /app node:24-alpine sh -c 'corepack enable >/dev/null 2>&1 && corepack prepare pnpm@11.17.0 --activate >/dev/null 2>&1 && pnpm exec vitest run src/core/__tests__/initialAssetLoading.spec.ts src/core/networks/__tests__/credentialEncryption.spec.ts src/features/auth/__tests__/authCredentialRequest.spec.ts src/features/auth/__tests__/LoginForm.spec.ts && pnpm run lint:check && pnpm run typecheck'
+INPUT: final frontend source, fixed lockfile, no-SubtleCrypto compatibility case, native Web Crypto case, auth request contracts, login form, and lazy-chunk contract
+LITERAL_OUTPUT: Test Files 4 passed (4); Tests 14 passed (14); $ eslint .; $ vue-tsc --noEmit
+EXIT_STATUS: 0
+RESULT: fallback and native branches, authentication callers, lint, types, and chunk ownership passed in Docker.
+
+COMMAND: docker run --rm -e GOPROXY=https://goproxy.cn,direct -e GOSUMDB=sum.golang.google.cn -v /Users/lin/.codex/worktrees/25d4/sub2api-no2api:/src -v sub2api-ip-login-gomod:/go/pkg/mod -v sub2api-ip-login-gocache:/root/.cache/go-build -w /src/backend golang:1.26.6-alpine sh -c 'go test ./internal/platform/middleware -run CredentialCipher -count=1'
+INPUT: backend credential cipher suite including explicit http://192.0.2.10:8080 key-cookie-envelope flow and plaintext-browser-request rejection
+LITERAL_OUTPUT: ok github.com/Wei-Shaw/sub2api/internal/platform/middleware 0.817s
+EXIT_STATUS: 0
+RESULT: HTTP IP-and-port cookies remain HttpOnly and SameSite=Strict, are non-Secure on HTTP, and authorize only a valid encrypted envelope.
+
+COMMAND: docker run --rm -v /Users/lin/.codex/worktrees/25d4/sub2api-no2api/frontend:/app -v sub2api-ip-login-node-modules:/app/node_modules -w /app node:24-alpine sh -c 'corepack enable >/dev/null 2>&1 && corepack prepare pnpm@11.17.0 --activate >/dev/null 2>&1 && pnpm audit --prod --audit-level=high'
+INPUT: final production dependencies including node-forge 1.4.0
+LITERAL_OUTPUT: No known vulnerabilities found
+EXIT_STATUS: 0
+RESULT: production dependency audit passed.
+
+COMMAND: docker build --tag sub2api-ip-login-fallback:local --build-arg GOPROXY=https://goproxy.cn,direct --build-arg GOSUMDB=sum.golang.google.cn .
+INPUT: final repository source through the Node 24 frontend builder, Go 1.26.6 backend builder, embedded web assets, and Alpine runtime
+LITERAL_OUTPUT: vendor-misc-H0fYAd_W.js 97.25 kB gzip 31.26 kB; vendor-credential-crypto-CWkc-NaG.js 287.69 kB gzip 77.89 kB; #40 DONE 2.8s; naming to docker.io/library/sub2api-ip-login-fallback:local done
+EXIT_STATUS: 0
+RESULT: complete release image built; image sha256:77ef42480552eddaa074d7cc1801789fbcf5cdc7409f95159ca36dbfbfa86dbc is 45290877 bytes.
+
+COMMAND: browser open http://127.0.0.1:61350/login and inspect runtime capabilities/resources
+INPUT: healthy final Docker image with PostgreSQL 18 and Redis 8
+LITERAL_OUTPUT: {"origin":"http://127.0.0.1:61350","secureContext":true,"subtleCrypto":"object","getRandomValues":"function","credentialCryptoResources":[]}
+EXIT_STATUS: 0
+RESULT: the normal Web Crypto branch does not download the fallback chunks.
+
+COMMAND: browser open http://192.168.1.199:61350/login, submit the isolated Docker admin fixture, and inspect the resulting page/resources
+INPUT: secureContext=false, crypto.subtle=undefined, crypto.getRandomValues=function
+LITERAL_OUTPUT: credentialCryptoResources=["http://192.168.1.199:61350/assets/credentialEncryptionFallback-LuqegFiL.js","http://192.168.1.199:61350/assets/vendor-credential-crypto-CWkc-NaG.js"]; POST /api/v1/auth/login status_code=200 latency_ms=142; final URL http://192.168.1.199:61350/dashboard; role text=管理员
+EXIT_STATUS: 0
+RESULT: the final production container completed a real browser login through the encrypted fallback and reached the administrator dashboard.
+
+COMMAND: git diff --check && ./tools/check-docs.sh
+INPUT: final modified repository
+LITERAL_OUTPUT: Documentation checks passed.
+EXIT_STATUS: 0
+RESULT: patch whitespace and documentation gates passed.
+
+RESIDUAL_BASELINE_TEST:
+COMMAND: docker run --rm sub2api-ip-login-baseline:ccd37eb75 pnpm exec vitest run src/features/auth/__tests__/RegisterViewCredentialStorage.spec.ts
+INPUT: unchanged baseline test and source from ccd37eb75
+LITERAL_OUTPUT: Test Files 1 failed (1); expected pushMock to be called with /email-verify; Number of calls: 0
+EXIT_STATUS: 1
+RESULT: the broader auth run has one pre-existing timing failure (194/195 passed); both the test and RegisterPage.vue hashes match HEAD, so it is not caused by this change.
+
+ROLLBACK:
+COMMAND: cp diagnostics/ip-port-login-fallback/MODIFIED_FILE /tmp/ip-port-login-rollback-target.ts && diagnostics/ip-port-login-fallback/ROLLBACK.sh /tmp/ip-port-login-rollback-target.ts && cmp -s diagnostics/ip-port-login-fallback/ORIGINAL_FILE /tmp/ip-port-login-rollback-target.ts && printf 'rollback_cmp=identical\n'
+INPUT: independent copy of MODIFIED_FILE at /tmp/ip-port-login-rollback-target.ts
+LITERAL_OUTPUT: restored=/tmp/ip-port-login-rollback-target.ts; rollback_restored_sha256=26f95615a94482c6b129123680fafc4347cb0bdefc8e4892e80b219a6bf20be4; expected_sha256=26f95615a94482c6b129123680fafc4347cb0bdefc8e4892e80b219a6bf20be4; restored_behavior=SubtleCrypto-only baseline; HTTP IP-and-port fallback absent; rollback_cmp=identical
+EXIT_STATUS: 0
+RESULT: the independent copy was restored byte-for-byte to BASELINE_SHA256; MODIFIED_FILE and repository source remain changed.

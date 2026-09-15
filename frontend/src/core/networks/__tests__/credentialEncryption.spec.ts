@@ -80,6 +80,66 @@ describe('credential encryption', () => {
     expect(Math.abs(credentials.issued_at - serverTime)).toBeLessThanOrEqual(1)
   })
 
+  it('creates a server-decryptable envelope without SubtleCrypto on an HTTP IP origin', async () => {
+    const serverTime = Math.floor(Date.now() / 1000)
+    const keyPair = await webcrypto.subtle.generateKey(
+      {
+        name: 'RSA-OAEP',
+        modulusLength: 2048,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: 'SHA-256'
+      },
+      true,
+      ['encrypt', 'decrypt']
+    )
+    const publicKey = await webcrypto.subtle.exportKey('spki', keyPair.publicKey)
+    vi.spyOn(apiClient, 'get').mockResolvedValue({
+      data: {
+        algorithm: 'RSA-OAEP-256+A256GCM',
+        key_id: 'insecure-http-ip-key',
+        public_key: encodeBase64(publicKey),
+        expires_at: serverTime + 3600,
+        flow_expires_at: serverTime + 900,
+        server_time: serverTime
+      }
+    })
+    Object.defineProperty(globalThis, 'crypto', {
+      configurable: true,
+      value: {
+        getRandomValues: webcrypto.getRandomValues.bind(webcrypto)
+      }
+    })
+
+    const envelope = await createCredentialEnvelope('ip-user@example.com', 'secret-over-http')
+    const aesKeyBytes = await webcrypto.subtle.decrypt(
+      { name: 'RSA-OAEP' },
+      keyPair.privateKey,
+      decodeBase64URL(envelope.encrypted_key)
+    )
+    const aesKey = await webcrypto.subtle.importKey(
+      'raw',
+      aesKeyBytes,
+      { name: 'AES-GCM' },
+      false,
+      ['decrypt']
+    )
+    const plaintext = await webcrypto.subtle.decrypt(
+      {
+        name: 'AES-GCM',
+        iv: decodeBase64URL(envelope.iv),
+        additionalData: new TextEncoder().encode(envelope.key_id)
+      },
+      aesKey,
+      decodeBase64URL(envelope.ciphertext)
+    )
+    const credentials = JSON.parse(new TextDecoder().decode(plaintext))
+
+    expect(credentials).toMatchObject({
+      email: 'ip-user@example.com',
+      password: 'secret-over-http'
+    })
+  })
+
   it('consumes a prefetched key once and fetches again for the next submission', async () => {
     const serverTime = Math.floor(Date.now() / 1000)
     const keyPair = await webcrypto.subtle.generateKey(

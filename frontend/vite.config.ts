@@ -182,6 +182,11 @@ export default defineConfig(({ mode }) => {
               return 'vendor-export'
             }
 
+            // HTTP IP-and-port auth fallback only; secure origins use Web Crypto.
+            if (id.includes('/node-forge/')) {
+              return 'vendor-credential-crypto'
+            }
+
             // Stripe 仅在支付流程中按需加载，避免进入首页公共依赖。
             if (id.includes('/@stripe/stripe-js/')) {
               return 'vendor-stripe'
