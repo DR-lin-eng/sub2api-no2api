@@ -56,28 +56,34 @@ func TestSnapshotPlatformQuotaDefaults_PassesToRepoBulkInsert(t *testing.T) {
 	s := &AuthService{userPlatformQuotaRepo: fakeRepo}
 
 	five := 5.0
+	zero := 0.0
 	plan := &signupGrantPlan{
 		PlatformQuotas: map[string]*DefaultPlatformQuotaSetting{
 			"anthropic":   {DailyLimitUSD: &five},
+			"grok":        {MonthlyLimitUSD: &zero},
 			"openai":      {},
 			"gemini":      {},
-			"antigravity": {},
+			"antigravity": nil,
 		},
 	}
 	if err := s.snapshotPlatformQuotaDefaults(context.Background(), 999, plan); err != nil {
 		t.Fatal(err)
 	}
-	if len(fakeRepo.records) != 4 {
-		t.Errorf("expected 4 records, got %d", len(fakeRepo.records))
+	if len(fakeRepo.records) != 2 {
+		t.Fatalf("expected 2 configured records, got %d: %+v", len(fakeRepo.records), fakeRepo.records)
 	}
-	found := false
+	foundAnthropic := false
+	foundGrok := false
 	for _, r := range fakeRepo.records {
 		if r.UserID == 999 && r.Platform == "anthropic" && r.DailyLimitUSD != nil && *r.DailyLimitUSD == 5 {
-			found = true
+			foundAnthropic = true
+		}
+		if r.UserID == 999 && r.Platform == "grok" && r.MonthlyLimitUSD != nil && *r.MonthlyLimitUSD == 0 {
+			foundGrok = true
 		}
 	}
-	if !found {
-		t.Error("anthropic daily = 5 not snapshotted")
+	if !foundAnthropic || !foundGrok {
+		t.Fatalf("configured limits not snapshotted: %+v", fakeRepo.records)
 	}
 }
 

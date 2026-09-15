@@ -74,6 +74,9 @@ func (g *Group) ResolveMessagesDispatchModel(requestedModel string) string {
 		}
 		return ""
 	}
+	if IsCNProvider(g.Platform) {
+		return ""
+	}
 
 	cfg := normalizeOpenAIMessagesDispatchModelConfig(g.MessagesDispatchModelConfig)
 	if mappedModel := strings.TrimSpace(cfg.ExactModelMappings[requestedModel]); mappedModel != "" {

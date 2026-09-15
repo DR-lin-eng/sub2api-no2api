@@ -48,5 +48,5 @@ func openAIRequestModelForSupport(ctx context.Context, requestedModel string) st
 func shouldForwardOpenAIResponsesViaRawChatCompletions(account *Account) bool {
 	return account != nil &&
 		account.Type == AccountTypeAPIKey &&
-		!openai_compat.ShouldUseResponsesAPI(account.Extra)
+		(account.IsCNProvider() || !openai_compat.ShouldUseResponsesAPI(account.Extra))
 }

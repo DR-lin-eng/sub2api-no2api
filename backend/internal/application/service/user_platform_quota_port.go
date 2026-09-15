@@ -44,6 +44,10 @@ type UserPlatformQuotaRecord struct {
 	MonthlyWindowStart *time.Time
 }
 
+func (r UserPlatformQuotaRecord) HasAnyLimit() bool {
+	return r.DailyLimitUSD != nil || r.WeeklyLimitUSD != nil || r.MonthlyLimitUSD != nil
+}
+
 // UserPlatformQuotaRepository 定义 service 层所需的 user × platform quota 数据访问端口。
 // repository 包的 userPlatformQuotaRepository 实现此接口。
 type UserPlatformQuotaRepository interface {

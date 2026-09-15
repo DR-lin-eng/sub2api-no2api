@@ -237,6 +237,15 @@ func (s *OpenAIGatewayService) ForwardCountTokensAsAnthropic(
 		writeAnthropicCountTokensError(c, http.StatusServiceUnavailable, "api_error", "No available OpenAI accounts")
 		return fmt.Errorf("count_tokens: missing account")
 	}
+	if account.IsCNProvider() {
+		estimated, estimateErr := EstimateGrokCountTokens(body)
+		if estimateErr != nil {
+			writeAnthropicCountTokensError(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
+			return fmt.Errorf("count_tokens: estimate provider input tokens: %w", estimateErr)
+		}
+		c.JSON(http.StatusOK, gin.H{"input_tokens": estimated})
+		return nil
+	}
 
 	prepared, err := prepareOpenAIInputTokensCountRequest(body, account, defaultMappedModel)
 	if err != nil {

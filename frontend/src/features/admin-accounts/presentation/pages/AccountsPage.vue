@@ -1165,10 +1165,11 @@ const handleDuplicateAccount = async (a: Account) => {
 }
 const handleRefresh = async (a: Account) => {
   try {
-    const updated = await accountActions.refreshCredentials(a.id)
-    invalidateUpstreamQuotaState(a.id)
-    patchAccountInList(updated)
-    enterAutoRefreshSilentWindow()
+      const result = await accountActions.refreshCredentials(a.id)
+      invalidateUpstreamQuotaState(a.id)
+      patchAccountInList(result.account)
+      enterAutoRefreshSilentWindow()
+      if (result.warning) appStore.showWarning(result.message)
   } catch (error) {
     console.error('Failed to refresh credentials:', error)
   }

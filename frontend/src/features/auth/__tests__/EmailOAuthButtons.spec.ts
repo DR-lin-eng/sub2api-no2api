@@ -95,7 +95,7 @@ describe('EmailOAuthButtons', () => {
           GoogleMark: true,
         },
       },
-    })
+  })
 
     expect(wrapper.find('.grid').classes()).toContain('sm:grid-cols-2')
     const buttons = wrapper.findAll('button')
@@ -104,5 +104,16 @@ describe('EmailOAuthButtons', () => {
     expect(buttons[0].text()).not.toContain('使用 GitHub 登录')
     expect(buttons[1].text()).toContain('Google')
     expect(buttons[1].text()).not.toContain('使用 Google 登录')
-  })
+    })
+
+    it('preserves a registration promo code in the OAuth start request', async () => {
+      const wrapper = mount(EmailOAuthButtons, {
+        props: { githubEnabled: true, promoCode: ' PROMO-42 ' },
+        global: { stubs: { GitHubMark: true, GoogleMark: true } },
+      })
+      await wrapper.get('button').trigger('click')
+      expect(wrapper.emitted('start')?.[0]?.[0]).toMatchObject({
+        params: { promo_code: 'PROMO-42' },
+      })
+    })
 })

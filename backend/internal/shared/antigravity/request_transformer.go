@@ -88,11 +88,12 @@ func TransformClaudeToGeminiWithOptions(claudeReq *ClaudeRequest, projectID, map
 	// 用于存储 tool_use id -> name 映射
 	toolIDToName := make(map[string]string)
 
-	// 检测是否有 web_search 工具
-	hasWebSearchTool := hasWebSearchTool(claudeReq.Tools)
+	// Antigravity rejects built-in search mixed with client function tools.
+	// Preserve the client tools and select search mode only for search-only calls.
+	useWebSearchRequest := hasWebSearchTool(claudeReq.Tools) && !hasClientFunctionTools(claudeReq.Tools)
 	requestType := "agent"
 	targetModel := mappedModel
-	if hasWebSearchTool {
+	if useWebSearchRequest {
 		requestType = "web_search"
 		if targetModel != webSearchFallbackModel {
 			targetModel = webSearchFallbackModel
@@ -151,12 +152,6 @@ func TransformClaudeToGeminiWithOptions(claudeReq *ClaudeRequest, projectID, map
 	innerRequest.ToolConfig = &GeminiToolConfig{
 		FunctionCallingConfig: &GeminiFunctionCallingConfig{Mode: "VALIDATED"},
 	}
-	// Mixed server-side and function tools require this explicit opt-in.
-	if hasMixedToolInvocations(tools) {
-		enabled := true
-		innerRequest.ToolConfig.IncludeServerSideToolInvocations = &enabled
-	}
-
 	if systemInstruction != nil {
 		innerRequest.SystemInstruction = systemInstruction
 	}
@@ -183,19 +178,6 @@ func TransformClaudeToGeminiWithOptions(claudeReq *ClaudeRequest, projectID, map
 	}
 
 	return json.Marshal(v1Req)
-}
-
-func hasMixedToolInvocations(declarations []GeminiToolDeclaration) bool {
-	hasFunctions, hasServerTool := false, false
-	for _, declaration := range declarations {
-		if len(declaration.FunctionDeclarations) > 0 {
-			hasFunctions = true
-		}
-		if declaration.GoogleSearch != nil {
-			hasServerTool = true
-		}
-	}
-	return hasFunctions && hasServerTool
 }
 
 // antigravityIdentity Antigravity identity 提示词
@@ -702,6 +684,18 @@ func hasWebSearchTool(tools []ClaudeTool) bool {
 	return false
 }
 
+func hasClientFunctionTools(tools []ClaudeTool) bool {
+	for _, tool := range tools {
+		if isWebSearchTool(tool) {
+			continue
+		}
+		if strings.TrimSpace(tool.Name) != "" {
+			return true
+		}
+	}
+	return false
+}
+
 func isWebSearchTool(tool ClaudeTool) bool {
 	if strings.HasPrefix(tool.Type, "web_search") || tool.Type == "google_search" {
 		return true
@@ -772,6 +766,11 @@ func buildTools(tools []ClaudeTool) []GeminiToolDeclaration {
 			Description: description,
 			Parameters:  params,
 		})
+	}
+
+	if len(funcDecls) > 0 && hasWebSearch {
+		log.Printf("[antigravity] dropping built-in web_search because client function tools are present")
+		hasWebSearch = false
 	}
 
 	var declarations []GeminiToolDeclaration

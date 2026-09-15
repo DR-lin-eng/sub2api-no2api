@@ -5,7 +5,7 @@
 
 import { apiClient } from '@/core/networks/client'
 
-export type Provider = 'openai' | 'anthropic' | 'gemini' | 'grok'
+export type Provider = 'openai' | 'anthropic' | 'gemini' | 'grok' | 'kimi' | 'zhipu' | 'deepseek' | 'minimax'
 export type MonitorMode = 'active' | 'passive'
 export type MonitorStatus = 'operational' | 'degraded' | 'failed' | 'error' | 'unknown'
 export type BodyOverrideMode = 'off' | 'merge' | 'replace'

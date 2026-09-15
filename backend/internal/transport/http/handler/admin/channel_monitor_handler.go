@@ -39,7 +39,7 @@ func NewChannelMonitorHandler(monitorService *service.ChannelMonitorService) *Ch
 
 type channelMonitorCreateRequest struct {
 	Name             string            `json:"name" binding:"required,max=100"`
-	Provider         string            `json:"provider" binding:"required,oneof=openai anthropic gemini grok"`
+	Provider         string            `json:"provider" binding:"required,oneof=openai anthropic gemini grok kimi zhipu deepseek minimax"`
 	MonitorMode      string            `json:"monitor_mode" binding:"omitempty,oneof=active passive"`
 	ChannelID        *int64            `json:"channel_id" binding:"omitempty,min=1"`
 	GroupID          *int64            `json:"group_id" binding:"omitempty,min=1"`
@@ -60,7 +60,7 @@ type channelMonitorCreateRequest struct {
 
 type channelMonitorUpdateRequest struct {
 	Name             *string            `json:"name" binding:"omitempty,max=100"`
-	Provider         *string            `json:"provider" binding:"omitempty,oneof=openai anthropic gemini grok"`
+	Provider         *string            `json:"provider" binding:"omitempty,oneof=openai anthropic gemini grok kimi zhipu deepseek minimax"`
 	MonitorMode      *string            `json:"monitor_mode" binding:"omitempty,oneof=active passive"`
 	ChannelID        *int64             `json:"channel_id" binding:"omitempty,min=1"`
 	ClearChannel     bool               `json:"clear_channel"`

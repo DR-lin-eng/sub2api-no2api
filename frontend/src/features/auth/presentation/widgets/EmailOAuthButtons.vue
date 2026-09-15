@@ -39,8 +39,9 @@ type EmailOAuthProvider = 'github' | 'google'
 const EMAIL_OAUTH_PENDING_PROVIDER_KEY = 'email_oauth_pending_provider'
 
 const props = withDefaults(defineProps<{
-  disabled?: boolean
-  affCode?: string
+    disabled?: boolean
+    affCode?: string
+    promoCode?: string
   githubEnabled?: boolean
   googleEnabled?: boolean
   showDivider?: boolean
@@ -81,9 +82,11 @@ function startLogin(provider: EmailOAuthProvider): void {
   storeOAuthAffiliateCode(affiliateCode)
   safeSessionStorage.setItem(EMAIL_OAUTH_PENDING_PROVIDER_KEY, provider)
   const params: Record<string, string> = { redirect: redirectTo }
-  if (affiliateCode) {
-    params.aff_code = affiliateCode
-  }
-  emit('start', { provider, params })
+    if (affiliateCode) {
+      params.aff_code = affiliateCode
+    }
+    const promoCode = props.promoCode?.trim()
+    if (promoCode) params.promo_code = promoCode
+    emit('start', { provider, params })
 }
 </script>

@@ -438,9 +438,10 @@ export function getModelsByPlatform(platform: string): string[] {
     case 'meta': return metaModels
     case 'xai':
     case 'grok': return xaiModels
-    case 'cohere': return cohereModels
-    case 'yi': return yiModels
-    case 'moonshot': return moonshotModels
+      case 'cohere': return cohereModels
+      case 'yi': return yiModels
+      case 'kimi':
+      case 'moonshot': return moonshotModels
     case 'doubao': return doubaoModels
     case 'minimax': return minimaxModels
     case 'baidu': return baiduModels
@@ -456,9 +457,10 @@ export function getPresetMappingsByPlatform(platform: string) {
   if (platform === 'openai') return openaiPresetMappings
   if (platform === 'gemini') return geminiPresetMappings
   if (platform === 'grok' || platform === 'xai') return grokPresetMappings
-  if (platform === 'antigravity') return antigravityPresetMappings
-  if (platform === 'bedrock') return bedrockPresetMappings
-  return anthropicPresetMappings
+    if (platform === 'antigravity') return antigravityPresetMappings
+    if (platform === 'bedrock') return bedrockPresetMappings
+    if (['kimi', 'zhipu', 'deepseek', 'minimax'].includes(platform)) return []
+    return anthropicPresetMappings
 }
 
 // =====================

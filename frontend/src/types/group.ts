@@ -1,6 +1,16 @@
 import type { BillingMode } from '@/core/constants/channel'
 
-export type GroupPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'grok' | 'composite'
+export type GroupPlatform =
+  | 'anthropic'
+  | 'openai'
+  | 'gemini'
+  | 'antigravity'
+  | 'grok'
+  | 'kimi'
+  | 'zhipu'
+  | 'deepseek'
+  | 'minimax'
+  | 'composite'
 
 export type SubscriptionType = 'standard' | 'subscription'
 

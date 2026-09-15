@@ -75,12 +75,7 @@ func resolveOpenAIMessagesDispatchMappedModelForContext(c *gin.Context, apiKey *
 }
 
 func isCNProviderPlatform(platform string) bool {
-	switch strings.ToLower(strings.TrimSpace(platform)) {
-	case "kimi", "zhipu", "deepseek":
-		return true
-	default:
-		return false
-	}
+	return service.IsCNProvider(strings.ToLower(strings.TrimSpace(platform)))
 }
 
 type openAIModelBodyReplaceFunc func([]byte, string) []byte
@@ -184,13 +179,14 @@ func wrapUsageRecordTaskContext(parent context.Context, task service.UsageRecord
 
 func openAICompatibleRequestPlatform(ctx context.Context, apiKey *service.APIKey) string {
 	if platform, ok := service.ResolvedTargetPlatformFromContext(ctx); ok {
-		if platform == service.PlatformGrok {
-			return service.PlatformGrok
+		if platform == service.PlatformGrok || service.IsCNProvider(platform) {
+			return platform
 		}
 		return service.PlatformOpenAI
 	}
-	if apiKey != nil && apiKey.Group != nil && apiKey.Group.Platform == service.PlatformGrok {
-		return service.PlatformGrok
+	if apiKey != nil && apiKey.Group != nil &&
+		(apiKey.Group.Platform == service.PlatformGrok || service.IsCNProvider(apiKey.Group.Platform)) {
+		return apiKey.Group.Platform
 	}
 	return service.PlatformOpenAI
 }
@@ -199,7 +195,7 @@ func allowOpenAICompatibleMessagesDispatch(c *gin.Context, apiKey *service.APIKe
 	if apiKey == nil || apiKey.Group == nil {
 		return true
 	}
-	if apiKey.Group.Platform == service.PlatformGrok {
+	if apiKey.Group.Platform == service.PlatformGrok || service.IsCNProvider(apiKey.Group.Platform) {
 		return true
 	}
 	// Composite routes resolve the target platform before the handler runs.
@@ -216,7 +212,10 @@ func allowOpenAICompatibleMessagesDispatch(c *gin.Context, apiKey *service.APIKe
 }
 
 func openAICompatibleTextTargetAllowed(c *gin.Context, apiKey *service.APIKey, model string) bool {
-	return compositeTargetPlatformAllowed(c, apiKey, model, service.PlatformOpenAI, service.PlatformGrok)
+	return compositeTargetPlatformAllowed(c, apiKey, model,
+		service.PlatformOpenAI, service.PlatformGrok,
+		service.PlatformKimi, service.PlatformZhipu, service.PlatformDeepseek, service.PlatformMiniMax,
+	)
 }
 
 // NewOpenAIGatewayHandler creates a new OpenAIGatewayHandler

@@ -25,8 +25,12 @@ export function useGroupEditorRuntime() {
     { value: "openai", label: "OpenAI" },
     { value: "gemini", label: "Gemini" },
     { value: "antigravity", label: "Antigravity" },
-    { value: "grok", label: "Grok" },
-    { value: "composite", label: "Composite" },
+      { value: "grok", label: "Grok" },
+      { value: "kimi", label: "Kimi" },
+      { value: "zhipu", label: "Zhipu GLM" },
+      { value: "deepseek", label: "DeepSeek" },
+      { value: "minimax", label: "MiniMax" },
+      { value: "composite", label: "Composite" },
   ]);
   const subscriptionTypeOptions = computed(() => [
     { value: "standard", label: t("admin.groups.subscription.standard") },
