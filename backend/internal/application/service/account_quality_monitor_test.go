@@ -89,7 +89,7 @@ func TestQualityDefaultPromptIsDeterministic(t *testing.T) {
 
 func TestQualityProbeEligibleUsesSourceGroupAndKeepsReroutedAccount(t *testing.T) {
 	source := int64(10)
-	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, GroupIDs: []int64{10}}
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, GroupIDs: []int64{10}}
 	require.True(t, qualityProbeEligible(account, &source))
 	account.GroupIDs = []int64{20}
 	account.Extra = map[string]any{AccountQualityRoutingGroupExtraKey: float64(20)}
@@ -100,13 +100,21 @@ func TestQualityProbeEligibleUsesSourceGroupAndKeepsReroutedAccount(t *testing.T
 
 func TestQualityProbeOnlyIncludesOAuthAccounts(t *testing.T) {
 	for _, accountType := range []string{AccountTypeAPIKey, AccountTypeServiceAccount} {
-		account := &Account{Platform: PlatformOpenAI, Type: accountType, Status: StatusActive, GroupIDs: []int64{10}}
+		account := &Account{Platform: PlatformOpenAI, Type: accountType, Status: StatusActive, Schedulable: true, GroupIDs: []int64{10}}
 		require.False(t, qualityProbeEligible(account, nil), "account type %s must not be quality-probed", accountType)
 	}
 	for _, platform := range []string{PlatformOpenAI, PlatformGemini} {
-		account := &Account{Platform: platform, Type: AccountTypeOAuth, Status: StatusActive, GroupIDs: []int64{10}}
+		account := &Account{Platform: platform, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, GroupIDs: []int64{10}}
 		require.True(t, qualityProbeEligible(account, nil), "OAuth %s account should be eligible", platform)
 	}
+}
+
+func TestQualityProbeOnlyIncludesAccountsWithSchedulingEnabled(t *testing.T) {
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: false}
+	require.False(t, qualityProbeEligible(account, nil))
+
+	account.Schedulable = true
+	require.True(t, qualityProbeEligible(account, nil))
 }
 
 type qualityStageProbeStub struct {
@@ -301,7 +309,7 @@ func TestQualityReasoningTokenThresholdUsesStrictLessThan(t *testing.T) {
 			settings := DefaultAccountQualitySettings()
 			settings.Stage2Enabled = false
 			settings.MinReasoningTokens = 100
-			account := Account{ID: 11, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive}
+			account := Account{ID: 11, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
 			results := []AccountInspectionAccountResult{neutralAccountInspectionResult(&account, time.Now().UTC())}
 			require.NoError(t, svc.runQualityMonitoring(context.Background(), []Account{account}, results, nil, settings, time.Now().UTC()))
 			require.Equal(t, test.want, results[0].QualityStatus)
