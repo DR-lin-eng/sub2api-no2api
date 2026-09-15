@@ -61,3 +61,5 @@
 ## 验证与发布
 
 完整命令、原始结果、Docker、回滚、PR 与 exact-SHA CI 状态记录在 `diagnostics/upstream-sync-20260915/VERIFICATION.txt`。发布后只以最终 merge SHA 查询 CI、Docker Image、Security Scan 和 GHCR manifest。
+
+首轮远端 lint 捕获到新增测试未检查嵌套类型断言结果；最终实现拆分并逐级断言，单包 `errcheck` 已返回 `0 issues.`，以修复后的 SHA 重新执行全量 CI。

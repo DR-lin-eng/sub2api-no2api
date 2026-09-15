@@ -95,6 +95,13 @@ Host verification:
   Exit status: nonzero. This file was unchanged by the branch and is recorded as existing main-branch debt, not mixed into this sync.
 - Diff command: git diff --check
   Literal output: empty; exit 0.
+- Initial published SHA 6bba0e49278d741aee75956e2faa06132b4262a5 exposed one branch-owned CI lint failure in runs 34935396073 and 34935439862.
+- GitHub annotation: backend/internal/application/service/openai_passthrough_normalization_test.go:103:25, "Error return value is not checked (errcheck)".
+- Fix: split the nested type assertions and verify both assertion results with require.True before inspecting the decoded message.
+- Fixed test command: GOCACHE=/private/tmp/sub2api-upstream-sync-20260915.B4qT7C/gocache-modified go test -tags=unit ./internal/application/service -run '^TestNormalizeOpenAIPassthroughOAuthBody_StripsOnlyInputItemInternalMetadata$' -count=1
+  Literal output: ok github.com/Wei-Shaw/sub2api/internal/application/service 1.072s; exit 0.
+- Fixed lint command: docker run --rm -v /private/tmp/sub2api-upstream-sync-20260915.B4qT7C/repo/backend:/app -v /private/tmp/sub2api-upstream-sync-20260915.B4qT7C/golangci-lint-v2.9.0:/usr/local/bin/golangci-lint:ro -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -w /app -e GOCACHE=/tmp/go-cache -e GOLANGCI_LINT_CACHE=/tmp/golangci-cache golang:1.26.6-alpine sh -lc 'export PATH=/usr/local/go/bin:$PATH; golangci-lint run --timeout=10m --concurrency=1 --enable-only=errcheck ./internal/application/service'
+  Literal output: 0 issues.; exit 0.
 
 Performance exact command:
 cd /private/tmp/sub2api-upstream-sync-20260915.B4qT7C/repo/backend && GOCACHE=/private/tmp/sub2api-upstream-sync-20260915.B4qT7C/gocache-modified go test -tags=unit ./internal/application/service -run '^$' -bench '^BenchmarkNormalizeCNProviderPlatform$' -benchmem -count=5

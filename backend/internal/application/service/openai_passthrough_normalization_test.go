@@ -100,7 +100,12 @@ func TestNormalizeOpenAIPassthroughOAuthBody_StripsOnlyInputItemInternalMetadata
 		"type": "message", "internal_chat_message_metadata_passthrough": map[string]any{"drop": true},
 	}}}
 	require.True(t, stripOpenAIInternalInputMetadataDecoded(decoded))
-	require.NotContains(t, decoded["input"].([]any)[0].(map[string]any), "internal_chat_message_metadata_passthrough")
+	inputItems, ok := decoded["input"].([]any)
+	require.True(t, ok)
+	require.Len(t, inputItems, 1)
+	message, ok := inputItems[0].(map[string]any)
+	require.True(t, ok)
+	require.NotContains(t, message, "internal_chat_message_metadata_passthrough")
 }
 
 func TestDetectOpenAIPassthroughInstructionsRejectReason(t *testing.T) {
