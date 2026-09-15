@@ -1,0 +1,83 @@
+--- diagnostics/ip-port-login-fallback/ORIGINAL_FILE	2026-09-15 15:47:10
++++ diagnostics/ip-port-login-fallback/MODIFIED_FILE	2026-09-15 21:27:28
+@@ -18 +18 @@
+-  publicKey: CryptoKey
++  publicKeyDER: Uint8Array
+@@ -25,4 +25,4 @@
+-function requireWebCrypto(): Crypto {
+-  const cryptoApi = globalThis.crypto
+-  if (!cryptoApi?.subtle) {
+-    throw new Error('Secure credential encryption is not supported by this browser')
++function prefetchCredentialFallback(): void {
++  const cryptoApi = globalThis.crypto as Partial<Crypto> | undefined
++  if (!cryptoApi?.subtle && typeof cryptoApi?.getRandomValues === 'function') {
++    void import('./credentialEncryptionFallback').catch(() => undefined)
+@@ -30 +29,0 @@
+-  return cryptoApi
+@@ -44,2 +43 @@
+-function encodeBase64URL(value: ArrayBuffer): string {
+-  const bytes = new Uint8Array(value)
++function encodeBase64URL(bytes: Uint8Array): string {
+@@ -63,8 +60,0 @@
+-  const cryptoApi = requireWebCrypto()
+-  const publicKey = await cryptoApi.subtle.importKey(
+-    'spki',
+-    decodeBase64(data.public_key),
+-    { name: 'RSA-OAEP', hash: 'SHA-256' },
+-    false,
+-    ['encrypt']
+-  )
+@@ -73 +63 @@
+-    publicKey,
++    publicKeyDER: decodeBase64(data.public_key),
+@@ -104,0 +95 @@
++  prefetchCredentialFallback()
+@@ -121 +111,0 @@
+-  const cryptoApi = requireWebCrypto()
+@@ -122,0 +113,30 @@
++  const plaintext = new TextEncoder().encode(JSON.stringify({
++    email,
++    password,
++    issued_at: Math.floor(Date.now() / 1000) + serverKey.serverTimeOffset
++  }))
++  const cryptoApi = globalThis.crypto
++  if (!cryptoApi?.subtle) {
++    const { encryptCredentialWithFallback } = await import('./credentialEncryptionFallback')
++    const encrypted = await encryptCredentialWithFallback({
++      publicKeyDER: serverKey.publicKeyDER,
++      keyId: serverKey.keyId,
++      plaintext,
++      cryptoApi
++    })
++    return {
++      algorithm: CREDENTIAL_ALGORITHM,
++      key_id: serverKey.keyId,
++      encrypted_key: encodeBase64URL(encrypted.encryptedKey),
++      iv: encodeBase64URL(encrypted.iv),
++      ciphertext: encodeBase64URL(encrypted.ciphertext)
++    }
++  }
++
++  const publicKey = await cryptoApi.subtle.importKey(
++    'spki',
++    serverKey.publicKeyDER,
++    { name: 'RSA-OAEP', hash: 'SHA-256' },
++    false,
++    ['encrypt']
++  )
+@@ -131 +151 @@
+-    serverKey.publicKey,
++    publicKey,
+@@ -137,5 +156,0 @@
+-  const plaintext = encoder.encode(JSON.stringify({
+-    email,
+-    password,
+-    issued_at: Math.floor(Date.now() / 1000) + serverKey.serverTimeOffset
+-  }))
+@@ -155,3 +170,3 @@
+-    encrypted_key: encodeBase64URL(encryptedKey),
+-    iv: encodeBase64URL(iv.buffer),
+-    ciphertext: encodeBase64URL(ciphertext)
++    encrypted_key: encodeBase64URL(new Uint8Array(encryptedKey)),
++    iv: encodeBase64URL(iv),
++    ciphertext: encodeBase64URL(new Uint8Array(ciphertext))

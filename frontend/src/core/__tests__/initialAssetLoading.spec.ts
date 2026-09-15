@@ -28,6 +28,7 @@ describe('initial asset loading contract', () => {
       ['@tanstack/vue-virtual', 'vendor-table'],
       ['driver.js', 'vendor-onboarding'],
       ['@airwallex/components-sdk', 'vendor-airwallex'],
+      ['node-forge', 'vendor-credential-crypto'],
     ]
 
     for (const [dependency, chunk] of expectedChunks) {

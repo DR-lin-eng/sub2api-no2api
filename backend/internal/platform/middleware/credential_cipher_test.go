@@ -104,6 +104,24 @@ func TestCredentialCipherBrowserFlowCookieAttributes(t *testing.T) {
 	require.Equal(t, http.SameSiteStrictMode, cookie.SameSite)
 }
 
+func TestCredentialCipherBrowserFlowCookieSupportsPlainHTTPIPOrigin(t *testing.T) {
+	now := time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC)
+	setCredentialTestClock(t, &now)
+	cipherService := NewCredentialCipher(nil, nil)
+	publicKey, cookie := issueCredentialPublicKeyAndCookieAtURL(
+		t,
+		cipherService,
+		"http://192.0.2.10:8080/api/v1/auth/credential-key",
+		false,
+	)
+
+	require.False(t, cookie.Secure)
+	require.True(t, cookie.HttpOnly)
+	require.Equal(t, http.SameSiteStrictMode, cookie.SameSite)
+	body := encryptCredentialRequest(t, publicKey, "ip-user@example.com", "secret-over-http", now)
+	require.Equal(t, http.StatusNoContent, serveBrowserCredentialRequest(t, cipherService, body, cookie))
+}
+
 func TestCredentialCipherBrowserFlowRejectsPlaintextCompatibility(t *testing.T) {
 	cipherService := NewCredentialCipher(nil, nil)
 	_, cookie := issueCredentialPublicKeyAndCookie(t, cipherService, false)
@@ -346,11 +364,15 @@ func issueCredentialPublicKey(t *testing.T, cipherService *CredentialCipher) cre
 }
 
 func issueCredentialPublicKeyAndCookie(t *testing.T, cipherService *CredentialCipher, secure bool) (credentialPublicKeyResponse, *http.Cookie) {
+	return issueCredentialPublicKeyAndCookieAtURL(t, cipherService, "/credential-key", secure)
+}
+
+func issueCredentialPublicKeyAndCookieAtURL(t *testing.T, cipherService *CredentialCipher, target string, secure bool) (credentialPublicKeyResponse, *http.Cookie) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/credential-key", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, target, nil)
 	if secure {
 		c.Request.Header.Set("X-Forwarded-Proto", "https")
 	}

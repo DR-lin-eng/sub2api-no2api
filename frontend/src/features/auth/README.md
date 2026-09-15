@@ -23,6 +23,7 @@
 - Browser refresh goes through `core/networks/sessionRefresh.ts`, which deduplicates same-tab requests and serializes refresh-token rotation across tabs.
 - A transient `/auth/me` failure after a successful cookie refresh does not discard the restored session, but cached roles cannot unlock admin routes, components, onboarding, or locale scopes; an authenticated 401 clears the session.
 - OAuth completion keeps only the existing opaque pending-session summary needed to resume account creation/binding. Passwords and access/refresh token pairs remain memory/server owned.
+- Password login and registration always send the existing RSA-OAEP-256 + AES-256-GCM credential envelope. Secure origins use Web Crypto; HTTP IP-and-port origins lazily load the compatible pure-JavaScript implementation and still require `crypto.getRandomValues`, the short-lived public key, and the matching HttpOnly flow cookie. The browser client never falls back to plaintext credentials.
 
 ## Dependency Rules
 
