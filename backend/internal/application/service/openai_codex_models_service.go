@@ -673,6 +673,9 @@ func codexManifestFallbackModelID(modelID string) string {
 
 func codexManifestKnownImageInputModel(modelID string) bool {
 	normalized := codexManifestFallbackModelID(modelID)
+	if normalized == "deepseek-v4-flash-vision-exp" {
+		return true
+	}
 	if strings.HasPrefix(normalized, "gpt-6") && isOpenAIGPT6AstraModel(normalized) {
 		return true
 	}

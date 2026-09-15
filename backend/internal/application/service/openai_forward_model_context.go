@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/shared/openai_compat"
+	"github.com/gin-gonic/gin"
 )
 
 type openAIForwardModelContextKey struct{}
@@ -46,7 +47,29 @@ func openAIRequestModelForSupport(ctx context.Context, requestedModel string) st
 }
 
 func shouldForwardOpenAIResponsesViaRawChatCompletions(account *Account) bool {
-	return account != nil &&
-		account.Type == AccountTypeAPIKey &&
-		(account.IsCNProvider() || !openai_compat.ShouldUseResponsesAPI(account.Extra))
+	if account == nil || account.Type != AccountTypeAPIKey {
+		return false
+	}
+	if account.IsOpenCodeGo() {
+		return false
+	}
+	if account.IsCNProvider() {
+		switch account.GetAPIProtocol() {
+		case APIProtocolChatCompletions:
+			return true
+		case APIProtocolAdaptive:
+			return !account.SupportsNativeCNResponses()
+		default:
+			return false
+		}
+	}
+	return !openai_compat.ShouldUseResponsesAPI(account.Extra)
+}
+
+func stampOpenAIResponsesUpstreamEndpoint(c *gin.Context, result *OpenAIForwardResult) {
+	const endpoint = "/v1/responses"
+	SetActualOpenAIUpstreamEndpoint(c, endpoint)
+	if result != nil && strings.TrimSpace(result.UpstreamEndpoint) == "" {
+		result.UpstreamEndpoint = endpoint
+	}
 }

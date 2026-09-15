@@ -81,6 +81,30 @@ func isOpenAIOAuthServableModel(requestedModel string) bool {
 	return known
 }
 
+// deepseekServableModels is the built-in allowlist used when a DeepSeek
+// account has no explicit model_mapping. Unknown names are rejected before
+// they reach the provider and poison the account's per-model cooldown state.
+var deepseekServableModels = []string{
+	"deepseek-flash",
+	"deepseek-v4-pro",
+	"deepseek-v4-flash",
+	"deepseek-v4-flash-vision-exp",
+	"deepseek-v4-pro-0813",
+}
+
+func isDeepseekServableModel(requestedModel string) bool {
+	model := strings.ToLower(normalizeClaudeCodeLongContextModel(strings.TrimSpace(requestedModel)))
+	if model == "" {
+		return true
+	}
+	for _, servable := range deepseekServableModels {
+		if model == servable {
+			return true
+		}
+	}
+	return false
+}
+
 // HasExplicitModelMapping reports whether an account contains a non-empty
 // administrator-provided model mapping.  Empty maps are intentionally treated
 // as "no restriction", matching the account editor and historical routing

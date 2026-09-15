@@ -24,12 +24,15 @@ func TestWriteOpenAICompactSSEFailureMessageCarriesCreatedAt(t *testing.T) {
 	_, data, found := strings.Cut(recorder.Body.String(), "data: ")
 	require.True(t, found)
 	var event struct {
-		Type     string `json:"type"`
-		Response struct {
+		Type           string `json:"type"`
+		SequenceNumber *int   `json:"sequence_number"`
+		Response       struct {
 			CreatedAt int64 `json:"created_at"`
 		} `json:"response"`
 	}
 	require.NoError(t, json.Unmarshal([]byte(strings.TrimSpace(data)), &event))
 	require.Equal(t, "response.failed", event.Type)
+	require.NotNil(t, event.SequenceNumber)
+	require.GreaterOrEqual(t, *event.SequenceNumber, 0)
 	require.Greater(t, event.Response.CreatedAt, int64(0))
 }

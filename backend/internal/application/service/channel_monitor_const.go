@@ -65,6 +65,7 @@ const (
 	MonitorProviderZhipu     = PlatformZhipu
 	MonitorProviderDeepseek  = PlatformDeepseek
 	MonitorProviderMiniMax   = PlatformMiniMax
+	MonitorProviderOpenCode  = PlatformOpenCodeGo
 
 	// MonitorModeActive sends synthetic probes. MonitorModePassive only reads
 	// real request/error records associated with the configured channel.

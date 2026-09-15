@@ -142,6 +142,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 
 	originalBody := body
+	rememberOpenCodeInboundBody(c, originalBody)
 	requestView := newOpenAIRequestView(body)
 	reqModel, reqStream, promptCacheKey := requestView.Model, requestView.Stream, requestView.PromptCacheKey
 	originalModel := reqModel
@@ -181,6 +182,20 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 
 	if account.Platform == PlatformGrok {
 		return s.forwardGrokResponses(ctx, c, account, body, originalModel, reqStream, startTime)
+	}
+	if account.IsOpenCodeGo() {
+		mapped := normalizeOpenAIModelForUpstream(account, resolveOpenAIForwardModel(account, originalModel, ""))
+		switch openCodeGoNativeProtocol(account, mapped) {
+		case APIProtocolAnthropic:
+			return s.forwardResponsesViaNativeAnthropic(ctx, c, account, body, "")
+		case APIProtocolResponses:
+			// Continue through the native Responses path below.
+		default:
+			return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body)
+		}
+	}
+	if account.IsAnthropicProtocol() {
+		return s.forwardResponsesViaNativeAnthropic(ctx, c, account, body, "")
 	}
 
 	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) {

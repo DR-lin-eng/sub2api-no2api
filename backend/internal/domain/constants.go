@@ -27,12 +27,15 @@ const (
 	PlatformZhipu       = "zhipu"
 	PlatformDeepseek    = "deepseek"
 	PlatformMiniMax     = "minimax"
+	PlatformOpenCodeGo  = "opencode_go"
 	PlatformComposite   = "composite"
 )
 
 const (
 	AccountModePayG   = "payg"
 	AccountModeCoding = "coding"
+	AccountModeZen    = "zen"
+	AccountModeGo     = "go"
 )
 
 // Account type constants

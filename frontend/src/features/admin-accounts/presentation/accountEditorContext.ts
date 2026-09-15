@@ -11,7 +11,11 @@ import type {
   OllamaCloudUsageState,
   Proxy,
 } from '@/types'
-import type { QuotaThresholdType } from '@/core/constants/account'
+import type {
+  CNAdaptiveBaseURLs,
+  OpenCodeProtocolRule,
+  QuotaThresholdType,
+} from '@/core/constants/account'
 import type { OpenAIWSMode } from '@/core/utils/openaiWsMode'
 import type { HeaderOverrideRow } from './credentialsBuilder'
 import type {
@@ -178,6 +182,13 @@ export interface CreateAccountCredentialContext extends SharedMappingActions {
   isOpenAIModelRestrictionDisabled: ComputedRef<boolean>
   modelMappings: Ref<ModelMapping[]>
   modelRestrictionMode: Ref<ModelRestrictionMode>
+  cnAccountMode: Ref<'payg' | 'coding'>
+  cnAPIProtocol: Ref<'chat_completions' | 'adaptive' | 'anthropic' | 'responses'>
+  cnAdaptiveBaseURLs: Ref<CNAdaptiveBaseURLs>
+  openCodeAccountMode: Ref<'zen' | 'go'>
+  openCodeProtocolRules: Ref<OpenCodeProtocolRule[]>
+  zhipuOrganization: Ref<string>
+  zhipuProject: Ref<string>
   poolModeEnabled: Ref<boolean>
   poolModeRetryCount: Ref<number>
   poolModeRetryStatusCodesInput: Ref<string>
@@ -338,6 +349,13 @@ export interface EditAccountCredentialContext extends SharedMappingActions {
   isValidWildcardPattern: (pattern: string) => boolean
   modelMappings: Ref<ModelMapping[]>
   modelRestrictionMode: Ref<ModelRestrictionMode>
+  editOpenCodeAccountMode: Ref<'zen' | 'go'>
+  editCNAccountMode: Ref<'payg' | 'coding'>
+  editCNAPIProtocol: Ref<'chat_completions' | 'adaptive' | 'anthropic' | 'responses'>
+  editCNAdaptiveBaseURLs: Ref<CNAdaptiveBaseURLs>
+  editOpenCodeProtocolRules: Ref<OpenCodeProtocolRule[]>
+  editZhipuOrganization: Ref<string>
+  editZhipuProject: Ref<string>
   poolModeEnabled: Ref<boolean>
   poolModeRetryCount: Ref<number>
   poolModeRetryStatusCodesInput: Ref<string>

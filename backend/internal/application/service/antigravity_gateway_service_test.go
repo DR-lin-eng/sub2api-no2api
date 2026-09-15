@@ -1502,6 +1502,41 @@ func TestHandleGeminiStreamingResponse_ClientDisconnect(t *testing.T) {
 	require.NotContains(t, rec.Body.String(), "write_failed")
 }
 
+func TestHandleGeminiStreamingResponse_EventSeparatorIsExactlyOneBlankLine(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := newAntigravityTestService(&config.Config{
+		Gateway: config.GatewayConfig{MaxLineSize: defaultMaxLineSize},
+	})
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", nil)
+
+	pr, pw := io.Pipe()
+	resp := &http.Response{StatusCode: http.StatusOK, Body: pr, Header: http.Header{}}
+	first := `{"candidates":[{"content":{"role":"model","parts":[{"text":"Hello"}]}}]}`
+	second := `{"candidates":[{"content":{"role":"model","parts":[{"text":"World"}]},"finishReason":"STOP"}]}`
+
+	go func() {
+		defer func() { _ = pw.Close() }()
+		_, _ = fmt.Fprintf(pw, "data: %s\n\n", first)
+		_, _ = fmt.Fprintf(pw, "data: %s\r\n\r\n", second)
+	}()
+
+	result, err := svc.handleGeminiStreamingResponse(c, resp, time.Now())
+	_ = pr.Close()
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	body := rec.Body.String()
+	require.Equal(t, "data: "+first+"\n\ndata: "+second+"\n\n", body)
+	require.NotContains(t, body, "\n\n\n")
+	for _, token := range strings.Split(strings.TrimSuffix(body, "\n\n"), "\n\n") {
+		prefix, _, _ := strings.Cut(token, ":")
+		require.Equal(t, "data", prefix)
+	}
+}
+
 // TestHandleGeminiStreamingResponse_ContextCanceled
 // 验证：context 取消时不注入错误事件
 func TestHandleGeminiStreamingResponse_ContextCanceled(t *testing.T) {

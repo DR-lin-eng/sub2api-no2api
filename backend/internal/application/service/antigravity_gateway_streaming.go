@@ -282,6 +282,13 @@ func (s *AntigravityGatewayService) handleGeminiStreamingResponse(c *gin.Context
 				continue
 			}
 
+			// The data branch above already emits exactly one SSE separator. Do not
+			// relay the upstream blank separator again or the next event starts with
+			// an extra newline for strict \n\n-delimited Gemini clients.
+			if trimmed == "" {
+				continue
+			}
+
 			cw.Fprintf("%s\n", line)
 
 		case <-intervalCh:

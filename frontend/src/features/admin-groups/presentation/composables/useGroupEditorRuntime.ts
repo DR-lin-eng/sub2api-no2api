@@ -30,6 +30,7 @@ export function useGroupEditorRuntime() {
       { value: "zhipu", label: "Zhipu GLM" },
       { value: "deepseek", label: "DeepSeek" },
       { value: "minimax", label: "MiniMax" },
+      { value: "opencode_go", label: "OpenCode" },
       { value: "composite", label: "Composite" },
   ]);
   const subscriptionTypeOptions = computed(() => [

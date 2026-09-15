@@ -106,6 +106,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	if !compositeTargetPlatformAllowed(c, apiKey, reqModel,
 		service.PlatformOpenAI, service.PlatformGrok,
 		service.PlatformKimi, service.PlatformZhipu, service.PlatformDeepseek, service.PlatformMiniMax,
+		service.PlatformOpenCodeGo,
 	) {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by this OpenAI-compatible endpoint for composite groups")
 		return
