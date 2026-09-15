@@ -29,6 +29,7 @@ export default {
           users_credentials: { name: "Users: credentials", description: "Read regular user keys, bind identities and change email or password" },
           users_billing: { name: "Users: billing and limits", description: "Manage regular user balance, concurrency, RPM, groups and quotas" },
           dashboard_read: { name: "Dashboard: read", description: "View the admin dashboard, not operations or audit pages" },
+          announcements_manage: { name: "Announcements: manage", description: "View, publish, edit and delete announcements and inspect read status" },
           settings_manage: { name: "Settings: manage", description: "Manage system settings; role grants and administrator keys remain admin-only" },
           groups_manage: { name: "Model groups: manage", description: "Manage model groups and routing, not staff permission groups" },
           accounts_manage: { name: "Upstream accounts: manage", description: "Manage upstream accounts, inspection, proxies and egress" },

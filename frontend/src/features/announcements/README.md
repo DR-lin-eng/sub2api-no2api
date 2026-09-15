@@ -2,6 +2,8 @@
 
 本 feature 持有 `/admin/announcements` 的公告管理，以及应用壳层中的用户公告列表、弹窗队列和已读状态；没有独立用户公告路由。
 
+管理端页面、侧栏入口与全部公告 CRUD/阅读统计接口统一要求 `announcements.manage`；完整管理员仍通过通配权限访问，用户公告读取和标记已读不受此员工权限影响。
+
 - [data/datasources](data/datasources/)：管理员 CRUD/阅读统计与用户可见公告/标为已读接口。
 - [presentation/pages/AnnouncementsPage.vue](presentation/pages/AnnouncementsPage.vue)：管理页面。
 - [presentation/widgets](presentation/widgets/)：目标用户条件编辑和阅读状态查看。

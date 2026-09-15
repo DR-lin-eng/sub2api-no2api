@@ -16,6 +16,7 @@ const pagePermissions: Record<string, string> = {
   '/admin/account-quality': 'accounts.manage',
   '/admin/proxies': 'accounts.manage',
   '/admin/egress': 'accounts.manage',
+  '/admin/announcements': 'announcements.manage',
   '/admin/settings': 'settings.manage',
 }
 
@@ -28,7 +29,7 @@ export function canAccessAdminPage(access: AdminAccess, path: string): boolean {
 
 export function adminLandingPath(access: AdminAccess, supportEnabled: boolean): string {
   if (access.isAdmin) return '/admin/dashboard'
-  for (const path of ['/admin/support', '/admin/dashboard', '/admin/users', '/admin/accounts', '/admin/groups', '/admin/settings']) {
+  for (const path of ['/admin/support', '/admin/dashboard', '/admin/announcements', '/admin/users', '/admin/accounts', '/admin/groups', '/admin/settings']) {
     if (path === '/admin/support' && !supportEnabled) continue
     if (path === '/admin/groups' && access.isSimpleMode) continue
     if (canAccessAdminPage(access, path)) return path

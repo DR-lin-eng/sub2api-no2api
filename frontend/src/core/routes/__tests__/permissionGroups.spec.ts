@@ -24,6 +24,12 @@ describe('permission group navigation', () => {
     expect(canAccessAdminPage(staff(['users.manage']), '/admin/subscriptions')).toBe(false)
     expect(canAccessAdminPage(staff(['accounts.manage']), '/admin/accounts/')).toBe(true)
   })
+  it('lands an announcement publisher on the announcement page only', () => {
+    const publisher = staff(['announcements.manage'])
+    expect(adminLandingPath(publisher, false)).toBe('/admin/announcements')
+    expect(canAccessAdminPage(publisher, '/admin/announcements')).toBe(true)
+    expect(canAccessAdminPage(publisher, '/admin/settings')).toBe(false)
+  })
   it('retains full administrator and regular-user defaults', () => {
     const admin = { ...support, isAdmin: true }
     expect(canAccessAdminPage(admin, '/admin/ops')).toBe(true)

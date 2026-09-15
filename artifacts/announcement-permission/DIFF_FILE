@@ -1,0 +1,293 @@
+diff --git a/backend/internal/application/service/permission_groups.go b/backend/internal/application/service/permission_groups.go
+index 35b8e94a4..1a774bfbc 100644
+--- a/backend/internal/application/service/permission_groups.go
++++ b/backend/internal/application/service/permission_groups.go
+@@ -12,17 +12,18 @@ import (
+ const PermissionGroupsSettingKey = "permission_groups"
+ 
+ const (
+-	PermissionSupportRead      = "support.read"
+-	PermissionSupportWrite     = "support.write"
+-	PermissionSupportTransfer  = "support.balance_transfer"
+-	PermissionUsersReadBasic   = "users.read_basic"
+-	PermissionUsersManage      = "users.manage"
+-	PermissionUsersCredentials = "users.credentials"
+-	PermissionUsersBilling     = "users.billing"
+-	PermissionDashboardRead    = "dashboard.read"
+-	PermissionSettingsManage   = "settings.manage"
+-	PermissionGroupsManage     = "groups.manage"
+-	PermissionAccountsManage   = "accounts.manage"
++	PermissionSupportRead         = "support.read"
++	PermissionSupportWrite        = "support.write"
++	PermissionSupportTransfer     = "support.balance_transfer"
++	PermissionUsersReadBasic      = "users.read_basic"
++	PermissionUsersManage         = "users.manage"
++	PermissionUsersCredentials    = "users.credentials"
++	PermissionUsersBilling        = "users.billing"
++	PermissionDashboardRead       = "dashboard.read"
++	PermissionAnnouncementsManage = "announcements.manage"
++	PermissionSettingsManage      = "settings.manage"
++	PermissionGroupsManage        = "groups.manage"
++	PermissionAccountsManage      = "accounts.manage"
+ )
+ 
+ type PermissionDefinition struct {
+@@ -50,6 +51,7 @@ func PermissionDefinitions() []PermissionDefinition {
+ 		{Key: PermissionUsersCredentials, Name: "用户：身份和密钥", Description: "查看和管理用户 API Key、登录身份绑定"},
+ 		{Key: PermissionUsersBilling, Name: "用户：余额和配额", Description: "查看和修改用户余额、配额和 RPM 状态"},
+ 		{Key: PermissionDashboardRead, Name: "仪表盘：查看", Description: "查看管理仪表盘和基础运营概览"},
++		{Key: PermissionAnnouncementsManage, Name: "公告：管理", Description: "查看、发布、编辑、删除公告并查看阅读状态"},
+ 		{Key: PermissionSettingsManage, Name: "系统设置：管理", Description: "修改系统设置；权限组和管理员密钥仅限完整管理员"},
+ 		{Key: PermissionGroupsManage, Name: "分组：管理", Description: "管理模型分组和分组路由"},
+ 		{Key: PermissionAccountsManage, Name: "账号：管理", Description: "管理上游账号、代理和出口配置"},
+diff --git a/backend/internal/application/service/permission_groups_test.go b/backend/internal/application/service/permission_groups_test.go
+index 5188eadd0..0fd184998 100644
+--- a/backend/internal/application/service/permission_groups_test.go
++++ b/backend/internal/application/service/permission_groups_test.go
+@@ -77,3 +77,19 @@ func TestPermissionGroups_UpdatePersistsCustomGroup(t *testing.T) {
+ 	require.NoError(t, err)
+ 	require.Equal(t, []string{PermissionDashboardRead}, permissions)
+ }
++
++func TestPermissionGroups_AcceptsAnnouncementManagementPermission(t *testing.T) {
++	definitions := PermissionDefinitions()
++	keys := make([]string, 0, len(definitions))
++	for _, definition := range definitions {
++		keys = append(keys, definition.Key)
++	}
++	require.Contains(t, keys, PermissionAnnouncementsManage)
++
++	groups := append(DefaultPermissionGroups(), PermissionGroup{
++		ID: "publisher", Name: "公告运营", Permissions: []string{PermissionAnnouncementsManage},
++	})
++	normalized, err := NormalizePermissionGroups(groups)
++	require.NoError(t, err)
++	require.Len(t, normalized, 2)
++}
+diff --git a/backend/internal/transport/http/server/middleware/admin_permissions.go b/backend/internal/transport/http/server/middleware/admin_permissions.go
+index 14363ec84..4234548c9 100644
+--- a/backend/internal/transport/http/server/middleware/admin_permissions.go
++++ b/backend/internal/transport/http/server/middleware/admin_permissions.go
+@@ -89,6 +89,8 @@ func requiredAdminPermission(method, path string) string {
+ 		return service.PermissionUsersManage
+ 	case "dashboard":
+ 		return service.PermissionDashboardRead
++	case "announcements":
++		return service.PermissionAnnouncementsManage
+ 	case "settings":
+ 		// Delegated settings access must not mint global keys or change its own role grants.
+ 		if strings.HasPrefix(path, "settings/admin-api-key") || path == "settings/permission-groups" {
+diff --git a/backend/internal/transport/http/server/middleware/admin_permissions_test.go b/backend/internal/transport/http/server/middleware/admin_permissions_test.go
+index e4928e766..f15f088a0 100644
+--- a/backend/internal/transport/http/server/middleware/admin_permissions_test.go
++++ b/backend/internal/transport/http/server/middleware/admin_permissions_test.go
+@@ -20,6 +20,12 @@ func TestRequiredAdminPermissionSeparatesBasicUserInfoAndSensitiveUserRoutes(t *
+ 		{http.MethodGet, "/api/v1/admin/users/1/api-keys", service.PermissionUsersCredentials},
+ 		{http.MethodPost, "/api/v1/admin/users/1/balance", service.PermissionUsersBilling},
+ 		{http.MethodPut, "/api/v1/admin/settings/oauth-401-cleanup", service.PermissionSettingsManage},
++		{http.MethodGet, "/api/v1/admin/announcements", service.PermissionAnnouncementsManage},
++		{http.MethodPost, "/api/v1/admin/announcements", service.PermissionAnnouncementsManage},
++		{http.MethodGet, "/api/v1/admin/announcements/1", service.PermissionAnnouncementsManage},
++		{http.MethodPut, "/api/v1/admin/announcements/1", service.PermissionAnnouncementsManage},
++		{http.MethodDelete, "/api/v1/admin/announcements/1", service.PermissionAnnouncementsManage},
++		{http.MethodGet, "/api/v1/admin/announcements/1/read-status", service.PermissionAnnouncementsManage},
+ 	}
+ 	for _, tt := range tests {
+ 		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
+@@ -28,6 +34,27 @@ func TestRequiredAdminPermissionSeparatesBasicUserInfoAndSensitiveUserRoutes(t *
+ 	}
+ }
+ 
++func TestAdminPermissionMiddlewareAllowsAnnouncementPublisherOnlyOnAnnouncementRoutes(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	router := gin.New()
++	router.Use(func(c *gin.Context) {
++		c.Set(string(ContextKeyUserRole), "publisher")
++		SetAdminPermissions(c, []string{service.PermissionAnnouncementsManage})
++		c.Next()
++	})
++	router.Use(AdminPermissionMiddleware(nil))
++	router.POST("/api/v1/admin/announcements", func(c *gin.Context) { c.Status(http.StatusNoContent) })
++	router.PUT("/api/v1/admin/settings", func(c *gin.Context) { c.Status(http.StatusNoContent) })
++
++	allowed := httptest.NewRecorder()
++	router.ServeHTTP(allowed, httptest.NewRequest(http.MethodPost, "/api/v1/admin/announcements", nil))
++	require.Equal(t, http.StatusNoContent, allowed.Code)
++
++	denied := httptest.NewRecorder()
++	router.ServeHTTP(denied, httptest.NewRequest(http.MethodPut, "/api/v1/admin/settings", nil))
++	require.Equal(t, http.StatusForbidden, denied.Code)
++}
++
+ func TestAdminPermissionMiddlewareDeniesTransferToSupportRole(t *testing.T) {
+ 	gin.SetMode(gin.TestMode)
+ 	router := gin.New()
+diff --git a/docs/PERMISSION_GROUPS.md b/docs/PERMISSION_GROUPS.md
+index 5dc1177cd..087473cd3 100644
+--- a/docs/PERMISSION_GROUPS.md
++++ b/docs/PERMISSION_GROUPS.md
+@@ -60,6 +60,7 @@
+ | 客服质检（只读） | `support.read`、`users.read_basic` |
+ | 客服财务 | 默认客服权限，再加 `support.balance_transfer` |
+ | 运营概览 | `dashboard.read` |
++| 公告运营 | `announcements.manage` |
+ | 用户资料维护 | `users.manage`；如需改邮箱/密码，再加 `users.credentials`；如需改限额，再加 `users.billing` |
+ 
+ 权限不会互相隐式补齐。例如单独授予 `support.write` 不会获得收件箱读取权限；需要使用客服界面时应同时授予 `support.read`。余额转账仍遵守原有业务余额检查和幂等约束。
+@@ -100,6 +101,7 @@
+ | `users.manage` | 普通用户列表、创建、编辑、删除与用户属性；不允许管理员工或分配员工角色 |
+ | `users.credentials` | 普通用户 API Key 读取、登录身份绑定；更新邮箱/密码还须具备用户编辑权限 |
+ | `users.billing` | 普通用户余额、并发/RPM、调度等级、模型分组、配额；批量操作需显式选择不超过 500 个普通用户，员工不能使用 `all=true` |
++| `announcements.manage` | 进入公告管理页，查看、发布、编辑、删除公告并查看用户阅读状态；不授予系统设置权限 |
+ | `settings.manage` | 系统设置接口；权限组及管理员密钥接口仍仅限完整管理员。设置包含认证等高权限配置，应只交给受信任的配置维护人员 |
+ | `groups.manage` | 模型分组及路由，不是人员权限分配 |
+ | `accounts.manage` | 上游账号、巡检、代理和出口；现有二次验证要求保持不变 |
+diff --git a/frontend/src/common/widgets/layout/AppSidebar.vue b/frontend/src/common/widgets/layout/AppSidebar.vue
+index e7e74aeea..b562d579f 100644
+--- a/frontend/src/common/widgets/layout/AppSidebar.vue
++++ b/frontend/src/common/widgets/layout/AppSidebar.vue
+@@ -892,7 +892,7 @@ const adminNavItems = computed((): NavItem[] => {
+     { path: '/admin/accounts', label: t('nav.accounts'), icon: GlobeIcon, permission: 'accounts.manage' },
+     { path: '/admin/account-inspection', label: t('nav.accountInspection'), icon: SignalIcon, permission: 'accounts.manage' },
+     { path: '/admin/account-quality', label: t('nav.accountQuality'), icon: SignalIcon, permission: 'accounts.manage' },
+-    { path: '/admin/announcements', label: t('nav.announcements'), icon: BellIcon, permission: 'settings.manage' },
++    { path: '/admin/announcements', label: t('nav.announcements'), icon: BellIcon, permission: 'announcements.manage' },
+     { path: '/admin/activity-center/campaigns', label: t('nav.activityCenterAdmin'), icon: GiftIcon, permission: 'settings.manage' },
+     { path: '/admin/support', label: t('nav.supportInbox'), icon: SupportChatIcon, featureFlag: flagSupportChat, permission: 'support.read' },
+     { path: '/admin/proxies', label: t('nav.proxies'), icon: ServerIcon, permission: 'accounts.manage' },
+diff --git a/frontend/src/common/widgets/layout/__tests__/AppSidebar.spec.ts b/frontend/src/common/widgets/layout/__tests__/AppSidebar.spec.ts
+index cf0dca9ac..30a5ef17a 100644
+--- a/frontend/src/common/widgets/layout/__tests__/AppSidebar.spec.ts
++++ b/frontend/src/common/widgets/layout/__tests__/AppSidebar.spec.ts
+@@ -86,6 +86,13 @@ describe('AppSidebar activity center feature switch', () => {
+   })
+ })
+ 
++describe('AppSidebar announcement permission', () => {
++  it('shows announcement management only to the dedicated permission', () => {
++    expect(componentSource).toContain("path: '/admin/announcements'")
++    expect(componentSource).toContain("path: '/admin/announcements', label: t('nav.announcements'), icon: BellIcon, permission: 'announcements.manage'")
++  })
++})
++
+ 
+ describe('AppSidebar active group override', () => {
+   it('allows explicit collapse on an active route', () => {
+diff --git a/frontend/src/core/i18n/locales/en/admin/settings.ts b/frontend/src/core/i18n/locales/en/admin/settings.ts
+index 1519d8021..b251cc7bf 100644
+--- a/frontend/src/core/i18n/locales/en/admin/settings.ts
++++ b/frontend/src/core/i18n/locales/en/admin/settings.ts
+@@ -29,6 +29,7 @@ export default {
+           users_credentials: { name: "Users: credentials", description: "Read regular user keys, bind identities and change email or password" },
+           users_billing: { name: "Users: billing and limits", description: "Manage regular user balance, concurrency, RPM, groups and quotas" },
+           dashboard_read: { name: "Dashboard: read", description: "View the admin dashboard, not operations or audit pages" },
++          announcements_manage: { name: "Announcements: manage", description: "View, publish, edit and delete announcements and inspect read status" },
+           settings_manage: { name: "Settings: manage", description: "Manage system settings; role grants and administrator keys remain admin-only" },
+           groups_manage: { name: "Model groups: manage", description: "Manage model groups and routing, not staff permission groups" },
+           accounts_manage: { name: "Upstream accounts: manage", description: "Manage upstream accounts, inspection, proxies and egress" },
+diff --git a/frontend/src/core/i18n/locales/zh/admin/settings.ts b/frontend/src/core/i18n/locales/zh/admin/settings.ts
+index 810664392..c62b85e2b 100644
+--- a/frontend/src/core/i18n/locales/zh/admin/settings.ts
++++ b/frontend/src/core/i18n/locales/zh/admin/settings.ts
+@@ -29,6 +29,7 @@ export default {
+           users_credentials: { name: "用户：登录与密钥", description: "查看普通用户密钥、绑定登录身份和修改邮箱密码" },
+           users_billing: { name: "用户：余额与配额", description: "修改普通用户余额、并发、RPM、分组和配额" },
+           dashboard_read: { name: "仪表盘：查看", description: "查看管理仪表盘；不包含运维和审计页面" },
++          announcements_manage: { name: "公告：管理", description: "查看、发布、编辑、删除公告并查看阅读状态" },
+           settings_manage: { name: "系统设置：管理", description: "管理系统设置；权限组和管理员密钥仅限完整管理员" },
+           groups_manage: { name: "模型分组：管理", description: "管理模型分组和分组路由；不是人员权限组" },
+           accounts_manage: { name: "上游账号：管理", description: "管理上游账号、巡检、代理和出口" },
+diff --git a/frontend/src/core/routes/__tests__/permissionGroups.spec.ts b/frontend/src/core/routes/__tests__/permissionGroups.spec.ts
+index d1160644b..ec9b4851f 100644
+--- a/frontend/src/core/routes/__tests__/permissionGroups.spec.ts
++++ b/frontend/src/core/routes/__tests__/permissionGroups.spec.ts
+@@ -24,6 +24,12 @@ describe('permission group navigation', () => {
+     expect(canAccessAdminPage(staff(['users.manage']), '/admin/subscriptions')).toBe(false)
+     expect(canAccessAdminPage(staff(['accounts.manage']), '/admin/accounts/')).toBe(true)
+   })
++  it('lands an announcement publisher on the announcement page only', () => {
++    const publisher = staff(['announcements.manage'])
++    expect(adminLandingPath(publisher, false)).toBe('/admin/announcements')
++    expect(canAccessAdminPage(publisher, '/admin/announcements')).toBe(true)
++    expect(canAccessAdminPage(publisher, '/admin/settings')).toBe(false)
++  })
+   it('retains full administrator and regular-user defaults', () => {
+     const admin = { ...support, isAdmin: true }
+     expect(canAccessAdminPage(admin, '/admin/ops')).toBe(true)
+diff --git a/frontend/src/core/routes/adminPermissions.ts b/frontend/src/core/routes/adminPermissions.ts
+index eecf463e4..bee0eeabb 100644
+--- a/frontend/src/core/routes/adminPermissions.ts
++++ b/frontend/src/core/routes/adminPermissions.ts
+@@ -16,6 +16,7 @@ const pagePermissions: Record<string, string> = {
+   '/admin/account-quality': 'accounts.manage',
+   '/admin/proxies': 'accounts.manage',
+   '/admin/egress': 'accounts.manage',
++  '/admin/announcements': 'announcements.manage',
+   '/admin/settings': 'settings.manage',
+ }
+ 
+@@ -28,7 +29,7 @@ export function canAccessAdminPage(access: AdminAccess, path: string): boolean {
+ 
+ export function adminLandingPath(access: AdminAccess, supportEnabled: boolean): string {
+   if (access.isAdmin) return '/admin/dashboard'
+-  for (const path of ['/admin/support', '/admin/dashboard', '/admin/users', '/admin/accounts', '/admin/groups', '/admin/settings']) {
++  for (const path of ['/admin/support', '/admin/dashboard', '/admin/announcements', '/admin/users', '/admin/accounts', '/admin/groups', '/admin/settings']) {
+     if (path === '/admin/support' && !supportEnabled) continue
+     if (path === '/admin/groups' && access.isSimpleMode) continue
+     if (canAccessAdminPage(access, path)) return path
+diff --git a/frontend/src/features/announcements/README.md b/frontend/src/features/announcements/README.md
+index b23b5b267..f2b22ba9c 100644
+--- a/frontend/src/features/announcements/README.md
++++ b/frontend/src/features/announcements/README.md
+@@ -2,6 +2,8 @@
+ 
+ 本 feature 持有 `/admin/announcements` 的公告管理，以及应用壳层中的用户公告列表、弹窗队列和已读状态；没有独立用户公告路由。
+ 
++管理端页面、侧栏入口与全部公告 CRUD/阅读统计接口统一要求 `announcements.manage`；完整管理员仍通过通配权限访问，用户公告读取和标记已读不受此员工权限影响。
++
+ - [data/datasources](data/datasources/)：管理员 CRUD/阅读统计与用户可见公告/标为已读接口。
+ - [presentation/pages/AnnouncementsPage.vue](presentation/pages/AnnouncementsPage.vue)：管理页面。
+ - [presentation/widgets](presentation/widgets/)：目标用户条件编辑和阅读状态查看。
+diff --git a/tools/permission-groups-smoke.mjs b/tools/permission-groups-smoke.mjs
+index 11246b190..b45ceb230 100644
+--- a/tools/permission-groups-smoke.mjs
++++ b/tools/permission-groups-smoke.mjs
+@@ -84,7 +84,7 @@ try {
+   const initial = await api(admin, 'GET', '/admin/settings/permission-groups')
+   assert.equal(initial.groups[0].id, 'support')
+   assert.deepEqual([...initial.groups[0].permissions].sort(), ['support.read', 'support.write', 'users.read_basic'])
+-  const groups = [...initial.groups, { id: 'readonly', name: '客服质检', permissions: ['support.read', 'users.read_basic'], built_in: false }, { id: 'settings_staff', name: '设置维护', permissions: ['settings.manage'], built_in: false }, { id: 'user_staff', name: '用户维护', permissions: ['users.manage'], built_in: false }]
++  const groups = [...initial.groups, { id: 'readonly', name: '客服质检', permissions: ['support.read', 'users.read_basic'], built_in: false }, { id: 'settings_staff', name: '设置维护', permissions: ['settings.manage'], built_in: false }, { id: 'user_staff', name: '用户维护', permissions: ['users.manage'], built_in: false }, { id: 'publisher', name: '公告运营', permissions: ['announcements.manage'], built_in: false }]
+   await api(admin, 'PUT', '/admin/settings/permission-groups', { groups })
+   await api(admin, 'PUT', '/admin/settings/permission-groups', { groups: [] }, 400)
+   const settings = await api(admin, 'GET', '/admin/settings')
+@@ -94,6 +94,7 @@ try {
+   await api(admin, 'POST', '/admin/users', { email: 'readonly@fixture.local', password, role: 'readonly' })
+   await api(admin, 'POST', '/admin/users', { email: 'settings@fixture.local', password, role: 'settings_staff' })
+   await api(admin, 'POST', '/admin/users', { email: 'users@fixture.local', password, role: 'user_staff' })
++  await api(admin, 'POST', '/admin/users', { email: 'publisher@fixture.local', password, role: 'publisher' })
+   const user = await login('user@fixture.local')
+   const support = await login('support@fixture.local')
+   await acknowledge(support)
+@@ -124,11 +125,20 @@ try {
+   await api(usersStaff, 'PUT', `/admin/users/${ordinary.id}`, { password: 'not-applied' }, 403)
+   await api(usersStaff, 'DELETE', `/admin/users/${staff.id}`, undefined, 403)
+   await api(usersStaff, 'POST', '/admin/users', { email: 'denied@fixture.local', password, role: 'support' }, 403)
++  const publisher = await login('publisher@fixture.local'); await acknowledge(publisher)
++  const announcement = await api(publisher, 'POST', '/admin/announcements', { title: 'Permission smoke', content: 'Publisher can manage announcements', status: 'draft', notify_mode: 'silent', targeting: {} })
++  await api(publisher, 'GET', '/admin/announcements')
++  await api(publisher, 'GET', `/admin/announcements/${announcement.id}`)
++  await api(publisher, 'PUT', `/admin/announcements/${announcement.id}`, { title: 'Permission smoke updated' })
++  await api(publisher, 'GET', `/admin/announcements/${announcement.id}/read-status`)
++  await api(publisher, 'GET', '/admin/settings', undefined, 403)
++  await api(support, 'POST', '/admin/announcements', { title: 'Denied', content: 'Denied' }, 403)
++  await api(publisher, 'DELETE', `/admin/announcements/${announcement.id}`)
+   const restricted = groups.map(g => g.id === 'support' ? { ...g, permissions: ['users.read_basic'] } : g)
+   await api(admin, 'PUT', '/admin/settings/permission-groups', { groups: restricted })
+   await api(support, 'GET', '/admin/chat/conversations', undefined, 403)
+   await api(support, 'GET', `/admin/users/${ordinary.id}/basic`)
+-  console.log(`SMOKE_PASS assertions=${assertions}; role changes effective on existing JWT; basic profile allowlist verified`)
++  console.log(`SMOKE_PASS assertions=${assertions}; role changes effective on existing JWT; announcement publisher and basic profile allowlists verified`)
+ } finally {
+   for (const name of created.reverse()) docker('rm', '-f', name)
+   if (networkCreated) docker('network', 'rm', prefix)

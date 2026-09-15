@@ -1,0 +1,167 @@
+Announcement permission control verification
+Date: 2026-09-15 Asia/Shanghai
+Branch: codex/announcement-publish-permission
+Current base: origin/main at 16d03822490fedbec5b0a26dced55c35970d6fe5
+
+Changed branch/field
+--------------------
+The changed authorization branch is requiredAdminPermission's "announcements"
+case in backend/internal/transport/http/server/middleware/admin_permissions.go.
+It now requires PermissionAnnouncementsManage. The new persisted permission
+field value is "announcements.manage"; it is accepted by permission-group
+validation, exposed in the permission catalog, and mirrored by the frontend
+route, landing-page, sidebar, and bilingual catalog mappings. Full admin keeps
+wildcard access. Roles without the new field remain denied.
+
+Artifacts
+---------
+MODIFIED_FILE: /Users/lin/.codex/worktrees/57c1/sub2api-no2api/artifacts/announcement-permission/MODIFIED_FILE
+DIFF_FILE: /Users/lin/.codex/worktrees/57c1/sub2api-no2api/artifacts/announcement-permission/DIFF_FILE
+VERIFICATION.txt: /Users/lin/.codex/worktrees/57c1/sub2api-no2api/artifacts/announcement-permission/VERIFICATION.txt
+ROLLBACK.sh: /Users/lin/.codex/worktrees/57c1/sub2api-no2api/artifacts/announcement-permission/ROLLBACK.sh
+Original MODIFIED_FILE SHA256: 8bcec1e7dce42be0540f53c913f0ed74a658276a6851c85e2c65149da760e7af
+Modified MODIFIED_FILE SHA256: a0539c4e406584a60655a23d49a0cc4c767fb9655cd974ca2396bb240c948f5a
+DIFF_FILE SHA256: dec78737c8401dab416bbf34f3381db52f28523f04151b8714993f851ef695ea
+
+BASELINE_COMMAND
+----------------
+docker run --rm --name announcement-permission-baseline-focused -v "$PWD":/workspace:ro -v sub2api-go-mod:/go/pkg/mod -v sub2api-go-build:/root/.cache/go-build -w /workspace/backend -e GOMAXPROCS=4 golang:1.26.6-alpine sh -c "go test -tags=unit -p 2 -count=1 -v -run 'TestPermissionGroups_AcceptsAnnouncementManagementPermission|TestRequiredAdminPermissionSeparatesBasicUserInfoAndSensitiveUserRoutes|TestAdminPermissionMiddlewareAllowsAnnouncementPublisherOnlyOnAnnouncementRoutes' ./internal/application/service ./internal/transport/http/server/middleware"
+BASELINE_INPUT
+Regression tests mounted read-only with the original implementation at commit
+1ae7e1904f383d0c09847d7bcf4d428ec18e957a; Go 1.26.6 Alpine Docker image.
+BASELINE_LITERAL_OUTPUT (decisive lines)
+=== RUN   TestPermissionGroups_AcceptsAnnouncementManagementPermission
+Error: []string{"support.read", "support.write", "support.balance_transfer", "users.read_basic", "users.manage", "users.credentials", "users.billing", "dashboard.read", "settings.manage", "groups.manage", "accounts.manage"} does not contain "announcements.manage"
+--- FAIL: TestPermissionGroups_AcceptsAnnouncementManagementPermission (0.00s)
+FAIL github.com/Wei-Shaw/sub2api/internal/application/service 0.230s
+expected: "announcements.manage"
+actual  : ""
+--- FAIL: TestRequiredAdminPermissionSeparatesBasicUserInfoAndSensitiveUserRoutes (0.00s)
+expected: 204
+actual  : 403
+--- FAIL: TestAdminPermissionMiddlewareAllowsAnnouncementPublisherOnlyOnAnnouncementRoutes (0.00s)
+FAIL github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware 0.039s
+FAIL
+BASELINE_RESULT
+exit status 1 (EXPECTED FAIL; missing permission reproduced)
+
+BASELINE_FRONTEND_COMMAND
+-------------------------
+docker run --rm --name announcement-permission-baseline-frontend -v "$PWD":/workspace -v sub2api-node-modules:/workspace/frontend/node_modules -w /workspace/frontend -e CI=true node:24-alpine sh -c 'node_modules/.bin/vitest run src/core/routes/__tests__/permissionGroups.spec.ts src/common/widgets/layout/__tests__/AppSidebar.spec.ts'
+BASELINE_FRONTEND_INPUT
+Original route/sidebar implementation plus new regression tests; Node 24 Alpine.
+BASELINE_FRONTEND_LITERAL_OUTPUT
+expected '/profile' to be '/admin/announcements' // Object.is equality
+Test Files  2 failed (2)
+Tests       2 failed | 14 passed (16)
+BASELINE_FRONTEND_RESULT
+exit status 1 (EXPECTED FAIL)
+
+MODIFIED_COMMAND
+----------------
+docker run --rm --name announcement-permission-modified-focused -v "$PWD":/workspace:ro -v sub2api-go-mod:/go/pkg/mod -v sub2api-go-build:/root/.cache/go-build -w /workspace/backend -e GOMAXPROCS=4 golang:1.26.6-alpine sh -c "go test -tags=unit -p 2 -count=1 -v -run 'TestPermissionGroups_AcceptsAnnouncementManagementPermission|TestRequiredAdminPermissionSeparatesBasicUserInfoAndSensitiveUserRoutes|TestAdminPermissionMiddlewareAllowsAnnouncementPublisherOnlyOnAnnouncementRoutes' ./internal/application/service ./internal/transport/http/server/middleware"
+MODIFIED_INPUT
+Current modified worktree mounted read-only; Go 1.26.6 Alpine Docker image.
+MODIFIED_LITERAL_OUTPUT
+--- PASS: TestPermissionGroups_AcceptsAnnouncementManagementPermission (0.00s)
+PASS
+ok github.com/Wei-Shaw/sub2api/internal/application/service 0.144s
+--- PASS: TestRequiredAdminPermissionSeparatesBasicUserInfoAndSensitiveUserRoutes (0.00s)
+--- PASS: TestAdminPermissionMiddlewareAllowsAnnouncementPublisherOnlyOnAnnouncementRoutes (0.00s)
+PASS
+ok github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware 0.030s
+MODIFIED_RESULT
+exit status 0 (PASS)
+
+RELATED_BACKEND_COMMAND
+-----------------------
+docker run --rm --name announcement-permission-related-backend -v "$PWD":/workspace:ro -v sub2api-go-mod:/go/pkg/mod -v sub2api-go-build:/root/.cache/go-build -w /workspace/backend -e GOMAXPROCS=4 golang:1.26.6-alpine sh -c "go test -tags=unit -p 4 -count=1 -run 'PermissionGroups|AdminPermission|Delegated|Announcement' ./internal/application/service ./internal/transport/http/server/middleware ./internal/transport/http/handler/admin ./internal/transport/http/server/routes"
+RELATED_BACKEND_LITERAL_OUTPUT
+ok github.com/Wei-Shaw/sub2api/internal/application/service 0.120s
+ok github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware 0.051s
+ok github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin 0.023s
+ok github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes 0.013s
+RELATED_BACKEND_RESULT
+exit status 0 (PASS)
+
+FRONTEND_DOCKER_COMMAND
+-----------------------
+docker run --rm --name announcement-permission-frontend-checks -v "$PWD":/workspace -v sub2api-node-modules:/workspace/frontend/node_modules -w /workspace/frontend -e CI=true node:24-alpine sh -c "node_modules/.bin/vue-tsc --noEmit && node_modules/.bin/eslint . && node_modules/.bin/vitest run src/__tests__/dynamicLocaleMapping.spec.ts src/core/routes/__tests__ src/features/admin-settings/__tests__/permissionGroups.spec.ts src/features/announcements src/common/widgets/layout/__tests__/AppSidebar.spec.ts"
+FRONTEND_DOCKER_INPUT
+Current frontend source, Node 24 Alpine, existing lockfile dependency volume.
+FRONTEND_DOCKER_LITERAL_OUTPUT
+Test Files  10 passed (10)
+Tests       79 passed (79)
+FRONTEND_DOCKER_RESULT
+exit status 0 (PASS; vue-tsc and ESLint emitted no errors)
+
+DOCKER_IMAGE_COMMAND
+--------------------
+docker buildx build --load -t sub2api-announcement-permission:test .
+DOCKER_IMAGE_INPUT
+Current full source tree and repository Dockerfile.
+DOCKER_IMAGE_LITERAL_OUTPUT
+#40 exporting manifest list sha256:ff3a0b2597dad1e75115d65a755ea4296a73c2a0eb1ed110aca90c0a6f1742c7 done
+#40 naming to docker.io/library/sub2api-announcement-permission:test done
+#40 DONE 2.7s
+DOCKER_IMAGE_RESULT
+exit status 0 (PASS)
+
+RUNTIME_COMMAND
+---------------
+node tools/permission-groups-smoke.mjs sub2api-announcement-permission:test
+RUNTIME_INPUT
+Disposable Docker network, PostgreSQL 18 Alpine, Redis 8 Alpine, application
+image, tmpfs data, random fixture credentials, and no existing deployment data.
+RUNTIME_LITERAL_OUTPUT (announcement authorization segment)
+LOGIN publisher@fixture.local => 200
+GET /admin/compliance => 200
+POST /admin/compliance/accept => 200
+POST /admin/announcements => 200
+GET /admin/announcements => 200
+GET /admin/announcements/1 => 200
+PUT /admin/announcements/1 => 200
+GET /admin/announcements/1/read-status => 200
+GET /admin/settings => 403
+POST /admin/announcements => 403
+DELETE /admin/announcements/1 => 200
+SMOKE_PASS assertions=61; role changes effective on existing JWT; announcement publisher and basic profile allowlists verified
+CLEANUP_PASS isolated containers/network/temporary credentials removed
+RUNTIME_RESULT
+exit status 0 (PASS; 61 assertions; isolated resources cleaned)
+
+DOCS_COMMAND
+------------
+make check-docs
+DOCS_INPUT
+Current repository documentation and links.
+DOCS_LITERAL_OUTPUT
+Documentation checks passed.
+DOCS_RESULT
+exit status 0 (PASS)
+
+ROLLBACK_COMMAND
+----------------
+target=$(mktemp -d /private/tmp/announcement-permission-rollback.XXXXXX)/repo
+git clone --quiet --no-hardlinks . "$target"
+git -C "$target" apply "$PWD/artifacts/announcement-permission/DIFF_FILE"
+artifacts/announcement-permission/ROLLBACK.sh "$target"
+printf '%s\n' "ROLLBACK_TEST_TARGET=$target"
+ROLLBACK_INPUT
+Independent clone at /private/tmp/announcement-permission-rollback.vCNyC6/repo,
+first changed by applying DIFF_FILE; the live worktree was not the target.
+ROLLBACK_LITERAL_OUTPUT
+ROLLBACK_RESTORED=/private/tmp/announcement-permission-rollback.vCNyC6/repo
+SHA256=8bcec1e7dce42be0540f53c913f0ed74a658276a6851c85e2c65149da760e7af
+ROLLBACK_STATUS=clean
+ROLLBACK_TEST_TARGET=/private/tmp/announcement-permission-rollback.vCNyC6/repo
+ROLLBACK_RESULT
+exit status 0 (PASS)
+
+RESTORED_BEHAVIOR
+-----------------
+The independent target is clean at the original commit and its representative
+permission_groups.go SHA256 equals the original hash. It therefore restores the
+baseline behavior: announcements.manage is absent, custom roles cannot save that
+grant, and announcement admin routes fall back to admin-only. The live worktree
+and MODIFIED_FILE remain changed at SHA256 a0539c4e406584a60655a23d49a0cc4c767fb9655cd974ca2396bb240c948f5a.
