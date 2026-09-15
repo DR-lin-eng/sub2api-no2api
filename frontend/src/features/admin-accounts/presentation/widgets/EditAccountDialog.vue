@@ -106,7 +106,12 @@ import {
 } from '@/features/admin-accounts/presentation/credentialsBuilder'
 import { formatDateTime, formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/core/utils/format'
 import { createStableObjectKeyResolver } from '@/core/utils/stableObjectKey'
-import { VERTEX_LOCATION_OPTIONS, defaultAPIKeyBaseURL } from '@/core/constants/account'
+import {
+  CN_ACCOUNT_PLATFORM_LABELS,
+  VERTEX_LOCATION_OPTIONS,
+  defaultAPIKeyBaseURL,
+  isCNAccountPlatform,
+} from '@/core/constants/account'
 import {
   OPENAI_WS_MODE_CTX_POOL,
   OPENAI_WS_MODE_OFF,
@@ -195,6 +200,11 @@ const baseUrlHint = computed(() => {
   if (props.account.platform === 'openai') return t('admin.accounts.openai.baseUrlHint')
   if (props.account.platform === 'gemini') return t('admin.accounts.gemini.baseUrlHint')
   if (props.account.platform === 'grok') return ''
+  if (isCNAccountPlatform(props.account.platform)) {
+    return t('admin.accounts.cnProvider.baseUrlHint', {
+      provider: CN_ACCOUNT_PLATFORM_LABELS[props.account.platform],
+    })
+  }
   return t('admin.accounts.baseUrlHint')
 })
 

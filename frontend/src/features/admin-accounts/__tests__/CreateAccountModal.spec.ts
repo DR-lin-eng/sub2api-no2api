@@ -355,6 +355,15 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     const wrapper = mountModal()
     await wrapper.get(`[data-testid="account-platform-${platform}"]`).trigger('click')
     await flushPromises()
+    const baseURLInput = wrapper
+      .findAll('form#create-account-form input[type="text"]')
+      .find((input) => (input.element as HTMLInputElement).value === baseURL)
+    expect(baseURLInput?.attributes('placeholder')).toBe(baseURL)
+    expect(wrapper.get('form#create-account-form input[type="password"]').attributes('placeholder')).toBe(
+      platform === 'kimi' || platform === 'deepseek' ? 'sk-...' : 'API Key'
+    )
+    expect(wrapper.text()).toContain('admin.accounts.cnProvider.baseUrlHint')
+    expect(wrapper.text()).toContain('admin.accounts.cnProvider.apiKeyHint')
     await wrapper.get('form#create-account-form input[type="text"]').setValue(`${platform} account`)
     await wrapper.get('form#create-account-form input[type="password"]').setValue('provider-key')
     await wrapper.get('form#create-account-form').trigger('submit.prevent')

@@ -571,6 +571,10 @@ export default {
       apiKeyRequired: 'API Key *',
       apiKeyPlaceholder: 'sk-ant-api03-...',
       apiKeyHint: 'Your Claude Console API Key',
+      cnProvider: {
+        baseUrlHint: 'Keep the default to use the official {provider} API',
+        apiKeyHint: 'Your {provider} API Key',
+      },
       // OpenAI specific hints
       openai: {
         baseUrlHint: 'Leave default for official OpenAI API',

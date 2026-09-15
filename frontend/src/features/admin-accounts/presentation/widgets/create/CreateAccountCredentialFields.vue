@@ -34,15 +34,7 @@
             v-model="apiKeyBaseUrl"
             type="text"
             class="input"
-            :placeholder="
-              form.platform === 'openai'
-                ? 'https://api.openai.com'
-                : form.platform === 'gemini'
-                  ? 'https://generativelanguage.googleapis.com'
-                  : form.platform === 'grok'
-                    ? 'https://api.x.ai/v1'
-                    : 'https://api.anthropic.com'
-            "
+            :placeholder="defaultAPIKeyBaseURL(form.platform)"
           />
           <p v-if="baseUrlHint" class="input-hint">{{ baseUrlHint }}</p>
           <GrokBaseUrlPresets
@@ -58,15 +50,7 @@
             type="password"
             required
             class="input font-mono"
-            :placeholder="
-              form.platform === 'openai'
-                ? 'sk-proj-...'
-                : form.platform === 'gemini'
-                  ? 'AIza...'
-                  : form.platform === 'grok'
-                    ? 'xai-...'
-                    : 'sk-ant-...'
-            "
+            :placeholder="defaultAPIKeyPlaceholder(form.platform)"
           />
           <p v-if="apiKeyHint" class="input-hint">{{ apiKeyHint }}</p>
         </div>
@@ -1099,6 +1083,7 @@ import Icon from '@/common/widgets/icons/Icon.vue'
 import ModelWhitelistSelector from '../ModelWhitelistSelector.vue'
 import QuotaLimitCard from '../QuotaLimitCard.vue'
 import Toggle from '@/common/widgets/forms/Toggle.vue'
+import { defaultAPIKeyBaseURL, defaultAPIKeyPlaceholder } from '@/core/constants/account'
 import type { CreateAccountCredentialContext } from '../../accountEditorContext'
 import { isUpstreamBillingProbeEligible } from '../../upstreamBillingProbeEligibility'
 

@@ -3,6 +3,13 @@ import type { AccountPlatform } from '@/types'
 export const CN_ACCOUNT_PLATFORMS = ['kimi', 'zhipu', 'deepseek', 'minimax'] as const
 export type CNAccountPlatform = (typeof CN_ACCOUNT_PLATFORMS)[number]
 
+export const CN_ACCOUNT_PLATFORM_LABELS: Record<CNAccountPlatform, string> = {
+  kimi: 'Kimi',
+  zhipu: 'Zhipu GLM',
+  deepseek: 'DeepSeek',
+  minimax: 'MiniMax',
+}
+
 export function isCNAccountPlatform(platform: string): platform is CNAccountPlatform {
   return (CN_ACCOUNT_PLATFORMS as readonly string[]).includes(platform)
 }
@@ -11,12 +18,26 @@ export function defaultAPIKeyBaseURL(platform: AccountPlatform): string {
   switch (platform) {
     case 'openai': return 'https://api.openai.com'
     case 'gemini': return 'https://generativelanguage.googleapis.com'
+    case 'antigravity': return 'https://cloudcode-pa.googleapis.com'
     case 'grok': return 'https://api.x.ai/v1'
     case 'kimi': return 'https://api.moonshot.cn/v1'
     case 'zhipu': return 'https://open.bigmodel.cn/api/paas/v4'
     case 'deepseek': return 'https://api.deepseek.com'
     case 'minimax': return 'https://api.minimaxi.com/v1'
     default: return 'https://api.anthropic.com'
+  }
+}
+
+export function defaultAPIKeyPlaceholder(platform: AccountPlatform): string {
+  switch (platform) {
+    case 'anthropic': return 'sk-ant-...'
+    case 'openai': return 'sk-proj-...'
+    case 'gemini': return 'AIza...'
+    case 'grok': return 'xai-...'
+    case 'kimi':
+    case 'deepseek':
+    case 'antigravity': return 'sk-...'
+    default: return 'API Key'
   }
 }
 

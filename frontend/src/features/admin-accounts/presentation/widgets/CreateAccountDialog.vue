@@ -141,7 +141,12 @@ import {
 } from '@/features/admin-accounts/presentation/credentialsBuilder'
 import { formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/core/utils/format'
 import { createStableObjectKeyResolver } from '@/core/utils/stableObjectKey'
-import { VERTEX_LOCATION_OPTIONS, defaultAPIKeyBaseURL, isCNAccountPlatform } from '@/core/constants/account'
+import {
+  CN_ACCOUNT_PLATFORM_LABELS,
+  VERTEX_LOCATION_OPTIONS,
+  defaultAPIKeyBaseURL,
+  isCNAccountPlatform,
+} from '@/core/constants/account'
 import {
   OPENAI_WS_MODE_CTX_POOL,
   OPENAI_WS_MODE_OFF,
@@ -196,6 +201,11 @@ const baseUrlHint = computed(() => {
   if (form.platform === 'openai') return t('admin.accounts.openai.baseUrlHint')
   if (form.platform === 'gemini') return t('admin.accounts.gemini.baseUrlHint')
   if (form.platform === 'grok') return ''
+  if (isCNAccountPlatform(form.platform)) {
+    return t('admin.accounts.cnProvider.baseUrlHint', {
+      provider: CN_ACCOUNT_PLATFORM_LABELS[form.platform],
+    })
+  }
   return t('admin.accounts.baseUrlHint')
 })
 
@@ -203,6 +213,11 @@ const apiKeyHint = computed(() => {
   if (form.platform === 'openai') return t('admin.accounts.openai.apiKeyHint')
   if (form.platform === 'gemini') return t('admin.accounts.gemini.apiKeyHint')
   if (form.platform === 'grok') return ''
+  if (isCNAccountPlatform(form.platform)) {
+    return t('admin.accounts.cnProvider.apiKeyHint', {
+      provider: CN_ACCOUNT_PLATFORM_LABELS[form.platform],
+    })
+  }
   return t('admin.accounts.apiKeyHint')
 })
 

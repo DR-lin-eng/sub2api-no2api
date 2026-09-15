@@ -22,17 +22,7 @@
             v-model="editBaseUrl"
             type="text"
             class="input"
-            :placeholder="
-              account.platform === 'openai'
-                ? 'https://api.openai.com'
-                : account.platform === 'gemini'
-                  ? 'https://generativelanguage.googleapis.com'
-                  : account.platform === 'antigravity'
-                    ? 'https://cloudcode-pa.googleapis.com'
-                    : account.platform === 'grok'
-                      ? 'https://api.x.ai/v1'
-                      : 'https://api.anthropic.com'
-            "
+            :placeholder="defaultAPIKeyBaseURL(account.platform)"
           />
           <p v-if="baseUrlHint" class="input-hint">{{ baseUrlHint }}</p>
           <GrokBaseUrlPresets
@@ -51,17 +41,7 @@
             data-1p-ignore
             data-lpignore="true"
             data-bwignore="true"
-            :placeholder="
-              account.platform === 'openai'
-                ? 'sk-proj-...'
-                : account.platform === 'gemini'
-                  ? 'AIza...'
-                  : account.platform === 'antigravity'
-                    ? 'sk-...'
-                    : account.platform === 'grok'
-                      ? 'xai-...'
-                      : 'sk-ant-...'
-            "
+            :placeholder="defaultAPIKeyPlaceholder(account.platform)"
           />
           <p class="input-hint">{{ t('admin.accounts.leaveEmptyToKeep') }}</p>
         </div>
@@ -1244,6 +1224,7 @@ import Icon from '@/common/widgets/icons/Icon.vue'
 import ModelWhitelistSelector from '../ModelWhitelistSelector.vue'
 import Toggle from '@/common/widgets/forms/Toggle.vue'
 import EditAccountCPAFields from './EditAccountCPAFields.vue'
+import { defaultAPIKeyBaseURL, defaultAPIKeyPlaceholder } from '@/core/constants/account'
 import type { EditAccountCredentialContext } from '../../accountEditorContext'
 
 const props = defineProps<{ context: EditAccountCredentialContext }>()
