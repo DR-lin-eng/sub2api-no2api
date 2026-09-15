@@ -23,16 +23,7 @@ const (
 	PlatformGemini      = "gemini"
 	PlatformAntigravity = "antigravity"
 	PlatformGrok        = "grok"
-	PlatformKimi        = "kimi"
-	PlatformZhipu       = "zhipu"
-	PlatformDeepseek    = "deepseek"
-	PlatformMiniMax     = "minimax"
 	PlatformComposite   = "composite"
-)
-
-const (
-	AccountModePayG   = "payg"
-	AccountModeCoding = "coding"
 )
 
 // Account type constants

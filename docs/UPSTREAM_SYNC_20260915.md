@@ -6,7 +6,8 @@
 
 | 项目 | 值 |
 | --- | --- |
-| 下游基线 | `origin/main` @ `16d03822490fedbec5b0a26dced55c35970d6fe5` |
+| 初始下游基线 | `origin/main` @ `16d03822490fedbec5b0a26dced55c35970d6fe5` |
+| 发布合并基线 | `origin/main` @ `69810eab4e2bfee8cb002ae9594116a845ff2078`（PR #73，变更文件与本轮功能零重叠） |
 | 上一审查点 | `upstream/main` @ `bdb42e22f81fcb633ff0a060961211dd2bcb515b` |
 | 本轮上游冻结 | `upstream/main` @ `badfad8b7248b8aac0e6b503a06e392aa31cb294` |
 | 增量范围 | `bdb42e22f81fcb633ff0a060961211dd2bcb515b..badfad8b7248b8aac0e6b503a06e392aa31cb294` |
@@ -51,7 +52,7 @@
 
 ## 性能与升级边界
 
-* 请求热路径的平台归一化为常数时间 switch。Apple M4 五轮 benchmark 为 `0.7293-0.7466 ns/op`、`0 B/op`、`0 allocs/op`。
+* 请求热路径的平台归一化为常数时间 switch。最终合并树在 Apple M4 上五轮 benchmark 为 `1.211-1.375 ns/op`、`0 B/op`、`0 allocs/op`。
 * scheduler canonical bucket 数从平台表动态推导，预分配容量同步从固定 12 改为动态值，避免新增平台后的 slice 扩容；测试不再保存 5 平台魔数。
 * Composite/全量 snapshot 会处理 9 个平台而非 5 个，但仍为固定有界配置/生命周期工作，不进入每请求数据库扫描。
 * 没有修改 API JSON/SSE/WebSocket 的既有字段，新增平台与 warning 字段均为可选；旧节点可继续读取旧行，旧客户端可忽略新枚举。
