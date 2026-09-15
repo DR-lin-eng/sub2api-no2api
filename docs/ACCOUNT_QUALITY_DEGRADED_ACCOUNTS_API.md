@@ -6,9 +6,10 @@
 HTTP 401 认证失败的 OAuth 账号。接口只返回邮箱和本地 `account_id` 等诊断字段，
 不会返回 access token、refresh token、API Key、完整凭据或请求正文。
 
-质量巡检本身只检测启用的 OpenAI/Gemini OAuth 账号，因此本接口也只返回这两类
-OAuth 账号。API Key、service account 和其他平台账号即使存在旧的降智标记或 401
-错误，也不会出现在结果中。
+质量巡检只检测状态启用且已启用调度（`schedulable=true`）的 OpenAI/Gemini OAuth
+账号。关闭调度后不再发起新探测；本接口仍可展示账号此前留下的降智或 401 诊断状态。
+API Key、service account 和其他平台账号即使存在旧的降智标记或 401 错误，也不会
+出现在结果中。
 
 ## 请求
 

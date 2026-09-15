@@ -68,7 +68,7 @@ func TestQualityConversationPersistsTextOnlyAndCombinedVerdict(t *testing.T) {
 			store := &qualityConversationStore{}
 			probe := &qualityStageProbeStub{results: []*ScheduledTestResult{{Status: "success", ResponseText: tc.answer, ConversationID: "conv_text", ResponseID: "resp_text", ReasoningTokens: reasoningTokenPtr(0)}, {Status: "success", ResponseText: modelAHTML, ResponseID: "resp_image"}}}
 			svc := &AccountQualityMonitoringService{accountRepo: &qualityRepoStub{extra: map[int64]map[string]any{}}, accountTestSvc: probe, qualityArtifacts: store, settingRepo: &inspectionSettingRepoStub{values: map[string]string{SettingKeyAccountQualitySettings: string(config)}}}
-			account := Account{ID: 123456, Name: "private account", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive}
+			account := Account{ID: 123456, Name: "private account", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
 			rows := []AccountInspectionAccountResult{{AccountID: account.ID}}
 			require.NoError(t, svc.runQualityMonitoring(context.Background(), []Account{account}, rows, nil, settings, time.Now()))
 			require.Len(t, store.runs, 1)

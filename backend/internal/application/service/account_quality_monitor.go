@@ -418,7 +418,9 @@ func qualityProbeSupported(account *Account) bool {
 }
 
 func qualityProbeEligible(account *Account, sourceGroupID *int64) bool {
-	if !qualityProbeSupported(account) {
+	// Honor the operator-controlled scheduling switch without coupling quality
+	// recovery to transient rate-limit, overload, or cooldown state.
+	if !qualityProbeSupported(account) || !account.Schedulable {
 		return false
 	}
 	if sourceGroupID == nil || *sourceGroupID <= 0 {

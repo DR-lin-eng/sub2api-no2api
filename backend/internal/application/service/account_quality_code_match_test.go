@@ -56,7 +56,7 @@ func TestQualityCodeMatchUsesFullAnswerAndSurvivesPreviewFailure(t *testing.T) {
 		qualityArtifacts: store,
 		settingRepo:      &inspectionSettingRepoStub{values: map[string]string{SettingKeyAccountQualitySettings: string(raw)}},
 	}
-	account := Account{ID: 10, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive}
+	account := Account{ID: 10, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
 	rows := []AccountInspectionAccountResult{{AccountID: 10}}
 	require.NoError(t, svc.runQualityMonitoring(context.Background(), []Account{account}, rows, nil, settings, time.Now()))
 	require.Equal(t, "healthy", rows[0].QualityStatus)
