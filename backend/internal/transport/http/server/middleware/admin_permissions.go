@@ -89,6 +89,8 @@ func requiredAdminPermission(method, path string) string {
 		return service.PermissionUsersManage
 	case "dashboard":
 		return service.PermissionDashboardRead
+	case "announcements":
+		return service.PermissionAnnouncementsManage
 	case "settings":
 		// Delegated settings access must not mint global keys or change its own role grants.
 		if strings.HasPrefix(path, "settings/admin-api-key") || path == "settings/permission-groups" {
