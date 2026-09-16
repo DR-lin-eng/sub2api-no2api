@@ -113,7 +113,8 @@ const qwenModels = [
 
 // DeepSeek
 const deepseekModels = [
-  'deepseek-chat', 'deepseek-coder', 'deepseek-reasoner',
+	'deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-v4-flash-vision-exp', 'deepseek-flash',
+	'deepseek-coder',
   'deepseek-v3', 'deepseek-v3-0324',
   'deepseek-r1', 'deepseek-r1-0528',
   'deepseek-r1-distill-qwen-32b', 'deepseek-r1-distill-qwen-14b', 'deepseek-r1-distill-qwen-7b',
@@ -444,6 +445,16 @@ export function getModelsByPlatform(platform: string): string[] {
       case 'moonshot': return moonshotModels
     case 'doubao': return doubaoModels
     case 'minimax': return minimaxModels
+    case 'opencode_go': return [
+      'grok-4.6', 'gpt-5.6-luna',
+      'glm-5.3-flash', 'glm-5.3', 'glm-5.2', 'glm-5.1',
+      'kimi-k3', 'kimi-k2.7-code', 'kimi-k2.6', 'longcat-2.0',
+      'deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-v4-flash-vision-exp',
+      'mimo-v2.5', 'mimo-v2.5-pro', 'minimax-m3', 'minimax-m2.7', 'minimax-m2.5',
+      'muse-spark-1.3-contributor', 'muse-spark-1.2-contributor',
+      'qwen3.8-max', 'qwen3.8-flash', 'qwen3.7-max', 'qwen3.7-plus', 'qwen3.6-plus',
+      'hy4-preview', 'hy3', 'omen-alpha',
+    ]
     case 'baidu': return baiduModels
     case 'spark': return sparkModels
     case 'hunyuan': return hunyuanModels
@@ -459,7 +470,7 @@ export function getPresetMappingsByPlatform(platform: string) {
   if (platform === 'grok' || platform === 'xai') return grokPresetMappings
     if (platform === 'antigravity') return antigravityPresetMappings
     if (platform === 'bedrock') return bedrockPresetMappings
-    if (['kimi', 'zhipu', 'deepseek', 'minimax'].includes(platform)) return []
+    if (['kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go'].includes(platform)) return []
     return anthropicPresetMappings
 }
 

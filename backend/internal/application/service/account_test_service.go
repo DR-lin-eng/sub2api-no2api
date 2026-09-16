@@ -718,6 +718,9 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 
 	// 账号级请求头覆写：测试请求与真实转发保持一致的最终头
 	credentialAccount.ApplyHeaderOverrides(req.Header)
+	if state := accountTestTurnState(ctx); isOAuth && state != "" {
+		req.Header.Set(openAICodexTurnStateHeader, state)
+	}
 
 	// Get proxy URL
 	proxyURL := ""
@@ -730,6 +733,7 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Request failed: %s", err.Error()))
 	}
 	defer func() { _ = resp.Body.Close() }()
+	captureAccountTestTurnState(ctx, resp.Header)
 
 	if isOAuth && s.accountRepo != nil {
 		if updates, err := extractOpenAICodexProbeUpdates(resp); err == nil && len(updates) > 0 {
@@ -1996,6 +2000,7 @@ func (s *AccountTestService) RunQualityTestBackground(ctx context.Context, accou
 
 func (s *AccountTestService) runTestBackground(ctx context.Context, accountID int64, modelID, prompt, _ string) (*ScheduledTestResult, error) {
 	startedAt := time.Now()
+	ctx, turnStateCapture := withAccountTestTurnStateCapture(ctx)
 
 	w := httptest.NewRecorder()
 	ginCtx, _ := gin.CreateTestContext(w)
@@ -2017,11 +2022,13 @@ func (s *AccountTestService) runTestBackground(ctx context.Context, accountID in
 	}
 
 	return &ScheduledTestResult{
-		Status:          status,
-		ResponseText:    responseText,
-		ErrorMessage:    errMsg,
-		ReasoningTokens: reasoningTokens,
-		ConversationID:  conversationID, ResponseID: responseID,
+		Status:            status,
+		ResponseText:      responseText,
+		ErrorMessage:      errMsg,
+		ReasoningTokens:   reasoningTokens,
+		TurnState:         turnStateCapture.value(),
+		InjectedTurnState: accountTestTurnState(ctx),
+		ConversationID:    conversationID, ResponseID: responseID,
 		LatencyMs:  finishedAt.Sub(startedAt).Milliseconds(),
 		StartedAt:  startedAt,
 		FinishedAt: finishedAt,

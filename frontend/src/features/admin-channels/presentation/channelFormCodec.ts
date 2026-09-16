@@ -49,6 +49,7 @@ export const channelPlatformOrder: GroupPlatform[] = [
     'zhipu',
     'deepseek',
     'minimax',
+    'opencode_go',
 ]
 
 function pricingFormEntryToAPI(

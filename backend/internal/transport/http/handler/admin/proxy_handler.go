@@ -54,6 +54,74 @@ type UpdateProxyRequest struct {
 	ExpiryWarnDays *int                   `json:"expiry_warn_days" binding:"omitempty,min=0"`
 }
 
+type UpdateProxyAutoAssignmentRequest struct {
+	Enabled                    *bool `json:"enabled"`
+	HealthCheckEnabled         *bool `json:"health_check_enabled"`
+	HealthCheckIntervalMinutes *int  `json:"health_check_interval_minutes"`
+	FailureThreshold           *int  `json:"failure_threshold"`
+}
+
+// GetAutoAssignmentSettings returns the authoritative proxy-pool policy.
+// GET /api/v1/admin/proxies/auto-assignment
+func (h *ProxyHandler) GetAutoAssignmentSettings(c *gin.Context) {
+	settings, err := h.adminService.GetProxyAutoAssignmentSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, settings)
+}
+
+// UpdateAutoAssignmentSettings persists the proxy-pool policy and performs an
+// initial full rebalance when the master switch is enabled.
+// PUT /api/v1/admin/proxies/auto-assignment
+func (h *ProxyHandler) UpdateAutoAssignmentSettings(c *gin.Context) {
+	var req UpdateProxyAutoAssignmentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if req.Enabled == nil || req.HealthCheckEnabled == nil || req.HealthCheckIntervalMinutes == nil || req.FailureThreshold == nil {
+		response.BadRequest(c, "enabled, health_check_enabled, health_check_interval_minutes, and failure_threshold are required")
+		return
+	}
+	settings, err := h.adminService.UpdateProxyAutoAssignmentSettings(c.Request.Context(), &service.ProxyAutoAssignmentSettings{
+		Enabled:                    *req.Enabled,
+		HealthCheckEnabled:         *req.HealthCheckEnabled,
+		HealthCheckIntervalMinutes: *req.HealthCheckIntervalMinutes,
+		FailureThreshold:           *req.FailureThreshold,
+	})
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, settings)
+}
+
+// RebalanceAutoAssignments immediately converges all parent accounts and their
+// shadows onto the enabled proxy pool.
+// POST /api/v1/admin/proxies/auto-assignment/rebalance
+func (h *ProxyHandler) RebalanceAutoAssignments(c *gin.Context) {
+	changed, err := h.adminService.RebalanceProxyAssignments(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"reassigned_accounts": changed})
+}
+
+func rebalanceProxyAssignmentsIfEnabled(ctx context.Context, adminService service.AdminService) error {
+	settings, err := adminService.GetProxyAutoAssignmentSettings(ctx)
+	if err != nil {
+		return err
+	}
+	if !settings.Enabled {
+		return nil
+	}
+	_, err = adminService.RebalanceProxyAssignments(ctx)
+	return err
+}
+
 // List handles listing all proxies with pagination
 // GET /api/v1/admin/proxies
 func (h *ProxyHandler) List(c *gin.Context) {
@@ -381,12 +449,13 @@ func (h *ProxyHandler) BatchCreate(c *gin.Context) {
 
 		// Create proxy with default name
 		_, err = h.adminService.CreateProxy(c.Request.Context(), &service.CreateProxyInput{
-			Name:     "default",
-			Protocol: protocol,
-			Host:     host,
-			Port:     item.Port,
-			Username: username,
-			Password: password,
+			Name:              "default",
+			Protocol:          protocol,
+			Host:              host,
+			Port:              item.Port,
+			Username:          username,
+			Password:          password,
+			SkipAutoRebalance: true,
 		})
 		if err != nil {
 			// If creation fails due to duplicate, count as skipped
@@ -395,6 +464,10 @@ func (h *ProxyHandler) BatchCreate(c *gin.Context) {
 		}
 
 		created++
+	}
+	if err := rebalanceProxyAssignmentsIfEnabled(c.Request.Context(), h.adminService); err != nil {
+		response.ErrorFrom(c, err)
+		return
 	}
 
 	response.Success(c, gin.H{

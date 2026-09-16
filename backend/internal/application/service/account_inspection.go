@@ -188,6 +188,8 @@ type AccountInspectionAccountResult struct {
 	QualityStage1Status        string                   `json:"quality_stage1_status,omitempty"`
 	QualityStage2Status        string                   `json:"quality_stage2_status,omitempty"`
 	QualityReasoningTokens     *int64                   `json:"quality_reasoning_tokens,omitempty"`
+	QualityTurnStates          []string                 `json:"quality_turn_states,omitempty"`
+	QualityInjectedTurnStates  []string                 `json:"quality_injected_turn_states,omitempty"`
 }
 
 type AccountInspectionQuotaBucket struct {

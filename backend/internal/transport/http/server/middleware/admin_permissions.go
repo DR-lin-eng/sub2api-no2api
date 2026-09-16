@@ -97,6 +97,10 @@ func requiredAdminPermission(method, path string) string {
 			return ""
 		}
 		return service.PermissionSettingsManage
+	case "oauth2-provider":
+		// Creating trust relationships and rotating client credentials remain
+		// full-administrator operations even for delegated settings staff.
+		return ""
 	case "groups":
 		return service.PermissionGroupsManage
 	case "accounts", "account-inspection", "account-quality", "proxies", "egress":

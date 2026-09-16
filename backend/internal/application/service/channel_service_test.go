@@ -2049,7 +2049,7 @@ func TestMatchingPlatforms(t *testing.T) {
 		{"openai returns itself", PlatformOpenAI, []string{PlatformOpenAI}},
 		{"composite returns concrete platforms", PlatformComposite, []string{
 			PlatformAnthropic, PlatformGemini, PlatformOpenAI, PlatformAntigravity, PlatformGrok,
-			PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax,
+			PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo,
 		}},
 	}
 

@@ -1,12 +1,13 @@
 # Admin Proxies
 
-管理代理 feature 负责代理列表、创建和编辑、连接与质量检测、批量操作及数据导入导出。
+管理代理 feature 负责代理列表、创建和编辑、连接与质量检测、自动均衡分配、失活迁移、批量操作及数据导入导出。
 
 - `data/datasources/`: 代理管理 API 与请求协议。
 - `presentation/pages/`: 路由级查询、取消、搜索防抖、批量并发和弹窗编排。
 - `presentation/widgets/ProxyTable.vue`: 表格渲染与同步交互转发。
 - `presentation/widgets/CreateProxyDialog.vue`: 标准和批量创建表单。
 - `presentation/widgets/EditProxyDialog.vue`: 编辑表单及密码脏状态输入。
+- `presentation/widgets/ProxyAutoAssignmentDialog.vue`: 强制自动分配、定期测活、失败阈值和手动均衡设置。
 - `presentation/widgets/ProxyPageDialogs.vue`: 删除、导入导出、质量报告和关联账号弹窗。
 - `presentation/proxyPageContext.ts`: 页面与领域 widget 之间的最小类型契约。
 

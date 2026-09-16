@@ -311,6 +311,25 @@
           </div>
         </div>
 
+        <div v-if="form.platform === 'opencode_go'">
+          <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
+          <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2" data-tour="account-form-type">
+            <button
+              type="button"
+              class="flex items-center gap-3 rounded-lg border-2 border-amber-500 bg-amber-50 p-3 text-left dark:bg-amber-900/20"
+              @click="accountCategory = 'apikey'"
+            >
+              <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white">
+                <Icon name="key" size="sm" />
+              </div>
+              <div>
+                <span class="block text-sm font-medium text-gray-900 dark:text-white">API Key</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">Zen / Go multi-protocol</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
         <!-- Account Type Selection (Gemini) -->
       <div v-if="form.platform === 'gemini'">
         <div class="flex items-center justify-between">
@@ -989,6 +1008,7 @@ const accountPlatformOptions: Array<{ value: AccountPlatform; label: string; act
   { value: 'zhipu', label: 'Zhipu GLM', activeClass: 'text-indigo-700 dark:text-indigo-300' },
   { value: 'deepseek', label: 'DeepSeek', activeClass: 'text-cyan-700 dark:text-cyan-300' },
   { value: 'minimax', label: 'MiniMax', activeClass: 'text-rose-700 dark:text-rose-300' },
+  { value: 'opencode_go', label: 'OpenCode', activeClass: 'text-amber-700 dark:text-amber-300' },
 ]
 
 const props = defineProps<{ context: CreateAccountPlatformContext }>()

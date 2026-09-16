@@ -65,6 +65,8 @@ type AccountHandler struct {
 	grokImportProber        grokImportProber
 	upstreamBillingProbe    *service.UpstreamBillingProbeService
 	ollamaCloudUsage        *service.OllamaCloudUsageService
+	cnProviderQuota         *service.CNProviderQuotaService
+	cnProviderBalance       *service.CNProviderBalanceService
 }
 
 // SetUpstreamBillingProbeService attaches the optional remote billing probe service.
@@ -74,6 +76,47 @@ func (h *AccountHandler) SetUpstreamBillingProbeService(probe *service.UpstreamB
 
 func (h *AccountHandler) SetOllamaCloudUsageService(usage *service.OllamaCloudUsageService) {
 	h.ollamaCloudUsage = usage
+}
+
+func (h *AccountHandler) SetCNProviderServices(quota *service.CNProviderQuotaService, balance *service.CNProviderBalanceService) {
+	h.cnProviderQuota = quota
+	h.cnProviderBalance = balance
+}
+
+func (h *AccountHandler) QueryCNProviderQuota(c *gin.Context) {
+	accountID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid account ID")
+		return
+	}
+	if h.cnProviderQuota == nil {
+		response.InternalError(c, "CN provider quota service is not configured")
+		return
+	}
+	result, err := h.cnProviderQuota.QueryUsage(c.Request.Context(), accountID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+func (h *AccountHandler) QueryCNProviderBalance(c *gin.Context) {
+	accountID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid account ID")
+		return
+	}
+	if h.cnProviderBalance == nil {
+		response.InternalError(c, "CN provider balance service is not configured")
+		return
+	}
+	result, err := h.cnProviderBalance.QueryBalance(c.Request.Context(), accountID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
 }
 
 // NewAccountHandler creates a new admin account handler

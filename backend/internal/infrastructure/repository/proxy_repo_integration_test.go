@@ -45,6 +45,7 @@ func (s *ProxyRepoSuite) TestCreate() {
 	err := s.repo.Create(s.ctx, proxy)
 	s.Require().NoError(err, "Create")
 	s.Require().NotZero(proxy.ID, "expected ID to be set")
+	s.Require().Equal(service.ProxyHealthUnknown, proxy.HealthStatus)
 
 	got, err := s.repo.GetByID(s.ctx, proxy.ID)
 	s.Require().NoError(err, "GetByID")

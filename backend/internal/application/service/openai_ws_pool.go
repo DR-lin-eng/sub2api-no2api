@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"math"
@@ -93,6 +94,7 @@ type openAIWSHandshakeCompatibilityKey struct {
 	version        string
 	betaFeatures   string
 	fingerprintKey string
+	turnStateHash  [sha256.Size]byte
 	tlsProfileKey  string
 	egressRouteKey string
 }
@@ -2421,7 +2423,16 @@ func normalizeOpenAIWSHandshakeCompatibility(headers http.Header) openAIWSHandsh
 		version:        headers.Get("version"),
 		betaFeatures:   normalizeOpenAIWSBetaFeatures(headers),
 		fingerprintKey: headers.Get(codexFingerprintWSKeyHeader),
+		turnStateHash:  openAIWSTurnStateCompatibilityHash(headers),
 	}
+}
+
+func openAIWSTurnStateCompatibilityHash(headers http.Header) [sha256.Size]byte {
+	state := strings.TrimSpace(headers.Get(openAIWSTurnStateHeader))
+	if state == "" {
+		return [sha256.Size]byte{}
+	}
+	return sha256.Sum256([]byte(state))
 }
 
 func normalizeOpenAIWSRoutingAffinity(headers http.Header) string {

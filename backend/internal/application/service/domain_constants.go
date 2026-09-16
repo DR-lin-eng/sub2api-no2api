@@ -47,12 +47,22 @@ const (
 	PlatformZhipu       = domain.PlatformZhipu
 	PlatformDeepseek    = domain.PlatformDeepseek
 	PlatformMiniMax     = domain.PlatformMiniMax
+	PlatformOpenCodeGo  = domain.PlatformOpenCodeGo
 	PlatformComposite   = domain.PlatformComposite
 )
 
 const (
 	AccountModePayG   = domain.AccountModePayG
 	AccountModeCoding = domain.AccountModeCoding
+	AccountModeZen    = domain.AccountModeZen
+	AccountModeGo     = domain.AccountModeGo
+)
+
+const (
+	APIProtocolChatCompletions = "chat_completions"
+	APIProtocolAnthropic       = "anthropic"
+	APIProtocolResponses       = "responses"
+	APIProtocolAdaptive        = "adaptive"
 )
 
 const (
@@ -62,6 +72,16 @@ const (
 	DefaultZhipuCodingBaseURL = "https://open.bigmodel.cn/api/coding/paas/v4"
 	DefaultDeepseekBaseURL    = "https://api.deepseek.com"
 	DefaultMiniMaxBaseURL     = "https://api.minimaxi.com/v1"
+	DefaultOpenCodeGoBaseURL  = "https://opencode.ai/zen/go/v1"
+	DefaultOpenCodeZenBaseURL = "https://opencode.ai/zen/v1"
+
+	DefaultKimiPayGAnthropicBaseURL    = "https://api.moonshot.cn/anthropic"
+	DefaultKimiCodingAnthropicBaseURL  = "https://api.kimi.com/coding"
+	DefaultZhipuAnthropicBaseURL       = "https://open.bigmodel.cn/api/anthropic"
+	DefaultDeepseekAnthropicBaseURL    = "https://api.deepseek.com/anthropic"
+	DefaultMiniMaxAnthropicBaseURL     = "https://api.minimaxi.com/anthropic"
+	DefaultOpenCodeGoAnthropicBaseURL  = "https://opencode.ai/zen/go"
+	DefaultOpenCodeZenAnthropicBaseURL = "https://opencode.ai/zen"
 )
 
 func IsCNProvider(platform string) bool {
@@ -71,6 +91,14 @@ func IsCNProvider(platform string) bool {
 	default:
 		return false
 	}
+}
+
+func IsOpenCodeGo(platform string) bool {
+	return platform == PlatformOpenCodeGo
+}
+
+func IsMultiProtocolAPIKeyProvider(platform string) bool {
+	return IsCNProvider(platform) || IsOpenCodeGo(platform)
 }
 
 // AllowedQuotaPlatforms 是允许设置 user × platform quota 的平台列表（单一权威来源）。
@@ -86,6 +114,7 @@ var AllowedQuotaPlatforms = []string{
 	PlatformZhipu,
 	PlatformDeepseek,
 	PlatformMiniMax,
+	PlatformOpenCodeGo,
 }
 
 // IsAllowedQuotaPlatform 报告 s 是否为合法的 quota platform 标识。
@@ -500,6 +529,11 @@ const (
 	// SettingKeyUpstreamBillingProbeSettings stores the global enable switch and interval
 	// for probing remote Sub2API API-key billing metadata.
 	SettingKeyUpstreamBillingProbeSettings = "upstream_billing_probe_settings"
+
+	// SettingKeyProxyAutoAssignmentSettings stores the opt-in proxy-pool policy.
+	SettingKeyProxyAutoAssignmentSettings = "proxy_auto_assignment_settings"
+	// SettingKeyProxyAutoAssignmentCursor serializes round-robin reservations across instances.
+	SettingKeyProxyAutoAssignmentCursor = "proxy_auto_assignment_cursor"
 
 	// Account inspection settings and latest persisted run snapshot.
 	SettingKeyAccountInspectionSettings = "account_inspection_settings"

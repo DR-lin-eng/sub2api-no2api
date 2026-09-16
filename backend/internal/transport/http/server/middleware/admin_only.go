@@ -25,3 +25,25 @@ func AdminOnly() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// AdminSessionOnly requires a full administrator authenticated through a human
+// JWT session. It is used for trust-establishing operations that must reject
+// Admin API keys even when the optional step-up feature is disabled.
+func AdminSessionOnly() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role, ok := GetUserRoleFromContext(c)
+		if !ok {
+			AbortWithError(c, 401, "UNAUTHORIZED", "User not found in context")
+			return
+		}
+		if role != service.RoleAdmin {
+			AbortWithError(c, 403, "FORBIDDEN", "Admin access required")
+			return
+		}
+		if c.GetString("auth_method") == service.AuditAuthMethodAdminAPIKey {
+			AbortWithError(c, 403, "ADMIN_SESSION_REQUIRED", "A full administrator session is required")
+			return
+		}
+		c.Next()
+	}
+}

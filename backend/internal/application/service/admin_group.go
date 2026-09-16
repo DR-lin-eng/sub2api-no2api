@@ -336,9 +336,11 @@ func defaultModelsListCandidateIDs(platform string) []string {
 	case PlatformZhipu:
 		return []string{"glm-5.3", "glm-5.2", "glm-4.7"}
 	case PlatformDeepseek:
-		return []string{"deepseek-chat", "deepseek-reasoner", "deepseek-v4-pro", "deepseek-v4-flash"}
+		return []string{"deepseek-v4-pro", "deepseek-v4-flash", "deepseek-flash"}
 	case PlatformMiniMax:
 		return []string{"MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.5"}
+	case PlatformOpenCodeGo:
+		return DefaultOpenCodeGoModelIDs()
 	case PlatformComposite:
 		return compositeDefaultModelsListCandidateIDs()
 	default:
@@ -361,7 +363,7 @@ func compositeDefaultModelsListCandidateIDs() []string {
 	ids := make([]string, 0)
 	for _, platform := range []string{
 		PlatformAnthropic, PlatformGemini, PlatformOpenAI, PlatformAntigravity, PlatformGrok,
-		PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax,
+		PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo,
 	} {
 		for _, id := range defaultModelsListCandidateIDs(platform) {
 			if _, ok := seen[id]; ok {

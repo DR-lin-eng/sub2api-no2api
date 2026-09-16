@@ -5,7 +5,7 @@ import EmptyState from '@/common/widgets/feedback/EmptyState.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
 import { formatDateTime } from '@/core/utils/format'
 import type { ProxyTableContext } from '../proxyPageContext'
-import { proxyStatusLabel } from '../proxyLocale'
+import { proxyHealthStatusLabel, proxyStatusLabel } from '../proxyLocale'
 
 const props = defineProps<{
   context: ProxyTableContext
@@ -42,6 +42,13 @@ const {
   toggleSelectRow,
   visiblePasswordIds
 } = props.context
+
+const healthStatusClass = (status?: string) => {
+  if (status === 'healthy') return 'badge-success'
+  if (status === 'degraded') return 'badge-warning'
+  if (status === 'unhealthy') return 'badge-danger'
+  return 'badge-gray'
+}
 </script>
 
 <template>
@@ -194,6 +201,18 @@ const {
           <span>{{ t('admin.proxies.qualityInline', { grade: row.quality_grade || '-', score: row.quality_score ?? '-' }) }}</span>
           <span class="badge" :class="qualityOverallClass(row.quality_status)">
             {{ qualityOverallLabel(row.quality_status) }}
+          </span>
+        </div>
+        <div
+          v-if="row.last_health_check_at"
+          class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400"
+          :title="row.last_health_error || formatDateTime(row.last_health_check_at)"
+        >
+          <span class="badge" :class="healthStatusClass(row.health_status)">
+            {{ proxyHealthStatusLabel(t, row.health_status) }}
+          </span>
+          <span v-if="row.health_consecutive_failures > 0">
+            {{ t('admin.proxies.autoAssignment.failureCount', { count: row.health_consecutive_failures }) }}
           </span>
         </div>
       </div>

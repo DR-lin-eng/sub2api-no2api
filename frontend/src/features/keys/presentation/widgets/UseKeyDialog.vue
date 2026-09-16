@@ -257,6 +257,7 @@ const defaultClientTab = computed(() => {
       case 'zhipu':
       case 'deepseek':
       case 'minimax':
+      case 'opencode_go':
         return 'codex'
     case 'gemini':
       return 'gemini'
@@ -383,6 +384,7 @@ const clientTabs = computed((): TabConfig[] => {
       case 'zhipu':
       case 'deepseek':
       case 'minimax':
+      case 'opencode_go':
         return [
           { id: 'claude', label: t('keys.useKeyModal.cliTabs.claudeCode'), icon: TerminalIcon },
           { id: 'codex', label: t('keys.useKeyModal.cliTabs.codexCli'), icon: TerminalIcon },
@@ -588,6 +590,7 @@ const currentFiles = computed((): FileConfig[] => {
       case 'zhipu':
       case 'deepseek':
       case 'minimax':
+      case 'opencode_go':
         return activeClientTab.value === 'claude'
           ? generateAnthropicFiles(baseUrl, apiKey)
           : generateOpenAIFiles(baseUrl, apiKey)

@@ -556,6 +556,10 @@ func TestFrontendServer_Middleware(t *testing.T) {
 			"/backend-api/codex/responses/compact",
 			"/antigravity/test",
 			"/setup/init",
+			"/.well-known/oauth-authorization-server",
+			"/oauth/token",
+			"/oauth/userinfo",
+			"/oauth/revoke",
 			"/health",
 			"/ready",
 			"/responses",
@@ -797,7 +801,7 @@ func TestServeEmbeddedFrontend(t *testing.T) {
 		router := gin.New()
 		router.Use(middleware)
 
-		spaPaths := []string{"/dashboard", "/users/123", "/settings"}
+		spaPaths := []string{"/dashboard", "/users/123", "/settings", "/oauth/authorize"}
 
 		for _, path := range spaPaths {
 			t.Run(path, func(t *testing.T) {
@@ -823,6 +827,10 @@ func TestServeEmbeddedFrontend(t *testing.T) {
 			"/backend-api/codex/responses/compact",
 			"/antigravity/test",
 			"/setup/init",
+			"/.well-known/oauth-authorization-server",
+			"/oauth/token",
+			"/oauth/userinfo",
+			"/oauth/revoke",
 			"/health",
 			"/responses",
 			"/responses/compact",

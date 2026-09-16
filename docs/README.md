@@ -28,6 +28,7 @@
 | --- | --- |
 | [权限组与客服账号教程](PERMISSION_GROUPS.md) | 启用客服、自定义权限组、分配员工账号、验收和回退 |
 | [Admin API](ADMIN_API.md) | Admin API Key、权限范围和管理接口调用方式 |
+| [OAuth2 对外授权服务](OAUTH2_PROVIDER.md) | 管理员控制的客户端、PKCE 授权码、用户信息与撤销接口 |
 | [降智账号 API](ACCOUNT_QUALITY_DEGRADED_ACCOUNTS_API.md) | 读取降智 OAuth 账号邮箱、account ID 及 401 认证错误 |
 | [Cloudflare 接口分类与边缘规则建议](CLOUDFLARE_EDGE_RULES.md) | 按浏览器页、自动化 API、纯 API 和强人机验证入口分类，方便编写 CF/WAF 规则 |
 | [管理端支付集成 API](ADMIN_PAYMENT_INTEGRATION_API.md) | 外部支付页面与余额/兑换集成 |
@@ -59,6 +60,7 @@
 | [上游同步审查记录（2026-09-09）](UPSTREAM_SYNC_20260909.md) | 新增主线 PR 的选择性移植、代理/Redis/协议性能边界、Docker 与回退验证 |
 | [上游同步审查记录（2026-09-13）](UPSTREAM_SYNC_20260913.md) | 上游 main 至 `bdb42e22` 的选择性同步、WS/Gemini/认证性能与平滑升级边界、Docker 和 CI 跟踪 |
 | [上游同步审查记录（2026-09-15）](UPSTREAM_SYNC_20260915.md) | 上游 main 至 `badfad8b` 的增量修复、国产渠道补齐、性能边界、Docker 与 CI 跟踪 |
+| [上游渠道适配同步审查记录（2026-09-16）](UPSTREAM_SYNC_20260916.md) | 上游 main 至 `881f3202` 的渠道功能核对、多协议/OpenCode 补齐、Docker 运行态与浏览器验收 |
 | [GPT-6 Astra 接入记录](GPT6_ASTRA.md) | OpenAI 官方模型目录、能力、价格和本项目兼容计费映射 |
 | [OpenAI 请求计时](OPENAI_TIMING.md) | 上游 timing 采集、用户明细投影与管理员本地/上游对比 |
 

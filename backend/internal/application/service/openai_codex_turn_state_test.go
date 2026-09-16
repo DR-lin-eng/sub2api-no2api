@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/platform/config"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
@@ -109,6 +110,79 @@ func TestGuardOpenAICodexTurnStateEcho(t *testing.T) {
 	require.Equal(t, "state-a", expired.Get(openAICodexTurnStateHeader))
 	_, exists := svc.openaiCodexTurnStateOrigins.Load("11\x00session-expired")
 	require.False(t, exists)
+}
+
+func TestConfiguredCodexTurnStateReplayUsesRandomEligiblePool(t *testing.T) {
+	repo := newCodexSimulationSettingRepo()
+	settingService := NewSettingService(repo, nil)
+	_, err := settingService.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{
+		TurnStateReplayEnabled: true,
+		TurnStates:             []string{"global-state", "account-state", "other-state"},
+		TurnStateAccountIDs: map[string][]int64{
+			"account-state": {42},
+			"other-state":   {99},
+		},
+		ContinuationMode: "off",
+		StateTTLSeconds:  60,
+	})
+	require.NoError(t, err)
+	svc := &OpenAIGatewayService{settingService: settingService}
+	c, _ := newOpenAICodexTurnStateTestContext(t, 7, "random-replay")
+	account := &Account{ID: 42, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+
+	seen := map[string]bool{}
+	for range 200 {
+		headers := http.Header{}
+		svc.applyConfiguredCodexTurnStateReplay(c, account, headers)
+		state := headers.Get(openAICodexTurnStateHeader)
+		require.Contains(t, []string{"global-state", "account-state"}, state)
+		require.NotEqual(t, "other-state", state)
+		seen[state] = true
+	}
+	require.True(t, seen["global-state"])
+	require.True(t, seen["account-state"])
+}
+
+func TestConfiguredCodexTurnStateReplayOverridesInboundState(t *testing.T) {
+	repo := newCodexSimulationSettingRepo()
+	settingService := NewSettingService(repo, nil)
+	_, err := settingService.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{
+		TurnStateReplayEnabled: true,
+		TurnStates:             []string{"admin-state"},
+		ContinuationMode:       "off",
+		StateTTLSeconds:        60,
+	})
+	require.NoError(t, err)
+	svc := &OpenAIGatewayService{settingService: settingService}
+	c, _ := newOpenAICodexTurnStateTestContext(t, 7, "override-replay")
+	headers := http.Header{openAICodexTurnStateHeader: []string{"client-state"}}
+
+	svc.applyConfiguredCodexTurnStateReplay(c, &Account{ID: 42, Platform: PlatformOpenAI, Type: AccountTypeOAuth}, headers)
+
+	require.Equal(t, "admin-state", headers.Get(openAICodexTurnStateHeader))
+}
+
+func TestBuildOpenAIResponsesRequestReplaysConfiguredTurnState(t *testing.T) {
+	repo := newCodexSimulationSettingRepo()
+	settings := NewSettingService(repo, &config.Config{})
+	_, err := settings.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{
+		TurnStateReplayEnabled: true,
+		TurnStates:             []string{"configured-state", "other-account-state"},
+		TurnStateAccountIDs:    map[string][]int64{"other-account-state": {99}},
+		ContinuationMode:       "off",
+		StateTTLSeconds:        60,
+	})
+	require.NoError(t, err)
+	svc := &OpenAIGatewayService{cfg: &config.Config{}, settingService: settings}
+	c, _ := newOpenAICodexTurnStateTestContext(t, 7, "request-replay")
+	c.Request.Header.Set(openAICodexTurnStateHeader, "client-state")
+	account := &Account{ID: 42, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+
+	request, err := svc.buildUpstreamRequest(context.Background(), c, account,
+		[]byte(`{"model":"gpt-5.5","input":"hi"}`), "token", false, "", true)
+
+	require.NoError(t, err)
+	require.Equal(t, "configured-state", request.Header.Get(openAICodexTurnStateHeader))
 }
 
 func TestWriteOpenAIPassthroughResponseHeadersRelaysAndClearsTurnState(t *testing.T) {

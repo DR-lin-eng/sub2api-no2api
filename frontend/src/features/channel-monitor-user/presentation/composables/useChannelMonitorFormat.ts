@@ -28,6 +28,7 @@ import {
     PROVIDER_ZHIPU,
     PROVIDER_DEEPSEEK,
     PROVIDER_MINIMAX,
+    PROVIDER_OPENCODE_GO,
   STATUS_OPERATIONAL,
   STATUS_DEGRADED,
   STATUS_FAILED,
@@ -100,6 +101,8 @@ export function useChannelMonitorFormat() {
           return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300'
         case PROVIDER_MINIMAX:
           return 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300'
+        case PROVIDER_OPENCODE_GO:
+          return 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'
       default:
         return NEUTRAL_BADGE
     }
@@ -136,6 +139,8 @@ export function useChannelMonitorFormat() {
           return active ? 'border-cyan-500 bg-cyan-50 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300' : 'border-gray-200 bg-white text-gray-600 hover:border-cyan-300 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-400'
         case PROVIDER_MINIMAX:
           return active ? 'border-rose-500 bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300' : 'border-gray-200 bg-white text-gray-600 hover:border-rose-300 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-400'
+        case PROVIDER_OPENCODE_GO:
+          return active ? 'border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300' : 'border-gray-200 bg-white text-gray-600 hover:border-amber-300 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-400'
       default:
         return active
           ? 'border-gray-400 bg-gray-50 text-gray-700 dark:border-dark-500 dark:bg-dark-700 dark:text-gray-200'
@@ -234,6 +239,8 @@ export function providerGradient(provider: string): string {
         return 'bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-cyan-500/10 dark:to-cyan-500/20'
       case PROVIDER_MINIMAX:
         return 'bg-gradient-to-br from-rose-50 to-rose-100 dark:from-rose-500/10 dark:to-rose-500/20'
+      case PROVIDER_OPENCODE_GO:
+        return 'bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-500/10 dark:to-amber-500/20'
     default:
       return 'bg-gradient-to-br from-gray-100 to-gray-200 dark:from-dark-700 dark:to-dark-600'
   }

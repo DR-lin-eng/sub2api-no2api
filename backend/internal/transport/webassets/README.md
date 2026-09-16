@@ -11,3 +11,5 @@
 | `dist/` | 前端构建输出，不手工编辑 |
 
 前端输出目录由 `frontend/vite.config.ts` 指向本目录。
+
+`embed_on.go` 的 bypass 清单必须覆盖所有机器协议入口。OAuth2 discovery、token、userinfo 和 revoke 会继续进入 Gin 路由；`/oauth/authorize` 则保留为 SPA 授权页。

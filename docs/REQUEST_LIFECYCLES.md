@@ -33,18 +33,27 @@ sequenceDiagram
 
 流式事件可能在最终用量结算前已经发送给客户端；这也是结算必须可恢复、幂等且不能依赖客户端连接继续存活的原因。
 
+## OAuth2 对外授权
+
+第三方应用从 `/oauth/authorize` 发起 Authorization Code + PKCE S256 请求。前端要求用户先登录，再通过 `/api/v1/oauth2/authorize` 读取服务端校验后的客户端与 scope 预览；用户允许后，后端将 authorization code 摘要及用户、客户端、精确回调、scope、PKCE challenge 和 TokenVersion 保存到 Redis。`/oauth/token` 原子消费 code，复查客户端、回调、PKCE 和用户状态后签发不透明 access token。`/oauth/userinfo` 每次调用都重查全局开关、客户端启用状态、当前 scope 和用户 TokenVersion，因此管理员收回授权后无需等待 token TTL。完整协议和管理端入口见 [OAuth2 对外授权服务](OAUTH2_PROVIDER.md)。
+
+OAuth2 token 的认证域与站内 JWT、Admin API Key、模型网关 API Key 相互独立，不进入网关调度或计费链路。
+
 ### 账号级质量监控与降智分组切换
 
 管理员在独立的 `/admin/account-quality` 保存质量策略并启用质量巡检，可指定 `source_group_id` 作为检测源；后台只筛选状态启用且已启用调度（`schedulable=true`）的 OpenAI/Gemini OAuth 账号，API Key、service account 和关闭调度的账号不会进入检测队列；后台复用账号测试的真实上游传输路径，按
-`interval_minutes` 对账号执行两个可独立开关的阶段：`stage1_enabled` 开启糖果形状/口味保证题（默认 `stage1_answer=21`），`stage2_enabled` 开启 SVG 鹈鹕骑自行车画图题并进行代码匹配和预览渲染。管理员可编辑 `stage1_prompt`、`stage1_answer` 和 `stage2_prompt`。只运行启用的阶段；全开时先文字题再画图。答案必须匹配配置答案且代码匹配规则通过才算通过。答错、代码匹配未通过或第一阶段 reasoning token 低于阈值显示为 `degraded`；`failure_threshold` 决定连续失败几轮后自动切组，恢复遵循 `recovery_threshold`。请求或分类错误不递增失败计数。选择检测源分组后只探测该分组账号；已经切入降智分组且仍启用调度的账号会继续探测以支持恢复。未配置检测源时扫描全部符合上述条件的账号。账号健康巡检在 `/admin/account-inspection` 使用独立设置、状态和调度器，两个入口互不触发。
+`interval_minutes` 对账号执行两个可独立开关的阶段：`stage1_enabled` 开启糖果形状/口味保证题（默认 `stage1_answer=21`），`stage2_enabled` 开启 SVG 鹈鹕骑自行车画图题并进行代码匹配和预览渲染。管理员可编辑 `stage1_prompt`、`stage1_answer` 和 `stage2_prompt`。只运行启用的阶段；全开时先文字题再画图。答案必须匹配配置答案且代码匹配规则通过才算通过。答错、代码匹配未通过或第一阶段 reasoning token 低于阈值显示为 `degraded`；`failure_threshold` 决定连续失败几轮后自动切组，恢复遵循 `recovery_threshold`。请求或分类错误不递增失败计数。选择检测源分组后探测范围为源分组和配置的降智分组；由旧配置迁出的账号也会继续探测，以支持恢复。未配置检测源时扫描全部符合上述条件的账号。账号健康巡检在 `/admin/account-inspection` 使用独立设置、状态和调度器，两个入口互不触发。
 
 配置 `degraded_group_id` 后，首次进入降智状态会先把原 `account_groups` 列表写入账号
 `extra.account_quality_original_group_ids`，再通过现有 `BindGroups` 事务绑定目标分组并写 scheduler
 outbox。目标分组必须存在、启用且与账号平台一致；切换失败不会静默修改原分组。连续通过达到
-`recovery_threshold` 时，仅当账号仍停留在记录的降智分组，系统才恢复原分组；管理员在此期间手动
-改组则保留手动结果。未配置目标分组时质量状态仍可观测，但不改变调度资格。
+`recovery_threshold` 时，仅当账号仍停留在记录的降智分组，系统才恢复原分组；降智分组中没有历史
+迁移标记的账号仅在当前绑定恰好等于该降智分组时回到配置的源分组。管理员在此期间手动改到其他
+分组或增加绑定时保留手动结果。未配置目标分组时质量状态仍可观测，但不改变调度资格。
 
 质量监控默认并发 4 个探测，管理员可在质量策略中设置 1–200 的 `max_concurrent`（上限 200）。若检测间隔短于上一轮耗时，新的定时/手动轮次进入单槽待开始队列并合并重复请求，当前轮次不取消；上一轮完成后立即启动排队轮次。第一阶段使用 `timeout_seconds`（默认 120 秒，可由管理员设置为 30–300 秒）；第二阶段的该值只限制“尚未收到任何流式内容”的等待时间。OpenAI 画图探测使用 Responses 流式请求，收到首个内容/图片事件后不再触发这项短超时，继续等待上游完成；整个质量运行仍受外层运行预算约束。传输、鉴权或无输出超时错误显示为本次 `error`，但不递增质量失败计数，也不触发降智分组切换。第一阶段从上游实际 usage 提取 reasoning token：OpenAI Responses 的 `response.usage.output_tokens_details.reasoning_tokens`、Chat Completions 的 `usage.completion_tokens_details.reasoning_tokens`，Gemini 的 `usageMetadata.thoughtsTokenCount`。缺失用量显示未知；启用阈值时该次结果为待确认，不按 0 判降智。`min_reasoning_tokens` 默认 0（仅展示），管理员可设置 0–1000000；严格小于阈值判为降智，等于阈值通过。摘要提供 0–49、50–99、100–249、250–499、500–999、1000+ 六个区间、均值、已测和未知数量；汇总在分页和截断前完成。状态、连续计数和最近 24 次阶段摘要存入 `accounts.extra`，探测不写入用量日志；公开页仅展示下文列出的最终回答，不展示推理正文。
+
+OpenAI OAuth 质量探测会读取上游响应头 `X-Codex-Turn-State`。只有质量阶段判定为 `passed` 的值才写入管理员质量运行结果；降智、待确认和请求错误产生的值不会进入可同步集合，公开质量看板也不返回这些值。质量策略的 `inject_turn_state` 是独立对照开关：开启后，每个 OpenAI 探测阶段从“Codex OAuth A/B/C 模拟”的当前账号可用池随机选择一个 state 注入，同时在管理员结果表分别显示本次注入值和响应采集值；Gemini 探测不注入该头。
 
 画图阶段的质量判定改为后端 Go 代码匹配：`modules/qualityrender` 按提供的 `model_a_fingerprint.py` 规则，对完整 HTML/SVG 计算 9 项加权特征（总分 100，默认阈值 55），记录命中特征、缺失特征和规则版本。分数表示代码结构相似度，不是概率；管理员可设置阈值，也可选择命中 Model A 或未命中 Model A 为正常。旧 `min_confidence` 字段继续返回以兼容已有配置，但不再参与代码匹配判定；已有非空 `ACCOUNT_QUALITY_RENDERER_URL` 仍只用于生成预览。
 
@@ -236,14 +245,17 @@ Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换
 
 ### Codex OAuth A/B/C 模拟
 
-管理员面板的“网关服务 -> Codex OAuth A/B 模拟”通过
+管理员面板的“网关服务 -> Codex OAuth A/B/C 模拟”通过
 `GET/PUT /api/v1/admin/settings/codex-simulation` 管理数据库运行时设置；紧急回滚使用无请求体的
-`POST /api/v1/admin/settings/codex-simulation/restore-original`。该入口不依赖当前表单 TTL，也不要求旧数据库
+`POST /api/v1/admin/settings/codex-simulation/restore-original`。质量巡检完成后可调用
+`POST /api/v1/admin/settings/codex-simulation/sync-turn-states`，把最近一次**成功完成**的巡检中健康账号的已通过阶段 state 同步到池中；正在运行或失败的巡检不允许同步部分结果。手工录入的 state 保持全账号可用，同步值保留采集账号绑定。同一账号有多个可用 state 时，每个 HTTP 请求独立随机选择一个；原生 WS 只能在新连接的握手头中随机选择，不能在复用连接的后续帧中更改握手头。该选择只作用于 OpenAI OAuth 账号，热路径读取内存快照，不查询数据库，也不记录 state 正文到日志。
+
+紧急回滚入口不依赖当前表单 TTL，也不要求旧数据库
 记录可以被解析，会直接写入 A=false、B=off、C=false。数据库记录存在时明确覆盖
 `gateway.codex_simulation`；记录缺失时才使用 YAML/环境变量作为兼容默认值。当前节点保存后立即生效，
 其他节点最多在 5 秒后台刷新周期后生效；OAuth 请求只读内存快照，不承担数据库刷新。首次启用 A 或 B 时
 服务端自动生成并保存身份密钥，接口只返回
-密钥是否已配置。A/B/C 默认关闭；A/C 不改变账号调度，B enforce 只在已知 incremental owner 时
+密钥是否已配置。A/B/C 与 Turn State 重放默认关闭；强制恢复会关闭重放但保留已保存池，便于之后显式重新启用。A/C 不改变账号调度，B enforce 只在已知 incremental owner 时
 给现有调度器增加 owner principal/本地账号候选约束，不改变匹配候选之间的排序、计费或通用 failover。A 的
 `full_simulation_enabled` 只作用于 `codex_fingerprint_mode=full` 的 OpenAI OAuth 账号；B 的
 `continuation_mode=off|shadow|enforce` 独立于账号指纹模式。C 的

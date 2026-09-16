@@ -1,0 +1,62 @@
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      PGDATA: /var/lib/postgresql/data
+      POSTGRES_DB: channel_sync
+      POSTGRES_USER: channel_sync
+      POSTGRES_PASSWORD: channel_sync_fixture_only
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U channel_sync -d channel_sync && psql -U channel_sync -d channel_sync -Atqc "SELECT 1" >/dev/null']
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  redis:
+    image: redis:8-alpine
+    command: [redis-server, --save, '', --appendonly, 'no']
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  app:
+    image: sub2api-channel-sync-20260916:candidate
+    ports:
+      - 127.0.0.1:18080:8080
+    environment:
+      AUTO_SETUP: 'true'
+      SERVER_MODE: release
+      DATABASE_HOST: db
+      DATABASE_PORT: '5432'
+      DATABASE_USER: channel_sync
+      DATABASE_PASSWORD: channel_sync_fixture_only
+      DATABASE_DBNAME: channel_sync
+      DATABASE_SSLMODE: disable
+      REDIS_HOST: redis
+      REDIS_PORT: '6379'
+      ADMIN_EMAIL: channel-sync-admin@example.test
+      ADMIN_PASSWORD: ChannelSyncFixture-20260916!
+      JWT_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      TOTP_ENCRYPTION_KEY: abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789
+      OAUTH_MODEL_SYNC_ENABLED: 'false'
+      TZ: UTC
+    volumes:
+      - app:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, -T, '5', -O, /dev/null, http://localhost:8080/ready]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+
+volumes:
+  db: {}
+  app: {}

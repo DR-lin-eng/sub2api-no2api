@@ -49,6 +49,7 @@
               </p>
             </div>
             <div class="flex shrink-0 items-center gap-1 text-xs sm:gap-2">
+              <SupportBrowserNotificationButton />
               <button
                 v-if="selectedConversationID"
                 type="button"
@@ -164,6 +165,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import ConfirmDialog from '@/common/widgets/feedback/ConfirmDialog.vue'
 import { useAppStore } from '@/core/stores/appStore'
@@ -202,12 +204,15 @@ import {
 } from '@/features/support-chat/presentation/composables/supportChatHistory'
 import { useSupportChatAdminStore } from '@/features/support-chat/presentation/stores/supportChatAdminStore'
 import AdminConversationList from '@/features/support-chat/presentation/widgets/AdminConversationList.vue'
+import SupportBrowserNotificationButton from '@/features/support-chat/presentation/widgets/SupportBrowserNotificationButton.vue'
 import SupportMessageComposer from '@/features/support-chat/presentation/widgets/SupportMessageComposer.vue'
 import SupportMessageList from '@/features/support-chat/presentation/widgets/SupportMessageList.vue'
 import SupportUserProfileDialog from '@/features/support-chat/presentation/widgets/SupportUserProfileDialog.vue'
 import type { BasicUser } from '@/features/admin-users/data/datasources/adminUsersDatasource'
 
 const { t } = useI18n()
+const route = useRoute()
+const router = useRouter()
 const appStore = useAppStore()
 const authStore = useAuthStore()
 const supportChatAdminStore = useSupportChatAdminStore()
@@ -247,6 +252,13 @@ const SUPPORT_CHAT_CONNECTED_RESYNC_MS = 60000
 let lastResyncAt = 0
 const LEGACY_QUICK_REPLY_KEY = 'support_chat_custom_replies_v1'
 const LEGACY_QUICK_REPLY_MIGRATED_KEY = 'support_chat_quick_replies_migrated_v2'
+
+function requestedConversationID(value: unknown): number | null {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (typeof raw !== 'string' || !/^\d+$/.test(raw)) return null
+  const parsed = Number(raw)
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
+}
 
 const selectedConversation = computed(() => {
   if (!selectedConversationID.value) return null
@@ -388,7 +400,10 @@ async function loadConversations() {
   }
 }
 
-async function selectConversation(conversationID: number) {
+async function selectConversation(conversationID: number, syncRoute = true) {
+  if (syncRoute && route.query.conversation !== String(conversationID)) {
+    void router.replace({ query: { ...route.query, conversation: String(conversationID) } })
+  }
   if (selectedConversationID.value === conversationID) return
   selectedConversationID.value = conversationID
   selectedConversationSnapshot.value = conversations.value.find((item) => item.id === conversationID) ?? null
@@ -409,6 +424,11 @@ function backToConversationList() {
   messagePage.value = 1
   messagePages.value = 1
   replyingTo.value = null
+  if ('conversation' in route.query) {
+    const query = { ...route.query }
+    delete query.conversation
+    void router.replace({ query })
+  }
 }
 
 async function openUserProfile(conversation: ChatConversation) {
@@ -748,8 +768,22 @@ watch(messageScrollSignature, () => {
   if (stickMessagesToBottom.value) void scrollToBottom()
 }, { flush: 'post' })
 
+watch(
+  () => route.query.conversation,
+  (value) => {
+    const conversationID = requestedConversationID(value)
+    if (conversationID) {
+      if (conversationID !== selectedConversationID.value) void selectConversation(conversationID, false)
+      return
+    }
+    if (selectedConversationID.value) backToConversationList()
+  },
+)
+
 onMounted(async () => {
   await Promise.all([loadConversations(), loadSupportTools()])
+  const conversationID = requestedConversationID(route.query.conversation)
+  if (conversationID) await selectConversation(conversationID, false)
   socket.connect()
   fallbackPollTimer = setInterval(() => {
     void resyncMessages()

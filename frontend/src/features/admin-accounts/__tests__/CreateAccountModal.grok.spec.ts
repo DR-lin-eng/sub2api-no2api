@@ -7,7 +7,8 @@ const source = [
   'src/features/admin-accounts/presentation/widgets/create/CreateAccountPlatformFields.vue',
   'src/features/admin-accounts/presentation/widgets/create/CreateAccountCredentialFields.vue',
   'src/features/admin-accounts/presentation/composables/useCreateAccountEditorPolicy.ts',
-  'src/features/admin-accounts/presentation/composables/useCreateAccountOAuthActions.ts'
+  'src/features/admin-accounts/presentation/composables/useCreateAccountOAuthActions.ts',
+  'src/core/constants/account.ts'
 ].map((path) => readFileSync(resolve(process.cwd(), path), 'utf8')).join('\n')
 
 describe('CreateAccountModal Grok account types', () => {
@@ -15,9 +16,9 @@ describe('CreateAccountModal Grok account types', () => {
     expect(source).toContain('data-testid="grok-account-type-api-key"')
     expect(source).toContain("@click=\"accountCategory = 'apikey'\"")
     expect(source).toContain("newPlatform === 'grok'")
-    expect(source).toContain("? 'https://api.x.ai/v1'")
+    expect(source).toContain("case 'grok': return 'https://api.x.ai/v1'")
     expect(source).toContain("form.platform === 'grok'")
-    expect(source).toContain("? 'xai-...'")
+    expect(source).toContain("case 'grok': return 'xai-...'")
   })
 
   it('exposes custom upstream URL and header override for the OAuth create flow', () => {

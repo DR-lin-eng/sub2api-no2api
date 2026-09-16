@@ -892,6 +892,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	if buildHdrErr != nil {
 		return fmt.Errorf("build ws headers: %w", buildHdrErr)
 	}
+	s.applyConfiguredCodexTurnStateReplay(c, account, headers)
 	if s.CodexSimulationRequestEnabled(c) {
 		headers.Del(CodexProjectIDHeader)
 	}

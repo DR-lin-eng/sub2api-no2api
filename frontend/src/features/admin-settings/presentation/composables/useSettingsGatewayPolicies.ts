@@ -18,6 +18,7 @@ import {
 } from '@/features/admin-settings/data/datasources/adminSettingsQueries'
 import {
   forceDisableCodexSimulationSettings,
+  syncCodexTurnStates,
   updateBetaPolicySettings,
   updateCodexSimulationSettings,
   updateGlobalTempUnschedulableSettings,
@@ -84,17 +85,32 @@ export function useSettingsGatewayPolicies() {
   const codexSimulationLoading = ref(true);
   const codexSimulationLoadFailed = ref(false);
   const codexSimulationSaving = ref(false);
+  const codexSimulationSyncing = ref(false);
   const codexSimulationForm = reactive<CodexSimulationSettings>({
     full_simulation_enabled: false,
     c_level_simulation_enabled: false,
     experimental_transport_enabled: false,
     codex_prewarm_continuation_force_enabled: false,
+    turn_state_replay_enabled: false,
+    turn_states: [],
     continuation_mode: "off",
     state_ttl_seconds: 604800,
     identity_secret_configured: false,
   });
   const lastCodexSimulationSettings = ref<CodexSimulationSettings>({
     ...codexSimulationForm,
+  });
+  const codexTurnStateDraftDirty = computed(
+    () => codexSimulationForm.turn_states.join('\n') !== lastCodexSimulationSettings.value.turn_states.join('\n'),
+  );
+  const codexTurnStatesText = computed({
+    get: () => codexSimulationForm.turn_states.join('\n'),
+    set: (value: string) => {
+      codexSimulationForm.turn_states = value
+        .split(/\r?\n/)
+        .map((state) => state.trim())
+        .filter(Boolean);
+    },
   });
 
   // Stream Timeout 状态
@@ -366,14 +382,20 @@ export function useSettingsGatewayPolicies() {
     }
   }
 
-  function applyCodexSimulationSettings(settings: CodexSimulationSettings) {
-    const normalized = {
+  function normalizeCodexSimulationSettings(settings: CodexSimulationSettings): CodexSimulationSettings {
+    return {
       ...settings,
       codex_prewarm_continuation_force_enabled: settings.codex_prewarm_continuation_force_enabled === true,
       experimental_transport_enabled: settings.experimental_transport_enabled === true,
+      turn_state_replay_enabled: settings.turn_state_replay_enabled === true,
+      turn_states: Array.isArray(settings.turn_states) ? [...settings.turn_states] : [],
     };
+  }
+
+  function applyCodexSimulationSettings(settings: CodexSimulationSettings) {
+    const normalized = normalizeCodexSimulationSettings(settings);
     Object.assign(codexSimulationForm, normalized);
-    lastCodexSimulationSettings.value = { ...normalized };
+    lastCodexSimulationSettings.value = { ...normalized, turn_states: [...normalized.turn_states] };
     codexSimulationLoadFailed.value = false;
   }
 
@@ -402,6 +424,8 @@ export function useSettingsGatewayPolicies() {
       | "c_level_simulation_enabled"
       | "experimental_transport_enabled"
       | "codex_prewarm_continuation_force_enabled"
+      | "turn_state_replay_enabled"
+      | "turn_states"
       | "continuation_mode"
       | "state_ttl_seconds"
     >,
@@ -429,12 +453,36 @@ export function useSettingsGatewayPolicies() {
         c_level_simulation_enabled: Boolean(codexSimulationForm.c_level_simulation_enabled),
         experimental_transport_enabled: Boolean(codexSimulationForm.experimental_transport_enabled),
         codex_prewarm_continuation_force_enabled: Boolean(codexSimulationForm.codex_prewarm_continuation_force_enabled),
+        turn_state_replay_enabled: codexSimulationForm.turn_state_replay_enabled,
+        turn_states: [...codexSimulationForm.turn_states],
         continuation_mode: codexSimulationForm.continuation_mode,
         state_ttl_seconds: codexSimulationForm.state_ttl_seconds,
       },
       "admin.settings.codexSimulation.saved",
       "admin.settings.codexSimulation.saveFailed",
     );
+  }
+
+  async function syncCodexTurnStatesFromQuality() {
+    if (codexTurnStateDraftDirty.value) return;
+    codexSimulationSyncing.value = true;
+    try {
+      const normalized = normalizeCodexSimulationSettings(await syncCodexTurnStates());
+      lastCodexSimulationSettings.value = { ...normalized, turn_states: [...normalized.turn_states] };
+      codexSimulationForm.turn_states = [...normalized.turn_states];
+      codexSimulationForm.identity_secret_configured = normalized.identity_secret_configured;
+      codexSimulationLoadFailed.value = false;
+      appStore.showSuccess(t("admin.settings.codexSimulation.turnStateSyncSuccess"));
+    } catch (error: unknown) {
+      appStore.showError(
+        extractApiErrorMessage(
+          error,
+          t("admin.settings.codexSimulation.turnStateSyncFailed"),
+        ),
+      );
+    } finally {
+      codexSimulationSyncing.value = false;
+    }
   }
 
   async function restoreOriginalCodexBehavior() {
@@ -748,6 +796,9 @@ export function useSettingsGatewayPolicies() {
     codexSimulationLoadFailed,
     codexSimulationLoading,
     codexSimulationSaving,
+    codexSimulationSyncing,
+    codexTurnStateDraftDirty,
+    codexTurnStatesText,
     getBetaDisplayName,
     globalTempUnschedulableForm,
     globalTempUnschedulableLoading,
@@ -787,6 +838,7 @@ export function useSettingsGatewayPolicies() {
     restoreOriginalCodexBehavior,
     saveBetaPolicySettings,
     saveCodexSimulationSettings,
+    syncCodexTurnStatesFromQuality,
     saveGlobalTempUnschedulableSettings,
     saveOllamaCloudUsageSettings,
     saveOAuth401CleanupSettings,

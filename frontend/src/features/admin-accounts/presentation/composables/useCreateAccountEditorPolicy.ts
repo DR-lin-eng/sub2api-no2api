@@ -212,7 +212,7 @@ export function useCreateAccountEditorPolicy(context: CreateAccountEditorPolicyC
         form.concurrency = 1
         form.load_factor = null
         }
-        if (isCNAccountPlatform(newPlatform)) {
+        if (isCNAccountPlatform(newPlatform) || newPlatform === 'opencode_go') {
           accountCategory.value = 'apikey'
           addMethod.value = 'oauth'
           modelRestrictionMode.value = 'whitelist'

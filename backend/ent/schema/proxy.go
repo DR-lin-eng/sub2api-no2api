@@ -4,6 +4,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
 
 	"entgo.io/ent"
+	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/edge"
@@ -64,6 +65,21 @@ func (Proxy) Fields() []ent.Field {
 		field.Int("expiry_warn_days").
 			Default(7).
 			Comment("Days before expiry to flag as expiring-soon (per proxy)."),
+		field.String("health_status").
+			MaxLen(20).
+			Default("unknown").
+			Comment("Scheduled health state: unknown | healthy | degraded | unhealthy."),
+		field.Int("health_consecutive_failures").
+			Default(0).
+			NonNegative().
+			Comment("Consecutive scheduled health-check failures."),
+		field.Time("last_health_check_at").
+			Optional().Nillable().
+			Comment("Most recent scheduled health-check attempt."),
+		field.String("last_health_error").
+			Optional().Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "text"}).
+			Comment("Sanitized error from the most recent failed health check."),
 	}
 }
 
@@ -87,5 +103,7 @@ func (Proxy) Indexes() []ent.Index {
 		index.Fields("deleted_at"),
 		index.Fields("expires_at"),
 		index.Fields("backup_proxy_id"),
+		index.Fields("status", "last_health_check_at").
+			Annotations(entsql.IndexWhere("deleted_at IS NULL")),
 	}
 }

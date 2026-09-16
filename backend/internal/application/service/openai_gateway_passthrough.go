@@ -651,6 +651,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 	// Failover can reuse the downstream turn-state with a different account.
 	// Strip only values whose provenance is known to be cross-account.
 	s.guardOpenAICodexTurnStateEcho(c, account, req.Header)
+	s.applyConfiguredCodexTurnStateReplay(c, account, req.Header)
 
 	// 覆盖入站鉴权残留，并注入上游认证
 	req.Header.Del("authorization")
@@ -736,7 +737,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 
 	// 账号级请求头覆写（仅 openai api_key 账号启用时生效；OAuth 路径 no-op）
 	account.ApplyHeaderOverrides(req.Header)
-	applyOpenCodeSessionHeader(c, account, targetURL, req.Header)
+	applyOpenCodeSessionHeader(c, account, targetURL, req.Header, body)
 	applyOpenAICodexBetaFeatures(c, account, req.Header)
 	applyOpenAICodexRoutingHintFromBody(ctx, account, "http_passthrough", req.Header, outboundBody, "not_applicable")
 	applyCodexSimulationProfileHeaders(req.Header, fingerprintIDs)

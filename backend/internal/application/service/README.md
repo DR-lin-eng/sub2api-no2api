@@ -16,7 +16,9 @@
 | `payment*`, `batch_image*` | 支付应用编排与批量图片任务 |
 | `ops*`, `audit*`, `content_moderation*` | 运维、审计和内容策略 |
 | `setting*`, `notification*`, `backup*` | 配置、通知和维护用例 |
+| `proxy_auto_assignment*`, `proxy_health*` | 代理池强制均衡分配、定期测活和失活迁移 |
 | `oauth_model_sync_service.go` | OpenAI OAuth 实时模型能力快照与定时同步 |
+| `oauth2_provider.go` | 管理员控制的 OAuth2 客户端、PKCE 授权码、token 校验与 userinfo |
 | `cluster*` | 稳定节点身份、心跳清单、任务租约、就绪门禁与串行版本发布 |
 | `wire.go` | application provider 集合 |
 
@@ -37,7 +39,7 @@
 | `setting_update.go`, `setting_update_prepare.go` | 持久设置更新编排、首错顺序与跨域预处理 |
 | `setting_update_core.go`, `setting_update_identity.go`, `setting_update_product.go` | 注册访问、身份源与产品默认设置写入 |
 | `setting_update_gateway.go`, `setting_update_notifications.go` | 网关调度、通知与平台额度设置写入 |
-| `setting_codex_simulation.go` | Codex A/B/C 数据库覆盖、强制关闭、身份密钥生成与后台同步的无 DB 热路径快照 |
+| `setting_codex_simulation.go`, `setting_codex_turn_state_replay.go` | Codex A/B/C 数据库覆盖、强制关闭、Turn State 有界随机池/质量同步、身份密钥生成与后台同步的无 DB 热路径快照 |
 | `api_key_group_routing.go` | API Key 有序分组候选、倍率保护过滤和请求内实际分组切换 |
 | `openai_codex_identity_plan.go`, `openai_codex_simulation_state.go` | Codex request root、per-principal 身份计划与短状态 fallback |
 | `openai_codex_continuation.go` | Codex continuation 分类、owner 策略、跨主体 sanitizer 与成功回写 |

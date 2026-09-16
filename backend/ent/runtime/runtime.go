@@ -2043,6 +2043,18 @@ func init() {
 	proxyDescExpiryWarnDays := proxyFields[10].Descriptor()
 	// proxy.DefaultExpiryWarnDays holds the default value on creation for the expiry_warn_days field.
 	proxy.DefaultExpiryWarnDays = proxyDescExpiryWarnDays.Default.(int)
+	// proxyDescHealthStatus is the schema descriptor for health_status field.
+	proxyDescHealthStatus := proxyFields[11].Descriptor()
+	// proxy.DefaultHealthStatus holds the default value on creation for the health_status field.
+	proxy.DefaultHealthStatus = proxyDescHealthStatus.Default.(string)
+	// proxy.HealthStatusValidator is a validator for the "health_status" field. It is called by the builders before save.
+	proxy.HealthStatusValidator = proxyDescHealthStatus.Validators[0].(func(string) error)
+	// proxyDescHealthConsecutiveFailures is the schema descriptor for health_consecutive_failures field.
+	proxyDescHealthConsecutiveFailures := proxyFields[12].Descriptor()
+	// proxy.DefaultHealthConsecutiveFailures holds the default value on creation for the health_consecutive_failures field.
+	proxy.DefaultHealthConsecutiveFailures = proxyDescHealthConsecutiveFailures.Default.(int)
+	// proxy.HealthConsecutiveFailuresValidator is a validator for the "health_consecutive_failures" field. It is called by the builders before save.
+	proxy.HealthConsecutiveFailuresValidator = proxyDescHealthConsecutiveFailures.Validators[0].(func(int) error)
 	redeemcodeFields := schema.RedeemCode{}.Fields()
 	_ = redeemcodeFields
 	// redeemcodeDescCode is the schema descriptor for code field.

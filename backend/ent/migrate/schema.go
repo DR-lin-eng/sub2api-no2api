@@ -710,7 +710,7 @@ var (
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "name", Type: field.TypeString, Size: 100},
-		{Name: "provider", Type: field.TypeEnum, Enums: []string{"openai", "anthropic", "gemini", "grok", "kimi", "zhipu", "deepseek", "minimax"}},
+		{Name: "provider", Type: field.TypeEnum, Enums: []string{"openai", "anthropic", "gemini", "grok", "kimi", "zhipu", "deepseek", "minimax", "opencode_go"}},
 		{Name: "monitor_mode", Type: field.TypeEnum, Enums: []string{"active", "passive"}, Default: "active"},
 		{Name: "channel_id", Type: field.TypeInt64, Nullable: true},
 		{Name: "group_id", Type: field.TypeInt64, Nullable: true},
@@ -868,7 +868,7 @@ var (
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "name", Type: field.TypeString, Size: 100},
-		{Name: "provider", Type: field.TypeEnum, Enums: []string{"openai", "anthropic", "gemini", "grok", "kimi", "zhipu", "deepseek", "minimax"}},
+		{Name: "provider", Type: field.TypeEnum, Enums: []string{"openai", "anthropic", "gemini", "grok", "kimi", "zhipu", "deepseek", "minimax", "opencode_go"}},
 		{Name: "api_mode", Type: field.TypeString, Size: 32, Default: "chat_completions"},
 		{Name: "description", Type: field.TypeString, Nullable: true, Size: 500, Default: ""},
 		{Name: "extra_headers", Type: field.TypeJSON},
@@ -1767,6 +1767,10 @@ var (
 		{Name: "expires_at", Type: field.TypeTime, Nullable: true},
 		{Name: "fallback_mode", Type: field.TypeString, Size: 20, Default: "none"},
 		{Name: "expiry_warn_days", Type: field.TypeInt, Default: 7},
+		{Name: "health_status", Type: field.TypeString, Size: 20, Default: "unknown"},
+		{Name: "health_consecutive_failures", Type: field.TypeInt, Default: 0},
+		{Name: "last_health_check_at", Type: field.TypeTime, Nullable: true},
+		{Name: "last_health_error", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
 		{Name: "backup_proxy_id", Type: field.TypeInt64, Nullable: true},
 	}
 	// ProxiesTable holds the schema information for the "proxies" table.
@@ -1777,7 +1781,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "proxies_proxies_backup_proxy",
-				Columns:    []*schema.Column{ProxiesColumns[14]},
+				Columns:    []*schema.Column{ProxiesColumns[18]},
 				RefColumns: []*schema.Column{ProxiesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -1801,7 +1805,15 @@ var (
 			{
 				Name:    "proxy_backup_proxy_id",
 				Unique:  false,
-				Columns: []*schema.Column{ProxiesColumns[14]},
+				Columns: []*schema.Column{ProxiesColumns[18]},
+			},
+			{
+				Name:    "proxy_status_last_health_check_at",
+				Unique:  false,
+				Columns: []*schema.Column{ProxiesColumns[10], ProxiesColumns[16]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "deleted_at IS NULL",
+				},
 			},
 		},
 	}

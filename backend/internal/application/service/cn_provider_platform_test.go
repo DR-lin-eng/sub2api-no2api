@@ -15,7 +15,7 @@ func TestCNProviderPlatformsUseIndependentOpenAICompatiblePools(t *testing.T) {
 	}{
 		{PlatformKimi, DefaultKimiPayGBaseURL, "kimi-k3"},
 		{PlatformZhipu, DefaultZhipuPayGBaseURL, "glm-5.3"},
-		{PlatformDeepseek, DefaultDeepseekBaseURL, "deepseek-chat"},
+		{PlatformDeepseek, DefaultDeepseekBaseURL, "deepseek-flash"},
 		{PlatformMiniMax, DefaultMiniMaxBaseURL, "MiniMax-M3"},
 	}
 	for _, tt := range tests {

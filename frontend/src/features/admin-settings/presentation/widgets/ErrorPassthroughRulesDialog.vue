@@ -494,7 +494,8 @@ const platformOptions = [
     { value: 'kimi', label: 'Kimi' },
     { value: 'zhipu', label: 'Zhipu GLM' },
     { value: 'deepseek', label: 'DeepSeek' },
-    { value: 'minimax', label: 'MiniMax' }
+    { value: 'minimax', label: 'MiniMax' },
+    { value: 'opencode_go', label: 'OpenCode' }
 ]
 
 // Load rules when dialog opens

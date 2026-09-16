@@ -1,6 +1,7 @@
 package service
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"net/http"
 	"testing"
@@ -200,6 +201,22 @@ func TestOpenAIWSAcquireCompatibilityIncludesTLSProfile(t *testing.T) {
 
 	require.NotEmpty(t, first.tlsProfileKey)
 	require.NotEqual(t, first.tlsProfileKey, second.tlsProfileKey)
+}
+
+func TestOpenAIWSAcquireCompatibilityIncludesTurnState(t *testing.T) {
+	firstHeaders := http.Header{}
+	firstHeaders.Set(openAIWSTurnStateHeader, "state-a")
+	secondHeaders := http.Header{}
+	secondHeaders.Set(openAIWSTurnStateHeader, "state-b")
+	sameHeaders := http.Header{}
+	sameHeaders.Set("X-Codex-Turn-State", "state-a")
+	first := openAIWSAcquireCompatibility(openAIWSAcquireRequest{Headers: firstHeaders})
+	second := openAIWSAcquireCompatibility(openAIWSAcquireRequest{Headers: secondHeaders})
+	same := openAIWSAcquireCompatibility(openAIWSAcquireRequest{Headers: sameHeaders})
+
+	require.NotEqual(t, first, second)
+	require.Equal(t, first, same)
+	require.NotEqual(t, [sha256.Size]byte{}, first.turnStateHash)
 }
 
 func TestCoderOpenAIWSClientConn_DoesNotSupportIdlePingWithoutReader(t *testing.T) {

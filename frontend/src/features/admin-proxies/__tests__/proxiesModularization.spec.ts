@@ -12,6 +12,7 @@ const runtimeSources = {
   table: readFeatureSource('../presentation/widgets/ProxyTable.vue'),
   createDialog: readFeatureSource('../presentation/widgets/CreateProxyDialog.vue'),
   editDialog: readFeatureSource('../presentation/widgets/EditProxyDialog.vue'),
+  autoAssignmentDialog: readFeatureSource('../presentation/widgets/ProxyAutoAssignmentDialog.vue'),
   pageDialogs: readFeatureSource('../presentation/widgets/ProxyPageDialogs.vue'),
   context: readFeatureSource('../presentation/proxyPageContext.ts')
 }
@@ -30,6 +31,7 @@ describe('proxies page modularization', () => {
     expect(runtimeSources.page).toContain('<ProxyTable :context="proxyTableContext" />')
     expect(runtimeSources.page).toContain('<CreateProxyDialog :context="createProxyDialogContext" />')
     expect(runtimeSources.page).toContain('<EditProxyDialog :context="editProxyDialogContext" />')
+    expect(runtimeSources.page).toContain('<ProxyAutoAssignmentDialog :context="proxyAutoAssignmentDialogContext" />')
     expect(runtimeSources.page).toContain('<ProxyPageDialogs :context="proxyPageDialogsContext" />')
 
     for (const source of Object.values(runtimeSources)) {

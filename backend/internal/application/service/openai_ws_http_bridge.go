@@ -314,8 +314,9 @@ func buildOpenAIWSHTTPBridgeErrorEvent(statusCode int, message string) []byte {
 		message = "upstream request failed"
 	}
 	event := map[string]any{
-		"type":   "error",
-		"status": statusCode,
+		"type":            "error",
+		"sequence_number": 0,
+		"status":          statusCode,
 		"error": map[string]any{
 			"type":    "upstream_error",
 			"message": message,
@@ -323,7 +324,7 @@ func buildOpenAIWSHTTPBridgeErrorEvent(statusCode int, message string) []byte {
 	}
 	body, err := json.Marshal(event)
 	if err != nil {
-		return []byte(`{"type":"error","error":{"type":"upstream_error","message":"upstream request failed"}}`)
+		return []byte(`{"type":"error","sequence_number":0,"error":{"type":"upstream_error","message":"upstream request failed"}}`)
 	}
 	return body
 }

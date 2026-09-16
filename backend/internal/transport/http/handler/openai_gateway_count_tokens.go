@@ -58,6 +58,7 @@ func (h *OpenAIGatewayHandler) ResponsesInputTokens(c *gin.Context) {
 	if !compositeTargetPlatformAllowed(c, apiKey, reqModel,
 		service.PlatformOpenAI, service.PlatformGrok,
 		service.PlatformKimi, service.PlatformZhipu, service.PlatformDeepseek, service.PlatformMiniMax,
+		service.PlatformOpenCodeGo,
 	) {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by this OpenAI-compatible endpoint for composite groups")
 		return
@@ -290,6 +291,7 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 	if !compositeTargetPlatformAllowed(c, apiKey, reqModel,
 		service.PlatformOpenAI,
 		service.PlatformKimi, service.PlatformZhipu, service.PlatformDeepseek, service.PlatformMiniMax,
+		service.PlatformOpenCodeGo,
 	) {
 		h.anthropicErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by this OpenAI-compatible endpoint for composite groups")
 		return

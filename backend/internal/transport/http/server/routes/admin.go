@@ -75,6 +75,9 @@ func RegisterAdminRoutes(
 		// 系统设置
 		registerSettingsRoutes(admin, h)
 
+		// 对外 OAuth2 授权服务
+		registerOAuth2ProviderAdminRoutes(admin, h, stepUpAuth)
+
 		// 数据管理
 		registerDataManagementRoutes(admin, h, stepUpAuth)
 
@@ -143,6 +146,18 @@ func RegisterAdminRoutes(
 
 		// 媒体工坊分组配置
 		registerMediaStudioAdminRoutes(admin, h)
+	}
+}
+
+func registerOAuth2ProviderAdminRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAuth middleware.StepUpAuthMiddleware) {
+	oauth2Provider := admin.Group("/oauth2-provider")
+	{
+		oauth2Provider.GET("", h.Admin.OAuth2Provider.GetConfig)
+		oauth2Provider.PUT("", middleware.AdminSessionOnly(), gin.HandlerFunc(stepUpAuth), h.Admin.OAuth2Provider.UpdateConfig)
+		oauth2Provider.POST("/clients", middleware.AdminSessionOnly(), gin.HandlerFunc(stepUpAuth), h.Admin.OAuth2Provider.CreateClient)
+		oauth2Provider.PUT("/clients/:client_id", middleware.AdminSessionOnly(), gin.HandlerFunc(stepUpAuth), h.Admin.OAuth2Provider.UpdateClient)
+		oauth2Provider.POST("/clients/:client_id/rotate-secret", middleware.AdminSessionOnly(), gin.HandlerFunc(stepUpAuth), h.Admin.OAuth2Provider.RotateSecret)
+		oauth2Provider.DELETE("/clients/:client_id", middleware.AdminSessionOnly(), gin.HandlerFunc(stepUpAuth), h.Admin.OAuth2Provider.DeleteClient)
 	}
 }
 
@@ -479,6 +494,8 @@ func registerAccountRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAu
 		accounts.PUT("/:id/upstream-billing-probe", h.Admin.Account.SetUpstreamBillingProbeEnabled)
 		accounts.POST("/:id/upstream-billing-probe", h.Admin.Account.ProbeUpstreamBilling)
 		accounts.POST("/:id/upstream-quota/query", h.Admin.Account.QueryUpstreamQuota)
+		accounts.POST("/:id/cn-provider/quota", h.Admin.Account.QueryCNProviderQuota)
+		accounts.POST("/:id/cn-provider/balance", h.Admin.Account.QueryCNProviderBalance)
 		accounts.GET("/:id/ollama-cloud-usage", h.Admin.Account.GetOllamaCloudUsage)
 		accounts.PUT("/:id/ollama-cloud-usage/session", h.Admin.Account.SaveOllamaCloudUsageSession)
 		accounts.DELETE("/:id/ollama-cloud-usage/session", h.Admin.Account.DeleteOllamaCloudUsageSession)
@@ -616,6 +633,9 @@ func registerProxyRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAuth
 	{
 		proxies.GET("", h.Admin.Proxy.List)
 		proxies.GET("/all", h.Admin.Proxy.GetAll)
+		proxies.GET("/auto-assignment", h.Admin.Proxy.GetAutoAssignmentSettings)
+		proxies.PUT("/auto-assignment", h.Admin.Proxy.UpdateAutoAssignmentSettings)
+		proxies.POST("/auto-assignment/rebalance", h.Admin.Proxy.RebalanceAutoAssignments)
 		// 代理导出泄露账号密码原文——要求 step-up 2FA
 		proxies.GET("/data", gin.HandlerFunc(stepUpAuth), h.Admin.Proxy.ExportData)
 		proxies.POST("/data", h.Admin.Proxy.ImportData)
@@ -698,6 +718,7 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		// Codex OAuth A/B simulation runtime controls
 		adminSettings.GET("/codex-simulation", h.Admin.Setting.GetCodexSimulationSettings)
 		adminSettings.PUT("/codex-simulation", h.Admin.Setting.UpdateCodexSimulationSettings)
+		adminSettings.POST("/codex-simulation/sync-turn-states", h.Admin.Setting.SyncCodexTurnStates)
 		adminSettings.POST("/codex-simulation/restore-original", h.Admin.Setting.RestoreOriginalCodexBehavior)
 		// 面板 API 限流配置
 		adminSettings.GET("/panel-rate-limit", h.Admin.Setting.GetPanelRateLimitSettings)

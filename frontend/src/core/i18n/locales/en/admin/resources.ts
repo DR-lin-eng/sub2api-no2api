@@ -236,6 +236,26 @@ export default {
       fallbackProxy: 'Backup proxy',
       fallbackDirect: 'Direct connection',
       backupProxy: 'Backup proxy',
+      autoAssignment: {
+        title: 'Proxy Auto-assignment',
+        action: 'Auto-assign',
+        active: 'Enabled',
+        enabled: 'Force automatic assignment',
+        healthCheckEnabled: 'Scheduled health checks',
+        intervalMinutes: 'Check interval (minutes)',
+        failureThreshold: 'Consecutive failure threshold',
+        rebalance: 'Rebalance now',
+        saved: 'Proxy auto-assignment settings saved',
+        rebalanced: 'Rebalanced and moved {count} accounts',
+        loadFailed: 'Failed to load proxy auto-assignment settings',
+        saveFailed: 'Failed to save proxy auto-assignment settings',
+        rebalanceFailed: 'Failed to rebalance proxy assignments',
+        healthUnknown: 'Not checked',
+        healthHealthy: 'Healthy',
+        healthDegraded: 'Degraded',
+        healthUnhealthy: 'Unavailable',
+        failureCount: '{count} consecutive failures'
+      },
     },
 
     // Redeem Codes

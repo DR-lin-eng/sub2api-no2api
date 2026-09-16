@@ -5,7 +5,7 @@
  * instead of defining their own color mappings.
  */
 
-export type Platform = 'anthropic' | 'openai' | 'antigravity' | 'gemini' | 'grok' | 'kimi' | 'zhipu' | 'deepseek' | 'minimax' | 'composite'
+export type Platform = 'anthropic' | 'openai' | 'antigravity' | 'gemini' | 'grok' | 'kimi' | 'zhipu' | 'deepseek' | 'minimax' | 'opencode_go' | 'composite'
 
 // ── Badge (bg + text + border, for inline badges with border) ───────
 const BADGE: Record<Platform, string> = {
@@ -18,6 +18,7 @@ const BADGE: Record<Platform, string> = {
   zhipu: 'bg-indigo-500/10 text-indigo-700 border-indigo-500/30 dark:text-indigo-300',
   deepseek: 'bg-cyan-500/10 text-cyan-700 border-cyan-500/30 dark:text-cyan-300',
   minimax: 'bg-rose-500/10 text-rose-700 border-rose-500/30 dark:text-rose-300',
+  opencode_go: 'bg-amber-500/10 text-amber-700 border-amber-500/30 dark:text-amber-300',
   composite: 'bg-cyan-500/10 text-cyan-700 border-cyan-500/30 dark:text-cyan-300',
 }
 const BADGE_DEFAULT = 'bg-slate-500/10 text-slate-600 border-slate-500/30 dark:text-slate-400'
@@ -33,6 +34,7 @@ const BADGE_LIGHT: Record<Platform, string> = {
   zhipu: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300',
   deepseek: 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
   minimax: 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
+  opencode_go: 'bg-amber-500/10 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300',
   composite: 'bg-cyan-500/10 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-300',
 }
 
@@ -47,6 +49,7 @@ const BORDER: Record<Platform, string> = {
   zhipu: 'border-indigo-500/20 dark:border-indigo-500/20',
   deepseek: 'border-cyan-500/20 dark:border-cyan-500/20',
   minimax: 'border-rose-500/20 dark:border-rose-500/20',
+  opencode_go: 'border-amber-500/20 dark:border-amber-500/20',
   composite: 'border-cyan-500/20 dark:border-cyan-500/20',
 }
 const BORDER_DEFAULT = 'border-gray-200 dark:border-dark-700'
@@ -62,6 +65,7 @@ const BORDER_STRONG: Record<Platform, string> = {
   zhipu: 'border-indigo-500/35 dark:border-indigo-500/30',
   deepseek: 'border-cyan-500/35 dark:border-cyan-500/30',
   minimax: 'border-rose-500/35 dark:border-rose-500/30',
+  opencode_go: 'border-amber-500/35 dark:border-amber-500/30',
   composite: 'border-cyan-500/35 dark:border-cyan-500/30',
 }
 const BORDER_STRONG_DEFAULT = 'border-gray-300 dark:border-dark-600'
@@ -78,6 +82,7 @@ const ACCENT: Record<Platform, string> = {
   zhipu: '#6366f1', // indigo-500
   deepseek: '#06b6d4', // cyan-500
   minimax: '#f43f5e', // rose-500
+  opencode_go: '#f59e0b', // amber-500
   composite: '#06b6d4', // cyan-500
 }
 const ACCENT_DEFAULT = '#14b8a6' // primary-500 (teal)
@@ -93,6 +98,7 @@ const ACCENT_BAR: Record<Platform, string> = {
   zhipu: 'bg-gradient-to-r from-indigo-400 to-indigo-500',
   deepseek: 'bg-gradient-to-r from-cyan-400 to-cyan-500',
   minimax: 'bg-gradient-to-r from-rose-400 to-rose-500',
+  opencode_go: 'bg-gradient-to-r from-amber-400 to-amber-500',
   composite: 'bg-gradient-to-r from-slate-500 to-cyan-500',
 }
 const ACCENT_BAR_DEFAULT = 'bg-gradient-to-r from-primary-400 to-primary-500'
@@ -108,6 +114,7 @@ const TEXT: Record<Platform, string> = {
   zhipu: 'text-indigo-700 dark:text-indigo-300',
   deepseek: 'text-cyan-700 dark:text-cyan-300',
   minimax: 'text-rose-700 dark:text-rose-300',
+  opencode_go: 'text-amber-700 dark:text-amber-300',
   composite: 'text-cyan-700 dark:text-cyan-300',
 }
 const TEXT_DEFAULT = 'text-primary-600 dark:text-primary-400'
@@ -123,6 +130,7 @@ const ICON: Record<Platform, string> = {
   zhipu: 'text-indigo-600 dark:text-indigo-300',
   deepseek: 'text-cyan-600 dark:text-cyan-300',
   minimax: 'text-rose-600 dark:text-rose-300',
+  opencode_go: 'text-amber-500 dark:text-amber-300',
   composite: 'text-cyan-600 dark:text-cyan-300',
 }
 const ICON_DEFAULT = 'text-primary-500 dark:text-primary-400'
@@ -138,6 +146,7 @@ const BUTTON: Record<Platform, string> = {
   zhipu: 'bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800',
   deepseek: 'bg-cyan-700 text-white hover:bg-cyan-800 active:bg-cyan-900',
   minimax: 'bg-rose-600 text-white hover:bg-rose-700 active:bg-rose-800',
+  opencode_go: 'bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-700 dark:bg-amber-500/80 dark:hover:bg-amber-500',
   composite: 'bg-cyan-700 text-white hover:bg-cyan-800 active:bg-cyan-900 dark:bg-cyan-600 dark:hover:bg-cyan-500',
 }
 const BUTTON_DEFAULT = 'bg-primary-500 text-white hover:bg-primary-600 dark:bg-primary-600 dark:hover:bg-primary-500'
@@ -153,6 +162,7 @@ const DISCOUNT: Record<Platform, string> = {
   zhipu: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
   deepseek: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300',
   minimax: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
+  opencode_go: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
   composite: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
 }
 const DISCOUNT_DEFAULT = 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
@@ -168,6 +178,7 @@ const GRADIENT: Record<Platform, string> = {
   zhipu: 'from-indigo-500 to-indigo-600',
   deepseek: 'from-cyan-600 to-cyan-700',
   minimax: 'from-rose-500 to-rose-600',
+  opencode_go: 'from-amber-500 to-amber-600',
   composite: 'from-slate-600 to-cyan-600',
 }
 const GRADIENT_DEFAULT = 'from-primary-500 to-primary-600'
@@ -183,6 +194,7 @@ const GRADIENT_TEXT: Record<Platform, string> = {
   zhipu: 'text-indigo-100',
   deepseek: 'text-cyan-100',
   minimax: 'text-rose-100',
+  opencode_go: 'text-amber-100',
   composite: 'text-cyan-100',
 }
 const GRADIENT_TEXT_DEFAULT = 'text-primary-100'
@@ -197,6 +209,7 @@ const GRADIENT_SUBTEXT: Record<Platform, string> = {
   zhipu: 'text-indigo-200',
   deepseek: 'text-cyan-200',
   minimax: 'text-rose-200',
+  opencode_go: 'text-amber-200',
   composite: 'text-cyan-200',
 }
 const GRADIENT_SUBTEXT_DEFAULT = 'text-primary-200'
@@ -214,6 +227,7 @@ function isPlatform(p: string): p is Platform {
       case 'zhipu':
       case 'deepseek':
       case 'minimax':
+      case 'opencode_go':
       case 'composite':
         return true
       default:
@@ -284,6 +298,7 @@ export function platformLabel(p: string): string {
       case 'zhipu': return 'Zhipu GLM'
       case 'deepseek': return 'DeepSeek'
       case 'minimax': return 'MiniMax'
+      case 'opencode_go': return 'OpenCode'
     case 'composite': return 'Composite'
     default: return p || 'API'
   }

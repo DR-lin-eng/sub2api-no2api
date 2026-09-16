@@ -50,15 +50,17 @@ const (
 
 // qualityStageOutcome separates answer failures from operational errors.
 type qualityStageOutcome struct {
-	status          string
-	passed          bool
-	operational     bool
-	incomplete      bool
-	errorMessage    string
-	latencyMs       int64
-	reasoningTokens *int64
-	artifact        *QualityArtifact
-	detail          AccountQualityStageDetail
+	status            string
+	passed            bool
+	operational       bool
+	incomplete        bool
+	errorMessage      string
+	latencyMs         int64
+	reasoningTokens   *int64
+	turnState         string
+	injectedTurnState string
+	artifact          *QualityArtifact
+	detail            AccountQualityStageDetail
 }
 
 // qualityStageContext bounds the initial wait for a drawing response. Once a
@@ -101,9 +103,10 @@ func qualityStageContext(ctx context.Context, stage string, timeoutSeconds int) 
 	return probeCtx, cleanup
 }
 
-func (s *AccountQualityMonitoringService) runQualityStage(ctx context.Context, account Account, settings AccountQualitySettings, stage, prompt string, beforeRender ...func()) (outcome qualityStageOutcome) {
+func (s *AccountQualityMonitoringService) runQualityStage(ctx context.Context, account Account, settings AccountQualitySettings, stage, prompt, injectedTurnState string, beforeRender ...func()) (outcome qualityStageOutcome) {
 	probeCtx, cancel := qualityStageContext(ctx, stage, settings.TimeoutSeconds)
 	defer cancel()
+	probeCtx = withAccountTestTurnState(probeCtx, injectedTurnState)
 	started := time.Now().UTC()
 	defer func() { outcome.detail.Status = outcome.status }()
 	probe, err := s.accountTestSvc.RunQualityTestBackground(probeCtx, account.ID, strings.TrimSpace(settings.Model), prompt, settings.Effort)
@@ -119,6 +122,10 @@ func (s *AccountQualityMonitoringService) runQualityStage(ctx context.Context, a
 		return
 	}
 	outcome.latencyMs, outcome.reasoningTokens = probe.LatencyMs, probe.ReasoningTokens
+	outcome.turnState, outcome.injectedTurnState = probe.TurnState, probe.InjectedTurnState
+	if outcome.injectedTurnState == "" {
+		outcome.injectedTurnState = boundedAccountTestTurnState(injectedTurnState)
+	}
 	outcome.detail = qualityStageDetail(probe)
 	if stage != "stage2" {
 		// Stage 1 is a text answer; never expose an accidental SVG-looking
@@ -183,6 +190,10 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 			previousByID[result.AccountID] = result
 		}
 	}
+	turnStateSettings := CodexSimulationSettings{}
+	if settings.InjectTurnState {
+		turnStateSettings = s.loadAccountQualityTurnStateSettings(ctx)
+	}
 	sem := make(chan struct{}, settings.MaxConcurrent)
 	var wg sync.WaitGroup
 	var firstErr error
@@ -198,7 +209,7 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 	}
 	for i := range accounts {
 		account := accounts[i]
-		if !qualityProbeEligible(&account, settings.SourceGroupID) {
+		if !qualityProbeEligible(&account, settings.SourceGroupID, settings.DegradedGroupID) {
 			continue
 		}
 		select {
@@ -260,21 +271,35 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 					stageErrors = append(stageErrors, name+": "+stage.errorMessage)
 				}
 			}
+			stageTurnState := func() string {
+				if !settings.InjectTurnState || !account.IsOpenAIOAuth() {
+					return ""
+				}
+				return randomCodexTurnStateForAccount(turnStateSettings, account.ID)
+			}
+			recordTurnState := func(stage qualityStageOutcome) {
+				result.QualityInjectedTurnStates = appendUniqueTurnState(result.QualityInjectedTurnStates, stage.injectedTurnState)
+				if stage.status == "passed" {
+					result.QualityTurnStates = appendUniqueTurnState(result.QualityTurnStates, stage.turnState)
+				}
+			}
 			if settings.Stage1Enabled {
 				result.QualityStage1Status = "running"
 				notify("stage1", false)
-				stage := s.runQualityStage(ctx, account, settings, "stage1", settings.Stage1Prompt)
+				stage := s.runQualityStage(ctx, account, settings, "stage1", settings.Stage1Prompt, stageTurnState())
 				result.QualityStage1Status, result.QualityReasoningTokens = stage.status, stage.reasoningTokens
 				details.Stage1 = &stage.detail
+				recordTurnState(stage)
 				observe("stage1", stage)
 			}
 			if settings.Stage2Enabled {
 				result.QualityStage2Status = "running"
 				notify("stage2", false)
-				stage := s.runQualityStage(ctx, account, settings, "stage2", settings.Stage2Prompt, func() { notify("rendering", false) })
+				stage := s.runQualityStage(ctx, account, settings, "stage2", settings.Stage2Prompt, stageTurnState(), func() { notify("rendering", false) })
 				result.QualityStage2Status = stage.status
 				result.QualityCodeMatch = stage.detail.CodeMatch
 				details.Stage2, artifact = &stage.detail, stage.artifact
+				recordTurnState(stage)
 				if stage.artifact != nil {
 					result.QualityLabel, result.QualityConfidence = stage.artifact.Label, stage.artifact.Confidence
 				}
@@ -315,7 +340,7 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 			if wrong && failures >= settings.FailureThreshold {
 				recordErr(s.switchQualityGroup(ctx, &account, settings.DegradedGroupID, result))
 			} else if !wrong && !operational && !uncertain && status == "healthy" && passes >= settings.RecoveryThreshold {
-				recordErr(s.restoreQualityGroups(ctx, &account, result))
+				recordErr(s.restoreQualityGroups(ctx, &account, settings.SourceGroupID, settings.DegradedGroupID, result))
 			}
 			outcome := "passed"
 			if wrong {
@@ -360,6 +385,19 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 	}
 	wg.Wait()
 	return firstErr
+}
+
+func appendUniqueTurnState(values []string, value string) []string {
+	value = boundedAccountTestTurnState(value)
+	if value == "" {
+		return values
+	}
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
 }
 
 func writeQualityExtra(repo AccountRepository, ctx context.Context, accountID int64, updates map[string]any) {
@@ -418,7 +456,7 @@ func qualityProbeSupported(account *Account) bool {
 	return supportedPlatform && supportedType
 }
 
-func qualityProbeEligible(account *Account, sourceGroupID *int64) bool {
+func qualityProbeEligible(account *Account, sourceGroupID, degradedGroupID *int64) bool {
 	// Honor the operator-controlled scheduling switch without coupling quality
 	// recovery to transient rate-limit, overload, or cooldown state.
 	if !qualityProbeSupported(account) || !account.Schedulable {
@@ -430,8 +468,13 @@ func qualityProbeEligible(account *Account, sourceGroupID *int64) bool {
 	if accountHasGroup(account, *sourceGroupID) {
 		return true
 	}
-	// Continue probing accounts already moved to the degraded group so a
-	// healthy streak can restore their original source-group binding.
+	// The configured degraded group is an explicit recovery queue. This also
+	// covers accounts placed there before quality-routing markers existed.
+	if degradedGroupID != nil && *degradedGroupID > 0 && accountHasGroup(account, *degradedGroupID) {
+		return true
+	}
+	// Keep following accounts moved by an older configuration so a healthy
+	// streak can still restore their recorded original bindings.
 	if account == nil || account.Extra == nil {
 		return false
 	}
@@ -527,17 +570,32 @@ func (s *AccountQualityMonitoringService) switchQualityGroup(ctx context.Context
 	return nil
 }
 
-func (s *AccountQualityMonitoringService) restoreQualityGroups(ctx context.Context, account *Account, result *AccountInspectionAccountResult) error {
-	if account == nil || len(account.Extra) == 0 {
+func (s *AccountQualityMonitoringService) restoreQualityGroups(ctx context.Context, account *Account, sourceGroupID, degradedGroupID *int64, result *AccountInspectionAccountResult) error {
+	if account == nil {
 		result.QualityAction = "healthy"
 		return nil
 	}
-	raw := account.Extra[AccountQualityOriginalGroupsExtraKey]
+	raw, hasOriginalGroups := account.Extra[AccountQualityOriginalGroupsExtraKey]
 	if target, exists := account.Extra[AccountQualityRoutingGroupExtraKey]; exists {
 		if targetID, ok := resolveAccountExtraNumber(map[string]any{"v": target}, "v"); ok && !sameGroupIDs(account.GroupIDs, []int64{int64(targetID)}) {
 			result.QualityAction = "manual_group_change_preserved"
 			return nil
 		}
+	}
+	if !hasOriginalGroups || raw == nil {
+		// Accounts already in the configured degraded group may predate routing
+		// markers or have been placed there manually. Restore only an exact
+		// degraded-group binding so unrelated manual group changes remain intact.
+		if sourceGroupID != nil && *sourceGroupID > 0 && degradedGroupID != nil && *degradedGroupID > 0 && sameGroupIDs(account.GroupIDs, []int64{*degradedGroupID}) {
+			if err := s.accountRepo.BindGroups(ctx, account.ID, []int64{*sourceGroupID}); err != nil {
+				return err
+			}
+			writeQualityExtra(s.accountRepo, ctx, account.ID, map[string]any{AccountQualityOriginalGroupsExtraKey: nil, AccountQualityRoutingGroupExtraKey: nil})
+			result.QualityAction = "restored_group"
+			return nil
+		}
+		result.QualityAction = "healthy"
+		return nil
 	}
 	values, ok := raw.([]any)
 	if !ok {

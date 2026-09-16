@@ -1,6 +1,7 @@
 import supportChatMessages from './settings.support-chat'
 import codexSimulationMessages from './settings.codex-simulation'
 import ipv6EgressMessages from './settings.ipv6-egress'
+import oauth2ProviderMessages from './settings.oauth2-provider'
 
 export default {
     settings: {
@@ -46,6 +47,7 @@ export default {
         saveFailed: '保存权限组失败',
         saved: '权限组已保存',
       },
+      oauth2Provider: oauth2ProviderMessages,
       performance: {
         title: '性能设置',
         description: '调整高并发请求与流式转发的运行时开销。',
