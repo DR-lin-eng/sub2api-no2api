@@ -529,6 +529,22 @@ export default {
   },
 
   // Step-up (sudo) 2FA prompt
+  oauth2Consent: {
+    pageTitle: 'Authorize application',
+    title: 'Authorize application',
+    requestedBy: 'Application requesting access',
+    redirectTo: 'Return after authorization',
+    permissions: 'Requested permissions',
+    allow: 'Allow',
+    deny: 'Deny',
+    invalidRequest: 'The authorization request is invalid or expired',
+    submitFailed: 'Failed to submit the authorization decision',
+    invalidRedirect: 'The authorization redirect is invalid',
+    scopes: {
+      profile: { label: 'Basic profile', description: 'Read your stable identifier and public username' },
+      email: { label: 'Email address', description: 'Read your account email address' },
+    },
+  },
   stepUp: {
     title: 'Two-Factor Verification Required',
     hint: 'Enter the 6-digit code from your authenticator app to continue this sensitive operation.',

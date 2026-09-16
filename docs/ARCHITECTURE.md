@@ -80,6 +80,7 @@ infrastructure implements application ports
 | 用量结算队列 | Redis Stream + PostgreSQL 幂等落库 | 关键计费任务不能静默丢弃；Redis 故障时使用受限 fallback |
 | 前端运行设置 | 后端注入 + 管理 API | 浏览器状态不是权限或计费事实源 |
 | OAuth 模型能力快照 | PostgreSQL `accounts.extra` + 调度快照 | OAuth 无显式 `model_mapping` 时由后台定时读取各平台上游模型列表（OpenAI 使用 Codex manifest）；同步失败保留上一次成功快照，显式映射/透传优先 |
+| OAuth2 provider 客户端与授权 | PostgreSQL `settings` + Redis | 管理员配置和客户端 secret 摘要持久化在独立 setting key；一次性 authorization code 与 access token 摘要保存在 Redis，token 每次使用都重查全局/客户端/scope/用户状态 |
 | 逻辑节点、候选/锁定版本与滚动发布 | PostgreSQL + 节点本地 identity file | PostgreSQL 保存节点别名、候选版本、锁定版本与发布任务；每个节点本地持久卷保存稳定 `node_id`，进程级 `runner_id` 只作为历史 |
 | 账号 IPv6 出口池与绑定 | PostgreSQL + 进程内健康状态 | PostgreSQL 保存稳定地址和版本；已选账号携带绑定进入请求，出口健康由各进程本地预检 |
 

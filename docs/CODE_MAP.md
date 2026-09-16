@@ -36,6 +36,7 @@
 | 修改入口风控或 Cloudflare 封禁联动 | `application/service/invalid_auth_abuse_limiter.go`, `cloudflare_ingress_settings.go`, `server/middleware/ingress_reject.go` | `repository/cloudflare_ingress*`, `repository/cloudflare_waf*`, admin ops handler, `features/admin-risk-control/` | limiter + 持久密文 + Access Rule/WAF mock + Redis 状态 + 入口页测试 |
 | 修改在线客服 | `internal/modules/chat/`, `handler/chat*`, `handler/admin/chat*` | `repository/chat*`, `application/service/support_chat*`, 前端 `features/support-chat/` 与 `features/admin-settings/` | chat service/repository + handler + 设置/前端 feature 测试 |
 | 修改管理端权限组/客服角色 | `application/service/permission_groups.go`, `server/middleware/admin_permissions.go`, `handler/admin/permission_group_handler.go` | `settings.permission_groups` 迁移、用户角色分配、前端 `features/admin-settings/` 与 `features/auth/` | 权限组/service + middleware + 前端权限/设置测试 + Docker |
+| 修改 OAuth2 对外授权服务 | `application/service/oauth2_provider.go`, `server/routes/oauth2_provider.go` | `repository/oauth2_provider_store.go`, `webassets/embed_on.go`、OAuth2/admin handler、`features/auth/` 与 `features/admin-settings/` | service + Redis store + embedded bypass + route + 授权页/设置面板测试 + Docker |
 | 修改前端页面 | `frontend/src/core/routes/index.ts`, `features/<domain>/presentation/pages/` | 同 feature 的 `widgets/`, `composables/`, `stores/`, `data/datasources/` 与 `core/i18n/` | 相邻 spec + typecheck |
 
 ## 后端功能前缀
@@ -83,6 +84,7 @@
 | `transport/http/server/router.go` | 全局中间件、嵌入式前端和路由聚合 |
 | `server/routes/common.go` | 健康检查与公共入口 |
 | `server/routes/auth.go` | 登录、注册、OAuth、会话 |
+| `server/routes/oauth2_provider.go` | OAuth2 授权服务器、token、userinfo 与撤销 |
 | `server/routes/user.go` | JWT 用户 API |
 | `server/routes/admin.go` | 管理 API |
 | `server/routes/payment.go` | 用户支付、回调和管理支付 API |

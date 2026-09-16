@@ -16,6 +16,7 @@
 | 首次安装 | `/setup` | 数据库、Redis 连接测试与管理员初始化：[setup](../frontend/src/features/setup/README.md) |
 | 公共首页与法律文档 | `/home`、`/legal/:documentId`、未知路由 | 公开设置、受控首页内容、登录协议和 404：[common](../frontend/src/common/README.md) |
 | 注册与登录 | `/login`、`/register`、认证回调 | 邮箱、OAuth、二次认证、会话恢复和密码找回：[auth](../frontend/src/features/auth/README.md) |
+| OAuth2 应用授权 | `/oauth/authorize` | 用户批准受信客户端读取有限身份字段：[OAuth2 对外授权服务](OAUTH2_PROVIDER.md)、[auth](../frontend/src/features/auth/README.md) |
 | 个人资料 | `/profile` | 密码、通知邮箱、身份绑定和 TOTP：[profile](../frontend/src/features/profile/README.md) |
 | Passkey | 登录流程与个人资料内嵌 | WebAuthn 凭据注册、登录、重命名和撤销：[passkeys](../frontend/src/features/passkeys/README.md) |
 | 用户仪表盘 | `/dashboard` | 本人用量、趋势、模型分布和 Key 统计：[dashboard-user](../frontend/src/features/dashboard-user/README.md) |
@@ -61,7 +62,7 @@
 | 操作审计 | `/admin/audit-logs` | 管理操作记录、详情和现场 TOTP 清理：[admin-audit](../frontend/src/features/admin-audit/README.md) |
 | 多实例 | `/admin/multi-instance` | 节点、负载、任务与滚动发布：[admin-cluster](../frontend/src/features/admin-cluster/README.md)、[部署专题](../deploy/MULTI_INSTANCE.md) |
 | 备份 | 系统设置内嵌 | S3、备份、恢复、定时计划和图片存储：[admin-backup](../frontend/src/features/admin-backup/README.md) |
-| 系统设置 | `/admin/settings` | 站点、认证、功能开关、网关策略与运行设置：[admin-settings](../frontend/src/features/admin-settings/README.md) |
+| 系统设置 | `/admin/settings` | 站点、认证、OAuth2 对外授权、功能开关、网关策略与运行设置：[admin-settings](../frontend/src/features/admin-settings/README.md)、[OAuth2 对外授权服务](OAUTH2_PROVIDER.md) |
 
 管理端的公告、活动、客服和返利页面由上表用户功能中的同名 feature 共同持有，并非另建一套 owner。它们分别位于 `/admin/announcements`、`/admin/activity-center/campaigns`、`/admin/support` 和 `/admin/affiliates` 下。
 
@@ -74,6 +75,7 @@
 | 用量结算与余额、订阅投影 | [关键请求链路](REQUEST_LIFECYCLES.md)、[支付集成](ADMIN_PAYMENT_INTEGRATION_API.md) | [repository](../backend/internal/infrastructure/repository/README.md) |
 | 异步图片提交、查询与内容 | [异步图片 API](ASYNC_IMAGE_TASKS.md) | [Images handler](../backend/internal/transport/http/handler/) |
 | Codex OAuth 行为 | [有意差异](codex/intentional-divergences.md) | [请求链路](REQUEST_LIFECYCLES.md) |
+| OAuth2 对外授权 | [OAuth2 对外授权服务](OAUTH2_PROVIDER.md) | [OAuth2 路由](../backend/internal/transport/http/server/routes/oauth2_provider.go) |
 
 垂直后端模块另有完整目录说明：[qualityrender](../backend/internal/modules/qualityrender/README.md)、[activitycenter](../backend/internal/modules/activitycenter/README.md)、[chat](../backend/internal/modules/chat/README.md)、[egress](../backend/internal/modules/egress/README.md)、[payment](../backend/internal/modules/payment/README.md)、[securityaudit](../backend/internal/modules/securityaudit/README.md)。并非所有功能都已经迁入 `modules`；存量服务仍以代码地图为准。
 

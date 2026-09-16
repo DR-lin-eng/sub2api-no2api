@@ -48,6 +48,7 @@ type AdminHandlers struct {
 	Chat                   *admin.ChatHandler
 	Egress                 *admin.EgressHandler
 	CustomModelConfig      *admin.CustomModelConfigHandler
+	OAuth2Provider         *admin.OAuth2ProviderHandler
 }
 
 // Handlers contains all HTTP handlers
@@ -75,6 +76,7 @@ type Handlers struct {
 	BatchImage       *BatchImageHandler
 	Chat             *ChatHandler
 	MediaStudio      *MediaStudioHandler
+	OAuth2Provider   *OAuth2ProviderHandler
 }
 
 // BuildInfo contains build-time information

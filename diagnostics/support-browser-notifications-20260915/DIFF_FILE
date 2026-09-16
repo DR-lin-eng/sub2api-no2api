@@ -1,0 +1,823 @@
+diff --git a/docs/SUPPORT_CHAT.md b/docs/SUPPORT_CHAT.md
+index 7767f3677..ae3646545 100644
+--- a/docs/SUPPORT_CHAT.md
++++ b/docs/SUPPORT_CHAT.md
+@@ -20,6 +20,8 @@
+
+ HTTP 历史接口是事实源，WebSocket 只负责当前进程的消息、撤回和已读广播。断线后前端应重新连接并按游标/分页合并历史，不能只依赖丢失的实时事件。多实例部署时，当前 Hub 不自动提供跨实例广播；扩展时需增加明确的跨节点投递和去重方案。
+
++拥有 `support.read` 权限的客服可以在收件箱标题栏开启浏览器系统通知。浏览器权限必须由客服点击铃铛按钮后申请；授权偏好仅保存在当前浏览器，不写入服务端。开启后，应用保持打开时会建立全局管理员 WebSocket，在标签页隐藏或失焦时为新的用户消息发送系统通知；前台聚焦时只即时更新未读状态，避免重复打扰。系统通知只显示通用消息类型，不暴露可能包含密钥、订单或身份信息的消息正文。点击系统通知会聚焦应用并打开对应会话。退出登录、撤销权限、关闭客服功能或关闭本地通知开关时都会断开该全局监听。
++
+ 启用保留清理后，后台任务每 10 分钟尝试运行，单次使用最多 2 分钟、每批最多 500 条且最多 100 批，并使用共享租约避免多个实例重复清理。管理员修改策略后，任务在批次间重新读取；设为 0 表示永久保留普通客服消息。未挂接资产按独立清理规则处理，不能把备份保留策略当作客服保留策略。
+
+ ## 入口与事实源
+diff --git a/frontend/src/App.vue b/frontend/src/App.vue
+index 61f6d0c29..b1a1367f1 100644
+--- a/frontend/src/App.vue
++++ b/frontend/src/App.vue
+@@ -12,6 +12,7 @@ import { useAdminComplianceStore } from '@/features/admin-settings/presentation/
+ import { useAdminSettingsStore } from '@/features/admin-settings/presentation/stores/adminSettingsStore'
+ import { getSetupStatus } from '@/features/setup/data/datasources/setupDatasource'
+ import { useSupportUnreadPolling } from '@/features/support-chat/presentation/composables/useSupportUnreadPolling'
++import { useSupportBrowserNotifications } from '@/features/support-chat/presentation/composables/useSupportBrowserNotifications'
+ import { updateFavicon } from '@/core/services/branding'
+ import { isOpaqueDocument } from '@/core/utils/embedded-url'
+
+@@ -38,6 +39,17 @@ useSupportUnreadPolling({
+   isAuthenticated: () => authStore.isAuthenticated,
+   isAdmin: () => authStore.hasPermission('support.read'),
+ })
++useSupportBrowserNotifications({
++  isAuthenticated: () => authStore.isAuthenticated,
++  canReadSupport: () => authStore.hasPermission('support.read'),
++  isSupportInboxActive: () => route.name === 'AdminSupportChat',
++  openConversation: async (conversationID) => {
++    await router.push({
++      name: 'AdminSupportChat',
++      query: { conversation: String(conversationID) },
++    })
++  },
++})
+
+ function updateDocumentTitle() {
+   const customMenuItems = [
+diff --git a/frontend/src/core/i18n/locales/en/supportChat.ts b/frontend/src/core/i18n/locales/en/supportChat.ts
+index 238b496b6..ab9cece1b 100644
+--- a/frontend/src/core/i18n/locales/en/supportChat.ts
++++ b/frontend/src/core/i18n/locales/en/supportChat.ts
+@@ -35,6 +35,19 @@ export default {
+     sendFailed: 'Failed to send message',
+     toolsLoadFailed: 'Failed to load support tools',
+     toolActionFailed: 'Support tool action failed',
++    browserNotifications: {
++      enable: 'Enable browser notifications',
++      disable: 'Disable browser notifications',
++      enabled: 'Browser notifications enabled',
++      requesting: 'Requesting notification permission',
++      permissionDenied: 'Notifications are blocked. Allow them in this site\'s browser settings.',
++      unsupported: 'Browser notifications require HTTPS and a supported browser',
++      requestFailed: 'Notification permission request failed',
++      newMessageTitle: 'New support message',
++      newMessageBody: 'A user sent a new message',
++      imageMessage: 'A user sent an image',
++      stickerMessage: 'A user sent a sticker',
++    },
+     read: {
+       sent: 'Sent',
+       read: 'Read',
+diff --git a/frontend/src/core/i18n/locales/zh/supportChat.ts b/frontend/src/core/i18n/locales/zh/supportChat.ts
+index 793a57e00..8ffa1e938 100644
+--- a/frontend/src/core/i18n/locales/zh/supportChat.ts
++++ b/frontend/src/core/i18n/locales/zh/supportChat.ts
+@@ -35,6 +35,19 @@ export default {
+     sendFailed: '消息发送失败',
+     toolsLoadFailed: '加载客服工具失败',
+     toolActionFailed: '客服工具操作失败',
++    browserNotifications: {
++      enable: '开启浏览器通知',
++      disable: '关闭浏览器通知',
++      enabled: '浏览器通知已开启',
++      requesting: '正在请求通知权限',
++      permissionDenied: '浏览器已阻止通知，请在站点权限设置中允许通知',
++      unsupported: '当前页面需要 HTTPS 才能使用浏览器通知，或浏览器不支持通知',
++      requestFailed: '通知授权请求失败',
++      newMessageTitle: '新的客服消息',
++      newMessageBody: '用户发来一条新消息',
++      imageMessage: '用户发来一张图片',
++      stickerMessage: '用户发来一个表情',
++    },
+     read: {
+       sent: '已发送',
+       read: '已读',
+diff --git a/frontend/src/features/support-chat/README.md b/frontend/src/features/support-chat/README.md
+index 5873fa46a..6fe39e0c9 100644
+--- a/frontend/src/features/support-chat/README.md
++++ b/frontend/src/features/support-chat/README.md
+@@ -4,10 +4,10 @@
+
+ - [data/datasources/supportChatDatasource.ts](data/datasources/supportChatDatasource.ts)：会话、消息、图片资产、已读、图库、快捷回复、转账及 WebSocket 连接信息。
+ - [presentation/pages](presentation/pages/)：用户/管理员页面、历史加载和操作编排。
+-- [presentation/composables](presentation/composables/)：WebSocket、未读轮询与历史合并。
++- [presentation/composables](presentation/composables/)：WebSocket、未读轮询、浏览器通知与历史合并。
+ - [presentation/widgets](presentation/widgets/)：输入框、图片、消息列表、会话列表和快捷回复。
+ - [presentation/utils/sanitizeChatHtml.ts](presentation/utils/sanitizeChatHtml.ts)：消息 HTML 清洗。
+
+-每个用户只有一个长期会话，当前客服入口使用管理员权限。消息以服务端 ID 和幂等键去重；上传使用有界并发，文件选择、粘贴和拖放应遵循同一大小/数量限制。受保护图片由认证请求取回，不将 token 放进图片 URL。退出页面释放 object URL、socket 和轮询。
++每个用户只有一个长期会话，当前客服入口使用管理员权限。消息以服务端 ID 和幂等键去重；上传使用有界并发，文件选择、粘贴和拖放应遵循同一大小/数量限制。受保护图片由认证请求取回，不将 token 放进图片 URL。客服可在收件箱中按浏览器开启系统通知；授权偏好仅保存在当前浏览器，应用保持打开时由全局管理员 WebSocket 提醒新的用户消息。系统通知只显示通用消息类型，不暴露客服消息正文。退出页面释放 object URL、页面 socket 和轮询；全局通知 socket 随权限、功能开关与登录状态启停。
+
+ 从 `frontend/` 执行 `pnpm exec vitest run src/features/support-chat`；后端入口及事务、撤回、保留测试见 [chat 模块](../../../../backend/internal/modules/chat/README.md)。
+diff --git a/frontend/src/features/support-chat/presentation/pages/AdminSupportChatPage.vue b/frontend/src/features/support-chat/presentation/pages/AdminSupportChatPage.vue
+index 33eca35c1..cec04c4fb 100644
+--- a/frontend/src/features/support-chat/presentation/pages/AdminSupportChatPage.vue
++++ b/frontend/src/features/support-chat/presentation/pages/AdminSupportChatPage.vue
+@@ -49,6 +49,7 @@
+               </p>
+             </div>
+             <div class="flex shrink-0 items-center gap-1 text-xs sm:gap-2">
++              <SupportBrowserNotificationButton />
+               <button
+                 v-if="selectedConversationID"
+                 type="button"
+@@ -164,6 +165,7 @@
+ <script setup lang="ts">
+ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+ import { useI18n } from 'vue-i18n'
++import { useRoute, useRouter } from 'vue-router'
+ import AppLayout from '@/common/widgets/layout/AppLayout.vue'
+ import ConfirmDialog from '@/common/widgets/feedback/ConfirmDialog.vue'
+ import { useAppStore } from '@/core/stores/appStore'
+@@ -202,12 +204,15 @@ import {
+ } from '@/features/support-chat/presentation/composables/supportChatHistory'
+ import { useSupportChatAdminStore } from '@/features/support-chat/presentation/stores/supportChatAdminStore'
+ import AdminConversationList from '@/features/support-chat/presentation/widgets/AdminConversationList.vue'
++import SupportBrowserNotificationButton from '@/features/support-chat/presentation/widgets/SupportBrowserNotificationButton.vue'
+ import SupportMessageComposer from '@/features/support-chat/presentation/widgets/SupportMessageComposer.vue'
+ import SupportMessageList from '@/features/support-chat/presentation/widgets/SupportMessageList.vue'
+ import SupportUserProfileDialog from '@/features/support-chat/presentation/widgets/SupportUserProfileDialog.vue'
+ import type { BasicUser } from '@/features/admin-users/data/datasources/adminUsersDatasource'
+
+ const { t } = useI18n()
++const route = useRoute()
++const router = useRouter()
+ const appStore = useAppStore()
+ const authStore = useAuthStore()
+ const supportChatAdminStore = useSupportChatAdminStore()
+@@ -248,6 +253,13 @@ let lastResyncAt = 0
+ const LEGACY_QUICK_REPLY_KEY = 'support_chat_custom_replies_v1'
+ const LEGACY_QUICK_REPLY_MIGRATED_KEY = 'support_chat_quick_replies_migrated_v2'
+
++function requestedConversationID(value: unknown): number | null {
++  const raw = Array.isArray(value) ? value[0] : value
++  if (typeof raw !== 'string' || !/^\d+$/.test(raw)) return null
++  const parsed = Number(raw)
++  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
++}
++
+ const selectedConversation = computed(() => {
+   if (!selectedConversationID.value) return null
+   return conversations.value.find((item) => item.id === selectedConversationID.value)
+@@ -388,7 +400,10 @@ async function loadConversations() {
+   }
+ }
+
+-async function selectConversation(conversationID: number) {
++async function selectConversation(conversationID: number, syncRoute = true) {
++  if (syncRoute && route.query.conversation !== String(conversationID)) {
++    void router.replace({ query: { ...route.query, conversation: String(conversationID) } })
++  }
+   if (selectedConversationID.value === conversationID) return
+   selectedConversationID.value = conversationID
+   selectedConversationSnapshot.value = conversations.value.find((item) => item.id === conversationID) ?? null
+@@ -409,6 +424,11 @@ function backToConversationList() {
+   messagePage.value = 1
+   messagePages.value = 1
+   replyingTo.value = null
++  if ('conversation' in route.query) {
++    const query = { ...route.query }
++    delete query.conversation
++    void router.replace({ query })
++  }
+ }
+
+ async function openUserProfile(conversation: ChatConversation) {
+@@ -748,8 +768,22 @@ watch(messageScrollSignature, () => {
+   if (stickMessagesToBottom.value) void scrollToBottom()
+ }, { flush: 'post' })
+
++watch(
++  () => route.query.conversation,
++  (value) => {
++    const conversationID = requestedConversationID(value)
++    if (conversationID) {
++      if (conversationID !== selectedConversationID.value) void selectConversation(conversationID, false)
++      return
++    }
++    if (selectedConversationID.value) backToConversationList()
++  },
++)
++
+ onMounted(async () => {
+   await Promise.all([loadConversations(), loadSupportTools()])
++  const conversationID = requestedConversationID(route.query.conversation)
++  if (conversationID) await selectConversation(conversationID, false)
+   socket.connect()
+   fallbackPollTimer = setInterval(() => {
+     void resyncMessages()
+diff --git a/frontend/src/features/support-chat/__tests__/SupportBrowserNotificationButton.spec.ts b/frontend/src/features/support-chat/__tests__/SupportBrowserNotificationButton.spec.ts
+new file mode 100644
+index 000000000..0675d1a9d
+--- /dev/null
++++ b/frontend/src/features/support-chat/__tests__/SupportBrowserNotificationButton.spec.ts
+@@ -0,0 +1,95 @@
++import { flushPromises, mount } from '@vue/test-utils'
++import { createI18n } from 'vue-i18n'
++import { createPinia, setActivePinia } from 'pinia'
++import { beforeEach, describe, expect, it, vi } from 'vitest'
++import { useSupportChatNotificationStore } from '@/features/support-chat/presentation/stores/supportChatNotificationStore'
++import SupportBrowserNotificationButton from '@/features/support-chat/presentation/widgets/SupportBrowserNotificationButton.vue'
++
++class MockNotification {
++  static permission: NotificationPermission = 'default'
++  static requestPermission = vi.fn(async (): Promise<NotificationPermission> => {
++    MockNotification.permission = 'granted'
++    return MockNotification.permission
++  })
++}
++
++const i18n = createI18n({
++  legacy: false,
++  locale: 'en',
++  messages: {
++    en: {
++      supportChat: {
++        browserNotifications: {
++          enable: () => 'Enable browser notifications',
++          disable: () => 'Disable browser notifications',
++          enabled: () => 'Browser notifications enabled',
++          requesting: () => 'Requesting notification permission',
++          permissionDenied: () => 'Notifications are blocked',
++          unsupported: () => 'Notifications are unsupported',
++          requestFailed: () => 'Notification permission request failed',
++        },
++      },
++    },
++  },
++})
++
++describe('SupportBrowserNotificationButton', () => {
++  beforeEach(() => {
++    setActivePinia(createPinia())
++    window.localStorage.clear()
++    MockNotification.permission = 'default'
++    MockNotification.requestPermission.mockClear()
++    Object.defineProperty(window, 'Notification', {
++      configurable: true,
++      value: MockNotification,
++    })
++    Object.defineProperty(window, 'isSecureContext', {
++      configurable: true,
++      value: true,
++    })
++  })
++
++  it('requests permission from a click and persists the local opt-in', async () => {
++    const wrapper = mount(SupportBrowserNotificationButton, {
++      global: { plugins: [i18n] },
++    })
++
++    const button = wrapper.get('button')
++    expect(button.attributes('aria-pressed')).toBe('false')
++    await button.trigger('click')
++    await flushPromises()
++
++    expect(MockNotification.requestPermission).toHaveBeenCalledOnce()
++    expect(button.attributes('aria-pressed')).toBe('true')
++    expect(window.localStorage.getItem('support_chat_browser_notifications_enabled')).toBe('true')
++
++    await button.trigger('click')
++    expect(useSupportChatNotificationStore().enabled).toBe(false)
++    expect(window.localStorage.getItem('support_chat_browser_notifications_enabled')).toBeNull()
++  })
++
++  it('disables the control when the browser has denied permission', () => {
++    MockNotification.permission = 'denied'
++    const wrapper = mount(SupportBrowserNotificationButton, {
++      global: { plugins: [i18n] },
++    })
++
++    const button = wrapper.get('button')
++    expect(button.attributes('disabled')).toBeDefined()
++    expect(button.attributes('title')).toBe('Notifications are blocked')
++  })
++
++  it('disables the control outside a secure browser context', () => {
++    Object.defineProperty(window, 'isSecureContext', {
++      configurable: true,
++      value: false,
++    })
++    const wrapper = mount(SupportBrowserNotificationButton, {
++      global: { plugins: [i18n] },
++    })
++
++    const button = wrapper.get('button')
++    expect(button.attributes('disabled')).toBeDefined()
++    expect(button.attributes('title')).toBe('Notifications are unsupported')
++  })
++})
+diff --git a/frontend/src/features/support-chat/presentation/composables/__tests__/useSupportBrowserNotifications.spec.ts b/frontend/src/features/support-chat/presentation/composables/__tests__/useSupportBrowserNotifications.spec.ts
+new file mode 100644
+index 000000000..e2c449dac
+--- /dev/null
++++ b/frontend/src/features/support-chat/presentation/composables/__tests__/useSupportBrowserNotifications.spec.ts
+@@ -0,0 +1,211 @@
++import { defineComponent, nextTick, reactive } from 'vue'
++import { flushPromises, mount } from '@vue/test-utils'
++import { createPinia, setActivePinia } from 'pinia'
++import { beforeEach, describe, expect, it, vi } from 'vitest'
++import { useAppStore } from '@/core/stores/appStore'
++import type {
++  ChatMessage,
++} from '@/features/support-chat/data/datasources/supportChatDatasource'
++import { useSupportBrowserNotifications } from '@/features/support-chat/presentation/composables/useSupportBrowserNotifications'
++import { useSupportChatAdminStore } from '@/features/support-chat/presentation/stores/supportChatAdminStore'
++import { useSupportChatNotificationStore } from '@/features/support-chat/presentation/stores/supportChatNotificationStore'
++import { buildSupportNotificationBody } from '@/features/support-chat/presentation/utils/supportBrowserNotificationContent'
++
++const socketHarness = vi.hoisted(() => ({
++  options: null as { onMessage: (message: ChatMessage) => void | Promise<void> } | null,
++  connect: vi.fn(),
++  disconnect: vi.fn(),
++}))
++
++vi.mock('@/core/i18n', () => ({
++  default: {
++    global: {
++      t: (key: string) => ({
++        'supportChat.browserNotifications.newMessageTitle': 'New support message',
++        'supportChat.browserNotifications.newMessageBody': 'A user sent a new message',
++        'supportChat.browserNotifications.imageMessage': 'A user sent an image',
++        'supportChat.browserNotifications.stickerMessage': 'A user sent a sticker',
++      })[key] ?? key,
++    },
++  },
++  getLocale: () => 'en',
++  loadLocaleMessages: vi.fn(async () => undefined),
++}))
++
++vi.mock('@/features/support-chat/presentation/composables/useSupportChatSocket', () => ({
++  useSupportChatSocket: (options: { onMessage: (message: ChatMessage) => void | Promise<void> }) => {
++    socketHarness.options = options
++    return {
++      connect: socketHarness.connect,
++      disconnect: socketHarness.disconnect,
++    }
++  },
++}))
++
++class MockNotification {
++  static permission: NotificationPermission = 'granted'
++  static requestPermission = vi.fn(async (): Promise<NotificationPermission> => MockNotification.permission)
++  static instances: MockNotification[] = []
++
++  onclick: ((event: Event) => void) | null = null
++  close = vi.fn()
++
++  constructor(
++    readonly title: string,
++    readonly options: NotificationOptions = {},
++  ) {
++    MockNotification.instances.push(this)
++  }
++}
++
++const authState = reactive({
++  isAuthenticated: true,
++  canReadSupport: true,
++  isSupportInboxActive: false,
++})
++const openConversation = vi.fn()
++
++const Harness = defineComponent({
++  setup() {
++    useSupportBrowserNotifications({
++      isAuthenticated: () => authState.isAuthenticated,
++      canReadSupport: () => authState.canReadSupport,
++      isSupportInboxActive: () => authState.isSupportInboxActive,
++      openConversation,
++    })
++    return () => null
++  },
++})
++
++function message(overrides: Partial<ChatMessage> = {}): ChatMessage {
++  return {
++    id: 10,
++    conversation_id: 7,
++    sender_type: 'user',
++    sender_id: 2,
++    content: 'Need help with my request',
++    kind: 'text',
++    reply_to_id: null,
++    metadata: {},
++    assets: [],
++    recalled_at: null,
++    created_at: '2026-09-15T01:02:03Z',
++    ...overrides,
++  }
++}
++
++describe('useSupportBrowserNotifications', () => {
++  beforeEach(async () => {
++    setActivePinia(createPinia())
++    window.localStorage.clear()
++    MockNotification.permission = 'granted'
++    MockNotification.requestPermission.mockClear()
++    MockNotification.instances = []
++    socketHarness.options = null
++    socketHarness.connect.mockReset()
++    socketHarness.disconnect.mockReset()
++    openConversation.mockReset()
++    authState.isAuthenticated = true
++    authState.canReadSupport = true
++    authState.isSupportInboxActive = false
++    Object.defineProperty(window, 'Notification', {
++      configurable: true,
++      value: MockNotification,
++    })
++    Object.defineProperty(window, 'isSecureContext', {
++      configurable: true,
++      value: true,
++    })
++    Object.defineProperty(document, 'visibilityState', {
++      configurable: true,
++      value: 'hidden',
++    })
++    Object.defineProperty(document, 'hasFocus', {
++      configurable: true,
++      value: () => false,
++    })
++    Object.defineProperty(window, 'focus', {
++      configurable: true,
++      value: vi.fn(),
++    })
++
++    const appStore = useAppStore()
++    appStore.publicSettingsLoaded = true
++    appStore.cachedPublicSettings = {
++      support_chat_enabled: true,
++    } as typeof appStore.cachedPublicSettings
++    await useSupportChatNotificationStore().enable()
++  })
++
++  it('connects only while enabled and notifies for incoming user messages', async () => {
++    const wrapper = mount(Harness)
++    await flushPromises()
++
++    expect(socketHarness.connect).toHaveBeenCalled()
++    await socketHarness.options?.onMessage(message())
++
++    expect(MockNotification.instances).toHaveLength(1)
++    expect(MockNotification.instances[0]).toMatchObject({
++      title: 'New support message',
++      options: {
++        body: 'A user sent a new message',
++        tag: 'support-chat-message-10',
++      },
++    })
++    expect(useAppStore().supportInboxHasUnread).toBe(true)
++    expect(useSupportChatAdminStore().hasUnread).toBe(true)
++
++    MockNotification.instances[0].onclick?.(new Event('click'))
++    expect(MockNotification.instances[0].close).toHaveBeenCalled()
++    expect(window.focus).toHaveBeenCalled()
++    expect(openConversation).toHaveBeenCalledWith(7)
++
++    await socketHarness.options?.onMessage(message({ id: 11, sender_type: 'admin' }))
++    expect(MockNotification.instances).toHaveLength(1)
++
++    useSupportChatNotificationStore().disable()
++    await nextTick()
++    expect(socketHarness.disconnect).toHaveBeenCalled()
++
++    wrapper.unmount()
++  })
++
++  it('keeps foreground messages in the unread state without a system popup', async () => {
++    Object.defineProperty(document, 'visibilityState', {
++      configurable: true,
++      value: 'visible',
++    })
++    Object.defineProperty(document, 'hasFocus', {
++      configurable: true,
++      value: () => true,
++    })
++
++    const wrapper = mount(Harness)
++    await flushPromises()
++    await socketHarness.options?.onMessage(message())
++
++    expect(MockNotification.instances).toHaveLength(0)
++    expect(useAppStore().supportInboxHasUnread).toBe(true)
++    wrapper.unmount()
++  })
++
++  it('leaves unread ownership to the inbox page while still notifying in the background', async () => {
++    authState.isSupportInboxActive = true
++    const wrapper = mount(Harness)
++    await flushPromises()
++    await socketHarness.options?.onMessage(message())
++
++    expect(MockNotification.instances).toHaveLength(1)
++    expect(useAppStore().supportInboxHasUnread).toBe(false)
++    expect(useSupportChatAdminStore().hasUnread).toBe(false)
++    wrapper.unmount()
++  })
++
++  it('uses generic notification bodies without exposing support message text', () => {
++    const sensitiveText = 'sk-example-secret from an order request'
++    expect(buildSupportNotificationBody(message({ content: sensitiveText }))).toBe('A user sent a new message')
++    expect(buildSupportNotificationBody(message({ content: sensitiveText }))).not.toContain(sensitiveText)
++    expect(buildSupportNotificationBody(message({ content: '', kind: 'image' }))).toBe('A user sent an image')
++    expect(buildSupportNotificationBody(message({ content: '', kind: 'sticker' }))).toBe('A user sent a sticker')
++  })
++})
+diff --git a/frontend/src/features/support-chat/presentation/composables/useSupportBrowserNotifications.ts b/frontend/src/features/support-chat/presentation/composables/useSupportBrowserNotifications.ts
+new file mode 100644
+index 000000000..87246d20d
+--- /dev/null
++++ b/frontend/src/features/support-chat/presentation/composables/useSupportBrowserNotifications.ts
+@@ -0,0 +1,117 @@
++import { onBeforeUnmount, onMounted, watch } from 'vue'
++import { useAppStore } from '@/core/stores/appStore'
++import type { ChatMessage } from '@/features/support-chat/data/datasources/supportChatDatasource'
++import { useSupportChatSocket } from '@/features/support-chat/presentation/composables/useSupportChatSocket'
++import { useSupportChatAdminStore } from '@/features/support-chat/presentation/stores/supportChatAdminStore'
++import {
++  getBrowserNotificationAPI,
++  SUPPORT_BROWSER_NOTIFICATION_STORAGE_KEY,
++  useSupportChatNotificationStore,
++} from '@/features/support-chat/presentation/stores/supportChatNotificationStore'
++
++interface SupportBrowserNotificationOptions {
++  isAuthenticated: () => boolean
++  canReadSupport: () => boolean
++  isSupportInboxActive: () => boolean
++  openConversation: (conversationID: number) => void | Promise<void>
++}
++
++export function useSupportBrowserNotifications(options: SupportBrowserNotificationOptions): void {
++  const appStore = useAppStore()
++  const unreadStore = useSupportChatAdminStore()
++  const notificationStore = useSupportChatNotificationStore()
++
++  function runtimeEnabled(): boolean {
++    return options.isAuthenticated()
++      && options.canReadSupport()
++      && appStore.publicSettingsLoaded
++      && appStore.cachedPublicSettings?.support_chat_enabled === true
++      && notificationStore.enabled
++  }
++
++  function shouldShowSystemNotification(): boolean {
++    if (document.visibilityState !== 'visible') return true
++    return typeof document.hasFocus === 'function' && !document.hasFocus()
++  }
++
++  async function showIncomingMessage(message: ChatMessage): Promise<void> {
++    if (message.sender_type !== 'user') return
++
++    if (!options.isSupportInboxActive()) {
++      appStore.setSupportInboxUnread(true)
++      unreadStore.markHasUnread()
++    }
++    if (!runtimeEnabled() || !shouldShowSystemNotification()) return
++
++    const notificationAPI = getBrowserNotificationAPI()
++    if (!notificationAPI) {
++      notificationStore.syncBrowserState()
++      return
++    }
++
++    try {
++      const { buildSupportNotificationContent } = await import('../utils/supportBrowserNotificationContent')
++      const content = await buildSupportNotificationContent(message)
++      const notification = new notificationAPI(
++        content.title,
++        {
++          body: content.body,
++          tag: `support-chat-message-${message.id}`,
++        },
++      )
++      notification.onclick = () => {
++        notification.close()
++        window.focus()
++        void options.openConversation(message.conversation_id)
++      }
++    } catch (error) {
++      console.error('[supportChatNotifications] Failed to show browser notification:', error)
++      notificationStore.syncBrowserState()
++    }
++  }
++
++  const socket = useSupportChatSocket({
++    scope: 'admin',
++    onMessage: showIncomingMessage,
++  })
++
++  function syncRuntime(): void {
++    notificationStore.syncBrowserState()
++    if (runtimeEnabled()) socket.connect()
++    else socket.disconnect()
++  }
++
++  const stopWatch = watch(
++    [
++      options.isAuthenticated,
++      options.canReadSupport,
++      () => appStore.publicSettingsLoaded,
++      () => appStore.cachedPublicSettings?.support_chat_enabled,
++      () => notificationStore.enabled,
++    ],
++    syncRuntime,
++    { immediate: true },
++  )
++
++  function onVisibilityChange(): void {
++    if (document.visibilityState === 'visible') syncRuntime()
++  }
++
++  function onStorage(event: StorageEvent): void {
++    if (event.key === null || event.key === SUPPORT_BROWSER_NOTIFICATION_STORAGE_KEY) syncRuntime()
++  }
++
++  onMounted(() => {
++    document.addEventListener('visibilitychange', onVisibilityChange)
++    window.addEventListener('focus', syncRuntime)
++    window.addEventListener('storage', onStorage)
++  })
++
++  onBeforeUnmount(() => {
++    stopWatch()
++    socket.disconnect()
++    document.removeEventListener('visibilitychange', onVisibilityChange)
++    window.removeEventListener('focus', syncRuntime)
++    window.removeEventListener('storage', onStorage)
++  })
++}
+diff --git a/frontend/src/features/support-chat/presentation/stores/supportChatNotificationStore.ts b/frontend/src/features/support-chat/presentation/stores/supportChatNotificationStore.ts
+new file mode 100644
+index 000000000..85c72adbd
+--- /dev/null
++++ b/frontend/src/features/support-chat/presentation/stores/supportChatNotificationStore.ts
+@@ -0,0 +1,75 @@
++import { computed, ref } from 'vue'
++import { defineStore } from 'pinia'
++import { safeLocalStorage } from '@/core/utils/safeStorage'
++
++export const SUPPORT_BROWSER_NOTIFICATION_STORAGE_KEY = 'support_chat_browser_notifications_enabled'
++
++export type SupportBrowserNotificationPermission = NotificationPermission | 'unsupported'
++
++export function getBrowserNotificationAPI(): typeof Notification | null {
++  if (typeof window === 'undefined' || window.isSecureContext === false || !('Notification' in window)) return null
++  return window.Notification
++}
++
++function readPermission(): SupportBrowserNotificationPermission {
++  return getBrowserNotificationAPI()?.permission ?? 'unsupported'
++}
++
++function readPreference(): boolean {
++  return safeLocalStorage.getItem(SUPPORT_BROWSER_NOTIFICATION_STORAGE_KEY) === 'true'
++}
++
++export const useSupportChatNotificationStore = defineStore('supportChatNotification', () => {
++  const permission = ref<SupportBrowserNotificationPermission>(readPermission())
++  const preferenceEnabled = ref(readPreference())
++  const requestingPermission = ref(false)
++
++  const supported = computed(() => permission.value !== 'unsupported')
++  const enabled = computed(() => preferenceEnabled.value && permission.value === 'granted')
++
++  function syncBrowserState(): void {
++    permission.value = readPermission()
++    preferenceEnabled.value = readPreference()
++  }
++
++  async function enable(): Promise<SupportBrowserNotificationPermission> {
++    const notificationAPI = getBrowserNotificationAPI()
++    if (!notificationAPI) {
++      permission.value = 'unsupported'
++      preferenceEnabled.value = false
++      return permission.value
++    }
++
++    requestingPermission.value = true
++    try {
++      permission.value = notificationAPI.permission === 'default'
++        ? await notificationAPI.requestPermission()
++        : notificationAPI.permission
++      preferenceEnabled.value = permission.value === 'granted'
++      if (preferenceEnabled.value) {
++        safeLocalStorage.setItem(SUPPORT_BROWSER_NOTIFICATION_STORAGE_KEY, 'true')
++      } else {
++        safeLocalStorage.removeItem(SUPPORT_BROWSER_NOTIFICATION_STORAGE_KEY)
++      }
++      return permission.value
++    } finally {
++      requestingPermission.value = false
++    }
++  }
++
++  function disable(): void {
++    preferenceEnabled.value = false
++    safeLocalStorage.removeItem(SUPPORT_BROWSER_NOTIFICATION_STORAGE_KEY)
++  }
++
++  return {
++    permission,
++    preferenceEnabled,
++    requestingPermission,
++    supported,
++    enabled,
++    syncBrowserState,
++    enable,
++    disable,
++  }
++})
+diff --git a/frontend/src/features/support-chat/presentation/utils/supportBrowserNotificationContent.ts b/frontend/src/features/support-chat/presentation/utils/supportBrowserNotificationContent.ts
+new file mode 100644
+index 000000000..574b1165d
+--- /dev/null
++++ b/frontend/src/features/support-chat/presentation/utils/supportBrowserNotificationContent.ts
+@@ -0,0 +1,20 @@
++import i18n, { getLocale, loadLocaleMessages } from '@/core/i18n'
++import type { ChatMessage } from '@/features/support-chat/data/datasources/supportChatDatasource'
++
++export function buildSupportNotificationBody(message: ChatMessage): string {
++  if (message.kind === 'image' || message.assets.length > 0) {
++    return i18n.global.t('supportChat.browserNotifications.imageMessage')
++  }
++  if (message.kind === 'sticker') {
++    return i18n.global.t('supportChat.browserNotifications.stickerMessage')
++  }
++  return i18n.global.t('supportChat.browserNotifications.newMessageBody')
++}
++
++export async function buildSupportNotificationContent(message: ChatMessage): Promise<{ title: string; body: string }> {
++  await loadLocaleMessages(getLocale(), ['supportChat'])
++  return {
++    title: i18n.global.t('supportChat.browserNotifications.newMessageTitle'),
++    body: buildSupportNotificationBody(message),
++  }
++}
+diff --git a/frontend/src/features/support-chat/presentation/widgets/SupportBrowserNotificationButton.vue b/frontend/src/features/support-chat/presentation/widgets/SupportBrowserNotificationButton.vue
+new file mode 100644
+index 000000000..eac59e5db
+--- /dev/null
++++ b/frontend/src/features/support-chat/presentation/widgets/SupportBrowserNotificationButton.vue
+@@ -0,0 +1,64 @@
++<template>
++  <button
++    type="button"
++    class="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 disabled:cursor-not-allowed disabled:opacity-50"
++    :class="notificationStore.enabled
++      ? 'border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100 dark:border-primary-800 dark:bg-primary-900/30 dark:text-primary-200 dark:hover:bg-primary-900/45'
++      : 'border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-dark-700 dark:text-dark-300 dark:hover:bg-dark-800'"
++    :disabled="buttonDisabled"
++    :title="buttonTitle"
++    :aria-label="buttonTitle"
++    :aria-pressed="notificationStore.enabled"
++    @click="toggleNotifications"
++  >
++    <Icon name="bell" size="sm" />
++    <span
++      v-if="notificationStore.enabled"
++      class="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-dark-900"
++      aria-hidden="true"
++    ></span>
++  </button>
++</template>
++
++<script setup lang="ts">
++import { computed } from 'vue'
++import { useI18n } from 'vue-i18n'
++import Icon from '@/common/widgets/icons/Icon.vue'
++import { useAppStore } from '@/core/stores/appStore'
++import { useSupportChatNotificationStore } from '@/features/support-chat/presentation/stores/supportChatNotificationStore'
++
++const { t } = useI18n()
++const appStore = useAppStore()
++const notificationStore = useSupportChatNotificationStore()
++
++const buttonDisabled = computed(() => notificationStore.requestingPermission
++  || !notificationStore.supported
++  || notificationStore.permission === 'denied')
++
++const buttonTitle = computed(() => {
++  if (!notificationStore.supported) return t('supportChat.browserNotifications.unsupported')
++  if (notificationStore.permission === 'denied') return t('supportChat.browserNotifications.permissionDenied')
++  if (notificationStore.requestingPermission) return t('supportChat.browserNotifications.requesting')
++  return notificationStore.enabled
++    ? t('supportChat.browserNotifications.disable')
++    : t('supportChat.browserNotifications.enable')
++})
++
++async function toggleNotifications(): Promise<void> {
++  if (notificationStore.enabled) {
++    notificationStore.disable()
++    return
++  }
++
++  try {
++    const permission = await notificationStore.enable()
++    if (permission === 'granted') {
++      appStore.showSuccess(t('supportChat.browserNotifications.enabled'))
++    } else if (permission === 'denied') {
++      appStore.showError(t('supportChat.browserNotifications.permissionDenied'))
++    }
++  } catch {
++    appStore.showError(t('supportChat.browserNotifications.requestFailed'))
++  }
++}
++</script>

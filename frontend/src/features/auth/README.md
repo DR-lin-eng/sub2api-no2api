@@ -9,8 +9,10 @@
 - `data/datasources/authQueries.ts`: current-user, public-settings, and local-captcha reads.
 - `data/datasources/authVerificationActions.ts`: email verification, promo/invitation validation, and password recovery.
 - `data/datasources/authOAuthActions.ts`: OAuth start, pending completion, account creation/adoption, bind-token preparation, and WeChat capability selection.
+- `data/datasources/oauth2ProviderDatasource.ts`: OAuth2 provider consent preview and resource-owner decision calls.
 - `data/datasources/authDatasource.ts`: compatibility facade only. New runtime code imports the owner above.
 - `presentation/stores/authStore.ts`: authenticated user state, initial cookie restoration, refresh scheduling, and pending OAuth state.
+- `presentation/pages/OAuth2AuthorizePage.vue`: authenticated consent screen for administrator-approved OAuth2 clients.
 - `index.ts`: stable `useAuthStore` entry for cross-feature consumers.
 - `totpStepUpDialog.ts`: narrow public step-up component entry.
 
