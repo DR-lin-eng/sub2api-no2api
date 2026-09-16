@@ -67,6 +67,7 @@ type AccountQualitySettings struct {
 	CodeMatchThreshold   float64 `json:"code_match_threshold"`
 	CodeMatchNormalClass string  `json:"code_match_normal_class"`
 	MinReasoningTokens   int64   `json:"min_reasoning_tokens"`
+	InjectTurnState      bool    `json:"inject_turn_state"`
 	PublicEnabled        bool    `json:"public_enabled"`
 }
 
@@ -612,6 +613,8 @@ func (s *AccountQualityMonitoringService) executeRun(ctx context.Context, trigge
 		// slices with the active worker rows.
 		state.Results[index] = results[index]
 		state.Results[index].Reasons = append([]string(nil), results[index].Reasons...)
+		state.Results[index].QualityTurnStates = append([]string(nil), results[index].QualityTurnStates...)
+		state.Results[index].QualityInjectedTurnStates = append([]string(nil), results[index].QualityInjectedTurnStates...)
 		updateQualityProgress(state)
 		state.Progress.CurrentAccountID, state.Progress.CurrentAccount, state.Progress.CurrentStage = eligible[index].ID, eligible[index].Name, stage
 		if err := s.saveProgress(ctx, state); err != nil && progressErr == nil {

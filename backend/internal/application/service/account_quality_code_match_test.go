@@ -31,7 +31,7 @@ func TestQualityCodeMatchOverridesLegacyClassifierAndRetainsPreview(t *testing.T
 			settings.MinConfidence = 1 // Never applies to code similarity.
 			probe := &qualityStageProbeStub{responses: []string{tc.source}}
 			svc := &AccountQualityMonitoringService{accountTestSvc: probe}
-			result := svc.runQualityStage(context.Background(), Account{}, settings, "stage2", "drawing")
+			result := svc.runQualityStage(context.Background(), Account{}, settings, "stage2", "drawing", "")
 			require.Equal(t, tc.status, result.status)
 			require.False(t, result.operational)
 			require.Equal(t, "ready", result.detail.PreviewStatus)
@@ -83,7 +83,7 @@ func TestQualityCodeMatchAnalyzesPartialStreamBeforeFailure(t *testing.T) {
 	settings := DefaultAccountQualitySettings()
 	probe := &qualityStageProbeStub{results: []*ScheduledTestResult{{Status: "failed", ResponseText: partial, ErrorMessage: "stream ended before response.completed"}}}
 	svc := &AccountQualityMonitoringService{accountTestSvc: probe}
-	result := svc.runQualityStage(context.Background(), Account{}, settings, "stage2", "drawing")
+	result := svc.runQualityStage(context.Background(), Account{}, settings, "stage2", "drawing", "")
 	if result.detail.CodeMatch == nil {
 		t.Fatalf("partial failed stream was not analyzed: %+v", result)
 	}
@@ -103,7 +103,7 @@ func TestQualityCodeMatchKeepsCompleteFailedStreamAsOperationalError(t *testing.
 	settings := DefaultAccountQualitySettings()
 	probe := &qualityStageProbeStub{results: []*ScheduledTestResult{{Status: "failed", ResponseText: complete, ErrorMessage: "upstream reset"}}}
 	svc := &AccountQualityMonitoringService{accountTestSvc: probe}
-	result := svc.runQualityStage(context.Background(), Account{}, settings, "stage2", "drawing")
+	result := svc.runQualityStage(context.Background(), Account{}, settings, "stage2", "drawing", "")
 	require.NotNil(t, result.detail.CodeMatch)
 	require.True(t, result.detail.CodeMatch.SourceComplete)
 	require.Equal(t, "error", result.status)
@@ -114,7 +114,7 @@ func TestQualityCodeMatchKeepsCompleteFailedStreamAsOperationalError(t *testing.
 func TestQualityCodeMatchRejectsNonDrawingWithoutCallingRenderer(t *testing.T) {
 	for _, source := range []string{"", "no drawing", "<!-- <svg/> -->", `<script>const s="<svg/>";</script>`, "<svg/>" + strings.Repeat("x", 1<<20)} {
 		svc := &AccountQualityMonitoringService{accountTestSvc: &qualityStageProbeStub{responses: []string{source}}}
-		result := svc.runQualityStage(context.Background(), Account{}, DefaultAccountQualitySettings(), "stage2", "drawing")
+		result := svc.runQualityStage(context.Background(), Account{}, DefaultAccountQualitySettings(), "stage2", "drawing", "")
 		require.Equal(t, "error", result.status)
 		require.True(t, result.operational)
 		require.Nil(t, result.detail.CodeMatch)

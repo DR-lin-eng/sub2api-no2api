@@ -651,6 +651,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 	// Failover can reuse the downstream turn-state with a different account.
 	// Strip only values whose provenance is known to be cross-account.
 	s.guardOpenAICodexTurnStateEcho(c, account, req.Header)
+	s.applyConfiguredCodexTurnStateReplay(c, account, req.Header)
 
 	// 覆盖入站鉴权残留，并注入上游认证
 	req.Header.Del("authorization")

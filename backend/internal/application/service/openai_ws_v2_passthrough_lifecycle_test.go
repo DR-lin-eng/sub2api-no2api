@@ -96,10 +96,14 @@ func (c *stagedPassthroughConn) Close() error {
 }
 
 type stagedPassthroughDialer struct {
-	conn openAIWSClientConn
+	conn    openAIWSClientConn
+	headers chan http.Header
 }
 
-func (d *stagedPassthroughDialer) Dial(context.Context, string, http.Header, string) (openAIWSClientConn, int, http.Header, error) {
+func (d *stagedPassthroughDialer) Dial(_ context.Context, _ string, headers http.Header, _ string) (openAIWSClientConn, int, http.Header, error) {
+	if d.headers != nil {
+		d.headers <- headers.Clone()
+	}
 	return d.conn, http.StatusSwitchingProtocols, http.Header{}, nil
 }
 
@@ -196,6 +200,53 @@ func startPassthroughLifecycleServer(
 
 func dialPassthroughLifecycleClient(t *testing.T, server *httptest.Server) *coderws.Conn {
 	return dialPassthroughLifecycleClientWithPayload(t, server, []byte(`{"type":"response.create","model":"gpt-5.1","stream":false}`))
+}
+
+func TestPassthroughLifecycleReplaysConfiguredTurnStateOnOAuthHandshake(t *testing.T) {
+	cfg := passthroughLifecycleConfig()
+	cfg.Gateway.OpenAIWS.OAuthEnabled = true
+	upstream := newStagedPassthroughConn()
+	svc := newPassthroughLifecycleService(cfg, upstream)
+	dialer, ok := svc.openaiWSPassthroughDialer.(*stagedPassthroughDialer)
+	require.True(t, ok)
+	dialer.headers = make(chan http.Header, 1)
+	settings := NewSettingService(newCodexSimulationSettingRepo(), cfg)
+	_, err := settings.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{
+		TurnStateReplayEnabled: true,
+		TurnStates:             []string{"oauth-state", "unrelated-state"},
+		TurnStateAccountIDs:    map[string][]int64{"unrelated-state": {999}},
+		ContinuationMode:       "off",
+		StateTTLSeconds:        60,
+	})
+	require.NoError(t, err)
+	svc.settingService = settings
+	account := passthroughLifecycleAccount()
+	account.Type = AccountTypeOAuth
+	account.Credentials = map[string]any{"access_token": "oauth-token"}
+	account.Extra = map[string]any{"openai_oauth_responses_websockets_v2_mode": OpenAIWSIngressModePassthrough}
+	controlCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	server, serverErr := startPassthroughLifecycleServer(t, controlCtx, svc, account)
+	defer server.Close()
+	client := dialPassthroughLifecycleClient(t, server)
+	defer func() { _ = client.CloseNow() }()
+
+	select {
+	case headers := <-dialer.headers:
+		require.Equal(t, "oauth-state", headers.Get(openAIWSTurnStateHeader))
+	case <-time.After(3 * time.Second):
+		t.Fatal("upstream WebSocket handshake did not start")
+	}
+	upstream.Send(`{"type":"response.completed","response":{"id":"resp_turn_state","model":"gpt-5.1","usage":{"input_tokens":1,"output_tokens":1}}}`)
+	frame, err := readPassthroughLifecycleFrame(t, client, 3*time.Second)
+	require.NoError(t, err)
+	require.Equal(t, "resp_turn_state", gjson.GetBytes(frame, "response.id").String())
+	_ = client.Close(coderws.StatusNormalClosure, "done")
+	select {
+	case <-serverErr:
+	case <-time.After(3 * time.Second):
+		t.Fatal("passthrough WebSocket did not finish")
+	}
 }
 
 func dialPassthroughLifecycleClientWithPayload(t *testing.T, server *httptest.Server, payload []byte) *coderws.Conn {

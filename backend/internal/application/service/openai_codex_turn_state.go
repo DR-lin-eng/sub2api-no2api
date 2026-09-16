@@ -240,6 +240,33 @@ func (s *OpenAIGatewayService) guardOpenAICodexTurnStateEcho(c *gin.Context, acc
 	}
 }
 
+// applyConfiguredCodexTurnStateReplay force-selects one administrator-managed
+// state for each OAuth request. Account-bound states only participate for the
+// account that captured them; manually entered states remain globally usable.
+func (s *OpenAIGatewayService) applyConfiguredCodexTurnStateReplay(c *gin.Context, account *Account, headers http.Header) {
+	if headers == nil {
+		return
+	}
+	if state := s.configuredCodexTurnStateReplay(c, account); state != "" {
+		headers.Set(openAICodexTurnStateHeader, state)
+	}
+}
+
+func (s *OpenAIGatewayService) configuredCodexTurnStateReplay(c *gin.Context, account *Account) string {
+	if s == nil || s.settingService == nil || account == nil || !account.IsOpenAIOAuth() {
+		return ""
+	}
+	ctx := context.Background()
+	if c != nil && c.Request != nil {
+		ctx = c.Request.Context()
+	}
+	settings := s.settingService.CodexSimulationSettingsSnapshot(ctx)
+	if !settings.TurnStateReplayEnabled {
+		return ""
+	}
+	return randomCodexTurnStateForAccount(settings, account.ID)
+}
+
 func (s *OpenAIGatewayService) sweepOpenAICodexTurnStateOrigins() {
 	if s == nil || s.openaiCodexTurnStateWrites.Add(1)%256 != 0 {
 		return

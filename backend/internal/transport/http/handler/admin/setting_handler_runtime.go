@@ -309,14 +309,37 @@ func (h *SettingHandler) UpdateCodexSimulationSettings(c *gin.Context) {
 	if req.ExperimentalTransportEnabled != nil {
 		experimentalTransportEnabled = *req.ExperimentalTransportEnabled
 	}
+	turnStateReplayEnabled := current.TurnStateReplayEnabled
+	if req.TurnStateReplayEnabled != nil {
+		turnStateReplayEnabled = *req.TurnStateReplayEnabled
+	}
+	turnStates := current.TurnStates
+	if req.TurnStates != nil {
+		turnStates = *req.TurnStates
+	}
 	settings, err := h.settingService.SetCodexSimulationSettings(c.Request.Context(), &service.CodexSimulationSettings{
 		FullSimulationEnabled:                *req.FullSimulationEnabled,
 		CLevelSimulationEnabled:              cLevelEnabled,
 		ExperimentalTransportEnabled:         experimentalTransportEnabled,
 		CodexPrewarmContinuationForceEnabled: prewarmForceEnabled,
+		TurnStateReplayEnabled:               turnStateReplayEnabled,
+		TurnStates:                           turnStates,
+		TurnStateAccountIDs:                  current.TurnStateAccountIDs,
 		ContinuationMode:                     mode,
 		StateTTLSeconds:                      *req.StateTTLSeconds,
 	})
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, codexSimulationSettingsDTO(settings))
+}
+
+// SyncCodexTurnStates copies states captured by healthy account-quality probes
+// into the replay pool while retaining manual, globally applicable entries.
+// POST /api/v1/admin/settings/codex-simulation/sync-turn-states
+func (h *SettingHandler) SyncCodexTurnStates(c *gin.Context) {
+	settings, err := h.settingService.SyncCodexTurnStatesFromAccountQuality(c.Request.Context())
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -345,6 +368,8 @@ func codexSimulationSettingsDTO(settings *service.CodexSimulationSettings) dto.C
 		CLevelSimulationEnabled:              settings.CLevelSimulationEnabled,
 		ExperimentalTransportEnabled:         settings.ExperimentalTransportEnabled,
 		CodexPrewarmContinuationForceEnabled: settings.CodexPrewarmContinuationForceEnabled,
+		TurnStateReplayEnabled:               settings.TurnStateReplayEnabled,
+		TurnStates:                           append([]string{}, settings.TurnStates...),
 		ContinuationMode:                     settings.ContinuationMode,
 		StateTTLSeconds:                      settings.StateTTLSeconds,
 		IdentitySecretConfigured:             settings.IdentitySecretConfigured(),

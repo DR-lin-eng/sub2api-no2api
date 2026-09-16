@@ -142,6 +142,8 @@ export interface CodexSimulationSettings {
   c_level_simulation_enabled?: boolean;
   experimental_transport_enabled?: boolean;
   codex_prewarm_continuation_force_enabled?: boolean;
+  turn_state_replay_enabled: boolean;
+  turn_states: string[];
   continuation_mode: CodexContinuationMode;
   state_ttl_seconds: number;
   identity_secret_configured: boolean;

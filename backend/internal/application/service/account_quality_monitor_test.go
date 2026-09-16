@@ -121,6 +121,7 @@ type qualityStageProbeStub struct {
 	responses []string
 	results   []*ScheduledTestResult
 	prompts   []string
+	injected  []string
 }
 
 type blockingQualityProbeStub struct {
@@ -134,8 +135,9 @@ func (p *blockingQualityProbeStub) RunQualityTestBackground(context.Context, int
 	return &ScheduledTestResult{Status: "success", ResponseText: "21"}, nil
 }
 
-func (p *qualityStageProbeStub) RunQualityTestBackground(_ context.Context, _ int64, _, prompt, _ string) (*ScheduledTestResult, error) {
+func (p *qualityStageProbeStub) RunQualityTestBackground(ctx context.Context, _ int64, _, prompt, _ string) (*ScheduledTestResult, error) {
 	p.prompts = append(p.prompts, prompt)
+	p.injected = append(p.injected, accountTestTurnState(ctx))
 	if len(p.results) > 0 {
 		result := p.results[0]
 		p.results = p.results[1:]
@@ -146,6 +148,63 @@ func (p *qualityStageProbeStub) RunQualityTestBackground(_ context.Context, _ in
 		response, p.responses = p.responses[0], p.responses[1:]
 	}
 	return &ScheduledTestResult{Status: "success", ResponseText: response}, nil
+}
+
+func TestQualityMonitoringInjectsRandomConfiguredStateAndRecordsCapturedState(t *testing.T) {
+	account := Account{ID: 19, Name: "turn-state", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
+	probe := &qualityStageProbeStub{results: []*ScheduledTestResult{{Status: "success", ResponseText: "21", TurnState: "captured-high-state"}}}
+	codexSettings, err := json.Marshal(CodexSimulationSettings{
+		TurnStates:          []string{"state-a", "state-b", "other-account"},
+		TurnStateAccountIDs: map[string][]int64{"other-account": {20}},
+		ContinuationMode:    "off",
+		StateTTLSeconds:     60,
+	})
+	require.NoError(t, err)
+	settingsRepo := &inspectionSettingRepoStub{values: map[string]string{SettingKeyCodexSimulationSettings: string(codexSettings)}}
+	svc := &AccountQualityMonitoringService{accountRepo: &qualityRepoStub{extra: map[int64]map[string]any{}}, accountTestSvc: probe, settingRepo: settingsRepo}
+	settings := DefaultAccountQualitySettings()
+	settings.Stage2Enabled = false
+	settings.InjectTurnState = true
+	rows := []AccountInspectionAccountResult{neutralAccountInspectionResult(&account, time.Now().UTC())}
+
+	require.NoError(t, svc.runQualityMonitoring(context.Background(), []Account{account}, rows, nil, settings, time.Now().UTC()))
+	require.Len(t, probe.injected, 1)
+	require.Contains(t, []string{"state-a", "state-b"}, probe.injected[0])
+	require.Equal(t, []string{probe.injected[0]}, rows[0].QualityInjectedTurnStates)
+	require.Equal(t, []string{"captured-high-state"}, rows[0].QualityTurnStates)
+}
+
+func TestQualityMonitoringDoesNotRecordStateFromFailedQualityAnswer(t *testing.T) {
+	account := Account{ID: 21, Name: "low-quality", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
+	probe := &qualityStageProbeStub{results: []*ScheduledTestResult{{Status: "success", ResponseText: "20", TurnState: "captured-low-state"}}}
+	svc := &AccountQualityMonitoringService{accountRepo: &qualityRepoStub{extra: map[int64]map[string]any{}}, accountTestSvc: probe}
+	settings := DefaultAccountQualitySettings()
+	settings.Stage2Enabled = false
+	rows := []AccountInspectionAccountResult{neutralAccountInspectionResult(&account, time.Now().UTC())}
+
+	require.NoError(t, svc.runQualityMonitoring(context.Background(), []Account{account}, rows, nil, settings, time.Now().UTC()))
+	require.Empty(t, rows[0].QualityTurnStates)
+}
+
+func TestQualityMonitoringTurnStateInjectionCanBeDisabled(t *testing.T) {
+	account := Account{ID: 22, Name: "control", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
+	probe := &qualityStageProbeStub{results: []*ScheduledTestResult{{Status: "success", ResponseText: "21", TurnState: "captured-control"}}}
+	codexSettings, err := json.Marshal(CodexSimulationSettings{TurnStates: []string{"configured-state"}, ContinuationMode: "off", StateTTLSeconds: 60})
+	require.NoError(t, err)
+	svc := &AccountQualityMonitoringService{
+		accountRepo:    &qualityRepoStub{extra: map[int64]map[string]any{}},
+		accountTestSvc: probe,
+		settingRepo:    &inspectionSettingRepoStub{values: map[string]string{SettingKeyCodexSimulationSettings: string(codexSettings)}},
+	}
+	settings := DefaultAccountQualitySettings()
+	settings.Stage2Enabled = false
+	settings.InjectTurnState = false
+	rows := []AccountInspectionAccountResult{neutralAccountInspectionResult(&account, time.Now().UTC())}
+
+	require.NoError(t, svc.runQualityMonitoring(context.Background(), []Account{account}, rows, nil, settings, time.Now().UTC()))
+	require.Equal(t, []string{""}, probe.injected)
+	require.Empty(t, rows[0].QualityInjectedTurnStates)
+	require.Equal(t, []string{"captured-control"}, rows[0].QualityTurnStates)
 }
 
 func TestQualityStagesCanRunIndependently(t *testing.T) {

@@ -718,6 +718,7 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		// Codex OAuth A/B simulation runtime controls
 		adminSettings.GET("/codex-simulation", h.Admin.Setting.GetCodexSimulationSettings)
 		adminSettings.PUT("/codex-simulation", h.Admin.Setting.UpdateCodexSimulationSettings)
+		adminSettings.POST("/codex-simulation/sync-turn-states", h.Admin.Setting.SyncCodexTurnStates)
 		adminSettings.POST("/codex-simulation/restore-original", h.Admin.Setting.RestoreOriginalCodexBehavior)
 		// 面板 API 限流配置
 		adminSettings.GET("/panel-rate-limit", h.Admin.Setting.GetPanelRateLimitSettings)

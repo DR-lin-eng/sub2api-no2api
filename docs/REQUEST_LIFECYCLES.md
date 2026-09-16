@@ -52,6 +52,8 @@ outbox。目标分组必须存在、启用且与账号平台一致；切换失�
 
 质量监控默认并发 4 个探测，管理员可在质量策略中设置 1–200 的 `max_concurrent`（上限 200）。若检测间隔短于上一轮耗时，新的定时/手动轮次进入单槽待开始队列并合并重复请求，当前轮次不取消；上一轮完成后立即启动排队轮次。第一阶段使用 `timeout_seconds`（默认 120 秒，可由管理员设置为 30–300 秒）；第二阶段的该值只限制“尚未收到任何流式内容”的等待时间。OpenAI 画图探测使用 Responses 流式请求，收到首个内容/图片事件后不再触发这项短超时，继续等待上游完成；整个质量运行仍受外层运行预算约束。传输、鉴权或无输出超时错误显示为本次 `error`，但不递增质量失败计数，也不触发降智分组切换。第一阶段从上游实际 usage 提取 reasoning token：OpenAI Responses 的 `response.usage.output_tokens_details.reasoning_tokens`、Chat Completions 的 `usage.completion_tokens_details.reasoning_tokens`，Gemini 的 `usageMetadata.thoughtsTokenCount`。缺失用量显示未知；启用阈值时该次结果为待确认，不按 0 判降智。`min_reasoning_tokens` 默认 0（仅展示），管理员可设置 0–1000000；严格小于阈值判为降智，等于阈值通过。摘要提供 0–49、50–99、100–249、250–499、500–999、1000+ 六个区间、均值、已测和未知数量；汇总在分页和截断前完成。状态、连续计数和最近 24 次阶段摘要存入 `accounts.extra`，探测不写入用量日志；公开页仅展示下文列出的最终回答，不展示推理正文。
 
+OpenAI OAuth 质量探测会读取上游响应头 `X-Codex-Turn-State`。只有质量阶段判定为 `passed` 的值才写入管理员质量运行结果；降智、待确认和请求错误产生的值不会进入可同步集合，公开质量看板也不返回这些值。质量策略的 `inject_turn_state` 是独立对照开关：开启后，每个 OpenAI 探测阶段从“Codex OAuth A/B/C 模拟”的当前账号可用池随机选择一个 state 注入，同时在管理员结果表分别显示本次注入值和响应采集值；Gemini 探测不注入该头。
+
 画图阶段的质量判定改为后端 Go 代码匹配：`modules/qualityrender` 按提供的 `model_a_fingerprint.py` 规则，对完整 HTML/SVG 计算 9 项加权特征（总分 100，默认阈值 55），记录命中特征、缺失特征和规则版本。分数表示代码结构相似度，不是概率；管理员可设置阈值，也可选择命中 Model A 或未命中 Model A 为正常。旧 `min_confidence` 字段继续返回以兼容已有配置，但不再参与代码匹配判定；已有非空 `ACCOUNT_QUALITY_RENDERER_URL` 仍只用于生成预览。
 
 预览渲染改由前端浏览器完成：后端仅在 `probe_details.stage2.preview_html` 保存经过 CSP/外链过滤且最多 256 KiB 的 HTML，公开接口返回该字段；前端使用 `iframe srcdoc` 与 `sandbox="allow-scripts"` 加载自包含动画，历史 PNG/WebP 记录仍可通过原图片接口查看。主 Docker 镜像不再安装 Python、Chromium 或 Playwright，代码匹配仍在后端 Go 中执行。预览 HTML 不允许外部网络、框架、对象、表单或事件属性，代码匹配先于预览生成，浏览器预览失败不会丢失匹配分数和对话详情。公开接口不返回账号凭据或原始请求；没有回答、对话/响应 ID、代码匹配或预览的空失败记录不会出现在公开时间线和详情卡片中。流式画图即使在结束前中断，只要已收到部分 SVG/HTML，仍会执行代码匹配并记录 `source_complete=false`；第二阶段状态显示“输出被中断，分析可能错误”，但账号总结果以第一阶段文字题为准（第一阶段通过则整体通过，第一阶段答错仍判降智）。仅启用第二阶段时，不完整输出判为待确认。
@@ -225,14 +227,17 @@ Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换
 
 ### Codex OAuth A/B/C 模拟
 
-管理员面板的“网关服务 -> Codex OAuth A/B 模拟”通过
+管理员面板的“网关服务 -> Codex OAuth A/B/C 模拟”通过
 `GET/PUT /api/v1/admin/settings/codex-simulation` 管理数据库运行时设置；紧急回滚使用无请求体的
-`POST /api/v1/admin/settings/codex-simulation/restore-original`。该入口不依赖当前表单 TTL，也不要求旧数据库
+`POST /api/v1/admin/settings/codex-simulation/restore-original`。质量巡检完成后可调用
+`POST /api/v1/admin/settings/codex-simulation/sync-turn-states`，把最近一次**成功完成**的巡检中健康账号的已通过阶段 state 同步到池中；正在运行或失败的巡检不允许同步部分结果。手工录入的 state 保持全账号可用，同步值保留采集账号绑定。同一账号有多个可用 state 时，每个 HTTP 请求独立随机选择一个；原生 WS 只能在新连接的握手头中随机选择，不能在复用连接的后续帧中更改握手头。该选择只作用于 OpenAI OAuth 账号，热路径读取内存快照，不查询数据库，也不记录 state 正文到日志。
+
+紧急回滚入口不依赖当前表单 TTL，也不要求旧数据库
 记录可以被解析，会直接写入 A=false、B=off、C=false。数据库记录存在时明确覆盖
 `gateway.codex_simulation`；记录缺失时才使用 YAML/环境变量作为兼容默认值。当前节点保存后立即生效，
 其他节点最多在 5 秒后台刷新周期后生效；OAuth 请求只读内存快照，不承担数据库刷新。首次启用 A 或 B 时
 服务端自动生成并保存身份密钥，接口只返回
-密钥是否已配置。A/B/C 默认关闭；A/C 不改变账号调度，B enforce 只在已知 incremental owner 时
+密钥是否已配置。A/B/C 与 Turn State 重放默认关闭；强制恢复会关闭重放但保留已保存池，便于之后显式重新启用。A/C 不改变账号调度，B enforce 只在已知 incremental owner 时
 给现有调度器增加 owner principal/本地账号候选约束，不改变匹配候选之间的排序、计费或通用 failover。A 的
 `full_simulation_enabled` 只作用于 `codex_fingerprint_mode=full` 的 OpenAI OAuth 账号；B 的
 `continuation_mode=off|shadow|enforce` 独立于账号指纹模式。C 的

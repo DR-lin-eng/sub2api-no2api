@@ -32,6 +32,7 @@ export interface AccountQualitySettings {
   code_match_normal_class: 'model_a' | 'other'
   min_confidence: number
   min_reasoning_tokens: number
+  inject_turn_state: boolean
   public_enabled: boolean
 }
 
@@ -47,6 +48,8 @@ export interface AccountQualityResult {
   quality_stage1_status?: string
   quality_stage2_status?: string
   quality_reasoning_tokens?: number | null
+  quality_turn_states?: string[]
+  quality_injected_turn_states?: string[]
   quality_consecutive_failures?: number
   quality_consecutive_passes?: number
   quality_action?: string
