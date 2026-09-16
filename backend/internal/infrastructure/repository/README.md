@@ -14,7 +14,7 @@
 | `payment*`, `subscription*`, `promo_code*`, `redeem_code*` | 商业对象持久化 |
 | `chat*` | 在线客服会话、消息、素材、快捷回复及分批保留清理 |
 | `cluster*` | 逻辑节点、runner 历史、共享任务租约与版本发布状态 |
-| `*_oauth_*`, `http_upstream*`, `proxy*` | 外部凭据和网络访问实现 |
+| `*_oauth_*`, `http_upstream*`, `proxy*` | 外部凭据、代理池均衡/健康状态和网络访问实现 |
 | `wire.go` | repository provider 集合 |
 
 `account_repo.go` 只保留仓储结构和构造器；账户持久化分别位于 `account_repo_crud.go`, `account_repo_list.go`, `account_repo_credentials.go`, `account_repo_oauth_401_delete.go`, `account_repo_scheduler_cache.go`, `account_repo_scheduling.go`, `account_repo_extra.go`, `account_repo_probe.go`, `account_repo_mapping.go` 和 `account_repo_quota.go`。新增账户查询或写入应进入对应职责文件，不再回填主文件。

@@ -480,8 +480,10 @@ func ProvideOpenAICodexVersionSyncService(
 }
 
 // ProvideProxyExpiryService creates and starts ProxyExpiryService.
-func ProvideProxyExpiryService(proxyRepo ProxyRepository) *ProxyExpiryService {
+func ProvideProxyExpiryService(proxyRepo ProxyRepository, settingService *SettingService) *ProxyExpiryService {
 	svc := NewProxyExpiryService(proxyRepo, time.Minute)
+	autoAssignRepo, _ := proxyRepo.(ProxyAutoAssignmentRepository)
+	svc.SetAutoAssignment(settingService, autoAssignRepo)
 	svc.Start()
 	return svc
 }
@@ -1086,13 +1088,14 @@ var ProviderSet = wire.NewSet(
 	ProvideUsageBillingQueueRuntimeCoordinator,
 	ProvideSchedulerSnapshotService,
 	NewIdentityService,
-	NewCRSSyncService,
+	ProvideCRSSyncService,
 	ProvideUpdateService,
 	ProvideTokenRefreshService,
 	wire.Bind(new(GrokOAuthReconciler), new(*TokenRefreshService)),
 	ProvideAccountExpiryService,
 	ProvideOpenAICodexVersionSyncService,
 	ProvideProxyExpiryService,
+	ProvideProxyHealthService,
 	ProvideSubscriptionExpiryService,
 	ProvideTimingWheelService,
 	ProvideDashboardAggregationService,

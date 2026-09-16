@@ -234,6 +234,26 @@ export default {
       fallbackProxy: '指定备用代理',
       fallbackDirect: '回退直连',
       backupProxy: '备用代理',
+      autoAssignment: {
+        title: '代理自动分配',
+        action: '自动分配',
+        active: '已开启',
+        enabled: '强制自动分配',
+        healthCheckEnabled: '定期测活',
+        intervalMinutes: '测活周期（分钟）',
+        failureThreshold: '连续失败阈值',
+        rebalance: '立即均衡',
+        saved: '代理自动分配设置已保存',
+        rebalanced: '均衡完成，迁移 {count} 个账号',
+        loadFailed: '加载代理自动分配设置失败',
+        saveFailed: '保存代理自动分配设置失败',
+        rebalanceFailed: '代理均衡失败',
+        healthUnknown: '未检测',
+        healthHealthy: '健康',
+        healthDegraded: '异常',
+        healthUnhealthy: '失活',
+        failureCount: '连续失败 {count} 次'
+      },
     },
 
     // Redeem Codes Management

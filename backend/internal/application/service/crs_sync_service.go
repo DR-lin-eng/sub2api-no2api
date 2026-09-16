@@ -25,6 +25,7 @@ type CRSSyncService struct {
 	oauthService       *OAuthService
 	openaiOAuthService *OpenAIOAuthService
 	geminiOAuthService *GeminiOAuthService
+	settingService     *SettingService
 	cfg                *config.Config
 }
 
@@ -43,6 +44,12 @@ func NewCRSSyncService(
 		openaiOAuthService: openaiOAuthService,
 		geminiOAuthService: geminiOAuthService,
 		cfg:                cfg,
+	}
+}
+
+func (s *CRSSyncService) SetSettingService(settingService *SettingService) {
+	if s != nil {
+		s.settingService = settingService
 	}
 }
 
@@ -1140,7 +1147,34 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 		result.Items = append(result.Items, item)
 	}
 
+	if err := s.rebalanceProxyAssignmentsIfEnabled(ctx); err != nil {
+		result.Failed++
+		result.Items = append(result.Items, SyncFromCRSItemResult{
+			Kind:   "proxy-auto-assignment",
+			Action: "failed",
+			Error:  err.Error(),
+		})
+	}
 	return result, nil
+}
+
+func (s *CRSSyncService) rebalanceProxyAssignmentsIfEnabled(ctx context.Context) error {
+	if s == nil || s.settingService == nil {
+		return nil
+	}
+	settings, err := s.settingService.GetProxyAutoAssignmentSettings(ctx)
+	if err != nil {
+		return err
+	}
+	if !settings.Enabled {
+		return nil
+	}
+	repo, ok := s.proxyRepo.(ProxyAutoAssignmentRepository)
+	if !ok || repo == nil {
+		return ErrProxyAutoAssignmentUnavailable
+	}
+	_, err = repo.RebalanceActiveProxyAccounts(ctx, time.Now())
+	return err
 }
 
 func mergeMap(existing map[string]any, updates map[string]any) map[string]any {

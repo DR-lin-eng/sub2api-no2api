@@ -307,19 +307,20 @@ func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest) 
 						}
 					}
 					_, _ = h.adminService.UpdateProxy(ctx, existingID, &service.UpdateProxyInput{
-						Status:         normalizedStatus,
-						ExpiresAt:      existingExpiresAt,
-						ClearExpiresAt: existingExpiresAt == nil,
-						FallbackMode:   existingFallbackMode,
-						BackupProxyID:  existingBackupProxyID,
-						ClearBackupID:  existingBackupProxyID == nil,
-						ExpiryWarnDays: &item.ExpiryWarnDays,
-						Name:           proxy.Name,
-						Protocol:       proxy.Protocol,
-						Host:           proxy.Host,
-						Port:           proxy.Port,
-						Username:       &proxy.Username,
-						Password:       &proxy.Password,
+						Status:            normalizedStatus,
+						ExpiresAt:         existingExpiresAt,
+						ClearExpiresAt:    existingExpiresAt == nil,
+						FallbackMode:      existingFallbackMode,
+						BackupProxyID:     existingBackupProxyID,
+						ClearBackupID:     existingBackupProxyID == nil,
+						ExpiryWarnDays:    &item.ExpiryWarnDays,
+						Name:              proxy.Name,
+						Protocol:          proxy.Protocol,
+						Host:              proxy.Host,
+						Port:              proxy.Port,
+						Username:          &proxy.Username,
+						Password:          &proxy.Password,
+						SkipAutoRebalance: true,
 					})
 				}
 			}
@@ -352,16 +353,17 @@ func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest) 
 		}
 
 		created, createErr := h.adminService.CreateProxy(ctx, &service.CreateProxyInput{
-			Name:           defaultProxyName(item.Name),
-			Protocol:       item.Protocol,
-			Host:           item.Host,
-			Port:           item.Port,
-			Username:       item.Username,
-			Password:       item.Password,
-			ExpiresAt:      expiresAt,
-			FallbackMode:   fallbackMode,
-			BackupProxyID:  backupProxyID,
-			ExpiryWarnDays: item.ExpiryWarnDays,
+			Name:              defaultProxyName(item.Name),
+			Protocol:          item.Protocol,
+			Host:              item.Host,
+			Port:              item.Port,
+			Username:          item.Username,
+			Password:          item.Password,
+			ExpiresAt:         expiresAt,
+			FallbackMode:      fallbackMode,
+			BackupProxyID:     backupProxyID,
+			ExpiryWarnDays:    item.ExpiryWarnDays,
+			SkipAutoRebalance: true,
 		})
 		if createErr != nil {
 			result.ProxyFailed++
@@ -383,21 +385,25 @@ func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest) 
 		if normalizedStatus != "" && normalizedStatus != created.Status {
 			// 新建后同步 status 时，传入完整字段，避免零值覆盖刚创建的有效期/fallback 配置。
 			_, _ = h.adminService.UpdateProxy(ctx, created.ID, &service.UpdateProxyInput{
-				Status:         normalizedStatus,
-				ExpiresAt:      expiresAt,
-				ClearExpiresAt: expiresAt == nil,
-				FallbackMode:   fallbackMode,
-				BackupProxyID:  backupProxyID,
-				ClearBackupID:  backupProxyID == nil,
-				ExpiryWarnDays: &item.ExpiryWarnDays,
-				Name:           created.Name,
-				Protocol:       created.Protocol,
-				Host:           created.Host,
-				Port:           created.Port,
-				Username:       &created.Username,
-				Password:       &created.Password,
+				Status:            normalizedStatus,
+				ExpiresAt:         expiresAt,
+				ClearExpiresAt:    expiresAt == nil,
+				FallbackMode:      fallbackMode,
+				BackupProxyID:     backupProxyID,
+				ClearBackupID:     backupProxyID == nil,
+				ExpiryWarnDays:    &item.ExpiryWarnDays,
+				Name:              created.Name,
+				Protocol:          created.Protocol,
+				Host:              created.Host,
+				Port:              created.Port,
+				Username:          &created.Username,
+				Password:          &created.Password,
+				SkipAutoRebalance: true,
 			})
 		}
+	}
+	if err := rebalanceProxyAssignmentsIfEnabled(ctx, h.adminService); err != nil {
+		result.Errors = append(result.Errors, DataImportError{Kind: "proxy", Name: "auto-assignment", Message: err.Error()})
 	}
 
 	// 收集需要异步设置隐私的 Antigravity OAuth 账号

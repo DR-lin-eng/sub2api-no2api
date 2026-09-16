@@ -11,23 +11,33 @@ const (
 	FallbackModeNone   = "none"
 	FallbackModeProxy  = "proxy"
 	FallbackModeDirect = "direct"
+
+	ProxyHealthUnknown   = "unknown"
+	ProxyHealthHealthy   = "healthy"
+	ProxyHealthDegraded  = "degraded"
+	ProxyHealthUnhealthy = "unhealthy"
+	ProxyStatusInactive  = "inactive"
 )
 
 type Proxy struct {
-	ID             int64
-	Name           string
-	Protocol       string
-	Host           string
-	Port           int
-	Username       string
-	Password       string
-	Status         string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	ExpiresAt      *time.Time
-	FallbackMode   string
-	BackupProxyID  *int64
-	ExpiryWarnDays int
+	ID                        int64
+	Name                      string
+	Protocol                  string
+	Host                      string
+	Port                      int
+	Username                  string
+	Password                  string
+	Status                    string
+	CreatedAt                 time.Time
+	UpdatedAt                 time.Time
+	ExpiresAt                 *time.Time
+	FallbackMode              string
+	BackupProxyID             *int64
+	ExpiryWarnDays            int
+	HealthStatus              string
+	HealthConsecutiveFailures int
+	LastHealthCheckAt         *time.Time
+	LastHealthError           string
 }
 
 func (p *Proxy) IsActive() bool {

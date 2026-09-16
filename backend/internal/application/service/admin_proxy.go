@@ -88,6 +88,11 @@ func (s *adminServiceImpl) CreateProxy(ctx context.Context, input *CreateProxyIn
 	if err := s.proxyRepo.Create(ctx, proxy); err != nil {
 		return nil, err
 	}
+	if !input.SkipAutoRebalance {
+		if _, err := s.rebalanceProxyAssignmentsIfEnabled(ctx); err != nil {
+			logger.LegacyPrintf("service.admin_proxy", "rebalance after proxy create failed: proxy_id=%d err=%v", proxy.ID, err)
+		}
+	}
 	// Probe latency asynchronously so creation isn't blocked by network timeout.
 	go s.probeProxyLatency(context.Background(), proxy)
 	return proxy, nil
@@ -105,6 +110,7 @@ func (s *adminServiceImpl) UpdateProxy(ctx context.Context, id int64, input *Upd
 	if err != nil {
 		return nil, err
 	}
+	previous := *proxy
 
 	// Merge only supplied fields, then validate the resulting fallback configuration.
 	mode := proxy.FallbackMode
@@ -145,6 +151,11 @@ func (s *adminServiceImpl) UpdateProxy(ctx context.Context, id int64, input *Upd
 	}
 	if input.Status != "" {
 		proxy.Status = input.Status
+		if input.Status == StatusActive {
+			proxy.HealthStatus = ProxyHealthUnknown
+			proxy.HealthConsecutiveFailures = 0
+			proxy.LastHealthError = ""
+		}
 	}
 	// Preserve omitted nullable fields; explicit null clears them.
 	if input.ExpiresAt != nil || input.ClearExpiresAt {
@@ -158,6 +169,14 @@ func (s *adminServiceImpl) UpdateProxy(ctx context.Context, id int64, input *Upd
 
 	if err := s.proxyRepo.Update(ctx, proxy); err != nil {
 		return nil, err
+	}
+	if !input.SkipAutoRebalance {
+		if _, err := s.rebalanceProxyAssignmentsIfEnabled(ctx); err != nil {
+			if rollbackErr := s.proxyRepo.Update(context.Background(), &previous); rollbackErr != nil {
+				logger.LegacyPrintf("service.admin_proxy", "rollback proxy update after rebalance failure failed: proxy_id=%d err=%v", id, rollbackErr)
+			}
+			return nil, err
+		}
 	}
 	return proxy, nil
 }

@@ -8,6 +8,7 @@ import type {
   Proxy,
   ProxyAccountSummary,
   ProxyQualityCheckResult,
+  ProxyAutoAssignmentSettings,
   CreateProxyRequest,
   UpdateProxyRequest,
   PaginatedResponse,
@@ -196,6 +197,28 @@ export async function getProxyAccounts(id: number): Promise<ProxyAccountSummary[
   return data
 }
 
+export async function getAutoAssignmentSettings(): Promise<ProxyAutoAssignmentSettings> {
+  const { data } = await apiClient.get<ProxyAutoAssignmentSettings>('/admin/proxies/auto-assignment')
+  return data
+}
+
+export async function updateAutoAssignmentSettings(
+  settings: ProxyAutoAssignmentSettings
+): Promise<ProxyAutoAssignmentSettings> {
+  const { data } = await apiClient.put<ProxyAutoAssignmentSettings>(
+    '/admin/proxies/auto-assignment',
+    settings
+  )
+  return data
+}
+
+export async function rebalanceAutoAssignments(): Promise<{ reassigned_accounts: number }> {
+  const { data } = await apiClient.post<{ reassigned_accounts: number }>(
+    '/admin/proxies/auto-assignment/rebalance'
+  )
+  return data
+}
+
 /**
  * Batch create proxies
  * @param proxies - Array of proxy data to create
@@ -276,6 +299,9 @@ export const proxiesAPI = {
   checkProxyQuality,
   getStats,
   getProxyAccounts,
+  getAutoAssignmentSettings,
+  updateAutoAssignmentSettings,
+  rebalanceAutoAssignments,
   batchCreate,
   batchDelete,
   exportData,

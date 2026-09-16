@@ -39,6 +39,19 @@
           <!-- Right: All action buttons -->
           <div class="flex flex-1 flex-wrap items-center justify-end gap-2">
             <button
+              type="button"
+              class="btn btn-secondary"
+              :disabled="autoAssignmentLoading"
+              :title="t('admin.proxies.autoAssignment.title')"
+              @click="openAutoAssignmentDialog"
+            >
+              <Icon name="cog" size="md" class="mr-2" />
+              {{ t('admin.proxies.autoAssignment.action') }}
+              <span v-if="autoAssignmentForm.enabled" class="badge badge-success ml-2">
+                {{ t('admin.proxies.autoAssignment.active') }}
+              </span>
+            </button>
+            <button
               @click="loadProxies"
               :disabled="loading"
               class="btn btn-secondary"
@@ -107,6 +120,7 @@
 
     <CreateProxyDialog :context="createProxyDialogContext" />
     <EditProxyDialog :context="editProxyDialogContext" />
+    <ProxyAutoAssignmentDialog :context="proxyAutoAssignmentDialogContext" />
     <ProxyPageDialogs :context="proxyPageDialogsContext" />
   </AppLayout>
 </template>
@@ -116,7 +130,13 @@ import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/core/stores/appStore'
 import { proxiesAPI } from '@/features/admin-proxies/data/datasources/adminProxiesDatasource'
-import type { Proxy, ProxyAccountSummary, ProxyProtocol, ProxyQualityCheckResult } from '@/types/gateway'
+import type {
+  Proxy,
+  ProxyAccountSummary,
+  ProxyAutoAssignmentSettings,
+  ProxyProtocol,
+  ProxyQualityCheckResult
+} from '@/types/gateway'
 import type { Column } from '@/common/types/uiTypes'
 import AppLayout from '@/common/widgets/layout/AppLayout.vue'
 import TablePageLayout from '@/common/widgets/layout/TablePageLayout.vue'
@@ -130,11 +150,13 @@ import { getPersistedPageSize } from '@/common/composables/usePersistedPageSize'
 import { proxyExpiryBadgeClass, proxyExpiryLabelKey } from '@/core/utils/proxyExpiry'
 import CreateProxyDialog from '@/features/admin-proxies/presentation/widgets/CreateProxyDialog.vue'
 import EditProxyDialog from '@/features/admin-proxies/presentation/widgets/EditProxyDialog.vue'
+import ProxyAutoAssignmentDialog from '@/features/admin-proxies/presentation/widgets/ProxyAutoAssignmentDialog.vue'
 import ProxyPageDialogs from '@/features/admin-proxies/presentation/widgets/ProxyPageDialogs.vue'
 import ProxyTable from '@/features/admin-proxies/presentation/widgets/ProxyTable.vue'
 import type {
   CreateProxyDialogContext,
   EditProxyDialogContext,
+  ProxyAutoAssignmentDialogContext,
   ProxyPageDialogsContext,
   ProxyTableContext
 } from '@/features/admin-proxies/presentation/proxyPageContext'
@@ -223,6 +245,16 @@ const testingProxyIds = ref<Set<number>>(new Set())
 const qualityCheckingProxyIds = ref<Set<number>>(new Set())
 const batchTesting = ref(false)
 const batchQualityChecking = ref(false)
+const showAutoAssignmentDialog = ref(false)
+const autoAssignmentLoading = ref(false)
+const autoAssignmentSaving = ref(false)
+const autoAssignmentRebalancing = ref(false)
+const autoAssignmentForm = reactive<ProxyAutoAssignmentSettings>({
+  enabled: false,
+  health_check_enabled: false,
+  health_check_interval_minutes: 15,
+  failure_threshold: 3
+})
 const proxyTableRef = ref<HTMLElement | null>(null)
 const {
   selectedSet: selectedProxyIds,
@@ -368,6 +400,59 @@ const loadProxies = async () => {
       loading.value = false
       abortController = null
     }
+  }
+}
+
+const loadAutoAssignmentSettings = async (notifyOnError = true) => {
+  autoAssignmentLoading.value = true
+  try {
+    Object.assign(autoAssignmentForm, await proxiesAPI.getAutoAssignmentSettings())
+  } catch (error: any) {
+    if (notifyOnError) {
+      appStore.showError(error.response?.data?.detail || t('admin.proxies.autoAssignment.loadFailed'))
+    }
+  } finally {
+    autoAssignmentLoading.value = false
+  }
+}
+
+const openAutoAssignmentDialog = async () => {
+  showAutoAssignmentDialog.value = true
+  await loadAutoAssignmentSettings()
+}
+
+const closeAutoAssignmentDialog = () => {
+  if (autoAssignmentSaving.value || autoAssignmentRebalancing.value) return
+  showAutoAssignmentDialog.value = false
+}
+
+const saveAutoAssignmentSettings = async () => {
+  autoAssignmentSaving.value = true
+  try {
+    const saved = await proxiesAPI.updateAutoAssignmentSettings({ ...autoAssignmentForm })
+    Object.assign(autoAssignmentForm, saved)
+    appStore.showSuccess(t('admin.proxies.autoAssignment.saved'))
+    showAutoAssignmentDialog.value = false
+    await Promise.all([loadProxies(), loadBackupProxyOptions()])
+  } catch (error: any) {
+    appStore.showError(error.response?.data?.detail || t('admin.proxies.autoAssignment.saveFailed'))
+  } finally {
+    autoAssignmentSaving.value = false
+  }
+}
+
+const rebalanceAutoAssignments = async () => {
+  autoAssignmentRebalancing.value = true
+  try {
+    const result = await proxiesAPI.rebalanceAutoAssignments()
+    appStore.showSuccess(
+      t('admin.proxies.autoAssignment.rebalanced', { count: result.reassigned_accounts })
+    )
+    await Promise.all([loadProxies(), loadBackupProxyOptions()])
+  } catch (error: any) {
+    appStore.showError(error.response?.data?.detail || t('admin.proxies.autoAssignment.rebalanceFailed'))
+  } finally {
+    autoAssignmentRebalancing.value = false
   }
 }
 
@@ -1304,9 +1389,21 @@ const proxyPageDialogsContext: ProxyPageDialogsContext = {
   closeAccountsModal
 }
 
+const proxyAutoAssignmentDialogContext: ProxyAutoAssignmentDialogContext = {
+  showAutoAssignmentDialog,
+  autoAssignmentForm,
+  autoAssignmentLoading,
+  autoAssignmentSaving,
+  autoAssignmentRebalancing,
+  closeAutoAssignmentDialog,
+  saveAutoAssignmentSettings,
+  rebalanceAutoAssignments
+}
+
 onMounted(() => {
   loadProxies()
   loadBackupProxyOptions()
+  loadAutoAssignmentSettings(false)
   document.addEventListener('click', closeCopyMenu)
 })
 

@@ -123,12 +123,23 @@ export interface Proxy {
   quality_grade?: string
   quality_summary?: string
   quality_checked?: number
+  health_status: 'unknown' | 'healthy' | 'degraded' | 'unhealthy'
+  health_consecutive_failures: number
+  last_health_check_at?: string | null
+  last_health_error?: string
   expires_at: string | null
   fallback_mode: 'none' | 'proxy' | 'direct'
   backup_proxy_id?: number | null
   expiry_warn_days: number
   created_at: string
   updated_at: string
+}
+
+export interface ProxyAutoAssignmentSettings {
+  enabled: boolean
+  health_check_enabled: boolean
+  health_check_interval_minutes: number
+  failure_threshold: number
 }
 
 export interface ProxyAccountSummary {
