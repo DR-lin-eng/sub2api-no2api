@@ -12,10 +12,11 @@ import (
 	"github.com/google/uuid"
 )
 
+const openAIOAuthGatewayRateLimitReason GatewayFailureReason = "openai_oauth_account_rate_limit"
+
 const (
-	openAIOAuthGatewayRateLimitReason             GatewayFailureReason = "openai_oauth_account_rate_limit"
-	openAIOAuthGatewayRateLimitMessage                                 = "OpenAI OAuth account request rate limit exceeded"
-	openAIOAuthGatewayRateLimitUnavailableMessage                      = "OpenAI OAuth account rate limiter is temporarily unavailable"
+	openAIOAuthGatewayRateLimitMessage            = "OpenAI OAuth account request rate limit exceeded"
+	openAIOAuthGatewayRateLimitUnavailableMessage = "OpenAI OAuth account rate limiter is temporarily unavailable"
 )
 
 type OpenAIOAuthGatewayRateLimitDecision struct {
