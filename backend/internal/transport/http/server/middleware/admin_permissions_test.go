@@ -81,6 +81,8 @@ func TestDelegatedPermissionsFailClosed(t *testing.T) {
 		{"POST", "/api/v1/admin/users/batch-concurrency", service.PermissionUsersBilling},
 		{"POST", "/api/v1/admin/settings/admin-api-keys", ""},
 		{"PUT", "/api/v1/admin/settings/permission-groups", ""},
+		{"PUT", "/api/v1/admin/oauth2-provider", ""},
+		{"POST", "/api/v1/admin/oauth2-provider/clients", ""},
 		{"GET", "/api/v1/admin/ops/dashboard", ""},
 		{"GET", "/api/v1/admin/settings-unassigned", ""},
 		{"GET", "/api/v1/admin/groups/1/api-keys", service.PermissionGroupsManage},

@@ -1,6 +1,7 @@
 import supportChatMessages from './settings.support-chat'
 import codexSimulationMessages from './settings.codex-simulation'
 import ipv6EgressMessages from './settings.ipv6-egress'
+import oauth2ProviderMessages from './settings.oauth2-provider'
 
 export default {
     settings: {
@@ -46,6 +47,7 @@ export default {
         saveFailed: 'Failed to save permission groups',
         saved: 'Permission groups saved',
       },
+      oauth2Provider: oauth2ProviderMessages,
       performance: {
         title: 'Performance Settings',
         description: 'Tune runtime overhead for high-concurrency and streaming traffic.',

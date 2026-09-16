@@ -768,6 +768,7 @@ function mountView(extraStubs: Record<string, Component | boolean> = {}) {
         ImageUpload: ImageUploadStub,
         BackupSettings: true,
         PanelRateLimitSettingsCard: true,
+        SettingsOAuth2ProviderPanel: true,
         ...extraStubs,
       },
     },
@@ -1887,6 +1888,7 @@ describe("admin SettingsView payment visible method controls", () => {
           ProxySelector: true,
           ImageUpload: ImageUploadStub,
           BackupSettings: true,
+          SettingsOAuth2ProviderPanel: true,
         },
       },
     });
@@ -2145,6 +2147,7 @@ describe("admin SettingsView payment visible method controls", () => {
           ProxySelector: true,
           ImageUpload: ImageUploadStub,
           BackupSettings: true,
+          SettingsOAuth2ProviderPanel: true,
         },
       },
     });

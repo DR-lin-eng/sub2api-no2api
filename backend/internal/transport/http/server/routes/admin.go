@@ -75,6 +75,9 @@ func RegisterAdminRoutes(
 		// 系统设置
 		registerSettingsRoutes(admin, h)
 
+		// 对外 OAuth2 授权服务
+		registerOAuth2ProviderAdminRoutes(admin, h, stepUpAuth)
+
 		// 数据管理
 		registerDataManagementRoutes(admin, h, stepUpAuth)
 
@@ -143,6 +146,18 @@ func RegisterAdminRoutes(
 
 		// 媒体工坊分组配置
 		registerMediaStudioAdminRoutes(admin, h)
+	}
+}
+
+func registerOAuth2ProviderAdminRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAuth middleware.StepUpAuthMiddleware) {
+	oauth2Provider := admin.Group("/oauth2-provider")
+	{
+		oauth2Provider.GET("", h.Admin.OAuth2Provider.GetConfig)
+		oauth2Provider.PUT("", middleware.AdminSessionOnly(), gin.HandlerFunc(stepUpAuth), h.Admin.OAuth2Provider.UpdateConfig)
+		oauth2Provider.POST("/clients", middleware.AdminSessionOnly(), gin.HandlerFunc(stepUpAuth), h.Admin.OAuth2Provider.CreateClient)
+		oauth2Provider.PUT("/clients/:client_id", middleware.AdminSessionOnly(), gin.HandlerFunc(stepUpAuth), h.Admin.OAuth2Provider.UpdateClient)
+		oauth2Provider.POST("/clients/:client_id/rotate-secret", middleware.AdminSessionOnly(), gin.HandlerFunc(stepUpAuth), h.Admin.OAuth2Provider.RotateSecret)
+		oauth2Provider.DELETE("/clients/:client_id", middleware.AdminSessionOnly(), gin.HandlerFunc(stepUpAuth), h.Admin.OAuth2Provider.DeleteClient)
 	}
 }
 

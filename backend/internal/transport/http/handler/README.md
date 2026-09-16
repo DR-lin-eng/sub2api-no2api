@@ -10,6 +10,7 @@ handler 负责协议边界：校验请求、提取调用上下文、调用 appli
 | `dto/` | API 输入输出 DTO 和映射器 |
 | `quotaview/` | 配额展示投影 |
 | `auth*` | 登录、OAuth、会话和当前用户接口 |
+| `oauth2_provider*` | OAuth2 provider 协议响应、授权审批和资源接口 |
 | `gateway*` | Anthropic/Claude 网关入口 |
 | `openai*`, `codex_bootstrap*` | OpenAI/Codex/Responses/Images/WS 入口及合成首轮输入适配 |
 | `payment*`, `batch_image*`, `image_task*` | 支付和图片任务接口 |
