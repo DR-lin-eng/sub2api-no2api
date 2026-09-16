@@ -628,6 +628,14 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 	if err := NormalizeHeaderOverrideCredentials(input.Credentials); err != nil {
 		return nil, err
 	}
+	if input.Platform == PlatformOpenCodeGo {
+		if input.Type != AccountTypeAPIKey {
+			return nil, infraerrors.BadRequest("OPENCODE_GO_REQUIRES_API_KEY", "OpenCode accounts require API-key credentials")
+		}
+		if err := NormalizeOpenCodeGoProtocolRulesCredentials(input.Credentials); err != nil {
+			return nil, err
+		}
+	}
 	if err := NormalizeCPACredentials(input.Type, input.Credentials); err != nil {
 		return nil, err
 	}
@@ -740,6 +748,14 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		// 校验并规范化请求头覆写配置（header 名小写化、格式检查）
 		if err := NormalizeHeaderOverrideCredentials(account.Credentials); err != nil {
 			return nil, err
+		}
+		if account.Platform == PlatformOpenCodeGo {
+			if account.Type != AccountTypeAPIKey {
+				return nil, infraerrors.BadRequest("OPENCODE_GO_REQUIRES_API_KEY", "OpenCode accounts require API-key credentials")
+			}
+			if err := NormalizeOpenCodeGoProtocolRulesCredentials(account.Credentials); err != nil {
+				return nil, err
+			}
 		}
 		if err := NormalizeCPACredentials(account.Type, account.Credentials); err != nil {
 			return nil, err

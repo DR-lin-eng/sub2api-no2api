@@ -46,6 +46,27 @@ func buildOpenAIResponsesURL(base string) string {
 	return buildOpenAIEndpointURL(base, "/v1/responses")
 }
 
+func buildOpenAIResponsesURLForPlatform(platform, base string) string {
+	if platform == PlatformDeepseek {
+		return buildOpenAIEndpointURL(base, "/responses")
+	}
+	return buildOpenAIResponsesURL(base)
+}
+
+func normalizeNativeCNResponsesRequestBody(account *Account, body []byte) []byte {
+	if account == nil || !account.UsesNativeCNResponses() {
+		return body
+	}
+	normalized, err := sjson.SetBytes(body, "store", false)
+	if err != nil {
+		return body
+	}
+	if stripped, err := sjson.DeleteBytes(normalized, "previous_response_id"); err == nil {
+		return stripped
+	}
+	return normalized
+}
+
 const openAIResponsesIDMaxLength = 64
 
 func shouldStripOpenAIResponsesInputItemID(itemType, id string, idIsString, stripAllReasoningIDs bool) bool {

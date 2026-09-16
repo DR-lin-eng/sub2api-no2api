@@ -53,6 +53,7 @@ const {
           <KeyGroupBindingsEditor
             v-model="formData.group_bindings"
             :group-options="groupOptions"
+            :filter-by-provider="!showEditModal"
             data-tour="key-form-group"
           />
         </div>

@@ -1,6 +1,7 @@
 import cpaMessages from './accounts.cpa'
 import codexMessages from './accounts.codex'
 import bulkActionsMessages from './accounts.bulk-actions'
+import channelMessages from './accounts.channels'
 
 export default {
     accounts: {
@@ -366,6 +367,7 @@ export default {
         zhipu: '智谱 GLM',
         deepseek: 'DeepSeek',
         minimax: 'MiniMax',
+        opencode_go: 'OpenCode',
       },
       types: {
         oauth: 'OAuth',
@@ -643,15 +645,7 @@ export default {
       oauthSetupToken: 'OAuth / Setup Token',
       addMethod: '添加方式',
       setupTokenLongLived: 'Setup Token（长期有效）',
-      baseUrl: 'Base URL',
-      baseUrlHint: '留空使用官方 Anthropic API',
-      apiKeyRequired: 'API Key *',
-      apiKeyPlaceholder: 'sk-ant-api03-...',
-      apiKeyHint: '您的 Claude Console API Key',
-      cnProvider: {
-        baseUrlHint: '保持默认值以使用 {provider} 官方 API',
-        apiKeyHint: '您的 {provider} API Key',
-      },
+      ...channelMessages,
       // OpenAI specific hints
       openai: {
         baseUrlHint: '留空使用官方 OpenAI API',

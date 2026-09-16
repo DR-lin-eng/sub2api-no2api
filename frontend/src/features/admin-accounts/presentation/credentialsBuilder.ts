@@ -42,7 +42,8 @@ export function isHeaderOverrideCapable(platform: string, type: string): boolean
 		platform === 'openai' ||
 		platform === 'kimi' ||
 		platform === 'zhipu' ||
-		platform === 'deepseek'
+		platform === 'deepseek' ||
+		platform === 'opencode_go'
 	) {
     return type === 'apikey'
   }

@@ -1,6 +1,7 @@
 import cpaMessages from './accounts.cpa'
 import codexMessages from './accounts.codex'
 import bulkActionsMessages from './accounts.bulk-actions'
+import channelMessages from './accounts.channels'
 
 export default {
     accounts: {
@@ -119,6 +120,7 @@ export default {
         zhipu: 'Zhipu GLM',
         deepseek: 'DeepSeek',
         minimax: 'MiniMax',
+        opencode_go: 'OpenCode',
       },
       types: {
         oauth: 'OAuth',
@@ -566,15 +568,7 @@ export default {
       oauthSetupToken: 'OAuth / Setup Token',
       addMethod: 'Add Method',
       setupTokenLongLived: 'Setup Token (Long-lived)',
-      baseUrl: 'Base URL',
-      baseUrlHint: 'Leave default for official Anthropic API',
-      apiKeyRequired: 'API Key *',
-      apiKeyPlaceholder: 'sk-ant-api03-...',
-      apiKeyHint: 'Your Claude Console API Key',
-      cnProvider: {
-        baseUrlHint: 'Keep the default to use the official {provider} API',
-        apiKeyHint: 'Your {provider} API Key',
-      },
+      ...channelMessages,
       // OpenAI specific hints
       openai: {
         baseUrlHint: 'Leave default for official OpenAI API',

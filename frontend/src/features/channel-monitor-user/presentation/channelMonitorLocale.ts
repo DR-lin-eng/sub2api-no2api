@@ -28,6 +28,7 @@ const providerKeys = {
     zhipu: 'monitorCommon.providers.zhipu',
     deepseek: 'monitorCommon.providers.deepseek',
     minimax: 'monitorCommon.providers.minimax',
+    opencode_go: 'monitorCommon.providers.opencode_go',
 } as const
 
 const bodyModeKeys = {

@@ -174,6 +174,7 @@ var providerAdapters = map[string]providerAdapter{
 	MonitorProviderZhipu:    providerOpenAIChatAdapter,
 	MonitorProviderDeepseek: providerOpenAIChatAdapter,
 	MonitorProviderMiniMax:  providerOpenAIChatAdapter,
+	MonitorProviderOpenCode: providerOpenAIChatAdapter,
 	MonitorProviderAnthropic: {
 		buildPath: func(string) string { return providerAnthropicPath },
 		buildBody: func(model, prompt string) ([]byte, error) {

@@ -109,8 +109,12 @@ import { createStableObjectKeyResolver } from '@/core/utils/stableObjectKey'
 import {
   CN_ACCOUNT_PLATFORM_LABELS,
   VERTEX_LOCATION_OPTIONS,
+  defaultCNAdaptiveBaseURLs,
+  defaultOpenCodeProtocolRules,
   defaultAPIKeyBaseURL,
   isCNAccountPlatform,
+  type CNAdaptiveBaseURLs,
+  type OpenCodeProtocolRule,
 } from '@/core/constants/account'
 import {
   OPENAI_WS_MODE_CTX_POOL,
@@ -160,6 +164,7 @@ import type {
   EditAccountCredentialContext,
   EditAccountPolicyContext,
 } from '@/features/admin-accounts/presentation/accountEditorContext'
+import { hydrateCNAccountEditor } from '@/features/admin-accounts/presentation/hydrateCNAccountEditor'
 
 interface Props {
   show: boolean
@@ -216,6 +221,13 @@ const bedrockPresets = computed(() => getPresetMappingsByPlatform('bedrock'))
 const submitting = ref(false)
 const editBaseUrl = ref('https://api.anthropic.com')
 const editApiKey = ref('')
+const editCNAccountMode = ref<'payg' | 'coding'>('payg')
+const editCNAPIProtocol = ref<'chat_completions' | 'adaptive' | 'anthropic' | 'responses'>('chat_completions')
+const editOpenCodeAccountMode = ref<'zen' | 'go'>('go')
+const editCNAdaptiveBaseURLs = ref<CNAdaptiveBaseURLs>(defaultCNAdaptiveBaseURLs('kimi', 'payg'))
+const editOpenCodeProtocolRules = ref<OpenCodeProtocolRule[]>(defaultOpenCodeProtocolRules('go'))
+const editZhipuOrganization = ref('')
+const editZhipuProject = ref('')
 // Bedrock credentials
 const editBedrockAccessKeyId = ref('')
 const editBedrockSecretAccessKey = ref('')
@@ -727,6 +739,9 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   editVertexProjectId.value = ''
   editVertexClientEmail.value = ''
   editVertexLocation.value = 'us-central1'
+  editZhipuOrganization.value = ''
+  editZhipuProject.value = ''
+  editOpenCodeProtocolRules.value = defaultOpenCodeProtocolRules('go')
   antigravityProjectId.value =
     newAccount.platform === 'antigravity' &&
     newAccount.type === 'oauth' &&
@@ -948,8 +963,20 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   // Initialize API Key fields for apikey type
   if (newAccount.type === 'apikey' && newAccount.credentials) {
     const credentials = newAccount.credentials as Record<string, unknown>
-      const platformDefaultUrl = defaultAPIKeyBaseURL(newAccount.platform)
-    editBaseUrl.value = (credentials.base_url as string) || platformDefaultUrl
+    const platformDefaultUrl = defaultAPIKeyBaseURL(newAccount.platform)
+    const cnState = hydrateCNAccountEditor(newAccount.platform, credentials)
+    if (cnState) {
+      editCNAccountMode.value = cnState.accountMode
+      editOpenCodeAccountMode.value = cnState.openCodeAccountMode
+      editCNAPIProtocol.value = cnState.protocol
+      editCNAdaptiveBaseURLs.value = cnState.adaptiveBaseURLs
+      editOpenCodeProtocolRules.value = cnState.openCodeProtocolRules
+      editZhipuOrganization.value = cnState.zhipuOrganization
+      editZhipuProject.value = cnState.zhipuProject
+      editBaseUrl.value = cnState.baseURL
+    } else {
+      editBaseUrl.value = (credentials.base_url as string) || platformDefaultUrl
+    }
 
     // Load model mappings and detect mode
     loadModelRestrictionFromMapping(credentials.model_mapping as Record<string, unknown> | undefined)
@@ -1378,7 +1405,7 @@ const {
   cpaConcurrencyPerCredential, cpaExcludeAbnormalCredentials, cpaManagementKey, cpaManagementUrl, cpaModeEnabled,
   cpaUseBaseUrl,
   customBaseUrl, customBaseUrlEnabled, customErrorCodesEnabled, defaultBaseUrl,
-  editApiKey, editBaseUrl, editBedrockAccessKeyId, editBedrockApiKeyValue,
+  editApiKey, editBaseUrl, editCNAccountMode, editCNAPIProtocol, editCNAdaptiveBaseURLs, editOpenCodeAccountMode, editOpenCodeProtocolRules, editZhipuOrganization, editZhipuProject, editBedrockAccessKeyId, editBedrockApiKeyValue,
   editBedrockForceGlobal, editBedrockRegion, editBedrockSecretAccessKey,
   editBedrockSessionToken, editDailyResetHour, editDailyResetMode, editPlanType,
   editQuotaDailyLimit, editQuotaLimit, editQuotaWeeklyLimit, editResetTimezone,
@@ -1413,7 +1440,7 @@ const editAccountCredentialContext = {
   antigravityPresetMappings, antigravityProjectId, autoDisableOnUpstreamInsufficientBalance,
   baseUrlHint, bedrockPresets, commonErrorCodes, cpaConcurrencyPerCredential, cpaExcludeAbnormalCredentials, cpaManagementKey,
   cpaManagementUrl, cpaModeEnabled, cpaUseBaseUrl, customErrorCodeInput, customErrorCodesEnabled, editApiKey,
-  editBaseUrl, editBedrockAccessKeyId, editBedrockApiKeyValue, editBedrockForceGlobal,
+  editBaseUrl, editCNAccountMode, editCNAPIProtocol, editCNAdaptiveBaseURLs, editOpenCodeAccountMode, editOpenCodeProtocolRules, editZhipuOrganization, editZhipuProject, editBedrockAccessKeyId, editBedrockApiKeyValue, editBedrockForceGlobal,
   editBedrockRegion, editBedrockSecretAccessKey, editBedrockSessionToken, editVertexLocation,
   editVertexProjectId, form, getAntigravityModelMappingKey, getModelMappingKey,
   grokClientToolCacheEnabled, grokOAuthBaseUrl, grokOAuthCustomBaseUrlEnabled,

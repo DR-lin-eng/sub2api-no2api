@@ -623,6 +623,16 @@ func TestConvertOpenAIModelListToCodexManifest(t *testing.T) {
 	}
 }
 
+func TestAdjustAPIKeyCodexModelsManifestAdvertisesDeepseekVision(t *testing.T) {
+	body := []byte(`{"models":[{"slug":"deepseek-v4-flash-vision-exp"},{"slug":"deepseek-v4-flash"}]}`)
+	adjusted, err := adjustAPIKeyCodexModelsManifest(body)
+	require.NoError(t, err)
+	require.JSONEq(t,
+		`{"models":[{"input_modalities":["text","image"],"slug":"deepseek-v4-flash-vision-exp"},{"slug":"deepseek-v4-flash"}]}`,
+		string(adjusted),
+	)
+}
+
 func TestFetchCodexModelsManifestRejectsInvalidEnvelope(t *testing.T) {
 	tests := []struct {
 		name string
