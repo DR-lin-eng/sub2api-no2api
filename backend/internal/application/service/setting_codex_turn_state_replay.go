@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	codexTurnStateMaxEntries    = 100
+	codexTurnStateMaxEntries    = 4096
 	codexTurnStateMaxValueBytes = 8 << 10
 	codexTurnStateMaxTotalBytes = 256 << 10
 )
