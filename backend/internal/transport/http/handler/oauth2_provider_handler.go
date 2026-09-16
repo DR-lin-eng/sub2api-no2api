@@ -89,7 +89,7 @@ func (h *OAuth2ProviderHandler) Authorize(c *gin.Context) {
 		response.BadRequest(c, "Invalid OAuth2 authorization request")
 		return
 	}
-	result, err := h.service.Authorize(c.Request.Context(), subject.UserID, payload.OAuth2AuthorizationRequestPayload.serviceRequest(), payload.Approved)
+	result, err := h.service.Authorize(c.Request.Context(), subject.UserID, payload.serviceRequest(), payload.Approved)
 	if err != nil {
 		if writeOAuth2ProtocolError(c, err) {
 			return

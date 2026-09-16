@@ -27,7 +27,7 @@ index 922714e..19c0d29 100644
 +| `oauth2_provider.go` | 管理员控制的 OAuth2 客户端、PKCE 授权码、token 校验与 userinfo |
 diff --git a/backend/internal/application/service/oauth2_provider.go b/backend/internal/application/service/oauth2_provider.go
 new file mode 100644
-index 0000000..17a9971
+index 0000000..90052ab
 --- /dev/null
 +++ b/backend/internal/application/service/oauth2_provider.go
 @@ -0,0 +1,1074 @@
@@ -456,7 +456,7 @@ index 0000000..17a9971
 +	}
 +	scheme := strings.ToLower(u.Scheme)
 +	host := strings.TrimSuffix(strings.ToLower(u.Hostname()), ".")
-+	if scheme != "https" && !(scheme == "http" && isOAuth2Loopback(host)) {
++	if scheme != "https" && (scheme != "http" || !isOAuth2Loopback(host)) {
 +		return "", ErrOAuth2IssuerInvalid
 +	}
 +	port := u.Port()
@@ -490,7 +490,7 @@ index 0000000..17a9971
 +		return "", ErrOAuth2ClientInvalid
 +	}
 +	scheme := strings.ToLower(u.Scheme)
-+	if scheme != "https" && !(scheme == "http" && isOAuth2Loopback(strings.ToLower(strings.TrimSuffix(u.Hostname(), ".")))) {
++	if scheme != "https" && (scheme != "http" || !isOAuth2Loopback(strings.ToLower(strings.TrimSuffix(u.Hostname(), ".")))) {
 +		return "", ErrOAuth2ClientInvalid
 +	}
 +	return raw, nil
@@ -745,7 +745,7 @@ index 0000000..17a9971
 +		return false
 +	}
 +	for _, r := range value {
-+		if !(r >= 'A' && r <= 'Z') && !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9') && !strings.ContainsRune("-._~", r) {
++		if !((r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || strings.ContainsRune("-._~", r)) {
 +			return false
 +		}
 +	}
@@ -1867,7 +1867,7 @@ index 26fb3bc..117b159 100644
 +	OAuth2Provider   *OAuth2ProviderHandler
 diff --git a/backend/internal/transport/http/handler/oauth2_provider_handler.go b/backend/internal/transport/http/handler/oauth2_provider_handler.go
 new file mode 100644
-index 0000000..45df6c2
+index 0000000..369211b
 --- /dev/null
 +++ b/backend/internal/transport/http/handler/oauth2_provider_handler.go
 @@ -0,0 +1,290 @@
@@ -1962,7 +1962,7 @@ index 0000000..45df6c2
 +		response.BadRequest(c, "Invalid OAuth2 authorization request")
 +		return
 +	}
-+	result, err := h.service.Authorize(c.Request.Context(), subject.UserID, payload.OAuth2AuthorizationRequestPayload.serviceRequest(), payload.Approved)
++	result, err := h.service.Authorize(c.Request.Context(), subject.UserID, payload.serviceRequest(), payload.Approved)
 +	if err != nil {
 +		if writeOAuth2ProtocolError(c, err) {
 +			return

@@ -423,7 +423,7 @@ func normalizeOAuth2Issuer(raw string) (string, error) {
 	}
 	scheme := strings.ToLower(u.Scheme)
 	host := strings.TrimSuffix(strings.ToLower(u.Hostname()), ".")
-	if scheme != "https" && !(scheme == "http" && isOAuth2Loopback(host)) {
+	if scheme != "https" && (scheme != "http" || !isOAuth2Loopback(host)) {
 		return "", ErrOAuth2IssuerInvalid
 	}
 	port := u.Port()
@@ -457,7 +457,7 @@ func normalizeOAuth2RedirectURI(raw string) (string, error) {
 		return "", ErrOAuth2ClientInvalid
 	}
 	scheme := strings.ToLower(u.Scheme)
-	if scheme != "https" && !(scheme == "http" && isOAuth2Loopback(strings.ToLower(strings.TrimSuffix(u.Hostname(), ".")))) {
+	if scheme != "https" && (scheme != "http" || !isOAuth2Loopback(strings.ToLower(strings.TrimSuffix(u.Hostname(), ".")))) {
 		return "", ErrOAuth2ClientInvalid
 	}
 	return raw, nil
@@ -712,7 +712,7 @@ func isOAuth2CodeChallenge(value string) bool {
 		return false
 	}
 	for _, r := range value {
-		if !(r >= 'A' && r <= 'Z') && !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9') && !strings.ContainsRune("-._~", r) {
+		if !((r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || strings.ContainsRune("-._~", r)) {
 			return false
 		}
 	}
