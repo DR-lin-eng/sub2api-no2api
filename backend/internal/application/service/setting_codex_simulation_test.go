@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -360,6 +361,56 @@ func TestSyncCodexTurnStatesFromAccountQualityPreservesManualAndBindsCapturedSta
 	require.Equal(t, []int64{7}, settings.TurnStateAccountIDs["state-seven"])
 	require.NotContains(t, settings.TurnStates, "old-synced")
 	require.NotContains(t, settings.TurnStates, "rejected-state")
+}
+
+func TestSyncCodexTurnStatesFromAccountQualityOver100(t *testing.T) {
+	repo := newCodexSimulationSettingRepo()
+	svc := NewSettingService(repo, &config.Config{})
+	_, err := svc.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{
+		TurnStateReplayEnabled: true,
+		TurnStates:             []string{"manual-state"},
+		ContinuationMode:       "off",
+		StateTTLSeconds:        60,
+	})
+	require.NoError(t, err)
+
+	captured := make([]string, 150)
+	results := make([]AccountInspectionAccountResult, 0, len(captured)+1)
+	for i := range captured {
+		captured[i] = "captured-" + strconv.Itoa(i)
+		results = append(results, AccountInspectionAccountResult{
+			AccountID: int64(1000 + i), QualityStatus: "healthy", QualityTurnStates: []string{captured[i]},
+		})
+	}
+	results = append(results, AccountInspectionAccountResult{
+		AccountID: 8, QualityStatus: "degraded", QualityTurnStates: []string{"degraded-state"},
+	})
+	quality := AccountQualityRunState{Status: AccountInspectionStatusSucceeded, Results: results}
+	raw, err := json.Marshal(quality)
+	require.NoError(t, err)
+	require.NoError(t, repo.Set(context.Background(), SettingKeyAccountQualityState, string(raw)))
+
+	settings, err := svc.SyncCodexTurnStatesFromAccountQuality(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, append([]string{"manual-state"}, captured...), settings.TurnStates)
+	require.NotContains(t, settings.TurnStates, "degraded-state")
+	require.Equal(t, []int64{1149}, settings.TurnStateAccountIDs[captured[149]])
+	require.True(t, settings.TurnStateReplayEnabled)
+
+	loaded, err := svc.GetCodexSimulationSettings(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, settings, loaded)
+	require.Contains(t, []string{"manual-state", captured[0]}, randomCodexTurnStateForAccount(*loaded, 1000))
+	require.Equal(t, "manual-state", randomCodexTurnStateForAccount(*loaded, 8))
+}
+
+func TestCodexTurnStatePoolStillHasCountLimit(t *testing.T) {
+	states := make([]string, codexTurnStateMaxEntries+1)
+	for i := range states {
+		states[i] = "state-" + strconv.Itoa(i)
+	}
+	_, err := normalizeCodexTurnStates(states)
+	require.ErrorContains(t, err, "turn state count exceeds")
 }
 
 func TestSyncCodexTurnStatesRequiresCompletedQualityRun(t *testing.T) {
