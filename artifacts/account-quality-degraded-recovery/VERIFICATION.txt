@@ -1,0 +1,92 @@
+Account quality degraded-group recovery verification
+Date: 2026-09-16
+Git state: detached HEAD at f6ac31455ff1e8d1f9bf0201905283d1446e851b
+
+Changed branch/field
+--------------------
+The changed eligibility branch is qualityProbeEligible in
+backend/internal/application/service/account_quality_monitor.go. When
+source_group_id is configured, the probe set now includes accounts bound to
+source_group_id, accounts bound to the configured degraded_group_id, and
+accounts carrying a valid older account_quality_routing_group_id marker.
+
+The changed recovery branch is restoreQualityGroups in the same file. Existing
+account_quality_original_group_ids remains authoritative. If that marker is
+absent, a healthy account is rebound to source_group_id only when its complete
+current binding is exactly [degraded_group_id] and recovery_threshold has been
+reached. Additional or changed manual group bindings are preserved.
+
+Artifacts
+---------
+MODIFIED_FILE: /Users/lin/.codex/worktrees/89f4/sub2api-no2api/artifacts/account-quality-degraded-recovery/MODIFIED_FILE
+DIFF_FILE: /Users/lin/.codex/worktrees/89f4/sub2api-no2api/artifacts/account-quality-degraded-recovery/DIFF_FILE
+VERIFICATION.txt: /Users/lin/.codex/worktrees/89f4/sub2api-no2api/artifacts/account-quality-degraded-recovery/VERIFICATION.txt
+ROLLBACK.sh: /Users/lin/.codex/worktrees/89f4/sub2api-no2api/artifacts/account-quality-degraded-recovery/ROLLBACK.sh
+Original MODIFIED_FILE SHA256: 7bbd200e940c9e9238f35e9faae91a0d8e2f19b65a1cca41b8ba79b4c8f6d1a9
+Modified MODIFIED_FILE SHA256: 84e5093172cab8f23fc9a3bf17dae605e2bdb5b709d54e9ce7f35a0cc8f84abd
+
+BASELINE_COMMAND
+----------------
+cd /Users/lin/.codex/worktrees/89f4/sub2api-no2api/backend && GOCACHE=/tmp/sub2api-quality-baseline-gocache go test ./internal/application/service -run 'TestQuality(Group|Probe)' -count=1
+BASELINE_INPUT
+Unmodified account-quality source at f6ac31455ff1e8d1f9bf0201905283d1446e851b; existing focused quality group and eligibility tests.
+BASELINE_LITERAL_OUTPUT
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.778s
+BASELINE_RESULT
+exit status 0 (PASS)
+
+MODIFIED_COMMAND
+----------------
+cd /Users/lin/.codex/worktrees/89f4/sub2api-no2api/backend && GOCACHE=/tmp/sub2api-quality-modified-gocache go test ./internal/application/service -run 'TestQuality(Group|Probe|MonitoringRestoresConfiguredDegradedGroup)' -count=1
+MODIFIED_INPUT
+Modified source plus tests covering configured degraded-group eligibility, exact-binding fallback recovery, manual multi-binding preservation, scheduling eligibility, legacy routing-marker compatibility, and the two-pass recovery threshold.
+MODIFIED_LITERAL_OUTPUT
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	1.233s
+MODIFIED_RESULT
+exit status 0 (PASS)
+
+FULL_PACKAGE_COMMAND
+--------------------
+cd /Users/lin/.codex/worktrees/89f4/sub2api-no2api/backend && GOCACHE=/tmp/sub2api-quality-full-gocache go test ./internal/application/service -count=1
+FULL_PACKAGE_LITERAL_OUTPUT
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	136.952s
+FULL_PACKAGE_RESULT
+exit status 0 (PASS)
+
+DOCKER_COMMAND
+--------------
+cd /Users/lin/.codex/worktrees/89f4/sub2api-no2api && docker run --rm -e GOPROXY=https://goproxy.cn,direct -e GOSUMDB=sum.golang.google.cn -v "$PWD/backend:/app/backend:ro" -v /tmp/account-quality-degraded-recovery/gomod:/go/pkg/mod -v /tmp/account-quality-degraded-recovery/gocache:/root/.cache/go-build -w /app/backend golang:1.26.6-alpine sh -c "go test ./internal/application/service -run 'TestQuality(Group|Probe|MonitoringRestoresConfiguredDegradedGroup)' -count=1"
+DOCKER_INPUT
+Current modified backend mounted read-only; golang:1.26.6-alpine; isolated module and build caches under /tmp/account-quality-degraded-recovery.
+DOCKER_LITERAL_FINAL_OUTPUT
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.011s
+DOCKER_RESULT
+exit status 0 (PASS)
+
+DOCS_COMMAND
+------------
+cd /Users/lin/.codex/worktrees/89f4/sub2api-no2api && make check-docs
+DOCS_LITERAL_OUTPUT
+Documentation checks passed.
+DOCS_RESULT
+exit status 0 (PASS)
+
+ROLLBACK_COMMAND
+----------------
+cd /Users/lin/.codex/worktrees/89f4/sub2api-no2api && cp artifacts/account-quality-degraded-recovery/MODIFIED_FILE /tmp/account-quality-degraded-recovery/rollback/account_quality_monitor.go && artifacts/account-quality-degraded-recovery/ROLLBACK.sh /tmp/account-quality-degraded-recovery/rollback/account_quality_monitor.go
+ROLLBACK_INPUT
+Independent target copy populated from MODIFIED_FILE; immutable BASELINE_FILE stored beside ROLLBACK.sh.
+ROLLBACK_LITERAL_OUTPUT
+ROLLBACK_RESTORED=/tmp/account-quality-degraded-recovery/rollback/account_quality_monitor.go
+SHA256=7bbd200e940c9e9238f35e9faae91a0d8e2f19b65a1cca41b8ba79b4c8f6d1a9
+ROLLBACK_RESULT
+exit status 0 (PASS)
+
+RESTORED_BEHAVIOR_STATUS
+------------------------
+The independent rollback target matches the original SHA256. Its restored
+qualityProbeEligible branch scans a configured source group plus accounts with
+an existing routing marker; an unmarked account that exists only in the
+configured degraded group is again excluded and has no configured-source
+fallback recovery. MODIFIED_FILE remains changed at SHA256
+84e5093172cab8f23fc9a3bf17dae605e2bdb5b709d54e9ce7f35a0cc8f84abd.
