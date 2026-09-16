@@ -90,7 +90,7 @@ func (s *AccountQualityMonitoringService) GetPublicQualitySnapshot(ctx context.C
 			if result.ModelVersion == "" {
 				result.ModelVersion = run.ModelVersion
 			}
-			result.Points = append(result.Points, AccountQualityPublicPoint{ID: run.ID, Status: run.Status, Label: run.Label, Confidence: run.Confidence, Model: run.Model, Effort: run.Effort, LatencyMs: run.LatencyMs, StartedAt: run.StartedAt, Details: run.Details, HasPreview: run.HasPreview})
+			result.Points = append(result.Points, AccountQualityPublicPoint{ID: run.ID, Status: run.Status, Label: run.Label, Confidence: run.Confidence, Model: run.Model, Effort: run.Effort, LatencyMs: run.LatencyMs, StartedAt: run.StartedAt, Details: publicAccountQualityDetails(run.Details), HasPreview: run.HasPreview})
 		}
 		return result, nil
 	}
@@ -117,6 +117,11 @@ func (s *AccountQualityMonitoringService) GetPublicQualitySnapshot(ctx context.C
 		}
 	}
 	return result, nil
+}
+
+func publicAccountQualityDetails(details AccountQualityProbeDetails) AccountQualityProbeDetails {
+	details.Runtime = nil
+	return details
 }
 
 // hasPublicQualityEvidence prevents empty upstream failures from becoming

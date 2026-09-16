@@ -82,6 +82,9 @@ func (s *OpenAIGatewayService) ForwardResponsesInputTokens(
 	}
 	resp, err := s.doAccountHTTPUpstream(upstreamReq, proxyURL, account)
 	if err != nil {
+		if limited := openAIOAuthGatewayRateLimitFailover(err); limited != nil {
+			return limited
+		}
 		safeErr := sanitizeUpstreamErrorMessage(err.Error())
 		setOpsUpstreamError(c, 0, safeErr, "")
 		writeOpenAIResponsesInputTokensError(c, http.StatusBadGateway, "upstream_error", "Upstream request failed")
@@ -289,6 +292,9 @@ func (s *OpenAIGatewayService) ForwardCountTokensAsAnthropic(
 	}
 	resp, err := s.doAccountHTTPUpstream(upstreamReq, proxyURL, account)
 	if err != nil {
+		if limited := openAIOAuthGatewayRateLimitFailover(err); limited != nil {
+			return limited
+		}
 		safeErr := sanitizeUpstreamErrorMessage(err.Error())
 		setOpsUpstreamError(c, 0, safeErr, "")
 		writeAnthropicCountTokensError(c, http.StatusBadGateway, "upstream_error", "Upstream request failed")

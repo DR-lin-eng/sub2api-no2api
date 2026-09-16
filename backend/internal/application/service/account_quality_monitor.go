@@ -183,6 +183,7 @@ func (s *AccountQualityMonitoringService) runQualityStage(ctx context.Context, a
 // runQualityMonitoring performs enabled stages in order; disabling either
 // stage skips its upstream request.
 func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Context, accounts []Account, results []AccountInspectionAccountResult, previous *AccountQualityRunState, settings AccountQualitySettings, now time.Time, progress ...func(int, string, bool)) error {
+	runtimeConfig := s.loadQualityRuntimeConfig(ctx)
 	previousByID := make(map[int64]AccountInspectionAccountResult)
 	if previous != nil {
 		for _, result := range previous.Results {
@@ -244,7 +245,7 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 			started := time.Now().UTC()
 			result.QualityStartedAt = &started
 			result.QualityStatus = "running"
-			details := AccountQualityProbeDetails{}
+			details := AccountQualityProbeDetails{Runtime: qualityRuntimeSnapshot(account, settings.Model, runtimeConfig)}
 			var artifact *QualityArtifact
 			var stageErrors []string
 			wrong, operational, uncertain, interrupted := false, false, false, false

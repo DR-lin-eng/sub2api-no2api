@@ -265,6 +265,10 @@ type SystemSettings struct {
 	OpenAIContentSessionBurstBalanceEnabled                bool    `json:"openai_content_session_burst_balance_enabled"`
 	OpenAISessionIDRateLimitEnabled                        bool    `json:"openai_session_id_rate_limit_enabled"`
 	OpenAISessionIDRateLimitPerMinute                      int     `json:"openai_session_id_rate_limit_per_minute"`
+	OpenAIOAuthGatewayRateLimitEnabled                     bool    `json:"openai_oauth_gateway_rate_limit_enabled"`
+	OpenAIOAuthGatewayRateLimitRPM                         int     `json:"openai_oauth_gateway_rate_limit_rpm"`
+	OpenAIOAuthGatewayRateLimitBurst                       int     `json:"openai_oauth_gateway_rate_limit_burst"`
+	OpenAIRequestIntegrityObserveEnabled                   bool    `json:"openai_request_integrity_observe_enabled"`
 	OpenAIAdvancedSchedulerEnabled                         bool    `json:"openai_advanced_scheduler_enabled"`
 	OpenAIAdvancedSchedulerStickyWeightedEnabled           bool    `json:"openai_advanced_scheduler_sticky_weighted_enabled"`
 	OpenAIAdvancedSchedulerSubscriptionPriorityEnabled     bool    `json:"openai_advanced_scheduler_subscription_priority_enabled"`

@@ -471,6 +471,7 @@ type AccountUsageService struct {
 	settingService          *SettingService
 	agentIdentityTaskMu     sync.Mutex
 	agentIdentityWS         agentIdentityWSConnectionInvalidator
+	oauthGatewayLimiter     *OpenAIGatewayService
 	cfg                     *config.Config
 }
 
@@ -1028,6 +1029,11 @@ func (s *AccountUsageService) probeOpenAICodexSnapshot(ctx context.Context, acco
 	// 404（issue #3901）；缓存里的降载桶身份同样在此归一化，避免探针被回 server_is_overloaded。
 	enforceCodexIdentityHeadersWithUA(req.Header, account.GetOpenAIUserAgent())
 	setOpenAIChatGPTAccountHeaders(req.Header, account)
+	if s.oauthGatewayLimiter != nil {
+		if err := s.oauthGatewayLimiter.admitOpenAIOAuthGatewayModelRequest(req.Context(), account); err != nil {
+			return nil, err
+		}
+	}
 
 	var resp *http.Response
 	if cLevelTransportSimulationEnabled(s.settingService) && s.httpUpstream != nil {

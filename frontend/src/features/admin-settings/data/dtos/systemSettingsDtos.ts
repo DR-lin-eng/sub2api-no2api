@@ -670,6 +670,10 @@ export interface SystemSettings {
   openai_content_session_burst_balance_enabled?: boolean;
   openai_session_id_rate_limit_enabled?: boolean;
   openai_session_id_rate_limit_per_minute?: number;
+  openai_oauth_gateway_rate_limit_enabled?: boolean;
+  openai_oauth_gateway_rate_limit_rpm?: number;
+  openai_oauth_gateway_rate_limit_burst?: number;
+  openai_request_integrity_observe_enabled?: boolean;
   openai_advanced_scheduler_enabled?: boolean;
   openai_advanced_scheduler_sticky_weighted_enabled?: boolean;
   openai_advanced_scheduler_subscription_priority_enabled?: boolean;
@@ -1016,6 +1020,10 @@ export interface UpdateSettingsRequest {
   openai_content_session_burst_balance_enabled?: boolean;
   openai_session_id_rate_limit_enabled?: boolean;
   openai_session_id_rate_limit_per_minute?: number;
+  openai_oauth_gateway_rate_limit_enabled?: boolean;
+  openai_oauth_gateway_rate_limit_rpm?: number;
+  openai_oauth_gateway_rate_limit_burst?: number;
+  openai_request_integrity_observe_enabled?: boolean;
   openai_advanced_scheduler_enabled?: boolean;
   openai_advanced_scheduler_sticky_weighted_enabled?: boolean;
   openai_advanced_scheduler_subscription_priority_enabled?: boolean;

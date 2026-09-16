@@ -1327,6 +1327,9 @@ func (s *OpenAIGatewayService) runOpenAIAnthropicCompactFallbackResponsesRequest
 	}
 	resp, err := s.doAccountHTTPUpstream(req, proxyURL, account)
 	if err != nil {
+		if limited := openAIOAuthGatewayRateLimitFailover(err); limited != nil {
+			return nil, OpenAIUsage{}, "", limited
+		}
 		safeErr := sanitizeUpstreamErrorMessage(err.Error())
 		setOpsUpstreamError(c, 0, safeErr, "")
 		appendOpsUpstreamError(c, OpsUpstreamErrorEvent{

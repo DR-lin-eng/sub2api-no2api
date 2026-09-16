@@ -401,7 +401,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 		}
 	}
 
-	modelCtx := ctx
+	modelCtx := withOpenAIOAuthGatewayTurnKey(ctx, turn)
 	if account.Platform == PlatformGrok {
 		modelCtx = withGrokTeamRateLimitModel(ctx, resolveGrokWSUpstreamModel(account, body, originalModel))
 	}
@@ -450,6 +450,9 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurnWithFingerprint(
 	turnStart := time.Now()
 	resp, err := s.doAccountHTTPUpstream(upstreamReq, proxyURL, account)
 	if err != nil {
+		if limited := openAIOAuthGatewayRateLimitFailover(err); limited != nil {
+			return nil, limited
+		}
 		if turn == 1 {
 			return nil, s.handleOpenAIUpstreamTransportError(modelCtx, c, account, err, true)
 		}

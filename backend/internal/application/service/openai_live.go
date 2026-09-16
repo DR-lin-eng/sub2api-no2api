@@ -388,6 +388,9 @@ func (s *OpenAIGatewayService) shouldFailoverLiveCreateError(err error) bool {
 		// 凭证读取和网络传输错误都可能只影响当前账号或代理。
 		return true
 	}
+	if !upstreamErr.ShouldRetryNextAccount() {
+		return false
+	}
 	return s.shouldFailoverOpenAIUpstreamResponse(
 		upstreamErr.StatusCode,
 		"",
@@ -444,6 +447,9 @@ func (s *OpenAIGatewayService) createUpstreamLiveCall(
 	resp, err := s.doAccountHTTPUpstream(upstreamReq, resolveAccountProxyURL(account), account)
 	if err != nil {
 		logLiveCreateStageFailure(ctx, account.ID, "upstream_transport", err)
+		if limited := openAIOAuthGatewayRateLimitFailover(err); limited != nil {
+			return nil, limited
+		}
 		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()

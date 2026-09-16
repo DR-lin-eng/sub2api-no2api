@@ -24,6 +24,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	if distillation {
 		body = stripDistillationCacheFields(body)
 	}
+	integrityOriginalBody := bytes.Clone(body)
 	ctx = s.WithOpenAIStreamRuntimeSettings(ctx)
 	if c != nil && c.Request != nil {
 		settings := s.openAIStreamRuntimeSettings(ctx)
@@ -252,6 +253,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 				logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Stripped /responses image_generation tool for Codex client by account policy")
 			}
 		}
+		s.observeOpenAIRequestIntegrity(ctx, c, account, integrityOriginalBody, body, "http_passthrough")
 		// 透传分支只需要轻量提取字段，避免热路径全量 Unmarshal。
 		mappedModel := account.GetMappedModel(reqModel)
 		reasoningEffort := extractOpenAIReasoningEffortFromBody(body, mappedModel)
@@ -635,6 +637,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			requestView = newOpenAIRequestView(body)
 		}
 	}
+	s.observeOpenAIRequestIntegrity(ctx, c, account, integrityOriginalBody, body, "http")
 	imageBillingModel := ""
 	imageSizeTier := ""
 	imageInputSize := ""
