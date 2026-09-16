@@ -1,0 +1,4070 @@
+diff --git a/.gitignore b/.gitignore
+index 4133759..0c8b532 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -152,0 +153 @@ docs/*
++!docs/OAUTH2_PROVIDER.md
+diff --git a/backend/cmd/server/wire_gen.go b/backend/cmd/server/wire_gen.go
+index 7c65873..b48445f 100644
+--- a/backend/cmd/server/wire_gen.go
++++ b/backend/cmd/server/wire_gen.go
+@@ -321 +321,4 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
+-	adminHandlers := handler.ProvideAdminHandlers(dashboardHandler, adminUserHandler, groupHandler, accountHandler, accountInspectionHandler, accountQualityHandler, adminAnnouncementHandler, adminActivityCenterHandler, dataManagementHandler, backupHandler, oAuthHandler, openAIOAuthHandler, geminiOAuthHandler, antigravityOAuthHandler, grokOAuthHandler, proxyHandler, adminRedeemHandler, promoHandler, settingHandler, opsHandler, systemHandler, adminSubscriptionHandler, adminUsageHandler, userAttributeHandler, errorPassthroughHandler, tlsFingerprintProfileHandler, adminAPIKeyHandler, scheduledTestHandler, channelHandler, channelMonitorHandler, channelMonitorRequestTemplateHandler, contentModerationHandler, promptAdminHandler, paymentHandler, affiliateHandler, complianceHandler, auditLogHandler, upstreamBillingProbeService, clusterHandler, ollamaCloudUsageService, chatHandler, egressHandler, customModelConfigHandler)
++	oAuth2ProviderStore := repository.NewOAuth2ProviderStore(redisClient)
++	oAuth2ProviderService := service.NewOAuth2ProviderService(settingRepository, userRepository, oAuth2ProviderStore, configConfig)
++	oAuth2ProviderHandler := admin.NewOAuth2ProviderHandler(oAuth2ProviderService)
++	adminHandlers := handler.ProvideAdminHandlers(dashboardHandler, adminUserHandler, groupHandler, accountHandler, accountInspectionHandler, accountQualityHandler, adminAnnouncementHandler, adminActivityCenterHandler, dataManagementHandler, backupHandler, oAuthHandler, openAIOAuthHandler, geminiOAuthHandler, antigravityOAuthHandler, grokOAuthHandler, proxyHandler, adminRedeemHandler, promoHandler, settingHandler, opsHandler, systemHandler, adminSubscriptionHandler, adminUsageHandler, userAttributeHandler, errorPassthroughHandler, tlsFingerprintProfileHandler, adminAPIKeyHandler, scheduledTestHandler, channelHandler, channelMonitorHandler, channelMonitorRequestTemplateHandler, contentModerationHandler, promptAdminHandler, paymentHandler, affiliateHandler, complianceHandler, auditLogHandler, upstreamBillingProbeService, clusterHandler, ollamaCloudUsageService, chatHandler, egressHandler, customModelConfigHandler, oAuth2ProviderHandler)
+@@ -355,0 +359 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
++	handlerOAuth2ProviderHandler := handler.NewOAuth2ProviderHandler(oAuth2ProviderService)
+@@ -358 +362 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
+-	handlers := handler.ProvideHandlers(authHandler, userHandler, apiKeyHandler, usageHandler, redeemHandler, subscriptionHandler, announcementHandler, activityCenterHandler, channelMonitorUserHandler, adminHandlers, gatewayHandler, openAIGatewayHandler, handlerSettingHandler, totpHandler, passkeyHandler, handlerPaymentHandler, paymentWebhookHandler, availableChannelHandler, modelPlazaHandler, asyncImageHandler, batchImageHandler, handlerChatHandler, mediaStudioHandler, idempotencyCoordinator, idempotencyCleanupService)
++	handlers := handler.ProvideHandlers(authHandler, userHandler, apiKeyHandler, usageHandler, redeemHandler, subscriptionHandler, announcementHandler, activityCenterHandler, channelMonitorUserHandler, adminHandlers, gatewayHandler, openAIGatewayHandler, handlerSettingHandler, totpHandler, passkeyHandler, handlerPaymentHandler, paymentWebhookHandler, availableChannelHandler, modelPlazaHandler, asyncImageHandler, batchImageHandler, handlerChatHandler, mediaStudioHandler, handlerOAuth2ProviderHandler, idempotencyCoordinator, idempotencyCleanupService)
+diff --git a/backend/internal/application/service/README.md b/backend/internal/application/service/README.md
+index 922714e..19c0d29 100644
+--- a/backend/internal/application/service/README.md
++++ b/backend/internal/application/service/README.md
+@@ -19,0 +20 @@
++| `oauth2_provider.go` | 管理员控制的 OAuth2 客户端、PKCE 授权码、token 校验与 userinfo |
+diff --git a/backend/internal/application/service/oauth2_provider.go b/backend/internal/application/service/oauth2_provider.go
+new file mode 100644
+index 0000000..17a9971
+--- /dev/null
++++ b/backend/internal/application/service/oauth2_provider.go
+@@ -0,0 +1,1074 @@
++package service
++
++import (
++	"context"
++	"crypto/hmac"
++	"crypto/rand"
++	"crypto/sha256"
++	"encoding/base64"
++	"encoding/hex"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"net"
++	"net/url"
++	"sort"
++	"strconv"
++	"strings"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	infraerrors "github.com/Wei-Shaw/sub2api/internal/shared/errors"
++)
++
++const (
++	OAuth2ProviderConfigKey       = "oauth2_provider_config"
++	oauth2ProviderClientKeyPrefix = "oauth2_provider_client."
++	OAuth2AuthorizationCodeTTL    = 5 * time.Minute
++	OAuth2DefaultAccessTokenTTL   = time.Hour
++	OAuth2MinAccessTokenTTL       = 60 * time.Second
++	OAuth2MaxAccessTokenTTL       = 24 * time.Hour
++	OAuth2MaxClients              = 100
++	OAuth2ClientTypeConfidential  = "confidential"
++	OAuth2ClientTypePublic        = "public"
++)
++
++var (
++	ErrOAuth2ProviderDisabled = infraerrors.Forbidden(
++		"OAUTH2_PROVIDER_DISABLED",
++		"OAuth2 provider is disabled",
++	)
++	ErrOAuth2ClientNotFound = infraerrors.NotFound(
++		"OAUTH2_CLIENT_NOT_FOUND",
++		"OAuth2 client not found",
++	)
++	ErrOAuth2ClientInvalid = infraerrors.BadRequest(
++		"OAUTH2_CLIENT_INVALID",
++		"OAuth2 client configuration is invalid",
++	)
++	ErrOAuth2IssuerInvalid = infraerrors.BadRequest(
++		"OAUTH2_ISSUER_INVALID",
++		"OAuth2 issuer must be an HTTPS origin (or a loopback HTTP origin)",
++	)
++	ErrOAuth2GrantNotFound = errors.New("oauth2 grant not found")
++)
++
++// OAuth2ProtocolError is serialized using the RFC 6749 error response shape.
++// It deliberately stays separate from the site's JSON error envelope because
++// OAuth clients parse these fields directly.
++type OAuth2ProtocolError struct {
++	HTTPStatus  int
++	Code        string
++	Description string
++	Headers     map[string]string
++}
++
++func (e *OAuth2ProtocolError) Error() string {
++	if e == nil {
++		return "<nil>"
++	}
++	if e.Description == "" {
++		return e.Code
++	}
++	return e.Code + ": " + e.Description
++}
++
++func newOAuth2ProtocolError(status int, code, description string) *OAuth2ProtocolError {
++	return &OAuth2ProtocolError{HTTPStatus: status, Code: code, Description: description}
++}
++
++type OAuth2ProviderConfig struct {
++	Enabled               bool   `json:"enabled"`
++	Issuer                string `json:"issuer"`
++	AccessTokenTTLSeconds int    `json:"access_token_ttl_seconds"`
++}
++
++type OAuth2ProviderClient struct {
++	ID            string    `json:"client_id"`
++	Name          string    `json:"name"`
++	ClientType    string    `json:"client_type"`
++	SecretHash    string    `json:"secret_hash"`
++	RedirectURIs  []string  `json:"redirect_uris"`
++	AllowedScopes []string  `json:"allowed_scopes"`
++	Enabled       bool      `json:"enabled"`
++	CreatedAt     time.Time `json:"created_at"`
++	UpdatedAt     time.Time `json:"updated_at"`
++}
++
++type OAuth2ClientView struct {
++	ID               string    `json:"client_id"`
++	Name             string    `json:"name"`
++	ClientType       string    `json:"client_type"`
++	RedirectURIs     []string  `json:"redirect_uris"`
++	AllowedScopes    []string  `json:"allowed_scopes"`
++	Enabled          bool      `json:"enabled"`
++	SecretConfigured bool      `json:"secret_configured"`
++	CreatedAt        time.Time `json:"created_at"`
++	UpdatedAt        time.Time `json:"updated_at"`
++}
++
++type OAuth2Scope struct {
++	Name        string `json:"name"`
++	Description string `json:"description"`
++}
++
++func OAuth2ProviderScopes() []OAuth2Scope {
++	return []OAuth2Scope{
++		{Name: "profile", Description: "Read the user's stable identifier and public profile"},
++		{Name: "email", Description: "Read the user's email address"},
++	}
++}
++
++type OAuth2ProviderConfigView struct {
++	Enabled               bool               `json:"enabled"`
++	Issuer                string             `json:"issuer"`
++	AccessTokenTTLSeconds int                `json:"access_token_ttl_seconds"`
++	Clients               []OAuth2ClientView `json:"clients"`
++	Scopes                []OAuth2Scope      `json:"scopes"`
++}
++
++type OAuth2ProviderConfigUpdate struct {
++	Enabled               bool
++	Issuer                string
++	AccessTokenTTLSeconds int
++}
++
++type OAuth2ClientCreateInput struct {
++	Name          string
++	ClientType    string
++	RedirectURIs  []string
++	AllowedScopes []string
++	Enabled       *bool
++}
++
++type OAuth2ClientUpdateInput struct {
++	Name          *string
++	RedirectURIs  *[]string
++	AllowedScopes *[]string
++	Enabled       *bool
++}
++
++type OAuth2ClientSecretResult struct {
++	Client       OAuth2ClientView `json:"client"`
++	ClientSecret string           `json:"client_secret,omitempty"`
++}
++
++type OAuth2AuthorizationRequest struct {
++	ClientID            string
++	RedirectURI         string
++	ResponseType        string
++	Scope               string
++	State               string
++	CodeChallenge       string
++	CodeChallengeMethod string
++}
++
++type OAuth2AuthorizationPreview struct {
++	ClientID    string        `json:"client_id"`
++	ClientName  string        `json:"client_name"`
++	RedirectURI string        `json:"redirect_uri"`
++	Scopes      []OAuth2Scope `json:"scopes"`
++}
++
++type OAuth2AuthorizationResult struct {
++	RedirectURL string `json:"redirect_url"`
++}
++
++type OAuth2AuthorizationCodeData struct {
++	ClientID            string    `json:"client_id"`
++	UserID              int64     `json:"user_id"`
++	RedirectURI         string    `json:"redirect_uri"`
++	Scopes              []string  `json:"scopes"`
++	CodeChallenge       string    `json:"code_challenge"`
++	CodeChallengeMethod string    `json:"code_challenge_method"`
++	TokenVersion        int64     `json:"token_version"`
++	IssuedAt            time.Time `json:"issued_at"`
++}
++
++type OAuth2AccessTokenData struct {
++	ClientID     string    `json:"client_id"`
++	UserID       int64     `json:"user_id"`
++	Scopes       []string  `json:"scopes"`
++	Issuer       string    `json:"issuer"`
++	TokenVersion int64     `json:"token_version"`
++	ExpiresAt    time.Time `json:"expires_at"`
++}
++
++type OAuth2TokenRequest struct {
++	GrantType    string
++	Code         string
++	RedirectURI  string
++	ClientID     string
++	ClientSecret string
++	CodeVerifier string
++}
++
++type OAuth2TokenResponse struct {
++	AccessToken string `json:"access_token"`
++	TokenType   string `json:"token_type"`
++	ExpiresIn   int    `json:"expires_in"`
++	Scope       string `json:"scope,omitempty"`
++}
++
++type OAuth2UserInfo struct {
++	Subject           string `json:"sub"`
++	PreferredUsername string `json:"preferred_username,omitempty"`
++	Name              string `json:"name,omitempty"`
++	Email             string `json:"email,omitempty"`
++}
++
++// OAuth2ProviderStore is the distributed, one-time grant store. Implementations
++// must make ConsumeAuthorizationCode atomic across application instances.
++type OAuth2ProviderStore interface {
++	StoreAuthorizationCode(ctx context.Context, hash string, data *OAuth2AuthorizationCodeData, ttl time.Duration) error
++	ConsumeAuthorizationCode(ctx context.Context, hash string) (*OAuth2AuthorizationCodeData, error)
++	StoreAccessToken(ctx context.Context, hash string, data *OAuth2AccessTokenData, ttl time.Duration) error
++	GetAccessToken(ctx context.Context, hash string) (*OAuth2AccessTokenData, error)
++	DeleteAccessToken(ctx context.Context, hash string) error
++}
++
++type OAuth2ProviderService struct {
++	settingRepo SettingRepository
++	userRepo    UserRepository
++	store       OAuth2ProviderStore
++	cfg         *config.Config
++}
++
++func NewOAuth2ProviderService(
++	settingRepo SettingRepository,
++	userRepo UserRepository,
++	store OAuth2ProviderStore,
++	cfg *config.Config,
++) *OAuth2ProviderService {
++	return &OAuth2ProviderService{
++		settingRepo: settingRepo,
++		userRepo:    userRepo,
++		store:       store,
++		cfg:         cfg,
++	}
++}
++
++func defaultOAuth2ProviderConfig() OAuth2ProviderConfig {
++	return OAuth2ProviderConfig{
++		AccessTokenTTLSeconds: int(OAuth2DefaultAccessTokenTTL / time.Second),
++	}
++}
++
++func (s *OAuth2ProviderService) loadConfig(ctx context.Context) (OAuth2ProviderConfig, error) {
++	if s == nil || s.settingRepo == nil {
++		return OAuth2ProviderConfig{}, fmt.Errorf("oauth2 provider setting repository is unavailable")
++	}
++	cfg := defaultOAuth2ProviderConfig()
++	raw, err := s.settingRepo.GetValue(ctx, OAuth2ProviderConfigKey)
++	if errors.Is(err, ErrSettingNotFound) {
++		return cfg, nil
++	}
++	if err != nil {
++		return cfg, err
++	}
++	if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
++		return cfg, fmt.Errorf("decode oauth2 provider config: %w", err)
++	}
++	if cfg.AccessTokenTTLSeconds == 0 {
++		cfg.AccessTokenTTLSeconds = int(OAuth2DefaultAccessTokenTTL / time.Second)
++	}
++	if _, err := normalizeOAuth2Issuer(cfg.Issuer); err != nil && strings.TrimSpace(cfg.Issuer) != "" {
++		return cfg, fmt.Errorf("invalid persisted oauth2 issuer: %w", err)
++	}
++	if cfg.AccessTokenTTLSeconds < int(OAuth2MinAccessTokenTTL/time.Second) || cfg.AccessTokenTTLSeconds > int(OAuth2MaxAccessTokenTTL/time.Second) {
++		return cfg, fmt.Errorf("persisted oauth2 access token ttl is out of range")
++	}
++	return cfg, nil
++}
++
++func (s *OAuth2ProviderService) saveConfig(ctx context.Context, cfg OAuth2ProviderConfig) error {
++	payload, err := json.Marshal(cfg)
++	if err != nil {
++		return fmt.Errorf("encode oauth2 provider config: %w", err)
++	}
++	return s.settingRepo.Set(ctx, OAuth2ProviderConfigKey, string(payload))
++}
++
++func oauth2ClientSettingKey(clientID string) string {
++	return oauth2ProviderClientKeyPrefix + clientID
++}
++
++func (s *OAuth2ProviderService) loadClient(ctx context.Context, clientID string) (*OAuth2ProviderClient, error) {
++	clientID = strings.TrimSpace(clientID)
++	if clientID == "" || len(clientID) > 128 {
++		return nil, ErrOAuth2ClientNotFound
++	}
++	raw, err := s.settingRepo.GetValue(ctx, oauth2ClientSettingKey(clientID))
++	if errors.Is(err, ErrSettingNotFound) {
++		return nil, ErrOAuth2ClientNotFound
++	}
++	if err != nil {
++		return nil, err
++	}
++	var client OAuth2ProviderClient
++	if err := json.Unmarshal([]byte(raw), &client); err != nil {
++		return nil, fmt.Errorf("decode oauth2 client: %w", err)
++	}
++	if client.ID != clientID {
++		return nil, fmt.Errorf("oauth2 client id mismatch")
++	}
++	return &client, nil
++}
++
++func (s *OAuth2ProviderService) saveClient(ctx context.Context, client *OAuth2ProviderClient) error {
++	payload, err := json.Marshal(client)
++	if err != nil {
++		return fmt.Errorf("encode oauth2 client: %w", err)
++	}
++	return s.settingRepo.Set(ctx, oauth2ClientSettingKey(client.ID), string(payload))
++}
++
++func clientView(client *OAuth2ProviderClient) OAuth2ClientView {
++	if client == nil {
++		return OAuth2ClientView{}
++	}
++	return OAuth2ClientView{
++		ID:               client.ID,
++		Name:             client.Name,
++		ClientType:       client.ClientType,
++		RedirectURIs:     append([]string(nil), client.RedirectURIs...),
++		AllowedScopes:    append([]string(nil), client.AllowedScopes...),
++		Enabled:          client.Enabled,
++		SecretConfigured: client.SecretHash != "",
++		CreatedAt:        client.CreatedAt,
++		UpdatedAt:        client.UpdatedAt,
++	}
++}
++
++func (s *OAuth2ProviderService) listClients(ctx context.Context) ([]OAuth2ProviderClient, error) {
++	values, err := s.settingRepo.GetAll(ctx)
++	if err != nil {
++		return nil, err
++	}
++	clients := make([]OAuth2ProviderClient, 0)
++	for key, raw := range values {
++		if !strings.HasPrefix(key, oauth2ProviderClientKeyPrefix) {
++			continue
++		}
++		var client OAuth2ProviderClient
++		if err := json.Unmarshal([]byte(raw), &client); err != nil {
++			return nil, fmt.Errorf("decode oauth2 client %q: %w", key, err)
++		}
++		if client.ID == "" || client.ID != strings.TrimPrefix(key, oauth2ProviderClientKeyPrefix) {
++			return nil, fmt.Errorf("oauth2 client key mismatch")
++		}
++		clients = append(clients, client)
++	}
++	sort.Slice(clients, func(i, j int) bool {
++		if clients[i].CreatedAt.Equal(clients[j].CreatedAt) {
++			return clients[i].ID < clients[j].ID
++		}
++		return clients[i].CreatedAt.Before(clients[j].CreatedAt)
++	})
++	return clients, nil
++}
++
++func (s *OAuth2ProviderService) GetAdminConfig(ctx context.Context) (*OAuth2ProviderConfigView, error) {
++	cfg, err := s.loadConfig(ctx)
++	if err != nil {
++		return nil, err
++	}
++	clients, err := s.listClients(ctx)
++	if err != nil {
++		return nil, err
++	}
++	view := &OAuth2ProviderConfigView{
++		Enabled:               cfg.Enabled,
++		Issuer:                cfg.Issuer,
++		AccessTokenTTLSeconds: cfg.AccessTokenTTLSeconds,
++		Scopes:                OAuth2ProviderScopes(),
++		Clients:               make([]OAuth2ClientView, 0, len(clients)),
++	}
++	for i := range clients {
++		view.Clients = append(view.Clients, clientView(&clients[i]))
++	}
++	return view, nil
++}
++
++func (s *OAuth2ProviderService) UpdateAdminConfig(ctx context.Context, input OAuth2ProviderConfigUpdate) (*OAuth2ProviderConfigView, error) {
++	issuer, err := normalizeOAuth2Issuer(input.Issuer)
++	if err != nil && strings.TrimSpace(input.Issuer) != "" {
++		return nil, ErrOAuth2IssuerInvalid
++	}
++	ttl := input.AccessTokenTTLSeconds
++	if ttl == 0 {
++		ttl = int(OAuth2DefaultAccessTokenTTL / time.Second)
++	}
++	if ttl < int(OAuth2MinAccessTokenTTL/time.Second) || ttl > int(OAuth2MaxAccessTokenTTL/time.Second) {
++		return nil, infraerrors.BadRequest("OAUTH2_TTL_INVALID", "access token lifetime must be between 60 and 86400 seconds")
++	}
++	if input.Enabled && issuer == "" {
++		return nil, ErrOAuth2IssuerInvalid
++	}
++	cfg := OAuth2ProviderConfig{Enabled: input.Enabled, Issuer: issuer, AccessTokenTTLSeconds: ttl}
++	if err := s.saveConfig(ctx, cfg); err != nil {
++		return nil, err
++	}
++	return s.GetAdminConfig(ctx)
++}
++
++func normalizeOAuth2Issuer(raw string) (string, error) {
++	raw = strings.TrimSpace(raw)
++	if raw == "" {
++		return "", nil
++	}
++	u, err := url.Parse(raw)
++	if err != nil || u.Scheme == "" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
++		return "", ErrOAuth2IssuerInvalid
++	}
++	scheme := strings.ToLower(u.Scheme)
++	host := strings.TrimSuffix(strings.ToLower(u.Hostname()), ".")
++	if scheme != "https" && !(scheme == "http" && isOAuth2Loopback(host)) {
++		return "", ErrOAuth2IssuerInvalid
++	}
++	port := u.Port()
++	if (scheme == "https" && port == "443") || (scheme == "http" && port == "80") {
++		port = ""
++	}
++	if port == "" {
++		if strings.Contains(host, ":") {
++			host = "[" + host + "]"
++		}
++		return scheme + "://" + host, nil
++	}
++	return scheme + "://" + net.JoinHostPort(host, port), nil
++}
++
++func isOAuth2Loopback(host string) bool {
++	if host == "localhost" {
++		return true
++	}
++	ip := net.ParseIP(host)
++	return ip != nil && ip.IsLoopback()
++}
++
++func normalizeOAuth2RedirectURI(raw string) (string, error) {
++	raw = strings.TrimSpace(raw)
++	if raw == "" || len(raw) > 2048 {
++		return "", ErrOAuth2ClientInvalid
++	}
++	u, err := url.Parse(raw)
++	if err != nil || u.Scheme == "" || u.Hostname() == "" || u.User != nil || u.Fragment != "" {
++		return "", ErrOAuth2ClientInvalid
++	}
++	scheme := strings.ToLower(u.Scheme)
++	if scheme != "https" && !(scheme == "http" && isOAuth2Loopback(strings.ToLower(strings.TrimSuffix(u.Hostname(), ".")))) {
++		return "", ErrOAuth2ClientInvalid
++	}
++	return raw, nil
++}
++
++func normalizeOAuth2Scopes(scopes []string) ([]string, error) {
++	known := make(map[string]struct{}, len(OAuth2ProviderScopes()))
++	for _, scope := range OAuth2ProviderScopes() {
++		known[scope.Name] = struct{}{}
++	}
++	seen := make(map[string]struct{}, len(scopes))
++	result := make([]string, 0, len(scopes))
++	for _, raw := range scopes {
++		for _, scope := range strings.Fields(raw) {
++			if _, ok := known[scope]; !ok {
++				return nil, ErrOAuth2ClientInvalid
++			}
++			if _, ok := seen[scope]; ok {
++				continue
++			}
++			seen[scope] = struct{}{}
++			result = append(result, scope)
++		}
++	}
++	if len(result) == 0 {
++		return nil, ErrOAuth2ClientInvalid
++	}
++	sort.Strings(result)
++	return result, nil
++}
++
++func validateOAuth2ClientInput(name, clientType string, redirects, scopes []string) (string, []string, []string, error) {
++	name = strings.TrimSpace(name)
++	if name == "" || len([]rune(name)) > 100 {
++		return "", nil, nil, ErrOAuth2ClientInvalid
++	}
++	clientType = strings.ToLower(strings.TrimSpace(clientType))
++	if clientType == "" {
++		clientType = OAuth2ClientTypeConfidential
++	}
++	if clientType != OAuth2ClientTypeConfidential && clientType != OAuth2ClientTypePublic {
++		return "", nil, nil, ErrOAuth2ClientInvalid
++	}
++	if len(redirects) == 0 || len(redirects) > 20 {
++		return "", nil, nil, ErrOAuth2ClientInvalid
++	}
++	normalizedRedirects := make([]string, 0, len(redirects))
++	seenRedirects := make(map[string]struct{}, len(redirects))
++	for _, redirect := range redirects {
++		normalized, err := normalizeOAuth2RedirectURI(redirect)
++		if err != nil {
++			return "", nil, nil, ErrOAuth2ClientInvalid
++		}
++		if _, ok := seenRedirects[normalized]; ok {
++			return "", nil, nil, ErrOAuth2ClientInvalid
++		}
++		seenRedirects[normalized] = struct{}{}
++		normalizedRedirects = append(normalizedRedirects, normalized)
++	}
++	normalizedScopes, err := normalizeOAuth2Scopes(scopes)
++	if err != nil {
++		return "", nil, nil, err
++	}
++	return name, normalizedRedirects, normalizedScopes, nil
++}
++
++func randomOAuth2String(prefix string, byteLength int) (string, error) {
++	buf := make([]byte, byteLength)
++	if _, err := rand.Read(buf); err != nil {
++		return "", err
++	}
++	return prefix + base64.RawURLEncoding.EncodeToString(buf), nil
++}
++
++func hashOAuth2Secret(value string) string {
++	sum := sha256.Sum256([]byte(value))
++	return hex.EncodeToString(sum[:])
++}
++
++func (s *OAuth2ProviderService) CreateClient(ctx context.Context, input OAuth2ClientCreateInput) (*OAuth2ClientSecretResult, error) {
++	clients, err := s.listClients(ctx)
++	if err != nil {
++		return nil, err
++	}
++	if len(clients) >= OAuth2MaxClients {
++		return nil, infraerrors.BadRequest("OAUTH2_CLIENT_LIMIT_REACHED", "OAuth2 client limit reached")
++	}
++	name, redirects, scopes, err := validateOAuth2ClientInput(input.Name, input.ClientType, input.RedirectURIs, input.AllowedScopes)
++	if err != nil {
++		return nil, err
++	}
++	clientID, err := randomOAuth2String("s2c_", 18)
++	if err != nil {
++		return nil, fmt.Errorf("generate oauth2 client id: %w", err)
++	}
++	secret := ""
++	secretHash := ""
++	if strings.ToLower(strings.TrimSpace(input.ClientType)) != OAuth2ClientTypePublic {
++		secret, err = randomOAuth2String("s2s_", 32)
++		if err != nil {
++			return nil, fmt.Errorf("generate oauth2 client secret: %w", err)
++		}
++		secretHash = hashOAuth2Secret(secret)
++	}
++	enabled := true
++	if input.Enabled != nil {
++		enabled = *input.Enabled
++	}
++	now := time.Now().UTC()
++	client := &OAuth2ProviderClient{
++		ID:            clientID,
++		Name:          name,
++		ClientType:    strings.ToLower(strings.TrimSpace(input.ClientType)),
++		SecretHash:    secretHash,
++		RedirectURIs:  redirects,
++		AllowedScopes: scopes,
++		Enabled:       enabled,
++		CreatedAt:     now,
++		UpdatedAt:     now,
++	}
++	if client.ClientType == "" {
++		client.ClientType = OAuth2ClientTypeConfidential
++	}
++	if err := s.saveClient(ctx, client); err != nil {
++		return nil, err
++	}
++	return &OAuth2ClientSecretResult{Client: clientView(client), ClientSecret: secret}, nil
++}
++
++func (s *OAuth2ProviderService) UpdateClient(ctx context.Context, clientID string, input OAuth2ClientUpdateInput) (*OAuth2ClientView, error) {
++	client, err := s.loadClient(ctx, clientID)
++	if err != nil {
++		return nil, err
++	}
++	if input.Name != nil {
++		name := strings.TrimSpace(*input.Name)
++		if name == "" || len([]rune(name)) > 100 {
++			return nil, ErrOAuth2ClientInvalid
++		}
++		client.Name = name
++	}
++	if input.RedirectURIs != nil {
++		_, redirects, _, err := validateOAuth2ClientInput(client.Name, client.ClientType, *input.RedirectURIs, client.AllowedScopes)
++		if err != nil {
++			return nil, err
++		}
++		client.RedirectURIs = redirects
++	}
++	if input.AllowedScopes != nil {
++		_, _, scopes, err := validateOAuth2ClientInput(client.Name, client.ClientType, client.RedirectURIs, *input.AllowedScopes)
++		if err != nil {
++			return nil, err
++		}
++		client.AllowedScopes = scopes
++	}
++	if input.Enabled != nil {
++		client.Enabled = *input.Enabled
++	}
++	client.UpdatedAt = time.Now().UTC()
++	if err := s.saveClient(ctx, client); err != nil {
++		return nil, err
++	}
++	view := clientView(client)
++	return &view, nil
++}
++
++func (s *OAuth2ProviderService) DeleteClient(ctx context.Context, clientID string) error {
++	if _, err := s.loadClient(ctx, clientID); err != nil {
++		return err
++	}
++	return s.settingRepo.Delete(ctx, oauth2ClientSettingKey(strings.TrimSpace(clientID)))
++}
++
++func (s *OAuth2ProviderService) RotateClientSecret(ctx context.Context, clientID string) (*OAuth2ClientSecretResult, error) {
++	client, err := s.loadClient(ctx, clientID)
++	if err != nil {
++		return nil, err
++	}
++	if client.ClientType != OAuth2ClientTypeConfidential {
++		return nil, ErrOAuth2ClientInvalid
++	}
++	secret, err := randomOAuth2String("s2s_", 32)
++	if err != nil {
++		return nil, fmt.Errorf("generate oauth2 client secret: %w", err)
++	}
++	client.SecretHash = hashOAuth2Secret(secret)
++	client.UpdatedAt = time.Now().UTC()
++	if err := s.saveClient(ctx, client); err != nil {
++		return nil, err
++	}
++	return &OAuth2ClientSecretResult{Client: clientView(client), ClientSecret: secret}, nil
++}
++
++func (s *OAuth2ProviderService) requireEnabledClient(ctx context.Context, clientID string) (OAuth2ProviderConfig, *OAuth2ProviderClient, error) {
++	cfg, err := s.loadConfig(ctx)
++	if err != nil {
++		return cfg, nil, err
++	}
++	if !cfg.Enabled {
++		return cfg, nil, ErrOAuth2ProviderDisabled
++	}
++	client, err := s.loadClient(ctx, clientID)
++	if err != nil {
++		return cfg, nil, err
++	}
++	if !client.Enabled {
++		return cfg, nil, ErrOAuth2ClientNotFound
++	}
++	return cfg, client, nil
++}
++
++func (s *OAuth2ProviderService) ValidateAuthorizationRequest(ctx context.Context, input OAuth2AuthorizationRequest) (*OAuth2AuthorizationPreview, error) {
++	_, client, err := s.requireEnabledClient(ctx, input.ClientID)
++	if err != nil {
++		return nil, err
++	}
++	if input.ResponseType != "code" {
++		return nil, newOAuth2ProtocolError(400, "unsupported_response_type", "response_type must be code")
++	}
++	if input.State == "" || len(input.State) > 512 {
++		return nil, newOAuth2ProtocolError(400, "invalid_request", "state is required")
++	}
++	if input.RedirectURI == "" || !containsExact(client.RedirectURIs, input.RedirectURI) {
++		return nil, newOAuth2ProtocolError(400, "invalid_request", "redirect_uri does not match the registered client")
++	}
++	if input.CodeChallengeMethod != "S256" || !isOAuth2CodeChallenge(input.CodeChallenge) {
++		return nil, newOAuth2ProtocolError(400, "invalid_request", "PKCE S256 is required")
++	}
++	scopes, err := requestedOAuth2Scopes(input.Scope, client.AllowedScopes)
++	if err != nil {
++		return nil, err
++	}
++	return &OAuth2AuthorizationPreview{
++		ClientID:    client.ID,
++		ClientName:  client.Name,
++		RedirectURI: input.RedirectURI,
++		Scopes:      scopeViews(scopes),
++	}, nil
++}
++
++func containsExact(values []string, wanted string) bool {
++	for _, value := range values {
++		if value == wanted {
++			return true
++		}
++	}
++	return false
++}
++
++func isOAuth2CodeChallenge(value string) bool {
++	if len(value) < 43 || len(value) > 128 {
++		return false
++	}
++	for _, r := range value {
++		if !(r >= 'A' && r <= 'Z') && !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9') && !strings.ContainsRune("-._~", r) {
++			return false
++		}
++	}
++	return true
++}
++
++func requestedOAuth2Scopes(raw string, allowed []string) ([]string, error) {
++	allowedSet := make(map[string]struct{}, len(allowed))
++	for _, scope := range allowed {
++		allowedSet[scope] = struct{}{}
++	}
++	requested := strings.Fields(raw)
++	if len(requested) == 0 {
++		if _, ok := allowedSet["profile"]; ok {
++			requested = []string{"profile"}
++		} else if len(allowed) > 0 {
++			requested = []string{allowed[0]}
++		}
++	}
++	seen := make(map[string]struct{}, len(requested))
++	result := make([]string, 0, len(requested))
++	for _, scope := range requested {
++		if _, ok := allowedSet[scope]; !ok {
++			return nil, newOAuth2ProtocolError(400, "invalid_scope", "requested scope is not allowed for this client")
++		}
++		if _, ok := seen[scope]; ok {
++			continue
++		}
++		seen[scope] = struct{}{}
++		result = append(result, scope)
++	}
++	if len(result) == 0 {
++		return nil, newOAuth2ProtocolError(400, "invalid_scope", "at least one scope is required")
++	}
++	return result, nil
++}
++
++func scopeViews(names []string) []OAuth2Scope {
++	known := make(map[string]OAuth2Scope, len(OAuth2ProviderScopes()))
++	for _, scope := range OAuth2ProviderScopes() {
++		known[scope.Name] = scope
++	}
++	result := make([]OAuth2Scope, 0, len(names))
++	for _, name := range names {
++		if scope, ok := known[name]; ok {
++			result = append(result, scope)
++		}
++	}
++	return result
++}
++
++func (s *OAuth2ProviderService) Authorize(ctx context.Context, userID int64, input OAuth2AuthorizationRequest, approved bool) (*OAuth2AuthorizationResult, error) {
++	preview, err := s.ValidateAuthorizationRequest(ctx, input)
++	if err != nil {
++		return nil, err
++	}
++	if !approved {
++		return &OAuth2AuthorizationResult{RedirectURL: oauth2RedirectWithParams(input.RedirectURI, map[string]string{
++			"error":             "access_denied",
++			"error_description": "The resource owner denied the request",
++			"state":             input.State,
++		})}, nil
++	}
++	if s.userRepo == nil {
++		return nil, fmt.Errorf("oauth2 user repository is unavailable")
++	}
++	user, err := s.userRepo.GetByID(ctx, userID)
++	if err != nil {
++		return nil, err
++	}
++	if user == nil || !user.IsActive() {
++		return nil, infraerrors.Unauthorized("OAUTH2_USER_INACTIVE", "user is not active")
++	}
++	normalizeLoadedUserTokenVersion(user)
++	code, err := randomOAuth2String("", 32)
++	if err != nil {
++		return nil, fmt.Errorf("generate oauth2 authorization code: %w", err)
++	}
++	data := &OAuth2AuthorizationCodeData{
++		ClientID:            input.ClientID,
++		UserID:              userID,
++		RedirectURI:         input.RedirectURI,
++		Scopes:              scopesFromViews(preview.Scopes),
++		CodeChallenge:       input.CodeChallenge,
++		CodeChallengeMethod: input.CodeChallengeMethod,
++		TokenVersion:        resolvedTokenVersion(user),
++		IssuedAt:            time.Now().UTC(),
++	}
++	if err := s.store.StoreAuthorizationCode(ctx, hashOAuth2Secret(code), data, OAuth2AuthorizationCodeTTL); err != nil {
++		return nil, err
++	}
++	return &OAuth2AuthorizationResult{RedirectURL: oauth2RedirectWithParams(input.RedirectURI, map[string]string{
++		"code":  code,
++		"state": input.State,
++	})}, nil
++}
++
++func scopesFromViews(scopes []OAuth2Scope) []string {
++	result := make([]string, 0, len(scopes))
++	for _, scope := range scopes {
++		result = append(result, scope.Name)
++	}
++	return result
++}
++
++func oauth2RedirectWithParams(raw string, params map[string]string) string {
++	u, err := url.Parse(raw)
++	if err != nil {
++		return raw
++	}
++	query := u.Query()
++	for key, value := range params {
++		query.Set(key, value)
++	}
++	u.RawQuery = query.Encode()
++	return u.String()
++}
++
++func (s *OAuth2ProviderService) authenticateClient(ctx context.Context, clientID, clientSecret string) (*OAuth2ProviderClient, error) {
++	if strings.TrimSpace(clientID) == "" {
++		return nil, newOAuth2ProtocolError(401, "invalid_client", "client authentication is required")
++	}
++	_, client, err := s.requireEnabledClient(ctx, clientID)
++	if err != nil {
++		if errors.Is(err, ErrOAuth2ProviderDisabled) || errors.Is(err, ErrOAuth2ClientNotFound) {
++			return nil, newOAuth2ProtocolError(401, "invalid_client", "client authentication failed")
++		}
++		return nil, err
++	}
++	if client.ClientType == OAuth2ClientTypePublic {
++		if strings.TrimSpace(clientSecret) != "" {
++			return nil, newOAuth2ProtocolError(401, "invalid_client", "public clients must not send a client secret")
++		}
++		return client, nil
++	}
++	if client.SecretHash == "" || !hmac.Equal([]byte(client.SecretHash), []byte(hashOAuth2Secret(clientSecret))) {
++		return nil, newOAuth2ProtocolError(401, "invalid_client", "client authentication failed")
++	}
++	return client, nil
++}
++
++func (s *OAuth2ProviderService) ExchangeToken(ctx context.Context, input OAuth2TokenRequest) (*OAuth2TokenResponse, error) {
++	if input.GrantType != "authorization_code" {
++		return nil, newOAuth2ProtocolError(400, "unsupported_grant_type", "only authorization_code is supported")
++	}
++	client, err := s.authenticateClient(ctx, input.ClientID, input.ClientSecret)
++	if err != nil {
++		return nil, err
++	}
++	if input.Code == "" || len(input.Code) > 256 || input.CodeVerifier == "" {
++		return nil, newOAuth2ProtocolError(400, "invalid_grant", "authorization code and code_verifier are required")
++	}
++	data, err := s.store.ConsumeAuthorizationCode(ctx, hashOAuth2Secret(input.Code))
++	if errors.Is(err, ErrOAuth2GrantNotFound) {
++		return nil, newOAuth2ProtocolError(400, "invalid_grant", "authorization code is invalid or expired")
++	}
++	if err != nil {
++		return nil, err
++	}
++	if data.ClientID != client.ID || data.RedirectURI != input.RedirectURI || !verifyOAuth2CodeVerifier(input.CodeVerifier, data.CodeChallenge) {
++		return nil, newOAuth2ProtocolError(400, "invalid_grant", "authorization code validation failed")
++	}
++	if !containsExact(client.RedirectURIs, data.RedirectURI) {
++		return nil, newOAuth2ProtocolError(400, "invalid_grant", "registered redirect URI changed after authorization")
++	}
++	for _, scope := range data.Scopes {
++		if !containsExact(client.AllowedScopes, scope) {
++			return nil, newOAuth2ProtocolError(400, "invalid_grant", "client scope changed after authorization")
++		}
++	}
++	if s.userRepo == nil {
++		return nil, fmt.Errorf("oauth2 user repository is unavailable")
++	}
++	user, err := s.userRepo.GetByID(ctx, data.UserID)
++	if err != nil {
++		return nil, err
++	}
++	if user == nil || !user.IsActive() || resolvedTokenVersion(user) != data.TokenVersion {
++		return nil, newOAuth2ProtocolError(400, "invalid_grant", "authorization is no longer valid")
++	}
++	cfg, err := s.loadConfig(ctx)
++	if err != nil {
++		return nil, err
++	}
++	if !cfg.Enabled || cfg.Issuer == "" {
++		return nil, newOAuth2ProtocolError(400, "invalid_grant", "OAuth2 provider was disabled after authorization")
++	}
++	ttl := time.Duration(cfg.AccessTokenTTLSeconds) * time.Second
++	if ttl <= 0 {
++		ttl = OAuth2DefaultAccessTokenTTL
++	}
++	accessToken, err := randomOAuth2String("s2a_", 32)
++	if err != nil {
++		return nil, fmt.Errorf("generate oauth2 access token: %w", err)
++	}
++	expiresAt := time.Now().UTC().Add(ttl)
++	accessData := &OAuth2AccessTokenData{
++		ClientID:     client.ID,
++		UserID:       data.UserID,
++		Scopes:       append([]string(nil), data.Scopes...),
++		Issuer:       cfg.Issuer,
++		TokenVersion: data.TokenVersion,
++		ExpiresAt:    expiresAt,
++	}
++	if err := s.store.StoreAccessToken(ctx, hashOAuth2Secret(accessToken), accessData, ttl); err != nil {
++		return nil, err
++	}
++	return &OAuth2TokenResponse{
++		AccessToken: accessToken,
++		TokenType:   "Bearer",
++		ExpiresIn:   int(ttl / time.Second),
++		Scope:       strings.Join(data.Scopes, " "),
++	}, nil
++}
++
++func verifyOAuth2CodeVerifier(verifier, challenge string) bool {
++	if !isOAuth2CodeChallenge(verifier) {
++		return false
++	}
++	sum := sha256.Sum256([]byte(verifier))
++	return hmac.Equal([]byte(base64.RawURLEncoding.EncodeToString(sum[:])), []byte(challenge))
++}
++
++func (s *OAuth2ProviderService) validateAccessToken(ctx context.Context, raw string) (*OAuth2AccessTokenData, *OAuth2ProviderClient, *User, error) {
++	if strings.TrimSpace(raw) == "" || len(raw) > 256 {
++		return nil, nil, nil, newOAuth2ProtocolError(401, "invalid_token", "access token is invalid")
++	}
++	cfg, err := s.loadConfig(ctx)
++	if err != nil {
++		return nil, nil, nil, err
++	}
++	if !cfg.Enabled {
++		return nil, nil, nil, newOAuth2ProtocolError(401, "invalid_token", "OAuth2 provider is disabled")
++	}
++	data, err := s.store.GetAccessToken(ctx, hashOAuth2Secret(raw))
++	if errors.Is(err, ErrOAuth2GrantNotFound) || data == nil {
++		return nil, nil, nil, newOAuth2ProtocolError(401, "invalid_token", "access token is invalid or expired")
++	}
++	if err != nil {
++		return nil, nil, nil, err
++	}
++	if !data.ExpiresAt.IsZero() && time.Now().UTC().After(data.ExpiresAt) {
++		return nil, nil, nil, newOAuth2ProtocolError(401, "invalid_token", "access token is expired")
++	}
++	client, err := s.loadClient(ctx, data.ClientID)
++	if err != nil {
++		if errors.Is(err, ErrOAuth2ClientNotFound) {
++			return nil, nil, nil, newOAuth2ProtocolError(401, "invalid_token", "access token is no longer authorized")
++		}
++		return nil, nil, nil, err
++	}
++	if client == nil || !client.Enabled || data.Issuer != cfg.Issuer {
++		return nil, nil, nil, newOAuth2ProtocolError(401, "invalid_token", "access token is no longer authorized")
++	}
++	for _, scope := range data.Scopes {
++		if !containsExact(client.AllowedScopes, scope) {
++			return nil, nil, nil, newOAuth2ProtocolError(401, "invalid_token", "access token scope is no longer allowed")
++		}
++	}
++	if s.userRepo == nil {
++		return nil, nil, nil, fmt.Errorf("oauth2 user repository is unavailable")
++	}
++	user, err := s.userRepo.GetByID(ctx, data.UserID)
++	if err != nil {
++		return nil, nil, nil, err
++	}
++	if user == nil || !user.IsActive() || resolvedTokenVersion(user) != data.TokenVersion {
++		return nil, nil, nil, newOAuth2ProtocolError(401, "invalid_token", "user authorization is no longer valid")
++	}
++	return data, client, user, nil
++}
++
++func (s *OAuth2ProviderService) UserInfo(ctx context.Context, rawToken string) (*OAuth2UserInfo, error) {
++	data, client, user, err := s.validateAccessToken(ctx, rawToken)
++	if err != nil {
++		return nil, err
++	}
++	result := &OAuth2UserInfo{Subject: s.pairwiseSubject(client.ID, user.ID)}
++	if containsExact(data.Scopes, "profile") {
++		result.PreferredUsername = user.Username
++		result.Name = user.Username
++	}
++	if containsExact(data.Scopes, "email") {
++		result.Email = user.Email
++	}
++	return result, nil
++}
++
++func (s *OAuth2ProviderService) pairwiseSubject(clientID string, userID int64) string {
++	secret := "sub2api-oauth2-subject"
++	if s != nil && s.cfg != nil && strings.TrimSpace(s.cfg.JWT.Secret) != "" {
++		secret = s.cfg.JWT.Secret
++	}
++	mac := hmac.New(sha256.New, []byte(secret))
++	_, _ = mac.Write([]byte("oauth2-subject-v1\x00" + clientID + "\x00" + strconv.FormatInt(userID, 10)))
++	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
++}
++
++func (s *OAuth2ProviderService) RevokeToken(ctx context.Context, rawToken, clientID, clientSecret string) error {
++	client, err := s.authenticateClient(ctx, clientID, clientSecret)
++	if err != nil {
++		return err
++	}
++	if strings.TrimSpace(rawToken) == "" {
++		return newOAuth2ProtocolError(400, "invalid_request", "token is required")
++	}
++	data, err := s.store.GetAccessToken(ctx, hashOAuth2Secret(rawToken))
++	if errors.Is(err, ErrOAuth2GrantNotFound) || data == nil {
++		return nil
++	}
++	if err != nil {
++		return err
++	}
++	if data.ClientID != client.ID {
++		return nil
++	}
++	return s.store.DeleteAccessToken(ctx, hashOAuth2Secret(rawToken))
++}
++
++type OAuth2DiscoveryDocument struct {
++	Issuer                            string   `json:"issuer"`
++	AuthorizationEndpoint             string   `json:"authorization_endpoint"`
++	TokenEndpoint                     string   `json:"token_endpoint"`
++	RevocationEndpoint                string   `json:"revocation_endpoint"`
++	UserinfoEndpoint                  string   `json:"userinfo_endpoint"`
++	ResponseTypesSupported            []string `json:"response_types_supported"`
++	GrantTypesSupported               []string `json:"grant_types_supported"`
++	CodeChallengeMethodsSupported     []string `json:"code_challenge_methods_supported"`
++	TokenEndpointAuthMethodsSupported []string `json:"token_endpoint_auth_methods_supported"`
++	ScopesSupported                   []string `json:"scopes_supported"`
++}
++
++func (s *OAuth2ProviderService) Discovery(ctx context.Context) (*OAuth2DiscoveryDocument, error) {
++	cfg, err := s.loadConfig(ctx)
++	if err != nil {
++		return nil, err
++	}
++	if !cfg.Enabled || cfg.Issuer == "" {
++		return nil, ErrOAuth2ProviderDisabled
++	}
++	scopes := OAuth2ProviderScopes()
++	scopeNames := make([]string, 0, len(scopes))
++	for _, scope := range scopes {
++		scopeNames = append(scopeNames, scope.Name)
++	}
++	base := strings.TrimRight(cfg.Issuer, "/")
++	return &OAuth2DiscoveryDocument{
++		Issuer:                            cfg.Issuer,
++		AuthorizationEndpoint:             base + "/oauth/authorize",
++		TokenEndpoint:                     base + "/oauth/token",
++		RevocationEndpoint:                base + "/oauth/revoke",
++		UserinfoEndpoint:                  base + "/oauth/userinfo",
++		ResponseTypesSupported:            []string{"code"},
++		GrantTypesSupported:               []string{"authorization_code"},
++		CodeChallengeMethodsSupported:     []string{"S256"},
++		TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "client_secret_post", "none"},
++		ScopesSupported:                   scopeNames,
++	}, nil
++}
+diff --git a/backend/internal/application/service/oauth2_provider_test.go b/backend/internal/application/service/oauth2_provider_test.go
+new file mode 100644
+index 0000000..658fe76
+--- /dev/null
++++ b/backend/internal/application/service/oauth2_provider_test.go
+@@ -0,0 +1,381 @@
++//go:build unit
++
++package service
++
++import (
++	"context"
++	"crypto/sha256"
++	"encoding/base64"
++	"encoding/json"
++	"errors"
++	"net/url"
++	"sync"
++	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/platform/config"
++	"github.com/stretchr/testify/require"
++)
++
++type oauth2ProviderSettingRepo struct {
++	mu     sync.Mutex
++	values map[string]string
++}
++
++func newOAuth2ProviderSettingRepo() *oauth2ProviderSettingRepo {
++	return &oauth2ProviderSettingRepo{values: make(map[string]string)}
++}
++
++func (r *oauth2ProviderSettingRepo) Get(ctx context.Context, key string) (*Setting, error) {
++	value, err := r.GetValue(ctx, key)
++	if err != nil {
++		return nil, err
++	}
++	return &Setting{Key: key, Value: value}, nil
++}
++
++func (r *oauth2ProviderSettingRepo) GetValue(_ context.Context, key string) (string, error) {
++	r.mu.Lock()
++	defer r.mu.Unlock()
++	value, ok := r.values[key]
++	if !ok {
++		return "", ErrSettingNotFound
++	}
++	return value, nil
++}
++
++func (r *oauth2ProviderSettingRepo) Set(_ context.Context, key, value string) error {
++	r.mu.Lock()
++	defer r.mu.Unlock()
++	r.values[key] = value
++	return nil
++}
++
++func (r *oauth2ProviderSettingRepo) GetMultiple(ctx context.Context, keys []string) (map[string]string, error) {
++	result := make(map[string]string, len(keys))
++	for _, key := range keys {
++		if value, err := r.GetValue(ctx, key); err == nil {
++			result[key] = value
++		}
++	}
++	return result, nil
++}
++
++func (r *oauth2ProviderSettingRepo) SetMultiple(ctx context.Context, values map[string]string) error {
++	for key, value := range values {
++		if err := r.Set(ctx, key, value); err != nil {
++			return err
++		}
++	}
++	return nil
++}
++
++func (r *oauth2ProviderSettingRepo) GetAll(_ context.Context) (map[string]string, error) {
++	r.mu.Lock()
++	defer r.mu.Unlock()
++	result := make(map[string]string, len(r.values))
++	for key, value := range r.values {
++		result[key] = value
++	}
++	return result, nil
++}
++
++func (r *oauth2ProviderSettingRepo) Delete(_ context.Context, key string) error {
++	r.mu.Lock()
++	defer r.mu.Unlock()
++	delete(r.values, key)
++	return nil
++}
++
++type oauth2ProviderMemoryStore struct {
++	mu     sync.Mutex
++	codes  map[string]*OAuth2AuthorizationCodeData
++	tokens map[string]*OAuth2AccessTokenData
++}
++
++func newOAuth2ProviderMemoryStore() *oauth2ProviderMemoryStore {
++	return &oauth2ProviderMemoryStore{
++		codes:  make(map[string]*OAuth2AuthorizationCodeData),
++		tokens: make(map[string]*OAuth2AccessTokenData),
++	}
++}
++
++func (s *oauth2ProviderMemoryStore) StoreAuthorizationCode(_ context.Context, hash string, data *OAuth2AuthorizationCodeData, _ time.Duration) error {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	copy := *data
++	s.codes[hash] = &copy
++	return nil
++}
++
++func (s *oauth2ProviderMemoryStore) ConsumeAuthorizationCode(_ context.Context, hash string) (*OAuth2AuthorizationCodeData, error) {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	data, ok := s.codes[hash]
++	if !ok {
++		return nil, ErrOAuth2GrantNotFound
++	}
++	delete(s.codes, hash)
++	copy := *data
++	return &copy, nil
++}
++
++func (s *oauth2ProviderMemoryStore) StoreAccessToken(_ context.Context, hash string, data *OAuth2AccessTokenData, _ time.Duration) error {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	copy := *data
++	s.tokens[hash] = &copy
++	return nil
++}
++
++func (s *oauth2ProviderMemoryStore) GetAccessToken(_ context.Context, hash string) (*OAuth2AccessTokenData, error) {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	data, ok := s.tokens[hash]
++	if !ok {
++		return nil, ErrOAuth2GrantNotFound
++	}
++	copy := *data
++	return &copy, nil
++}
++
++func (s *oauth2ProviderMemoryStore) DeleteAccessToken(_ context.Context, hash string) error {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	delete(s.tokens, hash)
++	return nil
++}
++
++func newOAuth2ProviderForTest(t *testing.T) (*OAuth2ProviderService, *oauth2ProviderSettingRepo) {
++	t.Helper()
++	settings := newOAuth2ProviderSettingRepo()
++	user := &User{
++		ID:           42,
++		Email:        "owner@example.test",
++		Username:     "owner",
++		PasswordHash: "password-hash",
++		Role:         RoleUser,
++		Status:       StatusActive,
++		TokenVersion: 3,
++	}
++	provider := NewOAuth2ProviderService(
++		settings,
++		&userRepoStub{user: user},
++		newOAuth2ProviderMemoryStore(),
++		&config.Config{JWT: config.JWTConfig{Secret: "oauth2-subject-test-secret"}},
++	)
++	_, err := provider.UpdateAdminConfig(context.Background(), OAuth2ProviderConfigUpdate{
++		Enabled:               true,
++		Issuer:                "https://issuer.example.test/",
++		AccessTokenTTLSeconds: 600,
++	})
++	require.NoError(t, err)
++	return provider, settings
++}
++
++func createOAuth2ClientForTest(t *testing.T, provider *OAuth2ProviderService, clientType string) *OAuth2ClientSecretResult {
++	t.Helper()
++	result, err := provider.CreateClient(context.Background(), OAuth2ClientCreateInput{
++		Name:          "Test integration",
++		ClientType:    clientType,
++		RedirectURIs:  []string{"https://client.example.test/callback?fixed=1"},
++		AllowedScopes: []string{"profile", "email"},
++	})
++	require.NoError(t, err)
++	return result
++}
++
++func oauth2PKCE(verifier string) string {
++	sum := sha256.Sum256([]byte(verifier))
++	return base64.RawURLEncoding.EncodeToString(sum[:])
++}
++
++func authorizationRequest(clientID, verifier string) OAuth2AuthorizationRequest {
++	return OAuth2AuthorizationRequest{
++		ClientID:            clientID,
++		RedirectURI:         "https://client.example.test/callback?fixed=1",
++		ResponseType:        "code",
++		Scope:               "profile email",
++		State:               "state-123",
++		CodeChallenge:       oauth2PKCE(verifier),
++		CodeChallengeMethod: "S256",
++	}
++}
++
++func authorizationCodeFromRedirect(t *testing.T, raw string) string {
++	t.Helper()
++	parsed, err := urlParse(raw)
++	require.NoError(t, err)
++	require.Equal(t, "1", parsed.Query().Get("fixed"))
++	require.Equal(t, "state-123", parsed.Query().Get("state"))
++	return parsed.Query().Get("code")
++}
++
++var urlParse = func(raw string) (*url.URL, error) { return url.Parse(raw) }
++
++func TestOAuth2ProviderAuthorizationCodeFlowAndImmediateRevocation(t *testing.T) {
++	provider, _ := newOAuth2ProviderForTest(t)
++	client := createOAuth2ClientForTest(t, provider, OAuth2ClientTypeConfidential)
++	verifier := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~"
++	request := authorizationRequest(client.Client.ID, verifier)
++
++	preview, err := provider.ValidateAuthorizationRequest(context.Background(), request)
++	require.NoError(t, err)
++	require.Equal(t, client.Client.ID, preview.ClientID)
++	require.Equal(t, []OAuth2Scope{
++		{Name: "profile", Description: "Read the user's stable identifier and public profile"},
++		{Name: "email", Description: "Read the user's email address"},
++	}, preview.Scopes)
++
++	authorized, err := provider.Authorize(context.Background(), 42, request, true)
++	require.NoError(t, err)
++	code := authorizationCodeFromRedirect(t, authorized.RedirectURL)
++	require.NotEmpty(t, code)
++
++	token, err := provider.ExchangeToken(context.Background(), OAuth2TokenRequest{
++		GrantType:    "authorization_code",
++		Code:         code,
++		RedirectURI:  request.RedirectURI,
++		ClientID:     client.Client.ID,
++		ClientSecret: client.ClientSecret,
++		CodeVerifier: verifier,
++	})
++	require.NoError(t, err)
++	require.Equal(t, "Bearer", token.TokenType)
++	require.Equal(t, 600, token.ExpiresIn)
++	require.Equal(t, "profile email", token.Scope)
++	require.NotEmpty(t, token.AccessToken)
++
++	_, err = provider.ExchangeToken(context.Background(), OAuth2TokenRequest{
++		GrantType:    "authorization_code",
++		Code:         code,
++		RedirectURI:  request.RedirectURI,
++		ClientID:     client.Client.ID,
++		ClientSecret: client.ClientSecret,
++		CodeVerifier: verifier,
++	})
++	requireOAuth2Error(t, err, "invalid_grant")
++
++	userinfo, err := provider.UserInfo(context.Background(), token.AccessToken)
++	require.NoError(t, err)
++	require.NotEmpty(t, userinfo.Subject)
++	require.Equal(t, "owner", userinfo.PreferredUsername)
++	require.Equal(t, "owner@example.test", userinfo.Email)
++
++	_, err = provider.UpdateClient(context.Background(), client.Client.ID, OAuth2ClientUpdateInput{Enabled: oauth2BoolPointer(false)})
++	require.NoError(t, err)
++	_, err = provider.UserInfo(context.Background(), token.AccessToken)
++	requireOAuth2Error(t, err, "invalid_token")
++}
++
++func TestOAuth2ProviderRejectsRedirectScopeAndPKCEMismatch(t *testing.T) {
++	provider, _ := newOAuth2ProviderForTest(t)
++	client := createOAuth2ClientForTest(t, provider, OAuth2ClientTypePublic)
++	verifier := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~"
++
++	wrongRedirect := authorizationRequest(client.Client.ID, verifier)
++	wrongRedirect.RedirectURI = "https://client.example.test/callback?fixed=2"
++	_, err := provider.ValidateAuthorizationRequest(context.Background(), wrongRedirect)
++	requireOAuth2Error(t, err, "invalid_request")
++
++	wrongScope := authorizationRequest(client.Client.ID, verifier)
++	wrongScope.Scope = "profile admin"
++	_, err = provider.ValidateAuthorizationRequest(context.Background(), wrongScope)
++	requireOAuth2Error(t, err, "invalid_scope")
++
++	authorized, err := provider.Authorize(context.Background(), 42, authorizationRequest(client.Client.ID, verifier), true)
++	require.NoError(t, err)
++	code := authorizationCodeFromRedirect(t, authorized.RedirectURL)
++	_, err = provider.ExchangeToken(context.Background(), OAuth2TokenRequest{
++		GrantType:    "authorization_code",
++		Code:         code,
++		RedirectURI:  "https://client.example.test/callback?fixed=1",
++		ClientID:     client.Client.ID,
++		CodeVerifier: "zyxwvutsrqponmlkjihgfedcbaABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~",
++	})
++	requireOAuth2Error(t, err, "invalid_grant")
++}
++
++func TestOAuth2ProviderSecretRotationAndDisableControls(t *testing.T) {
++	provider, settings := newOAuth2ProviderForTest(t)
++	client := createOAuth2ClientForTest(t, provider, OAuth2ClientTypeConfidential)
++	rotated, err := provider.RotateClientSecret(context.Background(), client.Client.ID)
++	require.NoError(t, err)
++	require.NotEqual(t, client.ClientSecret, rotated.ClientSecret)
++
++	verifier := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~"
++	issue := func() string {
++		authorized, err := provider.Authorize(context.Background(), 42, authorizationRequest(client.Client.ID, verifier), true)
++		require.NoError(t, err)
++		return authorizationCodeFromRedirect(t, authorized.RedirectURL)
++	}
++	_, err = provider.ExchangeToken(context.Background(), OAuth2TokenRequest{
++		GrantType:    "authorization_code",
++		Code:         issue(),
++		RedirectURI:  "https://client.example.test/callback?fixed=1",
++		ClientID:     client.Client.ID,
++		ClientSecret: client.ClientSecret,
++		CodeVerifier: verifier,
++	})
++	requireOAuth2Error(t, err, "invalid_client")
++
++	code := issue()
++	token, err := provider.ExchangeToken(context.Background(), OAuth2TokenRequest{
++		GrantType:    "authorization_code",
++		Code:         code,
++		RedirectURI:  "https://client.example.test/callback?fixed=1",
++		ClientID:     client.Client.ID,
++		ClientSecret: rotated.ClientSecret,
++		CodeVerifier: verifier,
++	})
++	require.NoError(t, err)
++
++	_, err = provider.UpdateAdminConfig(context.Background(), OAuth2ProviderConfigUpdate{
++		Enabled:               false,
++		Issuer:                "https://issuer.example.test",
++		AccessTokenTTLSeconds: 600,
++	})
++	require.NoError(t, err)
++	_, err = provider.UserInfo(context.Background(), token.AccessToken)
++	requireOAuth2Error(t, err, "invalid_token")
++
++	values, err := settings.GetAll(context.Background())
++	require.NoError(t, err)
++	var persisted OAuth2ProviderClient
++	require.NoError(t, json.Unmarshal([]byte(values[oauth2ClientSettingKey(client.Client.ID)]), &persisted))
++	require.NotEmpty(t, persisted.SecretHash)
++	require.NotContains(t, values[oauth2ClientSettingKey(client.Client.ID)], rotated.ClientSecret)
++}
++
++func TestOAuth2ProviderDeniedAuthorizationKeepsState(t *testing.T) {
++	provider, _ := newOAuth2ProviderForTest(t)
++	client := createOAuth2ClientForTest(t, provider, OAuth2ClientTypePublic)
++	verifier := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~"
++	result, err := provider.Authorize(context.Background(), 42, authorizationRequest(client.Client.ID, verifier), false)
++	require.NoError(t, err)
++	parsed, err := urlParse(result.RedirectURL)
++	require.NoError(t, err)
++	require.Equal(t, "access_denied", parsed.Query().Get("error"))
++	require.Equal(t, "state-123", parsed.Query().Get("state"))
++	require.Empty(t, parsed.Query().Get("code"))
++}
++
++func TestOAuth2ProviderNormalizesLoopbackIPv6Issuer(t *testing.T) {
++	issuer, err := normalizeOAuth2Issuer("http://[::1]:8080/")
++	require.NoError(t, err)
++	require.Equal(t, "http://[::1]:8080", issuer)
++
++	issuer, err = normalizeOAuth2Issuer("http://[::1]/")
++	require.NoError(t, err)
++	require.Equal(t, "http://[::1]", issuer)
++}
++
++func requireOAuth2Error(t *testing.T, err error, code string) {
++	t.Helper()
++	require.Error(t, err)
++	var protocol *OAuth2ProtocolError
++	require.True(t, errors.As(err, &protocol))
++	require.Equal(t, code, protocol.Code)
++}
++
++func oauth2BoolPointer(value bool) *bool { return &value }
+diff --git a/backend/internal/application/service/wire.go b/backend/internal/application/service/wire.go
+index 70c0015..7e119ce 100644
+--- a/backend/internal/application/service/wire.go
++++ b/backend/internal/application/service/wire.go
+@@ -1004,0 +1005 @@ var ProviderSet = wire.NewSet(
++	NewOAuth2ProviderService,
+diff --git a/backend/internal/infrastructure/repository/README.md b/backend/internal/infrastructure/repository/README.md
+index 52ad4b2..877c289 100644
+--- a/backend/internal/infrastructure/repository/README.md
++++ b/backend/internal/infrastructure/repository/README.md
+@@ -17,0 +18 @@
++| `oauth2_provider_store.go` | OAuth2 一次性 authorization code 与 access token 摘要的 Redis 存储 |
+diff --git a/backend/internal/infrastructure/repository/oauth2_provider_store.go b/backend/internal/infrastructure/repository/oauth2_provider_store.go
+new file mode 100644
+index 0000000..444a908
+--- /dev/null
++++ b/backend/internal/infrastructure/repository/oauth2_provider_store.go
+@@ -0,0 +1,89 @@
++package repository
++
++import (
++	"context"
++	"encoding/json"
++	"fmt"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/application/service"
++	"github.com/redis/go-redis/v9"
++)
++
++const (
++	oauth2AuthorizationCodePrefix = "oauth2:authorization-code:"
++	oauth2AccessTokenPrefix       = "oauth2:access-token:"
++)
++
++var oauth2GetAndDeleteScript = redis.NewScript(`
++local value = redis.call('GET', KEYS[1])
++if value then
++  redis.call('DEL', KEYS[1])
++end
++return value
++`)
++
++type oauth2ProviderStore struct {
++	rdb *redis.Client
++}
++
++func NewOAuth2ProviderStore(rdb *redis.Client) service.OAuth2ProviderStore {
++	return &oauth2ProviderStore{rdb: rdb}
++}
++
++func (s *oauth2ProviderStore) StoreAuthorizationCode(ctx context.Context, hash string, data *service.OAuth2AuthorizationCodeData, ttl time.Duration) error {
++	return s.store(ctx, oauth2AuthorizationCodePrefix+hash, data, ttl)
++}
++
++func (s *oauth2ProviderStore) ConsumeAuthorizationCode(ctx context.Context, hash string) (*service.OAuth2AuthorizationCodeData, error) {
++	value, err := oauth2GetAndDeleteScript.Run(ctx, s.rdb, []string{oauth2AuthorizationCodePrefix + hash}).Result()
++	if err != nil {
++		if err == redis.Nil {
++			return nil, service.ErrOAuth2GrantNotFound
++		}
++		return nil, fmt.Errorf("consume oauth2 authorization code: %w", err)
++	}
++	encoded, ok := value.(string)
++	if !ok || encoded == "" {
++		return nil, service.ErrOAuth2GrantNotFound
++	}
++	var data service.OAuth2AuthorizationCodeData
++	if err := json.Unmarshal([]byte(encoded), &data); err != nil {
++		return nil, fmt.Errorf("decode oauth2 authorization code: %w", err)
++	}
++	return &data, nil
++}
++
++func (s *oauth2ProviderStore) StoreAccessToken(ctx context.Context, hash string, data *service.OAuth2AccessTokenData, ttl time.Duration) error {
++	return s.store(ctx, oauth2AccessTokenPrefix+hash, data, ttl)
++}
++
++func (s *oauth2ProviderStore) GetAccessToken(ctx context.Context, hash string) (*service.OAuth2AccessTokenData, error) {
++	encoded, err := s.rdb.Get(ctx, oauth2AccessTokenPrefix+hash).Result()
++	if err != nil {
++		if err == redis.Nil {
++			return nil, service.ErrOAuth2GrantNotFound
++		}
++		return nil, fmt.Errorf("get oauth2 access token: %w", err)
++	}
++	var data service.OAuth2AccessTokenData
++	if err := json.Unmarshal([]byte(encoded), &data); err != nil {
++		return nil, fmt.Errorf("decode oauth2 access token: %w", err)
++	}
++	return &data, nil
++}
++
++func (s *oauth2ProviderStore) DeleteAccessToken(ctx context.Context, hash string) error {
++	return s.rdb.Del(ctx, oauth2AccessTokenPrefix+hash).Err()
++}
++
++func (s *oauth2ProviderStore) store(ctx context.Context, key string, value any, ttl time.Duration) error {
++	encoded, err := json.Marshal(value)
++	if err != nil {
++		return fmt.Errorf("encode oauth2 grant: %w", err)
++	}
++	if ttl <= 0 {
++		return fmt.Errorf("oauth2 grant ttl must be positive")
++	}
++	return s.rdb.Set(ctx, key, encoded, ttl).Err()
++}
+diff --git a/backend/internal/infrastructure/repository/oauth2_provider_store_test.go b/backend/internal/infrastructure/repository/oauth2_provider_store_test.go
+new file mode 100644
+index 0000000..6814d11
+--- /dev/null
++++ b/backend/internal/infrastructure/repository/oauth2_provider_store_test.go
+@@ -0,0 +1,79 @@
++//go:build unit
++
++package repository
++
++import (
++	"context"
++	"errors"
++	"sync"
++	"testing"
++	"time"
++
++	"github.com/Wei-Shaw/sub2api/internal/application/service"
++	"github.com/alicebob/miniredis/v2"
++	"github.com/redis/go-redis/v9"
++	"github.com/stretchr/testify/require"
++)
++
++func TestOAuth2ProviderStoreConsumesAuthorizationCodeOnceAndExpiresTokens(t *testing.T) {
++	server := miniredis.RunT(t)
++	client := redis.NewClient(&redis.Options{Addr: server.Addr()})
++	t.Cleanup(func() { _ = client.Close() })
++	store := NewOAuth2ProviderStore(client)
++	ctx := context.Background()
++
++	code := &service.OAuth2AuthorizationCodeData{
++		ClientID:     "client-1",
++		UserID:       42,
++		RedirectURI:  "https://client.example.test/callback",
++		Scopes:       []string{"profile"},
++		TokenVersion: 7,
++		IssuedAt:     time.Now().UTC(),
++	}
++	require.NoError(t, store.StoreAuthorizationCode(ctx, "code-hash", code, time.Minute))
++	const contenders = 12
++	var wait sync.WaitGroup
++	wait.Add(contenders)
++	results := make(chan error, contenders)
++	for range contenders {
++		go func() {
++			defer wait.Done()
++			consumed, err := store.ConsumeAuthorizationCode(ctx, "code-hash")
++			if err == nil && (consumed.ClientID != code.ClientID || consumed.UserID != code.UserID) {
++				err = errors.New("consumed authorization code payload mismatch")
++			}
++			results <- err
++		}()
++	}
++	wait.Wait()
++	close(results)
++	successes := 0
++	notFound := 0
++	for err := range results {
++		switch {
++		case err == nil:
++			successes++
++		case errors.Is(err, service.ErrOAuth2GrantNotFound):
++			notFound++
++		default:
++			require.NoError(t, err)
++		}
++	}
++	require.Equal(t, 1, successes)
++	require.Equal(t, contenders-1, notFound)
++
++	token := &service.OAuth2AccessTokenData{
++		ClientID:  "client-1",
++		UserID:    42,
++		Scopes:    []string{"profile"},
++		ExpiresAt: time.Now().UTC().Add(time.Minute),
++	}
++	require.NoError(t, store.StoreAccessToken(ctx, "token-hash", token, time.Minute))
++	loaded, err := store.GetAccessToken(ctx, "token-hash")
++	require.NoError(t, err)
++	require.Equal(t, token.ClientID, loaded.ClientID)
++
++	server.FastForward(time.Minute + time.Second)
++	_, err = store.GetAccessToken(ctx, "token-hash")
++	require.True(t, errors.Is(err, service.ErrOAuth2GrantNotFound))
++}
+diff --git a/backend/internal/infrastructure/repository/wire.go b/backend/internal/infrastructure/repository/wire.go
+index b0de1e9..6426068 100644
+--- a/backend/internal/infrastructure/repository/wire.go
++++ b/backend/internal/infrastructure/repository/wire.go
+@@ -149,0 +150 @@ var ProviderSet = wire.NewSet(
++	NewOAuth2ProviderStore,
+diff --git a/backend/internal/transport/http/handler/README.md b/backend/internal/transport/http/handler/README.md
+index 68e29ce..b6f8484 100644
+--- a/backend/internal/transport/http/handler/README.md
++++ b/backend/internal/transport/http/handler/README.md
+@@ -12,0 +13 @@ handler 负责协议边界：校验请求、提取调用上下文、调用 appli
++| `oauth2_provider*` | OAuth2 provider 协议响应、授权审批和资源接口 |
+diff --git a/backend/internal/transport/http/handler/admin/oauth2_provider_handler.go b/backend/internal/transport/http/handler/admin/oauth2_provider_handler.go
+new file mode 100644
+index 0000000..dce4d6c
+--- /dev/null
++++ b/backend/internal/transport/http/handler/admin/oauth2_provider_handler.go
+@@ -0,0 +1,155 @@
++package admin
++
++import (
++	"github.com/Wei-Shaw/sub2api/internal/application/service"
++	"github.com/Wei-Shaw/sub2api/internal/shared/response"
++	"github.com/gin-gonic/gin"
++)
++
++// OAuth2ProviderHandler exposes the administrator-only OAuth2 provider control plane.
++type OAuth2ProviderHandler struct {
++	provider *service.OAuth2ProviderService
++}
++
++func NewOAuth2ProviderHandler(provider *service.OAuth2ProviderService) *OAuth2ProviderHandler {
++	return &OAuth2ProviderHandler{provider: provider}
++}
++
++type oauth2ProviderConfigRequest struct {
++	Enabled               bool   `json:"enabled"`
++	Issuer                string `json:"issuer"`
++	AccessTokenTTLSeconds int    `json:"access_token_ttl_seconds"`
++}
++
++type oauth2ProviderClientRequest struct {
++	Name          string   `json:"name"`
++	ClientType    string   `json:"client_type"`
++	RedirectURIs  []string `json:"redirect_uris"`
++	AllowedScopes []string `json:"allowed_scopes"`
++	Enabled       *bool    `json:"enabled"`
++}
++
++type oauth2ProviderClientUpdateRequest struct {
++	Name          *string   `json:"name"`
++	RedirectURIs  *[]string `json:"redirect_uris"`
++	AllowedScopes *[]string `json:"allowed_scopes"`
++	Enabled       *bool     `json:"enabled"`
++}
++
++func (h *OAuth2ProviderHandler) GetConfig(c *gin.Context) {
++	oauth2ProviderAdminNoStore(c)
++	if h == nil || h.provider == nil {
++		response.InternalError(c, "OAuth2 provider is unavailable")
++		return
++	}
++	config, err := h.provider.GetAdminConfig(c.Request.Context())
++	if err != nil {
++		response.ErrorFrom(c, err)
++		return
++	}
++	response.Success(c, config)
++}
++
++func (h *OAuth2ProviderHandler) UpdateConfig(c *gin.Context) {
++	oauth2ProviderAdminNoStore(c)
++	if h == nil || h.provider == nil {
++		response.InternalError(c, "OAuth2 provider is unavailable")
++		return
++	}
++	var request oauth2ProviderConfigRequest
++	if err := c.ShouldBindJSON(&request); err != nil {
++		response.BadRequest(c, "Invalid OAuth2 provider configuration")
++		return
++	}
++	config, err := h.provider.UpdateAdminConfig(c.Request.Context(), service.OAuth2ProviderConfigUpdate{
++		Enabled:               request.Enabled,
++		Issuer:                request.Issuer,
++		AccessTokenTTLSeconds: request.AccessTokenTTLSeconds,
++	})
++	if err != nil {
++		response.ErrorFrom(c, err)
++		return
++	}
++	response.Success(c, config)
++}
++
++func (h *OAuth2ProviderHandler) CreateClient(c *gin.Context) {
++	oauth2ProviderAdminNoStore(c)
++	if h == nil || h.provider == nil {
++		response.InternalError(c, "OAuth2 provider is unavailable")
++		return
++	}
++	var request oauth2ProviderClientRequest
++	if err := c.ShouldBindJSON(&request); err != nil {
++		response.BadRequest(c, "Invalid OAuth2 client configuration")
++		return
++	}
++	result, err := h.provider.CreateClient(c.Request.Context(), service.OAuth2ClientCreateInput{
++		Name:          request.Name,
++		ClientType:    request.ClientType,
++		RedirectURIs:  request.RedirectURIs,
++		AllowedScopes: request.AllowedScopes,
++		Enabled:       request.Enabled,
++	})
++	if err != nil {
++		response.ErrorFrom(c, err)
++		return
++	}
++	response.Created(c, result)
++}
++
++func (h *OAuth2ProviderHandler) UpdateClient(c *gin.Context) {
++	oauth2ProviderAdminNoStore(c)
++	if h == nil || h.provider == nil {
++		response.InternalError(c, "OAuth2 provider is unavailable")
++		return
++	}
++	var request oauth2ProviderClientUpdateRequest
++	if err := c.ShouldBindJSON(&request); err != nil {
++		response.BadRequest(c, "Invalid OAuth2 client configuration")
++		return
++	}
++	client, err := h.provider.UpdateClient(c.Request.Context(), c.Param("client_id"), service.OAuth2ClientUpdateInput{
++		Name:          request.Name,
++		RedirectURIs:  request.RedirectURIs,
++		AllowedScopes: request.AllowedScopes,
++		Enabled:       request.Enabled,
++	})
++	if err != nil {
++		response.ErrorFrom(c, err)
++		return
++	}
++	response.Success(c, client)
++}
++
++func (h *OAuth2ProviderHandler) RotateSecret(c *gin.Context) {
++	oauth2ProviderAdminNoStore(c)
++	if h == nil || h.provider == nil {
++		response.InternalError(c, "OAuth2 provider is unavailable")
++		return
++	}
++	result, err := h.provider.RotateClientSecret(c.Request.Context(), c.Param("client_id"))
++	if err != nil {
++		response.ErrorFrom(c, err)
++		return
++	}
++	response.Success(c, result)
++}
++
++func (h *OAuth2ProviderHandler) DeleteClient(c *gin.Context) {
++	oauth2ProviderAdminNoStore(c)
++	if h == nil || h.provider == nil {
++		response.InternalError(c, "OAuth2 provider is unavailable")
++		return
++	}
++	if err := h.provider.DeleteClient(c.Request.Context(), c.Param("client_id")); err != nil {
++		response.ErrorFrom(c, err)
++		return
++	}
++	response.Success(c, gin.H{"message": "OAuth2 client deleted"})
++}
++
++func oauth2ProviderAdminNoStore(c *gin.Context) {
++	c.Header("Cache-Control", "private, no-store")
++	c.Header("Pragma", "no-cache")
++}
+diff --git a/backend/internal/transport/http/handler/handler.go b/backend/internal/transport/http/handler/handler.go
+index 26fb3bc..117b159 100644
+--- a/backend/internal/transport/http/handler/handler.go
++++ b/backend/internal/transport/http/handler/handler.go
+@@ -50,0 +51 @@ type AdminHandlers struct {
++	OAuth2Provider         *admin.OAuth2ProviderHandler
+@@ -77,0 +79 @@ type Handlers struct {
++	OAuth2Provider   *OAuth2ProviderHandler
+diff --git a/backend/internal/transport/http/handler/oauth2_provider_handler.go b/backend/internal/transport/http/handler/oauth2_provider_handler.go
+new file mode 100644
+index 0000000..45df6c2
+--- /dev/null
++++ b/backend/internal/transport/http/handler/oauth2_provider_handler.go
+@@ -0,0 +1,290 @@
++package handler
++
++import (
++	"encoding/base64"
++	"errors"
++	"mime"
++	"net/http"
++	"strings"
++
++	"github.com/Wei-Shaw/sub2api/internal/application/service"
++	"github.com/Wei-Shaw/sub2api/internal/shared/response"
++	middleware2 "github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
++	"github.com/gin-gonic/gin"
++)
++
++type OAuth2ProviderHandler struct {
++	service *service.OAuth2ProviderService
++}
++
++func NewOAuth2ProviderHandler(provider *service.OAuth2ProviderService) *OAuth2ProviderHandler {
++	return &OAuth2ProviderHandler{service: provider}
++}
++
++type OAuth2AuthorizationRequestPayload struct {
++	ClientID            string `json:"client_id"`
++	RedirectURI         string `json:"redirect_uri"`
++	ResponseType        string `json:"response_type"`
++	Scope               string `json:"scope"`
++	State               string `json:"state"`
++	CodeChallenge       string `json:"code_challenge"`
++	CodeChallengeMethod string `json:"code_challenge_method"`
++}
++
++type OAuth2AuthorizePayload struct {
++	OAuth2AuthorizationRequestPayload
++	Approved bool `json:"approved"`
++}
++
++func (p OAuth2AuthorizationRequestPayload) serviceRequest() service.OAuth2AuthorizationRequest {
++	return service.OAuth2AuthorizationRequest{
++		ClientID:            strings.TrimSpace(p.ClientID),
++		RedirectURI:         p.RedirectURI,
++		ResponseType:        p.ResponseType,
++		Scope:               p.Scope,
++		State:               p.State,
++		CodeChallenge:       p.CodeChallenge,
++		CodeChallengeMethod: p.CodeChallengeMethod,
++	}
++}
++
++func (h *OAuth2ProviderHandler) AuthorizationPreview(c *gin.Context) {
++	oauth2NoStore(c)
++	if h == nil || h.service == nil {
++		response.InternalError(c, "OAuth2 provider is unavailable")
++		return
++	}
++	preview, err := h.service.ValidateAuthorizationRequest(c.Request.Context(), service.OAuth2AuthorizationRequest{
++		ClientID:            strings.TrimSpace(c.Query("client_id")),
++		RedirectURI:         c.Query("redirect_uri"),
++		ResponseType:        c.Query("response_type"),
++		Scope:               c.Query("scope"),
++		State:               c.Query("state"),
++		CodeChallenge:       c.Query("code_challenge"),
++		CodeChallengeMethod: c.Query("code_challenge_method"),
++	})
++	if err != nil {
++		if writeOAuth2ProtocolError(c, err) {
++			return
++		}
++		response.ErrorFrom(c, err)
++		return
++	}
++	response.Success(c, preview)
++}
++
++func (h *OAuth2ProviderHandler) Authorize(c *gin.Context) {
++	oauth2NoStore(c)
++	if h == nil || h.service == nil {
++		response.InternalError(c, "OAuth2 provider is unavailable")
++		return
++	}
++	subject, ok := middleware2.GetAuthSubjectFromContext(c)
++	if !ok || subject.UserID <= 0 {
++		response.Unauthorized(c, "User not authenticated")
++		return
++	}
++	var payload OAuth2AuthorizePayload
++	if err := c.ShouldBindJSON(&payload); err != nil {
++		response.BadRequest(c, "Invalid OAuth2 authorization request")
++		return
++	}
++	result, err := h.service.Authorize(c.Request.Context(), subject.UserID, payload.OAuth2AuthorizationRequestPayload.serviceRequest(), payload.Approved)
++	if err != nil {
++		if writeOAuth2ProtocolError(c, err) {
++			return
++		}
++		response.ErrorFrom(c, err)
++		return
++	}
++	response.Success(c, result)
++}
++
++func (h *OAuth2ProviderHandler) Discovery(c *gin.Context) {
++	if h == nil || h.service == nil {
++		writeOAuth2JSONError(c, http.StatusNotFound, "not_found", "OAuth2 provider is unavailable")
++		return
++	}
++	document, err := h.service.Discovery(c.Request.Context())
++	if err != nil {
++		if errors.Is(err, service.ErrOAuth2ProviderDisabled) {
++			writeOAuth2JSONError(c, http.StatusNotFound, "not_found", "OAuth2 provider is disabled")
++			return
++		}
++		writeOAuth2JSONError(c, http.StatusInternalServerError, "server_error", "OAuth2 provider metadata is unavailable")
++		return
++	}
++	writeOAuth2JSON(c, http.StatusOK, document)
++}
++
++func (h *OAuth2ProviderHandler) Token(c *gin.Context) {
++	if h == nil || h.service == nil {
++		writeOAuth2JSONError(c, http.StatusServiceUnavailable, "temporarily_unavailable", "OAuth2 provider is unavailable")
++		return
++	}
++	if !isOAuth2FormContentType(c.GetHeader("Content-Type")) {
++		writeOAuth2JSONError(c, http.StatusBadRequest, "invalid_request", "token requests must use application/x-www-form-urlencoded")
++		return
++	}
++	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 16*1024)
++	if err := c.Request.ParseForm(); err != nil {
++		writeOAuth2JSONError(c, http.StatusBadRequest, "invalid_request", "invalid form body")
++		return
++	}
++	clientID, clientSecret, err := oauth2ClientCredentials(c)
++	if err != nil {
++		c.Header("WWW-Authenticate", `Basic realm="oauth2/token"`)
++		writeOAuth2JSONError(c, http.StatusUnauthorized, "invalid_client", "client authentication failed")
++		return
++	}
++	result, err := h.service.ExchangeToken(c.Request.Context(), service.OAuth2TokenRequest{
++		GrantType:    c.PostForm("grant_type"),
++		Code:         c.PostForm("code"),
++		RedirectURI:  c.PostForm("redirect_uri"),
++		ClientID:     clientID,
++		ClientSecret: clientSecret,
++		CodeVerifier: c.PostForm("code_verifier"),
++	})
++	if err != nil {
++		writeOAuth2ServiceError(c, err)
++		return
++	}
++	writeOAuth2JSON(c, http.StatusOK, result)
++}
++
++func (h *OAuth2ProviderHandler) UserInfo(c *gin.Context) {
++	if h == nil || h.service == nil {
++		writeOAuth2JSONError(c, http.StatusServiceUnavailable, "temporarily_unavailable", "OAuth2 provider is unavailable")
++		return
++	}
++	token, ok := oauth2BearerToken(c.GetHeader("Authorization"))
++	if !ok {
++		c.Header("WWW-Authenticate", `Bearer error="invalid_token"`)
++		writeOAuth2JSONError(c, http.StatusUnauthorized, "invalid_token", "Bearer access token is required")
++		return
++	}
++	userinfo, err := h.service.UserInfo(c.Request.Context(), token)
++	if err != nil {
++		if protocol, ok := asOAuth2ProtocolError(err); ok {
++			c.Header("WWW-Authenticate", `Bearer error="invalid_token"`)
++			writeOAuth2JSONError(c, protocol.HTTPStatus, protocol.Code, protocol.Description)
++			return
++		}
++		writeOAuth2JSONError(c, http.StatusInternalServerError, "server_error", "unable to load user information")
++		return
++	}
++	writeOAuth2JSON(c, http.StatusOK, userinfo)
++}
++
++func (h *OAuth2ProviderHandler) Revoke(c *gin.Context) {
++	oauth2NoStore(c)
++	if h == nil || h.service == nil {
++		writeOAuth2JSONError(c, http.StatusServiceUnavailable, "temporarily_unavailable", "OAuth2 provider is unavailable")
++		return
++	}
++	if !isOAuth2FormContentType(c.GetHeader("Content-Type")) {
++		writeOAuth2JSONError(c, http.StatusBadRequest, "invalid_request", "revocation requests must use application/x-www-form-urlencoded")
++		return
++	}
++	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 16*1024)
++	if err := c.Request.ParseForm(); err != nil {
++		writeOAuth2JSONError(c, http.StatusBadRequest, "invalid_request", "invalid form body")
++		return
++	}
++	clientID, clientSecret, err := oauth2ClientCredentials(c)
++	if err != nil {
++		writeOAuth2JSONError(c, http.StatusUnauthorized, "invalid_client", "client authentication failed")
++		return
++	}
++	if err := h.service.RevokeToken(c.Request.Context(), c.PostForm("token"), clientID, clientSecret); err != nil {
++		writeOAuth2ServiceError(c, err)
++		return
++	}
++	c.Status(http.StatusOK)
++}
++
++func oauth2ClientCredentials(c *gin.Context) (string, string, error) {
++	formID := strings.TrimSpace(c.PostForm("client_id"))
++	formSecret := c.PostForm("client_secret")
++	authHeader := strings.TrimSpace(c.GetHeader("Authorization"))
++	if authHeader == "" {
++		return formID, formSecret, nil
++	}
++	if formID != "" || formSecret != "" {
++		return "", "", errors.New("multiple client authentication methods")
++	}
++	if !strings.HasPrefix(strings.ToLower(authHeader), "basic ") {
++		return "", "", errors.New("unsupported client authentication scheme")
++	}
++	encoded := strings.TrimSpace(authHeader[len("Basic "):])
++	decoded, err := base64.StdEncoding.DecodeString(encoded)
++	if err != nil {
++		return "", "", err
++	}
++	parts := strings.SplitN(string(decoded), ":", 2)
++	if len(parts) != 2 {
++		return "", "", errors.New("malformed basic authentication")
++	}
++	basicID, basicSecret := parts[0], parts[1]
++	return basicID, basicSecret, nil
++}
++
++func isOAuth2FormContentType(raw string) bool {
++	mediaType, _, err := mime.ParseMediaType(strings.TrimSpace(raw))
++	return err == nil && strings.EqualFold(mediaType, "application/x-www-form-urlencoded")
++}
++
++func oauth2BearerToken(header string) (string, bool) {
++	parts := strings.Fields(header)
++	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || parts[1] == "" || len(parts[1]) > 256 {
++		return "", false
++	}
++	return parts[1], true
++}
++
++func asOAuth2ProtocolError(err error) (*service.OAuth2ProtocolError, bool) {
++	var protocol *service.OAuth2ProtocolError
++	if errors.As(err, &protocol) {
++		return protocol, true
++	}
++	return nil, false
++}
++
++func writeOAuth2ServiceError(c *gin.Context, err error) {
++	if protocol, ok := asOAuth2ProtocolError(err); ok {
++		if protocol.Code == "invalid_client" {
++			c.Header("WWW-Authenticate", `Basic realm="oauth2/token"`)
++		}
++		if protocol.Headers != nil {
++			for key, value := range protocol.Headers {
++				c.Header(key, value)
++			}
++		}
++		writeOAuth2JSONError(c, protocol.HTTPStatus, protocol.Code, protocol.Description)
++		return
++	}
++	writeOAuth2JSONError(c, http.StatusInternalServerError, "server_error", "OAuth2 provider request failed")
++}
++
++func writeOAuth2ProtocolError(c *gin.Context, err error) bool {
++	protocol, ok := asOAuth2ProtocolError(err)
++	if !ok {
++		return false
++	}
++	writeOAuth2JSONError(c, protocol.HTTPStatus, protocol.Code, protocol.Description)
++	return true
++}
++
++func writeOAuth2JSON(c *gin.Context, status int, payload any) {
++	oauth2NoStore(c)
++	c.JSON(status, payload)
++}
++
++func oauth2NoStore(c *gin.Context) {
++	c.Header("Cache-Control", "no-store")
++	c.Header("Pragma", "no-cache")
++}
++
++func writeOAuth2JSONError(c *gin.Context, status int, code, description string) {
++	writeOAuth2JSON(c, status, gin.H{"error": code, "error_description": description})
++}
+diff --git a/backend/internal/transport/http/handler/oauth2_provider_handler_test.go b/backend/internal/transport/http/handler/oauth2_provider_handler_test.go
+new file mode 100644
+index 0000000..1342115
+--- /dev/null
++++ b/backend/internal/transport/http/handler/oauth2_provider_handler_test.go
+@@ -0,0 +1,74 @@
++package handler
++
++import (
++	"encoding/base64"
++	"net/http"
++	"net/http/httptest"
++	"net/url"
++	"strings"
++	"testing"
++
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++)
++
++func TestOAuth2ClientCredentialsRejectsMultipleAuthenticationMethods(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	form := url.Values{"client_id": {"client-1"}, "client_secret": {"secret-1"}}
++	req := httptest.NewRequest(http.MethodPost, "/oauth/token", strings.NewReader(form.Encode()))
++	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
++	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("client-1:secret-1")))
++	require.NoError(t, req.ParseForm())
++	c, _ := gin.CreateTestContext(httptest.NewRecorder())
++	c.Request = req
++
++	_, _, err := oauth2ClientCredentials(c)
++	require.Error(t, err)
++}
++
++func TestOAuth2ClientCredentialsAcceptsBasicOrPost(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++
++	t.Run("basic", func(t *testing.T) {
++		req := httptest.NewRequest(http.MethodPost, "/oauth/token", nil)
++		req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("client-1:secret-1")))
++		c, _ := gin.CreateTestContext(httptest.NewRecorder())
++		c.Request = req
++		clientID, clientSecret, err := oauth2ClientCredentials(c)
++		require.NoError(t, err)
++		require.Equal(t, "client-1", clientID)
++		require.Equal(t, "secret-1", clientSecret)
++	})
++
++	t.Run("post", func(t *testing.T) {
++		form := url.Values{"client_id": {"client-2"}, "client_secret": {"secret-2"}}
++		req := httptest.NewRequest(http.MethodPost, "/oauth/token", strings.NewReader(form.Encode()))
++		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
++		require.NoError(t, req.ParseForm())
++		c, _ := gin.CreateTestContext(httptest.NewRecorder())
++		c.Request = req
++		clientID, clientSecret, err := oauth2ClientCredentials(c)
++		require.NoError(t, err)
++		require.Equal(t, "client-2", clientID)
++		require.Equal(t, "secret-2", clientSecret)
++	})
++}
++
++func TestOAuth2BearerTokenRequiresExactlyOneBearerCredential(t *testing.T) {
++	token, ok := oauth2BearerToken("Bearer s2a_test")
++	require.True(t, ok)
++	require.Equal(t, "s2a_test", token)
++
++	for _, header := range []string{"", "Basic s2a_test", "Bearer", "Bearer one two"} {
++		_, ok := oauth2BearerToken(header)
++		require.False(t, ok, header)
++	}
++}
++
++func TestOAuth2FormContentTypeRequiresExactMediaType(t *testing.T) {
++	require.True(t, isOAuth2FormContentType("application/x-www-form-urlencoded"))
++	require.True(t, isOAuth2FormContentType("Application/X-Www-Form-Urlencoded; charset=UTF-8"))
++	for _, contentType := range []string{"", "application/json", "application/x-www-form-urlencoded-evil"} {
++		require.False(t, isOAuth2FormContentType(contentType), contentType)
++	}
++}
+diff --git a/backend/internal/transport/http/handler/wire.go b/backend/internal/transport/http/handler/wire.go
+index 84ef559..df5f03f 100644
+--- a/backend/internal/transport/http/handler/wire.go
++++ b/backend/internal/transport/http/handler/wire.go
+@@ -62,0 +63 @@ func ProvideAdminHandlers(
++	oauth2ProviderHandler *admin.OAuth2ProviderHandler,
+@@ -107,0 +109 @@ func ProvideAdminHandlers(
++		OAuth2Provider:         oauth2ProviderHandler,
+@@ -251,0 +254 @@ func ProvideHandlers(
++	oauth2ProviderHandler *OAuth2ProviderHandler,
+@@ -278,0 +282 @@ func ProvideHandlers(
++		OAuth2Provider:   oauth2ProviderHandler,
+@@ -306,0 +311 @@ var ProviderSet = wire.NewSet(
++	NewOAuth2ProviderHandler,
+@@ -348,0 +354 @@ var ProviderSet = wire.NewSet(
++	admin.NewOAuth2ProviderHandler,
+diff --git a/backend/internal/transport/http/server/middleware/admin_only.go b/backend/internal/transport/http/server/middleware/admin_only.go
+index 603163b..8f121db 100644
+--- a/backend/internal/transport/http/server/middleware/admin_only.go
++++ b/backend/internal/transport/http/server/middleware/admin_only.go
+@@ -27,0 +28,22 @@ func AdminOnly() gin.HandlerFunc {
++
++// AdminSessionOnly requires a full administrator authenticated through a human
++// JWT session. It is used for trust-establishing operations that must reject
++// Admin API keys even when the optional step-up feature is disabled.
++func AdminSessionOnly() gin.HandlerFunc {
++	return func(c *gin.Context) {
++		role, ok := GetUserRoleFromContext(c)
++		if !ok {
++			AbortWithError(c, 401, "UNAUTHORIZED", "User not found in context")
++			return
++		}
++		if role != service.RoleAdmin {
++			AbortWithError(c, 403, "FORBIDDEN", "Admin access required")
++			return
++		}
++		if c.GetString("auth_method") == service.AuditAuthMethodAdminAPIKey {
++			AbortWithError(c, 403, "ADMIN_SESSION_REQUIRED", "A full administrator session is required")
++			return
++		}
++		c.Next()
++	}
++}
+diff --git a/backend/internal/transport/http/server/middleware/admin_only_test.go b/backend/internal/transport/http/server/middleware/admin_only_test.go
+new file mode 100644
+index 0000000..591d80d
+--- /dev/null
++++ b/backend/internal/transport/http/server/middleware/admin_only_test.go
+@@ -0,0 +1,42 @@
++package middleware
++
++import (
++	"net/http"
++	"net/http/httptest"
++	"testing"
++
++	"github.com/Wei-Shaw/sub2api/internal/application/service"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++)
++
++func TestAdminSessionOnlyRejectsAdminAPIKeyAndDelegatedRole(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	tests := []struct {
++		name       string
++		role       string
++		authMethod string
++		want       int
++	}{
++		{name: "administrator jwt", role: service.RoleAdmin, authMethod: service.AuditAuthMethodJWT, want: http.StatusNoContent},
++		{name: "administrator api key", role: service.RoleAdmin, authMethod: service.AuditAuthMethodAdminAPIKey, want: http.StatusForbidden},
++		{name: "delegated jwt", role: "settings_staff", authMethod: service.AuditAuthMethodJWT, want: http.StatusForbidden},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			router := gin.New()
++			router.Use(func(c *gin.Context) {
++				c.Set(string(ContextKeyUserRole), tt.role)
++				c.Set("auth_method", tt.authMethod)
++				c.Next()
++			})
++			router.PUT("/api/v1/admin/oauth2-provider", AdminSessionOnly(), func(c *gin.Context) {
++				c.Status(http.StatusNoContent)
++			})
++			recorder := httptest.NewRecorder()
++			router.ServeHTTP(recorder, httptest.NewRequest(http.MethodPut, "/api/v1/admin/oauth2-provider", nil))
++			require.Equal(t, tt.want, recorder.Code)
++		})
++	}
++}
+diff --git a/backend/internal/transport/http/server/middleware/admin_permissions.go b/backend/internal/transport/http/server/middleware/admin_permissions.go
+index 4234548..5d3a952 100644
+--- a/backend/internal/transport/http/server/middleware/admin_permissions.go
++++ b/backend/internal/transport/http/server/middleware/admin_permissions.go
+@@ -99,0 +100,4 @@ func requiredAdminPermission(method, path string) string {
++	case "oauth2-provider":
++		// Creating trust relationships and rotating client credentials remain
++		// full-administrator operations even for delegated settings staff.
++		return ""
+diff --git a/backend/internal/transport/http/server/middleware/admin_permissions_test.go b/backend/internal/transport/http/server/middleware/admin_permissions_test.go
+index f15f088..1b21a21 100644
+--- a/backend/internal/transport/http/server/middleware/admin_permissions_test.go
++++ b/backend/internal/transport/http/server/middleware/admin_permissions_test.go
+@@ -83,0 +84,2 @@ func TestDelegatedPermissionsFailClosed(t *testing.T) {
++		{"PUT", "/api/v1/admin/oauth2-provider", ""},
++		{"POST", "/api/v1/admin/oauth2-provider/clients", ""},
+diff --git a/backend/internal/transport/http/server/router.go b/backend/internal/transport/http/server/router.go
+index 454de01..a61e452 100644
+--- a/backend/internal/transport/http/server/router.go
++++ b/backend/internal/transport/http/server/router.go
+@@ -149,0 +150 @@ func registerRoutes(
++	routes.RegisterOAuth2ProviderRoutes(r, h, jwtAuth, panelRateLimiter)
+diff --git a/backend/internal/transport/http/server/routes/README.md b/backend/internal/transport/http/server/routes/README.md
+index c5b32c6..bb9d6c2 100644
+--- a/backend/internal/transport/http/server/routes/README.md
++++ b/backend/internal/transport/http/server/routes/README.md
+@@ -8,0 +9 @@
++| `oauth2_provider.go` | 对外 OAuth2 授权、token、userinfo 和撤销 |
+diff --git a/backend/internal/transport/http/server/routes/admin.go b/backend/internal/transport/http/server/routes/admin.go
+index 35f7f4e..13de3ce 100644
+--- a/backend/internal/transport/http/server/routes/admin.go
++++ b/backend/internal/transport/http/server/routes/admin.go
+@@ -77,0 +78,3 @@ func RegisterAdminRoutes(
++		// 对外 OAuth2 授权服务
++		registerOAuth2ProviderAdminRoutes(admin, h, stepUpAuth)
++
+@@ -148,0 +152,12 @@ func RegisterAdminRoutes(
++func registerOAuth2ProviderAdminRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAuth middleware.StepUpAuthMiddleware) {
++	oauth2Provider := admin.Group("/oauth2-provider")
++	{
++		oauth2Provider.GET("", h.Admin.OAuth2Provider.GetConfig)
++		oauth2Provider.PUT("", middleware.AdminSessionOnly(), gin.HandlerFunc(stepUpAuth), h.Admin.OAuth2Provider.UpdateConfig)
++		oauth2Provider.POST("/clients", middleware.AdminSessionOnly(), gin.HandlerFunc(stepUpAuth), h.Admin.OAuth2Provider.CreateClient)
++		oauth2Provider.PUT("/clients/:client_id", middleware.AdminSessionOnly(), gin.HandlerFunc(stepUpAuth), h.Admin.OAuth2Provider.UpdateClient)
++		oauth2Provider.POST("/clients/:client_id/rotate-secret", middleware.AdminSessionOnly(), gin.HandlerFunc(stepUpAuth), h.Admin.OAuth2Provider.RotateSecret)
++		oauth2Provider.DELETE("/clients/:client_id", middleware.AdminSessionOnly(), gin.HandlerFunc(stepUpAuth), h.Admin.OAuth2Provider.DeleteClient)
++	}
++}
++
+diff --git a/backend/internal/transport/http/server/routes/oauth2_provider.go b/backend/internal/transport/http/server/routes/oauth2_provider.go
+new file mode 100644
+index 0000000..ca171a1
+--- /dev/null
++++ b/backend/internal/transport/http/server/routes/oauth2_provider.go
+@@ -0,0 +1,37 @@
++package routes
++
++import (
++	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler"
++	"github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
++	"github.com/gin-gonic/gin"
++)
++
++// RegisterOAuth2ProviderRoutes installs the public OAuth2 protocol endpoints
++// and the JWT-protected resource-owner approval endpoints.
++func RegisterOAuth2ProviderRoutes(
++	r *gin.Engine,
++	h *handler.Handlers,
++	jwtAuth middleware.JWTAuthMiddleware,
++	panelRateLimiter *middleware.PanelRateLimiter,
++) {
++	if h == nil || h.OAuth2Provider == nil {
++		return
++	}
++	r.GET("/.well-known/oauth-authorization-server", panelRateLimiter.PublicIP(), h.OAuth2Provider.Discovery)
++
++	oauth := r.Group("/oauth")
++	oauth.Use(panelRateLimiter.PublicIP())
++	{
++		oauth.POST("/token", h.OAuth2Provider.Token)
++		oauth.POST("/revoke", h.OAuth2Provider.Revoke)
++		oauth.GET("/userinfo", h.OAuth2Provider.UserInfo)
++	}
++
++	owner := r.Group("/api/v1/oauth2")
++	owner.Use(gin.HandlerFunc(jwtAuth))
++	owner.Use(panelRateLimiter.Authenticated())
++	{
++		owner.GET("/authorize", h.OAuth2Provider.AuthorizationPreview)
++		owner.POST("/authorize", h.OAuth2Provider.Authorize)
++	}
++}
+diff --git a/backend/internal/transport/http/server/routes/oauth2_provider_test.go b/backend/internal/transport/http/server/routes/oauth2_provider_test.go
+new file mode 100644
+index 0000000..cfb4508
+--- /dev/null
++++ b/backend/internal/transport/http/server/routes/oauth2_provider_test.go
+@@ -0,0 +1,36 @@
++package routes
++
++import (
++	"testing"
++
++	"github.com/Wei-Shaw/sub2api/internal/transport/http/handler"
++	"github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware"
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/require"
++)
++
++func TestRegisterOAuth2ProviderRoutes(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	router := gin.New()
++	handlers := &handler.Handlers{OAuth2Provider: handler.NewOAuth2ProviderHandler(nil)}
++	jwtAuth := middleware.JWTAuthMiddleware(func(c *gin.Context) { c.Next() })
++	RegisterOAuth2ProviderRoutes(router, handlers, jwtAuth, &middleware.PanelRateLimiter{})
++
++	wanted := map[string]bool{
++		"GET /.well-known/oauth-authorization-server": false,
++		"POST /oauth/token":                           false,
++		"POST /oauth/revoke":                          false,
++		"GET /oauth/userinfo":                         false,
++		"GET /api/v1/oauth2/authorize":                false,
++		"POST /api/v1/oauth2/authorize":               false,
++	}
++	for _, route := range router.Routes() {
++		key := route.Method + " " + route.Path
++		if _, ok := wanted[key]; ok {
++			wanted[key] = true
++		}
++	}
++	for route, registered := range wanted {
++		require.True(t, registered, route)
++	}
++}
+diff --git a/backend/internal/transport/webassets/README.md b/backend/internal/transport/webassets/README.md
+index b5217b5..76d197d 100644
+--- a/backend/internal/transport/webassets/README.md
++++ b/backend/internal/transport/webassets/README.md
+@@ -13,0 +14,2 @@
++
++`embed_on.go` 的 bypass 清单必须覆盖所有机器协议入口。OAuth2 discovery、token、userinfo 和 revoke 会继续进入 Gin 路由；`/oauth/authorize` 则保留为 SPA 授权页。
+diff --git a/backend/internal/transport/webassets/embed_on.go b/backend/internal/transport/webassets/embed_on.go
+index 0b424ce..8023a80 100644
+--- a/backend/internal/transport/webassets/embed_on.go
++++ b/backend/internal/transport/webassets/embed_on.go
+@@ -396,0 +397,4 @@ func shouldBypassEmbeddedFrontend(path string) bool {
++		trimmed == "/.well-known/oauth-authorization-server" ||
++		trimmed == "/oauth/token" ||
++		trimmed == "/oauth/userinfo" ||
++		trimmed == "/oauth/revoke" ||
+diff --git a/backend/internal/transport/webassets/embed_test.go b/backend/internal/transport/webassets/embed_test.go
+index fe357e4..ff38c13 100644
+--- a/backend/internal/transport/webassets/embed_test.go
++++ b/backend/internal/transport/webassets/embed_test.go
+@@ -558,0 +559,4 @@ func TestFrontendServer_Middleware(t *testing.T) {
++			"/.well-known/oauth-authorization-server",
++			"/oauth/token",
++			"/oauth/userinfo",
++			"/oauth/revoke",
+@@ -800 +804 @@ func TestServeEmbeddedFrontend(t *testing.T) {
+-		spaPaths := []string{"/dashboard", "/users/123", "/settings"}
++		spaPaths := []string{"/dashboard", "/users/123", "/settings", "/oauth/authorize"}
+@@ -825,0 +830,4 @@ func TestServeEmbeddedFrontend(t *testing.T) {
++			"/.well-known/oauth-authorization-server",
++			"/oauth/token",
++			"/oauth/userinfo",
++			"/oauth/revoke",
+diff --git a/docs/ARCHITECTURE.md b/docs/ARCHITECTURE.md
+index d0669f8..887b05e 100644
+--- a/docs/ARCHITECTURE.md
++++ b/docs/ARCHITECTURE.md
+@@ -82,0 +83 @@ infrastructure implements application ports
++| OAuth2 provider 客户端与授权 | PostgreSQL `settings` + Redis | 管理员配置和客户端 secret 摘要持久化在独立 setting key；一次性 authorization code 与 access token 摘要保存在 Redis，token 每次使用都重查全局/客户端/scope/用户状态 |
+diff --git a/docs/CODE_MAP.md b/docs/CODE_MAP.md
+index a0896be..e116444 100644
+--- a/docs/CODE_MAP.md
++++ b/docs/CODE_MAP.md
+@@ -37,0 +38 @@
++| 修改 OAuth2 对外授权服务 | `application/service/oauth2_provider.go`, `server/routes/oauth2_provider.go` | `repository/oauth2_provider_store.go`, `webassets/embed_on.go`、OAuth2/admin handler、`features/auth/` 与 `features/admin-settings/` | service + Redis store + embedded bypass + route + 授权页/设置面板测试 + Docker |
+@@ -84,0 +86 @@
++| `server/routes/oauth2_provider.go` | OAuth2 授权服务器、token、userinfo 与撤销 |
+diff --git a/docs/FEATURES.md b/docs/FEATURES.md
+index e373d93..430498b 100644
+--- a/docs/FEATURES.md
++++ b/docs/FEATURES.md
+@@ -18,0 +19 @@
++| OAuth2 应用授权 | `/oauth/authorize` | 用户批准受信客户端读取有限身份字段：[OAuth2 对外授权服务](OAUTH2_PROVIDER.md)、[auth](../frontend/src/features/auth/README.md) |
+@@ -64 +65 @@
+-| 系统设置 | `/admin/settings` | 站点、认证、功能开关、网关策略与运行设置：[admin-settings](../frontend/src/features/admin-settings/README.md) |
++| 系统设置 | `/admin/settings` | 站点、认证、OAuth2 对外授权、功能开关、网关策略与运行设置：[admin-settings](../frontend/src/features/admin-settings/README.md)、[OAuth2 对外授权服务](OAUTH2_PROVIDER.md) |
+@@ -76,0 +78 @@
++| OAuth2 对外授权 | [OAuth2 对外授权服务](OAUTH2_PROVIDER.md) | [OAuth2 路由](../backend/internal/transport/http/server/routes/oauth2_provider.go) |
+diff --git a/docs/OAUTH2_PROVIDER.md b/docs/OAUTH2_PROVIDER.md
+new file mode 100644
+index 0000000..21c2700
+--- /dev/null
++++ b/docs/OAUTH2_PROVIDER.md
+@@ -0,0 +1,86 @@
++# OAuth2 对外授权服务
++
++Sub2API 可以作为 OAuth2 授权服务器，让管理员登记的第三方应用在用户明确同意后读取有限的用户身份信息。该能力默认关闭，配置入口位于“系统设置 -> 安全与认证 -> OAuth2 对外授权服务”。
++
++## 权限边界
++
++- 只有完整管理员 JWT 会话可以启停服务、修改 issuer、创建或删除客户端、编辑回调地址和 scope、轮换客户端密钥；Admin API Key 始终不能执行这些写操作。站点启用 step-up 后，这些操作还要求近期 TOTP 验证。
++- 自定义员工权限组和 Admin API Key 不能建立或修改 OAuth2 信任关系。
++- 用户必须先登录 Sub2API，并在 `/oauth/authorize` 页面明确允许或拒绝每次授权请求。
++- OAuth2 access token 只用于 `/oauth/userinfo`，不能作为站内 JWT、Admin API Key 或模型网关 API Key。模型请求仍执行原有 API Key、分组、余额、订阅、并发和计费校验。
++- 管理员关闭全局开关、停用/删除客户端或移除其 scope 后，相关 access token 在下一次资源请求时立即失效。用户停用或 TokenVersion 变化也会立即使 token 失效。
++
++## 支持的协议
++
++当前支持 OAuth 2.0 Authorization Code Grant：
++
++- 所有客户端强制使用 PKCE `S256`。
++- 回调地址必须与管理员登记值逐字匹配；远程地址必须使用 HTTPS，HTTP 仅允许 loopback 开发地址。
++- `state` 必填，authorization code 有效期为 5 分钟且只能消费一次。
++- access token 是随机不透明凭据，服务端只在 Redis 保存 SHA-256 摘要与授权元数据；默认有效期 3600 秒，管理员可设置 60–86400 秒。
++- 机密客户端支持 `client_secret_basic` 和 `client_secret_post`；公共客户端不签发 secret。
++- 浏览器内公共客户端还需由部署管理员把其 origin 加入 `cors.allowed_origins`；服务端或原生客户端不受浏览器 CORS 限制。
++- 不签发 refresh token，也不把 OAuth2 access token 写入 URL、日志或数据库。
++
++支持的 scope：
++
++| Scope | `/oauth/userinfo` 字段 |
++| --- | --- |
++| `profile` | 每客户端隔离的 `sub`、`preferred_username`、`name` |
++| `email` | `email` |
++
++## 端点
++
++| 方法与路径 | 鉴权 | 用途 |
++| --- | --- | --- |
++| `GET /.well-known/oauth-authorization-server` | 公开，仅服务启用时可用 | 授权服务器元数据 |
++| `GET /oauth/authorize?...` | Sub2API 用户登录 | 浏览器授权页 |
++| `POST /oauth/token` | 客户端认证或公共客户端 ID | 用 authorization code + verifier 换取 access token |
++| `GET /oauth/userinfo` | `Authorization: Bearer <access-token>` | 读取获准的用户字段 |
++| `POST /oauth/revoke` | 客户端认证或公共客户端 ID | 撤销本客户端签发的 access token |
++
++管理端接口统一位于 `/api/v1/admin/oauth2-provider`：
++
++- `GET /api/v1/admin/oauth2-provider`
++- `PUT /api/v1/admin/oauth2-provider`
++- `POST /api/v1/admin/oauth2-provider/clients`
++- `PUT /api/v1/admin/oauth2-provider/clients/:client_id`
++- `POST /api/v1/admin/oauth2-provider/clients/:client_id/rotate-secret`
++- `DELETE /api/v1/admin/oauth2-provider/clients/:client_id`
++
++客户端 secret 仅在创建或轮换成功响应中显示一次，持久设置只保存其 SHA-256 摘要。
++
++## PKCE 调用示例
++
++下面示例使用占位符。`CODE_VERIFIER` 必须是 43–128 字符的 RFC 7636 unreserved 字符串，`CODE_CHALLENGE` 为其 SHA-256 后的 base64url（无 padding）结果。
++
++```text
++GET https://<issuer>/oauth/authorize
++  ?response_type=code
++  &client_id=<client-id>
++  &redirect_uri=https%3A%2F%2Fclient.example.com%2Foauth%2Fcallback
++  &scope=profile%20email
++  &state=<opaque-state>
++  &code_challenge=<s256-challenge>
++  &code_challenge_method=S256
++```
++
++授权成功后，第三方应用后端使用回调中的 code 换取 token：
++
++```bash
++curl -u '<client-id>:<client-secret>' \
++  -H 'Content-Type: application/x-www-form-urlencoded' \
++  -d 'grant_type=authorization_code' \
++  -d 'code=<authorization-code>' \
++  -d 'redirect_uri=https://client.example.com/oauth/callback' \
++  -d 'code_verifier=<code-verifier>' \
++  'https://<issuer>/oauth/token'
++```
++
++读取用户信息：
++
++```bash
++curl -H 'Authorization: Bearer <access-token>' 'https://<issuer>/oauth/userinfo'
++```
++
++协议端点返回 RFC 6749 风格的 `error` / `error_description` JSON，并带 `Cache-Control: no-store`。管理端接口继续使用 Sub2API 标准 JSON envelope。
+diff --git a/docs/README.md b/docs/README.md
+index 054f506..f75061b 100644
+--- a/docs/README.md
++++ b/docs/README.md
+@@ -30,0 +31 @@
++| [OAuth2 对外授权服务](OAUTH2_PROVIDER.md) | 管理员控制的客户端、PKCE 授权码、用户信息与撤销接口 |
+diff --git a/docs/REQUEST_LIFECYCLES.md b/docs/REQUEST_LIFECYCLES.md
+index 2da78ca..d4806f3 100644
+--- a/docs/REQUEST_LIFECYCLES.md
++++ b/docs/REQUEST_LIFECYCLES.md
+@@ -35,0 +36,6 @@ sequenceDiagram
++## OAuth2 对外授权
++
++第三方应用从 `/oauth/authorize` 发起 Authorization Code + PKCE S256 请求。前端要求用户先登录，再通过 `/api/v1/oauth2/authorize` 读取服务端校验后的客户端与 scope 预览；用户允许后，后端将 authorization code 摘要及用户、客户端、精确回调、scope、PKCE challenge 和 TokenVersion 保存到 Redis。`/oauth/token` 原子消费 code，复查客户端、回调、PKCE 和用户状态后签发不透明 access token。`/oauth/userinfo` 每次调用都重查全局开关、客户端启用状态、当前 scope 和用户 TokenVersion，因此管理员收回授权后无需等待 token TTL。完整协议和管理端入口见 [OAuth2 对外授权服务](OAUTH2_PROVIDER.md)。
++
++OAuth2 token 的认证域与站内 JWT、Admin API Key、模型网关 API Key 相互独立，不进入网关调度或计费链路。
++
+diff --git a/frontend/src/core/i18n/locales/en/admin/settings.oauth2-provider.ts b/frontend/src/core/i18n/locales/en/admin/settings.oauth2-provider.ts
+new file mode 100644
+index 0000000..6b531a1
+--- /dev/null
++++ b/frontend/src/core/i18n/locales/en/admin/settings.oauth2-provider.ts
+@@ -0,0 +1,38 @@
++export default {
++  title: 'OAuth2 Authorization Service',
++  description: 'Manage provider availability, issuer URL, and trusted clients.',
++  enabled: 'Enable service',
++  issuer: 'Issuer URL',
++  tokenLifetime: 'Access token lifetime (seconds)',
++  clients: 'OAuth2 clients',
++  clientCount: '{count} clients',
++  addClient: 'Add client',
++  editClient: 'Edit client',
++  noClients: 'No OAuth2 clients',
++  redirects: 'Redirect URIs',
++  scopes: 'Allowed scopes',
++  clientType: 'Client type',
++  clientEnabled: 'Enable client',
++  rotateSecret: 'Rotate secret',
++  secretOnce: 'The client secret is shown only once',
++  types: {
++    confidential: 'Confidential client',
++    public: 'Public client (PKCE)',
++  },
++  scopeDescriptions: {
++    profile: "Read the user's stable identifier and public profile",
++    email: "Read the user's email address",
++  },
++  loadFailed: 'Failed to load the OAuth2 authorization service',
++  saveFailed: 'Failed to save the OAuth2 authorization service',
++  saved: 'OAuth2 authorization service saved',
++  clientCreated: 'OAuth2 client created',
++  clientSaved: 'OAuth2 client saved',
++  clientSaveFailed: 'Failed to save the OAuth2 client',
++  clientDeleted: 'OAuth2 client deleted',
++  deleteFailed: 'Failed to delete the OAuth2 client',
++  rotateFailed: 'Failed to rotate the client secret',
++  secretRotated: 'Client secret rotated',
++  rotateConfirm: 'Rotate the client secret for “{name}”? The old secret stops working immediately.',
++  deleteConfirm: 'Delete “{name}”? Its existing access tokens stop working immediately.',
++}
+diff --git a/frontend/src/core/i18n/locales/en/admin/settings.ts b/frontend/src/core/i18n/locales/en/admin/settings.ts
+index b251cc7..80666df 100644
+--- a/frontend/src/core/i18n/locales/en/admin/settings.ts
++++ b/frontend/src/core/i18n/locales/en/admin/settings.ts
+@@ -3,0 +4 @@ import ipv6EgressMessages from './settings.ipv6-egress'
++import oauth2ProviderMessages from './settings.oauth2-provider'
+@@ -48,0 +50 @@ export default {
++      oauth2Provider: oauth2ProviderMessages,
+diff --git a/frontend/src/core/i18n/locales/en/common.ts b/frontend/src/core/i18n/locales/en/common.ts
+index 78482d9..24ca986 100644
+--- a/frontend/src/core/i18n/locales/en/common.ts
++++ b/frontend/src/core/i18n/locales/en/common.ts
+@@ -531,0 +532,16 @@ export default {
++  oauth2Consent: {
++    pageTitle: 'Authorize application',
++    title: 'Authorize application',
++    requestedBy: 'Application requesting access',
++    redirectTo: 'Return after authorization',
++    permissions: 'Requested permissions',
++    allow: 'Allow',
++    deny: 'Deny',
++    invalidRequest: 'The authorization request is invalid or expired',
++    submitFailed: 'Failed to submit the authorization decision',
++    invalidRedirect: 'The authorization redirect is invalid',
++    scopes: {
++      profile: { label: 'Basic profile', description: 'Read your stable identifier and public username' },
++      email: { label: 'Email address', description: 'Read your account email address' },
++    },
++  },
+diff --git a/frontend/src/core/i18n/locales/zh/admin/settings.oauth2-provider.ts b/frontend/src/core/i18n/locales/zh/admin/settings.oauth2-provider.ts
+new file mode 100644
+index 0000000..faf2db6
+--- /dev/null
++++ b/frontend/src/core/i18n/locales/zh/admin/settings.oauth2-provider.ts
+@@ -0,0 +1,38 @@
++export default {
++  title: 'OAuth2 对外授权服务',
++  description: '管理授权服务状态、签发地址和受信任客户端。',
++  enabled: '启用服务',
++  issuer: '签发地址',
++  tokenLifetime: '访问令牌有效期（秒）',
++  clients: 'OAuth2 客户端',
++  clientCount: '共 {count} 个客户端',
++  addClient: '添加客户端',
++  editClient: '编辑客户端',
++  noClients: '暂无 OAuth2 客户端',
++  redirects: '回调地址',
++  scopes: '授权范围',
++  clientType: '客户端类型',
++  clientEnabled: '启用客户端',
++  rotateSecret: '轮换密钥',
++  secretOnce: '客户端密钥仅在本次显示',
++  types: {
++    confidential: '机密客户端',
++    public: '公共客户端（PKCE）',
++  },
++  scopeDescriptions: {
++    profile: '读取用户稳定标识和公开资料',
++    email: '读取用户邮箱地址',
++  },
++  loadFailed: '加载 OAuth2 授权服务失败',
++  saveFailed: '保存 OAuth2 授权服务失败',
++  saved: 'OAuth2 授权服务已保存',
++  clientCreated: 'OAuth2 客户端已创建',
++  clientSaved: 'OAuth2 客户端已保存',
++  clientSaveFailed: '保存 OAuth2 客户端失败',
++  clientDeleted: 'OAuth2 客户端已删除',
++  deleteFailed: '删除 OAuth2 客户端失败',
++  rotateFailed: '轮换客户端密钥失败',
++  secretRotated: '客户端密钥已轮换',
++  rotateConfirm: '确定轮换“{name}”的客户端密钥吗？旧密钥会立即失效。',
++  deleteConfirm: '确定删除“{name}”吗？其现有访问令牌会立即失效。',
++}
+diff --git a/frontend/src/core/i18n/locales/zh/admin/settings.ts b/frontend/src/core/i18n/locales/zh/admin/settings.ts
+index c62b85e..2b014e6 100644
+--- a/frontend/src/core/i18n/locales/zh/admin/settings.ts
++++ b/frontend/src/core/i18n/locales/zh/admin/settings.ts
+@@ -3,0 +4 @@ import ipv6EgressMessages from './settings.ipv6-egress'
++import oauth2ProviderMessages from './settings.oauth2-provider'
+@@ -48,0 +50 @@ export default {
++      oauth2Provider: oauth2ProviderMessages,
+diff --git a/frontend/src/core/i18n/locales/zh/common.ts b/frontend/src/core/i18n/locales/zh/common.ts
+index a97557d..1fdf616 100644
+--- a/frontend/src/core/i18n/locales/zh/common.ts
++++ b/frontend/src/core/i18n/locales/zh/common.ts
+@@ -530,0 +531,16 @@ export default {
++  oauth2Consent: {
++    pageTitle: '应用授权',
++    title: '确认应用授权',
++    requestedBy: '申请访问的应用',
++    redirectTo: '授权后返回',
++    permissions: '申请的权限',
++    allow: '允许',
++    deny: '拒绝',
++    invalidRequest: '授权请求无效或已失效',
++    submitFailed: '提交授权结果失败',
++    invalidRedirect: '授权回调地址无效',
++    scopes: {
++      profile: { label: '基本资料', description: '读取您的稳定标识和公开用户名' },
++      email: { label: '邮箱地址', description: '读取您的账号邮箱地址' },
++    },
++  },
+diff --git a/frontend/src/core/routes/README.md b/frontend/src/core/routes/README.md
+index 5121457..18b4742 100644
+--- a/frontend/src/core/routes/README.md
++++ b/frontend/src/core/routes/README.md
+@@ -19 +19 @@
+-- 公共/认证：`/home`, `/login`, `/register`, OAuth 回调、密码重置、法律文档等。
++- 公共/认证：`/home`, `/login`, `/register`, OAuth 回调、OAuth2 授权页、密码重置、法律文档等。
+diff --git a/frontend/src/core/routes/__tests__/guards.spec.ts b/frontend/src/core/routes/__tests__/guards.spec.ts
+index 83f8c8f..7b5488b 100644
+--- a/frontend/src/core/routes/__tests__/guards.spec.ts
++++ b/frontend/src/core/routes/__tests__/guards.spec.ts
+@@ -87 +87 @@ function simulateGuard(
+-      const allowed = ['/login', '/key-usage', '/setup', '/payment/result']
++      const allowed = ['/login', '/key-usage', '/setup', '/payment/result', '/oauth/authorize']
+@@ -136 +136 @@ function simulateGuard(
+-    const allowed = ['/login', '/key-usage', '/setup', '/payment/result']
++    const allowed = ['/login', '/key-usage', '/setup', '/payment/result', '/oauth/authorize']
+@@ -472,0 +473,12 @@ describe('路由守卫逻辑', () => {
++    it('non-admin authenticated: /oauth/authorize is allowed', () => {
++      const authState: MockAuthState = {
++        isAuthenticated: true,
++        isAdmin: false,
++        isSimpleMode: false,
++        backendModeEnabled: true,
++        hasPendingAuthSession: false,
++      }
++      const redirect = simulateGuard('/oauth/authorize', { requiresAuth: true }, authState)
++      expect(redirect).toBeNull()
++    })
++
+diff --git a/frontend/src/core/routes/index.ts b/frontend/src/core/routes/index.ts
+index 343f075..dad8ada 100644
+--- a/frontend/src/core/routes/index.ts
++++ b/frontend/src/core/routes/index.ts
+@@ -145,0 +146,10 @@ const routes: RouteRecordRaw[] = [
++  {
++    path: '/oauth/authorize',
++    name: 'OAuth2Authorize',
++    component: () => import('@/features/auth/presentation/pages/OAuth2AuthorizePage.vue'),
++    meta: {
++      requiresAuth: true,
++      title: 'Authorize application',
++      titleKey: 'oauth2Consent.pageTitle'
++    }
++  },
+@@ -948 +958 @@ let routePrefetch: ReturnType<typeof useRoutePrefetch> | null = null
+-const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal', '/monitor/quality/public']
++const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal', '/monitor/quality/public', '/oauth/authorize']
+diff --git a/frontend/src/features/admin-settings/README.md b/frontend/src/features/admin-settings/README.md
+index fca7141..2155737 100644
+--- a/frontend/src/features/admin-settings/README.md
++++ b/frontend/src/features/admin-settings/README.md
+@@ -12,0 +13 @@
++- `presentation/widgets/settings-tabs/SettingsOAuth2ProviderPanel.vue`: 完整管理员专用的 OAuth2 provider 总开关、issuer、token TTL、客户端、回调、scope 与密钥轮换面板。
+@@ -22 +23 @@
+-邮件模板、面板限流、管理员 API Key、独立网关策略、Web Search、SMTP 测试及主设置均已迁入明确 owner。`adminSettingsDatasource.ts` 仅服务旧 `src/api/admin` 兼容出口；新调用不得继续扩展 `settingsAPI`。
++邮件模板、面板限流、管理员 API Key、OAuth2 provider、独立网关策略、Web Search、SMTP 测试及主设置均已迁入明确 owner。`adminSettingsDatasource.ts` 仅服务旧 `src/api/admin` 兼容出口；新调用不得继续扩展 `settingsAPI`。
+diff --git a/frontend/src/features/admin-settings/__tests__/SettingsOAuth2ProviderPanel.spec.ts b/frontend/src/features/admin-settings/__tests__/SettingsOAuth2ProviderPanel.spec.ts
+new file mode 100644
+index 0000000..eb428c2
+--- /dev/null
++++ b/frontend/src/features/admin-settings/__tests__/SettingsOAuth2ProviderPanel.spec.ts
+@@ -0,0 +1,90 @@
++import { flushPromises, mount } from '@vue/test-utils'
++import { beforeEach, describe, expect, it, vi } from 'vitest'
++
++const { getConfig, updateConfig, showSuccess, showError, stepUpRun } = vi.hoisted(() => ({
++  getConfig: vi.fn(),
++  updateConfig: vi.fn(),
++  showSuccess: vi.fn(),
++  showError: vi.fn(),
++  stepUpRun: vi.fn(async (action: () => Promise<unknown>) => action()),
++}))
++
++vi.mock('vue-i18n', () => ({
++  useI18n: () => ({ t: (key: string, params?: Record<string, unknown>) => params ? `${key}:${JSON.stringify(params)}` : key }),
++}))
++vi.mock('@/core/stores/appStore', () => ({ useAppStore: () => ({ showSuccess, showError }) }))
++vi.mock('@/features/admin-settings/presentation/composables/settingsPageContext', () => ({
++  useSettingsPageContext: () => ({ settingsStepUp: { run: stepUpRun } }),
++}))
++vi.mock('@/features/admin-settings/data/datasources/oauth2ProviderQueries', () => ({ getOAuth2ProviderConfig: getConfig }))
++vi.mock('@/features/admin-settings/data/datasources/oauth2ProviderActions', () => ({
++  updateOAuth2ProviderConfig: updateConfig,
++  createOAuth2ProviderClient: vi.fn(),
++  updateOAuth2ProviderClient: vi.fn(),
++  rotateOAuth2ProviderClientSecret: vi.fn(),
++  deleteOAuth2ProviderClient: vi.fn(),
++}))
++
++import SettingsOAuth2ProviderPanel from '@/features/admin-settings/presentation/widgets/settings-tabs/SettingsOAuth2ProviderPanel.vue'
++
++const providerConfig = {
++  enabled: false,
++  issuer: 'https://issuer.example.test',
++  access_token_ttl_seconds: 3600,
++  scopes: [
++    { name: 'profile', description: 'profile' },
++    { name: 'email', description: 'email' },
++  ],
++  clients: [{
++    client_id: 's2c_test',
++    name: 'Analytics console',
++    client_type: 'confidential',
++    redirect_uris: ['https://client.example.test/callback'],
++    allowed_scopes: ['profile'],
++    enabled: true,
++    secret_configured: true,
++    created_at: '2026-09-15T00:00:00Z',
++    updated_at: '2026-09-15T00:00:00Z',
++  }],
++}
++
++describe('SettingsOAuth2ProviderPanel', () => {
++  beforeEach(() => {
++    getConfig.mockReset().mockResolvedValue(structuredClone(providerConfig))
++    updateConfig.mockReset().mockImplementation(async (value) => ({ ...structuredClone(providerConfig), ...value }))
++    showSuccess.mockReset()
++    showError.mockReset()
++    stepUpRun.mockClear()
++  })
++
++  it('loads provider state and registered clients', async () => {
++    const wrapper = mount(SettingsOAuth2ProviderPanel, {
++      global: { stubs: { Icon: true, Toggle: true, BaseDialog: true } },
++    })
++    await flushPromises()
++
++    expect(getConfig).toHaveBeenCalledTimes(1)
++    expect(wrapper.text()).toContain('Analytics console')
++    expect(wrapper.text()).toContain('s2c_test')
++    expect(wrapper.text()).not.toContain('client_secret')
++  })
++
++  it('saves the global switch through the settings step-up controller', async () => {
++    const wrapper = mount(SettingsOAuth2ProviderPanel, {
++      global: { stubs: { Icon: true, Toggle: true, BaseDialog: true } },
++    })
++    await flushPromises()
++    const save = wrapper.findAll('button').find((button) => button.text().includes('common.save'))
++    expect(save).toBeDefined()
++    await save?.trigger('click')
++    await flushPromises()
++
++    expect(stepUpRun).toHaveBeenCalledTimes(1)
++    expect(updateConfig).toHaveBeenCalledWith({
++      enabled: false,
++      issuer: 'https://issuer.example.test',
++      access_token_ttl_seconds: 3600,
++    })
++    expect(showSuccess).toHaveBeenCalled()
++  })
++})
+diff --git a/frontend/src/features/admin-settings/__tests__/SettingsPage.spec.ts b/frontend/src/features/admin-settings/__tests__/SettingsPage.spec.ts
+index bf32926..d584dd5 100644
+--- a/frontend/src/features/admin-settings/__tests__/SettingsPage.spec.ts
++++ b/frontend/src/features/admin-settings/__tests__/SettingsPage.spec.ts
+@@ -770,0 +771 @@ function mountView(extraStubs: Record<string, Component | boolean> = {}) {
++        SettingsOAuth2ProviderPanel: true,
+@@ -1889,0 +1891 @@ describe("admin SettingsView payment visible method controls", () => {
++          SettingsOAuth2ProviderPanel: true,
+@@ -2147,0 +2150 @@ describe("admin SettingsView payment visible method controls", () => {
++          SettingsOAuth2ProviderPanel: true,
+diff --git a/frontend/src/features/admin-settings/data/datasources/oauth2ProviderActions.ts b/frontend/src/features/admin-settings/data/datasources/oauth2ProviderActions.ts
+new file mode 100644
+index 0000000..700d6e1
+--- /dev/null
++++ b/frontend/src/features/admin-settings/data/datasources/oauth2ProviderActions.ts
+@@ -0,0 +1,33 @@
++import { apiClient } from '@/core/networks/client'
++import type {
++  OAuth2ProviderClient,
++  OAuth2ProviderClientCreate,
++  OAuth2ProviderClientSecretResult,
++  OAuth2ProviderClientUpdate,
++  OAuth2ProviderConfig,
++  OAuth2ProviderConfigUpdate,
++} from '@/features/admin-settings/data/dtos/oauth2ProviderDtos'
++
++export async function updateOAuth2ProviderConfig(input: OAuth2ProviderConfigUpdate): Promise<OAuth2ProviderConfig> {
++  const { data } = await apiClient.put<OAuth2ProviderConfig>('/admin/oauth2-provider', input)
++  return data
++}
++
++export async function createOAuth2ProviderClient(input: OAuth2ProviderClientCreate): Promise<OAuth2ProviderClientSecretResult> {
++  const { data } = await apiClient.post<OAuth2ProviderClientSecretResult>('/admin/oauth2-provider/clients', input)
++  return data
++}
++
++export async function updateOAuth2ProviderClient(clientId: string, input: OAuth2ProviderClientUpdate): Promise<OAuth2ProviderClient> {
++  const { data } = await apiClient.put<OAuth2ProviderClient>(`/admin/oauth2-provider/clients/${encodeURIComponent(clientId)}`, input)
++  return data
++}
++
++export async function rotateOAuth2ProviderClientSecret(clientId: string): Promise<OAuth2ProviderClientSecretResult> {
++  const { data } = await apiClient.post<OAuth2ProviderClientSecretResult>(`/admin/oauth2-provider/clients/${encodeURIComponent(clientId)}/rotate-secret`)
++  return data
++}
++
++export async function deleteOAuth2ProviderClient(clientId: string): Promise<void> {
++  await apiClient.delete(`/admin/oauth2-provider/clients/${encodeURIComponent(clientId)}`)
++}
+diff --git a/frontend/src/features/admin-settings/data/datasources/oauth2ProviderQueries.ts b/frontend/src/features/admin-settings/data/datasources/oauth2ProviderQueries.ts
+new file mode 100644
+index 0000000..cf24466
+--- /dev/null
++++ b/frontend/src/features/admin-settings/data/datasources/oauth2ProviderQueries.ts
+@@ -0,0 +1,7 @@
++import { apiClient } from '@/core/networks/client'
++import type { OAuth2ProviderConfig } from '@/features/admin-settings/data/dtos/oauth2ProviderDtos'
++
++export async function getOAuth2ProviderConfig(): Promise<OAuth2ProviderConfig> {
++  const { data } = await apiClient.get<OAuth2ProviderConfig>('/admin/oauth2-provider')
++  return data
++}
+diff --git a/frontend/src/features/admin-settings/data/dtos/oauth2ProviderDtos.ts b/frontend/src/features/admin-settings/data/dtos/oauth2ProviderDtos.ts
+new file mode 100644
+index 0000000..dade06c
+--- /dev/null
++++ b/frontend/src/features/admin-settings/data/dtos/oauth2ProviderDtos.ts
+@@ -0,0 +1,52 @@
++export type OAuth2ClientType = 'confidential' | 'public'
++
++export interface OAuth2ProviderScope {
++  name: string
++  description: string
++}
++
++export interface OAuth2ProviderClient {
++  client_id: string
++  name: string
++  client_type: OAuth2ClientType
++  redirect_uris: string[]
++  allowed_scopes: string[]
++  enabled: boolean
++  secret_configured: boolean
++  created_at: string
++  updated_at: string
++}
++
++export interface OAuth2ProviderConfig {
++  enabled: boolean
++  issuer: string
++  access_token_ttl_seconds: number
++  clients: OAuth2ProviderClient[]
++  scopes: OAuth2ProviderScope[]
++}
++
++export interface OAuth2ProviderConfigUpdate {
++  enabled: boolean
++  issuer: string
++  access_token_ttl_seconds: number
++}
++
++export interface OAuth2ProviderClientCreate {
++  name: string
++  client_type: OAuth2ClientType
++  redirect_uris: string[]
++  allowed_scopes: string[]
++  enabled: boolean
++}
++
++export interface OAuth2ProviderClientUpdate {
++  name?: string
++  redirect_uris?: string[]
++  allowed_scopes?: string[]
++  enabled?: boolean
++}
++
++export interface OAuth2ProviderClientSecretResult {
++  client: OAuth2ProviderClient
++  client_secret?: string
++}
+diff --git a/frontend/src/features/admin-settings/presentation/widgets/settings-tabs/SettingsOAuth2ProviderPanel.vue b/frontend/src/features/admin-settings/presentation/widgets/settings-tabs/SettingsOAuth2ProviderPanel.vue
+new file mode 100644
+index 0000000..a5eab18
+--- /dev/null
++++ b/frontend/src/features/admin-settings/presentation/widgets/settings-tabs/SettingsOAuth2ProviderPanel.vue
+@@ -0,0 +1,423 @@
++<template>
++  <section class="card overflow-hidden">
++    <header class="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 px-5 py-4 dark:border-dark-700 sm:px-6">
++      <div class="flex min-w-0 items-start gap-3">
++        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300">
++          <Icon name="shield" size="md" />
++        </span>
++        <div class="min-w-0">
++          <h2 class="text-base font-semibold text-gray-900 dark:text-white">
++            {{ t('admin.settings.oauth2Provider.title') }}
++          </h2>
++          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
++            {{ t('admin.settings.oauth2Provider.description') }}
++          </p>
++        </div>
++      </div>
++      <button
++        type="button"
++        class="btn btn-secondary btn-sm h-9 w-9 p-0"
++        :disabled="loading || operating"
++        :title="t('common.refresh')"
++        :aria-label="t('common.refresh')"
++        @click="load"
++      >
++        <Icon name="refresh" size="sm" :class="{ 'animate-spin': loading }" />
++      </button>
++    </header>
++
++    <div v-if="loading && !config" class="flex min-h-32 items-center justify-center text-sm text-gray-500 dark:text-gray-400">
++      {{ t('common.loading') }}
++    </div>
++
++    <div v-else class="space-y-6 p-5 sm:p-6">
++      <div v-if="loadError" role="alert" class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">
++        <span>{{ loadError }}</span>
++        <button type="button" class="btn btn-secondary btn-sm" @click="load">
++          {{ t('common.retry') }}
++        </button>
++      </div>
++
++      <div v-if="config" class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_12rem_auto] lg:items-end">
++        <label class="block min-w-0">
++          <span class="input-label">{{ t('admin.settings.oauth2Provider.issuer') }}</span>
++          <input
++            v-model.trim="configForm.issuer"
++            class="input mt-1.5 w-full font-mono text-sm"
++            type="url"
++            maxlength="512"
++            autocomplete="url"
++            placeholder="https://api.example.com"
++          />
++        </label>
++        <label class="block">
++          <span class="input-label">{{ t('admin.settings.oauth2Provider.tokenLifetime') }}</span>
++          <input
++            v-model.number="configForm.access_token_ttl_seconds"
++            class="input mt-1.5 w-full"
++            type="number"
++            min="60"
++            max="86400"
++            step="60"
++          />
++        </label>
++        <div class="flex min-h-10 items-center justify-between gap-3 lg:justify-end">
++          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
++            {{ t('admin.settings.oauth2Provider.enabled') }}
++          </span>
++          <Toggle v-model="configForm.enabled" />
++        </div>
++      </div>
++
++      <div v-if="config" class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4 dark:border-dark-700">
++        <div class="flex items-center gap-2 text-sm">
++          <span class="h-2.5 w-2.5 rounded-full" :class="config.enabled ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'" />
++          <span :class="config.enabled ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-500 dark:text-gray-400'">
++            {{ config.enabled ? t('common.enabled') : t('common.disabled') }}
++          </span>
++        </div>
++        <button type="button" class="btn btn-primary btn-sm inline-flex items-center gap-2" :disabled="operating" @click="saveConfig">
++          <Icon name="check" size="sm" />
++          {{ t('common.save') }}
++        </button>
++      </div>
++
++      <div v-if="oneTimeSecret" class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900/60 dark:bg-emerald-950/30">
++        <div class="flex items-start justify-between gap-3">
++          <div class="min-w-0">
++            <p class="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
++              {{ t('admin.settings.oauth2Provider.secretOnce') }}
++            </p>
++            <p class="mt-1 break-all font-mono text-xs text-emerald-700 dark:text-emerald-300">
++              {{ oneTimeSecret }}
++            </p>
++          </div>
++          <button type="button" class="btn btn-secondary btn-sm h-9 w-9 shrink-0 p-0" :title="t('common.copy')" :aria-label="t('common.copy')" @click="copySecret">
++            <Icon name="copy" size="sm" />
++          </button>
++        </div>
++      </div>
++
++      <div v-if="config" class="space-y-3 border-t border-gray-100 pt-5 dark:border-dark-700">
++        <div class="flex flex-wrap items-center justify-between gap-3">
++          <div>
++            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
++              {{ t('admin.settings.oauth2Provider.clients') }}
++            </h3>
++            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
++              {{ t('admin.settings.oauth2Provider.clientCount', { count: config.clients.length }) }}
++            </p>
++          </div>
++          <button type="button" class="btn btn-primary btn-sm inline-flex items-center gap-2" :disabled="operating" @click="openCreateDialog">
++            <Icon name="plus" size="sm" />
++            {{ t('admin.settings.oauth2Provider.addClient') }}
++          </button>
++        </div>
++
++        <div v-if="config.clients.length === 0" class="rounded-lg border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500 dark:border-dark-600 dark:text-gray-400">
++          {{ t('admin.settings.oauth2Provider.noClients') }}
++        </div>
++
++        <div v-else class="overflow-x-auto rounded-lg border border-gray-200 dark:border-dark-700">
++          <table class="w-full min-w-[760px] text-left text-sm">
++            <thead class="bg-gray-50 text-xs font-medium text-gray-500 dark:bg-dark-800 dark:text-gray-400">
++              <tr>
++                <th class="px-4 py-3">{{ t('common.name') }}</th>
++                <th class="px-4 py-3">{{ t('admin.settings.oauth2Provider.redirects') }}</th>
++                <th class="px-4 py-3">{{ t('admin.settings.oauth2Provider.scopes') }}</th>
++                <th class="px-4 py-3">{{ t('common.status') }}</th>
++                <th class="px-4 py-3 text-right">{{ t('common.actions') }}</th>
++              </tr>
++            </thead>
++            <tbody class="divide-y divide-gray-100 dark:divide-dark-700">
++              <tr v-for="client in config.clients" :key="client.client_id" class="bg-white align-top dark:bg-dark-900">
++                <td class="px-4 py-3">
++                  <p class="font-medium text-gray-900 dark:text-white">{{ client.name }}</p>
++                  <code class="mt-1 block max-w-56 break-all text-[11px] text-gray-500 dark:text-gray-400">{{ client.client_id }}</code>
++                  <span class="mt-1 inline-flex rounded bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600 dark:bg-dark-700 dark:text-gray-300">
++                    {{ clientTypeLabel(client.client_type) }}
++                  </span>
++                </td>
++                <td class="max-w-72 px-4 py-3">
++                  <code v-for="uri in client.redirect_uris" :key="uri" class="mb-1 block break-all text-xs text-gray-600 last:mb-0 dark:text-gray-300">{{ uri }}</code>
++                </td>
++                <td class="px-4 py-3">
++                  <div class="flex max-w-48 flex-wrap gap-1">
++                    <span v-for="scope in client.allowed_scopes" :key="scope" class="rounded bg-teal-50 px-1.5 py-0.5 text-[11px] text-teal-700 dark:bg-teal-900/30 dark:text-teal-300">{{ scope }}</span>
++                  </div>
++                </td>
++                <td class="px-4 py-3">
++                  <span :class="client.enabled ? 'text-emerald-600 dark:text-emerald-300' : 'text-gray-500 dark:text-gray-400'">
++                    {{ client.enabled ? t('common.enabled') : t('common.disabled') }}
++                  </span>
++                </td>
++                <td class="px-4 py-3">
++                  <div class="flex justify-end gap-1">
++                    <button type="button" class="btn btn-secondary btn-sm h-8 w-8 p-0" :disabled="operating" :title="t('common.edit')" :aria-label="t('common.edit')" @click="openEditDialog(client)">
++                      <Icon name="edit" size="sm" />
++                    </button>
++                    <button v-if="client.client_type === 'confidential'" type="button" class="btn btn-secondary btn-sm h-8 w-8 p-0" :disabled="operating" :title="t('admin.settings.oauth2Provider.rotateSecret')" :aria-label="t('admin.settings.oauth2Provider.rotateSecret')" @click="rotateSecret(client)">
++                      <Icon name="refresh" size="sm" />
++                    </button>
++                    <button type="button" class="btn btn-secondary btn-sm h-8 w-8 p-0 text-red-600 dark:text-red-400" :disabled="operating" :title="t('common.delete')" :aria-label="t('common.delete')" @click="removeClient(client)">
++                      <Icon name="trash" size="sm" />
++                    </button>
++                  </div>
++                </td>
++              </tr>
++            </tbody>
++          </table>
++        </div>
++      </div>
++    </div>
++
++    <BaseDialog :show="clientDialogOpen" :title="editingClientId ? t('admin.settings.oauth2Provider.editClient') : t('admin.settings.oauth2Provider.addClient')" width="wide" @close="closeClientDialog">
++      <form class="space-y-5" @submit.prevent="saveClient">
++        <div class="grid gap-4 sm:grid-cols-2">
++          <label class="block">
++            <span class="input-label">{{ t('common.name') }}</span>
++            <input v-model.trim="clientForm.name" class="input mt-1.5 w-full" type="text" maxlength="100" required />
++          </label>
++          <label class="block">
++            <span class="input-label">{{ t('admin.settings.oauth2Provider.clientType') }}</span>
++            <select v-model="clientForm.client_type" class="input mt-1.5 w-full" :disabled="Boolean(editingClientId)">
++              <option value="confidential">{{ t('admin.settings.oauth2Provider.types.confidential') }}</option>
++              <option value="public">{{ t('admin.settings.oauth2Provider.types.public') }}</option>
++            </select>
++          </label>
++        </div>
++
++        <label class="block">
++          <span class="input-label">{{ t('admin.settings.oauth2Provider.redirects') }}</span>
++          <textarea v-model="clientForm.redirect_uris" class="input mt-1.5 min-h-28 w-full resize-y font-mono text-sm" required placeholder="https://app.example.com/oauth/callback"></textarea>
++        </label>
++
++        <fieldset>
++          <legend class="input-label">{{ t('admin.settings.oauth2Provider.scopes') }}</legend>
++          <div class="mt-2 grid gap-2 sm:grid-cols-2">
++            <label v-for="scope in config?.scopes || []" :key="scope.name" class="flex items-start gap-2 rounded-lg border border-gray-200 p-3 dark:border-dark-600">
++              <input v-model="clientForm.allowed_scopes" class="mt-0.5" type="checkbox" :value="scope.name" />
++              <span class="min-w-0">
++                <strong class="block text-sm text-gray-800 dark:text-gray-100">{{ scope.name }}</strong>
++                <span class="text-xs text-gray-500 dark:text-gray-400">{{ translatedScopeDescription(scope.name, scope.description) }}</span>
++              </span>
++            </label>
++          </div>
++        </fieldset>
++
++        <div class="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3 dark:bg-dark-800">
++          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.settings.oauth2Provider.clientEnabled') }}</span>
++          <Toggle v-model="clientForm.enabled" />
++        </div>
++
++        <div class="flex justify-end gap-2 border-t border-gray-100 pt-4 dark:border-dark-700">
++          <button type="button" class="btn btn-secondary" :disabled="operating" @click="closeClientDialog">{{ t('common.cancel') }}</button>
++          <button type="submit" class="btn btn-primary inline-flex items-center gap-2" :disabled="operating || !canSaveClient">
++            <Icon name="check" size="sm" />
++            {{ t('common.save') }}
++          </button>
++        </div>
++      </form>
++    </BaseDialog>
++  </section>
++</template>
++
++<script setup lang="ts">
++import { computed, onMounted, reactive, ref } from 'vue'
++import { useI18n } from 'vue-i18n'
++import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
++import Toggle from '@/common/widgets/forms/Toggle.vue'
++import Icon from '@/common/widgets/icons/Icon.vue'
++import { isStepUpBlocked, isStepUpCancelled, stepUpBlockReason } from '@/common/composables/useStepUp'
++import { useAppStore } from '@/core/stores/appStore'
++import { extractApiErrorMessage } from '@/core/utils/apiError'
++import { createOAuth2ProviderClient, deleteOAuth2ProviderClient, rotateOAuth2ProviderClientSecret, updateOAuth2ProviderClient, updateOAuth2ProviderConfig } from '@/features/admin-settings/data/datasources/oauth2ProviderActions'
++import { getOAuth2ProviderConfig } from '@/features/admin-settings/data/datasources/oauth2ProviderQueries'
++import type { OAuth2ClientType, OAuth2ProviderClient, OAuth2ProviderConfig } from '@/features/admin-settings/data/dtos/oauth2ProviderDtos'
++import { useSettingsPageContext } from '@/features/admin-settings/presentation/composables/settingsPageContext'
++
++const { t } = useI18n()
++const appStore = useAppStore()
++const { settingsStepUp } = useSettingsPageContext()
++const config = ref<OAuth2ProviderConfig | null>(null)
++const loading = ref(false)
++const operating = ref(false)
++const loadError = ref('')
++const oneTimeSecret = ref('')
++const clientDialogOpen = ref(false)
++const editingClientId = ref('')
++
++const configForm = reactive({
++  enabled: false,
++  issuer: '',
++  access_token_ttl_seconds: 3600,
++})
++
++const clientForm = reactive({
++  name: '',
++  client_type: 'confidential' as OAuth2ClientType,
++  redirect_uris: '',
++  allowed_scopes: ['profile'] as string[],
++  enabled: true,
++})
++
++const parsedRedirectURIs = computed(() => clientForm.redirect_uris.split(/\r?\n/).map((value) => value.trim()).filter(Boolean))
++const canSaveClient = computed(() => clientForm.name.length > 0 && parsedRedirectURIs.value.length > 0 && clientForm.allowed_scopes.length > 0)
++
++function applyConfig(value: OAuth2ProviderConfig) {
++  config.value = value
++  configForm.enabled = value.enabled
++  configForm.issuer = value.issuer || window.location.origin
++  configForm.access_token_ttl_seconds = value.access_token_ttl_seconds || 3600
++}
++
++async function load() {
++  loading.value = true
++  loadError.value = ''
++  try {
++    applyConfig(await getOAuth2ProviderConfig())
++  } catch (error) {
++    loadError.value = extractApiErrorMessage(error, t('admin.settings.oauth2Provider.loadFailed'))
++  } finally {
++    loading.value = false
++  }
++}
++
++function handleOperationError(error: unknown, fallback: string) {
++  if (isStepUpCancelled(error)) return
++  if (isStepUpBlocked(error)) {
++    appStore.showError(stepUpBlockReason(error) === 'STEP_UP_ADMIN_API_KEY_FORBIDDEN' ? t('stepUp.adminApiKeyForbidden') : t('stepUp.notEnabled'))
++    return
++  }
++  appStore.showError(extractApiErrorMessage(error, fallback))
++}
++
++async function saveConfig() {
++  operating.value = true
++  try {
++    const updated = await settingsStepUp.run(() => updateOAuth2ProviderConfig({
++      enabled: configForm.enabled,
++      issuer: configForm.issuer,
++      access_token_ttl_seconds: Number(configForm.access_token_ttl_seconds),
++    }))
++    applyConfig(updated)
++    appStore.showSuccess(t('admin.settings.oauth2Provider.saved'))
++  } catch (error) {
++    handleOperationError(error, t('admin.settings.oauth2Provider.saveFailed'))
++  } finally {
++    operating.value = false
++  }
++}
++
++function resetClientForm() {
++  clientForm.name = ''
++  clientForm.client_type = 'confidential'
++  clientForm.redirect_uris = ''
++  clientForm.allowed_scopes = ['profile']
++  clientForm.enabled = true
++}
++
++function openCreateDialog() {
++  editingClientId.value = ''
++  resetClientForm()
++  clientDialogOpen.value = true
++}
++
++function openEditDialog(client: OAuth2ProviderClient) {
++  editingClientId.value = client.client_id
++  clientForm.name = client.name
++  clientForm.client_type = client.client_type
++  clientForm.redirect_uris = client.redirect_uris.join('\n')
++  clientForm.allowed_scopes = [...client.allowed_scopes]
++  clientForm.enabled = client.enabled
++  clientDialogOpen.value = true
++}
++
++function closeClientDialog() {
++  if (!operating.value) clientDialogOpen.value = false
++}
++
++async function saveClient() {
++  if (!canSaveClient.value) return
++  operating.value = true
++  try {
++    if (editingClientId.value) {
++      await settingsStepUp.run(() => updateOAuth2ProviderClient(editingClientId.value, {
++        name: clientForm.name,
++        redirect_uris: parsedRedirectURIs.value,
++        allowed_scopes: [...clientForm.allowed_scopes],
++        enabled: clientForm.enabled,
++      }))
++      appStore.showSuccess(t('admin.settings.oauth2Provider.clientSaved'))
++    } else {
++      const result = await settingsStepUp.run(() => createOAuth2ProviderClient({
++        name: clientForm.name,
++        client_type: clientForm.client_type,
++        redirect_uris: parsedRedirectURIs.value,
++        allowed_scopes: [...clientForm.allowed_scopes],
++        enabled: clientForm.enabled,
++      }))
++      oneTimeSecret.value = result.client_secret || ''
++      appStore.showSuccess(t('admin.settings.oauth2Provider.clientCreated'))
++    }
++    clientDialogOpen.value = false
++    await load()
++  } catch (error) {
++    handleOperationError(error, t('admin.settings.oauth2Provider.clientSaveFailed'))
++  } finally {
++    operating.value = false
++  }
++}
++
++async function rotateSecret(client: OAuth2ProviderClient) {
++  if (!window.confirm(t('admin.settings.oauth2Provider.rotateConfirm', { name: client.name }))) return
++  operating.value = true
++  try {
++    const result = await settingsStepUp.run(() => rotateOAuth2ProviderClientSecret(client.client_id))
++    oneTimeSecret.value = result.client_secret || ''
++    appStore.showSuccess(t('admin.settings.oauth2Provider.secretRotated'))
++    await load()
++  } catch (error) {
++    handleOperationError(error, t('admin.settings.oauth2Provider.rotateFailed'))
++  } finally {
++    operating.value = false
++  }
++}
++
++async function removeClient(client: OAuth2ProviderClient) {
++  if (!window.confirm(t('admin.settings.oauth2Provider.deleteConfirm', { name: client.name }))) return
++  operating.value = true
++  try {
++    await settingsStepUp.run(() => deleteOAuth2ProviderClient(client.client_id))
++    if (config.value) config.value.clients = config.value.clients.filter((item) => item.client_id !== client.client_id)
++    appStore.showSuccess(t('admin.settings.oauth2Provider.clientDeleted'))
++  } catch (error) {
++    handleOperationError(error, t('admin.settings.oauth2Provider.deleteFailed'))
++  } finally {
++    operating.value = false
++  }
++}
++
++async function copySecret() {
++  try {
++    await navigator.clipboard.writeText(oneTimeSecret.value)
++    appStore.showSuccess(t('common.copied'))
++  } catch {
++    appStore.showError(t('common.copyFailed'))
++  }
++}
++
++function translatedScopeDescription(name: string, fallback: string): string {
++  const key = `admin.settings.oauth2Provider.scopeDescriptions.${name}`
++  const translated = t(key)
++  return translated === key ? fallback : translated
++}
++
++function clientTypeLabel(clientType: OAuth2ClientType): string {
++  return clientType === 'public'
++    ? t('admin.settings.oauth2Provider.types.public')
++    : t('admin.settings.oauth2Provider.types.confidential')
++}
++
++onMounted(load)
++</script>
+diff --git a/frontend/src/features/admin-settings/presentation/widgets/settings-tabs/SettingsSecurityTab.vue b/frontend/src/features/admin-settings/presentation/widgets/settings-tabs/SettingsSecurityTab.vue
+index 33b5289..62256c0 100644
+--- a/frontend/src/features/admin-settings/presentation/widgets/settings-tabs/SettingsSecurityTab.vue
++++ b/frontend/src/features/admin-settings/presentation/widgets/settings-tabs/SettingsSecurityTab.vue
+@@ -5,0 +6 @@
++    <SettingsOAuth2ProviderPanel v-if="authStore.isAdmin" />
+@@ -12,0 +14,4 @@ import SettingsSecurityIdentityProvidersPanel from './SettingsSecurityIdentityPr
++import SettingsOAuth2ProviderPanel from './SettingsOAuth2ProviderPanel.vue'
++import { useAuthStore } from '@/features/auth'
++
++const authStore = useAuthStore()
+diff --git a/frontend/src/features/auth/README.md b/frontend/src/features/auth/README.md
+index 7d7ac6b..a3c3568 100644
+--- a/frontend/src/features/auth/README.md
++++ b/frontend/src/features/auth/README.md
+@@ -11,0 +12 @@
++- `data/datasources/oauth2ProviderDatasource.ts`: OAuth2 provider consent preview and resource-owner decision calls.
+@@ -13,0 +15 @@
++- `presentation/pages/OAuth2AuthorizePage.vue`: authenticated consent screen for administrator-approved OAuth2 clients.
+diff --git a/frontend/src/features/auth/__tests__/OAuth2AuthorizePage.spec.ts b/frontend/src/features/auth/__tests__/OAuth2AuthorizePage.spec.ts
+new file mode 100644
+index 0000000..cf117cb
+--- /dev/null
++++ b/frontend/src/features/auth/__tests__/OAuth2AuthorizePage.spec.ts
+@@ -0,0 +1,79 @@
++import { flushPromises, mount } from '@vue/test-utils'
++import { beforeEach, describe, expect, it, vi } from 'vitest'
++
++const { getPreview, submitAuthorization } = vi.hoisted(() => ({
++  getPreview: vi.fn(),
++  submitAuthorization: vi.fn(),
++}))
++
++vi.mock('vue-i18n', async (importOriginal) => ({
++  ...(await importOriginal<typeof import('vue-i18n')>()),
++  useI18n: () => ({ t: (key: string) => key }),
++}))
++vi.mock('vue-router', () => ({
++  useRoute: () => ({
++    query: {
++      client_id: 's2c_test',
++      redirect_uri: 'https://client.example.test/callback',
++      response_type: 'code',
++      scope: 'profile email',
++      state: 'state-123',
++      code_challenge: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~',
++      code_challenge_method: 'S256',
++    },
++  }),
++}))
++vi.mock('@/features/auth/data/datasources/oauth2ProviderDatasource', () => ({
++  getOAuth2AuthorizationPreview: getPreview,
++  submitOAuth2Authorization: submitAuthorization,
++}))
++
++import OAuth2AuthorizePage from '@/features/auth/presentation/pages/OAuth2AuthorizePage.vue'
++
++describe('OAuth2AuthorizePage', () => {
++  beforeEach(() => {
++    getPreview.mockReset().mockResolvedValue({
++      client_id: 's2c_test',
++      client_name: 'Analytics console',
++      redirect_uri: 'https://client.example.test/callback',
++      scopes: [
++        { name: 'profile', description: 'profile' },
++        { name: 'email', description: 'email' },
++      ],
++    })
++    submitAuthorization.mockReset().mockRejectedValue(new Error('redirect stopped in test'))
++  })
++
++  it('loads a server-validated client and scope preview', async () => {
++    const wrapper = mount(OAuth2AuthorizePage, {
++      global: { stubs: { AuthLayout: { template: '<main><slot /></main>' }, Icon: true } },
++    })
++    await flushPromises()
++
++    expect(getPreview).toHaveBeenCalledWith(expect.objectContaining({
++      client_id: 's2c_test',
++      redirect_uri: 'https://client.example.test/callback',
++      state: 'state-123',
++      code_challenge_method: 'S256',
++    }))
++    expect(wrapper.text()).toContain('Analytics console')
++    expect(wrapper.text()).toContain('profile')
++    expect(wrapper.text()).toContain('email')
++  })
++
++  it('submits an explicit resource-owner decision', async () => {
++    const wrapper = mount(OAuth2AuthorizePage, {
++      global: { stubs: { AuthLayout: { template: '<main><slot /></main>' }, Icon: true } },
++    })
++    await flushPromises()
++    const allow = wrapper.findAll('button').find((button) => button.text().includes('oauth2Consent.allow'))
++    expect(allow).toBeDefined()
++    await allow?.trigger('click')
++    await flushPromises()
++
++    expect(submitAuthorization).toHaveBeenCalledWith(expect.objectContaining({
++      client_id: 's2c_test',
++      state: 'state-123',
++    }), true)
++  })
++})
+diff --git a/frontend/src/features/auth/data/datasources/oauth2ProviderDatasource.ts b/frontend/src/features/auth/data/datasources/oauth2ProviderDatasource.ts
+new file mode 100644
+index 0000000..b3c7408
+--- /dev/null
++++ b/frontend/src/features/auth/data/datasources/oauth2ProviderDatasource.ts
+@@ -0,0 +1,36 @@
++import { apiClient } from '@/core/networks/client'
++
++export interface OAuth2AuthorizationParameters {
++  client_id: string
++  redirect_uri: string
++  response_type: string
++  scope: string
++  state: string
++  code_challenge: string
++  code_challenge_method: string
++}
++
++export interface OAuth2AuthorizationScope {
++  name: string
++  description: string
++}
++
++export interface OAuth2AuthorizationPreview {
++  client_id: string
++  client_name: string
++  redirect_uri: string
++  scopes: OAuth2AuthorizationScope[]
++}
++
++export async function getOAuth2AuthorizationPreview(params: OAuth2AuthorizationParameters): Promise<OAuth2AuthorizationPreview> {
++  const { data } = await apiClient.get<OAuth2AuthorizationPreview>('/oauth2/authorize', { params })
++  return data
++}
++
++export async function submitOAuth2Authorization(params: OAuth2AuthorizationParameters, approved: boolean): Promise<{ redirect_url: string }> {
++  const { data } = await apiClient.post<{ redirect_url: string }>('/oauth2/authorize', {
++    ...params,
++    approved,
++  })
++  return data
++}
+diff --git a/frontend/src/features/auth/presentation/pages/OAuth2AuthorizePage.vue b/frontend/src/features/auth/presentation/pages/OAuth2AuthorizePage.vue
+new file mode 100644
+index 0000000..454c041
+--- /dev/null
++++ b/frontend/src/features/auth/presentation/pages/OAuth2AuthorizePage.vue
+@@ -0,0 +1,146 @@
++<template>
++  <AuthLayout>
++    <div class="space-y-6">
++      <div class="text-center">
++        <span class="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300">
++          <Icon name="shield" size="lg" />
++        </span>
++        <h2 class="mt-4 text-xl font-semibold text-gray-900 dark:text-white">
++          {{ t('oauth2Consent.title') }}
++        </h2>
++      </div>
++
++      <div v-if="loading" class="flex min-h-36 items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
++        <Icon name="refresh" size="sm" class="animate-spin" />
++        {{ t('common.loading') }}
++      </div>
++
++      <div v-else-if="errorMessage" role="alert" class="space-y-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">
++        <p>{{ errorMessage }}</p>
++        <button type="button" class="btn btn-secondary w-full" @click="loadPreview">
++          {{ t('common.retry') }}
++        </button>
++      </div>
++
++      <template v-else-if="preview">
++        <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-center dark:border-dark-700 dark:bg-dark-800">
++          <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('oauth2Consent.requestedBy') }}</p>
++          <p class="mt-1 break-words text-base font-semibold text-gray-900 dark:text-white">{{ preview.client_name }}</p>
++          <p class="mt-1 break-all text-xs text-gray-500 dark:text-gray-400">
++            {{ t('oauth2Consent.redirectTo') }}: {{ redirectOrigin }}
++          </p>
++        </div>
++
++        <div>
++          <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('oauth2Consent.permissions') }}</h3>
++          <ul class="mt-3 space-y-2">
++            <li v-for="scope in preview.scopes" :key="scope.name" class="flex items-start gap-3 rounded-lg border border-gray-200 px-3 py-3 dark:border-dark-700">
++              <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
++                <Icon name="check" size="xs" />
++              </span>
++              <span class="min-w-0">
++                <strong class="block text-sm text-gray-800 dark:text-gray-100">{{ scopeLabel(scope.name) }}</strong>
++                <span class="mt-0.5 block text-xs leading-5 text-gray-500 dark:text-gray-400">{{ scopeDescription(scope.name, scope.description) }}</span>
++              </span>
++            </li>
++          </ul>
++        </div>
++
++        <div class="grid grid-cols-2 gap-3">
++          <button type="button" class="btn btn-secondary" :disabled="submitting" @click="submit(false)">
++            {{ t('oauth2Consent.deny') }}
++          </button>
++          <button type="button" class="btn btn-primary inline-flex items-center justify-center gap-2" :disabled="submitting" @click="submit(true)">
++            <Icon v-if="submitting" name="refresh" size="sm" class="animate-spin" />
++            <Icon v-else name="check" size="sm" />
++            {{ t('oauth2Consent.allow') }}
++          </button>
++        </div>
++      </template>
++    </div>
++  </AuthLayout>
++</template>
++
++<script setup lang="ts">
++import { computed, onMounted, ref } from 'vue'
++import { useI18n } from 'vue-i18n'
++import { useRoute } from 'vue-router'
++import AuthLayout from '@/common/widgets/layout/AuthLayout.vue'
++import Icon from '@/common/widgets/icons/Icon.vue'
++import { extractApiErrorMessage } from '@/core/utils/apiError'
++import { getOAuth2AuthorizationPreview, submitOAuth2Authorization, type OAuth2AuthorizationParameters, type OAuth2AuthorizationPreview } from '@/features/auth/data/datasources/oauth2ProviderDatasource'
++
++const route = useRoute()
++const { t } = useI18n()
++const loading = ref(true)
++const submitting = ref(false)
++const errorMessage = ref('')
++const preview = ref<OAuth2AuthorizationPreview | null>(null)
++const redirectOrigin = computed(() => {
++  if (!preview.value?.redirect_uri) return ''
++  try {
++    return new URL(preview.value.redirect_uri).origin
++  } catch {
++    return preview.value.redirect_uri
++  }
++})
++
++function queryString(name: string): string {
++  const value = route.query[name]
++  return typeof value === 'string' ? value : ''
++}
++
++function parameters(): OAuth2AuthorizationParameters {
++  return {
++    client_id: queryString('client_id'),
++    redirect_uri: queryString('redirect_uri'),
++    response_type: queryString('response_type'),
++    scope: queryString('scope'),
++    state: queryString('state'),
++    code_challenge: queryString('code_challenge'),
++    code_challenge_method: queryString('code_challenge_method'),
++  }
++}
++
++async function loadPreview() {
++  loading.value = true
++  errorMessage.value = ''
++  preview.value = null
++  try {
++    preview.value = await getOAuth2AuthorizationPreview(parameters())
++  } catch (error) {
++    errorMessage.value = extractApiErrorMessage(error, t('oauth2Consent.invalidRequest'))
++  } finally {
++    loading.value = false
++  }
++}
++
++async function submit(approved: boolean) {
++  submitting.value = true
++  errorMessage.value = ''
++  try {
++    const result = await submitOAuth2Authorization(parameters(), approved)
++    const target = new URL(result.redirect_url)
++    if (target.protocol !== 'https:' && target.protocol !== 'http:') throw new Error(t('oauth2Consent.invalidRedirect'))
++    window.location.assign(target.href)
++  } catch (error) {
++    errorMessage.value = extractApiErrorMessage(error, t('oauth2Consent.submitFailed'))
++  } finally {
++    submitting.value = false
++  }
++}
++
++function scopeLabel(name: string): string {
++  const key = `oauth2Consent.scopes.${name}.label`
++  const translated = t(key)
++  return translated === key ? name : translated
++}
++
++function scopeDescription(name: string, fallback: string): string {
++  const key = `oauth2Consent.scopes.${name}.description`
++  const translated = t(key)
++  return translated === key ? fallback : translated
++}
++
++onMounted(loadPreview)
++</script>
+diff --git a/tools/oauth2-provider-smoke.mjs b/tools/oauth2-provider-smoke.mjs
+new file mode 100755
+index 0000000..c6898e2
+--- /dev/null
++++ b/tools/oauth2-provider-smoke.mjs
+@@ -0,0 +1,283 @@
++#!/usr/bin/env node
++import assert from 'node:assert/strict'
++import crypto from 'node:crypto'
++import { execFileSync } from 'node:child_process'
++import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
++import { tmpdir } from 'node:os'
++import { join } from 'node:path'
++
++const image = process.argv[2] || 'sub2api-oauth2-provider:test'
++const prefix = `oauth2-provider-smoke-${crypto.randomBytes(5).toString('hex')}`
++const dir = mkdtempSync(join(tmpdir(), 'oauth2-provider-smoke-'))
++const created = []
++const password = `T!${crypto.randomBytes(24).toString('base64url')}`
++let networkCreated = false
++let base = ''
++let assertions = 0
++
++const docker = (...args) => execFileSync('docker', args, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim()
++const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
++
++function run(name, args) {
++  const container = `${prefix}-${name}`
++  docker('run', '-d', '--name', container, '--network', prefix, ...args)
++  created.push(container)
++  return container
++}
++
++async function jsonRequest(method, path, { token, adminKey, body, form, basic, expected = 200 } = {}) {
++  const headers = { 'user-agent': 'oauth2-provider-smoke' }
++  if (token) headers.authorization = `Bearer ${token}`
++  if (adminKey) headers['x-api-key'] = adminKey
++  if (basic) headers.authorization = `Basic ${Buffer.from(`${basic.id}:${basic.secret}`).toString('base64')}`
++  let encodedBody
++  if (body !== undefined) {
++    headers['content-type'] = 'application/json'
++    encodedBody = JSON.stringify(body)
++  } else if (form !== undefined) {
++    headers['content-type'] = 'application/x-www-form-urlencoded'
++    encodedBody = new URLSearchParams(form).toString()
++  }
++  const response = await fetch(base + path, { method, headers, ...(encodedBody === undefined ? {} : { body: encodedBody }) })
++  const text = await response.text()
++  const data = text ? JSON.parse(text) : null
++  assert.equal(response.status, expected, `${method} ${path}: ${text}`)
++  assertions++
++  console.log(`${method} ${path.split('?', 1)[0]} => ${response.status}`)
++  return { response, data }
++}
++
++async function api(token, method, path, body, expected = 200) {
++  const { data } = await jsonRequest(method, `/api/v1${path}`, { token, body, expected })
++  return data?.data
++}
++
++async function login(email) {
++  const keyResponse = await fetch(base + '/api/v1/auth/credential-key', { headers: { 'user-agent': 'oauth2-provider-smoke' } })
++  assert.equal(keyResponse.status, 200)
++  const key = (await keyResponse.json()).data
++  const cookie = keyResponse.headers.getSetCookie().map((value) => value.split(';')[0]).join('; ')
++  const aesKey = crypto.randomBytes(32)
++  const iv = crypto.randomBytes(12)
++  const cipher = crypto.createCipheriv('aes-256-gcm', aesKey, iv)
++  cipher.setAAD(Buffer.from(key.key_id))
++  const encrypted = Buffer.concat([
++    cipher.update(JSON.stringify({ email, password, issued_at: key.server_time })),
++    cipher.final(),
++    cipher.getAuthTag(),
++  ])
++  const envelope = {
++    algorithm: key.algorithm,
++    key_id: key.key_id,
++    iv: iv.toString('base64url'),
++    ciphertext: encrypted.toString('base64url'),
++    encrypted_key: crypto.publicEncrypt({
++      key: crypto.createPublicKey({ key: Buffer.from(key.public_key, 'base64'), format: 'der', type: 'spki' }),
++      padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
++      oaepHash: 'sha256',
++    }, aesKey).toString('base64url'),
++  }
++  const response = await fetch(base + '/api/v1/auth/login', {
++    method: 'POST',
++    headers: { 'content-type': 'application/json', 'user-agent': 'oauth2-provider-smoke', cookie },
++    body: JSON.stringify({ credential_envelope: envelope }),
++  })
++  const data = await response.json()
++  assert.equal(response.status, 200, `login ${email}: ${JSON.stringify(data)}`)
++  assertions++
++  console.log(`LOGIN ${email} => 200`)
++  return data.data.access_token
++}
++
++async function authorize(token, clientId, redirectURI, scopes, approved = true) {
++  const verifier = crypto.randomBytes(48).toString('base64url')
++  const challenge = crypto.createHash('sha256').update(verifier).digest('base64url')
++  const request = {
++    client_id: clientId,
++    redirect_uri: redirectURI,
++    response_type: 'code',
++    scope: scopes,
++    state: `state-${crypto.randomBytes(8).toString('hex')}`,
++    code_challenge: challenge,
++    code_challenge_method: 'S256',
++  }
++  const previewQuery = new URLSearchParams(request).toString()
++  const preview = await api(token, 'GET', `/oauth2/authorize?${previewQuery}`)
++  assert.equal(preview.client_id, clientId)
++  const result = await api(token, 'POST', '/oauth2/authorize', { ...request, approved })
++  const redirect = new URL(result.redirect_url)
++  assert.equal(redirect.searchParams.get('state'), request.state)
++  return { verifier, request, redirect }
++}
++
++async function exchange(client, grant) {
++  const { data } = await jsonRequest('POST', '/oauth/token', {
++    basic: { id: client.client_id, secret: client.client_secret },
++    form: {
++      grant_type: 'authorization_code',
++      code: grant.redirect.searchParams.get('code'),
++      redirect_uri: grant.request.redirect_uri,
++      code_verifier: grant.verifier,
++    },
++  })
++  return data
++}
++
++try {
++  docker('network', 'create', prefix)
++  networkCreated = true
++  const env = join(dir, 'fixture.env')
++  writeFileSync(env, [
++    'POSTGRES_USER=fixture',
++    `POSTGRES_PASSWORD=${password}`,
++    'POSTGRES_DB=fixture',
++    'PGDATA=/var/lib/postgresql/data',
++    'AUTO_SETUP=true',
++    `DATABASE_HOST=${prefix}-pg`,
++    'DATABASE_USER=fixture',
++    `DATABASE_PASSWORD=${password}`,
++    'DATABASE_DBNAME=fixture',
++    'DATABASE_SSLMODE=disable',
++    'DATABASE_MAX_OPEN_CONNS=8',
++    'DATABASE_MAX_IDLE_CONNS=2',
++    `REDIS_HOST=${prefix}-redis`,
++    'REDIS_POOL_SIZE=8',
++    'REDIS_MIN_IDLE_CONNS=1',
++    'ADMIN_EMAIL=admin@fixture.local',
++    `ADMIN_PASSWORD=${password}`,
++    `JWT_SECRET=${crypto.randomBytes(40).toString('hex')}`,
++    'SERVER_PORT=8080',
++    '',
++  ].join('\n'), { mode: 0o600 })
++
++  const postgres = run('pg', ['--memory', '512m', '--tmpfs', '/var/lib/postgresql:rw,size=384m', '--env-file', env, 'postgres:18-alpine'])
++  const redis = run('redis', ['--memory', '128m', 'redis:8-alpine', 'redis-server', '--save', '', '--appendonly', 'no', '--maxmemory', '64mb'])
++  for (let i = 0; i < 90; i++) {
++    try {
++      docker('exec', postgres, 'pg_isready', '-U', 'fixture')
++      docker('exec', redis, 'redis-cli', 'ping')
++      break
++    } catch {
++      if (i === 89) throw new Error('dependency startup timeout')
++      await sleep(1000)
++    }
++  }
++
++  const app = run('app', ['--memory', '768m', '--tmpfs', '/app/data:rw,size=64m', '--env-file', env, '-p', '127.0.0.1::8080', image])
++  const port = JSON.parse(docker('inspect', app))[0].NetworkSettings.Ports['8080/tcp'][0].HostPort
++  base = `http://127.0.0.1:${port}`
++  let ready = false
++  for (let i = 0; i < 120; i++) {
++    try {
++      const response = await fetch(base + '/health')
++      if (response.ok) {
++        ready = true
++        break
++      }
++    } catch {
++      // Startup probe.
++    }
++    await sleep(1000)
++  }
++  assert.ok(ready, 'fixture startup timeout')
++  console.log('ISOLATED_APP_HEALTH => 200')
++
++  const admin = await login('admin@fixture.local')
++  const compliance = await api(admin, 'GET', '/admin/compliance')
++  await api(admin, 'POST', '/admin/compliance/accept', { phrase: compliance.ack_phrase_zh, language: 'zh' })
++
++  const initial = await api(admin, 'GET', '/admin/oauth2-provider')
++  assert.equal(initial.enabled, false)
++  await jsonRequest('GET', '/.well-known/oauth-authorization-server', { expected: 404 })
++
++  const machineCredential = await api(admin, 'POST', '/admin/settings/admin-api-keys', {
++    name: 'OAuth2 smoke machine credential',
++    scopes: ['admin.settings.read', 'admin.settings.write'],
++  }, 201)
++  await jsonRequest('PUT', '/api/v1/admin/oauth2-provider', {
++    adminKey: machineCredential.key,
++    body: { enabled: true, issuer: base, access_token_ttl_seconds: 600 },
++    expected: 403,
++  })
++
++  const configured = await api(admin, 'PUT', '/admin/oauth2-provider', {
++    enabled: true,
++    issuer: base,
++    access_token_ttl_seconds: 600,
++  })
++  assert.equal(configured.enabled, true)
++
++  const redirectURI = 'https://client.example.test/oauth/callback?fixed=1'
++  const createdClient = await api(admin, 'POST', '/admin/oauth2-provider/clients', {
++    name: 'OAuth2 smoke client',
++    client_type: 'confidential',
++    redirect_uris: [redirectURI],
++    allowed_scopes: ['profile', 'email'],
++    enabled: true,
++  }, 201)
++  assert.ok(createdClient.client.client_id)
++  assert.ok(createdClient.client_secret)
++  const client = { ...createdClient.client, client_secret: createdClient.client_secret }
++
++  const discovery = await jsonRequest('GET', '/.well-known/oauth-authorization-server')
++  assert.equal(discovery.data.authorization_endpoint, `${base}/oauth/authorize`)
++  assert.equal(discovery.data.token_endpoint, `${base}/oauth/token`)
++
++  const denied = await authorize(admin, client.client_id, redirectURI, 'profile', false)
++  assert.equal(denied.redirect.searchParams.get('error'), 'access_denied')
++  assert.equal(denied.redirect.searchParams.get('code'), null)
++
++  const grant = await authorize(admin, client.client_id, redirectURI, 'profile email')
++  assert.equal(grant.redirect.searchParams.get('fixed'), '1')
++  const token = await exchange(client, grant)
++  assert.equal(token.token_type, 'Bearer')
++  assert.equal(token.expires_in, 600)
++  assert.equal(token.scope, 'profile email')
++
++  const replay = await jsonRequest('POST', '/oauth/token', {
++    basic: { id: client.client_id, secret: client.client_secret },
++    form: {
++      grant_type: 'authorization_code',
++      code: grant.redirect.searchParams.get('code'),
++      redirect_uri: redirectURI,
++      code_verifier: grant.verifier,
++    },
++    expected: 400,
++  })
++  assert.equal(replay.data.error, 'invalid_grant')
++
++  const userinfo = await jsonRequest('GET', '/oauth/userinfo', { token: token.access_token })
++  assert.ok(userinfo.data.sub)
++  assert.equal(userinfo.data.email, 'admin@fixture.local')
++  await jsonRequest('GET', '/api/v1/auth/me', { token: token.access_token, expected: 401 })
++  await jsonRequest('GET', '/v1/models', { token: token.access_token, expected: 401 })
++
++  await jsonRequest('POST', '/oauth/revoke', {
++    basic: { id: client.client_id, secret: client.client_secret },
++    form: { token: token.access_token },
++  })
++  const revoked = await jsonRequest('GET', '/oauth/userinfo', { token: token.access_token, expected: 401 })
++  assert.equal(revoked.data.error, 'invalid_token')
++
++  const scopedGrant = await authorize(admin, client.client_id, redirectURI, 'profile email')
++  const scopedToken = await exchange(client, scopedGrant)
++  await api(admin, 'PUT', `/admin/oauth2-provider/clients/${encodeURIComponent(client.client_id)}`, {
++    allowed_scopes: ['profile'],
++  })
++  const scopeRevoked = await jsonRequest('GET', '/oauth/userinfo', { token: scopedToken.access_token, expected: 401 })
++  assert.equal(scopeRevoked.data.error, 'invalid_token')
++
++  await api(admin, 'PUT', '/admin/oauth2-provider', {
++    enabled: false,
++    issuer: base,
++    access_token_ttl_seconds: 600,
++  })
++  await jsonRequest('GET', '/.well-known/oauth-authorization-server', { expected: 404 })
++
++  console.log(`SMOKE_PASS assertions=${assertions}; admin-session control, authorize, PKCE, replay rejection, userinfo, scope revocation, token isolation and provider disable verified`)
++} finally {
++  for (const name of created.reverse()) docker('rm', '-f', name)
++  if (networkCreated) docker('network', 'rm', prefix)
++  rmSync(dir, { recursive: true, force: true })
++  console.log('CLEANUP_PASS isolated containers/network/temporary credentials removed')
++}

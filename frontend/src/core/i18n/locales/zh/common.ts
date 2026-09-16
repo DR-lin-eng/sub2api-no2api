@@ -528,6 +528,22 @@ export default {
   },
 
   // Step-up（敏感操作二次验证）
+  oauth2Consent: {
+    pageTitle: '应用授权',
+    title: '确认应用授权',
+    requestedBy: '申请访问的应用',
+    redirectTo: '授权后返回',
+    permissions: '申请的权限',
+    allow: '允许',
+    deny: '拒绝',
+    invalidRequest: '授权请求无效或已失效',
+    submitFailed: '提交授权结果失败',
+    invalidRedirect: '授权回调地址无效',
+    scopes: {
+      profile: { label: '基本资料', description: '读取您的稳定标识和公开用户名' },
+      email: { label: '邮箱地址', description: '读取您的账号邮箱地址' },
+    },
+  },
   stepUp: {
     title: '需要二次验证',
     hint: '请输入身份验证器应用中的 6 位验证码以继续此敏感操作。',

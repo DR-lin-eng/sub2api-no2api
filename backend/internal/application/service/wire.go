@@ -1002,6 +1002,7 @@ var ProviderSet = wire.NewSet(
 	ProvideClusterReleaseService,
 	// Core services
 	NewAuthService,
+	NewOAuth2ProviderService,
 	NewPasskeyService,
 	NewUserService,
 	ProvideAPIKeyService,

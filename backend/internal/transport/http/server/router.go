@@ -147,6 +147,7 @@ func registerRoutes(
 
 	// 注册各模块路由
 	routes.RegisterAuthRoutes(v1, h, jwtAuth, auditLog, redisClient, db, settingService, panelRateLimiter)
+	routes.RegisterOAuth2ProviderRoutes(r, h, jwtAuth, panelRateLimiter)
 	routes.RegisterUserRoutes(v1, h, jwtAuth, auditLog, settingService, panelRateLimiter)
 	routes.RegisterChannelMonitorPublicRoutes(v1, h, optionalJWTAuth, settingService, panelRateLimiter)
 	routes.RegisterModelPlazaRoutes(v1, h, optionalJWTAuth, settingService, panelRateLimiter)
