@@ -145,6 +145,9 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			turnState = savedTurnState
 		}
 	}
+	if replayState := s.configuredCodexTurnStateReplay(c, account); replayState != "" {
+		turnState = replayState
+	}
 	preferredConnID := ""
 	if stateStore != nil && previousResponseID != "" {
 		if connID, ok := stateStore.GetResponseConn(previousResponseID); ok {

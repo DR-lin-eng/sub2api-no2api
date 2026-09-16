@@ -203,6 +203,13 @@ export async function updateCodexSimulationSettings(
   return data;
 }
 
+export async function syncCodexTurnStates(): Promise<CodexSimulationSettings> {
+  const { data } = await apiClient.post<CodexSimulationSettings>(
+    "/admin/settings/codex-simulation/sync-turn-states",
+  );
+  return data;
+}
+
 export async function forceDisableCodexSimulationSettings(): Promise<CodexSimulationSettings> {
   const { data } = await apiClient.post<CodexSimulationSettings>(
     "/admin/settings/codex-simulation/restore-original",

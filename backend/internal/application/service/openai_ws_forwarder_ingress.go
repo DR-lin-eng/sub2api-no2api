@@ -615,6 +615,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				turnState = savedTurnState
 			}
 		}
+		if replayState := s.configuredCodexTurnStateReplay(c, account); replayState != "" {
+			turnState = replayState
+		}
 
 		if stateStore != nil && payload.previousResponseID != "" {
 			if connID, ok := stateStore.GetResponseConn(payload.previousResponseID); ok {

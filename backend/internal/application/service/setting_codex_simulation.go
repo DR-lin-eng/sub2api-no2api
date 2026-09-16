@@ -24,13 +24,16 @@ const (
 // request. IdentitySecret is persisted but must never be returned by an HTTP
 // handler; transport DTOs expose only IdentitySecretConfigured.
 type CodexSimulationSettings struct {
-	FullSimulationEnabled                bool   `json:"full_simulation_enabled"`
-	CLevelSimulationEnabled              bool   `json:"c_level_simulation_enabled"`
-	ExperimentalTransportEnabled         bool   `json:"experimental_transport_enabled,omitempty"`
-	CodexPrewarmContinuationForceEnabled bool   `json:"codex_prewarm_continuation_force_enabled"`
-	ContinuationMode                     string `json:"continuation_mode"`
-	StateTTLSeconds                      int    `json:"state_ttl_seconds"`
-	IdentitySecret                       string `json:"identity_secret"`
+	FullSimulationEnabled                bool               `json:"full_simulation_enabled"`
+	CLevelSimulationEnabled              bool               `json:"c_level_simulation_enabled"`
+	ExperimentalTransportEnabled         bool               `json:"experimental_transport_enabled,omitempty"`
+	CodexPrewarmContinuationForceEnabled bool               `json:"codex_prewarm_continuation_force_enabled"`
+	TurnStateReplayEnabled               bool               `json:"turn_state_replay_enabled"`
+	TurnStates                           []string           `json:"turn_states"`
+	TurnStateAccountIDs                  map[string][]int64 `json:"turn_state_account_ids,omitempty"`
+	ContinuationMode                     string             `json:"continuation_mode"`
+	StateTTLSeconds                      int                `json:"state_ttl_seconds"`
+	IdentitySecret                       string             `json:"identity_secret"`
 }
 
 func (s CodexSimulationSettings) IdentitySecretConfigured() bool {
@@ -127,6 +130,15 @@ func validateCodexSimulationSettings(settings CodexSimulationSettings) (CodexSim
 
 	settings.ContinuationMode = mode
 	settings.IdentitySecret = strings.TrimSpace(settings.IdentitySecret)
+	var err error
+	settings.TurnStates, err = normalizeCodexTurnStates(settings.TurnStates)
+	if err != nil {
+		return CodexSimulationSettings{}, err
+	}
+	settings.TurnStateAccountIDs = normalizeCodexTurnStateAccountIDs(settings.TurnStates, settings.TurnStateAccountIDs)
+	if settings.TurnStateReplayEnabled && len(settings.TurnStates) == 0 {
+		return CodexSimulationSettings{}, fmt.Errorf("turn_states must not be empty when turn state replay is enabled")
+	}
 	if (settings.FullSimulationEnabled || mode != string(codexContinuationOff)) && len([]byte(settings.IdentitySecret)) < 32 {
 		return CodexSimulationSettings{}, fmt.Errorf("identity secret must be at least 32 bytes when Codex simulation is enabled")
 	}
@@ -272,6 +284,9 @@ func (s *SettingService) SetCodexSimulationSettings(ctx context.Context, request
 		current.IdentitySecret = s.defaultCodexSimulationSettings().IdentitySecret
 	}
 	settings := *requested
+	if settings.TurnStateAccountIDs == nil {
+		settings.TurnStateAccountIDs = current.TurnStateAccountIDs
+	}
 	providedSecret := strings.TrimSpace(settings.IdentitySecret)
 	if providedSecret == "" {
 		settings.IdentitySecret = current.IdentitySecret
@@ -330,6 +345,7 @@ func (s *SettingService) ForceDisableCodexSimulationSettings(ctx context.Context
 	settings.CLevelSimulationEnabled = false
 	settings.ExperimentalTransportEnabled = false
 	settings.CodexPrewarmContinuationForceEnabled = false
+	settings.TurnStateReplayEnabled = false
 	settings.ContinuationMode = string(codexContinuationOff)
 
 	validated, err := validateCodexSimulationSettings(settings)

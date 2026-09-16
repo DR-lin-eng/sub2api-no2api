@@ -63,6 +63,13 @@ failover，service 层不会先写 JSON，因此不会再和外层 `response.fai
 采用 stale-while-revalidate，设置库不可用不会阻塞转发；传输超时的账号 runtime block 延迟到重试预算
 耗尽，恢复成功会只清理同一 `transport_timeout` 原因的封禁。
 
+管理员还可以在数据库运行时设置中显式开启 Turn State 重放。该模式优先于客户端回带和会话缓存：每个
+OpenAI OAuth HTTP 请求从当前账号可用池随机取一个值并覆盖注入；原生 WS 在每次新连接握手时随机取值，
+同一连接的后续帧沿用原握手头；托管连接池把 state 摘要纳入握手兼容键，不会把选择了不同 state 的请求
+复用到同一上游连接。手工值没有账号绑定；从质量
+巡检一键同步的值只对采集账号可用。质量巡检只把通过阶段的响应头纳入同步候选，并可用独立开关随机注入
+同一池做开启/关闭对照。原始 state 只出现在管理员接口和数据库设置，不进入公开质量页面或诊断日志。
+
 ## 网关必须存在的差异
 
 官方客户端在一个本地 installation 内直接拥有会话；Sub2API 则让多个下游调用方共享上游账号池。
@@ -158,12 +165,15 @@ HTTP/2 SETTINGS/WINDOW 参数；它们仍然不能保证跨平台 byte-for-byte 
 `codex_simulation_settings`，当前节点立即发布，其他节点通过后台任务最多在 5 秒内刷新；OAuth 请求路径
 只读取内存快照，不查询数据库。数据库记录存在时会覆盖旧
 YAML。点击“强制恢复原版行为”会调用无请求体的 `POST .../codex-simulation/restore-original`，即使旧记录
-损坏或页面 TTL 输入无效，也会显式保存 `full_simulation_enabled=false`、`c_level_simulation_enabled=false` 与 `continuation_mode=off`，因此
+损坏或页面 TTL 输入无效，也会显式保存 `full_simulation_enabled=false`、`c_level_simulation_enabled=false`、`turn_state_replay_enabled=false` 与 `continuation_mode=off`，因此
 不受旧文件中启用值影响。已有模拟 WS 会在下一轮关闭并通过重连进入原版路径。首次启用时后端自动生成
 共享身份密钥，管理 API
 只公开 `identity_secret_configured`，不会返回密钥内容。
 系统级 `codex_prewarm_continuation_force_enabled` 开启后会覆盖账号级关闭值，并让后续创建或导入的
 OpenAI OAuth 账号自动保存 `codex_prewarm_continuation_enabled=true`。
+同一面板允许逐行维护最多 100 个 Turn State，并通过
+`POST .../codex-simulation/sync-turn-states` 同步最近一次质量巡检的健康结果；设置保存和跨节点刷新继续复用
+`codex_simulation_settings` 的当前节点立即发布、其他节点最多 5 秒刷新语义。
 
 下列 YAML 只保留为数据库尚无记录时的兼容默认值：
 

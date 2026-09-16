@@ -29,6 +29,7 @@ const {
   getCodexSimulationSettings,
   forceDisableCodexSimulationSettings,
   updateCodexSimulationSettings,
+  syncCodexTurnStates,
   getEmailTemplates,
   getEmailTemplate,
   updateEmailTemplate,
@@ -70,6 +71,7 @@ const {
   getCodexSimulationSettings: vi.fn(),
   forceDisableCodexSimulationSettings: vi.fn(),
   updateCodexSimulationSettings: vi.fn(),
+  syncCodexTurnStates: vi.fn(),
   getEmailTemplates: vi.fn(),
   getEmailTemplate: vi.fn(),
   updateEmailTemplate: vi.fn(),
@@ -200,6 +202,7 @@ vi.mock(
       updateBetaPolicySettings: vi.fn(),
       forceDisableCodexSimulationSettings,
       updateCodexSimulationSettings,
+      syncCodexTurnStates,
       updateGlobalTempUnschedulableSettings,
       updateOverloadCooldownSettings: vi.fn(),
       updatePanelRateLimitSettings,
@@ -862,6 +865,7 @@ describe("admin SettingsView payment visible method controls", () => {
     getCodexSimulationSettings.mockReset();
     forceDisableCodexSimulationSettings.mockReset();
     updateCodexSimulationSettings.mockReset();
+    syncCodexTurnStates.mockReset();
     getEmailTemplates.mockReset();
     getEmailTemplate.mockReset();
     updateEmailTemplate.mockReset();
@@ -928,6 +932,8 @@ describe("admin SettingsView payment visible method controls", () => {
     );
     getCodexSimulationSettings.mockResolvedValue({
       full_simulation_enabled: false,
+      turn_state_replay_enabled: false,
+      turn_states: [],
       continuation_mode: "off",
       state_ttl_seconds: 604800,
       identity_secret_configured: false,
@@ -938,6 +944,8 @@ describe("admin SettingsView payment visible method controls", () => {
     }));
     forceDisableCodexSimulationSettings.mockResolvedValue({
       full_simulation_enabled: false,
+      turn_state_replay_enabled: false,
+      turn_states: [],
       continuation_mode: "off",
       state_ttl_seconds: 604800,
       identity_secret_configured: true,
@@ -1413,6 +1421,8 @@ describe("admin SettingsView payment visible method controls", () => {
     getCodexSimulationSettings.mockResolvedValueOnce({
       full_simulation_enabled: true,
       c_level_simulation_enabled: true,
+      turn_state_replay_enabled: false,
+      turn_states: ["saved-state"],
       continuation_mode: "enforce",
       state_ttl_seconds: 604800,
       identity_secret_configured: true,
@@ -1436,6 +1446,8 @@ describe("admin SettingsView payment visible method controls", () => {
       .get('[data-testid="codex-simulation-c-level-toggle"]')
       .setValue(false);
     await card!.get('[data-testid="codex-prewarm-force-toggle"]').setValue(true);
+    await card!.get('[data-testid="codex-turn-state-replay-toggle"]').setValue(true);
+    await card!.get('[data-testid="codex-turn-states"]').setValue("state-a\nstate-b");
     await card!
       .get('[data-testid="codex-simulation-continuation-mode"]')
       .setValue("shadow");
@@ -1448,6 +1460,8 @@ describe("admin SettingsView payment visible method controls", () => {
       c_level_simulation_enabled: false,
       experimental_transport_enabled: false,
       codex_prewarm_continuation_force_enabled: true,
+      turn_state_replay_enabled: true,
+      turn_states: ["state-a", "state-b"],
       continuation_mode: "shadow",
       state_ttl_seconds: 3600,
     });
@@ -1500,6 +1514,61 @@ describe("admin SettingsView payment visible method controls", () => {
       card!.get('[data-testid="codex-simulation-effective-state"]').text(),
     ).toContain("admin.settings.codexSimulation.experimentalEnabled");
     expect(showError).toHaveBeenCalled();
+  });
+
+  it("syncs quality Turn States into the gateway control form", async () => {
+    syncCodexTurnStates.mockResolvedValueOnce({
+      full_simulation_enabled: false,
+      c_level_simulation_enabled: false,
+      experimental_transport_enabled: false,
+      codex_prewarm_continuation_force_enabled: false,
+      turn_state_replay_enabled: false,
+      turn_states: ["captured-a", "captured-b"],
+      continuation_mode: "off",
+      state_ttl_seconds: 604800,
+      identity_secret_configured: false,
+    });
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+
+    const card = wrapper
+      .findAll(".card")
+      .find((node) => node.text().includes("admin.settings.codexSimulation.title"));
+    await card!.get('[data-testid="codex-simulation-full-toggle"]').setValue(true);
+    await card!.get('[data-testid="codex-turn-state-sync"]').trigger("click");
+    await flushPromises();
+
+    expect(syncCodexTurnStates).toHaveBeenCalledOnce();
+    expect((card!.get('[data-testid="codex-turn-states"]').element as HTMLTextAreaElement).value)
+      .toBe("captured-a\ncaptured-b");
+    expect(
+      (card!.get('[data-testid="codex-simulation-full-toggle"]').element as HTMLInputElement).checked,
+    ).toBe(true);
+    expect(showSuccess).toHaveBeenCalledWith(
+      "admin.settings.codexSimulation.turnStateSyncSuccess",
+    );
+  });
+
+  it("keeps unsaved manual Turn States when sync is clicked", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+    const card = wrapper
+      .findAll(".card")
+      .find((node) => node.text().includes("admin.settings.codexSimulation.title"));
+
+    await card!.get('[data-testid="codex-turn-states"]').setValue("unsaved-state");
+    expect(card!.get('[data-testid="codex-turn-state-sync"]').attributes("disabled")).toBeDefined();
+    expect(card!.get('[data-testid="codex-turn-state-unsaved"]').text()).toContain(
+      "admin.settings.codexSimulation.turnStatesSaveBeforeSync",
+    );
+    await card!.get('[data-testid="codex-turn-state-sync"]').trigger("click");
+    await flushPromises();
+
+    expect(syncCodexTurnStates).not.toHaveBeenCalled();
+    expect((card!.get('[data-testid="codex-turn-states"]').element as HTMLTextAreaElement).value)
+      .toBe("unsaved-state");
   });
 
   it("keeps force restore available when Codex settings cannot be loaded", async () => {

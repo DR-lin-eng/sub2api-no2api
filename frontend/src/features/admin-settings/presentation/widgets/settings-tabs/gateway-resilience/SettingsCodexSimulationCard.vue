@@ -101,6 +101,60 @@
           </fieldset>
         </div>
 
+        <div class="space-y-4 border-t border-gray-100 pt-5 dark:border-dark-700">
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <label class="font-medium text-gray-900 dark:text-white">
+                {{ t("admin.settings.codexSimulation.turnStateReplay") }}
+              </label>
+              <p class="text-sm text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.codexSimulation.turnStateReplayHint") }}
+              </p>
+            </div>
+            <fieldset
+              class="m-0 min-w-0 border-0 p-0"
+              :disabled="codexSimulationLoadFailed || codexSimulationSaving || codexSimulationSyncing"
+            >
+              <Toggle
+                v-model="codexSimulationForm.turn_state_replay_enabled"
+                data-testid="codex-turn-state-replay-toggle"
+              />
+            </fieldset>
+          </div>
+          <div>
+            <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300" for="codex-turn-states">
+                {{ t("admin.settings.codexSimulation.turnStates") }}
+              </label>
+              <button
+                type="button"
+                class="btn btn-secondary btn-sm inline-flex items-center gap-1.5"
+                :disabled="codexSimulationLoadFailed || codexSimulationSaving || codexSimulationSyncing || codexTurnStateDraftDirty"
+                data-testid="codex-turn-state-sync"
+                @click="syncCodexTurnStatesFromQuality"
+              >
+                <Icon name="refresh" size="sm" :class="codexSimulationSyncing ? 'animate-spin' : ''" />
+                {{ t("admin.settings.codexSimulation.turnStateSync") }}
+              </button>
+            </div>
+            <textarea
+              id="codex-turn-states"
+              v-model="codexTurnStatesText"
+              class="input min-h-28 w-full font-mono text-xs"
+              :disabled="codexSimulationLoadFailed || codexSimulationSaving || codexSimulationSyncing"
+              :placeholder="t('admin.settings.codexSimulation.turnStatesPlaceholder')"
+              data-testid="codex-turn-states"
+              spellcheck="false"
+            />
+            <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+              {{ t("admin.settings.codexSimulation.turnStatesHint", { count: codexSimulationForm.turn_states.length }) }}
+            </p>
+            <p v-if="codexTurnStateDraftDirty" class="mt-1.5 text-xs text-amber-700 dark:text-amber-300" data-testid="codex-turn-state-unsaved">
+              {{ t("admin.settings.codexSimulation.turnStatesSaveBeforeSync") }}
+            </p>
+          </div>
+        </div>
+
         <div class="flex items-center justify-between gap-4 border-t border-gray-100 pt-5 dark:border-dark-700">
           <div>
             <label class="font-medium text-gray-900 dark:text-white">
@@ -197,6 +251,7 @@
                   codexSimulationForm.c_level_simulation_enabled ||
                   codexSimulationForm.experimental_transport_enabled ||
                   codexSimulationForm.codex_prewarm_continuation_force_enabled ||
+                  codexSimulationForm.turn_state_replay_enabled ||
                   codexSimulationForm.continuation_mode !== 'off'
               ? 'text-amber-700 dark:text-amber-300'
               : 'text-green-700 dark:text-green-300'
@@ -210,6 +265,7 @@
                   codexSimulationForm.c_level_simulation_enabled ||
                   codexSimulationForm.experimental_transport_enabled ||
                   codexSimulationForm.codex_prewarm_continuation_force_enabled ||
+                  codexSimulationForm.turn_state_replay_enabled ||
                   codexSimulationForm.continuation_mode !== "off"
               ? t("admin.settings.codexSimulation.experimentalEnabled")
               : t("admin.settings.codexSimulation.originalBehaviorActive")
@@ -256,8 +312,12 @@ const {
   codexSimulationLoadFailed,
   codexSimulationLoading,
   codexSimulationSaving,
+  codexSimulationSyncing,
+  codexTurnStateDraftDirty,
+  codexTurnStatesText,
   restoreOriginalCodexBehavior,
   saveCodexSimulationSettings,
+  syncCodexTurnStatesFromQuality,
   t,
 } = useSettingsPageContext()
 </script>

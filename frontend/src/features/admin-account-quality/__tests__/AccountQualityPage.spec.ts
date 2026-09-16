@@ -23,7 +23,7 @@ import AccountQualityPage from '../presentation/pages/AccountQualityPage.vue'
 describe('AccountQualityPage', () => {
   beforeEach(() => {
     getOverview.mockReset().mockResolvedValue({
-      settings: { enabled: true, interval_minutes: 10, timeout_seconds: 120, model: '', effort: 'medium', prompt: '', failure_threshold: 2, recovery_threshold: 2, degraded_group_id: null, source_group_id: null, max_concurrent: 4, min_confidence: 0.85, public_enabled: false },
+      settings: { enabled: true, interval_minutes: 10, timeout_seconds: 120, model: '', effort: 'medium', prompt: '', failure_threshold: 2, recovery_threshold: 2, degraded_group_id: null, source_group_id: null, max_concurrent: 4, min_confidence: 0.85, inject_turn_state: false, public_enabled: false },
       run: { status: 'succeeded', summary: { inspected: 1, passed: 1, degraded: 0, uncertain: 0, errors: 0, switched: 0 } },
       results: { items: [{ account_id: 1, name: 'quality-account', platform: 'openai', type: 'oauth', quality_status: 'healthy', observed_at: '2026-09-12T00:00:00Z' }], total: 1, page: 1, page_size: 50, pages: 1 },
     })
@@ -31,6 +31,19 @@ describe('AccountQualityPage', () => {
     runQualityMonitoring.mockReset()
     updateSettings.mockReset()
     showSuccess.mockReset()
+  })
+
+  it('shows captured and injected turn states and exposes the test toggle', async () => {
+    getOverview.mockResolvedValueOnce({
+      settings: { inject_turn_state: true },
+      run: { status: 'succeeded', summary: { inspected: 1, passed: 1, degraded: 0, uncertain: 0, errors: 0, switched: 0 } },
+      results: { items: [{ account_id: 2, name: 'state-account', platform: 'openai', quality_status: 'healthy', quality_turn_states: ['captured-state'], quality_injected_turn_states: ['injected-state'] }], total: 1 },
+    })
+    const wrapper = mount(AccountQualityPage, { global: { stubs: { AppLayout: { template: '<div><slot /></div>' }, Icon: { template: '<span />' }, Toggle: { props: ['modelValue'], template: '<input type="checkbox" :checked="modelValue" />' } } } })
+    await flushPromises()
+    expect(wrapper.get('[data-testid="quality-captured-turn-states"]').text()).toContain('captured-state')
+    expect(wrapper.get('[data-testid="quality-injected-turn-states"]').text()).toContain('injected-state')
+    expect((wrapper.get('[data-testid="quality-inject-turn-state"]').element as HTMLInputElement).checked).toBe(true)
   })
 
   it('renders an independent quality overview', async () => {

@@ -50,15 +50,17 @@ const (
 
 // qualityStageOutcome separates answer failures from operational errors.
 type qualityStageOutcome struct {
-	status          string
-	passed          bool
-	operational     bool
-	incomplete      bool
-	errorMessage    string
-	latencyMs       int64
-	reasoningTokens *int64
-	artifact        *QualityArtifact
-	detail          AccountQualityStageDetail
+	status            string
+	passed            bool
+	operational       bool
+	incomplete        bool
+	errorMessage      string
+	latencyMs         int64
+	reasoningTokens   *int64
+	turnState         string
+	injectedTurnState string
+	artifact          *QualityArtifact
+	detail            AccountQualityStageDetail
 }
 
 // qualityStageContext bounds the initial wait for a drawing response. Once a
@@ -101,9 +103,10 @@ func qualityStageContext(ctx context.Context, stage string, timeoutSeconds int) 
 	return probeCtx, cleanup
 }
 
-func (s *AccountQualityMonitoringService) runQualityStage(ctx context.Context, account Account, settings AccountQualitySettings, stage, prompt string, beforeRender ...func()) (outcome qualityStageOutcome) {
+func (s *AccountQualityMonitoringService) runQualityStage(ctx context.Context, account Account, settings AccountQualitySettings, stage, prompt, injectedTurnState string, beforeRender ...func()) (outcome qualityStageOutcome) {
 	probeCtx, cancel := qualityStageContext(ctx, stage, settings.TimeoutSeconds)
 	defer cancel()
+	probeCtx = withAccountTestTurnState(probeCtx, injectedTurnState)
 	started := time.Now().UTC()
 	defer func() { outcome.detail.Status = outcome.status }()
 	probe, err := s.accountTestSvc.RunQualityTestBackground(probeCtx, account.ID, strings.TrimSpace(settings.Model), prompt, settings.Effort)
@@ -119,6 +122,10 @@ func (s *AccountQualityMonitoringService) runQualityStage(ctx context.Context, a
 		return
 	}
 	outcome.latencyMs, outcome.reasoningTokens = probe.LatencyMs, probe.ReasoningTokens
+	outcome.turnState, outcome.injectedTurnState = probe.TurnState, probe.InjectedTurnState
+	if outcome.injectedTurnState == "" {
+		outcome.injectedTurnState = boundedAccountTestTurnState(injectedTurnState)
+	}
 	outcome.detail = qualityStageDetail(probe)
 	if stage != "stage2" {
 		// Stage 1 is a text answer; never expose an accidental SVG-looking
@@ -181,6 +188,10 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 		for _, result := range previous.Results {
 			previousByID[result.AccountID] = result
 		}
+	}
+	turnStateSettings := CodexSimulationSettings{}
+	if settings.InjectTurnState {
+		turnStateSettings = s.loadAccountQualityTurnStateSettings(ctx)
 	}
 	sem := make(chan struct{}, settings.MaxConcurrent)
 	var wg sync.WaitGroup
@@ -259,21 +270,35 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 					stageErrors = append(stageErrors, name+": "+stage.errorMessage)
 				}
 			}
+			stageTurnState := func() string {
+				if !settings.InjectTurnState || !account.IsOpenAIOAuth() {
+					return ""
+				}
+				return randomCodexTurnStateForAccount(turnStateSettings, account.ID)
+			}
+			recordTurnState := func(stage qualityStageOutcome) {
+				result.QualityInjectedTurnStates = appendUniqueTurnState(result.QualityInjectedTurnStates, stage.injectedTurnState)
+				if stage.status == "passed" {
+					result.QualityTurnStates = appendUniqueTurnState(result.QualityTurnStates, stage.turnState)
+				}
+			}
 			if settings.Stage1Enabled {
 				result.QualityStage1Status = "running"
 				notify("stage1", false)
-				stage := s.runQualityStage(ctx, account, settings, "stage1", settings.Stage1Prompt)
+				stage := s.runQualityStage(ctx, account, settings, "stage1", settings.Stage1Prompt, stageTurnState())
 				result.QualityStage1Status, result.QualityReasoningTokens = stage.status, stage.reasoningTokens
 				details.Stage1 = &stage.detail
+				recordTurnState(stage)
 				observe("stage1", stage)
 			}
 			if settings.Stage2Enabled {
 				result.QualityStage2Status = "running"
 				notify("stage2", false)
-				stage := s.runQualityStage(ctx, account, settings, "stage2", settings.Stage2Prompt, func() { notify("rendering", false) })
+				stage := s.runQualityStage(ctx, account, settings, "stage2", settings.Stage2Prompt, stageTurnState(), func() { notify("rendering", false) })
 				result.QualityStage2Status = stage.status
 				result.QualityCodeMatch = stage.detail.CodeMatch
 				details.Stage2, artifact = &stage.detail, stage.artifact
+				recordTurnState(stage)
 				if stage.artifact != nil {
 					result.QualityLabel, result.QualityConfidence = stage.artifact.Label, stage.artifact.Confidence
 				}
@@ -359,6 +384,19 @@ func (s *AccountQualityMonitoringService) runQualityMonitoring(ctx context.Conte
 	}
 	wg.Wait()
 	return firstErr
+}
+
+func appendUniqueTurnState(values []string, value string) []string {
+	value = boundedAccountTestTurnState(value)
+	if value == "" {
+		return values
+	}
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
 }
 
 func writeQualityExtra(repo AccountRepository, ctx context.Context, accountID int64, updates map[string]any) {

@@ -111,6 +111,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	// A turn-state minted by another account is incompatible with this
 	// attempt's outbound identity. Unknown and same-account values pass through.
 	s.guardOpenAICodexTurnStateEcho(c, account, req.Header)
+	s.applyConfiguredCodexTurnStateReplay(c, account, req.Header)
 	if account.Type == AccountTypeOAuth {
 		compatMessagesBridge := isOpenAICompatMessagesBridgeContext(c) || isOpenAICompatMessagesBridgeBody(body)
 		// 清除客户端透传的 session 头，后续用隔离后的值重新设置，防止跨用户会话碰撞。
