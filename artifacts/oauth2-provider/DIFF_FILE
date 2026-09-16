@@ -27,7 +27,7 @@ index 922714e..19c0d29 100644
 +| `oauth2_provider.go` | 管理员控制的 OAuth2 客户端、PKCE 授权码、token 校验与 userinfo |
 diff --git a/backend/internal/application/service/oauth2_provider.go b/backend/internal/application/service/oauth2_provider.go
 new file mode 100644
-index 0000000..90052ab
+index 0000000..5822b56
 --- /dev/null
 +++ b/backend/internal/application/service/oauth2_provider.go
 @@ -0,0 +1,1074 @@
@@ -745,7 +745,7 @@ index 0000000..90052ab
 +		return false
 +	}
 +	for _, r := range value {
-+		if !((r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || strings.ContainsRune("-._~", r)) {
++		if (r < 'A' || r > 'Z') && (r < 'a' || r > 'z') && (r < '0' || r > '9') && !strings.ContainsRune("-._~", r) {
 +			return false
 +		}
 +	}

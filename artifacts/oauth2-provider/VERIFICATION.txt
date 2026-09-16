@@ -26,7 +26,7 @@ ROLLBACK.sh: /Users/lin/.codex/worktrees/48b3/sub2api-no2api/artifacts/oauth2-pr
 Anchor source: backend/internal/transport/webassets/embed_on.go
 Original anchor SHA256: e51e8ae9eff1aabd6df44f2aa9fef0eceb84710f90753ba5e661498afd391b0e
 Modified anchor SHA256: 03c2b78b6448f279bf7417bf14ca3272e5735bc05b3fa36d69306ee2be9ce4c9
-DIFF_FILE SHA256: 9ecd44474ab93d3b3416fcbe2016ee63a2771af737241f350f5dbb30d9a1e047
+DIFF_FILE SHA256: 7a5c62a1c7dccddb15246e5f864e5f7bf4f0356e0bc09f34c1d7007446f8f92f
 ROLLBACK.sh SHA256: a6b0780d942852557def37a53a18ffe11bb6dd17fd3a5734ca968881a276f4da
 
 BASELINE_COMMAND
@@ -228,7 +228,7 @@ exit status 0 (PASS)
 
 ROLLBACK_COMMAND
 ----------------
-/Users/lin/.codex/worktrees/48b3/sub2api-no2api/artifacts/oauth2-provider/ROLLBACK.sh /private/tmp/sub2api-oauth2-rollback-lint.AkxNuX
+/Users/lin/.codex/worktrees/48b3/sub2api-no2api/artifacts/oauth2-provider/ROLLBACK.sh /private/tmp/sub2api-oauth2-rollback-lint2.5TNnHn
 
 ROLLBACK_INPUT
 --------------
@@ -237,7 +237,7 @@ with DIFF_FILE using git apply. The active worktree and MODIFIED_FILE were not r
 
 ROLLBACK_LITERAL_OUTPUT
 -----------------------
-ROLLBACK_RESTORED=/private/tmp/sub2api-oauth2-rollback-lint.AkxNuX
+ROLLBACK_RESTORED=/private/tmp/sub2api-oauth2-rollback-lint2.5TNnHn
 WORKTREE_STATUS=clean
 RESTORED_ANCHOR_SHA256=e51e8ae9eff1aabd6df44f2aa9fef0eceb84710f90753ba5e661498afd391b0e
 
