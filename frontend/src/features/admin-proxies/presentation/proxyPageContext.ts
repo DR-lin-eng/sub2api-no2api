@@ -3,6 +3,7 @@ import type { Column } from '@/common/types/uiTypes'
 import type {
   Proxy,
   ProxyAccountSummary,
+  ProxyAutoAssignmentSettings,
   ProxyProtocol,
   ProxyQualityCheckResult
 } from '@/types/gateway'
@@ -140,4 +141,15 @@ export interface ProxyPageDialogsContext {
   proxyAccounts: Ref<ProxyAccountSummary[]>
   accountsLoading: Ref<boolean>
   closeAccountsModal: () => void
+}
+
+export interface ProxyAutoAssignmentDialogContext {
+  showAutoAssignmentDialog: Ref<boolean>
+  autoAssignmentForm: ProxyAutoAssignmentSettings
+  autoAssignmentLoading: Ref<boolean>
+  autoAssignmentSaving: Ref<boolean>
+  autoAssignmentRebalancing: Ref<boolean>
+  closeAutoAssignmentDialog: () => void
+  saveAutoAssignmentSettings: () => void | Promise<void>
+  rebalanceAutoAssignments: () => void | Promise<void>
 }

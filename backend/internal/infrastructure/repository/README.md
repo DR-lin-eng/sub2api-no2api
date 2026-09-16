@@ -14,7 +14,7 @@
 | `payment*`, `subscription*`, `promo_code*`, `redeem_code*` | 商业对象持久化 |
 | `chat*` | 在线客服会话、消息、素材、快捷回复及分批保留清理 |
 | `cluster*` | 逻辑节点、runner 历史、共享任务租约与版本发布状态 |
-| `*_oauth_*`, `http_upstream*`, `proxy*` | 外部凭据和网络访问实现 |
+| `*_oauth_*`, `http_upstream*`, `proxy*` | 外部凭据、代理池均衡/健康状态和网络访问实现 |
 | `oauth2_provider_store.go` | OAuth2 一次性 authorization code 与 access token 摘要的 Redis 存储 |
 | `wire.go` | repository provider 集合 |
 

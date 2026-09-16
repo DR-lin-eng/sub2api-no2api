@@ -43,6 +43,14 @@ const (
 	FieldBackupProxyID = "backup_proxy_id"
 	// FieldExpiryWarnDays holds the string denoting the expiry_warn_days field in the database.
 	FieldExpiryWarnDays = "expiry_warn_days"
+	// FieldHealthStatus holds the string denoting the health_status field in the database.
+	FieldHealthStatus = "health_status"
+	// FieldHealthConsecutiveFailures holds the string denoting the health_consecutive_failures field in the database.
+	FieldHealthConsecutiveFailures = "health_consecutive_failures"
+	// FieldLastHealthCheckAt holds the string denoting the last_health_check_at field in the database.
+	FieldLastHealthCheckAt = "last_health_check_at"
+	// FieldLastHealthError holds the string denoting the last_health_error field in the database.
+	FieldLastHealthError = "last_health_error"
 	// EdgeAccounts holds the string denoting the accounts edge name in mutations.
 	EdgeAccounts = "accounts"
 	// EdgePrimaryProxies holds the string denoting the primary_proxies edge name in mutations.
@@ -85,6 +93,10 @@ var Columns = []string{
 	FieldFallbackMode,
 	FieldBackupProxyID,
 	FieldExpiryWarnDays,
+	FieldHealthStatus,
+	FieldHealthConsecutiveFailures,
+	FieldLastHealthCheckAt,
+	FieldLastHealthError,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -131,6 +143,14 @@ var (
 	FallbackModeValidator func(string) error
 	// DefaultExpiryWarnDays holds the default value on creation for the "expiry_warn_days" field.
 	DefaultExpiryWarnDays int
+	// DefaultHealthStatus holds the default value on creation for the "health_status" field.
+	DefaultHealthStatus string
+	// HealthStatusValidator is a validator for the "health_status" field. It is called by the builders before save.
+	HealthStatusValidator func(string) error
+	// DefaultHealthConsecutiveFailures holds the default value on creation for the "health_consecutive_failures" field.
+	DefaultHealthConsecutiveFailures int
+	// HealthConsecutiveFailuresValidator is a validator for the "health_consecutive_failures" field. It is called by the builders before save.
+	HealthConsecutiveFailuresValidator func(int) error
 )
 
 // OrderOption defines the ordering options for the Proxy queries.
@@ -209,6 +229,26 @@ func ByBackupProxyID(opts ...sql.OrderTermOption) OrderOption {
 // ByExpiryWarnDays orders the results by the expiry_warn_days field.
 func ByExpiryWarnDays(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldExpiryWarnDays, opts...).ToFunc()
+}
+
+// ByHealthStatus orders the results by the health_status field.
+func ByHealthStatus(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldHealthStatus, opts...).ToFunc()
+}
+
+// ByHealthConsecutiveFailures orders the results by the health_consecutive_failures field.
+func ByHealthConsecutiveFailures(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldHealthConsecutiveFailures, opts...).ToFunc()
+}
+
+// ByLastHealthCheckAt orders the results by the last_health_check_at field.
+func ByLastHealthCheckAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLastHealthCheckAt, opts...).ToFunc()
+}
+
+// ByLastHealthError orders the results by the last_health_error field.
+func ByLastHealthError(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLastHealthError, opts...).ToFunc()
 }
 
 // ByAccountsCount orders the results by accounts count.

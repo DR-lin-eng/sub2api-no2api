@@ -375,6 +375,11 @@ func (s *adminServiceImpl) DuplicateAccount(ctx context.Context, id int64, actor
 		SkipDefaultGroupBind:  true,
 		SkipMixedChannelCheck: true,
 	}
+	if assignedProxyID, forced, assignmentErr := s.forcedProxyAssignment(ctx); assignmentErr != nil {
+		return nil, assignmentErr
+	} else if forced {
+		input.ProxyID = assignedProxyID
+	}
 	accountExtra, err := normalizeOpenAILongContextBillingExtra(input.Platform, input.Extra)
 	if err != nil {
 		return nil, fmt.Errorf("normalize duplicate account extra: %w", err)
@@ -585,6 +590,13 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 }
 
 func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccountInput) (*Account, error) {
+	proxyID, forced, err := s.forcedProxyAssignment(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if forced {
+		input.ProxyID = proxyID
+	}
 	accountExtra, err := normalizeOpenAILongContextBillingExtra(input.Platform, input.Extra)
 	if err != nil {
 		return nil, err
@@ -687,6 +699,24 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	account, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	if input.ProxyID != nil && !account.IsCredentialShadow() {
+		settings, settingsErr := s.GetProxyAutoAssignmentSettings(ctx)
+		if settingsErr != nil {
+			return nil, settingsErr
+		}
+		if settings.Enabled {
+			if account.ProxyID != nil {
+				currentProxyID := *account.ProxyID
+				input.ProxyID = &currentProxyID
+			} else {
+				proxyID, _, assignmentErr := s.forcedProxyAssignment(ctx)
+				if assignmentErr != nil {
+					return nil, assignmentErr
+				}
+				input.ProxyID = proxyID
+			}
+		}
 	}
 	var normalizedExtra map[string]any
 	if input.Extra != nil {
@@ -1049,6 +1079,17 @@ func (s *adminServiceImpl) UpdateAccountExtra(ctx context.Context, id int64, upd
 // BulkUpdateAccounts updates multiple accounts in one request.
 // It merges credentials/extra keys instead of overwriting the whole object.
 func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUpdateAccountsInput) (*BulkUpdateAccountsResult, error) {
+	rebalanceForcedProxy := false
+	if input.ProxyID != nil {
+		_, forced, err := s.forcedProxyAssignment(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if forced {
+			input.ProxyID = nil
+			rebalanceForcedProxy = true
+		}
+	}
 	// Managed probe/session state may only enter through dedicated typed endpoints.
 	delete(input.Extra, UpstreamBillingProbeEnabledExtraKey)
 	delete(input.Extra, UpstreamBillingRateSyncEnabledExtraKey)
@@ -1248,7 +1289,11 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	_, updatesCPAMode := input.Credentials[CPAModeCredentialKey]
 	_, updatesCPAAbnormalPolicy := input.Credentials[CPAExcludeAbnormalCredentialsCredentialKey]
 	if updatesCPAMode || updatesCPAAbnormalPolicy {
-		return s.bulkUpdateAccountsWithCPA(ctx, input, cachedTargets, repoUpdates, result)
+		updated, err := s.bulkUpdateAccountsWithCPA(ctx, input, cachedTargets, repoUpdates, result)
+		if err == nil && rebalanceForcedProxy {
+			_, err = s.rebalanceProxyAssignmentsIfEnabled(ctx)
+		}
+		return updated, err
 	}
 
 	// Run bulk update for column/jsonb fields first.
@@ -1293,6 +1338,11 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 		result.Results = append(result.Results, entry)
 	}
 
+	if rebalanceForcedProxy {
+		if _, err := s.rebalanceProxyAssignmentsIfEnabled(ctx); err != nil {
+			return nil, err
+		}
+	}
 	return result, nil
 }
 
@@ -1528,6 +1578,10 @@ func (s *adminServiceImpl) resolveBulkUpdateTargetIDs(ctx context.Context, filte
 }
 
 func (s *adminServiceImpl) DeleteAccount(ctx context.Context, id int64) error {
+	return s.deleteAccount(ctx, id, false)
+}
+
+func (s *adminServiceImpl) deleteAccount(ctx context.Context, id int64, skipAutoRebalance bool) error {
 	// 级联删除 spark 影子账号（先删影子，再删母账号）
 	shadows, err := s.accountRepo.ListShadowsByParent(ctx, id)
 	if err != nil {
@@ -1546,6 +1600,11 @@ func (s *adminServiceImpl) DeleteAccount(ctx context.Context, id int64) error {
 	}
 	if s.runtimeStateCleaner != nil {
 		s.runtimeStateCleaner.DeleteAccountRuntimeState(id)
+	}
+	if !skipAutoRebalance {
+		if _, err := s.rebalanceProxyAssignmentsIfEnabled(ctx); err != nil {
+			logger.LegacyPrintf("service.admin_account", "rebalance after account delete failed: account_id=%d err=%v", id, err)
+		}
 	}
 	return nil
 }

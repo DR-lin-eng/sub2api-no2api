@@ -530,6 +530,11 @@ const (
 	// for probing remote Sub2API API-key billing metadata.
 	SettingKeyUpstreamBillingProbeSettings = "upstream_billing_probe_settings"
 
+	// SettingKeyProxyAutoAssignmentSettings stores the opt-in proxy-pool policy.
+	SettingKeyProxyAutoAssignmentSettings = "proxy_auto_assignment_settings"
+	// SettingKeyProxyAutoAssignmentCursor serializes round-robin reservations across instances.
+	SettingKeyProxyAutoAssignmentCursor = "proxy_auto_assignment_cursor"
+
 	// Account inspection settings and latest persisted run snapshot.
 	SettingKeyAccountInspectionSettings = "account_inspection_settings"
 	SettingKeyAccountInspectionState    = "account_inspection_state"

@@ -5,6 +5,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -87,7 +88,7 @@ func (s *adminServiceImpl) BatchDeleteAccounts(ctx context.Context, ids []int64)
 	for _, id := range rootIDs {
 		accountID := id
 		group.Go(func() error {
-			deleteErr := s.DeleteAccount(groupCtx, accountID)
+			deleteErr := s.deleteAccount(groupCtx, accountID, true)
 			affected := append([]int64{accountID}, dependents[accountID]...)
 			mu.Lock()
 			defer mu.Unlock()
@@ -104,6 +105,11 @@ func (s *adminServiceImpl) BatchDeleteAccounts(ctx context.Context, ids []int64)
 	}
 	if err := group.Wait(); err != nil {
 		return nil, err
+	}
+	if len(result.SuccessIDs) > 0 {
+		if _, err := s.rebalanceProxyAssignmentsIfEnabled(ctx); err != nil {
+			logger.LegacyPrintf("service.admin_account", "rebalance after account batch delete failed: err=%v", err)
+		}
 	}
 
 	sort.Slice(result.SuccessIDs, func(i, j int) bool { return result.SuccessIDs[i] < result.SuccessIDs[j] })

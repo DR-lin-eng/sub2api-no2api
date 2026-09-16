@@ -41,7 +41,11 @@ func (r *proxyRepository) Create(ctx context.Context, proxyIn *service.Proxy) er
 		SetPort(proxyIn.Port).
 		SetStatus(proxyIn.Status).
 		SetFallbackMode(proxyIn.FallbackMode).
-		SetExpiryWarnDays(proxyIn.ExpiryWarnDays)
+		SetExpiryWarnDays(proxyIn.ExpiryWarnDays).
+		SetHealthConsecutiveFailures(proxyIn.HealthConsecutiveFailures)
+	if proxyIn.HealthStatus != "" {
+		builder.SetHealthStatus(proxyIn.HealthStatus)
+	}
 	if proxyIn.Username != "" {
 		builder.SetUsername(proxyIn.Username)
 	}
@@ -53,6 +57,12 @@ func (r *proxyRepository) Create(ctx context.Context, proxyIn *service.Proxy) er
 	}
 	if proxyIn.BackupProxyID != nil {
 		builder.SetBackupProxyID(*proxyIn.BackupProxyID)
+	}
+	if proxyIn.LastHealthCheckAt != nil {
+		builder.SetLastHealthCheckAt(*proxyIn.LastHealthCheckAt)
+	}
+	if proxyIn.LastHealthError != "" {
+		builder.SetLastHealthError(proxyIn.LastHealthError)
 	}
 
 	created, err := builder.Save(ctx)
@@ -148,6 +158,9 @@ func updateProxyAndInvalidateProbeSnapshots(ctx context.Context, client *dbent.C
 	if err != nil {
 		return nil, err
 	}
+	if strings.TrimSpace(proxyIn.HealthStatus) == "" {
+		proxyIn.HealthStatus = service.ProxyHealthUnknown
+	}
 	builder := client.Proxy.UpdateOneID(proxyIn.ID).
 		SetName(proxyIn.Name).
 		SetProtocol(proxyIn.Protocol).
@@ -155,7 +168,9 @@ func updateProxyAndInvalidateProbeSnapshots(ctx context.Context, client *dbent.C
 		SetPort(proxyIn.Port).
 		SetStatus(proxyIn.Status).
 		SetFallbackMode(proxyIn.FallbackMode).
-		SetExpiryWarnDays(proxyIn.ExpiryWarnDays)
+		SetExpiryWarnDays(proxyIn.ExpiryWarnDays).
+		SetHealthStatus(proxyIn.HealthStatus).
+		SetHealthConsecutiveFailures(proxyIn.HealthConsecutiveFailures)
 	if proxyIn.Username != "" {
 		builder.SetUsername(proxyIn.Username)
 	} else {
@@ -175,6 +190,16 @@ func updateProxyAndInvalidateProbeSnapshots(ctx context.Context, client *dbent.C
 		builder.SetBackupProxyID(*proxyIn.BackupProxyID)
 	} else {
 		builder.ClearBackupProxyID()
+	}
+	if proxyIn.LastHealthCheckAt != nil {
+		builder.SetLastHealthCheckAt(*proxyIn.LastHealthCheckAt)
+	} else {
+		builder.ClearLastHealthCheckAt()
+	}
+	if proxyIn.LastHealthError != "" {
+		builder.SetLastHealthError(proxyIn.LastHealthError)
+	} else {
+		builder.ClearLastHealthError()
 	}
 
 	updated, err := builder.Save(ctx)
@@ -585,24 +610,30 @@ func proxyEntityToService(m *dbent.Proxy) *service.Proxy {
 		return nil
 	}
 	out := &service.Proxy{
-		ID:             m.ID,
-		Name:           m.Name,
-		Protocol:       m.Protocol,
-		Host:           m.Host,
-		Port:           m.Port,
-		Status:         m.Status,
-		CreatedAt:      m.CreatedAt,
-		UpdatedAt:      m.UpdatedAt,
-		ExpiresAt:      m.ExpiresAt,
-		FallbackMode:   m.FallbackMode,
-		BackupProxyID:  m.BackupProxyID,
-		ExpiryWarnDays: m.ExpiryWarnDays,
+		ID:                        m.ID,
+		Name:                      m.Name,
+		Protocol:                  m.Protocol,
+		Host:                      m.Host,
+		Port:                      m.Port,
+		Status:                    m.Status,
+		CreatedAt:                 m.CreatedAt,
+		UpdatedAt:                 m.UpdatedAt,
+		ExpiresAt:                 m.ExpiresAt,
+		FallbackMode:              m.FallbackMode,
+		BackupProxyID:             m.BackupProxyID,
+		ExpiryWarnDays:            m.ExpiryWarnDays,
+		HealthStatus:              m.HealthStatus,
+		HealthConsecutiveFailures: m.HealthConsecutiveFailures,
+		LastHealthCheckAt:         m.LastHealthCheckAt,
 	}
 	if m.Username != nil {
 		out.Username = *m.Username
 	}
 	if m.Password != nil {
 		out.Password = *m.Password
+	}
+	if m.LastHealthError != nil {
+		out.LastHealthError = *m.LastHealthError
 	}
 	return out
 }
@@ -614,6 +645,14 @@ func applyProxyEntityToService(dst *service.Proxy, src *dbent.Proxy) {
 	dst.ID = src.ID
 	dst.CreatedAt = src.CreatedAt
 	dst.UpdatedAt = src.UpdatedAt
+	dst.HealthStatus = src.HealthStatus
+	dst.HealthConsecutiveFailures = src.HealthConsecutiveFailures
+	dst.LastHealthCheckAt = src.LastHealthCheckAt
+	if src.LastHealthError != nil {
+		dst.LastHealthError = *src.LastHealthError
+	} else {
+		dst.LastHealthError = ""
+	}
 }
 
 // ListAllForFallback 返回所有代理（含过期/非活跃），供改投逻辑使用。

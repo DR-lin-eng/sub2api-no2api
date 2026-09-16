@@ -45,6 +45,14 @@ type Proxy struct {
 	BackupProxyID *int64 `json:"backup_proxy_id,omitempty"`
 	// Days before expiry to flag as expiring-soon (per proxy).
 	ExpiryWarnDays int `json:"expiry_warn_days,omitempty"`
+	// Scheduled health state: unknown | healthy | degraded | unhealthy.
+	HealthStatus string `json:"health_status,omitempty"`
+	// Consecutive scheduled health-check failures.
+	HealthConsecutiveFailures int `json:"health_consecutive_failures,omitempty"`
+	// Most recent scheduled health-check attempt.
+	LastHealthCheckAt *time.Time `json:"last_health_check_at,omitempty"`
+	// Sanitized error from the most recent failed health check.
+	LastHealthError *string `json:"last_health_error,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ProxyQuery when eager-loading is set.
 	Edges        ProxyEdges `json:"edges"`
@@ -98,11 +106,11 @@ func (*Proxy) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case proxy.FieldID, proxy.FieldPort, proxy.FieldBackupProxyID, proxy.FieldExpiryWarnDays:
+		case proxy.FieldID, proxy.FieldPort, proxy.FieldBackupProxyID, proxy.FieldExpiryWarnDays, proxy.FieldHealthConsecutiveFailures:
 			values[i] = new(sql.NullInt64)
-		case proxy.FieldName, proxy.FieldProtocol, proxy.FieldHost, proxy.FieldUsername, proxy.FieldPassword, proxy.FieldStatus, proxy.FieldFallbackMode:
+		case proxy.FieldName, proxy.FieldProtocol, proxy.FieldHost, proxy.FieldUsername, proxy.FieldPassword, proxy.FieldStatus, proxy.FieldFallbackMode, proxy.FieldHealthStatus, proxy.FieldLastHealthError:
 			values[i] = new(sql.NullString)
-		case proxy.FieldCreatedAt, proxy.FieldUpdatedAt, proxy.FieldDeletedAt, proxy.FieldExpiresAt:
+		case proxy.FieldCreatedAt, proxy.FieldUpdatedAt, proxy.FieldDeletedAt, proxy.FieldExpiresAt, proxy.FieldLastHealthCheckAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -214,6 +222,32 @@ func (_m *Proxy) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.ExpiryWarnDays = int(value.Int64)
 			}
+		case proxy.FieldHealthStatus:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field health_status", values[i])
+			} else if value.Valid {
+				_m.HealthStatus = value.String
+			}
+		case proxy.FieldHealthConsecutiveFailures:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field health_consecutive_failures", values[i])
+			} else if value.Valid {
+				_m.HealthConsecutiveFailures = int(value.Int64)
+			}
+		case proxy.FieldLastHealthCheckAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field last_health_check_at", values[i])
+			} else if value.Valid {
+				_m.LastHealthCheckAt = new(time.Time)
+				*_m.LastHealthCheckAt = value.Time
+			}
+		case proxy.FieldLastHealthError:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field last_health_error", values[i])
+			} else if value.Valid {
+				_m.LastHealthError = new(string)
+				*_m.LastHealthError = value.String
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -316,6 +350,22 @@ func (_m *Proxy) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("expiry_warn_days=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ExpiryWarnDays))
+	builder.WriteString(", ")
+	builder.WriteString("health_status=")
+	builder.WriteString(_m.HealthStatus)
+	builder.WriteString(", ")
+	builder.WriteString("health_consecutive_failures=")
+	builder.WriteString(fmt.Sprintf("%v", _m.HealthConsecutiveFailures))
+	builder.WriteString(", ")
+	if v := _m.LastHealthCheckAt; v != nil {
+		builder.WriteString("last_health_check_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.LastHealthError; v != nil {
+		builder.WriteString("last_health_error=")
+		builder.WriteString(*v)
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

@@ -28,6 +28,8 @@ type stubAdminService struct {
 	updatedProxyIDs                     []int64
 	updatedProxies                      []*service.UpdateProxyInput
 	testedProxyIDs                      []int64
+	proxyAutoAssignmentSettings         *service.ProxyAutoAssignmentSettings
+	rebalancedProxyAccounts             int64
 	getUserErr                          error
 	createAccountErr                    error
 	createSparkShadowErr                error
@@ -819,6 +821,24 @@ func (s *stubAdminService) CheckProxyQuality(ctx context.Context, id int64) (*se
 			{Target: "gemini", Status: "pass", HTTPStatus: 200},
 		},
 	}, nil
+}
+
+func (s *stubAdminService) GetProxyAutoAssignmentSettings(context.Context) (*service.ProxyAutoAssignmentSettings, error) {
+	if s.proxyAutoAssignmentSettings == nil {
+		return service.DefaultProxyAutoAssignmentSettings(), nil
+	}
+	settings := *s.proxyAutoAssignmentSettings
+	return &settings, nil
+}
+
+func (s *stubAdminService) UpdateProxyAutoAssignmentSettings(_ context.Context, settings *service.ProxyAutoAssignmentSettings) (*service.ProxyAutoAssignmentSettings, error) {
+	copy := *settings
+	s.proxyAutoAssignmentSettings = &copy
+	return &copy, nil
+}
+
+func (s *stubAdminService) RebalanceProxyAssignments(context.Context) (int64, error) {
+	return s.rebalancedProxyAccounts, nil
 }
 
 func (s *stubAdminService) ListRedeemCodes(ctx context.Context, page, pageSize int, codeType, status, search string, sortBy, sortOrder string) ([]service.RedeemCode, int64, error) {

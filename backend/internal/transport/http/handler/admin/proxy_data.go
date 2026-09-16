@@ -178,12 +178,13 @@ func (h *ProxyHandler) ImportData(c *gin.Context) {
 					ClearBackupID:  existingBackupProxyID == nil,
 					ExpiryWarnDays: &item.ExpiryWarnDays,
 					// 保留已存在代理的网络配置字段
-					Name:     existing.Name,
-					Protocol: existing.Protocol,
-					Host:     existing.Host,
-					Port:     existing.Port,
-					Username: &existing.Username,
-					Password: &existing.Password,
+					Name:              existing.Name,
+					Protocol:          existing.Protocol,
+					Host:              existing.Host,
+					Port:              existing.Port,
+					Username:          &existing.Username,
+					Password:          &existing.Password,
+					SkipAutoRebalance: true,
 				}
 				if _, err := h.adminService.UpdateProxy(ctx, existing.ID, updateInput); err != nil {
 					result.Errors = append(result.Errors, DataImportError{
@@ -224,16 +225,17 @@ func (h *ProxyHandler) ImportData(c *gin.Context) {
 		}
 
 		created, err := h.adminService.CreateProxy(ctx, &service.CreateProxyInput{
-			Name:           defaultProxyName(item.Name),
-			Protocol:       item.Protocol,
-			Host:           item.Host,
-			Port:           item.Port,
-			Username:       item.Username,
-			Password:       item.Password,
-			ExpiresAt:      expiresAt,
-			FallbackMode:   fallbackMode,
-			BackupProxyID:  backupProxyID,
-			ExpiryWarnDays: item.ExpiryWarnDays,
+			Name:              defaultProxyName(item.Name),
+			Protocol:          item.Protocol,
+			Host:              item.Host,
+			Port:              item.Port,
+			Username:          item.Username,
+			Password:          item.Password,
+			ExpiresAt:         expiresAt,
+			FallbackMode:      fallbackMode,
+			BackupProxyID:     backupProxyID,
+			ExpiryWarnDays:    item.ExpiryWarnDays,
+			SkipAutoRebalance: true,
 		})
 		if err != nil {
 			result.ProxyFailed++
@@ -255,19 +257,20 @@ func (h *ProxyHandler) ImportData(c *gin.Context) {
 		if normalizedStatus != "" && normalizedStatus != created.Status {
 			// 新建后同步 status 时，传入完整字段，避免零值覆盖刚创建的有效期/fallback 配置。
 			if _, err := h.adminService.UpdateProxy(ctx, created.ID, &service.UpdateProxyInput{
-				Status:         normalizedStatus,
-				ExpiresAt:      expiresAt,
-				ClearExpiresAt: expiresAt == nil,
-				FallbackMode:   fallbackMode,
-				BackupProxyID:  backupProxyID,
-				ClearBackupID:  backupProxyID == nil,
-				ExpiryWarnDays: &item.ExpiryWarnDays,
-				Name:           created.Name,
-				Protocol:       created.Protocol,
-				Host:           created.Host,
-				Port:           created.Port,
-				Username:       &created.Username,
-				Password:       &created.Password,
+				Status:            normalizedStatus,
+				ExpiresAt:         expiresAt,
+				ClearExpiresAt:    expiresAt == nil,
+				FallbackMode:      fallbackMode,
+				BackupProxyID:     backupProxyID,
+				ClearBackupID:     backupProxyID == nil,
+				ExpiryWarnDays:    &item.ExpiryWarnDays,
+				Name:              created.Name,
+				Protocol:          created.Protocol,
+				Host:              created.Host,
+				Port:              created.Port,
+				Username:          &created.Username,
+				Password:          &created.Password,
+				SkipAutoRebalance: true,
 			}); err != nil {
 				result.Errors = append(result.Errors, DataImportError{
 					Kind:     "proxy",
@@ -278,6 +281,9 @@ func (h *ProxyHandler) ImportData(c *gin.Context) {
 			}
 		}
 		// CreateProxy already triggers a latency probe, avoid double probing here.
+	}
+	if err := rebalanceProxyAssignmentsIfEnabled(ctx, h.adminService); err != nil {
+		result.Errors = append(result.Errors, DataImportError{Kind: "proxy", Name: "auto-assignment", Message: err.Error()})
 	}
 
 	if len(latencyProbeIDs) > 0 {
