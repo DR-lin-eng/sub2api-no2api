@@ -158,6 +158,9 @@ func updateProxyAndInvalidateProbeSnapshots(ctx context.Context, client *dbent.C
 	if err != nil {
 		return nil, err
 	}
+	if strings.TrimSpace(proxyIn.HealthStatus) == "" {
+		proxyIn.HealthStatus = service.ProxyHealthUnknown
+	}
 	builder := client.Proxy.UpdateOneID(proxyIn.ID).
 		SetName(proxyIn.Name).
 		SetProtocol(proxyIn.Protocol).
@@ -642,6 +645,14 @@ func applyProxyEntityToService(dst *service.Proxy, src *dbent.Proxy) {
 	dst.ID = src.ID
 	dst.CreatedAt = src.CreatedAt
 	dst.UpdatedAt = src.UpdatedAt
+	dst.HealthStatus = src.HealthStatus
+	dst.HealthConsecutiveFailures = src.HealthConsecutiveFailures
+	dst.LastHealthCheckAt = src.LastHealthCheckAt
+	if src.LastHealthError != nil {
+		dst.LastHealthError = *src.LastHealthError
+	} else {
+		dst.LastHealthError = ""
+	}
 }
 
 // ListAllForFallback 返回所有代理（含过期/非活跃），供改投逻辑使用。
