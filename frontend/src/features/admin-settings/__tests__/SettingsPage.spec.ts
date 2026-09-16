@@ -374,6 +374,8 @@ vi.mock("vue-i18n", async () => {
     "admin.settings.openaiExperimentalScheduler.oauthRateTitle": "OAuth 调度参考倍率",
     "admin.settings.openaiExperimentalScheduler.oauthRatePriorityDescription": "同一分组同时包含 API Key 和 OAuth 账号时，OAuth 账号按此倍率与已探测的 API Key 计费倍率一起排序。",
     "admin.settings.openaiExperimentalScheduler.oauthRateWeightedDescription": "同一分组同时包含 API Key 和 OAuth 账号时，计算“计费倍率”得分时，OAuth 账号按此倍率参与计算。",
+    "admin.settings.scheduling.oauthGatewayRateLimit": "OpenAI OAuth 每账号限速",
+    "admin.settings.scheduling.oauthGatewayRateLimitHint": "所有账号使用同一套配置，但每个 OAuth 账号拥有独立令牌桶；同一账号在集群各实例间共享状态。",
     "admin.settings.openaiExperimentalScheduler.stickyWeightedTitle": "粘性加权",
     "admin.settings.openaiExperimentalScheduler.stickyWeightedDescription": "开启后 previous_response_id 和 session_hash 粘性进入高级调度打分；关闭时仍按旧逻辑硬命中粘性账号。",
     "admin.settings.openaiExperimentalScheduler.subscriptionPriorityTitle": "订阅优先",
@@ -1990,10 +1992,21 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(wrapper.find('[data-testid="openai-session-id-rate-limit-per-minute"]').exists()).toBe(false);
     await sessionRateToggle.setValue(true);
     await wrapper.get('[data-testid="openai-session-id-rate-limit-per-minute"]').setValue("12");
+    const oauthGatewayRateToggle = wrapper.get(
+      '[data-testid="openai-oauth-gateway-rate-limit-toggle"]',
+    );
+    expect((oauthGatewayRateToggle.element as HTMLInputElement).checked).toBe(false);
+    expect(wrapper.find('[data-testid="openai-oauth-gateway-rate-limit-rpm"]').exists()).toBe(false);
+    await oauthGatewayRateToggle.setValue(true);
+    await wrapper.get('[data-testid="openai-oauth-gateway-rate-limit-rpm"]').setValue("90");
+    await wrapper.get('[data-testid="openai-oauth-gateway-rate-limit-burst"]').setValue("7");
+    await wrapper.get('[data-testid="openai-request-integrity-observe-toggle"]').setValue(true);
     expect((burstBalanceToggle.element as HTMLInputElement).checked).toBe(false);
     await burstBalanceToggle.setValue(true);
     await lowRateToggle.setValue(true);
     const priorityModeText = wrapper.text();
+    expect(priorityModeText).toContain("OpenAI OAuth 每账号限速");
+    expect(priorityModeText).toContain("所有账号使用同一套配置，但每个 OAuth 账号拥有独立令牌桶");
     expect(priorityModeText).toContain(
       "同一分组同时包含 API Key 和 OAuth 账号时，OAuth 账号按此倍率与已探测的 API Key 计费倍率一起排序。",
     );
@@ -2019,6 +2032,10 @@ describe("admin SettingsView payment visible method controls", () => {
         openai_content_session_burst_balance_enabled: true,
         openai_session_id_rate_limit_enabled: true,
         openai_session_id_rate_limit_per_minute: 12,
+        openai_oauth_gateway_rate_limit_enabled: true,
+        openai_oauth_gateway_rate_limit_rpm: 90,
+        openai_oauth_gateway_rate_limit_burst: 7,
+        openai_request_integrity_observe_enabled: true,
       }),
     );
 

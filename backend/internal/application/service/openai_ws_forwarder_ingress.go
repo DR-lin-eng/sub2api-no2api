@@ -538,6 +538,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			promptCacheKey = strings.TrimSpace(finalContinuationValues[0].String())
 			previousResponseID = strings.TrimSpace(finalContinuationValues[1].String())
 		}
+		s.observeOpenAIRequestIntegrity(ctx, c, account, trimmed, normalized, "websocket")
 		ingressSessionOriginalModel = originalModel
 
 		return openAIWSClientPayload{
@@ -1024,6 +1025,13 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		timingCollector := &openaitiming.Collector{}
 		if lease == nil {
 			return nil, errors.New("upstream websocket lease is nil")
+		}
+		if err := s.admitOpenAIOAuthGatewayModelRequest(withOpenAIOAuthGatewayTurnKey(ctx, turn), account); err != nil {
+			mappedErr := openAIOAuthGatewayRateLimitWSFailover(err, turn, payload)
+			if _, currentTurn := OpenAIWSCurrentTurnRetryPayload(mappedErr); currentTurn {
+				return nil, wrapOpenAIWSIngressTurnError("account_rate_limit", mappedErr, false)
+			}
+			return nil, mappedErr
 		}
 		turnStart := time.Now()
 		wroteDownstream := false

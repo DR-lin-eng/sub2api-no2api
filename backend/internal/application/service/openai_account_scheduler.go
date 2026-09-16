@@ -56,6 +56,10 @@ type cachedOpenAIAdvancedSchedulerSetting struct {
 	contentSessionBurstBalance     bool
 	sessionIDRateLimitEnabled      bool
 	sessionIDRateLimitPerMinute    int
+	oauthGatewayRateLimitEnabled   bool
+	oauthGatewayRateLimitRPM       int
+	oauthGatewayRateLimitBurst     int
+	requestIntegrityObserveEnabled bool
 	enabled                        bool
 	stickyWeightedEnabled          bool
 	subscriptionPriorityEnabled    bool
@@ -70,6 +74,10 @@ type openAIAdvancedSchedulerRuntimeSettings struct {
 	contentSessionBurstBalance     bool
 	sessionIDRateLimitEnabled      bool
 	sessionIDRateLimitPerMinute    int
+	oauthGatewayRateLimitEnabled   bool
+	oauthGatewayRateLimitRPM       int
+	oauthGatewayRateLimitBurst     int
+	requestIntegrityObserveEnabled bool
 	enabled                        bool
 	stickyWeightedEnabled          bool
 	subscriptionPriorityEnabled    bool
@@ -2272,6 +2280,10 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 				contentSessionBurstBalance:     cached.contentSessionBurstBalance,
 				sessionIDRateLimitEnabled:      cached.sessionIDRateLimitEnabled,
 				sessionIDRateLimitPerMinute:    cached.sessionIDRateLimitPerMinute,
+				oauthGatewayRateLimitEnabled:   cached.oauthGatewayRateLimitEnabled,
+				oauthGatewayRateLimitRPM:       cached.oauthGatewayRateLimitRPM,
+				oauthGatewayRateLimitBurst:     cached.oauthGatewayRateLimitBurst,
+				requestIntegrityObserveEnabled: cached.requestIntegrityObserveEnabled,
 				enabled:                        cached.enabled,
 				stickyWeightedEnabled:          cached.stickyWeightedEnabled,
 				subscriptionPriorityEnabled:    cached.subscriptionPriorityEnabled,
@@ -2290,6 +2302,10 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 					contentSessionBurstBalance:     cached.contentSessionBurstBalance,
 					sessionIDRateLimitEnabled:      cached.sessionIDRateLimitEnabled,
 					sessionIDRateLimitPerMinute:    cached.sessionIDRateLimitPerMinute,
+					oauthGatewayRateLimitEnabled:   cached.oauthGatewayRateLimitEnabled,
+					oauthGatewayRateLimitRPM:       cached.oauthGatewayRateLimitRPM,
+					oauthGatewayRateLimitBurst:     cached.oauthGatewayRateLimitBurst,
+					requestIntegrityObserveEnabled: cached.requestIntegrityObserveEnabled,
 					enabled:                        cached.enabled,
 					stickyWeightedEnabled:          cached.stickyWeightedEnabled,
 					subscriptionPriorityEnabled:    cached.subscriptionPriorityEnabled,
@@ -2304,6 +2320,16 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 		contentSessionBurstBalance := false
 		sessionIDRateLimitEnabled := false
 		sessionIDRateLimitPerMinute := 0
+		oauthGatewayRateLimitEnabled := false
+		oauthGatewayRateLimitRPM := 60
+		oauthGatewayRateLimitBurst := 5
+		requestIntegrityObserveEnabled := false
+		if stale, ok := openAIAdvancedSchedulerSettingCache.Load().(*cachedOpenAIAdvancedSchedulerSetting); ok && stale != nil {
+			oauthGatewayRateLimitEnabled = stale.oauthGatewayRateLimitEnabled
+			oauthGatewayRateLimitRPM = stale.oauthGatewayRateLimitRPM
+			oauthGatewayRateLimitBurst = stale.oauthGatewayRateLimitBurst
+			requestIntegrityObserveEnabled = stale.requestIntegrityObserveEnabled
+		}
 		enabled := false
 		stickyWeightedEnabled := false
 		subscriptionPriorityEnabled := false
@@ -2319,6 +2345,10 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 				contentSessionBurstBalance = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAIContentSessionBurstBalanceEnabled]), "true")
 				sessionIDRateLimitEnabled = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAISessionIDRateLimitEnabled]), "true")
 				sessionIDRateLimitPerMinute = parseOpenAISessionIDRateLimitPerMinute(values[SettingKeyOpenAISessionIDRateLimitPerMinute])
+				oauthGatewayRateLimitEnabled = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAIOAuthGatewayRateLimitEnabled]), "true")
+				oauthGatewayRateLimitRPM = parseOpenAIOAuthGatewayRateLimitValue(values[SettingKeyOpenAIOAuthGatewayRateLimitRPM], 60)
+				oauthGatewayRateLimitBurst = parseOpenAIOAuthGatewayRateLimitValue(values[SettingKeyOpenAIOAuthGatewayRateLimitBurst], 5)
+				requestIntegrityObserveEnabled = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAIRequestIntegrityObserveEnabled]), "true")
 				enabled = strings.EqualFold(strings.TrimSpace(values[openAIAdvancedSchedulerSettingKey]), "true")
 				stickyWeightedEnabled = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled]), "true")
 				subscriptionPriorityEnabled = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled]), "true")
@@ -2339,6 +2369,18 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 				contentSessionBurstBalance = strings.EqualFold(strings.TrimSpace(fallbackValues[SettingKeyOpenAIContentSessionBurstBalanceEnabled]), "true")
 				sessionIDRateLimitEnabled = strings.EqualFold(strings.TrimSpace(fallbackValues[SettingKeyOpenAISessionIDRateLimitEnabled]), "true")
 				sessionIDRateLimitPerMinute = parseOpenAISessionIDRateLimitPerMinute(fallbackValues[SettingKeyOpenAISessionIDRateLimitPerMinute])
+				if raw, ok := fallbackValues[SettingKeyOpenAIOAuthGatewayRateLimitEnabled]; ok {
+					oauthGatewayRateLimitEnabled = strings.EqualFold(strings.TrimSpace(raw), "true")
+				}
+				if raw, ok := fallbackValues[SettingKeyOpenAIOAuthGatewayRateLimitRPM]; ok {
+					oauthGatewayRateLimitRPM = parseOpenAIOAuthGatewayRateLimitValue(raw, 60)
+				}
+				if raw, ok := fallbackValues[SettingKeyOpenAIOAuthGatewayRateLimitBurst]; ok {
+					oauthGatewayRateLimitBurst = parseOpenAIOAuthGatewayRateLimitValue(raw, 5)
+				}
+				if raw, ok := fallbackValues[SettingKeyOpenAIRequestIntegrityObserveEnabled]; ok {
+					requestIntegrityObserveEnabled = strings.EqualFold(strings.TrimSpace(raw), "true")
+				}
 				enabled = strings.EqualFold(strings.TrimSpace(fallbackValues[openAIAdvancedSchedulerSettingKey]), "true")
 				stickyWeightedEnabled = strings.EqualFold(strings.TrimSpace(fallbackValues[SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled]), "true")
 				subscriptionPriorityEnabled = strings.EqualFold(strings.TrimSpace(fallbackValues[SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled]), "true")
@@ -2353,6 +2395,10 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 			contentSessionBurstBalance:     contentSessionBurstBalance,
 			sessionIDRateLimitEnabled:      sessionIDRateLimitEnabled,
 			sessionIDRateLimitPerMinute:    sessionIDRateLimitPerMinute,
+			oauthGatewayRateLimitEnabled:   oauthGatewayRateLimitEnabled,
+			oauthGatewayRateLimitRPM:       oauthGatewayRateLimitRPM,
+			oauthGatewayRateLimitBurst:     oauthGatewayRateLimitBurst,
+			requestIntegrityObserveEnabled: requestIntegrityObserveEnabled,
 			enabled:                        enabled,
 			stickyWeightedEnabled:          stickyWeightedEnabled,
 			subscriptionPriorityEnabled:    subscriptionPriorityEnabled,
@@ -2366,6 +2412,10 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 			contentSessionBurstBalance:     contentSessionBurstBalance,
 			sessionIDRateLimitEnabled:      sessionIDRateLimitEnabled,
 			sessionIDRateLimitPerMinute:    sessionIDRateLimitPerMinute,
+			oauthGatewayRateLimitEnabled:   oauthGatewayRateLimitEnabled,
+			oauthGatewayRateLimitRPM:       oauthGatewayRateLimitRPM,
+			oauthGatewayRateLimitBurst:     oauthGatewayRateLimitBurst,
+			requestIntegrityObserveEnabled: requestIntegrityObserveEnabled,
 			enabled:                        enabled,
 			stickyWeightedEnabled:          stickyWeightedEnabled,
 			subscriptionPriorityEnabled:    subscriptionPriorityEnabled,
@@ -2416,6 +2466,10 @@ func openAIAdvancedSchedulerRuntimeSettingKeys() []string {
 		SettingKeyOpenAIContentSessionBurstBalanceEnabled,
 		SettingKeyOpenAISessionIDRateLimitEnabled,
 		SettingKeyOpenAISessionIDRateLimitPerMinute,
+		SettingKeyOpenAIOAuthGatewayRateLimitEnabled,
+		SettingKeyOpenAIOAuthGatewayRateLimitRPM,
+		SettingKeyOpenAIOAuthGatewayRateLimitBurst,
+		SettingKeyOpenAIRequestIntegrityObserveEnabled,
 		openAIAdvancedSchedulerSettingKey,
 		SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled,
 		SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled,

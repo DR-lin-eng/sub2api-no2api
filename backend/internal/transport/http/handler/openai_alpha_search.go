@@ -205,6 +205,10 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 			return
 		}
 
+		if !failoverErr.ShouldRetryNextAccount() {
+			h.handleFailoverExhausted(c, failoverErr, false)
+			return
+		}
 		h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, account.GetMappedModel(requestedModel), false, nil)
 		if c.Writer.Size() != writerSizeBeforeForward {
 			h.handleFailoverExhausted(c, failoverErr, true)
@@ -225,7 +229,7 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 			return
 		}
 		switchCount++
-		if h.gatewayService.ShouldStopOpenAIOAuth429Failover(account, failoverErr.StatusCode, switchCount, &oauth429FailoverState) {
+		if !failoverErr.IsOpenAIOAuthGatewayRateLimit() && h.gatewayService.ShouldStopOpenAIOAuth429Failover(account, failoverErr.StatusCode, switchCount, &oauth429FailoverState) {
 			h.handleFailoverExhausted(c, failoverErr, false)
 			return
 		}

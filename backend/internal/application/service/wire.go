@@ -323,6 +323,7 @@ func ProvideAccountUsageService(
 	service.SetHTTPUpstream(httpUpstream)
 	if openAIGatewayService != nil {
 		service.SetCodexSimulationSettingService(openAIGatewayService.settingService)
+		service.oauthGatewayLimiter = openAIGatewayService
 	}
 	service.agentIdentityWS = openAIGatewayService
 	service.cfg = cfg
@@ -352,6 +353,7 @@ func ProvideAccountTestService(
 		tlsFPProfileService,
 	)
 	service.agentIdentityWS = openAIGatewayService
+	service.oauthGatewayLimiter = openAIGatewayService
 	service.openAIModelsManifest = openAIGatewayService
 	service.customModelCapabilities = customModelCapabilities
 	return service

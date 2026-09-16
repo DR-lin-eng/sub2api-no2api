@@ -306,6 +306,10 @@ type SystemSettings struct {
 	OpenAIContentSessionBurstBalanceEnabled                bool
 	OpenAISessionIDRateLimitEnabled                        bool
 	OpenAISessionIDRateLimitPerMinute                      int
+	OpenAIOAuthGatewayRateLimitEnabled                     bool
+	OpenAIOAuthGatewayRateLimitRPM                         int
+	OpenAIOAuthGatewayRateLimitBurst                       int
+	OpenAIRequestIntegrityObserveEnabled                   bool
 	OpenAIAdvancedSchedulerEnabled                         bool
 	OpenAIAdvancedSchedulerStickyWeightedEnabled           bool
 	OpenAIAdvancedSchedulerSubscriptionPriorityEnabled     bool

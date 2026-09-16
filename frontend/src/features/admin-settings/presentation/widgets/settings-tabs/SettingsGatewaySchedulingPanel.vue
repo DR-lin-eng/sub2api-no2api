@@ -533,6 +533,41 @@
         <input id="openai-session-id-rate-limit-per-minute" v-model.number="form.openai_session_id_rate_limit_per_minute" class="input w-full sm:w-32" type="number" min="0" max="1000000" step="1" data-testid="openai-session-id-rate-limit-per-minute" />
       </div>
 
+      <div class="flex items-center justify-between border-t border-gray-100 pt-5 dark:border-dark-700">
+        <div>
+          <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+            {{ t("admin.settings.scheduling.oauthGatewayRateLimit") }}
+          </label>
+          <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            {{ t("admin.settings.scheduling.oauthGatewayRateLimitHint") }}
+          </p>
+        </div>
+        <Toggle v-model="form.openai_oauth_gateway_rate_limit_enabled" data-testid="openai-oauth-gateway-rate-limit-toggle" />
+      </div>
+
+      <div v-if="form.openai_oauth_gateway_rate_limit_enabled" class="grid grid-cols-1 gap-4 border-t border-gray-100 pt-5 dark:border-dark-700 sm:grid-cols-2">
+        <label class="text-sm text-gray-700 dark:text-gray-300">
+          <span class="mb-2 block">{{ t("admin.settings.scheduling.oauthGatewayRateLimitRPM") }}</span>
+          <input v-model.number="form.openai_oauth_gateway_rate_limit_rpm" class="input w-full" type="number" min="1" max="1000000" step="1" data-testid="openai-oauth-gateway-rate-limit-rpm" />
+        </label>
+        <label class="text-sm text-gray-700 dark:text-gray-300">
+          <span class="mb-2 block">{{ t("admin.settings.scheduling.oauthGatewayRateLimitBurst") }}</span>
+          <input v-model.number="form.openai_oauth_gateway_rate_limit_burst" class="input w-full" type="number" min="1" max="1000000" step="1" data-testid="openai-oauth-gateway-rate-limit-burst" />
+        </label>
+      </div>
+
+      <div class="flex items-center justify-between border-t border-gray-100 pt-5 dark:border-dark-700">
+        <div>
+          <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+            {{ t("admin.settings.scheduling.requestIntegrityObserve") }}
+          </label>
+          <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            {{ t("admin.settings.scheduling.requestIntegrityObserveHint") }}
+          </p>
+        </div>
+        <Toggle v-model="form.openai_request_integrity_observe_enabled" data-testid="openai-request-integrity-observe-toggle" />
+      </div>
+
       <div
         v-if="!form.openai_advanced_scheduler_enabled"
         class="flex items-center justify-between border-t border-gray-100 pt-5 dark:border-dark-700"

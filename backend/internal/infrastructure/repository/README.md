@@ -9,6 +9,7 @@
 | `account*`, `user*`, `group*`, `api_key*` | 核心身份和账号持久化 |
 | `usage_log*`, `usage_billing*`, `billing_cache*` | 用量、计费队列和账务缓存 |
 | `scheduler*`, `concurrency*`, `session_limit*`, `rpm_cache*` | 调度与并发状态 |
+| `openai_oauth_gateway_rate_limit_cache.go` | OpenAI OAuth 按账号独立、同账号跨实例共享的请求令牌桶和逻辑请求去重 |
 | `ops*`, `audit_log*`, `channel_monitor*` | 运维、审计和监控查询 |
 | `cloudflare_ingress*`, `cloudflare_waf*` | Cloudflare Access Rule/WAF 分片客户端、Redis 共享状态、异步同步、统计缓存与到期回收 |
 | `payment*`, `subscription*`, `promo_code*`, `redeem_code*` | 商业对象持久化 |

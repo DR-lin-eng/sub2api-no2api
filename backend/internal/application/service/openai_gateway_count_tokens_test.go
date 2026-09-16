@@ -136,6 +136,42 @@ func TestOpenAIGatewayService_ForwardResponsesInputTokens_OfficialAPIKeyUsesUpst
 	require.Equal(t, "https://api.openai.com/v1/responses/input_tokens", upstream.lastReq.URL.String())
 }
 
+func TestOpenAIGatewayService_ForwardResponsesInputTokens_OAuthGatewayLimitStopsBeforeUpstream(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	withOpenAIOAuthGatewayRuntimeSettings(t, true, 60, 5)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses/input_tokens", nil)
+	upstream := &httpUpstreamRecorder{}
+	svc := &OpenAIGatewayService{
+		cfg:          &config.Config{},
+		httpUpstream: upstream,
+		oauthGatewayRateLimitCache: &openAIOAuthGatewayRateLimitCacheStub{decision: OpenAIOAuthGatewayRateLimitDecision{
+			Allowed:           false,
+			RetryAfterSeconds: 3,
+		}},
+	}
+	account := &Account{
+		ID:       113,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"access_token":       "oauth-token",
+			"chatgpt_account_id": "chatgpt-acc",
+		},
+	}
+
+	err := svc.ForwardResponsesInputTokens(context.Background(), c, account, []byte(`{"model":"gpt-5.4","input":"hello"}`))
+
+	var failoverErr *UpstreamFailoverError
+	require.ErrorAs(t, err, &failoverErr)
+	require.True(t, failoverErr.IsOpenAIOAuthGatewayRateLimit())
+	require.Equal(t, http.StatusTooManyRequests, failoverErr.ClientStatusCode)
+	require.Equal(t, "3", failoverErr.ResponseHeaders.Get("Retry-After"))
+	require.Nil(t, upstream.lastReq)
+	require.Empty(t, rec.Body.String())
+}
+
 func TestOpenAIGatewayService_ForwardCountTokensAsAnthropic_OAuthFallsBackWhenPlatformEndpointUnsupported(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

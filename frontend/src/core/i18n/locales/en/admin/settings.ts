@@ -490,7 +490,13 @@ export default {
         contentSessionBurstBalanceHint: 'Disabled by default. When enabled, an initial bounded set of overlapping requests with identical content and no explicit session identifier is spread by account load. High-concurrency overflow is sent directly through a bounded pool of previously validated accounts, trying two accounts before using the existing queue limits. Sequential requests and explicit session_id, prompt_cache_key, and previous_response_id affinity remain unchanged.',
         sessionIDRateLimit: 'OpenAI Session ID rate limit per minute',
         sessionIDRateLimitHint: 'Limits newly observed explicit Session IDs per OpenAI OAuth account per minute; API key accounts are unaffected. 0 means unlimited; existing sessions are not counted again.',
-        sessionIDRateLimitPerMinute: 'Per-account limit per minute'
+        sessionIDRateLimitPerMinute: 'Per-account limit per minute',
+        oauthGatewayRateLimit: 'OpenAI OAuth per-account limit',
+        oauthGatewayRateLimitHint: 'All accounts use the same settings, but each OAuth account has an independent token bucket shared across cluster instances. API keys, model lists, quota queries, and OAuth refreshes are excluded. Disabling it fully bypasses Redis admission.',
+        oauthGatewayRateLimitRPM: 'Per-account sustained rate (requests/minute)',
+        oauthGatewayRateLimitBurst: 'Per-account burst capacity',
+        requestIntegrityObserve: 'Observe OpenAI request semantic changes',
+        requestIntegrityObserveHint: 'Records only field names with unexplained transformation differences. Request content is not stored and requests are never blocked.'
       },
       upstreamBillingProbe: {
         title: 'Upstream Rate Auto Detection',

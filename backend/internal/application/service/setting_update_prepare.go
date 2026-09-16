@@ -52,6 +52,13 @@ func (s *SettingService) prepareSystemSettingsUpdate(ctx context.Context, settin
 	if settings.OpenAISessionIDRateLimitPerMinute < 0 || settings.OpenAISessionIDRateLimitPerMinute > 1000000 {
 		return "", infraerrors.BadRequest("INVALID_OPENAI_SESSION_ID_RATE_LIMIT", "OpenAI session ID rate limit must be between 0 and 1000000 per minute")
 	}
+	if settings.OpenAIOAuthGatewayRateLimitRPM < 0 || settings.OpenAIOAuthGatewayRateLimitRPM > 1000000 ||
+		settings.OpenAIOAuthGatewayRateLimitBurst < 0 || settings.OpenAIOAuthGatewayRateLimitBurst > 1000000 {
+		return "", infraerrors.BadRequest("INVALID_OPENAI_OAUTH_GATEWAY_RATE_LIMIT", "OpenAI OAuth gateway RPM and burst must be between 0 and 1000000")
+	}
+	if settings.OpenAIOAuthGatewayRateLimitEnabled && (settings.OpenAIOAuthGatewayRateLimitRPM == 0 || settings.OpenAIOAuthGatewayRateLimitBurst == 0) {
+		return "", infraerrors.BadRequest("INVALID_OPENAI_OAUTH_GATEWAY_RATE_LIMIT", "OpenAI OAuth gateway RPM and burst must be positive when the limiter is enabled")
+	}
 	if strings.TrimSpace(settings.ClientIPResolutionMode) == "" {
 		if s.clientIPResolver != nil {
 			settings.ClientIPResolutionMode, settings.ClientIPTrustedProxies = s.clientIPResolver.CurrentConfiguration()
