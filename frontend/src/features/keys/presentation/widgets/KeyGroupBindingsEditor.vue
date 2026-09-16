@@ -1,16 +1,27 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { VueDraggable } from 'vue-draggable-plus'
 import GroupBadge from '@/common/widgets/data/GroupBadge.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
+import PlatformIcon from '@/common/widgets/icons/PlatformIcon.vue'
+import { platformBadgeLightClass } from '@/core/utils/platformColors'
 import type { ApiKeyGroupBinding } from '@/types'
+import {
+  getKeyGroupProvider,
+  KEY_GROUP_PROVIDER_ICONS,
+  KEY_GROUP_PROVIDERS,
+  type KeyGroupProvider,
+} from '../keyGroupProviders'
 import type { GroupOption } from '../keysPageContext'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   modelValue: ApiKeyGroupBinding[]
   groupOptions: GroupOption[]
-}>()
+  filterByProvider?: boolean
+}>(), {
+  filterByProvider: false,
+})
 
 const emit = defineEmits<{
   'update:modelValue': [value: ApiKeyGroupBinding[]]
@@ -19,6 +30,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const showPicker = ref(false)
 const searchQuery = ref('')
+const createProvider = ref<KeyGroupProvider>('anthropic')
 
 const bindings = computed({
   get: () => props.modelValue,
@@ -28,6 +40,13 @@ const bindings = computed({
 const optionByID = computed(() => new Map(props.groupOptions.map(option => [option.value, option])))
 const selectedIDs = computed(() => new Set(bindings.value.map(binding => binding.group_id)))
 const primaryOption = computed(() => optionByID.value.get(bindings.value[0]?.group_id))
+const providerOptions = computed(() => KEY_GROUP_PROVIDERS.map(value => ({
+  value,
+  count: props.groupOptions.filter(option => getKeyGroupProvider(option.platform) === value).length,
+})))
+const providerGroupOptions = computed(() => props.filterByProvider
+  ? props.groupOptions.filter(option => getKeyGroupProvider(option.platform) === createProvider.value)
+  : props.groupOptions)
 
 const addableOptions = computed(() => {
   if (bindings.value.length >= 20 || primaryOption.value?.subscriptionType === 'subscription') {
@@ -35,7 +54,7 @@ const addableOptions = computed(() => {
   }
 
   const query = searchQuery.value.trim().toLowerCase()
-  return props.groupOptions.filter((option) => {
+  return providerGroupOptions.value.filter((option) => {
     if (selectedIDs.value.has(option.value)) return false
     if (primaryOption.value) {
       if (option.platform !== primaryOption.value.platform || option.subscriptionType !== 'standard') {
@@ -46,6 +65,30 @@ const addableOptions = computed(() => {
     return option.label.toLowerCase().includes(query) || option.description?.toLowerCase().includes(query)
   })
 })
+
+const selectCreateProvider = (provider: KeyGroupProvider) => {
+  if (createProvider.value === provider) return
+  createProvider.value = provider
+  if (bindings.value.length > 0) {
+    bindings.value = []
+  }
+  searchQuery.value = ''
+  showPicker.value = false
+}
+
+watch([() => props.filterByProvider, providerOptions], ([enabled, providers]) => {
+  if (!enabled) return
+  const selectedAvailable = providers.some(option => option.value === createProvider.value && option.count > 0)
+  if (!selectedAvailable) {
+    selectCreateProvider(providers.find(option => option.count > 0)?.value ?? 'anthropic')
+  }
+  if (bindings.value.some(binding => {
+    const option = optionByID.value.get(binding.group_id)
+    return option && getKeyGroupProvider(option.platform) !== createProvider.value
+  })) {
+    bindings.value = []
+  }
+}, { immediate: true })
 
 const optionFor = (groupID: number) => optionByID.value.get(groupID)
 
@@ -83,6 +126,58 @@ const togglePicker = () => {
 
 <template>
   <div class="space-y-3" data-test="key-group-bindings-editor">
+    <fieldset v-if="props.filterByProvider" data-test="key-group-provider-filter">
+      <legend class="input-label">{{ t('keys.providerLabel') }}</legend>
+      <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <label
+          v-for="provider in providerOptions"
+          :key="provider.value"
+          class="relative min-w-0"
+          :class="provider.count === 0 ? 'cursor-not-allowed' : 'cursor-pointer'"
+        >
+          <input
+            type="radio"
+            name="key-provider"
+            :value="provider.value"
+            :checked="createProvider === provider.value"
+            :disabled="provider.count === 0"
+            class="peer sr-only"
+            @change="selectCreateProvider(provider.value)"
+          />
+          <span
+            class="flex h-full min-h-20 flex-col items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-2 py-2 text-center transition-colors peer-checked:border-primary-500 peer-checked:bg-primary-50/60 peer-checked:ring-1 peer-checked:ring-primary-500 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary-500 peer-disabled:opacity-40 dark:border-dark-600 dark:bg-dark-800 dark:peer-checked:border-primary-500 dark:peer-checked:bg-primary-500/10"
+            :class="provider.count > 0 && 'hover:border-primary-300 dark:hover:border-primary-700'"
+          >
+            <span class="flex h-6 items-center justify-center gap-1" aria-hidden="true">
+              <span
+                v-for="platform in KEY_GROUP_PROVIDER_ICONS[provider.value]"
+                :key="platform"
+                class="flex h-6 w-6 items-center justify-center rounded-md"
+                :class="platformBadgeLightClass(platform)"
+              >
+                <PlatformIcon :platform="platform" size="md" />
+              </span>
+            </span>
+            <span class="max-w-full text-xs font-semibold leading-4 text-gray-800 dark:text-gray-100">
+              {{ t(`keys.providers.${provider.value}`) }}
+            </span>
+          </span>
+          <span
+            v-if="createProvider === provider.value"
+            class="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary-500 text-white"
+            aria-hidden="true"
+          >
+            <Icon name="check" size="xs" :stroke-width="3" />
+          </span>
+        </label>
+      </div>
+      <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400" aria-live="polite">
+        {{ props.groupOptions.length === 0
+          ? t('common.noGroupsAvailable')
+          : t(`keys.providerHints.${createProvider}`) }}
+      </p>
+    </fieldset>
+
     <VueDraggable
       v-model="bindings"
       :animation="180"

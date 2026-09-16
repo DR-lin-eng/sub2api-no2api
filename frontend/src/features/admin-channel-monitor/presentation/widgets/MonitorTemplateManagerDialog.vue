@@ -254,6 +254,7 @@ import {
     PROVIDER_ZHIPU,
     PROVIDER_DEEPSEEK,
     PROVIDER_MINIMAX,
+    PROVIDER_OPENCODE_GO,
   API_MODE_CHAT_COMPLETIONS,
   API_MODE_RESPONSES,
 } from '@/core/constants/channelMonitor'
@@ -278,6 +279,7 @@ const providerTabs = computed<{ value: Provider; label: string }[]>(() => [
     { value: PROVIDER_ZHIPU, label: t('monitorCommon.providers.zhipu') },
     { value: PROVIDER_DEEPSEEK, label: t('monitorCommon.providers.deepseek') },
     { value: PROVIDER_MINIMAX, label: t('monitorCommon.providers.minimax') },
+    { value: PROVIDER_OPENCODE_GO, label: t('monitorCommon.providers.opencode_go') },
 ])
 
 const activeProvider = ref<Provider>(PROVIDER_ANTHROPIC)
@@ -298,6 +300,7 @@ const countByProvider = computed<Record<Provider, number>>(() => {
       zhipu: 0,
       deepseek: 0,
       minimax: 0,
+      opencode_go: 0,
   }
   for (const t of templates.value) out[t.provider]++
   return out

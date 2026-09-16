@@ -43,6 +43,10 @@
     <svg v-else-if="platform === 'minimax'" :class="sizeClass" viewBox="0 0 24 24" fill="currentColor">
       <path d="M16.28 2a2.08 2.08 0 0 1 2.09 2.07v12.5a.74.74 0 0 0 1.49 0V9.1a2.07 2.07 0 0 1 4.14 0v6.56a.65.65 0 0 1-1.3 0V9.1a.77.77 0 0 0-1.54 0v7.47a2.05 2.05 0 0 1-4.09 0V4.07a.79.79 0 0 0-1.58 0v15.9a2.05 2.05 0 0 1-4.1 0v-1.93a.65.65 0 0 1 1.31 0v1.93a.74.74 0 0 0 1.48 0V4.07A2.08 2.08 0 0 1 16.28 2M10.6 2a2.08 2.08 0 0 1 2.1 2.07v11.52a.65.65 0 0 1-1.3 0V4.07a.79.79 0 0 0-1.58 0v14.01a2.07 2.07 0 0 1-4.14 0V9.1a.77.77 0 0 0-1.54 0v3.8a2.07 2.07 0 0 1-4.14 0v-1.38a.65.65 0 0 1 1.3 0v1.38a.77.77 0 0 0 1.54 0V9.1a2.07 2.07 0 0 1 4.14 0v8.98a.77.77 0 0 0 1.54 0V4.07A2.08 2.08 0 0 1 10.6 2" />
     </svg>
+    <svg v-else-if="platform === 'opencode_go'" :class="sizeClass" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd">
+      <path d="M12 2.25 3.5 7.1v9.8L12 21.75l8.5-4.85V7.1L12 2.25Zm0 2.3 6.5 3.72v7.46L12 19.45l-6.5-3.72V8.27L12 4.55Z" />
+      <path d="m9.25 8.15-3 3.85 3 3.85 1.58-1.23L8.79 12l2.04-2.62-1.58-1.23Zm5.5 0-1.58 1.23L15.21 12l-2.04 2.62 1.58 1.23 3-3.85-3-3.85Z" />
+    </svg>
   <!-- Composite group icon -->
   <svg v-else-if="platform === 'composite'" :class="sizeClass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
     <circle cx="6" cy="12" r="3" />

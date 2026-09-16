@@ -401,6 +401,10 @@
       <div v-else class="text-xs text-gray-400">-</div>
     </template>
 
+    <template v-else-if="['kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go'].includes(account.platform)">
+      <CNProviderUsageCell :account="account" />
+    </template>
+
     <!-- Gemini platform: show quota + local usage window -->
     <template v-else-if="account.platform === 'gemini'">
       <!-- Auth Type + Tier Badge (first line) -->
@@ -557,6 +561,7 @@ import UsageProgressBar from './UsageProgressBar.vue'
 import AccountQuotaInfo from './AccountQuotaInfo.vue'
 import OpenAIQuotaResetCell from './OpenAIQuotaResetCell.vue'
 import GrokQuotaProbeCell from './GrokQuotaProbeCell.vue'
+import CNProviderUsageCell from './CNProviderUsageCell.vue'
 import AccountKeyUsageDetails from './AccountKeyUsageDetails.vue'
 
 // Module-level cache shared across all AccountUsageCell instances
@@ -619,6 +624,7 @@ let visibilityObserver: IntersectionObserver | null = null
 const showUsageWindows = computed(() => {
   // Gemini: we can always compute local usage windows from DB logs (simulated quotas).
   if (props.account.platform === 'gemini') return true
+  if (['kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go'].includes(props.account.platform)) return true
   return props.account.type === 'oauth' || props.account.type === 'setup-token'
 })
 

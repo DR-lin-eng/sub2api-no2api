@@ -10,6 +10,7 @@ export type GroupPlatform =
   | 'zhipu'
   | 'deepseek'
   | 'minimax'
+  | 'opencode_go'
   | 'composite'
 
 export type SubscriptionType = 'standard' | 'subscription'

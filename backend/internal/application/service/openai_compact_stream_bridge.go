@@ -114,7 +114,8 @@ func writeOpenAICompactSSEFailureMessage(c *gin.Context, statusCode int, errType
 	}
 	MarkOpsStreamError(c, errType, message, statusCode)
 	payload, err := json.Marshal(map[string]any{
-		"type": "response.failed",
+		"type":            "response.failed",
+		"sequence_number": 0,
 		"response": map[string]any{
 			"id":         "resp_" + strings.ReplaceAll(uuid.NewString(), "-", ""),
 			"object":     "response",
@@ -141,7 +142,8 @@ func writeOpenAICompactSSEFailureMessage(c *gin.Context, statusCode int, errType
 // 携带完整 response 对象。Codex 的 SSE 解析只从 output_item.done 收集 item，
 // 并要求 response.completed 的 response.id 必填、usage（若存在）必须携带
 // input_tokens/output_tokens/total_tokens 整数字段，否则整条 completed 事件
-// 解析失败，故此处做兜底修补。
+// 解析失败，故此处做兜底修补。严格客户端还要求每帧都带连续的
+// sequence_number，从 0 开始编号。
 func buildOpenAICompactSSEPayload(finalResponse []byte) ([]byte, bool) {
 	if len(finalResponse) == 0 || !gjson.ValidBytes(finalResponse) {
 		return nil, false
@@ -174,12 +176,19 @@ func buildOpenAICompactSSEPayload(finalResponse []byte) ([]byte, bool) {
 
 	var buf bytes.Buffer
 	outputIndex := 0
-	appendEvent := func(eventType string, data []byte) {
+	sequenceNumber := 0
+	appendEvent := func(eventType string, data []byte) bool {
+		numbered, err := sjson.SetBytes(data, "sequence_number", sequenceNumber)
+		if err != nil {
+			return false
+		}
+		sequenceNumber++
 		_, _ = buf.WriteString("event: ")
 		_, _ = buf.WriteString(eventType)
 		_, _ = buf.WriteString("\ndata: ")
-		_, _ = buf.Write(data)
+		_, _ = buf.Write(numbered)
 		_, _ = buf.WriteString("\n\n")
+		return true
 	}
 	for _, item := range gjson.GetBytes(response, "output").Array() {
 		if !item.IsObject() {
@@ -193,7 +202,9 @@ func buildOpenAICompactSSEPayload(finalResponse []byte) ([]byte, bool) {
 		if err != nil {
 			return nil, false
 		}
-		appendEvent("response.output_item.done", event)
+		if !appendEvent("response.output_item.done", event) {
+			return nil, false
+		}
 		outputIndex++
 	}
 
@@ -201,7 +212,9 @@ func buildOpenAICompactSSEPayload(finalResponse []byte) ([]byte, bool) {
 	if err != nil {
 		return nil, false
 	}
-	appendEvent("response.completed", completed)
+	if !appendEvent("response.completed", completed) {
+		return nil, false
+	}
 	return buf.Bytes(), true
 }
 

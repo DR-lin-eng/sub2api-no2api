@@ -57,6 +57,8 @@ func ProvideAdminHandlers(
 	upstreamBillingProbe *service.UpstreamBillingProbeService,
 	clusterHandler *admin.ClusterHandler,
 	ollamaCloudUsage *service.OllamaCloudUsageService,
+	cnProviderQuota *service.CNProviderQuotaService,
+	cnProviderBalance *service.CNProviderBalanceService,
 	chatHandler *admin.ChatHandler,
 	egressHandler *admin.EgressHandler,
 	customModelConfigHandler *admin.CustomModelConfigHandler,
@@ -64,6 +66,7 @@ func ProvideAdminHandlers(
 ) *AdminHandlers {
 	accountHandler.SetUpstreamBillingProbeService(upstreamBillingProbe)
 	accountHandler.SetOllamaCloudUsageService(ollamaCloudUsage)
+	accountHandler.SetCNProviderServices(cnProviderQuota, cnProviderBalance)
 	return &AdminHandlers{
 		Dashboard:              dashboardHandler,
 		User:                   userHandler,

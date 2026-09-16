@@ -1,0 +1,107 @@
+Changed branch/field: codex/upstream-channel-sync-20260916; backend/internal/application/service/account.go functions GetOpenAIBaseURL, GetCNProtocolBaseURL, and GetAnthropicProtocolBaseURL.
+
+Artifacts:
+- /Users/lin/.codex/worktrees/f11d/sub2api-no2api/diagnostics/upstream-channel-sync-20260916/MODIFIED_FILE
+- /Users/lin/.codex/worktrees/f11d/sub2api-no2api/diagnostics/upstream-channel-sync-20260916/DIFF_FILE
+- /Users/lin/.codex/worktrees/f11d/sub2api-no2api/diagnostics/upstream-channel-sync-20260916/VERIFICATION.txt
+- /Users/lin/.codex/worktrees/f11d/sub2api-no2api/diagnostics/upstream-channel-sync-20260916/ROLLBACK.sh (executable)
+
+Source copies:
+- Original commit: df540cea99c810c978fc648adf454ec81d404293.
+- Baseline: diagnostics/upstream-channel-sync-20260916/BASELINE_FILE copied from original backend/internal/application/service/account.go.
+- Baseline SHA-256: 4518ee84fdc2befd8b72d553cecb26425657ab3b69915e144727f504de75dfc2; size 99526 bytes.
+- Modified: MODIFIED_FILE copied from b4675ae5d39036951cb77260ec3f30453bd73bff backend/internal/application/service/account.go.
+- Modified SHA-256: 09ec36bd6d3caee006f11fd37c14126f389b349b36a0e70d0dbe48bd21577b56; size 104571 bytes.
+- DIFF_FILE: original-to-functional unified diff, line-prefixed for repository whitespace checks.
+- DIFF_FILE SHA-256: 80a45d7cbcaa63b0e8aa285d7d65651bb181ee11d3454e1f84612027f02b725e; size 7511 bytes.
+- ROLLBACK.sh SHA-256: 6c662617bb56d649e0d4544535a8b0d9e004a3b9069f761638da8c44f5c83aa8.
+
+BASELINE exact command:
+docker run --rm -v /private/tmp/sub2api-channel-sync-20260915.IW5bbB/baseline/backend:/workspace -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v sub2api-channel-sync-go-cache:/root/.cache/go-build -w /workspace golang:1.26.6-alpine sh -c 'go test -tags=unit ./internal/application/service -run "^TestCNProviderSyncProtocolBaseURLOverrides$" -count=1'
+BASELINE input: clean original tree at df540cea99c810c978fc648adf454ec81d404293; account.go SHA-256 4518ee84fdc2befd8b72d553cecb26425657ab3b69915e144727f504de75dfc2.
+BASELINE literal output:
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.011s [no tests to run]
+BASELINE exit status: 0.
+BASELINE behavior/status: the original package compiled, but it had no adaptive per-protocol URL resolver or contract test.
+
+MODIFIED exact command:
+docker run --rm -v /Users/lin/.codex/worktrees/f11d/sub2api-no2api/backend:/workspace -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v sub2api-channel-sync-go-cache:/root/.cache/go-build -w /workspace golang:1.26.6-alpine sh -c 'go test -tags=unit ./internal/application/service -run "^TestCNProviderSyncProtocolBaseURLOverrides$" -count=1'
+MODIFIED input: functional tree b4675ae5d39036951cb77260ec3f30453bd73bff; account.go SHA-256 09ec36bd6d3caee006f11fd37c14126f389b349b36a0e70d0dbe48bd21577b56.
+MODIFIED literal output:
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.012s
+MODIFIED exit status: 0.
+MODIFIED behavior/status: adaptive Chat/Anthropic/Responses URL overrides, fixed Anthropic base_url semantics, and non-recursive platform defaults were exercised and passed.
+
+ROLLBACK preparation exact command:
+mkdir -p /private/tmp/sub2api-channel-sync-rollback-20260916
+cp diagnostics/upstream-channel-sync-20260916/MODIFIED_FILE /private/tmp/sub2api-channel-sync-rollback-20260916/account.go
+shasum -a 256 /private/tmp/sub2api-channel-sync-rollback-20260916/account.go
+rg -n 'func \(a \*Account\) Get(OpenAIBaseURL|CNProtocolBaseURL|AnthropicProtocolBaseURL)' /private/tmp/sub2api-channel-sync-rollback-20260916/account.go
+ROLLBACK preparation literal output:
+09ec36bd6d3caee006f11fd37c14126f389b349b36a0e70d0dbe48bd21577b56  /private/tmp/sub2api-channel-sync-rollback-20260916/account.go
+1668:func (a *Account) GetOpenAIBaseURL() string {
+1779:func (a *Account) GetCNProtocolBaseURL(protocol string) string {
+1839:func (a *Account) GetAnthropicProtocolBaseURL() string {
+ROLLBACK preparation exit status: 0.
+
+ROLLBACK exact command:
+diagnostics/upstream-channel-sync-20260916/ROLLBACK.sh diagnostics/upstream-channel-sync-20260916/BASELINE_FILE /private/tmp/sub2api-channel-sync-rollback-20260916/account.go
+ROLLBACK input: independent copy at SHA-256 09ec36bd6d3caee006f11fd37c14126f389b349b36a0e70d0dbe48bd21577b56; neither source account.go nor MODIFIED_FILE was targeted.
+ROLLBACK literal output/result:
+restored_behavior=legacy_openai_compatible_base_url
+restored_status=adaptive_protocol_resolver_absent
+restored_sha256=4518ee84fdc2befd8b72d553cecb26425657ab3b69915e144727f504de75dfc2
+ROLLBACK exit status: 0.
+ROLLBACK restored behavior/status: the independent copy exactly matches the original account.go and no longer contains GetCNProtocolBaseURL; MODIFIED_FILE remains changed at SHA-256 09ec36bd6d3caee006f11fd37c14126f389b349b36a0e70d0dbe48bd21577b56.
+
+Upstream audit:
+- Previous reviewed upstream: 32682a4f84c6a29104439050a0be14737552cec2.
+- Frozen upstream: 881f3202694c6bc932446931a30c27d9675178b9.
+- New range: 11 commits, 5 first-parent merges, 6 first-parent commits.
+- Imported PRs: #7153 provider filtering, #6977 DeepSeek validation, #7074 canonical Codex windows, #7162 Antigravity SSE separators, and #7129 Responses sequence_number.
+- Reopened historical channel gaps: first-class OpenCode Zen/Go; native/adaptive CN protocols; CN quotas/balances; Zhipu team fields; MiniMax quota; DeepSeek V4.1 price and vision; group, Composite, monitor, quota, and migration wiring.
+- VERSION remains 0.1.204; upstream 0.2.5 was not copied.
+- Functional commit: b4675ae5d39036951cb77260ec3f30453bd73bff.
+- Tracking merge: 0fd90b4bd1fa590cf1a68be7e6c481aebcdbb839; parents b4675ae5d39036951cb77260ec3f30453bd73bff and 881f3202694c6bc932446931a30c27d9675178b9.
+- First-parent and merge tree: 340e1082e3789bc59c284a1e165988fe227131d4; tracking merge changed zero files.
+- git rev-list --count HEAD..upstream/main literal result: 0; exit 0.
+
+Backend Docker verification:
+- Full unit exact command: docker run --rm -e GOMAXPROCS=4 -v "$PWD/backend":/workspace -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v sub2api-channel-sync-go-cache:/root/.cache/go-build -w /workspace golang:1.26.6-alpine sh -c 'go test -tags=unit -p=2 ./...'
+- Full unit literal result: all packages passed; internal/application/service passed (first non-cached run 187.837s); final exit status 0.
+- Application race exact command: docker run --rm -e GOMAXPROCS=4 -v "$PWD/backend":/workspace -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v sub2api-channel-sync-go-cache:/root/.cache/go-build -w /workspace golang:1.26.6-bookworm sh -c 'go test -race -tags=unit -parallel=1 ./internal/application/service -run "Test(CNProvider|OpenCode|OpenAIQuotaHeadroomFactor|OpenAISchedulerCanonical|HandleCC.*Anthropic|HandleResponses.*)" -count=1'
+- Application race literal output: ok github.com/Wei-Shaw/sub2api/internal/application/service 1.090s; exit 0.
+- Compat race literal output: ok github.com/Wei-Shaw/sub2api/internal/shared/apicompat 1.027s; exit 0.
+
+Frontend Docker verification:
+- pnpm lint:check literal output: $ eslint .; exit 0.
+- pnpm typecheck literal output: $ vue-tsc --noEmit; exit 0.
+- Production build literal result: 1508 modules transformed; built in 21.93s; exit 0.
+- Full Vitest literal result: Test Files 4 failed | 364 passed (368); Tests 7 failed | 2230 passed (2237); exit 1.
+- All seven failures were reproduced on df540cea9: four UsersPage Pinia fixtures, one UserEditDialog Pinia fixture, one stale settings template hash, and one RegisterView credential navigation assertion.
+- Branch-owned related matrix literal result: Test Files 5 passed (5); Tests 93 passed (93); exit 0.
+- Create/edit/usage matrix literal result: Test Files 3 passed (3); Tests 79 passed (79); exit 0.
+
+Final Docker image and runtime:
+- Image build exact command: docker buildx build --load --build-arg COMMIT=channel-sync-20260916 -t sub2api-channel-sync-20260916:candidate .
+- Image build literal result: exported manifest list sha256:5e6d9f1e318acf8ed0a32228c6c5a2189208a2f221ddbf2cc2bdd68e43d6f0fb and tagged sub2api-channel-sync-20260916:candidate; exit 0.
+- Image size: 46201691 bytes; linux/arm64.
+- Runtime exact command: docker compose -p sub2api-channel-sync-20260916 -f diagnostics/upstream-channel-sync-20260916/compose.yaml up -d --force-recreate --no-deps --wait app
+- Runtime literal result: app recreated, started, and healthy; exit 0.
+- GET /health literal result: HTTP 200 {"status":"ok"}; exit 0.
+- GET /ready literal result: HTTP 200, ready=true, current_version=0.1.204, draining=false, in_flight=0; exit 0.
+- Container literal state: status=running health=healthy restarts=0 image=sha256:5e6d9f1e318acf8ed0a32228c6c5a2189208a2f221ddbf2cc2bdd68e43d6f0fb.
+- PostgreSQL literal result: schema_migrations contains 244_add_opencode_go_platform.sql and all four widened CHECK constraints contain opencode_go; exit 0.
+- Redis literal output: PONG; exit 0.
+
+Browser verification:
+- Candidate URL: http://127.0.0.1:18080.
+- Desktop 1440x1000: Kimi adaptive three-endpoint editor and OpenCode protocol rules rendered without overlap.
+- Mobile 390x844: rule pattern and protocol use two rows; Anthropic Messages is fully visible; delete controls and fixed footer do not overlap.
+- An OpenCode fixture account was created only in the isolated Compose database. Edit reopened with all three endpoints, five default rules, 28 models, and redacted API key.
+- API Key creation preserved ordered multi-group behavior while provider buttons filtered the initial candidate set.
+
+Final repository checks:
+- make check-docs literal output: Documentation checks passed.; exit 0.
+- git diff --check literal output: empty; exit 0.
+- ROLLBACK.sh syntax and executable-mode check literal output: artifact_syntax_and_mode=passed; exit 0.

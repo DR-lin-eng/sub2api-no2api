@@ -142,10 +142,9 @@ import {
 import { formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/core/utils/format'
 import { createStableObjectKeyResolver } from '@/core/utils/stableObjectKey'
 import {
-  CN_ACCOUNT_PLATFORM_LABELS,
   VERTEX_LOCATION_OPTIONS,
+  accountAPIKeyFieldHint,
   defaultAPIKeyBaseURL,
-  isCNAccountPlatform,
 } from '@/core/constants/account'
 import {
   OPENAI_WS_MODE_CTX_POOL,
@@ -183,6 +182,8 @@ import type {
   GeminiAccountHelpContext,
 } from '@/features/admin-accounts/presentation/accountEditorContext'
 import { isUpstreamBillingProbeEligible } from '@/features/admin-accounts/presentation/upstreamBillingProbeEligibility'
+import { applyCreateCNProviderCredentials } from '@/features/admin-accounts/presentation/createCNProviderCredentials'
+import { useCNAccountEditorState } from '@/features/admin-accounts/presentation/composables/useCNAccountEditorState'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
@@ -197,29 +198,8 @@ const oauthStepTitle = computed(() => {
 })
 
 // Platform-specific hints for API Key type
-const baseUrlHint = computed(() => {
-  if (form.platform === 'openai') return t('admin.accounts.openai.baseUrlHint')
-  if (form.platform === 'gemini') return t('admin.accounts.gemini.baseUrlHint')
-  if (form.platform === 'grok') return ''
-  if (isCNAccountPlatform(form.platform)) {
-    return t('admin.accounts.cnProvider.baseUrlHint', {
-      provider: CN_ACCOUNT_PLATFORM_LABELS[form.platform],
-    })
-  }
-  return t('admin.accounts.baseUrlHint')
-})
-
-const apiKeyHint = computed(() => {
-  if (form.platform === 'openai') return t('admin.accounts.openai.apiKeyHint')
-  if (form.platform === 'gemini') return t('admin.accounts.gemini.apiKeyHint')
-  if (form.platform === 'grok') return ''
-  if (isCNAccountPlatform(form.platform)) {
-    return t('admin.accounts.cnProvider.apiKeyHint', {
-      provider: CN_ACCOUNT_PLATFORM_LABELS[form.platform],
-    })
-  }
-  return t('admin.accounts.apiKeyHint')
-})
+const baseUrlHint = computed(() => accountAPIKeyFieldHint(t, form.platform, 'baseUrl'))
+const apiKeyHint = computed(() => accountAPIKeyFieldHint(t, form.platform, 'apiKey'))
 
 interface Props {
   show: boolean
@@ -666,6 +646,11 @@ const form = reactive({
   expires_at: null as number | null
 })
 
+const {
+  cnAccountMode, cnAPIProtocol, cnAdaptiveBaseURLs, openCodeAccountMode,
+  openCodeProtocolRules, resetCNAccountEditorState, zhipuOrganization, zhipuProject,
+} = useCNAccountEditorState(() => form.platform)
+
 // Helper to check if current type needs OAuth flow
 const isOAuthFlow = computed(() => {
   // Antigravity upstream 类型不需要 OAuth 流程
@@ -874,6 +859,7 @@ const resetForm = () => {
   addMethod.value = 'oauth'
   apiKeyBaseUrl.value = 'https://api.anthropic.com'
   apiKeyValue.value = ''
+  resetCNAccountEditorState()
   upstreamBillingAutoProbeEnabled.value = true
   autoDisableOnUpstreamInsufficientBalance.value = false
   editQuotaLimit.value = null
@@ -1340,9 +1326,12 @@ const handleSubmit = async () => {
     base_url: apiKeyBaseUrl.value.trim() || defaultBaseUrl,
     api_key: apiKeyValue.value.trim()
     }
-    if (isCNAccountPlatform(form.platform)) {
-      credentials.account_mode = 'payg'
-    }
+  applyCreateCNProviderCredentials(credentials, {
+    platform: form.platform, cnAccountMode: cnAccountMode.value, cnAPIProtocol: cnAPIProtocol.value,
+    adaptiveBaseURLs: cnAdaptiveBaseURLs.value, openCodeAccountMode: openCodeAccountMode.value,
+    openCodeProtocolRules: openCodeProtocolRules.value, zhipuOrganization: zhipuOrganization.value,
+    zhipuProject: zhipuProject.value,
+  })
   if (form.platform === 'gemini') {
     credentials.tier_id = geminiTierAIStudio.value
   }
@@ -1455,6 +1444,7 @@ const createAccountCredentialContext = {
   DEFAULT_POOL_MODE_RETRY_COUNT, DEFAULT_POOL_MODE_RETRY_STATUS_CODES, MAX_POOL_MODE_RETRY_COUNT,
   accountCategory, addCustomErrorCode, addMethod, addModelMapping, addPresetMapping, allowedModels,
   apiKeyBaseUrl, apiKeyHint, apiKeyValue, autoDisableOnUpstreamInsufficientBalance, baseUrlHint,
+  cnAccountMode, cnAPIProtocol, cnAdaptiveBaseURLs,
   bedrockAccessKeyId, bedrockApiKeyValue, bedrockAuthMode, bedrockForceGlobal, bedrockPresets,
   bedrockRegion, bedrockSecretAccessKey, bedrockSessionToken, commonErrorCodes,
   customErrorCodeInput, customErrorCodesEnabled, editDailyResetHour, editDailyResetMode,
@@ -1463,6 +1453,7 @@ const createAccountCredentialContext = {
   grokOAuthBaseUrl, grokOAuthCustomBaseUrlEnabled, headerOverrideEnabled, headerOverrideRows,
   isHeaderOverrideCapable, isOAuthFlow, isOpenAIModelRestrictionDisabled, modelMappings,
   modelRestrictionMode, poolModeEnabled, poolModeRetryCount, poolModeRetryStatusCodesInput,
+  openCodeAccountMode, openCodeProtocolRules, zhipuOrganization, zhipuProject,
   presetMappings, quotaNotifyGlobalEnabled, quotaNotifyState, removeErrorCode, removeModelMapping,
   selectedErrorCodes, syncPreviewCredentials, t, toggleErrorCode, upstreamBillingAutoProbeEnabled,
 } satisfies CreateAccountCredentialContext

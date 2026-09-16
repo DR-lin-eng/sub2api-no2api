@@ -39,6 +39,10 @@ function dynamicLocaleCalls(): Map<string, number> {
 }
 
 const auditedDynamicCalls: Record<string, number> = {
+  'core/constants/account.ts :: `admin.accounts.${field}Hint`': 1,
+  'core/constants/account.ts :: `admin.accounts.cnProvider.${field}Hint`': 1,
+  'core/constants/account.ts :: `admin.accounts.gemini.${field}Hint`': 1,
+  'core/constants/account.ts :: `admin.accounts.openai.${field}Hint`': 1,
   // Activity enums and the fixed legacy-text allowlist are covered in activitySafety.spec.ts.
   'features/activity-center/presentation/activityCenterText.ts :: `${namespace}.${key}`': 1,
   'features/activity-center/presentation/pages/ActivityCenterDetailPage.vue :: `activityCenter.prizeTypes.${type}`': 1,
@@ -53,6 +57,7 @@ const auditedDynamicCalls: Record<string, number> = {
   'features/admin-account-inspection/presentation/widgets/QuotaUsageDistributionChart.vue :: `admin.accountInspection.quotaUsage.buckets.${bucket.key}`': 1,
   'features/admin-accounts/presentation/accountEditUpdatePayload.ts :: `admin.accounts.headerOverride.${headerError}`': 2,
   'features/admin-accounts/presentation/widgets/BulkEditAccountDialog.vue :: `admin.accounts.headerOverride.${headerError}`': 1,
+  'features/admin-accounts/presentation/widgets/CNProviderUsageCell.vue :: `admin.accounts.cnProvider.window.${window}`': 1,
   'features/admin-accounts/presentation/widgets/CreateAccountDialog.vue :: `admin.accounts.headerOverride.${headerError}`': 2,
   'features/admin-accounts/presentation/widgets/GrokBaseUrlPresets.vue :: `admin.accounts.grokCustomBaseUrl.presets.${preset.labelKey}`': 1,
   "features/admin-accounts/presentation/widgets/QuotaDimensionRow.vue :: 'admin.accounts.dayOfWeek.' + d.key": 1,
@@ -91,6 +96,8 @@ const auditedDynamicCalls: Record<string, number> = {
   'features/billing/presentation/widgets/PaymentProviderList.vue :: `payment.methods.${opt.value}`': 1,
   'features/channel-monitor-user/presentation/widgets/MonitorCard.vue :: `channelStatus.windowTab.${props.window}`': 1,
   'features/dashboard-user/presentation/widgets/UserDashboardStats.vue :: `dashboard.platformQuota.${w}`': 2,
+  'features/keys/presentation/widgets/KeyGroupBindingsEditor.vue :: `keys.providerHints.${createProvider}`': 1,
+  'features/keys/presentation/widgets/KeyGroupBindingsEditor.vue :: `keys.providers.${provider.value}`': 1,
   'features/media-studio/presentation/widgets/MediaStudioCanvas.vue :: `mediaStudio.modeItems.${mode.id}.title`': 1,
   'features/media-studio/presentation/widgets/MediaStudioCanvas.vue :: `mediaStudio.modeItems.${selectedMode.id}.title`': 1,
   'features/prompt-audit/presentation/widgets/EventDetailDialog.vue :: `admin.promptAudit.events.tabs.${tab}`': 1,

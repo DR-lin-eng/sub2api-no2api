@@ -288,6 +288,7 @@ import {
     PROVIDER_ZHIPU,
     PROVIDER_DEEPSEEK,
     PROVIDER_MINIMAX,
+    PROVIDER_OPENCODE_GO,
   API_MODE_CHAT_COMPLETIONS,
   API_MODE_RESPONSES,
   DEFAULT_GROK_ENDPOINT,
@@ -566,6 +567,7 @@ const providerOptions = computed<ProviderOption[]>(() => [
     { value: PROVIDER_ZHIPU, label: t('monitorCommon.providers.zhipu') },
     { value: PROVIDER_DEEPSEEK, label: t('monitorCommon.providers.deepseek') },
     { value: PROVIDER_MINIMAX, label: t('monitorCommon.providers.minimax') },
+    { value: PROVIDER_OPENCODE_GO, label: t('monitorCommon.providers.opencode_go') },
 ])
 
 function selectProvider(provider: Provider) {
