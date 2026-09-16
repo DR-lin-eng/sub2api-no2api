@@ -42,13 +42,14 @@ OAuth2 token 的认证域与站内 JWT、Admin API Key、模型网关 API Key �
 ### 账号级质量监控与降智分组切换
 
 管理员在独立的 `/admin/account-quality` 保存质量策略并启用质量巡检，可指定 `source_group_id` 作为检测源；后台只筛选状态启用且已启用调度（`schedulable=true`）的 OpenAI/Gemini OAuth 账号，API Key、service account 和关闭调度的账号不会进入检测队列；后台复用账号测试的真实上游传输路径，按
-`interval_minutes` 对账号执行两个可独立开关的阶段：`stage1_enabled` 开启糖果形状/口味保证题（默认 `stage1_answer=21`），`stage2_enabled` 开启 SVG 鹈鹕骑自行车画图题并进行代码匹配和预览渲染。管理员可编辑 `stage1_prompt`、`stage1_answer` 和 `stage2_prompt`。只运行启用的阶段；全开时先文字题再画图。答案必须匹配配置答案且代码匹配规则通过才算通过。答错、代码匹配未通过或第一阶段 reasoning token 低于阈值显示为 `degraded`；`failure_threshold` 决定连续失败几轮后自动切组，恢复遵循 `recovery_threshold`。请求或分类错误不递增失败计数。选择检测源分组后只探测该分组账号；已经切入降智分组且仍启用调度的账号会继续探测以支持恢复。未配置检测源时扫描全部符合上述条件的账号。账号健康巡检在 `/admin/account-inspection` 使用独立设置、状态和调度器，两个入口互不触发。
+`interval_minutes` 对账号执行两个可独立开关的阶段：`stage1_enabled` 开启糖果形状/口味保证题（默认 `stage1_answer=21`），`stage2_enabled` 开启 SVG 鹈鹕骑自行车画图题并进行代码匹配和预览渲染。管理员可编辑 `stage1_prompt`、`stage1_answer` 和 `stage2_prompt`。只运行启用的阶段；全开时先文字题再画图。答案必须匹配配置答案且代码匹配规则通过才算通过。答错、代码匹配未通过或第一阶段 reasoning token 低于阈值显示为 `degraded`；`failure_threshold` 决定连续失败几轮后自动切组，恢复遵循 `recovery_threshold`。请求或分类错误不递增失败计数。选择检测源分组后探测范围为源分组和配置的降智分组；由旧配置迁出的账号也会继续探测，以支持恢复。未配置检测源时扫描全部符合上述条件的账号。账号健康巡检在 `/admin/account-inspection` 使用独立设置、状态和调度器，两个入口互不触发。
 
 配置 `degraded_group_id` 后，首次进入降智状态会先把原 `account_groups` 列表写入账号
 `extra.account_quality_original_group_ids`，再通过现有 `BindGroups` 事务绑定目标分组并写 scheduler
 outbox。目标分组必须存在、启用且与账号平台一致；切换失败不会静默修改原分组。连续通过达到
-`recovery_threshold` 时，仅当账号仍停留在记录的降智分组，系统才恢复原分组；管理员在此期间手动
-改组则保留手动结果。未配置目标分组时质量状态仍可观测，但不改变调度资格。
+`recovery_threshold` 时，仅当账号仍停留在记录的降智分组，系统才恢复原分组；降智分组中没有历史
+迁移标记的账号仅在当前绑定恰好等于该降智分组时回到配置的源分组。管理员在此期间手动改到其他
+分组或增加绑定时保留手动结果。未配置目标分组时质量状态仍可观测，但不改变调度资格。
 
 质量监控默认并发 4 个探测，管理员可在质量策略中设置 1–200 的 `max_concurrent`（上限 200）。若检测间隔短于上一轮耗时，新的定时/手动轮次进入单槽待开始队列并合并重复请求，当前轮次不取消；上一轮完成后立即启动排队轮次。第一阶段使用 `timeout_seconds`（默认 120 秒，可由管理员设置为 30–300 秒）；第二阶段的该值只限制“尚未收到任何流式内容”的等待时间。OpenAI 画图探测使用 Responses 流式请求，收到首个内容/图片事件后不再触发这项短超时，继续等待上游完成；整个质量运行仍受外层运行预算约束。传输、鉴权或无输出超时错误显示为本次 `error`，但不递增质量失败计数，也不触发降智分组切换。第一阶段从上游实际 usage 提取 reasoning token：OpenAI Responses 的 `response.usage.output_tokens_details.reasoning_tokens`、Chat Completions 的 `usage.completion_tokens_details.reasoning_tokens`，Gemini 的 `usageMetadata.thoughtsTokenCount`。缺失用量显示未知；启用阈值时该次结果为待确认，不按 0 判降智。`min_reasoning_tokens` 默认 0（仅展示），管理员可设置 0–1000000；严格小于阈值判为降智，等于阈值通过。摘要提供 0–49、50–99、100–249、250–499、500–999、1000+ 六个区间、均值、已测和未知数量；汇总在分页和截断前完成。状态、连续计数和最近 24 次阶段摘要存入 `accounts.extra`，探测不写入用量日志；公开页仅展示下文列出的最终回答，不展示推理正文。
 

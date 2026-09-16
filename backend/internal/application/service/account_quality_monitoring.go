@@ -587,7 +587,7 @@ func (s *AccountQualityMonitoringService) executeRun(ctx context.Context, trigge
 	}
 	eligible := make([]Account, 0, len(accounts))
 	for i := range accounts {
-		if qualityProbeEligible(&accounts[i], settings.SourceGroupID) {
+		if qualityProbeEligible(&accounts[i], settings.SourceGroupID, settings.DegradedGroupID) {
 			eligible = append(eligible, accounts[i])
 		}
 	}

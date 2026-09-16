@@ -56,7 +56,7 @@ func TestQualityGroupSwitchPreservesOriginalAndRestoresAfterRecovery(t *testing.
 	account.GroupIDs = []int64{20}
 	account.Extra = map[string]any{AccountQualityOriginalGroupsExtraKey: []any{float64(10), float64(11)}, AccountQualityRoutingGroupExtraKey: float64(20)}
 	result = &AccountInspectionAccountResult{}
-	require.NoError(t, svc.restoreQualityGroups(context.Background(), account, result))
+	require.NoError(t, svc.restoreQualityGroups(context.Background(), account, nil, nil, result))
 	require.Equal(t, "restored_group", result.QualityAction)
 	require.Equal(t, []int64{10, 11}, repo.groups[7])
 }
@@ -66,7 +66,7 @@ func TestQualityGroupRestorePreservesManualGroupChange(t *testing.T) {
 	svc := &AccountQualityMonitoringService{accountRepo: repo}
 	account := &Account{ID: 8, GroupIDs: []int64{30}, Extra: map[string]any{AccountQualityOriginalGroupsExtraKey: []any{float64(10)}, AccountQualityRoutingGroupExtraKey: float64(20)}}
 	result := &AccountInspectionAccountResult{}
-	require.NoError(t, svc.restoreQualityGroups(context.Background(), account, result))
+	require.NoError(t, svc.restoreQualityGroups(context.Background(), account, nil, nil, result))
 	require.Equal(t, "manual_group_change_preserved", result.QualityAction)
 	require.Empty(t, repo.groups)
 }
@@ -87,34 +87,88 @@ func TestQualityDefaultPromptIsDeterministic(t *testing.T) {
 	require.Contains(t, settings.Prompt, "鹈鹕骑自行车")
 }
 
-func TestQualityProbeEligibleUsesSourceGroupAndKeepsReroutedAccount(t *testing.T) {
-	source := int64(10)
+func TestQualityProbeEligibleUsesSourceAndDegradedGroups(t *testing.T) {
+	source, degraded := int64(10), int64(20)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, GroupIDs: []int64{10}}
-	require.True(t, qualityProbeEligible(account, &source))
+	require.True(t, qualityProbeEligible(account, &source, &degraded))
 	account.GroupIDs = []int64{20}
-	account.Extra = map[string]any{AccountQualityRoutingGroupExtraKey: float64(20)}
-	require.True(t, qualityProbeEligible(account, &source))
+	require.True(t, qualityProbeEligible(account, &source, &degraded), "configured degraded group must remain in the recovery queue")
 	account.GroupIDs = []int64{30}
-	require.False(t, qualityProbeEligible(account, &source))
+	require.False(t, qualityProbeEligible(account, &source, &degraded))
+
+	// Preserve recovery for accounts routed by an older degraded-group setting.
+	account.Extra = map[string]any{AccountQualityRoutingGroupExtraKey: float64(20)}
+	account.GroupIDs = []int64{20}
+	require.True(t, qualityProbeEligible(account, &source, nil))
+}
+
+func TestQualityGroupRestoreMovesConfiguredDegradedGroupToSource(t *testing.T) {
+	source, degraded := int64(10), int64(20)
+	repo := &qualityRepoStub{groups: map[int64][]int64{}, extra: map[int64]map[string]any{}}
+	svc := &AccountQualityMonitoringService{accountRepo: repo}
+	account := &Account{ID: 9, GroupIDs: []int64{degraded}, Extra: map[string]any{}}
+	result := &AccountInspectionAccountResult{}
+
+	require.NoError(t, svc.restoreQualityGroups(context.Background(), account, &source, &degraded, result))
+	require.Equal(t, "restored_group", result.QualityAction)
+	require.Equal(t, []int64{source}, repo.groups[account.ID])
+}
+
+func TestQualityGroupRestorePreservesAdditionalManualBindingsWithoutMarker(t *testing.T) {
+	source, degraded := int64(10), int64(20)
+	repo := &qualityRepoStub{groups: map[int64][]int64{}, extra: map[int64]map[string]any{}}
+	svc := &AccountQualityMonitoringService{accountRepo: repo}
+	account := &Account{ID: 10, GroupIDs: []int64{degraded, 30}, Extra: map[string]any{}}
+	result := &AccountInspectionAccountResult{}
+
+	require.NoError(t, svc.restoreQualityGroups(context.Background(), account, &source, &degraded, result))
+	require.Equal(t, "healthy", result.QualityAction)
+	require.Empty(t, repo.groups)
+}
+
+func TestQualityMonitoringRestoresConfiguredDegradedGroupAfterRecoveryThreshold(t *testing.T) {
+	source, degraded := int64(10), int64(20)
+	account := Account{ID: 11, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, GroupIDs: []int64{degraded}, Extra: map[string]any{}}
+	repo := &qualityRepoStub{groups: map[int64][]int64{}, extra: map[int64]map[string]any{}}
+	probe := &qualityStageProbeStub{responses: []string{"21", "21"}}
+	svc := &AccountQualityMonitoringService{accountRepo: repo, accountTestSvc: probe}
+	settings := DefaultAccountQualitySettings()
+	settings.Stage2Enabled = false
+	settings.SourceGroupID = &source
+	settings.DegradedGroupID = &degraded
+	settings.RecoveryThreshold = 2
+
+	first := []AccountInspectionAccountResult{neutralAccountInspectionResult(&account, time.Now().UTC())}
+	require.NoError(t, svc.runQualityMonitoring(context.Background(), []Account{account}, first, nil, settings, time.Now().UTC()))
+	require.Empty(t, repo.groups, "one healthy probe must not restore before the configured threshold")
+	require.Equal(t, 1, first[0].QualityConsecutivePasses)
+
+	account.Extra = repo.extra[account.ID]
+	second := []AccountInspectionAccountResult{neutralAccountInspectionResult(&account, time.Now().UTC())}
+	previous := &AccountQualityRunState{Results: first}
+	require.NoError(t, svc.runQualityMonitoring(context.Background(), []Account{account}, second, previous, settings, time.Now().UTC()))
+	require.Equal(t, []int64{source}, repo.groups[account.ID])
+	require.Equal(t, "restored_group", second[0].QualityAction)
+	require.Equal(t, 2, second[0].QualityConsecutivePasses)
 }
 
 func TestQualityProbeOnlyIncludesOAuthAccounts(t *testing.T) {
 	for _, accountType := range []string{AccountTypeAPIKey, AccountTypeServiceAccount} {
 		account := &Account{Platform: PlatformOpenAI, Type: accountType, Status: StatusActive, Schedulable: true, GroupIDs: []int64{10}}
-		require.False(t, qualityProbeEligible(account, nil), "account type %s must not be quality-probed", accountType)
+		require.False(t, qualityProbeEligible(account, nil, nil), "account type %s must not be quality-probed", accountType)
 	}
 	for _, platform := range []string{PlatformOpenAI, PlatformGemini} {
 		account := &Account{Platform: platform, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, GroupIDs: []int64{10}}
-		require.True(t, qualityProbeEligible(account, nil), "OAuth %s account should be eligible", platform)
+		require.True(t, qualityProbeEligible(account, nil, nil), "OAuth %s account should be eligible", platform)
 	}
 }
 
 func TestQualityProbeOnlyIncludesAccountsWithSchedulingEnabled(t *testing.T) {
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: false}
-	require.False(t, qualityProbeEligible(account, nil))
+	require.False(t, qualityProbeEligible(account, nil, nil))
 
 	account.Schedulable = true
-	require.True(t, qualityProbeEligible(account, nil))
+	require.True(t, qualityProbeEligible(account, nil, nil))
 }
 
 type qualityStageProbeStub struct {
