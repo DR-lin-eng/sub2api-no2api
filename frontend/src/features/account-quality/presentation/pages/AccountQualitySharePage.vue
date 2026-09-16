@@ -13,6 +13,12 @@
       </header>
       <p v-if="error" role="alert" class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{{ t('common.accountQuality.qualityDisabled') }}</p>
       <template v-if="snapshot">
+        <section aria-labelledby="quality-pool-protection-title" class="border-y border-emerald-200 bg-emerald-50/70 px-4 py-4 dark:border-emerald-900 dark:bg-emerald-950/20 sm:px-5">
+          <div class="grid gap-2 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] sm:gap-6">
+            <h2 id="quality-pool-protection-title" class="text-sm font-semibold text-emerald-800 dark:text-emerald-300">{{ t('common.accountQuality.poolProtectionTitle') }}</h2>
+            <p class="text-sm leading-6 text-slate-600 dark:text-slate-300">{{ t('common.accountQuality.poolProtectionDescription') }}</p>
+          </div>
+        </section>
         <section :aria-label="t('common.accountQuality.recent')" class="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <article class="metric"><p>{{ t('common.accountQuality.passRate') }}</p><strong class="text-emerald-600">{{ passRate }}</strong><small>{{ snapshot.passed }} / {{ classified }} · {{ t('common.accountQuality.classified') }}</small></article>
           <article class="metric"><p>{{ t('common.accountQuality.total') }}</p><strong>{{ snapshot.total }}</strong><small>{{ t('common.accountQuality.totalNote') }}</small></article>
@@ -30,6 +36,13 @@
           </div>
           <p v-if="!timeline.length" class="py-8 text-center text-sm text-slate-400">{{ t('common.accountQuality.empty') }}</p>
           <div class="mt-3 flex justify-between text-xs text-slate-400"><span>{{ qualityTime(timeline[0]?.started_at) }}</span><span>{{ qualityTime(timeline[timeline.length - 1]?.started_at) }}</span></div>
+          <div data-testid="quality-red-bar-explanation" role="note" aria-labelledby="quality-red-bar-title" class="mt-5 flex gap-3 border-t border-slate-100 pt-4 dark:border-dark-700">
+            <span aria-hidden="true" class="mt-1 h-10 w-1.5 shrink-0 rounded-sm bg-rose-500" />
+            <div>
+              <p id="quality-red-bar-title" class="text-sm font-medium text-slate-700 dark:text-slate-200">{{ t('common.accountQuality.redBarTitle') }}</p>
+              <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ t('common.accountQuality.redBarDescription') }}</p>
+            </div>
+          </div>
           <div class="mt-5 flex flex-wrap gap-4 text-xs text-slate-500">
             <span v-for="legend in legends" :key="legend.key" class="flex items-center gap-2"><i class="h-2 w-2 rounded-sm" :class="verdictColor[legend.key]" />{{ legend.label }}</span>
           </div>

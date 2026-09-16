@@ -1,23 +1,73 @@
-|diff --git a/backend/internal/domain/constants.go b/backend/internal/domain/constants.go
-|index a7cce32c0..9414d0587 100644
-|--- a/backend/internal/domain/constants.go
-|+++ b/backend/internal/domain/constants.go
-|@@ -23,9 +23,18 @@ const (
-| 	PlatformGemini      = "gemini"
-| 	PlatformAntigravity = "antigravity"
-| 	PlatformGrok        = "grok"
-|+	PlatformKimi        = "kimi"
-|+	PlatformZhipu       = "zhipu"
-|+	PlatformDeepseek    = "deepseek"
-|+	PlatformMiniMax     = "minimax"
-| 	PlatformComposite   = "composite"
-| )
-|
-|+const (
-|+	AccountModePayG   = "payg"
-|+	AccountModeCoding = "coding"
-|+)
-|+
-| // Account type constants
-| const (
-| 	AccountTypeOAuth          = "oauth"           // OAuth类型账号（full scope: profile + inference）
+diff --git a/frontend/src/core/i18n/locales/en/common.ts b/frontend/src/core/i18n/locales/en/common.ts
+index 24ca9864c..2d1227916 100644
+--- a/frontend/src/core/i18n/locales/en/common.ts
++++ b/frontend/src/core/i18n/locales/en/common.ts
+@@ -158,0 +159,4 @@ export default {
++      poolProtectionTitle: 'Degraded accounts are removed from the normal pool',
++      poolProtectionDescription: 'Account-level quality checks run continuously. After an account reaches the consecutive-failure action threshold, it is moved to an isolation group and stops serving normal traffic. It returns to its original pool only after meeting the recovery policy.',
++      redBarTitle: 'A red bar means this account-level quality check did not pass',
++      redBarDescription: 'Each bar represents one account-level check record. Red does not mean a site-wide outage or that your request is using that account. Multiple red records may belong to the same account, so the number of red bars is not the number of affected accounts.',
+@@ -164,2 +168,2 @@ export default {
+-      errors: 'Request errors', errorsNote: 'excluded from classification', timeline: '24-hour quality timeline', timelineNote: 'Select a check to view its conversation, answer and preview',
+-      empty: 'No public quality results', normal: 'Normal', abnormal: 'Degraded', waiting: 'Uncertain', failed: 'Request error',
++      errors: 'Request errors', errorsNote: 'excluded from classification', timeline: '24-hour quality timeline', timelineNote: 'Each bar is one account check · Select it to view evidence',
++      empty: 'No public quality results', normal: 'Normal', abnormal: 'Quality check failed', waiting: 'Uncertain', failed: 'Request error',
+diff --git a/frontend/src/core/i18n/locales/zh/common.ts b/frontend/src/core/i18n/locales/zh/common.ts
+index 1fdf61636..1c83a579f 100644
+--- a/frontend/src/core/i18n/locales/zh/common.ts
++++ b/frontend/src/core/i18n/locales/zh/common.ts
+@@ -158,0 +159,4 @@ export default {
++      poolProtectionTitle: '检测出降智账号后，会自动移出正常号池',
++      poolProtectionDescription: '系统持续进行账号级质量检测。账号连续未通过并达到处置阈值后，会被转入隔离分组，不再承接正常请求；后续恢复达标后，再按恢复策略回到原号池。',
++      redBarTitle: '红色条表示该次账号质量检测未通过',
++      redBarDescription: '每条色块代表一条账号级检测记录。红色不代表全站故障，也不表示你的请求正在使用该账号；多条红色记录可能来自同一账号，因此红条数量不等于异常账号数量。',
+@@ -164,2 +168,2 @@ export default {
+-      errors: '请求失败', errorsNote: '未计入分类', timeline: '24 小时检测时间线', timelineNote: '点击色块查看对话、回答与图片',
+-      empty: '暂无公开检测记录', normal: '正常', abnormal: '降智', waiting: '待确认', failed: '请求失败',
++      errors: '请求失败', errorsNote: '未计入分类', timeline: '24 小时检测时间线', timelineNote: '每条色块代表一次账号检测 · 点击查看证据',
++      empty: '暂无公开检测记录', normal: '正常', abnormal: '质量检测未通过', waiting: '待确认', failed: '请求失败',
+diff --git a/frontend/src/features/account-quality/__tests__/AccountQualitySharePage.spec.ts b/frontend/src/features/account-quality/__tests__/AccountQualitySharePage.spec.ts
+index 662b201c5..1f29d57ed 100644
+--- a/frontend/src/features/account-quality/__tests__/AccountQualitySharePage.spec.ts
++++ b/frontend/src/features/account-quality/__tests__/AccountQualitySharePage.spec.ts
+@@ -9,0 +10 @@ import { qualityVerdict } from '../presentation/qualityDisplay'
++import zhMessages from '@/core/i18n/locales/zh/common'
+@@ -29,0 +31,19 @@ describe('AccountQualitySharePage', () => {
++  it('explains pool isolation and the meaning of red timeline bars', async () => {
++    const wrapper = mount(AccountQualitySharePage, { global: { stubs: { BaseDialog: { template: '<div><slot /></div>' }, QualityPreview: { template: '<div />' }, QualityConversation: { template: '<div />' } } } })
++    await flushPromises()
++
++    expect(wrapper.text()).toContain('common.accountQuality.poolProtectionTitle')
++    expect(wrapper.text()).toContain('common.accountQuality.poolProtectionDescription')
++    const explanation = wrapper.get('[data-testid="quality-red-bar-explanation"]')
++    expect(explanation.text()).toContain('common.accountQuality.redBarTitle')
++    expect(explanation.text()).toContain('common.accountQuality.redBarDescription')
++    expect(explanation.find('.bg-rose-500').exists()).toBe(true)
++
++    const copy = zhMessages.common.accountQuality
++    expect(copy.poolProtectionTitle).toBe('检测出降智账号后，会自动移出正常号池')
++    expect(copy.poolProtectionDescription).toContain('连续未通过并达到处置阈值')
++    expect(copy.poolProtectionDescription).toContain('不再承接正常请求')
++    expect(copy.redBarDescription).toContain('不代表全站故障')
++    expect(copy.redBarDescription).toContain('不等于异常账号数量')
++  })
++
+diff --git a/frontend/src/features/account-quality/presentation/pages/AccountQualitySharePage.vue b/frontend/src/features/account-quality/presentation/pages/AccountQualitySharePage.vue
+index 26ed11843..28ebf4cb4 100644
+--- a/frontend/src/features/account-quality/presentation/pages/AccountQualitySharePage.vue
++++ b/frontend/src/features/account-quality/presentation/pages/AccountQualitySharePage.vue
+@@ -15,0 +16,6 @@
++        <section aria-labelledby="quality-pool-protection-title" class="border-y border-emerald-200 bg-emerald-50/70 px-4 py-4 dark:border-emerald-900 dark:bg-emerald-950/20 sm:px-5">
++          <div class="grid gap-2 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] sm:gap-6">
++            <h2 id="quality-pool-protection-title" class="text-sm font-semibold text-emerald-800 dark:text-emerald-300">{{ t('common.accountQuality.poolProtectionTitle') }}</h2>
++            <p class="text-sm leading-6 text-slate-600 dark:text-slate-300">{{ t('common.accountQuality.poolProtectionDescription') }}</p>
++          </div>
++        </section>
+@@ -32,0 +39,7 @@
++          <div data-testid="quality-red-bar-explanation" role="note" aria-labelledby="quality-red-bar-title" class="mt-5 flex gap-3 border-t border-slate-100 pt-4 dark:border-dark-700">
++            <span aria-hidden="true" class="mt-1 h-10 w-1.5 shrink-0 rounded-sm bg-rose-500" />
++            <div>
++              <p id="quality-red-bar-title" class="text-sm font-medium text-slate-700 dark:text-slate-200">{{ t('common.accountQuality.redBarTitle') }}</p>
++              <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ t('common.accountQuality.redBarDescription') }}</p>
++            </div>
++          </div>

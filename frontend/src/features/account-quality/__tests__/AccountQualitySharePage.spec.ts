@@ -7,6 +7,7 @@ vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string, params?: Record<
 
 import AccountQualitySharePage from '../presentation/pages/AccountQualitySharePage.vue'
 import { qualityVerdict } from '../presentation/qualityDisplay'
+import zhMessages from '@/core/i18n/locales/zh/common'
 
 describe('AccountQualitySharePage', () => {
   beforeEach(() => {
@@ -25,6 +26,25 @@ describe('AccountQualitySharePage', () => {
     expect(wrapper.text()).toContain('conv-123')
     expect(wrapper.text()).toContain('21')
     expect(wrapper.find('img[src="/preview.webp"]').exists()).toBe(true)
+  })
+
+  it('explains pool isolation and the meaning of red timeline bars', async () => {
+    const wrapper = mount(AccountQualitySharePage, { global: { stubs: { BaseDialog: { template: '<div><slot /></div>' }, QualityPreview: { template: '<div />' }, QualityConversation: { template: '<div />' } } } })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('common.accountQuality.poolProtectionTitle')
+    expect(wrapper.text()).toContain('common.accountQuality.poolProtectionDescription')
+    const explanation = wrapper.get('[data-testid="quality-red-bar-explanation"]')
+    expect(explanation.text()).toContain('common.accountQuality.redBarTitle')
+    expect(explanation.text()).toContain('common.accountQuality.redBarDescription')
+    expect(explanation.find('.bg-rose-500').exists()).toBe(true)
+
+    const copy = zhMessages.common.accountQuality
+    expect(copy.poolProtectionTitle).toBe('检测出降智账号后，会自动移出正常号池')
+    expect(copy.poolProtectionDescription).toContain('连续未通过并达到处置阈值')
+    expect(copy.poolProtectionDescription).toContain('不再承接正常请求')
+    expect(copy.redBarDescription).toContain('不代表全站故障')
+    expect(copy.redBarDescription).toContain('不等于异常账号数量')
   })
 
   it('hides empty failed conversations instead of showing a blank detail card', async () => {
