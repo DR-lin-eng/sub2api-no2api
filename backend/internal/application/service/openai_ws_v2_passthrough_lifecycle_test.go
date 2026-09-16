@@ -207,7 +207,8 @@ func TestPassthroughLifecycleReplaysConfiguredTurnStateOnOAuthHandshake(t *testi
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	upstream := newStagedPassthroughConn()
 	svc := newPassthroughLifecycleService(cfg, upstream)
-	dialer := svc.openaiWSPassthroughDialer.(*stagedPassthroughDialer)
+	dialer, ok := svc.openaiWSPassthroughDialer.(*stagedPassthroughDialer)
+	require.True(t, ok)
 	dialer.headers = make(chan http.Header, 1)
 	settings := NewSettingService(newCodexSimulationSettingRepo(), cfg)
 	_, err := settings.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{
