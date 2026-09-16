@@ -1,0 +1,97 @@
+TASK=browser notifications for support chat
+BRANCH=codex/support-browser-notifications
+BASE_COMMIT=5a73aa813ea961723dcaa8f4eaf9b5483bcf80d3
+BASELINE_COMMIT=df540cea99c810c978fc648adf454ec81d404293
+CHANGED_FIELD=frontend support_chat.browserNotifications and global admin support message listener
+
+ARTIFACTS
+MODIFIED_FILE=/Users/lin/.codex/worktrees/f7e3/sub2api-no2api/diagnostics/support-browser-notifications-20260915/MODIFIED_FILE
+DIFF_FILE=/Users/lin/.codex/worktrees/f7e3/sub2api-no2api/diagnostics/support-browser-notifications-20260915/DIFF_FILE
+VERIFICATION_FILE=/Users/lin/.codex/worktrees/f7e3/sub2api-no2api/diagnostics/support-browser-notifications-20260915/VERIFICATION.txt
+ROLLBACK_FILE=/Users/lin/.codex/worktrees/f7e3/sub2api-no2api/diagnostics/support-browser-notifications-20260915/ROLLBACK.sh
+
+BASELINE
+COMMAND=docker run --rm -v sub2api-browser-notify-node_modules:/workspace/frontend/node_modules -v "$PWD":/workspace -w /workspace/frontend node:24-alpine sh -c 'corepack enable >/dev/null && corepack prepare pnpm@11.17.0 --activate >/dev/null && pnpm install --frozen-lockfile --prefer-offline >/tmp/pnpm-install.log && pnpm exec vitest run src/features/support-chat --reporter=dot'
+INPUT=unmodified HEAD df540cea99c810c978fc648adf454ec81d404293
+LITERAL_OUTPUT=
+ RUN  v3.2.6 /workspace/frontend
+······························
+ Test Files  7 passed (7)
+      Tests  30 passed (30)
+   Start at 15:49:26
+   Duration 1.52s (transform 1.53s, setup 476ms, collect 3.61s, tests 390ms, environment 2.58s, prepare 374ms)
+RESULT=baseline support-chat tests passed
+EXIT_STATUS=0
+
+MODIFIED_TARGETED
+COMMAND=docker run --rm -v sub2api-browser-notify-node_modules:/workspace/frontend/node_modules -v "$PWD":/workspace -w /workspace/frontend node:24-alpine sh -c 'corepack enable >/dev/null && corepack prepare pnpm@11.17.0 --activate >/dev/null && pnpm exec vitest run src/core/i18n/__tests__/routeLocaleCoverage.spec.ts src/features/support-chat --reporter=dot && pnpm exec eslint src/App.vue src/features/support-chat --ext .ts,.vue && pnpm run typecheck'
+INPUT=modified support-chat notification sources and locale scope changes
+LITERAL_OUTPUT=
+ Test Files  10 passed (10)
+      Tests  40 passed (40)
+   Start at 05:32:49
+   Duration 6.68s (transform 2.83s, setup 953ms, collect 7.28s, tests 4.26s, environment 7.12s, prepare 1.12s)
+$ vue-tsc --noEmit
+RESULT=targeted tests, locale coverage, ESLint, and typecheck passed
+EXIT_STATUS=0
+
+MODIFIED_CRITICAL
+COMMAND=docker run --rm -v sub2api-browser-notify-node_modules:/workspace/frontend/node_modules -v "$PWD":/workspace -w /workspace/frontend node:24-alpine sh -c 'corepack enable >/dev/null && corepack prepare pnpm@11.17.0 --activate >/dev/null && pnpm run lint:check && pnpm run typecheck && pnpm exec vitest run src/common/widgets/data/__tests__/GroupOptionItem.spec.ts src/common/widgets/layout/__tests__/AppHeaderResponsive.spec.ts src/core/i18n/__tests__/routeLocaleCoverage.spec.ts src/__tests__/dynamicLocaleMapping.spec.ts src/core/routes/__tests__/adminRouteAccess.spec.ts src/features/auth/__tests__/authProfileLocaleScopes.spec.ts src/features/billing/__tests__/paymentLocaleScopes.spec.ts src/features/subscriptions/__tests__/subscriptionStatus.spec.ts src/features/admin-backup/presentation/pages/__tests__/backupStatus.spec.ts src/core/utils/__tests__/usageLocale.spec.ts src/core/utils/__tests__/embedded-url.spec.ts src/core/utils/__tests__/homeContent.spec.ts src/__tests__/dynamicHtmlSecurity.spec.ts src/common/pages/__tests__/HomePageCompact.spec.ts src/features/channels-user/__tests__/customPageHtml.spec.ts src/features/channel-monitor-user/__tests__/channelMonitorLocale.spec.ts src/features/channels-user/__tests__/CustomLandingPage.security.spec.ts src/features/prompt-audit/__tests__/promptAuditLocale.spec.ts src/features/prompt-audit/__tests__/RuntimeOverview.spec.ts src/features/admin-usage/__tests__/UsageDetailDialog.spec.ts src/features/admin-usage/__tests__/UsageStatsCards.spec.ts src/features/admin-usage/__tests__/UsageTable.spec.ts src/features/auth/__tests__/LinuxDoCallbackView.spec.ts src/features/auth/__tests__/WechatCallbackView.spec.ts src/features/billing/__tests__/PaymentPage.spec.ts src/features/billing/__tests__/PaymentResultPage.spec.ts src/features/profile/__tests__/ProfileInfoCard.spec.ts src/features/admin-settings/__tests__/SettingsPage.spec.ts --reporter=dot'
+INPUT=modified checkout
+LITERAL_OUTPUT=
+ Test Files  28 passed (28)
+      Tests  239 passed (239)
+   Start at 16:50:48
+   Duration 9.70s (transform 10.83s, setup 1.94s, collect 24.26s, tests 11.32s, environment 12.01s, prepare 2.07s)
+RESULT=frontend lint, typecheck, and CI critical test set passed
+EXIT_STATUS=0
+
+MODIFIED_BUILD
+COMMAND=docker run --rm -v sub2api-browser-notify-node_modules:/workspace/frontend/node_modules -v "$PWD":/workspace -w /workspace/frontend node:24-alpine sh -c 'corepack enable >/dev/null && corepack prepare pnpm@11.17.0 --activate >/dev/null && pnpm run build'
+INPUT=modified checkout
+LITERAL_OUTPUT=built in 30.73s
+RESULT=Vite production build passed (1511 modules transformed)
+EXIT_STATUS=0
+
+MODIFIED_FULL_SUITE
+COMMAND=docker run --rm -v sub2api-browser-notify-node_modules:/workspace/frontend/node_modules -v "$PWD":/workspace -w /workspace/frontend node:24-alpine sh -c 'corepack enable >/dev/null && corepack prepare pnpm@11.17.0 --activate >/dev/null && pnpm exec vitest run --reporter=json --outputFile=/tmp/vitest-full.json >/tmp/vitest-full.stdout 2>/tmp/vitest-full.stderr; status=$?; node -e '"'"'const fs=require("fs");const r=JSON.parse(fs.readFileSync("/tmp/vitest-full.json","utf8"));const failed=(r.testResults||[]).filter(x=>x.status==="failed").map(x=>x.name.replace(process.cwd()+"/","")).sort();console.log(JSON.stringify({numTotalTestSuites:r.numTotalTestSuites,numPassedTestSuites:r.numPassedTestSuites,numFailedTestSuites:r.numFailedTestSuites,numTotalTests:r.numTotalTests,numPassedTests:r.numPassedTests,numFailedTests:r.numFailedTests,failedFiles:failed},null,2))'"'"'; exit $status'
+INPUT=modified checkout
+LITERAL_OUTPUT={"numTotalTestSuites":892,"numPassedTestSuites":874,"numFailedTestSuites":18,"numTotalTests":2230,"numPassedTests":2216,"numFailedTests":14}
+RESULT=14 failures remain in unrelated pre-existing account/admin-user/settings/auth test files; support-chat and routeLocaleCoverage are absent from failedFiles
+EXIT_STATUS=1
+
+ROLLBACK
+COPY=/private/tmp/sub2api-support-browser-notifications-final-rollback.wUaG7R
+COMMAND=cd /private/tmp/sub2api-support-browser-notifications-final-rollback.wUaG7R && diagnostics/support-browser-notifications-20260915/ROLLBACK.sh && sha256sum -c diagnostics/support-browser-notifications-20260915/ORIGINAL_SHA256.txt && test ! -e frontend/src/features/support-chat/presentation/composables/useSupportBrowserNotifications.ts && test ! -e frontend/src/features/support-chat/presentation/stores/supportChatNotificationStore.ts && test ! -e frontend/src/features/support-chat/presentation/utils/supportBrowserNotificationContent.ts && test ! -e frontend/src/features/support-chat/presentation/widgets/SupportBrowserNotificationButton.vue && git apply --check diagnostics/support-browser-notifications-20260915/DIFF_FILE && printf '%s\n' ROLLBACK_COPY_STATUS=restored_hashes_removed_new_sources_diff_reapplies
+INPUT=independent copy of modified checkout
+LITERAL_OUTPUT=
+ROLLBACK_RESULT=restored original support-chat behavior and removed browser-notification sources
+frontend/src/App.vue: OK
+frontend/src/features/support-chat/presentation/pages/AdminSupportChatPage.vue: OK
+frontend/src/core/i18n/locales/zh/supportChat.ts: OK
+frontend/src/core/i18n/locales/en/supportChat.ts: OK
+frontend/src/features/support-chat/README.md: OK
+docs/SUPPORT_CHAT.md: OK
+ROLLBACK_COPY_STATUS=restored_hashes_removed_new_sources_diff_reapplies
+RESULT=all preserved hashes matched, all new notification sources were removed, and DIFF_FILE reapplies cleanly
+EXIT_STATUS=0
+
+ROLLBACK_BASELINE
+COMMAND=docker run --rm -v sub2api-browser-notify-node_modules:/workspace/frontend/node_modules -v /private/tmp/sub2api-support-browser-notifications-final-rollback.wUaG7R:/workspace -w /workspace/frontend node:24-alpine sh -c 'corepack enable >/dev/null && corepack prepare pnpm@11.17.0 --activate >/dev/null && pnpm exec vitest run src/features/support-chat --reporter=dot'
+INPUT=rolled-back independent copy
+LITERAL_OUTPUT=
+ RUN  v3.2.6 /workspace/frontend
+······························
+ Test Files  7 passed (7)
+      Tests  30 passed (30)
+   Start at 16:54:37
+   Duration 3.36s (transform 5.23s, setup 632ms, collect 8.65s, tests 404ms, environment 5.65s, prepare 2.52s)
+RESULT=restored behavior matches the unmodified support-chat baseline
+EXIT_STATUS=0
+
+ROLLBACK_FULL_SUITE_COMPARISON
+COMMAND=docker run --rm -v sub2api-browser-notify-node_modules:/workspace/frontend/node_modules -v /private/tmp/sub2api-support-browser-notifications-rollback.UFZO41:/workspace -w /workspace/frontend node:24-alpine sh -c 'corepack enable >/dev/null && corepack prepare pnpm@11.17.0 --activate >/dev/null && pnpm exec vitest run --reporter=json --outputFile=/tmp/vitest-full.json >/tmp/vitest-full.stdout 2>/tmp/vitest-full.stderr; status=$?; node -e '"'"'const fs=require("fs");const r=JSON.parse(fs.readFileSync("/tmp/vitest-full.json","utf8"));const failed=(r.testResults||[]).filter(x=>x.status==="failed").map(x=>x.name.replace(process.cwd()+"/","")).sort();console.log(JSON.stringify({numTotalTestSuites:r.numTotalTestSuites,numPassedTestSuites:r.numPassedTestSuites,numFailedTestSuites:r.numFailedTestSuites,numTotalTests:r.numTotalTests,numPassedTests:r.numPassedTests,numFailedTests:r.numFailedTests,failedFiles:failed},null,2))'"'"'; exit $status'
+INPUT=rolled-back independent copy
+LITERAL_OUTPUT={"numTotalTestSuites":888,"numPassedTestSuites":870,"numFailedTestSuites":18,"numTotalTests":2223,"numPassedTests":2209,"numFailedTests":14,"failedFiles":["src/features/admin-accounts/__tests__/CreateAccountModal.grok.spec.ts","src/features/admin-accounts/__tests__/adminAccountsModularization.spec.ts","src/features/admin-settings/__tests__/settings.authSourceDefaults.spec.ts","src/features/admin-settings/__tests__/settingsGatewayResilienceModularization.spec.ts","src/features/admin-users/__tests__/UserEditDialog.spec.ts","src/features/admin-users/__tests__/UserPlatformQuotaModal.spec.ts","src/features/admin-users/__tests__/UsersPage.spec.ts","src/features/auth/__tests__/RegisterViewCredentialStorage.spec.ts"]}
+RESULT=the same 14 failures occurred before the notification sources, confirming they are unrelated to this change
+EXIT_STATUS=1

@@ -12,7 +12,6 @@ import { useAdminComplianceStore } from '@/features/admin-settings/presentation/
 import { useAdminSettingsStore } from '@/features/admin-settings/presentation/stores/adminSettingsStore'
 import { getSetupStatus } from '@/features/setup/data/datasources/setupDatasource'
 import { useSupportUnreadPolling } from '@/features/support-chat/presentation/composables/useSupportUnreadPolling'
-import { useSupportBrowserNotifications } from '@/features/support-chat/presentation/composables/useSupportBrowserNotifications'
 import { updateFavicon } from '@/core/services/branding'
 import { isOpaqueDocument } from '@/core/utils/embedded-url'
 
@@ -38,17 +37,6 @@ const needsAdminCompliance = computed(
 useSupportUnreadPolling({
   isAuthenticated: () => authStore.isAuthenticated,
   isAdmin: () => authStore.hasPermission('support.read'),
-})
-useSupportBrowserNotifications({
-  isAuthenticated: () => authStore.isAuthenticated,
-  canReadSupport: () => authStore.hasPermission('support.read'),
-  isSupportInboxActive: () => route.name === 'AdminSupportChat',
-  openConversation: async (conversationID) => {
-    await router.push({
-      name: 'AdminSupportChat',
-      query: { conversation: String(conversationID) },
-    })
-  },
 })
 
 function updateDocumentTitle() {

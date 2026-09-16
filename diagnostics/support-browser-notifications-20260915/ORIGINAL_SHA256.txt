@@ -1,0 +1,6 @@
+913c0aee9b6c25e2abfc99fbb5ff6e90080627adaea0ad5e03b7208b14cbc6d5  frontend/src/App.vue
+2a97d68c0283febed186afd27ffc06ec0f58a345ff76ee927afcca672e4c5785  frontend/src/features/support-chat/presentation/pages/AdminSupportChatPage.vue
+b1620f2c53c314cac8b0e00f537df3b51962e588a4205e090a2b02ed93ae0704  frontend/src/core/i18n/locales/zh/supportChat.ts
+e46624183363a2382149350e36acf55301ab356869932ae4c24f13dfdc378a6b  frontend/src/core/i18n/locales/en/supportChat.ts
+89718da037e2ed9321701025df3d91edae0bfa8fc853efc27427134cf7a9e783  frontend/src/features/support-chat/README.md
+d51591808b689109ccc60daef7a0a02fd77c358877b473dd01b219ac232bf6a2  docs/SUPPORT_CHAT.md
