@@ -98,4 +98,4 @@ docker run --rm -e CI=true -v "$PWD":/workspace -v sub2api-channel-sync-node-mod
 
 ## 差异关闭
 
-跟踪合并 `0fd90b4bd1fa590cf1a68be7e6c481aebcdbb839` 的父提交为 `b4675ae5d39036951cb77260ec3f30453bd73bff` 和 `881f3202694c6bc932446931a30c27d9675178b9`。合并前后 tree 均为 `340e1082e3789bc59c284a1e165988fe227131d4`，`git diff HEAD^1 HEAD` 为空，`git rev-list --count HEAD..upstream/main` 为 0。分支尚未推送。
+跟踪合并 `0fd90b4bd1fa590cf1a68be7e6c481aebcdbb839` 的父提交为 `b4675ae5d39036951cb77260ec3f30453bd73bff` 和 `881f3202694c6bc932446931a30c27d9675178b9`。合并前后 tree 均为 `340e1082e3789bc59c284a1e165988fe227131d4`，`git diff HEAD^1 HEAD` 为空，`git rev-list --count HEAD..upstream/main` 为 0。分支已推送至 `origin/codex/upstream-channel-sync-20260916`；首次 exact-SHA CI 暴露并删除了迁移到带计费时点实现后遗留的无调用包装函数。
