@@ -422,7 +422,8 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	if account.Type == AccountTypeOAuth && promptCacheKey != "" && strings.TrimSpace(c.GetHeader("conversation_id")) == "" {
 		upstreamReq.Header.Del("conversation_id")
 	}
-	if compatTurnState != "" && upstreamReq.Header.Get("x-codex-turn-state") == "" {
+	if compatTurnState != "" && upstreamReq.Header.Get("x-codex-turn-state") == "" &&
+		!s.codexAutoTurnStateModelIsWatched(modelCtx, openAICodexTurnStateModel(c)) {
 		upstreamReq.Header.Set("x-codex-turn-state", compatTurnState)
 	}
 
@@ -588,6 +589,9 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 			handleErr = errOpenAICyberPolicyForwarded
 		}
 		return nil, handleErr
+	}
+	if handleErr == nil {
+		s.observeOpenAICodexTurnState(modelCtx, c, account, upstreamModel, extractOpenAICodexTurnState(resp.Header))
 	}
 
 	// Propagate ServiceTier and ReasoningEffort to result for billing
@@ -2066,6 +2070,7 @@ func (s *OpenAIGatewayService) readOpenAICompatBufferedTerminal(
 			if !ok {
 				if frame, ok := parser.Finish(); ok {
 					payload := openAICompatPayloadWithEventType(frame.Data, frame.EventType)
+					captureOpenAICodexTurnStateMetadata(resp.Header, []byte(payload))
 					observeOpenAITiming(timingContext, []byte(payload), gjson.Get(payload, "type").String())
 					var event apicompat.ResponsesStreamEvent
 					if err := json.Unmarshal([]byte(payload), &event); err == nil {
@@ -2105,6 +2110,7 @@ func (s *OpenAIGatewayService) readOpenAICompatBufferedTerminal(
 				continue
 			}
 			payload := openAICompatPayloadWithEventType(frame.Data, frame.EventType)
+			captureOpenAICodexTurnStateMetadata(resp.Header, []byte(payload))
 			observeOpenAITiming(timingContext, []byte(payload), gjson.Get(payload, "type").String())
 
 			var event apicompat.ResponsesStreamEvent
@@ -2271,6 +2277,7 @@ func (s *OpenAIGatewayService) handleAnthropicStreamingResponse(
 
 	// processDataLine handles a single "data: ..." SSE line from upstream.
 	processDataLine := func(payload string) bool {
+		captureOpenAICodexTurnStateMetadata(resp.Header, []byte(payload))
 		observer.ObserveOpenAI([]byte(payload), strings.TrimSpace(gjson.Get(payload, "type").String()))
 		observeOpenAITiming(c, []byte(payload), gjson.Get(payload, "type").String())
 		if firstChunk {

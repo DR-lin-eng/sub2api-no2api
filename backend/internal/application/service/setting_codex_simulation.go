@@ -29,6 +29,9 @@ type CodexSimulationSettings struct {
 	ExperimentalTransportEnabled         bool               `json:"experimental_transport_enabled,omitempty"`
 	CodexPrewarmContinuationForceEnabled bool               `json:"codex_prewarm_continuation_force_enabled"`
 	TurnStateReplayEnabled               bool               `json:"turn_state_replay_enabled"`
+	TurnStateAutoReplayEnabled           bool               `json:"turn_state_auto_replay_enabled"`
+	TurnStateTargetLength                int                `json:"turn_state_target_length"`
+	TurnStateWatchModels                 []string           `json:"turn_state_watch_models"`
 	TurnStates                           []string           `json:"turn_states"`
 	TurnStateAccountIDs                  map[string][]int64 `json:"turn_state_account_ids,omitempty"`
 	ContinuationMode                     string             `json:"continuation_mode"`
@@ -76,8 +79,9 @@ func cLevelTransportSimulationEnabled(settingService *SettingService) bool {
 
 func (s *SettingService) defaultCodexSimulationSettings() CodexSimulationSettings {
 	settings := CodexSimulationSettings{
-		ContinuationMode: codexContinuationOff.String(),
-		StateTTLSeconds:  codexSimulationDefaultStateTTLSeconds,
+		ContinuationMode:      codexContinuationOff.String(),
+		StateTTLSeconds:       codexSimulationDefaultStateTTLSeconds,
+		TurnStateTargetLength: openAICodexDefaultTurnStateCharacters,
 	}
 	if s == nil || s.cfg == nil {
 		return settings
@@ -129,15 +133,28 @@ func validateCodexSimulationSettings(settings CodexSimulationSettings) (CodexSim
 	}
 
 	settings.ContinuationMode = mode
+	if settings.TurnStateTargetLength == 0 {
+		settings.TurnStateTargetLength = openAICodexDefaultTurnStateCharacters
+	}
+	if settings.TurnStateTargetLength < 1 || settings.TurnStateTargetLength > codexTurnStateMaxValueBytes {
+		return CodexSimulationSettings{}, fmt.Errorf("turn_state_target_length must be between 1 and %d", codexTurnStateMaxValueBytes)
+	}
 	settings.IdentitySecret = strings.TrimSpace(settings.IdentitySecret)
 	var err error
 	settings.TurnStates, err = normalizeCodexTurnStates(settings.TurnStates)
 	if err != nil {
 		return CodexSimulationSettings{}, err
 	}
+	settings.TurnStateWatchModels, err = normalizeCodexTurnStateWatchModels(settings.TurnStateWatchModels)
+	if err != nil {
+		return CodexSimulationSettings{}, err
+	}
 	settings.TurnStateAccountIDs = normalizeCodexTurnStateAccountIDs(settings.TurnStates, settings.TurnStateAccountIDs)
 	if settings.TurnStateReplayEnabled && len(settings.TurnStates) == 0 {
 		return CodexSimulationSettings{}, fmt.Errorf("turn_states must not be empty when turn state replay is enabled")
+	}
+	if settings.TurnStateAutoReplayEnabled && len(settings.TurnStateWatchModels) == 0 {
+		return CodexSimulationSettings{}, fmt.Errorf("turn_state_watch_models must not be empty when automatic turn state replay is enabled")
 	}
 	if (settings.FullSimulationEnabled || mode != string(codexContinuationOff)) && len([]byte(settings.IdentitySecret)) < 32 {
 		return CodexSimulationSettings{}, fmt.Errorf("identity secret must be at least 32 bytes when Codex simulation is enabled")
@@ -203,8 +220,9 @@ func (s *SettingService) LoadCodexSimulationSettings(ctx context.Context) error 
 func (s *SettingService) CodexSimulationSettingsSnapshot(_ context.Context) CodexSimulationSettings {
 	if s == nil {
 		return CodexSimulationSettings{
-			ContinuationMode: string(codexContinuationOff),
-			StateTTLSeconds:  codexSimulationDefaultStateTTLSeconds,
+			ContinuationMode:      string(codexContinuationOff),
+			StateTTLSeconds:       codexSimulationDefaultStateTTLSeconds,
+			TurnStateTargetLength: openAICodexDefaultTurnStateCharacters,
 		}
 	}
 
@@ -346,6 +364,7 @@ func (s *SettingService) ForceDisableCodexSimulationSettings(ctx context.Context
 	settings.ExperimentalTransportEnabled = false
 	settings.CodexPrewarmContinuationForceEnabled = false
 	settings.TurnStateReplayEnabled = false
+	settings.TurnStateAutoReplayEnabled = false
 	settings.ContinuationMode = string(codexContinuationOff)
 
 	validated, err := validateCodexSimulationSettings(settings)

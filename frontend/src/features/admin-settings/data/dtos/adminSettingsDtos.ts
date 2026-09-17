@@ -143,6 +143,9 @@ export interface CodexSimulationSettings {
   experimental_transport_enabled?: boolean;
   codex_prewarm_continuation_force_enabled?: boolean;
   turn_state_replay_enabled: boolean;
+  turn_state_auto_replay_enabled: boolean;
+  turn_state_target_length: number;
+  turn_state_watch_models: string[];
   turn_states: string[];
   continuation_mode: CodexContinuationMode;
   state_ttl_seconds: number;

@@ -892,6 +892,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	if buildHdrErr != nil {
 		return fmt.Errorf("build ws headers: %w", buildHdrErr)
 	}
+	stageOpenAICodexTurnStateModel(c, capturedSessionModel)
 	s.applyConfiguredCodexTurnStateReplay(c, account, headers)
 	if s.CodexSimulationRequestEnabled(c) {
 		headers.Del(CodexProjectIDHeader)
@@ -972,6 +973,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 		statusCode,
 		openAIWSHeaderValueForLog(handshakeHeaders, "x-request-id"),
 	)
+	s.observeOpenAICodexTurnState(ctx, c, account, capturedSessionModel, extractOpenAICodexTurnState(handshakeHeaders))
 
 	upstreamFrameConn, ok := upstreamConn.(openaiwsv2.FrameConn)
 	if !ok {
@@ -1007,6 +1009,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	}
 
 	completedTurns := atomic.Int32{}
+	var responseTurnState atomic.Pointer[string]
 	// activeHookTurn: -1 means relay closed, 0 means idle, and positive values
 	// identify the admitted turn whose AfterTurn callback is still pending.
 	activeHookTurn := atomic.Int32{}
@@ -1204,6 +1207,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			//     覆盖（Store(nil)），因为 OpenAI 上游对该帧实际不传
 			//     service_tier 时按 default 处理，billing 应如实反映。
 			if policyErr == nil && blocked == nil && isResponseCreate {
+				responseTurnState.Store(nil)
 				usageMeta.updateFromResponseCreate(out, model, requestModelForThisFrame)
 				acceptedTurn = true
 				s.observeOpenAIRequestIntegrity(ctx, c, account, integrityOriginalPayload, out, "websocket_passthrough")
@@ -1280,6 +1284,18 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			OnTurnComplete: func(turn openaiwsv2.RelayTurnResult) {
 				turnNo := int(completedTurns.Add(1))
 				turnRequestModel, turnUpstreamModel := usageMeta.turnModels(turn.RequestModel)
+				terminalEvent := normalizeOpenAIWSTerminalEvent(turn.TerminalEventType)
+				if terminalEvent == "response.completed" || terminalEvent == "response.done" {
+					turnState := ""
+					if captured := responseTurnState.Swap(nil); captured != nil {
+						turnState = *captured
+					}
+					model := strings.TrimSpace(turnUpstreamModel)
+					if model == "" {
+						model = capturedSessionModel
+					}
+					s.observeOpenAICodexTurnState(ctx, c, account, model, turnState)
+				}
 				turnResult := &OpenAIForwardResult{
 					RequestID: turn.RequestID,
 					Usage: OpenAIUsage{
@@ -1297,7 +1313,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 					ReasoningEffort:               usageMeta.reasoningEffort.Load(),
 					Stream:                        true,
 					OpenAIWSMode:                  true,
-					UpstreamTerminalEvent:         normalizeOpenAIWSTerminalEvent(turn.TerminalEventType),
+					UpstreamTerminalEvent:         terminalEvent,
 					ResponseHeaders:               cloneHeader(handshakeHeaders),
 					Duration:                      turn.Duration,
 					FirstTokenMs:                  turn.FirstTokenMs,
@@ -1345,6 +1361,13 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 					return nil
 				}
 				eventType, _, _ := parseOpenAIWSEventEnvelope(payload)
+				if eventType == "codex.response.metadata" {
+					metadataHeaders := make(http.Header)
+					if state := captureOpenAICodexTurnStateMetadata(metadataHeaders, payload); state != "" {
+						captured := state
+						responseTurnState.Store(&captured)
+					}
+				}
 				if (eventType == "error" || eventType == "response.failed") && markOpenAIWSV2PassthroughCyberPolicy(c, payload) {
 					return nil
 				}

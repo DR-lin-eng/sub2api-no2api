@@ -250,12 +250,27 @@ Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换
 `POST /api/v1/admin/settings/codex-simulation/restore-original`。质量巡检完成后可调用
 `POST /api/v1/admin/settings/codex-simulation/sync-turn-states`，把最近一次**成功完成**的巡检中健康账号的已通过阶段 state 同步到池中；正在运行或失败的巡检不允许同步部分结果。手工录入的 state 保持全账号可用，同步值保留采集账号绑定。同一账号有多个可用 state 时，每个 HTTP 请求独立随机选择一个；原生 WS 只能在新连接的握手头中随机选择，不能在复用连接的后续帧中更改握手头。该选择只作用于 OpenAI OAuth 账号，热路径读取内存快照，不查询数据库，也不记录 state 正文到日志。
 
+独立的 `turn_state_auto_replay_enabled` 开关用于自动监测与重放。管理员必须在
+`turn_state_watch_models` 逐项填写实际上游模型名；未列出的模型不采集、不重放，也不触发后台探测。
+开启后，HTTP 响应头、Responses SSE/WS 的 `codex.response.metadata` 事件和新建 WS 握手只记录账号、实际上游模型、是否走代理、state 字符数及是否命中；`/v1/messages` 兼容桥也遵循同一自动池，
+不把 state 正文写入日志。`turn_state_target_length` 默认 292，管理员可设置 1–8192；字符数严格等于
+配置目标且与该账号/模型上次值不同才算获得新 state；缓存按
+本地账号 ID 与实际上游模型隔离，通过 Redis 在多实例间共享，1 小时过期。关注模型的请求优先使用
+该自动池；没有可用值时删除未经验证的入站 state，让真实代理请求向上游获取新值。
+
+某账号/关注模型从最近一次新正确 state 起 45 分钟内没有再获得新正确值，或首次请求未返回正确长度时
+连续 45 分钟仍未恢复，后台进入单槽探测。探测使用 `generate=false`、空 input 的 WSv2 零输出 ping，
+不写用户用量日志；每轮从当前活跃且未过期、非 unhealthy 的代理按 ID 稳定排序后轮转，最多尝试 4 个，
+每个尝试 15 秒，失败后 5 分钟再试。多实例通过共享 leader lock 避免同一账号/模型并发探测；探测得到
+新的目标长度 state 后写回同一自动池。旧的 `turn_state_replay_enabled` 手工/质量巡检随机池保留为兼容模式，
+与自动模式分开配置；关注模型上自动池优先，未关注模型仍可使用兼容随机池。
+
 紧急回滚入口不依赖当前表单 TTL，也不要求旧数据库
 记录可以被解析，会直接写入 A=false、B=off、C=false。数据库记录存在时明确覆盖
 `gateway.codex_simulation`；记录缺失时才使用 YAML/环境变量作为兼容默认值。当前节点保存后立即生效，
 其他节点最多在 5 秒后台刷新周期后生效；OAuth 请求只读内存快照，不承担数据库刷新。首次启用 A 或 B 时
 服务端自动生成并保存身份密钥，接口只返回
-密钥是否已配置。A/B/C 与 Turn State 重放默认关闭；强制恢复会关闭重放但保留已保存池，便于之后显式重新启用。A/C 不改变账号调度，B enforce 只在已知 incremental owner 时
+密钥是否已配置。A/B/C 与两种 Turn State 重放默认关闭；强制恢复会关闭重放但保留已保存池和关注模型，便于之后显式重新启用。A/C 不改变账号调度，B enforce 只在已知 incremental owner 时
 给现有调度器增加 owner principal/本地账号候选约束，不改变匹配候选之间的排序、计费或通用 failover。A 的
 `full_simulation_enabled` 只作用于 `codex_fingerprint_mode=full` 的 OpenAI OAuth 账号；B 的
 `continuation_mode=off|shadow|enforce` 独立于账号指纹模式。C 的

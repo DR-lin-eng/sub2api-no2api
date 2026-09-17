@@ -37,6 +37,7 @@ func TestCodexSimulationSettingsHandlerHidesIdentitySecret(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Contains(t, recorder.Body.String(), `"identity_secret_configured":true`)
+	require.Contains(t, recorder.Body.String(), `"turn_state_target_length":292`)
 	require.NotContains(t, recorder.Body.String(), cfg.Gateway.CodexSimulation.IdentitySecret)
 	require.NotContains(t, recorder.Body.String(), `"identity_secret"`)
 }
@@ -100,6 +101,28 @@ func TestCodexSimulationSettingsHandlerPersistsCLevelSwitch(t *testing.T) {
 	require.True(t, persisted.CLevelSimulationEnabled)
 }
 
+func TestCodexSimulationSettingsHandlerPersistsAutomaticTurnStateControls(t *testing.T) {
+	h, repo := newCodexSimulationSettingHandlerTest(&config.Config{})
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPut, "/api/v1/admin/settings/codex-simulation", bytes.NewBufferString(
+		`{"full_simulation_enabled":false,"turn_state_auto_replay_enabled":true,"turn_state_target_length":300,"turn_state_watch_models":["GPT-5.6-CODEX"],"continuation_mode":"off","state_ttl_seconds":604800}`,
+	))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	h.UpdateCodexSimulationSettings(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var persisted service.CodexSimulationSettings
+	require.NoError(t, json.Unmarshal([]byte(repo.values[service.SettingKeyCodexSimulationSettings]), &persisted))
+	require.True(t, persisted.TurnStateAutoReplayEnabled)
+	require.Equal(t, 300, persisted.TurnStateTargetLength)
+	require.Equal(t, []string{"gpt-5.6-codex"}, persisted.TurnStateWatchModels)
+	require.Contains(t, recorder.Body.String(), `"turn_state_auto_replay_enabled":true`)
+	require.Contains(t, recorder.Body.String(), `"turn_state_target_length":300`)
+	require.Contains(t, recorder.Body.String(), `"turn_state_watch_models":["gpt-5.6-codex"]`)
+}
+
 func TestCodexSimulationSettingsHandlerPersistsExperimentalTransportSwitch(t *testing.T) {
 	h, repo := newCodexSimulationSettingHandlerTest(&config.Config{})
 	recorder := httptest.NewRecorder()
@@ -147,6 +170,8 @@ func TestCodexSimulationSettingsHandlerRejectsMalformedPayloads(t *testing.T) {
 		{name: "invalid mode", body: `{"full_simulation_enabled":false,"continuation_mode":"on","state_ttl_seconds":60}`},
 		{name: "invalid ttl", body: `{"full_simulation_enabled":false,"continuation_mode":"off","state_ttl_seconds":0}`},
 		{name: "invalid turn state", body: "{\"full_simulation_enabled\":false,\"turn_states\":[\"bad\\r\\nstate\"],\"continuation_mode\":\"off\",\"state_ttl_seconds\":60}"},
+		{name: "invalid target length", body: `{"full_simulation_enabled":false,"turn_state_target_length":0,"continuation_mode":"off","state_ttl_seconds":60}`},
+		{name: "oversized target length", body: `{"full_simulation_enabled":false,"turn_state_target_length":8193,"continuation_mode":"off","state_ttl_seconds":60}`},
 		{name: "null field", body: `{"full_simulation_enabled":null,"continuation_mode":"off","state_ttl_seconds":60}`},
 	} {
 		t.Run(test.name, func(t *testing.T) {

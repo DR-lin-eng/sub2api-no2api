@@ -235,10 +235,13 @@ func (s *OpenAIGatewayService) PrepareCodexSimulationRequest(
 // instead of allowing a connection to straddle two virtual clients.
 func codexSimulationSettingsEpoch(settings CodexSimulationSettings) string {
 	digest := sha256.Sum256([]byte(fmt.Sprintf(
-		"enabled=%t\x00c_level=%t\x00experimental_transport=%t\x00mode=%s\x00ttl=%d\x00secret=%s",
+		"enabled=%t\x00c_level=%t\x00experimental_transport=%t\x00turn_state_auto=%t\x00turn_state_length=%d\x00turn_state_watch=%s\x00mode=%s\x00ttl=%d\x00secret=%s",
 		settings.FullSimulationEnabled,
 		settings.CLevelSimulationEnabled,
 		settings.ExperimentalTransportEnabled,
+		settings.TurnStateAutoReplayEnabled,
+		settings.TurnStateTargetLength,
+		strings.Join(settings.TurnStateWatchModels, ","),
 		settings.continuationMode(),
 		settings.StateTTLSeconds,
 		settings.IdentitySecret,

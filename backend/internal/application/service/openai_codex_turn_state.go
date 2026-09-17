@@ -54,6 +54,7 @@ func (s *OpenAIGatewayService) relayOpenAICodexTurnState(c *gin.Context, account
 	}
 	key := http.CanonicalHeaderKey(openAICodexTurnStateHeader)
 	state := extractOpenAICodexTurnState(upstream)
+	s.observeOpenAICodexTurnState(context.Background(), c, account, openAICodexTurnStateModel(c), state)
 	if state == "" {
 		c.Writer.Header().Del(key)
 		return
@@ -90,10 +91,11 @@ func (s *OpenAIGatewayService) noteStagedOpenAICodexTurnStateCommitted(c *gin.Co
 }
 
 func (s *OpenAIGatewayService) bindStagedOpenAICodexTurnState(c *gin.Context, account *Account, staged http.Header) {
-	if s == nil || c == nil || account == nil || !account.IsOpenAIOAuth() || staged == nil {
+	if s == nil || c == nil || account == nil || !account.IsOpenAIOAuth() {
 		return
 	}
 	state := extractOpenAICodexTurnState(staged)
+	s.observeOpenAICodexTurnState(context.Background(), c, account, openAICodexTurnStateModel(c), state)
 	if state == "" {
 		return
 	}
@@ -247,24 +249,12 @@ func (s *OpenAIGatewayService) applyConfiguredCodexTurnStateReplay(c *gin.Contex
 	if headers == nil {
 		return
 	}
-	if state := s.configuredCodexTurnStateReplay(c, account); state != "" {
+	state := s.resolveCodexTurnStateReplay(c, account, openAICodexTurnStateModel(c), extractOpenAICodexTurnState(headers))
+	if state != "" {
 		headers.Set(openAICodexTurnStateHeader, state)
+		return
 	}
-}
-
-func (s *OpenAIGatewayService) configuredCodexTurnStateReplay(c *gin.Context, account *Account) string {
-	if s == nil || s.settingService == nil || account == nil || !account.IsOpenAIOAuth() {
-		return ""
-	}
-	ctx := context.Background()
-	if c != nil && c.Request != nil {
-		ctx = c.Request.Context()
-	}
-	settings := s.settingService.CodexSimulationSettingsSnapshot(ctx)
-	if !settings.TurnStateReplayEnabled {
-		return ""
-	}
-	return randomCodexTurnStateForAccount(settings, account.ID)
+	headers.Del(openAICodexTurnStateHeader)
 }
 
 func (s *OpenAIGatewayService) sweepOpenAICodexTurnStateOrigins() {

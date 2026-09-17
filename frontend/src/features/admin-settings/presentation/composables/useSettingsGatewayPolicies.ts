@@ -92,6 +92,9 @@ export function useSettingsGatewayPolicies() {
     experimental_transport_enabled: false,
     codex_prewarm_continuation_force_enabled: false,
     turn_state_replay_enabled: false,
+    turn_state_auto_replay_enabled: false,
+    turn_state_target_length: 292,
+    turn_state_watch_models: [],
     turn_states: [],
     continuation_mode: "off",
     state_ttl_seconds: 604800,
@@ -109,6 +112,15 @@ export function useSettingsGatewayPolicies() {
       codexSimulationForm.turn_states = value
         .split(/\r?\n/)
         .map((state) => state.trim())
+        .filter(Boolean);
+    },
+  });
+  const codexTurnStateWatchModelsText = computed({
+    get: () => codexSimulationForm.turn_state_watch_models.join('\n'),
+    set: (value: string) => {
+      codexSimulationForm.turn_state_watch_models = value
+        .split(/\r?\n/)
+        .map((model) => model.trim().toLowerCase())
         .filter(Boolean);
     },
   });
@@ -388,6 +400,9 @@ export function useSettingsGatewayPolicies() {
       codex_prewarm_continuation_force_enabled: settings.codex_prewarm_continuation_force_enabled === true,
       experimental_transport_enabled: settings.experimental_transport_enabled === true,
       turn_state_replay_enabled: settings.turn_state_replay_enabled === true,
+      turn_state_auto_replay_enabled: settings.turn_state_auto_replay_enabled === true,
+      turn_state_target_length: settings.turn_state_target_length ?? 292,
+      turn_state_watch_models: Array.isArray(settings.turn_state_watch_models) ? [...settings.turn_state_watch_models] : [],
       turn_states: Array.isArray(settings.turn_states) ? [...settings.turn_states] : [],
     };
   }
@@ -425,6 +440,9 @@ export function useSettingsGatewayPolicies() {
       | "experimental_transport_enabled"
       | "codex_prewarm_continuation_force_enabled"
       | "turn_state_replay_enabled"
+      | "turn_state_auto_replay_enabled"
+      | "turn_state_target_length"
+      | "turn_state_watch_models"
       | "turn_states"
       | "continuation_mode"
       | "state_ttl_seconds"
@@ -454,6 +472,9 @@ export function useSettingsGatewayPolicies() {
         experimental_transport_enabled: Boolean(codexSimulationForm.experimental_transport_enabled),
         codex_prewarm_continuation_force_enabled: Boolean(codexSimulationForm.codex_prewarm_continuation_force_enabled),
         turn_state_replay_enabled: codexSimulationForm.turn_state_replay_enabled,
+        turn_state_auto_replay_enabled: codexSimulationForm.turn_state_auto_replay_enabled,
+        turn_state_target_length: codexSimulationForm.turn_state_target_length,
+        turn_state_watch_models: [...codexSimulationForm.turn_state_watch_models],
         turn_states: [...codexSimulationForm.turn_states],
         continuation_mode: codexSimulationForm.continuation_mode,
         state_ttl_seconds: codexSimulationForm.state_ttl_seconds,
@@ -798,6 +819,7 @@ export function useSettingsGatewayPolicies() {
     codexSimulationSaving,
     codexSimulationSyncing,
     codexTurnStateDraftDirty,
+    codexTurnStateWatchModelsText,
     codexTurnStatesText,
     getBetaDisplayName,
     globalTempUnschedulableForm,

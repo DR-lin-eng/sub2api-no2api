@@ -145,9 +145,9 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			turnState = savedTurnState
 		}
 	}
-	if replayState := s.configuredCodexTurnStateReplay(c, account); replayState != "" {
-		turnState = replayState
-	}
+	replayModel := openAIWSPayloadString(payload, "model")
+	stageOpenAICodexTurnStateModel(c, replayModel)
+	turnState = s.resolveCodexTurnStateReplay(c, account, replayModel, turnState)
 	preferredConnID := ""
 	if stateStore != nil && previousResponseID != "" {
 		if connID, ok := stateStore.GetResponseConn(previousResponseID); ok {
@@ -364,6 +364,11 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		handshakeTurnState != "",
 		len(handshakeTurnState),
 	)
+	observedTurnState := handshakeTurnState
+	if lease.Reused() {
+		observedTurnState = ""
+	}
+	s.observeOpenAICodexTurnState(ctx, c, account, mappedModel, observedTurnState)
 	if handshakeTurnState != "" {
 		if stateStore != nil && sessionHash != "" {
 			stateErr := stateStore.BindSessionTurnState(ctx, groupID, sessionHash, handshakeTurnState, s.openAIWSSessionStickyTTL())
@@ -527,6 +532,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 
 	readTimeout := s.openAIWSReadTimeout()
 	var pendingJSONDocuments [][]byte
+	responseTurnState := ""
 
 	for {
 		var message []byte
@@ -626,6 +632,10 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		eventType, eventResponseID, responseField := parseOpenAIWSEventEnvelope(message)
 		if eventType == "" {
 			continue
+		}
+		if eventType == "codex.response.metadata" {
+			metadataHeaders := make(http.Header)
+			responseTurnState = captureOpenAICodexTurnStateMetadata(metadataHeaders, message)
 		}
 		responseModelObserver.ObserveOpenAI(message, eventType)
 		timingCollector.Observe(message, eventType)
@@ -963,6 +973,9 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	if localFirstEventTTFTMs != nil &&
 		(upstreamTerminalEvent == "response.completed" || upstreamTerminalEvent == "response.done") {
 		firstTokenMs = localFirstEventTTFTMs
+	}
+	if upstreamTerminalEvent == "response.completed" || upstreamTerminalEvent == "response.done" {
+		s.observeOpenAICodexTurnState(ctx, c, account, mappedModel, responseTurnState)
 	}
 	firstTokenMsValue := -1
 	if firstTokenMs != nil {

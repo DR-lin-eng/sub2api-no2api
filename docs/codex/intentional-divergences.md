@@ -70,6 +70,13 @@ OpenAI OAuth HTTP 请求从当前账号可用池随机取一个值并覆盖注�
 巡检一键同步的值只对采集账号可用。质量巡检只把通过阶段的响应头纳入同步候选，并可用独立开关随机注入
 同一池做开启/关闭对照。原始 state 只出现在管理员接口和数据库设置，不进入公开质量页面或诊断日志。
 
+自动监测模式与上述兼容随机池使用独立开关。管理员逐行配置关注的实际上游模型；系统只对这些模型观察
+HTTP 响应头和 Responses SSE/WS 元数据 state 的 Unicode 字符数；`/v1/messages` 兼容桥也使用同一自动池。目标字符长度可在面板设置（默认 292，范围 1–8192）；严格等于目标长度且不同于上一值时，state 才按本地账号 ID 与模型写入 1 小时
+共享缓存；日志只记录长度、命中、新旧与代理布尔值。45 分钟没有新正确值时，后台通过项目代理池轮转发送
+`generate=false` 空 input 的 WSv2 ping，单次最多 4 个代理、每个 15 秒、失败后 5 分钟重试。探测不写用户
+用量日志，多实例以共享锁避免重复探测。关注模型优先使用自动池且不接受未经验证的入站 state；未关注模型
+不参与自动逻辑，并可继续使用旧随机池。
+
 ## 网关必须存在的差异
 
 官方客户端在一个本地 installation 内直接拥有会话；Sub2API 则让多个下游调用方共享上游账号池。
@@ -165,7 +172,7 @@ HTTP/2 SETTINGS/WINDOW 参数；它们仍然不能保证跨平台 byte-for-byte 
 `codex_simulation_settings`，当前节点立即发布，其他节点通过后台任务最多在 5 秒内刷新；OAuth 请求路径
 只读取内存快照，不查询数据库。数据库记录存在时会覆盖旧
 YAML。点击“强制恢复原版行为”会调用无请求体的 `POST .../codex-simulation/restore-original`，即使旧记录
-损坏或页面 TTL 输入无效，也会显式保存 `full_simulation_enabled=false`、`c_level_simulation_enabled=false`、`turn_state_replay_enabled=false` 与 `continuation_mode=off`，因此
+损坏或页面 TTL 输入无效，也会显式保存 `full_simulation_enabled=false`、`c_level_simulation_enabled=false`、`turn_state_replay_enabled=false`、`turn_state_auto_replay_enabled=false` 与 `continuation_mode=off`，因此
 不受旧文件中启用值影响。已有模拟 WS 会在下一轮关闭并通过重连进入原版路径。首次启用时后端自动生成
 共享身份密钥，管理 API
 只公开 `identity_secret_configured`，不会返回密钥内容。

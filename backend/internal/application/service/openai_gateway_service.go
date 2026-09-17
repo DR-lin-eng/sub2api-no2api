@@ -463,6 +463,8 @@ type OpenAIGatewayService struct {
 	channelService          *ChannelService
 	balanceNotifyService    *BalanceNotifyService
 	settingService          *SettingService
+	proxyRepo               ProxyRepository
+	codexAutoProbeLock      LeaderLockCache
 	userPlatformQuotaRepo   UserPlatformQuotaRepository
 	customModelCapabilities CustomModelCapabilityResolver
 	liveAttestation         liveattestation.Provider
@@ -516,6 +518,15 @@ type OpenAIGatewayService struct {
 	// API-key/session pair so failover cannot echo a known cross-account value.
 	openaiCodexTurnStateOrigins sync.Map
 	openaiCodexTurnStateWrites  atomic.Uint64
+	codexAutoTurnStateMu        sync.RWMutex
+	codexAutoTurnStates         map[string]openAICodexAutoTurnStateBinding
+	codexAutoProbeMu            sync.Mutex
+	codexAutoProbeTargets       map[string]openAICodexAutoProbeTarget
+	codexAutoProbeOnce          sync.Once
+	codexAutoProbeCancel        context.CancelFunc
+	codexAutoProbeWG            sync.WaitGroup
+	codexAutoProbeStopped       atomic.Bool
+	codexAutoProbeProxyCursor   atomic.Uint64
 	codexPrincipalUpstreamTotal atomic.Uint64
 	codexPrincipalLocalTotal    atomic.Uint64
 	codexContextWindowMu        sync.Mutex
@@ -748,7 +759,15 @@ func (s *OpenAIGatewayService) billingDeps() *billingDeps {
 // CloseOpenAIWSPool 关闭 OpenAI WebSocket 连接池的后台 worker 和空闲连接。
 // 应在应用优雅关闭时调用。
 func (s *OpenAIGatewayService) CloseOpenAIWSPool() {
-	if s != nil && s.openaiWSPool != nil {
+	if s == nil {
+		return
+	}
+	s.codexAutoProbeStopped.Store(true)
+	if s.codexAutoProbeCancel != nil {
+		s.codexAutoProbeCancel()
+		s.codexAutoProbeWG.Wait()
+	}
+	if s.openaiWSPool != nil {
 		s.openaiWSPool.Close()
 	}
 }

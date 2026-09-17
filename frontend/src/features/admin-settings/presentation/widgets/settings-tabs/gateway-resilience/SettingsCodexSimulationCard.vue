@@ -105,6 +105,58 @@
           <div class="flex items-center justify-between gap-4">
             <div>
               <label class="font-medium text-gray-900 dark:text-white">
+                {{ t("admin.settings.codexSimulation.turnStateAutoReplay") }}
+              </label>
+              <p class="text-sm text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.codexSimulation.turnStateAutoReplayHint") }}
+              </p>
+            </div>
+            <fieldset
+              class="m-0 min-w-0 border-0 p-0"
+              :disabled="codexSimulationLoadFailed || codexSimulationSaving || codexSimulationSyncing"
+            >
+              <Toggle
+                v-model="codexSimulationForm.turn_state_auto_replay_enabled"
+                data-testid="codex-turn-state-auto-replay-toggle"
+              />
+            </fieldset>
+          </div>
+          <div>
+            <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300" for="codex-turn-state-target-length">
+              {{ t("admin.settings.codexSimulation.turnStateTargetLength") }}
+            </label>
+            <input
+              id="codex-turn-state-target-length"
+              v-model.number="codexSimulationForm.turn_state_target_length"
+              type="number"
+              min="1"
+              max="8192"
+              step="1"
+              class="input w-full sm:max-w-48"
+              :disabled="codexSimulationLoadFailed || codexSimulationSaving || codexSimulationSyncing"
+              data-testid="codex-turn-state-target-length"
+            />
+          </div>
+          <div>
+            <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300" for="codex-turn-state-watch-models">
+              {{ t("admin.settings.codexSimulation.turnStateWatchModels") }}
+            </label>
+            <textarea
+              id="codex-turn-state-watch-models"
+              v-model="codexTurnStateWatchModelsText"
+              class="input min-h-24 w-full font-mono text-xs"
+              :disabled="codexSimulationLoadFailed || codexSimulationSaving || codexSimulationSyncing"
+              :placeholder="t('admin.settings.codexSimulation.turnStateWatchModelsPlaceholder')"
+              data-testid="codex-turn-state-watch-models"
+              spellcheck="false"
+            />
+            <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+              {{ t("admin.settings.codexSimulation.turnStateWatchModelsHint", { count: codexSimulationForm.turn_state_watch_models.length }) }}
+            </p>
+          </div>
+          <div class="flex items-center justify-between gap-4 border-t border-gray-100 pt-4 dark:border-dark-700">
+            <div>
+              <label class="font-medium text-gray-900 dark:text-white">
                 {{ t("admin.settings.codexSimulation.turnStateReplay") }}
               </label>
               <p class="text-sm text-gray-500 dark:text-gray-400">
@@ -251,6 +303,7 @@
                   codexSimulationForm.c_level_simulation_enabled ||
                   codexSimulationForm.experimental_transport_enabled ||
                   codexSimulationForm.codex_prewarm_continuation_force_enabled ||
+                  codexSimulationForm.turn_state_auto_replay_enabled ||
                   codexSimulationForm.turn_state_replay_enabled ||
                   codexSimulationForm.continuation_mode !== 'off'
               ? 'text-amber-700 dark:text-amber-300'
@@ -265,6 +318,7 @@
                   codexSimulationForm.c_level_simulation_enabled ||
                   codexSimulationForm.experimental_transport_enabled ||
                   codexSimulationForm.codex_prewarm_continuation_force_enabled ||
+                  codexSimulationForm.turn_state_auto_replay_enabled ||
                   codexSimulationForm.turn_state_replay_enabled ||
                   codexSimulationForm.continuation_mode !== "off"
               ? t("admin.settings.codexSimulation.experimentalEnabled")
@@ -314,6 +368,7 @@ const {
   codexSimulationSaving,
   codexSimulationSyncing,
   codexTurnStateDraftDirty,
+  codexTurnStateWatchModelsText,
   codexTurnStatesText,
   restoreOriginalCodexBehavior,
   saveCodexSimulationSettings,

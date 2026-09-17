@@ -204,68 +204,6 @@ func ProvideOpenAITokenProvider(
 	return p
 }
 
-func ProvideOpenAIGatewayService(
-	accountRepo AccountRepository,
-	usageLogRepo UsageLogRepository,
-	usageBillingRepo UsageBillingRepository,
-	userRepo UserRepository,
-	userSubRepo UserSubscriptionRepository,
-	userGroupRateRepo UserGroupRateRepository,
-	cache GatewayCache,
-	rpmCache RPMCache,
-	cfg *config.Config,
-	schedulerSnapshot *SchedulerSnapshotService,
-	concurrencyService *ConcurrencyService,
-	billingService *BillingService,
-	rateLimitService *RateLimitService,
-	billingCacheService *BillingCacheService,
-	httpUpstream HTTPUpstream,
-	deferredService *DeferredService,
-	openAITokenProvider *OpenAITokenProvider,
-	grokTokenProvider *GrokTokenProvider,
-	resolver *ModelPricingResolver,
-	channelService *ChannelService,
-	balanceNotifyService *BalanceNotifyService,
-	settingService *SettingService,
-	userPlatformQuotaRepo UserPlatformQuotaRepository,
-	customModelCapabilities CustomModelCapabilityResolver,
-	tlsFPProfileService *TLSFingerprintProfileService,
-) *OpenAIGatewayService {
-	svc := NewOpenAIGatewayService(
-		accountRepo,
-		usageLogRepo,
-		usageBillingRepo,
-		userRepo,
-		userSubRepo,
-		userGroupRateRepo,
-		cache,
-		cfg,
-		schedulerSnapshot,
-		concurrencyService,
-		billingService,
-		rateLimitService,
-		billingCacheService,
-		httpUpstream,
-		deferredService,
-		openAITokenProvider,
-		grokTokenProvider,
-		resolver,
-		channelService,
-		balanceNotifyService,
-		settingService,
-		userPlatformQuotaRepo,
-	)
-	svc.customModelCapabilities = customModelCapabilities
-	svc.SetTLSFingerprintProfileService(tlsFPProfileService)
-	if tlsFPProfileService != nil {
-		tlsFPProfileService.SetCodexSimulationSettingService(settingService)
-	}
-	if counter, ok := rpmCache.(distillationCounter); ok {
-		svc.SetDistillationCounter(counter)
-	}
-	return svc
-}
-
 // ProvideOpenAIQuotaService wires the OpenAI quota query/reset service.
 // It depends on the OpenAI token provider for refreshed access tokens and the
 // privacy client factory for the impersonated upstream HTTP client.
