@@ -30,8 +30,9 @@ type AccountQualityStageDetail struct {
 }
 
 type AccountQualityProbeDetails struct {
-	Stage1 *AccountQualityStageDetail `json:"stage1,omitempty"`
-	Stage2 *AccountQualityStageDetail `json:"stage2,omitempty"`
+	Stage1  *AccountQualityStageDetail     `json:"stage1,omitempty"`
+	Stage2  *AccountQualityStageDetail     `json:"stage2,omitempty"`
+	Runtime *AccountQualityRuntimeSnapshot `json:"runtime,omitempty"`
 }
 
 type qualityProbeOutputSignal struct {

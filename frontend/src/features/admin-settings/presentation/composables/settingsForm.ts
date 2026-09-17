@@ -43,6 +43,10 @@ export type SettingsForm = Omit<
   openai_content_session_burst_balance_enabled: boolean;
   openai_session_id_rate_limit_enabled: boolean;
   openai_session_id_rate_limit_per_minute: number;
+  openai_oauth_gateway_rate_limit_enabled: boolean;
+  openai_oauth_gateway_rate_limit_rpm: number;
+  openai_oauth_gateway_rate_limit_burst: number;
+  openai_request_integrity_observe_enabled: boolean;
   openai_advanced_scheduler_enabled: boolean;
   openai_advanced_scheduler_sticky_weighted_enabled: boolean;
   openai_advanced_scheduler_subscription_priority_enabled: boolean;
@@ -297,6 +301,10 @@ export function createSettingsForm(localText: LocalText): SettingsForm {
     openai_content_session_burst_balance_enabled: false,
     openai_session_id_rate_limit_enabled: false,
     openai_session_id_rate_limit_per_minute: 0,
+    openai_oauth_gateway_rate_limit_enabled: false,
+    openai_oauth_gateway_rate_limit_rpm: 60,
+    openai_oauth_gateway_rate_limit_burst: 5,
+    openai_request_integrity_observe_enabled: false,
     scheduler_v2_enabled: false,
     scheduler_v2_status: "disabled",
     scheduler_v2_error: "",

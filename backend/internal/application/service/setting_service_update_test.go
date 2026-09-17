@@ -489,6 +489,10 @@ func TestSettingService_UpdateSettings_PaymentVisibleMethodsAndAdvancedScheduler
 		OpenAIContentSessionBurstBalanceEnabled:            true,
 		OpenAISessionIDRateLimitEnabled:                    true,
 		OpenAISessionIDRateLimitPerMinute:                  12,
+		OpenAIOAuthGatewayRateLimitEnabled:                 true,
+		OpenAIOAuthGatewayRateLimitRPM:                     90,
+		OpenAIOAuthGatewayRateLimitBurst:                   7,
+		OpenAIRequestIntegrityObserveEnabled:               true,
 		OpenAIAdvancedSchedulerEnabled:                     true,
 		OpenAIAdvancedSchedulerStickyWeightedEnabled:       true,
 		OpenAIAdvancedSchedulerSubscriptionPriorityEnabled: true,
@@ -514,6 +518,10 @@ func TestSettingService_UpdateSettings_PaymentVisibleMethodsAndAdvancedScheduler
 	require.Equal(t, "true", repo.updates[SettingKeyOpenAIContentSessionBurstBalanceEnabled])
 	require.Equal(t, "true", repo.updates[SettingKeyOpenAISessionIDRateLimitEnabled])
 	require.Equal(t, "12", repo.updates[SettingKeyOpenAISessionIDRateLimitPerMinute])
+	require.Equal(t, "true", repo.updates[SettingKeyOpenAIOAuthGatewayRateLimitEnabled])
+	require.Equal(t, "90", repo.updates[SettingKeyOpenAIOAuthGatewayRateLimitRPM])
+	require.Equal(t, "7", repo.updates[SettingKeyOpenAIOAuthGatewayRateLimitBurst])
+	require.Equal(t, "true", repo.updates[SettingKeyOpenAIRequestIntegrityObserveEnabled])
 	require.Equal(t, "true", repo.updates[openAIAdvancedSchedulerSettingKey])
 	require.Equal(t, "true", repo.updates[SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled])
 	require.Equal(t, "true", repo.updates[SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled])
@@ -609,6 +617,23 @@ func TestSettingService_ParseSettingsOpenAISessionIDRateLimit(t *testing.T) {
 	require.True(t, settings.OpenAISessionIDRateLimitEnabled)
 	require.Equal(t, 12, settings.OpenAISessionIDRateLimitPerMinute)
 	require.Equal(t, 0, svc.parseSettings(map[string]string{SettingKeyOpenAISessionIDRateLimitPerMinute: "-1"}).OpenAISessionIDRateLimitPerMinute)
+}
+
+func TestSettingService_ParseAndValidateOpenAIOAuthGatewayRateLimit(t *testing.T) {
+	svc := NewSettingService(&settingUpdateRepoStub{}, &config.Config{})
+	settings := svc.parseSettings(map[string]string{
+		SettingKeyOpenAIOAuthGatewayRateLimitEnabled:   "true",
+		SettingKeyOpenAIOAuthGatewayRateLimitRPM:       "90",
+		SettingKeyOpenAIOAuthGatewayRateLimitBurst:     "7",
+		SettingKeyOpenAIRequestIntegrityObserveEnabled: "true",
+	})
+	require.True(t, settings.OpenAIOAuthGatewayRateLimitEnabled)
+	require.Equal(t, 90, settings.OpenAIOAuthGatewayRateLimitRPM)
+	require.Equal(t, 7, settings.OpenAIOAuthGatewayRateLimitBurst)
+	require.True(t, settings.OpenAIRequestIntegrityObserveEnabled)
+
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{OpenAIOAuthGatewayRateLimitEnabled: true})
+	require.Error(t, err)
 }
 
 func TestSettingService_GetAllSettings_OpenAIAdvancedSchedulerEffectiveValuesUseConfig(t *testing.T) {

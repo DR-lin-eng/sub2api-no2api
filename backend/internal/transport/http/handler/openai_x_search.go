@@ -263,7 +263,7 @@ func (h *OpenAIGatewayHandler) handleGrokXSearchFailover(
 		return false
 	}
 	*switchCount++
-	if h.gatewayService.ShouldStopOpenAIOAuth429Failover(account, failoverErr.StatusCode, *switchCount, oauth429FailoverState) {
+	if !failoverErr.IsOpenAIOAuthGatewayRateLimit() && h.gatewayService.ShouldStopOpenAIOAuth429Failover(account, failoverErr.StatusCode, *switchCount, oauth429FailoverState) {
 		h.handleFailoverExhausted(c, failoverErr, false)
 		return false
 	}

@@ -493,6 +493,7 @@ type OpenAIGatewayService struct {
 	openaiProxyStreamFailOpenLogAt atomic.Int64
 	openaiContentSessions          *openAIContentSessionTracker
 	sessionIDAdmissionCache        OpenAISessionIDAdmissionCache
+	oauthGatewayRateLimitCache     OpenAIOAuthGatewayRateLimitCache
 	sessionIDRateMetrics           *OpenAISessionIDRateMetrics
 	distillationCounterSource      distillationCounter
 
@@ -625,6 +626,9 @@ func NewOpenAIGatewayService(
 	})
 	if admissionCache, ok := cache.(OpenAISessionIDAdmissionCache); ok {
 		svc.sessionIDAdmissionCache = admissionCache
+	}
+	if rateLimitCache, ok := cache.(OpenAIOAuthGatewayRateLimitCache); ok {
+		svc.oauthGatewayRateLimitCache = rateLimitCache
 	}
 	if rateLimitService != nil {
 		rateLimitService.SetAccountRuntimeBlocker(svc)

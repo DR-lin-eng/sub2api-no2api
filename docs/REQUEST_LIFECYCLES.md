@@ -112,6 +112,23 @@ OpenAI 兼容入口的会话键按以下顺序解析：显式 `session_id`/
 Redis 原子限速；OpenAI API Key 账号不经过该限速；0 表示不限制。达到上限的 OAuth 账号
 从本次候选中排除，已有 Session ID 不重复消耗额度。
 
+“OpenAI OAuth 每账号限速”由全局设置 `openai_oauth_gateway_rate_limit_enabled` 显式开启；关闭时请求路径
+不访问对应 Redis key。开启后，所有 OpenAI OAuth 账号使用同一套 RPM/burst 配置，但每个账号拥有独立
+Redis 令牌桶；同一账号的桶由所有应用实例共享，不按模型或应用实例继续拆分。
+共享母账号 OAuth 凭据的影子账号使用母账号桶，不能通过影子记录获得额外额度。
+`openai_oauth_gateway_rate_limit_rpm` 是持续补充速率，
+`openai_oauth_gateway_rate_limit_burst` 是可立即消耗的突发容量。HTTP 请求的账号重试/切换按
+`client_request_id` 在同一账号桶内去重；切换到另一个账号会消耗新账号自己的额度。Responses 的所有上游子路径（含 `compact`、`input_tokens`）、独立 Alpha Search 和 Live 建连均使用所选账号的桶，
+WS 每个 `response.create` turn 单独计数；OpenAI API Key、模型列表、
+额度查询和 OAuth 刷新不计入。启用状态下 Redis 不可用时失败关闭并返回 503，额度不足返回 429
+和 `Retry-After`；额度不足时先排除当前账号并尝试其他候选账号，且不记为账号健康失败，全部候选耗尽后才向客户端返回 429。配置保存到共享设置表；当前节点立即使用新值，
+其他节点最多在 5 秒设置缓存周期后使用相同配置。
+
+`openai_request_integrity_observe_enabled` 只观察 OpenAI OAuth 请求在兼容转换前后的受保护语义字段；
+差异日志仅包含账号 ID、传输类型和字段名，不保存请求正文，也不拒绝或重放请求。质量巡检的私有
+artifact 同时保存本次模型、Codex 身份/传输、出口、并发和上述网关控制的非敏感运行快照；公开质量页
+会删除该运行快照。
+
 OpenAI Responses 请求在首个语义事件前使用
 `gateway.openai_first_output_timeout_seconds`（默认 90 秒；
 `high/xhigh/max` 可由 `gateway.openai_high_effort_first_output_timeout_seconds`

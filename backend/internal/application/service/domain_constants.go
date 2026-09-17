@@ -627,6 +627,15 @@ const (
 	SettingKeyOpenAIContentSessionBurstBalanceEnabled = "openai_content_session_burst_balance_enabled"
 	SettingKeyOpenAISessionIDRateLimitEnabled         = "openai_session_id_rate_limit_enabled"
 	SettingKeyOpenAISessionIDRateLimitPerMinute       = "openai_session_id_rate_limit_per_minute"
+	// The OAuth gateway limiter is one Redis-backed token bucket shared by every
+	// instance and every OpenAI OAuth account. It is independent of the
+	// per-account explicit Session ID limiter above.
+	SettingKeyOpenAIOAuthGatewayRateLimitEnabled = "openai_oauth_gateway_rate_limit_enabled"
+	SettingKeyOpenAIOAuthGatewayRateLimitRPM     = "openai_oauth_gateway_rate_limit_rpm"
+	SettingKeyOpenAIOAuthGatewayRateLimitBurst   = "openai_oauth_gateway_rate_limit_burst"
+	// Request integrity observation only records field names whose protected
+	// semantics changed; it never stores request content or blocks a request.
+	SettingKeyOpenAIRequestIntegrityObserveEnabled = "openai_request_integrity_observe_enabled"
 	// SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled OpenAI 高级调度下是否启用粘性加权。
 	SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled = "openai_advanced_scheduler_sticky_weighted_enabled"
 	// SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled OpenAI 高级调度下是否优先使用订阅账号池。

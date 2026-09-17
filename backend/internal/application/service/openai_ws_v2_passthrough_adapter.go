@@ -723,6 +723,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	if err := validateOpenAIWSBearerToken(account, token); err != nil {
 		return err
 	}
+	integrityOriginalFirstMessage := append([]byte(nil), firstClientMessage...)
 	firstClientMessage = normalizeCodexBootstrapForOpenAIWS(account.ID, 1, firstClientMessage)
 	visibleOutputTTFT := s.useOpenAIVisibleOutputTTFT(ctx)
 	if isOpenAIResponsesLiteWebSocketPayload(firstClientMessage) {
@@ -822,6 +823,10 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 		return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", fingerprintErr)
 	} else if changed {
 		firstClientMessage = fingerprinted
+	}
+	s.observeOpenAIRequestIntegrity(ctx, c, account, integrityOriginalFirstMessage, firstClientMessage, "websocket_passthrough")
+	if err := s.admitOpenAIOAuthGatewayModelRequest(withOpenAIOAuthGatewayTurnKey(ctx, 1), account); err != nil {
+		return openAIOAuthGatewayRateLimitWSFailover(err, 1, firstClientMessage)
 	}
 
 	// 在 policy filter 之后再提取 service_tier / reasoning_effort 用于
@@ -1054,6 +1059,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			}
 			eventType := strings.TrimSpace(gjson.GetBytes(payload, "type").String())
 			isResponseCreate := eventType == "response.create"
+			integrityOriginalPayload := append([]byte(nil), payload...)
 			turnNo := int(completedTurns.Load()) + 1
 			if turnNo < 2 {
 				turnNo = 2
@@ -1078,6 +1084,9 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 					return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusGoingAway, "websocket request canceled", err)
 				}
 				defer endHookProcessing()
+				if err := s.admitOpenAIOAuthGatewayModelRequest(withOpenAIOAuthGatewayTurnKey(ctx, turnNo), account); err != nil {
+					return payload, nil, openAIOAuthGatewayRateLimitWSFailover(err, turnNo, payload)
+				}
 			}
 			if isResponseCreate {
 				if isOpenAIResponsesLiteWebSocketPayload(payload) {
@@ -1201,6 +1210,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 				responseTurnState.Store(nil)
 				usageMeta.updateFromResponseCreate(out, model, requestModelForThisFrame)
 				acceptedTurn = true
+				s.observeOpenAIRequestIntegrity(ctx, c, account, integrityOriginalPayload, out, "websocket_passthrough")
 			}
 			return out, blocked, policyErr
 		},

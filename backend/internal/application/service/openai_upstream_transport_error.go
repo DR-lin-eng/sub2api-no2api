@@ -182,6 +182,9 @@ func waitOpenAITransportRetry(ctx context.Context, delay time.Duration) error {
 //
 // passthrough tags the Ops error event for the OpenAI passthrough forward path.
 func (s *OpenAIGatewayService) handleOpenAIUpstreamTransportError(ctx context.Context, c *gin.Context, account *Account, err error, passthrough bool) error {
+	if limited := openAIOAuthGatewayRateLimitFailover(err); limited != nil {
+		return limited
+	}
 	if isDistillationGroupRequest(c, account) {
 		return fmt.Errorf("upstream transport failed: %w", err)
 	}

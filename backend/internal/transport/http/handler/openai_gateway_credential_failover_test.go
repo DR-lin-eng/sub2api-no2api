@@ -135,6 +135,54 @@ func TestInferenceFailoverExhaustionRestoresRetryAfter(t *testing.T) {
 	require.Equal(t, "17", recorder.Header().Get("Retry-After"))
 }
 
+func TestOpenAIOAuthGatewayLimitReturnsLocal429AfterAccountFailoverExhaustion(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	h := &OpenAIGatewayHandler{}
+	failoverErr := &service.UpstreamFailoverError{
+		StatusCode:        http.StatusTooManyRequests,
+		Scope:             service.GatewayFailureScopeAccount,
+		Reason:            service.GatewayFailureReason("openai_oauth_account_rate_limit"),
+		NextAccountAction: service.NextAccountRetry,
+		ClientStatusCode:  http.StatusTooManyRequests,
+		ClientMessage:     "OpenAI OAuth account request rate limit exceeded",
+		ResponseHeaders:   http.Header{"Retry-After": []string{"3"}},
+	}
+
+	require.True(t, failoverErr.ShouldRetryNextAccount())
+	require.False(t, failoverErr.ShouldReportAccountScheduleFailure())
+	h.handleFailoverExhausted(c, failoverErr, false)
+
+	require.Equal(t, http.StatusTooManyRequests, recorder.Code)
+	require.Equal(t, "3", recorder.Header().Get("Retry-After"))
+	require.Contains(t, recorder.Body.String(), "rate_limit_error")
+}
+
+func TestOpenAIOAuthGatewayLimitReturnsAnthropic429AfterAccountFailoverExhaustion(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	h := &OpenAIGatewayHandler{}
+	failoverErr := &service.UpstreamFailoverError{
+		StatusCode:        http.StatusTooManyRequests,
+		Scope:             service.GatewayFailureScopeAccount,
+		Reason:            service.GatewayFailureReason("openai_oauth_account_rate_limit"),
+		NextAccountAction: service.NextAccountRetry,
+		ClientStatusCode:  http.StatusTooManyRequests,
+		ClientMessage:     "OpenAI OAuth account request rate limit exceeded",
+		ResponseHeaders:   http.Header{"Retry-After": []string{"4"}},
+	}
+
+	require.True(t, failoverErr.ShouldRetryNextAccount())
+	require.False(t, failoverErr.ShouldReportAccountScheduleFailure())
+	h.handleAnthropicFailoverExhausted(c, failoverErr, false)
+
+	require.Equal(t, http.StatusTooManyRequests, recorder.Code)
+	require.Equal(t, "4", recorder.Header().Get("Retry-After"))
+	require.Contains(t, recorder.Body.String(), "rate_limit_error")
+}
+
 func TestFailoverExhaustionRejectsSecretBearingRetryAfter(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
