@@ -60,7 +60,7 @@ OpenAI OAuth 质量探测会读取上游响应头 `X-Codex-Turn-State`。只有�
 预览渲染改由前端浏览器完成：后端仅在 `probe_details.stage2.preview_html` 保存经过 CSP/外链过滤且最多 256 KiB 的 HTML，公开接口返回该字段；前端使用 `iframe srcdoc` 与 `sandbox="allow-scripts"` 加载自包含动画，历史 PNG/WebP 记录仍可通过原图片接口查看。主 Docker 镜像不再安装 Python、Chromium 或 Playwright，代码匹配仍在后端 Go 中执行。预览 HTML 不允许外部网络、框架、对象、表单或事件属性，代码匹配先于预览生成，浏览器预览失败不会丢失匹配分数和对话详情。公开接口不返回账号凭据或原始请求；没有回答、对话/响应 ID、代码匹配或预览的空失败记录不会出现在公开时间线和详情卡片中。流式画图即使在结束前中断，只要已收到部分 SVG/HTML，仍会执行代码匹配并记录 `source_complete=false`；第二阶段状态显示“输出被中断，分析可能错误”，但账号总结果以第一阶段文字题为准（第一阶段通过则整体通过，第一阶段答错仍判降智）。仅启用第二阶段时，不完整输出判为待确认。
 
 手动调用 `/api/v1/admin/account-quality/run` 会立即返回 `running` 状态；后台继续执行并持久化 `progress.total/completed/running/queued` 和各账号 `quality_phase`（排队、文字题、绘图生成、渲染分类、保存、完成或中断），管理页每 5 秒轮询展示总任务进度和账号级阶段进度。调度触发仍使用同一质量运行器并等待完整结果。开启 `quality_public_enabled` 后，匿名页 `/monitor/quality/public` 读取
-`GET /api/v1/account-quality-share`，按 manxue.ai 风格展示 24 小时摘要、可点击状态时间线、检测对话/响应 ID、两阶段最终回答文本、reasoning token 和图片预览；回答只保留最多 16 KiB 并在前端按纯文本渲染，不返回账号 ID、凭据或原始请求。图片由
+`GET /api/v1/account-quality-share`，按 manxue.ai 风格展示 24 小时摘要、可点击状态时间线、检测对话/响应 ID、两阶段最终回答文本、reasoning token 和图片预览；回答只保留最多 16 KiB 并在前端按纯文本渲染，不返回账号 ID、凭据或原始请求。公开展示页允许第三方 HTTPS 站点通过 iframe 嵌入：安全头中间件只对精确路径 `/monitor/quality/public` 省略 `X-Frame-Options` 并把 CSP `frame-ancestors` 设为 `*`，其他页面仍维持全局禁止嵌入策略。图片由
 `GET /api/v1/account-quality-share/image/:id?format=png|webp` 提供，并限制 24 小时保留。历史记录如果没有对话详情会显示“上游未返回”，不会伪造 ID。
 
 ### 阅读顺序

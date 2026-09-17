@@ -44,6 +44,7 @@ const (
 	AliyunCaptchaImageCNDomain  = "https://static-captcha.aliyuncs.com"
 	AliyunCaptchaImageSGPDomain = "https://static-captcha-sgp.aliyuncs.com"
 	WASMUnsafeEval              = "'wasm-unsafe-eval'"
+	publicAccountQualityPath    = "/monitor/quality/public"
 )
 
 var requiredCSPDirectiveValues = []struct {
@@ -135,8 +136,17 @@ func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string, g
 			finalPolicy = addOriginsToDirective(finalPolicy, "connect-src", getConnectSrcOrigins[0]())
 		}
 
+		isEmbeddablePage := isPublicAccountQualityPage(c)
+		if isEmbeddablePage {
+			// This anonymous, read-only dashboard is intentionally embeddable by
+			// external status sites. All other pages retain clickjacking protection.
+			finalPolicy = setDirective(finalPolicy, "frame-ancestors", "*")
+		}
+
 		c.Header("X-Content-Type-Options", "nosniff")
-		c.Header("X-Frame-Options", "DENY")
+		if !isEmbeddablePage {
+			c.Header("X-Frame-Options", "DENY")
+		}
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
 		if isAPIRoutePath(c) {
 			c.Next()
@@ -157,6 +167,39 @@ func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string, g
 		}
 		c.Next()
 	}
+}
+
+func isPublicAccountQualityPage(c *gin.Context) bool {
+	if c == nil || c.Request == nil || c.Request.URL == nil {
+		return false
+	}
+	path := strings.TrimSuffix(c.Request.URL.Path, "/")
+	return path == publicAccountQualityPath
+}
+
+func setDirective(policy, directive, value string) string {
+	directives := strings.Split(policy, ";")
+	result := make([]string, 0, len(directives)+1)
+	replaced := false
+	for _, rawDirective := range directives {
+		trimmed := strings.TrimSpace(rawDirective)
+		if trimmed == "" {
+			continue
+		}
+		fields := strings.Fields(trimmed)
+		if len(fields) > 0 && strings.EqualFold(fields[0], directive) {
+			if !replaced {
+				result = append(result, directive+" "+value)
+				replaced = true
+			}
+			continue
+		}
+		result = append(result, trimmed)
+	}
+	if !replaced {
+		result = append(result, directive+" "+value)
+	}
+	return strings.Join(result, "; ")
 }
 
 func addOriginsToDirective(policy, directive string, origins []string) string {

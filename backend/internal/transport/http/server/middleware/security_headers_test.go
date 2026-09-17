@@ -131,6 +131,82 @@ func TestSecurityHeaders(t *testing.T) {
 		assert.Contains(t, csp, CloudflareInsightsDomain)
 	})
 
+	t.Run("allows_public_account_quality_page_to_be_embedded", func(t *testing.T) {
+		cfg := config.CSPConfig{
+			Enabled: true,
+			Policy:  "default-src 'self'; frame-ancestors 'none'",
+		}
+		middleware := SecurityHeaders(cfg, nil)
+
+		for _, path := range []string{
+			"/monitor/quality/public",
+			"/monitor/quality/public/",
+			"/monitor/quality/public?source=partner",
+		} {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest(http.MethodGet, path, nil)
+
+			middleware(c)
+
+			assert.Empty(t, w.Header().Get("X-Frame-Options"), path)
+			assert.Equal(t, 1, countDirectiveValue(
+				w.Header().Get("Content-Security-Policy"),
+				"frame-ancestors",
+				"*",
+			), path)
+			assert.Equal(t, 0, countDirectiveValue(
+				w.Header().Get("Content-Security-Policy"),
+				"frame-ancestors",
+				"'none'",
+			), path)
+		}
+	})
+
+	t.Run("keeps_clickjacking_protection_on_other_pages", func(t *testing.T) {
+		cfg := config.CSPConfig{
+			Enabled: true,
+			Policy:  "default-src 'self'; frame-ancestors 'none'",
+		}
+		middleware := SecurityHeaders(cfg, nil)
+
+		for _, path := range []string{
+			"/monitor/public",
+			"/monitor/quality/publicity",
+			"/admin/account-quality",
+		} {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest(http.MethodGet, path, nil)
+
+			middleware(c)
+
+			assert.Equal(t, "DENY", w.Header().Get("X-Frame-Options"), path)
+			assert.Equal(t, 1, countDirectiveValue(
+				w.Header().Get("Content-Security-Policy"),
+				"frame-ancestors",
+				"'none'",
+			), path)
+			assert.Equal(t, 0, countDirectiveValue(
+				w.Header().Get("Content-Security-Policy"),
+				"frame-ancestors",
+				"*",
+			), path)
+		}
+	})
+
+	t.Run("allows_public_account_quality_page_when_csp_is_disabled", func(t *testing.T) {
+		middleware := SecurityHeaders(config.CSPConfig{Enabled: false}, nil)
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodGet, "/monitor/quality/public", nil)
+
+		middleware(c)
+
+		assert.Empty(t, w.Header().Get("X-Frame-Options"))
+		assert.Empty(t, w.Header().Get("Content-Security-Policy"))
+	})
+
 	t.Run("api_route_skips_csp_nonce_generation", func(t *testing.T) {
 		cfg := config.CSPConfig{
 			Enabled: true,
@@ -407,6 +483,24 @@ func TestAddToDirective(t *testing.T) {
 
 		assert.Contains(t, result, "script-src")
 		assert.Contains(t, result, "https://example.com")
+	})
+}
+
+func TestSetDirective(t *testing.T) {
+	t.Run("replaces_existing_directive_and_removes_duplicates", func(t *testing.T) {
+		policy := "default-src 'self'; FRAME-ANCESTORS 'self'; frame-ancestors 'none'; script-src 'self'"
+
+		result := setDirective(policy, "frame-ancestors", "*")
+
+		assert.Equal(t, 1, countDirectiveValue(result, "frame-ancestors", "*"))
+		assert.NotContains(t, strings.ToLower(result), "frame-ancestors 'self'")
+		assert.NotContains(t, strings.ToLower(result), "frame-ancestors 'none'")
+	})
+
+	t.Run("adds_missing_directive", func(t *testing.T) {
+		result := setDirective("default-src 'self'", "frame-ancestors", "*")
+
+		assert.Equal(t, 1, countDirectiveValue(result, "frame-ancestors", "*"))
 	})
 }
 

@@ -12,3 +12,5 @@
 
 
 第二阶段 HTML/SVG 在 sandboxed iframe 中由前端浏览器渲染，历史记录保留 WebP 图片回退。流式回答不完整时仍分析已收到的代码，并在详情显示“输出被中断，分析可能错误”；账号总结果以文字题为准。完全没有回答、ID、匹配或预览的失败记录不展示在公开面板。
+
+公开展示页 `/monitor/quality/public` 可由第三方 HTTPS 站点通过 iframe 嵌入；后端只对该精确页面路径移除 `X-Frame-Options`，并返回 `frame-ancestors *`。管理页、其他公开页和相似前缀路径继续使用默认的禁止嵌入策略。
