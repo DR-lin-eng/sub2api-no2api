@@ -102,13 +102,6 @@ func openAICodexTurnStateModel(c *gin.Context) string {
 	return strings.TrimSpace(model)
 }
 
-func (s *OpenAIGatewayService) codexAutoTurnStateReplayEnabled(ctx context.Context) bool {
-	if s == nil || s.settingService == nil {
-		return false
-	}
-	return s.settingService.CodexSimulationSettingsSnapshot(ctx).TurnStateAutoReplayEnabled
-}
-
 func (s *OpenAIGatewayService) codexAutoTurnStateModelIsWatched(ctx context.Context, model string) bool {
 	if s == nil || s.settingService == nil {
 		return false

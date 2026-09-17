@@ -257,21 +257,6 @@ func (s *OpenAIGatewayService) applyConfiguredCodexTurnStateReplay(c *gin.Contex
 	headers.Del(openAICodexTurnStateHeader)
 }
 
-func (s *OpenAIGatewayService) configuredCodexTurnStateReplay(c *gin.Context, account *Account) string {
-	if s == nil || s.settingService == nil || account == nil || !account.IsOpenAIOAuth() {
-		return ""
-	}
-	ctx := context.Background()
-	if c != nil && c.Request != nil {
-		ctx = c.Request.Context()
-	}
-	settings := s.settingService.CodexSimulationSettingsSnapshot(ctx)
-	if !settings.TurnStateReplayEnabled {
-		return ""
-	}
-	return randomCodexTurnStateForAccount(settings, account.ID)
-}
-
 func (s *OpenAIGatewayService) sweepOpenAICodexTurnStateOrigins() {
 	if s == nil || s.openaiCodexTurnStateWrites.Add(1)%256 != 0 {
 		return
