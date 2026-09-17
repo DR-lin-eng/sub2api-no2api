@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
 )
 
 func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Context, account *Account, body []byte, token string, isStream bool, promptCacheKey string, isCodexCLI bool) (*http.Request, error) {
@@ -111,6 +112,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	// A turn-state minted by another account is incompatible with this
 	// attempt's outbound identity. Unknown and same-account values pass through.
 	s.guardOpenAICodexTurnStateEcho(c, account, req.Header)
+	stageOpenAICodexTurnStateModel(c, gjson.GetBytes(outboundBody, "model").String())
 	s.applyConfiguredCodexTurnStateReplay(c, account, req.Header)
 	if account.Type == AccountTypeOAuth {
 		compatMessagesBridge := isOpenAICompatMessagesBridgeContext(c) || isOpenAICompatMessagesBridgeBody(body)

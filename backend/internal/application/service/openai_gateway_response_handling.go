@@ -494,6 +494,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			trimmedData := strings.TrimSpace(data)
 			eventTypeRaw := gjson.GetBytes(dataBytes, "type").String()
 			eventType := strings.TrimSpace(eventTypeRaw)
+			captureOpenAICodexTurnStateMetadata(resp.Header, dataBytes)
 			observer.ObserveOpenAI(dataBytes, eventTypeRaw)
 			observeOpenAITiming(c, dataBytes, eventTypeRaw)
 			if openAIStreamDataSignalsOutputProgressTrimmed(trimmedData, eventType) {
@@ -1484,6 +1485,7 @@ func (s *OpenAIGatewayService) handleSSEToJSONWithAccount(
 	passthrough bool,
 ) (*openaiNonStreamingResult, error) {
 	bodyText := string(body)
+	captureOpenAICodexTurnStateFromSSE(resp.Header, bodyText)
 	if failurePayload, failure := extractOpenAISSEFailureEvent(bodyText); failure {
 		failedMessage := extractOpenAISSEErrorMessage(failurePayload)
 		if failedMessage == "" {

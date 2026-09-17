@@ -651,6 +651,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 	// Failover can reuse the downstream turn-state with a different account.
 	// Strip only values whose provenance is known to be cross-account.
 	s.guardOpenAICodexTurnStateEcho(c, account, req.Header)
+	stageOpenAICodexTurnStateModel(c, gjson.GetBytes(outboundBody, "model").String())
 	s.applyConfiguredCodexTurnStateReplay(c, account, req.Header)
 
 	// 覆盖入站鉴权残留，并注入上游认证
@@ -2307,6 +2308,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 				}
 			}
 			eventType := strings.TrimSpace(gjson.Get(trimmedData, "type").String())
+			captureOpenAICodexTurnStateMetadata(resp.Header, dataBytes)
 			if openAIStreamDataSignalsOutputProgressTrimmed(trimmedData, eventType) {
 				sawOutputProgressEvent = true
 			}
@@ -2717,6 +2719,7 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSONWithAccount(
 		declareOpenAIStreamResponseMetadataTrailers(c)
 	}
 	bodyText := string(body)
+	captureOpenAICodexTurnStateFromSSE(resp.Header, bodyText)
 	if failurePayload, failure := extractOpenAISSEFailureEvent(bodyText); failure {
 		failedMessage := extractOpenAISSEErrorMessage(failurePayload)
 		if failedMessage == "" {

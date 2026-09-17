@@ -933,6 +933,9 @@ describe("admin SettingsView payment visible method controls", () => {
     getCodexSimulationSettings.mockResolvedValue({
       full_simulation_enabled: false,
       turn_state_replay_enabled: false,
+      turn_state_auto_replay_enabled: false,
+      turn_state_target_length: 292,
+      turn_state_watch_models: [],
       turn_states: [],
       continuation_mode: "off",
       state_ttl_seconds: 604800,
@@ -945,6 +948,9 @@ describe("admin SettingsView payment visible method controls", () => {
     forceDisableCodexSimulationSettings.mockResolvedValue({
       full_simulation_enabled: false,
       turn_state_replay_enabled: false,
+      turn_state_auto_replay_enabled: false,
+      turn_state_target_length: 292,
+      turn_state_watch_models: [],
       turn_states: [],
       continuation_mode: "off",
       state_ttl_seconds: 604800,
@@ -1422,6 +1428,9 @@ describe("admin SettingsView payment visible method controls", () => {
       full_simulation_enabled: true,
       c_level_simulation_enabled: true,
       turn_state_replay_enabled: false,
+      turn_state_auto_replay_enabled: false,
+      turn_state_target_length: 292,
+      turn_state_watch_models: ["gpt-5.6-codex"],
       turn_states: ["saved-state"],
       continuation_mode: "enforce",
       state_ttl_seconds: 604800,
@@ -1446,6 +1455,9 @@ describe("admin SettingsView payment visible method controls", () => {
       .get('[data-testid="codex-simulation-c-level-toggle"]')
       .setValue(false);
     await card!.get('[data-testid="codex-prewarm-force-toggle"]').setValue(true);
+    await card!.get('[data-testid="codex-turn-state-auto-replay-toggle"]').setValue(true);
+    await card!.get('[data-testid="codex-turn-state-target-length"]').setValue("300");
+    await card!.get('[data-testid="codex-turn-state-watch-models"]').setValue("gpt-5.6-codex\nGPT-5.5-CODEX");
     await card!.get('[data-testid="codex-turn-state-replay-toggle"]').setValue(true);
     await card!.get('[data-testid="codex-turn-states"]').setValue("state-a\nstate-b");
     await card!
@@ -1461,6 +1473,9 @@ describe("admin SettingsView payment visible method controls", () => {
       experimental_transport_enabled: false,
       codex_prewarm_continuation_force_enabled: true,
       turn_state_replay_enabled: true,
+      turn_state_auto_replay_enabled: true,
+      turn_state_target_length: 300,
+      turn_state_watch_models: ["gpt-5.6-codex", "gpt-5.5-codex"],
       turn_states: ["state-a", "state-b"],
       continuation_mode: "shadow",
       state_ttl_seconds: 3600,
@@ -1473,6 +1488,9 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(forceDisableCodexSimulationSettings).toHaveBeenCalledOnce();
     expect(
       (card!.get('[data-testid="codex-prewarm-force-toggle"]').element as HTMLInputElement).checked,
+    ).toBe(false);
+    expect(
+      (card!.get('[data-testid="codex-turn-state-auto-replay-toggle"]').element as HTMLInputElement).checked,
     ).toBe(false);
     expect(
       card!.get('[data-testid="codex-simulation-effective-state"]').text(),
@@ -1523,6 +1541,9 @@ describe("admin SettingsView payment visible method controls", () => {
       experimental_transport_enabled: false,
       codex_prewarm_continuation_force_enabled: false,
       turn_state_replay_enabled: false,
+      turn_state_auto_replay_enabled: false,
+      turn_state_target_length: 292,
+      turn_state_watch_models: [],
       turn_states: ["captured-a", "captured-b"],
       continuation_mode: "off",
       state_ttl_seconds: 604800,

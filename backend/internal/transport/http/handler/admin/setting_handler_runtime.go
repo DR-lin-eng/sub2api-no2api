@@ -313,6 +313,22 @@ func (h *SettingHandler) UpdateCodexSimulationSettings(c *gin.Context) {
 	if req.TurnStateReplayEnabled != nil {
 		turnStateReplayEnabled = *req.TurnStateReplayEnabled
 	}
+	turnStateAutoReplayEnabled := current.TurnStateAutoReplayEnabled
+	if req.TurnStateAutoReplayEnabled != nil {
+		turnStateAutoReplayEnabled = *req.TurnStateAutoReplayEnabled
+	}
+	turnStateTargetLength := current.TurnStateTargetLength
+	if req.TurnStateTargetLength != nil {
+		if *req.TurnStateTargetLength < 1 || *req.TurnStateTargetLength > 8192 {
+			response.BadRequest(c, "turn_state_target_length must be between 1 and 8192")
+			return
+		}
+		turnStateTargetLength = *req.TurnStateTargetLength
+	}
+	turnStateWatchModels := current.TurnStateWatchModels
+	if req.TurnStateWatchModels != nil {
+		turnStateWatchModels = *req.TurnStateWatchModels
+	}
 	turnStates := current.TurnStates
 	if req.TurnStates != nil {
 		turnStates = *req.TurnStates
@@ -323,6 +339,9 @@ func (h *SettingHandler) UpdateCodexSimulationSettings(c *gin.Context) {
 		ExperimentalTransportEnabled:         experimentalTransportEnabled,
 		CodexPrewarmContinuationForceEnabled: prewarmForceEnabled,
 		TurnStateReplayEnabled:               turnStateReplayEnabled,
+		TurnStateAutoReplayEnabled:           turnStateAutoReplayEnabled,
+		TurnStateTargetLength:                turnStateTargetLength,
+		TurnStateWatchModels:                 turnStateWatchModels,
 		TurnStates:                           turnStates,
 		TurnStateAccountIDs:                  current.TurnStateAccountIDs,
 		ContinuationMode:                     mode,
@@ -369,6 +388,9 @@ func codexSimulationSettingsDTO(settings *service.CodexSimulationSettings) dto.C
 		ExperimentalTransportEnabled:         settings.ExperimentalTransportEnabled,
 		CodexPrewarmContinuationForceEnabled: settings.CodexPrewarmContinuationForceEnabled,
 		TurnStateReplayEnabled:               settings.TurnStateReplayEnabled,
+		TurnStateAutoReplayEnabled:           settings.TurnStateAutoReplayEnabled,
+		TurnStateTargetLength:                settings.TurnStateTargetLength,
+		TurnStateWatchModels:                 append([]string{}, settings.TurnStateWatchModels...),
 		TurnStates:                           append([]string{}, settings.TurnStates...),
 		ContinuationMode:                     settings.ContinuationMode,
 		StateTTLSeconds:                      settings.StateTTLSeconds,

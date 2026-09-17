@@ -615,9 +615,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				turnState = savedTurnState
 			}
 		}
-		if replayState := s.configuredCodexTurnStateReplay(c, account); replayState != "" {
-			turnState = replayState
-		}
+		replayModel := strings.TrimSpace(gjson.GetBytes(payload.payloadRaw, "model").String())
+		stageOpenAICodexTurnStateModel(c, replayModel)
+		turnState = s.resolveCodexTurnStateReplay(c, account, replayModel, turnState)
 
 		if stateStore != nil && payload.previousResponseID != "" {
 			if connID, ok := stateStore.GetResponseConn(payload.previousResponseID); ok {
@@ -996,7 +996,13 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			return nil, acquireErr
 		}
 		connID := strings.TrimSpace(lease.ConnID())
-		if handshakeTurnState := strings.TrimSpace(lease.HandshakeHeader(openAIWSTurnStateHeader)); handshakeTurnState != "" {
+		handshakeTurnState := strings.TrimSpace(lease.HandshakeHeader(openAIWSTurnStateHeader))
+		observedTurnState := handshakeTurnState
+		if lease.Reused() {
+			observedTurnState = ""
+		}
+		s.observeOpenAICodexTurnState(ctx, c, account, openAICodexTurnStateModel(c), observedTurnState)
+		if handshakeTurnState != "" {
 			turnState = handshakeTurnState
 			if stateStore != nil && sessionHash != "" {
 				stateErr := stateStore.BindSessionTurnState(ctx, groupID, sessionHash, handshakeTurnState, s.openAIWSSessionStickyTTL())
@@ -1064,6 +1070,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		replayCollector := &openAIWSToolCallReplayCollector{}
 		firstEventType := ""
 		lastEventType := ""
+		responseTurnState := ""
 		needModelReplace := false
 		clientDisconnected := false
 		bufferRateLimitsPreamble := account.BypassesLocalOpenAI429SchedulingBlocks()
@@ -1208,6 +1215,10 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			}
 
 			eventType, eventResponseID, _ := parseOpenAIWSEventEnvelope(upstreamMessage)
+			if eventType == "codex.response.metadata" {
+				metadataHeaders := make(http.Header)
+				responseTurnState = captureOpenAICodexTurnStateMetadata(metadataHeaders, upstreamMessage)
+			}
 			responseModelObserver.ObserveOpenAI(upstreamMessage, eventType)
 			timingCollector.Observe(upstreamMessage, eventType)
 			if responseID == "" && eventResponseID != "" {
@@ -1432,6 +1443,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				if localFirstEventTTFTMs != nil &&
 					(terminalEvent == "response.completed" || terminalEvent == "response.done") {
 					firstTokenMs = localFirstEventTTFTMs
+				}
+				if terminalEvent == "response.completed" || terminalEvent == "response.done" {
+					s.observeOpenAICodexTurnState(ctx, c, account, mappedModel, responseTurnState)
 				}
 				// 客户端已断连时，上游连接的 session 状态不可信，标记 broken 避免回池复用。
 				if clientDisconnected {

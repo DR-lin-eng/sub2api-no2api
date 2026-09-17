@@ -13,10 +13,51 @@ import (
 )
 
 const (
-	codexTurnStateMaxEntries    = 4096
-	codexTurnStateMaxValueBytes = 8 << 10
-	codexTurnStateMaxTotalBytes = 256 << 10
+	codexTurnStateMaxEntries           = 4096
+	codexTurnStateMaxValueBytes        = 8 << 10
+	codexTurnStateMaxTotalBytes        = 256 << 10
+	codexTurnStateWatchModelMaxEntries = 100
+	codexTurnStateWatchModelMaxBytes   = 128
 )
+
+func normalizeCodexTurnStateWatchModels(values []string) ([]string, error) {
+	result := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, raw := range values {
+		model := strings.ToLower(strings.TrimSpace(raw))
+		if model == "" {
+			continue
+		}
+		if len(model) > codexTurnStateWatchModelMaxBytes {
+			return nil, infraerrors.BadRequest("INVALID_CODEX_TURN_STATE_MODEL", fmt.Sprintf("turn state watch model exceeds %d bytes", codexTurnStateWatchModelMaxBytes))
+		}
+		if !httpguts.ValidHeaderFieldValue(model) {
+			return nil, infraerrors.BadRequest("INVALID_CODEX_TURN_STATE_MODEL", "turn state watch model contains invalid bytes")
+		}
+		if _, ok := seen[model]; ok {
+			continue
+		}
+		if len(result) >= codexTurnStateWatchModelMaxEntries {
+			return nil, infraerrors.BadRequest("INVALID_CODEX_TURN_STATE_MODEL", fmt.Sprintf("turn state watch model count exceeds %d", codexTurnStateWatchModelMaxEntries))
+		}
+		seen[model] = struct{}{}
+		result = append(result, model)
+	}
+	return result, nil
+}
+
+func codexTurnStateModelIsWatched(settings CodexSimulationSettings, model string) bool {
+	model = strings.ToLower(strings.TrimSpace(model))
+	if model == "" {
+		return false
+	}
+	for _, watched := range settings.TurnStateWatchModels {
+		if strings.EqualFold(strings.TrimSpace(watched), model) {
+			return true
+		}
+	}
+	return false
+}
 
 func normalizeCodexTurnStates(values []string) ([]string, error) {
 	result := make([]string, 0, len(values))

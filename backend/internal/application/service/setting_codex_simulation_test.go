@@ -335,6 +335,34 @@ func TestCodexSimulationSettingsNormalizeTurnStatePool(t *testing.T) {
 	require.ErrorContains(t, err, "turn_states must not be empty")
 }
 
+func TestCodexSimulationSettingsNormalizeAutomaticTurnStateModels(t *testing.T) {
+	repo := newCodexSimulationSettingRepo()
+	svc := NewSettingService(repo, &config.Config{})
+	settings, err := svc.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{
+		TurnStateAutoReplayEnabled: true,
+		TurnStateWatchModels:       []string{" GPT-5.6-CODEX ", "gpt-5.6-codex", "gpt-5.5-codex"},
+		ContinuationMode:           "off",
+		StateTTLSeconds:            60,
+	})
+	require.NoError(t, err)
+	require.Equal(t, []string{"gpt-5.6-codex", "gpt-5.5-codex"}, settings.TurnStateWatchModels)
+	require.Equal(t, 292, settings.TurnStateTargetLength)
+
+	_, err = svc.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{
+		TurnStateAutoReplayEnabled: true,
+		ContinuationMode:           "off",
+		StateTTLSeconds:            60,
+	})
+	require.ErrorContains(t, err, "turn_state_watch_models must not be empty")
+
+	_, err = svc.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{
+		TurnStateTargetLength: 8193,
+		ContinuationMode:      "off",
+		StateTTLSeconds:       60,
+	})
+	require.ErrorContains(t, err, "turn_state_target_length must be between")
+}
+
 func TestSyncCodexTurnStatesFromAccountQualityPreservesManualAndBindsCapturedStates(t *testing.T) {
 	repo := newCodexSimulationSettingRepo()
 	svc := NewSettingService(repo, &config.Config{})
