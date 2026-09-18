@@ -2386,7 +2386,7 @@ func openAIWSAcquireCompatibility(req openAIWSAcquireRequest) openAIWSHandshakeC
 	// connection without a real handshake. Keep that legacy zero key reusable;
 	// all production WS paths provide the final handshake headers, so routed URL
 	// and auth identity still partition real sockets.
-	if req.Headers != nil {
+	if req.Headers != nil && strings.TrimSpace(req.Headers.Get("Authorization")) != "" {
 		compatibility.targetURL = stringsTrim(req.WSURL)
 		compatibility.authHash = openAIWSAuthorizationCompatibilityHash(req.Headers)
 	}
