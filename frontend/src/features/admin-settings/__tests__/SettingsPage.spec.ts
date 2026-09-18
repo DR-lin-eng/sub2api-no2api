@@ -1064,6 +1064,37 @@ describe("admin SettingsView payment visible method controls", () => {
     );
   });
 
+  it("reloads the persisted relay and retains it when saving other settings", async () => {
+    const relayURL = "https://relay.example/backend-api/codex";
+    getSettings.mockResolvedValue({
+      ...baseSettingsResponse,
+      openai_oauth_force_relay_enabled: true,
+      openai_oauth_force_relay_base_url: relayURL,
+    });
+
+    const firstView = mountView();
+    await flushPromises();
+    firstView.unmount();
+
+    const reloadedView = mountView();
+    await flushPromises();
+    await openGatewayTab(reloadedView);
+
+    const toggle = reloadedView.get('[data-testid="openai-oauth-force-relay-toggle"]');
+    const input = reloadedView.get('[data-testid="openai-oauth-force-relay-url"]');
+    expect((toggle.element as HTMLInputElement).checked).toBe(true);
+    expect((input.element as HTMLInputElement).value).toBe(relayURL);
+
+    await reloadedView.get('[data-testid="openai-visible-output-ttft-toggle"]').setValue(false);
+    await reloadedView.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    const payload = updateSettings.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(payload.openai_oauth_force_relay_enabled).toBe(true);
+    expect(payload.openai_oauth_force_relay_base_url).toBe(relayURL);
+    reloadedView.unmount();
+  });
+
   it("switches OpenAI TTFT to the legacy measurement from gateway settings", async () => {
     const wrapper = mountView();
     await flushPromises();
