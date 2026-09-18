@@ -525,6 +525,9 @@ type OpenAIGatewayService struct {
 	codexAutoProbeOnce            sync.Once
 	codexAutoProbeCancel          context.CancelFunc
 	codexAutoProbeWG              sync.WaitGroup
+	codexAutoProbeWorkers         sync.WaitGroup
+	codexAutoProbeWakeOnce        sync.Once
+	codexAutoProbeWake            chan struct{}
 	codexAutoProbeStopped         atomic.Bool
 	codexAutoProbeProxyCursor     atomic.Uint64
 	codexTurnStateObservabilityMu sync.RWMutex
@@ -764,10 +767,13 @@ func (s *OpenAIGatewayService) CloseOpenAIWSPool() {
 	if s == nil {
 		return
 	}
+	s.codexAutoProbeMu.Lock()
 	s.codexAutoProbeStopped.Store(true)
+	s.codexAutoProbeMu.Unlock()
 	if s.codexAutoProbeCancel != nil {
 		s.codexAutoProbeCancel()
 		s.codexAutoProbeWG.Wait()
+		s.codexAutoProbeWorkers.Wait()
 	}
 	if s.openaiWSPool != nil {
 		s.openaiWSPool.Close()

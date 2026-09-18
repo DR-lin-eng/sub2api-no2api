@@ -187,7 +187,7 @@
                 <td class="px-4 py-3 text-xs text-gray-700 dark:text-gray-200">
                   <template v-if="row.observations.length">
                     <div v-for="item in row.observations" :key="`${row.account.id}:${item.model}:probe`" class="mb-2 last:mb-0">
-                      <p>{{ item.probe.in_flight ? t('admin.stateDiagnostics.probeRunning') : t('admin.stateDiagnostics.probeIdle') }}</p>
+                      <p>{{ probeLabel(item) }}</p>
                       <p class="mt-1 text-gray-500 dark:text-gray-400">{{ formatTimestamp(item.probe.next_probe_at) }}</p>
                       <p v-if="item.proxy_enabled" class="mt-1 text-gray-500 dark:text-gray-400">{{ t('admin.stateDiagnostics.proxyEnabled') }}</p>
                     </div>
@@ -223,7 +223,7 @@ import { extractApiErrorMessage } from '@/core/utils/apiError'
 import type { CodexTurnStateObservation, CodexTurnStateObservability } from '@/features/admin-settings/data/dtos/adminSettingsDtos'
 import type { StateDiagnosticsFilter } from '../../data/dtos/stateDiagnosticsDtos'
 import { getStateDiagnostics, listStatePoolAccounts } from '../../data/datasources/stateDiagnosticsQueries'
-import { buildAccountRows, filterAccountRows, isHealthyObservation } from '../composables/stateDiagnosticsTransforms'
+import { buildAccountRows, filterAccountRows, isHealthyObservation, probePhase } from '../composables/stateDiagnosticsTransforms'
 
 const { t } = useI18n()
 const snapshot = ref<CodexTurnStateObservability | null>(null)
@@ -284,6 +284,15 @@ function healthClass(health: Exclude<StateDiagnosticsFilter, 'all'>): string {
 
 function isHealthy(item: CodexTurnStateObservation): boolean {
   return isHealthyObservation(item)
+}
+
+function probeLabel(item: CodexTurnStateObservation): string {
+  switch (probePhase(item)) {
+    case 'running': return t('admin.stateDiagnostics.probeRunning')
+    case 'queued': return t('admin.stateDiagnostics.probeQueued')
+    case 'scheduled': return t('admin.stateDiagnostics.probeScheduled')
+    case 'unscheduled': return t('admin.stateDiagnostics.probeUnscheduled')
+  }
 }
 
 function observationLabel(item: CodexTurnStateObservation): string {

@@ -26,7 +26,9 @@ export default {
     responseMissingState: 'Latest response missing State',
     rotations: '{count} rotations',
     probeRunning: 'Probe running',
-    probeIdle: 'Probe waiting',
+    probeQueued: 'Probe queued',
+    probeScheduled: 'Waiting for due time',
+    probeUnscheduled: 'Not scheduled',
     proxyEnabled: 'Proxy enabled',
     empty: 'No accounts match the selected filters',
     summary: {

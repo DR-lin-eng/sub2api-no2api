@@ -6,6 +6,16 @@ import type {
   StateDiagnosticsHealth,
 } from '../../data/dtos/stateDiagnosticsDtos'
 
+export type StateDiagnosticsProbePhase = 'running' | 'queued' | 'scheduled' | 'unscheduled'
+
+export function probePhase(item: CodexTurnStateObservation, now = Date.now()): StateDiagnosticsProbePhase {
+  if (item.probe.in_flight) return 'running'
+  if (!item.probe.next_probe_at) return 'unscheduled'
+  const nextProbeAt = Date.parse(item.probe.next_probe_at)
+  if (Number.isNaN(nextProbeAt)) return 'unscheduled'
+  return nextProbeAt <= now ? 'queued' : 'scheduled'
+}
+
 export function isHealthyObservation(item: CodexTurnStateObservation): boolean {
   return (
     item.state.valid &&

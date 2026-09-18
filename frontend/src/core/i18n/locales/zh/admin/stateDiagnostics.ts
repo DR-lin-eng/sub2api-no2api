@@ -26,7 +26,9 @@ export default {
     responseMissingState: '最近响应缺少 State',
     rotations: '轮换 {count} 次',
     probeRunning: '探测中',
-    probeIdle: '等待探测',
+    probeQueued: '排队探测',
+    probeScheduled: '等待到期',
+    probeUnscheduled: '未排程',
     proxyEnabled: '使用代理',
     empty: '没有符合筛选条件的账号',
     summary: {
