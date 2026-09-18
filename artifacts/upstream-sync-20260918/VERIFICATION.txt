@@ -16,6 +16,8 @@ BASELINE_UPSTREAM=881f3202694c6bc932446931a30c27d9675178b9
 FINAL_UPSTREAM=efe9aab1e4ec89a42ba45e8dac20e882c5409a6a
 RANGE_RESULT=52 commits / 26 first-parent PR merges reviewed selectively
 DOWNSTREAM_BASELINE=4d1db9284b2b368db6fd476a45df3f7908774ec9
+FINAL_PUBLISHED_SHA=d54a1347ea754032a13f58e1df59f708680b3bc0
+PR=https://github.com/DR-lin-eng/sub2api-no2api/pull/90
 
 Required artifacts
 ------------------
@@ -171,3 +173,23 @@ Artifact hashes
 MODIFIED_FILE SHA-256: 2e6859b050d46f43347cecd3d7e01e7c5d730688ad58236c036ce97b9f0379da
 BASELINE_FILE SHA-256:  080664c96baa1ab2f8f650cab29edd293ffb7b43fb6b8ef3e469738e6b90f69b
 DIFF_FILE: 128 lines; non-zero diff status is expected because the modified copy differs.
+
+Final CI / publication evidence
+-------------------------------
+The first publication SHA `625a5c0438ee90179a2b7f5edd4fdc2e2a7200bd` exposed
+one deterministic integration-fixture ordering mismatch: the paused OAuth row
+was created after the page-2 fixtures. The fix moved that row before `valid2`
+and was pushed as `d54a1347ea754032a13f58e1df59f708680b3bc0`.
+
+Commands:
+  gh run list --repo DR-lin-eng/sub2api-no2api --branch codex/upstream-sync-20260918 --limit 10 --json databaseId,status,conclusion,headSha,url,workflowName
+  gh pr view 90 --repo DR-lin-eng/sub2api-no2api --json headRefOid,statusCheckRollup
+
+Literal final results for `d54a1347ea754032a13f58e1df59f708680b3bc0`:
+  CI run 35359331995: success
+  Docker Image run 35359332103: success
+  Security Scan run 35359331868: success
+  PR #90 headRefOid: d54a1347ea754032a13f58e1df59f708680b3bc0
+  PR checks: test, frontend, golangci-lint, shell, Build and publish image,
+             backend-security and frontend-security all SUCCESS; CLA checks SKIPPED.
+Exit status: 0 for each completed workflow/check.
