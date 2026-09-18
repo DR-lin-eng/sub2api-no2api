@@ -80,3 +80,10 @@ Publication evidence:
 - Docker tests on publication branch: service + DTO passed (exit 0).
 - Frontend publication-branch typecheck, lint, and 74 focused admin-account tests passed (exit 0).
 - Publication-branch Docker image build passed (exit 0), manifest sha256:683ce5bd71c9fa8fb35085471815c7b84b5296df21d798f8611940b0b3fa39f9.
+
+Bulk adjustment follow-up:
+- Changed branch/field: `custom_base_url_enabled` and `custom_base_url` in the admin Bulk Edit dialog and bulk account-update payload.
+- Backend target guard: bulk custom relay updates accept only OpenAI OAuth accounts and validate absolute HTTP/HTTPS URLs before any write.
+- Bulk backend Docker regression: `go test -tags=unit ./internal/application/service -run 'TestNormalizeBulkOpenAISettings|TestValidateBulkOpenAISettingsTargets' -count=1`; exit 0.
+- Bulk frontend regression: `pnpm exec vue-tsc --noEmit`; exit 0; `pnpm exec vitest run src/features/admin-accounts/__tests__/BulkEditAccountModal.spec.ts`; 38 tests passed; exit 0.
+- Bulk close behavior: enabling the update with the relay toggle off submits `custom_base_url_enabled=false` and `custom_base_url=null`, preserving partial-merge semantics.

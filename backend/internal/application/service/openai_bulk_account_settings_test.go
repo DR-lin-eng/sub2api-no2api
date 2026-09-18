@@ -40,11 +40,44 @@ func TestNormalizeBulkOpenAISettingsRejectsForcedResponsesWithoutChatCapability(
 	require.Equal(t, "OPENAI_RESPONSES_MODE_INVALID", infraerrors.Reason(err))
 }
 
+func TestNormalizeBulkOpenAISettingsAcceptsCustomOAuthRelay(t *testing.T) {
+	input := &BulkUpdateAccountsInput{Extra: map[string]any{
+		"custom_base_url_enabled": true,
+		"custom_base_url":         "https://codex-relay.oaifree.com/backend-api/codex",
+	}}
+
+	settings, err := normalizeBulkOpenAISettings(input)
+	require.NoError(t, err)
+	require.True(t, settings.customRelay)
+}
+
+func TestNormalizeBulkOpenAISettingsRejectsMalformedCustomOAuthRelay(t *testing.T) {
+	input := &BulkUpdateAccountsInput{Extra: map[string]any{
+		"custom_base_url_enabled": true,
+		"custom_base_url":         "relay.example.com",
+	}}
+
+	_, err := normalizeBulkOpenAISettings(input)
+	require.Error(t, err)
+	require.Equal(t, "OPENAI_CUSTOM_RELAY_INVALID", infraerrors.Reason(err))
+}
+
 func TestValidateBulkOpenAISettingsTargetsRejectsNonAPIKeyEndpointUpdates(t *testing.T) {
 	input := &BulkUpdateAccountsInput{AccountIDs: []int64{7}}
 	settings := bulkOpenAISettings{endpointCapabilities: true, capabilitiesIncludeChat: true}
 	_, err := validateBulkOpenAISettingsTargets(input, settings, map[int64]*Account{
 		7: {ID: 7, Platform: PlatformOpenAI, Type: AccountTypeOAuth},
+	})
+	require.Error(t, err)
+	require.Equal(t, "OPENAI_BULK_TARGET_INVALID", infraerrors.Reason(err))
+}
+
+func TestValidateBulkOpenAISettingsTargetsRejectsCustomRelayForNonOAuth(t *testing.T) {
+	input := &BulkUpdateAccountsInput{AccountIDs: []int64{7}}
+	settings := bulkOpenAISettings{customRelay: true}
+
+	_, err := validateBulkOpenAISettingsTargets(input, settings, map[int64]*Account{
+		7: {ID: 7, Platform: PlatformOpenAI, Type: AccountTypeAPIKey},
 	})
 	require.Error(t, err)
 	require.Equal(t, "OPENAI_BULK_TARGET_INVALID", infraerrors.Reason(err))
