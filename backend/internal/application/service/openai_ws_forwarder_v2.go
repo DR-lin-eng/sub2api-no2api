@@ -634,6 +634,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			continue
 		}
 		s.observeCodexEncryptedContentPayload(ctx, c, account, mappedModel, message, "ws")
+		MarkOpenAIVerificationRecommendation(c, message, http.StatusOK)
 		if eventType == "codex.response.metadata" {
 			metadataHeaders := make(http.Header)
 			responseTurnState = captureOpenAICodexTurnStateMetadata(metadataHeaders, message)
