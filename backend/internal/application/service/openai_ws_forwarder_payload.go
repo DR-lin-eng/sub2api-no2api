@@ -29,7 +29,7 @@ func (s *OpenAIGatewayService) buildOpenAIResponsesWSURL(account *Account) (stri
 	return s.buildOpenAIResponsesWSURLWithContext(context.Background(), account)
 }
 
-func (s *OpenAIGatewayService) buildOpenAIResponsesWSURLWithContext(ctx context.Context, account *Account) (string, error) {
+func (s *OpenAIGatewayService) buildOpenAIResponsesWSURLWithContext(ctx context.Context, account *Account, accessTokens ...string) (string, error) {
 	if account == nil {
 		return "", errors.New("account is nil")
 	}
@@ -37,9 +37,24 @@ func (s *OpenAIGatewayService) buildOpenAIResponsesWSURLWithContext(ctx context.
 	switch account.Type {
 	case AccountTypeOAuth:
 		var err error
-		targetURL, _, err = s.openAIOAuthCodexTargetURLWithContext(ctx, account)
+		targetURL, _, err = s.openAIOAuthCodexTargetURLWithContext(ctx, account, accessTokens...)
 		if err != nil {
 			return "", err
+		}
+		accessToken := ""
+		if len(accessTokens) > 0 {
+			accessToken = accessTokens[0]
+		}
+		routing, routingErr := s.resolveOpenAIWorkspaceRouting(ctx, account, accessToken)
+		if routingErr != nil {
+			return "", newOpenAIWorkspaceRoutingFailoverError(routingErr)
+		}
+		if routing != nil {
+			var urlErr error
+			targetURL, urlErr = applyOpenAIWorkspaceRoutingURL(targetURL, routing, true)
+			if urlErr != nil {
+				return "", newOpenAIWorkspaceRoutingFailoverError(urlErr)
+			}
 		}
 	case AccountTypeAPIKey:
 		baseURL := account.GetOpenAIBaseURL()
@@ -107,11 +122,16 @@ func (s *OpenAIGatewayService) buildOpenAIWSHeaders(
 			"x-codex-installation-id",
 			"x-client-request-id",
 			"x-responsesapi-include-timing-metrics",
+			responsesLiteHeaderKey,
 		} {
 			if value := c.Request.Header.Get(name); strings.TrimSpace(value) != "" {
 				headers.Set(name, value)
 			}
 		}
+	}
+	workspaceRouting, routingErr := s.resolveOpenAIWorkspaceRouting(ctx, account, token)
+	if routingErr != nil {
+		return nil, sessionResolution, newOpenAIWorkspaceRoutingFailoverError(routingErr)
 	}
 	// OAuth 账号：将 apiKeyID 混入 session 标识符，防止跨用户会话碰撞。
 	if account != nil && account.Type == AccountTypeOAuth {
@@ -201,6 +221,9 @@ func (s *OpenAIGatewayService) buildOpenAIWSHeaders(
 	// while native compaction requests still force the v2 feature.
 	applyOpenAICodexBetaFeatures(c, account, headers)
 	setOpenAICodexRoutingHint(headers, account, routingModel, routingServiceTier)
+	applyOpenAIResponsesLiteWebSocketHeader(headers, stagedCodexOutboundSessionBody(c))
+	applyOpenAICodexSemanticRequestHeaders(headers, c, account, stagedCodexOutboundSessionBody(c))
+	applyOpenAIWorkspaceRoutingHeader(headers, workspaceRouting)
 	logOpenAIRoutingDiagnostics(
 		ctx,
 		account,

@@ -1,0 +1,14 @@
+--- BASELINE_FILE.json
++++ MODIFIED_FILE.json
+@@
+-  "target": "https://chatgpt.com/backend-api/codex/responses",
++  "target": "https://workspace.example.com/backend-api/codex/responses",
+@@
++    "x-codex-parent-thread-id": "isolated-parent-fixture",
++    "x-codex-guardian": "reviewer",
++    "x-openai-account-routing-override": "us",
++    "x-openai-subagent": "guardian",
++    "x-responsesapi-include-timing-metrics": "true",
+@@
+-  "redirects_disabled": false
++  "redirects_disabled": true

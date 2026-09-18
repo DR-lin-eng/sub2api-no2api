@@ -82,12 +82,15 @@ func TestGetHeaderOverrides(t *testing.T) {
 	acc := headerOverrideTestAccount(PlatformOpenAI, AccountTypeAPIKey, map[string]any{
 		credKeyHeaderOverrideEnabled: true,
 		credKeyHeaderOverrides: map[string]any{
-			"User-Agent":    "my-agent/1.0",  // 大写 key 归一化为小写
-			" X-App ":       "cli",           // 名称去空白
-			"x-empty":       "",              // 空 value（模板占位）跳过
-			"authorization": "Bearer leaked", // 禁止覆写的头跳过
-			"bad name":      "value",         // 非法 header 名跳过
-			"x-padded":      "  padded  ",    // value 去空白
+			"User-Agent":                        "my-agent/1.0",  // 大写 key 归一化为小写
+			" X-App ":                           "cli",           // 名称去空白
+			"x-empty":                           "",              // 空 value（模板占位）跳过
+			"authorization":                     "Bearer leaked", // 禁止覆写的头跳过
+			"x-codex-guardian":                  "reviewer",      // Codex risk mode is gateway-owned
+			"x-openai-memgen-request":           "true",          // memory mode is gateway-owned
+			"x-openai-account-routing-override": "us",            // workspace routing is discovery-owned
+			"bad name":                          "value",         // 非法 header 名跳过
+			"x-padded":                          "  padded  ",    // value 去空白
 		},
 	})
 	overrides := acc.GetHeaderOverrides()

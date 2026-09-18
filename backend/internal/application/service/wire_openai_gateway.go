@@ -62,6 +62,7 @@ func ProvideOpenAIGatewayService(
 	svc.customModelCapabilities = customModelCapabilities
 	svc.proxyRepo = proxyRepo
 	svc.codexAutoProbeLock = lockCache
+	svc.enableOpenAIWorkspaceRouting()
 	svc.SetTLSFingerprintProfileService(tlsFPProfileService)
 	if tlsFPProfileService != nil {
 		tlsFPProfileService.SetCodexSimulationSettingService(settingService)

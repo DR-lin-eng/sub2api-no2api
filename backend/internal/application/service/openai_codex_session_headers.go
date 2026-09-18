@@ -22,6 +22,8 @@ type codexOutboundSessionIDs struct {
 	sessionID       string
 	threadID        string
 	clientRequestID string
+	parentThreadID  string
+	subagent        string
 }
 
 // resolveCodexOutboundSessionIDs follows the same precedence as the Codex
@@ -42,6 +44,7 @@ func resolveCodexOutboundSessionIDs(
 	sessionRaw := codexInboundHeaderValue(c, "session-id", "session_id", claudeCodeSessionHeader, "x-session-id", "conversation_id")
 	threadRaw := codexInboundHeaderValue(c, "thread-id", "thread_id")
 	clientRequestRaw := codexInboundHeaderValue(c, "x-client-request-id")
+	parentThreadRaw := codexBodyMetadataValue(body, "x-codex-parent-thread-id")
 
 	if sessionRaw == "" {
 		sessionRaw = codexBodyMetadataValue(body, "session_id", "session-id")
@@ -51,6 +54,20 @@ func resolveCodexOutboundSessionIDs(
 	}
 	if clientRequestRaw == "" {
 		clientRequestRaw = codexBodyMetadataValue(body, "turn_id", "x-client-request-id")
+	}
+	turnMetadata := codexBodyMetadataValue(body, "x-codex-turn-metadata")
+	if parentThreadRaw == "" && gjson.Valid(turnMetadata) {
+		parentThreadRaw = strings.TrimSpace(gjson.Get(turnMetadata, "parent_thread_id").String())
+	}
+	if parentThreadRaw == "" {
+		parentThreadRaw = codexInboundHeaderValue(c, "x-codex-parent-thread-id")
+	}
+	subagent := strings.TrimSpace(gjson.GetBytes(body, "client_metadata.x-openai-subagent").String())
+	if subagent == "" && gjson.Valid(turnMetadata) {
+		subagent = strings.TrimSpace(gjson.Get(turnMetadata, "subagent_kind").String())
+	}
+	if !validCodexSubagentValue(subagent) {
+		subagent = ""
 	}
 
 	cacheRaw := strings.TrimSpace(promptCacheKey)
@@ -81,11 +98,16 @@ func resolveCodexOutboundSessionIDs(
 	namespace := codexOutboundSessionNamespace(c, account)
 	threadID := deriveCodexOutboundSessionUUID("thread", namespace, threadRaw)
 	sessionID := deriveCodexOutboundSessionUUID("session", namespace, sessionRaw)
-	return &codexOutboundSessionIDs{
+	ids := &codexOutboundSessionIDs{
 		sessionID:       sessionID,
 		threadID:        threadID,
 		clientRequestID: threadID,
+		subagent:        subagent,
 	}
+	if parentThreadRaw != "" {
+		ids.parentThreadID = deriveCodexOutboundSessionUUID("thread", namespace, parentThreadRaw)
+	}
+	return ids
 }
 
 func codexInboundHeaderValue(c *gin.Context, names ...string) string {
@@ -216,6 +238,8 @@ func applyResolvedCodexOutboundSessionHeaders(
 		"thread-id",
 		"thread_id",
 		"x-client-request-id",
+		"x-codex-parent-thread-id",
+		"x-openai-subagent",
 	} {
 		headers.Del(name)
 	}
@@ -228,6 +252,12 @@ func applyResolvedCodexOutboundSessionHeaders(
 	headers.Set("session-id", ids.sessionID)
 	headers.Set("thread-id", ids.threadID)
 	headers.Set("x-client-request-id", ids.clientRequestID)
+	if ids.parentThreadID != "" {
+		headers.Set("x-codex-parent-thread-id", ids.parentThreadID)
+	}
+	if ids.subagent != "" {
+		headers.Set("x-openai-subagent", ids.subagent)
+	}
 	if legacySessionID != "" {
 		headers.Set("session_id", legacySessionID)
 	} else {
@@ -257,8 +287,24 @@ func rewriteCodexOutboundSessionMetadata(body []byte, ids *codexOutboundSessionI
 	if err != nil {
 		return body, fmt.Errorf("rewrite Codex client_metadata thread_id: %w", err)
 	}
+	if ids.parentThreadID != "" {
+		rewritten, err = sjson.SetBytes(rewritten, "client_metadata.x-codex-parent-thread-id", ids.parentThreadID)
+		if err != nil {
+			return body, fmt.Errorf("rewrite Codex client_metadata parent thread id: %w", err)
+		}
+	}
+	if ids.subagent != "" {
+		rewritten, err = sjson.SetBytes(rewritten, "client_metadata.x-openai-subagent", ids.subagent)
+		if err != nil {
+			return body, fmt.Errorf("rewrite Codex client_metadata subagent: %w", err)
+		}
+	}
 	if turnMetadata := gjson.GetBytes(rewritten, "client_metadata.x-codex-turn-metadata"); turnMetadata.Type == gjson.String {
-		sanitized := sanitizeCodexTurnMetadataValue(turnMetadata.String())
+		metadataValue := turnMetadata.String()
+		if ids.parentThreadID != "" {
+			metadataValue = rewriteCodexTurnMetadataStringField(metadataValue, "parent_thread_id", ids.parentThreadID)
+		}
+		sanitized := sanitizeCodexTurnMetadataValue(metadataValue)
 		if sanitized != turnMetadata.String() {
 			rewritten, err = sjson.SetBytes(rewritten, "client_metadata.x-codex-turn-metadata", sanitized)
 			if err != nil {

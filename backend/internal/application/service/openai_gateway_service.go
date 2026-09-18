@@ -25,6 +25,7 @@ import (
 	"github.com/cespare/xxhash/v2"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+	"golang.org/x/sync/singleflight"
 )
 
 const (
@@ -65,43 +66,45 @@ const (
 
 // OpenAI allowed headers whitelist (for non-passthrough).
 var openaiAllowedHeaders = map[string]bool{
-	"accept-language":         true,
-	"content-type":            true,
-	"conversation_id":         true,
-	"session-id":              true,
-	"user-agent":              true,
-	"originator":              true,
-	"session_id":              true,
-	"thread-id":               true,
-	"x-client-request-id":     true,
-	"x-codex-beta-features":   true,
-	"x-codex-installation-id": true,
-	"x-codex-turn-state":      true,
-	"x-codex-turn-metadata":   true,
-	"x-codex-window-id":       true,
-	responsesLiteHeaderKey:    true,
+	"accept-language":                       true,
+	"content-type":                          true,
+	"conversation_id":                       true,
+	"session-id":                            true,
+	"user-agent":                            true,
+	"originator":                            true,
+	"session_id":                            true,
+	"thread-id":                             true,
+	"x-client-request-id":                   true,
+	"x-codex-beta-features":                 true,
+	"x-codex-installation-id":               true,
+	"x-codex-turn-state":                    true,
+	"x-codex-turn-metadata":                 true,
+	"x-codex-window-id":                     true,
+	"x-responsesapi-include-timing-metrics": true,
+	responsesLiteHeaderKey:                  true,
 }
 
 // OpenAI passthrough allowed headers whitelist.
 // 透传模式下仅放行这些低风险请求头，避免将非标准/环境噪声头传给上游触发风控。
 var openaiPassthroughAllowedHeaders = map[string]bool{
-	"accept":                  true,
-	"accept-language":         true,
-	"content-type":            true,
-	"conversation_id":         true,
-	"session-id":              true,
-	"openai-beta":             true,
-	"user-agent":              true,
-	"originator":              true,
-	"session_id":              true,
-	"thread-id":               true,
-	"x-client-request-id":     true,
-	"x-codex-beta-features":   true,
-	"x-codex-installation-id": true,
-	"x-codex-turn-state":      true,
-	"x-codex-turn-metadata":   true,
-	"x-codex-window-id":       true,
-	responsesLiteHeaderKey:    true,
+	"accept":                                true,
+	"accept-language":                       true,
+	"content-type":                          true,
+	"conversation_id":                       true,
+	"session-id":                            true,
+	"openai-beta":                           true,
+	"user-agent":                            true,
+	"originator":                            true,
+	"session_id":                            true,
+	"thread-id":                             true,
+	"x-client-request-id":                   true,
+	"x-codex-beta-features":                 true,
+	"x-codex-installation-id":               true,
+	"x-codex-turn-state":                    true,
+	"x-codex-turn-metadata":                 true,
+	"x-codex-window-id":                     true,
+	"x-responsesapi-include-timing-metrics": true,
+	responsesLiteHeaderKey:                  true,
 }
 
 // codex_cli_only 拒绝时记录的请求头白名单（仅用于诊断日志，不参与上游透传）
@@ -492,6 +495,9 @@ type OpenAIGatewayService struct {
 	openaiProxyStreamCircuit       *openAIProxyStreamCircuit
 	openaiProxyStreamFailOpenLogAt atomic.Int64
 	openaiContentSessions          *openAIContentSessionTracker
+	openAIWorkspaceRoutingEnabled  bool
+	openAIWorkspaceRoutingCache    sync.Map
+	openAIWorkspaceRoutingSF       singleflight.Group
 	sessionIDAdmissionCache        OpenAISessionIDAdmissionCache
 	oauthGatewayRateLimitCache     OpenAIOAuthGatewayRateLimitCache
 	sessionIDRateMetrics           *OpenAISessionIDRateMetrics
