@@ -257,5 +257,14 @@ func rewriteCodexOutboundSessionMetadata(body []byte, ids *codexOutboundSessionI
 	if err != nil {
 		return body, fmt.Errorf("rewrite Codex client_metadata thread_id: %w", err)
 	}
+	if turnMetadata := gjson.GetBytes(rewritten, "client_metadata.x-codex-turn-metadata"); turnMetadata.Type == gjson.String {
+		sanitized := sanitizeCodexTurnMetadataValue(turnMetadata.String())
+		if sanitized != turnMetadata.String() {
+			rewritten, err = sjson.SetBytes(rewritten, "client_metadata.x-codex-turn-metadata", sanitized)
+			if err != nil {
+				return body, fmt.Errorf("sanitize Codex turn metadata: %w", err)
+			}
+		}
+	}
 	return rewritten, nil
 }

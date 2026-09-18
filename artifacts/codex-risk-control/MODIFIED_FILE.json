@@ -1,0 +1,16 @@
+{
+  "risk_signal": {
+    "recommendation": "trusted_access_for_cyber",
+    "retryable": true
+  },
+  "codex_turn_metadata": {
+    "workspaces": [
+      {
+        "path": "workspace:redacted",
+        "associated_remote_urls": [
+          "https://example.com/org/repo.git"
+        ]
+      }
+    ]
+  }
+}

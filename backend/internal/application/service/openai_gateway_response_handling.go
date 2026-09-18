@@ -492,6 +492,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			seenUpstreamDataEvent = true
 			dataBytes := []byte(data)
 			trimmedData := strings.TrimSpace(data)
+			MarkOpenAIVerificationRecommendation(c, dataBytes, http.StatusOK)
 			eventTypeRaw := gjson.GetBytes(dataBytes, "type").String()
 			eventType := strings.TrimSpace(eventTypeRaw)
 			captureOpenAICodexTurnStateMetadata(resp.Header, dataBytes)
@@ -1361,6 +1362,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
 	if err != nil {
 		return nil, err
 	}
+	markOpenAIVerificationRecommendationFromBody(c, body, resp.StatusCode)
 	observer := upstreamResponseModelObserverFromContext(c)
 	if observer == nil {
 		observer = beginUpstreamResponseModelObservation(c)
@@ -1486,6 +1488,7 @@ func (s *OpenAIGatewayService) handleSSEToJSONWithAccount(
 	passthrough bool,
 ) (*openaiNonStreamingResult, error) {
 	bodyText := string(body)
+	markOpenAIVerificationRecommendationFromBody(c, body, resp.StatusCode)
 	captureOpenAICodexTurnStateFromSSE(resp.Header, bodyText)
 	if failurePayload, failure := extractOpenAISSEFailureEvent(bodyText); failure {
 		failedMessage := extractOpenAISSEErrorMessage(failurePayload)

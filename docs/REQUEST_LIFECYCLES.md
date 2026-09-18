@@ -135,6 +135,9 @@ OpenAI Responses 请求在首个语义事件前使用
 单独设置，默认 180 秒）。`response.created`、`response.in_progress`、
 `codex.rate_limits`、`codex.response.metadata` 和 SSE 注释心跳不计作语义输出，
 也不因配额或元数据帧而禁用首输出保护；超时会关闭当前上游连接。OpenAI LLM 的
+`response.metadata` 中的 `metadata.openai_verification_recommendation` 只识别新版 Codex
+定义的已知数组枚举并保留原事件，不改变重试或账号切换；workspace 元数据在 OAuth
+principal 隔离前会移除本地路径和 remote 凭据。
 HTTP Responses 请求在尚未提交语义字节、且错误允许重试时继续排除失败账号，直到成功或
 可调度号池耗尽，不再受首输出一次切号和普通最大切号数的提前截断；透传路径每个已选择
 账号最多四次 transport attempt，重选同账号不补充预算。非流式、图片及其他入口保持原预算。

@@ -369,6 +369,7 @@ func clearCyberPolicyAttemptState(c *gin.Context, resetRecorded bool) {
 		return
 	}
 	service.ClearOpsCyberPolicy(c)
+	service.ClearOpenAIVerificationRecommendation(c)
 	if resetRecorded {
 		c.Set(cyberPolicyRecordedKey, false)
 	}

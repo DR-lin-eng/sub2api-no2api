@@ -160,6 +160,16 @@ Remote Control 的 URL、enroll/refresh/pair 请求、protocol-v3 WebSocket head
 full simulation 会清理下游直接注入的 `x-oai-attestation`、residency 和 host-device-kind 头，避免把调用方
 的运行时证明带到另一个 OAuth principal；真实平台证明仍只由现有 Live/Agent Identity 专用路径提供。
 
+新版 Codex 的 `response.metadata` 事件可能携带
+`metadata.openai_verification_recommendation: ["trusted_access_for_cyber"]`。网关只识别这个已知数组枚举，
+在请求上下文中保留去重后的观测值，并原样转发事件；它不会把验证建议误判为 `cyber_policy`，也不会因此
+触发账号切换、重试或模型改写。客户端可据此显示自己的结构化 `model/verification` 通知。HTTP header 中
+同名字段、标量值和未知枚举会被忽略，遵循新版 Codex 的解析边界。
+
+Codex turn metadata 中的 workspace 投影不再把本地绝对路径、remote URL 的 userinfo/query/fragment 或
+workspace 内的 token/secret/password 字段带到另一个 OAuth principal。路径替换为固定的
+`workspace:redacted`，remote 仅保留协议、主机和仓库路径；无效 JSON 仍交给原有协议校验处理。
+
 - A/B 本身不改写 TLS ClientHello、HTTP/2 SETTINGS、Header 顺序和连接层时序；
 - Codex Rust 网络栈的字节级传输特征；
 - attestation、residency 或本项目无法真实证明的客户端能力。

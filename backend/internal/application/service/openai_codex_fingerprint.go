@@ -458,7 +458,17 @@ func rewriteCodexTurnMetadataValue(raw string, ids *codexFingerprintIDs) string 
 		}
 	}
 	if ids.fullSimulation {
+		sanitizeCodexTurnMetadataMapInPlace(metadata)
 		projectCodexFullSimulationTurnMetadata(metadata)
+	}
+	// Workspace metadata is an upstream risk signal, but raw local paths and
+	// remote credentials are not portable across virtual OAuth principals.
+	// Apply the same redaction in device/session and full simulation modes.
+	if sanitized := sanitizeCodexTurnMetadataValue(mustMarshalCodexMetadata(metadata, raw)); sanitized != "" {
+		raw = sanitized
+		if err := json.Unmarshal([]byte(raw), &metadata); err != nil {
+			return raw
+		}
 	}
 	applyCodexTurnMetadataFields(metadata, ids)
 	rebuilt, err := json.Marshal(metadata)
@@ -466,6 +476,14 @@ func rewriteCodexTurnMetadataValue(raw string, ids *codexFingerprintIDs) string 
 		return raw
 	}
 	return string(rebuilt)
+}
+
+func mustMarshalCodexMetadata(metadata map[string]any, fallback string) string {
+	encoded, err := json.Marshal(metadata)
+	if err != nil {
+		return fallback
+	}
+	return string(encoded)
 }
 
 func applyCodexTurnMetadataFields(metadata map[string]any, ids *codexFingerprintIDs) {
@@ -547,6 +565,7 @@ func applyCodexFingerprintClientMetadataMap(metadata map[string]any, ids *codexF
 		return false
 	}
 	if ids.fullSimulation {
+		sanitizeCodexTurnMetadataMapInPlace(metadata)
 		projectCodexFullSimulationMetadata(metadata)
 	}
 	metadata["x-codex-installation-id"] = ids.installationID
@@ -774,6 +793,7 @@ func rewriteEmbeddedCodexTurnMetadata(clientMetadata map[string]any, ids *codexF
 			return
 		}
 	}
+	sanitizeCodexTurnMetadataMapInPlace(metadata)
 	if ids.fullSimulation {
 		projectCodexFullSimulationTurnMetadata(metadata)
 	}

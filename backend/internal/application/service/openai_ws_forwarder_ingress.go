@@ -1224,6 +1224,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 
 			eventType, eventResponseID, _ := parseOpenAIWSEventEnvelope(upstreamMessage)
 			s.observeCodexEncryptedContentPayload(ctx, c, account, mappedModel, upstreamMessage, "ws_ingress")
+			MarkOpenAIVerificationRecommendation(c, upstreamMessage, http.StatusOK)
 			if eventType == "codex.response.metadata" {
 				metadataHeaders := make(http.Header)
 				responseTurnState = captureOpenAICodexTurnStateMetadata(metadataHeaders, upstreamMessage)

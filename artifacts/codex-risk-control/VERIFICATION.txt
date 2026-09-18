@@ -1,0 +1,62 @@
+Changed branch/field: `risk_signal.recommendation` from `null` to `trusted_access_for_cyber`; `codex_turn_metadata.workspaces[0].path` from an absolute local path to `workspace:redacted`; `associated_remote_urls[0]` from a URL with tracking suffix to a canonical URL.
+
+Artifacts:
+- MODIFIED_FILE: `/Users/lin/.codex/worktrees/a7ed/sub2api-no2api/artifacts/codex-risk-control/MODIFIED_FILE.json`
+- DIFF_FILE: `/Users/lin/.codex/worktrees/a7ed/sub2api-no2api/artifacts/codex-risk-control/DIFF_FILE.patch`
+- VERIFICATION_FILE: `/Users/lin/.codex/worktrees/a7ed/sub2api-no2api/artifacts/codex-risk-control/VERIFICATION.txt`
+- ROLLBACK: `/Users/lin/.codex/worktrees/a7ed/sub2api-no2api/artifacts/codex-risk-control/ROLLBACK.sh`
+
+Original/baseline SHA-256:
+`60bbfcec4e29b4233ffa523db49ac37ace90068cda2a9e9e9d17aba5181ea1e4  BASELINE_FILE.json`
+
+Modified SHA-256:
+`4ff475293e2fc0a79c6598a802302c664b7665d531f1ac56e22cbc0e65ce9f51  MODIFIED_FILE.json`
+
+BASELINE command:
+`jq -e 'select(.risk_signal.recommendation == null and .codex_turn_metadata.workspaces[0].path == "/workspace/private/repo" and .codex_turn_metadata.workspaces[0].associated_remote_urls[0] == "https://example.com/org/repo.git?tracking=fixture#fragment")' BASELINE_FILE.json >/dev/null`
+Literal result: `result=baseline_raw_metadata exit=0`
+Status: passed; baseline retained the raw local path and URL tracking suffix.
+
+MODIFIED command:
+`jq -e 'select(.risk_signal.recommendation == "trusted_access_for_cyber" and .codex_turn_metadata.workspaces[0].path == "workspace:redacted" and .codex_turn_metadata.workspaces[0].associated_remote_urls[0] == "https://example.com/org/repo.git")' MODIFIED_FILE.json >/dev/null`
+Literal result: `result=modified_redacted_metadata exit=0`
+Status: passed; modified metadata carries the known verification recommendation and canonicalizes local/remote metadata.
+
+ROLLBACK command:
+`cd artifacts/codex-risk-control && tmp=$(mktemp /private/tmp/codex-risk-rollback.XXXXXX.json) && cp MODIFIED_FILE.json "$tmp" && ./ROLLBACK.sh "$tmp" >/tmp/codex-risk-rollback.out && cmp -s "$tmp" BASELINE_FILE.json; rc=$?; printf 'result=restored_baseline exit=%s\\n' "$rc"; cat /tmp/codex-risk-rollback.out; rm -f "$tmp" /tmp/codex-risk-rollback.out`
+Literal result:
+`result=restored_baseline exit=0`
+`restored /private/tmp/codex-risk-rollback.XXXXXX.json from /Users/lin/.codex/worktrees/a7ed/sub2api-no2api/artifacts/codex-risk-control/BASELINE_FILE.json`
+Status: passed on a temporary copy; the working-tree MODIFIED_FILE remains changed.
+
+Rollback script syntax command:
+`cd artifacts/codex-risk-control && sh -n ROLLBACK.sh`
+Literal result: `rollback syntax=ok`
+Exit status: `0`
+
+Docker focused command:
+`docker run --rm --network=none -v /Users/lin/.codex/worktrees/a7ed/sub2api-no2api:/src -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v /Users/lin/Library/Caches/go-build:/go-cache -w /src/backend golang:1.26.6-alpine sh -c 'GOCACHE=/go-cache GOPATH=/go GOPROXY=off GOSUMDB=off go test ./internal/application/service ./internal/transport/http/handler/... -count=1'`
+Literal result: `application/service and all transport/http/handler packages passed`
+Exit status: `0`
+
+Docker full regression command (latest `origin/main` base `e7aa857b3`):
+`docker run --rm --network=none -v /Users/lin/.codex/worktrees/a7ed/sub2api-no2api:/src -v /Users/lin/go/pkg/mod:/go/pkg/mod:ro -v /Users/lin/Library/Caches/go-build:/go-cache -w /src/backend golang:1.26.6-alpine sh -c 'GOCACHE=/go-cache GOPATH=/go GOPROXY=off GOSUMDB=off GOMAXPROCS=2 GOMEMLIMIT=1200MiB go test ./... -count=1'`
+Literal result: `all backend packages passed, including application/service, transport/http/handler, internal/shared, repository, routes, and migrations`
+Exit status: `0`
+
+Documentation command:
+`./tools/check-docs.sh`
+Literal result: `Documentation checks passed.`
+Exit status: `0`
+
+Docker production builder command (latest `origin/main` base):
+`docker build --target backend-builder --build-arg GOPROXY=https://goproxy.cn,direct --build-arg GOSUMDB=sum.golang.google.cn -t sub2api-codex-risk-control:test -f deploy/Dockerfile .`
+Literal result: `#22 naming to docker.io/library/sub2api-codex-risk-control-publish:test done; #22 DONE`
+Exit status: `0`
+
+Docker image binary command:
+`docker run --rm --entrypoint /app/sub2api sub2api-codex-risk-control-publish:test -version`
+Literal result: `Sub2API 0.1.208 (commit: docker, built: 2026-09-18T05:25:22Z)`
+Exit status: `0`
+
+Restored behavior/status: rollback restores the exact baseline SHA and raw metadata; the live MODIFIED_FILE remains on the changed branch. Implementation behavior recognizes only the official array-form verification recommendation, forwards it unchanged, and redacts workspace path/remote credentials before OAuth principal projection.

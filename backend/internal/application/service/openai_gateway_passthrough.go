@@ -910,6 +910,7 @@ func (s *OpenAIGatewayService) handleFailoverErrorResponsePassthrough(
 	responseBody []byte,
 ) error {
 	body := s.redactAgentIdentitySensitiveBody(ctx, account, responseBody)
+	MarkOpenAIVerificationRecommendation(c, body, resp.StatusCode)
 	genericUpstreamFailure := IsOpenAIGenericUpstreamFailureBody(body)
 	cyberHit, cyberCode, cyberMsg := detectOpenAICyberPolicy(body)
 	if cyberHit {
@@ -984,6 +985,7 @@ func (s *OpenAIGatewayService) handleErrorResponsePassthrough(
 	s.observeCodexEncryptedContentPayload(ctx, c, account, model, responseBody, "http_failure")
 	MarkResponseCommitted(c)
 	body := s.redactAgentIdentitySensitiveBody(ctx, account, responseBody)
+	MarkOpenAIVerificationRecommendation(c, body, resp.StatusCode)
 
 	// cyber_policy 仍按原始 body 打内部标记，供 handler 事后写风控/邮件；面向客户端的
 	// 错误体在下方统一重建。cyber 是上游网络安全策略拦截，不冷却账号，
@@ -2286,6 +2288,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 			seenUpstreamDataEvent = true
 			dataBytes := []byte(data)
 			trimmedData := strings.TrimSpace(data)
+			MarkOpenAIVerificationRecommendation(c, dataBytes, http.StatusOK)
 			rawEventType := strings.TrimSpace(gjson.GetBytes(dataBytes, "type").String())
 			observer.ObserveOpenAI(dataBytes, rawEventType)
 			observeOpenAITiming(c, dataBytes, rawEventType)
