@@ -226,6 +226,9 @@ func ProvideAdminSettingHandler(settingService *service.SettingService, emailSer
 	h.SetStepUpDeps(totpService, userService)
 	repoCleaner, _ := accountRepo.(service.TempUnschedulableBulkCleaner)
 	h.SetGlobalTempUnschedulableCleaner(service.NewGlobalTempUnschedulableCleaner(repoCleaner, tempUnschedCache, runtimeBlocker))
+	if gateway, ok := runtimeBlocker.(*service.OpenAIGatewayService); ok {
+		h.SetOpenAIGatewayService(gateway)
+	}
 	return h
 }
 

@@ -20,6 +20,7 @@ import {
   getAdminApiKey,
   getBetaPolicySettings,
   getCodexSimulationSettings,
+  getCodexTurnStateObservability,
   getEmailTemplate,
   getEmailTemplates,
   getGlobalTempUnschedulableSettings,
@@ -379,6 +380,21 @@ describe("admin settings query and action owners", () => {
     expect(post).toHaveBeenCalledWith(
       "/admin/settings/codex-simulation/restore-original",
     );
+  });
+
+  it("uses the read-only Codex observability endpoint", async () => {
+    const response = {
+      generated_at: "2026-09-18T01:00:00Z",
+      scope: "current_node" as const,
+      enabled: true,
+      target_length: 292,
+      token_ttl_seconds: 3600,
+      items: [],
+    };
+    get.mockResolvedValueOnce({ data: response });
+
+    await expect(getCodexTurnStateObservability()).resolves.toEqual(response);
+    expect(get).toHaveBeenCalledWith("/admin/settings/codex-simulation/observability");
   });
 
   it("preserves admin API key payloads and identifier encoding", async () => {

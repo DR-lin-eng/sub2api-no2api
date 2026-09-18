@@ -610,6 +610,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 			return nil, rewriteErr
 		}
 	}
+	s.observeCodexEncryptedContentPayload(ctx, c, account, gjson.GetBytes(outboundBody, "model").String(), outboundBody, "http_passthrough_request")
 
 	req, err := newOpenAIHTTPUpstreamRequest(ctx, http.MethodPost, targetURL, account, outboundBody)
 	if err != nil {
@@ -979,6 +980,8 @@ func (s *OpenAIGatewayService) handleErrorResponsePassthrough(
 	requestBody []byte,
 	responseBody []byte,
 ) error {
+	model, _, _ := extractOpenAIRequestMetaFromBody(requestBody)
+	s.observeCodexEncryptedContentPayload(ctx, c, account, model, responseBody, "http_failure")
 	MarkResponseCommitted(c)
 	body := s.redactAgentIdentitySensitiveBody(ctx, account, responseBody)
 
@@ -1800,6 +1803,13 @@ func (s *OpenAIGatewayService) recordOpenAIStreamUpstreamError(
 	payload []byte,
 	message string,
 ) string {
+	if account != nil {
+		observeCtx := context.Background()
+		if c != nil && c.Request != nil {
+			observeCtx = c.Request.Context()
+		}
+		s.observeCodexEncryptedContentPayload(observeCtx, c, account, openAICodexTurnStateModel(c), payload, "upstream_error")
+	}
 	message = sanitizeUpstreamErrorMessage(strings.TrimSpace(message))
 	if message == "" {
 		message = "OpenAI upstream response failed"
@@ -2309,6 +2319,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 			}
 			eventType := strings.TrimSpace(gjson.Get(trimmedData, "type").String())
 			captureOpenAICodexTurnStateMetadata(resp.Header, dataBytes)
+			s.observeCodexEncryptedContentPayload(ctx, c, account, openAICodexTurnStateModel(c), dataBytes, "http_passthrough_sse")
 			if openAIStreamDataSignalsOutputProgressTrimmed(trimmedData, eventType) {
 				sawOutputProgressEvent = true
 			}

@@ -495,6 +495,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			eventTypeRaw := gjson.GetBytes(dataBytes, "type").String()
 			eventType := strings.TrimSpace(eventTypeRaw)
 			captureOpenAICodexTurnStateMetadata(resp.Header, dataBytes)
+			s.observeCodexEncryptedContentPayload(ctx, c, account, openAICodexTurnStateModel(c), dataBytes, "http_sse")
 			observer.ObserveOpenAI(dataBytes, eventTypeRaw)
 			observeOpenAITiming(c, dataBytes, eventTypeRaw)
 			if openAIStreamDataSignalsOutputProgressTrimmed(trimmedData, eventType) {
@@ -1736,6 +1737,9 @@ func (s *OpenAIGatewayService) handleOpenAINonStreamingFailureEnvelope(
 	body []byte,
 	passthrough bool,
 ) error {
+	if c != nil && c.Request != nil {
+		s.observeCodexEncryptedContentPayload(c.Request.Context(), c, account, openAICodexTurnStateModel(c), failurePayload, "http_failure")
+	}
 	message := extractOpenAISSEErrorMessage(failurePayload)
 	if message == "" {
 		message = "Upstream response failed"

@@ -1,7 +1,9 @@
 package admin
 
 import (
+	"context"
 	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	"github.com/Wei-Shaw/sub2api/internal/shared/response"
@@ -263,7 +265,18 @@ func (h *SettingHandler) GetCodexSimulationSettings(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, codexSimulationSettingsDTO(settings))
+	response.Success(c, h.codexSimulationSettingsDTO(c, settings))
+}
+
+// GetCodexTurnStateObservability returns redacted runtime state diagnostics.
+// It never returns Turn State or encrypted_content values.
+// GET /api/v1/admin/settings/codex-simulation/observability
+func (h *SettingHandler) GetCodexTurnStateObservability(c *gin.Context) {
+	if h.openAIGatewayService == nil {
+		response.Success(c, dto.CodexTurnStateObservability{GeneratedAt: time.Now().UTC(), Scope: "current_node", Items: []dto.CodexTurnStateObservation{}})
+		return
+	}
+	response.Success(c, codexTurnStateObservabilityDTO(h.openAIGatewayService.CodexTurnStateObservability(c.Request.Context())))
 }
 
 // UpdateCodexSimulationSettings persists an explicit DB override. The service
@@ -351,7 +364,7 @@ func (h *SettingHandler) UpdateCodexSimulationSettings(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, codexSimulationSettingsDTO(settings))
+	response.Success(c, h.codexSimulationSettingsDTO(c, settings))
 }
 
 // SyncCodexTurnStates copies states captured by healthy account-quality probes
@@ -363,7 +376,7 @@ func (h *SettingHandler) SyncCodexTurnStates(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, codexSimulationSettingsDTO(settings))
+	response.Success(c, h.codexSimulationSettingsDTO(c, settings))
 }
 
 // RestoreOriginalCodexBehavior is the fail-safe control-plane action. It does
@@ -375,12 +388,21 @@ func (h *SettingHandler) RestoreOriginalCodexBehavior(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, codexSimulationSettingsDTO(settings))
+	response.Success(c, h.codexSimulationSettingsDTO(c, settings))
 }
 
-func codexSimulationSettingsDTO(settings *service.CodexSimulationSettings) dto.CodexSimulationSettings {
+func (h *SettingHandler) codexSimulationSettingsDTO(c *gin.Context, settings *service.CodexSimulationSettings) dto.CodexSimulationSettings {
 	if settings == nil {
 		return dto.CodexSimulationSettings{}
+	}
+	var observability *dto.CodexTurnStateObservability
+	if h != nil && h.openAIGatewayService != nil {
+		ctx := context.Background()
+		if c != nil && c.Request != nil {
+			ctx = c.Request.Context()
+		}
+		value := codexTurnStateObservabilityDTO(h.openAIGatewayService.CodexTurnStateObservability(ctx))
+		observability = &value
 	}
 	return dto.CodexSimulationSettings{
 		FullSimulationEnabled:                settings.FullSimulationEnabled,
@@ -395,7 +417,23 @@ func codexSimulationSettingsDTO(settings *service.CodexSimulationSettings) dto.C
 		ContinuationMode:                     settings.ContinuationMode,
 		StateTTLSeconds:                      settings.StateTTLSeconds,
 		IdentitySecretConfigured:             settings.IdentitySecretConfigured(),
+		TurnStateObservability:               observability,
 	}
+}
+
+func codexTurnStateObservabilityDTO(snapshot service.CodexTurnStateObservabilitySnapshot) dto.CodexTurnStateObservability {
+	items := make([]dto.CodexTurnStateObservation, 0, len(snapshot.Items))
+	for _, item := range snapshot.Items {
+		items = append(items, dto.CodexTurnStateObservation{
+			AccountID: item.AccountID, Model: item.Model, Source: item.Source, ProxyEnabled: item.ProxyEnabled,
+			LastSeenAt: item.LastSeenAt, LastResponseAt: item.LastResponseAt, LastResponseHadState: item.LastResponseHadState, LastAcceptedAt: item.LastAcceptedAt, StateDigest: item.StateDigest, LengthMatch: item.LengthMatch,
+			State:            dto.CodexTurnStateTokenMetadata{Valid: item.State.Valid, Expired: item.State.Expired, Version: item.State.Version, VersionHex: item.State.VersionHex, TokenCharacters: item.State.TokenCharacters, TokenBytes: item.State.TokenBytes, TokenBytesKnown: item.State.TokenBytesKnown, IssuedAt: item.State.IssuedAt, EstimatedExpiresAt: item.State.EstimatedExpiresAt, ParseError: item.State.ParseError},
+			EncryptedContent: dto.CodexEncryptedContentObservation{LastBytes: item.EncryptedContent.LastBytes, LastBytesKnown: item.EncryptedContent.LastBytesKnown, BaselineBytes: item.EncryptedContent.BaselineBytes, DeltaBytes: item.EncryptedContent.DeltaBytes, Classification: item.EncryptedContent.Classification, LastObservedAt: item.EncryptedContent.LastObservedAt},
+			Rotation:         dto.CodexTurnStateRotationObservation{Count: item.Rotation.Count, LastAt: item.Rotation.LastAt, LastReason: item.Rotation.LastReason},
+			Probe:            dto.CodexTurnStateProbeObservation{MissingSince: item.Probe.MissingSince, LastHealthyAt: item.Probe.LastHealthyAt, NextProbeAt: item.Probe.NextProbeAt, InFlight: item.Probe.InFlight},
+		})
+	}
+	return dto.CodexTurnStateObservability{GeneratedAt: snapshot.GeneratedAt, Scope: snapshot.Scope, Enabled: snapshot.Enabled, TargetLength: snapshot.TargetLength, TokenTTLSeconds: snapshot.TokenTTLSeconds, Items: items}
 }
 
 // GetStreamTimeoutSettings 获取流超时处理配置
