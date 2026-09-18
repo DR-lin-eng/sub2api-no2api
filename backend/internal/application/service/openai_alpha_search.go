@@ -219,7 +219,7 @@ func (s *OpenAIGatewayService) forwardAlphaSearchViaResponsesWebSearch(
 }
 
 func (s *OpenAIGatewayService) buildOpenAIAlphaSearchResponsesWebSearchRequest(ctx context.Context, c *gin.Context, account *Account, alphaBody []byte, body []byte, token string) (*http.Request, error) {
-	targetURL, official, err := s.openAIOAuthCodexTargetURL(account)
+	targetURL, official, err := s.openAIOAuthCodexTargetURLWithContext(ctx, account)
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +349,7 @@ func truncateOpenAIAlphaSearchPromptJSON(value string, limit int) string {
 }
 
 func (s *OpenAIGatewayService) buildOpenAIAlphaSearchRequest(ctx context.Context, c *gin.Context, account *Account, body []byte, token string) (*http.Request, error) {
-	targetURL, err := s.openAIAlphaSearchURL(account)
+	targetURL, err := s.openAIAlphaSearchURLWithContext(ctx, account)
 	if err != nil {
 		return nil, err
 	}
@@ -660,24 +660,20 @@ func collectOpenAIAlphaSearchURLCitations(value any, results *[]any, seen map[st
 	}
 }
 
-func (s *OpenAIGatewayService) openAIAlphaSearchURL(account *Account) (string, error) {
+func (s *OpenAIGatewayService) openAIAlphaSearchURLWithContext(ctx context.Context, account *Account) (string, error) {
 	if account == nil {
 		return "", fmt.Errorf("account is required")
 	}
 	switch account.Type {
 	case AccountTypeOAuth:
-		if account.IsCustomBaseURLEnabled() {
-			customURL := strings.TrimSpace(account.GetCustomBaseURL())
-			if customURL == "" {
-				return "", fmt.Errorf("custom_base_url is enabled but not configured for account %d", account.ID)
-			}
-			validatedURL, err := s.validateUpstreamBaseURL(customURL)
-			if err != nil {
-				return "", err
-			}
-			return buildOpenAIEndpointURL(validatedURL, "/alpha/search"), nil
+		baseURL, official, err := resolveOpenAIOAuthCodexBaseURL(ctx, s.settingService, s.cfg, account)
+		if err != nil {
+			return "", err
 		}
-		return chatgptCodexAlphaSearchURL, nil
+		if official {
+			return chatgptCodexAlphaSearchURL, nil
+		}
+		return buildOpenAIEndpointURL(baseURL, "/alpha/search"), nil
 	case AccountTypeAPIKey:
 		baseURL := account.GetOpenAIBaseURL()
 		if baseURL == "" {

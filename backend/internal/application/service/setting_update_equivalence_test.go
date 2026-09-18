@@ -94,7 +94,9 @@ func TestBuildSystemSettingsUpdatesGolden(t *testing.T) {
 
 	updates, err := svc.buildSystemSettingsUpdates(context.Background(), settings)
 	require.NoError(t, err)
-	require.Equal(t, 237, len(updates), "system setting key count")
+	require.Equal(t, 239, len(updates), "system setting key count")
+	require.Equal(t, "false", updates[SettingKeyOpenAIOAuthForceRelayEnabled])
+	require.Equal(t, DefaultOpenAIOAuthForceRelayBaseURL, updates[SettingKeyOpenAIOAuthForceRelayBaseURL])
 	require.Equal(t, "false", updates[SettingKeyActivityCenterEnabled], "activity center is opt-in")
 	require.Equal(t, "false", updates[SettingKeyOpenAIOAuthGatewayRateLimitEnabled])
 	require.Equal(t, "60", updates[SettingKeyOpenAIOAuthGatewayRateLimitRPM])
@@ -106,6 +108,8 @@ func TestBuildSystemSettingsUpdatesGolden(t *testing.T) {
 		SettingKeyOpenAIOAuthGatewayRateLimitRPM,
 		SettingKeyOpenAIOAuthGatewayRateLimitBurst,
 		SettingKeyOpenAIRequestIntegrityObserveEnabled,
+		SettingKeyOpenAIOAuthForceRelayEnabled,
+		SettingKeyOpenAIOAuthForceRelayBaseURL,
 	} {
 		delete(updates, key)
 	} // All previously shipped settings keep their exact baseline digest.

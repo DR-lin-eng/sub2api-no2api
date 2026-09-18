@@ -122,6 +122,12 @@ type SettingService struct {
 	openAIWSModeRouterV2Loaded  atomic.Int64
 	openAIWSModeRouterV2SF      singleflight.Group
 
+	// OpenAI OAuth force-relay settings are read on every Codex model request.
+	// Keep this cache per SettingService so tests and multiple application
+	// instances never share a stale relay target.
+	openAIOAuthForceRelayCache atomic.Value // *cachedOpenAIOAuthForceRelaySettings
+	openAIOAuthForceRelaySF    singleflight.Group
+
 	codexSimulationSettings         atomic.Pointer[CodexSimulationSettings]
 	codexSimulationSettingsRevision atomic.Uint64
 	codexSimulationSettingsMu       sync.Mutex

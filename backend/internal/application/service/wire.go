@@ -292,6 +292,9 @@ func ProvideAccountTestService(
 	)
 	service.agentIdentityWS = openAIGatewayService
 	service.oauthGatewayLimiter = openAIGatewayService
+	if openAIGatewayService != nil {
+		service.SetSettingService(openAIGatewayService.settingService)
+	}
 	service.openAIModelsManifest = openAIGatewayService
 	service.customModelCapabilities = customModelCapabilities
 	return service

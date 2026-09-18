@@ -577,6 +577,8 @@ const baseSettingsResponse = {
   stream_mode_performance_enabled: false,
   openai_ws_mode_router_v2_enabled: false,
   openai_visible_output_ttft_enabled: true,
+  openai_oauth_force_relay_enabled: false,
+  openai_oauth_force_relay_base_url: "https://codex-relay.oaifree.com/backend-api/codex",
   custom_menu_items: [],
   custom_endpoints: [],
   frontend_url: "",
@@ -1051,6 +1053,27 @@ describe("admin SettingsView payment visible method controls", () => {
 
     const payload = updateSettings.mock.calls.at(-1)?.[0] as Record<string, unknown>;
     expect(payload.openai_ws_mode_router_v2_enabled).toBe(true);
+  });
+
+  it("saves the global OpenAI OAuth relay from gateway settings", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+
+    const toggle = wrapper.get('[data-testid="openai-oauth-force-relay-toggle"]');
+    expect((toggle.element as HTMLInputElement).checked).toBe(false);
+    await toggle.setValue(true);
+    await wrapper.get('[data-testid="openai-oauth-force-relay-url"]').setValue(
+      "https://relay.example/backend-api/codex",
+    );
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    const payload = updateSettings.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(payload.openai_oauth_force_relay_enabled).toBe(true);
+    expect(payload.openai_oauth_force_relay_base_url).toBe(
+      "https://relay.example/backend-api/codex",
+    );
   });
 
   it("switches OpenAI TTFT to the legacy measurement from gateway settings", async () => {

@@ -420,7 +420,24 @@ func (s *OpenAIGatewayService) createUpstreamLiveCall(
 		return nil, err
 	}
 	reqCtx := WithHTTPUpstreamRedirectsDisabled(WithHTTPUpstreamProfile(ctx, HTTPUpstreamProfileOpenAI))
-	upstreamReq, err := http.NewRequestWithContext(reqCtx, http.MethodPost, chatGPTLiveCallsURL, bytes.NewReader(body))
+	targetURL := chatGPTLiveCallsURL
+	baseURL, official, err := resolveOpenAIOAuthCodexBaseURL(ctx, s.settingService, s.cfg, account)
+	if err != nil {
+		return nil, err
+	}
+	if !official {
+		targetURL = buildOpenAIEndpointURL(baseURL, "/realtime/calls")
+		parsed, parseErr := url.Parse(targetURL)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		query := parsed.Query()
+		query.Set("intent", "quicksilver")
+		query.Set("architecture", "avas")
+		parsed.RawQuery = query.Encode()
+		targetURL = parsed.String()
+	}
+	upstreamReq, err := http.NewRequestWithContext(reqCtx, http.MethodPost, targetURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -434,7 +451,9 @@ func (s *OpenAIGatewayService) createUpstreamLiveCall(
 			upstreamReq.Header.Add(key, value)
 		}
 	}
-	upstreamReq.Host = "chatgpt.com"
+	if official {
+		upstreamReq.Host = "chatgpt.com"
+	}
 	if err := resolveAndSetOpenAIChatGPTAccountHeaders(ctx, s.accountRepo, upstreamReq.Header, account); err != nil {
 		logLiveCreateStageFailure(ctx, account.ID, "account_headers", err)
 		return nil, err
@@ -593,7 +612,10 @@ func (s *OpenAIGatewayService) dialLiveSideband(ctx context.Context, record *Liv
 	if err != nil {
 		return nil, err
 	}
-	target := strings.TrimRight(chatGPTLiveSidebandBaseURL, "/") + "/" + url.PathEscape(record.CallID)
+	target, err := s.openAIOAuthLiveSidebandURL(ctx, account, record.CallID)
+	if err != nil {
+		return nil, err
+	}
 	conn, status, _, err := dialOpenAIWSRouteWithProfile(
 		s.getOpenAIWSPassthroughDialer(),
 		ctx,
@@ -611,6 +633,30 @@ func (s *OpenAIGatewayService) dialLiveSideband(ctx context.Context, record *Liv
 		return nil, errors.New("live sideband transport does not support raw frames")
 	}
 	return raw, nil
+}
+
+func (s *OpenAIGatewayService) openAIOAuthLiveSidebandURL(ctx context.Context, account *Account, callID string) (string, error) {
+	target := strings.TrimRight(chatGPTLiveSidebandBaseURL, "/") + "/" + url.PathEscape(callID)
+	baseURL, official, err := resolveOpenAIOAuthCodexBaseURL(ctx, s.settingService, s.cfg, account)
+	if err != nil {
+		return "", err
+	}
+	if !official {
+		parsed, parseErr := url.Parse(baseURL)
+		if parseErr != nil {
+			return "", parseErr
+		}
+		if parsed.Scheme == "https" {
+			parsed.Scheme = "wss"
+		} else {
+			parsed.Scheme = "ws"
+		}
+		escapedBase := strings.TrimRight(parsed.EscapedPath(), "/")
+		parsed.Path = strings.TrimRight(parsed.Path, "/") + "/" + callID
+		parsed.RawPath = escapedBase + "/" + url.PathEscape(callID)
+		target = parsed.String()
+	}
+	return target, nil
 }
 
 func (s *OpenAIGatewayService) GetLiveCallForIdentity(

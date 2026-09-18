@@ -60,7 +60,7 @@ func (s *OpenAIGatewayService) ForwardResponsesInputTokens(
 		writeOpenAIResponsesInputTokensError(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
 		return err
 	}
-	if shouldEstimateOpenAIInputTokensLocally(account) {
+	if s.shouldEstimateOpenAIInputTokensLocally(ctx, account) {
 		writeOpenAIResponsesInputTokensFallback(c, account, prepared, 0, "custom_relay")
 		return nil
 	}
@@ -165,6 +165,17 @@ func shouldEstimateOpenAIInputTokensLocally(account *Account) bool {
 		return true
 	}
 	return !strings.EqualFold(parsed.Hostname(), "api.openai.com")
+}
+
+func (s *OpenAIGatewayService) shouldEstimateOpenAIInputTokensLocally(ctx context.Context, account *Account) bool {
+	if shouldEstimateOpenAIInputTokensLocally(account) {
+		return true
+	}
+	if account == nil || !account.IsOpenAIOAuth() || s == nil || s.settingService == nil {
+		return false
+	}
+	enabled, _, err := s.settingService.GetOpenAIOAuthForceRelaySettings(ctx)
+	return err != nil || enabled
 }
 
 func isOpenAIResponsesInputTokensUnsupported(account *Account, statusCode int, body []byte) bool {

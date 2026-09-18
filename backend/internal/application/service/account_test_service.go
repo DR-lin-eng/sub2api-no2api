@@ -93,6 +93,15 @@ type AccountTestService struct {
 	agentIdentityTaskMu       sync.Mutex
 	agentIdentityWS           agentIdentityWSConnectionInvalidator
 	oauthGatewayLimiter       *OpenAIGatewayService
+	settingService            *SettingService
+}
+
+// SetSettingService wires the persisted gateway settings used by OpenAI OAuth
+// account probes. Kept as a setter so focused test constructors remain stable.
+func (s *AccountTestService) SetSettingService(settingService *SettingService) {
+	if s != nil {
+		s.settingService = settingService
+	}
 }
 
 func (s *AccountTestService) doAccountTestHTTPUpstreamWithTLS(req *http.Request, proxyURL string, account *Account, profile *tlsfingerprint.Profile) (*http.Response, error) {
@@ -619,23 +628,12 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 			return s.sendErrorAndEnd(c, "No access token available")
 		}
 
-		// OAuth uses ChatGPT internal API unless model traffic is explicitly
-		// configured to leave through a custom Codex relay.
-		useOfficialOAuthEndpoint = true
-		if credentialAccount.IsCustomBaseURLEnabled() {
-			customURL := strings.TrimSpace(credentialAccount.GetCustomBaseURL())
-			if customURL == "" {
-				return s.sendErrorAndEnd(c, "Custom Codex relay URL is enabled but not configured")
-			}
-			normalizedURL, validateErr := s.validateUpstreamBaseURL(customURL)
-			if validateErr != nil {
-				return s.sendErrorAndEnd(c, fmt.Sprintf("Invalid custom Codex relay URL: %s", validateErr.Error()))
-			}
-			apiURL = buildOpenAIOAuthCodexResponsesURL(normalizedURL)
-			useOfficialOAuthEndpoint = false
-		} else {
-			apiURL = chatgptCodexAPIURL
+		baseURL, official, relayErr := resolveOpenAIOAuthCodexBaseURL(ctx, s.settingService, s.cfg, credentialAccount)
+		if relayErr != nil {
+			return s.sendErrorAndEnd(c, fmt.Sprintf("Invalid OpenAI OAuth Codex relay URL: %s", relayErr.Error()))
 		}
+		apiURL = buildOpenAIOAuthCodexResponsesURL(baseURL)
+		useOfficialOAuthEndpoint = official
 	} else if credentialAccount.Type == "apikey" {
 		// API Key - use Platform API
 		authToken = credentialAccount.GetOpenAIProtocolAPIKey()
@@ -890,21 +888,12 @@ func (s *AccountTestService) testOpenAICompactConnection(c *gin.Context, account
 		if authToken == "" && !credentialAccount.IsOpenAIAgentIdentity() {
 			return s.sendErrorAndEnd(c, "No access token available")
 		}
-		useOfficialOAuthEndpoint = true
-		if credentialAccount.IsCustomBaseURLEnabled() {
-			customURL := strings.TrimSpace(credentialAccount.GetCustomBaseURL())
-			if customURL == "" {
-				return s.sendErrorAndEnd(c, "Custom Codex relay URL is enabled but not configured")
-			}
-			normalizedURL, validateErr := s.validateUpstreamBaseURL(customURL)
-			if validateErr != nil {
-				return s.sendErrorAndEnd(c, fmt.Sprintf("Invalid custom Codex relay URL: %s", validateErr.Error()))
-			}
-			apiURL = buildOpenAIOAuthCodexResponsesURL(normalizedURL)
-			useOfficialOAuthEndpoint = false
-		} else {
-			apiURL = chatgptCodexAPIURL
+		baseURL, official, relayErr := resolveOpenAIOAuthCodexBaseURL(ctx, s.settingService, s.cfg, credentialAccount)
+		if relayErr != nil {
+			return s.sendErrorAndEnd(c, fmt.Sprintf("Invalid OpenAI OAuth Codex relay URL: %s", relayErr.Error()))
 		}
+		apiURL = buildOpenAIOAuthCodexResponsesURL(baseURL)
+		useOfficialOAuthEndpoint = official
 	case account.Type == AccountTypeAPIKey:
 		authToken = account.GetOpenAIProtocolAPIKey()
 		if authToken == "" {
@@ -1902,20 +1891,11 @@ func (s *AccountTestService) testOpenAIImageOAuth(c *gin.Context, ctx context.Co
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Failed to build image request: %s", err.Error()))
 	}
 
-	targetURL := chatgptCodexAPIURL
-	useOfficialOAuthEndpoint := true
-	if credentialAccount.IsCustomBaseURLEnabled() {
-		customURL := strings.TrimSpace(credentialAccount.GetCustomBaseURL())
-		if customURL == "" {
-			return s.sendErrorAndEnd(c, "Custom Codex relay URL is enabled but not configured")
-		}
-		normalizedURL, validateErr := s.validateUpstreamBaseURL(customURL)
-		if validateErr != nil {
-			return s.sendErrorAndEnd(c, fmt.Sprintf("Invalid custom Codex relay URL: %s", validateErr.Error()))
-		}
-		targetURL = buildOpenAIOAuthCodexResponsesURL(normalizedURL)
-		useOfficialOAuthEndpoint = false
+	baseURL, useOfficialOAuthEndpoint, relayErr := resolveOpenAIOAuthCodexBaseURL(ctx, s.settingService, s.cfg, credentialAccount)
+	if relayErr != nil {
+		return s.sendErrorAndEnd(c, fmt.Sprintf("Invalid OpenAI OAuth Codex relay URL: %s", relayErr.Error()))
 	}
+	targetURL := buildOpenAIOAuthCodexResponsesURL(baseURL)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(responsesBody))
 	if err != nil {
 		return s.sendErrorAndEnd(c, "Failed to create request")

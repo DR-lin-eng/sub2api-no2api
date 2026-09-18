@@ -26,6 +26,9 @@ export interface BulkAccountUpdatePayloadState {
   enableOpenAIFlattenNamespaces: boolean
   openaiFlattenNamespacesEligible: boolean
   openaiFlattenNamespacesEnabled: boolean
+  enableOpenAICustomRelay: boolean
+  openAICustomRelayEnabled: boolean
+  openAICustomRelayURL: string
   enableOpenAILongContextBilling: boolean
   openAILongContextBillingEnabled: boolean
   enableTLSFingerprint: boolean
@@ -121,6 +124,14 @@ export function buildBulkAccountUpdatePayload(
 
   if (state.enableOpenAIFlattenNamespaces && state.openaiFlattenNamespacesEligible) {
     ensureExtra().openai_responses_flatten_namespaces = state.openaiFlattenNamespacesEnabled
+  }
+
+  if (state.enableOpenAICustomRelay) {
+    const extra = ensureExtra()
+    extra.custom_base_url_enabled = state.openAICustomRelayEnabled
+    extra.custom_base_url = state.openAICustomRelayEnabled
+      ? state.openAICustomRelayURL.trim()
+      : null
   }
 
   if (state.enableOpenAILongContextBilling) {

@@ -9,6 +9,11 @@ import (
 )
 
 func (s *SettingService) applyGatewaySettings(result *SystemSettings, settings map[string]string) {
+	result.OpenAIOAuthForceRelayEnabled = strings.EqualFold(strings.TrimSpace(settings[SettingKeyOpenAIOAuthForceRelayEnabled]), "true")
+	result.OpenAIOAuthForceRelayBaseURL = strings.TrimSpace(settings[SettingKeyOpenAIOAuthForceRelayBaseURL])
+	if result.OpenAIOAuthForceRelayBaseURL == "" && !result.OpenAIOAuthForceRelayEnabled {
+		result.OpenAIOAuthForceRelayBaseURL = DefaultOpenAIOAuthForceRelayBaseURL
+	}
 	if value, ok := settings[SettingKeyOpenAIWSModeRouterV2Enabled]; ok && strings.TrimSpace(value) != "" {
 		result.OpenAIWSModeRouterV2Enabled = strings.EqualFold(strings.TrimSpace(value), "true")
 	} else {

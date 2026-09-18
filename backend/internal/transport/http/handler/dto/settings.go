@@ -228,6 +228,8 @@ type SystemSettings struct {
 	OpenAIVisibleOutputTTFTEnabled bool `json:"openai_visible_output_ttft_enabled"`
 
 	// Gateway forwarding behavior
+	OpenAIOAuthForceRelayEnabled           bool   `json:"openai_oauth_force_relay_enabled"`
+	OpenAIOAuthForceRelayBaseURL           string `json:"openai_oauth_force_relay_base_url"`
 	EnableFingerprintUnification           bool   `json:"enable_fingerprint_unification"`
 	EnableMetadataPassthrough              bool   `json:"enable_metadata_passthrough"`
 	EnableCCHSigning                       bool   `json:"enable_cch_signing"`

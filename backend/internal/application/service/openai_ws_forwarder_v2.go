@@ -42,7 +42,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	responseModelObserver := &upstreamResponseModelObserver{}
 	timingCollector := &openaitiming.Collector{}
 
-	wsURL, err := s.buildOpenAIResponsesWSURL(account)
+	wsURL, err := s.buildOpenAIResponsesWSURLWithContext(ctx, account)
 	if err != nil {
 		return nil, wrapOpenAIWSFallback("build_ws_url", err)
 	}
