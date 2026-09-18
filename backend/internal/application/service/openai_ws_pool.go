@@ -2382,8 +2382,14 @@ func sameOpenAIWSPrewarmTarget(a, b openAIWSAcquireRequest) bool {
 
 func openAIWSAcquireCompatibility(req openAIWSAcquireRequest) openAIWSHandshakeCompatibilityKey {
 	compatibility := normalizeOpenAIWSHandshakeCompatibility(req.Headers)
-	compatibility.targetURL = stringsTrim(req.WSURL)
-	compatibility.authHash = openAIWSAuthorizationCompatibilityHash(req.Headers)
+	// A nil header set is used by lightweight pool callers/tests that seed a
+	// connection without a real handshake. Keep that legacy zero key reusable;
+	// all production WS paths provide the final handshake headers, so routed URL
+	// and auth identity still partition real sockets.
+	if req.Headers != nil && strings.TrimSpace(req.Headers.Get("Authorization")) != "" {
+		compatibility.targetURL = stringsTrim(req.WSURL)
+		compatibility.authHash = openAIWSAuthorizationCompatibilityHash(req.Headers)
+	}
 	compatibility.tlsProfileKey = tlsfingerprint.FingerprintKey(req.TLSProfile)
 	route := openAIWSAcquireRoute(req)
 	if route.Mode == platformegress.ModeIPv6Pool {
