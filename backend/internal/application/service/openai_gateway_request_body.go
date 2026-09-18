@@ -10,6 +10,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/Wei-Shaw/sub2api/internal/shared/apicompat"
 	"github.com/Wei-Shaw/sub2api/internal/shared/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator"
 	"github.com/gin-gonic/gin"
@@ -62,9 +63,39 @@ func normalizeNativeCNResponsesRequestBody(account *Account, body []byte) []byte
 		return body
 	}
 	if stripped, err := sjson.DeleteBytes(normalized, "previous_response_id"); err == nil {
-		return stripped
+		normalized = stripped
 	}
-	return normalized
+	// Keep the common native-Responses path zero-copy. Only decode/re-encode
+	// when a tool output and an image marker are both present; ordinary turns
+	// retain the existing sjson-only cost.
+	if !bytes.Contains(normalized, []byte(`"function_call_output"`)) &&
+		!bytes.Contains(normalized, []byte(`"custom_tool_call_output"`)) &&
+		!bytes.Contains(normalized, []byte(`"tool_search_output"`)) {
+		return normalized
+	}
+	if !bytes.Contains(normalized, []byte(`"input_image"`)) && !bytes.Contains(normalized, []byte(`"image_url"`)) {
+		return normalized
+	}
+	var requestBody map[string]any
+	decoder := json.NewDecoder(bytes.NewReader(normalized))
+	decoder.UseNumber()
+	if err := decoder.Decode(&requestBody); err != nil {
+		return normalized
+	}
+	input, exists := requestBody["input"]
+	if !exists {
+		return normalized
+	}
+	liftedInput, changed := apicompat.LiftResponsesToolOutputMedia(input)
+	if !changed {
+		return normalized
+	}
+	requestBody["input"] = liftedInput
+	rebuilt, err := marshalOpenAIUpstreamJSON(requestBody)
+	if err != nil {
+		return normalized
+	}
+	return rebuilt
 }
 
 const openAIResponsesIDMaxLength = 64

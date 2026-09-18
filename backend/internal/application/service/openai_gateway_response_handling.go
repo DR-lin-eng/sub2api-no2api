@@ -1276,9 +1276,19 @@ func (s *OpenAIGatewayService) bindHTTPResponseAccount(ctx context.Context, c *g
 	if responseID != "" {
 		store := s.getOpenAIWSStateStore()
 		if store != nil {
+			// The downstream client can close immediately after the terminal event.
+			// Detach the durable affinity write from that cancellation while keeping
+			// a bounded Redis budget. Without this, a valid response_id is lost and
+			// the next continuation may select a different account.
+			bindBaseCtx := context.Background()
+			if ctx != nil {
+				bindBaseCtx = context.WithoutCancel(ctx)
+			}
+			bindCtx, cancel := context.WithTimeout(bindBaseCtx, openAIWSStateStoreRedisTimeout)
+			defer cancel()
 			groupID := getOpenAIGroupIDFromContext(c)
 			ttl := s.openAIWSResponseStickyTTL()
-			logOpenAIWSBindResponseAccountWarn(groupID, account.ID, responseID, store.BindResponseAccount(ctx, groupID, responseID, account.ID, ttl))
+			logOpenAIWSBindResponseAccountWarn(groupID, account.ID, responseID, store.BindResponseAccount(bindCtx, groupID, responseID, account.ID, ttl))
 		}
 	}
 	s.completeCodexSimulationSuccess(ctx, c, account, responseID, "")

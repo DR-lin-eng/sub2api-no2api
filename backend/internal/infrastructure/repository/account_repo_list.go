@@ -671,11 +671,14 @@ func (r *accountRepository) ListOAuthRefreshCandidatePage(ctx context.Context, o
 	// NOT (a AND b) 在 PG 三值逻辑下会把 a 或 b 为 NULL 的行（即绝大多数
 	// 健康账号：temp_unschedulable_until=NULL）也排除，导致后台 token
 	// 刷新工作器漏掉所有正常账号 → access_token 到期后请求开始 401。
+	// Do not filter schedulable here: an active, manually paused OAuth account
+	// still needs its access token refreshed for admin quota/usage probes. A
+	// failed refresh is bounded by the retry-cooldown predicate below, while
+	// permanently rejected accounts are excluded by status and credential state.
 	query := `
 		SELECT id
 		FROM accounts
 		WHERE deleted_at IS NULL
-			AND schedulable = TRUE
 			AND platform = ANY($1)
 			AND id > $2`
 	if options.ActiveOnly {

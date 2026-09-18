@@ -480,6 +480,14 @@ func (s *AccountRepoSuite) TestListOAuthRefreshCandidatePage_GrokCursorAndExclus
 			"refresh_token": "must-not-make-api-key-eligible",
 		},
 	})
+	paused := mustCreateAccount(s.T(), s.client, &service.Account{
+		Name:        "grok-oauth-paused-included",
+		Platform:    service.PlatformGrok,
+		Type:        service.AccountTypeOAuth,
+		Status:      service.StatusActive,
+		Schedulable: false,
+		Credentials: map[string]any{"refresh_token": "refresh-paused"},
+	})
 	valid2 := mustCreateAccount(s.T(), s.client, &service.Account{
 		Name:        "grok-oauth-page-2",
 		Platform:    service.PlatformGrok,
@@ -528,14 +536,14 @@ func (s *AccountRepoSuite) TestListOAuthRefreshCandidatePage_GrokCursorAndExclus
 	s.Require().NoError(err)
 	first := firstPage.Accounts
 	s.Require().Len(first, 2)
-	s.Require().Equal([]int64{valid1.ID, valid2.ID}, []int64{first[0].ID, first[1].ID})
+	s.Require().Equal([]int64{valid1.ID, paused.ID}, []int64{first[0].ID, first[1].ID})
 
 	options.AfterID = first[len(first)-1].ID
 	secondPage, err := s.repo.ListOAuthRefreshCandidatePage(s.ctx, options)
 	s.Require().NoError(err)
 	second := secondPage.Accounts
-	s.Require().Len(second, 1)
-	s.Require().Equal(valid3.ID, second[0].ID)
+	s.Require().Len(second, 2)
+	s.Require().Equal([]int64{valid2.ID, valid3.ID}, []int64{second[0].ID, second[1].ID})
 	s.Require().NotContains([]int64{first[0].ID, first[1].ID}, second[0].ID)
 }
 
