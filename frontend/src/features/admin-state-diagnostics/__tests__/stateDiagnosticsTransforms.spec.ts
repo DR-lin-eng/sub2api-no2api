@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Account } from '@/types'
 import type { CodexTurnStateObservation } from '@/features/admin-settings/data/dtos/adminSettingsDtos'
-import { buildAccountRows, filterAccountRows, isHealthyObservation } from '../presentation/composables/stateDiagnosticsTransforms'
+import { buildAccountRows, filterAccountRows, isHealthyObservation, probePhase } from '../presentation/composables/stateDiagnosticsTransforms'
 
 function account(id: number, overrides: Partial<Account> = {}): Account {
   return {
@@ -96,5 +96,13 @@ describe('state diagnostics transforms', () => {
     expect(filterAccountRows(rows, 'account-1', 'all', '')).toHaveLength(1)
     expect(filterAccountRows(rows, '', 'unobserved', '')[0]?.account.id).toBe(2)
     expect(filterAccountRows(rows, '', 'all', 'gpt-5.6-codex')[0]?.account.id).toBe(1)
+  })
+
+  it('distinguishes running, queued, scheduled, and unscheduled probes', () => {
+    const now = Date.parse('2026-09-18T12:00:00Z')
+    expect(probePhase(observation(1, { probe: { in_flight: true } }), now)).toBe('running')
+    expect(probePhase(observation(1, { probe: { in_flight: false, next_probe_at: '2026-09-18T11:59:59Z' } }), now)).toBe('queued')
+    expect(probePhase(observation(1, { probe: { in_flight: false, next_probe_at: '2026-09-18T12:00:01Z' } }), now)).toBe('scheduled')
+    expect(probePhase(observation(1), now)).toBe('unscheduled')
   })
 })

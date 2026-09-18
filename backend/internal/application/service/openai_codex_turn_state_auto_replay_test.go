@@ -182,7 +182,7 @@ func TestAutomaticCodexTurnStateReplayExpiresAfterOneHour(t *testing.T) {
 	require.Empty(t, svc.loadOpenAICodexAutoTurnState(context.Background(), account, "gpt-5.6-codex"))
 }
 
-func TestAutomaticCodexTurnStateProbeStartsAfterFortyFiveMinutesWithoutHealthyState(t *testing.T) {
+func TestAutomaticCodexTurnStateProbeStartsImmediatelyWithoutHealthyState(t *testing.T) {
 	svc := &OpenAIGatewayService{}
 	account := automaticTurnStateTestAccount(4)
 	started := time.Date(2026, 9, 17, 10, 0, 0, 0, time.UTC)
@@ -190,7 +190,7 @@ func TestAutomaticCodexTurnStateProbeStartsAfterFortyFiveMinutesWithoutHealthySt
 
 	key := openAICodexAutoTurnStateKey(account, "gpt-5.6-codex")
 	target := svc.codexAutoProbeTargets[key]
-	require.Equal(t, started.Add(45*time.Minute), target.NextProbeAt)
+	require.Equal(t, started, target.NextProbeAt)
 
 	healthyAt := started.Add(10 * time.Minute)
 	svc.noteOpenAICodexAutoProbeObservation(account, "gpt-5.6-codex", true, healthyAt)
@@ -199,6 +199,41 @@ func TestAutomaticCodexTurnStateProbeStartsAfterFortyFiveMinutesWithoutHealthySt
 	svc.noteOpenAICodexAutoProbeObservation(account, "gpt-5.6-codex", false, healthyAt.Add(20*time.Minute))
 	target = svc.codexAutoProbeTargets[key]
 	require.Equal(t, healthyAt.Add(45*time.Minute), target.NextProbeAt)
+
+	failedAt := healthyAt.Add(46 * time.Minute)
+	svc.finishOpenAICodexAutoProbe(target, false, failedAt)
+	require.Equal(t, failedAt.Add(30*time.Second), svc.codexAutoProbeTargets[key].NextProbeAt)
+}
+
+func TestAutomaticCodexTurnStateMissingResponseKeepsProbeBackoff(t *testing.T) {
+	svc := &OpenAIGatewayService{}
+	account := automaticTurnStateTestAccount(6)
+	now := time.Now()
+	svc.noteOpenAICodexAutoProbeObservation(account, "gpt-5.6-codex", false, now)
+	key := openAICodexAutoTurnStateKey(account, "gpt-5.6-codex")
+	svc.finishOpenAICodexAutoProbe(svc.codexAutoProbeTargets[key], false, now)
+
+	svc.noteOpenAICodexAutoProbeObservation(account, "gpt-5.6-codex", false, now.Add(10*time.Second))
+	require.Equal(t, now.Add(openAICodexAutoProbeRetryInterval), svc.codexAutoProbeTargets[key].NextProbeAt)
+}
+
+func TestAutomaticCodexTurnStateProbeCompletionKeepsNewerResponseState(t *testing.T) {
+	svc := &OpenAIGatewayService{}
+	account := automaticTurnStateTestAccount(16)
+	startedAt := time.Now().Add(-time.Minute)
+	svc.noteOpenAICodexAutoProbeObservation(account, "gpt-5.6-codex", false, startedAt)
+	key := openAICodexAutoTurnStateKey(account, "gpt-5.6-codex")
+	probed := svc.codexAutoProbeTargets[key]
+	probed.InFlight = true
+	svc.codexAutoProbeTargets[key] = probed
+	newStateAt := time.Now()
+	svc.noteOpenAICodexAutoProbeNewState(account, "gpt-5.6-codex", strings.Repeat("n", openAICodexDefaultTurnStateCharacters), newStateAt)
+
+	svc.finishOpenAICodexAutoProbe(probed, false, newStateAt.Add(time.Second))
+	result := svc.codexAutoProbeTargets[key]
+	require.False(t, result.InFlight)
+	require.Equal(t, newStateAt, result.LastHealthyAt)
+	require.Equal(t, newStateAt.Add(openAICodexAutoProbeStaleAfter), result.NextProbeAt)
 }
 
 func TestAutomaticCodexTurnStateReplaySharesFreshStateAcrossNodes(t *testing.T) {
@@ -273,6 +308,54 @@ type automaticTurnStateProbeConn struct {
 	owner *automaticTurnStateProbeDialer
 }
 
+type automaticTurnStateBlockingProbeDialer struct {
+	mu      sync.Mutex
+	active  int
+	peak    int
+	calls   int
+	entered chan struct{}
+	release <-chan struct{}
+	state   string
+}
+
+func (d *automaticTurnStateBlockingProbeDialer) Dial(ctx context.Context, _ string, _ http.Header, _ string) (openAIWSClientConn, int, http.Header, error) {
+	d.mu.Lock()
+	d.active++
+	d.calls++
+	if d.active > d.peak {
+		d.peak = d.active
+	}
+	d.mu.Unlock()
+
+	select {
+	case d.entered <- struct{}{}:
+	case <-ctx.Done():
+		d.leave()
+		return nil, 0, nil, ctx.Err()
+	}
+	select {
+	case <-d.release:
+	case <-ctx.Done():
+		d.leave()
+		return nil, 0, nil, ctx.Err()
+	}
+	d.leave()
+	conn := &openAIWSCaptureConn{events: [][]byte{[]byte(`{"type":"response.completed","response":{"id":"resp_probe"}}`)}}
+	return conn, http.StatusSwitchingProtocols, http.Header{"X-Codex-Turn-State": []string{d.state}}, nil
+}
+
+func (d *automaticTurnStateBlockingProbeDialer) leave() {
+	d.mu.Lock()
+	d.active--
+	d.mu.Unlock()
+}
+
+func (d *automaticTurnStateBlockingProbeDialer) snapshot() (calls, peak int) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.calls, d.peak
+}
+
 func (c *automaticTurnStateProbeConn) WriteJSON(ctx context.Context, value any) error {
 	if err := c.openAIWSCaptureConn.WriteJSON(ctx, value); err != nil {
 		return err
@@ -292,7 +375,8 @@ func TestAutomaticCodexTurnStateProbeRotatesActiveProxiesAndUsesZeroOutputPing(t
 	healthyState := strings.Repeat("y", openAICodexDefaultTurnStateCharacters)
 	dialer := &automaticTurnStateProbeDialer{states: []string{previousState, healthyState}}
 	svc := &OpenAIGatewayService{
-		accountRepo: repo,
+		accountRepo:    repo,
+		settingService: automaticTurnStateTestSettings(t, "gpt-5.6-codex"),
 		proxyRepo: &automaticTurnStateProxyRepo{proxies: []Proxy{
 			{ID: 2, Protocol: "http", Host: "proxy-two.test", Port: 8080, Status: StatusActive},
 			{ID: 1, Protocol: "http", Host: "proxy-one.test", Port: 8080, Status: StatusActive},
@@ -311,11 +395,153 @@ func TestAutomaticCodexTurnStateProbeRotatesActiveProxiesAndUsesZeroOutputPing(t
 		LastHealthyAt: missingSince,
 	})
 	require.NoError(t, err)
-	require.Equal(t, []string{"http://proxy-one.test:8080", "http://proxy-two.test:8080"}, dialer.proxies)
+	require.ElementsMatch(t, []string{"http://proxy-one.test:8080", "http://proxy-two.test:8080"}, dialer.proxies)
 	require.Len(t, dialer.payloads, 2)
 	for _, payload := range dialer.payloads {
 		require.Equal(t, false, payload["generate"])
 		require.Equal(t, []any{}, payload["input"])
 	}
 	require.Equal(t, healthyState, svc.loadOpenAICodexAutoTurnState(context.Background(), account, "gpt-5.6-codex"))
+}
+
+func TestAutomaticCodexTurnStateProbeDoesNotStoreAfterMonitoringDisabled(t *testing.T) {
+	account := automaticTurnStateTestAccount(8)
+	settings := automaticTurnStateTestSettings(t, "gpt-5.6-codex")
+	release := make(chan struct{})
+	dialer := &automaticTurnStateBlockingProbeDialer{
+		entered: make(chan struct{}, 1),
+		release: release,
+		state:   strings.Repeat("p", openAICodexDefaultTurnStateCharacters),
+	}
+	svc := &OpenAIGatewayService{
+		accountRepo:               &stubOpenAIAccountRepo{accounts: []Account{*account}},
+		proxyRepo:                 &automaticTurnStateProxyRepo{proxies: []Proxy{{ID: 1, Protocol: "http", Host: "proxy.test", Port: 8080, Status: StatusActive}}},
+		settingService:            settings,
+		cfg:                       &config.Config{},
+		openaiWSPassthroughDialer: dialer,
+	}
+	result := make(chan error, 1)
+	go func() {
+		result <- svc.probeOpenAICodexTurnState(context.Background(), openAICodexAutoProbeTarget{
+			Key: openAICodexAutoTurnStateKey(account, "gpt-5.6-codex"), AccountID: account.ID, Model: "gpt-5.6-codex",
+		})
+	}()
+	select {
+	case <-dialer.entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("probe did not start")
+	}
+	_, err := settings.SetCodexSimulationSettings(context.Background(), &CodexSimulationSettings{ContinuationMode: "off", StateTTLSeconds: 60})
+	require.NoError(t, err)
+	close(release)
+	select {
+	case err := <-result:
+		require.ErrorContains(t, err, "monitoring was disabled")
+	case <-time.After(5 * time.Second):
+		t.Fatal("probe did not finish")
+	}
+	require.Empty(t, svc.loadOpenAICodexAutoTurnState(context.Background(), account, "gpt-5.6-codex"))
+}
+
+func TestAutomaticCodexTurnStateSweepRunsTargetsAndProxyAttemptsInParallel(t *testing.T) {
+	const extraTarget = 1
+	require.Equal(t, 32, openAICodexAutoProbeMaxConcurrent)
+	targetCount := openAICodexAutoProbeMaxConcurrent + extraTarget
+	accounts := make([]Account, 0, targetCount)
+	for id := 1; id <= targetCount; id++ {
+		accounts = append(accounts, *automaticTurnStateTestAccount(int64(id)))
+	}
+	proxies := make([]Proxy, 0, openAICodexAutoProbeMaxProxyAttempts)
+	for id := 1; id <= openAICodexAutoProbeMaxProxyAttempts; id++ {
+		proxies = append(proxies, Proxy{ID: int64(id), Protocol: "http", Host: "proxy.test", Port: 8000 + id, Status: StatusActive})
+	}
+	release := make(chan struct{})
+	entered := make(chan struct{}, openAICodexAutoProbeMaxConcurrent*openAICodexAutoProbeMaxProxyAttempts)
+	dialer := &automaticTurnStateBlockingProbeDialer{
+		entered: entered,
+		release: release,
+		state:   strings.Repeat("p", openAICodexDefaultTurnStateCharacters),
+	}
+	svc := &OpenAIGatewayService{
+		accountRepo:               &stubOpenAIAccountRepo{accounts: accounts},
+		proxyRepo:                 &automaticTurnStateProxyRepo{proxies: proxies},
+		settingService:            automaticTurnStateTestSettings(t, "gpt-5.6-codex"),
+		cfg:                       &config.Config{},
+		openaiWSPassthroughDialer: dialer,
+	}
+	dueAt := time.Now().Add(-time.Minute)
+	for i := range accounts {
+		svc.noteOpenAICodexAutoProbeObservation(&accounts[i], "gpt-5.6-codex", false, dueAt)
+	}
+
+	svc.runOpenAICodexAutoProbeSweep(context.Background(), time.Now())
+	wantConcurrentAttempts := openAICodexAutoProbeMaxConcurrent * openAICodexAutoProbeMaxProxyAttempts
+	for range wantConcurrentAttempts {
+		select {
+		case <-entered:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("timed out waiting for %d concurrent proxy attempts", wantConcurrentAttempts)
+		}
+	}
+	calls, peak := dialer.snapshot()
+	require.Equal(t, wantConcurrentAttempts, calls)
+	require.Equal(t, wantConcurrentAttempts, peak)
+
+	svc.codexAutoProbeMu.Lock()
+	inFlight := 0
+	for _, target := range svc.codexAutoProbeTargets {
+		if target.InFlight {
+			inFlight++
+		}
+	}
+	svc.codexAutoProbeMu.Unlock()
+	require.Equal(t, openAICodexAutoProbeMaxConcurrent, inFlight)
+
+	close(release)
+	svc.codexAutoProbeWorkers.Wait()
+	svc.runOpenAICodexAutoProbeSweep(context.Background(), time.Now())
+	svc.codexAutoProbeWorkers.Wait()
+	calls, _ = dialer.snapshot()
+	require.GreaterOrEqual(t, calls, wantConcurrentAttempts+1)
+	require.LessOrEqual(t, calls, targetCount*openAICodexAutoProbeMaxProxyAttempts)
+}
+
+func TestAutomaticCodexTurnStateShutdownWaitsForInFlightProbes(t *testing.T) {
+	account := automaticTurnStateTestAccount(7)
+	release := make(chan struct{})
+	entered := make(chan struct{}, 1)
+	dialer := &automaticTurnStateBlockingProbeDialer{
+		entered: entered,
+		release: release,
+		state:   strings.Repeat("p", openAICodexDefaultTurnStateCharacters),
+	}
+	svc := &OpenAIGatewayService{
+		accountRepo:               &stubOpenAIAccountRepo{accounts: []Account{*account}},
+		proxyRepo:                 &automaticTurnStateProxyRepo{proxies: []Proxy{{ID: 1, Protocol: "http", Host: "proxy.test", Port: 8080, Status: StatusActive}}},
+		settingService:            automaticTurnStateTestSettings(t, "gpt-5.6-codex"),
+		cfg:                       &config.Config{},
+		openaiWSPassthroughDialer: dialer,
+	}
+	svc.StartCodexTurnStateAutoProbe(context.Background())
+	svc.noteOpenAICodexAutoProbeObservation(account, "gpt-5.6-codex", false, time.Now())
+	select {
+	case <-entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("probe did not start")
+	}
+	closed := make(chan struct{})
+	go func() {
+		svc.CloseOpenAIWSPool()
+		close(closed)
+	}()
+	select {
+	case <-closed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("shutdown did not wait for the probe")
+	}
+	key := openAICodexAutoTurnStateKey(account, "gpt-5.6-codex")
+	svc.codexAutoProbeMu.Lock()
+	inFlight := svc.codexAutoProbeTargets[key].InFlight
+	svc.codexAutoProbeMu.Unlock()
+	require.False(t, inFlight)
 }
