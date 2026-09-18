@@ -32,7 +32,11 @@ func (s *OpenAIGatewayService) buildOpenAIResponsesWSURL(account *Account) (stri
 	var targetURL string
 	switch account.Type {
 	case AccountTypeOAuth:
-		targetURL = chatgptCodexURL
+		var err error
+		targetURL, _, err = s.openAIOAuthCodexTargetURL(account)
+		if err != nil {
+			return "", err
+		}
 	case AccountTypeAPIKey:
 		baseURL := account.GetOpenAIBaseURL()
 		if baseURL == "" {

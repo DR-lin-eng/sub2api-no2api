@@ -205,6 +205,15 @@ Codex OAuth 的 HTTP、透传、Compact 和 WS 握手共用 UA 身份解析：�
 WS 池将 UA、originator、version 和 TLS Profile 一起用于握手兼容检查；
 变更身份后重新拨号，未变更时继续复用。具体边界见 [Codex 身份差异](codex/intentional-divergences.md)。
 
+OpenAI OAuth/Codex 账号可在管理端启用 `custom_base_url_enabled` 并填写
+`custom_base_url`，将模型请求改发到自定义 Codex 中继。例如填写
+`https://codex-relay.oaifree.com/backend-api/codex` 后，Responses HTTP、透传、Compact
+和 WebSocket 会分别使用该地址下的 `/responses`（以及请求路径后缀）端点；
+`responses/input_tokens` 使用网关本地有界估算，避免向通常不存在的中继预检端点发送请求。
+OAuth 授权码、refresh token、账号隐私/授权接口仍使用 OpenAI 官方地址；自定义地址只改变模型
+请求出口。地址继续经过全局 `security.url_allowlist` 校验，账号配置的出口路由和 TLS Profile
+仍按原规则应用。
+
 IPv6 模式只解析 AAAA 并从绑定源地址拨号。无 AAAA、缺少绑定或路由失败时不允许
 Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换后只关闭旧空闲连接。
 完整数据、管理和 Docker 路由边界见 [账号级 IPv6 出口](IPV6_EGRESS.md)。

@@ -21,10 +21,15 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	stageCodexFingerprintIDs(c, fingerprintIDs)
 	// Determine target URL based on account type
 	var targetURL string
+	useOfficialCodexEndpoint := false
 	switch account.Type {
 	case AccountTypeOAuth:
 		// OAuth accounts use ChatGPT internal API
-		targetURL = chatgptCodexURL
+		var err error
+		targetURL, useOfficialCodexEndpoint, err = s.openAIOAuthCodexTargetURL(account)
+		if err != nil {
+			return nil, err
+		}
 	case AccountTypeAPIKey:
 		// API Key accounts use Platform API or custom base URL
 		baseURL := account.GetOpenAIBaseURL()
@@ -90,7 +95,9 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	// Set headers specific to OAuth accounts (ChatGPT internal API)
 	if account.Type == AccountTypeOAuth {
 		// Required: set Host for ChatGPT API (must use req.Host, not Header.Set)
-		req.Host = "chatgpt.com"
+		if useOfficialCodexEndpoint {
+			req.Host = "chatgpt.com"
+		}
 		if err := resolveAndSetOpenAIChatGPTAccountHeaders(ctx, s.accountRepo, req.Header, account); err != nil {
 			return nil, fmt.Errorf("resolve chatgpt account headers: %w", err)
 		}

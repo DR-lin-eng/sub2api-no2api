@@ -31,6 +31,17 @@ func buildOpenAIResponsesInputTokensURL(base string) string {
 	return buildOpenAIEndpointURL(base, "/v1/responses/input_tokens")
 }
 
+// buildOpenAIOAuthCodexResponsesURL builds the Responses endpoint used by an
+// OpenAI OAuth account's Codex transport.  Unlike the public OpenAI API, the
+// ChatGPT Codex endpoint is rooted at `/backend-api/codex/responses` and most
+// custom relays expose the path immediately before `/responses` (for example
+// `https://relay.example/backend-api/codex`).  Using the generic `/v1`
+// endpoint here would produce `/backend-api/codex/v1/responses`, which these
+// relays do not serve.
+func buildOpenAIOAuthCodexResponsesURL(base string) string {
+	return buildOpenAIEndpointURL(base, "/responses")
+}
+
 func openAIBaseURLHasVersionSuffix(raw string) bool {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {

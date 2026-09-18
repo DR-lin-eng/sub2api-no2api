@@ -998,6 +998,21 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
   } else {
     delete extra.codex_fingerprint_mode
   }
+
+  // OpenAI OAuth/Codex model traffic may use a custom relay.  Keep this in
+  // the OpenAI extra builder so authorization-code, refresh-token, and
+  // imported-session creation paths all persist the same setting.
+  if (
+    form.type === 'oauth' &&
+    customBaseUrlEnabled.value &&
+    customBaseUrl.value.trim()
+  ) {
+    extra.custom_base_url_enabled = true
+    extra.custom_base_url = customBaseUrl.value.trim()
+  } else if (form.type === 'oauth') {
+    delete extra.custom_base_url_enabled
+    delete extra.custom_base_url
+  }
   if (form.type === 'apikey' && codexThinkingTagNormalizationEnabled.value) {
     extra.codex_thinking_tag_normalization_enabled = true
   } else {

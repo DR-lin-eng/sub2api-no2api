@@ -865,6 +865,8 @@ export default {
           label: 'Custom Relay URL',
           hint: 'Forward requests to a custom relay service. Proxy URL will be passed as a query parameter.',
           urlHint: 'Relay service URL (e.g., https://relay.example.com)',
+          openaiHint: 'Forward OpenAI OAuth/Codex model requests to a custom relay. OAuth authorization and refresh still use OpenAI.',
+          openaiUrlHint: 'Codex relay base (e.g., https://codex-relay.oaifree.com/backend-api/codex)',
         },
         clientAffinity: {
           label: 'Client Affinity Scheduling',

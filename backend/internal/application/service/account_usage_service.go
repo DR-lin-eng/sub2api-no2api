@@ -992,11 +992,21 @@ func (s *AccountUsageService) probeOpenAICodexSnapshot(ctx context.Context, acco
 		proxyURL = account.Proxy.URL()
 	}
 	reqCtx = withAccountEgressContext(reqCtx, account, proxyURL, s.cfg)
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, chatgptCodexURL, bytes.NewReader(payloadBytes))
+	targetURL := chatgptCodexURL
+	if isOpenAIOAuthCustomRelay(account) {
+		validatedURL, validateErr := validateOpenAIOAuthCustomRelayBaseURL(account.GetCustomBaseURL(), s.cfg)
+		if validateErr != nil {
+			return nil, fmt.Errorf("invalid custom codex relay URL: %w", validateErr)
+		}
+		targetURL = buildOpenAIOAuthCodexResponsesURL(validatedURL)
+	}
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, targetURL, bytes.NewReader(payloadBytes))
 	if err != nil {
 		return nil, fmt.Errorf("create openai probe request: %w", err)
 	}
-	req.Host = "chatgpt.com"
+	if !isOpenAIOAuthCustomRelay(account) {
+		req.Host = "chatgpt.com"
+	}
 	req.Header.Set("Content-Type", "application/json")
 	if account.IsOpenAIAgentIdentity() {
 		authHeaders, authErr := buildAgentIdentityAuthenticationHeaders(reqCtx, s.accountRepo, s.agentIdentityWS, &s.agentIdentityTaskMu, account, s.cfg)

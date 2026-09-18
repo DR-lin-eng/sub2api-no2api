@@ -323,13 +323,15 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 			target := a.GetCacheTTLOverrideTarget()
 			out.CacheTTLOverrideTarget = &target
 		}
-		// 自定义 Base URL 中继转发
-		if a.IsCustomBaseURLEnabled() {
-			enabled := true
-			out.CustomBaseURLEnabled = &enabled
-			if customURL := a.GetCustomBaseURL(); customURL != "" {
-				out.CustomBaseURL = &customURL
-			}
+	}
+	// 自定义 Base URL 中继转发同时支持 Anthropic OAuth/SetupToken 与
+	// OpenAI OAuth/Codex。它位于 quota 控制块之外，因为 OpenAI OAuth
+	// 不应显示 Anthropic 的窗口/RPM 配额字段。
+	if a.IsCustomBaseURLEnabled() {
+		enabled := true
+		out.CustomBaseURLEnabled = &enabled
+		if customURL := a.GetCustomBaseURL(); customURL != "" {
+			out.CustomBaseURL = &customURL
 		}
 	}
 	// TLS 指纹同时支持 Anthropic OAuth/SetupToken 与 OpenAI OAuth。

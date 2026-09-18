@@ -260,6 +260,17 @@ func (s *OpenAIGatewayService) FetchCodexModelsManifest(ctx context.Context, acc
 		if authToken == "" && !credAccount.IsOpenAIAgentIdentity() {
 			return nil, infraerrors.New(http.StatusBadGateway, "OPENAI_CODEX_MODELS_TOKEN_MISSING", "account has no Codex backend access token")
 		}
+		if credAccount.IsCustomBaseURLEnabled() {
+			customURL := strings.TrimSpace(credAccount.GetCustomBaseURL())
+			if customURL == "" {
+				return nil, infraerrors.New(http.StatusBadGateway, "OPENAI_CODEX_MODELS_RELAY_MISSING", "custom Codex relay URL is enabled but not configured")
+			}
+			normalizedBaseURL, validateErr := s.validateUpstreamBaseURL(customURL)
+			if validateErr != nil {
+				return nil, infraerrors.Newf(http.StatusBadGateway, "OPENAI_CODEX_MODELS_RELAY_INVALID", "invalid custom Codex relay URL: %v", validateErr)
+			}
+			requestEndpoint = buildOpenAIEndpointURL(normalizedBaseURL, "/models")
+		}
 	case credAccount.IsOpenAIApiKey():
 		baseURL := strings.TrimSpace(credAccount.GetCredential("base_url"))
 		if baseURL == "" || isOfficialOpenAIModelsBaseURL(baseURL) {

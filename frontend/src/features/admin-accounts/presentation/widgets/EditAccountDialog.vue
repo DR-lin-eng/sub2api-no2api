@@ -1307,6 +1307,18 @@ function loadQuotaControlSettings(account: Account) {
     tlsFingerprintProfileId.value = normalizeTLSFingerprintProfileID(storedProfileID)
   }
 
+  // Custom model-request relay is supported by Anthropic OAuth/SetupToken and
+  // OpenAI OAuth/Codex.  Keep this independent from the Anthropic-only quota
+  // controls below so OpenAI OAuth accounts can edit it as well.
+  const customRelayEligible =
+    (account.platform === 'anthropic' &&
+      (account.type === 'oauth' || account.type === 'setup-token')) ||
+    (account.platform === 'openai' && account.type === 'oauth')
+  if (customRelayEligible && account.custom_base_url_enabled === true) {
+    customBaseUrlEnabled.value = true
+    customBaseUrl.value = account.custom_base_url || ''
+  }
+
   // Remaining quota controls apply only to Anthropic OAuth/SetupToken accounts.
   if (account.platform !== 'anthropic') {
     return
@@ -1352,11 +1364,6 @@ function loadQuotaControlSettings(account: Account) {
     cacheTTLOverrideTarget.value = account.cache_ttl_override_target || '5m'
   }
 
-  // Load custom base URL setting
-  if (account.custom_base_url_enabled === true) {
-    customBaseUrlEnabled.value = true
-    customBaseUrl.value = account.custom_base_url || ''
-  }
 }
 
 function formatTempUnschedKeywords(value: unknown) {

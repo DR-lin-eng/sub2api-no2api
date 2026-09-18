@@ -929,6 +929,8 @@ export default {
           label: '自定义转发地址',
           hint: '启用后将请求转发到自定义中继服务，代理地址将作为 URL 参数传递给中继服务',
           urlHint: '中继服务地址（如 https://relay.example.com）',
+          openaiHint: '将 OpenAI OAuth/Codex 模型请求转发到自定义网关；OAuth 授权和刷新仍使用 OpenAI 官方地址',
+          openaiUrlHint: 'Codex 网关地址（如 https://codex-relay.oaifree.com/backend-api/codex）',
         },
         clientAffinity: {
           label: '客户端亲和调度',
