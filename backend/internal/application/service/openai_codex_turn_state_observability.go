@@ -193,7 +193,7 @@ func (s *OpenAIGatewayService) observeCodexTurnStateMetadata(ctx context.Context
 		digest := sha256.Sum256([]byte(state))
 		item.StateDigest = fmt.Sprintf("sha256:%x", digest[:6])
 	}
-	if state != "" && item.LengthMatch && !(metadata.Valid && metadata.Expired) {
+	if state != "" && item.LengthMatch && (!metadata.Valid || !metadata.Expired) {
 		item.LastAcceptedAt = now
 	}
 	s.codexTurnStateObservability[key] = item

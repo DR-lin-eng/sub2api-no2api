@@ -44,10 +44,10 @@ func TestObserveCodexEncryptedContentClassifiesSixteenByteDeltaAndRotation(t *te
 	account := automaticTurnStateTestAccount(12)
 	base := `{"type":"response.completed","response":{"output":[{"type":"reasoning","encrypted_content":"` + base64.RawStdEncoding.EncodeToString(make([]byte, 20)) + `"}]}}`
 	degraded := `{"type":"response.completed","response":{"output":[{"type":"reasoning","encrypted_content":"` + base64.RawStdEncoding.EncodeToString(make([]byte, 36)) + `"}]}}`
-	svc.observeCodexEncryptedContentPayload(nil, nil, account, "gpt-5.6-codex", []byte(base), "test")
-	svc.observeCodexEncryptedContentPayload(nil, nil, account, "gpt-5.6-codex", []byte(degraded), "test")
-	svc.observeCodexEncryptedContentPayload(nil, nil, account, "gpt-5.6-codex", []byte(`{"error":{"code":"invalid_encrypted_content","message":"Encrypted content could not be verified"}}`), "test")
-	snapshot := svc.CodexTurnStateObservability(nil)
+	svc.observeCodexEncryptedContentPayload(context.TODO(), nil, account, "gpt-5.6-codex", []byte(base), "test")
+	svc.observeCodexEncryptedContentPayload(context.TODO(), nil, account, "gpt-5.6-codex", []byte(degraded), "test")
+	svc.observeCodexEncryptedContentPayload(context.TODO(), nil, account, "gpt-5.6-codex", []byte(`{"error":{"code":"invalid_encrypted_content","message":"Encrypted content could not be verified"}}`), "test")
+	snapshot := svc.CodexTurnStateObservability(context.TODO())
 	require.Len(t, snapshot.Items, 1)
 	require.Equal(t, "plus_16_hint", snapshot.Items[0].EncryptedContent.Classification)
 	require.Equal(t, 16, snapshot.Items[0].EncryptedContent.DeltaBytes)

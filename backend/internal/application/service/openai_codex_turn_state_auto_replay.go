@@ -128,7 +128,7 @@ func (s *OpenAIGatewayService) observeOpenAICodexTurnState(
 	s.observeCodexTurnStateMetadata(ctx, c, account, model, state, "response")
 	stateMetadata := parseOpenAICodexTurnState(state, time.Now())
 	characters := openAICodexTurnStateCharacterCount(state)
-	lengthMatch := characters == s.codexAutoTurnStateTargetLength(ctx) && len(state) <= codexTurnStateMaxValueBytes && httpguts.ValidHeaderFieldValue(state) && !(stateMetadata.Valid && stateMetadata.Expired)
+	lengthMatch := characters == s.codexAutoTurnStateTargetLength(ctx) && len(state) <= codexTurnStateMaxValueBytes && httpguts.ValidHeaderFieldValue(state) && (!stateMetadata.Valid || !stateMetadata.Expired)
 	previousState := s.loadOpenAICodexAutoTurnState(ctx, account, model)
 	previousCapturedAt := s.openAICodexAutoTurnStateCapturedAt(account, model)
 	isNew := lengthMatch && state != previousState && !s.openAICodexAutoProbeStateSeen(account, model, state)
