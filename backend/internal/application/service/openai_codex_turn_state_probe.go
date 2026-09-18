@@ -23,7 +23,7 @@ import (
 const (
 	openAICodexAutoProbeStaleAfter       = 45 * time.Minute
 	openAICodexAutoProbeInitialDelay     = 0
-	openAICodexAutoProbeRetryInterval    = 30 * time.Second
+	openAICodexAutoProbeRetryInterval    = 5 * time.Second
 	openAICodexAutoProbeSweepInterval    = 5 * time.Second
 	openAICodexAutoProbeAttemptTimeout   = 15 * time.Second
 	openAICodexAutoProbeMaxProxyAttempts = 4
@@ -44,6 +44,7 @@ type openAICodexAutoProbeTarget struct {
 	LastHealthyAt time.Time
 	NextProbeAt   time.Time
 	InFlight      bool
+	Recovering    bool
 }
 
 func (s *OpenAIGatewayService) StartCodexTurnStateAutoProbe(parent context.Context) {
@@ -96,7 +97,8 @@ func (s *OpenAIGatewayService) noteOpenAICodexAutoProbeObservation(account *Acco
 		target.LastHealthyAt = observedAt
 		target.MissingSince = time.Time{}
 		target.NextProbeAt = observedAt.Add(openAICodexAutoProbeStaleAfter)
-	} else {
+		target.Recovering = false
+	} else if !target.Recovering {
 		if target.MissingSince.IsZero() {
 			target.MissingSince = observedAt
 		}
@@ -120,6 +122,63 @@ func (s *OpenAIGatewayService) noteOpenAICodexAutoProbeObservation(account *Acco
 	if shouldWake {
 		s.signalCodexAutoProbeWake()
 	}
+}
+
+func (s *OpenAIGatewayService) noteOpenAICodexAutoProbeInvalidObservation(account *Account, model string, observedAt time.Time) {
+	key := openAICodexAutoTurnStateKey(account, model)
+	if s == nil || key == "" {
+		return
+	}
+	if observedAt.IsZero() {
+		observedAt = time.Now()
+	}
+	s.codexAutoProbeMu.Lock()
+	if s.codexAutoProbeTargets == nil {
+		s.codexAutoProbeTargets = make(map[string]openAICodexAutoProbeTarget, 64)
+	}
+	target := s.codexAutoProbeTargets[key]
+	target.Key = key
+	target.AccountID = account.ID
+	target.Model = strings.TrimSpace(model)
+	if !target.Recovering {
+		target.Recovering = true
+		target.MissingSince = observedAt
+		if !target.InFlight {
+			target.NextProbeAt = observedAt
+		}
+	} else if target.NextProbeAt.IsZero() {
+		target.NextProbeAt = observedAt
+	}
+	ensureBindingCapacity(s.codexAutoProbeTargets, key, openAICodexAutoProbeMaxTargets)
+	s.codexAutoProbeTargets[key] = target
+	shouldWake := !target.InFlight && !target.NextProbeAt.IsZero() && !time.Now().Before(target.NextProbeAt)
+	s.codexAutoProbeMu.Unlock()
+	if shouldWake {
+		s.signalCodexAutoProbeWake()
+	}
+}
+
+func (s *OpenAIGatewayService) noteOpenAICodexAutoProbeRecoveryHealthyObservation(account *Account, model string, observedAt time.Time) bool {
+	key := openAICodexAutoTurnStateKey(account, model)
+	if s == nil || key == "" {
+		return false
+	}
+	if observedAt.IsZero() {
+		observedAt = time.Now()
+	}
+	s.codexAutoProbeMu.Lock()
+	target, ok := s.codexAutoProbeTargets[key]
+	if !ok || !target.Recovering {
+		s.codexAutoProbeMu.Unlock()
+		return false
+	}
+	target.LastHealthyAt = observedAt
+	target.MissingSince = time.Time{}
+	target.NextProbeAt = observedAt.Add(openAICodexAutoProbeStaleAfter)
+	target.Recovering = false
+	s.codexAutoProbeTargets[key] = target
+	s.codexAutoProbeMu.Unlock()
+	return true
 }
 
 func (s *OpenAIGatewayService) openAICodexAutoProbeStateSeen(account *Account, model, state string) bool {
@@ -266,8 +325,10 @@ func (s *OpenAIGatewayService) finishOpenAICodexAutoProbe(probed openAICodexAuto
 			target.LastHealthyAt = finishedAt
 			target.MissingSince = time.Time{}
 			target.NextProbeAt = finishedAt.Add(openAICodexAutoProbeStaleAfter)
+			target.Recovering = false
 		} else {
 			target.NextProbeAt = finishedAt.Add(openAICodexAutoProbeRetryInterval)
+			target.Recovering = true
 		}
 	}
 	s.codexAutoProbeTargets[probed.Key] = target
@@ -307,7 +368,7 @@ func (s *OpenAIGatewayService) probeOpenAICodexTurnState(ctx context.Context, ta
 		return errors.New("account does not support the watched model")
 	}
 	previousState := s.loadOpenAICodexAutoTurnState(ctx, account, target.Model)
-	if previousState != "" {
+	if previousState != "" && !target.Recovering {
 		capturedAt := s.openAICodexAutoTurnStateCapturedAt(account, target.Model)
 		if capturedAt.After(target.LastHealthyAt) {
 			return nil
@@ -347,9 +408,6 @@ func (s *OpenAIGatewayService) probeOpenAICodexTurnState(ctx context.Context, ta
 		go func() {
 			defer attemptsWG.Done()
 			state, probeErr := s.probeOpenAICodexTurnStateViaProxy(probeCtx, account, target.Model, &proxy)
-			if probeErr == nil && (state == previousState || s.openAICodexAutoProbeStateSeen(account, target.Model, state)) {
-				probeErr = errors.New("proxy returned the previous turn state")
-			}
 			results <- probeResult{proxy: proxy, state: state, err: probeErr}
 		}()
 	}

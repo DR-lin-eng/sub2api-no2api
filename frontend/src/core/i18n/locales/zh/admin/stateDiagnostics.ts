@@ -26,6 +26,7 @@ export default {
     responseMissingState: '最近响应缺少 State',
     rotations: '轮换 {count} 次',
     probeRunning: '探测中',
+    probeRecovering: '持续恢复探测',
     probeQueued: '排队探测',
     probeScheduled: '等待到期',
     probeUnscheduled: '未排程',

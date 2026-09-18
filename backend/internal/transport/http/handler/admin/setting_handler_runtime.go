@@ -438,7 +438,7 @@ func codexTurnStateObservabilityDTO(snapshot service.CodexTurnStateObservability
 			State:            dto.CodexTurnStateTokenMetadata{Valid: item.State.Valid, Expired: item.State.Expired, Version: item.State.Version, VersionHex: item.State.VersionHex, TokenCharacters: item.State.TokenCharacters, TokenBytes: item.State.TokenBytes, TokenBytesKnown: item.State.TokenBytesKnown, IssuedAt: item.State.IssuedAt, EstimatedExpiresAt: item.State.EstimatedExpiresAt, ParseError: item.State.ParseError},
 			EncryptedContent: dto.CodexEncryptedContentObservation{LastBytes: item.EncryptedContent.LastBytes, LastBytesKnown: item.EncryptedContent.LastBytesKnown, BaselineBytes: item.EncryptedContent.BaselineBytes, DeltaBytes: item.EncryptedContent.DeltaBytes, Classification: item.EncryptedContent.Classification, LastObservedAt: item.EncryptedContent.LastObservedAt},
 			Rotation:         dto.CodexTurnStateRotationObservation{Count: item.Rotation.Count, LastAt: item.Rotation.LastAt, LastReason: item.Rotation.LastReason},
-			Probe:            dto.CodexTurnStateProbeObservation{MissingSince: item.Probe.MissingSince, LastHealthyAt: item.Probe.LastHealthyAt, NextProbeAt: item.Probe.NextProbeAt, InFlight: item.Probe.InFlight},
+			Probe:            dto.CodexTurnStateProbeObservation{MissingSince: item.Probe.MissingSince, LastHealthyAt: item.Probe.LastHealthyAt, NextProbeAt: item.Probe.NextProbeAt, InFlight: item.Probe.InFlight, Recovering: item.Probe.Recovering},
 		})
 	}
 	return dto.CodexTurnStateObservability{GeneratedAt: snapshot.GeneratedAt, Scope: snapshot.Scope, Enabled: snapshot.Enabled, TargetLength: snapshot.TargetLength, TokenTTLSeconds: snapshot.TokenTTLSeconds, Items: items}

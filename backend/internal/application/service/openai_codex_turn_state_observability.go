@@ -61,6 +61,7 @@ type CodexTurnStateProbeObservation struct {
 	LastHealthyAt *time.Time `json:"last_healthy_at,omitempty"`
 	NextProbeAt   *time.Time `json:"next_probe_at,omitempty"`
 	InFlight      bool       `json:"in_flight"`
+	Recovering    bool       `json:"recovering"`
 }
 
 type CodexTurnStateObservation struct {
@@ -420,6 +421,7 @@ func (s *OpenAIGatewayService) CodexTurnStateObservability(ctx context.Context) 
 			probe.LastHealthyAt = codexTimePtr(target.LastHealthyAt)
 			probe.NextProbeAt = codexTimePtr(target.NextProbeAt)
 			probe.InFlight = target.InFlight
+			probe.Recovering = target.Recovering
 		}
 		snapshot.Items = append(snapshot.Items, CodexTurnStateObservation{
 			AccountID:            item.AccountID,
