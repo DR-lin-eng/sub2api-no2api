@@ -717,6 +717,7 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		adminSettings.PUT("/temp-unschedulable", h.Admin.Setting.UpdateGlobalTempUnschedulableSettings)
 		// Codex OAuth A/B simulation runtime controls
 		adminSettings.GET("/codex-simulation", h.Admin.Setting.GetCodexSimulationSettings)
+		adminSettings.GET("/codex-simulation/observability", h.Admin.Setting.GetCodexTurnStateObservability)
 		adminSettings.PUT("/codex-simulation", h.Admin.Setting.UpdateCodexSimulationSettings)
 		adminSettings.POST("/codex-simulation/sync-turn-states", h.Admin.Setting.SyncCodexTurnStates)
 		adminSettings.POST("/codex-simulation/restore-original", h.Admin.Setting.RestoreOriginalCodexBehavior)

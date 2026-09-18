@@ -269,6 +269,7 @@ func (s *OpenAIGatewayService) probeOpenAICodexTurnState(ctx context.Context, ta
 			probeErr = errors.New("proxy returned the previous turn state")
 		}
 		if probeErr == nil {
+			s.observeCodexTurnStateMetadata(ctx, nil, account, target.Model, state, "proxy_probe")
 			s.storeOpenAICodexAutoTurnState(ctx, account, target.Model, state)
 			s.noteOpenAICodexAutoProbeNewState(account, target.Model, state, time.Now())
 			logger.L().Info("codex automatic turn state probe succeeded",
@@ -366,6 +367,7 @@ func (s *OpenAIGatewayService) probeOpenAICodexTurnStateViaProxy(
 		if readErr != nil {
 			return "", fmt.Errorf("read zero-output ping: %w", readErr)
 		}
+		s.observeCodexEncryptedContentPayload(attemptCtx, nil, account, model, message, "proxy_probe")
 		if metadataState := strings.TrimSpace(gjson.GetBytes(message, "headers.x-codex-turn-state").String()); metadataState != "" {
 			state = metadataState
 		}
@@ -384,6 +386,10 @@ func (s *OpenAIGatewayService) probeOpenAICodexTurnStateViaProxy(
 		targetLength := s.codexAutoTurnStateTargetLength(attemptCtx)
 		if characters != targetLength || len(state) > codexTurnStateMaxValueBytes || !httpguts.ValidHeaderFieldValue(state) {
 			return "", fmt.Errorf("turn state has %d characters (want %d) or is not a valid bounded header", characters, targetLength)
+		}
+		metadata := parseOpenAICodexTurnState(state, time.Now().UTC())
+		if metadata.Valid && metadata.Expired {
+			return "", errors.New("turn state is expired")
 		}
 		return state, nil
 	}

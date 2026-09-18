@@ -516,21 +516,23 @@ type OpenAIGatewayService struct {
 	openaiCompatAnthropicDigestSessions boundedOpenAICompatSessionCache
 	// Tracks the account that minted the latest turn-state for each downstream
 	// API-key/session pair so failover cannot echo a known cross-account value.
-	openaiCodexTurnStateOrigins sync.Map
-	openaiCodexTurnStateWrites  atomic.Uint64
-	codexAutoTurnStateMu        sync.RWMutex
-	codexAutoTurnStates         map[string]openAICodexAutoTurnStateBinding
-	codexAutoProbeMu            sync.Mutex
-	codexAutoProbeTargets       map[string]openAICodexAutoProbeTarget
-	codexAutoProbeOnce          sync.Once
-	codexAutoProbeCancel        context.CancelFunc
-	codexAutoProbeWG            sync.WaitGroup
-	codexAutoProbeStopped       atomic.Bool
-	codexAutoProbeProxyCursor   atomic.Uint64
-	codexPrincipalUpstreamTotal atomic.Uint64
-	codexPrincipalLocalTotal    atomic.Uint64
-	codexContextWindowMu        sync.Mutex
-	codexContextWindowIDs       sync.Map // key: account ID, value: account-scoped UUID
+	openaiCodexTurnStateOrigins   sync.Map
+	openaiCodexTurnStateWrites    atomic.Uint64
+	codexAutoTurnStateMu          sync.RWMutex
+	codexAutoTurnStates           map[string]openAICodexAutoTurnStateBinding
+	codexAutoProbeMu              sync.Mutex
+	codexAutoProbeTargets         map[string]openAICodexAutoProbeTarget
+	codexAutoProbeOnce            sync.Once
+	codexAutoProbeCancel          context.CancelFunc
+	codexAutoProbeWG              sync.WaitGroup
+	codexAutoProbeStopped         atomic.Bool
+	codexAutoProbeProxyCursor     atomic.Uint64
+	codexTurnStateObservabilityMu sync.RWMutex
+	codexTurnStateObservability   map[string]codexTurnStateObservation
+	codexPrincipalUpstreamTotal   atomic.Uint64
+	codexPrincipalLocalTotal      atomic.Uint64
+	codexContextWindowMu          sync.Mutex
+	codexContextWindowIDs         sync.Map // key: account ID, value: account-scoped UUID
 }
 
 // SetDistillationCounter wires the shared Redis-backed request counter used by

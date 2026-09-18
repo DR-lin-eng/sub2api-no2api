@@ -1361,6 +1361,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 					return nil
 				}
 				eventType, _, _ := parseOpenAIWSEventEnvelope(payload)
+				s.observeCodexEncryptedContentPayload(ctx, c, account, capturedSessionModel, payload, "ws_passthrough")
 				if eventType == "codex.response.metadata" {
 					metadataHeaders := make(http.Header)
 					if state := captureOpenAICodexTurnStateMetadata(metadataHeaders, payload); state != "" {

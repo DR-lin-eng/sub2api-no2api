@@ -66,6 +66,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 			return nil, rewriteErr
 		}
 	}
+	s.observeCodexEncryptedContentPayload(ctx, c, account, gjson.GetBytes(outboundBody, "model").String(), outboundBody, "http_request")
 
 	req, err := newOpenAIHTTPUpstreamRequest(ctx, http.MethodPost, targetURL, account, outboundBody)
 	if err != nil {

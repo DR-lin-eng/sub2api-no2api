@@ -9,6 +9,7 @@ import {
 import {
   getBetaPolicySettings,
   getCodexSimulationSettings,
+  getCodexTurnStateObservability,
   getGlobalTempUnschedulableSettings,
   getOverloadCooldownSettings,
   getOAuth401CleanupSettings,
@@ -86,6 +87,7 @@ export function useSettingsGatewayPolicies() {
   const codexSimulationLoadFailed = ref(false);
   const codexSimulationSaving = ref(false);
   const codexSimulationSyncing = ref(false);
+  const codexObservabilityRefreshing = ref(false);
   const codexSimulationForm = reactive<CodexSimulationSettings>({
     full_simulation_enabled: false,
     c_level_simulation_enabled: false,
@@ -96,6 +98,14 @@ export function useSettingsGatewayPolicies() {
     turn_state_target_length: 292,
     turn_state_watch_models: [],
     turn_states: [],
+    turn_state_observability: {
+      generated_at: new Date(0).toISOString(),
+      scope: "current_node",
+      enabled: false,
+      target_length: 292,
+      token_ttl_seconds: 3600,
+      items: [],
+    },
     continuation_mode: "off",
     state_ttl_seconds: 604800,
     identity_secret_configured: false,
@@ -404,6 +414,9 @@ export function useSettingsGatewayPolicies() {
       turn_state_target_length: settings.turn_state_target_length ?? 292,
       turn_state_watch_models: Array.isArray(settings.turn_state_watch_models) ? [...settings.turn_state_watch_models] : [],
       turn_states: Array.isArray(settings.turn_states) ? [...settings.turn_states] : [],
+      turn_state_observability: settings.turn_state_observability ?? {
+        generated_at: new Date(0).toISOString(), scope: "current_node", enabled: false, target_length: 292, token_ttl_seconds: 3600, items: [],
+      },
     };
   }
 
@@ -429,6 +442,17 @@ export function useSettingsGatewayPolicies() {
       );
     } finally {
       codexSimulationLoading.value = false;
+    }
+  }
+
+  async function refreshCodexTurnStateObservability() {
+    codexObservabilityRefreshing.value = true;
+    try {
+      codexSimulationForm.turn_state_observability = await getCodexTurnStateObservability();
+    } catch (error: unknown) {
+      appStore.showError(extractApiErrorMessage(error, t("admin.settings.codexSimulation.observabilityRefreshFailed")));
+    } finally {
+      codexObservabilityRefreshing.value = false;
     }
   }
 
@@ -492,6 +516,7 @@ export function useSettingsGatewayPolicies() {
       lastCodexSimulationSettings.value = { ...normalized, turn_states: [...normalized.turn_states] };
       codexSimulationForm.turn_states = [...normalized.turn_states];
       codexSimulationForm.identity_secret_configured = normalized.identity_secret_configured;
+      codexSimulationForm.turn_state_observability = normalized.turn_state_observability;
       codexSimulationLoadFailed.value = false;
       appStore.showSuccess(t("admin.settings.codexSimulation.turnStateSyncSuccess"));
     } catch (error: unknown) {
@@ -818,6 +843,7 @@ export function useSettingsGatewayPolicies() {
     codexSimulationLoading,
     codexSimulationSaving,
     codexSimulationSyncing,
+    codexObservabilityRefreshing,
     codexTurnStateDraftDirty,
     codexTurnStateWatchModelsText,
     codexTurnStatesText,
@@ -858,6 +884,7 @@ export function useSettingsGatewayPolicies() {
     removeOpenAIFastPolicyModelPattern,
     removeOpenAIFastPolicyRule,
     restoreOriginalCodexBehavior,
+    refreshCodexTurnStateObservability,
     saveBetaPolicySettings,
     saveCodexSimulationSettings,
     syncCodexTurnStatesFromQuality,

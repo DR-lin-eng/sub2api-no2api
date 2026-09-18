@@ -125,8 +125,10 @@ func (s *OpenAIGatewayService) observeOpenAICodexTurnState(
 		return
 	}
 	state = strings.TrimSpace(state)
+	s.observeCodexTurnStateMetadata(ctx, c, account, model, state, "response")
+	stateMetadata := parseOpenAICodexTurnState(state, time.Now())
 	characters := openAICodexTurnStateCharacterCount(state)
-	lengthMatch := characters == s.codexAutoTurnStateTargetLength(ctx) && len(state) <= codexTurnStateMaxValueBytes && httpguts.ValidHeaderFieldValue(state)
+	lengthMatch := characters == s.codexAutoTurnStateTargetLength(ctx) && len(state) <= codexTurnStateMaxValueBytes && httpguts.ValidHeaderFieldValue(state) && (!stateMetadata.Valid || !stateMetadata.Expired)
 	previousState := s.loadOpenAICodexAutoTurnState(ctx, account, model)
 	previousCapturedAt := s.openAICodexAutoTurnStateCapturedAt(account, model)
 	isNew := lengthMatch && state != previousState && !s.openAICodexAutoProbeStateSeen(account, model, state)
@@ -167,10 +169,18 @@ func (s *OpenAIGatewayService) storeOpenAICodexAutoTurnState(ctx context.Context
 		return
 	}
 	now := time.Now()
+	stateMetadata := parseOpenAICodexTurnState(state, now)
+	if stateMetadata.Valid && stateMetadata.Expired {
+		return
+	}
+	expiresAt := now.Add(openAICodexAutoTurnStateTTL)
+	if stateMetadata.Valid && stateMetadata.EstimatedExpiresAt != nil {
+		expiresAt = *stateMetadata.EstimatedExpiresAt
+	}
 	binding := openAICodexAutoTurnStateBinding{
 		State:      strings.TrimSpace(state),
 		CapturedAt: now,
-		ExpiresAt:  now.Add(openAICodexAutoTurnStateTTL),
+		ExpiresAt:  expiresAt,
 	}
 	s.codexAutoTurnStateMu.Lock()
 	if s.codexAutoTurnStates == nil {
@@ -201,7 +211,11 @@ func (s *OpenAIGatewayService) storeOpenAICodexAutoTurnState(ctx context.Context
 	go func() {
 		defer func() { <-openAICodexAutoTurnStateWriteSlots }()
 		defer cancel()
-		if err := store.BindSessionTurnState(storeCtx, 0, key, string(encoded), openAICodexAutoTurnStateTTL); err != nil {
+		cacheTTL := time.Until(expiresAt)
+		if cacheTTL <= 0 {
+			return
+		}
+		if err := store.BindSessionTurnState(storeCtx, 0, key, string(encoded), cacheTTL); err != nil {
 			logger.L().Warn("codex automatic turn state cache write failed", zap.Error(err))
 		}
 	}()
@@ -217,11 +231,7 @@ func (s *OpenAIGatewayService) loadOpenAICodexAutoTurnState(ctx context.Context,
 	binding, ok := s.codexAutoTurnStates[key]
 	s.codexAutoTurnStateMu.RUnlock()
 	if ok && now.Before(binding.ExpiresAt) {
-		if binding.State == "" {
-			return ""
-		}
-		if openAICodexTurnStateCharacterCount(binding.State) == s.codexAutoTurnStateTargetLength(ctx) &&
-			len(binding.State) <= codexTurnStateMaxValueBytes && httpguts.ValidHeaderFieldValue(binding.State) {
+		if s.codexAutoTurnStateBindingUsable(ctx, binding, now) {
 			return binding.State
 		}
 	}
@@ -245,9 +255,7 @@ func (s *OpenAIGatewayService) loadOpenAICodexAutoTurnState(ctx context.Context,
 		s.cacheOpenAICodexAutoTurnStateMiss(key, now)
 		return ""
 	}
-	if err := json.Unmarshal([]byte(encoded), &binding); err != nil || !now.Before(binding.ExpiresAt) ||
-		openAICodexTurnStateCharacterCount(binding.State) != s.codexAutoTurnStateTargetLength(ctx) ||
-		len(binding.State) > codexTurnStateMaxValueBytes || !httpguts.ValidHeaderFieldValue(binding.State) {
+	if err := json.Unmarshal([]byte(encoded), &binding); err != nil || !s.codexAutoTurnStateBindingUsable(ctx, binding, now) {
 		return ""
 	}
 	s.codexAutoTurnStateMu.Lock()
@@ -258,6 +266,16 @@ func (s *OpenAIGatewayService) loadOpenAICodexAutoTurnState(ctx context.Context,
 	s.codexAutoTurnStates[key] = binding
 	s.codexAutoTurnStateMu.Unlock()
 	return binding.State
+}
+
+func (s *OpenAIGatewayService) codexAutoTurnStateBindingUsable(ctx context.Context, binding openAICodexAutoTurnStateBinding, now time.Time) bool {
+	if s == nil || binding.State == "" || !now.Before(binding.ExpiresAt) ||
+		openAICodexTurnStateCharacterCount(binding.State) != s.codexAutoTurnStateTargetLength(ctx) ||
+		len(binding.State) > codexTurnStateMaxValueBytes || !httpguts.ValidHeaderFieldValue(binding.State) {
+		return false
+	}
+	metadata := parseOpenAICodexTurnState(binding.State, now)
+	return !metadata.Valid || !metadata.Expired
 }
 
 func (s *OpenAIGatewayService) cacheOpenAICodexAutoTurnStateMiss(key string, now time.Time) {

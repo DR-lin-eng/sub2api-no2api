@@ -5,6 +5,7 @@ import {
   type AdminApiKeyStatus,
   type BetaPolicySettings,
   type CodexSimulationSettings,
+  type CodexTurnStateObservability,
   type EmailTemplateDetail,
   type EmailTemplateListResponse,
   type GlobalTempUnschedulableSettings,
@@ -92,6 +93,13 @@ export async function getGlobalTempUnschedulableSettings(): Promise<GlobalTempUn
 export async function getCodexSimulationSettings(): Promise<CodexSimulationSettings> {
   const { data } = await apiClient.get<CodexSimulationSettings>(
     "/admin/settings/codex-simulation",
+  );
+  return data;
+}
+
+export async function getCodexTurnStateObservability(): Promise<CodexTurnStateObservability> {
+  const { data } = await apiClient.get<CodexTurnStateObservability>(
+    "/admin/settings/codex-simulation/observability",
   );
   return data;
 }

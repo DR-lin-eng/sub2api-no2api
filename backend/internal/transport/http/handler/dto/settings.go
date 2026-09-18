@@ -3,6 +3,7 @@ package dto
 import (
 	"encoding/json"
 	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/application/service"
 	clientip "github.com/Wei-Shaw/sub2api/internal/shared/ip"
@@ -523,18 +524,80 @@ type GlobalTempUnschedulableSettings struct {
 }
 
 type CodexSimulationSettings struct {
-	FullSimulationEnabled                bool     `json:"full_simulation_enabled"`
-	CLevelSimulationEnabled              bool     `json:"c_level_simulation_enabled"`
-	ExperimentalTransportEnabled         bool     `json:"experimental_transport_enabled"`
-	CodexPrewarmContinuationForceEnabled bool     `json:"codex_prewarm_continuation_force_enabled"`
-	TurnStateReplayEnabled               bool     `json:"turn_state_replay_enabled"`
-	TurnStateAutoReplayEnabled           bool     `json:"turn_state_auto_replay_enabled"`
-	TurnStateTargetLength                int      `json:"turn_state_target_length"`
-	TurnStateWatchModels                 []string `json:"turn_state_watch_models"`
-	TurnStates                           []string `json:"turn_states"`
-	ContinuationMode                     string   `json:"continuation_mode"`
-	StateTTLSeconds                      int      `json:"state_ttl_seconds"`
-	IdentitySecretConfigured             bool     `json:"identity_secret_configured"`
+	FullSimulationEnabled                bool                         `json:"full_simulation_enabled"`
+	CLevelSimulationEnabled              bool                         `json:"c_level_simulation_enabled"`
+	ExperimentalTransportEnabled         bool                         `json:"experimental_transport_enabled"`
+	CodexPrewarmContinuationForceEnabled bool                         `json:"codex_prewarm_continuation_force_enabled"`
+	TurnStateReplayEnabled               bool                         `json:"turn_state_replay_enabled"`
+	TurnStateAutoReplayEnabled           bool                         `json:"turn_state_auto_replay_enabled"`
+	TurnStateTargetLength                int                          `json:"turn_state_target_length"`
+	TurnStateWatchModels                 []string                     `json:"turn_state_watch_models"`
+	TurnStates                           []string                     `json:"turn_states"`
+	ContinuationMode                     string                       `json:"continuation_mode"`
+	StateTTLSeconds                      int                          `json:"state_ttl_seconds"`
+	IdentitySecretConfigured             bool                         `json:"identity_secret_configured"`
+	TurnStateObservability               *CodexTurnStateObservability `json:"turn_state_observability,omitempty"`
+}
+
+type CodexTurnStateTokenMetadata struct {
+	Valid              bool       `json:"valid"`
+	Expired            bool       `json:"expired"`
+	Version            int        `json:"version"`
+	VersionHex         string     `json:"version_hex,omitempty"`
+	TokenCharacters    int        `json:"token_characters"`
+	TokenBytes         int        `json:"token_bytes"`
+	TokenBytesKnown    bool       `json:"token_bytes_known"`
+	IssuedAt           *time.Time `json:"issued_at,omitempty"`
+	EstimatedExpiresAt *time.Time `json:"estimated_expires_at,omitempty"`
+	ParseError         string     `json:"parse_error,omitempty"`
+}
+
+type CodexEncryptedContentObservation struct {
+	LastBytes      int        `json:"last_bytes"`
+	LastBytesKnown bool       `json:"last_bytes_known"`
+	BaselineBytes  int        `json:"baseline_bytes"`
+	DeltaBytes     int        `json:"delta_bytes"`
+	Classification string     `json:"classification"`
+	LastObservedAt *time.Time `json:"last_observed_at,omitempty"`
+}
+
+type CodexTurnStateRotationObservation struct {
+	Count      uint64     `json:"count"`
+	LastAt     *time.Time `json:"last_at,omitempty"`
+	LastReason string     `json:"last_reason,omitempty"`
+}
+
+type CodexTurnStateProbeObservation struct {
+	MissingSince  *time.Time `json:"missing_since,omitempty"`
+	LastHealthyAt *time.Time `json:"last_healthy_at,omitempty"`
+	NextProbeAt   *time.Time `json:"next_probe_at,omitempty"`
+	InFlight      bool       `json:"in_flight"`
+}
+
+type CodexTurnStateObservation struct {
+	AccountID            int64                             `json:"account_id"`
+	Model                string                            `json:"model"`
+	Source               string                            `json:"source"`
+	ProxyEnabled         bool                              `json:"proxy_enabled"`
+	LastSeenAt           *time.Time                        `json:"last_seen_at,omitempty"`
+	LastResponseAt       *time.Time                        `json:"last_response_at,omitempty"`
+	LastResponseHadState bool                              `json:"last_response_had_state"`
+	LastAcceptedAt       *time.Time                        `json:"last_accepted_at,omitempty"`
+	StateDigest          string                            `json:"state_digest,omitempty"`
+	LengthMatch          bool                              `json:"length_match"`
+	State                CodexTurnStateTokenMetadata       `json:"state"`
+	EncryptedContent     CodexEncryptedContentObservation  `json:"encrypted_content"`
+	Rotation             CodexTurnStateRotationObservation `json:"rotation"`
+	Probe                CodexTurnStateProbeObservation    `json:"probe"`
+}
+
+type CodexTurnStateObservability struct {
+	GeneratedAt     time.Time                   `json:"generated_at"`
+	Scope           string                      `json:"scope"`
+	Enabled         bool                        `json:"enabled"`
+	TargetLength    int                         `json:"target_length"`
+	TokenTTLSeconds int                         `json:"token_ttl_seconds"`
+	Items           []CodexTurnStateObservation `json:"items"`
 }
 
 type UpdateCodexSimulationSettingsRequest struct {

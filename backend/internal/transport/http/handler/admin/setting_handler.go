@@ -62,6 +62,7 @@ type SettingHandler struct {
 	totpService              *service.TotpService
 	userService              *service.UserService
 	tempUnschedulableCleaner *service.GlobalTempUnschedulableCleaner
+	openAIGatewayService     *service.OpenAIGatewayService
 }
 
 // NewSettingHandler 创建系统设置处理器
@@ -94,6 +95,10 @@ func (h *SettingHandler) SetStepUpDeps(totpService *service.TotpService, userSer
 
 func (h *SettingHandler) SetGlobalTempUnschedulableCleaner(cleaner *service.GlobalTempUnschedulableCleaner) {
 	h.tempUnschedulableCleaner = cleaner
+}
+
+func (h *SettingHandler) SetOpenAIGatewayService(gateway *service.OpenAIGatewayService) {
+	h.openAIGatewayService = gateway
 }
 
 // GetSettings 获取所有系统设置
