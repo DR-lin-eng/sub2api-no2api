@@ -65,19 +65,22 @@ var codexReservedIdentityHeaders = []string{
 // matching the source client's separation between compatibility projections
 // and turn metadata.
 var codexOfficialClientMetadataKeys = map[string]struct{}{
-	"x-codex-installation-id":  {},
-	"session_id":               {},
-	"thread_id":                {},
-	"turn_id":                  {},
-	"x-codex-window-id":        {},
-	"window_number":            {},
-	"context_window_id":        {},
-	"x-codex-turn-metadata":    {},
-	"x-codex-turn-state":       {},
-	"x-openai-subagent":        {},
-	"x-codex-parent-thread-id": {},
-	"parent_turn_id":           {},
-	"root_turn_id":             {},
+	"x-codex-installation-id":            {},
+	"session_id":                         {},
+	"thread_id":                          {},
+	"turn_id":                            {},
+	"x-codex-window-id":                  {},
+	"window_number":                      {},
+	"context_window_id":                  {},
+	"x-codex-turn-metadata":              {},
+	"x-codex-turn-state":                 {},
+	"x-openai-subagent":                  {},
+	"x-codex-parent-thread-id":           {},
+	"parent_turn_id":                     {},
+	"root_turn_id":                       {},
+	"parent_response_id":                 {},
+	"guardian_credits_requested":         {},
+	"x-codex-ws-stream-request-start-ms": {},
 	"ws_request_header_x_openai_internal_codex_responses_lite": {},
 	"ws_request_header_traceparent":                            {},
 	"ws_request_header_tracestate":                             {},
@@ -95,11 +98,13 @@ var codexOfficialTurnMetadataKeys = map[string]struct{}{
 	"request_kind":                   {},
 	"compaction":                     {},
 	"forked_from_thread_id":          {},
+	"forked_from_ordinal_exclusive":  {},
 	"parent_thread_id":               {},
 	"parent_turn_id":                 {},
 	"root_turn_id":                   {},
 	"subagent_kind":                  {},
 	"thread_source":                  {},
+	"turn_trigger":                   {},
 	"sandbox":                        {},
 	"sandbox_mode":                   {},
 	"auto_review_enabled":            {},
@@ -108,15 +113,20 @@ var codexOfficialTurnMetadataKeys = map[string]struct{}{
 	"workspaces":                     {},
 	"tool_namespaces_info":           {},
 	"turn_started_at_unix_ms":        {},
+	"history_ingest_requested":       {},
+	"analytics_enabled":              {},
 }
 
 var codexForbiddenTurnMetadataKeys = map[string]struct{}{
-	"x-codex-installation-id":  {},
-	"x-codex-window-id":        {},
-	"x-codex-turn-metadata":    {},
-	"x-codex-parent-thread-id": {},
-	"x-openai-subagent":        {},
-	"code_mode_tool_names":     {},
+	"x-codex-installation-id":            {},
+	"x-codex-window-id":                  {},
+	"x-codex-turn-metadata":              {},
+	"x-codex-parent-thread-id":           {},
+	"x-openai-subagent":                  {},
+	"parent_response_id":                 {},
+	"guardian_credits_requested":         {},
+	"x-codex-ws-stream-request-start-ms": {},
+	"code_mode_tool_names":               {},
 }
 
 const (
@@ -314,10 +324,14 @@ func applyCodexFingerprintHeaders(headers http.Header, ids *codexFingerprintIDs)
 		return
 	}
 	turnMetadata := headers.Get("x-codex-turn-metadata")
+	subagent := headers.Get("x-openai-subagent")
 	if ids.fullSimulation {
 		stripCodexReservedIdentityHeaders(headers)
 		if strings.TrimSpace(turnMetadata) != "" {
 			headers.Set("x-codex-turn-metadata", turnMetadata)
+		}
+		if validCodexSubagentValue(subagent) {
+			headers.Set("x-openai-subagent", subagent)
 		}
 	}
 

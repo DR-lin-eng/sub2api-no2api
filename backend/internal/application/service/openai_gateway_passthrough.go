@@ -584,6 +584,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 	// before headers are assembled so identities cannot cross account attempts.
 	stageCodexFingerprintIDs(c, fingerprintIDs)
 	targetURL := openaiPlatformAPIURL
+	var workspaceRouting *openAIWorkspaceRouting
 	useOfficialCodexEndpoint := false
 	switch account.Type {
 	case AccountTypeOAuth:
@@ -603,6 +604,20 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 		}
 	}
 	targetURL = appendOpenAIResponsesRequestPathSuffix(targetURL, openAIResponsesRequestPathSuffix(c))
+	if account.IsOpenAIOAuth() {
+		var routingErr error
+		workspaceRouting, routingErr = s.resolveOpenAIWorkspaceRouting(ctx, account, token)
+		if routingErr != nil {
+			return nil, newOpenAIWorkspaceRoutingFailoverError(routingErr)
+		}
+		if workspaceRouting != nil {
+			var urlErr error
+			targetURL, urlErr = applyOpenAIWorkspaceRoutingURL(targetURL, workspaceRouting, true)
+			if urlErr != nil {
+				return nil, newOpenAIWorkspaceRoutingFailoverError(urlErr)
+			}
+		}
+	}
 
 	promptCacheKey := openAIPassthroughTurnStateKey(c, account, body)
 	outboundBody := body
@@ -622,7 +637,9 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 		return nil, err
 	}
 	stream := gjson.GetBytes(outboundBody, "stream").Bool()
-	req = req.WithContext(WithHTTPUpstreamProfile(req.Context(), openAIHTTPUpstreamProfile(ctx, account, stream)))
+	requestCtx := WithHTTPUpstreamProfile(req.Context(), openAIHTTPUpstreamProfile(ctx, account, stream))
+	requestCtx = withOpenAIWorkspaceRoutingRedirectPolicy(requestCtx, workspaceRouting)
+	req = req.WithContext(requestCtx)
 	req = req.WithContext(WithHTTPUpstreamTLSProfile(req.Context(), s.resolveTLSProfile(account)))
 
 	// 透传客户端请求头（安全白名单）。
@@ -680,7 +697,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 		// experiment. Passthrough may receive it from an older client, so remove
 		// only that token while preserving any independent beta negotiation.
 		stripOpenAILegacyResponsesBeta(req.Header)
-		if useOfficialCodexEndpoint {
+		if useOfficialCodexEndpoint && isOfficialChatGPTCodexURL(targetURL) {
 			req.Host = "chatgpt.com"
 		}
 		if err := resolveAndSetOpenAIChatGPTAccountHeaders(ctx, s.accountRepo, req.Header, account); err != nil {
@@ -750,6 +767,8 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 	applyOpenAICodexBetaFeatures(c, account, req.Header)
 	applyOpenAICodexRoutingHintFromBody(ctx, account, "http_passthrough", req.Header, outboundBody, "not_applicable")
 	applyCodexSimulationProfileHeaders(req.Header, fingerprintIDs)
+	applyOpenAICodexSemanticRequestHeaders(req.Header, c, account, outboundBody)
+	applyOpenAIWorkspaceRoutingHeader(req.Header, workspaceRouting)
 
 	return req, nil
 }

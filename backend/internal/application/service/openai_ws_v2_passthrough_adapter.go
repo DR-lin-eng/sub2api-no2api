@@ -845,7 +845,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	usageMeta.initFromFirstFrame(firstClientMessage, capturedSessionModel)
 	promptCacheKey := strings.TrimSpace(gjson.GetBytes(firstClientMessage, "prompt_cache_key").String())
 
-	wsURL, err := s.buildOpenAIResponsesWSURLWithContext(ctx, account)
+	wsURL, err := s.buildOpenAIResponsesWSURLWithContext(ctx, account, token)
 	if err != nil {
 		return fmt.Errorf("build ws url: %w", err)
 	}
@@ -900,6 +900,8 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	stageCodexOutboundSessionBody(c, firstClientMessage)
 	applyCodexOutboundSessionHeaders(c, account, firstClientMessage, promptCacheKey, headers, fingerprintIDs)
 	applyCodexFingerprintWSHeaders(headers, fingerprintIDs)
+	applyOpenAIResponsesLiteWebSocketHeader(headers, firstClientMessage)
+	applyOpenAICodexSemanticRequestHeaders(headers, c, account, firstClientMessage)
 	// The compatibility key is only for the managed connection pool. This
 	// passthrough path dials upstream directly and must never expose it.
 	headers.Del(codexFingerprintWSKeyHeader)

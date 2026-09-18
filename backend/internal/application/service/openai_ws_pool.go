@@ -89,14 +89,23 @@ type openAIWSAcquireRequest struct {
 }
 
 type openAIWSHandshakeCompatibilityKey struct {
-	userAgent      string
-	originator     string
-	version        string
-	betaFeatures   string
-	fingerprintKey string
-	turnStateHash  [sha256.Size]byte
-	tlsProfileKey  string
-	egressRouteKey string
+	targetURL       string
+	userAgent       string
+	originator      string
+	version         string
+	betaHeader      string
+	betaFeatures    string
+	routingOverride string
+	responsesLite   string
+	subagent        string
+	guardian        string
+	memgen          string
+	timingMetrics   string
+	authHash        [sha256.Size]byte
+	fingerprintKey  string
+	turnStateHash   [sha256.Size]byte
+	tlsProfileKey   string
+	egressRouteKey  string
 }
 
 type openAIWSConnLease struct {
@@ -2373,6 +2382,8 @@ func sameOpenAIWSPrewarmTarget(a, b openAIWSAcquireRequest) bool {
 
 func openAIWSAcquireCompatibility(req openAIWSAcquireRequest) openAIWSHandshakeCompatibilityKey {
 	compatibility := normalizeOpenAIWSHandshakeCompatibility(req.Headers)
+	compatibility.targetURL = stringsTrim(req.WSURL)
+	compatibility.authHash = openAIWSAuthorizationCompatibilityHash(req.Headers)
 	compatibility.tlsProfileKey = tlsfingerprint.FingerprintKey(req.TLSProfile)
 	route := openAIWSAcquireRoute(req)
 	if route.Mode == platformegress.ModeIPv6Pool {
@@ -2418,13 +2429,31 @@ func normalizeOpenAIWSBetaFeatures(headers http.Header) string {
 
 func normalizeOpenAIWSHandshakeCompatibility(headers http.Header) openAIWSHandshakeCompatibilityKey {
 	return openAIWSHandshakeCompatibilityKey{
-		userAgent:      headers.Get("User-Agent"),
-		originator:     headers.Get("originator"),
-		version:        headers.Get("version"),
-		betaFeatures:   normalizeOpenAIWSBetaFeatures(headers),
-		fingerprintKey: headers.Get(codexFingerprintWSKeyHeader),
-		turnStateHash:  openAIWSTurnStateCompatibilityHash(headers),
+		userAgent:       headers.Get("User-Agent"),
+		originator:      headers.Get("originator"),
+		version:         headers.Get("version"),
+		betaHeader:      headers.Get("OpenAI-Beta"),
+		betaFeatures:    normalizeOpenAIWSBetaFeatures(headers),
+		routingOverride: headers.Get(openAIAccountRoutingOverrideHeader),
+		responsesLite:   headers.Get(responsesLiteHeaderKey),
+		subagent:        headers.Get("x-openai-subagent"),
+		guardian:        headers.Get("x-codex-guardian"),
+		memgen:          headers.Get("x-openai-memgen-request"),
+		timingMetrics:   headers.Get("x-responsesapi-include-timing-metrics"),
+		fingerprintKey:  headers.Get(codexFingerprintWSKeyHeader),
+		turnStateHash:   openAIWSTurnStateCompatibilityHash(headers),
 	}
+}
+
+func openAIWSAuthorizationCompatibilityHash(headers http.Header) [sha256.Size]byte {
+	if headers == nil {
+		return [sha256.Size]byte{}
+	}
+	value := strings.TrimSpace(headers.Get("Authorization"))
+	if value == "" {
+		return [sha256.Size]byte{}
+	}
+	return sha256.Sum256([]byte(value))
 }
 
 func openAIWSTurnStateCompatibilityHash(headers http.Header) [sha256.Size]byte {

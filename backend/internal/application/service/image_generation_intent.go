@@ -1,6 +1,7 @@
 package service
 
 import (
+	"net/http"
 	"strings"
 
 	"github.com/tidwall/gjson"
@@ -24,6 +25,12 @@ func isOpenAIResponsesLiteWebSocketPayload(body []byte) bool {
 		return false
 	}
 	return isOpenAIResponsesLiteHeader(gjson.GetBytes(body, "client_metadata."+responsesLiteWSMetadataKey).String())
+}
+
+func applyOpenAIResponsesLiteWebSocketHeader(headers http.Header, body []byte) {
+	if headers != nil && isOpenAIResponsesLiteWebSocketPayload(body) {
+		headers.Set(responsesLiteHeader, "true")
+	}
 }
 
 // ImageGenerationPermissionMessage returns the stable end-user error text for disabled groups.

@@ -231,7 +231,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		wsPath = "/v1/responses"
 	} else {
 		var err error
-		wsURL, err = s.buildOpenAIResponsesWSURLWithContext(ctx, account)
+		wsURL, err = s.buildOpenAIResponsesWSURLWithContext(ctx, account, token)
 		if err != nil {
 			return fmt.Errorf("build ws url: %w", err)
 		}
@@ -857,6 +857,8 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	stageCodexOutboundSessionBody(c, firstPayload.payloadRaw)
 	applyCodexOutboundSessionHeaders(c, account, firstPayload.payloadRaw, firstPayload.promptCacheKey, wsHeaders, fingerprintIDs)
 	applyCodexFingerprintWSHeaders(wsHeaders, fingerprintIDs)
+	applyOpenAIResponsesLiteWebSocketHeader(wsHeaders, firstPayload.payloadRaw)
+	applyOpenAICodexSemanticRequestHeaders(wsHeaders, c, account, firstPayload.payloadRaw)
 	baseAcquireReq := openAIWSAcquireRequest{
 		Account:    account,
 		WSURL:      wsURL,

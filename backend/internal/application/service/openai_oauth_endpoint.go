@@ -59,7 +59,7 @@ func (s *OpenAIGatewayService) openAIOAuthCodexTargetURL(account *Account) (stri
 	return s.openAIOAuthCodexTargetURLWithContext(context.Background(), account)
 }
 
-func (s *OpenAIGatewayService) openAIOAuthCodexTargetURLWithContext(ctx context.Context, account *Account) (string, bool, error) {
+func (s *OpenAIGatewayService) openAIOAuthCodexTargetURLWithContext(ctx context.Context, account *Account, _ ...string) (string, bool, error) {
 	var settingService *SettingService
 	var cfg *config.Config
 	if s != nil {

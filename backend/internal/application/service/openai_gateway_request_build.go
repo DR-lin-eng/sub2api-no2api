@@ -21,6 +21,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	stageCodexFingerprintIDs(c, fingerprintIDs)
 	// Determine target URL based on account type
 	var targetURL string
+	var workspaceRouting *openAIWorkspaceRouting
 	useOfficialCodexEndpoint := false
 	switch account.Type {
 	case AccountTypeOAuth:
@@ -49,6 +50,20 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 		targetURL = openaiPlatformAPIURL
 	}
 	targetURL = appendOpenAIResponsesRequestPathSuffix(targetURL, openAIResponsesRequestPathSuffix(c))
+	if account.IsOpenAIOAuth() {
+		var routingErr error
+		workspaceRouting, routingErr = s.resolveOpenAIWorkspaceRouting(ctx, account, token)
+		if routingErr != nil {
+			return nil, newOpenAIWorkspaceRoutingFailoverError(routingErr)
+		}
+		if workspaceRouting != nil {
+			var urlErr error
+			targetURL, urlErr = applyOpenAIWorkspaceRoutingURL(targetURL, workspaceRouting, true)
+			if urlErr != nil {
+				return nil, newOpenAIWorkspaceRoutingFailoverError(urlErr)
+			}
+		}
+	}
 
 	body = normalizeNativeCNResponsesRequestBody(account, body)
 	outboundBody := body
@@ -77,7 +92,9 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	if err != nil {
 		return nil, err
 	}
-	req = req.WithContext(WithHTTPUpstreamProfile(req.Context(), openAIHTTPUpstreamProfile(ctx, account, isStream)))
+	requestCtx := WithHTTPUpstreamProfile(req.Context(), openAIHTTPUpstreamProfile(ctx, account, isStream))
+	requestCtx = withOpenAIWorkspaceRoutingRedirectPolicy(requestCtx, workspaceRouting)
+	req = req.WithContext(requestCtx)
 	req = req.WithContext(WithHTTPUpstreamTLSProfile(req.Context(), s.resolveTLSProfile(account)))
 
 	// Build authentication for this request. Agent Identity signs a fresh
@@ -95,7 +112,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	// Set headers specific to OAuth accounts (ChatGPT internal API)
 	if account.Type == AccountTypeOAuth {
 		// Required: set Host for ChatGPT API (must use req.Host, not Header.Set)
-		if useOfficialCodexEndpoint {
+		if useOfficialCodexEndpoint && isOfficialChatGPTCodexURL(targetURL) {
 			req.Host = "chatgpt.com"
 		}
 		if err := resolveAndSetOpenAIChatGPTAccountHeaders(ctx, s.accountRepo, req.Header, account); err != nil {
@@ -202,6 +219,8 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	applyOpenAICodexBetaFeatures(c, account, req.Header)
 	applyOpenAICodexRoutingHintFromBody(ctx, account, "http", req.Header, outboundBody, "not_applicable")
 	applyCodexSimulationProfileHeaders(req.Header, fingerprintIDs)
+	applyOpenAICodexSemanticRequestHeaders(req.Header, c, account, outboundBody)
+	applyOpenAIWorkspaceRoutingHeader(req.Header, workspaceRouting)
 
 	return req, nil
 }

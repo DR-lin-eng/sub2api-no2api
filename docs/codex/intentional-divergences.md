@@ -161,6 +161,34 @@ Remote Control 的 URL、enroll/refresh/pair 请求、protocol-v3 WebSocket head
 账号适配器会把 token 以密文写入 Account.Extra；调用方可以把它绑定到账号级 HTTP/TLS transport。网关请求路径
 本身仍不自动启动后台 Remote Control socket，真实 enrollment/heartbeat 需要外部控制器调用该 manager。
 
+## 最新 Codex 请求头收敛
+
+OpenAI OAuth 的 Responses HTTP、Compact、透传和 Responses WebSocket 路径现在共享同一组出站头策略：
+
+- `x-codex-parent-thread-id`、`x-openai-subagent` 从隔离后的 `client_metadata`/turn metadata 重建；
+  调用方原始值不会直接跨 API key 或上游账号复用。
+- Guardian 的 `x-codex-guardian: reviewer|classifier` 只有在对应 `x-openai-subagent` 与
+  `thread_source`/`turn_trigger` 组合一致时才生成；普通请求会清除伪造值。
+- Memory consolidation 只有在 `x-openai-memgen-request: true`、`memory_consolidation` subagent 和
+  `request_kind=memory` 的语义同时成立时才生成。
+- `parent_response_id`、`guardian_credits_requested`、`history_ingest_requested`、`analytics_enabled`、
+  `forked_from_ordinal_exclusive`、`turn_trigger` 等新版 metadata 键保留在结构化投影中，并保持官方类型。
+- Responses Lite 的 `x-openai-internal-codex-responses-lite` 会在 HTTP/兼容桥上继续透传；原生 WS
+  握手同时从入站握手头或 `client_metadata.ws_request_header_x_openai_internal_codex_responses_lite` 重建，
+  并纳入连接兼容键，避免 Lite 与普通握手复用同一 socket。
+- Workspace routing 由网关使用当前 OAuth token 调用 `wham/accounts/check` 发现；只接受 HTTPS origin 与
+  `us`、`us_cr`、`NO_CONSTRAINT`。`us/us_cr` 生成 `x-openai-account-routing-override`，
+  `NO_CONSTRAINT` 不生成该头但仍禁用重定向。发现失败对当前账号 fail-closed 并进入账号级切换。
+- WS 连接兼容键包含最终目标 URL、routing override、认证摘要、Guardian/memgen/subagent 和 timing 头，
+  不会把不同 workspace、token 或语义会话复用到同一握手。
+
+为避免把 OAuth Bearer token 发送到未经验证的管理员自定义 Relay，当前 discovery 仅在官方
+`chatgpt.com` Codex origin 启用；自定义/全局 Relay 保留原有 Relay 路由，不自动发送
+`/wham/accounts/check`。若 Relay 将来提供明确的受信 discovery 合同，再单独接入该路径。
+
+这些字段由网关根据已验证的 OAuth 账号和请求语义生成；它们不属于 API key 账号的任意 Header override
+或低风险 passthrough 白名单。`x-oai-attestation`、managed residency 和 host-device-kind 仍不伪造。
+
 full simulation 会清理下游直接注入的 `x-oai-attestation`、residency 和 host-device-kind 头，避免把调用方
 的运行时证明带到另一个 OAuth principal；真实平台证明仍只由现有 Live/Agent Identity 专用路径提供。
 
