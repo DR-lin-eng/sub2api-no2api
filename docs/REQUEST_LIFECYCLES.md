@@ -214,6 +214,14 @@ OAuth 授权码、refresh token、账号隐私/授权接口仍使用 OpenAI 官�
 请求出口。地址继续经过全局 `security.url_allowlist` 校验，账号配置的出口路由和 TLS Profile
 仍按原规则应用。
 
+管理员还可以在“网关设置 -> 请求转发行为”开启
+`openai_oauth_force_relay_enabled`，并填写 `openai_oauth_force_relay_base_url`。开启后该全局
+策略优先于账号级 `custom_base_url`，覆盖 OpenAI OAuth 的 Responses、Compact、Responses WS、
+Alpha Search、模型清单、账号测试/探测、图片、Live 调用/sideband 以及
+`responses/input_tokens`（后者改为本地估算）路径；
+API Key、Anthropic 和 OAuth 授权/刷新、隐私与额度管理请求不受影响。全局地址为空或不符合
+`http/https` 与 `security.url_allowlist` 校验时请求 fail-closed，不回退到官方端点。
+
 IPv6 模式只解析 AAAA 并从绑定源地址拨号。无 AAAA、缺少绑定或路由失败时不允许
 Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换后只关闭旧空闲连接。
 完整数据、管理和 Docker 路由边界见 [账号级 IPv6 出口](IPV6_EGRESS.md)。

@@ -26,6 +26,10 @@ func validateOpenAIWSBearerToken(account *Account, token string) error {
 }
 
 func (s *OpenAIGatewayService) buildOpenAIResponsesWSURL(account *Account) (string, error) {
+	return s.buildOpenAIResponsesWSURLWithContext(context.Background(), account)
+}
+
+func (s *OpenAIGatewayService) buildOpenAIResponsesWSURLWithContext(ctx context.Context, account *Account) (string, error) {
 	if account == nil {
 		return "", errors.New("account is nil")
 	}
@@ -33,7 +37,7 @@ func (s *OpenAIGatewayService) buildOpenAIResponsesWSURL(account *Account) (stri
 	switch account.Type {
 	case AccountTypeOAuth:
 		var err error
-		targetURL, _, err = s.openAIOAuthCodexTargetURL(account)
+		targetURL, _, err = s.openAIOAuthCodexTargetURLWithContext(ctx, account)
 		if err != nil {
 			return "", err
 		}

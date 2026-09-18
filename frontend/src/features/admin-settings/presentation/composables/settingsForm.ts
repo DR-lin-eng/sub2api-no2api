@@ -39,6 +39,8 @@ export type SettingsForm = Omit<
   google_oauth_client_secret: string;
   force_email_on_third_party_signup: boolean;
   openai_low_upstream_rate_priority_enabled: boolean;
+  openai_oauth_force_relay_enabled: boolean;
+  openai_oauth_force_relay_base_url: string;
   openai_oauth_scheduling_rate_multiplier: number;
   openai_content_session_burst_balance_enabled: boolean;
   openai_session_id_rate_limit_enabled: boolean;
@@ -297,6 +299,9 @@ export function createSettingsForm(localText: LocalText): SettingsForm {
     max_claude_code_version: "",
     allow_ungrouped_key_scheduling: false,
     openai_low_upstream_rate_priority_enabled: false,
+    openai_oauth_force_relay_enabled: false,
+    openai_oauth_force_relay_base_url:
+      "https://codex-relay.oaifree.com/backend-api/codex",
     openai_oauth_scheduling_rate_multiplier: 1,
     openai_content_session_burst_balance_enabled: false,
     openai_session_id_rate_limit_enabled: false,

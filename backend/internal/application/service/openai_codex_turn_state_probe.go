@@ -328,7 +328,7 @@ func (s *OpenAIGatewayService) probeOpenAICodexTurnStateViaProxy(
 	if err != nil {
 		return "", fmt.Errorf("refresh authentication headers: %w", err)
 	}
-	wsURL, err := s.buildOpenAIResponsesWSURL(account)
+	wsURL, err := s.buildOpenAIResponsesWSURLWithContext(attemptCtx, account)
 	if err != nil {
 		return "", fmt.Errorf("build websocket url: %w", err)
 	}

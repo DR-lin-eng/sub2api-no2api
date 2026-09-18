@@ -26,7 +26,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	case AccountTypeOAuth:
 		// OAuth accounts use ChatGPT internal API
 		var err error
-		targetURL, useOfficialCodexEndpoint, err = s.openAIOAuthCodexTargetURL(account)
+		targetURL, useOfficialCodexEndpoint, err = s.openAIOAuthCodexTargetURLWithContext(ctx, account)
 		if err != nil {
 			return nil, err
 		}

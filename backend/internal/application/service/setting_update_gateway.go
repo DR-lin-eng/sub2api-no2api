@@ -17,6 +17,8 @@ func writeGatewaySystemSettingUpdates(updates map[string]string, settings *Syste
 	updates[SettingKeyRequestPriorityPendingMiBPerInstance] = strconv.Itoa(settings.RequestPriorityPendingMiBPerInstance)
 	updates[SettingKeyBackendModeEnabled] = strconv.FormatBool(settings.BackendModeEnabled)
 	updates[SettingKeyStreamModePerformanceEnabled] = strconv.FormatBool(settings.StreamModePerformanceEnabled)
+	updates[SettingKeyOpenAIOAuthForceRelayEnabled] = strconv.FormatBool(settings.OpenAIOAuthForceRelayEnabled)
+	updates[SettingKeyOpenAIOAuthForceRelayBaseURL] = strings.TrimSpace(settings.OpenAIOAuthForceRelayBaseURL)
 	updates[SettingKeyOpenAIWSModeRouterV2Enabled] = strconv.FormatBool(settings.OpenAIWSModeRouterV2Enabled)
 	updates[SettingKeyOpenAIVisibleOutputTTFTEnabled] = strconv.FormatBool(settings.OpenAIVisibleOutputTTFTEnabled)
 

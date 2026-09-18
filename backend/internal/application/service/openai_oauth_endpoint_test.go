@@ -96,3 +96,61 @@ func TestOpenAIOAuthCustomRelayModelsManifestUsesRelayModelsPath(t *testing.T) {
 	require.Equal(t, "/backend-api/codex/models", gotPath)
 	require.Equal(t, "0.146.0", gotVersion)
 }
+
+func TestOpenAIOAuthForceRelayTakesPrecedenceOverAccountRelay(t *testing.T) {
+	repo := &openAIWSModeRouterSettingRepo{values: map[string]string{
+		SettingKeyOpenAIOAuthForceRelayEnabled: "true",
+		SettingKeyOpenAIOAuthForceRelayBaseURL: "https://global-relay.example/backend-api/codex",
+	}}
+	settings := NewSettingService(repo, &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}})
+	svc := openAIOAuthCustomRelayTestService()
+	svc.settingService = settings
+	account := openAIOAuthCustomRelayAccount()
+	account.Extra["custom_base_url"] = "https://account-relay.example/backend-api/codex"
+
+	target, official, err := svc.openAIOAuthCodexTargetURLWithContext(context.Background(), account)
+	require.NoError(t, err)
+	require.False(t, official)
+	require.Equal(t, "https://global-relay.example/backend-api/codex/responses", target)
+}
+
+func TestOpenAIOAuthForceRelayDisabledPreservesAccountRelay(t *testing.T) {
+	repo := &openAIWSModeRouterSettingRepo{values: map[string]string{
+		SettingKeyOpenAIOAuthForceRelayEnabled: "false",
+	}}
+	settings := NewSettingService(repo, &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}})
+	svc := openAIOAuthCustomRelayTestService()
+	svc.settingService = settings
+	target, official, err := svc.openAIOAuthCodexTargetURLWithContext(context.Background(), openAIOAuthCustomRelayAccount())
+	require.NoError(t, err)
+	require.False(t, official)
+	require.Equal(t, "https://codex-relay.oaifree.com/backend-api/codex/responses", target)
+}
+
+func TestOpenAIOAuthForceRelayEnabledWithoutURLFailsClosed(t *testing.T) {
+	repo := &openAIWSModeRouterSettingRepo{values: map[string]string{
+		SettingKeyOpenAIOAuthForceRelayEnabled: "true",
+	}}
+	settings := NewSettingService(repo, &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}})
+	svc := openAIOAuthCustomRelayTestService()
+	svc.settingService = settings
+	_, _, err := svc.openAIOAuthCodexTargetURLWithContext(context.Background(), openAIOAuthCustomRelayAccount())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "base URL is required")
+}
+
+func TestOpenAIOAuthForceRelaySettingsRoundTrip(t *testing.T) {
+	repo := &openAIWSModeRouterSettingRepo{values: map[string]string{}}
+	cfg := &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}}
+	settings := NewSettingService(repo, cfg)
+	requested := &SystemSettings{
+		OpenAIOAuthForceRelayEnabled: true,
+		OpenAIOAuthForceRelayBaseURL: "https://relay.example/backend-api/codex",
+	}
+	require.NoError(t, settings.UpdateSettings(context.Background(), requested))
+	require.Equal(t, "true", repo.values[SettingKeyOpenAIOAuthForceRelayEnabled])
+	require.Equal(t, "https://relay.example/backend-api/codex", repo.values[SettingKeyOpenAIOAuthForceRelayBaseURL])
+	parsed := settings.parseSettings(repo.values)
+	require.True(t, parsed.OpenAIOAuthForceRelayEnabled)
+	require.Equal(t, requested.OpenAIOAuthForceRelayBaseURL, parsed.OpenAIOAuthForceRelayBaseURL)
+}

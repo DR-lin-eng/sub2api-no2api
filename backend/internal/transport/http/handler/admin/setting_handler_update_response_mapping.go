@@ -193,6 +193,8 @@ func buildSettingsUpdateResponsePayload(
 		StreamModePerformanceEnabled:                           updatedSettings.StreamModePerformanceEnabled,
 		OpenAIWSModeRouterV2Enabled:                            updatedSettings.OpenAIWSModeRouterV2Enabled,
 		OpenAIVisibleOutputTTFTEnabled:                         updatedSettings.OpenAIVisibleOutputTTFTEnabled,
+		OpenAIOAuthForceRelayEnabled:                           updatedSettings.OpenAIOAuthForceRelayEnabled,
+		OpenAIOAuthForceRelayBaseURL:                           updatedSettings.OpenAIOAuthForceRelayBaseURL,
 		EnableFingerprintUnification:                           updatedSettings.EnableFingerprintUnification,
 		EnableMetadataPassthrough:                              updatedSettings.EnableMetadataPassthrough,
 		EnableCCHSigning:                                       updatedSettings.EnableCCHSigning,

@@ -146,6 +146,22 @@ func TestCreateUpstreamLiveCallPreservesSession(t *testing.T) {
 	require.True(t, HTTPUpstreamRedirectsDisabled(upstream.request.Context()))
 }
 
+func TestCreateUpstreamLiveCallUsesGlobalOAuthRelay(t *testing.T) {
+	upstream := &liveHTTPUpstreamStub{}
+	svc := openAIOAuthForceRelayTestService("https://global-relay.example/backend-api/codex")
+	svc.httpUpstream = upstream
+	account := &Account{
+		ID: 7, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Concurrency: 2,
+		Credentials: map[string]any{"access_token": "token", "chatgpt_account_id": "acct_test"},
+	}
+	_, err := svc.createUpstreamLiveCall(context.Background(), account, &LiveCallRequest{
+		SDP: "v=offer\r\n", Session: json.RawMessage(`{"model":"gpt-live-test"}`),
+	}, `{"v":1,"s":0,"t":"v1.test"}`)
+	require.NoError(t, err)
+	require.Equal(t, "https://global-relay.example/backend-api/codex/realtime/calls?architecture=avas&intent=quicksilver", upstream.request.URL.String())
+	require.Equal(t, "global-relay.example", upstream.request.Host)
+}
+
 func TestLiveAttestationCipherRoundTripAndRejectsOtherInstanceKey(t *testing.T) {
 	first := newLiveAttestationCipher(&config.Config{
 		JWT: config.JWTConfig{Secret: "first-live-secret"},

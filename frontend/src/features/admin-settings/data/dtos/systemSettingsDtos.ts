@@ -608,6 +608,8 @@ export interface SystemSettings {
   request_priority_pending_mib_per_instance: number;
 
   // Gateway forwarding behavior
+  openai_oauth_force_relay_enabled: boolean;
+  openai_oauth_force_relay_base_url: string;
   enable_fingerprint_unification: boolean;
   enable_metadata_passthrough: boolean;
   enable_cch_signing: boolean;
@@ -961,6 +963,8 @@ export interface UpdateSettingsRequest {
   request_priority_admission_enabled?: boolean;
   request_priority_pending_limit_per_instance?: number;
   request_priority_pending_mib_per_instance?: number;
+  openai_oauth_force_relay_enabled?: boolean;
+  openai_oauth_force_relay_base_url?: string;
   enable_fingerprint_unification?: boolean;
   enable_metadata_passthrough?: boolean;
   enable_cch_signing?: boolean;

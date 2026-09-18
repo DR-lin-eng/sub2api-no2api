@@ -845,7 +845,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	usageMeta.initFromFirstFrame(firstClientMessage, capturedSessionModel)
 	promptCacheKey := strings.TrimSpace(gjson.GetBytes(firstClientMessage, "prompt_cache_key").String())
 
-	wsURL, err := s.buildOpenAIResponsesWSURL(account)
+	wsURL, err := s.buildOpenAIResponsesWSURLWithContext(ctx, account)
 	if err != nil {
 		return fmt.Errorf("build ws url: %w", err)
 	}

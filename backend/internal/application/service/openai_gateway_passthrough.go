@@ -588,7 +588,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 	switch account.Type {
 	case AccountTypeOAuth:
 		var err error
-		targetURL, useOfficialCodexEndpoint, err = s.openAIOAuthCodexTargetURL(account)
+		targetURL, useOfficialCodexEndpoint, err = s.openAIOAuthCodexTargetURLWithContext(ctx, account)
 		if err != nil {
 			return nil, err
 		}

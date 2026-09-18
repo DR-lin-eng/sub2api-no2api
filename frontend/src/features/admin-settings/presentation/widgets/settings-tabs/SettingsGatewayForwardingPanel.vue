@@ -13,6 +13,35 @@
         </p>
       </div>
       <div class="space-y-5 p-6">
+        <div class="border-b border-gray-100 pb-5 dark:border-dark-700">
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {{ t("admin.settings.gatewayForwarding.openAIOAuthForceRelay") }}
+              </label>
+              <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.gatewayForwarding.openAIOAuthForceRelayHint") }}
+              </p>
+            </div>
+            <Toggle
+              v-model="form.openai_oauth_force_relay_enabled"
+              data-testid="openai-oauth-force-relay-toggle"
+            />
+          </div>
+          <div class="mt-4">
+            <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {{ t("admin.settings.gatewayForwarding.openAIOAuthForceRelayBaseURL") }}
+            </label>
+            <input
+              v-model="form.openai_oauth_force_relay_base_url"
+              class="input w-full"
+              type="url"
+              autocomplete="off"
+              :placeholder="t('admin.settings.gatewayForwarding.openAIOAuthForceRelayBaseURLPlaceholder')"
+              data-testid="openai-oauth-force-relay-url"
+            />
+          </div>
+        </div>
         <div class="flex items-center justify-between gap-4">
           <div>
             <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
