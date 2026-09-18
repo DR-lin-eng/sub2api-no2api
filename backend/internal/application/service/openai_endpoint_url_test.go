@@ -29,3 +29,21 @@ func TestBuildOpenAIEndpointURLPreservesURLComponents(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildOpenAIOAuthCodexResponsesURL(t *testing.T) {
+	tests := []struct {
+		name string
+		base string
+		want string
+	}{
+		{name: "codex relay path", base: "https://codex-relay.example/backend-api/codex", want: "https://codex-relay.example/backend-api/codex/responses"},
+		{name: "already responses", base: "https://codex-relay.example/backend-api/codex/responses", want: "https://codex-relay.example/backend-api/codex/responses"},
+		{name: "versioned relay", base: "https://relay.example/v1", want: "https://relay.example/v1/responses"},
+		{name: "query preserved", base: "https://relay.example/backend-api/codex?tenant=one", want: "https://relay.example/backend-api/codex/responses?tenant=one"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, buildOpenAIOAuthCodexResponsesURL(tt.base))
+		})
+	}
+}

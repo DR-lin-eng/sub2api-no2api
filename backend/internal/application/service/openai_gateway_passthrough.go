@@ -584,9 +584,14 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 	// before headers are assembled so identities cannot cross account attempts.
 	stageCodexFingerprintIDs(c, fingerprintIDs)
 	targetURL := openaiPlatformAPIURL
+	useOfficialCodexEndpoint := false
 	switch account.Type {
 	case AccountTypeOAuth:
-		targetURL = chatgptCodexURL
+		var err error
+		targetURL, useOfficialCodexEndpoint, err = s.openAIOAuthCodexTargetURL(account)
+		if err != nil {
+			return nil, err
+		}
 	case AccountTypeAPIKey:
 		baseURL := account.GetOpenAIBaseURL()
 		if baseURL != "" {
@@ -675,7 +680,9 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthroughWithFingerpr
 		// experiment. Passthrough may receive it from an older client, so remove
 		// only that token while preserving any independent beta negotiation.
 		stripOpenAILegacyResponsesBeta(req.Header)
-		req.Host = "chatgpt.com"
+		if useOfficialCodexEndpoint {
+			req.Host = "chatgpt.com"
+		}
 		if err := resolveAndSetOpenAIChatGPTAccountHeaders(ctx, s.accountRepo, req.Header, account); err != nil {
 			return nil, fmt.Errorf("resolve chatgpt account headers: %w", err)
 		}

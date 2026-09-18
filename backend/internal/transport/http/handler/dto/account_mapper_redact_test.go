@@ -119,6 +119,24 @@ func TestAccountFromServiceShallow_ExposesOpenAIAccountTLSProfile(t *testing.T) 
 	require.Equal(t, int64(-1), *got.TLSFingerprintProfileID)
 }
 
+func TestAccountFromServiceShallow_ExposesOpenAIOAuthCustomRelay(t *testing.T) {
+	src := &service.Account{
+		ID:       79,
+		Platform: service.PlatformOpenAI,
+		Type:     service.AccountTypeOAuth,
+		Extra: map[string]any{
+			"custom_base_url_enabled": true,
+			"custom_base_url":         "https://codex-relay.oaifree.com/backend-api/codex",
+		},
+	}
+
+	got := AccountFromServiceShallow(src)
+	require.NotNil(t, got.CustomBaseURLEnabled)
+	require.True(t, *got.CustomBaseURLEnabled)
+	require.NotNil(t, got.CustomBaseURL)
+	require.Equal(t, "https://codex-relay.oaifree.com/backend-api/codex", *got.CustomBaseURL)
+}
+
 func TestAccountFromServiceShallow_ExposesSchedulingDisabledReason(t *testing.T) {
 	src := &service.Account{
 		ID:          88,

@@ -146,6 +146,13 @@ func shouldEstimateOpenAIInputTokensLocally(account *Account) bool {
 	if account == nil || account.IsGrok() || account.Type == AccountTypeUpstream {
 		return true
 	}
+	// Codex relays commonly expose only `/responses`; the optional
+	// `/responses/input_tokens` preflight endpoint is not part of that contract.
+	// Keep the request usable by using the bounded local estimator instead of
+	// sending a guaranteed 404 to the configured relay.
+	if account.IsOpenAIOAuth() && account.IsCustomBaseURLEnabled() {
+		return true
+	}
 	if account.Type != AccountTypeAPIKey {
 		return false
 	}

@@ -885,6 +885,21 @@ function applyOpenAIExtra(
   delete extra.responses_websockets_v2_enabled
   delete extra.openai_ws_enabled
 
+  // OpenAI OAuth/Codex model traffic may use a custom relay. Keep the value
+  // in account extra while leaving setup-token/API-key accounts unchanged.
+  if (account.type === 'oauth') {
+    if (
+      context.customBaseUrlEnabled.value &&
+      context.customBaseUrl.value.trim()
+    ) {
+      extra.custom_base_url_enabled = true
+      extra.custom_base_url = context.customBaseUrl.value.trim()
+    } else {
+      delete extra.custom_base_url_enabled
+      delete extra.custom_base_url
+    }
+  }
+
   if (context.openaiPassthroughEnabled.value) {
     extra.openai_passthrough = true
   } else {

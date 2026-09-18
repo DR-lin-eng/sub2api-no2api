@@ -219,7 +219,11 @@ func (s *OpenAIGatewayService) forwardAlphaSearchViaResponsesWebSearch(
 }
 
 func (s *OpenAIGatewayService) buildOpenAIAlphaSearchResponsesWebSearchRequest(ctx context.Context, c *gin.Context, account *Account, alphaBody []byte, body []byte, token string) (*http.Request, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, chatgptCodexURL, bytes.NewReader(body))
+	targetURL, official, err := s.openAIOAuthCodexTargetURL(account)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +238,9 @@ func (s *OpenAIGatewayService) buildOpenAIAlphaSearchResponsesWebSearchRequest(c
 			req.Header.Add(key, value)
 		}
 	}
-	req.Host = "chatgpt.com"
+	if official {
+		req.Host = "chatgpt.com"
+	}
 	if err := resolveAndSetOpenAIChatGPTAccountHeaders(ctx, s.accountRepo, req.Header, account); err != nil {
 		return nil, fmt.Errorf("resolve chatgpt account headers: %w", err)
 	}
@@ -660,6 +666,17 @@ func (s *OpenAIGatewayService) openAIAlphaSearchURL(account *Account) (string, e
 	}
 	switch account.Type {
 	case AccountTypeOAuth:
+		if account.IsCustomBaseURLEnabled() {
+			customURL := strings.TrimSpace(account.GetCustomBaseURL())
+			if customURL == "" {
+				return "", fmt.Errorf("custom_base_url is enabled but not configured for account %d", account.ID)
+			}
+			validatedURL, err := s.validateUpstreamBaseURL(customURL)
+			if err != nil {
+				return "", err
+			}
+			return buildOpenAIEndpointURL(validatedURL, "/alpha/search"), nil
+		}
 		return chatgptCodexAlphaSearchURL, nil
 	case AccountTypeAPIKey:
 		baseURL := account.GetOpenAIBaseURL()
