@@ -676,18 +676,6 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/admin/state-diagnostics',
-    name: 'AdminStateDiagnostics',
-    component: () => import('@/features/admin-state-diagnostics/presentation/pages/StateDiagnosticsPage.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: true,
-      title: 'State Diagnostics',
-      titleKey: 'admin.stateDiagnostics.title',
-      descriptionKey: 'admin.stateDiagnostics.description'
-    }
-  },
-  {
     path: '/admin/announcements',
     name: 'AdminAnnouncements',
     component: () => import('@/features/announcements/presentation/pages/AnnouncementsPage.vue'),

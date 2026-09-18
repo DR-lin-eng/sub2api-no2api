@@ -268,15 +268,23 @@ func (h *SettingHandler) GetCodexSimulationSettings(c *gin.Context) {
 	response.Success(c, h.codexSimulationSettingsDTO(c, settings))
 }
 
-// GetCodexTurnStateObservability returns redacted runtime state diagnostics.
-// It never returns Turn State or encrypted_content values.
-// GET /api/v1/admin/settings/codex-simulation/observability
-func (h *SettingHandler) GetCodexTurnStateObservability(c *gin.Context) {
+// GetStateDiagnostics returns redacted runtime state diagnostics for the
+// dedicated admin page. It never returns Turn State or encrypted_content
+// values.
+// GET /api/v1/admin/state-diagnostics
+func (h *SettingHandler) GetStateDiagnostics(c *gin.Context) {
 	if h.openAIGatewayService == nil {
 		response.Success(c, dto.CodexTurnStateObservability{GeneratedAt: time.Now().UTC(), Scope: "current_node", Items: []dto.CodexTurnStateObservation{}})
 		return
 	}
 	response.Success(c, codexTurnStateObservabilityDTO(h.openAIGatewayService.CodexTurnStateObservability(c.Request.Context())))
+}
+
+// GetCodexTurnStateObservability keeps the settings endpoint as a compatibility
+// alias for older admin clients.
+// GET /api/v1/admin/settings/codex-simulation/observability
+func (h *SettingHandler) GetCodexTurnStateObservability(c *gin.Context) {
+	h.GetStateDiagnostics(c)
 }
 
 // UpdateCodexSimulationSettings persists an explicit DB override. The service

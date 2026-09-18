@@ -103,7 +103,7 @@ func requiredAdminPermission(method, path string) string {
 		return ""
 	case "groups":
 		return service.PermissionGroupsManage
-	case "accounts", "account-inspection", "account-quality", "state-diagnostics", "proxies", "egress":
+	case "accounts", "account-inspection", "account-quality", "proxies", "egress":
 		return service.PermissionAccountsManage
 	default:
 		return ""

@@ -892,7 +892,6 @@ const adminNavItems = computed((): NavItem[] => {
     { path: '/admin/accounts', label: t('nav.accounts'), icon: GlobeIcon, permission: 'accounts.manage' },
     { path: '/admin/account-inspection', label: t('nav.accountInspection'), icon: SignalIcon, permission: 'accounts.manage' },
     { path: '/admin/account-quality', label: t('nav.accountQuality'), icon: SignalIcon, permission: 'accounts.manage' },
-    { path: '/admin/state-diagnostics', label: t('nav.stateDiagnostics'), icon: ChartIcon, permission: 'accounts.manage' },
     { path: '/admin/announcements', label: t('nav.announcements'), icon: BellIcon, permission: 'announcements.manage' },
     { path: '/admin/activity-center/campaigns', label: t('nav.activityCenterAdmin'), icon: GiftIcon, permission: 'settings.manage' },
     { path: '/admin/support', label: t('nav.supportInbox'), icon: SupportChatIcon, featureFlag: flagSupportChat, permission: 'support.read' },

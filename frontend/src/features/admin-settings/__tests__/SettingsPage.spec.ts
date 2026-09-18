@@ -27,7 +27,6 @@ const {
   getGlobalTempUnschedulableSettings,
   updateGlobalTempUnschedulableSettings,
   getCodexSimulationSettings,
-  getCodexTurnStateObservability,
   forceDisableCodexSimulationSettings,
   updateCodexSimulationSettings,
   syncCodexTurnStates,
@@ -70,7 +69,6 @@ const {
   getGlobalTempUnschedulableSettings: vi.fn(),
   updateGlobalTempUnschedulableSettings: vi.fn(),
   getCodexSimulationSettings: vi.fn(),
-  getCodexTurnStateObservability: vi.fn(),
   forceDisableCodexSimulationSettings: vi.fn(),
   updateCodexSimulationSettings: vi.fn(),
   syncCodexTurnStates: vi.fn(),
@@ -167,7 +165,6 @@ vi.mock(
       getEmailTemplate,
       getGlobalTempUnschedulableSettings,
       getCodexSimulationSettings,
-      getCodexTurnStateObservability,
       getOverloadCooldownSettings,
       getPanelRateLimitSettings,
       getRateLimit429CooldownSettings,
@@ -870,7 +867,6 @@ describe("admin SettingsView payment visible method controls", () => {
     getGlobalTempUnschedulableSettings.mockReset();
     updateGlobalTempUnschedulableSettings.mockReset();
     getCodexSimulationSettings.mockReset();
-    getCodexTurnStateObservability.mockReset();
     forceDisableCodexSimulationSettings.mockReset();
     updateCodexSimulationSettings.mockReset();
     syncCodexTurnStates.mockReset();
@@ -948,14 +944,6 @@ describe("admin SettingsView payment visible method controls", () => {
       continuation_mode: "off",
       state_ttl_seconds: 604800,
       identity_secret_configured: false,
-    });
-    getCodexTurnStateObservability.mockResolvedValue({
-      generated_at: new Date(0).toISOString(),
-      scope: "current_node",
-      enabled: false,
-      target_length: 292,
-      token_ttl_seconds: 3600,
-      items: [],
     });
     updateCodexSimulationSettings.mockImplementation(async (payload) => ({
       ...payload,
@@ -1532,72 +1520,6 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(
       card!.get('[data-testid="codex-simulation-effective-state"]').text(),
     ).toContain("admin.settings.codexSimulation.originalBehaviorActive");
-  });
-
-  it("renders redacted Turn State observability diagnostics", async () => {
-    getCodexSimulationSettings.mockResolvedValueOnce({
-      full_simulation_enabled: false,
-      turn_state_replay_enabled: false,
-      turn_state_auto_replay_enabled: true,
-      turn_state_target_length: 292,
-      turn_state_watch_models: ["gpt-5.6-codex"],
-      turn_states: [],
-      continuation_mode: "off",
-      state_ttl_seconds: 604800,
-      identity_secret_configured: true,
-      turn_state_observability: {
-        generated_at: "2026-09-18T01:00:00Z",
-        enabled: true,
-        target_length: 292,
-        token_ttl_seconds: 3600,
-        items: [{
-          account_id: 13,
-          model: "gpt-5.6-codex",
-          source: "response",
-          proxy_enabled: true,
-          state: { valid: true, expired: false, version: 128, version_hex: "0x80", token_characters: 292, token_bytes: 219, token_bytes_known: true, issued_at: "2026-09-18T00:30:00Z", estimated_expires_at: "2026-09-18T01:30:00Z" },
-          length_match: true,
-          state_digest: "sha256:abc123",
-          encrypted_content: { last_bytes: 36, last_bytes_known: true, baseline_bytes: 20, delta_bytes: 16, classification: "plus_16_hint" },
-          rotation: { count: 2, last_reason: "encrypted_content_rotation" },
-          probe: { in_flight: false, next_probe_at: "2026-09-18T01:15:00Z" },
-        }],
-      },
-    });
-    const wrapper = mountView();
-    await flushPromises();
-    await openGatewayTab(wrapper);
-    const card = wrapper.findAll(".card").find((node) => node.text().includes("admin.settings.codexSimulation.title"));
-    expect(card?.get('[data-testid="codex-turn-state-observability"]').text()).toContain("sha256:abc123");
-    expect(card?.get('[data-testid="codex-turn-state-observability"]').text()).toContain("+16 B");
-    expect(card?.get('[data-testid="codex-turn-state-observability"]').text()).not.toContain("secret-cipher");
-  });
-
-  it("refreshes diagnostics without replacing unsaved Codex settings", async () => {
-    const wrapper = mountView();
-    await flushPromises();
-    await openGatewayTab(wrapper);
-    const card = wrapper.findAll(".card").find((node) => node.text().includes("admin.settings.codexSimulation.title"));
-    expect(card).toBeDefined();
-
-    await card!.get('[data-testid="codex-turn-state-target-length"]').setValue("301");
-    await card!.get('[data-testid="codex-turn-state-watch-models"]').setValue("gpt-5.6-codex");
-    getCodexTurnStateObservability.mockResolvedValueOnce({
-      generated_at: "2026-09-18T02:00:00Z",
-      scope: "current_node",
-      enabled: true,
-      target_length: 301,
-      token_ttl_seconds: 3600,
-      items: [],
-    });
-
-    await card!.get('[data-testid="codex-turn-state-observability-refresh"]').trigger("click");
-    await flushPromises();
-
-    expect(getCodexTurnStateObservability).toHaveBeenCalledOnce();
-    expect(getCodexSimulationSettings).toHaveBeenCalledOnce();
-    expect((card!.get('[data-testid="codex-turn-state-target-length"]').element as HTMLInputElement).value).toBe("301");
-    expect((card!.get('[data-testid="codex-turn-state-watch-models"]').element as HTMLTextAreaElement).value).toBe("gpt-5.6-codex");
   });
 
   it("rolls back Codex controls when restoring original behavior fails", async () => {

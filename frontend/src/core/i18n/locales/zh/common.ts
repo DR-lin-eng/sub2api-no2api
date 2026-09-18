@@ -235,6 +235,7 @@ export default {
     accounts: '账号管理',
     accountInspection: '账号巡检',
     accountQuality: '质量巡检',
+    stateDiagnostics: 'State 诊断',
     customModelConfig: '自定义模型配置',
     proxies: 'IP管理',
     ipv6Egress: 'IPv6 出口',

@@ -42,6 +42,19 @@ func TestCodexSimulationSettingsHandlerHidesIdentitySecret(t *testing.T) {
 	require.NotContains(t, recorder.Body.String(), `"identity_secret"`)
 }
 
+func TestStateDiagnosticsHandlerUsesDedicatedReadOnlyEndpoint(t *testing.T) {
+	h, _ := newCodexSimulationSettingHandlerTest(&config.Config{})
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/admin/state-diagnostics", nil)
+
+	h.GetStateDiagnostics(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Contains(t, recorder.Body.String(), `"scope":"current_node"`)
+	require.Contains(t, recorder.Body.String(), `"items":[]`)
+}
+
 func TestCodexSimulationSettingsHandlerPersistsRuntimeOverrideAndGeneratesSecret(t *testing.T) {
 	h, repo := newCodexSimulationSettingHandlerTest(&config.Config{})
 	recorder := httptest.NewRecorder()

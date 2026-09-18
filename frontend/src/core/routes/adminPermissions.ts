@@ -14,6 +14,7 @@ const pagePermissions: Record<string, string> = {
   '/admin/accounts': 'accounts.manage',
   '/admin/account-inspection': 'accounts.manage',
   '/admin/account-quality': 'accounts.manage',
+  '/admin/state-diagnostics': 'accounts.manage',
   '/admin/proxies': 'accounts.manage',
   '/admin/egress': 'accounts.manage',
   '/admin/announcements': 'announcements.manage',

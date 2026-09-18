@@ -235,6 +235,7 @@ export default {
     accounts: 'Accounts',
     accountInspection: 'Account Inspection',
     accountQuality: 'Account Quality',
+    stateDiagnostics: 'State Diagnostics',
     customModelConfig: 'Custom Model Config',
     proxies: 'Proxies',
     ipv6Egress: 'IPv6 Egress',

@@ -10,6 +10,7 @@ import cluster from './cluster'
 import ingressRisk from './ingressRisk'
 import egress from './egress'
 import accountInspection from './accountInspection'
+import stateDiagnostics from './stateDiagnostics'
 import customModelConfig from './customModelConfig'
 
 export default {
@@ -26,4 +27,5 @@ export default {
   ...egress,
   customModelConfig,
   ...accountInspection,
+  ...stateDiagnostics,
 }

@@ -278,13 +278,14 @@ Happy Eyeballs 回退 IPv4。连接池键包含源地址和绑定版本，轮换
 本地账号 ID 与实际上游模型隔离，通过 Redis 在多实例间共享，1 小时过期。关注模型的请求优先使用
 该自动池；没有可用值时删除未经验证的入站 state，让真实代理请求向上游获取新值。
 
-同一面板的“State 可视化诊断”通过 `GET /api/v1/admin/settings/codex-simulation/observability` 读取当前节点的
+独立的“State 可视化诊断”页面通过 `GET /api/v1/admin/state-diagnostics` 读取当前节点的
 脱敏快照，刷新不会覆盖正在编辑的设置草稿。快照只返回账号、实际上游模型、来源、代理标记、短摘要和计数，
 不返回 state 或 `encrypted_content` 正文。`X-Codex-Turn-State` 按 URL-safe Base64 解码后读取第一个字节版本和
 接下来的 8 字节大端 Unix 签发时间；该字段不是协议明确的到期字段，项目按签发时间加 1 小时**推算**到期，无法解析时只显示字符数且不伪造字节数。
 `encrypted_content` 也只在可解码时统计原始字节；同一账号/模型的最短有效样本作为基线，`+16 B` 仅是长度线索，
 不单独断言“降智”。轮换错误按请求去重并记录 `invalid_encrypted_content` 或 “Encrypted content could not …” 摘要。
-该诊断是进程本地观测，不代表多节点合计结果。
+该诊断是进程本地观测，不代表多节点合计结果。旧的
+`GET /api/v1/admin/settings/codex-simulation/observability` 保留为兼容别名，不再作为设置页面的组成部分。
 
 某账号/关注模型从最近一次新正确 state 起 45 分钟内没有再获得新正确值，或首次请求未返回正确长度时
 连续 45 分钟仍未恢复，后台进入单槽探测。探测使用 `generate=false`、空 input 的 WSv2 零输出 ping，

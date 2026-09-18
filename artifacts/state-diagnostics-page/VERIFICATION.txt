@@ -1,0 +1,162 @@
+State Diagnostics Page Verification
+====================================
+
+Changed branch/field
+--------------------
+Branch: codex/state-diagnostics-page
+Field: State 可视化诊断 moved from Gateway Settings into the standalone
+       /admin/state-diagnostics page, with account-pool aggregation.
+
+Remote synchronization
+----------------------
+Initial sync before edits: HEAD and origin/main were both
+63a02d135d7ae7e802c6b8c6a83073e409e96b18; ahead/behind was 0/0.
+During implementation origin/main advanced independently to
+f35c5677d8cb27e047b4314afdc73dbe7e1d6aca (four commits, primarily OpenAI
+OAuth relay settings). The working branch intentionally remains based on the
+verified initial synchronized baseline because it contains uncommitted feature
+changes; no unrelated remote changes were overwritten.
+
+Required artifacts
+------------------
+MODIFIED_FILE: artifacts/state-diagnostics-page/MODIFIED_FILE
+DIFF_FILE:     artifacts/state-diagnostics-page/DIFF_FILE
+VERIFICATION:  artifacts/state-diagnostics-page/VERIFICATION.txt
+ROLLBACK:      artifacts/state-diagnostics-page/ROLLBACK.sh
+
+Baseline source proof
+---------------------
+Command:
+  sha256sum artifacts/state-diagnostics-page/baseline/SettingsCodexSimulationCard.vue
+Literal output:
+  2e6839b013c39bfb8edcabf1e99dce79b9c6f3086b0635d58d44e83a1792d45b  artifacts/state-diagnostics-page/baseline/SettingsCodexSimulationCard.vue
+Exit: 0
+
+BASELINE tests
+--------------
+Command:
+  cd frontend && pnpm exec vitest run src/features/admin-settings/__tests__/SettingsPage.spec.ts src/features/admin-settings/__tests__/adminSettingsQueryActions.spec.ts
+Input: existing checkout at e7aa857b3 before implementation
+Literal result: 2 files passed, 66 tests passed, exit 0
+
+Command:
+  cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/transport/http/handler/admin ./internal/transport/http/server/middleware ./internal/application/service -run 'CodexTurnState|CodexSimulation|AdminPermission' -count=1
+Input: existing checkout at e7aa857b3 before implementation
+Literal result: handler/admin ok; server/middleware ok; application/service ok; exit 0
+
+MODIFIED tests
+---------------
+Command:
+  cd frontend && pnpm exec vitest run src/features/admin-state-diagnostics/__tests__/stateDiagnosticsTransforms.spec.ts
+Literal result: 1 file passed, 3 tests passed, exit 0
+
+Command:
+  cd frontend && pnpm exec vitest run src/features/admin-settings/__tests__/SettingsPage.spec.ts src/features/admin-settings/__tests__/adminSettingsQueryActions.spec.ts
+Literal result: 2 files passed, 64 tests passed, exit 0
+
+Command:
+  cd frontend && pnpm exec vue-tsc --noEmit
+Literal result: exit 0
+
+Command:
+  cd frontend && pnpm exec eslint src/features/admin-state-diagnostics src/core/routes/index.ts src/core/routes/adminPermissions.ts src/common/widgets/layout/AppSidebar.vue src/features/admin-settings/presentation/widgets/settings-tabs/gateway-resilience/SettingsCodexSimulationCard.vue src/features/admin-settings/presentation/composables/useSettingsGatewayPolicies.ts src/features/admin-settings/presentation/composables/useSettingsPage.ts
+Literal result: exit 0
+
+Command:
+  cd backend && GOCACHE=/tmp/sub2api-gocache go test ./internal/transport/http/handler/admin ./internal/transport/http/server/routes ./internal/transport/http/server/middleware -run 'StateDiagnostics|CodexSimulation|AdminPermission' -count=1
+Literal result: handler/admin ok; server/routes ok; server/middleware ok; exit 0
+
+Command:
+  make check-docs
+Literal output:
+  Documentation checks passed.
+Exit: 0
+
+Repository-level verification
+-----------------------------
+Command:
+  cd frontend && pnpm exec vitest run src/__tests__/dynamicLocaleMapping.spec.ts src/core/i18n/__tests__/routeLocaleCoverage.spec.ts src/core/routes/__tests__/adminRouteAccess.spec.ts src/features/admin-settings/__tests__/SettingsPage.spec.ts src/features/admin-state-diagnostics/__tests__/stateDiagnosticsTransforms.spec.ts
+Literal result: 3 files passed, 67 tests passed across the selected settings/diagnostics files; exit 0
+
+Command:
+  cd backend && GOCACHE=/tmp/sub2api-gocache go test ./...
+Literal result: all Go packages passed, including application/service (137.767s), transport/http/handler (31.146s), and server/routes (5.937s); exit 0
+
+Command:
+  make test-backend
+Literal result: blocked before Go tests by the existing unrelated source-layout error:
+  internal/application/service/openai_ws_v2/passthrough_relay.go has 1273 lines (limit 1200)
+Exit: 2
+Note: the over-limit file was pre-existing and was left unchanged; direct `go test ./...` passed.
+
+Preview service
+---------------
+The final Docker image is currently running for direct inspection at
+`http://127.0.0.1:18081/admin/state-diagnostics`.
+Command:
+  curl -sS --max-time 10 http://127.0.0.1:18081/ready
+Literal output:
+  {"ready":true,"node_id":"sub2api-dev","node_name":"sub2api-dev","current_version":"0.1.209","draining":false,"in_flight":0}
+Exit: 0
+
+Docker verification
+-------------------
+Command:
+  POSTGRES_PASSWORD=state_diag_test_password ADMIN_PASSWORD=state_diag_admin_password JWT_SECRET=state_diag_test_jwt_secret_abcdefghijklmnopqrstuvwxyz_0123456789 BIND_HOST=127.0.0.1 SERVER_PORT=18081 docker compose -f deploy/docker-compose.dev.yml up -d --build
+Literal result: Image deploy-sub2api Built; sub2api-dev, sub2api-postgres-dev, and sub2api-redis-dev started; exit 0
+
+Command:
+  curl -sS --max-time 10 http://127.0.0.1:18081/ready
+Literal output:
+  {"ready":true,"node_id":"sub2api-dev","node_name":"sub2api-dev","current_version":"0.1.209","draining":false,"in_flight":0}
+Exit: 0
+
+Command:
+  docker inspect -f 'APP_STATUS={{.State.Status}} HEALTH={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} RESTARTS={{.RestartCount}}' sub2api-dev
+Literal output:
+  APP_STATUS=running HEALTH=healthy RESTARTS=0
+Exit: 0
+
+Final-image rerun after the last locale fix:
+Command:
+  POSTGRES_PASSWORD=state_diag_test_password ADMIN_PASSWORD=state_diag_admin_password JWT_SECRET=state_diag_test_jwt_secret_abcdefghijklmnopqrstuvwxyz_0123456789 BIND_HOST=127.0.0.1 SERVER_PORT=18081 docker compose -f deploy/docker-compose.dev.yml up -d --build
+Literal result: Image deploy-sub2api Built; sub2api-dev recreated and started; exit 0
+
+Command:
+  curl -sS --max-time 10 http://127.0.0.1:18081/ready
+Literal output:
+  {"ready":true,"node_id":"sub2api-dev","node_name":"sub2api-dev","current_version":"0.1.209","draining":false,"in_flight":0}
+Exit: 0
+
+Command:
+  docker inspect -f 'APP_STATUS={{.State.Status}} HEALTH={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} RESTARTS={{.RestartCount}} IMAGE={{.Image}}' sub2api-dev
+Literal output:
+  APP_STATUS=running HEALTH=healthy RESTARTS=0 IMAGE=sha256:ef414bd72366cd07163d00bc37673f8e36736de6df5dbe7f3dc25888c20d8399
+Exit: 0
+
+Authorized API input: admin@sub2api.local / state_diag_admin_password, followed by the exact English compliance phrase.
+Command/result:
+  GET /api/v1/admin/state-diagnostics -> HTTP 200, code=0, scope=current_node, items=0
+  GET /api/v1/admin/settings/codex-simulation/observability -> HTTP 200, code=0, scope=current_node, items=0 (compatibility alias)
+  GET /api/v1/admin/accounts?page=1&page_size=1000&platform=openai&type=oauth&lite=1 -> HTTP 200, code=0, total=0
+Result: dedicated route and compatibility route both returned redacted empty snapshots; account pool join returned an empty paginated set.
+
+Unauthorized API input: no Authorization header.
+Command/result:
+  GET /api/v1/admin/state-diagnostics -> HTTP 401 {"code":"UNAUTHORIZED","message":"Authorization required"}
+  GET /api/v1/admin/settings/codex-simulation/observability -> HTTP 401 {"code":"UNAUTHORIZED","message":"Authorization required"}
+
+ROLLBACK test
+-------------
+Command:
+  artifacts/state-diagnostics-page/ROLLBACK.sh /tmp/state-diagnostics-rollback-copy.vue artifacts/state-diagnostics-page/baseline/SettingsCodexSimulationCard.vue
+Literal output:
+  2e6839b013c39bfb8edcabf1e99dce79b9c6f3086b0635d58d44e83a1792d45b  /tmp/state-diagnostics-rollback-copy.vue
+Exit: 0
+Restored behavior/status: rollback copy hash exactly matched the baseline hash; the production working tree and MODIFIED_FILE remained changed.
+
+Final artifact hashes
+---------------------
+MODIFIED_FILE SHA-256: a7df3259398d6ce9c8d271fda191c730a894f31fcd2f370fb37370571c151bec
+BASELINE_FILE SHA-256:  2e6839b013c39bfb8edcabf1e99dce79b9c6f3086b0635d58d44e83a1792d45b
+DIFF_FILE: 140 lines; exit 1 from diff (differences present, expected)

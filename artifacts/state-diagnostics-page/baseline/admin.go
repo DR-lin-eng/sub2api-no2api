@@ -105,9 +105,6 @@ func RegisterAdminRoutes(
 		// 账号质量监控（独立于账号巡检策略）
 		registerAccountQualityRoutes(admin, h)
 
-		// State 运行态诊断（只读，不属于网关设置页面）
-		registerStateDiagnosticsRoutes(admin, h)
-
 		// 用户属性管理
 		registerUserAttributeRoutes(admin, h)
 
@@ -149,13 +146,6 @@ func RegisterAdminRoutes(
 
 		// 媒体工坊分组配置
 		registerMediaStudioAdminRoutes(admin, h)
-	}
-}
-
-func registerStateDiagnosticsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
-	stateDiagnostics := admin.Group("/state-diagnostics")
-	{
-		stateDiagnostics.GET("", h.Admin.Setting.GetStateDiagnostics)
 	}
 }
 
