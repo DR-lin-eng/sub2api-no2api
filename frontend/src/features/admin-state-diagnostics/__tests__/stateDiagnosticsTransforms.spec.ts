@@ -57,7 +57,7 @@ function observation(accountId: number, overrides: Partial<CodexTurnStateObserva
       classification: 'baseline',
     },
     rotation: { count: 0 },
-    probe: { in_flight: false },
+    probe: { in_flight: false, recovering: false },
     ...overrides,
   }
 }
@@ -100,9 +100,9 @@ describe('state diagnostics transforms', () => {
 
   it('distinguishes running, queued, scheduled, and unscheduled probes', () => {
     const now = Date.parse('2026-09-18T12:00:00Z')
-    expect(probePhase(observation(1, { probe: { in_flight: true } }), now)).toBe('running')
-    expect(probePhase(observation(1, { probe: { in_flight: false, next_probe_at: '2026-09-18T11:59:59Z' } }), now)).toBe('queued')
-    expect(probePhase(observation(1, { probe: { in_flight: false, next_probe_at: '2026-09-18T12:00:01Z' } }), now)).toBe('scheduled')
+    expect(probePhase(observation(1, { probe: { in_flight: true, recovering: false } }), now)).toBe('running')
+    expect(probePhase(observation(1, { probe: { in_flight: false, recovering: false, next_probe_at: '2026-09-18T11:59:59Z' } }), now)).toBe('queued')
+    expect(probePhase(observation(1, { probe: { in_flight: false, recovering: false, next_probe_at: '2026-09-18T12:00:01Z' } }), now)).toBe('scheduled')
     expect(probePhase(observation(1), now)).toBe('unscheduled')
   })
 })

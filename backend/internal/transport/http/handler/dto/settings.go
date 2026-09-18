@@ -574,6 +574,7 @@ type CodexTurnStateProbeObservation struct {
 	LastHealthyAt *time.Time `json:"last_healthy_at,omitempty"`
 	NextProbeAt   *time.Time `json:"next_probe_at,omitempty"`
 	InFlight      bool       `json:"in_flight"`
+	Recovering    bool       `json:"recovering"`
 }
 
 type CodexTurnStateObservation struct {

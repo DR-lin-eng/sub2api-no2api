@@ -26,6 +26,7 @@ export default {
     responseMissingState: 'Latest response missing State',
     rotations: '{count} rotations',
     probeRunning: 'Probe running',
+    probeRecovering: 'Recovery probing',
     probeQueued: 'Probe queued',
     probeScheduled: 'Waiting for due time',
     probeUnscheduled: 'Not scheduled',

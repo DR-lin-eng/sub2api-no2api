@@ -182,6 +182,23 @@ func TestAutomaticCodexTurnStateReplayExpiresAfterOneHour(t *testing.T) {
 	require.Empty(t, svc.loadOpenAICodexAutoTurnState(context.Background(), account, "gpt-5.6-codex"))
 }
 
+func TestAutomaticCodexTurnStateLengthMismatchStartsRecoveryImmediately(t *testing.T) {
+	settings := automaticTurnStateTestSettings(t, "gpt-5.6-codex")
+	svc := &OpenAIGatewayService{settingService: settings}
+	account := automaticTurnStateTestAccount(17)
+	model := "gpt-5.6-codex"
+	state := strings.Repeat("s", openAICodexDefaultTurnStateCharacters)
+	svc.observeOpenAICodexTurnState(context.Background(), nil, account, model, state)
+
+	beforeMismatch := time.Now()
+	svc.observeOpenAICodexTurnState(context.Background(), nil, account, model, "wrong-length")
+	afterMismatch := time.Now()
+	target := svc.codexAutoProbeTargets[openAICodexAutoTurnStateKey(account, model)]
+	require.True(t, target.Recovering)
+	require.False(t, target.NextProbeAt.Before(beforeMismatch))
+	require.False(t, target.NextProbeAt.After(afterMismatch))
+}
+
 func TestAutomaticCodexTurnStateProbeStartsImmediatelyWithoutHealthyState(t *testing.T) {
 	svc := &OpenAIGatewayService{}
 	account := automaticTurnStateTestAccount(4)
@@ -202,7 +219,7 @@ func TestAutomaticCodexTurnStateProbeStartsImmediatelyWithoutHealthyState(t *tes
 
 	failedAt := healthyAt.Add(46 * time.Minute)
 	svc.finishOpenAICodexAutoProbe(target, false, failedAt)
-	require.Equal(t, failedAt.Add(30*time.Second), svc.codexAutoProbeTargets[key].NextProbeAt)
+	require.Equal(t, failedAt.Add(openAICodexAutoProbeRetryInterval), svc.codexAutoProbeTargets[key].NextProbeAt)
 }
 
 func TestAutomaticCodexTurnStateMissingResponseKeepsProbeBackoff(t *testing.T) {
@@ -373,7 +390,7 @@ func TestAutomaticCodexTurnStateProbeRotatesActiveProxiesAndUsesZeroOutputPing(t
 	repo := &stubOpenAIAccountRepo{accounts: []Account{*account}}
 	previousState := strings.Repeat("x", openAICodexDefaultTurnStateCharacters)
 	healthyState := strings.Repeat("y", openAICodexDefaultTurnStateCharacters)
-	dialer := &automaticTurnStateProbeDialer{states: []string{previousState, healthyState}}
+	dialer := &automaticTurnStateProbeDialer{states: []string{"wrong-length", healthyState}}
 	svc := &OpenAIGatewayService{
 		accountRepo:    repo,
 		settingService: automaticTurnStateTestSettings(t, "gpt-5.6-codex"),
@@ -402,6 +419,90 @@ func TestAutomaticCodexTurnStateProbeRotatesActiveProxiesAndUsesZeroOutputPing(t
 		require.Equal(t, []any{}, payload["input"])
 	}
 	require.Equal(t, healthyState, svc.loadOpenAICodexAutoTurnState(context.Background(), account, "gpt-5.6-codex"))
+}
+
+func TestAutomaticCodexTurnStateProbeRetriesUntilCorrectThenMonitorReplaces(t *testing.T) {
+	account := automaticTurnStateTestAccount(18)
+	model := "gpt-5.6-codex"
+	probeState := strings.Repeat("p", openAICodexDefaultTurnStateCharacters)
+	monitorState := strings.Repeat("m", openAICodexDefaultTurnStateCharacters)
+	dialer := &automaticTurnStateProbeDialer{states: []string{"short-one", "short-two", probeState}}
+	svc := &OpenAIGatewayService{
+		accountRepo:               &stubOpenAIAccountRepo{accounts: []Account{*account}},
+		proxyRepo:                 &automaticTurnStateProxyRepo{proxies: []Proxy{{ID: 1, Protocol: "http", Host: "proxy.test", Port: 8080, Status: StatusActive}}},
+		settingService:            automaticTurnStateTestSettings(t, model),
+		cfg:                       &config.Config{},
+		openaiWSPassthroughDialer: dialer,
+	}
+	svc.noteOpenAICodexAutoProbeInvalidObservation(account, model, time.Now())
+	key := openAICodexAutoTurnStateKey(account, model)
+
+	for round := 0; round < 2; round++ {
+		probed := svc.codexAutoProbeTargets[key]
+		err := svc.probeOpenAICodexTurnState(context.Background(), probed)
+		require.ErrorContains(t, err, "turn state has")
+		finishedAt := time.Now()
+		svc.finishOpenAICodexAutoProbe(probed, false, finishedAt)
+		result := svc.codexAutoProbeTargets[key]
+		require.True(t, result.Recovering)
+		require.Equal(t, finishedAt.Add(openAICodexAutoProbeRetryInterval), result.NextProbeAt)
+	}
+
+	probed := svc.codexAutoProbeTargets[key]
+	require.NoError(t, svc.probeOpenAICodexTurnState(context.Background(), probed))
+	svc.finishOpenAICodexAutoProbe(probed, true, time.Now())
+	require.Equal(t, probeState, svc.loadOpenAICodexAutoTurnState(context.Background(), account, model))
+	require.False(t, svc.codexAutoProbeTargets[key].Recovering)
+
+	svc.observeOpenAICodexTurnState(context.Background(), nil, account, model, monitorState)
+	require.Equal(t, monitorState, svc.loadOpenAICodexAutoTurnState(context.Background(), account, model))
+	require.False(t, svc.codexAutoProbeTargets[key].Recovering)
+}
+
+func TestAutomaticCodexTurnStateProbeAcceptsCorrectPreviousState(t *testing.T) {
+	account := automaticTurnStateTestAccount(19)
+	model := "gpt-5.6-codex"
+	state := strings.Repeat("s", openAICodexDefaultTurnStateCharacters)
+	dialer := &automaticTurnStateProbeDialer{states: []string{state}}
+	svc := &OpenAIGatewayService{
+		accountRepo:               &stubOpenAIAccountRepo{accounts: []Account{*account}},
+		proxyRepo:                 &automaticTurnStateProxyRepo{proxies: []Proxy{{ID: 1, Protocol: "http", Host: "proxy.test", Port: 8080, Status: StatusActive}}},
+		settingService:            automaticTurnStateTestSettings(t, model),
+		cfg:                       &config.Config{},
+		openaiWSPassthroughDialer: dialer,
+	}
+	svc.storeOpenAICodexAutoTurnState(context.Background(), account, model, state)
+	capturedAt := svc.openAICodexAutoTurnStateCapturedAt(account, model)
+	svc.noteOpenAICodexAutoProbeNewState(account, model, state, capturedAt)
+	key := openAICodexAutoTurnStateKey(account, model)
+	target := svc.codexAutoProbeTargets[key]
+	target.Recovering = true
+	target.MissingSince = capturedAt
+	target.NextProbeAt = capturedAt
+	svc.codexAutoProbeTargets[key] = target
+
+	require.NoError(t, svc.probeOpenAICodexTurnState(context.Background(), target))
+	require.Equal(t, state, svc.loadOpenAICodexAutoTurnState(context.Background(), account, model))
+	require.False(t, svc.codexAutoProbeTargets[key].Recovering)
+}
+
+func TestAutomaticCodexTurnStateCorrectResponseStopsRecoveryWithoutRefreshingStableState(t *testing.T) {
+	settings := automaticTurnStateTestSettings(t, "gpt-5.6-codex")
+	svc := &OpenAIGatewayService{settingService: settings}
+	account := automaticTurnStateTestAccount(20)
+	model := "gpt-5.6-codex"
+	state := strings.Repeat("s", openAICodexDefaultTurnStateCharacters)
+	svc.observeOpenAICodexTurnState(context.Background(), nil, account, model, state)
+	key := openAICodexAutoTurnStateKey(account, model)
+	firstCapturedAt := svc.codexAutoTurnStates[key].CapturedAt
+	svc.noteOpenAICodexAutoProbeInvalidObservation(account, model, firstCapturedAt.Add(time.Minute))
+	beforeRecoveryResponse := time.Now()
+	svc.observeOpenAICodexTurnState(context.Background(), nil, account, model, state)
+	afterRecoveryResponse := time.Now()
+	require.False(t, svc.codexAutoProbeTargets[key].Recovering)
+	require.False(t, svc.codexAutoProbeTargets[key].LastHealthyAt.Before(beforeRecoveryResponse))
+	require.False(t, svc.codexAutoProbeTargets[key].LastHealthyAt.After(afterRecoveryResponse))
+	require.Equal(t, firstCapturedAt, svc.codexAutoTurnStates[key].CapturedAt)
 }
 
 func TestAutomaticCodexTurnStateProbeDoesNotStoreAfterMonitoringDisabled(t *testing.T) {

@@ -126,7 +126,8 @@ func (s *OpenAIGatewayService) observeOpenAICodexTurnState(
 	}
 	state = strings.TrimSpace(state)
 	s.observeCodexTurnStateMetadata(ctx, c, account, model, state, "response")
-	stateMetadata := parseOpenAICodexTurnState(state, time.Now())
+	observedAt := time.Now()
+	stateMetadata := parseOpenAICodexTurnState(state, observedAt)
 	characters := openAICodexTurnStateCharacterCount(state)
 	lengthMatch := characters == s.codexAutoTurnStateTargetLength(ctx) && len(state) <= codexTurnStateMaxValueBytes && httpguts.ValidHeaderFieldValue(state) && (!stateMetadata.Valid || !stateMetadata.Expired)
 	previousState := s.loadOpenAICodexAutoTurnState(ctx, account, model)
@@ -140,15 +141,29 @@ func (s *OpenAIGatewayService) observeOpenAICodexTurnState(
 		zap.Bool("new_state", isNew),
 		zap.Bool("proxy_enabled", account.ProxyID != nil && account.Proxy != nil),
 	)
+	if !lengthMatch {
+		s.noteOpenAICodexAutoProbeInvalidObservation(account, model, observedAt)
+		return
+	}
 	if !isNew {
+		if lengthMatch {
+			if s.noteOpenAICodexAutoProbeRecoveryHealthyObservation(account, model, observedAt) {
+				return
+			}
+			if previousCapturedAt.IsZero() {
+				previousCapturedAt = observedAt
+			}
+			s.noteOpenAICodexAutoProbeObservation(account, model, false, previousCapturedAt)
+			return
+		}
 		if previousCapturedAt.IsZero() {
-			previousCapturedAt = time.Now()
+			previousCapturedAt = observedAt
 		}
 		s.noteOpenAICodexAutoProbeObservation(account, model, false, previousCapturedAt)
 		return
 	}
 	s.storeOpenAICodexAutoTurnState(ctx, account, model, state)
-	s.noteOpenAICodexAutoProbeNewState(account, model, state, time.Now())
+	s.noteOpenAICodexAutoProbeNewState(account, model, state, observedAt)
 }
 
 func (s *OpenAIGatewayService) openAICodexAutoTurnStateCapturedAt(account *Account, model string) time.Time {

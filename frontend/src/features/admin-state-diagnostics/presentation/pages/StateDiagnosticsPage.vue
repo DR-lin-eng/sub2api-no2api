@@ -287,6 +287,7 @@ function isHealthy(item: CodexTurnStateObservation): boolean {
 }
 
 function probeLabel(item: CodexTurnStateObservation): string {
+  if (item.probe.recovering && !item.probe.in_flight) return t('admin.stateDiagnostics.probeRecovering')
   switch (probePhase(item)) {
     case 'running': return t('admin.stateDiagnostics.probeRunning')
     case 'queued': return t('admin.stateDiagnostics.probeQueued')

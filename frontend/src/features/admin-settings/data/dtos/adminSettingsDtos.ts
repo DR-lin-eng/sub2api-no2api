@@ -178,6 +178,7 @@ export interface CodexTurnStateObservation {
     last_healthy_at?: string;
     next_probe_at?: string;
     in_flight: boolean;
+    recovering: boolean;
   };
 }
 
