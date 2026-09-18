@@ -557,6 +557,31 @@ func TestOpenAIGatewayService_BindHTTPResponseAccount(t *testing.T) {
 	require.Equal(t, account.ID, got)
 }
 
+func TestOpenAIGatewayService_BindHTTPResponseAccount_DetachesCanceledContext(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
+	groupID := int64(4202)
+	c.Set("api_key", &APIKey{ID: 502, GroupID: &groupID})
+
+	cache := &stubGatewayCache{}
+	svc := &OpenAIGatewayService{cache: cache}
+	account := &Account{ID: 37002, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	requestCtx, cancelRequest := context.WithCancel(context.Background())
+	cancelRequest()
+
+	svc.bindHTTPResponseAccount(requestCtx, c, account, "resp_http_canceled_001")
+
+	require.Len(t, cache.setContextErrs, 1)
+	require.NoError(t, cache.setContextErrs[0])
+	require.Len(t, cache.setDeadlines, 1)
+	require.True(t, cache.setDeadlines[0].After(time.Now()))
+	got, err := svc.getOpenAIWSStateStore().GetResponseAccount(context.Background(), groupID, "resp_http_canceled_001")
+	require.NoError(t, err)
+	require.Equal(t, account.ID, got)
+}
+
 func TestOpenAIGatewayService_GenerateExplicitSessionHash_SkipsContentFallback(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := &OpenAIGatewayService{}
@@ -676,6 +701,8 @@ func (c stubConcurrencyCache) GetAccountWaitingCount(ctx context.Context, accoun
 type stubGatewayCache struct {
 	sessionBindings map[string]int64
 	deletedSessions map[string]int
+	setContextErrs  []error
+	setDeadlines    []time.Time
 }
 
 func (c *stubGatewayCache) GetSessionAccountID(ctx context.Context, groupID int64, sessionHash string) (int64, error) {
@@ -686,6 +713,10 @@ func (c *stubGatewayCache) GetSessionAccountID(ctx context.Context, groupID int6
 }
 
 func (c *stubGatewayCache) SetSessionAccountID(ctx context.Context, groupID int64, sessionHash string, accountID int64, ttl time.Duration) error {
+	c.setContextErrs = append(c.setContextErrs, ctx.Err())
+	if deadline, ok := ctx.Deadline(); ok {
+		c.setDeadlines = append(c.setDeadlines, deadline)
+	}
 	if c.sessionBindings == nil {
 		c.sessionBindings = make(map[string]int64)
 	}

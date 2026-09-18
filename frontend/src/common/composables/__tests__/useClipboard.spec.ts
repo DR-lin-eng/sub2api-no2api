@@ -140,4 +140,15 @@ describe('useClipboard', () => {
     expect(copied.value).toBe(false)
     expect(mockShowError).toHaveBeenCalled()
   })
+
+	it('fallback 抛出异常时返回失败并清理 textarea', async () => {
+		vi.mocked(navigator.clipboard.writeText).mockRejectedValue(new Error('denied'))
+		Object.defineProperty(document, 'execCommand', {
+			configurable: true,
+			value: vi.fn(() => { throw new DOMException('denied', 'NotAllowedError') })
+		})
+		const { copyToClipboard } = useClipboard()
+		await expect(copyToClipboard('text')).resolves.toBe(false)
+		expect(document.querySelector('textarea')).toBeNull()
+	})
 })
