@@ -660,10 +660,6 @@ func collectOpenAIAlphaSearchURLCitations(value any, results *[]any, seen map[st
 	}
 }
 
-func (s *OpenAIGatewayService) openAIAlphaSearchURL(account *Account) (string, error) {
-	return s.openAIAlphaSearchURLWithContext(context.Background(), account)
-}
-
 func (s *OpenAIGatewayService) openAIAlphaSearchURLWithContext(ctx context.Context, account *Account) (string, error) {
 	if account == nil {
 		return "", fmt.Errorf("account is required")
