@@ -39,7 +39,7 @@
 | `setting_update.go`, `setting_update_prepare.go` | 持久设置更新编排、首错顺序与跨域预处理 |
 | `setting_update_core.go`, `setting_update_identity.go`, `setting_update_product.go` | 注册访问、身份源与产品默认设置写入 |
 | `setting_update_gateway.go`, `setting_update_notifications.go` | 网关调度、通知与平台额度设置写入 |
-| `setting_codex_simulation.go`, `setting_codex_turn_state_replay.go`, `openai_codex_turn_state_auto_replay.go`, `openai_codex_turn_state_probe.go` | Codex A/B/C 数据库覆盖、强制关闭、Turn State 手工随机池/质量同步、关注模型的可配置字符长度自动池、首次无效立即探测与 45 分钟刷新、32 目标乘 4 代理的有界并发和 5 秒无限轮次恢复，以及身份密钥生成与后台同步的无 DB 热路径快照 |
+| `setting_codex_simulation.go`, `setting_codex_turn_state_replay.go`, `openai_codex_turn_state_auto_replay.go`, `openai_codex_turn_state_probe.go` | Codex A/B/C 数据库覆盖、强制关闭、Turn State 手工随机池/质量同步、关注模型的可配置字符长度自动池、首次无效立即探测与 45 分钟刷新、默认走账号正常出口的 32 目标乘 4 尝试有界并发、可选专用/代理池竞速和 5 秒无限轮次恢复，以及身份密钥生成与后台同步的无 DB 热路径快照 |
 | `wire_openai_gateway.go` | OpenAI gateway provider、代理库与跨实例探测锁装配及后台探测启动 |
 | `api_key_group_routing.go` | API Key 有序分组候选、倍率保护过滤和请求内实际分组切换 |
 | `openai_codex_identity_plan.go`, `openai_codex_simulation_state.go` | Codex request root、per-principal 身份计划与短状态 fallback |

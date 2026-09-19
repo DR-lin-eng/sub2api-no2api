@@ -93,6 +93,8 @@ export function useSettingsGatewayPolicies() {
     codex_prewarm_continuation_force_enabled: false,
     turn_state_replay_enabled: false,
     turn_state_auto_replay_enabled: false,
+    turn_state_proxy_probe_enabled: false,
+    turn_state_probe_proxy_id: null,
     turn_state_target_length: 292,
     turn_state_watch_models: [],
     turn_states: [],
@@ -401,6 +403,8 @@ export function useSettingsGatewayPolicies() {
       experimental_transport_enabled: settings.experimental_transport_enabled === true,
       turn_state_replay_enabled: settings.turn_state_replay_enabled === true,
       turn_state_auto_replay_enabled: settings.turn_state_auto_replay_enabled === true,
+      turn_state_proxy_probe_enabled: settings.turn_state_proxy_probe_enabled === true,
+      turn_state_probe_proxy_id: settings.turn_state_probe_proxy_id ?? null,
       turn_state_target_length: settings.turn_state_target_length ?? 292,
       turn_state_watch_models: Array.isArray(settings.turn_state_watch_models) ? [...settings.turn_state_watch_models] : [],
       turn_states: Array.isArray(settings.turn_states) ? [...settings.turn_states] : [],
@@ -441,6 +445,8 @@ export function useSettingsGatewayPolicies() {
       | "codex_prewarm_continuation_force_enabled"
       | "turn_state_replay_enabled"
       | "turn_state_auto_replay_enabled"
+      | "turn_state_proxy_probe_enabled"
+      | "turn_state_probe_proxy_id"
       | "turn_state_target_length"
       | "turn_state_watch_models"
       | "turn_states"
@@ -473,6 +479,8 @@ export function useSettingsGatewayPolicies() {
         codex_prewarm_continuation_force_enabled: Boolean(codexSimulationForm.codex_prewarm_continuation_force_enabled),
         turn_state_replay_enabled: codexSimulationForm.turn_state_replay_enabled,
         turn_state_auto_replay_enabled: codexSimulationForm.turn_state_auto_replay_enabled,
+        turn_state_proxy_probe_enabled: codexSimulationForm.turn_state_proxy_probe_enabled,
+        turn_state_probe_proxy_id: codexSimulationForm.turn_state_probe_proxy_id || 0,
         turn_state_target_length: codexSimulationForm.turn_state_target_length,
         turn_state_watch_models: [...codexSimulationForm.turn_state_watch_models],
         turn_states: [...codexSimulationForm.turn_states],

@@ -18,6 +18,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/shared/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/shared/logger"
+	"github.com/Wei-Shaw/sub2api/internal/shared/openai"
 	"github.com/Wei-Shaw/sub2api/internal/shared/responseheaders"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
@@ -182,12 +183,19 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 			})
 			return nil, fmt.Errorf("openai passthrough rejected before upstream: %s", rejectReason)
 		}
-		if isOpenAICodexModel(reqModel) && !gjson.GetBytes(body, "instructions").Exists() {
-			nextBody, setErr := sjson.SetBytes(body, "instructions", defaultCodexSynthInstructions(reqModel))
-			if setErr != nil {
-				return nil, fmt.Errorf("set passthrough codex instructions: %w", setErr)
+		if isOpenAICodexModel(reqModel) {
+			instructions := strings.TrimSpace(gjson.GetBytes(body, "instructions").String())
+			if instructions == "" || instructions == strings.TrimSpace(openai.DefaultInstructions) {
+				resolvedModel := normalizeOpenAIModelForUpstream(account, reqModel)
+				if resolvedModel == "" {
+					resolvedModel = reqModel
+				}
+				nextBody, setErr := sjson.SetBytes(body, "instructions", defaultCodexSynthInstructions(resolvedModel))
+				if setErr != nil {
+					return nil, fmt.Errorf("set passthrough codex instructions: %w", setErr)
+				}
+				body = nextBody
 			}
-			body = nextBody
 		}
 
 		normalizedBody, normalized, err := normalizeOpenAIPassthroughOAuthBody(body, isOpenAIResponsesCompactPath(c))

@@ -1499,6 +1499,8 @@ describe("admin SettingsView payment visible method controls", () => {
       codex_prewarm_continuation_force_enabled: true,
       turn_state_replay_enabled: true,
       turn_state_auto_replay_enabled: true,
+      turn_state_proxy_probe_enabled: false,
+      turn_state_probe_proxy_id: 0,
       turn_state_target_length: 300,
       turn_state_watch_models: ["gpt-5.6-codex", "gpt-5.5-codex"],
       turn_states: ["state-a", "state-b"],

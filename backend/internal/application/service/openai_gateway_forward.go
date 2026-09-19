@@ -356,12 +356,6 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		return nil, errors.New("image generation disabled for group")
 	}
 
-	instructions := gjson.GetBytes(body, "instructions")
-	instructionsEmpty := !instructions.Exists() || instructions.Type != gjson.String || strings.TrimSpace(instructions.String()) == ""
-	if instructionsEmpty && account.IsOpenAIOAuth() && !compatMessagesBridge {
-		markPatchSet("instructions", defaultCodexSynthInstructions(reqModel))
-	}
-
 	billingModel := account.GetMappedModel(reqModel)
 	if billingModel != reqModel {
 		logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Model mapping applied: %s -> %s (account: %s, isCodexCLI: %v)", reqModel, billingModel, account.Name, isCodexCLI)
@@ -391,6 +385,20 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Upstream model resolved: %s -> %s (account: %s, type: %s, isCodexCLI: %v)", modelForNormalize, upstreamModel, account.Name, account.Type, isCodexCLI)
 			reqModel = upstreamModel
 			markPatchSet("model", upstreamModel)
+		}
+	}
+	// Select the Codex base prompt only after the final upstream model is
+	// known. This matters for aliases such as gpt-5.6, which normalize to Sol.
+	if account.IsOpenAIOAuth() && !compatMessagesBridge {
+		decoded, decodeErr := ensureReqBody()
+		if decodeErr != nil {
+			return nil, decodeErr
+		}
+		existing, _ := decoded["instructions"].(string)
+		trimmed := strings.TrimSpace(existing)
+		if trimmed == "" || trimmed == strings.TrimSpace(openai.DefaultInstructions) {
+			decoded["instructions"] = defaultCodexSynthInstructions(upstreamModel)
+			markDecodedModified()
 		}
 	}
 	if rawEffort := gjson.GetBytes(body, "reasoning.effort").String(); rawEffort != "" {

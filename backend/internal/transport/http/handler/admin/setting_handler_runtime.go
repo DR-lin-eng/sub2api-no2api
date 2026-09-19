@@ -338,6 +338,19 @@ func (h *SettingHandler) UpdateCodexSimulationSettings(c *gin.Context) {
 	if req.TurnStateAutoReplayEnabled != nil {
 		turnStateAutoReplayEnabled = *req.TurnStateAutoReplayEnabled
 	}
+	turnStateProxyProbeEnabled := current.TurnStateProxyProbeEnabled
+	if req.TurnStateProxyProbeEnabled != nil {
+		turnStateProxyProbeEnabled = *req.TurnStateProxyProbeEnabled
+	}
+	turnStateProbeProxyID := current.TurnStateProbeProxyID
+	if req.TurnStateProbeProxyID != nil {
+		value := *req.TurnStateProbeProxyID
+		if value <= 0 {
+			turnStateProbeProxyID = nil
+		} else {
+			turnStateProbeProxyID = &value
+		}
+	}
 	turnStateTargetLength := current.TurnStateTargetLength
 	if req.TurnStateTargetLength != nil {
 		if *req.TurnStateTargetLength < 1 || *req.TurnStateTargetLength > 8192 {
@@ -361,6 +374,8 @@ func (h *SettingHandler) UpdateCodexSimulationSettings(c *gin.Context) {
 		CodexPrewarmContinuationForceEnabled: prewarmForceEnabled,
 		TurnStateReplayEnabled:               turnStateReplayEnabled,
 		TurnStateAutoReplayEnabled:           turnStateAutoReplayEnabled,
+		TurnStateProxyProbeEnabled:           turnStateProxyProbeEnabled,
+		TurnStateProbeProxyID:                turnStateProbeProxyID,
 		TurnStateTargetLength:                turnStateTargetLength,
 		TurnStateWatchModels:                 turnStateWatchModels,
 		TurnStates:                           turnStates,
@@ -419,6 +434,8 @@ func (h *SettingHandler) codexSimulationSettingsDTO(c *gin.Context, settings *se
 		CodexPrewarmContinuationForceEnabled: settings.CodexPrewarmContinuationForceEnabled,
 		TurnStateReplayEnabled:               settings.TurnStateReplayEnabled,
 		TurnStateAutoReplayEnabled:           settings.TurnStateAutoReplayEnabled,
+		TurnStateProxyProbeEnabled:           settings.TurnStateProxyProbeEnabled,
+		TurnStateProbeProxyID:                settings.TurnStateProbeProxyID,
 		TurnStateTargetLength:                settings.TurnStateTargetLength,
 		TurnStateWatchModels:                 append([]string{}, settings.TurnStateWatchModels...),
 		TurnStates:                           append([]string{}, settings.TurnStates...),

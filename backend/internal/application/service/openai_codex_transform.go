@@ -1468,9 +1468,12 @@ func applyCodexClientMetadata(reqBody map[string]any, account *Account) bool {
 	}
 }
 
-// applyInstructions 处理 instructions 字段：仅在 instructions 为空时填充默认值。
+// applyInstructions fills the model-specific Codex base prompt when the
+// caller omitted instructions or sent the generic fallback. A caller's
+// non-default instructions remain intact because they may contain task policy.
 func applyInstructions(reqBody map[string]any, isCodexCLI bool) bool {
-	if !isInstructionsEmpty(reqBody) {
+	existing, _ := reqBody["instructions"].(string)
+	if !isInstructionsEmpty(reqBody) && strings.TrimSpace(existing) != strings.TrimSpace(openai.DefaultInstructions) {
 		return false
 	}
 	model, _ := reqBody["model"].(string)

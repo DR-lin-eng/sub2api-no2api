@@ -532,6 +532,8 @@ type CodexSimulationSettings struct {
 	CodexPrewarmContinuationForceEnabled bool                         `json:"codex_prewarm_continuation_force_enabled"`
 	TurnStateReplayEnabled               bool                         `json:"turn_state_replay_enabled"`
 	TurnStateAutoReplayEnabled           bool                         `json:"turn_state_auto_replay_enabled"`
+	TurnStateProxyProbeEnabled           bool                         `json:"turn_state_proxy_probe_enabled"`
+	TurnStateProbeProxyID                *int64                       `json:"turn_state_probe_proxy_id,omitempty"`
 	TurnStateTargetLength                int                          `json:"turn_state_target_length"`
 	TurnStateWatchModels                 []string                     `json:"turn_state_watch_models"`
 	TurnStates                           []string                     `json:"turn_states"`
@@ -610,6 +612,8 @@ type UpdateCodexSimulationSettingsRequest struct {
 	CodexPrewarmContinuationForceEnabled *bool     `json:"codex_prewarm_continuation_force_enabled"`
 	TurnStateReplayEnabled               *bool     `json:"turn_state_replay_enabled"`
 	TurnStateAutoReplayEnabled           *bool     `json:"turn_state_auto_replay_enabled"`
+	TurnStateProxyProbeEnabled           *bool     `json:"turn_state_proxy_probe_enabled"`
+	TurnStateProbeProxyID                *int64    `json:"turn_state_probe_proxy_id"`
 	TurnStateTargetLength                *int      `json:"turn_state_target_length"`
 	TurnStateWatchModels                 *[]string `json:"turn_state_watch_models"`
 	TurnStates                           *[]string `json:"turn_states"`
