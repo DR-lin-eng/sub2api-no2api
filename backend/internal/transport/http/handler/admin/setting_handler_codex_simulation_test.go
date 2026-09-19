@@ -136,6 +136,25 @@ func TestCodexSimulationSettingsHandlerPersistsAutomaticTurnStateControls(t *tes
 	require.Contains(t, recorder.Body.String(), `"turn_state_watch_models":["gpt-5.6-codex"]`)
 }
 
+func TestCodexSimulationSettingsHandlerPersistsProxyProbeControls(t *testing.T) {
+	h, repo := newCodexSimulationSettingHandlerTest(&config.Config{})
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPut, "/api/v1/admin/settings/codex-simulation", bytes.NewBufferString(
+		`{"full_simulation_enabled":false,"turn_state_auto_replay_enabled":true,"turn_state_proxy_probe_enabled":true,"turn_state_probe_proxy_id":17,"turn_state_watch_models":["gpt-5.6-sol"],"continuation_mode":"off","state_ttl_seconds":604800}`,
+	))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	h.UpdateCodexSimulationSettings(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var persisted service.CodexSimulationSettings
+	require.NoError(t, json.Unmarshal([]byte(repo.values[service.SettingKeyCodexSimulationSettings]), &persisted))
+	require.True(t, persisted.TurnStateProxyProbeEnabled)
+	require.NotNil(t, persisted.TurnStateProbeProxyID)
+	require.Equal(t, int64(17), *persisted.TurnStateProbeProxyID)
+}
+
 func TestCodexSimulationSettingsHandlerPersistsExperimentalTransportSwitch(t *testing.T) {
 	h, repo := newCodexSimulationSettingHandlerTest(&config.Config{})
 	recorder := httptest.NewRecorder()

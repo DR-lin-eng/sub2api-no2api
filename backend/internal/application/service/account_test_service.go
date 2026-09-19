@@ -1500,8 +1500,14 @@ func createOpenAITestPayload(modelID string, isOAuth bool, prompt string) map[st
 		payload["store"] = false
 	}
 
-	// All accounts require instructions for Responses API
-	payload["instructions"] = openai.DefaultInstructions
+	// Codex OAuth routes select the backend persona from the model-specific
+	// client instructions. Reusing the generic fallback can produce a valid
+	// response on the low-quality route and a 312-character turn state.
+	if isOAuth {
+		payload["instructions"] = openai.CodexBaseInstructionsForModel(modelID)
+	} else {
+		payload["instructions"] = openai.DefaultInstructions
+	}
 
 	return payload
 }

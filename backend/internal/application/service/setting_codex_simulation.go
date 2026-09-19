@@ -30,6 +30,8 @@ type CodexSimulationSettings struct {
 	CodexPrewarmContinuationForceEnabled bool               `json:"codex_prewarm_continuation_force_enabled"`
 	TurnStateReplayEnabled               bool               `json:"turn_state_replay_enabled"`
 	TurnStateAutoReplayEnabled           bool               `json:"turn_state_auto_replay_enabled"`
+	TurnStateProxyProbeEnabled           bool               `json:"turn_state_proxy_probe_enabled"`
+	TurnStateProbeProxyID                *int64             `json:"turn_state_probe_proxy_id,omitempty"`
 	TurnStateTargetLength                int                `json:"turn_state_target_length"`
 	TurnStateWatchModels                 []string           `json:"turn_state_watch_models"`
 	TurnStates                           []string           `json:"turn_states"`
@@ -150,6 +152,9 @@ func validateCodexSimulationSettings(settings CodexSimulationSettings) (CodexSim
 		return CodexSimulationSettings{}, err
 	}
 	settings.TurnStateAccountIDs = normalizeCodexTurnStateAccountIDs(settings.TurnStates, settings.TurnStateAccountIDs)
+	if settings.TurnStateProbeProxyID != nil && *settings.TurnStateProbeProxyID <= 0 {
+		settings.TurnStateProbeProxyID = nil
+	}
 	if settings.TurnStateReplayEnabled && len(settings.TurnStates) == 0 {
 		return CodexSimulationSettings{}, fmt.Errorf("turn_states must not be empty when turn state replay is enabled")
 	}

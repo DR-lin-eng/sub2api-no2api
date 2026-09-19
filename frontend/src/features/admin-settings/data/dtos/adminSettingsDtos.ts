@@ -198,6 +198,8 @@ export interface CodexSimulationSettings {
   codex_prewarm_continuation_force_enabled?: boolean;
   turn_state_replay_enabled: boolean;
   turn_state_auto_replay_enabled: boolean;
+  turn_state_proxy_probe_enabled?: boolean;
+  turn_state_probe_proxy_id?: number | null;
   turn_state_target_length: number;
   turn_state_watch_models: string[];
   turn_states: string[];

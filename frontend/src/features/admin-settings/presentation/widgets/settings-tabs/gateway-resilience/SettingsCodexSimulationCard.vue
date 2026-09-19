@@ -137,6 +137,45 @@
               data-testid="codex-turn-state-target-length"
             />
           </div>
+          <div class="flex items-center justify-between gap-4 border-t border-gray-100 pt-4 dark:border-dark-700">
+            <div>
+              <label class="font-medium text-gray-900 dark:text-white">
+                {{ t("admin.settings.codexSimulation.turnStateProxyProbe") }}
+              </label>
+              <p class="text-sm text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.codexSimulation.turnStateProxyProbeHint") }}
+              </p>
+            </div>
+            <fieldset
+              class="m-0 min-w-0 border-0 p-0"
+              :disabled="codexSimulationLoadFailed || codexSimulationSaving || codexSimulationSyncing"
+            >
+              <Toggle
+                :model-value="codexSimulationForm.turn_state_proxy_probe_enabled === true"
+                @update:model-value="codexSimulationForm.turn_state_proxy_probe_enabled = $event"
+                data-testid="codex-turn-state-proxy-probe-toggle"
+              />
+            </fieldset>
+          </div>
+          <div v-if="codexSimulationForm.turn_state_proxy_probe_enabled">
+            <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300" for="codex-turn-state-probe-proxy-id">
+              {{ t("admin.settings.codexSimulation.turnStateProbeProxyId") }}
+            </label>
+            <input
+              id="codex-turn-state-probe-proxy-id"
+              v-model.number="codexSimulationForm.turn_state_probe_proxy_id"
+              type="number"
+              min="1"
+              step="1"
+              class="input w-full sm:max-w-48"
+              :disabled="codexSimulationLoadFailed || codexSimulationSaving || codexSimulationSyncing"
+              :placeholder="t('admin.settings.codexSimulation.turnStateProbeProxyIdPlaceholder')"
+              data-testid="codex-turn-state-probe-proxy-id"
+            />
+            <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+              {{ t("admin.settings.codexSimulation.turnStateProbeProxyIdHint") }}
+            </p>
+          </div>
           <div>
             <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300" for="codex-turn-state-watch-models">
               {{ t("admin.settings.codexSimulation.turnStateWatchModels") }}
