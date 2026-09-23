@@ -3,7 +3,7 @@
 本 feature 提供只读监控组件与 `/monitor/public` 共享页面；登录后的 `/monitor` 页面由 [channels-user](../channels-user/README.md) 组合这些组件。
 
 - [data/datasources/channelMonitorUserDatasource.ts](data/datasources/channelMonitorUserDatasource.ts)：登录接口 `/channel-monitors` 与共享接口 `/channel-status-share`，含列表、详情和批量状态。
-- [presentation/widgets](presentation/widgets/)：按 AI 类型（provider）聚合的状态卡片，卡片内为各分组的状态行（可用率、延迟内联展示），以及时间线和详情。
+- [presentation/widgets](presentation/widgets/)：按 AI 类型（provider）与监控模式（主动探测 / 被动流量）聚合的状态卡片，卡片内为各分组的状态行（可用率、延迟内联展示），以及时间线和详情。
 - [presentation/composables/useChannelMonitorFormat.ts](presentation/composables/useChannelMonitorFormat.ts)：指标与时间展示。
 - [channelMonitorLocale.ts](channelMonitorLocale.ts)：共享文案入口。
 

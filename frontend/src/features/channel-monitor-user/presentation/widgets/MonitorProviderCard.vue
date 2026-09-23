@@ -11,8 +11,16 @@
         <ProviderIcon :provider="provider" :size="20" />
       </span>
       <div class="flex-1 min-w-0">
-        <div class="text-sm font-semibold truncate text-gray-900 dark:text-gray-100">
-          {{ providerLabel(provider) }}
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="text-sm font-semibold truncate text-gray-900 dark:text-gray-100">
+            {{ providerLabel(provider) }}
+          </span>
+          <span
+            v-if="modeLabelText"
+            class="px-1.5 py-0.5 rounded-md text-[10px] font-medium flex-shrink-0 bg-gray-100 text-gray-600 dark:bg-dark-700/80 dark:text-gray-300"
+          >
+            {{ modeLabelText }}
+          </span>
         </div>
         <div class="mt-0.5 text-[11px] truncate text-gray-500 dark:text-gray-400">
           {{ summaryLabel }}
@@ -28,7 +36,7 @@
 
     <!-- One compact row per monitored group -->
     <ul class="divide-y divide-gray-100 dark:divide-dark-700/60 flex-1">
-      <li v-for="row in visibleItems" :key="row.id">
+      <li v-for="row in sortedItems" :key="row.id">
         <button
           type="button"
           class="group w-full text-left px-4 py-3 hover:bg-gray-50/80 dark:hover:bg-dark-700/40 transition-colors"
@@ -75,28 +83,17 @@
       </li>
     </ul>
 
-    <!-- Overflow: collapsed rows are always the healthy ones (see sorting) -->
-    <button
-      v-if="hiddenCount > 0"
-      type="button"
-      class="flex items-center justify-center gap-1.5 px-4 py-2.5 text-[11px] font-medium text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-dark-700/60 hover:bg-gray-50/80 dark:hover:bg-dark-700/40 transition-colors"
-      @click="expanded = !expanded"
-    >
-      <Icon :name="expanded ? 'chevronUp' : 'chevronDown'" size="xs" />
-      <span>
-        {{ expanded ? t('channelStatus.collapseGroups') : t('channelStatus.expandGroups', { n: hiddenCount }) }}
-      </span>
-    </button>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type {
   UserMonitorView,
   UserMonitorDetail,
   Provider,
+  MonitorMode,
   MonitorStatus,
 } from '@/features/channel-monitor-user/data/datasources/channelMonitorUserDatasource'
 import {
@@ -106,11 +103,6 @@ import {
 } from '@/features/channel-monitor-user/presentation/composables/useChannelMonitorFormat'
 import ProviderIcon from './ProviderIcon.vue'
 import MonitorTimeline from './MonitorTimeline.vue'
-import Icon from '@/common/widgets/icons/Icon.vue'
-
-/** Rows shown before the "expand" control appears. */
-const MAX_VISIBLE_ROWS = 5
-
 /** Lower rank surfaces first, so failures never end up behind the fold. */
 const STATUS_RANK: Record<string, number> = {
   failed: 0,
@@ -134,6 +126,7 @@ const PROVIDER_TINT: Record<string, string> = {
 
 const props = defineProps<{
   items: UserMonitorView[]
+  mode?: MonitorMode
   window: '7d' | '15d' | '30d'
   countdownSeconds: number
   detailCache: Record<number, UserMonitorDetail>
@@ -144,10 +137,13 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const { statusLabel, statusBadgeClass, providerLabel, formatLatencyWithUnit, formatPercent } =
+const { statusLabel, statusBadgeClass, modeLabel, providerLabel, formatLatencyWithUnit, formatPercent } =
   useChannelMonitorFormat()
 
-const expanded = ref(false)
+/** Legacy monitors without a mode keep the header unlabelled. */
+const modeLabelText = computed(() =>
+  props.mode === 'active' || props.mode === 'passive' ? modeLabel(props.mode) : '',
+)
 
 const provider = computed<Provider>(() => props.items[0]?.provider ?? ('' as Provider))
 
@@ -181,12 +177,6 @@ const sortedItems = computed(() =>
     (a, b) =>
       (STATUS_RANK[a.primary_status] ?? 2) - (STATUS_RANK[b.primary_status] ?? 2),
   ),
-)
-
-const hiddenCount = computed(() => Math.max(0, sortedItems.value.length - MAX_VISIBLE_ROWS))
-
-const visibleItems = computed(() =>
-  expanded.value ? sortedItems.value : sortedItems.value.slice(0, MAX_VISIBLE_ROWS),
 )
 
 function resolveAvailability(item: UserMonitorView): number | null {

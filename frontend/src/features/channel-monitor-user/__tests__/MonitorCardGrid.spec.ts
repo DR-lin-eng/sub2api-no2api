@@ -50,7 +50,7 @@ function mountGrid(items: UserMonitorView[], loading = false) {
   })
 }
 
-describe('MonitorCardGrid provider aggregation', () => {
+describe('MonitorCardGrid provider and monitor-mode aggregation', () => {
   it('collapses every group of one provider into a single card', () => {
     const wrapper = mountGrid([
       monitor({ id: 1, provider: 'openai', group_name: 'Group A' }),
@@ -77,6 +77,33 @@ describe('MonitorCardGrid provider aggregation', () => {
     expect(cards[1].props('items')).toHaveLength(1)
   })
 
+  it('splits active probes and passive monitors of one provider into separate cards', () => {
+    const wrapper = mountGrid([
+      monitor({ id: 1, provider: 'openai', monitor_mode: 'active', group_name: 'Probe A' }),
+      monitor({ id: 2, provider: 'openai', monitor_mode: 'passive', group_name: 'Traffic A' }),
+      monitor({ id: 3, provider: 'openai', monitor_mode: 'active', group_name: 'Probe B' }),
+    ])
+
+    const cards = wrapper.findAllComponents(MonitorProviderCard)
+    expect(cards).toHaveLength(2)
+    expect(cards[0].props('mode')).toBe('active')
+    expect(cards[0].props('items')).toHaveLength(2)
+    expect(cards[1].props('mode')).toBe('passive')
+    expect(cards[1].props('items')).toHaveLength(1)
+  })
+
+  it('keeps legacy monitors without a mode in their own card', () => {
+    const wrapper = mountGrid([
+      monitor({ id: 1, provider: 'openai' }),
+      monitor({ id: 2, provider: 'openai', monitor_mode: 'active' }),
+    ])
+
+    const cards = wrapper.findAllComponents(MonitorProviderCard)
+    expect(cards).toHaveLength(2)
+    expect(cards[0].props('mode')).toBeUndefined()
+    expect(cards[1].props('mode')).toBe('active')
+  })
+
   it('ranks abnormal groups above healthy ones without dropping them', () => {
     const wrapper = mountGrid([
       monitor({ id: 1, group_name: 'Healthy', primary_status: 'operational' }),
@@ -101,19 +128,16 @@ describe('MonitorCardGrid provider aggregation', () => {
     expect(wrapper.emitted('cardClick')?.[0][0]).toMatchObject({ id: 2 })
   })
 
-  it('folds healthy rows past the limit but never hides failures', async () => {
+  it('renders every row without collapsing groups', () => {
     const items = Array.from({ length: 7 }, (_, index) =>
       monitor({ id: index + 1, group_name: `Group ${index + 1}` }),
     )
     items.push(monitor({ id: 99, group_name: 'Failing', primary_status: 'failed' }))
 
     const wrapper = mountGrid(items)
-    expect(wrapper.findAll('li')).toHaveLength(5)
-    expect(wrapper.text()).toContain('Failing')
-
-    const expand = wrapper.find('section > button')
-    await expand.trigger('click')
     expect(wrapper.findAll('li')).toHaveLength(8)
+    expect(wrapper.text()).toContain('Failing')
+    expect(wrapper.find('section > button').exists()).toBe(false)
   })
 
   it('renders skeletons while loading and an empty state once settled', () => {

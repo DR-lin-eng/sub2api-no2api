@@ -2,7 +2,7 @@
   <div>
     <div
       v-if="loading && items.length === 0"
-      class="grid gap-5 grid-cols-1 lg:grid-cols-2"
+      class="grid gap-4 grid-cols-2 lg:grid-cols-4"
     >
       <div
         v-for="i in 4"
@@ -35,12 +35,13 @@
 
     <div
       v-else
-      class="grid gap-5 grid-cols-1 lg:grid-cols-2"
+      class="grid gap-4 grid-cols-2 lg:grid-cols-4"
     >
       <MonitorProviderCard
-        v-for="group in providerGroups"
-        :key="group.provider"
+        v-for="group in cardGroups"
+        :key="group.key"
         :items="group.items"
+        :mode="group.mode"
         :window="window"
         :countdown-seconds="countdownSeconds"
         :detail-cache="detailCache"
@@ -55,6 +56,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type {
   Provider,
+  MonitorMode,
   UserMonitorView,
   UserMonitorDetail,
 } from '@/features/channel-monitor-user/data/datasources/channelMonitorUserDatasource'
@@ -75,19 +77,31 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
+interface MonitorCardGroup {
+  key: string
+  provider: Provider
+  mode?: MonitorMode
+  items: UserMonitorView[]
+}
+
 /**
- * Bucket the flat monitor list by provider so every group watching the same AI
- * family lands in one card. Providers keep their first-seen order to avoid
- * cards jumping around while auto-refresh replaces the list.
+ * Bucket the flat monitor list by provider *and* monitor mode so every group
+ * watching the same AI family lands in one card. Active probes (synthetic
+ * checks) and passive monitors (real traffic sampling) answer different
+ * questions for the viewer, so they never share a card.
+ *
+ * Groups keep their first-seen order to avoid cards jumping around while
+ * auto-refresh replaces the list.
  */
-const providerGroups = computed<{ provider: Provider; items: UserMonitorView[] }[]>(() => {
-  const groups: { provider: Provider; items: UserMonitorView[] }[] = []
-  const indexByProvider = new Map<Provider, number>()
+const cardGroups = computed<MonitorCardGroup[]>(() => {
+  const groups: MonitorCardGroup[] = []
+  const indexByKey = new Map<string, number>()
   for (const item of props.items) {
-    const existing = indexByProvider.get(item.provider)
+    const key = `${item.provider}::${item.monitor_mode ?? ''}`
+    const existing = indexByKey.get(key)
     if (existing === undefined) {
-      indexByProvider.set(item.provider, groups.length)
-      groups.push({ provider: item.provider, items: [item] })
+      indexByKey.set(key, groups.length)
+      groups.push({ key, provider: item.provider, mode: item.monitor_mode, items: [item] })
       continue
     }
     groups[existing].items.push(item)

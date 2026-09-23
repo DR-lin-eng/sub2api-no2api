@@ -11,8 +11,8 @@
     <div
       v-if="maintenance"
       :class="[
-        'flex w-full items-center justify-center rounded-full border border-dashed border-gray-300 dark:border-dark-600 text-[10px] uppercase tracking-widest text-gray-400',
-        compact ? 'h-4' : 'h-6',
+        'flex w-full items-center justify-center overflow-hidden rounded-md border border-dashed border-gray-300 dark:border-dark-600 text-[10px] uppercase tracking-widest text-gray-400',
+        compact ? 'h-6' : 'h-8',
       ]"
     >
       {{ t('monitorCommon.maintenancePaused') }}
@@ -20,14 +20,16 @@
     <div
       v-else
       :class="[
-        'flex w-full overflow-hidden rounded-full bg-gray-100/70 ring-1 ring-inset ring-gray-200/60 dark:bg-dark-900/50 dark:ring-dark-700/50',
-        compact ? 'h-4 px-1 gap-[2px]' : 'h-6 px-1.5 gap-[3px]',
+        'flex w-full overflow-hidden rounded-md bg-gray-100/70 ring-1 ring-inset ring-gray-200/60 dark:bg-dark-900/50 dark:ring-dark-700/50',
+        compact ? 'h-6 px-1 gap-[2px]' : 'h-8 px-1.5 gap-[3px]',
       ]"
     >
+      <!-- Tall slots packed edge to edge: the strip stays one dense block while
+           every slot reads as a vertical rectangle instead of a flat dash. -->
       <div
         v-for="(bar, idx) in displayBars"
         :key="idx"
-        class="flex-1 min-w-0 rounded-full transition-colors duration-300"
+        class="flex-1 min-w-0 rounded-[2px] transition-colors duration-300"
         :class="bar.colorClass"
         :title="bar.title"
       ></div>
@@ -72,10 +74,10 @@ interface Bar {
   title: string
 }
 
-// Colour is the only encoding now: the strip keeps a uniform, slim height so a
-// long healthy run reads as one calm block instead of a jagged silhouette.
-// Softer 400-level fills keep it from looking neon; abnormal bars still stand
-// out because they are the only warm hues on screen.
+// Colour is the only encoding: every slot is the same slim rectangle, so a long
+// healthy run reads as one calm block instead of a jagged silhouette. Softer
+// 400-level fills keep it from looking neon; abnormal slots still stand out
+// because they are the only warm hues on screen.
 const STATUS_COLOR: Record<string, string> = {
   operational: 'bg-emerald-400 dark:bg-emerald-500',
   degraded: 'bg-amber-400 dark:bg-amber-400',
