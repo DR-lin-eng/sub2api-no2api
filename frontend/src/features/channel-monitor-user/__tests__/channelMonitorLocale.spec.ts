@@ -34,7 +34,8 @@ const currentDir = dirname(fileURLToPath(import.meta.url))
 const frontendDir = resolve(currentDir, '../../../..')
 const runtimeSources = [
   resolve(currentDir, '../presentation/composables/useChannelMonitorFormat.ts'),
-  resolve(currentDir, '../presentation/widgets/MonitorCard.vue'),
+  resolve(currentDir, '../presentation/widgets/MonitorCardGrid.vue'),
+  resolve(currentDir, '../presentation/widgets/MonitorProviderCard.vue'),
   resolve(currentDir, '../presentation/widgets/MonitorHero.vue'),
   resolve(frontendDir, 'src/features/admin-channel-monitor/presentation/pages/ChannelMonitorPage.vue'),
 ].map((path) => readFileSync(path, 'utf8')).join('\n')

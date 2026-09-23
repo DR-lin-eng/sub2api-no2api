@@ -1,6 +1,7 @@
 <template>
-  <div class="mt-4 pt-3 border-t border-gray-100 dark:border-dark-700/60">
+  <div :class="compact ? 'mt-2' : 'mt-4 pt-3 border-t border-gray-100 dark:border-dark-700/60'">
     <div
+      v-if="!compact"
       class="flex justify-between text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2"
     >
       <span>{{ t('monitorCommon.history60pts', { n: length }) }}</span>
@@ -9,22 +10,31 @@
 
     <div
       v-if="maintenance"
-      class="flex h-5 w-full items-center justify-center rounded border border-dashed border-gray-300 dark:border-dark-600 text-[10px] uppercase tracking-widest text-gray-400"
+      :class="[
+        'flex w-full items-center justify-center rounded-full border border-dashed border-gray-300 dark:border-dark-600 text-[10px] uppercase tracking-widest text-gray-400',
+        compact ? 'h-4' : 'h-6',
+      ]"
     >
       {{ t('monitorCommon.maintenancePaused') }}
     </div>
-    <div v-else class="flex items-end gap-[2px] h-5 w-full">
+    <div
+      v-else
+      :class="[
+        'flex w-full overflow-hidden rounded-full bg-gray-100/70 ring-1 ring-inset ring-gray-200/60 dark:bg-dark-900/50 dark:ring-dark-700/50',
+        compact ? 'h-4 px-1 gap-[2px]' : 'h-6 px-1.5 gap-[3px]',
+      ]"
+    >
       <div
         v-for="(bar, idx) in displayBars"
         :key="idx"
-        class="flex-1 min-w-0 rounded-sm"
+        class="flex-1 min-w-0 rounded-full transition-colors duration-300"
         :class="bar.colorClass"
-        :style="{ height: bar.heightPct + '%' }"
         :title="bar.title"
       ></div>
     </div>
 
     <div
+      v-if="!compact"
       class="mt-1 flex justify-between text-[9px] uppercase tracking-widest text-gray-400"
     >
       <span>{{ t('monitorCommon.past') }}</span>
@@ -44,10 +54,14 @@ const props = withDefaults(defineProps<{
   countdownSeconds: number
   length?: number
   maintenance?: boolean
+  /** Drops the header/footer captions and shrinks the bars for inline rows. */
+  compact?: boolean
 }>(), {
   buckets: () => [],
-  length: 60,
+  // Fewer, taller slots read better on a card row than a dense 60-bar strip.
+  length: 20,
   maintenance: false,
+  compact: false,
 })
 
 const { t } = useI18n()
@@ -55,26 +69,19 @@ const { statusLabel, formatLatencyWithUnit, formatRelativeTime } = useChannelMon
 
 interface Bar {
   colorClass: string
-  heightPct: number
   title: string
 }
 
-// 4 级高度 + 颜色双重编码：高=好+绿，短=坏+红，灰=未测试。
-// 长绿(正常) > 中黄(降级) > 短红(失败/系统错误) > 很短灰(未测试)。
-const STATUS_HEIGHT: Record<string, number> = {
-  operational: 100,
-  degraded: 65,
-  failed: 35,
-  error: 35,
-  empty: 15,
-}
-
+// Colour is the only encoding now: the strip keeps a uniform, slim height so a
+// long healthy run reads as one calm block instead of a jagged silhouette.
+// Softer 400-level fills keep it from looking neon; abnormal bars still stand
+// out because they are the only warm hues on screen.
 const STATUS_COLOR: Record<string, string> = {
-  operational: 'bg-emerald-500',
-  degraded: 'bg-amber-500',
-  failed: 'bg-red-500',
-  error: 'bg-red-500',
-  empty: 'bg-gray-300 dark:bg-dark-600',
+  operational: 'bg-emerald-400 dark:bg-emerald-500',
+  degraded: 'bg-amber-400 dark:bg-amber-400',
+  failed: 'bg-red-400 dark:bg-red-500',
+  error: 'bg-red-400 dark:bg-red-500',
+  empty: 'bg-gray-200 dark:bg-dark-700',
 }
 
 const displayBars = computed<Bar[]>(() => {
@@ -89,23 +96,17 @@ const displayBars = computed<Bar[]>(() => {
   const bars: Bar[] = []
 
   for (let i = 0; i < padCount; i += 1) {
-    bars.push({
-      colorClass: STATUS_COLOR.empty,
-      heightPct: STATUS_HEIGHT.empty,
-      title: '',
-    })
+    bars.push({ colorClass: STATUS_COLOR.empty, title: '' })
   }
 
   for (const point of real) {
-    const status = point.status as keyof typeof STATUS_HEIGHT
+    const status = point.status as keyof typeof STATUS_COLOR
     const colorClass = STATUS_COLOR[status] ?? STATUS_COLOR.empty
-    const heightPct = STATUS_HEIGHT[status] ?? STATUS_HEIGHT.empty
     const latency = formatLatencyWithUnit(point.latency_ms)
     const relative = formatRelativeTime(point.checked_at)
     const label = statusLabel(point.status)
     bars.push({
       colorClass,
-      heightPct,
       title: `${relative} · ${label} · ${latency}`,
     })
   }
