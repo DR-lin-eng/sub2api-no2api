@@ -304,6 +304,13 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		if s.IsDistillationGroupRequest(c, account) {
 			normalized = stripDistillationCacheFields(normalized)
 		}
+		if account.Platform == PlatformOpenAI {
+			if sanitized, changed, sanitizeErr := sanitizeOpenAIResponsesAccessPrograms(normalized); sanitizeErr != nil {
+				return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", sanitizeErr)
+			} else if changed {
+				normalized = sanitized
+			}
+		}
 		values := gjson.GetManyBytes(normalized, "type", "model", "prompt_cache_key", "previous_response_id")
 		eventType := strings.TrimSpace(values[0].String())
 		switch eventType {
@@ -532,6 +539,14 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		}
 		if changed {
 			normalized = fingerprinted
+		}
+		if account.IsOpenAIOAuth() && (turnFingerprintIDs == nil || turnFingerprintIDs.mode == codexFingerprintOff) {
+			ids := resolveCodexOutboundSessionIDs(c, account, normalized, promptCacheKey)
+			rewritten, rewriteErr := rewriteCodexOutboundSessionMetadata(normalized, account, ids)
+			if rewriteErr != nil {
+				return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", rewriteErr)
+			}
+			normalized = rewritten
 		}
 		if _, simulationActive := codexSimulationAttemptFromGin(c); simulationActive {
 			finalContinuationValues := gjson.GetManyBytes(normalized, "prompt_cache_key", "previous_response_id")
@@ -855,6 +870,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		wsHeaders.Del(CodexProjectIDHeader)
 	}
 	stageCodexOutboundSessionBody(c, firstPayload.payloadRaw)
+	stageCodexFingerprintIDs(c, fingerprintIDs)
 	applyCodexOutboundSessionHeaders(c, account, firstPayload.payloadRaw, firstPayload.promptCacheKey, wsHeaders, fingerprintIDs)
 	applyCodexFingerprintWSHeaders(wsHeaders, fingerprintIDs)
 	applyOpenAIResponsesLiteWebSocketHeader(wsHeaders, firstPayload.payloadRaw)

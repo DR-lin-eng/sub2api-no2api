@@ -1,0 +1,261 @@
+go: downloading entgo.io/ent v0.14.5
+go: downloading github.com/stretchr/testify v1.11.1
+go: downloading github.com/lib/pq v1.10.9
+go: downloading github.com/gin-gonic/gin v1.9.1
+go: downloading github.com/redis/go-redis/v9 v9.22.0
+go: downloading github.com/coder/websocket v1.8.14
+go: downloading github.com/tidwall/gjson v1.18.0
+go: downloading github.com/google/wire v0.7.0
+go: downloading github.com/google/uuid v1.6.0
+go: downloading golang.org/x/net v0.57.0
+go: downloading github.com/shopspring/decimal v1.4.0
+go: downloading github.com/smartwalle/alipay/v3 v3.2.29
+go: downloading github.com/spf13/viper v1.18.2
+go: downloading golang.org/x/sys v0.47.0
+go: downloading github.com/stripe/stripe-go/v85 v85.0.0
+go: downloading github.com/tidwall/sjson v1.2.5
+go: downloading github.com/wechatpay-apiv3/wechatpay-go v0.2.21
+go: downloading golang.org/x/mod v0.38.0
+go: downloading golang.org/x/image v0.45.0
+go: downloading go.uber.org/zap v1.24.0
+go: downloading github.com/alicebob/miniredis/v2 v2.38.0
+go: downloading github.com/klauspost/compress v1.18.7
+go: downloading golang.org/x/sync v0.22.0
+go: downloading gopkg.in/natefinch/lumberjack.v2 v2.2.1
+go: downloading golang.org/x/term v0.45.0
+go: downloading gopkg.in/yaml.v3 v3.0.1
+go: downloading github.com/andybalholm/brotli v1.2.0
+go: downloading github.com/aws/aws-sdk-go-v2 v1.41.5
+go: downloading github.com/aws/aws-sdk-go-v2/config v1.32.10
+go: downloading github.com/aws/aws-sdk-go-v2/credentials v1.19.10
+go: downloading github.com/aws/aws-sdk-go-v2/service/s3 v1.97.3
+go: downloading github.com/dgraph-io/ristretto v0.2.0
+go: downloading github.com/go-webauthn/webauthn v0.17.4
+go: downloading github.com/imroc/req/v3 v3.59.0
+go: downloading github.com/patrickmn/go-cache v2.1.0+incompatible
+go: downloading github.com/DATA-DOG/go-sqlmock v1.5.2
+go: downloading modernc.org/sqlite v1.44.3
+go: downloading github.com/alitto/pond/v2 v2.6.2
+go: downloading github.com/cespare/xxhash/v2 v2.3.0
+go: downloading github.com/golang-jwt/jwt/v5 v5.3.1
+go: downloading github.com/jackpal/gateway v1.2.0
+go: downloading github.com/pquerna/otp v1.5.0
+go: downloading github.com/robfig/cron/v3 v3.0.1
+go: downloading github.com/shirou/gopsutil/v4 v4.25.6
+go: downloading github.com/tiktoken-go/tokenizer v0.8.0
+go: downloading github.com/zeromicro/go-zero v1.9.4
+go: downloading golang.org/x/crypto v0.54.0
+go: downloading github.com/gorilla/websocket v1.5.3
+go: downloading github.com/refraction-networking/utls v1.8.2
+go: downloading ariga.io/atlas v0.32.1-0.20250325101103-175b25e1c1b9
+go: downloading golang.org/x/tools v0.48.0
+go: downloading github.com/tidwall/match v1.1.1
+go: downloading github.com/tidwall/pretty v1.2.0
+go: downloading github.com/gin-contrib/sse v0.1.0
+go: downloading github.com/mattn/go-isatty v0.0.20
+go: downloading github.com/smartwalle/ncrypto v1.0.4
+go: downloading github.com/smartwalle/ngx v1.1.0
+go: downloading github.com/smartwalle/nsign v1.0.9
+go: downloading github.com/fsnotify/fsnotify v1.7.0
+go: downloading github.com/mitchellh/mapstructure v1.5.0
+go: downloading github.com/sagikazarmark/slog-shim v0.1.0
+go: downloading github.com/spf13/afero v1.11.0
+go: downloading github.com/spf13/cast v1.6.0
+go: downloading github.com/spf13/pflag v1.0.5
+go: downloading github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
+go: downloading github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
+go: downloading go.uber.org/atomic v1.11.0
+go: downloading go.uber.org/multierr v1.9.0
+go: downloading github.com/yuin/gopher-lua v1.1.1
+go: downloading github.com/aws/smithy-go v1.24.2
+go: downloading github.com/aws/aws-sdk-go-v2/internal/ini v1.8.4
+go: downloading github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.18
+go: downloading github.com/aws/aws-sdk-go-v2/service/signin v1.0.6
+go: downloading github.com/aws/aws-sdk-go-v2/service/sso v1.30.11
+go: downloading github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.15
+go: downloading github.com/aws/aws-sdk-go-v2/service/sts v1.41.7
+go: downloading github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.8
+go: downloading github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.21
+go: downloading github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.22
+go: downloading github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.7
+go: downloading github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.13
+go: downloading github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.21
+go: downloading github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.21
+go: downloading github.com/google/go-querystring v1.1.0
+go: downloading github.com/icholy/digest v1.1.0
+go: downloading github.com/tinylib/msgp v1.6.4
+go: downloading github.com/go-viper/mapstructure/v2 v2.5.0
+go: downloading github.com/google/go-tpm v0.9.8
+go: downloading golang.org/x/text v0.41.0
+go: downloading github.com/tklauser/go-sysconf v0.3.12
+go: downloading github.com/go-playground/validator/v10 v10.14.0
+go: downloading github.com/pelletier/go-toml/v2 v2.2.2
+go: downloading github.com/ugorji/go/codec v1.2.11
+go: downloading google.golang.org/protobuf v1.36.10
+go: downloading github.com/hashicorp/hcl/v2 v2.18.1
+go: downloading github.com/zclconf/go-cty v1.14.4
+go: downloading github.com/subosito/gotenv v1.6.0
+go: downloading github.com/hashicorp/hcl v1.0.0
+go: downloading gopkg.in/ini.v1 v1.67.0
+go: downloading github.com/magiconair/properties v1.8.10
+go: downloading github.com/dustin/go-humanize v1.0.1
+go: downloading github.com/pkg/errors v0.9.1
+go: downloading github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.21
+go: downloading github.com/go-webauthn/x v0.2.6
+go: downloading github.com/fxamacker/cbor/v2 v2.9.2
+go: downloading github.com/quic-go/qpack v0.6.0
+go: downloading github.com/quic-go/quic-go v0.60.0
+go: downloading github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc
+go: downloading github.com/fatih/color v1.18.0
+go: downloading github.com/bmatcuk/doublestar v1.3.4
+go: downloading github.com/go-openapi/inflect v0.19.0
+go: downloading github.com/zclconf/go-cty-yaml v1.1.0
+go: downloading github.com/philhofer/fwd v1.2.0
+go: downloading github.com/dlclark/regexp2/v2 v2.1.0
+go: downloading github.com/tklauser/numcpus v0.6.1
+go: downloading github.com/gabriel-vasile/mimetype v1.4.2
+go: downloading github.com/go-playground/universal-translator v0.18.1
+go: downloading github.com/leodido/go-urn v1.2.4
+go: downloading modernc.org/libc v1.67.6
+go: downloading github.com/x448/float16 v0.8.4
+go: downloading go.uber.org/automaxprocs v1.6.0
+go: downloading github.com/agext/levenshtein v1.2.3
+go: downloading go.opentelemetry.io/otel/trace v1.42.0
+go: downloading github.com/apparentlymart/go-textseg/v15 v15.0.0
+go: downloading github.com/mitchellh/go-wordwrap v1.0.1
+go: downloading github.com/google/go-cmp v0.7.0
+go: downloading go.opentelemetry.io/otel v1.42.0
+go: downloading github.com/mattn/go-colorable v0.1.13
+go: downloading github.com/spaolacci/murmur3 v1.1.0
+go: downloading github.com/go-playground/locales v0.14.1
+go: downloading modernc.org/memory v1.11.0
+go: downloading golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546
+go: downloading modernc.org/mathutil v1.7.1
+go: downloading github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
+ok  	github.com/Wei-Shaw/sub2api/cmd/cleanup-ingress-reject-logs	0.102s [no tests to run]
+?   	github.com/Wei-Shaw/sub2api/cmd/jwtgen	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/cmd/profit-preview	0.033s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/cmd/server	0.081s [no tests to run]
+?   	github.com/Wei-Shaw/sub2api/ent	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/account	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/accountegressbinding	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/accountgroup	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/announcement	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/announcementread	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/apikey	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/authidentity	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/authidentitychannel	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/batchimageevent	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/batchimageitem	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/batchimagejob	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitor	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatasset	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatconversation	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatmessage	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatmessageasset	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/chatquickreply	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/compositemodelroute	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/custommodelconfig	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/custommodelrequesttemplate	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/enttest	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/group	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/hook	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/idempotencyrecord	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/intercept	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/ipv6egresspool	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/ent/migrate	0.016s [no tests to run]
+?   	github.com/Wei-Shaw/sub2api/ent/paymentauditlog	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/paymentorder	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/pendingauthsession	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/predicate	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/promocode	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/promocodeusage	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/proxy	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/redeemcode	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/redeemcodeusage	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/runtime	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/ent/schema	0.019s [no tests to run]
+?   	github.com/Wei-Shaw/sub2api/ent/schema/mixins	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/securitysecret	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/setting	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/subscriptionplan	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/usagecleanuptask	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/usagelog	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/user	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userallowedgroup	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userattributedefinition	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userattributevalue	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/userplatformquota	[no test files]
+?   	github.com/Wei-Shaw/sub2api/ent/usersubscription	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service	0.027s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/application/service/openai_ws_v2	0.007s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/bootstrap/setup	0.030s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/domain	0.006s [no tests to run]
+?   	github.com/Wei-Shaw/sub2api/internal/domain/model	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/infrastructure/repository	0.047s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/activitycenter	0.005s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/chat	0.007s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/egress	0.006s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/payment	0.008s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/payment/provider	0.016s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/qualityrender	0.008s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/modules/securityaudit	0.057s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/config	0.010s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/egress	0.009s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/liveattestation	0.013s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/platform/middleware	0.018s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/anthropicfp	0.006s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/antigravity	0.009s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/apicompat	0.011s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/chatgptcookies	0.003s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/claude	0.007s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/codexsimulation	0.005s [no tests to run]
+?   	github.com/Wei-Shaw/sub2api/internal/shared/ctxkey	[no test files]
+?   	github.com/Wei-Shaw/sub2api/internal/shared/errors	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/gemini	0.003s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/geminicli	0.007s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/googleapi	0.005s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/httpclient	0.005s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/httputil	0.007s [no tests to run]
+?   	github.com/Wei-Shaw/sub2api/internal/shared/ip	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/logger	0.006s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/logredact	0.005s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/oauth	0.004s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/oauthstate	0.007s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openai	0.010s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openai_compat	0.003s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/openaitiming	0.011s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/pagination	0.004s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/proxyurl	0.005s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/proxyutil	0.004s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/remotecontrol	0.005s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/requestmodel	0.006s [no tests to run]
+?   	github.com/Wei-Shaw/sub2api/internal/shared/response	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/responseheaders	0.004s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/servertiming	0.007s [no tests to run]
+?   	github.com/Wei-Shaw/sub2api/internal/shared/sysutil	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/timezone	0.011s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/tlsfingerprint	0.005s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/urlvalidator	0.005s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/usagestats	0.003s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/websearch	0.015s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/wsutil	0.008s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/shared/xai	0.008s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler	0.042s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/admin	0.038s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/dto	0.036s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/quotaview	0.039s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/handler/supportchatasset	0.008s [no tests to run]
+?   	github.com/Wei-Shaw/sub2api/internal/transport/http/server	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/middleware	0.036s [no tests to run]
+ok  	github.com/Wei-Shaw/sub2api/internal/transport/http/server/routes	0.036s [no tests to run]
+?   	github.com/Wei-Shaw/sub2api/internal/transport/webassets	[no test files]
+ok  	github.com/Wei-Shaw/sub2api/migrations	0.005s [no tests to run]
+docker_vet_compile_final_exit=0

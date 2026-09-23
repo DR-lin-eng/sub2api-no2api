@@ -28,10 +28,13 @@ full simulation 的 session、thread、turn 以及上下文窗口 ID 使用 UUID
 
 即使 full simulation 关闭，普通 Codex OAuth 请求也不能直接复用下游会话标识。HTTP 与 WebSocket
 从 `session-id` / `session_id`、`thread-id`、`client_metadata` 和 `prompt_cache_key` 中选择稳定信号，
-再按 API Key 与所选上游账号命名空间派生 `session-id`、`thread-id`，并固定
-`x-client-request-id == thread-id`。普通 HTTP body 可安全重建时，`client_metadata` 的 session/thread
-投影同步改写；账号指纹计划仍是最终覆盖者。旧的 `session_id` / `conversation_id` 只作为网关内部
-兼容投影保留，不得把下游原值直接带到另一个上游账号。
+再按账号的 `CodexVirtualClientKey` 命名空间派生 `session-id`、`thread-id`，并固定
+`x-client-request-id == thread-id`。没有任何客户端会话信号时，session/thread 回退到账号稳定派生值，
+不再每次请求生成新的随机主体。账号没有持久化 `openai_device_id` 时，installation/device 标识也按同一
+账号 key 稳定派生；客户端传入的 installation、session、thread、turn、window、approval 值不具备权威性。
+普通 HTTP body 可安全重建时，`client_metadata` 的 session/thread/installation 投影同步改写；账号指纹计划
+仍是最终覆盖者。旧的 `session_id` / `conversation_id` 只作为网关内部兼容投影保留，不得把下游原值直接
+带到另一个上游账号。
 
 出站 UA 按账号 `credentials.user_agent`、全局 `openai_codex_user_agent`、默认 CLI 身份的顺序解析；
 `ForceCodexCLI` 开启时使用全局/默认身份。显式配置的官方客户端 UA 保留名称、引擎版本、OS、架构、
@@ -203,6 +206,18 @@ full simulation 会清理下游直接注入的 `x-oai-attestation`、residency �
 Codex turn metadata 中的 workspace 投影不再把本地绝对路径、remote URL 的 userinfo/query/fragment 或
 workspace 内的 token/secret/password 字段带到另一个 OAuth principal。路径替换为固定的
 `workspace:redacted`，remote 仅保留协议、主机和仓库路径；无效 JSON 仍交给原有协议校验处理。
+OAuth 请求头中的 `x-codex-turn-metadata` 也不再绕过这条边界：有 fingerprint plan 时使用同一份
+server-side identity projection；普通 OAuth 路径优先采用已经重写过的 `client_metadata`，对 header-only
+metadata 删除 app-server 所有的 installation/turn/window/sandbox/approval 字段，限制额外键和值，并把
+session/thread 重新绑定到当前 OAuth 账号。无效 header 会被丢弃；`thread_source`、`turn_trigger` 等字段
+只保留为有界观测，不构成 Work、Cyber 或审批授权。
+Responses body 顶层的 `access_programs` 同样视为 app-server/server-owned capability 选择：当前
+Sub2API 没有对外暴露 `cyber_access_program` 的 RPC、模型 entitlement 或 ChatGPT-auth 专用投影链路，
+因此 HTTP 与 WebSocket relay 都会删除客户端注入的顶层 `access_programs`。同一边界也删除
+`serviceName`、`daybreakEnabled`、`cyberAccessProgram`、`disabledPluginIds`、`serviceTierForTurn`、
+`turnTrigger`、approval/sandbox policy 等 app-server envelope 字段；它们不能靠客户端字段授予 Work、
+Cyber、插件或沙箱能力。嵌套在 `input` 或工具参数中的同名用户数据不受影响；上游返回的模型目录
+`available_access_programs` 仍可作为发现信息，但不能反向授予推理权限。
 
 - A/B 本身不改写 TLS ClientHello、HTTP/2 SETTINGS、Header 顺序和连接层时序；
 - Codex Rust 网络栈的字节级传输特征；

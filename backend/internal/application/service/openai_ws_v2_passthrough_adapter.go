@@ -738,6 +738,13 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			firstClientMessage = capped
 		}
 	}
+	if account.Platform == PlatformOpenAI {
+		if sanitized, changed, sanitizeErr := sanitizeOpenAIResponsesAccessPrograms(firstClientMessage); sanitizeErr != nil {
+			return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", sanitizeErr)
+		} else if changed {
+			firstClientMessage = sanitized
+		}
+	}
 	fingerprintIDs := resolveCodexFingerprintIDsFromGinContext(account, c)
 	requestModel := strings.TrimSpace(gjson.GetBytes(firstClientMessage, "model").String())
 	requestPreviousResponseID := strings.TrimSpace(gjson.GetBytes(firstClientMessage, "previous_response_id").String())
@@ -819,10 +826,22 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			fingerprintIDs = attempt.fingerprint
 		}
 	}
+	// Header and body projections must consume the same per-attempt plan. The
+	// first passthrough frame is prepared before the WS handshake is built, so
+	// stage it explicitly for semantic metadata normalization below.
+	stageCodexFingerprintIDs(c, fingerprintIDs)
 	if fingerprinted, changed, fingerprintErr := applyCodexFingerprintClientMetadataToBody(firstClientMessage, fingerprintIDs); fingerprintErr != nil {
 		return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", fingerprintErr)
 	} else if changed {
 		firstClientMessage = fingerprinted
+	}
+	if account.IsOpenAIOAuth() && (fingerprintIDs == nil || fingerprintIDs.mode == codexFingerprintOff) {
+		ids := resolveCodexOutboundSessionIDs(c, account, firstClientMessage, "")
+		rewritten, rewriteErr := rewriteCodexOutboundSessionMetadata(firstClientMessage, account, ids)
+		if rewriteErr != nil {
+			return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", rewriteErr)
+		}
+		firstClientMessage = rewritten
 	}
 	s.observeOpenAIRequestIntegrity(ctx, c, account, integrityOriginalFirstMessage, firstClientMessage, "websocket_passthrough")
 	if err := s.admitOpenAIOAuthGatewayModelRequest(withOpenAIOAuthGatewayTurnKey(ctx, 1), account); err != nil {
@@ -1059,6 +1078,13 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			if msgType != coderws.MessageText {
 				return payload, nil, nil
 			}
+			if account.Platform == PlatformOpenAI {
+				if sanitized, changed, sanitizeErr := sanitizeOpenAIResponsesAccessPrograms(payload); sanitizeErr != nil {
+					return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", sanitizeErr)
+				} else if changed {
+					payload = sanitized
+				}
+			}
 			eventType := strings.TrimSpace(gjson.GetBytes(payload, "type").String())
 			isResponseCreate := eventType == "response.create"
 			integrityOriginalPayload := append([]byte(nil), payload...)
@@ -1192,6 +1218,14 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 				}
 				if changed {
 					out = fingerprinted
+				}
+				if account.IsOpenAIOAuth() && (turnFingerprintIDs == nil || turnFingerprintIDs.mode == codexFingerprintOff) {
+					ids := resolveCodexOutboundSessionIDs(c, account, out, "")
+					rewritten, rewriteErr := rewriteCodexOutboundSessionMetadata(out, account, ids)
+					if rewriteErr != nil {
+						return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", rewriteErr)
+					}
+					out = rewritten
 				}
 			}
 			// 多轮 passthrough usage：仅在成功（non-block / non-err）

@@ -41,9 +41,11 @@ func TestRewriteCodexOutboundSessionMetadataSanitizesEmbeddedTurnMetadata(t *tes
 	})
 	require.NoError(t, err)
 
-	rewritten, err := rewriteCodexOutboundSessionMetadata(body, &codexOutboundSessionIDs{
-		sessionID: "isolated-session",
-		threadID:  "isolated-thread",
+	account := &Account{ID: 77, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+	rewritten, err := rewriteCodexOutboundSessionMetadata(body, account, &codexOutboundSessionIDs{
+		installationID: "installation",
+		sessionID:      "isolated-session",
+		threadID:       "isolated-thread",
 	})
 	require.NoError(t, err)
 	require.Equal(t, "isolated-session", gjson.GetBytes(rewritten, "client_metadata.session_id").String())
@@ -70,4 +72,37 @@ func TestCodexFullSimulationSanitizesWorkspaceBeforeProjection(t *testing.T) {
 	require.NotContains(t, metadata, "/workspace/alice")
 	require.Contains(t, metadata, "workspace:redacted")
 	require.Contains(t, metadata, "https://example.com/repo.git")
+}
+
+func TestSanitizeOpenAICodexClientMetadataUsesStableAccountInstallation(t *testing.T) {
+	account := &Account{ID: 2048, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+	ids := &codexOutboundSessionIDs{sessionID: "stable-session", threadID: "stable-thread"}
+	metadata := map[string]any{
+		"x-codex-installation-id":    "forged-installation",
+		"session_id":                 "forged-session",
+		"thread_id":                  "forged-thread",
+		"turn_id":                    "forged-turn",
+		"x-codex-window-id":          "forged-window",
+		"guardian_credits_requested": true,
+		"x-codex-turn-metadata":      `{"sandbox":"danger-full-access","workspaces":[{"path":"/private/repo"}]}`,
+	}
+
+	require.True(t, sanitizeOpenAICodexClientMetadataMap(metadata, account, ids))
+	stableInstallation, ok := metadata["x-codex-installation-id"].(string)
+	require.True(t, ok)
+	require.NotEqual(t, "forged-installation", stableInstallation)
+	require.Equal(t, stableInstallation, resolveConvergedInstallationID(account))
+	require.Equal(t, "stable-session", metadata["session_id"])
+	require.Equal(t, "stable-thread", metadata["thread_id"])
+	require.NotContains(t, metadata, "turn_id")
+	require.NotContains(t, metadata, "x-codex-window-id")
+	require.NotContains(t, metadata, "guardian_credits_requested")
+	turnMetadata, ok := metadata["x-codex-turn-metadata"].(string)
+	require.True(t, ok)
+	require.Equal(t, "workspace:redacted", gjson.Get(turnMetadata, "workspaces.0.path").String())
+	require.Empty(t, gjson.Get(turnMetadata, "sandbox").String())
+
+	second := map[string]any{"x-codex-installation-id": "another-forged-value"}
+	require.True(t, sanitizeOpenAICodexClientMetadataMap(second, account, ids))
+	require.Equal(t, stableInstallation, second["x-codex-installation-id"])
 }

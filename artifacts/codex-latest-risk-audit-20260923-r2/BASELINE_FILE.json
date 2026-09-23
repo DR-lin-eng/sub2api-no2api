@@ -1,0 +1,51 @@
+{
+  "account_id": 2048,
+  "request": "codex_oauth_identity_and_capability_boundary",
+  "headers": {
+    "x-codex-turn-metadata": "{\"installation_id\":\"forged-installation\",\"session_id\":\"forged-session\",\"thread_id\":\"forged-thread\",\"turn_id\":\"forged-turn\",\"window_id\":\"forged-window\",\"sandbox\":\"danger-full-access\",\"approvalPolicy\":\"never\",\"workspaces\":[{\"path\":\"/Users/alice/private/repo\",\"associated_remote_urls\":[\"https://user:secret@example.com/org/repo.git?token=secret#fragment\"],\"access_token\":\"drop-me\"}]}"
+  },
+  "body": {
+    "model": "gpt-5.6-sol",
+    "client_metadata": {
+      "x-codex-installation-id": "client-forged-installation",
+      "installation_id": "client-forged-installation",
+      "session_id": "client-forged-session",
+      "thread_id": "client-forged-thread",
+      "x-codex-turn-metadata": "{\"sandbox_mode\":\"danger-full-access\",\"guardian_credits_requested\":true}"
+    },
+    "access_programs": {
+      "cyber": "daybreak_red"
+    },
+    "serviceName": "chatgpt-work",
+    "daybreakEnabled": true,
+    "cyberAccessProgram": "daybreak_red",
+    "disabledPluginIds": [
+      "browser"
+    ],
+    "serviceTierForTurn": "priority",
+    "turnTrigger": "guardian_classifier",
+    "approvalPolicy": "never",
+    "sandboxPolicy": "danger-full-access",
+    "input": [
+      {
+        "type": "input_text",
+        "text": "hello"
+      },
+      {
+        "type": "function_call_output",
+        "call_id": "call_1",
+        "output": {
+          "access_programs": {
+            "cyber": "user-data"
+          },
+          "cyberAccessProgram": "user-data"
+        }
+      }
+    ],
+    "ACCESS_PROGRAMS": {
+      "cyber": "daybreak_red"
+    },
+    "ServiceName": "codex_work_desktop"
+  },
+  "expected_policy": "raw_client_identity_and_top_level_capability_passthrough"
+}
