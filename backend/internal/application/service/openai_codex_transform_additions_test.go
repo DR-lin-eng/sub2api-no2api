@@ -48,13 +48,18 @@ func TestApplyCodexClientMetadata(t *testing.T) {
 	// 客户端伪造值必须被账号真实值覆盖。
 	spoofed := map[string]any{"client_metadata": map[string]any{"x-codex-installation-id": "forged-device"}}
 	require.True(t, applyCodexClientMetadata(spoofed, acc))
-	require.Equal(t, "dev-xyz", spoofed["client_metadata"].(map[string]any)["x-codex-installation-id"])
+	spoofedMetadata, ok := spoofed["client_metadata"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "dev-xyz", spoofedMetadata["x-codex-installation-id"])
 
 	// OAuth 账号没有持久化 device_id 时，也必须使用稳定的账号派生值；已有伪造值会被覆盖。
 	body2 := map[string]any{"client_metadata": map[string]any{"x-codex-installation-id": "forged-device"}}
 	accountWithoutDevice := &Account{ID: 43, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
 	require.True(t, applyCodexClientMetadata(body2, accountWithoutDevice))
-	stableDevice := body2["client_metadata"].(map[string]any)["x-codex-installation-id"].(string)
+	body2Metadata, ok := body2["client_metadata"].(map[string]any)
+	require.True(t, ok)
+	stableDevice, ok := body2Metadata["x-codex-installation-id"].(string)
+	require.True(t, ok)
 	require.NotEqual(t, "forged-device", stableDevice)
 	require.Equal(t, stableDevice, resolveConvergedInstallationID(accountWithoutDevice))
 	require.False(t, applyCodexClientMetadata(body2, accountWithoutDevice))

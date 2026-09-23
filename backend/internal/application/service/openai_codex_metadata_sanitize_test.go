@@ -88,7 +88,8 @@ func TestSanitizeOpenAICodexClientMetadataUsesStableAccountInstallation(t *testi
 	}
 
 	require.True(t, sanitizeOpenAICodexClientMetadataMap(metadata, account, ids))
-	stableInstallation := metadata["x-codex-installation-id"].(string)
+	stableInstallation, ok := metadata["x-codex-installation-id"].(string)
+	require.True(t, ok)
 	require.NotEqual(t, "forged-installation", stableInstallation)
 	require.Equal(t, stableInstallation, resolveConvergedInstallationID(account))
 	require.Equal(t, "stable-session", metadata["session_id"])
@@ -96,7 +97,8 @@ func TestSanitizeOpenAICodexClientMetadataUsesStableAccountInstallation(t *testi
 	require.NotContains(t, metadata, "turn_id")
 	require.NotContains(t, metadata, "x-codex-window-id")
 	require.NotContains(t, metadata, "guardian_credits_requested")
-	turnMetadata := metadata["x-codex-turn-metadata"].(string)
+	turnMetadata, ok := metadata["x-codex-turn-metadata"].(string)
+	require.True(t, ok)
 	require.Equal(t, "workspace:redacted", gjson.Get(turnMetadata, "workspaces.0.path").String())
 	require.Empty(t, gjson.Get(turnMetadata, "sandbox").String())
 

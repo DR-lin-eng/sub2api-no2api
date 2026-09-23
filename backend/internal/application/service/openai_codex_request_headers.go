@@ -1,7 +1,6 @@
 package service
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -128,20 +127,4 @@ func stagedCodexOutboundSessionBody(c *gin.Context) []byte {
 		}
 	}
 	return nil
-}
-
-func rewriteCodexTurnMetadataStringField(raw, key, value string) string {
-	if strings.TrimSpace(raw) == "" || strings.TrimSpace(key) == "" || strings.TrimSpace(value) == "" {
-		return raw
-	}
-	metadata := make(map[string]any)
-	if err := json.Unmarshal([]byte(raw), &metadata); err != nil {
-		return raw
-	}
-	metadata[key] = value
-	rebuilt, err := json.Marshal(metadata)
-	if err != nil {
-		return raw
-	}
-	return string(rebuilt)
 }
